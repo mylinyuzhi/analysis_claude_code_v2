@@ -1,0 +1,8 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "zod",
+    "protobufjs"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 zod, protobufjs)"
+}

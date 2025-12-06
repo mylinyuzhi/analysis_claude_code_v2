@@ -1,0 +1,8 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "unicode-data",
+    "protobufjs"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 unicode-data, protobufjs)"
+}

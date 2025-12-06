@@ -1,0 +1,7 @@
+{
+  "ossProjects": [
+    "protobufjs",
+    "websocket-lib"
+  ],
+  "purpose": "OSS 库代码 (protobufjs, websocket-lib)"
+}

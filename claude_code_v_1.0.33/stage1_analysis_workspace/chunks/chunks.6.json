@@ -1,0 +1,8 @@
+{
+  "ossProjects": [
+    "highlight.js",
+    "protobufjs",
+    "sorted-map"
+  ],
+  "purpose": "OSS 库代码 (highlight.js, protobufjs, sorted-map)"
+}

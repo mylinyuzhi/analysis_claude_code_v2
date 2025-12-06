@@ -1,0 +1,10 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "rxjs",
+    "opentelemetry",
+    "dom-library",
+    "protobufjs"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 rxjs, opentelemetry, dom-library, protobufjs)"
+}

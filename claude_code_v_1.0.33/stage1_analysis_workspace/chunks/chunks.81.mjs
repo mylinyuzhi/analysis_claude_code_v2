@@ -1,3429 +1,2683 @@
 
-// @from(Start 8259544, End 8293549)
-Uy2 = z((i$5) => {
-  var d$5 = Z1("node:events").EventEmitter,
-    R2A = Z1("node:child_process"),
-    t$ = Z1("node:path"),
-    O2A = Z1("node:fs"),
-    YQ = Z1("node:process"),
-    {
-      Argument: u$5,
-      humanReadableArgName: p$5
-    } = QE1(),
-    {
-      CommanderError: T2A
-    } = J01(),
-    {
-      Help: c$5
-    } = M2A(),
-    {
-      Option: zy2,
-      DualOptions: l$5
-    } = L2A(),
-    {
-      suggestSimilar: wy2
-    } = Hy2();
-  class P2A extends d$5 {
-    constructor(A) {
+// @from(Start 7692483, End 7694701)
+Gk = z((smB) => {
+  Object.defineProperty(smB, "__esModule", {
+    value: !0
+  });
+  smB.AuthClient = smB.DEFAULT_EAGER_REFRESH_THRESHOLD_MILLIS = smB.DEFAULT_UNIVERSE = void 0;
+  var Xd6 = UA("events"),
+    imB = PT(),
+    nmB = PwA(),
+    Vd6 = lp();
+  smB.DEFAULT_UNIVERSE = "googleapis.com";
+  smB.DEFAULT_EAGER_REFRESH_THRESHOLD_MILLIS = 300000;
+  class amB extends Xd6.EventEmitter {
+    constructor(A = {}) {
+      var Q, B, G, Z, I;
       super();
-      this.commands = [], this.options = [], this.parent = null, this._allowUnknownOption = !1, this._allowExcessArguments = !0, this.registeredArguments = [], this._args = this.registeredArguments, this.args = [], this.rawArgs = [], this.processedArgs = [], this._scriptPath = null, this._name = A || "", this._optionValues = {}, this._optionValueSources = {}, this._storeOptionsAsProperties = !1, this._actionHandler = null, this._executableHandler = !1, this._executableFile = null, this._executableDir = null, this._defaultCommandName = null, this._exitCallback = null, this._aliases = [], this._combineFlagAndOptionalValue = !0, this._description = "", this._summary = "", this._argsDescription = void 0, this._enablePositionalOptions = !1, this._passThroughOptions = !1, this._lifeCycleHooks = {}, this._showHelpAfterError = !1, this._showSuggestionAfterError = !0, this._outputConfiguration = {
-        writeOut: (B) => YQ.stdout.write(B),
-        writeErr: (B) => YQ.stderr.write(B),
-        getOutHelpWidth: () => YQ.stdout.isTTY ? YQ.stdout.columns : void 0,
-        getErrHelpWidth: () => YQ.stderr.isTTY ? YQ.stderr.columns : void 0,
-        outputError: (B, Q) => Q(B)
-      }, this._hidden = !1, this._helpOption = void 0, this._addImplicitHelpCommand = void 0, this._helpCommand = void 0, this._helpConfiguration = {}
+      this.credentials = {}, this.eagerRefreshThresholdMillis = smB.DEFAULT_EAGER_REFRESH_THRESHOLD_MILLIS, this.forceRefreshOnFailure = !1, this.universeDomain = smB.DEFAULT_UNIVERSE;
+      let Y = (0, Vd6.originalOrCamelOptions)(A);
+      if (this.apiKey = A.apiKey, this.projectId = (Q = Y.get("project_id")) !== null && Q !== void 0 ? Q : null, this.quotaProjectId = Y.get("quota_project_id"), this.credentials = (B = Y.get("credentials")) !== null && B !== void 0 ? B : {}, this.universeDomain = (G = Y.get("universe_domain")) !== null && G !== void 0 ? G : smB.DEFAULT_UNIVERSE, this.transporter = (Z = A.transporter) !== null && Z !== void 0 ? Z : new nmB.DefaultTransporter, A.transporterOptions) this.transporter.defaults = A.transporterOptions;
+      if (A.eagerRefreshThresholdMillis) this.eagerRefreshThresholdMillis = A.eagerRefreshThresholdMillis;
+      this.forceRefreshOnFailure = (I = A.forceRefreshOnFailure) !== null && I !== void 0 ? I : !1
     }
-    copyInheritedSettings(A) {
-      return this._outputConfiguration = A._outputConfiguration, this._helpOption = A._helpOption, this._helpCommand = A._helpCommand, this._helpConfiguration = A._helpConfiguration, this._exitCallback = A._exitCallback, this._storeOptionsAsProperties = A._storeOptionsAsProperties, this._combineFlagAndOptionalValue = A._combineFlagAndOptionalValue, this._allowExcessArguments = A._allowExcessArguments, this._enablePositionalOptions = A._enablePositionalOptions, this._showHelpAfterError = A._showHelpAfterError, this._showSuggestionAfterError = A._showSuggestionAfterError, this
-    }
-    _getCommandAndAncestors() {
-      let A = [];
-      for (let B = this; B; B = B.parent) A.push(B);
-      return A
-    }
-    command(A, B, Q) {
-      let I = B,
-        G = Q;
-      if (typeof I === "object" && I !== null) G = I, I = null;
-      G = G || {};
-      let [, Z, D] = A.match(/([^ ]+) *(.*)/), Y = this.createCommand(Z);
-      if (I) Y.description(I), Y._executableHandler = !0;
-      if (G.isDefault) this._defaultCommandName = Y._name;
-      if (Y._hidden = !!(G.noHelp || G.hidden), Y._executableFile = G.executableFile || null, D) Y.arguments(D);
-      if (this._registerCommand(Y), Y.parent = this, Y.copyInheritedSettings(this), I) return this;
-      return Y
-    }
-    createCommand(A) {
-      return new P2A(A)
-    }
-    createHelp() {
-      return Object.assign(new c$5, this.configureHelp())
-    }
-    configureHelp(A) {
-      if (A === void 0) return this._helpConfiguration;
-      return this._helpConfiguration = A, this
-    }
-    configureOutput(A) {
-      if (A === void 0) return this._outputConfiguration;
-      return Object.assign(this._outputConfiguration, A), this
-    }
-    showHelpAfterError(A = !0) {
-      if (typeof A !== "string") A = !!A;
-      return this._showHelpAfterError = A, this
-    }
-    showSuggestionAfterError(A = !0) {
-      return this._showSuggestionAfterError = !!A, this
-    }
-    addCommand(A, B) {
-      if (!A._name) throw new Error(`Command passed to .addCommand() must have a name
-- specify the name in Command constructor or using .name()`);
-      if (B = B || {}, B.isDefault) this._defaultCommandName = A._name;
-      if (B.noHelp || B.hidden) A._hidden = !0;
-      return this._registerCommand(A), A.parent = this, A._checkForBrokenPassThrough(), this
-    }
-    createArgument(A, B) {
-      return new u$5(A, B)
-    }
-    argument(A, B, Q, I) {
-      let G = this.createArgument(A, B);
-      if (typeof Q === "function") G.default(I).argParser(Q);
-      else G.default(Q);
-      return this.addArgument(G), this
-    }
-    arguments(A) {
-      return A.trim().split(/ +/).forEach((B) => {
-        this.argument(B)
-      }), this
-    }
-    addArgument(A) {
-      let B = this.registeredArguments.slice(-1)[0];
-      if (B && B.variadic) throw new Error(`only the last argument can be variadic '${B.name()}'`);
-      if (A.required && A.defaultValue !== void 0 && A.parseArg === void 0) throw new Error(`a default value for a required argument is never used: '${A.name()}'`);
-      return this.registeredArguments.push(A), this
-    }
-    helpCommand(A, B) {
-      if (typeof A === "boolean") return this._addImplicitHelpCommand = A, this;
-      A = A ?? "help [command]";
-      let [, Q, I] = A.match(/([^ ]+) *(.*)/), G = B ?? "display help for command", Z = this.createCommand(Q);
-      if (Z.helpOption(!1), I) Z.arguments(I);
-      if (G) Z.description(G);
-      return this._addImplicitHelpCommand = !0, this._helpCommand = Z, this
-    }
-    addHelpCommand(A, B) {
-      if (typeof A !== "object") return this.helpCommand(A, B), this;
-      return this._addImplicitHelpCommand = !0, this._helpCommand = A, this
-    }
-    _getHelpCommand() {
-      if (this._addImplicitHelpCommand ?? (this.commands.length && !this._actionHandler && !this._findCommand("help"))) {
-        if (this._helpCommand === void 0) this.helpCommand(void 0, void 0);
-        return this._helpCommand
-      }
+    get gaxios() {
+      if (this.transporter instanceof imB.Gaxios) return this.transporter;
+      else if (this.transporter instanceof nmB.DefaultTransporter) return this.transporter.instance;
+      else if ("instance" in this.transporter && this.transporter.instance instanceof imB.Gaxios) return this.transporter.instance;
       return null
     }
-    hook(A, B) {
-      let Q = ["preSubcommand", "preAction", "postAction"];
-      if (!Q.includes(A)) throw new Error(`Unexpected value for event passed to hook : '${A}'.
-Expecting one of '${Q.join("', '")}'`);
-      if (this._lifeCycleHooks[A]) this._lifeCycleHooks[A].push(B);
-      else this._lifeCycleHooks[A] = [B];
-      return this
+    setCredentials(A) {
+      this.credentials = A
     }
-    exitOverride(A) {
-      if (A) this._exitCallback = A;
-      else this._exitCallback = (B) => {
-        if (B.code !== "commander.executeSubCommandAsync") throw B
+    addSharedMetadataHeaders(A) {
+      if (!A["x-goog-user-project"] && this.quotaProjectId) A["x-goog-user-project"] = this.quotaProjectId;
+      return A
+    }
+    static get RETRY_CONFIG() {
+      return {
+        retry: !0,
+        retryConfig: {
+          httpMethodsToRetry: ["GET", "PUT", "POST", "HEAD", "OPTIONS", "DELETE"]
+        }
+      }
+    }
+  }
+  smB.AuthClient = amB
+})
+// @from(Start 7694707, End 7695274)
+jl1 = z((emB) => {
+  Object.defineProperty(emB, "__esModule", {
+    value: !0
+  });
+  emB.LoginTicket = void 0;
+  class tmB {
+    constructor(A, Q) {
+      this.envelope = A, this.payload = Q
+    }
+    getEnvelope() {
+      return this.envelope
+    }
+    getPayload() {
+      return this.payload
+    }
+    getUserId() {
+      let A = this.getPayload();
+      if (A && A.sub) return A.sub;
+      return null
+    }
+    getAttributes() {
+      return {
+        envelope: this.getEnvelope(),
+        payload: this.getPayload()
+      }
+    }
+  }
+  emB.LoginTicket = tmB
+})
+// @from(Start 7695280, End 7713538)
+$e = z((BdB) => {
+  Object.defineProperty(BdB, "__esModule", {
+    value: !0
+  });
+  BdB.OAuth2Client = BdB.ClientAuthentication = BdB.CertificateFormat = BdB.CodeChallengeMethod = void 0;
+  var Fd6 = PT(),
+    Sl1 = UA("querystring"),
+    Kd6 = UA("stream"),
+    Dd6 = weA(),
+    _l1 = pGA(),
+    Hd6 = Gk(),
+    Cd6 = jl1(),
+    QdB;
+  (function(A) {
+    A.Plain = "plain", A.S256 = "S256"
+  })(QdB || (BdB.CodeChallengeMethod = QdB = {}));
+  var Mf;
+  (function(A) {
+    A.PEM = "PEM", A.JWK = "JWK"
+  })(Mf || (BdB.CertificateFormat = Mf = {}));
+  var jwA;
+  (function(A) {
+    A.ClientSecretPost = "ClientSecretPost", A.ClientSecretBasic = "ClientSecretBasic", A.None = "None"
+  })(jwA || (BdB.ClientAuthentication = jwA = {}));
+  class KE extends Hd6.AuthClient {
+    constructor(A, Q, B) {
+      let G = A && typeof A === "object" ? A : {
+        clientId: A,
+        clientSecret: Q,
+        redirectUri: B
       };
-      return this
+      super(G);
+      this.certificateCache = {}, this.certificateExpiry = null, this.certificateCacheFormat = Mf.PEM, this.refreshTokenPromises = new Map, this._clientId = G.clientId, this._clientSecret = G.clientSecret, this.redirectUri = G.redirectUri, this.endpoints = {
+        tokenInfoUrl: "https://oauth2.googleapis.com/tokeninfo",
+        oauth2AuthBaseUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+        oauth2TokenUrl: "https://oauth2.googleapis.com/token",
+        oauth2RevokeUrl: "https://oauth2.googleapis.com/revoke",
+        oauth2FederatedSignonPemCertsUrl: "https://www.googleapis.com/oauth2/v1/certs",
+        oauth2FederatedSignonJwkCertsUrl: "https://www.googleapis.com/oauth2/v3/certs",
+        oauth2IapPublicKeyUrl: "https://www.gstatic.com/iap/verify/public_key",
+        ...G.endpoints
+      }, this.clientAuthentication = G.clientAuthentication || jwA.ClientSecretPost, this.issuers = G.issuers || ["accounts.google.com", "https://accounts.google.com", this.universeDomain]
     }
-    _exit(A, B, Q) {
-      if (this._exitCallback) this._exitCallback(new T2A(A, B, Q));
-      YQ.exit(A)
+    generateAuthUrl(A = {}) {
+      if (A.code_challenge_method && !A.code_challenge) throw Error("If a code_challenge_method is provided, code_challenge must be included.");
+      if (A.response_type = A.response_type || "code", A.client_id = A.client_id || this._clientId, A.redirect_uri = A.redirect_uri || this.redirectUri, Array.isArray(A.scope)) A.scope = A.scope.join(" ");
+      return this.endpoints.oauth2AuthBaseUrl.toString() + "?" + Sl1.stringify(A)
     }
-    action(A) {
-      let B = (Q) => {
-        let I = this.registeredArguments.length,
-          G = Q.slice(0, I);
-        if (this._storeOptionsAsProperties) G[I] = this;
-        else G[I] = this.opts();
-        return G.push(this), A.apply(this, G)
-      };
-      return this._actionHandler = B, this
+    generateCodeVerifier() {
+      throw Error("generateCodeVerifier is removed, please use generateCodeVerifierAsync instead.")
     }
-    createOption(A, B) {
-      return new zy2(A, B)
+    async generateCodeVerifierAsync() {
+      let A = (0, _l1.createCrypto)(),
+        B = A.randomBytesBase64(96).replace(/\+/g, "~").replace(/=/g, "_").replace(/\//g, "-"),
+        Z = (await A.sha256DigestBase64(B)).split("=")[0].replace(/\+/g, "-").replace(/\//g, "_");
+      return {
+        codeVerifier: B,
+        codeChallenge: Z
+      }
     }
-    _callParseArg(A, B, Q, I) {
+    getToken(A, Q) {
+      let B = typeof A === "string" ? {
+        code: A
+      } : A;
+      if (Q) this.getTokenAsync(B).then((G) => Q(null, G.tokens, G.res), (G) => Q(G, null, G.response));
+      else return this.getTokenAsync(B)
+    }
+    async getTokenAsync(A) {
+      let Q = this.endpoints.oauth2TokenUrl.toString(),
+        B = {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        G = {
+          client_id: A.client_id || this._clientId,
+          code_verifier: A.codeVerifier,
+          code: A.code,
+          grant_type: "authorization_code",
+          redirect_uri: A.redirect_uri || this.redirectUri
+        };
+      if (this.clientAuthentication === jwA.ClientSecretBasic) {
+        let Y = Buffer.from(`${this._clientId}:${this._clientSecret}`);
+        B.Authorization = `Basic ${Y.toString("base64")}`
+      }
+      if (this.clientAuthentication === jwA.ClientSecretPost) G.client_secret = this._clientSecret;
+      let Z = await this.transporter.request({
+          ...KE.RETRY_CONFIG,
+          method: "POST",
+          url: Q,
+          data: Sl1.stringify(G),
+          headers: B
+        }),
+        I = Z.data;
+      if (Z.data && Z.data.expires_in) I.expiry_date = new Date().getTime() + Z.data.expires_in * 1000, delete I.expires_in;
+      return this.emit("tokens", I), {
+        tokens: I,
+        res: Z
+      }
+    }
+    async refreshToken(A) {
+      if (!A) return this.refreshTokenNoCache(A);
+      if (this.refreshTokenPromises.has(A)) return this.refreshTokenPromises.get(A);
+      let Q = this.refreshTokenNoCache(A).then((B) => {
+        return this.refreshTokenPromises.delete(A), B
+      }, (B) => {
+        throw this.refreshTokenPromises.delete(A), B
+      });
+      return this.refreshTokenPromises.set(A, Q), Q
+    }
+    async refreshTokenNoCache(A) {
+      var Q;
+      if (!A) throw Error("No refresh token is set.");
+      let B = this.endpoints.oauth2TokenUrl.toString(),
+        G = {
+          refresh_token: A,
+          client_id: this._clientId,
+          client_secret: this._clientSecret,
+          grant_type: "refresh_token"
+        },
+        Z;
       try {
-        return A.parseArg(B, Q)
+        Z = await this.transporter.request({
+          ...KE.RETRY_CONFIG,
+          method: "POST",
+          url: B,
+          data: Sl1.stringify(G),
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+          }
+        })
+      } catch (Y) {
+        if (Y instanceof Fd6.GaxiosError && Y.message === "invalid_grant" && ((Q = Y.response) === null || Q === void 0 ? void 0 : Q.data) && /ReAuth/i.test(Y.response.data.error_description)) Y.message = JSON.stringify(Y.response.data);
+        throw Y
+      }
+      let I = Z.data;
+      if (Z.data && Z.data.expires_in) I.expiry_date = new Date().getTime() + Z.data.expires_in * 1000, delete I.expires_in;
+      return this.emit("tokens", I), {
+        tokens: I,
+        res: Z
+      }
+    }
+    refreshAccessToken(A) {
+      if (A) this.refreshAccessTokenAsync().then((Q) => A(null, Q.credentials, Q.res), A);
+      else return this.refreshAccessTokenAsync()
+    }
+    async refreshAccessTokenAsync() {
+      let A = await this.refreshToken(this.credentials.refresh_token),
+        Q = A.tokens;
+      return Q.refresh_token = this.credentials.refresh_token, this.credentials = Q, {
+        credentials: this.credentials,
+        res: A.res
+      }
+    }
+    getAccessToken(A) {
+      if (A) this.getAccessTokenAsync().then((Q) => A(null, Q.token, Q.res), A);
+      else return this.getAccessTokenAsync()
+    }
+    async getAccessTokenAsync() {
+      if (!this.credentials.access_token || this.isTokenExpiring()) {
+        if (!this.credentials.refresh_token)
+          if (this.refreshHandler) {
+            let B = await this.processAndValidateRefreshHandler();
+            if (B === null || B === void 0 ? void 0 : B.access_token) return this.setCredentials(B), {
+              token: this.credentials.access_token
+            }
+          } else throw Error("No refresh token or refresh handler callback is set.");
+        let Q = await this.refreshAccessTokenAsync();
+        if (!Q.credentials || Q.credentials && !Q.credentials.access_token) throw Error("Could not refresh access token.");
+        return {
+          token: Q.credentials.access_token,
+          res: Q.res
+        }
+      } else return {
+        token: this.credentials.access_token
+      }
+    }
+    async getRequestHeaders(A) {
+      return (await this.getRequestMetadataAsync(A)).headers
+    }
+    async getRequestMetadataAsync(A) {
+      let Q = this.credentials;
+      if (!Q.access_token && !Q.refresh_token && !this.apiKey && !this.refreshHandler) throw Error("No access, refresh token, API key or refresh handler callback is set.");
+      if (Q.access_token && !this.isTokenExpiring()) {
+        Q.token_type = Q.token_type || "Bearer";
+        let Y = {
+          Authorization: Q.token_type + " " + Q.access_token
+        };
+        return {
+          headers: this.addSharedMetadataHeaders(Y)
+        }
+      }
+      if (this.refreshHandler) {
+        let Y = await this.processAndValidateRefreshHandler();
+        if (Y === null || Y === void 0 ? void 0 : Y.access_token) {
+          this.setCredentials(Y);
+          let J = {
+            Authorization: "Bearer " + this.credentials.access_token
+          };
+          return {
+            headers: this.addSharedMetadataHeaders(J)
+          }
+        }
+      }
+      if (this.apiKey) return {
+        headers: {
+          "X-Goog-Api-Key": this.apiKey
+        }
+      };
+      let B = null,
+        G = null;
+      try {
+        B = await this.refreshToken(Q.refresh_token), G = B.tokens
+      } catch (Y) {
+        let J = Y;
+        if (J.response && (J.response.status === 403 || J.response.status === 404)) J.message = `Could not refresh access token: ${J.message}`;
+        throw J
+      }
+      let Z = this.credentials;
+      Z.token_type = Z.token_type || "Bearer", G.refresh_token = Z.refresh_token, this.credentials = G;
+      let I = {
+        Authorization: Z.token_type + " " + G.access_token
+      };
+      return {
+        headers: this.addSharedMetadataHeaders(I),
+        res: B.res
+      }
+    }
+    static getRevokeTokenUrl(A) {
+      return new KE().getRevokeTokenURL(A).toString()
+    }
+    getRevokeTokenURL(A) {
+      let Q = new URL(this.endpoints.oauth2RevokeUrl);
+      return Q.searchParams.append("token", A), Q
+    }
+    revokeToken(A, Q) {
+      let B = {
+        ...KE.RETRY_CONFIG,
+        url: this.getRevokeTokenURL(A).toString(),
+        method: "POST"
+      };
+      if (Q) this.transporter.request(B).then((G) => Q(null, G), Q);
+      else return this.transporter.request(B)
+    }
+    revokeCredentials(A) {
+      if (A) this.revokeCredentialsAsync().then((Q) => A(null, Q), A);
+      else return this.revokeCredentialsAsync()
+    }
+    async revokeCredentialsAsync() {
+      let A = this.credentials.access_token;
+      if (this.credentials = {}, A) return this.revokeToken(A);
+      else throw Error("No access token to revoke.")
+    }
+    request(A, Q) {
+      if (Q) this.requestAsync(A).then((B) => Q(null, B), (B) => {
+        return Q(B, B.response)
+      });
+      else return this.requestAsync(A)
+    }
+    async requestAsync(A, Q = !1) {
+      let B;
+      try {
+        let G = await this.getRequestMetadataAsync(A.url);
+        if (A.headers = A.headers || {}, G.headers && G.headers["x-goog-user-project"]) A.headers["x-goog-user-project"] = G.headers["x-goog-user-project"];
+        if (G.headers && G.headers.Authorization) A.headers.Authorization = G.headers.Authorization;
+        if (this.apiKey) A.headers["X-Goog-Api-Key"] = this.apiKey;
+        B = await this.transporter.request(A)
       } catch (G) {
-        if (G.code === "commander.invalidArgument") {
-          let Z = `${I} ${G.message}`;
-          this.error(Z, {
-            exitCode: G.exitCode,
-            code: G.code
-          })
+        let Z = G.response;
+        if (Z) {
+          let I = Z.status,
+            Y = this.credentials && this.credentials.access_token && this.credentials.refresh_token && (!this.credentials.expiry_date || this.forceRefreshOnFailure),
+            J = this.credentials && this.credentials.access_token && !this.credentials.refresh_token && (!this.credentials.expiry_date || this.forceRefreshOnFailure) && this.refreshHandler,
+            W = Z.config.data instanceof Kd6.Readable,
+            X = I === 401 || I === 403;
+          if (!Q && X && !W && Y) return await this.refreshAccessTokenAsync(), this.requestAsync(A, !0);
+          else if (!Q && X && !W && J) {
+            let V = await this.processAndValidateRefreshHandler();
+            if (V === null || V === void 0 ? void 0 : V.access_token) this.setCredentials(V);
+            return this.requestAsync(A, !0)
+          }
         }
         throw G
       }
+      return B
     }
-    _registerOption(A) {
-      let B = A.short && this._findOption(A.short) || A.long && this._findOption(A.long);
-      if (B) {
-        let Q = A.long && this._findOption(A.long) ? A.long : A.short;
-        throw new Error(`Cannot add option '${A.flags}'${this._name&&` to command '${this._name}'`} due to conflicting flag '${Q}'
--  already used by option '${B.flags}'`)
-      }
-      this.options.push(A)
+    verifyIdToken(A, Q) {
+      if (Q && typeof Q !== "function") throw Error("This method accepts an options object as the first parameter, which includes the idToken, audience, and maxExpiry.");
+      if (Q) this.verifyIdTokenAsync(A).then((B) => Q(null, B), Q);
+      else return this.verifyIdTokenAsync(A)
     }
-    _registerCommand(A) {
-      let B = (I) => {
-          return [I.name()].concat(I.aliases())
+    async verifyIdTokenAsync(A) {
+      if (!A.idToken) throw Error("The verifyIdToken method requires an ID Token");
+      let Q = await this.getFederatedSignonCertsAsync();
+      return await this.verifySignedJwtWithCertsAsync(A.idToken, Q.certs, A.audience, this.issuers, A.maxExpiry)
+    }
+    async getTokenInfo(A) {
+      let {
+        data: Q
+      } = await this.transporter.request({
+        ...KE.RETRY_CONFIG,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Bearer ${A}`
         },
-        Q = B(A).find((I) => this._findCommand(I));
-      if (Q) {
-        let I = B(this._findCommand(Q)).join("|"),
-          G = B(A).join("|");
-        throw new Error(`cannot add command '${G}' as already have command '${I}'`)
-      }
-      this.commands.push(A)
+        url: this.endpoints.tokenInfoUrl.toString()
+      }), B = Object.assign({
+        expiry_date: new Date().getTime() + Q.expires_in * 1000,
+        scopes: Q.scope.split(" ")
+      }, Q);
+      return delete B.expires_in, delete B.scope, B
     }
-    addOption(A) {
-      this._registerOption(A);
-      let B = A.name(),
-        Q = A.attributeName();
-      if (A.negate) {
-        let G = A.long.replace(/^--no-/, "--");
-        if (!this._findOption(G)) this.setOptionValueWithSource(Q, A.defaultValue === void 0 ? !0 : A.defaultValue, "default")
-      } else if (A.defaultValue !== void 0) this.setOptionValueWithSource(Q, A.defaultValue, "default");
-      let I = (G, Z, D) => {
-        if (G == null && A.presetArg !== void 0) G = A.presetArg;
-        let Y = this.getOptionValue(Q);
-        if (G !== null && A.parseArg) G = this._callParseArg(A, G, Y, Z);
-        else if (G !== null && A.variadic) G = A._concatValue(G, Y);
-        if (G == null)
-          if (A.negate) G = !1;
-          else if (A.isBoolean() || A.optional) G = !0;
-        else G = "";
-        this.setOptionValueWithSource(Q, G, D)
+    getFederatedSignonCerts(A) {
+      if (A) this.getFederatedSignonCertsAsync().then((Q) => A(null, Q.certs, Q.res), A);
+      else return this.getFederatedSignonCertsAsync()
+    }
+    async getFederatedSignonCertsAsync() {
+      let A = new Date().getTime(),
+        Q = (0, _l1.hasBrowserCrypto)() ? Mf.JWK : Mf.PEM;
+      if (this.certificateExpiry && A < this.certificateExpiry.getTime() && this.certificateCacheFormat === Q) return {
+        certs: this.certificateCache,
+        format: Q
       };
-      if (this.on("option:" + B, (G) => {
-          let Z = `error: option '${A.flags}' argument '${G}' is invalid.`;
-          I(G, Z, "cli")
-        }), A.envVar) this.on("optionEnv:" + B, (G) => {
-        let Z = `error: option '${A.flags}' value '${G}' from env '${A.envVar}' is invalid.`;
-        I(G, Z, "env")
-      });
-      return this
-    }
-    _optionEx(A, B, Q, I, G) {
-      if (typeof B === "object" && B instanceof zy2) throw new Error("To add an Option object use addOption() instead of option() or requiredOption()");
-      let Z = this.createOption(B, Q);
-      if (Z.makeOptionMandatory(!!A.mandatory), typeof I === "function") Z.default(G).argParser(I);
-      else if (I instanceof RegExp) {
-        let D = I;
-        I = (Y, W) => {
-          let J = D.exec(Y);
-          return J ? J[0] : W
-        }, Z.default(G).argParser(I)
-      } else Z.default(I);
-      return this.addOption(Z)
-    }
-    option(A, B, Q, I) {
-      return this._optionEx({}, A, B, Q, I)
-    }
-    requiredOption(A, B, Q, I) {
-      return this._optionEx({
-        mandatory: !0
-      }, A, B, Q, I)
-    }
-    combineFlagAndOptionalValue(A = !0) {
-      return this._combineFlagAndOptionalValue = !!A, this
-    }
-    allowUnknownOption(A = !0) {
-      return this._allowUnknownOption = !!A, this
-    }
-    allowExcessArguments(A = !0) {
-      return this._allowExcessArguments = !!A, this
-    }
-    enablePositionalOptions(A = !0) {
-      return this._enablePositionalOptions = !!A, this
-    }
-    passThroughOptions(A = !0) {
-      return this._passThroughOptions = !!A, this._checkForBrokenPassThrough(), this
-    }
-    _checkForBrokenPassThrough() {
-      if (this.parent && this._passThroughOptions && !this.parent._enablePositionalOptions) throw new Error(`passThroughOptions cannot be used for '${this._name}' without turning on enablePositionalOptions for parent command(s)`)
-    }
-    storeOptionsAsProperties(A = !0) {
-      if (this.options.length) throw new Error("call .storeOptionsAsProperties() before adding options");
-      if (Object.keys(this._optionValues).length) throw new Error("call .storeOptionsAsProperties() before setting option values");
-      return this._storeOptionsAsProperties = !!A, this
-    }
-    getOptionValue(A) {
-      if (this._storeOptionsAsProperties) return this[A];
-      return this._optionValues[A]
-    }
-    setOptionValue(A, B) {
-      return this.setOptionValueWithSource(A, B, void 0)
-    }
-    setOptionValueWithSource(A, B, Q) {
-      if (this._storeOptionsAsProperties) this[A] = B;
-      else this._optionValues[A] = B;
-      return this._optionValueSources[A] = Q, this
-    }
-    getOptionValueSource(A) {
-      return this._optionValueSources[A]
-    }
-    getOptionValueSourceWithGlobals(A) {
-      let B;
-      return this._getCommandAndAncestors().forEach((Q) => {
-        if (Q.getOptionValueSource(A) !== void 0) B = Q.getOptionValueSource(A)
-      }), B
-    }
-    _prepareUserArgs(A, B) {
-      if (A !== void 0 && !Array.isArray(A)) throw new Error("first parameter to parse must be array or undefined");
-      if (B = B || {}, A === void 0 && B.from === void 0) {
-        if (YQ.versions?.electron) B.from = "electron";
-        let I = YQ.execArgv ?? [];
-        if (I.includes("-e") || I.includes("--eval") || I.includes("-p") || I.includes("--print")) B.from = "eval"
-      }
-      if (A === void 0) A = YQ.argv;
-      this.rawArgs = A.slice();
-      let Q;
-      switch (B.from) {
-        case void 0:
-        case "node":
-          this._scriptPath = A[1], Q = A.slice(2);
+      let B, G;
+      switch (Q) {
+        case Mf.PEM:
+          G = this.endpoints.oauth2FederatedSignonPemCertsUrl.toString();
           break;
-        case "electron":
-          if (YQ.defaultApp) this._scriptPath = A[1], Q = A.slice(2);
-          else Q = A.slice(1);
-          break;
-        case "user":
-          Q = A.slice(0);
-          break;
-        case "eval":
-          Q = A.slice(1);
+        case Mf.JWK:
+          G = this.endpoints.oauth2FederatedSignonJwkCertsUrl.toString();
           break;
         default:
-          throw new Error(`unexpected parse option { from: '${B.from}' }`)
+          throw Error(`Unsupported certificate format ${Q}`)
       }
-      if (!this._name && this._scriptPath) this.nameFromFilename(this._scriptPath);
-      return this._name = this._name || "program", Q
-    }
-    parse(A, B) {
-      let Q = this._prepareUserArgs(A, B);
-      return this._parseCommand([], Q), this
-    }
-    async parseAsync(A, B) {
-      let Q = this._prepareUserArgs(A, B);
-      return await this._parseCommand([], Q), this
-    }
-    _executeSubCommand(A, B) {
-      B = B.slice();
-      let Q = !1,
-        I = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
-
-      function G(J, F) {
-        let X = t$.resolve(J, F);
-        if (O2A.existsSync(X)) return X;
-        if (I.includes(t$.extname(F))) return;
-        let V = I.find((C) => O2A.existsSync(`${X}${C}`));
-        if (V) return `${X}${V}`;
-        return
-      }
-      this._checkForMissingMandatoryOptions(), this._checkForConflictingOptions();
-      let Z = A._executableFile || `${this._name}-${A._name}`,
-        D = this._executableDir || "";
-      if (this._scriptPath) {
-        let J;
-        try {
-          J = O2A.realpathSync(this._scriptPath)
-        } catch (F) {
-          J = this._scriptPath
-        }
-        D = t$.resolve(t$.dirname(J), D)
-      }
-      if (D) {
-        let J = G(D, Z);
-        if (!J && !A._executableFile && this._scriptPath) {
-          let F = t$.basename(this._scriptPath, t$.extname(this._scriptPath));
-          if (F !== this._name) J = G(D, `${F}-${A._name}`)
-        }
-        Z = J || Z
-      }
-      Q = I.includes(t$.extname(Z));
-      let Y;
-      if (YQ.platform !== "win32")
-        if (Q) B.unshift(Z), B = Ey2(YQ.execArgv).concat(B), Y = R2A.spawn(YQ.argv[0], B, {
-          stdio: "inherit"
-        });
-        else Y = R2A.spawn(Z, B, {
-          stdio: "inherit"
-        });
-      else B.unshift(Z), B = Ey2(YQ.execArgv).concat(B), Y = R2A.spawn(YQ.execPath, B, {
-        stdio: "inherit"
-      });
-      if (!Y.killed)["SIGUSR1", "SIGUSR2", "SIGTERM", "SIGINT", "SIGHUP"].forEach((F) => {
-        YQ.on(F, () => {
-          if (Y.killed === !1 && Y.exitCode === null) Y.kill(F)
+      try {
+        B = await this.transporter.request({
+          ...KE.RETRY_CONFIG,
+          url: G
         })
-      });
-      let W = this._exitCallback;
-      Y.on("close", (J) => {
-        if (J = J ?? 1, !W) YQ.exit(J);
-        else W(new T2A(J, "commander.executeSubCommandAsync", "(close)"))
-      }), Y.on("error", (J) => {
-        if (J.code === "ENOENT") {
-          let F = D ? `searched for local subcommand relative to directory '${D}'` : "no directory for search for local subcommand, use .executableDir() to supply a custom directory",
-            X = `'${Z}' does not exist
- - if '${A._name}' is not meant to be an executable command, remove description parameter from '.command()' and use '.description()' instead
- - if the default executable name is not suitable, use the executableFile option to supply a custom name or path
- - ${F}`;
-          throw new Error(X)
-        } else if (J.code === "EACCES") throw new Error(`'${Z}' not executable`);
-        if (!W) YQ.exit(1);
-        else {
-          let F = new T2A(1, "commander.executeSubCommandAsync", "(error)");
-          F.nestedError = J, W(F)
-        }
-      }), this.runningCommand = Y
-    }
-    _dispatchSubcommand(A, B, Q) {
-      let I = this._findCommand(A);
-      if (!I) this.help({
-        error: !0
-      });
-      let G;
-      return G = this._chainOrCallSubCommandHook(G, I, "preSubcommand"), G = this._chainOrCall(G, () => {
-        if (I._executableHandler) this._executeSubCommand(I, B.concat(Q));
-        else return I._parseCommand(B, Q)
-      }), G
-    }
-    _dispatchHelpCommand(A) {
-      if (!A) this.help();
-      let B = this._findCommand(A);
-      if (B && !B._executableHandler) B.help();
-      return this._dispatchSubcommand(A, [], [this._getHelpOption()?.long ?? this._getHelpOption()?.short ?? "--help"])
-    }
-    _checkNumberOfArguments() {
-      if (this.registeredArguments.forEach((A, B) => {
-          if (A.required && this.args[B] == null) this.missingArgument(A.name())
-        }), this.registeredArguments.length > 0 && this.registeredArguments[this.registeredArguments.length - 1].variadic) return;
-      if (this.args.length > this.registeredArguments.length) this._excessArguments(this.args)
-    }
-    _processArguments() {
-      let A = (Q, I, G) => {
-        let Z = I;
-        if (I !== null && Q.parseArg) {
-          let D = `error: command-argument value '${I}' is invalid for argument '${Q.name()}'.`;
-          Z = this._callParseArg(Q, I, G, D)
-        }
-        return Z
-      };
-      this._checkNumberOfArguments();
-      let B = [];
-      this.registeredArguments.forEach((Q, I) => {
-        let G = Q.defaultValue;
-        if (Q.variadic) {
-          if (I < this.args.length) {
-            if (G = this.args.slice(I), Q.parseArg) G = G.reduce((Z, D) => {
-              return A(Q, D, Z)
-            }, Q.defaultValue)
-          } else if (G === void 0) G = []
-        } else if (I < this.args.length) {
-          if (G = this.args[I], Q.parseArg) G = A(Q, G, Q.defaultValue)
-        }
-        B[I] = G
-      }), this.processedArgs = B
-    }
-    _chainOrCall(A, B) {
-      if (A && A.then && typeof A.then === "function") return A.then(() => B());
-      return B()
-    }
-    _chainOrCallHooks(A, B) {
-      let Q = A,
-        I = [];
-      if (this._getCommandAndAncestors().reverse().filter((G) => G._lifeCycleHooks[B] !== void 0).forEach((G) => {
-          G._lifeCycleHooks[B].forEach((Z) => {
-            I.push({
-              hookedCommand: G,
-              callback: Z
-            })
-          })
-        }), B === "postAction") I.reverse();
-      return I.forEach((G) => {
-        Q = this._chainOrCall(Q, () => {
-          return G.callback(G.hookedCommand, this)
-        })
-      }), Q
-    }
-    _chainOrCallSubCommandHook(A, B, Q) {
-      let I = A;
-      if (this._lifeCycleHooks[Q] !== void 0) this._lifeCycleHooks[Q].forEach((G) => {
-        I = this._chainOrCall(I, () => {
-          return G(this, B)
-        })
-      });
-      return I
-    }
-    _parseCommand(A, B) {
-      let Q = this.parseOptions(B);
-      if (this._parseOptionsEnv(), this._parseOptionsImplied(), A = A.concat(Q.operands), B = Q.unknown, this.args = A.concat(B), A && this._findCommand(A[0])) return this._dispatchSubcommand(A[0], A.slice(1), B);
-      if (this._getHelpCommand() && A[0] === this._getHelpCommand().name()) return this._dispatchHelpCommand(A[1]);
-      if (this._defaultCommandName) return this._outputHelpIfRequested(B), this._dispatchSubcommand(this._defaultCommandName, A, B);
-      if (this.commands.length && this.args.length === 0 && !this._actionHandler && !this._defaultCommandName) this.help({
-        error: !0
-      });
-      this._outputHelpIfRequested(Q.unknown), this._checkForMissingMandatoryOptions(), this._checkForConflictingOptions();
-      let I = () => {
-          if (Q.unknown.length > 0) this.unknownOption(Q.unknown[0])
-        },
-        G = `command:${this.name()}`;
-      if (this._actionHandler) {
-        I(), this._processArguments();
-        let Z;
-        if (Z = this._chainOrCallHooks(Z, "preAction"), Z = this._chainOrCall(Z, () => this._actionHandler(this.processedArgs)), this.parent) Z = this._chainOrCall(Z, () => {
-          this.parent.emit(G, A, B)
-        });
-        return Z = this._chainOrCallHooks(Z, "postAction"), Z
+      } catch (W) {
+        if (W instanceof Error) W.message = `Failed to retrieve verification certificates: ${W.message}`;
+        throw W
       }
-      if (this.parent && this.parent.listenerCount(G)) I(), this._processArguments(), this.parent.emit(G, A, B);
-      else if (A.length) {
-        if (this._findCommand("*")) return this._dispatchSubcommand("*", A, B);
-        if (this.listenerCount("command:*")) this.emit("command:*", A, B);
-        else if (this.commands.length) this.unknownCommand();
-        else I(), this._processArguments()
-      } else if (this.commands.length) I(), this.help({
-        error: !0
-      });
-      else I(), this._processArguments()
-    }
-    _findCommand(A) {
-      if (!A) return;
-      return this.commands.find((B) => B._name === A || B._aliases.includes(A))
-    }
-    _findOption(A) {
-      return this.options.find((B) => B.is(A))
-    }
-    _checkForMissingMandatoryOptions() {
-      this._getCommandAndAncestors().forEach((A) => {
-        A.options.forEach((B) => {
-          if (B.mandatory && A.getOptionValue(B.attributeName()) === void 0) A.missingMandatoryOptionValue(B)
-        })
-      })
-    }
-    _checkForConflictingLocalOptions() {
-      let A = this.options.filter((Q) => {
-        let I = Q.attributeName();
-        if (this.getOptionValue(I) === void 0) return !1;
-        return this.getOptionValueSource(I) !== "default"
-      });
-      A.filter((Q) => Q.conflictsWith.length > 0).forEach((Q) => {
-        let I = A.find((G) => Q.conflictsWith.includes(G.attributeName()));
-        if (I) this._conflictingOption(Q, I)
-      })
-    }
-    _checkForConflictingOptions() {
-      this._getCommandAndAncestors().forEach((A) => {
-        A._checkForConflictingLocalOptions()
-      })
-    }
-    parseOptions(A) {
-      let B = [],
-        Q = [],
-        I = B,
-        G = A.slice();
-
-      function Z(Y) {
-        return Y.length > 1 && Y[0] === "-"
+      let Z = B ? B.headers["cache-control"] : void 0,
+        I = -1;
+      if (Z) {
+        let X = new RegExp("max-age=([0-9]*)").exec(Z);
+        if (X && X.length === 2) I = Number(X[1]) * 1000
       }
-      let D = null;
-      while (G.length) {
-        let Y = G.shift();
-        if (Y === "--") {
-          if (I === Q) I.push(Y);
-          I.push(...G);
-          break
-        }
-        if (D && !Z(Y)) {
-          this.emit(`option:${D.name()}`, Y);
-          continue
-        }
-        if (D = null, Z(Y)) {
-          let W = this._findOption(Y);
-          if (W) {
-            if (W.required) {
-              let J = G.shift();
-              if (J === void 0) this.optionMissingArgument(W);
-              this.emit(`option:${W.name()}`, J)
-            } else if (W.optional) {
-              let J = null;
-              if (G.length > 0 && !Z(G[0])) J = G.shift();
-              this.emit(`option:${W.name()}`, J)
-            } else this.emit(`option:${W.name()}`);
-            D = W.variadic ? W : null;
-            continue
-          }
-        }
-        if (Y.length > 2 && Y[0] === "-" && Y[1] !== "-") {
-          let W = this._findOption(`-${Y[1]}`);
-          if (W) {
-            if (W.required || W.optional && this._combineFlagAndOptionalValue) this.emit(`option:${W.name()}`, Y.slice(2));
-            else this.emit(`option:${W.name()}`), G.unshift(`-${Y.slice(2)}`);
-            continue
-          }
-        }
-        if (/^--[^=]+=/.test(Y)) {
-          let W = Y.indexOf("="),
-            J = this._findOption(Y.slice(0, W));
-          if (J && (J.required || J.optional)) {
-            this.emit(`option:${J.name()}`, Y.slice(W + 1));
-            continue
-          }
-        }
-        if (Z(Y)) I = Q;
-        if ((this._enablePositionalOptions || this._passThroughOptions) && B.length === 0 && Q.length === 0) {
-          if (this._findCommand(Y)) {
-            if (B.push(Y), G.length > 0) Q.push(...G);
-            break
-          } else if (this._getHelpCommand() && Y === this._getHelpCommand().name()) {
-            if (B.push(Y), G.length > 0) B.push(...G);
-            break
-          } else if (this._defaultCommandName) {
-            if (Q.push(Y), G.length > 0) Q.push(...G);
-            break
-          }
-        }
-        if (this._passThroughOptions) {
-          if (I.push(Y), G.length > 0) I.push(...G);
-          break
-        }
-        I.push(Y)
+      let Y = {};
+      switch (Q) {
+        case Mf.PEM:
+          Y = B.data;
+          break;
+        case Mf.JWK:
+          for (let W of B.data.keys) Y[W.kid] = W;
+          break;
+        default:
+          throw Error(`Unsupported certificate format ${Q}`)
+      }
+      let J = new Date;
+      return this.certificateExpiry = I === -1 ? null : new Date(J.getTime() + I), this.certificateCache = Y, this.certificateCacheFormat = Q, {
+        certs: Y,
+        format: Q,
+        res: B
+      }
+    }
+    getIapPublicKeys(A) {
+      if (A) this.getIapPublicKeysAsync().then((Q) => A(null, Q.pubkeys, Q.res), A);
+      else return this.getIapPublicKeysAsync()
+    }
+    async getIapPublicKeysAsync() {
+      let A, Q = this.endpoints.oauth2IapPublicKeyUrl.toString();
+      try {
+        A = await this.transporter.request({
+          ...KE.RETRY_CONFIG,
+          url: Q
+        })
+      } catch (B) {
+        if (B instanceof Error) B.message = `Failed to retrieve verification certificates: ${B.message}`;
+        throw B
       }
       return {
-        operands: B,
-        unknown: Q
+        pubkeys: A.data,
+        res: A
       }
     }
-    opts() {
-      if (this._storeOptionsAsProperties) {
-        let A = {},
-          B = this.options.length;
-        for (let Q = 0; Q < B; Q++) {
-          let I = this.options[Q].attributeName();
-          A[I] = I === this._versionOptionName ? this._version : this[I]
-        }
+    verifySignedJwtWithCerts() {
+      throw Error("verifySignedJwtWithCerts is removed, please use verifySignedJwtWithCertsAsync instead.")
+    }
+    async verifySignedJwtWithCertsAsync(A, Q, B, G, Z) {
+      let I = (0, _l1.createCrypto)();
+      if (!Z) Z = KE.DEFAULT_MAX_TOKEN_LIFETIME_SECS_;
+      let Y = A.split(".");
+      if (Y.length !== 3) throw Error("Wrong number of segments in token: " + A);
+      let J = Y[0] + "." + Y[1],
+        W = Y[2],
+        X, V;
+      try {
+        X = JSON.parse(I.decodeBase64StringUtf8(Y[0]))
+      } catch (q) {
+        if (q instanceof Error) q.message = `Can't parse token envelope: ${Y[0]}': ${q.message}`;
+        throw q
+      }
+      if (!X) throw Error("Can't parse token envelope: " + Y[0]);
+      try {
+        V = JSON.parse(I.decodeBase64StringUtf8(Y[1]))
+      } catch (q) {
+        if (q instanceof Error) q.message = `Can't parse token payload '${Y[0]}`;
+        throw q
+      }
+      if (!V) throw Error("Can't parse token payload: " + Y[1]);
+      if (!Object.prototype.hasOwnProperty.call(Q, X.kid)) throw Error("No pem found for envelope: " + JSON.stringify(X));
+      let F = Q[X.kid];
+      if (X.alg === "ES256") W = Dd6.joseToDer(W, "ES256").toString("base64");
+      if (!await I.verify(F, J, W)) throw Error("Invalid token signature: " + A);
+      if (!V.iat) throw Error("No issue time in token: " + JSON.stringify(V));
+      if (!V.exp) throw Error("No expiration time in token: " + JSON.stringify(V));
+      let D = Number(V.iat);
+      if (isNaN(D)) throw Error("iat field using invalid format");
+      let H = Number(V.exp);
+      if (isNaN(H)) throw Error("exp field using invalid format");
+      let C = new Date().getTime() / 1000;
+      if (H >= C + Z) throw Error("Expiration time too far in future: " + JSON.stringify(V));
+      let E = D - KE.CLOCK_SKEW_SECS_,
+        U = H + KE.CLOCK_SKEW_SECS_;
+      if (C < E) throw Error("Token used too early, " + C + " < " + E + ": " + JSON.stringify(V));
+      if (C > U) throw Error("Token used too late, " + C + " > " + U + ": " + JSON.stringify(V));
+      if (G && G.indexOf(V.iss) < 0) throw Error("Invalid issuer, expected one of [" + G + "], but got " + V.iss);
+      if (typeof B < "u" && B !== null) {
+        let q = V.aud,
+          w = !1;
+        if (B.constructor === Array) w = B.indexOf(q) > -1;
+        else w = q === B;
+        if (!w) throw Error("Wrong recipient, payload audience != requiredAudience")
+      }
+      return new Cd6.LoginTicket(X, V)
+    }
+    async processAndValidateRefreshHandler() {
+      if (this.refreshHandler) {
+        let A = await this.refreshHandler();
+        if (!A.access_token) throw Error("No access token is returned by the refreshHandler callback.");
         return A
       }
-      return this._optionValues
+      return
     }
-    optsWithGlobals() {
-      return this._getCommandAndAncestors().reduce((A, B) => Object.assign(A, B.opts()), {})
+    isTokenExpiring() {
+      let A = this.credentials.expiry_date;
+      return A ? A <= new Date().getTime() + this.eagerRefreshThresholdMillis : !1
     }
-    error(A, B) {
-      if (this._outputConfiguration.outputError(`${A}
-`, this._outputConfiguration.writeErr), typeof this._showHelpAfterError === "string") this._outputConfiguration.writeErr(`${this._showHelpAfterError}
-`);
-      else if (this._showHelpAfterError) this._outputConfiguration.writeErr(`
-`), this.outputHelp({
-        error: !0
-      });
-      let Q = B || {},
-        I = Q.exitCode || 1,
-        G = Q.code || "commander.error";
-      this._exit(I, G, A)
+  }
+  BdB.OAuth2Client = KE;
+  KE.GOOGLE_TOKEN_INFO_URL = "https://oauth2.googleapis.com/tokeninfo";
+  KE.CLOCK_SKEW_SECS_ = 300;
+  KE.DEFAULT_MAX_TOKEN_LIFETIME_SECS_ = 86400
+})
+// @from(Start 7713544, End 7715813)
+kl1 = z((YdB) => {
+  Object.defineProperty(YdB, "__esModule", {
+    value: !0
+  });
+  YdB.Compute = void 0;
+  var $d6 = PT(),
+    ZdB = RwA(),
+    wd6 = $e();
+  class IdB extends wd6.OAuth2Client {
+    constructor(A = {}) {
+      super(A);
+      this.credentials = {
+        expiry_date: 1,
+        refresh_token: "compute-placeholder"
+      }, this.serviceAccountEmail = A.serviceAccountEmail || "default", this.scopes = Array.isArray(A.scopes) ? A.scopes : A.scopes ? [A.scopes] : []
     }
-    _parseOptionsEnv() {
-      this.options.forEach((A) => {
-        if (A.envVar && A.envVar in YQ.env) {
-          let B = A.attributeName();
-          if (this.getOptionValue(B) === void 0 || ["default", "config", "env"].includes(this.getOptionValueSource(B)))
-            if (A.required || A.optional) this.emit(`optionEnv:${A.name()}`, YQ.env[A.envVar]);
-            else this.emit(`optionEnv:${A.name()}`)
-        }
-      })
-    }
-    _parseOptionsImplied() {
-      let A = new l$5(this.options),
-        B = (Q) => {
-          return this.getOptionValue(Q) !== void 0 && !["default", "implied"].includes(this.getOptionValueSource(Q))
+    async refreshTokenNoCache(A) {
+      let Q = `service-accounts/${this.serviceAccountEmail}/token`,
+        B;
+      try {
+        let Z = {
+          property: Q
         };
-      this.options.filter((Q) => Q.implied !== void 0 && B(Q.attributeName()) && A.valueFromOption(this.getOptionValue(Q.attributeName()), Q)).forEach((Q) => {
-        Object.keys(Q.implied).filter((I) => !B(I)).forEach((I) => {
-          this.setOptionValueWithSource(I, Q.implied[I], "implied")
-        })
-      })
-    }
-    missingArgument(A) {
-      let B = `error: missing required argument '${A}'`;
-      this.error(B, {
-        code: "commander.missingArgument"
-      })
-    }
-    optionMissingArgument(A) {
-      let B = `error: option '${A.flags}' argument missing`;
-      this.error(B, {
-        code: "commander.optionMissingArgument"
-      })
-    }
-    missingMandatoryOptionValue(A) {
-      let B = `error: required option '${A.flags}' not specified`;
-      this.error(B, {
-        code: "commander.missingMandatoryOptionValue"
-      })
-    }
-    _conflictingOption(A, B) {
-      let Q = (Z) => {
-          let D = Z.attributeName(),
-            Y = this.getOptionValue(D),
-            W = this.options.find((F) => F.negate && D === F.attributeName()),
-            J = this.options.find((F) => !F.negate && D === F.attributeName());
-          if (W && (W.presetArg === void 0 && Y === !1 || W.presetArg !== void 0 && Y === W.presetArg)) return W;
-          return J || Z
-        },
-        I = (Z) => {
-          let D = Q(Z),
-            Y = D.attributeName();
-          if (this.getOptionValueSource(Y) === "env") return `environment variable '${D.envVar}'`;
-          return `option '${D.flags}'`
-        },
-        G = `error: ${I(A)} cannot be used with ${I(B)}`;
-      this.error(G, {
-        code: "commander.conflictingOption"
-      })
-    }
-    unknownOption(A) {
-      if (this._allowUnknownOption) return;
-      let B = "";
-      if (A.startsWith("--") && this._showSuggestionAfterError) {
-        let I = [],
-          G = this;
-        do {
-          let Z = G.createHelp().visibleOptions(G).filter((D) => D.long).map((D) => D.long);
-          I = I.concat(Z), G = G.parent
-        } while (G && !G._enablePositionalOptions);
-        B = wy2(A, I)
+        if (this.scopes.length > 0) Z.params = {
+          scopes: this.scopes.join(",")
+        };
+        B = await ZdB.instance(Z)
+      } catch (Z) {
+        if (Z instanceof $d6.GaxiosError) Z.message = `Could not refresh access token: ${Z.message}`, this.wrapError(Z);
+        throw Z
       }
-      let Q = `error: unknown option '${A}'${B}`;
-      this.error(Q, {
-        code: "commander.unknownOption"
-      })
-    }
-    _excessArguments(A) {
-      if (this._allowExcessArguments) return;
-      let B = this.registeredArguments.length,
-        Q = B === 1 ? "" : "s",
-        G = `error: too many arguments${this.parent?` for '${this.name()}'`:""}. Expected ${B} argument${Q} but got ${A.length}.`;
-      this.error(G, {
-        code: "commander.excessArguments"
-      })
-    }
-    unknownCommand() {
-      let A = this.args[0],
-        B = "";
-      if (this._showSuggestionAfterError) {
-        let I = [];
-        this.createHelp().visibleCommands(this).forEach((G) => {
-          if (I.push(G.name()), G.alias()) I.push(G.alias())
-        }), B = wy2(A, I)
+      let G = B;
+      if (B && B.expires_in) G.expiry_date = new Date().getTime() + B.expires_in * 1000, delete G.expires_in;
+      return this.emit("tokens", G), {
+        tokens: G,
+        res: null
       }
-      let Q = `error: unknown command '${A}'${B}`;
-      this.error(Q, {
-        code: "commander.unknownCommand"
-      })
     }
-    version(A, B, Q) {
-      if (A === void 0) return this._version;
-      this._version = A, B = B || "-V, --version", Q = Q || "output the version number";
-      let I = this.createOption(B, Q);
-      return this._versionOptionName = I.attributeName(), this._registerOption(I), this.on("option:" + I.name(), () => {
-        this._outputConfiguration.writeOut(`${A}
-`), this._exit(0, "commander.version", A)
-      }), this
-    }
-    description(A, B) {
-      if (A === void 0 && B === void 0) return this._description;
-      if (this._description = A, B) this._argsDescription = B;
-      return this
-    }
-    summary(A) {
-      if (A === void 0) return this._summary;
-      return this._summary = A, this
-    }
-    alias(A) {
-      if (A === void 0) return this._aliases[0];
-      let B = this;
-      if (this.commands.length !== 0 && this.commands[this.commands.length - 1]._executableHandler) B = this.commands[this.commands.length - 1];
-      if (A === B._name) throw new Error("Command alias can't be the same as its name");
-      let Q = this.parent?._findCommand(A);
-      if (Q) {
-        let I = [Q.name()].concat(Q.aliases()).join("|");
-        throw new Error(`cannot add alias '${A}' to command '${this.name()}' as already have command '${I}'`)
+    async fetchIdToken(A) {
+      let Q = `service-accounts/${this.serviceAccountEmail}/identity?format=full&audience=${A}`,
+        B;
+      try {
+        let G = {
+          property: Q
+        };
+        B = await ZdB.instance(G)
+      } catch (G) {
+        if (G instanceof Error) G.message = `Could not fetch ID token: ${G.message}`;
+        throw G
       }
-      return B._aliases.push(A), this
+      return B
     }
-    aliases(A) {
-      if (A === void 0) return this._aliases;
-      return A.forEach((B) => this.alias(B)), this
-    }
-    usage(A) {
-      if (A === void 0) {
-        if (this._usage) return this._usage;
-        let B = this.registeredArguments.map((Q) => {
-          return p$5(Q)
-        });
-        return [].concat(this.options.length || this._helpOption !== null ? "[options]" : [], this.commands.length ? "[command]" : [], this.registeredArguments.length ? B : []).join(" ")
+    wrapError(A) {
+      let Q = A.response;
+      if (Q && Q.status) {
+        if (A.status = Q.status, Q.status === 403) A.message = "A Forbidden error was returned while attempting to retrieve an access token for the Compute Engine built-in service account. This may be because the Compute Engine instance does not have the correct permission scopes specified: " + A.message;
+        else if (Q.status === 404) A.message = "A Not Found error was returned while attempting to retrieve an accesstoken for the Compute Engine built-in service account. This may be because the Compute Engine instance does not have any permission scopes specified: " + A.message
       }
-      return this._usage = A, this
     }
-    name(A) {
-      if (A === void 0) return this._name;
-      return this._name = A, this
+  }
+  YdB.Compute = IdB
+})
+// @from(Start 7715819, End 7716764)
+yl1 = z((XdB) => {
+  Object.defineProperty(XdB, "__esModule", {
+    value: !0
+  });
+  XdB.IdTokenClient = void 0;
+  var qd6 = $e();
+  class WdB extends qd6.OAuth2Client {
+    constructor(A) {
+      super(A);
+      this.targetAudience = A.targetAudience, this.idTokenProvider = A.idTokenProvider
     }
-    nameFromFilename(A) {
-      return this._name = t$.basename(A, t$.extname(A)), this
-    }
-    executableDir(A) {
-      if (A === void 0) return this._executableDir;
-      return this._executableDir = A, this
-    }
-    helpInformation(A) {
-      let B = this.createHelp();
-      if (B.helpWidth === void 0) B.helpWidth = A && A.error ? this._outputConfiguration.getErrHelpWidth() : this._outputConfiguration.getOutHelpWidth();
-      return B.formatHelp(this, B)
-    }
-    _getHelpContext(A) {
-      A = A || {};
-      let B = {
-          error: !!A.error
-        },
-        Q;
-      if (B.error) Q = (I) => this._outputConfiguration.writeErr(I);
-      else Q = (I) => this._outputConfiguration.writeOut(I);
-      return B.write = A.write || Q, B.command = this, B
-    }
-    outputHelp(A) {
-      let B;
-      if (typeof A === "function") B = A, A = void 0;
-      let Q = this._getHelpContext(A);
-      this._getCommandAndAncestors().reverse().forEach((G) => G.emit("beforeAllHelp", Q)), this.emit("beforeHelp", Q);
-      let I = this.helpInformation(Q);
-      if (B) {
-        if (I = B(I), typeof I !== "string" && !Buffer.isBuffer(I)) throw new Error("outputHelp callback must return a string or a Buffer")
+    async getRequestMetadataAsync(A) {
+      if (!this.credentials.id_token || !this.credentials.expiry_date || this.isTokenExpiring()) {
+        let B = await this.idTokenProvider.fetchIdToken(this.targetAudience);
+        this.credentials = {
+          id_token: B,
+          expiry_date: this.getIdTokenExpiryDate(B)
+        }
       }
-      if (Q.write(I), this._getHelpOption()?.long) this.emit(this._getHelpOption().long);
-      this.emit("afterHelp", Q), this._getCommandAndAncestors().forEach((G) => G.emit("afterAllHelp", Q))
-    }
-    helpOption(A, B) {
-      if (typeof A === "boolean") {
-        if (A) this._helpOption = this._helpOption ?? void 0;
-        else this._helpOption = null;
-        return this
+      return {
+        headers: {
+          Authorization: "Bearer " + this.credentials.id_token
+        }
       }
-      return A = A ?? "-h, --help", B = B ?? "display help for command", this._helpOption = this.createOption(A, B), this
     }
-    _getHelpOption() {
-      if (this._helpOption === void 0) this.helpOption(void 0, void 0);
-      return this._helpOption
+    getIdTokenExpiryDate(A) {
+      let Q = A.split(".")[1];
+      if (Q) return JSON.parse(Buffer.from(Q, "base64").toString("ascii")).exp * 1000
     }
-    addHelpOption(A) {
-      return this._helpOption = A, this
+  }
+  XdB.IdTokenClient = WdB
+})
+// @from(Start 7716770, End 7718092)
+xl1 = z((KdB) => {
+  Object.defineProperty(KdB, "__esModule", {
+    value: !0
+  });
+  KdB.GCPEnv = void 0;
+  KdB.clear = Nd6;
+  KdB.getEnv = Ld6;
+  var FdB = RwA(),
+    Of;
+  (function(A) {
+    A.APP_ENGINE = "APP_ENGINE", A.KUBERNETES_ENGINE = "KUBERNETES_ENGINE", A.CLOUD_FUNCTIONS = "CLOUD_FUNCTIONS", A.COMPUTE_ENGINE = "COMPUTE_ENGINE", A.CLOUD_RUN = "CLOUD_RUN", A.NONE = "NONE"
+  })(Of || (KdB.GCPEnv = Of = {}));
+  var SwA;
+
+  function Nd6() {
+    SwA = void 0
+  }
+  async function Ld6() {
+    if (SwA) return SwA;
+    return SwA = Md6(), SwA
+  }
+  async function Md6() {
+    let A = Of.NONE;
+    if (Od6()) A = Of.APP_ENGINE;
+    else if (Rd6()) A = Of.CLOUD_FUNCTIONS;
+    else if (await jd6())
+      if (await Pd6()) A = Of.KUBERNETES_ENGINE;
+      else if (Td6()) A = Of.CLOUD_RUN;
+    else A = Of.COMPUTE_ENGINE;
+    else A = Of.NONE;
+    return A
+  }
+
+  function Od6() {
+    return !!(process.env.GAE_SERVICE || process.env.GAE_MODULE_NAME)
+  }
+
+  function Rd6() {
+    return !!(process.env.FUNCTION_NAME || process.env.FUNCTION_TARGET)
+  }
+
+  function Td6() {
+    return !!process.env.K_CONFIGURATION
+  }
+  async function Pd6() {
+    try {
+      return await FdB.instance("attributes/cluster-name"), !0
+    } catch (A) {
+      return !1
     }
-    help(A) {
-      this.outputHelp(A);
-      let B = YQ.exitCode || 0;
-      if (B === 0 && A && typeof A !== "function" && A.error) B = 1;
-      this._exit(B, "commander.help", "(outputHelp)")
+  }
+  async function jd6() {
+    return FdB.isAvailable()
+  }
+})
+// @from(Start 7718098, End 7719016)
+vl1 = z((p4G, HdB) => {
+  var qeA = Bk().Buffer,
+    kd6 = UA("stream"),
+    yd6 = UA("util");
+
+  function NeA(A) {
+    if (this.buffer = null, this.writable = !0, this.readable = !0, !A) return this.buffer = qeA.alloc(0), this;
+    if (typeof A.pipe === "function") return this.buffer = qeA.alloc(0), A.pipe(this), this;
+    if (A.length || typeof A === "object") return this.buffer = A, this.writable = !1, process.nextTick(function() {
+      this.emit("end", A), this.readable = !1, this.emit("close")
+    }.bind(this)), this;
+    throw TypeError("Unexpected data type (" + typeof A + ")")
+  }
+  yd6.inherits(NeA, kd6);
+  NeA.prototype.write = function(Q) {
+    this.buffer = qeA.concat([this.buffer, qeA.from(Q)]), this.emit("data", Q)
+  };
+  NeA.prototype.end = function(Q) {
+    if (Q) this.write(Q);
+    this.emit("end", Q), this.emit("close"), this.writable = !1, this.readable = !1
+  };
+  HdB.exports = NeA
+})
+// @from(Start 7719022, End 7719637)
+fl1 = z((l4G, CdB) => {
+  var _wA = UA("buffer").Buffer,
+    bl1 = UA("buffer").SlowBuffer;
+  CdB.exports = LeA;
+
+  function LeA(A, Q) {
+    if (!_wA.isBuffer(A) || !_wA.isBuffer(Q)) return !1;
+    if (A.length !== Q.length) return !1;
+    var B = 0;
+    for (var G = 0; G < A.length; G++) B |= A[G] ^ Q[G];
+    return B === 0
+  }
+  LeA.install = function() {
+    _wA.prototype.equal = bl1.prototype.equal = function(Q) {
+      return LeA(this, Q)
     }
-    addHelpText(A, B) {
-      let Q = ["beforeAll", "before", "after", "afterAll"];
-      if (!Q.includes(A)) throw new Error(`Unexpected value for position to addHelpText.
-Expecting one of '${Q.join("', '")}'`);
-      let I = `${A}Help`;
-      return this.on(I, (G) => {
-        let Z;
-        if (typeof B === "function") Z = B({
-          error: G.error,
-          command: G.command
-        });
-        else Z = B;
-        if (Z) G.write(`${Z}
-`)
-      }), this
+  };
+  var xd6 = _wA.prototype.equal,
+    vd6 = bl1.prototype.equal;
+  LeA.restore = function() {
+    _wA.prototype.equal = xd6, bl1.prototype.equal = vd6
+  }
+})
+// @from(Start 7719643, End 7724124)
+ml1 = z((i4G, MdB) => {
+  var aGA = Bk().Buffer,
+    OM = UA("crypto"),
+    zdB = weA(),
+    EdB = UA("util"),
+    bd6 = `"%s" is not a valid algorithm.
+  Supported algorithms are:
+  "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512" and "none".`,
+    kwA = "secret must be a string or buffer",
+    nGA = "key must be a string or a buffer",
+    fd6 = "key must be a string, a buffer or an object",
+    gl1 = typeof OM.createPublicKey === "function";
+  if (gl1) nGA += " or a KeyObject", kwA += "or a KeyObject";
+
+  function UdB(A) {
+    if (aGA.isBuffer(A)) return;
+    if (typeof A === "string") return;
+    if (!gl1) throw _T(nGA);
+    if (typeof A !== "object") throw _T(nGA);
+    if (typeof A.type !== "string") throw _T(nGA);
+    if (typeof A.asymmetricKeyType !== "string") throw _T(nGA);
+    if (typeof A.export !== "function") throw _T(nGA)
+  }
+
+  function $dB(A) {
+    if (aGA.isBuffer(A)) return;
+    if (typeof A === "string") return;
+    if (typeof A === "object") return;
+    throw _T(fd6)
+  }
+
+  function hd6(A) {
+    if (aGA.isBuffer(A)) return;
+    if (typeof A === "string") return A;
+    if (!gl1) throw _T(kwA);
+    if (typeof A !== "object") throw _T(kwA);
+    if (A.type !== "secret") throw _T(kwA);
+    if (typeof A.export !== "function") throw _T(kwA)
+  }
+
+  function ul1(A) {
+    return A.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")
+  }
+
+  function wdB(A) {
+    A = A.toString();
+    var Q = 4 - A.length % 4;
+    if (Q !== 4)
+      for (var B = 0; B < Q; ++B) A += "=";
+    return A.replace(/\-/g, "+").replace(/_/g, "/")
+  }
+
+  function _T(A) {
+    var Q = [].slice.call(arguments, 1),
+      B = EdB.format.bind(EdB, A).apply(null, Q);
+    return TypeError(B)
+  }
+
+  function gd6(A) {
+    return aGA.isBuffer(A) || typeof A === "string"
+  }
+
+  function ywA(A) {
+    if (!gd6(A)) A = JSON.stringify(A);
+    return A
+  }
+
+  function qdB(A) {
+    return function(B, G) {
+      hd6(G), B = ywA(B);
+      var Z = OM.createHmac("sha" + A, G),
+        I = (Z.update(B), Z.digest("base64"));
+      return ul1(I)
     }
-    _outputHelpIfRequested(A) {
-      let B = this._getHelpOption();
-      if (B && A.find((I) => B.is(I))) this.outputHelp(), this._exit(0, "commander.helpDisplayed", "(outputHelp)")
+  }
+  var hl1, ud6 = "timingSafeEqual" in OM ? function(Q, B) {
+    if (Q.byteLength !== B.byteLength) return !1;
+    return OM.timingSafeEqual(Q, B)
+  } : function(Q, B) {
+    if (!hl1) hl1 = fl1();
+    return hl1(Q, B)
+  };
+
+  function md6(A) {
+    return function(B, G, Z) {
+      var I = qdB(A)(B, Z);
+      return ud6(aGA.from(G), aGA.from(I))
     }
   }
 
-  function Ey2(A) {
-    return A.map((B) => {
-      if (!B.startsWith("--inspect")) return B;
-      let Q, I = "127.0.0.1",
-        G = "9229",
-        Z;
-      if ((Z = B.match(/^(--inspect(-brk)?)$/)) !== null) Q = Z[1];
-      else if ((Z = B.match(/^(--inspect(-brk|-port)?)=([^:]+)$/)) !== null)
-        if (Q = Z[1], /^\d+$/.test(Z[3])) G = Z[3];
-        else I = Z[3];
-      else if ((Z = B.match(/^(--inspect(-brk|-port)?)=([^:]+):(\d+)$/)) !== null) Q = Z[1], I = Z[3], G = Z[4];
-      if (Q && G !== "0") return `${Q}=${I}:${parseInt(G)+1}`;
-      return B
-    })
+  function NdB(A) {
+    return function(B, G) {
+      $dB(G), B = ywA(B);
+      var Z = OM.createSign("RSA-SHA" + A),
+        I = (Z.update(B), Z.sign(G, "base64"));
+      return ul1(I)
+    }
   }
-  i$5.Command = P2A
-})
-// @from(Start 8293555, End 8294119)
-My2 = z((r$5) => {
-  var {
-    Argument: Ny2
-  } = QE1(), {
-    Command: S2A
-  } = Uy2(), {
-    CommanderError: a$5,
-    InvalidArgumentError: $y2
-  } = J01(), {
-    Help: s$5
-  } = M2A(), {
-    Option: qy2
-  } = L2A();
-  r$5.program = new S2A;
-  r$5.createCommand = (A) => new S2A(A);
-  r$5.createOption = (A, B) => new qy2(A, B);
-  r$5.createArgument = (A, B) => new Ny2(A, B);
-  r$5.Command = S2A;
-  r$5.Option = qy2;
-  r$5.Argument = Ny2;
-  r$5.Help = s$5;
-  r$5.CommanderError = a$5;
-  r$5.InvalidArgumentError = $y2;
-  r$5.InvalidOptionArgumentError = $y2
-})
-// @from(Start 8294125, End 8294631)
-Ry2 = z((JF, Ly2) => {
-  var tK = My2();
-  JF = Ly2.exports = {};
-  JF.program = new tK.Command;
-  JF.Argument = tK.Argument;
-  JF.Command = tK.Command;
-  JF.CommanderError = tK.CommanderError;
-  JF.Help = tK.Help;
-  JF.InvalidArgumentError = tK.InvalidArgumentError;
-  JF.InvalidOptionArgumentError = tK.InvalidArgumentError;
-  JF.Option = tK.Option;
-  JF.createCommand = (A) => new tK.Command(A);
-  JF.createOption = (A, B) => new tK.Option(A, B);
-  JF.createArgument = (A, B) => new tK.Argument(A, B)
-})
-// @from(Start 8294720, End 8295469)
-function Hk2() {
-  return {
-    originalCwd: u2A(),
-    totalCostUSD: 0,
-    totalAPIDuration: 0,
-    totalAPIDurationWithoutRetries: 0,
-    startTime: Date.now(),
-    lastInteractionTime: Date.now(),
-    totalLinesAdded: 0,
-    totalLinesRemoved: 0,
-    hasUnknownModelCost: !1,
-    cwd: u2A(),
-    modelTokens: {},
-    mainLoopModelOverride: void 0,
-    maxRateLimitFallbackActive: !1,
-    initialMainLoopModel: null,
-    modelStrings: null,
-    isNonInteractiveSession: !0,
-    meter: null,
-    sessionCounter: null,
-    locCounter: null,
-    prCounter: null,
-    commitCounter: null,
-    costCounter: null,
-    tokenCounter: null,
-    codeEditToolDecisionCounter: null,
-    sessionId: p2A(),
-    loggerProvider: null,
-    eventLogger: null
+
+  function LdB(A) {
+    return function(B, G, Z) {
+      UdB(Z), B = ywA(B), G = wdB(G);
+      var I = OM.createVerify("RSA-SHA" + A);
+      return I.update(B), I.verify(Z, G, "base64")
+    }
   }
-}
-// @from(Start 8295474, End 8295484)
-$9 = Hk2()
-// @from(Start 8295487, End 8295526)
-function y9() {
-  return $9.sessionId
-}
-// @from(Start 8295528, End 8295590)
-function c2A() {
-  return $9.sessionId = p2A(), $9.sessionId
-}
-// @from(Start 8295592, End 8295633)
-function e9() {
-  return $9.originalCwd
-}
-// @from(Start 8295635, End 8295669)
-function l2A() {
-  return $9.cwd
-}
-// @from(Start 8295671, End 8295703)
-function i2A(A) {
-  $9.cwd = A
-}
-// @from(Start 8295704, End 8296187)
-async function n2A(A, B, Q, I, G) {
-  $9.totalCostUSD += A, $9.totalAPIDuration += B, $9.totalAPIDurationWithoutRetries += Q;
-  let Z = $9.modelTokens[G] ?? {
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadInputTokens: 0,
-    cacheCreationInputTokens: 0
+
+  function dd6(A) {
+    return function(B, G) {
+      $dB(G), B = ywA(B);
+      var Z = OM.createSign("RSA-SHA" + A),
+        I = (Z.update(B), Z.sign({
+          key: G,
+          padding: OM.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: OM.constants.RSA_PSS_SALTLEN_DIGEST
+        }, "base64"));
+      return ul1(I)
+    }
+  }
+
+  function cd6(A) {
+    return function(B, G, Z) {
+      UdB(Z), B = ywA(B), G = wdB(G);
+      var I = OM.createVerify("RSA-SHA" + A);
+      return I.update(B), I.verify({
+        key: Z,
+        padding: OM.constants.RSA_PKCS1_PSS_PADDING,
+        saltLength: OM.constants.RSA_PSS_SALTLEN_DIGEST
+      }, G, "base64")
+    }
+  }
+
+  function pd6(A) {
+    var Q = NdB(A);
+    return function() {
+      var G = Q.apply(null, arguments);
+      return G = zdB.derToJose(G, "ES" + A), G
+    }
+  }
+
+  function ld6(A) {
+    var Q = LdB(A);
+    return function(G, Z, I) {
+      Z = zdB.joseToDer(Z, "ES" + A).toString("base64");
+      var Y = Q(G, Z, I);
+      return Y
+    }
+  }
+
+  function id6() {
+    return function() {
+      return ""
+    }
+  }
+
+  function nd6() {
+    return function(Q, B) {
+      return B === ""
+    }
+  }
+  MdB.exports = function(Q) {
+    var B = {
+        hs: qdB,
+        rs: NdB,
+        ps: dd6,
+        es: pd6,
+        none: id6
+      },
+      G = {
+        hs: md6,
+        rs: LdB,
+        ps: cd6,
+        es: ld6,
+        none: nd6
+      },
+      Z = Q.match(/^(RS|PS|ES|HS)(256|384|512)$|^(none)$/);
+    if (!Z) throw _T(bd6, Q);
+    var I = (Z[1] || Z[3]).toLowerCase(),
+      Y = Z[2];
+    return {
+      sign: B[I](Y),
+      verify: G[I](Y)
+    }
+  }
+})
+// @from(Start 7724130, End 7724364)
+dl1 = z((n4G, OdB) => {
+  var ad6 = UA("buffer").Buffer;
+  OdB.exports = function(Q) {
+    if (typeof Q === "string") return Q;
+    if (typeof Q === "number" || ad6.isBuffer(Q)) return Q.toString();
+    return JSON.stringify(Q)
+  }
+})
+// @from(Start 7724370, End 7725975)
+_dB = z((a4G, SdB) => {
+  var sd6 = Bk().Buffer,
+    RdB = vl1(),
+    rd6 = ml1(),
+    od6 = UA("stream"),
+    TdB = dl1(),
+    cl1 = UA("util");
+
+  function PdB(A, Q) {
+    return sd6.from(A, Q).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")
+  }
+
+  function td6(A, Q, B) {
+    B = B || "utf8";
+    var G = PdB(TdB(A), "binary"),
+      Z = PdB(TdB(Q), B);
+    return cl1.format("%s.%s", G, Z)
+  }
+
+  function jdB(A) {
+    var {
+      header: Q,
+      payload: B
+    } = A, G = A.secret || A.privateKey, Z = A.encoding, I = rd6(Q.alg), Y = td6(Q, B, Z), J = I.sign(Y, G);
+    return cl1.format("%s.%s", Y, J)
+  }
+
+  function MeA(A) {
+    var Q = A.secret || A.privateKey || A.key,
+      B = new RdB(Q);
+    this.readable = !0, this.header = A.header, this.encoding = A.encoding, this.secret = this.privateKey = this.key = B, this.payload = new RdB(A.payload), this.secret.once("close", function() {
+      if (!this.payload.writable && this.readable) this.sign()
+    }.bind(this)), this.payload.once("close", function() {
+      if (!this.secret.writable && this.readable) this.sign()
+    }.bind(this))
+  }
+  cl1.inherits(MeA, od6);
+  MeA.prototype.sign = function() {
+    try {
+      var Q = jdB({
+        header: this.header,
+        payload: this.payload.buffer,
+        secret: this.secret.buffer,
+        encoding: this.encoding
+      });
+      return this.emit("done", Q), this.emit("data", Q), this.emit("end"), this.readable = !1, Q
+    } catch (B) {
+      this.readable = !1, this.emit("error", B), this.emit("close")
+    }
   };
-  Z.inputTokens += I.input_tokens, Z.outputTokens += I.output_tokens, Z.cacheReadInputTokens += I.cache_read_input_tokens ?? 0, Z.cacheCreationInputTokens += I.cache_creation_input_tokens ?? 0, $9.modelTokens[G] = Z
-}
-// @from(Start 8296189, End 8296231)
-function KU() {
-  return $9.totalCostUSD
-}
-// @from(Start 8296233, End 8296279)
-function KP() {
-  return $9.totalAPIDuration
-}
-// @from(Start 8296281, End 8296334)
-function zU1() {
-  return Date.now() - $9.startTime
-}
-// @from(Start 8296336, End 8296391)
-function Fc() {
-  $9.lastInteractionTime = Date.now()
-}
-// @from(Start 8296393, End 8296468)
-function wU1(A, B) {
-  $9.totalLinesAdded += A, $9.totalLinesRemoved += B
-}
-// @from(Start 8296470, End 8296516)
-function F21() {
-  return $9.totalLinesAdded
-}
-// @from(Start 8296518, End 8296566)
-function X21() {
-  return $9.totalLinesRemoved
-}
-// @from(Start 8296568, End 8296677)
-function a2A() {
-  let A = 0;
-  for (let B of Object.values($9.modelTokens)) A += B.inputTokens;
-  return A
-}
-// @from(Start 8296679, End 8296789)
-function s2A() {
-  let A = 0;
-  for (let B of Object.values($9.modelTokens)) A += B.outputTokens;
-  return A
-}
-// @from(Start 8296791, End 8296909)
-function r2A() {
-  let A = 0;
-  for (let B of Object.values($9.modelTokens)) A += B.cacheReadInputTokens;
-  return A
-}
-// @from(Start 8296911, End 8297033)
-function o2A() {
-  let A = 0;
-  for (let B of Object.values($9.modelTokens)) A += B.cacheCreationInputTokens;
-  return A
-}
-// @from(Start 8297035, End 8297083)
-function EU1() {
-  $9.hasUnknownModelCost = !0
-}
-// @from(Start 8297085, End 8297135)
-function t2A() {
-  return $9.hasUnknownModelCost
-}
-// @from(Start 8297137, End 8297187)
-function V21() {
-  return $9.lastInteractionTime
-}
-// @from(Start 8297189, End 8297231)
-function e2A() {
-  return $9.modelTokens
-}
-// @from(Start 8297233, End 8297285)
-function A9A() {
-  return $9.mainLoopModelOverride
-}
-// @from(Start 8297287, End 8297338)
-function C21() {
-  return $9.initialMainLoopModel
-}
-// @from(Start 8297340, End 8297389)
-function Xc(A) {
-  $9.mainLoopModelOverride = A
-}
-// @from(Start 8297391, End 8297447)
-function HP() {
-  return $9.maxRateLimitFallbackActive
-}
-// @from(Start 8297449, End 8297504)
-function B9A(A) {
-  $9.maxRateLimitFallbackActive = A
-}
-// @from(Start 8297506, End 8297555)
-function Q9A(A) {
-  $9.initialMainLoopModel = A
-}
-// @from(Start 8297557, End 8297600)
-function K21() {
-  return $9.modelStrings
-}
-// @from(Start 8297602, End 8297643)
-function UU1(A) {
-  $9.modelStrings = A
-}
-// @from(Start 8297645, End 8298645)
-function I9A(A, B) {
-  $9.meter = A, $9.sessionCounter = B("claude_code.session.count", {
-    description: "Count of CLI sessions started"
-  }), $9.locCounter = B("claude_code.lines_of_code.count", {
-    description: "Count of lines of code modified, with the 'type' attribute indicating whether lines were added or removed"
-  }), $9.prCounter = B("claude_code.pull_request.count", {
-    description: "Number of pull requests created"
-  }), $9.commitCounter = B("claude_code.commit.count", {
-    description: "Number of git commits created"
-  }), $9.costCounter = B("claude_code.cost.usage", {
-    description: "Cost of the Claude Code session",
-    unit: "USD"
-  }), $9.tokenCounter = B("claude_code.token.usage", {
-    description: "Number of tokens used",
-    unit: "tokens"
-  }), $9.codeEditToolDecisionCounter = B("claude_code.code_edit_tool.decision", {
-    description: "Count of code editing tool permission decisions (accept/reject) for Edit, MultiEdit, Write, and NotebookEdit tools"
-  })
-}
-// @from(Start 8298647, End 8298692)
-function G9A() {
-  return $9.sessionCounter
-}
-// @from(Start 8298694, End 8298735)
-function NU1() {
-  return $9.locCounter
-}
-// @from(Start 8298737, End 8298777)
-function Z9A() {
-  return $9.prCounter
-}
-// @from(Start 8298779, End 8298823)
-function D9A() {
-  return $9.commitCounter
-}
-// @from(Start 8298825, End 8298867)
-function Y9A() {
-  return $9.costCounter
-}
-// @from(Start 8298869, End 8298911)
-function Vc() {
-  return $9.tokenCounter
-}
-// @from(Start 8298913, End 8298970)
-function yk() {
-  return $9.codeEditToolDecisionCounter
-}
-// @from(Start 8298972, End 8299017)
-function W9A() {
-  return $9.loggerProvider
-}
-// @from(Start 8299019, End 8299062)
-function J9A(A) {
-  $9.loggerProvider = A
-}
-// @from(Start 8299064, End 8299106)
-function F9A() {
-  return $9.eventLogger
-}
-// @from(Start 8299108, End 8299148)
-function X9A(A) {
-  $9.eventLogger = A
-}
-// @from(Start 8299150, End 8299204)
-function V9A() {
-  return $9.isNonInteractiveSession
-}
-// @from(Start 8299206, End 8299258)
-function C9A(A) {
-  $9.isNonInteractiveSession = A
-}
-// @from(Start 8299337, End 8299416)
-zk2 = typeof global == "object" && global && global.Object === Object && global
-// @from(Start 8299420, End 8299429)
-H21 = zk2
-// @from(Start 8299435, End 8299506)
-wk2 = typeof self == "object" && self && self.Object === Object && self
-// @from(Start 8299510, End 8299555)
-Ek2 = H21 || wk2 || Function("return this")()
-// @from(Start 8299559, End 8299567)
-A7 = Ek2
-// @from(Start 8299573, End 8299588)
-Uk2 = A7.Symbol
-// @from(Start 8299592, End 8299600)
-JI = Uk2
-// @from(Start 8299606, End 8299628)
-K9A = Object.prototype
-// @from(Start 8299632, End 8299656)
-Nk2 = K9A.hasOwnProperty
-// @from(Start 8299660, End 8299678)
-$k2 = K9A.toString
-// @from(Start 8299682, End 8299715)
-Cc = JI ? JI.toStringTag : void 0
-// @from(Start 8299718, End 8299927)
-function qk2(A) {
-  var B = Nk2.call(A, Cc),
-    Q = A[Cc];
-  try {
-    A[Cc] = void 0;
-    var I = !0
-  } catch (Z) {}
-  var G = $k2.call(A);
-  if (I)
-    if (B) A[Cc] = Q;
-    else delete A[Cc];
-  return G
-}
-// @from(Start 8299932, End 8299941)
-H9A = qk2
-// @from(Start 8299947, End 8299969)
-Mk2 = Object.prototype
-// @from(Start 8299973, End 8299991)
-Lk2 = Mk2.toString
-// @from(Start 8299994, End 8300034)
-function Rk2(A) {
-  return Lk2.call(A)
-}
-// @from(Start 8300039, End 8300048)
-z9A = Rk2
-// @from(Start 8300054, End 8300075)
-Ok2 = "[object Null]"
-// @from(Start 8300079, End 8300105)
-Tk2 = "[object Undefined]"
-// @from(Start 8300109, End 8300143)
-w9A = JI ? JI.toStringTag : void 0
-// @from(Start 8300146, End 8300266)
-function Pk2(A) {
-  if (A == null) return A === void 0 ? Tk2 : Ok2;
-  return w9A && w9A in Object(A) ? H9A(A) : z9A(A)
-}
-// @from(Start 8300271, End 8300279)
-oW = Pk2
-// @from(Start 8300282, End 8300344)
-function Sk2(A) {
-  return A != null && typeof A == "object"
-}
-// @from(Start 8300349, End 8300357)
-f7 = Sk2
-// @from(Start 8300363, End 8300386)
-_k2 = "[object Symbol]"
-// @from(Start 8300389, End 8300463)
-function jk2(A) {
-  return typeof A == "symbol" || f7(A) && oW(A) == _k2
-}
-// @from(Start 8300468, End 8300476)
-kk = jk2
-// @from(Start 8300479, End 8300618)
-function yk2(A, B) {
-  var Q = -1,
-    I = A == null ? 0 : A.length,
-    G = Array(I);
-  while (++Q < I) G[Q] = B(A[Q], Q, A);
-  return G
-}
-// @from(Start 8300623, End 8300631)
-xk = yk2
-// @from(Start 8300637, End 8300656)
-kk2 = Array.isArray
-// @from(Start 8300660, End 8300668)
-U8 = kk2
-// @from(Start 8300674, End 8300685)
-xk2 = 1 / 0
-// @from(Start 8300689, End 8300721)
-E9A = JI ? JI.prototype : void 0
-// @from(Start 8300725, End 8300758)
-U9A = E9A ? E9A.toString : void 0
-// @from(Start 8300761, End 8300963)
-function N9A(A) {
-  if (typeof A == "string") return A;
-  if (U8(A)) return xk(A, N9A) + "";
-  if (kk(A)) return U9A ? U9A.call(A) : "";
-  var B = A + "";
-  return B == "0" && 1 / A == -xk2 ? "-0" : B
-}
-// @from(Start 8300968, End 8300977)
-$9A = N9A
-// @from(Start 8300980, End 8301076)
-function fk2(A) {
-  var B = typeof A;
-  return A != null && (B == "object" || B == "function")
-}
-// @from(Start 8301081, End 8301089)
-pB = fk2
-// @from(Start 8301092, End 8301122)
-function vk2(A) {
-  return A
-}
-// @from(Start 8301127, End 8301135)
-fk = vk2
-// @from(Start 8301141, End 8301171)
-bk2 = "[object AsyncFunction]"
-// @from(Start 8301175, End 8301200)
-gk2 = "[object Function]"
-// @from(Start 8301204, End 8301238)
-hk2 = "[object GeneratorFunction]"
-// @from(Start 8301242, End 8301264)
-mk2 = "[object Proxy]"
-// @from(Start 8301267, End 8301382)
-function dk2(A) {
-  if (!pB(A)) return !1;
-  var B = oW(A);
-  return B == gk2 || B == hk2 || B == bk2 || B == mk2
-}
-// @from(Start 8301387, End 8301395)
-vk = dk2
-// @from(Start 8301401, End 8301431)
-uk2 = A7["__core-js_shared__"]
-// @from(Start 8301435, End 8301444)
-z21 = uk2
-// @from(Start 8301450, End 8301580)
-q9A = function() {
-  var A = /[^.]+$/.exec(z21 && z21.keys && z21.keys.IE_PROTO || "");
-  return A ? "Symbol(src)_1." + A : ""
-}()
-// @from(Start 8301583, End 8301629)
-function pk2(A) {
-  return !!q9A && q9A in A
-}
-// @from(Start 8301634, End 8301643)
-M9A = pk2
-// @from(Start 8301649, End 8301673)
-ck2 = Function.prototype
-// @from(Start 8301677, End 8301695)
-lk2 = ck2.toString
-// @from(Start 8301698, End 8301855)
-function ik2(A) {
-  if (A != null) {
-    try {
-      return lk2.call(A)
-    } catch (B) {}
-    try {
-      return A + ""
-    } catch (B) {}
+  MeA.sign = jdB;
+  SdB.exports = MeA
+})
+// @from(Start 7725981, End 7728389)
+mdB = z((s4G, udB) => {
+  var ydB = Bk().Buffer,
+    kdB = vl1(),
+    ed6 = ml1(),
+    Ac6 = UA("stream"),
+    xdB = dl1(),
+    Qc6 = UA("util"),
+    Bc6 = /^[a-zA-Z0-9\-_]+?\.[a-zA-Z0-9\-_]+?\.([a-zA-Z0-9\-_]+)?$/;
+
+  function Gc6(A) {
+    return Object.prototype.toString.call(A) === "[object Object]"
   }
-  return ""
-}
-// @from(Start 8301860, End 8301868)
-HU = ik2
-// @from(Start 8301874, End 8301901)
-nk2 = /[\\^$.*+?()[\]{}|]/g
-// @from(Start 8301905, End 8301940)
-ak2 = /^\[object .+?Constructor\]$/
-// @from(Start 8301944, End 8301968)
-sk2 = Function.prototype
-// @from(Start 8301972, End 8301994)
-rk2 = Object.prototype
-// @from(Start 8301998, End 8302016)
-ok2 = sk2.toString
-// @from(Start 8302020, End 8302044)
-tk2 = rk2.hasOwnProperty
-// @from(Start 8302048, End 8302183)
-ek2 = RegExp("^" + ok2.call(tk2).replace(nk2, "\\$&").replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, "$1.*?") + "$")
-// @from(Start 8302186, End 8302292)
-function Ax2(A) {
-  if (!pB(A) || M9A(A)) return !1;
-  var B = vk(A) ? ek2 : ak2;
-  return B.test(HU(A))
-}
-// @from(Start 8302297, End 8302306)
-L9A = Ax2
-// @from(Start 8302309, End 8302366)
-function Bx2(A, B) {
-  return A == null ? void 0 : A[B]
-}
-// @from(Start 8302371, End 8302380)
-R9A = Bx2
-// @from(Start 8302383, End 8302455)
-function Qx2(A, B) {
-  var Q = R9A(A, B);
-  return L9A(Q) ? Q : void 0
-}
-// @from(Start 8302460, End 8302468)
-UY = Qx2
-// @from(Start 8302474, End 8302497)
-Ix2 = UY(A7, "WeakMap")
-// @from(Start 8302501, End 8302510)
-w21 = Ix2
-// @from(Start 8302516, End 8302535)
-O9A = Object.create
-// @from(Start 8302539, End 8302754)
-Gx2 = function() {
-    function A() {}
-    return function(B) {
-      if (!pB(B)) return {};
-      if (O9A) return O9A(B);
-      A.prototype = B;
-      var Q = new A;
-      return A.prototype = void 0, Q
+
+  function Zc6(A) {
+    if (Gc6(A)) return A;
+    try {
+      return JSON.parse(A)
+    } catch (Q) {
+      return
     }
-  }()
-// @from(Start 8302758, End 8302767)
-T9A = Gx2
-// @from(Start 8302770, End 8303023)
-function Zx2(A, B, Q) {
-  switch (Q.length) {
-    case 0:
-      return A.call(B);
-    case 1:
-      return A.call(B, Q[0]);
-    case 2:
-      return A.call(B, Q[0], Q[1]);
-    case 3:
-      return A.call(B, Q[0], Q[1], Q[2])
   }
-  return A.apply(B, Q)
-}
-// @from(Start 8303028, End 8303037)
-P9A = Zx2
-// @from(Start 8303040, End 8303057)
-function Dx2() {}
-// @from(Start 8303062, End 8303071)
-S9A = Dx2
-// @from(Start 8303074, End 8303193)
-function Yx2(A, B) {
-  var Q = -1,
-    I = A.length;
-  B || (B = Array(I));
-  while (++Q < I) B[Q] = A[Q];
-  return B
-}
-// @from(Start 8303198, End 8303207)
-E21 = Yx2
-// @from(Start 8303213, End 8303222)
-Wx2 = 800
-// @from(Start 8303226, End 8303234)
-Jx2 = 16
-// @from(Start 8303238, End 8303252)
-Fx2 = Date.now
-// @from(Start 8303255, End 8303490)
-function Xx2(A) {
-  var B = 0,
-    Q = 0;
-  return function() {
-    var I = Fx2(),
-      G = Jx2 - (I - Q);
-    if (Q = I, G > 0) {
-      if (++B >= Wx2) return arguments[0]
-    } else B = 0;
-    return A.apply(void 0, arguments)
+
+  function vdB(A) {
+    var Q = A.split(".", 1)[0];
+    return Zc6(ydB.from(Q, "base64").toString("binary"))
   }
-}
-// @from(Start 8303495, End 8303504)
-_9A = Xx2
-// @from(Start 8303507, End 8303565)
-function Vx2(A) {
-  return function() {
-    return A
+
+  function Ic6(A) {
+    return A.split(".", 2).join(".")
   }
-}
-// @from(Start 8303570, End 8303579)
-j9A = Vx2
-// @from(Start 8303585, End 8303712)
-Cx2 = function() {
-    try {
-      var A = UY(Object, "defineProperty");
-      return A({}, "", {}), A
-    } catch (B) {}
-  }()
-// @from(Start 8303716, End 8303724)
-bk = Cx2
-// @from(Start 8303730, End 8303891)
-Kx2 = !bk ? fk : function(A, B) {
-    return bk(A, "toString", {
-      configurable: !0,
-      enumerable: !1,
-      value: j9A(B),
-      writable: !0
-    })
+
+  function bdB(A) {
+    return A.split(".")[2]
   }
-// @from(Start 8303895, End 8303904)
-y9A = Kx2
-// @from(Start 8303910, End 8303924)
-Hx2 = _9A(y9A)
-// @from(Start 8303928, End 8303937)
-U21 = Hx2
-// @from(Start 8303940, End 8304076)
-function zx2(A, B) {
-  var Q = -1,
-    I = A == null ? 0 : A.length;
-  while (++Q < I)
-    if (B(A[Q], Q, A) === !1) break;
-  return A
-}
-// @from(Start 8304081, End 8304090)
-k9A = zx2
-// @from(Start 8304093, End 8304240)
-function wx2(A, B, Q, I) {
-  var G = A.length,
-    Z = Q + (I ? 1 : -1);
-  while (I ? Z-- : ++Z < G)
-    if (B(A[Z], Z, A)) return Z;
-  return -1
-}
-// @from(Start 8304245, End 8304254)
-x9A = wx2
-// @from(Start 8304257, End 8304293)
-function Ex2(A) {
-  return A !== A
-}
-// @from(Start 8304298, End 8304307)
-f9A = Ex2
-// @from(Start 8304310, End 8304430)
-function Ux2(A, B, Q) {
-  var I = Q - 1,
-    G = A.length;
-  while (++I < G)
-    if (A[I] === B) return I;
-  return -1
-}
-// @from(Start 8304435, End 8304444)
-v9A = Ux2
-// @from(Start 8304447, End 8304521)
-function Nx2(A, B, Q) {
-  return B === B ? v9A(A, B, Q) : x9A(A, f9A, Q)
-}
-// @from(Start 8304526, End 8304535)
-b9A = Nx2
-// @from(Start 8304538, End 8304630)
-function $x2(A, B) {
-  var Q = A == null ? 0 : A.length;
-  return !!Q && b9A(A, B, 0) > -1
-}
-// @from(Start 8304635, End 8304644)
-g9A = $x2
-// @from(Start 8304650, End 8304672)
-qx2 = 9007199254740991
-// @from(Start 8304676, End 8304700)
-Mx2 = /^(?:0|[1-9]\d*)$/
-// @from(Start 8304703, End 8304869)
-function Lx2(A, B) {
-  var Q = typeof A;
-  return B = B == null ? qx2 : B, !!B && (Q == "number" || Q != "symbol" && Mx2.test(A)) && (A > -1 && A % 1 == 0 && A < B)
-}
-// @from(Start 8304874, End 8304882)
-uq = Lx2
-// @from(Start 8304885, End 8305046)
-function Rx2(A, B, Q) {
-  if (B == "__proto__" && bk) bk(A, B, {
-    configurable: !0,
-    enumerable: !0,
-    value: Q,
-    writable: !0
-  });
-  else A[B] = Q
-}
-// @from(Start 8305051, End 8305059)
-pq = Rx2
-// @from(Start 8305062, End 8305123)
-function Ox2(A, B) {
-  return A === B || A !== A && B !== B
-}
-// @from(Start 8305128, End 8305136)
-fH = Ox2
-// @from(Start 8305142, End 8305164)
-Tx2 = Object.prototype
-// @from(Start 8305168, End 8305192)
-Px2 = Tx2.hasOwnProperty
-// @from(Start 8305195, End 8305314)
-function Sx2(A, B, Q) {
-  var I = A[B];
-  if (!(Px2.call(A, B) && fH(I, Q)) || Q === void 0 && !(B in A)) pq(A, B, Q)
-}
-// @from(Start 8305319, End 8305327)
-cq = Sx2
-// @from(Start 8305330, End 8305598)
-function _x2(A, B, Q, I) {
-  var G = !Q;
-  Q || (Q = {});
-  var Z = -1,
-    D = B.length;
-  while (++Z < D) {
-    var Y = B[Z],
-      W = I ? I(Q[Y], A[Y], Y, Q, A) : void 0;
-    if (W === void 0) W = A[Y];
-    if (G) pq(Q, Y, W);
-    else cq(Q, Y, W)
+
+  function Yc6(A, Q) {
+    Q = Q || "utf8";
+    var B = A.split(".")[1];
+    return ydB.from(B, "base64").toString(Q)
   }
-  return Q
-}
-// @from(Start 8305603, End 8305611)
-vH = _x2
-// @from(Start 8305617, End 8305631)
-h9A = Math.max
-// @from(Start 8305634, End 8305991)
-function jx2(A, B, Q) {
-  return B = h9A(B === void 0 ? A.length - 1 : B, 0),
-    function() {
-      var I = arguments,
-        G = -1,
-        Z = h9A(I.length - B, 0),
-        D = Array(Z);
-      while (++G < Z) D[G] = I[B + G];
-      G = -1;
-      var Y = Array(B + 1);
-      while (++G < B) Y[G] = I[G];
-      return Y[B] = Q(D), P9A(A, this, Y)
+
+  function fdB(A) {
+    return Bc6.test(A) && !!vdB(A)
+  }
+
+  function hdB(A, Q, B) {
+    if (!Q) {
+      var G = Error("Missing algorithm parameter for jws.verify");
+      throw G.code = "MISSING_ALGORITHM", G
     }
-}
-// @from(Start 8305996, End 8306005)
-N21 = jx2
-// @from(Start 8306008, End 8306066)
-function yx2(A, B) {
-  return U21(N21(A, B, fk), A + "")
-}
-// @from(Start 8306071, End 8306080)
-m9A = yx2
-// @from(Start 8306086, End 8306108)
-kx2 = 9007199254740991
-// @from(Start 8306111, End 8306196)
-function xx2(A) {
-  return typeof A == "number" && A > -1 && A % 1 == 0 && A <= kx2
-}
-// @from(Start 8306201, End 8306209)
-gk = xx2
-// @from(Start 8306212, End 8306276)
-function fx2(A) {
-  return A != null && gk(A.length) && !vk(A)
-}
-// @from(Start 8306281, End 8306289)
-bH = fx2
-// @from(Start 8306292, End 8306470)
-function vx2(A, B, Q) {
-  if (!pB(Q)) return !1;
-  var I = typeof B;
-  if (I == "number" ? bH(Q) && uq(B, Q.length) : I == "string" && (B in Q)) return fH(Q[B], A);
-  return !1
-}
-// @from(Start 8306475, End 8306484)
-d9A = vx2
-// @from(Start 8306487, End 8306882)
-function bx2(A) {
-  return m9A(function(B, Q) {
-    var I = -1,
-      G = Q.length,
-      Z = G > 1 ? Q[G - 1] : void 0,
-      D = G > 2 ? Q[2] : void 0;
-    if (Z = A.length > 3 && typeof Z == "function" ? (G--, Z) : void 0, D && d9A(Q[0], Q[1], D)) Z = G < 3 ? void 0 : Z, G = 1;
-    B = Object(B);
-    while (++I < G) {
-      var Y = Q[I];
-      if (Y) A(B, Y, I, Z)
+    A = xdB(A);
+    var Z = bdB(A),
+      I = Ic6(A),
+      Y = ed6(Q);
+    return Y.verify(I, Z, B)
+  }
+
+  function gdB(A, Q) {
+    if (Q = Q || {}, A = xdB(A), !fdB(A)) return null;
+    var B = vdB(A);
+    if (!B) return null;
+    var G = Yc6(A);
+    if (B.typ === "JWT" || Q.json) G = JSON.parse(G, Q.encoding);
+    return {
+      header: B,
+      payload: G,
+      signature: bdB(A)
     }
-    return B
-  })
-}
-// @from(Start 8306887, End 8306896)
-u9A = bx2
-// @from(Start 8306902, End 8306924)
-gx2 = Object.prototype
-// @from(Start 8306927, End 8307047)
-function hx2(A) {
-  var B = A && A.constructor,
-    Q = typeof B == "function" && B.prototype || gx2;
-  return A === Q
-}
-// @from(Start 8307052, End 8307060)
-hk = hx2
-// @from(Start 8307063, End 8307159)
-function mx2(A, B) {
-  var Q = -1,
-    I = Array(A);
-  while (++Q < A) I[Q] = B(Q);
-  return I
-}
-// @from(Start 8307164, End 8307173)
-p9A = mx2
-// @from(Start 8307179, End 8307205)
-dx2 = "[object Arguments]"
-// @from(Start 8307208, End 8307258)
-function ux2(A) {
-  return f7(A) && oW(A) == dx2
-}
-// @from(Start 8307263, End 8307272)
-$U1 = ux2
-// @from(Start 8307278, End 8307300)
-c9A = Object.prototype
-// @from(Start 8307304, End 8307328)
-px2 = c9A.hasOwnProperty
-// @from(Start 8307332, End 8307362)
-cx2 = c9A.propertyIsEnumerable
-// @from(Start 8307366, End 8307510)
-lx2 = $U1(function() {
-    return arguments
-  }()) ? $U1 : function(A) {
-    return f7(A) && px2.call(A, "callee") && !cx2.call(A, "callee")
   }
-// @from(Start 8307514, End 8307522)
-zU = lx2
-// @from(Start 8307528, End 8307536)
-q21 = {}
-// @from(Start 8307573, End 8307603)
-function ix2() {
-  return !1
-}
-// @from(Start 8307608, End 8307617)
-l9A = ix2
-// @from(Start 8307623, End 8307682)
-a9A = typeof q21 == "object" && q21 && !q21.nodeType && q21
-// @from(Start 8307686, End 8307752)
-i9A = a9A && typeof $21 == "object" && $21 && !$21.nodeType && $21
-// @from(Start 8307756, End 8307788)
-nx2 = i9A && i9A.exports === a9A
-// @from(Start 8307792, End 8307822)
-n9A = nx2 ? A7.Buffer : void 0
-// @from(Start 8307826, End 8307859)
-ax2 = n9A ? n9A.isBuffer : void 0
-// @from(Start 8307863, End 8307879)
-sx2 = ax2 || l9A
-// @from(Start 8307883, End 8307891)
-gH = sx2
-// @from(Start 8307897, End 8307923)
-rx2 = "[object Arguments]"
-// @from(Start 8307927, End 8307949)
-ox2 = "[object Array]"
-// @from(Start 8307953, End 8307977)
-tx2 = "[object Boolean]"
-// @from(Start 8307981, End 8308002)
-ex2 = "[object Date]"
-// @from(Start 8308006, End 8308028)
-Af2 = "[object Error]"
-// @from(Start 8308032, End 8308057)
-Bf2 = "[object Function]"
-// @from(Start 8308061, End 8308081)
-Qf2 = "[object Map]"
-// @from(Start 8308085, End 8308108)
-If2 = "[object Number]"
-// @from(Start 8308112, End 8308135)
-Gf2 = "[object Object]"
-// @from(Start 8308139, End 8308162)
-Zf2 = "[object RegExp]"
-// @from(Start 8308166, End 8308186)
-Df2 = "[object Set]"
-// @from(Start 8308190, End 8308213)
-Yf2 = "[object String]"
-// @from(Start 8308217, End 8308241)
-Wf2 = "[object WeakMap]"
-// @from(Start 8308245, End 8308273)
-Jf2 = "[object ArrayBuffer]"
-// @from(Start 8308277, End 8308302)
-Ff2 = "[object DataView]"
-// @from(Start 8308306, End 8308335)
-Xf2 = "[object Float32Array]"
-// @from(Start 8308339, End 8308368)
-Vf2 = "[object Float64Array]"
-// @from(Start 8308372, End 8308398)
-Cf2 = "[object Int8Array]"
-// @from(Start 8308402, End 8308429)
-Kf2 = "[object Int16Array]"
-// @from(Start 8308433, End 8308460)
-Hf2 = "[object Int32Array]"
-// @from(Start 8308464, End 8308491)
-zf2 = "[object Uint8Array]"
-// @from(Start 8308495, End 8308529)
-wf2 = "[object Uint8ClampedArray]"
-// @from(Start 8308533, End 8308561)
-Ef2 = "[object Uint16Array]"
-// @from(Start 8308565, End 8308593)
-Uf2 = "[object Uint32Array]"
-// @from(Start 8308597, End 8308604)
-$B = {}
-// @from(Start 8308855, End 8308920)
-function Nf2(A) {
-  return f7(A) && gk(A.length) && !!$B[oW(A)]
-}
-// @from(Start 8308925, End 8308934)
-s9A = Nf2
-// @from(Start 8308937, End 8308999)
-function $f2(A) {
-  return function(B) {
-    return A(B)
+
+  function sGA(A) {
+    A = A || {};
+    var Q = A.secret || A.publicKey || A.key,
+      B = new kdB(Q);
+    this.readable = !0, this.algorithm = A.algorithm, this.encoding = A.encoding, this.secret = this.publicKey = this.key = B, this.signature = new kdB(A.signature), this.secret.once("close", function() {
+      if (!this.signature.writable && this.readable) this.verify()
+    }.bind(this)), this.signature.once("close", function() {
+      if (!this.secret.writable && this.readable) this.verify()
+    }.bind(this))
   }
-}
-// @from(Start 8309004, End 8309012)
-mk = $f2
-// @from(Start 8309018, End 8309026)
-L21 = {}
-// @from(Start 8309066, End 8309125)
-r9A = typeof L21 == "object" && L21 && !L21.nodeType && L21
-// @from(Start 8309129, End 8309194)
-Kc = r9A && typeof M21 == "object" && M21 && !M21.nodeType && M21
-// @from(Start 8309198, End 8309228)
-qf2 = Kc && Kc.exports === r9A
-// @from(Start 8309232, End 8309256)
-qU1 = qf2 && H21.process
-// @from(Start 8309260, End 8309451)
-Mf2 = function() {
+  Qc6.inherits(sGA, Ac6);
+  sGA.prototype.verify = function() {
     try {
-      var A = Kc && Kc.require && Kc.require("util").types;
-      if (A) return A;
-      return qU1 && qU1.binding && qU1.binding("util")
-    } catch (B) {}
-  }()
-// @from(Start 8309455, End 8309463)
-hH = Mf2
-// @from(Start 8309469, End 8309496)
-o9A = hH && hH.isTypedArray
-// @from(Start 8309500, End 8309525)
-Lf2 = o9A ? mk(o9A) : s9A
-// @from(Start 8309529, End 8309537)
-dk = Lf2
-// @from(Start 8309543, End 8309565)
-Rf2 = Object.prototype
-// @from(Start 8309569, End 8309593)
-Of2 = Rf2.hasOwnProperty
-// @from(Start 8309596, End 8310018)
-function Tf2(A, B) {
-  var Q = U8(A),
-    I = !Q && zU(A),
-    G = !Q && !I && gH(A),
-    Z = !Q && !I && !G && dk(A),
-    D = Q || I || G || Z,
-    Y = D ? p9A(A.length, String) : [],
-    W = Y.length;
-  for (var J in A)
-    if ((B || Of2.call(A, J)) && !(D && (J == "length" || G && (J == "offset" || J == "parent") || Z && (J == "buffer" || J == "byteLength" || J == "byteOffset") || uq(J, W)))) Y.push(J);
-  return Y
-}
-// @from(Start 8310023, End 8310032)
-R21 = Tf2
-// @from(Start 8310035, End 8310103)
-function Pf2(A, B) {
-  return function(Q) {
-    return A(B(Q))
-  }
-}
-// @from(Start 8310108, End 8310117)
-O21 = Pf2
-// @from(Start 8310123, End 8310153)
-Sf2 = O21(Object.keys, Object)
-// @from(Start 8310157, End 8310166)
-t9A = Sf2
-// @from(Start 8310172, End 8310194)
-_f2 = Object.prototype
-// @from(Start 8310198, End 8310222)
-jf2 = _f2.hasOwnProperty
-// @from(Start 8310225, End 8310382)
-function yf2(A) {
-  if (!hk(A)) return t9A(A);
-  var B = [];
-  for (var Q in Object(A))
-    if (jf2.call(A, Q) && Q != "constructor") B.push(Q);
-  return B
-}
-// @from(Start 8310387, End 8310396)
-e9A = yf2
-// @from(Start 8310399, End 8310451)
-function kf2(A) {
-  return bH(A) ? R21(A) : e9A(A)
-}
-// @from(Start 8310456, End 8310464)
-vF = kf2
-// @from(Start 8310467, End 8310568)
-function xf2(A) {
-  var B = [];
-  if (A != null)
-    for (var Q in Object(A)) B.push(Q);
-  return B
-}
-// @from(Start 8310573, End 8310582)
-A4A = xf2
-// @from(Start 8310588, End 8310610)
-ff2 = Object.prototype
-// @from(Start 8310614, End 8310638)
-vf2 = ff2.hasOwnProperty
-// @from(Start 8310641, End 8310816)
-function bf2(A) {
-  if (!pB(A)) return A4A(A);
-  var B = hk(A),
-    Q = [];
-  for (var I in A)
-    if (!(I == "constructor" && (B || !vf2.call(A, I)))) Q.push(I);
-  return Q
-}
-// @from(Start 8310821, End 8310830)
-B4A = bf2
-// @from(Start 8310833, End 8310889)
-function gf2(A) {
-  return bH(A) ? R21(A, !0) : B4A(A)
-}
-// @from(Start 8310894, End 8310902)
-mH = gf2
-// @from(Start 8310908, End 8310964)
-hf2 = /\.|\[(?:[^[\]]*|(["'])(?:(?!\1)[^\\]|\\.)*?\1)\]/
-// @from(Start 8310968, End 8310981)
-mf2 = /^\w*$/
-// @from(Start 8310984, End 8311207)
-function df2(A, B) {
-  if (U8(A)) return !1;
-  var Q = typeof A;
-  if (Q == "number" || Q == "symbol" || Q == "boolean" || A == null || kk(A)) return !0;
-  return mf2.test(A) || !hf2.test(A) || B != null && A in Object(B)
-}
-// @from(Start 8311212, End 8311220)
-uk = df2
-// @from(Start 8311226, End 8311252)
-uf2 = UY(Object, "create")
-// @from(Start 8311256, End 8311264)
-wU = uf2
-// @from(Start 8311267, End 8311337)
-function pf2() {
-  this.__data__ = wU ? wU(null) : {}, this.size = 0
-}
-// @from(Start 8311342, End 8311351)
-Q4A = pf2
-// @from(Start 8311354, End 8311458)
-function cf2(A) {
-  var B = this.has(A) && delete this.__data__[A];
-  return this.size -= B ? 1 : 0, B
-}
-// @from(Start 8311463, End 8311472)
-I4A = cf2
-// @from(Start 8311478, End 8311511)
-lf2 = "__lodash_hash_undefined__"
-// @from(Start 8311515, End 8311537)
-if2 = Object.prototype
-// @from(Start 8311541, End 8311565)
-nf2 = if2.hasOwnProperty
-// @from(Start 8311568, End 8311720)
-function af2(A) {
-  var B = this.__data__;
-  if (wU) {
-    var Q = B[A];
-    return Q === lf2 ? void 0 : Q
-  }
-  return nf2.call(B, A) ? B[A] : void 0
-}
-// @from(Start 8311725, End 8311734)
-G4A = af2
-// @from(Start 8311740, End 8311762)
-sf2 = Object.prototype
-// @from(Start 8311766, End 8311790)
-rf2 = sf2.hasOwnProperty
-// @from(Start 8311793, End 8311884)
-function of2(A) {
-  var B = this.__data__;
-  return wU ? B[A] !== void 0 : rf2.call(B, A)
-}
-// @from(Start 8311889, End 8311898)
-Z4A = of2
-// @from(Start 8311904, End 8311937)
-tf2 = "__lodash_hash_undefined__"
-// @from(Start 8311940, End 8312072)
-function ef2(A, B) {
-  var Q = this.__data__;
-  return this.size += this.has(A) ? 0 : 1, Q[A] = wU && B === void 0 ? tf2 : B, this
-}
-// @from(Start 8312077, End 8312086)
-D4A = ef2
-// @from(Start 8312089, End 8312238)
-function pk(A) {
-  var B = -1,
-    Q = A == null ? 0 : A.length;
-  this.clear();
-  while (++B < Q) {
-    var I = A[B];
-    this.set(I[0], I[1])
-  }
-}
-// @from(Start 8312368, End 8312376)
-MU1 = pk
-// @from(Start 8312379, End 8312433)
-function Av2() {
-  this.__data__ = [], this.size = 0
-}
-// @from(Start 8312438, End 8312447)
-Y4A = Av2
-// @from(Start 8312450, End 8312552)
-function Bv2(A, B) {
-  var Q = A.length;
-  while (Q--)
-    if (fH(A[Q][0], B)) return Q;
-  return -1
-}
-// @from(Start 8312557, End 8312565)
-lq = Bv2
-// @from(Start 8312571, End 8312592)
-Qv2 = Array.prototype
-// @from(Start 8312596, End 8312612)
-Iv2 = Qv2.splice
-// @from(Start 8312615, End 8312799)
-function Gv2(A) {
-  var B = this.__data__,
-    Q = lq(B, A);
-  if (Q < 0) return !1;
-  var I = B.length - 1;
-  if (Q == I) B.pop();
-  else Iv2.call(B, Q, 1);
-  return --this.size, !0
-}
-// @from(Start 8312804, End 8312813)
-W4A = Gv2
-// @from(Start 8312816, End 8312912)
-function Zv2(A) {
-  var B = this.__data__,
-    Q = lq(B, A);
-  return Q < 0 ? void 0 : B[Q][1]
-}
-// @from(Start 8312917, End 8312926)
-J4A = Zv2
-// @from(Start 8312929, End 8312983)
-function Dv2(A) {
-  return lq(this.__data__, A) > -1
-}
-// @from(Start 8312988, End 8312997)
-F4A = Dv2
-// @from(Start 8313000, End 8313141)
-function Yv2(A, B) {
-  var Q = this.__data__,
-    I = lq(Q, A);
-  if (I < 0) ++this.size, Q.push([A, B]);
-  else Q[I][1] = B;
-  return this
-}
-// @from(Start 8313146, End 8313155)
-X4A = Yv2
-// @from(Start 8313158, End 8313307)
-function ck(A) {
-  var B = -1,
-    Q = A == null ? 0 : A.length;
-  this.clear();
-  while (++B < Q) {
-    var I = A[B];
-    this.set(I[0], I[1])
-  }
-}
-// @from(Start 8313437, End 8313444)
-iq = ck
-// @from(Start 8313450, End 8313469)
-Wv2 = UY(A7, "Map")
-// @from(Start 8313473, End 8313481)
-nq = Wv2
-// @from(Start 8313484, End 8313604)
-function Jv2() {
-  this.size = 0, this.__data__ = {
-    hash: new MU1,
-    map: new(nq || iq),
-    string: new MU1
-  }
-}
-// @from(Start 8313609, End 8313618)
-V4A = Jv2
-// @from(Start 8313621, End 8313768)
-function Fv2(A) {
-  var B = typeof A;
-  return B == "string" || B == "number" || B == "symbol" || B == "boolean" ? A !== "__proto__" : A === null
-}
-// @from(Start 8313773, End 8313782)
-C4A = Fv2
-// @from(Start 8313785, End 8313899)
-function Xv2(A, B) {
-  var Q = A.__data__;
-  return C4A(B) ? Q[typeof B == "string" ? "string" : "hash"] : Q.map
-}
-// @from(Start 8313904, End 8313912)
-aq = Xv2
-// @from(Start 8313915, End 8314002)
-function Vv2(A) {
-  var B = aq(this, A).delete(A);
-  return this.size -= B ? 1 : 0, B
-}
-// @from(Start 8314007, End 8314016)
-K4A = Vv2
-// @from(Start 8314019, End 8314066)
-function Cv2(A) {
-  return aq(this, A).get(A)
-}
-// @from(Start 8314071, End 8314080)
-H4A = Cv2
-// @from(Start 8314083, End 8314130)
-function Kv2(A) {
-  return aq(this, A).has(A)
-}
-// @from(Start 8314135, End 8314144)
-z4A = Kv2
-// @from(Start 8314147, End 8314269)
-function Hv2(A, B) {
-  var Q = aq(this, A),
-    I = Q.size;
-  return Q.set(A, B), this.size += Q.size == I ? 0 : 1, this
-}
-// @from(Start 8314274, End 8314283)
-w4A = Hv2
-// @from(Start 8314286, End 8314435)
-function lk(A) {
-  var B = -1,
-    Q = A == null ? 0 : A.length;
-  this.clear();
-  while (++B < Q) {
-    var I = A[B];
-    this.set(I[0], I[1])
-  }
-}
-// @from(Start 8314565, End 8314572)
-zP = lk
-// @from(Start 8314578, End 8314605)
-zv2 = "Expected a function"
-// @from(Start 8314608, End 8314983)
-function LU1(A, B) {
-  if (typeof A != "function" || B != null && typeof B != "function") throw new TypeError(zv2);
-  var Q = function() {
-    var I = arguments,
-      G = B ? B.apply(this, I) : I[0],
-      Z = Q.cache;
-    if (Z.has(G)) return Z.get(G);
-    var D = A.apply(this, I);
-    return Q.cache = Z.set(G, D) || Z, D
+      var Q = hdB(this.signature.buffer, this.algorithm, this.key.buffer),
+        B = gdB(this.signature.buffer, this.encoding);
+      return this.emit("done", Q, B), this.emit("data", Q), this.emit("end"), this.readable = !1, Q
+    } catch (G) {
+      this.readable = !1, this.emit("error", G), this.emit("close")
+    }
   };
-  return Q.cache = new(LU1.Cache || zP), Q
-}
-// @from(Start 8315004, End 8315012)
-L0 = LU1
-// @from(Start 8315018, End 8315027)
-wv2 = 500
-// @from(Start 8315030, End 8315167)
-function Ev2(A) {
-  var B = L0(A, function(I) {
-      if (Q.size === wv2) Q.clear();
-      return I
-    }),
-    Q = B.cache;
-  return B
-}
-// @from(Start 8315172, End 8315181)
-E4A = Ev2
-// @from(Start 8315187, End 8315291)
-Uv2 = /[^.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|$))/g
-// @from(Start 8315295, End 8315311)
-Nv2 = /\\(\\)?/g
-// @from(Start 8315315, End 8315510)
-$v2 = E4A(function(A) {
-    var B = [];
-    if (A.charCodeAt(0) === 46) B.push("");
-    return A.replace(Uv2, function(Q, I, G, Z) {
-      B.push(G ? Z.replace(Nv2, "$1") : I || Q)
-    }), B
-  })
-// @from(Start 8315514, End 8315523)
-U4A = $v2
-// @from(Start 8315526, End 8315578)
-function qv2(A) {
-  return A == null ? "" : $9A(A)
-}
-// @from(Start 8315583, End 8315591)
-ik = qv2
-// @from(Start 8315594, End 8315676)
-function Mv2(A, B) {
-  if (U8(A)) return A;
-  return uk(A, B) ? [A] : U4A(ik(A))
-}
-// @from(Start 8315681, End 8315689)
-sq = Mv2
-// @from(Start 8315695, End 8315706)
-Lv2 = 1 / 0
-// @from(Start 8315709, End 8315839)
-function Rv2(A) {
-  if (typeof A == "string" || kk(A)) return A;
-  var B = A + "";
-  return B == "0" && 1 / A == -Lv2 ? "-0" : B
-}
-// @from(Start 8315844, End 8315852)
-dH = Rv2
-// @from(Start 8315855, End 8316006)
-function Ov2(A, B) {
-  B = sq(B, A);
-  var Q = 0,
-    I = B.length;
-  while (A != null && Q < I) A = A[dH(B[Q++])];
-  return Q && Q == I ? A : void 0
-}
-// @from(Start 8316011, End 8316019)
-nk = Ov2
-// @from(Start 8316022, End 8316118)
-function Tv2(A, B, Q) {
-  var I = A == null ? void 0 : nk(A, B);
-  return I === void 0 ? Q : I
-}
-// @from(Start 8316123, End 8316132)
-N4A = Tv2
-// @from(Start 8316135, End 8316253)
-function Pv2(A, B) {
-  var Q = -1,
-    I = B.length,
-    G = A.length;
-  while (++Q < I) A[G + Q] = B[Q];
-  return A
-}
-// @from(Start 8316258, End 8316266)
-ak = Pv2
-// @from(Start 8316272, End 8316313)
-$4A = JI ? JI.isConcatSpreadable : void 0
-// @from(Start 8316316, End 8316385)
-function Sv2(A) {
-  return U8(A) || zU(A) || !!($4A && A && A[$4A])
-}
-// @from(Start 8316390, End 8316399)
-q4A = Sv2
-// @from(Start 8316402, End 8316669)
-function M4A(A, B, Q, I, G) {
-  var Z = -1,
-    D = A.length;
-  Q || (Q = q4A), G || (G = []);
-  while (++Z < D) {
-    var Y = A[Z];
-    if (B > 0 && Q(Y))
-      if (B > 1) M4A(Y, B - 1, Q, I, G);
-      else ak(G, Y);
-    else if (!I) G[G.length] = Y
+  sGA.decode = gdB;
+  sGA.isValid = fdB;
+  sGA.verify = hdB;
+  udB.exports = sGA
+})
+// @from(Start 7728395, End 7728823)
+pl1 = z((Wc6) => {
+  var ddB = _dB(),
+    OeA = mdB(),
+    Jc6 = ["HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512"];
+  Wc6.ALGORITHMS = Jc6;
+  Wc6.sign = ddB.sign;
+  Wc6.verify = OeA.verify;
+  Wc6.decode = OeA.decode;
+  Wc6.isValid = OeA.isValid;
+  Wc6.createSign = function(Q) {
+    return new ddB(Q)
+  };
+  Wc6.createVerify = function(Q) {
+    return new OeA(Q)
   }
-  return G
-}
-// @from(Start 8316674, End 8316683)
-L4A = M4A
-// @from(Start 8316686, End 8316769)
-function _v2(A) {
-  var B = A == null ? 0 : A.length;
-  return B ? L4A(A, 1) : []
-}
-// @from(Start 8316774, End 8316783)
-R4A = _v2
-// @from(Start 8316786, End 8316847)
-function jv2(A) {
-  return U21(N21(A, void 0, R4A), A + "")
-}
-// @from(Start 8316852, End 8316861)
-O4A = jv2
-// @from(Start 8316867, End 8316907)
-yv2 = O21(Object.getPrototypeOf, Object)
-// @from(Start 8316911, End 8316919)
-sk = yv2
-// @from(Start 8316925, End 8316948)
-kv2 = "[object Object]"
-// @from(Start 8316952, End 8316976)
-xv2 = Function.prototype
-// @from(Start 8316980, End 8317002)
-fv2 = Object.prototype
-// @from(Start 8317006, End 8317024)
-T4A = xv2.toString
-// @from(Start 8317028, End 8317052)
-vv2 = fv2.hasOwnProperty
-// @from(Start 8317056, End 8317078)
-bv2 = T4A.call(Object)
-// @from(Start 8317081, End 8317314)
-function gv2(A) {
-  if (!f7(A) || oW(A) != kv2) return !1;
-  var B = sk(A);
-  if (B === null) return !0;
-  var Q = vv2.call(B, "constructor") && B.constructor;
-  return typeof Q == "function" && Q instanceof Q && T4A.call(Q) == bv2
-}
-// @from(Start 8317319, End 8317327)
-Hc = gv2
-// @from(Start 8317330, End 8317571)
-function hv2(A, B, Q) {
-  var I = -1,
-    G = A.length;
-  if (B < 0) B = -B > G ? 0 : G + B;
-  if (Q = Q > G ? G : Q, Q < 0) Q += G;
-  G = B > Q ? 0 : Q - B >>> 0, B >>>= 0;
-  var Z = Array(G);
-  while (++I < G) Z[I] = A[I + B];
-  return Z
-}
-// @from(Start 8317576, End 8317585)
-P4A = hv2
-// @from(Start 8317588, End 8317700)
-function mv2(A, B, Q) {
-  var I = A.length;
-  return Q = Q === void 0 ? I : Q, !B && Q >= I ? A : P4A(A, B, Q)
-}
-// @from(Start 8317705, End 8317714)
-S4A = mv2
-// @from(Start 8317720, End 8317743)
-dv2 = "\\ud800-\\udfff"
-// @from(Start 8317747, End 8317770)
-uv2 = "\\u0300-\\u036f"
-// @from(Start 8317774, End 8317797)
-pv2 = "\\ufe20-\\ufe2f"
-// @from(Start 8317801, End 8317824)
-cv2 = "\\u20d0-\\u20ff"
-// @from(Start 8317828, End 8317849)
-lv2 = uv2 + pv2 + cv2
-// @from(Start 8317853, End 8317875)
-iv2 = "\\ufe0e\\ufe0f"
-// @from(Start 8317879, End 8317894)
-nv2 = "\\u200d"
-// @from(Start 8317898, End 8317945)
-av2 = RegExp("[" + nv2 + dv2 + lv2 + iv2 + "]")
-// @from(Start 8317948, End 8317988)
-function sv2(A) {
-  return av2.test(A)
-}
-// @from(Start 8317993, End 8318002)
-T21 = sv2
-// @from(Start 8318005, End 8318045)
-function rv2(A) {
-  return A.split("")
-}
-// @from(Start 8318050, End 8318059)
-_4A = rv2
-// @from(Start 8318065, End 8318088)
-j4A = "\\ud800-\\udfff"
-// @from(Start 8318092, End 8318115)
-ov2 = "\\u0300-\\u036f"
-// @from(Start 8318119, End 8318142)
-tv2 = "\\ufe20-\\ufe2f"
-// @from(Start 8318146, End 8318169)
-ev2 = "\\u20d0-\\u20ff"
-// @from(Start 8318173, End 8318194)
-Ab2 = ov2 + tv2 + ev2
-// @from(Start 8318198, End 8318220)
-Bb2 = "\\ufe0e\\ufe0f"
-// @from(Start 8318224, End 8318245)
-Qb2 = "[" + j4A + "]"
-// @from(Start 8318249, End 8318270)
-RU1 = "[" + Ab2 + "]"
-// @from(Start 8318274, End 8318306)
-OU1 = "\\ud83c[\\udffb-\\udfff]"
-// @from(Start 8318310, End 8318345)
-Ib2 = "(?:" + RU1 + "|" + OU1 + ")"
-// @from(Start 8318349, End 8318371)
-y4A = "[^" + j4A + "]"
-// @from(Start 8318375, End 8318414)
-k4A = "(?:\\ud83c[\\udde6-\\uddff]){2}"
-// @from(Start 8318418, End 8318460)
-x4A = "[\\ud800-\\udbff][\\udc00-\\udfff]"
-// @from(Start 8318464, End 8318479)
-Gb2 = "\\u200d"
-// @from(Start 8318483, End 8318498)
-f4A = Ib2 + "?"
-// @from(Start 8318502, End 8318524)
-v4A = "[" + Bb2 + "]?"
-// @from(Start 8318528, End 8318606)
-Zb2 = "(?:" + Gb2 + "(?:" + [y4A, k4A, x4A].join("|") + ")" + v4A + f4A + ")*"
-// @from(Start 8318610, End 8318631)
-Db2 = v4A + f4A + Zb2
-// @from(Start 8318635, End 8318702)
-Yb2 = "(?:" + [y4A + RU1 + "?", RU1, k4A, x4A, Qb2].join("|") + ")"
-// @from(Start 8318706, End 8318761)
-Wb2 = RegExp(OU1 + "(?=" + OU1 + ")|" + Yb2 + Db2, "g")
-// @from(Start 8318764, End 8318811)
-function Jb2(A) {
-  return A.match(Wb2) || []
-}
-// @from(Start 8318816, End 8318825)
-b4A = Jb2
-// @from(Start 8318828, End 8318881)
-function Fb2(A) {
-  return T21(A) ? b4A(A) : _4A(A)
-}
-// @from(Start 8318886, End 8318895)
-g4A = Fb2
-// @from(Start 8318898, End 8319100)
-function Xb2(A) {
-  return function(B) {
-    B = ik(B);
-    var Q = T21(B) ? g4A(B) : void 0,
-      I = Q ? Q[0] : B.charAt(0),
-      G = Q ? S4A(Q, 1).join("") : B.slice(1);
-    return I[A]() + G
-  }
-}
-// @from(Start 8319105, End 8319114)
-h4A = Xb2
-// @from(Start 8319120, End 8319144)
-Vb2 = h4A("toUpperCase")
-// @from(Start 8319148, End 8319157)
-m4A = Vb2
-// @from(Start 8319160, End 8319213)
-function Cb2(A) {
-  return m4A(ik(A).toLowerCase())
-}
-// @from(Start 8319218, End 8319227)
-TU1 = Cb2
-// @from(Start 8319230, End 8319288)
-function Kb2() {
-  this.__data__ = new iq, this.size = 0
-}
-// @from(Start 8319293, End 8319302)
-d4A = Kb2
-// @from(Start 8319305, End 8319401)
-function Hb2(A) {
-  var B = this.__data__,
-    Q = B.delete(A);
-  return this.size = B.size, Q
-}
-// @from(Start 8319406, End 8319415)
-u4A = Hb2
-// @from(Start 8319418, End 8319467)
-function zb2(A) {
-  return this.__data__.get(A)
-}
-// @from(Start 8319472, End 8319481)
-p4A = zb2
-// @from(Start 8319484, End 8319533)
-function wb2(A) {
-  return this.__data__.has(A)
-}
-// @from(Start 8319538, End 8319547)
-c4A = wb2
-// @from(Start 8319553, End 8319562)
-Eb2 = 200
-// @from(Start 8319565, End 8319832)
-function Ub2(A, B) {
-  var Q = this.__data__;
-  if (Q instanceof iq) {
-    var I = Q.__data__;
-    if (!nq || I.length < Eb2 - 1) return I.push([A, B]), this.size = ++Q.size, this;
-    Q = this.__data__ = new zP(I)
-  }
-  return Q.set(A, B), this.size = Q.size, this
-}
-// @from(Start 8319837, End 8319846)
-l4A = Ub2
-// @from(Start 8319849, End 8319925)
-function rk(A) {
-  var B = this.__data__ = new iq(A);
-  this.size = B.size
-}
-// @from(Start 8320055, End 8320062)
-uH = rk
-// @from(Start 8320065, End 8320117)
-function Nb2(A, B) {
-  return A && vH(B, vF(B), A)
-}
-// @from(Start 8320122, End 8320131)
-i4A = Nb2
-// @from(Start 8320134, End 8320186)
-function $b2(A, B) {
-  return A && vH(B, mH(B), A)
-}
-// @from(Start 8320191, End 8320200)
-n4A = $b2
-// @from(Start 8320206, End 8320214)
-S21 = {}
-// @from(Start 8320254, End 8320313)
-o4A = typeof S21 == "object" && S21 && !S21.nodeType && S21
-// @from(Start 8320317, End 8320383)
-a4A = o4A && typeof P21 == "object" && P21 && !P21.nodeType && P21
-// @from(Start 8320387, End 8320419)
-qb2 = a4A && a4A.exports === o4A
-// @from(Start 8320423, End 8320453)
-s4A = qb2 ? A7.Buffer : void 0
-// @from(Start 8320457, End 8320493)
-r4A = s4A ? s4A.allocUnsafe : void 0
-// @from(Start 8320496, End 8320632)
-function Mb2(A, B) {
-  if (B) return A.slice();
-  var Q = A.length,
-    I = r4A ? r4A(Q) : new A.constructor(Q);
-  return A.copy(I), I
-}
-// @from(Start 8320637, End 8320645)
-zc = Mb2
-// @from(Start 8320648, End 8320825)
-function Lb2(A, B) {
-  var Q = -1,
-    I = A == null ? 0 : A.length,
-    G = 0,
-    Z = [];
-  while (++Q < I) {
-    var D = A[Q];
-    if (B(D, Q, A)) Z[G++] = D
-  }
-  return Z
-}
-// @from(Start 8320830, End 8320839)
-t4A = Lb2
-// @from(Start 8320842, End 8320872)
-function Rb2() {
-  return []
-}
-// @from(Start 8320877, End 8320886)
-_21 = Rb2
-// @from(Start 8320892, End 8320914)
-Ob2 = Object.prototype
-// @from(Start 8320918, End 8320948)
-Tb2 = Ob2.propertyIsEnumerable
-// @from(Start 8320952, End 8320986)
-e4A = Object.getOwnPropertySymbols
-// @from(Start 8320990, End 8321143)
-Pb2 = !e4A ? _21 : function(A) {
-    if (A == null) return [];
-    return A = Object(A), t4A(e4A(A), function(B) {
-      return Tb2.call(A, B)
-    })
-  }
-// @from(Start 8321147, End 8321155)
-ok = Pb2
-// @from(Start 8321158, End 8321205)
-function Sb2(A, B) {
-  return vH(A, ok(A), B)
-}
-// @from(Start 8321210, End 8321219)
-A6A = Sb2
-// @from(Start 8321225, End 8321259)
-_b2 = Object.getOwnPropertySymbols
-// @from(Start 8321263, End 8321367)
-jb2 = !_b2 ? _21 : function(A) {
-    var B = [];
-    while (A) ak(B, ok(A)), A = sk(A);
-    return B
-  }
-// @from(Start 8321371, End 8321380)
-j21 = jb2
-// @from(Start 8321383, End 8321431)
-function yb2(A, B) {
-  return vH(A, j21(A), B)
-}
-// @from(Start 8321436, End 8321445)
-B6A = yb2
-// @from(Start 8321448, End 8321522)
-function kb2(A, B, Q) {
-  var I = B(A);
-  return U8(A) ? I : ak(I, Q(A))
-}
-// @from(Start 8321527, End 8321536)
-y21 = kb2
-// @from(Start 8321539, End 8321582)
-function xb2(A) {
-  return y21(A, vF, ok)
-}
-// @from(Start 8321587, End 8321595)
-wc = xb2
-// @from(Start 8321598, End 8321642)
-function fb2(A) {
-  return y21(A, mH, j21)
-}
-// @from(Start 8321647, End 8321656)
-k21 = fb2
-// @from(Start 8321662, End 8321686)
-vb2 = UY(A7, "DataView")
-// @from(Start 8321690, End 8321699)
-x21 = vb2
-// @from(Start 8321705, End 8321728)
-bb2 = UY(A7, "Promise")
-// @from(Start 8321732, End 8321741)
-f21 = bb2
-// @from(Start 8321747, End 8321766)
-gb2 = UY(A7, "Set")
-// @from(Start 8321770, End 8321778)
-rq = gb2
-// @from(Start 8321784, End 8321804)
-Q6A = "[object Map]"
-// @from(Start 8321808, End 8321831)
-hb2 = "[object Object]"
-// @from(Start 8321835, End 8321859)
-I6A = "[object Promise]"
-// @from(Start 8321863, End 8321883)
-G6A = "[object Set]"
-// @from(Start 8321887, End 8321911)
-Z6A = "[object WeakMap]"
-// @from(Start 8321915, End 8321940)
-D6A = "[object DataView]"
-// @from(Start 8321944, End 8321957)
-mb2 = HU(x21)
-// @from(Start 8321961, End 8321973)
-db2 = HU(nq)
-// @from(Start 8321977, End 8321990)
-ub2 = HU(f21)
-// @from(Start 8321994, End 8322006)
-pb2 = HU(rq)
-// @from(Start 8322010, End 8322023)
-cb2 = HU(w21)
-// @from(Start 8322027, End 8322034)
-wP = oW
-// @from(Start 8322511, End 8322518)
-EU = wP
-// @from(Start 8322524, End 8322546)
-lb2 = Object.prototype
-// @from(Start 8322550, End 8322574)
-ib2 = lb2.hasOwnProperty
-// @from(Start 8322577, End 8322755)
-function nb2(A) {
-  var B = A.length,
-    Q = new A.constructor(B);
-  if (B && typeof A[0] == "string" && ib2.call(A, "index")) Q.index = A.index, Q.input = A.input;
-  return Q
-}
-// @from(Start 8322760, End 8322769)
-Y6A = nb2
-// @from(Start 8322775, End 8322794)
-ab2 = A7.Uint8Array
-// @from(Start 8322798, End 8322806)
-tk = ab2
-// @from(Start 8322809, End 8322908)
-function sb2(A) {
-  var B = new A.constructor(A.byteLength);
-  return new tk(B).set(new tk(A)), B
-}
-// @from(Start 8322913, End 8322921)
-ek = sb2
-// @from(Start 8322924, End 8323043)
-function rb2(A, B) {
-  var Q = B ? ek(A.buffer) : A.buffer;
-  return new A.constructor(Q, A.byteOffset, A.byteLength)
-}
-// @from(Start 8323048, End 8323057)
-W6A = rb2
-// @from(Start 8323063, End 8323075)
-ob2 = /\w*$/
-// @from(Start 8323078, End 8323187)
-function tb2(A) {
-  var B = new A.constructor(A.source, ob2.exec(A));
-  return B.lastIndex = A.lastIndex, B
-}
-// @from(Start 8323192, End 8323201)
-J6A = tb2
-// @from(Start 8323207, End 8323239)
-F6A = JI ? JI.prototype : void 0
-// @from(Start 8323243, End 8323275)
-X6A = F6A ? F6A.valueOf : void 0
-// @from(Start 8323278, End 8323337)
-function eb2(A) {
-  return X6A ? Object(X6A.call(A)) : {}
-}
-// @from(Start 8323342, End 8323351)
-V6A = eb2
-// @from(Start 8323354, End 8323469)
-function Ag2(A, B) {
-  var Q = B ? ek(A.buffer) : A.buffer;
-  return new A.constructor(Q, A.byteOffset, A.length)
-}
-// @from(Start 8323474, End 8323483)
-v21 = Ag2
-// @from(Start 8323489, End 8323513)
-Bg2 = "[object Boolean]"
-// @from(Start 8323517, End 8323538)
-Qg2 = "[object Date]"
-// @from(Start 8323542, End 8323562)
-Ig2 = "[object Map]"
-// @from(Start 8323566, End 8323589)
-Gg2 = "[object Number]"
-// @from(Start 8323593, End 8323616)
-Zg2 = "[object RegExp]"
-// @from(Start 8323620, End 8323640)
-Dg2 = "[object Set]"
-// @from(Start 8323644, End 8323667)
-Yg2 = "[object String]"
-// @from(Start 8323671, End 8323694)
-Wg2 = "[object Symbol]"
-// @from(Start 8323698, End 8323726)
-Jg2 = "[object ArrayBuffer]"
-// @from(Start 8323730, End 8323755)
-Fg2 = "[object DataView]"
-// @from(Start 8323759, End 8323788)
-Xg2 = "[object Float32Array]"
-// @from(Start 8323792, End 8323821)
-Vg2 = "[object Float64Array]"
-// @from(Start 8323825, End 8323851)
-Cg2 = "[object Int8Array]"
-// @from(Start 8323855, End 8323882)
-Kg2 = "[object Int16Array]"
-// @from(Start 8323886, End 8323913)
-Hg2 = "[object Int32Array]"
-// @from(Start 8323917, End 8323944)
-zg2 = "[object Uint8Array]"
-// @from(Start 8323948, End 8323982)
-wg2 = "[object Uint8ClampedArray]"
-// @from(Start 8323986, End 8324014)
-Eg2 = "[object Uint16Array]"
-// @from(Start 8324018, End 8324046)
-Ug2 = "[object Uint32Array]"
-// @from(Start 8324049, End 8324580)
-function Ng2(A, B, Q) {
-  var I = A.constructor;
-  switch (B) {
-    case Jg2:
-      return ek(A);
-    case Bg2:
-    case Qg2:
-      return new I(+A);
-    case Fg2:
-      return W6A(A, Q);
-    case Xg2:
-    case Vg2:
-    case Cg2:
-    case Kg2:
-    case Hg2:
-    case zg2:
-    case wg2:
-    case Eg2:
-    case Ug2:
-      return v21(A, Q);
-    case Ig2:
-      return new I;
-    case Gg2:
-    case Yg2:
-      return new I(A);
-    case Zg2:
-      return J6A(A);
-    case Dg2:
-      return new I;
-    case Wg2:
-      return V6A(A)
-  }
-}
-// @from(Start 8324585, End 8324594)
-C6A = Ng2
-// @from(Start 8324597, End 8324688)
-function $g2(A) {
-  return typeof A.constructor == "function" && !hk(A) ? T9A(sk(A)) : {}
-}
-// @from(Start 8324693, End 8324702)
-b21 = $g2
-// @from(Start 8324708, End 8324728)
-qg2 = "[object Map]"
-// @from(Start 8324731, End 8324781)
-function Mg2(A) {
-  return f7(A) && EU(A) == qg2
-}
-// @from(Start 8324786, End 8324795)
-K6A = Mg2
-// @from(Start 8324801, End 8324821)
-H6A = hH && hH.isMap
-// @from(Start 8324825, End 8324850)
-Lg2 = H6A ? mk(H6A) : K6A
-// @from(Start 8324854, End 8324863)
-z6A = Lg2
-// @from(Start 8324869, End 8324889)
-Rg2 = "[object Set]"
-// @from(Start 8324892, End 8324942)
-function Og2(A) {
-  return f7(A) && EU(A) == Rg2
-}
-// @from(Start 8324947, End 8324956)
-w6A = Og2
-// @from(Start 8324962, End 8324982)
-E6A = hH && hH.isSet
-// @from(Start 8324986, End 8325011)
-Tg2 = E6A ? mk(E6A) : w6A
-// @from(Start 8325015, End 8325024)
-U6A = Tg2
-// @from(Start 8325030, End 8325037)
-Pg2 = 1
-// @from(Start 8325041, End 8325048)
-Sg2 = 2
-// @from(Start 8325052, End 8325059)
-_g2 = 4
-// @from(Start 8325063, End 8325089)
-N6A = "[object Arguments]"
-// @from(Start 8325093, End 8325115)
-jg2 = "[object Array]"
-// @from(Start 8325119, End 8325143)
-yg2 = "[object Boolean]"
-// @from(Start 8325147, End 8325168)
-kg2 = "[object Date]"
-// @from(Start 8325172, End 8325194)
-xg2 = "[object Error]"
-// @from(Start 8325198, End 8325223)
-$6A = "[object Function]"
-// @from(Start 8325227, End 8325261)
-fg2 = "[object GeneratorFunction]"
-// @from(Start 8325265, End 8325285)
-vg2 = "[object Map]"
-// @from(Start 8325289, End 8325312)
-bg2 = "[object Number]"
-// @from(Start 8325316, End 8325339)
-q6A = "[object Object]"
-// @from(Start 8325343, End 8325366)
-gg2 = "[object RegExp]"
-// @from(Start 8325370, End 8325390)
-hg2 = "[object Set]"
-// @from(Start 8325394, End 8325417)
-mg2 = "[object String]"
-// @from(Start 8325421, End 8325444)
-dg2 = "[object Symbol]"
-// @from(Start 8325448, End 8325472)
-ug2 = "[object WeakMap]"
-// @from(Start 8325476, End 8325504)
-pg2 = "[object ArrayBuffer]"
-// @from(Start 8325508, End 8325533)
-cg2 = "[object DataView]"
-// @from(Start 8325537, End 8325566)
-lg2 = "[object Float32Array]"
-// @from(Start 8325570, End 8325599)
-ig2 = "[object Float64Array]"
-// @from(Start 8325603, End 8325629)
-ng2 = "[object Int8Array]"
-// @from(Start 8325633, End 8325660)
-ag2 = "[object Int16Array]"
-// @from(Start 8325664, End 8325691)
-sg2 = "[object Int32Array]"
-// @from(Start 8325695, End 8325722)
-rg2 = "[object Uint8Array]"
-// @from(Start 8325726, End 8325760)
-og2 = "[object Uint8ClampedArray]"
-// @from(Start 8325764, End 8325792)
-tg2 = "[object Uint16Array]"
-// @from(Start 8325796, End 8325824)
-eg2 = "[object Uint32Array]"
-// @from(Start 8325828, End 8325835)
-e8 = {}
-// @from(Start 8326096, End 8327074)
-function g21(A, B, Q, I, G, Z) {
-  var D, Y = B & Pg2,
-    W = B & Sg2,
-    J = B & _g2;
-  if (Q) D = G ? Q(A, I, G, Z) : Q(A);
-  if (D !== void 0) return D;
-  if (!pB(A)) return A;
-  var F = U8(A);
-  if (F) {
-    if (D = Y6A(A), !Y) return E21(A, D)
-  } else {
-    var X = EU(A),
-      V = X == $6A || X == fg2;
-    if (gH(A)) return zc(A, Y);
-    if (X == q6A || X == N6A || V && !G) {
-      if (D = W || V ? {} : b21(A), !Y) return W ? B6A(A, n4A(D, A)) : A6A(A, i4A(D, A))
-    } else {
-      if (!e8[X]) return G ? A : {};
-      D = C6A(A, X, Y)
+})
+// @from(Start 7728829, End 7735932)
+odB = z((ip) => {
+  var kT = ip && ip.__classPrivateFieldGet || function(A, Q, B, G) {
+      if (B === "a" && !G) throw TypeError("Private accessor was defined without a getter");
+      if (typeof Q === "function" ? A !== Q || !G : !Q.has(A)) throw TypeError("Cannot read private member from an object whose class did not declare it");
+      return B === "m" ? G : B === "a" ? G.call(A) : G ? G.value : Q.get(A)
+    },
+    cdB = ip && ip.__classPrivateFieldSet || function(A, Q, B, G, Z) {
+      if (G === "m") throw TypeError("Private method is not writable");
+      if (G === "a" && !Z) throw TypeError("Private accessor was defined without a setter");
+      if (typeof Q === "function" ? A !== Q || !Z : !Q.has(A)) throw TypeError("Cannot write private member to an object whose class did not declare it");
+      return G === "a" ? Z.call(A, B) : Z ? Z.value = B : Q.set(A, B), B
+    },
+    yT, rGA, ll1, pdB, ldB, il1, nl1, idB;
+  Object.defineProperty(ip, "__esModule", {
+    value: !0
+  });
+  ip.GoogleToken = void 0;
+  var ndB = UA("fs"),
+    Ec6 = PT(),
+    zc6 = pl1(),
+    Uc6 = UA("path"),
+    $c6 = UA("util"),
+    adB = ndB.readFile ? (0, $c6.promisify)(ndB.readFile) : async () => {
+      throw new oGA("use key rather than keyFile.", "MISSING_CREDENTIALS")
+    }, sdB = "https://www.googleapis.com/oauth2/v4/token", wc6 = "https://accounts.google.com/o/oauth2/revoke?token=";
+  class oGA extends Error {
+    constructor(A, Q) {
+      super(A);
+      this.code = Q
     }
   }
-  Z || (Z = new uH);
-  var C = Z.get(A);
-  if (C) return C;
-  if (Z.set(A, D), U6A(A)) A.forEach(function(N) {
-    D.add(g21(N, B, Q, N, A, Z))
-  });
-  else if (z6A(A)) A.forEach(function(N, q) {
-    D.set(q, g21(N, B, Q, q, A, Z))
-  });
-  var K = J ? W ? k21 : wc : W ? mH : vF,
-    E = F ? void 0 : K(A);
-  return k9A(E || A, function(N, q) {
-    if (E) q = N, N = A[q];
-    cq(D, q, g21(N, B, Q, q, A, Z))
-  }), D
-}
-// @from(Start 8327079, End 8327088)
-M6A = g21
-// @from(Start 8327094, End 8327101)
-Ah2 = 1
-// @from(Start 8327105, End 8327112)
-Bh2 = 4
-// @from(Start 8327115, End 8327161)
-function Qh2(A) {
-  return M6A(A, Ah2 | Bh2)
-}
-// @from(Start 8327166, End 8327174)
-Ec = Qh2
-// @from(Start 8327180, End 8327213)
-Ih2 = "__lodash_hash_undefined__"
-// @from(Start 8327216, End 8327276)
-function Gh2(A) {
-  return this.__data__.set(A, Ih2), this
-}
-// @from(Start 8327281, End 8327290)
-L6A = Gh2
-// @from(Start 8327293, End 8327342)
-function Zh2(A) {
-  return this.__data__.has(A)
-}
-// @from(Start 8327347, End 8327356)
-R6A = Zh2
-// @from(Start 8327359, End 8327485)
-function h21(A) {
-  var B = -1,
-    Q = A == null ? 0 : A.length;
-  this.__data__ = new zP;
-  while (++B < Q) this.add(A[B])
-}
-// @from(Start 8327561, End 8327570)
-m21 = h21
-// @from(Start 8327573, End 8327707)
-function Dh2(A, B) {
-  var Q = -1,
-    I = A == null ? 0 : A.length;
-  while (++Q < I)
-    if (B(A[Q], Q, A)) return !0;
-  return !1
-}
-// @from(Start 8327712, End 8327721)
-O6A = Dh2
-// @from(Start 8327724, End 8327764)
-function Yh2(A, B) {
-  return A.has(B)
-}
-// @from(Start 8327769, End 8327778)
-d21 = Yh2
-// @from(Start 8327784, End 8327791)
-Wh2 = 1
-// @from(Start 8327795, End 8327802)
-Jh2 = 2
-// @from(Start 8327805, End 8328600)
-function Fh2(A, B, Q, I, G, Z) {
-  var D = Q & Wh2,
-    Y = A.length,
-    W = B.length;
-  if (Y != W && !(D && W > Y)) return !1;
-  var J = Z.get(A),
-    F = Z.get(B);
-  if (J && F) return J == B && F == A;
-  var X = -1,
-    V = !0,
-    C = Q & Jh2 ? new m21 : void 0;
-  Z.set(A, B), Z.set(B, A);
-  while (++X < Y) {
-    var K = A[X],
-      E = B[X];
-    if (I) var N = D ? I(E, K, X, B, A, Z) : I(K, E, X, A, B, Z);
-    if (N !== void 0) {
-      if (N) continue;
-      V = !1;
-      break
+  class rdB {
+    get accessToken() {
+      return this.rawToken ? this.rawToken.access_token : void 0
     }
-    if (C) {
-      if (!O6A(B, function(q, O) {
-          if (!d21(C, O) && (K === q || G(K, q, Q, I, Z))) return C.push(O)
-        })) {
-        V = !1;
-        break
+    get idToken() {
+      return this.rawToken ? this.rawToken.id_token : void 0
+    }
+    get tokenType() {
+      return this.rawToken ? this.rawToken.token_type : void 0
+    }
+    get refreshToken() {
+      return this.rawToken ? this.rawToken.refresh_token : void 0
+    }
+    constructor(A) {
+      yT.add(this), this.transporter = {
+        request: (Q) => (0, Ec6.request)(Q)
+      }, rGA.set(this, void 0), kT(this, yT, "m", nl1).call(this, A)
+    }
+    hasExpired() {
+      let A = new Date().getTime();
+      if (this.rawToken && this.expiresAt) return A >= this.expiresAt;
+      else return !0
+    }
+    isTokenExpiring() {
+      var A;
+      let Q = new Date().getTime(),
+        B = (A = this.eagerRefreshThresholdMillis) !== null && A !== void 0 ? A : 0;
+      if (this.rawToken && this.expiresAt) return this.expiresAt <= Q + B;
+      else return !0
+    }
+    getToken(A, Q = {}) {
+      if (typeof A === "object") Q = A, A = void 0;
+      if (Q = Object.assign({
+          forceRefresh: !1
+        }, Q), A) {
+        let B = A;
+        kT(this, yT, "m", ll1).call(this, Q).then((G) => B(null, G), A);
+        return
       }
-    } else if (!(K === E || G(K, E, Q, I, Z))) {
-      V = !1;
-      break
+      return kT(this, yT, "m", ll1).call(this, Q)
+    }
+    async getCredentials(A) {
+      switch (Uc6.extname(A)) {
+        case ".json": {
+          let B = await adB(A, "utf8"),
+            G = JSON.parse(B),
+            Z = G.private_key,
+            I = G.client_email;
+          if (!Z || !I) throw new oGA("private_key and client_email are required.", "MISSING_CREDENTIALS");
+          return {
+            privateKey: Z,
+            clientEmail: I
+          }
+        }
+        case ".der":
+        case ".crt":
+        case ".pem":
+          return {
+            privateKey: await adB(A, "utf8")
+          };
+        case ".p12":
+        case ".pfx":
+          throw new oGA("*.p12 certificates are not supported after v6.1.2. Consider utilizing *.json format or converting *.p12 to *.pem using the OpenSSL CLI.", "UNKNOWN_CERTIFICATE_TYPE");
+        default:
+          throw new oGA("Unknown certificate type. Type is determined based on file extension. Current supported extensions are *.json, and *.pem.", "UNKNOWN_CERTIFICATE_TYPE")
+      }
+    }
+    revokeToken(A) {
+      if (A) {
+        kT(this, yT, "m", il1).call(this).then(() => A(), A);
+        return
+      }
+      return kT(this, yT, "m", il1).call(this)
     }
   }
-  return Z.delete(A), Z.delete(B), V
-}
-// @from(Start 8328605, End 8328614)
-u21 = Fh2
-// @from(Start 8328617, End 8328737)
-function Xh2(A) {
-  var B = -1,
-    Q = Array(A.size);
-  return A.forEach(function(I, G) {
-    Q[++B] = [G, I]
-  }), Q
-}
-// @from(Start 8328742, End 8328751)
-T6A = Xh2
-// @from(Start 8328754, End 8328866)
-function Vh2(A) {
-  var B = -1,
-    Q = Array(A.size);
-  return A.forEach(function(I) {
-    Q[++B] = I
-  }), Q
-}
-// @from(Start 8328871, End 8328879)
-Ax = Vh2
-// @from(Start 8328885, End 8328892)
-Ch2 = 1
-// @from(Start 8328896, End 8328903)
-Kh2 = 2
-// @from(Start 8328907, End 8328931)
-Hh2 = "[object Boolean]"
-// @from(Start 8328935, End 8328956)
-zh2 = "[object Date]"
-// @from(Start 8328960, End 8328982)
-wh2 = "[object Error]"
-// @from(Start 8328986, End 8329006)
-Eh2 = "[object Map]"
-// @from(Start 8329010, End 8329033)
-Uh2 = "[object Number]"
-// @from(Start 8329037, End 8329060)
-Nh2 = "[object RegExp]"
-// @from(Start 8329064, End 8329084)
-$h2 = "[object Set]"
-// @from(Start 8329088, End 8329111)
-qh2 = "[object String]"
-// @from(Start 8329115, End 8329138)
-Mh2 = "[object Symbol]"
-// @from(Start 8329142, End 8329170)
-Lh2 = "[object ArrayBuffer]"
-// @from(Start 8329174, End 8329199)
-Rh2 = "[object DataView]"
-// @from(Start 8329203, End 8329235)
-P6A = JI ? JI.prototype : void 0
-// @from(Start 8329239, End 8329271)
-PU1 = P6A ? P6A.valueOf : void 0
-// @from(Start 8329274, End 8330121)
-function Oh2(A, B, Q, I, G, Z, D) {
-  switch (Q) {
-    case Rh2:
-      if (A.byteLength != B.byteLength || A.byteOffset != B.byteOffset) return !1;
-      A = A.buffer, B = B.buffer;
-    case Lh2:
-      if (A.byteLength != B.byteLength || !Z(new tk(A), new tk(B))) return !1;
-      return !0;
-    case Hh2:
-    case zh2:
-    case Uh2:
-      return fH(+A, +B);
-    case wh2:
-      return A.name == B.name && A.message == B.message;
-    case Nh2:
-    case qh2:
-      return A == B + "";
-    case Eh2:
-      var Y = T6A;
-    case $h2:
-      var W = I & Ch2;
-      if (Y || (Y = Ax), A.size != B.size && !W) return !1;
-      var J = D.get(A);
-      if (J) return J == B;
-      I |= Kh2, D.set(A, B);
-      var F = u21(Y(A), Y(B), I, G, Z, D);
-      return D.delete(A), F;
-    case Mh2:
-      if (PU1) return PU1.call(A) == PU1.call(B)
-  }
-  return !1
-}
-// @from(Start 8330126, End 8330135)
-S6A = Oh2
-// @from(Start 8330141, End 8330148)
-Th2 = 1
-// @from(Start 8330152, End 8330174)
-Ph2 = Object.prototype
-// @from(Start 8330178, End 8330202)
-Sh2 = Ph2.hasOwnProperty
-// @from(Start 8330205, End 8331127)
-function _h2(A, B, Q, I, G, Z) {
-  var D = Q & Th2,
-    Y = wc(A),
-    W = Y.length,
-    J = wc(B),
-    F = J.length;
-  if (W != F && !D) return !1;
-  var X = W;
-  while (X--) {
-    var V = Y[X];
-    if (!(D ? V in B : Sh2.call(B, V))) return !1
-  }
-  var C = Z.get(A),
-    K = Z.get(B);
-  if (C && K) return C == B && K == A;
-  var E = !0;
-  Z.set(A, B), Z.set(B, A);
-  var N = D;
-  while (++X < W) {
-    V = Y[X];
-    var q = A[V],
-      O = B[V];
-    if (I) var R = D ? I(O, q, V, B, A, Z) : I(q, O, V, A, B, Z);
-    if (!(R === void 0 ? q === O || G(q, O, Q, I, Z) : R)) {
-      E = !1;
-      break
+  ip.GoogleToken = rdB;
+  rGA = new WeakMap, yT = new WeakSet, ll1 = async function(Q) {
+    if (kT(this, rGA, "f") && !Q.forceRefresh) return kT(this, rGA, "f");
+    try {
+      return await cdB(this, rGA, kT(this, yT, "m", pdB).call(this, Q), "f")
+    } finally {
+      cdB(this, rGA, void 0, "f")
     }
-    N || (N = V == "constructor")
-  }
-  if (E && !N) {
-    var T = A.constructor,
-      L = B.constructor;
-    if (T != L && (("constructor" in A) && ("constructor" in B)) && !(typeof T == "function" && T instanceof T && typeof L == "function" && L instanceof L)) E = !1
-  }
-  return Z.delete(A), Z.delete(B), E
-}
-// @from(Start 8331132, End 8331141)
-_6A = _h2
-// @from(Start 8331147, End 8331154)
-jh2 = 1
-// @from(Start 8331158, End 8331184)
-j6A = "[object Arguments]"
-// @from(Start 8331188, End 8331210)
-y6A = "[object Array]"
-// @from(Start 8331214, End 8331237)
-p21 = "[object Object]"
-// @from(Start 8331241, End 8331263)
-yh2 = Object.prototype
-// @from(Start 8331267, End 8331291)
-k6A = yh2.hasOwnProperty
-// @from(Start 8331294, End 8332008)
-function kh2(A, B, Q, I, G, Z) {
-  var D = U8(A),
-    Y = U8(B),
-    W = D ? y6A : EU(A),
-    J = Y ? y6A : EU(B);
-  W = W == j6A ? p21 : W, J = J == j6A ? p21 : J;
-  var F = W == p21,
-    X = J == p21,
-    V = W == J;
-  if (V && gH(A)) {
-    if (!gH(B)) return !1;
-    D = !0, F = !1
-  }
-  if (V && !F) return Z || (Z = new uH), D || dk(A) ? u21(A, B, Q, I, G, Z) : S6A(A, B, W, Q, I, G, Z);
-  if (!(Q & jh2)) {
-    var C = F && k6A.call(A, "__wrapped__"),
-      K = X && k6A.call(B, "__wrapped__");
-    if (C || K) {
-      var E = C ? A.value() : A,
-        N = K ? B.value() : B;
-      return Z || (Z = new uH), G(E, N, Q, I, Z)
+  }, pdB = async function(Q) {
+    if (this.isTokenExpiring() === !1 && Q.forceRefresh === !1) return Promise.resolve(this.rawToken);
+    if (!this.key && !this.keyFile) throw Error("No key or keyFile set.");
+    if (!this.key && this.keyFile) {
+      let B = await this.getCredentials(this.keyFile);
+      if (this.key = B.privateKey, this.iss = B.clientEmail || this.iss, !B.clientEmail) kT(this, yT, "m", ldB).call(this)
+    }
+    return kT(this, yT, "m", idB).call(this)
+  }, ldB = function() {
+    if (!this.iss) throw new oGA("email is required.", "MISSING_CREDENTIALS")
+  }, il1 = async function() {
+    if (!this.accessToken) throw Error("No token to revoke.");
+    let Q = wc6 + this.accessToken;
+    await this.transporter.request({
+      url: Q,
+      retry: !0
+    }), kT(this, yT, "m", nl1).call(this, {
+      email: this.iss,
+      sub: this.sub,
+      key: this.key,
+      keyFile: this.keyFile,
+      scope: this.scope,
+      additionalClaims: this.additionalClaims
+    })
+  }, nl1 = function(Q = {}) {
+    if (this.keyFile = Q.keyFile, this.key = Q.key, this.rawToken = void 0, this.iss = Q.email || Q.iss, this.sub = Q.sub, this.additionalClaims = Q.additionalClaims, typeof Q.scope === "object") this.scope = Q.scope.join(" ");
+    else this.scope = Q.scope;
+    if (this.eagerRefreshThresholdMillis = Q.eagerRefreshThresholdMillis, Q.transporter) this.transporter = Q.transporter
+  }, idB = async function() {
+    var Q, B;
+    let G = Math.floor(new Date().getTime() / 1000),
+      Z = this.additionalClaims || {},
+      I = Object.assign({
+        iss: this.iss,
+        scope: this.scope,
+        aud: sdB,
+        exp: G + 3600,
+        iat: G,
+        sub: this.sub
+      }, Z),
+      Y = zc6.sign({
+        header: {
+          alg: "RS256"
+        },
+        payload: I,
+        secret: this.key
+      });
+    try {
+      let J = await this.transporter.request({
+        method: "POST",
+        url: sdB,
+        data: {
+          grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+          assertion: Y
+        },
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        responseType: "json",
+        retryConfig: {
+          httpMethodsToRetry: ["POST"]
+        }
+      });
+      return this.rawToken = J.data, this.expiresAt = J.data.expires_in === null || J.data.expires_in === void 0 ? void 0 : (G + J.data.expires_in) * 1000, this.rawToken
+    } catch (J) {
+      this.rawToken = void 0, this.tokenExpires = void 0;
+      let W = J.response && ((Q = J.response) === null || Q === void 0 ? void 0 : Q.data) ? (B = J.response) === null || B === void 0 ? void 0 : B.data : {};
+      if (W.error) {
+        let X = W.error_description ? `: ${W.error_description}` : "";
+        J.message = `${W.error}${X}`
+      }
+      throw J
     }
   }
-  if (!V) return !1;
-  return Z || (Z = new uH), _6A(A, B, Q, I, G, Z)
-}
-// @from(Start 8332013, End 8332022)
-x6A = kh2
-// @from(Start 8332025, End 8332192)
-function f6A(A, B, Q, I, G) {
-  if (A === B) return !0;
-  if (A == null || B == null || !f7(A) && !f7(B)) return A !== A && B !== B;
-  return x6A(A, B, Q, I, f6A, G)
-}
-// @from(Start 8332197, End 8332205)
-Bx = f6A
-// @from(Start 8332211, End 8332218)
-xh2 = 1
-// @from(Start 8332222, End 8332229)
-fh2 = 2
-// @from(Start 8332232, End 8332769)
-function vh2(A, B, Q, I) {
-  var G = Q.length,
-    Z = G,
-    D = !I;
-  if (A == null) return !Z;
-  A = Object(A);
-  while (G--) {
-    var Y = Q[G];
-    if (D && Y[2] ? Y[1] !== A[Y[0]] : !(Y[0] in A)) return !1
-  }
-  while (++G < Z) {
-    Y = Q[G];
-    var W = Y[0],
-      J = A[W],
-      F = Y[1];
-    if (D && Y[2]) {
-      if (J === void 0 && !(W in A)) return !1
-    } else {
-      var X = new uH;
-      if (I) var V = I(J, F, W, A, B, X);
-      if (!(V === void 0 ? Bx(F, J, xh2 | fh2, I, X) : V)) return !1
+})
+// @from(Start 7735938, End 7738925)
+sl1 = z((edB) => {
+  Object.defineProperty(edB, "__esModule", {
+    value: !0
+  });
+  edB.JWTAccess = void 0;
+  var qc6 = pl1(),
+    Nc6 = lp(),
+    tdB = {
+      alg: "RS256",
+      typ: "JWT"
+    };
+  class al1 {
+    constructor(A, Q, B, G) {
+      this.cache = new Nc6.LRUCache({
+        capacity: 500,
+        maxAge: 3600000
+      }), this.email = A, this.key = Q, this.keyId = B, this.eagerRefreshThresholdMillis = G !== null && G !== void 0 ? G : 300000
+    }
+    getCachedKey(A, Q) {
+      let B = A;
+      if (Q && Array.isArray(Q) && Q.length) B = A ? `${A}_${Q.join("_")}` : `${Q.join("_")}`;
+      else if (typeof Q === "string") B = A ? `${A}_${Q}` : Q;
+      if (!B) throw Error("Scopes or url must be provided");
+      return B
+    }
+    getRequestHeaders(A, Q, B) {
+      let G = this.getCachedKey(A, B),
+        Z = this.cache.get(G),
+        I = Date.now();
+      if (Z && Z.expiration - I > this.eagerRefreshThresholdMillis) return Z.headers;
+      let Y = Math.floor(Date.now() / 1000),
+        J = al1.getExpirationTime(Y),
+        W;
+      if (Array.isArray(B)) B = B.join(" ");
+      if (B) W = {
+        iss: this.email,
+        sub: this.email,
+        scope: B,
+        exp: J,
+        iat: Y
+      };
+      else W = {
+        iss: this.email,
+        sub: this.email,
+        aud: A,
+        exp: J,
+        iat: Y
+      };
+      if (Q) {
+        for (let D in W)
+          if (Q[D]) throw Error(`The '${D}' property is not allowed when passing additionalClaims. This claim is included in the JWT by default.`)
+      }
+      let X = this.keyId ? {
+          ...tdB,
+          kid: this.keyId
+        } : tdB,
+        V = Object.assign(W, Q),
+        K = {
+          Authorization: `Bearer ${qc6.sign({header:X,payload:V,secret:this.key})}`
+        };
+      return this.cache.set(G, {
+        expiration: J * 1000,
+        headers: K
+      }), K
+    }
+    static getExpirationTime(A) {
+      return A + 3600
+    }
+    fromJSON(A) {
+      if (!A) throw Error("Must pass in a JSON object containing the service account auth settings.");
+      if (!A.client_email) throw Error("The incoming JSON object does not contain a client_email field");
+      if (!A.private_key) throw Error("The incoming JSON object does not contain a private_key field");
+      this.email = A.client_email, this.key = A.private_key, this.keyId = A.private_key_id, this.projectId = A.project_id
+    }
+    fromStream(A, Q) {
+      if (Q) this.fromStreamAsync(A).then(() => Q(), Q);
+      else return this.fromStreamAsync(A)
+    }
+    fromStreamAsync(A) {
+      return new Promise((Q, B) => {
+        if (!A) B(Error("Must pass in a stream containing the service account auth settings."));
+        let G = "";
+        A.setEncoding("utf8").on("data", (Z) => G += Z).on("error", B).on("end", () => {
+          try {
+            let Z = JSON.parse(G);
+            this.fromJSON(Z), Q()
+          } catch (Z) {
+            B(Z)
+          }
+        })
+      })
     }
   }
-  return !0
-}
-// @from(Start 8332774, End 8332783)
-v6A = vh2
-// @from(Start 8332786, End 8332832)
-function bh2(A) {
-  return A === A && !pB(A)
-}
-// @from(Start 8332837, End 8332846)
-c21 = bh2
-// @from(Start 8332849, End 8332994)
-function gh2(A) {
-  var B = vF(A),
-    Q = B.length;
-  while (Q--) {
-    var I = B[Q],
-      G = A[I];
-    B[Q] = [I, G, c21(G)]
-  }
-  return B
-}
-// @from(Start 8332999, End 8333008)
-b6A = gh2
-// @from(Start 8333011, End 8333150)
-function hh2(A, B) {
-  return function(Q) {
-    if (Q == null) return !1;
-    return Q[A] === B && (B !== void 0 || (A in Object(Q)))
-  }
-}
-// @from(Start 8333155, End 8333164)
-l21 = hh2
-// @from(Start 8333167, End 8333328)
-function mh2(A) {
-  var B = b6A(A);
-  if (B.length == 1 && B[0][2]) return l21(B[0][0], B[0][1]);
-  return function(Q) {
-    return Q === A || v6A(Q, A, B)
-  }
-}
-// @from(Start 8333333, End 8333342)
-g6A = mh2
-// @from(Start 8333345, End 8333404)
-function dh2(A, B) {
-  return A != null && B in Object(A)
-}
-// @from(Start 8333409, End 8333418)
-h6A = dh2
-// @from(Start 8333421, End 8333724)
-function uh2(A, B, Q) {
-  B = sq(B, A);
-  var I = -1,
-    G = B.length,
-    Z = !1;
-  while (++I < G) {
-    var D = dH(B[I]);
-    if (!(Z = A != null && Q(A, D))) break;
-    A = A[D]
-  }
-  if (Z || ++I != G) return Z;
-  return G = A == null ? 0 : A.length, !!G && gk(G) && uq(D, G) && (U8(A) || zU(A))
-}
-// @from(Start 8333729, End 8333738)
-m6A = uh2
-// @from(Start 8333741, End 8333800)
-function ph2(A, B) {
-  return A != null && m6A(A, B, h6A)
-}
-// @from(Start 8333805, End 8333814)
-i21 = ph2
-// @from(Start 8333820, End 8333827)
-ch2 = 1
-// @from(Start 8333831, End 8333838)
-lh2 = 2
-// @from(Start 8333841, End 8334027)
-function ih2(A, B) {
-  if (uk(A) && c21(B)) return l21(dH(A), B);
-  return function(Q) {
-    var I = N4A(Q, A);
-    return I === void 0 && I === B ? i21(Q, A) : Bx(B, I, ch2 | lh2)
-  }
-}
-// @from(Start 8334032, End 8334041)
-d6A = ih2
-// @from(Start 8334044, End 8334127)
-function nh2(A) {
-  return function(B) {
-    return B == null ? void 0 : B[A]
-  }
-}
-// @from(Start 8334132, End 8334141)
-u6A = nh2
-// @from(Start 8334144, End 8334210)
-function ah2(A) {
-  return function(B) {
-    return nk(B, A)
-  }
-}
-// @from(Start 8334215, End 8334224)
-p6A = ah2
-// @from(Start 8334227, End 8334283)
-function sh2(A) {
-  return uk(A) ? u6A(dH(A)) : p6A(A)
-}
-// @from(Start 8334288, End 8334297)
-c6A = sh2
-// @from(Start 8334300, End 8334472)
-function rh2(A) {
-  if (typeof A == "function") return A;
-  if (A == null) return fk;
-  if (typeof A == "object") return U8(A) ? d6A(A[0], A[1]) : g6A(A);
-  return c6A(A)
-}
-// @from(Start 8334477, End 8334485)
-oq = rh2
-// @from(Start 8334488, End 8334638)
-function oh2(A, B, Q, I) {
-  var G = -1,
-    Z = A == null ? 0 : A.length;
-  while (++G < Z) {
-    var D = A[G];
-    B(I, D, Q(D), A)
-  }
-  return I
-}
-// @from(Start 8334643, End 8334652)
-l6A = oh2
-// @from(Start 8334655, End 8334885)
-function th2(A) {
-  return function(B, Q, I) {
-    var G = -1,
-      Z = Object(B),
-      D = I(B),
-      Y = D.length;
-    while (Y--) {
-      var W = D[A ? Y : ++G];
-      if (Q(Z[W], W, Z) === !1) break
+  edB.JWTAccess = al1
+})
+// @from(Start 7738931, End 7744966)
+ol1 = z((BcB) => {
+  Object.defineProperty(BcB, "__esModule", {
+    value: !0
+  });
+  BcB.JWT = void 0;
+  var QcB = odB(),
+    Lc6 = sl1(),
+    Mc6 = $e(),
+    ReA = Gk();
+  class rl1 extends Mc6.OAuth2Client {
+    constructor(A, Q, B, G, Z, I) {
+      let Y = A && typeof A === "object" ? A : {
+        email: A,
+        keyFile: Q,
+        key: B,
+        keyId: I,
+        scopes: G,
+        subject: Z
+      };
+      super(Y);
+      this.email = Y.email, this.keyFile = Y.keyFile, this.key = Y.key, this.keyId = Y.keyId, this.scopes = Y.scopes, this.subject = Y.subject, this.additionalClaims = Y.additionalClaims, this.credentials = {
+        refresh_token: "jwt-placeholder",
+        expiry_date: 1
+      }
     }
-    return B
-  }
-}
-// @from(Start 8334890, End 8334899)
-i6A = th2
-// @from(Start 8334905, End 8334916)
-eh2 = i6A()
-// @from(Start 8334920, End 8334929)
-n21 = eh2
-// @from(Start 8334932, End 8334982)
-function Am2(A, B) {
-  return A && n21(A, B, vF)
-}
-// @from(Start 8334987, End 8334996)
-a21 = Am2
-// @from(Start 8334999, End 8335259)
-function Bm2(A, B) {
-  return function(Q, I) {
-    if (Q == null) return Q;
-    if (!bH(Q)) return A(Q, I);
-    var G = Q.length,
-      Z = B ? G : -1,
-      D = Object(Q);
-    while (B ? Z-- : ++Z < G)
-      if (I(D[Z], Z, D) === !1) break;
-    return Q
-  }
-}
-// @from(Start 8335264, End 8335273)
-n6A = Bm2
-// @from(Start 8335279, End 8335293)
-Qm2 = n6A(a21)
-// @from(Start 8335297, End 8335306)
-a6A = Qm2
-// @from(Start 8335309, End 8335402)
-function Im2(A, B, Q, I) {
-  return a6A(A, function(G, Z, D) {
-    B(I, G, Q(G), D)
-  }), I
-}
-// @from(Start 8335407, End 8335416)
-s6A = Im2
-// @from(Start 8335419, End 8335558)
-function Gm2(A, B) {
-  return function(Q, I) {
-    var G = U8(Q) ? l6A : s6A,
-      Z = B ? B() : {};
-    return G(Q, A, oq(I, 2), Z)
-  }
-}
-// @from(Start 8335563, End 8335572)
-r6A = Gm2
-// @from(Start 8335575, End 8335677)
-function Zm2(A, B, Q) {
-  if (Q !== void 0 && !fH(A[B], Q) || Q === void 0 && !(B in A)) pq(A, B, Q)
-}
-// @from(Start 8335682, End 8335690)
-Uc = Zm2
-// @from(Start 8335693, End 8335736)
-function Dm2(A) {
-  return f7(A) && bH(A)
-}
-// @from(Start 8335741, End 8335750)
-o6A = Dm2
-// @from(Start 8335753, End 8335886)
-function Ym2(A, B) {
-  if (B === "constructor" && typeof A[B] === "function") return;
-  if (B == "__proto__") return;
-  return A[B]
-}
-// @from(Start 8335891, End 8335899)
-Nc = Ym2
-// @from(Start 8335902, End 8335943)
-function Wm2(A) {
-  return vH(A, mH(A))
-}
-// @from(Start 8335948, End 8335957)
-t6A = Wm2
-// @from(Start 8335960, End 8336631)
-function Jm2(A, B, Q, I, G, Z, D) {
-  var Y = Nc(A, Q),
-    W = Nc(B, Q),
-    J = D.get(W);
-  if (J) {
-    Uc(A, Q, J);
-    return
-  }
-  var F = Z ? Z(Y, W, Q + "", A, B, D) : void 0,
-    X = F === void 0;
-  if (X) {
-    var V = U8(W),
-      C = !V && gH(W),
-      K = !V && !C && dk(W);
-    if (F = W, V || C || K)
-      if (U8(Y)) F = Y;
-      else if (o6A(Y)) F = E21(Y);
-    else if (C) X = !1, F = zc(W, !0);
-    else if (K) X = !1, F = v21(W, !0);
-    else F = [];
-    else if (Hc(W) || zU(W)) {
-      if (F = Y, zU(Y)) F = t6A(Y);
-      else if (!pB(Y) || vk(Y)) F = b21(W)
-    } else X = !1
-  }
-  if (X) D.set(W, F), G(F, W, I, Z, D), D.delete(W);
-  Uc(A, Q, F)
-}
-// @from(Start 8336636, End 8336645)
-e6A = Jm2
-// @from(Start 8336648, End 8336925)
-function A5A(A, B, Q, I, G) {
-  if (A === B) return;
-  n21(B, function(Z, D) {
-    if (G || (G = new uH), pB(Z)) e6A(A, B, D, Q, A5A, I, G);
-    else {
-      var Y = I ? I(Nc(A, D), Z, D + "", A, B, G) : void 0;
-      if (Y === void 0) Y = Z;
-      Uc(A, D, Y)
+    createScoped(A) {
+      let Q = new rl1(this);
+      return Q.scopes = A, Q
     }
-  }, mH)
-}
-// @from(Start 8336930, End 8336939)
-B5A = A5A
-// @from(Start 8336945, End 8337002)
-Fm2 = u9A(function(A, B, Q, I) {
-    B5A(A, B, Q, I)
-  })
-// @from(Start 8337006, End 8337015)
-SU1 = Fm2
-// @from(Start 8337018, End 8337152)
-function Xm2(A, B, Q) {
-  var I = -1,
-    G = A == null ? 0 : A.length;
-  while (++I < G)
-    if (Q(B, A[I])) return !0;
-  return !1
-}
-// @from(Start 8337157, End 8337166)
-Q5A = Xm2
-// @from(Start 8337169, End 8337255)
-function Vm2(A) {
-  var B = A == null ? 0 : A.length;
-  return B ? A[B - 1] : void 0
-}
-// @from(Start 8337260, End 8337268)
-UD = Vm2
-// @from(Start 8337271, End 8337343)
-function Cm2(A, B) {
-  return xk(B, function(Q) {
-    return A[Q]
-  })
-}
-// @from(Start 8337348, End 8337357)
-I5A = Cm2
-// @from(Start 8337360, End 8337419)
-function Km2(A) {
-  return A == null ? [] : I5A(A, vF(A))
-}
-// @from(Start 8337424, End 8337433)
-G5A = Km2
-// @from(Start 8337436, End 8337476)
-function Hm2(A, B) {
-  return Bx(A, B)
-}
-// @from(Start 8337481, End 8337490)
-s21 = Hm2
-// @from(Start 8337493, End 8337612)
-function zm2(A, B) {
-  var Q = {};
-  return B = oq(B, 3), a21(A, function(I, G, Z) {
-    pq(Q, G, B(I, G, Z))
-  }), Q
-}
-// @from(Start 8337617, End 8337625)
-UU = zm2
+    async getRequestMetadataAsync(A) {
+      A = this.defaultServicePath ? `https://${this.defaultServicePath}/` : A;
+      let Q = !this.hasUserScopes() && A || this.useJWTAccessWithScope && this.hasAnyScopes() || this.universeDomain !== ReA.DEFAULT_UNIVERSE;
+      if (this.subject && this.universeDomain !== ReA.DEFAULT_UNIVERSE) throw RangeError(`Service Account user is configured for the credential. Domain-wide delegation is not supported in universes other than ${ReA.DEFAULT_UNIVERSE}`);
+      if (!this.apiKey && Q)
+        if (this.additionalClaims && this.additionalClaims.target_audience) {
+          let {
+            tokens: B
+          } = await this.refreshToken();
+          return {
+            headers: this.addSharedMetadataHeaders({
+              Authorization: `Bearer ${B.id_token}`
+            })
+          }
+        } else {
+          if (!this.access) this.access = new Lc6.JWTAccess(this.email, this.key, this.keyId, this.eagerRefreshThresholdMillis);
+          let B;
+          if (this.hasUserScopes()) B = this.scopes;
+          else if (!A) B = this.defaultScopes;
+          let G = this.useJWTAccessWithScope || this.universeDomain !== ReA.DEFAULT_UNIVERSE,
+            Z = await this.access.getRequestHeaders(A !== null && A !== void 0 ? A : void 0, this.additionalClaims, G ? B : void 0);
+          return {
+            headers: this.addSharedMetadataHeaders(Z)
+          }
+        }
+      else if (this.hasAnyScopes() || this.apiKey) return super.getRequestMetadataAsync(A);
+      else return {
+        headers: {}
+      }
+    }
+    async fetchIdToken(A) {
+      let Q = new QcB.GoogleToken({
+        iss: this.email,
+        sub: this.subject,
+        scope: this.scopes || this.defaultScopes,
+        keyFile: this.keyFile,
+        key: this.key,
+        additionalClaims: {
+          target_audience: A
+        },
+        transporter: this.transporter
+      });
+      if (await Q.getToken({
+          forceRefresh: !0
+        }), !Q.idToken) throw Error("Unknown error: Failed to fetch ID token");
+      return Q.idToken
+    }
+    hasUserScopes() {
+      if (!this.scopes) return !1;
+      return this.scopes.length > 0
+    }
+    hasAnyScopes() {
+      if (this.scopes && this.scopes.length > 0) return !0;
+      if (this.defaultScopes && this.defaultScopes.length > 0) return !0;
+      return !1
+    }
+    authorize(A) {
+      if (A) this.authorizeAsync().then((Q) => A(null, Q), A);
+      else return this.authorizeAsync()
+    }
+    async authorizeAsync() {
+      let A = await this.refreshToken();
+      if (!A) throw Error("No result returned");
+      return this.credentials = A.tokens, this.credentials.refresh_token = "jwt-placeholder", this.key = this.gtoken.key, this.email = this.gtoken.iss, A.tokens
+    }
+    async refreshTokenNoCache(A) {
+      let Q = this.createGToken(),
+        G = {
+          access_token: (await Q.getToken({
+            forceRefresh: this.isTokenExpiring()
+          })).access_token,
+          token_type: "Bearer",
+          expiry_date: Q.expiresAt,
+          id_token: Q.idToken
+        };
+      return this.emit("tokens", G), {
+        res: null,
+        tokens: G
+      }
+    }
+    createGToken() {
+      if (!this.gtoken) this.gtoken = new QcB.GoogleToken({
+        iss: this.email,
+        sub: this.subject,
+        scope: this.scopes || this.defaultScopes,
+        keyFile: this.keyFile,
+        key: this.key,
+        additionalClaims: this.additionalClaims,
+        transporter: this.transporter
+      });
+      return this.gtoken
+    }
+    fromJSON(A) {
+      if (!A) throw Error("Must pass in a JSON object containing the service account auth settings.");
+      if (!A.client_email) throw Error("The incoming JSON object does not contain a client_email field");
+      if (!A.private_key) throw Error("The incoming JSON object does not contain a private_key field");
+      this.email = A.client_email, this.key = A.private_key, this.keyId = A.private_key_id, this.projectId = A.project_id, this.quotaProjectId = A.quota_project_id, this.universeDomain = A.universe_domain || this.universeDomain
+    }
+    fromStream(A, Q) {
+      if (Q) this.fromStreamAsync(A).then(() => Q(), Q);
+      else return this.fromStreamAsync(A)
+    }
+    fromStreamAsync(A) {
+      return new Promise((Q, B) => {
+        if (!A) throw Error("Must pass in a stream containing the service account auth settings.");
+        let G = "";
+        A.setEncoding("utf8").on("error", B).on("data", (Z) => G += Z).on("end", () => {
+          try {
+            let Z = JSON.parse(G);
+            this.fromJSON(Z), Q()
+          } catch (Z) {
+            B(Z)
+          }
+        })
+      })
+    }
+    fromAPIKey(A) {
+      if (typeof A !== "string") throw Error("Must provide an API Key string.");
+      this.apiKey = A
+    }
+    async getCredentials() {
+      if (this.key) return {
+        private_key: this.key,
+        client_email: this.email
+      };
+      else if (this.keyFile) {
+        let Q = await this.createGToken().getCredentials(this.keyFile);
+        return {
+          private_key: Q.privateKey,
+          client_email: Q.clientEmail
+        }
+      }
+      throw Error("A key or a keyFile must be provided to getCredentials.")
+    }
+  }
+  BcB.JWT = rl1
+})
+// @from(Start 7744972, End 7747760)
+tl1 = z((ZcB) => {
+  Object.defineProperty(ZcB, "__esModule", {
+    value: !0
+  });
+  ZcB.UserRefreshClient = ZcB.USER_REFRESH_ACCOUNT_TYPE = void 0;
+  var Oc6 = $e(),
+    Rc6 = UA("querystring");
+  ZcB.USER_REFRESH_ACCOUNT_TYPE = "authorized_user";
+  class TeA extends Oc6.OAuth2Client {
+    constructor(A, Q, B, G, Z) {
+      let I = A && typeof A === "object" ? A : {
+        clientId: A,
+        clientSecret: Q,
+        refreshToken: B,
+        eagerRefreshThresholdMillis: G,
+        forceRefreshOnFailure: Z
+      };
+      super(I);
+      this._refreshToken = I.refreshToken, this.credentials.refresh_token = I.refreshToken
+    }
+    async refreshTokenNoCache(A) {
+      return super.refreshTokenNoCache(this._refreshToken)
+    }
+    async fetchIdToken(A) {
+      return (await this.transporter.request({
+        ...TeA.RETRY_CONFIG,
+        url: this.endpoints.oauth2TokenUrl,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        method: "POST",
+        data: (0, Rc6.stringify)({
+          client_id: this._clientId,
+          client_secret: this._clientSecret,
+          grant_type: "refresh_token",
+          refresh_token: this._refreshToken,
+          target_audience: A
+        })
+      })).data.id_token
+    }
+    fromJSON(A) {
+      if (!A) throw Error("Must pass in a JSON object containing the user refresh token");
+      if (A.type !== "authorized_user") throw Error('The incoming JSON object does not have the "authorized_user" type');
+      if (!A.client_id) throw Error("The incoming JSON object does not contain a client_id field");
+      if (!A.client_secret) throw Error("The incoming JSON object does not contain a client_secret field");
+      if (!A.refresh_token) throw Error("The incoming JSON object does not contain a refresh_token field");
+      this._clientId = A.client_id, this._clientSecret = A.client_secret, this._refreshToken = A.refresh_token, this.credentials.refresh_token = A.refresh_token, this.quotaProjectId = A.quota_project_id, this.universeDomain = A.universe_domain || this.universeDomain
+    }
+    fromStream(A, Q) {
+      if (Q) this.fromStreamAsync(A).then(() => Q(), Q);
+      else return this.fromStreamAsync(A)
+    }
+    async fromStreamAsync(A) {
+      return new Promise((Q, B) => {
+        if (!A) return B(Error("Must pass in a stream containing the user refresh token."));
+        let G = "";
+        A.setEncoding("utf8").on("error", B).on("data", (Z) => G += Z).on("end", () => {
+          try {
+            let Z = JSON.parse(G);
+            return this.fromJSON(Z), Q()
+          } catch (Z) {
+            return B(Z)
+          }
+        })
+      })
+    }
+    static fromJSON(A) {
+      let Q = new TeA;
+      return Q.fromJSON(A), Q
+    }
+  }
+  ZcB.UserRefreshClient = TeA
+})
+// @from(Start 7747766, End 7751868)
+el1 = z((JcB) => {
+  Object.defineProperty(JcB, "__esModule", {
+    value: !0
+  });
+  JcB.Impersonated = JcB.IMPERSONATED_ACCOUNT_TYPE = void 0;
+  var YcB = $e(),
+    Pc6 = PT(),
+    jc6 = lp();
+  JcB.IMPERSONATED_ACCOUNT_TYPE = "impersonated_service_account";
+  class xwA extends YcB.OAuth2Client {
+    constructor(A = {}) {
+      var Q, B, G, Z, I, Y;
+      super(A);
+      if (this.credentials = {
+          expiry_date: 1,
+          refresh_token: "impersonated-placeholder"
+        }, this.sourceClient = (Q = A.sourceClient) !== null && Q !== void 0 ? Q : new YcB.OAuth2Client, this.targetPrincipal = (B = A.targetPrincipal) !== null && B !== void 0 ? B : "", this.delegates = (G = A.delegates) !== null && G !== void 0 ? G : [], this.targetScopes = (Z = A.targetScopes) !== null && Z !== void 0 ? Z : [], this.lifetime = (I = A.lifetime) !== null && I !== void 0 ? I : 3600, !(0, jc6.originalOrCamelOptions)(A).get("universe_domain")) this.universeDomain = this.sourceClient.universeDomain;
+      else if (this.sourceClient.universeDomain !== this.universeDomain) throw RangeError(`Universe domain ${this.sourceClient.universeDomain} in source credentials does not match ${this.universeDomain} universe domain set for impersonated credentials.`);
+      this.endpoint = (Y = A.endpoint) !== null && Y !== void 0 ? Y : `https://iamcredentials.${this.universeDomain}`
+    }
+    async sign(A) {
+      await this.sourceClient.getAccessToken();
+      let Q = `projects/-/serviceAccounts/${this.targetPrincipal}`,
+        B = `${this.endpoint}/v1/${Q}:signBlob`,
+        G = {
+          delegates: this.delegates,
+          payload: Buffer.from(A).toString("base64")
+        };
+      return (await this.sourceClient.request({
+        ...xwA.RETRY_CONFIG,
+        url: B,
+        data: G,
+        method: "POST"
+      })).data
+    }
+    getTargetPrincipal() {
+      return this.targetPrincipal
+    }
+    async refreshToken() {
+      var A, Q, B, G, Z, I;
+      try {
+        await this.sourceClient.getAccessToken();
+        let Y = "projects/-/serviceAccounts/" + this.targetPrincipal,
+          J = `${this.endpoint}/v1/${Y}:generateAccessToken`,
+          W = {
+            delegates: this.delegates,
+            scope: this.targetScopes,
+            lifetime: this.lifetime + "s"
+          },
+          X = await this.sourceClient.request({
+            ...xwA.RETRY_CONFIG,
+            url: J,
+            data: W,
+            method: "POST"
+          }),
+          V = X.data;
+        return this.credentials.access_token = V.accessToken, this.credentials.expiry_date = Date.parse(V.expireTime), {
+          tokens: this.credentials,
+          res: X
+        }
+      } catch (Y) {
+        if (!(Y instanceof Error)) throw Y;
+        let J = 0,
+          W = "";
+        if (Y instanceof Pc6.GaxiosError) J = (B = (Q = (A = Y === null || Y === void 0 ? void 0 : Y.response) === null || A === void 0 ? void 0 : A.data) === null || Q === void 0 ? void 0 : Q.error) === null || B === void 0 ? void 0 : B.status, W = (I = (Z = (G = Y === null || Y === void 0 ? void 0 : Y.response) === null || G === void 0 ? void 0 : G.data) === null || Z === void 0 ? void 0 : Z.error) === null || I === void 0 ? void 0 : I.message;
+        if (J && W) throw Y.message = `${J}: unable to impersonate: ${W}`, Y;
+        else throw Y.message = `unable to impersonate: ${Y}`, Y
+      }
+    }
+    async fetchIdToken(A, Q) {
+      var B, G;
+      await this.sourceClient.getAccessToken();
+      let Z = `projects/-/serviceAccounts/${this.targetPrincipal}`,
+        I = `${this.endpoint}/v1/${Z}:generateIdToken`,
+        Y = {
+          delegates: this.delegates,
+          audience: A,
+          includeEmail: (B = Q === null || Q === void 0 ? void 0 : Q.includeEmail) !== null && B !== void 0 ? B : !0,
+          useEmailAzp: (G = Q === null || Q === void 0 ? void 0 : Q.includeEmail) !== null && G !== void 0 ? G : !0
+        };
+      return (await this.sourceClient.request({
+        ...xwA.RETRY_CONFIG,
+        url: I,
+        data: Y,
+        method: "POST"
+      })).data.token
+    }
+  }
+  JcB.Impersonated = xwA
+})
+// @from(Start 7751874, End 7755070)
+Ai1 = z((FcB) => {
+  Object.defineProperty(FcB, "__esModule", {
+    value: !0
+  });
+  FcB.OAuthClientAuthHandler = void 0;
+  FcB.getErrorFromOAuthErrorResponse = yc6;
+  var XcB = UA("querystring"),
+    _c6 = pGA(),
+    kc6 = ["PUT", "POST", "PATCH"];
+  class VcB {
+    constructor(A) {
+      this.clientAuthentication = A, this.crypto = (0, _c6.createCrypto)()
+    }
+    applyClientAuthenticationOptions(A, Q) {
+      if (this.injectAuthenticatedHeaders(A, Q), !Q) this.injectAuthenticatedRequestBody(A)
+    }
+    injectAuthenticatedHeaders(A, Q) {
+      var B;
+      if (Q) A.headers = A.headers || {}, Object.assign(A.headers, {
+        Authorization: `Bearer ${Q}}`
+      });
+      else if (((B = this.clientAuthentication) === null || B === void 0 ? void 0 : B.confidentialClientType) === "basic") {
+        A.headers = A.headers || {};
+        let G = this.clientAuthentication.clientId,
+          Z = this.clientAuthentication.clientSecret || "",
+          I = this.crypto.encodeBase64StringUtf8(`${G}:${Z}`);
+        Object.assign(A.headers, {
+          Authorization: `Basic ${I}`
+        })
+      }
+    }
+    injectAuthenticatedRequestBody(A) {
+      var Q;
+      if (((Q = this.clientAuthentication) === null || Q === void 0 ? void 0 : Q.confidentialClientType) === "request-body") {
+        let B = (A.method || "GET").toUpperCase();
+        if (kc6.indexOf(B) !== -1) {
+          let G, Z = A.headers || {};
+          for (let I in Z)
+            if (I.toLowerCase() === "content-type" && Z[I]) {
+              G = Z[I].toLowerCase();
+              break
+            } if (G === "application/x-www-form-urlencoded") {
+            A.data = A.data || "";
+            let I = XcB.parse(A.data);
+            Object.assign(I, {
+              client_id: this.clientAuthentication.clientId,
+              client_secret: this.clientAuthentication.clientSecret || ""
+            }), A.data = XcB.stringify(I)
+          } else if (G === "application/json") A.data = A.data || {}, Object.assign(A.data, {
+            client_id: this.clientAuthentication.clientId,
+            client_secret: this.clientAuthentication.clientSecret || ""
+          });
+          else throw Error(`${G} content-types are not supported with ${this.clientAuthentication.confidentialClientType} client authentication`)
+        } else throw Error(`${B} HTTP method does not support ${this.clientAuthentication.confidentialClientType} client authentication`)
+      }
+    }
+    static get RETRY_CONFIG() {
+      return {
+        retry: !0,
+        retryConfig: {
+          httpMethodsToRetry: ["GET", "PUT", "POST", "HEAD", "OPTIONS", "DELETE"]
+        }
+      }
+    }
+  }
+  FcB.OAuthClientAuthHandler = VcB;
+
+  function yc6(A, Q) {
+    let {
+      error: B,
+      error_description: G,
+      error_uri: Z
+    } = A, I = `Error code ${B}`;
+    if (typeof G < "u") I += `: ${G}`;
+    if (typeof Z < "u") I += ` - ${Z}`;
+    let Y = Error(I);
+    if (Q) {
+      let J = Object.keys(Q);
+      if (Q.stack) J.push("stack");
+      J.forEach((W) => {
+        if (W !== "message") Object.defineProperty(Y, W, {
+          value: Q[W],
+          writable: !1,
+          enumerable: !0
+        })
+      })
+    }
+    return Y
+  }
+})
+// @from(Start 7755076, End 7756858)
+Bi1 = z((HcB) => {
+  Object.defineProperty(HcB, "__esModule", {
+    value: !0
+  });
+  HcB.StsCredentials = void 0;
+  var vc6 = PT(),
+    bc6 = UA("querystring"),
+    fc6 = PwA(),
+    DcB = Ai1();
+  class Qi1 extends DcB.OAuthClientAuthHandler {
+    constructor(A, Q) {
+      super(Q);
+      this.tokenExchangeEndpoint = A, this.transporter = new fc6.DefaultTransporter
+    }
+    async exchangeToken(A, Q, B) {
+      var G, Z, I;
+      let Y = {
+        grant_type: A.grantType,
+        resource: A.resource,
+        audience: A.audience,
+        scope: (G = A.scope) === null || G === void 0 ? void 0 : G.join(" "),
+        requested_token_type: A.requestedTokenType,
+        subject_token: A.subjectToken,
+        subject_token_type: A.subjectTokenType,
+        actor_token: (Z = A.actingParty) === null || Z === void 0 ? void 0 : Z.actorToken,
+        actor_token_type: (I = A.actingParty) === null || I === void 0 ? void 0 : I.actorTokenType,
+        options: B && JSON.stringify(B)
+      };
+      Object.keys(Y).forEach((X) => {
+        if (typeof Y[X] > "u") delete Y[X]
+      });
+      let J = {
+        "Content-Type": "application/x-www-form-urlencoded"
+      };
+      Object.assign(J, Q || {});
+      let W = {
+        ...Qi1.RETRY_CONFIG,
+        url: this.tokenExchangeEndpoint.toString(),
+        method: "POST",
+        headers: J,
+        data: bc6.stringify(Y),
+        responseType: "json"
+      };
+      this.applyClientAuthenticationOptions(W);
+      try {
+        let X = await this.transporter.request(W),
+          V = X.data;
+        return V.res = X, V
+      } catch (X) {
+        if (X instanceof vc6.GaxiosError && X.response) throw (0, DcB.getErrorFromOAuthErrorResponse)(X.response.data, X);
+        throw X
+      }
+    }
+  }
+  HcB.StsCredentials = Qi1
+})
+// @from(Start 7756864, End 7766398)
+np = z((uF) => {
+  var Gi1 = uF && uF.__classPrivateFieldGet || function(A, Q, B, G) {
+      if (B === "a" && !G) throw TypeError("Private accessor was defined without a getter");
+      if (typeof Q === "function" ? A !== Q || !G : !Q.has(A)) throw TypeError("Cannot read private member from an object whose class did not declare it");
+      return B === "m" ? G : B === "a" ? G.call(A) : G ? G.value : Q.get(A)
+    },
+    EcB = uF && uF.__classPrivateFieldSet || function(A, Q, B, G, Z) {
+      if (G === "m") throw TypeError("Private method is not writable");
+      if (G === "a" && !Z) throw TypeError("Private accessor was defined without a setter");
+      if (typeof Q === "function" ? A !== Q || !Z : !Q.has(A)) throw TypeError("Cannot write private member to an object whose class did not declare it");
+      return G === "a" ? Z.call(A, B) : Z ? Z.value = B : Q.set(A, B), B
+    },
+    Zi1, tGA, UcB;
+  Object.defineProperty(uF, "__esModule", {
+    value: !0
+  });
+  uF.BaseExternalAccountClient = uF.DEFAULT_UNIVERSE = uF.CLOUD_RESOURCE_MANAGER = uF.EXTERNAL_ACCOUNT_TYPE = uF.EXPIRATION_TIME_OFFSET = void 0;
+  var hc6 = UA("stream"),
+    gc6 = Gk(),
+    uc6 = Bi1(),
+    zcB = lp(),
+    mc6 = "urn:ietf:params:oauth:grant-type:token-exchange",
+    dc6 = "urn:ietf:params:oauth:token-type:access_token",
+    Ii1 = "https://www.googleapis.com/auth/cloud-platform",
+    cc6 = 3600;
+  uF.EXPIRATION_TIME_OFFSET = 300000;
+  uF.EXTERNAL_ACCOUNT_TYPE = "external_account";
+  uF.CLOUD_RESOURCE_MANAGER = "https://cloudresourcemanager.googleapis.com/v1/projects/";
+  var pc6 = "//iam\\.googleapis\\.com/locations/[^/]+/workforcePools/[^/]+/providers/.+",
+    lc6 = "https://sts.{universeDomain}/v1/token",
+    ic6 = Ll1(),
+    nc6 = Gk();
+  Object.defineProperty(uF, "DEFAULT_UNIVERSE", {
+    enumerable: !0,
+    get: function() {
+      return nc6.DEFAULT_UNIVERSE
+    }
+  });
+  class PeA extends gc6.AuthClient {
+    constructor(A, Q) {
+      var B;
+      super({
+        ...A,
+        ...Q
+      });
+      Zi1.add(this), tGA.set(this, null);
+      let G = (0, zcB.originalOrCamelOptions)(A),
+        Z = G.get("type");
+      if (Z && Z !== uF.EXTERNAL_ACCOUNT_TYPE) throw Error(`Expected "${uF.EXTERNAL_ACCOUNT_TYPE}" type but received "${A.type}"`);
+      let I = G.get("client_id"),
+        Y = G.get("client_secret"),
+        J = (B = G.get("token_url")) !== null && B !== void 0 ? B : lc6.replace("{universeDomain}", this.universeDomain),
+        W = G.get("subject_token_type"),
+        X = G.get("workforce_pool_user_project"),
+        V = G.get("service_account_impersonation_url"),
+        F = G.get("service_account_impersonation"),
+        K = (0, zcB.originalOrCamelOptions)(F).get("token_lifetime_seconds");
+      if (this.cloudResourceManagerURL = new URL(G.get("cloud_resource_manager_url") || `https://cloudresourcemanager.${this.universeDomain}/v1/projects/`), I) this.clientAuth = {
+        confidentialClientType: "basic",
+        clientId: I,
+        clientSecret: Y
+      };
+      this.stsCredential = new uc6.StsCredentials(J, this.clientAuth), this.scopes = G.get("scopes") || [Ii1], this.cachedAccessToken = null, this.audience = G.get("audience"), this.subjectTokenType = W, this.workforcePoolUserProject = X;
+      let D = new RegExp(pc6);
+      if (this.workforcePoolUserProject && !this.audience.match(D)) throw Error("workforcePoolUserProject should not be set for non-workforce pool credentials.");
+      if (this.serviceAccountImpersonationUrl = V, this.serviceAccountImpersonationLifetime = K, this.serviceAccountImpersonationLifetime) this.configLifetimeRequested = !0;
+      else this.configLifetimeRequested = !1, this.serviceAccountImpersonationLifetime = cc6;
+      this.projectNumber = this.getProjectNumber(this.audience), this.supplierContext = {
+        audience: this.audience,
+        subjectTokenType: this.subjectTokenType,
+        transporter: this.transporter
+      }
+    }
+    getServiceAccountEmail() {
+      var A;
+      if (this.serviceAccountImpersonationUrl) {
+        if (this.serviceAccountImpersonationUrl.length > 256) throw RangeError(`URL is too long: ${this.serviceAccountImpersonationUrl}`);
+        let B = /serviceAccounts\/(?<email>[^:]+):generateAccessToken$/.exec(this.serviceAccountImpersonationUrl);
+        return ((A = B === null || B === void 0 ? void 0 : B.groups) === null || A === void 0 ? void 0 : A.email) || null
+      }
+      return null
+    }
+    setCredentials(A) {
+      super.setCredentials(A), this.cachedAccessToken = A
+    }
+    async getAccessToken() {
+      if (!this.cachedAccessToken || this.isExpired(this.cachedAccessToken)) await this.refreshAccessTokenAsync();
+      return {
+        token: this.cachedAccessToken.access_token,
+        res: this.cachedAccessToken.res
+      }
+    }
+    async getRequestHeaders() {
+      let Q = {
+        Authorization: `Bearer ${(await this.getAccessToken()).token}`
+      };
+      return this.addSharedMetadataHeaders(Q)
+    }
+    request(A, Q) {
+      if (Q) this.requestAsync(A).then((B) => Q(null, B), (B) => {
+        return Q(B, B.response)
+      });
+      else return this.requestAsync(A)
+    }
+    async getProjectId() {
+      let A = this.projectNumber || this.workforcePoolUserProject;
+      if (this.projectId) return this.projectId;
+      else if (A) {
+        let Q = await this.getRequestHeaders(),
+          B = await this.transporter.request({
+            ...PeA.RETRY_CONFIG,
+            headers: Q,
+            url: `${this.cloudResourceManagerURL.toString()}${A}`,
+            responseType: "json"
+          });
+        return this.projectId = B.data.projectId, this.projectId
+      }
+      return null
+    }
+    async requestAsync(A, Q = !1) {
+      let B;
+      try {
+        let G = await this.getRequestHeaders();
+        if (A.headers = A.headers || {}, G && G["x-goog-user-project"]) A.headers["x-goog-user-project"] = G["x-goog-user-project"];
+        if (G && G.Authorization) A.headers.Authorization = G.Authorization;
+        B = await this.transporter.request(A)
+      } catch (G) {
+        let Z = G.response;
+        if (Z) {
+          let I = Z.status,
+            Y = Z.config.data instanceof hc6.Readable;
+          if (!Q && (I === 401 || I === 403) && !Y && this.forceRefreshOnFailure) return await this.refreshAccessTokenAsync(), await this.requestAsync(A, !0)
+        }
+        throw G
+      }
+      return B
+    }
+    async refreshAccessTokenAsync() {
+      EcB(this, tGA, Gi1(this, tGA, "f") || Gi1(this, Zi1, "m", UcB).call(this), "f");
+      try {
+        return await Gi1(this, tGA, "f")
+      } finally {
+        EcB(this, tGA, null, "f")
+      }
+    }
+    getProjectNumber(A) {
+      let Q = A.match(/\/projects\/([^/]+)/);
+      if (!Q) return null;
+      return Q[1]
+    }
+    async getImpersonatedAccessToken(A) {
+      let Q = {
+          ...PeA.RETRY_CONFIG,
+          url: this.serviceAccountImpersonationUrl,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${A}`
+          },
+          data: {
+            scope: this.getScopesArray(),
+            lifetime: this.serviceAccountImpersonationLifetime + "s"
+          },
+          responseType: "json"
+        },
+        B = await this.transporter.request(Q),
+        G = B.data;
+      return {
+        access_token: G.accessToken,
+        expiry_date: new Date(G.expireTime).getTime(),
+        res: B
+      }
+    }
+    isExpired(A) {
+      let Q = new Date().getTime();
+      return A.expiry_date ? Q >= A.expiry_date - this.eagerRefreshThresholdMillis : !1
+    }
+    getScopesArray() {
+      if (typeof this.scopes === "string") return [this.scopes];
+      return this.scopes || [Ii1]
+    }
+    getMetricsHeaderValue() {
+      let A = process.version.replace(/^v/, ""),
+        Q = this.serviceAccountImpersonationUrl !== void 0,
+        B = this.credentialSourceType ? this.credentialSourceType : "unknown";
+      return `gl-node/${A} auth/${ic6.version} google-byoid-sdk source/${B} sa-impersonation/${Q} config-lifetime/${this.configLifetimeRequested}`
+    }
+  }
+  uF.BaseExternalAccountClient = PeA;
+  tGA = new WeakMap, Zi1 = new WeakSet, UcB = async function() {
+    let Q = await this.retrieveSubjectToken(),
+      B = {
+        grantType: mc6,
+        audience: this.audience,
+        requestedTokenType: dc6,
+        subjectToken: Q,
+        subjectTokenType: this.subjectTokenType,
+        scope: this.serviceAccountImpersonationUrl ? [Ii1] : this.getScopesArray()
+      },
+      G = !this.clientAuth && this.workforcePoolUserProject ? {
+        userProject: this.workforcePoolUserProject
+      } : void 0,
+      Z = {
+        "x-goog-api-client": this.getMetricsHeaderValue()
+      },
+      I = await this.stsCredential.exchangeToken(B, Z, G);
+    if (this.serviceAccountImpersonationUrl) this.cachedAccessToken = await this.getImpersonatedAccessToken(I.access_token);
+    else if (I.expires_in) this.cachedAccessToken = {
+      access_token: I.access_token,
+      expiry_date: new Date().getTime() + I.expires_in * 1000,
+      res: I.res
+    };
+    else this.cachedAccessToken = {
+      access_token: I.access_token,
+      res: I.res
+    };
+    return this.credentials = {}, Object.assign(this.credentials, this.cachedAccessToken), delete this.credentials.res, this.emit("tokens", {
+      refresh_token: null,
+      expiry_date: this.cachedAccessToken.expiry_date,
+      access_token: this.cachedAccessToken.access_token,
+      token_type: "Bearer",
+      id_token: null
+    }), this.cachedAccessToken
+  }
+})
+// @from(Start 7766404, End 7767731)
+NcB = z((wcB) => {
+  var Yi1, Ji1, Wi1;
+  Object.defineProperty(wcB, "__esModule", {
+    value: !0
+  });
+  wcB.FileSubjectTokenSupplier = void 0;
+  var Xi1 = UA("util"),
+    Vi1 = UA("fs"),
+    ac6 = (0, Xi1.promisify)((Yi1 = Vi1.readFile) !== null && Yi1 !== void 0 ? Yi1 : () => {}),
+    sc6 = (0, Xi1.promisify)((Ji1 = Vi1.realpath) !== null && Ji1 !== void 0 ? Ji1 : () => {}),
+    rc6 = (0, Xi1.promisify)((Wi1 = Vi1.lstat) !== null && Wi1 !== void 0 ? Wi1 : () => {});
+  class $cB {
+    constructor(A) {
+      this.filePath = A.filePath, this.formatType = A.formatType, this.subjectTokenFieldName = A.subjectTokenFieldName
+    }
+    async getSubjectToken(A) {
+      let Q = this.filePath;
+      try {
+        if (Q = await sc6(Q), !(await rc6(Q)).isFile()) throw Error()
+      } catch (Z) {
+        if (Z instanceof Error) Z.message = `The file at ${Q} does not exist, or it is not a file. ${Z.message}`;
+        throw Z
+      }
+      let B, G = await ac6(Q, {
+        encoding: "utf8"
+      });
+      if (this.formatType === "text") B = G;
+      else if (this.formatType === "json" && this.subjectTokenFieldName) B = JSON.parse(G)[this.subjectTokenFieldName];
+      if (!B) throw Error("Unable to parse the subject_token from the credential_source file");
+      return B
+    }
+  }
+  wcB.FileSubjectTokenSupplier = $cB
+})
+// @from(Start 7767737, End 7768713)
+RcB = z((McB) => {
+  Object.defineProperty(McB, "__esModule", {
+    value: !0
+  });
+  McB.UrlSubjectTokenSupplier = void 0;
+  class LcB {
+    constructor(A) {
+      this.url = A.url, this.formatType = A.formatType, this.subjectTokenFieldName = A.subjectTokenFieldName, this.headers = A.headers, this.additionalGaxiosOptions = A.additionalGaxiosOptions
+    }
+    async getSubjectToken(A) {
+      let Q = {
+          ...this.additionalGaxiosOptions,
+          url: this.url,
+          method: "GET",
+          headers: this.headers,
+          responseType: this.formatType
+        },
+        B;
+      if (this.formatType === "text") B = (await A.transporter.request(Q)).data;
+      else if (this.formatType === "json" && this.subjectTokenFieldName) B = (await A.transporter.request(Q)).data[this.subjectTokenFieldName];
+      if (!B) throw Error("Unable to parse the subject_token from the credential_source URL");
+      return B
+    }
+  }
+  McB.UrlSubjectTokenSupplier = LcB
+})
+// @from(Start 7768719, End 7770857)
+Di1 = z((TcB) => {
+  Object.defineProperty(TcB, "__esModule", {
+    value: !0
+  });
+  TcB.IdentityPoolClient = void 0;
+  var oc6 = np(),
+    Fi1 = lp(),
+    tc6 = NcB(),
+    ec6 = RcB();
+  class Ki1 extends oc6.BaseExternalAccountClient {
+    constructor(A, Q) {
+      super(A, Q);
+      let B = (0, Fi1.originalOrCamelOptions)(A),
+        G = B.get("credential_source"),
+        Z = B.get("subject_token_supplier");
+      if (!G && !Z) throw Error("A credential source or subject token supplier must be specified.");
+      if (G && Z) throw Error("Only one of credential source or subject token supplier can be specified.");
+      if (Z) this.subjectTokenSupplier = Z, this.credentialSourceType = "programmatic";
+      else {
+        let I = (0, Fi1.originalOrCamelOptions)(G),
+          Y = (0, Fi1.originalOrCamelOptions)(I.get("format")),
+          J = Y.get("type") || "text",
+          W = Y.get("subject_token_field_name");
+        if (J !== "json" && J !== "text") throw Error(`Invalid credential_source format "${J}"`);
+        if (J === "json" && !W) throw Error("Missing subject_token_field_name for JSON credential_source format");
+        let X = I.get("file"),
+          V = I.get("url"),
+          F = I.get("headers");
+        if (X && V) throw Error('No valid Identity Pool "credential_source" provided, must be either file or url.');
+        else if (X && !V) this.credentialSourceType = "file", this.subjectTokenSupplier = new tc6.FileSubjectTokenSupplier({
+          filePath: X,
+          formatType: J,
+          subjectTokenFieldName: W
+        });
+        else if (!X && V) this.credentialSourceType = "url", this.subjectTokenSupplier = new ec6.UrlSubjectTokenSupplier({
+          url: V,
+          formatType: J,
+          subjectTokenFieldName: W,
+          headers: F,
+          additionalGaxiosOptions: Ki1.RETRY_CONFIG
+        });
+        else throw Error('No valid Identity Pool "credential_source" provided, must be either file or url.')
+      }
+    }
+    async retrieveSubjectToken() {
+      return this.subjectTokenSupplier.getSubjectToken(this.supplierContext)
+    }
+  }
+  TcB.IdentityPoolClient = Ki1
+})
+// @from(Start 7770863, End 7773922)
+Hi1 = z((kcB) => {
+  Object.defineProperty(kcB, "__esModule", {
+    value: !0
+  });
+  kcB.AwsRequestSigner = void 0;
+  var ScB = pGA(),
+    jcB = "AWS4-HMAC-SHA256",
+    Ap6 = "aws4_request";
+  class _cB {
+    constructor(A, Q) {
+      this.getCredentials = A, this.region = Q, this.crypto = (0, ScB.createCrypto)()
+    }
+    async getRequestOptions(A) {
+      if (!A.url) throw Error('"url" is required in "amzOptions"');
+      let Q = typeof A.data === "object" ? JSON.stringify(A.data) : A.data,
+        B = A.url,
+        G = A.method || "GET",
+        Z = A.body || Q,
+        I = A.headers,
+        Y = await this.getCredentials(),
+        J = new URL(B),
+        W = await Bp6({
+          crypto: this.crypto,
+          host: J.host,
+          canonicalUri: J.pathname,
+          canonicalQuerystring: J.search.substr(1),
+          method: G,
+          region: this.region,
+          securityCredentials: Y,
+          requestPayload: Z,
+          additionalAmzHeaders: I
+        }),
+        X = Object.assign(W.amzDate ? {
+          "x-amz-date": W.amzDate
+        } : {}, {
+          Authorization: W.authorizationHeader,
+          host: J.host
+        }, I || {});
+      if (Y.token) Object.assign(X, {
+        "x-amz-security-token": Y.token
+      });
+      let V = {
+        url: B,
+        method: G,
+        headers: X
+      };
+      if (typeof Z < "u") V.body = Z;
+      return V
+    }
+  }
+  kcB.AwsRequestSigner = _cB;
+  async function vwA(A, Q, B) {
+    return await A.signWithHmacSha256(Q, B)
+  }
+  async function Qp6(A, Q, B, G, Z) {
+    let I = await vwA(A, `AWS4${Q}`, B),
+      Y = await vwA(A, I, G),
+      J = await vwA(A, Y, Z);
+    return await vwA(A, J, "aws4_request")
+  }
+  async function Bp6(A) {
+    let Q = A.additionalAmzHeaders || {},
+      B = A.requestPayload || "",
+      G = A.host.split(".")[0],
+      Z = new Date,
+      I = Z.toISOString().replace(/[-:]/g, "").replace(/\.[0-9]+/, ""),
+      Y = Z.toISOString().replace(/[-]/g, "").replace(/T.*/, ""),
+      J = {};
+    if (Object.keys(Q).forEach((w) => {
+        J[w.toLowerCase()] = Q[w]
+      }), A.securityCredentials.token) J["x-amz-security-token"] = A.securityCredentials.token;
+    let W = Object.assign({
+        host: A.host
+      }, J.date ? {} : {
+        "x-amz-date": I
+      }, J),
+      X = "",
+      V = Object.keys(W).sort();
+    V.forEach((w) => {
+      X += `${w}:${W[w]}
+`
+    });
+    let F = V.join(";"),
+      K = await A.crypto.sha256DigestHex(B),
+      D = `${A.method}
+${A.canonicalUri}
+${A.canonicalQuerystring}
+${X}
+${F}
+${K}`,
+      H = `${Y}/${A.region}/${G}/${Ap6}`,
+      C = `${jcB}
+${I}
+${H}
+` + await A.crypto.sha256DigestHex(D),
+      E = await Qp6(A.crypto, A.securityCredentials.secretAccessKey, Y, A.region, G),
+      U = await vwA(A.crypto, E, C),
+      q = `${jcB} Credential=${A.securityCredentials.accessKeyId}/${H}, SignedHeaders=${F}, Signature=${(0,ScB.fromArrayBufferToHex)(U)}`;
+    return {
+      amzDate: J.date ? void 0 : I,
+      authorizationHeader: q,
+      canonicalQuerystring: A.canonicalQuerystring
+    }
+  }
+})
+// @from(Start 7773928, End 7777299)
+fcB = z((eGA) => {
+  var Rf = eGA && eGA.__classPrivateFieldGet || function(A, Q, B, G) {
+      if (B === "a" && !G) throw TypeError("Private accessor was defined without a getter");
+      if (typeof Q === "function" ? A !== Q || !G : !Q.has(A)) throw TypeError("Cannot read private member from an object whose class did not declare it");
+      return B === "m" ? G : B === "a" ? G.call(A) : G ? G.value : Q.get(A)
+    },
+    xT, Ci1, xcB, vcB, jeA, Ei1;
+  Object.defineProperty(eGA, "__esModule", {
+    value: !0
+  });
+  eGA.DefaultAwsSecurityCredentialsSupplier = void 0;
+  class bcB {
+    constructor(A) {
+      xT.add(this), this.regionUrl = A.regionUrl, this.securityCredentialsUrl = A.securityCredentialsUrl, this.imdsV2SessionTokenUrl = A.imdsV2SessionTokenUrl, this.additionalGaxiosOptions = A.additionalGaxiosOptions
+    }
+    async getAwsRegion(A) {
+      if (Rf(this, xT, "a", jeA)) return Rf(this, xT, "a", jeA);
+      let Q = {};
+      if (!Rf(this, xT, "a", jeA) && this.imdsV2SessionTokenUrl) Q["x-aws-ec2-metadata-token"] = await Rf(this, xT, "m", Ci1).call(this, A.transporter);
+      if (!this.regionUrl) throw Error('Unable to determine AWS region due to missing "options.credential_source.region_url"');
+      let B = {
+          ...this.additionalGaxiosOptions,
+          url: this.regionUrl,
+          method: "GET",
+          responseType: "text",
+          headers: Q
+        },
+        G = await A.transporter.request(B);
+      return G.data.substr(0, G.data.length - 1)
+    }
+    async getAwsSecurityCredentials(A) {
+      if (Rf(this, xT, "a", Ei1)) return Rf(this, xT, "a", Ei1);
+      let Q = {};
+      if (this.imdsV2SessionTokenUrl) Q["x-aws-ec2-metadata-token"] = await Rf(this, xT, "m", Ci1).call(this, A.transporter);
+      let B = await Rf(this, xT, "m", xcB).call(this, Q, A.transporter),
+        G = await Rf(this, xT, "m", vcB).call(this, B, Q, A.transporter);
+      return {
+        accessKeyId: G.AccessKeyId,
+        secretAccessKey: G.SecretAccessKey,
+        token: G.Token
+      }
+    }
+  }
+  eGA.DefaultAwsSecurityCredentialsSupplier = bcB;
+  xT = new WeakSet, Ci1 = async function(Q) {
+    let B = {
+      ...this.additionalGaxiosOptions,
+      url: this.imdsV2SessionTokenUrl,
+      method: "PUT",
+      responseType: "text",
+      headers: {
+        "x-aws-ec2-metadata-token-ttl-seconds": "300"
+      }
+    };
+    return (await Q.request(B)).data
+  }, xcB = async function(Q, B) {
+    if (!this.securityCredentialsUrl) throw Error('Unable to determine AWS role name due to missing "options.credential_source.url"');
+    let G = {
+      ...this.additionalGaxiosOptions,
+      url: this.securityCredentialsUrl,
+      method: "GET",
+      responseType: "text",
+      headers: Q
+    };
+    return (await B.request(G)).data
+  }, vcB = async function(Q, B, G) {
+    return (await G.request({
+      ...this.additionalGaxiosOptions,
+      url: `${this.securityCredentialsUrl}/${Q}`,
+      responseType: "json",
+      headers: B
+    })).data
+  }, jeA = function() {
+    return process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || null
+  }, Ei1 = function() {
+    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) return {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      token: process.env.AWS_SESSION_TOKEN
+    };
+    return null
+  }
+})
+// @from(Start 7777305, End 7780697)
+zi1 = z((AZA) => {
+  var Gp6 = AZA && AZA.__classPrivateFieldGet || function(A, Q, B, G) {
+      if (B === "a" && !G) throw TypeError("Private accessor was defined without a getter");
+      if (typeof Q === "function" ? A !== Q || !G : !Q.has(A)) throw TypeError("Cannot read private member from an object whose class did not declare it");
+      return B === "m" ? G : B === "a" ? G.call(A) : G ? G.value : Q.get(A)
+    },
+    SeA, gcB;
+  Object.defineProperty(AZA, "__esModule", {
+    value: !0
+  });
+  AZA.AwsClient = void 0;
+  var Zp6 = Hi1(),
+    Ip6 = np(),
+    Yp6 = fcB(),
+    hcB = lp();
+  class bwA extends Ip6.BaseExternalAccountClient {
+    constructor(A, Q) {
+      super(A, Q);
+      let B = (0, hcB.originalOrCamelOptions)(A),
+        G = B.get("credential_source"),
+        Z = B.get("aws_security_credentials_supplier");
+      if (!G && !Z) throw Error("A credential source or AWS security credentials supplier must be specified.");
+      if (G && Z) throw Error("Only one of credential source or AWS security credentials supplier can be specified.");
+      if (Z) this.awsSecurityCredentialsSupplier = Z, this.regionalCredVerificationUrl = Gp6(SeA, SeA, "f", gcB), this.credentialSourceType = "programmatic";
+      else {
+        let I = (0, hcB.originalOrCamelOptions)(G);
+        this.environmentId = I.get("environment_id");
+        let Y = I.get("region_url"),
+          J = I.get("url"),
+          W = I.get("imdsv2_session_token_url");
+        this.awsSecurityCredentialsSupplier = new Yp6.DefaultAwsSecurityCredentialsSupplier({
+          regionUrl: Y,
+          securityCredentialsUrl: J,
+          imdsV2SessionTokenUrl: W
+        }), this.regionalCredVerificationUrl = I.get("regional_cred_verification_url"), this.credentialSourceType = "aws", this.validateEnvironmentId()
+      }
+      this.awsRequestSigner = null, this.region = ""
+    }
+    validateEnvironmentId() {
+      var A;
+      let Q = (A = this.environmentId) === null || A === void 0 ? void 0 : A.match(/^(aws)(\d+)$/);
+      if (!Q || !this.regionalCredVerificationUrl) throw Error('No valid AWS "credential_source" provided');
+      else if (parseInt(Q[2], 10) !== 1) throw Error(`aws version "${Q[2]}" is not supported in the current build.`)
+    }
+    async retrieveSubjectToken() {
+      if (!this.awsRequestSigner) this.region = await this.awsSecurityCredentialsSupplier.getAwsRegion(this.supplierContext), this.awsRequestSigner = new Zp6.AwsRequestSigner(async () => {
+        return this.awsSecurityCredentialsSupplier.getAwsSecurityCredentials(this.supplierContext)
+      }, this.region);
+      let A = await this.awsRequestSigner.getRequestOptions({
+          ...SeA.RETRY_CONFIG,
+          url: this.regionalCredVerificationUrl.replace("{region}", this.region),
+          method: "POST"
+        }),
+        Q = [],
+        B = Object.assign({
+          "x-goog-cloud-target-resource": this.audience
+        }, A.headers);
+      for (let G in B) Q.push({
+        key: G,
+        value: B[G]
+      });
+      return encodeURIComponent(JSON.stringify({
+        url: A.url,
+        method: A.method,
+        headers: Q
+      }))
+    }
+  }
+  AZA.AwsClient = bwA;
+  SeA = bwA;
+  gcB = {
+    value: "https://sts.{region}.amazonaws.com?Action=GetCallerIdentity&Version=2011-06-15"
+  };
+  bwA.AWS_EC2_METADATA_IPV4_ADDRESS = "169.254.169.254";
+  bwA.AWS_EC2_METADATA_IPV6_ADDRESS = "fd00:ec2::254"
+})
+// @from(Start 7780703, End 7783411)
+Oi1 = z((dcB) => {
+  Object.defineProperty(dcB, "__esModule", {
+    value: !0
+  });
+  dcB.InvalidSubjectTokenError = dcB.InvalidMessageFieldError = dcB.InvalidCodeFieldError = dcB.InvalidTokenTypeFieldError = dcB.InvalidExpirationTimeFieldError = dcB.InvalidSuccessFieldError = dcB.InvalidVersionFieldError = dcB.ExecutableResponseError = dcB.ExecutableResponse = void 0;
+  var _eA = "urn:ietf:params:oauth:token-type:saml2",
+    Ui1 = "urn:ietf:params:oauth:token-type:id_token",
+    $i1 = "urn:ietf:params:oauth:token-type:jwt";
+  class ucB {
+    constructor(A) {
+      if (!A.version) throw new wi1("Executable response must contain a 'version' field.");
+      if (A.success === void 0) throw new qi1("Executable response must contain a 'success' field.");
+      if (this.version = A.version, this.success = A.success, this.success) {
+        if (this.expirationTime = A.expiration_time, this.tokenType = A.token_type, this.tokenType !== _eA && this.tokenType !== Ui1 && this.tokenType !== $i1) throw new Ni1(`Executable response must contain a 'token_type' field when successful and it must be one of ${Ui1}, ${$i1}, or ${_eA}.`);
+        if (this.tokenType === _eA) {
+          if (!A.saml_response) throw new keA(`Executable response must contain a 'saml_response' field when token_type=${_eA}.`);
+          this.subjectToken = A.saml_response
+        } else {
+          if (!A.id_token) throw new keA(`Executable response must contain a 'id_token' field when token_type=${Ui1} or ${$i1}.`);
+          this.subjectToken = A.id_token
+        }
+      } else {
+        if (!A.code) throw new Li1("Executable response must contain a 'code' field when unsuccessful.");
+        if (!A.message) throw new Mi1("Executable response must contain a 'message' field when unsuccessful.");
+        this.errorCode = A.code, this.errorMessage = A.message
+      }
+    }
+    isValid() {
+      return !this.isExpired() && this.success
+    }
+    isExpired() {
+      return this.expirationTime !== void 0 && this.expirationTime < Math.round(Date.now() / 1000)
+    }
+  }
+  dcB.ExecutableResponse = ucB;
+  class Tf extends Error {
+    constructor(A) {
+      super(A);
+      Object.setPrototypeOf(this, new.target.prototype)
+    }
+  }
+  dcB.ExecutableResponseError = Tf;
+  class wi1 extends Tf {}
+  dcB.InvalidVersionFieldError = wi1;
+  class qi1 extends Tf {}
+  dcB.InvalidSuccessFieldError = qi1;
+  class mcB extends Tf {}
+  dcB.InvalidExpirationTimeFieldError = mcB;
+  class Ni1 extends Tf {}
+  dcB.InvalidTokenTypeFieldError = Ni1;
+  class Li1 extends Tf {}
+  dcB.InvalidCodeFieldError = Li1;
+  class Mi1 extends Tf {}
+  dcB.InvalidMessageFieldError = Mi1;
+  class keA extends Tf {}
+  dcB.InvalidSubjectTokenError = keA
+})
+// @from(Start 7783417, End 7786097)
+icB = z((pcB) => {
+  Object.defineProperty(pcB, "__esModule", {
+    value: !0
+  });
+  pcB.PluggableAuthHandler = void 0;
+  var Cp6 = yeA(),
+    we = Oi1(),
+    Ep6 = UA("child_process"),
+    Ri1 = UA("fs");
+  class Ti1 {
+    constructor(A) {
+      if (!A.command) throw Error("No command provided.");
+      if (this.commandComponents = Ti1.parseCommand(A.command), this.timeoutMillis = A.timeoutMillis, !this.timeoutMillis) throw Error("No timeoutMillis provided.");
+      this.outputFile = A.outputFile
+    }
+    retrieveResponseFromExecutable(A) {
+      return new Promise((Q, B) => {
+        let G = Ep6.spawn(this.commandComponents[0], this.commandComponents.slice(1), {
+            env: {
+              ...process.env,
+              ...Object.fromEntries(A)
+            }
+          }),
+          Z = "";
+        G.stdout.on("data", (Y) => {
+          Z += Y
+        }), G.stderr.on("data", (Y) => {
+          Z += Y
+        });
+        let I = setTimeout(() => {
+          return G.removeAllListeners(), G.kill(), B(Error("The executable failed to finish within the timeout specified."))
+        }, this.timeoutMillis);
+        G.on("close", (Y) => {
+          if (clearTimeout(I), Y === 0) try {
+            let J = JSON.parse(Z),
+              W = new we.ExecutableResponse(J);
+            return Q(W)
+          } catch (J) {
+            if (J instanceof we.ExecutableResponseError) return B(J);
+            return B(new we.ExecutableResponseError(`The executable returned an invalid response: ${Z}`))
+          } else return B(new Cp6.ExecutableError(Z, Y.toString()))
+        })
+      })
+    }
+    async retrieveCachedResponse() {
+      if (!this.outputFile || this.outputFile.length === 0) return;
+      let A;
+      try {
+        A = await Ri1.promises.realpath(this.outputFile)
+      } catch (B) {
+        return
+      }
+      if (!(await Ri1.promises.lstat(A)).isFile()) return;
+      let Q = await Ri1.promises.readFile(A, {
+        encoding: "utf8"
+      });
+      if (Q === "") return;
+      try {
+        let B = JSON.parse(Q);
+        if (new we.ExecutableResponse(B).isValid()) return new we.ExecutableResponse(B);
+        return
+      } catch (B) {
+        if (B instanceof we.ExecutableResponseError) throw B;
+        throw new we.ExecutableResponseError(`The output file contained an invalid response: ${Q}`)
+      }
+    }
+    static parseCommand(A) {
+      let Q = A.match(/(?:[^\s"]+|"[^"]*")+/g);
+      if (!Q) throw Error(`Provided command: "${A}" could not be parsed.`);
+      for (let B = 0; B < Q.length; B++)
+        if (Q[B][0] === '"' && Q[B].slice(-1) === '"') Q[B] = Q[B].slice(1, -1);
+      return Q
+    }
+  }
+  pcB.PluggableAuthHandler = Ti1
+})
+// @from(Start 7786103, End 7789049)
+yeA = z((ocB) => {
+  Object.defineProperty(ocB, "__esModule", {
+    value: !0
+  });
+  ocB.PluggableAuthClient = ocB.ExecutableError = void 0;
+  var zp6 = np(),
+    Up6 = Oi1(),
+    $p6 = icB();
+  class Pi1 extends Error {
+    constructor(A, Q) {
+      super(`The executable failed with exit code: ${Q} and error message: ${A}.`);
+      this.code = Q, Object.setPrototypeOf(this, new.target.prototype)
+    }
+  }
+  ocB.ExecutableError = Pi1;
+  var wp6 = 30000,
+    ncB = 5000,
+    acB = 120000,
+    qp6 = "GOOGLE_EXTERNAL_ACCOUNT_ALLOW_EXECUTABLES",
+    scB = 1;
+  class rcB extends zp6.BaseExternalAccountClient {
+    constructor(A, Q) {
+      super(A, Q);
+      if (!A.credential_source.executable) throw Error('No valid Pluggable Auth "credential_source" provided.');
+      if (this.command = A.credential_source.executable.command, !this.command) throw Error('No valid Pluggable Auth "credential_source" provided.');
+      if (A.credential_source.executable.timeout_millis === void 0) this.timeoutMillis = wp6;
+      else if (this.timeoutMillis = A.credential_source.executable.timeout_millis, this.timeoutMillis < ncB || this.timeoutMillis > acB) throw Error(`Timeout must be between ${ncB} and ${acB} milliseconds.`);
+      this.outputFile = A.credential_source.executable.output_file, this.handler = new $p6.PluggableAuthHandler({
+        command: this.command,
+        timeoutMillis: this.timeoutMillis,
+        outputFile: this.outputFile
+      }), this.credentialSourceType = "executable"
+    }
+    async retrieveSubjectToken() {
+      if (process.env[qp6] !== "1") throw Error("Pluggable Auth executables need to be explicitly allowed to run by setting the GOOGLE_EXTERNAL_ACCOUNT_ALLOW_EXECUTABLES environment Variable to 1.");
+      let A = void 0;
+      if (this.outputFile) A = await this.handler.retrieveCachedResponse();
+      if (!A) {
+        let Q = new Map;
+        if (Q.set("GOOGLE_EXTERNAL_ACCOUNT_AUDIENCE", this.audience), Q.set("GOOGLE_EXTERNAL_ACCOUNT_TOKEN_TYPE", this.subjectTokenType), Q.set("GOOGLE_EXTERNAL_ACCOUNT_INTERACTIVE", "0"), this.outputFile) Q.set("GOOGLE_EXTERNAL_ACCOUNT_OUTPUT_FILE", this.outputFile);
+        let B = this.getServiceAccountEmail();
+        if (B) Q.set("GOOGLE_EXTERNAL_ACCOUNT_IMPERSONATED_EMAIL", B);
+        A = await this.handler.retrieveResponseFromExecutable(Q)
+      }
+      if (A.version > scB) throw Error(`Version of executable is not currently supported, maximum supported version is ${scB}.`);
+      if (!A.success) throw new Pi1(A.errorMessage, A.errorCode);
+      if (this.outputFile) {
+        if (!A.expirationTime) throw new Up6.InvalidExpirationTimeFieldError("The executable response must contain the `expiration_time` field for successful responses when an output_file has been specified in the configuration.")
+      }
+      if (A.isExpired()) throw Error("Executable response is expired.");
+      return A.subjectToken
+    }
+  }
+  ocB.PluggableAuthClient = rcB
+})
+// @from(Start 7789055, End 7790039)
+ji1 = z((ApB) => {
+  Object.defineProperty(ApB, "__esModule", {
+    value: !0
+  });
+  ApB.ExternalAccountClient = void 0;
+  var Lp6 = np(),
+    Mp6 = Di1(),
+    Op6 = zi1(),
+    Rp6 = yeA();
+  class ecB {
+    constructor() {
+      throw Error("ExternalAccountClients should be initialized via: ExternalAccountClient.fromJSON(), directly via explicit constructors, eg. new AwsClient(options), new IdentityPoolClient(options), newPluggableAuthClientOptions, or via new GoogleAuth(options).getClient()")
+    }
+    static fromJSON(A, Q) {
+      var B, G;
+      if (A && A.type === Lp6.EXTERNAL_ACCOUNT_TYPE)
+        if ((B = A.credential_source) === null || B === void 0 ? void 0 : B.environment_id) return new Op6.AwsClient(A, Q);
+        else if ((G = A.credential_source) === null || G === void 0 ? void 0 : G.executable) return new Rp6.PluggableAuthClient(A, Q);
+      else return new Mp6.IdentityPoolClient(A, Q);
+      else return null
+    }
+  }
+  ApB.ExternalAccountClient = ecB
+})

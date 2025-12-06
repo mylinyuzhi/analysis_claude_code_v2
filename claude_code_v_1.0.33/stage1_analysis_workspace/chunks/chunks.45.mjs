@@ -1,3091 +1,3137 @@
 
-// @from(Start 4610179, End 4610690)
-cO0 = z((uO0) => {
-  Object.defineProperty(uO0, "__esModule", {
-    value: !0
-  });
-  uO0.hexToBinary = void 0;
-
-  function dO0(A) {
-    if (A >= 48 && A <= 57) return A - 48;
-    if (A >= 97 && A <= 102) return A - 87;
-    return A - 55
-  }
-
-  function f26(A) {
-    let B = new Uint8Array(A.length / 2),
-      Q = 0;
-    for (let I = 0; I < A.length; I += 2) {
-      let G = dO0(A.charCodeAt(I)),
-        Z = dO0(A.charCodeAt(I + 1));
-      B[Q++] = G << 4 | Z
-    }
-    return B
-  }
-  uO0.hexToBinary = f26
-})
-// @from(Start 4610696, End 4612031)
-vZ1 = z((sO0) => {
-  Object.defineProperty(sO0, "__esModule", {
-    value: !0
-  });
-  sO0.getOtlpEncoder = sO0.encodeAsString = sO0.encodeAsLongBits = sO0.toLongBits = sO0.hrTimeToNanos = void 0;
-  var v26 = p8(),
-    dg1 = cO0();
-
-  function ug1(A) {
-    let B = BigInt(1e9);
-    return BigInt(A[0]) * B + BigInt(A[1])
-  }
-  sO0.hrTimeToNanos = ug1;
-
-  function iO0(A) {
-    let B = Number(BigInt.asUintN(32, A)),
-      Q = Number(BigInt.asUintN(32, A >> BigInt(32)));
-    return {
-      low: B,
-      high: Q
-    }
-  }
-  sO0.toLongBits = iO0;
-
-  function pg1(A) {
-    let B = ug1(A);
-    return iO0(B)
-  }
-  sO0.encodeAsLongBits = pg1;
-
-  function nO0(A) {
-    return ug1(A).toString()
-  }
-  sO0.encodeAsString = nO0;
-  var b26 = typeof BigInt !== "undefined" ? nO0 : v26.hrTimeToNanoseconds;
-
-  function lO0(A) {
-    return A
-  }
-
-  function aO0(A) {
-    if (A === void 0) return;
-    return dg1.hexToBinary(A)
-  }
-  var g26 = {
-    encodeHrTime: pg1,
-    encodeSpanContext: dg1.hexToBinary,
-    encodeOptionalSpanContext: aO0
-  };
-
-  function h26(A) {
-    if (A === void 0) return g26;
-    let B = A.useLongBits ?? !0,
-      Q = A.useHex ?? !1;
-    return {
-      encodeHrTime: B ? pg1 : b26,
-      encodeSpanContext: Q ? lO0 : dg1.hexToBinary,
-      encodeOptionalSpanContext: Q ? lO0 : aO0
-    }
-  }
-  sO0.getOtlpEncoder = h26
-})
-// @from(Start 4612037, End 4613379)
-bZ1 = z((tO0) => {
-  Object.defineProperty(tO0, "__esModule", {
-    value: !0
-  });
-  tO0.toAnyValue = tO0.toKeyValue = tO0.toAttributes = tO0.createInstrumentationScope = tO0.createResource = void 0;
-
-  function c26(A) {
-    return {
-      attributes: oO0(A.attributes),
-      droppedAttributesCount: 0
-    }
-  }
-  tO0.createResource = c26;
-
-  function l26(A) {
-    return {
-      name: A.name,
-      version: A.version
-    }
-  }
-  tO0.createInstrumentationScope = l26;
-
-  function oO0(A) {
-    return Object.keys(A).map((B) => cg1(B, A[B]))
-  }
-  tO0.toAttributes = oO0;
-
-  function cg1(A, B) {
-    return {
-      key: A,
-      value: lg1(B)
-    }
-  }
-  tO0.toKeyValue = cg1;
-
-  function lg1(A) {
-    let B = typeof A;
-    if (B === "string") return {
-      stringValue: A
-    };
-    if (B === "number") {
-      if (!Number.isInteger(A)) return {
-        doubleValue: A
-      };
-      return {
-        intValue: A
-      }
-    }
-    if (B === "boolean") return {
-      boolValue: A
-    };
-    if (A instanceof Uint8Array) return {
-      bytesValue: A
-    };
-    if (Array.isArray(A)) return {
-      arrayValue: {
-        values: A.map(lg1)
-      }
-    };
-    if (B === "object" && A != null) return {
-      kvlistValue: {
-        values: Object.entries(A).map(([Q, I]) => cg1(Q, I))
-      }
-    };
-    return {}
-  }
-  tO0.toAnyValue = lg1
-})
-// @from(Start 4613385, End 4615252)
-ig1 = z((BT0) => {
-  Object.defineProperty(BT0, "__esModule", {
-    value: !0
-  });
-  BT0.toLogAttributes = BT0.createExportLogsServiceRequest = void 0;
-  var r26 = vZ1(),
-    gZ1 = bZ1();
-
-  function o26(A, B) {
-    let Q = r26.getOtlpEncoder(B);
-    return {
-      resourceLogs: e26(A, Q)
-    }
-  }
-  BT0.createExportLogsServiceRequest = o26;
-
-  function t26(A) {
-    let B = new Map;
-    for (let Q of A) {
-      let {
-        resource: I,
-        instrumentationScope: {
-          name: G,
-          version: Z = "",
-          schemaUrl: D = ""
-        }
-      } = Q, Y = B.get(I);
-      if (!Y) Y = new Map, B.set(I, Y);
-      let W = `${G}@${Z}:${D}`,
-        J = Y.get(W);
-      if (!J) J = [], Y.set(W, J);
-      J.push(Q)
-    }
-    return B
-  }
-
-  function e26(A, B) {
-    let Q = t26(A);
-    return Array.from(Q, ([I, G]) => ({
-      resource: gZ1.createResource(I),
-      scopeLogs: Array.from(G, ([, Z]) => {
-        return {
-          scope: gZ1.createInstrumentationScope(Z[0].instrumentationScope),
-          logRecords: Z.map((D) => A96(D, B)),
-          schemaUrl: Z[0].instrumentationScope.schemaUrl
-        }
-      }),
-      schemaUrl: void 0
-    }))
-  }
-
-  function A96(A, B) {
-    return {
-      timeUnixNano: B.encodeHrTime(A.hrTime),
-      observedTimeUnixNano: B.encodeHrTime(A.hrTimeObserved),
-      severityNumber: B96(A.severityNumber),
-      severityText: A.severityText,
-      body: gZ1.toAnyValue(A.body),
-      attributes: AT0(A.attributes),
-      droppedAttributesCount: A.droppedAttributesCount,
-      flags: A.spanContext?.traceFlags,
-      traceId: B.encodeOptionalSpanContext(A.spanContext?.traceId),
-      spanId: B.encodeOptionalSpanContext(A.spanContext?.spanId)
-    }
-  }
-
-  function B96(A) {
-    return A
-  }
-
-  function AT0(A) {
-    return Object.keys(A).map((B) => gZ1.toKeyValue(B, A[B]))
-  }
-  BT0.toLogAttributes = AT0
-})
-// @from(Start 4615258, End 4615807)
-DT0 = z((GT0) => {
-  Object.defineProperty(GT0, "__esModule", {
-    value: !0
-  });
-  GT0.ProtobufLogsSerializer = void 0;
-  var IT0 = fZ1(),
-    I96 = ig1(),
-    G96 = IT0.opentelemetry.proto.collector.logs.v1.ExportLogsServiceResponse,
-    Z96 = IT0.opentelemetry.proto.collector.logs.v1.ExportLogsServiceRequest;
-  GT0.ProtobufLogsSerializer = {
-    serializeRequest: (A) => {
-      let B = I96.createExportLogsServiceRequest(A);
-      return Z96.encode(B).finish()
-    },
-    deserializeResponse: (A) => {
-      return G96.decode(A)
-    }
-  }
-})
-// @from(Start 4615813, End 4616107)
-YT0 = z((ng1) => {
-  Object.defineProperty(ng1, "__esModule", {
-    value: !0
-  });
-  ng1.ProtobufLogsSerializer = void 0;
-  var D96 = DT0();
-  Object.defineProperty(ng1, "ProtobufLogsSerializer", {
-    enumerable: !0,
-    get: function() {
-      return D96.ProtobufLogsSerializer
-    }
-  })
-})
-// @from(Start 4616113, End 4619662)
-ag1 = z((CT0) => {
-  Object.defineProperty(CT0, "__esModule", {
-    value: !0
-  });
-  CT0.createExportMetricsServiceRequest = CT0.toMetric = CT0.toScopeMetrics = CT0.toResourceMetrics = void 0;
-  var WT0 = s9(),
-    dg = QR(),
-    W96 = vZ1(),
-    bs = bZ1();
-
-  function FT0(A, B) {
-    let Q = W96.getOtlpEncoder(B);
-    return {
-      resource: bs.createResource(A.resource),
-      schemaUrl: void 0,
-      scopeMetrics: XT0(A.scopeMetrics, Q)
-    }
-  }
-  CT0.toResourceMetrics = FT0;
-
-  function XT0(A, B) {
-    return Array.from(A.map((Q) => ({
-      scope: bs.createInstrumentationScope(Q.scope),
-      metrics: Q.metrics.map((I) => VT0(I, B)),
-      schemaUrl: Q.scope.schemaUrl
-    })))
-  }
-  CT0.toScopeMetrics = XT0;
-
-  function VT0(A, B) {
-    let Q = {
-        name: A.descriptor.name,
-        description: A.descriptor.description,
-        unit: A.descriptor.unit
-      },
-      I = V96(A.aggregationTemporality);
-    switch (A.dataPointType) {
-      case dg.DataPointType.SUM:
-        Q.sum = {
-          aggregationTemporality: I,
-          isMonotonic: A.isMonotonic,
-          dataPoints: JT0(A, B)
-        };
-        break;
-      case dg.DataPointType.GAUGE:
-        Q.gauge = {
-          dataPoints: JT0(A, B)
-        };
-        break;
-      case dg.DataPointType.HISTOGRAM:
-        Q.histogram = {
-          aggregationTemporality: I,
-          dataPoints: F96(A, B)
-        };
-        break;
-      case dg.DataPointType.EXPONENTIAL_HISTOGRAM:
-        Q.exponentialHistogram = {
-          aggregationTemporality: I,
-          dataPoints: X96(A, B)
-        };
-        break
-    }
-    return Q
-  }
-  CT0.toMetric = VT0;
-
-  function J96(A, B, Q) {
-    let I = {
-      attributes: bs.toAttributes(A.attributes),
-      startTimeUnixNano: Q.encodeHrTime(A.startTime),
-      timeUnixNano: Q.encodeHrTime(A.endTime)
-    };
-    switch (B) {
-      case WT0.ValueType.INT:
-        I.asInt = A.value;
-        break;
-      case WT0.ValueType.DOUBLE:
-        I.asDouble = A.value;
-        break
-    }
-    return I
-  }
-
-  function JT0(A, B) {
-    return A.dataPoints.map((Q) => {
-      return J96(Q, A.descriptor.valueType, B)
+// @from(Start 4112667, End 4114489)
+rS = z((VT7, $gQ) => {
+  var {
+    defineProperty: AcA,
+    getOwnPropertyDescriptor: D$8,
+    getOwnPropertyNames: H$8
+  } = Object, C$8 = Object.prototype.hasOwnProperty, DS1 = (A, Q) => AcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), E$8 = (A, Q) => {
+    for (var B in Q) AcA(A, B, {
+      get: Q[B],
+      enumerable: !0
     })
-  }
-
-  function F96(A, B) {
-    return A.dataPoints.map((Q) => {
-      let I = Q.value;
-      return {
-        attributes: bs.toAttributes(Q.attributes),
-        bucketCounts: I.buckets.counts,
-        explicitBounds: I.buckets.boundaries,
-        count: I.count,
-        sum: I.sum,
-        min: I.min,
-        max: I.max,
-        startTimeUnixNano: B.encodeHrTime(Q.startTime),
-        timeUnixNano: B.encodeHrTime(Q.endTime)
-      }
-    })
-  }
-
-  function X96(A, B) {
-    return A.dataPoints.map((Q) => {
-      let I = Q.value;
-      return {
-        attributes: bs.toAttributes(Q.attributes),
-        count: I.count,
-        min: I.min,
-        max: I.max,
-        sum: I.sum,
-        positive: {
-          offset: I.positive.offset,
-          bucketCounts: I.positive.bucketCounts
-        },
-        negative: {
-          offset: I.negative.offset,
-          bucketCounts: I.negative.bucketCounts
-        },
-        scale: I.scale,
-        zeroCount: I.zeroCount,
-        startTimeUnixNano: B.encodeHrTime(Q.startTime),
-        timeUnixNano: B.encodeHrTime(Q.endTime)
-      }
-    })
-  }
-
-  function V96(A) {
-    switch (A) {
-      case dg.AggregationTemporality.DELTA:
-        return 1;
-      case dg.AggregationTemporality.CUMULATIVE:
-        return 2
-    }
-  }
-
-  function C96(A, B) {
-    return {
-      resourceMetrics: A.map((Q) => FT0(Q, B))
-    }
-  }
-  CT0.createExportMetricsServiceRequest = C96
-})
-// @from(Start 4619668, End 4620240)
-ET0 = z((zT0) => {
-  Object.defineProperty(zT0, "__esModule", {
-    value: !0
-  });
-  zT0.ProtobufMetricsSerializer = void 0;
-  var HT0 = fZ1(),
-    w96 = ag1(),
-    E96 = HT0.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceResponse,
-    U96 = HT0.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
-  zT0.ProtobufMetricsSerializer = {
-    serializeRequest: (A) => {
-      let B = w96.createExportMetricsServiceRequest([A]);
-      return U96.encode(B).finish()
-    },
-    deserializeResponse: (A) => {
-      return E96.decode(A)
-    }
-  }
-})
-// @from(Start 4620246, End 4620549)
-UT0 = z((sg1) => {
-  Object.defineProperty(sg1, "__esModule", {
-    value: !0
-  });
-  sg1.ProtobufMetricsSerializer = void 0;
-  var N96 = ET0();
-  Object.defineProperty(sg1, "ProtobufMetricsSerializer", {
-    enumerable: !0,
-    get: function() {
-      return N96.ProtobufMetricsSerializer
-    }
-  })
-})
-// @from(Start 4620555, End 4623566)
-rg1 = z((MT0) => {
-  Object.defineProperty(MT0, "__esModule", {
-    value: !0
-  });
-  MT0.createExportTraceServiceRequest = MT0.toOtlpSpanEvent = MT0.toOtlpLink = MT0.sdkSpanToOtlpSpan = void 0;
-  var gs = bZ1(),
-    q96 = vZ1();
-
-  function NT0(A, B) {
-    let Q = A.spanContext(),
-      I = A.status,
-      G = A.parentSpanContext?.spanId ? B.encodeSpanContext(A.parentSpanContext?.spanId) : void 0;
-    return {
-      traceId: B.encodeSpanContext(Q.traceId),
-      spanId: B.encodeSpanContext(Q.spanId),
-      parentSpanId: G,
-      traceState: Q.traceState?.serialize(),
-      name: A.name,
-      kind: A.kind == null ? 0 : A.kind + 1,
-      startTimeUnixNano: B.encodeHrTime(A.startTime),
-      endTimeUnixNano: B.encodeHrTime(A.endTime),
-      attributes: gs.toAttributes(A.attributes),
-      droppedAttributesCount: A.droppedAttributesCount,
-      events: A.events.map((Z) => qT0(Z, B)),
-      droppedEventsCount: A.droppedEventsCount,
-      status: {
-        code: I.code,
-        message: I.message
-      },
-      links: A.links.map((Z) => $T0(Z, B)),
-      droppedLinksCount: A.droppedLinksCount
-    }
-  }
-  MT0.sdkSpanToOtlpSpan = NT0;
-
-  function $T0(A, B) {
-    return {
-      attributes: A.attributes ? gs.toAttributes(A.attributes) : [],
-      spanId: B.encodeSpanContext(A.context.spanId),
-      traceId: B.encodeSpanContext(A.context.traceId),
-      traceState: A.context.traceState?.serialize(),
-      droppedAttributesCount: A.droppedAttributesCount || 0
-    }
-  }
-  MT0.toOtlpLink = $T0;
-
-  function qT0(A, B) {
-    return {
-      attributes: A.attributes ? gs.toAttributes(A.attributes) : [],
-      name: A.name,
-      timeUnixNano: B.encodeHrTime(A.time),
-      droppedAttributesCount: A.droppedAttributesCount || 0
-    }
-  }
-  MT0.toOtlpSpanEvent = qT0;
-
-  function M96(A, B) {
-    let Q = q96.getOtlpEncoder(B);
-    return {
-      resourceSpans: R96(A, Q)
-    }
-  }
-  MT0.createExportTraceServiceRequest = M96;
-
-  function L96(A) {
-    let B = new Map;
-    for (let Q of A) {
-      let I = B.get(Q.resource);
-      if (!I) I = new Map, B.set(Q.resource, I);
-      let G = `${Q.instrumentationScope.name}@${Q.instrumentationScope.version||""}:${Q.instrumentationScope.schemaUrl||""}`,
-        Z = I.get(G);
-      if (!Z) Z = [], I.set(G, Z);
-      Z.push(Q)
-    }
-    return B
-  }
-
-  function R96(A, B) {
-    let Q = L96(A),
-      I = [],
-      G = Q.entries(),
-      Z = G.next();
-    while (!Z.done) {
-      let [D, Y] = Z.value, W = [], J = Y.values(), F = J.next();
-      while (!F.done) {
-        let V = F.value;
-        if (V.length > 0) {
-          let C = V.map((K) => NT0(K, B));
-          W.push({
-            scope: gs.createInstrumentationScope(V[0].instrumentationScope),
-            spans: C,
-            schemaUrl: V[0].instrumentationScope.schemaUrl
-          })
-        }
-        F = J.next()
-      }
-      let X = {
-        resource: gs.createResource(D),
-        scopeSpans: W,
-        schemaUrl: void 0
-      };
-      I.push(X), Z = G.next()
-    }
-    return I
-  }
-})
-// @from(Start 4623572, End 4624128)
-PT0 = z((OT0) => {
-  Object.defineProperty(OT0, "__esModule", {
-    value: !0
-  });
-  OT0.ProtobufTraceSerializer = void 0;
-  var RT0 = fZ1(),
-    S96 = rg1(),
-    _96 = RT0.opentelemetry.proto.collector.trace.v1.ExportTraceServiceResponse,
-    j96 = RT0.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest;
-  OT0.ProtobufTraceSerializer = {
-    serializeRequest: (A) => {
-      let B = S96.createExportTraceServiceRequest(A);
-      return j96.encode(B).finish()
-    },
-    deserializeResponse: (A) => {
-      return _96.decode(A)
-    }
-  }
-})
-// @from(Start 4624134, End 4624431)
-ST0 = z((og1) => {
-  Object.defineProperty(og1, "__esModule", {
-    value: !0
-  });
-  og1.ProtobufTraceSerializer = void 0;
-  var y96 = PT0();
-  Object.defineProperty(og1, "ProtobufTraceSerializer", {
-    enumerable: !0,
-    get: function() {
-      return y96.ProtobufTraceSerializer
-    }
-  })
-})
-// @from(Start 4624437, End 4624921)
-yT0 = z((_T0) => {
-  Object.defineProperty(_T0, "__esModule", {
-    value: !0
-  });
-  _T0.JsonLogsSerializer = void 0;
-  var x96 = ig1();
-  _T0.JsonLogsSerializer = {
-    serializeRequest: (A) => {
-      let B = x96.createExportLogsServiceRequest(A, {
-        useHex: !0,
-        useLongBits: !1
-      });
-      return new TextEncoder().encode(JSON.stringify(B))
-    },
-    deserializeResponse: (A) => {
-      let B = new TextDecoder;
-      return JSON.parse(B.decode(A))
-    }
-  }
-})
-// @from(Start 4624927, End 4625209)
-kT0 = z((tg1) => {
-  Object.defineProperty(tg1, "__esModule", {
-    value: !0
-  });
-  tg1.JsonLogsSerializer = void 0;
-  var f96 = yT0();
-  Object.defineProperty(tg1, "JsonLogsSerializer", {
-    enumerable: !0,
-    get: function() {
-      return f96.JsonLogsSerializer
-    }
-  })
-})
-// @from(Start 4625215, End 4625690)
-vT0 = z((xT0) => {
-  Object.defineProperty(xT0, "__esModule", {
-    value: !0
-  });
-  xT0.JsonMetricsSerializer = void 0;
-  var b96 = ag1();
-  xT0.JsonMetricsSerializer = {
-    serializeRequest: (A) => {
-      let B = b96.createExportMetricsServiceRequest([A], {
-        useLongBits: !1
-      });
-      return new TextEncoder().encode(JSON.stringify(B))
-    },
-    deserializeResponse: (A) => {
-      let B = new TextDecoder;
-      return JSON.parse(B.decode(A))
-    }
-  }
-})
-// @from(Start 4625696, End 4625987)
-bT0 = z((eg1) => {
-  Object.defineProperty(eg1, "__esModule", {
-    value: !0
-  });
-  eg1.JsonMetricsSerializer = void 0;
-  var g96 = vT0();
-  Object.defineProperty(eg1, "JsonMetricsSerializer", {
-    enumerable: !0,
-    get: function() {
-      return g96.JsonMetricsSerializer
-    }
-  })
-})
-// @from(Start 4625993, End 4626480)
-mT0 = z((gT0) => {
-  Object.defineProperty(gT0, "__esModule", {
-    value: !0
-  });
-  gT0.JsonTraceSerializer = void 0;
-  var m96 = rg1();
-  gT0.JsonTraceSerializer = {
-    serializeRequest: (A) => {
-      let B = m96.createExportTraceServiceRequest(A, {
-        useHex: !0,
-        useLongBits: !1
-      });
-      return new TextEncoder().encode(JSON.stringify(B))
-    },
-    deserializeResponse: (A) => {
-      let B = new TextDecoder;
-      return JSON.parse(B.decode(A))
-    }
-  }
-})
-// @from(Start 4626486, End 4626771)
-dT0 = z((Ah1) => {
-  Object.defineProperty(Ah1, "__esModule", {
-    value: !0
-  });
-  Ah1.JsonTraceSerializer = void 0;
-  var d96 = mT0();
-  Object.defineProperty(Ah1, "JsonTraceSerializer", {
-    enumerable: !0,
-    get: function() {
-      return d96.JsonTraceSerializer
-    }
-  })
-})
-// @from(Start 4626777, End 4628039)
-i_ = z((DR) => {
-  Object.defineProperty(DR, "__esModule", {
-    value: !0
-  });
-  DR.JsonTraceSerializer = DR.JsonMetricsSerializer = DR.JsonLogsSerializer = DR.ProtobufTraceSerializer = DR.ProtobufMetricsSerializer = DR.ProtobufLogsSerializer = void 0;
-  var p96 = YT0();
-  Object.defineProperty(DR, "ProtobufLogsSerializer", {
-    enumerable: !0,
-    get: function() {
-      return p96.ProtobufLogsSerializer
-    }
-  });
-  var c96 = UT0();
-  Object.defineProperty(DR, "ProtobufMetricsSerializer", {
-    enumerable: !0,
-    get: function() {
-      return c96.ProtobufMetricsSerializer
-    }
-  });
-  var l96 = ST0();
-  Object.defineProperty(DR, "ProtobufTraceSerializer", {
-    enumerable: !0,
-    get: function() {
-      return l96.ProtobufTraceSerializer
-    }
-  });
-  var i96 = kT0();
-  Object.defineProperty(DR, "JsonLogsSerializer", {
-    enumerable: !0,
-    get: function() {
-      return i96.JsonLogsSerializer
-    }
-  });
-  var n96 = bT0();
-  Object.defineProperty(DR, "JsonMetricsSerializer", {
-    enumerable: !0,
-    get: function() {
-      return n96.JsonMetricsSerializer
-    }
-  });
-  var a96 = dT0();
-  Object.defineProperty(DR, "JsonTraceSerializer", {
-    enumerable: !0,
-    get: function() {
-      return a96.JsonTraceSerializer
-    }
-  })
-})
-// @from(Start 4628045, End 4628181)
-cT0 = z((uT0) => {
-  Object.defineProperty(uT0, "__esModule", {
-    value: !0
-  });
-  uT0.VERSION = void 0;
-  uT0.VERSION = "0.200.0"
-})
-// @from(Start 4628187, End 4628705)
-nT0 = z((lT0) => {
-  Object.defineProperty(lT0, "__esModule", {
-    value: !0
-  });
-  lT0.parseRetryAfterToMills = lT0.isExportRetryable = void 0;
-
-  function r96(A) {
-    return [429, 502, 503, 504].includes(A)
-  }
-  lT0.isExportRetryable = r96;
-
-  function o96(A) {
-    if (A == null) return;
-    let B = Number.parseInt(A, 10);
-    if (Number.isInteger(B)) return B > 0 ? B * 1000 : -1;
-    let Q = new Date(A).getTime() - Date.now();
-    if (Q >= 0) return Q;
-    return 0
-  }
-  lT0.parseRetryAfterToMills = o96
-})
-// @from(Start 4628711, End 4631031)
-AP0 = z((tT0) => {
-  Object.defineProperty(tT0, "__esModule", {
-    value: !0
-  });
-  tT0.createHttpAgent = tT0.compressAndSend = tT0.sendWithHttp = void 0;
-  var sT0 = Z1("http"),
-    rT0 = Z1("https"),
-    e96 = Z1("zlib"),
-    A46 = Z1("stream"),
-    aT0 = nT0(),
-    B46 = TZ1();
-
-  function Q46(A, B, Q, I, G) {
-    let Z = new URL(A.url),
-      D = Number(process.versions.node.split(".")[0]),
-      Y = {
-        hostname: Z.hostname,
-        port: Z.port,
-        path: Z.pathname,
-        method: "POST",
-        headers: {
-          ...A.headers()
-        },
-        agent: B
-      },
-      J = (Z.protocol === "http:" ? sT0.request : rT0.request)(Y, (X) => {
-        let V = [];
-        X.on("data", (C) => V.push(C)), X.on("end", () => {
-          if (X.statusCode && X.statusCode < 299) I({
-            status: "success",
-            data: Buffer.concat(V)
-          });
-          else if (X.statusCode && aT0.isExportRetryable(X.statusCode)) I({
-            status: "retryable",
-            retryInMillis: aT0.parseRetryAfterToMills(X.headers["retry-after"])
-          });
-          else {
-            let C = new B46.OTLPExporterError(X.statusMessage, X.statusCode, Buffer.concat(V).toString());
-            I({
-              status: "failure",
-              error: C
-            })
-          }
+  }, z$8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of H$8(Q))
+        if (!C$8.call(A, Z) && Z !== B) AcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = D$8(Q, Z)) || G.enumerable
         })
-      });
-    J.setTimeout(G, () => {
-      J.destroy(), I({
-        status: "failure",
-        error: new Error("Request Timeout")
-      })
-    }), J.on("error", (X) => {
-      I({
-        status: "failure",
-        error: X
-      })
-    });
-    let F = D >= 14 ? "close" : "abort";
-    J.on(F, () => {
-      I({
-        status: "failure",
-        error: new Error("Request timed out")
-      })
-    }), oT0(J, A.compression, Q, (X) => {
-      I({
-        status: "failure",
-        error: X
-      })
+    }
+    return A
+  }, U$8 = (A) => z$8(AcA({}, "__esModule", {
+    value: !0
+  }), A), EgQ = {};
+  E$8(EgQ, {
+    emitWarningIfUnsupportedVersion: () => $$8,
+    setCredentialFeature: () => zgQ,
+    setFeature: () => UgQ,
+    state: () => KS1
+  });
+  $gQ.exports = U$8(EgQ);
+  var KS1 = {
+      warningEmitted: !1
+    },
+    $$8 = DS1((A) => {
+      if (A && !KS1.warningEmitted && parseInt(A.substring(1, A.indexOf("."))) < 18) KS1.warningEmitted = !0, process.emitWarning(`NodeDeprecationWarning: The AWS SDK for JavaScript (v3) will
+no longer support Node.js 16.x on January 6, 2025.
+
+To continue receiving updates to AWS services, bug fixes, and security
+updates please upgrade to a supported Node.js LTS version.
+
+More information can be found at: https://a.co/74kJMmI`)
+    }, "emitWarningIfUnsupportedVersion");
+
+  function zgQ(A, Q, B) {
+    if (!A.$source) A.$source = {};
+    return A.$source[Q] = B, A
+  }
+  DS1(zgQ, "setCredentialFeature");
+
+  function UgQ(A, Q, B) {
+    if (!A.__aws_sdk_context) A.__aws_sdk_context = {
+      features: {}
+    };
+    else if (!A.__aws_sdk_context.features) A.__aws_sdk_context.features = {};
+    A.__aws_sdk_context.features[Q] = B
+  }
+  DS1(UgQ, "setFeature")
+})
+// @from(Start 4114495, End 4116568)
+HS1 = z((FT7, TgQ) => {
+  var {
+    defineProperty: QcA,
+    getOwnPropertyDescriptor: w$8,
+    getOwnPropertyNames: q$8
+  } = Object, N$8 = Object.prototype.hasOwnProperty, L$8 = (A, Q) => QcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), M$8 = (A, Q) => {
+    for (var B in Q) QcA(A, B, {
+      get: Q[B],
+      enumerable: !0
     })
-  }
-  tT0.sendWithHttp = Q46;
-
-  function oT0(A, B, Q, I) {
-    let G = I46(Q);
-    if (B === "gzip") A.setHeader("Content-Encoding", "gzip"), G = G.on("error", I).pipe(e96.createGzip()).on("error", I);
-    G.pipe(A).on("error", I)
-  }
-  tT0.compressAndSend = oT0;
-
-  function I46(A) {
-    let B = new A46.Readable;
-    return B.push(A), B.push(null), B
-  }
-
-  function G46(A, B) {
-    return new(new URL(A).protocol === "http:" ? sT0.Agent : rT0.Agent)(B)
-  }
-  tT0.createHttpAgent = G46
-})
-// @from(Start 4631037, End 4631916)
-GP0 = z((QP0) => {
-  Object.defineProperty(QP0, "__esModule", {
+  }, O$8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of q$8(Q))
+        if (!N$8.call(A, Z) && Z !== B) QcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = w$8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, R$8 = (A) => O$8(QcA({}, "__esModule", {
     value: !0
+  }), A), wgQ = {};
+  M$8(wgQ, {
+    ENV_ACCOUNT_ID: () => RgQ,
+    ENV_CREDENTIAL_SCOPE: () => OgQ,
+    ENV_EXPIRATION: () => MgQ,
+    ENV_KEY: () => qgQ,
+    ENV_SECRET: () => NgQ,
+    ENV_SESSION: () => LgQ,
+    fromEnv: () => j$8
   });
-  QP0.createHttpExporterTransport = void 0;
-  class BP0 {
-    _parameters;
-    _utils = null;
-    constructor(A) {
-      this._parameters = A
-    }
-    async send(A, B) {
-      let {
-        agent: Q,
-        send: I
-      } = this._loadUtils();
-      return new Promise((G) => {
-        I(this._parameters, Q, A, (Z) => {
-          G(Z)
-        }, B)
-      })
-    }
-    shutdown() {}
-    _loadUtils() {
-      let A = this._utils;
-      if (A === null) {
-        let {
-          sendWithHttp: B,
-          createHttpAgent: Q
-        } = AP0();
-        A = this._utils = {
-          agent: Q(this._parameters.url, this._parameters.agentOptions),
-          send: B
-        }
+  TgQ.exports = R$8(wgQ);
+  var T$8 = rS(),
+    P$8 = j2(),
+    qgQ = "AWS_ACCESS_KEY_ID",
+    NgQ = "AWS_SECRET_ACCESS_KEY",
+    LgQ = "AWS_SESSION_TOKEN",
+    MgQ = "AWS_CREDENTIAL_EXPIRATION",
+    OgQ = "AWS_CREDENTIAL_SCOPE",
+    RgQ = "AWS_ACCOUNT_ID",
+    j$8 = L$8((A) => async () => {
+      A?.logger?.debug("@aws-sdk/credential-provider-env - fromEnv");
+      let Q = process.env[qgQ],
+        B = process.env[NgQ],
+        G = process.env[LgQ],
+        Z = process.env[MgQ],
+        I = process.env[OgQ],
+        Y = process.env[RgQ];
+      if (Q && B) {
+        let J = {
+          accessKeyId: Q,
+          secretAccessKey: B,
+          ...G && {
+            sessionToken: G
+          },
+          ...Z && {
+            expiration: new Date(Z)
+          },
+          ...I && {
+            credentialScope: I
+          },
+          ...Y && {
+            accountId: Y
+          }
+        };
+        return (0, T$8.setCredentialFeature)(J, "CREDENTIALS_ENV_VARS", "g"), J
       }
-      return A
-    }
-  }
-
-  function Y46(A) {
-    return new BP0(A)
-  }
-  QP0.createHttpExporterTransport = Y46
-})
-// @from(Start 4631922, End 4633033)
-JP0 = z((YP0) => {
-  Object.defineProperty(YP0, "__esModule", {
-    value: !0
-  });
-  YP0.createRetryingTransport = void 0;
-  var W46 = 5,
-    J46 = 1000,
-    F46 = 5000,
-    X46 = 1.5,
-    ZP0 = 0.2;
-
-  function V46() {
-    return Math.random() * (2 * ZP0) - ZP0
-  }
-  class DP0 {
-    _transport;
-    constructor(A) {
-      this._transport = A
-    }
-    retry(A, B, Q) {
-      return new Promise((I, G) => {
-        setTimeout(() => {
-          this._transport.send(A, B).then(I, G)
-        }, Q)
+      throw new P$8.CredentialsProviderError("Unable to find environment variable credentials.", {
+        logger: A?.logger
       })
+    }, "fromEnv")
+})
+// @from(Start 4116574, End 4133830)
+BuQ = z((KT7, ZcA) => {
+  var PgQ, jgQ, SgQ, _gQ, kgQ, ygQ, xgQ, vgQ, bgQ, fgQ, hgQ, ggQ, ugQ, BcA, CS1, mgQ, dgQ, cgQ, A5A, pgQ, lgQ, igQ, ngQ, agQ, sgQ, rgQ, ogQ, tgQ, GcA, egQ, AuQ, QuQ;
+  (function(A) {
+    var Q = typeof global === "object" ? global : typeof self === "object" ? self : typeof this === "object" ? this : {};
+    if (typeof define === "function" && define.amd) define("tslib", ["exports"], function(G) {
+      A(B(Q, B(G)))
+    });
+    else if (typeof ZcA === "object" && typeof KT7 === "object") A(B(Q, B(KT7)));
+    else A(B(Q));
+
+    function B(G, Z) {
+      if (G !== Q)
+        if (typeof Object.create === "function") Object.defineProperty(G, "__esModule", {
+          value: !0
+        });
+        else G.__esModule = !0;
+      return function(I, Y) {
+        return G[I] = Z ? Z(I, Y) : Y
+      }
     }
-    async send(A, B) {
-      let Q = Date.now() + B,
-        I = await this._transport.send(A, B),
-        G = W46,
-        Z = J46;
-      while (I.status === "retryable" && G > 0) {
-        G--;
-        let D = Math.max(Math.min(Z, F46) + V46(), 0);
-        Z = Z * X46;
-        let Y = I.retryInMillis ?? D,
-          W = Q - Date.now();
-        if (Y > W) return I;
-        I = await this.retry(A, W, Y)
+  })(function(A) {
+    var Q = Object.setPrototypeOf || {
+      __proto__: []
+    }
+    instanceof Array && function(I, Y) {
+      I.__proto__ = Y
+    } || function(I, Y) {
+      for (var J in Y)
+        if (Object.prototype.hasOwnProperty.call(Y, J)) I[J] = Y[J]
+    };
+    PgQ = function(I, Y) {
+      if (typeof Y !== "function" && Y !== null) throw TypeError("Class extends value " + String(Y) + " is not a constructor or null");
+      Q(I, Y);
+
+      function J() {
+        this.constructor = I
+      }
+      I.prototype = Y === null ? Object.create(Y) : (J.prototype = Y.prototype, new J)
+    }, jgQ = Object.assign || function(I) {
+      for (var Y, J = 1, W = arguments.length; J < W; J++) {
+        Y = arguments[J];
+        for (var X in Y)
+          if (Object.prototype.hasOwnProperty.call(Y, X)) I[X] = Y[X]
       }
       return I
-    }
-    shutdown() {
-      return this._transport.shutdown()
-    }
-  }
+    }, SgQ = function(I, Y) {
+      var J = {};
+      for (var W in I)
+        if (Object.prototype.hasOwnProperty.call(I, W) && Y.indexOf(W) < 0) J[W] = I[W];
+      if (I != null && typeof Object.getOwnPropertySymbols === "function") {
+        for (var X = 0, W = Object.getOwnPropertySymbols(I); X < W.length; X++)
+          if (Y.indexOf(W[X]) < 0 && Object.prototype.propertyIsEnumerable.call(I, W[X])) J[W[X]] = I[W[X]]
+      }
+      return J
+    }, _gQ = function(I, Y, J, W) {
+      var X = arguments.length,
+        V = X < 3 ? Y : W === null ? W = Object.getOwnPropertyDescriptor(Y, J) : W,
+        F;
+      if (typeof Reflect === "object" && typeof Reflect.decorate === "function") V = Reflect.decorate(I, Y, J, W);
+      else
+        for (var K = I.length - 1; K >= 0; K--)
+          if (F = I[K]) V = (X < 3 ? F(V) : X > 3 ? F(Y, J, V) : F(Y, J)) || V;
+      return X > 3 && V && Object.defineProperty(Y, J, V), V
+    }, kgQ = function(I, Y) {
+      return function(J, W) {
+        Y(J, W, I)
+      }
+    }, ygQ = function(I, Y, J, W, X, V) {
+      function F(T) {
+        if (T !== void 0 && typeof T !== "function") throw TypeError("Function expected");
+        return T
+      }
+      var K = W.kind,
+        D = K === "getter" ? "get" : K === "setter" ? "set" : "value",
+        H = !Y && I ? W.static ? I : I.prototype : null,
+        C = Y || (H ? Object.getOwnPropertyDescriptor(H, W.name) : {}),
+        E, U = !1;
+      for (var q = J.length - 1; q >= 0; q--) {
+        var w = {};
+        for (var N in W) w[N] = N === "access" ? {} : W[N];
+        for (var N in W.access) w.access[N] = W.access[N];
+        w.addInitializer = function(T) {
+          if (U) throw TypeError("Cannot add initializers after decoration has completed");
+          V.push(F(T || null))
+        };
+        var R = (0, J[q])(K === "accessor" ? {
+          get: C.get,
+          set: C.set
+        } : C[D], w);
+        if (K === "accessor") {
+          if (R === void 0) continue;
+          if (R === null || typeof R !== "object") throw TypeError("Object expected");
+          if (E = F(R.get)) C.get = E;
+          if (E = F(R.set)) C.set = E;
+          if (E = F(R.init)) X.unshift(E)
+        } else if (E = F(R))
+          if (K === "field") X.unshift(E);
+          else C[D] = E
+      }
+      if (H) Object.defineProperty(H, W.name, C);
+      U = !0
+    }, xgQ = function(I, Y, J) {
+      var W = arguments.length > 2;
+      for (var X = 0; X < Y.length; X++) J = W ? Y[X].call(I, J) : Y[X].call(I);
+      return W ? J : void 0
+    }, vgQ = function(I) {
+      return typeof I === "symbol" ? I : "".concat(I)
+    }, bgQ = function(I, Y, J) {
+      if (typeof Y === "symbol") Y = Y.description ? "[".concat(Y.description, "]") : "";
+      return Object.defineProperty(I, "name", {
+        configurable: !0,
+        value: J ? "".concat(J, " ", Y) : Y
+      })
+    }, fgQ = function(I, Y) {
+      if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(I, Y)
+    }, hgQ = function(I, Y, J, W) {
+      function X(V) {
+        return V instanceof J ? V : new J(function(F) {
+          F(V)
+        })
+      }
+      return new(J || (J = Promise))(function(V, F) {
+        function K(C) {
+          try {
+            H(W.next(C))
+          } catch (E) {
+            F(E)
+          }
+        }
 
-  function C46(A) {
-    return new DP0(A.transport)
-  }
-  YP0.createRetryingTransport = C46
+        function D(C) {
+          try {
+            H(W.throw(C))
+          } catch (E) {
+            F(E)
+          }
+        }
+
+        function H(C) {
+          C.done ? V(C.value) : X(C.value).then(K, D)
+        }
+        H((W = W.apply(I, Y || [])).next())
+      })
+    }, ggQ = function(I, Y) {
+      var J = {
+          label: 0,
+          sent: function() {
+            if (V[0] & 1) throw V[1];
+            return V[1]
+          },
+          trys: [],
+          ops: []
+        },
+        W, X, V, F = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
+      return F.next = K(0), F.throw = K(1), F.return = K(2), typeof Symbol === "function" && (F[Symbol.iterator] = function() {
+        return this
+      }), F;
+
+      function K(H) {
+        return function(C) {
+          return D([H, C])
+        }
+      }
+
+      function D(H) {
+        if (W) throw TypeError("Generator is already executing.");
+        while (F && (F = 0, H[0] && (J = 0)), J) try {
+          if (W = 1, X && (V = H[0] & 2 ? X.return : H[0] ? X.throw || ((V = X.return) && V.call(X), 0) : X.next) && !(V = V.call(X, H[1])).done) return V;
+          if (X = 0, V) H = [H[0] & 2, V.value];
+          switch (H[0]) {
+            case 0:
+            case 1:
+              V = H;
+              break;
+            case 4:
+              return J.label++, {
+                value: H[1],
+                done: !1
+              };
+            case 5:
+              J.label++, X = H[1], H = [0];
+              continue;
+            case 7:
+              H = J.ops.pop(), J.trys.pop();
+              continue;
+            default:
+              if ((V = J.trys, !(V = V.length > 0 && V[V.length - 1])) && (H[0] === 6 || H[0] === 2)) {
+                J = 0;
+                continue
+              }
+              if (H[0] === 3 && (!V || H[1] > V[0] && H[1] < V[3])) {
+                J.label = H[1];
+                break
+              }
+              if (H[0] === 6 && J.label < V[1]) {
+                J.label = V[1], V = H;
+                break
+              }
+              if (V && J.label < V[2]) {
+                J.label = V[2], J.ops.push(H);
+                break
+              }
+              if (V[2]) J.ops.pop();
+              J.trys.pop();
+              continue
+          }
+          H = Y.call(I, J)
+        } catch (C) {
+          H = [6, C], X = 0
+        } finally {
+          W = V = 0
+        }
+        if (H[0] & 5) throw H[1];
+        return {
+          value: H[0] ? H[1] : void 0,
+          done: !0
+        }
+      }
+    }, ugQ = function(I, Y) {
+      for (var J in I)
+        if (J !== "default" && !Object.prototype.hasOwnProperty.call(Y, J)) GcA(Y, I, J)
+    }, GcA = Object.create ? function(I, Y, J, W) {
+      if (W === void 0) W = J;
+      var X = Object.getOwnPropertyDescriptor(Y, J);
+      if (!X || ("get" in X ? !Y.__esModule : X.writable || X.configurable)) X = {
+        enumerable: !0,
+        get: function() {
+          return Y[J]
+        }
+      };
+      Object.defineProperty(I, W, X)
+    } : function(I, Y, J, W) {
+      if (W === void 0) W = J;
+      I[W] = Y[J]
+    }, BcA = function(I) {
+      var Y = typeof Symbol === "function" && Symbol.iterator,
+        J = Y && I[Y],
+        W = 0;
+      if (J) return J.call(I);
+      if (I && typeof I.length === "number") return {
+        next: function() {
+          if (I && W >= I.length) I = void 0;
+          return {
+            value: I && I[W++],
+            done: !I
+          }
+        }
+      };
+      throw TypeError(Y ? "Object is not iterable." : "Symbol.iterator is not defined.")
+    }, CS1 = function(I, Y) {
+      var J = typeof Symbol === "function" && I[Symbol.iterator];
+      if (!J) return I;
+      var W = J.call(I),
+        X, V = [],
+        F;
+      try {
+        while ((Y === void 0 || Y-- > 0) && !(X = W.next()).done) V.push(X.value)
+      } catch (K) {
+        F = {
+          error: K
+        }
+      } finally {
+        try {
+          if (X && !X.done && (J = W.return)) J.call(W)
+        } finally {
+          if (F) throw F.error
+        }
+      }
+      return V
+    }, mgQ = function() {
+      for (var I = [], Y = 0; Y < arguments.length; Y++) I = I.concat(CS1(arguments[Y]));
+      return I
+    }, dgQ = function() {
+      for (var I = 0, Y = 0, J = arguments.length; Y < J; Y++) I += arguments[Y].length;
+      for (var W = Array(I), X = 0, Y = 0; Y < J; Y++)
+        for (var V = arguments[Y], F = 0, K = V.length; F < K; F++, X++) W[X] = V[F];
+      return W
+    }, cgQ = function(I, Y, J) {
+      if (J || arguments.length === 2) {
+        for (var W = 0, X = Y.length, V; W < X; W++)
+          if (V || !(W in Y)) {
+            if (!V) V = Array.prototype.slice.call(Y, 0, W);
+            V[W] = Y[W]
+          }
+      }
+      return I.concat(V || Array.prototype.slice.call(Y))
+    }, A5A = function(I) {
+      return this instanceof A5A ? (this.v = I, this) : new A5A(I)
+    }, pgQ = function(I, Y, J) {
+      if (!Symbol.asyncIterator) throw TypeError("Symbol.asyncIterator is not defined.");
+      var W = J.apply(I, Y || []),
+        X, V = [];
+      return X = Object.create((typeof AsyncIterator === "function" ? AsyncIterator : Object).prototype), K("next"), K("throw"), K("return", F), X[Symbol.asyncIterator] = function() {
+        return this
+      }, X;
+
+      function F(q) {
+        return function(w) {
+          return Promise.resolve(w).then(q, E)
+        }
+      }
+
+      function K(q, w) {
+        if (W[q]) {
+          if (X[q] = function(N) {
+              return new Promise(function(R, T) {
+                V.push([q, N, R, T]) > 1 || D(q, N)
+              })
+            }, w) X[q] = w(X[q])
+        }
+      }
+
+      function D(q, w) {
+        try {
+          H(W[q](w))
+        } catch (N) {
+          U(V[0][3], N)
+        }
+      }
+
+      function H(q) {
+        q.value instanceof A5A ? Promise.resolve(q.value.v).then(C, E) : U(V[0][2], q)
+      }
+
+      function C(q) {
+        D("next", q)
+      }
+
+      function E(q) {
+        D("throw", q)
+      }
+
+      function U(q, w) {
+        if (q(w), V.shift(), V.length) D(V[0][0], V[0][1])
+      }
+    }, lgQ = function(I) {
+      var Y, J;
+      return Y = {}, W("next"), W("throw", function(X) {
+        throw X
+      }), W("return"), Y[Symbol.iterator] = function() {
+        return this
+      }, Y;
+
+      function W(X, V) {
+        Y[X] = I[X] ? function(F) {
+          return (J = !J) ? {
+            value: A5A(I[X](F)),
+            done: !1
+          } : V ? V(F) : F
+        } : V
+      }
+    }, igQ = function(I) {
+      if (!Symbol.asyncIterator) throw TypeError("Symbol.asyncIterator is not defined.");
+      var Y = I[Symbol.asyncIterator],
+        J;
+      return Y ? Y.call(I) : (I = typeof BcA === "function" ? BcA(I) : I[Symbol.iterator](), J = {}, W("next"), W("throw"), W("return"), J[Symbol.asyncIterator] = function() {
+        return this
+      }, J);
+
+      function W(V) {
+        J[V] = I[V] && function(F) {
+          return new Promise(function(K, D) {
+            F = I[V](F), X(K, D, F.done, F.value)
+          })
+        }
+      }
+
+      function X(V, F, K, D) {
+        Promise.resolve(D).then(function(H) {
+          V({
+            value: H,
+            done: K
+          })
+        }, F)
+      }
+    }, ngQ = function(I, Y) {
+      if (Object.defineProperty) Object.defineProperty(I, "raw", {
+        value: Y
+      });
+      else I.raw = Y;
+      return I
+    };
+    var B = Object.create ? function(I, Y) {
+        Object.defineProperty(I, "default", {
+          enumerable: !0,
+          value: Y
+        })
+      } : function(I, Y) {
+        I.default = Y
+      },
+      G = function(I) {
+        return G = Object.getOwnPropertyNames || function(Y) {
+          var J = [];
+          for (var W in Y)
+            if (Object.prototype.hasOwnProperty.call(Y, W)) J[J.length] = W;
+          return J
+        }, G(I)
+      };
+    agQ = function(I) {
+      if (I && I.__esModule) return I;
+      var Y = {};
+      if (I != null) {
+        for (var J = G(I), W = 0; W < J.length; W++)
+          if (J[W] !== "default") GcA(Y, I, J[W])
+      }
+      return B(Y, I), Y
+    }, sgQ = function(I) {
+      return I && I.__esModule ? I : {
+        default: I
+      }
+    }, rgQ = function(I, Y, J, W) {
+      if (J === "a" && !W) throw TypeError("Private accessor was defined without a getter");
+      if (typeof Y === "function" ? I !== Y || !W : !Y.has(I)) throw TypeError("Cannot read private member from an object whose class did not declare it");
+      return J === "m" ? W : J === "a" ? W.call(I) : W ? W.value : Y.get(I)
+    }, ogQ = function(I, Y, J, W, X) {
+      if (W === "m") throw TypeError("Private method is not writable");
+      if (W === "a" && !X) throw TypeError("Private accessor was defined without a setter");
+      if (typeof Y === "function" ? I !== Y || !X : !Y.has(I)) throw TypeError("Cannot write private member to an object whose class did not declare it");
+      return W === "a" ? X.call(I, J) : X ? X.value = J : Y.set(I, J), J
+    }, tgQ = function(I, Y) {
+      if (Y === null || typeof Y !== "object" && typeof Y !== "function") throw TypeError("Cannot use 'in' operator on non-object");
+      return typeof I === "function" ? Y === I : I.has(Y)
+    }, egQ = function(I, Y, J) {
+      if (Y !== null && Y !== void 0) {
+        if (typeof Y !== "object" && typeof Y !== "function") throw TypeError("Object expected.");
+        var W, X;
+        if (J) {
+          if (!Symbol.asyncDispose) throw TypeError("Symbol.asyncDispose is not defined.");
+          W = Y[Symbol.asyncDispose]
+        }
+        if (W === void 0) {
+          if (!Symbol.dispose) throw TypeError("Symbol.dispose is not defined.");
+          if (W = Y[Symbol.dispose], J) X = W
+        }
+        if (typeof W !== "function") throw TypeError("Object not disposable.");
+        if (X) W = function() {
+          try {
+            X.call(this)
+          } catch (V) {
+            return Promise.reject(V)
+          }
+        };
+        I.stack.push({
+          value: Y,
+          dispose: W,
+          async: J
+        })
+      } else if (J) I.stack.push({
+        async: !0
+      });
+      return Y
+    };
+    var Z = typeof SuppressedError === "function" ? SuppressedError : function(I, Y, J) {
+      var W = Error(J);
+      return W.name = "SuppressedError", W.error = I, W.suppressed = Y, W
+    };
+    AuQ = function(I) {
+      function Y(V) {
+        I.error = I.hasError ? new Z(V, I.error, "An error was suppressed during disposal.") : V, I.hasError = !0
+      }
+      var J, W = 0;
+
+      function X() {
+        while (J = I.stack.pop()) try {
+          if (!J.async && W === 1) return W = 0, I.stack.push(J), Promise.resolve().then(X);
+          if (J.dispose) {
+            var V = J.dispose.call(J.value);
+            if (J.async) return W |= 2, Promise.resolve(V).then(X, function(F) {
+              return Y(F), X()
+            })
+          } else W |= 1
+        } catch (F) {
+          Y(F)
+        }
+        if (W === 1) return I.hasError ? Promise.reject(I.error) : Promise.resolve();
+        if (I.hasError) throw I.error
+      }
+      return X()
+    }, QuQ = function(I, Y) {
+      if (typeof I === "string" && /^\.\.?\//.test(I)) return I.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(J, W, X, V, F) {
+        return W ? Y ? ".jsx" : ".js" : X && (!V || !F) ? J : X + V + "." + F.toLowerCase() + "js"
+      });
+      return I
+    }, A("__extends", PgQ), A("__assign", jgQ), A("__rest", SgQ), A("__decorate", _gQ), A("__param", kgQ), A("__esDecorate", ygQ), A("__runInitializers", xgQ), A("__propKey", vgQ), A("__setFunctionName", bgQ), A("__metadata", fgQ), A("__awaiter", hgQ), A("__generator", ggQ), A("__exportStar", ugQ), A("__createBinding", GcA), A("__values", BcA), A("__read", CS1), A("__spread", mgQ), A("__spreadArrays", dgQ), A("__spreadArray", cgQ), A("__await", A5A), A("__asyncGenerator", pgQ), A("__asyncDelegator", lgQ), A("__asyncValues", igQ), A("__makeTemplateObject", ngQ), A("__importStar", agQ), A("__importDefault", sgQ), A("__classPrivateFieldGet", rgQ), A("__classPrivateFieldSet", ogQ), A("__classPrivateFieldIn", tgQ), A("__addDisposableResource", egQ), A("__disposeResources", AuQ), A("__rewriteRelativeImportExtension", QuQ)
+  })
 })
-// @from(Start 4633039, End 4633598)
-VP0 = z((FP0) => {
-  Object.defineProperty(FP0, "__esModule", {
+// @from(Start 4133836, End 4134959)
+IuQ = z((GuQ) => {
+  Object.defineProperty(GuQ, "__esModule", {
     value: !0
   });
-  FP0.createOtlpHttpExportDelegate = void 0;
-  var K46 = Ng1(),
-    H46 = GP0(),
-    z46 = Ug1(),
-    w46 = JP0();
+  GuQ.checkUrl = void 0;
+  var S$8 = j2(),
+    _$8 = "169.254.170.2",
+    k$8 = "169.254.170.23",
+    y$8 = "[fd00:ec2::23]",
+    x$8 = (A, Q) => {
+      if (A.protocol === "https:") return;
+      if (A.hostname === _$8 || A.hostname === k$8 || A.hostname === y$8) return;
+      if (A.hostname.includes("[")) {
+        if (A.hostname === "[::1]" || A.hostname === "[0000:0000:0000:0000:0000:0000:0000:0001]") return
+      } else {
+        if (A.hostname === "localhost") return;
+        let B = A.hostname.split("."),
+          G = (Z) => {
+            let I = parseInt(Z, 10);
+            return 0 <= I && I <= 255
+          };
+        if (B[0] === "127" && G(B[1]) && G(B[2]) && G(B[3]) && B.length === 4) return
+      }
+      throw new S$8.CredentialsProviderError(`URL not accepted. It must either be HTTPS or match one of the following:
+  - loopback CIDR 127.0.0.0/8 or [::1/128]
+  - ECS container host 169.254.170.2
+  - EKS container host 169.254.170.23 or [fd00:ec2::23]`, {
+        logger: Q
+      })
+    };
+  GuQ.checkUrl = x$8
+})
+// @from(Start 4134965, End 4137748)
+ES1 = z((HT7, HuQ) => {
+  var {
+    defineProperty: IcA,
+    getOwnPropertyDescriptor: v$8,
+    getOwnPropertyNames: b$8
+  } = Object, f$8 = Object.prototype.hasOwnProperty, YcA = (A, Q) => IcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), h$8 = (A, Q) => {
+    for (var B in Q) IcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, g$8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of b$8(Q))
+        if (!f$8.call(A, Z) && Z !== B) IcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = v$8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, u$8 = (A) => g$8(IcA({}, "__esModule", {
+    value: !0
+  }), A), YuQ = {};
+  h$8(YuQ, {
+    AlgorithmId: () => VuQ,
+    EndpointURLScheme: () => XuQ,
+    FieldPosition: () => FuQ,
+    HttpApiKeyAuthLocation: () => WuQ,
+    HttpAuthLocation: () => JuQ,
+    IniSectionType: () => KuQ,
+    RequestHandlerProtocol: () => DuQ,
+    SMITHY_CONTEXT_KEY: () => l$8,
+    getDefaultClientConfiguration: () => c$8,
+    resolveDefaultRuntimeConfig: () => p$8
+  });
+  HuQ.exports = u$8(YuQ);
+  var JuQ = ((A) => {
+      return A.HEADER = "header", A.QUERY = "query", A
+    })(JuQ || {}),
+    WuQ = ((A) => {
+      return A.HEADER = "header", A.QUERY = "query", A
+    })(WuQ || {}),
+    XuQ = ((A) => {
+      return A.HTTP = "http", A.HTTPS = "https", A
+    })(XuQ || {}),
+    VuQ = ((A) => {
+      return A.MD5 = "md5", A.CRC32 = "crc32", A.CRC32C = "crc32c", A.SHA1 = "sha1", A.SHA256 = "sha256", A
+    })(VuQ || {}),
+    m$8 = YcA((A) => {
+      let Q = [];
+      if (A.sha256 !== void 0) Q.push({
+        algorithmId: () => "sha256",
+        checksumConstructor: () => A.sha256
+      });
+      if (A.md5 != null) Q.push({
+        algorithmId: () => "md5",
+        checksumConstructor: () => A.md5
+      });
+      return {
+        addChecksumAlgorithm(B) {
+          Q.push(B)
+        },
+        checksumAlgorithms() {
+          return Q
+        }
+      }
+    }, "getChecksumConfiguration"),
+    d$8 = YcA((A) => {
+      let Q = {};
+      return A.checksumAlgorithms().forEach((B) => {
+        Q[B.algorithmId()] = B.checksumConstructor()
+      }), Q
+    }, "resolveChecksumRuntimeConfig"),
+    c$8 = YcA((A) => {
+      return m$8(A)
+    }, "getDefaultClientConfiguration"),
+    p$8 = YcA((A) => {
+      return d$8(A)
+    }, "resolveDefaultRuntimeConfig"),
+    FuQ = ((A) => {
+      return A[A.HEADER = 0] = "HEADER", A[A.TRAILER = 1] = "TRAILER", A
+    })(FuQ || {}),
+    l$8 = "__smithy_context",
+    KuQ = ((A) => {
+      return A.PROFILE = "profile", A.SSO_SESSION = "sso-session", A.SERVICES = "services", A
+    })(KuQ || {}),
+    DuQ = ((A) => {
+      return A.HTTP_0_9 = "http/0.9", A.HTTP_1_0 = "http/1.0", A.TDS_8_0 = "tds/8.0", A
+    })(DuQ || {})
+})
+// @from(Start 4137754, End 4142261)
+wuQ = z((CT7, $uQ) => {
+  var {
+    defineProperty: JcA,
+    getOwnPropertyDescriptor: i$8,
+    getOwnPropertyNames: n$8
+  } = Object, a$8 = Object.prototype.hasOwnProperty, td = (A, Q) => JcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), s$8 = (A, Q) => {
+    for (var B in Q) JcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, r$8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of n$8(Q))
+        if (!a$8.call(A, Z) && Z !== B) JcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = i$8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, o$8 = (A) => r$8(JcA({}, "__esModule", {
+    value: !0
+  }), A), CuQ = {};
+  s$8(CuQ, {
+    Field: () => Aw8,
+    Fields: () => Qw8,
+    HttpRequest: () => Bw8,
+    HttpResponse: () => Gw8,
+    IHttpRequest: () => EuQ.HttpRequest,
+    getHttpHandlerExtensionConfiguration: () => t$8,
+    isValidHostname: () => UuQ,
+    resolveHttpHandlerRuntimeConfig: () => e$8
+  });
+  $uQ.exports = o$8(CuQ);
+  var t$8 = td((A) => {
+      return {
+        setHttpHandler(Q) {
+          A.httpHandler = Q
+        },
+        httpHandler() {
+          return A.httpHandler
+        },
+        updateHttpClientConfig(Q, B) {
+          A.httpHandler?.updateHttpClientConfig(Q, B)
+        },
+        httpHandlerConfigs() {
+          return A.httpHandler.httpHandlerConfigs()
+        }
+      }
+    }, "getHttpHandlerExtensionConfiguration"),
+    e$8 = td((A) => {
+      return {
+        httpHandler: A.httpHandler()
+      }
+    }, "resolveHttpHandlerRuntimeConfig"),
+    EuQ = ES1(),
+    Aw8 = class {
+      static {
+        td(this, "Field")
+      }
+      constructor({
+        name: A,
+        kind: Q = EuQ.FieldPosition.HEADER,
+        values: B = []
+      }) {
+        this.name = A, this.kind = Q, this.values = B
+      }
+      add(A) {
+        this.values.push(A)
+      }
+      set(A) {
+        this.values = A
+      }
+      remove(A) {
+        this.values = this.values.filter((Q) => Q !== A)
+      }
+      toString() {
+        return this.values.map((A) => A.includes(",") || A.includes(" ") ? `"${A}"` : A).join(", ")
+      }
+      get() {
+        return this.values
+      }
+    },
+    Qw8 = class {
+      constructor({
+        fields: A = [],
+        encoding: Q = "utf-8"
+      }) {
+        this.entries = {}, A.forEach(this.setField.bind(this)), this.encoding = Q
+      }
+      static {
+        td(this, "Fields")
+      }
+      setField(A) {
+        this.entries[A.name.toLowerCase()] = A
+      }
+      getField(A) {
+        return this.entries[A.toLowerCase()]
+      }
+      removeField(A) {
+        delete this.entries[A.toLowerCase()]
+      }
+      getByType(A) {
+        return Object.values(this.entries).filter((Q) => Q.kind === A)
+      }
+    },
+    Bw8 = class A {
+      static {
+        td(this, "HttpRequest")
+      }
+      constructor(Q) {
+        this.method = Q.method || "GET", this.hostname = Q.hostname || "localhost", this.port = Q.port, this.query = Q.query || {}, this.headers = Q.headers || {}, this.body = Q.body, this.protocol = Q.protocol ? Q.protocol.slice(-1) !== ":" ? `${Q.protocol}:` : Q.protocol : "https:", this.path = Q.path ? Q.path.charAt(0) !== "/" ? `/${Q.path}` : Q.path : "/", this.username = Q.username, this.password = Q.password, this.fragment = Q.fragment
+      }
+      static clone(Q) {
+        let B = new A({
+          ...Q,
+          headers: {
+            ...Q.headers
+          }
+        });
+        if (B.query) B.query = zuQ(B.query);
+        return B
+      }
+      static isInstance(Q) {
+        if (!Q) return !1;
+        let B = Q;
+        return "method" in B && "protocol" in B && "hostname" in B && "path" in B && typeof B.query === "object" && typeof B.headers === "object"
+      }
+      clone() {
+        return A.clone(this)
+      }
+    };
 
-  function E46(A, B) {
-    return K46.createOtlpExportDelegate({
-      transport: w46.createRetryingTransport({
-        transport: H46.createHttpExporterTransport(A)
-      }),
-      serializer: B,
-      promiseHandler: z46.createBoundedQueueExportPromiseHandler(A)
-    }, {
-      timeout: A.timeoutMillis
+  function zuQ(A) {
+    return Object.keys(A).reduce((Q, B) => {
+      let G = A[B];
+      return {
+        ...Q,
+        [B]: Array.isArray(G) ? [...G] : G
+      }
+    }, {})
+  }
+  td(zuQ, "cloneQuery");
+  var Gw8 = class {
+    static {
+      td(this, "HttpResponse")
+    }
+    constructor(A) {
+      this.statusCode = A.statusCode, this.reason = A.reason, this.headers = A.headers || {}, this.body = A.body
+    }
+    static isInstance(A) {
+      if (!A) return !1;
+      let Q = A;
+      return typeof Q.statusCode === "number" && typeof Q.headers === "object"
+    }
+  };
+
+  function UuQ(A) {
+    return /^[a-z0-9][a-z0-9\.\-]*[a-z0-9]$/.test(A)
+  }
+  td(UuQ, "isValidHostname")
+})
+// @from(Start 4142267, End 4170722)
+guQ = z(($T7, huQ) => {
+  var {
+    defineProperty: VcA,
+    getOwnPropertyDescriptor: Zw8,
+    getOwnPropertyNames: Iw8
+  } = Object, Yw8 = Object.prototype.hasOwnProperty, KB = (A, Q) => VcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), Jw8 = (A, Q) => {
+    for (var B in Q) VcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, Ww8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of Iw8(Q))
+        if (!Yw8.call(A, Z) && Z !== B) VcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = Zw8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, Xw8 = (A) => Ww8(VcA({}, "__esModule", {
+    value: !0
+  }), A), NuQ = {};
+  Jw8(NuQ, {
+    Client: () => Vw8,
+    Command: () => MuQ,
+    LazyJsonString: () => Oo,
+    NoOpLogger: () => Yq8,
+    SENSITIVE_STRING: () => Kw8,
+    ServiceException: () => nw8,
+    _json: () => LS1,
+    collectBody: () => zS1.collectBody,
+    convertMap: () => Jq8,
+    createAggregatedClient: () => Dw8,
+    dateToUtcString: () => SuQ,
+    decorateServiceException: () => _uQ,
+    emitWarningIfUnsupportedVersion: () => ow8,
+    expectBoolean: () => Cw8,
+    expectByte: () => NS1,
+    expectFloat32: () => WcA,
+    expectInt: () => zw8,
+    expectInt32: () => wS1,
+    expectLong: () => mCA,
+    expectNonNull: () => $w8,
+    expectNumber: () => uCA,
+    expectObject: () => OuQ,
+    expectShort: () => qS1,
+    expectString: () => ww8,
+    expectUnion: () => qw8,
+    extendedEncodeURIComponent: () => zS1.extendedEncodeURIComponent,
+    getArrayIfSingleItem: () => Zq8,
+    getDefaultClientConfiguration: () => Bq8,
+    getDefaultExtensionConfiguration: () => yuQ,
+    getValueFromTextNode: () => xuQ,
+    handleFloat: () => Mw8,
+    isSerializableHeaderValue: () => Iq8,
+    limitedParseDouble: () => RS1,
+    limitedParseFloat: () => Ow8,
+    limitedParseFloat32: () => Rw8,
+    loadConfigsForDefaultMode: () => rw8,
+    logger: () => dCA,
+    map: () => PS1,
+    parseBoolean: () => Hw8,
+    parseEpochTimestamp: () => hw8,
+    parseRfc3339DateTime: () => _w8,
+    parseRfc3339DateTimeWithOffset: () => yw8,
+    parseRfc7231DateTime: () => fw8,
+    quoteHeader: () => buQ,
+    resolveDefaultRuntimeConfig: () => Gq8,
+    resolvedPath: () => zS1.resolvedPath,
+    serializeDateTime: () => Dq8,
+    serializeFloat: () => Kq8,
+    splitEvery: () => fuQ,
+    splitHeader: () => Hq8,
+    strictParseByte: () => juQ,
+    strictParseDouble: () => OS1,
+    strictParseFloat: () => Nw8,
+    strictParseFloat32: () => RuQ,
+    strictParseInt: () => Tw8,
+    strictParseInt32: () => Pw8,
+    strictParseLong: () => PuQ,
+    strictParseShort: () => Q5A,
+    take: () => Wq8,
+    throwDefaultError: () => kuQ,
+    withBaseException: () => aw8
+  });
+  huQ.exports = Xw8(NuQ);
+  var LuQ = uR(),
+    Vw8 = class {
+      constructor(A) {
+        this.config = A, this.middlewareStack = (0, LuQ.constructStack)()
+      }
+      static {
+        KB(this, "Client")
+      }
+      send(A, Q, B) {
+        let G = typeof Q !== "function" ? Q : void 0,
+          Z = typeof Q === "function" ? Q : B,
+          I = G === void 0 && this.config.cacheMiddleware === !0,
+          Y;
+        if (I) {
+          if (!this.handlers) this.handlers = new WeakMap;
+          let J = this.handlers;
+          if (J.has(A.constructor)) Y = J.get(A.constructor);
+          else Y = A.resolveMiddleware(this.middlewareStack, this.config, G), J.set(A.constructor, Y)
+        } else delete this.handlers, Y = A.resolveMiddleware(this.middlewareStack, this.config, G);
+        if (Z) Y(A).then((J) => Z(null, J.output), (J) => Z(J)).catch(() => {});
+        else return Y(A).then((J) => J.output)
+      }
+      destroy() {
+        this.config?.requestHandler?.destroy?.(), delete this.handlers
+      }
+    },
+    zS1 = w5(),
+    $S1 = ES1(),
+    MuQ = class {
+      constructor() {
+        this.middlewareStack = (0, LuQ.constructStack)()
+      }
+      static {
+        KB(this, "Command")
+      }
+      static classBuilder() {
+        return new Fw8
+      }
+      resolveMiddlewareWithContext(A, Q, B, {
+        middlewareFn: G,
+        clientName: Z,
+        commandName: I,
+        inputFilterSensitiveLog: Y,
+        outputFilterSensitiveLog: J,
+        smithyContext: W,
+        additionalContext: X,
+        CommandCtor: V
+      }) {
+        for (let C of G.bind(this)(V, A, Q, B)) this.middlewareStack.use(C);
+        let F = A.concat(this.middlewareStack),
+          {
+            logger: K
+          } = Q,
+          D = {
+            logger: K,
+            clientName: Z,
+            commandName: I,
+            inputFilterSensitiveLog: Y,
+            outputFilterSensitiveLog: J,
+            [$S1.SMITHY_CONTEXT_KEY]: {
+              commandInstance: this,
+              ...W
+            },
+            ...X
+          },
+          {
+            requestHandler: H
+          } = Q;
+        return F.resolve((C) => H.handle(C.request, B || {}), D)
+      }
+    },
+    Fw8 = class {
+      constructor() {
+        this._init = () => {}, this._ep = {}, this._middlewareFn = () => [], this._commandName = "", this._clientName = "", this._additionalContext = {}, this._smithyContext = {}, this._inputFilterSensitiveLog = (A) => A, this._outputFilterSensitiveLog = (A) => A, this._serializer = null, this._deserializer = null
+      }
+      static {
+        KB(this, "ClassBuilder")
+      }
+      init(A) {
+        this._init = A
+      }
+      ep(A) {
+        return this._ep = A, this
+      }
+      m(A) {
+        return this._middlewareFn = A, this
+      }
+      s(A, Q, B = {}) {
+        return this._smithyContext = {
+          service: A,
+          operation: Q,
+          ...B
+        }, this
+      }
+      c(A = {}) {
+        return this._additionalContext = A, this
+      }
+      n(A, Q) {
+        return this._clientName = A, this._commandName = Q, this
+      }
+      f(A = (B) => B, Q = (B) => B) {
+        return this._inputFilterSensitiveLog = A, this._outputFilterSensitiveLog = Q, this
+      }
+      ser(A) {
+        return this._serializer = A, this
+      }
+      de(A) {
+        return this._deserializer = A, this
+      }
+      build() {
+        let A = this,
+          Q;
+        return Q = class extends MuQ {
+          constructor(...[B]) {
+            super();
+            this.serialize = A._serializer, this.deserialize = A._deserializer, this.input = B ?? {}, A._init(this)
+          }
+          static {
+            KB(this, "CommandRef")
+          }
+          static getEndpointParameterInstructions() {
+            return A._ep
+          }
+          resolveMiddleware(B, G, Z) {
+            return this.resolveMiddlewareWithContext(B, G, Z, {
+              CommandCtor: Q,
+              middlewareFn: A._middlewareFn,
+              clientName: A._clientName,
+              commandName: A._commandName,
+              inputFilterSensitiveLog: A._inputFilterSensitiveLog,
+              outputFilterSensitiveLog: A._outputFilterSensitiveLog,
+              smithyContext: A._smithyContext,
+              additionalContext: A._additionalContext
+            })
+          }
+        }
+      }
+    },
+    Kw8 = "***SensitiveInformation***",
+    Dw8 = KB((A, Q) => {
+      for (let B of Object.keys(A)) {
+        let G = A[B],
+          Z = KB(async function(Y, J, W) {
+            let X = new G(Y);
+            if (typeof J === "function") this.send(X, J);
+            else if (typeof W === "function") {
+              if (typeof J !== "object") throw Error(`Expected http options but got ${typeof J}`);
+              this.send(X, J || {}, W)
+            } else return this.send(X, J)
+          }, "methodImpl"),
+          I = (B[0].toLowerCase() + B.slice(1)).replace(/Command$/, "");
+        Q.prototype[I] = Z
+      }
+    }, "createAggregatedClient"),
+    Hw8 = KB((A) => {
+      switch (A) {
+        case "true":
+          return !0;
+        case "false":
+          return !1;
+        default:
+          throw Error(`Unable to parse boolean value "${A}"`)
+      }
+    }, "parseBoolean"),
+    Cw8 = KB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A === "number") {
+        if (A === 0 || A === 1) dCA.warn(XcA(`Expected boolean, got ${typeof A}: ${A}`));
+        if (A === 0) return !1;
+        if (A === 1) return !0
+      }
+      if (typeof A === "string") {
+        let Q = A.toLowerCase();
+        if (Q === "false" || Q === "true") dCA.warn(XcA(`Expected boolean, got ${typeof A}: ${A}`));
+        if (Q === "false") return !1;
+        if (Q === "true") return !0
+      }
+      if (typeof A === "boolean") return A;
+      throw TypeError(`Expected boolean, got ${typeof A}: ${A}`)
+    }, "expectBoolean"),
+    uCA = KB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A === "string") {
+        let Q = parseFloat(A);
+        if (!Number.isNaN(Q)) {
+          if (String(Q) !== String(A)) dCA.warn(XcA(`Expected number but observed string: ${A}`));
+          return Q
+        }
+      }
+      if (typeof A === "number") return A;
+      throw TypeError(`Expected number, got ${typeof A}: ${A}`)
+    }, "expectNumber"),
+    Ew8 = Math.ceil(340282346638528860000000000000000000000),
+    WcA = KB((A) => {
+      let Q = uCA(A);
+      if (Q !== void 0 && !Number.isNaN(Q) && Q !== 1 / 0 && Q !== -1 / 0) {
+        if (Math.abs(Q) > Ew8) throw TypeError(`Expected 32-bit float, got ${A}`)
+      }
+      return Q
+    }, "expectFloat32"),
+    mCA = KB((A) => {
+      if (A === null || A === void 0) return;
+      if (Number.isInteger(A) && !Number.isNaN(A)) return A;
+      throw TypeError(`Expected integer, got ${typeof A}: ${A}`)
+    }, "expectLong"),
+    zw8 = mCA,
+    wS1 = KB((A) => MS1(A, 32), "expectInt32"),
+    qS1 = KB((A) => MS1(A, 16), "expectShort"),
+    NS1 = KB((A) => MS1(A, 8), "expectByte"),
+    MS1 = KB((A, Q) => {
+      let B = mCA(A);
+      if (B !== void 0 && Uw8(B, Q) !== B) throw TypeError(`Expected ${Q}-bit integer, got ${A}`);
+      return B
+    }, "expectSizedInt"),
+    Uw8 = KB((A, Q) => {
+      switch (Q) {
+        case 32:
+          return Int32Array.of(A)[0];
+        case 16:
+          return Int16Array.of(A)[0];
+        case 8:
+          return Int8Array.of(A)[0]
+      }
+    }, "castInt"),
+    $w8 = KB((A, Q) => {
+      if (A === null || A === void 0) {
+        if (Q) throw TypeError(`Expected a non-null value for ${Q}`);
+        throw TypeError("Expected a non-null value")
+      }
+      return A
+    }, "expectNonNull"),
+    OuQ = KB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A === "object" && !Array.isArray(A)) return A;
+      let Q = Array.isArray(A) ? "array" : typeof A;
+      throw TypeError(`Expected object, got ${Q}: ${A}`)
+    }, "expectObject"),
+    ww8 = KB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A === "string") return A;
+      if (["boolean", "number", "bigint"].includes(typeof A)) return dCA.warn(XcA(`Expected string, got ${typeof A}: ${A}`)), String(A);
+      throw TypeError(`Expected string, got ${typeof A}: ${A}`)
+    }, "expectString"),
+    qw8 = KB((A) => {
+      if (A === null || A === void 0) return;
+      let Q = OuQ(A),
+        B = Object.entries(Q).filter(([, G]) => G != null).map(([G]) => G);
+      if (B.length === 0) throw TypeError("Unions must have exactly one non-null member. None were found.");
+      if (B.length > 1) throw TypeError(`Unions must have exactly one non-null member. Keys ${B} were not null.`);
+      return Q
+    }, "expectUnion"),
+    OS1 = KB((A) => {
+      if (typeof A == "string") return uCA(G5A(A));
+      return uCA(A)
+    }, "strictParseDouble"),
+    Nw8 = OS1,
+    RuQ = KB((A) => {
+      if (typeof A == "string") return WcA(G5A(A));
+      return WcA(A)
+    }, "strictParseFloat32"),
+    Lw8 = /(-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)|(-?Infinity)|(NaN)/g,
+    G5A = KB((A) => {
+      let Q = A.match(Lw8);
+      if (Q === null || Q[0].length !== A.length) throw TypeError("Expected real number, got implicit NaN");
+      return parseFloat(A)
+    }, "parseNumber"),
+    RS1 = KB((A) => {
+      if (typeof A == "string") return TuQ(A);
+      return uCA(A)
+    }, "limitedParseDouble"),
+    Mw8 = RS1,
+    Ow8 = RS1,
+    Rw8 = KB((A) => {
+      if (typeof A == "string") return TuQ(A);
+      return WcA(A)
+    }, "limitedParseFloat32"),
+    TuQ = KB((A) => {
+      switch (A) {
+        case "NaN":
+          return NaN;
+        case "Infinity":
+          return 1 / 0;
+        case "-Infinity":
+          return -1 / 0;
+        default:
+          throw Error(`Unable to parse float value: ${A}`)
+      }
+    }, "parseFloatString"),
+    PuQ = KB((A) => {
+      if (typeof A === "string") return mCA(G5A(A));
+      return mCA(A)
+    }, "strictParseLong"),
+    Tw8 = PuQ,
+    Pw8 = KB((A) => {
+      if (typeof A === "string") return wS1(G5A(A));
+      return wS1(A)
+    }, "strictParseInt32"),
+    Q5A = KB((A) => {
+      if (typeof A === "string") return qS1(G5A(A));
+      return qS1(A)
+    }, "strictParseShort"),
+    juQ = KB((A) => {
+      if (typeof A === "string") return NS1(G5A(A));
+      return NS1(A)
+    }, "strictParseByte"),
+    XcA = KB((A) => {
+      return String(TypeError(A).stack || A).split(`
+`).slice(0, 5).filter((Q) => !Q.includes("stackTraceWarning")).join(`
+`)
+    }, "stackTraceWarning"),
+    dCA = {
+      warn: console.warn
+    },
+    jw8 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    TS1 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  function SuQ(A) {
+    let Q = A.getUTCFullYear(),
+      B = A.getUTCMonth(),
+      G = A.getUTCDay(),
+      Z = A.getUTCDate(),
+      I = A.getUTCHours(),
+      Y = A.getUTCMinutes(),
+      J = A.getUTCSeconds(),
+      W = Z < 10 ? `0${Z}` : `${Z}`,
+      X = I < 10 ? `0${I}` : `${I}`,
+      V = Y < 10 ? `0${Y}` : `${Y}`,
+      F = J < 10 ? `0${J}` : `${J}`;
+    return `${jw8[G]}, ${W} ${TS1[B]} ${Q} ${X}:${V}:${F} GMT`
+  }
+  KB(SuQ, "dateToUtcString");
+  var Sw8 = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?[zZ]$/),
+    _w8 = KB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A !== "string") throw TypeError("RFC-3339 date-times must be expressed as strings");
+      let Q = Sw8.exec(A);
+      if (!Q) throw TypeError("Invalid RFC-3339 date-time value");
+      let [B, G, Z, I, Y, J, W, X] = Q, V = Q5A(B5A(G)), F = oS(Z, "month", 1, 12), K = oS(I, "day", 1, 31);
+      return gCA(V, F, K, {
+        hours: Y,
+        minutes: J,
+        seconds: W,
+        fractionalMilliseconds: X
+      })
+    }, "parseRfc3339DateTime"),
+    kw8 = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(([-+]\d{2}\:\d{2})|[zZ])$/),
+    yw8 = KB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A !== "string") throw TypeError("RFC-3339 date-times must be expressed as strings");
+      let Q = kw8.exec(A);
+      if (!Q) throw TypeError("Invalid RFC-3339 date-time value");
+      let [B, G, Z, I, Y, J, W, X, V] = Q, F = Q5A(B5A(G)), K = oS(Z, "month", 1, 12), D = oS(I, "day", 1, 31), H = gCA(F, K, D, {
+        hours: Y,
+        minutes: J,
+        seconds: W,
+        fractionalMilliseconds: X
+      });
+      if (V.toUpperCase() != "Z") H.setTime(H.getTime() - iw8(V));
+      return H
+    }, "parseRfc3339DateTimeWithOffset"),
+    xw8 = new RegExp(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? GMT$/),
+    vw8 = new RegExp(/^(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d{2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? GMT$/),
+    bw8 = new RegExp(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ( [1-9]|\d{2}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? (\d{4})$/),
+    fw8 = KB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A !== "string") throw TypeError("RFC-7231 date-times must be expressed as strings");
+      let Q = xw8.exec(A);
+      if (Q) {
+        let [B, G, Z, I, Y, J, W, X] = Q;
+        return gCA(Q5A(B5A(I)), US1(Z), oS(G, "day", 1, 31), {
+          hours: Y,
+          minutes: J,
+          seconds: W,
+          fractionalMilliseconds: X
+        })
+      }
+      if (Q = vw8.exec(A), Q) {
+        let [B, G, Z, I, Y, J, W, X] = Q;
+        return mw8(gCA(gw8(I), US1(Z), oS(G, "day", 1, 31), {
+          hours: Y,
+          minutes: J,
+          seconds: W,
+          fractionalMilliseconds: X
+        }))
+      }
+      if (Q = bw8.exec(A), Q) {
+        let [B, G, Z, I, Y, J, W, X] = Q;
+        return gCA(Q5A(B5A(X)), US1(G), oS(Z.trimLeft(), "day", 1, 31), {
+          hours: I,
+          minutes: Y,
+          seconds: J,
+          fractionalMilliseconds: W
+        })
+      }
+      throw TypeError("Invalid RFC-7231 date-time value")
+    }, "parseRfc7231DateTime"),
+    hw8 = KB((A) => {
+      if (A === null || A === void 0) return;
+      let Q;
+      if (typeof A === "number") Q = A;
+      else if (typeof A === "string") Q = OS1(A);
+      else if (typeof A === "object" && A.tag === 1) Q = A.value;
+      else throw TypeError("Epoch timestamps must be expressed as floating point numbers or their string representation");
+      if (Number.isNaN(Q) || Q === 1 / 0 || Q === -1 / 0) throw TypeError("Epoch timestamps must be valid, non-Infinite, non-NaN numerics");
+      return new Date(Math.round(Q * 1000))
+    }, "parseEpochTimestamp"),
+    gCA = KB((A, Q, B, G) => {
+      let Z = Q - 1;
+      return cw8(A, Z, B), new Date(Date.UTC(A, Z, B, oS(G.hours, "hour", 0, 23), oS(G.minutes, "minute", 0, 59), oS(G.seconds, "seconds", 0, 60), lw8(G.fractionalMilliseconds)))
+    }, "buildDate"),
+    gw8 = KB((A) => {
+      let Q = new Date().getUTCFullYear(),
+        B = Math.floor(Q / 100) * 100 + Q5A(B5A(A));
+      if (B < Q) return B + 100;
+      return B
+    }, "parseTwoDigitYear"),
+    uw8 = 1576800000000,
+    mw8 = KB((A) => {
+      if (A.getTime() - new Date().getTime() > uw8) return new Date(Date.UTC(A.getUTCFullYear() - 100, A.getUTCMonth(), A.getUTCDate(), A.getUTCHours(), A.getUTCMinutes(), A.getUTCSeconds(), A.getUTCMilliseconds()));
+      return A
+    }, "adjustRfc850Year"),
+    US1 = KB((A) => {
+      let Q = TS1.indexOf(A);
+      if (Q < 0) throw TypeError(`Invalid month: ${A}`);
+      return Q + 1
+    }, "parseMonthByShortName"),
+    dw8 = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
+    cw8 = KB((A, Q, B) => {
+      let G = dw8[Q];
+      if (Q === 1 && pw8(A)) G = 29;
+      if (B > G) throw TypeError(`Invalid day for ${TS1[Q]} in ${A}: ${B}`)
+    }, "validateDayOfMonth"),
+    pw8 = KB((A) => {
+      return A % 4 === 0 && (A % 100 !== 0 || A % 400 === 0)
+    }, "isLeapYear"),
+    oS = KB((A, Q, B, G) => {
+      let Z = juQ(B5A(A));
+      if (Z < B || Z > G) throw TypeError(`${Q} must be between ${B} and ${G}, inclusive`);
+      return Z
+    }, "parseDateValue"),
+    lw8 = KB((A) => {
+      if (A === null || A === void 0) return 0;
+      return RuQ("0." + A) * 1000
+    }, "parseMilliseconds"),
+    iw8 = KB((A) => {
+      let Q = A[0],
+        B = 1;
+      if (Q == "+") B = 1;
+      else if (Q == "-") B = -1;
+      else throw TypeError(`Offset direction, ${Q}, must be "+" or "-"`);
+      let G = Number(A.substring(1, 3)),
+        Z = Number(A.substring(4, 6));
+      return B * (G * 60 + Z) * 60 * 1000
+    }, "parseOffsetToMilliseconds"),
+    B5A = KB((A) => {
+      let Q = 0;
+      while (Q < A.length - 1 && A.charAt(Q) === "0") Q++;
+      if (Q === 0) return A;
+      return A.slice(Q)
+    }, "stripLeadingZeroes"),
+    nw8 = class A extends Error {
+      static {
+        KB(this, "ServiceException")
+      }
+      constructor(Q) {
+        super(Q.message);
+        Object.setPrototypeOf(this, Object.getPrototypeOf(this).constructor.prototype), this.name = Q.name, this.$fault = Q.$fault, this.$metadata = Q.$metadata
+      }
+      static isInstance(Q) {
+        if (!Q) return !1;
+        let B = Q;
+        return A.prototype.isPrototypeOf(B) || Boolean(B.$fault) && Boolean(B.$metadata) && (B.$fault === "client" || B.$fault === "server")
+      }
+      static[Symbol.hasInstance](Q) {
+        if (!Q) return !1;
+        let B = Q;
+        if (this === A) return A.isInstance(Q);
+        if (A.isInstance(Q)) {
+          if (B.name && this.name) return this.prototype.isPrototypeOf(Q) || B.name === this.name;
+          return this.prototype.isPrototypeOf(Q)
+        }
+        return !1
+      }
+    },
+    _uQ = KB((A, Q = {}) => {
+      Object.entries(Q).filter(([, G]) => G !== void 0).forEach(([G, Z]) => {
+        if (A[G] == null || A[G] === "") A[G] = Z
+      });
+      let B = A.message || A.Message || "UnknownError";
+      return A.message = B, delete A.Message, A
+    }, "decorateServiceException"),
+    kuQ = KB(({
+      output: A,
+      parsedBody: Q,
+      exceptionCtor: B,
+      errorCode: G
+    }) => {
+      let Z = sw8(A),
+        I = Z.httpStatusCode ? Z.httpStatusCode + "" : void 0,
+        Y = new B({
+          name: Q?.code || Q?.Code || G || I || "UnknownError",
+          $fault: "client",
+          $metadata: Z
+        });
+      throw _uQ(Y, Q)
+    }, "throwDefaultError"),
+    aw8 = KB((A) => {
+      return ({
+        output: Q,
+        parsedBody: B,
+        errorCode: G
+      }) => {
+        kuQ({
+          output: Q,
+          parsedBody: B,
+          exceptionCtor: A,
+          errorCode: G
+        })
+      }
+    }, "withBaseException"),
+    sw8 = KB((A) => ({
+      httpStatusCode: A.statusCode,
+      requestId: A.headers["x-amzn-requestid"] ?? A.headers["x-amzn-request-id"] ?? A.headers["x-amz-request-id"],
+      extendedRequestId: A.headers["x-amz-id-2"],
+      cfId: A.headers["x-amz-cf-id"]
+    }), "deserializeMetadata"),
+    rw8 = KB((A) => {
+      switch (A) {
+        case "standard":
+          return {
+            retryMode: "standard", connectionTimeout: 3100
+          };
+        case "in-region":
+          return {
+            retryMode: "standard", connectionTimeout: 1100
+          };
+        case "cross-region":
+          return {
+            retryMode: "standard", connectionTimeout: 3100
+          };
+        case "mobile":
+          return {
+            retryMode: "standard", connectionTimeout: 30000
+          };
+        default:
+          return {}
+      }
+    }, "loadConfigsForDefaultMode"),
+    quQ = !1,
+    ow8 = KB((A) => {
+      if (A && !quQ && parseInt(A.substring(1, A.indexOf("."))) < 16) quQ = !0
+    }, "emitWarningIfUnsupportedVersion"),
+    tw8 = KB((A) => {
+      let Q = [];
+      for (let B in $S1.AlgorithmId) {
+        let G = $S1.AlgorithmId[B];
+        if (A[G] === void 0) continue;
+        Q.push({
+          algorithmId: () => G,
+          checksumConstructor: () => A[G]
+        })
+      }
+      return {
+        addChecksumAlgorithm(B) {
+          Q.push(B)
+        },
+        checksumAlgorithms() {
+          return Q
+        }
+      }
+    }, "getChecksumConfiguration"),
+    ew8 = KB((A) => {
+      let Q = {};
+      return A.checksumAlgorithms().forEach((B) => {
+        Q[B.algorithmId()] = B.checksumConstructor()
+      }), Q
+    }, "resolveChecksumRuntimeConfig"),
+    Aq8 = KB((A) => {
+      return {
+        setRetryStrategy(Q) {
+          A.retryStrategy = Q
+        },
+        retryStrategy() {
+          return A.retryStrategy
+        }
+      }
+    }, "getRetryConfiguration"),
+    Qq8 = KB((A) => {
+      let Q = {};
+      return Q.retryStrategy = A.retryStrategy(), Q
+    }, "resolveRetryRuntimeConfig"),
+    yuQ = KB((A) => {
+      return Object.assign(tw8(A), Aq8(A))
+    }, "getDefaultExtensionConfiguration"),
+    Bq8 = yuQ,
+    Gq8 = KB((A) => {
+      return Object.assign(ew8(A), Qq8(A))
+    }, "resolveDefaultRuntimeConfig"),
+    Zq8 = KB((A) => Array.isArray(A) ? A : [A], "getArrayIfSingleItem"),
+    xuQ = KB((A) => {
+      for (let B in A)
+        if (A.hasOwnProperty(B) && A[B]["#text"] !== void 0) A[B] = A[B]["#text"];
+        else if (typeof A[B] === "object" && A[B] !== null) A[B] = xuQ(A[B]);
+      return A
+    }, "getValueFromTextNode"),
+    Iq8 = KB((A) => {
+      return A != null
+    }, "isSerializableHeaderValue"),
+    Oo = KB(function(Q) {
+      return Object.assign(new String(Q), {
+        deserializeJSON() {
+          return JSON.parse(String(Q))
+        },
+        toString() {
+          return String(Q)
+        },
+        toJSON() {
+          return String(Q)
+        }
+      })
+    }, "LazyJsonString");
+  Oo.from = (A) => {
+    if (A && typeof A === "object" && (A instanceof Oo || ("deserializeJSON" in A))) return A;
+    else if (typeof A === "string" || Object.getPrototypeOf(A) === String.prototype) return Oo(String(A));
+    return Oo(JSON.stringify(A))
+  };
+  Oo.fromObject = Oo.from;
+  var Yq8 = class {
+    static {
+      KB(this, "NoOpLogger")
+    }
+    trace() {}
+    debug() {}
+    info() {}
+    warn() {}
+    error() {}
+  };
+
+  function PS1(A, Q, B) {
+    let G, Z, I;
+    if (typeof Q > "u" && typeof B > "u") G = {}, I = A;
+    else if (G = A, typeof Q === "function") return Z = Q, I = B, Xq8(G, Z, I);
+    else I = Q;
+    for (let Y of Object.keys(I)) {
+      if (!Array.isArray(I[Y])) {
+        G[Y] = I[Y];
+        continue
+      }
+      vuQ(G, null, I, Y)
+    }
+    return G
+  }
+  KB(PS1, "map");
+  var Jq8 = KB((A) => {
+      let Q = {};
+      for (let [B, G] of Object.entries(A || {})) Q[B] = [, G];
+      return Q
+    }, "convertMap"),
+    Wq8 = KB((A, Q) => {
+      let B = {};
+      for (let G in Q) vuQ(B, A, Q, G);
+      return B
+    }, "take"),
+    Xq8 = KB((A, Q, B) => {
+      return PS1(A, Object.entries(B).reduce((G, [Z, I]) => {
+        if (Array.isArray(I)) G[Z] = I;
+        else if (typeof I === "function") G[Z] = [Q, I()];
+        else G[Z] = [Q, I];
+        return G
+      }, {}))
+    }, "mapWithFilter"),
+    vuQ = KB((A, Q, B, G) => {
+      if (Q !== null) {
+        let Y = B[G];
+        if (typeof Y === "function") Y = [, Y];
+        let [J = Vq8, W = Fq8, X = G] = Y;
+        if (typeof J === "function" && J(Q[X]) || typeof J !== "function" && !!J) A[G] = W(Q[X]);
+        return
+      }
+      let [Z, I] = B[G];
+      if (typeof I === "function") {
+        let Y, J = Z === void 0 && (Y = I()) != null,
+          W = typeof Z === "function" && !!Z(void 0) || typeof Z !== "function" && !!Z;
+        if (J) A[G] = Y;
+        else if (W) A[G] = I()
+      } else {
+        let Y = Z === void 0 && I != null,
+          J = typeof Z === "function" && !!Z(I) || typeof Z !== "function" && !!Z;
+        if (Y || J) A[G] = I
+      }
+    }, "applyInstruction"),
+    Vq8 = KB((A) => A != null, "nonNullish"),
+    Fq8 = KB((A) => A, "pass");
+
+  function buQ(A) {
+    if (A.includes(",") || A.includes('"')) A = `"${A.replace(/"/g,"\\\"")}"`;
+    return A
+  }
+  KB(buQ, "quoteHeader");
+  var Kq8 = KB((A) => {
+      if (A !== A) return "NaN";
+      switch (A) {
+        case 1 / 0:
+          return "Infinity";
+        case -1 / 0:
+          return "-Infinity";
+        default:
+          return A
+      }
+    }, "serializeFloat"),
+    Dq8 = KB((A) => A.toISOString().replace(".000Z", "Z"), "serializeDateTime"),
+    LS1 = KB((A) => {
+      if (A == null) return {};
+      if (Array.isArray(A)) return A.filter((Q) => Q != null).map(LS1);
+      if (typeof A === "object") {
+        let Q = {};
+        for (let B of Object.keys(A)) {
+          if (A[B] == null) continue;
+          Q[B] = LS1(A[B])
+        }
+        return Q
+      }
+      return A
+    }, "_json");
+
+  function fuQ(A, Q, B) {
+    if (B <= 0 || !Number.isInteger(B)) throw Error("Invalid number of delimiters (" + B + ") for splitEvery.");
+    let G = A.split(Q);
+    if (B === 1) return G;
+    let Z = [],
+      I = "";
+    for (let Y = 0; Y < G.length; Y++) {
+      if (I === "") I = G[Y];
+      else I += Q + G[Y];
+      if ((Y + 1) % B === 0) Z.push(I), I = ""
+    }
+    if (I !== "") Z.push(I);
+    return Z
+  }
+  KB(fuQ, "splitEvery");
+  var Hq8 = KB((A) => {
+    let Q = A.length,
+      B = [],
+      G = !1,
+      Z = void 0,
+      I = 0;
+    for (let Y = 0; Y < Q; ++Y) {
+      let J = A[Y];
+      switch (J) {
+        case '"':
+          if (Z !== "\\") G = !G;
+          break;
+        case ",":
+          if (!G) B.push(A.slice(I, Y)), I = Y + 1;
+          break;
+        default:
+      }
+      Z = J
+    }
+    return B.push(A.slice(I)), B.map((Y) => {
+      Y = Y.trim();
+      let J = Y.length;
+      if (J < 2) return Y;
+      if (Y[0] === '"' && Y[J - 1] === '"') Y = Y.slice(1, J - 1);
+      return Y.replace(/\\"/g, '"')
+    })
+  }, "splitHeader")
+})
+// @from(Start 4170728, End 4172524)
+duQ = z((uuQ) => {
+  Object.defineProperty(uuQ, "__esModule", {
+    value: !0
+  });
+  uuQ.getCredentials = uuQ.createGetRequest = void 0;
+  var jS1 = j2(),
+    Cq8 = wuQ(),
+    Eq8 = guQ(),
+    zq8 = Xd();
+
+  function Uq8(A) {
+    return new Cq8.HttpRequest({
+      protocol: A.protocol,
+      hostname: A.hostname,
+      port: Number(A.port),
+      path: A.pathname,
+      query: Array.from(A.searchParams.entries()).reduce((Q, [B, G]) => {
+        return Q[B] = G, Q
+      }, {}),
+      fragment: A.hash
     })
   }
-  FP0.createOtlpHttpExportDelegate = E46
-})
-// @from(Start 4633604, End 4634741)
-Bh1 = z((zP0) => {
-  Object.defineProperty(zP0, "__esModule", {
-    value: !0
-  });
-  zP0.getSharedConfigurationFromEnvironment = void 0;
-  var HP0 = s9();
-
-  function CP0(A) {
-    let B = process.env[A]?.trim();
-    if (B != null && B !== "") {
-      let Q = Number(B);
-      if (Number.isFinite(Q) && Q > 0) return Q;
-      HP0.diag.warn(`Configuration: ${A} is invalid, expected number greater than 0 (actual: ${B})`)
-    }
-    return
-  }
-
-  function U46(A) {
-    let B = CP0(`OTEL_EXPORTER_OTLP_${A}_TIMEOUT`),
-      Q = CP0("OTEL_EXPORTER_OTLP_TIMEOUT");
-    return B ?? Q
-  }
-
-  function KP0(A) {
-    let B = process.env[A]?.trim();
-    if (B === "") return;
-    if (B == null || B === "none" || B === "gzip") return B;
-    HP0.diag.warn(`Configuration: ${A} is invalid, expected 'none' or 'gzip' (actual: '${B}')`);
-    return
-  }
-
-  function N46(A) {
-    let B = KP0(`OTEL_EXPORTER_OTLP_${A}_COMPRESSION`),
-      Q = KP0("OTEL_EXPORTER_OTLP_COMPRESSION");
-    return B ?? Q
-  }
-
-  function $46(A) {
-    return {
-      timeoutMillis: U46(A),
-      compression: N46(A)
-    }
-  }
-  zP0.getSharedConfigurationFromEnvironment = $46
-})
-// @from(Start 4634747, End 4635223)
-NP0 = z((EP0) => {
-  Object.defineProperty(EP0, "__esModule", {
-    value: !0
-  });
-  EP0.validateAndNormalizeHeaders = void 0;
-  var q46 = s9();
-
-  function M46(A) {
-    return () => {
-      let B = {};
-      return Object.entries(A?.() ?? {}).forEach(([Q, I]) => {
-        if (typeof I !== "undefined") B[Q] = String(I);
-        else q46.diag.warn(`Header "${Q}" has invalid value (${I}) and will be ignored`)
-      }), B
-    }
-  }
-  EP0.validateAndNormalizeHeaders = M46
-})
-// @from(Start 4635229, End 4636487)
-LP0 = z((qP0) => {
-  Object.defineProperty(qP0, "__esModule", {
-    value: !0
-  });
-  qP0.getHttpConfigurationDefaults = qP0.mergeOtlpHttpConfigurationWithDefaults = void 0;
-  var $P0 = ks(),
-    L46 = NP0();
-
-  function R46(A, B, Q) {
-    let I = {
-        ...Q()
-      },
-      G = {};
-    return () => {
-      if (B != null) Object.assign(G, B());
-      if (A != null) Object.assign(G, A());
-      return Object.assign(G, I)
-    }
-  }
-
-  function O46(A) {
-    if (A == null) return;
-    try {
-      return new URL(A), A
-    } catch (B) {
-      throw new Error(`Configuration: Could not parse user-provided export URL: '${A}'`)
-    }
-  }
-
-  function T46(A, B, Q) {
-    return {
-      ...$P0.mergeOtlpSharedConfigurationWithDefaults(A, B, Q),
-      headers: R46(L46.validateAndNormalizeHeaders(A.headers), B.headers, Q.headers),
-      url: O46(A.url) ?? B.url ?? Q.url,
-      agentOptions: A.agentOptions ?? B.agentOptions ?? Q.agentOptions
-    }
-  }
-  qP0.mergeOtlpHttpConfigurationWithDefaults = T46;
-
-  function P46(A, B) {
-    return {
-      ...$P0.getSharedConfigurationDefaults(),
-      headers: () => A,
-      url: "http://localhost:4318/" + B,
-      agentOptions: {
-        keepAlive: !0
-      }
-    }
-  }
-  qP0.getHttpConfigurationDefaults = P46
-})
-// @from(Start 4636493, End 4638321)
-TP0 = z((RP0) => {
-  Object.defineProperty(RP0, "__esModule", {
-    value: !0
-  });
-  RP0.getHttpConfigurationFromEnvironment = void 0;
-  var hZ1 = p8(),
-    Qh1 = s9(),
-    _46 = Bh1(),
-    j46 = ks();
-
-  function y46(A) {
-    let B = process.env[`OTEL_EXPORTER_OTLP_${A}_HEADERS`]?.trim(),
-      Q = process.env.OTEL_EXPORTER_OTLP_HEADERS?.trim(),
-      I = hZ1.parseKeyPairsIntoRecord(B),
-      G = hZ1.parseKeyPairsIntoRecord(Q);
-    if (Object.keys(I).length === 0 && Object.keys(G).length === 0) return;
-    return Object.assign({}, hZ1.parseKeyPairsIntoRecord(Q), hZ1.parseKeyPairsIntoRecord(B))
-  }
-
-  function k46(A) {
-    try {
-      return new URL(A).toString()
-    } catch {
-      Qh1.diag.warn(`Configuration: Could not parse environment-provided export URL: '${A}', falling back to undefined`);
-      return
-    }
-  }
-
-  function x46(A, B) {
-    try {
-      new URL(A)
-    } catch {
-      Qh1.diag.warn(`Configuration: Could not parse environment-provided export URL: '${A}', falling back to undefined`);
-      return
-    }
-    if (!A.endsWith("/")) A = A + "/";
-    A += B;
-    try {
-      new URL(A)
-    } catch {
-      Qh1.diag.warn(`Configuration: Provided URL appended with '${B}' is not a valid URL, using 'undefined' instead of '${A}'`);
-      return
-    }
-    return A
-  }
-
-  function f46(A) {
-    let B = process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
-    if (B == null || B === "") return;
-    return x46(B, A)
-  }
-
-  function v46(A) {
-    let B = process.env[`OTEL_EXPORTER_OTLP_${A}_ENDPOINT`]?.trim();
-    if (B == null || B === "") return;
-    return k46(B)
-  }
-
-  function b46(A, B) {
-    return {
-      ..._46.getSharedConfigurationFromEnvironment(A),
-      url: v46(A) ?? f46(B),
-      headers: j46.wrapStaticHeadersInFunction(y46(A))
-    }
-  }
-  RP0.getHttpConfigurationFromEnvironment = b46
-})
-// @from(Start 4638327, End 4639334)
-jP0 = z((SP0) => {
-  Object.defineProperty(SP0, "__esModule", {
-    value: !0
-  });
-  SP0.convertLegacyHttpOptions = void 0;
-  var PP0 = LP0(),
-    g46 = TP0(),
-    h46 = s9(),
-    m46 = ks();
-
-  function d46(A) {
-    if (A?.keepAlive != null)
-      if (A.httpAgentOptions != null) {
-        if (A.httpAgentOptions.keepAlive == null) A.httpAgentOptions.keepAlive = A.keepAlive
-      } else A.httpAgentOptions = {
-        keepAlive: A.keepAlive
-      };
-    return A.httpAgentOptions
-  }
-
-  function u46(A, B, Q, I) {
-    if (A.metadata) h46.diag.warn("Metadata cannot be set when using http");
-    return PP0.mergeOtlpHttpConfigurationWithDefaults({
-      url: A.url,
-      headers: m46.wrapStaticHeadersInFunction(A.headers),
-      concurrencyLimit: A.concurrencyLimit,
-      timeoutMillis: A.timeoutMillis,
-      compression: A.compression,
-      agentOptions: d46(A)
-    }, g46.getHttpConfigurationFromEnvironment(B, Q), PP0.getHttpConfigurationDefaults(I, Q))
-  }
-  SP0.convertLegacyHttpOptions = u46
-})
-// @from(Start 4639340, End 4640092)
-ug = z((hs) => {
-  Object.defineProperty(hs, "__esModule", {
-    value: !0
-  });
-  hs.convertLegacyHttpOptions = hs.getSharedConfigurationFromEnvironment = hs.createOtlpHttpExportDelegate = void 0;
-  var p46 = VP0();
-  Object.defineProperty(hs, "createOtlpHttpExportDelegate", {
-    enumerable: !0,
-    get: function() {
-      return p46.createOtlpHttpExportDelegate
-    }
-  });
-  var c46 = Bh1();
-  Object.defineProperty(hs, "getSharedConfigurationFromEnvironment", {
-    enumerable: !0,
-    get: function() {
-      return c46.getSharedConfigurationFromEnvironment
-    }
-  });
-  var l46 = jP0();
-  Object.defineProperty(hs, "convertLegacyHttpOptions", {
-    enumerable: !0,
-    get: function() {
-      return l46.convertLegacyHttpOptions
-    }
-  })
-})
-// @from(Start 4640098, End 4640694)
-vP0 = z((xP0) => {
-  Object.defineProperty(xP0, "__esModule", {
-    value: !0
-  });
-  xP0.OTLPMetricExporter = void 0;
-  var n46 = Mg1(),
-    a46 = i_(),
-    s46 = cT0(),
-    yP0 = ug(),
-    r46 = {
-      "User-Agent": `OTel-OTLP-Exporter-JavaScript/${s46.VERSION}`
-    };
-  class kP0 extends n46.OTLPMetricExporterBase {
-    constructor(A) {
-      super(yP0.createOtlpHttpExportDelegate(yP0.convertLegacyHttpOptions(A ?? {}, "METRICS", "v1/metrics", {
-        ...r46,
-        "Content-Type": "application/json"
-      }), a46.JsonMetricsSerializer), A)
-    }
-  }
-  xP0.OTLPMetricExporter = kP0
-})
-// @from(Start 4640700, End 4640982)
-bP0 = z((Ih1) => {
-  Object.defineProperty(Ih1, "__esModule", {
-    value: !0
-  });
-  Ih1.OTLPMetricExporter = void 0;
-  var o46 = vP0();
-  Object.defineProperty(Ih1, "OTLPMetricExporter", {
-    enumerable: !0,
-    get: function() {
-      return o46.OTLPMetricExporter
-    }
-  })
-})
-// @from(Start 4640988, End 4641270)
-gP0 = z((Gh1) => {
-  Object.defineProperty(Gh1, "__esModule", {
-    value: !0
-  });
-  Gh1.OTLPMetricExporter = void 0;
-  var e46 = bP0();
-  Object.defineProperty(Gh1, "OTLPMetricExporter", {
-    enumerable: !0,
-    get: function() {
-      return e46.OTLPMetricExporter
-    }
-  })
-})
-// @from(Start 4641276, End 4642557)
-dZ1 = z((YR) => {
-  Object.defineProperty(YR, "__esModule", {
-    value: !0
-  });
-  YR.OTLPMetricExporterBase = YR.LowMemoryTemporalitySelector = YR.DeltaTemporalitySelector = YR.CumulativeTemporalitySelector = YR.AggregationTemporalityPreference = YR.OTLPMetricExporter = void 0;
-  var B66 = gP0();
-  Object.defineProperty(YR, "OTLPMetricExporter", {
-    enumerable: !0,
-    get: function() {
-      return B66.OTLPMetricExporter
-    }
-  });
-  var Q66 = wg1();
-  Object.defineProperty(YR, "AggregationTemporalityPreference", {
-    enumerable: !0,
-    get: function() {
-      return Q66.AggregationTemporalityPreference
-    }
-  });
-  var mZ1 = Mg1();
-  Object.defineProperty(YR, "CumulativeTemporalitySelector", {
-    enumerable: !0,
-    get: function() {
-      return mZ1.CumulativeTemporalitySelector
-    }
-  });
-  Object.defineProperty(YR, "DeltaTemporalitySelector", {
-    enumerable: !0,
-    get: function() {
-      return mZ1.DeltaTemporalitySelector
-    }
-  });
-  Object.defineProperty(YR, "LowMemoryTemporalitySelector", {
-    enumerable: !0,
-    get: function() {
-      return mZ1.LowMemoryTemporalitySelector
-    }
-  });
-  Object.defineProperty(YR, "OTLPMetricExporterBase", {
-    enumerable: !0,
-    get: function() {
-      return mZ1.OTLPMetricExporterBase
-    }
-  })
-})
-// @from(Start 4642563, End 4642699)
-dP0 = z((hP0) => {
-  Object.defineProperty(hP0, "__esModule", {
-    value: !0
-  });
-  hP0.VERSION = void 0;
-  hP0.VERSION = "0.200.0"
-})
-// @from(Start 4642705, End 4643279)
-iP0 = z((cP0) => {
-  Object.defineProperty(cP0, "__esModule", {
-    value: !0
-  });
-  cP0.OTLPMetricExporter = void 0;
-  var G66 = dZ1(),
-    Z66 = i_(),
-    D66 = dP0(),
-    uP0 = ug();
-  class pP0 extends G66.OTLPMetricExporterBase {
-    constructor(A) {
-      super(uP0.createOtlpHttpExportDelegate(uP0.convertLegacyHttpOptions(A ?? {}, "METRICS", "v1/metrics", {
-        "User-Agent": `OTel-OTLP-Exporter-JavaScript/${D66.VERSION}`,
-        "Content-Type": "application/x-protobuf"
-      }), Z66.ProtobufMetricsSerializer), A)
-    }
-  }
-  cP0.OTLPMetricExporter = pP0
-})
-// @from(Start 4643285, End 4643567)
-nP0 = z((Zh1) => {
-  Object.defineProperty(Zh1, "__esModule", {
-    value: !0
-  });
-  Zh1.OTLPMetricExporter = void 0;
-  var Y66 = iP0();
-  Object.defineProperty(Zh1, "OTLPMetricExporter", {
-    enumerable: !0,
-    get: function() {
-      return Y66.OTLPMetricExporter
-    }
-  })
-})
-// @from(Start 4643573, End 4645115)
-y6 = z((oP0) => {
-  Object.defineProperty(oP0, "__esModule", {
-    value: !0
-  });
-  oP0.DEFAULT_MAX_RECEIVE_MESSAGE_LENGTH = oP0.DEFAULT_MAX_SEND_MESSAGE_LENGTH = oP0.Propagate = oP0.LogVerbosity = oP0.Status = void 0;
-  var aP0;
-  (function(A) {
-    A[A.OK = 0] = "OK", A[A.CANCELLED = 1] = "CANCELLED", A[A.UNKNOWN = 2] = "UNKNOWN", A[A.INVALID_ARGUMENT = 3] = "INVALID_ARGUMENT", A[A.DEADLINE_EXCEEDED = 4] = "DEADLINE_EXCEEDED", A[A.NOT_FOUND = 5] = "NOT_FOUND", A[A.ALREADY_EXISTS = 6] = "ALREADY_EXISTS", A[A.PERMISSION_DENIED = 7] = "PERMISSION_DENIED", A[A.RESOURCE_EXHAUSTED = 8] = "RESOURCE_EXHAUSTED", A[A.FAILED_PRECONDITION = 9] = "FAILED_PRECONDITION", A[A.ABORTED = 10] = "ABORTED", A[A.OUT_OF_RANGE = 11] = "OUT_OF_RANGE", A[A.UNIMPLEMENTED = 12] = "UNIMPLEMENTED", A[A.INTERNAL = 13] = "INTERNAL", A[A.UNAVAILABLE = 14] = "UNAVAILABLE", A[A.DATA_LOSS = 15] = "DATA_LOSS", A[A.UNAUTHENTICATED = 16] = "UNAUTHENTICATED"
-  })(aP0 || (oP0.Status = aP0 = {}));
-  var sP0;
-  (function(A) {
-    A[A.DEBUG = 0] = "DEBUG", A[A.INFO = 1] = "INFO", A[A.ERROR = 2] = "ERROR", A[A.NONE = 3] = "NONE"
-  })(sP0 || (oP0.LogVerbosity = sP0 = {}));
-  var rP0;
-  (function(A) {
-    A[A.DEADLINE = 1] = "DEADLINE", A[A.CENSUS_STATS_CONTEXT = 2] = "CENSUS_STATS_CONTEXT", A[A.CENSUS_TRACING_CONTEXT = 4] = "CENSUS_TRACING_CONTEXT", A[A.CANCELLATION = 8] = "CANCELLATION", A[A.DEFAULTS = 65535] = "DEFAULTS"
-  })(rP0 || (oP0.Propagate = rP0 = {}));
-  oP0.DEFAULT_MAX_SEND_MESSAGE_LENGTH = -1;
-  oP0.DEFAULT_MAX_RECEIVE_MESSAGE_LENGTH = 4194304
-})
-// @from(Start 4645121, End 4648240)
-Dh1 = z((D$8, C66) => {
-  C66.exports = {
-    name: "@grpc/grpc-js",
-    version: "1.13.1",
-    description: "gRPC Library for Node - pure JS implementation",
-    homepage: "https://grpc.io/",
-    repository: "https://github.com/grpc/grpc-node/tree/master/packages/grpc-js",
-    main: "build/src/index.js",
-    engines: {
-      node: ">=12.10.0"
-    },
-    keywords: [],
-    author: {
-      name: "Google Inc."
-    },
-    types: "build/src/index.d.ts",
-    license: "Apache-2.0",
-    devDependencies: {
-      "@grpc/proto-loader": "file:../proto-loader",
-      "@types/gulp": "^4.0.17",
-      "@types/gulp-mocha": "0.0.37",
-      "@types/lodash": "^4.14.202",
-      "@types/mocha": "^10.0.6",
-      "@types/ncp": "^2.0.8",
-      "@types/node": ">=20.11.20",
-      "@types/pify": "^5.0.4",
-      "@types/semver": "^7.5.8",
-      "@typescript-eslint/eslint-plugin": "^7.1.0",
-      "@typescript-eslint/parser": "^7.1.0",
-      "@typescript-eslint/typescript-estree": "^7.1.0",
-      "clang-format": "^1.8.0",
-      eslint: "^8.42.0",
-      "eslint-config-prettier": "^8.8.0",
-      "eslint-plugin-node": "^11.1.0",
-      "eslint-plugin-prettier": "^4.2.1",
-      execa: "^2.0.3",
-      gulp: "^4.0.2",
-      "gulp-mocha": "^6.0.0",
-      lodash: "^4.17.21",
-      madge: "^5.0.1",
-      "mocha-jenkins-reporter": "^0.4.1",
-      ncp: "^2.0.0",
-      pify: "^4.0.1",
-      prettier: "^2.8.8",
-      rimraf: "^3.0.2",
-      semver: "^7.6.0",
-      "ts-node": "^10.9.2",
-      typescript: "^5.3.3"
-    },
-    contributors: [{
-      name: "Google Inc."
-    }],
-    scripts: {
-      build: "npm run compile",
-      clean: "rimraf ./build",
-      compile: "tsc -p .",
-      format: 'clang-format -i -style="{Language: JavaScript, BasedOnStyle: Google, ColumnLimit: 80}" src/*.ts test/*.ts',
-      lint: "eslint src/*.ts test/*.ts",
-      prepare: "npm run generate-types && npm run compile",
-      test: "gulp test",
-      check: "npm run lint",
-      fix: "eslint --fix src/*.ts test/*.ts",
-      pretest: "npm run generate-types && npm run generate-test-types && npm run compile",
-      posttest: "npm run check && madge -c ./build/src",
-      "generate-types": "proto-loader-gen-types --keepCase --longs String --enums String --defaults --oneofs --includeComments --includeDirs proto/ --include-dirs test/fixtures/ -O src/generated/ --grpcLib ../index channelz.proto",
-      "generate-test-types": "proto-loader-gen-types --keepCase --longs String --enums String --defaults --oneofs --includeComments --include-dirs test/fixtures/ -O test/generated/ --grpcLib ../../src/index test_service.proto"
-    },
-    dependencies: {
-      "@grpc/proto-loader": "^0.7.13",
-      "@js-sdsl/ordered-map": "^4.4.2"
-    },
-    files: ["src/**/*.ts", "build/src/**/*.{js,d.ts,js.map}", "proto/*.proto", "LICENSE", "deps/envoy-api/envoy/api/v2/**/*.proto", "deps/envoy-api/envoy/config/**/*.proto", "deps/envoy-api/envoy/service/**/*.proto", "deps/envoy-api/envoy/type/**/*.proto", "deps/udpa/udpa/**/*.proto", "deps/googleapis/google/api/*.proto", "deps/googleapis/google/rpc/*.proto", "deps/protoc-gen-validate/validate/**/*.proto"]
-  }
-})
-// @from(Start 4648246, End 4650423)
-GB = z((BS0) => {
-  var Yh1, Wh1, Jh1, Fh1;
-  Object.defineProperty(BS0, "__esModule", {
-    value: !0
-  });
-  BS0.log = BS0.setLoggerVerbosity = BS0.setLogger = BS0.getLogger = void 0;
-  BS0.trace = L66;
-  BS0.isTracerEnabled = AS0;
-  var WR = y6(),
-    K66 = Z1("process"),
-    H66 = Dh1().version,
-    z66 = {
-      error: (A, ...B) => {
-        console.error("E " + A, ...B)
-      },
-      info: (A, ...B) => {
-        console.error("I " + A, ...B)
-      },
-      debug: (A, ...B) => {
-        console.error("D " + A, ...B)
-      }
-    },
-    n_ = z66,
-    pg = WR.LogVerbosity.ERROR,
-    w66 = (Wh1 = (Yh1 = process.env.GRPC_NODE_VERBOSITY) !== null && Yh1 !== void 0 ? Yh1 : process.env.GRPC_VERBOSITY) !== null && Wh1 !== void 0 ? Wh1 : "";
-  switch (w66.toUpperCase()) {
-    case "DEBUG":
-      pg = WR.LogVerbosity.DEBUG;
-      break;
-    case "INFO":
-      pg = WR.LogVerbosity.INFO;
-      break;
-    case "ERROR":
-      pg = WR.LogVerbosity.ERROR;
-      break;
-    case "NONE":
-      pg = WR.LogVerbosity.NONE;
-      break;
-    default:
-  }
-  var E66 = () => {
-    return n_
-  };
-  BS0.getLogger = E66;
-  var U66 = (A) => {
-    n_ = A
-  };
-  BS0.setLogger = U66;
-  var N66 = (A) => {
-    pg = A
-  };
-  BS0.setLoggerVerbosity = N66;
-  var $66 = (A, ...B) => {
-    let Q;
-    if (A >= pg) {
-      switch (A) {
-        case WR.LogVerbosity.DEBUG:
-          Q = n_.debug;
-          break;
-        case WR.LogVerbosity.INFO:
-          Q = n_.info;
-          break;
-        case WR.LogVerbosity.ERROR:
-          Q = n_.error;
-          break
-      }
-      if (!Q) Q = n_.error;
-      if (Q) Q.bind(n_)(...B)
-    }
-  };
-  BS0.log = $66;
-  var q66 = (Fh1 = (Jh1 = process.env.GRPC_NODE_TRACE) !== null && Jh1 !== void 0 ? Jh1 : process.env.GRPC_TRACE) !== null && Fh1 !== void 0 ? Fh1 : "",
-    Xh1 = new Set,
-    eP0 = new Set;
-  for (let A of q66.split(","))
-    if (A.startsWith("-")) eP0.add(A.substring(1));
-    else Xh1.add(A);
-  var M66 = Xh1.has("all");
-
-  function L66(A, B, Q) {
-    if (AS0(B)) BS0.log(A, new Date().toISOString() + " | v" + H66 + " " + K66.pid + " | " + B + " | " + Q)
-  }
-
-  function AS0(A) {
-    return !eP0.has(A) && (M66 || Xh1.has(A))
-  }
-})
-// @from(Start 4650429, End 4650818)
-uZ1 = z((QS0) => {
-  Object.defineProperty(QS0, "__esModule", {
-    value: !0
-  });
-  QS0.getErrorMessage = _66;
-  QS0.getErrorCode = j66;
-
-  function _66(A) {
-    if (A instanceof Error) return A.message;
-    else return String(A)
-  }
-
-  function j66(A) {
-    if (typeof A === "object" && A !== null && "code" in A && typeof A.code === "number") return A.code;
-    else return null
-  }
-})
-// @from(Start 4650824, End 4654356)
-SZ = z((ZS0) => {
-  Object.defineProperty(ZS0, "__esModule", {
-    value: !0
-  });
-  ZS0.Metadata = void 0;
-  var x66 = GB(),
-    f66 = y6(),
-    v66 = uZ1(),
-    b66 = /^[0-9a-z_.-]+$/,
-    g66 = /^[ -~]*$/;
-
-  function h66(A) {
-    return b66.test(A)
-  }
-
-  function m66(A) {
-    return g66.test(A)
-  }
-
-  function GS0(A) {
-    return A.endsWith("-bin")
-  }
-
-  function d66(A) {
-    return !A.startsWith("grpc-")
-  }
-
-  function pZ1(A) {
-    return A.toLowerCase()
-  }
-
-  function IS0(A, B) {
-    if (!h66(A)) throw new Error('Metadata key "' + A + '" contains illegal characters');
-    if (B !== null && B !== void 0)
-      if (GS0(A)) {
-        if (!Buffer.isBuffer(B)) throw new Error("keys that end with '-bin' must have Buffer values")
-      } else {
-        if (Buffer.isBuffer(B)) throw new Error("keys that don't end with '-bin' must have String values");
-        if (!m66(B)) throw new Error('Metadata string value "' + B + '" contains illegal characters')
-      }
-  }
-  class cZ1 {
-    constructor(A = {}) {
-      this.internalRepr = new Map, this.options = A
-    }
-    set(A, B) {
-      A = pZ1(A), IS0(A, B), this.internalRepr.set(A, [B])
-    }
-    add(A, B) {
-      A = pZ1(A), IS0(A, B);
-      let Q = this.internalRepr.get(A);
-      if (Q === void 0) this.internalRepr.set(A, [B]);
-      else Q.push(B)
-    }
-    remove(A) {
-      A = pZ1(A), this.internalRepr.delete(A)
-    }
-    get(A) {
-      return A = pZ1(A), this.internalRepr.get(A) || []
-    }
-    getMap() {
-      let A = {};
-      for (let [B, Q] of this.internalRepr)
-        if (Q.length > 0) {
-          let I = Q[0];
-          A[B] = Buffer.isBuffer(I) ? Buffer.from(I) : I
-        } return A
-    }
-    clone() {
-      let A = new cZ1(this.options),
-        B = A.internalRepr;
-      for (let [Q, I] of this.internalRepr) {
-        let G = I.map((Z) => {
-          if (Buffer.isBuffer(Z)) return Buffer.from(Z);
-          else return Z
-        });
-        B.set(Q, G)
-      }
-      return A
-    }
-    merge(A) {
-      for (let [B, Q] of A.internalRepr) {
-        let I = (this.internalRepr.get(B) || []).concat(Q);
-        this.internalRepr.set(B, I)
-      }
-    }
-    setOptions(A) {
-      this.options = A
-    }
-    getOptions() {
-      return this.options
-    }
-    toHttp2Headers() {
-      let A = {};
-      for (let [B, Q] of this.internalRepr) A[B] = Q.map(u66);
-      return A
-    }
-    toJSON() {
-      let A = {};
-      for (let [B, Q] of this.internalRepr) A[B] = Q;
-      return A
-    }
-    static fromHttp2Headers(A) {
-      let B = new cZ1;
-      for (let Q of Object.keys(A)) {
-        if (Q.charAt(0) === ":") continue;
-        let I = A[Q];
-        try {
-          if (GS0(Q)) {
-            if (Array.isArray(I)) I.forEach((G) => {
-              B.add(Q, Buffer.from(G, "base64"))
-            });
-            else if (I !== void 0)
-              if (d66(Q)) I.split(",").forEach((G) => {
-                B.add(Q, Buffer.from(G.trim(), "base64"))
-              });
-              else B.add(Q, Buffer.from(I, "base64"))
-          } else if (Array.isArray(I)) I.forEach((G) => {
-            B.add(Q, G)
-          });
-          else if (I !== void 0) B.add(Q, I)
-        } catch (G) {
-          let Z = `Failed to add metadata entry ${Q}: ${I}. ${v66.getErrorMessage(G)}. For more information see https://github.com/grpc/grpc-node/issues/1173`;
-          x66.log(f66.LogVerbosity.ERROR, Z)
-        }
-      }
-      return B
-    }
-  }
-  ZS0.Metadata = cZ1;
-  var u66 = (A) => {
-    return Buffer.isBuffer(A) ? A.toString("base64") : A
-  }
-})
-// @from(Start 4654362, End 4656716)
-iZ1 = z((YS0) => {
-  Object.defineProperty(YS0, "__esModule", {
-    value: !0
-  });
-  YS0.CallCredentials = void 0;
-  var Ch1 = SZ();
-
-  function p66(A) {
-    return "getRequestHeaders" in A && typeof A.getRequestHeaders === "function"
-  }
-  class cg {
-    static createFromMetadataGenerator(A) {
-      return new Kh1(A)
-    }
-    static createFromGoogleCredential(A) {
-      return cg.createFromMetadataGenerator((B, Q) => {
-        let I;
-        if (p66(A)) I = A.getRequestHeaders(B.service_url);
-        else I = new Promise((G, Z) => {
-          A.getRequestMetadata(B.service_url, (D, Y) => {
-            if (D) {
-              Z(D);
-              return
-            }
-            if (!Y) {
-              Z(new Error("Headers not set by metadata plugin"));
-              return
-            }
-            G(Y)
-          })
-        });
-        I.then((G) => {
-          let Z = new Ch1.Metadata;
-          for (let D of Object.keys(G)) Z.add(D, G[D]);
-          Q(null, Z)
-        }, (G) => {
-          Q(G)
-        })
-      })
-    }
-    static createEmpty() {
-      return new Hh1
-    }
-  }
-  YS0.CallCredentials = cg;
-  class lZ1 extends cg {
-    constructor(A) {
-      super();
-      this.creds = A
-    }
-    async generateMetadata(A) {
-      let B = new Ch1.Metadata,
-        Q = await Promise.all(this.creds.map((I) => I.generateMetadata(A)));
-      for (let I of Q) B.merge(I);
-      return B
-    }
-    compose(A) {
-      return new lZ1(this.creds.concat([A]))
-    }
-    _equals(A) {
-      if (this === A) return !0;
-      if (A instanceof lZ1) return this.creds.every((B, Q) => B._equals(A.creds[Q]));
-      else return !1
-    }
-  }
-  class Kh1 extends cg {
-    constructor(A) {
-      super();
-      this.metadataGenerator = A
-    }
-    generateMetadata(A) {
-      return new Promise((B, Q) => {
-        this.metadataGenerator(A, (I, G) => {
-          if (G !== void 0) B(G);
-          else Q(I)
-        })
-      })
-    }
-    compose(A) {
-      return new lZ1([this, A])
-    }
-    _equals(A) {
-      if (this === A) return !0;
-      if (A instanceof Kh1) return this.metadataGenerator === A.metadataGenerator;
-      else return !1
-    }
-  }
-  class Hh1 extends cg {
-    generateMetadata(A) {
-      return Promise.resolve(new Ch1.Metadata)
-    }
-    compose(A) {
-      return A
-    }
-    _equals(A) {
-      return A instanceof Hh1
-    }
-  }
-})
-// @from(Start 4656722, End 4657156)
-wh1 = z((FS0) => {
-  Object.defineProperty(FS0, "__esModule", {
-    value: !0
-  });
-  FS0.CIPHER_SUITES = void 0;
-  FS0.getDefaultRootsData = l66;
-  var c66 = Z1("fs");
-  FS0.CIPHER_SUITES = process.env.GRPC_SSL_CIPHER_SUITES;
-  var JS0 = process.env.GRPC_DEFAULT_SSL_ROOTS_FILE_PATH,
-    zh1 = null;
-
-  function l66() {
-    if (JS0) {
-      if (zh1 === null) zh1 = c66.readFileSync(JS0);
-      return zh1
-    }
-    return null
-  }
-})
-// @from(Start 4657162, End 4658667)
-uY = z((CS0) => {
-  Object.defineProperty(CS0, "__esModule", {
-    value: !0
-  });
-  CS0.parseUri = a66;
-  CS0.splitHostPort = s66;
-  CS0.combineHostPort = r66;
-  CS0.uriToString = o66;
-  var n66 = /^(?:([A-Za-z0-9+.-]+):)?(?:\/\/([^/]*)\/)?(.+)$/;
-
-  function a66(A) {
-    let B = n66.exec(A);
-    if (B === null) return null;
-    return {
-      scheme: B[1],
-      authority: B[2],
-      path: B[3]
-    }
-  }
-  var VS0 = /^\d+$/;
-
-  function s66(A) {
-    if (A.startsWith("[")) {
-      let B = A.indexOf("]");
-      if (B === -1) return null;
-      let Q = A.substring(1, B);
-      if (Q.indexOf(":") === -1) return null;
-      if (A.length > B + 1)
-        if (A[B + 1] === ":") {
-          let I = A.substring(B + 2);
-          if (VS0.test(I)) return {
-            host: Q,
-            port: +I
-          };
-          else return null
-        } else return null;
-      else return {
-        host: Q
-      }
-    } else {
-      let B = A.split(":");
-      if (B.length === 2)
-        if (VS0.test(B[1])) return {
-          host: B[0],
-          port: +B[1]
-        };
-        else return null;
-      else return {
-        host: A
-      }
-    }
-  }
-
-  function r66(A) {
-    if (A.port === void 0) return A.host;
-    else if (A.host.includes(":")) return `[${A.host}]:${A.port}`;
-    else return `${A.host}:${A.port}`
-  }
-
-  function o66(A) {
-    let B = "";
-    if (A.scheme !== void 0) B += A.scheme + ":";
-    if (A.authority !== void 0) B += "//" + A.authority + "/";
-    return B += A.path, B
-  }
-})
-// @from(Start 4658673, End 4659661)
-Zw = z((KS0) => {
-  Object.defineProperty(KS0, "__esModule", {
-    value: !0
-  });
-  KS0.registerResolver = Q56;
-  KS0.registerDefaultScheme = I56;
-  KS0.createResolver = G56;
-  KS0.getDefaultAuthority = Z56;
-  KS0.mapUriDefaultScheme = D56;
-  var Uh1 = uY(),
-    lg = {},
-    Eh1 = null;
-
-  function Q56(A, B) {
-    lg[A] = B
-  }
-
-  function I56(A) {
-    Eh1 = A
-  }
-
-  function G56(A, B, Q) {
-    if (A.scheme !== void 0 && A.scheme in lg) return new lg[A.scheme](A, B, Q);
-    else throw new Error(`No resolver could be created for target ${Uh1.uriToString(A)}`)
-  }
-
-  function Z56(A) {
-    if (A.scheme !== void 0 && A.scheme in lg) return lg[A.scheme].getDefaultAuthority(A);
-    else throw new Error(`Invalid target ${Uh1.uriToString(A)}`)
-  }
-
-  function D56(A) {
-    if (A.scheme === void 0 || !(A.scheme in lg))
-      if (Eh1 !== null) return {
-        scheme: Eh1,
-        authority: void 0,
-        path: Uh1.uriToString(A)
-      };
-      else return null;
-    return A
-  }
-})
-// @from(Start 4659667, End 4669997)
-us = z((ES0) => {
-  Object.defineProperty(ES0, "__esModule", {
-    value: !0
-  });
-  ES0.ChannelCredentials = void 0;
-  ES0.createCertificateProviderChannelCredentials = K56;
-  var ds = Z1("tls"),
-    rZ1 = iZ1(),
-    $h1 = wh1(),
-    nZ1 = uY(),
-    HS0 = Zw(),
-    V56 = GB(),
-    C56 = y6();
-
-  function Nh1(A, B) {
-    if (A && !(A instanceof Buffer)) throw new TypeError(`${B}, if provided, must be a Buffer.`)
-  }
-  class ig {
-    compose(A) {
-      return new sZ1(this, A)
-    }
-    static createSsl(A, B, Q, I) {
-      var G;
-      if (Nh1(A, "Root certificate"), Nh1(B, "Private key"), Nh1(Q, "Certificate chain"), B && !Q) throw new Error("Private key must be given with accompanying certificate chain");
-      if (!B && Q) throw new Error("Certificate chain must be given with accompanying private key");
-      let Z = ds.createSecureContext({
-        ca: (G = A !== null && A !== void 0 ? A : $h1.getDefaultRootsData()) !== null && G !== void 0 ? G : void 0,
-        key: B !== null && B !== void 0 ? B : void 0,
-        cert: Q !== null && Q !== void 0 ? Q : void 0,
-        ciphers: $h1.CIPHER_SUITES
+  uuQ.createGetRequest = Uq8;
+  async function $q8(A, Q) {
+    let G = await (0, zq8.sdkStreamMixin)(A.body).transformToString();
+    if (A.statusCode === 200) {
+      let Z = JSON.parse(G);
+      if (typeof Z.AccessKeyId !== "string" || typeof Z.SecretAccessKey !== "string" || typeof Z.Token !== "string" || typeof Z.Expiration !== "string") throw new jS1.CredentialsProviderError("HTTP credential provider response not of the required format, an object matching: { AccessKeyId: string, SecretAccessKey: string, Token: string, Expiration: string(rfc3339) }", {
+        logger: Q
       });
-      return new aZ1(Z, I !== null && I !== void 0 ? I : {})
-    }
-    static createFromSecureContext(A, B) {
-      return new aZ1(A, B !== null && B !== void 0 ? B : {})
-    }
-    static createInsecure() {
-      return new qh1
-    }
-  }
-  ES0.ChannelCredentials = ig;
-  class qh1 extends ig {
-    constructor() {
-      super()
-    }
-    compose(A) {
-      throw new Error("Cannot compose insecure credentials")
-    }
-    _isSecure() {
-      return !1
-    }
-    _equals(A) {
-      return A instanceof qh1
-    }
-    _createSecureConnector(A, B, Q) {
       return {
-        connect(I) {
-          return Promise.resolve({
-            socket: I,
-            secure: !1
-          })
-        },
-        waitForReady: () => {
-          return Promise.resolve()
-        },
-        getCallCredentials: () => {
-          return Q !== null && Q !== void 0 ? Q : rZ1.CallCredentials.createEmpty()
-        },
-        destroy() {}
+        accessKeyId: Z.AccessKeyId,
+        secretAccessKey: Z.SecretAccessKey,
+        sessionToken: Z.Token,
+        expiration: (0, Eq8.parseRfc3339DateTime)(Z.Expiration)
       }
     }
-  }
-
-  function zS0(A, B, Q, I) {
-    var G, Z, D, Y;
-    let W = {
-      secureContext: A
-    };
-    if (B.checkServerIdentity) W.checkServerIdentity = B.checkServerIdentity;
-    if (B.rejectUnauthorized !== void 0) W.rejectUnauthorized = B.rejectUnauthorized;
-    if (W.ALPNProtocols = ["h2"], I["grpc.ssl_target_name_override"]) {
-      let C = I["grpc.ssl_target_name_override"],
-        K = (G = W.checkServerIdentity) !== null && G !== void 0 ? G : ds.checkServerIdentity;
-      W.checkServerIdentity = (E, N) => {
-        return K(C, N)
-      }, W.servername = C
-    } else if ("grpc.http_connect_target" in I) {
-      let C = HS0.getDefaultAuthority((Z = nZ1.parseUri(I["grpc.http_connect_target"])) !== null && Z !== void 0 ? Z : {
-          path: "localhost"
-        }),
-        K = nZ1.splitHostPort(C);
-      W.servername = (D = K === null || K === void 0 ? void 0 : K.host) !== null && D !== void 0 ? D : C
-    }
-    if (I["grpc-node.tls_enable_trace"]) W.enableTrace = !0;
-    let J = Q;
-    if ("grpc.http_connect_target" in I) {
-      let C = nZ1.parseUri(I["grpc.http_connect_target"]);
-      if (C) J = C
-    }
-    let F = HS0.getDefaultAuthority(J),
-      X = nZ1.splitHostPort(F),
-      V = (Y = X === null || X === void 0 ? void 0 : X.host) !== null && Y !== void 0 ? Y : F;
-    return W.host = V, W.servername = V, W
-  }
-  class wS0 {
-    constructor(A, B) {
-      this.connectionOptions = A, this.callCredentials = B
-    }
-    connect(A) {
-      let B = Object.assign({
-        socket: A
-      }, this.connectionOptions);
-      return new Promise((Q, I) => {
-        let G = ds.connect(B, () => {
-          var Z;
-          if (((Z = this.connectionOptions.rejectUnauthorized) !== null && Z !== void 0 ? Z : !0) && !G.authorized) {
-            I(G.authorizationError);
-            return
-          }
-          Q({
-            socket: G,
-            secure: !0
-          })
-        });
-        G.on("error", (Z) => {
-          I(Z)
-        })
-      })
-    }
-    waitForReady() {
-      return Promise.resolve()
-    }
-    getCallCredentials() {
-      return this.callCredentials
-    }
-    destroy() {}
-  }
-  class aZ1 extends ig {
-    constructor(A, B) {
-      super();
-      this.secureContext = A, this.verifyOptions = B
-    }
-    _isSecure() {
-      return !0
-    }
-    _equals(A) {
-      if (this === A) return !0;
-      if (A instanceof aZ1) return this.secureContext === A.secureContext && this.verifyOptions.checkServerIdentity === A.verifyOptions.checkServerIdentity;
-      else return !1
-    }
-    _createSecureConnector(A, B, Q) {
-      let I = zS0(this.secureContext, this.verifyOptions, A, B);
-      return new wS0(I, Q !== null && Q !== void 0 ? Q : rZ1.CallCredentials.createEmpty())
-    }
-  }
-  class ms extends ig {
-    constructor(A, B, Q) {
-      super();
-      this.caCertificateProvider = A, this.identityCertificateProvider = B, this.verifyOptions = Q, this.refcount = 0, this.latestCaUpdate = void 0, this.latestIdentityUpdate = void 0, this.caCertificateUpdateListener = this.handleCaCertificateUpdate.bind(this), this.identityCertificateUpdateListener = this.handleIdentityCertitificateUpdate.bind(this), this.secureContextWatchers = []
-    }
-    _isSecure() {
-      return !0
-    }
-    _equals(A) {
-      var B, Q;
-      if (this === A) return !0;
-      if (A instanceof ms) return this.caCertificateProvider === A.caCertificateProvider && this.identityCertificateProvider === A.identityCertificateProvider && ((B = this.verifyOptions) === null || B === void 0 ? void 0 : B.checkServerIdentity) === ((Q = A.verifyOptions) === null || Q === void 0 ? void 0 : Q.checkServerIdentity);
-      else return !1
-    }
-    ref() {
-      var A;
-      if (this.refcount === 0) this.caCertificateProvider.addCaCertificateListener(this.caCertificateUpdateListener), (A = this.identityCertificateProvider) === null || A === void 0 || A.addIdentityCertificateListener(this.identityCertificateUpdateListener);
-      this.refcount += 1
-    }
-    unref() {
-      var A;
-      if (this.refcount -= 1, this.refcount === 0) this.caCertificateProvider.removeCaCertificateListener(this.caCertificateUpdateListener), (A = this.identityCertificateProvider) === null || A === void 0 || A.removeIdentityCertificateListener(this.identityCertificateUpdateListener)
-    }
-    _createSecureConnector(A, B, Q) {
-      return this.ref(), new ms.SecureConnectorImpl(this, A, B, Q !== null && Q !== void 0 ? Q : rZ1.CallCredentials.createEmpty())
-    }
-    maybeUpdateWatchers() {
-      if (this.hasReceivedUpdates()) {
-        for (let A of this.secureContextWatchers) A(this.getLatestSecureContext());
-        this.secureContextWatchers = []
-      }
-    }
-    handleCaCertificateUpdate(A) {
-      this.latestCaUpdate = A, this.maybeUpdateWatchers()
-    }
-    handleIdentityCertitificateUpdate(A) {
-      this.latestIdentityUpdate = A, this.maybeUpdateWatchers()
-    }
-    hasReceivedUpdates() {
-      if (this.latestCaUpdate === void 0) return !1;
-      if (this.identityCertificateProvider && this.latestIdentityUpdate === void 0) return !1;
-      return !0
-    }
-    getSecureContext() {
-      if (this.hasReceivedUpdates()) return Promise.resolve(this.getLatestSecureContext());
-      else return new Promise((A) => {
-        this.secureContextWatchers.push(A)
-      })
-    }
-    getLatestSecureContext() {
-      var A, B;
-      if (!this.latestCaUpdate) return null;
-      if (this.identityCertificateProvider !== null && !this.latestIdentityUpdate) return null;
+    if (A.statusCode >= 400 && A.statusCode < 500) {
+      let Z = {};
       try {
-        return ds.createSecureContext({
-          ca: this.latestCaUpdate.caCertificate,
-          key: (A = this.latestIdentityUpdate) === null || A === void 0 ? void 0 : A.privateKey,
-          cert: (B = this.latestIdentityUpdate) === null || B === void 0 ? void 0 : B.certificate,
-          ciphers: $h1.CIPHER_SUITES
+        Z = JSON.parse(G)
+      } catch (I) {}
+      throw Object.assign(new jS1.CredentialsProviderError(`Server responded with status: ${A.statusCode}`, {
+        logger: Q
+      }), {
+        Code: Z.Code,
+        Message: Z.Message
+      })
+    }
+    throw new jS1.CredentialsProviderError(`Server responded with status: ${A.statusCode}`, {
+      logger: Q
+    })
+  }
+  uuQ.getCredentials = $q8
+})
+// @from(Start 4172530, End 4172900)
+luQ = z((cuQ) => {
+  Object.defineProperty(cuQ, "__esModule", {
+    value: !0
+  });
+  cuQ.retryWrapper = void 0;
+  var qq8 = (A, Q, B) => {
+    return async () => {
+      for (let G = 0; G < Q; ++G) try {
+        return await A()
+      } catch (Z) {
+        await new Promise((I) => setTimeout(I, B))
+      }
+      return await A()
+    }
+  };
+  cuQ.retryWrapper = qq8
+})
+// @from(Start 4172906, End 4175394)
+ruQ = z((auQ) => {
+  Object.defineProperty(auQ, "__esModule", {
+    value: !0
+  });
+  auQ.fromHttp = void 0;
+  var Nq8 = BuQ(),
+    Lq8 = rS(),
+    Mq8 = IZ(),
+    iuQ = j2(),
+    Oq8 = Nq8.__importDefault(UA("fs/promises")),
+    Rq8 = IuQ(),
+    nuQ = duQ(),
+    Tq8 = luQ(),
+    Pq8 = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+    jq8 = "http://169.254.170.2",
+    Sq8 = "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+    _q8 = "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE",
+    kq8 = "AWS_CONTAINER_AUTHORIZATION_TOKEN",
+    yq8 = (A = {}) => {
+      A.logger?.debug("@aws-sdk/credential-provider-http - fromHttp");
+      let Q, B = A.awsContainerCredentialsRelativeUri ?? process.env[Pq8],
+        G = A.awsContainerCredentialsFullUri ?? process.env[Sq8],
+        Z = A.awsContainerAuthorizationToken ?? process.env[kq8],
+        I = A.awsContainerAuthorizationTokenFile ?? process.env[_q8],
+        Y = A.logger?.constructor?.name === "NoOpLogger" || !A.logger ? console.warn : A.logger.warn;
+      if (B && G) Y("@aws-sdk/credential-provider-http: you have set both awsContainerCredentialsRelativeUri and awsContainerCredentialsFullUri."), Y("awsContainerCredentialsFullUri will take precedence.");
+      if (Z && I) Y("@aws-sdk/credential-provider-http: you have set both awsContainerAuthorizationToken and awsContainerAuthorizationTokenFile."), Y("awsContainerAuthorizationToken will take precedence.");
+      if (G) Q = G;
+      else if (B) Q = `${jq8}${B}`;
+      else throw new iuQ.CredentialsProviderError(`No HTTP credential provider host provided.
+Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI.`, {
+        logger: A.logger
+      });
+      let J = new URL(Q);
+      (0, Rq8.checkUrl)(J, A.logger);
+      let W = new Mq8.NodeHttpHandler({
+        requestTimeout: A.timeout ?? 1000,
+        connectionTimeout: A.timeout ?? 1000
+      });
+      return (0, Tq8.retryWrapper)(async () => {
+        let X = (0, nuQ.createGetRequest)(J);
+        if (Z) X.headers.Authorization = Z;
+        else if (I) X.headers.Authorization = (await Oq8.default.readFile(I)).toString();
+        try {
+          let V = await W.handle(X);
+          return (0, nuQ.getCredentials)(V.response).then((F) => (0, Lq8.setCredentialFeature)(F, "CREDENTIALS_HTTP", "z"))
+        } catch (V) {
+          throw new iuQ.CredentialsProviderError(String(V), {
+            logger: A.logger
+          })
+        }
+      }, A.maxRetries ?? 3, A.timeout ?? 1000)
+    };
+  auQ.fromHttp = yq8
+})
+// @from(Start 4175400, End 4175652)
+_S1 = z((SS1) => {
+  Object.defineProperty(SS1, "__esModule", {
+    value: !0
+  });
+  SS1.fromHttp = void 0;
+  var xq8 = ruQ();
+  Object.defineProperty(SS1, "fromHttp", {
+    enumerable: !0,
+    get: function() {
+      return xq8.fromHttp
+    }
+  })
+})
+// @from(Start 4175658, End 4178441)
+YmQ = z((jT7, ImQ) => {
+  var {
+    defineProperty: FcA,
+    getOwnPropertyDescriptor: bq8,
+    getOwnPropertyNames: fq8
+  } = Object, hq8 = Object.prototype.hasOwnProperty, KcA = (A, Q) => FcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), gq8 = (A, Q) => {
+    for (var B in Q) FcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, uq8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of fq8(Q))
+        if (!hq8.call(A, Z) && Z !== B) FcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = bq8(Q, Z)) || G.enumerable
         })
-      } catch (Q) {
-        return V56.log(C56.LogVerbosity.ERROR, "Failed to createSecureContext with error " + Q.message), null
-      }
     }
-  }
-  ms.SecureConnectorImpl = class {
-    constructor(A, B, Q, I) {
-      this.parent = A, this.channelTarget = B, this.options = Q, this.callCredentials = I
-    }
-    connect(A) {
-      return new Promise((B, Q) => {
-        let I = this.parent.getLatestSecureContext();
-        if (!I) {
-          Q(new Error("Failed to load credentials"));
-          return
-        }
-        if (A.closed) Q(new Error("Socket closed while loading credentials"));
-        let G = zS0(I, this.parent.verifyOptions, this.channelTarget, this.options),
-          Z = Object.assign({
-            socket: A
-          }, G),
-          D = () => {
-            Q(new Error("Socket closed"))
-          },
-          Y = (J) => {
-            Q(J)
-          },
-          W = ds.connect(Z, () => {
-            var J;
-            if (W.removeListener("close", D), W.removeListener("error", Y), ((J = this.parent.verifyOptions.rejectUnauthorized) !== null && J !== void 0 ? J : !0) && !W.authorized) {
-              Q(W.authorizationError);
-              return
-            }
-            B({
-              socket: W,
-              secure: !0
-            })
-          });
-        W.once("close", D), W.once("error", Y)
-      })
-    }
-    async waitForReady() {
-      await this.parent.getSecureContext()
-    }
-    getCallCredentials() {
-      return this.callCredentials
-    }
-    destroy() {
-      this.parent.unref()
-    }
-  };
-
-  function K56(A, B, Q) {
-    return new ms(A, B, Q !== null && Q !== void 0 ? Q : {})
-  }
-  class sZ1 extends ig {
-    constructor(A, B) {
-      super();
-      if (this.channelCredentials = A, this.callCredentials = B, !A._isSecure()) throw new Error("Cannot compose insecure credentials")
-    }
-    compose(A) {
-      let B = this.callCredentials.compose(A);
-      return new sZ1(this.channelCredentials, B)
-    }
-    _isSecure() {
-      return !0
-    }
-    _equals(A) {
-      if (this === A) return !0;
-      if (A instanceof sZ1) return this.channelCredentials._equals(A.channelCredentials) && this.callCredentials._equals(A.callCredentials);
-      else return !1
-    }
-    _createSecureConnector(A, B, Q) {
-      let I = this.callCredentials.compose(Q !== null && Q !== void 0 ? Q : rZ1.CallCredentials.createEmpty());
-      return this.channelCredentials._createSecureConnector(A, B, I)
-    }
-  }
-})
-// @from(Start 4670003, End 4672518)
-a_ = z(($S0) => {
-  Object.defineProperty($S0, "__esModule", {
+    return A
+  }, mq8 = (A) => uq8(FcA({}, "__esModule", {
     value: !0
+  }), A), ouQ = {};
+  gq8(ouQ, {
+    AlgorithmId: () => QmQ,
+    EndpointURLScheme: () => AmQ,
+    FieldPosition: () => BmQ,
+    HttpApiKeyAuthLocation: () => euQ,
+    HttpAuthLocation: () => tuQ,
+    IniSectionType: () => GmQ,
+    RequestHandlerProtocol: () => ZmQ,
+    SMITHY_CONTEXT_KEY: () => iq8,
+    getDefaultClientConfiguration: () => pq8,
+    resolveDefaultRuntimeConfig: () => lq8
   });
-  $S0.createChildChannelControlHelper = E56;
-  $S0.registerLoadBalancerType = U56;
-  $S0.registerDefaultLoadBalancerType = N56;
-  $S0.createLoadBalancer = $56;
-  $S0.isLoadBalancerNameRegistered = q56;
-  $S0.parseLoadBalancingConfig = NS0;
-  $S0.getDefaultConfig = M56;
-  $S0.selectLbConfigFromList = L56;
-  var z56 = GB(),
-    w56 = y6();
-
-  function E56(A, B) {
-    var Q, I, G, Z, D, Y, W, J, F, X;
-    return {
-      createSubchannel: (I = (Q = B.createSubchannel) === null || Q === void 0 ? void 0 : Q.bind(B)) !== null && I !== void 0 ? I : A.createSubchannel.bind(A),
-      updateState: (Z = (G = B.updateState) === null || G === void 0 ? void 0 : G.bind(B)) !== null && Z !== void 0 ? Z : A.updateState.bind(A),
-      requestReresolution: (Y = (D = B.requestReresolution) === null || D === void 0 ? void 0 : D.bind(B)) !== null && Y !== void 0 ? Y : A.requestReresolution.bind(A),
-      addChannelzChild: (J = (W = B.addChannelzChild) === null || W === void 0 ? void 0 : W.bind(B)) !== null && J !== void 0 ? J : A.addChannelzChild.bind(A),
-      removeChannelzChild: (X = (F = B.removeChannelzChild) === null || F === void 0 ? void 0 : F.bind(B)) !== null && X !== void 0 ? X : A.removeChannelzChild.bind(A)
-    }
-  }
-  var JR = {},
-    ps = null;
-
-  function U56(A, B, Q) {
-    JR[A] = {
-      LoadBalancer: B,
-      LoadBalancingConfig: Q
-    }
-  }
-
-  function N56(A) {
-    ps = A
-  }
-
-  function $56(A, B) {
-    let Q = A.getLoadBalancerName();
-    if (Q in JR) return new JR[Q].LoadBalancer(B);
-    else return null
-  }
-
-  function q56(A) {
-    return A in JR
-  }
-
-  function NS0(A) {
-    let B = Object.keys(A);
-    if (B.length !== 1) throw new Error("Provided load balancing config has multiple conflicting entries");
-    let Q = B[0];
-    if (Q in JR) try {
-      return JR[Q].LoadBalancingConfig.createFromJson(A[Q])
-    } catch (I) {
-      throw new Error(`${Q}: ${I.message}`)
-    } else throw new Error(`Unrecognized load balancing config name ${Q}`)
-  }
-
-  function M56() {
-    if (!ps) throw new Error("No default load balancer type registered");
-    return new JR[ps].LoadBalancingConfig
-  }
-
-  function L56(A, B = !1) {
-    for (let Q of A) try {
-      return NS0(Q)
-    } catch (I) {
-      z56.log(w56.LogVerbosity.DEBUG, "Config parsing failed with error", I.message);
-      continue
-    }
-    if (B)
-      if (ps) return new JR[ps].LoadBalancingConfig;
-      else return null;
-    else return null
-  }
-})
-// @from(Start 4672524, End 4682992)
-Mh1 = z((LS0) => {
-  Object.defineProperty(LS0, "__esModule", {
-    value: !0
-  });
-  LS0.validateRetryThrottling = qS0;
-  LS0.validateServiceConfig = MS0;
-  LS0.extractAndSelectServiceConfig = u56;
-  var k56 = Z1("os"),
-    oZ1 = y6(),
-    tZ1 = /^\d+(\.\d{1,9})?s$/,
-    x56 = "node";
-
-  function f56(A) {
-    if ("service" in A && A.service !== "") {
-      if (typeof A.service !== "string") throw new Error(`Invalid method config name: invalid service: expected type string, got ${typeof A.service}`);
-      if ("method" in A && A.method !== "") {
-        if (typeof A.method !== "string") throw new Error(`Invalid method config name: invalid method: expected type string, got ${typeof A.service}`);
-        return {
-          service: A.service,
-          method: A.method
-        }
-      } else return {
-        service: A.service
-      }
-    } else {
-      if ("method" in A && A.method !== void 0) throw new Error("Invalid method config name: method set with empty or unset service");
-      return {}
-    }
-  }
-
-  function v56(A) {
-    if (!("maxAttempts" in A) || !Number.isInteger(A.maxAttempts) || A.maxAttempts < 2) throw new Error("Invalid method config retry policy: maxAttempts must be an integer at least 2");
-    if (!("initialBackoff" in A) || typeof A.initialBackoff !== "string" || !tZ1.test(A.initialBackoff)) throw new Error("Invalid method config retry policy: initialBackoff must be a string consisting of a positive integer or decimal followed by s");
-    if (!("maxBackoff" in A) || typeof A.maxBackoff !== "string" || !tZ1.test(A.maxBackoff)) throw new Error("Invalid method config retry policy: maxBackoff must be a string consisting of a positive integer or decimal followed by s");
-    if (!("backoffMultiplier" in A) || typeof A.backoffMultiplier !== "number" || A.backoffMultiplier <= 0) throw new Error("Invalid method config retry policy: backoffMultiplier must be a number greater than 0");
-    if (!(("retryableStatusCodes" in A) && Array.isArray(A.retryableStatusCodes))) throw new Error("Invalid method config retry policy: retryableStatusCodes is required");
-    if (A.retryableStatusCodes.length === 0) throw new Error("Invalid method config retry policy: retryableStatusCodes must be non-empty");
-    for (let B of A.retryableStatusCodes)
-      if (typeof B === "number") {
-        if (!Object.values(oZ1.Status).includes(B)) throw new Error("Invalid method config retry policy: retryableStatusCodes value not in status code range")
-      } else if (typeof B === "string") {
-      if (!Object.values(oZ1.Status).includes(B.toUpperCase())) throw new Error("Invalid method config retry policy: retryableStatusCodes value not a status code name")
-    } else throw new Error("Invalid method config retry policy: retryableStatusCodes value must be a string or number");
-    return {
-      maxAttempts: A.maxAttempts,
-      initialBackoff: A.initialBackoff,
-      maxBackoff: A.maxBackoff,
-      backoffMultiplier: A.backoffMultiplier,
-      retryableStatusCodes: A.retryableStatusCodes
-    }
-  }
-
-  function b56(A) {
-    if (!("maxAttempts" in A) || !Number.isInteger(A.maxAttempts) || A.maxAttempts < 2) throw new Error("Invalid method config hedging policy: maxAttempts must be an integer at least 2");
-    if ("hedgingDelay" in A && (typeof A.hedgingDelay !== "string" || !tZ1.test(A.hedgingDelay))) throw new Error("Invalid method config hedging policy: hedgingDelay must be a string consisting of a positive integer followed by s");
-    if ("nonFatalStatusCodes" in A && Array.isArray(A.nonFatalStatusCodes))
-      for (let Q of A.nonFatalStatusCodes)
-        if (typeof Q === "number") {
-          if (!Object.values(oZ1.Status).includes(Q)) throw new Error("Invalid method config hedging policy: nonFatalStatusCodes value not in status code range")
-        } else if (typeof Q === "string") {
-      if (!Object.values(oZ1.Status).includes(Q.toUpperCase())) throw new Error("Invalid method config hedging policy: nonFatalStatusCodes value not a status code name")
-    } else throw new Error("Invalid method config hedging policy: nonFatalStatusCodes value must be a string or number");
-    let B = {
-      maxAttempts: A.maxAttempts
-    };
-    if (A.hedgingDelay) B.hedgingDelay = A.hedgingDelay;
-    if (A.nonFatalStatusCodes) B.nonFatalStatusCodes = A.nonFatalStatusCodes;
-    return B
-  }
-
-  function g56(A) {
-    var B;
-    let Q = {
-      name: []
-    };
-    if (!("name" in A) || !Array.isArray(A.name)) throw new Error("Invalid method config: invalid name array");
-    for (let I of A.name) Q.name.push(f56(I));
-    if ("waitForReady" in A) {
-      if (typeof A.waitForReady !== "boolean") throw new Error("Invalid method config: invalid waitForReady");
-      Q.waitForReady = A.waitForReady
-    }
-    if ("timeout" in A)
-      if (typeof A.timeout === "object") {
-        if (!("seconds" in A.timeout) || typeof A.timeout.seconds !== "number") throw new Error("Invalid method config: invalid timeout.seconds");
-        if (!("nanos" in A.timeout) || typeof A.timeout.nanos !== "number") throw new Error("Invalid method config: invalid timeout.nanos");
-        Q.timeout = A.timeout
-      } else if (typeof A.timeout === "string" && tZ1.test(A.timeout)) {
-      let I = A.timeout.substring(0, A.timeout.length - 1).split(".");
-      Q.timeout = {
-        seconds: I[0] | 0,
-        nanos: ((B = I[1]) !== null && B !== void 0 ? B : 0) | 0
-      }
-    } else throw new Error("Invalid method config: invalid timeout");
-    if ("maxRequestBytes" in A) {
-      if (typeof A.maxRequestBytes !== "number") throw new Error("Invalid method config: invalid maxRequestBytes");
-      Q.maxRequestBytes = A.maxRequestBytes
-    }
-    if ("maxResponseBytes" in A) {
-      if (typeof A.maxResponseBytes !== "number") throw new Error("Invalid method config: invalid maxRequestBytes");
-      Q.maxResponseBytes = A.maxResponseBytes
-    }
-    if ("retryPolicy" in A)
-      if ("hedgingPolicy" in A) throw new Error("Invalid method config: retryPolicy and hedgingPolicy cannot both be specified");
-      else Q.retryPolicy = v56(A.retryPolicy);
-    else if ("hedgingPolicy" in A) Q.hedgingPolicy = b56(A.hedgingPolicy);
-    return Q
-  }
-
-  function qS0(A) {
-    if (!("maxTokens" in A) || typeof A.maxTokens !== "number" || A.maxTokens <= 0 || A.maxTokens > 1000) throw new Error("Invalid retryThrottling: maxTokens must be a number in (0, 1000]");
-    if (!("tokenRatio" in A) || typeof A.tokenRatio !== "number" || A.tokenRatio <= 0) throw new Error("Invalid retryThrottling: tokenRatio must be a number greater than 0");
-    return {
-      maxTokens: +A.maxTokens.toFixed(3),
-      tokenRatio: +A.tokenRatio.toFixed(3)
-    }
-  }
-
-  function h56(A) {
-    if (!(typeof A === "object" && A !== null)) throw new Error(`Invalid loadBalancingConfig: unexpected type ${typeof A}`);
-    let B = Object.keys(A);
-    if (B.length > 1) throw new Error(`Invalid loadBalancingConfig: unexpected multiple keys ${B}`);
-    if (B.length === 0) throw new Error("Invalid loadBalancingConfig: load balancing policy name required");
-    return {
-      [B[0]]: A[B[0]]
-    }
-  }
-
-  function MS0(A) {
-    let B = {
-      loadBalancingConfig: [],
-      methodConfig: []
-    };
-    if ("loadBalancingPolicy" in A)
-      if (typeof A.loadBalancingPolicy === "string") B.loadBalancingPolicy = A.loadBalancingPolicy;
-      else throw new Error("Invalid service config: invalid loadBalancingPolicy");
-    if ("loadBalancingConfig" in A)
-      if (Array.isArray(A.loadBalancingConfig))
-        for (let I of A.loadBalancingConfig) B.loadBalancingConfig.push(h56(I));
-      else throw new Error("Invalid service config: invalid loadBalancingConfig");
-    if ("methodConfig" in A) {
-      if (Array.isArray(A.methodConfig))
-        for (let I of A.methodConfig) B.methodConfig.push(g56(I))
-    }
-    if ("retryThrottling" in A) B.retryThrottling = qS0(A.retryThrottling);
-    let Q = [];
-    for (let I of B.methodConfig)
-      for (let G of I.name) {
-        for (let Z of Q)
-          if (G.service === Z.service && G.method === Z.method) throw new Error(`Invalid service config: duplicate name ${G.service}/${G.method}`);
-        Q.push(G)
-      }
-    return B
-  }
-
-  function m56(A) {
-    if (!("serviceConfig" in A)) throw new Error("Invalid service config choice: missing service config");
-    let B = {
-      serviceConfig: MS0(A.serviceConfig)
-    };
-    if ("clientLanguage" in A)
-      if (Array.isArray(A.clientLanguage)) {
-        B.clientLanguage = [];
-        for (let I of A.clientLanguage)
-          if (typeof I === "string") B.clientLanguage.push(I);
-          else throw new Error("Invalid service config choice: invalid clientLanguage")
-      } else throw new Error("Invalid service config choice: invalid clientLanguage");
-    if ("clientHostname" in A)
-      if (Array.isArray(A.clientHostname)) {
-        B.clientHostname = [];
-        for (let I of A.clientHostname)
-          if (typeof I === "string") B.clientHostname.push(I);
-          else throw new Error("Invalid service config choice: invalid clientHostname")
-      } else throw new Error("Invalid service config choice: invalid clientHostname");
-    if ("percentage" in A)
-      if (typeof A.percentage === "number" && 0 <= A.percentage && A.percentage <= 100) B.percentage = A.percentage;
-      else throw new Error("Invalid service config choice: invalid percentage");
-    let Q = ["clientLanguage", "percentage", "clientHostname", "serviceConfig"];
-    for (let I in A)
-      if (!Q.includes(I)) throw new Error(`Invalid service config choice: unexpected field ${I}`);
-    return B
-  }
-
-  function d56(A, B) {
-    if (!Array.isArray(A)) throw new Error("Invalid service config list");
-    for (let Q of A) {
-      let I = m56(Q);
-      if (typeof I.percentage === "number" && B > I.percentage) continue;
-      if (Array.isArray(I.clientHostname)) {
-        let G = !1;
-        for (let Z of I.clientHostname)
-          if (Z === k56.hostname()) G = !0;
-        if (!G) continue
-      }
-      if (Array.isArray(I.clientLanguage)) {
-        let G = !1;
-        for (let Z of I.clientLanguage)
-          if (Z === x56) G = !0;
-        if (!G) continue
-      }
-      return I.serviceConfig
-    }
-    throw new Error("No matching service config found")
-  }
-
-  function u56(A, B) {
-    for (let Q of A)
-      if (Q.length > 0 && Q[0].startsWith("grpc_config=")) {
-        let I = Q.join("").substring(12),
-          G = JSON.parse(I);
-        return d56(G, B)
-      } return null
-  }
-})
-// @from(Start 4682998, End 4683364)
-TX = z((OS0) => {
-  Object.defineProperty(OS0, "__esModule", {
-    value: !0
-  });
-  OS0.ConnectivityState = void 0;
-  var RS0;
-  (function(A) {
-    A[A.IDLE = 0] = "IDLE", A[A.CONNECTING = 1] = "CONNECTING", A[A.READY = 2] = "READY", A[A.TRANSIENT_FAILURE = 3] = "TRANSIENT_FAILURE", A[A.SHUTDOWN = 4] = "SHUTDOWN"
-  })(RS0 || (OS0.ConnectivityState = RS0 = {}))
-})
-// @from(Start 4683370, End 4684737)
-FR = z((_S0) => {
-  Object.defineProperty(_S0, "__esModule", {
-    value: !0
-  });
-  _S0.QueuePicker = _S0.UnavailablePicker = _S0.PickResultType = void 0;
-  var i56 = SZ(),
-    n56 = y6(),
-    eZ1;
-  (function(A) {
-    A[A.COMPLETE = 0] = "COMPLETE", A[A.QUEUE = 1] = "QUEUE", A[A.TRANSIENT_FAILURE = 2] = "TRANSIENT_FAILURE", A[A.DROP = 3] = "DROP"
-  })(eZ1 || (_S0.PickResultType = eZ1 = {}));
-  class PS0 {
-    constructor(A) {
-      this.status = Object.assign({
-        code: n56.Status.UNAVAILABLE,
-        details: "No connection established",
-        metadata: new i56.Metadata
-      }, A)
-    }
-    pick(A) {
+  ImQ.exports = mq8(ouQ);
+  var tuQ = ((A) => {
+      return A.HEADER = "header", A.QUERY = "query", A
+    })(tuQ || {}),
+    euQ = ((A) => {
+      return A.HEADER = "header", A.QUERY = "query", A
+    })(euQ || {}),
+    AmQ = ((A) => {
+      return A.HTTP = "http", A.HTTPS = "https", A
+    })(AmQ || {}),
+    QmQ = ((A) => {
+      return A.MD5 = "md5", A.CRC32 = "crc32", A.CRC32C = "crc32c", A.SHA1 = "sha1", A.SHA256 = "sha256", A
+    })(QmQ || {}),
+    dq8 = KcA((A) => {
+      let Q = [];
+      if (A.sha256 !== void 0) Q.push({
+        algorithmId: () => "sha256",
+        checksumConstructor: () => A.sha256
+      });
+      if (A.md5 != null) Q.push({
+        algorithmId: () => "md5",
+        checksumConstructor: () => A.md5
+      });
       return {
-        pickResultType: eZ1.TRANSIENT_FAILURE,
-        subchannel: null,
-        status: this.status,
-        onCallStarted: null,
-        onCallEnded: null
+        addChecksumAlgorithm(B) {
+          Q.push(B)
+        },
+        checksumAlgorithms() {
+          return Q
+        }
       }
-    }
-  }
-  _S0.UnavailablePicker = PS0;
-  class SS0 {
-    constructor(A, B) {
-      this.loadBalancer = A, this.childPicker = B, this.calledExitIdle = !1
-    }
-    pick(A) {
-      if (!this.calledExitIdle) process.nextTick(() => {
-        this.loadBalancer.exitIdle()
-      }), this.calledExitIdle = !0;
-      if (this.childPicker) return this.childPicker.pick(A);
-      else return {
-        pickResultType: eZ1.QUEUE,
-        subchannel: null,
-        status: null,
-        onCallStarted: null,
-        onCallEnded: null
-      }
-    }
-  }
-  _S0.QueuePicker = SS0
+    }, "getChecksumConfiguration"),
+    cq8 = KcA((A) => {
+      let Q = {};
+      return A.checksumAlgorithms().forEach((B) => {
+        Q[B.algorithmId()] = B.checksumConstructor()
+      }), Q
+    }, "resolveChecksumRuntimeConfig"),
+    pq8 = KcA((A) => {
+      return dq8(A)
+    }, "getDefaultClientConfiguration"),
+    lq8 = KcA((A) => {
+      return cq8(A)
+    }, "resolveDefaultRuntimeConfig"),
+    BmQ = ((A) => {
+      return A[A.HEADER = 0] = "HEADER", A[A.TRAILER = 1] = "TRAILER", A
+    })(BmQ || {}),
+    iq8 = "__smithy_context",
+    GmQ = ((A) => {
+      return A.PROFILE = "profile", A.SSO_SESSION = "sso-session", A.SERVICES = "services", A
+    })(GmQ || {}),
+    ZmQ = ((A) => {
+      return A.HTTP_0_9 = "http/0.9", A.HTTP_1_0 = "http/1.0", A.TDS_8_0 = "tds/8.0", A
+    })(ZmQ || {})
 })
-// @from(Start 4684743, End 4687523)
-cs = z((yS0) => {
-  Object.defineProperty(yS0, "__esModule", {
+// @from(Start 4178447, End 4182954)
+KmQ = z((ST7, FmQ) => {
+  var {
+    defineProperty: DcA,
+    getOwnPropertyDescriptor: nq8,
+    getOwnPropertyNames: aq8
+  } = Object, sq8 = Object.prototype.hasOwnProperty, ed = (A, Q) => DcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), rq8 = (A, Q) => {
+    for (var B in Q) DcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, oq8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of aq8(Q))
+        if (!sq8.call(A, Z) && Z !== B) DcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = nq8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, tq8 = (A) => oq8(DcA({}, "__esModule", {
     value: !0
+  }), A), JmQ = {};
+  rq8(JmQ, {
+    Field: () => QN8,
+    Fields: () => BN8,
+    HttpRequest: () => GN8,
+    HttpResponse: () => ZN8,
+    IHttpRequest: () => WmQ.HttpRequest,
+    getHttpHandlerExtensionConfiguration: () => eq8,
+    isValidHostname: () => VmQ,
+    resolveHttpHandlerRuntimeConfig: () => AN8
   });
-  yS0.BackoffTimeout = void 0;
-  var r56 = y6(),
-    o56 = GB(),
-    t56 = "backoff",
-    e56 = 1000,
-    A86 = 1.6,
-    B86 = 120000,
-    Q86 = 0.2;
+  FmQ.exports = tq8(JmQ);
+  var eq8 = ed((A) => {
+      return {
+        setHttpHandler(Q) {
+          A.httpHandler = Q
+        },
+        httpHandler() {
+          return A.httpHandler
+        },
+        updateHttpClientConfig(Q, B) {
+          A.httpHandler?.updateHttpClientConfig(Q, B)
+        },
+        httpHandlerConfigs() {
+          return A.httpHandler.httpHandlerConfigs()
+        }
+      }
+    }, "getHttpHandlerExtensionConfiguration"),
+    AN8 = ed((A) => {
+      return {
+        httpHandler: A.httpHandler()
+      }
+    }, "resolveHttpHandlerRuntimeConfig"),
+    WmQ = YmQ(),
+    QN8 = class {
+      static {
+        ed(this, "Field")
+      }
+      constructor({
+        name: A,
+        kind: Q = WmQ.FieldPosition.HEADER,
+        values: B = []
+      }) {
+        this.name = A, this.kind = Q, this.values = B
+      }
+      add(A) {
+        this.values.push(A)
+      }
+      set(A) {
+        this.values = A
+      }
+      remove(A) {
+        this.values = this.values.filter((Q) => Q !== A)
+      }
+      toString() {
+        return this.values.map((A) => A.includes(",") || A.includes(" ") ? `"${A}"` : A).join(", ")
+      }
+      get() {
+        return this.values
+      }
+    },
+    BN8 = class {
+      constructor({
+        fields: A = [],
+        encoding: Q = "utf-8"
+      }) {
+        this.entries = {}, A.forEach(this.setField.bind(this)), this.encoding = Q
+      }
+      static {
+        ed(this, "Fields")
+      }
+      setField(A) {
+        this.entries[A.name.toLowerCase()] = A
+      }
+      getField(A) {
+        return this.entries[A.toLowerCase()]
+      }
+      removeField(A) {
+        delete this.entries[A.toLowerCase()]
+      }
+      getByType(A) {
+        return Object.values(this.entries).filter((Q) => Q.kind === A)
+      }
+    },
+    GN8 = class A {
+      static {
+        ed(this, "HttpRequest")
+      }
+      constructor(Q) {
+        this.method = Q.method || "GET", this.hostname = Q.hostname || "localhost", this.port = Q.port, this.query = Q.query || {}, this.headers = Q.headers || {}, this.body = Q.body, this.protocol = Q.protocol ? Q.protocol.slice(-1) !== ":" ? `${Q.protocol}:` : Q.protocol : "https:", this.path = Q.path ? Q.path.charAt(0) !== "/" ? `/${Q.path}` : Q.path : "/", this.username = Q.username, this.password = Q.password, this.fragment = Q.fragment
+      }
+      static clone(Q) {
+        let B = new A({
+          ...Q,
+          headers: {
+            ...Q.headers
+          }
+        });
+        if (B.query) B.query = XmQ(B.query);
+        return B
+      }
+      static isInstance(Q) {
+        if (!Q) return !1;
+        let B = Q;
+        return "method" in B && "protocol" in B && "hostname" in B && "path" in B && typeof B.query === "object" && typeof B.headers === "object"
+      }
+      clone() {
+        return A.clone(this)
+      }
+    };
 
-  function I86(A, B) {
-    return Math.random() * (B - A) + A
-  }
-  class AD1 {
-    constructor(A, B) {
-      if (this.callback = A, this.initialDelay = e56, this.multiplier = A86, this.maxDelay = B86, this.jitter = Q86, this.running = !1, this.hasRef = !0, this.startTime = new Date, this.endTime = new Date, this.id = AD1.getNextId(), B) {
-        if (B.initialDelay) this.initialDelay = B.initialDelay;
-        if (B.multiplier) this.multiplier = B.multiplier;
-        if (B.jitter) this.jitter = B.jitter;
-        if (B.maxDelay) this.maxDelay = B.maxDelay
+  function XmQ(A) {
+    return Object.keys(A).reduce((Q, B) => {
+      let G = A[B];
+      return {
+        ...Q,
+        [B]: Array.isArray(G) ? [...G] : G
       }
-      this.trace("constructed initialDelay=" + this.initialDelay + " multiplier=" + this.multiplier + " jitter=" + this.jitter + " maxDelay=" + this.maxDelay), this.nextDelay = this.initialDelay, this.timerId = setTimeout(() => {}, 0), clearTimeout(this.timerId)
-    }
-    static getNextId() {
-      return this.nextId++
-    }
-    trace(A) {
-      o56.trace(r56.LogVerbosity.DEBUG, t56, "{" + this.id + "} " + A)
-    }
-    runTimer(A) {
-      var B, Q;
-      if (this.trace("runTimer(delay=" + A + ")"), this.endTime = this.startTime, this.endTime.setMilliseconds(this.endTime.getMilliseconds() + A), clearTimeout(this.timerId), this.timerId = setTimeout(() => {
-          this.trace("timer fired"), this.running = !1, this.callback()
-        }, A), !this.hasRef)(Q = (B = this.timerId).unref) === null || Q === void 0 || Q.call(B)
-    }
-    runOnce() {
-      this.trace("runOnce()"), this.running = !0, this.startTime = new Date, this.runTimer(this.nextDelay);
-      let A = Math.min(this.nextDelay * this.multiplier, this.maxDelay),
-        B = A * this.jitter;
-      this.nextDelay = A + I86(-B, B)
-    }
-    stop() {
-      this.trace("stop()"), clearTimeout(this.timerId), this.running = !1
-    }
-    reset() {
-      if (this.trace("reset() running=" + this.running), this.nextDelay = this.initialDelay, this.running) {
-        let A = new Date,
-          B = this.startTime;
-        if (B.setMilliseconds(B.getMilliseconds() + this.nextDelay), clearTimeout(this.timerId), A < B) this.runTimer(B.getTime() - A.getTime());
-        else this.running = !1
-      }
-    }
-    isRunning() {
-      return this.running
-    }
-    ref() {
-      var A, B;
-      this.hasRef = !0, (B = (A = this.timerId).ref) === null || B === void 0 || B.call(A)
-    }
-    unref() {
-      var A, B;
-      this.hasRef = !1, (B = (A = this.timerId).unref) === null || B === void 0 || B.call(A)
-    }
-    getEndTime() {
-      return this.endTime
-    }
+    }, {})
   }
-  yS0.BackoffTimeout = AD1;
-  AD1.nextId = 0
-})
-// @from(Start 4687529, End 4690700)
-BD1 = z((fS0) => {
-  Object.defineProperty(fS0, "__esModule", {
-    value: !0
-  });
-  fS0.ChildLoadBalancerHandler = void 0;
-  var G86 = a_(),
-    Z86 = TX(),
-    D86 = "child_load_balancer_helper";
-  class xS0 {
+  ed(XmQ, "cloneQuery");
+  var ZN8 = class {
+    static {
+      ed(this, "HttpResponse")
+    }
     constructor(A) {
-      this.channelControlHelper = A, this.currentChild = null, this.pendingChild = null, this.latestConfig = null, this.ChildPolicyHelper = class {
-        constructor(B) {
-          this.parent = B, this.child = null
-        }
-        createSubchannel(B, Q) {
-          return this.parent.channelControlHelper.createSubchannel(B, Q)
-        }
-        updateState(B, Q, I) {
-          var G;
-          if (this.calledByPendingChild()) {
-            if (B === Z86.ConnectivityState.CONNECTING) return;
-            (G = this.parent.currentChild) === null || G === void 0 || G.destroy(), this.parent.currentChild = this.parent.pendingChild, this.parent.pendingChild = null
-          } else if (!this.calledByCurrentChild()) return;
-          this.parent.channelControlHelper.updateState(B, Q, I)
-        }
-        requestReresolution() {
-          var B;
-          let Q = (B = this.parent.pendingChild) !== null && B !== void 0 ? B : this.parent.currentChild;
-          if (this.child === Q) this.parent.channelControlHelper.requestReresolution()
-        }
-        setChild(B) {
-          this.child = B
-        }
-        addChannelzChild(B) {
-          this.parent.channelControlHelper.addChannelzChild(B)
-        }
-        removeChannelzChild(B) {
-          this.parent.channelControlHelper.removeChannelzChild(B)
-        }
-        calledByPendingChild() {
-          return this.child === this.parent.pendingChild
-        }
-        calledByCurrentChild() {
-          return this.child === this.parent.currentChild
-        }
-      }
+      this.statusCode = A.statusCode, this.reason = A.reason, this.headers = A.headers || {}, this.body = A.body
     }
-    configUpdateRequiresNewPolicyInstance(A, B) {
-      return A.getLoadBalancerName() !== B.getLoadBalancerName()
+    static isInstance(A) {
+      if (!A) return !1;
+      let Q = A;
+      return typeof Q.statusCode === "number" && typeof Q.headers === "object"
     }
-    updateAddressList(A, B, Q) {
-      let I;
-      if (this.currentChild === null || this.latestConfig === null || this.configUpdateRequiresNewPolicyInstance(this.latestConfig, B)) {
-        let G = new this.ChildPolicyHelper(this),
-          Z = G86.createLoadBalancer(B, G);
-        if (G.setChild(Z), this.currentChild === null) this.currentChild = Z, I = this.currentChild;
-        else {
-          if (this.pendingChild) this.pendingChild.destroy();
-          this.pendingChild = Z, I = this.pendingChild
-        }
-      } else if (this.pendingChild === null) I = this.currentChild;
-      else I = this.pendingChild;
-      this.latestConfig = B, I.updateAddressList(A, B, Q)
-    }
-    exitIdle() {
-      if (this.currentChild) {
-        if (this.currentChild.exitIdle(), this.pendingChild) this.pendingChild.exitIdle()
-      }
-    }
-    resetBackoff() {
-      if (this.currentChild) {
-        if (this.currentChild.resetBackoff(), this.pendingChild) this.pendingChild.resetBackoff()
-      }
-    }
-    destroy() {
-      if (this.currentChild) this.currentChild.destroy(), this.currentChild = null;
-      if (this.pendingChild) this.pendingChild.destroy(), this.pendingChild = null
-    }
-    getTypeName() {
-      return D86
-    }
-  }
-  fS0.ChildLoadBalancerHandler = xS0
-})
-// @from(Start 4690706, End 4697494)
-dS0 = z((hS0) => {
-  Object.defineProperty(hS0, "__esModule", {
-    value: !0
-  });
-  hS0.ResolvingLoadBalancer = void 0;
-  var Y86 = a_(),
-    W86 = Mh1(),
-    pY = TX(),
-    J86 = Zw(),
-    ls = FR(),
-    F86 = cs(),
-    Lh1 = y6(),
-    X86 = SZ(),
-    V86 = GB(),
-    C86 = y6(),
-    K86 = uY(),
-    H86 = BD1(),
-    z86 = "resolving_load_balancer";
-
-  function bS0(A) {
-    V86.trace(C86.LogVerbosity.DEBUG, z86, A)
-  }
-  var w86 = ["SERVICE_AND_METHOD", "SERVICE", "EMPTY"];
-
-  function E86(A, B, Q, I) {
-    for (let G of Q.name) switch (I) {
-      case "EMPTY":
-        if (!G.service && !G.method) return !0;
-        break;
-      case "SERVICE":
-        if (G.service === A && !G.method) return !0;
-        break;
-      case "SERVICE_AND_METHOD":
-        if (G.service === A && G.method === B) return !0
-    }
-    return !1
-  }
-
-  function U86(A, B, Q, I) {
-    for (let G of Q)
-      if (E86(A, B, G, I)) return G;
-    return null
-  }
-
-  function N86(A) {
-    return {
-      invoke(B, Q) {
-        var I, G;
-        let Z = B.split("/").filter((W) => W.length > 0),
-          D = (I = Z[0]) !== null && I !== void 0 ? I : "",
-          Y = (G = Z[1]) !== null && G !== void 0 ? G : "";
-        if (A && A.methodConfig)
-          for (let W of w86) {
-            let J = U86(D, Y, A.methodConfig, W);
-            if (J) return {
-              methodConfig: J,
-              pickInformation: {},
-              status: Lh1.Status.OK,
-              dynamicFilterFactories: []
-            }
-          }
-        return {
-          methodConfig: {
-            name: []
-          },
-          pickInformation: {},
-          status: Lh1.Status.OK,
-          dynamicFilterFactories: []
-        }
-      },
-      unref() {}
-    }
-  }
-  class gS0 {
-    constructor(A, B, Q, I, G) {
-      if (this.target = A, this.channelControlHelper = B, this.channelOptions = Q, this.onSuccessfulResolution = I, this.onFailedResolution = G, this.latestChildState = pY.ConnectivityState.IDLE, this.latestChildPicker = new ls.QueuePicker(this), this.latestChildErrorMessage = null, this.currentState = pY.ConnectivityState.IDLE, this.previousServiceConfig = null, this.continueResolving = !1, Q["grpc.service_config"]) this.defaultServiceConfig = W86.validateServiceConfig(JSON.parse(Q["grpc.service_config"]));
-      else this.defaultServiceConfig = {
-        loadBalancingConfig: [],
-        methodConfig: []
-      };
-      this.updateState(pY.ConnectivityState.IDLE, new ls.QueuePicker(this), null), this.childLoadBalancer = new H86.ChildLoadBalancerHandler({
-        createSubchannel: B.createSubchannel.bind(B),
-        requestReresolution: () => {
-          if (this.backoffTimeout.isRunning()) bS0("requestReresolution delayed by backoff timer until " + this.backoffTimeout.getEndTime().toISOString()), this.continueResolving = !0;
-          else this.updateResolution()
-        },
-        updateState: (D, Y, W) => {
-          this.latestChildState = D, this.latestChildPicker = Y, this.latestChildErrorMessage = W, this.updateState(D, Y, W)
-        },
-        addChannelzChild: B.addChannelzChild.bind(B),
-        removeChannelzChild: B.removeChannelzChild.bind(B)
-      }), this.innerResolver = J86.createResolver(A, {
-        onSuccessfulResolution: (D, Y, W, J, F) => {
-          var X;
-          this.backoffTimeout.stop(), this.backoffTimeout.reset();
-          let V = null;
-          if (Y === null)
-            if (W === null) this.previousServiceConfig = null, V = this.defaultServiceConfig;
-            else if (this.previousServiceConfig === null) this.handleResolutionFailure(W);
-          else V = this.previousServiceConfig;
-          else V = Y, this.previousServiceConfig = Y;
-          let C = (X = V === null || V === void 0 ? void 0 : V.loadBalancingConfig) !== null && X !== void 0 ? X : [],
-            K = Y86.selectLbConfigFromList(C, !0);
-          if (K === null) {
-            this.handleResolutionFailure({
-              code: Lh1.Status.UNAVAILABLE,
-              details: "All load balancer options in service config are not compatible",
-              metadata: new X86.Metadata
-            }), J === null || J === void 0 || J.unref();
-            return
-          }
-          this.childLoadBalancer.updateAddressList(D, K, Object.assign(Object.assign({}, this.channelOptions), F));
-          let E = V !== null && V !== void 0 ? V : this.defaultServiceConfig;
-          this.onSuccessfulResolution(E, J !== null && J !== void 0 ? J : N86(E))
-        },
-        onError: (D) => {
-          this.handleResolutionFailure(D)
-        }
-      }, Q);
-      let Z = {
-        initialDelay: Q["grpc.initial_reconnect_backoff_ms"],
-        maxDelay: Q["grpc.max_reconnect_backoff_ms"]
-      };
-      this.backoffTimeout = new F86.BackoffTimeout(() => {
-        if (this.continueResolving) this.updateResolution(), this.continueResolving = !1;
-        else this.updateState(this.latestChildState, this.latestChildPicker, this.latestChildErrorMessage)
-      }, Z), this.backoffTimeout.unref()
-    }
-    updateResolution() {
-      if (this.innerResolver.updateResolution(), this.currentState === pY.ConnectivityState.IDLE) this.updateState(pY.ConnectivityState.CONNECTING, this.latestChildPicker, this.latestChildErrorMessage);
-      this.backoffTimeout.runOnce()
-    }
-    updateState(A, B, Q) {
-      if (bS0(K86.uriToString(this.target) + " " + pY.ConnectivityState[this.currentState] + " -> " + pY.ConnectivityState[A]), A === pY.ConnectivityState.IDLE) B = new ls.QueuePicker(this, B);
-      this.currentState = A, this.channelControlHelper.updateState(A, B, Q)
-    }
-    handleResolutionFailure(A) {
-      if (this.latestChildState === pY.ConnectivityState.IDLE) this.updateState(pY.ConnectivityState.TRANSIENT_FAILURE, new ls.UnavailablePicker(A), A.details), this.onFailedResolution(A)
-    }
-    exitIdle() {
-      if (this.currentState === pY.ConnectivityState.IDLE || this.currentState === pY.ConnectivityState.TRANSIENT_FAILURE)
-        if (this.backoffTimeout.isRunning()) this.continueResolving = !0;
-        else this.updateResolution();
-      this.childLoadBalancer.exitIdle()
-    }
-    updateAddressList(A, B) {
-      throw new Error("updateAddressList not supported on ResolvingLoadBalancer")
-    }
-    resetBackoff() {
-      this.backoffTimeout.reset(), this.childLoadBalancer.resetBackoff()
-    }
-    destroy() {
-      this.childLoadBalancer.destroy(), this.innerResolver.destroy(), this.backoffTimeout.reset(), this.backoffTimeout.stop(), this.latestChildState = pY.ConnectivityState.IDLE, this.latestChildPicker = new ls.QueuePicker(this), this.currentState = pY.ConnectivityState.IDLE, this.previousServiceConfig = null, this.continueResolving = !1
-    }
-    getTypeName() {
-      return "resolving_load_balancer"
-    }
-  }
-  hS0.ResolvingLoadBalancer = gS0
-})
-// @from(Start 4697500, End 4699114)
-cS0 = z((uS0) => {
-  Object.defineProperty(uS0, "__esModule", {
-    value: !0
-  });
-  uS0.recognizedOptions = void 0;
-  uS0.channelOptionsEqual = $86;
-  uS0.recognizedOptions = {
-    "grpc.ssl_target_name_override": !0,
-    "grpc.primary_user_agent": !0,
-    "grpc.secondary_user_agent": !0,
-    "grpc.default_authority": !0,
-    "grpc.keepalive_time_ms": !0,
-    "grpc.keepalive_timeout_ms": !0,
-    "grpc.keepalive_permit_without_calls": !0,
-    "grpc.service_config": !0,
-    "grpc.max_concurrent_streams": !0,
-    "grpc.initial_reconnect_backoff_ms": !0,
-    "grpc.max_reconnect_backoff_ms": !0,
-    "grpc.use_local_subchannel_pool": !0,
-    "grpc.max_send_message_length": !0,
-    "grpc.max_receive_message_length": !0,
-    "grpc.enable_http_proxy": !0,
-    "grpc.enable_channelz": !0,
-    "grpc.dns_min_time_between_resolutions_ms": !0,
-    "grpc.enable_retries": !0,
-    "grpc.per_rpc_retry_buffer_size": !0,
-    "grpc.retry_buffer_size": !0,
-    "grpc.max_connection_age_ms": !0,
-    "grpc.max_connection_age_grace_ms": !0,
-    "grpc-node.max_session_memory": !0,
-    "grpc.service_config_disable_resolution": !0,
-    "grpc.client_idle_timeout_ms": !0,
-    "grpc-node.tls_enable_trace": !0,
-    "grpc.lb.ring_hash.ring_size_cap": !0,
-    "grpc-node.retry_max_attempts_limit": !0,
-    "grpc-node.flow_control_window": !0
   };
 
-  function $86(A, B) {
-    let Q = Object.keys(A).sort(),
-      I = Object.keys(B).sort();
-    if (Q.length !== I.length) return !1;
-    for (let G = 0; G < Q.length; G += 1) {
-      if (Q[G] !== I[G]) return !1;
-      if (A[Q[G]] !== B[I[G]]) return !1
-    }
-    return !0
+  function VmQ(A) {
+    return /^[a-z0-9][a-z0-9\.\-]*[a-z0-9]$/.test(A)
   }
+  ed(VmQ, "isValidHostname")
 })
-// @from(Start 4699120, End 4702042)
-PX = z((sS0) => {
-  Object.defineProperty(sS0, "__esModule", {
+// @from(Start 4182960, End 4184824)
+cCA = z((xT7, zmQ) => {
+  var {
+    defineProperty: CcA,
+    getOwnPropertyDescriptor: IN8,
+    getOwnPropertyNames: YN8
+  } = Object, JN8 = Object.prototype.hasOwnProperty, HcA = (A, Q) => CcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), WN8 = (A, Q) => {
+    for (var B in Q) CcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, XN8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of YN8(Q))
+        if (!JN8.call(A, Z) && Z !== B) CcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = IN8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, VN8 = (A) => XN8(CcA({}, "__esModule", {
     value: !0
+  }), A), DmQ = {};
+  WN8(DmQ, {
+    getHostHeaderPlugin: () => KN8,
+    hostHeaderMiddleware: () => CmQ,
+    hostHeaderMiddlewareOptions: () => EmQ,
+    resolveHostHeaderConfig: () => HmQ
   });
-  sS0.EndpointMap = void 0;
-  sS0.isTcpSubchannelAddress = ns;
-  sS0.subchannelAddressEqual = QD1;
-  sS0.subchannelAddressToString = iS0;
-  sS0.stringToSubchannelAddress = L86;
-  sS0.endpointEqual = R86;
-  sS0.endpointToString = O86;
-  sS0.endpointHasAddress = nS0;
-  var lS0 = Z1("net");
+  zmQ.exports = VN8(DmQ);
+  var FN8 = KmQ();
 
-  function ns(A) {
-    return "port" in A
+  function HmQ(A) {
+    return A
   }
-
-  function QD1(A, B) {
-    if (!A && !B) return !0;
-    if (!A || !B) return !1;
-    if (ns(A)) return ns(B) && A.host === B.host && A.port === B.port;
-    else return !ns(B) && A.path === B.path
-  }
-
-  function iS0(A) {
-    if (ns(A))
-      if (lS0.isIPv6(A.host)) return "[" + A.host + "]:" + A.port;
-      else return A.host + ":" + A.port;
-    else return A.path
-  }
-  var M86 = 443;
-
-  function L86(A, B) {
-    if (lS0.isIP(A)) return {
-      host: A,
-      port: B !== null && B !== void 0 ? B : M86
-    };
-    else return {
-      path: A
-    }
-  }
-
-  function R86(A, B) {
-    if (A.addresses.length !== B.addresses.length) return !1;
-    for (let Q = 0; Q < A.addresses.length; Q++)
-      if (!QD1(A.addresses[Q], B.addresses[Q])) return !1;
-    return !0
-  }
-
-  function O86(A) {
-    return "[" + A.addresses.map(iS0).join(", ") + "]"
-  }
-
-  function nS0(A, B) {
-    for (let Q of A.addresses)
-      if (QD1(Q, B)) return !0;
-    return !1
-  }
-
-  function is(A, B) {
-    if (A.addresses.length !== B.addresses.length) return !1;
-    for (let Q of A.addresses) {
-      let I = !1;
-      for (let G of B.addresses)
-        if (QD1(Q, G)) {
-          I = !0;
-          break
-        } if (!I) return !1
-    }
-    return !0
-  }
-  class aS0 {
-    constructor() {
-      this.map = new Set
-    }
-    get size() {
-      return this.map.size
-    }
-    getForSubchannelAddress(A) {
-      for (let B of this.map)
-        if (nS0(B.key, A)) return B.value;
-      return
-    }
-    deleteMissing(A) {
-      let B = [];
-      for (let Q of this.map) {
-        let I = !1;
-        for (let G of A)
-          if (is(G, Q.key)) I = !0;
-        if (!I) B.push(Q.value), this.map.delete(Q)
+  HcA(HmQ, "resolveHostHeaderConfig");
+  var CmQ = HcA((A) => (Q) => async (B) => {
+      if (!FN8.HttpRequest.isInstance(B.request)) return Q(B);
+      let {
+        request: G
+      } = B, {
+        handlerProtocol: Z = ""
+      } = A.requestHandler.metadata || {};
+      if (Z.indexOf("h2") >= 0 && !G.headers[":authority"]) delete G.headers.host, G.headers[":authority"] = G.hostname + (G.port ? ":" + G.port : "");
+      else if (!G.headers.host) {
+        let I = G.hostname;
+        if (G.port != null) I += `:${G.port}`;
+        G.headers.host = I
       }
-      return B
+      return Q(B)
+    }, "hostHeaderMiddleware"),
+    EmQ = {
+      name: "hostHeaderMiddleware",
+      step: "build",
+      priority: "low",
+      tags: ["HOST"],
+      override: !0
+    },
+    KN8 = HcA((A) => ({
+      applyToStack: HcA((Q) => {
+        Q.add(CmQ(A), EmQ)
+      }, "applyToStack")
+    }), "getHostHeaderPlugin")
+})
+// @from(Start 4184830, End 4187130)
+pCA = z((vT7, qmQ) => {
+  var {
+    defineProperty: EcA,
+    getOwnPropertyDescriptor: DN8,
+    getOwnPropertyNames: HN8
+  } = Object, CN8 = Object.prototype.hasOwnProperty, kS1 = (A, Q) => EcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), EN8 = (A, Q) => {
+    for (var B in Q) EcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, zN8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of HN8(Q))
+        if (!CN8.call(A, Z) && Z !== B) EcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = DN8(Q, Z)) || G.enumerable
+        })
     }
-    get(A) {
-      for (let B of this.map)
-        if (is(A, B.key)) return B.value;
-      return
+    return A
+  }, UN8 = (A) => zN8(EcA({}, "__esModule", {
+    value: !0
+  }), A), UmQ = {};
+  EN8(UmQ, {
+    getLoggerPlugin: () => $N8,
+    loggerMiddleware: () => $mQ,
+    loggerMiddlewareOptions: () => wmQ
+  });
+  qmQ.exports = UN8(UmQ);
+  var $mQ = kS1(() => (A, Q) => async (B) => {
+      try {
+        let G = await A(B),
+          {
+            clientName: Z,
+            commandName: I,
+            logger: Y,
+            dynamoDbDocumentClientOptions: J = {}
+          } = Q,
+          {
+            overrideInputFilterSensitiveLog: W,
+            overrideOutputFilterSensitiveLog: X
+          } = J,
+          V = W ?? Q.inputFilterSensitiveLog,
+          F = X ?? Q.outputFilterSensitiveLog,
+          {
+            $metadata: K,
+            ...D
+          } = G.output;
+        return Y?.info?.({
+          clientName: Z,
+          commandName: I,
+          input: V(B.input),
+          output: F(D),
+          metadata: K
+        }), G
+      } catch (G) {
+        let {
+          clientName: Z,
+          commandName: I,
+          logger: Y,
+          dynamoDbDocumentClientOptions: J = {}
+        } = Q, {
+          overrideInputFilterSensitiveLog: W
+        } = J, X = W ?? Q.inputFilterSensitiveLog;
+        throw Y?.error?.({
+          clientName: Z,
+          commandName: I,
+          input: X(B.input),
+          error: G,
+          metadata: G.$metadata
+        }), G
+      }
+    }, "loggerMiddleware"),
+    wmQ = {
+      name: "loggerMiddleware",
+      tags: ["LOGGER"],
+      step: "initialize",
+      override: !0
+    },
+    $N8 = kS1((A) => ({
+      applyToStack: kS1((Q) => {
+        Q.add($mQ(), wmQ)
+      }, "applyToStack")
+    }), "getLoggerPlugin")
+})
+// @from(Start 4187136, End 4189919)
+_mQ = z((bT7, SmQ) => {
+  var {
+    defineProperty: zcA,
+    getOwnPropertyDescriptor: wN8,
+    getOwnPropertyNames: qN8
+  } = Object, NN8 = Object.prototype.hasOwnProperty, UcA = (A, Q) => zcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), LN8 = (A, Q) => {
+    for (var B in Q) zcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, MN8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of qN8(Q))
+        if (!NN8.call(A, Z) && Z !== B) zcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = wN8(Q, Z)) || G.enumerable
+        })
     }
-    set(A, B) {
-      for (let Q of this.map)
-        if (is(A, Q.key)) {
-          Q.value = B;
-          return
-        } this.map.add({
-        key: A,
-        value: B
-      })
-    }
-    delete(A) {
-      for (let B of this.map)
-        if (is(A, B.key)) {
-          this.map.delete(B);
-          return
+    return A
+  }, ON8 = (A) => MN8(zcA({}, "__esModule", {
+    value: !0
+  }), A), NmQ = {};
+  LN8(NmQ, {
+    AlgorithmId: () => RmQ,
+    EndpointURLScheme: () => OmQ,
+    FieldPosition: () => TmQ,
+    HttpApiKeyAuthLocation: () => MmQ,
+    HttpAuthLocation: () => LmQ,
+    IniSectionType: () => PmQ,
+    RequestHandlerProtocol: () => jmQ,
+    SMITHY_CONTEXT_KEY: () => SN8,
+    getDefaultClientConfiguration: () => PN8,
+    resolveDefaultRuntimeConfig: () => jN8
+  });
+  SmQ.exports = ON8(NmQ);
+  var LmQ = ((A) => {
+      return A.HEADER = "header", A.QUERY = "query", A
+    })(LmQ || {}),
+    MmQ = ((A) => {
+      return A.HEADER = "header", A.QUERY = "query", A
+    })(MmQ || {}),
+    OmQ = ((A) => {
+      return A.HTTP = "http", A.HTTPS = "https", A
+    })(OmQ || {}),
+    RmQ = ((A) => {
+      return A.MD5 = "md5", A.CRC32 = "crc32", A.CRC32C = "crc32c", A.SHA1 = "sha1", A.SHA256 = "sha256", A
+    })(RmQ || {}),
+    RN8 = UcA((A) => {
+      let Q = [];
+      if (A.sha256 !== void 0) Q.push({
+        algorithmId: () => "sha256",
+        checksumConstructor: () => A.sha256
+      });
+      if (A.md5 != null) Q.push({
+        algorithmId: () => "md5",
+        checksumConstructor: () => A.md5
+      });
+      return {
+        addChecksumAlgorithm(B) {
+          Q.push(B)
+        },
+        checksumAlgorithms() {
+          return Q
         }
+      }
+    }, "getChecksumConfiguration"),
+    TN8 = UcA((A) => {
+      let Q = {};
+      return A.checksumAlgorithms().forEach((B) => {
+        Q[B.algorithmId()] = B.checksumConstructor()
+      }), Q
+    }, "resolveChecksumRuntimeConfig"),
+    PN8 = UcA((A) => {
+      return RN8(A)
+    }, "getDefaultClientConfiguration"),
+    jN8 = UcA((A) => {
+      return TN8(A)
+    }, "resolveDefaultRuntimeConfig"),
+    TmQ = ((A) => {
+      return A[A.HEADER = 0] = "HEADER", A[A.TRAILER = 1] = "TRAILER", A
+    })(TmQ || {}),
+    SN8 = "__smithy_context",
+    PmQ = ((A) => {
+      return A.PROFILE = "profile", A.SSO_SESSION = "sso-session", A.SERVICES = "services", A
+    })(PmQ || {}),
+    jmQ = ((A) => {
+      return A.HTTP_0_9 = "http/0.9", A.HTTP_1_0 = "http/1.0", A.TDS_8_0 = "tds/8.0", A
+    })(jmQ || {})
+})
+// @from(Start 4189925, End 4194432)
+fmQ = z((fT7, bmQ) => {
+  var {
+    defineProperty: $cA,
+    getOwnPropertyDescriptor: _N8,
+    getOwnPropertyNames: kN8
+  } = Object, yN8 = Object.prototype.hasOwnProperty, Ac = (A, Q) => $cA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), xN8 = (A, Q) => {
+    for (var B in Q) $cA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, vN8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of kN8(Q))
+        if (!yN8.call(A, Z) && Z !== B) $cA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = _N8(Q, Z)) || G.enumerable
+        })
     }
-    has(A) {
-      for (let B of this.map)
-        if (is(A, B.key)) return !0;
-      return !1
-    }
-    clear() {
-      this.map.clear()
-    }* keys() {
-      for (let A of this.map) yield A.key
-    }* values() {
-      for (let A of this.map) yield A.value
-    }* entries() {
-      for (let A of this.map) yield [A.key, A.value]
-    }
+    return A
+  }, bN8 = (A) => vN8($cA({}, "__esModule", {
+    value: !0
+  }), A), kmQ = {};
+  xN8(kmQ, {
+    Field: () => gN8,
+    Fields: () => uN8,
+    HttpRequest: () => mN8,
+    HttpResponse: () => dN8,
+    IHttpRequest: () => ymQ.HttpRequest,
+    getHttpHandlerExtensionConfiguration: () => fN8,
+    isValidHostname: () => vmQ,
+    resolveHttpHandlerRuntimeConfig: () => hN8
+  });
+  bmQ.exports = bN8(kmQ);
+  var fN8 = Ac((A) => {
+      return {
+        setHttpHandler(Q) {
+          A.httpHandler = Q
+        },
+        httpHandler() {
+          return A.httpHandler
+        },
+        updateHttpClientConfig(Q, B) {
+          A.httpHandler?.updateHttpClientConfig(Q, B)
+        },
+        httpHandlerConfigs() {
+          return A.httpHandler.httpHandlerConfigs()
+        }
+      }
+    }, "getHttpHandlerExtensionConfiguration"),
+    hN8 = Ac((A) => {
+      return {
+        httpHandler: A.httpHandler()
+      }
+    }, "resolveHttpHandlerRuntimeConfig"),
+    ymQ = _mQ(),
+    gN8 = class {
+      static {
+        Ac(this, "Field")
+      }
+      constructor({
+        name: A,
+        kind: Q = ymQ.FieldPosition.HEADER,
+        values: B = []
+      }) {
+        this.name = A, this.kind = Q, this.values = B
+      }
+      add(A) {
+        this.values.push(A)
+      }
+      set(A) {
+        this.values = A
+      }
+      remove(A) {
+        this.values = this.values.filter((Q) => Q !== A)
+      }
+      toString() {
+        return this.values.map((A) => A.includes(",") || A.includes(" ") ? `"${A}"` : A).join(", ")
+      }
+      get() {
+        return this.values
+      }
+    },
+    uN8 = class {
+      constructor({
+        fields: A = [],
+        encoding: Q = "utf-8"
+      }) {
+        this.entries = {}, A.forEach(this.setField.bind(this)), this.encoding = Q
+      }
+      static {
+        Ac(this, "Fields")
+      }
+      setField(A) {
+        this.entries[A.name.toLowerCase()] = A
+      }
+      getField(A) {
+        return this.entries[A.toLowerCase()]
+      }
+      removeField(A) {
+        delete this.entries[A.toLowerCase()]
+      }
+      getByType(A) {
+        return Object.values(this.entries).filter((Q) => Q.kind === A)
+      }
+    },
+    mN8 = class A {
+      static {
+        Ac(this, "HttpRequest")
+      }
+      constructor(Q) {
+        this.method = Q.method || "GET", this.hostname = Q.hostname || "localhost", this.port = Q.port, this.query = Q.query || {}, this.headers = Q.headers || {}, this.body = Q.body, this.protocol = Q.protocol ? Q.protocol.slice(-1) !== ":" ? `${Q.protocol}:` : Q.protocol : "https:", this.path = Q.path ? Q.path.charAt(0) !== "/" ? `/${Q.path}` : Q.path : "/", this.username = Q.username, this.password = Q.password, this.fragment = Q.fragment
+      }
+      static clone(Q) {
+        let B = new A({
+          ...Q,
+          headers: {
+            ...Q.headers
+          }
+        });
+        if (B.query) B.query = xmQ(B.query);
+        return B
+      }
+      static isInstance(Q) {
+        if (!Q) return !1;
+        let B = Q;
+        return "method" in B && "protocol" in B && "hostname" in B && "path" in B && typeof B.query === "object" && typeof B.headers === "object"
+      }
+      clone() {
+        return A.clone(this)
+      }
+    };
+
+  function xmQ(A) {
+    return Object.keys(A).reduce((Q, B) => {
+      let G = A[B];
+      return {
+        ...Q,
+        [B]: Array.isArray(G) ? [...G] : G
+      }
+    }, {})
   }
-  sS0.EndpointMap = aS0
+  Ac(xmQ, "cloneQuery");
+  var dN8 = class {
+    static {
+      Ac(this, "HttpResponse")
+    }
+    constructor(A) {
+      this.statusCode = A.statusCode, this.reason = A.reason, this.headers = A.headers || {}, this.body = A.body
+    }
+    static isInstance(A) {
+      if (!A) return !1;
+      let Q = A;
+      return typeof Q.statusCode === "number" && typeof Q.headers === "object"
+    }
+  };
+
+  function vmQ(A) {
+    return /^[a-z0-9][a-z0-9\.\-]*[a-z0-9]$/.test(A)
+  }
+  Ac(vmQ, "isValidHostname")
+})
+// @from(Start 4194438, End 4196371)
+lCA = z((mT7, mmQ) => {
+  var {
+    defineProperty: qcA,
+    getOwnPropertyDescriptor: cN8,
+    getOwnPropertyNames: pN8
+  } = Object, lN8 = Object.prototype.hasOwnProperty, wcA = (A, Q) => qcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), iN8 = (A, Q) => {
+    for (var B in Q) qcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, nN8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of pN8(Q))
+        if (!lN8.call(A, Z) && Z !== B) qcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = cN8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, aN8 = (A) => nN8(qcA({}, "__esModule", {
+    value: !0
+  }), A), hmQ = {};
+  iN8(hmQ, {
+    addRecursionDetectionMiddlewareOptions: () => umQ,
+    getRecursionDetectionPlugin: () => tN8,
+    recursionDetectionMiddleware: () => gmQ
+  });
+  mmQ.exports = aN8(hmQ);
+  var sN8 = fmQ(),
+    yS1 = "X-Amzn-Trace-Id",
+    rN8 = "AWS_LAMBDA_FUNCTION_NAME",
+    oN8 = "_X_AMZN_TRACE_ID",
+    gmQ = wcA((A) => (Q) => async (B) => {
+      let {
+        request: G
+      } = B;
+      if (!sN8.HttpRequest.isInstance(G) || A.runtime !== "node") return Q(B);
+      let Z = Object.keys(G.headers ?? {}).find((W) => W.toLowerCase() === yS1.toLowerCase()) ?? yS1;
+      if (G.headers.hasOwnProperty(Z)) return Q(B);
+      let I = process.env[rN8],
+        Y = process.env[oN8],
+        J = wcA((W) => typeof W === "string" && W.length > 0, "nonEmptyString");
+      if (J(I) && J(Y)) G.headers[yS1] = Y;
+      return Q({
+        ...B,
+        request: G
+      })
+    }, "recursionDetectionMiddleware"),
+    umQ = {
+      step: "build",
+      tags: ["RECURSION_DETECTION"],
+      name: "recursionDetectionMiddleware",
+      override: !0,
+      priority: "low"
+    },
+    tN8 = wcA((A) => ({
+      applyToStack: wcA((Q) => {
+        Q.add(gmQ(A), umQ)
+      }, "applyToStack")
+    }), "getRecursionDetectionPlugin")
+})
+// @from(Start 4196377, End 4207748)
+I5A = z((dT7, omQ) => {
+  var {
+    defineProperty: NcA,
+    getOwnPropertyDescriptor: eN8,
+    getOwnPropertyNames: AL8
+  } = Object, QL8 = Object.prototype.hasOwnProperty, Z5A = (A, Q) => NcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), BL8 = (A, Q) => {
+    for (var B in Q) NcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, GL8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of AL8(Q))
+        if (!QL8.call(A, Z) && Z !== B) NcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = eN8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, ZL8 = (A) => GL8(NcA({}, "__esModule", {
+    value: !0
+  }), A), cmQ = {};
+  BL8(cmQ, {
+    ConditionObject: () => kZ.ConditionObject,
+    DeprecatedObject: () => kZ.DeprecatedObject,
+    EndpointError: () => kZ.EndpointError,
+    EndpointObject: () => kZ.EndpointObject,
+    EndpointObjectHeaders: () => kZ.EndpointObjectHeaders,
+    EndpointObjectProperties: () => kZ.EndpointObjectProperties,
+    EndpointParams: () => kZ.EndpointParams,
+    EndpointResolverOptions: () => kZ.EndpointResolverOptions,
+    EndpointRuleObject: () => kZ.EndpointRuleObject,
+    ErrorRuleObject: () => kZ.ErrorRuleObject,
+    EvaluateOptions: () => kZ.EvaluateOptions,
+    Expression: () => kZ.Expression,
+    FunctionArgv: () => kZ.FunctionArgv,
+    FunctionObject: () => kZ.FunctionObject,
+    FunctionReturn: () => kZ.FunctionReturn,
+    ParameterObject: () => kZ.ParameterObject,
+    ReferenceObject: () => kZ.ReferenceObject,
+    ReferenceRecord: () => kZ.ReferenceRecord,
+    RuleSetObject: () => kZ.RuleSetObject,
+    RuleSetRules: () => kZ.RuleSetRules,
+    TreeRuleObject: () => kZ.TreeRuleObject,
+    awsEndpointFunctions: () => rmQ,
+    getUserAgentPrefix: () => WL8,
+    isIpAddress: () => kZ.isIpAddress,
+    partition: () => amQ,
+    resolveEndpoint: () => kZ.resolveEndpoint,
+    setPartitionInfo: () => smQ,
+    useDefaultPartitionInfo: () => JL8
+  });
+  omQ.exports = ZL8(cmQ);
+  var kZ = FI(),
+    pmQ = Z5A((A, Q = !1) => {
+      if (Q) {
+        for (let B of A.split("."))
+          if (!pmQ(B)) return !1;
+        return !0
+      }
+      if (!(0, kZ.isValidHostLabel)(A)) return !1;
+      if (A.length < 3 || A.length > 63) return !1;
+      if (A !== A.toLowerCase()) return !1;
+      if ((0, kZ.isIpAddress)(A)) return !1;
+      return !0
+    }, "isVirtualHostableS3Bucket"),
+    dmQ = ":",
+    IL8 = "/",
+    YL8 = Z5A((A) => {
+      let Q = A.split(dmQ);
+      if (Q.length < 6) return null;
+      let [B, G, Z, I, Y, ...J] = Q;
+      if (B !== "arn" || G === "" || Z === "" || J.join(dmQ) === "") return null;
+      let W = J.map((X) => X.split(IL8)).flat();
+      return {
+        partition: G,
+        service: Z,
+        region: I,
+        accountId: Y,
+        resourceId: W
+      }
+    }, "parseArn"),
+    lmQ = {
+      partitions: [{
+        id: "aws",
+        outputs: {
+          dnsSuffix: "amazonaws.com",
+          dualStackDnsSuffix: "api.aws",
+          implicitGlobalRegion: "us-east-1",
+          name: "aws",
+          supportsDualStack: !0,
+          supportsFIPS: !0
+        },
+        regionRegex: "^(us|eu|ap|sa|ca|me|af|il|mx)\\-\\w+\\-\\d+$",
+        regions: {
+          "af-south-1": {
+            description: "Africa (Cape Town)"
+          },
+          "ap-east-1": {
+            description: "Asia Pacific (Hong Kong)"
+          },
+          "ap-northeast-1": {
+            description: "Asia Pacific (Tokyo)"
+          },
+          "ap-northeast-2": {
+            description: "Asia Pacific (Seoul)"
+          },
+          "ap-northeast-3": {
+            description: "Asia Pacific (Osaka)"
+          },
+          "ap-south-1": {
+            description: "Asia Pacific (Mumbai)"
+          },
+          "ap-south-2": {
+            description: "Asia Pacific (Hyderabad)"
+          },
+          "ap-southeast-1": {
+            description: "Asia Pacific (Singapore)"
+          },
+          "ap-southeast-2": {
+            description: "Asia Pacific (Sydney)"
+          },
+          "ap-southeast-3": {
+            description: "Asia Pacific (Jakarta)"
+          },
+          "ap-southeast-4": {
+            description: "Asia Pacific (Melbourne)"
+          },
+          "ap-southeast-5": {
+            description: "Asia Pacific (Malaysia)"
+          },
+          "ap-southeast-7": {
+            description: "Asia Pacific (Thailand)"
+          },
+          "aws-global": {
+            description: "AWS Standard global region"
+          },
+          "ca-central-1": {
+            description: "Canada (Central)"
+          },
+          "ca-west-1": {
+            description: "Canada West (Calgary)"
+          },
+          "eu-central-1": {
+            description: "Europe (Frankfurt)"
+          },
+          "eu-central-2": {
+            description: "Europe (Zurich)"
+          },
+          "eu-north-1": {
+            description: "Europe (Stockholm)"
+          },
+          "eu-south-1": {
+            description: "Europe (Milan)"
+          },
+          "eu-south-2": {
+            description: "Europe (Spain)"
+          },
+          "eu-west-1": {
+            description: "Europe (Ireland)"
+          },
+          "eu-west-2": {
+            description: "Europe (London)"
+          },
+          "eu-west-3": {
+            description: "Europe (Paris)"
+          },
+          "il-central-1": {
+            description: "Israel (Tel Aviv)"
+          },
+          "me-central-1": {
+            description: "Middle East (UAE)"
+          },
+          "me-south-1": {
+            description: "Middle East (Bahrain)"
+          },
+          "mx-central-1": {
+            description: "Mexico (Central)"
+          },
+          "sa-east-1": {
+            description: "South America (Sao Paulo)"
+          },
+          "us-east-1": {
+            description: "US East (N. Virginia)"
+          },
+          "us-east-2": {
+            description: "US East (Ohio)"
+          },
+          "us-west-1": {
+            description: "US West (N. California)"
+          },
+          "us-west-2": {
+            description: "US West (Oregon)"
+          }
+        }
+      }, {
+        id: "aws-cn",
+        outputs: {
+          dnsSuffix: "amazonaws.com.cn",
+          dualStackDnsSuffix: "api.amazonwebservices.com.cn",
+          implicitGlobalRegion: "cn-northwest-1",
+          name: "aws-cn",
+          supportsDualStack: !0,
+          supportsFIPS: !0
+        },
+        regionRegex: "^cn\\-\\w+\\-\\d+$",
+        regions: {
+          "aws-cn-global": {
+            description: "AWS China global region"
+          },
+          "cn-north-1": {
+            description: "China (Beijing)"
+          },
+          "cn-northwest-1": {
+            description: "China (Ningxia)"
+          }
+        }
+      }, {
+        id: "aws-us-gov",
+        outputs: {
+          dnsSuffix: "amazonaws.com",
+          dualStackDnsSuffix: "api.aws",
+          implicitGlobalRegion: "us-gov-west-1",
+          name: "aws-us-gov",
+          supportsDualStack: !0,
+          supportsFIPS: !0
+        },
+        regionRegex: "^us\\-gov\\-\\w+\\-\\d+$",
+        regions: {
+          "aws-us-gov-global": {
+            description: "AWS GovCloud (US) global region"
+          },
+          "us-gov-east-1": {
+            description: "AWS GovCloud (US-East)"
+          },
+          "us-gov-west-1": {
+            description: "AWS GovCloud (US-West)"
+          }
+        }
+      }, {
+        id: "aws-iso",
+        outputs: {
+          dnsSuffix: "c2s.ic.gov",
+          dualStackDnsSuffix: "c2s.ic.gov",
+          implicitGlobalRegion: "us-iso-east-1",
+          name: "aws-iso",
+          supportsDualStack: !1,
+          supportsFIPS: !0
+        },
+        regionRegex: "^us\\-iso\\-\\w+\\-\\d+$",
+        regions: {
+          "aws-iso-global": {
+            description: "AWS ISO (US) global region"
+          },
+          "us-iso-east-1": {
+            description: "US ISO East"
+          },
+          "us-iso-west-1": {
+            description: "US ISO WEST"
+          }
+        }
+      }, {
+        id: "aws-iso-b",
+        outputs: {
+          dnsSuffix: "sc2s.sgov.gov",
+          dualStackDnsSuffix: "sc2s.sgov.gov",
+          implicitGlobalRegion: "us-isob-east-1",
+          name: "aws-iso-b",
+          supportsDualStack: !1,
+          supportsFIPS: !0
+        },
+        regionRegex: "^us\\-isob\\-\\w+\\-\\d+$",
+        regions: {
+          "aws-iso-b-global": {
+            description: "AWS ISOB (US) global region"
+          },
+          "us-isob-east-1": {
+            description: "US ISOB East (Ohio)"
+          }
+        }
+      }, {
+        id: "aws-iso-e",
+        outputs: {
+          dnsSuffix: "cloud.adc-e.uk",
+          dualStackDnsSuffix: "cloud.adc-e.uk",
+          implicitGlobalRegion: "eu-isoe-west-1",
+          name: "aws-iso-e",
+          supportsDualStack: !1,
+          supportsFIPS: !0
+        },
+        regionRegex: "^eu\\-isoe\\-\\w+\\-\\d+$",
+        regions: {
+          "aws-iso-e-global": {
+            description: "AWS ISOE (Europe) global region"
+          },
+          "eu-isoe-west-1": {
+            description: "EU ISOE West"
+          }
+        }
+      }, {
+        id: "aws-iso-f",
+        outputs: {
+          dnsSuffix: "csp.hci.ic.gov",
+          dualStackDnsSuffix: "csp.hci.ic.gov",
+          implicitGlobalRegion: "us-isof-south-1",
+          name: "aws-iso-f",
+          supportsDualStack: !1,
+          supportsFIPS: !0
+        },
+        regionRegex: "^us\\-isof\\-\\w+\\-\\d+$",
+        regions: {
+          "aws-iso-f-global": {
+            description: "AWS ISOF global region"
+          },
+          "us-isof-east-1": {
+            description: "US ISOF EAST"
+          },
+          "us-isof-south-1": {
+            description: "US ISOF SOUTH"
+          }
+        }
+      }, {
+        id: "aws-eusc",
+        outputs: {
+          dnsSuffix: "amazonaws.eu",
+          dualStackDnsSuffix: "amazonaws.eu",
+          implicitGlobalRegion: "eusc-de-east-1",
+          name: "aws-eusc",
+          supportsDualStack: !1,
+          supportsFIPS: !0
+        },
+        regionRegex: "^eusc\\-(de)\\-\\w+\\-\\d+$",
+        regions: {
+          "eusc-de-east-1": {
+            description: "EU (Germany)"
+          }
+        }
+      }],
+      version: "1.1"
+    },
+    imQ = lmQ,
+    nmQ = "",
+    amQ = Z5A((A) => {
+      let {
+        partitions: Q
+      } = imQ;
+      for (let G of Q) {
+        let {
+          regions: Z,
+          outputs: I
+        } = G;
+        for (let [Y, J] of Object.entries(Z))
+          if (Y === A) return {
+            ...I,
+            ...J
+          }
+      }
+      for (let G of Q) {
+        let {
+          regionRegex: Z,
+          outputs: I
+        } = G;
+        if (new RegExp(Z).test(A)) return {
+          ...I
+        }
+      }
+      let B = Q.find((G) => G.id === "aws");
+      if (!B) throw Error("Provided region was not found in the partition array or regex, and default partition with id 'aws' doesn't exist.");
+      return {
+        ...B.outputs
+      }
+    }, "partition"),
+    smQ = Z5A((A, Q = "") => {
+      imQ = A, nmQ = Q
+    }, "setPartitionInfo"),
+    JL8 = Z5A(() => {
+      smQ(lmQ, "")
+    }, "useDefaultPartitionInfo"),
+    WL8 = Z5A(() => nmQ, "getUserAgentPrefix"),
+    rmQ = {
+      isVirtualHostableS3Bucket: pmQ,
+      parseArn: YL8,
+      partition: amQ
+    };
+  kZ.customEndpointFunctions.aws = rmQ
+})
+// @from(Start 4207754, End 4210537)
+JdQ = z((cT7, YdQ) => {
+  var {
+    defineProperty: LcA,
+    getOwnPropertyDescriptor: XL8,
+    getOwnPropertyNames: VL8
+  } = Object, FL8 = Object.prototype.hasOwnProperty, McA = (A, Q) => LcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), KL8 = (A, Q) => {
+    for (var B in Q) LcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, DL8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of VL8(Q))
+        if (!FL8.call(A, Z) && Z !== B) LcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = XL8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, HL8 = (A) => DL8(LcA({}, "__esModule", {
+    value: !0
+  }), A), tmQ = {};
+  KL8(tmQ, {
+    AlgorithmId: () => BdQ,
+    EndpointURLScheme: () => QdQ,
+    FieldPosition: () => GdQ,
+    HttpApiKeyAuthLocation: () => AdQ,
+    HttpAuthLocation: () => emQ,
+    IniSectionType: () => ZdQ,
+    RequestHandlerProtocol: () => IdQ,
+    SMITHY_CONTEXT_KEY: () => $L8,
+    getDefaultClientConfiguration: () => zL8,
+    resolveDefaultRuntimeConfig: () => UL8
+  });
+  YdQ.exports = HL8(tmQ);
+  var emQ = ((A) => {
+      return A.HEADER = "header", A.QUERY = "query", A
+    })(emQ || {}),
+    AdQ = ((A) => {
+      return A.HEADER = "header", A.QUERY = "query", A
+    })(AdQ || {}),
+    QdQ = ((A) => {
+      return A.HTTP = "http", A.HTTPS = "https", A
+    })(QdQ || {}),
+    BdQ = ((A) => {
+      return A.MD5 = "md5", A.CRC32 = "crc32", A.CRC32C = "crc32c", A.SHA1 = "sha1", A.SHA256 = "sha256", A
+    })(BdQ || {}),
+    CL8 = McA((A) => {
+      let Q = [];
+      if (A.sha256 !== void 0) Q.push({
+        algorithmId: () => "sha256",
+        checksumConstructor: () => A.sha256
+      });
+      if (A.md5 != null) Q.push({
+        algorithmId: () => "md5",
+        checksumConstructor: () => A.md5
+      });
+      return {
+        addChecksumAlgorithm(B) {
+          Q.push(B)
+        },
+        checksumAlgorithms() {
+          return Q
+        }
+      }
+    }, "getChecksumConfiguration"),
+    EL8 = McA((A) => {
+      let Q = {};
+      return A.checksumAlgorithms().forEach((B) => {
+        Q[B.algorithmId()] = B.checksumConstructor()
+      }), Q
+    }, "resolveChecksumRuntimeConfig"),
+    zL8 = McA((A) => {
+      return CL8(A)
+    }, "getDefaultClientConfiguration"),
+    UL8 = McA((A) => {
+      return EL8(A)
+    }, "resolveDefaultRuntimeConfig"),
+    GdQ = ((A) => {
+      return A[A.HEADER = 0] = "HEADER", A[A.TRAILER = 1] = "TRAILER", A
+    })(GdQ || {}),
+    $L8 = "__smithy_context",
+    ZdQ = ((A) => {
+      return A.PROFILE = "profile", A.SSO_SESSION = "sso-session", A.SERVICES = "services", A
+    })(ZdQ || {}),
+    IdQ = ((A) => {
+      return A.HTTP_0_9 = "http/0.9", A.HTTP_1_0 = "http/1.0", A.TDS_8_0 = "tds/8.0", A
+    })(IdQ || {})
 })

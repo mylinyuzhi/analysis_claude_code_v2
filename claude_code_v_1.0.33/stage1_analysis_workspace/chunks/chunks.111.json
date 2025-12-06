@@ -1,0 +1,12 @@
+{
+  "ossProjects": [
+    "lodash",
+    "googleapis",
+    "opentelemetry",
+    "protobuf",
+    "grpc",
+    "protobufjs",
+    "grpc-js"
+  ],
+  "purpose": "OSS 库代码 (lodash, googleapis, opentelemetry, protobuf, grpc, protobufjs, grpc-js)"
+}

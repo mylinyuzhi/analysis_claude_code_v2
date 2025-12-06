@@ -1,3559 +1,2459 @@
 
-// @from(Start 10002933, End 10003913)
-async function o_2(A, B, Q) {
-  let I = A;
-  return await Promise.all([...A.matchAll(LN5), ...A.matchAll(RN5)].map(async (G) => {
-    let Z = G[1]?.trim();
-    if (Z) try {
-      let D = await E4.validateInput({
-        command: Z
-      });
-      if (!D.result) {
-        M6(`Bash command validation failed for command in ${Q}: ${Z}. Error: ${D.message}`), I = I.replace(G[0], `[Error: ${D.message}]`);
-        return
-      }
-      let Y = await sM(E4, {
-        command: Z
-      }, B, xK({
-        content: []
-      }));
-      if (Y.behavior !== "allow") {
-        M6(`Bash command permission check failed for command in ${Q}: ${Z}. Error: ${Y.message}`), I = I.replace(G[0], `[Error: ${Y.message||"Permission denied"}]`);
-        return
-      }
-      let {
-        data: W
-      } = await aJ(E4.call({
-        command: Z
-      }, B)), J = t_2(W.stdout, W.stderr);
-      I = I.replace(G[0], J)
-    } catch (D) {
-      let Y = ON5(D);
-      I = I.replace(G[0], Y)
-    }
-  })), I
-}
-// @from(Start 10003915, End 10004125)
-function t_2(A, B, Q = !1) {
-  let I = [];
-  if (A.trim()) I.push(A.trim());
-  if (B.trim())
-    if (Q) I.push(`[stderr: ${B.trim()}]`);
-    else I.push(`[stderr]
-${B.trim()}`);
-  return I.join(Q ? " " : `
-`)
-}
-// @from(Start 10004127, End 10004376)
-function ON5(A, B = !1) {
-  if (A instanceof Uz) {
-    if (A.interrupted) return "[Command interrupted]";
-    return t_2(A.stdout, A.stderr, B)
-  }
-  let Q = A instanceof Error ? A.message : String(A);
-  return B ? `[Error: ${Q}]` : `[Error]
-${Q}`
-}
-// @from(Start 10004378, End 10004622)
-function PN5(A) {
-  let B = A.split(`
-`);
-  for (let Q of B) {
-    let I = Q.trim();
-    if (I) {
-      let Z = I.match(/^#+\s+(.+)$/)?.[1] ?? I;
-      return Z.length > 100 ? Z.substring(0, 97) + "..." : Z
-    }
-  }
-  return "Custom command"
-}
-// @from(Start 10004627, End 10007097)
-e_2 = L0(async (A, B) => {
-    let Q = dA();
-    try {
-      let I = new AbortController,
-        G = setTimeout(() => I.abort(), 3000);
-      try {
-        let Z = Date.now(),
-          [D, Y] = await Promise.all([x1().existsSync(B) ? lU(["--files", "--hidden", "--glob", "*.md"], B, I.signal) : Promise.resolve([]), x1().existsSync(A) ? lU(["--files", "--glob", "*.md"], A, I.signal) : Promise.resolve([])]),
-          W = [...D, ...Y],
-          J = Date.now() - Z;
-        return E1("tengu_command_dir_search", {
-          durationMs: J,
-          projectFilesFound: D.length,
-          userFilesFound: Y.length
-        }), W.map((F) => {
-          try {
-            let X = x1().readFileSync(F, {
-                encoding: "utf-8"
-              }),
-              {
-                frontmatter: V,
-                content: C
-              } = a_2(X),
-              K = V.description ?? PN5(C) ?? "Custom command",
-              E = V["allowed-tools"] ? Lp([V["allowed-tools"]]) : [],
-              q = TN5(F).replace(/\.md$/, ""),
-              O = SN5(F, Q, A);
-            return {
-              type: "prompt",
-              name: q,
-              description: `${K} (${O})`,
-              allowedTools: E,
-              isEnabled: () => !0,
-              isHidden: !1,
-              progressMessage: "running",
-              userFacingName() {
-                return q
-              },
-              async getPromptForCommand(R, T) {
-                let L = C;
-                if (R)
-                  if (L.includes("$ARGUMENTS")) L = L.replace("$ARGUMENTS", R);
-                  else L = L + `
-
-ARGUMENTS: ${R}`;
-                let _ = T.getToolPermissionContext();
-                return L = await o_2(L, {
-                  ...T,
-                  getToolPermissionContext() {
-                    return {
-                      ..._,
-                      alwaysAllowRules: {
-                        ..._.alwaysAllowRules,
-                        command: E
-                      }
-                    }
-                  }
-                }, `/${q}`), [{
-                  type: "text",
-                  text: L
-                }]
-              }
-            }
-          } catch (X) {
-            return b1(X instanceof Error ? X : new Error(String(X))), null
-          }
-        }).filter((F) => F !== null)
-      } finally {
-        clearTimeout(G)
-      }
-    } catch (I) {
-      return b1(I instanceof Error ? I : new Error(String(I))), []
-    }
-  })
-// @from(Start 10007101, End 10007113)
-Z2A = "user"
-// @from(Start 10007117, End 10007132)
-dw1 = "project"
-// @from(Start 10007135, End 10007365)
-function SN5(A, B, Q) {
-  let I = G2A(A),
-    G = G2A(I),
-    D = G2A(G) === B;
-  if (A.startsWith(Q)) return Z2A;
-  if (!D) {
-    let W = I.split("/"),
-      J = W[W.length - 1];
-    if (J) return `${dw1}:${J}`
-  }
-  return dw1
-}
-// @from(Start 10007408, End 10007425)
-Y2A = I1(U1(), 1)
-// @from(Start 10007431, End 10007448)
-uw1 = I1(U1(), 1)
-// @from(Start 10007454, End 10007471)
-D2A = I1(U1(), 1)
-// @from(Start 10007477, End 10007493)
-k4 = I1(U1(), 1)
-// @from(Start 10007497, End 10007514)
-A01 = I1(U1(), 1)
-// @from(Start 10007517, End 10007733)
-function Aj2({
-  onDone: A
-}) {
-  let [B, Q] = A01.useState("initial"), [I, G] = A01.useState("neutral"), [Z, D] = A01.useState(""), [Y, W] = A01.useState(0), J = Y2(), [{
-    mainLoopModel: F
-  }] = d5();
-  return
-}
-// @from(Start 10007735, End 10008186)
-function Bj2({
-  showFeedback: A,
-  showWorktree: B,
-  onDone: Q
-}) {
-  let [I, G] = uw1.useState(() => B ? "worktree" : A ? "feedback" : "done");
-  async function Z() {
-    if (A) G("feedback");
-    else D()
-  }
-  async function D() {
-    Q(), await qI(0)
-  }
-  switch (I) {
-    case "worktree":
-      return null;
-    case "feedback":
-      return uw1.default.createElement(Aj2, {
-        onDone: D
-      });
-    case "done":
-      return null
-  }
-}
-// @from(Start 10008191, End 10008635)
-_N5 = {
-    type: "local-jsx",
-    name: "exit",
-    aliases: ["quit"],
-    description: "Exit the REPL",
-    isEnabled: () => !0,
-    isHidden: !1,
-    async call(A, {
-      messages: B
-    }) {
-      let I = await jN5(B);
-      if (!I) return A(), await qI(0), null;
-      return Y2A.createElement(Bj2, {
-        showFeedback: I,
-        showWorktree: !1,
-        onDone: A
-      })
+// @from(Start 9359422, End 9411385)
+oA0 = z((EjG, M52) => {
+  var KQ = B6();
+  GP();
+  mIA();
+  uB1();
+  B1A();
+  lA0();
+  cM();
+  lIA();
+  x3();
+  var G21 = function(A, Q, B, G) {
+      var Z = KQ.util.createBuffer(),
+        I = A.length >> 1,
+        Y = I + (A.length & 1),
+        J = A.substr(0, Y),
+        W = A.substr(I, Y),
+        X = KQ.util.createBuffer(),
+        V = KQ.hmac.create();
+      B = Q + B;
+      var F = Math.ceil(G / 16),
+        K = Math.ceil(G / 20);
+      V.start("MD5", J);
+      var D = KQ.util.createBuffer();
+      X.putBytes(B);
+      for (var H = 0; H < F; ++H) V.start(null, null), V.update(X.getBytes()), X.putBuffer(V.digest()), V.start(null, null), V.update(X.bytes() + B), D.putBuffer(V.digest());
+      V.start("SHA1", W);
+      var C = KQ.util.createBuffer();
+      X.clear(), X.putBytes(B);
+      for (var H = 0; H < K; ++H) V.start(null, null), V.update(X.getBytes()), X.putBuffer(V.digest()), V.start(null, null), V.update(X.bytes() + B), C.putBuffer(V.digest());
+      return Z.putBytes(KQ.util.xorBytes(D.getBytes(), C.getBytes(), G)), Z
     },
-    userFacingName() {
-      return "exit"
+    iZ5 = function(A, Q, B) {
+      var G = KQ.hmac.create();
+      G.start("SHA1", A);
+      var Z = KQ.util.createBuffer();
+      return Z.putInt32(Q[0]), Z.putInt32(Q[1]), Z.putByte(B.type), Z.putByte(B.version.major), Z.putByte(B.version.minor), Z.putInt16(B.length), Z.putBytes(B.fragment.bytes()), G.update(Z.getBytes()), G.digest().getBytes()
+    },
+    nZ5 = function(A, Q, B) {
+      var G = !1;
+      try {
+        var Z = A.deflate(Q.fragment.getBytes());
+        Q.fragment = KQ.util.createBuffer(Z), Q.length = Z.length, G = !0
+      } catch (I) {}
+      return G
+    },
+    aZ5 = function(A, Q, B) {
+      var G = !1;
+      try {
+        var Z = A.inflate(Q.fragment.getBytes());
+        Q.fragment = KQ.util.createBuffer(Z), Q.length = Z.length, G = !0
+      } catch (I) {}
+      return G
+    },
+    Eq = function(A, Q) {
+      var B = 0;
+      switch (Q) {
+        case 1:
+          B = A.getByte();
+          break;
+        case 2:
+          B = A.getInt16();
+          break;
+        case 3:
+          B = A.getInt24();
+          break;
+        case 4:
+          B = A.getInt32();
+          break
+      }
+      return KQ.util.createBuffer(A.getBytes(B))
+    },
+    nM = function(A, Q, B) {
+      A.putInt(B.length(), Q << 3), A.putBuffer(B)
+    },
+    pA = {};
+  pA.Versions = {
+    TLS_1_0: {
+      major: 3,
+      minor: 1
+    },
+    TLS_1_1: {
+      major: 3,
+      minor: 2
+    },
+    TLS_1_2: {
+      major: 3,
+      minor: 3
     }
-  }
-// @from(Start 10008639, End 10008648)
-pw1 = _N5
-// @from(Start 10008650, End 10008728)
-async function jN5(A) {
-  if (A.length < 10) return !1;
-  return await W2A()
-}
-// @from(Start 10008729, End 10008844)
-async function W2A() {
-  let {
-    show: A
-  } = await WZ0("tengu-exit-feedback", {
-    show: !1
-  });
-  return A
-}
-// @from(Start 10008849, End 10008865)
-r$ = I1(U1(), 1)
-// @from(Start 10008871, End 10008901)
-yN5 = ["help", "-h", "--help"]
-// @from(Start 10008905, End 10009029)
-kN5 = ["list", "show", "display", "current", "view", "get", "check", "describe", "print", "version", "about", "status", "?"]
-// @from(Start 10009032, End 10009608)
-function xN5({
-  onDone: A
-}) {
-  let [{
-    mainLoopModel: B
-  }, Q] = d5();
-  return Z0((I, G) => {
-    if (G.escape) {
-      E1("tengu_model_command_menu", {
-        action: "cancel"
-      });
-      let Z = B ?? C_().label;
-      A(`Kept model as ${UA.bold(Z)}`);
-      return
+  };
+  pA.SupportedVersions = [pA.Versions.TLS_1_1, pA.Versions.TLS_1_0];
+  pA.Version = pA.SupportedVersions[0];
+  pA.MaxFragment = 15360;
+  pA.ConnectionEnd = {
+    server: 0,
+    client: 1
+  };
+  pA.PRFAlgorithm = {
+    tls_prf_sha256: 0
+  };
+  pA.BulkCipherAlgorithm = {
+    none: null,
+    rc4: 0,
+    des3: 1,
+    aes: 2
+  };
+  pA.CipherType = {
+    stream: 0,
+    block: 1,
+    aead: 2
+  };
+  pA.MACAlgorithm = {
+    none: null,
+    hmac_md5: 0,
+    hmac_sha1: 1,
+    hmac_sha256: 2,
+    hmac_sha384: 3,
+    hmac_sha512: 4
+  };
+  pA.CompressionMethod = {
+    none: 0,
+    deflate: 1
+  };
+  pA.ContentType = {
+    change_cipher_spec: 20,
+    alert: 21,
+    handshake: 22,
+    application_data: 23,
+    heartbeat: 24
+  };
+  pA.HandshakeType = {
+    hello_request: 0,
+    client_hello: 1,
+    server_hello: 2,
+    certificate: 11,
+    server_key_exchange: 12,
+    certificate_request: 13,
+    server_hello_done: 14,
+    certificate_verify: 15,
+    client_key_exchange: 16,
+    finished: 20
+  };
+  pA.Alert = {};
+  pA.Alert.Level = {
+    warning: 1,
+    fatal: 2
+  };
+  pA.Alert.Description = {
+    close_notify: 0,
+    unexpected_message: 10,
+    bad_record_mac: 20,
+    decryption_failed: 21,
+    record_overflow: 22,
+    decompression_failure: 30,
+    handshake_failure: 40,
+    bad_certificate: 42,
+    unsupported_certificate: 43,
+    certificate_revoked: 44,
+    certificate_expired: 45,
+    certificate_unknown: 46,
+    illegal_parameter: 47,
+    unknown_ca: 48,
+    access_denied: 49,
+    decode_error: 50,
+    decrypt_error: 51,
+    export_restriction: 60,
+    protocol_version: 70,
+    insufficient_security: 71,
+    internal_error: 80,
+    user_canceled: 90,
+    no_renegotiation: 100
+  };
+  pA.HeartbeatMessageType = {
+    heartbeat_request: 1,
+    heartbeat_response: 2
+  };
+  pA.CipherSuites = {};
+  pA.getCipherSuite = function(A) {
+    var Q = null;
+    for (var B in pA.CipherSuites) {
+      var G = pA.CipherSuites[B];
+      if (G.id[0] === A.charCodeAt(0) && G.id[1] === A.charCodeAt(1)) {
+        Q = G;
+        break
+      }
     }
-  }), r$.createElement(Dw1, {
-    initial: B,
-    onSelect: (I) => {
-      E1("tengu_model_command_menu", {
-        action: I,
-        from_model: B,
-        to_model: I
-      }), Q((G) => ({
-        ...G,
-        mainLoopModel: I
-      })), A(`Set model to ${UA.bold(z_(I))}`)
-    }
-  })
-}
-// @from(Start 10009610, End 10010055)
-function fN5({
-  args: A,
-  onDone: B
-}) {
-  let [Q, I] = d5(), G = A === "default" ? null : A;
-  if (T9() && !qZ() && G !== null && G.toLowerCase().includes("opus")) return B("Invalid model. Claude Pro users are not currently able to use Opus 4 in Claude Code. The current model is now Sonnet 4."), null;
-  return setTimeout(() => {
-    I((Z) => ({
-      ...Z,
-      mainLoopModel: G
-    })), B(`Set model to ${UA.bold(z_(G))}`)
-  }, 0), null
-}
-// @from(Start 10010057, End 10010215)
-function vN5({
-  onDone: A
-}) {
-  let [{
-    mainLoopModel: B
-  }] = d5(), Q = B ?? C_().label;
-  return setTimeout(() => A(`Current model: ${Q}`), 0), null
-}
-// @from(Start 10010220, End 10010980)
-Qj2 = {
-  type: "local-jsx",
-  name: "model",
-  userFacingName() {
-    return "model"
-  },
-  description: "Set the AI model for Claude Code",
-  isEnabled: () => !0,
-  isHidden: !1,
-  argumentHint: "[model]",
-  async call(A, B, Q) {
-    if (Q = Q?.trim() || "", kN5.includes(Q)) return E1("tengu_model_command_inline_help", {
-      args: Q
-    }), r$.createElement(vN5, {
-      onDone: A
-    });
-    if (yN5.includes(Q)) {
-      setTimeout(() => A("Run /model to open the model selection menu, or /model [modelName] to set the model."), 0);
-      return
-    }
-    if (Q) return E1("tengu_model_command_inline", {
-      args: Q
-    }), r$.createElement(fN5, {
-      args: Q,
-      onDone: A
-    });
-    return r$.createElement(xN5, {
-      onDone: A
+    return Q
+  };
+  pA.handleUnexpected = function(A, Q) {
+    var B = !A.open && A.entity === pA.ConnectionEnd.client;
+    if (!B) A.error(A, {
+      message: "Unexpected message. Received TLS record out of order.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.unexpected_message
+      }
     })
-  }
-}
-// @from(Start 10010986, End 10011003)
-B01 = I1(U1(), 1)
-// @from(Start 10011009, End 10011859)
-bN5 = {
-    type: "local-jsx",
-    name: "upgrade",
-    description: "Upgrade to Max for higher rate limits and more Opus",
-    isEnabled: () => !Yb(),
-    isHidden: !1,
-    async call(A, B) {
-      try {
-        return await Ap("https://claude.ai/upgrade/max"), B01.createElement(x0A, {
-          startingMessage: "Starting new login following /upgrade. Exit with Ctrl-C to use existing account.",
-          onDone: (I, G) => {
-            aA1(B01.createElement(Vp, {
-              model: G
-            })), B.onChangeAPIKey(), A(I ? "Login successful" : "Login interrupted")
-          }
-        })
-      } catch (Q) {
-        b1(Q), setTimeout(() => {
-          A("Failed to open browser. Please visit https://claude.ai/upgrade/max to upgrade.")
-        }, 0)
+  };
+  pA.handleHelloRequest = function(A, Q, B) {
+    if (!A.handshaking && A.handshakes > 0) pA.queue(A, pA.createAlert(A, {
+      level: pA.Alert.Level.warning,
+      description: pA.Alert.Description.no_renegotiation
+    })), pA.flush(A);
+    A.process()
+  };
+  pA.parseHelloMessage = function(A, Q, B) {
+    var G = null,
+      Z = A.entity === pA.ConnectionEnd.client;
+    if (B < 38) A.error(A, {
+      message: Z ? "Invalid ServerHello message. Message too short." : "Invalid ClientHello message. Message too short.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.illegal_parameter
       }
-      return null
-    },
-    userFacingName() {
-      return "upgrade"
-    }
-  }
-// @from(Start 10011863, End 10011872)
-Ij2 = bN5
-// @from(Start 10011878, End 10012127)
-gN5 = L0(() => [oO2, lT2, iT2, sT2, rT2, IS2, pw1, n_2, JS2, FS2, XS2, cS2, aS2, YS2, iS2, Qj2, sS2, eS2, A_2, $_2, mT2, kw1, LE, Ij2, R_2, b_2, ...!Yb() ? [wS2, TS2()] : [], ...process.env.ENABLE_BACKGROUND_TASKS ? [L_2] : [], ...[], ...[], ...[]])
-// @from(Start 10012131, End 10012308)
-J2A = L0(async () => {
-    let A = Gj2(S4(), "commands"),
-      B = Gj2(dA(), ".claude", "commands");
-    return [...await e_2(A, B), ...gN5()].filter((I) => I.isEnabled())
-  })
-// @from(Start 10012311, End 10012408)
-function Zj2(A, B) {
-  return B.some((Q) => Q.userFacingName() === A || Q.aliases?.includes(A))
-}
-// @from(Start 10012410, End 10012713)
-function cw1(A, B) {
-  let Q = B.find((I) => I.userFacingName() === A || I.aliases?.includes(A));
-  if (!Q) throw ReferenceError(`Command ${A} not found. Available commands: ${B.map((I)=>{let G=I.userFacingName();return I.aliases?`${G} (aliases: ${I.aliases.join(", ")})`:G}).join(", ")}`);
-  return Q
-}
-// @from(Start 10012718, End 10012732)
-hN5 = /[:_-]/g
-// @from(Start 10012735, End 10012781)
-function lw1(A) {
-  return A.startsWith("/")
-}
-// @from(Start 10012783, End 10012909)
-function mN5(A) {
-  if (!lw1(A)) return !1;
-  if (!A.includes(" ")) return !1;
-  if (A.endsWith(" ")) return !1;
-  return !0
-}
-// @from(Start 10012911, End 10012948)
-function dN5(A) {
-  return `/${A} `
-}
-// @from(Start 10012950, End 10013276)
-function Dj2(A) {
-  let B = A.userFacingName(),
-    Q = A.aliases && A.aliases.length > 0 ? ` (${A.aliases.join(", ")})` : "";
-  return {
-    id: B,
-    displayText: `/${B}${Q}`,
-    description: A.description + (A.type === "prompt" && A.argNames?.length ? ` (arguments: ${A.argNames.join(", ")})` : ""),
-    metadata: A
-  }
-}
-// @from(Start 10013278, End 10015214)
-function Yj2(A, B) {
-  if (!lw1(A)) return [];
-  if (mN5(A)) return [];
-  let Q = A.slice(1).toLowerCase();
-  if (Q.trim() === "") {
-    let Y = B.filter((V) => !V.isHidden),
-      W = [],
-      J = [],
-      F = [];
-    Y.forEach((V) => {
-      let C = V.description;
-      if (C.endsWith(` (${Z2A})`)) W.push(V);
-      else if (C.endsWith(` (${dw1})`)) J.push(V);
-      else F.push(V)
     });
-    let X = (V, C) => V.userFacingName().localeCompare(C.userFacingName());
-    return W.sort(X), J.sort(X), F.sort(X), [...W, ...J, ...F].map(Dj2)
-  }
-  let I = B.filter((Y) => !Y.isHidden).flatMap((Y) => {
-      let W = Y.userFacingName(),
-        J = [];
-      if (J.push({
-          nameKey: W,
-          commandName: Y.userFacingName(),
-          command: Y
-        }), W.split(hN5).filter(Boolean).forEach((X) => {
-          J.push({
-            partKey: X,
-            commandName: Y.userFacingName(),
-            command: Y
-          })
-        }), Y.aliases) Y.aliases.forEach((X) => {
-        J.push({
-          aliasKey: X,
-          commandName: Y.userFacingName(),
-          command: Y
-        })
-      });
-      return Y.description.split(" ").forEach((X) => {
-        let V = X.toLowerCase().replace(/[^a-z0-9]/g, "");
-        if (V) J.push({
-          descriptionKey: V,
-          commandName: Y.userFacingName(),
-          command: Y
-        })
-      }), J
-    }),
-    Z = new EV(I, {
-      includeScore: !0,
-      threshold: 0.3,
-      location: 0,
-      distance: 100,
-      keys: [{
-        name: "nameKey",
-        weight: 2
-      }, {
-        name: "partKey",
-        weight: 2
-      }, {
-        name: "aliasKey",
-        weight: 2
-      }, {
-        name: "descriptionKey",
-        weight: 0.5
-      }]
-    }).search(Q),
-    D = new Map;
-  return Z.forEach((Y) => {
-    let {
-      commandName: W,
-      command: J
-    } = Y.item;
-    if (!D.has(W)) D.set(W, J)
-  }), Array.from(D.entries()).map(([Y, W]) => Dj2(W))
-}
-// @from(Start 10015216, End 10015477)
-function F2A(A, B, Q, I, G, Z) {
-  let D = typeof A === "string" ? A : A.id,
-    Y = dN5(D);
-  if (I(Y), G(Y.length), B) {
-    let W = typeof A === "string" ? cw1(D, Q) : A.metadata;
-    if (W.type !== "prompt" || (W.argNames ?? []).length === 0) Z(Y, !0)
-  }
-}
-// @from(Start 10015510, End 10015518)
-iw1 = []
-// @from(Start 10015522, End 10015532)
-X2A = null
-// @from(Start 10015535, End 10015740)
-function uN5(A) {
-  let B = new Set;
-  return A.forEach((Q) => {
-    let G = PW.dirname(Q);
-    while (G !== "." && G !== PW.parse(G).root) B.add(G), G = PW.dirname(G)
-  }), [...B].map((Q) => Q + PW.sep)
-}
-// @from(Start 10015741, End 10015916)
-async function Wj2() {
-  let A = new AbortController,
-    B = (await lU(["--files", "--follow"], ".", A.signal)).map((I) => PW.relative(e9(), I));
-  return [...uN5(B), ...B]
-}
-// @from(Start 10015918, End 10016056)
-function pN5(A, B) {
-  let Q = Math.min(A.length, B.length),
-    I = 0;
-  while (I < Q && A[I] === B[I]) I++;
-  return A.substring(0, I)
-}
-// @from(Start 10016058, End 10016278)
-function Fj2(A) {
-  if (A.length === 0) return "";
-  let B = A.map((I) => I.displayText),
-    Q = B[0];
-  for (let I = 1; I < B.length; I++) {
-    let G = B[I];
-    if (Q = pN5(Q, G), Q === "") return ""
-  }
-  return Q
-}
-// @from(Start 10016280, End 10016354)
-function Jj2(A) {
-  return {
-    id: `file-${A}`,
-    displayText: A
-  }
-}
-// @from(Start 10016359, End 10016367)
-V2A = 15
-// @from(Start 10016370, End 10017358)
-function cN5(A, B) {
-  if (!B) {
-    let D = new Set;
-    for (let Y of A) {
-      let W = Y.split(PW.sep)[0];
-      if (W) {
-        if (D.add(W), D.size >= V2A) break
-      }
-    }
-    return [...D].sort().map(Jj2)
-  }
-  let Q = A.map((D) => {
-      return {
-        path: D,
-        filename: PW.basename(D),
-        testPenalty: D.includes("test") ? 1 : 0
-      }
-    }),
-    I = B.lastIndexOf(PW.sep);
-  if (I > 2) Q = Q.filter((D) => {
-    return D.path.substring(0, I).startsWith(B.substring(0, I))
-  });
-  let Z = new EV(Q, {
-    includeScore: !0,
-    threshold: 0.5,
-    keys: [{
-      name: "path",
-      weight: 1
-    }, {
-      name: "filename",
-      weight: 2
-    }]
-  }).search(B, {
-    limit: V2A
-  });
-  return Z = Z.sort((D, Y) => {
-    if (D.score === void 0 || Y.score === void 0) return 0;
-    if (Math.abs(D.score - Y.score) > 0.05) return D.score - Y.score;
-    return D.item.testPenalty - Y.item.testPenalty
-  }), Z.map((D) => D.item.path).slice(0, V2A).map(Jj2)
-}
-// @from(Start 10017359, End 10017709)
-async function Xj2(A, B = !1) {
-  if (!A && !B) return [];
-  try {
-    if (iw1.length === 0) iw1 = await Wj2();
-    else if (!X2A) X2A = Wj2().then((Z) => {
-      return iw1 = Z, X2A = null, Z
-    });
-    let Q = A,
-      I = "." + PW.sep;
-    if (A.startsWith(I)) Q = A.substring(2);
-    return cN5(iw1, Q)
-  } catch (Q) {
-    return b1(Q), []
-  }
-}
-// @from(Start 10017711, End 10017896)
-function nw1(A, B, Q, I, G, Z) {
-  let D = typeof A === "string" ? A : A.displayText,
-    Y = B.substring(0, I) + D + B.substring(I + Q.length);
-  G(Y);
-  let W = I + D.length;
-  Z(W)
-}
-// @from(Start 10017927, End 10018249)
-function Vj2(A) {
-  switch (A.type) {
-    case "file":
-      return {
-        id: `file-${A.path}`, displayText: A.displayText, description: A.description
-      };
-    case "mcp_resource":
-      return {
-        id: `mcp-resource-${A.server}__${A.uri}`, displayText: A.displayText, description: A.description
-      }
-  }
-}
-// @from(Start 10018254, End 10018262)
-C2A = 15
-// @from(Start 10018264, End 10019348)
-async function K2A(A, B, Q = !1) {
-  if (!A && !Q) return [];
-  let G = (await Xj2(A, Q)).map((J) => ({
-      type: "file",
-      displayText: J.displayText,
-      description: J.description,
-      path: J.displayText,
-      filename: Cj2.basename(J.displayText)
-    })),
-    Z = Object.values(B).flat().map((J) => ({
-      type: "mcp_resource",
-      displayText: `${J.server}:${J.uri}`,
-      description: J.name + (J.description ? ` - ${J.description}` : ""),
-      server: J.server,
-      uri: J.uri,
-      name: J.name || J.uri
-    })),
-    D = [...G, ...Z];
-  if (D.length === 0) return [];
-  if (!A) return D.slice(0, C2A).map(Vj2);
-  return new EV(D, {
-    includeScore: !0,
-    threshold: 0.4,
-    keys: [{
-      name: "displayText",
-      weight: 2
-    }, {
-      name: "name",
-      weight: 3
-    }, {
-      name: "server",
-      weight: 1
-    }, {
-      name: "description",
-      weight: 1
-    }, {
-      name: "path",
-      weight: 2
-    }, {
-      name: "filename",
-      weight: 2
-    }]
-  }).search(A, {
-    limit: C2A
-  }).map((J) => J.item).slice(0, C2A).map(Vj2)
-}
-// @from(Start 10019350, End 10019635)
-function Q01(A, B, Q = !1) {
-  if (!A) return null;
-  let I = A.substring(0, B),
-    G = Q ? /(@[a-zA-Z0-9_\-./\\]*|[a-zA-Z0-9_\-./\\]+)$/ : /[a-zA-Z0-9_\-./\\]+$/,
-    Z = I.match(G);
-  if (!Z || Z.index === void 0) return null;
-  return {
-    token: Z[0],
-    startPos: Z.index
-  }
-}
-// @from(Start 10019637, End 10024453)
-function Kj2({
-  commands: A,
-  onInputChange: B,
-  onSubmit: Q,
-  setCursorOffset: I,
-  input: G,
-  cursorOffset: Z,
-  setSuggestionsState: D,
-  suggestionsState: {
-    suggestions: Y,
-    selectedSuggestion: W,
-    commandArgumentHint: J
-  }
-}) {
-  let [F, X] = oK.useState("none"), [V, C] = oK.useState(void 0), [K] = d5(), E = oK.useCallback(() => {
-    D(() => ({
-      commandArgumentHint: void 0,
-      suggestions: [],
-      selectedSuggestion: -1
-    })), X("none"), C(void 0)
-  }, [D]), N = oK.useCallback(async (L, _ = !1) => {
-    let k = await K2A(L, K.mcp.resources, _);
-    if (k.length === 0) {
-      E();
-      return
-    }
-    D(() => ({
-      commandArgumentHint: void 0,
-      suggestions: k,
-      selectedSuggestion: k.length > 0 ? 0 : -1
-    })), X(k.length > 0 ? "file" : "none"), C(void 0)
-  }, [K.mcp.resources, E, D]), q = sH1(N, 200), O = oK.useCallback(async (L, _ = Z) => {
-    let k = L.substring(0, _).match(/(^|\s)@[a-zA-Z0-9_\-./\\]*$/),
-      i = _ === L.length && _ > 0 && L.length > 0 && L[_ - 1] === " ";
-    if (lw1(L) && _ > 0 && !i) {
-      if (L.includes(" ") && !L.endsWith(" ")) {
-        E();
-        return
-      }
-      let x = Yj2(L, A),
-        s = void 0;
-      if (L.length > 1) {
-        let d = L.endsWith(" ") ? L.slice(1, -1) : L.slice(1),
-          F1 = A.find((X1) => X1.userFacingName() === d && X1.argumentHint);
-        if (F1?.argumentHint) s = F1.argumentHint
-      }
-      if (D(() => ({
-          commandArgumentHint: s,
-          suggestions: x,
-          selectedSuggestion: x.length > 0 ? 0 : -1
-        })), X(x.length > 0 ? "command" : "none"), x.length > 0) {
-        let d = Math.max(...x.map((F1) => F1.displayText.length));
-        C(d + 5)
-      }
-      return
-    }
-    if (F === "command") {
-      E();
-      return
-    }
-    if (k) {
-      let x = Q01(L, _, !0);
-      if (x && x.token.startsWith("@")) {
-        let s = x.token.substring(1);
-        q(s, !0);
-        return
-      }
-    }
-    if (F === "file") {
-      let x = Q01(L, _, !0);
-      if (x) {
-        let s = x.token.startsWith("@") ? x.token.substring(1) : x.token;
-        q(s, !1)
-      } else E()
-    }
-  }, [Z, F, A, D, E, q]);
-  oK.useEffect(() => {
-    O(G)
-  }, [G, O]);
-  let R = oK.useCallback(async () => {
-      if (Y.length > 0) {
-        let L = W === -1 ? 0 : W;
-        if (F === "command" && L < Y.length) {
-          let _ = Y[L];
-          if (_) F2A(_, !1, A, B, I, Q), E()
-        } else if (F === "file" && Y.length > 0) {
-          let _ = Q01(G, Z, !0);
-          if (!_) {
-            E();
-            return
-          }
-          let k = Fj2(Y),
-            i = _.token.startsWith("@"),
-            x = i ? _.token.length - 1 : _.token.length;
-          if (k.length > x) {
-            let s = i ? `@${k}` : k;
-            nw1(s, G, _.token, _.startPos, B, I), O(G.replace(_.token, s), Z)
-          } else if (L < Y.length) {
-            let s = Y[L];
-            if (s) {
-              let d = i ? `@${s.displayText} ` : s.displayText;
-              nw1(d, G, _.token, _.startPos, B, I), E()
-            }
-          }
-        }
-      } else if (G.trim() !== "") {
-        let L = Q01(G, Z, !0);
-        if (L) {
-          let _ = L.token.startsWith("@"),
-            k = _ ? L.token.substring(1) : L.token,
-            i = await K2A(k, K.mcp.resources, _);
-          if (i.length > 0) D(() => ({
-            commandArgumentHint: void 0,
-            suggestions: i,
-            selectedSuggestion: 0
-          })), X("file"), C(void 0)
-        }
-      }
-    }, [Y, W, G, F, A, B, I, Q, E, Z, O, K.mcp.resources, D]),
-    T = oK.useCallback(() => {
-      if (W < 0 || Y.length === 0) return;
-      if (F === "command" && W < Y.length) {
-        let L = Y[W];
-        if (L) F2A(L, !0, A, B, I, Q), E()
-      } else if (F === "file" && W < Y.length) {
-        let L = Q01(G, Z, !0);
-        if (L) {
-          let _ = Y[W];
-          if (_) {
-            let i = L.token.startsWith("@") ? `@${_.displayText} ` : _.displayText;
-            nw1(i, G, L.token, L.startPos, B, I), E()
-          }
-        }
-      }
-    }, [Y, W, F, A, G, Z, B, I, Q, E]);
-  return Z0((L, _) => {
-    if (_.tab && !_.shift) {
-      R();
-      return
-    }
-    if (Y.length === 0) return;
-    if (_.downArrow || _.ctrl && L === "n") {
-      D((k) => ({
-        ...k,
-        selectedSuggestion: k.selectedSuggestion >= Y.length - 1 ? 0 : k.selectedSuggestion + 1
-      }));
-      return
-    }
-    if (_.upArrow || _.ctrl && L === "p") {
-      D((k) => ({
-        ...k,
-        selectedSuggestion: k.selectedSuggestion <= 0 ? Y.length - 1 : k.selectedSuggestion - 1
-      }));
-      return
-    }
-    if (_.return) T();
-    if (_.escape) E()
-  }), {
-    suggestions: Y,
-    selectedSuggestion: W,
-    suggestionType: F,
-    maxColumnWidth: V,
-    commandArgumentHint: J
-  }
-}
-// @from(Start 10024458, End 10024475)
-aw1 = I1(U1(), 1)
-// @from(Start 10024481, End 10024497)
-KT = I1(U1(), 1)
-// @from(Start 10024503, End 10024512)
-lN5 = 1e4
-// @from(Start 10024515, End 10035186)
-function Hj2(A) {
-  let [B, Q] = KT.useState("INSERT"), I = KT.default.useRef(""), G = KT.default.useRef(null), Z = KT.default.useRef(""), D = KT.default.useRef(""), Y = KT.default.useRef(null), {
-    onMessage: W
-  } = A, J = Bw1(A), F = (k, i) => {
-    return k === i && (k === "d" || k === "c")
-  }, X = (k, i) => {
-    switch (k) {
-      case "h":
-        return i.left();
-      case "l":
-        return i.right();
-      case "j":
-        return i.downLogicalLine();
-      case "k":
-        return i.upLogicalLine();
-      case "0":
-        return i.startOfLogicalLine();
-      case "^":
-        return i.firstNonBlankInLogicalLine();
-      case "$":
-        return i.endOfLogicalLine();
-      case "w":
-        return i.nextWord();
-      case "e":
-        return i.endOfWord();
-      case "b":
-        return i.prevWord();
-      case "W":
-        return i.nextWORD();
-      case "E":
-        return i.endOfWORD();
-      case "B":
-        return i.prevWORD();
-      case "gg":
-        return i.startOfFirstLine();
-      case "G":
-        return i.startOfLastLine();
-      default:
-        return null
-    }
-  }, V = (k, i, x = 1) => {
-    if (F(k, I.current)) return i.startOfLine();
-    let s = i;
-    for (let d = 0; d < x; d++) {
-      if (!s) break;
-      s = X(k, s)
-    }
-    return s
-  }, C = (k, i, x, s = 1) => {
-    let d = J.offset,
-      F1 = k === "change";
-    if (F(i, I.current)) {
-      let v = x.startOfLogicalLine();
-      if (x.text.indexOf(`
-`) === -1) A.onChange(""), d = 0;
-      else {
-        let {
-          line: D1
-        } = x.getPosition();
-        if (k === "delete") {
-          let N1 = x.text.split(`
-`),
-            u1 = Math.min(s, N1.length - D1);
-          N1.splice(D1, u1);
-          let d1 = N1.join(`
-`);
-          A.onChange(d1), d = T5.fromText(d1, A.columns, D1 < N1.length ? v.offset : Math.max(0, v.offset - 1)).offset
-        } else if (k === "change") {
-          let N1 = x.text.split(`
-`);
-          for (let u1 = 0; u1 < Math.min(s, N1.length - D1); u1++) N1[D1 + u1] = "";
-          A.onChange(N1.join(`
-`)), d = v.offset
-        } else d = v.offset
-      }
-      return {
-        newOffset: d,
-        switchToInsert: F1
-      }
-    }
-    let X1 = V(i, x, s);
-    if (!X1 || x.equals(X1)) return {
-      newOffset: d,
-      switchToInsert: F1
-    };
-    if (k === "move") d = X1.offset;
     else {
-      let [v, D1] = x.offset <= X1.offset ? [x, X1] : [X1, x], N1 = D1;
-      if (i === "e" && x.offset <= X1.offset) N1 = D1.right();
-      else if ((i === "w" || i === "W") && k === "change") N1 = R(x, i, s);
-      let u1 = v.modifyText(N1, "");
-      if (A.onChange(u1.text), k === "change") d = v.offset;
-      else d = u1.offset
-    }
-    return {
-      newOffset: d,
-      switchToInsert: F1
-    }
-  }, K = (k) => {
-    if (k !== void 0) J.setOffset(k);
-    Q("INSERT"), A.onModeChange?.("INSERT"), W?.(!0, "-- INSERT MODE --"), setTimeout(() => W?.(!1), 1000)
-  }, E = () => {
-    Q("NORMAL"), A.onModeChange?.("NORMAL"), W?.(!0, "-- NORMAL MODE --"), setTimeout(() => W?.(!1), 1000)
-  }, N = (k) => {
-    G.current = k
-  }, q = (k, i) => {
-    if (i === "below") {
-      let s = k.endOfLogicalLine().insert(`
-`);
-      return A.onChange(s.text), s.offset
-    } else {
-      let x = k.startOfLogicalLine(),
-        s = x.insert(`
-`);
-      return A.onChange(s.text), x.offset
-    }
-  }, O = (k, i) => {
-    let x = k.text[k.offset] ?? "";
-    return i.test(x)
-  }, R = (k, i, x) => {
-    let d = i === "w" ? /\w/ : /\S/;
-    if (!O(k, d)) return V(i, k, x) || k;
-    let F1 = k;
-    while (O(F1, d) && !F1.isAtEnd()) F1 = F1.right();
-    if (x > 1)
-      for (let X1 = 1; X1 < x; X1++) {
-        while (!O(F1, d) && !F1.isAtEnd()) F1 = F1.right();
-        while (O(F1, d) && !F1.isAtEnd()) F1 = F1.right()
-      }
-    return F1
-  }, T = (k) => {
-    let i = G.current;
-    if (!i) return;
-    switch (i.type) {
-      case "delete":
-        if (i.motion) {
-          let {
-            newOffset: x
-          } = C("delete", i.motion, k, i.count || 1);
-          J.setOffset(x)
-        }
-        break;
-      case "change":
-        if (i.motion) {
-          let {
-            newOffset: x
-          } = C("change", i.motion, k, i.count || 1);
-          J.setOffset(x), K(x)
-        }
-        break;
-      case "insert":
-        if (i.insertedText) {
-          let x = k.insert(i.insertedText);
-          A.onChange(x.text), J.setOffset(x.offset)
-        }
-        break;
-      case "x": {
-        let x = i.count || 1,
-          s = k;
-        for (let d = 0; d < x; d++)
-          if (!s.equals(s.del())) s = s.del();
-        A.onChange(s.text), J.setOffset(s.offset);
-        break
-      }
-      case "o": {
-        let x = q(k, "below");
-        K(x);
-        break
-      }
-      case "O": {
-        let x = q(k, "above");
-        K(x);
-        break
-      }
-      case "replace":
-        break;
-      case "r": {
-        if (i.replacementChar) {
-          let x = i.count || 1,
-            s = k;
-          for (let d = 0; d < x; d++)
-            if (s = s.modifyText(s.right(), i.replacementChar), d < x - 1) s = T5.fromText(s.text, A.columns, s.offset + 1);
-          A.onChange(s.text), J.setOffset(k.offset)
-        }
-        break
-      }
-    }
-  }, L = (k = !0) => {
-    if (!D.current) return 1;
-    let i = parseInt(D.current, 10);
-    if (isNaN(i)) {
-      if (k) D.current = "";
-      return 1
-    }
-    let x = Math.min(i, lN5);
-    if (k) D.current = "";
-    return x
-  };
-  return {
-    ...J,
-    onInput: (k, i) => {
-      let x = T5.fromText(A.value, A.columns, J.offset);
-      if (i.ctrl) {
-        J.onInput(k, i);
-        return
-      }
-      if (i.escape && B === "INSERT") {
-        if (Z.current) N({
-          type: "insert",
-          insertedText: Z.current
-        }), Z.current = "";
-        E();
-        return
-      }
-      if (B === "NORMAL" && Y.current) {
-        if ("0123456789".includes(k)) {
-          D.current += k;
-          return
-        }
-        let F1 = Y.current,
-          X1 = L(),
-          {
-            newOffset: v
-          } = C(F1, k, x, X1);
-        if (J.setOffset(v), N({
-            type: F1,
-            motion: k,
-            count: X1
-          }), Y.current = null, I.current = "", F1 === "change") K(v);
-        return
-      }
-      let s = (F1, X1, v) => {
-          let {
-            newOffset: D1
-          } = C(F1, X1, x, v || 1);
-          if (J.setOffset(D1), F1 !== "move") N({
-            type: F1,
-            motion: X1,
-            count: v
-          });
-          if (F1 === "change") K(D1);
-          I.current = ""
-        },
-        d = (F1) => {
-          Z.current = "", K(F1.offset)
-        };
-      if (B === "NORMAL" && I.current) {
-        switch (I.current) {
-          case "d":
-            if (k === "d") {
-              let X1 = L();
-              s("delete", k, X1), Y.current = null;
-              return
-            }
-            return;
-          case "c":
-            if (k === "c") {
-              let X1 = L();
-              s("change", k, X1), Y.current = null;
-              return
-            }
-            return;
-          case "g":
-            if (k === "g") {
-              let X1 = L();
-              s("move", "gg", X1);
-              return
-            }
-            break;
-          case "r": {
-            let X1 = L(),
-              v = x;
-            for (let D1 = 0; D1 < X1; D1++)
-              if (v = v.modifyText(v.right(), k), D1 < X1 - 1) v = T5.fromText(v.text, A.columns, v.offset + 1);
-            A.onChange(v.text), J.setOffset(x.offset), N({
-              type: "r",
-              replacementChar: k,
-              count: X1
-            }), I.current = "";
-            return
-          }
-        }
-        I.current = ""
-      }
-      if (B === "NORMAL") {
-        if ("0123456789".includes(k)) {
-          if (k === "0" && D.current === "") {
-            let {
-              newOffset: F1
-            } = C("move", "0", x);
-            J.setOffset(F1);
-            return
-          }
-          D.current += k;
-          return
-        }
-        switch (k) {
-          case ".": {
-            T(x);
-            return
-          }
-          case "u": {
-            if (A.onUndo) A.onUndo();
-            return
-          }
-          case "i":
-            D.current = "", Z.current = "", K();
-            return;
-          case "I": {
-            D.current = "", d(x.startOfLogicalLine());
-            return
-          }
-          case "a": {
-            D.current = "", d(x.right());
-            return
-          }
-          case "A": {
-            D.current = "", d(x.endOfLogicalLine());
-            return
-          }
-          case "o": {
-            D.current = "";
-            let F1 = q(x, "below");
-            N({
-              type: "o"
-            }), d(new T5(x.measuredText, F1));
-            return
-          }
-          case "O": {
-            D.current = "";
-            let F1 = q(x, "above");
-            N({
-              type: "O"
-            }), d(new T5(x.measuredText, F1));
-            return
-          }
-          case "h":
-          case "l":
-          case "j":
-          case "k":
-          case "^":
-          case "$":
-          case "w":
-          case "e":
-          case "b":
-          case "W":
-          case "E":
-          case "B":
-          case "G": {
-            let F1 = L();
-            s("move", k, F1);
-            return
-          }
-          case "g": {
-            I.current = "g";
-            return
-          }
-          case "r": {
-            I.current = "r";
-            return
-          }
-          case "x": {
-            let F1 = L(),
-              X1 = x;
-            for (let v = 0; v < F1; v++)
-              if (!X1.equals(X1.del())) X1 = X1.del();
-            A.onChange(X1.text), J.setOffset(X1.offset), N({
-              type: "x",
-              count: F1
-            });
-            return
-          }
-          case "d":
-            I.current = "d", Y.current = "delete";
-            return;
-          case "D": {
-            let F1 = L();
-            s("delete", "$", F1);
-            return
-          }
-          case "c":
-            I.current = "c", Y.current = "change";
-            return;
-          case "C": {
-            let F1 = L();
-            s("change", "$", F1);
-            return
-          }
-          case "?": {
-            A.onChange("?");
-            return
-          }
-        }
-      }
-      if (i.return) {
-        J.onInput(k, i);
-        return
-      }
-      if (B === "INSERT") {
-        if (i.backspace || i.delete) {
-          if (Z.current.length > 0) Z.current = Z.current.slice(0, -1)
-        } else Z.current += k;
-        J.onInput(k, i)
-      }
-    },
-    mode: B,
-    setMode: Q
-  }
-}
-// @from(Start 10035188, End 10036344)
-function H2A(A) {
-  let [B] = q9(), Q = Hj2({
-    value: A.value,
-    onChange: A.onChange,
-    onSubmit: A.onSubmit,
-    onExit: A.onExit,
-    onExitMessage: A.onExitMessage,
-    onMessage: A.onMessage,
-    onHistoryReset: A.onHistoryReset,
-    onHistoryUp: A.onHistoryUp,
-    onHistoryDown: A.onHistoryDown,
-    focus: A.focus,
-    mask: A.mask,
-    multiline: A.multiline,
-    cursorChar: A.showCursor ? " " : "",
-    highlightPastedText: A.highlightPastedText,
-    invert: UA.inverse,
-    themeText: V9("text", B),
-    columns: A.columns,
-    onImagePaste: A.onImagePaste,
-    disableCursorMovementForUpDownKeys: A.disableCursorMovementForUpDownKeys,
-    externalOffset: A.cursorOffset,
-    onOffsetChange: A.onChangeCursorOffset,
-    onModeChange: A.onModeChange,
-    isMessageLoading: A.isLoading,
-    onUndo: A.onUndo
-  }), {
-    mode: I,
-    setMode: G
-  } = Q;
-  return aw1.default.useEffect(() => {
-    if (A.initialMode && A.initialMode !== I) G(A.initialMode)
-  }, [A.initialMode, I, G]), aw1.default.createElement(h, {
-    flexDirection: "column"
-  }, aw1.default.createElement(Iw1, {
-    inputState: Q,
-    terminalFocus: !0,
-    ...A
-  }))
-}
-// @from(Start 10036346, End 10036398)
-function Rp() {
-  return ZA().editorMode === "vim"
-}
-// @from(Start 10036400, End 10036660)
-function zj2() {
-  if (LE.isEnabled() && mA.terminal === "Apple_Terminal" && OT2()) return "option + ⏎ for newline";
-  if (LE.isEnabled() && RT2()) return "shift + ⏎ for newline";
-  return TT2() ? "\\⏎ for newline" : "backslash (\\) + return (⏎) for newline"
-}
-// @from(Start 10036665, End 10036681)
-DQ = I1(U1(), 1)
-// @from(Start 10036684, End 10036973)
-function wj2(A) {
-  switch (A.mode) {
-    case "default":
-      return "acceptEdits";
-    case "acceptEdits":
-      return "plan";
-    case "plan":
-      return A.isBypassPermissionsModeAvailable ? "bypassPermissions" : "default";
-    case "bypassPermissions":
-      return "default"
-  }
-}
-// @from(Start 10036978, End 10036994)
-S9 = I1(U1(), 1)
-// @from(Start 10036998, End 10037015)
-kj2 = I1(U1(), 1)
-// @from(Start 10037021, End 10037037)
-c4 = I1(U1(), 1)
-// @from(Start 10037040, End 10038081)
-function Ej2({
-  exitMessage: A,
-  vimMode: B,
-  mode: Q,
-  notification: I,
-  toolPermissionContext: G,
-  suppressHint: Z,
-  shellsSelected: D,
-  isPasting: Y
-}) {
-  if (A.show) return c4.createElement(P, {
-    dimColor: !0,
-    key: "exit-message"
-  }, "Press ", A.key, " again to exit");
-  if (Y) return c4.createElement(P, {
-    dimColor: !0,
-    key: "pasting-message"
-  }, "Pasting text...");
-  if (I.show && I.content)
-    if ("jsx" in I.content) return c4.createElement(h, {
-      key: "notification-content",
-      flexGrow: 1
-    }, I.content.jsx);
-    else return c4.createElement(P, {
-      color: I.content.color,
-      dimColor: !I.content.color,
-      key: "notification"
-    }, I.content.text);
-  let W = Rp() && B === "INSERT";
-  return c4.createElement(h, {
-    justifyContent: "flex-start",
-    gap: 1
-  }, W ? c4.createElement(P, {
-    dimColor: !0,
-    key: "vim-insert"
-  }, "-- INSERT --") : null, c4.createElement(iN5, {
-    mode: Q,
-    toolPermissionContext: G,
-    showHint: !Z && !W,
-    shellsSelected: D
-  }))
-}
-// @from(Start 10038083, End 10039537)
-function iN5({
-  mode: A,
-  toolPermissionContext: B,
-  showHint: Q,
-  shellsSelected: I = !1
-}) {
-  let {
-    shells: G
-  } = Mp(), Z = G.filter((D) => D.status === "running").length;
-  if (A === "memory") return c4.createElement(P, {
-    color: "remember"
-  }, "# to memorize");
-  if (A === "bash") return c4.createElement(P, {
-    color: "bashBorder"
-  }, "! for bash mode");
-  if (B?.mode === "plan") return c4.createElement(P, {
-    color: "planMode",
-    key: "plan-mode"
-  }, "⏸ plan mode on", c4.createElement(P, {
-    color: "secondaryText",
-    dimColor: !0
-  }, " ", "(shift+tab to cycle)"));
-  if (B?.mode === "acceptEdits") return c4.createElement(P, {
-    color: "autoAccept",
-    key: "write-file-allowed"
-  }, "⏵⏵ auto-accept edits on", c4.createElement(P, {
-    color: "secondaryText",
-    dimColor: !0
-  }, " ", "(shift+tab to cycle)"));
-  if (Z > 0) {
-    let D = ZA().hasSeenTasksHint;
-    return c4.createElement(h, {
-      gap: 1
-    }, c4.createElement(P, {
-      color: I ? "text" : "permission",
-      inverse: I,
-      bold: I
-    }, I ? " " : "", Z, " ", Z === 1 ? "bash" : "bashes", " ", "running", I ? " " : ""), Q && c4.createElement(c4.Fragment, null, c4.createElement(P, {
-      dimColor: !0
-    }, "·"), c4.createElement(P, {
-      dimColor: !0
-    }, I ? "Enter to view shells" : !D ? "↓ to view" : "? for shortcuts")))
-  }
-  if (!Q) return null;
-  return c4.createElement(P, {
-    dimColor: !0
-  }, "? for shortcuts")
-}
-// @from(Start 10039542, End 10039558)
-G6 = I1(U1(), 1)
-// @from(Start 10039564, End 10039580)
-hy = I1(U1(), 1)
-// @from(Start 10039586, End 10039602)
-Y5 = I1(U1(), 1)
-// @from(Start 10039606, End 10039623)
-$j2 = I1(gj(), 1)
-// @from(Start 10039627, End 10039644)
-rw1 = I1(U1(), 1)
-// @from(Start 10039650, End 10039667)
-Nj2 = I1(U1(), 1)
-// @from(Start 10039671, End 10039687)
-Op = I1(gj(), 1)
-// @from(Start 10039690, End 10039798)
-function Uj2(A) {
-  return `${Op.major(A,{loose:!0})}.${Op.minor(A,{loose:!0})}.${Op.patch(A,{loose:!0})}`
-}
-// @from(Start 10039800, End 10040179)
-function sw1(A, B = {
-  ISSUES_EXPLAINER: "report the issue at https://github.com/anthropics/claude-code/issues",
-  PACKAGE_URL: "@anthropic-ai/claude-code",
-  README_URL: "https://docs.anthropic.com/s/claude-code",
-  VERSION: "1.0.34"
-}.VERSION) {
-  let [Q, I] = Nj2.useState(() => Uj2(B));
-  if (!A) return null;
-  let G = Uj2(A);
-  if (G !== Q) return I(G), G;
-  return null
-}
-// @from(Start 10040181, End 10043078)
-function qj2({
-  isUpdating: A,
-  onChangeIsUpdating: B,
-  onAutoUpdaterResult: Q,
-  autoUpdaterResult: I,
-  showSuccessMessage: G,
-  verbose: Z
-}) {
-  let [D, Y] = rw1.useState({}), W = sw1(I?.version), J = Y5.useCallback(async () => {
-    let F = ZA();
-    if (A) return;
-    let X = {
-        ISSUES_EXPLAINER: "report the issue at https://github.com/anthropics/claude-code/issues",
-        PACKAGE_URL: "@anthropic-ai/claude-code",
-        README_URL: "https://docs.anthropic.com/s/claude-code",
-        VERSION: "1.0.34"
-      }.VERSION,
-      V = await Uw1(),
-      C = yG1();
-    if (Y({
-        global: X,
-        latest: V
-      }), !C && X && V && !$j2.gte(X, V, {
-        loose: !0
-      })) {
-      let K = Date.now();
-      B(!0), Ew1();
-      let E, N = F.installMethod === "local";
-      if (N) E = await Yp();
-      else E = await Nw1();
-      if (B(!1), E === "success") E1("tengu_auto_updater_success", {
-        fromVersion: X,
-        toVersion: V,
-        durationMs: Date.now() - K,
-        wasMigrated: N
-      });
-      else E1("tengu_auto_updater_fail", {
-        fromVersion: X,
-        attemptedVersion: V,
-        status: E,
-        durationMs: Date.now() - K,
-        wasMigrated: N
-      });
-      Q({
-        version: V,
-        status: E
-      })
-    }
-  }, [Q]);
-  if (rw1.useEffect(() => {
-      J()
-    }, [J]), CV(J, 1800000), !I?.version && (!D.global || !D.latest)) return null;
-  if (!I?.version && !A) return null;
-  return Y5.createElement(h, {
-    flexDirection: "row",
-    gap: 1
-  }, Z && Y5.createElement(P, {
-    dimColor: !0
-  }, "globalVersion: ", D.global, " · latestVersion:", " ", D.latest), A ? Y5.createElement(Y5.Fragment, null, Y5.createElement(h, null, Y5.createElement(P, {
-    color: "text",
-    dimColor: !0,
-    wrap: "end"
-  }, "Auto-updating to v", D.latest, "…"))) : I?.status === "success" && G && W && Y5.createElement(P, {
-    color: "success"
-  }, "✓ Update installed · Restart to apply"), (I?.status === "install_failed" || I?.status === "no_permissions") && Y5.createElement(P, {
-    color: "error"
-  }, "✗ Auto-update failed · Try ", Y5.createElement(P, {
-    bold: !0
-  }, "claude doctor"), !i$() && Y5.createElement(Y5.Fragment, null, " ", "or ", Y5.createElement(P, {
-    bold: !0
-  }, "npm i -g ", {
-    ISSUES_EXPLAINER: "report the issue at https://github.com/anthropics/claude-code/issues",
-    PACKAGE_URL: "@anthropic-ai/claude-code",
-    README_URL: "https://docs.anthropic.com/s/claude-code",
-    VERSION: "1.0.34"
-  }.PACKAGE_URL)), i$() && Y5.createElement(Y5.Fragment, null, " ", "or", " ", Y5.createElement(P, {
-    bold: !0
-  }, "cd ~/.claude/local && npm update ", {
-    ISSUES_EXPLAINER: "report the issue at https://github.com/anthropics/claude-code/issues",
-    PACKAGE_URL: "@anthropic-ai/claude-code",
-    README_URL: "https://docs.anthropic.com/s/claude-code",
-    VERSION: "1.0.34"
-  }.PACKAGE_URL))))
-}
-// @from(Start 10043083, End 10043099)
-o7 = I1(U1(), 1)
-// @from(Start 10043103, End 10043120)
-ow1 = I1(U1(), 1)
-// @from(Start 10043123, End 10044982)
-function Mj2({
-  isUpdating: A,
-  onChangeIsUpdating: B,
-  onAutoUpdaterResult: Q,
-  autoUpdaterResult: I,
-  showSuccessMessage: G,
-  verbose: Z
-}) {
-  let [D, Y] = ow1.useState({}), W = sw1(I?.version), J = o7.useRef(!1), F = o7.useCallback(async () => {
-    if (A || yG1()) return;
-    B(!0);
-    try {
-      let X = await Fp(),
-        V = {
-          ISSUES_EXPLAINER: "report the issue at https://github.com/anthropics/claude-code/issues",
-          PACKAGE_URL: "@anthropic-ai/claude-code",
-          README_URL: "https://docs.anthropic.com/s/claude-code",
-          VERSION: "1.0.34"
-        }.VERSION;
-      if (Y({
-          current: V,
-          latest: X.latestVersion
-        }), X.wasUpdated) E1("tengu_native_auto_updater_success", {}), Q({
-        version: X.latestVersion,
-        status: "success"
-      })
-    } catch (X) {
-      b1(X instanceof Error ? X : new Error(String(X))), E1("tengu_native_auto_updater_fail", {}), Q({
-        version: null,
-        status: "install_failed"
-      })
-    } finally {
-      B(!1)
-    }
-  }, [A, B, Q]);
-  if (ow1.useEffect(() => {
-      if (!J.current) J.current = !0, F()
-    }), CV(F, 1800000), !I?.version && (!D.current || !D.latest)) return null;
-  if (!I?.version && !A) return null;
-  return o7.createElement(h, {
-    flexDirection: "row",
-    gap: 1
-  }, Z && o7.createElement(P, {
-    dimColor: !0
-  }, "current: ", D.current, " · latest: ", D.latest), A ? o7.createElement(h, null, o7.createElement(P, {
-    color: "secondaryText",
-    dimColor: !0,
-    wrap: "end"
-  }, "Checking for updates")) : I?.status === "success" && G && W && o7.createElement(P, {
-    color: "success"
-  }, "✓ Update installed · Restart to update"), I?.status === "install_failed" && o7.createElement(P, {
-    color: "error"
-  }, "✗ Auto-update failed · Try ", o7.createElement(P, {
-    bold: !0
-  }, "/status")))
-}
-// @from(Start 10044984, End 10045451)
-function Lj2({
-  isUpdating: A,
-  onChangeIsUpdating: B,
-  onAutoUpdaterResult: Q,
-  autoUpdaterResult: I,
-  showSuccessMessage: G,
-  verbose: Z
-}) {
-  let [D, Y] = hy.useState(null);
-  if (hy.useEffect(() => {
-      ZF().then((J) => Y(J))
-    }, [Y]), D === null) return !0;
-  return hy.createElement(D ? Mj2 : qj2, {
-    verbose: Z,
-    onAutoUpdaterResult: Q,
-    autoUpdaterResult: I,
-    isUpdating: A,
-    onChangeIsUpdating: B,
-    showSuccessMessage: G
-  })
-}
-// @from(Start 10045456, End 10045473)
-Rj2 = I1(U1(), 1)
-// @from(Start 10045475, End 10045801)
-class z2A extends Rj2.Component {
-  constructor(A) {
-    super(A);
-    this.state = {
-      hasError: !1
-    }
-  }
-  static getDerivedStateFromError() {
-    return {
-      hasError: !0
-    }
-  }
-  componentDidCatch(A) {
-    MG1(A)
-  }
-  render() {
-    if (this.state.hasError) return null;
-    return this.props.children
-  }
-}
-// @from(Start 10045806, End 10045822)
-SW = I1(U1(), 1)
-// @from(Start 10045825, End 10046375)
-function Oj2({
-  tokenUsage: A
-}) {
-  let {
-    percentLeft: B,
-    isAboveWarningThreshold: Q,
-    isAboveErrorThreshold: I
-  } = m11(A, h11);
-  if (!Q) return null;
-  let G = g11();
-  return SW.createElement(h, {
-    flexDirection: "row"
-  }, SW.createElement(P, {
-    color: ZA().autoCompactEnabled ? "secondaryText" : I ? "error" : "warning"
-  }, G ? SW.createElement(SW.Fragment, null, "Context left until auto-compact: ", B, "%") : SW.createElement(SW.Fragment, null, "Context low (", B, "% remaining) · Run /compact to compact & continue")))
-}
-// @from(Start 10046377, End 10046441)
-function Tj2(A) {
-  return m11(A, h11).isAboveWarningThreshold
-}
-// @from(Start 10046446, End 10046462)
-KB = I1(U1(), 1)
-// @from(Start 10046466, End 10046482)
-HT = I1(U1(), 1)
-// @from(Start 10046530, End 10046547)
-Pj2 = I1(U1(), 1)
-// @from(Start 10046550, End 10046744)
-function tw1(A) {
-  return Pj2.useMemo(() => {
-    let B = A?.find((Q) => Q.name === "ide");
-    if (!B) return null;
-    return B.type === "connected" ? "connected" : "disconnected"
-  }, [A])
-}
-// @from(Start 10046749, End 10046757)
-Sj2 = !1
-// @from(Start 10046760, End 10048901)
-function _j2({
-  ideSelection: A,
-  mcpClients: B,
-  ideInstallationStatus: Q
-}) {
-  let I = tw1(B),
-    [G, Z] = HT.useState(!0),
-    [D, Y] = HT.useState(!1);
-  HT.useEffect(() => {
-    if (I === "connected") {
-      let K = setTimeout(() => {
-        Z(!1)
-      }, 1000);
-      return () => clearTimeout(K)
-    } else if (I === "disconnected") Z(!0)
-  }, [I]);
-  let [W, J] = HT.useState(!1);
-  HT.useEffect(() => {
-    if (Q?.error || hZ) {
-      J(!0);
-      let K = setTimeout(() => {
-        J(!1)
-      }, 5000);
-      return () => clearTimeout(K)
-    }
-  }, [Q?.error]);
-  let F = I === "connected" && (A?.filePath || A?.text && A.lineCount > 0),
-    X = I === "connected" && !F,
-    V = W && !hZ && !X && !F,
-    C = W && hZ && !X && !F;
-  return HT.useEffect(() => {
-    if (!KK() && I === null && !Sj2) {
-      let K;
-      return bt(!0).then((E) => {
-        if (E.length > 0) Y(!0), K = setTimeout(() => {
-          Y(!1)
-        }, 3000), Sj2 = !0
-      }), () => K && clearTimeout(K)
-    }
-  }, [I]), I !== null ? KB.createElement(KB.Fragment, null, !V && I === "disconnected" && KB.createElement(P, {
-    color: "error",
-    key: "ide-status"
-  }, A0.circle, " IDE disconnected"), X && KB.createElement(P, {
-    color: "success",
-    key: "ide-status"
-  }, A0.circle, G && " IDE connected"), V && KB.createElement(P, {
-    color: "error"
-  }, "IDE extension install failed (see /status for info)"), C && KB.createElement(P, {
-    color: "secondaryText"
-  }, "IDE plugin not connected (see /status for info)"), F && A?.text && A.lineCount > 0 ? KB.createElement(P, {
-    color: "permission",
-    key: "selection-indicator"
-  }, "⧉ ", A.lineCount, " ", A.lineCount === 1 ? "line" : "lines", " selected") : F && A?.filePath ? KB.createElement(P, {
-    color: "permission",
-    key: "selection-indicator"
-  }, "⧉ In ", nN5(A.filePath)) : null) : KB.createElement(KB.Fragment, null, D && !C && KB.createElement(P, {
-    color: "text",
-    key: "ide-command-hint"
-  }, A0.circle, " Use /ide to connect to your IDE"), C && KB.createElement(P, {
-    color: "secondaryText"
-  }, "IDE plugin not connected (see /status for info)"))
-}
-// @from(Start 10048903, End 10050881)
-function jj2({
-  apiKeyStatus: A,
-  autoUpdaterResult: B,
-  debug: Q,
-  isAutoUpdating: I,
-  verbose: G,
-  tokenUsage: Z,
-  permissionMode: D,
-  onAutoUpdaterResult: Y,
-  onChangeIsUpdating: W,
-  ideSelection: J,
-  ideInstallationStatus: F,
-  mcpClients: X
-}) {
-  let V = yfA(D),
-    C = Tj2(Z),
-    K = tw1(X),
-    [{
-      mainLoopModel: E
-    }] = d5(),
-    {
-      status: N,
-      resetsAt: q,
-      unifiedRateLimitFallbackAvailable: O
-    } = Hu(),
-    T = !(K === "connected" && (J?.filePath || J?.text && J.lineCount > 0)) || I || B?.status !== "success",
-    L = zg(q);
-  return G6.createElement(z2A, null, G6.createElement(h, {
-    flexDirection: "column",
-    alignItems: "flex-end"
-  }, G6.createElement(_j2, {
-    ideSelection: J,
-    mcpClients: X,
-    ideInstallationStatus: F
-  }), O && E === "opus" && N !== "allowed_warning" && G6.createElement(h, null, G6.createElement(P, {
-    color: "warning"
-  }, "Approaching Opus usage limit · /model to use best available model")), N === "allowed_warning" && G6.createElement(h, null, G6.createElement(P, {
-    color: "warning"
-  }, "Approaching usage limit", L && ` · resets at ${L}`)), A === "invalid" && G6.createElement(h, null, G6.createElement(P, {
-    color: "error"
-  }, "Invalid API key · Run /login")), A === "missing" && G6.createElement(h, null, G6.createElement(P, {
-    color: "error"
-  }, "Missing API key · Run /login")), Q && G6.createElement(h, null, G6.createElement(P, {
-    color: "warning"
-  }, "Debug mode")), A !== "invalid" && A !== "missing" && V && G6.createElement(h, null, G6.createElement(P, {
-    color: "warning"
-  }, V)), A !== "invalid" && A !== "missing" && !V && G && G6.createElement(h, null, G6.createElement(P, {
-    dimColor: !0
-  }, Z, " tokens")), G6.createElement(Oj2, {
-    tokenUsage: Z
-  }), T && G6.createElement(Lj2, {
-    verbose: G,
-    onAutoUpdaterResult: Y,
-    autoUpdaterResult: B,
-    isUpdating: I,
-    onChangeIsUpdating: W,
-    showSuccessMessage: !C
-  })))
-}
-// @from(Start 10050886, End 10050902)
-AY = I1(U1(), 1)
-// @from(Start 10050906, End 10050923)
-yj2 = I1(U1(), 1)
-// @from(Start 10050926, End 10051537)
-function aN5({
-  item: A,
-  maxColumnWidth: B,
-  isSelected: Q
-}) {
-  let I = c9().columns,
-    G = I < 80,
-    Z = B ?? A.displayText.length + 5;
-  return AY.createElement(h, {
-    key: A.id,
-    flexDirection: G ? "column" : "row"
-  }, AY.createElement(h, {
-    width: G ? void 0 : Z
-  }, AY.createElement(P, {
-    color: Q ? "suggestion" : void 0,
-    dimColor: !Q
-  }, A.displayText)), A.description && AY.createElement(h, {
-    width: I - (G ? 4 : Z + 4),
-    paddingLeft: G ? 4 : 0
-  }, AY.createElement(P, {
-    color: Q ? "suggestion" : void 0,
-    dimColor: !Q,
-    wrap: "wrap"
-  }, A.description)))
-}
-// @from(Start 10051539, End 10052123)
-function w2A({
-  suggestions: A,
-  selectedSuggestion: B
-}) {
-  let {
-    rows: Q
-  } = c9(), I = Math.min(10, Math.max(1, Q - 3)), G = (J) => {
-    return Math.max(...J.map((F) => F.displayText.length)) + 5
-  };
-  if (A.length === 0) return null;
-  let Z = Math.max(0, Math.min(B - Math.floor(I / 2), A.length - I)),
-    D = Math.min(Z + I, A.length),
-    Y = A.slice(Z, D),
-    W = G(Y);
-  return AY.createElement(h, {
-    flexDirection: "column"
-  }, Y.map((J) => AY.createElement(aN5, {
-    key: J.id,
-    item: J,
-    maxColumnWidth: W,
-    isSelected: J.id === A[B]?.id
-  })))
-}
-// @from(Start 10052128, End 10052147)
-POB = yj2.memo(w2A)
-// @from(Start 10052150, End 10054540)
-function sN5({
-  apiKeyStatus: A,
-  debug: B,
-  exitMessage: Q,
-  vimMode: I,
-  mode: G,
-  autoUpdaterResult: Z,
-  isAutoUpdating: D,
-  verbose: Y,
-  tokenUsage: W,
-  onAutoUpdaterResult: J,
-  onChangeIsUpdating: F,
-  suggestions: X,
-  selectedSuggestion: V,
-  notification: C,
-  toolPermissionContext: K,
-  helpOpen: E,
-  suppressHint: N,
-  shellsSelected: q = !1,
-  ideSelection: O,
-  mcpClients: R,
-  ideInstallationStatus: T,
-  isPasting: L = !1
-}) {
-  if (X.length) return S9.createElement(h, {
-    paddingX: 2,
-    paddingY: 0
-  }, S9.createElement(w2A, {
-    suggestions: X,
-    selectedSuggestion: V
-  }));
-  if (E) return S9.createElement(h, {
-    paddingX: 2,
-    paddingY: 0,
-    flexDirection: "row"
-  }, S9.createElement(h, {
-    flexDirection: "column",
-    width: 22
-  }, S9.createElement(h, null, S9.createElement(P, {
-    dimColor: !0
-  }, "! for bash mode")), S9.createElement(h, null, S9.createElement(P, {
-    dimColor: !0
-  }, "/ for commands")), S9.createElement(h, null, S9.createElement(P, {
-    dimColor: !0
-  }, "@ for file paths")), S9.createElement(h, null, S9.createElement(P, {
-    dimColor: !0
-  }, "# to memorize"))), S9.createElement(h, {
-    flexDirection: "column",
-    width: 35
-  }, S9.createElement(h, null, S9.createElement(P, {
-    dimColor: !0
-  }, "double tap esc to clear input")), S9.createElement(h, null, S9.createElement(P, {
-    dimColor: !0
-  }, "shift + tab to auto-accept edits")), S9.createElement(h, null, S9.createElement(P, {
-    dimColor: !0
-  }, "ctrl + r for verbose output")), S9.createElement(h, null, S9.createElement(P, {
-    dimColor: !0
-  }, zj2()))), S9.createElement(h, {
-    flexDirection: "column"
-  }, S9.createElement(h, null, S9.createElement(P, {
-    dimColor: !0
-  }, "ctrl + z to undo"))));
-  return S9.createElement(h, {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingX: 2,
-    paddingY: 0
-  }, S9.createElement(Ej2, {
-    exitMessage: Q,
-    vimMode: I,
-    mode: G,
-    notification: C,
-    toolPermissionContext: K,
-    suppressHint: N,
-    shellsSelected: q,
-    isPasting: L
-  }), S9.createElement(jj2, {
-    apiKeyStatus: A,
-    autoUpdaterResult: Z,
-    debug: B,
-    isAutoUpdating: D,
-    verbose: Y,
-    tokenUsage: W,
-    permissionMode: K.mode,
-    onAutoUpdaterResult: J,
-    onChangeIsUpdating: F,
-    ideSelection: O,
-    mcpClients: R,
-    ideInstallationStatus: T
-  }))
-}
-// @from(Start 10054545, End 10054564)
-xj2 = kj2.memo(sN5)
-// @from(Start 10054570, End 10054586)
-my = I1(U1(), 1)
-// @from(Start 10054592, End 10054832)
-o$ = K2({
-  content: "Caveat: The messages below were generated by the user while running local commands. DO NOT respond to these messages or otherwise consider them in your response unless the user explicitly asks you to.",
-  isMeta: !0
-})
-// @from(Start 10054834, End 10059265)
-async function Tp(A, B, Q, I, G, Z, D) {
-  let W = B !== "prompt" || !A.startsWith("/") ? await Ne1(x11(A, I, Z, [])) : [];
-  if (B === "bash") {
-    E1("tengu_input_bash", {});
-    let F = K2({
-      content: `<bash-input>${A}</bash-input>`
-    });
-    Q({
-      jsx: my.createElement(h, {
-        flexDirection: "column",
-        marginTop: 1
-      }, my.createElement(oH1, {
-        addMargin: !1,
-        param: {
-          text: `<bash-input>${A}</bash-input>`,
-          type: "text"
-        }
-      }), my.createElement(vy, {
-        mode: "tool-use",
-        haikuWords: ["Bashing"],
-        currentResponseLength: 0
-      })),
-      shouldHidePromptInput: !1
-    });
-    try {
-      let {
-        data: X
-      } = await aJ(E4.call({
-        command: A
-      }, I)), V = X.stderr;
-      if (gK1(I.getToolPermissionContext())) V = bK1(V);
-      return {
-        messages: [o$, F, ...W, K2({
-          content: `<bash-stdout>${X.stdout}</bash-stdout><bash-stderr>${V}</bash-stderr>`
-        })],
-        shouldQuery: !1
-      }
-    } catch (X) {
-      if (X instanceof Uz) {
-        if (X.interrupted) return {
-          messages: [o$, F, K2({
-            content: Wu
-          }), ...W],
-          shouldQuery: !1
-        };
-        return {
-          messages: [o$, F, ...W, K2({
-            content: `<bash-stdout>${X.stdout}</bash-stdout><bash-stderr>${X.stderr}</bash-stderr>`
-          })],
-          shouldQuery: !1
-        }
-      }
-      return {
-        messages: [o$, F, ...W, K2({
-          content: `<bash-stderr>Command failed: ${X instanceof Error?X.message:String(X)}</bash-stderr>`
-        })],
-        shouldQuery: !1
-      }
-    } finally {
-      setTimeout(() => {
-        Q(null)
-      }, 200)
-    }
-  }
-  if (B === "memorySelect") {
-    E1("tengu_input_memory", {});
-    let F = K2({
-      content: `<user-memory-input>${A}</user-memory-input>`
-    });
-    return SU2(A, I, D), {
-      messages: [o$, F, ...W, K2({
-        content: AW
-      })],
-      shouldQuery: !1
-    }
-  }
-  if (A.startsWith("/")) {
-    let F = A.slice(1).split(" "),
-      X = F[0],
-      V = !1;
-    if (F.length > 1 && F[1] === "(MCP)") X = X + " (MCP)", V = !0;
-    if (!X) return E1("tengu_input_slash_missing", {}), {
-      messages: [o$, ...W, K2({
-        content: "Commands are in the form `/command [args]`"
-      })],
-      shouldQuery: !1
-    };
-    let C = X.includes(":"),
-      K = V ? "mcp" : C ? "custom" : X;
-    if (!Zj2(X, I.options.commands)) return E1("tengu_input_prompt", {}), bK("user_prompt", {
-      prompt_length: String(A.length),
-      prompt: Xe1(A)
-    }), {
-      messages: [K2({
-        content: A
-      }), ...W],
-      shouldQuery: !0
-    };
-    let E = A.slice(X.length + 2),
-      {
-        messages: N,
-        shouldQuery: q,
-        allowedTools: O,
-        skipHistory: R,
-        maxThinkingTokens: T
-      } = await rN5(X, E, Q, I);
-    if (N.length === 0) return E1("tengu_input_command", {
-      input: K
-    }), {
-      messages: [],
-      shouldQuery: !1,
-      skipHistory: R,
-      maxThinkingTokens: T
-    };
-    if (N.length === 2 && N[1].type === "user" && typeof N[1].message.content === "string" && N[1].message.content.startsWith("Unknown command:")) return E1("tengu_input_slash_invalid", {
-      input: X
-    }), {
-      messages: [o$, ...N],
-      shouldQuery: q,
-      allowedTools: O,
-      maxThinkingTokens: T
-    };
-    if (N.length === 2) return E1("tengu_input_command", {
-      input: K
-    }), {
-      messages: q ? N : [o$, ...N],
-      shouldQuery: q,
-      allowedTools: O,
-      maxThinkingTokens: T
-    };
-    return E1("tengu_input_command", {
-      input: K
-    }), {
-      messages: q ? N : [o$, ...N],
-      shouldQuery: q,
-      allowedTools: O,
-      maxThinkingTokens: T
-    }
-  }
-  E1("tengu_input_prompt", {}), bK("user_prompt", {
-    prompt_length: String(A.length),
-    prompt: Xe1(A)
-  });
-  let J = G ? Object.values(G).filter((F) => F.type === "image") : [];
-  if (J.length > 0) {
-    let F = J.map((X) => {
-      return {
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: X.mediaType || "image/png",
-          data: X.content
-        }
-      }
-    });
-    return {
-      messages: [K2({
-        content: [...F, {
-          type: "text",
-          text: A
-        }]
-      }), ...W],
-      shouldQuery: !0
-    }
-  }
-  return {
-    messages: [K2({
-      content: A
-    }), ...W],
-    shouldQuery: !0
-  }
-}
-// @from(Start 10059266, End 10062097)
-async function rN5(A, B, Q, I) {
-  try {
-    let G = cw1(A, I.options.commands);
-    switch (G.type) {
-      case "local-jsx":
-        return new Promise((Z) => {
-          G.call((D, Y) => {
-            if (Q(null), Y?.skipMessage) {
-              Z({
-                messages: [],
-                shouldQuery: !1,
-                skipHistory: !0
-              });
-              return
-            }
-            Z({
-              messages: [K2({
-                content: `<command-name>/${G.userFacingName()}</command-name>
-            <command-message>${G.userFacingName()}</command-message>
-            <command-args>${B}</command-args>`
-              }), D ? K2({
-                content: `<local-command-stdout>${D}</local-command-stdout>`
-              }) : K2({
-                content: `<local-command-stdout>${AW}</local-command-stdout>`
-              })],
-              shouldQuery: !1
-            })
-          }, I, B).then((D) => {
-            Q({
-              jsx: D,
-              shouldHidePromptInput: !0
-            })
-          })
+      var I = Q.fragment,
+        Y = I.length();
+      if (G = {
+          version: {
+            major: I.getByte(),
+            minor: I.getByte()
+          },
+          random: KQ.util.createBuffer(I.getBytes(32)),
+          session_id: Eq(I, 1),
+          extensions: []
+        }, Z) G.cipher_suite = I.getBytes(2), G.compression_method = I.getByte();
+      else G.cipher_suites = Eq(I, 2), G.compression_methods = Eq(I, 1);
+      if (Y = B - (Y - I.length()), Y > 0) {
+        var J = Eq(I, 2);
+        while (J.length() > 0) G.extensions.push({
+          type: [J.getByte(), J.getByte()],
+          data: Eq(J, 2)
         });
-      case "local": {
-        let Z = K2({
-          content: `<command-name>/${G.userFacingName()}</command-name>
-          <command-message>${G.userFacingName()}</command-message>
-          <command-args>${B}</command-args>`
-        });
-        try {
-          let D = await G.call(B, I);
-          return {
-            messages: [Z, K2({
-              content: `<local-command-stdout>${D}</local-command-stdout>`
-            })],
-            shouldQuery: !1
-          }
-        } catch (D) {
-          return b1(D), {
-            messages: [Z, K2({
-              content: `<local-command-stderr>${String(D)}</local-command-stderr>`
-            })],
-            shouldQuery: !1
-          }
-        }
-      }
-      case "prompt": {
-        let Z = await G.getPromptForCommand(B, I),
-          D = [`<command-message>${G.userFacingName()} is ${G.progressMessage}…</command-message>`, `<command-name>/${G.userFacingName()}</command-name>`, B ? `<command-args>${B}</command-args>` : null].filter(Boolean).join(`
-`),
-          Y = Lp(G.allowedTools ?? []),
-          W = s$([K2({
-            content: Z
-          })]),
-          J = await Ne1(x11(Z.filter((F) => F.type === "text").map((F) => F.text).join(" "), I, null, []));
-        return {
-          messages: [K2({
-            content: D
-          }), K2({
-            content: Z,
-            isMeta: !0
-          }), ...J, ...Y.length ? [Nu({
-            type: "command_permissions",
-            allowedTools: Y
-          })] : []],
-          shouldQuery: !0,
-          allowedTools: Y,
-          maxThinkingTokens: W > 0 ? W : void 0
-        }
-      }
-    }
-  } catch (G) {
-    if (G instanceof tT1) return {
-      messages: [K2({
-        content: G.message
-      })],
-      shouldQuery: !1
-    };
-    throw G
-  }
-}
-// @from(Start 10062102, End 10062119)
-ew1 = I1(U1(), 1)
-// @from(Start 10062125, End 10062145)
-oN5 = "at_mentioned"
-// @from(Start 10062149, End 10062333)
-tN5 = n.object({
-    method: n.literal(oN5),
-    params: n.object({
-      filePath: n.string(),
-      lineStart: n.number().optional(),
-      lineEnd: n.number().optional()
-    })
-  })
-// @from(Start 10062336, End 10062939)
-function fj2(A, B) {
-  let Q = ew1.useRef();
-  ew1.useEffect(() => {
-    let I = IW(A);
-    if (Q.current !== I) Q.current = I;
-    if (I) I.client.setNotificationHandler(tN5, (G) => {
-      if (Q.current !== I) return;
-      try {
-        let Z = G.params,
-          D = Z.lineStart !== void 0 ? Z.lineStart + 1 : void 0,
-          Y = Z.lineEnd !== void 0 ? Z.lineEnd + 1 : void 0;
-        B({
-          filePath: Z.filePath,
-          lineStart: D,
-          lineEnd: Y
-        })
-      } catch (Z) {
-        console.error("Error processing at_mention notification:", Z)
-      }
-    })
-  }, [A, B])
-}
-// @from(Start 10062973, End 10062989)
-_E = I1(U1(), 1)
-// @from(Start 10062992, End 10064250)
-function vj2({
-  maxBufferSize: A,
-  debounceMs: B
-}) {
-  let [Q, I] = _E.useState([]), [G, Z] = _E.useState(-1), D = _E.useRef(0), Y = _E.useRef(null), W = _E.useCallback((V, C, K = {}) => {
-    let E = Date.now();
-    if (Y.current) clearTimeout(Y.current), Y.current = null;
-    if (E - D.current < B) {
-      Y.current = setTimeout(() => {
-        W(V, C, K)
-      }, B);
-      return
-    }
-    D.current = E, I((N) => {
-      let q = G >= 0 ? N.slice(0, G + 1) : N,
-        O = q[q.length - 1];
-      if (O && O.text === V) return q;
-      let R = [...q, {
-        text: V,
-        cursorOffset: C,
-        pastedContents: K,
-        timestamp: E
-      }];
-      if (R.length > A) return R.slice(-A);
-      return R
-    }), Z((N) => {
-      let q = N >= 0 ? N + 1 : Q.length;
-      return Math.min(q, A - 1)
-    })
-  }, [B, A, G, Q.length]), J = _E.useCallback(() => {
-    if (G < 0 || Q.length === 0) return;
-    let V = Math.max(0, G - 1),
-      C = Q[V];
-    if (C) return Z(V), C;
-    return
-  }, [Q, G]), F = _E.useCallback(() => {
-    if (I([]), Z(-1), D.current = 0, Y.current) clearTimeout(Y.current), Y.current = null
-  }, [D, Y]), X = G > 0 && Q.length > 1;
-  return {
-    pushToBuffer: W,
-    undo: J,
-    canUndo: X,
-    clearBuffer: F
-  }
-}
-// @from(Start 10064252, End 10064605)
-function eN5(A, B) {
-  let Q = Object.keys(B).map(Number),
-    I = Q.length > 0 ? Math.max(...Q) + 1 : 1,
-    {
-      truncatedText: G,
-      placeholderContent: Z
-    } = _O2(A, I);
-  if (!Z) return;
-  let D = {
-    ...B,
-    [I]: {
-      id: I,
-      type: "text",
-      content: Z
-    }
-  };
-  return {
-    newInput: G,
-    newPastedContents: D
-  }
-}
-// @from(Start 10064607, End 10075442)
-function A$5({
-  debug: A,
-  ideSelection: B,
-  toolPermissionContext: Q,
-  setToolPermissionContext: I,
-  apiKeyStatus: G,
-  commands: Z,
-  isLoading: D,
-  onQuery: Y,
-  verbose: W,
-  messages: J,
-  setToolJSX: F,
-  onAutoUpdaterResult: X,
-  autoUpdaterResult: V,
-  input: C,
-  onInputChange: K,
-  mode: E,
-  onModeChange: N,
-  queuedCommands: q,
-  setQueuedCommands: O,
-  submitCount: R,
-  onSubmitCountChange: T,
-  setIsLoading: L,
-  setAbortController: _,
-  onShowMessageSelector: k,
-  notification: i,
-  addNotification: x,
-  mcpClients: s,
-  pastedContents: d,
-  setPastedContents: F1,
-  vimMode: X1,
-  setVimMode: v,
-  ideInstallationStatus: D1,
-  onExit: N1,
-  getToolUseContext: u1
-}) {
-  let [d1, YA] = DQ.useState(!1), [bA, e1] = DQ.useState({
-    show: !1
-  }), [k1, Q1] = DQ.useState(""), [v1, L1] = DQ.useState(C.length), [BA, HA] = DQ.useState(!1);
-  DQ.useEffect(() => {
-    if (!BA && C.length > 1e4) {
-      let x0 = eN5(C, d);
-      if (x0) {
-        let {
-          newInput: d0,
-          newPastedContents: L9
-        } = x0;
-        K(d0), F1(L9), L1(d0.length)
-      }
-      HA(!0)
-    }
-  }, [C, BA, d, K, F1]), DQ.useEffect(() => {
-    if (C === "") HA(!1)
-  }, [C]);
-  let MA = DQ.useMemo(() => {
-      let x0 = Object.keys(d).map(Number);
-      if (x0.length === 0) return 1;
-      return Math.max(...x0) + 1
-    }, [d]),
-    [t, B1] = DQ.useState(!1),
-    [W1, w1] = DQ.useState(!1),
-    [P1, e] = DQ.useState(!1),
-    {
-      pushToBuffer: y1,
-      undo: O1,
-      canUndo: h1,
-      clearBuffer: o1
-    } = vj2({
-      maxBufferSize: 50,
-      debounceMs: 1000
-    }),
-    QA = !C && R === 0;
-  DQ.useEffect(() => {
-    if (R > 0) return;
-    dz1(!1).then((x0) => {
-      Q1(`Try "${EP(x0)}"`)
-    })
-  }, [E, R]);
-  let zA = DQ.useCallback((x0) => {
-      if (x0 === "?") {
-        E1("tengu_help_toggled", {}), B1((_B) => !_B);
-        return
-      }
-      B1(!1);
-      let d0 = x0.length === C.length + 1,
-        L9 = v1 === 0;
-      if (d0 && L9 && x0.startsWith("!")) {
-        N("bash");
-        return
-      }
-      if (d0 && L9 && x0.startsWith("#")) {
-        N("memory");
-        return
-      }
-      let w5 = x0.replaceAll("\t", "    ");
-      if (C !== w5) y1(C, v1, d);
-      K(w5)
-    }, [K, N, C, v1, y1, d]),
-    {
-      resetHistory: Y0,
-      onHistoryUp: fA,
-      onHistoryDown: H0
-    } = jO2((x0, d0, L9) => {
-      zA(x0), N(d0), F1(L9)
-    }, C, d, L1),
-    {
-      shells: k2
-    } = Mp(),
-    s0 = k2.filter((x0) => x0.status === "running").length,
-    q2 = 3,
-    h2 = () => {
-      if (y0.length <= 1) {
-        if (q.length > 0) {
-          Z6();
-          return
-        }
-        if (W1) w1(!1);
-        else fA()
-      }
-    },
-    j9 = () => {
-      if (y0.length <= 1) {
-        let x0 = H0();
-        if (x0 && s0 > 0) {
-          w1(!0);
-          let d0 = ZA();
-          if (!d0.hasSeenTasksHint) j0({
-            ...d0,
-            hasSeenTasksHint: !0
-          })
-        } else w1(!1);
-        return x0
-      }
-      return !1
-    },
-    [w6, E0] = DQ.useState({
-      suggestions: [],
-      selectedSuggestion: -1,
-      commandArgumentHint: void 0
-    }),
-    g0 = DQ.useCallback(async (x0, d0 = !1, L9) => {
-      if (x0.trim() === "") return;
-      if (w6.suggestions.length > 0 && !d0) return;
-      if (["exit", "quit", ":q", ":q!", ":wq", ":wq!"].includes(x0.trim())) {
-        if (Z.find((j8) => j8.name === "exit")) g0("/exit", !0);
-        else B$5();
-        return
-      }
-      let w5 = x0,
-        _B = SO2(x0),
-        D6 = 0;
-      for (let j5 of _B) {
-        let j8 = d[j5.id];
-        if (j8 && j8.type === "text") w5 = w5.replace(j5.match, j8.content), D6++
-      }
-      if (E1("tengu_paste_text", {
-          pastedTextCount: D6
-        }), D) {
-        if (E !== "prompt") return;
-        O((j5) => [...j5, {
-          value: w5,
-          mode: "prompt"
-        }]), K(""), L1(0), F1({}), Y0(), o1();
-        return
-      }
-      if (E === "memory") {
-        N("memorySelect");
-        return
-      }
-      K(""), L1(0), N("prompt"), F1({}), T((j5) => j5 + 1), L(!0), o1();
-      let F3 = new AbortController;
-      _(F3);
-      let {
-        messages: X3,
-        shouldQuery: q7,
-        allowedTools: V3,
-        skipHistory: H2,
-        maxThinkingTokens: w9
-      } = await Tp(w5, E, F, u1(J, [], F3, []), d, B, L9);
-      if (X3.length) Y(X3, F3, q7, V3 ?? [], w9);
-      else {
-        if (!H2) GT({
-          display: x0,
-          pastedContents: d
-        });
-        Y0(), L(!1), _(null);
-        return
-      }
-      for (let j5 of X3)
-        if (j5.type === "user") {
-          let j8 = E === "bash" ? `!${x0}` : E === "memorySelect" ? `#${x0}` : x0;
-          GT({
-            display: j8,
-            pastedContents: d
-          }), Y0()
-        }
-    }, [w6.suggestions.length, D, E, K, N, T, L, _, F, u1, J, d, F1, B, Z, O, Y0, Y, o1]),
-    {
-      suggestions: y0,
-      selectedSuggestion: T0,
-      commandArgumentHint: V0
-    } = Kj2({
-      commands: Z,
-      onInputChange: K,
-      onSubmit: g0,
-      setCursorOffset: L1,
-      input: C,
-      cursorOffset: v1,
-      setSuggestionsState: E0,
-      suggestionsState: w6
-    });
-
-  function N2(x0, d0) {
-    E1("tengu_paste_image", {}), N("prompt");
-    let L9 = {
-      id: MA,
-      type: "image",
-      content: x0,
-      mediaType: d0 || "image/png"
-    };
-    F1((w5) => ({
-      ...w5,
-      [MA]: L9
-    })), z5(PO2(L9.id))
-  }
-
-  function h9(x0) {
-    let d0 = UZ(x0).replace(/\r/g, `
-`).replaceAll("\t", "    ");
-    if (d0.length > sz1) {
-      let L9 = {
-          id: MA,
-          type: "text",
-          content: d0
-        },
-        w5 = uz1(d0);
-      F1((_B) => ({
-        ..._B,
-        [MA]: L9
-      })), z5(yAA(L9.id, w5))
-    } else z5(d0)
-  }
-
-  function z5(x0) {
-    y1(C, v1, d);
-    let d0 = C.slice(0, v1) + x0 + C.slice(v1);
-    K(d0), L1(v1 + x0.length)
-  }
-  let W3 = $N(() => {}, () => k()),
-    Z6 = DQ.useCallback(() => {
-      if (q.length === 0) return;
-      let x0 = [...q.map((d0) => d0.value), C].filter(Boolean).join(`
-`);
-      K(x0), N("prompt"), O(() => []), L1(q.map((d0) => d0.value).join(`
-`).length + 1 + v1)
-    }, [q, K, N, O, C, v1]);
-  DQ.useEffect(() => {
-    if (!D && q[0]) {
-      let x0 = q.map((d0) => d0.value).join(`
-`);
-      O((d0) => d0.filter((L9) => !q.includes(L9))), g0(x0, !1)
-    }
-  }, [D, q, g0, O]), fj2(s, function(x0) {
-    E1("tengu_ext_at_mentioned", {});
-    let d0, L9 = bj2.relative(dA(), x0.filePath);
-    if (x0.lineStart && x0.lineEnd) d0 = x0.lineStart === x0.lineEnd ? `@${L9}#L${x0.lineStart} ` : `@${L9}#L${x0.lineStart}-${x0.lineEnd} `;
-    else d0 = `@${L9} `;
-    let w5 = C[v1 - 1] ?? " ";
-    if (!/\s/.test(w5)) d0 = ` ${d0}`;
-    z5(d0)
-  }), Z0((x0, d0) => {
-    if (d0.ctrl && x0.toLowerCase() === "z") {
-      if (h1) {
-        let L9 = O1();
-        if (L9) K(L9.text), L1(L9.cursorOffset), F1(L9.pastedContents)
-      }
-      return
-    }
-    if (d0.return && W1) {
-      g0("/bashes", !0), w1(!1);
-      return
-    }
-    if (v1 === 0 && (d0.escape || d0.backspace || d0.delete)) N("prompt"), B1(!1);
-    if (t && C === "" && (d0.backspace || d0.delete)) B1(!1);
-    if (d0.tab && d0.shift) {
-      let L9 = wj2(Q);
-      if (E1("tengu_mode_cycle", {
-          to: L9
-        }), I({
-          ...Q,
-          mode: L9
-        }), t) B1(!1);
-      return
-    }
-    if (d0.escape) {
-      if (W1) {
-        w1(!1);
-        return
-      }
-      if (q.length > 0) {
-        Z6();
-        return
-      }
-      if (J.length > 0 && !C && !D) W3()
-    }
-    if (d0.return && t) B1(!1)
-  });
-  let {
-    columns: v6
-  } = c9(), J3 = v6 - 6, uQ = DQ.useMemo(() => VE(J), [J]);
-  return z8.createElement(h, {
-    flexDirection: "column"
-  }, q.length > 0 && z8.createElement(h, {
-    flexDirection: "column",
-    marginTop: 1
-  }, z8.createElement(h, {
-    paddingLeft: 2,
-    flexDirection: "column",
-    width: v6 - 4
-  }, z8.createElement(P, {
-    color: "secondaryText",
-    wrap: "wrap"
-  }, q.map((x0) => x0.value).join(`
-`)))), z8.createElement(h, {
-    alignItems: "flex-start",
-    justifyContent: "flex-start",
-    borderColor: E === "bash" ? "bashBorder" : E === "memory" || E === "memorySelect" ? "remember" : "secondaryBorder",
-    borderDimColor: E !== "memory",
-    borderStyle: "round",
-    marginTop: q.length > 0 ? 0 : 1,
-    width: "100%"
-  }, z8.createElement(h, {
-    alignItems: "flex-start",
-    alignSelf: "flex-start",
-    flexWrap: "nowrap",
-    justifyContent: "flex-start",
-    width: 3
-  }, E === "bash" ? z8.createElement(P, {
-    color: "bashBorder",
-    dimColor: D
-  }, " ! ") : E === "memory" || E === "memorySelect" ? z8.createElement(P, {
-    color: "remember",
-    dimColor: D
-  }, " # ") : z8.createElement(P, {
-    color: D ? "secondaryText" : void 0
-  }, " > ")), z8.createElement(h, {
-    paddingRight: 1
-  }, (() => {
-    let x0 = {
-      multiline: !0,
-      onSubmit: g0,
-      onChange: zA,
-      value: C,
-      onHistoryUp: h2,
-      onHistoryDown: j9,
-      onHistoryReset: () => Y0(),
-      placeholder: E === "memory" ? 'Add to memory. Try "Always use descriptive variable names"' : q.length > 0 && (ZA().queuedCommandUpHintCount || 0) < q2 ? "Press up to edit queued messages" : QA ? k1 : void 0,
-      onExit: N1,
-      onExitMessage: (d0, L9) => e1({
-        show: d0,
-        key: L9
-      }),
-      onMessage: (d0, L9) => {
-        if (d0 && L9) x({
-          text: L9
-        }, {
-          timeoutMs: 3600000
-        });
-        else x({
-          text: ""
-        }, {
-          timeoutMs: 0
-        })
-      },
-      onImagePaste: N2,
-      columns: J3,
-      disableCursorMovementForUpDownKeys: y0.length > 0,
-      cursorOffset: v1,
-      onChangeCursorOffset: L1,
-      onPaste: h9,
-      onIsPastingChange: e,
-      focus: E !== "memorySelect",
-      showCursor: E !== "memorySelect",
-      argumentHint: V0,
-      onUndo: h1 ? () => {
-        let d0 = O1();
-        if (d0) K(d0.text), L1(d0.cursorOffset), F1(d0.pastedContents)
-      } : void 0
-    };
-    return Rp() ? z8.createElement(H2A, {
-      ...x0,
-      initialMode: X1,
-      onModeChange: v,
-      isLoading: D
-    }) : z8.createElement(j3, {
-      ...x0
-    })
-  })())), E === "memorySelect" && z8.createElement(qw1, {
-    onSelect: (x0) => {
-      g0(C, !1, x0)
-    },
-    onCancel: () => {
-      N("memory")
-    }
-  }), z8.createElement(xj2, {
-    apiKeyStatus: G,
-    debug: A,
-    exitMessage: bA,
-    vimMode: X1,
-    mode: E,
-    autoUpdaterResult: V,
-    isAutoUpdating: d1,
-    verbose: W,
-    tokenUsage: uQ,
-    onAutoUpdaterResult: X,
-    onChangeIsUpdating: YA,
-    suggestions: y0,
-    selectedSuggestion: T0,
-    notification: i,
-    toolPermissionContext: Q,
-    helpOpen: t,
-    suppressHint: C.length > 0,
-    shellsSelected: W1,
-    ideSelection: B,
-    mcpClients: s,
-    ideInstallationStatus: D1,
-    isPasting: P1
-  }))
-}
-// @from(Start 10075447, End 10075456)
-gj2 = A$5
-// @from(Start 10075459, End 10075494)
-function B$5() {
-  B0A(""), MI(0)
-}
-// @from(Start 10075499, End 10075516)
-hj2 = I1(U1(), 1)
-// @from(Start 10075519, End 10075694)
-function mj2() {
-  hj2.useEffect(() => {
-    let A = Math.round(process.uptime() * 1000);
-    E1("tengu_timer", {
-      event: "startup",
-      durationMs: A
-    })
-  }, [])
-}
-// @from(Start 10075699, End 10075716)
-I01 = I1(U1(), 1)
-// @from(Start 10075719, End 10076275)
-function dj2() {
-  let [A, B] = I01.useState(() => {
-    let Z = qG(!1);
-    if (!mS() || T9()) return "valid";
-    if (Z) return "loading";
-    return "missing"
-  }), [Q, I] = I01.useState(null), G = I01.useCallback(async () => {
-    if (!mS() || T9()) return;
-    let Z = qG(!1);
-    if (!Z) {
-      B("missing");
-      return
-    }
-    try {
-      let Y = await iE2(Z, !1) ? "valid" : "invalid";
-      B(Y);
-      return
-    } catch (D) {
-      I(D), B("error");
-      return
-    }
-  }, []);
-  return {
-    status: A,
-    reverify: G,
-    error: Q
-  }
-}
-// @from(Start 10076277, End 10076585)
-function uj2(A, B, Q, I, G, Z, D, Y) {
-  Z0((W, J) => {
-    if (!J.escape) return;
-    if (Z?.aborted) return;
-    if (!Z) return;
-    if (!Q) return;
-    if (I) return;
-    if (Rp() && Y === "INSERT") return;
-    if (G.length > 0) {
-      if (D) D()
-    }
-    E1("tengu_cancel", {}), A(() => []), B()
-  })
-}
-// @from(Start 10076590, End 10076607)
-pj2 = I1(U1(), 1)
-// @from(Start 10076613, End 10076665)
-Q$5 = ["Edit", "MultiEdit", "Write", "NotebookEdit"]
-// @from(Start 10076668, End 10076712)
-function G01(A) {
-  return Q$5.includes(A)
-}
-// @from(Start 10076714, End 10077010)
-function Z01(A, B, Q, I) {
-  let G;
-  if (A.getPath && B) {
-    let Z = A.inputSchema.safeParse(B);
-    if (Z.success) {
-      let D = A.getPath(Z.data);
-      if (D) G = $G(D)
-    }
-  }
-  return {
-    decision: Q,
-    source: I,
-    tool_name: A.name,
-    ...G && {
-      language: G
-    }
-  }
-}
-// @from(Start 10077011, End 10077126)
-async function D01(A, B, Q) {
-  await bK("tool_decision", {
-    decision: B,
-    source: Q,
-    tool_name: A
-  })
-}
-// @from(Start 10077128, End 10080933)
-function I$5(A) {
-  return pj2.useCallback(async (B, Q, I, G) => {
-    return new Promise((Z) => {
-      function D() {
-        E1("tengu_tool_use_cancelled", {
-          messageID: G.message.id,
-          toolName: B.name
-        })
-      }
-
-      function Y() {
-        Z({
-          behavior: "ask",
-          message: N11
-        }), I.abortController.abort()
-      }
-      if (I.abortController.signal.aborted) {
-        D(), Y();
-        return
-      }
-      return sM(B, Q, I, G).then(async (W) => {
-        if (W.behavior === "allow") {
-          if (E1("tengu_tool_use_granted_in_config", {
-              messageID: G.message.id,
-              toolName: B.name
-            }), G01(B.name)) {
-            let F = Z01(B, Q, "accept", "config");
-            yk()?.add(1, F)
-          }
-          D01(B.name, "accept", "config"), Z({
-            ...W,
-            updatedInput: Q,
-            userModified: !1
-          });
-          return
-        }
-        let J = await B.description(Q, {
-          isNonInteractiveSession: I.options.isNonInteractiveSession,
-          getToolPermissionContext: I.getToolPermissionContext,
-          tools: I.options.tools
-        });
-        if (I.abortController.signal.aborted) {
-          D(), Y();
-          return
-        }
-        switch (W.behavior) {
-          case "deny": {
-            if (E1("tengu_tool_use_denied_in_config", {
-                messageID: G.message.id,
-                toolName: B.name
-              }), G01(B.name)) {
-              let F = Z01(B, Q, "reject", "config");
-              yk()?.add(1, F)
-            }
-            D01(B.name, "reject", "config"), Z(W);
-            return
-          }
-          case "ask": {
-            A((F) => [...F, {
-              assistantMessage: G,
-              tool: B,
-              description: J,
-              input: Q,
-              toolUseContext: I,
-              permissionResult: W,
-              onAbort() {
-                if (D(), E1("tengu_tool_use_rejected_in_prompt", {
-                    messageID: G.message.id,
-                    toolName: B.name
-                  }), G01(B.name)) {
-                  let X = Z01(B, Q, "reject", "user_abort");
-                  yk()?.add(1, X)
-                }
-                D01(B.name, "reject", "user_abort"), Y()
-              },
-              onAllow(X, V) {
-                if (X === "permanent") E1("tengu_tool_use_granted_in_prompt_permanent", {
-                  messageID: G.message.id,
-                  toolName: B.name
-                });
-                else E1("tengu_tool_use_granted_in_prompt_temporary", {
-                  messageID: G.message.id,
-                  toolName: B.name
-                });
-                if (G01(B.name)) {
-                  let N = Z01(B, V, "accept", X === "permanent" ? "user_permanent" : "user_temporary");
-                  yk()?.add(1, N)
-                }
-                let C = X === "permanent" ? "user_permanent" : "user_temporary";
-                D01(B.name, "accept", C);
-                let K = B.inputsEquivalent ? !B.inputsEquivalent(Q, V) : !1;
-                Z({
-                  behavior: "allow",
-                  updatedInput: V,
-                  userModified: K
-                })
-              },
-              onReject() {
-                if (E1("tengu_tool_use_rejected_in_prompt", {
-                    messageID: G.message.id,
-                    toolName: B.name
-                  }), G01(B.name)) {
-                  let X = Z01(B, Q, "reject", "user_reject");
-                  yk()?.add(1, X)
-                }
-                D01(B.name, "reject", "user_reject"), Y()
+        if (!Z)
+          for (var W = 0; W < G.extensions.length; ++W) {
+            var X = G.extensions[W];
+            if (X.type[0] === 0 && X.type[1] === 0) {
+              var V = Eq(X.data, 2);
+              while (V.length() > 0) {
+                var F = V.getByte();
+                if (F !== 0) break;
+                A.session.extensions.server_name.serverNameList.push(Eq(V, 2).getBytes())
               }
-            }]);
-            return
+            }
+          }
+      }
+      if (A.session.version) {
+        if (G.version.major !== A.session.version.major || G.version.minor !== A.session.version.minor) return A.error(A, {
+          message: "TLS version change is disallowed during renegotiation.",
+          send: !0,
+          alert: {
+            level: pA.Alert.Level.fatal,
+            description: pA.Alert.Description.protocol_version
+          }
+        })
+      }
+      if (Z) A.session.cipherSuite = pA.getCipherSuite(G.cipher_suite);
+      else {
+        var K = KQ.util.createBuffer(G.cipher_suites.bytes());
+        while (K.length() > 0)
+          if (A.session.cipherSuite = pA.getCipherSuite(K.getBytes(2)), A.session.cipherSuite !== null) break
+      }
+      if (A.session.cipherSuite === null) return A.error(A, {
+        message: "No cipher suites in common.",
+        send: !0,
+        alert: {
+          level: pA.Alert.Level.fatal,
+          description: pA.Alert.Description.handshake_failure
+        },
+        cipherSuite: KQ.util.bytesToHex(G.cipher_suite)
+      });
+      if (Z) A.session.compressionMethod = G.compression_method;
+      else A.session.compressionMethod = pA.CompressionMethod.none
+    }
+    return G
+  };
+  pA.createSecurityParameters = function(A, Q) {
+    var B = A.entity === pA.ConnectionEnd.client,
+      G = Q.random.bytes(),
+      Z = B ? A.session.sp.client_random : G,
+      I = B ? G : pA.createRandom().getBytes();
+    A.session.sp = {
+      entity: A.entity,
+      prf_algorithm: pA.PRFAlgorithm.tls_prf_sha256,
+      bulk_cipher_algorithm: null,
+      cipher_type: null,
+      enc_key_length: null,
+      block_length: null,
+      fixed_iv_length: null,
+      record_iv_length: null,
+      mac_algorithm: null,
+      mac_length: null,
+      mac_key_length: null,
+      compression_algorithm: A.session.compressionMethod,
+      pre_master_secret: null,
+      master_secret: null,
+      client_random: Z,
+      server_random: I
+    }
+  };
+  pA.handleServerHello = function(A, Q, B) {
+    var G = pA.parseHelloMessage(A, Q, B);
+    if (A.fail) return;
+    if (G.version.minor <= A.version.minor) A.version.minor = G.version.minor;
+    else return A.error(A, {
+      message: "Incompatible TLS version.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.protocol_version
+      }
+    });
+    A.session.version = A.version;
+    var Z = G.session_id.bytes();
+    if (Z.length > 0 && Z === A.session.id) A.expect = $52, A.session.resuming = !0, A.session.sp.server_random = G.random.bytes();
+    else A.expect = rZ5, A.session.resuming = !1, pA.createSecurityParameters(A, G);
+    A.session.id = Z, A.process()
+  };
+  pA.handleClientHello = function(A, Q, B) {
+    var G = pA.parseHelloMessage(A, Q, B);
+    if (A.fail) return;
+    var Z = G.session_id.bytes(),
+      I = null;
+    if (A.sessionCache) {
+      if (I = A.sessionCache.getSession(Z), I === null) Z = "";
+      else if (I.version.major !== G.version.major || I.version.minor > G.version.minor) I = null, Z = ""
+    }
+    if (Z.length === 0) Z = KQ.random.getBytes(32);
+    if (A.session.id = Z, A.session.clientHelloVersion = G.version, A.session.sp = {}, I) A.version = A.session.version = I.version, A.session.sp = I.sp;
+    else {
+      var Y;
+      for (var J = 1; J < pA.SupportedVersions.length; ++J)
+        if (Y = pA.SupportedVersions[J], Y.minor <= G.version.minor) break;
+      A.version = {
+        major: Y.major,
+        minor: Y.minor
+      }, A.session.version = A.version
+    }
+    if (I !== null) A.expect = sA0, A.session.resuming = !0, A.session.sp.client_random = G.random.bytes();
+    else A.expect = A.verifyClient !== !1 ? GI5 : aA0, A.session.resuming = !1, pA.createSecurityParameters(A, G);
+    if (A.open = !0, pA.queue(A, pA.createRecord(A, {
+        type: pA.ContentType.handshake,
+        data: pA.createServerHello(A)
+      })), A.session.resuming) pA.queue(A, pA.createRecord(A, {
+      type: pA.ContentType.change_cipher_spec,
+      data: pA.createChangeCipherSpec()
+    })), A.state.pending = pA.createConnectionState(A), A.state.current.write = A.state.pending.write, pA.queue(A, pA.createRecord(A, {
+      type: pA.ContentType.handshake,
+      data: pA.createFinished(A)
+    }));
+    else if (pA.queue(A, pA.createRecord(A, {
+        type: pA.ContentType.handshake,
+        data: pA.createCertificate(A)
+      })), !A.fail) {
+      if (pA.queue(A, pA.createRecord(A, {
+          type: pA.ContentType.handshake,
+          data: pA.createServerKeyExchange(A)
+        })), A.verifyClient !== !1) pA.queue(A, pA.createRecord(A, {
+        type: pA.ContentType.handshake,
+        data: pA.createCertificateRequest(A)
+      }));
+      pA.queue(A, pA.createRecord(A, {
+        type: pA.ContentType.handshake,
+        data: pA.createServerHelloDone(A)
+      }))
+    }
+    pA.flush(A), A.process()
+  };
+  pA.handleCertificate = function(A, Q, B) {
+    if (B < 3) return A.error(A, {
+      message: "Invalid Certificate message. Message too short.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.illegal_parameter
+      }
+    });
+    var G = Q.fragment,
+      Z = {
+        certificate_list: Eq(G, 3)
+      },
+      I, Y, J = [];
+    try {
+      while (Z.certificate_list.length() > 0) I = Eq(Z.certificate_list, 3), Y = KQ.asn1.fromDer(I), I = KQ.pki.certificateFromAsn1(Y, !0), J.push(I)
+    } catch (X) {
+      return A.error(A, {
+        message: "Could not parse certificate list.",
+        cause: X,
+        send: !0,
+        alert: {
+          level: pA.Alert.Level.fatal,
+          description: pA.Alert.Description.bad_certificate
+        }
+      })
+    }
+    var W = A.entity === pA.ConnectionEnd.client;
+    if ((W || A.verifyClient === !0) && J.length === 0) A.error(A, {
+      message: W ? "No server certificate provided." : "No client certificate provided.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.illegal_parameter
+      }
+    });
+    else if (J.length === 0) A.expect = W ? z52 : aA0;
+    else {
+      if (W) A.session.serverCertificate = J[0];
+      else A.session.clientCertificate = J[0];
+      if (pA.verifyCertificateChain(A, J)) A.expect = W ? z52 : aA0
+    }
+    A.process()
+  };
+  pA.handleServerKeyExchange = function(A, Q, B) {
+    if (B > 0) return A.error(A, {
+      message: "Invalid key parameters. Only RSA is supported.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.unsupported_certificate
+      }
+    });
+    A.expect = oZ5, A.process()
+  };
+  pA.handleClientKeyExchange = function(A, Q, B) {
+    if (B < 48) return A.error(A, {
+      message: "Invalid key parameters. Only RSA is supported.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.unsupported_certificate
+      }
+    });
+    var G = Q.fragment,
+      Z = {
+        enc_pre_master_secret: Eq(G, 2).getBytes()
+      },
+      I = null;
+    if (A.getPrivateKey) try {
+      I = A.getPrivateKey(A, A.session.serverCertificate), I = KQ.pki.privateKeyFromPem(I)
+    } catch (W) {
+      A.error(A, {
+        message: "Could not get private key.",
+        cause: W,
+        send: !0,
+        alert: {
+          level: pA.Alert.Level.fatal,
+          description: pA.Alert.Description.internal_error
+        }
+      })
+    }
+    if (I === null) return A.error(A, {
+      message: "No private key set.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.internal_error
+      }
+    });
+    try {
+      var Y = A.session.sp;
+      Y.pre_master_secret = I.decrypt(Z.enc_pre_master_secret);
+      var J = A.session.clientHelloVersion;
+      if (J.major !== Y.pre_master_secret.charCodeAt(0) || J.minor !== Y.pre_master_secret.charCodeAt(1)) throw Error("TLS version rollback attack detected.")
+    } catch (W) {
+      Y.pre_master_secret = KQ.random.getBytes(48)
+    }
+    if (A.expect = sA0, A.session.clientCertificate !== null) A.expect = ZI5;
+    A.process()
+  };
+  pA.handleCertificateRequest = function(A, Q, B) {
+    if (B < 3) return A.error(A, {
+      message: "Invalid CertificateRequest. Message too short.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.illegal_parameter
+      }
+    });
+    var G = Q.fragment,
+      Z = {
+        certificate_types: Eq(G, 1),
+        certificate_authorities: Eq(G, 2)
+      };
+    A.session.certificateRequest = Z, A.expect = tZ5, A.process()
+  };
+  pA.handleCertificateVerify = function(A, Q, B) {
+    if (B < 2) return A.error(A, {
+      message: "Invalid CertificateVerify. Message too short.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.illegal_parameter
+      }
+    });
+    var G = Q.fragment;
+    G.read -= 4;
+    var Z = G.bytes();
+    G.read += 4;
+    var I = {
+        signature: Eq(G, 2).getBytes()
+      },
+      Y = KQ.util.createBuffer();
+    Y.putBuffer(A.session.md5.digest()), Y.putBuffer(A.session.sha1.digest()), Y = Y.getBytes();
+    try {
+      var J = A.session.clientCertificate;
+      if (!J.publicKey.verify(Y, I.signature, "NONE")) throw Error("CertificateVerify signature does not match.");
+      A.session.md5.update(Z), A.session.sha1.update(Z)
+    } catch (W) {
+      return A.error(A, {
+        message: "Bad signature in CertificateVerify.",
+        send: !0,
+        alert: {
+          level: pA.Alert.Level.fatal,
+          description: pA.Alert.Description.handshake_failure
+        }
+      })
+    }
+    A.expect = sA0, A.process()
+  };
+  pA.handleServerHelloDone = function(A, Q, B) {
+    if (B > 0) return A.error(A, {
+      message: "Invalid ServerHelloDone message. Invalid length.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.record_overflow
+      }
+    });
+    if (A.serverCertificate === null) {
+      var G = {
+          message: "No server certificate provided. Not enough security.",
+          send: !0,
+          alert: {
+            level: pA.Alert.Level.fatal,
+            description: pA.Alert.Description.insufficient_security
+          }
+        },
+        Z = 0,
+        I = A.verify(A, G.alert.description, Z, []);
+      if (I !== !0) {
+        if (I || I === 0) {
+          if (typeof I === "object" && !KQ.util.isArray(I)) {
+            if (I.message) G.message = I.message;
+            if (I.alert) G.alert.description = I.alert
+          } else if (typeof I === "number") G.alert.description = I
+        }
+        return A.error(A, G)
+      }
+    }
+    if (A.session.certificateRequest !== null) Q = pA.createRecord(A, {
+      type: pA.ContentType.handshake,
+      data: pA.createCertificate(A)
+    }), pA.queue(A, Q);
+    Q = pA.createRecord(A, {
+      type: pA.ContentType.handshake,
+      data: pA.createClientKeyExchange(A)
+    }), pA.queue(A, Q), A.expect = QI5;
+    var Y = function(J, W) {
+      if (J.session.certificateRequest !== null && J.session.clientCertificate !== null) pA.queue(J, pA.createRecord(J, {
+        type: pA.ContentType.handshake,
+        data: pA.createCertificateVerify(J, W)
+      }));
+      pA.queue(J, pA.createRecord(J, {
+        type: pA.ContentType.change_cipher_spec,
+        data: pA.createChangeCipherSpec()
+      })), J.state.pending = pA.createConnectionState(J), J.state.current.write = J.state.pending.write, pA.queue(J, pA.createRecord(J, {
+        type: pA.ContentType.handshake,
+        data: pA.createFinished(J)
+      })), J.expect = $52, pA.flush(J), J.process()
+    };
+    if (A.session.certificateRequest === null || A.session.clientCertificate === null) return Y(A, null);
+    pA.getClientSignature(A, Y)
+  };
+  pA.handleChangeCipherSpec = function(A, Q) {
+    if (Q.fragment.getByte() !== 1) return A.error(A, {
+      message: "Invalid ChangeCipherSpec message received.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.illegal_parameter
+      }
+    });
+    var B = A.entity === pA.ConnectionEnd.client;
+    if (A.session.resuming && B || !A.session.resuming && !B) A.state.pending = pA.createConnectionState(A);
+    if (A.state.current.read = A.state.pending.read, !A.session.resuming && B || A.session.resuming && !B) A.state.pending = null;
+    A.expect = B ? eZ5 : II5, A.process()
+  };
+  pA.handleFinished = function(A, Q, B) {
+    var G = Q.fragment;
+    G.read -= 4;
+    var Z = G.bytes();
+    G.read += 4;
+    var I = Q.fragment.getBytes();
+    G = KQ.util.createBuffer(), G.putBuffer(A.session.md5.digest()), G.putBuffer(A.session.sha1.digest());
+    var Y = A.entity === pA.ConnectionEnd.client,
+      J = Y ? "server finished" : "client finished",
+      W = A.session.sp,
+      X = 12,
+      V = G21;
+    if (G = V(W.master_secret, J, G.getBytes(), X), G.getBytes() !== I) return A.error(A, {
+      message: "Invalid verify_data in Finished message.",
+      send: !0,
+      alert: {
+        level: pA.Alert.Level.fatal,
+        description: pA.Alert.Description.decrypt_error
+      }
+    });
+    if (A.session.md5.update(Z), A.session.sha1.update(Z), A.session.resuming && Y || !A.session.resuming && !Y) pA.queue(A, pA.createRecord(A, {
+      type: pA.ContentType.change_cipher_spec,
+      data: pA.createChangeCipherSpec()
+    })), A.state.current.write = A.state.pending.write, A.state.pending = null, pA.queue(A, pA.createRecord(A, {
+      type: pA.ContentType.handshake,
+      data: pA.createFinished(A)
+    }));
+    A.expect = Y ? AI5 : YI5, A.handshaking = !1, ++A.handshakes, A.peerCertificate = Y ? A.session.serverCertificate : A.session.clientCertificate, pA.flush(A), A.isConnected = !0, A.connected(A), A.process()
+  };
+  pA.handleAlert = function(A, Q) {
+    var B = Q.fragment,
+      G = {
+        level: B.getByte(),
+        description: B.getByte()
+      },
+      Z;
+    switch (G.description) {
+      case pA.Alert.Description.close_notify:
+        Z = "Connection closed.";
+        break;
+      case pA.Alert.Description.unexpected_message:
+        Z = "Unexpected message.";
+        break;
+      case pA.Alert.Description.bad_record_mac:
+        Z = "Bad record MAC.";
+        break;
+      case pA.Alert.Description.decryption_failed:
+        Z = "Decryption failed.";
+        break;
+      case pA.Alert.Description.record_overflow:
+        Z = "Record overflow.";
+        break;
+      case pA.Alert.Description.decompression_failure:
+        Z = "Decompression failed.";
+        break;
+      case pA.Alert.Description.handshake_failure:
+        Z = "Handshake failure.";
+        break;
+      case pA.Alert.Description.bad_certificate:
+        Z = "Bad certificate.";
+        break;
+      case pA.Alert.Description.unsupported_certificate:
+        Z = "Unsupported certificate.";
+        break;
+      case pA.Alert.Description.certificate_revoked:
+        Z = "Certificate revoked.";
+        break;
+      case pA.Alert.Description.certificate_expired:
+        Z = "Certificate expired.";
+        break;
+      case pA.Alert.Description.certificate_unknown:
+        Z = "Certificate unknown.";
+        break;
+      case pA.Alert.Description.illegal_parameter:
+        Z = "Illegal parameter.";
+        break;
+      case pA.Alert.Description.unknown_ca:
+        Z = "Unknown certificate authority.";
+        break;
+      case pA.Alert.Description.access_denied:
+        Z = "Access denied.";
+        break;
+      case pA.Alert.Description.decode_error:
+        Z = "Decode error.";
+        break;
+      case pA.Alert.Description.decrypt_error:
+        Z = "Decrypt error.";
+        break;
+      case pA.Alert.Description.export_restriction:
+        Z = "Export restriction.";
+        break;
+      case pA.Alert.Description.protocol_version:
+        Z = "Unsupported protocol version.";
+        break;
+      case pA.Alert.Description.insufficient_security:
+        Z = "Insufficient security.";
+        break;
+      case pA.Alert.Description.internal_error:
+        Z = "Internal error.";
+        break;
+      case pA.Alert.Description.user_canceled:
+        Z = "User canceled.";
+        break;
+      case pA.Alert.Description.no_renegotiation:
+        Z = "Renegotiation not supported.";
+        break;
+      default:
+        Z = "Unknown error.";
+        break
+    }
+    if (G.description === pA.Alert.Description.close_notify) return A.close();
+    A.error(A, {
+      message: Z,
+      send: !1,
+      origin: A.entity === pA.ConnectionEnd.client ? "server" : "client",
+      alert: G
+    }), A.process()
+  };
+  pA.handleHandshake = function(A, Q) {
+    var B = Q.fragment,
+      G = B.getByte(),
+      Z = B.getInt24();
+    if (Z > B.length()) return A.fragmented = Q, Q.fragment = KQ.util.createBuffer(), B.read -= 4, A.process();
+    A.fragmented = null, B.read -= 4;
+    var I = B.bytes(Z + 4);
+    if (B.read += 4, G in B21[A.entity][A.expect]) {
+      if (A.entity === pA.ConnectionEnd.server && !A.open && !A.fail) A.handshaking = !0, A.session = {
+        version: null,
+        extensions: {
+          server_name: {
+            serverNameList: []
+          }
+        },
+        cipherSuite: null,
+        compressionMethod: null,
+        serverCertificate: null,
+        clientCertificate: null,
+        md5: KQ.md.md5.create(),
+        sha1: KQ.md.sha1.create()
+      };
+      if (G !== pA.HandshakeType.hello_request && G !== pA.HandshakeType.certificate_verify && G !== pA.HandshakeType.finished) A.session.md5.update(I), A.session.sha1.update(I);
+      B21[A.entity][A.expect][G](A, Q, Z)
+    } else pA.handleUnexpected(A, Q)
+  };
+  pA.handleApplicationData = function(A, Q) {
+    A.data.putBuffer(Q.fragment), A.dataReady(A), A.process()
+  };
+  pA.handleHeartbeat = function(A, Q) {
+    var B = Q.fragment,
+      G = B.getByte(),
+      Z = B.getInt16(),
+      I = B.getBytes(Z);
+    if (G === pA.HeartbeatMessageType.heartbeat_request) {
+      if (A.handshaking || Z > I.length) return A.process();
+      pA.queue(A, pA.createRecord(A, {
+        type: pA.ContentType.heartbeat,
+        data: pA.createHeartbeat(pA.HeartbeatMessageType.heartbeat_response, I)
+      })), pA.flush(A)
+    } else if (G === pA.HeartbeatMessageType.heartbeat_response) {
+      if (I !== A.expectedHeartbeatPayload) return A.process();
+      if (A.heartbeatReceived) A.heartbeatReceived(A, KQ.util.createBuffer(I))
+    }
+    A.process()
+  };
+  var sZ5 = 0,
+    rZ5 = 1,
+    z52 = 2,
+    oZ5 = 3,
+    tZ5 = 4,
+    $52 = 5,
+    eZ5 = 6,
+    AI5 = 7,
+    QI5 = 8,
+    BI5 = 0,
+    GI5 = 1,
+    aA0 = 2,
+    ZI5 = 3,
+    sA0 = 4,
+    II5 = 5,
+    YI5 = 6,
+    gA = pA.handleUnexpected,
+    w52 = pA.handleChangeCipherSpec,
+    kD = pA.handleAlert,
+    kE = pA.handleHandshake,
+    q52 = pA.handleApplicationData,
+    yD = pA.handleHeartbeat,
+    rA0 = [];
+  rA0[pA.ConnectionEnd.client] = [
+    [gA, kD, kE, gA, yD],
+    [gA, kD, kE, gA, yD],
+    [gA, kD, kE, gA, yD],
+    [gA, kD, kE, gA, yD],
+    [gA, kD, kE, gA, yD],
+    [w52, kD, gA, gA, yD],
+    [gA, kD, kE, gA, yD],
+    [gA, kD, kE, q52, yD],
+    [gA, kD, kE, gA, yD]
+  ];
+  rA0[pA.ConnectionEnd.server] = [
+    [gA, kD, kE, gA, yD],
+    [gA, kD, kE, gA, yD],
+    [gA, kD, kE, gA, yD],
+    [gA, kD, kE, gA, yD],
+    [w52, kD, gA, gA, yD],
+    [gA, kD, kE, gA, yD],
+    [gA, kD, kE, q52, yD],
+    [gA, kD, kE, gA, yD]
+  ];
+  var {
+    handleHelloRequest: Vi,
+    handleServerHello: JI5,
+    handleCertificate: N52,
+    handleServerKeyExchange: U52,
+    handleCertificateRequest: iA0,
+    handleServerHelloDone: Q21,
+    handleFinished: L52
+  } = pA, B21 = [];
+  B21[pA.ConnectionEnd.client] = [
+    [gA, gA, JI5, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA],
+    [Vi, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, N52, U52, iA0, Q21, gA, gA, gA, gA, gA, gA],
+    [Vi, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, U52, iA0, Q21, gA, gA, gA, gA, gA, gA],
+    [Vi, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, iA0, Q21, gA, gA, gA, gA, gA, gA],
+    [Vi, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, Q21, gA, gA, gA, gA, gA, gA],
+    [Vi, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA],
+    [Vi, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, L52],
+    [Vi, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA],
+    [Vi, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA]
+  ];
+  var {
+    handleClientHello: WI5,
+    handleClientKeyExchange: XI5,
+    handleCertificateVerify: VI5
+  } = pA;
+  B21[pA.ConnectionEnd.server] = [
+    [gA, WI5, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA],
+    [gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, N52, gA, gA, gA, gA, gA, gA, gA, gA, gA],
+    [gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, XI5, gA, gA, gA, gA],
+    [gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, VI5, gA, gA, gA, gA, gA],
+    [gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA],
+    [gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, L52],
+    [gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA],
+    [gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA, gA]
+  ];
+  pA.generateKeys = function(A, Q) {
+    var B = G21,
+      G = Q.client_random + Q.server_random;
+    if (!A.session.resuming) Q.master_secret = B(Q.pre_master_secret, "master secret", G, 48).bytes(), Q.pre_master_secret = null;
+    G = Q.server_random + Q.client_random;
+    var Z = 2 * Q.mac_key_length + 2 * Q.enc_key_length,
+      I = A.version.major === pA.Versions.TLS_1_0.major && A.version.minor === pA.Versions.TLS_1_0.minor;
+    if (I) Z += 2 * Q.fixed_iv_length;
+    var Y = B(Q.master_secret, "key expansion", G, Z),
+      J = {
+        client_write_MAC_key: Y.getBytes(Q.mac_key_length),
+        server_write_MAC_key: Y.getBytes(Q.mac_key_length),
+        client_write_key: Y.getBytes(Q.enc_key_length),
+        server_write_key: Y.getBytes(Q.enc_key_length)
+      };
+    if (I) J.client_write_IV = Y.getBytes(Q.fixed_iv_length), J.server_write_IV = Y.getBytes(Q.fixed_iv_length);
+    return J
+  };
+  pA.createConnectionState = function(A) {
+    var Q = A.entity === pA.ConnectionEnd.client,
+      B = function() {
+        var I = {
+          sequenceNumber: [0, 0],
+          macKey: null,
+          macLength: 0,
+          macFunction: null,
+          cipherState: null,
+          cipherFunction: function(Y) {
+            return !0
+          },
+          compressionState: null,
+          compressFunction: function(Y) {
+            return !0
+          },
+          updateSequenceNumber: function() {
+            if (I.sequenceNumber[1] === 4294967295) I.sequenceNumber[1] = 0, ++I.sequenceNumber[0];
+            else ++I.sequenceNumber[1]
+          }
+        };
+        return I
+      },
+      G = {
+        read: B(),
+        write: B()
+      };
+    if (G.read.update = function(I, Y) {
+        if (!G.read.cipherFunction(Y, G.read)) I.error(I, {
+          message: "Could not decrypt record or bad MAC.",
+          send: !0,
+          alert: {
+            level: pA.Alert.Level.fatal,
+            description: pA.Alert.Description.bad_record_mac
+          }
+        });
+        else if (!G.read.compressFunction(I, Y, G.read)) I.error(I, {
+          message: "Could not decompress record.",
+          send: !0,
+          alert: {
+            level: pA.Alert.Level.fatal,
+            description: pA.Alert.Description.decompression_failure
+          }
+        });
+        return !I.fail
+      }, G.write.update = function(I, Y) {
+        if (!G.write.compressFunction(I, Y, G.write)) I.error(I, {
+          message: "Could not compress record.",
+          send: !1,
+          alert: {
+            level: pA.Alert.Level.fatal,
+            description: pA.Alert.Description.internal_error
+          }
+        });
+        else if (!G.write.cipherFunction(Y, G.write)) I.error(I, {
+          message: "Could not encrypt record.",
+          send: !1,
+          alert: {
+            level: pA.Alert.Level.fatal,
+            description: pA.Alert.Description.internal_error
+          }
+        });
+        return !I.fail
+      }, A.session) {
+      var Z = A.session.sp;
+      switch (A.session.cipherSuite.initSecurityParameters(Z), Z.keys = pA.generateKeys(A, Z), G.read.macKey = Q ? Z.keys.server_write_MAC_key : Z.keys.client_write_MAC_key, G.write.macKey = Q ? Z.keys.client_write_MAC_key : Z.keys.server_write_MAC_key, A.session.cipherSuite.initConnectionState(G, A, Z), Z.compression_algorithm) {
+        case pA.CompressionMethod.none:
+          break;
+        case pA.CompressionMethod.deflate:
+          G.read.compressFunction = aZ5, G.write.compressFunction = nZ5;
+          break;
+        default:
+          throw Error("Unsupported compression algorithm.")
+      }
+    }
+    return G
+  };
+  pA.createRandom = function() {
+    var A = new Date,
+      Q = +A + A.getTimezoneOffset() * 60000,
+      B = KQ.util.createBuffer();
+    return B.putInt32(Q), B.putBytes(KQ.random.getBytes(28)), B
+  };
+  pA.createRecord = function(A, Q) {
+    if (!Q.data) return null;
+    var B = {
+      type: Q.type,
+      version: {
+        major: A.version.major,
+        minor: A.version.minor
+      },
+      length: Q.data.length(),
+      fragment: Q.data
+    };
+    return B
+  };
+  pA.createAlert = function(A, Q) {
+    var B = KQ.util.createBuffer();
+    return B.putByte(Q.level), B.putByte(Q.description), pA.createRecord(A, {
+      type: pA.ContentType.alert,
+      data: B
+    })
+  };
+  pA.createClientHello = function(A) {
+    A.session.clientHelloVersion = {
+      major: A.version.major,
+      minor: A.version.minor
+    };
+    var Q = KQ.util.createBuffer();
+    for (var B = 0; B < A.cipherSuites.length; ++B) {
+      var G = A.cipherSuites[B];
+      Q.putByte(G.id[0]), Q.putByte(G.id[1])
+    }
+    var Z = Q.length(),
+      I = KQ.util.createBuffer();
+    I.putByte(pA.CompressionMethod.none);
+    var Y = I.length(),
+      J = KQ.util.createBuffer();
+    if (A.virtualHost) {
+      var W = KQ.util.createBuffer();
+      W.putByte(0), W.putByte(0);
+      var X = KQ.util.createBuffer();
+      X.putByte(0), nM(X, 2, KQ.util.createBuffer(A.virtualHost));
+      var V = KQ.util.createBuffer();
+      nM(V, 2, X), nM(W, 2, V), J.putBuffer(W)
+    }
+    var F = J.length();
+    if (F > 0) F += 2;
+    var K = A.session.id,
+      D = K.length + 1 + 2 + 4 + 28 + 2 + Z + 1 + Y + F,
+      H = KQ.util.createBuffer();
+    if (H.putByte(pA.HandshakeType.client_hello), H.putInt24(D), H.putByte(A.version.major), H.putByte(A.version.minor), H.putBytes(A.session.sp.client_random), nM(H, 1, KQ.util.createBuffer(K)), nM(H, 2, Q), nM(H, 1, I), F > 0) nM(H, 2, J);
+    return H
+  };
+  pA.createServerHello = function(A) {
+    var Q = A.session.id,
+      B = Q.length + 1 + 2 + 4 + 28 + 2 + 1,
+      G = KQ.util.createBuffer();
+    return G.putByte(pA.HandshakeType.server_hello), G.putInt24(B), G.putByte(A.version.major), G.putByte(A.version.minor), G.putBytes(A.session.sp.server_random), nM(G, 1, KQ.util.createBuffer(Q)), G.putByte(A.session.cipherSuite.id[0]), G.putByte(A.session.cipherSuite.id[1]), G.putByte(A.session.compressionMethod), G
+  };
+  pA.createCertificate = function(A) {
+    var Q = A.entity === pA.ConnectionEnd.client,
+      B = null;
+    if (A.getCertificate) {
+      var G;
+      if (Q) G = A.session.certificateRequest;
+      else G = A.session.extensions.server_name.serverNameList;
+      B = A.getCertificate(A, G)
+    }
+    var Z = KQ.util.createBuffer();
+    if (B !== null) try {
+      if (!KQ.util.isArray(B)) B = [B];
+      var I = null;
+      for (var Y = 0; Y < B.length; ++Y) {
+        var J = KQ.pem.decode(B[Y])[0];
+        if (J.type !== "CERTIFICATE" && J.type !== "X509 CERTIFICATE" && J.type !== "TRUSTED CERTIFICATE") {
+          var W = Error('Could not convert certificate from PEM; PEM header type is not "CERTIFICATE", "X509 CERTIFICATE", or "TRUSTED CERTIFICATE".');
+          throw W.headerType = J.type, W
+        }
+        if (J.procType && J.procType.type === "ENCRYPTED") throw Error("Could not convert certificate from PEM; PEM is encrypted.");
+        var X = KQ.util.createBuffer(J.body);
+        if (I === null) I = KQ.asn1.fromDer(X.bytes(), !1);
+        var V = KQ.util.createBuffer();
+        nM(V, 3, X), Z.putBuffer(V)
+      }
+      if (B = KQ.pki.certificateFromAsn1(I), Q) A.session.clientCertificate = B;
+      else A.session.serverCertificate = B
+    } catch (D) {
+      return A.error(A, {
+        message: "Could not send certificate list.",
+        cause: D,
+        send: !0,
+        alert: {
+          level: pA.Alert.Level.fatal,
+          description: pA.Alert.Description.bad_certificate
+        }
+      })
+    }
+    var F = 3 + Z.length(),
+      K = KQ.util.createBuffer();
+    return K.putByte(pA.HandshakeType.certificate), K.putInt24(F), nM(K, 3, Z), K
+  };
+  pA.createClientKeyExchange = function(A) {
+    var Q = KQ.util.createBuffer();
+    Q.putByte(A.session.clientHelloVersion.major), Q.putByte(A.session.clientHelloVersion.minor), Q.putBytes(KQ.random.getBytes(46));
+    var B = A.session.sp;
+    B.pre_master_secret = Q.getBytes();
+    var G = A.session.serverCertificate.publicKey;
+    Q = G.encrypt(B.pre_master_secret);
+    var Z = Q.length + 2,
+      I = KQ.util.createBuffer();
+    return I.putByte(pA.HandshakeType.client_key_exchange), I.putInt24(Z), I.putInt16(Q.length), I.putBytes(Q), I
+  };
+  pA.createServerKeyExchange = function(A) {
+    var Q = 0,
+      B = KQ.util.createBuffer();
+    if (Q > 0) B.putByte(pA.HandshakeType.server_key_exchange), B.putInt24(Q);
+    return B
+  };
+  pA.getClientSignature = function(A, Q) {
+    var B = KQ.util.createBuffer();
+    B.putBuffer(A.session.md5.digest()), B.putBuffer(A.session.sha1.digest()), B = B.getBytes(), A.getSignature = A.getSignature || function(G, Z, I) {
+      var Y = null;
+      if (G.getPrivateKey) try {
+        Y = G.getPrivateKey(G, G.session.clientCertificate), Y = KQ.pki.privateKeyFromPem(Y)
+      } catch (J) {
+        G.error(G, {
+          message: "Could not get private key.",
+          cause: J,
+          send: !0,
+          alert: {
+            level: pA.Alert.Level.fatal,
+            description: pA.Alert.Description.internal_error
+          }
+        })
+      }
+      if (Y === null) G.error(G, {
+        message: "No private key set.",
+        send: !0,
+        alert: {
+          level: pA.Alert.Level.fatal,
+          description: pA.Alert.Description.internal_error
+        }
+      });
+      else Z = Y.sign(Z, null);
+      I(G, Z)
+    }, A.getSignature(A, B, Q)
+  };
+  pA.createCertificateVerify = function(A, Q) {
+    var B = Q.length + 2,
+      G = KQ.util.createBuffer();
+    return G.putByte(pA.HandshakeType.certificate_verify), G.putInt24(B), G.putInt16(Q.length), G.putBytes(Q), G
+  };
+  pA.createCertificateRequest = function(A) {
+    var Q = KQ.util.createBuffer();
+    Q.putByte(1);
+    var B = KQ.util.createBuffer();
+    for (var G in A.caStore.certs) {
+      var Z = A.caStore.certs[G],
+        I = KQ.pki.distinguishedNameToAsn1(Z.subject),
+        Y = KQ.asn1.toDer(I);
+      B.putInt16(Y.length()), B.putBuffer(Y)
+    }
+    var J = 1 + Q.length() + 2 + B.length(),
+      W = KQ.util.createBuffer();
+    return W.putByte(pA.HandshakeType.certificate_request), W.putInt24(J), nM(W, 1, Q), nM(W, 2, B), W
+  };
+  pA.createServerHelloDone = function(A) {
+    var Q = KQ.util.createBuffer();
+    return Q.putByte(pA.HandshakeType.server_hello_done), Q.putInt24(0), Q
+  };
+  pA.createChangeCipherSpec = function() {
+    var A = KQ.util.createBuffer();
+    return A.putByte(1), A
+  };
+  pA.createFinished = function(A) {
+    var Q = KQ.util.createBuffer();
+    Q.putBuffer(A.session.md5.digest()), Q.putBuffer(A.session.sha1.digest());
+    var B = A.entity === pA.ConnectionEnd.client,
+      G = A.session.sp,
+      Z = 12,
+      I = G21,
+      Y = B ? "client finished" : "server finished";
+    Q = I(G.master_secret, Y, Q.getBytes(), Z);
+    var J = KQ.util.createBuffer();
+    return J.putByte(pA.HandshakeType.finished), J.putInt24(Q.length()), J.putBuffer(Q), J
+  };
+  pA.createHeartbeat = function(A, Q, B) {
+    if (typeof B > "u") B = Q.length;
+    var G = KQ.util.createBuffer();
+    G.putByte(A), G.putInt16(B), G.putBytes(Q);
+    var Z = G.length(),
+      I = Math.max(16, Z - B - 3);
+    return G.putBytes(KQ.random.getBytes(I)), G
+  };
+  pA.queue = function(A, Q) {
+    if (!Q) return;
+    if (Q.fragment.length() === 0) {
+      if (Q.type === pA.ContentType.handshake || Q.type === pA.ContentType.alert || Q.type === pA.ContentType.change_cipher_spec) return
+    }
+    if (Q.type === pA.ContentType.handshake) {
+      var B = Q.fragment.bytes();
+      A.session.md5.update(B), A.session.sha1.update(B), B = null
+    }
+    var G;
+    if (Q.fragment.length() <= pA.MaxFragment) G = [Q];
+    else {
+      G = [];
+      var Z = Q.fragment.bytes();
+      while (Z.length > pA.MaxFragment) G.push(pA.createRecord(A, {
+        type: Q.type,
+        data: KQ.util.createBuffer(Z.slice(0, pA.MaxFragment))
+      })), Z = Z.slice(pA.MaxFragment);
+      if (Z.length > 0) G.push(pA.createRecord(A, {
+        type: Q.type,
+        data: KQ.util.createBuffer(Z)
+      }))
+    }
+    for (var I = 0; I < G.length && !A.fail; ++I) {
+      var Y = G[I],
+        J = A.state.current.write;
+      if (J.update(A, Y)) A.records.push(Y)
+    }
+  };
+  pA.flush = function(A) {
+    for (var Q = 0; Q < A.records.length; ++Q) {
+      var B = A.records[Q];
+      A.tlsData.putByte(B.type), A.tlsData.putByte(B.version.major), A.tlsData.putByte(B.version.minor), A.tlsData.putInt16(B.fragment.length()), A.tlsData.putBuffer(A.records[Q].fragment)
+    }
+    return A.records = [], A.tlsDataReady(A)
+  };
+  var nA0 = function(A) {
+      switch (A) {
+        case !0:
+          return !0;
+        case KQ.pki.certificateError.bad_certificate:
+          return pA.Alert.Description.bad_certificate;
+        case KQ.pki.certificateError.unsupported_certificate:
+          return pA.Alert.Description.unsupported_certificate;
+        case KQ.pki.certificateError.certificate_revoked:
+          return pA.Alert.Description.certificate_revoked;
+        case KQ.pki.certificateError.certificate_expired:
+          return pA.Alert.Description.certificate_expired;
+        case KQ.pki.certificateError.certificate_unknown:
+          return pA.Alert.Description.certificate_unknown;
+        case KQ.pki.certificateError.unknown_ca:
+          return pA.Alert.Description.unknown_ca;
+        default:
+          return pA.Alert.Description.bad_certificate
+      }
+    },
+    FI5 = function(A) {
+      switch (A) {
+        case !0:
+          return !0;
+        case pA.Alert.Description.bad_certificate:
+          return KQ.pki.certificateError.bad_certificate;
+        case pA.Alert.Description.unsupported_certificate:
+          return KQ.pki.certificateError.unsupported_certificate;
+        case pA.Alert.Description.certificate_revoked:
+          return KQ.pki.certificateError.certificate_revoked;
+        case pA.Alert.Description.certificate_expired:
+          return KQ.pki.certificateError.certificate_expired;
+        case pA.Alert.Description.certificate_unknown:
+          return KQ.pki.certificateError.certificate_unknown;
+        case pA.Alert.Description.unknown_ca:
+          return KQ.pki.certificateError.unknown_ca;
+        default:
+          return KQ.pki.certificateError.bad_certificate
+      }
+    };
+  pA.verifyCertificateChain = function(A, Q) {
+    try {
+      var B = {};
+      for (var G in A.verifyOptions) B[G] = A.verifyOptions[G];
+      B.verify = function(I, Y, J) {
+        var W = nA0(I),
+          X = A.verify(A, I, Y, J);
+        if (X !== !0) {
+          if (typeof X === "object" && !KQ.util.isArray(X)) {
+            var V = Error("The application rejected the certificate.");
+            if (V.send = !0, V.alert = {
+                level: pA.Alert.Level.fatal,
+                description: pA.Alert.Description.bad_certificate
+              }, X.message) V.message = X.message;
+            if (X.alert) V.alert.description = X.alert;
+            throw V
+          }
+          if (X !== I) X = FI5(X)
+        }
+        return X
+      }, KQ.pki.verifyCertificateChain(A.caStore, Q, B)
+    } catch (I) {
+      var Z = I;
+      if (typeof Z !== "object" || KQ.util.isArray(Z)) Z = {
+        send: !0,
+        alert: {
+          level: pA.Alert.Level.fatal,
+          description: nA0(I)
+        }
+      };
+      if (!("send" in Z)) Z.send = !0;
+      if (!("alert" in Z)) Z.alert = {
+        level: pA.Alert.Level.fatal,
+        description: nA0(Z.error)
+      };
+      A.error(A, Z)
+    }
+    return !A.fail
+  };
+  pA.createSessionCache = function(A, Q) {
+    var B = null;
+    if (A && A.getSession && A.setSession && A.order) B = A;
+    else {
+      B = {}, B.cache = A || {}, B.capacity = Math.max(Q || 100, 1), B.order = [];
+      for (var G in A)
+        if (B.order.length <= Q) B.order.push(G);
+        else delete A[G];
+      B.getSession = function(Z) {
+        var I = null,
+          Y = null;
+        if (Z) Y = KQ.util.bytesToHex(Z);
+        else if (B.order.length > 0) Y = B.order[0];
+        if (Y !== null && Y in B.cache) {
+          I = B.cache[Y], delete B.cache[Y];
+          for (var J in B.order)
+            if (B.order[J] === Y) {
+              B.order.splice(J, 1);
+              break
+            }
+        }
+        return I
+      }, B.setSession = function(Z, I) {
+        if (B.order.length === B.capacity) {
+          var Y = B.order.shift();
+          delete B.cache[Y]
+        }
+        var Y = KQ.util.bytesToHex(Z);
+        B.order.push(Y), B.cache[Y] = I
+      }
+    }
+    return B
+  };
+  pA.createConnection = function(A) {
+    var Q = null;
+    if (A.caStore)
+      if (KQ.util.isArray(A.caStore)) Q = KQ.pki.createCaStore(A.caStore);
+      else Q = A.caStore;
+    else Q = KQ.pki.createCaStore();
+    var B = A.cipherSuites || null;
+    if (B === null) {
+      B = [];
+      for (var G in pA.CipherSuites) B.push(pA.CipherSuites[G])
+    }
+    var Z = A.server ? pA.ConnectionEnd.server : pA.ConnectionEnd.client,
+      I = A.sessionCache ? pA.createSessionCache(A.sessionCache) : null,
+      Y = {
+        version: {
+          major: pA.Version.major,
+          minor: pA.Version.minor
+        },
+        entity: Z,
+        sessionId: A.sessionId,
+        caStore: Q,
+        sessionCache: I,
+        cipherSuites: B,
+        connected: A.connected,
+        virtualHost: A.virtualHost || null,
+        verifyClient: A.verifyClient || !1,
+        verify: A.verify || function(V, F, K, D) {
+          return F
+        },
+        verifyOptions: A.verifyOptions || {},
+        getCertificate: A.getCertificate || null,
+        getPrivateKey: A.getPrivateKey || null,
+        getSignature: A.getSignature || null,
+        input: KQ.util.createBuffer(),
+        tlsData: KQ.util.createBuffer(),
+        data: KQ.util.createBuffer(),
+        tlsDataReady: A.tlsDataReady,
+        dataReady: A.dataReady,
+        heartbeatReceived: A.heartbeatReceived,
+        closed: A.closed,
+        error: function(V, F) {
+          if (F.origin = F.origin || (V.entity === pA.ConnectionEnd.client ? "client" : "server"), F.send) pA.queue(V, pA.createAlert(V, F.alert)), pA.flush(V);
+          var K = F.fatal !== !1;
+          if (K) V.fail = !0;
+          if (A.error(V, F), K) V.close(!1)
+        },
+        deflate: A.deflate || null,
+        inflate: A.inflate || null
+      };
+    Y.reset = function(V) {
+      Y.version = {
+        major: pA.Version.major,
+        minor: pA.Version.minor
+      }, Y.record = null, Y.session = null, Y.peerCertificate = null, Y.state = {
+        pending: null,
+        current: null
+      }, Y.expect = Y.entity === pA.ConnectionEnd.client ? sZ5 : BI5, Y.fragmented = null, Y.records = [], Y.open = !1, Y.handshakes = 0, Y.handshaking = !1, Y.isConnected = !1, Y.fail = !(V || typeof V > "u"), Y.input.clear(), Y.tlsData.clear(), Y.data.clear(), Y.state.current = pA.createConnectionState(Y)
+    }, Y.reset();
+    var J = function(V, F) {
+        var K = F.type - pA.ContentType.change_cipher_spec,
+          D = rA0[V.entity][V.expect];
+        if (K in D) D[K](V, F);
+        else pA.handleUnexpected(V, F)
+      },
+      W = function(V) {
+        var F = 0,
+          K = V.input,
+          D = K.length();
+        if (D < 5) F = 5 - D;
+        else {
+          V.record = {
+            type: K.getByte(),
+            version: {
+              major: K.getByte(),
+              minor: K.getByte()
+            },
+            length: K.getInt16(),
+            fragment: KQ.util.createBuffer(),
+            ready: !1
+          };
+          var H = V.record.version.major === V.version.major;
+          if (H && V.session && V.session.version) H = V.record.version.minor === V.version.minor;
+          if (!H) V.error(V, {
+            message: "Incompatible TLS version.",
+            send: !0,
+            alert: {
+              level: pA.Alert.Level.fatal,
+              description: pA.Alert.Description.protocol_version
+            }
+          })
+        }
+        return F
+      },
+      X = function(V) {
+        var F = 0,
+          K = V.input,
+          D = K.length();
+        if (D < V.record.length) F = V.record.length - D;
+        else {
+          V.record.fragment.putBytes(K.getBytes(V.record.length)), K.compact();
+          var H = V.state.current.read;
+          if (H.update(V, V.record)) {
+            if (V.fragmented !== null)
+              if (V.fragmented.type === V.record.type) V.fragmented.fragment.putBuffer(V.record.fragment), V.record = V.fragmented;
+              else V.error(V, {
+                message: "Invalid fragmented record.",
+                send: !0,
+                alert: {
+                  level: pA.Alert.Level.fatal,
+                  description: pA.Alert.Description.unexpected_message
+                }
+              });
+            V.record.ready = !0
           }
         }
-      }).catch((W) => {
-        if (W instanceof NG) D(), Y();
-        else b1(W)
-      })
-    })
-  }, [A])
-}
-// @from(Start 10080938, End 10080947)
-cj2 = I$5
-// @from(Start 10080953, End 10080970)
-lj2 = I1(U1(), 1)
-// @from(Start 10080973, End 10081121)
-function ij2(A, B) {
-  return lj2.useMemo(() => {
-    if (A && B && B.length > 0) return UP([...A, ...B], "name");
-    return A || []
-  }, [A, B])
-}
-// @from(Start 10081126, End 10081143)
-nj2 = I1(U1(), 1)
-// @from(Start 10081146, End 10081246)
-function aj2(A, B) {
-  return nj2.useMemo(() => {
-    return UP([...A, ...B], "name")
-  }, [A, B])
-}
-// @from(Start 10081251, End 10081268)
-sj2 = I1(U1(), 1)
-// @from(Start 10081271, End 10081403)
-function rj2(A, B) {
-  return sj2.useMemo(() => {
-    if (B.length > 0) return UP([...A, ...B], "name");
-    return A
-  }, [A, B])
-}
-// @from(Start 10081408, End 10081424)
-s2 = I1(U1(), 1)
-// @from(Start 10081428, End 10081444)
-wT = I1(U1(), 1)
-// @from(Start 10081450, End 10081466)
-t7 = I1(U1(), 1)
-// @from(Start 10081469, End 10082032)
-function oj2({
-  message: A,
-  screen: B
-}) {
-  let Q = B === "transcript",
-    I = vw2(A) || "";
-  return t7.createElement(h, {
-    flexDirection: "column"
-  }, t7.createElement(h, {
-    flexDirection: "row"
-  }, t7.createElement(h, {
-    minWidth: 2
-  }, t7.createElement(P, {
-    color: "text"
-  }, FE)), t7.createElement(h, {
-    flexDirection: "column"
-  }, t7.createElement(P, {
-    bold: !0
-  }, "Compact summary", !Q && t7.createElement(P, {
-    dimColor: !0
-  }, " (ctrl+r to expand)")))), Q && t7.createElement(w0, null, t7.createElement(P, null, I)))
-}
-// @from(Start 10082037, End 10082053)
-y2 = I1(U1(), 1)
-// @from(Start 10082098, End 10082426)
-function Z$5() {
-  let A = ZA();
-  j0({
-    ...A,
-    lastReleaseNotesSeen: {
-      ISSUES_EXPLAINER: "report the issue at https://github.com/anthropics/claude-code/issues",
-      PACKAGE_URL: "@anthropic-ai/claude-code",
-      README_URL: "https://docs.anthropic.com/s/claude-code",
-      VERSION: "1.0.34"
-    }.VERSION
-  })
-}
-// @from(Start 10082428, End 10084998)
-function tj2() {
-  let A = ZA(),
-    {
-      hasReleaseNotes: B,
-      releaseNotes: Q
-    } = y2.useMemo(() => yw1(A.lastReleaseNotesSeen), [A.lastReleaseNotesSeen]);
-  y2.useEffect(() => {
-    if (B) Z$5()
-  }, [B]);
-  let {
-    source: I
-  } = GX(!1), G = !!un() && (I === "ANTHROPIC_API_KEY" || I === "apiKeyHelper"), Z = h31(), D = T9() && (Z.source === "ANTHROPIC_AUTH_TOKEN" || Z.source === "apiKeyHelper"), Y = I !== "none" && Z.source !== "none" && !(I === "apiKeyHelper" && Z.source === "apiKeyHelper");
-  return y2.createElement(h, {
-    flexDirection: "column",
-    paddingLeft: 1
-  }, y2.createElement(W$5, null), D && y2.createElement(h, {
-    flexDirection: "row",
-    marginTop: 1
-  }, y2.createElement(P, {
-    color: "warning"
-  }, A0.warning), y2.createElement(P, {
-    color: "warning"
-  }, "Auth conflict: Using ", Z.source, " instead of Claude account subscription token. Either unset ", Z.source, ", or run `claude /logout`.")), G && y2.createElement(h, {
-    flexDirection: "row",
-    marginTop: 1
-  }, y2.createElement(P, {
-    color: "warning"
-  }, A0.warning), y2.createElement(P, {
-    color: "warning"
-  }, "Auth conflict: Using ", I, " instead of Anthropic Console key. Either unset ", I, ", or run `claude /logout`.")), Y && y2.createElement(h, {
-    flexDirection: "column",
-    marginTop: 1
-  }, y2.createElement(h, {
-    flexDirection: "row"
-  }, y2.createElement(P, {
-    color: "warning"
-  }, A0.warning), y2.createElement(P, {
-    color: "warning"
-  }, "Auth conflict: Both a token (", Z.source, ") and an API key (", I, ") are set. This may lead to unexpected behavior.")), y2.createElement(h, {
-    flexDirection: "column",
-    marginLeft: 3
-  }, y2.createElement(P, {
-    color: "warning"
-  }, "• Trying to use", " ", Z.source === "claude.ai" ? "claude.ai" : Z.source, "?", " ", I === "ANTHROPIC_API_KEY" ? 'Unset the ANTHROPIC_API_KEY environment variable, or claude /logout then say "No" to the API key approval before login.' : I === "apiKeyHelper" ? "Unset the apiKeyHelper setting." : "claude /logout"), y2.createElement(P, {
-    color: "warning"
-  }, "• Trying to use ", I, "?", " ", Z.source === "claude.ai" ? "claude /logout to sign out of claude.ai." : `Unset the ${Z.source} environment variable.`))), B && y2.createElement(h, {
-    flexDirection: "column",
-    marginTop: 1
-  }, y2.createElement(P, {
-    color: "secondaryText"
-  }, "What's new:"), y2.createElement(h, {
-    flexDirection: "column",
-    marginLeft: 1
-  }, Q.map((W, J) => y2.createElement(P, {
-    key: J,
-    color: "secondaryText"
-  }, "• ", W)))))
-}
-// @from(Start 10085000, End 10085492)
-function D$5({
-  path: A,
-  contentLength: B
-}) {
-  let Q = A.startsWith(dA()) ? G$5(dA(), A) : A;
-  return y2.createElement(h, {
-    flexDirection: "row"
-  }, y2.createElement(P, {
-    color: "warning"
-  }, A0.warning), y2.createElement(P, {
-    color: "warning"
-  }, "Large ", y2.createElement(P, {
-    bold: !0
-  }, Q), " will impact performance (", _G(B), " chars >", " ", _G(k11), ")", y2.createElement(P, {
-    color: "secondaryText",
-    dimColor: !0
-  }, " ", "• /memory to edit")))
-}
-// @from(Start 10085494, End 10085945)
-function Y$5() {
-  let A = lO();
-  if (!A) return null;
-  let B = A.content.length;
-  if (B > Uu) return y2.createElement(h, {
-    flexDirection: "row",
-    gap: 1
-  }, y2.createElement(P, {
-    color: "warning"
-  }, A0.warning), y2.createElement(P, {
-    color: "warning"
-  }, "ULTRACLAUDE.md exceeds ", Uu, " chars (", B, " chars)", y2.createElement(P, {
-    color: "secondaryText",
-    dimColor: !0
-  }, " ", "• /memory to edit")));
-  return null
-}
-// @from(Start 10085947, End 10086215)
-function W$5() {
-  if (dG().length === 0) return null;
-  return y2.createElement(h, {
-    flexDirection: "column"
-  }, NH1().map((B) => y2.createElement(D$5, {
-    key: B.path,
-    path: B.path,
-    contentLength: B.content.length
-  })), y2.createElement(Y$5, null))
-}
-// @from(Start 10086220, End 10086236)
-zT = I1(U1(), 1)
-// @from(Start 10086239, End 10086289)
-function ej2() {
-  return ZA().tipsHistory || {}
-}
-// @from(Start 10086291, End 10086367)
-function J$5(A) {
-  let B = ZA();
-  j0({
-    ...B,
-    tipsHistory: A
-  })
-}
-// @from(Start 10086369, End 10086450)
-function Ay2(A) {
-  let B = ej2(),
-    Q = ZA().numStartups;
-  B[A] = Q, J$5(B)
-}
-// @from(Start 10086452, End 10086494)
-function F$5(A) {
-  return ej2()[A] || 0
-}
-// @from(Start 10086496, End 10086592)
-function E2A(A) {
-  let B = F$5(A);
-  if (B === 0) return 1 / 0;
-  return ZA().numStartups - B
-}
-// @from(Start 10086593, End 10086807)
-async function V$5(A) {
-  return (await Promise.all(A.map(async (Q) => {
-    let I = await Q.isRelevant();
-    return {
-      tip: Q,
-      isRelevant: I
-    }
-  }))).filter((Q) => Q.isRelevant).map((Q) => Q.tip)
-}
-// @from(Start 10086809, End 10086903)
-function C$5(A) {
-  return A.filter((B) => {
-    return E2A(B.id) >= B.cooldownSessions
-  })
-}
-// @from(Start 10086905, End 10087019)
-function K$5() {
-  let A = ZA(),
-    {
-      hasReleaseNotes: B
-    } = yw1(A.lastReleaseNotesSeen);
-  return !B
-}
-// @from(Start 10087021, End 10087236)
-function H$5(A) {
-  if (A.length === 0) return;
-  if (A.length === 1) return A[0];
-  let B = A.map((Q) => ({
-    tip: Q,
-    sessions: E2A(Q.id)
-  }));
-  return B.sort((Q, I) => I.sessions - Q.sessions), B[0]?.tip
-}
-// @from(Start 10087237, End 10087459)
-async function By2(A, B = !1) {
-  if (!K$5() || B) return;
-  let Q = await V$5(A),
-    I = C$5(Q);
-  if (I.length === 0) return;
-  let G = I.find((Z) => Z.id === "claude-opus-welcome");
-  if (G) return G;
-  return H$5(I)
-}
-// @from(Start 10087461, End 10087586)
-function Qy2(A) {
-  Ay2(A.id), E1("tengu_tip_shown", {
-    tipIdLength: A.id,
-    cooldownSessions: A.cooldownSessions
-  })
-}
-// @from(Start 10087588, End 10088242)
-function Iy2({
-  tip: A
-}) {
-  zT.useEffect(() => {
-    if (!A) return;
-    Qy2(A)
-  }, [A]);
-  let B = () => {
-    if (!A) return null;
-    if (typeof A.content === "function") return A.content();
-    if (A.id === "claude-opus-welcome") return zT.default.createElement(P, {
-      color: "secondaryText"
-    }, "※ ", A.content);
-    return zT.default.createElement(P, {
-      color: "secondaryText"
-    }, "※ Tip: ", A.content)
-  };
-  return zT.default.createElement(zT.default.Fragment, null, A && zT.default.createElement(h, {
-    key: `tip-${A?.id}`,
-    flexDirection: "row",
-    marginTop: 1,
-    alignItems: "center",
-    marginLeft: 1
-  }, B()))
-}
-// @from(Start 10088247, End 10088263)
-$V = I1(U1(), 1)
-// @from(Start 10088265, End 10088438)
-async function z$5() {
-  if (T9()) return !1;
-  let A = await fmA(!1);
-  if (!A) return !1;
-  return Boolean(A.account.has_claude_max) || Boolean(A.account.has_claude_pro)
-}
-// @from(Start 10088440, End 10088978)
-function Gy2() {
-  let [A] = $V.useState(() => {
-    let B = ZA(),
-      Q = B.subscriptionNoticeCount ?? 0,
-      I = B.hasAvailableSubscription;
-    if (Q >= 3) return !1;
-    return I ?? !1
-  });
-  return $V.useEffect(() => {
-    z$5().then((B) => {
-      let Q = ZA(),
-        I = Q.subscriptionNoticeCount ?? 0;
-      if (B) I += 1;
-      if (Q.subscriptionNoticeCount !== I || Q.hasAvailableSubscription !== B) j0({
-        ...Q,
-        subscriptionNoticeCount: I,
-        hasAvailableSubscription: B
-      })
-    })
-  }, [A]), A
-}
-// @from(Start 10088980, End 10089378)
-function Zy2() {
-  return $V.useEffect(() => {
-    E1("tengu_switch_to_subscription_notice_shown", {})
-  }, []), $V.createElement(h, {
-    paddingLeft: 1,
-    marginTop: 1,
-    marginBottom: 1
-  }, $V.createElement(P, {
-    color: "suggestion"
-  }, "You can now use your Claude subscription with ", m0, $V.createElement(P, {
-    color: "text",
-    dimColor: !0
-  }, " ", "• /login to activate")))
-}
-// @from(Start 10089383, End 10089400)
-U2A = I1(U1(), 1)
-// @from(Start 10089403, End 10089824)
-function Dy2({
-  message: A,
-  isTranscriptMode: B
-}) {
-  if (!(B && A.timestamp && A.type === "assistant" && A.message.content.some((G) => G.type === "text"))) return null;
-  let I = new Date(A.timestamp).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: !1
-  });
-  return U2A.default.createElement(h, {
-    marginTop: 1
-  }, U2A.default.createElement(P, {
-    dimColor: !0
-  }, I))
-}
-// @from(Start 10089829, End 10089837)
-Y01 = 10
-// @from(Start 10089840, End 10095541)
-function N2A({
-  messages: A,
-  normalizedMessageHistory: B,
-  tools: Q,
-  verbose: I,
-  toolJSX: G,
-  toolUseConfirmQueue: Z,
-  inProgressToolUseIDs: D,
-  isMessageSelectorVisible: Y,
-  tipOfTheDay: W,
-  conversationId: J,
-  screen: F,
-  screenToggleId: X,
-  streamingToolUses: V,
-  showAllInTranscript: C = !1
-}) {
-  let K = Cp(),
-    {
-      columns: E
-    } = c9(),
-    N = Gy2(),
-    q = FE2(),
-    [O, R] = s2.useState([]);
-  s2.useEffect(() => {
-    Jp().then((s) => R(s))
-  }, []);
-  let T = wT.useMemo(() => AQ(A).filter(Vy), [A]),
-    L = wT.useMemo(() => new Set(Object.keys(Fu(T))), [T]),
-    _ = wT.useMemo(() => eK1(T), [T]),
-    k = wT.useMemo(() => V.filter((s) => {
-      if (D.has(s.contentBlock.id)) return !1;
-      if (T.some((d) => d.type === "assistant" && d.message.content[0].type === "tool_use" && d.message.content[0].id === s.contentBlock.id)) return !1;
-      return !0
-    }), [V, D, T]),
-    i = wT.useMemo(() => k.flatMap((s) => AQ([xK({
-      content: [s.contentBlock]
-    })])), [k]),
-    x = wT.useCallback((s) => {
-      let d = F === "transcript",
-        F1 = d && !C,
-        X1 = F1 ? T.slice(-Y01) : T,
-        v = F1 && T.length > Y01;
-      return [{
-        type: "static",
-        jsx: s2.createElement(h, {
-          flexDirection: "column",
-          gap: 1,
-          key: `logo-${J}-${X}`
-        }, s2.createElement(Vp, {
-          model: K
-        }), rz1() ? s2.createElement(aAA, null) : s2.createElement(tj2, null))
-      }, ...!yY(process.env.IS_DEMO) && W ? [{
-        type: "static",
-        jsx: s2.createElement(h, {
-          key: `tip-of-the-day-${J}-${X}`
-        }, s2.createElement(Iy2, {
-          tip: W
-        }))
-      }] : [], ...N ? [{
-        type: "static",
-        jsx: s2.createElement(h, {
-          key: `max-subscription-${J}-${X}`
-        }, s2.createElement(Zy2, null))
-      }] : [], ...q && !N ? [{
-        type: "static",
-        jsx: s2.createElement(h, {
-          key: `subscription-upsell-${J}-${X}`
-        }, s2.createElement(XE2, null))
-      }] : [], ...O.length > 0 ? [{
-        type: "static",
-        jsx: s2.createElement(h, {
-          key: `install-messages-${J}-${X}`,
-          flexDirection: "column",
-          paddingLeft: 1
-        }, O.map((D1, N1) => s2.createElement(h, {
-          key: N1,
-          flexDirection: "row",
-          marginTop: 1
-        }, s2.createElement(P, {
-          color: "warning"
-        }, A0.bullet), s2.createElement(P, {
-          color: "warning"
-        }, " ", D1))))
-      }] : [], ...v ? [{
-        type: "static",
-        jsx: s2.createElement($p, {
-          key: `truncation-indicator-${J}-${X}`,
-          dividerChar: "─",
-          title: `Ctrl+E to show ${UA.bold(T.length-Y01)} previous messages`,
-          titleColor: "secondaryText",
-          dividerColor: "secondaryBorder",
-          width: E
-        })
-      }] : [], ...d && C && T.length > Y01 ? [{
-        type: "static",
-        jsx: s2.createElement($p, {
-          key: `hide-indicator-${J}-${X}`,
-          dividerChar: "─",
-          title: `Ctrl+E to hide ${UA.bold(T.length-Y01)} previous messages`,
-          titleColor: "secondaryText",
-          dividerColor: "secondaryBorder",
-          width: E
-        })
-      }] : [], ...B.length > 0 ? [{
-        type: "static",
-        jsx: s2.createElement(h, {
-          flexDirection: "column",
-          gap: 1,
-          key: `history-${J}-${X}`
-        }, _t1(B.filter((D1) => D1.type !== "progress").filter((D1) => D1.type !== "user" || !D1.isMeta), []).map((D1) => s2.createElement(h, {
-          key: `history-${D1.uuid}-${X}`,
-          width: E - 5
-        }, s2.createElement(wE, {
-          message: D1,
-          messages: B,
-          addMargin: !0,
-          tools: Q,
-          verbose: s,
-          erroredToolUseIDs: new Set,
-          inProgressToolUseIDs: new Set,
-          progressMessagesForMessage: [],
-          shouldAnimate: !1,
-          shouldShowDot: !0,
-          resolvedToolUseIDs: new Set
-        }))), s2.createElement($p, {
-          dividerChar: "=",
-          title: "Previous Conversation Compacted"
-        }))
-      }] : [], ..._t1(X1.filter((D1) => D1.type !== "progress").filter((D1) => D1.type !== "user" || !D1.isMeta), i).map((D1) => {
-        let N1 = M11(D1),
-          u1 = bw2(D1, T),
-          d1 = D1.type === "user" && D1.isCompactSummary ? s2.createElement(oj2, {
-            message: D1,
-            screen: F
-          }) : s2.createElement(wE, {
-            message: D1,
-            messages: T,
-            addMargin: !0,
-            tools: Q,
-            verbose: s,
-            erroredToolUseIDs: _,
-            inProgressToolUseIDs: D,
-            progressMessagesForMessage: u1,
-            shouldAnimate: !G && !Z.length && !Y && (!N1 || D.has(N1)),
-            shouldShowDot: !0,
-            resolvedToolUseIDs: L
-          });
-        return {
-          type: w$5(D1, A, new Set(V.map((YA) => YA.contentBlock.id)), L, F) ? "static" : "transient",
-          jsx: s2.createElement(h, {
-            key: `${D1.uuid}-${u1.length}-${X}`,
-            width: E - 5,
-            flexDirection: "column"
-          }, s2.createElement(Dy2, {
-            message: D1,
-            isTranscriptMode: d
-          }), d1)
+        return F
+      };
+    return Y.handshake = function(V) {
+      if (Y.entity !== pA.ConnectionEnd.client) Y.error(Y, {
+        message: "Cannot initiate handshake as a server.",
+        fatal: !1
+      });
+      else if (Y.handshaking) Y.error(Y, {
+        message: "Handshake already in progress.",
+        fatal: !1
+      });
+      else {
+        if (Y.fail && !Y.open && Y.handshakes === 0) Y.fail = !1;
+        Y.handshaking = !0, V = V || "";
+        var F = null;
+        if (V.length > 0) {
+          if (Y.sessionCache) F = Y.sessionCache.getSession(V);
+          if (F === null) V = ""
         }
-      }).filter((D1) => D1 !== void 0), ...hE2() ? [{
-        type: "static",
-        jsx: s2.createElement(dE2, null)
-      }] : []]
-    }, [F, C, T, J, X, K, W, N, q, O, E, B, i, Q, _, D, G, Z.length, Y, L, A, V]);
-  return s2.createElement(s2.Fragment, null, s2.createElement($31, {
-    key: `static-messages-${J}-${X}`,
-    items: x(I).filter((s) => s.type === "static")
-  }, (s) => s.jsx), x(I).filter((s) => s.type === "transient").map((s) => s.jsx))
-}
-// @from(Start 10095543, End 10095904)
-function w$5(A, B, Q, I, G) {
-  if (G === "transcript") return !0;
-  switch (A.type) {
-    case "attachment":
-      return !0;
-    case "system":
-    case "user":
-    case "assistant": {
-      let Z = M11(A);
-      if (!Z) return !0;
-      if (Q.has(Z)) return !1;
-      let D = xw2(A, B);
-      return Gr0(D, I)
-    }
-    case "progress":
-      return !1
+        if (V.length === 0 && Y.sessionCache) {
+          if (F = Y.sessionCache.getSession(), F !== null) V = F.id
+        }
+        if (Y.session = {
+            id: V,
+            version: null,
+            cipherSuite: null,
+            compressionMethod: null,
+            serverCertificate: null,
+            certificateRequest: null,
+            clientCertificate: null,
+            sp: {},
+            md5: KQ.md.md5.create(),
+            sha1: KQ.md.sha1.create()
+          }, F) Y.version = F.version, Y.session.sp = F.sp;
+        Y.session.sp.client_random = pA.createRandom().getBytes(), Y.open = !0, pA.queue(Y, pA.createRecord(Y, {
+          type: pA.ContentType.handshake,
+          data: pA.createClientHello(Y)
+        })), pA.flush(Y)
+      }
+    }, Y.process = function(V) {
+      var F = 0;
+      if (V) Y.input.putBytes(V);
+      if (!Y.fail) {
+        if (Y.record !== null && Y.record.ready && Y.record.fragment.isEmpty()) Y.record = null;
+        if (Y.record === null) F = W(Y);
+        if (!Y.fail && Y.record !== null && !Y.record.ready) F = X(Y);
+        if (!Y.fail && Y.record !== null && Y.record.ready) J(Y, Y.record)
+      }
+      return F
+    }, Y.prepare = function(V) {
+      return pA.queue(Y, pA.createRecord(Y, {
+        type: pA.ContentType.application_data,
+        data: KQ.util.createBuffer(V)
+      })), pA.flush(Y)
+    }, Y.prepareHeartbeatRequest = function(V, F) {
+      if (V instanceof KQ.util.ByteBuffer) V = V.bytes();
+      if (typeof F > "u") F = V.length;
+      return Y.expectedHeartbeatPayload = V, pA.queue(Y, pA.createRecord(Y, {
+        type: pA.ContentType.heartbeat,
+        data: pA.createHeartbeat(pA.HeartbeatMessageType.heartbeat_request, V, F)
+      })), pA.flush(Y)
+    }, Y.close = function(V) {
+      if (!Y.fail && Y.sessionCache && Y.session) {
+        var F = {
+          id: Y.session.id,
+          version: Y.session.version,
+          sp: Y.session.sp
+        };
+        F.sp.keys = null, Y.sessionCache.setSession(F.id, F)
+      }
+      if (Y.open) {
+        if (Y.open = !1, Y.input.clear(), Y.isConnected || Y.handshaking) Y.isConnected = Y.handshaking = !1, pA.queue(Y, pA.createAlert(Y, {
+          level: pA.Alert.Level.warning,
+          description: pA.Alert.Description.close_notify
+        })), pA.flush(Y);
+        Y.closed(Y)
+      }
+      Y.reset(V)
+    }, Y
+  };
+  M52.exports = KQ.tls = KQ.tls || {};
+  for (rLA in pA)
+    if (typeof pA[rLA] !== "function") KQ.tls[rLA] = pA[rLA];
+  var rLA;
+  KQ.tls.prf_tls1 = G21;
+  KQ.tls.hmac_sha1 = iZ5;
+  KQ.tls.createSessionCache = pA.createSessionCache;
+  KQ.tls.createConnection = pA.createConnection
+})
+// @from(Start 9411391, End 9415028)
+T52 = z((zjG, R52) => {
+  var Fi = B6();
+  Zi();
+  oA0();
+  var aM = R52.exports = Fi.tls;
+  aM.CipherSuites.TLS_RSA_WITH_AES_128_CBC_SHA = {
+    id: [0, 47],
+    name: "TLS_RSA_WITH_AES_128_CBC_SHA",
+    initSecurityParameters: function(A) {
+      A.bulk_cipher_algorithm = aM.BulkCipherAlgorithm.aes, A.cipher_type = aM.CipherType.block, A.enc_key_length = 16, A.block_length = 16, A.fixed_iv_length = 16, A.record_iv_length = 16, A.mac_algorithm = aM.MACAlgorithm.hmac_sha1, A.mac_length = 20, A.mac_key_length = 20
+    },
+    initConnectionState: O52
+  };
+  aM.CipherSuites.TLS_RSA_WITH_AES_256_CBC_SHA = {
+    id: [0, 53],
+    name: "TLS_RSA_WITH_AES_256_CBC_SHA",
+    initSecurityParameters: function(A) {
+      A.bulk_cipher_algorithm = aM.BulkCipherAlgorithm.aes, A.cipher_type = aM.CipherType.block, A.enc_key_length = 32, A.block_length = 16, A.fixed_iv_length = 16, A.record_iv_length = 16, A.mac_algorithm = aM.MACAlgorithm.hmac_sha1, A.mac_length = 20, A.mac_key_length = 20
+    },
+    initConnectionState: O52
+  };
+
+  function O52(A, Q, B) {
+    var G = Q.entity === Fi.tls.ConnectionEnd.client;
+    A.read.cipherState = {
+      init: !1,
+      cipher: Fi.cipher.createDecipher("AES-CBC", G ? B.keys.server_write_key : B.keys.client_write_key),
+      iv: G ? B.keys.server_write_IV : B.keys.client_write_IV
+    }, A.write.cipherState = {
+      init: !1,
+      cipher: Fi.cipher.createCipher("AES-CBC", G ? B.keys.client_write_key : B.keys.server_write_key),
+      iv: G ? B.keys.client_write_IV : B.keys.server_write_IV
+    }, A.read.cipherFunction = CI5, A.write.cipherFunction = KI5, A.read.macLength = A.write.macLength = B.mac_length, A.read.macFunction = A.write.macFunction = aM.hmac_sha1
   }
-}
-// @from(Start 10095952, End 10096322)
-function Yy2(A, B, Q, I, G) {
-  Z0(async (Z, D) => {
-    if (D.ctrl && Z === "r") B((Y) => Y === "transcript" ? "prompt" : "transcript"), Q((Y) => Y + 1), I(!1), await G();
-    if (D.ctrl && Z === "e" && A === "transcript") I((Y) => !Y), Q((Y) => Y + 1), await G();
-    if (D.ctrl && Z === "c" && A === "transcript") B("prompt"), Q((Y) => Y + 1), I(!1), await G()
-  })
-}
-// @from(Start 10096327, End 10096344)
-W01 = I1(U1(), 1)
-// @from(Start 10096350, End 10096739)
-E$5 = n.object({
-  method: n.literal("selection_changed"),
-  params: n.object({
-    selection: n.object({
-      start: n.object({
-        line: n.number(),
-        character: n.number()
-      }),
-      end: n.object({
-        line: n.number(),
-        character: n.number()
-      })
-    }).nullable().optional(),
-    text: n.string().optional(),
-    filePath: n.string().optional()
-  })
+
+  function KI5(A, Q) {
+    var B = !1,
+      G = Q.macFunction(Q.macKey, Q.sequenceNumber, A);
+    A.fragment.putBytes(G), Q.updateSequenceNumber();
+    var Z;
+    if (A.version.minor === aM.Versions.TLS_1_0.minor) Z = Q.cipherState.init ? null : Q.cipherState.iv;
+    else Z = Fi.random.getBytesSync(16);
+    Q.cipherState.init = !0;
+    var I = Q.cipherState.cipher;
+    if (I.start({
+        iv: Z
+      }), A.version.minor >= aM.Versions.TLS_1_1.minor) I.output.putBytes(Z);
+    if (I.update(A.fragment), I.finish(DI5)) A.fragment = I.output, A.length = A.fragment.length(), B = !0;
+    return B
+  }
+
+  function DI5(A, Q, B) {
+    if (!B) {
+      var G = A - Q.length() % A;
+      Q.fillWithByte(G - 1, G)
+    }
+    return !0
+  }
+
+  function HI5(A, Q, B) {
+    var G = !0;
+    if (B) {
+      var Z = Q.length(),
+        I = Q.last();
+      for (var Y = Z - 1 - I; Y < Z - 1; ++Y) G = G && Q.at(Y) == I;
+      if (G) Q.truncate(I + 1)
+    }
+    return G
+  }
+
+  function CI5(A, Q) {
+    var B = !1,
+      G;
+    if (A.version.minor === aM.Versions.TLS_1_0.minor) G = Q.cipherState.init ? null : Q.cipherState.iv;
+    else G = A.fragment.getBytes(16);
+    Q.cipherState.init = !0;
+    var Z = Q.cipherState.cipher;
+    Z.start({
+      iv: G
+    }), Z.update(A.fragment), B = Z.finish(HI5);
+    var I = Q.macLength,
+      Y = Fi.random.getBytesSync(I),
+      J = Z.output.length();
+    if (J >= I) A.fragment = Z.output.getBytes(J - I), Y = Z.output.getBytes(I);
+    else A.fragment = Z.output.getBytes();
+    A.fragment = Fi.util.createBuffer(A.fragment), A.length = A.fragment.length();
+    var W = Q.macFunction(Q.macKey, Q.sequenceNumber, A);
+    return Q.updateSequenceNumber(), B = EI5(Q.macKey, Y, W) && B, B
+  }
+
+  function EI5(A, Q, B) {
+    var G = Fi.hmac.create();
+    return G.start("SHA1", A), G.update(Q), Q = G.digest().getBytes(), G.start(null, null), G.update(B), B = G.digest().getBytes(), Q === B
+  }
+})
+// @from(Start 9415034, End 9424818)
+A10 = z((UjG, _52) => {
+  var wI = B6();
+  Pk();
+  x3();
+  var oLA = _52.exports = wI.sha512 = wI.sha512 || {};
+  wI.md.sha512 = wI.md.algorithms.sha512 = oLA;
+  var j52 = wI.sha384 = wI.sha512.sha384 = wI.sha512.sha384 || {};
+  j52.create = function() {
+    return oLA.create("SHA-384")
+  };
+  wI.md.sha384 = wI.md.algorithms.sha384 = j52;
+  wI.sha512.sha256 = wI.sha512.sha256 || {
+    create: function() {
+      return oLA.create("SHA-512/256")
+    }
+  };
+  wI.md["sha512/256"] = wI.md.algorithms["sha512/256"] = wI.sha512.sha256;
+  wI.sha512.sha224 = wI.sha512.sha224 || {
+    create: function() {
+      return oLA.create("SHA-512/224")
+    }
+  };
+  wI.md["sha512/224"] = wI.md.algorithms["sha512/224"] = wI.sha512.sha224;
+  oLA.create = function(A) {
+    if (!S52) zI5();
+    if (typeof A > "u") A = "SHA-512";
+    if (!(A in W1A)) throw Error("Invalid SHA-512 algorithm: " + A);
+    var Q = W1A[A],
+      B = null,
+      G = wI.util.createBuffer(),
+      Z = Array(80);
+    for (var I = 0; I < 80; ++I) Z[I] = [, , ];
+    var Y = 64;
+    switch (A) {
+      case "SHA-384":
+        Y = 48;
+        break;
+      case "SHA-512/256":
+        Y = 32;
+        break;
+      case "SHA-512/224":
+        Y = 28;
+        break
+    }
+    var J = {
+      algorithm: A.replace("-", "").toLowerCase(),
+      blockLength: 128,
+      digestLength: Y,
+      messageLength: 0,
+      fullMessageLength: null,
+      messageLengthSize: 16
+    };
+    return J.start = function() {
+      J.messageLength = 0, J.fullMessageLength = J.messageLength128 = [];
+      var W = J.messageLengthSize / 4;
+      for (var X = 0; X < W; ++X) J.fullMessageLength.push(0);
+      G = wI.util.createBuffer(), B = Array(Q.length);
+      for (var X = 0; X < Q.length; ++X) B[X] = Q[X].slice(0);
+      return J
+    }, J.start(), J.update = function(W, X) {
+      if (X === "utf8") W = wI.util.encodeUtf8(W);
+      var V = W.length;
+      J.messageLength += V, V = [V / 4294967296 >>> 0, V >>> 0];
+      for (var F = J.fullMessageLength.length - 1; F >= 0; --F) J.fullMessageLength[F] += V[1], V[1] = V[0] + (J.fullMessageLength[F] / 4294967296 >>> 0), J.fullMessageLength[F] = J.fullMessageLength[F] >>> 0, V[0] = V[1] / 4294967296 >>> 0;
+      if (G.putBytes(W), P52(B, Z, G), G.read > 2048 || G.length() === 0) G.compact();
+      return J
+    }, J.digest = function() {
+      var W = wI.util.createBuffer();
+      W.putBytes(G.bytes());
+      var X = J.fullMessageLength[J.fullMessageLength.length - 1] + J.messageLengthSize,
+        V = X & J.blockLength - 1;
+      W.putBytes(tA0.substr(0, J.blockLength - V));
+      var F, K, D = J.fullMessageLength[0] * 8;
+      for (var H = 0; H < J.fullMessageLength.length - 1; ++H) F = J.fullMessageLength[H + 1] * 8, K = F / 4294967296 >>> 0, D += K, W.putInt32(D >>> 0), D = F >>> 0;
+      W.putInt32(D);
+      var C = Array(B.length);
+      for (var H = 0; H < B.length; ++H) C[H] = B[H].slice(0);
+      P52(C, Z, W);
+      var E = wI.util.createBuffer(),
+        U;
+      if (A === "SHA-512") U = C.length;
+      else if (A === "SHA-384") U = C.length - 2;
+      else U = C.length - 4;
+      for (var H = 0; H < U; ++H)
+        if (E.putInt32(C[H][0]), H !== U - 1 || A !== "SHA-512/224") E.putInt32(C[H][1]);
+      return E
+    }, J
+  };
+  var tA0 = null,
+    S52 = !1,
+    eA0 = null,
+    W1A = null;
+
+  function zI5() {
+    tA0 = String.fromCharCode(128), tA0 += wI.util.fillString(String.fromCharCode(0), 128), eA0 = [
+      [1116352408, 3609767458],
+      [1899447441, 602891725],
+      [3049323471, 3964484399],
+      [3921009573, 2173295548],
+      [961987163, 4081628472],
+      [1508970993, 3053834265],
+      [2453635748, 2937671579],
+      [2870763221, 3664609560],
+      [3624381080, 2734883394],
+      [310598401, 1164996542],
+      [607225278, 1323610764],
+      [1426881987, 3590304994],
+      [1925078388, 4068182383],
+      [2162078206, 991336113],
+      [2614888103, 633803317],
+      [3248222580, 3479774868],
+      [3835390401, 2666613458],
+      [4022224774, 944711139],
+      [264347078, 2341262773],
+      [604807628, 2007800933],
+      [770255983, 1495990901],
+      [1249150122, 1856431235],
+      [1555081692, 3175218132],
+      [1996064986, 2198950837],
+      [2554220882, 3999719339],
+      [2821834349, 766784016],
+      [2952996808, 2566594879],
+      [3210313671, 3203337956],
+      [3336571891, 1034457026],
+      [3584528711, 2466948901],
+      [113926993, 3758326383],
+      [338241895, 168717936],
+      [666307205, 1188179964],
+      [773529912, 1546045734],
+      [1294757372, 1522805485],
+      [1396182291, 2643833823],
+      [1695183700, 2343527390],
+      [1986661051, 1014477480],
+      [2177026350, 1206759142],
+      [2456956037, 344077627],
+      [2730485921, 1290863460],
+      [2820302411, 3158454273],
+      [3259730800, 3505952657],
+      [3345764771, 106217008],
+      [3516065817, 3606008344],
+      [3600352804, 1432725776],
+      [4094571909, 1467031594],
+      [275423344, 851169720],
+      [430227734, 3100823752],
+      [506948616, 1363258195],
+      [659060556, 3750685593],
+      [883997877, 3785050280],
+      [958139571, 3318307427],
+      [1322822218, 3812723403],
+      [1537002063, 2003034995],
+      [1747873779, 3602036899],
+      [1955562222, 1575990012],
+      [2024104815, 1125592928],
+      [2227730452, 2716904306],
+      [2361852424, 442776044],
+      [2428436474, 593698344],
+      [2756734187, 3733110249],
+      [3204031479, 2999351573],
+      [3329325298, 3815920427],
+      [3391569614, 3928383900],
+      [3515267271, 566280711],
+      [3940187606, 3454069534],
+      [4118630271, 4000239992],
+      [116418474, 1914138554],
+      [174292421, 2731055270],
+      [289380356, 3203993006],
+      [460393269, 320620315],
+      [685471733, 587496836],
+      [852142971, 1086792851],
+      [1017036298, 365543100],
+      [1126000580, 2618297676],
+      [1288033470, 3409855158],
+      [1501505948, 4234509866],
+      [1607167915, 987167468],
+      [1816402316, 1246189591]
+    ], W1A = {}, W1A["SHA-512"] = [
+      [1779033703, 4089235720],
+      [3144134277, 2227873595],
+      [1013904242, 4271175723],
+      [2773480762, 1595750129],
+      [1359893119, 2917565137],
+      [2600822924, 725511199],
+      [528734635, 4215389547],
+      [1541459225, 327033209]
+    ], W1A["SHA-384"] = [
+      [3418070365, 3238371032],
+      [1654270250, 914150663],
+      [2438529370, 812702999],
+      [355462360, 4144912697],
+      [1731405415, 4290775857],
+      [2394180231, 1750603025],
+      [3675008525, 1694076839],
+      [1203062813, 3204075428]
+    ], W1A["SHA-512/256"] = [
+      [573645204, 4230739756],
+      [2673172387, 3360449730],
+      [596883563, 1867755857],
+      [2520282905, 1497426621],
+      [2519219938, 2827943907],
+      [3193839141, 1401305490],
+      [721525244, 746961066],
+      [246885852, 2177182882]
+    ], W1A["SHA-512/224"] = [
+      [2352822216, 424955298],
+      [1944164710, 2312950998],
+      [502970286, 855612546],
+      [1738396948, 1479516111],
+      [258812777, 2077511080],
+      [2011393907, 79989058],
+      [1067287976, 1780299464],
+      [286451373, 2446758561]
+    ], S52 = !0
+  }
+
+  function P52(A, Q, B) {
+    var G, Z, I, Y, J, W, X, V, F, K, D, H, C, E, U, q, w, N, R, T, y, v, x, p, u, e, l, k, m, o, IA, FA, zA, NA, OA, mA = B.length();
+    while (mA >= 128) {
+      for (m = 0; m < 16; ++m) Q[m][0] = B.getInt32() >>> 0, Q[m][1] = B.getInt32() >>> 0;
+      for (; m < 80; ++m) FA = Q[m - 2], o = FA[0], IA = FA[1], G = ((o >>> 19 | IA << 13) ^ (IA >>> 29 | o << 3) ^ o >>> 6) >>> 0, Z = ((o << 13 | IA >>> 19) ^ (IA << 3 | o >>> 29) ^ (o << 26 | IA >>> 6)) >>> 0, NA = Q[m - 15], o = NA[0], IA = NA[1], I = ((o >>> 1 | IA << 31) ^ (o >>> 8 | IA << 24) ^ o >>> 7) >>> 0, Y = ((o << 31 | IA >>> 1) ^ (o << 24 | IA >>> 8) ^ (o << 25 | IA >>> 7)) >>> 0, zA = Q[m - 7], OA = Q[m - 16], IA = Z + zA[1] + Y + OA[1], Q[m][0] = G + zA[0] + I + OA[0] + (IA / 4294967296 >>> 0) >>> 0, Q[m][1] = IA >>> 0;
+      C = A[0][0], E = A[0][1], U = A[1][0], q = A[1][1], w = A[2][0], N = A[2][1], R = A[3][0], T = A[3][1], y = A[4][0], v = A[4][1], x = A[5][0], p = A[5][1], u = A[6][0], e = A[6][1], l = A[7][0], k = A[7][1];
+      for (m = 0; m < 80; ++m) X = ((y >>> 14 | v << 18) ^ (y >>> 18 | v << 14) ^ (v >>> 9 | y << 23)) >>> 0, V = ((y << 18 | v >>> 14) ^ (y << 14 | v >>> 18) ^ (v << 23 | y >>> 9)) >>> 0, F = (u ^ y & (x ^ u)) >>> 0, K = (e ^ v & (p ^ e)) >>> 0, J = ((C >>> 28 | E << 4) ^ (E >>> 2 | C << 30) ^ (E >>> 7 | C << 25)) >>> 0, W = ((C << 4 | E >>> 28) ^ (E << 30 | C >>> 2) ^ (E << 25 | C >>> 7)) >>> 0, D = (C & U | w & (C ^ U)) >>> 0, H = (E & q | N & (E ^ q)) >>> 0, IA = k + V + K + eA0[m][1] + Q[m][1], G = l + X + F + eA0[m][0] + Q[m][0] + (IA / 4294967296 >>> 0) >>> 0, Z = IA >>> 0, IA = W + H, I = J + D + (IA / 4294967296 >>> 0) >>> 0, Y = IA >>> 0, l = u, k = e, u = x, e = p, x = y, p = v, IA = T + Z, y = R + G + (IA / 4294967296 >>> 0) >>> 0, v = IA >>> 0, R = w, T = N, w = U, N = q, U = C, q = E, IA = Z + Y, C = G + I + (IA / 4294967296 >>> 0) >>> 0, E = IA >>> 0;
+      IA = A[0][1] + E, A[0][0] = A[0][0] + C + (IA / 4294967296 >>> 0) >>> 0, A[0][1] = IA >>> 0, IA = A[1][1] + q, A[1][0] = A[1][0] + U + (IA / 4294967296 >>> 0) >>> 0, A[1][1] = IA >>> 0, IA = A[2][1] + N, A[2][0] = A[2][0] + w + (IA / 4294967296 >>> 0) >>> 0, A[2][1] = IA >>> 0, IA = A[3][1] + T, A[3][0] = A[3][0] + R + (IA / 4294967296 >>> 0) >>> 0, A[3][1] = IA >>> 0, IA = A[4][1] + v, A[4][0] = A[4][0] + y + (IA / 4294967296 >>> 0) >>> 0, A[4][1] = IA >>> 0, IA = A[5][1] + p, A[5][0] = A[5][0] + x + (IA / 4294967296 >>> 0) >>> 0, A[5][1] = IA >>> 0, IA = A[6][1] + e, A[6][0] = A[6][0] + u + (IA / 4294967296 >>> 0) >>> 0, A[6][1] = IA >>> 0, IA = A[7][1] + k, A[7][0] = A[7][0] + l + (IA / 4294967296 >>> 0) >>> 0, A[7][1] = IA >>> 0, mA -= 128
+    }
+  }
+})
+// @from(Start 9424824, End 9426440)
+k52 = z(($I5) => {
+  var UI5 = B6();
+  GP();
+  var eF = UI5.asn1;
+  $I5.privateKeyValidator = {
+    name: "PrivateKeyInfo",
+    tagClass: eF.Class.UNIVERSAL,
+    type: eF.Type.SEQUENCE,
+    constructed: !0,
+    value: [{
+      name: "PrivateKeyInfo.version",
+      tagClass: eF.Class.UNIVERSAL,
+      type: eF.Type.INTEGER,
+      constructed: !1,
+      capture: "privateKeyVersion"
+    }, {
+      name: "PrivateKeyInfo.privateKeyAlgorithm",
+      tagClass: eF.Class.UNIVERSAL,
+      type: eF.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "AlgorithmIdentifier.algorithm",
+        tagClass: eF.Class.UNIVERSAL,
+        type: eF.Type.OID,
+        constructed: !1,
+        capture: "privateKeyOid"
+      }]
+    }, {
+      name: "PrivateKeyInfo",
+      tagClass: eF.Class.UNIVERSAL,
+      type: eF.Type.OCTETSTRING,
+      constructed: !1,
+      capture: "privateKey"
+    }]
+  };
+  $I5.publicKeyValidator = {
+    name: "SubjectPublicKeyInfo",
+    tagClass: eF.Class.UNIVERSAL,
+    type: eF.Type.SEQUENCE,
+    constructed: !0,
+    captureAsn1: "subjectPublicKeyInfo",
+    value: [{
+      name: "SubjectPublicKeyInfo.AlgorithmIdentifier",
+      tagClass: eF.Class.UNIVERSAL,
+      type: eF.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "AlgorithmIdentifier.algorithm",
+        tagClass: eF.Class.UNIVERSAL,
+        type: eF.Type.OID,
+        constructed: !1,
+        capture: "publicKeyOid"
+      }]
+    }, {
+      tagClass: eF.Class.UNIVERSAL,
+      type: eF.Type.BITSTRING,
+      constructed: !1,
+      composed: !0,
+      captureBitStringValue: "ed25519PublicKey"
+    }]
+  }
+})
+// @from(Start 9426446, End 9445661)
+p52 = z((wjG, c52) => {
+  var xD = B6();
+  iLA();
+  cM();
+  A10();
+  x3();
+  var f52 = k52(),
+    NI5 = f52.publicKeyValidator,
+    LI5 = f52.privateKeyValidator;
+  if (typeof G10 > "u") G10 = xD.jsbn.BigInteger;
+  var G10, Z10 = xD.util.ByteBuffer,
+    iU = typeof Buffer > "u" ? Uint8Array : Buffer;
+  xD.pki = xD.pki || {};
+  c52.exports = xD.pki.ed25519 = xD.ed25519 = xD.ed25519 || {};
+  var Y5 = xD.ed25519;
+  Y5.constants = {};
+  Y5.constants.PUBLIC_KEY_BYTE_LENGTH = 32;
+  Y5.constants.PRIVATE_KEY_BYTE_LENGTH = 64;
+  Y5.constants.SEED_BYTE_LENGTH = 32;
+  Y5.constants.SIGN_BYTE_LENGTH = 64;
+  Y5.constants.HASH_BYTE_LENGTH = 64;
+  Y5.generateKeyPair = function(A) {
+    A = A || {};
+    var Q = A.seed;
+    if (Q === void 0) Q = xD.random.getBytesSync(Y5.constants.SEED_BYTE_LENGTH);
+    else if (typeof Q === "string") {
+      if (Q.length !== Y5.constants.SEED_BYTE_LENGTH) throw TypeError('"seed" must be ' + Y5.constants.SEED_BYTE_LENGTH + " bytes in length.")
+    } else if (!(Q instanceof Uint8Array)) throw TypeError('"seed" must be a node.js Buffer, Uint8Array, or a binary string.');
+    Q = Eh({
+      message: Q,
+      encoding: "binary"
+    });
+    var B = new iU(Y5.constants.PUBLIC_KEY_BYTE_LENGTH),
+      G = new iU(Y5.constants.PRIVATE_KEY_BYTE_LENGTH);
+    for (var Z = 0; Z < 32; ++Z) G[Z] = Q[Z];
+    return TI5(B, G), {
+      publicKey: B,
+      privateKey: G
+    }
+  };
+  Y5.privateKeyFromAsn1 = function(A) {
+    var Q = {},
+      B = [],
+      G = xD.asn1.validate(A, LI5, Q, B);
+    if (!G) {
+      var Z = Error("Invalid Key.");
+      throw Z.errors = B, Z
+    }
+    var I = xD.asn1.derToOid(Q.privateKeyOid),
+      Y = xD.oids.EdDSA25519;
+    if (I !== Y) throw Error('Invalid OID "' + I + '"; OID must be "' + Y + '".');
+    var J = Q.privateKey,
+      W = Eh({
+        message: xD.asn1.fromDer(J).value,
+        encoding: "binary"
+      });
+    return {
+      privateKeyBytes: W
+    }
+  };
+  Y5.publicKeyFromAsn1 = function(A) {
+    var Q = {},
+      B = [],
+      G = xD.asn1.validate(A, NI5, Q, B);
+    if (!G) {
+      var Z = Error("Invalid Key.");
+      throw Z.errors = B, Z
+    }
+    var I = xD.asn1.derToOid(Q.publicKeyOid),
+      Y = xD.oids.EdDSA25519;
+    if (I !== Y) throw Error('Invalid OID "' + I + '"; OID must be "' + Y + '".');
+    var J = Q.ed25519PublicKey;
+    if (J.length !== Y5.constants.PUBLIC_KEY_BYTE_LENGTH) throw Error("Key length is invalid.");
+    return Eh({
+      message: J,
+      encoding: "binary"
+    })
+  };
+  Y5.publicKeyFromPrivateKey = function(A) {
+    A = A || {};
+    var Q = Eh({
+      message: A.privateKey,
+      encoding: "binary"
+    });
+    if (Q.length !== Y5.constants.PRIVATE_KEY_BYTE_LENGTH) throw TypeError('"options.privateKey" must have a byte length of ' + Y5.constants.PRIVATE_KEY_BYTE_LENGTH);
+    var B = new iU(Y5.constants.PUBLIC_KEY_BYTE_LENGTH);
+    for (var G = 0; G < B.length; ++G) B[G] = Q[32 + G];
+    return B
+  };
+  Y5.sign = function(A) {
+    A = A || {};
+    var Q = Eh(A),
+      B = Eh({
+        message: A.privateKey,
+        encoding: "binary"
+      });
+    if (B.length === Y5.constants.SEED_BYTE_LENGTH) {
+      var G = Y5.generateKeyPair({
+        seed: B
+      });
+      B = G.privateKey
+    } else if (B.length !== Y5.constants.PRIVATE_KEY_BYTE_LENGTH) throw TypeError('"options.privateKey" must have a byte length of ' + Y5.constants.SEED_BYTE_LENGTH + " or " + Y5.constants.PRIVATE_KEY_BYTE_LENGTH);
+    var Z = new iU(Y5.constants.SIGN_BYTE_LENGTH + Q.length);
+    PI5(Z, Q, Q.length, B);
+    var I = new iU(Y5.constants.SIGN_BYTE_LENGTH);
+    for (var Y = 0; Y < I.length; ++Y) I[Y] = Z[Y];
+    return I
+  };
+  Y5.verify = function(A) {
+    A = A || {};
+    var Q = Eh(A);
+    if (A.signature === void 0) throw TypeError('"options.signature" must be a node.js Buffer, a Uint8Array, a forge ByteBuffer, or a binary string.');
+    var B = Eh({
+      message: A.signature,
+      encoding: "binary"
+    });
+    if (B.length !== Y5.constants.SIGN_BYTE_LENGTH) throw TypeError('"options.signature" must have a byte length of ' + Y5.constants.SIGN_BYTE_LENGTH);
+    var G = Eh({
+      message: A.publicKey,
+      encoding: "binary"
+    });
+    if (G.length !== Y5.constants.PUBLIC_KEY_BYTE_LENGTH) throw TypeError('"options.publicKey" must have a byte length of ' + Y5.constants.PUBLIC_KEY_BYTE_LENGTH);
+    var Z = new iU(Y5.constants.SIGN_BYTE_LENGTH + Q.length),
+      I = new iU(Y5.constants.SIGN_BYTE_LENGTH + Q.length),
+      Y;
+    for (Y = 0; Y < Y5.constants.SIGN_BYTE_LENGTH; ++Y) Z[Y] = B[Y];
+    for (Y = 0; Y < Q.length; ++Y) Z[Y + Y5.constants.SIGN_BYTE_LENGTH] = Q[Y];
+    return jI5(I, Z, Z.length, G) >= 0
+  };
+
+  function Eh(A) {
+    var Q = A.message;
+    if (Q instanceof Uint8Array || Q instanceof iU) return Q;
+    var B = A.encoding;
+    if (Q === void 0)
+      if (A.md) Q = A.md.digest().getBytes(), B = "binary";
+      else throw TypeError('"options.message" or "options.md" not specified.');
+    if (typeof Q === "string" && !B) throw TypeError('"options.encoding" must be "binary" or "utf8".');
+    if (typeof Q === "string") {
+      if (typeof Buffer < "u") return Buffer.from(Q, B);
+      Q = new Z10(Q, B)
+    } else if (!(Q instanceof Z10)) throw TypeError('"options.message" must be a node.js Buffer, a Uint8Array, a forge ByteBuffer, or a string with "options.encoding" specifying its encoding.');
+    var G = new iU(Q.length());
+    for (var Z = 0; Z < G.length; ++Z) G[Z] = Q.at(Z);
+    return G
+  }
+  var I10 = X4(),
+    Z21 = X4([1]),
+    MI5 = X4([30883, 4953, 19914, 30187, 55467, 16705, 2637, 112, 59544, 30585, 16505, 36039, 65139, 11119, 27886, 20995]),
+    OI5 = X4([61785, 9906, 39828, 60374, 45398, 33411, 5274, 224, 53552, 61171, 33010, 6542, 64743, 22239, 55772, 9222]),
+    y52 = X4([54554, 36645, 11616, 51542, 42930, 38181, 51040, 26924, 56412, 64982, 57905, 49316, 21502, 52590, 14035, 8553]),
+    x52 = X4([26200, 26214, 26214, 26214, 26214, 26214, 26214, 26214, 26214, 26214, 26214, 26214, 26214, 26214, 26214, 26214]),
+    Q10 = new Float64Array([237, 211, 245, 92, 26, 99, 18, 88, 214, 156, 247, 162, 222, 249, 222, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16]),
+    RI5 = X4([41136, 18958, 6951, 50414, 58488, 44335, 6150, 12099, 55207, 15867, 153, 11085, 57099, 20417, 9344, 11139]);
+
+  function tLA(A, Q) {
+    var B = xD.md.sha512.create(),
+      G = new Z10(A);
+    B.update(G.getBytes(Q), "binary");
+    var Z = B.digest().getBytes();
+    if (typeof Buffer < "u") return Buffer.from(Z, "binary");
+    var I = new iU(Y5.constants.HASH_BYTE_LENGTH);
+    for (var Y = 0; Y < 64; ++Y) I[Y] = Z.charCodeAt(Y);
+    return I
+  }
+
+  function TI5(A, Q) {
+    var B = [X4(), X4(), X4(), X4()],
+      G, Z = tLA(Q, 32);
+    Z[0] &= 248, Z[31] &= 127, Z[31] |= 64, X10(B, Z), W10(A, B);
+    for (G = 0; G < 32; ++G) Q[G + 32] = A[G];
+    return 0
+  }
+
+  function PI5(A, Q, B, G) {
+    var Z, I, Y = new Float64Array(64),
+      J = [X4(), X4(), X4(), X4()],
+      W = tLA(G, 32);
+    W[0] &= 248, W[31] &= 127, W[31] |= 64;
+    var X = B + 64;
+    for (Z = 0; Z < B; ++Z) A[64 + Z] = Q[Z];
+    for (Z = 0; Z < 32; ++Z) A[32 + Z] = W[32 + Z];
+    var V = tLA(A.subarray(32), B + 32);
+    Y10(V), X10(J, V), W10(A, J);
+    for (Z = 32; Z < 64; ++Z) A[Z] = G[Z];
+    var F = tLA(A, B + 64);
+    Y10(F);
+    for (Z = 32; Z < 64; ++Z) Y[Z] = 0;
+    for (Z = 0; Z < 32; ++Z) Y[Z] = V[Z];
+    for (Z = 0; Z < 32; ++Z)
+      for (I = 0; I < 32; I++) Y[Z + I] += F[Z] * W[I];
+    return h52(A.subarray(32), Y), X
+  }
+
+  function jI5(A, Q, B, G) {
+    var Z, I, Y = new iU(32),
+      J = [X4(), X4(), X4(), X4()],
+      W = [X4(), X4(), X4(), X4()];
+    if (I = -1, B < 64) return -1;
+    if (SI5(W, G)) return -1;
+    for (Z = 0; Z < B; ++Z) A[Z] = Q[Z];
+    for (Z = 0; Z < 32; ++Z) A[Z + 32] = G[Z];
+    var X = tLA(A, B);
+    if (Y10(X), m52(J, W, X), X10(W, Q.subarray(32)), J10(J, W), W10(Y, J), B -= 64, g52(Q, 0, Y, 0)) {
+      for (Z = 0; Z < B; ++Z) A[Z] = 0;
+      return -1
+    }
+    for (Z = 0; Z < B; ++Z) A[Z] = Q[Z + 64];
+    return I = B, I
+  }
+
+  function h52(A, Q) {
+    var B, G, Z, I;
+    for (G = 63; G >= 32; --G) {
+      B = 0;
+      for (Z = G - 32, I = G - 12; Z < I; ++Z) Q[Z] += B - 16 * Q[G] * Q10[Z - (G - 32)], B = Q[Z] + 128 >> 8, Q[Z] -= B * 256;
+      Q[Z] += B, Q[G] = 0
+    }
+    B = 0;
+    for (Z = 0; Z < 32; ++Z) Q[Z] += B - (Q[31] >> 4) * Q10[Z], B = Q[Z] >> 8, Q[Z] &= 255;
+    for (Z = 0; Z < 32; ++Z) Q[Z] -= B * Q10[Z];
+    for (G = 0; G < 32; ++G) Q[G + 1] += Q[G] >> 8, A[G] = Q[G] & 255
+  }
+
+  function Y10(A) {
+    var Q = new Float64Array(64);
+    for (var B = 0; B < 64; ++B) Q[B] = A[B], A[B] = 0;
+    h52(A, Q)
+  }
+
+  function J10(A, Q) {
+    var B = X4(),
+      G = X4(),
+      Z = X4(),
+      I = X4(),
+      Y = X4(),
+      J = X4(),
+      W = X4(),
+      X = X4(),
+      V = X4();
+    oIA(B, A[1], A[0]), oIA(V, Q[1], Q[0]), CZ(B, B, V), rIA(G, A[0], A[1]), rIA(V, Q[0], Q[1]), CZ(G, G, V), CZ(Z, A[3], Q[3]), CZ(Z, Z, OI5), CZ(I, A[2], Q[2]), rIA(I, I, I), oIA(Y, G, B), oIA(J, I, Z), rIA(W, I, Z), rIA(X, G, B), CZ(A[0], Y, J), CZ(A[1], X, W), CZ(A[2], W, J), CZ(A[3], Y, X)
+  }
+
+  function v52(A, Q, B) {
+    for (var G = 0; G < 4; ++G) d52(A[G], Q[G], B)
+  }
+
+  function W10(A, Q) {
+    var B = X4(),
+      G = X4(),
+      Z = X4();
+    xI5(Z, Q[2]), CZ(B, Q[0], Z), CZ(G, Q[1], Z), I21(A, G), A[31] ^= u52(B) << 7
+  }
+
+  function I21(A, Q) {
+    var B, G, Z, I = X4(),
+      Y = X4();
+    for (B = 0; B < 16; ++B) Y[B] = Q[B];
+    B10(Y), B10(Y), B10(Y);
+    for (G = 0; G < 2; ++G) {
+      I[0] = Y[0] - 65517;
+      for (B = 1; B < 15; ++B) I[B] = Y[B] - 65535 - (I[B - 1] >> 16 & 1), I[B - 1] &= 65535;
+      I[15] = Y[15] - 32767 - (I[14] >> 16 & 1), Z = I[15] >> 16 & 1, I[14] &= 65535, d52(Y, I, 1 - Z)
+    }
+    for (B = 0; B < 16; B++) A[2 * B] = Y[B] & 255, A[2 * B + 1] = Y[B] >> 8
+  }
+
+  function SI5(A, Q) {
+    var B = X4(),
+      G = X4(),
+      Z = X4(),
+      I = X4(),
+      Y = X4(),
+      J = X4(),
+      W = X4();
+    if (Ki(A[2], Z21), _I5(A[1], Q), X1A(Z, A[1]), CZ(I, Z, MI5), oIA(Z, Z, A[2]), rIA(I, A[2], I), X1A(Y, I), X1A(J, Y), CZ(W, J, Y), CZ(B, W, Z), CZ(B, B, I), kI5(B, B), CZ(B, B, Z), CZ(B, B, I), CZ(B, B, I), CZ(A[0], B, I), X1A(G, A[0]), CZ(G, G, I), b52(G, Z)) CZ(A[0], A[0], RI5);
+    if (X1A(G, A[0]), CZ(G, G, I), b52(G, Z)) return -1;
+    if (u52(A[0]) === Q[31] >> 7) oIA(A[0], I10, A[0]);
+    return CZ(A[3], A[0], A[1]), 0
+  }
+
+  function _I5(A, Q) {
+    var B;
+    for (B = 0; B < 16; ++B) A[B] = Q[2 * B] + (Q[2 * B + 1] << 8);
+    A[15] &= 32767
+  }
+
+  function kI5(A, Q) {
+    var B = X4(),
+      G;
+    for (G = 0; G < 16; ++G) B[G] = Q[G];
+    for (G = 250; G >= 0; --G)
+      if (X1A(B, B), G !== 1) CZ(B, B, Q);
+    for (G = 0; G < 16; ++G) A[G] = B[G]
+  }
+
+  function b52(A, Q) {
+    var B = new iU(32),
+      G = new iU(32);
+    return I21(B, A), I21(G, Q), g52(B, 0, G, 0)
+  }
+
+  function g52(A, Q, B, G) {
+    return yI5(A, Q, B, G, 32)
+  }
+
+  function yI5(A, Q, B, G, Z) {
+    var I, Y = 0;
+    for (I = 0; I < Z; ++I) Y |= A[Q + I] ^ B[G + I];
+    return (1 & Y - 1 >>> 8) - 1
+  }
+
+  function u52(A) {
+    var Q = new iU(32);
+    return I21(Q, A), Q[0] & 1
+  }
+
+  function m52(A, Q, B) {
+    var G, Z;
+    Ki(A[0], I10), Ki(A[1], Z21), Ki(A[2], Z21), Ki(A[3], I10);
+    for (Z = 255; Z >= 0; --Z) G = B[Z / 8 | 0] >> (Z & 7) & 1, v52(A, Q, G), J10(Q, A), J10(A, A), v52(A, Q, G)
+  }
+
+  function X10(A, Q) {
+    var B = [X4(), X4(), X4(), X4()];
+    Ki(B[0], y52), Ki(B[1], x52), Ki(B[2], Z21), CZ(B[3], y52, x52), m52(A, B, Q)
+  }
+
+  function Ki(A, Q) {
+    var B;
+    for (B = 0; B < 16; B++) A[B] = Q[B] | 0
+  }
+
+  function xI5(A, Q) {
+    var B = X4(),
+      G;
+    for (G = 0; G < 16; ++G) B[G] = Q[G];
+    for (G = 253; G >= 0; --G)
+      if (X1A(B, B), G !== 2 && G !== 4) CZ(B, B, Q);
+    for (G = 0; G < 16; ++G) A[G] = B[G]
+  }
+
+  function B10(A) {
+    var Q, B, G = 1;
+    for (Q = 0; Q < 16; ++Q) B = A[Q] + G + 65535, G = Math.floor(B / 65536), A[Q] = B - G * 65536;
+    A[0] += G - 1 + 37 * (G - 1)
+  }
+
+  function d52(A, Q, B) {
+    var G, Z = ~(B - 1);
+    for (var I = 0; I < 16; ++I) G = Z & (A[I] ^ Q[I]), A[I] ^= G, Q[I] ^= G
+  }
+
+  function X4(A) {
+    var Q, B = new Float64Array(16);
+    if (A)
+      for (Q = 0; Q < A.length; ++Q) B[Q] = A[Q];
+    return B
+  }
+
+  function rIA(A, Q, B) {
+    for (var G = 0; G < 16; ++G) A[G] = Q[G] + B[G]
+  }
+
+  function oIA(A, Q, B) {
+    for (var G = 0; G < 16; ++G) A[G] = Q[G] - B[G]
+  }
+
+  function X1A(A, Q) {
+    CZ(A, Q, Q)
+  }
+
+  function CZ(A, Q, B) {
+    var G, Z, I = 0,
+      Y = 0,
+      J = 0,
+      W = 0,
+      X = 0,
+      V = 0,
+      F = 0,
+      K = 0,
+      D = 0,
+      H = 0,
+      C = 0,
+      E = 0,
+      U = 0,
+      q = 0,
+      w = 0,
+      N = 0,
+      R = 0,
+      T = 0,
+      y = 0,
+      v = 0,
+      x = 0,
+      p = 0,
+      u = 0,
+      e = 0,
+      l = 0,
+      k = 0,
+      m = 0,
+      o = 0,
+      IA = 0,
+      FA = 0,
+      zA = 0,
+      NA = B[0],
+      OA = B[1],
+      mA = B[2],
+      wA = B[3],
+      qA = B[4],
+      KA = B[5],
+      yA = B[6],
+      oA = B[7],
+      X1 = B[8],
+      WA = B[9],
+      EA = B[10],
+      MA = B[11],
+      DA = B[12],
+      $A = B[13],
+      TA = B[14],
+      rA = B[15];
+    G = Q[0], I += G * NA, Y += G * OA, J += G * mA, W += G * wA, X += G * qA, V += G * KA, F += G * yA, K += G * oA, D += G * X1, H += G * WA, C += G * EA, E += G * MA, U += G * DA, q += G * $A, w += G * TA, N += G * rA, G = Q[1], Y += G * NA, J += G * OA, W += G * mA, X += G * wA, V += G * qA, F += G * KA, K += G * yA, D += G * oA, H += G * X1, C += G * WA, E += G * EA, U += G * MA, q += G * DA, w += G * $A, N += G * TA, R += G * rA, G = Q[2], J += G * NA, W += G * OA, X += G * mA, V += G * wA, F += G * qA, K += G * KA, D += G * yA, H += G * oA, C += G * X1, E += G * WA, U += G * EA, q += G * MA, w += G * DA, N += G * $A, R += G * TA, T += G * rA, G = Q[3], W += G * NA, X += G * OA, V += G * mA, F += G * wA, K += G * qA, D += G * KA, H += G * yA, C += G * oA, E += G * X1, U += G * WA, q += G * EA, w += G * MA, N += G * DA, R += G * $A, T += G * TA, y += G * rA, G = Q[4], X += G * NA, V += G * OA, F += G * mA, K += G * wA, D += G * qA, H += G * KA, C += G * yA, E += G * oA, U += G * X1, q += G * WA, w += G * EA, N += G * MA, R += G * DA, T += G * $A, y += G * TA, v += G * rA, G = Q[5], V += G * NA, F += G * OA, K += G * mA, D += G * wA, H += G * qA, C += G * KA, E += G * yA, U += G * oA, q += G * X1, w += G * WA, N += G * EA, R += G * MA, T += G * DA, y += G * $A, v += G * TA, x += G * rA, G = Q[6], F += G * NA, K += G * OA, D += G * mA, H += G * wA, C += G * qA, E += G * KA, U += G * yA, q += G * oA, w += G * X1, N += G * WA, R += G * EA, T += G * MA, y += G * DA, v += G * $A, x += G * TA, p += G * rA, G = Q[7], K += G * NA, D += G * OA, H += G * mA, C += G * wA, E += G * qA, U += G * KA, q += G * yA, w += G * oA, N += G * X1, R += G * WA, T += G * EA, y += G * MA, v += G * DA, x += G * $A, p += G * TA, u += G * rA, G = Q[8], D += G * NA, H += G * OA, C += G * mA, E += G * wA, U += G * qA, q += G * KA, w += G * yA, N += G * oA, R += G * X1, T += G * WA, y += G * EA, v += G * MA, x += G * DA, p += G * $A, u += G * TA, e += G * rA, G = Q[9], H += G * NA, C += G * OA, E += G * mA, U += G * wA, q += G * qA, w += G * KA, N += G * yA, R += G * oA, T += G * X1, y += G * WA, v += G * EA, x += G * MA, p += G * DA, u += G * $A, e += G * TA, l += G * rA, G = Q[10], C += G * NA, E += G * OA, U += G * mA, q += G * wA, w += G * qA, N += G * KA, R += G * yA, T += G * oA, y += G * X1, v += G * WA, x += G * EA, p += G * MA, u += G * DA, e += G * $A, l += G * TA, k += G * rA, G = Q[11], E += G * NA, U += G * OA, q += G * mA, w += G * wA, N += G * qA, R += G * KA, T += G * yA, y += G * oA, v += G * X1, x += G * WA, p += G * EA, u += G * MA, e += G * DA, l += G * $A, k += G * TA, m += G * rA, G = Q[12], U += G * NA, q += G * OA, w += G * mA, N += G * wA, R += G * qA, T += G * KA, y += G * yA, v += G * oA, x += G * X1, p += G * WA, u += G * EA, e += G * MA, l += G * DA, k += G * $A, m += G * TA, o += G * rA, G = Q[13], q += G * NA, w += G * OA, N += G * mA, R += G * wA, T += G * qA, y += G * KA, v += G * yA, x += G * oA, p += G * X1, u += G * WA, e += G * EA, l += G * MA, k += G * DA, m += G * $A, o += G * TA, IA += G * rA, G = Q[14], w += G * NA, N += G * OA, R += G * mA, T += G * wA, y += G * qA, v += G * KA, x += G * yA, p += G * oA, u += G * X1, e += G * WA, l += G * EA, k += G * MA, m += G * DA, o += G * $A, IA += G * TA, FA += G * rA, G = Q[15], N += G * NA, R += G * OA, T += G * mA, y += G * wA, v += G * qA, x += G * KA, p += G * yA, u += G * oA, e += G * X1, l += G * WA, k += G * EA, m += G * MA, o += G * DA, IA += G * $A, FA += G * TA, zA += G * rA, I += 38 * R, Y += 38 * T, J += 38 * y, W += 38 * v, X += 38 * x, V += 38 * p, F += 38 * u, K += 38 * e, D += 38 * l, H += 38 * k, C += 38 * m, E += 38 * o, U += 38 * IA, q += 38 * FA, w += 38 * zA, Z = 1, G = I + Z + 65535, Z = Math.floor(G / 65536), I = G - Z * 65536, G = Y + Z + 65535, Z = Math.floor(G / 65536), Y = G - Z * 65536, G = J + Z + 65535, Z = Math.floor(G / 65536), J = G - Z * 65536, G = W + Z + 65535, Z = Math.floor(G / 65536), W = G - Z * 65536, G = X + Z + 65535, Z = Math.floor(G / 65536), X = G - Z * 65536, G = V + Z + 65535, Z = Math.floor(G / 65536), V = G - Z * 65536, G = F + Z + 65535, Z = Math.floor(G / 65536), F = G - Z * 65536, G = K + Z + 65535, Z = Math.floor(G / 65536), K = G - Z * 65536, G = D + Z + 65535, Z = Math.floor(G / 65536), D = G - Z * 65536, G = H + Z + 65535, Z = Math.floor(G / 65536), H = G - Z * 65536, G = C + Z + 65535, Z = Math.floor(G / 65536), C = G - Z * 65536, G = E + Z + 65535, Z = Math.floor(G / 65536), E = G - Z * 65536, G = U + Z + 65535, Z = Math.floor(G / 65536), U = G - Z * 65536, G = q + Z + 65535, Z = Math.floor(G / 65536), q = G - Z * 65536, G = w + Z + 65535, Z = Math.floor(G / 65536), w = G - Z * 65536, G = N + Z + 65535, Z = Math.floor(G / 65536), N = G - Z * 65536, I += Z - 1 + 37 * (Z - 1), Z = 1, G = I + Z + 65535, Z = Math.floor(G / 65536), I = G - Z * 65536, G = Y + Z + 65535, Z = Math.floor(G / 65536), Y = G - Z * 65536, G = J + Z + 65535, Z = Math.floor(G / 65536), J = G - Z * 65536, G = W + Z + 65535, Z = Math.floor(G / 65536), W = G - Z * 65536, G = X + Z + 65535, Z = Math.floor(G / 65536), X = G - Z * 65536, G = V + Z + 65535, Z = Math.floor(G / 65536), V = G - Z * 65536, G = F + Z + 65535, Z = Math.floor(G / 65536), F = G - Z * 65536, G = K + Z + 65535, Z = Math.floor(G / 65536), K = G - Z * 65536, G = D + Z + 65535, Z = Math.floor(G / 65536), D = G - Z * 65536, G = H + Z + 65535, Z = Math.floor(G / 65536), H = G - Z * 65536, G = C + Z + 65535, Z = Math.floor(G / 65536), C = G - Z * 65536, G = E + Z + 65535, Z = Math.floor(G / 65536), E = G - Z * 65536, G = U + Z + 65535, Z = Math.floor(G / 65536), U = G - Z * 65536, G = q + Z + 65535, Z = Math.floor(G / 65536), q = G - Z * 65536, G = w + Z + 65535, Z = Math.floor(G / 65536), w = G - Z * 65536, G = N + Z + 65535, Z = Math.floor(G / 65536), N = G - Z * 65536, I += Z - 1 + 37 * (Z - 1), A[0] = I, A[1] = Y, A[2] = J, A[3] = W, A[4] = X, A[5] = V, A[6] = F, A[7] = K, A[8] = D, A[9] = H, A[10] = C, A[11] = E, A[12] = U, A[13] = q, A[14] = w, A[15] = N
+  }
+})
+// @from(Start 9445667, End 9447091)
+a52 = z((qjG, n52) => {
+  var zq = B6();
+  x3();
+  cM();
+  iLA();
+  n52.exports = zq.kem = zq.kem || {};
+  var l52 = zq.jsbn.BigInteger;
+  zq.kem.rsa = {};
+  zq.kem.rsa.create = function(A, Q) {
+    Q = Q || {};
+    var B = Q.prng || zq.random,
+      G = {};
+    return G.encrypt = function(Z, I) {
+      var Y = Math.ceil(Z.n.bitLength() / 8),
+        J;
+      do J = new l52(zq.util.bytesToHex(B.getBytesSync(Y)), 16).mod(Z.n); while (J.compareTo(l52.ONE) <= 0);
+      J = zq.util.hexToBytes(J.toString(16));
+      var W = Y - J.length;
+      if (W > 0) J = zq.util.fillString(String.fromCharCode(0), W) + J;
+      var X = Z.encrypt(J, "NONE"),
+        V = A.generate(J, I);
+      return {
+        encapsulation: X,
+        key: V
+      }
+    }, G.decrypt = function(Z, I, Y) {
+      var J = Z.decrypt(I, "NONE");
+      return A.generate(J, Y)
+    }, G
+  };
+  zq.kem.kdf1 = function(A, Q) {
+    i52(this, A, 0, Q || A.digestLength)
+  };
+  zq.kem.kdf2 = function(A, Q) {
+    i52(this, A, 1, Q || A.digestLength)
+  };
+
+  function i52(A, Q, B, G) {
+    A.generate = function(Z, I) {
+      var Y = new zq.util.ByteBuffer,
+        J = Math.ceil(I / G) + B,
+        W = new zq.util.ByteBuffer;
+      for (var X = B; X < J; ++X) {
+        W.putInt32(X), Q.start(), Q.update(Z + W.getBytes());
+        var V = Q.digest();
+        Y.putBytes(V.getBytes(G))
+      }
+      return Y.truncate(Y.length() - I), Y.getBytes()
+    }
+  }
+})
+// @from(Start 9447097, End 9450448)
+r52 = z((NjG, s52) => {
+  var y5 = B6();
+  x3();
+  s52.exports = y5.log = y5.log || {};
+  y5.log.levels = ["none", "error", "warning", "info", "debug", "verbose", "max"];
+  var W21 = {},
+    V10 = [],
+    eLA = null;
+  y5.log.LEVEL_LOCKED = 2;
+  y5.log.NO_LEVEL_CHECK = 4;
+  y5.log.INTERPOLATE = 8;
+  for (sM = 0; sM < y5.log.levels.length; ++sM) Y21 = y5.log.levels[sM], W21[Y21] = {
+    index: sM,
+    name: Y21.toUpperCase()
+  };
+  var Y21, sM;
+  y5.log.logMessage = function(A) {
+    var Q = W21[A.level].index;
+    for (var B = 0; B < V10.length; ++B) {
+      var G = V10[B];
+      if (G.flags & y5.log.NO_LEVEL_CHECK) G.f(A);
+      else {
+        var Z = W21[G.level].index;
+        if (Q <= Z) G.f(G, A)
+      }
+    }
+  };
+  y5.log.prepareStandard = function(A) {
+    if (!("standard" in A)) A.standard = W21[A.level].name + " [" + A.category + "] " + A.message
+  };
+  y5.log.prepareFull = function(A) {
+    if (!("full" in A)) {
+      var Q = [A.message];
+      Q = Q.concat([]), A.full = y5.util.format.apply(this, Q)
+    }
+  };
+  y5.log.prepareStandardFull = function(A) {
+    if (!("standardFull" in A)) y5.log.prepareStandard(A), A.standardFull = A.standard
+  };
+  J21 = ["error", "warning", "info", "debug", "verbose"];
+  for (sM = 0; sM < J21.length; ++sM)(function(Q) {
+    y5.log[Q] = function(B, G) {
+      var Z = Array.prototype.slice.call(arguments).slice(2),
+        I = {
+          timestamp: new Date,
+          level: Q,
+          category: B,
+          message: G,
+          arguments: Z
+        };
+      y5.log.logMessage(I)
+    }
+  })(J21[sM]);
+  var J21, sM;
+  y5.log.makeLogger = function(A) {
+    var Q = {
+      flags: 0,
+      f: A
+    };
+    return y5.log.setLevel(Q, "none"), Q
+  };
+  y5.log.setLevel = function(A, Q) {
+    var B = !1;
+    if (A && !(A.flags & y5.log.LEVEL_LOCKED))
+      for (var G = 0; G < y5.log.levels.length; ++G) {
+        var Z = y5.log.levels[G];
+        if (Q == Z) {
+          A.level = Q, B = !0;
+          break
+        }
+      }
+    return B
+  };
+  y5.log.lock = function(A, Q) {
+    if (typeof Q > "u" || Q) A.flags |= y5.log.LEVEL_LOCKED;
+    else A.flags &= ~y5.log.LEVEL_LOCKED
+  };
+  y5.log.addLogger = function(A) {
+    V10.push(A)
+  };
+  if (typeof console < "u" && "log" in console) {
+    if (console.error && console.warn && console.info && console.debug) F10 = {
+      error: console.error,
+      warning: console.warn,
+      info: console.info,
+      debug: console.debug,
+      verbose: console.debug
+    }, eIA = function(A, Q) {
+      y5.log.prepareStandard(Q);
+      var B = F10[Q.level],
+        G = [Q.standard];
+      G = G.concat(Q.arguments.slice()), B.apply(console, G)
+    }, V1A = y5.log.makeLogger(eIA);
+    else eIA = function(Q, B) {
+      y5.log.prepareStandardFull(B), console.log(B.standardFull)
+    }, V1A = y5.log.makeLogger(eIA);
+    y5.log.setLevel(V1A, "debug"), y5.log.addLogger(V1A), eLA = V1A
+  } else console = {
+    log: function() {}
+  };
+  var V1A, F10, eIA;
+  if (eLA !== null && typeof window < "u" && window.location) {
+    if (tIA = new URL(window.location.href).searchParams, tIA.has("console.level")) y5.log.setLevel(eLA, tIA.get("console.level").slice(-1)[0]);
+    if (tIA.has("console.lock")) {
+      if (K10 = tIA.get("console.lock").slice(-1)[0], K10 == "true") y5.log.lock(eLA)
+    }
+  }
+  var tIA, K10;
+  y5.log.consoleLogger = eLA
+})
+// @from(Start 9450454, End 9450537)
+t52 = z((LjG, o52) => {
+  o52.exports = Pk();
+  uB1();
+  lIA();
+  MA0();
+  A10()
 })

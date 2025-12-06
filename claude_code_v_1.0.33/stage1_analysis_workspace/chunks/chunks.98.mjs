@@ -1,2869 +1,1739 @@
 
-// @from(Start 9813399, End 9814212)
-function xE5({
-  mode: A
-}) {
-  switch (A) {
-    case "tool-input":
-      return F9.createElement(fE5, null);
-    case "tool-use":
-      return F9.createElement(h, {
-        flexWrap: "wrap",
-        flexGrow: 0,
-        height: 1,
-        width: 2
-      }, F9.createElement(P, {
-        color: "secondaryText"
-      }, "⚒"));
-    case "responding":
-      return F9.createElement(h, {
-        width: 2
-      }, F9.createElement(P, {
-        color: "secondaryText"
-      }, A0.arrowDown));
-    case "thinking":
-      return F9.createElement(h, {
-        width: 2
-      }, F9.createElement(P, {
-        color: "secondaryText"
-      }, A0.arrowDown));
-    case "requesting":
-      return F9.createElement(h, {
-        width: 2
-      }, F9.createElement(P, {
-        color: "secondaryText"
-      }, A0.arrowUp))
-  }
-}
-// @from(Start 9814214, End 9814476)
-function fE5() {
-  let [A, B] = DF.useState(!0);
-  return CV(() => {
-    B((Q) => !Q)
-  }, 500), F9.createElement(h, {
-    flexWrap: "wrap",
-    flexGrow: 0,
-    height: 1,
-    width: 2
-  }, F9.createElement(P, {
-    color: "secondaryText"
-  }, A ? "⚒" : " "))
-}
-// @from(Start 9814478, End 9814786)
-function oD() {
-  let [A, B] = DF.useState(0), {
-    isConnected: Q
-  } = _0A();
-  return CV(() => {
-    B((G) => (G + 1) % Rw1.length)
-  }, 120), F9.createElement(h, {
-    flexWrap: "wrap",
-    height: 1,
-    width: 2
-  }, F9.createElement(P, {
-    color: Q === !1 ? "secondaryText" : "text"
-  }, Rw1[A]))
-}
-// @from(Start 9814791, End 9816258)
-vE5 = new Set(["Analyzing", "Blocking", "Buffering", "Capturing", "Connecting", "Crashing", "Debugging", "Diagnosing", "Disconnecting", "Erroring", "Failing", "Fixing", "Freezing", "Hanging", "Investigating", "Lagging", "Loading", "Logging", "Monitoring", "Patching", "Rebooting", "Recording", "Recovering", "Repairing", "Resetting", "Restarting", "Restoring", "Retrying", "Stalling", "Tracking", "Troubleshooting", "Waiting", "Aborting", "Canceling", "Deleting", "Destroying", "Erasing", "Exiting", "Killing", "Obliterating", "Purging", "Removing", "Stopping", "Terminating", "Wiping", "Breaching", "Infiltrating", "Invading", "Penetrating", "Violating", "Authenticating", "Authorizing", "Backing", "Bootstrapping", "Branching", "Building", "Bundling", "Caching", "Clearing", "Cloning", "Clustering", "Committing", "Compiling", "Configuring", "Containerizing", "Demoting", "Deploying", "Dockerizing", "Downgrading", "Draining", "Executing", "Fetching", "Flushing", "Formatting", "Indexing", "Initializing", "Installing", "Launching", "Linting", "Merging", "Migrating", "Minifying", "Optimizing", "Orchestrating", "Packaging", "Promoting", "Provisioning", "Publishing", "Pulling", "Pushing", "Rebuilding", "Redeploying", "Refactoring", "Releasing", "Reverting", "Rolling", "Running", "Scaffolding", "Scaling", "Shipping", "Staging", "Starting", "Synchronizing", "Syncing", "Testing", "Transpiling", "Uninstalling", "Updating", "Upgrading", "Validating", "Verifying"])
-// @from(Start 9816261, End 9817953)
-function $S2(A) {
-  let [B, Q] = DF.useState([]), I = sH1(async (G) => {
-    if (tZ0()) return;
-    try {
-      let Z = await cZ({
-        systemPrompt: ["Analyze this message and come up with a single positive, cheerful and delightful verb in gerund form that's related to the message. Only include the word with no other text or punctuation. The word should have the first letter capitalized. Add some whimsy and surprise to entertain the user. Ensure the word is highly relevant to the user's message. Synonyms are welcome, including obscure words. Be careful to avoid words that might look alarming or concerning to the software engineer seeing it as a status notification, such as Connecting, Disconnecting, Retrying, Lagging, Freezing, etc. NEVER use a destructive word, such as Terminating, Killing, Deleting, Destroying, Stopping, Exiting, or similar. NEVER use a word that may be derogatory, offensive, or inappropriate in a non-coding context, such as Penetrating."],
-        userPrompt: G,
-        enablePromptCaching: !0,
-        isNonInteractiveSession: !1,
-        temperature: 1,
-        promptCategory: "spinner"
-      });
-      if (Z?.message?.content) {
-        let Y = (Array.isArray(Z.message.content) ? Z.message.content.filter((W) => W.type === "text").map((W) => W.text).join("") : Z.message.content).trim().replace(/[^\w]/g, "");
-        if (Y.length <= 20 && !Y.includes(" ") && !vE5.has(Y)) Q((W) => [Y, ...W.slice(0, 9)])
-      }
-    } catch (Z) {
-      b1(Z instanceof Error ? Z : new Error(`Error generating haiku word: ${String(Z)}`))
-    }
-  }, 600);
-  return DF.useEffect(() => {
-    if (!A) Q([])
-  }, [A]), {
-    haikuWords: B,
-    generateHaikuWord: I
-  }
-}
-// @from(Start 9817958, End 9817974)
-U4 = I1(U1(), 1)
-// @from(Start 9817980, End 9817996)
-tZ = I1(U1(), 1)
-// @from(Start 9817999, End 9819772)
-function Ow1({
-  customApiKeyTruncated: A,
-  onDone: B
-}) {
-  function Q(G) {
-    let Z = ZA();
-    switch (G) {
-      case "yes": {
-        j0({
-          ...Z,
-          customApiKeyResponses: {
-            ...Z.customApiKeyResponses,
-            approved: [...Z.customApiKeyResponses?.approved ?? [], A]
-          }
-        }), B();
-        break
-      }
-      case "no": {
-        j0({
-          ...Z,
-          customApiKeyResponses: {
-            ...Z.customApiKeyResponses,
-            rejected: [...Z.customApiKeyResponses?.rejected ?? [], A]
-          }
-        }), B();
-        break
-      }
-    }
-  }
-  let I = Y2();
-  return tZ.default.createElement(tZ.default.Fragment, null, tZ.default.createElement(h, {
-    flexDirection: "column",
-    gap: 1,
-    padding: 1,
-    borderStyle: "round",
-    borderColor: "warning"
-  }, tZ.default.createElement(P, {
-    bold: !0,
-    color: "warning"
-  }, "Detected a custom API key in your environment"), tZ.default.createElement(P, null, tZ.default.createElement(P, {
-    bold: !0
-  }, "ANTHROPIC_API_KEY"), tZ.default.createElement(P, null, ": sk-ant-...", A)), tZ.default.createElement(P, null, "Do you want to use this API key?"), tZ.default.createElement(p0, {
-    defaultValue: "no",
-    focusValue: "no",
-    options: [{
-      label: "Yes",
-      value: "yes"
-    }, {
-      label: `No (${UA.bold("recommended")})`,
-      value: "no"
-    }],
-    onChange: (G) => Q(G),
-    onCancel: () => Q("no")
-  })), tZ.default.createElement(h, {
-    marginLeft: 3
-  }, tZ.default.createElement(P, {
-    dimColor: !0
-  }, I.pending ? tZ.default.createElement(tZ.default.Fragment, null, "Press ", I.keyName, " again to exit") : tZ.default.createElement(tZ.default.Fragment, null, "Enter to confirm ", A0.dot, " Esc to cancel"))))
-}
-// @from(Start 9819777, End 9819793)
-pI = I1(U1(), 1)
-// @from(Start 9819799, End 9819816)
-Tw1 = I1(U1(), 1)
-// @from(Start 9819819, End 9820002)
-function qS2(A) {
-  let [B, Q] = Tw1.useState(!1);
-  return Tw1.useEffect(() => {
-    let I = setTimeout(() => {
-      Q(!0)
-    }, A);
-    return () => clearTimeout(I)
-  }, [A]), B
-}
-// @from(Start 9820003, End 9821179)
-async function bE5() {
-  try {
-    let A = ["https://api.anthropic.com/api/hello", "https://console.anthropic.com/v1/oauth/hello"],
-      B = async (G) => {
-        try {
-          let Z = await P4.get(G, {
-            headers: {
-              "User-Agent": MR()
-            }
-          });
-          if (Z.status !== 200) return {
-            success: !1,
-            error: `Failed to connect to ${new URL(G).hostname}: Status ${Z.status}`
-          };
-          return {
-            success: !0
-          }
-        } catch (Z) {
-          return {
-            success: !1,
-            error: `Failed to connect to ${new URL(G).hostname}: ${Z instanceof Error?Z.code||Z.message:String(Z)}`
-          }
-        }
-      }, I = (await Promise.all(A.map(B))).find((G) => !G.success);
-    if (I) E1("tengu_preflight_check_failed", {
-      isConnectivityError: !1,
-      hasErrorMessage: !!I.error
-    });
-    return I || {
-      success: !0
-    }
-  } catch (A) {
-    return b1(A), E1("tengu_preflight_check_failed", {
-      isConnectivityError: !0
-    }), {
-      success: !1,
-      error: `Connectivity check error: ${A instanceof Error?A.code||A.message:String(A)}`
-    }
-  }
-}
-// @from(Start 9821181, End 9822533)
-function MS2({
-  onSuccess: A
-}) {
-  let [B, Q] = pI.useState(null), [I, G] = pI.useState(!0), Z = qS2(1000) && I;
-  return pI.useEffect(() => {
-    async function D() {
-      let Y = await bE5();
-      Q(Y), G(!1)
-    }
-    D()
-  }, []), pI.useEffect(() => {
-    if (B?.success) A();
-    else if (B && !B.success) {
-      let D = setTimeout(() => process.exit(1), 100);
-      return () => clearTimeout(D)
-    }
-  }, [B, A]), pI.default.createElement(h, {
-    flexDirection: "column",
-    gap: 1,
-    paddingLeft: 1
-  }, I && Z ? pI.default.createElement(h, {
-    paddingLeft: 1
-  }, pI.default.createElement(oD, null), pI.default.createElement(P, null, "Checking connectivity...")) : !B?.success && !I && pI.default.createElement(h, {
-    flexDirection: "column",
-    gap: 1
-  }, pI.default.createElement(P, {
-    color: "error"
-  }, "Unable to connect to Anthropic services"), pI.default.createElement(P, {
-    color: "error"
-  }, B?.error), pI.default.createElement(h, {
-    flexDirection: "column",
-    gap: 1
-  }, pI.default.createElement(P, null, "Please check your internet connection and network settings."), pI.default.createElement(P, null, "Note: ", m0, " might not be available in your country. Check supported countries at", " ", pI.default.createElement(P, {
-    color: "suggestion"
-  }, "https://anthropic.com/supported-countries")))))
-}
-// @from(Start 9822535, End 9826920)
-function j0A({
-  onDone: A
-}) {
-  let [B, Q] = U4.useState(0), I = mS(), [G, Z] = q9();
-  U4.useEffect(() => {
-    E1("tengu_began_setup", {
-      oauthEnabled: I
-    })
-  }, [I]);
-
-  function D() {
-    if (B < C.length - 1) {
-      let K = B + 1;
-      Q(K), E1("tengu_onboarding_step", {
-        oauthEnabled: I,
-        stepId: C[K]?.id
-      })
-    } else A()
-  }
-
-  function Y(K) {
-    Z(K), D()
-  }
-  let W = Y2();
-  Z0(async (K, E) => {
-    let N = C[B];
-    if (E.return && N && ["security"].includes(N.id))
-      if (B === C.length - 1) {
-        A();
-        return
-      } else {
-        if (N.id === "security") await D3();
-        D()
-      }
-    else if (E.escape && N?.id === "terminal-setup") D()
-  });
-  let J = U4.default.createElement(Zw1, {
-      initialTheme: G,
-      onThemeSelect: Y,
-      showIntroText: !0,
-      helpText: "To change this later, run /theme",
-      hideEscToCancel: !0,
-      skipExitHandling: !0
-    }),
-    F = U4.default.createElement(h, {
-      flexDirection: "column",
-      gap: 1,
-      paddingLeft: 1
-    }, U4.default.createElement(P, {
-      bold: !0
-    }, "Security notes:"), U4.default.createElement(h, {
-      flexDirection: "column",
-      width: 70
-    }, U4.default.createElement(rL, null, U4.default.createElement(rL.Item, null, U4.default.createElement(P, null, "Claude can make mistakes"), U4.default.createElement(P, {
-      color: "secondaryText",
-      wrap: "wrap"
-    }, "You should always review Claude's responses, especially when", U4.default.createElement(UI, null), "running code.", U4.default.createElement(UI, null))), U4.default.createElement(rL.Item, null, U4.default.createElement(P, null, "Due to prompt injection risks, only use it with code you trust"), U4.default.createElement(P, {
-      color: "secondaryText",
-      wrap: "wrap"
-    }, "For more details see:", U4.default.createElement(UI, null), U4.default.createElement(kQ, {
-      url: "https://docs.anthropic.com/s/claude-code-security"
-    }))))), U4.default.createElement(bw, null)),
-    X = U4.default.createElement(MS2, {
-      onSuccess: D
-    }),
-    V = U4.useMemo(() => {
-      if (!process.env.ANTHROPIC_API_KEY) return "";
-      let K = CJ(process.env.ANTHROPIC_API_KEY);
-      if (jG1(K) === "new") return K
-    }, []),
-    C = [];
-  if (I) C.push({
-    id: "preflight",
-    component: X
-  });
-  if (C.push({
-      id: "theme",
-      component: J
-    }), I) C.push({
-    id: "oauth",
-    component: U4.default.createElement(Pw1, {
-      onDone: D
-    })
-  });
-  if (V) C.push({
-    id: "api-key",
-    component: U4.default.createElement(Ow1, {
-      customApiKeyTruncated: V,
-      onDone: D
-    })
-  });
-  if (C.push({
-      id: "security",
-      component: F
-    }), gA1()) C.push({
-    id: "terminal-setup",
-    component: U4.default.createElement(h, {
-      flexDirection: "column",
-      gap: 1,
-      paddingLeft: 1
-    }, U4.default.createElement(P, {
-      bold: !0
-    }, "Use ", m0, "'s terminal setup?"), U4.default.createElement(h, {
-      flexDirection: "column",
-      width: 70,
-      gap: 1
-    }, U4.default.createElement(P, null, "For the optimal coding experience, enable the recommended settings", U4.default.createElement(UI, null), "for your terminal:", " ", mA.terminal === "Apple_Terminal" ? "Option+Enter for newlines and visual bell" : "Shift+Enter for newlines"), U4.default.createElement(p0, {
-      options: [{
-        label: "Yes, use recommended settings",
-        value: "install"
-      }, {
-        label: "No, maybe later with /terminal-setup",
-        value: "no"
-      }],
-      onChange: (K) => {
-        if (K === "install") oAA(G).then(() => {
-          D()
-        });
-        else D()
-      },
-      onCancel: () => D()
-    }), U4.default.createElement(P, {
-      dimColor: !0
-    }, W.pending ? U4.default.createElement(U4.default.Fragment, null, "Press ", W.keyName, " again to exit") : U4.default.createElement(U4.default.Fragment, null, "Enter to confirm · Esc to skip"))))
-  });
-  return U4.default.createElement(h, {
-    flexDirection: "column",
-    gap: 1
-  }, C[B]?.id !== "oauth" && U4.default.createElement(y0A, null), U4.default.createElement(h, {
-    flexDirection: "column",
-    padding: 0,
-    gap: 0
-  }, C[B]?.component, W.pending && U4.default.createElement(h, {
-    padding: 1
-  }, U4.default.createElement(P, {
-    dimColor: !0
-  }, "Press ", W.keyName, " again to exit"))))
-}
-// @from(Start 9826925, End 9826933)
-LS2 = 28
-// @from(Start 9826936, End 9827328)
-function y0A() {
-  let {
-    columns: A
-  } = c9(), B = A < LS2;
-  return U4.default.createElement(h, {
-    ...B ? {} : {
-      borderColor: "claude",
-      borderStyle: "round"
-    },
-    paddingX: 1,
-    width: LS2
-  }, U4.default.createElement(P, null, U4.default.createElement(P, {
-    color: "claude"
-  }, "✻"), " Welcome to", " ", U4.default.createElement(P, {
-    bold: !0
-  }, m0)))
-}
-// @from(Start 9827377, End 9827652)
-function hE5(A) {
-  return new Promise((B) => {
-    let Q = "",
-      I = new gE5;
-    I.on("data", (Z) => {
-      Q += Z.toString()
-    });
-    let G = n5(A, {
-      stdout: I,
-      patchConsole: !1
-    });
-    process.nextTick(() => {
-      G.unmount(), B(Q)
-    })
-  })
-}
-// @from(Start 9827653, End 9827754)
-async function aA1(A) {
-  let B = await hE5(A);
-  console.log(B), process.stdout.write("\x1B[?25l")
-}
-// @from(Start 9827755, End 9827979)
-class k0A {
-  alreadyRendered = {};
-  async renderStatic(A) {
-    for (let B in A)
-      if (!this.alreadyRendered[B] && A[B]) await aA1(A[B]), this.alreadyRendered[B] = !0
-  }
-  reset() {
-    this.alreadyRendered = {}
-  }
-}
-// @from(Start 9827984, End 9828022)
-RS2 = "Paste code here if prompted > "
-// @from(Start 9828025, End 9836887)
-function Pw1({
-  onDone: A,
-  startingMessage: B
-}) {
-  let I = m6().forceLoginMethod,
-    G = I === "claudeai" ? "Login method pre-selected: Subscription Plan (Claude Pro/Max)" : I === "console" ? "Login method pre-selected: API Usage Billing (Anthropic Console)" : null,
-    [Z, D] = G9.useState(() => {
-      if (I === "claudeai" || I === "console") return {
-        state: "ready_to_start"
-      };
-      return {
-        state: "idle"
-      }
-    }),
-    [Y, W] = G9.useState(""),
-    [J, F] = G9.useState(0),
-    [X] = G9.useState(() => new P0A),
-    [V, C] = G9.useState(() => {
-      return I === "claudeai"
-    }),
-    [K, E] = G9.useState(!1),
-    [N] = G9.useState(() => new k0A),
-    q = c9().columns - RS2.length - 1;
-  G9.useEffect(() => {
-    if (I === "claudeai") E1("tengu_oauth_claudeai_forced", {});
-    else if (I === "console") E1("tengu_oauth_console_forced", {})
-  }, [I]), G9.useEffect(() => {
-    if (Z.state === "about_to_retry") D3(), N.reset(), setTimeout(() => {
-      D(Z.nextState)
-    }, 1000)
-  }, [Z, N]), Z0(async (_, k) => {
-    if (k.return) {
-      if (Z.state === "success") E1("tengu_oauth_success", {
-        loginWithClaudeAi: V
-      }), await D3(), A();
-      else if (Z.state === "error" && Z.toRetry) W(""), D({
-        state: "about_to_retry",
-        nextState: Z.toRetry
-      })
-    }
-  });
-  async function O(_, k) {
-    try {
-      let [i, x] = _.split("#");
-      if (!i || !x) {
-        D({
-          state: "error",
-          message: "Invalid code. Please make sure the full code was copied",
-          toRetry: {
-            state: "waiting_for_login",
-            url: k
-          }
-        });
-        return
-      }
-      E1("tengu_oauth_manual_entry", {}), X.handleManualAuthCodeInput({
-        authorizationCode: i,
-        state: x
-      })
-    } catch (i) {
-      b1(i instanceof Error ? i : new Error(String(i))), D({
-        state: "error",
-        message: i.message,
-        toRetry: {
-          state: "waiting_for_login",
-          url: k
-        }
-      })
-    }
-  }
-  let R = G9.useCallback(async () => {
-      try {
-        let _ = await X.startOAuthFlow(async (x) => {
-            D({
-              state: "waiting_for_login",
-              url: x
-            }), setTimeout(() => E(!0), 3000)
-          }, {
-            loginWithClaudeAi: V
-          }).catch((x) => {
-            let s = x.message.includes("Token exchange failed");
-            throw D({
-              state: "error",
-              message: s ? "Failed to exchange authorization code for access token. Please try again." : x.message,
-              toRetry: {
-                state: "idle"
-              }
-            }), E1("tengu_oauth_token_exchange_error", {
-              error: x.message
-            }), x
-          }),
-          k = J_1(_);
-        if (k.warning) E1("tengu_oauth_storage_warning", {
-          warning: k.warning
-        });
-        if (D({
-            state: "creating_api_key"
-          }), await hmA(_.accessToken).catch((x) => {
-            throw D({
-              state: "error",
-              message: "Failed to fetch user roles: " + x.message,
-              toRetry: {
-                state: "idle"
-              }
-            }), E1("tengu_oauth_user_roles_error", {
-              error: x.message
-            }), x
-          }), CL(_.scopes) ? !0 : await mmA(_.accessToken).catch((x) => {
-            throw D({
-              state: "error",
-              message: "Failed to create API key: " + x.message,
-              toRetry: {
-                state: "idle"
-              }
-            }), E1("tengu_oauth_api_key_error", {
-              error: x.message
-            }), x
-          })) await zH1(), T0A(), D({
-          state: "success"
-        }), _u({
-          message: "Claude Code login successful"
-        });
-        else D({
-          state: "error",
-          message: "Unable to create API key. The server accepted the request but didn't return a key.",
-          toRetry: {
-            state: "idle"
-          }
-        }), E1("tengu_oauth_api_key_error", {
-          error: "server_returned_no_key"
-        })
-      } catch (_) {
-        let k = _.message;
-        E1("tengu_oauth_error", {
-          error: k
-        })
-      }
-    }, [X, E, V]),
-    T = G9.useRef(!1);
-  G9.useEffect(() => {
-    if (Z.state === "ready_to_start" && !T.current) T.current = !0, process.nextTick(() => {
-      R(), T.current = !1
-    })
-  }, [Z.state, R]);
-
-  function L() {
-    switch (Z.state) {
-      case "idle":
-        return G9.default.createElement(h, {
-          flexDirection: "column",
-          gap: 1
-        }, G9.default.createElement(P, {
-          bold: !0
-        }, B ? B : `${m0} can now be used with your Claude subscription or billed based on API usage through your Console account.`), G9.default.createElement(h, {
-          marginTop: 1
-        }, G9.default.createElement(P, {
-          bold: !0
-        }, "Select login method:")), G9.default.createElement(h, null, G9.default.createElement(p0, {
-          options: [{
-            label: `Claude account with subscription
- ${UA.dim("Starting at $20/mo for Pro, $100/mo for Max - Best value, predictable pricing")}
-`,
-            value: "claudeai"
-          }, {
-            label: `Anthropic Console account
- ${UA.dim("API usage billing")}
-`,
-            value: "console"
-          }],
-          onCancel: () => {},
-          onChange: (_) => {
-            if (D({
-                state: "ready_to_start"
-              }), _ === "claudeai") E1("tengu_oauth_claudeai_selected", {}), C(!0);
-            else E1("tengu_oauth_console_selected", {}), C(!1)
-          }
-        })));
-      case "waiting_for_login":
-        return G9.default.createElement(h, {
-          flexDirection: "column",
-          gap: 1
-        }, G && G9.default.createElement(h, null, G9.default.createElement(P, {
-          dimColor: !0
-        }, G)), !K && G9.default.createElement(h, null, G9.default.createElement(oD, null), G9.default.createElement(P, null, "Opening browser to sign in…")), K && G9.default.createElement(h, null, G9.default.createElement(P, null, RS2), G9.default.createElement(j3, {
-          value: Y,
-          onChange: W,
-          onSubmit: (_) => O(_, Z.url),
-          cursorOffset: J,
-          onChangeCursorOffset: F,
-          columns: q
-        })));
-      case "creating_api_key":
-        return G9.default.createElement(h, {
-          flexDirection: "column",
-          gap: 1
-        }, G9.default.createElement(h, null, G9.default.createElement(oD, null), G9.default.createElement(P, null, "Creating API key for Claude Code…")));
-      case "about_to_retry":
-        return G9.default.createElement(h, {
-          flexDirection: "column",
-          gap: 1
-        }, G9.default.createElement(P, {
-          color: "permission"
-        }, "Retrying…"));
-      case "success":
-        return G9.default.createElement(h, {
-          flexDirection: "column",
-          gap: 2
-        }, ZA().oauthAccount?.emailAddress ? G9.default.createElement(P, {
-          dimColor: !0
-        }, "Logged in as", " ", G9.default.createElement(P, null, ZA().oauthAccount?.emailAddress)) : null, G9.default.createElement(P, {
-          color: "success"
-        }, "Login successful. Press ", G9.default.createElement(P, {
-          bold: !0
-        }, "Enter"), " to continue…"));
-      case "error":
-        return G9.default.createElement(h, {
-          flexDirection: "column",
-          gap: 1
-        }, G9.default.createElement(P, {
-          color: "error"
-        }, "OAuth error: ", Z.message), Z.toRetry && G9.default.createElement(h, {
-          marginTop: 1
-        }, G9.default.createElement(P, {
-          color: "permission"
-        }, "Press ", G9.default.createElement(P, {
-          bold: !0
-        }, "Enter"), " to retry.")));
-      default:
-        return null
-    }
-  }
-  return G9.useEffect(() => {
-    let _ = {};
-    if (_.header = G9.default.createElement(h, {
-        key: "header",
-        flexDirection: "column",
-        gap: 1
-      }, G9.default.createElement(y0A, null), G9.default.createElement(h, {
-        paddingBottom: 1,
-        paddingLeft: 1
-      }, G9.default.createElement(ES2, null))), Z.state === "waiting_for_login" && K) _.urlToCopy = G9.default.createElement(h, {
-      flexDirection: "column",
-      key: "urlToCopy",
-      gap: 1,
-      paddingBottom: 1
-    }, G9.default.createElement(h, {
-      paddingX: 1
-    }, G9.default.createElement(P, {
-      dimColor: !0
-    }, "Browser didn't open? Use the url below to sign in:")), G9.default.createElement(h, {
-      width: 1000
-    }, G9.default.createElement(P, {
-      dimColor: !0
-    }, Z.url)));
-    N.renderStatic(_)
-  }, [N, Z, K]), G9.default.createElement(h, {
-    flexDirection: "column",
-    gap: 1
-  }, G9.default.createElement(h, {
-    paddingLeft: 1,
-    flexDirection: "column",
-    gap: 1
-  }, L()))
-}
-// @from(Start 9836892, End 9836908)
-J4 = I1(U1(), 1)
-// @from(Start 9836914, End 9836922)
-mE5 = 53
-// @from(Start 9836925, End 9839466)
-function Vp({
-  model: A
-}) {
-  let B = yY(process.env.IS_DEMO) ? 29 : Math.max(mE5, dA().length + 12),
-    Q = qG(!1),
-    {
-      columns: I
-    } = c9(),
-    G = I < B,
-    Z = Boolean(process.env.ANTHROPIC_API_KEY && HdA(process.env.ANTHROPIC_API_KEY)),
-    D = yY(process.env.DISABLE_PROMPT_CACHING),
-    Y = IZ0(A),
-    W = null,
-    J = Boolean(Z || D || process.env.API_TIMEOUT_MS || process.env.MAX_THINKING_TOKENS || process.env.ANTHROPIC_BASE_URL);
-  return J4.createElement(h, {
-    flexDirection: "column"
-  }, J4.createElement(h, {
-    ...G ? {} : {
-      borderColor: "claude",
-      borderStyle: "round"
-    },
-    flexDirection: "column",
-    gap: 1,
-    paddingLeft: 1,
-    width: B
-  }, J4.createElement(P, null, J4.createElement(P, {
-    color: "claude"
-  }, "✻"), " Welcome to", " ", J4.createElement(P, {
-    bold: !0
-  }, m0), "!"), process.env.IS_DEMO ? null : J4.createElement(J4.Fragment, null, J4.createElement(h, {
-    paddingLeft: 2,
-    flexDirection: "column",
-    gap: 1
-  }, J4.createElement(P, {
-    color: "secondaryText",
-    italic: !0
-  }, "/help for help, /status for your current setup"), J4.createElement(P, {
-    color: "secondaryText"
-  }, "cwd: ", dA()), !1, !1), J && J4.createElement(h, {
-    borderColor: "secondaryBorder",
-    borderStyle: "single",
-    borderBottom: !1,
-    borderLeft: !1,
-    borderRight: !1,
-    borderTop: !0,
-    flexDirection: "column",
-    marginLeft: 2,
-    marginRight: 1,
-    paddingTop: 1
-  }, J4.createElement(h, {
-    marginBottom: 1
-  }, J4.createElement(P, {
-    color: "secondaryText"
-  }, "Overrides (via env):")), Z && Q ? J4.createElement(P, {
-    color: "secondaryText"
-  }, "• API Key:", " ", J4.createElement(P, {
-    bold: !0
-  }, Q.length < 25 ? `${Q.slice(0,3)}…` : `sk-ant-…${Q.slice(-B+25)}`)) : null, D ? J4.createElement(P, {
-    color: "secondaryText"
-  }, "• Prompt caching:", " ", J4.createElement(P, {
-    color: "error",
-    bold: !0
-  }, "off")) : null, process.env.API_TIMEOUT_MS ? J4.createElement(P, {
-    color: "secondaryText"
-  }, "• API timeout:", " ", J4.createElement(P, {
-    bold: !0
-  }, process.env.API_TIMEOUT_MS, "ms")) : null, process.env.MAX_THINKING_TOKENS ? J4.createElement(P, {
-    color: "secondaryText"
-  }, "• Max thinking tokens:", " ", J4.createElement(P, {
-    bold: !0
-  }, process.env.MAX_THINKING_TOKENS)) : null, process.env.ANTHROPIC_BASE_URL ? J4.createElement(P, {
-    color: "secondaryText"
-  }, "• API Base URL:", " ", J4.createElement(P, {
-    bold: !0
-  }, process.env.ANTHROPIC_BASE_URL)) : null))))
-}
-// @from(Start 9839471, End 9839488)
-OS2 = I1(U1(), 1)
-// @from(Start 9839491, End 9839717)
-function Cp() {
-  let [{
-    mainLoopModel: A,
-    maxRateLimitFallbackActive: B
-  }] = d5();
-  return OS2.useMemo(() => {
-    if (A === null) {
-      if (B) return wX();
-      return sa()
-    }
-    return Cg(A)
-  }, [A, B])
-}
-// @from(Start 9839722, End 9840208)
-TS2 = () => ({
-  type: "local-jsx",
-  name: "login",
-  description: qG(!1) ? "Switch Anthropic accounts" : "Sign in with your Anthropic account",
-  isEnabled: () => !0,
-  isHidden: !1,
-  async call(A, B) {
-    return await D3(), cI.createElement(x0A, {
-      onDone: async (Q, I) => {
-        aA1(cI.createElement(Vp, {
-          model: I
-        })), B.onChangeAPIKey(), A(Q ? "Login successful" : "Login interrupted")
-      }
-    })
-  },
-  userFacingName() {
-    return "login"
-  }
-})
-// @from(Start 9840211, End 9840633)
-function x0A(A) {
-  let B = Cp(),
-    Q = Y2(() => A.onDone(!1, B));
-  return cI.createElement(h, {
-    flexDirection: "column"
-  }, cI.createElement(Pw1, {
-    onDone: () => A.onDone(!0, B),
-    startingMessage: A.startingMessage
-  }), cI.createElement(h, {
-    marginLeft: 3
-  }, cI.createElement(P, {
-    dimColor: !0
-  }, Q.pending ? cI.createElement(cI.Fragment, null, "Press ", Q.keyName, " again to exit") : "")))
-}
-// @from(Start 9840638, End 9840654)
-N7 = I1(U1(), 1)
-// @from(Start 9840711, End 9840728)
-PS2 = I1(U1(), 1)
-// @from(Start 9840731, End 9840830)
-function SS2() {
-  return PS2.default.createElement(P, null, "Checking GitHub CLI installation…")
-}
-// @from(Start 9840835, End 9840851)
-nG = I1(U1(), 1)
-// @from(Start 9840854, End 9842473)
-function _S2({
-  currentRepo: A,
-  useCurrentRepo: B,
-  repoUrl: Q,
-  onRepoUrlChange: I,
-  onSubmit: G,
-  onToggleUseCurrentRepo: Z
-}) {
-  let [D, Y] = nG.useState(0), J = c9().columns;
-  return Z0((F, X) => {
-    if (X.upArrow) Z(!0);
-    else if (X.downArrow) Z(!1);
-    else if (X.return) G()
-  }), nG.default.createElement(nG.default.Fragment, null, nG.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "secondaryBorder",
-    paddingX: 1
-  }, nG.default.createElement(h, {
-    flexDirection: "column",
-    marginBottom: 1
-  }, nG.default.createElement(P, {
-    bold: !0
-  }, "Install GitHub App"), nG.default.createElement(P, {
-    dimColor: !0
-  }, "Select GitHub repository")), A && nG.default.createElement(h, {
-    marginBottom: 1
-  }, nG.default.createElement(P, {
-    bold: B,
-    color: B ? "permission" : void 0
-  }, B ? "> " : "  ", "Use current repository: ", A)), nG.default.createElement(h, {
-    marginBottom: 1
-  }, nG.default.createElement(P, {
-    bold: !B || !A,
-    color: !B || !A ? "permission" : void 0
-  }, !B || !A ? "> " : "  ", "Enter a different repository")), (!B || !A) && nG.default.createElement(h, {
-    marginBottom: 1
-  }, nG.default.createElement(j3, {
-    value: Q,
-    onChange: I,
-    onSubmit: G,
-    focus: !0,
-    placeholder: "owner/repo or https://github.com/owner/repo",
-    columns: J,
-    cursorOffset: D,
-    onChangeCursorOffset: Y,
-    showCursor: !0
-  }))), nG.default.createElement(h, {
-    marginLeft: 3
-  }, nG.default.createElement(P, {
-    dimColor: !0
-  }, A ? "↑/↓ to select · " : "", "Enter to continue")))
-}
-// @from(Start 9842478, End 9842494)
-YF = I1(U1(), 1)
-// @from(Start 9842497, End 9843581)
-function jS2({
-  repoUrl: A,
-  onSubmit: B
-}) {
-  return Z0((Q, I) => {
-    if (I.return) B()
-  }), YF.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "secondaryBorder",
-    paddingX: 1
-  }, YF.default.createElement(h, {
-    flexDirection: "column",
-    marginBottom: 1
-  }, YF.default.createElement(P, {
-    bold: !0
-  }, "Install the Claude GitHub App")), YF.default.createElement(h, {
-    marginBottom: 1
-  }, YF.default.createElement(P, null, "Opening browser to install the Claude GitHub App…")), YF.default.createElement(h, {
-    marginBottom: 1
-  }, YF.default.createElement(P, null, "Please install the app for repository: ", YF.default.createElement(P, {
-    bold: !0
-  }, A))), YF.default.createElement(h, {
-    marginBottom: 1
-  }, YF.default.createElement(P, {
-    dimColor: !0
-  }, "Important: Make sure to grant access to this specific repository")), YF.default.createElement(h, null, YF.default.createElement(P, {
-    bold: !0,
-    color: "permission"
-  }, "Press Enter once you've installed the app", A0.ellipsis)))
-}
-// @from(Start 9843586, End 9843602)
-Y3 = I1(U1(), 1)
-// @from(Start 9843605, End 9845532)
-function yS2({
-  useExistingSecret: A,
-  secretName: B,
-  onToggleUseExistingSecret: Q,
-  onSecretNameChange: I,
-  onSubmit: G
-}) {
-  let [Z, D] = Y3.useState(0), Y = c9(), [W] = q9();
-  return Z0((J, F) => {
-    if (F.upArrow) Q(!0);
-    else if (F.downArrow) Q(!1);
-    else if (F.return) G()
-  }), Y3.default.createElement(Y3.default.Fragment, null, Y3.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "secondaryBorder",
-    paddingX: 1
-  }, Y3.default.createElement(h, {
-    flexDirection: "column",
-    marginBottom: 1
-  }, Y3.default.createElement(P, {
-    bold: !0
-  }, "Install GitHub App"), Y3.default.createElement(P, {
-    dimColor: !0
-  }, "Setup API key secret")), Y3.default.createElement(h, {
-    marginBottom: 1
-  }, Y3.default.createElement(P, {
-    color: "warning"
-  }, "ANTHROPIC_API_KEY already exists in repository secrets!")), Y3.default.createElement(h, {
-    marginBottom: 1
-  }, Y3.default.createElement(P, null, "Would you like to:")), Y3.default.createElement(h, {
-    marginBottom: 1
-  }, Y3.default.createElement(P, null, A ? V9("success", W)("> ") : "  ", "Use the existing API key")), Y3.default.createElement(h, {
-    marginBottom: 1
-  }, Y3.default.createElement(P, null, !A ? V9("success", W)("> ") : "  ", "Create a new secret with a different name")), !A && Y3.default.createElement(Y3.default.Fragment, null, Y3.default.createElement(h, {
-    marginBottom: 1
-  }, Y3.default.createElement(P, null, "Enter new secret name (alphanumeric with underscores):")), Y3.default.createElement(j3, {
-    value: B,
-    onChange: I,
-    onSubmit: G,
-    focus: !0,
-    placeholder: "e.g., CLAUDE_API_KEY",
-    columns: Y.columns,
-    cursorOffset: Z,
-    onChangeCursorOffset: D,
-    showCursor: !0
-  }))), Y3.default.createElement(h, {
-    marginLeft: 3
-  }, Y3.default.createElement(P, {
-    dimColor: !0
-  }, "↑/↓ to select · Enter to continue")))
-}
-// @from(Start 9845537, End 9845553)
-eZ = I1(U1(), 1)
-// @from(Start 9845556, End 9847121)
-function kS2({
-  existingApiKey: A,
-  useExistingKey: B,
-  apiKey: Q,
-  onApiKeyChange: I,
-  onSubmit: G,
-  onToggleUseExistingKey: Z
-}) {
-  let [D, Y] = eZ.useState(0), W = c9(), [J] = q9();
-  return Z0((F, X) => {
-    if (A) {
-      if (X.upArrow) Z(!0);
-      else if (X.downArrow) Z(!1)
-    }
-    if (X.return) G()
-  }), eZ.default.createElement(eZ.default.Fragment, null, eZ.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "secondaryBorder",
-    paddingX: 1
-  }, eZ.default.createElement(h, {
-    flexDirection: "column",
-    marginBottom: 1
-  }, eZ.default.createElement(P, {
-    bold: !0
-  }, "Install GitHub App"), eZ.default.createElement(P, {
-    dimColor: !0
-  }, "Choose API key")), A && eZ.default.createElement(h, {
-    marginBottom: 1
-  }, eZ.default.createElement(P, null, B ? V9("success", J)("> ") : "  ", "Use your existing Claude Code API key")), eZ.default.createElement(h, {
-    marginBottom: 1
-  }, eZ.default.createElement(P, null, !B || !A ? V9("success", J)("> ") : "  ", "Enter a new API key")), (!B || !A) && eZ.default.createElement(j3, {
-    value: Q,
-    onChange: I,
-    onSubmit: G,
-    onPaste: I,
-    focus: !0,
-    placeholder: "sk-ant… (Create a new key at https://console.anthropic.com/settings/keys)",
-    mask: "*",
-    columns: W.columns,
-    cursorOffset: D,
-    onChangeCursorOffset: Y,
-    showCursor: !0
-  })), eZ.default.createElement(h, {
-    marginLeft: 3
-  }, eZ.default.createElement(P, {
-    dimColor: !0
-  }, A ? "↑/↓ to select · " : "", "Enter to continue")))
-}
-// @from(Start 9847126, End 9847142)
-n$ = I1(U1(), 1)
-// @from(Start 9847145, End 9848466)
-function xS2({
-  currentWorkflowInstallStep: A,
-  secretExists: B,
-  useExistingSecret: Q,
-  secretName: I,
-  skipWorkflow: G = !1,
-  selectedWorkflows: Z
-}) {
-  let D = G ? ["Getting repository information", B && Q ? "Using existing API key secret" : `Setting up ${I} secret`] : ["Getting repository information", "Creating branch", Z.length > 1 ? "Creating workflow files" : "Creating workflow file", B && Q ? "Using existing API key secret" : `Setting up ${I} secret`, "Opening pull request page"];
-  return n$.default.createElement(n$.default.Fragment, null, n$.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "secondaryBorder",
-    paddingX: 1
-  }, n$.default.createElement(h, {
-    flexDirection: "column",
-    marginBottom: 1
-  }, n$.default.createElement(P, {
-    bold: !0
-  }, "Install GitHub App"), n$.default.createElement(P, {
-    dimColor: !0
-  }, "Create GitHub Actions workflow")), D.map((Y, W) => {
-    let J = "pending";
-    if (W < A) J = "completed";
-    else if (W === A) J = "in-progress";
-    return n$.default.createElement(h, {
-      key: W
-    }, n$.default.createElement(P, {
-      color: J === "completed" ? "success" : J === "in-progress" ? "warning" : void 0
-    }, J === "completed" ? "✓ " : "", Y, J === "in-progress" ? "…" : ""))
-  })))
-}
-// @from(Start 9848471, End 9848487)
-VB = I1(U1(), 1)
-// @from(Start 9848490, End 9850302)
-function fS2({
-  secretExists: A,
-  useExistingSecret: B,
-  secretName: Q,
-  skipWorkflow: I = !1
-}) {
-  return VB.default.createElement(VB.default.Fragment, null, VB.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "secondaryBorder",
-    paddingX: 1
-  }, VB.default.createElement(h, {
-    flexDirection: "column",
-    marginBottom: 1
-  }, VB.default.createElement(P, {
-    bold: !0
-  }, "Install GitHub App"), VB.default.createElement(P, {
-    dimColor: !0
-  }, "Success")), !I && VB.default.createElement(P, {
-    color: "success"
-  }, "✓ GitHub Actions workflow created!"), A && B && VB.default.createElement(h, {
-    marginTop: 1
-  }, VB.default.createElement(P, {
-    color: "success"
-  }, "✓ Using existing ANTHROPIC_API_KEY secret")), (!A || !B) && VB.default.createElement(h, {
-    marginTop: 1
-  }, VB.default.createElement(P, {
-    color: "success"
-  }, "✓ API key saved as ", Q, " secret")), VB.default.createElement(h, {
-    marginTop: 1
-  }, VB.default.createElement(P, null, "Next steps:")), I ? VB.default.createElement(VB.default.Fragment, null, VB.default.createElement(P, null, "1. Install the Claude GitHub App if you haven't already"), VB.default.createElement(P, null, "2. Your workflow file was kept unchanged"), VB.default.createElement(P, null, "3. API key is configured and ready to use")) : VB.default.createElement(VB.default.Fragment, null, VB.default.createElement(P, null, "1. A pre-filled PR page has been created"), VB.default.createElement(P, null, "2. Install the Claude GitHub App if you haven't already"), VB.default.createElement(P, null, "3. Merge the PR to enable Claude PR assistance"))), VB.default.createElement(h, {
-    marginLeft: 3
-  }, VB.default.createElement(P, {
-    dimColor: !0
-  }, "Press any key to exit")))
-}
-// @from(Start 9850307, End 9850323)
-U7 = I1(U1(), 1)
-// @from(Start 9850326, End 9851783)
-function vS2({
-  error: A,
-  errorReason: B,
-  errorInstructions: Q
-}) {
-  return U7.default.createElement(U7.default.Fragment, null, U7.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "secondaryBorder",
-    paddingX: 1
-  }, U7.default.createElement(h, {
-    flexDirection: "column",
-    marginBottom: 1
-  }, U7.default.createElement(P, {
-    bold: !0
-  }, "Install GitHub App"), U7.default.createElement(P, {
-    dimColor: !0
-  }, "Error")), U7.default.createElement(P, {
-    color: "error"
-  }, "Error: ", A), B && U7.default.createElement(h, {
-    marginTop: 1
-  }, U7.default.createElement(P, {
-    dimColor: !0
-  }, "Reason: ", B)), Q && Q.length > 0 && U7.default.createElement(h, {
-    flexDirection: "column",
-    marginTop: 1
-  }, U7.default.createElement(P, {
-    dimColor: !0
-  }, "How to fix:"), Q.map((I, G) => U7.default.createElement(h, {
-    key: G,
-    marginLeft: 2
-  }, U7.default.createElement(P, {
-    dimColor: !0
-  }, "• "), U7.default.createElement(P, null, I)))), U7.default.createElement(h, {
-    marginTop: 1
-  }, U7.default.createElement(P, {
-    dimColor: !0
-  }, "For manual setup instructions, see:", " ", U7.default.createElement(P, {
-    color: "claude"
-  }, "https://github.com/anthropics/claude-code-action/#manual-setup-direct-api")))), U7.default.createElement(h, {
-    marginLeft: 3
-  }, U7.default.createElement(P, {
-    dimColor: !0
-  }, "Press any key to exit")))
-}
-// @from(Start 9851788, End 9851804)
-MW = I1(U1(), 1)
-// @from(Start 9851807, End 9853330)
-function bS2({
-  repoName: A,
-  onSelectAction: B
-}) {
-  return MW.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "secondaryBorder",
-    paddingX: 1
-  }, MW.default.createElement(h, {
-    flexDirection: "column",
-    marginBottom: 1
-  }, MW.default.createElement(P, {
-    bold: !0
-  }, "Existing Workflow Found"), MW.default.createElement(P, {
-    dimColor: !0
-  }, "Repository: ", A)), MW.default.createElement(h, {
-    flexDirection: "column",
-    marginBottom: 1
-  }, MW.default.createElement(P, null, "A Claude workflow file already exists at", " ", MW.default.createElement(P, {
-    color: "claude"
-  }, ".github/workflows/claude.yml")), MW.default.createElement(P, {
-    dimColor: !0
-  }, "What would you like to do?")), MW.default.createElement(h, {
-    flexDirection: "column"
-  }, MW.default.createElement(p0, {
-    options: [{
-      label: "Update workflow file with latest version",
-      value: "update"
-    }, {
-      label: "Skip workflow update (configure secrets only)",
-      value: "skip"
-    }, {
-      label: "Exit without making changes",
-      value: "exit"
-    }],
-    onChange: (Z) => {
-      B(Z)
-    },
-    onCancel: () => {
-      B("exit")
-    }
-  })), MW.default.createElement(h, {
-    marginTop: 1
-  }, MW.default.createElement(P, {
-    dimColor: !0
-  }, "View the latest workflow template at:", " ", MW.default.createElement(P, {
-    color: "claude"
-  }, "https://github.com/anthropics/claude-code-action/blob/main/examples/claude.yml"))))
-}
-// @from(Start 9853335, End 9853351)
-LW = I1(U1(), 1)
-// @from(Start 9853354, End 9854603)
-function gS2({
-  warnings: A,
-  onContinue: B
-}) {
-  return Z0((Q, I) => {
-    if (I.return) B()
-  }), LW.default.createElement(LW.default.Fragment, null, LW.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "secondaryBorder",
-    paddingX: 1
-  }, LW.default.createElement(h, {
-    flexDirection: "column",
-    marginBottom: 1
-  }, LW.default.createElement(P, {
-    bold: !0
-  }, A0.warning, " Setup Warnings"), LW.default.createElement(P, {
-    dimColor: !0
-  }, "We found some potential issues, but you can continue anyway")), A.map((Q, I) => LW.default.createElement(h, {
-    key: I,
-    flexDirection: "column",
-    marginBottom: 1
-  }, LW.default.createElement(P, {
-    color: "warning",
-    bold: !0
-  }, Q.title), LW.default.createElement(P, null, Q.message), Q.instructions.length > 0 && LW.default.createElement(h, {
-    flexDirection: "column",
-    marginLeft: 2,
-    marginTop: 1
-  }, Q.instructions.map((G, Z) => LW.default.createElement(P, {
-    key: Z,
-    dimColor: !0
-  }, "• ", G))))), LW.default.createElement(h, {
-    marginTop: 1
-  }, LW.default.createElement(P, {
-    bold: !0,
-    color: "permission"
-  }, "Press Enter to continue anyway, or Ctrl+C to exit and fix issues"))))
-}
-// @from(Start 9854608, End 9854624)
-ZQ = I1(U1(), 1)
-// @from(Start 9854627, End 9856937)
-function hS2({
-  onSubmit: A,
-  defaultSelections: B
-}) {
-  let [Q, I] = ZQ.useState(new Set(B)), [G, Z] = ZQ.useState(0), [D, Y] = ZQ.useState(!1), W = [{
-    value: "claude",
-    label: "@Claude Code",
-    description: "Tag @claude in issues and PR comments"
-  }, {
-    value: "claude-review",
-    label: "Claude Code Review",
-    description: "Automated code review on new PRs"
-  }];
-  return Z0((J, F) => {
-    if (F.upArrow) Z((X) => X > 0 ? X - 1 : W.length - 1), Y(!1);
-    else if (F.downArrow) Z((X) => X < W.length - 1 ? X + 1 : 0), Y(!1);
-    else if (J === " ") {
-      let X = W[G]?.value;
-      if (X) I((V) => {
-        let C = new Set(V);
-        if (C.has(X)) C.delete(X);
-        else C.add(X);
-        return C
-      })
-    } else if (F.return)
-      if (Q.size === 0) Y(!0);
-      else A(Array.from(Q))
-  }), ZQ.default.createElement(ZQ.default.Fragment, null, ZQ.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "secondaryBorder",
-    paddingX: 1,
-    width: "100%"
-  }, ZQ.default.createElement(h, {
-    flexDirection: "column",
-    marginBottom: 1
-  }, ZQ.default.createElement(P, {
-    bold: !0
-  }, "Select GitHub workflows to install"), ZQ.default.createElement(P, {
-    dimColor: !0
-  }, "We'll create a workflow file in your repository for each one you select.")), ZQ.default.createElement(h, {
-    flexDirection: "column",
-    paddingX: 1
-  }, W.map((J, F) => {
-    let X = Q.has(J.value),
-      V = F === G;
-    return ZQ.default.createElement(h, {
-      key: J.value,
-      flexDirection: "row",
-      marginBottom: F < W.length - 1 ? 1 : 0
-    }, ZQ.default.createElement(h, {
-      marginRight: 1,
-      minWidth: 2
-    }, ZQ.default.createElement(P, {
-      bold: V
-    }, X ? "✓" : " ")), ZQ.default.createElement(h, {
-      flexDirection: "column"
-    }, ZQ.default.createElement(P, {
-      bold: V
-    }, J.label), ZQ.default.createElement(P, {
-      dimColor: !0
-    }, J.description)))
-  }))), ZQ.default.createElement(h, {
-    marginLeft: 2
-  }, ZQ.default.createElement(P, {
-    dimColor: !0
-  }, "↑↓ Navigate · Space to toggle · Enter to confirm")), D && ZQ.default.createElement(h, {
-    marginLeft: 1
-  }, ZQ.default.createElement(P, {
-    color: "error"
-  }, "You must select at least one workflow to continue")))
-}
-// @from(Start 9856942, End 9856981)
-mS2 = "Add Claude Code GitHub Workflow"
-// @from(Start 9856985, End 9859075)
-dS2 = `name: Claude Code
-
-on:
-  issue_comment:
-    types: [created]
-  pull_request_review_comment:
-    types: [created]
-  issues:
-    types: [opened, assigned]
-  pull_request_review:
-    types: [submitted]
-
-jobs:
-  claude:
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-      id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Run Claude Code
-        id: claude
-        uses: anthropics/claude-code-action@beta
-        with:
-          anthropic_api_key: \${{ secrets.ANTHROPIC_API_KEY }}
-          
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-          # model: "claude-opus-4-20250514"
-          
-          # Optional: Customize the trigger phrase (default: @claude)
-          # trigger_phrase: "/claude"
-          
-          # Optional: Trigger when specific user is assigned to an issue
-          # assignee_trigger: "claude-bot"
-          
-          # Optional: Allow Claude to run specific commands
-          # allowed_tools: "Bash(npm install),Bash(npm run build),Bash(npm run test:*),Bash(npm run lint:*)"
-          
-          # Optional: Add custom instructions for Claude to customize its behavior for your project
-          # custom_instructions: |
-          #   Follow our coding standards
-          #   Ensure all new code has tests
-          #   Use TypeScript for new files
-          
-          # Optional: Custom environment variables for Claude
-          # claude_env: |
-          #   NODE_ENV: test
-
-`
-// @from(Start 9859079, End 9860845)
-uS2 = `## \uD83E\uDD16 Installing Claude Code GitHub App
-
-This PR adds a GitHub Actions workflow that enables Claude Code integration in our repository.
-
-### What is Claude Code?
-
-[Claude Code](https://claude.ai/code) is an AI coding agent that can help with:
-- Bug fixes and improvements  
-- Documentation updates
-- Implementing new features
-- Code reviews and suggestions
-- Writing tests
-- And more!
-
-### How it works
-
-Once this PR is merged, we'll be able to interact with Claude by mentioning @claude in a pull request or issue comment.
-Once the workflow is triggered, Claude will analyze the comment and surrounding context, and execute on the request in a GitHub action.
-
-### Important Notes
-
-- **This workflow won't take effect until this PR is merged**
-- **@claude mentions won't work until after the merge is complete**
-- The workflow runs automatically whenever Claude is mentioned in PR or issue comments
-- Claude gets access to the entire PR or issue context including files, diffs, and previous comments
-
-### Security
-
-- Our Anthropic API key is securely stored as a GitHub Actions secret
-- Only users with write access to the repository can trigger the workflow
-- All Claude runs are stored in the GitHub Actions run history
-- Claude's default tools are limited to reading/writing files and interacting with our repo by creating comments, branches, and commits.
-- We can add more allowed tools by adding them to the workflow file like:
-
-\`\`\`
-allowed_tools: Bash(npm install),Bash(npm run build),Bash(npm run lint),Bash(npm run test)
-\`\`\`
-
-There's more information in the [Claude Code documentation](http://docs.anthropic.com/s/claude-code-github-actions).
-
-After merging this PR, let's try mentioning @claude in a comment on any PR to get started!`
-// @from(Start 9860849, End 9863742)
-pS2 = `name: Claude Code Review
-
-on:
-  pull_request:
-    types: [opened, synchronize]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
-
-jobs:
-  claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-    
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-      id-token: write
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Run Claude Code Review
-        id: claude-review
-        uses: anthropics/claude-code-action@beta
-        with:
-          anthropic_api_key: \${{ secrets.ANTHROPIC_API_KEY }}
-          
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-          # model: "claude-opus-4-20250514"
-          
-          # Direct prompt for automated review (no @claude mention needed)
-          direct_prompt: |
-            Please review this pull request and provide feedback on:
-            - Code quality and best practices
-            - Potential bugs or issues
-            - Performance considerations
-            - Security concerns
-            - Test coverage
-            
-            Be constructive and helpful in your feedback.
-          
-          # Optional: Customize review based on file types
-          # direct_prompt: |
-          #   Review this PR focusing on:
-          #   - For TypeScript files: Type safety and proper interface usage
-          #   - For API endpoints: Security, input validation, and error handling
-          #   - For React components: Performance, accessibility, and best practices
-          #   - For tests: Coverage, edge cases, and test quality
-          
-          # Optional: Different prompts for different authors
-          # direct_prompt: |
-          #   \${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' && 
-          #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions.' ||
-          #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
-          
-          # Optional: Add specific tools for running tests or linting
-          # allowed_tools: "Bash(npm run test),Bash(npm run lint),Bash(npm run typecheck)"
-          
-          # Optional: Skip review for certain conditions
-          # if: |
-          #   !contains(github.event.pull_request.title, '[skip-review]') &&
-          #   !contains(github.event.pull_request.title, '[WIP]')
-
-`
-// @from(Start 9863744, End 9865225)
-async function dE5(A, B, Q, I, G, Z, D) {
-  let Y = await u0("gh", ["api", `repos/${A}/contents/${Q}`, "--jq", ".sha"]),
-    W = null;
-  if (Y.code === 0) W = Y.stdout.trim();
-  let J = I;
-  if (G !== "ANTHROPIC_API_KEY") J = I.replace(/anthropic_api_key: \$\{\{ secrets\.ANTHROPIC_API_KEY \}\}/g, `anthropic_api_key: \${{ secrets.${G} }}`);
-  let F = Buffer.from(J).toString("base64"),
-    X = ["api", "--method", "PUT", `repos/${A}/contents/${Q}`, "-f", W ? `message=Update ${Z}` : `message=${Z}`, "-f", `content=${F}`, "-f", `branch=${B}`];
-  if (W) X.push("-f", `sha=${W}`);
-  let V = await u0("gh", X);
-  if (V.code !== 0) {
-    if (V.stderr.includes("422") && V.stderr.includes("sha")) throw E1("tengu_setup_github_actions_failed", {
-      reason: "failed_to_create_workflow_file",
-      exit_code: V.code,
-      ...D
-    }), new Error(`Failed to create workflow file ${Q}: A Claude workflow file already exists in this repository. Please remove it first or update it manually.`);
-    E1("tengu_setup_github_actions_failed", {
-      reason: "failed_to_create_workflow_file",
-      exit_code: V.code,
-      ...D
-    });
-    let C = `
-
-Need help? Common issues:
-` + `• Permission denied → Run: gh auth refresh -h github.com -s repo,workflow
-` + `• Not authorized → Ensure you have admin access to the repository
-` + "• For manual setup → Visit: https://github.com/anthropics/claude-code-action";
-    throw new Error(`Failed to create workflow file ${Q}: ${V.stderr}${C}`)
-  }
-}
-// @from(Start 9865226, End 9869030)
-async function f0A(A, B, Q, I, G = !1, Z, D) {
-  try {
-    E1("tengu_setup_github_actions_started", {
-      skip_workflow: G,
-      has_api_key: !!B,
-      using_default_secret_name: Q === "ANTHROPIC_API_KEY",
-      selected_claude_workflow: Z.includes("claude"),
-      selected_claude_review_workflow: Z.includes("claude-review"),
-      ...D
-    });
-    let Y = await u0("gh", ["api", `repos/${A}`, "--jq", ".id"]);
-    if (Y.code !== 0) throw E1("tengu_setup_github_actions_failed", {
-      reason: "repo_not_found",
-      exit_code: Y.code,
-      ...D
-    }), new Error(`Failed to access repository ${A}`);
-    let W = await u0("gh", ["api", `repos/${A}`, "--jq", ".default_branch"]);
-    if (W.code !== 0) throw E1("tengu_setup_github_actions_failed", {
-      reason: "failed_to_get_default_branch",
-      exit_code: W.code,
-      ...D
-    }), new Error(`Failed to get default branch: ${W.stderr}`);
-    let J = W.stdout.trim(),
-      F = await u0("gh", ["api", `repos/${A}/git/ref/heads/${J}`, "--jq", ".object.sha"]);
-    if (F.code !== 0) throw E1("tengu_setup_github_actions_failed", {
-      reason: "failed_to_get_branch_sha",
-      exit_code: F.code,
-      ...D
-    }), new Error(`Failed to get branch SHA: ${F.stderr}`);
-    let X = F.stdout.trim(),
-      V = null;
-    if (!G) {
-      I(), V = `add-claude-github-actions-${Date.now()}`;
-      let C = await u0("gh", ["api", "--method", "POST", `repos/${A}/git/refs`, "-f", `ref=refs/heads/${V}`, "-f", `sha=${X}`]);
-      if (C.code !== 0) throw E1("tengu_setup_github_actions_failed", {
-        reason: "failed_to_create_branch",
-        exit_code: C.code,
-        ...D
-      }), new Error(`Failed to create branch: ${C.stderr}`);
-      I();
-      let K = [];
-      if (Z.includes("claude")) K.push({
-        path: ".github/workflows/claude.yml",
-        content: dS2,
-        message: "Claude PR Assistant workflow"
-      });
-      if (Z.includes("claude-review")) K.push({
-        path: ".github/workflows/claude-code-review.yml",
-        content: pS2,
-        message: "Claude Code Review workflow"
-      });
-      for (let E of K) await dE5(A, V, E.path, E.content, Q, E.message, D)
-    }
-    if (I(), B) {
-      let C = await u0("gh", ["secret", "set", Q, "--body", B, "--repo", A]);
-      if (C.code !== 0) {
-        E1("tengu_setup_github_actions_failed", {
-          reason: "failed_to_set_api_key_secret",
-          exit_code: C.code,
-          ...D
-        });
-        let K = `
-
-Need help? Common issues:
-` + `• Permission denied → Run: gh auth refresh -h github.com -s repo
-` + `• Not authorized → Ensure you have admin access to the repository
-` + "• For manual setup → Visit: https://github.com/anthropics/claude-code-action";
-        throw new Error(`Failed to set API key secret: ${C.stderr||"Unknown error"}${K}`)
-      }
-    }
-    if (!G && V) {
-      I();
-      let C = `https://github.com/${A}/compare/${J}...${V}?quick_pull=1&title=${encodeURIComponent(mS2)}&body=${encodeURIComponent(uS2)}`;
-      if (process.platform === "darwin") await u0("open", [C]);
-      else if (process.platform === "win32") await u0("cmd.exe", ["/c", "start", "", C]);
-      else await u0("xdg-open", [C])
-    }
-    E1("tengu_setup_github_actions_completed", {
-      skip_workflow: G,
-      has_api_key: !!B,
-      using_default_secret_name: Q === "ANTHROPIC_API_KEY",
-      selected_claude_workflow: Z.includes("claude"),
-      selected_claude_review_workflow: Z.includes("claude-review"),
-      ...D
-    }), j0({
-      ...ZA(),
-      githubActionSetupCount: (ZA().githubActionSetupCount ?? 0) + 1
-    })
-  } catch (Y) {
-    if (!Y || !(Y instanceof Error) || !Y.message.includes("Failed to")) E1("tengu_setup_github_actions_failed", {
-      reason: "unexpected_error",
-      ...D
-    });
-    if (Y instanceof Error) b1(Y);
-    throw Y
-  }
-}
-// @from(Start 9869035, End 9869365)
-uE5 = {
-  step: "check-gh",
-  selectedRepoName: "",
-  currentRepo: "",
-  useCurrentRepo: !0,
-  apiKey: "",
-  useExistingKey: !0,
-  currentWorkflowInstallStep: 0,
-  warnings: [],
-  secretExists: !1,
-  secretName: "ANTHROPIC_API_KEY",
-  useExistingSecret: !0,
-  workflowExists: !1,
-  selectedWorkflows: ["claude", "claude-review"]
-}
-// @from(Start 9869368, End 9882876)
-function pE5(A) {
-  let [B] = N7.useState(() => qG(!1)), [Q, I] = N7.useState({
-    ...uE5,
-    useExistingKey: !!B
-  });
-  Y2(), N7.default.useEffect(() => {
-    E1("tengu_install_github_app_started", {})
-  }, []);
-  let G = N7.useCallback(async () => {
-    let q = [];
-    try {
-      Sw1("gh --version", {
-        stdio: "ignore"
-      })
-    } catch {
-      q.push({
-        title: "GitHub CLI not found",
-        message: "GitHub CLI (gh) does not appear to be installed or accessible.",
-        instructions: ["Install GitHub CLI from https://cli.github.com/", "macOS: brew install gh", "Windows: winget install --id GitHub.cli", "Linux: See installation instructions at https://github.com/cli/cli#installation"]
-      })
-    }
-    try {
-      Sw1("gh auth status", {
-        stdio: "ignore"
-      })
-    } catch {
-      q.push({
-        title: "GitHub CLI not authenticated",
-        message: "GitHub CLI does not appear to be authenticated.",
-        instructions: ["Run: gh auth login", "Follow the prompts to authenticate with GitHub", "Or set up authentication using environment variables or other methods"]
-      })
-    }
-    let O = "";
-    try {
-      Sw1("git rev-parse --is-inside-work-tree", {
-        stdio: "ignore"
-      });
-      let T = Sw1("git remote get-url origin", {
-        encoding: "utf8"
-      }).trim().match(/github\.com[:/]([^/]+\/[^/]+)(\.git)?$/);
-      if (T) O = T[1]?.replace(/\.git$/, "") || ""
-    } catch {}
-    I((R) => ({
-      ...R,
-      warnings: q,
-      currentRepo: O,
-      selectedRepoName: O,
-      step: q.length > 0 ? "warnings" : "choose-repo"
-    }))
-  }, []);
-  N7.default.useEffect(() => {
-    if (Q.step === "check-gh") G()
-  }, [Q.step, G]);
-  async function Z() {
-    if (process.platform === "darwin") await u0("open", ["https://github.com/apps/claude"]);
-    else if (process.platform === "win32") await u0("cmd.exe", ["/c", "start", "", "https://github.com/apps/claude"]);
-    else await u0("xdg-open", ["https://github.com/apps/claude"])
-  }
-  async function D(q) {
-    try {
-      let O = await u0("gh", ["api", `repos/${q}`, "--jq", ".permissions.admin"]);
-      if (O.code === 0) return {
-        hasAccess: O.stdout.trim() === "true"
-      };
-      if (O.stderr.includes("404") || O.stderr.includes("Not Found")) return {
-        hasAccess: !1,
-        error: "repository_not_found"
-      };
-      return {
-        hasAccess: !1
-      }
-    } catch {
-      return {
-        hasAccess: !1
-      }
-    }
-  }
-  async function Y(q) {
-    return (await u0("gh", ["api", `repos/${q}/contents/.github/workflows/claude.yml`, "--jq", ".sha"])).code === 0
-  }
-  async function W() {
-    let q = await u0("gh", ["secret", "list", "--app", "actions", "--repo", Q.selectedRepoName]);
-    if (q.code === 0)
-      if (q.stdout.split(`
-`).some((T) => {
-          return /^ANTHROPIC_API_KEY\s+/.test(T)
-        })) I((T) => ({
-        ...T,
-        secretExists: !0,
-        step: "check-existing-secret"
-      }));
-      else I((T) => ({
-        ...T,
-        step: "api-key"
-      }));
-    else I((O) => ({
-      ...O,
-      step: "api-key"
-    }))
-  }
-  let J = async () => {
-    if (Q.step === "warnings") I((q) => ({
-      ...q,
-      step: "install-app"
-    })), setTimeout(() => {
-      Z()
-    }, 0);
-    else if (Q.step === "choose-repo") {
-      let q = Q.useCurrentRepo ? Q.currentRepo : Q.selectedRepoName;
-      if (!q.trim()) return;
-      let O = [];
-      if (q.includes("github.com")) {
-        let L = q.match(/github\.com[:/]([^/]+\/[^/]+)(\.git)?$/);
-        if (!L) O.push({
-          title: "Invalid GitHub URL format",
-          message: "The repository URL format appears to be invalid.",
-          instructions: ["Use format: owner/repo or https://github.com/owner/repo", "Example: anthropics/claude-cli"]
-        });
-        else q = L[1]?.replace(/\.git$/, "") || ""
-      }
-      if (!q.includes("/")) O.push({
-        title: "Repository format warning",
-        message: 'Repository should be in format "owner/repo"',
-        instructions: ["Use format: owner/repo", "Example: anthropics/claude-cli"]
-      });
-      let R = await D(q);
-      if (R.error === "repository_not_found") O.push({
-        title: "Repository not found",
-        message: `Repository ${q} was not found or you don't have access.`,
-        instructions: [`Check that the repository name is correct: ${q}`, "Ensure you have access to this repository", 'For private repositories, make sure your GitHub token has the "repo" scope', "You can add the repo scope with: gh auth refresh -h github.com -s repo,workflow"]
-      });
-      else if (!R.hasAccess) O.push({
-        title: "Admin permissions required",
-        message: `You might need admin permissions on ${q} to set up GitHub Actions.`,
-        instructions: ["Repository admins can install GitHub Apps and set secrets", "Ask a repository admin to run this command if setup fails", "Alternatively, you can use the manual setup instructions"]
-      });
-      let T = await Y(q);
-      if (O.length > 0) {
-        let L = [...Q.warnings, ...O];
-        I((_) => ({
-          ..._,
-          selectedRepoName: q,
-          workflowExists: T,
-          warnings: L,
-          step: "warnings"
-        }))
-      } else I((L) => ({
-        ...L,
-        selectedRepoName: q,
-        workflowExists: T,
-        step: "install-app"
-      })), setTimeout(() => {
-        Z()
-      }, 0)
-    } else if (Q.step === "install-app")
-      if (Q.workflowExists) I((q) => ({
-        ...q,
-        step: "check-existing-workflow"
-      }));
-      else I((q) => ({
-        ...q,
-        step: "select-workflows"
-      }));
-    else if (Q.step === "check-existing-workflow") return;
-    else if (Q.step === "select-workflows") return;
-    else if (Q.step === "check-existing-secret")
-      if (Q.useExistingSecret) {
-        I((q) => ({
-          ...q,
-          step: "creating",
-          currentWorkflowInstallStep: 0
-        }));
-        try {
-          await f0A(Q.selectedRepoName, null, Q.secretName, () => {
-            I((q) => ({
-              ...q,
-              currentWorkflowInstallStep: q.currentWorkflowInstallStep + 1
-            }))
-          }, Q.workflowAction === "skip", Q.selectedWorkflows, {
-            useCurrentRepo: Q.useCurrentRepo,
-            workflowExists: Q.workflowExists,
-            secretExists: Q.secretExists
-          }), I((q) => ({
-            ...q,
-            step: "success"
-          }))
-        } catch (q) {
-          let O = q instanceof Error ? q.message : "Failed to set up GitHub Actions";
-          if (O.includes("workflow file already exists")) E1("tengu_install_github_app_error", {
-            reason: "workflow_file_exists"
-          }), I((R) => ({
-            ...R,
-            step: "error",
-            error: "A Claude workflow file already exists in this repository.",
-            errorReason: "Workflow file conflict",
-            errorInstructions: ["The file .github/workflows/claude.yml already exists", "You can either:", "  1. Delete the existing file and run this command again", "  2. Update the existing file manually using the template from:", "     https://github.com/anthropics/claude-code-action/#manual-setup-direct-api"]
-          }));
-          else E1("tengu_install_github_app_error", {
-            reason: "setup_github_actions_failed"
-          }), I((R) => ({
-            ...R,
-            step: "error",
-            error: O,
-            errorReason: "GitHub Actions setup failed",
-            errorInstructions: []
-          }))
-        }
-      } else I((q) => ({
-        ...q,
-        step: "api-key"
-      }));
-    else if (Q.step === "api-key") {
-      let q = Q.useExistingKey ? B : Q.apiKey;
-      if (!q) {
-        E1("tengu_install_github_app_error", {
-          reason: "api_key_missing"
-        }), I((O) => ({
-          ...O,
-          step: "error",
-          error: "API key is required"
-        }));
-        return
-      }
-      I((O) => ({
-        ...O,
-        apiKey: q,
-        step: "creating",
-        currentWorkflowInstallStep: 0
-      }));
-      try {
-        await f0A(Q.selectedRepoName, q, Q.secretName, () => {
-          I((O) => ({
-            ...O,
-            currentWorkflowInstallStep: O.currentWorkflowInstallStep + 1
-          }))
-        }, Q.workflowAction === "skip", Q.selectedWorkflows, {
-          useCurrentRepo: Q.useCurrentRepo,
-          workflowExists: Q.workflowExists,
-          secretExists: Q.secretExists
-        }), I((O) => ({
-          ...O,
-          step: "success"
-        }))
-      } catch (O) {
-        let R = O instanceof Error ? O.message : "Failed to set up GitHub Actions";
-        if (R.includes("workflow file already exists")) E1("tengu_install_github_app_error", {
-          reason: "workflow_file_exists"
-        }), I((T) => ({
-          ...T,
-          step: "error",
-          error: "A Claude workflow file already exists in this repository.",
-          errorReason: "Workflow file conflict",
-          errorInstructions: ["The file .github/workflows/claude.yml already exists", "You can either:", "  1. Delete the existing file and run this command again", "  2. Update the existing file manually using the template from:", "     https://github.com/anthropics/claude-code-action/#manual-setup-direct-api"]
-        }));
-        else E1("tengu_install_github_app_error", {
-          reason: "setup_github_actions_failed"
-        }), I((T) => ({
-          ...T,
-          step: "error",
-          error: R,
-          errorReason: "GitHub Actions setup failed",
-          errorInstructions: []
-        }))
-      }
-    }
-  }, F = (q) => {
-    I((O) => ({
-      ...O,
-      selectedRepoName: q
-    }))
-  }, X = (q) => {
-    I((O) => ({
-      ...O,
-      apiKey: q
-    }))
-  }, V = (q) => {
-    if (q && !/^[a-zA-Z0-9_]+$/.test(q)) return;
-    I((O) => ({
-      ...O,
-      secretName: q
-    }))
-  }, C = (q) => {
-    I((O) => ({
-      ...O,
-      useCurrentRepo: q,
-      selectedRepoName: q ? O.currentRepo : ""
-    }))
-  }, K = (q) => {
-    I((O) => ({
-      ...O,
-      useExistingKey: q
-    }))
-  }, E = (q) => {
-    I((O) => ({
-      ...O,
-      useExistingSecret: q,
-      secretName: q ? "ANTHROPIC_API_KEY" : ""
-    }))
-  }, N = async (q) => {
-    if (q === "exit") {
-      A.onDone("Installation cancelled by user");
+// @from(Start 9231163, End 9234517)
+vA0 = z((YjG, xA0) => {
+  var Ji = B6();
+  x3();
+  iLA();
+  cM();
+  (function() {
+    if (Ji.prime) {
+      xA0.exports = Ji.prime;
       return
     }
-    if (I((O) => ({
-        ...O,
-        workflowAction: q
-      })), q === "skip") I((O) => ({
-      ...O,
-      step: "check-existing-secret"
-    })), await W();
-    else if (q === "update") I((O) => ({
-      ...O,
-      step: "check-existing-secret"
-    })), await W()
-  };
-  switch (Z0(() => {
-      if (Q.step === "success" || Q.step === "error") {
-        if (Q.step === "success") E1("tengu_install_github_app_completed", {});
-        A.onDone(Q.step === "success" ? "GitHub Actions setup complete!" : Q.error ? `Couldn't install GitHub App: ${Q.error}
-For manual setup instructions, see: https://github.com/anthropics/claude-code-action/#manual-setup-direct-api` : `GitHub App installation failed
-For manual setup instructions, see: https://github.com/anthropics/claude-code-action/#manual-setup-direct-api`)
-      }
-    }), Q.step) {
-    case "check-gh":
-      return N7.default.createElement(SS2, null);
-    case "warnings":
-      return N7.default.createElement(gS2, {
-        warnings: Q.warnings,
-        onContinue: J
-      });
-    case "choose-repo":
-      return N7.default.createElement(_S2, {
-        currentRepo: Q.currentRepo,
-        useCurrentRepo: Q.useCurrentRepo,
-        repoUrl: Q.selectedRepoName,
-        onRepoUrlChange: F,
-        onToggleUseCurrentRepo: C,
-        onSubmit: J
-      });
-    case "install-app":
-      return N7.default.createElement(jS2, {
-        repoUrl: Q.selectedRepoName,
-        onSubmit: J
-      });
-    case "check-existing-workflow":
-      return N7.default.createElement(bS2, {
-        repoName: Q.selectedRepoName,
-        onSelectAction: N
-      });
-    case "check-existing-secret":
-      return N7.default.createElement(yS2, {
-        useExistingSecret: Q.useExistingSecret,
-        secretName: Q.secretName,
-        onToggleUseExistingSecret: E,
-        onSecretNameChange: V,
-        onSubmit: J
-      });
-    case "api-key":
-      return N7.default.createElement(kS2, {
-        existingApiKey: B,
-        useExistingKey: Q.useExistingKey,
-        apiKey: Q.apiKey,
-        onApiKeyChange: X,
-        onToggleUseExistingKey: K,
-        onSubmit: J
-      });
-    case "creating":
-      return N7.default.createElement(xS2, {
-        currentWorkflowInstallStep: Q.currentWorkflowInstallStep,
-        secretExists: Q.secretExists,
-        useExistingSecret: Q.useExistingSecret,
-        secretName: Q.secretName,
-        skipWorkflow: Q.workflowAction === "skip",
-        selectedWorkflows: Q.selectedWorkflows
-      });
-    case "success":
-      return N7.default.createElement(fS2, {
-        secretExists: Q.secretExists,
-        useExistingSecret: Q.useExistingSecret,
-        secretName: Q.secretName,
-        skipWorkflow: Q.workflowAction === "skip"
-      });
-    case "error":
-      return N7.default.createElement(vS2, {
-        error: Q.error,
-        errorReason: Q.errorReason,
-        errorInstructions: Q.errorInstructions
-      });
-    case "select-workflows":
-      return N7.default.createElement(hS2, {
-        defaultSelections: Q.selectedWorkflows,
-        onSubmit: (q) => {
-          I((O) => ({
-            ...O,
-            selectedWorkflows: q,
-            step: "check-existing-secret"
-          })), W()
-        }
-      })
-  }
-}
-// @from(Start 9882881, End 9883221)
-cE5 = {
-    type: "local-jsx",
-    name: "install-github-app",
-    description: "Set up Claude GitHub Actions for a repository",
-    isEnabled: () => !Yb(),
-    isHidden: !1,
-    async call(A) {
-      return N7.default.createElement(pE5, {
-        onDone: A
-      })
-    },
-    userFacingName() {
-      return "install-github-app"
-    }
-  }
-// @from(Start 9883225, End 9883234)
-cS2 = cE5
-// @from(Start 9883240, End 9883257)
-lS2 = I1(U1(), 1)
-// @from(Start 9883263, End 9883279)
-v2 = I1(U1(), 1)
-// @from(Start 9883282, End 9883587)
-function Kp({
-  onPress: A
-}) {
-  return Z0((B, Q) => {
-    if (Q.return) A();
-    else if (Q.escape) MI(1)
-  }), v2.default.createElement(P, null, "Press ", v2.default.createElement(P, {
-    bold: !0
-  }, "Enter"), " to continue or ", v2.default.createElement(P, {
-    bold: !0
-  }, "Esc"), " to exit")
-}
-// @from(Start 9883589, End 9889902)
-function Hp() {
-  let [A, B] = v2.useState("intro"), [Q, I] = v2.useState(""), [G, Z] = v2.useState("");
-  if (Y2(() => {
-      FT("canceled", "user_exit"), MI(1)
-    }), v2.useEffect(() => {
-      FT("start")
-    }, []), v2.useEffect(() => {
-      let D = async () => {
-        try {
-          if (!z0A()) I("Local package creation failed"), B("error"), FT("failure", "environement_setup");
-          switch (await Yp()) {
-            case "success": {
-              B("success"), FT("success");
-              break
-            }
-            case "in_progress":
-              I("Update already in progress"), B("error"), FT("failure", "in_progress");
-              break;
-            case "install_failed":
-              I(`Install of ${{ISSUES_EXPLAINER:"report the issue at https://github.com/anthropics/claude-code/issues",PACKAGE_URL:"@anthropic-ai/claude-code",README_URL:"https://docs.anthropic.com/s/claude-code",VERSION:"1.0.34"}.PACKAGE_URL} failed`), B("error"), FT("failure", "other_failure");
-              break
+    var A = xA0.exports = Ji.prime = Ji.prime || {},
+      Q = Ji.jsbn.BigInteger,
+      B = [6, 4, 2, 4, 2, 4, 6, 2],
+      G = new Q(null);
+    G.fromInt(30);
+    var Z = function(F, K) {
+      return F | K
+    };
+    A.generateProbablePrime = function(F, K, D) {
+      if (typeof K === "function") D = K, K = {};
+      K = K || {};
+      var H = K.algorithm || "PRIMEINC";
+      if (typeof H === "string") H = {
+        name: H
+      };
+      H.options = H.options || {};
+      var C = K.prng || Ji.random,
+        E = {
+          nextBytes: function(U) {
+            var q = C.getBytesSync(U.length);
+            for (var w = 0; w < U.length; ++w) U[w] = q.charCodeAt(w)
           }
-        } catch (J) {
-          I(String(J)), B("error"), FT("failure", "unexpected_error")
+        };
+      if (H.name === "PRIMEINC") return I(F, E, H.options, D);
+      throw Error("Invalid prime generation algorithm: " + H.name)
+    };
+
+    function I(F, K, D, H) {
+      if ("workers" in D) return W(F, K, D, H);
+      return Y(F, K, D, H)
+    }
+
+    function Y(F, K, D, H) {
+      var C = X(F, K),
+        E = 0,
+        U = V(C.bitLength());
+      if ("millerRabinTests" in D) U = D.millerRabinTests;
+      var q = 10;
+      if ("maxBlockTime" in D) q = D.maxBlockTime;
+      J(C, F, K, E, U, q, H)
+    }
+
+    function J(F, K, D, H, C, E, U) {
+      var q = +new Date;
+      do {
+        if (F.bitLength() > K) F = X(K, D);
+        if (F.isProbablePrime(C)) return U(null, F);
+        F.dAddOffset(B[H++ % 8], 0)
+      } while (E < 0 || +new Date - q < E);
+      Ji.util.setImmediate(function() {
+        J(F, K, D, H, C, E, U)
+      })
+    }
+
+    function W(F, K, D, H) {
+      if (typeof Worker > "u") return Y(F, K, D, H);
+      var C = X(F, K),
+        E = D.workers,
+        U = D.workLoad || 100,
+        q = U * 30 / 8,
+        w = D.workerScript || "forge/prime.worker.js";
+      if (E === -1) return Ji.util.estimateCores(function(R, T) {
+        if (R) T = 2;
+        E = T - 1, N()
+      });
+      N();
+
+      function N() {
+        E = Math.max(1, E);
+        var R = [];
+        for (var T = 0; T < E; ++T) R[T] = new Worker(w);
+        var y = E;
+        for (var T = 0; T < E; ++T) R[T].addEventListener("message", x);
+        var v = !1;
+
+        function x(p) {
+          if (v) return;
+          --y;
+          var u = p.data;
+          if (u.found) {
+            for (var e = 0; e < R.length; ++e) R[e].terminate();
+            return v = !0, H(null, new Q(u.prime, 16))
+          }
+          if (C.bitLength() > F) C = X(F, K);
+          var l = C.toString(16);
+          p.target.postMessage({
+            hex: l,
+            workLoad: U
+          }), C.dAddOffset(q, 0)
         }
-      }, Y = async () => {
-        try {
-          let J = await uP2();
-          Z(J), B("setup")
-        } catch (J) {
-          I(String(J)), B("error")
+      }
+    }
+
+    function X(F, K) {
+      var D = new Q(F, K),
+        H = F - 1;
+      if (!D.testBit(H)) D.bitwiseTo(Q.ONE.shiftLeft(H), Z, D);
+      return D.dAddOffset(31 - D.mod(G).byteValue(), 0), D
+    }
+
+    function V(F) {
+      if (F <= 100) return 27;
+      if (F <= 150) return 18;
+      if (F <= 200) return 15;
+      if (F <= 250) return 12;
+      if (F <= 300) return 9;
+      if (F <= 350) return 8;
+      if (F <= 400) return 7;
+      if (F <= 500) return 6;
+      if (F <= 600) return 5;
+      if (F <= 800) return 4;
+      if (F <= 1250) return 3;
+      return 2
+    }
+  })()
+})
+// @from(Start 9234523, End 9261126)
+nLA = z((JjG, o62) => {
+  var P9 = B6();
+  GP();
+  iLA();
+  Ii();
+  yA0();
+  vA0();
+  cM();
+  x3();
+  if (typeof i5 > "u") i5 = P9.jsbn.BigInteger;
+  var i5, bA0 = P9.util.isNodejs ? UA("crypto") : null,
+    J0 = P9.asn1,
+    lM = P9.util;
+  P9.pki = P9.pki || {};
+  o62.exports = P9.pki.rsa = P9.rsa = P9.rsa || {};
+  var L8 = P9.pki,
+    CZ5 = [6, 4, 2, 4, 2, 4, 6, 2],
+    EZ5 = {
+      name: "PrivateKeyInfo",
+      tagClass: J0.Class.UNIVERSAL,
+      type: J0.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "PrivateKeyInfo.version",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "privateKeyVersion"
+      }, {
+        name: "PrivateKeyInfo.privateKeyAlgorithm",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.SEQUENCE,
+        constructed: !0,
+        value: [{
+          name: "AlgorithmIdentifier.algorithm",
+          tagClass: J0.Class.UNIVERSAL,
+          type: J0.Type.OID,
+          constructed: !1,
+          capture: "privateKeyOid"
+        }]
+      }, {
+        name: "PrivateKeyInfo",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.OCTETSTRING,
+        constructed: !1,
+        capture: "privateKey"
+      }]
+    },
+    zZ5 = {
+      name: "RSAPrivateKey",
+      tagClass: J0.Class.UNIVERSAL,
+      type: J0.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "RSAPrivateKey.version",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "privateKeyVersion"
+      }, {
+        name: "RSAPrivateKey.modulus",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "privateKeyModulus"
+      }, {
+        name: "RSAPrivateKey.publicExponent",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "privateKeyPublicExponent"
+      }, {
+        name: "RSAPrivateKey.privateExponent",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "privateKeyPrivateExponent"
+      }, {
+        name: "RSAPrivateKey.prime1",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "privateKeyPrime1"
+      }, {
+        name: "RSAPrivateKey.prime2",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "privateKeyPrime2"
+      }, {
+        name: "RSAPrivateKey.exponent1",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "privateKeyExponent1"
+      }, {
+        name: "RSAPrivateKey.exponent2",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "privateKeyExponent2"
+      }, {
+        name: "RSAPrivateKey.coefficient",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "privateKeyCoefficient"
+      }]
+    },
+    UZ5 = {
+      name: "RSAPublicKey",
+      tagClass: J0.Class.UNIVERSAL,
+      type: J0.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "RSAPublicKey.modulus",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "publicKeyModulus"
+      }, {
+        name: "RSAPublicKey.exponent",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.INTEGER,
+        constructed: !1,
+        capture: "publicKeyExponent"
+      }]
+    },
+    $Z5 = P9.pki.rsa.publicKeyValidator = {
+      name: "SubjectPublicKeyInfo",
+      tagClass: J0.Class.UNIVERSAL,
+      type: J0.Type.SEQUENCE,
+      constructed: !0,
+      captureAsn1: "subjectPublicKeyInfo",
+      value: [{
+        name: "SubjectPublicKeyInfo.AlgorithmIdentifier",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.SEQUENCE,
+        constructed: !0,
+        value: [{
+          name: "AlgorithmIdentifier.algorithm",
+          tagClass: J0.Class.UNIVERSAL,
+          type: J0.Type.OID,
+          constructed: !1,
+          capture: "publicKeyOid"
+        }]
+      }, {
+        name: "SubjectPublicKeyInfo.subjectPublicKey",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.BITSTRING,
+        constructed: !1,
+        value: [{
+          name: "SubjectPublicKeyInfo.subjectPublicKey.RSAPublicKey",
+          tagClass: J0.Class.UNIVERSAL,
+          type: J0.Type.SEQUENCE,
+          constructed: !0,
+          optional: !0,
+          captureAsn1: "rsaPublicKey"
+        }]
+      }]
+    },
+    wZ5 = {
+      name: "DigestInfo",
+      tagClass: J0.Class.UNIVERSAL,
+      type: J0.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "DigestInfo.DigestAlgorithm",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.SEQUENCE,
+        constructed: !0,
+        value: [{
+          name: "DigestInfo.DigestAlgorithm.algorithmIdentifier",
+          tagClass: J0.Class.UNIVERSAL,
+          type: J0.Type.OID,
+          constructed: !1,
+          capture: "algorithmIdentifier"
+        }, {
+          name: "DigestInfo.DigestAlgorithm.parameters",
+          tagClass: J0.Class.UNIVERSAL,
+          type: J0.Type.NULL,
+          capture: "parameters",
+          optional: !0,
+          constructed: !1
+        }]
+      }, {
+        name: "DigestInfo.digest",
+        tagClass: J0.Class.UNIVERSAL,
+        type: J0.Type.OCTETSTRING,
+        constructed: !1,
+        capture: "digest"
+      }]
+    },
+    qZ5 = function(A) {
+      var Q;
+      if (A.algorithm in L8.oids) Q = L8.oids[A.algorithm];
+      else {
+        var B = Error("Unknown message digest algorithm.");
+        throw B.algorithm = A.algorithm, B
+      }
+      var G = J0.oidToDer(Q).getBytes(),
+        Z = J0.create(J0.Class.UNIVERSAL, J0.Type.SEQUENCE, !0, []),
+        I = J0.create(J0.Class.UNIVERSAL, J0.Type.SEQUENCE, !0, []);
+      I.value.push(J0.create(J0.Class.UNIVERSAL, J0.Type.OID, !1, G)), I.value.push(J0.create(J0.Class.UNIVERSAL, J0.Type.NULL, !1, ""));
+      var Y = J0.create(J0.Class.UNIVERSAL, J0.Type.OCTETSTRING, !1, A.digest().getBytes());
+      return Z.value.push(I), Z.value.push(Y), J0.toDer(Z).getBytes()
+    },
+    s62 = function(A, Q, B) {
+      if (B) return A.modPow(Q.e, Q.n);
+      if (!Q.p || !Q.q) return A.modPow(Q.d, Q.n);
+      if (!Q.dP) Q.dP = Q.d.mod(Q.p.subtract(i5.ONE));
+      if (!Q.dQ) Q.dQ = Q.d.mod(Q.q.subtract(i5.ONE));
+      if (!Q.qInv) Q.qInv = Q.q.modInverse(Q.p);
+      var G;
+      do G = new i5(P9.util.bytesToHex(P9.random.getBytes(Q.n.bitLength() / 8)), 16); while (G.compareTo(Q.n) >= 0 || !G.gcd(Q.n).equals(i5.ONE));
+      A = A.multiply(G.modPow(Q.e, Q.n)).mod(Q.n);
+      var Z = A.mod(Q.p).modPow(Q.dP, Q.p),
+        I = A.mod(Q.q).modPow(Q.dQ, Q.q);
+      while (Z.compareTo(I) < 0) Z = Z.add(Q.p);
+      var Y = Z.subtract(I).multiply(Q.qInv).mod(Q.p).multiply(Q.q).add(I);
+      return Y = Y.multiply(G.modInverse(Q.n)).mod(Q.n), Y
+    };
+  L8.rsa.encrypt = function(A, Q, B) {
+    var G = B,
+      Z, I = Math.ceil(Q.n.bitLength() / 8);
+    if (B !== !1 && B !== !0) G = B === 2, Z = r62(A, Q, B);
+    else Z = P9.util.createBuffer(), Z.putBytes(A);
+    var Y = new i5(Z.toHex(), 16),
+      J = s62(Y, Q, G),
+      W = J.toString(16),
+      X = P9.util.createBuffer(),
+      V = I - Math.ceil(W.length / 2);
+    while (V > 0) X.putByte(0), --V;
+    return X.putBytes(P9.util.hexToBytes(W)), X.getBytes()
+  };
+  L8.rsa.decrypt = function(A, Q, B, G) {
+    var Z = Math.ceil(Q.n.bitLength() / 8);
+    if (A.length !== Z) {
+      var I = Error("Encrypted message length is invalid.");
+      throw I.length = A.length, I.expected = Z, I
+    }
+    var Y = new i5(P9.util.createBuffer(A).toHex(), 16);
+    if (Y.compareTo(Q.n) >= 0) throw Error("Encrypted message is invalid.");
+    var J = s62(Y, Q, B),
+      W = J.toString(16),
+      X = P9.util.createBuffer(),
+      V = Z - Math.ceil(W.length / 2);
+    while (V > 0) X.putByte(0), --V;
+    if (X.putBytes(P9.util.hexToBytes(W)), G !== !1) return sB1(X.getBytes(), Q, B);
+    return X.getBytes()
+  };
+  L8.rsa.createKeyPairGenerationState = function(A, Q, B) {
+    if (typeof A === "string") A = parseInt(A, 10);
+    A = A || 2048, B = B || {};
+    var G = B.prng || P9.random,
+      Z = {
+        nextBytes: function(J) {
+          var W = G.getBytesSync(J.length);
+          for (var X = 0; X < J.length; ++X) J[X] = W.charCodeAt(X)
         }
-      }, W = async () => {
-        try {
-          if (await pP2()) B("uninstall-success");
-          else B("uninstall-failed")
-        } catch (J) {
-          I(String(J)), B("uninstall-failed")
+      },
+      I = B.algorithm || "PRIMEINC",
+      Y;
+    if (I === "PRIMEINC") Y = {
+      algorithm: I,
+      state: 0,
+      bits: A,
+      rng: Z,
+      eInt: Q || 65537,
+      e: new i5(null),
+      p: null,
+      q: null,
+      qBits: A >> 1,
+      pBits: A - (A >> 1),
+      pqState: 0,
+      num: null,
+      keys: null
+    }, Y.e.fromInt(Y.eInt);
+    else throw Error("Invalid key generation algorithm: " + I);
+    return Y
+  };
+  L8.rsa.stepKeyPairGenerationState = function(A, Q) {
+    if (!("algorithm" in A)) A.algorithm = "PRIMEINC";
+    var B = new i5(null);
+    B.fromInt(30);
+    var G = 0,
+      Z = function(F, K) {
+        return F | K
+      },
+      I = +new Date,
+      Y, J = 0;
+    while (A.keys === null && (Q <= 0 || J < Q)) {
+      if (A.state === 0) {
+        var W = A.p === null ? A.pBits : A.qBits,
+          X = W - 1;
+        if (A.pqState === 0) {
+          if (A.num = new i5(W, A.rng), !A.num.testBit(X)) A.num.bitwiseTo(i5.ONE.shiftLeft(X), Z, A.num);
+          A.num.dAddOffset(31 - A.num.mod(B).byteValue(), 0), G = 0, ++A.pqState
+        } else if (A.pqState === 1)
+          if (A.num.bitLength() > W) A.pqState = 0;
+          else if (A.num.isProbablePrime(LZ5(A.num.bitLength()))) ++A.pqState;
+        else A.num.dAddOffset(CZ5[G++ % 8], 0);
+        else if (A.pqState === 2) A.pqState = A.num.subtract(i5.ONE).gcd(A.e).compareTo(i5.ONE) === 0 ? 3 : 0;
+        else if (A.pqState === 3) {
+          if (A.pqState = 0, A.p === null) A.p = A.num;
+          else A.q = A.num;
+          if (A.p !== null && A.q !== null) ++A.state;
+          A.num = null
+        }
+      } else if (A.state === 1) {
+        if (A.p.compareTo(A.q) < 0) A.num = A.p, A.p = A.q, A.q = A.num;
+        ++A.state
+      } else if (A.state === 2) A.p1 = A.p.subtract(i5.ONE), A.q1 = A.q.subtract(i5.ONE), A.phi = A.p1.multiply(A.q1), ++A.state;
+      else if (A.state === 3)
+        if (A.phi.gcd(A.e).compareTo(i5.ONE) === 0) ++A.state;
+        else A.p = null, A.q = null, A.state = 0;
+      else if (A.state === 4)
+        if (A.n = A.p.multiply(A.q), A.n.bitLength() === A.bits) ++A.state;
+        else A.q = null, A.state = 0;
+      else if (A.state === 5) {
+        var V = A.e.modInverse(A.phi);
+        A.keys = {
+          privateKey: L8.rsa.setPrivateKey(A.n, A.e, V, A.p, A.q, V.mod(A.p1), V.mod(A.q1), A.q.modInverse(A.p)),
+          publicKey: L8.rsa.setPublicKey(A.n, A.e)
+        }
+      }
+      Y = +new Date, J += Y - I, I = Y
+    }
+    return A.keys !== null
+  };
+  L8.rsa.generateKeyPair = function(A, Q, B, G) {
+    if (arguments.length === 1) {
+      if (typeof A === "object") B = A, A = void 0;
+      else if (typeof A === "function") G = A, A = void 0
+    } else if (arguments.length === 2)
+      if (typeof A === "number") {
+        if (typeof Q === "function") G = Q, Q = void 0;
+        else if (typeof Q !== "number") B = Q, Q = void 0
+      } else B = A, G = Q, A = void 0, Q = void 0;
+    else if (arguments.length === 3)
+      if (typeof Q === "number") {
+        if (typeof B === "function") G = B, B = void 0
+      } else G = B, B = Q, Q = void 0;
+    if (B = B || {}, A === void 0) A = B.bits || 2048;
+    if (Q === void 0) Q = B.e || 65537;
+    if (!P9.options.usePureJavaScript && !B.prng && A >= 256 && A <= 16384 && (Q === 65537 || Q === 3)) {
+      if (G) {
+        if (l62("generateKeyPair")) return bA0.generateKeyPair("rsa", {
+          modulusLength: A,
+          publicExponent: Q,
+          publicKeyEncoding: {
+            type: "spki",
+            format: "pem"
+          },
+          privateKeyEncoding: {
+            type: "pkcs8",
+            format: "pem"
+          }
+        }, function(J, W, X) {
+          if (J) return G(J);
+          G(null, {
+            privateKey: L8.privateKeyFromPem(X),
+            publicKey: L8.publicKeyFromPem(W)
+          })
+        });
+        if (i62("generateKey") && i62("exportKey")) return lM.globalScope.crypto.subtle.generateKey({
+          name: "RSASSA-PKCS1-v1_5",
+          modulusLength: A,
+          publicExponent: a62(Q),
+          hash: {
+            name: "SHA-256"
+          }
+        }, !0, ["sign", "verify"]).then(function(J) {
+          return lM.globalScope.crypto.subtle.exportKey("pkcs8", J.privateKey)
+        }).then(void 0, function(J) {
+          G(J)
+        }).then(function(J) {
+          if (J) {
+            var W = L8.privateKeyFromAsn1(J0.fromDer(P9.util.createBuffer(J)));
+            G(null, {
+              privateKey: W,
+              publicKey: L8.setRsaPublicKey(W.n, W.e)
+            })
+          }
+        });
+        if (n62("generateKey") && n62("exportKey")) {
+          var Z = lM.globalScope.msCrypto.subtle.generateKey({
+            name: "RSASSA-PKCS1-v1_5",
+            modulusLength: A,
+            publicExponent: a62(Q),
+            hash: {
+              name: "SHA-256"
+            }
+          }, !0, ["sign", "verify"]);
+          Z.oncomplete = function(J) {
+            var W = J.target.result,
+              X = lM.globalScope.msCrypto.subtle.exportKey("pkcs8", W.privateKey);
+            X.oncomplete = function(V) {
+              var F = V.target.result,
+                K = L8.privateKeyFromAsn1(J0.fromDer(P9.util.createBuffer(F)));
+              G(null, {
+                privateKey: K,
+                publicKey: L8.setRsaPublicKey(K.n, K.e)
+              })
+            }, X.onerror = function(V) {
+              G(V)
+            }
+          }, Z.onerror = function(J) {
+            G(J)
+          };
+          return
+        }
+      } else if (l62("generateKeyPairSync")) {
+        var I = bA0.generateKeyPairSync("rsa", {
+          modulusLength: A,
+          publicExponent: Q,
+          publicKeyEncoding: {
+            type: "spki",
+            format: "pem"
+          },
+          privateKeyEncoding: {
+            type: "pkcs8",
+            format: "pem"
+          }
+        });
+        return {
+          privateKey: L8.privateKeyFromPem(I.privateKey),
+          publicKey: L8.publicKeyFromPem(I.publicKey)
+        }
+      }
+    }
+    var Y = L8.rsa.createKeyPairGenerationState(A, Q, B);
+    if (!G) return L8.rsa.stepKeyPairGenerationState(Y, 0), Y.keys;
+    NZ5(Y, B, G)
+  };
+  L8.setRsaPublicKey = L8.rsa.setPublicKey = function(A, Q) {
+    var B = {
+      n: A,
+      e: Q
+    };
+    return B.encrypt = function(G, Z, I) {
+      if (typeof Z === "string") Z = Z.toUpperCase();
+      else if (Z === void 0) Z = "RSAES-PKCS1-V1_5";
+      if (Z === "RSAES-PKCS1-V1_5") Z = {
+        encode: function(J, W, X) {
+          return r62(J, W, 2).getBytes()
         }
       };
-      switch (A) {
-        case "installing":
-          D();
+      else if (Z === "RSA-OAEP" || Z === "RSAES-OAEP") Z = {
+        encode: function(J, W) {
+          return P9.pkcs1.encode_rsa_oaep(W, J, I)
+        }
+      };
+      else if (["RAW", "NONE", "NULL", null].indexOf(Z) !== -1) Z = {
+        encode: function(J) {
+          return J
+        }
+      };
+      else if (typeof Z === "string") throw Error('Unsupported encryption scheme: "' + Z + '".');
+      var Y = Z.encode(G, B, !0);
+      return L8.rsa.encrypt(Y, B, !0)
+    }, B.verify = function(G, Z, I, Y) {
+      if (typeof I === "string") I = I.toUpperCase();
+      else if (I === void 0) I = "RSASSA-PKCS1-V1_5";
+      if (Y === void 0) Y = {
+        _parseAllDigestBytes: !0
+      };
+      if (!("_parseAllDigestBytes" in Y)) Y._parseAllDigestBytes = !0;
+      if (I === "RSASSA-PKCS1-V1_5") I = {
+        verify: function(W, X) {
+          X = sB1(X, B, !0);
+          var V = J0.fromDer(X, {
+              parseAllBytes: Y._parseAllDigestBytes
+            }),
+            F = {},
+            K = [];
+          if (!J0.validate(V, wZ5, F, K)) {
+            var D = Error("ASN.1 object does not contain a valid RSASSA-PKCS1-v1_5 DigestInfo value.");
+            throw D.errors = K, D
+          }
+          var H = J0.derToOid(F.algorithmIdentifier);
+          if (!(H === P9.oids.md2 || H === P9.oids.md5 || H === P9.oids.sha1 || H === P9.oids.sha224 || H === P9.oids.sha256 || H === P9.oids.sha384 || H === P9.oids.sha512 || H === P9.oids["sha512-224"] || H === P9.oids["sha512-256"])) {
+            var D = Error("Unknown RSASSA-PKCS1-v1_5 DigestAlgorithm identifier.");
+            throw D.oid = H, D
+          }
+          if (H === P9.oids.md2 || H === P9.oids.md5) {
+            if (!("parameters" in F)) throw Error("ASN.1 object does not contain a valid RSASSA-PKCS1-v1_5 DigestInfo value. Missing algorithm identifer NULL parameters.")
+          }
+          return W === F.digest
+        }
+      };
+      else if (I === "NONE" || I === "NULL" || I === null) I = {
+        verify: function(W, X) {
+          return X = sB1(X, B, !0), W === X
+        }
+      };
+      var J = L8.rsa.decrypt(Z, B, !0, !1);
+      return I.verify(G, J, B.n.bitLength())
+    }, B
+  };
+  L8.setRsaPrivateKey = L8.rsa.setPrivateKey = function(A, Q, B, G, Z, I, Y, J) {
+    var W = {
+      n: A,
+      e: Q,
+      d: B,
+      p: G,
+      q: Z,
+      dP: I,
+      dQ: Y,
+      qInv: J
+    };
+    return W.decrypt = function(X, V, F) {
+      if (typeof V === "string") V = V.toUpperCase();
+      else if (V === void 0) V = "RSAES-PKCS1-V1_5";
+      var K = L8.rsa.decrypt(X, W, !1, !1);
+      if (V === "RSAES-PKCS1-V1_5") V = {
+        decode: sB1
+      };
+      else if (V === "RSA-OAEP" || V === "RSAES-OAEP") V = {
+        decode: function(D, H) {
+          return P9.pkcs1.decode_rsa_oaep(H, D, F)
+        }
+      };
+      else if (["RAW", "NONE", "NULL", null].indexOf(V) !== -1) V = {
+        decode: function(D) {
+          return D
+        }
+      };
+      else throw Error('Unsupported encryption scheme: "' + V + '".');
+      return V.decode(K, W, !1)
+    }, W.sign = function(X, V) {
+      var F = !1;
+      if (typeof V === "string") V = V.toUpperCase();
+      if (V === void 0 || V === "RSASSA-PKCS1-V1_5") V = {
+        encode: qZ5
+      }, F = 1;
+      else if (V === "NONE" || V === "NULL" || V === null) V = {
+        encode: function() {
+          return X
+        }
+      }, F = 1;
+      var K = V.encode(X, W.n.bitLength());
+      return L8.rsa.encrypt(K, W, F)
+    }, W
+  };
+  L8.wrapRsaPrivateKey = function(A) {
+    return J0.create(J0.Class.UNIVERSAL, J0.Type.SEQUENCE, !0, [J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, J0.integerToDer(0).getBytes()), J0.create(J0.Class.UNIVERSAL, J0.Type.SEQUENCE, !0, [J0.create(J0.Class.UNIVERSAL, J0.Type.OID, !1, J0.oidToDer(L8.oids.rsaEncryption).getBytes()), J0.create(J0.Class.UNIVERSAL, J0.Type.NULL, !1, "")]), J0.create(J0.Class.UNIVERSAL, J0.Type.OCTETSTRING, !1, J0.toDer(A).getBytes())])
+  };
+  L8.privateKeyFromAsn1 = function(A) {
+    var Q = {},
+      B = [];
+    if (J0.validate(A, EZ5, Q, B)) A = J0.fromDer(P9.util.createBuffer(Q.privateKey));
+    if (Q = {}, B = [], !J0.validate(A, zZ5, Q, B)) {
+      var G = Error("Cannot read private key. ASN.1 object does not contain an RSAPrivateKey.");
+      throw G.errors = B, G
+    }
+    var Z, I, Y, J, W, X, V, F;
+    return Z = P9.util.createBuffer(Q.privateKeyModulus).toHex(), I = P9.util.createBuffer(Q.privateKeyPublicExponent).toHex(), Y = P9.util.createBuffer(Q.privateKeyPrivateExponent).toHex(), J = P9.util.createBuffer(Q.privateKeyPrime1).toHex(), W = P9.util.createBuffer(Q.privateKeyPrime2).toHex(), X = P9.util.createBuffer(Q.privateKeyExponent1).toHex(), V = P9.util.createBuffer(Q.privateKeyExponent2).toHex(), F = P9.util.createBuffer(Q.privateKeyCoefficient).toHex(), L8.setRsaPrivateKey(new i5(Z, 16), new i5(I, 16), new i5(Y, 16), new i5(J, 16), new i5(W, 16), new i5(X, 16), new i5(V, 16), new i5(F, 16))
+  };
+  L8.privateKeyToAsn1 = L8.privateKeyToRSAPrivateKey = function(A) {
+    return J0.create(J0.Class.UNIVERSAL, J0.Type.SEQUENCE, !0, [J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, J0.integerToDer(0).getBytes()), J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, vk(A.n)), J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, vk(A.e)), J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, vk(A.d)), J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, vk(A.p)), J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, vk(A.q)), J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, vk(A.dP)), J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, vk(A.dQ)), J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, vk(A.qInv))])
+  };
+  L8.publicKeyFromAsn1 = function(A) {
+    var Q = {},
+      B = [];
+    if (J0.validate(A, $Z5, Q, B)) {
+      var G = J0.derToOid(Q.publicKeyOid);
+      if (G !== L8.oids.rsaEncryption) {
+        var Z = Error("Cannot read public key. Unknown OID.");
+        throw Z.oid = G, Z
+      }
+      A = Q.rsaPublicKey
+    }
+    if (B = [], !J0.validate(A, UZ5, Q, B)) {
+      var Z = Error("Cannot read public key. ASN.1 object does not contain an RSAPublicKey.");
+      throw Z.errors = B, Z
+    }
+    var I = P9.util.createBuffer(Q.publicKeyModulus).toHex(),
+      Y = P9.util.createBuffer(Q.publicKeyExponent).toHex();
+    return L8.setRsaPublicKey(new i5(I, 16), new i5(Y, 16))
+  };
+  L8.publicKeyToAsn1 = L8.publicKeyToSubjectPublicKeyInfo = function(A) {
+    return J0.create(J0.Class.UNIVERSAL, J0.Type.SEQUENCE, !0, [J0.create(J0.Class.UNIVERSAL, J0.Type.SEQUENCE, !0, [J0.create(J0.Class.UNIVERSAL, J0.Type.OID, !1, J0.oidToDer(L8.oids.rsaEncryption).getBytes()), J0.create(J0.Class.UNIVERSAL, J0.Type.NULL, !1, "")]), J0.create(J0.Class.UNIVERSAL, J0.Type.BITSTRING, !1, [L8.publicKeyToRSAPublicKey(A)])])
+  };
+  L8.publicKeyToRSAPublicKey = function(A) {
+    return J0.create(J0.Class.UNIVERSAL, J0.Type.SEQUENCE, !0, [J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, vk(A.n)), J0.create(J0.Class.UNIVERSAL, J0.Type.INTEGER, !1, vk(A.e))])
+  };
+
+  function r62(A, Q, B) {
+    var G = P9.util.createBuffer(),
+      Z = Math.ceil(Q.n.bitLength() / 8);
+    if (A.length > Z - 11) {
+      var I = Error("Message is too long for PKCS#1 v1.5 padding.");
+      throw I.length = A.length, I.max = Z - 11, I
+    }
+    G.putByte(0), G.putByte(B);
+    var Y = Z - 3 - A.length,
+      J;
+    if (B === 0 || B === 1) {
+      J = B === 0 ? 0 : 255;
+      for (var W = 0; W < Y; ++W) G.putByte(J)
+    } else
+      while (Y > 0) {
+        var X = 0,
+          V = P9.random.getBytes(Y);
+        for (var W = 0; W < Y; ++W)
+          if (J = V.charCodeAt(W), J === 0) ++X;
+          else G.putByte(J);
+        Y = X
+      }
+    return G.putByte(0), G.putBytes(A), G
+  }
+
+  function sB1(A, Q, B, G) {
+    var Z = Math.ceil(Q.n.bitLength() / 8),
+      I = P9.util.createBuffer(A),
+      Y = I.getByte(),
+      J = I.getByte();
+    if (Y !== 0 || B && J !== 0 && J !== 1 || !B && J != 2 || B && J === 0 && typeof G > "u") throw Error("Encryption block is invalid.");
+    var W = 0;
+    if (J === 0) {
+      W = Z - 3 - G;
+      for (var X = 0; X < W; ++X)
+        if (I.getByte() !== 0) throw Error("Encryption block is invalid.")
+    } else if (J === 1) {
+      W = 0;
+      while (I.length() > 1) {
+        if (I.getByte() !== 255) {
+          --I.read;
+          break
+        }++W
+      }
+    } else if (J === 2) {
+      W = 0;
+      while (I.length() > 1) {
+        if (I.getByte() === 0) {
+          --I.read;
+          break
+        }++W
+      }
+    }
+    var V = I.getByte();
+    if (V !== 0 || W !== Z - 3 - I.length()) throw Error("Encryption block is invalid.");
+    return I.getBytes()
+  }
+
+  function NZ5(A, Q, B) {
+    if (typeof Q === "function") B = Q, Q = {};
+    Q = Q || {};
+    var G = {
+      algorithm: {
+        name: Q.algorithm || "PRIMEINC",
+        options: {
+          workers: Q.workers || 2,
+          workLoad: Q.workLoad || 100,
+          workerScript: Q.workerScript
+        }
+      }
+    };
+    if ("prng" in Q) G.prng = Q.prng;
+    Z();
+
+    function Z() {
+      I(A.pBits, function(J, W) {
+        if (J) return B(J);
+        if (A.p = W, A.q !== null) return Y(J, A.q);
+        I(A.qBits, Y)
+      })
+    }
+
+    function I(J, W) {
+      P9.prime.generateProbablePrime(J, G, W)
+    }
+
+    function Y(J, W) {
+      if (J) return B(J);
+      if (A.q = W, A.p.compareTo(A.q) < 0) {
+        var X = A.p;
+        A.p = A.q, A.q = X
+      }
+      if (A.p.subtract(i5.ONE).gcd(A.e).compareTo(i5.ONE) !== 0) {
+        A.p = null, Z();
+        return
+      }
+      if (A.q.subtract(i5.ONE).gcd(A.e).compareTo(i5.ONE) !== 0) {
+        A.q = null, I(A.qBits, Y);
+        return
+      }
+      if (A.p1 = A.p.subtract(i5.ONE), A.q1 = A.q.subtract(i5.ONE), A.phi = A.p1.multiply(A.q1), A.phi.gcd(A.e).compareTo(i5.ONE) !== 0) {
+        A.p = A.q = null, Z();
+        return
+      }
+      if (A.n = A.p.multiply(A.q), A.n.bitLength() !== A.bits) {
+        A.q = null, I(A.qBits, Y);
+        return
+      }
+      var V = A.e.modInverse(A.phi);
+      A.keys = {
+        privateKey: L8.rsa.setPrivateKey(A.n, A.e, V, A.p, A.q, V.mod(A.p1), V.mod(A.q1), A.q.modInverse(A.p)),
+        publicKey: L8.rsa.setPublicKey(A.n, A.e)
+      }, B(null, A.keys)
+    }
+  }
+
+  function vk(A) {
+    var Q = A.toString(16);
+    if (Q[0] >= "8") Q = "00" + Q;
+    var B = P9.util.hexToBytes(Q);
+    if (B.length > 1 && (B.charCodeAt(0) === 0 && (B.charCodeAt(1) & 128) === 0 || B.charCodeAt(0) === 255 && (B.charCodeAt(1) & 128) === 128)) return B.substr(1);
+    return B
+  }
+
+  function LZ5(A) {
+    if (A <= 100) return 27;
+    if (A <= 150) return 18;
+    if (A <= 200) return 15;
+    if (A <= 250) return 12;
+    if (A <= 300) return 9;
+    if (A <= 350) return 8;
+    if (A <= 400) return 7;
+    if (A <= 500) return 6;
+    if (A <= 600) return 5;
+    if (A <= 800) return 4;
+    if (A <= 1250) return 3;
+    return 2
+  }
+
+  function l62(A) {
+    return P9.util.isNodejs && typeof bA0[A] === "function"
+  }
+
+  function i62(A) {
+    return typeof lM.globalScope < "u" && typeof lM.globalScope.crypto === "object" && typeof lM.globalScope.crypto.subtle === "object" && typeof lM.globalScope.crypto.subtle[A] === "function"
+  }
+
+  function n62(A) {
+    return typeof lM.globalScope < "u" && typeof lM.globalScope.msCrypto === "object" && typeof lM.globalScope.msCrypto.subtle === "object" && typeof lM.globalScope.msCrypto.subtle[A] === "function"
+  }
+
+  function a62(A) {
+    var Q = P9.util.hexToBytes(A.toString(16)),
+      B = new Uint8Array(Q.length);
+    for (var G = 0; G < Q.length; ++G) B[G] = Q.charCodeAt(G);
+    return B
+  }
+})
+// @from(Start 9261132, End 9279767)
+hA0 = z((WjG, Q52) => {
+  var uB = B6();
+  Zi();
+  GP();
+  pLA();
+  Pk();
+  Ii();
+  pB1();
+  B1A();
+  cM();
+  PA0();
+  nLA();
+  x3();
+  if (typeof fA0 > "u") fA0 = uB.jsbn.BigInteger;
+  var fA0, x0 = uB.asn1,
+    a8 = uB.pki = uB.pki || {};
+  Q52.exports = a8.pbe = uB.pbe = uB.pbe || {};
+  var I1A = a8.oids,
+    MZ5 = {
+      name: "EncryptedPrivateKeyInfo",
+      tagClass: x0.Class.UNIVERSAL,
+      type: x0.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "EncryptedPrivateKeyInfo.encryptionAlgorithm",
+        tagClass: x0.Class.UNIVERSAL,
+        type: x0.Type.SEQUENCE,
+        constructed: !0,
+        value: [{
+          name: "AlgorithmIdentifier.algorithm",
+          tagClass: x0.Class.UNIVERSAL,
+          type: x0.Type.OID,
+          constructed: !1,
+          capture: "encryptionOid"
+        }, {
+          name: "AlgorithmIdentifier.parameters",
+          tagClass: x0.Class.UNIVERSAL,
+          type: x0.Type.SEQUENCE,
+          constructed: !0,
+          captureAsn1: "encryptionParams"
+        }]
+      }, {
+        name: "EncryptedPrivateKeyInfo.encryptedData",
+        tagClass: x0.Class.UNIVERSAL,
+        type: x0.Type.OCTETSTRING,
+        constructed: !1,
+        capture: "encryptedData"
+      }]
+    },
+    OZ5 = {
+      name: "PBES2Algorithms",
+      tagClass: x0.Class.UNIVERSAL,
+      type: x0.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "PBES2Algorithms.keyDerivationFunc",
+        tagClass: x0.Class.UNIVERSAL,
+        type: x0.Type.SEQUENCE,
+        constructed: !0,
+        value: [{
+          name: "PBES2Algorithms.keyDerivationFunc.oid",
+          tagClass: x0.Class.UNIVERSAL,
+          type: x0.Type.OID,
+          constructed: !1,
+          capture: "kdfOid"
+        }, {
+          name: "PBES2Algorithms.params",
+          tagClass: x0.Class.UNIVERSAL,
+          type: x0.Type.SEQUENCE,
+          constructed: !0,
+          value: [{
+            name: "PBES2Algorithms.params.salt",
+            tagClass: x0.Class.UNIVERSAL,
+            type: x0.Type.OCTETSTRING,
+            constructed: !1,
+            capture: "kdfSalt"
+          }, {
+            name: "PBES2Algorithms.params.iterationCount",
+            tagClass: x0.Class.UNIVERSAL,
+            type: x0.Type.INTEGER,
+            constructed: !1,
+            capture: "kdfIterationCount"
+          }, {
+            name: "PBES2Algorithms.params.keyLength",
+            tagClass: x0.Class.UNIVERSAL,
+            type: x0.Type.INTEGER,
+            constructed: !1,
+            optional: !0,
+            capture: "keyLength"
+          }, {
+            name: "PBES2Algorithms.params.prf",
+            tagClass: x0.Class.UNIVERSAL,
+            type: x0.Type.SEQUENCE,
+            constructed: !0,
+            optional: !0,
+            value: [{
+              name: "PBES2Algorithms.params.prf.algorithm",
+              tagClass: x0.Class.UNIVERSAL,
+              type: x0.Type.OID,
+              constructed: !1,
+              capture: "prfOid"
+            }]
+          }]
+        }]
+      }, {
+        name: "PBES2Algorithms.encryptionScheme",
+        tagClass: x0.Class.UNIVERSAL,
+        type: x0.Type.SEQUENCE,
+        constructed: !0,
+        value: [{
+          name: "PBES2Algorithms.encryptionScheme.oid",
+          tagClass: x0.Class.UNIVERSAL,
+          type: x0.Type.OID,
+          constructed: !1,
+          capture: "encOid"
+        }, {
+          name: "PBES2Algorithms.encryptionScheme.iv",
+          tagClass: x0.Class.UNIVERSAL,
+          type: x0.Type.OCTETSTRING,
+          constructed: !1,
+          capture: "encIv"
+        }]
+      }]
+    },
+    RZ5 = {
+      name: "pkcs-12PbeParams",
+      tagClass: x0.Class.UNIVERSAL,
+      type: x0.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "pkcs-12PbeParams.salt",
+        tagClass: x0.Class.UNIVERSAL,
+        type: x0.Type.OCTETSTRING,
+        constructed: !1,
+        capture: "salt"
+      }, {
+        name: "pkcs-12PbeParams.iterations",
+        tagClass: x0.Class.UNIVERSAL,
+        type: x0.Type.INTEGER,
+        constructed: !1,
+        capture: "iterations"
+      }]
+    };
+  a8.encryptPrivateKeyInfo = function(A, Q, B) {
+    B = B || {}, B.saltSize = B.saltSize || 8, B.count = B.count || 2048, B.algorithm = B.algorithm || "aes128", B.prfAlgorithm = B.prfAlgorithm || "sha1";
+    var G = uB.random.getBytesSync(B.saltSize),
+      Z = B.count,
+      I = x0.integerToDer(Z),
+      Y, J, W;
+    if (B.algorithm.indexOf("aes") === 0 || B.algorithm === "des") {
+      var X, V, F;
+      switch (B.algorithm) {
+        case "aes128":
+          Y = 16, X = 16, V = I1A["aes128-CBC"], F = uB.aes.createEncryptionCipher;
           break;
-        case "setup-alias":
-          Y();
+        case "aes192":
+          Y = 24, X = 16, V = I1A["aes192-CBC"], F = uB.aes.createEncryptionCipher;
           break;
-        case "uninstall":
-          W();
+        case "aes256":
+          Y = 32, X = 16, V = I1A["aes256-CBC"], F = uB.aes.createEncryptionCipher;
+          break;
+        case "des":
+          Y = 8, X = 8, V = I1A.desCBC, F = uB.des.createEncryptionCipher;
           break;
         default:
-          break
+          var K = Error("Cannot encrypt private key. Unknown encryption algorithm.");
+          throw K.algorithm = B.algorithm, K
       }
-    }, [A]), A === "intro") return v2.default.createElement(h, {
-    flexDirection: "column",
-    marginY: 1
-  }, v2.default.createElement(P, {
-    bold: !0
-  }, m0, " Local Installer"), v2.default.createElement(h, {
-    flexDirection: "column"
-  }, v2.default.createElement(P, {
-    color: "secondaryText"
-  }, `This will install ${m0} to ~/.claude/local`), v2.default.createElement(P, {
-    color: "secondaryText"
-  }, "instead of using a global npm installation.")), v2.default.createElement(Kp, {
-    onPress: () => B("installing")
-  }));
-  if (A === "installing") return v2.default.createElement(h, {
-    flexDirection: "column",
-    marginY: 1
-  }, v2.default.createElement(P, {
-    bold: !0
-  }, "Installing ", m0, " locally..."), v2.default.createElement(h, {
-    marginY: 1
-  }, v2.default.createElement(oD, null), v2.default.createElement(P, null, " Installing to ", Dp)));
-  if (A === "success") return v2.default.createElement(h, {
-    flexDirection: "column",
-    marginY: 1
-  }, v2.default.createElement(P, {
-    bold: !0,
-    color: "success"
-  }, "✓ Local installation successful!"), v2.default.createElement(h, {
-    marginY: 1
-  }, v2.default.createElement(P, null, "Next, let's add an alias for `claude`")), v2.default.createElement(Kp, {
-    onPress: () => B("setup-alias")
-  }));
-  if (A === "setup-alias") return v2.default.createElement(h, {
-    flexDirection: "column",
-    marginY: 1
-  }, v2.default.createElement(P, {
-    bold: !0
-  }, "Setting up alias for claude..."), v2.default.createElement(h, {
-    marginY: 1
-  }, v2.default.createElement(oD, null), v2.default.createElement(P, null, " Configuring shell environment")));
-  if (A === "setup") return v2.default.createElement(h, {
-    flexDirection: "column",
-    marginY: 1
-  }, v2.default.createElement(P, {
-    bold: !0
-  }, "Alias setup complete"), v2.default.createElement(h, {
-    flexDirection: "column",
-    marginY: 1
-  }, v2.default.createElement(P, null, G), v2.default.createElement(h, {
-    marginY: 1
-  }, v2.default.createElement(P, null, "Next, we'll remove the globally installed npm package"))), v2.default.createElement(Kp, {
-    onPress: () => B("uninstall")
-  }));
-  if (A === "uninstall") return v2.default.createElement(h, {
-    flexDirection: "column",
-    marginY: 1
-  }, v2.default.createElement(P, {
-    bold: !0
-  }, "Uninstalling global ", m0, "..."), v2.default.createElement(h, {
-    marginY: 1
-  }, v2.default.createElement(oD, null), v2.default.createElement(P, null, " Removing global npm installation")));
-  if (A === "uninstall-success") return v2.default.createElement(h, {
-    flexDirection: "column",
-    marginY: 1
-  }, v2.default.createElement(P, {
-    bold: !0,
-    color: "success"
-  }, "✓ Global installation removed successfully!"), v2.default.createElement(h, {
-    flexDirection: "column",
-    marginY: 1
-  }, v2.default.createElement(P, null, m0, " is now installed locally."), v2.default.createElement(P, null, "Please restart your shell, then run", " ", v2.default.createElement(P, {
-    color: "claude"
-  }, UA.bold("claude")), "."), v2.default.createElement(h, {
-    flexDirection: "row",
-    marginY: 1
-  }, v2.default.createElement(oD, null), v2.default.createElement(P, null, " Happy Clauding!"))), v2.default.createElement(Kp, {
-    onPress: () => MI(0)
-  }));
-  if (A === "uninstall-failed") return v2.default.createElement(h, {
-    flexDirection: "column",
-    marginY: 1
-  }, v2.default.createElement(P, {
-    bold: !0,
-    color: "warning"
-  }, "! Could not remove global installation"), v2.default.createElement(h, {
-    marginY: 1
-  }, v2.default.createElement(P, null, "The local installation is installed, but we couldn't remove the global npm package automatically.")), v2.default.createElement(h, {
-    marginY: 1
-  }, v2.default.createElement(P, null, "You can remove it manually later with:", `
-`, UA.bold(`npm uninstall -g --force ${{ISSUES_EXPLAINER:"report the issue at https://github.com/anthropics/claude-code/issues",PACKAGE_URL:"@anthropic-ai/claude-code",README_URL:"https://docs.anthropic.com/s/claude-code",VERSION:"1.0.34"}.PACKAGE_URL}`))), v2.default.createElement(Kp, {
-    onPress: () => MI(0)
-  }));
-  return v2.default.createElement(h, {
-    flexDirection: "column",
-    marginY: 1
-  }, v2.default.createElement(P, {
-    bold: !0,
-    color: "error"
-  }, "✗ Installation failed"), v2.default.createElement(h, {
-    marginY: 1
-  }, v2.default.createElement(P, null, Q || "An unexpected error occurred during installation.")), v2.default.createElement(Kp, {
-    onPress: () => MI(1)
-  }))
-}
-// @from(Start 9889907, End 9890296)
-lE5 = {
-    type: "local",
-    name: "migrate-installer",
-    description: "Migrate from global npm installation to local installation",
-    isEnabled: () => !JT(),
-    isHidden: !1,
-    async call() {
-      let {
-        waitUntilExit: A
-      } = n5(lS2.default.createElement(Hp, null));
-      return await A(), ""
-    },
-    userFacingName() {
-      return "migrate-installer"
+      var D = "hmacWith" + B.prfAlgorithm.toUpperCase(),
+        H = A52(D),
+        C = uB.pkcs5.pbkdf2(Q, G, Z, Y, H),
+        E = uB.random.getBytesSync(X),
+        U = F(C);
+      U.start(E), U.update(x0.toDer(A)), U.finish(), W = U.output.getBytes();
+      var q = TZ5(G, I, Y, D);
+      J = x0.create(x0.Class.UNIVERSAL, x0.Type.SEQUENCE, !0, [x0.create(x0.Class.UNIVERSAL, x0.Type.OID, !1, x0.oidToDer(I1A.pkcs5PBES2).getBytes()), x0.create(x0.Class.UNIVERSAL, x0.Type.SEQUENCE, !0, [x0.create(x0.Class.UNIVERSAL, x0.Type.SEQUENCE, !0, [x0.create(x0.Class.UNIVERSAL, x0.Type.OID, !1, x0.oidToDer(I1A.pkcs5PBKDF2).getBytes()), q]), x0.create(x0.Class.UNIVERSAL, x0.Type.SEQUENCE, !0, [x0.create(x0.Class.UNIVERSAL, x0.Type.OID, !1, x0.oidToDer(V).getBytes()), x0.create(x0.Class.UNIVERSAL, x0.Type.OCTETSTRING, !1, E)])])])
+    } else if (B.algorithm === "3des") {
+      Y = 24;
+      var w = new uB.util.ByteBuffer(G),
+        C = a8.pbe.generatePkcs12Key(Q, w, 1, Z, Y),
+        E = a8.pbe.generatePkcs12Key(Q, w, 2, Z, Y),
+        U = uB.des.createEncryptionCipher(C);
+      U.start(E), U.update(x0.toDer(A)), U.finish(), W = U.output.getBytes(), J = x0.create(x0.Class.UNIVERSAL, x0.Type.SEQUENCE, !0, [x0.create(x0.Class.UNIVERSAL, x0.Type.OID, !1, x0.oidToDer(I1A["pbeWithSHAAnd3-KeyTripleDES-CBC"]).getBytes()), x0.create(x0.Class.UNIVERSAL, x0.Type.SEQUENCE, !0, [x0.create(x0.Class.UNIVERSAL, x0.Type.OCTETSTRING, !1, G), x0.create(x0.Class.UNIVERSAL, x0.Type.INTEGER, !1, I.getBytes())])])
+    } else {
+      var K = Error("Cannot encrypt private key. Unknown encryption algorithm.");
+      throw K.algorithm = B.algorithm, K
     }
-  }
-// @from(Start 9890300, End 9890309)
-iS2 = lE5
-// @from(Start 9890315, End 9890332)
-nS2 = I1(U1(), 1)
-// @from(Start 9890338, End 9890354)
-NV = I1(U1(), 1)
-// @from(Start 9890360, End 9890376)
-RW = I1(U1(), 1)
-// @from(Start 9890379, End 9892476)
-function v0A({
-  servers: A,
-  onSelectServer: B,
-  onComplete: Q
-}) {
-  let [I] = q9(), G = Y2();
-  if (A.length === 0) return null;
-  let Z = L31(),
-    D = A.some((W) => W.client.type === "failed"),
-    Y = A.map((W) => {
-      let J = "",
-        F = "",
-        X = "";
-      if (W.client.type === "connected") F = V9("success", I)(A0.tick), J = "connected · Enter to view details", X = `${F} ${J}`;
-      else if (W.client.type === "pending") F = V9("secondaryText", I)(A0.radioOff), J = "connecting...", X = `${F} ${J}`;
-      else if (W.client.type === "needs-auth") F = V9("warning", I)(A0.triangleUpOutline), J = "disconnected · Enter to login", X = `${F} ${J}`;
-      else if (W.client.type === "failed") F = V9("error", I)(A0.cross), J = "failed · Enter to view details", X = `${F} ${J}`;
-      else F = V9("error", I)(A0.cross), J = "failed", X = `${F} ${J}`;
-      return {
-        label: UA.bold(W.name),
-        value: W.name,
-        description: X,
-        dimDescription: !1
-      }
-    });
-  return RW.default.createElement(h, {
-    flexDirection: "column"
-  }, RW.default.createElement(h, {
-    flexDirection: "column",
-    paddingX: 1,
-    borderStyle: "round",
-    borderColor: "secondaryBorder"
-  }, RW.default.createElement(h, {
-    marginBottom: 1
-  }, RW.default.createElement(P, {
-    bold: !0
-  }, "Manage MCP servers")), RW.default.createElement(p0, {
-    options: Y,
-    onChange: (W) => {
-      let J = A.find((F) => F.name === W);
-      if (J) B(J)
-    },
-    onCancel: () => Q()
-  }), D && RW.default.createElement(h, {
-    marginTop: 1
-  }, RW.default.createElement(P, {
-    dimColor: !0
-  }, "※ Tip:", " ", Z ? `Error logs will be shown inline. Log files are also saved in
-  ${Mz.baseLogs()}` : `Run claude --debug to see logs inline, or view log files in
-  ${Mz.baseLogs()}`))), RW.default.createElement(h, {
-    marginLeft: 3
-  }, RW.default.createElement(P, {
-    dimColor: !0
-  }, G.pending ? RW.default.createElement(RW.default.Fragment, null, "Press ", G.keyName, " again to exit") : RW.default.createElement(RW.default.Fragment, null, "Esc to exit"))))
-}
-// @from(Start 9892481, End 9892497)
-A8 = I1(U1(), 1)
-// @from(Start 9892503, End 9892520)
-_w1 = I1(U1(), 1)
-// @from(Start 9892523, End 9892934)
-function jw1({
-  serverToolsCount: A,
-  serverPromptsCount: B,
-  serverResourcesCount: Q
-}) {
-  let I = [];
-  if (A > 0) I.push("tools");
-  if (Q > 0) I.push("resources");
-  if (B > 0) I.push("prompts");
-  return _w1.default.createElement(h, null, _w1.default.createElement(P, {
-    bold: !0
-  }, "Capabilities: "), _w1.default.createElement(P, {
-    color: "text"
-  }, I.length > 0 ? I.join(" · ") : "none"))
-}
-// @from(Start 9892936, End 9895427)
-function b0A({
-  server: A,
-  serverToolsCount: B,
-  onViewTools: Q,
-  onCancel: I
-}) {
-  let [G] = q9(), Z = Y2(), [D] = d5(), Y = A.name.charAt(0).toUpperCase() + A.name.slice(1), W = y81(D.mcp.commands, A.name).length, J = [];
-  if (A.client.type === "connected" && B > 0) J.push({
-    label: "View tools",
-    value: "tools"
-  });
-  if (J.length === 0) J.push({
-    label: "Back",
-    value: "back"
-  });
-  return A8.default.createElement(A8.default.Fragment, null, A8.default.createElement(h, {
-    flexDirection: "column",
-    paddingX: 1,
-    borderStyle: "round"
-  }, A8.default.createElement(h, {
-    marginBottom: 1
-  }, A8.default.createElement(P, {
-    bold: !0
-  }, Y, " MCP Server")), A8.default.createElement(h, {
-    flexDirection: "column",
-    gap: 0
-  }, A8.default.createElement(h, null, A8.default.createElement(P, {
-    bold: !0
-  }, "Status: "), A.client.type === "connected" ? A8.default.createElement(P, null, V9("success", G)(A0.tick), " connected") : A.client.type === "pending" ? A8.default.createElement(P, null, V9("secondaryText", G)(A0.radioOff), " connecting…") : A8.default.createElement(P, null, V9("error", G)(A0.cross), " failed")), A8.default.createElement(h, null, A8.default.createElement(P, {
-    bold: !0
-  }, "Command: "), A8.default.createElement(P, {
-    color: "secondaryText"
-  }, A.config.command)), A.config.args && A.config.args.length > 0 && A8.default.createElement(h, null, A8.default.createElement(P, {
-    bold: !0
-  }, "Args: "), A8.default.createElement(P, {
-    color: "secondaryText"
-  }, A.config.args.join(" "))), A.client.type === "connected" && A8.default.createElement(jw1, {
-    serverToolsCount: B,
-    serverPromptsCount: W,
-    serverResourcesCount: D.mcp.resources[A.name]?.length || 0
-  }), A.client.type === "connected" && B > 0 && A8.default.createElement(h, null, A8.default.createElement(P, {
-    bold: !0
-  }, "Tools: "), A8.default.createElement(P, {
-    color: "secondaryText"
-  }, B, " tools"))), J.length > 0 && A8.default.createElement(h, {
-    marginTop: 1
-  }, A8.default.createElement(p0, {
-    options: J,
-    onChange: (F) => {
-      if (F === "tools") Q();
-      else if (F === "back") I()
-    },
-    onCancel: I
-  }))), A8.default.createElement(h, {
-    marginLeft: 3
-  }, A8.default.createElement(P, {
-    dimColor: !0
-  }, Z.pending ? A8.default.createElement(A8.default.Fragment, null, "Press ", Z.keyName, " again to exit") : A8.default.createElement(A8.default.Fragment, null, "Esc to go back"))))
-}
-// @from(Start 9895432, End 9895448)
-F4 = I1(U1(), 1)
-// @from(Start 9895451, End 9901975)
-function g0A({
-  server: A,
-  serverToolsCount: B,
-  onViewTools: Q,
-  onCancel: I,
-  onComplete: G
-}) {
-  let [Z] = q9(), D = Y2(), [Y, W] = F4.default.useState(!1), [J, F] = F4.default.useState(null), [X, V] = d5(), [C, K] = F4.default.useState(null), E = A.name.charAt(0).toUpperCase() + A.name.slice(1), N = y81(X.mcp.commands, A.name).length, q = F4.default.useCallback(async (L, _) => {
-    p2(L, "Starting server reconnection after auth"), await pe(L, _, ({
-      client: k,
-      tools: i,
-      commands: x,
-      resources: s
-    }) => {
-      V((d) => {
-        let F1 = [...ci(d.mcp.tools, L), ...i],
-          X1 = [...li(d.mcp.commands, L), ...x],
-          v = {
-            ...ii(d.mcp.resources, L)
-          };
-        if (s && s.length > 0) v[L] = s;
-        let D1 = d.mcp.clients.map((N1) => N1.name === L ? k : N1);
-        return p2(L, `Reconnected: ${i.length} tools, ${x.length} commands, ${s?.length||0} resources`), {
-          ...d,
-          mcp: {
-            clients: D1,
-            tools: F1,
-            commands: X1,
-            resources: v
-          }
-        }
-      })
-    })
-  }, [V]), O = F4.default.useCallback(async () => {
-    W(!0), F(null);
-    try {
-      if (A.isAuthenticated && A.config) await iC1(A.name, A.config);
-      if (A.config) {
-        await Ko1(A.name, A.config, K), E1("tengu_mcp_auth_config_authenticate", {
-          wasAuthenticated: A.isAuthenticated
-        });
-        try {
-          await q(A.name, {
-            ...A.config,
-            scope: A.scope
-          });
-          let L = A.isAuthenticated ? `Authentication successful. Reconnected to ${A.name}.` : `Authentication successful. Connected to ${A.name}.`;
-          G?.(L)
-        } catch (L) {
-          p2(A.name, `Reconnection failed: ${L instanceof Error?L.message:String(L)}`), G?.("Authentication successful, but server reconnection failed. You may need to manually restart Claude Code for the changes to take effect.")
-        }
-      }
-    } catch (L) {
-      F(L instanceof Error ? L.message : String(L))
-    } finally {
-      W(!1)
-    }
-  }, [A.isAuthenticated, A.config, A.name, A.scope, G, q, K]), R = async () => {
-    if (A.config) await iC1(A.name, A.config), E1("tengu_mcp_auth_config_clear", {}), await tC1(A.name, {
-      ...A.config,
-      scope: A.scope
-    }), V((L) => {
-      let _ = L.mcp.clients.map((s) => s.name === A.name ? {
-          ...s,
-          type: "failed"
-        } : s),
-        k = ci(L.mcp.tools, A.name),
-        i = li(L.mcp.commands, A.name),
-        x = ii(L.mcp.resources, A.name);
-      return {
-        ...L,
-        mcp: {
-          clients: _,
-          tools: k,
-          commands: i,
-          resources: x
-        }
-      }
-    }), G?.(`Authentication cleared for ${A.name}.`)
+    var N = x0.create(x0.Class.UNIVERSAL, x0.Type.SEQUENCE, !0, [J, x0.create(x0.Class.UNIVERSAL, x0.Type.OCTETSTRING, !1, W)]);
+    return N
   };
-  if (F4.default.useEffect(() => {
-      if ((A.client.type === "needs-auth" || A.isAuthenticated === !1 && A.client.type !== "connected") && !Y && !J) O()
-    }, [A.client.type, A.isAuthenticated, Y, J, O]), Y) return F4.default.createElement(h, {
-    flexDirection: "column",
-    gap: 1,
-    padding: 1
-  }, F4.default.createElement(P, {
-    color: "claude"
-  }, "Authenticating with ", A.name, "…"), F4.default.createElement(h, null, F4.default.createElement(oD, null), F4.default.createElement(P, null, " A browser window will open for authentication")), C && F4.default.createElement(h, {
-    flexDirection: "column"
-  }, F4.default.createElement(P, {
-    dimColor: !0
-  }, "If your browser doesn't open automatically, copy this URL manually:"), F4.default.createElement(kQ, {
-    url: C
-  })), F4.default.createElement(P, {
-    dimColor: !0
-  }, "Return here after authenticating in your browser."));
-  let T = [];
-  if (A.client.type === "connected" && B > 0) T.push({
-    label: "View tools",
-    value: "tools"
-  });
-  if (A.isAuthenticated) T.push({
-    label: "Re-authenticate",
-    value: "reauth"
-  }), T.push({
-    label: "Clear authentication",
-    value: "clear-auth"
-  });
-  if (T.length === 0) T.push({
-    label: "Back",
-    value: "back"
-  });
-  return F4.default.createElement(F4.default.Fragment, null, F4.default.createElement(h, {
-    flexDirection: "column",
-    paddingX: 1,
-    borderStyle: "round"
-  }, F4.default.createElement(h, {
-    marginBottom: 1
-  }, F4.default.createElement(P, {
-    bold: !0
-  }, E, " MCP Server")), F4.default.createElement(h, {
-    flexDirection: "column",
-    gap: 0
-  }, F4.default.createElement(h, null, F4.default.createElement(P, {
-    bold: !0
-  }, "Status: "), A.client.type === "connected" ? F4.default.createElement(F4.default.Fragment, null, F4.default.createElement(P, null, V9("success", Z)(A0.tick), " connected"), A.isAuthenticated && F4.default.createElement(P, null, "  ", V9("success", Z)(A0.tick), " authenticated")) : A.client.type === "pending" ? F4.default.createElement(P, null, V9("secondaryText", Z)(A0.radioOff), " connecting…") : A.client.type === "needs-auth" ? F4.default.createElement(P, null, V9("warning", Z)(A0.triangleUpOutline), " needs authentication") : F4.default.createElement(P, null, V9("error", Z)(A0.cross), " failed")), F4.default.createElement(h, null, F4.default.createElement(P, {
-    bold: !0
-  }, "URL: "), F4.default.createElement(P, {
-    color: "secondaryText"
-  }, A.config.url)), A.client.type === "connected" && F4.default.createElement(jw1, {
-    serverToolsCount: B,
-    serverPromptsCount: N,
-    serverResourcesCount: X.mcp.resources[A.name]?.length || 0
-  }), A.client.type === "connected" && B > 0 && F4.default.createElement(h, null, F4.default.createElement(P, {
-    bold: !0
-  }, "Tools: "), F4.default.createElement(P, {
-    color: "secondaryText"
-  }, B, " tools"))), J && F4.default.createElement(h, {
-    marginTop: 1
-  }, F4.default.createElement(P, {
-    color: "error"
-  }, "Error: ", J)), T.length > 0 && F4.default.createElement(h, {
-    marginTop: 1
-  }, F4.default.createElement(p0, {
-    options: T,
-    onChange: async (L) => {
-      switch (L) {
-        case "tools":
-          Q();
-          break;
-        case "auth":
-        case "reauth":
-          await O();
-          break;
-        case "clear-auth":
-          await R();
-          break;
-        case "back":
-          I();
-          break
-      }
-    },
-    onCancel: I
-  }))), F4.default.createElement(h, {
-    marginLeft: 3
-  }, F4.default.createElement(P, {
-    dimColor: !0
-  }, D.pending ? F4.default.createElement(F4.default.Fragment, null, "Press ", D.keyName, " again to exit") : F4.default.createElement(F4.default.Fragment, null, "Esc to go back"))))
-}
-// @from(Start 9901980, End 9901996)
-tD = I1(U1(), 1)
-// @from(Start 9901999, End 9903510)
-function h0A({
-  server: A,
-  onSelectTool: B,
-  onBack: Q
-}) {
-  let I = Y2(),
-    [G] = d5(),
-    Z = tD.default.useMemo(() => {
-      if (A.client.type !== "connected") return [];
-      return pi(G.mcp.tools, A.name)
-    }, [A, G.mcp.tools]),
-    D = Z.map((Y, W) => {
-      let J = k81(Y.name, A.name),
-        F = typeof Y.isConcurrencySafe === "function" && Y.isConcurrencySafe({});
-      return {
-        label: J,
-        value: W.toString(),
-        description: F ? "read-only" : void 0,
-        descriptionColor: F ? "success" : void 0
-      }
-    });
-  return tD.default.createElement(h, {
-    flexDirection: "column"
-  }, tD.default.createElement(h, {
-    flexDirection: "column",
-    paddingX: 1,
-    borderStyle: "round"
-  }, tD.default.createElement(h, {
-    marginBottom: 1
-  }, tD.default.createElement(P, {
-    bold: !0
-  }, "Tools for ", A.name), tD.default.createElement(P, {
-    color: "secondaryText"
-  }, " (", Z.length, " tools)")), Z.length === 0 ? tD.default.createElement(P, {
-    color: "secondaryText"
-  }, "No tools available") : tD.default.createElement(p0, {
-    options: D,
-    onChange: (Y) => {
-      let W = parseInt(Y),
-        J = Z[W];
-      if (J) B(J, W)
-    },
-    onCancel: Q
-  })), tD.default.createElement(h, {
-    marginLeft: 3
-  }, tD.default.createElement(P, {
-    dimColor: !0
-  }, I.pending ? tD.default.createElement(tD.default.Fragment, null, "Press ", I.keyName, " again to exit") : tD.default.createElement(tD.default.Fragment, null, "Esc to go back"))))
-}
-// @from(Start 9903515, End 9903531)
-H8 = I1(U1(), 1)
-// @from(Start 9903534, End 9906427)
-function m0A({
-  tool: A,
-  server: B,
-  onBack: Q
-}) {
-  let I = Y2(),
-    [G, Z] = H8.default.useState("");
-  Z0((W, J) => {
-    if (J.escape) Q()
-  });
-  let D = k81(A.name, B.name),
-    Y = typeof A.isConcurrencySafe === "function" && A.isConcurrencySafe({});
-  return H8.default.useEffect(() => {
-    async function W() {
-      try {
-        let J = await A.description({}, {
-          isNonInteractiveSession: !1,
-          getToolPermissionContext: () => ({
-            mode: "default",
-            additionalWorkingDirectories: new Set,
-            alwaysAllowRules: {},
-            alwaysDenyRules: {},
-            isBypassPermissionsModeAvailable: !1
-          }),
-          tools: []
-        });
-        Z(J)
-      } catch {
-        Z("Failed to load description")
-      }
+  a8.decryptPrivateKeyInfo = function(A, Q) {
+    var B = null,
+      G = {},
+      Z = [];
+    if (!x0.validate(A, MZ5, G, Z)) {
+      var I = Error("Cannot read encrypted private key. ASN.1 object is not a supported EncryptedPrivateKeyInfo.");
+      throw I.errors = Z, I
     }
-    W()
-  }, [A]), H8.default.createElement(h, {
-    flexDirection: "column"
-  }, H8.default.createElement(h, {
-    flexDirection: "column",
-    paddingX: 1,
-    borderStyle: "round"
-  }, H8.default.createElement(h, {
-    marginBottom: 1
-  }, H8.default.createElement(P, {
-    bold: !0
-  }, D, H8.default.createElement(P, {
-    color: "secondaryText"
-  }, " (", B.name, ")"), Y && H8.default.createElement(P, {
-    color: "success"
-  }, " [read-only]"))), H8.default.createElement(h, {
-    flexDirection: "column"
-  }, H8.default.createElement(h, null, H8.default.createElement(P, {
-    bold: !0
-  }, "Full name: "), H8.default.createElement(P, {
-    color: "secondaryText"
-  }, A.name)), G && H8.default.createElement(h, {
-    flexDirection: "column",
-    marginTop: 1
-  }, H8.default.createElement(P, {
-    bold: !0
-  }, "Description:"), H8.default.createElement(P, {
-    wrap: "wrap"
-  }, G)), A.inputJSONSchema && A.inputJSONSchema.properties && Object.keys(A.inputJSONSchema.properties).length > 0 && H8.default.createElement(h, {
-    flexDirection: "column",
-    marginTop: 1
-  }, H8.default.createElement(P, {
-    bold: !0
-  }, "Parameters:"), H8.default.createElement(h, {
-    marginLeft: 2,
-    flexDirection: "column"
-  }, Object.entries(A.inputJSONSchema.properties).map(([W, J]) => {
-    let X = A.inputJSONSchema?.required?.includes(W);
-    return H8.default.createElement(P, {
-      key: W
-    }, "• ", W, X && H8.default.createElement(P, {
-      color: "secondaryText"
-    }, " (required)"), ":", " ", H8.default.createElement(P, {
-      color: "secondaryText"
-    }, typeof J === "object" && J && "type" in J ? String(J.type) : "unknown"), typeof J === "object" && J && "description" in J && H8.default.createElement(P, {
-      color: "secondaryText"
-    }, " ", "- ", String(J.description)))
-  }))))), H8.default.createElement(h, {
-    marginLeft: 3
-  }, H8.default.createElement(P, {
-    dimColor: !0
-  }, I.pending ? H8.default.createElement(H8.default.Fragment, null, "Press ", I.keyName, " again to exit") : H8.default.createElement(H8.default.Fragment, null, "Esc to go back"))))
-}
-// @from(Start 9906429, End 9909577)
-function d0A({
-  onComplete: A
-}) {
-  let [B] = d5(), Q = B.mcp.clients, [I, G] = NV.default.useState({
-    type: "list"
-  }), [Z, D] = NV.default.useState([]), Y = NV.default.useMemo(() => Q.filter((W) => W.name !== "ide").sort((W, J) => W.name.localeCompare(J.name)), [Q]);
-  switch (NV.default.useEffect(() => {
-      async function W() {
-        let J = await Promise.all(Y.map(async (F) => {
-          let X = F.config.scope,
-            V = F.config.type === "sse",
-            C = F.config.type === "http",
-            K = void 0;
-          if (V || C) {
-            let q = await new MO(F.name, F.config).tokens();
-            K = Boolean(q)
-          }
-          let E = {
-            name: F.name,
-            client: F,
-            scope: X
+    var Y = x0.derToOid(G.encryptionOid),
+      J = a8.pbe.getCipher(Y, G.encryptionParams, Q),
+      W = uB.util.createBuffer(G.encryptedData);
+    if (J.update(W), J.finish()) B = x0.fromDer(J.output);
+    return B
+  };
+  a8.encryptedPrivateKeyToPem = function(A, Q) {
+    var B = {
+      type: "ENCRYPTED PRIVATE KEY",
+      body: x0.toDer(A).getBytes()
+    };
+    return uB.pem.encode(B, {
+      maxline: Q
+    })
+  };
+  a8.encryptedPrivateKeyFromPem = function(A) {
+    var Q = uB.pem.decode(A)[0];
+    if (Q.type !== "ENCRYPTED PRIVATE KEY") {
+      var B = Error('Could not convert encrypted private key from PEM; PEM header type is "ENCRYPTED PRIVATE KEY".');
+      throw B.headerType = Q.type, B
+    }
+    if (Q.procType && Q.procType.type === "ENCRYPTED") throw Error("Could not convert encrypted private key from PEM; PEM is encrypted.");
+    return x0.fromDer(Q.body)
+  };
+  a8.encryptRsaPrivateKey = function(A, Q, B) {
+    if (B = B || {}, !B.legacy) {
+      var G = a8.wrapRsaPrivateKey(a8.privateKeyToAsn1(A));
+      return G = a8.encryptPrivateKeyInfo(G, Q, B), a8.encryptedPrivateKeyToPem(G)
+    }
+    var Z, I, Y, J;
+    switch (B.algorithm) {
+      case "aes128":
+        Z = "AES-128-CBC", Y = 16, I = uB.random.getBytesSync(16), J = uB.aes.createEncryptionCipher;
+        break;
+      case "aes192":
+        Z = "AES-192-CBC", Y = 24, I = uB.random.getBytesSync(16), J = uB.aes.createEncryptionCipher;
+        break;
+      case "aes256":
+        Z = "AES-256-CBC", Y = 32, I = uB.random.getBytesSync(16), J = uB.aes.createEncryptionCipher;
+        break;
+      case "3des":
+        Z = "DES-EDE3-CBC", Y = 24, I = uB.random.getBytesSync(8), J = uB.des.createEncryptionCipher;
+        break;
+      case "des":
+        Z = "DES-CBC", Y = 8, I = uB.random.getBytesSync(8), J = uB.des.createEncryptionCipher;
+        break;
+      default:
+        var W = Error('Could not encrypt RSA private key; unsupported encryption algorithm "' + B.algorithm + '".');
+        throw W.algorithm = B.algorithm, W
+    }
+    var X = uB.pbe.opensslDeriveBytes(Q, I.substr(0, 8), Y),
+      V = J(X);
+    V.start(I), V.update(x0.toDer(a8.privateKeyToAsn1(A))), V.finish();
+    var F = {
+      type: "RSA PRIVATE KEY",
+      procType: {
+        version: "4",
+        type: "ENCRYPTED"
+      },
+      dekInfo: {
+        algorithm: Z,
+        parameters: uB.util.bytesToHex(I).toUpperCase()
+      },
+      body: V.output.getBytes()
+    };
+    return uB.pem.encode(F)
+  };
+  a8.decryptRsaPrivateKey = function(A, Q) {
+    var B = null,
+      G = uB.pem.decode(A)[0];
+    if (G.type !== "ENCRYPTED PRIVATE KEY" && G.type !== "PRIVATE KEY" && G.type !== "RSA PRIVATE KEY") {
+      var Z = Error('Could not convert private key from PEM; PEM header type is not "ENCRYPTED PRIVATE KEY", "PRIVATE KEY", or "RSA PRIVATE KEY".');
+      throw Z.headerType = Z, Z
+    }
+    if (G.procType && G.procType.type === "ENCRYPTED") {
+      var I, Y;
+      switch (G.dekInfo.algorithm) {
+        case "DES-CBC":
+          I = 8, Y = uB.des.createDecryptionCipher;
+          break;
+        case "DES-EDE3-CBC":
+          I = 24, Y = uB.des.createDecryptionCipher;
+          break;
+        case "AES-128-CBC":
+          I = 16, Y = uB.aes.createDecryptionCipher;
+          break;
+        case "AES-192-CBC":
+          I = 24, Y = uB.aes.createDecryptionCipher;
+          break;
+        case "AES-256-CBC":
+          I = 32, Y = uB.aes.createDecryptionCipher;
+          break;
+        case "RC2-40-CBC":
+          I = 5, Y = function(F) {
+            return uB.rc2.createDecryptionCipher(F, 40)
           };
-          if (V) return {
-            ...E,
-            transport: "sse",
-            isAuthenticated: K,
-            config: F.config
+          break;
+        case "RC2-64-CBC":
+          I = 8, Y = function(F) {
+            return uB.rc2.createDecryptionCipher(F, 64)
           };
-          else if (C) return {
-            ...E,
-            transport: "http",
-            isAuthenticated: K,
-            config: F.config
+          break;
+        case "RC2-128-CBC":
+          I = 16, Y = function(F) {
+            return uB.rc2.createDecryptionCipher(F, 128)
           };
-          else return {
-            ...E,
-            transport: "stdio",
-            config: F.config
-          }
-        }));
-        D(J)
+          break;
+        default:
+          var Z = Error('Could not decrypt private key; unsupported encryption algorithm "' + G.dekInfo.algorithm + '".');
+          throw Z.algorithm = G.dekInfo.algorithm, Z
       }
-      W()
-    }, [Y]), NV.useEffect(() => {
-      if (Z.length === 0 && Y.length > 0) return;
-      if (Z.length === 0) A("No MCP servers configured. Run `claude mcp` or visit https://docs.anthropic.com/en/docs/claude-code/mcp to learn more.")
-    }, [Z.length, Y.length, A]), I.type) {
-    case "list":
-      return NV.default.createElement(v0A, {
-        servers: Z,
-        onSelectServer: (W) => G({
-          type: "server-menu",
-          server: W
-        }),
-        onComplete: A
-      });
-    case "server-menu": {
-      let W = pi(B.mcp.tools, I.server.name);
-      if (I.server.transport === "stdio") return NV.default.createElement(b0A, {
-        server: I.server,
-        serverToolsCount: W.length,
-        onViewTools: () => G({
-          type: "server-tools",
-          server: I.server
-        }),
-        onCancel: () => G({
-          type: "list"
-        })
-      });
-      else return NV.default.createElement(g0A, {
-        server: I.server,
-        serverToolsCount: W.length,
-        onViewTools: () => G({
-          type: "server-tools",
-          server: I.server
-        }),
-        onCancel: () => G({
-          type: "list"
-        }),
-        onComplete: A
-      })
+      var J = uB.util.hexToBytes(G.dekInfo.parameters),
+        W = uB.pbe.opensslDeriveBytes(Q, J.substr(0, 8), I),
+        X = Y(W);
+      if (X.start(J), X.update(uB.util.createBuffer(G.body)), X.finish()) B = X.output.getBytes();
+      else return B
+    } else B = G.body;
+    if (G.type === "ENCRYPTED PRIVATE KEY") B = a8.decryptPrivateKeyInfo(x0.fromDer(B), Q);
+    else B = x0.fromDer(B);
+    if (B !== null) B = a8.privateKeyFromAsn1(B);
+    return B
+  };
+  a8.pbe.generatePkcs12Key = function(A, Q, B, G, Z, I) {
+    var Y, J;
+    if (typeof I > "u" || I === null) {
+      if (!("sha1" in uB.md)) throw Error('"sha1" hash algorithm unavailable.');
+      I = uB.md.sha1.create()
     }
-    case "server-tools":
-      return NV.default.createElement(h0A, {
-        server: I.server,
-        onSelectTool: (W, J) => G({
-          type: "server-tool-detail",
-          server: I.server,
-          toolIndex: J
-        }),
-        onBack: () => G({
-          type: "server-menu",
-          server: I.server
-        })
-      });
-    case "server-tool-detail": {
-      let J = pi(B.mcp.tools, I.server.name)[I.toolIndex];
-      if (!J) return G({
-        type: "server-tools",
-        server: I.server
-      }), null;
-      return NV.default.createElement(m0A, {
-        tool: J,
-        server: I.server,
-        onBack: () => G({
-          type: "server-tools",
-          server: I.server
-        })
-      })
+    var {
+      digestLength: W,
+      blockLength: X
+    } = I, V = new uB.util.ByteBuffer, F = new uB.util.ByteBuffer;
+    if (A !== null && A !== void 0) {
+      for (J = 0; J < A.length; J++) F.putInt16(A.charCodeAt(J));
+      F.putInt16(0)
     }
+    var K = F.length(),
+      D = Q.length(),
+      H = new uB.util.ByteBuffer;
+    H.fillWithByte(B, X);
+    var C = X * Math.ceil(D / X),
+      E = new uB.util.ByteBuffer;
+    for (J = 0; J < C; J++) E.putByte(Q.at(J % D));
+    var U = X * Math.ceil(K / X),
+      q = new uB.util.ByteBuffer;
+    for (J = 0; J < U; J++) q.putByte(F.at(J % K));
+    var w = E;
+    w.putBuffer(q);
+    var N = Math.ceil(Z / W);
+    for (var R = 1; R <= N; R++) {
+      var T = new uB.util.ByteBuffer;
+      T.putBytes(H.bytes()), T.putBytes(w.bytes());
+      for (var y = 0; y < G; y++) I.start(), I.update(T.getBytes()), T = I.digest();
+      var v = new uB.util.ByteBuffer;
+      for (J = 0; J < X; J++) v.putByte(T.at(J % W));
+      var x = Math.ceil(D / X) + Math.ceil(K / X),
+        p = new uB.util.ByteBuffer;
+      for (Y = 0; Y < x; Y++) {
+        var u = new uB.util.ByteBuffer(w.getBytes(X)),
+          e = 511;
+        for (J = v.length() - 1; J >= 0; J--) e = e >> 8, e += v.at(J) + u.at(J), u.setAt(J, e & 255);
+        p.putBuffer(u)
+      }
+      w = p, V.putBuffer(T)
+    }
+    return V.truncate(V.length() - Z), V
+  };
+  a8.pbe.getCipher = function(A, Q, B) {
+    switch (A) {
+      case a8.oids.pkcs5PBES2:
+        return a8.pbe.getCipherForPBES2(A, Q, B);
+      case a8.oids["pbeWithSHAAnd3-KeyTripleDES-CBC"]:
+      case a8.oids["pbewithSHAAnd40BitRC2-CBC"]:
+        return a8.pbe.getCipherForPKCS12PBE(A, Q, B);
+      default:
+        var G = Error("Cannot read encrypted PBE data block. Unsupported OID.");
+        throw G.oid = A, G.supportedOids = ["pkcs5PBES2", "pbeWithSHAAnd3-KeyTripleDES-CBC", "pbewithSHAAnd40BitRC2-CBC"], G
+    }
+  };
+  a8.pbe.getCipherForPBES2 = function(A, Q, B) {
+    var G = {},
+      Z = [];
+    if (!x0.validate(Q, OZ5, G, Z)) {
+      var I = Error("Cannot read password-based-encryption algorithm parameters. ASN.1 object is not a supported EncryptedPrivateKeyInfo.");
+      throw I.errors = Z, I
+    }
+    if (A = x0.derToOid(G.kdfOid), A !== a8.oids.pkcs5PBKDF2) {
+      var I = Error("Cannot read encrypted private key. Unsupported key derivation function OID.");
+      throw I.oid = A, I.supportedOids = ["pkcs5PBKDF2"], I
+    }
+    if (A = x0.derToOid(G.encOid), A !== a8.oids["aes128-CBC"] && A !== a8.oids["aes192-CBC"] && A !== a8.oids["aes256-CBC"] && A !== a8.oids["des-EDE3-CBC"] && A !== a8.oids.desCBC) {
+      var I = Error("Cannot read encrypted private key. Unsupported encryption scheme OID.");
+      throw I.oid = A, I.supportedOids = ["aes128-CBC", "aes192-CBC", "aes256-CBC", "des-EDE3-CBC", "desCBC"], I
+    }
+    var Y = G.kdfSalt,
+      J = uB.util.createBuffer(G.kdfIterationCount);
+    J = J.getInt(J.length() << 3);
+    var W, X;
+    switch (a8.oids[A]) {
+      case "aes128-CBC":
+        W = 16, X = uB.aes.createDecryptionCipher;
+        break;
+      case "aes192-CBC":
+        W = 24, X = uB.aes.createDecryptionCipher;
+        break;
+      case "aes256-CBC":
+        W = 32, X = uB.aes.createDecryptionCipher;
+        break;
+      case "des-EDE3-CBC":
+        W = 24, X = uB.des.createDecryptionCipher;
+        break;
+      case "desCBC":
+        W = 8, X = uB.des.createDecryptionCipher;
+        break
+    }
+    var V = e62(G.prfOid),
+      F = uB.pkcs5.pbkdf2(B, Y, J, W, V),
+      K = G.encIv,
+      D = X(F);
+    return D.start(K), D
+  };
+  a8.pbe.getCipherForPKCS12PBE = function(A, Q, B) {
+    var G = {},
+      Z = [];
+    if (!x0.validate(Q, RZ5, G, Z)) {
+      var I = Error("Cannot read password-based-encryption algorithm parameters. ASN.1 object is not a supported EncryptedPrivateKeyInfo.");
+      throw I.errors = Z, I
+    }
+    var Y = uB.util.createBuffer(G.salt),
+      J = uB.util.createBuffer(G.iterations);
+    J = J.getInt(J.length() << 3);
+    var W, X, V;
+    switch (A) {
+      case a8.oids["pbeWithSHAAnd3-KeyTripleDES-CBC"]:
+        W = 24, X = 8, V = uB.des.startDecrypting;
+        break;
+      case a8.oids["pbewithSHAAnd40BitRC2-CBC"]:
+        W = 5, X = 8, V = function(C, E) {
+          var U = uB.rc2.createDecryptionCipher(C, 40);
+          return U.start(E, null), U
+        };
+        break;
+      default:
+        var I = Error("Cannot read PKCS #12 PBE data block. Unsupported OID.");
+        throw I.oid = A, I
+    }
+    var F = e62(G.prfOid),
+      K = a8.pbe.generatePkcs12Key(B, Y, 1, J, W, F);
+    F.start();
+    var D = a8.pbe.generatePkcs12Key(B, Y, 2, J, X, F);
+    return V(K, D)
+  };
+  a8.pbe.opensslDeriveBytes = function(A, Q, B, G) {
+    if (typeof G > "u" || G === null) {
+      if (!("md5" in uB.md)) throw Error('"md5" hash algorithm unavailable.');
+      G = uB.md.md5.create()
+    }
+    if (Q === null) Q = "";
+    var Z = [t62(G, A + Q)];
+    for (var I = 16, Y = 1; I < B; ++Y, I += 16) Z.push(t62(G, Z[Y - 1] + A + Q));
+    return Z.join("").substr(0, B)
+  };
+
+  function t62(A, Q) {
+    return A.start().update(Q).digest().getBytes()
   }
-}
-// @from(Start 9909582, End 9909867)
-iE5 = {
-    type: "local-jsx",
-    name: "mcp",
-    description: "Manage MCP servers",
-    isEnabled: () => !0,
-    isHidden: !1,
-    async call(A) {
-      return nS2.default.createElement(d0A, {
-        onComplete: A
-      })
-    },
-    userFacingName() {
-      return "mcp"
+
+  function e62(A) {
+    var Q;
+    if (!A) Q = "hmacWithSHA1";
+    else if (Q = a8.oids[x0.derToOid(A)], !Q) {
+      var B = Error("Unsupported PRF OID.");
+      throw B.oid = A, B.supported = ["hmacWithSHA1", "hmacWithSHA224", "hmacWithSHA256", "hmacWithSHA384", "hmacWithSHA512"], B
     }
+    return A52(Q)
   }
-// @from(Start 9909871, End 9909880)
-aS2 = iE5
-// @from(Start 9909886, End 9909903)
-nE5 = I1(U1(), 1)
+
+  function A52(A) {
+    var Q = uB.md;
+    switch (A) {
+      case "hmacWithSHA224":
+        Q = uB.md.sha512;
+      case "hmacWithSHA1":
+      case "hmacWithSHA256":
+      case "hmacWithSHA384":
+      case "hmacWithSHA512":
+        A = A.substr(8).toLowerCase();
+        break;
+      default:
+        var B = Error("Unsupported PRF algorithm.");
+        throw B.algorithm = A, B.supported = ["hmacWithSHA1", "hmacWithSHA224", "hmacWithSHA256", "hmacWithSHA384", "hmacWithSHA512"], B
+    }
+    if (!Q || !(A in Q)) throw Error("Unknown hash algorithm: " + A);
+    return Q[A].create()
+  }
+
+  function TZ5(A, Q, B, G) {
+    var Z = x0.create(x0.Class.UNIVERSAL, x0.Type.SEQUENCE, !0, [x0.create(x0.Class.UNIVERSAL, x0.Type.OCTETSTRING, !1, A), x0.create(x0.Class.UNIVERSAL, x0.Type.INTEGER, !1, Q.getBytes())]);
+    if (G !== "hmacWithSHA1") Z.value.push(x0.create(x0.Class.UNIVERSAL, x0.Type.INTEGER, !1, uB.util.hexToBytes(B.toString(16))), x0.create(x0.Class.UNIVERSAL, x0.Type.SEQUENCE, !0, [x0.create(x0.Class.UNIVERSAL, x0.Type.OID, !1, x0.oidToDer(a8.oids[G]).getBytes()), x0.create(x0.Class.UNIVERSAL, x0.Type.NULL, !1, "")]));
+    return Z
+  }
+})
+// @from(Start 9279773, End 9287053)
+gA0 = z((XjG, Z52) => {
+  var iIA = B6();
+  GP();
+  x3();
+  var yB = iIA.asn1,
+    nIA = Z52.exports = iIA.pkcs7asn1 = iIA.pkcs7asn1 || {};
+  iIA.pkcs7 = iIA.pkcs7 || {};
+  iIA.pkcs7.asn1 = nIA;
+  var B52 = {
+    name: "ContentInfo",
+    tagClass: yB.Class.UNIVERSAL,
+    type: yB.Type.SEQUENCE,
+    constructed: !0,
+    value: [{
+      name: "ContentInfo.ContentType",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.OID,
+      constructed: !1,
+      capture: "contentType"
+    }, {
+      name: "ContentInfo.content",
+      tagClass: yB.Class.CONTEXT_SPECIFIC,
+      type: 0,
+      constructed: !0,
+      optional: !0,
+      captureAsn1: "content"
+    }]
+  };
+  nIA.contentInfoValidator = B52;
+  var G52 = {
+    name: "EncryptedContentInfo",
+    tagClass: yB.Class.UNIVERSAL,
+    type: yB.Type.SEQUENCE,
+    constructed: !0,
+    value: [{
+      name: "EncryptedContentInfo.contentType",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.OID,
+      constructed: !1,
+      capture: "contentType"
+    }, {
+      name: "EncryptedContentInfo.contentEncryptionAlgorithm",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "EncryptedContentInfo.contentEncryptionAlgorithm.algorithm",
+        tagClass: yB.Class.UNIVERSAL,
+        type: yB.Type.OID,
+        constructed: !1,
+        capture: "encAlgorithm"
+      }, {
+        name: "EncryptedContentInfo.contentEncryptionAlgorithm.parameter",
+        tagClass: yB.Class.UNIVERSAL,
+        captureAsn1: "encParameter"
+      }]
+    }, {
+      name: "EncryptedContentInfo.encryptedContent",
+      tagClass: yB.Class.CONTEXT_SPECIFIC,
+      type: 0,
+      capture: "encryptedContent",
+      captureAsn1: "encryptedContentAsn1"
+    }]
+  };
+  nIA.envelopedDataValidator = {
+    name: "EnvelopedData",
+    tagClass: yB.Class.UNIVERSAL,
+    type: yB.Type.SEQUENCE,
+    constructed: !0,
+    value: [{
+      name: "EnvelopedData.Version",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.INTEGER,
+      constructed: !1,
+      capture: "version"
+    }, {
+      name: "EnvelopedData.RecipientInfos",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.SET,
+      constructed: !0,
+      captureAsn1: "recipientInfos"
+    }].concat(G52)
+  };
+  nIA.encryptedDataValidator = {
+    name: "EncryptedData",
+    tagClass: yB.Class.UNIVERSAL,
+    type: yB.Type.SEQUENCE,
+    constructed: !0,
+    value: [{
+      name: "EncryptedData.Version",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.INTEGER,
+      constructed: !1,
+      capture: "version"
+    }].concat(G52)
+  };
+  var PZ5 = {
+    name: "SignerInfo",
+    tagClass: yB.Class.UNIVERSAL,
+    type: yB.Type.SEQUENCE,
+    constructed: !0,
+    value: [{
+      name: "SignerInfo.version",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.INTEGER,
+      constructed: !1
+    }, {
+      name: "SignerInfo.issuerAndSerialNumber",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "SignerInfo.issuerAndSerialNumber.issuer",
+        tagClass: yB.Class.UNIVERSAL,
+        type: yB.Type.SEQUENCE,
+        constructed: !0,
+        captureAsn1: "issuer"
+      }, {
+        name: "SignerInfo.issuerAndSerialNumber.serialNumber",
+        tagClass: yB.Class.UNIVERSAL,
+        type: yB.Type.INTEGER,
+        constructed: !1,
+        capture: "serial"
+      }]
+    }, {
+      name: "SignerInfo.digestAlgorithm",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "SignerInfo.digestAlgorithm.algorithm",
+        tagClass: yB.Class.UNIVERSAL,
+        type: yB.Type.OID,
+        constructed: !1,
+        capture: "digestAlgorithm"
+      }, {
+        name: "SignerInfo.digestAlgorithm.parameter",
+        tagClass: yB.Class.UNIVERSAL,
+        constructed: !1,
+        captureAsn1: "digestParameter",
+        optional: !0
+      }]
+    }, {
+      name: "SignerInfo.authenticatedAttributes",
+      tagClass: yB.Class.CONTEXT_SPECIFIC,
+      type: 0,
+      constructed: !0,
+      optional: !0,
+      capture: "authenticatedAttributes"
+    }, {
+      name: "SignerInfo.digestEncryptionAlgorithm",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.SEQUENCE,
+      constructed: !0,
+      capture: "signatureAlgorithm"
+    }, {
+      name: "SignerInfo.encryptedDigest",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.OCTETSTRING,
+      constructed: !1,
+      capture: "signature"
+    }, {
+      name: "SignerInfo.unauthenticatedAttributes",
+      tagClass: yB.Class.CONTEXT_SPECIFIC,
+      type: 1,
+      constructed: !0,
+      optional: !0,
+      capture: "unauthenticatedAttributes"
+    }]
+  };
+  nIA.signedDataValidator = {
+    name: "SignedData",
+    tagClass: yB.Class.UNIVERSAL,
+    type: yB.Type.SEQUENCE,
+    constructed: !0,
+    value: [{
+      name: "SignedData.Version",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.INTEGER,
+      constructed: !1,
+      capture: "version"
+    }, {
+      name: "SignedData.DigestAlgorithms",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.SET,
+      constructed: !0,
+      captureAsn1: "digestAlgorithms"
+    }, B52, {
+      name: "SignedData.Certificates",
+      tagClass: yB.Class.CONTEXT_SPECIFIC,
+      type: 0,
+      optional: !0,
+      captureAsn1: "certificates"
+    }, {
+      name: "SignedData.CertificateRevocationLists",
+      tagClass: yB.Class.CONTEXT_SPECIFIC,
+      type: 1,
+      optional: !0,
+      captureAsn1: "crls"
+    }, {
+      name: "SignedData.SignerInfos",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.SET,
+      capture: "signerInfos",
+      optional: !0,
+      value: [PZ5]
+    }]
+  };
+  nIA.recipientInfoValidator = {
+    name: "RecipientInfo",
+    tagClass: yB.Class.UNIVERSAL,
+    type: yB.Type.SEQUENCE,
+    constructed: !0,
+    value: [{
+      name: "RecipientInfo.version",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.INTEGER,
+      constructed: !1,
+      capture: "version"
+    }, {
+      name: "RecipientInfo.issuerAndSerial",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "RecipientInfo.issuerAndSerial.issuer",
+        tagClass: yB.Class.UNIVERSAL,
+        type: yB.Type.SEQUENCE,
+        constructed: !0,
+        captureAsn1: "issuer"
+      }, {
+        name: "RecipientInfo.issuerAndSerial.serialNumber",
+        tagClass: yB.Class.UNIVERSAL,
+        type: yB.Type.INTEGER,
+        constructed: !1,
+        capture: "serial"
+      }]
+    }, {
+      name: "RecipientInfo.keyEncryptionAlgorithm",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.SEQUENCE,
+      constructed: !0,
+      value: [{
+        name: "RecipientInfo.keyEncryptionAlgorithm.algorithm",
+        tagClass: yB.Class.UNIVERSAL,
+        type: yB.Type.OID,
+        constructed: !1,
+        capture: "encAlgorithm"
+      }, {
+        name: "RecipientInfo.keyEncryptionAlgorithm.parameter",
+        tagClass: yB.Class.UNIVERSAL,
+        constructed: !1,
+        captureAsn1: "encParameter",
+        optional: !0
+      }]
+    }, {
+      name: "RecipientInfo.encryptedKey",
+      tagClass: yB.Class.UNIVERSAL,
+      type: yB.Type.OCTETSTRING,
+      constructed: !1,
+      capture: "encKey"
+    }]
+  }
+})
+// @from(Start 9287059, End 9287635)
+uA0 = z((VjG, I52) => {
+  var Y1A = B6();
+  x3();
+  Y1A.mgf = Y1A.mgf || {};
+  var jZ5 = I52.exports = Y1A.mgf.mgf1 = Y1A.mgf1 = Y1A.mgf1 || {};
+  jZ5.create = function(A) {
+    var Q = {
+      generate: function(B, G) {
+        var Z = new Y1A.util.ByteBuffer,
+          I = Math.ceil(G / A.digestLength);
+        for (var Y = 0; Y < I; Y++) {
+          var J = new Y1A.util.ByteBuffer;
+          J.putInt32(Y), A.start(), A.update(B + J.getBytes()), Z.putBuffer(A.digest())
+        }
+        return Z.truncate(Z.length() - G), Z.getBytes()
+      }
+    };
+    return Q
+  }
+})
+// @from(Start 9287641, End 9287761)
+J52 = z((FjG, Y52) => {
+  var rB1 = B6();
+  uA0();
+  Y52.exports = rB1.mgf = rB1.mgf || {};
+  rB1.mgf.mgf1 = rB1.mgf1
+})
+// @from(Start 9287767, End 9290606)
+oB1 = z((KjG, W52) => {
+  var J1A = B6();
+  cM();
+  x3();
+  var SZ5 = W52.exports = J1A.pss = J1A.pss || {};
+  SZ5.create = function(A) {
+    if (arguments.length === 3) A = {
+      md: arguments[0],
+      mgf: arguments[1],
+      saltLength: arguments[2]
+    };
+    var {
+      md: Q,
+      mgf: B
+    } = A, G = Q.digestLength, Z = A.salt || null;
+    if (typeof Z === "string") Z = J1A.util.createBuffer(Z);
+    var I;
+    if ("saltLength" in A) I = A.saltLength;
+    else if (Z !== null) I = Z.length();
+    else throw Error("Salt length not specified or specific salt not given.");
+    if (Z !== null && Z.length() !== I) throw Error("Given salt length does not match length of given salt.");
+    var Y = A.prng || J1A.random,
+      J = {};
+    return J.encode = function(W, X) {
+      var V, F = X - 1,
+        K = Math.ceil(F / 8),
+        D = W.digest().getBytes();
+      if (K < G + I + 2) throw Error("Message is too long to encrypt.");
+      var H;
+      if (Z === null) H = Y.getBytesSync(I);
+      else H = Z.bytes();
+      var C = new J1A.util.ByteBuffer;
+      C.fillWithByte(0, 8), C.putBytes(D), C.putBytes(H), Q.start(), Q.update(C.getBytes());
+      var E = Q.digest().getBytes(),
+        U = new J1A.util.ByteBuffer;
+      U.fillWithByte(0, K - I - G - 2), U.putByte(1), U.putBytes(H);
+      var q = U.getBytes(),
+        w = K - G - 1,
+        N = B.generate(E, w),
+        R = "";
+      for (V = 0; V < w; V++) R += String.fromCharCode(q.charCodeAt(V) ^ N.charCodeAt(V));
+      var T = 65280 >> 8 * K - F & 255;
+      return R = String.fromCharCode(R.charCodeAt(0) & ~T) + R.substr(1), R + E + String.fromCharCode(188)
+    }, J.verify = function(W, X, V) {
+      var F, K = V - 1,
+        D = Math.ceil(K / 8);
+      if (X = X.substr(-D), D < G + I + 2) throw Error("Inconsistent parameters to PSS signature verification.");
+      if (X.charCodeAt(D - 1) !== 188) throw Error("Encoded message does not end in 0xBC.");
+      var H = D - G - 1,
+        C = X.substr(0, H),
+        E = X.substr(H, G),
+        U = 65280 >> 8 * D - K & 255;
+      if ((C.charCodeAt(0) & U) !== 0) throw Error("Bits beyond keysize not zero as expected.");
+      var q = B.generate(E, H),
+        w = "";
+      for (F = 0; F < H; F++) w += String.fromCharCode(C.charCodeAt(F) ^ q.charCodeAt(F));
+      w = String.fromCharCode(w.charCodeAt(0) & ~U) + w.substr(1);
+      var N = D - G - I - 2;
+      for (F = 0; F < N; F++)
+        if (w.charCodeAt(F) !== 0) throw Error("Leftmost octets not zero as expected");
+      if (w.charCodeAt(N) !== 1) throw Error("Inconsistent PSS signature, 0x01 marker not found");
+      var R = w.substr(-I),
+        T = new J1A.util.ByteBuffer;
+      T.fillWithByte(0, 8), T.putBytes(W), T.putBytes(R), Q.start(), Q.update(T.getBytes());
+      var y = Q.digest().getBytes();
+      return E === y
+    }, J
+  }
+})

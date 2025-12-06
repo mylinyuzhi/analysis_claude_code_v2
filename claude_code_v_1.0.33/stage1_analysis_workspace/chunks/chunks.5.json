@@ -1,0 +1,10 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "highlight.js",
+    "execa",
+    "dom-library",
+    "protobufjs"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 highlight.js, execa, dom-library, protobufjs)"
+}

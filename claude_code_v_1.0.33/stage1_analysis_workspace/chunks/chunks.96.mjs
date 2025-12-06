@@ -1,3891 +1,2996 @@
 
-// @from(Start 9625376, End 9625793)
-NX5 = n.strictObject({
-    pattern: n.string().describe("The glob pattern to match files against"),
-    path: n.string().optional().describe('The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter "undefined" or "null" - simply omit it for the default behavior. Must be a valid directory path if provided.')
-  })
-// @from(Start 9625797, End 9627838)
-g$ = {
-    name: FJ1,
-    async description() {
-      return vc1
-    },
-    userFacingName() {
-      return "Search"
-    },
-    isEnabled() {
-      return !0
-    },
-    inputSchema: NX5,
-    isConcurrencySafe() {
-      return !0
-    },
-    isReadOnly() {
-      return !0
-    },
-    getPath({
-      path: A
-    }) {
-      return A || dA()
-    },
-    async checkPermissions(A, B) {
-      return qz(g$, A, B.getToolPermissionContext())
-    },
-    async prompt() {
-      return vc1
-    },
-    renderToolUseMessage({
-      pattern: A,
-      path: B
-    }, {
-      verbose: Q
-    }) {
-      if (!A) return null;
-      let I = B ? wX5(B) ? B : UX5(dA(), B) : void 0,
-        G = I ? EX5(dA(), I) : void 0;
-      return `pattern: "${A}"${G||Q?`, path: "${Q?I:G}"`:""}`
-    },
-    renderToolUseRejectedMessage() {
-      return W1A.default.createElement(C5, null)
-    },
-    renderToolUseErrorMessage(A, {
-      verbose: B
-    }) {
-      return W1A.default.createElement(K6, {
-        result: A,
-        verbose: B
-      })
-    },
-    renderToolUseProgressMessage() {
-      return null
-    },
-    renderToolResultMessage: qy.renderToolResultMessage,
-    async * call(A, {
-      abortController: B,
-      getToolPermissionContext: Q
-    }) {
-      let I = Date.now(),
-        {
-          files: G,
-          truncated: Z
-        } = await GvA(A.pattern, g$.getPath(A), {
-          limit: 100,
-          offset: 0
-        }, B.signal, Q());
-      yield {
-        type: "result",
-        data: {
-          filenames: G,
-          durationMs: Date.now() - I,
-          numFiles: G.length,
-          truncated: Z
-        }
-      }
-    },
-    mapToolResultToToolResultBlockParam(A, B) {
-      if (A.filenames.length === 0) return {
-        tool_use_id: B,
-        type: "tool_result",
-        content: "No files found"
-      };
-      return {
-        tool_use_id: B,
-        type: "tool_result",
-        content: [...A.filenames, ...A.truncated ? ["(Results are truncated. Consider using a more specific path or pattern.)"] : []].join(`
-`)
-      }
-    }
-  }
-// @from(Start 9627844, End 9627860)
-NW = I1(U1(), 1)
-// @from(Start 9627866, End 9627884)
-HO2 = I1(CO2(), 1)
-// @from(Start 9627890, End 9627903)
-mz1 = new Map
-// @from(Start 9627907, End 9627919)
-zO2 = 900000
-// @from(Start 9627922, End 9628043)
-function qH5() {
-  let A = Date.now();
-  for (let [B, Q] of mz1.entries())
-    if (A - Q.timestamp > zO2) mz1.delete(B)
-}
-// @from(Start 9628048, End 9628057)
-MH5 = 250
-// @from(Start 9628061, End 9628075)
-LH5 = 10485760
-// @from(Start 9628079, End 9628088)
-KO2 = 1e5
-// @from(Start 9628091, End 9628315)
-function RH5(A) {
-  if (A.length > MH5) return !1;
-  let B;
-  try {
-    B = new URL(A)
-  } catch {
-    return !1
-  }
-  if (B.username || B.password) return !1;
-  if (B.hostname.split(".").length < 2) return !1;
-  return !0
-}
-// @from(Start 9628316, End 9628561)
-async function OH5(A) {
-  try {
-    let B = await P4.get(`https://claude.ai/api/web/domain_info?domain=${encodeURIComponent(A)}`);
-    if (B.status === 200) return B.data.can_fetch === !0;
-    return !1
-  } catch (B) {
-    return b1(B), !1
-  }
-}
-// @from(Start 9628563, End 9628915)
-function TH5(A, B) {
-  try {
-    let Q = new URL(A),
-      I = new URL(B);
-    if (I.protocol !== Q.protocol) return !1;
-    if (I.port !== Q.port) return !1;
-    if (I.username || I.password) return !1;
-    let G = (Y) => Y.replace(/^www\./, ""),
-      Z = G(Q.hostname),
-      D = G(I.hostname);
-    return Z === D
-  } catch (Q) {
-    return !1
-  }
-}
-// @from(Start 9628916, End 9629517)
-async function wO2(A, B, Q) {
-  try {
-    return await P4.get(A, {
-      signal: B,
-      maxRedirects: 0,
-      responseType: "arraybuffer",
-      maxContentLength: LH5
-    })
-  } catch (I) {
-    if (P4.isAxiosError(I) && I.response && [301, 302, 307, 308].includes(I.response.status)) {
-      let G = I.response.headers.location;
-      if (!G) throw new Error("Redirect missing Location header");
-      let Z = new URL(G, A).toString();
-      if (Q(A, Z)) return wO2(Z, B, Q);
-      else throw new Error("Redirect not allowed. Only redirects to the same host are permitted.")
-    }
-    throw I
-  }
-}
-// @from(Start 9629518, End 9630640)
-async function EO2(A, B) {
-  if (!RH5(A)) throw new Error("Invalid URL");
-  qH5();
-  let Q = Date.now(),
-    I = mz1.get(A);
-  if (I && Q - I.timestamp < zO2) return {
-    bytes: I.bytes,
-    code: I.code,
-    codeText: I.codeText,
-    content: I.content
-  };
-  let G, Z = A;
-  try {
-    if (G = new URL(A), G.protocol === "http:") G.protocol = "https:", Z = G.toString();
-    let X = G.hostname;
-    if (!await OH5(X)) throw new Error(`Domain ${X} is not allowed to be fetched`)
-  } catch (X) {
-    if (b1(X), X instanceof Error && X.message.includes("is not allowed to be fetched")) throw X
-  }
-  let D = await wO2(Z, B.signal, TH5),
-    Y = Buffer.from(D.data).toString("utf-8"),
-    W = D.headers["content-type"] ?? "",
-    J = Buffer.byteLength(Y),
-    F;
-  if (W.includes("text/html")) F = new HO2.default().turndown(Y);
-  else F = Y;
-  if (F.length > KO2) F = F.substring(0, KO2) + "...[content truncated]";
-  return mz1.set(A, {
-    bytes: J,
-    code: D.status,
-    codeText: D.statusText,
-    content: F,
-    timestamp: Q
-  }), {
-    code: D.status,
-    codeText: D.statusText,
-    content: F,
-    bytes: J
-  }
-}
-// @from(Start 9630641, End 9631043)
-async function UO2(A, B, Q, I) {
-  let G = $a0(B, A),
-    Z = await cZ({
-      systemPrompt: [],
-      userPrompt: G,
-      isNonInteractiveSession: I,
-      signal: Q,
-      promptCategory: "web_fetch_apply"
-    });
-  if (Q.aborted) throw new NG;
-  let {
-    content: D
-  } = Z.message;
-  if (D.length > 0) {
-    let Y = D[0];
-    if ("text" in Y) return Y.text
-  }
-  return "No response from model"
-}
-// @from(Start 9631048, End 9631214)
-PH5 = n.strictObject({
-  url: n.string().url().describe("The URL to fetch content from"),
-  prompt: n.string().describe("The prompt to run on the fetched content")
-})
-// @from(Start 9631217, End 9631470)
-function SH5(A) {
-  try {
-    let B = $W.inputSchema.safeParse(A);
-    if (!B.success) return `input:${A.toString()}`;
-    let {
-      url: Q
-    } = B.data;
-    return `domain:${new URL(Q).hostname}`
-  } catch {
-    return `input:${A.toString()}`
-  }
-}
-// @from(Start 9631475, End 9634916)
-$W = {
-  name: IJ1,
-  async description(A) {
-    let {
-      url: B
-    } = A;
-    try {
-      return `Claude wants to fetch content from ${new URL(B).hostname}`
-    } catch {
-      return "Claude wants to fetch content from this URL"
-    }
-  },
-  userFacingName() {
-    return "Fetch"
-  },
-  isEnabled() {
-    return !0
-  },
-  inputSchema: PH5,
-  isConcurrencySafe() {
-    return !0
-  },
-  isReadOnly() {
-    return !0
-  },
-  async checkPermissions(A, B) {
-    let Q = B.getToolPermissionContext(),
-      I = SH5(A),
-      G = Sv(Q, $W, "deny").get(I);
-    if (G) return {
-      behavior: "deny",
-      message: `${$W.name} denied access to ${I}.`,
-      decisionReason: {
-        type: "rule",
-        rule: G
-      },
-      ruleSuggestions: null
-    };
-    let Z = Sv(Q, $W, "allow").get(I);
-    if (Z) return {
-      behavior: "allow",
-      updatedInput: A,
-      decisionReason: {
-        type: "rule",
-        rule: Z
-      }
-    };
-    return {
-      behavior: "ask",
-      message: `Claude requested permissions to use ${$W.name}, but you haven't granted it yet.`
-    }
-  },
-  async prompt() {
-    return Na0
-  },
-  async validateInput(A) {
-    let {
-      url: B
-    } = A;
-    try {
-      new URL(B)
-    } catch {
-      return {
-        result: !1,
-        message: `Error: Invalid URL "${B}". The URL provided could not be parsed.`,
-        meta: {
-          reason: "invalid_url"
-        },
-        errorCode: 1
-      }
-    }
-    return {
-      result: !0
-    }
-  },
-  renderToolUseMessage({
-    url: A,
-    prompt: B
-  }, {
-    verbose: Q
-  }) {
-    if (!A) return null;
-    if (Q) return `url: "${A}"${Q&&B?`, prompt: "${B}"`:""}`;
-    return A
-  },
-  renderToolUseRejectedMessage() {
-    return NW.default.createElement(C5, null)
-  },
-  renderToolUseErrorMessage(A, {
-    verbose: B
-  }) {
-    return NW.default.createElement(K6, {
-      result: A,
-      verbose: B
-    })
-  },
-  renderToolUseProgressMessage() {
-    return NW.default.createElement(w0, {
-      height: 1
-    }, NW.default.createElement(P, {
-      color: "secondaryText"
-    }, "Fetching…"))
-  },
-  renderToolResultMessage({
-    bytes: A,
-    code: B,
-    codeText: Q,
-    result: I
-  }, G, {
-    verbose: Z
-  }) {
-    let D = AL(A);
-    if (Z) return NW.default.createElement(h, {
-      flexDirection: "column"
-    }, NW.default.createElement(w0, {
-      height: 1
-    }, NW.default.createElement(P, null, "Received ", NW.default.createElement(P, {
-      bold: !0
-    }, D), " (", B, " ", Q, ")")), NW.default.createElement(h, {
-      flexDirection: "column"
-    }, NW.default.createElement(P, null, I)));
-    return NW.default.createElement(w0, {
-      height: 1
-    }, NW.default.createElement(P, null, "Received ", NW.default.createElement(P, {
-      bold: !0
-    }, D), " (", B, " ", Q, ")"))
-  },
-  async * call({
-    url: A,
-    prompt: B
-  }, {
-    abortController: Q,
-    options: {
-      isNonInteractiveSession: I
-    }
-  }) {
-    let G = Date.now(),
-      {
-        content: Z,
-        bytes: D,
-        code: Y,
-        codeText: W
-      } = await EO2(A, Q),
-      J = await UO2(B, Z, Q.signal, I);
-    yield {
-      type: "result",
-      data: {
-        bytes: D,
-        code: Y,
-        codeText: W,
-        result: J,
-        durationMs: Date.now() - G,
-        url: A
-      }
-    }
-  },
-  mapToolResultToToolResultBlockParam({
-    result: A
-  }, B) {
-    return {
-      tool_use_id: B,
-      type: "tool_result",
-      content: A
-    }
-  }
-}
-// @from(Start 9634922, End 9634938)
-iK = I1(U1(), 1)
-// @from(Start 9634941, End 9635194)
-function _H5(A) {
-  try {
-    let B = $W.inputSchema.safeParse(A);
-    if (!B.success) return `input:${A.toString()}`;
-    let {
-      url: Q
-    } = B.data;
-    return `domain:${new URL(Q).hostname}`
-  } catch {
-    return `input:${A.toString()}`
-  }
-}
-// @from(Start 9635196, End 9637330)
-function NO2({
-  setToolPermissionContext: A,
-  toolUseConfirm: B,
-  onDone: Q,
-  onReject: I,
-  verbose: G
-}) {
-  let [Z] = q9(), {
-    url: D
-  } = B.input, Y = new URL(D).hostname, W = iK.useMemo(() => ({
-    completion_type: "tool_use_single",
-    language_name: "none"
-  }), []);
-  Bz1(B, W);
-  let J = [{
-    label: "Yes",
-    value: "yes"
-  }, {
-    label: `Yes, and don't ask again for ${UA.bold(Y)}`,
-    value: "yes-dont-ask-again-domain"
-  }, {
-    label: `No, and tell Claude what to do differently (${UA.bold.dim("esc")})`,
-    value: "no"
-  }];
+// @from(Start 9037568, End 9042518)
+t92 = z((XPG, o92) => {
+  var pU = sK(),
+    kLA = UA("path"),
+    I55 = AP().mkdirs,
+    Y55 = sl().pathExists,
+    J55 = oe1().utimesMillis,
+    yLA = A1A();
 
-  function F(X) {
-    switch (X) {
-      case "yes":
-        tO("tool_use_single", B, "accept"), B.onAllow("temporary", B.input), Q();
-        break;
-      case "yes-dont-ask-again-domain":
-        tO("tool_use_single", B, "accept"), f81({
-          rule: {
-            ruleBehavior: "allow",
-            ruleValue: {
-              toolName: B.tool.name,
-              ruleContent: _H5(B.input)
-            },
-            source: "localSettings"
-          },
-          initialContext: B.toolUseContext.getToolPermissionContext(),
-          setToolPermissionContext: A
-        }).then(() => {
-          B.onAllow("permanent", B.input), Q()
-        });
-        break;
-      case "no":
-        tO("tool_use_single", B, "reject"), B.onReject(), I(), Q();
-        break
-    }
+  function W55(A, Q, B, G) {
+    if (typeof B === "function" && !G) G = B, B = {};
+    else if (typeof B === "function") B = {
+      filter: B
+    };
+    if (G = G || function() {}, B = B || {}, B.clobber = "clobber" in B ? !!B.clobber : !0, B.overwrite = "overwrite" in B ? !!B.overwrite : B.clobber, B.preserveTimestamps && process.arch === "ia32") process.emitWarning(`Using the preserveTimestamps option in 32-bit node is not recommended;
+
+	see https://github.com/jprichardson/node-fs-extra/issues/269`, "Warning", "fs-extra-WARN0001");
+    yLA.checkPaths(A, Q, "copy", B, (Z, I) => {
+      if (Z) return G(Z);
+      let {
+        srcStat: Y,
+        destStat: J
+      } = I;
+      yLA.checkParentPaths(A, Y, Q, "copy", (W) => {
+        if (W) return G(W);
+        if (B.filter) return n92(l92, J, A, Q, B, G);
+        return l92(J, A, Q, B, G)
+      })
+    })
   }
-  return iK.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "permission",
-    marginTop: 1,
-    paddingLeft: 1,
-    paddingRight: 1,
-    paddingBottom: 1
-  }, iK.default.createElement(mI, {
-    title: "Fetch"
-  }), iK.default.createElement(h, {
-    flexDirection: "column",
-    paddingX: 2,
-    paddingY: 1
-  }, iK.default.createElement(P, null, $W.renderToolUseMessage(B.input, {
-    theme: Z,
-    verbose: G
-  })), iK.default.createElement(P, {
-    color: "secondaryText"
-  }, B.description)), iK.default.createElement(h, {
-    flexDirection: "column"
-  }, iK.default.createElement(P, null, "Do you want to allow Claude to fetch this content?"), iK.default.createElement(p0, {
-    options: J,
-    onChange: F,
-    onCancel: () => F("no")
-  })))
-}
-// @from(Start 9637335, End 9637351)
-$E = I1(U1(), 1)
-// @from(Start 9637399, End 9637415)
-PB = I1(U1(), 1)
-// @from(Start 9637419, End 9637435)
-ru = I1(U1(), 1)
-// @from(Start 9637480, End 9639997)
-function $O2({
-  notebook_path: A,
-  cell_id: B,
-  new_source: Q,
-  cell_type: I,
-  edit_mode: G = "replace",
-  verbose: Z,
-  width: D
-}) {
-  let Y = ru.useMemo(() => x1().existsSync(A), [A]),
-    W = ru.useMemo(() => {
-      if (!Y) return null;
+
+  function l92(A, Q, B, G, Z) {
+    let I = kLA.dirname(B);
+    Y55(I, (Y, J) => {
+      if (Y) return Z(Y);
+      if (J) return wB1(A, Q, B, G, Z);
+      I55(I, (W) => {
+        if (W) return Z(W);
+        return wB1(A, Q, B, G, Z)
+      })
+    })
+  }
+
+  function n92(A, Q, B, G, Z, I) {
+    Promise.resolve(Z.filter(B, G)).then((Y) => {
+      if (Y) return A(Q, B, G, Z, I);
+      return I()
+    }, (Y) => I(Y))
+  }
+
+  function X55(A, Q, B, G, Z) {
+    if (G.filter) return n92(wB1, A, Q, B, G, Z);
+    return wB1(A, Q, B, G, Z)
+  }
+
+  function wB1(A, Q, B, G, Z) {
+    (G.dereference ? pU.stat : pU.lstat)(Q, (Y, J) => {
+      if (Y) return Z(Y);
+      if (J.isDirectory()) return E55(J, A, Q, B, G, Z);
+      else if (J.isFile() || J.isCharacterDevice() || J.isBlockDevice()) return V55(J, A, Q, B, G, Z);
+      else if (J.isSymbolicLink()) return $55(A, Q, B, G, Z);
+      else if (J.isSocket()) return Z(Error(`Cannot copy a socket file: ${Q}`));
+      else if (J.isFIFO()) return Z(Error(`Cannot copy a FIFO pipe: ${Q}`));
+      return Z(Error(`Unknown file: ${Q}`))
+    })
+  }
+
+  function V55(A, Q, B, G, Z, I) {
+    if (!Q) return a92(A, B, G, Z, I);
+    return F55(A, B, G, Z, I)
+  }
+
+  function F55(A, Q, B, G, Z) {
+    if (G.overwrite) pU.unlink(B, (I) => {
+      if (I) return Z(I);
+      return a92(A, Q, B, G, Z)
+    });
+    else if (G.errorOnExist) return Z(Error(`'${B}' already exists`));
+    else return Z()
+  }
+
+  function a92(A, Q, B, G, Z) {
+    pU.copyFile(Q, B, (I) => {
+      if (I) return Z(I);
+      if (G.preserveTimestamps) return K55(A.mode, Q, B, Z);
+      return qB1(B, A.mode, Z)
+    })
+  }
+
+  function K55(A, Q, B, G) {
+    if (D55(A)) return H55(B, A, (Z) => {
+      if (Z) return G(Z);
+      return i92(A, Q, B, G)
+    });
+    return i92(A, Q, B, G)
+  }
+
+  function D55(A) {
+    return (A & 128) === 0
+  }
+
+  function H55(A, Q, B) {
+    return qB1(A, Q | 128, B)
+  }
+
+  function i92(A, Q, B, G) {
+    C55(Q, B, (Z) => {
+      if (Z) return G(Z);
+      return qB1(B, A, G)
+    })
+  }
+
+  function qB1(A, Q, B) {
+    return pU.chmod(A, Q, B)
+  }
+
+  function C55(A, Q, B) {
+    pU.stat(A, (G, Z) => {
+      if (G) return B(G);
+      return J55(Q, Z.atime, Z.mtime, B)
+    })
+  }
+
+  function E55(A, Q, B, G, Z, I) {
+    if (!Q) return z55(A.mode, B, G, Z, I);
+    return s92(B, G, Z, I)
+  }
+
+  function z55(A, Q, B, G, Z) {
+    pU.mkdir(B, (I) => {
+      if (I) return Z(I);
+      s92(Q, B, G, (Y) => {
+        if (Y) return Z(Y);
+        return qB1(B, A, Z)
+      })
+    })
+  }
+
+  function s92(A, Q, B, G) {
+    pU.readdir(A, (Z, I) => {
+      if (Z) return G(Z);
+      return r92(I, A, Q, B, G)
+    })
+  }
+
+  function r92(A, Q, B, G, Z) {
+    let I = A.pop();
+    if (!I) return Z();
+    return U55(A, I, Q, B, G, Z)
+  }
+
+  function U55(A, Q, B, G, Z, I) {
+    let Y = kLA.join(B, Q),
+      J = kLA.join(G, Q);
+    yLA.checkPaths(Y, J, "copy", Z, (W, X) => {
+      if (W) return I(W);
+      let {
+        destStat: V
+      } = X;
+      X55(V, Y, J, Z, (F) => {
+        if (F) return I(F);
+        return r92(A, B, G, Z, I)
+      })
+    })
+  }
+
+  function $55(A, Q, B, G, Z) {
+    pU.readlink(Q, (I, Y) => {
+      if (I) return Z(I);
+      if (G.dereference) Y = kLA.resolve(process.cwd(), Y);
+      if (!A) return pU.symlink(Y, B, Z);
+      else pU.readlink(B, (J, W) => {
+        if (J) {
+          if (J.code === "EINVAL" || J.code === "UNKNOWN") return pU.symlink(Y, B, Z);
+          return Z(J)
+        }
+        if (G.dereference) W = kLA.resolve(process.cwd(), W);
+        if (yLA.isSrcSubdir(Y, W)) return Z(Error(`Cannot copy '${Y}' to a subdirectory of itself, '${W}'.`));
+        if (A.isDirectory() && yLA.isSrcSubdir(W, Y)) return Z(Error(`Cannot overwrite '${W}' with '${Y}'.`));
+        return w55(Y, B, Z)
+      })
+    })
+  }
+
+  function w55(A, Q, B) {
+    pU.unlink(Q, (G) => {
+      if (G) return B(G);
+      return pU.symlink(A, Q, B)
+    })
+  }
+  o92.exports = W55
+})
+// @from(Start 9042524, End 9046015)
+G42 = z((VPG, B42) => {
+  var tH = sK(),
+    xLA = UA("path"),
+    q55 = AP().mkdirsSync,
+    N55 = oe1().utimesMillisSync,
+    vLA = A1A();
+
+  function L55(A, Q, B) {
+    if (typeof B === "function") B = {
+      filter: B
+    };
+    if (B = B || {}, B.clobber = "clobber" in B ? !!B.clobber : !0, B.overwrite = "overwrite" in B ? !!B.overwrite : B.clobber, B.preserveTimestamps && process.arch === "ia32") process.emitWarning(`Using the preserveTimestamps option in 32-bit node is not recommended;
+
+	see https://github.com/jprichardson/node-fs-extra/issues/269`, "Warning", "fs-extra-WARN0002");
+    let {
+      srcStat: G,
+      destStat: Z
+    } = vLA.checkPathsSync(A, Q, "copy", B);
+    return vLA.checkParentPathsSync(A, G, Q, "copy"), M55(Z, A, Q, B)
+  }
+
+  function M55(A, Q, B, G) {
+    if (G.filter && !G.filter(Q, B)) return;
+    let Z = xLA.dirname(B);
+    if (!tH.existsSync(Z)) q55(Z);
+    return e92(A, Q, B, G)
+  }
+
+  function O55(A, Q, B, G) {
+    if (G.filter && !G.filter(Q, B)) return;
+    return e92(A, Q, B, G)
+  }
+
+  function e92(A, Q, B, G) {
+    let I = (G.dereference ? tH.statSync : tH.lstatSync)(Q);
+    if (I.isDirectory()) return k55(I, A, Q, B, G);
+    else if (I.isFile() || I.isCharacterDevice() || I.isBlockDevice()) return R55(I, A, Q, B, G);
+    else if (I.isSymbolicLink()) return v55(A, Q, B, G);
+    else if (I.isSocket()) throw Error(`Cannot copy a socket file: ${Q}`);
+    else if (I.isFIFO()) throw Error(`Cannot copy a FIFO pipe: ${Q}`);
+    throw Error(`Unknown file: ${Q}`)
+  }
+
+  function R55(A, Q, B, G, Z) {
+    if (!Q) return A42(A, B, G, Z);
+    return T55(A, B, G, Z)
+  }
+
+  function T55(A, Q, B, G) {
+    if (G.overwrite) return tH.unlinkSync(B), A42(A, Q, B, G);
+    else if (G.errorOnExist) throw Error(`'${B}' already exists`)
+  }
+
+  function A42(A, Q, B, G) {
+    if (tH.copyFileSync(Q, B), G.preserveTimestamps) P55(A.mode, Q, B);
+    return ee1(B, A.mode)
+  }
+
+  function P55(A, Q, B) {
+    if (j55(A)) S55(B, A);
+    return _55(Q, B)
+  }
+
+  function j55(A) {
+    return (A & 128) === 0
+  }
+
+  function S55(A, Q) {
+    return ee1(A, Q | 128)
+  }
+
+  function ee1(A, Q) {
+    return tH.chmodSync(A, Q)
+  }
+
+  function _55(A, Q) {
+    let B = tH.statSync(A);
+    return N55(Q, B.atime, B.mtime)
+  }
+
+  function k55(A, Q, B, G, Z) {
+    if (!Q) return y55(A.mode, B, G, Z);
+    return Q42(B, G, Z)
+  }
+
+  function y55(A, Q, B, G) {
+    return tH.mkdirSync(B), Q42(Q, B, G), ee1(B, A)
+  }
+
+  function Q42(A, Q, B) {
+    tH.readdirSync(A).forEach((G) => x55(G, A, Q, B))
+  }
+
+  function x55(A, Q, B, G) {
+    let Z = xLA.join(Q, A),
+      I = xLA.join(B, A),
+      {
+        destStat: Y
+      } = vLA.checkPathsSync(Z, I, "copy", G);
+    return O55(Y, Z, I, G)
+  }
+
+  function v55(A, Q, B, G) {
+    let Z = tH.readlinkSync(Q);
+    if (G.dereference) Z = xLA.resolve(process.cwd(), Z);
+    if (!A) return tH.symlinkSync(Z, B);
+    else {
+      let I;
       try {
-        let C = wI(A);
-        return Z8(C)
-      } catch (C) {
-        return null
+        I = tH.readlinkSync(B)
+      } catch (Y) {
+        if (Y.code === "EINVAL" || Y.code === "UNKNOWN") return tH.symlinkSync(Z, B);
+        throw Y
       }
-    }, [A, Y]),
-    J = ru.useMemo(() => {
-      if (!W || !B) return "";
-      let C = Yu(B);
-      if (C !== void 0) {
-        if (W.cells[C]) {
-          let E = W.cells[C].source;
-          return Array.isArray(E) ? E.join("") : E
-        }
-        return ""
-      }
-      let K = W.cells.find((E) => E.id === B);
-      if (!K) return "";
-      return Array.isArray(K.source) ? K.source.join("") : K.source
-    }, [W, B]),
-    F = ru.useMemo(() => {
-      if (!W || !W.metadata.language_info) return "python";
-      return W.metadata.language_info.name || "python"
-    }, [W]),
-    X = ru.useMemo(() => {
-      if (!Y || G === "insert" || G === "delete") return null;
-      return iJ({
-        filePath: A,
-        fileContents: J,
-        edits: [{
-          old_string: J,
-          new_string: Q,
-          replace_all: !1
-        }],
-        ignoreWhitespace: !1
-      })
-    }, [Y, A, J, Q, G]),
-    V;
-  switch (G) {
-    case "insert":
-      V = "Insert new cell";
-      break;
-    case "delete":
-      V = "Delete cell";
-      break;
-    default:
-      V = "Replace cell contents"
-  }
-  return PB.createElement(h, {
-    flexDirection: "column"
-  }, PB.createElement(h, {
-    borderColor: "secondaryBorder",
-    borderStyle: "round",
-    flexDirection: "column",
-    paddingX: 1
-  }, PB.createElement(h, {
-    paddingBottom: 1,
-    flexDirection: "column"
-  }, PB.createElement(P, {
-    bold: !0
-  }, Z ? A : jH5(dA(), A)), PB.createElement(P, {
-    color: "secondaryText"
-  }, V, " for cell ", B, I ? ` (${I})` : "")), G === "delete" ? PB.createElement(h, {
-    flexDirection: "column",
-    paddingLeft: 2
-  }, PB.createElement(YW, {
-    code: J,
-    language: F
-  })) : G === "insert" ? PB.createElement(h, {
-    flexDirection: "column",
-    paddingLeft: 2
-  }, PB.createElement(YW, {
-    code: Q,
-    language: I === "markdown" ? "markdown" : F
-  })) : X ? FW(X.map((C) => PB.createElement(XW, {
-    key: C.newStart,
-    patch: C,
-    dim: !1,
-    width: D
-  })), (C) => PB.createElement(P, {
-    color: "secondaryText",
-    key: `ellipsis-${C}`
-  }, "...")) : PB.createElement(YW, {
-    code: Q,
-    language: I === "markdown" ? "markdown" : F
-  })))
-}
-// @from(Start 9639999, End 9640302)
-function kH5(A, B) {
-  let Q = eF(A, B) ? [{
-    label: "Yes, and don't ask again this session",
-    value: "yes-dont-ask-again"
-  }] : [];
-  return [{
-    label: "Yes",
-    value: "yes"
-  }, ...Q, {
-    label: `No, and tell Claude what to do differently (${UA.bold.dim("esc")})`,
-    value: "no"
-  }]
-}
-// @from(Start 9640304, End 9642993)
-function qO2({
-  setToolPermissionContext: A,
-  toolUseConfirm: B,
-  onDone: Q,
-  onReject: I,
-  verbose: G
-}) {
-  let {
-    columns: Z
-  } = c9(), D = iO.inputSchema.safeParse(B.input), Y = D.success ? D.data : null, W = Y?.cell_type === "markdown" ? "markdown" : "python", J = $E.useMemo(() => ({
-    completion_type: "tool_use_single",
-    language_name: W
-  }), [W]);
-  if (KV(B, J), !Y) return b1(new Error(`Failed to parse notebook edit input: ${D.success?"unknown error":D.error.message}`)), null;
-  let F = Y.edit_mode === "insert" ? "insert this cell into" : Y.edit_mode === "delete" ? "delete this cell from" : "make this edit to";
-
-  function X(V) {
-    switch (V) {
-      case "yes":
-        o5({
-          completion_type: "tool_use_single",
-          event: "accept",
-          metadata: {
-            language_name: W,
-            message_id: B.assistantMessage.message.id,
-            platform: mA.platform
-          }
-        }), Q(), B.onAllow("temporary", B.input);
-        break;
-      case "yes-dont-ask-again":
-        o5({
-          completion_type: "tool_use_single",
-          event: "accept",
-          metadata: {
-            language_name: W,
-            message_id: B.assistantMessage.message.id,
-            platform: mA.platform
-          }
-        }), A({
-          ...B.toolUseContext.getToolPermissionContext(),
-          mode: "acceptEdits"
-        }), Q(), B.onAllow("permanent", B.input);
-        break;
-      case "no":
-        o5({
-          completion_type: "tool_use_single",
-          event: "reject",
-          metadata: {
-            language_name: W,
-            message_id: B.assistantMessage.message.id,
-            platform: mA.platform
-          }
-        }), Q(), I(), B.onReject();
-        break
+      if (G.dereference) I = xLA.resolve(process.cwd(), I);
+      if (vLA.isSrcSubdir(Z, I)) throw Error(`Cannot copy '${Z}' to a subdirectory of itself, '${I}'.`);
+      if (tH.statSync(B).isDirectory() && vLA.isSrcSubdir(I, Z)) throw Error(`Cannot overwrite '${I}' with '${Z}'.`);
+      return b55(Z, B)
     }
   }
-  return $E.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "permission",
-    marginTop: 1,
-    paddingLeft: 1,
-    paddingRight: 1,
-    paddingBottom: 1
-  }, $E.default.createElement(mI, {
-    title: `${Y.edit_mode==="insert"?"Insert cell":Y.edit_mode==="delete"?"Delete cell":"Edit cell"}`
-  }), $E.default.createElement($O2, {
-    notebook_path: Y.notebook_path,
-    cell_id: Y.cell_id,
-    new_source: Y.new_source,
-    cell_type: Y.cell_type,
-    edit_mode: Y.edit_mode,
-    verbose: G,
-    width: Z - 12
-  }), $E.default.createElement(h, {
-    flexDirection: "column"
-  }, $E.default.createElement(P, null, "Do you want to ", F, " ", $E.default.createElement(P, {
-    bold: !0
-  }, yH5(Y.notebook_path)), "?"), $E.default.createElement(p0, {
-    options: kH5(Y.notebook_path, B.toolUseContext.getToolPermissionContext()),
-    onCancel: () => X("no"),
-    onChange: X
-  })))
-}
-// @from(Start 9642998, End 9643014)
-nK = I1(U1(), 1)
-// @from(Start 9643059, End 9646185)
-function MO2({
-  setToolPermissionContext: A,
-  toolUseConfirm: B,
-  toolUseContext: Q,
-  onDone: I,
-  onReject: G,
-  verbose: Z
-}) {
-  let D = S$.inputSchema.parse(B.input),
-    Y = D.file_path,
-    W = D.edits.map((E) => ({
-      old_string: E.old_string,
-      new_string: E.new_string,
-      replace_all: E.replace_all ?? !1
-    })),
-    J = B.toolUseContext.getToolPermissionContext(),
-    F = nK.useMemo(() => ({
-      completion_type: "str_replace_multi",
-      language_name: $G(Y)
-    }), [Y]);
-  KV(B, F), Z0((E, N) => {
-    if (N.tab && N.shift && eJ(Y, J).filter((q) => q.value === "yes-dont-ask-again").length > 0) {
-      X("yes-dont-ask-again", {
-        file_path: Y,
-        edits: W
-      });
-      return
-    }
-  });
 
-  function X(E, {
-    file_path: N,
-    edits: q
-  }) {
-    switch (V(), E) {
-      case "yes":
-        o5({
-          completion_type: "str_replace_multi",
-          event: "accept",
-          metadata: {
-            language_name: $G(N),
-            message_id: B.assistantMessage.message.id,
-            platform: mA.platform
-          }
-        }), I(), B.onAllow("temporary", {
-          file_path: N,
-          edits: q
-        });
-        break;
-      case "yes-dont-ask-again": {
-        o5({
-          completion_type: "str_replace_multi",
-          event: "accept",
-          metadata: {
-            language_name: $G(N),
-            message_id: B.assistantMessage.message.id,
-            platform: mA.platform
-          }
-        });
-        let O = B.toolUseContext.getToolPermissionContext();
-        eO(N, "edit", O, A), I(), B.onAllow("permanent", {
-          file_path: N,
-          edits: q
-        });
-        break
-      }
-      case "no":
-        o5({
-          completion_type: "str_replace_multi",
-          event: "reject",
-          metadata: {
-            language_name: $G(N),
-            message_id: B.assistantMessage.message.id,
-            platform: mA.platform
-          }
-        }), I(), G(), B.onReject();
-        break
-    }
+  function b55(A, Q) {
+    return tH.unlinkSync(Q), tH.symlinkSync(A, Q)
   }
-  let {
-    closeTabInIDE: V,
-    showingDiffInIDE: C,
-    ideName: K
-  } = ku({
-    onChange: X,
-    toolUseContext: Q,
-    filePath: Y,
-    edits: W,
-    editMode: "multiple"
-  });
-  if (C) return nK.default.createElement(xu, {
-    onChange: X,
-    options: eJ(Y, J),
-    file_path: Y,
-    input: {
-      file_path: Y,
-      edits: W
-    },
-    ideName: K
-  });
-  return nK.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "permission",
-    marginTop: 1,
-    paddingLeft: 1,
-    paddingRight: 1,
-    paddingBottom: 1
-  }, nK.default.createElement(mI, {
-    title: "Edit file"
-  }), nK.default.createElement(Az1, {
-    file_path: Y,
-    edits: W,
-    verbose: Z
-  }), nK.default.createElement(h, {
-    flexDirection: "column"
-  }, nK.default.createElement(P, null, "Do you want to make this edit to", " ", nK.default.createElement(P, {
-    bold: !0
-  }, xH5(Y)), "?"), nK.default.createElement(p0, {
-    options: eJ(Y, J),
-    onChange: (E) => X(E, {
-      file_path: Y,
-      edits: W
-    }),
-    onCancel: () => X("no", {
-      file_path: Y,
-      edits: W
-    })
-  })))
-}
-// @from(Start 9646190, End 9646206)
-qE = I1(U1(), 1)
-// @from(Start 9646209, End 9647500)
-function LO2({
-  toolUseConfirm: A,
-  setToolPermissionContext: B,
-  onDone: Q,
-  onReject: I
-}) {
-  let [G] = q9();
-
-  function Z(D) {
-    if (D === "yes") B({
-      ...A.toolUseContext.getToolPermissionContext(),
-      mode: "acceptEdits"
-    }), Q(), A.onAllow("temporary", A.input);
-    else Q(), I(), A.onReject()
-  }
-  return qE.default.createElement(h, {
-    flexDirection: "column",
-    borderStyle: "round",
-    borderColor: "planMode",
-    marginTop: 1,
-    paddingLeft: 1,
-    paddingRight: 1,
-    paddingBottom: 1
-  }, qE.default.createElement(mI, {
-    title: "Ready to code?"
-  }), qE.default.createElement(h, {
-    flexDirection: "column",
-    marginTop: 1
-  }, qE.default.createElement(P, null, "Here is Claude's plan:"), qE.default.createElement(h, {
-    borderStyle: "round",
-    borderColor: "secondaryText",
-    marginBottom: 1,
-    paddingX: 1
-  }, qE.default.createElement(P, null, kK(A.input.plan, G))), qE.default.createElement(P, {
-    color: "secondaryText"
-  }, "Would you like to proceed?"), qE.default.createElement(h, {
-    marginTop: 1
-  }, qE.default.createElement(p0, {
-    options: [{
-      label: "Yes",
-      value: "yes"
-    }, {
-      label: "No, keep planning",
-      value: "no"
-    }],
-    onChange: (D) => Z(D),
-    onCancel: () => Z("no")
-  }))))
-}
-// @from(Start 9647502, End 9647871)
-function fH5(A) {
-  switch (A) {
-    case gI:
-      return fq2;
-    case S$:
-      return MO2;
-    case nJ:
-      return lq2;
-    case E4:
-      return mq2;
-    case $W:
-      return NO2;
-    case iO:
-      return qO2;
-    case hO:
-      return LO2;
-    case g$:
-    case qy:
-    case WE:
-    case OB:
-    case J11:
-      return iq2;
-    default:
-      return Qz1
-  }
-}
-// @from(Start 9647873, End 9648362)
-function RO2({
-  toolUseConfirm: A,
-  toolUseContext: B,
-  onDone: Q,
-  onReject: I,
-  verbose: G,
-  setToolPermissionContext: Z
-}) {
-  Z0((W, J) => {
-    if (J.ctrl && W === "c") Q(), I(), A.onReject()
-  });
-  let D = A.tool.userFacingName(A.input);
-  pq2(`Claude needs your permission to use ${D}`);
-  let Y = fH5(A.tool);
-  return _AA.createElement(Y, {
-    toolUseContext: B,
-    toolUseConfirm: A,
-    onDone: Q,
-    onReject: I,
-    verbose: G,
-    setToolPermissionContext: Z
-  })
-}
-// @from(Start 9648457, End 9648471)
-OO2 = bH5(vH5)
-// @from(Start 9648473, End 9649972)
-async function gH5(A) {
-  if (mA.platform === "win32") return [];
-  if (!await jz()) return [];
-  try {
-    let B = "",
-      {
-        stdout: Q
-      } = await OO2("git log -n 1000 --pretty=format: --name-only --diff-filter=M --author=$(git config user.email) | sort | uniq -c | sort -nr | head -n 20", {
-        cwd: dA(),
-        encoding: "utf8"
-      });
-    if (B = `Files modified by user:
-` + Q, Q.split(`
-`).length < 10) {
-      let {
-        stdout: D
-      } = await OO2("git log -n 1000 --pretty=format: --name-only --diff-filter=M | sort | uniq -c | sort -nr | head -n 20", {
-        cwd: dA(),
-        encoding: "utf8"
-      });
-      B += `
-
-Files modified by other users:
-` + D
-    }
-    let G = (await cZ({
-      systemPrompt: ["You are an expert at analyzing git history. Given a list of files and their modification counts, return exactly five filenames that are frequently modified and represent core application logic (not auto-generated files, dependencies, or configuration). Make sure filenames are diverse, not all in the same folder, and are a mix of user and other users. Return only the filenames' basenames (without the path) separated by newlines with no explanation."],
-      userPrompt: B,
-      isNonInteractiveSession: A,
-      promptCategory: "frequently_modified"
-    })).message.content[0];
-    if (!G || G.type !== "text") return [];
-    let Z = G.text.trim().split(`
-`);
-    if (Z.length < 5) return [];
-    return Z
-  } catch (B) {
-    return b1(B), []
-  }
-}
-// @from(Start 9649977, End 9650581)
-dz1 = L0(async (A) => {
-  let B = m9(),
-    Q = Date.now(),
-    I = B.exampleFilesGeneratedAt ?? 0,
-    G = 604800000;
-  if (Q - I > 604800000) B.exampleFiles = [];
-  if (!B.exampleFiles?.length) gH5(A).then((D) => {
-    if (D.length) B5({
-      ...m9(),
-      exampleFiles: D,
-      exampleFilesGeneratedAt: Date.now()
-    })
-  });
-  let Z = B.exampleFiles?.length ? EP(B.exampleFiles) : "<filepath>";
-  return ["fix lint errors", "fix typecheck errors", `how does ${Z} work?`, `refactor ${Z}`, "how do I log an error?", `edit ${Z} to...`, `write a test for ${Z}`, "create a util logging.py that..."]
+  B42.exports = L55
 })
-// @from(Start 9650587, End 9650603)
-z8 = I1(U1(), 1)
-// @from(Start 9650609, End 9650626)
-kAA = I1(U1(), 1)
-// @from(Start 9650632, End 9650641)
-hH5 = 100
-// @from(Start 9650644, End 9650710)
-function uz1(A) {
-  return (A.match(/\r\n|\r|\n/g) || []).length
-}
-// @from(Start 9650712, End 9650777)
-function yAA(A, B) {
-  return `[Pasted text #${A} +${B} lines]`
-}
-// @from(Start 9650779, End 9650823)
-function PO2(A) {
-  return `[Image #${A}]`
-}
-// @from(Start 9650825, End 9650899)
-function mH5(A, B) {
-  return `[...Truncated text #${A} +${B} lines...]`
-}
-// @from(Start 9650901, End 9651127)
-function SO2(A) {
-  let B = /\[(Pasted text|Image|\.\.\.Truncated text) #(\d+)(?: \+\d+ lines)?(\.)*\]/g;
-  return [...A.matchAll(B)].map((I) => ({
-    id: parseInt(I[2] || "0"),
-    match: I[0]
-  })).filter((I) => I.id > 0)
-}
-// @from(Start 9651129, End 9651179)
-function jAA(A) {
-  return typeof A !== "string"
-}
-// @from(Start 9651181, End 9651227)
-function dH5() {
-  return m9().history ?? []
-}
-// @from(Start 9651229, End 9652288)
-function pz1() {
-  let A = [];
-  for (let B of dH5()) {
-    if (!jAA(B)) {
-      A.push({
-        display: B,
-        pastedContents: {}
-      });
-      continue
-    }
-    if (B.pastedText) {
-      let I = uz1(B.pastedText),
-        G = /\[Pasted text \+([0-9]+) lines\]/g,
-        Z, D = !1;
-      while ((Z = G.exec(B.display)) !== null)
-        if (Number(Z[1]) === I) {
-          let W = B.display.replace(Z[0], yAA(1, I));
-          A.push({
-            display: W,
-            pastedContents: {
-              [1]: {
-                id: 1,
-                type: "text",
-                content: B.pastedText
-              }
-            }
-          }), D = !0;
-          break
-        } if (!D) A.push({
-        display: B.display,
-        pastedContents: {}
-      });
-      continue
-    }
-    let Q = {};
-    if (B.pastedContents) Q = Object.fromEntries(Object.entries(B.pastedContents).map(([I, G]) => [Number(I), G]).filter(([I]) => I !== void 0 && Number(I) > 0));
-    A.push({
-      display: B.display,
-      pastedContents: Q
-    })
+// @from(Start 9046021, End 9046142)
+NB1 = z((FPG, Z42) => {
+  var f55 = dU().fromCallback;
+  Z42.exports = {
+    copy: f55(t92()),
+    copySync: G42()
   }
-  return A
-}
-// @from(Start 9652290, End 9652585)
-function uH5(A, B) {
-  if (!A || !B) return !A && !B;
-  let Q = Object.keys(A).map(Number),
-    I = Object.keys(B).map(Number);
-  if (Q.length !== I.length) return !1;
-  for (let G of Q) {
-    let Z = A[G],
-      D = B[G];
-    if (!Z || !D || Z.content !== D.content) return !1
-  }
-  return !0
-}
-// @from(Start 9652587, End 9652725)
-function pH5(A, B) {
-  if (jAA(A) && jAA(B)) return A.display === B.display && uH5(A.pastedContents, B.pastedContents);
-  return A === B
-}
-// @from(Start 9652730, End 9652739)
-cH5 = 1e4
-// @from(Start 9652743, End 9652753)
-TO2 = 1000
-// @from(Start 9652756, End 9653098)
-function _O2(A, B) {
-  if (A.length <= cH5) return {
-    truncatedText: A,
-    placeholderContent: ""
-  };
-  let Q = Math.floor(TO2 / 2),
-    I = Math.floor(TO2 / 2),
-    G = A.slice(0, Q),
-    Z = A.slice(-I),
-    D = A.slice(Q, -I),
-    Y = uz1(D),
-    J = mH5(B, Y);
-  return {
-    truncatedText: G + J + Z,
-    placeholderContent: D
-  }
-}
-// @from(Start 9653100, End 9653338)
-function GT(A) {
-  let B = m9(),
-    Q = pz1(),
-    I = typeof A === "string" ? {
-      display: A,
-      pastedContents: {}
-    } : A;
-  if (Q[0] && pH5(Q[0], I)) return;
-  Q.unshift(I), B5({
-    ...B,
-    history: Q.slice(0, hH5)
-  })
-}
-// @from(Start 9653340, End 9654362)
-function jO2(A, B, Q, I) {
-  let [G, Z] = kAA.useState(0), [D, Y] = kAA.useState(void 0), W = (K) => {
-    if (K.startsWith("!")) return "bash";
-    if (K.startsWith("#")) return "memory";
-    return "prompt"
-  }, J = (K, E, N, q = !1) => {
-    A(K, E, N), I?.(q ? 0 : K.length)
-  }, F = (K, E = !1) => {
-    if (!K) return;
-    let N = W(K.display),
-      q = N === "bash" || N === "memory" ? K.display.slice(1) : K.display;
-    J(q, N, K.pastedContents, E)
-  };
+})
+// @from(Start 9046148, End 9050439)
+D42 = z((KPG, K42) => {
+  var I42 = sK(),
+    X42 = UA("path"),
+    HZ = UA("assert"),
+    bLA = process.platform === "win32";
 
-  function X() {
-    let K = pz1();
-    if (G >= K.length) return;
-    if (G === 0) {
-      let E = B.trim() !== "";
-      Y(E ? {
-        display: B,
-        pastedContents: Q
-      } : void 0)
-    }
-    Z(G + 1), F(K[G], !0)
+  function V42(A) {
+    ["unlink", "chmod", "stat", "lstat", "rmdir", "readdir"].forEach((B) => {
+      A[B] = A[B] || I42[B], B = B + "Sync", A[B] = A[B] || I42[B]
+    }), A.maxBusyTries = A.maxBusyTries || 3
   }
 
-  function V() {
-    if (G > 1) Z(G - 1), F(pz1()[G - 2]);
-    else if (G === 1)
-      if (Z(0), D) F(D);
-      else J("", "prompt", {});
-    return G <= 0
-  }
-
-  function C() {
-    Y(void 0), Z(0)
-  }
-  return {
-    historyIndex: G,
-    setHistoryIndex: Z,
-    onHistoryUp: X,
-    onHistoryDown: V,
-    resetHistory: C
-  }
-}
-// @from(Start 9654367, End 9654383)
-oK = I1(U1(), 1)
-// @from(Start 9654386, End 9654477)
-function u$(A) {
-  return !Array.isArray ? hO2(A) === "[object Array]" : Array.isArray(A)
-}
-// @from(Start 9654482, End 9654493)
-lH5 = 1 / 0
-// @from(Start 9654496, End 9654617)
-function iH5(A) {
-  if (typeof A == "string") return A;
-  let B = A + "";
-  return B == "0" && 1 / A == -lH5 ? "-0" : B
-}
-// @from(Start 9654619, End 9654671)
-function nH5(A) {
-  return A == null ? "" : iH5(A)
-}
-// @from(Start 9654673, End 9654722)
-function ME(A) {
-  return typeof A === "string"
-}
-// @from(Start 9654724, End 9654774)
-function bO2(A) {
-  return typeof A === "number"
-}
-// @from(Start 9654776, End 9654867)
-function aH5(A) {
-  return A === !0 || A === !1 || sH5(A) && hO2(A) == "[object Boolean]"
-}
-// @from(Start 9654869, End 9654919)
-function gO2(A) {
-  return typeof A === "object"
-}
-// @from(Start 9654921, End 9654970)
-function sH5(A) {
-  return gO2(A) && A !== null
-}
-// @from(Start 9654972, End 9655026)
-function IF(A) {
-  return A !== void 0 && A !== null
-}
-// @from(Start 9655028, End 9655073)
-function xAA(A) {
-  return !A.trim().length
-}
-// @from(Start 9655075, End 9655205)
-function hO2(A) {
-  return A == null ? A === void 0 ? "[object Undefined]" : "[object Null]" : Object.prototype.toString.call(A)
-}
-// @from(Start 9655210, End 9655240)
-rH5 = "Incorrect 'index' type"
-// @from(Start 9655244, End 9655285)
-oH5 = (A) => `Invalid value for key ${A}`
-// @from(Start 9655289, End 9655339)
-tH5 = (A) => `Pattern length exceeds max of ${A}.`
-// @from(Start 9655343, End 9655386)
-eH5 = (A) => `Missing ${A} property in key`
-// @from(Start 9655390, End 9655463)
-Az5 = (A) => `Property 'weight' in key '${A}' must be a positive integer`
-// @from(Start 9655467, End 9655504)
-yO2 = Object.prototype.hasOwnProperty
-// @from(Start 9655506, End 9655903)
-class mO2 {
-  constructor(A) {
-    this._keys = [], this._keyMap = {};
-    let B = 0;
-    A.forEach((Q) => {
-      let I = dO2(Q);
-      this._keys.push(I), this._keyMap[I.id] = I, B += I.weight
-    }), this._keys.forEach((Q) => {
-      Q.weight /= B
-    })
-  }
-  get(A) {
-    return this._keyMap[A]
-  }
-  keys() {
-    return this._keys
-  }
-  toJSON() {
-    return JSON.stringify(this._keys)
-  }
-}
-// @from(Start 9655905, End 9656360)
-function dO2(A) {
-  let B = null,
-    Q = null,
-    I = null,
-    G = 1,
-    Z = null;
-  if (ME(A) || u$(A)) I = A, B = kO2(A), Q = fAA(A);
-  else {
-    if (!yO2.call(A, "name")) throw new Error(eH5("name"));
-    let D = A.name;
-    if (I = D, yO2.call(A, "weight")) {
-      if (G = A.weight, G <= 0) throw new Error(Az5(D))
-    }
-    B = kO2(D), Q = fAA(D), Z = A.getFn
-  }
-  return {
-    path: B,
-    id: Q,
-    weight: G,
-    src: I,
-    getFn: Z
-  }
-}
-// @from(Start 9656362, End 9656415)
-function kO2(A) {
-  return u$(A) ? A : A.split(".")
-}
-// @from(Start 9656417, End 9656469)
-function fAA(A) {
-  return u$(A) ? A.join(".") : A
-}
-// @from(Start 9656471, End 9656991)
-function Bz5(A, B) {
-  let Q = [],
-    I = !1,
-    G = (Z, D, Y) => {
-      if (!IF(Z)) return;
-      if (!D[Y]) Q.push(Z);
-      else {
-        let W = D[Y],
-          J = Z[W];
-        if (!IF(J)) return;
-        if (Y === D.length - 1 && (ME(J) || bO2(J) || aH5(J))) Q.push(nH5(J));
-        else if (u$(J)) {
-          I = !0;
-          for (let F = 0, X = J.length; F < X; F += 1) G(J[F], D, Y + 1)
-        } else if (D.length) G(J, D, Y + 1)
-      }
-    };
-  return G(A, ME(B) ? B.split(".") : B, 0), I ? Q : Q[0]
-}
-// @from(Start 9656996, End 9657081)
-Qz5 = {
-    includeMatches: !1,
-    findAllMatches: !1,
-    minMatchCharLength: 1
-  }
-// @from(Start 9657085, End 9657273)
-Iz5 = {
-    isCaseSensitive: !1,
-    includeScore: !1,
-    keys: [],
-    shouldSort: !0,
-    sortFn: (A, B) => A.score === B.score ? A.idx < B.idx ? -1 : 1 : A.score < B.score ? -1 : 1
-  }
-// @from(Start 9657277, End 9657343)
-Gz5 = {
-    location: 0,
-    threshold: 0.6,
-    distance: 100
-  }
-// @from(Start 9657347, End 9657473)
-Zz5 = {
-    useExtendedSearch: !1,
-    getFn: Bz5,
-    ignoreLocation: !1,
-    ignoreFieldNorm: !1,
-    fieldNormWeight: 1
-  }
-// @from(Start 9657477, End 9657534)
-M4 = {
-    ...Iz5,
-    ...Qz5,
-    ...Gz5,
-    ...Zz5
-  }
-// @from(Start 9657538, End 9657552)
-Dz5 = /[^ ]+/g
-// @from(Start 9657555, End 9657887)
-function Yz5(A = 1, B = 3) {
-  let Q = new Map,
-    I = Math.pow(10, B);
-  return {
-    get(G) {
-      let Z = G.match(Dz5).length;
-      if (Q.has(Z)) return Q.get(Z);
-      let D = 1 / Math.pow(Z, 0.5 * A),
-        Y = parseFloat(Math.round(D * I) / I);
-      return Q.set(Z, Y), Y
-    },
-    clear() {
-      Q.clear()
-    }
-  }
-}
-// @from(Start 9657888, End 9660162)
-class iz1 {
-  constructor({
-    getFn: A = M4.getFn,
-    fieldNormWeight: B = M4.fieldNormWeight
-  } = {}) {
-    this.norm = Yz5(B, 3), this.getFn = A, this.isCreated = !1, this.setIndexRecords()
-  }
-  setSources(A = []) {
-    this.docs = A
-  }
-  setIndexRecords(A = []) {
-    this.records = A
-  }
-  setKeys(A = []) {
-    this.keys = A, this._keysMap = {}, A.forEach((B, Q) => {
-      this._keysMap[B.id] = Q
-    })
-  }
-  create() {
-    if (this.isCreated || !this.docs.length) return;
-    if (this.isCreated = !0, ME(this.docs[0])) this.docs.forEach((A, B) => {
-      this._addString(A, B)
-    });
-    else this.docs.forEach((A, B) => {
-      this._addObject(A, B)
-    });
-    this.norm.clear()
-  }
-  add(A) {
-    let B = this.size();
-    if (ME(A)) this._addString(A, B);
-    else this._addObject(A, B)
-  }
-  removeAt(A) {
-    this.records.splice(A, 1);
-    for (let B = A, Q = this.size(); B < Q; B += 1) this.records[B].i -= 1
-  }
-  getValueForItemAtKeyId(A, B) {
-    return A[this._keysMap[B]]
-  }
-  size() {
-    return this.records.length
-  }
-  _addString(A, B) {
-    if (!IF(A) || xAA(A)) return;
-    let Q = {
-      v: A,
-      i: B,
-      n: this.norm.get(A)
-    };
-    this.records.push(Q)
-  }
-  _addObject(A, B) {
-    let Q = {
-      i: B,
-      $: {}
-    };
-    this.keys.forEach((I, G) => {
-      let Z = I.getFn ? I.getFn(A) : this.getFn(A, I.path);
-      if (!IF(Z)) return;
-      if (u$(Z)) {
-        let D = [],
-          Y = [{
-            nestedArrIndex: -1,
-            value: Z
-          }];
-        while (Y.length) {
-          let {
-            nestedArrIndex: W,
-            value: J
-          } = Y.pop();
-          if (!IF(J)) continue;
-          if (ME(J) && !xAA(J)) {
-            let F = {
-              v: J,
-              i: W,
-              n: this.norm.get(J)
-            };
-            D.push(F)
-          } else if (u$(J)) J.forEach((F, X) => {
-            Y.push({
-              nestedArrIndex: X,
-              value: F
-            })
-          })
+  function AA0(A, Q, B) {
+    let G = 0;
+    if (typeof Q === "function") B = Q, Q = {};
+    HZ(A, "rimraf: missing path"), HZ.strictEqual(typeof A, "string", "rimraf: path should be a string"), HZ.strictEqual(typeof B, "function", "rimraf: callback function required"), HZ(Q, "rimraf: invalid options argument provided"), HZ.strictEqual(typeof Q, "object", "rimraf: options should be object"), V42(Q), Y42(A, Q, function Z(I) {
+      if (I) {
+        if ((I.code === "EBUSY" || I.code === "ENOTEMPTY" || I.code === "EPERM") && G < Q.maxBusyTries) {
+          G++;
+          let Y = G * 100;
+          return setTimeout(() => Y42(A, Q, Z), Y)
         }
-        Q.$[G] = D
-      } else if (ME(Z) && !xAA(Z)) {
-        let D = {
-          v: Z,
-          n: this.norm.get(Z)
-        };
-        Q.$[G] = D
+        if (I.code === "ENOENT") I = null
       }
-    }), this.records.push(Q)
+      B(I)
+    })
   }
-  toJSON() {
-    return {
-      keys: this.keys,
-      records: this.records
-    }
-  }
-}
-// @from(Start 9660164, End 9660387)
-function uO2(A, B, {
-  getFn: Q = M4.getFn,
-  fieldNormWeight: I = M4.fieldNormWeight
-} = {}) {
-  let G = new iz1({
-    getFn: Q,
-    fieldNormWeight: I
-  });
-  return G.setKeys(A.map(dO2)), G.setSources(B), G.create(), G
-}
-// @from(Start 9660389, End 9660632)
-function Wz5(A, {
-  getFn: B = M4.getFn,
-  fieldNormWeight: Q = M4.fieldNormWeight
-} = {}) {
-  let {
-    keys: I,
-    records: G
-  } = A, Z = new iz1({
-    getFn: B,
-    fieldNormWeight: Q
-  });
-  return Z.setKeys(I), Z.setIndexRecords(G), Z
-}
-// @from(Start 9660634, End 9660919)
-function cz1(A, {
-  errors: B = 0,
-  currentLocation: Q = 0,
-  expectedLocation: I = 0,
-  distance: G = M4.distance,
-  ignoreLocation: Z = M4.ignoreLocation
-} = {}) {
-  let D = B / A.length;
-  if (Z) return D;
-  let Y = Math.abs(I - Q);
-  if (!G) return Y ? 1 : D;
-  return D + Y / G
-}
-// @from(Start 9660921, End 9661279)
-function Jz5(A = [], B = M4.minMatchCharLength) {
-  let Q = [],
-    I = -1,
-    G = -1,
-    Z = 0;
-  for (let D = A.length; Z < D; Z += 1) {
-    let Y = A[Z];
-    if (Y && I === -1) I = Z;
-    else if (!Y && I !== -1) {
-      if (G = Z - 1, G - I + 1 >= B) Q.push([I, G]);
-      I = -1
-    }
-  }
-  if (A[Z - 1] && Z - I >= B) Q.push([I, Z - 1]);
-  return Q
-}
-// @from(Start 9661284, End 9661291)
-jy = 32
-// @from(Start 9661294, End 9663499)
-function Fz5(A, B, Q, {
-  location: I = M4.location,
-  distance: G = M4.distance,
-  threshold: Z = M4.threshold,
-  findAllMatches: D = M4.findAllMatches,
-  minMatchCharLength: Y = M4.minMatchCharLength,
-  includeMatches: W = M4.includeMatches,
-  ignoreLocation: J = M4.ignoreLocation
-} = {}) {
-  if (B.length > jy) throw new Error(tH5(jy));
-  let F = B.length,
-    X = A.length,
-    V = Math.max(0, Math.min(I, X)),
-    C = Z,
-    K = V,
-    E = Y > 1 || W,
-    N = E ? Array(X) : [],
-    q;
-  while ((q = A.indexOf(B, K)) > -1) {
-    let k = cz1(B, {
-      currentLocation: q,
-      expectedLocation: V,
-      distance: G,
-      ignoreLocation: J
-    });
-    if (C = Math.min(k, C), K = q + F, E) {
-      let i = 0;
-      while (i < F) N[q + i] = 1, i += 1
-    }
-  }
-  K = -1;
-  let O = [],
-    R = 1,
-    T = F + X,
-    L = 1 << F - 1;
-  for (let k = 0; k < F; k += 1) {
-    let i = 0,
-      x = T;
-    while (i < x) {
-      if (cz1(B, {
-          errors: k,
-          currentLocation: V + x,
-          expectedLocation: V,
-          distance: G,
-          ignoreLocation: J
-        }) <= C) i = x;
-      else T = x;
-      x = Math.floor((T - i) / 2 + i)
-    }
-    T = x;
-    let s = Math.max(1, V - x + 1),
-      d = D ? X : Math.min(V + x, X) + F,
-      F1 = Array(d + 2);
-    F1[d + 1] = (1 << k) - 1;
-    for (let v = d; v >= s; v -= 1) {
-      let D1 = v - 1,
-        N1 = Q[A.charAt(D1)];
-      if (E) N[D1] = +!!N1;
-      if (F1[v] = (F1[v + 1] << 1 | 1) & N1, k) F1[v] |= (O[v + 1] | O[v]) << 1 | 1 | O[v + 1];
-      if (F1[v] & L) {
-        if (R = cz1(B, {
-            errors: k,
-            currentLocation: D1,
-            expectedLocation: V,
-            distance: G,
-            ignoreLocation: J
-          }), R <= C) {
-          if (C = R, K = D1, K <= V) break;
-          s = Math.max(1, 2 * V - K)
+
+  function Y42(A, Q, B) {
+    HZ(A), HZ(Q), HZ(typeof B === "function"), Q.lstat(A, (G, Z) => {
+      if (G && G.code === "ENOENT") return B(null);
+      if (G && G.code === "EPERM" && bLA) return J42(A, Q, G, B);
+      if (Z && Z.isDirectory()) return LB1(A, Q, G, B);
+      Q.unlink(A, (I) => {
+        if (I) {
+          if (I.code === "ENOENT") return B(null);
+          if (I.code === "EPERM") return bLA ? J42(A, Q, I, B) : LB1(A, Q, I, B);
+          if (I.code === "EISDIR") return LB1(A, Q, I, B)
         }
-      }
+        return B(I)
+      })
+    })
+  }
+
+  function J42(A, Q, B, G) {
+    HZ(A), HZ(Q), HZ(typeof G === "function"), Q.chmod(A, 438, (Z) => {
+      if (Z) G(Z.code === "ENOENT" ? null : B);
+      else Q.stat(A, (I, Y) => {
+        if (I) G(I.code === "ENOENT" ? null : B);
+        else if (Y.isDirectory()) LB1(A, Q, B, G);
+        else Q.unlink(A, G)
+      })
+    })
+  }
+
+  function W42(A, Q, B) {
+    let G;
+    HZ(A), HZ(Q);
+    try {
+      Q.chmodSync(A, 438)
+    } catch (Z) {
+      if (Z.code === "ENOENT") return;
+      else throw B
     }
-    if (cz1(B, {
-        errors: k + 1,
-        currentLocation: V,
-        expectedLocation: V,
-        distance: G,
-        ignoreLocation: J
-      }) > C) break;
-    O = F1
+    try {
+      G = Q.statSync(A)
+    } catch (Z) {
+      if (Z.code === "ENOENT") return;
+      else throw B
+    }
+    if (G.isDirectory()) MB1(A, Q, B);
+    else Q.unlinkSync(A)
   }
-  let _ = {
-    isMatch: K >= 0,
-    score: Math.max(0.001, R)
-  };
-  if (E) {
-    let k = Jz5(N, Y);
-    if (!k.length) _.isMatch = !1;
-    else if (W) _.indices = k
+
+  function LB1(A, Q, B, G) {
+    HZ(A), HZ(Q), HZ(typeof G === "function"), Q.rmdir(A, (Z) => {
+      if (Z && (Z.code === "ENOTEMPTY" || Z.code === "EEXIST" || Z.code === "EPERM")) h55(A, Q, G);
+      else if (Z && Z.code === "ENOTDIR") G(B);
+      else G(Z)
+    })
   }
-  return _
-}
-// @from(Start 9663501, End 9663663)
-function Xz5(A) {
-  let B = {};
-  for (let Q = 0, I = A.length; Q < I; Q += 1) {
-    let G = A.charAt(Q);
-    B[G] = (B[G] || 0) | 1 << I - Q - 1
-  }
-  return B
-}
-// @from(Start 9663664, End 9665863)
-class dAA {
-  constructor(A, {
-    location: B = M4.location,
-    threshold: Q = M4.threshold,
-    distance: I = M4.distance,
-    includeMatches: G = M4.includeMatches,
-    findAllMatches: Z = M4.findAllMatches,
-    minMatchCharLength: D = M4.minMatchCharLength,
-    isCaseSensitive: Y = M4.isCaseSensitive,
-    ignoreLocation: W = M4.ignoreLocation
-  } = {}) {
-    if (this.options = {
-        location: B,
-        threshold: Q,
-        distance: I,
-        includeMatches: G,
-        findAllMatches: Z,
-        minMatchCharLength: D,
-        isCaseSensitive: Y,
-        ignoreLocation: W
-      }, this.pattern = Y ? A : A.toLowerCase(), this.chunks = [], !this.pattern.length) return;
-    let J = (X, V) => {
-        this.chunks.push({
-          pattern: X,
-          alphabet: Xz5(X),
-          startIndex: V
+
+  function h55(A, Q, B) {
+    HZ(A), HZ(Q), HZ(typeof B === "function"), Q.readdir(A, (G, Z) => {
+      if (G) return B(G);
+      let I = Z.length,
+        Y;
+      if (I === 0) return Q.rmdir(A, B);
+      Z.forEach((J) => {
+        AA0(X42.join(A, J), Q, (W) => {
+          if (Y) return;
+          if (W) return B(Y = W);
+          if (--I === 0) Q.rmdir(A, B)
         })
-      },
-      F = this.pattern.length;
-    if (F > jy) {
-      let X = 0,
-        V = F % jy,
-        C = F - V;
-      while (X < C) J(this.pattern.substr(X, jy), X), X += jy;
-      if (V) {
-        let K = F - jy;
-        J(this.pattern.substr(K), K)
-      }
-    } else J(this.pattern, 0)
-  }
-  searchIn(A) {
-    let {
-      isCaseSensitive: B,
-      includeMatches: Q
-    } = this.options;
-    if (!B) A = A.toLowerCase();
-    if (this.pattern === A) {
-      let C = {
-        isMatch: !0,
-        score: 0
-      };
-      if (Q) C.indices = [
-        [0, A.length - 1]
-      ];
-      return C
-    }
-    let {
-      location: I,
-      distance: G,
-      threshold: Z,
-      findAllMatches: D,
-      minMatchCharLength: Y,
-      ignoreLocation: W
-    } = this.options, J = [], F = 0, X = !1;
-    this.chunks.forEach(({
-      pattern: C,
-      alphabet: K,
-      startIndex: E
-    }) => {
-      let {
-        isMatch: N,
-        score: q,
-        indices: O
-      } = Fz5(A, C, K, {
-        location: I + E,
-        distance: G,
-        threshold: Z,
-        findAllMatches: D,
-        minMatchCharLength: Y,
-        includeMatches: Q,
-        ignoreLocation: W
-      });
-      if (N) X = !0;
-      if (F += q, N && O) J = [...J, ...O]
-    });
-    let V = {
-      isMatch: X,
-      score: X ? F / this.chunks.length : 1
-    };
-    if (X && Q) V.indices = J;
-    return V
-  }
-}
-// @from(Start 9665864, End 9666068)
-class p$ {
-  constructor(A) {
-    this.pattern = A
-  }
-  static isMultiMatch(A) {
-    return xO2(A, this.multiRegex)
-  }
-  static isSingleMatch(A) {
-    return xO2(A, this.singleRegex)
-  }
-  search() {}
-}
-// @from(Start 9666070, End 9666139)
-function xO2(A, B) {
-  let Q = A.match(B);
-  return Q ? Q[1] : null
-}
-// @from(Start 9666140, End 9666509)
-class pO2 extends p$ {
-  constructor(A) {
-    super(A)
-  }
-  static get type() {
-    return "exact"
-  }
-  static get multiRegex() {
-    return /^="(.*)"$/
-  }
-  static get singleRegex() {
-    return /^=(.*)$/
-  }
-  search(A) {
-    let B = A === this.pattern;
-    return {
-      isMatch: B,
-      score: B ? 0 : 1,
-      indices: [0, this.pattern.length - 1]
-    }
-  }
-}
-// @from(Start 9666510, End 9666888)
-class cO2 extends p$ {
-  constructor(A) {
-    super(A)
-  }
-  static get type() {
-    return "inverse-exact"
-  }
-  static get multiRegex() {
-    return /^!"(.*)"$/
-  }
-  static get singleRegex() {
-    return /^!(.*)$/
-  }
-  search(A) {
-    let Q = A.indexOf(this.pattern) === -1;
-    return {
-      isMatch: Q,
-      score: Q ? 0 : 1,
-      indices: [0, A.length - 1]
-    }
-  }
-}
-// @from(Start 9666889, End 9667275)
-class lO2 extends p$ {
-  constructor(A) {
-    super(A)
-  }
-  static get type() {
-    return "prefix-exact"
-  }
-  static get multiRegex() {
-    return /^\^"(.*)"$/
-  }
-  static get singleRegex() {
-    return /^\^(.*)$/
-  }
-  search(A) {
-    let B = A.startsWith(this.pattern);
-    return {
-      isMatch: B,
-      score: B ? 0 : 1,
-      indices: [0, this.pattern.length - 1]
-    }
-  }
-}
-// @from(Start 9667276, End 9667662)
-class iO2 extends p$ {
-  constructor(A) {
-    super(A)
-  }
-  static get type() {
-    return "inverse-prefix-exact"
-  }
-  static get multiRegex() {
-    return /^!\^"(.*)"$/
-  }
-  static get singleRegex() {
-    return /^!\^(.*)$/
-  }
-  search(A) {
-    let B = !A.startsWith(this.pattern);
-    return {
-      isMatch: B,
-      score: B ? 0 : 1,
-      indices: [0, A.length - 1]
-    }
-  }
-}
-// @from(Start 9667663, End 9668065)
-class nO2 extends p$ {
-  constructor(A) {
-    super(A)
-  }
-  static get type() {
-    return "suffix-exact"
-  }
-  static get multiRegex() {
-    return /^"(.*)"\$$/
-  }
-  static get singleRegex() {
-    return /^(.*)\$$/
-  }
-  search(A) {
-    let B = A.endsWith(this.pattern);
-    return {
-      isMatch: B,
-      score: B ? 0 : 1,
-      indices: [A.length - this.pattern.length, A.length - 1]
-    }
-  }
-}
-// @from(Start 9668066, End 9668450)
-class aO2 extends p$ {
-  constructor(A) {
-    super(A)
-  }
-  static get type() {
-    return "inverse-suffix-exact"
-  }
-  static get multiRegex() {
-    return /^!"(.*)"\$$/
-  }
-  static get singleRegex() {
-    return /^!(.*)\$$/
-  }
-  search(A) {
-    let B = !A.endsWith(this.pattern);
-    return {
-      isMatch: B,
-      score: B ? 0 : 1,
-      indices: [0, A.length - 1]
-    }
-  }
-}
-// @from(Start 9668451, End 9669285)
-class uAA extends p$ {
-  constructor(A, {
-    location: B = M4.location,
-    threshold: Q = M4.threshold,
-    distance: I = M4.distance,
-    includeMatches: G = M4.includeMatches,
-    findAllMatches: Z = M4.findAllMatches,
-    minMatchCharLength: D = M4.minMatchCharLength,
-    isCaseSensitive: Y = M4.isCaseSensitive,
-    ignoreLocation: W = M4.ignoreLocation
-  } = {}) {
-    super(A);
-    this._bitapSearch = new dAA(A, {
-      location: B,
-      threshold: Q,
-      distance: I,
-      includeMatches: G,
-      findAllMatches: Z,
-      minMatchCharLength: D,
-      isCaseSensitive: Y,
-      ignoreLocation: W
-    })
-  }
-  static get type() {
-    return "fuzzy"
-  }
-  static get multiRegex() {
-    return /^"(.*)"$/
-  }
-  static get singleRegex() {
-    return /^(.*)$/
-  }
-  search(A) {
-    return this._bitapSearch.searchIn(A)
-  }
-}
-// @from(Start 9669286, End 9669766)
-class pAA extends p$ {
-  constructor(A) {
-    super(A)
-  }
-  static get type() {
-    return "include"
-  }
-  static get multiRegex() {
-    return /^'"(.*)"$/
-  }
-  static get singleRegex() {
-    return /^'(.*)$/
-  }
-  search(A) {
-    let B = 0,
-      Q, I = [],
-      G = this.pattern.length;
-    while ((Q = A.indexOf(this.pattern, B)) > -1) B = Q + G, I.push([Q, B - 1]);
-    let Z = !!I.length;
-    return {
-      isMatch: Z,
-      score: Z ? 0 : 1,
-      indices: I
-    }
-  }
-}
-// @from(Start 9669771, End 9669817)
-vAA = [pO2, pAA, lO2, iO2, aO2, nO2, cO2, uAA]
-// @from(Start 9669821, End 9669837)
-fO2 = vAA.length
-// @from(Start 9669841, End 9669883)
-Vz5 = / +(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/
-// @from(Start 9669887, End 9669896)
-Cz5 = "|"
-// @from(Start 9669899, End 9670509)
-function Kz5(A, B = {}) {
-  return A.split(Cz5).map((Q) => {
-    let I = Q.trim().split(Vz5).filter((Z) => Z && !!Z.trim()),
-      G = [];
-    for (let Z = 0, D = I.length; Z < D; Z += 1) {
-      let Y = I[Z],
-        W = !1,
-        J = -1;
-      while (!W && ++J < fO2) {
-        let F = vAA[J],
-          X = F.isMultiMatch(Y);
-        if (X) G.push(new F(X, B)), W = !0
-      }
-      if (W) continue;
-      J = -1;
-      while (++J < fO2) {
-        let F = vAA[J],
-          X = F.isSingleMatch(Y);
-        if (X) {
-          G.push(new F(X, B));
-          break
-        }
-      }
-    }
-    return G
-  })
-}
-// @from(Start 9670514, End 9670549)
-Hz5 = new Set([uAA.type, pAA.type])
-// @from(Start 9670551, End 9672313)
-class sO2 {
-  constructor(A, {
-    isCaseSensitive: B = M4.isCaseSensitive,
-    includeMatches: Q = M4.includeMatches,
-    minMatchCharLength: I = M4.minMatchCharLength,
-    ignoreLocation: G = M4.ignoreLocation,
-    findAllMatches: Z = M4.findAllMatches,
-    location: D = M4.location,
-    threshold: Y = M4.threshold,
-    distance: W = M4.distance
-  } = {}) {
-    this.query = null, this.options = {
-      isCaseSensitive: B,
-      includeMatches: Q,
-      minMatchCharLength: I,
-      findAllMatches: Z,
-      ignoreLocation: G,
-      location: D,
-      threshold: Y,
-      distance: W
-    }, this.pattern = B ? A : A.toLowerCase(), this.query = Kz5(this.pattern, this.options)
-  }
-  static condition(A, B) {
-    return B.useExtendedSearch
-  }
-  searchIn(A) {
-    let B = this.query;
-    if (!B) return {
-      isMatch: !1,
-      score: 1
-    };
-    let {
-      includeMatches: Q,
-      isCaseSensitive: I
-    } = this.options;
-    A = I ? A : A.toLowerCase();
-    let G = 0,
-      Z = [],
-      D = 0;
-    for (let Y = 0, W = B.length; Y < W; Y += 1) {
-      let J = B[Y];
-      Z.length = 0, G = 0;
-      for (let F = 0, X = J.length; F < X; F += 1) {
-        let V = J[F],
-          {
-            isMatch: C,
-            indices: K,
-            score: E
-          } = V.search(A);
-        if (C) {
-          if (G += 1, D += E, Q) {
-            let N = V.constructor.type;
-            if (Hz5.has(N)) Z = [...Z, ...K];
-            else Z.push(K)
-          }
-        } else {
-          D = 0, G = 0, Z.length = 0;
-          break
-        }
-      }
-      if (G) {
-        let F = {
-          isMatch: !0,
-          score: D / G
-        };
-        if (Q) F.indices = Z;
-        return F
-      }
-    }
-    return {
-      isMatch: !1,
-      score: 1
-    }
-  }
-}
-// @from(Start 9672318, End 9672326)
-bAA = []
-// @from(Start 9672329, End 9672368)
-function zz5(...A) {
-  bAA.push(...A)
-}
-// @from(Start 9672370, End 9672536)
-function gAA(A, B) {
-  for (let Q = 0, I = bAA.length; Q < I; Q += 1) {
-    let G = bAA[Q];
-    if (G.condition(A, B)) return new G(A, B)
-  }
-  return new dAA(A, B)
-}
-// @from(Start 9672541, End 9672583)
-lz1 = {
-    AND: "$and",
-    OR: "$or"
-  }
-// @from(Start 9672587, End 9672637)
-hAA = {
-    PATH: "$path",
-    PATTERN: "$val"
-  }
-// @from(Start 9672641, End 9672681)
-mAA = (A) => !!(A[lz1.AND] || A[lz1.OR])
-// @from(Start 9672685, End 9672711)
-wz5 = (A) => !!A[hAA.PATH]
-// @from(Start 9672715, End 9672755)
-Ez5 = (A) => !u$(A) && gO2(A) && !mAA(A)
-// @from(Start 9672759, End 9672847)
-vO2 = (A) => ({
-    [lz1.AND]: Object.keys(A).map((B) => ({
-      [B]: A[B]
-    }))
-  })
-// @from(Start 9672850, End 9673525)
-function rO2(A, B, {
-  auto: Q = !0
-} = {}) {
-  let I = (G) => {
-    let Z = Object.keys(G),
-      D = wz5(G);
-    if (!D && Z.length > 1 && !mAA(G)) return I(vO2(G));
-    if (Ez5(G)) {
-      let W = D ? G[hAA.PATH] : Z[0],
-        J = D ? G[hAA.PATTERN] : G[W];
-      if (!ME(J)) throw new Error(oH5(W));
-      let F = {
-        keyId: fAA(W),
-        pattern: J
-      };
-      if (Q) F.searcher = gAA(J, B);
-      return F
-    }
-    let Y = {
-      children: [],
-      operator: Z[0]
-    };
-    return Z.forEach((W) => {
-      let J = G[W];
-      if (u$(J)) J.forEach((F) => {
-        Y.children.push(I(F))
       })
-    }), Y
-  };
-  if (!mAA(A)) A = vO2(A);
-  return I(A)
-}
-// @from(Start 9673527, End 9673849)
-function Uz5(A, {
-  ignoreFieldNorm: B = M4.ignoreFieldNorm
-}) {
-  A.forEach((Q) => {
-    let I = 1;
-    Q.matches.forEach(({
-      key: G,
-      norm: Z,
-      score: D
-    }) => {
-      let Y = G ? G.weight : null;
-      I *= Math.pow(D === 0 && Y ? Number.EPSILON : D, (Y || 1) * (B ? 1 : Z))
-    }), Q.score = I
-  })
-}
-// @from(Start 9673851, End 9674207)
-function Nz5(A, B) {
-  let Q = A.matches;
-  if (B.matches = [], !IF(Q)) return;
-  Q.forEach((I) => {
-    if (!IF(I.indices) || !I.indices.length) return;
-    let {
-      indices: G,
-      value: Z
-    } = I, D = {
-      indices: G,
-      value: Z
-    };
-    if (I.key) D.key = I.key.src;
-    if (I.idx > -1) D.refIndex = I.idx;
-    B.matches.push(D)
-  })
-}
-// @from(Start 9674209, End 9674251)
-function $z5(A, B) {
-  B.score = A.score
-}
-// @from(Start 9674253, End 9674604)
-function qz5(A, B, {
-  includeMatches: Q = M4.includeMatches,
-  includeScore: I = M4.includeScore
-} = {}) {
-  let G = [];
-  if (Q) G.push(Nz5);
-  if (I) G.push($z5);
-  return A.map((Z) => {
-    let {
-      idx: D
-    } = Z, Y = {
-      item: B[D],
-      refIndex: D
-    };
-    if (G.length) G.forEach((W) => {
-      W(Z, Y)
-    });
-    return Y
-  })
-}
-// @from(Start 9674605, End 9678956)
-class EV {
-  constructor(A, B = {}, Q) {
-    this.options = {
-      ...M4,
-      ...B
-    }, this.options.useExtendedSearch, this._keyStore = new mO2(this.options.keys), this.setCollection(A, Q)
-  }
-  setCollection(A, B) {
-    if (this._docs = A, B && !(B instanceof iz1)) throw new Error(rH5);
-    this._myIndex = B || uO2(this.options.keys, this._docs, {
-      getFn: this.options.getFn,
-      fieldNormWeight: this.options.fieldNormWeight
     })
   }
-  add(A) {
-    if (!IF(A)) return;
-    this._docs.push(A), this._myIndex.add(A)
-  }
-  remove(A = () => !1) {
-    let B = [];
-    for (let Q = 0, I = this._docs.length; Q < I; Q += 1) {
-      let G = this._docs[Q];
-      if (A(G, Q)) this.removeAt(Q), Q -= 1, I -= 1, B.push(G)
+
+  function F42(A, Q) {
+    let B;
+    Q = Q || {}, V42(Q), HZ(A, "rimraf: missing path"), HZ.strictEqual(typeof A, "string", "rimraf: path should be a string"), HZ(Q, "rimraf: missing options"), HZ.strictEqual(typeof Q, "object", "rimraf: options should be object");
+    try {
+      B = Q.lstatSync(A)
+    } catch (G) {
+      if (G.code === "ENOENT") return;
+      if (G.code === "EPERM" && bLA) W42(A, Q, G)
     }
-    return B
+    try {
+      if (B && B.isDirectory()) MB1(A, Q, null);
+      else Q.unlinkSync(A)
+    } catch (G) {
+      if (G.code === "ENOENT") return;
+      else if (G.code === "EPERM") return bLA ? W42(A, Q, G) : MB1(A, Q, G);
+      else if (G.code !== "EISDIR") throw G;
+      MB1(A, Q, G)
+    }
   }
-  removeAt(A) {
-    this._docs.splice(A, 1), this._myIndex.removeAt(A)
+
+  function MB1(A, Q, B) {
+    HZ(A), HZ(Q);
+    try {
+      Q.rmdirSync(A)
+    } catch (G) {
+      if (G.code === "ENOTDIR") throw B;
+      else if (G.code === "ENOTEMPTY" || G.code === "EEXIST" || G.code === "EPERM") g55(A, Q);
+      else if (G.code !== "ENOENT") throw G
+    }
   }
-  getIndex() {
-    return this._myIndex
+
+  function g55(A, Q) {
+    if (HZ(A), HZ(Q), Q.readdirSync(A).forEach((B) => F42(X42.join(A, B), Q)), bLA) {
+      let B = Date.now();
+      do try {
+        return Q.rmdirSync(A, Q)
+      } catch {}
+      while (Date.now() - B < 500)
+    } else return Q.rmdirSync(A, Q)
   }
-  search(A, {
-    limit: B = -1
-  } = {}) {
-    let {
-      includeMatches: Q,
-      includeScore: I,
-      shouldSort: G,
-      sortFn: Z,
-      ignoreFieldNorm: D
-    } = this.options, Y = ME(A) ? ME(this._docs[0]) ? this._searchStringList(A) : this._searchObjectList(A) : this._searchLogical(A);
-    if (Uz5(Y, {
-        ignoreFieldNorm: D
-      }), G) Y.sort(Z);
-    if (bO2(B) && B > -1) Y = Y.slice(0, B);
-    return qz5(Y, this._docs, {
-      includeMatches: Q,
-      includeScore: I
+  K42.exports = AA0;
+  AA0.sync = F42
+})
+// @from(Start 9050445, End 9050853)
+fLA = z((DPG, C42) => {
+  var OB1 = sK(),
+    u55 = dU().fromCallback,
+    H42 = D42();
+
+  function m55(A, Q) {
+    if (OB1.rm) return OB1.rm(A, {
+      recursive: !0,
+      force: !0
+    }, Q);
+    H42(A, Q)
+  }
+
+  function d55(A) {
+    if (OB1.rmSync) return OB1.rmSync(A, {
+      recursive: !0,
+      force: !0
+    });
+    H42.sync(A)
+  }
+  C42.exports = {
+    remove: u55(m55),
+    removeSync: d55
+  }
+})
+// @from(Start 9050859, End 9051512)
+L42 = z((HPG, N42) => {
+  var c55 = dU().fromPromise,
+    U42 = eAA(),
+    $42 = UA("path"),
+    w42 = AP(),
+    q42 = fLA(),
+    E42 = c55(async function(Q) {
+      let B;
+      try {
+        B = await U42.readdir(Q)
+      } catch {
+        return w42.mkdirs(Q)
+      }
+      return Promise.all(B.map((G) => q42.remove($42.join(Q, G))))
+    });
+
+  function z42(A) {
+    let Q;
+    try {
+      Q = U42.readdirSync(A)
+    } catch {
+      return w42.mkdirsSync(A)
+    }
+    Q.forEach((B) => {
+      B = $42.join(A, B), q42.removeSync(B)
     })
   }
-  _searchStringList(A) {
-    let B = gAA(A, this.options),
-      {
-        records: Q
-      } = this._myIndex,
-      I = [];
-    return Q.forEach(({
-      v: G,
-      i: Z,
-      n: D
-    }) => {
-      if (!IF(G)) return;
-      let {
-        isMatch: Y,
-        score: W,
-        indices: J
-      } = B.searchIn(G);
-      if (Y) I.push({
-        item: G,
-        idx: Z,
-        matches: [{
-          score: W,
-          value: G,
-          norm: D,
-          indices: J
-        }]
-      })
-    }), I
+  N42.exports = {
+    emptyDirSync: z42,
+    emptydirSync: z42,
+    emptyDir: E42,
+    emptydir: E42
   }
-  _searchLogical(A) {
-    let B = rO2(A, this.options),
-      Q = (D, Y, W) => {
-        if (!D.children) {
-          let {
-            keyId: F,
-            searcher: X
-          } = D, V = this._findMatches({
-            key: this._keyStore.get(F),
-            value: this._myIndex.getValueForItemAtKeyId(Y, F),
-            searcher: X
+})
+// @from(Start 9051518, End 9052607)
+T42 = z((CPG, R42) => {
+  var p55 = dU().fromCallback,
+    M42 = UA("path"),
+    rl = sK(),
+    O42 = AP();
+
+  function l55(A, Q) {
+    function B() {
+      rl.writeFile(A, "", (G) => {
+        if (G) return Q(G);
+        Q()
+      })
+    }
+    rl.stat(A, (G, Z) => {
+      if (!G && Z.isFile()) return Q();
+      let I = M42.dirname(A);
+      rl.stat(I, (Y, J) => {
+        if (Y) {
+          if (Y.code === "ENOENT") return O42.mkdirs(I, (W) => {
+            if (W) return Q(W);
+            B()
           });
-          if (V && V.length) return [{
-            idx: W,
-            item: Y,
-            matches: V
-          }];
-          return []
+          return Q(Y)
         }
-        let J = [];
-        for (let F = 0, X = D.children.length; F < X; F += 1) {
-          let V = D.children[F],
-            C = Q(V, Y, W);
-          if (C.length) J.push(...C);
-          else if (D.operator === lz1.AND) return []
-        }
-        return J
-      },
-      I = this._myIndex.records,
-      G = {},
-      Z = [];
-    return I.forEach(({
-      $: D,
-      i: Y
-    }) => {
-      if (IF(D)) {
-        let W = Q(B, D, Y);
-        if (W.length) {
-          if (!G[Y]) G[Y] = {
-            idx: Y,
-            item: D,
-            matches: []
-          }, Z.push(G[Y]);
-          W.forEach(({
-            matches: J
-          }) => {
-            G[Y].matches.push(...J)
-          })
-        }
-      }
-    }), Z
-  }
-  _searchObjectList(A) {
-    let B = gAA(A, this.options),
-      {
-        keys: Q,
-        records: I
-      } = this._myIndex,
-      G = [];
-    return I.forEach(({
-      $: Z,
-      i: D
-    }) => {
-      if (!IF(Z)) return;
-      let Y = [];
-      if (Q.forEach((W, J) => {
-          Y.push(...this._findMatches({
-            key: W,
-            value: Z[J],
-            searcher: B
-          }))
-        }), Y.length) G.push({
-        idx: D,
-        item: Z,
-        matches: Y
+        if (J.isDirectory()) B();
+        else rl.readdir(I, (W) => {
+          if (W) return Q(W)
+        })
       })
-    }), G
+    })
   }
-  _findMatches({
-    key: A,
-    value: B,
-    searcher: Q
-  }) {
-    if (!IF(B)) return [];
-    let I = [];
-    if (u$(B)) B.forEach(({
-      v: G,
-      i: Z,
-      n: D
-    }) => {
-      if (!IF(G)) return;
-      let {
-        isMatch: Y,
-        score: W,
-        indices: J
-      } = Q.searchIn(G);
-      if (Y) I.push({
-        score: W,
-        key: A,
-        value: G,
-        idx: Z,
-        norm: D,
-        indices: J
+
+  function i55(A) {
+    let Q;
+    try {
+      Q = rl.statSync(A)
+    } catch {}
+    if (Q && Q.isFile()) return;
+    let B = M42.dirname(A);
+    try {
+      if (!rl.statSync(B).isDirectory()) rl.readdirSync(B)
+    } catch (G) {
+      if (G && G.code === "ENOENT") O42.mkdirsSync(B);
+      else throw G
+    }
+    rl.writeFileSync(A, "")
+  }
+  R42.exports = {
+    createFile: p55(l55),
+    createFileSync: i55
+  }
+})
+// @from(Start 9052613, End 9053824)
+k42 = z((EPG, _42) => {
+  var n55 = dU().fromCallback,
+    P42 = UA("path"),
+    ol = sK(),
+    j42 = AP(),
+    a55 = sl().pathExists,
+    {
+      areIdentical: S42
+    } = A1A();
+
+  function s55(A, Q, B) {
+    function G(Z, I) {
+      ol.link(Z, I, (Y) => {
+        if (Y) return B(Y);
+        B(null)
+      })
+    }
+    ol.lstat(Q, (Z, I) => {
+      ol.lstat(A, (Y, J) => {
+        if (Y) return Y.message = Y.message.replace("lstat", "ensureLink"), B(Y);
+        if (I && S42(J, I)) return B(null);
+        let W = P42.dirname(Q);
+        a55(W, (X, V) => {
+          if (X) return B(X);
+          if (V) return G(A, Q);
+          j42.mkdirs(W, (F) => {
+            if (F) return B(F);
+            G(A, Q)
+          })
+        })
+      })
+    })
+  }
+
+  function r55(A, Q) {
+    let B;
+    try {
+      B = ol.lstatSync(Q)
+    } catch {}
+    try {
+      let I = ol.lstatSync(A);
+      if (B && S42(I, B)) return
+    } catch (I) {
+      throw I.message = I.message.replace("lstat", "ensureLink"), I
+    }
+    let G = P42.dirname(Q);
+    if (ol.existsSync(G)) return ol.linkSync(A, Q);
+    return j42.mkdirsSync(G), ol.linkSync(A, Q)
+  }
+  _42.exports = {
+    createLink: n55(s55),
+    createLinkSync: r55
+  }
+})
+// @from(Start 9053830, End 9055265)
+x42 = z((zPG, y42) => {
+  var tl = UA("path"),
+    hLA = sK(),
+    o55 = sl().pathExists;
+
+  function t55(A, Q, B) {
+    if (tl.isAbsolute(A)) return hLA.lstat(A, (G) => {
+      if (G) return G.message = G.message.replace("lstat", "ensureSymlink"), B(G);
+      return B(null, {
+        toCwd: A,
+        toDst: A
       })
     });
     else {
-      let {
-        v: G,
-        n: Z
-      } = B, {
-        isMatch: D,
-        score: Y,
-        indices: W
-      } = Q.searchIn(G);
-      if (D) I.push({
-        score: Y,
-        key: A,
-        value: G,
-        norm: Z,
-        indices: W
+      let G = tl.dirname(Q),
+        Z = tl.join(G, A);
+      return o55(Z, (I, Y) => {
+        if (I) return B(I);
+        if (Y) return B(null, {
+          toCwd: Z,
+          toDst: A
+        });
+        else return hLA.lstat(A, (J) => {
+          if (J) return J.message = J.message.replace("lstat", "ensureSymlink"), B(J);
+          return B(null, {
+            toCwd: A,
+            toDst: tl.relative(G, A)
+          })
+        })
       })
+    }
+  }
+
+  function e55(A, Q) {
+    let B;
+    if (tl.isAbsolute(A)) {
+      if (B = hLA.existsSync(A), !B) throw Error("absolute srcpath does not exist");
+      return {
+        toCwd: A,
+        toDst: A
+      }
+    } else {
+      let G = tl.dirname(Q),
+        Z = tl.join(G, A);
+      if (B = hLA.existsSync(Z), B) return {
+        toCwd: Z,
+        toDst: A
+      };
+      else {
+        if (B = hLA.existsSync(A), !B) throw Error("relative srcpath does not exist");
+        return {
+          toCwd: A,
+          toDst: tl.relative(G, A)
+        }
+      }
+    }
+  }
+  y42.exports = {
+    symlinkPaths: t55,
+    symlinkPathsSync: e55
+  }
+})
+// @from(Start 9055271, End 9055839)
+f42 = z((UPG, b42) => {
+  var v42 = sK();
+
+  function A35(A, Q, B) {
+    if (B = typeof Q === "function" ? Q : B, Q = typeof Q === "function" ? !1 : Q, Q) return B(null, Q);
+    v42.lstat(A, (G, Z) => {
+      if (G) return B(null, "file");
+      Q = Z && Z.isDirectory() ? "dir" : "file", B(null, Q)
+    })
+  }
+
+  function Q35(A, Q) {
+    let B;
+    if (Q) return Q;
+    try {
+      B = v42.lstatSync(A)
+    } catch {
+      return "file"
+    }
+    return B && B.isDirectory() ? "dir" : "file"
+  }
+  b42.exports = {
+    symlinkType: A35,
+    symlinkTypeSync: Q35
+  }
+})
+// @from(Start 9055845, End 9057484)
+l42 = z(($PG, p42) => {
+  var B35 = dU().fromCallback,
+    g42 = UA("path"),
+    QP = eAA(),
+    u42 = AP(),
+    G35 = u42.mkdirs,
+    Z35 = u42.mkdirsSync,
+    m42 = x42(),
+    I35 = m42.symlinkPaths,
+    Y35 = m42.symlinkPathsSync,
+    d42 = f42(),
+    J35 = d42.symlinkType,
+    W35 = d42.symlinkTypeSync,
+    X35 = sl().pathExists,
+    {
+      areIdentical: c42
+    } = A1A();
+
+  function V35(A, Q, B, G) {
+    G = typeof B === "function" ? B : G, B = typeof B === "function" ? !1 : B, QP.lstat(Q, (Z, I) => {
+      if (!Z && I.isSymbolicLink()) Promise.all([QP.stat(A), QP.stat(Q)]).then(([Y, J]) => {
+        if (c42(Y, J)) return G(null);
+        h42(A, Q, B, G)
+      });
+      else h42(A, Q, B, G)
+    })
+  }
+
+  function h42(A, Q, B, G) {
+    I35(A, Q, (Z, I) => {
+      if (Z) return G(Z);
+      A = I.toDst, J35(I.toCwd, B, (Y, J) => {
+        if (Y) return G(Y);
+        let W = g42.dirname(Q);
+        X35(W, (X, V) => {
+          if (X) return G(X);
+          if (V) return QP.symlink(A, Q, J, G);
+          G35(W, (F) => {
+            if (F) return G(F);
+            QP.symlink(A, Q, J, G)
+          })
+        })
+      })
+    })
+  }
+
+  function F35(A, Q, B) {
+    let G;
+    try {
+      G = QP.lstatSync(Q)
+    } catch {}
+    if (G && G.isSymbolicLink()) {
+      let J = QP.statSync(A),
+        W = QP.statSync(Q);
+      if (c42(J, W)) return
+    }
+    let Z = Y35(A, Q);
+    A = Z.toDst, B = W35(Z.toCwd, B);
+    let I = g42.dirname(Q);
+    if (QP.existsSync(I)) return QP.symlinkSync(A, Q, B);
+    return Z35(I), QP.symlinkSync(A, Q, B)
+  }
+  p42.exports = {
+    createSymlink: B35(V35),
+    createSymlinkSync: F35
+  }
+})
+// @from(Start 9057490, End 9058017)
+e42 = z((wPG, t42) => {
+  var {
+    createFile: i42,
+    createFileSync: n42
+  } = T42(), {
+    createLink: a42,
+    createLinkSync: s42
+  } = k42(), {
+    createSymlink: r42,
+    createSymlinkSync: o42
+  } = l42();
+  t42.exports = {
+    createFile: i42,
+    createFileSync: n42,
+    ensureFile: i42,
+    ensureFileSync: n42,
+    createLink: a42,
+    createLinkSync: s42,
+    ensureLink: a42,
+    ensureLinkSync: s42,
+    createSymlink: r42,
+    createSymlinkSync: o42,
+    ensureSymlink: r42,
+    ensureSymlinkSync: o42
+  }
+})
+// @from(Start 9058023, End 9058417)
+RB1 = z((qPG, A82) => {
+  function K35(A, {
+    EOL: Q = `
+`,
+    finalEOL: B = !0,
+    replacer: G = null,
+    spaces: Z
+  } = {}) {
+    let I = B ? Q : "";
+    return JSON.stringify(A, G, Z).replace(/\n/g, Q) + I
+  }
+
+  function D35(A) {
+    if (Buffer.isBuffer(A)) A = A.toString("utf8");
+    return A.replace(/^\uFEFF/, "")
+  }
+  A82.exports = {
+    stringify: K35,
+    stripBom: D35
+  }
+})
+// @from(Start 9058423, End 9059826)
+Z82 = z((NPG, G82) => {
+  var fIA;
+  try {
+    fIA = sK()
+  } catch (A) {
+    fIA = UA("fs")
+  }
+  var TB1 = dU(),
+    {
+      stringify: Q82,
+      stripBom: B82
+    } = RB1();
+  async function H35(A, Q = {}) {
+    if (typeof Q === "string") Q = {
+      encoding: Q
+    };
+    let B = Q.fs || fIA,
+      G = "throws" in Q ? Q.throws : !0,
+      Z = await TB1.fromCallback(B.readFile)(A, Q);
+    Z = B82(Z);
+    let I;
+    try {
+      I = JSON.parse(Z, Q ? Q.reviver : null)
+    } catch (Y) {
+      if (G) throw Y.message = `${A}: ${Y.message}`, Y;
+      else return null
     }
     return I
   }
-}
-// @from(Start 9679150, End 9679895)
-function xA1(A, B) {
-  if (!A) return {
-    resultType: "emptyPath"
-  };
-  let Q = Lz5(A) ? A : Rz5(dA(), A),
-    I = x1();
-  if (!I.existsSync(Q)) return {
-    resultType: "pathNotFound",
-    directoryPath: A,
-    absolutePath: Q
-  };
-  if (!I.statSync(Q).isDirectory()) return {
-    resultType: "notADirectory",
-    directoryPath: A,
-    absolutePath: Q
-  };
-  let G = WP1(B);
-  for (let Y of G)
-    if (ai(Q, Y)) return {
-      resultType: "alreadyInWorkingDirectory",
-      directoryPath: A,
-      workingDir: Y
+  var C35 = TB1.fromPromise(H35);
+
+  function E35(A, Q = {}) {
+    if (typeof Q === "string") Q = {
+      encoding: Q
     };
-  let Z = new Set([...B.additionalWorkingDirectories, Q]),
-    D = {
-      ...B,
-      additionalWorkingDirectories: Z
-    };
-  return {
-    resultType: "success",
-    absolutePath: Q,
-    updatedPermissionContext: D
-  }
-}
-// @from(Start 9679897, End 9680553)
-function fA1(A) {
-  switch (A.resultType) {
-    case "emptyPath":
-      return "Please provide a directory path.";
-    case "pathNotFound":
-      return `Path ${UA.bold(A.absolutePath)} was not found.`;
-    case "notADirectory": {
-      let B = Mz5(A.absolutePath);
-      return `${UA.bold(A.directoryPath)} is not a directory. Did you mean to add the parent directory ${UA.bold(B)}?`
-    }
-    case "alreadyInWorkingDirectory":
-      return `${UA.bold(A.directoryPath)} is already accessible within the existing working directory ${UA.bold(A.workingDir)}.`;
-    case "success":
-      return `Added ${UA.bold(A.absolutePath)} as a working directory.`
-  }
-}
-// @from(Start 9680558, End 9680998)
-Oz5 = {
-    type: "local",
-    name: "add-dir",
-    description: "Add a new working directory",
-    argumentHint: "<path>",
-    isEnabled: () => !0,
-    isHidden: !1,
-    async call(A, B) {
-      let Q = A.trim(),
-        I = xA1(Q, B.getToolPermissionContext());
-      if (I.resultType === "success") B.setToolPermissionContext(I.updatedPermissionContext);
-      return fA1(I)
-    },
-    userFacingName() {
-      return "add-dir"
+    let B = Q.fs || fIA,
+      G = "throws" in Q ? Q.throws : !0;
+    try {
+      let Z = B.readFileSync(A, Q);
+      return Z = B82(Z), JSON.parse(Z, Q.reviver)
+    } catch (Z) {
+      if (G) throw Z.message = `${A}: ${Z.message}`, Z;
+      else return null
     }
   }
-// @from(Start 9681002, End 9681011)
-oO2 = Oz5
-// @from(Start 9681017, End 9681033)
-k0 = I1(U1(), 1)
-// @from(Start 9681037, End 9681053)
-UV = I1(U1(), 1)
-// @from(Start 9681059, End 9681076)
-fT2 = I1(U1(), 1)
-// @from(Start 9681082, End 9681099)
-_T2 = I1(U1(), 1)
-// @from(Start 9681105, End 9681123)
-vA1 = I1(iAA(), 1)
-// @from(Start 9681125, End 9689602)
-class T5 {
-  measuredText;
-  selection;
-  offset;
-  constructor(A, B = 0, Q = 0) {
-    this.measuredText = A;
-    this.selection = Q;
-    this.offset = Math.max(0, Math.min(this.measuredText.text.length, B))
+  async function z35(A, Q, B = {}) {
+    let G = B.fs || fIA,
+      Z = Q82(Q, B);
+    await TB1.fromCallback(G.writeFile)(A, Z, B)
   }
-  static fromText(A, B, Q = 0, I = 0) {
-    return new T5(new YT2(A, B - 1), Q, I)
+  var U35 = TB1.fromPromise(z35);
+
+  function $35(A, Q, B = {}) {
+    let G = B.fs || fIA,
+      Z = Q82(Q, B);
+    return G.writeFileSync(A, Z, B)
   }
-  render(A, B, Q) {
-    let {
-      line: I,
-      column: G
-    } = this.getPosition();
-    return this.measuredText.getWrappedText().map((Z, D, Y) => {
-      let W = Z;
-      if (B && D === Y.length - 1) {
-        let E = Math.max(0, Z.length - 6);
-        W = B.repeat(E) + Z.slice(E)
-      }
-      if (I !== D) return W.trimEnd();
-      let J = this.measuredText.displayWidthToStringIndex(W, G),
-        F = new Intl.Segmenter("en", {
-          granularity: "grapheme"
-        }),
-        X = Array.from(F.segment(W)),
-        V = "",
-        C = A,
-        K = "";
-      for (let {
-          segment: E,
-          index: N
+  var w35 = {
+    readFile: C35,
+    readFileSync: E35,
+    writeFile: U35,
+    writeFileSync: $35
+  };
+  G82.exports = w35
+})
+// @from(Start 9059832, End 9060030)
+Y82 = z((LPG, I82) => {
+  var PB1 = Z82();
+  I82.exports = {
+    readJson: PB1.readFile,
+    readJsonSync: PB1.readFileSync,
+    writeJson: PB1.writeFile,
+    writeJsonSync: PB1.writeFileSync
+  }
+})
+// @from(Start 9060036, End 9060734)
+jB1 = z((MPG, X82) => {
+  var q35 = dU().fromCallback,
+    gLA = sK(),
+    J82 = UA("path"),
+    W82 = AP(),
+    N35 = sl().pathExists;
+
+  function L35(A, Q, B, G) {
+    if (typeof B === "function") G = B, B = "utf8";
+    let Z = J82.dirname(A);
+    N35(Z, (I, Y) => {
+      if (I) return G(I);
+      if (Y) return gLA.writeFile(A, Q, B, G);
+      W82.mkdirs(Z, (J) => {
+        if (J) return G(J);
+        gLA.writeFile(A, Q, B, G)
+      })
+    })
+  }
+
+  function M35(A, ...Q) {
+    let B = J82.dirname(A);
+    if (gLA.existsSync(B)) return gLA.writeFileSync(A, ...Q);
+    W82.mkdirsSync(B), gLA.writeFileSync(A, ...Q)
+  }
+  X82.exports = {
+    outputFile: q35(L35),
+    outputFileSync: M35
+  }
+})
+// @from(Start 9060740, End 9060948)
+F82 = z((OPG, V82) => {
+  var {
+    stringify: O35
+  } = RB1(), {
+    outputFile: R35
+  } = jB1();
+  async function T35(A, Q, B = {}) {
+    let G = O35(Q, B);
+    await R35(A, G, B)
+  }
+  V82.exports = T35
+})
+// @from(Start 9060954, End 9061150)
+D82 = z((RPG, K82) => {
+  var {
+    stringify: P35
+  } = RB1(), {
+    outputFileSync: j35
+  } = jB1();
+
+  function S35(A, Q, B) {
+    let G = P35(Q, B);
+    j35(A, G, B)
+  }
+  K82.exports = S35
+})
+// @from(Start 9061156, End 9061516)
+C82 = z((TPG, H82) => {
+  var _35 = dU().fromPromise,
+    jE = Y82();
+  jE.outputJson = _35(F82());
+  jE.outputJsonSync = D82();
+  jE.outputJSON = jE.outputJson;
+  jE.outputJSONSync = jE.outputJsonSync;
+  jE.writeJSON = jE.writeJson;
+  jE.writeJSONSync = jE.writeJsonSync;
+  jE.readJSON = jE.readJson;
+  jE.readJSONSync = jE.readJsonSync;
+  H82.exports = jE
+})
+// @from(Start 9061522, End 9063002)
+w82 = z((PPG, $82) => {
+  var k35 = sK(),
+    BA0 = UA("path"),
+    y35 = NB1().copy,
+    U82 = fLA().remove,
+    x35 = AP().mkdirp,
+    v35 = sl().pathExists,
+    E82 = A1A();
+
+  function b35(A, Q, B, G) {
+    if (typeof B === "function") G = B, B = {};
+    B = B || {};
+    let Z = B.overwrite || B.clobber || !1;
+    E82.checkPaths(A, Q, "move", B, (I, Y) => {
+      if (I) return G(I);
+      let {
+        srcStat: J,
+        isChangingCase: W = !1
+      } = Y;
+      E82.checkParentPaths(A, J, Q, "move", (X) => {
+        if (X) return G(X);
+        if (f35(Q)) return z82(A, Q, Z, W, G);
+        x35(BA0.dirname(Q), (V) => {
+          if (V) return G(V);
+          return z82(A, Q, Z, W, G)
+        })
+      })
+    })
+  }
+
+  function f35(A) {
+    let Q = BA0.dirname(A);
+    return BA0.parse(Q).root === Q
+  }
+
+  function z82(A, Q, B, G, Z) {
+    if (G) return QA0(A, Q, B, Z);
+    if (B) return U82(Q, (I) => {
+      if (I) return Z(I);
+      return QA0(A, Q, B, Z)
+    });
+    v35(Q, (I, Y) => {
+      if (I) return Z(I);
+      if (Y) return Z(Error("dest already exists."));
+      return QA0(A, Q, B, Z)
+    })
+  }
+
+  function QA0(A, Q, B, G) {
+    k35.rename(A, Q, (Z) => {
+      if (!Z) return G();
+      if (Z.code !== "EXDEV") return G(Z);
+      return h35(A, Q, B, G)
+    })
+  }
+
+  function h35(A, Q, B, G) {
+    y35(A, Q, {
+      overwrite: B,
+      errorOnExist: !0
+    }, (I) => {
+      if (I) return G(I);
+      return U82(A, G)
+    })
+  }
+  $82.exports = b35
+})
+// @from(Start 9063008, End 9064049)
+O82 = z((jPG, M82) => {
+  var N82 = sK(),
+    ZA0 = UA("path"),
+    g35 = NB1().copySync,
+    L82 = fLA().removeSync,
+    u35 = AP().mkdirpSync,
+    q82 = A1A();
+
+  function m35(A, Q, B) {
+    B = B || {};
+    let G = B.overwrite || B.clobber || !1,
+      {
+        srcStat: Z,
+        isChangingCase: I = !1
+      } = q82.checkPathsSync(A, Q, "move", B);
+    if (q82.checkParentPathsSync(A, Z, Q, "move"), !d35(Q)) u35(ZA0.dirname(Q));
+    return c35(A, Q, G, I)
+  }
+
+  function d35(A) {
+    let Q = ZA0.dirname(A);
+    return ZA0.parse(Q).root === Q
+  }
+
+  function c35(A, Q, B, G) {
+    if (G) return GA0(A, Q, B);
+    if (B) return L82(Q), GA0(A, Q, B);
+    if (N82.existsSync(Q)) throw Error("dest already exists.");
+    return GA0(A, Q, B)
+  }
+
+  function GA0(A, Q, B) {
+    try {
+      N82.renameSync(A, Q)
+    } catch (G) {
+      if (G.code !== "EXDEV") throw G;
+      return p35(A, Q, B)
+    }
+  }
+
+  function p35(A, Q, B) {
+    return g35(A, Q, {
+      overwrite: B,
+      errorOnExist: !0
+    }), L82(A)
+  }
+  M82.exports = m35
+})
+// @from(Start 9064055, End 9064176)
+T82 = z((SPG, R82) => {
+  var l35 = dU().fromCallback;
+  R82.exports = {
+    move: l35(w82()),
+    moveSync: O82()
+  }
+})
+// @from(Start 9064182, End 9064367)
+IA0 = z((_PG, P82) => {
+  P82.exports = {
+    ...eAA(),
+    ...NB1(),
+    ...L42(),
+    ...e42(),
+    ...C82(),
+    ...AP(),
+    ...T82(),
+    ...jB1(),
+    ...sl(),
+    ...fLA()
+  }
+})
+// @from(Start 9064373, End 9066598)
+YA0 = z((S82) => {
+  Object.defineProperty(S82, "__esModule", {
+    value: !0
+  });
+  S82.childDepType = S82.depTypeGreater = S82.DepType = void 0;
+  var Q8;
+  (function(A) {
+    A[A.PROD = 0] = "PROD", A[A.DEV = 1] = "DEV", A[A.OPTIONAL = 2] = "OPTIONAL", A[A.DEV_OPTIONAL = 3] = "DEV_OPTIONAL", A[A.ROOT = 4] = "ROOT"
+  })(Q8 = S82.DepType || (S82.DepType = {}));
+  var i35 = (A, Q) => {
+    switch (Q) {
+      case Q8.DEV:
+        switch (A) {
+          case Q8.OPTIONAL:
+          case Q8.PROD:
+          case Q8.ROOT:
+            return !0;
+          case Q8.DEV:
+          case Q8.DEV_OPTIONAL:
+          default:
+            return !1
         }
-        of X) {
-        let q = N + E.length;
-        if (q <= J) V += E;
-        else if (N < J && q > J) C = E;
-        else if (N === J) C = E;
-        else K += E
+      case Q8.DEV_OPTIONAL:
+        switch (A) {
+          case Q8.OPTIONAL:
+          case Q8.PROD:
+          case Q8.ROOT:
+          case Q8.DEV:
+            return !0;
+          case Q8.DEV_OPTIONAL:
+          default:
+            return !1
+        }
+      case Q8.OPTIONAL:
+        switch (A) {
+          case Q8.PROD:
+          case Q8.ROOT:
+            return !0;
+          case Q8.OPTIONAL:
+          case Q8.DEV:
+          case Q8.DEV_OPTIONAL:
+          default:
+            return !1
+        }
+      case Q8.PROD:
+        switch (A) {
+          case Q8.ROOT:
+            return !0;
+          case Q8.PROD:
+          case Q8.OPTIONAL:
+          case Q8.DEV:
+          case Q8.DEV_OPTIONAL:
+          default:
+            return !1
+        }
+      case Q8.ROOT:
+        switch (A) {
+          case Q8.ROOT:
+          case Q8.PROD:
+          case Q8.OPTIONAL:
+          case Q8.DEV:
+          case Q8.DEV_OPTIONAL:
+          default:
+            return !1
+        }
+      default:
+        return !1
+    }
+  };
+  S82.depTypeGreater = i35;
+  var n35 = (A, Q) => {
+    if (Q === Q8.ROOT) throw Error("Something went wrong, a child dependency can't be marked as the ROOT");
+    switch (A) {
+      case Q8.ROOT:
+        return Q;
+      case Q8.PROD:
+        if (Q === Q8.OPTIONAL) return Q8.OPTIONAL;
+        return Q8.PROD;
+      case Q8.OPTIONAL:
+        return Q8.OPTIONAL;
+      case Q8.DEV_OPTIONAL:
+        return Q8.DEV_OPTIONAL;
+      case Q8.DEV:
+        if (Q === Q8.OPTIONAL) return Q8.DEV_OPTIONAL;
+        return Q8.DEV
+    }
+  };
+  S82.childDepType = n35
+})
+// @from(Start 9066604, End 9066906)
+y82 = z((k82) => {
+  Object.defineProperty(k82, "__esModule", {
+    value: !0
+  });
+  k82.NativeModuleType = void 0;
+  var s35;
+  (function(A) {
+    A[A.NONE = 0] = "NONE", A[A.NODE_GYP = 1] = "NODE_GYP", A[A.PREBUILD = 2] = "PREBUILD"
+  })(s35 = k82.NativeModuleType || (k82.NativeModuleType = {}))
+})
+// @from(Start 9066912, End 9070890)
+f82 = z((v82) => {
+  Object.defineProperty(v82, "__esModule", {
+    value: !0
+  });
+  v82.Walker = void 0;
+  var r35 = hs(),
+    SB1 = IA0(),
+    el = UA("path"),
+    dM = YA0(),
+    WA0 = y82(),
+    Kh = r35("flora-colossus");
+  class x82 {
+    constructor(A) {
+      if (this.modules = [], this.walkHistory = new Set, this.cache = null, !A || typeof A !== "string") throw Error("modulePath must be provided as a string");
+      Kh(`creating walker with rootModule=${A}`), this.rootModule = A
+    }
+    relativeModule(A, Q) {
+      return el.resolve(A, "node_modules", Q)
+    }
+    async loadPackageJSON(A) {
+      let Q = el.resolve(A, "package.json");
+      if (await SB1.pathExists(Q)) {
+        let B = await SB1.readJson(Q);
+        if (!B.dependencies) B.dependencies = {};
+        if (!B.devDependencies) B.devDependencies = {};
+        if (!B.optionalDependencies) B.optionalDependencies = {};
+        return B
       }
-      return V + Q(C) + K.trimEnd()
-    }).join(`
+      return null
+    }
+    async walkDependenciesForModuleInModule(A, Q, B) {
+      let G = Q,
+        Z = null,
+        I = null;
+      while (!Z && this.relativeModule(G, A) !== I)
+        if (I = this.relativeModule(G, A), await SB1.pathExists(I)) Z = I;
+        else {
+          if (el.basename(el.dirname(G)) !== "node_modules") G = el.dirname(G);
+          G = el.dirname(el.dirname(G))
+        } if (!Z && B !== dM.DepType.OPTIONAL && B !== dM.DepType.DEV_OPTIONAL) throw Error(`Failed to locate module "${A}" from "${Q}"
+
+        This normally means that either you have deleted this package already somehow (check your ignore settings if using electron-packager).  Or your module installation failed.`);
+      if (Z) await this.walkDependenciesForModule(Z, B)
+    }
+    async detectNativeModuleType(A, Q) {
+      if (Q.dependencies["prebuild-install"]) return WA0.NativeModuleType.PREBUILD;
+      else if (await SB1.pathExists(el.join(A, "binding.gyp"))) return WA0.NativeModuleType.NODE_GYP;
+      return WA0.NativeModuleType.NONE
+    }
+    async walkDependenciesForModule(A, Q) {
+      if (Kh("walk reached:", A, " Type is:", dM.DepType[Q]), this.walkHistory.has(A)) {
+        Kh("already walked this route");
+        let G = this.modules.find((Z) => Z.path === A);
+        if ((0, dM.depTypeGreater)(Q, G.depType)) Kh(`existing module has a type of "${G.depType}", new module type would be "${Q}" therefore updating`), G.depType = Q;
+        return
+      }
+      let B = await this.loadPackageJSON(A);
+      if (!B) {
+        Kh("walk hit a dead end, this module is incomplete");
+        return
+      }
+      this.walkHistory.add(A), this.modules.push({
+        depType: Q,
+        nativeModuleType: await this.detectNativeModuleType(A, B),
+        path: A,
+        name: B.name
+      });
+      for (let G in B.dependencies) {
+        if (G in B.optionalDependencies) {
+          Kh(`found ${G} in prod deps of ${A} but it is also marked optional`);
+          continue
+        }
+        await this.walkDependenciesForModuleInModule(G, A, (0, dM.childDepType)(Q, dM.DepType.PROD))
+      }
+      for (let G in B.optionalDependencies) await this.walkDependenciesForModuleInModule(G, A, (0, dM.childDepType)(Q, dM.DepType.OPTIONAL));
+      if (Q === dM.DepType.ROOT) {
+        Kh("we're still at the beginning, walking down the dev route");
+        for (let G in B.devDependencies) await this.walkDependenciesForModuleInModule(G, A, (0, dM.childDepType)(Q, dM.DepType.DEV))
+      }
+    }
+    async walkTree() {
+      if (Kh("starting tree walk"), !this.cache) this.cache = new Promise(async (A, Q) => {
+        this.modules = [];
+        try {
+          await this.walkDependenciesForModule(this.rootModule, dM.DepType.ROOT)
+        } catch (B) {
+          Q(B);
+          return
+        }
+        A(this.modules)
+      });
+      else Kh("tree walk in progress / completed already, waiting for existing walk to complete");
+      return await this.cache
+    }
+    getRootModule() {
+      return this.rootModule
+    }
+  }
+  v82.Walker = x82
+})
+// @from(Start 9070896, End 9071649)
+XA0 = z((Ai) => {
+  var o35 = Ai && Ai.__createBinding || (Object.create ? function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      var Z = Object.getOwnPropertyDescriptor(Q, B);
+      if (!Z || ("get" in Z ? !Q.__esModule : Z.writable || Z.configurable)) Z = {
+        enumerable: !0,
+        get: function() {
+          return Q[B]
+        }
+      };
+      Object.defineProperty(A, G, Z)
+    } : function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      A[G] = Q[B]
+    }),
+    h82 = Ai && Ai.__exportStar || function(A, Q) {
+      for (var B in A)
+        if (B !== "default" && !Object.prototype.hasOwnProperty.call(Q, B)) o35(Q, A, B)
+    };
+  Object.defineProperty(Ai, "__esModule", {
+    value: !0
+  });
+  h82(f82(), Ai);
+  h82(YA0(), Ai)
+})
+// @from(Start 9071655, End 9073338)
+d82 = z((u82) => {
+  Object.defineProperty(u82, "__esModule", {
+    value: !0
+  });
+  u82.DestroyerOfModules = void 0;
+  var _B1 = IA0(),
+    hIA = UA("path"),
+    VA0 = XA0();
+  class g82 {
+    constructor({
+      rootDirectory: A,
+      walker: Q,
+      shouldKeepModuleTest: B
+    }) {
+      if (A) this.walker = new VA0.Walker(A);
+      else if (Q) this.walker = Q;
+      else throw Error("Must either provide rootDirectory or walker argument");
+      if (B) this.shouldKeepFn = B
+    }
+    async destroyModule(A, Q) {
+      if (Q.get(A)) {
+        let G = hIA.resolve(A, "node_modules");
+        if (!await _B1.pathExists(G)) return;
+        for (let Z of await _B1.readdir(G))
+          if (Z.startsWith("@"))
+            for (let I of await _B1.readdir(hIA.resolve(G, Z))) await this.destroyModule(hIA.resolve(G, Z, I), Q);
+          else await this.destroyModule(hIA.resolve(G, Z), Q)
+      } else await _B1.remove(A)
+    }
+    async collectKeptModules({
+      relativePaths: A = !1
+    }) {
+      let Q = await this.walker.walkTree(),
+        B = new Map,
+        G = hIA.resolve(this.walker.getRootModule());
+      for (let Z of Q)
+        if (this.shouldKeepModule(Z)) {
+          let I = Z.path;
+          if (A) I = I.replace(`${G}${hIA.sep}`, "");
+          B.set(I, Z)
+        } return B
+    }
+    async destroy() {
+      await this.destroyModule(this.walker.getRootModule(), await this.collectKeptModules({
+        relativePaths: !1
+      }))
+    }
+    shouldKeepModule(A) {
+      let Q = A.depType === VA0.DepType.DEV || A.depType === VA0.DepType.DEV_OPTIONAL;
+      return this.shouldKeepFn ? this.shouldKeepFn(A, Q) : !Q
+    }
+  }
+  u82.DestroyerOfModules = g82
+})
+// @from(Start 9073344, End 9074097)
+p82 = z((Qi) => {
+  var t35 = Qi && Qi.__createBinding || (Object.create ? function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      var Z = Object.getOwnPropertyDescriptor(Q, B);
+      if (!Z || ("get" in Z ? !Q.__esModule : Z.writable || Z.configurable)) Z = {
+        enumerable: !0,
+        get: function() {
+          return Q[B]
+        }
+      };
+      Object.defineProperty(A, G, Z)
+    } : function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      A[G] = Q[B]
+    }),
+    c82 = Qi && Qi.__exportStar || function(A, Q) {
+      for (var B in A)
+        if (B !== "default" && !Object.prototype.hasOwnProperty.call(Q, B)) t35(Q, A, B)
+    };
+  Object.defineProperty(Qi, "__esModule", {
+    value: !0
+  });
+  c82(d82(), Qi);
+  c82(XA0(), Qi)
+})
+// @from(Start 9074103, End 9075658)
+n82 = z((hPG, i82) => {
+  var e35 = ["B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"],
+    A75 = ["B", "kiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"],
+    Q75 = ["b", "kbit", "Mbit", "Gbit", "Tbit", "Pbit", "Ebit", "Zbit", "Ybit"],
+    B75 = ["b", "kibit", "Mibit", "Gibit", "Tibit", "Pibit", "Eibit", "Zibit", "Yibit"],
+    l82 = (A, Q, B) => {
+      let G = A;
+      if (typeof Q === "string" || Array.isArray(Q)) G = A.toLocaleString(Q, B);
+      else if (Q === !0 || B !== void 0) G = A.toLocaleString(void 0, B);
+      return G
+    };
+  i82.exports = (A, Q) => {
+    if (!Number.isFinite(A)) throw TypeError(`Expected a finite number, got ${typeof A}: ${A}`);
+    Q = Object.assign({
+      bits: !1,
+      binary: !1
+    }, Q);
+    let B = Q.bits ? Q.binary ? B75 : Q75 : Q.binary ? A75 : e35;
+    if (Q.signed && A === 0) return ` 0 ${B[0]}`;
+    let G = A < 0,
+      Z = G ? "-" : Q.signed ? "+" : "";
+    if (G) A = -A;
+    let I;
+    if (Q.minimumFractionDigits !== void 0) I = {
+      minimumFractionDigits: Q.minimumFractionDigits
+    };
+    if (Q.maximumFractionDigits !== void 0) I = Object.assign({
+      maximumFractionDigits: Q.maximumFractionDigits
+    }, I);
+    if (A < 1) {
+      let X = l82(A, Q.locale, I);
+      return Z + X + " " + B[0]
+    }
+    let Y = Math.min(Math.floor(Q.binary ? Math.log(A) / Math.log(1024) : Math.log10(A) / 3), B.length - 1);
+    if (A /= Math.pow(Q.binary ? 1024 : 1000, Y), !I) A = A.toPrecision(3);
+    let J = l82(Number(A), Q.locale, I),
+      W = B[Y];
+    return Z + J + " " + W
+  }
+})
+// @from(Start 9075664, End 9075760)
+B6 = z((gPG, a82) => {
+  a82.exports = {
+    options: {
+      usePureJavaScript: !1
+    }
+  }
+})
+// @from(Start 9075766, End 9077922)
+o82 = z((uPG, r82) => {
+  var FA0 = {};
+  r82.exports = FA0;
+  var s82 = {};
+  FA0.encode = function(A, Q, B) {
+    if (typeof Q !== "string") throw TypeError('"alphabet" must be a string.');
+    if (B !== void 0 && typeof B !== "number") throw TypeError('"maxline" must be a number.');
+    var G = "";
+    if (!(A instanceof Uint8Array)) G = G75(A, Q);
+    else {
+      var Z = 0,
+        I = Q.length,
+        Y = Q.charAt(0),
+        J = [0];
+      for (Z = 0; Z < A.length; ++Z) {
+        for (var W = 0, X = A[Z]; W < J.length; ++W) X += J[W] << 8, J[W] = X % I, X = X / I | 0;
+        while (X > 0) J.push(X % I), X = X / I | 0
+      }
+      for (Z = 0; A[Z] === 0 && Z < A.length - 1; ++Z) G += Y;
+      for (Z = J.length - 1; Z >= 0; --Z) G += Q[J[Z]]
+    }
+    if (B) {
+      var V = new RegExp(".{1," + B + "}", "g");
+      G = G.match(V).join(`\r
 `)
+    }
+    return G
+  };
+  FA0.decode = function(A, Q) {
+    if (typeof A !== "string") throw TypeError('"input" must be a string.');
+    if (typeof Q !== "string") throw TypeError('"alphabet" must be a string.');
+    var B = s82[Q];
+    if (!B) {
+      B = s82[Q] = [];
+      for (var G = 0; G < Q.length; ++G) B[Q.charCodeAt(G)] = G
+    }
+    A = A.replace(/\s/g, "");
+    var Z = Q.length,
+      I = Q.charAt(0),
+      Y = [0];
+    for (var G = 0; G < A.length; G++) {
+      var J = B[A.charCodeAt(G)];
+      if (J === void 0) return;
+      for (var W = 0, X = J; W < Y.length; ++W) X += Y[W] * Z, Y[W] = X & 255, X >>= 8;
+      while (X > 0) Y.push(X & 255), X >>= 8
+    }
+    for (var V = 0; A[V] === I && V < A.length - 1; ++V) Y.push(0);
+    if (typeof Buffer < "u") return Buffer.from(Y.reverse());
+    return new Uint8Array(Y.reverse())
+  };
+
+  function G75(A, Q) {
+    var B = 0,
+      G = Q.length,
+      Z = Q.charAt(0),
+      I = [0];
+    for (B = 0; B < A.length(); ++B) {
+      for (var Y = 0, J = A.at(B); Y < I.length; ++Y) J += I[Y] << 8, I[Y] = J % G, J = J / G | 0;
+      while (J > 0) I.push(J % G), J = J / G | 0
+    }
+    var W = "";
+    for (B = 0; A.at(B) === 0 && B < A.length() - 1; ++B) W += Z;
+    for (B = I.length - 1; B >= 0; --B) W += Q[I[B]];
+    return W
   }
-  left() {
-    if (this.offset === 0) return this;
-    let A = new Intl.Segmenter("en", {
-        granularity: "grapheme"
-      }),
-      B = Array.from(A.segment(this.text.slice(0, this.offset)));
-    if (B.length === 0) return new T5(this.measuredText, 0);
-    let Q = B[B.length - 1];
-    return new T5(this.measuredText, Q.index)
-  }
-  right() {
-    if (this.offset >= this.text.length) return this;
-    let B = new Intl.Segmenter("en", {
-      granularity: "grapheme"
-    }).segment(this.text);
-    for (let {
-        index: Q,
-        segment: I
-      }
-      of B)
-      if (Q >= this.offset) {
-        let G = Q + I.length;
-        return new T5(this.measuredText, Math.min(G, this.text.length))
-      } return this
-  }
-  up() {
-    let {
-      line: A,
-      column: B
-    } = this.getPosition();
-    if (A === 0) return this;
-    let Q = this.measuredText.getWrappedText()[A - 1];
-    if (!Q) return this;
-    if (B > Q.length) {
-      let G = this.getOffset({
-        line: A - 1,
-        column: Q.length
+})
+// @from(Start 9077928, End 9109233)
+x3 = z((mPG, Q62) => {
+  var t82 = B6(),
+    e82 = o82(),
+    h1 = Q62.exports = t82.util = t82.util || {};
+  (function() {
+    if (typeof process < "u" && process.nextTick) {
+      if (h1.nextTick = process.nextTick, typeof setImmediate === "function") h1.setImmediate = setImmediate;
+      else h1.setImmediate = h1.nextTick;
+      return
+    }
+    if (typeof setImmediate === "function") {
+      h1.setImmediate = function() {
+        return setImmediate.apply(void 0, arguments)
+      }, h1.nextTick = function(J) {
+        return setImmediate(J)
+      };
+      return
+    }
+    if (h1.setImmediate = function(J) {
+        setTimeout(J, 0)
+      }, typeof window < "u" && typeof window.postMessage === "function") {
+      let J = function(W) {
+        if (W.source === window && W.data === A) {
+          W.stopPropagation();
+          var X = Q.slice();
+          Q.length = 0, X.forEach(function(V) {
+            V()
+          })
+        }
+      };
+      var Y = J,
+        A = "forge.setImmediate",
+        Q = [];
+      h1.setImmediate = function(W) {
+        if (Q.push(W), Q.length === 1) window.postMessage(A, "*")
+      }, window.addEventListener("message", J, !0)
+    }
+    if (typeof MutationObserver < "u") {
+      var B = Date.now(),
+        G = !0,
+        Z = document.createElement("div"),
+        Q = [];
+      new MutationObserver(function() {
+        var W = Q.slice();
+        Q.length = 0, W.forEach(function(X) {
+          X()
+        })
+      }).observe(Z, {
+        attributes: !0
       });
-      return new T5(this.measuredText, G, 0)
-    }
-    let I = this.getOffset({
-      line: A - 1,
-      column: B
-    });
-    return new T5(this.measuredText, I, 0)
-  }
-  down() {
-    let {
-      line: A,
-      column: B
-    } = this.getPosition();
-    if (A >= this.measuredText.lineCount - 1) return this;
-    let Q = this.measuredText.getWrappedText()[A + 1];
-    if (!Q) return this;
-    if (B > Q.length) {
-      let G = this.getOffset({
-        line: A + 1,
-        column: Q.length
-      });
-      return new T5(this.measuredText, G, 0)
-    }
-    let I = this.getOffset({
-      line: A + 1,
-      column: B
-    });
-    return new T5(this.measuredText, I, 0)
-  }
-  startOfLine() {
-    let {
-      line: A
-    } = this.getPosition();
-    return new T5(this.measuredText, this.getOffset({
-      line: A,
-      column: 0
-    }), 0)
-  }
-  firstNonBlankInLine() {
-    let {
-      line: A
-    } = this.getPosition(), Q = (this.measuredText.getWrappedText()[A] || "").match(/^\s*\S/), I = Q?.index ? Q.index + Q[0].length - 1 : 0, G = this.getOffset({
-      line: A,
-      column: I
-    });
-    return new T5(this.measuredText, G, 0)
-  }
-  endOfLine() {
-    let {
-      line: A
-    } = this.getPosition(), B = this.measuredText.getLineLength(A), Q = this.getOffset({
-      line: A,
-      column: B
-    });
-    return new T5(this.measuredText, Q, 0)
-  }
-  findLogicalLineStart(A = this.offset) {
-    let B = this.text.lastIndexOf(`
-`, A - 1);
-    return B === -1 ? 0 : B + 1
-  }
-  findLogicalLineEnd(A = this.offset) {
-    let B = this.text.indexOf(`
-`, A);
-    return B === -1 ? this.text.length : B
-  }
-  getLogicalLineBounds() {
-    return {
-      start: this.findLogicalLineStart(),
-      end: this.findLogicalLineEnd()
-    }
-  }
-  createCursorWithColumn(A, B, Q) {
-    let I = B - A,
-      G = Math.min(Q, I);
-    return new T5(this.measuredText, A + G, 0)
-  }
-  endOfLogicalLine() {
-    return new T5(this.measuredText, this.findLogicalLineEnd(), 0)
-  }
-  startOfLogicalLine() {
-    return new T5(this.measuredText, this.findLogicalLineStart(), 0)
-  }
-  firstNonBlankInLogicalLine() {
-    let {
-      start: A,
-      end: B
-    } = this.getLogicalLineBounds(), I = this.text.slice(A, B).match(/\S/), G = A + (I?.index ?? 0);
-    return new T5(this.measuredText, G, 0)
-  }
-  upLogicalLine() {
-    let {
-      start: A
-    } = this.getLogicalLineBounds();
-    if (A === 0) return new T5(this.measuredText, 0, 0);
-    let B = this.offset - A,
-      Q = A - 1,
-      I = this.findLogicalLineStart(Q);
-    return this.createCursorWithColumn(I, Q, B)
-  }
-  downLogicalLine() {
-    let {
-      start: A,
-      end: B
-    } = this.getLogicalLineBounds();
-    if (B >= this.text.length) return new T5(this.measuredText, this.text.length, 0);
-    let Q = this.offset - A,
-      I = B + 1,
-      G = this.findLogicalLineEnd(I);
-    return this.createCursorWithColumn(I, G, Q)
-  }
-  nextWord() {
-    let A = this;
-    while (A.isOverWordChar() && !A.isAtEnd()) A = A.right();
-    while (!A.isOverWordChar() && !A.isAtEnd()) A = A.right();
-    return A
-  }
-  endOfWord() {
-    let A = this;
-    if (A.isOverWordChar() && (!A.right().isOverWordChar() || A.right().isAtEnd())) return A = A.right(), A.endOfWord();
-    if (!A.isOverWordChar()) A = A.nextWord();
-    while (A.right().isOverWordChar() && !A.isAtEnd()) A = A.right();
-    return A
-  }
-  prevWord() {
-    let A = this;
-    if (!A.left().isOverWordChar()) A = A.left();
-    while (!A.isOverWordChar() && !A.isAtStart()) A = A.left();
-    if (A.isOverWordChar())
-      while (A.left().isOverWordChar() && !A.isAtStart()) A = A.left();
-    return A
-  }
-  nextWORD() {
-    let A = this;
-    while (!A.isOverWhitespace() && !A.isAtEnd()) A = A.right();
-    while (A.isOverWhitespace() && !A.isAtEnd()) A = A.right();
-    return A
-  }
-  endOfWORD() {
-    let A = this;
-    if (!A.isOverWhitespace() && (A.right().isOverWhitespace() || A.right().isAtEnd())) return A = A.right(), A.endOfWORD();
-    if (A.isOverWhitespace()) A = A.nextWORD();
-    while (!A.right().isOverWhitespace() && !A.isAtEnd()) A = A.right();
-    return A
-  }
-  prevWORD() {
-    let A = this;
-    if (A.left().isOverWhitespace()) A = A.left();
-    while (A.isOverWhitespace() && !A.isAtStart()) A = A.left();
-    if (!A.isOverWhitespace())
-      while (!A.left().isOverWhitespace() && !A.isAtStart()) A = A.left();
-    return A
-  }
-  modifyText(A, B = "") {
-    let Q = this.offset,
-      I = A.offset,
-      G = this.text.slice(0, Q) + B + this.text.slice(I);
-    return T5.fromText(G, this.columns, Q + B.length)
-  }
-  insert(A) {
-    return this.modifyText(this, A)
-  }
-  del() {
-    if (this.isAtEnd()) return this;
-    return this.modifyText(this.right())
-  }
-  backspace() {
-    if (this.isAtStart()) return this;
-    return this.left().modifyText(this)
-  }
-  deleteToLineStart() {
-    return this.startOfLine().modifyText(this)
-  }
-  deleteToLineEnd() {
-    if (this.text[this.offset] === `
-`) return this.modifyText(this.right());
-    return this.modifyText(this.endOfLine())
-  }
-  deleteToLogicalLineEnd() {
-    if (this.text[this.offset] === `
-`) return this.modifyText(this.right());
-    return this.modifyText(this.endOfLogicalLine())
-  }
-  deleteWordBefore() {
-    if (this.isAtStart()) return this;
-    return this.prevWord().modifyText(this)
-  }
-  deleteWordAfter() {
-    if (this.isAtEnd()) return this;
-    return this.modifyText(this.nextWord())
-  }
-  isOverWordChar() {
-    let A = this.text[this.offset] ?? "";
-    return /\w/.test(A)
-  }
-  isOverWhitespace() {
-    let A = this.text[this.offset] ?? "";
-    return /\s/.test(A)
-  }
-  equals(A) {
-    return this.offset === A.offset && this.measuredText === A.measuredText
-  }
-  isAtStart() {
-    return this.offset === 0
-  }
-  isAtEnd() {
-    return this.offset === this.text.length
-  }
-  startOfFirstLine() {
-    return new T5(this.measuredText, 0, 0)
-  }
-  startOfLastLine() {
-    let A = this.text.lastIndexOf(`
-`);
-    if (A === -1) return this.startOfLine();
-    return new T5(this.measuredText, A + 1, 0)
-  }
-  get text() {
-    return this.measuredText.text
-  }
-  get columns() {
-    return this.measuredText.columns + 1
-  }
-  getPosition() {
-    return this.measuredText.getPositionFromOffset(this.offset)
-  }
-  getOffset(A) {
-    return this.measuredText.getOffsetFromPosition(A)
-  }
-}
-// @from(Start 9689603, End 9689996)
-class nz1 {
-  text;
-  startOffset;
-  isPrecededByNewline;
-  endsWithNewline;
-  constructor(A, B, Q, I = !1) {
-    this.text = A;
-    this.startOffset = B;
-    this.isPrecededByNewline = Q;
-    this.endsWithNewline = I
-  }
-  equals(A) {
-    return this.text === A.text && this.startOffset === A.startOffset
-  }
-  get length() {
-    return this.text.length + (this.endsWithNewline ? 1 : 0)
-  }
-}
-// @from(Start 9689997, End 9693959)
-class YT2 {
-  text;
-  columns;
-  wrappedLines;
-  constructor(A, B) {
-    this.text = A;
-    this.columns = B;
-    this.wrappedLines = this.measureWrappedText()
-  }
-  stringIndexToDisplayWidth(A, B) {
-    if (B <= 0) return 0;
-    if (B >= A.length) return vA1.default(A);
-    return vA1.default(A.substring(0, B))
-  }
-  displayWidthToStringIndex(A, B) {
-    if (B <= 0) return 0;
-    if (!A) return 0;
-    let I = new Intl.Segmenter("en", {
-        granularity: "grapheme"
-      }).segment(A),
-      G = 0,
-      Z = 0;
-    for (let {
-        segment: D,
-        index: Y
+      var I = h1.setImmediate;
+      h1.setImmediate = function(W) {
+        if (Date.now() - B > 15) B = Date.now(), I(W);
+        else if (Q.push(W), Q.length === 1) Z.setAttribute("a", G = !G)
       }
-      of I) {
-      let W = vA1.default(D);
-      if (G + W > B) break;
-      G += W, Z = Y + D.length
+    }
+    h1.nextTick = h1.setImmediate
+  })();
+  h1.isNodejs = typeof process < "u" && process.versions && process.versions.node;
+  h1.globalScope = function() {
+    if (h1.isNodejs) return global;
+    return typeof self > "u" ? window : self
+  }();
+  h1.isArray = Array.isArray || function(A) {
+    return Object.prototype.toString.call(A) === "[object Array]"
+  };
+  h1.isArrayBuffer = function(A) {
+    return typeof ArrayBuffer < "u" && A instanceof ArrayBuffer
+  };
+  h1.isArrayBufferView = function(A) {
+    return A && h1.isArrayBuffer(A.buffer) && A.byteLength !== void 0
+  };
+
+  function uLA(A) {
+    if (!(A === 8 || A === 16 || A === 24 || A === 32)) throw Error("Only 8, 16, 24, or 32 bits supported: " + A)
+  }
+  h1.ByteBuffer = KA0;
+
+  function KA0(A) {
+    if (this.data = "", this.read = 0, typeof A === "string") this.data = A;
+    else if (h1.isArrayBuffer(A) || h1.isArrayBufferView(A))
+      if (typeof Buffer < "u" && A instanceof Buffer) this.data = A.toString("binary");
+      else {
+        var Q = new Uint8Array(A);
+        try {
+          this.data = String.fromCharCode.apply(null, Q)
+        } catch (G) {
+          for (var B = 0; B < Q.length; ++B) this.putByte(Q[B])
+        }
+      }
+    else if (A instanceof KA0 || typeof A === "object" && typeof A.data === "string" && typeof A.read === "number") this.data = A.data, this.read = A.read;
+    this._constructedStringLength = 0
+  }
+  h1.ByteStringBuffer = KA0;
+  var Z75 = 4096;
+  h1.ByteStringBuffer.prototype._optimizeConstructedString = function(A) {
+    if (this._constructedStringLength += A, this._constructedStringLength > Z75) this.data.substr(0, 1), this._constructedStringLength = 0
+  };
+  h1.ByteStringBuffer.prototype.length = function() {
+    return this.data.length - this.read
+  };
+  h1.ByteStringBuffer.prototype.isEmpty = function() {
+    return this.length() <= 0
+  };
+  h1.ByteStringBuffer.prototype.putByte = function(A) {
+    return this.putBytes(String.fromCharCode(A))
+  };
+  h1.ByteStringBuffer.prototype.fillWithByte = function(A, Q) {
+    A = String.fromCharCode(A);
+    var B = this.data;
+    while (Q > 0) {
+      if (Q & 1) B += A;
+      if (Q >>>= 1, Q > 0) A += A
+    }
+    return this.data = B, this._optimizeConstructedString(Q), this
+  };
+  h1.ByteStringBuffer.prototype.putBytes = function(A) {
+    return this.data += A, this._optimizeConstructedString(A.length), this
+  };
+  h1.ByteStringBuffer.prototype.putString = function(A) {
+    return this.putBytes(h1.encodeUtf8(A))
+  };
+  h1.ByteStringBuffer.prototype.putInt16 = function(A) {
+    return this.putBytes(String.fromCharCode(A >> 8 & 255) + String.fromCharCode(A & 255))
+  };
+  h1.ByteStringBuffer.prototype.putInt24 = function(A) {
+    return this.putBytes(String.fromCharCode(A >> 16 & 255) + String.fromCharCode(A >> 8 & 255) + String.fromCharCode(A & 255))
+  };
+  h1.ByteStringBuffer.prototype.putInt32 = function(A) {
+    return this.putBytes(String.fromCharCode(A >> 24 & 255) + String.fromCharCode(A >> 16 & 255) + String.fromCharCode(A >> 8 & 255) + String.fromCharCode(A & 255))
+  };
+  h1.ByteStringBuffer.prototype.putInt16Le = function(A) {
+    return this.putBytes(String.fromCharCode(A & 255) + String.fromCharCode(A >> 8 & 255))
+  };
+  h1.ByteStringBuffer.prototype.putInt24Le = function(A) {
+    return this.putBytes(String.fromCharCode(A & 255) + String.fromCharCode(A >> 8 & 255) + String.fromCharCode(A >> 16 & 255))
+  };
+  h1.ByteStringBuffer.prototype.putInt32Le = function(A) {
+    return this.putBytes(String.fromCharCode(A & 255) + String.fromCharCode(A >> 8 & 255) + String.fromCharCode(A >> 16 & 255) + String.fromCharCode(A >> 24 & 255))
+  };
+  h1.ByteStringBuffer.prototype.putInt = function(A, Q) {
+    uLA(Q);
+    var B = "";
+    do Q -= 8, B += String.fromCharCode(A >> Q & 255); while (Q > 0);
+    return this.putBytes(B)
+  };
+  h1.ByteStringBuffer.prototype.putSignedInt = function(A, Q) {
+    if (A < 0) A += 2 << Q - 1;
+    return this.putInt(A, Q)
+  };
+  h1.ByteStringBuffer.prototype.putBuffer = function(A) {
+    return this.putBytes(A.getBytes())
+  };
+  h1.ByteStringBuffer.prototype.getByte = function() {
+    return this.data.charCodeAt(this.read++)
+  };
+  h1.ByteStringBuffer.prototype.getInt16 = function() {
+    var A = this.data.charCodeAt(this.read) << 8 ^ this.data.charCodeAt(this.read + 1);
+    return this.read += 2, A
+  };
+  h1.ByteStringBuffer.prototype.getInt24 = function() {
+    var A = this.data.charCodeAt(this.read) << 16 ^ this.data.charCodeAt(this.read + 1) << 8 ^ this.data.charCodeAt(this.read + 2);
+    return this.read += 3, A
+  };
+  h1.ByteStringBuffer.prototype.getInt32 = function() {
+    var A = this.data.charCodeAt(this.read) << 24 ^ this.data.charCodeAt(this.read + 1) << 16 ^ this.data.charCodeAt(this.read + 2) << 8 ^ this.data.charCodeAt(this.read + 3);
+    return this.read += 4, A
+  };
+  h1.ByteStringBuffer.prototype.getInt16Le = function() {
+    var A = this.data.charCodeAt(this.read) ^ this.data.charCodeAt(this.read + 1) << 8;
+    return this.read += 2, A
+  };
+  h1.ByteStringBuffer.prototype.getInt24Le = function() {
+    var A = this.data.charCodeAt(this.read) ^ this.data.charCodeAt(this.read + 1) << 8 ^ this.data.charCodeAt(this.read + 2) << 16;
+    return this.read += 3, A
+  };
+  h1.ByteStringBuffer.prototype.getInt32Le = function() {
+    var A = this.data.charCodeAt(this.read) ^ this.data.charCodeAt(this.read + 1) << 8 ^ this.data.charCodeAt(this.read + 2) << 16 ^ this.data.charCodeAt(this.read + 3) << 24;
+    return this.read += 4, A
+  };
+  h1.ByteStringBuffer.prototype.getInt = function(A) {
+    uLA(A);
+    var Q = 0;
+    do Q = (Q << 8) + this.data.charCodeAt(this.read++), A -= 8; while (A > 0);
+    return Q
+  };
+  h1.ByteStringBuffer.prototype.getSignedInt = function(A) {
+    var Q = this.getInt(A),
+      B = 2 << A - 2;
+    if (Q >= B) Q -= B << 1;
+    return Q
+  };
+  h1.ByteStringBuffer.prototype.getBytes = function(A) {
+    var Q;
+    if (A) A = Math.min(this.length(), A), Q = this.data.slice(this.read, this.read + A), this.read += A;
+    else if (A === 0) Q = "";
+    else Q = this.read === 0 ? this.data : this.data.slice(this.read), this.clear();
+    return Q
+  };
+  h1.ByteStringBuffer.prototype.bytes = function(A) {
+    return typeof A > "u" ? this.data.slice(this.read) : this.data.slice(this.read, this.read + A)
+  };
+  h1.ByteStringBuffer.prototype.at = function(A) {
+    return this.data.charCodeAt(this.read + A)
+  };
+  h1.ByteStringBuffer.prototype.setAt = function(A, Q) {
+    return this.data = this.data.substr(0, this.read + A) + String.fromCharCode(Q) + this.data.substr(this.read + A + 1), this
+  };
+  h1.ByteStringBuffer.prototype.last = function() {
+    return this.data.charCodeAt(this.data.length - 1)
+  };
+  h1.ByteStringBuffer.prototype.copy = function() {
+    var A = h1.createBuffer(this.data);
+    return A.read = this.read, A
+  };
+  h1.ByteStringBuffer.prototype.compact = function() {
+    if (this.read > 0) this.data = this.data.slice(this.read), this.read = 0;
+    return this
+  };
+  h1.ByteStringBuffer.prototype.clear = function() {
+    return this.data = "", this.read = 0, this
+  };
+  h1.ByteStringBuffer.prototype.truncate = function(A) {
+    var Q = Math.max(0, this.length() - A);
+    return this.data = this.data.substr(this.read, Q), this.read = 0, this
+  };
+  h1.ByteStringBuffer.prototype.toHex = function() {
+    var A = "";
+    for (var Q = this.read; Q < this.data.length; ++Q) {
+      var B = this.data.charCodeAt(Q);
+      if (B < 16) A += "0";
+      A += B.toString(16)
+    }
+    return A
+  };
+  h1.ByteStringBuffer.prototype.toString = function() {
+    return h1.decodeUtf8(this.bytes())
+  };
+
+  function I75(A, Q) {
+    Q = Q || {}, this.read = Q.readOffset || 0, this.growSize = Q.growSize || 1024;
+    var B = h1.isArrayBuffer(A),
+      G = h1.isArrayBufferView(A);
+    if (B || G) {
+      if (B) this.data = new DataView(A);
+      else this.data = new DataView(A.buffer, A.byteOffset, A.byteLength);
+      this.write = "writeOffset" in Q ? Q.writeOffset : this.data.byteLength;
+      return
+    }
+    if (this.data = new DataView(new ArrayBuffer(0)), this.write = 0, A !== null && A !== void 0) this.putBytes(A);
+    if ("writeOffset" in Q) this.write = Q.writeOffset
+  }
+  h1.DataBuffer = I75;
+  h1.DataBuffer.prototype.length = function() {
+    return this.write - this.read
+  };
+  h1.DataBuffer.prototype.isEmpty = function() {
+    return this.length() <= 0
+  };
+  h1.DataBuffer.prototype.accommodate = function(A, Q) {
+    if (this.length() >= A) return this;
+    Q = Math.max(Q || this.growSize, A);
+    var B = new Uint8Array(this.data.buffer, this.data.byteOffset, this.data.byteLength),
+      G = new Uint8Array(this.length() + Q);
+    return G.set(B), this.data = new DataView(G.buffer), this
+  };
+  h1.DataBuffer.prototype.putByte = function(A) {
+    return this.accommodate(1), this.data.setUint8(this.write++, A), this
+  };
+  h1.DataBuffer.prototype.fillWithByte = function(A, Q) {
+    this.accommodate(Q);
+    for (var B = 0; B < Q; ++B) this.data.setUint8(A);
+    return this
+  };
+  h1.DataBuffer.prototype.putBytes = function(A, Q) {
+    if (h1.isArrayBufferView(A)) {
+      var B = new Uint8Array(A.buffer, A.byteOffset, A.byteLength),
+        G = B.byteLength - B.byteOffset;
+      this.accommodate(G);
+      var Z = new Uint8Array(this.data.buffer, this.write);
+      return Z.set(B), this.write += G, this
+    }
+    if (h1.isArrayBuffer(A)) {
+      var B = new Uint8Array(A);
+      this.accommodate(B.byteLength);
+      var Z = new Uint8Array(this.data.buffer);
+      return Z.set(B, this.write), this.write += B.byteLength, this
+    }
+    if (A instanceof h1.DataBuffer || typeof A === "object" && typeof A.read === "number" && typeof A.write === "number" && h1.isArrayBufferView(A.data)) {
+      var B = new Uint8Array(A.data.byteLength, A.read, A.length());
+      this.accommodate(B.byteLength);
+      var Z = new Uint8Array(A.data.byteLength, this.write);
+      return Z.set(B), this.write += B.byteLength, this
+    }
+    if (A instanceof h1.ByteStringBuffer) A = A.data, Q = "binary";
+    if (Q = Q || "binary", typeof A === "string") {
+      var I;
+      if (Q === "hex") return this.accommodate(Math.ceil(A.length / 2)), I = new Uint8Array(this.data.buffer, this.write), this.write += h1.binary.hex.decode(A, I, this.write), this;
+      if (Q === "base64") return this.accommodate(Math.ceil(A.length / 4) * 3), I = new Uint8Array(this.data.buffer, this.write), this.write += h1.binary.base64.decode(A, I, this.write), this;
+      if (Q === "utf8") A = h1.encodeUtf8(A), Q = "binary";
+      if (Q === "binary" || Q === "raw") return this.accommodate(A.length), I = new Uint8Array(this.data.buffer, this.write), this.write += h1.binary.raw.decode(I), this;
+      if (Q === "utf16") return this.accommodate(A.length * 2), I = new Uint16Array(this.data.buffer, this.write), this.write += h1.text.utf16.encode(I), this;
+      throw Error("Invalid encoding: " + Q)
+    }
+    throw Error("Invalid parameter: " + A)
+  };
+  h1.DataBuffer.prototype.putBuffer = function(A) {
+    return this.putBytes(A), A.clear(), this
+  };
+  h1.DataBuffer.prototype.putString = function(A) {
+    return this.putBytes(A, "utf16")
+  };
+  h1.DataBuffer.prototype.putInt16 = function(A) {
+    return this.accommodate(2), this.data.setInt16(this.write, A), this.write += 2, this
+  };
+  h1.DataBuffer.prototype.putInt24 = function(A) {
+    return this.accommodate(3), this.data.setInt16(this.write, A >> 8 & 65535), this.data.setInt8(this.write, A >> 16 & 255), this.write += 3, this
+  };
+  h1.DataBuffer.prototype.putInt32 = function(A) {
+    return this.accommodate(4), this.data.setInt32(this.write, A), this.write += 4, this
+  };
+  h1.DataBuffer.prototype.putInt16Le = function(A) {
+    return this.accommodate(2), this.data.setInt16(this.write, A, !0), this.write += 2, this
+  };
+  h1.DataBuffer.prototype.putInt24Le = function(A) {
+    return this.accommodate(3), this.data.setInt8(this.write, A >> 16 & 255), this.data.setInt16(this.write, A >> 8 & 65535, !0), this.write += 3, this
+  };
+  h1.DataBuffer.prototype.putInt32Le = function(A) {
+    return this.accommodate(4), this.data.setInt32(this.write, A, !0), this.write += 4, this
+  };
+  h1.DataBuffer.prototype.putInt = function(A, Q) {
+    uLA(Q), this.accommodate(Q / 8);
+    do Q -= 8, this.data.setInt8(this.write++, A >> Q & 255); while (Q > 0);
+    return this
+  };
+  h1.DataBuffer.prototype.putSignedInt = function(A, Q) {
+    if (uLA(Q), this.accommodate(Q / 8), A < 0) A += 2 << Q - 1;
+    return this.putInt(A, Q)
+  };
+  h1.DataBuffer.prototype.getByte = function() {
+    return this.data.getInt8(this.read++)
+  };
+  h1.DataBuffer.prototype.getInt16 = function() {
+    var A = this.data.getInt16(this.read);
+    return this.read += 2, A
+  };
+  h1.DataBuffer.prototype.getInt24 = function() {
+    var A = this.data.getInt16(this.read) << 8 ^ this.data.getInt8(this.read + 2);
+    return this.read += 3, A
+  };
+  h1.DataBuffer.prototype.getInt32 = function() {
+    var A = this.data.getInt32(this.read);
+    return this.read += 4, A
+  };
+  h1.DataBuffer.prototype.getInt16Le = function() {
+    var A = this.data.getInt16(this.read, !0);
+    return this.read += 2, A
+  };
+  h1.DataBuffer.prototype.getInt24Le = function() {
+    var A = this.data.getInt8(this.read) ^ this.data.getInt16(this.read + 1, !0) << 8;
+    return this.read += 3, A
+  };
+  h1.DataBuffer.prototype.getInt32Le = function() {
+    var A = this.data.getInt32(this.read, !0);
+    return this.read += 4, A
+  };
+  h1.DataBuffer.prototype.getInt = function(A) {
+    uLA(A);
+    var Q = 0;
+    do Q = (Q << 8) + this.data.getInt8(this.read++), A -= 8; while (A > 0);
+    return Q
+  };
+  h1.DataBuffer.prototype.getSignedInt = function(A) {
+    var Q = this.getInt(A),
+      B = 2 << A - 2;
+    if (Q >= B) Q -= B << 1;
+    return Q
+  };
+  h1.DataBuffer.prototype.getBytes = function(A) {
+    var Q;
+    if (A) A = Math.min(this.length(), A), Q = this.data.slice(this.read, this.read + A), this.read += A;
+    else if (A === 0) Q = "";
+    else Q = this.read === 0 ? this.data : this.data.slice(this.read), this.clear();
+    return Q
+  };
+  h1.DataBuffer.prototype.bytes = function(A) {
+    return typeof A > "u" ? this.data.slice(this.read) : this.data.slice(this.read, this.read + A)
+  };
+  h1.DataBuffer.prototype.at = function(A) {
+    return this.data.getUint8(this.read + A)
+  };
+  h1.DataBuffer.prototype.setAt = function(A, Q) {
+    return this.data.setUint8(A, Q), this
+  };
+  h1.DataBuffer.prototype.last = function() {
+    return this.data.getUint8(this.write - 1)
+  };
+  h1.DataBuffer.prototype.copy = function() {
+    return new h1.DataBuffer(this)
+  };
+  h1.DataBuffer.prototype.compact = function() {
+    if (this.read > 0) {
+      var A = new Uint8Array(this.data.buffer, this.read),
+        Q = new Uint8Array(A.byteLength);
+      Q.set(A), this.data = new DataView(Q), this.write -= this.read, this.read = 0
+    }
+    return this
+  };
+  h1.DataBuffer.prototype.clear = function() {
+    return this.data = new DataView(new ArrayBuffer(0)), this.read = this.write = 0, this
+  };
+  h1.DataBuffer.prototype.truncate = function(A) {
+    return this.write = Math.max(0, this.length() - A), this.read = Math.min(this.read, this.write), this
+  };
+  h1.DataBuffer.prototype.toHex = function() {
+    var A = "";
+    for (var Q = this.read; Q < this.data.byteLength; ++Q) {
+      var B = this.data.getUint8(Q);
+      if (B < 16) A += "0";
+      A += B.toString(16)
+    }
+    return A
+  };
+  h1.DataBuffer.prototype.toString = function(A) {
+    var Q = new Uint8Array(this.data, this.read, this.length());
+    if (A = A || "utf8", A === "binary" || A === "raw") return h1.binary.raw.encode(Q);
+    if (A === "hex") return h1.binary.hex.encode(Q);
+    if (A === "base64") return h1.binary.base64.encode(Q);
+    if (A === "utf8") return h1.text.utf8.decode(Q);
+    if (A === "utf16") return h1.text.utf16.decode(Q);
+    throw Error("Invalid encoding: " + A)
+  };
+  h1.createBuffer = function(A, Q) {
+    if (Q = Q || "raw", A !== void 0 && Q === "utf8") A = h1.encodeUtf8(A);
+    return new h1.ByteBuffer(A)
+  };
+  h1.fillString = function(A, Q) {
+    var B = "";
+    while (Q > 0) {
+      if (Q & 1) B += A;
+      if (Q >>>= 1, Q > 0) A += A
+    }
+    return B
+  };
+  h1.xorBytes = function(A, Q, B) {
+    var G = "",
+      Z = "",
+      I = "",
+      Y = 0,
+      J = 0;
+    for (; B > 0; --B, ++Y) {
+      if (Z = A.charCodeAt(Y) ^ Q.charCodeAt(Y), J >= 10) G += I, I = "", J = 0;
+      I += String.fromCharCode(Z), ++J
+    }
+    return G += I, G
+  };
+  h1.hexToBytes = function(A) {
+    var Q = "",
+      B = 0;
+    if (A.length & !0) B = 1, Q += String.fromCharCode(parseInt(A[0], 16));
+    for (; B < A.length; B += 2) Q += String.fromCharCode(parseInt(A.substr(B, 2), 16));
+    return Q
+  };
+  h1.bytesToHex = function(A) {
+    return h1.createBuffer(A).toHex()
+  };
+  h1.int32ToBytes = function(A) {
+    return String.fromCharCode(A >> 24 & 255) + String.fromCharCode(A >> 16 & 255) + String.fromCharCode(A >> 8 & 255) + String.fromCharCode(A & 255)
+  };
+  var Bi = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
+    Gi = [62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1, -1, 64, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1, -1, -1, -1, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51],
+    A62 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  h1.encode64 = function(A, Q) {
+    var B = "",
+      G = "",
+      Z, I, Y, J = 0;
+    while (J < A.length) {
+      if (Z = A.charCodeAt(J++), I = A.charCodeAt(J++), Y = A.charCodeAt(J++), B += Bi.charAt(Z >> 2), B += Bi.charAt((Z & 3) << 4 | I >> 4), isNaN(I)) B += "==";
+      else B += Bi.charAt((I & 15) << 2 | Y >> 6), B += isNaN(Y) ? "=" : Bi.charAt(Y & 63);
+      if (Q && B.length > Q) G += B.substr(0, Q) + `\r
+`, B = B.substr(Q)
+    }
+    return G += B, G
+  };
+  h1.decode64 = function(A) {
+    A = A.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+    var Q = "",
+      B, G, Z, I, Y = 0;
+    while (Y < A.length)
+      if (B = Gi[A.charCodeAt(Y++) - 43], G = Gi[A.charCodeAt(Y++) - 43], Z = Gi[A.charCodeAt(Y++) - 43], I = Gi[A.charCodeAt(Y++) - 43], Q += String.fromCharCode(B << 2 | G >> 4), Z !== 64) {
+        if (Q += String.fromCharCode((G & 15) << 4 | Z >> 2), I !== 64) Q += String.fromCharCode((Z & 3) << 6 | I)
+      } return Q
+  };
+  h1.encodeUtf8 = function(A) {
+    return unescape(encodeURIComponent(A))
+  };
+  h1.decodeUtf8 = function(A) {
+    return decodeURIComponent(escape(A))
+  };
+  h1.binary = {
+    raw: {},
+    hex: {},
+    base64: {},
+    base58: {},
+    baseN: {
+      encode: e82.encode,
+      decode: e82.decode
+    }
+  };
+  h1.binary.raw.encode = function(A) {
+    return String.fromCharCode.apply(null, A)
+  };
+  h1.binary.raw.decode = function(A, Q, B) {
+    var G = Q;
+    if (!G) G = new Uint8Array(A.length);
+    B = B || 0;
+    var Z = B;
+    for (var I = 0; I < A.length; ++I) G[Z++] = A.charCodeAt(I);
+    return Q ? Z - B : G
+  };
+  h1.binary.hex.encode = h1.bytesToHex;
+  h1.binary.hex.decode = function(A, Q, B) {
+    var G = Q;
+    if (!G) G = new Uint8Array(Math.ceil(A.length / 2));
+    B = B || 0;
+    var Z = 0,
+      I = B;
+    if (A.length & 1) Z = 1, G[I++] = parseInt(A[0], 16);
+    for (; Z < A.length; Z += 2) G[I++] = parseInt(A.substr(Z, 2), 16);
+    return Q ? I - B : G
+  };
+  h1.binary.base64.encode = function(A, Q) {
+    var B = "",
+      G = "",
+      Z, I, Y, J = 0;
+    while (J < A.byteLength) {
+      if (Z = A[J++], I = A[J++], Y = A[J++], B += Bi.charAt(Z >> 2), B += Bi.charAt((Z & 3) << 4 | I >> 4), isNaN(I)) B += "==";
+      else B += Bi.charAt((I & 15) << 2 | Y >> 6), B += isNaN(Y) ? "=" : Bi.charAt(Y & 63);
+      if (Q && B.length > Q) G += B.substr(0, Q) + `\r
+`, B = B.substr(Q)
+    }
+    return G += B, G
+  };
+  h1.binary.base64.decode = function(A, Q, B) {
+    var G = Q;
+    if (!G) G = new Uint8Array(Math.ceil(A.length / 4) * 3);
+    A = A.replace(/[^A-Za-z0-9\+\/\=]/g, ""), B = B || 0;
+    var Z, I, Y, J, W = 0,
+      X = B;
+    while (W < A.length)
+      if (Z = Gi[A.charCodeAt(W++) - 43], I = Gi[A.charCodeAt(W++) - 43], Y = Gi[A.charCodeAt(W++) - 43], J = Gi[A.charCodeAt(W++) - 43], G[X++] = Z << 2 | I >> 4, Y !== 64) {
+        if (G[X++] = (I & 15) << 4 | Y >> 2, J !== 64) G[X++] = (Y & 3) << 6 | J
+      } return Q ? X - B : G.subarray(0, X)
+  };
+  h1.binary.base58.encode = function(A, Q) {
+    return h1.binary.baseN.encode(A, A62, Q)
+  };
+  h1.binary.base58.decode = function(A, Q) {
+    return h1.binary.baseN.decode(A, A62, Q)
+  };
+  h1.text = {
+    utf8: {},
+    utf16: {}
+  };
+  h1.text.utf8.encode = function(A, Q, B) {
+    A = h1.encodeUtf8(A);
+    var G = Q;
+    if (!G) G = new Uint8Array(A.length);
+    B = B || 0;
+    var Z = B;
+    for (var I = 0; I < A.length; ++I) G[Z++] = A.charCodeAt(I);
+    return Q ? Z - B : G
+  };
+  h1.text.utf8.decode = function(A) {
+    return h1.decodeUtf8(String.fromCharCode.apply(null, A))
+  };
+  h1.text.utf16.encode = function(A, Q, B) {
+    var G = Q;
+    if (!G) G = new Uint8Array(A.length * 2);
+    var Z = new Uint16Array(G.buffer);
+    B = B || 0;
+    var I = B,
+      Y = B;
+    for (var J = 0; J < A.length; ++J) Z[Y++] = A.charCodeAt(J), I += 2;
+    return Q ? I - B : G
+  };
+  h1.text.utf16.decode = function(A) {
+    return String.fromCharCode.apply(null, new Uint16Array(A.buffer))
+  };
+  h1.deflate = function(A, Q, B) {
+    if (Q = h1.decode64(A.deflate(h1.encode64(Q)).rval), B) {
+      var G = 2,
+        Z = Q.charCodeAt(1);
+      if (Z & 32) G = 6;
+      Q = Q.substring(G, Q.length - 4)
+    }
+    return Q
+  };
+  h1.inflate = function(A, Q, B) {
+    var G = A.inflate(h1.encode64(Q)).rval;
+    return G === null ? null : h1.decode64(G)
+  };
+  var DA0 = function(A, Q, B) {
+      if (!A) throw Error("WebStorage not available.");
+      var G;
+      if (B === null) G = A.removeItem(Q);
+      else B = h1.encode64(JSON.stringify(B)), G = A.setItem(Q, B);
+      if (typeof G < "u" && G.rval !== !0) {
+        var Z = Error(G.error.message);
+        throw Z.id = G.error.id, Z.name = G.error.name, Z
+      }
+    },
+    HA0 = function(A, Q) {
+      if (!A) throw Error("WebStorage not available.");
+      var B = A.getItem(Q);
+      if (A.init)
+        if (B.rval === null) {
+          if (B.error) {
+            var G = Error(B.error.message);
+            throw G.id = B.error.id, G.name = B.error.name, G
+          }
+          B = null
+        } else B = B.rval;
+      if (B !== null) B = JSON.parse(h1.decode64(B));
+      return B
+    },
+    Y75 = function(A, Q, B, G) {
+      var Z = HA0(A, Q);
+      if (Z === null) Z = {};
+      Z[B] = G, DA0(A, Q, Z)
+    },
+    J75 = function(A, Q, B) {
+      var G = HA0(A, Q);
+      if (G !== null) G = B in G ? G[B] : null;
+      return G
+    },
+    W75 = function(A, Q, B) {
+      var G = HA0(A, Q);
+      if (G !== null && B in G) {
+        delete G[B];
+        var Z = !0;
+        for (var I in G) {
+          Z = !1;
+          break
+        }
+        if (Z) G = null;
+        DA0(A, Q, G)
+      }
+    },
+    X75 = function(A, Q) {
+      DA0(A, Q, null)
+    },
+    kB1 = function(A, Q, B) {
+      var G = null;
+      if (typeof B > "u") B = ["web", "flash"];
+      var Z, I = !1,
+        Y = null;
+      for (var J in B) {
+        Z = B[J];
+        try {
+          if (Z === "flash" || Z === "both") {
+            if (Q[0] === null) throw Error("Flash local storage not available.");
+            G = A.apply(this, Q), I = Z === "flash"
+          }
+          if (Z === "web" || Z === "both") Q[0] = localStorage, G = A.apply(this, Q), I = !0
+        } catch (W) {
+          Y = W
+        }
+        if (I) break
+      }
+      if (!I) throw Y;
+      return G
+    };
+  h1.setItem = function(A, Q, B, G, Z) {
+    kB1(Y75, arguments, Z)
+  };
+  h1.getItem = function(A, Q, B, G) {
+    return kB1(J75, arguments, G)
+  };
+  h1.removeItem = function(A, Q, B, G) {
+    kB1(W75, arguments, G)
+  };
+  h1.clearItems = function(A, Q, B) {
+    kB1(X75, arguments, B)
+  };
+  h1.isEmpty = function(A) {
+    for (var Q in A)
+      if (A.hasOwnProperty(Q)) return !1;
+    return !0
+  };
+  h1.format = function(A) {
+    var Q = /%./g,
+      B, G, Z = 0,
+      I = [],
+      Y = 0;
+    while (B = Q.exec(A)) {
+      if (G = A.substring(Y, Q.lastIndex - 2), G.length > 0) I.push(G);
+      Y = Q.lastIndex;
+      var J = B[0][1];
+      switch (J) {
+        case "s":
+        case "o":
+          if (Z < arguments.length) I.push(arguments[Z++ + 1]);
+          else I.push("<?>");
+          break;
+        case "%":
+          I.push("%");
+          break;
+        default:
+          I.push("<%" + J + "?>")
+      }
+    }
+    return I.push(A.substring(Y)), I.join("")
+  };
+  h1.formatNumber = function(A, Q, B, G) {
+    var Z = A,
+      I = isNaN(Q = Math.abs(Q)) ? 2 : Q,
+      Y = B === void 0 ? "," : B,
+      J = G === void 0 ? "." : G,
+      W = Z < 0 ? "-" : "",
+      X = parseInt(Z = Math.abs(+Z || 0).toFixed(I), 10) + "",
+      V = X.length > 3 ? X.length % 3 : 0;
+    return W + (V ? X.substr(0, V) + J : "") + X.substr(V).replace(/(\d{3})(?=\d)/g, "$1" + J) + (I ? Y + Math.abs(Z - X).toFixed(I).slice(2) : "")
+  };
+  h1.formatSize = function(A) {
+    if (A >= 1073741824) A = h1.formatNumber(A / 1073741824, 2, ".", "") + " GiB";
+    else if (A >= 1048576) A = h1.formatNumber(A / 1048576, 2, ".", "") + " MiB";
+    else if (A >= 1024) A = h1.formatNumber(A / 1024, 0) + " KiB";
+    else A = h1.formatNumber(A, 0) + " bytes";
+    return A
+  };
+  h1.bytesFromIP = function(A) {
+    if (A.indexOf(".") !== -1) return h1.bytesFromIPv4(A);
+    if (A.indexOf(":") !== -1) return h1.bytesFromIPv6(A);
+    return null
+  };
+  h1.bytesFromIPv4 = function(A) {
+    if (A = A.split("."), A.length !== 4) return null;
+    var Q = h1.createBuffer();
+    for (var B = 0; B < A.length; ++B) {
+      var G = parseInt(A[B], 10);
+      if (isNaN(G)) return null;
+      Q.putByte(G)
+    }
+    return Q.getBytes()
+  };
+  h1.bytesFromIPv6 = function(A) {
+    var Q = 0;
+    A = A.split(":").filter(function(Y) {
+      if (Y.length === 0) ++Q;
+      return !0
+    });
+    var B = (8 - A.length + Q) * 2,
+      G = h1.createBuffer();
+    for (var Z = 0; Z < 8; ++Z) {
+      if (!A[Z] || A[Z].length === 0) {
+        G.fillWithByte(0, B), B = 0;
+        continue
+      }
+      var I = h1.hexToBytes(A[Z]);
+      if (I.length < 2) G.putByte(0);
+      G.putBytes(I)
+    }
+    return G.getBytes()
+  };
+  h1.bytesToIP = function(A) {
+    if (A.length === 4) return h1.bytesToIPv4(A);
+    if (A.length === 16) return h1.bytesToIPv6(A);
+    return null
+  };
+  h1.bytesToIPv4 = function(A) {
+    if (A.length !== 4) return null;
+    var Q = [];
+    for (var B = 0; B < A.length; ++B) Q.push(A.charCodeAt(B));
+    return Q.join(".")
+  };
+  h1.bytesToIPv6 = function(A) {
+    if (A.length !== 16) return null;
+    var Q = [],
+      B = [],
+      G = 0;
+    for (var Z = 0; Z < A.length; Z += 2) {
+      var I = h1.bytesToHex(A[Z] + A[Z + 1]);
+      while (I[0] === "0" && I !== "0") I = I.substr(1);
+      if (I === "0") {
+        var Y = B[B.length - 1],
+          J = Q.length;
+        if (!Y || J !== Y.end + 1) B.push({
+          start: J,
+          end: J
+        });
+        else if (Y.end = J, Y.end - Y.start > B[G].end - B[G].start) G = B.length - 1
+      }
+      Q.push(I)
+    }
+    if (B.length > 0) {
+      var W = B[G];
+      if (W.end - W.start > 0) {
+        if (Q.splice(W.start, W.end - W.start + 1, ""), W.start === 0) Q.unshift("");
+        if (W.end === 7) Q.push("")
+      }
+    }
+    return Q.join(":")
+  };
+  h1.estimateCores = function(A, Q) {
+    if (typeof A === "function") Q = A, A = {};
+    if (A = A || {}, "cores" in h1 && !A.update) return Q(null, h1.cores);
+    if (typeof navigator < "u" && "hardwareConcurrency" in navigator && navigator.hardwareConcurrency > 0) return h1.cores = navigator.hardwareConcurrency, Q(null, h1.cores);
+    if (typeof Worker > "u") return h1.cores = 1, Q(null, h1.cores);
+    if (typeof Blob > "u") return h1.cores = 2, Q(null, h1.cores);
+    var B = URL.createObjectURL(new Blob(["(", function() {
+      self.addEventListener("message", function(Y) {
+        var J = Date.now(),
+          W = J + 4;
+        while (Date.now() < W);
+        self.postMessage({
+          st: J,
+          et: W
+        })
+      })
+    }.toString(), ")()"], {
+      type: "application/javascript"
+    }));
+    G([], 5, 16);
+
+    function G(Y, J, W) {
+      if (J === 0) {
+        var X = Math.floor(Y.reduce(function(V, F) {
+          return V + F
+        }, 0) / Y.length);
+        return h1.cores = Math.max(1, X), URL.revokeObjectURL(B), Q(null, h1.cores)
+      }
+      Z(W, function(V, F) {
+        Y.push(I(W, F)), G(Y, J - 1, W)
+      })
+    }
+
+    function Z(Y, J) {
+      var W = [],
+        X = [];
+      for (var V = 0; V < Y; ++V) {
+        var F = new Worker(B);
+        F.addEventListener("message", function(K) {
+          if (X.push(K.data), X.length === Y) {
+            for (var D = 0; D < Y; ++D) W[D].terminate();
+            J(null, X)
+          }
+        }), W.push(F)
+      }
+      for (var V = 0; V < Y; ++V) W[V].postMessage(V)
+    }
+
+    function I(Y, J) {
+      var W = [];
+      for (var X = 0; X < Y; ++X) {
+        var V = J[X],
+          F = W[X] = [];
+        for (var K = 0; K < Y; ++K) {
+          if (X === K) continue;
+          var D = J[K];
+          if (V.st > D.st && V.st < D.et || D.st > V.st && D.st < V.et) F.push(K)
+        }
+      }
+      return W.reduce(function(H, C) {
+        return Math.max(H, C.length)
+      }, 0)
+    }
+  }
+})
+// @from(Start 9109239, End 9111783)
+yB1 = z((dPG, B62) => {
+  var rF = B6();
+  x3();
+  B62.exports = rF.cipher = rF.cipher || {};
+  rF.cipher.algorithms = rF.cipher.algorithms || {};
+  rF.cipher.createCipher = function(A, Q) {
+    var B = A;
+    if (typeof B === "string") {
+      if (B = rF.cipher.getAlgorithm(B), B) B = B()
+    }
+    if (!B) throw Error("Unsupported algorithm: " + A);
+    return new rF.cipher.BlockCipher({
+      algorithm: B,
+      key: Q,
+      decrypt: !1
+    })
+  };
+  rF.cipher.createDecipher = function(A, Q) {
+    var B = A;
+    if (typeof B === "string") {
+      if (B = rF.cipher.getAlgorithm(B), B) B = B()
+    }
+    if (!B) throw Error("Unsupported algorithm: " + A);
+    return new rF.cipher.BlockCipher({
+      algorithm: B,
+      key: Q,
+      decrypt: !0
+    })
+  };
+  rF.cipher.registerAlgorithm = function(A, Q) {
+    A = A.toUpperCase(), rF.cipher.algorithms[A] = Q
+  };
+  rF.cipher.getAlgorithm = function(A) {
+    if (A = A.toUpperCase(), A in rF.cipher.algorithms) return rF.cipher.algorithms[A];
+    return null
+  };
+  var CA0 = rF.cipher.BlockCipher = function(A) {
+    this.algorithm = A.algorithm, this.mode = this.algorithm.mode, this.blockSize = this.mode.blockSize, this._finish = !1, this._input = null, this.output = null, this._op = A.decrypt ? this.mode.decrypt : this.mode.encrypt, this._decrypt = A.decrypt, this.algorithm.initialize(A)
+  };
+  CA0.prototype.start = function(A) {
+    A = A || {};
+    var Q = {};
+    for (var B in A) Q[B] = A[B];
+    Q.decrypt = this._decrypt, this._finish = !1, this._input = rF.util.createBuffer(), this.output = A.output || rF.util.createBuffer(), this.mode.start(Q)
+  };
+  CA0.prototype.update = function(A) {
+    if (A) this._input.putBuffer(A);
+    while (!this._op.call(this.mode, this._input, this.output, this._finish) && !this._finish);
+    this._input.compact()
+  };
+  CA0.prototype.finish = function(A) {
+    if (A && (this.mode.name === "ECB" || this.mode.name === "CBC")) this.mode.pad = function(B) {
+      return A(this.blockSize, B, !1)
+    }, this.mode.unpad = function(B) {
+      return A(this.blockSize, B, !0)
+    };
+    var Q = {};
+    if (Q.decrypt = this._decrypt, Q.overflow = this._input.length() % this.blockSize, !this._decrypt && this.mode.pad) {
+      if (!this.mode.pad(this._input, Q)) return !1
+    }
+    if (this._finish = !0, this.update(), this._decrypt && this.mode.unpad) {
+      if (!this.mode.unpad(this.output, Q)) return !1
+    }
+    if (this.mode.afterFinish) {
+      if (!this.mode.afterFinish(this.output, Q)) return !1
+    }
+    return !0
+  }
+})
+// @from(Start 9111789, End 9127725)
+zA0 = z((cPG, G62) => {
+  var oF = B6();
+  x3();
+  oF.cipher = oF.cipher || {};
+  var Z5 = G62.exports = oF.cipher.modes = oF.cipher.modes || {};
+  Z5.ecb = function(A) {
+    A = A || {}, this.name = "ECB", this.cipher = A.cipher, this.blockSize = A.blockSize || 16, this._ints = this.blockSize / 4, this._inBlock = Array(this._ints), this._outBlock = Array(this._ints)
+  };
+  Z5.ecb.prototype.start = function(A) {};
+  Z5.ecb.prototype.encrypt = function(A, Q, B) {
+    if (A.length() < this.blockSize && !(B && A.length() > 0)) return !0;
+    for (var G = 0; G < this._ints; ++G) this._inBlock[G] = A.getInt32();
+    this.cipher.encrypt(this._inBlock, this._outBlock);
+    for (var G = 0; G < this._ints; ++G) Q.putInt32(this._outBlock[G])
+  };
+  Z5.ecb.prototype.decrypt = function(A, Q, B) {
+    if (A.length() < this.blockSize && !(B && A.length() > 0)) return !0;
+    for (var G = 0; G < this._ints; ++G) this._inBlock[G] = A.getInt32();
+    this.cipher.decrypt(this._inBlock, this._outBlock);
+    for (var G = 0; G < this._ints; ++G) Q.putInt32(this._outBlock[G])
+  };
+  Z5.ecb.prototype.pad = function(A, Q) {
+    var B = A.length() === this.blockSize ? this.blockSize : this.blockSize - A.length();
+    return A.fillWithByte(B, B), !0
+  };
+  Z5.ecb.prototype.unpad = function(A, Q) {
+    if (Q.overflow > 0) return !1;
+    var B = A.length(),
+      G = A.at(B - 1);
+    if (G > this.blockSize << 2) return !1;
+    return A.truncate(G), !0
+  };
+  Z5.cbc = function(A) {
+    A = A || {}, this.name = "CBC", this.cipher = A.cipher, this.blockSize = A.blockSize || 16, this._ints = this.blockSize / 4, this._inBlock = Array(this._ints), this._outBlock = Array(this._ints)
+  };
+  Z5.cbc.prototype.start = function(A) {
+    if (A.iv === null) {
+      if (!this._prev) throw Error("Invalid IV parameter.");
+      this._iv = this._prev.slice(0)
+    } else if (!("iv" in A)) throw Error("Invalid IV parameter.");
+    else this._iv = xB1(A.iv, this.blockSize), this._prev = this._iv.slice(0)
+  };
+  Z5.cbc.prototype.encrypt = function(A, Q, B) {
+    if (A.length() < this.blockSize && !(B && A.length() > 0)) return !0;
+    for (var G = 0; G < this._ints; ++G) this._inBlock[G] = this._prev[G] ^ A.getInt32();
+    this.cipher.encrypt(this._inBlock, this._outBlock);
+    for (var G = 0; G < this._ints; ++G) Q.putInt32(this._outBlock[G]);
+    this._prev = this._outBlock
+  };
+  Z5.cbc.prototype.decrypt = function(A, Q, B) {
+    if (A.length() < this.blockSize && !(B && A.length() > 0)) return !0;
+    for (var G = 0; G < this._ints; ++G) this._inBlock[G] = A.getInt32();
+    this.cipher.decrypt(this._inBlock, this._outBlock);
+    for (var G = 0; G < this._ints; ++G) Q.putInt32(this._prev[G] ^ this._outBlock[G]);
+    this._prev = this._inBlock.slice(0)
+  };
+  Z5.cbc.prototype.pad = function(A, Q) {
+    var B = A.length() === this.blockSize ? this.blockSize : this.blockSize - A.length();
+    return A.fillWithByte(B, B), !0
+  };
+  Z5.cbc.prototype.unpad = function(A, Q) {
+    if (Q.overflow > 0) return !1;
+    var B = A.length(),
+      G = A.at(B - 1);
+    if (G > this.blockSize << 2) return !1;
+    return A.truncate(G), !0
+  };
+  Z5.cfb = function(A) {
+    A = A || {}, this.name = "CFB", this.cipher = A.cipher, this.blockSize = A.blockSize || 16, this._ints = this.blockSize / 4, this._inBlock = null, this._outBlock = Array(this._ints), this._partialBlock = Array(this._ints), this._partialOutput = oF.util.createBuffer(), this._partialBytes = 0
+  };
+  Z5.cfb.prototype.start = function(A) {
+    if (!("iv" in A)) throw Error("Invalid IV parameter.");
+    this._iv = xB1(A.iv, this.blockSize), this._inBlock = this._iv.slice(0), this._partialBytes = 0
+  };
+  Z5.cfb.prototype.encrypt = function(A, Q, B) {
+    var G = A.length();
+    if (G === 0) return !0;
+    if (this.cipher.encrypt(this._inBlock, this._outBlock), this._partialBytes === 0 && G >= this.blockSize) {
+      for (var Z = 0; Z < this._ints; ++Z) this._inBlock[Z] = A.getInt32() ^ this._outBlock[Z], Q.putInt32(this._inBlock[Z]);
+      return
+    }
+    var I = (this.blockSize - G) % this.blockSize;
+    if (I > 0) I = this.blockSize - I;
+    this._partialOutput.clear();
+    for (var Z = 0; Z < this._ints; ++Z) this._partialBlock[Z] = A.getInt32() ^ this._outBlock[Z], this._partialOutput.putInt32(this._partialBlock[Z]);
+    if (I > 0) A.read -= this.blockSize;
+    else
+      for (var Z = 0; Z < this._ints; ++Z) this._inBlock[Z] = this._partialBlock[Z];
+    if (this._partialBytes > 0) this._partialOutput.getBytes(this._partialBytes);
+    if (I > 0 && !B) return Q.putBytes(this._partialOutput.getBytes(I - this._partialBytes)), this._partialBytes = I, !0;
+    Q.putBytes(this._partialOutput.getBytes(G - this._partialBytes)), this._partialBytes = 0
+  };
+  Z5.cfb.prototype.decrypt = function(A, Q, B) {
+    var G = A.length();
+    if (G === 0) return !0;
+    if (this.cipher.encrypt(this._inBlock, this._outBlock), this._partialBytes === 0 && G >= this.blockSize) {
+      for (var Z = 0; Z < this._ints; ++Z) this._inBlock[Z] = A.getInt32(), Q.putInt32(this._inBlock[Z] ^ this._outBlock[Z]);
+      return
+    }
+    var I = (this.blockSize - G) % this.blockSize;
+    if (I > 0) I = this.blockSize - I;
+    this._partialOutput.clear();
+    for (var Z = 0; Z < this._ints; ++Z) this._partialBlock[Z] = A.getInt32(), this._partialOutput.putInt32(this._partialBlock[Z] ^ this._outBlock[Z]);
+    if (I > 0) A.read -= this.blockSize;
+    else
+      for (var Z = 0; Z < this._ints; ++Z) this._inBlock[Z] = this._partialBlock[Z];
+    if (this._partialBytes > 0) this._partialOutput.getBytes(this._partialBytes);
+    if (I > 0 && !B) return Q.putBytes(this._partialOutput.getBytes(I - this._partialBytes)), this._partialBytes = I, !0;
+    Q.putBytes(this._partialOutput.getBytes(G - this._partialBytes)), this._partialBytes = 0
+  };
+  Z5.ofb = function(A) {
+    A = A || {}, this.name = "OFB", this.cipher = A.cipher, this.blockSize = A.blockSize || 16, this._ints = this.blockSize / 4, this._inBlock = null, this._outBlock = Array(this._ints), this._partialOutput = oF.util.createBuffer(), this._partialBytes = 0
+  };
+  Z5.ofb.prototype.start = function(A) {
+    if (!("iv" in A)) throw Error("Invalid IV parameter.");
+    this._iv = xB1(A.iv, this.blockSize), this._inBlock = this._iv.slice(0), this._partialBytes = 0
+  };
+  Z5.ofb.prototype.encrypt = function(A, Q, B) {
+    var G = A.length();
+    if (A.length() === 0) return !0;
+    if (this.cipher.encrypt(this._inBlock, this._outBlock), this._partialBytes === 0 && G >= this.blockSize) {
+      for (var Z = 0; Z < this._ints; ++Z) Q.putInt32(A.getInt32() ^ this._outBlock[Z]), this._inBlock[Z] = this._outBlock[Z];
+      return
+    }
+    var I = (this.blockSize - G) % this.blockSize;
+    if (I > 0) I = this.blockSize - I;
+    this._partialOutput.clear();
+    for (var Z = 0; Z < this._ints; ++Z) this._partialOutput.putInt32(A.getInt32() ^ this._outBlock[Z]);
+    if (I > 0) A.read -= this.blockSize;
+    else
+      for (var Z = 0; Z < this._ints; ++Z) this._inBlock[Z] = this._outBlock[Z];
+    if (this._partialBytes > 0) this._partialOutput.getBytes(this._partialBytes);
+    if (I > 0 && !B) return Q.putBytes(this._partialOutput.getBytes(I - this._partialBytes)), this._partialBytes = I, !0;
+    Q.putBytes(this._partialOutput.getBytes(G - this._partialBytes)), this._partialBytes = 0
+  };
+  Z5.ofb.prototype.decrypt = Z5.ofb.prototype.encrypt;
+  Z5.ctr = function(A) {
+    A = A || {}, this.name = "CTR", this.cipher = A.cipher, this.blockSize = A.blockSize || 16, this._ints = this.blockSize / 4, this._inBlock = null, this._outBlock = Array(this._ints), this._partialOutput = oF.util.createBuffer(), this._partialBytes = 0
+  };
+  Z5.ctr.prototype.start = function(A) {
+    if (!("iv" in A)) throw Error("Invalid IV parameter.");
+    this._iv = xB1(A.iv, this.blockSize), this._inBlock = this._iv.slice(0), this._partialBytes = 0
+  };
+  Z5.ctr.prototype.encrypt = function(A, Q, B) {
+    var G = A.length();
+    if (G === 0) return !0;
+    if (this.cipher.encrypt(this._inBlock, this._outBlock), this._partialBytes === 0 && G >= this.blockSize)
+      for (var Z = 0; Z < this._ints; ++Z) Q.putInt32(A.getInt32() ^ this._outBlock[Z]);
+    else {
+      var I = (this.blockSize - G) % this.blockSize;
+      if (I > 0) I = this.blockSize - I;
+      this._partialOutput.clear();
+      for (var Z = 0; Z < this._ints; ++Z) this._partialOutput.putInt32(A.getInt32() ^ this._outBlock[Z]);
+      if (I > 0) A.read -= this.blockSize;
+      if (this._partialBytes > 0) this._partialOutput.getBytes(this._partialBytes);
+      if (I > 0 && !B) return Q.putBytes(this._partialOutput.getBytes(I - this._partialBytes)), this._partialBytes = I, !0;
+      Q.putBytes(this._partialOutput.getBytes(G - this._partialBytes)), this._partialBytes = 0
+    }
+    vB1(this._inBlock)
+  };
+  Z5.ctr.prototype.decrypt = Z5.ctr.prototype.encrypt;
+  Z5.gcm = function(A) {
+    A = A || {}, this.name = "GCM", this.cipher = A.cipher, this.blockSize = A.blockSize || 16, this._ints = this.blockSize / 4, this._inBlock = Array(this._ints), this._outBlock = Array(this._ints), this._partialOutput = oF.util.createBuffer(), this._partialBytes = 0, this._R = 3774873600
+  };
+  Z5.gcm.prototype.start = function(A) {
+    if (!("iv" in A)) throw Error("Invalid IV parameter.");
+    var Q = oF.util.createBuffer(A.iv);
+    this._cipherLength = 0;
+    var B;
+    if ("additionalData" in A) B = oF.util.createBuffer(A.additionalData);
+    else B = oF.util.createBuffer();
+    if ("tagLength" in A) this._tagLength = A.tagLength;
+    else this._tagLength = 128;
+    if (this._tag = null, A.decrypt) {
+      if (this._tag = oF.util.createBuffer(A.tag).getBytes(), this._tag.length !== this._tagLength / 8) throw Error("Authentication tag does not match tag length.")
+    }
+    this._hashBlock = Array(this._ints), this.tag = null, this._hashSubkey = Array(this._ints), this.cipher.encrypt([0, 0, 0, 0], this._hashSubkey), this.componentBits = 4, this._m = this.generateHashTable(this._hashSubkey, this.componentBits);
+    var G = Q.length();
+    if (G === 12) this._j0 = [Q.getInt32(), Q.getInt32(), Q.getInt32(), 1];
+    else {
+      this._j0 = [0, 0, 0, 0];
+      while (Q.length() > 0) this._j0 = this.ghash(this._hashSubkey, this._j0, [Q.getInt32(), Q.getInt32(), Q.getInt32(), Q.getInt32()]);
+      this._j0 = this.ghash(this._hashSubkey, this._j0, [0, 0].concat(EA0(G * 8)))
+    }
+    this._inBlock = this._j0.slice(0), vB1(this._inBlock), this._partialBytes = 0, B = oF.util.createBuffer(B), this._aDataLength = EA0(B.length() * 8);
+    var Z = B.length() % this.blockSize;
+    if (Z) B.fillWithByte(0, this.blockSize - Z);
+    this._s = [0, 0, 0, 0];
+    while (B.length() > 0) this._s = this.ghash(this._hashSubkey, this._s, [B.getInt32(), B.getInt32(), B.getInt32(), B.getInt32()])
+  };
+  Z5.gcm.prototype.encrypt = function(A, Q, B) {
+    var G = A.length();
+    if (G === 0) return !0;
+    if (this.cipher.encrypt(this._inBlock, this._outBlock), this._partialBytes === 0 && G >= this.blockSize) {
+      for (var Z = 0; Z < this._ints; ++Z) Q.putInt32(this._outBlock[Z] ^= A.getInt32());
+      this._cipherLength += this.blockSize
+    } else {
+      var I = (this.blockSize - G) % this.blockSize;
+      if (I > 0) I = this.blockSize - I;
+      this._partialOutput.clear();
+      for (var Z = 0; Z < this._ints; ++Z) this._partialOutput.putInt32(A.getInt32() ^ this._outBlock[Z]);
+      if (I <= 0 || B) {
+        if (B) {
+          var Y = G % this.blockSize;
+          this._cipherLength += Y, this._partialOutput.truncate(this.blockSize - Y)
+        } else this._cipherLength += this.blockSize;
+        for (var Z = 0; Z < this._ints; ++Z) this._outBlock[Z] = this._partialOutput.getInt32();
+        this._partialOutput.read -= this.blockSize
+      }
+      if (this._partialBytes > 0) this._partialOutput.getBytes(this._partialBytes);
+      if (I > 0 && !B) return A.read -= this.blockSize, Q.putBytes(this._partialOutput.getBytes(I - this._partialBytes)), this._partialBytes = I, !0;
+      Q.putBytes(this._partialOutput.getBytes(G - this._partialBytes)), this._partialBytes = 0
+    }
+    this._s = this.ghash(this._hashSubkey, this._s, this._outBlock), vB1(this._inBlock)
+  };
+  Z5.gcm.prototype.decrypt = function(A, Q, B) {
+    var G = A.length();
+    if (G < this.blockSize && !(B && G > 0)) return !0;
+    this.cipher.encrypt(this._inBlock, this._outBlock), vB1(this._inBlock), this._hashBlock[0] = A.getInt32(), this._hashBlock[1] = A.getInt32(), this._hashBlock[2] = A.getInt32(), this._hashBlock[3] = A.getInt32(), this._s = this.ghash(this._hashSubkey, this._s, this._hashBlock);
+    for (var Z = 0; Z < this._ints; ++Z) Q.putInt32(this._outBlock[Z] ^ this._hashBlock[Z]);
+    if (G < this.blockSize) this._cipherLength += G % this.blockSize;
+    else this._cipherLength += this.blockSize
+  };
+  Z5.gcm.prototype.afterFinish = function(A, Q) {
+    var B = !0;
+    if (Q.decrypt && Q.overflow) A.truncate(this.blockSize - Q.overflow);
+    this.tag = oF.util.createBuffer();
+    var G = this._aDataLength.concat(EA0(this._cipherLength * 8));
+    this._s = this.ghash(this._hashSubkey, this._s, G);
+    var Z = [];
+    this.cipher.encrypt(this._j0, Z);
+    for (var I = 0; I < this._ints; ++I) this.tag.putInt32(this._s[I] ^ Z[I]);
+    if (this.tag.truncate(this.tag.length() % (this._tagLength / 8)), Q.decrypt && this.tag.bytes() !== this._tag) B = !1;
+    return B
+  };
+  Z5.gcm.prototype.multiply = function(A, Q) {
+    var B = [0, 0, 0, 0],
+      G = Q.slice(0);
+    for (var Z = 0; Z < 128; ++Z) {
+      var I = A[Z / 32 | 0] & 1 << 31 - Z % 32;
+      if (I) B[0] ^= G[0], B[1] ^= G[1], B[2] ^= G[2], B[3] ^= G[3];
+      this.pow(G, G)
+    }
+    return B
+  };
+  Z5.gcm.prototype.pow = function(A, Q) {
+    var B = A[3] & 1;
+    for (var G = 3; G > 0; --G) Q[G] = A[G] >>> 1 | (A[G - 1] & 1) << 31;
+    if (Q[0] = A[0] >>> 1, B) Q[0] ^= this._R
+  };
+  Z5.gcm.prototype.tableMultiply = function(A) {
+    var Q = [0, 0, 0, 0];
+    for (var B = 0; B < 32; ++B) {
+      var G = B / 8 | 0,
+        Z = A[G] >>> (7 - B % 8) * 4 & 15,
+        I = this._m[B][Z];
+      Q[0] ^= I[0], Q[1] ^= I[1], Q[2] ^= I[2], Q[3] ^= I[3]
+    }
+    return Q
+  };
+  Z5.gcm.prototype.ghash = function(A, Q, B) {
+    return Q[0] ^= B[0], Q[1] ^= B[1], Q[2] ^= B[2], Q[3] ^= B[3], this.tableMultiply(Q)
+  };
+  Z5.gcm.prototype.generateHashTable = function(A, Q) {
+    var B = 8 / Q,
+      G = 4 * B,
+      Z = 16 * B,
+      I = Array(Z);
+    for (var Y = 0; Y < Z; ++Y) {
+      var J = [0, 0, 0, 0],
+        W = Y / G | 0,
+        X = (G - 1 - Y % G) * Q;
+      J[W] = 1 << Q - 1 << X, I[Y] = this.generateSubHashTable(this.multiply(J, A), Q)
+    }
+    return I
+  };
+  Z5.gcm.prototype.generateSubHashTable = function(A, Q) {
+    var B = 1 << Q,
+      G = B >>> 1,
+      Z = Array(B);
+    Z[G] = A.slice(0);
+    var I = G >>> 1;
+    while (I > 0) this.pow(Z[2 * I], Z[I] = []), I >>= 1;
+    I = 2;
+    while (I < G) {
+      for (var Y = 1; Y < I; ++Y) {
+        var J = Z[I],
+          W = Z[Y];
+        Z[I + Y] = [J[0] ^ W[0], J[1] ^ W[1], J[2] ^ W[2], J[3] ^ W[3]]
+      }
+      I *= 2
+    }
+    Z[0] = [0, 0, 0, 0];
+    for (I = G + 1; I < B; ++I) {
+      var X = Z[I ^ G];
+      Z[I] = [A[0] ^ X[0], A[1] ^ X[1], A[2] ^ X[2], A[3] ^ X[3]]
     }
     return Z
+  };
+
+  function xB1(A, Q) {
+    if (typeof A === "string") A = oF.util.createBuffer(A);
+    if (oF.util.isArray(A) && A.length > 4) {
+      var B = A;
+      A = oF.util.createBuffer();
+      for (var G = 0; G < B.length; ++G) A.putByte(B[G])
+    }
+    if (A.length() < Q) throw Error("Invalid IV length; got " + A.length() + " bytes and expected " + Q + " bytes.");
+    if (!oF.util.isArray(A)) {
+      var Z = [],
+        I = Q / 4;
+      for (var G = 0; G < I; ++G) Z.push(A.getInt32());
+      A = Z
+    }
+    return A
   }
-  findOriginalOffset(A, B) {
-    if (A === 0) return 0;
-    if (A >= B.length) return this.text.length;
-    let Q = B.substring(0, A);
-    return this.text.normalize("NFC").indexOf(Q) + Q.length
+
+  function vB1(A) {
+    A[A.length - 1] = A[A.length - 1] + 1 & 4294967295
   }
-  measureWrappedText() {
-    let A = Hn(this.text, this.columns, {
-        hard: !0,
-        trim: !1
-      }),
-      B = [],
-      Q = 0,
-      I = -1,
-      G = A.split(`
-`);
-    for (let Z = 0; Z < G.length; Z++) {
-      let D = G[Z],
-        Y = (W) => Z === 0 || W > 0 && this.text[W - 1] === `
-`;
-      if (D.length === 0)
-        if (I = this.text.indexOf(`
-`, I + 1), I !== -1) {
-          let W = I,
-            J = !0;
-          B.push(new nz1(D, W, Y(W), !0))
-        } else {
-          let W = this.text.length;
-          B.push(new nz1(D, W, Y(W), !1))
+
+  function EA0(A) {
+    return [A / 4294967296 | 0, A & 4294967295]
+  }
+})
+// @from(Start 9127731, End 9133678)
+Zi = z((pPG, J62) => {
+  var lZ = B6();
+  yB1();
+  zA0();
+  x3();
+  J62.exports = lZ.aes = lZ.aes || {};
+  lZ.aes.startEncrypting = function(A, Q, B, G) {
+    var Z = bB1({
+      key: A,
+      output: B,
+      decrypt: !1,
+      mode: G
+    });
+    return Z.start(Q), Z
+  };
+  lZ.aes.createEncryptionCipher = function(A, Q) {
+    return bB1({
+      key: A,
+      output: null,
+      decrypt: !1,
+      mode: Q
+    })
+  };
+  lZ.aes.startDecrypting = function(A, Q, B, G) {
+    var Z = bB1({
+      key: A,
+      output: B,
+      decrypt: !0,
+      mode: G
+    });
+    return Z.start(Q), Z
+  };
+  lZ.aes.createDecryptionCipher = function(A, Q) {
+    return bB1({
+      key: A,
+      output: null,
+      decrypt: !0,
+      mode: Q
+    })
+  };
+  lZ.aes.Algorithm = function(A, Q) {
+    if (!wA0) I62();
+    var B = this;
+    B.name = A, B.mode = new Q({
+      blockSize: 16,
+      cipher: {
+        encrypt: function(G, Z) {
+          return $A0(B._w, G, Z, !1)
+        },
+        decrypt: function(G, Z) {
+          return $A0(B._w, G, Z, !0)
         }
-      else {
-        let W = D.normalize("NFC"),
-          J = this.text.normalize("NFC"),
-          F = J.indexOf(W, Q);
-        if (F === -1) throw console.log("Debug: Failed to find wrapped line in original text"), console.log("Debug: Current text:", D), console.log("Debug: Full original text:", this.text), console.log("Debug: Search offset:", Q), console.log("Debug: Wrapped text:", A), new Error("Failed to find wrapped line in original text");
-        let X = this.findOriginalOffset(F, J);
-        Q = F + W.length;
-        let V = X + D.length,
-          C = V < this.text.length && this.text[V] === `
-`;
-        if (C) I = V;
-        B.push(new nz1(D, X, Y(X), C))
       }
+    }), B._init = !1
+  };
+  lZ.aes.Algorithm.prototype.initialize = function(A) {
+    if (this._init) return;
+    var Q = A.key,
+      B;
+    if (typeof Q === "string" && (Q.length === 16 || Q.length === 24 || Q.length === 32)) Q = lZ.util.createBuffer(Q);
+    else if (lZ.util.isArray(Q) && (Q.length === 16 || Q.length === 24 || Q.length === 32)) {
+      B = Q, Q = lZ.util.createBuffer();
+      for (var G = 0; G < B.length; ++G) Q.putByte(B[G])
+    }
+    if (!lZ.util.isArray(Q)) {
+      B = Q, Q = [];
+      var Z = B.length();
+      if (Z === 16 || Z === 24 || Z === 32) {
+        Z = Z >>> 2;
+        for (var G = 0; G < Z; ++G) Q.push(B.getInt32())
+      }
+    }
+    if (!lZ.util.isArray(Q) || !(Q.length === 4 || Q.length === 6 || Q.length === 8)) throw Error("Invalid key parameter.");
+    var I = this.mode.name,
+      Y = ["CFB", "OFB", "CTR", "GCM"].indexOf(I) !== -1;
+    this._w = Y62(Q, A.decrypt && !Y), this._init = !0
+  };
+  lZ.aes._expandKey = function(A, Q) {
+    if (!wA0) I62();
+    return Y62(A, Q)
+  };
+  lZ.aes._updateBlock = $A0;
+  uIA("AES-ECB", lZ.cipher.modes.ecb);
+  uIA("AES-CBC", lZ.cipher.modes.cbc);
+  uIA("AES-CFB", lZ.cipher.modes.cfb);
+  uIA("AES-OFB", lZ.cipher.modes.ofb);
+  uIA("AES-CTR", lZ.cipher.modes.ctr);
+  uIA("AES-GCM", lZ.cipher.modes.gcm);
+
+  function uIA(A, Q) {
+    var B = function() {
+      return new lZ.aes.Algorithm(A, Q)
+    };
+    lZ.cipher.registerAlgorithm(A, B)
+  }
+  var wA0 = !1,
+    gIA = 4,
+    SE, UA0, Z62, Q1A, BP;
+
+  function I62() {
+    wA0 = !0, Z62 = [0, 1, 2, 4, 8, 16, 32, 64, 128, 27, 54];
+    var A = Array(256);
+    for (var Q = 0; Q < 128; ++Q) A[Q] = Q << 1, A[Q + 128] = Q + 128 << 1 ^ 283;
+    SE = Array(256), UA0 = Array(256), Q1A = [, , , , ], BP = [, , , , ];
+    for (var Q = 0; Q < 4; ++Q) Q1A[Q] = Array(256), BP[Q] = Array(256);
+    var B = 0,
+      G = 0,
+      Z, I, Y, J, W, X, V;
+    for (var Q = 0; Q < 256; ++Q) {
+      J = G ^ G << 1 ^ G << 2 ^ G << 3 ^ G << 4, J = J >> 8 ^ J & 255 ^ 99, SE[B] = J, UA0[J] = B, W = A[J], Z = A[B], I = A[Z], Y = A[I], X = W << 24 ^ J << 16 ^ J << 8 ^ (J ^ W), V = (Z ^ I ^ Y) << 24 ^ (B ^ Y) << 16 ^ (B ^ I ^ Y) << 8 ^ (B ^ Z ^ Y);
+      for (var F = 0; F < 4; ++F) Q1A[F][B] = X, BP[F][J] = V, X = X << 24 | X >>> 8, V = V << 24 | V >>> 8;
+      if (B === 0) B = G = 1;
+      else B = Z ^ A[A[A[Z ^ Y]]], G ^= A[A[G]]
+    }
+  }
+
+  function Y62(A, Q) {
+    var B = A.slice(0),
+      G, Z = 1,
+      I = B.length,
+      Y = I + 6 + 1,
+      J = gIA * Y;
+    for (var W = I; W < J; ++W) {
+      if (G = B[W - 1], W % I === 0) G = SE[G >>> 16 & 255] << 24 ^ SE[G >>> 8 & 255] << 16 ^ SE[G & 255] << 8 ^ SE[G >>> 24] ^ Z62[Z] << 24, Z++;
+      else if (I > 6 && W % I === 4) G = SE[G >>> 24] << 24 ^ SE[G >>> 16 & 255] << 16 ^ SE[G >>> 8 & 255] << 8 ^ SE[G & 255];
+      B[W] = B[W - I] ^ G
+    }
+    if (Q) {
+      var X, V = BP[0],
+        F = BP[1],
+        K = BP[2],
+        D = BP[3],
+        H = B.slice(0);
+      J = B.length;
+      for (var W = 0, C = J - gIA; W < J; W += gIA, C -= gIA)
+        if (W === 0 || W === J - gIA) H[W] = B[C], H[W + 1] = B[C + 3], H[W + 2] = B[C + 2], H[W + 3] = B[C + 1];
+        else
+          for (var E = 0; E < gIA; ++E) X = B[C + E], H[W + (3 & -E)] = V[SE[X >>> 24]] ^ F[SE[X >>> 16 & 255]] ^ K[SE[X >>> 8 & 255]] ^ D[SE[X & 255]];
+      B = H
     }
     return B
   }
-  getWrappedText() {
-    return this.wrappedLines.map((A) => A.isPrecededByNewline ? A.text : A.text.trimStart())
+
+  function $A0(A, Q, B, G) {
+    var Z = A.length / 4 - 1,
+      I, Y, J, W, X;
+    if (G) I = BP[0], Y = BP[1], J = BP[2], W = BP[3], X = UA0;
+    else I = Q1A[0], Y = Q1A[1], J = Q1A[2], W = Q1A[3], X = SE;
+    var V, F, K, D, H, C, E;
+    V = Q[0] ^ A[0], F = Q[G ? 3 : 1] ^ A[1], K = Q[2] ^ A[2], D = Q[G ? 1 : 3] ^ A[3];
+    var U = 3;
+    for (var q = 1; q < Z; ++q) H = I[V >>> 24] ^ Y[F >>> 16 & 255] ^ J[K >>> 8 & 255] ^ W[D & 255] ^ A[++U], C = I[F >>> 24] ^ Y[K >>> 16 & 255] ^ J[D >>> 8 & 255] ^ W[V & 255] ^ A[++U], E = I[K >>> 24] ^ Y[D >>> 16 & 255] ^ J[V >>> 8 & 255] ^ W[F & 255] ^ A[++U], D = I[D >>> 24] ^ Y[V >>> 16 & 255] ^ J[F >>> 8 & 255] ^ W[K & 255] ^ A[++U], V = H, F = C, K = E;
+    B[0] = X[V >>> 24] << 24 ^ X[F >>> 16 & 255] << 16 ^ X[K >>> 8 & 255] << 8 ^ X[D & 255] ^ A[++U], B[G ? 3 : 1] = X[F >>> 24] << 24 ^ X[K >>> 16 & 255] << 16 ^ X[D >>> 8 & 255] << 8 ^ X[V & 255] ^ A[++U], B[2] = X[K >>> 24] << 24 ^ X[D >>> 16 & 255] << 16 ^ X[V >>> 8 & 255] << 8 ^ X[F & 255] ^ A[++U], B[G ? 1 : 3] = X[D >>> 24] << 24 ^ X[V >>> 16 & 255] << 16 ^ X[F >>> 8 & 255] << 8 ^ X[K & 255] ^ A[++U]
   }
-  getWrappedLines() {
-    return this.wrappedLines
+
+  function bB1(A) {
+    A = A || {};
+    var Q = (A.mode || "CBC").toUpperCase(),
+      B = "AES-" + Q,
+      G;
+    if (A.decrypt) G = lZ.cipher.createDecipher(B, A.key);
+    else G = lZ.cipher.createCipher(B, A.key);
+    var Z = G.start;
+    return G.start = function(I, Y) {
+      var J = null;
+      if (Y instanceof lZ.util.ByteBuffer) J = Y, Y = {};
+      Y = Y || {}, Y.output = J, Y.iv = I, Z.call(G, Y)
+    }, G
   }
-  getLine(A) {
-    return this.wrappedLines[Math.max(0, Math.min(A, this.wrappedLines.length - 1))]
-  }
-  getOffsetFromPosition(A) {
-    let B = this.getLine(A.line);
-    if (B.text.length === 0 && B.endsWithNewline) return B.startOffset;
-    let Q = B.isPrecededByNewline ? 0 : B.text.length - B.text.trimStart().length,
-      I = A.column + Q,
-      G = this.displayWidthToStringIndex(B.text, I),
-      Z = B.startOffset + G,
-      D = B.startOffset + B.text.length,
-      Y = D;
-    if (B.endsWithNewline && A.column > B.text.length) Y = D + 1;
-    return Math.min(Z, Y)
-  }
-  getLineLength(A) {
-    return this.getLine(A).text.length
-  }
-  getPositionFromOffset(A) {
-    let B = this.wrappedLines;
-    for (let G = 0; G < B.length; G++) {
-      let Z = B[G],
-        D = B[G + 1];
-      if (A >= Z.startOffset && (!D || A < D.startOffset)) {
-        let Y = A - Z.startOffset,
-          W;
-        if (Z.isPrecededByNewline) W = this.stringIndexToDisplayWidth(Z.text, Y);
-        else {
-          let J = Z.text.length - Z.text.trimStart().length;
-          if (Y < J) W = 0;
-          else {
-            let F = Z.text.trimStart(),
-              X = Y - J;
-            W = this.stringIndexToDisplayWidth(F, X)
-          }
-        }
-        return {
-          line: G,
-          column: Math.max(0, W)
-        }
-      }
-    }
-    let Q = B.length - 1,
-      I = this.wrappedLines[Q];
-    return {
-      line: Q,
-      column: vA1.default(I.text)
-    }
-  }
-  get lineCount() {
-    return this.wrappedLines.length
-  }
-  equals(A) {
-    return this.text === A.text && this.columns === A.columns
-  }
-}
-// @from(Start 9694093, End 9694497)
-function xz5() {
-  let A = process.platform,
-    B = {
-      darwin: "No image found in clipboard. Use Cmd + Ctrl + Shift + 4 to copy a screenshot to clipboard.",
-      win32: "No image found in clipboard. Use Print Screen to copy a screenshot to clipboard.",
-      linux: "No image found in clipboard. Use appropriate screenshot tool to copy a screenshot to clipboard."
-    };
-  return B[A] || B.linux
-}
-// @from(Start 9694502, End 9694513)
-WT2 = xz5()
-// @from(Start 9694519, End 9694528)
-sz1 = 800
-// @from(Start 9694531, End 9696082)
-function JT2() {
-  let A = process.platform,
-    B = {
-      darwin: "/tmp/claude_cli_latest_screenshot.png",
-      linux: "/tmp/claude_cli_latest_screenshot.png",
-      win32: process.env.TEMP ? `${process.env.TEMP}\\claude_cli_latest_screenshot.png` : "C:\\Temp\\claude_cli_latest_screenshot.png"
-    },
-    Q = B[A] || B.linux,
-    I = {
-      darwin: {
-        checkImage: "osascript -e 'the clipboard as «class PNGf»'",
-        saveImage: `osascript -e 'set png_data to (the clipboard as «class PNGf»)' -e 'set fp to open for access POSIX file "${Q}" with write permission' -e 'write png_data to fp' -e 'close access fp'`,
-        getPath: "osascript -e 'get POSIX path of (the clipboard as «class furl»)'",
-        deleteFile: `rm -f "${Q}"`
-      },
-      linux: {
-        checkImage: 'xclip -selection clipboard -t TARGETS -o | grep -E "image/(png|jpeg|jpg|gif|webp)"',
-        saveImage: `xclip -selection clipboard -t image/png -o > "${Q}" || wl-paste --type image/png > "${Q}"`,
-        getPath: "xclip -selection clipboard -t text/plain -o",
-        deleteFile: `rm -f "${Q}"`
-      },
-      win32: {
-        checkImage: 'powershell -Command "(Get-Clipboard -Format Image) -ne $null"',
-        saveImage: `powershell -Command "$img = Get-Clipboard -Format Image; if ($img) { $img.Save('${Q.replace(/\\/g,"\\\\")}', [System.Drawing.Imaging.ImageFormat]::Png) }"`,
-        getPath: 'powershell -Command "Get-Clipboard"',
-        deleteFile: `del /f "${Q}"`
-      }
-    };
-  return {
-    commands: I[A] || I.linux,
-    screenshotPath: Q
-  }
-}
-// @from(Start 9696083, End 9696571)
-async function FT2() {
-  let {
-    commands: A,
-    screenshotPath: B
-  } = JT2();
-  try {
-    az1(A.checkImage, {
-      stdio: "ignore"
-    }), az1(A.saveImage, {
-      stdio: "ignore"
-    });
-    let Q = x1().readFileBytesSync(B),
-      {
-        buffer: I
-      } = await Y11(Q, Q.length, "png"),
-      G = I.toString("base64"),
-      Z = VT2(G);
-    return az1(A.deleteFile, {
-      stdio: "ignore"
-    }), {
-      base64: G,
-      mediaType: Z
-    }
-  } catch {
-    return null
-  }
-}
-// @from(Start 9696573, End 9696745)
-function fz5() {
-  let {
-    commands: A
-  } = JT2();
-  try {
-    return az1(A.getPath, {
-      encoding: "utf-8"
-    }).trim()
-  } catch (B) {
-    return b1(B), null
-  }
-}
-// @from(Start 9696750, End 9696782)
-XT2 = /\.(png|jpe?g|gif|webp)$/i
-// @from(Start 9696785, End 9697369)
-function VT2(A) {
-  try {
-    let B = Buffer.from(A, "base64");
-    if (B.length < 4) return "image/png";
-    if (B[0] === 137 && B[1] === 80 && B[2] === 78 && B[3] === 71) return "image/png";
-    if (B[0] === 255 && B[1] === 216 && B[2] === 255) return "image/jpeg";
-    if (B[0] === 71 && B[1] === 73 && B[2] === 70) return "image/gif";
-    if (B[0] === 82 && B[1] === 73 && B[2] === 70 && B[3] === 70) {
-      if (B.length >= 12 && B[8] === 87 && B[9] === 69 && B[10] === 66 && B[11] === 80) return "image/webp"
-    }
-    return "image/png"
-  } catch {
-    return "image/png"
-  }
-}
-// @from(Start 9697371, End 9697508)
-function CT2(A) {
-  if (A.startsWith('"') && A.endsWith('"') || A.startsWith("'") && A.endsWith("'")) return A.slice(1, -1);
-  return A
-}
-// @from(Start 9697510, End 9697698)
-function KT2(A) {
-  if (process.platform === "win32") return A;
-  let Q = "__DOUBLE_BACKSLASH__";
-  return A.replace(/\\\\/g, Q).replace(/\\(.)/g, "$1").replace(new RegExp(Q, "g"), "\\")
-}
-// @from(Start 9697700, End 9697781)
-function nAA(A) {
-  let B = CT2(A.trim()),
-    Q = KT2(B);
-  return XT2.test(Q)
-}
-// @from(Start 9697783, End 9697886)
-function vz5(A) {
-  let B = CT2(A.trim()),
-    Q = KT2(B);
-  if (XT2.test(Q)) return Q;
-  return null
-}
-// @from(Start 9697887, End 9698404)
-async function HT2(A) {
-  let B = vz5(A);
-  if (!B) return null;
-  let Q = B,
-    I;
-  try {
-    if (kz5(Q)) I = x1().readFileBytesSync(Q);
-    else {
-      let W = fz5();
-      if (W && Q === jz5(W)) I = x1().readFileBytesSync(W)
-    }
-  } catch (W) {
-    return b1(W), null
-  }
-  if (!I) return null;
-  let G = yz5(Q).slice(1).toLowerCase() || "png",
-    {
-      buffer: Z
-    } = await Y11(I, I.length, G),
-    D = Z.toString("base64"),
-    Y = VT2(D);
-  return {
-    path: Q,
-    base64: D,
-    mediaType: Y
-  }
-}
-// @from(Start 9698582, End 9698598)
-a8 = I1(U1(), 1)
-// @from(Start 9698681, End 9698698)
-oz1 = I1(U1(), 1)
-// @from(Start 9698704, End 9698722)
-zT2 = I1(I1A(), 1)
-// @from(Start 9698725, End 9698861)
-function wT2() {
-  return ET2().filter(({
-    isCompletable: A,
-    isEnabled: B
-  }) => A && B).every(({
-    isComplete: A
-  }) => A)
-}
-// @from(Start 9698863, End 9699003)
-function ou() {
-  let A = m9();
-  if (wT2() && !A.hasCompletedProjectOnboarding) B5({
-    ...A,
-    hasCompletedProjectOnboarding: !0
-  })
-}
-// @from(Start 9699005, End 9700304)
-function ET2() {
-  let A = x1().existsSync(bz5(dA(), "CLAUDE.md")),
-    B = WvA(dA());
-  return [{
-    key: "workspace",
-    text: a8.createElement(P, {
-      color: "secondaryText"
-    }, "Ask Claude to create a new app or clone a repository"),
-    isComplete: !1,
-    isCompletable: !0,
-    isEnabled: B
-  }, {
-    key: "claudemd",
-    text: a8.createElement(P, {
-      color: "secondaryText"
-    }, "Run /init to create a CLAUDE.md file with instructions for Claude"),
-    isComplete: A,
-    isCompletable: !0,
-    isEnabled: !B
-  }, {
-    key: "terminal",
-    text: a8.createElement(P, {
-      color: "secondaryText"
-    }, "Run /terminal-setup to set up terminal integration"),
-    isComplete: Boolean(ZA().shiftEnterKeyBindingInstalled || ZA().optionAsMetaKeyInstalled),
-    isCompletable: !0,
-    isEnabled: LE.isEnabled()
-  }, {
-    key: "questions",
-    text: a8.createElement(P, {
-      color: "secondaryText"
-    }, "Use Claude to help with file analysis, editing, bash commands and git"),
-    isComplete: !1,
-    isCompletable: !1,
-    isEnabled: !0
-  }, {
-    key: "changes",
-    text: a8.createElement(P, {
-      color: "secondaryText"
-    }, "Be as specific as you would with another engineer for the best results"),
-    isComplete: !1,
-    isCompletable: !1,
-    isEnabled: !0
-  }]
-}
-// @from(Start 9700309, End 9700416)
-rz1 = zT2.memoize(() => {
-  return !wT2() && m9().projectOnboardingSeenCount < 4 && !process.env.IS_DEMO
 })
-// @from(Start 9700419, End 9701431)
-function aAA() {
-  let A = oz1.useMemo(ET2, []);
-  if (oz1.useEffect(() => {
-      if (!rz1()) return;
-      let B = m9();
-      B5({
-        ...B,
-        projectOnboardingSeenCount: B.projectOnboardingSeenCount + 1
-      })
-    }, []), !rz1()) return null;
-  return a8.createElement(h, {
-    flexDirection: "column",
-    gap: 1,
-    paddingX: 1
-  }, a8.createElement(P, {
-    color: "secondaryText"
-  }, "Tips for getting started:"), a8.createElement(rL, null, A.filter(({
-    isEnabled: B
-  }) => B).sort((B, Q) => Number(B.isComplete) - Number(Q.isComplete)).map(({
-    key: B,
-    text: Q,
-    isComplete: I
-  }) => a8.createElement(rL.Item, {
-    key: B
-  }, a8.createElement(P, null, I ? a8.createElement(P, {
-    color: "success"
-  }, A0.tick, " ") : "", Q)))), dA() === gz5() && a8.createElement(P, {
-    color: "warning"
-  }, "Note: You have launched ", a8.createElement(P, {
-    bold: !0
-  }, "claude"), " in your home directory. For the best experience, launch it in a project directory instead."))
-}
-// @from(Start 9701510, End 9701621)
-function dz5(A) {
-  let B = ZA();
-  B.appleTerminalSetupInProgress = !0, B.appleTerminalBackupPath = A, j0(B)
-}
-// @from(Start 9701623, End 9701702)
-function bA1() {
-  let A = ZA();
-  A.appleTerminalSetupInProgress = !1, j0(A)
-}
-// @from(Start 9701704, End 9701857)
-function uz5() {
-  let A = ZA();
-  return {
-    inProgress: A.appleTerminalSetupInProgress ?? !1,
-    backupPath: A.appleTerminalBackupPath || null
-  }
-}
-// @from(Start 9701859, End 9701950)
-function tu() {
-  return mz5(hz5(), "Library", "Preferences", "com.apple.Terminal.plist")
-}
-// @from(Start 9701951, End 9702348)
-async function UT2() {
-  let A = tu(),
-    B = `${A}.bak`;
-  try {
-    let {
-      code: Q
-    } = await u0("defaults", ["export", "com.apple.Terminal", A]);
-    if (Q !== 0) return null;
-    if (x1().existsSync(A)) return await u0("defaults", ["export", "com.apple.Terminal", B]), dz5(B), B;
-    return null
-  } catch (Q) {
-    return b1(Q instanceof Error ? Q : new Error(String(Q))), null
-  }
-}
-// @from(Start 9702349, End 9702978)
-async function tz1() {
-  let {
-    inProgress: A,
-    backupPath: B
-  } = uz5();
-  if (!A) return {
-    status: "no_backup"
-  };
-  if (!B || !x1().existsSync(B)) return bA1(), {
-    status: "no_backup"
-  };
-  try {
-    let {
-      code: Q
-    } = await u0("defaults", ["import", "com.apple.Terminal", B]);
-    if (Q !== 0) return {
-      status: "failed",
-      backupPath: B
-    };
-    return await u0("killall", ["cfprefsd"]), bA1(), {
-      status: "restored"
-    }
-  } catch (Q) {
-    return b1(new Error(`Failed to restore Terminal.app settings with: ${Q}`)), bA1(), {
-      status: "failed",
-      backupPath: B
-    }
-  }
-}
-// @from(Start 9703057, End 9703154)
-function lz5(A) {
-  let B = ZA();
-  B.iterm2SetupInProgress = !0, B.iterm2BackupPath = A, j0(B)
-}
-// @from(Start 9703156, End 9703227)
-function eu() {
-  let A = ZA();
-  A.iterm2SetupInProgress = !1, j0(A)
-}
-// @from(Start 9703229, End 9703368)
-function iz5() {
-  let A = ZA();
-  return {
-    inProgress: A.iterm2SetupInProgress ?? !1,
-    backupPath: A.iterm2BackupPath || null
-  }
-}
-// @from(Start 9703370, End 9703465)
-function ez1() {
-  return cz5(pz5(), "Library", "Preferences", "com.googlecode.iterm2.plist")
-}
-// @from(Start 9703466, End 9703771)
-async function NT2() {
-  let A = ez1(),
-    B = `${A}.bak`;
-  try {
-    if (await u0("defaults", ["export", "com.googlecode.iterm2", A]), x1().existsSync(A)) return x1().copyFileSync(A, B), lz5(B), B;
-    return null
-  } catch (Q) {
-    return b1(Q instanceof Error ? Q : new Error(String(Q))), null
-  }
-}
-// @from(Start 9703773, End 9704213)
-function $T2() {
-  let {
-    inProgress: A,
-    backupPath: B
-  } = iz5();
-  if (!A) return {
-    status: "no_backup"
-  };
-  if (!B || !x1().existsSync(B)) return eu(), {
-    status: "no_backup"
-  };
-  try {
-    return x1().copyFileSync(B, ez1()), eu(), {
-      status: "restored"
-    }
-  } catch (Q) {
-    return b1(new Error(`Failed to restore iTerm2 settings with: ${Q}`)), eu(), {
-      status: "failed",
-      backupPath: B
-    }
-  }
-}
-// @from(Start 9704218, End 9704586)
-az5 = {
-  type: "local",
-  name: "terminal-setup",
-  userFacingName() {
-    return "terminal-setup"
-  },
-  description: mA.terminal === "Apple_Terminal" ? "Enable Option+Enter key binding for newlines and visual bell" : "Install Shift+Enter key binding for newlines",
-  isEnabled: () => gA1(),
-  isHidden: !1,
-  async call(A, B) {
-    return oAA(B.options.theme)
-  }
-}
-// @from(Start 9704589, End 9704819)
-function gA1() {
-  return Aw1() === "darwin" && (mA.terminal === "iTerm.app" || mA.terminal === "Apple_Terminal") || mA.terminal === "vscode" || mA.terminal === "cursor" || mA.terminal === "windsurf" || mA.terminal === "ghostty"
-}
-// @from(Start 9704820, End 9705527)
-async function oAA(A) {
-  let B = "";
-  switch (mA.terminal) {
-    case "iTerm.app":
-      B = await rz5(A);
-      break;
-    case "Apple_Terminal":
-      B = await oz5(A);
-      break;
-    case "vscode":
-      B = sAA("VSCode", A);
-      break;
-    case "cursor":
-      B = sAA("Cursor", A);
-      break;
-    case "windsurf":
-      B = sAA("Windsurf", A);
-      break;
-    case "ghostty":
-      B = await sz5(A);
-      break;
-    case null:
-      break
-  }
-  let Q = ZA();
-  if (["iTerm.app", "vscode", "cursor", "windsurf", "ghostty"].includes(mA.terminal ?? "")) Q.shiftEnterKeyBindingInstalled = !0;
-  else if (mA.terminal === "Apple_Terminal") Q.optionAsMetaKeyInstalled = !0;
-  return j0(Q), ou(), B
-}
-// @from(Start 9705529, End 9705598)
-function RT2() {
-  return ZA().shiftEnterKeyBindingInstalled === !0
-}
-// @from(Start 9705600, End 9705664)
-function OT2() {
-  return ZA().optionAsMetaKeyInstalled === !0
-}
-// @from(Start 9705666, End 9705728)
-function TT2() {
-  return ZA().hasUsedBackslashReturn === !0
-}
-// @from(Start 9705730, End 9705848)
-function PT2() {
-  let A = ZA();
-  if (!A.hasUsedBackslashReturn) j0({
-    ...A,
-    hasUsedBackslashReturn: !0
-  })
-}
-// @from(Start 9705849, End 9707552)
-async function sz5(A) {
-  let Q = [],
-    I = process.env.XDG_CONFIG_HOME;
-  if (I) Q.push(ZT(I, "ghostty", "config"));
-  else Q.push(ZT(rAA(), ".config", "ghostty", "config"));
-  if (Aw1() === "darwin") Q.push(ZT(rAA(), "Library", "Application Support", "com.mitchellh.ghostty", "config"));
-  let G = null,
-    Z = !1;
-  for (let D of Q)
-    if (x1().existsSync(D)) {
-      G = D, Z = !0;
-      break
-    } if (!G) G = Q[0] ?? null, Z = !1;
-  if (!G) throw new Error("No valid config path found for Ghostty");
-  try {
-    let D = "";
-    if (Z) {
-      if (D = x1().readFileSync(G, {
-          encoding: "utf-8"
-        }), D.includes("shift+enter")) return `${V9("warning",A)}(
-          'Found existing Ghostty Shift+Enter key binding. Remove it to continue.',
-        )}${GQ}${UA.dim(`See ${G}`)}${GQ}`;
-      let W = LT2(4).toString("hex"),
-        J = `${G}.${W}.bak`;
-      try {
-        x1().copyFileSync(G, J)
-      } catch {
-        return `${V9("warning",A)("Error backing up existing Ghostty config. Bailing out.")}${GQ}${UA.dim(`See ${G}`)}${GQ}${UA.dim(`Backup path: ${J}`)}${GQ}`
-      }
-    } else {
-      let W = nz5(G);
-      if (!x1().existsSync(W)) x1().mkdirSync(W)
-    }
-    let Y = D;
-    if (D && !D.endsWith(`
-`)) Y += `
-`;
-    return Y += `keybind = shift+enter=text:\\n
-`, x1().writeFileSync(G, Y, {
-      encoding: "utf-8",
-      flush: !1
-    }), `${V9("success",A)("Installed Ghostty Shift+Enter key binding")}${GQ}${V9("success",A)("You may need to restart Ghostty for changes to take effect")}${GQ}${UA.dim(`See ${G}`)}${GQ}`
-  } catch (D) {
-    throw b1(D instanceof Error ? D : new Error(String(D))), new Error("Failed to install Ghostty Shift+Enter key binding")
-  }
-}
-// @from(Start 9707553, End 9709056)
-async function rz5(A) {
-  let B = ez1();
-  try {
-    if (!await NT2()) throw new Error("Failed to create backup of iTerm2 preferences, bailing out");
-    let {
-      code: I
-    } = await u0("defaults", ["write", "com.googlecode.iterm2", "GlobalKeyMap", "-dict-add", "0xd-0x20000-0x24", `<dict>
-        <key>Text</key>
-        <string>\\n</string>
-        <key>Action</key>
-        <integer>12</integer>
-        <key>Version</key>
-        <integer>1</integer>
-        <key>Keycode</key>
-        <integer>13</integer>
-        <key>Modifiers</key>
-        <integer>131072</integer>
-      </dict>`]);
-    if (I !== 0) throw new Error("Failed to install iTerm2 Shift+Enter key binding");
-    return await u0("defaults", ["export", "com.googlecode.iterm2", B]), eu(), `${V9("success",A)("Installed iTerm2 Shift+Enter key binding")}${GQ}${UA.dim("See iTerm2 → Preferences → Keys")}${GQ}`
-  } catch (Q) {
-    b1(Q instanceof Error ? Q : new Error(String(Q)));
-    let I = ZA().iterm2BackupPath,
-      G = !1;
-    if (I && x1().existsSync(I)) try {
-      await u0("defaults", ["import", "com.googlecode.iterm2", I]), G = !0, eu()
-    } catch (Z) {
-      b1(new Error(`Failed to restore from backup: ${String(Z)}`))
-    }
-    throw new Error(`Failed to install iTerm2 Shift+Enter key binding. ${G?"Your settings have been restored from backup.":I&&x1().existsSync(I)?`Restoring from backup failed, try manually with: defaults import com.googlecode.iterm2 ${I}`:"No backup was available to restore from."}`)
-  }
-}
-// @from(Start 9709058, End 9710657)
-function sAA(A = "VSCode", B) {
-  let Q = A === "VSCode" ? "Code" : A,
-    I = ZT(rAA(), Aw1() === "win32" ? ZT("AppData", "Roaming", Q, "User") : Aw1() === "darwin" ? ZT("Library", "Application Support", Q, "User") : ZT(".config", Q, "User")),
-    G = ZT(I, "keybindings.json");
-  try {
-    let Z = "[]",
-      D = [];
-    if (!x1().existsSync(I)) x1().mkdirSync(I);
-    if (x1().existsSync(G)) {
-      Z = x1().readFileSync(G, {
-        encoding: "utf-8"
-      }), D = EvA(Z) ?? [];
-      let F = LT2(4).toString("hex"),
-        X = `${G}.${F}.bak`;
-      try {
-        x1().copyFileSync(G, X)
-      } catch {
-        return `${V9("warning",B)(`Error backing up existing ${A} terminal keybindings. Bailing out.`)}${GQ}${UA.dim(`See ${G}`)}${GQ}${UA.dim(`Backup path: ${X}`)}${GQ}`
-      }
-    }
-    if (D.find((F) => F.key === "shift+enter" && F.command === "workbench.action.terminal.sendSequence" && F.when === "terminalFocus")) return `${V9("warning",B)(`Found existing ${A} terminal Shift+Enter key binding. Remove it to continue.`)}${GQ}${UA.dim(`See ${G}`)}${GQ}`;
-    let J = UvA(Z, {
-      key: "shift+enter",
-      command: "workbench.action.terminal.sendSequence",
-      args: {
-        text: `\\\r
-`
-      },
-      when: "terminalFocus"
-    });
-    return x1().writeFileSync(G, J, {
-      encoding: "utf-8",
-      flush: !1
-    }), `${V9("success",B)(`Installed ${A} terminal Shift+Enter key binding`)}${GQ}${UA.dim(`See ${G}`)}${GQ}`
-  } catch (Z) {
-    throw b1(Z instanceof Error ? Z : new Error(String(Z))), new Error(`Failed to install ${A} terminal Shift+Enter key binding`)
-  }
-}
-// @from(Start 9710658, End 9711107)
-async function qT2(A) {
-  let {
-    code: B
-  } = await u0("/usr/libexec/PlistBuddy", ["-c", `Add :'Window Settings':'${A}':useOptionAsMetaKey bool true`, tu()]);
-  if (B !== 0) {
-    let {
-      code: Q
-    } = await u0("/usr/libexec/PlistBuddy", ["-c", `Set :'Window Settings':'${A}':useOptionAsMetaKey true`, tu()]);
-    if (Q !== 0) return b1(new Error(`Failed to enable Option as Meta key for Terminal.app profile: ${A}`)), !1
-  }
-  return !0
-}
-// @from(Start 9711108, End 9711524)
-async function MT2(A) {
-  let {
-    code: B
-  } = await u0("/usr/libexec/PlistBuddy", ["-c", `Add :'Window Settings':'${A}':Bell bool false`, tu()]);
-  if (B !== 0) {
-    let {
-      code: Q
-    } = await u0("/usr/libexec/PlistBuddy", ["-c", `Set :'Window Settings':'${A}':Bell false`, tu()]);
-    if (Q !== 0) return b1(new Error(`Failed to disable audio bell for Terminal.app profile: ${A}`)), !1
-  }
-  return !0
-}
-// @from(Start 9711525, End 9713334)
-async function oz5(A) {
-  try {
-    if (!await UT2()) throw new Error("Failed to create backup of Terminal.app preferences, bailing out");
-    let {
-      stdout: Q,
-      code: I
-    } = await u0("defaults", ["read", "com.apple.Terminal", "Default Window Settings"]);
-    if (I !== 0 || !Q.trim()) throw new Error("Failed to read default Terminal.app profile");
-    let {
-      stdout: G,
-      code: Z
-    } = await u0("defaults", ["read", "com.apple.Terminal", "Startup Window Settings"]);
-    if (Z !== 0 || !G.trim()) throw new Error("Failed to read startup Terminal.app profile");
-    let D = !1,
-      Y = Q.trim(),
-      W = await qT2(Y),
-      J = await MT2(Y);
-    if (W || J) D = !0;
-    let F = G.trim();
-    if (F !== Y) {
-      let X = await qT2(F),
-        V = await MT2(F);
-      if (X || V) D = !0
-    }
-    if (!D) throw new Error("Failed to enable Option as Meta key or disable audio bell for any Terminal.app profile");
-    return await u0("killall", ["cfprefsd"]), bA1(), `${V9("success",A)("Configured Terminal.app settings:")}${GQ}${V9("success",A)('- Enabled "Use Option as Meta key"')}${GQ}${V9("success",A)("- Switched to visual bell")}${GQ}${UA.dim("Option+Enter will now enter a newline.")}${GQ}${UA.dim("You must restart Terminal.app for changes to take effect.",A)}${GQ}`
-  } catch (B) {
-    b1(B instanceof Error ? B : new Error(String(B)));
-    let Q = await tz1(),
-      I = "Failed to enable Option as Meta key for Terminal.app.";
-    if (Q.status === "restored") throw new Error(`${I} Your settings have been restored from backup.`);
-    else if (Q.status === "failed") throw new Error(`${I} Restoring from backup failed, try manually with: defaults import com.apple.Terminal ${Q.backupPath}`);
-    else throw new Error(`${I} No backup was available to restore from.`)
-  }
-}
-// @from(Start 9713339, End 9713347)
-LE = az5
-// @from(Start 9713350, End 9713444)
-function ST2(A) {
-  return function(B) {
-    return (new Map(A).get(B) ?? (() => {}))(B)
-  }
-}
-// @from(Start 9713446, End 9717901)
-function Bw1({
-  value: A,
-  onChange: B,
-  onSubmit: Q,
-  onExit: I,
-  onExitMessage: G,
-  onMessage: Z,
-  onHistoryUp: D,
-  onHistoryDown: Y,
-  onHistoryReset: W,
-  mask: J = "",
-  multiline: F = !1,
-  cursorChar: X,
-  invert: V,
-  columns: C,
-  onImagePaste: K,
-  disableCursorMovementForUpDownKeys: E = !1,
-  externalOffset: N,
-  onOffsetChange: q,
-  inputFilter: O
-}) {
-  let R = N,
-    T = q,
-    L = T5.fromText(A, C, R),
-    [_, k] = _T2.useState(null);
-
-  function i() {
-    if (!_) return;
-    clearTimeout(_), k(null), Z?.(!1)
-  }
-  let x = $N((k1) => {
-      i(), G?.(k1, "Ctrl-C")
-    }, () => I?.(), () => {
-      if (A) B(""), W?.()
-    }),
-    s = $N((k1) => {
-      i(), Z?.(!!A && k1, "Press Escape again to clear")
-    }, () => {
-      if (A) B("")
-    });
-
-  function d() {
-    if (A.trim() !== "") GT(A), W?.();
-    return T5.fromText("", C, 0)
-  }
-  let F1 = $N((k1) => {
-    if (A !== "") return;
-    G?.(k1, "Ctrl-D")
-  }, () => {
-    if (A !== "") return;
-    I?.()
-  });
-
-  function X1() {
-    if (i(), L.text === "") return F1(), L;
-    return L.del()
-  }
-
-  function v(k1) {
-    if (k1 === null) {
-      if (process.platform !== "darwin") return L;
-      return Z?.(!0, WT2), i(), k(setTimeout(() => {
-        Z?.(!1)
-      }, 4000)), L
-    }
-    return K?.(k1.base64, k1.mediaType), L
-  }
-  let D1 = ST2([
-      ["a", () => L.startOfLine()],
-      ["b", () => L.left()],
-      ["c", x],
-      ["d", X1],
-      ["e", () => L.endOfLine()],
-      ["f", () => L.right()],
-      ["h", () => L.backspace()],
-      ["k", () => L.deleteToLineEnd()],
-      ["l", () => d()],
-      ["n", () => YA()],
-      ["p", () => d1()],
-      ["u", () => L.deleteToLineStart()],
-      ["v", () => {
-        return FT2().then((k1) => {
-          v(k1)
-        }), L
-      }],
-      ["w", () => L.deleteWordBefore()]
-    ]),
-    N1 = ST2([
-      ["b", () => L.prevWord()],
-      ["f", () => L.nextWord()],
-      ["d", () => L.deleteWordAfter()]
-    ]);
-
-  function u1(k1) {
-    if (F && L.offset > 0 && L.text[L.offset - 1] === "\\") return PT2(), L.backspace().insert(`
-`);
-    if (k1.meta) return L.insert(`
-`);
-    Q?.(A)
-  }
-
-  function d1() {
-    if (E) return D?.(), L;
-    let k1 = L.up();
-    if (!k1.equals(L)) return k1;
-    if (F) {
-      let Q1 = L.upLogicalLine();
-      if (!Q1.equals(L)) return Q1
-    }
-    return D?.(), L
-  }
-
-  function YA() {
-    if (E) return Y?.(), L;
-    let k1 = L.down();
-    if (!k1.equals(L)) return k1;
-    if (F) {
-      let Q1 = L.downLogicalLine();
-      if (!Q1.equals(L)) return Q1
-    }
-    return Y?.(), L
-  }
-
-  function bA(k1) {
-    switch (!0) {
-      case k1.escape:
-        return s;
-      case (k1.leftArrow && (k1.ctrl || k1.meta || k1.fn)):
-        return () => L.prevWord();
-      case (k1.rightArrow && (k1.ctrl || k1.meta || k1.fn)):
-        return () => L.nextWord();
-      case k1.backspace:
-        return k1.meta ? () => L.deleteWordBefore() : () => L.backspace();
-      case k1.delete:
-        return k1.meta ? () => L.deleteToLineEnd() : () => L.del();
-      case k1.ctrl:
-        return D1;
-      case k1.home:
-        return () => L.startOfLine();
-      case k1.end:
-        return () => L.endOfLine();
-      case k1.pageDown:
-        return () => L.endOfLine();
-      case k1.pageUp:
-        return () => L.startOfLine();
-      case k1.meta:
-        return N1;
-      case k1.return:
-        return () => u1(k1);
-      case k1.tab:
-        return () => L;
-      case k1.upArrow:
-        return d1;
-      case k1.downArrow:
-        return YA;
-      case k1.leftArrow:
-        return () => L.left();
-      case k1.rightArrow:
-        return () => L.right();
-      default:
-        return function(Q1) {
-          switch (!0) {
-            case (Q1 === "\x1B[H" || Q1 === "\x1B[1~"):
-              return L.startOfLine();
-            case (Q1 === "\x1B[F" || Q1 === "\x1B[4~"):
-              return L.endOfLine();
-            default:
-              if (L.isAtStart() && (Q1 === "!" || Q1 === "#")) return L.insert(UZ(Q1).replace(/\r/g, `
-`)).left();
-              return L.insert(UZ(Q1).replace(/\r/g, `
-`))
-          }
-        }
-    }
-  }
-
-  function e1(k1, Q1) {
-    let v1 = O ? O(k1, Q1) : k1;
-    if (v1 === "" && k1 !== "") return;
-    let L1 = bA(Q1)(v1);
-    if (L1) {
-      if (!L.equals(L1)) {
-        if (T(L1.offset), L.text !== L1.text) B(L1.text)
-      }
-    }
-  }
-  return {
-    onInput: e1,
-    renderedValue: L.render(X, J, V),
-    offset: R,
-    setOffset: T
-  }
-}
-// @from(Start 9717906, End 9717923)
-hA1 = I1(U1(), 1)
-// @from(Start 9717929, End 9717946)
-Qw1 = I1(U1(), 1)
-// @from(Start 9717949, End 9719487)
-function jT2({
-  onPaste: A,
-  onInput: B,
-  onImagePaste: Q
-}) {
-  let [I, G] = Qw1.default.useState({
-    chunks: [],
-    timeoutId: null
-  }), [Z, D] = Qw1.default.useState(!1), Y = (F) => {
-    if (F) clearTimeout(F);
-    return setTimeout(() => {
-      G(({
-        chunks: X
-      }) => {
-        let V = X.join("");
-        if (Q && nAA(V)) return HT2(V).then((C) => {
-          if (C) Promise.resolve().then(() => {
-            Q(C.base64, C.mediaType)
-          });
-          else Promise.resolve().then(() => {
-            if (A) A(V);
-            D(!1)
-          })
-        }), {
-          chunks: [],
-          timeoutId: null
-        };
-        return Promise.resolve().then(() => {
-          if (A) A(V);
-          D(!1)
-        }), {
-          chunks: [],
-          timeoutId: null
-        }
-      })
-    }, 100)
-  }, {
-    stdin: W
-  } = Qb();
-  return Qw1.default.useEffect(() => {
-    if (!W) return;
-    let F = (X) => {
-      let V = X.toString();
-      if (V.includes("\x1B[200~")) D(!0);
-      if (V.includes("\x1B[201~")) D(!1)
-    };
-    return W.on("data", F), () => {
-      W.off("data", F), D(!1)
-    }
-  }, [W]), {
-    wrappedOnInput: (F, X) => {
-      let V = nAA(F);
-      if (A && (F.length > sz1 || I.timeoutId || V)) {
-        G(({
-          chunks: C,
-          timeoutId: K
-        }) => {
-          return {
-            chunks: [...C, F],
-            timeoutId: Y(K)
-          }
-        });
-        return
-      }
-      if (B(F, X), F.length > 10) D(!1)
-    },
-    pasteState: I,
-    isPasting: Z
-  }
-}

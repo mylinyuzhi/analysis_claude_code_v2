@@ -1,0 +1,8 @@
+{
+  "ossProjects": [
+    "sentry",
+    "protobufjs",
+    "sentry-enhanced"
+  ],
+  "purpose": "OSS 库代码 (sentry, protobufjs, sentry-enhanced)"
+}

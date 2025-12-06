@@ -1,0 +1,13 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "react",
+    "opentelemetry",
+    "protobuf",
+    "grpc",
+    "dom-library",
+    "protobufjs",
+    "sorted-map"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 react, opentelemetry, protobuf, grpc, dom-library, protobufjs, sorted-map)"
+}

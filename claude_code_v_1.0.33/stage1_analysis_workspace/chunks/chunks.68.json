@@ -1,0 +1,10 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "react",
+    "ink",
+    "protobufjs",
+    "sorted-map"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 react, ink, protobufjs, sorted-map)"
+}

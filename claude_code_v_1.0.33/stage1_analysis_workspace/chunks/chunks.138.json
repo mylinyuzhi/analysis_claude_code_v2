@@ -1,0 +1,10 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "react",
+    "protobufjs",
+    "sentry-enhanced",
+    "sorted-map"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 react, protobufjs, sentry-enhanced, sorted-map)"
+}

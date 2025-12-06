@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@ai-sdk/google": "^2.0.44",
+    "acorn": "^8.15.0",
+    "acorn-loose": "^8.5.2",
+    "acorn-walk": "^8.3.4",
+    "ai": "^5.0.108",
+    "dotenv": "^17.2.3",
+    "js-beautify": "^1.15.4",
+    "undici": "^7.16.0"
+  }
+}

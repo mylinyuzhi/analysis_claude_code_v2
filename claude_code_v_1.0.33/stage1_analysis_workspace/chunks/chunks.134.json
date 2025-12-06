@@ -1,0 +1,9 @@
+{
+  "ossProjects": [
+    "sentry",
+    "opentelemetry",
+    "protobufjs",
+    "sentry-enhanced"
+  ],
+  "purpose": "OSS 库代码 (sentry, opentelemetry, protobufjs, sentry-enhanced)"
+}

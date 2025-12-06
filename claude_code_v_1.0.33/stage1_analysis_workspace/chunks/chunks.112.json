@@ -1,0 +1,9 @@
+{
+  "ossProjects": [
+    "googleapis",
+    "protobuf",
+    "protobufjs",
+    "sorted-map"
+  ],
+  "purpose": "OSS 库代码 (googleapis, protobuf, protobufjs, sorted-map)"
+}

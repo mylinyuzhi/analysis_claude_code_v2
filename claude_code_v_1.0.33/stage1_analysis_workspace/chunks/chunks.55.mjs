@@ -1,3267 +1,3292 @@
 
-// @from(Start 5505649, End 5509786)
-qp1 = z((oR8, du0) => {
+// @from(Start 4969412, End 4985065)
+N3A = z((B_7, K2B) => {
   var {
-    kProxy: vH6,
-    kClose: bH6,
-    kDestroy: gH6,
-    kInterceptors: hH6
-  } = A3(), {
-    URL: Io
-  } = Z1("node:url"), mH6 = ih(), dH6 = lh(), uH6 = Sh(), {
-    InvalidArgumentError: YW1,
-    RequestAbortedError: pH6,
-    SecureProxyConnectionError: cH6
-  } = u5(), bu0 = xr(), ZW1 = Symbol("proxy agent"), DW1 = Symbol("proxy client"), Go = Symbol("proxy headers"), $p1 = Symbol("request tls settings"), gu0 = Symbol("proxy tls settings"), hu0 = Symbol("connect endpoint function");
+    extractBody: Ki8,
+    mixinBody: Di8,
+    cloneBody: Hi8,
+    bodyUnusable: tBB
+  } = G3A(), {
+    Headers: J2B,
+    fill: Ci8,
+    HeadersList: nlA,
+    setHeadersGuard: Yv1,
+    getHeadersGuard: Ei8,
+    setHeadersList: W2B,
+    getHeadersList: eBB
+  } = no(), {
+    FinalizationRegistry: zi8
+  } = oBB()(), llA = S6(), A2B = UA("node:util"), {
+    isValidHTTPToken: Ui8,
+    sameOrigin: Q2B,
+    environmentSettingsObject: plA
+  } = xw(), {
+    forbiddenMethodsSet: $i8,
+    corsSafeListedMethodsSet: wi8,
+    referrerPolicy: qi8,
+    requestRedirect: Ni8,
+    requestMode: Li8,
+    requestCredentials: Mi8,
+    requestCache: Oi8,
+    requestDuplex: Ri8
+  } = PEA(), {
+    kEnumerableProperty: bX,
+    normalizedMethodRecordsBase: Ti8,
+    normalizedMethodRecords: Pi8
+  } = llA, {
+    kHeaders: gw,
+    kSignal: ilA,
+    kState: KI,
+    kDispatcher: Iv1
+  } = Kc(), {
+    webidl: W4
+  } = zD(), {
+    URLSerializer: ji8
+  } = QU(), {
+    kConstruct: alA
+  } = tI(), Si8 = UA("node:assert"), {
+    getMaxListeners: B2B,
+    setMaxListeners: G2B,
+    getEventListeners: _i8,
+    defaultMaxListeners: Z2B
+  } = UA("node:events"), ki8 = Symbol("abortController"), X2B = new zi8(({
+    signal: A,
+    abort: Q
+  }) => {
+    A.removeEventListener("abort", Q)
+  }), slA = new WeakMap;
 
-  function lH6(A) {
-    return A === "https:" ? 443 : 80
-  }
+  function I2B(A) {
+    return Q;
 
-  function iH6(A, B) {
-    return new dH6(A, B)
-  }
-  var nH6 = () => {};
-  class mu0 extends uH6 {
-    constructor(A) {
-      super();
-      if (!A || typeof A === "object" && !(A instanceof Io) && !A.uri) throw new YW1("Proxy uri is mandatory");
-      let {
-        clientFactory: B = iH6
-      } = A;
-      if (typeof B !== "function") throw new YW1("Proxy opts.clientFactory must be a function.");
-      let Q = this.#A(A),
-        {
-          href: I,
-          origin: G,
-          port: Z,
-          protocol: D,
-          username: Y,
-          password: W,
-          hostname: J
-        } = Q;
-      if (this[vH6] = {
-          uri: I,
-          protocol: D
-        }, this[hH6] = A.interceptors?.ProxyAgent && Array.isArray(A.interceptors.ProxyAgent) ? A.interceptors.ProxyAgent : [], this[$p1] = A.requestTls, this[gu0] = A.proxyTls, this[Go] = A.headers || {}, A.auth && A.token) throw new YW1("opts.auth cannot be used in combination with opts.token");
-      else if (A.auth) this[Go]["proxy-authorization"] = `Basic ${A.auth}`;
-      else if (A.token) this[Go]["proxy-authorization"] = A.token;
-      else if (Y && W) this[Go]["proxy-authorization"] = `Basic ${Buffer.from(`${decodeURIComponent(Y)}:${decodeURIComponent(W)}`).toString("base64")}`;
-      let F = bu0({
-        ...A.proxyTls
-      });
-      this[hu0] = bu0({
-        ...A.requestTls
-      }), this[DW1] = B(Q, {
-        connect: F
-      }), this[ZW1] = new mH6({
-        ...A,
-        connect: async (X, V) => {
-          let C = X.host;
-          if (!X.port) C += `:${lH6(X.protocol)}`;
-          try {
-            let {
-              socket: K,
-              statusCode: E
-            } = await this[DW1].connect({
-              origin: G,
-              port: Z,
-              path: C,
-              signal: X.signal,
-              headers: {
-                ...this[Go],
-                host: X.host
-              },
-              servername: this[gu0]?.servername || J
-            });
-            if (E !== 200) K.on("error", nH6).destroy(), V(new pH6(`Proxy response (${E}) !== 200 when HTTP Tunneling`));
-            if (X.protocol !== "https:") {
-              V(null, K);
-              return
+    function Q() {
+      let B = A.deref();
+      if (B !== void 0) {
+        X2B.unregister(Q), this.removeEventListener("abort", Q), B.abort(this.reason);
+        let G = slA.get(B.signal);
+        if (G !== void 0) {
+          if (G.size !== 0) {
+            for (let Z of G) {
+              let I = Z.deref();
+              if (I !== void 0) I.abort(this.reason)
             }
-            let N;
-            if (this[$p1]) N = this[$p1].servername;
-            else N = X.servername;
-            this[hu0]({
-              ...X,
-              servername: N,
-              httpSocket: K
-            }, V)
-          } catch (K) {
-            if (K.code === "ERR_TLS_CERT_ALTNAME_INVALID") V(new cH6(K));
-            else V(K)
+            G.clear()
           }
+          slA.delete(B.signal)
         }
-      })
-    }
-    dispatch(A, B) {
-      let Q = aH6(A.headers);
-      if (sH6(Q), Q && !("host" in Q) && !("Host" in Q)) {
-        let {
-          host: I
-        } = new Io(A.origin);
-        Q.host = I
       }
-      return this[ZW1].dispatch({
-        ...A,
-        headers: Q
-      }, B)
-    }
-    #A(A) {
-      if (typeof A === "string") return new Io(A);
-      else if (A instanceof Io) return A;
-      else return new Io(A.uri)
-    }
-    async [bH6]() {
-      await this[ZW1].close(), await this[DW1].close()
-    }
-    async [gH6]() {
-      await this[ZW1].destroy(), await this[DW1].destroy()
     }
   }
-
-  function aH6(A) {
-    if (Array.isArray(A)) {
-      let B = {};
-      for (let Q = 0; Q < A.length; Q += 2) B[A[Q]] = A[Q + 1];
-      return B
-    }
-    return A
-  }
-
-  function sH6(A) {
-    if (A && Object.keys(A).find((Q) => Q.toLowerCase() === "proxy-authorization")) throw new YW1("Proxy-Authorization should be sent in ProxyAgent constructor")
-  }
-  du0.exports = mu0
-})
-// @from(Start 5509792, End 5512673)
-au0 = z((tR8, nu0) => {
-  var rH6 = Sh(),
-    {
-      kClose: oH6,
-      kDestroy: tH6,
-      kClosed: uu0,
-      kDestroyed: pu0,
-      kDispatch: eH6,
-      kNoProxyAgent: Zo,
-      kHttpProxyAgent: kR,
-      kHttpsProxyAgent: wj
-    } = A3(),
-    cu0 = qp1(),
-    Az6 = ih(),
-    Bz6 = {
-      "http:": 80,
-      "https:": 443
-    },
-    lu0 = !1;
-  class iu0 extends rH6 {
-    #A = null;
-    #B = null;
-    #Q = null;
-    constructor(A = {}) {
-      super();
-      if (this.#Q = A, !lu0) lu0 = !0, process.emitWarning("EnvHttpProxyAgent is experimental, expect them to change at any time.", {
-        code: "UNDICI-EHPA"
-      });
-      let {
-        httpProxy: B,
-        httpsProxy: Q,
-        noProxy: I,
-        ...G
-      } = A;
-      this[Zo] = new Az6(G);
-      let Z = B ?? process.env.http_proxy ?? process.env.HTTP_PROXY;
-      if (Z) this[kR] = new cu0({
-        ...G,
-        uri: Z
-      });
-      else this[kR] = this[Zo];
-      let D = Q ?? process.env.https_proxy ?? process.env.HTTPS_PROXY;
-      if (D) this[wj] = new cu0({
-        ...G,
-        uri: D
-      });
-      else this[wj] = this[kR];
-      this.#W()
-    } [eH6](A, B) {
-      let Q = new URL(A.origin);
-      return this.#I(Q).dispatch(A, B)
-    }
-    async [oH6]() {
-      if (await this[Zo].close(), !this[kR][uu0]) await this[kR].close();
-      if (!this[wj][uu0]) await this[wj].close()
-    }
-    async [tH6](A) {
-      if (await this[Zo].destroy(A), !this[kR][pu0]) await this[kR].destroy(A);
-      if (!this[wj][pu0]) await this[wj].destroy(A)
-    }
-    #I(A) {
-      let {
-        protocol: B,
-        host: Q,
-        port: I
-      } = A;
-      if (Q = Q.replace(/:\d*$/, "").toLowerCase(), I = Number.parseInt(I, 10) || Bz6[B] || 0, !this.#G(Q, I)) return this[Zo];
-      if (B === "https:") return this[wj];
-      return this[kR]
-    }
-    #G(A, B) {
-      if (this.#Z) this.#W();
-      if (this.#B.length === 0) return !0;
-      if (this.#A === "*") return !1;
-      for (let Q = 0; Q < this.#B.length; Q++) {
-        let I = this.#B[Q];
-        if (I.port && I.port !== B) continue;
-        if (!/^[.*]/.test(I.hostname)) {
-          if (A === I.hostname) return !1
-        } else if (A.endsWith(I.hostname.replace(/^\*/, ""))) return !1
-      }
-      return !0
-    }
-    #W() {
-      let A = this.#Q.noProxy ?? this.#F,
-        B = A.split(/[,\s]/),
-        Q = [];
-      for (let I = 0; I < B.length; I++) {
-        let G = B[I];
-        if (!G) continue;
-        let Z = G.match(/^(.+):(\d+)$/);
-        Q.push({
-          hostname: (Z ? Z[1] : G).toLowerCase(),
-          port: Z ? Number.parseInt(Z[2], 10) : 0
-        })
-      }
-      this.#A = A, this.#B = Q
-    }
-    get #Z() {
-      if (this.#Q.noProxy !== void 0) return !1;
-      return this.#A !== this.#F
-    }
-    get #F() {
-      return process.env.no_proxy ?? process.env.NO_PROXY ?? ""
-    }
-  }
-  nu0.exports = iu0
-})
-// @from(Start 5512679, End 5519367)
-WW1 = z((eR8, tu0) => {
-  var nh = Z1("node:assert"),
-    {
-      kRetryHandlerDefaultRetry: su0
-    } = A3(),
-    {
-      RequestRetryError: Do
-    } = u5(),
-    {
-      isDisturbed: ru0,
-      parseHeaders: Qz6,
-      parseRangeHeader: ou0,
-      wrapRequestBody: Iz6
-    } = C6();
-
-  function Gz6(A) {
-    let B = Date.now();
-    return new Date(A).getTime() - B
-  }
-  class Mp1 {
-    constructor(A, B) {
-      let {
-        retryOptions: Q,
-        ...I
-      } = A, {
-        retry: G,
-        maxRetries: Z,
-        maxTimeout: D,
-        minTimeout: Y,
-        timeoutFactor: W,
-        methods: J,
-        errorCodes: F,
-        retryAfter: X,
-        statusCodes: V
-      } = Q ?? {};
-      this.dispatch = B.dispatch, this.handler = B.handler, this.opts = {
-        ...I,
-        body: Iz6(A.body)
-      }, this.abort = null, this.aborted = !1, this.retryOpts = {
-        retry: G ?? Mp1[su0],
-        retryAfter: X ?? !0,
-        maxTimeout: D ?? 30000,
-        minTimeout: Y ?? 500,
-        timeoutFactor: W ?? 2,
-        maxRetries: Z ?? 5,
-        methods: J ?? ["GET", "HEAD", "OPTIONS", "PUT", "DELETE", "TRACE"],
-        statusCodes: V ?? [500, 502, 503, 504, 429],
-        errorCodes: F ?? ["ECONNRESET", "ECONNREFUSED", "ENOTFOUND", "ENETDOWN", "ENETUNREACH", "EHOSTDOWN", "EHOSTUNREACH", "EPIPE", "UND_ERR_SOCKET"]
-      }, this.retryCount = 0, this.retryCountCheckpoint = 0, this.start = 0, this.end = null, this.etag = null, this.resume = null, this.handler.onConnect((C) => {
-        if (this.aborted = !0, this.abort) this.abort(C);
-        else this.reason = C
-      })
-    }
-    onRequestSent() {
-      if (this.handler.onRequestSent) this.handler.onRequestSent()
-    }
-    onUpgrade(A, B, Q) {
-      if (this.handler.onUpgrade) this.handler.onUpgrade(A, B, Q)
-    }
-    onConnect(A) {
-      if (this.aborted) A(this.reason);
-      else this.abort = A
-    }
-    onBodySent(A) {
-      if (this.handler.onBodySent) return this.handler.onBodySent(A)
-    }
-    static[su0](A, {
-      state: B,
-      opts: Q
-    }, I) {
-      let {
-        statusCode: G,
-        code: Z,
-        headers: D
-      } = A, {
-        method: Y,
-        retryOptions: W
-      } = Q, {
-        maxRetries: J,
-        minTimeout: F,
-        maxTimeout: X,
-        timeoutFactor: V,
-        statusCodes: C,
-        errorCodes: K,
-        methods: E
-      } = W, {
-        counter: N
-      } = B;
-      if (Z && Z !== "UND_ERR_REQ_RETRY" && !K.includes(Z)) {
-        I(A);
-        return
-      }
-      if (Array.isArray(E) && !E.includes(Y)) {
-        I(A);
-        return
-      }
-      if (G != null && Array.isArray(C) && !C.includes(G)) {
-        I(A);
-        return
-      }
-      if (N > J) {
-        I(A);
-        return
-      }
-      let q = D?.["retry-after"];
-      if (q) q = Number(q), q = Number.isNaN(q) ? Gz6(q) : q * 1000;
-      let O = q > 0 ? Math.min(q, X) : Math.min(F * V ** (N - 1), X);
-      setTimeout(() => I(null), O)
-    }
-    onHeaders(A, B, Q, I) {
-      let G = Qz6(B);
-      if (this.retryCount += 1, A >= 300)
-        if (this.retryOpts.statusCodes.includes(A) === !1) return this.handler.onHeaders(A, B, Q, I);
-        else return this.abort(new Do("Request failed", A, {
-          headers: G,
-          data: {
-            count: this.retryCount
-          }
-        })), !1;
-      if (this.resume != null) {
-        if (this.resume = null, A !== 206 && (this.start > 0 || A !== 200)) return this.abort(new Do("server does not support the range header and the payload was partially consumed", A, {
-          headers: G,
-          data: {
-            count: this.retryCount
-          }
-        })), !1;
-        let D = ou0(G["content-range"]);
-        if (!D) return this.abort(new Do("Content-Range mismatch", A, {
-          headers: G,
-          data: {
-            count: this.retryCount
-          }
-        })), !1;
-        if (this.etag != null && this.etag !== G.etag) return this.abort(new Do("ETag mismatch", A, {
-          headers: G,
-          data: {
-            count: this.retryCount
-          }
-        })), !1;
-        let {
-          start: Y,
-          size: W,
-          end: J = W - 1
-        } = D;
-        return nh(this.start === Y, "content-range mismatch"), nh(this.end == null || this.end === J, "content-range mismatch"), this.resume = Q, !0
-      }
-      if (this.end == null) {
-        if (A === 206) {
-          let D = ou0(G["content-range"]);
-          if (D == null) return this.handler.onHeaders(A, B, Q, I);
-          let {
-            start: Y,
-            size: W,
-            end: J = W - 1
-          } = D;
-          nh(Y != null && Number.isFinite(Y), "content-range mismatch"), nh(J != null && Number.isFinite(J), "invalid content-length"), this.start = Y, this.end = J
-        }
-        if (this.end == null) {
-          let D = G["content-length"];
-          this.end = D != null ? Number(D) - 1 : null
-        }
-        if (nh(Number.isFinite(this.start)), nh(this.end == null || Number.isFinite(this.end), "invalid content-length"), this.resume = Q, this.etag = G.etag != null ? G.etag : null, this.etag != null && this.etag.startsWith("W/")) this.etag = null;
-        return this.handler.onHeaders(A, B, Q, I)
-      }
-      let Z = new Do("Request failed", A, {
-        headers: G,
-        data: {
-          count: this.retryCount
-        }
-      });
-      return this.abort(Z), !1
-    }
-    onData(A) {
-      return this.start += A.length, this.handler.onData(A)
-    }
-    onComplete(A) {
-      return this.retryCount = 0, this.handler.onComplete(A)
-    }
-    onError(A) {
-      if (this.aborted || ru0(this.opts.body)) return this.handler.onError(A);
-      if (this.retryCount - this.retryCountCheckpoint > 0) this.retryCount = this.retryCountCheckpoint + (this.retryCount - this.retryCountCheckpoint);
-      else this.retryCount += 1;
-      this.retryOpts.retry(A, {
-        state: {
-          counter: this.retryCount
-        },
-        opts: {
-          retryOptions: this.retryOpts,
-          ...this.opts
-        }
-      }, B.bind(this));
-
-      function B(Q) {
-        if (Q != null || this.aborted || ru0(this.opts.body)) return this.handler.onError(Q);
-        if (this.start !== 0) {
-          let I = {
-            range: `bytes=${this.start}-${this.end??""}`
-          };
-          if (this.etag != null) I["if-match"] = this.etag;
-          this.opts = {
-            ...this.opts,
-            headers: {
-              ...this.opts.headers,
-              ...I
-            }
-          }
-        }
+  var Y2B = !1;
+  class YZ {
+    constructor(A, Q = {}) {
+      if (W4.util.markAsUncloneable(this), A === alA) return;
+      let B = "Request constructor";
+      W4.argumentLengthCheck(arguments, 1, B), A = W4.converters.RequestInfo(A, B, "input"), Q = W4.converters.RequestInit(Q, B, "init");
+      let G = null,
+        Z = null,
+        I = plA.settingsObject.baseUrl,
+        Y = null;
+      if (typeof A === "string") {
+        this[Iv1] = Q.dispatcher;
+        let E;
         try {
-          this.retryCountCheckpoint = this.retryCount, this.dispatch(this.opts, this)
-        } catch (I) {
-          this.handler.onError(I)
-        }
-      }
-    }
-  }
-  tu0.exports = Mp1
-})
-// @from(Start 5519373, End 5519919)
-Bp0 = z((AO8, Ap0) => {
-  var Zz6 = yr(),
-    Dz6 = WW1();
-  class eu0 extends Zz6 {
-    #A = null;
-    #B = null;
-    constructor(A, B = {}) {
-      super(B);
-      this.#A = A, this.#B = B
-    }
-    dispatch(A, B) {
-      let Q = new Dz6({
-        ...A,
-        retryOptions: this.#B
-      }, {
-        dispatch: this.#A.dispatch.bind(this.#A),
-        handler: B
-      });
-      return this.#A.dispatch(A, Q)
-    }
-    close() {
-      return this.#A.close()
-    }
-    destroy() {
-      return this.#A.destroy()
-    }
-  }
-  Ap0.exports = eu0
-})
-// @from(Start 5519925, End 5525757)
-Pp1 = z((BO8, Xp0) => {
-  var Dp0 = Z1("node:assert"),
-    {
-      Readable: Yz6
-    } = Z1("node:stream"),
-    {
-      RequestAbortedError: Yp0,
-      NotSupportedError: Wz6,
-      InvalidArgumentError: Jz6,
-      AbortError: Lp1
-    } = u5(),
-    Wp0 = C6(),
-    {
-      ReadableStreamFrom: Fz6
-    } = C6(),
-    LJ = Symbol("kConsume"),
-    Yo = Symbol("kReading"),
-    xR = Symbol("kBody"),
-    Qp0 = Symbol("kAbort"),
-    Jp0 = Symbol("kContentType"),
-    Ip0 = Symbol("kContentLength"),
-    Xz6 = () => {};
-  class Fp0 extends Yz6 {
-    constructor({
-      resume: A,
-      abort: B,
-      contentType: Q = "",
-      contentLength: I,
-      highWaterMark: G = 65536
-    }) {
-      super({
-        autoDestroy: !0,
-        read: A,
-        highWaterMark: G
-      });
-      this._readableState.dataEmitted = !1, this[Qp0] = B, this[LJ] = null, this[xR] = null, this[Jp0] = Q, this[Ip0] = I, this[Yo] = !1
-    }
-    destroy(A) {
-      if (!A && !this._readableState.endEmitted) A = new Yp0;
-      if (A) this[Qp0]();
-      return super.destroy(A)
-    }
-    _destroy(A, B) {
-      if (!this[Yo]) setImmediate(() => {
-        B(A)
-      });
-      else B(A)
-    }
-    on(A, ...B) {
-      if (A === "data" || A === "readable") this[Yo] = !0;
-      return super.on(A, ...B)
-    }
-    addListener(A, ...B) {
-      return this.on(A, ...B)
-    }
-    off(A, ...B) {
-      let Q = super.off(A, ...B);
-      if (A === "data" || A === "readable") this[Yo] = this.listenerCount("data") > 0 || this.listenerCount("readable") > 0;
-      return Q
-    }
-    removeListener(A, ...B) {
-      return this.off(A, ...B)
-    }
-    push(A) {
-      if (this[LJ] && A !== null) return Op1(this[LJ], A), this[Yo] ? super.push(A) : !0;
-      return super.push(A)
-    }
-    async text() {
-      return Wo(this, "text")
-    }
-    async json() {
-      return Wo(this, "json")
-    }
-    async blob() {
-      return Wo(this, "blob")
-    }
-    async bytes() {
-      return Wo(this, "bytes")
-    }
-    async arrayBuffer() {
-      return Wo(this, "arrayBuffer")
-    }
-    async formData() {
-      throw new Wz6
-    }
-    get bodyUsed() {
-      return Wp0.isDisturbed(this)
-    }
-    get body() {
-      if (!this[xR]) {
-        if (this[xR] = Fz6(this), this[LJ]) this[xR].getReader(), Dp0(this[xR].locked)
-      }
-      return this[xR]
-    }
-    async dump(A) {
-      let B = Number.isFinite(A?.limit) ? A.limit : 131072,
-        Q = A?.signal;
-      if (Q != null && (typeof Q !== "object" || !("aborted" in Q))) throw new Jz6("signal must be an AbortSignal");
-      if (Q?.throwIfAborted(), this._readableState.closeEmitted) return null;
-      return await new Promise((I, G) => {
-        if (this[Ip0] > B) this.destroy(new Lp1);
-        let Z = () => {
-          this.destroy(Q.reason ?? new Lp1)
-        };
-        Q?.addEventListener("abort", Z), this.on("close", function() {
-          if (Q?.removeEventListener("abort", Z), Q?.aborted) G(Q.reason ?? new Lp1);
-          else I(null)
-        }).on("error", Xz6).on("data", function(D) {
-          if (B -= D.length, B <= 0) this.destroy()
-        }).resume()
-      })
-    }
-  }
-
-  function Vz6(A) {
-    return A[xR] && A[xR].locked === !0 || A[LJ]
-  }
-
-  function Cz6(A) {
-    return Wp0.isDisturbed(A) || Vz6(A)
-  }
-  async function Wo(A, B) {
-    return Dp0(!A[LJ]), new Promise((Q, I) => {
-      if (Cz6(A)) {
-        let G = A._readableState;
-        if (G.destroyed && G.closeEmitted === !1) A.on("error", (Z) => {
-          I(Z)
-        }).on("close", () => {
-          I(new TypeError("unusable"))
-        });
-        else I(G.errored ?? new TypeError("unusable"))
-      } else queueMicrotask(() => {
-        A[LJ] = {
-          type: B,
-          stream: A,
-          resolve: Q,
-          reject: I,
-          length: 0,
-          body: []
-        }, A.on("error", function(G) {
-          Tp1(this[LJ], G)
-        }).on("close", function() {
-          if (this[LJ].body !== null) Tp1(this[LJ], new Yp0)
-        }), Kz6(A[LJ])
-      })
-    })
-  }
-
-  function Kz6(A) {
-    if (A.body === null) return;
-    let {
-      _readableState: B
-    } = A.stream;
-    if (B.bufferIndex) {
-      let Q = B.bufferIndex,
-        I = B.buffer.length;
-      for (let G = Q; G < I; G++) Op1(A, B.buffer[G])
-    } else
-      for (let Q of B.buffer) Op1(A, Q);
-    if (B.endEmitted) Zp0(this[LJ]);
-    else A.stream.on("end", function() {
-      Zp0(this[LJ])
-    });
-    A.stream.resume();
-    while (A.stream.read() != null);
-  }
-
-  function Rp1(A, B) {
-    if (A.length === 0 || B === 0) return "";
-    let Q = A.length === 1 ? A[0] : Buffer.concat(A, B),
-      I = Q.length,
-      G = I > 2 && Q[0] === 239 && Q[1] === 187 && Q[2] === 191 ? 3 : 0;
-    return Q.utf8Slice(G, I)
-  }
-
-  function Gp0(A, B) {
-    if (A.length === 0 || B === 0) return new Uint8Array(0);
-    if (A.length === 1) return new Uint8Array(A[0]);
-    let Q = new Uint8Array(Buffer.allocUnsafeSlow(B).buffer),
-      I = 0;
-    for (let G = 0; G < A.length; ++G) {
-      let Z = A[G];
-      Q.set(Z, I), I += Z.length
-    }
-    return Q
-  }
-
-  function Zp0(A) {
-    let {
-      type: B,
-      body: Q,
-      resolve: I,
-      stream: G,
-      length: Z
-    } = A;
-    try {
-      if (B === "text") I(Rp1(Q, Z));
-      else if (B === "json") I(JSON.parse(Rp1(Q, Z)));
-      else if (B === "arrayBuffer") I(Gp0(Q, Z).buffer);
-      else if (B === "blob") I(new Blob(Q, {
-        type: G[Jp0]
-      }));
-      else if (B === "bytes") I(Gp0(Q, Z));
-      Tp1(A)
-    } catch (D) {
-      G.destroy(D)
-    }
-  }
-
-  function Op1(A, B) {
-    A.length += B.length, A.body.push(B)
-  }
-
-  function Tp1(A, B) {
-    if (A.body === null) return;
-    if (B) A.reject(B);
-    else A.resolve();
-    A.type = null, A.stream = null, A.resolve = null, A.reject = null, A.length = 0, A.body = null
-  }
-  Xp0.exports = {
-    Readable: Fp0,
-    chunksDecode: Rp1
-  }
-})
-// @from(Start 5525763, End 5527283)
-Sp1 = z((QO8, zp0) => {
-  var Hz6 = Z1("node:assert"),
-    {
-      ResponseStatusCodeError: Vp0
-    } = u5(),
-    {
-      chunksDecode: Cp0
-    } = Pp1();
-  async function zz6({
-    callback: A,
-    body: B,
-    contentType: Q,
-    statusCode: I,
-    statusMessage: G,
-    headers: Z
-  }) {
-    Hz6(B);
-    let D = [],
-      Y = 0;
-    try {
-      for await (let X of B) if (D.push(X), Y += X.length, Y > 131072) {
-        D = [], Y = 0;
-        break
-      }
-    } catch {
-      D = [], Y = 0
-    }
-    let W = `Response status code ${I}${G?`: ${G}`:""}`;
-    if (I === 204 || !Q || !Y) {
-      queueMicrotask(() => A(new Vp0(W, I, Z)));
-      return
-    }
-    let J = Error.stackTraceLimit;
-    Error.stackTraceLimit = 0;
-    let F;
-    try {
-      if (Kp0(Q)) F = JSON.parse(Cp0(D, Y));
-      else if (Hp0(Q)) F = Cp0(D, Y)
-    } catch {} finally {
-      Error.stackTraceLimit = J
-    }
-    queueMicrotask(() => A(new Vp0(W, I, Z, F)))
-  }
-  var Kp0 = (A) => {
-      return A.length > 15 && A[11] === "/" && A[0] === "a" && A[1] === "p" && A[2] === "p" && A[3] === "l" && A[4] === "i" && A[5] === "c" && A[6] === "a" && A[7] === "t" && A[8] === "i" && A[9] === "o" && A[10] === "n" && A[12] === "j" && A[13] === "s" && A[14] === "o" && A[15] === "n"
-    },
-    Hp0 = (A) => {
-      return A.length > 4 && A[4] === "/" && A[0] === "t" && A[1] === "e" && A[2] === "x" && A[3] === "t"
-    };
-  zp0.exports = {
-    getResolveErrorBodyCallback: zz6,
-    isContentTypeApplicationJson: Kp0,
-    isContentTypeText: Hp0
-  }
-})
-// @from(Start 5527289, End 5532026)
-Up0 = z((IO8, jp1) => {
-  var wz6 = Z1("node:assert"),
-    {
-      Readable: Ez6
-    } = Pp1(),
-    {
-      InvalidArgumentError: ah,
-      RequestAbortedError: wp0
-    } = u5(),
-    RJ = C6(),
-    {
-      getResolveErrorBodyCallback: Uz6
-    } = Sp1(),
-    {
-      AsyncResource: Nz6
-    } = Z1("node:async_hooks");
-  class _p1 extends Nz6 {
-    constructor(A, B) {
-      if (!A || typeof A !== "object") throw new ah("invalid opts");
-      let {
-        signal: Q,
-        method: I,
-        opaque: G,
-        body: Z,
-        onInfo: D,
-        responseHeaders: Y,
-        throwOnError: W,
-        highWaterMark: J
-      } = A;
-      try {
-        if (typeof B !== "function") throw new ah("invalid callback");
-        if (J && (typeof J !== "number" || J < 0)) throw new ah("invalid highWaterMark");
-        if (Q && typeof Q.on !== "function" && typeof Q.addEventListener !== "function") throw new ah("signal must be an EventEmitter or EventTarget");
-        if (I === "CONNECT") throw new ah("invalid method");
-        if (D && typeof D !== "function") throw new ah("invalid onInfo callback");
-        super("UNDICI_REQUEST")
-      } catch (F) {
-        if (RJ.isStream(Z)) RJ.destroy(Z.on("error", RJ.nop), F);
-        throw F
-      }
-      if (this.method = I, this.responseHeaders = Y || null, this.opaque = G || null, this.callback = B, this.res = null, this.abort = null, this.body = Z, this.trailers = {}, this.context = null, this.onInfo = D || null, this.throwOnError = W, this.highWaterMark = J, this.signal = Q, this.reason = null, this.removeAbortListener = null, RJ.isStream(Z)) Z.on("error", (F) => {
-        this.onError(F)
-      });
-      if (this.signal)
-        if (this.signal.aborted) this.reason = this.signal.reason ?? new wp0;
-        else this.removeAbortListener = RJ.addAbortListener(this.signal, () => {
-          if (this.reason = this.signal.reason ?? new wp0, this.res) RJ.destroy(this.res.on("error", RJ.nop), this.reason);
-          else if (this.abort) this.abort(this.reason);
-          if (this.removeAbortListener) this.res?.off("close", this.removeAbortListener), this.removeAbortListener(), this.removeAbortListener = null
-        })
-    }
-    onConnect(A, B) {
-      if (this.reason) {
-        A(this.reason);
-        return
-      }
-      wz6(this.callback), this.abort = A, this.context = B
-    }
-    onHeaders(A, B, Q, I) {
-      let {
-        callback: G,
-        opaque: Z,
-        abort: D,
-        context: Y,
-        responseHeaders: W,
-        highWaterMark: J
-      } = this, F = W === "raw" ? RJ.parseRawHeaders(B) : RJ.parseHeaders(B);
-      if (A < 200) {
-        if (this.onInfo) this.onInfo({
-          statusCode: A,
-          headers: F
-        });
-        return
-      }
-      let X = W === "raw" ? RJ.parseHeaders(B) : F,
-        V = X["content-type"],
-        C = X["content-length"],
-        K = new Ez6({
-          resume: Q,
-          abort: D,
-          contentType: V,
-          contentLength: this.method !== "HEAD" && C ? Number(C) : null,
-          highWaterMark: J
-        });
-      if (this.removeAbortListener) K.on("close", this.removeAbortListener);
-      if (this.callback = null, this.res = K, G !== null)
-        if (this.throwOnError && A >= 400) this.runInAsyncScope(Uz6, null, {
-          callback: G,
-          body: K,
-          contentType: V,
-          statusCode: A,
-          statusMessage: I,
-          headers: F
-        });
-        else this.runInAsyncScope(G, null, null, {
-          statusCode: A,
-          headers: F,
-          trailers: this.trailers,
-          opaque: Z,
-          body: K,
-          context: Y
-        })
-    }
-    onData(A) {
-      return this.res.push(A)
-    }
-    onComplete(A) {
-      RJ.parseHeaders(A, this.trailers), this.res.push(null)
-    }
-    onError(A) {
-      let {
-        res: B,
-        callback: Q,
-        body: I,
-        opaque: G
-      } = this;
-      if (Q) this.callback = null, queueMicrotask(() => {
-        this.runInAsyncScope(Q, null, A, {
-          opaque: G
-        })
-      });
-      if (B) this.res = null, queueMicrotask(() => {
-        RJ.destroy(B, A)
-      });
-      if (I) this.body = null, RJ.destroy(I, A);
-      if (this.removeAbortListener) B?.off("close", this.removeAbortListener), this.removeAbortListener(), this.removeAbortListener = null
-    }
-  }
-
-  function Ep0(A, B) {
-    if (B === void 0) return new Promise((Q, I) => {
-      Ep0.call(this, A, (G, Z) => {
-        return G ? I(G) : Q(Z)
-      })
-    });
-    try {
-      this.dispatch(A, new _p1(A, B))
-    } catch (Q) {
-      if (typeof B !== "function") throw Q;
-      let I = A?.opaque;
-      queueMicrotask(() => B(Q, {
-        opaque: I
-      }))
-    }
-  }
-  jp1.exports = Ep0;
-  jp1.exports.RequestHandler = _p1
-})
-// @from(Start 5532032, End 5532809)
-Jo = z((GO8, qp0) => {
-  var {
-    addAbortListener: $z6
-  } = C6(), {
-    RequestAbortedError: qz6
-  } = u5(), sh = Symbol("kListener"), Sw = Symbol("kSignal");
-
-  function Np0(A) {
-    if (A.abort) A.abort(A[Sw]?.reason);
-    else A.reason = A[Sw]?.reason ?? new qz6;
-    $p0(A)
-  }
-
-  function Mz6(A, B) {
-    if (A.reason = null, A[Sw] = null, A[sh] = null, !B) return;
-    if (B.aborted) {
-      Np0(A);
-      return
-    }
-    A[Sw] = B, A[sh] = () => {
-      Np0(A)
-    }, $z6(A[Sw], A[sh])
-  }
-
-  function $p0(A) {
-    if (!A[Sw]) return;
-    if ("removeEventListener" in A[Sw]) A[Sw].removeEventListener("abort", A[sh]);
-    else A[Sw].removeListener("abort", A[sh]);
-    A[Sw] = null, A[sh] = null
-  }
-  qp0.exports = {
-    addSignal: Mz6,
-    removeSignal: $p0
-  }
-})
-// @from(Start 5532815, End 5537365)
-Tp0 = z((ZO8, Op0) => {
-  var Lz6 = Z1("node:assert"),
-    {
-      finished: Rz6,
-      PassThrough: Oz6
-    } = Z1("node:stream"),
-    {
-      InvalidArgumentError: rh,
-      InvalidReturnValueError: Tz6
-    } = u5(),
-    AK = C6(),
-    {
-      getResolveErrorBodyCallback: Pz6
-    } = Sp1(),
-    {
-      AsyncResource: Sz6
-    } = Z1("node:async_hooks"),
-    {
-      addSignal: _z6,
-      removeSignal: Mp0
-    } = Jo();
-  class Lp0 extends Sz6 {
-    constructor(A, B, Q) {
-      if (!A || typeof A !== "object") throw new rh("invalid opts");
-      let {
-        signal: I,
-        method: G,
-        opaque: Z,
-        body: D,
-        onInfo: Y,
-        responseHeaders: W,
-        throwOnError: J
-      } = A;
-      try {
-        if (typeof Q !== "function") throw new rh("invalid callback");
-        if (typeof B !== "function") throw new rh("invalid factory");
-        if (I && typeof I.on !== "function" && typeof I.addEventListener !== "function") throw new rh("signal must be an EventEmitter or EventTarget");
-        if (G === "CONNECT") throw new rh("invalid method");
-        if (Y && typeof Y !== "function") throw new rh("invalid onInfo callback");
-        super("UNDICI_STREAM")
-      } catch (F) {
-        if (AK.isStream(D)) AK.destroy(D.on("error", AK.nop), F);
-        throw F
-      }
-      if (this.responseHeaders = W || null, this.opaque = Z || null, this.factory = B, this.callback = Q, this.res = null, this.abort = null, this.context = null, this.trailers = null, this.body = D, this.onInfo = Y || null, this.throwOnError = J || !1, AK.isStream(D)) D.on("error", (F) => {
-        this.onError(F)
-      });
-      _z6(this, I)
-    }
-    onConnect(A, B) {
-      if (this.reason) {
-        A(this.reason);
-        return
-      }
-      Lz6(this.callback), this.abort = A, this.context = B
-    }
-    onHeaders(A, B, Q, I) {
-      let {
-        factory: G,
-        opaque: Z,
-        context: D,
-        callback: Y,
-        responseHeaders: W
-      } = this, J = W === "raw" ? AK.parseRawHeaders(B) : AK.parseHeaders(B);
-      if (A < 200) {
-        if (this.onInfo) this.onInfo({
-          statusCode: A,
-          headers: J
-        });
-        return
-      }
-      this.factory = null;
-      let F;
-      if (this.throwOnError && A >= 400) {
-        let C = (W === "raw" ? AK.parseHeaders(B) : J)["content-type"];
-        F = new Oz6, this.callback = null, this.runInAsyncScope(Pz6, null, {
-          callback: Y,
-          body: F,
-          contentType: C,
-          statusCode: A,
-          statusMessage: I,
-          headers: J
-        })
-      } else {
-        if (G === null) return;
-        if (F = this.runInAsyncScope(G, null, {
-            statusCode: A,
-            headers: J,
-            opaque: Z,
-            context: D
-          }), !F || typeof F.write !== "function" || typeof F.end !== "function" || typeof F.on !== "function") throw new Tz6("expected Writable");
-        Rz6(F, {
-          readable: !1
-        }, (V) => {
-          let {
-            callback: C,
-            res: K,
-            opaque: E,
-            trailers: N,
-            abort: q
-          } = this;
-          if (this.res = null, V || !K.readable) AK.destroy(K, V);
-          if (this.callback = null, this.runInAsyncScope(C, null, V || null, {
-              opaque: E,
-              trailers: N
-            }), V) q()
-        })
-      }
-      return F.on("drain", Q), this.res = F, (F.writableNeedDrain !== void 0 ? F.writableNeedDrain : F._writableState?.needDrain) !== !0
-    }
-    onData(A) {
-      let {
-        res: B
-      } = this;
-      return B ? B.write(A) : !0
-    }
-    onComplete(A) {
-      let {
-        res: B
-      } = this;
-      if (Mp0(this), !B) return;
-      this.trailers = AK.parseHeaders(A), B.end()
-    }
-    onError(A) {
-      let {
-        res: B,
-        callback: Q,
-        opaque: I,
-        body: G
-      } = this;
-      if (Mp0(this), this.factory = null, B) this.res = null, AK.destroy(B, A);
-      else if (Q) this.callback = null, queueMicrotask(() => {
-        this.runInAsyncScope(Q, null, A, {
-          opaque: I
-        })
-      });
-      if (G) this.body = null, AK.destroy(G, A)
-    }
-  }
-
-  function Rp0(A, B, Q) {
-    if (Q === void 0) return new Promise((I, G) => {
-      Rp0.call(this, A, B, (Z, D) => {
-        return Z ? G(Z) : I(D)
-      })
-    });
-    try {
-      this.dispatch(A, new Lp0(A, B, Q))
-    } catch (I) {
-      if (typeof Q !== "function") throw I;
-      let G = A?.opaque;
-      queueMicrotask(() => Q(I, {
-        opaque: G
-      }))
-    }
-  }
-  Op0.exports = Rp0
-})
-// @from(Start 5537371, End 5542178)
-xp0 = z((DO8, kp0) => {
-  var {
-    Readable: Sp0,
-    Duplex: jz6,
-    PassThrough: yz6
-  } = Z1("node:stream"), {
-    InvalidArgumentError: Fo,
-    InvalidReturnValueError: kz6,
-    RequestAbortedError: yp1
-  } = u5(), mX = C6(), {
-    AsyncResource: xz6
-  } = Z1("node:async_hooks"), {
-    addSignal: fz6,
-    removeSignal: vz6
-  } = Jo(), Pp0 = Z1("node:assert"), oh = Symbol("resume");
-  class _p0 extends Sp0 {
-    constructor() {
-      super({
-        autoDestroy: !0
-      });
-      this[oh] = null
-    }
-    _read() {
-      let {
-        [oh]: A
-      } = this;
-      if (A) this[oh] = null, A()
-    }
-    _destroy(A, B) {
-      this._read(), B(A)
-    }
-  }
-  class jp0 extends Sp0 {
-    constructor(A) {
-      super({
-        autoDestroy: !0
-      });
-      this[oh] = A
-    }
-    _read() {
-      this[oh]()
-    }
-    _destroy(A, B) {
-      if (!A && !this._readableState.endEmitted) A = new yp1;
-      B(A)
-    }
-  }
-  class yp0 extends xz6 {
-    constructor(A, B) {
-      if (!A || typeof A !== "object") throw new Fo("invalid opts");
-      if (typeof B !== "function") throw new Fo("invalid handler");
-      let {
-        signal: Q,
-        method: I,
-        opaque: G,
-        onInfo: Z,
-        responseHeaders: D
-      } = A;
-      if (Q && typeof Q.on !== "function" && typeof Q.addEventListener !== "function") throw new Fo("signal must be an EventEmitter or EventTarget");
-      if (I === "CONNECT") throw new Fo("invalid method");
-      if (Z && typeof Z !== "function") throw new Fo("invalid onInfo callback");
-      super("UNDICI_PIPELINE");
-      this.opaque = G || null, this.responseHeaders = D || null, this.handler = B, this.abort = null, this.context = null, this.onInfo = Z || null, this.req = new _p0().on("error", mX.nop), this.ret = new jz6({
-        readableObjectMode: A.objectMode,
-        autoDestroy: !0,
-        read: () => {
-          let {
-            body: Y
-          } = this;
-          if (Y?.resume) Y.resume()
-        },
-        write: (Y, W, J) => {
-          let {
-            req: F
-          } = this;
-          if (F.push(Y, W) || F._readableState.destroyed) J();
-          else F[oh] = J
-        },
-        destroy: (Y, W) => {
-          let {
-            body: J,
-            req: F,
-            res: X,
-            ret: V,
-            abort: C
-          } = this;
-          if (!Y && !V._readableState.endEmitted) Y = new yp1;
-          if (C && Y) C();
-          mX.destroy(J, Y), mX.destroy(F, Y), mX.destroy(X, Y), vz6(this), W(Y)
-        }
-      }).on("prefinish", () => {
-        let {
-          req: Y
-        } = this;
-        Y.push(null)
-      }), this.res = null, fz6(this, Q)
-    }
-    onConnect(A, B) {
-      let {
-        ret: Q,
-        res: I
-      } = this;
-      if (this.reason) {
-        A(this.reason);
-        return
-      }
-      Pp0(!I, "pipeline cannot be retried"), Pp0(!Q.destroyed), this.abort = A, this.context = B
-    }
-    onHeaders(A, B, Q) {
-      let {
-        opaque: I,
-        handler: G,
-        context: Z
-      } = this;
-      if (A < 200) {
-        if (this.onInfo) {
-          let Y = this.responseHeaders === "raw" ? mX.parseRawHeaders(B) : mX.parseHeaders(B);
-          this.onInfo({
-            statusCode: A,
-            headers: Y
+          E = new URL(A, I)
+        } catch (U) {
+          throw TypeError("Failed to parse URL from " + A, {
+            cause: U
           })
         }
-        return
+        if (E.username || E.password) throw TypeError("Request cannot be constructed from a URL that includes credentials: " + A);
+        G = rlA({
+          urlList: [E]
+        }), Z = "cors"
+      } else this[Iv1] = Q.dispatcher || A[Iv1], Si8(A instanceof YZ), G = A[KI], Y = A[ilA];
+      let J = plA.settingsObject.origin,
+        W = "client";
+      if (G.window?.constructor?.name === "EnvironmentSettingsObject" && Q2B(G.window, J)) W = G.window;
+      if (Q.window != null) throw TypeError(`'window' option '${W}' must be null`);
+      if ("window" in Q) W = "no-window";
+      G = rlA({
+        method: G.method,
+        headersList: G.headersList,
+        unsafeRequest: G.unsafeRequest,
+        client: plA.settingsObject,
+        window: W,
+        priority: G.priority,
+        origin: G.origin,
+        referrer: G.referrer,
+        referrerPolicy: G.referrerPolicy,
+        mode: G.mode,
+        credentials: G.credentials,
+        cache: G.cache,
+        redirect: G.redirect,
+        integrity: G.integrity,
+        keepalive: G.keepalive,
+        reloadNavigation: G.reloadNavigation,
+        historyNavigation: G.historyNavigation,
+        urlList: [...G.urlList]
+      });
+      let X = Object.keys(Q).length !== 0;
+      if (X) {
+        if (G.mode === "navigate") G.mode = "same-origin";
+        G.reloadNavigation = !1, G.historyNavigation = !1, G.origin = "client", G.referrer = "client", G.referrerPolicy = "", G.url = G.urlList[G.urlList.length - 1], G.urlList = [G.url]
       }
-      this.res = new jp0(Q);
-      let D;
-      try {
-        this.handler = null;
-        let Y = this.responseHeaders === "raw" ? mX.parseRawHeaders(B) : mX.parseHeaders(B);
-        D = this.runInAsyncScope(G, null, {
-          statusCode: A,
-          headers: Y,
-          opaque: I,
-          body: this.res,
-          context: Z
-        })
-      } catch (Y) {
-        throw this.res.on("error", mX.nop), Y
-      }
-      if (!D || typeof D.on !== "function") throw new kz6("expected Readable");
-      D.on("data", (Y) => {
-        let {
-          ret: W,
-          body: J
-        } = this;
-        if (!W.push(Y) && J.pause) J.pause()
-      }).on("error", (Y) => {
-        let {
-          ret: W
-        } = this;
-        mX.destroy(W, Y)
-      }).on("end", () => {
-        let {
-          ret: Y
-        } = this;
-        Y.push(null)
-      }).on("close", () => {
-        let {
-          ret: Y
-        } = this;
-        if (!Y._readableState.ended) mX.destroy(Y, new yp1)
-      }), this.body = D
-    }
-    onData(A) {
-      let {
-        res: B
-      } = this;
-      return B.push(A)
-    }
-    onComplete(A) {
-      let {
-        res: B
-      } = this;
-      B.push(null)
-    }
-    onError(A) {
-      let {
-        ret: B
-      } = this;
-      this.handler = null, mX.destroy(B, A)
-    }
-  }
-
-  function bz6(A, B) {
-    try {
-      let Q = new yp0(A, B);
-      return this.dispatch({
-        ...A,
-        body: Q.req
-      }, Q), Q.ret
-    } catch (Q) {
-      return new yz6().destroy(Q)
-    }
-  }
-  kp0.exports = bz6
-})
-// @from(Start 5542184, End 5544415)
-dp0 = z((YO8, mp0) => {
-  var {
-    InvalidArgumentError: kp1,
-    SocketError: gz6
-  } = u5(), {
-    AsyncResource: hz6
-  } = Z1("node:async_hooks"), fp0 = C6(), {
-    addSignal: mz6,
-    removeSignal: vp0
-  } = Jo(), bp0 = Z1("node:assert");
-  class gp0 extends hz6 {
-    constructor(A, B) {
-      if (!A || typeof A !== "object") throw new kp1("invalid opts");
-      if (typeof B !== "function") throw new kp1("invalid callback");
-      let {
-        signal: Q,
-        opaque: I,
-        responseHeaders: G
-      } = A;
-      if (Q && typeof Q.on !== "function" && typeof Q.addEventListener !== "function") throw new kp1("signal must be an EventEmitter or EventTarget");
-      super("UNDICI_UPGRADE");
-      this.responseHeaders = G || null, this.opaque = I || null, this.callback = B, this.abort = null, this.context = null, mz6(this, Q)
-    }
-    onConnect(A, B) {
-      if (this.reason) {
-        A(this.reason);
-        return
-      }
-      bp0(this.callback), this.abort = A, this.context = null
-    }
-    onHeaders() {
-      throw new gz6("bad upgrade", null)
-    }
-    onUpgrade(A, B, Q) {
-      bp0(A === 101);
-      let {
-        callback: I,
-        opaque: G,
-        context: Z
-      } = this;
-      vp0(this), this.callback = null;
-      let D = this.responseHeaders === "raw" ? fp0.parseRawHeaders(B) : fp0.parseHeaders(B);
-      this.runInAsyncScope(I, null, null, {
-        headers: D,
-        socket: Q,
-        opaque: G,
-        context: Z
-      })
-    }
-    onError(A) {
-      let {
-        callback: B,
-        opaque: Q
-      } = this;
-      if (vp0(this), B) this.callback = null, queueMicrotask(() => {
-        this.runInAsyncScope(B, null, A, {
-          opaque: Q
-        })
-      })
-    }
-  }
-
-  function hp0(A, B) {
-    if (B === void 0) return new Promise((Q, I) => {
-      hp0.call(this, A, (G, Z) => {
-        return G ? I(G) : Q(Z)
-      })
-    });
-    try {
-      let Q = new gp0(A, B);
-      this.dispatch({
-        ...A,
-        method: A.method || "GET",
-        upgrade: A.protocol || "Websocket"
-      }, Q)
-    } catch (Q) {
-      if (typeof B !== "function") throw Q;
-      let I = A?.opaque;
-      queueMicrotask(() => B(Q, {
-        opaque: I
-      }))
-    }
-  }
-  mp0.exports = hp0
-})
-// @from(Start 5544421, End 5546637)
-np0 = z((WO8, ip0) => {
-  var dz6 = Z1("node:assert"),
-    {
-      AsyncResource: uz6
-    } = Z1("node:async_hooks"),
-    {
-      InvalidArgumentError: xp1,
-      SocketError: pz6
-    } = u5(),
-    up0 = C6(),
-    {
-      addSignal: cz6,
-      removeSignal: pp0
-    } = Jo();
-  class cp0 extends uz6 {
-    constructor(A, B) {
-      if (!A || typeof A !== "object") throw new xp1("invalid opts");
-      if (typeof B !== "function") throw new xp1("invalid callback");
-      let {
-        signal: Q,
-        opaque: I,
-        responseHeaders: G
-      } = A;
-      if (Q && typeof Q.on !== "function" && typeof Q.addEventListener !== "function") throw new xp1("signal must be an EventEmitter or EventTarget");
-      super("UNDICI_CONNECT");
-      this.opaque = I || null, this.responseHeaders = G || null, this.callback = B, this.abort = null, cz6(this, Q)
-    }
-    onConnect(A, B) {
-      if (this.reason) {
-        A(this.reason);
-        return
-      }
-      dz6(this.callback), this.abort = A, this.context = B
-    }
-    onHeaders() {
-      throw new pz6("bad connect", null)
-    }
-    onUpgrade(A, B, Q) {
-      let {
-        callback: I,
-        opaque: G,
-        context: Z
-      } = this;
-      pp0(this), this.callback = null;
-      let D = B;
-      if (D != null) D = this.responseHeaders === "raw" ? up0.parseRawHeaders(B) : up0.parseHeaders(B);
-      this.runInAsyncScope(I, null, null, {
-        statusCode: A,
-        headers: D,
-        socket: Q,
-        opaque: G,
-        context: Z
-      })
-    }
-    onError(A) {
-      let {
-        callback: B,
-        opaque: Q
-      } = this;
-      if (pp0(this), B) this.callback = null, queueMicrotask(() => {
-        this.runInAsyncScope(B, null, A, {
-          opaque: Q
-        })
-      })
-    }
-  }
-
-  function lp0(A, B) {
-    if (B === void 0) return new Promise((Q, I) => {
-      lp0.call(this, A, (G, Z) => {
-        return G ? I(G) : Q(Z)
-      })
-    });
-    try {
-      let Q = new cp0(A, B);
-      this.dispatch({
-        ...A,
-        method: "CONNECT"
-      }, Q)
-    } catch (Q) {
-      if (typeof B !== "function") throw Q;
-      let I = A?.opaque;
-      queueMicrotask(() => B(Q, {
-        opaque: I
-      }))
-    }
-  }
-  ip0.exports = lp0
-})
-// @from(Start 5546643, End 5546782)
-ap0 = z((lz6, th) => {
-  lz6.request = Up0();
-  lz6.stream = Tp0();
-  lz6.pipeline = xp0();
-  lz6.upgrade = dp0();
-  lz6.connect = np0()
-})
-// @from(Start 5546788, End 5547181)
-vp1 = z((JO8, sp0) => {
-  var {
-    UndiciError: oz6
-  } = u5();
-  class fp1 extends oz6 {
-    constructor(A) {
-      super(A);
-      Error.captureStackTrace(this, fp1), this.name = "MockNotMatchedError", this.message = A || "The request does not match any registered mock dispatches", this.code = "UND_MOCK_ERR_MOCK_NOT_MATCHED"
-    }
-  }
-  sp0.exports = {
-    MockNotMatchedError: fp1
-  }
-})
-// @from(Start 5547187, End 5548006)
-eh = z((FO8, rp0) => {
-  rp0.exports = {
-    kAgent: Symbol("agent"),
-    kOptions: Symbol("options"),
-    kFactory: Symbol("factory"),
-    kDispatches: Symbol("dispatches"),
-    kDispatchKey: Symbol("dispatch key"),
-    kDefaultHeaders: Symbol("default headers"),
-    kDefaultTrailers: Symbol("default trailers"),
-    kContentLength: Symbol("content length"),
-    kMockAgent: Symbol("mock agent"),
-    kMockAgentSet: Symbol("mock agent set"),
-    kMockAgentGet: Symbol("mock agent get"),
-    kMockDispatch: Symbol("mock dispatch"),
-    kClose: Symbol("close"),
-    kOriginalClose: Symbol("original agent close"),
-    kOrigin: Symbol("origin"),
-    kIsMockActive: Symbol("is mock active"),
-    kNetConnect: Symbol("net connect"),
-    kGetNetConnect: Symbol("get net connect"),
-    kConnected: Symbol("connected")
-  }
-})
-// @from(Start 5548012, End 5554990)
-Xo = z((XO8, Yc0) => {
-  var {
-    MockNotMatchedError: Ej
-  } = vp1(), {
-    kDispatches: JW1,
-    kMockAgent: tz6,
-    kOriginalDispatch: ez6,
-    kOrigin: Aw6,
-    kGetNetConnect: Bw6
-  } = eh(), {
-    buildURL: Qw6
-  } = C6(), {
-    STATUS_CODES: Iw6
-  } = Z1("node:http"), {
-    types: {
-      isPromise: Gw6
-    }
-  } = Z1("node:util");
-
-  function lN(A, B) {
-    if (typeof A === "string") return A === B;
-    if (A instanceof RegExp) return A.test(B);
-    if (typeof A === "function") return A(B) === !0;
-    return !1
-  }
-
-  function tp0(A) {
-    return Object.fromEntries(Object.entries(A).map(([B, Q]) => {
-      return [B.toLocaleLowerCase(), Q]
-    }))
-  }
-
-  function ep0(A, B) {
-    if (Array.isArray(A)) {
-      for (let Q = 0; Q < A.length; Q += 2)
-        if (A[Q].toLocaleLowerCase() === B.toLocaleLowerCase()) return A[Q + 1];
-      return
-    } else if (typeof A.get === "function") return A.get(B);
-    else return tp0(A)[B.toLocaleLowerCase()]
-  }
-
-  function hp1(A) {
-    let B = A.slice(),
-      Q = [];
-    for (let I = 0; I < B.length; I += 2) Q.push([B[I], B[I + 1]]);
-    return Object.fromEntries(Q)
-  }
-
-  function Ac0(A, B) {
-    if (typeof A.headers === "function") {
-      if (Array.isArray(B)) B = hp1(B);
-      return A.headers(B ? tp0(B) : {})
-    }
-    if (typeof A.headers === "undefined") return !0;
-    if (typeof B !== "object" || typeof A.headers !== "object") return !1;
-    for (let [Q, I] of Object.entries(A.headers)) {
-      let G = ep0(B, Q);
-      if (!lN(I, G)) return !1
-    }
-    return !0
-  }
-
-  function op0(A) {
-    if (typeof A !== "string") return A;
-    let B = A.split("?");
-    if (B.length !== 2) return A;
-    let Q = new URLSearchParams(B.pop());
-    return Q.sort(), [...B, Q.toString()].join("?")
-  }
-
-  function Zw6(A, {
-    path: B,
-    method: Q,
-    body: I,
-    headers: G
-  }) {
-    let Z = lN(A.path, B),
-      D = lN(A.method, Q),
-      Y = typeof A.body !== "undefined" ? lN(A.body, I) : !0,
-      W = Ac0(A, G);
-    return Z && D && Y && W
-  }
-
-  function Bc0(A) {
-    if (Buffer.isBuffer(A)) return A;
-    else if (A instanceof Uint8Array) return A;
-    else if (A instanceof ArrayBuffer) return A;
-    else if (typeof A === "object") return JSON.stringify(A);
-    else return A.toString()
-  }
-
-  function Qc0(A, B) {
-    let Q = B.query ? Qw6(B.path, B.query) : B.path,
-      I = typeof Q === "string" ? op0(Q) : Q,
-      G = A.filter(({
-        consumed: Z
-      }) => !Z).filter(({
-        path: Z
-      }) => lN(op0(Z), I));
-    if (G.length === 0) throw new Ej(`Mock dispatch not matched for path '${I}'`);
-    if (G = G.filter(({
-        method: Z
-      }) => lN(Z, B.method)), G.length === 0) throw new Ej(`Mock dispatch not matched for method '${B.method}' on path '${I}'`);
-    if (G = G.filter(({
-        body: Z
-      }) => typeof Z !== "undefined" ? lN(Z, B.body) : !0), G.length === 0) throw new Ej(`Mock dispatch not matched for body '${B.body}' on path '${I}'`);
-    if (G = G.filter((Z) => Ac0(Z, B.headers)), G.length === 0) {
-      let Z = typeof B.headers === "object" ? JSON.stringify(B.headers) : B.headers;
-      throw new Ej(`Mock dispatch not matched for headers '${Z}' on path '${I}'`)
-    }
-    return G[0]
-  }
-
-  function Dw6(A, B, Q) {
-    let I = {
-        timesInvoked: 0,
-        times: 1,
-        persist: !1,
-        consumed: !1
-      },
-      G = typeof Q === "function" ? {
-        callback: Q
-      } : {
-        ...Q
-      },
-      Z = {
-        ...I,
-        ...B,
-        pending: !0,
-        data: {
-          error: null,
-          ...G
-        }
-      };
-    return A.push(Z), Z
-  }
-
-  function bp1(A, B) {
-    let Q = A.findIndex((I) => {
-      if (!I.consumed) return !1;
-      return Zw6(I, B)
-    });
-    if (Q !== -1) A.splice(Q, 1)
-  }
-
-  function Ic0(A) {
-    let {
-      path: B,
-      method: Q,
-      body: I,
-      headers: G,
-      query: Z
-    } = A;
-    return {
-      path: B,
-      method: Q,
-      body: I,
-      headers: G,
-      query: Z
-    }
-  }
-
-  function gp1(A) {
-    let B = Object.keys(A),
-      Q = [];
-    for (let I = 0; I < B.length; ++I) {
-      let G = B[I],
-        Z = A[G],
-        D = Buffer.from(`${G}`);
-      if (Array.isArray(Z))
-        for (let Y = 0; Y < Z.length; ++Y) Q.push(D, Buffer.from(`${Z[Y]}`));
-      else Q.push(D, Buffer.from(`${Z}`))
-    }
-    return Q
-  }
-
-  function Gc0(A) {
-    return Iw6[A] || "unknown"
-  }
-  async function Yw6(A) {
-    let B = [];
-    for await (let Q of A) B.push(Q);
-    return Buffer.concat(B).toString("utf8")
-  }
-
-  function Zc0(A, B) {
-    let Q = Ic0(A),
-      I = Qc0(this[JW1], Q);
-    if (I.timesInvoked++, I.data.callback) I.data = {
-      ...I.data,
-      ...I.data.callback(A)
-    };
-    let {
-      data: {
-        statusCode: G,
-        data: Z,
-        headers: D,
-        trailers: Y,
-        error: W
-      },
-      delay: J,
-      persist: F
-    } = I, {
-      timesInvoked: X,
-      times: V
-    } = I;
-    if (I.consumed = !F && X >= V, I.pending = X < V, W !== null) return bp1(this[JW1], Q), B.onError(W), !0;
-    if (typeof J === "number" && J > 0) setTimeout(() => {
-      C(this[JW1])
-    }, J);
-    else C(this[JW1]);
-
-    function C(E, N = Z) {
-      let q = Array.isArray(A.headers) ? hp1(A.headers) : A.headers,
-        O = typeof N === "function" ? N({
-          ...A,
-          headers: q
-        }) : N;
-      if (Gw6(O)) {
-        O.then((_) => C(E, _));
-        return
-      }
-      let R = Bc0(O),
-        T = gp1(D),
-        L = gp1(Y);
-      B.onConnect?.((_) => B.onError(_), null), B.onHeaders?.(G, T, K, Gc0(G)), B.onData?.(Buffer.from(R)), B.onComplete?.(L), bp1(E, Q)
-    }
-
-    function K() {}
-    return !0
-  }
-
-  function Ww6() {
-    let A = this[tz6],
-      B = this[Aw6],
-      Q = this[ez6];
-    return function I(G, Z) {
-      if (A.isMockActive) try {
-        Zc0.call(this, G, Z)
-      } catch (D) {
-        if (D instanceof Ej) {
-          let Y = A[Bw6]();
-          if (Y === !1) throw new Ej(`${D.message}: subsequent request to origin ${B} was not allowed (net.connect disabled)`);
-          if (Dc0(Y, B)) Q.call(this, G, Z);
-          else throw new Ej(`${D.message}: subsequent request to origin ${B} was not allowed (net.connect is not enabled for this origin)`)
-        } else throw D
-      } else Q.call(this, G, Z)
-    }
-  }
-
-  function Dc0(A, B) {
-    let Q = new URL(B);
-    if (A === !0) return !0;
-    else if (Array.isArray(A) && A.some((I) => lN(I, Q.host))) return !0;
-    return !1
-  }
-
-  function Jw6(A) {
-    if (A) {
-      let {
-        agent: B,
-        ...Q
-      } = A;
-      return Q
-    }
-  }
-  Yc0.exports = {
-    getResponseData: Bc0,
-    getMockDispatch: Qc0,
-    addMockDispatch: Dw6,
-    deleteMockDispatch: bp1,
-    buildKey: Ic0,
-    generateKeyValues: gp1,
-    matchValue: lN,
-    getResponse: Yw6,
-    getStatusText: Gc0,
-    mockDispatch: Zc0,
-    buildMockDispatch: Ww6,
-    checkNetConnect: Dc0,
-    buildMockOptions: Jw6,
-    getHeaderByName: ep0,
-    buildHeadersFromArray: hp1
-  }
-})
-// @from(Start 5554996, End 5558686)
-lp1 = z((Cw6, cp1) => {
-  var {
-    getResponseData: Fw6,
-    buildKey: Xw6,
-    addMockDispatch: mp1
-  } = Xo(), {
-    kDispatches: FW1,
-    kDispatchKey: XW1,
-    kDefaultHeaders: dp1,
-    kDefaultTrailers: up1,
-    kContentLength: pp1,
-    kMockDispatch: VW1
-  } = eh(), {
-    InvalidArgumentError: _w
-  } = u5(), {
-    buildURL: Vw6
-  } = C6();
-  class Vo {
-    constructor(A) {
-      this[VW1] = A
-    }
-    delay(A) {
-      if (typeof A !== "number" || !Number.isInteger(A) || A <= 0) throw new _w("waitInMs must be a valid integer > 0");
-      return this[VW1].delay = A, this
-    }
-    persist() {
-      return this[VW1].persist = !0, this
-    }
-    times(A) {
-      if (typeof A !== "number" || !Number.isInteger(A) || A <= 0) throw new _w("repeatTimes must be a valid integer > 0");
-      return this[VW1].times = A, this
-    }
-  }
-  class Wc0 {
-    constructor(A, B) {
-      if (typeof A !== "object") throw new _w("opts must be an object");
-      if (typeof A.path === "undefined") throw new _w("opts.path must be defined");
-      if (typeof A.method === "undefined") A.method = "GET";
-      if (typeof A.path === "string")
-        if (A.query) A.path = Vw6(A.path, A.query);
+      if (Q.referrer !== void 0) {
+        let E = Q.referrer;
+        if (E === "") G.referrer = "no-referrer";
         else {
-          let Q = new URL(A.path, "data://");
-          A.path = Q.pathname + Q.search
-        } if (typeof A.method === "string") A.method = A.method.toUpperCase();
-      this[XW1] = Xw6(A), this[FW1] = B, this[dp1] = {}, this[up1] = {}, this[pp1] = !1
-    }
-    createMockScopeDispatchData({
-      statusCode: A,
-      data: B,
-      responseOptions: Q
-    }) {
-      let I = Fw6(B),
-        G = this[pp1] ? {
-          "content-length": I.length
-        } : {},
-        Z = {
-          ...this[dp1],
-          ...G,
-          ...Q.headers
-        },
-        D = {
-          ...this[up1],
-          ...Q.trailers
-        };
-      return {
-        statusCode: A,
-        data: B,
-        headers: Z,
-        trailers: D
+          let U;
+          try {
+            U = new URL(E, I)
+          } catch (q) {
+            throw TypeError(`Referrer "${E}" is not a valid URL.`, {
+              cause: q
+            })
+          }
+          if (U.protocol === "about:" && U.hostname === "client" || J && !Q2B(U, plA.settingsObject.baseUrl)) G.referrer = "client";
+          else G.referrer = U
+        }
       }
-    }
-    validateReplyParameters(A) {
-      if (typeof A.statusCode === "undefined") throw new _w("statusCode must be defined");
-      if (typeof A.responseOptions !== "object" || A.responseOptions === null) throw new _w("responseOptions must be an object")
-    }
-    reply(A) {
-      if (typeof A === "function") {
-        let G = (D) => {
-            let Y = A(D);
-            if (typeof Y !== "object" || Y === null) throw new _w("reply options callback must return an object");
-            let W = {
-              data: "",
-              responseOptions: {},
-              ...Y
-            };
-            return this.validateReplyParameters(W), {
-              ...this.createMockScopeDispatchData(W)
+      if (Q.referrerPolicy !== void 0) G.referrerPolicy = Q.referrerPolicy;
+      let V;
+      if (Q.mode !== void 0) V = Q.mode;
+      else V = Z;
+      if (V === "navigate") throw W4.errors.exception({
+        header: "Request constructor",
+        message: "invalid request mode navigate."
+      });
+      if (V != null) G.mode = V;
+      if (Q.credentials !== void 0) G.credentials = Q.credentials;
+      if (Q.cache !== void 0) G.cache = Q.cache;
+      if (G.cache === "only-if-cached" && G.mode !== "same-origin") throw TypeError("'only-if-cached' can be set only with 'same-origin' mode");
+      if (Q.redirect !== void 0) G.redirect = Q.redirect;
+      if (Q.integrity != null) G.integrity = String(Q.integrity);
+      if (Q.keepalive !== void 0) G.keepalive = Boolean(Q.keepalive);
+      if (Q.method !== void 0) {
+        let E = Q.method,
+          U = Pi8[E];
+        if (U !== void 0) G.method = U;
+        else {
+          if (!Ui8(E)) throw TypeError(`'${E}' is not a valid HTTP method.`);
+          let q = E.toUpperCase();
+          if ($i8.has(q)) throw TypeError(`'${E}' HTTP method is unsupported.`);
+          E = Ti8[q] ?? E, G.method = E
+        }
+        if (!Y2B && G.method === "patch") process.emitWarning("Using `patch` is highly likely to result in a `405 Method Not Allowed`. `PATCH` is much more likely to succeed.", {
+          code: "UNDICI-FETCH-patch"
+        }), Y2B = !0
+      }
+      if (Q.signal !== void 0) Y = Q.signal;
+      this[KI] = G;
+      let F = new AbortController;
+      if (this[ilA] = F.signal, Y != null) {
+        if (!Y || typeof Y.aborted !== "boolean" || typeof Y.addEventListener !== "function") throw TypeError("Failed to construct 'Request': member signal is not of type AbortSignal.");
+        if (Y.aborted) F.abort(Y.reason);
+        else {
+          this[ki8] = F;
+          let E = new WeakRef(F),
+            U = I2B(E);
+          try {
+            if (typeof B2B === "function" && B2B(Y) === Z2B) G2B(1500, Y);
+            else if (_i8(Y, "abort").length >= Z2B) G2B(1500, Y)
+          } catch {}
+          llA.addAbortListener(Y, U), X2B.register(F, {
+            signal: Y,
+            abort: U
+          }, U)
+        }
+      }
+      if (this[gw] = new J2B(alA), W2B(this[gw], G.headersList), Yv1(this[gw], "request"), V === "no-cors") {
+        if (!wi8.has(G.method)) throw TypeError(`'${G.method} is unsupported in no-cors mode.`);
+        Yv1(this[gw], "request-no-cors")
+      }
+      if (X) {
+        let E = eBB(this[gw]),
+          U = Q.headers !== void 0 ? Q.headers : new nlA(E);
+        if (E.clear(), U instanceof nlA) {
+          for (let {
+              name: q,
+              value: w
             }
-          },
-          Z = mp1(this[FW1], this[XW1], G);
-        return new Vo(Z)
+            of U.rawValues()) E.append(q, w, !1);
+          E.cookies = U.cookies
+        } else Ci8(this[gw], U)
       }
-      let B = {
-        statusCode: A,
-        data: arguments[1] === void 0 ? "" : arguments[1],
-        responseOptions: arguments[2] === void 0 ? {} : arguments[2]
-      };
-      this.validateReplyParameters(B);
-      let Q = this.createMockScopeDispatchData(B),
-        I = mp1(this[FW1], this[XW1], Q);
-      return new Vo(I)
-    }
-    replyWithError(A) {
-      if (typeof A === "undefined") throw new _w("error must be defined");
-      let B = mp1(this[FW1], this[XW1], {
-        error: A
-      });
-      return new Vo(B)
-    }
-    defaultReplyHeaders(A) {
-      if (typeof A === "undefined") throw new _w("headers must be defined");
-      return this[dp1] = A, this
-    }
-    defaultReplyTrailers(A) {
-      if (typeof A === "undefined") throw new _w("trailers must be defined");
-      return this[up1] = A, this
-    }
-    replyContentLength() {
-      return this[pp1] = !0, this
-    }
-  }
-  Cw6.MockInterceptor = Wc0;
-  Cw6.MockScope = Vo
-})
-// @from(Start 5558692, End 5559728)
-np1 = z((VO8, zc0) => {
-  var {
-    promisify: zw6
-  } = Z1("node:util"), ww6 = er(), {
-    buildMockDispatch: Ew6
-  } = Xo(), {
-    kDispatches: Jc0,
-    kMockAgent: Fc0,
-    kClose: Xc0,
-    kOriginalClose: Vc0,
-    kOrigin: Cc0,
-    kOriginalDispatch: Uw6,
-    kConnected: ip1
-  } = eh(), {
-    MockInterceptor: Nw6
-  } = lp1(), Kc0 = A3(), {
-    InvalidArgumentError: $w6
-  } = u5();
-  class Hc0 extends ww6 {
-    constructor(A, B) {
-      super(A, B);
-      if (!B || !B.agent || typeof B.agent.dispatch !== "function") throw new $w6("Argument opts.agent must implement Agent");
-      this[Fc0] = B.agent, this[Cc0] = A, this[Jc0] = [], this[ip1] = 1, this[Uw6] = this.dispatch, this[Vc0] = this.close.bind(this), this.dispatch = Ew6.call(this), this.close = this[Xc0]
-    }
-    get[Kc0.kConnected]() {
-      return this[ip1]
-    }
-    intercept(A) {
-      return new Nw6(A, this[Jc0])
-    }
-    async [Xc0]() {
-      await zw6(this[Vc0])(), this[ip1] = 0, this[Fc0][Kc0.kClients].delete(this[Cc0])
-    }
-  }
-  zc0.exports = Hc0
-})
-// @from(Start 5559734, End 5560770)
-sp1 = z((CO8, Lc0) => {
-  var {
-    promisify: qw6
-  } = Z1("node:util"), Mw6 = lh(), {
-    buildMockDispatch: Lw6
-  } = Xo(), {
-    kDispatches: wc0,
-    kMockAgent: Ec0,
-    kClose: Uc0,
-    kOriginalClose: Nc0,
-    kOrigin: $c0,
-    kOriginalDispatch: Rw6,
-    kConnected: ap1
-  } = eh(), {
-    MockInterceptor: Ow6
-  } = lp1(), qc0 = A3(), {
-    InvalidArgumentError: Tw6
-  } = u5();
-  class Mc0 extends Mw6 {
-    constructor(A, B) {
-      super(A, B);
-      if (!B || !B.agent || typeof B.agent.dispatch !== "function") throw new Tw6("Argument opts.agent must implement Agent");
-      this[Ec0] = B.agent, this[$c0] = A, this[wc0] = [], this[ap1] = 1, this[Rw6] = this.dispatch, this[Nc0] = this.close.bind(this), this.dispatch = Lw6.call(this), this.close = this[Uc0]
-    }
-    get[qc0.kConnected]() {
-      return this[ap1]
-    }
-    intercept(A) {
-      return new Ow6(A, this[wc0])
-    }
-    async [Uc0]() {
-      await qw6(this[Nc0])(), this[ap1] = 0, this[Ec0][qc0.kClients].delete(this[$c0])
-    }
-  }
-  Lc0.exports = Mc0
-})
-// @from(Start 5560776, End 5561287)
-Oc0 = z((KO8, Rc0) => {
-  var Pw6 = {
-      pronoun: "it",
-      is: "is",
-      was: "was",
-      this: "this"
-    },
-    Sw6 = {
-      pronoun: "they",
-      is: "are",
-      was: "were",
-      this: "these"
-    };
-  Rc0.exports = class A {
-    constructor(B, Q) {
-      this.singular = B, this.plural = Q
-    }
-    pluralize(B) {
-      let Q = B === 1,
-        I = Q ? Pw6 : Sw6,
-        G = Q ? this.singular : this.plural;
-      return {
-        ...I,
-        count: B,
-        noun: G
+      let K = A instanceof YZ ? A[KI].body : null;
+      if ((Q.body != null || K != null) && (G.method === "GET" || G.method === "HEAD")) throw TypeError("Request with GET/HEAD method cannot have body.");
+      let D = null;
+      if (Q.body != null) {
+        let [E, U] = Ki8(Q.body, G.keepalive);
+        if (D = E, U && !eBB(this[gw]).contains("content-type", !0)) this[gw].append("content-type", U)
       }
-    }
-  }
-})
-// @from(Start 5561293, End 5562304)
-Pc0 = z((HO8, Tc0) => {
-  var {
-    Transform: _w6
-  } = Z1("node:stream"), {
-    Console: jw6
-  } = Z1("node:console"), yw6 = process.versions.icu ? "✅" : "Y ", kw6 = process.versions.icu ? "❌" : "N ";
-  Tc0.exports = class A {
-    constructor({
-      disableColors: B
-    } = {}) {
-      this.transform = new _w6({
-        transform(Q, I, G) {
-          G(null, Q)
-        }
-      }), this.logger = new jw6({
-        stdout: this.transform,
-        inspectOptions: {
-          colors: !B && !0
-        }
-      })
-    }
-    format(B) {
-      let Q = B.map(({
-        method: I,
-        path: G,
-        data: {
-          statusCode: Z
-        },
-        persist: D,
-        times: Y,
-        timesInvoked: W,
-        origin: J
-      }) => ({
-        Method: I,
-        Origin: J,
-        Path: G,
-        "Status code": Z,
-        Persistent: D ? yw6 : kw6,
-        Invocations: W,
-        Remaining: D ? 1 / 0 : Y - W
-      }));
-      return this.logger.table(Q), this.transform.read().toString()
-    }
-  }
-})
-// @from(Start 5562310, End 5565158)
-kc0 = z((zO8, yc0) => {
-  var {
-    kClients: Uj
-  } = A3(), xw6 = ih(), {
-    kAgent: rp1,
-    kMockAgentSet: CW1,
-    kMockAgentGet: Sc0,
-    kDispatches: op1,
-    kIsMockActive: KW1,
-    kNetConnect: Nj,
-    kGetNetConnect: fw6,
-    kOptions: HW1,
-    kFactory: zW1
-  } = eh(), vw6 = np1(), bw6 = sp1(), {
-    matchValue: gw6,
-    buildMockOptions: hw6
-  } = Xo(), {
-    InvalidArgumentError: _c0,
-    UndiciError: mw6
-  } = u5(), dw6 = yr(), uw6 = Oc0(), pw6 = Pc0();
-  class jc0 extends dw6 {
-    constructor(A) {
-      super(A);
-      if (this[Nj] = !0, this[KW1] = !0, A?.agent && typeof A.agent.dispatch !== "function") throw new _c0("Argument opts.agent must implement Agent");
-      let B = A?.agent ? A.agent : new xw6(A);
-      this[rp1] = B, this[Uj] = B[Uj], this[HW1] = hw6(A)
-    }
-    get(A) {
-      let B = this[Sc0](A);
-      if (!B) B = this[zW1](A), this[CW1](A, B);
-      return B
-    }
-    dispatch(A, B) {
-      return this.get(A.origin), this[rp1].dispatch(A, B)
-    }
-    async close() {
-      await this[rp1].close(), this[Uj].clear()
-    }
-    deactivate() {
-      this[KW1] = !1
-    }
-    activate() {
-      this[KW1] = !0
-    }
-    enableNetConnect(A) {
-      if (typeof A === "string" || typeof A === "function" || A instanceof RegExp)
-        if (Array.isArray(this[Nj])) this[Nj].push(A);
-        else this[Nj] = [A];
-      else if (typeof A === "undefined") this[Nj] = !0;
-      else throw new _c0("Unsupported matcher. Must be one of String|Function|RegExp.")
-    }
-    disableNetConnect() {
-      this[Nj] = !1
-    }
-    get isMockActive() {
-      return this[KW1]
-    } [CW1](A, B) {
-      this[Uj].set(A, B)
-    } [zW1](A) {
-      let B = Object.assign({
-        agent: this
-      }, this[HW1]);
-      return this[HW1] && this[HW1].connections === 1 ? new vw6(A, B) : new bw6(A, B)
-    } [Sc0](A) {
-      let B = this[Uj].get(A);
-      if (B) return B;
-      if (typeof A !== "string") {
-        let Q = this[zW1]("http://localhost:9999");
-        return this[CW1](A, Q), Q
+      let H = D ?? K;
+      if (H != null && H.source == null) {
+        if (D != null && Q.duplex == null) throw TypeError("RequestInit: duplex option is required when sending a body.");
+        if (G.mode !== "same-origin" && G.mode !== "cors") throw TypeError('If request is made from ReadableStream, mode should be "same-origin" or "cors"');
+        G.useCORSPreflightFlag = !0
       }
-      for (let [Q, I] of Array.from(this[Uj]))
-        if (I && typeof Q !== "string" && gw6(Q, A)) {
-          let G = this[zW1](A);
-          return this[CW1](A, G), G[op1] = I[op1], G
-        }
-    } [fw6]() {
-      return this[Nj]
-    }
-    pendingInterceptors() {
-      let A = this[Uj];
-      return Array.from(A.entries()).flatMap(([B, Q]) => Q[op1].map((I) => ({
-        ...I,
-        origin: B
-      }))).filter(({
-        pending: B
-      }) => B)
-    }
-    assertNoPendingInterceptors({
-      pendingInterceptorsFormatter: A = new pw6
-    } = {}) {
-      let B = this.pendingInterceptors();
-      if (B.length === 0) return;
-      let Q = new uw6("interceptor", "interceptors").pluralize(B.length);
-      throw new mw6(`
-${Q.count} ${Q.noun} ${Q.is} pending:
-
-${A.format(B)}
-`.trim())
-    }
-  }
-  yc0.exports = jc0
-})
-// @from(Start 5565164, End 5565741)
-wW1 = z((wO8, bc0) => {
-  var xc0 = Symbol.for("undici.globalDispatcher.1"),
-    {
-      InvalidArgumentError: cw6
-    } = u5(),
-    lw6 = ih();
-  if (vc0() === void 0) fc0(new lw6);
-
-  function fc0(A) {
-    if (!A || typeof A.dispatch !== "function") throw new cw6("Argument agent must implement Agent");
-    Object.defineProperty(globalThis, xc0, {
-      value: A,
-      writable: !0,
-      enumerable: !1,
-      configurable: !1
-    })
-  }
-
-  function vc0() {
-    return globalThis[xc0]
-  }
-  bc0.exports = {
-    setGlobalDispatcher: fc0,
-    getGlobalDispatcher: vc0
-  }
-})
-// @from(Start 5565747, End 5566499)
-EW1 = z((EO8, gc0) => {
-  gc0.exports = class A {
-    #A;
-    constructor(B) {
-      if (typeof B !== "object" || B === null) throw new TypeError("handler must be an object");
-      this.#A = B
-    }
-    onConnect(...B) {
-      return this.#A.onConnect?.(...B)
-    }
-    onError(...B) {
-      return this.#A.onError?.(...B)
-    }
-    onUpgrade(...B) {
-      return this.#A.onUpgrade?.(...B)
-    }
-    onResponseStarted(...B) {
-      return this.#A.onResponseStarted?.(...B)
-    }
-    onHeaders(...B) {
-      return this.#A.onHeaders?.(...B)
-    }
-    onData(...B) {
-      return this.#A.onData?.(...B)
-    }
-    onComplete(...B) {
-      return this.#A.onComplete?.(...B)
-    }
-    onBodySent(...B) {
-      return this.#A.onBodySent?.(...B)
-    }
-  }
-})
-// @from(Start 5566505, End 5566847)
-mc0 = z((UO8, hc0) => {
-  var iw6 = tY1();
-  hc0.exports = (A) => {
-    let B = A?.maxRedirections;
-    return (Q) => {
-      return function I(G, Z) {
-        let {
-          maxRedirections: D = B,
-          ...Y
-        } = G;
-        if (!D) return Q(G, Z);
-        let W = new iw6(Q, D, G, Z);
-        return Q(Y, W)
-      }
-    }
-  }
-})
-// @from(Start 5566853, End 5567194)
-uc0 = z((NO8, dc0) => {
-  var nw6 = WW1();
-  dc0.exports = (A) => {
-    return (B) => {
-      return function Q(I, G) {
-        return B(I, new nw6({
-          ...I,
-          retryOptions: {
-            ...A,
-            ...I.retryOptions
-          }
-        }, {
-          handler: G,
-          dispatch: B
-        }))
-      }
-    }
-  }
-})
-// @from(Start 5567200, End 5568842)
-lc0 = z(($O8, cc0) => {
-  var aw6 = C6(),
-    {
-      InvalidArgumentError: sw6,
-      RequestAbortedError: rw6
-    } = u5(),
-    ow6 = EW1();
-  class pc0 extends ow6 {
-    #A = 1048576;
-    #B = null;
-    #Q = !1;
-    #I = !1;
-    #G = 0;
-    #W = null;
-    #Z = null;
-    constructor({
-      maxSize: A
-    }, B) {
-      super(B);
-      if (A != null && (!Number.isFinite(A) || A < 1)) throw new sw6("maxSize must be a number greater than 0");
-      this.#A = A ?? this.#A, this.#Z = B
-    }
-    onConnect(A) {
-      this.#B = A, this.#Z.onConnect(this.#F.bind(this))
-    }
-    #F(A) {
-      this.#I = !0, this.#W = A
-    }
-    onHeaders(A, B, Q, I) {
-      let Z = aw6.parseHeaders(B)["content-length"];
-      if (Z != null && Z > this.#A) throw new rw6(`Response size (${Z}) larger than maxSize (${this.#A})`);
-      if (this.#I) return !0;
-      return this.#Z.onHeaders(A, B, Q, I)
-    }
-    onError(A) {
-      if (this.#Q) return;
-      A = this.#W ?? A, this.#Z.onError(A)
-    }
-    onData(A) {
-      if (this.#G = this.#G + A.length, this.#G >= this.#A)
-        if (this.#Q = !0, this.#I) this.#Z.onError(this.#W);
-        else this.#Z.onComplete([]);
-      return !0
-    }
-    onComplete(A) {
-      if (this.#Q) return;
-      if (this.#I) {
-        this.#Z.onError(this.reason);
-        return
-      }
-      this.#Z.onComplete(A)
-    }
-  }
-
-  function tw6({
-    maxSize: A
-  } = {
-    maxSize: 1048576
-  }) {
-    return (B) => {
-      return function Q(I, G) {
-        let {
-          dumpMaxSize: Z = A
-        } = I, D = new pc0({
-          maxSize: Z
-        }, G);
-        return B(I, D)
-      }
-    }
-  }
-  cc0.exports = tw6
-})
-// @from(Start 5568848, End 5575046)
-rc0 = z((qO8, sc0) => {
-  var {
-    isIP: ew6
-  } = Z1("node:net"), {
-    lookup: AE6
-  } = Z1("node:dns"), BE6 = EW1(), {
-    InvalidArgumentError: Am,
-    InformationalError: QE6
-  } = u5(), ic0 = Math.pow(2, 31) - 1;
-  class nc0 {
-    #A = 0;
-    #B = 0;
-    #Q = new Map;
-    dualStack = !0;
-    affinity = null;
-    lookup = null;
-    pick = null;
-    constructor(A) {
-      this.#A = A.maxTTL, this.#B = A.maxItems, this.dualStack = A.dualStack, this.affinity = A.affinity, this.lookup = A.lookup ?? this.#I, this.pick = A.pick ?? this.#G
-    }
-    get full() {
-      return this.#Q.size === this.#B
-    }
-    runLookup(A, B, Q) {
-      let I = this.#Q.get(A.hostname);
-      if (I == null && this.full) {
-        Q(null, A.origin);
-        return
-      }
-      let G = {
-        affinity: this.affinity,
-        dualStack: this.dualStack,
-        lookup: this.lookup,
-        pick: this.pick,
-        ...B.dns,
-        maxTTL: this.#A,
-        maxItems: this.#B
-      };
-      if (I == null) this.lookup(A, G, (Z, D) => {
-        if (Z || D == null || D.length === 0) {
-          Q(Z ?? new QE6("No DNS entries found"));
-          return
-        }
-        this.setRecords(A, D);
-        let Y = this.#Q.get(A.hostname),
-          W = this.pick(A, Y, G.affinity),
-          J;
-        if (typeof W.port === "number") J = `:${W.port}`;
-        else if (A.port !== "") J = `:${A.port}`;
-        else J = "";
-        Q(null, `${A.protocol}//${W.family===6?`[${W.address}]`:W.address}${J}`)
-      });
-      else {
-        let Z = this.pick(A, I, G.affinity);
-        if (Z == null) {
-          this.#Q.delete(A.hostname), this.runLookup(A, B, Q);
-          return
-        }
-        let D;
-        if (typeof Z.port === "number") D = `:${Z.port}`;
-        else if (A.port !== "") D = `:${A.port}`;
-        else D = "";
-        Q(null, `${A.protocol}//${Z.family===6?`[${Z.address}]`:Z.address}${D}`)
-      }
-    }
-    #I(A, B, Q) {
-      AE6(A.hostname, {
-        all: !0,
-        family: this.dualStack === !1 ? this.affinity : 0,
-        order: "ipv4first"
-      }, (I, G) => {
-        if (I) return Q(I);
-        let Z = new Map;
-        for (let D of G) Z.set(`${D.address}:${D.family}`, D);
-        Q(null, Z.values())
-      })
-    }
-    #G(A, B, Q) {
-      let I = null,
-        {
-          records: G,
-          offset: Z
-        } = B,
-        D;
-      if (this.dualStack) {
-        if (Q == null)
-          if (Z == null || Z === ic0) B.offset = 0, Q = 4;
-          else B.offset++, Q = (B.offset & 1) === 1 ? 6 : 4;
-        if (G[Q] != null && G[Q].ips.length > 0) D = G[Q];
-        else D = G[Q === 4 ? 6 : 4]
-      } else D = G[Q];
-      if (D == null || D.ips.length === 0) return I;
-      if (D.offset == null || D.offset === ic0) D.offset = 0;
-      else D.offset++;
-      let Y = D.offset % D.ips.length;
-      if (I = D.ips[Y] ?? null, I == null) return I;
-      if (Date.now() - I.timestamp > I.ttl) return D.ips.splice(Y, 1), this.pick(A, B, Q);
-      return I
-    }
-    setRecords(A, B) {
-      let Q = Date.now(),
-        I = {
-          records: {
-            4: null,
-            6: null
-          }
-        };
-      for (let G of B) {
-        if (G.timestamp = Q, typeof G.ttl === "number") G.ttl = Math.min(G.ttl, this.#A);
-        else G.ttl = this.#A;
-        let Z = I.records[G.family] ?? {
-          ips: []
-        };
-        Z.ips.push(G), I.records[G.family] = Z
-      }
-      this.#Q.set(A.hostname, I)
-    }
-    getHandler(A, B) {
-      return new ac0(this, A, B)
-    }
-  }
-  class ac0 extends BE6 {
-    #A = null;
-    #B = null;
-    #Q = null;
-    #I = null;
-    #G = null;
-    constructor(A, {
-      origin: B,
-      handler: Q,
-      dispatch: I
-    }, G) {
-      super(Q);
-      this.#G = B, this.#I = Q, this.#B = {
-        ...G
-      }, this.#A = A, this.#Q = I
-    }
-    onError(A) {
-      switch (A.code) {
-        case "ETIMEDOUT":
-        case "ECONNREFUSED": {
-          if (this.#A.dualStack) {
-            this.#A.runLookup(this.#G, this.#B, (B, Q) => {
-              if (B) return this.#I.onError(B);
-              let I = {
-                ...this.#B,
-                origin: Q
-              };
-              this.#Q(I, this)
-            });
-            return
-          }
-          this.#I.onError(A);
-          return
-        }
-        case "ENOTFOUND":
-          this.#A.deleteRecord(this.#G);
-        default:
-          this.#I.onError(A);
-          break
-      }
-    }
-  }
-  sc0.exports = (A) => {
-    if (A?.maxTTL != null && (typeof A?.maxTTL !== "number" || A?.maxTTL < 0)) throw new Am("Invalid maxTTL. Must be a positive number");
-    if (A?.maxItems != null && (typeof A?.maxItems !== "number" || A?.maxItems < 1)) throw new Am("Invalid maxItems. Must be a positive number and greater than zero");
-    if (A?.affinity != null && A?.affinity !== 4 && A?.affinity !== 6) throw new Am("Invalid affinity. Must be either 4 or 6");
-    if (A?.dualStack != null && typeof A?.dualStack !== "boolean") throw new Am("Invalid dualStack. Must be a boolean");
-    if (A?.lookup != null && typeof A?.lookup !== "function") throw new Am("Invalid lookup. Must be a function");
-    if (A?.pick != null && typeof A?.pick !== "function") throw new Am("Invalid pick. Must be a function");
-    let B = A?.dualStack ?? !0,
-      Q;
-    if (B) Q = A?.affinity ?? null;
-    else Q = A?.affinity ?? 4;
-    let I = {
-        maxTTL: A?.maxTTL ?? 1e4,
-        lookup: A?.lookup ?? null,
-        pick: A?.pick ?? null,
-        dualStack: B,
-        affinity: Q,
-        maxItems: A?.maxItems ?? 1 / 0
-      },
-      G = new nc0(I);
-    return (Z) => {
-      return function D(Y, W) {
-        let J = Y.origin.constructor === URL ? Y.origin : new URL(Y.origin);
-        if (ew6(J.hostname) !== 0) return Z(Y, W);
-        return G.runLookup(J, Y, (F, X) => {
-          if (F) return W.onError(F);
-          let V = null;
-          V = {
-            ...Y,
-            servername: J.hostname,
-            origin: X,
-            headers: {
-              host: J.hostname,
-              ...Y.headers
-            }
-          }, Z(V, G.getHandler({
-            origin: J,
-            dispatch: Z,
-            handler: W
-          }, Y))
-        }), !0
-      }
-    }
-  }
-})
-// @from(Start 5575052, End 5584590)
-$j = z((MO8, Il0) => {
-  var {
-    kConstruct: IE6
-  } = A3(), {
-    kEnumerableProperty: Bm
-  } = C6(), {
-    iteratorMixin: GE6,
-    isValidHeaderName: Co,
-    isValidHeaderValue: tc0
-  } = MJ(), {
-    webidl: G5
-  } = jG(), tp1 = Z1("node:assert"), UW1 = Z1("node:util"), C7 = Symbol("headers map"), OJ = Symbol("headers map sorted");
-
-  function oc0(A) {
-    return A === 10 || A === 13 || A === 9 || A === 32
-  }
-
-  function ec0(A) {
-    let B = 0,
-      Q = A.length;
-    while (Q > B && oc0(A.charCodeAt(Q - 1))) --Q;
-    while (Q > B && oc0(A.charCodeAt(B))) ++B;
-    return B === 0 && Q === A.length ? A : A.substring(B, Q)
-  }
-
-  function Al0(A, B) {
-    if (Array.isArray(B))
-      for (let Q = 0; Q < B.length; ++Q) {
-        let I = B[Q];
-        if (I.length !== 2) throw G5.errors.exception({
-          header: "Headers constructor",
-          message: `expected name/value pair to be length 2, found ${I.length}.`
-        });
-        ep1(A, I[0], I[1])
-      } else if (typeof B === "object" && B !== null) {
-        let Q = Object.keys(B);
-        for (let I = 0; I < Q.length; ++I) ep1(A, Q[I], B[Q[I]])
-      } else throw G5.errors.conversionFailed({
-        prefix: "Headers constructor",
-        argument: "Argument 1",
-        types: ["sequence<sequence<ByteString>>", "record<ByteString, ByteString>"]
-      })
-  }
-
-  function ep1(A, B, Q) {
-    if (Q = ec0(Q), !Co(B)) throw G5.errors.invalidArgument({
-      prefix: "Headers.append",
-      value: B,
-      type: "header name"
-    });
-    else if (!tc0(Q)) throw G5.errors.invalidArgument({
-      prefix: "Headers.append",
-      value: Q,
-      type: "header value"
-    });
-    if (Ql0(A) === "immutable") throw new TypeError("immutable");
-    return Ac1(A).append(B, Q, !1)
-  }
-
-  function Bl0(A, B) {
-    return A[0] < B[0] ? -1 : 1
-  }
-  class NW1 {
-    cookies = null;
-    constructor(A) {
-      if (A instanceof NW1) this[C7] = new Map(A[C7]), this[OJ] = A[OJ], this.cookies = A.cookies === null ? null : [...A.cookies];
-      else this[C7] = new Map(A), this[OJ] = null
-    }
-    contains(A, B) {
-      return this[C7].has(B ? A : A.toLowerCase())
-    }
-    clear() {
-      this[C7].clear(), this[OJ] = null, this.cookies = null
-    }
-    append(A, B, Q) {
-      this[OJ] = null;
-      let I = Q ? A : A.toLowerCase(),
-        G = this[C7].get(I);
-      if (G) {
-        let Z = I === "cookie" ? "; " : ", ";
-        this[C7].set(I, {
-          name: G.name,
-          value: `${G.value}${Z}${B}`
-        })
-      } else this[C7].set(I, {
-        name: A,
-        value: B
-      });
-      if (I === "set-cookie")(this.cookies ??= []).push(B)
-    }
-    set(A, B, Q) {
-      this[OJ] = null;
-      let I = Q ? A : A.toLowerCase();
-      if (I === "set-cookie") this.cookies = [B];
-      this[C7].set(I, {
-        name: A,
-        value: B
-      })
-    }
-    delete(A, B) {
-      if (this[OJ] = null, !B) A = A.toLowerCase();
-      if (A === "set-cookie") this.cookies = null;
-      this[C7].delete(A)
-    }
-    get(A, B) {
-      return this[C7].get(B ? A : A.toLowerCase())?.value ?? null
-    }*[Symbol.iterator]() {
-      for (let {
-          0: A,
-          1: {
-            value: B
-          }
-        }
-        of this[C7]) yield [A, B]
-    }
-    get entries() {
-      let A = {};
-      if (this[C7].size !== 0)
-        for (let {
-            name: B,
-            value: Q
-          }
-          of this[C7].values()) A[B] = Q;
-      return A
-    }
-    rawValues() {
-      return this[C7].values()
-    }
-    get entriesList() {
-      let A = [];
-      if (this[C7].size !== 0)
-        for (let {
-            0: B,
-            1: {
-              name: Q,
-              value: I
-            }
-          }
-          of this[C7])
-          if (B === "set-cookie")
-            for (let G of this.cookies) A.push([Q, G]);
-          else A.push([Q, I]);
-      return A
-    }
-    toSortedArray() {
-      let A = this[C7].size,
-        B = new Array(A);
-      if (A <= 32) {
-        if (A === 0) return B;
-        let Q = this[C7][Symbol.iterator](),
-          I = Q.next().value;
-        B[0] = [I[0], I[1].value], tp1(I[1].value !== null);
-        for (let G = 1, Z = 0, D = 0, Y = 0, W = 0, J, F; G < A; ++G) {
-          F = Q.next().value, J = B[G] = [F[0], F[1].value], tp1(J[1] !== null), Y = 0, D = G;
-          while (Y < D)
-            if (W = Y + (D - Y >> 1), B[W][0] <= J[0]) Y = W + 1;
-            else D = W;
-          if (G !== W) {
-            Z = G;
-            while (Z > Y) B[Z] = B[--Z];
-            B[Y] = J
-          }
-        }
-        if (!Q.next().done) throw new TypeError("Unreachable");
-        return B
-      } else {
-        let Q = 0;
-        for (let {
-            0: I,
-            1: {
-              value: G
-            }
-          }
-          of this[C7]) B[Q++] = [I, G], tp1(G !== null);
-        return B.sort(Bl0)
-      }
-    }
-  }
-  class kZ {
-    #A;
-    #B;
-    constructor(A = void 0) {
-      if (G5.util.markAsUncloneable(this), A === IE6) return;
-      if (this.#B = new NW1, this.#A = "none", A !== void 0) A = G5.converters.HeadersInit(A, "Headers contructor", "init"), Al0(this, A)
-    }
-    append(A, B) {
-      G5.brandCheck(this, kZ), G5.argumentLengthCheck(arguments, 2, "Headers.append");
-      let Q = "Headers.append";
-      return A = G5.converters.ByteString(A, Q, "name"), B = G5.converters.ByteString(B, Q, "value"), ep1(this, A, B)
-    }
-    delete(A) {
-      G5.brandCheck(this, kZ), G5.argumentLengthCheck(arguments, 1, "Headers.delete");
-      let B = "Headers.delete";
-      if (A = G5.converters.ByteString(A, B, "name"), !Co(A)) throw G5.errors.invalidArgument({
-        prefix: "Headers.delete",
-        value: A,
-        type: "header name"
-      });
-      if (this.#A === "immutable") throw new TypeError("immutable");
-      if (!this.#B.contains(A, !1)) return;
-      this.#B.delete(A, !1)
-    }
-    get(A) {
-      G5.brandCheck(this, kZ), G5.argumentLengthCheck(arguments, 1, "Headers.get");
-      let B = "Headers.get";
-      if (A = G5.converters.ByteString(A, B, "name"), !Co(A)) throw G5.errors.invalidArgument({
-        prefix: B,
-        value: A,
-        type: "header name"
-      });
-      return this.#B.get(A, !1)
-    }
-    has(A) {
-      G5.brandCheck(this, kZ), G5.argumentLengthCheck(arguments, 1, "Headers.has");
-      let B = "Headers.has";
-      if (A = G5.converters.ByteString(A, B, "name"), !Co(A)) throw G5.errors.invalidArgument({
-        prefix: B,
-        value: A,
-        type: "header name"
-      });
-      return this.#B.contains(A, !1)
-    }
-    set(A, B) {
-      G5.brandCheck(this, kZ), G5.argumentLengthCheck(arguments, 2, "Headers.set");
-      let Q = "Headers.set";
-      if (A = G5.converters.ByteString(A, Q, "name"), B = G5.converters.ByteString(B, Q, "value"), B = ec0(B), !Co(A)) throw G5.errors.invalidArgument({
-        prefix: Q,
-        value: A,
-        type: "header name"
-      });
-      else if (!tc0(B)) throw G5.errors.invalidArgument({
-        prefix: Q,
-        value: B,
-        type: "header value"
-      });
-      if (this.#A === "immutable") throw new TypeError("immutable");
-      this.#B.set(A, B, !1)
-    }
-    getSetCookie() {
-      G5.brandCheck(this, kZ);
-      let A = this.#B.cookies;
-      if (A) return [...A];
-      return []
-    }
-    get[OJ]() {
-      if (this.#B[OJ]) return this.#B[OJ];
-      let A = [],
-        B = this.#B.toSortedArray(),
-        Q = this.#B.cookies;
-      if (Q === null || Q.length === 1) return this.#B[OJ] = B;
-      for (let I = 0; I < B.length; ++I) {
-        let {
-          0: G,
-          1: Z
-        } = B[I];
-        if (G === "set-cookie")
-          for (let D = 0; D < Q.length; ++D) A.push([G, Q[D]]);
-        else A.push([G, Z])
-      }
-      return this.#B[OJ] = A
-    } [UW1.inspect.custom](A, B) {
-      return B.depth ??= A, `Headers ${UW1.formatWithOptions(B,this.#B.entries)}`
-    }
-    static getHeadersGuard(A) {
-      return A.#A
-    }
-    static setHeadersGuard(A, B) {
-      A.#A = B
-    }
-    static getHeadersList(A) {
-      return A.#B
-    }
-    static setHeadersList(A, B) {
-      A.#B = B
-    }
-  }
-  var {
-    getHeadersGuard: Ql0,
-    setHeadersGuard: ZE6,
-    getHeadersList: Ac1,
-    setHeadersList: DE6
-  } = kZ;
-  Reflect.deleteProperty(kZ, "getHeadersGuard");
-  Reflect.deleteProperty(kZ, "setHeadersGuard");
-  Reflect.deleteProperty(kZ, "getHeadersList");
-  Reflect.deleteProperty(kZ, "setHeadersList");
-  GE6("Headers", kZ, OJ, 0, 1);
-  Object.defineProperties(kZ.prototype, {
-    append: Bm,
-    delete: Bm,
-    get: Bm,
-    has: Bm,
-    set: Bm,
-    getSetCookie: Bm,
-    [Symbol.toStringTag]: {
-      value: "Headers",
-      configurable: !0
-    },
-    [UW1.inspect.custom]: {
-      enumerable: !1
-    }
-  });
-  G5.converters.HeadersInit = function(A, B, Q) {
-    if (G5.util.Type(A) === "Object") {
-      let I = Reflect.get(A, Symbol.iterator);
-      if (!UW1.types.isProxy(A) && I === kZ.prototype.entries) try {
-        return Ac1(A).entriesList
-      } catch {}
-      if (typeof I === "function") return G5.converters["sequence<sequence<ByteString>>"](A, B, Q, I.bind(A));
-      return G5.converters["record<ByteString, ByteString>"](A, B, Q)
-    }
-    throw G5.errors.conversionFailed({
-      prefix: "Headers constructor",
-      argument: "Argument 1",
-      types: ["sequence<sequence<ByteString>>", "record<ByteString, ByteString>"]
-    })
-  };
-  Il0.exports = {
-    fill: Al0,
-    compareHeaderName: Bl0,
-    Headers: kZ,
-    HeadersList: NW1,
-    getHeadersGuard: Ql0,
-    setHeadersGuard: ZE6,
-    setHeadersList: DE6,
-    getHeadersList: Ac1
-  }
-})
-// @from(Start 5584596, End 5593665)
-Ho = z((LO8, Cl0) => {
-  var {
-    Headers: Jl0,
-    HeadersList: Gl0,
-    fill: YE6,
-    getHeadersGuard: WE6,
-    setHeadersGuard: Fl0,
-    setHeadersList: Xl0
-  } = $j(), {
-    extractBody: Zl0,
-    cloneBody: JE6,
-    mixinBody: FE6,
-    hasFinalizationRegistry: XE6,
-    streamRegistry: VE6,
-    bodyUnusable: CE6
-  } = gh(), Bc1 = C6(), Dl0 = Z1("node:util"), {
-    kEnumerableProperty: TJ
-  } = Bc1, {
-    isValidReasonPhrase: KE6,
-    isCancelled: HE6,
-    isAborted: zE6,
-    isBlobLike: wE6,
-    serializeJavascriptValueToJSONString: EE6,
-    isErrorLike: UE6,
-    isomorphicEncode: NE6,
-    environmentSettingsObject: $E6
-  } = MJ(), {
-    redirectStatusSet: qE6,
-    nullBodyStatus: ME6
-  } = fr(), {
-    kState: n3,
-    kHeaders: iN
-  } = LR(), {
-    webidl: a4
-  } = jG(), {
-    FormData: LE6
-  } = mr(), {
-    URLSerializer: Yl0
-  } = nY(), {
-    kConstruct: qW1
-  } = A3(), Qc1 = Z1("node:assert"), {
-    types: RE6
-  } = Z1("node:util"), OE6 = new TextEncoder("utf-8");
-  class xZ {
-    static error() {
-      return Ko(MW1(), "immutable")
-    }
-    static json(A, B = {}) {
-      if (a4.argumentLengthCheck(arguments, 1, "Response.json"), B !== null) B = a4.converters.ResponseInit(B);
-      let Q = OE6.encode(EE6(A)),
-        I = Zl0(Q),
-        G = Ko(Qm({}), "response");
-      return Wl0(G, B, {
-        body: I[0],
-        type: "application/json"
-      }), G
-    }
-    static redirect(A, B = 302) {
-      a4.argumentLengthCheck(arguments, 1, "Response.redirect"), A = a4.converters.USVString(A), B = a4.converters["unsigned short"](B);
-      let Q;
-      try {
-        Q = new URL(A, $E6.settingsObject.baseUrl)
-      } catch (Z) {
-        throw new TypeError(`Failed to parse URL from ${A}`, {
-          cause: Z
-        })
-      }
-      if (!qE6.has(B)) throw new RangeError(`Invalid status code ${B}`);
-      let I = Ko(Qm({}), "immutable");
-      I[n3].status = B;
-      let G = NE6(Yl0(Q));
-      return I[n3].headersList.append("location", G, !0), I
-    }
-    constructor(A = null, B = {}) {
-      if (a4.util.markAsUncloneable(this), A === qW1) return;
-      if (A !== null) A = a4.converters.BodyInit(A);
-      B = a4.converters.ResponseInit(B), this[n3] = Qm({}), this[iN] = new Jl0(qW1), Fl0(this[iN], "response"), Xl0(this[iN], this[n3].headersList);
-      let Q = null;
-      if (A != null) {
-        let [I, G] = Zl0(A);
-        Q = {
-          body: I,
-          type: G
+      let C = H;
+      if (D == null && K != null) {
+        if (tBB(A)) throw TypeError("Cannot construct a Request with a Request object that has already been used.");
+        let E = new TransformStream;
+        K.stream.pipeThrough(E), C = {
+          source: K.source,
+          length: K.length,
+          stream: E.readable
         }
       }
-      Wl0(this, B, Q)
+      this[KI].body = C
     }
-    get type() {
-      return a4.brandCheck(this, xZ), this[n3].type
+    get method() {
+      return W4.brandCheck(this, YZ), this[KI].method
     }
     get url() {
-      a4.brandCheck(this, xZ);
-      let A = this[n3].urlList,
-        B = A[A.length - 1] ?? null;
-      if (B === null) return "";
-      return Yl0(B, !0)
-    }
-    get redirected() {
-      return a4.brandCheck(this, xZ), this[n3].urlList.length > 1
-    }
-    get status() {
-      return a4.brandCheck(this, xZ), this[n3].status
-    }
-    get ok() {
-      return a4.brandCheck(this, xZ), this[n3].status >= 200 && this[n3].status <= 299
-    }
-    get statusText() {
-      return a4.brandCheck(this, xZ), this[n3].statusText
+      return W4.brandCheck(this, YZ), ji8(this[KI].url)
     }
     get headers() {
-      return a4.brandCheck(this, xZ), this[iN]
+      return W4.brandCheck(this, YZ), this[gw]
+    }
+    get destination() {
+      return W4.brandCheck(this, YZ), this[KI].destination
+    }
+    get referrer() {
+      if (W4.brandCheck(this, YZ), this[KI].referrer === "no-referrer") return "";
+      if (this[KI].referrer === "client") return "about:client";
+      return this[KI].referrer.toString()
+    }
+    get referrerPolicy() {
+      return W4.brandCheck(this, YZ), this[KI].referrerPolicy
+    }
+    get mode() {
+      return W4.brandCheck(this, YZ), this[KI].mode
+    }
+    get credentials() {
+      return this[KI].credentials
+    }
+    get cache() {
+      return W4.brandCheck(this, YZ), this[KI].cache
+    }
+    get redirect() {
+      return W4.brandCheck(this, YZ), this[KI].redirect
+    }
+    get integrity() {
+      return W4.brandCheck(this, YZ), this[KI].integrity
+    }
+    get keepalive() {
+      return W4.brandCheck(this, YZ), this[KI].keepalive
+    }
+    get isReloadNavigation() {
+      return W4.brandCheck(this, YZ), this[KI].reloadNavigation
+    }
+    get isHistoryNavigation() {
+      return W4.brandCheck(this, YZ), this[KI].historyNavigation
+    }
+    get signal() {
+      return W4.brandCheck(this, YZ), this[ilA]
     }
     get body() {
-      return a4.brandCheck(this, xZ), this[n3].body ? this[n3].body.stream : null
+      return W4.brandCheck(this, YZ), this[KI].body ? this[KI].body.stream : null
     }
     get bodyUsed() {
-      return a4.brandCheck(this, xZ), !!this[n3].body && Bc1.isDisturbed(this[n3].body.stream)
+      return W4.brandCheck(this, YZ), !!this[KI].body && llA.isDisturbed(this[KI].body.stream)
+    }
+    get duplex() {
+      return W4.brandCheck(this, YZ), "half"
     }
     clone() {
-      if (a4.brandCheck(this, xZ), CE6(this)) throw a4.errors.exception({
-        header: "Response.clone",
-        message: "Body has already been consumed."
-      });
-      let A = Ic1(this[n3]);
-      return Ko(A, WE6(this[iN]))
-    } [Dl0.inspect.custom](A, B) {
-      if (B.depth === null) B.depth = 2;
-      B.colors ??= !0;
-      let Q = {
-        status: this.status,
-        statusText: this.statusText,
+      if (W4.brandCheck(this, YZ), tBB(this)) throw TypeError("unusable");
+      let A = V2B(this[KI]),
+        Q = new AbortController;
+      if (this.signal.aborted) Q.abort(this.signal.reason);
+      else {
+        let B = slA.get(this.signal);
+        if (B === void 0) B = new Set, slA.set(this.signal, B);
+        let G = new WeakRef(Q);
+        B.add(G), llA.addAbortListener(Q.signal, I2B(G))
+      }
+      return F2B(A, Q.signal, Ei8(this[gw]))
+    } [A2B.inspect.custom](A, Q) {
+      if (Q.depth === null) Q.depth = 2;
+      Q.colors ??= !0;
+      let B = {
+        method: this.method,
+        url: this.url,
         headers: this.headers,
-        body: this.body,
-        bodyUsed: this.bodyUsed,
-        ok: this.ok,
-        redirected: this.redirected,
-        type: this.type,
-        url: this.url
+        destination: this.destination,
+        referrer: this.referrer,
+        referrerPolicy: this.referrerPolicy,
+        mode: this.mode,
+        credentials: this.credentials,
+        cache: this.cache,
+        redirect: this.redirect,
+        integrity: this.integrity,
+        keepalive: this.keepalive,
+        isReloadNavigation: this.isReloadNavigation,
+        isHistoryNavigation: this.isHistoryNavigation,
+        signal: this.signal
       };
-      return `Response ${Dl0.formatWithOptions(B,Q)}`
+      return `Request ${A2B.formatWithOptions(Q,B)}`
     }
   }
-  FE6(xZ);
-  Object.defineProperties(xZ.prototype, {
-    type: TJ,
-    url: TJ,
-    status: TJ,
-    ok: TJ,
-    redirected: TJ,
-    statusText: TJ,
-    headers: TJ,
-    clone: TJ,
-    body: TJ,
-    bodyUsed: TJ,
-    [Symbol.toStringTag]: {
-      value: "Response",
-      configurable: !0
-    }
-  });
-  Object.defineProperties(xZ, {
-    json: TJ,
-    redirect: TJ,
-    error: TJ
-  });
+  Di8(YZ);
 
-  function Ic1(A) {
-    if (A.internalResponse) return Vl0(Ic1(A.internalResponse), A.type);
-    let B = Qm({
+  function rlA(A) {
+    return {
+      method: A.method ?? "GET",
+      localURLsOnly: A.localURLsOnly ?? !1,
+      unsafeRequest: A.unsafeRequest ?? !1,
+      body: A.body ?? null,
+      client: A.client ?? null,
+      reservedClient: A.reservedClient ?? null,
+      replacesClientId: A.replacesClientId ?? "",
+      window: A.window ?? "client",
+      keepalive: A.keepalive ?? !1,
+      serviceWorkers: A.serviceWorkers ?? "all",
+      initiator: A.initiator ?? "",
+      destination: A.destination ?? "",
+      priority: A.priority ?? null,
+      origin: A.origin ?? "client",
+      policyContainer: A.policyContainer ?? "client",
+      referrer: A.referrer ?? "client",
+      referrerPolicy: A.referrerPolicy ?? "",
+      mode: A.mode ?? "no-cors",
+      useCORSPreflightFlag: A.useCORSPreflightFlag ?? !1,
+      credentials: A.credentials ?? "same-origin",
+      useCredentials: A.useCredentials ?? !1,
+      cache: A.cache ?? "default",
+      redirect: A.redirect ?? "follow",
+      integrity: A.integrity ?? "",
+      cryptoGraphicsNonceMetadata: A.cryptoGraphicsNonceMetadata ?? "",
+      parserMetadata: A.parserMetadata ?? "",
+      reloadNavigation: A.reloadNavigation ?? !1,
+      historyNavigation: A.historyNavigation ?? !1,
+      userActivation: A.userActivation ?? !1,
+      taintedOrigin: A.taintedOrigin ?? !1,
+      redirectCount: A.redirectCount ?? 0,
+      responseTainting: A.responseTainting ?? "basic",
+      preventNoCacheCacheControlHeaderModification: A.preventNoCacheCacheControlHeaderModification ?? !1,
+      done: A.done ?? !1,
+      timingAllowFailed: A.timingAllowFailed ?? !1,
+      urlList: A.urlList,
+      url: A.urlList[0],
+      headersList: A.headersList ? new nlA(A.headersList) : new nlA
+    }
+  }
+
+  function V2B(A) {
+    let Q = rlA({
       ...A,
       body: null
     });
-    if (A.body != null) B.body = JE6(B, A.body);
+    if (A.body != null) Q.body = Hi8(Q, A.body);
+    return Q
+  }
+
+  function F2B(A, Q, B) {
+    let G = new YZ(alA);
+    return G[KI] = A, G[ilA] = Q, G[gw] = new J2B(alA), W2B(G[gw], A.headersList), Yv1(G[gw], B), G
+  }
+  Object.defineProperties(YZ.prototype, {
+    method: bX,
+    url: bX,
+    headers: bX,
+    redirect: bX,
+    clone: bX,
+    signal: bX,
+    duplex: bX,
+    destination: bX,
+    body: bX,
+    bodyUsed: bX,
+    isHistoryNavigation: bX,
+    isReloadNavigation: bX,
+    keepalive: bX,
+    integrity: bX,
+    cache: bX,
+    credentials: bX,
+    attribute: bX,
+    referrerPolicy: bX,
+    referrer: bX,
+    mode: bX,
+    [Symbol.toStringTag]: {
+      value: "Request",
+      configurable: !0
+    }
+  });
+  W4.converters.Request = W4.interfaceConverter(YZ);
+  W4.converters.RequestInfo = function(A, Q, B) {
+    if (typeof A === "string") return W4.converters.USVString(A, Q, B);
+    if (A instanceof YZ) return W4.converters.Request(A, Q, B);
+    return W4.converters.USVString(A, Q, B)
+  };
+  W4.converters.AbortSignal = W4.interfaceConverter(AbortSignal);
+  W4.converters.RequestInit = W4.dictionaryConverter([{
+    key: "method",
+    converter: W4.converters.ByteString
+  }, {
+    key: "headers",
+    converter: W4.converters.HeadersInit
+  }, {
+    key: "body",
+    converter: W4.nullableConverter(W4.converters.BodyInit)
+  }, {
+    key: "referrer",
+    converter: W4.converters.USVString
+  }, {
+    key: "referrerPolicy",
+    converter: W4.converters.DOMString,
+    allowedValues: qi8
+  }, {
+    key: "mode",
+    converter: W4.converters.DOMString,
+    allowedValues: Li8
+  }, {
+    key: "credentials",
+    converter: W4.converters.DOMString,
+    allowedValues: Mi8
+  }, {
+    key: "cache",
+    converter: W4.converters.DOMString,
+    allowedValues: Oi8
+  }, {
+    key: "redirect",
+    converter: W4.converters.DOMString,
+    allowedValues: Ni8
+  }, {
+    key: "integrity",
+    converter: W4.converters.DOMString
+  }, {
+    key: "keepalive",
+    converter: W4.converters.boolean
+  }, {
+    key: "signal",
+    converter: W4.nullableConverter((A) => W4.converters.AbortSignal(A, "RequestInit", "signal", {
+      strict: !1
+    }))
+  }, {
+    key: "window",
+    converter: W4.converters.any
+  }, {
+    key: "duplex",
+    converter: W4.converters.DOMString,
+    allowedValues: Ri8
+  }, {
+    key: "dispatcher",
+    converter: W4.converters.any
+  }]);
+  K2B.exports = {
+    Request: YZ,
+    makeRequest: rlA,
+    fromInnerRequest: F2B,
+    cloneRequest: V2B
+  }
+})
+// @from(Start 4985071, End 5010286)
+VzA = z((G_7, T2B) => {
+  var {
+    makeNetworkError: JG,
+    makeAppropriateNetworkError: olA,
+    filterResponse: Jv1,
+    makeResponse: tlA,
+    fromInnerResponse: yi8
+  } = WzA(), {
+    HeadersList: D2B
+  } = no(), {
+    Request: xi8,
+    cloneRequest: vi8
+  } = N3A(), Lc = UA("node:zlib"), {
+    bytesMatch: bi8,
+    makePolicyContainer: fi8,
+    clonePolicyContainer: hi8,
+    requestBadPort: gi8,
+    TAOCheck: ui8,
+    appendRequestOriginHeader: mi8,
+    responseLocationURL: di8,
+    requestCurrentURL: U_,
+    setRequestReferrerPolicyOnRedirect: ci8,
+    tryUpgradeRequestToAPotentiallyTrustworthyURL: pi8,
+    createOpaqueTimingInfo: Kv1,
+    appendFetchMetadata: li8,
+    corsCheck: ii8,
+    crossOriginResourcePolicyCheck: ni8,
+    determineRequestsReferrer: ai8,
+    coarsenedSharedCurrentTime: XzA,
+    createDeferredPromise: si8,
+    isBlobLike: ri8,
+    sameOrigin: Fv1,
+    isCancelled: ao,
+    isAborted: H2B,
+    isErrorLike: oi8,
+    fullyReadBody: ti8,
+    readableStreamClose: ei8,
+    isomorphicEncode: elA,
+    urlIsLocal: An8,
+    urlIsHttpHttpsScheme: Dv1,
+    urlHasHttpsScheme: Qn8,
+    clampAndCoarsenConnectionTimingInfo: Bn8,
+    simpleRangeHeaderValue: Gn8,
+    buildContentRange: Zn8,
+    createInflate: In8,
+    extractMimeType: Yn8
+  } = xw(), {
+    kState: U2B,
+    kDispatcher: Jn8
+  } = Kc(), so = UA("node:assert"), {
+    safelyExtractBody: Hv1,
+    extractBody: C2B
+  } = G3A(), {
+    redirectStatusSet: $2B,
+    nullBodyStatus: w2B,
+    safeMethodsSet: Wn8,
+    requestBodyHeader: Xn8,
+    subresourceSet: Vn8
+  } = PEA(), Fn8 = UA("node:events"), {
+    Readable: Kn8,
+    pipeline: Dn8,
+    finished: Hn8
+  } = UA("node:stream"), {
+    addAbortListener: Cn8,
+    isErrored: En8,
+    isReadable: AiA,
+    bufferToLowerCasedHeaderName: E2B
+  } = S6(), {
+    dataURLProcessor: zn8,
+    serializeAMimeType: Un8,
+    minimizeSupportedMimeType: $n8
+  } = QU(), {
+    getGlobalDispatcher: wn8
+  } = flA(), {
+    webidl: qn8
+  } = zD(), {
+    STATUS_CODES: Nn8
+  } = UA("node:http"), Ln8 = ["GET", "HEAD"], Mn8 = typeof __UNDICI_IS_NODE__ < "u" || typeof esbuildDetection < "u" ? "node" : "undici", Wv1;
+  class Cv1 extends Fn8 {
+    constructor(A) {
+      super();
+      this.dispatcher = A, this.connection = null, this.dump = !1, this.state = "ongoing"
+    }
+    terminate(A) {
+      if (this.state !== "ongoing") return;
+      this.state = "terminated", this.connection?.destroy(A), this.emit("terminated", A)
+    }
+    abort(A) {
+      if (this.state !== "ongoing") return;
+      if (this.state = "aborted", !A) A = new DOMException("The operation was aborted.", "AbortError");
+      this.serializedAbortReason = A, this.connection?.destroy(A), this.emit("terminated", A)
+    }
+  }
+
+  function On8(A) {
+    q2B(A, "fetch")
+  }
+
+  function Rn8(A, Q = void 0) {
+    qn8.argumentLengthCheck(arguments, 1, "globalThis.fetch");
+    let B = si8(),
+      G;
+    try {
+      G = new xi8(A, Q)
+    } catch (V) {
+      return B.reject(V), B.promise
+    }
+    let Z = G[U2B];
+    if (G.signal.aborted) return Xv1(B, Z, null, G.signal.reason), B.promise;
+    if (Z.client.globalObject?.constructor?.name === "ServiceWorkerGlobalScope") Z.serviceWorkers = "none";
+    let Y = null,
+      J = !1,
+      W = null;
+    return Cn8(G.signal, () => {
+      J = !0, so(W != null), W.abort(G.signal.reason);
+      let V = Y?.deref();
+      Xv1(B, Z, V, G.signal.reason)
+    }), W = L2B({
+      request: Z,
+      processResponseEndOfBody: On8,
+      processResponse: (V) => {
+        if (J) return;
+        if (V.aborted) {
+          Xv1(B, Z, Y, W.serializedAbortReason);
+          return
+        }
+        if (V.type === "error") {
+          B.reject(TypeError("fetch failed", {
+            cause: V.error
+          }));
+          return
+        }
+        Y = new WeakRef(yi8(V, "immutable")), B.resolve(Y.deref()), B = null
+      },
+      dispatcher: G[Jn8]
+    }), B.promise
+  }
+
+  function q2B(A, Q = "other") {
+    if (A.type === "error" && A.aborted) return;
+    if (!A.urlList?.length) return;
+    let B = A.urlList[0],
+      G = A.timingInfo,
+      Z = A.cacheState;
+    if (!Dv1(B)) return;
+    if (G === null) return;
+    if (!A.timingAllowPassed) G = Kv1({
+      startTime: G.startTime
+    }), Z = "";
+    G.endTime = XzA(), A.timingInfo = G, N2B(G, B.href, Q, globalThis, Z)
+  }
+  var N2B = performance.markResourceTiming;
+
+  function Xv1(A, Q, B, G) {
+    if (A) A.reject(G);
+    if (Q.body != null && AiA(Q.body?.stream)) Q.body.stream.cancel(G).catch((I) => {
+      if (I.code === "ERR_INVALID_STATE") return;
+      throw I
+    });
+    if (B == null) return;
+    let Z = B[U2B];
+    if (Z.body != null && AiA(Z.body?.stream)) Z.body.stream.cancel(G).catch((I) => {
+      if (I.code === "ERR_INVALID_STATE") return;
+      throw I
+    })
+  }
+
+  function L2B({
+    request: A,
+    processRequestBodyChunkLength: Q,
+    processRequestEndOfBody: B,
+    processResponse: G,
+    processResponseEndOfBody: Z,
+    processResponseConsumeBody: I,
+    useParallelQueue: Y = !1,
+    dispatcher: J = wn8()
+  }) {
+    so(J);
+    let W = null,
+      X = !1;
+    if (A.client != null) W = A.client.globalObject, X = A.client.crossOriginIsolatedCapability;
+    let V = XzA(X),
+      F = Kv1({
+        startTime: V
+      }),
+      K = {
+        controller: new Cv1(J),
+        request: A,
+        timingInfo: F,
+        processRequestBodyChunkLength: Q,
+        processRequestEndOfBody: B,
+        processResponse: G,
+        processResponseConsumeBody: I,
+        processResponseEndOfBody: Z,
+        taskDestination: W,
+        crossOriginIsolatedCapability: X
+      };
+    if (so(!A.body || A.body.stream), A.window === "client") A.window = A.client?.globalObject?.constructor?.name === "Window" ? A.client : "no-window";
+    if (A.origin === "client") A.origin = A.client.origin;
+    if (A.policyContainer === "client")
+      if (A.client != null) A.policyContainer = hi8(A.client.policyContainer);
+      else A.policyContainer = fi8();
+    if (!A.headersList.contains("accept", !0)) A.headersList.append("accept", "*/*", !0);
+    if (!A.headersList.contains("accept-language", !0)) A.headersList.append("accept-language", "*", !0);
+    if (A.priority === null);
+    if (Vn8.has(A.destination));
+    return M2B(K).catch((D) => {
+      K.controller.terminate(D)
+    }), K.controller
+  }
+  async function M2B(A, Q = !1) {
+    let B = A.request,
+      G = null;
+    if (B.localURLsOnly && !An8(U_(B))) G = JG("local URLs only");
+    if (pi8(B), gi8(B) === "blocked") G = JG("bad port");
+    if (B.referrerPolicy === "") B.referrerPolicy = B.policyContainer.referrerPolicy;
+    if (B.referrer !== "no-referrer") B.referrer = ai8(B);
+    if (G === null) G = await (async () => {
+      let I = U_(B);
+      if (Fv1(I, B.url) && B.responseTainting === "basic" || I.protocol === "data:" || (B.mode === "navigate" || B.mode === "websocket")) return B.responseTainting = "basic", await z2B(A);
+      if (B.mode === "same-origin") return JG('request mode cannot be "same-origin"');
+      if (B.mode === "no-cors") {
+        if (B.redirect !== "follow") return JG('redirect mode cannot be "follow" for "no-cors" request');
+        return B.responseTainting = "opaque", await z2B(A)
+      }
+      if (!Dv1(U_(B))) return JG("URL scheme must be a HTTP(S) scheme");
+      return B.responseTainting = "cors", await O2B(A)
+    })();
+    if (Q) return G;
+    if (G.status !== 0 && !G.internalResponse) {
+      if (B.responseTainting === "cors");
+      if (B.responseTainting === "basic") G = Jv1(G, "basic");
+      else if (B.responseTainting === "cors") G = Jv1(G, "cors");
+      else if (B.responseTainting === "opaque") G = Jv1(G, "opaque");
+      else so(!1)
+    }
+    let Z = G.status === 0 ? G : G.internalResponse;
+    if (Z.urlList.length === 0) Z.urlList.push(...B.urlList);
+    if (!B.timingAllowFailed) G.timingAllowPassed = !0;
+    if (G.type === "opaque" && Z.status === 206 && Z.rangeRequested && !B.headers.contains("range", !0)) G = Z = JG();
+    if (G.status !== 0 && (B.method === "HEAD" || B.method === "CONNECT" || w2B.includes(Z.status))) Z.body = null, A.controller.dump = !0;
+    if (B.integrity) {
+      let I = (J) => Vv1(A, JG(J));
+      if (B.responseTainting === "opaque" || G.body == null) {
+        I(G.error);
+        return
+      }
+      let Y = (J) => {
+        if (!bi8(J, B.integrity)) {
+          I("integrity mismatch");
+          return
+        }
+        G.body = Hv1(J)[0], Vv1(A, G)
+      };
+      await ti8(G.body, Y, I)
+    } else Vv1(A, G)
+  }
+
+  function z2B(A) {
+    if (ao(A) && A.request.redirectCount === 0) return Promise.resolve(olA(A));
+    let {
+      request: Q
+    } = A, {
+      protocol: B
+    } = U_(Q);
+    switch (B) {
+      case "about:":
+        return Promise.resolve(JG("about scheme is not supported"));
+      case "blob:": {
+        if (!Wv1) Wv1 = UA("node:buffer").resolveObjectURL;
+        let G = U_(Q);
+        if (G.search.length !== 0) return Promise.resolve(JG("NetworkError when attempting to fetch resource."));
+        let Z = Wv1(G.toString());
+        if (Q.method !== "GET" || !ri8(Z)) return Promise.resolve(JG("invalid method"));
+        let I = tlA(),
+          Y = Z.size,
+          J = elA(`${Y}`),
+          W = Z.type;
+        if (!Q.headersList.contains("range", !0)) {
+          let X = C2B(Z);
+          I.statusText = "OK", I.body = X[0], I.headersList.set("content-length", J, !0), I.headersList.set("content-type", W, !0)
+        } else {
+          I.rangeRequested = !0;
+          let X = Q.headersList.get("range", !0),
+            V = Gn8(X, !0);
+          if (V === "failure") return Promise.resolve(JG("failed to fetch the data URL"));
+          let {
+            rangeStartValue: F,
+            rangeEndValue: K
+          } = V;
+          if (F === null) F = Y - K, K = F + K - 1;
+          else {
+            if (F >= Y) return Promise.resolve(JG("Range start is greater than the blob's size."));
+            if (K === null || K >= Y) K = Y - 1
+          }
+          let D = Z.slice(F, K, W),
+            H = C2B(D);
+          I.body = H[0];
+          let C = elA(`${D.size}`),
+            E = Zn8(F, K, Y);
+          I.status = 206, I.statusText = "Partial Content", I.headersList.set("content-length", C, !0), I.headersList.set("content-type", W, !0), I.headersList.set("content-range", E, !0)
+        }
+        return Promise.resolve(I)
+      }
+      case "data:": {
+        let G = U_(Q),
+          Z = zn8(G);
+        if (Z === "failure") return Promise.resolve(JG("failed to fetch the data URL"));
+        let I = Un8(Z.mimeType);
+        return Promise.resolve(tlA({
+          statusText: "OK",
+          headersList: [
+            ["content-type", {
+              name: "Content-Type",
+              value: I
+            }]
+          ],
+          body: Hv1(Z.body)[0]
+        }))
+      }
+      case "file:":
+        return Promise.resolve(JG("not implemented... yet..."));
+      case "http:":
+      case "https:":
+        return O2B(A).catch((G) => JG(G));
+      default:
+        return Promise.resolve(JG("unknown scheme"))
+    }
+  }
+
+  function Tn8(A, Q) {
+    if (A.request.done = !0, A.processResponseDone != null) queueMicrotask(() => A.processResponseDone(Q))
+  }
+
+  function Vv1(A, Q) {
+    let B = A.timingInfo,
+      G = () => {
+        let I = Date.now();
+        if (A.request.destination === "document") A.controller.fullTimingInfo = B;
+        A.controller.reportTimingSteps = () => {
+          if (A.request.url.protocol !== "https:") return;
+          B.endTime = I;
+          let {
+            cacheState: J,
+            bodyInfo: W
+          } = Q;
+          if (!Q.timingAllowPassed) B = Kv1(B), J = "";
+          let X = 0;
+          if (A.request.mode !== "navigator" || !Q.hasCrossOriginRedirects) {
+            X = Q.status;
+            let V = Yn8(Q.headersList);
+            if (V !== "failure") W.contentType = $n8(V)
+          }
+          if (A.request.initiatorType != null) N2B(B, A.request.url.href, A.request.initiatorType, globalThis, J, W, X)
+        };
+        let Y = () => {
+          if (A.request.done = !0, A.processResponseEndOfBody != null) queueMicrotask(() => A.processResponseEndOfBody(Q));
+          if (A.request.initiatorType != null) A.controller.reportTimingSteps()
+        };
+        queueMicrotask(() => Y())
+      };
+    if (A.processResponse != null) queueMicrotask(() => {
+      A.processResponse(Q), A.processResponse = null
+    });
+    let Z = Q.type === "error" ? Q : Q.internalResponse ?? Q;
+    if (Z.body == null) G();
+    else Hn8(Z.body.stream, () => {
+      G()
+    })
+  }
+  async function O2B(A) {
+    let Q = A.request,
+      B = null,
+      G = null,
+      Z = A.timingInfo;
+    if (Q.serviceWorkers === "all");
+    if (B === null) {
+      if (Q.redirect === "follow") Q.serviceWorkers = "none";
+      if (G = B = await R2B(A), Q.responseTainting === "cors" && ii8(Q, B) === "failure") return JG("cors failure");
+      if (ui8(Q, B) === "failure") Q.timingAllowFailed = !0
+    }
+    if ((Q.responseTainting === "opaque" || B.type === "opaque") && ni8(Q.origin, Q.client, Q.destination, G) === "blocked") return JG("blocked");
+    if ($2B.has(G.status)) {
+      if (Q.redirect !== "manual") A.controller.connection.destroy(void 0, !1);
+      if (Q.redirect === "error") B = JG("unexpected redirect");
+      else if (Q.redirect === "manual") B = G;
+      else if (Q.redirect === "follow") B = await Pn8(A, B);
+      else so(!1)
+    }
+    return B.timingInfo = Z, B
+  }
+
+  function Pn8(A, Q) {
+    let B = A.request,
+      G = Q.internalResponse ? Q.internalResponse : Q,
+      Z;
+    try {
+      if (Z = di8(G, U_(B).hash), Z == null) return Q
+    } catch (Y) {
+      return Promise.resolve(JG(Y))
+    }
+    if (!Dv1(Z)) return Promise.resolve(JG("URL scheme must be a HTTP(S) scheme"));
+    if (B.redirectCount === 20) return Promise.resolve(JG("redirect count exceeded"));
+    if (B.redirectCount += 1, B.mode === "cors" && (Z.username || Z.password) && !Fv1(B, Z)) return Promise.resolve(JG('cross origin not allowed for request mode "cors"'));
+    if (B.responseTainting === "cors" && (Z.username || Z.password)) return Promise.resolve(JG('URL cannot contain credentials for request mode "cors"'));
+    if (G.status !== 303 && B.body != null && B.body.source == null) return Promise.resolve(JG());
+    if ([301, 302].includes(G.status) && B.method === "POST" || G.status === 303 && !Ln8.includes(B.method)) {
+      B.method = "GET", B.body = null;
+      for (let Y of Xn8) B.headersList.delete(Y)
+    }
+    if (!Fv1(U_(B), Z)) B.headersList.delete("authorization", !0), B.headersList.delete("proxy-authorization", !0), B.headersList.delete("cookie", !0), B.headersList.delete("host", !0);
+    if (B.body != null) so(B.body.source != null), B.body = Hv1(B.body.source)[0];
+    let I = A.timingInfo;
+    if (I.redirectEndTime = I.postRedirectStartTime = XzA(A.crossOriginIsolatedCapability), I.redirectStartTime === 0) I.redirectStartTime = I.startTime;
+    return B.urlList.push(Z), ci8(B, G), M2B(A, !0)
+  }
+  async function R2B(A, Q = !1, B = !1) {
+    let G = A.request,
+      Z = null,
+      I = null,
+      Y = null,
+      J = null,
+      W = !1;
+    if (G.window === "no-window" && G.redirect === "error") Z = A, I = G;
+    else I = vi8(G), Z = {
+      ...A
+    }, Z.request = I;
+    let X = G.credentials === "include" || G.credentials === "same-origin" && G.responseTainting === "basic",
+      V = I.body ? I.body.length : null,
+      F = null;
+    if (I.body == null && ["POST", "PUT"].includes(I.method)) F = "0";
+    if (V != null) F = elA(`${V}`);
+    if (F != null) I.headersList.append("content-length", F, !0);
+    if (V != null && I.keepalive);
+    if (I.referrer instanceof URL) I.headersList.append("referer", elA(I.referrer.href), !0);
+    if (mi8(I), li8(I), !I.headersList.contains("user-agent", !0)) I.headersList.append("user-agent", Mn8);
+    if (I.cache === "default" && (I.headersList.contains("if-modified-since", !0) || I.headersList.contains("if-none-match", !0) || I.headersList.contains("if-unmodified-since", !0) || I.headersList.contains("if-match", !0) || I.headersList.contains("if-range", !0))) I.cache = "no-store";
+    if (I.cache === "no-cache" && !I.preventNoCacheCacheControlHeaderModification && !I.headersList.contains("cache-control", !0)) I.headersList.append("cache-control", "max-age=0", !0);
+    if (I.cache === "no-store" || I.cache === "reload") {
+      if (!I.headersList.contains("pragma", !0)) I.headersList.append("pragma", "no-cache", !0);
+      if (!I.headersList.contains("cache-control", !0)) I.headersList.append("cache-control", "no-cache", !0)
+    }
+    if (I.headersList.contains("range", !0)) I.headersList.append("accept-encoding", "identity", !0);
+    if (!I.headersList.contains("accept-encoding", !0))
+      if (Qn8(U_(I))) I.headersList.append("accept-encoding", "br, gzip, deflate", !0);
+      else I.headersList.append("accept-encoding", "gzip, deflate", !0);
+    if (I.headersList.delete("host", !0), J == null) I.cache = "no-store";
+    if (I.cache !== "no-store" && I.cache !== "reload");
+    if (Y == null) {
+      if (I.cache === "only-if-cached") return JG("only if cached");
+      let K = await jn8(Z, X, B);
+      if (!Wn8.has(I.method) && K.status >= 200 && K.status <= 399);
+      if (W && K.status === 304);
+      if (Y == null) Y = K
+    }
+    if (Y.urlList = [...I.urlList], I.headersList.contains("range", !0)) Y.rangeRequested = !0;
+    if (Y.requestIncludesCredentials = X, Y.status === 407) {
+      if (G.window === "no-window") return JG();
+      if (ao(A)) return olA(A);
+      return JG("proxy authentication required")
+    }
+    if (Y.status === 421 && !B && (G.body == null || G.body.source != null)) {
+      if (ao(A)) return olA(A);
+      A.controller.connection.destroy(), Y = await R2B(A, Q, !0)
+    }
+    return Y
+  }
+  async function jn8(A, Q = !1, B = !1) {
+    so(!A.controller.connection || A.controller.connection.destroyed), A.controller.connection = {
+      abort: null,
+      destroyed: !1,
+      destroy(H, C = !0) {
+        if (!this.destroyed) {
+          if (this.destroyed = !0, C) this.abort?.(H ?? new DOMException("The operation was aborted.", "AbortError"))
+        }
+      }
+    };
+    let G = A.request,
+      Z = null,
+      I = A.timingInfo;
+    if (!0) G.cache = "no-store";
+    let J = B ? "yes" : "no";
+    if (G.mode === "websocket");
+    let W = null;
+    if (G.body == null && A.processRequestEndOfBody) queueMicrotask(() => A.processRequestEndOfBody());
+    else if (G.body != null) {
+      let H = async function*(U) {
+        if (ao(A)) return;
+        yield U, A.processRequestBodyChunkLength?.(U.byteLength)
+      }, C = () => {
+        if (ao(A)) return;
+        if (A.processRequestEndOfBody) A.processRequestEndOfBody()
+      }, E = (U) => {
+        if (ao(A)) return;
+        if (U.name === "AbortError") A.controller.abort();
+        else A.controller.terminate(U)
+      };
+      W = async function*() {
+        try {
+          for await (let U of G.body.stream) yield* H(U);
+          C()
+        } catch (U) {
+          E(U)
+        }
+      }()
+    }
+    try {
+      let {
+        body: H,
+        status: C,
+        statusText: E,
+        headersList: U,
+        socket: q
+      } = await D({
+        body: W
+      });
+      if (q) Z = tlA({
+        status: C,
+        statusText: E,
+        headersList: U,
+        socket: q
+      });
+      else {
+        let w = H[Symbol.asyncIterator]();
+        A.controller.next = () => w.next(), Z = tlA({
+          status: C,
+          statusText: E,
+          headersList: U
+        })
+      }
+    } catch (H) {
+      if (H.name === "AbortError") return A.controller.connection.destroy(), olA(A, H);
+      return JG(H)
+    }
+    let X = async () => {
+      await A.controller.resume()
+    }, V = (H) => {
+      if (!ao(A)) A.controller.abort(H)
+    }, F = new ReadableStream({
+      async start(H) {
+        A.controller.controller = H
+      },
+      async pull(H) {
+        await X(H)
+      },
+      async cancel(H) {
+        await V(H)
+      },
+      type: "bytes"
+    });
+    Z.body = {
+      stream: F,
+      source: null,
+      length: null
+    }, A.controller.onAborted = K, A.controller.on("terminated", K), A.controller.resume = async () => {
+      while (!0) {
+        let H, C;
+        try {
+          let {
+            done: U,
+            value: q
+          } = await A.controller.next();
+          if (H2B(A)) break;
+          H = U ? void 0 : q
+        } catch (U) {
+          if (A.controller.ended && !I.encodedBodySize) H = void 0;
+          else H = U, C = !0
+        }
+        if (H === void 0) {
+          ei8(A.controller.controller), Tn8(A, Z);
+          return
+        }
+        if (I.decodedBodySize += H?.byteLength ?? 0, C) {
+          A.controller.terminate(H);
+          return
+        }
+        let E = new Uint8Array(H);
+        if (E.byteLength) A.controller.controller.enqueue(E);
+        if (En8(F)) {
+          A.controller.terminate();
+          return
+        }
+        if (A.controller.controller.desiredSize <= 0) return
+      }
+    };
+
+    function K(H) {
+      if (H2B(A)) {
+        if (Z.aborted = !0, AiA(F)) A.controller.controller.error(A.controller.serializedAbortReason)
+      } else if (AiA(F)) A.controller.controller.error(TypeError("terminated", {
+        cause: oi8(H) ? H : void 0
+      }));
+      A.controller.connection.destroy()
+    }
+    return Z;
+
+    function D({
+      body: H
+    }) {
+      let C = U_(G),
+        E = A.controller.dispatcher;
+      return new Promise((U, q) => E.dispatch({
+        path: C.pathname + C.search,
+        origin: C.origin,
+        method: G.method,
+        body: E.isMockActive ? G.body && (G.body.source || G.body.stream) : H,
+        headers: G.headersList.entries,
+        maxRedirections: 0,
+        upgrade: G.mode === "websocket" ? "websocket" : void 0
+      }, {
+        body: null,
+        abort: null,
+        onConnect(w) {
+          let {
+            connection: N
+          } = A.controller;
+          if (I.finalConnectionTimingInfo = Bn8(void 0, I.postRedirectStartTime, A.crossOriginIsolatedCapability), N.destroyed) w(new DOMException("The operation was aborted.", "AbortError"));
+          else A.controller.on("terminated", w), this.abort = N.abort = w;
+          I.finalNetworkRequestStartTime = XzA(A.crossOriginIsolatedCapability)
+        },
+        onResponseStarted() {
+          I.finalNetworkResponseStartTime = XzA(A.crossOriginIsolatedCapability)
+        },
+        onHeaders(w, N, R, T) {
+          if (w < 200) return;
+          let y = [],
+            v = "",
+            x = new D2B;
+          for (let k = 0; k < N.length; k += 2) x.append(E2B(N[k]), N[k + 1].toString("latin1"), !0);
+          let p = x.get("content-encoding", !0);
+          if (p) y = p.toLowerCase().split(",").map((k) => k.trim());
+          v = x.get("location", !0), this.body = new Kn8({
+            read: R
+          });
+          let u = [],
+            e = v && G.redirect === "follow" && $2B.has(w);
+          if (y.length !== 0 && G.method !== "HEAD" && G.method !== "CONNECT" && !w2B.includes(w) && !e)
+            for (let k = y.length - 1; k >= 0; --k) {
+              let m = y[k];
+              if (m === "x-gzip" || m === "gzip") u.push(Lc.createGunzip({
+                flush: Lc.constants.Z_SYNC_FLUSH,
+                finishFlush: Lc.constants.Z_SYNC_FLUSH
+              }));
+              else if (m === "deflate") u.push(In8({
+                flush: Lc.constants.Z_SYNC_FLUSH,
+                finishFlush: Lc.constants.Z_SYNC_FLUSH
+              }));
+              else if (m === "br") u.push(Lc.createBrotliDecompress({
+                flush: Lc.constants.BROTLI_OPERATION_FLUSH,
+                finishFlush: Lc.constants.BROTLI_OPERATION_FLUSH
+              }));
+              else {
+                u.length = 0;
+                break
+              }
+            }
+          let l = this.onError.bind(this);
+          return U({
+            status: w,
+            statusText: T,
+            headersList: x,
+            body: u.length ? Dn8(this.body, ...u, (k) => {
+              if (k) this.onError(k)
+            }).on("error", l) : this.body.on("error", l)
+          }), !0
+        },
+        onData(w) {
+          if (A.controller.dump) return;
+          let N = w;
+          return I.encodedBodySize += N.byteLength, this.body.push(N)
+        },
+        onComplete() {
+          if (this.abort) A.controller.off("terminated", this.abort);
+          if (A.controller.onAborted) A.controller.off("terminated", A.controller.onAborted);
+          A.controller.ended = !0, this.body.push(null)
+        },
+        onError(w) {
+          if (this.abort) A.controller.off("terminated", this.abort);
+          this.body?.destroy(w), A.controller.terminate(w), q(w)
+        },
+        onUpgrade(w, N, R) {
+          if (w !== 101) return;
+          let T = new D2B;
+          for (let y = 0; y < N.length; y += 2) T.append(E2B(N[y]), N[y + 1].toString("latin1"), !0);
+          return U({
+            status: w,
+            statusText: Nn8[w],
+            headersList: T,
+            socket: R
+          }), !0
+        }
+      }))
+    }
+  }
+  T2B.exports = {
+    fetch: Rn8,
+    Fetch: Cv1,
+    fetching: L2B,
+    finalizeAndReportTiming: q2B
+  }
+})
+// @from(Start 5010292, End 5010634)
+Ev1 = z((Z_7, P2B) => {
+  P2B.exports = {
+    kState: Symbol("FileReader state"),
+    kResult: Symbol("FileReader result"),
+    kError: Symbol("FileReader error"),
+    kLastProgressEventFired: Symbol("FileReader last progress event fired timestamp"),
+    kEvents: Symbol("FileReader events"),
+    kAborted: Symbol("FileReader aborted")
+  }
+})
+// @from(Start 5010640, End 5012024)
+S2B = z((I_7, j2B) => {
+  var {
+    webidl: uw
+  } = zD(), QiA = Symbol("ProgressEvent state");
+  class FzA extends Event {
+    constructor(A, Q = {}) {
+      A = uw.converters.DOMString(A, "ProgressEvent constructor", "type"), Q = uw.converters.ProgressEventInit(Q ?? {});
+      super(A, Q);
+      this[QiA] = {
+        lengthComputable: Q.lengthComputable,
+        loaded: Q.loaded,
+        total: Q.total
+      }
+    }
+    get lengthComputable() {
+      return uw.brandCheck(this, FzA), this[QiA].lengthComputable
+    }
+    get loaded() {
+      return uw.brandCheck(this, FzA), this[QiA].loaded
+    }
+    get total() {
+      return uw.brandCheck(this, FzA), this[QiA].total
+    }
+  }
+  uw.converters.ProgressEventInit = uw.dictionaryConverter([{
+    key: "lengthComputable",
+    converter: uw.converters.boolean,
+    defaultValue: () => !1
+  }, {
+    key: "loaded",
+    converter: uw.converters["unsigned long long"],
+    defaultValue: () => 0
+  }, {
+    key: "total",
+    converter: uw.converters["unsigned long long"],
+    defaultValue: () => 0
+  }, {
+    key: "bubbles",
+    converter: uw.converters.boolean,
+    defaultValue: () => !1
+  }, {
+    key: "cancelable",
+    converter: uw.converters.boolean,
+    defaultValue: () => !1
+  }, {
+    key: "composed",
+    converter: uw.converters.boolean,
+    defaultValue: () => !1
+  }]);
+  j2B.exports = {
+    ProgressEvent: FzA
+  }
+})
+// @from(Start 5012030, End 5018872)
+k2B = z((Y_7, _2B) => {
+  function Sn8(A) {
+    if (!A) return "failure";
+    switch (A.trim().toLowerCase()) {
+      case "unicode-1-1-utf-8":
+      case "unicode11utf8":
+      case "unicode20utf8":
+      case "utf-8":
+      case "utf8":
+      case "x-unicode20utf8":
+        return "UTF-8";
+      case "866":
+      case "cp866":
+      case "csibm866":
+      case "ibm866":
+        return "IBM866";
+      case "csisolatin2":
+      case "iso-8859-2":
+      case "iso-ir-101":
+      case "iso8859-2":
+      case "iso88592":
+      case "iso_8859-2":
+      case "iso_8859-2:1987":
+      case "l2":
+      case "latin2":
+        return "ISO-8859-2";
+      case "csisolatin3":
+      case "iso-8859-3":
+      case "iso-ir-109":
+      case "iso8859-3":
+      case "iso88593":
+      case "iso_8859-3":
+      case "iso_8859-3:1988":
+      case "l3":
+      case "latin3":
+        return "ISO-8859-3";
+      case "csisolatin4":
+      case "iso-8859-4":
+      case "iso-ir-110":
+      case "iso8859-4":
+      case "iso88594":
+      case "iso_8859-4":
+      case "iso_8859-4:1988":
+      case "l4":
+      case "latin4":
+        return "ISO-8859-4";
+      case "csisolatincyrillic":
+      case "cyrillic":
+      case "iso-8859-5":
+      case "iso-ir-144":
+      case "iso8859-5":
+      case "iso88595":
+      case "iso_8859-5":
+      case "iso_8859-5:1988":
+        return "ISO-8859-5";
+      case "arabic":
+      case "asmo-708":
+      case "csiso88596e":
+      case "csiso88596i":
+      case "csisolatinarabic":
+      case "ecma-114":
+      case "iso-8859-6":
+      case "iso-8859-6-e":
+      case "iso-8859-6-i":
+      case "iso-ir-127":
+      case "iso8859-6":
+      case "iso88596":
+      case "iso_8859-6":
+      case "iso_8859-6:1987":
+        return "ISO-8859-6";
+      case "csisolatingreek":
+      case "ecma-118":
+      case "elot_928":
+      case "greek":
+      case "greek8":
+      case "iso-8859-7":
+      case "iso-ir-126":
+      case "iso8859-7":
+      case "iso88597":
+      case "iso_8859-7":
+      case "iso_8859-7:1987":
+      case "sun_eu_greek":
+        return "ISO-8859-7";
+      case "csiso88598e":
+      case "csisolatinhebrew":
+      case "hebrew":
+      case "iso-8859-8":
+      case "iso-8859-8-e":
+      case "iso-ir-138":
+      case "iso8859-8":
+      case "iso88598":
+      case "iso_8859-8":
+      case "iso_8859-8:1988":
+      case "visual":
+        return "ISO-8859-8";
+      case "csiso88598i":
+      case "iso-8859-8-i":
+      case "logical":
+        return "ISO-8859-8-I";
+      case "csisolatin6":
+      case "iso-8859-10":
+      case "iso-ir-157":
+      case "iso8859-10":
+      case "iso885910":
+      case "l6":
+      case "latin6":
+        return "ISO-8859-10";
+      case "iso-8859-13":
+      case "iso8859-13":
+      case "iso885913":
+        return "ISO-8859-13";
+      case "iso-8859-14":
+      case "iso8859-14":
+      case "iso885914":
+        return "ISO-8859-14";
+      case "csisolatin9":
+      case "iso-8859-15":
+      case "iso8859-15":
+      case "iso885915":
+      case "iso_8859-15":
+      case "l9":
+        return "ISO-8859-15";
+      case "iso-8859-16":
+        return "ISO-8859-16";
+      case "cskoi8r":
+      case "koi":
+      case "koi8":
+      case "koi8-r":
+      case "koi8_r":
+        return "KOI8-R";
+      case "koi8-ru":
+      case "koi8-u":
+        return "KOI8-U";
+      case "csmacintosh":
+      case "mac":
+      case "macintosh":
+      case "x-mac-roman":
+        return "macintosh";
+      case "iso-8859-11":
+      case "iso8859-11":
+      case "iso885911":
+      case "tis-620":
+      case "windows-874":
+        return "windows-874";
+      case "cp1250":
+      case "windows-1250":
+      case "x-cp1250":
+        return "windows-1250";
+      case "cp1251":
+      case "windows-1251":
+      case "x-cp1251":
+        return "windows-1251";
+      case "ansi_x3.4-1968":
+      case "ascii":
+      case "cp1252":
+      case "cp819":
+      case "csisolatin1":
+      case "ibm819":
+      case "iso-8859-1":
+      case "iso-ir-100":
+      case "iso8859-1":
+      case "iso88591":
+      case "iso_8859-1":
+      case "iso_8859-1:1987":
+      case "l1":
+      case "latin1":
+      case "us-ascii":
+      case "windows-1252":
+      case "x-cp1252":
+        return "windows-1252";
+      case "cp1253":
+      case "windows-1253":
+      case "x-cp1253":
+        return "windows-1253";
+      case "cp1254":
+      case "csisolatin5":
+      case "iso-8859-9":
+      case "iso-ir-148":
+      case "iso8859-9":
+      case "iso88599":
+      case "iso_8859-9":
+      case "iso_8859-9:1989":
+      case "l5":
+      case "latin5":
+      case "windows-1254":
+      case "x-cp1254":
+        return "windows-1254";
+      case "cp1255":
+      case "windows-1255":
+      case "x-cp1255":
+        return "windows-1255";
+      case "cp1256":
+      case "windows-1256":
+      case "x-cp1256":
+        return "windows-1256";
+      case "cp1257":
+      case "windows-1257":
+      case "x-cp1257":
+        return "windows-1257";
+      case "cp1258":
+      case "windows-1258":
+      case "x-cp1258":
+        return "windows-1258";
+      case "x-mac-cyrillic":
+      case "x-mac-ukrainian":
+        return "x-mac-cyrillic";
+      case "chinese":
+      case "csgb2312":
+      case "csiso58gb231280":
+      case "gb2312":
+      case "gb_2312":
+      case "gb_2312-80":
+      case "gbk":
+      case "iso-ir-58":
+      case "x-gbk":
+        return "GBK";
+      case "gb18030":
+        return "gb18030";
+      case "big5":
+      case "big5-hkscs":
+      case "cn-big5":
+      case "csbig5":
+      case "x-x-big5":
+        return "Big5";
+      case "cseucpkdfmtjapanese":
+      case "euc-jp":
+      case "x-euc-jp":
+        return "EUC-JP";
+      case "csiso2022jp":
+      case "iso-2022-jp":
+        return "ISO-2022-JP";
+      case "csshiftjis":
+      case "ms932":
+      case "ms_kanji":
+      case "shift-jis":
+      case "shift_jis":
+      case "sjis":
+      case "windows-31j":
+      case "x-sjis":
+        return "Shift_JIS";
+      case "cseuckr":
+      case "csksc56011987":
+      case "euc-kr":
+      case "iso-ir-149":
+      case "korean":
+      case "ks_c_5601-1987":
+      case "ks_c_5601-1989":
+      case "ksc5601":
+      case "ksc_5601":
+      case "windows-949":
+        return "EUC-KR";
+      case "csiso2022kr":
+      case "hz-gb-2312":
+      case "iso-2022-cn":
+      case "iso-2022-cn-ext":
+      case "iso-2022-kr":
+      case "replacement":
+        return "replacement";
+      case "unicodefffe":
+      case "utf-16be":
+        return "UTF-16BE";
+      case "csunicode":
+      case "iso-10646-ucs-2":
+      case "ucs-2":
+      case "unicode":
+      case "unicodefeff":
+      case "utf-16":
+      case "utf-16le":
+        return "UTF-16LE";
+      case "x-user-defined":
+        return "x-user-defined";
+      default:
+        return "failure"
+    }
+  }
+  _2B.exports = {
+    getEncoding: Sn8
+  }
+})
+// @from(Start 5018878, End 5022460)
+u2B = z((J_7, g2B) => {
+  var {
+    kState: L3A,
+    kError: zv1,
+    kResult: y2B,
+    kAborted: KzA,
+    kLastProgressEventFired: Uv1
+  } = Ev1(), {
+    ProgressEvent: _n8
+  } = S2B(), {
+    getEncoding: x2B
+  } = k2B(), {
+    serializeAMimeType: kn8,
+    parseMIMEType: v2B
+  } = QU(), {
+    types: yn8
+  } = UA("node:util"), {
+    StringDecoder: b2B
+  } = UA("string_decoder"), {
+    btoa: f2B
+  } = UA("node:buffer"), xn8 = {
+    enumerable: !0,
+    writable: !1,
+    configurable: !1
+  };
+
+  function vn8(A, Q, B, G) {
+    if (A[L3A] === "loading") throw new DOMException("Invalid state", "InvalidStateError");
+    A[L3A] = "loading", A[y2B] = null, A[zv1] = null;
+    let I = Q.stream().getReader(),
+      Y = [],
+      J = I.read(),
+      W = !0;
+    (async () => {
+      while (!A[KzA]) try {
+        let {
+          done: X,
+          value: V
+        } = await J;
+        if (W && !A[KzA]) queueMicrotask(() => {
+          Mc("loadstart", A)
+        });
+        if (W = !1, !X && yn8.isUint8Array(V)) {
+          if (Y.push(V), (A[Uv1] === void 0 || Date.now() - A[Uv1] >= 50) && !A[KzA]) A[Uv1] = Date.now(), queueMicrotask(() => {
+            Mc("progress", A)
+          });
+          J = I.read()
+        } else if (X) {
+          queueMicrotask(() => {
+            A[L3A] = "done";
+            try {
+              let F = bn8(Y, B, Q.type, G);
+              if (A[KzA]) return;
+              A[y2B] = F, Mc("load", A)
+            } catch (F) {
+              A[zv1] = F, Mc("error", A)
+            }
+            if (A[L3A] !== "loading") Mc("loadend", A)
+          });
+          break
+        }
+      } catch (X) {
+        if (A[KzA]) return;
+        queueMicrotask(() => {
+          if (A[L3A] = "done", A[zv1] = X, Mc("error", A), A[L3A] !== "loading") Mc("loadend", A)
+        });
+        break
+      }
+    })()
+  }
+
+  function Mc(A, Q) {
+    let B = new _n8(A, {
+      bubbles: !1,
+      cancelable: !1
+    });
+    Q.dispatchEvent(B)
+  }
+
+  function bn8(A, Q, B, G) {
+    switch (Q) {
+      case "DataURL": {
+        let Z = "data:",
+          I = v2B(B || "application/octet-stream");
+        if (I !== "failure") Z += kn8(I);
+        Z += ";base64,";
+        let Y = new b2B("latin1");
+        for (let J of A) Z += f2B(Y.write(J));
+        return Z += f2B(Y.end()), Z
+      }
+      case "Text": {
+        let Z = "failure";
+        if (G) Z = x2B(G);
+        if (Z === "failure" && B) {
+          let I = v2B(B);
+          if (I !== "failure") Z = x2B(I.parameters.get("charset"))
+        }
+        if (Z === "failure") Z = "UTF-8";
+        return fn8(A, Z)
+      }
+      case "ArrayBuffer":
+        return h2B(A).buffer;
+      case "BinaryString": {
+        let Z = "",
+          I = new b2B("latin1");
+        for (let Y of A) Z += I.write(Y);
+        return Z += I.end(), Z
+      }
+    }
+  }
+
+  function fn8(A, Q) {
+    let B = h2B(A),
+      G = hn8(B),
+      Z = 0;
+    if (G !== null) Q = G, Z = G === "UTF-8" ? 3 : 2;
+    let I = B.slice(Z);
+    return new TextDecoder(Q).decode(I)
+  }
+
+  function hn8(A) {
+    let [Q, B, G] = A;
+    if (Q === 239 && B === 187 && G === 191) return "UTF-8";
+    else if (Q === 254 && B === 255) return "UTF-16BE";
+    else if (Q === 255 && B === 254) return "UTF-16LE";
+    return null
+  }
+
+  function h2B(A) {
+    let Q = A.reduce((G, Z) => {
+        return G + Z.byteLength
+      }, 0),
+      B = 0;
+    return A.reduce((G, Z) => {
+      return G.set(Z, B), B += Z.byteLength, G
+    }, new Uint8Array(Q))
+  }
+  g2B.exports = {
+    staticPropertyDescriptors: xn8,
+    readOperation: vn8,
+    fireAProgressEvent: Mc
+  }
+})
+// @from(Start 5022466, End 5027495)
+p2B = z((W_7, c2B) => {
+  var {
+    staticPropertyDescriptors: M3A,
+    readOperation: BiA,
+    fireAProgressEvent: m2B
+  } = u2B(), {
+    kState: ro,
+    kError: d2B,
+    kResult: GiA,
+    kEvents: T7,
+    kAborted: gn8
+  } = Ev1(), {
+    webidl: _G
+  } = zD(), {
+    kEnumerableProperty: ZU
+  } = S6();
+  class WG extends EventTarget {
+    constructor() {
+      super();
+      this[ro] = "empty", this[GiA] = null, this[d2B] = null, this[T7] = {
+        loadend: null,
+        error: null,
+        abort: null,
+        load: null,
+        progress: null,
+        loadstart: null
+      }
+    }
+    readAsArrayBuffer(A) {
+      _G.brandCheck(this, WG), _G.argumentLengthCheck(arguments, 1, "FileReader.readAsArrayBuffer"), A = _G.converters.Blob(A, {
+        strict: !1
+      }), BiA(this, A, "ArrayBuffer")
+    }
+    readAsBinaryString(A) {
+      _G.brandCheck(this, WG), _G.argumentLengthCheck(arguments, 1, "FileReader.readAsBinaryString"), A = _G.converters.Blob(A, {
+        strict: !1
+      }), BiA(this, A, "BinaryString")
+    }
+    readAsText(A, Q = void 0) {
+      if (_G.brandCheck(this, WG), _G.argumentLengthCheck(arguments, 1, "FileReader.readAsText"), A = _G.converters.Blob(A, {
+          strict: !1
+        }), Q !== void 0) Q = _G.converters.DOMString(Q, "FileReader.readAsText", "encoding");
+      BiA(this, A, "Text", Q)
+    }
+    readAsDataURL(A) {
+      _G.brandCheck(this, WG), _G.argumentLengthCheck(arguments, 1, "FileReader.readAsDataURL"), A = _G.converters.Blob(A, {
+        strict: !1
+      }), BiA(this, A, "DataURL")
+    }
+    abort() {
+      if (this[ro] === "empty" || this[ro] === "done") {
+        this[GiA] = null;
+        return
+      }
+      if (this[ro] === "loading") this[ro] = "done", this[GiA] = null;
+      if (this[gn8] = !0, m2B("abort", this), this[ro] !== "loading") m2B("loadend", this)
+    }
+    get readyState() {
+      switch (_G.brandCheck(this, WG), this[ro]) {
+        case "empty":
+          return this.EMPTY;
+        case "loading":
+          return this.LOADING;
+        case "done":
+          return this.DONE
+      }
+    }
+    get result() {
+      return _G.brandCheck(this, WG), this[GiA]
+    }
+    get error() {
+      return _G.brandCheck(this, WG), this[d2B]
+    }
+    get onloadend() {
+      return _G.brandCheck(this, WG), this[T7].loadend
+    }
+    set onloadend(A) {
+      if (_G.brandCheck(this, WG), this[T7].loadend) this.removeEventListener("loadend", this[T7].loadend);
+      if (typeof A === "function") this[T7].loadend = A, this.addEventListener("loadend", A);
+      else this[T7].loadend = null
+    }
+    get onerror() {
+      return _G.brandCheck(this, WG), this[T7].error
+    }
+    set onerror(A) {
+      if (_G.brandCheck(this, WG), this[T7].error) this.removeEventListener("error", this[T7].error);
+      if (typeof A === "function") this[T7].error = A, this.addEventListener("error", A);
+      else this[T7].error = null
+    }
+    get onloadstart() {
+      return _G.brandCheck(this, WG), this[T7].loadstart
+    }
+    set onloadstart(A) {
+      if (_G.brandCheck(this, WG), this[T7].loadstart) this.removeEventListener("loadstart", this[T7].loadstart);
+      if (typeof A === "function") this[T7].loadstart = A, this.addEventListener("loadstart", A);
+      else this[T7].loadstart = null
+    }
+    get onprogress() {
+      return _G.brandCheck(this, WG), this[T7].progress
+    }
+    set onprogress(A) {
+      if (_G.brandCheck(this, WG), this[T7].progress) this.removeEventListener("progress", this[T7].progress);
+      if (typeof A === "function") this[T7].progress = A, this.addEventListener("progress", A);
+      else this[T7].progress = null
+    }
+    get onload() {
+      return _G.brandCheck(this, WG), this[T7].load
+    }
+    set onload(A) {
+      if (_G.brandCheck(this, WG), this[T7].load) this.removeEventListener("load", this[T7].load);
+      if (typeof A === "function") this[T7].load = A, this.addEventListener("load", A);
+      else this[T7].load = null
+    }
+    get onabort() {
+      return _G.brandCheck(this, WG), this[T7].abort
+    }
+    set onabort(A) {
+      if (_G.brandCheck(this, WG), this[T7].abort) this.removeEventListener("abort", this[T7].abort);
+      if (typeof A === "function") this[T7].abort = A, this.addEventListener("abort", A);
+      else this[T7].abort = null
+    }
+  }
+  WG.EMPTY = WG.prototype.EMPTY = 0;
+  WG.LOADING = WG.prototype.LOADING = 1;
+  WG.DONE = WG.prototype.DONE = 2;
+  Object.defineProperties(WG.prototype, {
+    EMPTY: M3A,
+    LOADING: M3A,
+    DONE: M3A,
+    readAsArrayBuffer: ZU,
+    readAsBinaryString: ZU,
+    readAsText: ZU,
+    readAsDataURL: ZU,
+    abort: ZU,
+    readyState: ZU,
+    result: ZU,
+    error: ZU,
+    onloadstart: ZU,
+    onprogress: ZU,
+    onload: ZU,
+    onabort: ZU,
+    onerror: ZU,
+    onloadend: ZU,
+    [Symbol.toStringTag]: {
+      value: "FileReader",
+      writable: !1,
+      enumerable: !1,
+      configurable: !0
+    }
+  });
+  Object.defineProperties(WG, {
+    EMPTY: M3A,
+    LOADING: M3A,
+    DONE: M3A
+  });
+  c2B.exports = {
+    FileReader: WG
+  }
+})
+// @from(Start 5027501, End 5027581)
+ZiA = z((X_7, l2B) => {
+  l2B.exports = {
+    kConstruct: tI().kConstruct
+  }
+})
+// @from(Start 5027587, End 5028053)
+a2B = z((V_7, n2B) => {
+  var un8 = UA("node:assert"),
+    {
+      URLSerializer: i2B
+    } = QU(),
+    {
+      isValidHeaderName: mn8
+    } = xw();
+
+  function dn8(A, Q, B = !1) {
+    let G = i2B(A, B),
+      Z = i2B(Q, B);
+    return G === Z
+  }
+
+  function cn8(A) {
+    un8(A !== null);
+    let Q = [];
+    for (let B of A.split(","))
+      if (B = B.trim(), mn8(B)) Q.push(B);
+    return Q
+  }
+  n2B.exports = {
+    urlEquals: dn8,
+    getFieldValues: cn8
+  }
+})
+// @from(Start 5028059, End 5039802)
+o2B = z((F_7, r2B) => {
+  var {
+    kConstruct: pn8
+  } = ZiA(), {
+    urlEquals: ln8,
+    getFieldValues: $v1
+  } = a2B(), {
+    kEnumerableProperty: oo,
+    isDisturbed: in8
+  } = S6(), {
+    webidl: T9
+  } = zD(), {
+    Response: nn8,
+    cloneResponse: an8,
+    fromInnerResponse: sn8
+  } = WzA(), {
+    Request: yb,
+    fromInnerRequest: rn8
+  } = N3A(), {
+    kState: WT
+  } = Kc(), {
+    fetching: on8
+  } = VzA(), {
+    urlIsHttpHttpsScheme: IiA,
+    createDeferredPromise: O3A,
+    readAllBytes: tn8
+  } = xw(), wv1 = UA("node:assert");
+  class $_ {
+    #A;
+    constructor() {
+      if (arguments[0] !== pn8) T9.illegalConstructor();
+      T9.util.markAsUncloneable(this), this.#A = arguments[1]
+    }
+    async match(A, Q = {}) {
+      T9.brandCheck(this, $_);
+      let B = "Cache.match";
+      T9.argumentLengthCheck(arguments, 1, B), A = T9.converters.RequestInfo(A, B, "request"), Q = T9.converters.CacheQueryOptions(Q, B, "options");
+      let G = this.#G(A, Q, 1);
+      if (G.length === 0) return;
+      return G[0]
+    }
+    async matchAll(A = void 0, Q = {}) {
+      T9.brandCheck(this, $_);
+      let B = "Cache.matchAll";
+      if (A !== void 0) A = T9.converters.RequestInfo(A, B, "request");
+      return Q = T9.converters.CacheQueryOptions(Q, B, "options"), this.#G(A, Q)
+    }
+    async add(A) {
+      T9.brandCheck(this, $_);
+      let Q = "Cache.add";
+      T9.argumentLengthCheck(arguments, 1, Q), A = T9.converters.RequestInfo(A, Q, "request");
+      let B = [A];
+      return await this.addAll(B)
+    }
+    async addAll(A) {
+      T9.brandCheck(this, $_);
+      let Q = "Cache.addAll";
+      T9.argumentLengthCheck(arguments, 1, Q);
+      let B = [],
+        G = [];
+      for (let F of A) {
+        if (F === void 0) throw T9.errors.conversionFailed({
+          prefix: Q,
+          argument: "Argument 1",
+          types: ["undefined is not allowed"]
+        });
+        if (F = T9.converters.RequestInfo(F), typeof F === "string") continue;
+        let K = F[WT];
+        if (!IiA(K.url) || K.method !== "GET") throw T9.errors.exception({
+          header: Q,
+          message: "Expected http/s scheme when method is not GET."
+        })
+      }
+      let Z = [];
+      for (let F of A) {
+        let K = new yb(F)[WT];
+        if (!IiA(K.url)) throw T9.errors.exception({
+          header: Q,
+          message: "Expected http/s scheme."
+        });
+        K.initiator = "fetch", K.destination = "subresource", G.push(K);
+        let D = O3A();
+        Z.push(on8({
+          request: K,
+          processResponse(H) {
+            if (H.type === "error" || H.status === 206 || H.status < 200 || H.status > 299) D.reject(T9.errors.exception({
+              header: "Cache.addAll",
+              message: "Received an invalid status code or the request failed."
+            }));
+            else if (H.headersList.contains("vary")) {
+              let C = $v1(H.headersList.get("vary"));
+              for (let E of C)
+                if (E === "*") {
+                  D.reject(T9.errors.exception({
+                    header: "Cache.addAll",
+                    message: "invalid vary field value"
+                  }));
+                  for (let U of Z) U.abort();
+                  return
+                }
+            }
+          },
+          processResponseEndOfBody(H) {
+            if (H.aborted) {
+              D.reject(new DOMException("aborted", "AbortError"));
+              return
+            }
+            D.resolve(H)
+          }
+        })), B.push(D.promise)
+      }
+      let Y = await Promise.all(B),
+        J = [],
+        W = 0;
+      for (let F of Y) {
+        let K = {
+          type: "put",
+          request: G[W],
+          response: F
+        };
+        J.push(K), W++
+      }
+      let X = O3A(),
+        V = null;
+      try {
+        this.#Q(J)
+      } catch (F) {
+        V = F
+      }
+      return queueMicrotask(() => {
+        if (V === null) X.resolve(void 0);
+        else X.reject(V)
+      }), X.promise
+    }
+    async put(A, Q) {
+      T9.brandCheck(this, $_);
+      let B = "Cache.put";
+      T9.argumentLengthCheck(arguments, 2, B), A = T9.converters.RequestInfo(A, B, "request"), Q = T9.converters.Response(Q, B, "response");
+      let G = null;
+      if (A instanceof yb) G = A[WT];
+      else G = new yb(A)[WT];
+      if (!IiA(G.url) || G.method !== "GET") throw T9.errors.exception({
+        header: B,
+        message: "Expected an http/s scheme when method is not GET"
+      });
+      let Z = Q[WT];
+      if (Z.status === 206) throw T9.errors.exception({
+        header: B,
+        message: "Got 206 status"
+      });
+      if (Z.headersList.contains("vary")) {
+        let K = $v1(Z.headersList.get("vary"));
+        for (let D of K)
+          if (D === "*") throw T9.errors.exception({
+            header: B,
+            message: "Got * vary field value"
+          })
+      }
+      if (Z.body && (in8(Z.body.stream) || Z.body.stream.locked)) throw T9.errors.exception({
+        header: B,
+        message: "Response body is locked or disturbed"
+      });
+      let I = an8(Z),
+        Y = O3A();
+      if (Z.body != null) {
+        let D = Z.body.stream.getReader();
+        tn8(D).then(Y.resolve, Y.reject)
+      } else Y.resolve(void 0);
+      let J = [],
+        W = {
+          type: "put",
+          request: G,
+          response: I
+        };
+      J.push(W);
+      let X = await Y.promise;
+      if (I.body != null) I.body.source = X;
+      let V = O3A(),
+        F = null;
+      try {
+        this.#Q(J)
+      } catch (K) {
+        F = K
+      }
+      return queueMicrotask(() => {
+        if (F === null) V.resolve();
+        else V.reject(F)
+      }), V.promise
+    }
+    async delete(A, Q = {}) {
+      T9.brandCheck(this, $_);
+      let B = "Cache.delete";
+      T9.argumentLengthCheck(arguments, 1, B), A = T9.converters.RequestInfo(A, B, "request"), Q = T9.converters.CacheQueryOptions(Q, B, "options");
+      let G = null;
+      if (A instanceof yb) {
+        if (G = A[WT], G.method !== "GET" && !Q.ignoreMethod) return !1
+      } else wv1(typeof A === "string"), G = new yb(A)[WT];
+      let Z = [],
+        I = {
+          type: "delete",
+          request: G,
+          options: Q
+        };
+      Z.push(I);
+      let Y = O3A(),
+        J = null,
+        W;
+      try {
+        W = this.#Q(Z)
+      } catch (X) {
+        J = X
+      }
+      return queueMicrotask(() => {
+        if (J === null) Y.resolve(!!W?.length);
+        else Y.reject(J)
+      }), Y.promise
+    }
+    async keys(A = void 0, Q = {}) {
+      T9.brandCheck(this, $_);
+      let B = "Cache.keys";
+      if (A !== void 0) A = T9.converters.RequestInfo(A, B, "request");
+      Q = T9.converters.CacheQueryOptions(Q, B, "options");
+      let G = null;
+      if (A !== void 0) {
+        if (A instanceof yb) {
+          if (G = A[WT], G.method !== "GET" && !Q.ignoreMethod) return []
+        } else if (typeof A === "string") G = new yb(A)[WT]
+      }
+      let Z = O3A(),
+        I = [];
+      if (A === void 0)
+        for (let Y of this.#A) I.push(Y[0]);
+      else {
+        let Y = this.#B(G, Q);
+        for (let J of Y) I.push(J[0])
+      }
+      return queueMicrotask(() => {
+        let Y = [];
+        for (let J of I) {
+          let W = rn8(J, new AbortController().signal, "immutable");
+          Y.push(W)
+        }
+        Z.resolve(Object.freeze(Y))
+      }), Z.promise
+    }
+    #Q(A) {
+      let Q = this.#A,
+        B = [...Q],
+        G = [],
+        Z = [];
+      try {
+        for (let I of A) {
+          if (I.type !== "delete" && I.type !== "put") throw T9.errors.exception({
+            header: "Cache.#batchCacheOperations",
+            message: 'operation type does not match "delete" or "put"'
+          });
+          if (I.type === "delete" && I.response != null) throw T9.errors.exception({
+            header: "Cache.#batchCacheOperations",
+            message: "delete operation should not have an associated response"
+          });
+          if (this.#B(I.request, I.options, G).length) throw new DOMException("???", "InvalidStateError");
+          let Y;
+          if (I.type === "delete") {
+            if (Y = this.#B(I.request, I.options), Y.length === 0) return [];
+            for (let J of Y) {
+              let W = Q.indexOf(J);
+              wv1(W !== -1), Q.splice(W, 1)
+            }
+          } else if (I.type === "put") {
+            if (I.response == null) throw T9.errors.exception({
+              header: "Cache.#batchCacheOperations",
+              message: "put operation should have an associated response"
+            });
+            let J = I.request;
+            if (!IiA(J.url)) throw T9.errors.exception({
+              header: "Cache.#batchCacheOperations",
+              message: "expected http or https scheme"
+            });
+            if (J.method !== "GET") throw T9.errors.exception({
+              header: "Cache.#batchCacheOperations",
+              message: "not get method"
+            });
+            if (I.options != null) throw T9.errors.exception({
+              header: "Cache.#batchCacheOperations",
+              message: "options must not be defined"
+            });
+            Y = this.#B(I.request);
+            for (let W of Y) {
+              let X = Q.indexOf(W);
+              wv1(X !== -1), Q.splice(X, 1)
+            }
+            Q.push([I.request, I.response]), G.push([I.request, I.response])
+          }
+          Z.push([I.request, I.response])
+        }
+        return Z
+      } catch (I) {
+        throw this.#A.length = 0, this.#A = B, I
+      }
+    }
+    #B(A, Q, B) {
+      let G = [],
+        Z = B ?? this.#A;
+      for (let I of Z) {
+        let [Y, J] = I;
+        if (this.#Z(A, Y, J, Q)) G.push(I)
+      }
+      return G
+    }
+    #Z(A, Q, B = null, G) {
+      let Z = new URL(A.url),
+        I = new URL(Q.url);
+      if (G?.ignoreSearch) I.search = "", Z.search = "";
+      if (!ln8(Z, I, !0)) return !1;
+      if (B == null || G?.ignoreVary || !B.headersList.contains("vary")) return !0;
+      let Y = $v1(B.headersList.get("vary"));
+      for (let J of Y) {
+        if (J === "*") return !1;
+        let W = Q.headersList.get(J),
+          X = A.headersList.get(J);
+        if (W !== X) return !1
+      }
+      return !0
+    }
+    #G(A, Q, B = 1 / 0) {
+      let G = null;
+      if (A !== void 0) {
+        if (A instanceof yb) {
+          if (G = A[WT], G.method !== "GET" && !Q.ignoreMethod) return []
+        } else if (typeof A === "string") G = new yb(A)[WT]
+      }
+      let Z = [];
+      if (A === void 0)
+        for (let Y of this.#A) Z.push(Y[1]);
+      else {
+        let Y = this.#B(G, Q);
+        for (let J of Y) Z.push(J[1])
+      }
+      let I = [];
+      for (let Y of Z) {
+        let J = sn8(Y, "immutable");
+        if (I.push(J.clone()), I.length >= B) break
+      }
+      return Object.freeze(I)
+    }
+  }
+  Object.defineProperties($_.prototype, {
+    [Symbol.toStringTag]: {
+      value: "Cache",
+      configurable: !0
+    },
+    match: oo,
+    matchAll: oo,
+    add: oo,
+    addAll: oo,
+    put: oo,
+    delete: oo,
+    keys: oo
+  });
+  var s2B = [{
+    key: "ignoreSearch",
+    converter: T9.converters.boolean,
+    defaultValue: () => !1
+  }, {
+    key: "ignoreMethod",
+    converter: T9.converters.boolean,
+    defaultValue: () => !1
+  }, {
+    key: "ignoreVary",
+    converter: T9.converters.boolean,
+    defaultValue: () => !1
+  }];
+  T9.converters.CacheQueryOptions = T9.dictionaryConverter(s2B);
+  T9.converters.MultiCacheQueryOptions = T9.dictionaryConverter([...s2B, {
+    key: "cacheName",
+    converter: T9.converters.DOMString
+  }]);
+  T9.converters.Response = T9.interfaceConverter(nn8);
+  T9.converters["sequence<RequestInfo>"] = T9.sequenceConverter(T9.converters.RequestInfo);
+  r2B.exports = {
+    Cache: $_
+  }
+})
+// @from(Start 5039808, End 5041771)
+e2B = z((K_7, t2B) => {
+  var {
+    kConstruct: DzA
+  } = ZiA(), {
+    Cache: YiA
+  } = o2B(), {
+    webidl: xH
+  } = zD(), {
+    kEnumerableProperty: HzA
+  } = S6();
+  class Oc {
+    #A = new Map;
+    constructor() {
+      if (arguments[0] !== DzA) xH.illegalConstructor();
+      xH.util.markAsUncloneable(this)
+    }
+    async match(A, Q = {}) {
+      if (xH.brandCheck(this, Oc), xH.argumentLengthCheck(arguments, 1, "CacheStorage.match"), A = xH.converters.RequestInfo(A), Q = xH.converters.MultiCacheQueryOptions(Q), Q.cacheName != null) {
+        if (this.#A.has(Q.cacheName)) {
+          let B = this.#A.get(Q.cacheName);
+          return await new YiA(DzA, B).match(A, Q)
+        }
+      } else
+        for (let B of this.#A.values()) {
+          let Z = await new YiA(DzA, B).match(A, Q);
+          if (Z !== void 0) return Z
+        }
+    }
+    async has(A) {
+      xH.brandCheck(this, Oc);
+      let Q = "CacheStorage.has";
+      return xH.argumentLengthCheck(arguments, 1, Q), A = xH.converters.DOMString(A, Q, "cacheName"), this.#A.has(A)
+    }
+    async open(A) {
+      xH.brandCheck(this, Oc);
+      let Q = "CacheStorage.open";
+      if (xH.argumentLengthCheck(arguments, 1, Q), A = xH.converters.DOMString(A, Q, "cacheName"), this.#A.has(A)) {
+        let G = this.#A.get(A);
+        return new YiA(DzA, G)
+      }
+      let B = [];
+      return this.#A.set(A, B), new YiA(DzA, B)
+    }
+    async delete(A) {
+      xH.brandCheck(this, Oc);
+      let Q = "CacheStorage.delete";
+      return xH.argumentLengthCheck(arguments, 1, Q), A = xH.converters.DOMString(A, Q, "cacheName"), this.#A.delete(A)
+    }
+    async keys() {
+      return xH.brandCheck(this, Oc), [...this.#A.keys()]
+    }
+  }
+  Object.defineProperties(Oc.prototype, {
+    [Symbol.toStringTag]: {
+      value: "CacheStorage",
+      configurable: !0
+    },
+    match: HzA,
+    has: HzA,
+    open: HzA,
+    delete: HzA,
+    keys: HzA
+  });
+  t2B.exports = {
+    CacheStorage: Oc
+  }
+})
+// @from(Start 5041777, End 5041889)
+Q9B = z((D_7, A9B) => {
+  A9B.exports = {
+    maxAttributeValueSize: 1024,
+    maxNameValuePairSize: 4096
+  }
+})
+// @from(Start 5041895, End 5044799)
+qv1 = z((H_7, Y9B) => {
+  function en8(A) {
+    for (let Q = 0; Q < A.length; ++Q) {
+      let B = A.charCodeAt(Q);
+      if (B >= 0 && B <= 8 || B >= 10 && B <= 31 || B === 127) return !0
+    }
+    return !1
+  }
+
+  function B9B(A) {
+    for (let Q = 0; Q < A.length; ++Q) {
+      let B = A.charCodeAt(Q);
+      if (B < 33 || B > 126 || B === 34 || B === 40 || B === 41 || B === 60 || B === 62 || B === 64 || B === 44 || B === 59 || B === 58 || B === 92 || B === 47 || B === 91 || B === 93 || B === 63 || B === 61 || B === 123 || B === 125) throw Error("Invalid cookie name")
+    }
+  }
+
+  function G9B(A) {
+    let Q = A.length,
+      B = 0;
+    if (A[0] === '"') {
+      if (Q === 1 || A[Q - 1] !== '"') throw Error("Invalid cookie value");
+      --Q, ++B
+    }
+    while (B < Q) {
+      let G = A.charCodeAt(B++);
+      if (G < 33 || G > 126 || G === 34 || G === 44 || G === 59 || G === 92) throw Error("Invalid cookie value")
+    }
+  }
+
+  function Z9B(A) {
+    for (let Q = 0; Q < A.length; ++Q) {
+      let B = A.charCodeAt(Q);
+      if (B < 32 || B === 127 || B === 59) throw Error("Invalid cookie path")
+    }
+  }
+
+  function Aa8(A) {
+    if (A.startsWith("-") || A.endsWith(".") || A.endsWith("-")) throw Error("Invalid cookie domain")
+  }
+  var Qa8 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    Ba8 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    JiA = Array(61).fill(0).map((A, Q) => Q.toString().padStart(2, "0"));
+
+  function I9B(A) {
+    if (typeof A === "number") A = new Date(A);
+    return `${Qa8[A.getUTCDay()]}, ${JiA[A.getUTCDate()]} ${Ba8[A.getUTCMonth()]} ${A.getUTCFullYear()} ${JiA[A.getUTCHours()]}:${JiA[A.getUTCMinutes()]}:${JiA[A.getUTCSeconds()]} GMT`
+  }
+
+  function Ga8(A) {
+    if (A < 0) throw Error("Invalid cookie max-age")
+  }
+
+  function Za8(A) {
+    if (A.name.length === 0) return null;
+    B9B(A.name), G9B(A.value);
+    let Q = [`${A.name}=${A.value}`];
+    if (A.name.startsWith("__Secure-")) A.secure = !0;
+    if (A.name.startsWith("__Host-")) A.secure = !0, A.domain = null, A.path = "/";
+    if (A.secure) Q.push("Secure");
+    if (A.httpOnly) Q.push("HttpOnly");
+    if (typeof A.maxAge === "number") Ga8(A.maxAge), Q.push(`Max-Age=${A.maxAge}`);
+    if (A.domain) Aa8(A.domain), Q.push(`Domain=${A.domain}`);
+    if (A.path) Z9B(A.path), Q.push(`Path=${A.path}`);
+    if (A.expires && A.expires.toString() !== "Invalid Date") Q.push(`Expires=${I9B(A.expires)}`);
+    if (A.sameSite) Q.push(`SameSite=${A.sameSite}`);
+    for (let B of A.unparsed) {
+      if (!B.includes("=")) throw Error("Invalid unparsed");
+      let [G, ...Z] = B.split("=");
+      Q.push(`${G.trim()}=${Z.join("=")}`)
+    }
+    return Q.join("; ")
+  }
+  Y9B.exports = {
+    isCTLExcludingHtab: en8,
+    validateCookieName: B9B,
+    validateCookiePath: Z9B,
+    validateCookieValue: G9B,
+    toIMFDate: I9B,
+    stringify: Za8
+  }
+})
+// @from(Start 5044805, End 5047141)
+W9B = z((C_7, J9B) => {
+  var {
+    maxNameValuePairSize: Ia8,
+    maxAttributeValueSize: Ya8
+  } = Q9B(), {
+    isCTLExcludingHtab: Ja8
+  } = qv1(), {
+    collectASequenceOfCodePointsFast: WiA
+  } = QU(), Wa8 = UA("node:assert");
+
+  function Xa8(A) {
+    if (Ja8(A)) return null;
+    let Q = "",
+      B = "",
+      G = "",
+      Z = "";
+    if (A.includes(";")) {
+      let I = {
+        position: 0
+      };
+      Q = WiA(";", A, I), B = A.slice(I.position)
+    } else Q = A;
+    if (!Q.includes("=")) Z = Q;
+    else {
+      let I = {
+        position: 0
+      };
+      G = WiA("=", Q, I), Z = Q.slice(I.position + 1)
+    }
+    if (G = G.trim(), Z = Z.trim(), G.length + Z.length > Ia8) return null;
+    return {
+      name: G,
+      value: Z,
+      ...R3A(B)
+    }
+  }
+
+  function R3A(A, Q = {}) {
+    if (A.length === 0) return Q;
+    Wa8(A[0] === ";"), A = A.slice(1);
+    let B = "";
+    if (A.includes(";")) B = WiA(";", A, {
+      position: 0
+    }), A = A.slice(B.length);
+    else B = A, A = "";
+    let G = "",
+      Z = "";
+    if (B.includes("=")) {
+      let Y = {
+        position: 0
+      };
+      G = WiA("=", B, Y), Z = B.slice(Y.position + 1)
+    } else G = B;
+    if (G = G.trim(), Z = Z.trim(), Z.length > Ya8) return R3A(A, Q);
+    let I = G.toLowerCase();
+    if (I === "expires") {
+      let Y = new Date(Z);
+      Q.expires = Y
+    } else if (I === "max-age") {
+      let Y = Z.charCodeAt(0);
+      if ((Y < 48 || Y > 57) && Z[0] !== "-") return R3A(A, Q);
+      if (!/^\d+$/.test(Z)) return R3A(A, Q);
+      let J = Number(Z);
+      Q.maxAge = J
+    } else if (I === "domain") {
+      let Y = Z;
+      if (Y[0] === ".") Y = Y.slice(1);
+      Y = Y.toLowerCase(), Q.domain = Y
+    } else if (I === "path") {
+      let Y = "";
+      if (Z.length === 0 || Z[0] !== "/") Y = "/";
+      else Y = Z;
+      Q.path = Y
+    } else if (I === "secure") Q.secure = !0;
+    else if (I === "httponly") Q.httpOnly = !0;
+    else if (I === "samesite") {
+      let Y = "Default",
+        J = Z.toLowerCase();
+      if (J.includes("none")) Y = "None";
+      if (J.includes("strict")) Y = "Strict";
+      if (J.includes("lax")) Y = "Lax";
+      Q.sameSite = Y
+    } else Q.unparsed ??= [], Q.unparsed.push(`${G}=${Z}`);
+    return R3A(A, Q)
+  }
+  J9B.exports = {
+    parseSetCookie: Xa8,
+    parseUnparsedAttributes: R3A
+  }
+})
+// @from(Start 5047147, End 5050010)
+F9B = z((E_7, V9B) => {
+  var {
+    parseSetCookie: Va8
+  } = W9B(), {
+    stringify: Fa8
+  } = qv1(), {
+    webidl: P5
+  } = zD(), {
+    Headers: XiA
+  } = no();
+
+  function Ka8(A) {
+    P5.argumentLengthCheck(arguments, 1, "getCookies"), P5.brandCheck(A, XiA, {
+      strict: !1
+    });
+    let Q = A.get("cookie"),
+      B = {};
+    if (!Q) return B;
+    for (let G of Q.split(";")) {
+      let [Z, ...I] = G.split("=");
+      B[Z.trim()] = I.join("=")
+    }
     return B
   }
 
-  function Qm(A) {
-    return {
-      aborted: !1,
-      rangeRequested: !1,
-      timingAllowPassed: !1,
-      requestIncludesCredentials: !1,
-      type: "default",
-      status: 200,
-      timingInfo: null,
-      cacheState: "",
-      statusText: "",
-      ...A,
-      headersList: A?.headersList ? new Gl0(A?.headersList) : new Gl0,
-      urlList: A?.urlList ? [...A.urlList] : []
-    }
-  }
-
-  function MW1(A) {
-    let B = UE6(A);
-    return Qm({
-      type: "error",
-      status: 0,
-      error: B ? A : new Error(A ? String(A) : A),
-      aborted: A && A.name === "AbortError"
+  function Da8(A, Q, B) {
+    P5.brandCheck(A, XiA, {
+      strict: !1
+    });
+    let G = "deleteCookie";
+    P5.argumentLengthCheck(arguments, 2, G), Q = P5.converters.DOMString(Q, G, "name"), B = P5.converters.DeleteCookieAttributes(B), X9B(A, {
+      name: Q,
+      value: "",
+      expires: new Date(0),
+      ...B
     })
   }
 
-  function TE6(A) {
-    return A.type === "error" && A.status === 0
+  function Ha8(A) {
+    P5.argumentLengthCheck(arguments, 1, "getSetCookies"), P5.brandCheck(A, XiA, {
+      strict: !1
+    });
+    let Q = A.getSetCookie();
+    if (!Q) return [];
+    return Q.map((B) => Va8(B))
   }
 
-  function $W1(A, B) {
-    return B = {
-      internalResponse: A,
-      ...B
-    }, new Proxy(A, {
-      get(Q, I) {
-        return I in B ? B[I] : Q[I]
+  function X9B(A, Q) {
+    P5.argumentLengthCheck(arguments, 2, "setCookie"), P5.brandCheck(A, XiA, {
+      strict: !1
+    }), Q = P5.converters.Cookie(Q);
+    let B = Fa8(Q);
+    if (B) A.append("Set-Cookie", B)
+  }
+  P5.converters.DeleteCookieAttributes = P5.dictionaryConverter([{
+    converter: P5.nullableConverter(P5.converters.DOMString),
+    key: "path",
+    defaultValue: () => null
+  }, {
+    converter: P5.nullableConverter(P5.converters.DOMString),
+    key: "domain",
+    defaultValue: () => null
+  }]);
+  P5.converters.Cookie = P5.dictionaryConverter([{
+    converter: P5.converters.DOMString,
+    key: "name"
+  }, {
+    converter: P5.converters.DOMString,
+    key: "value"
+  }, {
+    converter: P5.nullableConverter((A) => {
+      if (typeof A === "number") return P5.converters["unsigned long long"](A);
+      return new Date(A)
+    }),
+    key: "expires",
+    defaultValue: () => null
+  }, {
+    converter: P5.nullableConverter(P5.converters["long long"]),
+    key: "maxAge",
+    defaultValue: () => null
+  }, {
+    converter: P5.nullableConverter(P5.converters.DOMString),
+    key: "domain",
+    defaultValue: () => null
+  }, {
+    converter: P5.nullableConverter(P5.converters.DOMString),
+    key: "path",
+    defaultValue: () => null
+  }, {
+    converter: P5.nullableConverter(P5.converters.boolean),
+    key: "secure",
+    defaultValue: () => null
+  }, {
+    converter: P5.nullableConverter(P5.converters.boolean),
+    key: "httpOnly",
+    defaultValue: () => null
+  }, {
+    converter: P5.converters.USVString,
+    key: "sameSite",
+    allowedValues: ["Strict", "Lax", "None"]
+  }, {
+    converter: P5.sequenceConverter(P5.converters.DOMString),
+    key: "unparsed",
+    defaultValue: () => []
+  }]);
+  V9B.exports = {
+    getCookies: Ka8,
+    deleteCookie: Da8,
+    getSetCookies: Ha8,
+    setCookie: X9B
+  }
+})
+// @from(Start 5050016, End 5055697)
+P3A = z((z_7, D9B) => {
+  var {
+    webidl: E9
+  } = zD(), {
+    kEnumerableProperty: IU
+  } = S6(), {
+    kConstruct: K9B
+  } = tI(), {
+    MessagePort: Ca8
+  } = UA("node:worker_threads");
+  class mw extends Event {
+    #A;
+    constructor(A, Q = {}) {
+      if (A === K9B) {
+        super(arguments[1], arguments[2]);
+        E9.util.markAsUncloneable(this);
+        return
+      }
+      let B = "MessageEvent constructor";
+      E9.argumentLengthCheck(arguments, 1, B), A = E9.converters.DOMString(A, B, "type"), Q = E9.converters.MessageEventInit(Q, B, "eventInitDict");
+      super(A, Q);
+      this.#A = Q, E9.util.markAsUncloneable(this)
+    }
+    get data() {
+      return E9.brandCheck(this, mw), this.#A.data
+    }
+    get origin() {
+      return E9.brandCheck(this, mw), this.#A.origin
+    }
+    get lastEventId() {
+      return E9.brandCheck(this, mw), this.#A.lastEventId
+    }
+    get source() {
+      return E9.brandCheck(this, mw), this.#A.source
+    }
+    get ports() {
+      if (E9.brandCheck(this, mw), !Object.isFrozen(this.#A.ports)) Object.freeze(this.#A.ports);
+      return this.#A.ports
+    }
+    initMessageEvent(A, Q = !1, B = !1, G = null, Z = "", I = "", Y = null, J = []) {
+      return E9.brandCheck(this, mw), E9.argumentLengthCheck(arguments, 1, "MessageEvent.initMessageEvent"), new mw(A, {
+        bubbles: Q,
+        cancelable: B,
+        data: G,
+        origin: Z,
+        lastEventId: I,
+        source: Y,
+        ports: J
+      })
+    }
+    static createFastMessageEvent(A, Q) {
+      let B = new mw(K9B, A, Q);
+      return B.#A = Q, B.#A.data ??= null, B.#A.origin ??= "", B.#A.lastEventId ??= "", B.#A.source ??= null, B.#A.ports ??= [], B
+    }
+  }
+  var {
+    createFastMessageEvent: Ea8
+  } = mw;
+  delete mw.createFastMessageEvent;
+  class T3A extends Event {
+    #A;
+    constructor(A, Q = {}) {
+      E9.argumentLengthCheck(arguments, 1, "CloseEvent constructor"), A = E9.converters.DOMString(A, "CloseEvent constructor", "type"), Q = E9.converters.CloseEventInit(Q);
+      super(A, Q);
+      this.#A = Q, E9.util.markAsUncloneable(this)
+    }
+    get wasClean() {
+      return E9.brandCheck(this, T3A), this.#A.wasClean
+    }
+    get code() {
+      return E9.brandCheck(this, T3A), this.#A.code
+    }
+    get reason() {
+      return E9.brandCheck(this, T3A), this.#A.reason
+    }
+  }
+  class Rc extends Event {
+    #A;
+    constructor(A, Q) {
+      E9.argumentLengthCheck(arguments, 1, "ErrorEvent constructor");
+      super(A, Q);
+      E9.util.markAsUncloneable(this), A = E9.converters.DOMString(A, "ErrorEvent constructor", "type"), Q = E9.converters.ErrorEventInit(Q ?? {}), this.#A = Q
+    }
+    get message() {
+      return E9.brandCheck(this, Rc), this.#A.message
+    }
+    get filename() {
+      return E9.brandCheck(this, Rc), this.#A.filename
+    }
+    get lineno() {
+      return E9.brandCheck(this, Rc), this.#A.lineno
+    }
+    get colno() {
+      return E9.brandCheck(this, Rc), this.#A.colno
+    }
+    get error() {
+      return E9.brandCheck(this, Rc), this.#A.error
+    }
+  }
+  Object.defineProperties(mw.prototype, {
+    [Symbol.toStringTag]: {
+      value: "MessageEvent",
+      configurable: !0
+    },
+    data: IU,
+    origin: IU,
+    lastEventId: IU,
+    source: IU,
+    ports: IU,
+    initMessageEvent: IU
+  });
+  Object.defineProperties(T3A.prototype, {
+    [Symbol.toStringTag]: {
+      value: "CloseEvent",
+      configurable: !0
+    },
+    reason: IU,
+    code: IU,
+    wasClean: IU
+  });
+  Object.defineProperties(Rc.prototype, {
+    [Symbol.toStringTag]: {
+      value: "ErrorEvent",
+      configurable: !0
+    },
+    message: IU,
+    filename: IU,
+    lineno: IU,
+    colno: IU,
+    error: IU
+  });
+  E9.converters.MessagePort = E9.interfaceConverter(Ca8);
+  E9.converters["sequence<MessagePort>"] = E9.sequenceConverter(E9.converters.MessagePort);
+  var Nv1 = [{
+    key: "bubbles",
+    converter: E9.converters.boolean,
+    defaultValue: () => !1
+  }, {
+    key: "cancelable",
+    converter: E9.converters.boolean,
+    defaultValue: () => !1
+  }, {
+    key: "composed",
+    converter: E9.converters.boolean,
+    defaultValue: () => !1
+  }];
+  E9.converters.MessageEventInit = E9.dictionaryConverter([...Nv1, {
+    key: "data",
+    converter: E9.converters.any,
+    defaultValue: () => null
+  }, {
+    key: "origin",
+    converter: E9.converters.USVString,
+    defaultValue: () => ""
+  }, {
+    key: "lastEventId",
+    converter: E9.converters.DOMString,
+    defaultValue: () => ""
+  }, {
+    key: "source",
+    converter: E9.nullableConverter(E9.converters.MessagePort),
+    defaultValue: () => null
+  }, {
+    key: "ports",
+    converter: E9.converters["sequence<MessagePort>"],
+    defaultValue: () => []
+  }]);
+  E9.converters.CloseEventInit = E9.dictionaryConverter([...Nv1, {
+    key: "wasClean",
+    converter: E9.converters.boolean,
+    defaultValue: () => !1
+  }, {
+    key: "code",
+    converter: E9.converters["unsigned short"],
+    defaultValue: () => 0
+  }, {
+    key: "reason",
+    converter: E9.converters.USVString,
+    defaultValue: () => ""
+  }]);
+  E9.converters.ErrorEventInit = E9.dictionaryConverter([...Nv1, {
+    key: "message",
+    converter: E9.converters.DOMString,
+    defaultValue: () => ""
+  }, {
+    key: "filename",
+    converter: E9.converters.USVString,
+    defaultValue: () => ""
+  }, {
+    key: "lineno",
+    converter: E9.converters["unsigned long"],
+    defaultValue: () => 0
+  }, {
+    key: "colno",
+    converter: E9.converters["unsigned long"],
+    defaultValue: () => 0
+  }, {
+    key: "error",
+    converter: E9.converters.any
+  }]);
+  D9B.exports = {
+    MessageEvent: mw,
+    CloseEvent: T3A,
+    ErrorEvent: Rc,
+    createFastMessageEvent: Ea8
+  }
+})
+// @from(Start 5055703, End 5056594)
+to = z((U_7, H9B) => {
+  var za8 = {
+      enumerable: !0,
+      writable: !1,
+      configurable: !1
+    },
+    Ua8 = {
+      CONNECTING: 0,
+      OPEN: 1,
+      CLOSING: 2,
+      CLOSED: 3
+    },
+    $a8 = {
+      NOT_SENT: 0,
+      PROCESSING: 1,
+      SENT: 2
+    },
+    wa8 = {
+      CONTINUATION: 0,
+      TEXT: 1,
+      BINARY: 2,
+      CLOSE: 8,
+      PING: 9,
+      PONG: 10
+    },
+    qa8 = {
+      INFO: 0,
+      PAYLOADLENGTH_16: 2,
+      PAYLOADLENGTH_64: 3,
+      READ_DATA: 4
+    },
+    Na8 = Buffer.allocUnsafe(0),
+    La8 = {
+      string: 1,
+      typedArray: 2,
+      arrayBuffer: 3,
+      blob: 4
+    };
+  H9B.exports = {
+    uid: "258EAFA5-E914-47DA-95CA-C5AB0DC85B11",
+    sentCloseFrameState: $a8,
+    staticPropertyDescriptors: za8,
+    states: Ua8,
+    opcodes: wa8,
+    maxUnsigned16Bit: 65535,
+    parserStates: qa8,
+    emptyBuffer: Na8,
+    sendHints: La8
+  }
+})
+// @from(Start 5056600, End 5056959)
+CzA = z(($_7, C9B) => {
+  C9B.exports = {
+    kWebSocketURL: Symbol("url"),
+    kReadyState: Symbol("ready state"),
+    kController: Symbol("controller"),
+    kResponse: Symbol("response"),
+    kBinaryType: Symbol("binary type"),
+    kSentClose: Symbol("sent close"),
+    kReceivedClose: Symbol("received close"),
+    kByteParser: Symbol("byte parser")
+  }
+})
+// @from(Start 5056965, End 5060462)
+UzA = z((w_7, M9B) => {
+  var {
+    kReadyState: EzA,
+    kController: Ma8,
+    kResponse: Oa8,
+    kBinaryType: Ra8,
+    kWebSocketURL: Ta8
+  } = CzA(), {
+    states: zzA,
+    opcodes: Tc
+  } = to(), {
+    ErrorEvent: Pa8,
+    createFastMessageEvent: ja8
+  } = P3A(), {
+    isUtf8: Sa8
+  } = UA("node:buffer"), {
+    collectASequenceOfCodePointsFast: _a8,
+    removeHTTPWhitespace: E9B
+  } = QU();
+
+  function ka8(A) {
+    return A[EzA] === zzA.CONNECTING
+  }
+
+  function ya8(A) {
+    return A[EzA] === zzA.OPEN
+  }
+
+  function xa8(A) {
+    return A[EzA] === zzA.CLOSING
+  }
+
+  function va8(A) {
+    return A[EzA] === zzA.CLOSED
+  }
+
+  function Lv1(A, Q, B = (Z, I) => new Event(Z, I), G = {}) {
+    let Z = B(A, G);
+    Q.dispatchEvent(Z)
+  }
+
+  function ba8(A, Q, B) {
+    if (A[EzA] !== zzA.OPEN) return;
+    let G;
+    if (Q === Tc.TEXT) try {
+      G = L9B(B)
+    } catch {
+      U9B(A, "Received invalid UTF-8 in text frame.");
+      return
+    } else if (Q === Tc.BINARY)
+      if (A[Ra8] === "blob") G = new Blob([B]);
+      else G = fa8(B);
+    Lv1("message", A, ja8, {
+      origin: A[Ta8].origin,
+      data: G
+    })
+  }
+
+  function fa8(A) {
+    if (A.byteLength === A.buffer.byteLength) return A.buffer;
+    return A.buffer.slice(A.byteOffset, A.byteOffset + A.byteLength)
+  }
+
+  function ha8(A) {
+    if (A.length === 0) return !1;
+    for (let Q = 0; Q < A.length; ++Q) {
+      let B = A.charCodeAt(Q);
+      if (B < 33 || B > 126 || B === 34 || B === 40 || B === 41 || B === 44 || B === 47 || B === 58 || B === 59 || B === 60 || B === 61 || B === 62 || B === 63 || B === 64 || B === 91 || B === 92 || B === 93 || B === 123 || B === 125) return !1
+    }
+    return !0
+  }
+
+  function ga8(A) {
+    if (A >= 1000 && A < 1015) return A !== 1004 && A !== 1005 && A !== 1006;
+    return A >= 3000 && A <= 4999
+  }
+
+  function U9B(A, Q) {
+    let {
+      [Ma8]: B, [Oa8]: G
+    } = A;
+    if (B.abort(), G?.socket && !G.socket.destroyed) G.socket.destroy();
+    if (Q) Lv1("error", A, (Z, I) => new Pa8(Z, I), {
+      error: Error(Q),
+      message: Q
+    })
+  }
+
+  function $9B(A) {
+    return A === Tc.CLOSE || A === Tc.PING || A === Tc.PONG
+  }
+
+  function w9B(A) {
+    return A === Tc.CONTINUATION
+  }
+
+  function q9B(A) {
+    return A === Tc.TEXT || A === Tc.BINARY
+  }
+
+  function ua8(A) {
+    return q9B(A) || w9B(A) || $9B(A)
+  }
+
+  function ma8(A) {
+    let Q = {
+        position: 0
       },
-      set(Q, I, G) {
-        return Qc1(!(I in B)), Q[I] = G, !0
+      B = new Map;
+    while (Q.position < A.length) {
+      let G = _a8(";", A, Q),
+        [Z, I = ""] = G.split("=");
+      B.set(E9B(Z, !0, !1), E9B(I, !1, !0)), Q.position++
+    }
+    return B
+  }
+
+  function da8(A) {
+    for (let Q = 0; Q < A.length; Q++) {
+      let B = A.charCodeAt(Q);
+      if (B < 48 || B > 57) return !1
+    }
+    return !0
+  }
+  var N9B = typeof process.versions.icu === "string",
+    z9B = N9B ? new TextDecoder("utf-8", {
+      fatal: !0
+    }) : void 0,
+    L9B = N9B ? z9B.decode.bind(z9B) : function(A) {
+      if (Sa8(A)) return A.toString("utf-8");
+      throw TypeError("Invalid utf-8 received.")
+    };
+  M9B.exports = {
+    isConnecting: ka8,
+    isEstablished: ya8,
+    isClosing: xa8,
+    isClosed: va8,
+    fireEvent: Lv1,
+    isValidSubprotocol: ha8,
+    isValidStatusCode: ga8,
+    failWebsocketConnection: U9B,
+    websocketMessageReceived: ba8,
+    utf8Decode: L9B,
+    isControlFrame: $9B,
+    isContinuationFrame: w9B,
+    isTextBinaryFrame: q9B,
+    isValidOpcode: ua8,
+    parseExtensions: ma8,
+    isValidClientWindowBits: da8
+  }
+})
+// @from(Start 5060468, End 5061749)
+ViA = z((q_7, R9B) => {
+  var {
+    maxUnsigned16Bit: ca8
+  } = to(), Mv1, $zA = null, j3A = 16386;
+  try {
+    Mv1 = UA("node:crypto")
+  } catch {
+    Mv1 = {
+      randomFillSync: function(Q, B, G) {
+        for (let Z = 0; Z < Q.length; ++Z) Q[Z] = Math.random() * 255 | 0;
+        return Q
+      }
+    }
+  }
+
+  function pa8() {
+    if (j3A === 16386) j3A = 0, Mv1.randomFillSync($zA ??= Buffer.allocUnsafe(16386), 0, 16386);
+    return [$zA[j3A++], $zA[j3A++], $zA[j3A++], $zA[j3A++]]
+  }
+  class O9B {
+    constructor(A) {
+      this.frameData = A
+    }
+    createFrame(A) {
+      let Q = this.frameData,
+        B = pa8(),
+        G = Q?.byteLength ?? 0,
+        Z = G,
+        I = 6;
+      if (G > ca8) I += 8, Z = 127;
+      else if (G > 125) I += 2, Z = 126;
+      let Y = Buffer.allocUnsafe(G + I);
+      Y[0] = Y[1] = 0, Y[0] |= 128, Y[0] = (Y[0] & 240) + A; /*! ws. MIT License. Einar Otto Stangvik <einaros@gmail.com> */
+      if (Y[I - 4] = B[0], Y[I - 3] = B[1], Y[I - 2] = B[2], Y[I - 1] = B[3], Y[1] = Z, Z === 126) Y.writeUInt16BE(G, 2);
+      else if (Z === 127) Y[2] = Y[3] = 0, Y.writeUIntBE(G, 4, 6);
+      Y[1] |= 128;
+      for (let J = 0; J < G; ++J) Y[I + J] = Q[J] ^ B[J & 3];
+      return Y
+    }
+  }
+  R9B.exports = {
+    WebsocketFrameSend: O9B
+  }
+})
+// @from(Start 5061755, End 5066749)
+Rv1 = z((N_7, y9B) => {
+  var {
+    uid: la8,
+    states: wzA,
+    sentCloseFrameState: FiA,
+    emptyBuffer: ia8,
+    opcodes: na8
+  } = to(), {
+    kReadyState: qzA,
+    kSentClose: KiA,
+    kByteParser: P9B,
+    kReceivedClose: T9B,
+    kResponse: j9B
+  } = CzA(), {
+    fireEvent: aa8,
+    failWebsocketConnection: Pc,
+    isClosing: sa8,
+    isClosed: ra8,
+    isEstablished: oa8,
+    parseExtensions: ta8
+  } = UzA(), {
+    channels: S3A
+  } = p5A(), {
+    CloseEvent: ea8
+  } = P3A(), {
+    makeRequest: As8
+  } = N3A(), {
+    fetching: Qs8
+  } = VzA(), {
+    Headers: Bs8,
+    getHeadersList: Gs8
+  } = no(), {
+    getDecodeSplit: Zs8
+  } = xw(), {
+    WebsocketFrameSend: Is8
+  } = ViA(), Ov1;
+  try {
+    Ov1 = UA("node:crypto")
+  } catch {}
+
+  function Ys8(A, Q, B, G, Z, I) {
+    let Y = A;
+    Y.protocol = A.protocol === "ws:" ? "http:" : "https:";
+    let J = As8({
+      urlList: [Y],
+      client: B,
+      serviceWorkers: "none",
+      referrer: "no-referrer",
+      mode: "websocket",
+      credentials: "include",
+      cache: "no-store",
+      redirect: "error"
+    });
+    if (I.headers) {
+      let F = Gs8(new Bs8(I.headers));
+      J.headersList = F
+    }
+    let W = Ov1.randomBytes(16).toString("base64");
+    J.headersList.append("sec-websocket-key", W), J.headersList.append("sec-websocket-version", "13");
+    for (let F of Q) J.headersList.append("sec-websocket-protocol", F);
+    let X = "permessage-deflate; client_max_window_bits";
+    return J.headersList.append("sec-websocket-extensions", X), Qs8({
+      request: J,
+      useParallelQueue: !0,
+      dispatcher: I.dispatcher,
+      processResponse(F) {
+        if (F.type === "error" || F.status !== 101) {
+          Pc(G, "Received network error or non-101 status code.");
+          return
+        }
+        if (Q.length !== 0 && !F.headersList.get("Sec-WebSocket-Protocol")) {
+          Pc(G, "Server did not respond with sent protocols.");
+          return
+        }
+        if (F.headersList.get("Upgrade")?.toLowerCase() !== "websocket") {
+          Pc(G, 'Server did not set Upgrade header to "websocket".');
+          return
+        }
+        if (F.headersList.get("Connection")?.toLowerCase() !== "upgrade") {
+          Pc(G, 'Server did not set Connection header to "upgrade".');
+          return
+        }
+        let K = F.headersList.get("Sec-WebSocket-Accept"),
+          D = Ov1.createHash("sha1").update(W + la8).digest("base64");
+        if (K !== D) {
+          Pc(G, "Incorrect hash received in Sec-WebSocket-Accept header.");
+          return
+        }
+        let H = F.headersList.get("Sec-WebSocket-Extensions"),
+          C;
+        if (H !== null) {
+          if (C = ta8(H), !C.has("permessage-deflate")) {
+            Pc(G, "Sec-WebSocket-Extensions header does not match.");
+            return
+          }
+        }
+        let E = F.headersList.get("Sec-WebSocket-Protocol");
+        if (E !== null) {
+          if (!Zs8("sec-websocket-protocol", J.headersList).includes(E)) {
+            Pc(G, "Protocol was not set in the opening handshake.");
+            return
+          }
+        }
+        if (F.socket.on("data", S9B), F.socket.on("close", _9B), F.socket.on("error", k9B), S3A.open.hasSubscribers) S3A.open.publish({
+          address: F.socket.address(),
+          protocol: E,
+          extensions: H
+        });
+        Z(F, C)
       }
     })
   }
 
-  function Vl0(A, B) {
-    if (B === "basic") return $W1(A, {
-      type: "basic",
-      headersList: A.headersList
-    });
-    else if (B === "cors") return $W1(A, {
-      type: "cors",
-      headersList: A.headersList
-    });
-    else if (B === "opaque") return $W1(A, {
-      type: "opaque",
-      urlList: Object.freeze([]),
-      status: 0,
-      statusText: "",
-      body: null
-    });
-    else if (B === "opaqueredirect") return $W1(A, {
-      type: "opaqueredirect",
-      status: 0,
-      statusText: "",
-      headersList: [],
-      body: null
-    });
-    else Qc1(!1)
+  function Js8(A, Q, B, G) {
+    if (sa8(A) || ra8(A));
+    else if (!oa8(A)) Pc(A, "Connection was closed before it was established."), A[qzA] = wzA.CLOSING;
+    else if (A[KiA] === FiA.NOT_SENT) {
+      A[KiA] = FiA.PROCESSING;
+      let Z = new Is8;
+      if (Q !== void 0 && B === void 0) Z.frameData = Buffer.allocUnsafe(2), Z.frameData.writeUInt16BE(Q, 0);
+      else if (Q !== void 0 && B !== void 0) Z.frameData = Buffer.allocUnsafe(2 + G), Z.frameData.writeUInt16BE(Q, 0), Z.frameData.write(B, 2, "utf-8");
+      else Z.frameData = ia8;
+      A[j9B].socket.write(Z.createFrame(na8.CLOSE)), A[KiA] = FiA.SENT, A[qzA] = wzA.CLOSING
+    } else A[qzA] = wzA.CLOSING
   }
 
-  function PE6(A, B = null) {
-    return Qc1(HE6(A)), zE6(A) ? MW1(Object.assign(new DOMException("The operation was aborted.", "AbortError"), {
-      cause: B
-    })) : MW1(Object.assign(new DOMException("Request was cancelled."), {
-      cause: B
-    }))
+  function S9B(A) {
+    if (!this.ws[P9B].write(A)) this.pause()
   }
 
-  function Wl0(A, B, Q) {
-    if (B.status !== null && (B.status < 200 || B.status > 599)) throw new RangeError('init["status"] must be in the range of 200 to 599, inclusive.');
-    if ("statusText" in B && B.statusText != null) {
-      if (!KE6(String(B.statusText))) throw new TypeError("Invalid statusText")
-    }
-    if ("status" in B && B.status != null) A[n3].status = B.status;
-    if ("statusText" in B && B.statusText != null) A[n3].statusText = B.statusText;
-    if ("headers" in B && B.headers != null) YE6(A[iN], B.headers);
-    if (Q) {
-      if (ME6.includes(A.status)) throw a4.errors.exception({
-        header: "Response constructor",
-        message: `Invalid response status code ${A.status}`
-      });
-      if (A[n3].body = Q.body, Q.type != null && !A[n3].headersList.contains("content-type", !0)) A[n3].headersList.append("content-type", Q.type, !0)
-    }
+  function _9B() {
+    let {
+      ws: A
+    } = this, {
+      [j9B]: Q
+    } = A;
+    Q.socket.off("data", S9B), Q.socket.off("close", _9B), Q.socket.off("error", k9B);
+    let B = A[KiA] === FiA.SENT && A[T9B],
+      G = 1005,
+      Z = "",
+      I = A[P9B].closingInfo;
+    if (I && !I.error) G = I.code ?? 1005, Z = I.reason;
+    else if (!A[T9B]) G = 1006;
+    if (A[qzA] = wzA.CLOSED, aa8("close", A, (Y, J) => new ea8(Y, J), {
+        wasClean: B,
+        code: G,
+        reason: Z
+      }), S3A.close.hasSubscribers) S3A.close.publish({
+      websocket: A,
+      code: G,
+      reason: Z
+    })
   }
 
-  function Ko(A, B) {
-    let Q = new xZ(qW1);
-    if (Q[n3] = A, Q[iN] = new Jl0(qW1), Xl0(Q[iN], A.headersList), Fl0(Q[iN], B), XE6 && A.body?.stream) VE6.register(Q, new WeakRef(A.body.stream));
-    return Q
+  function k9B(A) {
+    let {
+      ws: Q
+    } = this;
+    if (Q[qzA] = wzA.CLOSING, S3A.socketError.hasSubscribers) S3A.socketError.publish(A);
+    this.destroy()
   }
-  a4.converters.ReadableStream = a4.interfaceConverter(ReadableStream);
-  a4.converters.FormData = a4.interfaceConverter(LE6);
-  a4.converters.URLSearchParams = a4.interfaceConverter(URLSearchParams);
-  a4.converters.XMLHttpRequestBodyInit = function(A, B, Q) {
-    if (typeof A === "string") return a4.converters.USVString(A, B, Q);
-    if (wE6(A)) return a4.converters.Blob(A, B, Q, {
-      strict: !1
-    });
-    if (ArrayBuffer.isView(A) || RE6.isArrayBuffer(A)) return a4.converters.BufferSource(A, B, Q);
-    if (Bc1.isFormDataLike(A)) return a4.converters.FormData(A, B, Q, {
-      strict: !1
-    });
-    if (A instanceof URLSearchParams) return a4.converters.URLSearchParams(A, B, Q);
-    return a4.converters.DOMString(A, B, Q)
-  };
-  a4.converters.BodyInit = function(A, B, Q) {
-    if (A instanceof ReadableStream) return a4.converters.ReadableStream(A, B, Q);
-    if (A?.[Symbol.asyncIterator]) return A;
-    return a4.converters.XMLHttpRequestBodyInit(A, B, Q)
-  };
-  a4.converters.ResponseInit = a4.dictionaryConverter([{
-    key: "status",
-    converter: a4.converters["unsigned short"],
-    defaultValue: () => 200
-  }, {
-    key: "statusText",
-    converter: a4.converters.ByteString,
-    defaultValue: () => ""
-  }, {
-    key: "headers",
-    converter: a4.converters.HeadersInit
-  }]);
-  Cl0.exports = {
-    isNetworkError: TE6,
-    makeNetworkError: MW1,
-    makeResponse: Qm,
-    makeAppropriateNetworkError: PE6,
-    filterResponse: Vl0,
-    Response: xZ,
-    cloneResponse: Ic1,
-    fromInnerResponse: Ko
+  y9B.exports = {
+    establishWebSocketConnection: Ys8,
+    closeWebSocketConnection: Js8
   }
 })
-// @from(Start 5593671, End 5594463)
-Ul0 = z((RO8, El0) => {
+// @from(Start 5066755, End 5068065)
+b9B = z((L_7, v9B) => {
   var {
-    kConnected: Kl0,
-    kSize: Hl0
-  } = A3();
-  class zl0 {
+    createInflateRaw: Ws8,
+    Z_DEFAULT_WINDOWBITS: Xs8
+  } = UA("node:zlib"), {
+    isValidClientWindowBits: Vs8
+  } = UzA(), Fs8 = Buffer.from([0, 0, 255, 255]), DiA = Symbol("kBuffer"), HiA = Symbol("kLength");
+  class x9B {
+    #A;
+    #Q = {};
     constructor(A) {
-      this.value = A
+      this.#Q.serverNoContextTakeover = A.has("server_no_context_takeover"), this.#Q.serverMaxWindowBits = A.get("server_max_window_bits")
     }
-    deref() {
-      return this.value[Kl0] === 0 && this.value[Hl0] === 0 ? void 0 : this.value
-    }
-  }
-  class wl0 {
-    constructor(A) {
-      this.finalizer = A
-    }
-    register(A, B) {
-      if (A.on) A.on("disconnect", () => {
-        if (A[Kl0] === 0 && A[Hl0] === 0) this.finalizer(B)
+    decompress(A, Q, B) {
+      if (!this.#A) {
+        let G = Xs8;
+        if (this.#Q.serverMaxWindowBits) {
+          if (!Vs8(this.#Q.serverMaxWindowBits)) {
+            B(Error("Invalid server_max_window_bits"));
+            return
+          }
+          G = Number.parseInt(this.#Q.serverMaxWindowBits)
+        }
+        this.#A = Ws8({
+          windowBits: G
+        }), this.#A[DiA] = [], this.#A[HiA] = 0, this.#A.on("data", (Z) => {
+          this.#A[DiA].push(Z), this.#A[HiA] += Z.length
+        }), this.#A.on("error", (Z) => {
+          this.#A = null, B(Z)
+        })
+      }
+      if (this.#A.write(A), Q) this.#A.write(Fs8);
+      this.#A.flush(() => {
+        let G = Buffer.concat(this.#A[DiA], this.#A[HiA]);
+        this.#A[DiA].length = 0, this.#A[HiA] = 0, B(null, G)
       })
     }
-    unregister(A) {}
   }
-  El0.exports = function() {
-    if (process.env.NODE_V8_COVERAGE && process.version.startsWith("v18")) return process._rawDebug("Using compatibility WeakRef and FinalizationRegistry"), {
-      WeakRef: zl0,
-      FinalizationRegistry: wl0
-    };
-    return {
-      WeakRef,
-      FinalizationRegistry
-    }
+  v9B.exports = {
+    PerMessageDeflate: x9B
   }
 })

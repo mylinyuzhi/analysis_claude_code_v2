@@ -1,3128 +1,3041 @@
 
-// @from(Start 4702048, End 4715500)
-Z_0 = z((G_0) => {
-  Object.defineProperty(G_0, "t", {
-    value: !0
-  });
-  class Rh1 {
-    constructor(A, B, Q = 1) {
-      this.i = void 0, this.h = void 0, this.o = void 0, this.u = A, this.l = B, this.p = Q
-    }
-    I() {
-      let A = this,
-        B = A.o.o === A;
-      if (B && A.p === 1) A = A.h;
-      else if (A.i) {
-        A = A.i;
-        while (A.h) A = A.h
-      } else {
-        if (B) return A.o;
-        let Q = A.o;
-        while (Q.i === A) A = Q, Q = A.o;
-        A = Q
-      }
-      return A
-    }
-    B() {
-      let A = this;
-      if (A.h) {
-        A = A.h;
-        while (A.i) A = A.i;
-        return A
-      } else {
-        let B = A.o;
-        while (B.h === A) A = B, B = A.o;
-        if (A.h !== B) return B;
-        else return A
-      }
-    }
-    _() {
-      let A = this.o,
-        B = this.h,
-        Q = B.i;
-      if (A.o === this) A.o = B;
-      else if (A.i === this) A.i = B;
-      else A.h = B;
-      if (B.o = A, B.i = this, this.o = B, this.h = Q, Q) Q.o = this;
-      return B
-    }
-    g() {
-      let A = this.o,
-        B = this.i,
-        Q = B.h;
-      if (A.o === this) A.o = B;
-      else if (A.i === this) A.i = B;
-      else A.h = B;
-      if (B.o = A, B.h = this, this.o = B, this.i = Q, Q) Q.o = this;
-      return B
-    }
-  }
-  class oS0 extends Rh1 {
-    constructor() {
-      super(...arguments);
-      this.M = 1
-    }
-    _() {
-      let A = super._();
-      return this.O(), A.O(), A
-    }
-    g() {
-      let A = super.g();
-      return this.O(), A.O(), A
-    }
-    O() {
-      if (this.M = 1, this.i) this.M += this.i.M;
-      if (this.h) this.M += this.h.M
-    }
-  }
-  class tS0 {
-    constructor(A = 0) {
-      this.iteratorType = A
-    }
-    equals(A) {
-      return this.T === A.T
-    }
-  }
-  class eS0 {
-    constructor() {
-      this.m = 0
-    }
-    get length() {
-      return this.m
-    }
-    size() {
-      return this.m
-    }
-    empty() {
-      return this.m === 0
-    }
-  }
-  class A_0 extends eS0 {}
-
-  function s_() {
-    throw new RangeError("Iterator access denied!")
-  }
-  class B_0 extends A_0 {
-    constructor(A = function(Q, I) {
-      if (Q < I) return -1;
-      if (Q > I) return 1;
-      return 0
-    }, B = !1) {
-      super();
-      this.v = void 0, this.A = A, this.enableIndex = B, this.N = B ? oS0 : Rh1, this.C = new this.N
-    }
-    R(A, B) {
-      let Q = this.C;
-      while (A) {
-        let I = this.A(A.u, B);
-        if (I < 0) A = A.h;
-        else if (I > 0) Q = A, A = A.i;
-        else return A
-      }
-      return Q
-    }
-    K(A, B) {
-      let Q = this.C;
-      while (A)
-        if (this.A(A.u, B) <= 0) A = A.h;
-        else Q = A, A = A.i;
-      return Q
-    }
-    L(A, B) {
-      let Q = this.C;
-      while (A) {
-        let I = this.A(A.u, B);
-        if (I < 0) Q = A, A = A.h;
-        else if (I > 0) A = A.i;
-        else return A
-      }
-      return Q
-    }
-    k(A, B) {
-      let Q = this.C;
-      while (A)
-        if (this.A(A.u, B) < 0) Q = A, A = A.h;
-        else A = A.i;
-      return Q
-    }
-    P(A) {
-      while (!0) {
-        let B = A.o;
-        if (B === this.C) return;
-        if (A.p === 1) {
-          A.p = 0;
-          return
-        }
-        if (A === B.i) {
-          let Q = B.h;
-          if (Q.p === 1)
-            if (Q.p = 0, B.p = 1, B === this.v) this.v = B._();
-            else B._();
-          else if (Q.h && Q.h.p === 1) {
-            if (Q.p = B.p, B.p = 0, Q.h.p = 0, B === this.v) this.v = B._();
-            else B._();
-            return
-          } else if (Q.i && Q.i.p === 1) Q.p = 1, Q.i.p = 0, Q.g();
-          else Q.p = 1, A = B
-        } else {
-          let Q = B.i;
-          if (Q.p === 1)
-            if (Q.p = 0, B.p = 1, B === this.v) this.v = B.g();
-            else B.g();
-          else if (Q.i && Q.i.p === 1) {
-            if (Q.p = B.p, B.p = 0, Q.i.p = 0, B === this.v) this.v = B.g();
-            else B.g();
-            return
-          } else if (Q.h && Q.h.p === 1) Q.p = 1, Q.h.p = 0, Q._();
-          else Q.p = 1, A = B
-        }
-      }
-    }
-    S(A) {
-      if (this.m === 1) {
-        this.clear();
-        return
-      }
-      let B = A;
-      while (B.i || B.h) {
-        if (B.h) {
-          B = B.h;
-          while (B.i) B = B.i
-        } else B = B.i;
-        let I = A.u;
-        A.u = B.u, B.u = I;
-        let G = A.l;
-        A.l = B.l, B.l = G, A = B
-      }
-      if (this.C.i === B) this.C.i = B.o;
-      else if (this.C.h === B) this.C.h = B.o;
-      this.P(B);
-      let Q = B.o;
-      if (B === Q.i) Q.i = void 0;
-      else Q.h = void 0;
-      if (this.m -= 1, this.v.p = 0, this.enableIndex)
-        while (Q !== this.C) Q.M -= 1, Q = Q.o
-    }
-    U(A) {
-      let B = typeof A === "number" ? A : void 0,
-        Q = typeof A === "function" ? A : void 0,
-        I = typeof A === "undefined" ? [] : void 0,
-        G = 0,
-        Z = this.v,
-        D = [];
-      while (D.length || Z)
-        if (Z) D.push(Z), Z = Z.i;
-        else {
-          if (Z = D.pop(), G === B) return Z;
-          I && I.push(Z), Q && Q(Z, G, this), G += 1, Z = Z.h
-        } return I
-    }
-    j(A) {
-      while (!0) {
-        let B = A.o;
-        if (B.p === 0) return;
-        let Q = B.o;
-        if (B === Q.i) {
-          let I = Q.h;
-          if (I && I.p === 1) {
-            if (I.p = B.p = 0, Q === this.v) return;
-            Q.p = 1, A = Q;
-            continue
-          } else if (A === B.h) {
-            if (A.p = 0, A.i) A.i.o = B;
-            if (A.h) A.h.o = Q;
-            if (B.h = A.i, Q.i = A.h, A.i = B, A.h = Q, Q === this.v) this.v = A, this.C.o = A;
-            else {
-              let G = Q.o;
-              if (G.i === Q) G.i = A;
-              else G.h = A
-            }
-            A.o = Q.o, B.o = A, Q.o = A, Q.p = 1
-          } else {
-            if (B.p = 0, Q === this.v) this.v = Q.g();
-            else Q.g();
-            Q.p = 1;
-            return
-          }
-        } else {
-          let I = Q.i;
-          if (I && I.p === 1) {
-            if (I.p = B.p = 0, Q === this.v) return;
-            Q.p = 1, A = Q;
-            continue
-          } else if (A === B.i) {
-            if (A.p = 0, A.i) A.i.o = Q;
-            if (A.h) A.h.o = B;
-            if (Q.h = A.i, B.i = A.h, A.i = Q, A.h = B, Q === this.v) this.v = A, this.C.o = A;
-            else {
-              let G = Q.o;
-              if (G.i === Q) G.i = A;
-              else G.h = A
-            }
-            A.o = Q.o, B.o = A, Q.o = A, Q.p = 1
-          } else {
-            if (B.p = 0, Q === this.v) this.v = Q._();
-            else Q._();
-            Q.p = 1;
-            return
-          }
-        }
-        if (this.enableIndex) B.O(), Q.O(), A.O();
-        return
-      }
-    }
-    q(A, B, Q) {
-      if (this.v === void 0) return this.m += 1, this.v = new this.N(A, B, 0), this.v.o = this.C, this.C.o = this.C.i = this.C.h = this.v, this.m;
-      let I, G = this.C.i,
-        Z = this.A(G.u, A);
-      if (Z === 0) return G.l = B, this.m;
-      else if (Z > 0) G.i = new this.N(A, B), G.i.o = G, I = G.i, this.C.i = I;
-      else {
-        let D = this.C.h,
-          Y = this.A(D.u, A);
-        if (Y === 0) return D.l = B, this.m;
-        else if (Y < 0) D.h = new this.N(A, B), D.h.o = D, I = D.h, this.C.h = I;
-        else {
-          if (Q !== void 0) {
-            let W = Q.T;
-            if (W !== this.C) {
-              let J = this.A(W.u, A);
-              if (J === 0) return W.l = B, this.m;
-              else if (J > 0) {
-                let F = W.I(),
-                  X = this.A(F.u, A);
-                if (X === 0) return F.l = B, this.m;
-                else if (X < 0)
-                  if (I = new this.N(A, B), F.h === void 0) F.h = I, I.o = F;
-                  else W.i = I, I.o = W
-              }
-            }
-          }
-          if (I === void 0) {
-            I = this.v;
-            while (!0) {
-              let W = this.A(I.u, A);
-              if (W > 0) {
-                if (I.i === void 0) {
-                  I.i = new this.N(A, B), I.i.o = I, I = I.i;
-                  break
-                }
-                I = I.i
-              } else if (W < 0) {
-                if (I.h === void 0) {
-                  I.h = new this.N(A, B), I.h.o = I, I = I.h;
-                  break
-                }
-                I = I.h
-              } else return I.l = B, this.m
-            }
-          }
-        }
-      }
-      if (this.enableIndex) {
-        let D = I.o;
-        while (D !== this.C) D.M += 1, D = D.o
-      }
-      return this.j(I), this.m += 1, this.m
-    }
-    H(A, B) {
-      while (A) {
-        let Q = this.A(A.u, B);
-        if (Q < 0) A = A.h;
-        else if (Q > 0) A = A.i;
-        else return A
-      }
-      return A || this.C
-    }
-    clear() {
-      this.m = 0, this.v = void 0, this.C.o = void 0, this.C.i = this.C.h = void 0
-    }
-    updateKeyByIterator(A, B) {
-      let Q = A.T;
-      if (Q === this.C) s_();
-      if (this.m === 1) return Q.u = B, !0;
-      let I = Q.B().u;
-      if (Q === this.C.i) {
-        if (this.A(I, B) > 0) return Q.u = B, !0;
-        return !1
-      }
-      let G = Q.I().u;
-      if (Q === this.C.h) {
-        if (this.A(G, B) < 0) return Q.u = B, !0;
-        return !1
-      }
-      if (this.A(G, B) >= 0 || this.A(I, B) <= 0) return !1;
-      return Q.u = B, !0
-    }
-    eraseElementByPos(A) {
-      if (A < 0 || A > this.m - 1) throw new RangeError;
-      let B = this.U(A);
-      return this.S(B), this.m
-    }
-    eraseElementByKey(A) {
-      if (this.m === 0) return !1;
-      let B = this.H(this.v, A);
-      if (B === this.C) return !1;
-      return this.S(B), !0
-    }
-    eraseElementByIterator(A) {
-      let B = A.T;
-      if (B === this.C) s_();
-      let Q = B.h === void 0;
-      if (A.iteratorType === 0) {
-        if (Q) A.next()
-      } else if (!Q || B.i === void 0) A.next();
-      return this.S(B), A
-    }
-    getHeight() {
-      if (this.m === 0) return 0;
-
-      function A(B) {
-        if (!B) return 0;
-        return Math.max(A(B.i), A(B.h)) + 1
-      }
-      return A(this.v)
-    }
-  }
-  class Q_0 extends tS0 {
-    constructor(A, B, Q) {
-      super(Q);
-      if (this.T = A, this.C = B, this.iteratorType === 0) this.pre = function() {
-        if (this.T === this.C.i) s_();
-        return this.T = this.T.I(), this
-      }, this.next = function() {
-        if (this.T === this.C) s_();
-        return this.T = this.T.B(), this
-      };
-      else this.pre = function() {
-        if (this.T === this.C.h) s_();
-        return this.T = this.T.B(), this
-      }, this.next = function() {
-        if (this.T === this.C) s_();
-        return this.T = this.T.I(), this
-      }
-    }
-    get index() {
-      let A = this.T,
-        B = this.C.o;
-      if (A === this.C) {
-        if (B) return B.M - 1;
-        return 0
-      }
-      let Q = 0;
-      if (A.i) Q += A.i.M;
-      while (A !== B) {
-        let I = A.o;
-        if (A === I.h) {
-          if (Q += 1, I.i) Q += I.i.M
-        }
-        A = I
-      }
-      return Q
-    }
-    isAccessible() {
-      return this.T !== this.C
-    }
-  }
-  class uC extends Q_0 {
-    constructor(A, B, Q, I) {
-      super(A, B, I);
-      this.container = Q
-    }
-    get pointer() {
-      if (this.T === this.C) s_();
-      let A = this;
-      return new Proxy([], {
-        get(B, Q) {
-          if (Q === "0") return A.T.u;
-          else if (Q === "1") return A.T.l;
-          return B[0] = A.T.u, B[1] = A.T.l, B[Q]
-        },
-        set(B, Q, I) {
-          if (Q !== "1") throw new TypeError("prop must be 1");
-          return A.T.l = I, !0
-        }
-      })
-    }
-    copy() {
-      return new uC(this.T, this.C, this.container, this.iteratorType)
-    }
-  }
-  class I_0 extends B_0 {
-    constructor(A = [], B, Q) {
-      super(B, Q);
-      let I = this;
-      A.forEach(function(G) {
-        I.setElement(G[0], G[1])
-      })
-    }
-    begin() {
-      return new uC(this.C.i || this.C, this.C, this)
-    }
-    end() {
-      return new uC(this.C, this.C, this)
-    }
-    rBegin() {
-      return new uC(this.C.h || this.C, this.C, this, 1)
-    }
-    rEnd() {
-      return new uC(this.C, this.C, this, 1)
-    }
-    front() {
-      if (this.m === 0) return;
-      let A = this.C.i;
-      return [A.u, A.l]
-    }
-    back() {
-      if (this.m === 0) return;
-      let A = this.C.h;
-      return [A.u, A.l]
-    }
-    lowerBound(A) {
-      let B = this.R(this.v, A);
-      return new uC(B, this.C, this)
-    }
-    upperBound(A) {
-      let B = this.K(this.v, A);
-      return new uC(B, this.C, this)
-    }
-    reverseLowerBound(A) {
-      let B = this.L(this.v, A);
-      return new uC(B, this.C, this)
-    }
-    reverseUpperBound(A) {
-      let B = this.k(this.v, A);
-      return new uC(B, this.C, this)
-    }
-    forEach(A) {
-      this.U(function(B, Q, I) {
-        A([B.u, B.l], Q, I)
-      })
-    }
-    setElement(A, B, Q) {
-      return this.q(A, B, Q)
-    }
-    getElementByPos(A) {
-      if (A < 0 || A > this.m - 1) throw new RangeError;
-      let B = this.U(A);
-      return [B.u, B.l]
-    }
-    find(A) {
-      let B = this.H(this.v, A);
-      return new uC(B, this.C, this)
-    }
-    getElementByKey(A) {
-      return this.H(this.v, A).l
-    }
-    union(A) {
-      let B = this;
-      return A.forEach(function(Q) {
-        B.setElement(Q[0], Q[1])
-      }), this.m
-    }*[Symbol.iterator]() {
-      let A = this.m,
-        B = this.U();
-      for (let Q = 0; Q < A; ++Q) {
-        let I = B[Q];
-        yield [I.u, I.l]
-      }
-    }
-  }
-  G_0.OrderedMap = I_0
-})
-// @from(Start 4715506, End 4715923)
-ID1 = z((Y_0) => {
-  Object.defineProperty(Y_0, "__esModule", {
-    value: !0
-  });
-  Y_0.registerAdminService = f86;
-  Y_0.addAdminServicesToServer = v86;
-  var D_0 = [];
-
-  function f86(A, B) {
-    D_0.push({
-      getServiceDefinition: A,
-      getHandlers: B
+// @from(Start 4210543, End 4215050)
+DdQ = z((pT7, KdQ) => {
+  var {
+    defineProperty: OcA,
+    getOwnPropertyDescriptor: wL8,
+    getOwnPropertyNames: qL8
+  } = Object, NL8 = Object.prototype.hasOwnProperty, Qc = (A, Q) => OcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), LL8 = (A, Q) => {
+    for (var B in Q) OcA(A, B, {
+      get: Q[B],
+      enumerable: !0
     })
-  }
-
-  function v86(A) {
-    for (let {
-        getServiceDefinition: B,
-        getHandlers: Q
-      }
-      of D_0) A.addService(B(), Q())
-  }
-})
-// @from(Start 4715929, End 4719222)
-K_0 = z((V_0) => {
-  Object.defineProperty(V_0, "__esModule", {
+  }, ML8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of qL8(Q))
+        if (!NL8.call(A, Z) && Z !== B) OcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = wL8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, OL8 = (A) => ML8(OcA({}, "__esModule", {
     value: !0
+  }), A), WdQ = {};
+  LL8(WdQ, {
+    Field: () => PL8,
+    Fields: () => jL8,
+    HttpRequest: () => SL8,
+    HttpResponse: () => _L8,
+    IHttpRequest: () => XdQ.HttpRequest,
+    getHttpHandlerExtensionConfiguration: () => RL8,
+    isValidHostname: () => FdQ,
+    resolveHttpHandlerRuntimeConfig: () => TL8
   });
-  V_0.ClientDuplexStreamImpl = V_0.ClientWritableStreamImpl = V_0.ClientReadableStreamImpl = V_0.ClientUnaryCallImpl = void 0;
-  V_0.callErrorFromStatus = m86;
-  var h86 = Z1("events"),
-    Oh1 = Z1("stream"),
-    as = y6();
-
-  function m86(A, B) {
-    let Q = `${A.code} ${as.Status[A.code]}: ${A.details}`,
-      G = `${new Error(Q).stack}
-for call at
-${B}`;
-    return Object.assign(new Error(Q), A, {
-      stack: G
-    })
-  }
-  class W_0 extends h86.EventEmitter {
-    constructor() {
-      super()
-    }
-    cancel() {
-      var A;
-      (A = this.call) === null || A === void 0 || A.cancelWithStatus(as.Status.CANCELLED, "Cancelled on client")
-    }
-    getPeer() {
-      var A, B;
-      return (B = (A = this.call) === null || A === void 0 ? void 0 : A.getPeer()) !== null && B !== void 0 ? B : "unknown"
-    }
-  }
-  V_0.ClientUnaryCallImpl = W_0;
-  class J_0 extends Oh1.Readable {
-    constructor(A) {
-      super({
-        objectMode: !0
-      });
-      this.deserialize = A
-    }
-    cancel() {
-      var A;
-      (A = this.call) === null || A === void 0 || A.cancelWithStatus(as.Status.CANCELLED, "Cancelled on client")
-    }
-    getPeer() {
-      var A, B;
-      return (B = (A = this.call) === null || A === void 0 ? void 0 : A.getPeer()) !== null && B !== void 0 ? B : "unknown"
-    }
-    _read(A) {
-      var B;
-      (B = this.call) === null || B === void 0 || B.startRead()
-    }
-  }
-  V_0.ClientReadableStreamImpl = J_0;
-  class F_0 extends Oh1.Writable {
-    constructor(A) {
-      super({
-        objectMode: !0
-      });
-      this.serialize = A
-    }
-    cancel() {
-      var A;
-      (A = this.call) === null || A === void 0 || A.cancelWithStatus(as.Status.CANCELLED, "Cancelled on client")
-    }
-    getPeer() {
-      var A, B;
-      return (B = (A = this.call) === null || A === void 0 ? void 0 : A.getPeer()) !== null && B !== void 0 ? B : "unknown"
-    }
-    _write(A, B, Q) {
-      var I;
-      let G = {
-          callback: Q
-        },
-        Z = Number(B);
-      if (!Number.isNaN(Z)) G.flags = Z;
-      (I = this.call) === null || I === void 0 || I.sendMessageWithContext(G, A)
-    }
-    _final(A) {
-      var B;
-      (B = this.call) === null || B === void 0 || B.halfClose(), A()
-    }
-  }
-  V_0.ClientWritableStreamImpl = F_0;
-  class X_0 extends Oh1.Duplex {
-    constructor(A, B) {
-      super({
-        objectMode: !0
-      });
-      this.serialize = A, this.deserialize = B
-    }
-    cancel() {
-      var A;
-      (A = this.call) === null || A === void 0 || A.cancelWithStatus(as.Status.CANCELLED, "Cancelled on client")
-    }
-    getPeer() {
-      var A, B;
-      return (B = (A = this.call) === null || A === void 0 ? void 0 : A.getPeer()) !== null && B !== void 0 ? B : "unknown"
-    }
-    _read(A) {
-      var B;
-      (B = this.call) === null || B === void 0 || B.startRead()
-    }
-    _write(A, B, Q) {
-      var I;
-      let G = {
-          callback: Q
-        },
-        Z = Number(B);
-      if (!Number.isNaN(Z)) G.flags = Z;
-      (I = this.call) === null || I === void 0 || I.sendMessageWithContext(G, A)
-    }
-    _final(A) {
-      var B;
-      (B = this.call) === null || B === void 0 || B.halfClose(), A()
-    }
-  }
-  V_0.ClientDuplexStreamImpl = X_0
-})
-// @from(Start 4719228, End 4720845)
-E_0 = z((z_0) => {
-  Object.defineProperty(z_0, "__esModule", {
-    value: !0
-  });
-  z_0.InterceptingListenerImpl = void 0;
-  z_0.isInterceptingListener = l86;
-
-  function l86(A) {
-    return A.onReceiveMetadata !== void 0 && A.onReceiveMetadata.length === 1
-  }
-  class H_0 {
-    constructor(A, B) {
-      this.listener = A, this.nextListener = B, this.processingMetadata = !1, this.hasPendingMessage = !1, this.processingMessage = !1, this.pendingStatus = null
-    }
-    processPendingMessage() {
-      if (this.hasPendingMessage) this.nextListener.onReceiveMessage(this.pendingMessage), this.pendingMessage = null, this.hasPendingMessage = !1
-    }
-    processPendingStatus() {
-      if (this.pendingStatus) this.nextListener.onReceiveStatus(this.pendingStatus)
-    }
-    onReceiveMetadata(A) {
-      this.processingMetadata = !0, this.listener.onReceiveMetadata(A, (B) => {
-        this.processingMetadata = !1, this.nextListener.onReceiveMetadata(B), this.processPendingMessage(), this.processPendingStatus()
-      })
-    }
-    onReceiveMessage(A) {
-      this.processingMessage = !0, this.listener.onReceiveMessage(A, (B) => {
-        if (this.processingMessage = !1, this.processingMetadata) this.pendingMessage = B, this.hasPendingMessage = !0;
-        else this.nextListener.onReceiveMessage(B), this.processPendingStatus()
-      })
-    }
-    onReceiveStatus(A) {
-      this.listener.onReceiveStatus(A, (B) => {
-        if (this.processingMetadata || this.processingMessage) this.pendingStatus = B;
-        else this.nextListener.onReceiveStatus(B)
-      })
-    }
-  }
-  z_0.InterceptingListenerImpl = H_0
-})
-// @from(Start 4720851, End 4730206)
-Sh1 = z((T_0) => {
-  Object.defineProperty(T_0, "__esModule", {
-    value: !0
-  });
-  T_0.InterceptingCall = T_0.RequesterBuilder = T_0.ListenerBuilder = T_0.InterceptorConfigurationError = void 0;
-  T_0.getInterceptingCall = r86;
-  var n86 = SZ(),
-    U_0 = E_0(),
-    N_0 = y6(),
-    $_0 = uZ1();
-  class rs extends Error {
-    constructor(A) {
-      super(A);
-      this.name = "InterceptorConfigurationError", Error.captureStackTrace(this, rs)
-    }
-  }
-  T_0.InterceptorConfigurationError = rs;
-  class q_0 {
-    constructor() {
-      this.metadata = void 0, this.message = void 0, this.status = void 0
-    }
-    withOnReceiveMetadata(A) {
-      return this.metadata = A, this
-    }
-    withOnReceiveMessage(A) {
-      return this.message = A, this
-    }
-    withOnReceiveStatus(A) {
-      return this.status = A, this
-    }
-    build() {
+  KdQ.exports = OL8(WdQ);
+  var RL8 = Qc((A) => {
       return {
-        onReceiveMetadata: this.metadata,
-        onReceiveMessage: this.message,
-        onReceiveStatus: this.status
+        setHttpHandler(Q) {
+          A.httpHandler = Q
+        },
+        httpHandler() {
+          return A.httpHandler
+        },
+        updateHttpClientConfig(Q, B) {
+          A.httpHandler?.updateHttpClientConfig(Q, B)
+        },
+        httpHandlerConfigs() {
+          return A.httpHandler.httpHandlerConfigs()
+        }
       }
-    }
-  }
-  T_0.ListenerBuilder = q_0;
-  class M_0 {
-    constructor() {
-      this.start = void 0, this.message = void 0, this.halfClose = void 0, this.cancel = void 0
-    }
-    withStart(A) {
-      return this.start = A, this
-    }
-    withSendMessage(A) {
-      return this.message = A, this
-    }
-    withHalfClose(A) {
-      return this.halfClose = A, this
-    }
-    withCancel(A) {
-      return this.cancel = A, this
-    }
-    build() {
+    }, "getHttpHandlerExtensionConfiguration"),
+    TL8 = Qc((A) => {
       return {
-        start: this.start,
-        sendMessage: this.message,
-        halfClose: this.halfClose,
-        cancel: this.cancel
+        httpHandler: A.httpHandler()
       }
-    }
-  }
-  T_0.RequesterBuilder = M_0;
-  var Th1 = {
-      onReceiveMetadata: (A, B) => {
-        B(A)
-      },
-      onReceiveMessage: (A, B) => {
-        B(A)
-      },
-      onReceiveStatus: (A, B) => {
-        B(A)
+    }, "resolveHttpHandlerRuntimeConfig"),
+    XdQ = JdQ(),
+    PL8 = class {
+      static {
+        Qc(this, "Field")
+      }
+      constructor({
+        name: A,
+        kind: Q = XdQ.FieldPosition.HEADER,
+        values: B = []
+      }) {
+        this.name = A, this.kind = Q, this.values = B
+      }
+      add(A) {
+        this.values.push(A)
+      }
+      set(A) {
+        this.values = A
+      }
+      remove(A) {
+        this.values = this.values.filter((Q) => Q !== A)
+      }
+      toString() {
+        return this.values.map((A) => A.includes(",") || A.includes(" ") ? `"${A}"` : A).join(", ")
+      }
+      get() {
+        return this.values
       }
     },
-    ss = {
-      start: (A, B, Q) => {
-        Q(A, B)
-      },
-      sendMessage: (A, B) => {
-        B(A)
-      },
-      halfClose: (A) => {
-        A()
-      },
-      cancel: (A) => {
-        A()
+    jL8 = class {
+      constructor({
+        fields: A = [],
+        encoding: Q = "utf-8"
+      }) {
+        this.entries = {}, A.forEach(this.setField.bind(this)), this.encoding = Q
+      }
+      static {
+        Qc(this, "Fields")
+      }
+      setField(A) {
+        this.entries[A.name.toLowerCase()] = A
+      }
+      getField(A) {
+        return this.entries[A.toLowerCase()]
+      }
+      removeField(A) {
+        delete this.entries[A.toLowerCase()]
+      }
+      getByType(A) {
+        return Object.values(this.entries).filter((Q) => Q.kind === A)
+      }
+    },
+    SL8 = class A {
+      static {
+        Qc(this, "HttpRequest")
+      }
+      constructor(Q) {
+        this.method = Q.method || "GET", this.hostname = Q.hostname || "localhost", this.port = Q.port, this.query = Q.query || {}, this.headers = Q.headers || {}, this.body = Q.body, this.protocol = Q.protocol ? Q.protocol.slice(-1) !== ":" ? `${Q.protocol}:` : Q.protocol : "https:", this.path = Q.path ? Q.path.charAt(0) !== "/" ? `/${Q.path}` : Q.path : "/", this.username = Q.username, this.password = Q.password, this.fragment = Q.fragment
+      }
+      static clone(Q) {
+        let B = new A({
+          ...Q,
+          headers: {
+            ...Q.headers
+          }
+        });
+        if (B.query) B.query = VdQ(B.query);
+        return B
+      }
+      static isInstance(Q) {
+        if (!Q) return !1;
+        let B = Q;
+        return "method" in B && "protocol" in B && "hostname" in B && "path" in B && typeof B.query === "object" && typeof B.headers === "object"
+      }
+      clone() {
+        return A.clone(this)
       }
     };
-  class L_0 {
-    constructor(A, B) {
-      var Q, I, G, Z;
-      if (this.nextCall = A, this.processingMetadata = !1, this.pendingMessageContext = null, this.processingMessage = !1, this.pendingHalfClose = !1, B) this.requester = {
-        start: (Q = B.start) !== null && Q !== void 0 ? Q : ss.start,
-        sendMessage: (I = B.sendMessage) !== null && I !== void 0 ? I : ss.sendMessage,
-        halfClose: (G = B.halfClose) !== null && G !== void 0 ? G : ss.halfClose,
-        cancel: (Z = B.cancel) !== null && Z !== void 0 ? Z : ss.cancel
-      };
-      else this.requester = ss
-    }
-    cancelWithStatus(A, B) {
-      this.requester.cancel(() => {
-        this.nextCall.cancelWithStatus(A, B)
-      })
-    }
-    getPeer() {
-      return this.nextCall.getPeer()
-    }
-    processPendingMessage() {
-      if (this.pendingMessageContext) this.nextCall.sendMessageWithContext(this.pendingMessageContext, this.pendingMessage), this.pendingMessageContext = null, this.pendingMessage = null
-    }
-    processPendingHalfClose() {
-      if (this.pendingHalfClose) this.nextCall.halfClose()
-    }
-    start(A, B) {
-      var Q, I, G, Z, D, Y;
-      let W = {
-        onReceiveMetadata: (I = (Q = B === null || B === void 0 ? void 0 : B.onReceiveMetadata) === null || Q === void 0 ? void 0 : Q.bind(B)) !== null && I !== void 0 ? I : (J) => {},
-        onReceiveMessage: (Z = (G = B === null || B === void 0 ? void 0 : B.onReceiveMessage) === null || G === void 0 ? void 0 : G.bind(B)) !== null && Z !== void 0 ? Z : (J) => {},
-        onReceiveStatus: (Y = (D = B === null || B === void 0 ? void 0 : B.onReceiveStatus) === null || D === void 0 ? void 0 : D.bind(B)) !== null && Y !== void 0 ? Y : (J) => {}
-      };
-      this.processingMetadata = !0, this.requester.start(A, W, (J, F) => {
-        var X, V, C;
-        this.processingMetadata = !1;
-        let K;
-        if (U_0.isInterceptingListener(F)) K = F;
-        else {
-          let E = {
-            onReceiveMetadata: (X = F.onReceiveMetadata) !== null && X !== void 0 ? X : Th1.onReceiveMetadata,
-            onReceiveMessage: (V = F.onReceiveMessage) !== null && V !== void 0 ? V : Th1.onReceiveMessage,
-            onReceiveStatus: (C = F.onReceiveStatus) !== null && C !== void 0 ? C : Th1.onReceiveStatus
-          };
-          K = new U_0.InterceptingListenerImpl(E, W)
-        }
-        this.nextCall.start(J, K), this.processPendingMessage(), this.processPendingHalfClose()
-      })
-    }
-    sendMessageWithContext(A, B) {
-      this.processingMessage = !0, this.requester.sendMessage(B, (Q) => {
-        if (this.processingMessage = !1, this.processingMetadata) this.pendingMessageContext = A, this.pendingMessage = B;
-        else this.nextCall.sendMessageWithContext(A, Q), this.processPendingHalfClose()
-      })
-    }
-    sendMessage(A) {
-      this.sendMessageWithContext({}, A)
-    }
-    startRead() {
-      this.nextCall.startRead()
-    }
-    halfClose() {
-      this.requester.halfClose(() => {
-        if (this.processingMetadata || this.processingMessage) this.pendingHalfClose = !0;
-        else this.nextCall.halfClose()
-      })
-    }
-  }
-  T_0.InterceptingCall = L_0;
 
-  function a86(A, B, Q) {
-    var I, G;
-    let Z = (I = Q.deadline) !== null && I !== void 0 ? I : 1 / 0,
-      D = Q.host,
-      Y = (G = Q.parent) !== null && G !== void 0 ? G : null,
-      W = Q.propagate_flags,
-      J = Q.credentials,
-      F = A.createCall(B, Z, D, Y, W);
-    if (J) F.setCredentials(J);
-    return F
-  }
-  class Ph1 {
-    constructor(A, B) {
-      this.call = A, this.methodDefinition = B
-    }
-    cancelWithStatus(A, B) {
-      this.call.cancelWithStatus(A, B)
-    }
-    getPeer() {
-      return this.call.getPeer()
-    }
-    sendMessageWithContext(A, B) {
-      let Q;
-      try {
-        Q = this.methodDefinition.requestSerialize(B)
-      } catch (I) {
-        this.call.cancelWithStatus(N_0.Status.INTERNAL, `Request message serialization failure: ${$_0.getErrorMessage(I)}`);
-        return
+  function VdQ(A) {
+    return Object.keys(A).reduce((Q, B) => {
+      let G = A[B];
+      return {
+        ...Q,
+        [B]: Array.isArray(G) ? [...G] : G
       }
-      this.call.sendMessageWithContext(A, Q)
+    }, {})
+  }
+  Qc(VdQ, "cloneQuery");
+  var _L8 = class {
+    static {
+      Qc(this, "HttpResponse")
     }
-    sendMessage(A) {
-      this.sendMessageWithContext({}, A)
+    constructor(A) {
+      this.statusCode = A.statusCode, this.reason = A.reason, this.headers = A.headers || {}, this.body = A.body
     }
-    start(A, B) {
-      let Q = null;
-      this.call.start(A, {
-        onReceiveMetadata: (I) => {
-          var G;
-          (G = B === null || B === void 0 ? void 0 : B.onReceiveMetadata) === null || G === void 0 || G.call(B, I)
-        },
-        onReceiveMessage: (I) => {
-          var G;
-          let Z;
+    static isInstance(A) {
+      if (!A) return !1;
+      let Q = A;
+      return typeof Q.statusCode === "number" && typeof Q.headers === "object"
+    }
+  };
+
+  function FdQ(A) {
+    return /^[a-z0-9][a-z0-9\.\-]*[a-z0-9]$/.test(A)
+  }
+  Qc(FdQ, "isValidHostname")
+})
+// @from(Start 4215056, End 4232312)
+ddQ = z((aT7, PcA) => {
+  var HdQ, CdQ, EdQ, zdQ, UdQ, $dQ, wdQ, qdQ, NdQ, LdQ, MdQ, OdQ, RdQ, RcA, xS1, TdQ, PdQ, jdQ, Y5A, SdQ, _dQ, kdQ, ydQ, xdQ, vdQ, bdQ, fdQ, hdQ, TcA, gdQ, udQ, mdQ;
+  (function(A) {
+    var Q = typeof global === "object" ? global : typeof self === "object" ? self : typeof this === "object" ? this : {};
+    if (typeof define === "function" && define.amd) define("tslib", ["exports"], function(G) {
+      A(B(Q, B(G)))
+    });
+    else if (typeof PcA === "object" && typeof aT7 === "object") A(B(Q, B(aT7)));
+    else A(B(Q));
+
+    function B(G, Z) {
+      if (G !== Q)
+        if (typeof Object.create === "function") Object.defineProperty(G, "__esModule", {
+          value: !0
+        });
+        else G.__esModule = !0;
+      return function(I, Y) {
+        return G[I] = Z ? Z(I, Y) : Y
+      }
+    }
+  })(function(A) {
+    var Q = Object.setPrototypeOf || {
+      __proto__: []
+    }
+    instanceof Array && function(I, Y) {
+      I.__proto__ = Y
+    } || function(I, Y) {
+      for (var J in Y)
+        if (Object.prototype.hasOwnProperty.call(Y, J)) I[J] = Y[J]
+    };
+    HdQ = function(I, Y) {
+      if (typeof Y !== "function" && Y !== null) throw TypeError("Class extends value " + String(Y) + " is not a constructor or null");
+      Q(I, Y);
+
+      function J() {
+        this.constructor = I
+      }
+      I.prototype = Y === null ? Object.create(Y) : (J.prototype = Y.prototype, new J)
+    }, CdQ = Object.assign || function(I) {
+      for (var Y, J = 1, W = arguments.length; J < W; J++) {
+        Y = arguments[J];
+        for (var X in Y)
+          if (Object.prototype.hasOwnProperty.call(Y, X)) I[X] = Y[X]
+      }
+      return I
+    }, EdQ = function(I, Y) {
+      var J = {};
+      for (var W in I)
+        if (Object.prototype.hasOwnProperty.call(I, W) && Y.indexOf(W) < 0) J[W] = I[W];
+      if (I != null && typeof Object.getOwnPropertySymbols === "function") {
+        for (var X = 0, W = Object.getOwnPropertySymbols(I); X < W.length; X++)
+          if (Y.indexOf(W[X]) < 0 && Object.prototype.propertyIsEnumerable.call(I, W[X])) J[W[X]] = I[W[X]]
+      }
+      return J
+    }, zdQ = function(I, Y, J, W) {
+      var X = arguments.length,
+        V = X < 3 ? Y : W === null ? W = Object.getOwnPropertyDescriptor(Y, J) : W,
+        F;
+      if (typeof Reflect === "object" && typeof Reflect.decorate === "function") V = Reflect.decorate(I, Y, J, W);
+      else
+        for (var K = I.length - 1; K >= 0; K--)
+          if (F = I[K]) V = (X < 3 ? F(V) : X > 3 ? F(Y, J, V) : F(Y, J)) || V;
+      return X > 3 && V && Object.defineProperty(Y, J, V), V
+    }, UdQ = function(I, Y) {
+      return function(J, W) {
+        Y(J, W, I)
+      }
+    }, $dQ = function(I, Y, J, W, X, V) {
+      function F(T) {
+        if (T !== void 0 && typeof T !== "function") throw TypeError("Function expected");
+        return T
+      }
+      var K = W.kind,
+        D = K === "getter" ? "get" : K === "setter" ? "set" : "value",
+        H = !Y && I ? W.static ? I : I.prototype : null,
+        C = Y || (H ? Object.getOwnPropertyDescriptor(H, W.name) : {}),
+        E, U = !1;
+      for (var q = J.length - 1; q >= 0; q--) {
+        var w = {};
+        for (var N in W) w[N] = N === "access" ? {} : W[N];
+        for (var N in W.access) w.access[N] = W.access[N];
+        w.addInitializer = function(T) {
+          if (U) throw TypeError("Cannot add initializers after decoration has completed");
+          V.push(F(T || null))
+        };
+        var R = (0, J[q])(K === "accessor" ? {
+          get: C.get,
+          set: C.set
+        } : C[D], w);
+        if (K === "accessor") {
+          if (R === void 0) continue;
+          if (R === null || typeof R !== "object") throw TypeError("Object expected");
+          if (E = F(R.get)) C.get = E;
+          if (E = F(R.set)) C.set = E;
+          if (E = F(R.init)) X.unshift(E)
+        } else if (E = F(R))
+          if (K === "field") X.unshift(E);
+          else C[D] = E
+      }
+      if (H) Object.defineProperty(H, W.name, C);
+      U = !0
+    }, wdQ = function(I, Y, J) {
+      var W = arguments.length > 2;
+      for (var X = 0; X < Y.length; X++) J = W ? Y[X].call(I, J) : Y[X].call(I);
+      return W ? J : void 0
+    }, qdQ = function(I) {
+      return typeof I === "symbol" ? I : "".concat(I)
+    }, NdQ = function(I, Y, J) {
+      if (typeof Y === "symbol") Y = Y.description ? "[".concat(Y.description, "]") : "";
+      return Object.defineProperty(I, "name", {
+        configurable: !0,
+        value: J ? "".concat(J, " ", Y) : Y
+      })
+    }, LdQ = function(I, Y) {
+      if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(I, Y)
+    }, MdQ = function(I, Y, J, W) {
+      function X(V) {
+        return V instanceof J ? V : new J(function(F) {
+          F(V)
+        })
+      }
+      return new(J || (J = Promise))(function(V, F) {
+        function K(C) {
           try {
-            Z = this.methodDefinition.responseDeserialize(I)
-          } catch (D) {
-            Q = {
-              code: N_0.Status.INTERNAL,
-              details: `Response message parsing error: ${$_0.getErrorMessage(D)}`,
-              metadata: new n86.Metadata
-            }, this.call.cancelWithStatus(Q.code, Q.details);
-            return
-          }(G = B === null || B === void 0 ? void 0 : B.onReceiveMessage) === null || G === void 0 || G.call(B, Z)
-        },
-        onReceiveStatus: (I) => {
-          var G, Z;
-          if (Q)(G = B === null || B === void 0 ? void 0 : B.onReceiveStatus) === null || G === void 0 || G.call(B, Q);
-          else(Z = B === null || B === void 0 ? void 0 : B.onReceiveStatus) === null || Z === void 0 || Z.call(B, I)
+            H(W.next(C))
+          } catch (E) {
+            F(E)
+          }
         }
+
+        function D(C) {
+          try {
+            H(W.throw(C))
+          } catch (E) {
+            F(E)
+          }
+        }
+
+        function H(C) {
+          C.done ? V(C.value) : X(C.value).then(K, D)
+        }
+        H((W = W.apply(I, Y || [])).next())
       })
-    }
-    startRead() {
-      this.call.startRead()
-    }
-    halfClose() {
-      this.call.halfClose()
-    }
-  }
-  class R_0 extends Ph1 {
-    constructor(A, B) {
-      super(A, B)
-    }
-    start(A, B) {
-      var Q, I;
-      let G = !1,
-        Z = {
-          onReceiveMetadata: (I = (Q = B === null || B === void 0 ? void 0 : B.onReceiveMetadata) === null || Q === void 0 ? void 0 : Q.bind(B)) !== null && I !== void 0 ? I : (D) => {},
-          onReceiveMessage: (D) => {
-            var Y;
-            G = !0, (Y = B === null || B === void 0 ? void 0 : B.onReceiveMessage) === null || Y === void 0 || Y.call(B, D)
+    }, OdQ = function(I, Y) {
+      var J = {
+          label: 0,
+          sent: function() {
+            if (V[0] & 1) throw V[1];
+            return V[1]
           },
-          onReceiveStatus: (D) => {
-            var Y, W;
-            if (!G)(Y = B === null || B === void 0 ? void 0 : B.onReceiveMessage) === null || Y === void 0 || Y.call(B, null);
-            (W = B === null || B === void 0 ? void 0 : B.onReceiveStatus) === null || W === void 0 || W.call(B, D)
+          trys: [],
+          ops: []
+        },
+        W, X, V, F = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
+      return F.next = K(0), F.throw = K(1), F.return = K(2), typeof Symbol === "function" && (F[Symbol.iterator] = function() {
+        return this
+      }), F;
+
+      function K(H) {
+        return function(C) {
+          return D([H, C])
+        }
+      }
+
+      function D(H) {
+        if (W) throw TypeError("Generator is already executing.");
+        while (F && (F = 0, H[0] && (J = 0)), J) try {
+          if (W = 1, X && (V = H[0] & 2 ? X.return : H[0] ? X.throw || ((V = X.return) && V.call(X), 0) : X.next) && !(V = V.call(X, H[1])).done) return V;
+          if (X = 0, V) H = [H[0] & 2, V.value];
+          switch (H[0]) {
+            case 0:
+            case 1:
+              V = H;
+              break;
+            case 4:
+              return J.label++, {
+                value: H[1],
+                done: !1
+              };
+            case 5:
+              J.label++, X = H[1], H = [0];
+              continue;
+            case 7:
+              H = J.ops.pop(), J.trys.pop();
+              continue;
+            default:
+              if ((V = J.trys, !(V = V.length > 0 && V[V.length - 1])) && (H[0] === 6 || H[0] === 2)) {
+                J = 0;
+                continue
+              }
+              if (H[0] === 3 && (!V || H[1] > V[0] && H[1] < V[3])) {
+                J.label = H[1];
+                break
+              }
+              if (H[0] === 6 && J.label < V[1]) {
+                J.label = V[1], V = H;
+                break
+              }
+              if (V && J.label < V[2]) {
+                J.label = V[2], J.ops.push(H);
+                break
+              }
+              if (V[2]) J.ops.pop();
+              J.trys.pop();
+              continue
           }
-        };
-      super.start(A, Z), this.call.startRead()
-    }
-  }
-  class O_0 extends Ph1 {}
-
-  function s86(A, B, Q) {
-    let I = a86(A, Q.path, B);
-    if (Q.responseStream) return new O_0(I, Q);
-    else return new R_0(I, Q)
-  }
-
-  function r86(A, B, Q, I) {
-    if (A.clientInterceptors.length > 0 && A.clientInterceptorProviders.length > 0) throw new rs("Both interceptors and interceptor_providers were passed as options to the client constructor. Only one of these is allowed.");
-    if (A.callInterceptors.length > 0 && A.callInterceptorProviders.length > 0) throw new rs("Both interceptors and interceptor_providers were passed as call options. Only one of these is allowed.");
-    let G = [];
-    if (A.callInterceptors.length > 0 || A.callInterceptorProviders.length > 0) G = [].concat(A.callInterceptors, A.callInterceptorProviders.map((Y) => Y(B))).filter((Y) => Y);
-    else G = [].concat(A.clientInterceptors, A.clientInterceptorProviders.map((Y) => Y(B))).filter((Y) => Y);
-    let Z = Object.assign({}, Q, {
-      method_definition: B
-    });
-    return G.reduceRight((Y, W) => {
-      return (J) => W(J, Y)
-    }, (Y) => s86(I, Y, B))(Z)
-  }
-})
-// @from(Start 4730212, End 4740097)
-jh1 = z((__0) => {
-  Object.defineProperty(__0, "__esModule", {
-    value: !0
-  });
-  __0.Client = void 0;
-  var Dw = K_0(),
-    BB6 = yh1(),
-    QB6 = TX(),
-    XR = y6(),
-    ng = SZ(),
-    GD1 = Sh1(),
-    pC = Symbol(),
-    ag = Symbol(),
-    sg = Symbol(),
-    TN = Symbol();
-
-  function _h1(A) {
-    return typeof A === "function"
-  }
-
-  function rg(A) {
-    var B;
-    return ((B = A.stack) === null || B === void 0 ? void 0 : B.split(`
-`).slice(1).join(`
-`)) || "no stack trace available"
-  }
-  class S_0 {
-    constructor(A, B, Q = {}) {
-      var I, G;
-      if (Q = Object.assign({}, Q), this[ag] = (I = Q.interceptors) !== null && I !== void 0 ? I : [], delete Q.interceptors, this[sg] = (G = Q.interceptor_providers) !== null && G !== void 0 ? G : [], delete Q.interceptor_providers, this[ag].length > 0 && this[sg].length > 0) throw new Error("Both interceptors and interceptor_providers were passed as options to the client constructor. Only one of these is allowed.");
-      if (this[TN] = Q.callInvocationTransformer, delete Q.callInvocationTransformer, Q.channelOverride) this[pC] = Q.channelOverride;
-      else if (Q.channelFactoryOverride) {
-        let Z = Q.channelFactoryOverride;
-        delete Q.channelFactoryOverride, this[pC] = Z(A, B, Q)
-      } else this[pC] = new BB6.ChannelImplementation(A, B, Q)
-    }
-    close() {
-      this[pC].close()
-    }
-    getChannel() {
-      return this[pC]
-    }
-    waitForReady(A, B) {
-      let Q = (I) => {
-        if (I) {
-          B(new Error("Failed to connect before the deadline"));
-          return
+          H = Y.call(I, J)
+        } catch (C) {
+          H = [6, C], X = 0
+        } finally {
+          W = V = 0
         }
-        let G;
-        try {
-          G = this[pC].getConnectivityState(!0)
-        } catch (Z) {
-          B(new Error("The channel has been closed"));
-          return
-        }
-        if (G === QB6.ConnectivityState.READY) B();
-        else try {
-          this[pC].watchConnectivityState(G, A, Q)
-        } catch (Z) {
-          B(new Error("The channel has been closed"))
-        }
-      };
-      setImmediate(Q)
-    }
-    checkOptionalUnaryResponseArguments(A, B, Q) {
-      if (_h1(A)) return {
-        metadata: new ng.Metadata,
-        options: {},
-        callback: A
-      };
-      else if (_h1(B))
-        if (A instanceof ng.Metadata) return {
-          metadata: A,
-          options: {},
-          callback: B
-        };
-        else return {
-          metadata: new ng.Metadata,
-          options: A,
-          callback: B
-        };
-      else {
-        if (!(A instanceof ng.Metadata && B instanceof Object && _h1(Q))) throw new Error("Incorrect arguments passed");
+        if (H[0] & 5) throw H[1];
         return {
-          metadata: A,
-          options: B,
-          callback: Q
+          value: H[0] ? H[1] : void 0,
+          done: !0
         }
       }
-    }
-    makeUnaryRequest(A, B, Q, I, G, Z, D) {
-      var Y, W;
-      let J = this.checkOptionalUnaryResponseArguments(G, Z, D),
+    }, RdQ = function(I, Y) {
+      for (var J in I)
+        if (J !== "default" && !Object.prototype.hasOwnProperty.call(Y, J)) TcA(Y, I, J)
+    }, TcA = Object.create ? function(I, Y, J, W) {
+      if (W === void 0) W = J;
+      var X = Object.getOwnPropertyDescriptor(Y, J);
+      if (!X || ("get" in X ? !Y.__esModule : X.writable || X.configurable)) X = {
+        enumerable: !0,
+        get: function() {
+          return Y[J]
+        }
+      };
+      Object.defineProperty(I, W, X)
+    } : function(I, Y, J, W) {
+      if (W === void 0) W = J;
+      I[W] = Y[J]
+    }, RcA = function(I) {
+      var Y = typeof Symbol === "function" && Symbol.iterator,
+        J = Y && I[Y],
+        W = 0;
+      if (J) return J.call(I);
+      if (I && typeof I.length === "number") return {
+        next: function() {
+          if (I && W >= I.length) I = void 0;
+          return {
+            value: I && I[W++],
+            done: !I
+          }
+        }
+      };
+      throw TypeError(Y ? "Object is not iterable." : "Symbol.iterator is not defined.")
+    }, xS1 = function(I, Y) {
+      var J = typeof Symbol === "function" && I[Symbol.iterator];
+      if (!J) return I;
+      var W = J.call(I),
+        X, V = [],
+        F;
+      try {
+        while ((Y === void 0 || Y-- > 0) && !(X = W.next()).done) V.push(X.value)
+      } catch (K) {
         F = {
-          path: A,
-          requestStream: !1,
-          responseStream: !1,
-          requestSerialize: B,
-          responseDeserialize: Q
-        },
-        X = {
-          argument: I,
-          metadata: J.metadata,
-          call: new Dw.ClientUnaryCallImpl,
-          channel: this[pC],
-          methodDefinition: F,
-          callOptions: J.options,
-          callback: J.callback
-        };
-      if (this[TN]) X = this[TN](X);
-      let V = X.call,
-        C = {
-          clientInterceptors: this[ag],
-          clientInterceptorProviders: this[sg],
-          callInterceptors: (Y = X.callOptions.interceptors) !== null && Y !== void 0 ? Y : [],
-          callInterceptorProviders: (W = X.callOptions.interceptor_providers) !== null && W !== void 0 ? W : []
-        },
-        K = GD1.getInterceptingCall(C, X.methodDefinition, X.callOptions, X.channel);
-      V.call = K;
-      let E = null,
-        N = !1,
-        q = new Error;
-      return K.start(X.metadata, {
-        onReceiveMetadata: (O) => {
-          V.emit("metadata", O)
-        },
-        onReceiveMessage(O) {
-          if (E !== null) K.cancelWithStatus(XR.Status.UNIMPLEMENTED, "Too many responses received");
-          E = O
-        },
-        onReceiveStatus(O) {
-          if (N) return;
-          if (N = !0, O.code === XR.Status.OK)
-            if (E === null) {
-              let R = rg(q);
-              X.callback(Dw.callErrorFromStatus({
-                code: XR.Status.UNIMPLEMENTED,
-                details: "No message received",
-                metadata: O.metadata
-              }, R))
-            } else X.callback(null, E);
-          else {
-            let R = rg(q);
-            X.callback(Dw.callErrorFromStatus(O, R))
+          error: K
+        }
+      } finally {
+        try {
+          if (X && !X.done && (J = W.return)) J.call(W)
+        } finally {
+          if (F) throw F.error
+        }
+      }
+      return V
+    }, TdQ = function() {
+      for (var I = [], Y = 0; Y < arguments.length; Y++) I = I.concat(xS1(arguments[Y]));
+      return I
+    }, PdQ = function() {
+      for (var I = 0, Y = 0, J = arguments.length; Y < J; Y++) I += arguments[Y].length;
+      for (var W = Array(I), X = 0, Y = 0; Y < J; Y++)
+        for (var V = arguments[Y], F = 0, K = V.length; F < K; F++, X++) W[X] = V[F];
+      return W
+    }, jdQ = function(I, Y, J) {
+      if (J || arguments.length === 2) {
+        for (var W = 0, X = Y.length, V; W < X; W++)
+          if (V || !(W in Y)) {
+            if (!V) V = Array.prototype.slice.call(Y, 0, W);
+            V[W] = Y[W]
           }
-          q = null, V.emit("status", O)
-        }
-      }), K.sendMessage(I), K.halfClose(), V
-    }
-    makeClientStreamRequest(A, B, Q, I, G, Z) {
-      var D, Y;
-      let W = this.checkOptionalUnaryResponseArguments(I, G, Z),
-        J = {
-          path: A,
-          requestStream: !0,
-          responseStream: !1,
-          requestSerialize: B,
-          responseDeserialize: Q
-        },
-        F = {
-          metadata: W.metadata,
-          call: new Dw.ClientWritableStreamImpl(B),
-          channel: this[pC],
-          methodDefinition: J,
-          callOptions: W.options,
-          callback: W.callback
-        };
-      if (this[TN]) F = this[TN](F);
-      let X = F.call,
-        V = {
-          clientInterceptors: this[ag],
-          clientInterceptorProviders: this[sg],
-          callInterceptors: (D = F.callOptions.interceptors) !== null && D !== void 0 ? D : [],
-          callInterceptorProviders: (Y = F.callOptions.interceptor_providers) !== null && Y !== void 0 ? Y : []
-        },
-        C = GD1.getInterceptingCall(V, F.methodDefinition, F.callOptions, F.channel);
-      X.call = C;
-      let K = null,
-        E = !1,
-        N = new Error;
-      return C.start(F.metadata, {
-        onReceiveMetadata: (q) => {
-          X.emit("metadata", q)
-        },
-        onReceiveMessage(q) {
-          if (K !== null) C.cancelWithStatus(XR.Status.UNIMPLEMENTED, "Too many responses received");
-          K = q, C.startRead()
-        },
-        onReceiveStatus(q) {
-          if (E) return;
-          if (E = !0, q.code === XR.Status.OK)
-            if (K === null) {
-              let O = rg(N);
-              F.callback(Dw.callErrorFromStatus({
-                code: XR.Status.UNIMPLEMENTED,
-                details: "No message received",
-                metadata: q.metadata
-              }, O))
-            } else F.callback(null, K);
-          else {
-            let O = rg(N);
-            F.callback(Dw.callErrorFromStatus(q, O))
-          }
-          N = null, X.emit("status", q)
-        }
-      }), X
-    }
-    checkMetadataAndOptions(A, B) {
-      let Q, I;
-      if (A instanceof ng.Metadata)
-        if (Q = A, B) I = B;
-        else I = {};
-      else {
-        if (A) I = A;
-        else I = {};
-        Q = new ng.Metadata
       }
-      return {
-        metadata: Q,
-        options: I
-      }
-    }
-    makeServerStreamRequest(A, B, Q, I, G, Z) {
-      var D, Y;
-      let W = this.checkMetadataAndOptions(G, Z),
-        J = {
-          path: A,
-          requestStream: !1,
-          responseStream: !0,
-          requestSerialize: B,
-          responseDeserialize: Q
-        },
-        F = {
-          argument: I,
-          metadata: W.metadata,
-          call: new Dw.ClientReadableStreamImpl(Q),
-          channel: this[pC],
-          methodDefinition: J,
-          callOptions: W.options
-        };
-      if (this[TN]) F = this[TN](F);
-      let X = F.call,
-        V = {
-          clientInterceptors: this[ag],
-          clientInterceptorProviders: this[sg],
-          callInterceptors: (D = F.callOptions.interceptors) !== null && D !== void 0 ? D : [],
-          callInterceptorProviders: (Y = F.callOptions.interceptor_providers) !== null && Y !== void 0 ? Y : []
-        },
-        C = GD1.getInterceptingCall(V, F.methodDefinition, F.callOptions, F.channel);
-      X.call = C;
-      let K = !1,
-        E = new Error;
-      return C.start(F.metadata, {
-        onReceiveMetadata(N) {
-          X.emit("metadata", N)
-        },
-        onReceiveMessage(N) {
-          X.push(N)
-        },
-        onReceiveStatus(N) {
-          if (K) return;
-          if (K = !0, X.push(null), N.code !== XR.Status.OK) {
-            let q = rg(E);
-            X.emit("error", Dw.callErrorFromStatus(N, q))
-          }
-          E = null, X.emit("status", N)
+      return I.concat(V || Array.prototype.slice.call(Y))
+    }, Y5A = function(I) {
+      return this instanceof Y5A ? (this.v = I, this) : new Y5A(I)
+    }, SdQ = function(I, Y, J) {
+      if (!Symbol.asyncIterator) throw TypeError("Symbol.asyncIterator is not defined.");
+      var W = J.apply(I, Y || []),
+        X, V = [];
+      return X = Object.create((typeof AsyncIterator === "function" ? AsyncIterator : Object).prototype), K("next"), K("throw"), K("return", F), X[Symbol.asyncIterator] = function() {
+        return this
+      }, X;
+
+      function F(q) {
+        return function(w) {
+          return Promise.resolve(w).then(q, E)
         }
-      }), C.sendMessage(I), C.halfClose(), X
-    }
-    makeBidiStreamRequest(A, B, Q, I, G) {
-      var Z, D;
-      let Y = this.checkMetadataAndOptions(I, G),
-        W = {
-          path: A,
-          requestStream: !0,
-          responseStream: !0,
-          requestSerialize: B,
-          responseDeserialize: Q
-        },
-        J = {
-          metadata: Y.metadata,
-          call: new Dw.ClientDuplexStreamImpl(B, Q),
-          channel: this[pC],
-          methodDefinition: W,
-          callOptions: Y.options
-        };
-      if (this[TN]) J = this[TN](J);
-      let F = J.call,
-        X = {
-          clientInterceptors: this[ag],
-          clientInterceptorProviders: this[sg],
-          callInterceptors: (Z = J.callOptions.interceptors) !== null && Z !== void 0 ? Z : [],
-          callInterceptorProviders: (D = J.callOptions.interceptor_providers) !== null && D !== void 0 ? D : []
-        },
-        V = GD1.getInterceptingCall(X, J.methodDefinition, J.callOptions, J.channel);
-      F.call = V;
-      let C = !1,
-        K = new Error;
-      return V.start(J.metadata, {
-        onReceiveMetadata(E) {
-          F.emit("metadata", E)
-        },
-        onReceiveMessage(E) {
-          F.push(E)
-        },
-        onReceiveStatus(E) {
-          if (C) return;
-          if (C = !0, F.push(null), E.code !== XR.Status.OK) {
-            let N = rg(K);
-            F.emit("error", Dw.callErrorFromStatus(E, N))
-          }
-          K = null, F.emit("status", E)
-        }
-      }), F
-    }
-  }
-  __0.Client = S_0
-})
-// @from(Start 4740103, End 4742010)
-xh1 = z((k_0) => {
-  Object.defineProperty(k_0, "__esModule", {
-    value: !0
-  });
-  k_0.makeClientConstructor = y_0;
-  k_0.loadPackageDefinition = DB6;
-  var os = jh1(),
-    IB6 = {
-      unary: os.Client.prototype.makeUnaryRequest,
-      server_stream: os.Client.prototype.makeServerStreamRequest,
-      client_stream: os.Client.prototype.makeClientStreamRequest,
-      bidi: os.Client.prototype.makeBidiStreamRequest
-    };
-
-  function kh1(A) {
-    return ["__proto__", "prototype", "constructor"].includes(A)
-  }
-
-  function y_0(A, B, Q) {
-    if (!Q) Q = {};
-    class I extends os.Client {}
-    return Object.keys(A).forEach((G) => {
-      if (kh1(G)) return;
-      let Z = A[G],
-        D;
-      if (typeof G === "string" && G.charAt(0) === "$") throw new Error("Method names cannot start with $");
-      if (Z.requestStream)
-        if (Z.responseStream) D = "bidi";
-        else D = "client_stream";
-      else if (Z.responseStream) D = "server_stream";
-      else D = "unary";
-      let {
-        requestSerialize: Y,
-        responseDeserialize: W
-      } = Z, J = GB6(IB6[D], Z.path, Y, W);
-      if (I.prototype[G] = J, Object.assign(I.prototype[G], Z), Z.originalName && !kh1(Z.originalName)) I.prototype[Z.originalName] = I.prototype[G]
-    }), I.service = A, I.serviceName = B, I
-  }
-
-  function GB6(A, B, Q, I) {
-    return function(...G) {
-      return A.call(this, B, Q, I, ...G)
-    }
-  }
-
-  function ZB6(A) {
-    return "format" in A
-  }
-
-  function DB6(A) {
-    let B = {};
-    for (let Q in A)
-      if (Object.prototype.hasOwnProperty.call(A, Q)) {
-        let I = A[Q],
-          G = Q.split(".");
-        if (G.some((Y) => kh1(Y))) continue;
-        let Z = G[G.length - 1],
-          D = B;
-        for (let Y of G.slice(0, -1)) {
-          if (!D[Y]) D[Y] = {};
-          D = D[Y]
-        }
-        if (ZB6(I)) D[Z] = I;
-        else D[Z] = y_0(I, Z, {})
-      } return B
-  }
-})
-// @from(Start 4742016, End 4749836)
-Gj0 = z((k$8, Ij0) => {
-  var JB6 = 1 / 0,
-    FB6 = "[object Symbol]",
-    XB6 = /[^\x00-\x2f\x3a-\x40\x5b-\x60\x7b-\x7f]+/g,
-    VB6 = /[\xc0-\xd6\xd8-\xf6\xf8-\xff\u0100-\u017f]/g,
-    DD1 = "\\ud800-\\udfff",
-    d_0 = "\\u0300-\\u036f\\ufe20-\\ufe23",
-    u_0 = "\\u20d0-\\u20f0",
-    p_0 = "\\u2700-\\u27bf",
-    c_0 = "a-z\\xdf-\\xf6\\xf8-\\xff",
-    CB6 = "\\xac\\xb1\\xd7\\xf7",
-    KB6 = "\\x00-\\x2f\\x3a-\\x40\\x5b-\\x60\\x7b-\\xbf",
-    HB6 = "\\u2000-\\u206f",
-    zB6 = " \\t\\x0b\\f\\xa0\\ufeff\\n\\r\\u2028\\u2029\\u1680\\u180e\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200a\\u202f\\u205f\\u3000",
-    l_0 = "A-Z\\xc0-\\xd6\\xd8-\\xde",
-    i_0 = "\\ufe0e\\ufe0f",
-    n_0 = CB6 + KB6 + HB6 + zB6,
-    vh1 = "['’]",
-    wB6 = "[" + DD1 + "]",
-    x_0 = "[" + n_0 + "]",
-    ZD1 = "[" + d_0 + u_0 + "]",
-    a_0 = "\\d+",
-    EB6 = "[" + p_0 + "]",
-    s_0 = "[" + c_0 + "]",
-    r_0 = "[^" + DD1 + n_0 + a_0 + p_0 + c_0 + l_0 + "]",
-    fh1 = "\\ud83c[\\udffb-\\udfff]",
-    UB6 = "(?:" + ZD1 + "|" + fh1 + ")",
-    o_0 = "[^" + DD1 + "]",
-    bh1 = "(?:\\ud83c[\\udde6-\\uddff]){2}",
-    gh1 = "[\\ud800-\\udbff][\\udc00-\\udfff]",
-    og = "[" + l_0 + "]",
-    t_0 = "\\u200d",
-    f_0 = "(?:" + s_0 + "|" + r_0 + ")",
-    NB6 = "(?:" + og + "|" + r_0 + ")",
-    v_0 = "(?:" + vh1 + "(?:d|ll|m|re|s|t|ve))?",
-    b_0 = "(?:" + vh1 + "(?:D|LL|M|RE|S|T|VE))?",
-    e_0 = UB6 + "?",
-    Aj0 = "[" + i_0 + "]?",
-    $B6 = "(?:" + t_0 + "(?:" + [o_0, bh1, gh1].join("|") + ")" + Aj0 + e_0 + ")*",
-    Bj0 = Aj0 + e_0 + $B6,
-    qB6 = "(?:" + [EB6, bh1, gh1].join("|") + ")" + Bj0,
-    MB6 = "(?:" + [o_0 + ZD1 + "?", ZD1, bh1, gh1, wB6].join("|") + ")",
-    LB6 = RegExp(vh1, "g"),
-    RB6 = RegExp(ZD1, "g"),
-    OB6 = RegExp(fh1 + "(?=" + fh1 + ")|" + MB6 + Bj0, "g"),
-    TB6 = RegExp([og + "?" + s_0 + "+" + v_0 + "(?=" + [x_0, og, "$"].join("|") + ")", NB6 + "+" + b_0 + "(?=" + [x_0, og + f_0, "$"].join("|") + ")", og + "?" + f_0 + "+" + v_0, og + "+" + b_0, a_0, qB6].join("|"), "g"),
-    PB6 = RegExp("[" + t_0 + DD1 + d_0 + u_0 + i_0 + "]"),
-    SB6 = /[a-z][A-Z]|[A-Z]{2,}[a-z]|[0-9][a-zA-Z]|[a-zA-Z][0-9]|[^a-zA-Z0-9 ]/,
-    _B6 = {
-      "À": "A",
-      "Á": "A",
-      "Â": "A",
-      "Ã": "A",
-      "Ä": "A",
-      "Å": "A",
-      "à": "a",
-      "á": "a",
-      "â": "a",
-      "ã": "a",
-      "ä": "a",
-      "å": "a",
-      "Ç": "C",
-      "ç": "c",
-      "Ð": "D",
-      "ð": "d",
-      "È": "E",
-      "É": "E",
-      "Ê": "E",
-      "Ë": "E",
-      "è": "e",
-      "é": "e",
-      "ê": "e",
-      "ë": "e",
-      "Ì": "I",
-      "Í": "I",
-      "Î": "I",
-      "Ï": "I",
-      "ì": "i",
-      "í": "i",
-      "î": "i",
-      "ï": "i",
-      "Ñ": "N",
-      "ñ": "n",
-      "Ò": "O",
-      "Ó": "O",
-      "Ô": "O",
-      "Õ": "O",
-      "Ö": "O",
-      "Ø": "O",
-      "ò": "o",
-      "ó": "o",
-      "ô": "o",
-      "õ": "o",
-      "ö": "o",
-      "ø": "o",
-      "Ù": "U",
-      "Ú": "U",
-      "Û": "U",
-      "Ü": "U",
-      "ù": "u",
-      "ú": "u",
-      "û": "u",
-      "ü": "u",
-      "Ý": "Y",
-      "ý": "y",
-      "ÿ": "y",
-      "Æ": "Ae",
-      "æ": "ae",
-      "Þ": "Th",
-      "þ": "th",
-      "ß": "ss",
-      "Ā": "A",
-      "Ă": "A",
-      "Ą": "A",
-      "ā": "a",
-      "ă": "a",
-      "ą": "a",
-      "Ć": "C",
-      "Ĉ": "C",
-      "Ċ": "C",
-      "Č": "C",
-      "ć": "c",
-      "ĉ": "c",
-      "ċ": "c",
-      "č": "c",
-      "Ď": "D",
-      "Đ": "D",
-      "ď": "d",
-      "đ": "d",
-      "Ē": "E",
-      "Ĕ": "E",
-      "Ė": "E",
-      "Ę": "E",
-      "Ě": "E",
-      "ē": "e",
-      "ĕ": "e",
-      "ė": "e",
-      "ę": "e",
-      "ě": "e",
-      "Ĝ": "G",
-      "Ğ": "G",
-      "Ġ": "G",
-      "Ģ": "G",
-      "ĝ": "g",
-      "ğ": "g",
-      "ġ": "g",
-      "ģ": "g",
-      "Ĥ": "H",
-      "Ħ": "H",
-      "ĥ": "h",
-      "ħ": "h",
-      "Ĩ": "I",
-      "Ī": "I",
-      "Ĭ": "I",
-      "Į": "I",
-      "İ": "I",
-      "ĩ": "i",
-      "ī": "i",
-      "ĭ": "i",
-      "į": "i",
-      "ı": "i",
-      "Ĵ": "J",
-      "ĵ": "j",
-      "Ķ": "K",
-      "ķ": "k",
-      "ĸ": "k",
-      "Ĺ": "L",
-      "Ļ": "L",
-      "Ľ": "L",
-      "Ŀ": "L",
-      "Ł": "L",
-      "ĺ": "l",
-      "ļ": "l",
-      "ľ": "l",
-      "ŀ": "l",
-      "ł": "l",
-      "Ń": "N",
-      "Ņ": "N",
-      "Ň": "N",
-      "Ŋ": "N",
-      "ń": "n",
-      "ņ": "n",
-      "ň": "n",
-      "ŋ": "n",
-      "Ō": "O",
-      "Ŏ": "O",
-      "Ő": "O",
-      "ō": "o",
-      "ŏ": "o",
-      "ő": "o",
-      "Ŕ": "R",
-      "Ŗ": "R",
-      "Ř": "R",
-      "ŕ": "r",
-      "ŗ": "r",
-      "ř": "r",
-      "Ś": "S",
-      "Ŝ": "S",
-      "Ş": "S",
-      "Š": "S",
-      "ś": "s",
-      "ŝ": "s",
-      "ş": "s",
-      "š": "s",
-      "Ţ": "T",
-      "Ť": "T",
-      "Ŧ": "T",
-      "ţ": "t",
-      "ť": "t",
-      "ŧ": "t",
-      "Ũ": "U",
-      "Ū": "U",
-      "Ŭ": "U",
-      "Ů": "U",
-      "Ű": "U",
-      "Ų": "U",
-      "ũ": "u",
-      "ū": "u",
-      "ŭ": "u",
-      "ů": "u",
-      "ű": "u",
-      "ų": "u",
-      "Ŵ": "W",
-      "ŵ": "w",
-      "Ŷ": "Y",
-      "ŷ": "y",
-      "Ÿ": "Y",
-      "Ź": "Z",
-      "Ż": "Z",
-      "Ž": "Z",
-      "ź": "z",
-      "ż": "z",
-      "ž": "z",
-      "Ĳ": "IJ",
-      "ĳ": "ij",
-      "Œ": "Oe",
-      "œ": "oe",
-      "ŉ": "'n",
-      "ſ": "ss"
-    },
-    jB6 = typeof global == "object" && global && global.Object === Object && global,
-    yB6 = typeof self == "object" && self && self.Object === Object && self,
-    kB6 = jB6 || yB6 || Function("return this")();
-
-  function xB6(A, B, Q, I) {
-    var G = -1,
-      Z = A ? A.length : 0;
-    if (I && Z) Q = A[++G];
-    while (++G < Z) Q = B(Q, A[G], G, A);
-    return Q
-  }
-
-  function fB6(A) {
-    return A.split("")
-  }
-
-  function vB6(A) {
-    return A.match(XB6) || []
-  }
-
-  function bB6(A) {
-    return function(B) {
-      return A == null ? void 0 : A[B]
-    }
-  }
-  var gB6 = bB6(_B6);
-
-  function Qj0(A) {
-    return PB6.test(A)
-  }
-
-  function hB6(A) {
-    return SB6.test(A)
-  }
-
-  function mB6(A) {
-    return Qj0(A) ? dB6(A) : fB6(A)
-  }
-
-  function dB6(A) {
-    return A.match(OB6) || []
-  }
-
-  function uB6(A) {
-    return A.match(TB6) || []
-  }
-  var pB6 = Object.prototype,
-    cB6 = pB6.toString,
-    g_0 = kB6.Symbol,
-    h_0 = g_0 ? g_0.prototype : void 0,
-    m_0 = h_0 ? h_0.toString : void 0;
-
-  function lB6(A, B, Q) {
-    var I = -1,
-      G = A.length;
-    if (B < 0) B = -B > G ? 0 : G + B;
-    if (Q = Q > G ? G : Q, Q < 0) Q += G;
-    G = B > Q ? 0 : Q - B >>> 0, B >>>= 0;
-    var Z = Array(G);
-    while (++I < G) Z[I] = A[I + B];
-    return Z
-  }
-
-  function iB6(A) {
-    if (typeof A == "string") return A;
-    if (oB6(A)) return m_0 ? m_0.call(A) : "";
-    var B = A + "";
-    return B == "0" && 1 / A == -JB6 ? "-0" : B
-  }
-
-  function nB6(A, B, Q) {
-    var I = A.length;
-    return Q = Q === void 0 ? I : Q, !B && Q >= I ? A : lB6(A, B, Q)
-  }
-
-  function aB6(A) {
-    return function(B) {
-      B = YD1(B);
-      var Q = Qj0(B) ? mB6(B) : void 0,
-        I = Q ? Q[0] : B.charAt(0),
-        G = Q ? nB6(Q, 1).join("") : B.slice(1);
-      return I[A]() + G
-    }
-  }
-
-  function sB6(A) {
-    return function(B) {
-      return xB6(Q36(A36(B).replace(LB6, "")), A, "")
-    }
-  }
-
-  function rB6(A) {
-    return !!A && typeof A == "object"
-  }
-
-  function oB6(A) {
-    return typeof A == "symbol" || rB6(A) && cB6.call(A) == FB6
-  }
-
-  function YD1(A) {
-    return A == null ? "" : iB6(A)
-  }
-  var tB6 = sB6(function(A, B, Q) {
-    return B = B.toLowerCase(), A + (Q ? eB6(B) : B)
-  });
-
-  function eB6(A) {
-    return B36(YD1(A).toLowerCase())
-  }
-
-  function A36(A) {
-    return A = YD1(A), A && A.replace(VB6, gB6).replace(RB6, "")
-  }
-  var B36 = aB6("toUpperCase");
-
-  function Q36(A, B, Q) {
-    if (A = YD1(A), B = Q ? void 0 : B, B === void 0) return hB6(A) ? uB6(A) : vB6(A);
-    return A.match(B) || []
-  }
-  Ij0.exports = tB6
-})
-// @from(Start 4749842, End 4751266)
-Dj0 = z((x$8, Zj0) => {
-  Zj0.exports = hh1;
-
-  function hh1(A, B) {
-    if (typeof A === "string") B = A, A = void 0;
-    var Q = [];
-
-    function I(Z) {
-      if (typeof Z !== "string") {
-        var D = G();
-        if (hh1.verbose) console.log("codegen: " + D);
-        if (D = "return " + D, Z) {
-          var Y = Object.keys(Z),
-            W = new Array(Y.length + 1),
-            J = new Array(Y.length),
-            F = 0;
-          while (F < Y.length) W[F] = Y[F], J[F] = Z[Y[F++]];
-          return W[F] = D, Function.apply(null, W).apply(null, J)
-        }
-        return Function(D)()
       }
-      var X = new Array(arguments.length - 1),
-        V = 0;
-      while (V < X.length) X[V] = arguments[++V];
-      if (V = 0, Z = Z.replace(/%([%dfijs])/g, function C(K, E) {
-          var N = X[V++];
-          switch (E) {
-            case "d":
-            case "f":
-              return String(Number(N));
-            case "i":
-              return String(Math.floor(N));
-            case "j":
-              return JSON.stringify(N);
-            case "s":
-              return String(N)
-          }
-          return "%"
-        }), V !== X.length) throw Error("parameter count mismatch");
-      return Q.push(Z), I
-    }
 
-    function G(Z) {
-      return "function " + (Z || B || "") + "(" + (A && A.join(",") || "") + `){
-  ` + Q.join(`
-  `) + `
-}`
-    }
-    return I.toString = G, I
-  }
-  hh1.verbose = !1
-})
-// @from(Start 4751272, End 4752536)
-Wj0 = z((f$8, Yj0) => {
-  Yj0.exports = ts;
-  var I36 = Lg1(),
-    G36 = Og1(),
-    mh1 = G36("fs");
-
-  function ts(A, B, Q) {
-    if (typeof B === "function") Q = B, B = {};
-    else if (!B) B = {};
-    if (!Q) return I36(ts, this, A, B);
-    if (!B.xhr && mh1 && mh1.readFile) return mh1.readFile(A, function I(G, Z) {
-      return G && typeof XMLHttpRequest !== "undefined" ? ts.xhr(A, B, Q) : G ? Q(G) : Q(null, B.binary ? Z : Z.toString("utf8"))
-    });
-    return ts.xhr(A, B, Q)
-  }
-  ts.xhr = function A(B, Q, I) {
-    var G = new XMLHttpRequest;
-    if (G.onreadystatechange = function Z() {
-        if (G.readyState !== 4) return;
-        if (G.status !== 0 && G.status !== 200) return I(Error("status " + G.status));
-        if (Q.binary) {
-          var D = G.response;
-          if (!D) {
-            D = [];
-            for (var Y = 0; Y < G.responseText.length; ++Y) D.push(G.responseText.charCodeAt(Y) & 255)
-          }
-          return I(null, typeof Uint8Array !== "undefined" ? new Uint8Array(D) : D)
+      function K(q, w) {
+        if (W[q]) {
+          if (X[q] = function(N) {
+              return new Promise(function(R, T) {
+                V.push([q, N, R, T]) > 1 || D(q, N)
+              })
+            }, w) X[q] = w(X[q])
         }
-        return I(null, G.responseText)
-      }, Q.binary) {
-      if ("overrideMimeType" in G) G.overrideMimeType("text/plain; charset=x-user-defined");
-      G.responseType = "arraybuffer"
-    }
-    G.open("GET", B), G.send()
-  }
-})
-// @from(Start 4752542, End 4753333)
-Xj0 = z((Fj0) => {
-  var uh1 = Fj0,
-    Jj0 = uh1.isAbsolute = function A(B) {
-      return /^(?:\/|\w+:)/.test(B)
-    },
-    dh1 = uh1.normalize = function A(B) {
-      B = B.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
-      var Q = B.split("/"),
-        I = Jj0(B),
-        G = "";
-      if (I) G = Q.shift() + "/";
-      for (var Z = 0; Z < Q.length;)
-        if (Q[Z] === "..")
-          if (Z > 0 && Q[Z - 1] !== "..") Q.splice(--Z, 2);
-          else if (I) Q.splice(Z, 1);
-      else ++Z;
-      else if (Q[Z] === ".") Q.splice(Z, 1);
-      else ++Z;
-      return G + Q.join("/")
-    };
-  uh1.resolve = function A(B, Q, I) {
-    if (!I) Q = dh1(Q);
-    if (Jj0(Q)) return Q;
-    if (!I) B = dh1(B);
-    return (B = B.replace(/(?:\/|^)[^/]+$/, "")).length ? dh1(B + "/" + Q) : Q
-  }
-})
-// @from(Start 4753339, End 4753988)
-r_ = z((Vj0) => {
-  var es = Vj0,
-    Z36 = RI(),
-    D36 = ["double", "float", "int32", "uint32", "sint32", "fixed32", "sfixed32", "int64", "uint64", "sint64", "fixed64", "sfixed64", "bool", "string", "bytes"];
+      }
 
-  function Ar(A, B) {
-    var Q = 0,
-      I = {};
-    B |= 0;
-    while (Q < A.length) I[D36[Q + B]] = A[Q++];
-    return I
-  }
-  es.basic = Ar([1, 5, 0, 0, 0, 5, 5, 0, 0, 0, 1, 1, 0, 2, 2]);
-  es.defaults = Ar([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, !1, "", Z36.emptyArray, null]);
-  es.long = Ar([0, 0, 0, 1, 1], 7);
-  es.mapKey = Ar([0, 0, 0, 5, 5, 0, 0, 0, 1, 1, 0, 2], 2);
-  es.packed = Ar([1, 5, 0, 0, 0, 5, 5, 0, 0, 0, 1, 1, 0])
-})
-// @from(Start 4753994, End 4758267)
-VR = z((g$8, Hj0) => {
-  Hj0.exports = SX;
-  var WD1 = o_();
-  ((SX.prototype = Object.create(WD1.prototype)).constructor = SX).className = "Field";
-  var Cj0 = cC(),
-    Kj0 = r_(),
-    X7 = RI(),
-    ph1, Y36 = /^required|optional|repeated$/;
-  SX.fromJSON = function A(B, Q) {
-    return new SX(B, Q.id, Q.type, Q.rule, Q.extend, Q.options, Q.comment)
-  };
-
-  function SX(A, B, Q, I, G, Z, D) {
-    if (X7.isObject(I)) D = G, Z = I, I = G = void 0;
-    else if (X7.isObject(G)) D = Z, Z = G, G = void 0;
-    if (WD1.call(this, A, Z), !X7.isInteger(B) || B < 0) throw TypeError("id must be a non-negative integer");
-    if (!X7.isString(Q)) throw TypeError("type must be a string");
-    if (I !== void 0 && !Y36.test(I = I.toString().toLowerCase())) throw TypeError("rule must be a string rule");
-    if (G !== void 0 && !X7.isString(G)) throw TypeError("extend must be a string");
-    if (I === "proto3_optional") I = "optional";
-    this.rule = I && I !== "optional" ? I : void 0, this.type = Q, this.id = B, this.extend = G || void 0, this.required = I === "required", this.optional = !this.required, this.repeated = I === "repeated", this.map = !1, this.message = null, this.partOf = null, this.typeDefault = null, this.defaultValue = null, this.long = X7.Long ? Kj0.long[Q] !== void 0 : !1, this.bytes = Q === "bytes", this.resolvedType = null, this.extensionField = null, this.declaringField = null, this._packed = null, this.comment = D
-  }
-  Object.defineProperty(SX.prototype, "packed", {
-    get: function() {
-      if (this._packed === null) this._packed = this.getOption("packed") !== !1;
-      return this._packed
-    }
-  });
-  SX.prototype.setOption = function A(B, Q, I) {
-    if (B === "packed") this._packed = null;
-    return WD1.prototype.setOption.call(this, B, Q, I)
-  };
-  SX.prototype.toJSON = function A(B) {
-    var Q = B ? Boolean(B.keepComments) : !1;
-    return X7.toObject(["rule", this.rule !== "optional" && this.rule || void 0, "type", this.type, "id", this.id, "extend", this.extend, "options", this.options, "comment", Q ? this.comment : void 0])
-  };
-  SX.prototype.resolve = function A() {
-    if (this.resolved) return this;
-    if ((this.typeDefault = Kj0.defaults[this.type]) === void 0)
-      if (this.resolvedType = (this.declaringField ? this.declaringField.parent : this.parent).lookupTypeOrEnum(this.type), this.resolvedType instanceof ph1) this.typeDefault = null;
-      else this.typeDefault = this.resolvedType.values[Object.keys(this.resolvedType.values)[0]];
-    else if (this.options && this.options.proto3_optional) this.typeDefault = null;
-    if (this.options && this.options.default != null) {
-      if (this.typeDefault = this.options.default, this.resolvedType instanceof Cj0 && typeof this.typeDefault === "string") this.typeDefault = this.resolvedType.values[this.typeDefault]
-    }
-    if (this.options) {
-      if (this.options.packed === !0 || this.options.packed !== void 0 && this.resolvedType && !(this.resolvedType instanceof Cj0)) delete this.options.packed;
-      if (!Object.keys(this.options).length) this.options = void 0
-    }
-    if (this.long) {
-      if (this.typeDefault = X7.Long.fromNumber(this.typeDefault, this.type.charAt(0) === "u"), Object.freeze) Object.freeze(this.typeDefault)
-    } else if (this.bytes && typeof this.typeDefault === "string") {
-      var B;
-      if (X7.base64.test(this.typeDefault)) X7.base64.decode(this.typeDefault, B = X7.newBuffer(X7.base64.length(this.typeDefault)), 0);
-      else X7.utf8.write(this.typeDefault, B = X7.newBuffer(X7.utf8.length(this.typeDefault)), 0);
-      this.typeDefault = B
-    }
-    if (this.map) this.defaultValue = X7.emptyObject;
-    else if (this.repeated) this.defaultValue = X7.emptyArray;
-    else this.defaultValue = this.typeDefault;
-    if (this.parent instanceof ph1) this.parent.ctor.prototype[this.name] = this.defaultValue;
-    return WD1.prototype.resolve.call(this)
-  };
-  SX.d = function A(B, Q, I, G) {
-    if (typeof Q === "function") Q = X7.decorateType(Q).name;
-    else if (Q && typeof Q === "object") Q = X7.decorateEnum(Q).name;
-    return function Z(D, Y) {
-      X7.decorateType(D.constructor).add(new SX(Y, B, Q, I, {
-        default: G
-      }))
-    }
-  };
-  SX._configure = function A(B) {
-    ph1 = B
-  }
-})
-// @from(Start 4758273, End 4760628)
-tg = z((h$8, Ej0) => {
-  Ej0.exports = _X;
-  var FD1 = o_();
-  ((_X.prototype = Object.create(FD1.prototype)).constructor = _X).className = "OneOf";
-  var zj0 = VR(),
-    JD1 = RI();
-
-  function _X(A, B, Q, I) {
-    if (!Array.isArray(B)) Q = B, B = void 0;
-    if (FD1.call(this, A, Q), !(B === void 0 || Array.isArray(B))) throw TypeError("fieldNames must be an Array");
-    this.oneof = B || [], this.fieldsArray = [], this.comment = I
-  }
-  _X.fromJSON = function A(B, Q) {
-    return new _X(B, Q.oneof, Q.options, Q.comment)
-  };
-  _X.prototype.toJSON = function A(B) {
-    var Q = B ? Boolean(B.keepComments) : !1;
-    return JD1.toObject(["options", this.options, "oneof", this.oneof, "comment", Q ? this.comment : void 0])
-  };
-
-  function wj0(A) {
-    if (A.parent) {
-      for (var B = 0; B < A.fieldsArray.length; ++B)
-        if (!A.fieldsArray[B].parent) A.parent.add(A.fieldsArray[B])
-    }
-  }
-  _X.prototype.add = function A(B) {
-    if (!(B instanceof zj0)) throw TypeError("field must be a Field");
-    if (B.parent && B.parent !== this.parent) B.parent.remove(B);
-    return this.oneof.push(B.name), this.fieldsArray.push(B), B.partOf = this, wj0(this), this
-  };
-  _X.prototype.remove = function A(B) {
-    if (!(B instanceof zj0)) throw TypeError("field must be a Field");
-    var Q = this.fieldsArray.indexOf(B);
-    if (Q < 0) throw Error(B + " is not a member of " + this);
-    if (this.fieldsArray.splice(Q, 1), Q = this.oneof.indexOf(B.name), Q > -1) this.oneof.splice(Q, 1);
-    return B.partOf = null, this
-  };
-  _X.prototype.onAdd = function A(B) {
-    FD1.prototype.onAdd.call(this, B);
-    var Q = this;
-    for (var I = 0; I < this.oneof.length; ++I) {
-      var G = B.get(this.oneof[I]);
-      if (G && !G.partOf) G.partOf = Q, Q.fieldsArray.push(G)
-    }
-    wj0(this)
-  };
-  _X.prototype.onRemove = function A(B) {
-    for (var Q = 0, I; Q < this.fieldsArray.length; ++Q)
-      if ((I = this.fieldsArray[Q]).parent) I.parent.remove(I);
-    FD1.prototype.onRemove.call(this, B)
-  };
-  _X.d = function A() {
-    var B = new Array(arguments.length),
-      Q = 0;
-    while (Q < arguments.length) B[Q] = arguments[Q++];
-    return function I(G, Z) {
-      JD1.decorateType(G.constructor).add(new _X(Z, B)), Object.defineProperty(G, Z, {
-        get: JD1.oneOfGetter(B),
-        set: JD1.oneOfSetter(B)
-      })
-    }
-  }
-})
-// @from(Start 4760634, End 4765915)
-Bh = z((m$8, qj0) => {
-  qj0.exports = R5;
-  var ch1 = o_();
-  ((R5.prototype = Object.create(ch1.prototype)).constructor = R5).className = "Namespace";
-  var Uj0 = VR(),
-    XD1 = RI(),
-    W36 = tg(),
-    eg, Br, Ah;
-  R5.fromJSON = function A(B, Q) {
-    return new R5(B, Q.options).addJSON(Q.nested)
-  };
-
-  function Nj0(A, B) {
-    if (!(A && A.length)) return;
-    var Q = {};
-    for (var I = 0; I < A.length; ++I) Q[A[I].name] = A[I].toJSON(B);
-    return Q
-  }
-  R5.arrayToJSON = Nj0;
-  R5.isReservedId = function A(B, Q) {
-    if (B) {
-      for (var I = 0; I < B.length; ++I)
-        if (typeof B[I] !== "string" && B[I][0] <= Q && B[I][1] > Q) return !0
-    }
-    return !1
-  };
-  R5.isReservedName = function A(B, Q) {
-    if (B) {
-      for (var I = 0; I < B.length; ++I)
-        if (B[I] === Q) return !0
-    }
-    return !1
-  };
-
-  function R5(A, B) {
-    ch1.call(this, A, B), this.nested = void 0, this._nestedArray = null
-  }
-
-  function $j0(A) {
-    return A._nestedArray = null, A
-  }
-  Object.defineProperty(R5.prototype, "nestedArray", {
-    get: function() {
-      return this._nestedArray || (this._nestedArray = XD1.toArray(this.nested))
-    }
-  });
-  R5.prototype.toJSON = function A(B) {
-    return XD1.toObject(["options", this.options, "nested", Nj0(this.nestedArray, B)])
-  };
-  R5.prototype.addJSON = function A(B) {
-    var Q = this;
-    if (B)
-      for (var I = Object.keys(B), G = 0, Z; G < I.length; ++G) Z = B[I[G]], Q.add((Z.fields !== void 0 ? eg.fromJSON : Z.values !== void 0 ? Ah.fromJSON : Z.methods !== void 0 ? Br.fromJSON : Z.id !== void 0 ? Uj0.fromJSON : R5.fromJSON)(I[G], Z));
-    return this
-  };
-  R5.prototype.get = function A(B) {
-    return this.nested && this.nested[B] || null
-  };
-  R5.prototype.getEnum = function A(B) {
-    if (this.nested && this.nested[B] instanceof Ah) return this.nested[B].values;
-    throw Error("no such enum: " + B)
-  };
-  R5.prototype.add = function A(B) {
-    if (!(B instanceof Uj0 && B.extend !== void 0 || B instanceof eg || B instanceof W36 || B instanceof Ah || B instanceof Br || B instanceof R5)) throw TypeError("object must be a valid nested object");
-    if (!this.nested) this.nested = {};
-    else {
-      var Q = this.get(B.name);
-      if (Q)
-        if (Q instanceof R5 && B instanceof R5 && !(Q instanceof eg || Q instanceof Br)) {
-          var I = Q.nestedArray;
-          for (var G = 0; G < I.length; ++G) B.add(I[G]);
-          if (this.remove(Q), !this.nested) this.nested = {};
-          B.setOptions(Q.options, !0)
-        } else throw Error("duplicate name '" + B.name + "' in " + this)
-    }
-    return this.nested[B.name] = B, B.onAdd(this), $j0(this)
-  };
-  R5.prototype.remove = function A(B) {
-    if (!(B instanceof ch1)) throw TypeError("object must be a ReflectionObject");
-    if (B.parent !== this) throw Error(B + " is not a member of " + this);
-    if (delete this.nested[B.name], !Object.keys(this.nested).length) this.nested = void 0;
-    return B.onRemove(this), $j0(this)
-  };
-  R5.prototype.define = function A(B, Q) {
-    if (XD1.isString(B)) B = B.split(".");
-    else if (!Array.isArray(B)) throw TypeError("illegal path");
-    if (B && B.length && B[0] === "") throw Error("path must be relative");
-    var I = this;
-    while (B.length > 0) {
-      var G = B.shift();
-      if (I.nested && I.nested[G]) {
-        if (I = I.nested[G], !(I instanceof R5)) throw Error("path conflicts with non-namespace objects")
-      } else I.add(I = new R5(G))
-    }
-    if (Q) I.addJSON(Q);
-    return I
-  };
-  R5.prototype.resolveAll = function A() {
-    var B = this.nestedArray,
-      Q = 0;
-    while (Q < B.length)
-      if (B[Q] instanceof R5) B[Q++].resolveAll();
-      else B[Q++].resolve();
-    return this.resolve()
-  };
-  R5.prototype.lookup = function A(B, Q, I) {
-    if (typeof Q === "boolean") I = Q, Q = void 0;
-    else if (Q && !Array.isArray(Q)) Q = [Q];
-    if (XD1.isString(B) && B.length) {
-      if (B === ".") return this.root;
-      B = B.split(".")
-    } else if (!B.length) return this;
-    if (B[0] === "") return this.root.lookup(B.slice(1), Q);
-    var G = this.get(B[0]);
-    if (G) {
-      if (B.length === 1) {
-        if (!Q || Q.indexOf(G.constructor) > -1) return G
-      } else if (G instanceof R5 && (G = G.lookup(B.slice(1), Q, !0))) return G
-    } else
-      for (var Z = 0; Z < this.nestedArray.length; ++Z)
-        if (this._nestedArray[Z] instanceof R5 && (G = this._nestedArray[Z].lookup(B, Q, !0))) return G;
-    if (this.parent === null || I) return null;
-    return this.parent.lookup(B, Q)
-  };
-  R5.prototype.lookupType = function A(B) {
-    var Q = this.lookup(B, [eg]);
-    if (!Q) throw Error("no such type: " + B);
-    return Q
-  };
-  R5.prototype.lookupEnum = function A(B) {
-    var Q = this.lookup(B, [Ah]);
-    if (!Q) throw Error("no such Enum '" + B + "' in " + this);
-    return Q
-  };
-  R5.prototype.lookupTypeOrEnum = function A(B) {
-    var Q = this.lookup(B, [eg, Ah]);
-    if (!Q) throw Error("no such Type or Enum '" + B + "' in " + this);
-    return Q
-  };
-  R5.prototype.lookupService = function A(B) {
-    var Q = this.lookup(B, [Br]);
-    if (!Q) throw Error("no such Service '" + B + "' in " + this);
-    return Q
-  };
-  R5._configure = function(A, B, Q) {
-    eg = A, Br = B, Ah = Q
-  }
-})
-// @from(Start 4765921, End 4767183)
-VD1 = z((d$8, Mj0) => {
-  Mj0.exports = PN;
-  var lh1 = VR();
-  ((PN.prototype = Object.create(lh1.prototype)).constructor = PN).className = "MapField";
-  var J36 = r_(),
-    Qr = RI();
-
-  function PN(A, B, Q, I, G, Z) {
-    if (lh1.call(this, A, B, I, void 0, void 0, G, Z), !Qr.isString(Q)) throw TypeError("keyType must be a string");
-    this.keyType = Q, this.resolvedKeyType = null, this.map = !0
-  }
-  PN.fromJSON = function A(B, Q) {
-    return new PN(B, Q.id, Q.keyType, Q.type, Q.options, Q.comment)
-  };
-  PN.prototype.toJSON = function A(B) {
-    var Q = B ? Boolean(B.keepComments) : !1;
-    return Qr.toObject(["keyType", this.keyType, "type", this.type, "id", this.id, "extend", this.extend, "options", this.options, "comment", Q ? this.comment : void 0])
-  };
-  PN.prototype.resolve = function A() {
-    if (this.resolved) return this;
-    if (J36.mapKey[this.keyType] === void 0) throw Error("invalid key type: " + this.keyType);
-    return lh1.prototype.resolve.call(this)
-  };
-  PN.d = function A(B, Q, I) {
-    if (typeof I === "function") I = Qr.decorateType(I).name;
-    else if (I && typeof I === "object") I = Qr.decorateEnum(I).name;
-    return function G(Z, D) {
-      Qr.decorateType(Z.constructor).add(new PN(D, B, Q, I))
-    }
-  }
-})
-// @from(Start 4767189, End 4768866)
-CD1 = z((u$8, Lj0) => {
-  Lj0.exports = t_;
-  var ih1 = o_();
-  ((t_.prototype = Object.create(ih1.prototype)).constructor = t_).className = "Method";
-  var Qh = RI();
-
-  function t_(A, B, Q, I, G, Z, D, Y, W) {
-    if (Qh.isObject(G)) D = G, G = Z = void 0;
-    else if (Qh.isObject(Z)) D = Z, Z = void 0;
-    if (!(B === void 0 || Qh.isString(B))) throw TypeError("type must be a string");
-    if (!Qh.isString(Q)) throw TypeError("requestType must be a string");
-    if (!Qh.isString(I)) throw TypeError("responseType must be a string");
-    ih1.call(this, A, D), this.type = B || "rpc", this.requestType = Q, this.requestStream = G ? !0 : void 0, this.responseType = I, this.responseStream = Z ? !0 : void 0, this.resolvedRequestType = null, this.resolvedResponseType = null, this.comment = Y, this.parsedOptions = W
-  }
-  t_.fromJSON = function A(B, Q) {
-    return new t_(B, Q.type, Q.requestType, Q.responseType, Q.requestStream, Q.responseStream, Q.options, Q.comment, Q.parsedOptions)
-  };
-  t_.prototype.toJSON = function A(B) {
-    var Q = B ? Boolean(B.keepComments) : !1;
-    return Qh.toObject(["type", this.type !== "rpc" && this.type || void 0, "requestType", this.requestType, "requestStream", this.requestStream, "responseType", this.responseType, "responseStream", this.responseStream, "options", this.options, "comment", Q ? this.comment : void 0, "parsedOptions", this.parsedOptions])
-  };
-  t_.prototype.resolve = function A() {
-    if (this.resolved) return this;
-    return this.resolvedRequestType = this.parent.lookupType(this.requestType), this.resolvedResponseType = this.parent.lookupType(this.responseType), ih1.prototype.resolve.call(this)
-  }
-})
-// @from(Start 4768872, End 4771295)
-KD1 = z((p$8, Oj0) => {
-  Oj0.exports = jX;
-  var CR = Bh();
-  ((jX.prototype = Object.create(CR.prototype)).constructor = jX).className = "Service";
-  var nh1 = CD1(),
-    Ir = RI(),
-    F36 = gg1();
-
-  function jX(A, B) {
-    CR.call(this, A, B), this.methods = {}, this._methodsArray = null
-  }
-  jX.fromJSON = function A(B, Q) {
-    var I = new jX(B, Q.options);
-    if (Q.methods)
-      for (var G = Object.keys(Q.methods), Z = 0; Z < G.length; ++Z) I.add(nh1.fromJSON(G[Z], Q.methods[G[Z]]));
-    if (Q.nested) I.addJSON(Q.nested);
-    return I.comment = Q.comment, I
-  };
-  jX.prototype.toJSON = function A(B) {
-    var Q = CR.prototype.toJSON.call(this, B),
-      I = B ? Boolean(B.keepComments) : !1;
-    return Ir.toObject(["options", Q && Q.options || void 0, "methods", CR.arrayToJSON(this.methodsArray, B) || {}, "nested", Q && Q.nested || void 0, "comment", I ? this.comment : void 0])
-  };
-  Object.defineProperty(jX.prototype, "methodsArray", {
-    get: function() {
-      return this._methodsArray || (this._methodsArray = Ir.toArray(this.methods))
-    }
-  });
-
-  function Rj0(A) {
-    return A._methodsArray = null, A
-  }
-  jX.prototype.get = function A(B) {
-    return this.methods[B] || CR.prototype.get.call(this, B)
-  };
-  jX.prototype.resolveAll = function A() {
-    var B = this.methodsArray;
-    for (var Q = 0; Q < B.length; ++Q) B[Q].resolve();
-    return CR.prototype.resolve.call(this)
-  };
-  jX.prototype.add = function A(B) {
-    if (this.get(B.name)) throw Error("duplicate name '" + B.name + "' in " + this);
-    if (B instanceof nh1) return this.methods[B.name] = B, B.parent = this, Rj0(this);
-    return CR.prototype.add.call(this, B)
-  };
-  jX.prototype.remove = function A(B) {
-    if (B instanceof nh1) {
-      if (this.methods[B.name] !== B) throw Error(B + " is not a member of " + this);
-      return delete this.methods[B.name], B.parent = null, Rj0(this)
-    }
-    return CR.prototype.remove.call(this, B)
-  };
-  jX.prototype.create = function A(B, Q, I) {
-    var G = new F36.Service(B, Q, I);
-    for (var Z = 0, D; Z < this.methodsArray.length; ++Z) {
-      var Y = Ir.lcFirst((D = this._methodsArray[Z]).resolve().name).replace(/[^$\w_]/g, "");
-      G[Y] = Ir.codegen(["r", "c"], Ir.isReserved(Y) ? Y + "_" : Y)("return this.rpcCall(m,q,s,r,c)")({
-        m: D,
-        q: D.resolvedRequestType.ctor,
-        s: D.resolvedResponseType.ctor
-      })
-    }
-    return G
-  }
-})
-// @from(Start 4771301, End 4772183)
-HD1 = z((c$8, Tj0) => {
-  Tj0.exports = Yw;
-  var X36 = Iw();
-
-  function Yw(A) {
-    if (A)
-      for (var B = Object.keys(A), Q = 0; Q < B.length; ++Q) this[B[Q]] = A[B[Q]]
-  }
-  Yw.create = function A(B) {
-    return this.$type.create(B)
-  };
-  Yw.encode = function A(B, Q) {
-    return this.$type.encode(B, Q)
-  };
-  Yw.encodeDelimited = function A(B, Q) {
-    return this.$type.encodeDelimited(B, Q)
-  };
-  Yw.decode = function A(B) {
-    return this.$type.decode(B)
-  };
-  Yw.decodeDelimited = function A(B) {
-    return this.$type.decodeDelimited(B)
-  };
-  Yw.verify = function A(B) {
-    return this.$type.verify(B)
-  };
-  Yw.fromObject = function A(B) {
-    return this.$type.fromObject(B)
-  };
-  Yw.toObject = function A(B, Q) {
-    return this.$type.toObject(B, Q)
-  };
-  Yw.prototype.toJSON = function A() {
-    return this.$type.toObject(this, X36.toJSONOptions)
-  }
-})
-// @from(Start 4772189, End 4774589)
-ah1 = z((l$8, Sj0) => {
-  Sj0.exports = K36;
-  var V36 = cC(),
-    SN = r_(),
-    Pj0 = RI();
-
-  function C36(A) {
-    return "missing required '" + A.name + "'"
-  }
-
-  function K36(A) {
-    var B = Pj0.codegen(["r", "l"], A.name + "$decode")("if(!(r instanceof Reader))")("r=Reader.create(r)")("var c=l===undefined?r.len:r.pos+l,m=new this.ctor" + (A.fieldsArray.filter(function(Y) {
-      return Y.map
-    }).length ? ",k,value" : ""))("while(r.pos<c){")("var t=r.uint32()");
-    if (A.group) B("if((t&7)===4)")("break");
-    B("switch(t>>>3){");
-    var Q = 0;
-    for (; Q < A.fieldsArray.length; ++Q) {
-      var I = A._fieldsArray[Q].resolve(),
-        G = I.resolvedType instanceof V36 ? "int32" : I.type,
-        Z = "m" + Pj0.safeProp(I.name);
-      if (B("case %i: {", I.id), I.map) {
-        if (B("if(%s===util.emptyObject)", Z)("%s={}", Z)("var c2 = r.uint32()+r.pos"), SN.defaults[I.keyType] !== void 0) B("k=%j", SN.defaults[I.keyType]);
-        else B("k=null");
-        if (SN.defaults[G] !== void 0) B("value=%j", SN.defaults[G]);
-        else B("value=null");
-        if (B("while(r.pos<c2){")("var tag2=r.uint32()")("switch(tag2>>>3){")("case 1: k=r.%s(); break", I.keyType)("case 2:"), SN.basic[G] === void 0) B("value=types[%i].decode(r,r.uint32())", Q);
-        else B("value=r.%s()", G);
-        if (B("break")("default:")("r.skipType(tag2&7)")("break")("}")("}"), SN.long[I.keyType] !== void 0) B('%s[typeof k==="object"?util.longToHash(k):k]=value', Z);
-        else B("%s[k]=value", Z)
-      } else if (I.repeated) {
-        if (B("if(!(%s&&%s.length))", Z, Z)("%s=[]", Z), SN.packed[G] !== void 0) B("if((t&7)===2){")("var c2=r.uint32()+r.pos")("while(r.pos<c2)")("%s.push(r.%s())", Z, G)("}else");
-        if (SN.basic[G] === void 0) B(I.resolvedType.group ? "%s.push(types[%i].decode(r))" : "%s.push(types[%i].decode(r,r.uint32()))", Z, Q);
-        else B("%s.push(r.%s())", Z, G)
-      } else if (SN.basic[G] === void 0) B(I.resolvedType.group ? "%s=types[%i].decode(r)" : "%s=types[%i].decode(r,r.uint32())", Z, Q);
-      else B("%s=r.%s()", Z, G);
-      B("break")("}")
-    }
-    B("default:")("r.skipType(t&7)")("break")("}")("}");
-    for (Q = 0; Q < A._fieldsArray.length; ++Q) {
-      var D = A._fieldsArray[Q];
-      if (D.required) B("if(!m.hasOwnProperty(%j))", D.name)("throw util.ProtocolError(%j,{instance:m})", C36(D))
-    }
-    return B("return m")
-  }
-})
-// @from(Start 4774595, End 4777957)
-oh1 = z((i$8, _j0) => {
-  _j0.exports = w36;
-  var H36 = cC(),
-    sh1 = RI();
-
-  function yX(A, B) {
-    return A.name + ": " + B + (A.repeated && B !== "array" ? "[]" : A.map && B !== "object" ? "{k:" + A.keyType + "}" : "") + " expected"
-  }
-
-  function rh1(A, B, Q, I) {
-    if (B.resolvedType)
-      if (B.resolvedType instanceof H36) {
-        A("switch(%s){", I)("default:")("return%j", yX(B, "enum value"));
-        for (var G = Object.keys(B.resolvedType.values), Z = 0; Z < G.length; ++Z) A("case %i:", B.resolvedType.values[G[Z]]);
-        A("break")("}")
-      } else A("{")("var e=types[%i].verify(%s);", Q, I)("if(e)")("return%j+e", B.name + ".")("}");
-    else switch (B.type) {
-      case "int32":
-      case "uint32":
-      case "sint32":
-      case "fixed32":
-      case "sfixed32":
-        A("if(!util.isInteger(%s))", I)("return%j", yX(B, "integer"));
-        break;
-      case "int64":
-      case "uint64":
-      case "sint64":
-      case "fixed64":
-      case "sfixed64":
-        A("if(!util.isInteger(%s)&&!(%s&&util.isInteger(%s.low)&&util.isInteger(%s.high)))", I, I, I, I)("return%j", yX(B, "integer|Long"));
-        break;
-      case "float":
-      case "double":
-        A('if(typeof %s!=="number")', I)("return%j", yX(B, "number"));
-        break;
-      case "bool":
-        A('if(typeof %s!=="boolean")', I)("return%j", yX(B, "boolean"));
-        break;
-      case "string":
-        A("if(!util.isString(%s))", I)("return%j", yX(B, "string"));
-        break;
-      case "bytes":
-        A('if(!(%s&&typeof %s.length==="number"||util.isString(%s)))', I, I, I)("return%j", yX(B, "buffer"));
-        break
-    }
-    return A
-  }
-
-  function z36(A, B, Q) {
-    switch (B.keyType) {
-      case "int32":
-      case "uint32":
-      case "sint32":
-      case "fixed32":
-      case "sfixed32":
-        A("if(!util.key32Re.test(%s))", Q)("return%j", yX(B, "integer key"));
-        break;
-      case "int64":
-      case "uint64":
-      case "sint64":
-      case "fixed64":
-      case "sfixed64":
-        A("if(!util.key64Re.test(%s))", Q)("return%j", yX(B, "integer|Long key"));
-        break;
-      case "bool":
-        A("if(!util.key2Re.test(%s))", Q)("return%j", yX(B, "boolean key"));
-        break
-    }
-    return A
-  }
-
-  function w36(A) {
-    var B = sh1.codegen(["m"], A.name + "$verify")('if(typeof m!=="object"||m===null)')("return%j", "object expected"),
-      Q = A.oneofsArray,
-      I = {};
-    if (Q.length) B("var p={}");
-    for (var G = 0; G < A.fieldsArray.length; ++G) {
-      var Z = A._fieldsArray[G].resolve(),
-        D = "m" + sh1.safeProp(Z.name);
-      if (Z.optional) B("if(%s!=null&&m.hasOwnProperty(%j)){", D, Z.name);
-      if (Z.map) B("if(!util.isObject(%s))", D)("return%j", yX(Z, "object"))("var k=Object.keys(%s)", D)("for(var i=0;i<k.length;++i){"), z36(B, Z, "k[i]"), rh1(B, Z, G, D + "[k[i]]")("}");
-      else if (Z.repeated) B("if(!Array.isArray(%s))", D)("return%j", yX(Z, "array"))("for(var i=0;i<%s.length;++i){", D), rh1(B, Z, G, D + "[i]")("}");
-      else {
-        if (Z.partOf) {
-          var Y = sh1.safeProp(Z.partOf.name);
-          if (I[Z.partOf.name] === 1) B("if(p%s===1)", Y)("return%j", Z.partOf.name + ": multiple values");
-          I[Z.partOf.name] = 1, B("p%s=1", Y)
+      function D(q, w) {
+        try {
+          H(W[q](w))
+        } catch (N) {
+          U(V[0][3], N)
         }
-        rh1(B, Z, G, D)
       }
-      if (Z.optional) B("}")
-    }
-    return B("return null")
-  }
-})
-// @from(Start 4777963, End 4784449)
-Am1 = z((yj0) => {
-  var jj0 = yj0,
-    Gr = cC(),
-    Ww = RI();
 
-  function th1(A, B, Q, I) {
-    var G = !1;
-    if (B.resolvedType)
-      if (B.resolvedType instanceof Gr) {
-        A("switch(d%s){", I);
-        for (var Z = B.resolvedType.values, D = Object.keys(Z), Y = 0; Y < D.length; ++Y) {
-          if (Z[D[Y]] === B.typeDefault && !G) {
-            if (A("default:")('if(typeof(d%s)==="number"){m%s=d%s;break}', I, I, I), !B.repeated) A("break");
-            G = !0
-          }
-          A("case%j:", D[Y])("case %i:", Z[D[Y]])("m%s=%j", I, Z[D[Y]])("break")
-        }
-        A("}")
-      } else A('if(typeof d%s!=="object")', I)("throw TypeError(%j)", B.fullName + ": object expected")("m%s=types[%i].fromObject(d%s)", I, Q, I);
-    else {
-      var W = !1;
-      switch (B.type) {
-        case "double":
-        case "float":
-          A("m%s=Number(d%s)", I, I);
-          break;
-        case "uint32":
-        case "fixed32":
-          A("m%s=d%s>>>0", I, I);
-          break;
-        case "int32":
-        case "sint32":
-        case "sfixed32":
-          A("m%s=d%s|0", I, I);
-          break;
-        case "uint64":
-          W = !0;
-        case "int64":
-        case "sint64":
-        case "fixed64":
-        case "sfixed64":
-          A("if(util.Long)")("(m%s=util.Long.fromValue(d%s)).unsigned=%j", I, I, W)('else if(typeof d%s==="string")', I)("m%s=parseInt(d%s,10)", I, I)('else if(typeof d%s==="number")', I)("m%s=d%s", I, I)('else if(typeof d%s==="object")', I)("m%s=new util.LongBits(d%s.low>>>0,d%s.high>>>0).toNumber(%s)", I, I, I, W ? "true" : "");
-          break;
-        case "bytes":
-          A('if(typeof d%s==="string")', I)("util.base64.decode(d%s,m%s=util.newBuffer(util.base64.length(d%s)),0)", I, I, I)("else if(d%s.length >= 0)", I)("m%s=d%s", I, I);
-          break;
-        case "string":
-          A("m%s=String(d%s)", I, I);
-          break;
-        case "bool":
-          A("m%s=Boolean(d%s)", I, I);
-          break
+      function H(q) {
+        q.value instanceof Y5A ? Promise.resolve(q.value.v).then(C, E) : U(V[0][2], q)
       }
-    }
-    return A
-  }
-  jj0.fromObject = function A(B) {
-    var Q = B.fieldsArray,
-      I = Ww.codegen(["d"], B.name + "$fromObject")("if(d instanceof this.ctor)")("return d");
-    if (!Q.length) return I("return new this.ctor");
-    I("var m=new this.ctor");
-    for (var G = 0; G < Q.length; ++G) {
-      var Z = Q[G].resolve(),
-        D = Ww.safeProp(Z.name);
-      if (Z.map) I("if(d%s){", D)('if(typeof d%s!=="object")', D)("throw TypeError(%j)", Z.fullName + ": object expected")("m%s={}", D)("for(var ks=Object.keys(d%s),i=0;i<ks.length;++i){", D), th1(I, Z, G, D + "[ks[i]]")("}")("}");
-      else if (Z.repeated) I("if(d%s){", D)("if(!Array.isArray(d%s))", D)("throw TypeError(%j)", Z.fullName + ": array expected")("m%s=[]", D)("for(var i=0;i<d%s.length;++i){", D), th1(I, Z, G, D + "[i]")("}")("}");
-      else {
-        if (!(Z.resolvedType instanceof Gr)) I("if(d%s!=null){", D);
-        if (th1(I, Z, G, D), !(Z.resolvedType instanceof Gr)) I("}")
-      }
-    }
-    return I("return m")
-  };
 
-  function eh1(A, B, Q, I) {
-    if (B.resolvedType)
-      if (B.resolvedType instanceof Gr) A("d%s=o.enums===String?(types[%i].values[m%s]===undefined?m%s:types[%i].values[m%s]):m%s", I, Q, I, I, Q, I, I);
-      else A("d%s=types[%i].toObject(m%s,o)", I, Q, I);
-    else {
-      var G = !1;
-      switch (B.type) {
-        case "double":
-        case "float":
-          A("d%s=o.json&&!isFinite(m%s)?String(m%s):m%s", I, I, I, I);
-          break;
-        case "uint64":
-          G = !0;
-        case "int64":
-        case "sint64":
-        case "fixed64":
-        case "sfixed64":
-          A('if(typeof m%s==="number")', I)("d%s=o.longs===String?String(m%s):m%s", I, I, I)("else")("d%s=o.longs===String?util.Long.prototype.toString.call(m%s):o.longs===Number?new util.LongBits(m%s.low>>>0,m%s.high>>>0).toNumber(%s):m%s", I, I, I, I, G ? "true" : "", I);
-          break;
-        case "bytes":
-          A("d%s=o.bytes===String?util.base64.encode(m%s,0,m%s.length):o.bytes===Array?Array.prototype.slice.call(m%s):m%s", I, I, I, I, I);
-          break;
-        default:
-          A("d%s=m%s", I, I);
-          break
+      function C(q) {
+        D("next", q)
       }
-    }
-    return A
-  }
-  jj0.toObject = function A(B) {
-    var Q = B.fieldsArray.slice().sort(Ww.compareFieldsById);
-    if (!Q.length) return Ww.codegen()("return {}");
-    var I = Ww.codegen(["m", "o"], B.name + "$toObject")("if(!o)")("o={}")("var d={}"),
-      G = [],
-      Z = [],
-      D = [],
-      Y = 0;
-    for (; Y < Q.length; ++Y)
-      if (!Q[Y].partOf)(Q[Y].resolve().repeated ? G : Q[Y].map ? Z : D).push(Q[Y]);
-    if (G.length) {
-      I("if(o.arrays||o.defaults){");
-      for (Y = 0; Y < G.length; ++Y) I("d%s=[]", Ww.safeProp(G[Y].name));
-      I("}")
-    }
-    if (Z.length) {
-      I("if(o.objects||o.defaults){");
-      for (Y = 0; Y < Z.length; ++Y) I("d%s={}", Ww.safeProp(Z[Y].name));
-      I("}")
-    }
-    if (D.length) {
-      I("if(o.defaults){");
-      for (Y = 0; Y < D.length; ++Y) {
-        var W = D[Y],
-          J = Ww.safeProp(W.name);
-        if (W.resolvedType instanceof Gr) I("d%s=o.enums===String?%j:%j", J, W.resolvedType.valuesById[W.typeDefault], W.typeDefault);
-        else if (W.long) I("if(util.Long){")("var n=new util.Long(%i,%i,%j)", W.typeDefault.low, W.typeDefault.high, W.typeDefault.unsigned)("d%s=o.longs===String?n.toString():o.longs===Number?n.toNumber():n", J)("}else")("d%s=o.longs===String?%j:%i", J, W.typeDefault.toString(), W.typeDefault.toNumber());
-        else if (W.bytes) {
-          var F = "[" + Array.prototype.slice.call(W.typeDefault).join(",") + "]";
-          I("if(o.bytes===String)d%s=%j", J, String.fromCharCode.apply(String, W.typeDefault))("else{")("d%s=%s", J, F)("if(o.bytes!==Array)d%s=util.newBuffer(d%s)", J, J)("}")
-        } else I("d%s=%j", J, W.typeDefault)
+
+      function E(q) {
+        D("throw", q)
       }
-      I("}")
-    }
-    var X = !1;
-    for (Y = 0; Y < Q.length; ++Y) {
-      var W = Q[Y],
-        V = B._fieldsArray.indexOf(W),
-        J = Ww.safeProp(W.name);
-      if (W.map) {
-        if (!X) X = !0, I("var ks2");
-        I("if(m%s&&(ks2=Object.keys(m%s)).length){", J, J)("d%s={}", J)("for(var j=0;j<ks2.length;++j){"), eh1(I, W, V, J + "[ks2[j]]")("}")
-      } else if (W.repeated) I("if(m%s&&m%s.length){", J, J)("d%s=[]", J)("for(var j=0;j<m%s.length;++j){", J), eh1(I, W, V, J + "[j]")("}");
-      else if (I("if(m%s!=null&&m.hasOwnProperty(%j)){", J, W.name), eh1(I, W, V, J), W.partOf) I("if(o.oneofs)")("d%s=%j", Ww.safeProp(W.partOf.name), W.name);
-      I("}")
-    }
-    return I("return d")
-  }
-})
-// @from(Start 4784455, End 4785704)
-Bm1 = z((kj0) => {
-  var E36 = kj0,
-    U36 = HD1();
-  E36[".google.protobuf.Any"] = {
-    fromObject: function(A) {
-      if (A && A["@type"]) {
-        var B = A["@type"].substring(A["@type"].lastIndexOf("/") + 1),
-          Q = this.lookup(B);
-        if (Q) {
-          var I = A["@type"].charAt(0) === "." ? A["@type"].slice(1) : A["@type"];
-          if (I.indexOf("/") === -1) I = "/" + I;
-          return this.create({
-            type_url: I,
-            value: Q.encode(Q.fromObject(A)).finish()
+
+      function U(q, w) {
+        if (q(w), V.shift(), V.length) D(V[0][0], V[0][1])
+      }
+    }, _dQ = function(I) {
+      var Y, J;
+      return Y = {}, W("next"), W("throw", function(X) {
+        throw X
+      }), W("return"), Y[Symbol.iterator] = function() {
+        return this
+      }, Y;
+
+      function W(X, V) {
+        Y[X] = I[X] ? function(F) {
+          return (J = !J) ? {
+            value: Y5A(I[X](F)),
+            done: !1
+          } : V ? V(F) : F
+        } : V
+      }
+    }, kdQ = function(I) {
+      if (!Symbol.asyncIterator) throw TypeError("Symbol.asyncIterator is not defined.");
+      var Y = I[Symbol.asyncIterator],
+        J;
+      return Y ? Y.call(I) : (I = typeof RcA === "function" ? RcA(I) : I[Symbol.iterator](), J = {}, W("next"), W("throw"), W("return"), J[Symbol.asyncIterator] = function() {
+        return this
+      }, J);
+
+      function W(V) {
+        J[V] = I[V] && function(F) {
+          return new Promise(function(K, D) {
+            F = I[V](F), X(K, D, F.done, F.value)
           })
         }
       }
-      return this.fromObject(A)
-    },
-    toObject: function(A, B) {
-      var Q = "type.googleapis.com/",
-        I = "",
-        G = "";
-      if (B && B.json && A.type_url && A.value) {
-        G = A.type_url.substring(A.type_url.lastIndexOf("/") + 1), I = A.type_url.substring(0, A.type_url.lastIndexOf("/") + 1);
-        var Z = this.lookup(G);
-        if (Z) A = Z.decode(A.value)
-      }
-      if (!(A instanceof this.ctor) && A instanceof U36) {
-        var D = A.$type.toObject(A, B),
-          Y = A.$type.fullName[0] === "." ? A.$type.fullName.slice(1) : A.$type.fullName;
-        if (I === "") I = Q;
-        return G = I + Y, D["@type"] = G, D
-      }
-      return this.toObject(A, B)
-    }
-  }
-})
-// @from(Start 4785710, End 4793643)
-ED1 = z((s$8, fj0) => {
-  fj0.exports = ZB;
-  var lC = Bh();
-  ((ZB.prototype = Object.create(lC.prototype)).constructor = ZB).className = "Type";
-  var N36 = cC(),
-    Gm1 = tg(),
-    zD1 = VR(),
-    $36 = VD1(),
-    q36 = KD1(),
-    Qm1 = HD1(),
-    Im1 = xZ1(),
-    M36 = yZ1(),
-    _Z = RI(),
-    L36 = Zm1(),
-    R36 = ah1(),
-    O36 = oh1(),
-    xj0 = Am1(),
-    T36 = Bm1();
 
-  function ZB(A, B) {
-    lC.call(this, A, B), this.fields = {}, this.oneofs = void 0, this.extensions = void 0, this.reserved = void 0, this.group = void 0, this._fieldsById = null, this._fieldsArray = null, this._oneofsArray = null, this._ctor = null
-  }
-  Object.defineProperties(ZB.prototype, {
-    fieldsById: {
-      get: function() {
-        if (this._fieldsById) return this._fieldsById;
-        this._fieldsById = {};
-        for (var A = Object.keys(this.fields), B = 0; B < A.length; ++B) {
-          var Q = this.fields[A[B]],
-            I = Q.id;
-          if (this._fieldsById[I]) throw Error("duplicate id " + I + " in " + this);
-          this._fieldsById[I] = Q
-        }
-        return this._fieldsById
+      function X(V, F, K, D) {
+        Promise.resolve(D).then(function(H) {
+          V({
+            value: H,
+            done: K
+          })
+        }, F)
       }
-    },
-    fieldsArray: {
-      get: function() {
-        return this._fieldsArray || (this._fieldsArray = _Z.toArray(this.fields))
-      }
-    },
-    oneofsArray: {
-      get: function() {
-        return this._oneofsArray || (this._oneofsArray = _Z.toArray(this.oneofs))
-      }
-    },
-    ctor: {
-      get: function() {
-        return this._ctor || (this.ctor = ZB.generateConstructor(this)())
+    }, ydQ = function(I, Y) {
+      if (Object.defineProperty) Object.defineProperty(I, "raw", {
+        value: Y
+      });
+      else I.raw = Y;
+      return I
+    };
+    var B = Object.create ? function(I, Y) {
+        Object.defineProperty(I, "default", {
+          enumerable: !0,
+          value: Y
+        })
+      } : function(I, Y) {
+        I.default = Y
       },
-      set: function(A) {
-        var B = A.prototype;
-        if (!(B instanceof Qm1))(A.prototype = new Qm1).constructor = A, _Z.merge(A.prototype, B);
-        A.$type = A.prototype.$type = this, _Z.merge(A, Qm1, !0), this._ctor = A;
-        var Q = 0;
-        for (; Q < this.fieldsArray.length; ++Q) this._fieldsArray[Q].resolve();
-        var I = {};
-        for (Q = 0; Q < this.oneofsArray.length; ++Q) I[this._oneofsArray[Q].resolve().name] = {
-          get: _Z.oneOfGetter(this._oneofsArray[Q].oneof),
-          set: _Z.oneOfSetter(this._oneofsArray[Q].oneof)
-        };
-        if (Q) Object.defineProperties(A.prototype, I)
+      G = function(I) {
+        return G = Object.getOwnPropertyNames || function(Y) {
+          var J = [];
+          for (var W in Y)
+            if (Object.prototype.hasOwnProperty.call(Y, W)) J[J.length] = W;
+          return J
+        }, G(I)
+      };
+    xdQ = function(I) {
+      if (I && I.__esModule) return I;
+      var Y = {};
+      if (I != null) {
+        for (var J = G(I), W = 0; W < J.length; W++)
+          if (J[W] !== "default") TcA(Y, I, J[W])
       }
-    }
-  });
-  ZB.generateConstructor = function A(B) {
-    var Q = _Z.codegen(["p"], B.name);
-    for (var I = 0, G; I < B.fieldsArray.length; ++I)
-      if ((G = B._fieldsArray[I]).map) Q("this%s={}", _Z.safeProp(G.name));
-      else if (G.repeated) Q("this%s=[]", _Z.safeProp(G.name));
-    return Q("if(p)for(var ks=Object.keys(p),i=0;i<ks.length;++i)if(p[ks[i]]!=null)")("this[ks[i]]=p[ks[i]]")
-  };
-
-  function wD1(A) {
-    return A._fieldsById = A._fieldsArray = A._oneofsArray = null, delete A.encode, delete A.decode, delete A.verify, A
-  }
-  ZB.fromJSON = function A(B, Q) {
-    var I = new ZB(B, Q.options);
-    I.extensions = Q.extensions, I.reserved = Q.reserved;
-    var G = Object.keys(Q.fields),
-      Z = 0;
-    for (; Z < G.length; ++Z) I.add((typeof Q.fields[G[Z]].keyType !== "undefined" ? $36.fromJSON : zD1.fromJSON)(G[Z], Q.fields[G[Z]]));
-    if (Q.oneofs)
-      for (G = Object.keys(Q.oneofs), Z = 0; Z < G.length; ++Z) I.add(Gm1.fromJSON(G[Z], Q.oneofs[G[Z]]));
-    if (Q.nested)
-      for (G = Object.keys(Q.nested), Z = 0; Z < G.length; ++Z) {
-        var D = Q.nested[G[Z]];
-        I.add((D.id !== void 0 ? zD1.fromJSON : D.fields !== void 0 ? ZB.fromJSON : D.values !== void 0 ? N36.fromJSON : D.methods !== void 0 ? q36.fromJSON : lC.fromJSON)(G[Z], D))
+      return B(Y, I), Y
+    }, vdQ = function(I) {
+      return I && I.__esModule ? I : {
+        default: I
       }
-    if (Q.extensions && Q.extensions.length) I.extensions = Q.extensions;
-    if (Q.reserved && Q.reserved.length) I.reserved = Q.reserved;
-    if (Q.group) I.group = !0;
-    if (Q.comment) I.comment = Q.comment;
-    return I
-  };
-  ZB.prototype.toJSON = function A(B) {
-    var Q = lC.prototype.toJSON.call(this, B),
-      I = B ? Boolean(B.keepComments) : !1;
-    return _Z.toObject(["options", Q && Q.options || void 0, "oneofs", lC.arrayToJSON(this.oneofsArray, B), "fields", lC.arrayToJSON(this.fieldsArray.filter(function(G) {
-      return !G.declaringField
-    }), B) || {}, "extensions", this.extensions && this.extensions.length ? this.extensions : void 0, "reserved", this.reserved && this.reserved.length ? this.reserved : void 0, "group", this.group || void 0, "nested", Q && Q.nested || void 0, "comment", I ? this.comment : void 0])
-  };
-  ZB.prototype.resolveAll = function A() {
-    var B = this.fieldsArray,
-      Q = 0;
-    while (Q < B.length) B[Q++].resolve();
-    var I = this.oneofsArray;
-    Q = 0;
-    while (Q < I.length) I[Q++].resolve();
-    return lC.prototype.resolveAll.call(this)
-  };
-  ZB.prototype.get = function A(B) {
-    return this.fields[B] || this.oneofs && this.oneofs[B] || this.nested && this.nested[B] || null
-  };
-  ZB.prototype.add = function A(B) {
-    if (this.get(B.name)) throw Error("duplicate name '" + B.name + "' in " + this);
-    if (B instanceof zD1 && B.extend === void 0) {
-      if (this._fieldsById ? this._fieldsById[B.id] : this.fieldsById[B.id]) throw Error("duplicate id " + B.id + " in " + this);
-      if (this.isReservedId(B.id)) throw Error("id " + B.id + " is reserved in " + this);
-      if (this.isReservedName(B.name)) throw Error("name '" + B.name + "' is reserved in " + this);
-      if (B.parent) B.parent.remove(B);
-      return this.fields[B.name] = B, B.message = this, B.onAdd(this), wD1(this)
-    }
-    if (B instanceof Gm1) {
-      if (!this.oneofs) this.oneofs = {};
-      return this.oneofs[B.name] = B, B.onAdd(this), wD1(this)
-    }
-    return lC.prototype.add.call(this, B)
-  };
-  ZB.prototype.remove = function A(B) {
-    if (B instanceof zD1 && B.extend === void 0) {
-      if (!this.fields || this.fields[B.name] !== B) throw Error(B + " is not a member of " + this);
-      return delete this.fields[B.name], B.parent = null, B.onRemove(this), wD1(this)
-    }
-    if (B instanceof Gm1) {
-      if (!this.oneofs || this.oneofs[B.name] !== B) throw Error(B + " is not a member of " + this);
-      return delete this.oneofs[B.name], B.parent = null, B.onRemove(this), wD1(this)
-    }
-    return lC.prototype.remove.call(this, B)
-  };
-  ZB.prototype.isReservedId = function A(B) {
-    return lC.isReservedId(this.reserved, B)
-  };
-  ZB.prototype.isReservedName = function A(B) {
-    return lC.isReservedName(this.reserved, B)
-  };
-  ZB.prototype.create = function A(B) {
-    return new this.ctor(B)
-  };
-  ZB.prototype.setup = function A() {
-    var B = this.fullName,
-      Q = [];
-    for (var I = 0; I < this.fieldsArray.length; ++I) Q.push(this._fieldsArray[I].resolve().resolvedType);
-    this.encode = L36(this)({
-      Writer: M36,
-      types: Q,
-      util: _Z
-    }), this.decode = R36(this)({
-      Reader: Im1,
-      types: Q,
-      util: _Z
-    }), this.verify = O36(this)({
-      types: Q,
-      util: _Z
-    }), this.fromObject = xj0.fromObject(this)({
-      types: Q,
-      util: _Z
-    }), this.toObject = xj0.toObject(this)({
-      types: Q,
-      util: _Z
-    });
-    var G = T36[B];
-    if (G) {
-      var Z = Object.create(this);
-      Z.fromObject = this.fromObject, this.fromObject = G.fromObject.bind(Z), Z.toObject = this.toObject, this.toObject = G.toObject.bind(Z)
-    }
-    return this
-  };
-  ZB.prototype.encode = function A(B, Q) {
-    return this.setup().encode(B, Q)
-  };
-  ZB.prototype.encodeDelimited = function A(B, Q) {
-    return this.encode(B, Q && Q.len ? Q.fork() : Q).ldelim()
-  };
-  ZB.prototype.decode = function A(B, Q) {
-    return this.setup().decode(B, Q)
-  };
-  ZB.prototype.decodeDelimited = function A(B) {
-    if (!(B instanceof Im1)) B = Im1.create(B);
-    return this.decode(B, B.uint32())
-  };
-  ZB.prototype.verify = function A(B) {
-    return this.setup().verify(B)
-  };
-  ZB.prototype.fromObject = function A(B) {
-    return this.setup().fromObject(B)
-  };
-  ZB.prototype.toObject = function A(B, Q) {
-    return this.setup().toObject(B, Q)
-  };
-  ZB.d = function A(B) {
-    return function Q(I) {
-      _Z.decorateType(I, B)
-    }
-  }
-})
-// @from(Start 4793649, End 4798275)
-$D1 = z((r$8, mj0) => {
-  mj0.exports = NJ;
-  var ND1 = Bh();
-  ((NJ.prototype = Object.create(ND1.prototype)).constructor = NJ).className = "Root";
-  var Ym1 = VR(),
-    bj0 = cC(),
-    P36 = tg(),
-    KR = RI(),
-    gj0, Dm1, Zr;
-
-  function NJ(A) {
-    ND1.call(this, "", A), this.deferred = [], this.files = []
-  }
-  NJ.fromJSON = function A(B, Q) {
-    if (!Q) Q = new NJ;
-    if (B.options) Q.setOptions(B.options);
-    return Q.addJSON(B.nested)
-  };
-  NJ.prototype.resolvePath = KR.path.resolve;
-  NJ.prototype.fetch = KR.fetch;
-
-  function hj0() {}
-  NJ.prototype.load = function A(B, Q, I) {
-    if (typeof Q === "function") I = Q, Q = void 0;
-    var G = this;
-    if (!I) return KR.asPromise(A, G, B, Q);
-    var Z = I === hj0;
-
-    function D(C, K) {
-      if (!I) return;
-      if (Z) throw C;
-      var E = I;
-      I = null, E(C, K)
-    }
-
-    function Y(C) {
-      var K = C.lastIndexOf("google/protobuf/");
-      if (K > -1) {
-        var E = C.substring(K);
-        if (E in Zr) return E
-      }
-      return null
-    }
-
-    function W(C, K) {
-      try {
-        if (KR.isString(K) && K.charAt(0) === "{") K = JSON.parse(K);
-        if (!KR.isString(K)) G.setOptions(K.options).addJSON(K.nested);
-        else {
-          Dm1.filename = C;
-          var E = Dm1(K, G, Q),
-            N, q = 0;
-          if (E.imports) {
-            for (; q < E.imports.length; ++q)
-              if (N = Y(E.imports[q]) || G.resolvePath(C, E.imports[q])) J(N)
+    }, bdQ = function(I, Y, J, W) {
+      if (J === "a" && !W) throw TypeError("Private accessor was defined without a getter");
+      if (typeof Y === "function" ? I !== Y || !W : !Y.has(I)) throw TypeError("Cannot read private member from an object whose class did not declare it");
+      return J === "m" ? W : J === "a" ? W.call(I) : W ? W.value : Y.get(I)
+    }, fdQ = function(I, Y, J, W, X) {
+      if (W === "m") throw TypeError("Private method is not writable");
+      if (W === "a" && !X) throw TypeError("Private accessor was defined without a setter");
+      if (typeof Y === "function" ? I !== Y || !X : !Y.has(I)) throw TypeError("Cannot write private member to an object whose class did not declare it");
+      return W === "a" ? X.call(I, J) : X ? X.value = J : Y.set(I, J), J
+    }, hdQ = function(I, Y) {
+      if (Y === null || typeof Y !== "object" && typeof Y !== "function") throw TypeError("Cannot use 'in' operator on non-object");
+      return typeof I === "function" ? Y === I : I.has(Y)
+    }, gdQ = function(I, Y, J) {
+      if (Y !== null && Y !== void 0) {
+        if (typeof Y !== "object" && typeof Y !== "function") throw TypeError("Object expected.");
+        var W, X;
+        if (J) {
+          if (!Symbol.asyncDispose) throw TypeError("Symbol.asyncDispose is not defined.");
+          W = Y[Symbol.asyncDispose]
+        }
+        if (W === void 0) {
+          if (!Symbol.dispose) throw TypeError("Symbol.dispose is not defined.");
+          if (W = Y[Symbol.dispose], J) X = W
+        }
+        if (typeof W !== "function") throw TypeError("Object not disposable.");
+        if (X) W = function() {
+          try {
+            X.call(this)
+          } catch (V) {
+            return Promise.reject(V)
           }
-          if (E.weakImports) {
-            for (q = 0; q < E.weakImports.length; ++q)
-              if (N = Y(E.weakImports[q]) || G.resolvePath(C, E.weakImports[q])) J(N, !0)
+        };
+        I.stack.push({
+          value: Y,
+          dispose: W,
+          async: J
+        })
+      } else if (J) I.stack.push({
+        async: !0
+      });
+      return Y
+    };
+    var Z = typeof SuppressedError === "function" ? SuppressedError : function(I, Y, J) {
+      var W = Error(J);
+      return W.name = "SuppressedError", W.error = I, W.suppressed = Y, W
+    };
+    udQ = function(I) {
+      function Y(V) {
+        I.error = I.hasError ? new Z(V, I.error, "An error was suppressed during disposal.") : V, I.hasError = !0
+      }
+      var J, W = 0;
+
+      function X() {
+        while (J = I.stack.pop()) try {
+          if (!J.async && W === 1) return W = 0, I.stack.push(J), Promise.resolve().then(X);
+          if (J.dispose) {
+            var V = J.dispose.call(J.value);
+            if (J.async) return W |= 2, Promise.resolve(V).then(X, function(F) {
+              return Y(F), X()
+            })
+          } else W |= 1
+        } catch (F) {
+          Y(F)
+        }
+        if (W === 1) return I.hasError ? Promise.reject(I.error) : Promise.resolve();
+        if (I.hasError) throw I.error
+      }
+      return X()
+    }, mdQ = function(I, Y) {
+      if (typeof I === "string" && /^\.\.?\//.test(I)) return I.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(J, W, X, V, F) {
+        return W ? Y ? ".jsx" : ".js" : X && (!V || !F) ? J : X + V + "." + F.toLowerCase() + "js"
+      });
+      return I
+    }, A("__extends", HdQ), A("__assign", CdQ), A("__rest", EdQ), A("__decorate", zdQ), A("__param", UdQ), A("__esDecorate", $dQ), A("__runInitializers", wdQ), A("__propKey", qdQ), A("__setFunctionName", NdQ), A("__metadata", LdQ), A("__awaiter", MdQ), A("__generator", OdQ), A("__exportStar", RdQ), A("__createBinding", TcA), A("__values", RcA), A("__read", xS1), A("__spread", TdQ), A("__spreadArrays", PdQ), A("__spreadArray", jdQ), A("__await", Y5A), A("__asyncGenerator", SdQ), A("__asyncDelegator", _dQ), A("__asyncValues", kdQ), A("__makeTemplateObject", ydQ), A("__importStar", xdQ), A("__importDefault", vdQ), A("__classPrivateFieldGet", bdQ), A("__classPrivateFieldSet", fdQ), A("__classPrivateFieldIn", hdQ), A("__addDisposableResource", gdQ), A("__disposeResources", udQ), A("__rewriteRelativeImportExtension", mdQ)
+  })
+})
+// @from(Start 4232318, End 4235101)
+vS1 = z((sT7, odQ) => {
+  var {
+    defineProperty: jcA,
+    getOwnPropertyDescriptor: kL8,
+    getOwnPropertyNames: yL8
+  } = Object, xL8 = Object.prototype.hasOwnProperty, ScA = (A, Q) => jcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), vL8 = (A, Q) => {
+    for (var B in Q) jcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, bL8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of yL8(Q))
+        if (!xL8.call(A, Z) && Z !== B) jcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = kL8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, fL8 = (A) => bL8(jcA({}, "__esModule", {
+    value: !0
+  }), A), cdQ = {};
+  vL8(cdQ, {
+    AlgorithmId: () => ndQ,
+    EndpointURLScheme: () => idQ,
+    FieldPosition: () => adQ,
+    HttpApiKeyAuthLocation: () => ldQ,
+    HttpAuthLocation: () => pdQ,
+    IniSectionType: () => sdQ,
+    RequestHandlerProtocol: () => rdQ,
+    SMITHY_CONTEXT_KEY: () => dL8,
+    getDefaultClientConfiguration: () => uL8,
+    resolveDefaultRuntimeConfig: () => mL8
+  });
+  odQ.exports = fL8(cdQ);
+  var pdQ = ((A) => {
+      return A.HEADER = "header", A.QUERY = "query", A
+    })(pdQ || {}),
+    ldQ = ((A) => {
+      return A.HEADER = "header", A.QUERY = "query", A
+    })(ldQ || {}),
+    idQ = ((A) => {
+      return A.HTTP = "http", A.HTTPS = "https", A
+    })(idQ || {}),
+    ndQ = ((A) => {
+      return A.MD5 = "md5", A.CRC32 = "crc32", A.CRC32C = "crc32c", A.SHA1 = "sha1", A.SHA256 = "sha256", A
+    })(ndQ || {}),
+    hL8 = ScA((A) => {
+      let Q = [];
+      if (A.sha256 !== void 0) Q.push({
+        algorithmId: () => "sha256",
+        checksumConstructor: () => A.sha256
+      });
+      if (A.md5 != null) Q.push({
+        algorithmId: () => "md5",
+        checksumConstructor: () => A.md5
+      });
+      return {
+        addChecksumAlgorithm(B) {
+          Q.push(B)
+        },
+        checksumAlgorithms() {
+          return Q
+        }
+      }
+    }, "getChecksumConfiguration"),
+    gL8 = ScA((A) => {
+      let Q = {};
+      return A.checksumAlgorithms().forEach((B) => {
+        Q[B.algorithmId()] = B.checksumConstructor()
+      }), Q
+    }, "resolveChecksumRuntimeConfig"),
+    uL8 = ScA((A) => {
+      return hL8(A)
+    }, "getDefaultClientConfiguration"),
+    mL8 = ScA((A) => {
+      return gL8(A)
+    }, "resolveDefaultRuntimeConfig"),
+    adQ = ((A) => {
+      return A[A.HEADER = 0] = "HEADER", A[A.TRAILER = 1] = "TRAILER", A
+    })(adQ || {}),
+    dL8 = "__smithy_context",
+    sdQ = ((A) => {
+      return A.PROFILE = "profile", A.SSO_SESSION = "sso-session", A.SERVICES = "services", A
+    })(sdQ || {}),
+    rdQ = ((A) => {
+      return A.HTTP_0_9 = "http/0.9", A.HTTP_1_0 = "http/1.0", A.TDS_8_0 = "tds/8.0", A
+    })(rdQ || {})
+})
+// @from(Start 4235107, End 4239614)
+iCA = z((rT7, BcQ) => {
+  var {
+    defineProperty: _cA,
+    getOwnPropertyDescriptor: cL8,
+    getOwnPropertyNames: pL8
+  } = Object, lL8 = Object.prototype.hasOwnProperty, Bc = (A, Q) => _cA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), iL8 = (A, Q) => {
+    for (var B in Q) _cA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, nL8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of pL8(Q))
+        if (!lL8.call(A, Z) && Z !== B) _cA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = cL8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, aL8 = (A) => nL8(_cA({}, "__esModule", {
+    value: !0
+  }), A), tdQ = {};
+  iL8(tdQ, {
+    Field: () => oL8,
+    Fields: () => tL8,
+    HttpRequest: () => eL8,
+    HttpResponse: () => AM8,
+    IHttpRequest: () => edQ.HttpRequest,
+    getHttpHandlerExtensionConfiguration: () => sL8,
+    isValidHostname: () => QcQ,
+    resolveHttpHandlerRuntimeConfig: () => rL8
+  });
+  BcQ.exports = aL8(tdQ);
+  var sL8 = Bc((A) => {
+      return {
+        setHttpHandler(Q) {
+          A.httpHandler = Q
+        },
+        httpHandler() {
+          return A.httpHandler
+        },
+        updateHttpClientConfig(Q, B) {
+          A.httpHandler?.updateHttpClientConfig(Q, B)
+        },
+        httpHandlerConfigs() {
+          return A.httpHandler.httpHandlerConfigs()
+        }
+      }
+    }, "getHttpHandlerExtensionConfiguration"),
+    rL8 = Bc((A) => {
+      return {
+        httpHandler: A.httpHandler()
+      }
+    }, "resolveHttpHandlerRuntimeConfig"),
+    edQ = vS1(),
+    oL8 = class {
+      static {
+        Bc(this, "Field")
+      }
+      constructor({
+        name: A,
+        kind: Q = edQ.FieldPosition.HEADER,
+        values: B = []
+      }) {
+        this.name = A, this.kind = Q, this.values = B
+      }
+      add(A) {
+        this.values.push(A)
+      }
+      set(A) {
+        this.values = A
+      }
+      remove(A) {
+        this.values = this.values.filter((Q) => Q !== A)
+      }
+      toString() {
+        return this.values.map((A) => A.includes(",") || A.includes(" ") ? `"${A}"` : A).join(", ")
+      }
+      get() {
+        return this.values
+      }
+    },
+    tL8 = class {
+      constructor({
+        fields: A = [],
+        encoding: Q = "utf-8"
+      }) {
+        this.entries = {}, A.forEach(this.setField.bind(this)), this.encoding = Q
+      }
+      static {
+        Bc(this, "Fields")
+      }
+      setField(A) {
+        this.entries[A.name.toLowerCase()] = A
+      }
+      getField(A) {
+        return this.entries[A.toLowerCase()]
+      }
+      removeField(A) {
+        delete this.entries[A.toLowerCase()]
+      }
+      getByType(A) {
+        return Object.values(this.entries).filter((Q) => Q.kind === A)
+      }
+    },
+    eL8 = class A {
+      static {
+        Bc(this, "HttpRequest")
+      }
+      constructor(Q) {
+        this.method = Q.method || "GET", this.hostname = Q.hostname || "localhost", this.port = Q.port, this.query = Q.query || {}, this.headers = Q.headers || {}, this.body = Q.body, this.protocol = Q.protocol ? Q.protocol.slice(-1) !== ":" ? `${Q.protocol}:` : Q.protocol : "https:", this.path = Q.path ? Q.path.charAt(0) !== "/" ? `/${Q.path}` : Q.path : "/", this.username = Q.username, this.password = Q.password, this.fragment = Q.fragment
+      }
+      static clone(Q) {
+        let B = new A({
+          ...Q,
+          headers: {
+            ...Q.headers
+          }
+        });
+        if (B.query) B.query = AcQ(B.query);
+        return B
+      }
+      static isInstance(Q) {
+        if (!Q) return !1;
+        let B = Q;
+        return "method" in B && "protocol" in B && "hostname" in B && "path" in B && typeof B.query === "object" && typeof B.headers === "object"
+      }
+      clone() {
+        return A.clone(this)
+      }
+    };
+
+  function AcQ(A) {
+    return Object.keys(A).reduce((Q, B) => {
+      let G = A[B];
+      return {
+        ...Q,
+        [B]: Array.isArray(G) ? [...G] : G
+      }
+    }, {})
+  }
+  Bc(AcQ, "cloneQuery");
+  var AM8 = class {
+    static {
+      Bc(this, "HttpResponse")
+    }
+    constructor(A) {
+      this.statusCode = A.statusCode, this.reason = A.reason, this.headers = A.headers || {}, this.body = A.body
+    }
+    static isInstance(A) {
+      if (!A) return !1;
+      let Q = A;
+      return typeof Q.statusCode === "number" && typeof Q.headers === "object"
+    }
+  };
+
+  function QcQ(A) {
+    return /^[a-z0-9][a-z0-9\.\-]*[a-z0-9]$/.test(A)
+  }
+  Bc(QcQ, "isValidHostname")
+})
+// @from(Start 4239620, End 4240573)
+IcQ = z((AP7, ZcQ) => {
+  var {
+    defineProperty: kcA,
+    getOwnPropertyDescriptor: QM8,
+    getOwnPropertyNames: BM8
+  } = Object, GM8 = Object.prototype.hasOwnProperty, ZM8 = (A, Q) => kcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), IM8 = (A, Q) => {
+    for (var B in Q) kcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, YM8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of BM8(Q))
+        if (!GM8.call(A, Z) && Z !== B) kcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = QM8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, JM8 = (A) => YM8(kcA({}, "__esModule", {
+    value: !0
+  }), A), GcQ = {};
+  IM8(GcQ, {
+    isArrayBuffer: () => WM8
+  });
+  ZcQ.exports = JM8(GcQ);
+  var WM8 = ZM8((A) => typeof ArrayBuffer === "function" && A instanceof ArrayBuffer || Object.prototype.toString.call(A) === "[object ArrayBuffer]", "isArrayBuffer")
+})
+// @from(Start 4240579, End 4241632)
+XcQ = z((QP7, WcQ) => {
+  var {
+    defineProperty: ycA,
+    getOwnPropertyDescriptor: XM8,
+    getOwnPropertyNames: VM8
+  } = Object, FM8 = Object.prototype.hasOwnProperty, bS1 = (A, Q) => ycA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), KM8 = (A, Q) => {
+    for (var B in Q) ycA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, DM8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of VM8(Q))
+        if (!FM8.call(A, Z) && Z !== B) ycA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = XM8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, HM8 = (A) => DM8(ycA({}, "__esModule", {
+    value: !0
+  }), A), YcQ = {};
+  KM8(YcQ, {
+    escapeUri: () => JcQ,
+    escapeUriPath: () => EM8
+  });
+  WcQ.exports = HM8(YcQ);
+  var JcQ = bS1((A) => encodeURIComponent(A).replace(/[!'()*]/g, CM8), "escapeUri"),
+    CM8 = bS1((A) => `%${A.charCodeAt(0).toString(16).toUpperCase()}`, "hexEncode"),
+    EM8 = bS1((A) => A.split("/").map(JcQ).join("/"), "escapeUriPath")
+})
+// @from(Start 4241638, End 4258552)
+fcQ = z((BP7, bcQ) => {
+  var {
+    defineProperty: ucA,
+    getOwnPropertyDescriptor: zM8,
+    getOwnPropertyNames: UM8
+  } = Object, $M8 = Object.prototype.hasOwnProperty, DD = (A, Q) => ucA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), wM8 = (A, Q) => {
+    for (var B in Q) ucA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, qM8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of UM8(Q))
+        if (!$M8.call(A, Z) && Z !== B) ucA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = zM8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, NM8 = (A) => qM8(ucA({}, "__esModule", {
+    value: !0
+  }), A), HcQ = {};
+  wM8(HcQ, {
+    ALGORITHM_IDENTIFIER: () => xcA,
+    ALGORITHM_IDENTIFIER_V4A: () => RM8,
+    ALGORITHM_QUERY_PARAM: () => CcQ,
+    ALWAYS_UNSIGNABLE_HEADERS: () => LcQ,
+    AMZ_DATE_HEADER: () => pS1,
+    AMZ_DATE_QUERY_PARAM: () => uS1,
+    AUTH_HEADER: () => cS1,
+    CREDENTIAL_QUERY_PARAM: () => EcQ,
+    DATE_HEADER: () => $cQ,
+    EVENT_ALGORITHM_IDENTIFIER: () => RcQ,
+    EXPIRES_QUERY_PARAM: () => UcQ,
+    GENERATED_HEADERS: () => wcQ,
+    HOST_HEADER: () => MM8,
+    KEY_TYPE_IDENTIFIER: () => lS1,
+    MAX_CACHE_SIZE: () => PcQ,
+    MAX_PRESIGNED_TTL: () => jcQ,
+    PROXY_HEADER_PATTERN: () => McQ,
+    REGION_SET_PARAM: () => LM8,
+    SEC_HEADER_PATTERN: () => OcQ,
+    SHA256_HEADER: () => gcA,
+    SIGNATURE_HEADER: () => qcQ,
+    SIGNATURE_QUERY_PARAM: () => mS1,
+    SIGNED_HEADERS_QUERY_PARAM: () => zcQ,
+    SignatureV4: () => fM8,
+    SignatureV4Base: () => vcQ,
+    TOKEN_HEADER: () => NcQ,
+    TOKEN_QUERY_PARAM: () => dS1,
+    UNSIGNABLE_PATTERNS: () => OM8,
+    UNSIGNED_PAYLOAD: () => TcQ,
+    clearCredentialCache: () => PM8,
+    createScope: () => bcA,
+    getCanonicalHeaders: () => fS1,
+    getCanonicalQuery: () => xcQ,
+    getPayloadHash: () => fcA,
+    getSigningKey: () => ScQ,
+    hasHeader: () => _cQ,
+    moveHeadersToQuery: () => ycQ,
+    prepareRequest: () => gS1,
+    signatureV4aContainer: () => hM8
+  });
+  bcQ.exports = NM8(HcQ);
+  var VcQ = O2(),
+    CcQ = "X-Amz-Algorithm",
+    EcQ = "X-Amz-Credential",
+    uS1 = "X-Amz-Date",
+    zcQ = "X-Amz-SignedHeaders",
+    UcQ = "X-Amz-Expires",
+    mS1 = "X-Amz-Signature",
+    dS1 = "X-Amz-Security-Token",
+    LM8 = "X-Amz-Region-Set",
+    cS1 = "authorization",
+    pS1 = uS1.toLowerCase(),
+    $cQ = "date",
+    wcQ = [cS1, pS1, $cQ],
+    qcQ = mS1.toLowerCase(),
+    gcA = "x-amz-content-sha256",
+    NcQ = dS1.toLowerCase(),
+    MM8 = "host",
+    LcQ = {
+      authorization: !0,
+      "cache-control": !0,
+      connection: !0,
+      expect: !0,
+      from: !0,
+      "keep-alive": !0,
+      "max-forwards": !0,
+      pragma: !0,
+      referer: !0,
+      te: !0,
+      trailer: !0,
+      "transfer-encoding": !0,
+      upgrade: !0,
+      "user-agent": !0,
+      "x-amzn-trace-id": !0
+    },
+    McQ = /^proxy-/,
+    OcQ = /^sec-/,
+    OM8 = [/^proxy-/i, /^sec-/i],
+    xcA = "AWS4-HMAC-SHA256",
+    RM8 = "AWS4-ECDSA-P256-SHA256",
+    RcQ = "AWS4-HMAC-SHA256-PAYLOAD",
+    TcQ = "UNSIGNED-PAYLOAD",
+    PcQ = 50,
+    lS1 = "aws4_request",
+    jcQ = 604800,
+    Gc = Jd(),
+    TM8 = O2(),
+    J5A = {},
+    vcA = [],
+    bcA = DD((A, Q, B) => `${A}/${Q}/${B}/${lS1}`, "createScope"),
+    ScQ = DD(async (A, Q, B, G, Z) => {
+      let I = await FcQ(A, Q.secretAccessKey, Q.accessKeyId),
+        Y = `${B}:${G}:${Z}:${(0,Gc.toHex)(I)}:${Q.sessionToken}`;
+      if (Y in J5A) return J5A[Y];
+      vcA.push(Y);
+      while (vcA.length > PcQ) delete J5A[vcA.shift()];
+      let J = `AWS4${Q.secretAccessKey}`;
+      for (let W of [B, G, Z, lS1]) J = await FcQ(A, J, W);
+      return J5A[Y] = J
+    }, "getSigningKey"),
+    PM8 = DD(() => {
+      vcA.length = 0, Object.keys(J5A).forEach((A) => {
+        delete J5A[A]
+      })
+    }, "clearCredentialCache"),
+    FcQ = DD((A, Q, B) => {
+      let G = new A(Q);
+      return G.update((0, TM8.toUint8Array)(B)), G.digest()
+    }, "hmac"),
+    fS1 = DD(({
+      headers: A
+    }, Q, B) => {
+      let G = {};
+      for (let Z of Object.keys(A).sort()) {
+        if (A[Z] == null) continue;
+        let I = Z.toLowerCase();
+        if (I in LcQ || Q?.has(I) || McQ.test(I) || OcQ.test(I)) {
+          if (!B || B && !B.has(I)) continue
+        }
+        G[I] = A[Z].trim().replace(/\s+/g, " ")
+      }
+      return G
+    }, "getCanonicalHeaders"),
+    jM8 = IcQ(),
+    SM8 = O2(),
+    fcA = DD(async ({
+      headers: A,
+      body: Q
+    }, B) => {
+      for (let G of Object.keys(A))
+        if (G.toLowerCase() === gcA) return A[G];
+      if (Q == null) return "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+      else if (typeof Q === "string" || ArrayBuffer.isView(Q) || (0, jM8.isArrayBuffer)(Q)) {
+        let G = new B;
+        return G.update((0, SM8.toUint8Array)(Q)), (0, Gc.toHex)(await G.digest())
+      }
+      return TcQ
+    }, "getPayloadHash"),
+    KcQ = O2(),
+    _M8 = class {
+      static {
+        DD(this, "HeaderFormatter")
+      }
+      format(A) {
+        let Q = [];
+        for (let Z of Object.keys(A)) {
+          let I = (0, KcQ.fromUtf8)(Z);
+          Q.push(Uint8Array.from([I.byteLength]), I, this.formatHeaderValue(A[Z]))
+        }
+        let B = new Uint8Array(Q.reduce((Z, I) => Z + I.byteLength, 0)),
+          G = 0;
+        for (let Z of Q) B.set(Z, G), G += Z.byteLength;
+        return B
+      }
+      formatHeaderValue(A) {
+        switch (A.type) {
+          case "boolean":
+            return Uint8Array.from([A.value ? 0 : 1]);
+          case "byte":
+            return Uint8Array.from([2, A.value]);
+          case "short":
+            let Q = new DataView(new ArrayBuffer(3));
+            return Q.setUint8(0, 3), Q.setInt16(1, A.value, !1), new Uint8Array(Q.buffer);
+          case "integer":
+            let B = new DataView(new ArrayBuffer(5));
+            return B.setUint8(0, 4), B.setInt32(1, A.value, !1), new Uint8Array(B.buffer);
+          case "long":
+            let G = new Uint8Array(9);
+            return G[0] = 5, G.set(A.value.bytes, 1), G;
+          case "binary":
+            let Z = new DataView(new ArrayBuffer(3 + A.value.byteLength));
+            Z.setUint8(0, 6), Z.setUint16(1, A.value.byteLength, !1);
+            let I = new Uint8Array(Z.buffer);
+            return I.set(A.value, 3), I;
+          case "string":
+            let Y = (0, KcQ.fromUtf8)(A.value),
+              J = new DataView(new ArrayBuffer(3 + Y.byteLength));
+            J.setUint8(0, 7), J.setUint16(1, Y.byteLength, !1);
+            let W = new Uint8Array(J.buffer);
+            return W.set(Y, 3), W;
+          case "timestamp":
+            let X = new Uint8Array(9);
+            return X[0] = 8, X.set(yM8.fromNumber(A.value.valueOf()).bytes, 1), X;
+          case "uuid":
+            if (!kM8.test(A.value)) throw Error(`Invalid UUID received: ${A.value}`);
+            let V = new Uint8Array(17);
+            return V[0] = 9, V.set((0, Gc.fromHex)(A.value.replace(/\-/g, "")), 1), V
+        }
+      }
+    },
+    kM8 = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/,
+    yM8 = class A {
+      constructor(Q) {
+        if (this.bytes = Q, Q.byteLength !== 8) throw Error("Int64 buffers must be exactly 8 bytes")
+      }
+      static {
+        DD(this, "Int64")
+      }
+      static fromNumber(Q) {
+        if (Q > 9223372036854776000 || Q < -9223372036854776000) throw Error(`${Q} is too large (or, if negative, too small) to represent as an Int64`);
+        let B = new Uint8Array(8);
+        for (let G = 7, Z = Math.abs(Math.round(Q)); G > -1 && Z > 0; G--, Z /= 256) B[G] = Z;
+        if (Q < 0) hS1(B);
+        return new A(B)
+      }
+      valueOf() {
+        let Q = this.bytes.slice(0),
+          B = Q[0] & 128;
+        if (B) hS1(Q);
+        return parseInt((0, Gc.toHex)(Q), 16) * (B ? -1 : 1)
+      }
+      toString() {
+        return String(this.valueOf())
+      }
+    };
+
+  function hS1(A) {
+    for (let Q = 0; Q < 8; Q++) A[Q] ^= 255;
+    for (let Q = 7; Q > -1; Q--)
+      if (A[Q]++, A[Q] !== 0) break
+  }
+  DD(hS1, "negate");
+  var _cQ = DD((A, Q) => {
+      A = A.toLowerCase();
+      for (let B of Object.keys(Q))
+        if (A === B.toLowerCase()) return !0;
+      return !1
+    }, "hasHeader"),
+    kcQ = iCA(),
+    ycQ = DD((A, Q = {}) => {
+      let {
+        headers: B,
+        query: G = {}
+      } = kcQ.HttpRequest.clone(A);
+      for (let Z of Object.keys(B)) {
+        let I = Z.toLowerCase();
+        if (I.slice(0, 6) === "x-amz-" && !Q.unhoistableHeaders?.has(I) || Q.hoistableHeaders?.has(I)) G[Z] = B[Z], delete B[Z]
+      }
+      return {
+        ...A,
+        headers: B,
+        query: G
+      }
+    }, "moveHeadersToQuery"),
+    gS1 = DD((A) => {
+      A = kcQ.HttpRequest.clone(A);
+      for (let Q of Object.keys(A.headers))
+        if (wcQ.indexOf(Q.toLowerCase()) > -1) delete A.headers[Q];
+      return A
+    }, "prepareRequest"),
+    DcQ = w7(),
+    xM8 = O2(),
+    hcA = XcQ(),
+    xcQ = DD(({
+      query: A = {}
+    }) => {
+      let Q = [],
+        B = {};
+      for (let G of Object.keys(A)) {
+        if (G.toLowerCase() === qcQ) continue;
+        let Z = (0, hcA.escapeUri)(G);
+        Q.push(Z);
+        let I = A[G];
+        if (typeof I === "string") B[Z] = `${Z}=${(0,hcA.escapeUri)(I)}`;
+        else if (Array.isArray(I)) B[Z] = I.slice(0).reduce((Y, J) => Y.concat([`${Z}=${(0,hcA.escapeUri)(J)}`]), []).sort().join("&")
+      }
+      return Q.sort().map((G) => B[G]).filter((G) => G).join("&")
+    }, "getCanonicalQuery"),
+    vM8 = DD((A) => bM8(A).toISOString().replace(/\.\d{3}Z$/, "Z"), "iso8601"),
+    bM8 = DD((A) => {
+      if (typeof A === "number") return new Date(A * 1000);
+      if (typeof A === "string") {
+        if (Number(A)) return new Date(Number(A) * 1000);
+        return new Date(A)
+      }
+      return A
+    }, "toDate"),
+    vcQ = class {
+      static {
+        DD(this, "SignatureV4Base")
+      }
+      constructor({
+        applyChecksum: A,
+        credentials: Q,
+        region: B,
+        service: G,
+        sha256: Z,
+        uriEscapePath: I = !0
+      }) {
+        this.service = G, this.sha256 = Z, this.uriEscapePath = I, this.applyChecksum = typeof A === "boolean" ? A : !0, this.regionProvider = (0, DcQ.normalizeProvider)(B), this.credentialProvider = (0, DcQ.normalizeProvider)(Q)
+      }
+      createCanonicalRequest(A, Q, B) {
+        let G = Object.keys(Q).sort();
+        return `${A.method}
+${this.getCanonicalPath(A)}
+${xcQ(A)}
+${G.map((Z)=>`${Z}:${Q[Z]}`).join(`
+`)}
+
+${G.join(";")}
+${B}`
+      }
+      async createStringToSign(A, Q, B, G) {
+        let Z = new this.sha256;
+        Z.update((0, xM8.toUint8Array)(B));
+        let I = await Z.digest();
+        return `${G}
+${A}
+${Q}
+${(0,Gc.toHex)(I)}`
+      }
+      getCanonicalPath({
+        path: A
+      }) {
+        if (this.uriEscapePath) {
+          let Q = [];
+          for (let Z of A.split("/")) {
+            if (Z?.length === 0) continue;
+            if (Z === ".") continue;
+            if (Z === "..") Q.pop();
+            else Q.push(Z)
+          }
+          let B = `${A?.startsWith("/")?"/":""}${Q.join("/")}${Q.length>0&&A?.endsWith("/")?"/":""}`;
+          return (0, hcA.escapeUri)(B).replace(/%2F/g, "/")
+        }
+        return A
+      }
+      validateResolvedCredentials(A) {
+        if (typeof A !== "object" || typeof A.accessKeyId !== "string" || typeof A.secretAccessKey !== "string") throw Error("Resolved credential object is not valid")
+      }
+      formatDate(A) {
+        let Q = vM8(A).replace(/[\-:]/g, "");
+        return {
+          longDate: Q,
+          shortDate: Q.slice(0, 8)
+        }
+      }
+      getCanonicalHeaderList(A) {
+        return Object.keys(A).sort().join(";")
+      }
+    },
+    fM8 = class extends vcQ {
+      constructor({
+        applyChecksum: A,
+        credentials: Q,
+        region: B,
+        service: G,
+        sha256: Z,
+        uriEscapePath: I = !0
+      }) {
+        super({
+          applyChecksum: A,
+          credentials: Q,
+          region: B,
+          service: G,
+          sha256: Z,
+          uriEscapePath: I
+        });
+        this.headerFormatter = new _M8
+      }
+      static {
+        DD(this, "SignatureV4")
+      }
+      async presign(A, Q = {}) {
+        let {
+          signingDate: B = new Date,
+          expiresIn: G = 3600,
+          unsignableHeaders: Z,
+          unhoistableHeaders: I,
+          signableHeaders: Y,
+          hoistableHeaders: J,
+          signingRegion: W,
+          signingService: X
+        } = Q, V = await this.credentialProvider();
+        this.validateResolvedCredentials(V);
+        let F = W ?? await this.regionProvider(),
+          {
+            longDate: K,
+            shortDate: D
+          } = this.formatDate(B);
+        if (G > jcQ) return Promise.reject("Signature version 4 presigned URLs must have an expiration date less than one week in the future");
+        let H = bcA(D, F, X ?? this.service),
+          C = ycQ(gS1(A), {
+            unhoistableHeaders: I,
+            hoistableHeaders: J
+          });
+        if (V.sessionToken) C.query[dS1] = V.sessionToken;
+        C.query[CcQ] = xcA, C.query[EcQ] = `${V.accessKeyId}/${H}`, C.query[uS1] = K, C.query[UcQ] = G.toString(10);
+        let E = fS1(C, Z, Y);
+        return C.query[zcQ] = this.getCanonicalHeaderList(E), C.query[mS1] = await this.getSignature(K, H, this.getSigningKey(V, F, D, X), this.createCanonicalRequest(C, E, await fcA(A, this.sha256))), C
+      }
+      async sign(A, Q) {
+        if (typeof A === "string") return this.signString(A, Q);
+        else if (A.headers && A.payload) return this.signEvent(A, Q);
+        else if (A.message) return this.signMessage(A, Q);
+        else return this.signRequest(A, Q)
+      }
+      async signEvent({
+        headers: A,
+        payload: Q
+      }, {
+        signingDate: B = new Date,
+        priorSignature: G,
+        signingRegion: Z,
+        signingService: I
+      }) {
+        let Y = Z ?? await this.regionProvider(),
+          {
+            shortDate: J,
+            longDate: W
+          } = this.formatDate(B),
+          X = bcA(J, Y, I ?? this.service),
+          V = await fcA({
+            headers: {},
+            body: Q
+          }, this.sha256),
+          F = new this.sha256;
+        F.update(A);
+        let K = (0, Gc.toHex)(await F.digest()),
+          D = [RcQ, W, X, G, K, V].join(`
+`);
+        return this.signString(D, {
+          signingDate: B,
+          signingRegion: Y,
+          signingService: I
+        })
+      }
+      async signMessage(A, {
+        signingDate: Q = new Date,
+        signingRegion: B,
+        signingService: G
+      }) {
+        return this.signEvent({
+          headers: this.headerFormatter.format(A.message.headers),
+          payload: A.message.body
+        }, {
+          signingDate: Q,
+          signingRegion: B,
+          signingService: G,
+          priorSignature: A.priorSignature
+        }).then((I) => {
+          return {
+            message: A.message,
+            signature: I
+          }
+        })
+      }
+      async signString(A, {
+        signingDate: Q = new Date,
+        signingRegion: B,
+        signingService: G
+      } = {}) {
+        let Z = await this.credentialProvider();
+        this.validateResolvedCredentials(Z);
+        let I = B ?? await this.regionProvider(),
+          {
+            shortDate: Y
+          } = this.formatDate(Q),
+          J = new this.sha256(await this.getSigningKey(Z, I, Y, G));
+        return J.update((0, VcQ.toUint8Array)(A)), (0, Gc.toHex)(await J.digest())
+      }
+      async signRequest(A, {
+        signingDate: Q = new Date,
+        signableHeaders: B,
+        unsignableHeaders: G,
+        signingRegion: Z,
+        signingService: I
+      } = {}) {
+        let Y = await this.credentialProvider();
+        this.validateResolvedCredentials(Y);
+        let J = Z ?? await this.regionProvider(),
+          W = gS1(A),
+          {
+            longDate: X,
+            shortDate: V
+          } = this.formatDate(Q),
+          F = bcA(V, J, I ?? this.service);
+        if (W.headers[pS1] = X, Y.sessionToken) W.headers[NcQ] = Y.sessionToken;
+        let K = await fcA(W, this.sha256);
+        if (!_cQ(gcA, W.headers) && this.applyChecksum) W.headers[gcA] = K;
+        let D = fS1(W, G, B),
+          H = await this.getSignature(X, F, this.getSigningKey(Y, J, V, I), this.createCanonicalRequest(W, D, K));
+        return W.headers[cS1] = `${xcA} Credential=${Y.accessKeyId}/${F}, SignedHeaders=${this.getCanonicalHeaderList(D)}, Signature=${H}`, W
+      }
+      async getSignature(A, Q, B, G) {
+        let Z = await this.createStringToSign(A, Q, G, xcA),
+          I = new this.sha256(await B);
+        return I.update((0, VcQ.toUint8Array)(Z)), (0, Gc.toHex)(await I.digest())
+      }
+      getSigningKey(A, Q, B, G) {
+        return ScQ(this.sha256, A, B, Q, G || this.service)
+      }
+    },
+    hM8 = {
+      SignatureV4a: null
+    }
+})
+// @from(Start 4258558, End 4267145)
+ncQ = z((YP7, icQ) => {
+  var {
+    defineProperty: mcA,
+    getOwnPropertyDescriptor: gM8,
+    getOwnPropertyNames: uM8
+  } = Object, mM8 = Object.prototype.hasOwnProperty, HD = (A, Q) => mcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), dM8 = (A, Q) => {
+    for (var B in Q) mcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, cM8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of uM8(Q))
+        if (!mM8.call(A, Z) && Z !== B) mcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = gM8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, pM8 = (A) => cM8(mcA({}, "__esModule", {
+    value: !0
+  }), A), dcQ = {};
+  dM8(dcQ, {
+    AWSSDKSigV4Signer: () => aM8,
+    AwsSdkSigV4ASigner: () => rM8,
+    AwsSdkSigV4Signer: () => aS1,
+    NODE_SIGV4A_CONFIG_OPTIONS: () => eM8,
+    resolveAWSSDKSigV4Config: () => QO8,
+    resolveAwsSdkSigV4AConfig: () => tM8,
+    resolveAwsSdkSigV4Config: () => ccQ,
+    validateSigningProperties: () => nS1
+  });
+  icQ.exports = pM8(dcQ);
+  var lM8 = iCA(),
+    iM8 = iCA(),
+    hcQ = HD((A) => iM8.HttpResponse.isInstance(A) ? A.headers?.date ?? A.headers?.Date : void 0, "getDateHeader"),
+    iS1 = HD((A) => new Date(Date.now() + A), "getSkewCorrectedDate"),
+    nM8 = HD((A, Q) => Math.abs(iS1(Q).getTime() - A) >= 300000, "isClockSkewed"),
+    gcQ = HD((A, Q) => {
+      let B = Date.parse(A);
+      if (nM8(B, Q)) return B - Date.now();
+      return Q
+    }, "getUpdatedSystemClockOffset"),
+    nCA = HD((A, Q) => {
+      if (!Q) throw Error(`Property \`${A}\` is not resolved for AWS SDK SigV4Auth`);
+      return Q
+    }, "throwSigningPropertyError"),
+    nS1 = HD(async (A) => {
+      let Q = nCA("context", A.context),
+        B = nCA("config", A.config),
+        G = Q.endpointV2?.properties?.authSchemes?.[0],
+        I = await nCA("signer", B.signer)(G),
+        Y = A?.signingRegion,
+        J = A?.signingRegionSet,
+        W = A?.signingName;
+      return {
+        config: B,
+        signer: I,
+        signingRegion: Y,
+        signingRegionSet: J,
+        signingName: W
+      }
+    }, "validateSigningProperties"),
+    aS1 = class {
+      static {
+        HD(this, "AwsSdkSigV4Signer")
+      }
+      async sign(A, Q, B) {
+        if (!lM8.HttpRequest.isInstance(A)) throw Error("The request is not an instance of `HttpRequest` and cannot be signed");
+        let G = await nS1(B),
+          {
+            config: Z,
+            signer: I
+          } = G,
+          {
+            signingRegion: Y,
+            signingName: J
+          } = G,
+          W = B.context;
+        if (W?.authSchemes?.length ?? !1) {
+          let [V, F] = W.authSchemes;
+          if (V?.name === "sigv4a" && F?.name === "sigv4") Y = F?.signingRegion ?? Y, J = F?.signingName ?? J
+        }
+        return await I.sign(A, {
+          signingDate: iS1(Z.systemClockOffset),
+          signingRegion: Y,
+          signingService: J
+        })
+      }
+      errorHandler(A) {
+        return (Q) => {
+          let B = Q.ServerTime ?? hcQ(Q.$response);
+          if (B) {
+            let G = nCA("config", A.config),
+              Z = G.systemClockOffset;
+            if (G.systemClockOffset = gcQ(B, G.systemClockOffset), G.systemClockOffset !== Z && Q.$metadata) Q.$metadata.clockSkewCorrected = !0
+          }
+          throw Q
+        }
+      }
+      successHandler(A, Q) {
+        let B = hcQ(A);
+        if (B) {
+          let G = nCA("config", Q.config);
+          G.systemClockOffset = gcQ(B, G.systemClockOffset)
+        }
+      }
+    },
+    aM8 = aS1,
+    sM8 = iCA(),
+    rM8 = class extends aS1 {
+      static {
+        HD(this, "AwsSdkSigV4ASigner")
+      }
+      async sign(A, Q, B) {
+        if (!sM8.HttpRequest.isInstance(A)) throw Error("The request is not an instance of `HttpRequest` and cannot be signed");
+        let {
+          config: G,
+          signer: Z,
+          signingRegion: I,
+          signingRegionSet: Y,
+          signingName: J
+        } = await nS1(B), X = (await G.sigv4aSigningRegionSet?.() ?? Y ?? [I]).join(",");
+        return await Z.sign(A, {
+          signingDate: iS1(G.systemClockOffset),
+          signingRegion: X,
+          signingService: J
+        })
+      }
+    },
+    oM8 = iB(),
+    ucQ = j2(),
+    tM8 = HD((A) => {
+      return A.sigv4aSigningRegionSet = (0, oM8.normalizeProvider)(A.sigv4aSigningRegionSet), A
+    }, "resolveAwsSdkSigV4AConfig"),
+    eM8 = {
+      environmentVariableSelector(A) {
+        if (A.AWS_SIGV4A_SIGNING_REGION_SET) return A.AWS_SIGV4A_SIGNING_REGION_SET.split(",").map((Q) => Q.trim());
+        throw new ucQ.ProviderError("AWS_SIGV4A_SIGNING_REGION_SET not set in env.", {
+          tryNextLink: !0
+        })
+      },
+      configFileSelector(A) {
+        if (A.sigv4a_signing_region_set) return (A.sigv4a_signing_region_set ?? "").split(",").map((Q) => Q.trim());
+        throw new ucQ.ProviderError("sigv4a_signing_region_set not set in profile.", {
+          tryNextLink: !0
+        })
+      },
+      default: void 0
+    },
+    AO8 = rS(),
+    Ro = iB(),
+    mcQ = fcQ(),
+    ccQ = HD((A) => {
+      let Q = A.credentials,
+        B = !!A.credentials,
+        G = void 0;
+      Object.defineProperty(A, "credentials", {
+        set(X) {
+          if (X && X !== Q && X !== G) B = !0;
+          Q = X;
+          let V = pcQ(A, {
+              credentials: Q,
+              credentialDefaultProvider: A.credentialDefaultProvider
+            }),
+            F = lcQ(A, V);
+          if (B && !F.attributed) G = HD(async (K) => F(K).then((D) => (0, AO8.setCredentialFeature)(D, "CREDENTIALS_CODE", "e")), "resolvedCredentials"), G.memoized = F.memoized, G.configBound = F.configBound, G.attributed = !0;
+          else G = F
+        },
+        get() {
+          return G
+        },
+        enumerable: !0,
+        configurable: !0
+      }), A.credentials = Q;
+      let {
+        signingEscapePath: Z = !0,
+        systemClockOffset: I = A.systemClockOffset || 0,
+        sha256: Y
+      } = A, J;
+      if (A.signer) J = (0, Ro.normalizeProvider)(A.signer);
+      else if (A.regionInfoProvider) J = HD(() => (0, Ro.normalizeProvider)(A.region)().then(async (X) => [await A.regionInfoProvider(X, {
+        useFipsEndpoint: await A.useFipsEndpoint(),
+        useDualstackEndpoint: await A.useDualstackEndpoint()
+      }) || {}, X]).then(([X, V]) => {
+        let {
+          signingRegion: F,
+          signingService: K
+        } = X;
+        A.signingRegion = A.signingRegion || F || V, A.signingName = A.signingName || K || A.serviceId;
+        let D = {
+          ...A,
+          credentials: A.credentials,
+          region: A.signingRegion,
+          service: A.signingName,
+          sha256: Y,
+          uriEscapePath: Z
+        };
+        return new(A.signerConstructor || mcQ.SignatureV4)(D)
+      }), "signer");
+      else J = HD(async (X) => {
+        X = Object.assign({}, {
+          name: "sigv4",
+          signingName: A.signingName || A.defaultSigningName,
+          signingRegion: await (0, Ro.normalizeProvider)(A.region)(),
+          properties: {}
+        }, X);
+        let {
+          signingRegion: V,
+          signingName: F
+        } = X;
+        A.signingRegion = A.signingRegion || V, A.signingName = A.signingName || F || A.serviceId;
+        let K = {
+          ...A,
+          credentials: A.credentials,
+          region: A.signingRegion,
+          service: A.signingName,
+          sha256: Y,
+          uriEscapePath: Z
+        };
+        return new(A.signerConstructor || mcQ.SignatureV4)(K)
+      }, "signer");
+      return Object.assign(A, {
+        systemClockOffset: I,
+        signingEscapePath: Z,
+        signer: J
+      })
+    }, "resolveAwsSdkSigV4Config"),
+    QO8 = ccQ;
+
+  function pcQ(A, {
+    credentials: Q,
+    credentialDefaultProvider: B
+  }) {
+    let G;
+    if (Q)
+      if (!Q?.memoized) G = (0, Ro.memoizeIdentityProvider)(Q, Ro.isIdentityExpired, Ro.doesIdentityRequireRefresh);
+      else G = Q;
+    else if (B) G = (0, Ro.normalizeProvider)(B(Object.assign({}, A, {
+      parentClientConfig: A
+    })));
+    else G = HD(async () => {
+      throw Error("@aws-sdk/core::resolveAwsSdkSigV4Config - `credentials` not provided and no credentialDefaultProvider was configured.")
+    }, "credentialsProvider");
+    return G.memoized = !0, G
+  }
+  HD(pcQ, "normalizeCredentialProvider");
+
+  function lcQ(A, Q) {
+    if (Q.configBound) return Q;
+    let B = HD(async (G) => Q({
+      ...G,
+      callerClientConfig: A
+    }), "fn");
+    return B.memoized = Q.memoized, B.configBound = !0, B
+  }
+  HD(lcQ, "bindCallerConfig")
+})
+// @from(Start 4267151, End 4295606)
+lcA = z((XP7, FpQ) => {
+  var {
+    defineProperty: pcA,
+    getOwnPropertyDescriptor: BO8,
+    getOwnPropertyNames: GO8
+  } = Object, ZO8 = Object.prototype.hasOwnProperty, DB = (A, Q) => pcA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), IO8 = (A, Q) => {
+    for (var B in Q) pcA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, YO8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of GO8(Q))
+        if (!ZO8.call(A, Z) && Z !== B) pcA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = BO8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, JO8 = (A) => YO8(pcA({}, "__esModule", {
+    value: !0
+  }), A), scQ = {};
+  IO8(scQ, {
+    Client: () => WO8,
+    Command: () => ocQ,
+    LazyJsonString: () => To,
+    NoOpLogger: () => ZR8,
+    SENSITIVE_STRING: () => VO8,
+    ServiceException: () => lO8,
+    _json: () => Q_1,
+    collectBody: () => sS1.collectBody,
+    convertMap: () => IR8,
+    createAggregatedClient: () => FO8,
+    dateToUtcString: () => GpQ,
+    decorateServiceException: () => ZpQ,
+    emitWarningIfUnsupportedVersion: () => sO8,
+    expectBoolean: () => DO8,
+    expectByte: () => A_1,
+    expectFloat32: () => dcA,
+    expectInt: () => CO8,
+    expectInt32: () => tS1,
+    expectLong: () => rCA,
+    expectNonNull: () => zO8,
+    expectNumber: () => sCA,
+    expectObject: () => tcQ,
+    expectShort: () => eS1,
+    expectString: () => UO8,
+    expectUnion: () => $O8,
+    extendedEncodeURIComponent: () => sS1.extendedEncodeURIComponent,
+    getArrayIfSingleItem: () => BR8,
+    getDefaultClientConfiguration: () => AR8,
+    getDefaultExtensionConfiguration: () => YpQ,
+    getValueFromTextNode: () => JpQ,
+    handleFloat: () => NO8,
+    isSerializableHeaderValue: () => GR8,
+    limitedParseDouble: () => Z_1,
+    limitedParseFloat: () => LO8,
+    limitedParseFloat32: () => MO8,
+    loadConfigsForDefaultMode: () => aO8,
+    logger: () => oCA,
+    map: () => Y_1,
+    parseBoolean: () => KO8,
+    parseEpochTimestamp: () => bO8,
+    parseRfc3339DateTime: () => jO8,
+    parseRfc3339DateTimeWithOffset: () => _O8,
+    parseRfc7231DateTime: () => vO8,
+    quoteHeader: () => XpQ,
+    resolveDefaultRuntimeConfig: () => QR8,
+    resolvedPath: () => sS1.resolvedPath,
+    serializeDateTime: () => FR8,
+    serializeFloat: () => VR8,
+    splitEvery: () => VpQ,
+    splitHeader: () => KR8,
+    strictParseByte: () => BpQ,
+    strictParseDouble: () => G_1,
+    strictParseFloat: () => wO8,
+    strictParseFloat32: () => ecQ,
+    strictParseInt: () => OO8,
+    strictParseInt32: () => RO8,
+    strictParseLong: () => QpQ,
+    strictParseShort: () => W5A,
+    take: () => YR8,
+    throwDefaultError: () => IpQ,
+    withBaseException: () => iO8
+  });
+  FpQ.exports = JO8(scQ);
+  var rcQ = uR(),
+    WO8 = class {
+      constructor(A) {
+        this.config = A, this.middlewareStack = (0, rcQ.constructStack)()
+      }
+      static {
+        DB(this, "Client")
+      }
+      send(A, Q, B) {
+        let G = typeof Q !== "function" ? Q : void 0,
+          Z = typeof Q === "function" ? Q : B,
+          I = G === void 0 && this.config.cacheMiddleware === !0,
+          Y;
+        if (I) {
+          if (!this.handlers) this.handlers = new WeakMap;
+          let J = this.handlers;
+          if (J.has(A.constructor)) Y = J.get(A.constructor);
+          else Y = A.resolveMiddleware(this.middlewareStack, this.config, G), J.set(A.constructor, Y)
+        } else delete this.handlers, Y = A.resolveMiddleware(this.middlewareStack, this.config, G);
+        if (Z) Y(A).then((J) => Z(null, J.output), (J) => Z(J)).catch(() => {});
+        else return Y(A).then((J) => J.output)
+      }
+      destroy() {
+        this.config?.requestHandler?.destroy?.(), delete this.handlers
+      }
+    },
+    sS1 = w5(),
+    oS1 = vS1(),
+    ocQ = class {
+      constructor() {
+        this.middlewareStack = (0, rcQ.constructStack)()
+      }
+      static {
+        DB(this, "Command")
+      }
+      static classBuilder() {
+        return new XO8
+      }
+      resolveMiddlewareWithContext(A, Q, B, {
+        middlewareFn: G,
+        clientName: Z,
+        commandName: I,
+        inputFilterSensitiveLog: Y,
+        outputFilterSensitiveLog: J,
+        smithyContext: W,
+        additionalContext: X,
+        CommandCtor: V
+      }) {
+        for (let C of G.bind(this)(V, A, Q, B)) this.middlewareStack.use(C);
+        let F = A.concat(this.middlewareStack),
+          {
+            logger: K
+          } = Q,
+          D = {
+            logger: K,
+            clientName: Z,
+            commandName: I,
+            inputFilterSensitiveLog: Y,
+            outputFilterSensitiveLog: J,
+            [oS1.SMITHY_CONTEXT_KEY]: {
+              commandInstance: this,
+              ...W
+            },
+            ...X
+          },
+          {
+            requestHandler: H
+          } = Q;
+        return F.resolve((C) => H.handle(C.request, B || {}), D)
+      }
+    },
+    XO8 = class {
+      constructor() {
+        this._init = () => {}, this._ep = {}, this._middlewareFn = () => [], this._commandName = "", this._clientName = "", this._additionalContext = {}, this._smithyContext = {}, this._inputFilterSensitiveLog = (A) => A, this._outputFilterSensitiveLog = (A) => A, this._serializer = null, this._deserializer = null
+      }
+      static {
+        DB(this, "ClassBuilder")
+      }
+      init(A) {
+        this._init = A
+      }
+      ep(A) {
+        return this._ep = A, this
+      }
+      m(A) {
+        return this._middlewareFn = A, this
+      }
+      s(A, Q, B = {}) {
+        return this._smithyContext = {
+          service: A,
+          operation: Q,
+          ...B
+        }, this
+      }
+      c(A = {}) {
+        return this._additionalContext = A, this
+      }
+      n(A, Q) {
+        return this._clientName = A, this._commandName = Q, this
+      }
+      f(A = (B) => B, Q = (B) => B) {
+        return this._inputFilterSensitiveLog = A, this._outputFilterSensitiveLog = Q, this
+      }
+      ser(A) {
+        return this._serializer = A, this
+      }
+      de(A) {
+        return this._deserializer = A, this
+      }
+      build() {
+        let A = this,
+          Q;
+        return Q = class extends ocQ {
+          constructor(...[B]) {
+            super();
+            this.serialize = A._serializer, this.deserialize = A._deserializer, this.input = B ?? {}, A._init(this)
+          }
+          static {
+            DB(this, "CommandRef")
+          }
+          static getEndpointParameterInstructions() {
+            return A._ep
+          }
+          resolveMiddleware(B, G, Z) {
+            return this.resolveMiddlewareWithContext(B, G, Z, {
+              CommandCtor: Q,
+              middlewareFn: A._middlewareFn,
+              clientName: A._clientName,
+              commandName: A._commandName,
+              inputFilterSensitiveLog: A._inputFilterSensitiveLog,
+              outputFilterSensitiveLog: A._outputFilterSensitiveLog,
+              smithyContext: A._smithyContext,
+              additionalContext: A._additionalContext
+            })
           }
         }
-      } catch (O) {
-        D(O)
       }
-      if (!Z && !F) D(null, G)
-    }
+    },
+    VO8 = "***SensitiveInformation***",
+    FO8 = DB((A, Q) => {
+      for (let B of Object.keys(A)) {
+        let G = A[B],
+          Z = DB(async function(Y, J, W) {
+            let X = new G(Y);
+            if (typeof J === "function") this.send(X, J);
+            else if (typeof W === "function") {
+              if (typeof J !== "object") throw Error(`Expected http options but got ${typeof J}`);
+              this.send(X, J || {}, W)
+            } else return this.send(X, J)
+          }, "methodImpl"),
+          I = (B[0].toLowerCase() + B.slice(1)).replace(/Command$/, "");
+        Q.prototype[I] = Z
+      }
+    }, "createAggregatedClient"),
+    KO8 = DB((A) => {
+      switch (A) {
+        case "true":
+          return !0;
+        case "false":
+          return !1;
+        default:
+          throw Error(`Unable to parse boolean value "${A}"`)
+      }
+    }, "parseBoolean"),
+    DO8 = DB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A === "number") {
+        if (A === 0 || A === 1) oCA.warn(ccA(`Expected boolean, got ${typeof A}: ${A}`));
+        if (A === 0) return !1;
+        if (A === 1) return !0
+      }
+      if (typeof A === "string") {
+        let Q = A.toLowerCase();
+        if (Q === "false" || Q === "true") oCA.warn(ccA(`Expected boolean, got ${typeof A}: ${A}`));
+        if (Q === "false") return !1;
+        if (Q === "true") return !0
+      }
+      if (typeof A === "boolean") return A;
+      throw TypeError(`Expected boolean, got ${typeof A}: ${A}`)
+    }, "expectBoolean"),
+    sCA = DB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A === "string") {
+        let Q = parseFloat(A);
+        if (!Number.isNaN(Q)) {
+          if (String(Q) !== String(A)) oCA.warn(ccA(`Expected number but observed string: ${A}`));
+          return Q
+        }
+      }
+      if (typeof A === "number") return A;
+      throw TypeError(`Expected number, got ${typeof A}: ${A}`)
+    }, "expectNumber"),
+    HO8 = Math.ceil(340282346638528860000000000000000000000),
+    dcA = DB((A) => {
+      let Q = sCA(A);
+      if (Q !== void 0 && !Number.isNaN(Q) && Q !== 1 / 0 && Q !== -1 / 0) {
+        if (Math.abs(Q) > HO8) throw TypeError(`Expected 32-bit float, got ${A}`)
+      }
+      return Q
+    }, "expectFloat32"),
+    rCA = DB((A) => {
+      if (A === null || A === void 0) return;
+      if (Number.isInteger(A) && !Number.isNaN(A)) return A;
+      throw TypeError(`Expected integer, got ${typeof A}: ${A}`)
+    }, "expectLong"),
+    CO8 = rCA,
+    tS1 = DB((A) => B_1(A, 32), "expectInt32"),
+    eS1 = DB((A) => B_1(A, 16), "expectShort"),
+    A_1 = DB((A) => B_1(A, 8), "expectByte"),
+    B_1 = DB((A, Q) => {
+      let B = rCA(A);
+      if (B !== void 0 && EO8(B, Q) !== B) throw TypeError(`Expected ${Q}-bit integer, got ${A}`);
+      return B
+    }, "expectSizedInt"),
+    EO8 = DB((A, Q) => {
+      switch (Q) {
+        case 32:
+          return Int32Array.of(A)[0];
+        case 16:
+          return Int16Array.of(A)[0];
+        case 8:
+          return Int8Array.of(A)[0]
+      }
+    }, "castInt"),
+    zO8 = DB((A, Q) => {
+      if (A === null || A === void 0) {
+        if (Q) throw TypeError(`Expected a non-null value for ${Q}`);
+        throw TypeError("Expected a non-null value")
+      }
+      return A
+    }, "expectNonNull"),
+    tcQ = DB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A === "object" && !Array.isArray(A)) return A;
+      let Q = Array.isArray(A) ? "array" : typeof A;
+      throw TypeError(`Expected object, got ${Q}: ${A}`)
+    }, "expectObject"),
+    UO8 = DB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A === "string") return A;
+      if (["boolean", "number", "bigint"].includes(typeof A)) return oCA.warn(ccA(`Expected string, got ${typeof A}: ${A}`)), String(A);
+      throw TypeError(`Expected string, got ${typeof A}: ${A}`)
+    }, "expectString"),
+    $O8 = DB((A) => {
+      if (A === null || A === void 0) return;
+      let Q = tcQ(A),
+        B = Object.entries(Q).filter(([, G]) => G != null).map(([G]) => G);
+      if (B.length === 0) throw TypeError("Unions must have exactly one non-null member. None were found.");
+      if (B.length > 1) throw TypeError(`Unions must have exactly one non-null member. Keys ${B} were not null.`);
+      return Q
+    }, "expectUnion"),
+    G_1 = DB((A) => {
+      if (typeof A == "string") return sCA(V5A(A));
+      return sCA(A)
+    }, "strictParseDouble"),
+    wO8 = G_1,
+    ecQ = DB((A) => {
+      if (typeof A == "string") return dcA(V5A(A));
+      return dcA(A)
+    }, "strictParseFloat32"),
+    qO8 = /(-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)|(-?Infinity)|(NaN)/g,
+    V5A = DB((A) => {
+      let Q = A.match(qO8);
+      if (Q === null || Q[0].length !== A.length) throw TypeError("Expected real number, got implicit NaN");
+      return parseFloat(A)
+    }, "parseNumber"),
+    Z_1 = DB((A) => {
+      if (typeof A == "string") return ApQ(A);
+      return sCA(A)
+    }, "limitedParseDouble"),
+    NO8 = Z_1,
+    LO8 = Z_1,
+    MO8 = DB((A) => {
+      if (typeof A == "string") return ApQ(A);
+      return dcA(A)
+    }, "limitedParseFloat32"),
+    ApQ = DB((A) => {
+      switch (A) {
+        case "NaN":
+          return NaN;
+        case "Infinity":
+          return 1 / 0;
+        case "-Infinity":
+          return -1 / 0;
+        default:
+          throw Error(`Unable to parse float value: ${A}`)
+      }
+    }, "parseFloatString"),
+    QpQ = DB((A) => {
+      if (typeof A === "string") return rCA(V5A(A));
+      return rCA(A)
+    }, "strictParseLong"),
+    OO8 = QpQ,
+    RO8 = DB((A) => {
+      if (typeof A === "string") return tS1(V5A(A));
+      return tS1(A)
+    }, "strictParseInt32"),
+    W5A = DB((A) => {
+      if (typeof A === "string") return eS1(V5A(A));
+      return eS1(A)
+    }, "strictParseShort"),
+    BpQ = DB((A) => {
+      if (typeof A === "string") return A_1(V5A(A));
+      return A_1(A)
+    }, "strictParseByte"),
+    ccA = DB((A) => {
+      return String(TypeError(A).stack || A).split(`
+`).slice(0, 5).filter((Q) => !Q.includes("stackTraceWarning")).join(`
+`)
+    }, "stackTraceWarning"),
+    oCA = {
+      warn: console.warn
+    },
+    TO8 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    I_1 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-    function J(C, K) {
-      if (C = Y(C) || C, G.files.indexOf(C) > -1) return;
-      if (G.files.push(C), C in Zr) {
-        if (Z) W(C, Zr[C]);
-        else ++F, setTimeout(function() {
-          --F, W(C, Zr[C])
+  function GpQ(A) {
+    let Q = A.getUTCFullYear(),
+      B = A.getUTCMonth(),
+      G = A.getUTCDay(),
+      Z = A.getUTCDate(),
+      I = A.getUTCHours(),
+      Y = A.getUTCMinutes(),
+      J = A.getUTCSeconds(),
+      W = Z < 10 ? `0${Z}` : `${Z}`,
+      X = I < 10 ? `0${I}` : `${I}`,
+      V = Y < 10 ? `0${Y}` : `${Y}`,
+      F = J < 10 ? `0${J}` : `${J}`;
+    return `${TO8[G]}, ${W} ${I_1[B]} ${Q} ${X}:${V}:${F} GMT`
+  }
+  DB(GpQ, "dateToUtcString");
+  var PO8 = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?[zZ]$/),
+    jO8 = DB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A !== "string") throw TypeError("RFC-3339 date-times must be expressed as strings");
+      let Q = PO8.exec(A);
+      if (!Q) throw TypeError("Invalid RFC-3339 date-time value");
+      let [B, G, Z, I, Y, J, W, X] = Q, V = W5A(X5A(G)), F = tS(Z, "month", 1, 12), K = tS(I, "day", 1, 31);
+      return aCA(V, F, K, {
+        hours: Y,
+        minutes: J,
+        seconds: W,
+        fractionalMilliseconds: X
+      })
+    }, "parseRfc3339DateTime"),
+    SO8 = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(([-+]\d{2}\:\d{2})|[zZ])$/),
+    _O8 = DB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A !== "string") throw TypeError("RFC-3339 date-times must be expressed as strings");
+      let Q = SO8.exec(A);
+      if (!Q) throw TypeError("Invalid RFC-3339 date-time value");
+      let [B, G, Z, I, Y, J, W, X, V] = Q, F = W5A(X5A(G)), K = tS(Z, "month", 1, 12), D = tS(I, "day", 1, 31), H = aCA(F, K, D, {
+        hours: Y,
+        minutes: J,
+        seconds: W,
+        fractionalMilliseconds: X
+      });
+      if (V.toUpperCase() != "Z") H.setTime(H.getTime() - pO8(V));
+      return H
+    }, "parseRfc3339DateTimeWithOffset"),
+    kO8 = new RegExp(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? GMT$/),
+    yO8 = new RegExp(/^(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d{2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? GMT$/),
+    xO8 = new RegExp(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ( [1-9]|\d{2}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? (\d{4})$/),
+    vO8 = DB((A) => {
+      if (A === null || A === void 0) return;
+      if (typeof A !== "string") throw TypeError("RFC-7231 date-times must be expressed as strings");
+      let Q = kO8.exec(A);
+      if (Q) {
+        let [B, G, Z, I, Y, J, W, X] = Q;
+        return aCA(W5A(X5A(I)), rS1(Z), tS(G, "day", 1, 31), {
+          hours: Y,
+          minutes: J,
+          seconds: W,
+          fractionalMilliseconds: X
+        })
+      }
+      if (Q = yO8.exec(A), Q) {
+        let [B, G, Z, I, Y, J, W, X] = Q;
+        return gO8(aCA(fO8(I), rS1(Z), tS(G, "day", 1, 31), {
+          hours: Y,
+          minutes: J,
+          seconds: W,
+          fractionalMilliseconds: X
+        }))
+      }
+      if (Q = xO8.exec(A), Q) {
+        let [B, G, Z, I, Y, J, W, X] = Q;
+        return aCA(W5A(X5A(X)), rS1(G), tS(Z.trimLeft(), "day", 1, 31), {
+          hours: I,
+          minutes: Y,
+          seconds: J,
+          fractionalMilliseconds: W
+        })
+      }
+      throw TypeError("Invalid RFC-7231 date-time value")
+    }, "parseRfc7231DateTime"),
+    bO8 = DB((A) => {
+      if (A === null || A === void 0) return;
+      let Q;
+      if (typeof A === "number") Q = A;
+      else if (typeof A === "string") Q = G_1(A);
+      else if (typeof A === "object" && A.tag === 1) Q = A.value;
+      else throw TypeError("Epoch timestamps must be expressed as floating point numbers or their string representation");
+      if (Number.isNaN(Q) || Q === 1 / 0 || Q === -1 / 0) throw TypeError("Epoch timestamps must be valid, non-Infinite, non-NaN numerics");
+      return new Date(Math.round(Q * 1000))
+    }, "parseEpochTimestamp"),
+    aCA = DB((A, Q, B, G) => {
+      let Z = Q - 1;
+      return mO8(A, Z, B), new Date(Date.UTC(A, Z, B, tS(G.hours, "hour", 0, 23), tS(G.minutes, "minute", 0, 59), tS(G.seconds, "seconds", 0, 60), cO8(G.fractionalMilliseconds)))
+    }, "buildDate"),
+    fO8 = DB((A) => {
+      let Q = new Date().getUTCFullYear(),
+        B = Math.floor(Q / 100) * 100 + W5A(X5A(A));
+      if (B < Q) return B + 100;
+      return B
+    }, "parseTwoDigitYear"),
+    hO8 = 1576800000000,
+    gO8 = DB((A) => {
+      if (A.getTime() - new Date().getTime() > hO8) return new Date(Date.UTC(A.getUTCFullYear() - 100, A.getUTCMonth(), A.getUTCDate(), A.getUTCHours(), A.getUTCMinutes(), A.getUTCSeconds(), A.getUTCMilliseconds()));
+      return A
+    }, "adjustRfc850Year"),
+    rS1 = DB((A) => {
+      let Q = I_1.indexOf(A);
+      if (Q < 0) throw TypeError(`Invalid month: ${A}`);
+      return Q + 1
+    }, "parseMonthByShortName"),
+    uO8 = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
+    mO8 = DB((A, Q, B) => {
+      let G = uO8[Q];
+      if (Q === 1 && dO8(A)) G = 29;
+      if (B > G) throw TypeError(`Invalid day for ${I_1[Q]} in ${A}: ${B}`)
+    }, "validateDayOfMonth"),
+    dO8 = DB((A) => {
+      return A % 4 === 0 && (A % 100 !== 0 || A % 400 === 0)
+    }, "isLeapYear"),
+    tS = DB((A, Q, B, G) => {
+      let Z = BpQ(X5A(A));
+      if (Z < B || Z > G) throw TypeError(`${Q} must be between ${B} and ${G}, inclusive`);
+      return Z
+    }, "parseDateValue"),
+    cO8 = DB((A) => {
+      if (A === null || A === void 0) return 0;
+      return ecQ("0." + A) * 1000
+    }, "parseMilliseconds"),
+    pO8 = DB((A) => {
+      let Q = A[0],
+        B = 1;
+      if (Q == "+") B = 1;
+      else if (Q == "-") B = -1;
+      else throw TypeError(`Offset direction, ${Q}, must be "+" or "-"`);
+      let G = Number(A.substring(1, 3)),
+        Z = Number(A.substring(4, 6));
+      return B * (G * 60 + Z) * 60 * 1000
+    }, "parseOffsetToMilliseconds"),
+    X5A = DB((A) => {
+      let Q = 0;
+      while (Q < A.length - 1 && A.charAt(Q) === "0") Q++;
+      if (Q === 0) return A;
+      return A.slice(Q)
+    }, "stripLeadingZeroes"),
+    lO8 = class A extends Error {
+      static {
+        DB(this, "ServiceException")
+      }
+      constructor(Q) {
+        super(Q.message);
+        Object.setPrototypeOf(this, Object.getPrototypeOf(this).constructor.prototype), this.name = Q.name, this.$fault = Q.$fault, this.$metadata = Q.$metadata
+      }
+      static isInstance(Q) {
+        if (!Q) return !1;
+        let B = Q;
+        return A.prototype.isPrototypeOf(B) || Boolean(B.$fault) && Boolean(B.$metadata) && (B.$fault === "client" || B.$fault === "server")
+      }
+      static[Symbol.hasInstance](Q) {
+        if (!Q) return !1;
+        let B = Q;
+        if (this === A) return A.isInstance(Q);
+        if (A.isInstance(Q)) {
+          if (B.name && this.name) return this.prototype.isPrototypeOf(Q) || B.name === this.name;
+          return this.prototype.isPrototypeOf(Q)
+        }
+        return !1
+      }
+    },
+    ZpQ = DB((A, Q = {}) => {
+      Object.entries(Q).filter(([, G]) => G !== void 0).forEach(([G, Z]) => {
+        if (A[G] == null || A[G] === "") A[G] = Z
+      });
+      let B = A.message || A.Message || "UnknownError";
+      return A.message = B, delete A.Message, A
+    }, "decorateServiceException"),
+    IpQ = DB(({
+      output: A,
+      parsedBody: Q,
+      exceptionCtor: B,
+      errorCode: G
+    }) => {
+      let Z = nO8(A),
+        I = Z.httpStatusCode ? Z.httpStatusCode + "" : void 0,
+        Y = new B({
+          name: Q?.code || Q?.Code || G || I || "UnknownError",
+          $fault: "client",
+          $metadata: Z
         });
+      throw ZpQ(Y, Q)
+    }, "throwDefaultError"),
+    iO8 = DB((A) => {
+      return ({
+        output: Q,
+        parsedBody: B,
+        errorCode: G
+      }) => {
+        IpQ({
+          output: Q,
+          parsedBody: B,
+          exceptionCtor: A,
+          errorCode: G
+        })
+      }
+    }, "withBaseException"),
+    nO8 = DB((A) => ({
+      httpStatusCode: A.statusCode,
+      requestId: A.headers["x-amzn-requestid"] ?? A.headers["x-amzn-request-id"] ?? A.headers["x-amz-request-id"],
+      extendedRequestId: A.headers["x-amz-id-2"],
+      cfId: A.headers["x-amz-cf-id"]
+    }), "deserializeMetadata"),
+    aO8 = DB((A) => {
+      switch (A) {
+        case "standard":
+          return {
+            retryMode: "standard", connectionTimeout: 3100
+          };
+        case "in-region":
+          return {
+            retryMode: "standard", connectionTimeout: 1100
+          };
+        case "cross-region":
+          return {
+            retryMode: "standard", connectionTimeout: 3100
+          };
+        case "mobile":
+          return {
+            retryMode: "standard", connectionTimeout: 30000
+          };
+        default:
+          return {}
+      }
+    }, "loadConfigsForDefaultMode"),
+    acQ = !1,
+    sO8 = DB((A) => {
+      if (A && !acQ && parseInt(A.substring(1, A.indexOf("."))) < 16) acQ = !0
+    }, "emitWarningIfUnsupportedVersion"),
+    rO8 = DB((A) => {
+      let Q = [];
+      for (let B in oS1.AlgorithmId) {
+        let G = oS1.AlgorithmId[B];
+        if (A[G] === void 0) continue;
+        Q.push({
+          algorithmId: () => G,
+          checksumConstructor: () => A[G]
+        })
+      }
+      return {
+        addChecksumAlgorithm(B) {
+          Q.push(B)
+        },
+        checksumAlgorithms() {
+          return Q
+        }
+      }
+    }, "getChecksumConfiguration"),
+    oO8 = DB((A) => {
+      let Q = {};
+      return A.checksumAlgorithms().forEach((B) => {
+        Q[B.algorithmId()] = B.checksumConstructor()
+      }), Q
+    }, "resolveChecksumRuntimeConfig"),
+    tO8 = DB((A) => {
+      return {
+        setRetryStrategy(Q) {
+          A.retryStrategy = Q
+        },
+        retryStrategy() {
+          return A.retryStrategy
+        }
+      }
+    }, "getRetryConfiguration"),
+    eO8 = DB((A) => {
+      let Q = {};
+      return Q.retryStrategy = A.retryStrategy(), Q
+    }, "resolveRetryRuntimeConfig"),
+    YpQ = DB((A) => {
+      return Object.assign(rO8(A), tO8(A))
+    }, "getDefaultExtensionConfiguration"),
+    AR8 = YpQ,
+    QR8 = DB((A) => {
+      return Object.assign(oO8(A), eO8(A))
+    }, "resolveDefaultRuntimeConfig"),
+    BR8 = DB((A) => Array.isArray(A) ? A : [A], "getArrayIfSingleItem"),
+    JpQ = DB((A) => {
+      for (let B in A)
+        if (A.hasOwnProperty(B) && A[B]["#text"] !== void 0) A[B] = A[B]["#text"];
+        else if (typeof A[B] === "object" && A[B] !== null) A[B] = JpQ(A[B]);
+      return A
+    }, "getValueFromTextNode"),
+    GR8 = DB((A) => {
+      return A != null
+    }, "isSerializableHeaderValue"),
+    To = DB(function(Q) {
+      return Object.assign(new String(Q), {
+        deserializeJSON() {
+          return JSON.parse(String(Q))
+        },
+        toString() {
+          return String(Q)
+        },
+        toJSON() {
+          return String(Q)
+        }
+      })
+    }, "LazyJsonString");
+  To.from = (A) => {
+    if (A && typeof A === "object" && (A instanceof To || ("deserializeJSON" in A))) return A;
+    else if (typeof A === "string" || Object.getPrototypeOf(A) === String.prototype) return To(String(A));
+    return To(JSON.stringify(A))
+  };
+  To.fromObject = To.from;
+  var ZR8 = class {
+    static {
+      DB(this, "NoOpLogger")
+    }
+    trace() {}
+    debug() {}
+    info() {}
+    warn() {}
+    error() {}
+  };
+
+  function Y_1(A, Q, B) {
+    let G, Z, I;
+    if (typeof Q > "u" && typeof B > "u") G = {}, I = A;
+    else if (G = A, typeof Q === "function") return Z = Q, I = B, JR8(G, Z, I);
+    else I = Q;
+    for (let Y of Object.keys(I)) {
+      if (!Array.isArray(I[Y])) {
+        G[Y] = I[Y];
+        continue
+      }
+      WpQ(G, null, I, Y)
+    }
+    return G
+  }
+  DB(Y_1, "map");
+  var IR8 = DB((A) => {
+      let Q = {};
+      for (let [B, G] of Object.entries(A || {})) Q[B] = [, G];
+      return Q
+    }, "convertMap"),
+    YR8 = DB((A, Q) => {
+      let B = {};
+      for (let G in Q) WpQ(B, A, Q, G);
+      return B
+    }, "take"),
+    JR8 = DB((A, Q, B) => {
+      return Y_1(A, Object.entries(B).reduce((G, [Z, I]) => {
+        if (Array.isArray(I)) G[Z] = I;
+        else if (typeof I === "function") G[Z] = [Q, I()];
+        else G[Z] = [Q, I];
+        return G
+      }, {}))
+    }, "mapWithFilter"),
+    WpQ = DB((A, Q, B, G) => {
+      if (Q !== null) {
+        let Y = B[G];
+        if (typeof Y === "function") Y = [, Y];
+        let [J = WR8, W = XR8, X = G] = Y;
+        if (typeof J === "function" && J(Q[X]) || typeof J !== "function" && !!J) A[G] = W(Q[X]);
         return
       }
-      if (Z) {
-        var E;
+      let [Z, I] = B[G];
+      if (typeof I === "function") {
+        let Y, J = Z === void 0 && (Y = I()) != null,
+          W = typeof Z === "function" && !!Z(void 0) || typeof Z !== "function" && !!Z;
+        if (J) A[G] = Y;
+        else if (W) A[G] = I()
+      } else {
+        let Y = Z === void 0 && I != null,
+          J = typeof Z === "function" && !!Z(I) || typeof Z !== "function" && !!Z;
+        if (Y || J) A[G] = I
+      }
+    }, "applyInstruction"),
+    WR8 = DB((A) => A != null, "nonNullish"),
+    XR8 = DB((A) => A, "pass");
+
+  function XpQ(A) {
+    if (A.includes(",") || A.includes('"')) A = `"${A.replace(/"/g,"\\\"")}"`;
+    return A
+  }
+  DB(XpQ, "quoteHeader");
+  var VR8 = DB((A) => {
+      if (A !== A) return "NaN";
+      switch (A) {
+        case 1 / 0:
+          return "Infinity";
+        case -1 / 0:
+          return "-Infinity";
+        default:
+          return A
+      }
+    }, "serializeFloat"),
+    FR8 = DB((A) => A.toISOString().replace(".000Z", "Z"), "serializeDateTime"),
+    Q_1 = DB((A) => {
+      if (A == null) return {};
+      if (Array.isArray(A)) return A.filter((Q) => Q != null).map(Q_1);
+      if (typeof A === "object") {
+        let Q = {};
+        for (let B of Object.keys(A)) {
+          if (A[B] == null) continue;
+          Q[B] = Q_1(A[B])
+        }
+        return Q
+      }
+      return A
+    }, "_json");
+
+  function VpQ(A, Q, B) {
+    if (B <= 0 || !Number.isInteger(B)) throw Error("Invalid number of delimiters (" + B + ") for splitEvery.");
+    let G = A.split(Q);
+    if (B === 1) return G;
+    let Z = [],
+      I = "";
+    for (let Y = 0; Y < G.length; Y++) {
+      if (I === "") I = G[Y];
+      else I += Q + G[Y];
+      if ((Y + 1) % B === 0) Z.push(I), I = ""
+    }
+    if (I !== "") Z.push(I);
+    return Z
+  }
+  DB(VpQ, "splitEvery");
+  var KR8 = DB((A) => {
+    let Q = A.length,
+      B = [],
+      G = !1,
+      Z = void 0,
+      I = 0;
+    for (let Y = 0; Y < Q; ++Y) {
+      let J = A[Y];
+      switch (J) {
+        case '"':
+          if (Z !== "\\") G = !G;
+          break;
+        case ",":
+          if (!G) B.push(A.slice(I, Y)), I = Y + 1;
+          break;
+        default:
+      }
+      Z = J
+    }
+    return B.push(A.slice(I)), B.map((Y) => {
+      Y = Y.trim();
+      let J = Y.length;
+      if (J < 2) return Y;
+      if (Y[0] === '"' && Y[J - 1] === '"') Y = Y.slice(1, J - 1);
+      return Y.replace(/\\"/g, '"')
+    })
+  }, "splitHeader")
+})
+// @from(Start 4295612, End 4300683)
+zpQ = z((CP7, EpQ) => {
+  var {
+    defineProperty: icA,
+    getOwnPropertyDescriptor: DR8,
+    getOwnPropertyNames: HR8
+  } = Object, CR8 = Object.prototype.hasOwnProperty, ez = (A, Q) => icA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), ER8 = (A, Q) => {
+    for (var B in Q) icA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, zR8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of HR8(Q))
+        if (!CR8.call(A, Z) && Z !== B) icA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = DR8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, UR8 = (A) => zR8(icA({}, "__esModule", {
+    value: !0
+  }), A), KpQ = {};
+  ER8(KpQ, {
+    _toBool: () => wR8,
+    _toNum: () => qR8,
+    _toStr: () => $R8,
+    awsExpectUnion: () => LR8,
+    loadRestJsonErrorCode: () => RR8,
+    loadRestXmlErrorCode: () => SR8,
+    parseJsonBody: () => HpQ,
+    parseJsonErrorBody: () => OR8,
+    parseXmlBody: () => CpQ,
+    parseXmlErrorBody: () => jR8
+  });
+  EpQ.exports = UR8(KpQ);
+  var $R8 = ez((A) => {
+      if (A == null) return A;
+      if (typeof A === "number" || typeof A === "bigint") {
+        let Q = Error(`Received number ${A} where a string was expected.`);
+        return Q.name = "Warning", console.warn(Q), String(A)
+      }
+      if (typeof A === "boolean") {
+        let Q = Error(`Received boolean ${A} where a string was expected.`);
+        return Q.name = "Warning", console.warn(Q), String(A)
+      }
+      return A
+    }, "_toStr"),
+    wR8 = ez((A) => {
+      if (A == null) return A;
+      if (typeof A === "string") {
+        let Q = A.toLowerCase();
+        if (A !== "" && Q !== "false" && Q !== "true") {
+          let B = Error(`Received string "${A}" where a boolean was expected.`);
+          B.name = "Warning", console.warn(B)
+        }
+        return A !== "" && Q !== "false"
+      }
+      return A
+    }, "_toBool"),
+    qR8 = ez((A) => {
+      if (A == null) return A;
+      if (typeof A === "string") {
+        let Q = Number(A);
+        if (Q.toString() !== A) {
+          let B = Error(`Received string "${A}" where a number was expected.`);
+          return B.name = "Warning", console.warn(B), A
+        }
+        return Q
+      }
+      return A
+    }, "_toNum"),
+    NR8 = lcA(),
+    LR8 = ez((A) => {
+      if (A == null) return;
+      if (typeof A === "object" && "__type" in A) delete A.__type;
+      return (0, NR8.expectUnion)(A)
+    }, "awsExpectUnion"),
+    MR8 = lcA(),
+    DpQ = ez((A, Q) => (0, MR8.collectBody)(A, Q).then((B) => Q.utf8Encoder(B)), "collectBodyString"),
+    HpQ = ez((A, Q) => DpQ(A, Q).then((B) => {
+      if (B.length) try {
+        return JSON.parse(B)
+      } catch (G) {
+        if (G?.name === "SyntaxError") Object.defineProperty(G, "$responseBodyText", {
+          value: B
+        });
+        throw G
+      }
+      return {}
+    }), "parseJsonBody"),
+    OR8 = ez(async (A, Q) => {
+      let B = await HpQ(A, Q);
+      return B.message = B.message ?? B.Message, B
+    }, "parseJsonErrorBody"),
+    RR8 = ez((A, Q) => {
+      let B = ez((I, Y) => Object.keys(I).find((J) => J.toLowerCase() === Y.toLowerCase()), "findKey"),
+        G = ez((I) => {
+          let Y = I;
+          if (typeof Y === "number") Y = Y.toString();
+          if (Y.indexOf(",") >= 0) Y = Y.split(",")[0];
+          if (Y.indexOf(":") >= 0) Y = Y.split(":")[0];
+          if (Y.indexOf("#") >= 0) Y = Y.split("#")[1];
+          return Y
+        }, "sanitizeErrorCode"),
+        Z = B(A.headers, "x-amzn-errortype");
+      if (Z !== void 0) return G(A.headers[Z]);
+      if (Q.code !== void 0) return G(Q.code);
+      if (Q.__type !== void 0) return G(Q.__type)
+    }, "loadRestJsonErrorCode"),
+    TR8 = lcA(),
+    PR8 = wS(),
+    CpQ = ez((A, Q) => DpQ(A, Q).then((B) => {
+      if (B.length) {
+        let G = new PR8.XMLParser({
+          attributeNamePrefix: "",
+          htmlEntities: !0,
+          ignoreAttributes: !1,
+          ignoreDeclaration: !0,
+          parseTagValue: !1,
+          trimValues: !1,
+          tagValueProcessor: ez((W, X) => X.trim() === "" && X.includes(`
+`) ? "" : void 0, "tagValueProcessor")
+        });
+        G.addEntity("#xD", "\r"), G.addEntity("#10", `
+`);
+        let Z;
         try {
-          E = KR.fs.readFileSync(C).toString("utf8")
-        } catch (N) {
-          if (!K) D(N);
-          return
+          Z = G.parse(B, !0)
+        } catch (W) {
+          if (W && typeof W === "object") Object.defineProperty(W, "$responseBodyText", {
+            value: B
+          });
+          throw W
         }
-        W(C, E)
-      } else ++F, G.fetch(C, function(N, q) {
-        if (--F, !I) return;
-        if (N) {
-          if (!K) D(N);
-          else if (!F) D(null, G);
-          return
+        let I = "#text",
+          Y = Object.keys(Z)[0],
+          J = Z[Y];
+        if (J[I]) J[Y] = J[I], delete J[I];
+        return (0, TR8.getValueFromTextNode)(J)
+      }
+      return {}
+    }), "parseXmlBody"),
+    jR8 = ez(async (A, Q) => {
+      let B = await CpQ(A, Q);
+      if (B.Error) B.Error.message = B.Error.message ?? B.Error.Message;
+      return B
+    }, "parseXmlErrorBody"),
+    SR8 = ez((A, Q) => {
+      if (Q?.Error?.Code !== void 0) return Q.Error.Code;
+      if (Q?.Code !== void 0) return Q.Code;
+      if (A.statusCode == 404) return "NotFound"
+    }, "loadRestXmlErrorCode")
+})
+// @from(Start 4300689, End 4300887)
+jF = z((tCA) => {
+  Object.defineProperty(tCA, "__esModule", {
+    value: !0
+  });
+  var J_1 = ddQ();
+  J_1.__exportStar(rS(), tCA);
+  J_1.__exportStar(ncQ(), tCA);
+  J_1.__exportStar(zpQ(), tCA)
+})
+// @from(Start 4300893, End 4306548)
+F5A = z((zP7, jpQ) => {
+  var {
+    defineProperty: acA,
+    getOwnPropertyDescriptor: _R8,
+    getOwnPropertyNames: kR8
+  } = Object, yR8 = Object.prototype.hasOwnProperty, Eb = (A, Q) => acA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), xR8 = (A, Q) => {
+    for (var B in Q) acA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, vR8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of kR8(Q))
+        if (!yR8.call(A, Z) && Z !== B) acA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = _R8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, bR8 = (A) => vR8(acA({}, "__esModule", {
+    value: !0
+  }), A), qpQ = {};
+  xR8(qpQ, {
+    DEFAULT_UA_APP_ID: () => NpQ,
+    getUserAgentMiddlewareOptions: () => PpQ,
+    getUserAgentPlugin: () => pR8,
+    resolveUserAgentConfig: () => MpQ,
+    userAgentMiddleware: () => TpQ
+  });
+  jpQ.exports = bR8(qpQ);
+  var fR8 = iB(),
+    NpQ = void 0;
+
+  function LpQ(A) {
+    if (A === void 0) return !0;
+    return typeof A === "string" && A.length <= 50
+  }
+  Eb(LpQ, "isValidUserAgentAppId");
+
+  function MpQ(A) {
+    let Q = (0, fR8.normalizeProvider)(A.userAgentAppId ?? NpQ),
+      {
+        customUserAgent: B
+      } = A;
+    return Object.assign(A, {
+      customUserAgent: typeof B === "string" ? [
+        [B]
+      ] : B,
+      userAgentAppId: Eb(async () => {
+        let G = await Q();
+        if (!LpQ(G)) {
+          let Z = A.logger?.constructor?.name === "NoOpLogger" || !A.logger ? console : A.logger;
+          if (typeof G !== "string") Z?.warn("userAgentAppId must be a string or undefined.");
+          else if (G.length > 50) Z?.warn("The provided userAgentAppId exceeds the maximum length of 50 characters.")
         }
-        W(C, q)
+        return G
+      }, "userAgentAppId")
+    })
+  }
+  Eb(MpQ, "resolveUserAgentConfig");
+  var hR8 = I5A(),
+    gR8 = DdQ(),
+    eS = jF(),
+    uR8 = /\d{12}\.ddb/;
+  async function OpQ(A, Q, B) {
+    if (B.request?.headers?.["smithy-protocol"] === "rpc-v2-cbor")(0, eS.setFeature)(A, "PROTOCOL_RPC_V2_CBOR", "M");
+    if (typeof Q.retryStrategy === "function") {
+      let I = await Q.retryStrategy();
+      if (typeof I.acquireInitialRetryToken === "function")
+        if (I.constructor?.name?.includes("Adaptive"))(0, eS.setFeature)(A, "RETRY_MODE_ADAPTIVE", "F");
+        else(0, eS.setFeature)(A, "RETRY_MODE_STANDARD", "E");
+      else(0, eS.setFeature)(A, "RETRY_MODE_LEGACY", "D")
+    }
+    if (typeof Q.accountIdEndpointMode === "function") {
+      let I = A.endpointV2;
+      if (String(I?.url?.hostname).match(uR8))(0, eS.setFeature)(A, "ACCOUNT_ID_ENDPOINT", "O");
+      switch (await Q.accountIdEndpointMode?.()) {
+        case "disabled":
+          (0, eS.setFeature)(A, "ACCOUNT_ID_MODE_DISABLED", "Q");
+          break;
+        case "preferred":
+          (0, eS.setFeature)(A, "ACCOUNT_ID_MODE_PREFERRED", "P");
+          break;
+        case "required":
+          (0, eS.setFeature)(A, "ACCOUNT_ID_MODE_REQUIRED", "R");
+          break
+      }
+    }
+    let Z = A.__smithy_context?.selectedHttpAuthScheme?.identity;
+    if (Z?.$source) {
+      let I = Z;
+      if (I.accountId)(0, eS.setFeature)(A, "RESOLVED_ACCOUNT_ID", "T");
+      for (let [Y, J] of Object.entries(I.$source ?? {}))(0, eS.setFeature)(A, Y, J)
+    }
+  }
+  Eb(OpQ, "checkFeatures");
+  var UpQ = "user-agent",
+    W_1 = "x-amz-user-agent",
+    $pQ = " ",
+    X_1 = "/",
+    mR8 = /[^\!\$\%\&\'\*\+\-\.\^\_\`\|\~\d\w]/g,
+    dR8 = /[^\!\$\%\&\'\*\+\-\.\^\_\`\|\~\d\w\#]/g,
+    wpQ = "-",
+    cR8 = 1024;
+
+  function RpQ(A) {
+    let Q = "";
+    for (let B in A) {
+      let G = A[B];
+      if (Q.length + G.length + 1 <= cR8) {
+        if (Q.length) Q += "," + G;
+        else Q += G;
+        continue
+      }
+      break
+    }
+    return Q
+  }
+  Eb(RpQ, "encodeFeatures");
+  var TpQ = Eb((A) => (Q, B) => async (G) => {
+      let {
+        request: Z
+      } = G;
+      if (!gR8.HttpRequest.isInstance(Z)) return Q(G);
+      let {
+        headers: I
+      } = Z, Y = B?.userAgent?.map(ncA) || [], J = (await A.defaultUserAgentProvider()).map(ncA);
+      await OpQ(B, A, G);
+      let W = B;
+      J.push(`m/${RpQ(Object.assign({},B.__smithy_context?.features,W.__aws_sdk_context?.features))}`);
+      let X = A?.customUserAgent?.map(ncA) || [],
+        V = await A.userAgentAppId();
+      if (V) J.push(ncA([`app/${V}`]));
+      let F = (0, hR8.getUserAgentPrefix)(),
+        K = (F ? [F] : []).concat([...J, ...Y, ...X]).join($pQ),
+        D = [...J.filter((H) => H.startsWith("aws-sdk-")), ...X].join($pQ);
+      if (A.runtime !== "browser") {
+        if (D) I[W_1] = I[W_1] ? `${I[UpQ]} ${D}` : D;
+        I[UpQ] = K
+      } else I[W_1] = K;
+      return Q({
+        ...G,
+        request: Z
+      })
+    }, "userAgentMiddleware"),
+    ncA = Eb((A) => {
+      let Q = A[0].split(X_1).map((Y) => Y.replace(mR8, wpQ)).join(X_1),
+        B = A[1]?.replace(dR8, wpQ),
+        G = Q.indexOf(X_1),
+        Z = Q.substring(0, G),
+        I = Q.substring(G + 1);
+      if (Z === "api") I = I.toLowerCase();
+      return [Z, I, B].filter((Y) => Y && Y.length > 0).reduce((Y, J, W) => {
+        switch (W) {
+          case 0:
+            return J;
+          case 1:
+            return `${Y}/${J}`;
+          default:
+            return `${Y}#${J}`
+        }
+      }, "")
+    }, "escapeUserAgent"),
+    PpQ = {
+      name: "getUserAgentMiddleware",
+      step: "build",
+      priority: "low",
+      tags: ["SET_USER_AGENT", "USER_AGENT"],
+      override: !0
+    },
+    pR8 = Eb((A) => ({
+      applyToStack: Eb((Q) => {
+        Q.add(TpQ(A), PpQ)
+      }, "applyToStack")
+    }), "getUserAgentPlugin")
+})
+// @from(Start 4306554, End 4308242)
+F_1 = z((SpQ) => {
+  Object.defineProperty(SpQ, "__esModule", {
+    value: !0
+  });
+  SpQ.resolveHttpAuthSchemeConfig = SpQ.defaultSSOHttpAuthSchemeProvider = SpQ.defaultSSOHttpAuthSchemeParametersProvider = void 0;
+  var lR8 = jF(),
+    V_1 = w7(),
+    iR8 = async (A, Q, B) => {
+      return {
+        operation: (0, V_1.getSmithyContext)(Q).operation,
+        region: await (0, V_1.normalizeProvider)(A.region)() || (() => {
+          throw Error("expected `region` to be configured for `aws.auth#sigv4`")
+        })()
+      }
+    };
+  SpQ.defaultSSOHttpAuthSchemeParametersProvider = iR8;
+
+  function nR8(A) {
+    return {
+      schemeId: "aws.auth#sigv4",
+      signingProperties: {
+        name: "awsssoportal",
+        region: A.region
+      },
+      propertiesExtractor: (Q, B) => ({
+        signingProperties: {
+          config: Q,
+          context: B
+        }
       })
     }
-    var F = 0;
-    if (KR.isString(B)) B = [B];
-    for (var X = 0, V; X < B.length; ++X)
-      if (V = G.resolvePath("", B[X])) J(V);
-    if (Z) return G;
-    if (!F) D(null, G);
-    return
-  };
-  NJ.prototype.loadSync = function A(B, Q) {
-    if (!KR.isNode) throw Error("not supported");
-    return this.load(B, Q, hj0)
-  };
-  NJ.prototype.resolveAll = function A() {
-    if (this.deferred.length) throw Error("unresolvable extensions: " + this.deferred.map(function(B) {
-      return "'extend " + B.extend + "' in " + B.parent.fullName
-    }).join(", "));
-    return ND1.prototype.resolveAll.call(this)
-  };
-  var UD1 = /^[A-Z]/;
+  }
 
-  function vj0(A, B) {
-    var Q = B.parent.lookup(B.extend);
-    if (Q) {
-      var I = new Ym1(B.fullName, B.id, B.type, B.rule, void 0, B.options);
-      if (Q.get(I.name)) return !0;
-      return I.declaringField = B, B.extensionField = I, Q.add(I), !0
+  function scA(A) {
+    return {
+      schemeId: "smithy.api#noAuth"
     }
-    return !1
   }
-  NJ.prototype._handleAdd = function A(B) {
-    if (B instanceof Ym1) {
-      if (B.extend !== void 0 && !B.extensionField) {
-        if (!vj0(this, B)) this.deferred.push(B)
+  var aR8 = (A) => {
+    let Q = [];
+    switch (A.operation) {
+      case "GetRoleCredentials": {
+        Q.push(scA(A));
+        break
       }
-    } else if (B instanceof bj0) {
-      if (UD1.test(B.name)) B.parent[B.name] = B.values
-    } else if (!(B instanceof P36)) {
-      if (B instanceof gj0)
-        for (var Q = 0; Q < this.deferred.length;)
-          if (vj0(this, this.deferred[Q])) this.deferred.splice(Q, 1);
-          else ++Q;
-      for (var I = 0; I < B.nestedArray.length; ++I) this._handleAdd(B._nestedArray[I]);
-      if (UD1.test(B.name)) B.parent[B.name] = B
-    }
-  };
-  NJ.prototype._handleRemove = function A(B) {
-    if (B instanceof Ym1) {
-      if (B.extend !== void 0)
-        if (B.extensionField) B.extensionField.parent.remove(B.extensionField), B.extensionField = null;
-        else {
-          var Q = this.deferred.indexOf(B);
-          if (Q > -1) this.deferred.splice(Q, 1)
-        }
-    } else if (B instanceof bj0) {
-      if (UD1.test(B.name)) delete B.parent[B.name]
-    } else if (B instanceof ND1) {
-      for (var I = 0; I < B.nestedArray.length; ++I) this._handleRemove(B._nestedArray[I]);
-      if (UD1.test(B.name)) delete B.parent[B.name]
-    }
-  };
-  NJ._configure = function(A, B, Q) {
-    gj0 = A, Dm1 = B, Zr = Q
-  }
-})
-// @from(Start 4798281, End 4801164)
-RI = z((o$8, uj0) => {
-  var SQ = uj0.exports = Iw(),
-    dj0 = hg1(),
-    Wm1, Jm1;
-  SQ.codegen = Dj0();
-  SQ.fetch = Wj0();
-  SQ.path = Xj0();
-  SQ.fs = SQ.inquire("fs");
-  SQ.toArray = function A(B) {
-    if (B) {
-      var Q = Object.keys(B),
-        I = new Array(Q.length),
-        G = 0;
-      while (G < Q.length) I[G] = B[Q[G++]];
-      return I
-    }
-    return []
-  };
-  SQ.toObject = function A(B) {
-    var Q = {},
-      I = 0;
-    while (I < B.length) {
-      var G = B[I++],
-        Z = B[I++];
-      if (Z !== void 0) Q[G] = Z
+      case "ListAccountRoles": {
+        Q.push(scA(A));
+        break
+      }
+      case "ListAccounts": {
+        Q.push(scA(A));
+        break
+      }
+      case "Logout": {
+        Q.push(scA(A));
+        break
+      }
+      default:
+        Q.push(nR8(A))
     }
     return Q
   };
-  var S36 = /\\/g,
-    _36 = /"/g;
-  SQ.isReserved = function A(B) {
-    return /^(?:do|if|in|for|let|new|try|var|case|else|enum|eval|false|null|this|true|void|with|break|catch|class|const|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$/.test(B)
-  };
-  SQ.safeProp = function A(B) {
-    if (!/^[$\w_]+$/.test(B) || SQ.isReserved(B)) return '["' + B.replace(S36, "\\\\").replace(_36, "\\\"") + '"]';
-    return "." + B
-  };
-  SQ.ucFirst = function A(B) {
-    return B.charAt(0).toUpperCase() + B.substring(1)
-  };
-  var j36 = /_([a-z])/g;
-  SQ.camelCase = function A(B) {
-    return B.substring(0, 1) + B.substring(1).replace(j36, function(Q, I) {
-      return I.toUpperCase()
+  SpQ.defaultSSOHttpAuthSchemeProvider = aR8;
+  var sR8 = (A) => {
+    let Q = (0, lR8.resolveAwsSdkSigV4Config)(A);
+    return Object.assign(Q, {
+      authSchemePreference: (0, V_1.normalizeProvider)(A.authSchemePreference ?? [])
     })
   };
-  SQ.compareFieldsById = function A(B, Q) {
-    return B.id - Q.id
-  };
-  SQ.decorateType = function A(B, Q) {
-    if (B.$type) {
-      if (Q && B.$type.name !== Q) SQ.decorateRoot.remove(B.$type), B.$type.name = Q, SQ.decorateRoot.add(B.$type);
-      return B.$type
-    }
-    if (!Wm1) Wm1 = ED1();
-    var I = new Wm1(Q || B.name);
-    return SQ.decorateRoot.add(I), I.ctor = B, Object.defineProperty(B, "$type", {
-      value: I,
-      enumerable: !1
-    }), Object.defineProperty(B.prototype, "$type", {
-      value: I,
-      enumerable: !1
-    }), I
-  };
-  var y36 = 0;
-  SQ.decorateEnum = function A(B) {
-    if (B.$type) return B.$type;
-    if (!Jm1) Jm1 = cC();
-    var Q = new Jm1("Enum" + y36++, B);
-    return SQ.decorateRoot.add(Q), Object.defineProperty(B, "$type", {
-      value: Q,
-      enumerable: !1
-    }), Q
-  };
-  SQ.setProperty = function A(B, Q, I) {
-    function G(Z, D, Y) {
-      var W = D.shift();
-      if (W === "__proto__" || W === "prototype") return Z;
-      if (D.length > 0) Z[W] = G(Z[W] || {}, D, Y);
-      else {
-        var J = Z[W];
-        if (J) Y = [].concat(J).concat(Y);
-        Z[W] = Y
-      }
-      return Z
-    }
-    if (typeof B !== "object") throw TypeError("dst must be an object");
-    if (!Q) throw TypeError("path must be specified");
-    return Q = Q.split("."), G(B, Q, I)
-  };
-  Object.defineProperty(SQ, "decorateRoot", {
-    get: function() {
-      return dj0.decorated || (dj0.decorated = new($D1()))
-    }
-  })
+  SpQ.resolveHttpAuthSchemeConfig = sR8
 })

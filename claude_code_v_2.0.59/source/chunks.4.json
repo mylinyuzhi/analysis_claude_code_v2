@@ -1,0 +1,9 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "rxjs",
+    "protobufjs",
+    "sorted-map"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 rxjs, protobufjs, sorted-map)"
+}

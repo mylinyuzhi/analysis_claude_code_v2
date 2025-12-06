@@ -1,0 +1,8 @@
+{
+  "ossProjects": [
+    "googleapis",
+    "opentelemetry",
+    "protobufjs"
+  ],
+  "purpose": "OSS 库代码 (googleapis, opentelemetry, protobufjs)"
+}

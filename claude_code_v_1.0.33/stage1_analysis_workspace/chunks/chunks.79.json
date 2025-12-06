@@ -1,0 +1,7 @@
+{
+  "ossProjects": [
+    "googleapis",
+    "protobufjs"
+  ],
+  "purpose": "OSS 库代码 (googleapis, protobufjs)"
+}

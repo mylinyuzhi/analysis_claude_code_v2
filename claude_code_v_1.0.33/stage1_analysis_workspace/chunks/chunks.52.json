@@ -1,0 +1,7 @@
+{
+  "ossProjects": [
+    "llhttp",
+    "protobufjs"
+  ],
+  "purpose": "OSS 库代码 (llhttp, protobufjs)"
+}

@@ -66,8 +66,12 @@ walk.fullAncestor(ast, (node, _state, ancestors) => {
       if (node.declarations.some((decl) => decl.id.type !== "Identifier")) {
         return;
       }
+      const seenNames = new Set(); // 跟踪已处理的变量名,避免重复
       node.declarations.forEach((decl) => {
-        declSplited = writeWithCheck(getContent(decl), decl.id.name);
+        if (!seenNames.has(decl.id.name)) { // 只处理未见过的名称
+          seenNames.add(decl.id.name);
+          declSplited = writeWithCheck(getContent(decl), decl.id.name);
+        }
       });
       return;
     case "ClassDeclaration":

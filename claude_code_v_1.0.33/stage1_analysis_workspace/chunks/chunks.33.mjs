@@ -1,842 +1,1132 @@
 
-// @from(Start 3375448, End 3376272)
-Da = z((eoA) => {
-  Object.defineProperty(eoA, "__esModule", {
-    value: !0
-  });
-  eoA.default = void 0;
-  eoA.unsafeStringify = toA;
-  var KJ4 = HJ4(Za());
-
-  function HJ4(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-  var OG = [];
-  for (let A = 0; A < 256; ++A) OG.push((A + 256).toString(16).slice(1));
-
-  function toA(A, B = 0) {
-    return OG[A[B + 0]] + OG[A[B + 1]] + OG[A[B + 2]] + OG[A[B + 3]] + "-" + OG[A[B + 4]] + OG[A[B + 5]] + "-" + OG[A[B + 6]] + OG[A[B + 7]] + "-" + OG[A[B + 8]] + OG[A[B + 9]] + "-" + OG[A[B + 10]] + OG[A[B + 11]] + OG[A[B + 12]] + OG[A[B + 13]] + OG[A[B + 14]] + OG[A[B + 15]]
-  }
-
-  function zJ4(A, B = 0) {
-    let Q = toA(A, B);
-    if (!KJ4.default(Q)) throw TypeError("Stringified UUID is invalid");
-    return Q
-  }
-  var wJ4 = zJ4;
-  eoA.default = wJ4
-})
-// @from(Start 3376278, End 3377815)
-GtA = z((QtA) => {
-  Object.defineProperty(QtA, "__esModule", {
-    value: !0
-  });
-  QtA.default = void 0;
-  var UJ4 = $J4(dj1()),
-    NJ4 = Da();
-
-  function $J4(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-  var BtA, uj1, pj1 = 0,
-    cj1 = 0;
-
-  function qJ4(A, B, Q) {
-    let I = B && Q || 0,
-      G = B || new Array(16);
-    A = A || {};
-    let Z = A.node || BtA,
-      D = A.clockseq !== void 0 ? A.clockseq : uj1;
-    if (Z == null || D == null) {
-      let V = A.random || (A.rng || UJ4.default)();
-      if (Z == null) Z = BtA = [V[0] | 1, V[1], V[2], V[3], V[4], V[5]];
-      if (D == null) D = uj1 = (V[6] << 8 | V[7]) & 16383
-    }
-    let Y = A.msecs !== void 0 ? A.msecs : Date.now(),
-      W = A.nsecs !== void 0 ? A.nsecs : cj1 + 1,
-      J = Y - pj1 + (W - cj1) / 1e4;
-    if (J < 0 && A.clockseq === void 0) D = D + 1 & 16383;
-    if ((J < 0 || Y > pj1) && A.nsecs === void 0) W = 0;
-    if (W >= 1e4) throw new Error("uuid.v1(): Can't create more than 10M uuids/sec");
-    pj1 = Y, cj1 = W, uj1 = D, Y += 12219292800000;
-    let F = ((Y & 268435455) * 1e4 + W) % 4294967296;
-    G[I++] = F >>> 24 & 255, G[I++] = F >>> 16 & 255, G[I++] = F >>> 8 & 255, G[I++] = F & 255;
-    let X = Y / 4294967296 * 1e4 & 268435455;
-    G[I++] = X >>> 8 & 255, G[I++] = X & 255, G[I++] = X >>> 24 & 15 | 16, G[I++] = X >>> 16 & 255, G[I++] = D >>> 8 | 128, G[I++] = D & 255;
-    for (let V = 0; V < 6; ++V) G[I + V] = Z[V];
-    return B || NJ4.unsafeStringify(G)
-  }
-  var MJ4 = qJ4;
-  QtA.default = MJ4
-})
-// @from(Start 3377821, End 3378699)
-lj1 = z((ZtA) => {
-  Object.defineProperty(ZtA, "__esModule", {
-    value: !0
-  });
-  ZtA.default = void 0;
-  var LJ4 = RJ4(Za());
-
-  function RJ4(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-
-  function OJ4(A) {
-    if (!LJ4.default(A)) throw TypeError("Invalid UUID");
-    let B, Q = new Uint8Array(16);
-    return Q[0] = (B = parseInt(A.slice(0, 8), 16)) >>> 24, Q[1] = B >>> 16 & 255, Q[2] = B >>> 8 & 255, Q[3] = B & 255, Q[4] = (B = parseInt(A.slice(9, 13), 16)) >>> 8, Q[5] = B & 255, Q[6] = (B = parseInt(A.slice(14, 18), 16)) >>> 8, Q[7] = B & 255, Q[8] = (B = parseInt(A.slice(19, 23), 16)) >>> 8, Q[9] = B & 255, Q[10] = (B = parseInt(A.slice(24, 36), 16)) / 1099511627776 & 255, Q[11] = B / 4294967296 & 255, Q[12] = B >>> 24 & 255, Q[13] = B >>> 16 & 255, Q[14] = B >>> 8 & 255, Q[15] = B & 255, Q
-  }
-  var TJ4 = OJ4;
-  ZtA.default = TJ4
-})
-// @from(Start 3378705, End 3379965)
-ij1 = z((JtA) => {
-  Object.defineProperty(JtA, "__esModule", {
-    value: !0
-  });
-  JtA.URL = JtA.DNS = void 0;
-  JtA.default = yJ4;
-  var PJ4 = Da(),
-    SJ4 = _J4(lj1());
-
-  function _J4(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-
-  function jJ4(A) {
-    A = unescape(encodeURIComponent(A));
-    let B = [];
-    for (let Q = 0; Q < A.length; ++Q) B.push(A.charCodeAt(Q));
-    return B
-  }
-  var YtA = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
-  JtA.DNS = YtA;
-  var WtA = "6ba7b811-9dad-11d1-80b4-00c04fd430c8";
-  JtA.URL = WtA;
-
-  function yJ4(A, B, Q) {
-    function I(G, Z, D, Y) {
-      var W;
-      if (typeof G === "string") G = jJ4(G);
-      if (typeof Z === "string") Z = SJ4.default(Z);
-      if (((W = Z) === null || W === void 0 ? void 0 : W.length) !== 16) throw TypeError("Namespace must be array-like (16 iterable integer values, 0-255)");
-      let J = new Uint8Array(16 + G.length);
-      if (J.set(Z), J.set(G, Z.length), J = Q(J), J[6] = J[6] & 15 | B, J[8] = J[8] & 63 | 128, D) {
-        Y = Y || 0;
-        for (let F = 0; F < 16; ++F) D[Y + F] = J[F];
-        return D
-      }
-      return PJ4.unsafeStringify(J)
-    }
-    try {
-      I.name = A
-    } catch (G) {}
-    return I.DNS = YtA, I.URL = WtA, I
-  }
-})
-// @from(Start 3379971, End 3380429)
-CtA = z((XtA) => {
-  Object.defineProperty(XtA, "__esModule", {
-    value: !0
-  });
-  XtA.default = void 0;
-  var fJ4 = vJ4(Z1("crypto"));
-
-  function vJ4(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-
-  function bJ4(A) {
-    if (Array.isArray(A)) A = Buffer.from(A);
-    else if (typeof A === "string") A = Buffer.from(A, "utf8");
-    return fJ4.default.createHash("md5").update(A).digest()
-  }
-  var gJ4 = bJ4;
-  XtA.default = gJ4
-})
-// @from(Start 3380435, End 3380759)
-wtA = z((HtA) => {
-  Object.defineProperty(HtA, "__esModule", {
-    value: !0
-  });
-  HtA.default = void 0;
-  var hJ4 = KtA(ij1()),
-    mJ4 = KtA(CtA());
-
-  function KtA(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-  var dJ4 = hJ4.default("v3", 48, mJ4.default),
-    uJ4 = dJ4;
-  HtA.default = uJ4
-})
-// @from(Start 3380765, End 3381069)
-NtA = z((EtA) => {
-  Object.defineProperty(EtA, "__esModule", {
-    value: !0
-  });
-  EtA.default = void 0;
-  var pJ4 = cJ4(Z1("crypto"));
-
-  function cJ4(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-  var lJ4 = {
-    randomUUID: pJ4.default.randomUUID
-  };
-  EtA.default = lJ4
-})
-// @from(Start 3381075, End 3381729)
-RtA = z((MtA) => {
-  Object.defineProperty(MtA, "__esModule", {
-    value: !0
-  });
-  MtA.default = void 0;
-  var $tA = qtA(NtA()),
-    iJ4 = qtA(dj1()),
-    nJ4 = Da();
-
-  function qtA(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-
-  function aJ4(A, B, Q) {
-    if ($tA.default.randomUUID && !B && !A) return $tA.default.randomUUID();
-    A = A || {};
-    let I = A.random || (A.rng || iJ4.default)();
-    if (I[6] = I[6] & 15 | 64, I[8] = I[8] & 63 | 128, B) {
-      Q = Q || 0;
-      for (let G = 0; G < 16; ++G) B[Q + G] = I[G];
-      return B
-    }
-    return nJ4.unsafeStringify(I)
-  }
-  var sJ4 = aJ4;
-  MtA.default = sJ4
-})
-// @from(Start 3381735, End 3382194)
-PtA = z((OtA) => {
-  Object.defineProperty(OtA, "__esModule", {
-    value: !0
-  });
-  OtA.default = void 0;
-  var rJ4 = oJ4(Z1("crypto"));
-
-  function oJ4(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-
-  function tJ4(A) {
-    if (Array.isArray(A)) A = Buffer.from(A);
-    else if (typeof A === "string") A = Buffer.from(A, "utf8");
-    return rJ4.default.createHash("sha1").update(A).digest()
-  }
-  var eJ4 = tJ4;
-  OtA.default = eJ4
-})
-// @from(Start 3382200, End 3382524)
-ytA = z((_tA) => {
-  Object.defineProperty(_tA, "__esModule", {
-    value: !0
-  });
-  _tA.default = void 0;
-  var AF4 = StA(ij1()),
-    BF4 = StA(PtA());
-
-  function StA(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-  var QF4 = AF4.default("v5", 80, BF4.default),
-    IF4 = QF4;
-  _tA.default = IF4
-})
-// @from(Start 3382530, End 3382712)
-ftA = z((ktA) => {
-  Object.defineProperty(ktA, "__esModule", {
-    value: !0
-  });
-  ktA.default = void 0;
-  var GF4 = "00000000-0000-0000-0000-000000000000";
-  ktA.default = GF4
-})
-// @from(Start 3382718, End 3383097)
-gtA = z((vtA) => {
-  Object.defineProperty(vtA, "__esModule", {
-    value: !0
-  });
-  vtA.default = void 0;
-  var ZF4 = DF4(Za());
-
-  function DF4(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-
-  function YF4(A) {
-    if (!ZF4.default(A)) throw TypeError("Invalid UUID");
-    return parseInt(A.slice(14, 15), 16)
-  }
-  var WF4 = YF4;
-  vtA.default = WF4
-})
-// @from(Start 3383103, End 3384517)
-htA = z((LC) => {
-  Object.defineProperty(LC, "__esModule", {
-    value: !0
-  });
-  Object.defineProperty(LC, "NIL", {
-    enumerable: !0,
-    get: function() {
-      return CF4.default
-    }
-  });
-  Object.defineProperty(LC, "parse", {
-    enumerable: !0,
-    get: function() {
-      return wF4.default
-    }
-  });
-  Object.defineProperty(LC, "stringify", {
-    enumerable: !0,
-    get: function() {
-      return zF4.default
-    }
-  });
-  Object.defineProperty(LC, "v1", {
-    enumerable: !0,
-    get: function() {
-      return JF4.default
-    }
-  });
-  Object.defineProperty(LC, "v3", {
-    enumerable: !0,
-    get: function() {
-      return FF4.default
-    }
-  });
-  Object.defineProperty(LC, "v4", {
-    enumerable: !0,
-    get: function() {
-      return XF4.default
-    }
-  });
-  Object.defineProperty(LC, "v5", {
-    enumerable: !0,
-    get: function() {
-      return VF4.default
-    }
-  });
-  Object.defineProperty(LC, "validate", {
-    enumerable: !0,
-    get: function() {
-      return HF4.default
-    }
-  });
-  Object.defineProperty(LC, "version", {
-    enumerable: !0,
-    get: function() {
-      return KF4.default
-    }
-  });
-  var JF4 = XN(GtA()),
-    FF4 = XN(wtA()),
-    XF4 = XN(RtA()),
-    VF4 = XN(ytA()),
-    CF4 = XN(ftA()),
-    KF4 = XN(gtA()),
-    HF4 = XN(Za()),
-    zF4 = XN(Da()),
-    wF4 = XN(lj1());
-
-  function XN(A) {
-    return A && A.__esModule ? A : {
-      default: A
-    }
-  }
-})
-// @from(Start 3384523, End 3386973)
-aj1 = z((KI8, utA) => {
+// @from(Start 2993149, End 2995132)
+lR = z((N$7, PXQ) => {
   var {
-    defineProperty: j71,
-    getOwnPropertyDescriptor: EF4,
-    getOwnPropertyNames: UF4
-  } = Object, NF4 = Object.prototype.hasOwnProperty, Eb = (A, B) => j71(A, "name", {
-    value: B,
+    defineProperty: ugA,
+    getOwnPropertyDescriptor: lm4,
+    getOwnPropertyNames: im4
+  } = Object, nm4 = Object.prototype.hasOwnProperty, mgA = (A, Q) => ugA(A, "name", {
+    value: Q,
     configurable: !0
-  }), $F4 = (A, B) => {
-    for (var Q in B) j71(A, Q, {
-      get: B[Q],
+  }), am4 = (A, Q) => {
+    for (var B in Q) ugA(A, B, {
+      get: Q[B],
       enumerable: !0
     })
-  }, qF4 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of UF4(B))
-        if (!NF4.call(A, G) && G !== Q) j71(A, G, {
-          get: () => B[G],
-          enumerable: !(I = EF4(B, G)) || I.enumerable
+  }, sm4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of im4(Q))
+        if (!nm4.call(A, Z) && Z !== B) ugA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = lm4(Q, Z)) || G.enumerable
         })
     }
     return A
-  }, MF4 = (A) => qF4(j71({}, "__esModule", {
+  }, rm4 = (A) => sm4(ugA({}, "__esModule", {
     value: !0
-  }), A), mtA = {};
-  $F4(mtA, {
-    isClockSkewCorrectedError: () => dtA,
-    isClockSkewError: () => _F4,
-    isRetryableByTrait: () => SF4,
-    isServerError: () => yF4,
-    isThrottlingError: () => jF4,
-    isTransientError: () => nj1
+  }), A), MXQ = {};
+  am4(MXQ, {
+    emitWarningIfUnsupportedVersion: () => om4,
+    setCredentialFeature: () => OXQ,
+    setFeature: () => RXQ,
+    setTokenFeature: () => TXQ,
+    state: () => rN1
   });
-  utA.exports = MF4(mtA);
-  var LF4 = ["AuthFailure", "InvalidSignatureException", "RequestExpired", "RequestInTheFuture", "RequestTimeTooSkewed", "SignatureDoesNotMatch"],
-    RF4 = ["BandwidthLimitExceeded", "EC2ThrottledException", "LimitExceededException", "PriorRequestNotComplete", "ProvisionedThroughputExceededException", "RequestLimitExceeded", "RequestThrottled", "RequestThrottledException", "SlowDown", "ThrottledException", "Throttling", "ThrottlingException", "TooManyRequestsException", "TransactionInProgressException"],
-    OF4 = ["TimeoutError", "RequestTimeout", "RequestTimeoutException"],
-    TF4 = [500, 502, 503, 504],
-    PF4 = ["ECONNRESET", "ECONNREFUSED", "EPIPE", "ETIMEDOUT"],
-    SF4 = Eb((A) => A.$retryable !== void 0, "isRetryableByTrait"),
-    _F4 = Eb((A) => LF4.includes(A.name), "isClockSkewError"),
-    dtA = Eb((A) => A.$metadata?.clockSkewCorrected, "isClockSkewCorrectedError"),
-    jF4 = Eb((A) => A.$metadata?.httpStatusCode === 429 || RF4.includes(A.name) || A.$retryable?.throttling == !0, "isThrottlingError"),
-    nj1 = Eb((A, B = 0) => dtA(A) || OF4.includes(A.name) || PF4.includes(A?.code || "") || TF4.includes(A.$metadata?.httpStatusCode || 0) || A.cause !== void 0 && B <= 10 && nj1(A.cause, B + 1), "isTransientError"),
-    yF4 = Eb((A) => {
-      if (A.$metadata?.httpStatusCode !== void 0) {
-        let B = A.$metadata.httpStatusCode;
-        if (500 <= B && B <= 599 && !nj1(A)) return !0;
-        return !1
+  PXQ.exports = rm4(MXQ);
+  var rN1 = {
+      warningEmitted: !1
+    },
+    om4 = mgA((A) => {
+      if (A && !rN1.warningEmitted && parseInt(A.substring(1, A.indexOf("."))) < 18) rN1.warningEmitted = !0, process.emitWarning(`NodeDeprecationWarning: The AWS SDK for JavaScript (v3) will
+no longer support Node.js 16.x on January 6, 2025.
+
+To continue receiving updates to AWS services, bug fixes, and security
+updates please upgrade to a supported Node.js LTS version.
+
+More information can be found at: https://a.co/74kJMmI`)
+    }, "emitWarningIfUnsupportedVersion");
+
+  function OXQ(A, Q, B) {
+    if (!A.$source) A.$source = {};
+    return A.$source[Q] = B, A
+  }
+  mgA(OXQ, "setCredentialFeature");
+
+  function RXQ(A, Q, B) {
+    if (!A.__aws_sdk_context) A.__aws_sdk_context = {
+      features: {}
+    };
+    else if (!A.__aws_sdk_context.features) A.__aws_sdk_context.features = {};
+    A.__aws_sdk_context.features[Q] = B
+  }
+  mgA(RXQ, "setFeature");
+
+  function TXQ(A, Q, B) {
+    if (!A.$source) A.$source = {};
+    return A.$source[Q] = B, A
+  }
+  mgA(TXQ, "setTokenFeature")
+})
+// @from(Start 2995138, End 2996091)
+_XQ = z((L$7, SXQ) => {
+  var {
+    defineProperty: dgA,
+    getOwnPropertyDescriptor: tm4,
+    getOwnPropertyNames: em4
+  } = Object, Ad4 = Object.prototype.hasOwnProperty, Qd4 = (A, Q) => dgA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), Bd4 = (A, Q) => {
+    for (var B in Q) dgA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, Gd4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of em4(Q))
+        if (!Ad4.call(A, Z) && Z !== B) dgA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = tm4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, Zd4 = (A) => Gd4(dgA({}, "__esModule", {
+    value: !0
+  }), A), jXQ = {};
+  Bd4(jXQ, {
+    isArrayBuffer: () => Id4
+  });
+  SXQ.exports = Zd4(jXQ);
+  var Id4 = Qd4((A) => typeof ArrayBuffer === "function" && A instanceof ArrayBuffer || Object.prototype.toString.call(A) === "[object ArrayBuffer]", "isArrayBuffer")
+})
+// @from(Start 2996097, End 2997150)
+vXQ = z((M$7, xXQ) => {
+  var {
+    defineProperty: cgA,
+    getOwnPropertyDescriptor: Yd4,
+    getOwnPropertyNames: Jd4
+  } = Object, Wd4 = Object.prototype.hasOwnProperty, oN1 = (A, Q) => cgA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), Xd4 = (A, Q) => {
+    for (var B in Q) cgA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, Vd4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of Jd4(Q))
+        if (!Wd4.call(A, Z) && Z !== B) cgA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = Yd4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, Fd4 = (A) => Vd4(cgA({}, "__esModule", {
+    value: !0
+  }), A), kXQ = {};
+  Xd4(kXQ, {
+    escapeUri: () => yXQ,
+    escapeUriPath: () => Dd4
+  });
+  xXQ.exports = Fd4(kXQ);
+  var yXQ = oN1((A) => encodeURIComponent(A).replace(/[!'()*]/g, Kd4), "escapeUri"),
+    Kd4 = oN1((A) => `%${A.charCodeAt(0).toString(16).toUpperCase()}`, "hexEncode"),
+    Dd4 = oN1((A) => A.split("/").map(yXQ).join("/"), "escapeUriPath")
+})
+// @from(Start 2997156, End 3014069)
+XVQ = z((O$7, WVQ) => {
+  var {
+    defineProperty: rgA,
+    getOwnPropertyDescriptor: Hd4,
+    getOwnPropertyNames: Cd4
+  } = Object, Ed4 = Object.prototype.hasOwnProperty, ZD = (A, Q) => rgA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), zd4 = (A, Q) => {
+    for (var B in Q) rgA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, Ud4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of Cd4(Q))
+        if (!Ed4.call(A, Z) && Z !== B) rgA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = Hd4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, $d4 = (A) => Ud4(rgA({}, "__esModule", {
+    value: !0
+  }), A), uXQ = {};
+  zd4(uXQ, {
+    ALGORITHM_IDENTIFIER: () => pgA,
+    ALGORITHM_IDENTIFIER_V4A: () => Ld4,
+    ALGORITHM_QUERY_PARAM: () => mXQ,
+    ALWAYS_UNSIGNABLE_HEADERS: () => sXQ,
+    AMZ_DATE_HEADER: () => IL1,
+    AMZ_DATE_QUERY_PARAM: () => QL1,
+    AUTH_HEADER: () => ZL1,
+    CREDENTIAL_QUERY_PARAM: () => dXQ,
+    DATE_HEADER: () => lXQ,
+    EVENT_ALGORITHM_IDENTIFIER: () => tXQ,
+    EXPIRES_QUERY_PARAM: () => pXQ,
+    GENERATED_HEADERS: () => iXQ,
+    HOST_HEADER: () => qd4,
+    KEY_TYPE_IDENTIFIER: () => YL1,
+    MAX_CACHE_SIZE: () => AVQ,
+    MAX_PRESIGNED_TTL: () => QVQ,
+    PROXY_HEADER_PATTERN: () => rXQ,
+    REGION_SET_PARAM: () => wd4,
+    SEC_HEADER_PATTERN: () => oXQ,
+    SHA256_HEADER: () => sgA,
+    SIGNATURE_HEADER: () => nXQ,
+    SIGNATURE_QUERY_PARAM: () => BL1,
+    SIGNED_HEADERS_QUERY_PARAM: () => cXQ,
+    SignatureV4: () => xd4,
+    SignatureV4Base: () => JVQ,
+    TOKEN_HEADER: () => aXQ,
+    TOKEN_QUERY_PARAM: () => GL1,
+    UNSIGNABLE_PATTERNS: () => Nd4,
+    UNSIGNED_PAYLOAD: () => eXQ,
+    clearCredentialCache: () => Od4,
+    createScope: () => igA,
+    getCanonicalHeaders: () => tN1,
+    getCanonicalQuery: () => YVQ,
+    getPayloadHash: () => ngA,
+    getSigningKey: () => BVQ,
+    hasHeader: () => GVQ,
+    moveHeadersToQuery: () => IVQ,
+    prepareRequest: () => AL1,
+    signatureV4aContainer: () => vd4
+  });
+  WVQ.exports = $d4(uXQ);
+  var bXQ = O2(),
+    mXQ = "X-Amz-Algorithm",
+    dXQ = "X-Amz-Credential",
+    QL1 = "X-Amz-Date",
+    cXQ = "X-Amz-SignedHeaders",
+    pXQ = "X-Amz-Expires",
+    BL1 = "X-Amz-Signature",
+    GL1 = "X-Amz-Security-Token",
+    wd4 = "X-Amz-Region-Set",
+    ZL1 = "authorization",
+    IL1 = QL1.toLowerCase(),
+    lXQ = "date",
+    iXQ = [ZL1, IL1, lXQ],
+    nXQ = BL1.toLowerCase(),
+    sgA = "x-amz-content-sha256",
+    aXQ = GL1.toLowerCase(),
+    qd4 = "host",
+    sXQ = {
+      authorization: !0,
+      "cache-control": !0,
+      connection: !0,
+      expect: !0,
+      from: !0,
+      "keep-alive": !0,
+      "max-forwards": !0,
+      pragma: !0,
+      referer: !0,
+      te: !0,
+      trailer: !0,
+      "transfer-encoding": !0,
+      upgrade: !0,
+      "user-agent": !0,
+      "x-amzn-trace-id": !0
+    },
+    rXQ = /^proxy-/,
+    oXQ = /^sec-/,
+    Nd4 = [/^proxy-/i, /^sec-/i],
+    pgA = "AWS4-HMAC-SHA256",
+    Ld4 = "AWS4-ECDSA-P256-SHA256",
+    tXQ = "AWS4-HMAC-SHA256-PAYLOAD",
+    eXQ = "UNSIGNED-PAYLOAD",
+    AVQ = 50,
+    YL1 = "aws4_request",
+    QVQ = 604800,
+    Td = Jd(),
+    Md4 = O2(),
+    k8A = {},
+    lgA = [],
+    igA = ZD((A, Q, B) => `${A}/${Q}/${B}/${YL1}`, "createScope"),
+    BVQ = ZD(async (A, Q, B, G, Z) => {
+      let I = await fXQ(A, Q.secretAccessKey, Q.accessKeyId),
+        Y = `${B}:${G}:${Z}:${(0,Td.toHex)(I)}:${Q.sessionToken}`;
+      if (Y in k8A) return k8A[Y];
+      lgA.push(Y);
+      while (lgA.length > AVQ) delete k8A[lgA.shift()];
+      let J = `AWS4${Q.secretAccessKey}`;
+      for (let W of [B, G, Z, YL1]) J = await fXQ(A, J, W);
+      return k8A[Y] = J
+    }, "getSigningKey"),
+    Od4 = ZD(() => {
+      lgA.length = 0, Object.keys(k8A).forEach((A) => {
+        delete k8A[A]
+      })
+    }, "clearCredentialCache"),
+    fXQ = ZD((A, Q, B) => {
+      let G = new A(Q);
+      return G.update((0, Md4.toUint8Array)(B)), G.digest()
+    }, "hmac"),
+    tN1 = ZD(({
+      headers: A
+    }, Q, B) => {
+      let G = {};
+      for (let Z of Object.keys(A).sort()) {
+        if (A[Z] == null) continue;
+        let I = Z.toLowerCase();
+        if (I in sXQ || Q?.has(I) || rXQ.test(I) || oXQ.test(I)) {
+          if (!B || B && !B.has(I)) continue
+        }
+        G[I] = A[Z].trim().replace(/\s+/g, " ")
       }
+      return G
+    }, "getCanonicalHeaders"),
+    Rd4 = _XQ(),
+    Td4 = O2(),
+    ngA = ZD(async ({
+      headers: A,
+      body: Q
+    }, B) => {
+      for (let G of Object.keys(A))
+        if (G.toLowerCase() === sgA) return A[G];
+      if (Q == null) return "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+      else if (typeof Q === "string" || ArrayBuffer.isView(Q) || (0, Rd4.isArrayBuffer)(Q)) {
+        let G = new B;
+        return G.update((0, Td4.toUint8Array)(Q)), (0, Td.toHex)(await G.digest())
+      }
+      return eXQ
+    }, "getPayloadHash"),
+    hXQ = O2(),
+    Pd4 = class {
+      static {
+        ZD(this, "HeaderFormatter")
+      }
+      format(A) {
+        let Q = [];
+        for (let Z of Object.keys(A)) {
+          let I = (0, hXQ.fromUtf8)(Z);
+          Q.push(Uint8Array.from([I.byteLength]), I, this.formatHeaderValue(A[Z]))
+        }
+        let B = new Uint8Array(Q.reduce((Z, I) => Z + I.byteLength, 0)),
+          G = 0;
+        for (let Z of Q) B.set(Z, G), G += Z.byteLength;
+        return B
+      }
+      formatHeaderValue(A) {
+        switch (A.type) {
+          case "boolean":
+            return Uint8Array.from([A.value ? 0 : 1]);
+          case "byte":
+            return Uint8Array.from([2, A.value]);
+          case "short":
+            let Q = new DataView(new ArrayBuffer(3));
+            return Q.setUint8(0, 3), Q.setInt16(1, A.value, !1), new Uint8Array(Q.buffer);
+          case "integer":
+            let B = new DataView(new ArrayBuffer(5));
+            return B.setUint8(0, 4), B.setInt32(1, A.value, !1), new Uint8Array(B.buffer);
+          case "long":
+            let G = new Uint8Array(9);
+            return G[0] = 5, G.set(A.value.bytes, 1), G;
+          case "binary":
+            let Z = new DataView(new ArrayBuffer(3 + A.value.byteLength));
+            Z.setUint8(0, 6), Z.setUint16(1, A.value.byteLength, !1);
+            let I = new Uint8Array(Z.buffer);
+            return I.set(A.value, 3), I;
+          case "string":
+            let Y = (0, hXQ.fromUtf8)(A.value),
+              J = new DataView(new ArrayBuffer(3 + Y.byteLength));
+            J.setUint8(0, 7), J.setUint16(1, Y.byteLength, !1);
+            let W = new Uint8Array(J.buffer);
+            return W.set(Y, 3), W;
+          case "timestamp":
+            let X = new Uint8Array(9);
+            return X[0] = 8, X.set(Sd4.fromNumber(A.value.valueOf()).bytes, 1), X;
+          case "uuid":
+            if (!jd4.test(A.value)) throw Error(`Invalid UUID received: ${A.value}`);
+            let V = new Uint8Array(17);
+            return V[0] = 9, V.set((0, Td.fromHex)(A.value.replace(/\-/g, "")), 1), V
+        }
+      }
+    },
+    jd4 = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/,
+    Sd4 = class A {
+      constructor(Q) {
+        if (this.bytes = Q, Q.byteLength !== 8) throw Error("Int64 buffers must be exactly 8 bytes")
+      }
+      static {
+        ZD(this, "Int64")
+      }
+      static fromNumber(Q) {
+        if (Q > 9223372036854776000 || Q < -9223372036854776000) throw Error(`${Q} is too large (or, if negative, too small) to represent as an Int64`);
+        let B = new Uint8Array(8);
+        for (let G = 7, Z = Math.abs(Math.round(Q)); G > -1 && Z > 0; G--, Z /= 256) B[G] = Z;
+        if (Q < 0) eN1(B);
+        return new A(B)
+      }
+      valueOf() {
+        let Q = this.bytes.slice(0),
+          B = Q[0] & 128;
+        if (B) eN1(Q);
+        return parseInt((0, Td.toHex)(Q), 16) * (B ? -1 : 1)
+      }
+      toString() {
+        return String(this.valueOf())
+      }
+    };
+
+  function eN1(A) {
+    for (let Q = 0; Q < 8; Q++) A[Q] ^= 255;
+    for (let Q = 7; Q > -1; Q--)
+      if (A[Q]++, A[Q] !== 0) break
+  }
+  ZD(eN1, "negate");
+  var GVQ = ZD((A, Q) => {
+      A = A.toLowerCase();
+      for (let B of Object.keys(Q))
+        if (A === B.toLowerCase()) return !0;
       return !1
-    }, "isServerError")
-})
-// @from(Start 3386979, End 3395865)
-vL = z((HI8, otA) => {
-  var {
-    defineProperty: y71,
-    getOwnPropertyDescriptor: kF4,
-    getOwnPropertyNames: xF4
-  } = Object, fF4 = Object.prototype.hasOwnProperty, RC = (A, B) => y71(A, "name", {
-    value: B,
-    configurable: !0
-  }), vF4 = (A, B) => {
-    for (var Q in B) y71(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, bF4 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of xF4(B))
-        if (!fF4.call(A, G) && G !== Q) y71(A, G, {
-          get: () => B[G],
-          enumerable: !(I = kF4(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, gF4 = (A) => bF4(y71({}, "__esModule", {
-    value: !0
-  }), A), ctA = {};
-  vF4(ctA, {
-    AdaptiveRetryStrategy: () => cF4,
-    ConfiguredRetryStrategy: () => lF4,
-    DEFAULT_MAX_ATTEMPTS: () => sj1,
-    DEFAULT_RETRY_DELAY_BASE: () => Ya,
-    DEFAULT_RETRY_MODE: () => hF4,
-    DefaultRateLimiter: () => itA,
-    INITIAL_RETRY_TOKENS: () => rj1,
-    INVOCATION_ID_HEADER: () => dF4,
-    MAXIMUM_RETRY_DELAY: () => oj1,
-    NO_RETRY_INCREMENT: () => rtA,
-    REQUEST_HEADER: () => uF4,
-    RETRY_COST: () => atA,
-    RETRY_MODES: () => ltA,
-    StandardRetryStrategy: () => tj1,
-    THROTTLING_RETRY_DELAY_BASE: () => ntA,
-    TIMEOUT_RETRY_COST: () => stA
-  });
-  otA.exports = gF4(ctA);
-  var ltA = ((A) => {
-      return A.STANDARD = "standard", A.ADAPTIVE = "adaptive", A
-    })(ltA || {}),
-    sj1 = 3,
-    hF4 = "standard",
-    mF4 = aj1(),
-    itA = class A {
-      constructor(B) {
-        this.currentCapacity = 0, this.enabled = !1, this.lastMaxRate = 0, this.measuredTxRate = 0, this.requestCount = 0, this.lastTimestamp = 0, this.timeWindow = 0, this.beta = B?.beta ?? 0.7, this.minCapacity = B?.minCapacity ?? 1, this.minFillRate = B?.minFillRate ?? 0.5, this.scaleConstant = B?.scaleConstant ?? 0.4, this.smooth = B?.smooth ?? 0.8;
-        let Q = this.getCurrentTimeInSeconds();
-        this.lastThrottleTime = Q, this.lastTxRateBucket = Math.floor(this.getCurrentTimeInSeconds()), this.fillRate = this.minFillRate, this.maxCapacity = this.minCapacity
+    }, "hasHeader"),
+    ZVQ = iz(),
+    IVQ = ZD((A, Q = {}) => {
+      let {
+        headers: B,
+        query: G = {}
+      } = ZVQ.HttpRequest.clone(A);
+      for (let Z of Object.keys(B)) {
+        let I = Z.toLowerCase();
+        if (I.slice(0, 6) === "x-amz-" && !Q.unhoistableHeaders?.has(I) || Q.hoistableHeaders?.has(I)) G[Z] = B[Z], delete B[Z]
       }
-      static {
-        RC(this, "DefaultRateLimiter")
-      }
-      static {
-        this.setTimeoutFn = setTimeout
-      }
-      getCurrentTimeInSeconds() {
-        return Date.now() / 1000
-      }
-      async getSendToken() {
-        return this.acquireTokenBucket(1)
-      }
-      async acquireTokenBucket(B) {
-        if (!this.enabled) return;
-        if (this.refillTokenBucket(), B > this.currentCapacity) {
-          let Q = (B - this.currentCapacity) / this.fillRate * 1000;
-          await new Promise((I) => A.setTimeoutFn(I, Q))
-        }
-        this.currentCapacity = this.currentCapacity - B
-      }
-      refillTokenBucket() {
-        let B = this.getCurrentTimeInSeconds();
-        if (!this.lastTimestamp) {
-          this.lastTimestamp = B;
-          return
-        }
-        let Q = (B - this.lastTimestamp) * this.fillRate;
-        this.currentCapacity = Math.min(this.maxCapacity, this.currentCapacity + Q), this.lastTimestamp = B
-      }
-      updateClientSendingRate(B) {
-        let Q;
-        if (this.updateMeasuredRate(), mF4.isThrottlingError(B)) {
-          let G = !this.enabled ? this.measuredTxRate : Math.min(this.measuredTxRate, this.fillRate);
-          this.lastMaxRate = G, this.calculateTimeWindow(), this.lastThrottleTime = this.getCurrentTimeInSeconds(), Q = this.cubicThrottle(G), this.enableTokenBucket()
-        } else this.calculateTimeWindow(), Q = this.cubicSuccess(this.getCurrentTimeInSeconds());
-        let I = Math.min(Q, 2 * this.measuredTxRate);
-        this.updateTokenBucketRate(I)
-      }
-      calculateTimeWindow() {
-        this.timeWindow = this.getPrecise(Math.pow(this.lastMaxRate * (1 - this.beta) / this.scaleConstant, 0.3333333333333333))
-      }
-      cubicThrottle(B) {
-        return this.getPrecise(B * this.beta)
-      }
-      cubicSuccess(B) {
-        return this.getPrecise(this.scaleConstant * Math.pow(B - this.lastThrottleTime - this.timeWindow, 3) + this.lastMaxRate)
-      }
-      enableTokenBucket() {
-        this.enabled = !0
-      }
-      updateTokenBucketRate(B) {
-        this.refillTokenBucket(), this.fillRate = Math.max(B, this.minFillRate), this.maxCapacity = Math.max(B, this.minCapacity), this.currentCapacity = Math.min(this.currentCapacity, this.maxCapacity)
-      }
-      updateMeasuredRate() {
-        let B = this.getCurrentTimeInSeconds(),
-          Q = Math.floor(B * 2) / 2;
-        if (this.requestCount++, Q > this.lastTxRateBucket) {
-          let I = this.requestCount / (Q - this.lastTxRateBucket);
-          this.measuredTxRate = this.getPrecise(I * this.smooth + this.measuredTxRate * (1 - this.smooth)), this.requestCount = 0, this.lastTxRateBucket = Q
-        }
-      }
-      getPrecise(B) {
-        return parseFloat(B.toFixed(8))
-      }
-    },
-    Ya = 100,
-    oj1 = 20000,
-    ntA = 500,
-    rj1 = 500,
-    atA = 5,
-    stA = 10,
-    rtA = 1,
-    dF4 = "amz-sdk-invocation-id",
-    uF4 = "amz-sdk-request",
-    pF4 = RC(() => {
-      let A = Ya;
       return {
-        computeNextBackoffDelay: RC((I) => {
-          return Math.floor(Math.min(oj1, Math.random() * 2 ** I * A))
-        }, "computeNextBackoffDelay"),
-        setDelayBase: RC((I) => {
-          A = I
-        }, "setDelayBase")
+        ...A,
+        headers: B,
+        query: G
       }
-    }, "getDefaultRetryBackoffStrategy"),
-    ptA = RC(({
-      retryDelay: A,
-      retryCount: B,
-      retryCost: Q
+    }, "moveHeadersToQuery"),
+    AL1 = ZD((A) => {
+      A = ZVQ.HttpRequest.clone(A);
+      for (let Q of Object.keys(A.headers))
+        if (iXQ.indexOf(Q.toLowerCase()) > -1) delete A.headers[Q];
+      return A
+    }, "prepareRequest"),
+    gXQ = w7(),
+    _d4 = O2(),
+    agA = vXQ(),
+    YVQ = ZD(({
+      query: A = {}
     }) => {
-      return {
-        getRetryCount: RC(() => B, "getRetryCount"),
-        getRetryDelay: RC(() => Math.min(oj1, A), "getRetryDelay"),
-        getRetryCost: RC(() => Q, "getRetryCost")
+      let Q = [],
+        B = {};
+      for (let G of Object.keys(A)) {
+        if (G.toLowerCase() === nXQ) continue;
+        let Z = (0, agA.escapeUri)(G);
+        Q.push(Z);
+        let I = A[G];
+        if (typeof I === "string") B[Z] = `${Z}=${(0,agA.escapeUri)(I)}`;
+        else if (Array.isArray(I)) B[Z] = I.slice(0).reduce((Y, J) => Y.concat([`${Z}=${(0,agA.escapeUri)(J)}`]), []).sort().join("&")
       }
-    }, "createDefaultRetryToken"),
-    tj1 = class {
-      constructor(A) {
-        this.maxAttempts = A, this.mode = "standard", this.capacity = rj1, this.retryBackoffStrategy = pF4(), this.maxAttemptsProvider = typeof A === "function" ? A : async () => A
+      return Q.sort().map((G) => B[G]).filter((G) => G).join("&")
+    }, "getCanonicalQuery"),
+    kd4 = ZD((A) => yd4(A).toISOString().replace(/\.\d{3}Z$/, "Z"), "iso8601"),
+    yd4 = ZD((A) => {
+      if (typeof A === "number") return new Date(A * 1000);
+      if (typeof A === "string") {
+        if (Number(A)) return new Date(Number(A) * 1000);
+        return new Date(A)
+      }
+      return A
+    }, "toDate"),
+    JVQ = class {
+      static {
+        ZD(this, "SignatureV4Base")
+      }
+      constructor({
+        applyChecksum: A,
+        credentials: Q,
+        region: B,
+        service: G,
+        sha256: Z,
+        uriEscapePath: I = !0
+      }) {
+        this.service = G, this.sha256 = Z, this.uriEscapePath = I, this.applyChecksum = typeof A === "boolean" ? A : !0, this.regionProvider = (0, gXQ.normalizeProvider)(B), this.credentialProvider = (0, gXQ.normalizeProvider)(Q)
+      }
+      createCanonicalRequest(A, Q, B) {
+        let G = Object.keys(Q).sort();
+        return `${A.method}
+${this.getCanonicalPath(A)}
+${YVQ(A)}
+${G.map((Z)=>`${Z}:${Q[Z]}`).join(`
+`)}
+
+${G.join(";")}
+${B}`
+      }
+      async createStringToSign(A, Q, B, G) {
+        let Z = new this.sha256;
+        Z.update((0, _d4.toUint8Array)(B));
+        let I = await Z.digest();
+        return `${G}
+${A}
+${Q}
+${(0,Td.toHex)(I)}`
+      }
+      getCanonicalPath({
+        path: A
+      }) {
+        if (this.uriEscapePath) {
+          let Q = [];
+          for (let Z of A.split("/")) {
+            if (Z?.length === 0) continue;
+            if (Z === ".") continue;
+            if (Z === "..") Q.pop();
+            else Q.push(Z)
+          }
+          let B = `${A?.startsWith("/")?"/":""}${Q.join("/")}${Q.length>0&&A?.endsWith("/")?"/":""}`;
+          return (0, agA.escapeUri)(B).replace(/%2F/g, "/")
+        }
+        return A
+      }
+      validateResolvedCredentials(A) {
+        if (typeof A !== "object" || typeof A.accessKeyId !== "string" || typeof A.secretAccessKey !== "string") throw Error("Resolved credential object is not valid")
+      }
+      formatDate(A) {
+        let Q = kd4(A).replace(/[\-:]/g, "");
+        return {
+          longDate: Q,
+          shortDate: Q.slice(0, 8)
+        }
+      }
+      getCanonicalHeaderList(A) {
+        return Object.keys(A).sort().join(";")
+      }
+    },
+    xd4 = class extends JVQ {
+      constructor({
+        applyChecksum: A,
+        credentials: Q,
+        region: B,
+        service: G,
+        sha256: Z,
+        uriEscapePath: I = !0
+      }) {
+        super({
+          applyChecksum: A,
+          credentials: Q,
+          region: B,
+          service: G,
+          sha256: Z,
+          uriEscapePath: I
+        });
+        this.headerFormatter = new Pd4
       }
       static {
-        RC(this, "StandardRetryStrategy")
+        ZD(this, "SignatureV4")
       }
-      async acquireInitialRetryToken(A) {
-        return ptA({
-          retryDelay: Ya,
-          retryCount: 0
+      async presign(A, Q = {}) {
+        let {
+          signingDate: B = new Date,
+          expiresIn: G = 3600,
+          unsignableHeaders: Z,
+          unhoistableHeaders: I,
+          signableHeaders: Y,
+          hoistableHeaders: J,
+          signingRegion: W,
+          signingService: X
+        } = Q, V = await this.credentialProvider();
+        this.validateResolvedCredentials(V);
+        let F = W ?? await this.regionProvider(),
+          {
+            longDate: K,
+            shortDate: D
+          } = this.formatDate(B);
+        if (G > QVQ) return Promise.reject("Signature version 4 presigned URLs must have an expiration date less than one week in the future");
+        let H = igA(D, F, X ?? this.service),
+          C = IVQ(AL1(A), {
+            unhoistableHeaders: I,
+            hoistableHeaders: J
+          });
+        if (V.sessionToken) C.query[GL1] = V.sessionToken;
+        C.query[mXQ] = pgA, C.query[dXQ] = `${V.accessKeyId}/${H}`, C.query[QL1] = K, C.query[pXQ] = G.toString(10);
+        let E = tN1(C, Z, Y);
+        return C.query[cXQ] = this.getCanonicalHeaderList(E), C.query[BL1] = await this.getSignature(K, H, this.getSigningKey(V, F, D, X), this.createCanonicalRequest(C, E, await ngA(A, this.sha256))), C
+      }
+      async sign(A, Q) {
+        if (typeof A === "string") return this.signString(A, Q);
+        else if (A.headers && A.payload) return this.signEvent(A, Q);
+        else if (A.message) return this.signMessage(A, Q);
+        else return this.signRequest(A, Q)
+      }
+      async signEvent({
+        headers: A,
+        payload: Q
+      }, {
+        signingDate: B = new Date,
+        priorSignature: G,
+        signingRegion: Z,
+        signingService: I
+      }) {
+        let Y = Z ?? await this.regionProvider(),
+          {
+            shortDate: J,
+            longDate: W
+          } = this.formatDate(B),
+          X = igA(J, Y, I ?? this.service),
+          V = await ngA({
+            headers: {},
+            body: Q
+          }, this.sha256),
+          F = new this.sha256;
+        F.update(A);
+        let K = (0, Td.toHex)(await F.digest()),
+          D = [tXQ, W, X, G, K, V].join(`
+`);
+        return this.signString(D, {
+          signingDate: B,
+          signingRegion: Y,
+          signingService: I
         })
       }
-      async refreshRetryTokenForRetry(A, B) {
-        let Q = await this.getMaxAttempts();
-        if (this.shouldRetry(A, B, Q)) {
-          let I = B.errorType;
-          this.retryBackoffStrategy.setDelayBase(I === "THROTTLING" ? ntA : Ya);
-          let G = this.retryBackoffStrategy.computeNextBackoffDelay(A.getRetryCount()),
-            Z = B.retryAfterHint ? Math.max(B.retryAfterHint.getTime() - Date.now() || 0, G) : G,
-            D = this.getCapacityCost(I);
-          return this.capacity -= D, ptA({
-            retryDelay: Z,
-            retryCount: A.getRetryCount() + 1,
-            retryCost: D
-          })
-        }
-        throw new Error("No retry token available")
+      async signMessage(A, {
+        signingDate: Q = new Date,
+        signingRegion: B,
+        signingService: G
+      }) {
+        return this.signEvent({
+          headers: this.headerFormatter.format(A.message.headers),
+          payload: A.message.body
+        }, {
+          signingDate: Q,
+          signingRegion: B,
+          signingService: G,
+          priorSignature: A.priorSignature
+        }).then((I) => {
+          return {
+            message: A.message,
+            signature: I
+          }
+        })
       }
-      recordSuccess(A) {
-        this.capacity = Math.max(rj1, this.capacity + (A.getRetryCost() ?? rtA))
+      async signString(A, {
+        signingDate: Q = new Date,
+        signingRegion: B,
+        signingService: G
+      } = {}) {
+        let Z = await this.credentialProvider();
+        this.validateResolvedCredentials(Z);
+        let I = B ?? await this.regionProvider(),
+          {
+            shortDate: Y
+          } = this.formatDate(Q),
+          J = new this.sha256(await this.getSigningKey(Z, I, Y, G));
+        return J.update((0, bXQ.toUint8Array)(A)), (0, Td.toHex)(await J.digest())
       }
-      getCapacity() {
-        return this.capacity
+      async signRequest(A, {
+        signingDate: Q = new Date,
+        signableHeaders: B,
+        unsignableHeaders: G,
+        signingRegion: Z,
+        signingService: I
+      } = {}) {
+        let Y = await this.credentialProvider();
+        this.validateResolvedCredentials(Y);
+        let J = Z ?? await this.regionProvider(),
+          W = AL1(A),
+          {
+            longDate: X,
+            shortDate: V
+          } = this.formatDate(Q),
+          F = igA(V, J, I ?? this.service);
+        if (W.headers[IL1] = X, Y.sessionToken) W.headers[aXQ] = Y.sessionToken;
+        let K = await ngA(W, this.sha256);
+        if (!GVQ(sgA, W.headers) && this.applyChecksum) W.headers[sgA] = K;
+        let D = tN1(W, G, B),
+          H = await this.getSignature(X, F, this.getSigningKey(Y, J, V, I), this.createCanonicalRequest(W, D, K));
+        return W.headers[ZL1] = `${pgA} Credential=${Y.accessKeyId}/${F}, SignedHeaders=${this.getCanonicalHeaderList(D)}, Signature=${H}`, W
       }
-      async getMaxAttempts() {
-        try {
-          return await this.maxAttemptsProvider()
-        } catch (A) {
-          return console.warn(`Max attempts provider could not resolve. Using default of ${sj1}`), sj1
-        }
+      async getSignature(A, Q, B, G) {
+        let Z = await this.createStringToSign(A, Q, G, pgA),
+          I = new this.sha256(await B);
+        return I.update((0, bXQ.toUint8Array)(Z)), (0, Td.toHex)(await I.digest())
       }
-      shouldRetry(A, B, Q) {
-        return A.getRetryCount() + 1 < Q && this.capacity >= this.getCapacityCost(B.errorType) && this.isRetryableError(B.errorType)
-      }
-      getCapacityCost(A) {
-        return A === "TRANSIENT" ? stA : atA
-      }
-      isRetryableError(A) {
-        return A === "THROTTLING" || A === "TRANSIENT"
+      getSigningKey(A, Q, B, G) {
+        return BVQ(this.sha256, A, B, Q, G || this.service)
       }
     },
-    cF4 = class {
-      constructor(A, B) {
-        this.maxAttemptsProvider = A, this.mode = "adaptive";
-        let {
-          rateLimiter: Q
-        } = B ?? {};
-        this.rateLimiter = Q ?? new itA, this.standardRetryStrategy = new tj1(A)
-      }
-      static {
-        RC(this, "AdaptiveRetryStrategy")
-      }
-      async acquireInitialRetryToken(A) {
-        return await this.rateLimiter.getSendToken(), this.standardRetryStrategy.acquireInitialRetryToken(A)
-      }
-      async refreshRetryTokenForRetry(A, B) {
-        return this.rateLimiter.updateClientSendingRate(B), this.standardRetryStrategy.refreshRetryTokenForRetry(A, B)
-      }
-      recordSuccess(A) {
-        this.rateLimiter.updateClientSendingRate({}), this.standardRetryStrategy.recordSuccess(A)
-      }
-    },
-    lF4 = class extends tj1 {
-      static {
-        RC(this, "ConfiguredRetryStrategy")
-      }
-      constructor(A, B = Ya) {
-        super(typeof A === "function" ? A : async () => A);
-        if (typeof B === "number") this.computeNextBackoffDelay = () => B;
-        else this.computeNextBackoffDelay = B
-      }
-      async refreshRetryTokenForRetry(A, B) {
-        let Q = await super.refreshRetryTokenForRetry(A, B);
-        return Q.getRetryDelay = () => this.computeNextBackoffDelay(Q.getRetryCount()), Q
-      }
+    vd4 = {
+      SignatureV4a: null
     }
 })
-// @from(Start 3395871, End 3424409)
-zeA = z((UI8, HeA) => {
+// @from(Start 3014075, End 3023489)
+VL1 = z((j$7, NVQ) => {
   var {
-    defineProperty: f71,
-    getOwnPropertyDescriptor: iF4,
-    getOwnPropertyNames: nF4
-  } = Object, aF4 = Object.prototype.hasOwnProperty, o0 = (A, B) => f71(A, "name", {
-    value: B,
+    defineProperty: ogA,
+    getOwnPropertyDescriptor: bd4,
+    getOwnPropertyNames: fd4
+  } = Object, hd4 = Object.prototype.hasOwnProperty, HW = (A, Q) => ogA(A, "name", {
+    value: Q,
     configurable: !0
-  }), sF4 = (A, B) => {
-    for (var Q in B) f71(A, Q, {
-      get: B[Q],
+  }), gd4 = (A, Q) => {
+    for (var B in Q) ogA(A, B, {
+      get: Q[B],
       enumerable: !0
     })
-  }, rF4 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of nF4(B))
-        if (!aF4.call(A, G) && G !== Q) f71(A, G, {
-          get: () => B[G],
-          enumerable: !(I = iF4(B, G)) || I.enumerable
+  }, ud4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of fd4(Q))
+        if (!hd4.call(A, Z) && Z !== B) ogA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = bd4(Q, Z)) || G.enumerable
         })
     }
     return A
-  }, oF4 = (A) => rF4(f71({}, "__esModule", {
+  }, md4 = (A) => ud4(ogA({}, "__esModule", {
     value: !0
-  }), A), etA = {};
-  sF4(etA, {
-    Client: () => tF4,
-    Command: () => BeA,
-    LazyJsonString: () => A_,
-    NoOpLogger: () => aX4,
-    SENSITIVE_STRING: () => AX4,
-    ServiceException: () => fX4,
-    _json: () => Zy1,
-    collectBody: () => ej1.collectBody,
-    convertMap: () => sX4,
-    createAggregatedClient: () => BX4,
-    dateToUtcString: () => YeA,
-    decorateServiceException: () => WeA,
-    emitWarningIfUnsupportedVersion: () => hX4,
-    expectBoolean: () => IX4,
-    expectByte: () => Gy1,
-    expectFloat32: () => k71,
-    expectInt: () => ZX4,
-    expectInt32: () => Qy1,
-    expectLong: () => Fa,
-    expectNonNull: () => YX4,
-    expectNumber: () => Ja,
-    expectObject: () => QeA,
-    expectShort: () => Iy1,
-    expectString: () => WX4,
-    expectUnion: () => JX4,
-    extendedEncodeURIComponent: () => ej1.extendedEncodeURIComponent,
-    getArrayIfSingleItem: () => iX4,
-    getDefaultClientConfiguration: () => cX4,
-    getDefaultExtensionConfiguration: () => FeA,
-    getValueFromTextNode: () => XeA,
-    handleFloat: () => VX4,
-    isSerializableHeaderValue: () => nX4,
-    limitedParseDouble: () => Wy1,
-    limitedParseFloat: () => CX4,
-    limitedParseFloat32: () => KX4,
-    loadConfigsForDefaultMode: () => gX4,
-    logger: () => Xa,
-    map: () => Fy1,
-    parseBoolean: () => QX4,
-    parseEpochTimestamp: () => OX4,
-    parseRfc3339DateTime: () => UX4,
-    parseRfc3339DateTimeWithOffset: () => $X4,
-    parseRfc7231DateTime: () => RX4,
-    quoteHeader: () => CeA,
-    resolveDefaultRuntimeConfig: () => lX4,
-    resolvedPath: () => ej1.resolvedPath,
-    serializeDateTime: () => BV4,
-    serializeFloat: () => AV4,
-    splitEvery: () => KeA,
-    splitHeader: () => QV4,
-    strictParseByte: () => DeA,
-    strictParseDouble: () => Yy1,
-    strictParseFloat: () => FX4,
-    strictParseFloat32: () => IeA,
-    strictParseInt: () => HX4,
-    strictParseInt32: () => zX4,
-    strictParseLong: () => ZeA,
-    strictParseShort: () => Ub,
-    take: () => rX4,
-    throwDefaultError: () => JeA,
-    withBaseException: () => vX4
+  }), A), zVQ = {};
+  gd4(zVQ, {
+    AWSSDKSigV4Signer: () => ld4,
+    AwsSdkSigV4ASigner: () => nd4,
+    AwsSdkSigV4Signer: () => XL1,
+    NODE_AUTH_SCHEME_PREFERENCE_OPTIONS: () => ad4,
+    NODE_SIGV4A_CONFIG_OPTIONS: () => od4,
+    getBearerTokenEnvKey: () => UVQ,
+    resolveAWSSDKSigV4Config: () => ed4,
+    resolveAwsSdkSigV4AConfig: () => rd4,
+    resolveAwsSdkSigV4Config: () => $VQ,
+    validateSigningProperties: () => WL1
   });
-  HeA.exports = oF4(etA);
-  var AeA = WN(),
-    tF4 = class {
+  NVQ.exports = md4(zVQ);
+  var dd4 = iz(),
+    cd4 = iz(),
+    VVQ = HW((A) => cd4.HttpResponse.isInstance(A) ? A.headers?.date ?? A.headers?.Date : void 0, "getDateHeader"),
+    JL1 = HW((A) => new Date(Date.now() + A), "getSkewCorrectedDate"),
+    pd4 = HW((A, Q) => Math.abs(JL1(Q).getTime() - A) >= 300000, "isClockSkewed"),
+    FVQ = HW((A, Q) => {
+      let B = Date.parse(A);
+      if (pd4(B, Q)) return B - Date.now();
+      return Q
+    }, "getUpdatedSystemClockOffset"),
+    THA = HW((A, Q) => {
+      if (!Q) throw Error(`Property \`${A}\` is not resolved for AWS SDK SigV4Auth`);
+      return Q
+    }, "throwSigningPropertyError"),
+    WL1 = HW(async (A) => {
+      let Q = THA("context", A.context),
+        B = THA("config", A.config),
+        G = Q.endpointV2?.properties?.authSchemes?.[0],
+        I = await THA("signer", B.signer)(G),
+        Y = A?.signingRegion,
+        J = A?.signingRegionSet,
+        W = A?.signingName;
+      return {
+        config: B,
+        signer: I,
+        signingRegion: Y,
+        signingRegionSet: J,
+        signingName: W
+      }
+    }, "validateSigningProperties"),
+    XL1 = class {
+      static {
+        HW(this, "AwsSdkSigV4Signer")
+      }
+      async sign(A, Q, B) {
+        if (!dd4.HttpRequest.isInstance(A)) throw Error("The request is not an instance of `HttpRequest` and cannot be signed");
+        let G = await WL1(B),
+          {
+            config: Z,
+            signer: I
+          } = G,
+          {
+            signingRegion: Y,
+            signingName: J
+          } = G,
+          W = B.context;
+        if (W?.authSchemes?.length ?? !1) {
+          let [V, F] = W.authSchemes;
+          if (V?.name === "sigv4a" && F?.name === "sigv4") Y = F?.signingRegion ?? Y, J = F?.signingName ?? J
+        }
+        return await I.sign(A, {
+          signingDate: JL1(Z.systemClockOffset),
+          signingRegion: Y,
+          signingService: J
+        })
+      }
+      errorHandler(A) {
+        return (Q) => {
+          let B = Q.ServerTime ?? VVQ(Q.$response);
+          if (B) {
+            let G = THA("config", A.config),
+              Z = G.systemClockOffset;
+            if (G.systemClockOffset = FVQ(B, G.systemClockOffset), G.systemClockOffset !== Z && Q.$metadata) Q.$metadata.clockSkewCorrected = !0
+          }
+          throw Q
+        }
+      }
+      successHandler(A, Q) {
+        let B = VVQ(A);
+        if (B) {
+          let G = THA("config", Q.config);
+          G.systemClockOffset = FVQ(B, G.systemClockOffset)
+        }
+      }
+    },
+    ld4 = XL1,
+    id4 = iz(),
+    nd4 = class extends XL1 {
+      static {
+        HW(this, "AwsSdkSigV4ASigner")
+      }
+      async sign(A, Q, B) {
+        if (!id4.HttpRequest.isInstance(A)) throw Error("The request is not an instance of `HttpRequest` and cannot be signed");
+        let {
+          config: G,
+          signer: Z,
+          signingRegion: I,
+          signingRegionSet: Y,
+          signingName: J
+        } = await WL1(B), X = (await G.sigv4aSigningRegionSet?.() ?? Y ?? [I]).join(",");
+        return await Z.sign(A, {
+          signingDate: JL1(G.systemClockOffset),
+          signingRegion: X,
+          signingService: J
+        })
+      }
+    },
+    KVQ = HW((A) => typeof A === "string" && A.length > 0 ? A.split(",").map((Q) => Q.trim()) : [], "getArrayForCommaSeparatedString"),
+    UVQ = HW((A) => `AWS_BEARER_TOKEN_${A.replace(/[\s-]/g,"_").toUpperCase()}`, "getBearerTokenEnvKey"),
+    DVQ = "AWS_AUTH_SCHEME_PREFERENCE",
+    HVQ = "auth_scheme_preference",
+    ad4 = {
+      environmentVariableSelector: HW((A, Q) => {
+        if (Q?.signingName) {
+          if (UVQ(Q.signingName) in A) return ["httpBearerAuth"]
+        }
+        if (!(DVQ in A)) return;
+        return KVQ(A[DVQ])
+      }, "environmentVariableSelector"),
+      configFileSelector: HW((A) => {
+        if (!(HVQ in A)) return;
+        return KVQ(A[HVQ])
+      }, "configFileSelector"),
+      default: []
+    },
+    sd4 = iB(),
+    CVQ = j2(),
+    rd4 = HW((A) => {
+      return A.sigv4aSigningRegionSet = (0, sd4.normalizeProvider)(A.sigv4aSigningRegionSet), A
+    }, "resolveAwsSdkSigV4AConfig"),
+    od4 = {
+      environmentVariableSelector(A) {
+        if (A.AWS_SIGV4A_SIGNING_REGION_SET) return A.AWS_SIGV4A_SIGNING_REGION_SET.split(",").map((Q) => Q.trim());
+        throw new CVQ.ProviderError("AWS_SIGV4A_SIGNING_REGION_SET not set in env.", {
+          tryNextLink: !0
+        })
+      },
+      configFileSelector(A) {
+        if (A.sigv4a_signing_region_set) return (A.sigv4a_signing_region_set ?? "").split(",").map((Q) => Q.trim());
+        throw new CVQ.ProviderError("sigv4a_signing_region_set not set in profile.", {
+          tryNextLink: !0
+        })
+      },
+      default: void 0
+    },
+    td4 = lR(),
+    or = iB(),
+    EVQ = XVQ(),
+    $VQ = HW((A) => {
+      let Q = A.credentials,
+        B = !!A.credentials,
+        G = void 0;
+      Object.defineProperty(A, "credentials", {
+        set(X) {
+          if (X && X !== Q && X !== G) B = !0;
+          Q = X;
+          let V = wVQ(A, {
+              credentials: Q,
+              credentialDefaultProvider: A.credentialDefaultProvider
+            }),
+            F = qVQ(A, V);
+          if (B && !F.attributed) G = HW(async (K) => F(K).then((D) => (0, td4.setCredentialFeature)(D, "CREDENTIALS_CODE", "e")), "resolvedCredentials"), G.memoized = F.memoized, G.configBound = F.configBound, G.attributed = !0;
+          else G = F
+        },
+        get() {
+          return G
+        },
+        enumerable: !0,
+        configurable: !0
+      }), A.credentials = Q;
+      let {
+        signingEscapePath: Z = !0,
+        systemClockOffset: I = A.systemClockOffset || 0,
+        sha256: Y
+      } = A, J;
+      if (A.signer) J = (0, or.normalizeProvider)(A.signer);
+      else if (A.regionInfoProvider) J = HW(() => (0, or.normalizeProvider)(A.region)().then(async (X) => [await A.regionInfoProvider(X, {
+        useFipsEndpoint: await A.useFipsEndpoint(),
+        useDualstackEndpoint: await A.useDualstackEndpoint()
+      }) || {}, X]).then(([X, V]) => {
+        let {
+          signingRegion: F,
+          signingService: K
+        } = X;
+        A.signingRegion = A.signingRegion || F || V, A.signingName = A.signingName || K || A.serviceId;
+        let D = {
+          ...A,
+          credentials: A.credentials,
+          region: A.signingRegion,
+          service: A.signingName,
+          sha256: Y,
+          uriEscapePath: Z
+        };
+        return new(A.signerConstructor || EVQ.SignatureV4)(D)
+      }), "signer");
+      else J = HW(async (X) => {
+        X = Object.assign({}, {
+          name: "sigv4",
+          signingName: A.signingName || A.defaultSigningName,
+          signingRegion: await (0, or.normalizeProvider)(A.region)(),
+          properties: {}
+        }, X);
+        let {
+          signingRegion: V,
+          signingName: F
+        } = X;
+        A.signingRegion = A.signingRegion || V, A.signingName = A.signingName || F || A.serviceId;
+        let K = {
+          ...A,
+          credentials: A.credentials,
+          region: A.signingRegion,
+          service: A.signingName,
+          sha256: Y,
+          uriEscapePath: Z
+        };
+        return new(A.signerConstructor || EVQ.SignatureV4)(K)
+      }, "signer");
+      return Object.assign(A, {
+        systemClockOffset: I,
+        signingEscapePath: Z,
+        signer: J
+      })
+    }, "resolveAwsSdkSigV4Config"),
+    ed4 = $VQ;
+
+  function wVQ(A, {
+    credentials: Q,
+    credentialDefaultProvider: B
+  }) {
+    let G;
+    if (Q)
+      if (!Q?.memoized) G = (0, or.memoizeIdentityProvider)(Q, or.isIdentityExpired, or.doesIdentityRequireRefresh);
+      else G = Q;
+    else if (B) G = (0, or.normalizeProvider)(B(Object.assign({}, A, {
+      parentClientConfig: A
+    })));
+    else G = HW(async () => {
+      throw Error("@aws-sdk/core::resolveAwsSdkSigV4Config - `credentials` not provided and no credentialDefaultProvider was configured.")
+    }, "credentialsProvider");
+    return G.memoized = !0, G
+  }
+  HW(wVQ, "normalizeCredentialProvider");
+
+  function qVQ(A, Q) {
+    if (Q.configBound) return Q;
+    let B = HW(async (G) => Q({
+      ...G,
+      callerClientConfig: A
+    }), "fn");
+    return B.memoized = Q.memoized, B.configBound = !0, B
+  }
+  HW(qVQ, "bindCallerConfig")
+})
+// @from(Start 3023495, End 3023982)
+OVQ = z((LVQ) => {
+  Object.defineProperty(LVQ, "__esModule", {
+    value: !0
+  });
+  LVQ.fromBase64 = void 0;
+  var Ac4 = hI(),
+    Qc4 = /^[A-Za-z0-9+/]*={0,2}$/,
+    Bc4 = (A) => {
+      if (A.length * 3 % 4 !== 0) throw TypeError("Incorrect padding on base64 string.");
+      if (!Qc4.exec(A)) throw TypeError("Invalid base64 string.");
+      let Q = (0, Ac4.fromString)(A, "base64");
+      return new Uint8Array(Q.buffer, Q.byteOffset, Q.byteLength)
+    };
+  LVQ.fromBase64 = Bc4
+})
+// @from(Start 3023988, End 3024567)
+PVQ = z((RVQ) => {
+  Object.defineProperty(RVQ, "__esModule", {
+    value: !0
+  });
+  RVQ.toBase64 = void 0;
+  var Gc4 = hI(),
+    Zc4 = O2(),
+    Ic4 = (A) => {
+      let Q;
+      if (typeof A === "string") Q = (0, Zc4.fromUtf8)(A);
+      else Q = A;
+      if (typeof Q !== "object" || typeof Q.byteOffset !== "number" || typeof Q.byteLength !== "number") throw Error("@smithy/util-base64: toBase64 encoder function only accepts string | Uint8Array.");
+      return (0, Gc4.fromArrayBuffer)(Q.buffer, Q.byteOffset, Q.byteLength).toString("base64")
+    };
+  RVQ.toBase64 = Ic4
+})
+// @from(Start 3024573, End 3025268)
+Pd = z((x$7, tgA) => {
+  var {
+    defineProperty: jVQ,
+    getOwnPropertyDescriptor: Yc4,
+    getOwnPropertyNames: Jc4
+  } = Object, Wc4 = Object.prototype.hasOwnProperty, FL1 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of Jc4(Q))
+        if (!Wc4.call(A, Z) && Z !== B) jVQ(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = Yc4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, SVQ = (A, Q, B) => (FL1(A, Q, "default"), B && FL1(B, Q, "default")), Xc4 = (A) => FL1(jVQ({}, "__esModule", {
+    value: !0
+  }), A), KL1 = {};
+  tgA.exports = Xc4(KL1);
+  SVQ(KL1, OVQ(), tgA.exports);
+  SVQ(KL1, PVQ(), tgA.exports)
+})
+// @from(Start 3025274, End 3039298)
+r6 = z((v$7, $L1) => {
+  var {
+    defineProperty: egA,
+    getOwnPropertyDescriptor: Vc4,
+    getOwnPropertyNames: Fc4
+  } = Object, Kc4 = Object.prototype.hasOwnProperty, P3 = (A, Q) => egA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), Dc4 = (A, Q) => {
+    for (var B in Q) egA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, HL1 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of Fc4(Q))
+        if (!Kc4.call(A, Z) && Z !== B) egA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = Vc4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, Hc4 = (A, Q, B) => (HL1(A, Q, "default"), B && HL1(B, Q, "default")), Cc4 = (A) => HL1(egA({}, "__esModule", {
+    value: !0
+  }), A), zL1 = {};
+  Dc4(zL1, {
+    Client: () => Ec4,
+    Command: () => yVQ,
+    NoOpLogger: () => yc4,
+    SENSITIVE_STRING: () => Uc4,
+    ServiceException: () => wc4,
+    _json: () => EL1,
+    collectBody: () => DL1.collectBody,
+    convertMap: () => xc4,
+    createAggregatedClient: () => $c4,
+    decorateServiceException: () => xVQ,
+    emitWarningIfUnsupportedVersion: () => Mc4,
+    extendedEncodeURIComponent: () => DL1.extendedEncodeURIComponent,
+    getArrayIfSingleItem: () => _c4,
+    getDefaultClientConfiguration: () => jc4,
+    getDefaultExtensionConfiguration: () => bVQ,
+    getValueFromTextNode: () => fVQ,
+    isSerializableHeaderValue: () => kc4,
+    loadConfigsForDefaultMode: () => Lc4,
+    map: () => UL1,
+    resolveDefaultRuntimeConfig: () => Sc4,
+    resolvedPath: () => DL1.resolvedPath,
+    serializeDateTime: () => uc4,
+    serializeFloat: () => gc4,
+    take: () => vc4,
+    throwDefaultError: () => vVQ,
+    withBaseException: () => qc4
+  });
+  $L1.exports = Cc4(zL1);
+  var kVQ = uR(),
+    Ec4 = class {
       constructor(A) {
-        this.config = A, this.middlewareStack = AeA.constructStack()
+        this.config = A, this.middlewareStack = (0, kVQ.constructStack)()
       }
       static {
-        o0(this, "Client")
+        P3(this, "Client")
       }
-      send(A, B, Q) {
-        let I = typeof B !== "function" ? B : void 0,
-          G = typeof B === "function" ? B : Q,
-          Z = I === void 0 && this.config.cacheMiddleware === !0,
-          D;
-        if (Z) {
+      send(A, Q, B) {
+        let G = typeof Q !== "function" ? Q : void 0,
+          Z = typeof Q === "function" ? Q : B,
+          I = G === void 0 && this.config.cacheMiddleware === !0,
+          Y;
+        if (I) {
           if (!this.handlers) this.handlers = new WeakMap;
-          let Y = this.handlers;
-          if (Y.has(A.constructor)) D = Y.get(A.constructor);
-          else D = A.resolveMiddleware(this.middlewareStack, this.config, I), Y.set(A.constructor, D)
-        } else delete this.handlers, D = A.resolveMiddleware(this.middlewareStack, this.config, I);
-        if (G) D(A).then((Y) => G(null, Y.output), (Y) => G(Y)).catch(() => {});
-        else return D(A).then((Y) => Y.output)
+          let J = this.handlers;
+          if (J.has(A.constructor)) Y = J.get(A.constructor);
+          else Y = A.resolveMiddleware(this.middlewareStack, this.config, G), J.set(A.constructor, Y)
+        } else delete this.handlers, Y = A.resolveMiddleware(this.middlewareStack, this.config, G);
+        if (Z) Y(A).then((J) => Z(null, J.output), (J) => Z(J)).catch(() => {});
+        else return Y(A).then((J) => J.output)
       }
       destroy() {
         this.config?.requestHandler?.destroy?.(), delete this.handlers
       }
     },
-    ej1 = vz(),
-    By1 = mj1(),
-    BeA = class {
+    DL1 = w5(),
+    CL1 = iN1(),
+    yVQ = class {
       constructor() {
-        this.middlewareStack = AeA.constructStack()
+        this.middlewareStack = (0, kVQ.constructStack)()
       }
       static {
-        o0(this, "Command")
+        P3(this, "Command")
       }
       static classBuilder() {
-        return new eF4
+        return new zc4
       }
-      resolveMiddlewareWithContext(A, B, Q, {
-        middlewareFn: I,
-        clientName: G,
-        commandName: Z,
-        inputFilterSensitiveLog: D,
-        outputFilterSensitiveLog: Y,
+      resolveMiddlewareWithContext(A, Q, B, {
+        middlewareFn: G,
+        clientName: Z,
+        commandName: I,
+        inputFilterSensitiveLog: Y,
+        outputFilterSensitiveLog: J,
         smithyContext: W,
-        additionalContext: J,
-        CommandCtor: F
+        additionalContext: X,
+        CommandCtor: V
       }) {
-        for (let E of I.bind(this)(F, A, B, Q)) this.middlewareStack.use(E);
-        let X = A.concat(this.middlewareStack),
+        for (let C of G.bind(this)(V, A, Q, B)) this.middlewareStack.use(C);
+        let F = A.concat(this.middlewareStack),
           {
-            logger: V
-          } = B,
-          C = {
-            logger: V,
-            clientName: G,
-            commandName: Z,
-            inputFilterSensitiveLog: D,
-            outputFilterSensitiveLog: Y,
-            [By1.SMITHY_CONTEXT_KEY]: {
+            logger: K
+          } = Q,
+          D = {
+            logger: K,
+            clientName: Z,
+            commandName: I,
+            inputFilterSensitiveLog: Y,
+            outputFilterSensitiveLog: J,
+            [CL1.SMITHY_CONTEXT_KEY]: {
               commandInstance: this,
               ...W
             },
-            ...J
+            ...X
           },
           {
-            requestHandler: K
-          } = B;
-        return X.resolve((E) => K.handle(E.request, Q || {}), C)
+            requestHandler: H
+          } = Q;
+        return F.resolve((C) => H.handle(C.request, B || {}), D)
       }
     },
-    eF4 = class {
+    zc4 = class {
       constructor() {
         this._init = () => {}, this._ep = {}, this._middlewareFn = () => [], this._commandName = "", this._clientName = "", this._additionalContext = {}, this._smithyContext = {}, this._inputFilterSensitiveLog = (A) => A, this._outputFilterSensitiveLog = (A) => A, this._serializer = null, this._deserializer = null
       }
       static {
-        o0(this, "ClassBuilder")
+        P3(this, "ClassBuilder")
       }
       init(A) {
         this._init = A
@@ -847,21 +1137,21 @@ zeA = z((UI8, HeA) => {
       m(A) {
         return this._middlewareFn = A, this
       }
-      s(A, B, Q = {}) {
+      s(A, Q, B = {}) {
         return this._smithyContext = {
           service: A,
-          operation: B,
-          ...Q
+          operation: Q,
+          ...B
         }, this
       }
       c(A = {}) {
         return this._additionalContext = A, this
       }
-      n(A, B) {
-        return this._clientName = A, this._commandName = B, this
+      n(A, Q) {
+        return this._clientName = A, this._commandName = Q, this
       }
-      f(A = (Q) => Q, B = (Q) => Q) {
-        return this._inputFilterSensitiveLog = A, this._outputFilterSensitiveLog = B, this
+      f(A = (B) => B, Q = (B) => B) {
+        return this._inputFilterSensitiveLog = A, this._outputFilterSensitiveLog = Q, this
       }
       ser(A) {
         return this._serializer = A, this
@@ -869,23 +1159,26 @@ zeA = z((UI8, HeA) => {
       de(A) {
         return this._deserializer = A, this
       }
+      sc(A) {
+        return this._operationSchema = A, this._smithyContext.operationSchema = A, this
+      }
       build() {
         let A = this,
-          B;
-        return B = class extends BeA {
-          constructor(...[Q]) {
+          Q;
+        return Q = class extends yVQ {
+          constructor(...[B]) {
             super();
-            this.serialize = A._serializer, this.deserialize = A._deserializer, this.input = Q ?? {}, A._init(this)
+            this.serialize = A._serializer, this.deserialize = A._deserializer, this.input = B ?? {}, A._init(this), this.schema = A._operationSchema
           }
           static {
-            o0(this, "CommandRef")
+            P3(this, "CommandRef")
           }
           static getEndpointParameterInstructions() {
             return A._ep
           }
-          resolveMiddleware(Q, I, G) {
-            return this.resolveMiddlewareWithContext(Q, I, G, {
-              CommandCtor: B,
+          resolveMiddleware(B, G, Z) {
+            return this.resolveMiddlewareWithContext(B, G, Z, {
+              CommandCtor: Q,
               middlewareFn: A._middlewareFn,
               clientName: A._clientName,
               commandName: A._commandName,
@@ -898,395 +1191,89 @@ zeA = z((UI8, HeA) => {
         }
       }
     },
-    AX4 = "***SensitiveInformation***",
-    BX4 = o0((A, B) => {
-      for (let Q of Object.keys(A)) {
-        let I = A[Q],
-          G = o0(async function(D, Y, W) {
-            let J = new I(D);
-            if (typeof Y === "function") this.send(J, Y);
+    Uc4 = "***SensitiveInformation***",
+    $c4 = P3((A, Q) => {
+      for (let B of Object.keys(A)) {
+        let G = A[B],
+          Z = P3(async function(Y, J, W) {
+            let X = new G(Y);
+            if (typeof J === "function") this.send(X, J);
             else if (typeof W === "function") {
-              if (typeof Y !== "object") throw new Error(`Expected http options but got ${typeof Y}`);
-              this.send(J, Y || {}, W)
-            } else return this.send(J, Y)
+              if (typeof J !== "object") throw Error(`Expected http options but got ${typeof J}`);
+              this.send(X, J || {}, W)
+            } else return this.send(X, J)
           }, "methodImpl"),
-          Z = (Q[0].toLowerCase() + Q.slice(1)).replace(/Command$/, "");
-        B.prototype[Z] = G
+          I = (B[0].toLowerCase() + B.slice(1)).replace(/Command$/, "");
+        Q.prototype[I] = Z
       }
     }, "createAggregatedClient"),
-    QX4 = o0((A) => {
-      switch (A) {
-        case "true":
-          return !0;
-        case "false":
-          return !1;
-        default:
-          throw new Error(`Unable to parse boolean value "${A}"`)
-      }
-    }, "parseBoolean"),
-    IX4 = o0((A) => {
-      if (A === null || A === void 0) return;
-      if (typeof A === "number") {
-        if (A === 0 || A === 1) Xa.warn(x71(`Expected boolean, got ${typeof A}: ${A}`));
-        if (A === 0) return !1;
-        if (A === 1) return !0
-      }
-      if (typeof A === "string") {
-        let B = A.toLowerCase();
-        if (B === "false" || B === "true") Xa.warn(x71(`Expected boolean, got ${typeof A}: ${A}`));
-        if (B === "false") return !1;
-        if (B === "true") return !0
-      }
-      if (typeof A === "boolean") return A;
-      throw new TypeError(`Expected boolean, got ${typeof A}: ${A}`)
-    }, "expectBoolean"),
-    Ja = o0((A) => {
-      if (A === null || A === void 0) return;
-      if (typeof A === "string") {
-        let B = parseFloat(A);
-        if (!Number.isNaN(B)) {
-          if (String(B) !== String(A)) Xa.warn(x71(`Expected number but observed string: ${A}`));
-          return B
-        }
-      }
-      if (typeof A === "number") return A;
-      throw new TypeError(`Expected number, got ${typeof A}: ${A}`)
-    }, "expectNumber"),
-    GX4 = Math.ceil(340282346638528860000000000000000000000),
-    k71 = o0((A) => {
-      let B = Ja(A);
-      if (B !== void 0 && !Number.isNaN(B) && B !== 1 / 0 && B !== -1 / 0) {
-        if (Math.abs(B) > GX4) throw new TypeError(`Expected 32-bit float, got ${A}`)
-      }
-      return B
-    }, "expectFloat32"),
-    Fa = o0((A) => {
-      if (A === null || A === void 0) return;
-      if (Number.isInteger(A) && !Number.isNaN(A)) return A;
-      throw new TypeError(`Expected integer, got ${typeof A}: ${A}`)
-    }, "expectLong"),
-    ZX4 = Fa,
-    Qy1 = o0((A) => Dy1(A, 32), "expectInt32"),
-    Iy1 = o0((A) => Dy1(A, 16), "expectShort"),
-    Gy1 = o0((A) => Dy1(A, 8), "expectByte"),
-    Dy1 = o0((A, B) => {
-      let Q = Fa(A);
-      if (Q !== void 0 && DX4(Q, B) !== Q) throw new TypeError(`Expected ${B}-bit integer, got ${A}`);
-      return Q
-    }, "expectSizedInt"),
-    DX4 = o0((A, B) => {
-      switch (B) {
-        case 32:
-          return Int32Array.of(A)[0];
-        case 16:
-          return Int16Array.of(A)[0];
-        case 8:
-          return Int8Array.of(A)[0]
-      }
-    }, "castInt"),
-    YX4 = o0((A, B) => {
-      if (A === null || A === void 0) {
-        if (B) throw new TypeError(`Expected a non-null value for ${B}`);
-        throw new TypeError("Expected a non-null value")
-      }
-      return A
-    }, "expectNonNull"),
-    QeA = o0((A) => {
-      if (A === null || A === void 0) return;
-      if (typeof A === "object" && !Array.isArray(A)) return A;
-      let B = Array.isArray(A) ? "array" : typeof A;
-      throw new TypeError(`Expected object, got ${B}: ${A}`)
-    }, "expectObject"),
-    WX4 = o0((A) => {
-      if (A === null || A === void 0) return;
-      if (typeof A === "string") return A;
-      if (["boolean", "number", "bigint"].includes(typeof A)) return Xa.warn(x71(`Expected string, got ${typeof A}: ${A}`)), String(A);
-      throw new TypeError(`Expected string, got ${typeof A}: ${A}`)
-    }, "expectString"),
-    JX4 = o0((A) => {
-      if (A === null || A === void 0) return;
-      let B = QeA(A),
-        Q = Object.entries(B).filter(([, I]) => I != null).map(([I]) => I);
-      if (Q.length === 0) throw new TypeError("Unions must have exactly one non-null member. None were found.");
-      if (Q.length > 1) throw new TypeError(`Unions must have exactly one non-null member. Keys ${Q} were not null.`);
-      return B
-    }, "expectUnion"),
-    Yy1 = o0((A) => {
-      if (typeof A == "string") return Ja($b(A));
-      return Ja(A)
-    }, "strictParseDouble"),
-    FX4 = Yy1,
-    IeA = o0((A) => {
-      if (typeof A == "string") return k71($b(A));
-      return k71(A)
-    }, "strictParseFloat32"),
-    XX4 = /(-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)|(-?Infinity)|(NaN)/g,
-    $b = o0((A) => {
-      let B = A.match(XX4);
-      if (B === null || B[0].length !== A.length) throw new TypeError("Expected real number, got implicit NaN");
-      return parseFloat(A)
-    }, "parseNumber"),
-    Wy1 = o0((A) => {
-      if (typeof A == "string") return GeA(A);
-      return Ja(A)
-    }, "limitedParseDouble"),
-    VX4 = Wy1,
-    CX4 = Wy1,
-    KX4 = o0((A) => {
-      if (typeof A == "string") return GeA(A);
-      return k71(A)
-    }, "limitedParseFloat32"),
-    GeA = o0((A) => {
-      switch (A) {
-        case "NaN":
-          return NaN;
-        case "Infinity":
-          return 1 / 0;
-        case "-Infinity":
-          return -1 / 0;
-        default:
-          throw new Error(`Unable to parse float value: ${A}`)
-      }
-    }, "parseFloatString"),
-    ZeA = o0((A) => {
-      if (typeof A === "string") return Fa($b(A));
-      return Fa(A)
-    }, "strictParseLong"),
-    HX4 = ZeA,
-    zX4 = o0((A) => {
-      if (typeof A === "string") return Qy1($b(A));
-      return Qy1(A)
-    }, "strictParseInt32"),
-    Ub = o0((A) => {
-      if (typeof A === "string") return Iy1($b(A));
-      return Iy1(A)
-    }, "strictParseShort"),
-    DeA = o0((A) => {
-      if (typeof A === "string") return Gy1($b(A));
-      return Gy1(A)
-    }, "strictParseByte"),
-    x71 = o0((A) => {
-      return String(new TypeError(A).stack || A).split(`
-`).slice(0, 5).filter((B) => !B.includes("stackTraceWarning")).join(`
-`)
-    }, "stackTraceWarning"),
-    Xa = {
-      warn: console.warn
-    },
-    wX4 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-    Jy1 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-  function YeA(A) {
-    let B = A.getUTCFullYear(),
-      Q = A.getUTCMonth(),
-      I = A.getUTCDay(),
-      G = A.getUTCDate(),
-      Z = A.getUTCHours(),
-      D = A.getUTCMinutes(),
-      Y = A.getUTCSeconds(),
-      W = G < 10 ? `0${G}` : `${G}`,
-      J = Z < 10 ? `0${Z}` : `${Z}`,
-      F = D < 10 ? `0${D}` : `${D}`,
-      X = Y < 10 ? `0${Y}` : `${Y}`;
-    return `${wX4[I]}, ${W} ${Jy1[Q]} ${B} ${J}:${F}:${X} GMT`
-  }
-  o0(YeA, "dateToUtcString");
-  var EX4 = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?[zZ]$/),
-    UX4 = o0((A) => {
-      if (A === null || A === void 0) return;
-      if (typeof A !== "string") throw new TypeError("RFC-3339 date-times must be expressed as strings");
-      let B = EX4.exec(A);
-      if (!B) throw new TypeError("Invalid RFC-3339 date-time value");
-      let [Q, I, G, Z, D, Y, W, J] = B, F = Ub(Nb(I)), X = mz(G, "month", 1, 12), V = mz(Z, "day", 1, 31);
-      return Wa(F, X, V, {
-        hours: D,
-        minutes: Y,
-        seconds: W,
-        fractionalMilliseconds: J
-      })
-    }, "parseRfc3339DateTime"),
-    NX4 = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(([-+]\d{2}\:\d{2})|[zZ])$/),
-    $X4 = o0((A) => {
-      if (A === null || A === void 0) return;
-      if (typeof A !== "string") throw new TypeError("RFC-3339 date-times must be expressed as strings");
-      let B = NX4.exec(A);
-      if (!B) throw new TypeError("Invalid RFC-3339 date-time value");
-      let [Q, I, G, Z, D, Y, W, J, F] = B, X = Ub(Nb(I)), V = mz(G, "month", 1, 12), C = mz(Z, "day", 1, 31), K = Wa(X, V, C, {
-        hours: D,
-        minutes: Y,
-        seconds: W,
-        fractionalMilliseconds: J
-      });
-      if (F.toUpperCase() != "Z") K.setTime(K.getTime() - xX4(F));
-      return K
-    }, "parseRfc3339DateTimeWithOffset"),
-    qX4 = new RegExp(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? GMT$/),
-    MX4 = new RegExp(/^(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d{2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? GMT$/),
-    LX4 = new RegExp(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ( [1-9]|\d{2}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? (\d{4})$/),
-    RX4 = o0((A) => {
-      if (A === null || A === void 0) return;
-      if (typeof A !== "string") throw new TypeError("RFC-7231 date-times must be expressed as strings");
-      let B = qX4.exec(A);
-      if (B) {
-        let [Q, I, G, Z, D, Y, W, J] = B;
-        return Wa(Ub(Nb(Z)), Ay1(G), mz(I, "day", 1, 31), {
-          hours: D,
-          minutes: Y,
-          seconds: W,
-          fractionalMilliseconds: J
-        })
-      }
-      if (B = MX4.exec(A), B) {
-        let [Q, I, G, Z, D, Y, W, J] = B;
-        return SX4(Wa(TX4(Z), Ay1(G), mz(I, "day", 1, 31), {
-          hours: D,
-          minutes: Y,
-          seconds: W,
-          fractionalMilliseconds: J
-        }))
-      }
-      if (B = LX4.exec(A), B) {
-        let [Q, I, G, Z, D, Y, W, J] = B;
-        return Wa(Ub(Nb(J)), Ay1(I), mz(G.trimLeft(), "day", 1, 31), {
-          hours: Z,
-          minutes: D,
-          seconds: Y,
-          fractionalMilliseconds: W
-        })
-      }
-      throw new TypeError("Invalid RFC-7231 date-time value")
-    }, "parseRfc7231DateTime"),
-    OX4 = o0((A) => {
-      if (A === null || A === void 0) return;
-      let B;
-      if (typeof A === "number") B = A;
-      else if (typeof A === "string") B = Yy1(A);
-      else if (typeof A === "object" && A.tag === 1) B = A.value;
-      else throw new TypeError("Epoch timestamps must be expressed as floating point numbers or their string representation");
-      if (Number.isNaN(B) || B === 1 / 0 || B === -1 / 0) throw new TypeError("Epoch timestamps must be valid, non-Infinite, non-NaN numerics");
-      return new Date(Math.round(B * 1000))
-    }, "parseEpochTimestamp"),
-    Wa = o0((A, B, Q, I) => {
-      let G = B - 1;
-      return jX4(A, G, Q), new Date(Date.UTC(A, G, Q, mz(I.hours, "hour", 0, 23), mz(I.minutes, "minute", 0, 59), mz(I.seconds, "seconds", 0, 60), kX4(I.fractionalMilliseconds)))
-    }, "buildDate"),
-    TX4 = o0((A) => {
-      let B = new Date().getUTCFullYear(),
-        Q = Math.floor(B / 100) * 100 + Ub(Nb(A));
-      if (Q < B) return Q + 100;
-      return Q
-    }, "parseTwoDigitYear"),
-    PX4 = 1576800000000,
-    SX4 = o0((A) => {
-      if (A.getTime() - new Date().getTime() > PX4) return new Date(Date.UTC(A.getUTCFullYear() - 100, A.getUTCMonth(), A.getUTCDate(), A.getUTCHours(), A.getUTCMinutes(), A.getUTCSeconds(), A.getUTCMilliseconds()));
-      return A
-    }, "adjustRfc850Year"),
-    Ay1 = o0((A) => {
-      let B = Jy1.indexOf(A);
-      if (B < 0) throw new TypeError(`Invalid month: ${A}`);
-      return B + 1
-    }, "parseMonthByShortName"),
-    _X4 = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
-    jX4 = o0((A, B, Q) => {
-      let I = _X4[B];
-      if (B === 1 && yX4(A)) I = 29;
-      if (Q > I) throw new TypeError(`Invalid day for ${Jy1[B]} in ${A}: ${Q}`)
-    }, "validateDayOfMonth"),
-    yX4 = o0((A) => {
-      return A % 4 === 0 && (A % 100 !== 0 || A % 400 === 0)
-    }, "isLeapYear"),
-    mz = o0((A, B, Q, I) => {
-      let G = DeA(Nb(A));
-      if (G < Q || G > I) throw new TypeError(`${B} must be between ${Q} and ${I}, inclusive`);
-      return G
-    }, "parseDateValue"),
-    kX4 = o0((A) => {
-      if (A === null || A === void 0) return 0;
-      return IeA("0." + A) * 1000
-    }, "parseMilliseconds"),
-    xX4 = o0((A) => {
-      let B = A[0],
-        Q = 1;
-      if (B == "+") Q = 1;
-      else if (B == "-") Q = -1;
-      else throw new TypeError(`Offset direction, ${B}, must be "+" or "-"`);
-      let I = Number(A.substring(1, 3)),
-        G = Number(A.substring(4, 6));
-      return Q * (I * 60 + G) * 60 * 1000
-    }, "parseOffsetToMilliseconds"),
-    Nb = o0((A) => {
-      let B = 0;
-      while (B < A.length - 1 && A.charAt(B) === "0") B++;
-      if (B === 0) return A;
-      return A.slice(B)
-    }, "stripLeadingZeroes"),
-    fX4 = class A extends Error {
+    wc4 = class A extends Error {
       static {
-        o0(this, "ServiceException")
+        P3(this, "ServiceException")
       }
-      constructor(B) {
-        super(B.message);
-        Object.setPrototypeOf(this, Object.getPrototypeOf(this).constructor.prototype), this.name = B.name, this.$fault = B.$fault, this.$metadata = B.$metadata
+      constructor(Q) {
+        super(Q.message);
+        Object.setPrototypeOf(this, Object.getPrototypeOf(this).constructor.prototype), this.name = Q.name, this.$fault = Q.$fault, this.$metadata = Q.$metadata
       }
-      static isInstance(B) {
-        if (!B) return !1;
-        let Q = B;
-        return A.prototype.isPrototypeOf(Q) || Boolean(Q.$fault) && Boolean(Q.$metadata) && (Q.$fault === "client" || Q.$fault === "server")
+      static isInstance(Q) {
+        if (!Q) return !1;
+        let B = Q;
+        return A.prototype.isPrototypeOf(B) || Boolean(B.$fault) && Boolean(B.$metadata) && (B.$fault === "client" || B.$fault === "server")
       }
-      static[Symbol.hasInstance](B) {
-        if (!B) return !1;
-        let Q = B;
-        if (this === A) return A.isInstance(B);
-        if (A.isInstance(B)) {
-          if (Q.name && this.name) return this.prototype.isPrototypeOf(B) || Q.name === this.name;
-          return this.prototype.isPrototypeOf(B)
+      static[Symbol.hasInstance](Q) {
+        if (!Q) return !1;
+        let B = Q;
+        if (this === A) return A.isInstance(Q);
+        if (A.isInstance(Q)) {
+          if (B.name && this.name) return this.prototype.isPrototypeOf(Q) || B.name === this.name;
+          return this.prototype.isPrototypeOf(Q)
         }
         return !1
       }
     },
-    WeA = o0((A, B = {}) => {
-      Object.entries(B).filter(([, I]) => I !== void 0).forEach(([I, G]) => {
-        if (A[I] == null || A[I] === "") A[I] = G
+    xVQ = P3((A, Q = {}) => {
+      Object.entries(Q).filter(([, G]) => G !== void 0).forEach(([G, Z]) => {
+        if (A[G] == null || A[G] === "") A[G] = Z
       });
-      let Q = A.message || A.Message || "UnknownError";
-      return A.message = Q, delete A.Message, A
+      let B = A.message || A.Message || "UnknownError";
+      return A.message = B, delete A.Message, A
     }, "decorateServiceException"),
-    JeA = o0(({
+    vVQ = P3(({
       output: A,
-      parsedBody: B,
-      exceptionCtor: Q,
-      errorCode: I
+      parsedBody: Q,
+      exceptionCtor: B,
+      errorCode: G
     }) => {
-      let G = bX4(A),
-        Z = G.httpStatusCode ? G.httpStatusCode + "" : void 0,
-        D = new Q({
-          name: B?.code || B?.Code || I || Z || "UnknownError",
+      let Z = Nc4(A),
+        I = Z.httpStatusCode ? Z.httpStatusCode + "" : void 0,
+        Y = new B({
+          name: Q?.code || Q?.Code || G || I || "UnknownError",
           $fault: "client",
-          $metadata: G
+          $metadata: Z
         });
-      throw WeA(D, B)
+      throw xVQ(Y, Q)
     }, "throwDefaultError"),
-    vX4 = o0((A) => {
+    qc4 = P3((A) => {
       return ({
-        output: B,
-        parsedBody: Q,
-        errorCode: I
+        output: Q,
+        parsedBody: B,
+        errorCode: G
       }) => {
-        JeA({
-          output: B,
-          parsedBody: Q,
+        vVQ({
+          output: Q,
+          parsedBody: B,
           exceptionCtor: A,
-          errorCode: I
+          errorCode: G
         })
       }
     }, "withBaseException"),
-    bX4 = o0((A) => ({
+    Nc4 = P3((A) => ({
       httpStatusCode: A.statusCode,
       requestId: A.headers["x-amzn-requestid"] ?? A.headers["x-amzn-request-id"] ?? A.headers["x-amz-request-id"],
       extendedRequestId: A.headers["x-amz-id-2"],
       cfId: A.headers["x-amz-cf-id"]
     }), "deserializeMetadata"),
-    gX4 = o0((A) => {
+    Lc4 = P3((A) => {
       switch (A) {
         case "standard":
           return {
@@ -1308,158 +1295,133 @@ zeA = z((UI8, HeA) => {
           return {}
       }
     }, "loadConfigsForDefaultMode"),
-    ttA = !1,
-    hX4 = o0((A) => {
-      if (A && !ttA && parseInt(A.substring(1, A.indexOf("."))) < 16) ttA = !0
+    _VQ = !1,
+    Mc4 = P3((A) => {
+      if (A && !_VQ && parseInt(A.substring(1, A.indexOf("."))) < 16) _VQ = !0
     }, "emitWarningIfUnsupportedVersion"),
-    mX4 = o0((A) => {
-      let B = [];
-      for (let Q in By1.AlgorithmId) {
-        let I = By1.AlgorithmId[Q];
-        if (A[I] === void 0) continue;
-        B.push({
-          algorithmId: () => I,
-          checksumConstructor: () => A[I]
+    Oc4 = P3((A) => {
+      let Q = [];
+      for (let B in CL1.AlgorithmId) {
+        let G = CL1.AlgorithmId[B];
+        if (A[G] === void 0) continue;
+        Q.push({
+          algorithmId: () => G,
+          checksumConstructor: () => A[G]
         })
       }
       return {
-        addChecksumAlgorithm(Q) {
-          B.push(Q)
+        addChecksumAlgorithm(B) {
+          Q.push(B)
         },
         checksumAlgorithms() {
-          return B
+          return Q
         }
       }
     }, "getChecksumConfiguration"),
-    dX4 = o0((A) => {
-      let B = {};
-      return A.checksumAlgorithms().forEach((Q) => {
-        B[Q.algorithmId()] = Q.checksumConstructor()
-      }), B
+    Rc4 = P3((A) => {
+      let Q = {};
+      return A.checksumAlgorithms().forEach((B) => {
+        Q[B.algorithmId()] = B.checksumConstructor()
+      }), Q
     }, "resolveChecksumRuntimeConfig"),
-    uX4 = o0((A) => {
+    Tc4 = P3((A) => {
       return {
-        setRetryStrategy(B) {
-          A.retryStrategy = B
+        setRetryStrategy(Q) {
+          A.retryStrategy = Q
         },
         retryStrategy() {
           return A.retryStrategy
         }
       }
     }, "getRetryConfiguration"),
-    pX4 = o0((A) => {
-      let B = {};
-      return B.retryStrategy = A.retryStrategy(), B
+    Pc4 = P3((A) => {
+      let Q = {};
+      return Q.retryStrategy = A.retryStrategy(), Q
     }, "resolveRetryRuntimeConfig"),
-    FeA = o0((A) => {
-      return Object.assign(mX4(A), uX4(A))
+    bVQ = P3((A) => {
+      return Object.assign(Oc4(A), Tc4(A))
     }, "getDefaultExtensionConfiguration"),
-    cX4 = FeA,
-    lX4 = o0((A) => {
-      return Object.assign(dX4(A), pX4(A))
+    jc4 = bVQ,
+    Sc4 = P3((A) => {
+      return Object.assign(Rc4(A), Pc4(A))
     }, "resolveDefaultRuntimeConfig"),
-    iX4 = o0((A) => Array.isArray(A) ? A : [A], "getArrayIfSingleItem"),
-    XeA = o0((A) => {
-      for (let Q in A)
-        if (A.hasOwnProperty(Q) && A[Q]["#text"] !== void 0) A[Q] = A[Q]["#text"];
-        else if (typeof A[Q] === "object" && A[Q] !== null) A[Q] = XeA(A[Q]);
+    _c4 = P3((A) => Array.isArray(A) ? A : [A], "getArrayIfSingleItem"),
+    fVQ = P3((A) => {
+      for (let B in A)
+        if (A.hasOwnProperty(B) && A[B]["#text"] !== void 0) A[B] = A[B]["#text"];
+        else if (typeof A[B] === "object" && A[B] !== null) A[B] = fVQ(A[B]);
       return A
     }, "getValueFromTextNode"),
-    nX4 = o0((A) => {
+    kc4 = P3((A) => {
       return A != null
     }, "isSerializableHeaderValue"),
-    A_ = o0(function A(B) {
-      return Object.assign(new String(B), {
-        deserializeJSON() {
-          return JSON.parse(String(B))
-        },
-        toString() {
-          return String(B)
-        },
-        toJSON() {
-          return String(B)
-        }
-      })
-    }, "LazyJsonString");
-  A_.from = (A) => {
-    if (A && typeof A === "object" && (A instanceof A_ || ("deserializeJSON" in A))) return A;
-    else if (typeof A === "string" || Object.getPrototypeOf(A) === String.prototype) return A_(String(A));
-    return A_(JSON.stringify(A))
-  };
-  A_.fromObject = A_.from;
-  var aX4 = class {
-    static {
-      o0(this, "NoOpLogger")
-    }
-    trace() {}
-    debug() {}
-    info() {}
-    warn() {}
-    error() {}
-  };
+    yc4 = class {
+      static {
+        P3(this, "NoOpLogger")
+      }
+      trace() {}
+      debug() {}
+      info() {}
+      warn() {}
+      error() {}
+    };
 
-  function Fy1(A, B, Q) {
-    let I, G, Z;
-    if (typeof B === "undefined" && typeof Q === "undefined") I = {}, Z = A;
-    else if (I = A, typeof B === "function") return G = B, Z = Q, oX4(I, G, Z);
-    else Z = B;
-    for (let D of Object.keys(Z)) {
-      if (!Array.isArray(Z[D])) {
-        I[D] = Z[D];
+  function UL1(A, Q, B) {
+    let G, Z, I;
+    if (typeof Q > "u" && typeof B > "u") G = {}, I = A;
+    else if (G = A, typeof Q === "function") return Z = Q, I = B, bc4(G, Z, I);
+    else I = Q;
+    for (let Y of Object.keys(I)) {
+      if (!Array.isArray(I[Y])) {
+        G[Y] = I[Y];
         continue
       }
-      VeA(I, null, Z, D)
+      hVQ(G, null, I, Y)
     }
-    return I
+    return G
   }
-  o0(Fy1, "map");
-  var sX4 = o0((A) => {
-      let B = {};
-      for (let [Q, I] of Object.entries(A || {})) B[Q] = [, I];
-      return B
-    }, "convertMap"),
-    rX4 = o0((A, B) => {
+  P3(UL1, "map");
+  var xc4 = P3((A) => {
       let Q = {};
-      for (let I in B) VeA(Q, A, B, I);
+      for (let [B, G] of Object.entries(A || {})) Q[B] = [, G];
       return Q
+    }, "convertMap"),
+    vc4 = P3((A, Q) => {
+      let B = {};
+      for (let G in Q) hVQ(B, A, Q, G);
+      return B
     }, "take"),
-    oX4 = o0((A, B, Q) => {
-      return Fy1(A, Object.entries(Q).reduce((I, [G, Z]) => {
-        if (Array.isArray(Z)) I[G] = Z;
-        else if (typeof Z === "function") I[G] = [B, Z()];
-        else I[G] = [B, Z];
-        return I
+    bc4 = P3((A, Q, B) => {
+      return UL1(A, Object.entries(B).reduce((G, [Z, I]) => {
+        if (Array.isArray(I)) G[Z] = I;
+        else if (typeof I === "function") G[Z] = [Q, I()];
+        else G[Z] = [Q, I];
+        return G
       }, {}))
     }, "mapWithFilter"),
-    VeA = o0((A, B, Q, I) => {
-      if (B !== null) {
-        let D = Q[I];
-        if (typeof D === "function") D = [, D];
-        let [Y = tX4, W = eX4, J = I] = D;
-        if (typeof Y === "function" && Y(B[J]) || typeof Y !== "function" && !!Y) A[I] = W(B[J]);
+    hVQ = P3((A, Q, B, G) => {
+      if (Q !== null) {
+        let Y = B[G];
+        if (typeof Y === "function") Y = [, Y];
+        let [J = fc4, W = hc4, X = G] = Y;
+        if (typeof J === "function" && J(Q[X]) || typeof J !== "function" && !!J) A[G] = W(Q[X]);
         return
       }
-      let [G, Z] = Q[I];
-      if (typeof Z === "function") {
-        let D, Y = G === void 0 && (D = Z()) != null,
-          W = typeof G === "function" && !!G(void 0) || typeof G !== "function" && !!G;
-        if (Y) A[I] = D;
-        else if (W) A[I] = Z()
+      let [Z, I] = B[G];
+      if (typeof I === "function") {
+        let Y, J = Z === void 0 && (Y = I()) != null,
+          W = typeof Z === "function" && !!Z(void 0) || typeof Z !== "function" && !!Z;
+        if (J) A[G] = Y;
+        else if (W) A[G] = I()
       } else {
-        let D = G === void 0 && Z != null,
-          Y = typeof G === "function" && !!G(Z) || typeof G !== "function" && !!G;
-        if (D || Y) A[I] = Z
+        let Y = Z === void 0 && I != null,
+          J = typeof Z === "function" && !!Z(I) || typeof Z !== "function" && !!Z;
+        if (Y || J) A[G] = I
       }
     }, "applyInstruction"),
-    tX4 = o0((A) => A != null, "nonNullish"),
-    eX4 = o0((A) => A, "pass");
-
-  function CeA(A) {
-    if (A.includes(",") || A.includes('"')) A = `"${A.replace(/"/g,"\\\"")}"`;
-    return A
-  }
-  o0(CeA, "quoteHeader");
-  var AV4 = o0((A) => {
+    fc4 = P3((A) => A != null, "nonNullish"),
+    hc4 = P3((A) => A, "pass"),
+    gc4 = P3((A) => {
       if (A !== A) return "NaN";
       switch (A) {
         case 1 / 0:
@@ -1470,1457 +1432,1552 @@ zeA = z((UI8, HeA) => {
           return A
       }
     }, "serializeFloat"),
-    BV4 = o0((A) => A.toISOString().replace(".000Z", "Z"), "serializeDateTime"),
-    Zy1 = o0((A) => {
+    uc4 = P3((A) => A.toISOString().replace(".000Z", "Z"), "serializeDateTime"),
+    EL1 = P3((A) => {
       if (A == null) return {};
-      if (Array.isArray(A)) return A.filter((B) => B != null).map(Zy1);
+      if (Array.isArray(A)) return A.filter((Q) => Q != null).map(EL1);
       if (typeof A === "object") {
-        let B = {};
-        for (let Q of Object.keys(A)) {
-          if (A[Q] == null) continue;
-          B[Q] = Zy1(A[Q])
+        let Q = {};
+        for (let B of Object.keys(A)) {
+          if (A[B] == null) continue;
+          Q[B] = EL1(A[B])
         }
-        return B
+        return Q
       }
       return A
     }, "_json");
-
-  function KeA(A, B, Q) {
-    if (Q <= 0 || !Number.isInteger(Q)) throw new Error("Invalid number of delimiters (" + Q + ") for splitEvery.");
-    let I = A.split(B);
-    if (Q === 1) return I;
-    let G = [],
-      Z = "";
-    for (let D = 0; D < I.length; D++) {
-      if (Z === "") Z = I[D];
-      else Z += B + I[D];
-      if ((D + 1) % Q === 0) G.push(Z), Z = ""
-    }
-    if (Z !== "") G.push(Z);
-    return G
-  }
-  o0(KeA, "splitEvery");
-  var QV4 = o0((A) => {
-    let B = A.length,
-      Q = [],
-      I = !1,
-      G = void 0,
-      Z = 0;
-    for (let D = 0; D < B; ++D) {
-      let Y = A[D];
-      switch (Y) {
-        case '"':
-          if (G !== "\\") I = !I;
-          break;
-        case ",":
-          if (!I) Q.push(A.slice(Z, D)), Z = D + 1;
-          break;
-        default:
-      }
-      G = Y
-    }
-    return Q.push(A.slice(Z)), Q.map((D) => {
-      D = D.trim();
-      let Y = D.length;
-      if (Y < 2) return D;
-      if (D[0] === '"' && D[Y - 1] === '"') D = D.slice(1, Y - 1);
-      return D.replace(/\\"/g, '"')
-    })
-  }, "splitHeader")
+  Hc4(zL1, s6(), $L1.exports)
 })
-// @from(Start 3424415, End 3424799)
-UeA = z((weA) => {
-  Object.defineProperty(weA, "__esModule", {
-    value: !0
-  });
-  weA.isStreamingPayload = void 0;
-  var IV4 = Z1("stream"),
-    GV4 = (A) => (A === null || A === void 0 ? void 0 : A.body) instanceof IV4.Readable || typeof ReadableStream !== "undefined" && (A === null || A === void 0 ? void 0 : A.body) instanceof ReadableStream;
-  weA.isStreamingPayload = GV4
-})
-// @from(Start 3424805, End 3435450)
-KJ = z((OI8, xeA) => {
+// @from(Start 3039304, End 3084495)
+AFQ = z((m$7, eVQ) => {
   var {
-    defineProperty: v71,
-    getOwnPropertyDescriptor: ZV4,
-    getOwnPropertyNames: DV4
-  } = Object, YV4 = Object.prototype.hasOwnProperty, D7 = (A, B) => v71(A, "name", {
-    value: B,
+    defineProperty: QuA,
+    getOwnPropertyDescriptor: mc4,
+    getOwnPropertyNames: dc4
+  } = Object, cc4 = Object.prototype.hasOwnProperty, I3 = (A, Q) => QuA(A, "name", {
+    value: Q,
     configurable: !0
-  }), WV4 = (A, B) => {
-    for (var Q in B) v71(A, Q, {
-      get: B[Q],
+  }), pc4 = (A, Q) => {
+    for (var B in Q) QuA(A, B, {
+      get: Q[B],
       enumerable: !0
     })
-  }, JV4 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of DV4(B))
-        if (!YV4.call(A, G) && G !== Q) v71(A, G, {
-          get: () => B[G],
-          enumerable: !(I = ZV4(B, G)) || I.enumerable
+  }, lc4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of dc4(Q))
+        if (!cc4.call(A, Z) && Z !== B) QuA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = mc4(Q, Z)) || G.enumerable
         })
     }
     return A
-  }, FV4 = (A) => JV4(v71({}, "__esModule", {
+  }, ic4 = (A) => lc4(QuA({}, "__esModule", {
     value: !0
-  }), A), $eA = {};
-  WV4($eA, {
-    AdaptiveRetryStrategy: () => CV4,
-    CONFIG_MAX_ATTEMPTS: () => Vy1,
-    CONFIG_RETRY_MODE: () => PeA,
-    ENV_MAX_ATTEMPTS: () => Xy1,
-    ENV_RETRY_MODE: () => TeA,
-    NODE_MAX_ATTEMPT_CONFIG_OPTIONS: () => KV4,
-    NODE_RETRY_MODE_CONFIG_OPTIONS: () => zV4,
-    StandardRetryStrategy: () => OeA,
-    defaultDelayDecider: () => MeA,
-    defaultRetryDecider: () => LeA,
-    getOmitRetryHeadersPlugin: () => wV4,
-    getRetryAfterHint: () => keA,
-    getRetryPlugin: () => MV4,
-    omitRetryHeadersMiddleware: () => SeA,
-    omitRetryHeadersMiddlewareOptions: () => _eA,
-    resolveRetryConfig: () => HV4,
-    retryMiddleware: () => jeA,
-    retryMiddlewareOptions: () => yeA
+  }), A), cVQ = {};
+  pc4(cVQ, {
+    AwsEc2QueryProtocol: () => qp4,
+    AwsJson1_0Protocol: () => Yp4,
+    AwsJson1_1Protocol: () => Jp4,
+    AwsJsonRpcProtocol: () => TL1,
+    AwsQueryProtocol: () => aVQ,
+    AwsRestJsonProtocol: () => Xp4,
+    AwsRestXmlProtocol: () => Tp4,
+    JsonCodec: () => RL1,
+    JsonShapeDeserializer: () => iVQ,
+    JsonShapeSerializer: () => nVQ,
+    XmlCodec: () => tVQ,
+    XmlShapeDeserializer: () => PL1,
+    XmlShapeSerializer: () => oVQ,
+    _toBool: () => ac4,
+    _toNum: () => sc4,
+    _toStr: () => nc4,
+    awsExpectUnion: () => Fp4,
+    loadRestJsonErrorCode: () => OL1,
+    loadRestXmlErrorCode: () => rVQ,
+    parseJsonBody: () => ML1,
+    parseJsonErrorBody: () => Qp4,
+    parseXmlBody: () => sVQ,
+    parseXmlErrorBody: () => Op4
   });
-  xeA.exports = FV4($eA);
-  var qb = loA(),
-    qeA = htA(),
-    $3 = vL(),
-    XV4 = D7((A, B) => {
-      let Q = A,
-        I = B?.noRetryIncrement ?? $3.NO_RETRY_INCREMENT,
-        G = B?.retryCost ?? $3.RETRY_COST,
-        Z = B?.timeoutRetryCost ?? $3.TIMEOUT_RETRY_COST,
-        D = A,
-        Y = D7((X) => X.name === "TimeoutError" ? Z : G, "getCapacityAmount"),
-        W = D7((X) => Y(X) <= D, "hasRetryTokens");
-      return Object.freeze({
-        hasRetryTokens: W,
-        retrieveRetryTokens: D7((X) => {
-          if (!W(X)) throw new Error("No retry token available");
-          let V = Y(X);
-          return D -= V, V
-        }, "retrieveRetryTokens"),
-        releaseRetryTokens: D7((X) => {
-          D += X ?? I, D = Math.min(D, Q)
-        }, "releaseRetryTokens")
-      })
-    }, "getDefaultRetryQuota"),
-    MeA = D7((A, B) => Math.floor(Math.min($3.MAXIMUM_RETRY_DELAY, Math.random() * 2 ** B * A)), "defaultDelayDecider"),
-    bL = aj1(),
-    LeA = D7((A) => {
-      if (!A) return !1;
-      return bL.isRetryableByTrait(A) || bL.isClockSkewError(A) || bL.isThrottlingError(A) || bL.isTransientError(A)
-    }, "defaultRetryDecider"),
-    ReA = D7((A) => {
-      if (A instanceof Error) return A;
-      if (A instanceof Object) return Object.assign(new Error, A);
-      if (typeof A === "string") return new Error(A);
-      return new Error(`AWS SDK error wrapper for ${A}`)
-    }, "asSdkError"),
-    OeA = class {
-      constructor(A, B) {
-        this.maxAttemptsProvider = A, this.mode = $3.RETRY_MODES.STANDARD, this.retryDecider = B?.retryDecider ?? LeA, this.delayDecider = B?.delayDecider ?? MeA, this.retryQuota = B?.retryQuota ?? XV4($3.INITIAL_RETRY_TOKENS)
+  eVQ.exports = ic4(cVQ);
+  var nc4 = I3((A) => {
+      if (A == null) return A;
+      if (typeof A === "number" || typeof A === "bigint") {
+        let Q = Error(`Received number ${A} where a string was expected.`);
+        return Q.name = "Warning", console.warn(Q), String(A)
+      }
+      if (typeof A === "boolean") {
+        let Q = Error(`Received boolean ${A} where a string was expected.`);
+        return Q.name = "Warning", console.warn(Q), String(A)
+      }
+      return A
+    }, "_toStr"),
+    ac4 = I3((A) => {
+      if (A == null) return A;
+      if (typeof A === "string") {
+        let Q = A.toLowerCase();
+        if (A !== "" && Q !== "false" && Q !== "true") {
+          let B = Error(`Received string "${A}" where a boolean was expected.`);
+          B.name = "Warning", console.warn(B)
+        }
+        return A !== "" && Q !== "false"
+      }
+      return A
+    }, "_toBool"),
+    sc4 = I3((A) => {
+      if (A == null) return A;
+      if (typeof A === "string") {
+        let Q = Number(A);
+        if (Q.toString() !== A) {
+          let B = Error(`Received string "${A}" where a number was expected.`);
+          return B.name = "Warning", console.warn(B), A
+        }
+        return Q
+      }
+      return A
+    }, "_toNum"),
+    rc4 = w5(),
+    y8A = b4(),
+    oc4 = oK(),
+    er = class {
+      static {
+        I3(this, "SerdeContextConfig")
+      }
+      serdeContext;
+      setSerdeContext(A) {
+        this.serdeContext = A
+      }
+    },
+    PHA = b4(),
+    x8A = s6(),
+    tc4 = Pd(),
+    ec4 = s6();
+
+  function pVQ(A, Q, B) {
+    if (B?.source) {
+      let G = B.source;
+      if (typeof Q === "number") {
+        if (Q > Number.MAX_SAFE_INTEGER || Q < Number.MIN_SAFE_INTEGER || G !== String(Q))
+          if (G.includes(".")) return new ec4.NumericValue(G, "bigDecimal");
+          else return BigInt(G)
+      }
+    }
+    return Q
+  }
+  I3(pVQ, "jsonReviver");
+  var Ap4 = r6(),
+    lVQ = I3((A, Q) => (0, Ap4.collectBody)(A, Q).then((B) => Q.utf8Encoder(B)), "collectBodyString"),
+    ML1 = I3((A, Q) => lVQ(A, Q).then((B) => {
+      if (B.length) try {
+        return JSON.parse(B)
+      } catch (G) {
+        if (G?.name === "SyntaxError") Object.defineProperty(G, "$responseBodyText", {
+          value: B
+        });
+        throw G
+      }
+      return {}
+    }), "parseJsonBody"),
+    Qp4 = I3(async (A, Q) => {
+      let B = await ML1(A, Q);
+      return B.message = B.message ?? B.Message, B
+    }, "parseJsonErrorBody"),
+    OL1 = I3((A, Q) => {
+      let B = I3((I, Y) => Object.keys(I).find((J) => J.toLowerCase() === Y.toLowerCase()), "findKey"),
+        G = I3((I) => {
+          let Y = I;
+          if (typeof Y === "number") Y = Y.toString();
+          if (Y.indexOf(",") >= 0) Y = Y.split(",")[0];
+          if (Y.indexOf(":") >= 0) Y = Y.split(":")[0];
+          if (Y.indexOf("#") >= 0) Y = Y.split("#")[1];
+          return Y
+        }, "sanitizeErrorCode"),
+        Z = B(A.headers, "x-amzn-errortype");
+      if (Z !== void 0) return G(A.headers[Z]);
+      if (Q && typeof Q === "object") {
+        let I = B(Q, "code");
+        if (I && Q[I] !== void 0) return G(Q[I]);
+        if (Q.__type !== void 0) return G(Q.__type)
+      }
+    }, "loadRestJsonErrorCode"),
+    iVQ = class extends er {
+      constructor(A) {
+        super();
+        this.settings = A
       }
       static {
-        D7(this, "StandardRetryStrategy")
+        I3(this, "JsonShapeDeserializer")
       }
-      shouldRetry(A, B, Q) {
-        return B < Q && this.retryDecider(A) && this.retryQuota.hasRetryTokens(A)
+      async read(A, Q) {
+        return this._read(A, typeof Q === "string" ? JSON.parse(Q, pVQ) : await ML1(Q, this.serdeContext))
       }
-      async getMaxAttempts() {
-        let A;
-        try {
-          A = await this.maxAttemptsProvider()
-        } catch (B) {
-          A = $3.DEFAULT_MAX_ATTEMPTS
+      readObject(A, Q) {
+        return this._read(A, Q)
+      }
+      _read(A, Q) {
+        let B = Q !== null && typeof Q === "object",
+          G = PHA.NormalizedSchema.of(A);
+        if (G.isListSchema() && Array.isArray(Q)) {
+          let I = G.getValueSchema(),
+            Y = [],
+            J = !!G.getMergedTraits().sparse;
+          for (let W of Q)
+            if (J || W != null) Y.push(this._read(I, W));
+          return Y
+        } else if (G.isMapSchema() && B) {
+          let I = G.getValueSchema(),
+            Y = {},
+            J = !!G.getMergedTraits().sparse;
+          for (let [W, X] of Object.entries(Q))
+            if (J || X != null) Y[W] = this._read(I, X);
+          return Y
+        } else if (G.isStructSchema() && B) {
+          let I = {};
+          for (let [Y, J] of G.structIterator()) {
+            let W = this.settings.jsonName ? J.getMergedTraits().jsonName ?? Y : Y,
+              X = this._read(J, Q[W]);
+            if (X != null) I[Y] = X
+          }
+          return I
         }
+        if (G.isBlobSchema() && typeof Q === "string") return (0, tc4.fromBase64)(Q);
+        let Z = G.getMergedTraits().mediaType;
+        if (G.isStringSchema() && typeof Q === "string" && Z) {
+          if (Z === "application/json" || Z.endsWith("+json")) return x8A.LazyJsonString.from(Q)
+        }
+        if (G.isTimestampSchema()) {
+          let I = this.settings.timestampFormat;
+          switch (I.useTrait ? G.getSchema() === PHA.SCHEMA.TIMESTAMP_DEFAULT ? I.default : G.getSchema() ?? I.default : I.default) {
+            case PHA.SCHEMA.TIMESTAMP_DATE_TIME:
+              return (0, x8A.parseRfc3339DateTimeWithOffset)(Q);
+            case PHA.SCHEMA.TIMESTAMP_HTTP_DATE:
+              return (0, x8A.parseRfc7231DateTime)(Q);
+            case PHA.SCHEMA.TIMESTAMP_EPOCH_SECONDS:
+              return (0, x8A.parseEpochTimestamp)(Q);
+            default:
+              return console.warn("Missing timestamp format, parsing value with Date constructor:", Q), new Date(Q)
+          }
+        }
+        if (G.isBigIntegerSchema() && (typeof Q === "number" || typeof Q === "string")) return BigInt(Q);
+        if (G.isBigDecimalSchema() && Q != null) {
+          if (Q instanceof x8A.NumericValue) return Q;
+          return new x8A.NumericValue(String(Q), "bigDecimal")
+        }
+        if (G.isNumericSchema() && typeof Q === "string") switch (Q) {
+          case "Infinity":
+            return 1 / 0;
+          case "-Infinity":
+            return -1 / 0;
+          case "NaN":
+            return NaN
+        }
+        return Q
+      }
+    },
+    v8A = b4(),
+    Bp4 = s6(),
+    Gp4 = s6(),
+    Zp4 = s6(),
+    gVQ = String.fromCharCode(925),
+    Ip4 = class {
+      static {
+        I3(this, "JsonReplacer")
+      }
+      values = new Map;
+      counter = 0;
+      stage = 0;
+      createReplacer() {
+        if (this.stage === 1) throw Error("@aws-sdk/core/protocols - JsonReplacer already created.");
+        if (this.stage === 2) throw Error("@aws-sdk/core/protocols - JsonReplacer exhausted.");
+        return this.stage = 1, (A, Q) => {
+          if (Q instanceof Zp4.NumericValue) {
+            let B = `${gVQ+NaN+this.counter++}_` + Q.string;
+            return this.values.set(`"${B}"`, Q.string), B
+          }
+          if (typeof Q === "bigint") {
+            let B = Q.toString(),
+              G = `${gVQ+"b"+this.counter++}_` + B;
+            return this.values.set(`"${G}"`, B), G
+          }
+          return Q
+        }
+      }
+      replaceInJson(A) {
+        if (this.stage === 0) throw Error("@aws-sdk/core/protocols - JsonReplacer not created yet.");
+        if (this.stage === 2) throw Error("@aws-sdk/core/protocols - JsonReplacer exhausted.");
+        if (this.stage = 2, this.counter === 0) return A;
+        for (let [Q, B] of this.values) A = A.replace(Q, B);
         return A
       }
-      async retry(A, B, Q) {
-        let I, G = 0,
-          Z = 0,
-          D = await this.getMaxAttempts(),
-          {
-            request: Y
-          } = B;
-        if (qb.HttpRequest.isInstance(Y)) Y.headers[$3.INVOCATION_ID_HEADER] = qeA.v4();
-        while (!0) try {
-          if (qb.HttpRequest.isInstance(Y)) Y.headers[$3.REQUEST_HEADER] = `attempt=${G+1}; max=${D}`;
-          if (Q?.beforeRequest) await Q.beforeRequest();
-          let {
-            response: W,
-            output: J
-          } = await A(B);
-          if (Q?.afterRequest) Q.afterRequest(W);
-          return this.retryQuota.releaseRetryTokens(I), J.$metadata.attempts = G + 1, J.$metadata.totalRetryDelay = Z, {
-            response: W,
-            output: J
-          }
-        } catch (W) {
-          let J = ReA(W);
-          if (G++, this.shouldRetry(J, G, D)) {
-            I = this.retryQuota.retrieveRetryTokens(J);
-            let F = this.delayDecider(bL.isThrottlingError(J) ? $3.THROTTLING_RETRY_DELAY_BASE : $3.DEFAULT_RETRY_DELAY_BASE, G),
-              X = VV4(J.$response),
-              V = Math.max(X || 0, F);
-            Z += V, await new Promise((C) => setTimeout(C, V));
-            continue
-          }
-          if (!J.$metadata) J.$metadata = {};
-          throw J.$metadata.attempts = G, J.$metadata.totalRetryDelay = Z, J
+    },
+    nVQ = class extends er {
+      constructor(A) {
+        super();
+        this.settings = A
+      }
+      static {
+        I3(this, "JsonShapeSerializer")
+      }
+      buffer;
+      rootSchema;
+      write(A, Q) {
+        this.rootSchema = v8A.NormalizedSchema.of(A), this.buffer = this._write(this.rootSchema, Q)
+      }
+      flush() {
+        if (this.rootSchema?.isStructSchema() || this.rootSchema?.isDocumentSchema()) {
+          let A = new Ip4;
+          return A.replaceInJson(JSON.stringify(this.buffer, A.createReplacer(), 0))
         }
+        return this.buffer
+      }
+      _write(A, Q, B) {
+        let G = Q !== null && typeof Q === "object",
+          Z = v8A.NormalizedSchema.of(A);
+        if (Z.isListSchema() && Array.isArray(Q)) {
+          let Y = Z.getValueSchema(),
+            J = [],
+            W = !!Z.getMergedTraits().sparse;
+          for (let X of Q)
+            if (W || X != null) J.push(this._write(Y, X));
+          return J
+        } else if (Z.isMapSchema() && G) {
+          let Y = Z.getValueSchema(),
+            J = {},
+            W = !!Z.getMergedTraits().sparse;
+          for (let [X, V] of Object.entries(Q))
+            if (W || V != null) J[X] = this._write(Y, V);
+          return J
+        } else if (Z.isStructSchema() && G) {
+          let Y = {};
+          for (let [J, W] of Z.structIterator()) {
+            let X = this.settings.jsonName ? W.getMergedTraits().jsonName ?? J : J,
+              V = this._write(W, Q[J], Z);
+            if (V !== void 0) Y[X] = V
+          }
+          return Y
+        }
+        if (Q === null && B?.isStructSchema()) return;
+        if (Z.isBlobSchema() && (Q instanceof Uint8Array || typeof Q === "string")) {
+          if (Z === this.rootSchema) return Q;
+          if (!this.serdeContext?.base64Encoder) throw Error("Missing base64Encoder in serdeContext");
+          return this.serdeContext?.base64Encoder(Q)
+        }
+        if (Z.isTimestampSchema() && Q instanceof Date) {
+          let Y = this.settings.timestampFormat;
+          switch (Y.useTrait ? Z.getSchema() === v8A.SCHEMA.TIMESTAMP_DEFAULT ? Y.default : Z.getSchema() ?? Y.default : Y.default) {
+            case v8A.SCHEMA.TIMESTAMP_DATE_TIME:
+              return Q.toISOString().replace(".000Z", "Z");
+            case v8A.SCHEMA.TIMESTAMP_HTTP_DATE:
+              return (0, Bp4.dateToUtcString)(Q);
+            case v8A.SCHEMA.TIMESTAMP_EPOCH_SECONDS:
+              return Q.getTime() / 1000;
+            default:
+              return console.warn("Missing timestamp format, using epoch seconds", Q), Q.getTime() / 1000
+          }
+        }
+        if (Z.isNumericSchema() && typeof Q === "number") {
+          if (Math.abs(Q) === 1 / 0 || isNaN(Q)) return String(Q)
+        }
+        let I = Z.getMergedTraits().mediaType;
+        if (Z.isStringSchema() && typeof Q === "string" && I) {
+          if (I === "application/json" || I.endsWith("+json")) return Gp4.LazyJsonString.from(Q)
+        }
+        return Q
       }
     },
-    VV4 = D7((A) => {
-      if (!qb.HttpResponse.isInstance(A)) return;
-      let B = Object.keys(A.headers).find((Z) => Z.toLowerCase() === "retry-after");
-      if (!B) return;
-      let Q = A.headers[B],
-        I = Number(Q);
-      if (!Number.isNaN(I)) return I * 1000;
-      return new Date(Q).getTime() - Date.now()
-    }, "getDelayFromRetryAfterHeader"),
-    CV4 = class extends OeA {
+    RL1 = class extends er {
+      constructor(A) {
+        super();
+        this.settings = A
+      }
       static {
-        D7(this, "AdaptiveRetryStrategy")
+        I3(this, "JsonCodec")
       }
-      constructor(A, B) {
-        let {
-          rateLimiter: Q,
-          ...I
-        } = B ?? {};
-        super(A, I);
-        this.rateLimiter = Q ?? new $3.DefaultRateLimiter, this.mode = $3.RETRY_MODES.ADAPTIVE
+      createSerializer() {
+        let A = new nVQ(this.settings);
+        return A.setSerdeContext(this.serdeContext), A
       }
-      async retry(A, B) {
-        return super.retry(A, B, {
-          beforeRequest: async () => {
-            return this.rateLimiter.getSendToken()
+      createDeserializer() {
+        let A = new iVQ(this.settings);
+        return A.setSerdeContext(this.serdeContext), A
+      }
+    },
+    TL1 = class extends rc4.RpcProtocol {
+      static {
+        I3(this, "AwsJsonRpcProtocol")
+      }
+      serializer;
+      deserializer;
+      codec;
+      constructor({
+        defaultNamespace: A
+      }) {
+        super({
+          defaultNamespace: A
+        });
+        this.codec = new RL1({
+          timestampFormat: {
+            useTrait: !0,
+            default: y8A.SCHEMA.TIMESTAMP_EPOCH_SECONDS
           },
-          afterRequest: (Q) => {
-            this.rateLimiter.updateClientSendingRate(Q)
+          jsonName: !1
+        }), this.serializer = this.codec.createSerializer(), this.deserializer = this.codec.createDeserializer()
+      }
+      async serializeRequest(A, Q, B) {
+        let G = await super.serializeRequest(A, Q, B);
+        if (!G.path.endsWith("/")) G.path += "/";
+        if (Object.assign(G.headers, {
+            "content-type": `application/x-amz-json-${this.getJsonRpcVersion()}`,
+            "x-amz-target": (this.getJsonRpcVersion() === "1.0" ? "JsonRpc10." : "JsonProtocol.") + y8A.NormalizedSchema.of(A).getName()
+          }), (0, y8A.deref)(A.input) === "unit" || !G.body) G.body = "{}";
+        try {
+          G.headers["content-length"] = String((0, oc4.calculateBodyLength)(G.body))
+        } catch (Z) {}
+        return G
+      }
+      getPayloadCodec() {
+        return this.codec
+      }
+      async handleError(A, Q, B, G, Z) {
+        let I = OL1(B, G) ?? "Unknown",
+          Y = this.options.defaultNamespace,
+          J = I;
+        if (I.includes("#"))[Y, J] = I.split("#");
+        let W = y8A.TypeRegistry.for(Y),
+          X;
+        try {
+          X = W.getSchema(I)
+        } catch (H) {
+          let C = y8A.TypeRegistry.for("smithy.ts.sdk.synthetic." + Y).getBaseException();
+          if (C) {
+            let E = C.ctor;
+            throw Object.assign(new E(J), G)
           }
+          throw Error(J)
+        }
+        let V = y8A.NormalizedSchema.of(X),
+          F = G.message ?? G.Message ?? "Unknown",
+          K = new X.ctor(F);
+        await this.deserializeHttpMessage(X, Q, B, G);
+        let D = {};
+        for (let [H, C] of V.structIterator()) {
+          let E = C.getMergedTraits().jsonName ?? H;
+          D[H] = this.codec.createDeserializer().readObject(C, G[E])
+        }
+        throw Object.assign(K, {
+          $metadata: Z,
+          $response: B,
+          $fault: V.getMergedTraits().error,
+          message: F,
+          ...D
+        }), K
+      }
+    },
+    Yp4 = class extends TL1 {
+      static {
+        I3(this, "AwsJson1_0Protocol")
+      }
+      constructor({
+        defaultNamespace: A
+      }) {
+        super({
+          defaultNamespace: A
         })
       }
-    },
-    NeA = ZX(),
-    Xy1 = "AWS_MAX_ATTEMPTS",
-    Vy1 = "max_attempts",
-    KV4 = {
-      environmentVariableSelector: (A) => {
-        let B = A[Xy1];
-        if (!B) return;
-        let Q = parseInt(B);
-        if (Number.isNaN(Q)) throw new Error(`Environment variable ${Xy1} mast be a number, got "${B}"`);
-        return Q
-      },
-      configFileSelector: (A) => {
-        let B = A[Vy1];
-        if (!B) return;
-        let Q = parseInt(B);
-        if (Number.isNaN(Q)) throw new Error(`Shared config file entry ${Vy1} mast be a number, got "${B}"`);
-        return Q
-      },
-      default: $3.DEFAULT_MAX_ATTEMPTS
-    },
-    HV4 = D7((A) => {
-      let {
-        retryStrategy: B,
-        retryMode: Q,
-        maxAttempts: I
-      } = A, G = NeA.normalizeProvider(I ?? $3.DEFAULT_MAX_ATTEMPTS);
-      return Object.assign(A, {
-        maxAttempts: G,
-        retryStrategy: async () => {
-          if (B) return B;
-          if (await NeA.normalizeProvider(Q)() === $3.RETRY_MODES.ADAPTIVE) return new $3.AdaptiveRetryStrategy(G);
-          return new $3.StandardRetryStrategy(G)
-        }
-      })
-    }, "resolveRetryConfig"),
-    TeA = "AWS_RETRY_MODE",
-    PeA = "retry_mode",
-    zV4 = {
-      environmentVariableSelector: (A) => A[TeA],
-      configFileSelector: (A) => A[PeA],
-      default: $3.DEFAULT_RETRY_MODE
-    },
-    SeA = D7(() => (A) => async (B) => {
-      let {
-        request: Q
-      } = B;
-      if (qb.HttpRequest.isInstance(Q)) delete Q.headers[$3.INVOCATION_ID_HEADER], delete Q.headers[$3.REQUEST_HEADER];
-      return A(B)
-    }, "omitRetryHeadersMiddleware"),
-    _eA = {
-      name: "omitRetryHeadersMiddleware",
-      tags: ["RETRY", "HEADERS", "OMIT_RETRY_HEADERS"],
-      relation: "before",
-      toMiddleware: "awsAuthMiddleware",
-      override: !0
-    },
-    wV4 = D7((A) => ({
-      applyToStack: (B) => {
-        B.addRelativeTo(SeA(), _eA)
+      getShapeId() {
+        return "aws.protocols#awsJson1_0"
       }
-    }), "getOmitRetryHeadersPlugin"),
-    EV4 = zeA(),
-    UV4 = UeA(),
-    jeA = D7((A) => (B, Q) => async (I) => {
-      let G = await A.retryStrategy(),
-        Z = await A.maxAttempts();
-      if (NV4(G)) {
-        G = G;
-        let D = await G.acquireInitialRetryToken(Q.partition_id),
-          Y = new Error,
-          W = 0,
-          J = 0,
-          {
-            request: F
-          } = I,
-          X = qb.HttpRequest.isInstance(F);
-        if (X) F.headers[$3.INVOCATION_ID_HEADER] = qeA.v4();
-        while (!0) try {
-          if (X) F.headers[$3.REQUEST_HEADER] = `attempt=${W+1}; max=${Z}`;
-          let {
-            response: V,
-            output: C
-          } = await B(I);
-          return G.recordSuccess(D), C.$metadata.attempts = W + 1, C.$metadata.totalRetryDelay = J, {
-            response: V,
-            output: C
+      getJsonRpcVersion() {
+        return "1.0"
+      }
+    },
+    Jp4 = class extends TL1 {
+      static {
+        I3(this, "AwsJson1_1Protocol")
+      }
+      constructor({
+        defaultNamespace: A
+      }) {
+        super({
+          defaultNamespace: A
+        })
+      }
+      getShapeId() {
+        return "aws.protocols#awsJson1_1"
+      }
+      getJsonRpcVersion() {
+        return "1.1"
+      }
+    },
+    wL1 = w5(),
+    jHA = b4(),
+    Wp4 = oK(),
+    Xp4 = class extends wL1.HttpBindingProtocol {
+      static {
+        I3(this, "AwsRestJsonProtocol")
+      }
+      serializer;
+      deserializer;
+      codec;
+      constructor({
+        defaultNamespace: A
+      }) {
+        super({
+          defaultNamespace: A
+        });
+        let Q = {
+          timestampFormat: {
+            useTrait: !0,
+            default: jHA.SCHEMA.TIMESTAMP_EPOCH_SECONDS
+          },
+          httpBindings: !0,
+          jsonName: !0
+        };
+        this.codec = new RL1(Q), this.serializer = new wL1.HttpInterceptingShapeSerializer(this.codec.createSerializer(), Q), this.deserializer = new wL1.HttpInterceptingShapeDeserializer(this.codec.createDeserializer(), Q)
+      }
+      getShapeId() {
+        return "aws.protocols#restJson1"
+      }
+      getPayloadCodec() {
+        return this.codec
+      }
+      setSerdeContext(A) {
+        this.codec.setSerdeContext(A), super.setSerdeContext(A)
+      }
+      async serializeRequest(A, Q, B) {
+        let G = await super.serializeRequest(A, Q, B),
+          Z = jHA.NormalizedSchema.of(A.input),
+          I = Z.getMemberSchemas();
+        if (!G.headers["content-type"]) {
+          let Y = Object.values(I).find((J) => {
+            return !!J.getMergedTraits().httpPayload
+          });
+          if (Y) {
+            let J = Y.getMergedTraits().mediaType;
+            if (J) G.headers["content-type"] = J;
+            else if (Y.isStringSchema()) G.headers["content-type"] = "text/plain";
+            else if (Y.isBlobSchema()) G.headers["content-type"] = "application/octet-stream";
+            else G.headers["content-type"] = "application/json"
+          } else if (!Z.isUnitSchema()) {
+            if (Object.values(I).find((W) => {
+                let {
+                  httpQuery: X,
+                  httpQueryParams: V,
+                  httpHeader: F,
+                  httpLabel: K,
+                  httpPrefixHeaders: D
+                } = W.getMergedTraits();
+                return !X && !V && !F && !K && D === void 0
+              })) G.headers["content-type"] = "application/json"
           }
-        } catch (V) {
-          let C = $V4(V);
-          if (Y = ReA(V), X && UV4.isStreamingPayload(F)) throw (Q.logger instanceof EV4.NoOpLogger ? console : Q.logger)?.warn("An error was encountered in a non-retryable streaming request."), Y;
+        }
+        if (G.headers["content-type"] && !G.body) G.body = "{}";
+        if (G.body) try {
+          G.headers["content-length"] = String((0, Wp4.calculateBodyLength)(G.body))
+        } catch (Y) {}
+        return G
+      }
+      async handleError(A, Q, B, G, Z) {
+        let I = OL1(B, G) ?? "Unknown",
+          Y = this.options.defaultNamespace,
+          J = I;
+        if (I.includes("#"))[Y, J] = I.split("#");
+        let W = jHA.TypeRegistry.for(Y),
+          X;
+        try {
+          X = W.getSchema(I)
+        } catch (H) {
+          let C = jHA.TypeRegistry.for("smithy.ts.sdk.synthetic." + Y).getBaseException();
+          if (C) {
+            let E = C.ctor;
+            throw Object.assign(new E(J), G)
+          }
+          throw Error(J)
+        }
+        let V = jHA.NormalizedSchema.of(X),
+          F = G.message ?? G.Message ?? "Unknown",
+          K = new X.ctor(F);
+        await this.deserializeHttpMessage(X, Q, B, G);
+        let D = {};
+        for (let [H, C] of V.structIterator()) {
+          let E = C.getMergedTraits().jsonName ?? H;
+          D[H] = this.codec.createDeserializer().readObject(C, G[E])
+        }
+        throw Object.assign(K, {
+          $metadata: Z,
+          $response: B,
+          $fault: V.getMergedTraits().error,
+          message: F,
+          ...D
+        }), K
+      }
+    },
+    Vp4 = r6(),
+    Fp4 = I3((A) => {
+      if (A == null) return;
+      if (typeof A === "object" && "__type" in A) delete A.__type;
+      return (0, Vp4.expectUnion)(A)
+    }, "awsExpectUnion"),
+    qL1 = w5(),
+    jd = b4(),
+    Kp4 = oK(),
+    Dp4 = w5(),
+    uVQ = b4(),
+    Hp4 = r6(),
+    Cp4 = O2(),
+    Ep4 = wS(),
+    PL1 = class extends er {
+      constructor(A) {
+        super();
+        this.settings = A, this.stringDeserializer = new Dp4.FromStringShapeDeserializer(A)
+      }
+      static {
+        I3(this, "XmlShapeDeserializer")
+      }
+      stringDeserializer;
+      setSerdeContext(A) {
+        this.serdeContext = A, this.stringDeserializer.setSerdeContext(A)
+      }
+      read(A, Q, B) {
+        let G = uVQ.NormalizedSchema.of(A),
+          Z = G.getMemberSchemas();
+        if (G.isStructSchema() && G.isMemberSchema() && !!Object.values(Z).find((W) => {
+            return !!W.getMemberTraits().eventPayload
+          })) {
+          let W = {},
+            X = Object.keys(Z)[0];
+          if (Z[X].isBlobSchema()) W[X] = Q;
+          else W[X] = this.read(Z[X], Q);
+          return W
+        }
+        let Y = (this.serdeContext?.utf8Encoder ?? Cp4.toUtf8)(Q),
+          J = this.parseXml(Y);
+        return this.readSchema(A, B ? J[B] : J)
+      }
+      readSchema(A, Q) {
+        let B = uVQ.NormalizedSchema.of(A),
+          G = B.getMergedTraits(),
+          Z = B.getSchema();
+        if (B.isListSchema() && !Array.isArray(Q)) return this.readSchema(Z, [Q]);
+        if (Q == null) return Q;
+        if (typeof Q === "object") {
+          let I = !!G.sparse,
+            Y = !!G.xmlFlattened;
+          if (B.isListSchema()) {
+            let W = B.getValueSchema(),
+              X = [],
+              V = W.getMergedTraits().xmlName ?? "member",
+              F = Y ? Q : (Q[0] ?? Q)[V],
+              K = Array.isArray(F) ? F : [F];
+            for (let D of K)
+              if (D != null || I) X.push(this.readSchema(W, D));
+            return X
+          }
+          let J = {};
+          if (B.isMapSchema()) {
+            let W = B.getKeySchema(),
+              X = B.getValueSchema(),
+              V;
+            if (Y) V = Array.isArray(Q) ? Q : [Q];
+            else V = Array.isArray(Q.entry) ? Q.entry : [Q.entry];
+            let F = W.getMergedTraits().xmlName ?? "key",
+              K = X.getMergedTraits().xmlName ?? "value";
+            for (let D of V) {
+              let H = D[F],
+                C = D[K];
+              if (C != null || I) J[H] = this.readSchema(X, C)
+            }
+            return J
+          }
+          if (B.isStructSchema()) {
+            for (let [W, X] of B.structIterator()) {
+              let V = X.getMergedTraits(),
+                F = !V.httpPayload ? X.getMemberTraits().xmlName ?? W : V.xmlName ?? X.getName();
+              if (Q[F] != null) J[W] = this.readSchema(X, Q[F])
+            }
+            return J
+          }
+          if (B.isDocumentSchema()) return Q;
+          throw Error(`@aws-sdk/core/protocols - xml deserializer unhandled schema type for ${B.getName(!0)}`)
+        } else {
+          if (B.isListSchema()) return [];
+          else if (B.isMapSchema() || B.isStructSchema()) return {};
+          return this.stringDeserializer.read(B, Q)
+        }
+      }
+      parseXml(A) {
+        if (A.length) {
+          let Q = new Ep4.XMLParser({
+            attributeNamePrefix: "",
+            htmlEntities: !0,
+            ignoreAttributes: !1,
+            ignoreDeclaration: !0,
+            parseTagValue: !1,
+            trimValues: !1,
+            tagValueProcessor: I3((Y, J) => J.trim() === "" && J.includes(`
+`) ? "" : void 0, "tagValueProcessor")
+          });
+          Q.addEntity("#xD", "\r"), Q.addEntity("#10", `
+`);
+          let B;
           try {
-            D = await G.refreshRetryTokenForRetry(D, C)
-          } catch (E) {
-            if (!Y.$metadata) Y.$metadata = {};
-            throw Y.$metadata.attempts = W + 1, Y.$metadata.totalRetryDelay = J, Y
+            B = Q.parse(A, !0)
+          } catch (Y) {
+            if (Y && typeof Y === "object") Object.defineProperty(Y, "$responseBodyText", {
+              value: A
+            });
+            throw Y
           }
-          W = D.getRetryCount();
-          let K = D.getRetryDelay();
-          J += K, await new Promise((E) => setTimeout(E, K))
+          let G = "#text",
+            Z = Object.keys(B)[0],
+            I = B[Z];
+          if (I[G]) I[Z] = I[G], delete I[G];
+          return (0, Hp4.getValueFromTextNode)(I)
         }
-      } else {
-        if (G = G, G?.mode) Q.userAgent = [...Q.userAgent || [],
-          ["cfg/retry-mode", G.mode]
-        ];
-        return G.retry(B, I)
+        return {}
       }
-    }, "retryMiddleware"),
-    NV4 = D7((A) => typeof A.acquireInitialRetryToken !== "undefined" && typeof A.refreshRetryTokenForRetry !== "undefined" && typeof A.recordSuccess !== "undefined", "isRetryStrategyV2"),
-    $V4 = D7((A) => {
-      let B = {
-          error: A,
-          errorType: qV4(A)
-        },
-        Q = keA(A.$response);
-      if (Q) B.retryAfterHint = Q;
-      return B
-    }, "getRetryErrorInfo"),
-    qV4 = D7((A) => {
-      if (bL.isThrottlingError(A)) return "THROTTLING";
-      if (bL.isTransientError(A)) return "TRANSIENT";
-      if (bL.isServerError(A)) return "SERVER_ERROR";
-      return "CLIENT_ERROR"
-    }, "getRetryErrorType"),
-    yeA = {
-      name: "retryMiddleware",
-      tags: ["RETRY"],
-      step: "finalizeRequest",
-      priority: "high",
-      override: !0
     },
-    MV4 = D7((A) => ({
-      applyToStack: (B) => {
-        B.add(jeA(A), yeA)
+    NL1 = w5(),
+    AuA = b4(),
+    zp4 = s6(),
+    Up4 = r6(),
+    $p4 = Pd(),
+    wp4 = class extends er {
+      constructor(A) {
+        super();
+        this.settings = A
       }
-    }), "getRetryPlugin"),
-    keA = D7((A) => {
-      if (!qb.HttpResponse.isInstance(A)) return;
-      let B = Object.keys(A.headers).find((Z) => Z.toLowerCase() === "retry-after");
-      if (!B) return;
-      let Q = A.headers[B],
-        I = Number(Q);
-      if (!Number.isNaN(I)) return new Date(I * 1000);
-      return new Date(Q)
-    }, "getRetryAfterHint")
+      static {
+        I3(this, "QueryShapeSerializer")
+      }
+      buffer;
+      write(A, Q, B = "") {
+        if (this.buffer === void 0) this.buffer = "";
+        let G = AuA.NormalizedSchema.of(A);
+        if (B && !B.endsWith(".")) B += ".";
+        if (G.isBlobSchema()) {
+          if (typeof Q === "string" || Q instanceof Uint8Array) this.writeKey(B), this.writeValue((this.serdeContext?.base64Encoder ?? $p4.toBase64)(Q))
+        } else if (G.isBooleanSchema() || G.isNumericSchema() || G.isStringSchema()) {
+          if (Q != null) this.writeKey(B), this.writeValue(String(Q))
+        } else if (G.isBigIntegerSchema()) {
+          if (Q != null) this.writeKey(B), this.writeValue(String(Q))
+        } else if (G.isBigDecimalSchema()) {
+          if (Q != null) this.writeKey(B), this.writeValue(Q instanceof zp4.NumericValue ? Q.string : String(Q))
+        } else if (G.isTimestampSchema()) {
+          if (Q instanceof Date) switch (this.writeKey(B), (0, NL1.determineTimestampFormat)(G, this.settings)) {
+            case AuA.SCHEMA.TIMESTAMP_DATE_TIME:
+              this.writeValue(Q.toISOString().replace(".000Z", "Z"));
+              break;
+            case AuA.SCHEMA.TIMESTAMP_HTTP_DATE:
+              this.writeValue((0, Up4.dateToUtcString)(Q));
+              break;
+            case AuA.SCHEMA.TIMESTAMP_EPOCH_SECONDS:
+              this.writeValue(String(Q.getTime() / 1000));
+              break
+          }
+        } else if (G.isDocumentSchema()) throw Error(`@aws-sdk/core/protocols - QuerySerializer unsupported document type ${G.getName(!0)}`);
+        else if (G.isListSchema()) {
+          if (Array.isArray(Q))
+            if (Q.length === 0) {
+              if (this.settings.serializeEmptyLists) this.writeKey(B), this.writeValue("")
+            } else {
+              let Z = G.getValueSchema(),
+                I = this.settings.flattenLists || G.getMergedTraits().xmlFlattened,
+                Y = 1;
+              for (let J of Q) {
+                if (J == null) continue;
+                let W = this.getKey("member", Z.getMergedTraits().xmlName),
+                  X = I ? `${B}${Y}` : `${B}${W}.${Y}`;
+                this.write(Z, J, X), ++Y
+              }
+            }
+        } else if (G.isMapSchema()) {
+          if (Q && typeof Q === "object") {
+            let Z = G.getKeySchema(),
+              I = G.getValueSchema(),
+              Y = G.getMergedTraits().xmlFlattened,
+              J = 1;
+            for (let [W, X] of Object.entries(Q)) {
+              if (X == null) continue;
+              let V = this.getKey("key", Z.getMergedTraits().xmlName),
+                F = Y ? `${B}${J}.${V}` : `${B}entry.${J}.${V}`,
+                K = this.getKey("value", I.getMergedTraits().xmlName),
+                D = Y ? `${B}${J}.${K}` : `${B}entry.${J}.${K}`;
+              this.write(Z, W, F), this.write(I, X, D), ++J
+            }
+          }
+        } else if (G.isStructSchema()) {
+          if (Q && typeof Q === "object")
+            for (let [Z, I] of G.structIterator()) {
+              if (Q[Z] == null) continue;
+              let Y = this.getKey(Z, I.getMergedTraits().xmlName),
+                J = `${B}${Y}`;
+              this.write(I, Q[Z], J)
+            }
+        } else if (G.isUnitSchema());
+        else throw Error(`@aws-sdk/core/protocols - QuerySerializer unrecognized schema type ${G.getName(!0)}`)
+      }
+      flush() {
+        if (this.buffer === void 0) throw Error("@aws-sdk/core/protocols - QuerySerializer cannot flush with nothing written to buffer.");
+        let A = this.buffer;
+        return delete this.buffer, A
+      }
+      getKey(A, Q) {
+        let B = Q ?? A;
+        if (this.settings.capitalizeKeys) return B[0].toUpperCase() + B.slice(1);
+        return B
+      }
+      writeKey(A) {
+        if (A.endsWith(".")) A = A.slice(0, A.length - 1);
+        this.buffer += `&${(0,NL1.extendedEncodeURIComponent)(A)}=`
+      }
+      writeValue(A) {
+        this.buffer += (0, NL1.extendedEncodeURIComponent)(A)
+      }
+    },
+    aVQ = class extends qL1.RpcProtocol {
+      constructor(A) {
+        super({
+          defaultNamespace: A.defaultNamespace
+        });
+        this.options = A;
+        let Q = {
+          timestampFormat: {
+            useTrait: !0,
+            default: jd.SCHEMA.TIMESTAMP_DATE_TIME
+          },
+          httpBindings: !1,
+          xmlNamespace: A.xmlNamespace,
+          serviceNamespace: A.defaultNamespace,
+          serializeEmptyLists: !0
+        };
+        this.serializer = new wp4(Q), this.deserializer = new PL1(Q)
+      }
+      static {
+        I3(this, "AwsQueryProtocol")
+      }
+      serializer;
+      deserializer;
+      getShapeId() {
+        return "aws.protocols#awsQuery"
+      }
+      setSerdeContext(A) {
+        this.serializer.setSerdeContext(A), this.deserializer.setSerdeContext(A)
+      }
+      getPayloadCodec() {
+        throw Error("AWSQuery protocol has no payload codec.")
+      }
+      async serializeRequest(A, Q, B) {
+        let G = await super.serializeRequest(A, Q, B);
+        if (!G.path.endsWith("/")) G.path += "/";
+        if (Object.assign(G.headers, {
+            "content-type": "application/x-www-form-urlencoded"
+          }), (0, jd.deref)(A.input) === "unit" || !G.body) G.body = "";
+        if (G.body = `Action=${A.name.split("#")[1]}&Version=${this.options.version}` + G.body, G.body.endsWith("&")) G.body = G.body.slice(-1);
+        try {
+          G.headers["content-length"] = String((0, Kp4.calculateBodyLength)(G.body))
+        } catch (Z) {}
+        return G
+      }
+      async deserializeResponse(A, Q, B) {
+        let G = this.deserializer,
+          Z = jd.NormalizedSchema.of(A.output),
+          I = {};
+        if (B.statusCode >= 300) {
+          let X = await (0, qL1.collectBody)(B.body, Q);
+          if (X.byteLength > 0) Object.assign(I, await G.read(jd.SCHEMA.DOCUMENT, X));
+          await this.handleError(A, Q, B, I, this.deserializeMetadata(B))
+        }
+        for (let X in B.headers) {
+          let V = B.headers[X];
+          delete B.headers[X], B.headers[X.toLowerCase()] = V
+        }
+        let Y = Z.isStructSchema() && this.useNestedResult() ? A.name.split("#")[1] + "Result" : void 0,
+          J = await (0, qL1.collectBody)(B.body, Q);
+        if (J.byteLength > 0) Object.assign(I, await G.read(Z, J, Y));
+        return {
+          $metadata: this.deserializeMetadata(B),
+          ...I
+        }
+      }
+      useNestedResult() {
+        return !0
+      }
+      async handleError(A, Q, B, G, Z) {
+        let I = this.loadQueryErrorCode(B, G) ?? "Unknown",
+          Y = this.options.defaultNamespace,
+          J = I;
+        if (I.includes("#"))[Y, J] = I.split("#");
+        let W = this.loadQueryError(G),
+          X = jd.TypeRegistry.for(Y),
+          V;
+        try {
+          if (V = X.find((C) => jd.NormalizedSchema.of(C).getMergedTraits().awsQueryError?.[0] === J), !V) V = X.getSchema(I)
+        } catch (C) {
+          let E = jd.TypeRegistry.for("smithy.ts.sdk.synthetic." + Y).getBaseException();
+          if (E) {
+            let U = E.ctor;
+            throw Object.assign(new U(J), W)
+          }
+          throw Error(J)
+        }
+        let F = jd.NormalizedSchema.of(V),
+          K = this.loadQueryErrorMessage(G),
+          D = new V.ctor(K),
+          H = {};
+        for (let [C, E] of F.structIterator()) {
+          let U = E.getMergedTraits().xmlName ?? C,
+            q = W[U] ?? G[U];
+          H[C] = this.deserializer.readSchema(E, q)
+        }
+        throw Object.assign(D, {
+          $metadata: Z,
+          $response: B,
+          $fault: F.getMergedTraits().error,
+          message: K,
+          ...H
+        }), D
+      }
+      loadQueryErrorCode(A, Q) {
+        let B = (Q.Errors?.[0]?.Error ?? Q.Errors?.Error ?? Q.Error)?.Code;
+        if (B !== void 0) return B;
+        if (A.statusCode == 404) return "NotFound"
+      }
+      loadQueryError(A) {
+        return A.Errors?.[0]?.Error ?? A.Errors?.Error ?? A.Error
+      }
+      loadQueryErrorMessage(A) {
+        let Q = this.loadQueryError(A);
+        return Q?.message ?? Q?.Message ?? A.message ?? A.Message ?? "Unknown"
+      }
+    },
+    qp4 = class extends aVQ {
+      constructor(A) {
+        super(A);
+        this.options = A;
+        let Q = {
+          capitalizeKeys: !0,
+          flattenLists: !0,
+          serializeEmptyLists: !1
+        };
+        Object.assign(this.serializer.settings, Q)
+      }
+      static {
+        I3(this, "AwsEc2QueryProtocol")
+      }
+      useNestedResult() {
+        return !1
+      }
+    },
+    LL1 = w5(),
+    SHA = b4(),
+    Np4 = oK(),
+    Lp4 = r6(),
+    Mp4 = wS(),
+    sVQ = I3((A, Q) => lVQ(A, Q).then((B) => {
+      if (B.length) {
+        let G = new Mp4.XMLParser({
+          attributeNamePrefix: "",
+          htmlEntities: !0,
+          ignoreAttributes: !1,
+          ignoreDeclaration: !0,
+          parseTagValue: !1,
+          trimValues: !1,
+          tagValueProcessor: I3((W, X) => X.trim() === "" && X.includes(`
+`) ? "" : void 0, "tagValueProcessor")
+        });
+        G.addEntity("#xD", "\r"), G.addEntity("#10", `
+`);
+        let Z;
+        try {
+          Z = G.parse(B, !0)
+        } catch (W) {
+          if (W && typeof W === "object") Object.defineProperty(W, "$responseBodyText", {
+            value: B
+          });
+          throw W
+        }
+        let I = "#text",
+          Y = Object.keys(Z)[0],
+          J = Z[Y];
+        if (J[I]) J[Y] = J[I], delete J[I];
+        return (0, Lp4.getValueFromTextNode)(J)
+      }
+      return {}
+    }), "parseXmlBody"),
+    Op4 = I3(async (A, Q) => {
+      let B = await sVQ(A, Q);
+      if (B.Error) B.Error.message = B.Error.message ?? B.Error.Message;
+      return B
+    }, "parseXmlErrorBody"),
+    rVQ = I3((A, Q) => {
+      if (Q?.Error?.Code !== void 0) return Q.Error.Code;
+      if (Q?.Code !== void 0) return Q.Code;
+      if (A.statusCode == 404) return "NotFound"
+    }, "loadRestXmlErrorCode"),
+    SS = rDA(),
+    tr = b4(),
+    Rp4 = s6(),
+    mVQ = r6(),
+    dVQ = Pd(),
+    oVQ = class extends er {
+      constructor(A) {
+        super();
+        this.settings = A
+      }
+      static {
+        I3(this, "XmlShapeSerializer")
+      }
+      stringBuffer;
+      byteBuffer;
+      buffer;
+      write(A, Q) {
+        let B = tr.NormalizedSchema.of(A);
+        if (B.isStringSchema() && typeof Q === "string") this.stringBuffer = Q;
+        else if (B.isBlobSchema()) this.byteBuffer = "byteLength" in Q ? Q : (this.serdeContext?.base64Decoder ?? dVQ.fromBase64)(Q);
+        else {
+          this.buffer = this.writeStruct(B, Q, void 0);
+          let G = B.getMergedTraits();
+          if (G.httpPayload && !G.xmlName) this.buffer.withName(B.getName())
+        }
+      }
+      flush() {
+        if (this.byteBuffer !== void 0) {
+          let Q = this.byteBuffer;
+          return delete this.byteBuffer, Q
+        }
+        if (this.stringBuffer !== void 0) {
+          let Q = this.stringBuffer;
+          return delete this.stringBuffer, Q
+        }
+        let A = this.buffer;
+        if (this.settings.xmlNamespace) {
+          if (!A?.attributes?.xmlns) A.addAttribute("xmlns", this.settings.xmlNamespace)
+        }
+        return delete this.buffer, A.toString()
+      }
+      writeStruct(A, Q, B) {
+        let G = A.getMergedTraits(),
+          Z = A.isMemberSchema() && !G.httpPayload ? A.getMemberTraits().xmlName ?? A.getMemberName() : G.xmlName ?? A.getName();
+        if (!Z || !A.isStructSchema()) throw Error(`@aws-sdk/core/protocols - xml serializer, cannot write struct with empty name or non-struct, schema=${A.getName(!0)}.`);
+        let I = SS.XmlNode.of(Z),
+          [Y, J] = this.getXmlnsAttribute(A, B);
+        if (J) I.addAttribute(Y, J);
+        for (let [W, X] of A.structIterator()) {
+          let V = Q[W];
+          if (V != null) {
+            if (X.getMergedTraits().xmlAttribute) {
+              I.addAttribute(X.getMergedTraits().xmlName ?? W, this.writeSimple(X, V));
+              continue
+            }
+            if (X.isListSchema()) this.writeList(X, V, I, J);
+            else if (X.isMapSchema()) this.writeMap(X, V, I, J);
+            else if (X.isStructSchema()) I.addChildNode(this.writeStruct(X, V, J));
+            else {
+              let F = SS.XmlNode.of(X.getMergedTraits().xmlName ?? X.getMemberName());
+              this.writeSimpleInto(X, V, F, J), I.addChildNode(F)
+            }
+          }
+        }
+        return I
+      }
+      writeList(A, Q, B, G) {
+        if (!A.isMemberSchema()) throw Error(`@aws-sdk/core/protocols - xml serializer, cannot write non-member list: ${A.getName(!0)}`);
+        let Z = A.getMergedTraits(),
+          I = A.getValueSchema(),
+          Y = I.getMergedTraits(),
+          J = !!Y.sparse,
+          W = !!Z.xmlFlattened,
+          [X, V] = this.getXmlnsAttribute(A, G),
+          F = I3((K, D) => {
+            if (I.isListSchema()) this.writeList(I, Array.isArray(D) ? D : [D], K, V);
+            else if (I.isMapSchema()) this.writeMap(I, D, K, V);
+            else if (I.isStructSchema()) {
+              let H = this.writeStruct(I, D, V);
+              K.addChildNode(H.withName(W ? Z.xmlName ?? A.getMemberName() : Y.xmlName ?? "member"))
+            } else {
+              let H = SS.XmlNode.of(W ? Z.xmlName ?? A.getMemberName() : Y.xmlName ?? "member");
+              this.writeSimpleInto(I, D, H, V), K.addChildNode(H)
+            }
+          }, "writeItem");
+        if (W) {
+          for (let K of Q)
+            if (J || K != null) F(B, K)
+        } else {
+          let K = SS.XmlNode.of(Z.xmlName ?? A.getMemberName());
+          if (V) K.addAttribute(X, V);
+          for (let D of Q)
+            if (J || D != null) F(K, D);
+          B.addChildNode(K)
+        }
+      }
+      writeMap(A, Q, B, G, Z = !1) {
+        if (!A.isMemberSchema()) throw Error(`@aws-sdk/core/protocols - xml serializer, cannot write non-member map: ${A.getName(!0)}`);
+        let I = A.getMergedTraits(),
+          Y = A.getKeySchema(),
+          W = Y.getMergedTraits().xmlName ?? "key",
+          X = A.getValueSchema(),
+          V = X.getMergedTraits(),
+          F = V.xmlName ?? "value",
+          K = !!V.sparse,
+          D = !!I.xmlFlattened,
+          [H, C] = this.getXmlnsAttribute(A, G),
+          E = I3((U, q, w) => {
+            let N = SS.XmlNode.of(W, q),
+              [R, T] = this.getXmlnsAttribute(Y, C);
+            if (T) N.addAttribute(R, T);
+            U.addChildNode(N);
+            let y = SS.XmlNode.of(F);
+            if (X.isListSchema()) this.writeList(X, w, y, C);
+            else if (X.isMapSchema()) this.writeMap(X, w, y, C, !0);
+            else if (X.isStructSchema()) y = this.writeStruct(X, w, C);
+            else this.writeSimpleInto(X, w, y, C);
+            U.addChildNode(y)
+          }, "addKeyValue");
+        if (D) {
+          for (let [U, q] of Object.entries(Q))
+            if (K || q != null) {
+              let w = SS.XmlNode.of(I.xmlName ?? A.getMemberName());
+              E(w, U, q), B.addChildNode(w)
+            }
+        } else {
+          let U;
+          if (!Z) {
+            if (U = SS.XmlNode.of(I.xmlName ?? A.getMemberName()), C) U.addAttribute(H, C);
+            B.addChildNode(U)
+          }
+          for (let [q, w] of Object.entries(Q))
+            if (K || w != null) {
+              let N = SS.XmlNode.of("entry");
+              E(N, q, w), (Z ? B : U).addChildNode(N)
+            }
+        }
+      }
+      writeSimple(A, Q) {
+        if (Q === null) throw Error("@aws-sdk/core/protocols - (XML serializer) cannot write null value.");
+        let B = tr.NormalizedSchema.of(A),
+          G = null;
+        if (Q && typeof Q === "object")
+          if (B.isBlobSchema()) G = (this.serdeContext?.base64Encoder ?? dVQ.toBase64)(Q);
+          else if (B.isTimestampSchema() && Q instanceof Date) {
+          let Z = this.settings.timestampFormat;
+          switch (Z.useTrait ? B.getSchema() === tr.SCHEMA.TIMESTAMP_DEFAULT ? Z.default : B.getSchema() ?? Z.default : Z.default) {
+            case tr.SCHEMA.TIMESTAMP_DATE_TIME:
+              G = Q.toISOString().replace(".000Z", "Z");
+              break;
+            case tr.SCHEMA.TIMESTAMP_HTTP_DATE:
+              G = (0, mVQ.dateToUtcString)(Q);
+              break;
+            case tr.SCHEMA.TIMESTAMP_EPOCH_SECONDS:
+              G = String(Q.getTime() / 1000);
+              break;
+            default:
+              console.warn("Missing timestamp format, using http date", Q), G = (0, mVQ.dateToUtcString)(Q);
+              break
+          }
+        } else if (B.isBigDecimalSchema() && Q) {
+          if (Q instanceof Rp4.NumericValue) return Q.string;
+          return String(Q)
+        } else if (B.isMapSchema() || B.isListSchema()) throw Error("@aws-sdk/core/protocols - xml serializer, cannot call _write() on List/Map schema, call writeList or writeMap() instead.");
+        else throw Error(`@aws-sdk/core/protocols - xml serializer, unhandled schema type for object value and schema: ${B.getName(!0)}`);
+        if (B.isStringSchema() || B.isBooleanSchema() || B.isNumericSchema() || B.isBigIntegerSchema() || B.isBigDecimalSchema()) G = String(Q);
+        if (G === null) throw Error(`Unhandled schema-value pair ${B.getName(!0)}=${Q}`);
+        return G
+      }
+      writeSimpleInto(A, Q, B, G) {
+        let Z = this.writeSimple(A, Q),
+          I = tr.NormalizedSchema.of(A),
+          Y = new SS.XmlText(Z),
+          [J, W] = this.getXmlnsAttribute(I, G);
+        if (W) B.addAttribute(J, W);
+        B.addChildNode(Y)
+      }
+      getXmlnsAttribute(A, Q) {
+        let B = A.getMergedTraits(),
+          [G, Z] = B.xmlNamespace ?? [];
+        if (Z && Z !== Q) return [G ? `xmlns:${G}` : "xmlns", Z];
+        return [void 0, void 0]
+      }
+    },
+    tVQ = class extends er {
+      constructor(A) {
+        super();
+        this.settings = A
+      }
+      static {
+        I3(this, "XmlCodec")
+      }
+      createSerializer() {
+        let A = new oVQ(this.settings);
+        return A.setSerdeContext(this.serdeContext), A
+      }
+      createDeserializer() {
+        let A = new PL1(this.settings);
+        return A.setSerdeContext(this.serdeContext), A
+      }
+    },
+    Tp4 = class extends LL1.HttpBindingProtocol {
+      static {
+        I3(this, "AwsRestXmlProtocol")
+      }
+      codec;
+      serializer;
+      deserializer;
+      constructor(A) {
+        super(A);
+        let Q = {
+          timestampFormat: {
+            useTrait: !0,
+            default: SHA.SCHEMA.TIMESTAMP_DATE_TIME
+          },
+          httpBindings: !0,
+          xmlNamespace: A.xmlNamespace,
+          serviceNamespace: A.defaultNamespace
+        };
+        this.codec = new tVQ(Q), this.serializer = new LL1.HttpInterceptingShapeSerializer(this.codec.createSerializer(), Q), this.deserializer = new LL1.HttpInterceptingShapeDeserializer(this.codec.createDeserializer(), Q)
+      }
+      getPayloadCodec() {
+        return this.codec
+      }
+      getShapeId() {
+        return "aws.protocols#restXml"
+      }
+      async serializeRequest(A, Q, B) {
+        let G = await super.serializeRequest(A, Q, B),
+          Z = SHA.NormalizedSchema.of(A.input),
+          I = Z.getMemberSchemas();
+        if (G.path = String(G.path).split("/").filter((Y) => {
+            return Y !== "{Bucket}"
+          }).join("/") || "/", !G.headers["content-type"]) {
+          let Y = Object.values(I).find((J) => {
+            return !!J.getMergedTraits().httpPayload
+          });
+          if (Y) {
+            let J = Y.getMergedTraits().mediaType;
+            if (J) G.headers["content-type"] = J;
+            else if (Y.isStringSchema()) G.headers["content-type"] = "text/plain";
+            else if (Y.isBlobSchema()) G.headers["content-type"] = "application/octet-stream";
+            else G.headers["content-type"] = "application/xml"
+          } else if (!Z.isUnitSchema()) {
+            if (Object.values(I).find((W) => {
+                let {
+                  httpQuery: X,
+                  httpQueryParams: V,
+                  httpHeader: F,
+                  httpLabel: K,
+                  httpPrefixHeaders: D
+                } = W.getMergedTraits();
+                return !X && !V && !F && !K && D === void 0
+              })) G.headers["content-type"] = "application/xml"
+          }
+        }
+        if (G.headers["content-type"] === "application/xml") {
+          if (typeof G.body === "string") G.body = '<?xml version="1.0" encoding="UTF-8"?>' + G.body
+        }
+        if (G.body) try {
+          G.headers["content-length"] = String((0, Np4.calculateBodyLength)(G.body))
+        } catch (Y) {}
+        return G
+      }
+      async deserializeResponse(A, Q, B) {
+        return super.deserializeResponse(A, Q, B)
+      }
+      async handleError(A, Q, B, G, Z) {
+        let I = rVQ(B, G) ?? "Unknown",
+          Y = this.options.defaultNamespace,
+          J = I;
+        if (I.includes("#"))[Y, J] = I.split("#");
+        let W = SHA.TypeRegistry.for(Y),
+          X;
+        try {
+          X = W.getSchema(I)
+        } catch (H) {
+          let C = SHA.TypeRegistry.for("smithy.ts.sdk.synthetic." + Y).getBaseException();
+          if (C) {
+            let E = C.ctor;
+            throw Object.assign(new E(J), G)
+          }
+          throw Error(J)
+        }
+        let V = SHA.NormalizedSchema.of(X),
+          F = G.Error?.message ?? G.Error?.Message ?? G.message ?? G.Message ?? "Unknown",
+          K = new X.ctor(F);
+        await this.deserializeHttpMessage(X, Q, B, G);
+        let D = {};
+        for (let [H, C] of V.structIterator()) {
+          let E = C.getMergedTraits().xmlName ?? H,
+            U = G.Error?.[E] ?? G[E];
+          D[H] = this.codec.createDeserializer().readSchema(C, U)
+        }
+        throw Object.assign(K, {
+          $metadata: Z,
+          $response: B,
+          $fault: V.getMergedTraits().error,
+          message: F,
+          ...D
+        }), K
+      }
+    }
 })
-// @from(Start 3435456, End 3436755)
-Ky1 = z((feA) => {
-  Object.defineProperty(feA, "__esModule", {
+// @from(Start 3084501, End 3084698)
+TF = z((_HA) => {
+  Object.defineProperty(_HA, "__esModule", {
     value: !0
   });
-  feA.resolveHttpAuthSchemeConfig = feA.defaultBedrockHttpAuthSchemeProvider = feA.defaultBedrockHttpAuthSchemeParametersProvider = void 0;
-  var LV4 = IB(),
-    Cy1 = ZX(),
-    RV4 = async (A, B, Q) => {
+  var jL1 = rr();
+  jL1.__exportStar(lR(), _HA);
+  jL1.__exportStar(VL1(), _HA);
+  jL1.__exportStar(AFQ(), _HA)
+})
+// @from(Start 3084704, End 3090358)
+b8A = z((Iw7, KFQ) => {
+  var {
+    defineProperty: GuA,
+    getOwnPropertyDescriptor: Pp4,
+    getOwnPropertyNames: jp4
+  } = Object, Sp4 = Object.prototype.hasOwnProperty, pv = (A, Q) => GuA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), _p4 = (A, Q) => {
+    for (var B in Q) GuA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, kp4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of jp4(Q))
+        if (!Sp4.call(A, Z) && Z !== B) GuA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = Pp4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, yp4 = (A) => kp4(GuA({}, "__esModule", {
+    value: !0
+  }), A), ZFQ = {};
+  _p4(ZFQ, {
+    DEFAULT_UA_APP_ID: () => IFQ,
+    getUserAgentMiddlewareOptions: () => FFQ,
+    getUserAgentPlugin: () => mp4,
+    resolveUserAgentConfig: () => JFQ,
+    userAgentMiddleware: () => VFQ
+  });
+  KFQ.exports = yp4(ZFQ);
+  var xp4 = iB(),
+    IFQ = void 0;
+
+  function YFQ(A) {
+    if (A === void 0) return !0;
+    return typeof A === "string" && A.length <= 50
+  }
+  pv(YFQ, "isValidUserAgentAppId");
+
+  function JFQ(A) {
+    let Q = (0, xp4.normalizeProvider)(A.userAgentAppId ?? IFQ),
+      {
+        customUserAgent: B
+      } = A;
+    return Object.assign(A, {
+      customUserAgent: typeof B === "string" ? [
+        [B]
+      ] : B,
+      userAgentAppId: pv(async () => {
+        let G = await Q();
+        if (!YFQ(G)) {
+          let Z = A.logger?.constructor?.name === "NoOpLogger" || !A.logger ? console : A.logger;
+          if (typeof G !== "string") Z?.warn("userAgentAppId must be a string or undefined.");
+          else if (G.length > 50) Z?.warn("The provided userAgentAppId exceeds the maximum length of 50 characters.")
+        }
+        return G
+      }, "userAgentAppId")
+    })
+  }
+  pv(JFQ, "resolveUserAgentConfig");
+  var vp4 = S8A(),
+    bp4 = iz(),
+    _S = TF(),
+    fp4 = /\d{12}\.ddb/;
+  async function WFQ(A, Q, B) {
+    if (B.request?.headers?.["smithy-protocol"] === "rpc-v2-cbor")(0, _S.setFeature)(A, "PROTOCOL_RPC_V2_CBOR", "M");
+    if (typeof Q.retryStrategy === "function") {
+      let I = await Q.retryStrategy();
+      if (typeof I.acquireInitialRetryToken === "function")
+        if (I.constructor?.name?.includes("Adaptive"))(0, _S.setFeature)(A, "RETRY_MODE_ADAPTIVE", "F");
+        else(0, _S.setFeature)(A, "RETRY_MODE_STANDARD", "E");
+      else(0, _S.setFeature)(A, "RETRY_MODE_LEGACY", "D")
+    }
+    if (typeof Q.accountIdEndpointMode === "function") {
+      let I = A.endpointV2;
+      if (String(I?.url?.hostname).match(fp4))(0, _S.setFeature)(A, "ACCOUNT_ID_ENDPOINT", "O");
+      switch (await Q.accountIdEndpointMode?.()) {
+        case "disabled":
+          (0, _S.setFeature)(A, "ACCOUNT_ID_MODE_DISABLED", "Q");
+          break;
+        case "preferred":
+          (0, _S.setFeature)(A, "ACCOUNT_ID_MODE_PREFERRED", "P");
+          break;
+        case "required":
+          (0, _S.setFeature)(A, "ACCOUNT_ID_MODE_REQUIRED", "R");
+          break
+      }
+    }
+    let Z = A.__smithy_context?.selectedHttpAuthScheme?.identity;
+    if (Z?.$source) {
+      let I = Z;
+      if (I.accountId)(0, _S.setFeature)(A, "RESOLVED_ACCOUNT_ID", "T");
+      for (let [Y, J] of Object.entries(I.$source ?? {}))(0, _S.setFeature)(A, Y, J)
+    }
+  }
+  pv(WFQ, "checkFeatures");
+  var QFQ = "user-agent",
+    SL1 = "x-amz-user-agent",
+    BFQ = " ",
+    _L1 = "/",
+    hp4 = /[^\!\$\%\&\'\*\+\-\.\^\_\`\|\~\d\w]/g,
+    gp4 = /[^\!\$\%\&\'\*\+\-\.\^\_\`\|\~\d\w\#]/g,
+    GFQ = "-",
+    up4 = 1024;
+
+  function XFQ(A) {
+    let Q = "";
+    for (let B in A) {
+      let G = A[B];
+      if (Q.length + G.length + 1 <= up4) {
+        if (Q.length) Q += "," + G;
+        else Q += G;
+        continue
+      }
+      break
+    }
+    return Q
+  }
+  pv(XFQ, "encodeFeatures");
+  var VFQ = pv((A) => (Q, B) => async (G) => {
+      let {
+        request: Z
+      } = G;
+      if (!bp4.HttpRequest.isInstance(Z)) return Q(G);
+      let {
+        headers: I
+      } = Z, Y = B?.userAgent?.map(BuA) || [], J = (await A.defaultUserAgentProvider()).map(BuA);
+      await WFQ(B, A, G);
+      let W = B;
+      J.push(`m/${XFQ(Object.assign({},B.__smithy_context?.features,W.__aws_sdk_context?.features))}`);
+      let X = A?.customUserAgent?.map(BuA) || [],
+        V = await A.userAgentAppId();
+      if (V) J.push(BuA([`app/${V}`]));
+      let F = (0, vp4.getUserAgentPrefix)(),
+        K = (F ? [F] : []).concat([...J, ...Y, ...X]).join(BFQ),
+        D = [...J.filter((H) => H.startsWith("aws-sdk-")), ...X].join(BFQ);
+      if (A.runtime !== "browser") {
+        if (D) I[SL1] = I[SL1] ? `${I[QFQ]} ${D}` : D;
+        I[QFQ] = K
+      } else I[SL1] = K;
+      return Q({
+        ...G,
+        request: Z
+      })
+    }, "userAgentMiddleware"),
+    BuA = pv((A) => {
+      let Q = A[0].split(_L1).map((Y) => Y.replace(hp4, GFQ)).join(_L1),
+        B = A[1]?.replace(gp4, GFQ),
+        G = Q.indexOf(_L1),
+        Z = Q.substring(0, G),
+        I = Q.substring(G + 1);
+      if (Z === "api") I = I.toLowerCase();
+      return [Z, I, B].filter((Y) => Y && Y.length > 0).reduce((Y, J, W) => {
+        switch (W) {
+          case 0:
+            return J;
+          case 1:
+            return `${Y}/${J}`;
+          default:
+            return `${Y}#${J}`
+        }
+      }, "")
+    }, "escapeUserAgent"),
+    FFQ = {
+      name: "getUserAgentMiddleware",
+      step: "build",
+      priority: "low",
+      tags: ["SET_USER_AGENT", "USER_AGENT"],
+      override: !0
+    },
+    mp4 = pv((A) => ({
+      applyToStack: pv((Q) => {
+        Q.add(VFQ(A), FFQ)
+      }, "applyToStack")
+    }), "getUserAgentPlugin")
+})
+// @from(Start 3090364, End 3092110)
+yL1 = z((DFQ) => {
+  Object.defineProperty(DFQ, "__esModule", {
+    value: !0
+  });
+  DFQ.resolveHttpAuthSchemeConfig = DFQ.defaultCognitoIdentityHttpAuthSchemeProvider = DFQ.defaultCognitoIdentityHttpAuthSchemeParametersProvider = void 0;
+  var dp4 = TF(),
+    kL1 = w7(),
+    cp4 = async (A, Q, B) => {
       return {
-        operation: Cy1.getSmithyContext(B).operation,
-        region: await Cy1.normalizeProvider(A.region)() || (() => {
-          throw new Error("expected `region` to be configured for `aws.auth#sigv4`")
+        operation: (0, kL1.getSmithyContext)(Q).operation,
+        region: await (0, kL1.normalizeProvider)(A.region)() || (() => {
+          throw Error("expected `region` to be configured for `aws.auth#sigv4`")
         })()
       }
     };
-  feA.defaultBedrockHttpAuthSchemeParametersProvider = RV4;
+  DFQ.defaultCognitoIdentityHttpAuthSchemeParametersProvider = cp4;
 
-  function OV4(A) {
+  function pp4(A) {
     return {
       schemeId: "aws.auth#sigv4",
       signingProperties: {
-        name: "bedrock",
+        name: "cognito-identity",
         region: A.region
       },
-      propertiesExtractor: (B, Q) => ({
+      propertiesExtractor: (Q, B) => ({
         signingProperties: {
-          config: B,
-          context: Q
+          config: Q,
+          context: B
         }
       })
     }
   }
-  var TV4 = (A) => {
-    let B = [];
+
+  function ZuA(A) {
+    return {
+      schemeId: "smithy.api#noAuth"
+    }
+  }
+  var lp4 = (A) => {
+    let Q = [];
     switch (A.operation) {
+      case "GetCredentialsForIdentity": {
+        Q.push(ZuA(A));
+        break
+      }
+      case "GetId": {
+        Q.push(ZuA(A));
+        break
+      }
+      case "GetOpenIdToken": {
+        Q.push(ZuA(A));
+        break
+      }
+      case "UnlinkIdentity": {
+        Q.push(ZuA(A));
+        break
+      }
       default:
-        B.push(OV4(A))
+        Q.push(pp4(A))
     }
-    return B
+    return Q
   };
-  feA.defaultBedrockHttpAuthSchemeProvider = TV4;
-  var PV4 = (A) => {
-    let B = LV4.resolveAwsSdkSigV4Config(A);
-    return Object.assign(B, {
-      authSchemePreference: Cy1.normalizeProvider(A.authSchemePreference ?? [])
+  DFQ.defaultCognitoIdentityHttpAuthSchemeProvider = lp4;
+  var ip4 = (A) => {
+    let Q = (0, dp4.resolveAwsSdkSigV4Config)(A);
+    return Object.assign(Q, {
+      authSchemePreference: (0, kL1.normalizeProvider)(A.authSchemePreference ?? [])
     })
   };
-  feA.resolveHttpAuthSchemeConfig = PV4
-})
-// @from(Start 3436761, End 3454081)
-X10 = z((_I8, h71) => {
-  var beA, geA, heA, meA, deA, ueA, peA, ceA, leA, ieA, neA, aeA, seA, b71, Hy1, reA, oeA, teA, Mb, eeA, A10, B10, Q10, I10, G10, Z10, D10, Y10, g71, W10, J10, F10;
-  (function(A) {
-    var B = typeof global === "object" ? global : typeof self === "object" ? self : typeof this === "object" ? this : {};
-    if (typeof define === "function" && define.amd) define("tslib", ["exports"], function(I) {
-      A(Q(B, Q(I)))
-    });
-    else if (typeof h71 === "object" && typeof _I8 === "object") A(Q(B, Q(_I8)));
-    else A(Q(B));
-
-    function Q(I, G) {
-      if (I !== B)
-        if (typeof Object.create === "function") Object.defineProperty(I, "__esModule", {
-          value: !0
-        });
-        else I.__esModule = !0;
-      return function(Z, D) {
-        return I[Z] = G ? G(Z, D) : D
-      }
-    }
-  })(function(A) {
-    var B = Object.setPrototypeOf || {
-      __proto__: []
-    }
-    instanceof Array && function(Z, D) {
-      Z.__proto__ = D
-    } || function(Z, D) {
-      for (var Y in D)
-        if (Object.prototype.hasOwnProperty.call(D, Y)) Z[Y] = D[Y]
-    };
-    beA = function(Z, D) {
-      if (typeof D !== "function" && D !== null) throw new TypeError("Class extends value " + String(D) + " is not a constructor or null");
-      B(Z, D);
-
-      function Y() {
-        this.constructor = Z
-      }
-      Z.prototype = D === null ? Object.create(D) : (Y.prototype = D.prototype, new Y)
-    }, geA = Object.assign || function(Z) {
-      for (var D, Y = 1, W = arguments.length; Y < W; Y++) {
-        D = arguments[Y];
-        for (var J in D)
-          if (Object.prototype.hasOwnProperty.call(D, J)) Z[J] = D[J]
-      }
-      return Z
-    }, heA = function(Z, D) {
-      var Y = {};
-      for (var W in Z)
-        if (Object.prototype.hasOwnProperty.call(Z, W) && D.indexOf(W) < 0) Y[W] = Z[W];
-      if (Z != null && typeof Object.getOwnPropertySymbols === "function") {
-        for (var J = 0, W = Object.getOwnPropertySymbols(Z); J < W.length; J++)
-          if (D.indexOf(W[J]) < 0 && Object.prototype.propertyIsEnumerable.call(Z, W[J])) Y[W[J]] = Z[W[J]]
-      }
-      return Y
-    }, meA = function(Z, D, Y, W) {
-      var J = arguments.length,
-        F = J < 3 ? D : W === null ? W = Object.getOwnPropertyDescriptor(D, Y) : W,
-        X;
-      if (typeof Reflect === "object" && typeof Reflect.decorate === "function") F = Reflect.decorate(Z, D, Y, W);
-      else
-        for (var V = Z.length - 1; V >= 0; V--)
-          if (X = Z[V]) F = (J < 3 ? X(F) : J > 3 ? X(D, Y, F) : X(D, Y)) || F;
-      return J > 3 && F && Object.defineProperty(D, Y, F), F
-    }, deA = function(Z, D) {
-      return function(Y, W) {
-        D(Y, W, Z)
-      }
-    }, ueA = function(Z, D, Y, W, J, F) {
-      function X(_) {
-        if (_ !== void 0 && typeof _ !== "function") throw new TypeError("Function expected");
-        return _
-      }
-      var V = W.kind,
-        C = V === "getter" ? "get" : V === "setter" ? "set" : "value",
-        K = !D && Z ? W.static ? Z : Z.prototype : null,
-        E = D || (K ? Object.getOwnPropertyDescriptor(K, W.name) : {}),
-        N, q = !1;
-      for (var O = Y.length - 1; O >= 0; O--) {
-        var R = {};
-        for (var T in W) R[T] = T === "access" ? {} : W[T];
-        for (var T in W.access) R.access[T] = W.access[T];
-        R.addInitializer = function(_) {
-          if (q) throw new TypeError("Cannot add initializers after decoration has completed");
-          F.push(X(_ || null))
-        };
-        var L = Y[O](V === "accessor" ? {
-          get: E.get,
-          set: E.set
-        } : E[C], R);
-        if (V === "accessor") {
-          if (L === void 0) continue;
-          if (L === null || typeof L !== "object") throw new TypeError("Object expected");
-          if (N = X(L.get)) E.get = N;
-          if (N = X(L.set)) E.set = N;
-          if (N = X(L.init)) J.unshift(N)
-        } else if (N = X(L))
-          if (V === "field") J.unshift(N);
-          else E[C] = N
-      }
-      if (K) Object.defineProperty(K, W.name, E);
-      q = !0
-    }, peA = function(Z, D, Y) {
-      var W = arguments.length > 2;
-      for (var J = 0; J < D.length; J++) Y = W ? D[J].call(Z, Y) : D[J].call(Z);
-      return W ? Y : void 0
-    }, ceA = function(Z) {
-      return typeof Z === "symbol" ? Z : "".concat(Z)
-    }, leA = function(Z, D, Y) {
-      if (typeof D === "symbol") D = D.description ? "[".concat(D.description, "]") : "";
-      return Object.defineProperty(Z, "name", {
-        configurable: !0,
-        value: Y ? "".concat(Y, " ", D) : D
-      })
-    }, ieA = function(Z, D) {
-      if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(Z, D)
-    }, neA = function(Z, D, Y, W) {
-      function J(F) {
-        return F instanceof Y ? F : new Y(function(X) {
-          X(F)
-        })
-      }
-      return new(Y || (Y = Promise))(function(F, X) {
-        function V(E) {
-          try {
-            K(W.next(E))
-          } catch (N) {
-            X(N)
-          }
-        }
-
-        function C(E) {
-          try {
-            K(W.throw(E))
-          } catch (N) {
-            X(N)
-          }
-        }
-
-        function K(E) {
-          E.done ? F(E.value) : J(E.value).then(V, C)
-        }
-        K((W = W.apply(Z, D || [])).next())
-      })
-    }, aeA = function(Z, D) {
-      var Y = {
-          label: 0,
-          sent: function() {
-            if (F[0] & 1) throw F[1];
-            return F[1]
-          },
-          trys: [],
-          ops: []
-        },
-        W, J, F, X = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
-      return X.next = V(0), X.throw = V(1), X.return = V(2), typeof Symbol === "function" && (X[Symbol.iterator] = function() {
-        return this
-      }), X;
-
-      function V(K) {
-        return function(E) {
-          return C([K, E])
-        }
-      }
-
-      function C(K) {
-        if (W) throw new TypeError("Generator is already executing.");
-        while (X && (X = 0, K[0] && (Y = 0)), Y) try {
-          if (W = 1, J && (F = K[0] & 2 ? J.return : K[0] ? J.throw || ((F = J.return) && F.call(J), 0) : J.next) && !(F = F.call(J, K[1])).done) return F;
-          if (J = 0, F) K = [K[0] & 2, F.value];
-          switch (K[0]) {
-            case 0:
-            case 1:
-              F = K;
-              break;
-            case 4:
-              return Y.label++, {
-                value: K[1],
-                done: !1
-              };
-            case 5:
-              Y.label++, J = K[1], K = [0];
-              continue;
-            case 7:
-              K = Y.ops.pop(), Y.trys.pop();
-              continue;
-            default:
-              if ((F = Y.trys, !(F = F.length > 0 && F[F.length - 1])) && (K[0] === 6 || K[0] === 2)) {
-                Y = 0;
-                continue
-              }
-              if (K[0] === 3 && (!F || K[1] > F[0] && K[1] < F[3])) {
-                Y.label = K[1];
-                break
-              }
-              if (K[0] === 6 && Y.label < F[1]) {
-                Y.label = F[1], F = K;
-                break
-              }
-              if (F && Y.label < F[2]) {
-                Y.label = F[2], Y.ops.push(K);
-                break
-              }
-              if (F[2]) Y.ops.pop();
-              Y.trys.pop();
-              continue
-          }
-          K = D.call(Z, Y)
-        } catch (E) {
-          K = [6, E], J = 0
-        } finally {
-          W = F = 0
-        }
-        if (K[0] & 5) throw K[1];
-        return {
-          value: K[0] ? K[1] : void 0,
-          done: !0
-        }
-      }
-    }, seA = function(Z, D) {
-      for (var Y in Z)
-        if (Y !== "default" && !Object.prototype.hasOwnProperty.call(D, Y)) g71(D, Z, Y)
-    }, g71 = Object.create ? function(Z, D, Y, W) {
-      if (W === void 0) W = Y;
-      var J = Object.getOwnPropertyDescriptor(D, Y);
-      if (!J || ("get" in J ? !D.__esModule : J.writable || J.configurable)) J = {
-        enumerable: !0,
-        get: function() {
-          return D[Y]
-        }
-      };
-      Object.defineProperty(Z, W, J)
-    } : function(Z, D, Y, W) {
-      if (W === void 0) W = Y;
-      Z[W] = D[Y]
-    }, b71 = function(Z) {
-      var D = typeof Symbol === "function" && Symbol.iterator,
-        Y = D && Z[D],
-        W = 0;
-      if (Y) return Y.call(Z);
-      if (Z && typeof Z.length === "number") return {
-        next: function() {
-          if (Z && W >= Z.length) Z = void 0;
-          return {
-            value: Z && Z[W++],
-            done: !Z
-          }
-        }
-      };
-      throw new TypeError(D ? "Object is not iterable." : "Symbol.iterator is not defined.")
-    }, Hy1 = function(Z, D) {
-      var Y = typeof Symbol === "function" && Z[Symbol.iterator];
-      if (!Y) return Z;
-      var W = Y.call(Z),
-        J, F = [],
-        X;
-      try {
-        while ((D === void 0 || D-- > 0) && !(J = W.next()).done) F.push(J.value)
-      } catch (V) {
-        X = {
-          error: V
-        }
-      } finally {
-        try {
-          if (J && !J.done && (Y = W.return)) Y.call(W)
-        } finally {
-          if (X) throw X.error
-        }
-      }
-      return F
-    }, reA = function() {
-      for (var Z = [], D = 0; D < arguments.length; D++) Z = Z.concat(Hy1(arguments[D]));
-      return Z
-    }, oeA = function() {
-      for (var Z = 0, D = 0, Y = arguments.length; D < Y; D++) Z += arguments[D].length;
-      for (var W = Array(Z), J = 0, D = 0; D < Y; D++)
-        for (var F = arguments[D], X = 0, V = F.length; X < V; X++, J++) W[J] = F[X];
-      return W
-    }, teA = function(Z, D, Y) {
-      if (Y || arguments.length === 2) {
-        for (var W = 0, J = D.length, F; W < J; W++)
-          if (F || !(W in D)) {
-            if (!F) F = Array.prototype.slice.call(D, 0, W);
-            F[W] = D[W]
-          }
-      }
-      return Z.concat(F || Array.prototype.slice.call(D))
-    }, Mb = function(Z) {
-      return this instanceof Mb ? (this.v = Z, this) : new Mb(Z)
-    }, eeA = function(Z, D, Y) {
-      if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-      var W = Y.apply(Z, D || []),
-        J, F = [];
-      return J = Object.create((typeof AsyncIterator === "function" ? AsyncIterator : Object).prototype), V("next"), V("throw"), V("return", X), J[Symbol.asyncIterator] = function() {
-        return this
-      }, J;
-
-      function X(O) {
-        return function(R) {
-          return Promise.resolve(R).then(O, N)
-        }
-      }
-
-      function V(O, R) {
-        if (W[O]) {
-          if (J[O] = function(T) {
-              return new Promise(function(L, _) {
-                F.push([O, T, L, _]) > 1 || C(O, T)
-              })
-            }, R) J[O] = R(J[O])
-        }
-      }
-
-      function C(O, R) {
-        try {
-          K(W[O](R))
-        } catch (T) {
-          q(F[0][3], T)
-        }
-      }
-
-      function K(O) {
-        O.value instanceof Mb ? Promise.resolve(O.value.v).then(E, N) : q(F[0][2], O)
-      }
-
-      function E(O) {
-        C("next", O)
-      }
-
-      function N(O) {
-        C("throw", O)
-      }
-
-      function q(O, R) {
-        if (O(R), F.shift(), F.length) C(F[0][0], F[0][1])
-      }
-    }, A10 = function(Z) {
-      var D, Y;
-      return D = {}, W("next"), W("throw", function(J) {
-        throw J
-      }), W("return"), D[Symbol.iterator] = function() {
-        return this
-      }, D;
-
-      function W(J, F) {
-        D[J] = Z[J] ? function(X) {
-          return (Y = !Y) ? {
-            value: Mb(Z[J](X)),
-            done: !1
-          } : F ? F(X) : X
-        } : F
-      }
-    }, B10 = function(Z) {
-      if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-      var D = Z[Symbol.asyncIterator],
-        Y;
-      return D ? D.call(Z) : (Z = typeof b71 === "function" ? b71(Z) : Z[Symbol.iterator](), Y = {}, W("next"), W("throw"), W("return"), Y[Symbol.asyncIterator] = function() {
-        return this
-      }, Y);
-
-      function W(F) {
-        Y[F] = Z[F] && function(X) {
-          return new Promise(function(V, C) {
-            X = Z[F](X), J(V, C, X.done, X.value)
-          })
-        }
-      }
-
-      function J(F, X, V, C) {
-        Promise.resolve(C).then(function(K) {
-          F({
-            value: K,
-            done: V
-          })
-        }, X)
-      }
-    }, Q10 = function(Z, D) {
-      if (Object.defineProperty) Object.defineProperty(Z, "raw", {
-        value: D
-      });
-      else Z.raw = D;
-      return Z
-    };
-    var Q = Object.create ? function(Z, D) {
-        Object.defineProperty(Z, "default", {
-          enumerable: !0,
-          value: D
-        })
-      } : function(Z, D) {
-        Z.default = D
-      },
-      I = function(Z) {
-        return I = Object.getOwnPropertyNames || function(D) {
-          var Y = [];
-          for (var W in D)
-            if (Object.prototype.hasOwnProperty.call(D, W)) Y[Y.length] = W;
-          return Y
-        }, I(Z)
-      };
-    I10 = function(Z) {
-      if (Z && Z.__esModule) return Z;
-      var D = {};
-      if (Z != null) {
-        for (var Y = I(Z), W = 0; W < Y.length; W++)
-          if (Y[W] !== "default") g71(D, Z, Y[W])
-      }
-      return Q(D, Z), D
-    }, G10 = function(Z) {
-      return Z && Z.__esModule ? Z : {
-        default: Z
-      }
-    }, Z10 = function(Z, D, Y, W) {
-      if (Y === "a" && !W) throw new TypeError("Private accessor was defined without a getter");
-      if (typeof D === "function" ? Z !== D || !W : !D.has(Z)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
-      return Y === "m" ? W : Y === "a" ? W.call(Z) : W ? W.value : D.get(Z)
-    }, D10 = function(Z, D, Y, W, J) {
-      if (W === "m") throw new TypeError("Private method is not writable");
-      if (W === "a" && !J) throw new TypeError("Private accessor was defined without a setter");
-      if (typeof D === "function" ? Z !== D || !J : !D.has(Z)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
-      return W === "a" ? J.call(Z, Y) : J ? J.value = Y : D.set(Z, Y), Y
-    }, Y10 = function(Z, D) {
-      if (D === null || typeof D !== "object" && typeof D !== "function") throw new TypeError("Cannot use 'in' operator on non-object");
-      return typeof Z === "function" ? D === Z : Z.has(D)
-    }, W10 = function(Z, D, Y) {
-      if (D !== null && D !== void 0) {
-        if (typeof D !== "object" && typeof D !== "function") throw new TypeError("Object expected.");
-        var W, J;
-        if (Y) {
-          if (!Symbol.asyncDispose) throw new TypeError("Symbol.asyncDispose is not defined.");
-          W = D[Symbol.asyncDispose]
-        }
-        if (W === void 0) {
-          if (!Symbol.dispose) throw new TypeError("Symbol.dispose is not defined.");
-          if (W = D[Symbol.dispose], Y) J = W
-        }
-        if (typeof W !== "function") throw new TypeError("Object not disposable.");
-        if (J) W = function() {
-          try {
-            J.call(this)
-          } catch (F) {
-            return Promise.reject(F)
-          }
-        };
-        Z.stack.push({
-          value: D,
-          dispose: W,
-          async: Y
-        })
-      } else if (Y) Z.stack.push({
-        async: !0
-      });
-      return D
-    };
-    var G = typeof SuppressedError === "function" ? SuppressedError : function(Z, D, Y) {
-      var W = new Error(Y);
-      return W.name = "SuppressedError", W.error = Z, W.suppressed = D, W
-    };
-    J10 = function(Z) {
-      function D(F) {
-        Z.error = Z.hasError ? new G(F, Z.error, "An error was suppressed during disposal.") : F, Z.hasError = !0
-      }
-      var Y, W = 0;
-
-      function J() {
-        while (Y = Z.stack.pop()) try {
-          if (!Y.async && W === 1) return W = 0, Z.stack.push(Y), Promise.resolve().then(J);
-          if (Y.dispose) {
-            var F = Y.dispose.call(Y.value);
-            if (Y.async) return W |= 2, Promise.resolve(F).then(J, function(X) {
-              return D(X), J()
-            })
-          } else W |= 1
-        } catch (X) {
-          D(X)
-        }
-        if (W === 1) return Z.hasError ? Promise.reject(Z.error) : Promise.resolve();
-        if (Z.hasError) throw Z.error
-      }
-      return J()
-    }, F10 = function(Z, D) {
-      if (typeof Z === "string" && /^\.\.?\//.test(Z)) return Z.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(Y, W, J, F, X) {
-        return W ? D ? ".jsx" : ".js" : J && (!F || !X) ? Y : J + F + "." + X.toLowerCase() + "js"
-      });
-      return Z
-    }, A("__extends", beA), A("__assign", geA), A("__rest", heA), A("__decorate", meA), A("__param", deA), A("__esDecorate", ueA), A("__runInitializers", peA), A("__propKey", ceA), A("__setFunctionName", leA), A("__metadata", ieA), A("__awaiter", neA), A("__generator", aeA), A("__exportStar", seA), A("__createBinding", g71), A("__values", b71), A("__read", Hy1), A("__spread", reA), A("__spreadArrays", oeA), A("__spreadArray", teA), A("__await", Mb), A("__asyncGenerator", eeA), A("__asyncDelegator", A10), A("__asyncValues", B10), A("__makeTemplateObject", Q10), A("__importStar", I10), A("__importDefault", G10), A("__classPrivateFieldGet", Z10), A("__classPrivateFieldSet", D10), A("__classPrivateFieldIn", Y10), A("__addDisposableResource", W10), A("__disposeResources", J10), A("__rewriteRelativeImportExtension", F10)
-  })
-})
-// @from(Start 3454087, End 3457802)
-V10 = z((jI8, jV4) => {
-  jV4.exports = {
-    name: "@aws-sdk/client-bedrock",
-    description: "AWS SDK for JavaScript Bedrock Client for Node.js, Browser and React Native",
-    version: "3.797.0",
-    scripts: {
-      build: "concurrently 'yarn:build:cjs' 'yarn:build:es' 'yarn:build:types'",
-      "build:cjs": "node ../../scripts/compilation/inline client-bedrock",
-      "build:es": "tsc -p tsconfig.es.json",
-      "build:include:deps": "lerna run --scope $npm_package_name --include-dependencies build",
-      "build:types": "tsc -p tsconfig.types.json",
-      "build:types:downlevel": "downlevel-dts dist-types dist-types/ts3.4",
-      clean: "rimraf ./dist-* && rimraf *.tsbuildinfo",
-      "extract:docs": "api-extractor run --local",
-      "generate:client": "node ../../scripts/generate-clients/single-service --solo bedrock"
-    },
-    main: "./dist-cjs/index.js",
-    types: "./dist-types/index.d.ts",
-    module: "./dist-es/index.js",
-    sideEffects: !1,
-    dependencies: {
-      "@aws-crypto/sha256-browser": "5.2.0",
-      "@aws-crypto/sha256-js": "5.2.0",
-      "@aws-sdk/core": "3.796.0",
-      "@aws-sdk/credential-provider-node": "3.797.0",
-      "@aws-sdk/middleware-host-header": "3.775.0",
-      "@aws-sdk/middleware-logger": "3.775.0",
-      "@aws-sdk/middleware-recursion-detection": "3.775.0",
-      "@aws-sdk/middleware-user-agent": "3.796.0",
-      "@aws-sdk/region-config-resolver": "3.775.0",
-      "@aws-sdk/types": "3.775.0",
-      "@aws-sdk/util-endpoints": "3.787.0",
-      "@aws-sdk/util-user-agent-browser": "3.775.0",
-      "@aws-sdk/util-user-agent-node": "3.796.0",
-      "@smithy/config-resolver": "^4.1.0",
-      "@smithy/core": "^3.2.0",
-      "@smithy/fetch-http-handler": "^5.0.2",
-      "@smithy/hash-node": "^4.0.2",
-      "@smithy/invalid-dependency": "^4.0.2",
-      "@smithy/middleware-content-length": "^4.0.2",
-      "@smithy/middleware-endpoint": "^4.1.0",
-      "@smithy/middleware-retry": "^4.1.0",
-      "@smithy/middleware-serde": "^4.0.3",
-      "@smithy/middleware-stack": "^4.0.2",
-      "@smithy/node-config-provider": "^4.0.2",
-      "@smithy/node-http-handler": "^4.0.4",
-      "@smithy/protocol-http": "^5.1.0",
-      "@smithy/smithy-client": "^4.2.0",
-      "@smithy/types": "^4.2.0",
-      "@smithy/url-parser": "^4.0.2",
-      "@smithy/util-base64": "^4.0.0",
-      "@smithy/util-body-length-browser": "^4.0.0",
-      "@smithy/util-body-length-node": "^4.0.0",
-      "@smithy/util-defaults-mode-browser": "^4.0.8",
-      "@smithy/util-defaults-mode-node": "^4.0.8",
-      "@smithy/util-endpoints": "^3.0.2",
-      "@smithy/util-middleware": "^4.0.2",
-      "@smithy/util-retry": "^4.0.2",
-      "@smithy/util-utf8": "^4.0.0",
-      "@types/uuid": "^9.0.1",
-      tslib: "^2.6.2",
-      uuid: "^9.0.1"
-    },
-    devDependencies: {
-      "@tsconfig/node18": "18.2.4",
-      "@types/node": "^18.19.69",
-      concurrently: "7.0.0",
-      "downlevel-dts": "0.10.1",
-      rimraf: "3.0.2",
-      typescript: "~5.2.2"
-    },
-    engines: {
-      node: ">=18.0.0"
-    },
-    typesVersions: {
-      "<4.0": {
-        "dist-types/*": ["dist-types/ts3.4/*"]
-      }
-    },
-    files: ["dist-*/**"],
-    author: {
-      name: "AWS SDK for JavaScript Team",
-      url: "https://aws.amazon.com/javascript/"
-    },
-    license: "Apache-2.0",
-    browser: {
-      "./dist-es/runtimeConfig": "./dist-es/runtimeConfig.browser"
-    },
-    "react-native": {
-      "./dist-es/runtimeConfig": "./dist-es/runtimeConfig.native"
-    },
-    homepage: "https://github.com/aws/aws-sdk-js-v3/tree/main/clients/client-bedrock",
-    repository: {
-      type: "git",
-      url: "https://github.com/aws/aws-sdk-js-v3.git",
-      directory: "clients/client-bedrock"
-    }
-  }
-})
-// @from(Start 3457808, End 3459876)
-d71 = z((yI8, N10) => {
-  var {
-    defineProperty: m71,
-    getOwnPropertyDescriptor: yV4,
-    getOwnPropertyNames: kV4
-  } = Object, xV4 = Object.prototype.hasOwnProperty, fV4 = (A, B) => m71(A, "name", {
-    value: B,
-    configurable: !0
-  }), vV4 = (A, B) => {
-    for (var Q in B) m71(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, bV4 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of kV4(B))
-        if (!xV4.call(A, G) && G !== Q) m71(A, G, {
-          get: () => B[G],
-          enumerable: !(I = yV4(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, gV4 = (A) => bV4(m71({}, "__esModule", {
-    value: !0
-  }), A), C10 = {};
-  vV4(C10, {
-    ENV_ACCOUNT_ID: () => U10,
-    ENV_CREDENTIAL_SCOPE: () => E10,
-    ENV_EXPIRATION: () => w10,
-    ENV_KEY: () => K10,
-    ENV_SECRET: () => H10,
-    ENV_SESSION: () => z10,
-    fromEnv: () => dV4
-  });
-  N10.exports = gV4(C10);
-  var hV4 = NC(),
-    mV4 = $I(),
-    K10 = "AWS_ACCESS_KEY_ID",
-    H10 = "AWS_SECRET_ACCESS_KEY",
-    z10 = "AWS_SESSION_TOKEN",
-    w10 = "AWS_CREDENTIAL_EXPIRATION",
-    E10 = "AWS_CREDENTIAL_SCOPE",
-    U10 = "AWS_ACCOUNT_ID",
-    dV4 = fV4((A) => async () => {
-      A?.logger?.debug("@aws-sdk/credential-provider-env - fromEnv");
-      let B = process.env[K10],
-        Q = process.env[H10],
-        I = process.env[z10],
-        G = process.env[w10],
-        Z = process.env[E10],
-        D = process.env[U10];
-      if (B && Q) {
-        let Y = {
-          accessKeyId: B,
-          secretAccessKey: Q,
-          ...I && {
-            sessionToken: I
-          },
-          ...G && {
-            expiration: new Date(G)
-          },
-          ...Z && {
-            credentialScope: Z
-          },
-          ...D && {
-            accountId: D
-          }
-        };
-        return hV4.setCredentialFeature(Y, "CREDENTIALS_ENV_VARS", "g"), Y
-      }
-      throw new mV4.CredentialsProviderError("Unable to find environment variable credentials.", {
-        logger: A?.logger
-      })
-    }, "fromEnv")
-})
-// @from(Start 3459882, End 3471484)
-B_ = z((kI8, k10) => {
-  var {
-    defineProperty: c71,
-    getOwnPropertyDescriptor: uV4,
-    getOwnPropertyNames: pV4
-  } = Object, cV4 = Object.prototype.hasOwnProperty, Y7 = (A, B) => c71(A, "name", {
-    value: B,
-    configurable: !0
-  }), lV4 = (A, B) => {
-    for (var Q in B) c71(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, iV4 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of pV4(B))
-        if (!cV4.call(A, G) && G !== Q) c71(A, G, {
-          get: () => B[G],
-          enumerable: !(I = uV4(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, nV4 = (A) => iV4(c71({}, "__esModule", {
-    value: !0
-  }), A), L10 = {};
-  lV4(L10, {
-    DEFAULT_MAX_RETRIES: () => P10,
-    DEFAULT_TIMEOUT: () => T10,
-    ENV_CMDS_AUTH_TOKEN: () => Ey1,
-    ENV_CMDS_FULL_URI: () => u71,
-    ENV_CMDS_RELATIVE_URI: () => p71,
-    Endpoint: () => S10,
-    fromContainerMetadata: () => oV4,
-    fromInstanceMetadata: () => EC4,
-    getInstanceMetadataEndpoint: () => j10,
-    httpRequest: () => Lb,
-    providerConfigFromInit: () => Uy1
-  });
-  k10.exports = nV4(L10);
-  var aV4 = Z1("url"),
-    dz = $I(),
-    sV4 = Z1("buffer"),
-    rV4 = Z1("http");
-
-  function Lb(A) {
-    return new Promise((B, Q) => {
-      let I = rV4.request({
-        method: "GET",
-        ...A,
-        hostname: A.hostname?.replace(/^\[(.+)\]$/, "$1")
-      });
-      I.on("error", (G) => {
-        Q(Object.assign(new dz.ProviderError("Unable to connect to instance metadata service"), G)), I.destroy()
-      }), I.on("timeout", () => {
-        Q(new dz.ProviderError("TimeoutError from instance metadata service")), I.destroy()
-      }), I.on("response", (G) => {
-        let {
-          statusCode: Z = 400
-        } = G;
-        if (Z < 200 || 300 <= Z) Q(Object.assign(new dz.ProviderError("Error response received from instance metadata service"), {
-          statusCode: Z
-        })), I.destroy();
-        let D = [];
-        G.on("data", (Y) => {
-          D.push(Y)
-        }), G.on("end", () => {
-          B(sV4.Buffer.concat(D)), I.destroy()
-        })
-      }), I.end()
-    })
-  }
-  Y7(Lb, "httpRequest");
-  var R10 = Y7((A) => Boolean(A) && typeof A === "object" && typeof A.AccessKeyId === "string" && typeof A.SecretAccessKey === "string" && typeof A.Token === "string" && typeof A.Expiration === "string", "isImdsCredentials"),
-    O10 = Y7((A) => ({
-      accessKeyId: A.AccessKeyId,
-      secretAccessKey: A.SecretAccessKey,
-      sessionToken: A.Token,
-      expiration: new Date(A.Expiration),
-      ...A.AccountId && {
-        accountId: A.AccountId
-      }
-    }), "fromImdsCredentials"),
-    T10 = 1000,
-    P10 = 0,
-    Uy1 = Y7(({
-      maxRetries: A = P10,
-      timeout: B = T10
-    }) => ({
-      maxRetries: A,
-      timeout: B
-    }), "providerConfigFromInit"),
-    wy1 = Y7((A, B) => {
-      let Q = A();
-      for (let I = 0; I < B; I++) Q = Q.catch(A);
-      return Q
-    }, "retry"),
-    u71 = "AWS_CONTAINER_CREDENTIALS_FULL_URI",
-    p71 = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
-    Ey1 = "AWS_CONTAINER_AUTHORIZATION_TOKEN",
-    oV4 = Y7((A = {}) => {
-      let {
-        timeout: B,
-        maxRetries: Q
-      } = Uy1(A);
-      return () => wy1(async () => {
-        let I = await QC4({
-            logger: A.logger
-          }),
-          G = JSON.parse(await tV4(B, I));
-        if (!R10(G)) throw new dz.CredentialsProviderError("Invalid response received from instance metadata service.", {
-          logger: A.logger
-        });
-        return O10(G)
-      }, Q)
-    }, "fromContainerMetadata"),
-    tV4 = Y7(async (A, B) => {
-      if (process.env[Ey1]) B.headers = {
-        ...B.headers,
-        Authorization: process.env[Ey1]
-      };
-      return (await Lb({
-        ...B,
-        timeout: A
-      })).toString()
-    }, "requestFromEcsImds"),
-    eV4 = "169.254.170.2",
-    AC4 = {
-      localhost: !0,
-      "127.0.0.1": !0
-    },
-    BC4 = {
-      "http:": !0,
-      "https:": !0
-    },
-    QC4 = Y7(async ({
-      logger: A
-    }) => {
-      if (process.env[p71]) return {
-        hostname: eV4,
-        path: process.env[p71]
-      };
-      if (process.env[u71]) {
-        let B = aV4.parse(process.env[u71]);
-        if (!B.hostname || !(B.hostname in AC4)) throw new dz.CredentialsProviderError(`${B.hostname} is not a valid container metadata service hostname`, {
-          tryNextLink: !1,
-          logger: A
-        });
-        if (!B.protocol || !(B.protocol in BC4)) throw new dz.CredentialsProviderError(`${B.protocol} is not a valid container metadata service protocol`, {
-          tryNextLink: !1,
-          logger: A
-        });
-        return {
-          ...B,
-          port: B.port ? parseInt(B.port, 10) : void 0
-        }
-      }
-      throw new dz.CredentialsProviderError(`The container metadata credential provider cannot be used unless the ${p71} or ${u71} environment variable is set`, {
-        tryNextLink: !1,
-        logger: A
-      })
-    }, "getCmdsUri"),
-    IC4 = class A extends dz.CredentialsProviderError {
-      constructor(B, Q = !0) {
-        super(B, Q);
-        this.tryNextLink = Q, this.name = "InstanceMetadataV1FallbackError", Object.setPrototypeOf(this, A.prototype)
-      }
-      static {
-        Y7(this, "InstanceMetadataV1FallbackError")
-      }
-    },
-    Ny1 = qC(),
-    GC4 = FN(),
-    S10 = ((A) => {
-      return A.IPv4 = "http://169.254.169.254", A.IPv6 = "http://[fd00:ec2::254]", A
-    })(S10 || {}),
-    ZC4 = "AWS_EC2_METADATA_SERVICE_ENDPOINT",
-    DC4 = "ec2_metadata_service_endpoint",
-    YC4 = {
-      environmentVariableSelector: (A) => A[ZC4],
-      configFileSelector: (A) => A[DC4],
-      default: void 0
-    },
-    _10 = ((A) => {
-      return A.IPv4 = "IPv4", A.IPv6 = "IPv6", A
-    })(_10 || {}),
-    WC4 = "AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE",
-    JC4 = "ec2_metadata_service_endpoint_mode",
-    FC4 = {
-      environmentVariableSelector: (A) => A[WC4],
-      configFileSelector: (A) => A[JC4],
-      default: "IPv4"
-    },
-    j10 = Y7(async () => GC4.parseUrl(await XC4() || await VC4()), "getInstanceMetadataEndpoint"),
-    XC4 = Y7(async () => Ny1.loadConfig(YC4)(), "getFromEndpointConfig"),
-    VC4 = Y7(async () => {
-      let A = await Ny1.loadConfig(FC4)();
-      switch (A) {
-        case "IPv4":
-          return "http://169.254.169.254";
-        case "IPv6":
-          return "http://[fd00:ec2::254]";
-        default:
-          throw new Error(`Unsupported endpoint mode: ${A}. Select from ${Object.values(_10)}`)
-      }
-    }, "getFromEndpointModeConfig"),
-    CC4 = 300,
-    KC4 = 300,
-    HC4 = "https://docs.aws.amazon.com/sdkref/latest/guide/feature-static-credentials.html",
-    $10 = Y7((A, B) => {
-      let Q = CC4 + Math.floor(Math.random() * KC4),
-        I = new Date(Date.now() + Q * 1000);
-      B.warn(`Attempting credential expiration extension due to a credential service availability issue. A refresh of these credentials will be attempted after ${new Date(I)}.
-For more information, please visit: ` + HC4);
-      let G = A.originalExpiration ?? A.expiration;
-      return {
-        ...A,
-        ...G ? {
-          originalExpiration: G
-        } : {},
-        expiration: I
-      }
-    }, "getExtendedInstanceMetadataCredentials"),
-    zC4 = Y7((A, B = {}) => {
-      let Q = B?.logger || console,
-        I;
-      return async () => {
-        let G;
-        try {
-          if (G = await A(), G.expiration && G.expiration.getTime() < Date.now()) G = $10(G, Q)
-        } catch (Z) {
-          if (I) Q.warn("Credential renew failed: ", Z), G = $10(I, Q);
-          else throw Z
-        }
-        return I = G, G
-      }
-    }, "staticStabilityProvider"),
-    y10 = "/latest/meta-data/iam/security-credentials/",
-    wC4 = "/latest/api/token",
-    zy1 = "AWS_EC2_METADATA_V1_DISABLED",
-    q10 = "ec2_metadata_v1_disabled",
-    M10 = "x-aws-ec2-metadata-token",
-    EC4 = Y7((A = {}) => zC4(UC4(A), {
-      logger: A.logger
-    }), "fromInstanceMetadata"),
-    UC4 = Y7((A = {}) => {
-      let B = !1,
-        {
-          logger: Q,
-          profile: I
-        } = A,
-        {
-          timeout: G,
-          maxRetries: Z
-        } = Uy1(A),
-        D = Y7(async (Y, W) => {
-          if (B || W.headers?.[M10] == null) {
-            let X = !1,
-              V = !1,
-              C = await Ny1.loadConfig({
-                environmentVariableSelector: (K) => {
-                  let E = K[zy1];
-                  if (V = !!E && E !== "false", E === void 0) throw new dz.CredentialsProviderError(`${zy1} not set in env, checking config file next.`, {
-                    logger: A.logger
-                  });
-                  return V
-                },
-                configFileSelector: (K) => {
-                  let E = K[q10];
-                  return X = !!E && E !== "false", X
-                },
-                default: !1
-              }, {
-                profile: I
-              })();
-            if (A.ec2MetadataV1Disabled || C) {
-              let K = [];
-              if (A.ec2MetadataV1Disabled) K.push("credential provider initialization (runtime option ec2MetadataV1Disabled)");
-              if (X) K.push(`config file profile (${q10})`);
-              if (V) K.push(`process environment variable (${zy1})`);
-              throw new IC4(`AWS EC2 Metadata v1 fallback has been blocked by AWS SDK configuration in the following: [${K.join(", ")}].`)
-            }
-          }
-          let F = (await wy1(async () => {
-            let X;
-            try {
-              X = await $C4(W)
-            } catch (V) {
-              if (V.statusCode === 401) B = !1;
-              throw V
-            }
-            return X
-          }, Y)).trim();
-          return wy1(async () => {
-            let X;
-            try {
-              X = await qC4(F, W, A)
-            } catch (V) {
-              if (V.statusCode === 401) B = !1;
-              throw V
-            }
-            return X
-          }, Y)
-        }, "getCredentials");
-      return async () => {
-        let Y = await j10();
-        if (B) return Q?.debug("AWS SDK Instance Metadata", "using v1 fallback (no token fetch)"), D(Z, {
-          ...Y,
-          timeout: G
-        });
-        else {
-          let W;
-          try {
-            W = (await NC4({
-              ...Y,
-              timeout: G
-            })).toString()
-          } catch (J) {
-            if (J?.statusCode === 400) throw Object.assign(J, {
-              message: "EC2 Metadata token request returned error"
-            });
-            else if (J.message === "TimeoutError" || [403, 404, 405].includes(J.statusCode)) B = !0;
-            return Q?.debug("AWS SDK Instance Metadata", "using v1 fallback (initial)"), D(Z, {
-              ...Y,
-              timeout: G
-            })
-          }
-          return D(Z, {
-            ...Y,
-            headers: {
-              [M10]: W
-            },
-            timeout: G
-          })
-        }
-      }
-    }, "getInstanceMetadataProvider"),
-    NC4 = Y7(async (A) => Lb({
-      ...A,
-      path: wC4,
-      method: "PUT",
-      headers: {
-        "x-aws-ec2-metadata-token-ttl-seconds": "21600"
-      }
-    }), "getMetadataToken"),
-    $C4 = Y7(async (A) => (await Lb({
-      ...A,
-      path: y10
-    })).toString(), "getProfile"),
-    qC4 = Y7(async (A, B, Q) => {
-      let I = JSON.parse((await Lb({
-        ...B,
-        path: y10 + A
-      })).toString());
-      if (!R10(I)) throw new dz.CredentialsProviderError("Invalid response received from instance metadata service.", {
-        logger: Q.logger
-      });
-      return O10(I)
-    }, "getCredentialsFromProfile")
+  DFQ.resolveHttpAuthSchemeConfig = ip4
 })

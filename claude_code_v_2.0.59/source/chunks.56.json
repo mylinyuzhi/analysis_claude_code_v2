@@ -1,0 +1,8 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "protobufjs",
+    "websocket-lib"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 protobufjs, websocket-lib)"
+}

@@ -1,0 +1,7 @@
+{
+  "ossProjects": [
+    "lodash",
+    "protobufjs"
+  ],
+  "purpose": "OSS 库代码 (lodash, protobufjs)"
+}

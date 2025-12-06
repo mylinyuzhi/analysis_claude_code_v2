@@ -1,0 +1,10 @@
+{
+  "ossProjects": [
+    "ink",
+    "protobufjs",
+    "sorted-map",
+    "yoga-layout",
+    "websocket-lib"
+  ],
+  "purpose": "OSS 库代码 (ink, protobufjs, sorted-map, yoga-layout, websocket-lib)"
+}

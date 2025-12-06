@@ -1,3268 +1,3155 @@
 
-// @from(Start 2988209, End 2988217)
-f14 = {}
-// @from(Start 2988223, End 2988226)
-FhA
-// @from(Start 2988232, End 2988317)
-XhA = J21(() => {
-  WhA();
-  FhA = I1(JhA(), 1);
-  FhA.default.connectToDevTools()
+// @from(Start 2650924, End 2651185)
+M8Q = z((N8Q) => {
+  Object.defineProperty(N8Q, "__esModule", {
+    value: !0
+  });
+  N8Q.default = void 0;
+  var FT4 = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;
+  N8Q.default = FT4
 })
-// @from(Start 2988323, End 2989803)
-zhA = z((q48, b14) => {
-  b14.exports = {
-    single: {
-      topLeft: "┌",
-      top: "─",
-      topRight: "┐",
-      right: "│",
-      bottomRight: "┘",
-      bottom: "─",
-      bottomLeft: "└",
-      left: "│"
-    },
-    double: {
-      topLeft: "╔",
-      top: "═",
-      topRight: "╗",
-      right: "║",
-      bottomRight: "╝",
-      bottom: "═",
-      bottomLeft: "╚",
-      left: "║"
-    },
-    round: {
-      topLeft: "╭",
-      top: "─",
-      topRight: "╮",
-      right: "│",
-      bottomRight: "╯",
-      bottom: "─",
-      bottomLeft: "╰",
-      left: "│"
-    },
-    bold: {
-      topLeft: "┏",
-      top: "━",
-      topRight: "┓",
-      right: "┃",
-      bottomRight: "┛",
-      bottom: "━",
-      bottomLeft: "┗",
-      left: "┃"
-    },
-    singleDouble: {
-      topLeft: "╓",
-      top: "─",
-      topRight: "╖",
-      right: "║",
-      bottomRight: "╜",
-      bottom: "─",
-      bottomLeft: "╙",
-      left: "║"
-    },
-    doubleSingle: {
-      topLeft: "╒",
-      top: "═",
-      topRight: "╕",
-      right: "│",
-      bottomRight: "╛",
-      bottom: "═",
-      bottomLeft: "╘",
-      left: "│"
-    },
-    classic: {
-      topLeft: "+",
-      top: "-",
-      topRight: "+",
-      right: "|",
-      bottomRight: "+",
-      bottom: "-",
-      bottomLeft: "+",
-      left: "|"
-    },
-    arrow: {
-      topLeft: "↘",
-      top: "↓",
-      topRight: "↙",
-      right: "←",
-      bottomRight: "↖",
-      bottom: "↑",
-      bottomLeft: "↗",
-      left: "→"
+// @from(Start 2651191, End 2651528)
+ZHA = z((O8Q) => {
+  Object.defineProperty(O8Q, "__esModule", {
+    value: !0
+  });
+  O8Q.default = void 0;
+  var KT4 = DT4(M8Q());
+
+  function DT4(A) {
+    return A && A.__esModule ? A : {
+      default: A
     }
   }
+
+  function HT4(A) {
+    return typeof A === "string" && KT4.default.test(A)
+  }
+  var CT4 = HT4;
+  O8Q.default = CT4
 })
-// @from(Start 2989809, End 2989903)
-EhA = z((M48, zS1) => {
-  var whA = zhA();
-  zS1.exports = whA;
-  zS1.exports.default = whA
-})
-// @from(Start 2989909, End 2990132)
-yhA = z(($68, OS1) => {
-  var jhA = (A, B) => {
-    for (let Q of Reflect.ownKeys(B)) Object.defineProperty(A, Q, Object.getOwnPropertyDescriptor(B, Q));
-    return A
-  };
-  OS1.exports = jhA;
-  OS1.exports.default = jhA
-})
-// @from(Start 2990138, End 2990889)
-xhA = z((q68, Y31) => {
-  var WA4 = yhA(),
-    D31 = new WeakMap,
-    khA = (A, B = {}) => {
-      if (typeof A !== "function") throw new TypeError("Expected a function");
-      let Q, I = 0,
-        G = A.displayName || A.name || "<anonymous>",
-        Z = function(...D) {
-          if (D31.set(Z, ++I), I === 1) Q = A.apply(this, D), A = null;
-          else if (B.throw === !0) throw new Error(`Function \`${G}\` can only be called once`);
-          return Q
-        };
-      return WA4(Z, A), D31.set(Z, I), Z
-    };
-  Y31.exports = khA;
-  Y31.exports.default = khA;
-  Y31.exports.callCount = (A) => {
-    if (!D31.has(A)) throw new Error(`The given function \`${A.name}\` is not wrapped by the \`onetime\` package`);
-    return D31.get(A)
-  }
-})
-// @from(Start 2990895, End 2991243)
-fhA = z((M68, W31) => {
-  W31.exports = ["SIGABRT", "SIGALRM", "SIGHUP", "SIGINT", "SIGTERM"];
-  if (process.platform !== "win32") W31.exports.push("SIGVTALRM", "SIGXCPU", "SIGXFSZ", "SIGUSR2", "SIGTRAP", "SIGSYS", "SIGQUIT", "SIGIOT");
-  if (process.platform === "linux") W31.exports.push("SIGIO", "SIGPOLL", "SIGPWR", "SIGSTKFLT", "SIGUNUSED")
-})
-// @from(Start 2991249, End 2994176)
-vhA = z((L68, ov) => {
-  var aB = global.process,
-    yS = function(A) {
-      return A && typeof A === "object" && typeof A.removeListener === "function" && typeof A.emit === "function" && typeof A.reallyExit === "function" && typeof A.listeners === "function" && typeof A.kill === "function" && typeof A.pid === "number" && typeof A.on === "function"
-    };
-  if (!yS(aB)) ov.exports = function() {
-    return function() {}
-  };
-  else {
-    if (TS1 = Z1("assert"), kS = fhA(), PS1 = /^win/i.test(aB.platform), rv = Z1("events"), typeof rv !== "function") rv = rv.EventEmitter;
-    if (aB.__signal_exit_emitter__) g7 = aB.__signal_exit_emitter__;
-    else g7 = aB.__signal_exit_emitter__ = new rv, g7.count = 0, g7.emitted = {};
-    if (!g7.infinite) g7.setMaxListeners(1 / 0), g7.infinite = !0;
-    ov.exports = function(A, B) {
-      if (!yS(global.process)) return function() {};
-      if (TS1.equal(typeof A, "function", "a callback must be provided for exit handler"), xS === !1) J31();
-      var Q = "exit";
-      if (B && B.alwaysLast) Q = "afterexit";
-      var I = function() {
-        if (g7.removeListener(Q, A), g7.listeners("exit").length === 0 && g7.listeners("afterexit").length === 0) _n()
-      };
-      return g7.on(Q, A), I
-    }, _n = function A() {
-      if (!xS || !yS(global.process)) return;
-      xS = !1, kS.forEach(function(B) {
-        try {
-          aB.removeListener(B, jn[B])
-        } catch (Q) {}
-      }), aB.emit = yn, aB.reallyExit = F31, g7.count -= 1
-    }, ov.exports.unload = _n, VL = function A(B, Q, I) {
-      if (g7.emitted[B]) return;
-      g7.emitted[B] = !0, g7.emit(B, Q, I)
-    }, jn = {}, kS.forEach(function(A) {
-      jn[A] = function B() {
-        if (!yS(global.process)) return;
-        var Q = aB.listeners(A);
-        if (Q.length === g7.count) {
-          if (_n(), VL("exit", null, A), VL("afterexit", null, A), PS1 && A === "SIGHUP") A = "SIGINT";
-          aB.kill(aB.pid, A)
-        }
-      }
-    }), ov.exports.signals = function() {
-      return kS
-    }, xS = !1, J31 = function A() {
-      if (xS || !yS(global.process)) return;
-      xS = !0, g7.count += 1, kS = kS.filter(function(B) {
-        try {
-          return aB.on(B, jn[B]), !0
-        } catch (Q) {
-          return !1
-        }
-      }), aB.emit = _S1, aB.reallyExit = SS1
-    }, ov.exports.load = J31, F31 = aB.reallyExit, SS1 = function A(B) {
-      if (!yS(global.process)) return;
-      aB.exitCode = B || 0, VL("exit", aB.exitCode, null), VL("afterexit", aB.exitCode, null), F31.call(aB, aB.exitCode)
-    }, yn = aB.emit, _S1 = function A(B, Q) {
-      if (B === "exit" && yS(global.process)) {
-        if (Q !== void 0) aB.exitCode = Q;
-        var I = yn.apply(this, arguments);
-        return VL("exit", aB.exitCode, null), VL("afterexit", aB.exitCode, null), I
-      } else return yn.apply(this, arguments)
+// @from(Start 2651534, End 2652365)
+IHA = z((P8Q) => {
+  Object.defineProperty(P8Q, "__esModule", {
+    value: !0
+  });
+  P8Q.default = void 0;
+  P8Q.unsafeStringify = T8Q;
+  var ET4 = zT4(ZHA());
+
+  function zT4(A) {
+    return A && A.__esModule ? A : {
+      default: A
     }
   }
-  var TS1, kS, PS1, rv, g7, _n, VL, jn, xS, J31, F31, SS1, yn, _S1
-})
-// @from(Start 2994182, End 2994380)
-ehA = z((m68, thA) => {
-  var HA4 = /[|\\{}()[\]^$+*?.-]/g;
-  thA.exports = (A) => {
-    if (typeof A !== "string") throw new TypeError("Expected a string");
-    return A.replace(HA4, "\\$&")
-  }
-})
-// @from(Start 2994386, End 2999432)
-ImA = z((d68, QmA) => {
-  var zA4 = ehA(),
-    wA4 = typeof process === "object" && process && typeof process.cwd === "function" ? process.cwd() : ".",
-    BmA = [].concat(Z1("module").builtinModules, "bootstrap_node", "node").map((A) => new RegExp(`(?:\\((?:node:)?${A}(?:\\.js)?:\\d+:\\d+\\)$|^\\s*at (?:node:)?${A}(?:\\.js)?:\\d+:\\d+$)`));
-  BmA.push(/\((?:node:)?internal\/[^:]+:\d+:\d+\)$/, /\s*at (?:node:)?internal\/[^:]+:\d+:\d+$/, /\/\.node-spawn-wrap-\w+-\w+\/node:\d+:\d+\)?$/);
-  class xS1 {
-    constructor(A) {
-      if (A = {
-          ignoredPackages: [],
-          ...A
-        }, "internals" in A === !1) A.internals = xS1.nodeInternals();
-      if ("cwd" in A === !1) A.cwd = wA4;
-      this._cwd = A.cwd.replace(/\\/g, "/"), this._internals = [].concat(A.internals, EA4(A.ignoredPackages)), this._wrapCallSite = A.wrapCallSite || !1
-    }
-    static nodeInternals() {
-      return [...BmA]
-    }
-    clean(A, B = 0) {
-      if (B = " ".repeat(B), !Array.isArray(A)) A = A.split(`
-`);
-      if (!/^\s*at /.test(A[0]) && /^\s*at /.test(A[1])) A = A.slice(1);
-      let Q = !1,
-        I = null,
-        G = [];
-      return A.forEach((Z) => {
-        if (Z = Z.replace(/\\/g, "/"), this._internals.some((Y) => Y.test(Z))) return;
-        let D = /^\s*at /.test(Z);
-        if (Q) Z = Z.trimEnd().replace(/^(\s+)at /, "$1");
-        else if (Z = Z.trim(), D) Z = Z.slice(3);
-        if (Z = Z.replace(`${this._cwd}/`, ""), Z)
-          if (D) {
-            if (I) G.push(I), I = null;
-            G.push(Z)
-          } else Q = !0, I = Z
-      }), G.map((Z) => `${B}${Z}
-`).join("")
-    }
-    captureString(A, B = this.captureString) {
-      if (typeof A === "function") B = A, A = 1 / 0;
-      let {
-        stackTraceLimit: Q
-      } = Error;
-      if (A) Error.stackTraceLimit = A;
-      let I = {};
-      Error.captureStackTrace(I, B);
-      let {
-        stack: G
-      } = I;
-      return Error.stackTraceLimit = Q, this.clean(G)
-    }
-    capture(A, B = this.capture) {
-      if (typeof A === "function") B = A, A = 1 / 0;
-      let {
-        prepareStackTrace: Q,
-        stackTraceLimit: I
-      } = Error;
-      if (Error.prepareStackTrace = (D, Y) => {
-          if (this._wrapCallSite) return Y.map(this._wrapCallSite);
-          return Y
-        }, A) Error.stackTraceLimit = A;
-      let G = {};
-      Error.captureStackTrace(G, B);
-      let {
-        stack: Z
-      } = G;
-      return Object.assign(Error, {
-        prepareStackTrace: Q,
-        stackTraceLimit: I
-      }), Z
-    }
-    at(A = this.at) {
-      let [B] = this.capture(1, A);
-      if (!B) return {};
-      let Q = {
-        line: B.getLineNumber(),
-        column: B.getColumnNumber()
-      };
-      if (AmA(Q, B.getFileName(), this._cwd), B.isConstructor()) Object.defineProperty(Q, "constructor", {
-        value: !0,
-        configurable: !0
-      });
-      if (B.isEval()) Q.evalOrigin = B.getEvalOrigin();
-      if (B.isNative()) Q.native = !0;
-      let I;
-      try {
-        I = B.getTypeName()
-      } catch (D) {}
-      if (I && I !== "Object" && I !== "[object Object]") Q.type = I;
-      let G = B.getFunctionName();
-      if (G) Q.function = G;
-      let Z = B.getMethodName();
-      if (Z && G !== Z) Q.method = Z;
-      return Q
-    }
-    parseLine(A) {
-      let B = A && A.match(UA4);
-      if (!B) return null;
-      let Q = B[1] === "new",
-        I = B[2],
-        G = B[3],
-        Z = B[4],
-        D = Number(B[5]),
-        Y = Number(B[6]),
-        W = B[7],
-        J = B[8],
-        F = B[9],
-        X = B[10] === "native",
-        V = B[11] === ")",
-        C, K = {};
-      if (J) K.line = Number(J);
-      if (F) K.column = Number(F);
-      if (V && W) {
-        let E = 0;
-        for (let N = W.length - 1; N > 0; N--)
-          if (W.charAt(N) === ")") E++;
-          else if (W.charAt(N) === "(" && W.charAt(N - 1) === " ") {
-          if (E--, E === -1 && W.charAt(N - 1) === " ") {
-            let q = W.slice(0, N - 1);
-            W = W.slice(N + 1), I += ` (${q}`;
-            break
-          }
-        }
-      }
-      if (I) {
-        let E = I.match(NA4);
-        if (E) I = E[1], C = E[2]
-      }
-      if (AmA(K, W, this._cwd), Q) Object.defineProperty(K, "constructor", {
-        value: !0,
-        configurable: !0
-      });
-      if (G) K.evalOrigin = G, K.evalLine = D, K.evalColumn = Y, K.evalFile = Z && Z.replace(/\\/g, "/");
-      if (X) K.native = !0;
-      if (I) K.function = I;
-      if (C && I !== C) K.method = C;
-      return K
-    }
+  var tK = [];
+  for (let A = 0; A < 256; ++A) tK.push((A + 256).toString(16).slice(1));
+
+  function T8Q(A, Q = 0) {
+    return tK[A[Q + 0]] + tK[A[Q + 1]] + tK[A[Q + 2]] + tK[A[Q + 3]] + "-" + tK[A[Q + 4]] + tK[A[Q + 5]] + "-" + tK[A[Q + 6]] + tK[A[Q + 7]] + "-" + tK[A[Q + 8]] + tK[A[Q + 9]] + "-" + tK[A[Q + 10]] + tK[A[Q + 11]] + tK[A[Q + 12]] + tK[A[Q + 13]] + tK[A[Q + 14]] + tK[A[Q + 15]]
   }
 
-  function AmA(A, B, Q) {
-    if (B) {
-      if (B = B.replace(/\\/g, "/"), B.startsWith(`${Q}/`)) B = B.slice(Q.length + 1);
-      A.file = B
-    }
-  }
-
-  function EA4(A) {
-    if (A.length === 0) return [];
-    let B = A.map((Q) => zA4(Q));
-    return new RegExp(`[/\\\\]node_modules[/\\\\](?:${B.join("|")})[/\\\\][^:]+:\\d+:\\d+`)
-  }
-  var UA4 = new RegExp("^(?:\\s*at )?(?:(new) )?(?:(.*?) \\()?(?:eval at ([^ ]+) \\((.+?):(\\d+):(\\d+)\\), )?(?:(.+?):(\\d+):(\\d+)|(native))(\\)?)$"),
-    NA4 = /^(.*?) \[as (.*?)\]$/;
-  QmA.exports = xS1
-})
-// @from(Start 2999438, End 3005791)
-pmA = z((vB8, umA) => {
-  var KL = Z1("constants"),
-    J04 = process.cwd,
-    P31 = null,
-    F04 = process.env.GRACEFUL_FS_PLATFORM || process.platform;
-  process.cwd = function() {
-    if (!P31) P31 = J04.call(process);
-    return P31
-  };
-  try {
-    process.cwd()
-  } catch (A) {}
-  if (typeof process.chdir === "function") {
-    if (S31 = process.chdir, process.chdir = function(A) {
-        P31 = null, S31.call(process, A)
-      }, Object.setPrototypeOf) Object.setPrototypeOf(process.chdir, S31)
-  }
-  var S31;
-  umA.exports = X04;
-
-  function X04(A) {
-    if (KL.hasOwnProperty("O_SYMLINK") && process.version.match(/^v0\.6\.[0-2]|^v0\.5\./)) B(A);
-    if (!A.lutimes) Q(A);
-    if (A.chown = Z(A.chown), A.fchown = Z(A.fchown), A.lchown = Z(A.lchown), A.chmod = I(A.chmod), A.fchmod = I(A.fchmod), A.lchmod = I(A.lchmod), A.chownSync = D(A.chownSync), A.fchownSync = D(A.fchownSync), A.lchownSync = D(A.lchownSync), A.chmodSync = G(A.chmodSync), A.fchmodSync = G(A.fchmodSync), A.lchmodSync = G(A.lchmodSync), A.stat = Y(A.stat), A.fstat = Y(A.fstat), A.lstat = Y(A.lstat), A.statSync = W(A.statSync), A.fstatSync = W(A.fstatSync), A.lstatSync = W(A.lstatSync), A.chmod && !A.lchmod) A.lchmod = function(F, X, V) {
-      if (V) process.nextTick(V)
-    }, A.lchmodSync = function() {};
-    if (A.chown && !A.lchown) A.lchown = function(F, X, V, C) {
-      if (C) process.nextTick(C)
-    }, A.lchownSync = function() {};
-    if (F04 === "win32") A.rename = typeof A.rename !== "function" ? A.rename : function(F) {
-      function X(V, C, K) {
-        var E = Date.now(),
-          N = 0;
-        F(V, C, function q(O) {
-          if (O && (O.code === "EACCES" || O.code === "EPERM" || O.code === "EBUSY") && Date.now() - E < 60000) {
-            if (setTimeout(function() {
-                A.stat(C, function(R, T) {
-                  if (R && R.code === "ENOENT") F(V, C, q);
-                  else K(O)
-                })
-              }, N), N < 100) N += 10;
-            return
-          }
-          if (K) K(O)
-        })
-      }
-      if (Object.setPrototypeOf) Object.setPrototypeOf(X, F);
-      return X
-    }(A.rename);
-    A.read = typeof A.read !== "function" ? A.read : function(F) {
-      function X(V, C, K, E, N, q) {
-        var O;
-        if (q && typeof q === "function") {
-          var R = 0;
-          O = function(T, L, _) {
-            if (T && T.code === "EAGAIN" && R < 10) return R++, F.call(A, V, C, K, E, N, O);
-            q.apply(this, arguments)
-          }
-        }
-        return F.call(A, V, C, K, E, N, O)
-      }
-      if (Object.setPrototypeOf) Object.setPrototypeOf(X, F);
-      return X
-    }(A.read), A.readSync = typeof A.readSync !== "function" ? A.readSync : function(F) {
-      return function(X, V, C, K, E) {
-        var N = 0;
-        while (!0) try {
-          return F.call(A, X, V, C, K, E)
-        } catch (q) {
-          if (q.code === "EAGAIN" && N < 10) {
-            N++;
-            continue
-          }
-          throw q
-        }
-      }
-    }(A.readSync);
-
-    function B(F) {
-      F.lchmod = function(X, V, C) {
-        F.open(X, KL.O_WRONLY | KL.O_SYMLINK, V, function(K, E) {
-          if (K) {
-            if (C) C(K);
-            return
-          }
-          F.fchmod(E, V, function(N) {
-            F.close(E, function(q) {
-              if (C) C(N || q)
-            })
-          })
-        })
-      }, F.lchmodSync = function(X, V) {
-        var C = F.openSync(X, KL.O_WRONLY | KL.O_SYMLINK, V),
-          K = !0,
-          E;
-        try {
-          E = F.fchmodSync(C, V), K = !1
-        } finally {
-          if (K) try {
-            F.closeSync(C)
-          } catch (N) {} else F.closeSync(C)
-        }
-        return E
-      }
-    }
-
-    function Q(F) {
-      if (KL.hasOwnProperty("O_SYMLINK") && F.futimes) F.lutimes = function(X, V, C, K) {
-        F.open(X, KL.O_SYMLINK, function(E, N) {
-          if (E) {
-            if (K) K(E);
-            return
-          }
-          F.futimes(N, V, C, function(q) {
-            F.close(N, function(O) {
-              if (K) K(q || O)
-            })
-          })
-        })
-      }, F.lutimesSync = function(X, V, C) {
-        var K = F.openSync(X, KL.O_SYMLINK),
-          E, N = !0;
-        try {
-          E = F.futimesSync(K, V, C), N = !1
-        } finally {
-          if (N) try {
-            F.closeSync(K)
-          } catch (q) {} else F.closeSync(K)
-        }
-        return E
-      };
-      else if (F.futimes) F.lutimes = function(X, V, C, K) {
-        if (K) process.nextTick(K)
-      }, F.lutimesSync = function() {}
-    }
-
-    function I(F) {
-      if (!F) return F;
-      return function(X, V, C) {
-        return F.call(A, X, V, function(K) {
-          if (J(K)) K = null;
-          if (C) C.apply(this, arguments)
-        })
-      }
-    }
-
-    function G(F) {
-      if (!F) return F;
-      return function(X, V) {
-        try {
-          return F.call(A, X, V)
-        } catch (C) {
-          if (!J(C)) throw C
-        }
-      }
-    }
-
-    function Z(F) {
-      if (!F) return F;
-      return function(X, V, C, K) {
-        return F.call(A, X, V, C, function(E) {
-          if (J(E)) E = null;
-          if (K) K.apply(this, arguments)
-        })
-      }
-    }
-
-    function D(F) {
-      if (!F) return F;
-      return function(X, V, C) {
-        try {
-          return F.call(A, X, V, C)
-        } catch (K) {
-          if (!J(K)) throw K
-        }
-      }
-    }
-
-    function Y(F) {
-      if (!F) return F;
-      return function(X, V, C) {
-        if (typeof V === "function") C = V, V = null;
-
-        function K(E, N) {
-          if (N) {
-            if (N.uid < 0) N.uid += 4294967296;
-            if (N.gid < 0) N.gid += 4294967296
-          }
-          if (C) C.apply(this, arguments)
-        }
-        return V ? F.call(A, X, V, K) : F.call(A, X, K)
-      }
-    }
-
-    function W(F) {
-      if (!F) return F;
-      return function(X, V) {
-        var C = V ? F.call(A, X, V) : F.call(A, X);
-        if (C) {
-          if (C.uid < 0) C.uid += 4294967296;
-          if (C.gid < 0) C.gid += 4294967296
-        }
-        return C
-      }
-    }
-
-    function J(F) {
-      if (!F) return !0;
-      if (F.code === "ENOSYS") return !0;
-      var X = !process.getuid || process.getuid() !== 0;
-      if (X) {
-        if (F.code === "EINVAL" || F.code === "EPERM") return !0
-      }
-      return !1
-    }
-  }
-})
-// @from(Start 3005797, End 3007921)
-imA = z((bB8, lmA) => {
-  var cmA = Z1("stream").Stream;
-  lmA.exports = V04;
-
-  function V04(A) {
-    return {
-      ReadStream: B,
-      WriteStream: Q
-    };
-
-    function B(I, G) {
-      if (!(this instanceof B)) return new B(I, G);
-      cmA.call(this);
-      var Z = this;
-      this.path = I, this.fd = null, this.readable = !0, this.paused = !1, this.flags = "r", this.mode = 438, this.bufferSize = 65536, G = G || {};
-      var D = Object.keys(G);
-      for (var Y = 0, W = D.length; Y < W; Y++) {
-        var J = D[Y];
-        this[J] = G[J]
-      }
-      if (this.encoding) this.setEncoding(this.encoding);
-      if (this.start !== void 0) {
-        if (typeof this.start !== "number") throw TypeError("start must be a Number");
-        if (this.end === void 0) this.end = 1 / 0;
-        else if (typeof this.end !== "number") throw TypeError("end must be a Number");
-        if (this.start > this.end) throw new Error("start must be <= end");
-        this.pos = this.start
-      }
-      if (this.fd !== null) {
-        process.nextTick(function() {
-          Z._read()
-        });
-        return
-      }
-      A.open(this.path, this.flags, this.mode, function(F, X) {
-        if (F) {
-          Z.emit("error", F), Z.readable = !1;
-          return
-        }
-        Z.fd = X, Z.emit("open", X), Z._read()
-      })
-    }
-
-    function Q(I, G) {
-      if (!(this instanceof Q)) return new Q(I, G);
-      cmA.call(this), this.path = I, this.fd = null, this.writable = !0, this.flags = "w", this.encoding = "binary", this.mode = 438, this.bytesWritten = 0, G = G || {};
-      var Z = Object.keys(G);
-      for (var D = 0, Y = Z.length; D < Y; D++) {
-        var W = Z[D];
-        this[W] = G[W]
-      }
-      if (this.start !== void 0) {
-        if (typeof this.start !== "number") throw TypeError("start must be a Number");
-        if (this.start < 0) throw new Error("start must be >= zero");
-        this.pos = this.start
-      }
-      if (this.busy = !1, this._queue = [], this.fd === null) this._open = A.open, this._queue.push([this._open, this.path, this.flags, this.mode, void 0]), this.flush()
-    }
-  }
-})
-// @from(Start 3007927, End 3008387)
-amA = z((gB8, nmA) => {
-  nmA.exports = K04;
-  var C04 = Object.getPrototypeOf || function(A) {
-    return A.__proto__
-  };
-
-  function K04(A) {
-    if (A === null || typeof A !== "object") return A;
-    if (A instanceof Object) var B = {
-      __proto__: C04(A)
-    };
-    else var B = Object.create(null);
-    return Object.getOwnPropertyNames(A).forEach(function(Q) {
-      Object.defineProperty(B, Q, Object.getOwnPropertyDescriptor(A, Q))
-    }), B
-  }
-})
-// @from(Start 3008393, End 3016213)
-oS1 = z((hB8, rS1) => {
-  var N3 = Z1("fs"),
-    H04 = pmA(),
-    z04 = imA(),
-    w04 = amA(),
-    _31 = Z1("util"),
-    MG, y31;
-  if (typeof Symbol === "function" && typeof Symbol.for === "function") MG = Symbol.for("graceful-fs.queue"), y31 = Symbol.for("graceful-fs.previous");
-  else MG = "___graceful-fs.queue", y31 = "___graceful-fs.previous";
-
-  function E04() {}
-
-  function rmA(A, B) {
-    Object.defineProperty(A, MG, {
-      get: function() {
-        return B
-      }
-    })
-  }
-  var vS = E04;
-  if (_31.debuglog) vS = _31.debuglog("gfs4");
-  else if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || "")) vS = function() {
-    var A = _31.format.apply(_31, arguments);
-    A = "GFS4: " + A.split(/\n/).join(`
-GFS4: `), console.error(A)
-  };
-  if (!N3[MG]) {
-    if (nS1 = global[MG] || [], rmA(N3, nS1), N3.close = function(A) {
-        function B(Q, I) {
-          return A.call(N3, Q, function(G) {
-            if (!G) smA();
-            if (typeof I === "function") I.apply(this, arguments)
-          })
-        }
-        return Object.defineProperty(B, y31, {
-          value: A
-        }), B
-      }(N3.close), N3.closeSync = function(A) {
-        function B(Q) {
-          A.apply(N3, arguments), smA()
-        }
-        return Object.defineProperty(B, y31, {
-          value: A
-        }), B
-      }(N3.closeSync), /\bgfs4\b/i.test(process.env.NODE_DEBUG || "")) process.on("exit", function() {
-      vS(N3[MG]), Z1("assert").equal(N3[MG].length, 0)
-    })
-  }
-  var nS1;
-  if (!global[MG]) rmA(global, N3[MG]);
-  rS1.exports = aS1(w04(N3));
-  if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !N3.__patched) rS1.exports = aS1(N3), N3.__patched = !0;
-
-  function aS1(A) {
-    H04(A), A.gracefulify = aS1, A.createReadStream = L, A.createWriteStream = _;
-    var B = A.readFile;
-    A.readFile = Q;
-
-    function Q(x, s, d) {
-      if (typeof s === "function") d = s, s = null;
-      return F1(x, s, d);
-
-      function F1(X1, v, D1, N1) {
-        return B(X1, v, function(u1) {
-          if (u1 && (u1.code === "EMFILE" || u1.code === "ENFILE")) Ib([F1, [X1, v, D1], u1, N1 || Date.now(), Date.now()]);
-          else if (typeof D1 === "function") D1.apply(this, arguments)
-        })
-      }
-    }
-    var I = A.writeFile;
-    A.writeFile = G;
-
-    function G(x, s, d, F1) {
-      if (typeof d === "function") F1 = d, d = null;
-      return X1(x, s, d, F1);
-
-      function X1(v, D1, N1, u1, d1) {
-        return I(v, D1, N1, function(YA) {
-          if (YA && (YA.code === "EMFILE" || YA.code === "ENFILE")) Ib([X1, [v, D1, N1, u1], YA, d1 || Date.now(), Date.now()]);
-          else if (typeof u1 === "function") u1.apply(this, arguments)
-        })
-      }
-    }
-    var Z = A.appendFile;
-    if (Z) A.appendFile = D;
-
-    function D(x, s, d, F1) {
-      if (typeof d === "function") F1 = d, d = null;
-      return X1(x, s, d, F1);
-
-      function X1(v, D1, N1, u1, d1) {
-        return Z(v, D1, N1, function(YA) {
-          if (YA && (YA.code === "EMFILE" || YA.code === "ENFILE")) Ib([X1, [v, D1, N1, u1], YA, d1 || Date.now(), Date.now()]);
-          else if (typeof u1 === "function") u1.apply(this, arguments)
-        })
-      }
-    }
-    var Y = A.copyFile;
-    if (Y) A.copyFile = W;
-
-    function W(x, s, d, F1) {
-      if (typeof d === "function") F1 = d, d = 0;
-      return X1(x, s, d, F1);
-
-      function X1(v, D1, N1, u1, d1) {
-        return Y(v, D1, N1, function(YA) {
-          if (YA && (YA.code === "EMFILE" || YA.code === "ENFILE")) Ib([X1, [v, D1, N1, u1], YA, d1 || Date.now(), Date.now()]);
-          else if (typeof u1 === "function") u1.apply(this, arguments)
-        })
-      }
-    }
-    var J = A.readdir;
-    A.readdir = X;
-    var F = /^v[0-5]\./;
-
-    function X(x, s, d) {
-      if (typeof s === "function") d = s, s = null;
-      var F1 = F.test(process.version) ? function v(D1, N1, u1, d1) {
-        return J(D1, X1(D1, N1, u1, d1))
-      } : function v(D1, N1, u1, d1) {
-        return J(D1, N1, X1(D1, N1, u1, d1))
-      };
-      return F1(x, s, d);
-
-      function X1(v, D1, N1, u1) {
-        return function(d1, YA) {
-          if (d1 && (d1.code === "EMFILE" || d1.code === "ENFILE")) Ib([F1, [v, D1, N1], d1, u1 || Date.now(), Date.now()]);
-          else {
-            if (YA && YA.sort) YA.sort();
-            if (typeof N1 === "function") N1.call(this, d1, YA)
-          }
-        }
-      }
-    }
-    if (process.version.substr(0, 4) === "v0.8") {
-      var V = z04(A);
-      q = V.ReadStream, R = V.WriteStream
-    }
-    var C = A.ReadStream;
-    if (C) q.prototype = Object.create(C.prototype), q.prototype.open = O;
-    var K = A.WriteStream;
-    if (K) R.prototype = Object.create(K.prototype), R.prototype.open = T;
-    Object.defineProperty(A, "ReadStream", {
-      get: function() {
-        return q
-      },
-      set: function(x) {
-        q = x
-      },
-      enumerable: !0,
-      configurable: !0
-    }), Object.defineProperty(A, "WriteStream", {
-      get: function() {
-        return R
-      },
-      set: function(x) {
-        R = x
-      },
-      enumerable: !0,
-      configurable: !0
-    });
-    var E = q;
-    Object.defineProperty(A, "FileReadStream", {
-      get: function() {
-        return E
-      },
-      set: function(x) {
-        E = x
-      },
-      enumerable: !0,
-      configurable: !0
-    });
-    var N = R;
-    Object.defineProperty(A, "FileWriteStream", {
-      get: function() {
-        return N
-      },
-      set: function(x) {
-        N = x
-      },
-      enumerable: !0,
-      configurable: !0
-    });
-
-    function q(x, s) {
-      if (this instanceof q) return C.apply(this, arguments), this;
-      else return q.apply(Object.create(q.prototype), arguments)
-    }
-
-    function O() {
-      var x = this;
-      i(x.path, x.flags, x.mode, function(s, d) {
-        if (s) {
-          if (x.autoClose) x.destroy();
-          x.emit("error", s)
-        } else x.fd = d, x.emit("open", d), x.read()
-      })
-    }
-
-    function R(x, s) {
-      if (this instanceof R) return K.apply(this, arguments), this;
-      else return R.apply(Object.create(R.prototype), arguments)
-    }
-
-    function T() {
-      var x = this;
-      i(x.path, x.flags, x.mode, function(s, d) {
-        if (s) x.destroy(), x.emit("error", s);
-        else x.fd = d, x.emit("open", d)
-      })
-    }
-
-    function L(x, s) {
-      return new A.ReadStream(x, s)
-    }
-
-    function _(x, s) {
-      return new A.WriteStream(x, s)
-    }
-    var k = A.open;
-    A.open = i;
-
-    function i(x, s, d, F1) {
-      if (typeof d === "function") F1 = d, d = null;
-      return X1(x, s, d, F1);
-
-      function X1(v, D1, N1, u1, d1) {
-        return k(v, D1, N1, function(YA, bA) {
-          if (YA && (YA.code === "EMFILE" || YA.code === "ENFILE")) Ib([X1, [v, D1, N1, u1], YA, d1 || Date.now(), Date.now()]);
-          else if (typeof u1 === "function") u1.apply(this, arguments)
-        })
-      }
-    }
-    return A
-  }
-
-  function Ib(A) {
-    vS("ENQUEUE", A[0].name, A[1]), N3[MG].push(A), sS1()
-  }
-  var j31;
-
-  function smA() {
-    var A = Date.now();
-    for (var B = 0; B < N3[MG].length; ++B)
-      if (N3[MG][B].length > 2) N3[MG][B][3] = A, N3[MG][B][4] = A;
-    sS1()
-  }
-
-  function sS1() {
-    if (clearTimeout(j31), j31 = void 0, N3[MG].length === 0) return;
-    var A = N3[MG].shift(),
-      B = A[0],
-      Q = A[1],
-      I = A[2],
-      G = A[3],
-      Z = A[4];
-    if (G === void 0) vS("RETRY", B.name, Q), B.apply(null, Q);
-    else if (Date.now() - G >= 60000) {
-      vS("TIMEOUT", B.name, Q);
-      var D = Q.pop();
-      if (typeof D === "function") D.call(null, I)
-    } else {
-      var Y = Date.now() - Z,
-        W = Math.max(Z - G, 1),
-        J = Math.min(W * 1.2, 100);
-      if (Y >= J) vS("RETRY", B.name, Q), B.apply(null, Q.concat([G]));
-      else N3[MG].push(A)
-    }
-    if (j31 === void 0) j31 = setTimeout(sS1, 0)
-  }
-})
-// @from(Start 3016219, End 3019115)
-tmA = z((mB8, omA) => {
-  function IX(A, B) {
-    if (typeof B === "boolean") B = {
-      forever: B
-    };
-    if (this._originalTimeouts = JSON.parse(JSON.stringify(A)), this._timeouts = A, this._options = B || {}, this._maxRetryTime = B && B.maxRetryTime || 1 / 0, this._fn = null, this._errors = [], this._attempts = 1, this._operationTimeout = null, this._operationTimeoutCb = null, this._timeout = null, this._operationStart = null, this._options.forever) this._cachedTimeouts = this._timeouts.slice(0)
-  }
-  omA.exports = IX;
-  IX.prototype.reset = function() {
-    this._attempts = 1, this._timeouts = this._originalTimeouts
-  };
-  IX.prototype.stop = function() {
-    if (this._timeout) clearTimeout(this._timeout);
-    this._timeouts = [], this._cachedTimeouts = null
-  };
-  IX.prototype.retry = function(A) {
-    if (this._timeout) clearTimeout(this._timeout);
-    if (!A) return !1;
-    var B = new Date().getTime();
-    if (A && B - this._operationStart >= this._maxRetryTime) return this._errors.unshift(new Error("RetryOperation timeout occurred")), !1;
-    this._errors.push(A);
-    var Q = this._timeouts.shift();
-    if (Q === void 0)
-      if (this._cachedTimeouts) this._errors.splice(this._errors.length - 1, this._errors.length), this._timeouts = this._cachedTimeouts.slice(0), Q = this._timeouts.shift();
-      else return !1;
-    var I = this,
-      G = setTimeout(function() {
-        if (I._attempts++, I._operationTimeoutCb) {
-          if (I._timeout = setTimeout(function() {
-              I._operationTimeoutCb(I._attempts)
-            }, I._operationTimeout), I._options.unref) I._timeout.unref()
-        }
-        I._fn(I._attempts)
-      }, Q);
-    if (this._options.unref) G.unref();
-    return !0
-  };
-  IX.prototype.attempt = function(A, B) {
-    if (this._fn = A, B) {
-      if (B.timeout) this._operationTimeout = B.timeout;
-      if (B.cb) this._operationTimeoutCb = B.cb
-    }
-    var Q = this;
-    if (this._operationTimeoutCb) this._timeout = setTimeout(function() {
-      Q._operationTimeoutCb()
-    }, Q._operationTimeout);
-    this._operationStart = new Date().getTime(), this._fn(this._attempts)
-  };
-  IX.prototype.try = function(A) {
-    console.log("Using RetryOperation.try() is deprecated"), this.attempt(A)
-  };
-  IX.prototype.start = function(A) {
-    console.log("Using RetryOperation.start() is deprecated"), this.attempt(A)
-  };
-  IX.prototype.start = IX.prototype.try;
-  IX.prototype.errors = function() {
-    return this._errors
-  };
-  IX.prototype.attempts = function() {
-    return this._attempts
-  };
-  IX.prototype.mainError = function() {
-    if (this._errors.length === 0) return null;
-    var A = {},
-      B = null,
-      Q = 0;
-    for (var I = 0; I < this._errors.length; I++) {
-      var G = this._errors[I],
-        Z = G.message,
-        D = (A[Z] || 0) + 1;
-      if (A[Z] = D, D >= Q) B = G, Q = D
-    }
+  function UT4(A, Q = 0) {
+    let B = T8Q(A, Q);
+    if (!(0, ET4.default)(B)) throw TypeError("Stringified UUID is invalid");
     return B
   }
+  var $T4 = UT4;
+  P8Q.default = $T4
 })
-// @from(Start 3019121, End 3020790)
-AdA = z((N04) => {
-  var U04 = tmA();
-  N04.operation = function(A) {
-    var B = N04.timeouts(A);
-    return new U04(B, {
-      forever: A && A.forever,
-      unref: A && A.unref,
-      maxRetryTime: A && A.maxRetryTime
-    })
-  };
-  N04.timeouts = function(A) {
-    if (A instanceof Array) return [].concat(A);
-    var B = {
-      retries: 10,
-      factor: 2,
-      minTimeout: 1000,
-      maxTimeout: 1 / 0,
-      randomize: !1
-    };
-    for (var Q in A) B[Q] = A[Q];
-    if (B.minTimeout > B.maxTimeout) throw new Error("minTimeout is greater than maxTimeout");
-    var I = [];
-    for (var G = 0; G < B.retries; G++) I.push(this.createTimeout(G, B));
-    if (A && A.forever && !I.length) I.push(this.createTimeout(G, B));
-    return I.sort(function(Z, D) {
-      return Z - D
-    }), I
-  };
-  N04.createTimeout = function(A, B) {
-    var Q = B.randomize ? Math.random() + 1 : 1,
-      I = Math.round(Q * B.minTimeout * Math.pow(B.factor, A));
-    return I = Math.min(I, B.maxTimeout), I
-  };
-  N04.wrap = function(A, B, Q) {
-    if (B instanceof Array) Q = B, B = null;
-    if (!Q) {
-      Q = [];
-      for (var I in A)
-        if (typeof A[I] === "function") Q.push(I)
-    }
-    for (var G = 0; G < Q.length; G++) {
-      var Z = Q[G],
-        D = A[Z];
-      A[Z] = function Y(W) {
-        var J = N04.operation(B),
-          F = Array.prototype.slice.call(arguments, 1),
-          X = F.pop();
-        F.push(function(V) {
-          if (J.retry(V)) return;
-          if (V) arguments[0] = J.mainError();
-          X.apply(this, arguments)
-        }), J.attempt(function() {
-          W.apply(A, F)
-        })
-      }.bind(A, D), A[Z].options = B
+// @from(Start 2652371, End 2653906)
+y8Q = z((_8Q) => {
+  Object.defineProperty(_8Q, "__esModule", {
+    value: !0
+  });
+  _8Q.default = void 0;
+  var qT4 = LT4(Zw1()),
+    NT4 = IHA();
+
+  function LT4(A) {
+    return A && A.__esModule ? A : {
+      default: A
     }
   }
+  var S8Q, Iw1, Yw1 = 0,
+    Jw1 = 0;
+
+  function MT4(A, Q, B) {
+    let G = Q && B || 0,
+      Z = Q || Array(16);
+    A = A || {};
+    let I = A.node || S8Q,
+      Y = A.clockseq !== void 0 ? A.clockseq : Iw1;
+    if (I == null || Y == null) {
+      let K = A.random || (A.rng || qT4.default)();
+      if (I == null) I = S8Q = [K[0] | 1, K[1], K[2], K[3], K[4], K[5]];
+      if (Y == null) Y = Iw1 = (K[6] << 8 | K[7]) & 16383
+    }
+    let J = A.msecs !== void 0 ? A.msecs : Date.now(),
+      W = A.nsecs !== void 0 ? A.nsecs : Jw1 + 1,
+      X = J - Yw1 + (W - Jw1) / 1e4;
+    if (X < 0 && A.clockseq === void 0) Y = Y + 1 & 16383;
+    if ((X < 0 || J > Yw1) && A.nsecs === void 0) W = 0;
+    if (W >= 1e4) throw Error("uuid.v1(): Can't create more than 10M uuids/sec");
+    Yw1 = J, Jw1 = W, Iw1 = Y, J += 12219292800000;
+    let V = ((J & 268435455) * 1e4 + W) % 4294967296;
+    Z[G++] = V >>> 24 & 255, Z[G++] = V >>> 16 & 255, Z[G++] = V >>> 8 & 255, Z[G++] = V & 255;
+    let F = J / 4294967296 * 1e4 & 268435455;
+    Z[G++] = F >>> 8 & 255, Z[G++] = F & 255, Z[G++] = F >>> 24 & 15 | 16, Z[G++] = F >>> 16 & 255, Z[G++] = Y >>> 8 | 128, Z[G++] = Y & 255;
+    for (let K = 0; K < 6; ++K) Z[G + K] = I[K];
+    return Q || (0, NT4.unsafeStringify)(Z)
+  }
+  var OT4 = MT4;
+  _8Q.default = OT4
 })
-// @from(Start 3020796, End 3021144)
-BdA = z((uB8, k31) => {
-  k31.exports = ["SIGABRT", "SIGALRM", "SIGHUP", "SIGINT", "SIGTERM"];
-  if (process.platform !== "win32") k31.exports.push("SIGVTALRM", "SIGXCPU", "SIGXFSZ", "SIGUSR2", "SIGTRAP", "SIGSYS", "SIGQUIT", "SIGIOT");
-  if (process.platform === "linux") k31.exports.push("SIGIO", "SIGPOLL", "SIGPWR", "SIGSTKFLT", "SIGUNUSED")
+// @from(Start 2653912, End 2654796)
+Ww1 = z((x8Q) => {
+  Object.defineProperty(x8Q, "__esModule", {
+    value: !0
+  });
+  x8Q.default = void 0;
+  var RT4 = TT4(ZHA());
+
+  function TT4(A) {
+    return A && A.__esModule ? A : {
+      default: A
+    }
+  }
+
+  function PT4(A) {
+    if (!(0, RT4.default)(A)) throw TypeError("Invalid UUID");
+    let Q, B = new Uint8Array(16);
+    return B[0] = (Q = parseInt(A.slice(0, 8), 16)) >>> 24, B[1] = Q >>> 16 & 255, B[2] = Q >>> 8 & 255, B[3] = Q & 255, B[4] = (Q = parseInt(A.slice(9, 13), 16)) >>> 8, B[5] = Q & 255, B[6] = (Q = parseInt(A.slice(14, 18), 16)) >>> 8, B[7] = Q & 255, B[8] = (Q = parseInt(A.slice(19, 23), 16)) >>> 8, B[9] = Q & 255, B[10] = (Q = parseInt(A.slice(24, 36), 16)) / 1099511627776 & 255, B[11] = Q / 4294967296 & 255, B[12] = Q >>> 24 & 255, B[13] = Q >>> 16 & 255, B[14] = Q >>> 8 & 255, B[15] = Q & 255, B
+  }
+  var jT4 = PT4;
+  x8Q.default = jT4
 })
-// @from(Start 3021150, End 3024077)
-QdA = z((pB8, Zb) => {
-  var sB = global.process,
-    bS = function(A) {
-      return A && typeof A === "object" && typeof A.removeListener === "function" && typeof A.emit === "function" && typeof A.reallyExit === "function" && typeof A.listeners === "function" && typeof A.kill === "function" && typeof A.pid === "number" && typeof A.on === "function"
-    };
-  if (!bS(sB)) Zb.exports = function() {
-    return function() {}
-  };
-  else {
-    if (tS1 = Z1("assert"), gS = BdA(), eS1 = /^win/i.test(sB.platform), Gb = Z1("events"), typeof Gb !== "function") Gb = Gb.EventEmitter;
-    if (sB.__signal_exit_emitter__) h7 = sB.__signal_exit_emitter__;
-    else h7 = sB.__signal_exit_emitter__ = new Gb, h7.count = 0, h7.emitted = {};
-    if (!h7.infinite) h7.setMaxListeners(1 / 0), h7.infinite = !0;
-    Zb.exports = function(A, B) {
-      if (!bS(global.process)) return function() {};
-      if (tS1.equal(typeof A, "function", "a callback must be provided for exit handler"), hS === !1) x31();
-      var Q = "exit";
-      if (B && B.alwaysLast) Q = "afterexit";
-      var I = function() {
-        if (h7.removeListener(Q, A), h7.listeners("exit").length === 0 && h7.listeners("afterexit").length === 0) bn()
-      };
-      return h7.on(Q, A), I
-    }, bn = function A() {
-      if (!hS || !bS(global.process)) return;
-      hS = !1, gS.forEach(function(B) {
-        try {
-          sB.removeListener(B, gn[B])
-        } catch (Q) {}
-      }), sB.emit = hn, sB.reallyExit = f31, h7.count -= 1
-    }, Zb.exports.unload = bn, HL = function A(B, Q, I) {
-      if (h7.emitted[B]) return;
-      h7.emitted[B] = !0, h7.emit(B, Q, I)
-    }, gn = {}, gS.forEach(function(A) {
-      gn[A] = function B() {
-        if (!bS(global.process)) return;
-        var Q = sB.listeners(A);
-        if (Q.length === h7.count) {
-          if (bn(), HL("exit", null, A), HL("afterexit", null, A), eS1 && A === "SIGHUP") A = "SIGINT";
-          sB.kill(sB.pid, A)
-        }
+// @from(Start 2654802, End 2656073)
+Xw1 = z((h8Q) => {
+  Object.defineProperty(h8Q, "__esModule", {
+    value: !0
+  });
+  h8Q.URL = h8Q.DNS = void 0;
+  h8Q.default = xT4;
+  var ST4 = IHA(),
+    _T4 = kT4(Ww1());
+
+  function kT4(A) {
+    return A && A.__esModule ? A : {
+      default: A
+    }
+  }
+
+  function yT4(A) {
+    A = unescape(encodeURIComponent(A));
+    let Q = [];
+    for (let B = 0; B < A.length; ++B) Q.push(A.charCodeAt(B));
+    return Q
+  }
+  var b8Q = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+  h8Q.DNS = b8Q;
+  var f8Q = "6ba7b811-9dad-11d1-80b4-00c04fd430c8";
+  h8Q.URL = f8Q;
+
+  function xT4(A, Q, B) {
+    function G(Z, I, Y, J) {
+      var W;
+      if (typeof Z === "string") Z = yT4(Z);
+      if (typeof I === "string") I = (0, _T4.default)(I);
+      if (((W = I) === null || W === void 0 ? void 0 : W.length) !== 16) throw TypeError("Namespace must be array-like (16 iterable integer values, 0-255)");
+      let X = new Uint8Array(16 + Z.length);
+      if (X.set(I), X.set(Z, I.length), X = B(X), X[6] = X[6] & 15 | Q, X[8] = X[8] & 63 | 128, Y) {
+        J = J || 0;
+        for (let V = 0; V < 16; ++V) Y[J + V] = X[V];
+        return Y
       }
-    }), Zb.exports.signals = function() {
-      return gS
-    }, hS = !1, x31 = function A() {
-      if (hS || !bS(global.process)) return;
-      hS = !0, h7.count += 1, gS = gS.filter(function(B) {
-        try {
-          return sB.on(B, gn[B]), !0
-        } catch (Q) {
-          return !1
-        }
-      }), sB.emit = B_1, sB.reallyExit = A_1
-    }, Zb.exports.load = x31, f31 = sB.reallyExit, A_1 = function A(B) {
-      if (!bS(global.process)) return;
-      sB.exitCode = B || 0, HL("exit", sB.exitCode, null), HL("afterexit", sB.exitCode, null), f31.call(sB, sB.exitCode)
-    }, hn = sB.emit, B_1 = function A(B, Q) {
-      if (B === "exit" && bS(global.process)) {
-        if (Q !== void 0) sB.exitCode = Q;
-        var I = hn.apply(this, arguments);
-        return HL("exit", sB.exitCode, null), HL("afterexit", sB.exitCode, null), I
-      } else return hn.apply(this, arguments)
+      return (0, ST4.unsafeStringify)(X)
+    }
+    try {
+      G.name = A
+    } catch (Z) {}
+    return G.DNS = b8Q, G.URL = f8Q, G
+  }
+})
+// @from(Start 2656079, End 2656537)
+d8Q = z((u8Q) => {
+  Object.defineProperty(u8Q, "__esModule", {
+    value: !0
+  });
+  u8Q.default = void 0;
+  var fT4 = hT4(UA("crypto"));
+
+  function hT4(A) {
+    return A && A.__esModule ? A : {
+      default: A
     }
   }
-  var tS1, gS, eS1, Gb, h7, bn, HL, gn, hS, x31, f31, A_1, hn, B_1
+
+  function gT4(A) {
+    if (Array.isArray(A)) A = Buffer.from(A);
+    else if (typeof A === "string") A = Buffer.from(A, "utf8");
+    return fT4.default.createHash("md5").update(A).digest()
+  }
+  var uT4 = gT4;
+  u8Q.default = uT4
 })
-// @from(Start 3024083, End 3024789)
-GdA = z((O04, Q_1) => {
-  var IdA = Symbol();
+// @from(Start 2656543, End 2656872)
+i8Q = z((p8Q) => {
+  Object.defineProperty(p8Q, "__esModule", {
+    value: !0
+  });
+  p8Q.default = void 0;
+  var mT4 = c8Q(Xw1()),
+    dT4 = c8Q(d8Q());
 
-  function L04(A, B, Q) {
-    let I = B[IdA];
-    if (I) return B.stat(A, (Z, D) => {
-      if (Z) return Q(Z);
-      Q(null, D.mtime, I)
-    });
-    let G = new Date(Math.ceil(Date.now() / 1000) * 1000 + 5);
-    B.utimes(A, G, G, (Z) => {
-      if (Z) return Q(Z);
-      B.stat(A, (D, Y) => {
-        if (D) return Q(D);
-        let W = Y.mtime.getTime() % 1000 === 0 ? "s" : "ms";
-        Object.defineProperty(B, IdA, {
-          value: W
-        }), Q(null, Y.mtime, W)
-      })
-    })
+  function c8Q(A) {
+    return A && A.__esModule ? A : {
+      default: A
+    }
   }
-
-  function R04(A) {
-    let B = Date.now();
-    if (A === "s") B = Math.ceil(B / 1000) * 1000;
-    return new Date(B)
-  }
-  O04.probe = L04;
-  O04.getMtime = R04
+  var cT4 = (0, mT4.default)("v3", 48, dT4.default),
+    pT4 = cT4;
+  p8Q.default = pT4
 })
-// @from(Start 3024795, End 3029908)
-JdA = z((f04, dn) => {
-  var S04 = Z1("path"),
-    Z_1 = oS1(),
-    _04 = AdA(),
-    j04 = QdA(),
-    ZdA = GdA(),
-    IN = {};
+// @from(Start 2656878, End 2657182)
+s8Q = z((n8Q) => {
+  Object.defineProperty(n8Q, "__esModule", {
+    value: !0
+  });
+  n8Q.default = void 0;
+  var lT4 = iT4(UA("crypto"));
 
-  function mn(A, B) {
-    return B.lockfilePath || `${A}.lock`
+  function iT4(A) {
+    return A && A.__esModule ? A : {
+      default: A
+    }
+  }
+  var nT4 = {
+    randomUUID: lT4.default.randomUUID
+  };
+  n8Q.default = nT4
+})
+// @from(Start 2657188, End 2657848)
+A6Q = z((t8Q) => {
+  Object.defineProperty(t8Q, "__esModule", {
+    value: !0
+  });
+  t8Q.default = void 0;
+  var r8Q = o8Q(s8Q()),
+    aT4 = o8Q(Zw1()),
+    sT4 = IHA();
+
+  function o8Q(A) {
+    return A && A.__esModule ? A : {
+      default: A
+    }
   }
 
-  function D_1(A, B, Q) {
-    if (!B.realpath) return Q(null, S04.resolve(A));
-    B.fs.realpath(A, Q)
+  function rT4(A, Q, B) {
+    if (r8Q.default.randomUUID && !Q && !A) return r8Q.default.randomUUID();
+    A = A || {};
+    let G = A.random || (A.rng || aT4.default)();
+    if (G[6] = G[6] & 15 | 64, G[8] = G[8] & 63 | 128, Q) {
+      B = B || 0;
+      for (let Z = 0; Z < 16; ++Z) Q[B + Z] = G[Z];
+      return Q
+    }
+    return (0, sT4.unsafeStringify)(G)
+  }
+  var oT4 = rT4;
+  t8Q.default = oT4
+})
+// @from(Start 2657854, End 2658313)
+G6Q = z((Q6Q) => {
+  Object.defineProperty(Q6Q, "__esModule", {
+    value: !0
+  });
+  Q6Q.default = void 0;
+  var tT4 = eT4(UA("crypto"));
+
+  function eT4(A) {
+    return A && A.__esModule ? A : {
+      default: A
+    }
   }
 
-  function G_1(A, B, Q) {
-    let I = mn(A, B);
-    B.fs.mkdir(I, (G) => {
-      if (!G) return ZdA.probe(I, B.fs, (Z, D, Y) => {
-        if (Z) return B.fs.rmdir(I, () => {}), Q(Z);
-        Q(null, D, Y)
-      });
-      if (G.code !== "EEXIST") return Q(G);
-      if (B.stale <= 0) return Q(Object.assign(new Error("Lock file is already being held"), {
-        code: "ELOCKED",
-        file: A
-      }));
-      B.fs.stat(I, (Z, D) => {
-        if (Z) {
-          if (Z.code === "ENOENT") return G_1(A, {
-            ...B,
-            stale: 0
-          }, Q);
-          return Q(Z)
-        }
-        if (!DdA(D, B)) return Q(Object.assign(new Error("Lock file is already being held"), {
-          code: "ELOCKED",
-          file: A
-        }));
-        YdA(A, B, (Y) => {
-          if (Y) return Q(Y);
-          G_1(A, {
-            ...B,
-            stale: 0
-          }, Q)
-        })
-      })
-    })
+  function AP4(A) {
+    if (Array.isArray(A)) A = Buffer.from(A);
+    else if (typeof A === "string") A = Buffer.from(A, "utf8");
+    return tT4.default.createHash("sha1").update(A).digest()
+  }
+  var QP4 = AP4;
+  Q6Q.default = QP4
+})
+// @from(Start 2658319, End 2658648)
+J6Q = z((I6Q) => {
+  Object.defineProperty(I6Q, "__esModule", {
+    value: !0
+  });
+  I6Q.default = void 0;
+  var BP4 = Z6Q(Xw1()),
+    GP4 = Z6Q(G6Q());
+
+  function Z6Q(A) {
+    return A && A.__esModule ? A : {
+      default: A
+    }
+  }
+  var ZP4 = (0, BP4.default)("v5", 80, GP4.default),
+    IP4 = ZP4;
+  I6Q.default = IP4
+})
+// @from(Start 2658654, End 2658836)
+V6Q = z((W6Q) => {
+  Object.defineProperty(W6Q, "__esModule", {
+    value: !0
+  });
+  W6Q.default = void 0;
+  var YP4 = "00000000-0000-0000-0000-000000000000";
+  W6Q.default = YP4
+})
+// @from(Start 2658842, End 2659227)
+D6Q = z((F6Q) => {
+  Object.defineProperty(F6Q, "__esModule", {
+    value: !0
+  });
+  F6Q.default = void 0;
+  var JP4 = WP4(ZHA());
+
+  function WP4(A) {
+    return A && A.__esModule ? A : {
+      default: A
+    }
   }
 
-  function DdA(A, B) {
-    return A.mtime.getTime() < Date.now() - B.stale
+  function XP4(A) {
+    if (!(0, JP4.default)(A)) throw TypeError("Invalid UUID");
+    return parseInt(A.slice(14, 15), 16)
   }
-
-  function YdA(A, B, Q) {
-    B.fs.rmdir(mn(A, B), (I) => {
-      if (I && I.code !== "ENOENT") return Q(I);
-      Q()
-    })
-  }
-
-  function v31(A, B) {
-    let Q = IN[A];
-    if (Q.updateTimeout) return;
-    if (Q.updateDelay = Q.updateDelay || B.update, Q.updateTimeout = setTimeout(() => {
-        Q.updateTimeout = null, B.fs.stat(Q.lockfilePath, (I, G) => {
-          let Z = Q.lastUpdate + B.stale < Date.now();
-          if (I) {
-            if (I.code === "ENOENT" || Z) return I_1(A, Q, Object.assign(I, {
-              code: "ECOMPROMISED"
-            }));
-            return Q.updateDelay = 1000, v31(A, B)
-          }
-          if (Q.mtime.getTime() !== G.mtime.getTime()) return I_1(A, Q, Object.assign(new Error("Unable to update lock within the stale threshold"), {
-            code: "ECOMPROMISED"
-          }));
-          let Y = ZdA.getMtime(Q.mtimePrecision);
-          B.fs.utimes(Q.lockfilePath, Y, Y, (W) => {
-            let J = Q.lastUpdate + B.stale < Date.now();
-            if (Q.released) return;
-            if (W) {
-              if (W.code === "ENOENT" || J) return I_1(A, Q, Object.assign(W, {
-                code: "ECOMPROMISED"
-              }));
-              return Q.updateDelay = 1000, v31(A, B)
-            }
-            Q.mtime = Y, Q.lastUpdate = Date.now(), Q.updateDelay = null, v31(A, B)
-          })
-        })
-      }, Q.updateDelay), Q.updateTimeout.unref) Q.updateTimeout.unref()
-  }
-
-  function I_1(A, B, Q) {
-    if (B.released = !0, B.updateTimeout) clearTimeout(B.updateTimeout);
-    if (IN[A] === B) delete IN[A];
-    B.options.onCompromised(Q)
-  }
-
-  function y04(A, B, Q) {
-    B = {
-      stale: 1e4,
-      update: null,
-      realpath: !0,
-      retries: 0,
-      fs: Z_1,
-      onCompromised: (I) => {
-        throw I
-      },
-      ...B
-    }, B.retries = B.retries || 0, B.retries = typeof B.retries === "number" ? {
-      retries: B.retries
-    } : B.retries, B.stale = Math.max(B.stale || 0, 2000), B.update = B.update == null ? B.stale / 2 : B.update || 0, B.update = Math.max(Math.min(B.update, B.stale / 2), 1000), D_1(A, B, (I, G) => {
-      if (I) return Q(I);
-      let Z = _04.operation(B.retries);
-      Z.attempt(() => {
-        G_1(G, B, (D, Y, W) => {
-          if (Z.retry(D)) return;
-          if (D) return Q(Z.mainError());
-          let J = IN[G] = {
-            lockfilePath: mn(G, B),
-            mtime: Y,
-            mtimePrecision: W,
-            options: B,
-            lastUpdate: Date.now()
-          };
-          v31(G, B), Q(null, (F) => {
-            if (J.released) return F && F(Object.assign(new Error("Lock is already released"), {
-              code: "ERELEASED"
-            }));
-            WdA(G, {
-              ...B,
-              realpath: !1
-            }, F)
-          })
-        })
-      })
-    })
-  }
-
-  function WdA(A, B, Q) {
-    B = {
-      fs: Z_1,
-      realpath: !0,
-      ...B
-    }, D_1(A, B, (I, G) => {
-      if (I) return Q(I);
-      let Z = IN[G];
-      if (!Z) return Q(Object.assign(new Error("Lock is not acquired/owned by you"), {
-        code: "ENOTACQUIRED"
-      }));
-      Z.updateTimeout && clearTimeout(Z.updateTimeout), Z.released = !0, delete IN[G], YdA(G, B, Q)
-    })
-  }
-
-  function k04(A, B, Q) {
-    B = {
-      stale: 1e4,
-      realpath: !0,
-      fs: Z_1,
-      ...B
-    }, B.stale = Math.max(B.stale || 0, 2000), D_1(A, B, (I, G) => {
-      if (I) return Q(I);
-      B.fs.stat(mn(G, B), (Z, D) => {
-        if (Z) return Z.code === "ENOENT" ? Q(null, !1) : Q(Z);
-        return Q(null, !DdA(D, B))
-      })
-    })
-  }
-
-  function x04() {
-    return IN
-  }
-  j04(() => {
-    for (let A in IN) {
-      let B = IN[A].options;
-      try {
-        B.fs.rmdirSync(mn(A, B))
-      } catch (Q) {}
+  var VP4 = XP4;
+  F6Q.default = VP4
+})
+// @from(Start 2659233, End 2660649)
+YHA = z((dR) => {
+  Object.defineProperty(dR, "__esModule", {
+    value: !0
+  });
+  Object.defineProperty(dR, "NIL", {
+    enumerable: !0,
+    get: function() {
+      return CP4.default
     }
   });
-  f04.lock = y04;
-  f04.unlock = WdA;
-  f04.check = k04;
-  f04.getLocks = x04
-})
-// @from(Start 3029914, End 3031050)
-XdA = z((cB8, FdA) => {
-  var m04 = oS1();
+  Object.defineProperty(dR, "parse", {
+    enumerable: !0,
+    get: function() {
+      return $P4.default
+    }
+  });
+  Object.defineProperty(dR, "stringify", {
+    enumerable: !0,
+    get: function() {
+      return UP4.default
+    }
+  });
+  Object.defineProperty(dR, "v1", {
+    enumerable: !0,
+    get: function() {
+      return FP4.default
+    }
+  });
+  Object.defineProperty(dR, "v3", {
+    enumerable: !0,
+    get: function() {
+      return KP4.default
+    }
+  });
+  Object.defineProperty(dR, "v4", {
+    enumerable: !0,
+    get: function() {
+      return DP4.default
+    }
+  });
+  Object.defineProperty(dR, "v5", {
+    enumerable: !0,
+    get: function() {
+      return HP4.default
+    }
+  });
+  Object.defineProperty(dR, "validate", {
+    enumerable: !0,
+    get: function() {
+      return zP4.default
+    }
+  });
+  Object.defineProperty(dR, "version", {
+    enumerable: !0,
+    get: function() {
+      return EP4.default
+    }
+  });
+  var FP4 = Mv(y8Q()),
+    KP4 = Mv(i8Q()),
+    DP4 = Mv(A6Q()),
+    HP4 = Mv(J6Q()),
+    CP4 = Mv(V6Q()),
+    EP4 = Mv(D6Q()),
+    zP4 = Mv(ZHA()),
+    UP4 = Mv(IHA()),
+    $P4 = Mv(Ww1());
 
-  function d04(A) {
-    let B = ["mkdir", "realpath", "stat", "rmdir", "utimes"],
-      Q = {
-        ...A
-      };
-    return B.forEach((I) => {
-      Q[I] = (...G) => {
-        let Z = G.pop(),
-          D;
-        try {
-          D = A[`${I}Sync`](...G)
-        } catch (Y) {
-          return Z(Y)
-        }
-        Z(null, D)
-      }
-    }), Q
-  }
-
-  function u04(A) {
-    return (...B) => new Promise((Q, I) => {
-      B.push((G, Z) => {
-        if (G) I(G);
-        else Q(Z)
-      }), A(...B)
-    })
-  }
-
-  function p04(A) {
-    return (...B) => {
-      let Q, I;
-      if (B.push((G, Z) => {
-          Q = G, I = Z
-        }), A(...B), Q) throw Q;
-      return I
+  function Mv(A) {
+    return A && A.__esModule ? A : {
+      default: A
     }
   }
-
-  function c04(A) {
-    if (A = {
-        ...A
-      }, A.fs = d04(A.fs || m04), typeof A.retries === "number" && A.retries > 0 || A.retries && typeof A.retries.retries === "number" && A.retries.retries > 0) throw Object.assign(new Error("Cannot use retries with the sync api"), {
-      code: "ESYNC"
-    });
-    return A
-  }
-  FdA.exports = {
-    toPromise: u04,
-    toSync: p04,
-    toSyncOptions: c04
-  }
 })
-// @from(Start 3031056, End 3031793)
-W_1 = z((lB8, zL) => {
-  var Db = JdA(),
-    {
-      toPromise: b31,
-      toSync: g31,
-      toSyncOptions: Y_1
-    } = XdA();
-  async function VdA(A, B) {
-    let Q = await b31(Db.lock)(A, B);
-    return b31(Q)
-  }
-
-  function l04(A, B) {
-    let Q = g31(Db.lock)(A, Y_1(B));
-    return g31(Q)
-  }
-
-  function i04(A, B) {
-    return b31(Db.unlock)(A, B)
-  }
-
-  function n04(A, B) {
-    return g31(Db.unlock)(A, Y_1(B))
-  }
-
-  function a04(A, B) {
-    return b31(Db.check)(A, B)
-  }
-
-  function s04(A, B) {
-    return g31(Db.check)(A, Y_1(B))
-  }
-  zL.exports = VdA;
-  zL.exports.lock = VdA;
-  zL.exports.unlock = i04;
-  zL.exports.lockSync = l04;
-  zL.exports.unlockSync = n04;
-  zL.exports.check = a04;
-  zL.exports.checkSync = s04
-})
-// @from(Start 3031799, End 3034582)
-_dA = z((z38, SdA) => {
+// @from(Start 2660655, End 2663562)
+Fw1 = z((Lz7, z6Q) => {
   var {
-    defineProperty: d31,
-    getOwnPropertyDescriptor: A24,
-    getOwnPropertyNames: B24
-  } = Object, Q24 = Object.prototype.hasOwnProperty, u31 = (A, B) => d31(A, "name", {
-    value: B,
+    defineProperty: phA,
+    getOwnPropertyDescriptor: wP4,
+    getOwnPropertyNames: qP4
+  } = Object, NP4 = Object.prototype.hasOwnProperty, mr = (A, Q) => phA(A, "name", {
+    value: Q,
     configurable: !0
-  }), I24 = (A, B) => {
-    for (var Q in B) d31(A, Q, {
-      get: B[Q],
+  }), LP4 = (A, Q) => {
+    for (var B in Q) phA(A, B, {
+      get: Q[B],
       enumerable: !0
     })
-  }, G24 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of B24(B))
-        if (!Q24.call(A, G) && G !== Q) d31(A, G, {
-          get: () => B[G],
-          enumerable: !(I = A24(B, G)) || I.enumerable
+  }, MP4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of qP4(Q))
+        if (!NP4.call(A, Z) && Z !== B) phA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = wP4(Q, Z)) || G.enumerable
         })
     }
     return A
-  }, Z24 = (A) => G24(d31({}, "__esModule", {
+  }, OP4 = (A) => MP4(phA({}, "__esModule", {
     value: !0
-  }), A), $dA = {};
-  I24($dA, {
-    AlgorithmId: () => RdA,
-    EndpointURLScheme: () => LdA,
-    FieldPosition: () => OdA,
-    HttpApiKeyAuthLocation: () => MdA,
-    HttpAuthLocation: () => qdA,
-    IniSectionType: () => TdA,
-    RequestHandlerProtocol: () => PdA,
-    SMITHY_CONTEXT_KEY: () => F24,
-    getDefaultClientConfiguration: () => W24,
-    resolveDefaultRuntimeConfig: () => J24
+  }), A), H6Q = {};
+  LP4(H6Q, {
+    isBrowserNetworkError: () => E6Q,
+    isClockSkewCorrectedError: () => C6Q,
+    isClockSkewError: () => yP4,
+    isRetryableByTrait: () => kP4,
+    isServerError: () => vP4,
+    isThrottlingError: () => xP4,
+    isTransientError: () => Vw1
   });
-  SdA.exports = Z24($dA);
-  var qdA = ((A) => {
-      return A.HEADER = "header", A.QUERY = "query", A
-    })(qdA || {}),
-    MdA = ((A) => {
-      return A.HEADER = "header", A.QUERY = "query", A
-    })(MdA || {}),
-    LdA = ((A) => {
-      return A.HTTP = "http", A.HTTPS = "https", A
-    })(LdA || {}),
-    RdA = ((A) => {
-      return A.MD5 = "md5", A.CRC32 = "crc32", A.CRC32C = "crc32c", A.SHA1 = "sha1", A.SHA256 = "sha256", A
-    })(RdA || {}),
-    D24 = u31((A) => {
-      let B = [];
-      if (A.sha256 !== void 0) B.push({
-        algorithmId: () => "sha256",
-        checksumConstructor: () => A.sha256
-      });
-      if (A.md5 != null) B.push({
-        algorithmId: () => "md5",
-        checksumConstructor: () => A.md5
-      });
-      return {
-        addChecksumAlgorithm(Q) {
-          B.push(Q)
-        },
-        checksumAlgorithms() {
-          return B
-        }
+  z6Q.exports = OP4(H6Q);
+  var RP4 = ["AuthFailure", "InvalidSignatureException", "RequestExpired", "RequestInTheFuture", "RequestTimeTooSkewed", "SignatureDoesNotMatch"],
+    TP4 = ["BandwidthLimitExceeded", "EC2ThrottledException", "LimitExceededException", "PriorRequestNotComplete", "ProvisionedThroughputExceededException", "RequestLimitExceeded", "RequestThrottled", "RequestThrottledException", "SlowDown", "ThrottledException", "Throttling", "ThrottlingException", "TooManyRequestsException", "TransactionInProgressException"],
+    PP4 = ["TimeoutError", "RequestTimeout", "RequestTimeoutException"],
+    jP4 = [500, 502, 503, 504],
+    SP4 = ["ECONNRESET", "ECONNREFUSED", "EPIPE", "ETIMEDOUT"],
+    _P4 = ["EHOSTUNREACH", "ENETUNREACH", "ENOTFOUND"],
+    kP4 = mr((A) => A.$retryable !== void 0, "isRetryableByTrait"),
+    yP4 = mr((A) => RP4.includes(A.name), "isClockSkewError"),
+    C6Q = mr((A) => A.$metadata?.clockSkewCorrected, "isClockSkewCorrectedError"),
+    E6Q = mr((A) => {
+      let Q = new Set(["Failed to fetch", "NetworkError when attempting to fetch resource", "The Internet connection appears to be offline", "Load failed", "Network request failed"]);
+      if (!(A && A instanceof TypeError)) return !1;
+      return Q.has(A.message)
+    }, "isBrowserNetworkError"),
+    xP4 = mr((A) => A.$metadata?.httpStatusCode === 429 || TP4.includes(A.name) || A.$retryable?.throttling == !0, "isThrottlingError"),
+    Vw1 = mr((A, Q = 0) => C6Q(A) || PP4.includes(A.name) || SP4.includes(A?.code || "") || _P4.includes(A?.code || "") || jP4.includes(A.$metadata?.httpStatusCode || 0) || E6Q(A) || A.cause !== void 0 && Q <= 10 && Vw1(A.cause, Q + 1), "isTransientError"),
+    vP4 = mr((A) => {
+      if (A.$metadata?.httpStatusCode !== void 0) {
+        let Q = A.$metadata.httpStatusCode;
+        if (500 <= Q && Q <= 599 && !Vw1(A)) return !0;
+        return !1
       }
-    }, "getChecksumConfiguration"),
-    Y24 = u31((A) => {
-      let B = {};
-      return A.checksumAlgorithms().forEach((Q) => {
-        B[Q.algorithmId()] = Q.checksumConstructor()
-      }), B
-    }, "resolveChecksumRuntimeConfig"),
-    W24 = u31((A) => {
-      return D24(A)
-    }, "getDefaultClientConfiguration"),
-    J24 = u31((A) => {
-      return Y24(A)
-    }, "resolveDefaultRuntimeConfig"),
-    OdA = ((A) => {
-      return A[A.HEADER = 0] = "HEADER", A[A.TRAILER = 1] = "TRAILER", A
-    })(OdA || {}),
-    F24 = "__smithy_context",
-    TdA = ((A) => {
-      return A.PROFILE = "profile", A.SSO_SESSION = "sso-session", A.SERVICES = "services", A
-    })(TdA || {}),
-    PdA = ((A) => {
-      return A.HTTP_0_9 = "http/0.9", A.HTTP_1_0 = "http/1.0", A.TDS_8_0 = "tds/8.0", A
-    })(PdA || {})
+      return !1
+    }, "isServerError")
 })
-// @from(Start 3034588, End 3039095)
-vdA = z((w38, fdA) => {
+// @from(Start 2663568, End 2672461)
+KW = z((Mz7, R6Q) => {
   var {
-    defineProperty: p31,
-    getOwnPropertyDescriptor: X24,
-    getOwnPropertyNames: V24
-  } = Object, C24 = Object.prototype.hasOwnProperty, wL = (A, B) => p31(A, "name", {
-    value: B,
+    defineProperty: lhA,
+    getOwnPropertyDescriptor: bP4,
+    getOwnPropertyNames: fP4
+  } = Object, hP4 = Object.prototype.hasOwnProperty, cR = (A, Q) => lhA(A, "name", {
+    value: Q,
     configurable: !0
-  }), K24 = (A, B) => {
-    for (var Q in B) p31(A, Q, {
-      get: B[Q],
+  }), gP4 = (A, Q) => {
+    for (var B in Q) lhA(A, B, {
+      get: Q[B],
       enumerable: !0
     })
-  }, H24 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of V24(B))
-        if (!C24.call(A, G) && G !== Q) p31(A, G, {
-          get: () => B[G],
-          enumerable: !(I = X24(B, G)) || I.enumerable
+  }, uP4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of fP4(Q))
+        if (!hP4.call(A, Z) && Z !== B) lhA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = bP4(Q, Z)) || G.enumerable
         })
     }
     return A
-  }, z24 = (A) => H24(p31({}, "__esModule", {
+  }, mP4 = (A) => uP4(lhA({}, "__esModule", {
     value: !0
-  }), A), jdA = {};
-  K24(jdA, {
-    Field: () => U24,
-    Fields: () => N24,
-    HttpRequest: () => $24,
-    HttpResponse: () => q24,
-    IHttpRequest: () => ydA.HttpRequest,
-    getHttpHandlerExtensionConfiguration: () => w24,
-    isValidHostname: () => xdA,
-    resolveHttpHandlerRuntimeConfig: () => E24
+  }), A), $6Q = {};
+  gP4($6Q, {
+    AdaptiveRetryStrategy: () => nP4,
+    ConfiguredRetryStrategy: () => aP4,
+    DEFAULT_MAX_ATTEMPTS: () => Kw1,
+    DEFAULT_RETRY_DELAY_BASE: () => JHA,
+    DEFAULT_RETRY_MODE: () => dP4,
+    DefaultRateLimiter: () => q6Q,
+    INITIAL_RETRY_TOKENS: () => Dw1,
+    INVOCATION_ID_HEADER: () => pP4,
+    MAXIMUM_RETRY_DELAY: () => Hw1,
+    NO_RETRY_INCREMENT: () => O6Q,
+    REQUEST_HEADER: () => lP4,
+    RETRY_COST: () => L6Q,
+    RETRY_MODES: () => w6Q,
+    StandardRetryStrategy: () => Cw1,
+    THROTTLING_RETRY_DELAY_BASE: () => N6Q,
+    TIMEOUT_RETRY_COST: () => M6Q
   });
-  fdA.exports = z24(jdA);
-  var w24 = wL((A) => {
-      return {
-        setHttpHandler(B) {
-          A.httpHandler = B
-        },
-        httpHandler() {
-          return A.httpHandler
-        },
-        updateHttpClientConfig(B, Q) {
-          A.httpHandler?.updateHttpClientConfig(B, Q)
-        },
-        httpHandlerConfigs() {
-          return A.httpHandler.httpHandlerConfigs()
-        }
-      }
-    }, "getHttpHandlerExtensionConfiguration"),
-    E24 = wL((A) => {
-      return {
-        httpHandler: A.httpHandler()
-      }
-    }, "resolveHttpHandlerRuntimeConfig"),
-    ydA = _dA(),
-    U24 = class {
-      static {
-        wL(this, "Field")
-      }
-      constructor({
-        name: A,
-        kind: B = ydA.FieldPosition.HEADER,
-        values: Q = []
-      }) {
-        this.name = A, this.kind = B, this.values = Q
-      }
-      add(A) {
-        this.values.push(A)
-      }
-      set(A) {
-        this.values = A
-      }
-      remove(A) {
-        this.values = this.values.filter((B) => B !== A)
-      }
-      toString() {
-        return this.values.map((A) => A.includes(",") || A.includes(" ") ? `"${A}"` : A).join(", ")
-      }
-      get() {
-        return this.values
-      }
-    },
-    N24 = class {
-      constructor({
-        fields: A = [],
-        encoding: B = "utf-8"
-      }) {
-        this.entries = {}, A.forEach(this.setField.bind(this)), this.encoding = B
+  R6Q.exports = mP4($6Q);
+  var w6Q = ((A) => {
+      return A.STANDARD = "standard", A.ADAPTIVE = "adaptive", A
+    })(w6Q || {}),
+    Kw1 = 3,
+    dP4 = "standard",
+    cP4 = Fw1(),
+    q6Q = class A {
+      constructor(Q) {
+        this.currentCapacity = 0, this.enabled = !1, this.lastMaxRate = 0, this.measuredTxRate = 0, this.requestCount = 0, this.lastTimestamp = 0, this.timeWindow = 0, this.beta = Q?.beta ?? 0.7, this.minCapacity = Q?.minCapacity ?? 1, this.minFillRate = Q?.minFillRate ?? 0.5, this.scaleConstant = Q?.scaleConstant ?? 0.4, this.smooth = Q?.smooth ?? 0.8;
+        let B = this.getCurrentTimeInSeconds();
+        this.lastThrottleTime = B, this.lastTxRateBucket = Math.floor(this.getCurrentTimeInSeconds()), this.fillRate = this.minFillRate, this.maxCapacity = this.minCapacity
       }
       static {
-        wL(this, "Fields")
-      }
-      setField(A) {
-        this.entries[A.name.toLowerCase()] = A
-      }
-      getField(A) {
-        return this.entries[A.toLowerCase()]
-      }
-      removeField(A) {
-        delete this.entries[A.toLowerCase()]
-      }
-      getByType(A) {
-        return Object.values(this.entries).filter((B) => B.kind === A)
-      }
-    },
-    $24 = class A {
-      static {
-        wL(this, "HttpRequest")
-      }
-      constructor(B) {
-        this.method = B.method || "GET", this.hostname = B.hostname || "localhost", this.port = B.port, this.query = B.query || {}, this.headers = B.headers || {}, this.body = B.body, this.protocol = B.protocol ? B.protocol.slice(-1) !== ":" ? `${B.protocol}:` : B.protocol : "https:", this.path = B.path ? B.path.charAt(0) !== "/" ? `/${B.path}` : B.path : "/", this.username = B.username, this.password = B.password, this.fragment = B.fragment
-      }
-      static clone(B) {
-        let Q = new A({
-          ...B,
-          headers: {
-            ...B.headers
-          }
-        });
-        if (Q.query) Q.query = kdA(Q.query);
-        return Q
-      }
-      static isInstance(B) {
-        if (!B) return !1;
-        let Q = B;
-        return "method" in Q && "protocol" in Q && "hostname" in Q && "path" in Q && typeof Q.query === "object" && typeof Q.headers === "object"
-      }
-      clone() {
-        return A.clone(this)
-      }
-    };
-
-  function kdA(A) {
-    return Object.keys(A).reduce((B, Q) => {
-      let I = A[Q];
-      return {
-        ...B,
-        [Q]: Array.isArray(I) ? [...I] : I
-      }
-    }, {})
-  }
-  wL(kdA, "cloneQuery");
-  var q24 = class {
-    static {
-      wL(this, "HttpResponse")
-    }
-    constructor(A) {
-      this.statusCode = A.statusCode, this.reason = A.reason, this.headers = A.headers || {}, this.body = A.body
-    }
-    static isInstance(A) {
-      if (!A) return !1;
-      let B = A;
-      return typeof B.statusCode === "number" && typeof B.headers === "object"
-    }
-  };
-
-  function xdA(A) {
-    return /^[a-z0-9][a-z0-9\.\-]*[a-z0-9]$/.test(A)
-  }
-  wL(xdA, "isValidHostname")
-})
-// @from(Start 3039101, End 3040964)
-cS = z(($38, ddA) => {
-  var {
-    defineProperty: l31,
-    getOwnPropertyDescriptor: M24,
-    getOwnPropertyNames: L24
-  } = Object, R24 = Object.prototype.hasOwnProperty, c31 = (A, B) => l31(A, "name", {
-    value: B,
-    configurable: !0
-  }), O24 = (A, B) => {
-    for (var Q in B) l31(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, T24 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of L24(B))
-        if (!R24.call(A, G) && G !== Q) l31(A, G, {
-          get: () => B[G],
-          enumerable: !(I = M24(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, P24 = (A) => T24(l31({}, "__esModule", {
-    value: !0
-  }), A), bdA = {};
-  O24(bdA, {
-    getHostHeaderPlugin: () => _24,
-    hostHeaderMiddleware: () => hdA,
-    hostHeaderMiddlewareOptions: () => mdA,
-    resolveHostHeaderConfig: () => gdA
-  });
-  ddA.exports = P24(bdA);
-  var S24 = vdA();
-
-  function gdA(A) {
-    return A
-  }
-  c31(gdA, "resolveHostHeaderConfig");
-  var hdA = c31((A) => (B) => async (Q) => {
-      if (!S24.HttpRequest.isInstance(Q.request)) return B(Q);
-      let {
-        request: I
-      } = Q, {
-        handlerProtocol: G = ""
-      } = A.requestHandler.metadata || {};
-      if (G.indexOf("h2") >= 0 && !I.headers[":authority"]) delete I.headers.host, I.headers[":authority"] = I.hostname + (I.port ? ":" + I.port : "");
-      else if (!I.headers.host) {
-        let Z = I.hostname;
-        if (I.port != null) Z += `:${I.port}`;
-        I.headers.host = Z
-      }
-      return B(Q)
-    }, "hostHeaderMiddleware"),
-    mdA = {
-      name: "hostHeaderMiddleware",
-      step: "build",
-      priority: "low",
-      tags: ["HOST"],
-      override: !0
-    },
-    _24 = c31((A) => ({
-      applyToStack: c31((B) => {
-        B.add(hdA(A), mdA)
-      }, "applyToStack")
-    }), "getHostHeaderPlugin")
-})
-// @from(Start 3040970, End 3043269)
-lS = z((q38, ldA) => {
-  var {
-    defineProperty: i31,
-    getOwnPropertyDescriptor: j24,
-    getOwnPropertyNames: y24
-  } = Object, k24 = Object.prototype.hasOwnProperty, X_1 = (A, B) => i31(A, "name", {
-    value: B,
-    configurable: !0
-  }), x24 = (A, B) => {
-    for (var Q in B) i31(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, f24 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of y24(B))
-        if (!k24.call(A, G) && G !== Q) i31(A, G, {
-          get: () => B[G],
-          enumerable: !(I = j24(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, v24 = (A) => f24(i31({}, "__esModule", {
-    value: !0
-  }), A), udA = {};
-  x24(udA, {
-    getLoggerPlugin: () => b24,
-    loggerMiddleware: () => pdA,
-    loggerMiddlewareOptions: () => cdA
-  });
-  ldA.exports = v24(udA);
-  var pdA = X_1(() => (A, B) => async (Q) => {
-      try {
-        let I = await A(Q),
-          {
-            clientName: G,
-            commandName: Z,
-            logger: D,
-            dynamoDbDocumentClientOptions: Y = {}
-          } = B,
-          {
-            overrideInputFilterSensitiveLog: W,
-            overrideOutputFilterSensitiveLog: J
-          } = Y,
-          F = W ?? B.inputFilterSensitiveLog,
-          X = J ?? B.outputFilterSensitiveLog,
-          {
-            $metadata: V,
-            ...C
-          } = I.output;
-        return D?.info?.({
-          clientName: G,
-          commandName: Z,
-          input: F(Q.input),
-          output: X(C),
-          metadata: V
-        }), I
-      } catch (I) {
-        let {
-          clientName: G,
-          commandName: Z,
-          logger: D,
-          dynamoDbDocumentClientOptions: Y = {}
-        } = B, {
-          overrideInputFilterSensitiveLog: W
-        } = Y, J = W ?? B.inputFilterSensitiveLog;
-        throw D?.error?.({
-          clientName: G,
-          commandName: Z,
-          input: J(Q.input),
-          error: I,
-          metadata: I.$metadata
-        }), I
-      }
-    }, "loggerMiddleware"),
-    cdA = {
-      name: "loggerMiddleware",
-      tags: ["LOGGER"],
-      step: "initialize",
-      override: !0
-    },
-    b24 = X_1((A) => ({
-      applyToStack: X_1((B) => {
-        B.add(pdA(), cdA)
-      }, "applyToStack")
-    }), "getLoggerPlugin")
-})
-// @from(Start 3043275, End 3046058)
-BuA = z((M38, AuA) => {
-  var {
-    defineProperty: n31,
-    getOwnPropertyDescriptor: g24,
-    getOwnPropertyNames: h24
-  } = Object, m24 = Object.prototype.hasOwnProperty, a31 = (A, B) => n31(A, "name", {
-    value: B,
-    configurable: !0
-  }), d24 = (A, B) => {
-    for (var Q in B) n31(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, u24 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of h24(B))
-        if (!m24.call(A, G) && G !== Q) n31(A, G, {
-          get: () => B[G],
-          enumerable: !(I = g24(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, p24 = (A) => u24(n31({}, "__esModule", {
-    value: !0
-  }), A), idA = {};
-  d24(idA, {
-    AlgorithmId: () => rdA,
-    EndpointURLScheme: () => sdA,
-    FieldPosition: () => odA,
-    HttpApiKeyAuthLocation: () => adA,
-    HttpAuthLocation: () => ndA,
-    IniSectionType: () => tdA,
-    RequestHandlerProtocol: () => edA,
-    SMITHY_CONTEXT_KEY: () => a24,
-    getDefaultClientConfiguration: () => i24,
-    resolveDefaultRuntimeConfig: () => n24
-  });
-  AuA.exports = p24(idA);
-  var ndA = ((A) => {
-      return A.HEADER = "header", A.QUERY = "query", A
-    })(ndA || {}),
-    adA = ((A) => {
-      return A.HEADER = "header", A.QUERY = "query", A
-    })(adA || {}),
-    sdA = ((A) => {
-      return A.HTTP = "http", A.HTTPS = "https", A
-    })(sdA || {}),
-    rdA = ((A) => {
-      return A.MD5 = "md5", A.CRC32 = "crc32", A.CRC32C = "crc32c", A.SHA1 = "sha1", A.SHA256 = "sha256", A
-    })(rdA || {}),
-    c24 = a31((A) => {
-      let B = [];
-      if (A.sha256 !== void 0) B.push({
-        algorithmId: () => "sha256",
-        checksumConstructor: () => A.sha256
-      });
-      if (A.md5 != null) B.push({
-        algorithmId: () => "md5",
-        checksumConstructor: () => A.md5
-      });
-      return {
-        addChecksumAlgorithm(Q) {
-          B.push(Q)
-        },
-        checksumAlgorithms() {
-          return B
-        }
-      }
-    }, "getChecksumConfiguration"),
-    l24 = a31((A) => {
-      let B = {};
-      return A.checksumAlgorithms().forEach((Q) => {
-        B[Q.algorithmId()] = Q.checksumConstructor()
-      }), B
-    }, "resolveChecksumRuntimeConfig"),
-    i24 = a31((A) => {
-      return c24(A)
-    }, "getDefaultClientConfiguration"),
-    n24 = a31((A) => {
-      return l24(A)
-    }, "resolveDefaultRuntimeConfig"),
-    odA = ((A) => {
-      return A[A.HEADER = 0] = "HEADER", A[A.TRAILER = 1] = "TRAILER", A
-    })(odA || {}),
-    a24 = "__smithy_context",
-    tdA = ((A) => {
-      return A.PROFILE = "profile", A.SSO_SESSION = "sso-session", A.SERVICES = "services", A
-    })(tdA || {}),
-    edA = ((A) => {
-      return A.HTTP_0_9 = "http/0.9", A.HTTP_1_0 = "http/1.0", A.TDS_8_0 = "tds/8.0", A
-    })(edA || {})
-})
-// @from(Start 3046064, End 3050571)
-YuA = z((L38, DuA) => {
-  var {
-    defineProperty: s31,
-    getOwnPropertyDescriptor: s24,
-    getOwnPropertyNames: r24
-  } = Object, o24 = Object.prototype.hasOwnProperty, EL = (A, B) => s31(A, "name", {
-    value: B,
-    configurable: !0
-  }), t24 = (A, B) => {
-    for (var Q in B) s31(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, e24 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of r24(B))
-        if (!o24.call(A, G) && G !== Q) s31(A, G, {
-          get: () => B[G],
-          enumerable: !(I = s24(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, A94 = (A) => e24(s31({}, "__esModule", {
-    value: !0
-  }), A), QuA = {};
-  t24(QuA, {
-    Field: () => I94,
-    Fields: () => G94,
-    HttpRequest: () => Z94,
-    HttpResponse: () => D94,
-    IHttpRequest: () => IuA.HttpRequest,
-    getHttpHandlerExtensionConfiguration: () => B94,
-    isValidHostname: () => ZuA,
-    resolveHttpHandlerRuntimeConfig: () => Q94
-  });
-  DuA.exports = A94(QuA);
-  var B94 = EL((A) => {
-      return {
-        setHttpHandler(B) {
-          A.httpHandler = B
-        },
-        httpHandler() {
-          return A.httpHandler
-        },
-        updateHttpClientConfig(B, Q) {
-          A.httpHandler?.updateHttpClientConfig(B, Q)
-        },
-        httpHandlerConfigs() {
-          return A.httpHandler.httpHandlerConfigs()
-        }
-      }
-    }, "getHttpHandlerExtensionConfiguration"),
-    Q94 = EL((A) => {
-      return {
-        httpHandler: A.httpHandler()
-      }
-    }, "resolveHttpHandlerRuntimeConfig"),
-    IuA = BuA(),
-    I94 = class {
-      static {
-        EL(this, "Field")
-      }
-      constructor({
-        name: A,
-        kind: B = IuA.FieldPosition.HEADER,
-        values: Q = []
-      }) {
-        this.name = A, this.kind = B, this.values = Q
-      }
-      add(A) {
-        this.values.push(A)
-      }
-      set(A) {
-        this.values = A
-      }
-      remove(A) {
-        this.values = this.values.filter((B) => B !== A)
-      }
-      toString() {
-        return this.values.map((A) => A.includes(",") || A.includes(" ") ? `"${A}"` : A).join(", ")
-      }
-      get() {
-        return this.values
-      }
-    },
-    G94 = class {
-      constructor({
-        fields: A = [],
-        encoding: B = "utf-8"
-      }) {
-        this.entries = {}, A.forEach(this.setField.bind(this)), this.encoding = B
+        cR(this, "DefaultRateLimiter")
       }
       static {
-        EL(this, "Fields")
+        this.setTimeoutFn = setTimeout
       }
-      setField(A) {
-        this.entries[A.name.toLowerCase()] = A
+      getCurrentTimeInSeconds() {
+        return Date.now() / 1000
       }
-      getField(A) {
-        return this.entries[A.toLowerCase()]
+      async getSendToken() {
+        return this.acquireTokenBucket(1)
       }
-      removeField(A) {
-        delete this.entries[A.toLowerCase()]
+      async acquireTokenBucket(Q) {
+        if (!this.enabled) return;
+        if (this.refillTokenBucket(), Q > this.currentCapacity) {
+          let B = (Q - this.currentCapacity) / this.fillRate * 1000;
+          await new Promise((G) => A.setTimeoutFn(G, B))
+        }
+        this.currentCapacity = this.currentCapacity - Q
       }
-      getByType(A) {
-        return Object.values(this.entries).filter((B) => B.kind === A)
+      refillTokenBucket() {
+        let Q = this.getCurrentTimeInSeconds();
+        if (!this.lastTimestamp) {
+          this.lastTimestamp = Q;
+          return
+        }
+        let B = (Q - this.lastTimestamp) * this.fillRate;
+        this.currentCapacity = Math.min(this.maxCapacity, this.currentCapacity + B), this.lastTimestamp = Q
       }
-    },
-    Z94 = class A {
-      static {
-        EL(this, "HttpRequest")
+      updateClientSendingRate(Q) {
+        let B;
+        if (this.updateMeasuredRate(), (0, cP4.isThrottlingError)(Q)) {
+          let Z = !this.enabled ? this.measuredTxRate : Math.min(this.measuredTxRate, this.fillRate);
+          this.lastMaxRate = Z, this.calculateTimeWindow(), this.lastThrottleTime = this.getCurrentTimeInSeconds(), B = this.cubicThrottle(Z), this.enableTokenBucket()
+        } else this.calculateTimeWindow(), B = this.cubicSuccess(this.getCurrentTimeInSeconds());
+        let G = Math.min(B, 2 * this.measuredTxRate);
+        this.updateTokenBucketRate(G)
       }
-      constructor(B) {
-        this.method = B.method || "GET", this.hostname = B.hostname || "localhost", this.port = B.port, this.query = B.query || {}, this.headers = B.headers || {}, this.body = B.body, this.protocol = B.protocol ? B.protocol.slice(-1) !== ":" ? `${B.protocol}:` : B.protocol : "https:", this.path = B.path ? B.path.charAt(0) !== "/" ? `/${B.path}` : B.path : "/", this.username = B.username, this.password = B.password, this.fragment = B.fragment
+      calculateTimeWindow() {
+        this.timeWindow = this.getPrecise(Math.pow(this.lastMaxRate * (1 - this.beta) / this.scaleConstant, 0.3333333333333333))
       }
-      static clone(B) {
-        let Q = new A({
-          ...B,
-          headers: {
-            ...B.headers
-          }
-        });
-        if (Q.query) Q.query = GuA(Q.query);
-        return Q
+      cubicThrottle(Q) {
+        return this.getPrecise(Q * this.beta)
       }
-      static isInstance(B) {
-        if (!B) return !1;
-        let Q = B;
-        return "method" in Q && "protocol" in Q && "hostname" in Q && "path" in Q && typeof Q.query === "object" && typeof Q.headers === "object"
+      cubicSuccess(Q) {
+        return this.getPrecise(this.scaleConstant * Math.pow(Q - this.lastThrottleTime - this.timeWindow, 3) + this.lastMaxRate)
       }
-      clone() {
-        return A.clone(this)
+      enableTokenBucket() {
+        this.enabled = !0
       }
-    };
-
-  function GuA(A) {
-    return Object.keys(A).reduce((B, Q) => {
-      let I = A[Q];
-      return {
-        ...B,
-        [Q]: Array.isArray(I) ? [...I] : I
+      updateTokenBucketRate(Q) {
+        this.refillTokenBucket(), this.fillRate = Math.max(Q, this.minFillRate), this.maxCapacity = Math.max(Q, this.minCapacity), this.currentCapacity = Math.min(this.currentCapacity, this.maxCapacity)
       }
-    }, {})
-  }
-  EL(GuA, "cloneQuery");
-  var D94 = class {
-    static {
-      EL(this, "HttpResponse")
-    }
-    constructor(A) {
-      this.statusCode = A.statusCode, this.reason = A.reason, this.headers = A.headers || {}, this.body = A.body
-    }
-    static isInstance(A) {
-      if (!A) return !1;
-      let B = A;
-      return typeof B.statusCode === "number" && typeof B.headers === "object"
-    }
-  };
-
-  function ZuA(A) {
-    return /^[a-z0-9][a-z0-9\.\-]*[a-z0-9]$/.test(A)
-  }
-  EL(ZuA, "isValidHostname")
-})
-// @from(Start 3050577, End 3052509)
-iS = z((P38, XuA) => {
-  var {
-    defineProperty: o31,
-    getOwnPropertyDescriptor: Y94,
-    getOwnPropertyNames: W94
-  } = Object, J94 = Object.prototype.hasOwnProperty, r31 = (A, B) => o31(A, "name", {
-    value: B,
-    configurable: !0
-  }), F94 = (A, B) => {
-    for (var Q in B) o31(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, X94 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of W94(B))
-        if (!J94.call(A, G) && G !== Q) o31(A, G, {
-          get: () => B[G],
-          enumerable: !(I = Y94(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, V94 = (A) => X94(o31({}, "__esModule", {
-    value: !0
-  }), A), WuA = {};
-  F94(WuA, {
-    addRecursionDetectionMiddlewareOptions: () => FuA,
-    getRecursionDetectionPlugin: () => z94,
-    recursionDetectionMiddleware: () => JuA
-  });
-  XuA.exports = V94(WuA);
-  var C94 = YuA(),
-    V_1 = "X-Amzn-Trace-Id",
-    K94 = "AWS_LAMBDA_FUNCTION_NAME",
-    H94 = "_X_AMZN_TRACE_ID",
-    JuA = r31((A) => (B) => async (Q) => {
-      let {
-        request: I
-      } = Q;
-      if (!C94.HttpRequest.isInstance(I) || A.runtime !== "node") return B(Q);
-      let G = Object.keys(I.headers ?? {}).find((W) => W.toLowerCase() === V_1.toLowerCase()) ?? V_1;
-      if (I.headers.hasOwnProperty(G)) return B(Q);
-      let Z = process.env[K94],
-        D = process.env[H94],
-        Y = r31((W) => typeof W === "string" && W.length > 0, "nonEmptyString");
-      if (Y(Z) && Y(D)) I.headers[V_1] = D;
-      return B({
-        ...Q,
-        request: I
-      })
-    }, "recursionDetectionMiddleware"),
-    FuA = {
-      step: "build",
-      tags: ["RECURSION_DETECTION"],
-      name: "recursionDetectionMiddleware",
-      override: !0,
-      priority: "low"
-    },
-    z94 = r31((A) => ({
-      applyToStack: r31((B) => {
-        B.add(JuA(A), FuA)
-      }, "applyToStack")
-    }), "getRecursionDetectionPlugin")
-})
-// @from(Start 3052515, End 3055298)
-C_1 = z((S38, NuA) => {
-  var {
-    defineProperty: t31,
-    getOwnPropertyDescriptor: w94,
-    getOwnPropertyNames: E94
-  } = Object, U94 = Object.prototype.hasOwnProperty, e31 = (A, B) => t31(A, "name", {
-    value: B,
-    configurable: !0
-  }), N94 = (A, B) => {
-    for (var Q in B) t31(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, $94 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of E94(B))
-        if (!U94.call(A, G) && G !== Q) t31(A, G, {
-          get: () => B[G],
-          enumerable: !(I = w94(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, q94 = (A) => $94(t31({}, "__esModule", {
-    value: !0
-  }), A), VuA = {};
-  N94(VuA, {
-    AlgorithmId: () => zuA,
-    EndpointURLScheme: () => HuA,
-    FieldPosition: () => wuA,
-    HttpApiKeyAuthLocation: () => KuA,
-    HttpAuthLocation: () => CuA,
-    IniSectionType: () => EuA,
-    RequestHandlerProtocol: () => UuA,
-    SMITHY_CONTEXT_KEY: () => T94,
-    getDefaultClientConfiguration: () => R94,
-    resolveDefaultRuntimeConfig: () => O94
-  });
-  NuA.exports = q94(VuA);
-  var CuA = ((A) => {
-      return A.HEADER = "header", A.QUERY = "query", A
-    })(CuA || {}),
-    KuA = ((A) => {
-      return A.HEADER = "header", A.QUERY = "query", A
-    })(KuA || {}),
-    HuA = ((A) => {
-      return A.HTTP = "http", A.HTTPS = "https", A
-    })(HuA || {}),
-    zuA = ((A) => {
-      return A.MD5 = "md5", A.CRC32 = "crc32", A.CRC32C = "crc32c", A.SHA1 = "sha1", A.SHA256 = "sha256", A
-    })(zuA || {}),
-    M94 = e31((A) => {
-      let B = [];
-      if (A.sha256 !== void 0) B.push({
-        algorithmId: () => "sha256",
-        checksumConstructor: () => A.sha256
-      });
-      if (A.md5 != null) B.push({
-        algorithmId: () => "md5",
-        checksumConstructor: () => A.md5
-      });
-      return {
-        addChecksumAlgorithm(Q) {
-          B.push(Q)
-        },
-        checksumAlgorithms() {
-          return B
+      updateMeasuredRate() {
+        let Q = this.getCurrentTimeInSeconds(),
+          B = Math.floor(Q * 2) / 2;
+        if (this.requestCount++, B > this.lastTxRateBucket) {
+          let G = this.requestCount / (B - this.lastTxRateBucket);
+          this.measuredTxRate = this.getPrecise(G * this.smooth + this.measuredTxRate * (1 - this.smooth)), this.requestCount = 0, this.lastTxRateBucket = B
         }
       }
-    }, "getChecksumConfiguration"),
-    L94 = e31((A) => {
-      let B = {};
-      return A.checksumAlgorithms().forEach((Q) => {
-        B[Q.algorithmId()] = Q.checksumConstructor()
-      }), B
-    }, "resolveChecksumRuntimeConfig"),
-    R94 = e31((A) => {
-      return M94(A)
-    }, "getDefaultClientConfiguration"),
-    O94 = e31((A) => {
-      return L94(A)
-    }, "resolveDefaultRuntimeConfig"),
-    wuA = ((A) => {
-      return A[A.HEADER = 0] = "HEADER", A[A.TRAILER = 1] = "TRAILER", A
-    })(wuA || {}),
-    T94 = "__smithy_context",
-    EuA = ((A) => {
-      return A.PROFILE = "profile", A.SSO_SESSION = "sso-session", A.SERVICES = "services", A
-    })(EuA || {}),
-    UuA = ((A) => {
-      return A.HTTP_0_9 = "http/0.9", A.HTTP_1_0 = "http/1.0", A.TDS_8_0 = "tds/8.0", A
-    })(UuA || {})
-})
-// @from(Start 3055304, End 3058087)
-_uA = z((_38, SuA) => {
-  var {
-    defineProperty: AQ1,
-    getOwnPropertyDescriptor: P94,
-    getOwnPropertyNames: S94
-  } = Object, _94 = Object.prototype.hasOwnProperty, BQ1 = (A, B) => AQ1(A, "name", {
-    value: B,
-    configurable: !0
-  }), j94 = (A, B) => {
-    for (var Q in B) AQ1(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, y94 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of S94(B))
-        if (!_94.call(A, G) && G !== Q) AQ1(A, G, {
-          get: () => B[G],
-          enumerable: !(I = P94(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, k94 = (A) => y94(AQ1({}, "__esModule", {
-    value: !0
-  }), A), $uA = {};
-  j94($uA, {
-    AlgorithmId: () => RuA,
-    EndpointURLScheme: () => LuA,
-    FieldPosition: () => OuA,
-    HttpApiKeyAuthLocation: () => MuA,
-    HttpAuthLocation: () => quA,
-    IniSectionType: () => TuA,
-    RequestHandlerProtocol: () => PuA,
-    SMITHY_CONTEXT_KEY: () => g94,
-    getDefaultClientConfiguration: () => v94,
-    resolveDefaultRuntimeConfig: () => b94
-  });
-  SuA.exports = k94($uA);
-  var quA = ((A) => {
-      return A.HEADER = "header", A.QUERY = "query", A
-    })(quA || {}),
-    MuA = ((A) => {
-      return A.HEADER = "header", A.QUERY = "query", A
-    })(MuA || {}),
-    LuA = ((A) => {
-      return A.HTTP = "http", A.HTTPS = "https", A
-    })(LuA || {}),
-    RuA = ((A) => {
-      return A.MD5 = "md5", A.CRC32 = "crc32", A.CRC32C = "crc32c", A.SHA1 = "sha1", A.SHA256 = "sha256", A
-    })(RuA || {}),
-    x94 = BQ1((A) => {
-      let B = [];
-      if (A.sha256 !== void 0) B.push({
-        algorithmId: () => "sha256",
-        checksumConstructor: () => A.sha256
-      });
-      if (A.md5 != null) B.push({
-        algorithmId: () => "md5",
-        checksumConstructor: () => A.md5
-      });
-      return {
-        addChecksumAlgorithm(Q) {
-          B.push(Q)
-        },
-        checksumAlgorithms() {
-          return B
-        }
-      }
-    }, "getChecksumConfiguration"),
-    f94 = BQ1((A) => {
-      let B = {};
-      return A.checksumAlgorithms().forEach((Q) => {
-        B[Q.algorithmId()] = Q.checksumConstructor()
-      }), B
-    }, "resolveChecksumRuntimeConfig"),
-    v94 = BQ1((A) => {
-      return x94(A)
-    }, "getDefaultClientConfiguration"),
-    b94 = BQ1((A) => {
-      return f94(A)
-    }, "resolveDefaultRuntimeConfig"),
-    OuA = ((A) => {
-      return A[A.HEADER = 0] = "HEADER", A[A.TRAILER = 1] = "TRAILER", A
-    })(OuA || {}),
-    g94 = "__smithy_context",
-    TuA = ((A) => {
-      return A.PROFILE = "profile", A.SSO_SESSION = "sso-session", A.SERVICES = "services", A
-    })(TuA || {}),
-    PuA = ((A) => {
-      return A.HTTP_0_9 = "http/0.9", A.HTTP_1_0 = "http/1.0", A.TDS_8_0 = "tds/8.0", A
-    })(PuA || {})
-})
-// @from(Start 3058093, End 3059190)
-ZX = z((j38, xuA) => {
-  var {
-    defineProperty: QQ1,
-    getOwnPropertyDescriptor: h94,
-    getOwnPropertyNames: m94
-  } = Object, d94 = Object.prototype.hasOwnProperty, yuA = (A, B) => QQ1(A, "name", {
-    value: B,
-    configurable: !0
-  }), u94 = (A, B) => {
-    for (var Q in B) QQ1(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, p94 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of m94(B))
-        if (!d94.call(A, G) && G !== Q) QQ1(A, G, {
-          get: () => B[G],
-          enumerable: !(I = h94(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, c94 = (A) => p94(QQ1({}, "__esModule", {
-    value: !0
-  }), A), kuA = {};
-  u94(kuA, {
-    getSmithyContext: () => l94,
-    normalizeProvider: () => i94
-  });
-  xuA.exports = c94(kuA);
-  var juA = _uA(),
-    l94 = yuA((A) => A[juA.SMITHY_CONTEXT_KEY] || (A[juA.SMITHY_CONTEXT_KEY] = {}), "getSmithyContext"),
-    i94 = yuA((A) => {
-      if (typeof A === "function") return A;
-      let B = Promise.resolve(A);
-      return () => B
-    }, "normalizeProvider")
-})
-// @from(Start 3059196, End 3062056)
-yz = z((y38, duA) => {
-  var {
-    defineProperty: IQ1,
-    getOwnPropertyDescriptor: n94,
-    getOwnPropertyNames: a94
-  } = Object, s94 = Object.prototype.hasOwnProperty, K_1 = (A, B) => IQ1(A, "name", {
-    value: B,
-    configurable: !0
-  }), r94 = (A, B) => {
-    for (var Q in B) IQ1(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, o94 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of a94(B))
-        if (!s94.call(A, G) && G !== Q) IQ1(A, G, {
-          get: () => B[G],
-          enumerable: !(I = n94(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, t94 = (A) => o94(IQ1({}, "__esModule", {
-    value: !0
-  }), A), fuA = {};
-  r94(fuA, {
-    deserializerMiddleware: () => vuA,
-    deserializerMiddlewareOption: () => guA,
-    getSerdePlugin: () => muA,
-    serializerMiddleware: () => buA,
-    serializerMiddlewareOption: () => huA
-  });
-  duA.exports = t94(fuA);
-  var vuA = K_1((A, B) => (Q, I) => async (G) => {
-      let {
-        response: Z
-      } = await Q(G);
-      try {
-        let D = await B(Z, A);
-        return {
-          response: Z,
-          output: D
-        }
-      } catch (D) {
-        if (Object.defineProperty(D, "$response", {
-            value: Z
-          }), !("$metadata" in D)) {
-          try {
-            D.message += `
-  Deserialization error: to see the raw response, inspect the hidden field {error}.$response on this object.`
-          } catch (W) {
-            if (!I.logger || I.logger?.constructor?.name === "NoOpLogger") console.warn("Deserialization error: to see the raw response, inspect the hidden field {error}.$response on this object.");
-            else I.logger?.warn?.("Deserialization error: to see the raw response, inspect the hidden field {error}.$response on this object.")
-          }
-          if (typeof D.$responseBodyText !== "undefined") {
-            if (D.$response) D.$response.body = D.$responseBodyText
-          }
-        }
-        throw D
-      }
-    }, "deserializerMiddleware"),
-    buA = K_1((A, B) => (Q, I) => async (G) => {
-      let Z = I.endpointV2?.url && A.urlParser ? async () => A.urlParser(I.endpointV2.url): A.endpoint;
-      if (!Z) throw new Error("No valid endpoint provider available.");
-      let D = await B(G.input, {
-        ...A,
-        endpoint: Z
-      });
-      return Q({
-        ...G,
-        request: D
-      })
-    }, "serializerMiddleware"),
-    guA = {
-      name: "deserializerMiddleware",
-      step: "deserialize",
-      tags: ["DESERIALIZER"],
-      override: !0
-    },
-    huA = {
-      name: "serializerMiddleware",
-      step: "serialize",
-      tags: ["SERIALIZER"],
-      override: !0
-    };
-
-  function muA(A, B, Q) {
-    return {
-      applyToStack: (I) => {
-        I.add(vuA(A, Q), guA), I.add(buA(A, B), huA)
-      }
-    }
-  }
-  K_1(muA, "getSerdePlugin")
-})
-// @from(Start 3062062, End 3066569)
-H_1 = z((k38, iuA) => {
-  var {
-    defineProperty: GQ1,
-    getOwnPropertyDescriptor: e94,
-    getOwnPropertyNames: A44
-  } = Object, B44 = Object.prototype.hasOwnProperty, UL = (A, B) => GQ1(A, "name", {
-    value: B,
-    configurable: !0
-  }), Q44 = (A, B) => {
-    for (var Q in B) GQ1(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, I44 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of A44(B))
-        if (!B44.call(A, G) && G !== Q) GQ1(A, G, {
-          get: () => B[G],
-          enumerable: !(I = e94(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, G44 = (A) => I44(GQ1({}, "__esModule", {
-    value: !0
-  }), A), uuA = {};
-  Q44(uuA, {
-    Field: () => Y44,
-    Fields: () => W44,
-    HttpRequest: () => J44,
-    HttpResponse: () => F44,
-    IHttpRequest: () => puA.HttpRequest,
-    getHttpHandlerExtensionConfiguration: () => Z44,
-    isValidHostname: () => luA,
-    resolveHttpHandlerRuntimeConfig: () => D44
-  });
-  iuA.exports = G44(uuA);
-  var Z44 = UL((A) => {
-      return {
-        setHttpHandler(B) {
-          A.httpHandler = B
-        },
-        httpHandler() {
-          return A.httpHandler
-        },
-        updateHttpClientConfig(B, Q) {
-          A.httpHandler?.updateHttpClientConfig(B, Q)
-        },
-        httpHandlerConfigs() {
-          return A.httpHandler.httpHandlerConfigs()
-        }
-      }
-    }, "getHttpHandlerExtensionConfiguration"),
-    D44 = UL((A) => {
-      return {
-        httpHandler: A.httpHandler()
-      }
-    }, "resolveHttpHandlerRuntimeConfig"),
-    puA = C_1(),
-    Y44 = class {
-      static {
-        UL(this, "Field")
-      }
-      constructor({
-        name: A,
-        kind: B = puA.FieldPosition.HEADER,
-        values: Q = []
-      }) {
-        this.name = A, this.kind = B, this.values = Q
-      }
-      add(A) {
-        this.values.push(A)
-      }
-      set(A) {
-        this.values = A
-      }
-      remove(A) {
-        this.values = this.values.filter((B) => B !== A)
-      }
-      toString() {
-        return this.values.map((A) => A.includes(",") || A.includes(" ") ? `"${A}"` : A).join(", ")
-      }
-      get() {
-        return this.values
+      getPrecise(Q) {
+        return parseFloat(Q.toFixed(8))
       }
     },
-    W44 = class {
-      constructor({
-        fields: A = [],
-        encoding: B = "utf-8"
-      }) {
-        this.entries = {}, A.forEach(this.setField.bind(this)), this.encoding = B
-      }
-      static {
-        UL(this, "Fields")
-      }
-      setField(A) {
-        this.entries[A.name.toLowerCase()] = A
-      }
-      getField(A) {
-        return this.entries[A.toLowerCase()]
-      }
-      removeField(A) {
-        delete this.entries[A.toLowerCase()]
-      }
-      getByType(A) {
-        return Object.values(this.entries).filter((B) => B.kind === A)
-      }
-    },
-    J44 = class A {
-      static {
-        UL(this, "HttpRequest")
-      }
-      constructor(B) {
-        this.method = B.method || "GET", this.hostname = B.hostname || "localhost", this.port = B.port, this.query = B.query || {}, this.headers = B.headers || {}, this.body = B.body, this.protocol = B.protocol ? B.protocol.slice(-1) !== ":" ? `${B.protocol}:` : B.protocol : "https:", this.path = B.path ? B.path.charAt(0) !== "/" ? `/${B.path}` : B.path : "/", this.username = B.username, this.password = B.password, this.fragment = B.fragment
-      }
-      static clone(B) {
-        let Q = new A({
-          ...B,
-          headers: {
-            ...B.headers
-          }
-        });
-        if (Q.query) Q.query = cuA(Q.query);
-        return Q
-      }
-      static isInstance(B) {
-        if (!B) return !1;
-        let Q = B;
-        return "method" in Q && "protocol" in Q && "hostname" in Q && "path" in Q && typeof Q.query === "object" && typeof Q.headers === "object"
-      }
-      clone() {
-        return A.clone(this)
-      }
-    };
-
-  function cuA(A) {
-    return Object.keys(A).reduce((B, Q) => {
-      let I = A[Q];
+    JHA = 100,
+    Hw1 = 20000,
+    N6Q = 500,
+    Dw1 = 500,
+    L6Q = 5,
+    M6Q = 10,
+    O6Q = 1,
+    pP4 = "amz-sdk-invocation-id",
+    lP4 = "amz-sdk-request",
+    iP4 = cR(() => {
+      let A = JHA;
       return {
-        ...B,
-        [Q]: Array.isArray(I) ? [...I] : I
+        computeNextBackoffDelay: cR((G) => {
+          return Math.floor(Math.min(Hw1, Math.random() * 2 ** G * A))
+        }, "computeNextBackoffDelay"),
+        setDelayBase: cR((G) => {
+          A = G
+        }, "setDelayBase")
       }
-    }, {})
-  }
-  UL(cuA, "cloneQuery");
-  var F44 = class {
-    static {
-      UL(this, "HttpResponse")
-    }
-    constructor(A) {
-      this.statusCode = A.statusCode, this.reason = A.reason, this.headers = A.headers || {}, this.body = A.body
-    }
-    static isInstance(A) {
-      if (!A) return !1;
-      let B = A;
-      return typeof B.statusCode === "number" && typeof B.headers === "object"
-    }
-  };
-
-  function luA(A) {
-    return /^[a-z0-9][a-z0-9\.\-]*[a-z0-9]$/.test(A)
-  }
-  UL(luA, "isValidHostname")
-})
-// @from(Start 3066575, End 3067528)
-suA = z((b38, auA) => {
-  var {
-    defineProperty: ZQ1,
-    getOwnPropertyDescriptor: X44,
-    getOwnPropertyNames: V44
-  } = Object, C44 = Object.prototype.hasOwnProperty, K44 = (A, B) => ZQ1(A, "name", {
-    value: B,
-    configurable: !0
-  }), H44 = (A, B) => {
-    for (var Q in B) ZQ1(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, z44 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of V44(B))
-        if (!C44.call(A, G) && G !== Q) ZQ1(A, G, {
-          get: () => B[G],
-          enumerable: !(I = X44(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, w44 = (A) => z44(ZQ1({}, "__esModule", {
-    value: !0
-  }), A), nuA = {};
-  H44(nuA, {
-    isArrayBuffer: () => E44
-  });
-  auA.exports = w44(nuA);
-  var E44 = K44((A) => typeof ArrayBuffer === "function" && A instanceof ArrayBuffer || Object.prototype.toString.call(A) === "[object ArrayBuffer]", "isArrayBuffer")
-})
-// @from(Start 3067534, End 3068882)
-MZ = z((g38, tuA) => {
-  var {
-    defineProperty: DQ1,
-    getOwnPropertyDescriptor: U44,
-    getOwnPropertyNames: N44
-  } = Object, $44 = Object.prototype.hasOwnProperty, ruA = (A, B) => DQ1(A, "name", {
-    value: B,
-    configurable: !0
-  }), q44 = (A, B) => {
-    for (var Q in B) DQ1(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, M44 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of N44(B))
-        if (!$44.call(A, G) && G !== Q) DQ1(A, G, {
-          get: () => B[G],
-          enumerable: !(I = U44(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, L44 = (A) => M44(DQ1({}, "__esModule", {
-    value: !0
-  }), A), ouA = {};
-  q44(ouA, {
-    fromArrayBuffer: () => O44,
-    fromString: () => T44
-  });
-  tuA.exports = L44(ouA);
-  var R44 = suA(),
-    z_1 = Z1("buffer"),
-    O44 = ruA((A, B = 0, Q = A.byteLength - B) => {
-      if (!R44.isArrayBuffer(A)) throw new TypeError(`The "input" argument must be ArrayBuffer. Received type ${typeof A} (${A})`);
-      return z_1.Buffer.from(A, B, Q)
-    }, "fromArrayBuffer"),
-    T44 = ruA((A, B) => {
-      if (typeof A !== "string") throw new TypeError(`The "input" argument must be of type string. Received type ${typeof A} (${A})`);
-      return B ? z_1.Buffer.from(A, B) : z_1.Buffer.from(A)
-    }, "fromString")
-})
-// @from(Start 3068888, End 3069378)
-BpA = z((euA) => {
-  Object.defineProperty(euA, "__esModule", {
-    value: !0
-  });
-  euA.fromBase64 = void 0;
-  var P44 = MZ(),
-    S44 = /^[A-Za-z0-9+/]*={0,2}$/,
-    _44 = (A) => {
-      if (A.length * 3 % 4 !== 0) throw new TypeError("Incorrect padding on base64 string.");
-      if (!S44.exec(A)) throw new TypeError("Invalid base64 string.");
-      let B = P44.fromString(A, "base64");
-      return new Uint8Array(B.buffer, B.byteOffset, B.byteLength)
-    };
-  euA.fromBase64 = _44
-})
-// @from(Start 3069384, End 3071039)
-RQ = z((m38, ZpA) => {
-  var {
-    defineProperty: YQ1,
-    getOwnPropertyDescriptor: j44,
-    getOwnPropertyNames: y44
-  } = Object, k44 = Object.prototype.hasOwnProperty, w_1 = (A, B) => YQ1(A, "name", {
-    value: B,
-    configurable: !0
-  }), x44 = (A, B) => {
-    for (var Q in B) YQ1(A, Q, {
-      get: B[Q],
-      enumerable: !0
-    })
-  }, f44 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of y44(B))
-        if (!k44.call(A, G) && G !== Q) YQ1(A, G, {
-          get: () => B[G],
-          enumerable: !(I = j44(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, v44 = (A) => f44(YQ1({}, "__esModule", {
-    value: !0
-  }), A), QpA = {};
-  x44(QpA, {
-    fromUtf8: () => GpA,
-    toUint8Array: () => b44,
-    toUtf8: () => g44
-  });
-  ZpA.exports = v44(QpA);
-  var IpA = MZ(),
-    GpA = w_1((A) => {
-      let B = IpA.fromString(A, "utf8");
-      return new Uint8Array(B.buffer, B.byteOffset, B.byteLength / Uint8Array.BYTES_PER_ELEMENT)
-    }, "fromUtf8"),
-    b44 = w_1((A) => {
-      if (typeof A === "string") return GpA(A);
-      if (ArrayBuffer.isView(A)) return new Uint8Array(A.buffer, A.byteOffset, A.byteLength / Uint8Array.BYTES_PER_ELEMENT);
-      return new Uint8Array(A)
-    }, "toUint8Array"),
-    g44 = w_1((A) => {
-      if (typeof A === "string") return A;
-      if (typeof A !== "object" || typeof A.byteOffset !== "number" || typeof A.byteLength !== "number") throw new Error("@smithy/util-utf8: toUtf8 encoder function only accepts string | Uint8Array.");
-      return IpA.fromArrayBuffer(A.buffer, A.byteOffset, A.byteLength).toString("utf8")
-    }, "toUtf8")
-})
-// @from(Start 3071045, End 3071618)
-WpA = z((DpA) => {
-  Object.defineProperty(DpA, "__esModule", {
-    value: !0
-  });
-  DpA.toBase64 = void 0;
-  var h44 = MZ(),
-    m44 = RQ(),
-    d44 = (A) => {
-      let B;
-      if (typeof A === "string") B = m44.fromUtf8(A);
-      else B = A;
-      if (typeof B !== "object" || typeof B.byteOffset !== "number" || typeof B.byteLength !== "number") throw new Error("@smithy/util-base64: toBase64 encoder function only accepts string | Uint8Array.");
-      return h44.fromArrayBuffer(B.buffer, B.byteOffset, B.byteLength).toString("base64")
-    };
-  DpA.toBase64 = d44
-})
-// @from(Start 3071624, End 3072319)
-Wb = z((u38, WQ1) => {
-  var {
-    defineProperty: JpA,
-    getOwnPropertyDescriptor: u44,
-    getOwnPropertyNames: p44
-  } = Object, c44 = Object.prototype.hasOwnProperty, E_1 = (A, B, Q, I) => {
-    if (B && typeof B === "object" || typeof B === "function") {
-      for (let G of p44(B))
-        if (!c44.call(A, G) && G !== Q) JpA(A, G, {
-          get: () => B[G],
-          enumerable: !(I = u44(B, G)) || I.enumerable
-        })
-    }
-    return A
-  }, FpA = (A, B, Q) => (E_1(A, B, "default"), Q && E_1(Q, B, "default")), l44 = (A) => E_1(JpA({}, "__esModule", {
-    value: !0
-  }), A), U_1 = {};
-  WQ1.exports = l44(U_1);
-  FpA(U_1, BpA(), WQ1.exports);
-  FpA(U_1, WpA(), WQ1.exports)
-})
-// @from(Start 3072325, End 3073732)
-N_1 = z((VpA) => {
-  Object.defineProperty(VpA, "__esModule", {
-    value: !0
-  });
-  VpA.ChecksumStream = void 0;
-  var i44 = Wb(),
-    n44 = Z1("stream");
-  class XpA extends n44.Duplex {
-    constructor({
-      expectedChecksum: A,
-      checksum: B,
-      source: Q,
-      checksumSourceLocation: I,
-      base64Encoder: G
-    }) {
-      var Z, D;
-      super();
-      if (typeof Q.pipe === "function") this.source = Q;
-      else throw new Error(`@smithy/util-stream: unsupported source type ${(D=(Z=Q===null||Q===void 0?void 0:Q.constructor)===null||Z===void 0?void 0:Z.name)!==null&&D!==void 0?D:Q} in ChecksumStream.`);
-      this.base64Encoder = G !== null && G !== void 0 ? G : i44.toBase64, this.expectedChecksum = A, this.checksum = B, this.checksumSourceLocation = I, this.source.pipe(this)
-    }
-    _read(A) {}
-    _write(A, B, Q) {
-      try {
-        this.checksum.update(A), this.push(A)
-      } catch (I) {
-        return Q(I)
-      }
-      return Q()
-    }
-    async _final(A) {
-      try {
-        let B = await this.checksum.digest(),
-          Q = this.base64Encoder(B);
-        if (this.expectedChecksum !== Q) return A(new Error(`Checksum mismatch: expected "${this.expectedChecksum}" but received "${Q}" in response header "${this.checksumSourceLocation}".`))
-      } catch (B) {
-        return A(B)
-      }
-      return this.push(null), A()
-    }
-  }
-  VpA.ChecksumStream = XpA
-})
-// @from(Start 3073738, End 3074384)
-NL = z((KpA) => {
-  Object.defineProperty(KpA, "__esModule", {
-    value: !0
-  });
-  KpA.isBlob = KpA.isReadableStream = void 0;
-  var a44 = (A) => {
-    var B;
-    return typeof ReadableStream === "function" && (((B = A === null || A === void 0 ? void 0 : A.constructor) === null || B === void 0 ? void 0 : B.name) === ReadableStream.name || A instanceof ReadableStream)
-  };
-  KpA.isReadableStream = a44;
-  var s44 = (A) => {
-    var B;
-    return typeof Blob === "function" && (((B = A === null || A === void 0 ? void 0 : A.constructor) === null || B === void 0 ? void 0 : B.name) === Blob.name || A instanceof Blob)
-  };
-  KpA.isBlob = s44
-})
-// @from(Start 3074390, End 3074644)
-UpA = z((wpA) => {
-  Object.defineProperty(wpA, "__esModule", {
-    value: !0
-  });
-  wpA.ChecksumStream = void 0;
-  var o44 = typeof ReadableStream === "function" ? ReadableStream : function() {};
-  class zpA extends o44 {}
-  wpA.ChecksumStream = zpA
-})
-// @from(Start 3074650, End 3076052)
-qpA = z((NpA) => {
-  Object.defineProperty(NpA, "__esModule", {
-    value: !0
-  });
-  NpA.createChecksumStream = void 0;
-  var t44 = Wb(),
-    e44 = NL(),
-    A64 = UpA(),
-    B64 = ({
-      expectedChecksum: A,
-      checksum: B,
-      source: Q,
-      checksumSourceLocation: I,
-      base64Encoder: G
+    }, "getDefaultRetryBackoffStrategy"),
+    U6Q = cR(({
+      retryDelay: A,
+      retryCount: Q,
+      retryCost: B
     }) => {
-      var Z, D;
-      if (!e44.isReadableStream(Q)) throw new Error(`@smithy/util-stream: unsupported source type ${(D=(Z=Q===null||Q===void 0?void 0:Q.constructor)===null||Z===void 0?void 0:Z.name)!==null&&D!==void 0?D:Q} in ChecksumStream.`);
-      let Y = G !== null && G !== void 0 ? G : t44.toBase64;
-      if (typeof TransformStream !== "function") throw new Error("@smithy/util-stream: unable to instantiate ChecksumStream because API unavailable: ReadableStream/TransformStream.");
-      let W = new TransformStream({
-        start() {},
-        async transform(F, X) {
-          B.update(F), X.enqueue(F)
-        },
-        async flush(F) {
-          let X = await B.digest(),
-            V = Y(X);
-          if (A !== V) {
-            let C = new Error(`Checksum mismatch: expected "${A}" but received "${V}" in response header "${I}".`);
-            F.error(C)
-          } else F.terminate()
+      return {
+        getRetryCount: cR(() => Q, "getRetryCount"),
+        getRetryDelay: cR(() => Math.min(Hw1, A), "getRetryDelay"),
+        getRetryCost: cR(() => B, "getRetryCost")
+      }
+    }, "createDefaultRetryToken"),
+    Cw1 = class {
+      constructor(A) {
+        this.maxAttempts = A, this.mode = "standard", this.capacity = Dw1, this.retryBackoffStrategy = iP4(), this.maxAttemptsProvider = typeof A === "function" ? A : async () => A
+      }
+      static {
+        cR(this, "StandardRetryStrategy")
+      }
+      async acquireInitialRetryToken(A) {
+        return U6Q({
+          retryDelay: JHA,
+          retryCount: 0
+        })
+      }
+      async refreshRetryTokenForRetry(A, Q) {
+        let B = await this.getMaxAttempts();
+        if (this.shouldRetry(A, Q, B)) {
+          let G = Q.errorType;
+          this.retryBackoffStrategy.setDelayBase(G === "THROTTLING" ? N6Q : JHA);
+          let Z = this.retryBackoffStrategy.computeNextBackoffDelay(A.getRetryCount()),
+            I = Q.retryAfterHint ? Math.max(Q.retryAfterHint.getTime() - Date.now() || 0, Z) : Z,
+            Y = this.getCapacityCost(G);
+          return this.capacity -= Y, U6Q({
+            retryDelay: I,
+            retryCount: A.getRetryCount() + 1,
+            retryCost: Y
+          })
         }
-      });
-      Q.pipeThrough(W);
-      let J = W.readable;
-      return Object.setPrototypeOf(J, A64.ChecksumStream.prototype), J
-    };
-  NpA.createChecksumStream = B64
-})
-// @from(Start 3076058, End 3076444)
-RpA = z((MpA) => {
-  Object.defineProperty(MpA, "__esModule", {
-    value: !0
-  });
-  MpA.createChecksumStream = void 0;
-  var Q64 = NL(),
-    I64 = N_1(),
-    G64 = qpA();
-
-  function Z64(A) {
-    if (typeof ReadableStream === "function" && Q64.isReadableStream(A.source)) return G64.createChecksumStream(A);
-    return new I64.ChecksumStream(A)
-  }
-  MpA.createChecksumStream = Z64
-})
-// @from(Start 3076450, End 3077244)
-$_1 = z((TpA) => {
-  Object.defineProperty(TpA, "__esModule", {
-    value: !0
-  });
-  TpA.ByteArrayCollector = void 0;
-  class OpA {
-    constructor(A) {
-      this.allocByteArray = A, this.byteLength = 0, this.byteArrays = []
-    }
-    push(A) {
-      this.byteArrays.push(A), this.byteLength += A.byteLength
-    }
-    flush() {
-      if (this.byteArrays.length === 1) {
-        let Q = this.byteArrays[0];
-        return this.reset(), Q
+        throw Error("No retry token available")
       }
-      let A = this.allocByteArray(this.byteLength),
-        B = 0;
-      for (let Q = 0; Q < this.byteArrays.length; ++Q) {
-        let I = this.byteArrays[Q];
-        A.set(I, B), B += I.byteLength
+      recordSuccess(A) {
+        this.capacity = Math.max(Dw1, this.capacity + (A.getRetryCost() ?? O6Q))
       }
-      return this.reset(), A
-    }
-    reset() {
-      this.byteArrays = [], this.byteLength = 0
-    }
-  }
-  TpA.ByteArrayCollector = OpA
-})
-// @from(Start 3077250, End 3079652)
-xpA = z((ypA) => {
-  Object.defineProperty(ypA, "__esModule", {
-    value: !0
-  });
-  ypA.modeOf = ypA.sizeOf = ypA.flush = ypA.merge = ypA.createBufferedReadable = ypA.createBufferedReadableStream = void 0;
-  var D64 = $_1();
-
-  function SpA(A, B, Q) {
-    let I = A.getReader(),
-      G = !1,
-      Z = 0,
-      D = ["", new D64.ByteArrayCollector((J) => new Uint8Array(J))],
-      Y = -1,
-      W = async (J) => {
+      getCapacity() {
+        return this.capacity
+      }
+      async getMaxAttempts() {
+        try {
+          return await this.maxAttemptsProvider()
+        } catch (A) {
+          return console.warn(`Max attempts provider could not resolve. Using default of ${Kw1}`), Kw1
+        }
+      }
+      shouldRetry(A, Q, B) {
+        return A.getRetryCount() + 1 < B && this.capacity >= this.getCapacityCost(Q.errorType) && this.isRetryableError(Q.errorType)
+      }
+      getCapacityCost(A) {
+        return A === "TRANSIENT" ? M6Q : L6Q
+      }
+      isRetryableError(A) {
+        return A === "THROTTLING" || A === "TRANSIENT"
+      }
+    },
+    nP4 = class {
+      constructor(A, Q) {
+        this.maxAttemptsProvider = A, this.mode = "adaptive";
         let {
-          value: F,
-          done: X
-        } = await I.read(), V = F;
-        if (X) {
-          if (Y !== -1) {
-            let C = JQ1(D, Y);
-            if (Jb(C) > 0) J.enqueue(C)
+          rateLimiter: B
+        } = Q ?? {};
+        this.rateLimiter = B ?? new q6Q, this.standardRetryStrategy = new Cw1(A)
+      }
+      static {
+        cR(this, "AdaptiveRetryStrategy")
+      }
+      async acquireInitialRetryToken(A) {
+        return await this.rateLimiter.getSendToken(), this.standardRetryStrategy.acquireInitialRetryToken(A)
+      }
+      async refreshRetryTokenForRetry(A, Q) {
+        return this.rateLimiter.updateClientSendingRate(Q), this.standardRetryStrategy.refreshRetryTokenForRetry(A, Q)
+      }
+      recordSuccess(A) {
+        this.rateLimiter.updateClientSendingRate({}), this.standardRetryStrategy.recordSuccess(A)
+      }
+    },
+    aP4 = class extends Cw1 {
+      static {
+        cR(this, "ConfiguredRetryStrategy")
+      }
+      constructor(A, Q = JHA) {
+        super(typeof A === "function" ? A : async () => A);
+        if (typeof Q === "number") this.computeNextBackoffDelay = () => Q;
+        else this.computeNextBackoffDelay = Q
+      }
+      async refreshRetryTokenForRetry(A, Q) {
+        let B = await super.refreshRetryTokenForRetry(A, Q);
+        return B.getRetryDelay = () => this.computeNextBackoffDelay(B.getRetryCount()), B
+      }
+    }
+})
+// @from(Start 2672467, End 2686492)
+v6Q = z((Pz7, Nw1) => {
+  var {
+    defineProperty: ihA,
+    getOwnPropertyDescriptor: sP4,
+    getOwnPropertyNames: rP4
+  } = Object, oP4 = Object.prototype.hasOwnProperty, T3 = (A, Q) => ihA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), tP4 = (A, Q) => {
+    for (var B in Q) ihA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, zw1 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of rP4(Q))
+        if (!oP4.call(A, Z) && Z !== B) ihA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = sP4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, eP4 = (A, Q, B) => (zw1(A, Q, "default"), B && zw1(B, Q, "default")), Aj4 = (A) => zw1(ihA({}, "__esModule", {
+    value: !0
+  }), A), ww1 = {};
+  tP4(ww1, {
+    Client: () => Qj4,
+    Command: () => j6Q,
+    NoOpLogger: () => Uj4,
+    SENSITIVE_STRING: () => Gj4,
+    ServiceException: () => Ij4,
+    _json: () => $w1,
+    collectBody: () => Ew1.collectBody,
+    convertMap: () => $j4,
+    createAggregatedClient: () => Zj4,
+    decorateServiceException: () => S6Q,
+    emitWarningIfUnsupportedVersion: () => Xj4,
+    extendedEncodeURIComponent: () => Ew1.extendedEncodeURIComponent,
+    getArrayIfSingleItem: () => Ej4,
+    getDefaultClientConfiguration: () => Hj4,
+    getDefaultExtensionConfiguration: () => k6Q,
+    getValueFromTextNode: () => y6Q,
+    isSerializableHeaderValue: () => zj4,
+    loadConfigsForDefaultMode: () => Wj4,
+    map: () => qw1,
+    resolveDefaultRuntimeConfig: () => Cj4,
+    resolvedPath: () => Ew1.resolvedPath,
+    serializeDateTime: () => Oj4,
+    serializeFloat: () => Mj4,
+    take: () => wj4,
+    throwDefaultError: () => _6Q,
+    withBaseException: () => Yj4
+  });
+  Nw1.exports = Aj4(ww1);
+  var P6Q = uR(),
+    Qj4 = class {
+      constructor(A) {
+        this.config = A, this.middlewareStack = (0, P6Q.constructStack)()
+      }
+      static {
+        T3(this, "Client")
+      }
+      send(A, Q, B) {
+        let G = typeof Q !== "function" ? Q : void 0,
+          Z = typeof Q === "function" ? Q : B,
+          I = G === void 0 && this.config.cacheMiddleware === !0,
+          Y;
+        if (I) {
+          if (!this.handlers) this.handlers = new WeakMap;
+          let J = this.handlers;
+          if (J.has(A.constructor)) Y = J.get(A.constructor);
+          else Y = A.resolveMiddleware(this.middlewareStack, this.config, G), J.set(A.constructor, Y)
+        } else delete this.handlers, Y = A.resolveMiddleware(this.middlewareStack, this.config, G);
+        if (Z) Y(A).then((J) => Z(null, J.output), (J) => Z(J)).catch(() => {});
+        else return Y(A).then((J) => J.output)
+      }
+      destroy() {
+        this.config?.requestHandler?.destroy?.(), delete this.handlers
+      }
+    },
+    Ew1 = w5(),
+    Uw1 = Gw1(),
+    j6Q = class {
+      constructor() {
+        this.middlewareStack = (0, P6Q.constructStack)()
+      }
+      static {
+        T3(this, "Command")
+      }
+      static classBuilder() {
+        return new Bj4
+      }
+      resolveMiddlewareWithContext(A, Q, B, {
+        middlewareFn: G,
+        clientName: Z,
+        commandName: I,
+        inputFilterSensitiveLog: Y,
+        outputFilterSensitiveLog: J,
+        smithyContext: W,
+        additionalContext: X,
+        CommandCtor: V
+      }) {
+        for (let C of G.bind(this)(V, A, Q, B)) this.middlewareStack.use(C);
+        let F = A.concat(this.middlewareStack),
+          {
+            logger: K
+          } = Q,
+          D = {
+            logger: K,
+            clientName: Z,
+            commandName: I,
+            inputFilterSensitiveLog: Y,
+            outputFilterSensitiveLog: J,
+            [Uw1.SMITHY_CONTEXT_KEY]: {
+              commandInstance: this,
+              ...W
+            },
+            ...X
+          },
+          {
+            requestHandler: H
+          } = Q;
+        return F.resolve((C) => H.handle(C.request, B || {}), D)
+      }
+    },
+    Bj4 = class {
+      constructor() {
+        this._init = () => {}, this._ep = {}, this._middlewareFn = () => [], this._commandName = "", this._clientName = "", this._additionalContext = {}, this._smithyContext = {}, this._inputFilterSensitiveLog = (A) => A, this._outputFilterSensitiveLog = (A) => A, this._serializer = null, this._deserializer = null
+      }
+      static {
+        T3(this, "ClassBuilder")
+      }
+      init(A) {
+        this._init = A
+      }
+      ep(A) {
+        return this._ep = A, this
+      }
+      m(A) {
+        return this._middlewareFn = A, this
+      }
+      s(A, Q, B = {}) {
+        return this._smithyContext = {
+          service: A,
+          operation: Q,
+          ...B
+        }, this
+      }
+      c(A = {}) {
+        return this._additionalContext = A, this
+      }
+      n(A, Q) {
+        return this._clientName = A, this._commandName = Q, this
+      }
+      f(A = (B) => B, Q = (B) => B) {
+        return this._inputFilterSensitiveLog = A, this._outputFilterSensitiveLog = Q, this
+      }
+      ser(A) {
+        return this._serializer = A, this
+      }
+      de(A) {
+        return this._deserializer = A, this
+      }
+      sc(A) {
+        return this._operationSchema = A, this._smithyContext.operationSchema = A, this
+      }
+      build() {
+        let A = this,
+          Q;
+        return Q = class extends j6Q {
+          constructor(...[B]) {
+            super();
+            this.serialize = A._serializer, this.deserialize = A._deserializer, this.input = B ?? {}, A._init(this), this.schema = A._operationSchema
           }
-          J.close()
-        } else {
-          let C = jpA(V, !1);
-          if (Y !== C) {
-            if (Y >= 0) J.enqueue(JQ1(D, Y));
-            Y = C
+          static {
+            T3(this, "CommandRef")
           }
-          if (Y === -1) {
-            J.enqueue(V);
-            return
+          static getEndpointParameterInstructions() {
+            return A._ep
           }
-          let K = Jb(V);
-          Z += K;
-          let E = Jb(D[Y]);
-          if (K >= B && E === 0) J.enqueue(V);
-          else {
-            let N = _pA(D, Y, V);
-            if (!G && Z > B * 2) G = !0, Q === null || Q === void 0 || Q.warn(`@smithy/util-stream - stream chunk size ${K} is below threshold of ${B}, automatically buffering.`);
-            if (N >= B) J.enqueue(JQ1(D, Y));
-            else await W(J)
+          resolveMiddleware(B, G, Z) {
+            return this.resolveMiddlewareWithContext(B, G, Z, {
+              CommandCtor: Q,
+              middlewareFn: A._middlewareFn,
+              clientName: A._clientName,
+              commandName: A._commandName,
+              inputFilterSensitiveLog: A._inputFilterSensitiveLog,
+              outputFilterSensitiveLog: A._outputFilterSensitiveLog,
+              smithyContext: A._smithyContext,
+              additionalContext: A._additionalContext
+            })
           }
         }
-      };
-    return new ReadableStream({
-      pull: W
-    })
-  }
-  ypA.createBufferedReadableStream = SpA;
-  ypA.createBufferedReadable = SpA;
-
-  function _pA(A, B, Q) {
-    switch (B) {
-      case 0:
-        return A[0] += Q, Jb(A[0]);
-      case 1:
-      case 2:
-        return A[B].push(Q), Jb(A[B])
-    }
-  }
-  ypA.merge = _pA;
-
-  function JQ1(A, B) {
-    switch (B) {
-      case 0:
-        let Q = A[0];
-        return A[0] = "", Q;
-      case 1:
-      case 2:
-        return A[B].flush()
-    }
-    throw new Error(`@smithy/util-stream - invalid index ${B} given to flush()`)
-  }
-  ypA.flush = JQ1;
-
-  function Jb(A) {
-    var B, Q;
-    return (Q = (B = A === null || A === void 0 ? void 0 : A.byteLength) !== null && B !== void 0 ? B : A === null || A === void 0 ? void 0 : A.length) !== null && Q !== void 0 ? Q : 0
-  }
-  ypA.sizeOf = Jb;
-
-  function jpA(A, B = !0) {
-    if (B && typeof Buffer !== "undefined" && A instanceof Buffer) return 2;
-    if (A instanceof Uint8Array) return 1;
-    if (typeof A === "string") return 0;
-    return -1
-  }
-  ypA.modeOf = jpA
-})
-// @from(Start 3079658, End 3081011)
-gpA = z((vpA) => {
-  Object.defineProperty(vpA, "__esModule", {
-    value: !0
-  });
-  vpA.createBufferedReadable = void 0;
-  var V64 = Z1("node:stream"),
-    fpA = $_1(),
-    ZN = xpA(),
-    C64 = NL();
-
-  function K64(A, B, Q) {
-    if (C64.isReadableStream(A)) return ZN.createBufferedReadableStream(A, B, Q);
-    let I = new V64.Readable({
-        read() {}
-      }),
-      G = !1,
-      Z = 0,
-      D = ["", new fpA.ByteArrayCollector((W) => new Uint8Array(W)), new fpA.ByteArrayCollector((W) => Buffer.from(new Uint8Array(W)))],
-      Y = -1;
-    return A.on("data", (W) => {
-      let J = ZN.modeOf(W, !0);
-      if (Y !== J) {
-        if (Y >= 0) I.push(ZN.flush(D, Y));
-        Y = J
       }
-      if (Y === -1) {
-        I.push(W);
+    },
+    Gj4 = "***SensitiveInformation***",
+    Zj4 = T3((A, Q) => {
+      for (let B of Object.keys(A)) {
+        let G = A[B],
+          Z = T3(async function(Y, J, W) {
+            let X = new G(Y);
+            if (typeof J === "function") this.send(X, J);
+            else if (typeof W === "function") {
+              if (typeof J !== "object") throw Error(`Expected http options but got ${typeof J}`);
+              this.send(X, J || {}, W)
+            } else return this.send(X, J)
+          }, "methodImpl"),
+          I = (B[0].toLowerCase() + B.slice(1)).replace(/Command$/, "");
+        Q.prototype[I] = Z
+      }
+    }, "createAggregatedClient"),
+    Ij4 = class A extends Error {
+      static {
+        T3(this, "ServiceException")
+      }
+      constructor(Q) {
+        super(Q.message);
+        Object.setPrototypeOf(this, Object.getPrototypeOf(this).constructor.prototype), this.name = Q.name, this.$fault = Q.$fault, this.$metadata = Q.$metadata
+      }
+      static isInstance(Q) {
+        if (!Q) return !1;
+        let B = Q;
+        return A.prototype.isPrototypeOf(B) || Boolean(B.$fault) && Boolean(B.$metadata) && (B.$fault === "client" || B.$fault === "server")
+      }
+      static[Symbol.hasInstance](Q) {
+        if (!Q) return !1;
+        let B = Q;
+        if (this === A) return A.isInstance(Q);
+        if (A.isInstance(Q)) {
+          if (B.name && this.name) return this.prototype.isPrototypeOf(Q) || B.name === this.name;
+          return this.prototype.isPrototypeOf(Q)
+        }
+        return !1
+      }
+    },
+    S6Q = T3((A, Q = {}) => {
+      Object.entries(Q).filter(([, G]) => G !== void 0).forEach(([G, Z]) => {
+        if (A[G] == null || A[G] === "") A[G] = Z
+      });
+      let B = A.message || A.Message || "UnknownError";
+      return A.message = B, delete A.Message, A
+    }, "decorateServiceException"),
+    _6Q = T3(({
+      output: A,
+      parsedBody: Q,
+      exceptionCtor: B,
+      errorCode: G
+    }) => {
+      let Z = Jj4(A),
+        I = Z.httpStatusCode ? Z.httpStatusCode + "" : void 0,
+        Y = new B({
+          name: Q?.code || Q?.Code || G || I || "UnknownError",
+          $fault: "client",
+          $metadata: Z
+        });
+      throw S6Q(Y, Q)
+    }, "throwDefaultError"),
+    Yj4 = T3((A) => {
+      return ({
+        output: Q,
+        parsedBody: B,
+        errorCode: G
+      }) => {
+        _6Q({
+          output: Q,
+          parsedBody: B,
+          exceptionCtor: A,
+          errorCode: G
+        })
+      }
+    }, "withBaseException"),
+    Jj4 = T3((A) => ({
+      httpStatusCode: A.statusCode,
+      requestId: A.headers["x-amzn-requestid"] ?? A.headers["x-amzn-request-id"] ?? A.headers["x-amz-request-id"],
+      extendedRequestId: A.headers["x-amz-id-2"],
+      cfId: A.headers["x-amz-cf-id"]
+    }), "deserializeMetadata"),
+    Wj4 = T3((A) => {
+      switch (A) {
+        case "standard":
+          return {
+            retryMode: "standard", connectionTimeout: 3100
+          };
+        case "in-region":
+          return {
+            retryMode: "standard", connectionTimeout: 1100
+          };
+        case "cross-region":
+          return {
+            retryMode: "standard", connectionTimeout: 3100
+          };
+        case "mobile":
+          return {
+            retryMode: "standard", connectionTimeout: 30000
+          };
+        default:
+          return {}
+      }
+    }, "loadConfigsForDefaultMode"),
+    T6Q = !1,
+    Xj4 = T3((A) => {
+      if (A && !T6Q && parseInt(A.substring(1, A.indexOf("."))) < 16) T6Q = !0
+    }, "emitWarningIfUnsupportedVersion"),
+    Vj4 = T3((A) => {
+      let Q = [];
+      for (let B in Uw1.AlgorithmId) {
+        let G = Uw1.AlgorithmId[B];
+        if (A[G] === void 0) continue;
+        Q.push({
+          algorithmId: () => G,
+          checksumConstructor: () => A[G]
+        })
+      }
+      return {
+        addChecksumAlgorithm(B) {
+          Q.push(B)
+        },
+        checksumAlgorithms() {
+          return Q
+        }
+      }
+    }, "getChecksumConfiguration"),
+    Fj4 = T3((A) => {
+      let Q = {};
+      return A.checksumAlgorithms().forEach((B) => {
+        Q[B.algorithmId()] = B.checksumConstructor()
+      }), Q
+    }, "resolveChecksumRuntimeConfig"),
+    Kj4 = T3((A) => {
+      return {
+        setRetryStrategy(Q) {
+          A.retryStrategy = Q
+        },
+        retryStrategy() {
+          return A.retryStrategy
+        }
+      }
+    }, "getRetryConfiguration"),
+    Dj4 = T3((A) => {
+      let Q = {};
+      return Q.retryStrategy = A.retryStrategy(), Q
+    }, "resolveRetryRuntimeConfig"),
+    k6Q = T3((A) => {
+      return Object.assign(Vj4(A), Kj4(A))
+    }, "getDefaultExtensionConfiguration"),
+    Hj4 = k6Q,
+    Cj4 = T3((A) => {
+      return Object.assign(Fj4(A), Dj4(A))
+    }, "resolveDefaultRuntimeConfig"),
+    Ej4 = T3((A) => Array.isArray(A) ? A : [A], "getArrayIfSingleItem"),
+    y6Q = T3((A) => {
+      for (let B in A)
+        if (A.hasOwnProperty(B) && A[B]["#text"] !== void 0) A[B] = A[B]["#text"];
+        else if (typeof A[B] === "object" && A[B] !== null) A[B] = y6Q(A[B]);
+      return A
+    }, "getValueFromTextNode"),
+    zj4 = T3((A) => {
+      return A != null
+    }, "isSerializableHeaderValue"),
+    Uj4 = class {
+      static {
+        T3(this, "NoOpLogger")
+      }
+      trace() {}
+      debug() {}
+      info() {}
+      warn() {}
+      error() {}
+    };
+
+  function qw1(A, Q, B) {
+    let G, Z, I;
+    if (typeof Q > "u" && typeof B > "u") G = {}, I = A;
+    else if (G = A, typeof Q === "function") return Z = Q, I = B, qj4(G, Z, I);
+    else I = Q;
+    for (let Y of Object.keys(I)) {
+      if (!Array.isArray(I[Y])) {
+        G[Y] = I[Y];
+        continue
+      }
+      x6Q(G, null, I, Y)
+    }
+    return G
+  }
+  T3(qw1, "map");
+  var $j4 = T3((A) => {
+      let Q = {};
+      for (let [B, G] of Object.entries(A || {})) Q[B] = [, G];
+      return Q
+    }, "convertMap"),
+    wj4 = T3((A, Q) => {
+      let B = {};
+      for (let G in Q) x6Q(B, A, Q, G);
+      return B
+    }, "take"),
+    qj4 = T3((A, Q, B) => {
+      return qw1(A, Object.entries(B).reduce((G, [Z, I]) => {
+        if (Array.isArray(I)) G[Z] = I;
+        else if (typeof I === "function") G[Z] = [Q, I()];
+        else G[Z] = [Q, I];
+        return G
+      }, {}))
+    }, "mapWithFilter"),
+    x6Q = T3((A, Q, B, G) => {
+      if (Q !== null) {
+        let Y = B[G];
+        if (typeof Y === "function") Y = [, Y];
+        let [J = Nj4, W = Lj4, X = G] = Y;
+        if (typeof J === "function" && J(Q[X]) || typeof J !== "function" && !!J) A[G] = W(Q[X]);
         return
       }
-      let F = ZN.sizeOf(W);
-      Z += F;
-      let X = ZN.sizeOf(D[Y]);
-      if (F >= B && X === 0) I.push(W);
-      else {
-        let V = ZN.merge(D, Y, W);
-        if (!G && Z > B * 2) G = !0, Q === null || Q === void 0 || Q.warn(`@smithy/util-stream - stream chunk size ${F} is below threshold of ${B}, automatically buffering.`);
-        if (V >= B) I.push(ZN.flush(D, Y))
+      let [Z, I] = B[G];
+      if (typeof I === "function") {
+        let Y, J = Z === void 0 && (Y = I()) != null,
+          W = typeof Z === "function" && !!Z(void 0) || typeof Z !== "function" && !!Z;
+        if (J) A[G] = Y;
+        else if (W) A[G] = I()
+      } else {
+        let Y = Z === void 0 && I != null,
+          J = typeof Z === "function" && !!Z(I) || typeof Z !== "function" && !!Z;
+        if (Y || J) A[G] = I
       }
-    }), A.on("end", () => {
-      if (Y !== -1) {
-        let W = ZN.flush(D, Y);
-        if (ZN.sizeOf(W) > 0) I.push(W)
+    }, "applyInstruction"),
+    Nj4 = T3((A) => A != null, "nonNullish"),
+    Lj4 = T3((A) => A, "pass"),
+    Mj4 = T3((A) => {
+      if (A !== A) return "NaN";
+      switch (A) {
+        case 1 / 0:
+          return "Infinity";
+        case -1 / 0:
+          return "-Infinity";
+        default:
+          return A
       }
-      I.push(null)
-    }), I
-  }
-  vpA.createBufferedReadable = K64
-})
-// @from(Start 3081017, End 3081877)
-dpA = z((hpA) => {
-  Object.defineProperty(hpA, "__esModule", {
-    value: !0
-  });
-  hpA.getAwsChunkedEncodingStream = void 0;
-  var H64 = Z1("stream"),
-    z64 = (A, B) => {
-      let {
-        base64Encoder: Q,
-        bodyLengthChecker: I,
-        checksumAlgorithmFn: G,
-        checksumLocationName: Z,
-        streamHasher: D
-      } = B, Y = Q !== void 0 && G !== void 0 && Z !== void 0 && D !== void 0, W = Y ? D(G, A) : void 0, J = new H64.Readable({
-        read: () => {}
-      });
-      return A.on("data", (F) => {
-        let X = I(F) || 0;
-        J.push(`${X.toString(16)}\r
-`), J.push(F), J.push(`\r
-`)
-      }), A.on("end", async () => {
-        if (J.push(`0\r
-`), Y) {
-          let F = Q(await W);
-          J.push(`${Z}:${F}\r
-`), J.push(`\r
-`)
+    }, "serializeFloat"),
+    Oj4 = T3((A) => A.toISOString().replace(".000Z", "Z"), "serializeDateTime"),
+    $w1 = T3((A) => {
+      if (A == null) return {};
+      if (Array.isArray(A)) return A.filter((Q) => Q != null).map($w1);
+      if (typeof A === "object") {
+        let Q = {};
+        for (let B of Object.keys(A)) {
+          if (A[B] == null) continue;
+          Q[B] = $w1(A[B])
         }
-        J.push(null)
-      }), J
-    };
-  hpA.getAwsChunkedEncodingStream = z64
+        return Q
+      }
+      return A
+    }, "_json");
+  eP4(ww1, s6(), Nw1.exports)
 })
-// @from(Start 3081883, End 3082659)
-cpA = z((upA) => {
-  Object.defineProperty(upA, "__esModule", {
+// @from(Start 2686498, End 2686872)
+h6Q = z((b6Q) => {
+  Object.defineProperty(b6Q, "__esModule", {
     value: !0
   });
-  upA.headStream = void 0;
-  async function w64(A, B) {
-    var Q;
-    let I = 0,
-      G = [],
-      Z = A.getReader(),
-      D = !1;
-    while (!D) {
-      let {
-        done: J,
-        value: F
-      } = await Z.read();
-      if (F) G.push(F), I += (Q = F === null || F === void 0 ? void 0 : F.byteLength) !== null && Q !== void 0 ? Q : 0;
-      if (I >= B) break;
-      D = J
-    }
-    Z.releaseLock();
-    let Y = new Uint8Array(Math.min(B, I)),
-      W = 0;
-    for (let J of G) {
-      if (J.byteLength > Y.byteLength - W) {
-        Y.set(J.subarray(0, Y.byteLength - W), W);
-        break
-      } else Y.set(J, W);
-      W += J.length
-    }
-    return Y
-  }
-  upA.headStream = w64
+  b6Q.isStreamingPayload = void 0;
+  var Rj4 = UA("stream"),
+    Tj4 = (A) => (A === null || A === void 0 ? void 0 : A.body) instanceof Rj4.Readable || typeof ReadableStream < "u" && (A === null || A === void 0 ? void 0 : A.body) instanceof ReadableStream;
+  b6Q.isStreamingPayload = Tj4
 })
-// @from(Start 3082665, End 3083816)
-apA = z((ipA) => {
-  Object.defineProperty(ipA, "__esModule", {
-    value: !0
-  });
-  ipA.headStream = void 0;
-  var E64 = Z1("stream"),
-    U64 = cpA(),
-    N64 = NL(),
-    $64 = (A, B) => {
-      if (N64.isReadableStream(A)) return U64.headStream(A, B);
-      return new Promise((Q, I) => {
-        let G = new lpA;
-        G.limit = B, A.pipe(G), A.on("error", (Z) => {
-          G.end(), I(Z)
-        }), G.on("error", I), G.on("finish", function() {
-          let Z = new Uint8Array(Buffer.concat(this.buffers));
-          Q(Z)
+// @from(Start 2686878, End 2697541)
+D6 = z((vz7, e6Q) => {
+  var {
+    defineProperty: nhA,
+    getOwnPropertyDescriptor: Pj4,
+    getOwnPropertyNames: jj4
+  } = Object, Sj4 = Object.prototype.hasOwnProperty, MX = (A, Q) => nhA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), _j4 = (A, Q) => {
+    for (var B in Q) nhA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, kj4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of jj4(Q))
+        if (!Sj4.call(A, Z) && Z !== B) nhA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = Pj4(Q, Z)) || G.enumerable
         })
+    }
+    return A
+  }, yj4 = (A) => kj4(nhA({}, "__esModule", {
+    value: !0
+  }), A), u6Q = {};
+  _j4(u6Q, {
+    AdaptiveRetryStrategy: () => bj4,
+    CONFIG_MAX_ATTEMPTS: () => Mw1,
+    CONFIG_RETRY_MODE: () => n6Q,
+    ENV_MAX_ATTEMPTS: () => Lw1,
+    ENV_RETRY_MODE: () => i6Q,
+    NODE_MAX_ATTEMPT_CONFIG_OPTIONS: () => fj4,
+    NODE_RETRY_MODE_CONFIG_OPTIONS: () => gj4,
+    StandardRetryStrategy: () => l6Q,
+    defaultDelayDecider: () => d6Q,
+    defaultRetryDecider: () => c6Q,
+    getOmitRetryHeadersPlugin: () => uj4,
+    getRetryAfterHint: () => t6Q,
+    getRetryPlugin: () => ij4,
+    omitRetryHeadersMiddleware: () => a6Q,
+    omitRetryHeadersMiddlewareOptions: () => s6Q,
+    resolveRetryConfig: () => hj4,
+    retryMiddleware: () => r6Q,
+    retryMiddlewareOptions: () => o6Q
+  });
+  e6Q.exports = yj4(u6Q);
+  var e4A = w8Q(),
+    m6Q = YHA(),
+    fY = KW(),
+    xj4 = MX((A, Q) => {
+      let B = A,
+        G = Q?.noRetryIncrement ?? fY.NO_RETRY_INCREMENT,
+        Z = Q?.retryCost ?? fY.RETRY_COST,
+        I = Q?.timeoutRetryCost ?? fY.TIMEOUT_RETRY_COST,
+        Y = A,
+        J = MX((F) => F.name === "TimeoutError" ? I : Z, "getCapacityAmount"),
+        W = MX((F) => J(F) <= Y, "hasRetryTokens");
+      return Object.freeze({
+        hasRetryTokens: W,
+        retrieveRetryTokens: MX((F) => {
+          if (!W(F)) throw Error("No retry token available");
+          let K = J(F);
+          return Y -= K, K
+        }, "retrieveRetryTokens"),
+        releaseRetryTokens: MX((F) => {
+          Y += F ?? G, Y = Math.min(Y, B)
+        }, "releaseRetryTokens")
+      })
+    }, "getDefaultRetryQuota"),
+    d6Q = MX((A, Q) => Math.floor(Math.min(fY.MAXIMUM_RETRY_DELAY, Math.random() * 2 ** Q * A)), "defaultDelayDecider"),
+    Ud = Fw1(),
+    c6Q = MX((A) => {
+      if (!A) return !1;
+      return (0, Ud.isRetryableByTrait)(A) || (0, Ud.isClockSkewError)(A) || (0, Ud.isThrottlingError)(A) || (0, Ud.isTransientError)(A)
+    }, "defaultRetryDecider"),
+    p6Q = MX((A) => {
+      if (A instanceof Error) return A;
+      if (A instanceof Object) return Object.assign(Error(), A);
+      if (typeof A === "string") return Error(A);
+      return Error(`AWS SDK error wrapper for ${A}`)
+    }, "asSdkError"),
+    l6Q = class {
+      constructor(A, Q) {
+        this.maxAttemptsProvider = A, this.mode = fY.RETRY_MODES.STANDARD, this.retryDecider = Q?.retryDecider ?? c6Q, this.delayDecider = Q?.delayDecider ?? d6Q, this.retryQuota = Q?.retryQuota ?? xj4(fY.INITIAL_RETRY_TOKENS)
+      }
+      static {
+        MX(this, "StandardRetryStrategy")
+      }
+      shouldRetry(A, Q, B) {
+        return Q < B && this.retryDecider(A) && this.retryQuota.hasRetryTokens(A)
+      }
+      async getMaxAttempts() {
+        let A;
+        try {
+          A = await this.maxAttemptsProvider()
+        } catch (Q) {
+          A = fY.DEFAULT_MAX_ATTEMPTS
+        }
+        return A
+      }
+      async retry(A, Q, B) {
+        let G, Z = 0,
+          I = 0,
+          Y = await this.getMaxAttempts(),
+          {
+            request: J
+          } = Q;
+        if (e4A.HttpRequest.isInstance(J)) J.headers[fY.INVOCATION_ID_HEADER] = (0, m6Q.v4)();
+        while (!0) try {
+          if (e4A.HttpRequest.isInstance(J)) J.headers[fY.REQUEST_HEADER] = `attempt=${Z+1}; max=${Y}`;
+          if (B?.beforeRequest) await B.beforeRequest();
+          let {
+            response: W,
+            output: X
+          } = await A(Q);
+          if (B?.afterRequest) B.afterRequest(W);
+          return this.retryQuota.releaseRetryTokens(G), X.$metadata.attempts = Z + 1, X.$metadata.totalRetryDelay = I, {
+            response: W,
+            output: X
+          }
+        } catch (W) {
+          let X = p6Q(W);
+          if (Z++, this.shouldRetry(X, Z, Y)) {
+            G = this.retryQuota.retrieveRetryTokens(X);
+            let V = this.delayDecider((0, Ud.isThrottlingError)(X) ? fY.THROTTLING_RETRY_DELAY_BASE : fY.DEFAULT_RETRY_DELAY_BASE, Z),
+              F = vj4(X.$response),
+              K = Math.max(F || 0, V);
+            I += K, await new Promise((D) => setTimeout(D, K));
+            continue
+          }
+          if (!X.$metadata) X.$metadata = {};
+          throw X.$metadata.attempts = Z, X.$metadata.totalRetryDelay = I, X
+        }
+      }
+    },
+    vj4 = MX((A) => {
+      if (!e4A.HttpResponse.isInstance(A)) return;
+      let Q = Object.keys(A.headers).find((I) => I.toLowerCase() === "retry-after");
+      if (!Q) return;
+      let B = A.headers[Q],
+        G = Number(B);
+      if (!Number.isNaN(G)) return G * 1000;
+      return new Date(B).getTime() - Date.now()
+    }, "getDelayFromRetryAfterHeader"),
+    bj4 = class extends l6Q {
+      static {
+        MX(this, "AdaptiveRetryStrategy")
+      }
+      constructor(A, Q) {
+        let {
+          rateLimiter: B,
+          ...G
+        } = Q ?? {};
+        super(A, G);
+        this.rateLimiter = B ?? new fY.DefaultRateLimiter, this.mode = fY.RETRY_MODES.ADAPTIVE
+      }
+      async retry(A, Q) {
+        return super.retry(A, Q, {
+          beforeRequest: async () => {
+            return this.rateLimiter.getSendToken()
+          },
+          afterRequest: (B) => {
+            this.rateLimiter.updateClientSendingRate(B)
+          }
+        })
+      }
+    },
+    g6Q = w7(),
+    Lw1 = "AWS_MAX_ATTEMPTS",
+    Mw1 = "max_attempts",
+    fj4 = {
+      environmentVariableSelector: (A) => {
+        let Q = A[Lw1];
+        if (!Q) return;
+        let B = parseInt(Q);
+        if (Number.isNaN(B)) throw Error(`Environment variable ${Lw1} mast be a number, got "${Q}"`);
+        return B
+      },
+      configFileSelector: (A) => {
+        let Q = A[Mw1];
+        if (!Q) return;
+        let B = parseInt(Q);
+        if (Number.isNaN(B)) throw Error(`Shared config file entry ${Mw1} mast be a number, got "${Q}"`);
+        return B
+      },
+      default: fY.DEFAULT_MAX_ATTEMPTS
+    },
+    hj4 = MX((A) => {
+      let {
+        retryStrategy: Q,
+        retryMode: B,
+        maxAttempts: G
+      } = A, Z = (0, g6Q.normalizeProvider)(G ?? fY.DEFAULT_MAX_ATTEMPTS);
+      return Object.assign(A, {
+        maxAttempts: Z,
+        retryStrategy: async () => {
+          if (Q) return Q;
+          if (await (0, g6Q.normalizeProvider)(B)() === fY.RETRY_MODES.ADAPTIVE) return new fY.AdaptiveRetryStrategy(Z);
+          return new fY.StandardRetryStrategy(Z)
+        }
+      })
+    }, "resolveRetryConfig"),
+    i6Q = "AWS_RETRY_MODE",
+    n6Q = "retry_mode",
+    gj4 = {
+      environmentVariableSelector: (A) => A[i6Q],
+      configFileSelector: (A) => A[n6Q],
+      default: fY.DEFAULT_RETRY_MODE
+    },
+    a6Q = MX(() => (A) => async (Q) => {
+      let {
+        request: B
+      } = Q;
+      if (e4A.HttpRequest.isInstance(B)) delete B.headers[fY.INVOCATION_ID_HEADER], delete B.headers[fY.REQUEST_HEADER];
+      return A(Q)
+    }, "omitRetryHeadersMiddleware"),
+    s6Q = {
+      name: "omitRetryHeadersMiddleware",
+      tags: ["RETRY", "HEADERS", "OMIT_RETRY_HEADERS"],
+      relation: "before",
+      toMiddleware: "awsAuthMiddleware",
+      override: !0
+    },
+    uj4 = MX((A) => ({
+      applyToStack: (Q) => {
+        Q.addRelativeTo(a6Q(), s6Q)
+      }
+    }), "getOmitRetryHeadersPlugin"),
+    mj4 = v6Q(),
+    dj4 = h6Q(),
+    r6Q = MX((A) => (Q, B) => async (G) => {
+      let Z = await A.retryStrategy(),
+        I = await A.maxAttempts();
+      if (cj4(Z)) {
+        Z = Z;
+        let Y = await Z.acquireInitialRetryToken(B.partition_id),
+          J = Error(),
+          W = 0,
+          X = 0,
+          {
+            request: V
+          } = G,
+          F = e4A.HttpRequest.isInstance(V);
+        if (F) V.headers[fY.INVOCATION_ID_HEADER] = (0, m6Q.v4)();
+        while (!0) try {
+          if (F) V.headers[fY.REQUEST_HEADER] = `attempt=${W+1}; max=${I}`;
+          let {
+            response: K,
+            output: D
+          } = await Q(G);
+          return Z.recordSuccess(Y), D.$metadata.attempts = W + 1, D.$metadata.totalRetryDelay = X, {
+            response: K,
+            output: D
+          }
+        } catch (K) {
+          let D = pj4(K);
+          if (J = p6Q(K), F && (0, dj4.isStreamingPayload)(V)) throw (B.logger instanceof mj4.NoOpLogger ? console : B.logger)?.warn("An error was encountered in a non-retryable streaming request."), J;
+          try {
+            Y = await Z.refreshRetryTokenForRetry(Y, D)
+          } catch (C) {
+            if (!J.$metadata) J.$metadata = {};
+            throw J.$metadata.attempts = W + 1, J.$metadata.totalRetryDelay = X, J
+          }
+          W = Y.getRetryCount();
+          let H = Y.getRetryDelay();
+          X += H, await new Promise((C) => setTimeout(C, H))
+        }
+      } else {
+        if (Z = Z, Z?.mode) B.userAgent = [...B.userAgent || [],
+          ["cfg/retry-mode", Z.mode]
+        ];
+        return Z.retry(Q, G)
+      }
+    }, "retryMiddleware"),
+    cj4 = MX((A) => typeof A.acquireInitialRetryToken < "u" && typeof A.refreshRetryTokenForRetry < "u" && typeof A.recordSuccess < "u", "isRetryStrategyV2"),
+    pj4 = MX((A) => {
+      let Q = {
+          error: A,
+          errorType: lj4(A)
+        },
+        B = t6Q(A.$response);
+      if (B) Q.retryAfterHint = B;
+      return Q
+    }, "getRetryErrorInfo"),
+    lj4 = MX((A) => {
+      if ((0, Ud.isThrottlingError)(A)) return "THROTTLING";
+      if ((0, Ud.isTransientError)(A)) return "TRANSIENT";
+      if ((0, Ud.isServerError)(A)) return "SERVER_ERROR";
+      return "CLIENT_ERROR"
+    }, "getRetryErrorType"),
+    o6Q = {
+      name: "retryMiddleware",
+      tags: ["RETRY"],
+      step: "finalizeRequest",
+      priority: "high",
+      override: !0
+    },
+    ij4 = MX((A) => ({
+      applyToStack: (Q) => {
+        Q.add(r6Q(A), o6Q)
+      }
+    }), "getRetryPlugin"),
+    t6Q = MX((A) => {
+      if (!e4A.HttpResponse.isInstance(A)) return;
+      let Q = Object.keys(A.headers).find((I) => I.toLowerCase() === "retry-after");
+      if (!Q) return;
+      let B = A.headers[Q],
+        G = Number(B);
+      if (!Number.isNaN(G)) return new Date(G * 1000);
+      return new Date(B)
+    }, "getRetryAfterHint")
+})
+// @from(Start 2697547, End 2699285)
+Rw1 = z((Q5Q) => {
+  Object.defineProperty(Q5Q, "__esModule", {
+    value: !0
+  });
+  Q5Q.resolveHttpAuthSchemeConfig = Q5Q.resolveStsAuthConfig = Q5Q.defaultSTSHttpAuthSchemeProvider = Q5Q.defaultSTSHttpAuthSchemeParametersProvider = void 0;
+  var nj4 = MF(),
+    Ow1 = w7(),
+    aj4 = WHA(),
+    sj4 = async (A, Q, B) => {
+      return {
+        operation: (0, Ow1.getSmithyContext)(Q).operation,
+        region: await (0, Ow1.normalizeProvider)(A.region)() || (() => {
+          throw Error("expected `region` to be configured for `aws.auth#sigv4`")
+        })()
+      }
+    };
+  Q5Q.defaultSTSHttpAuthSchemeParametersProvider = sj4;
+
+  function rj4(A) {
+    return {
+      schemeId: "aws.auth#sigv4",
+      signingProperties: {
+        name: "sts",
+        region: A.region
+      },
+      propertiesExtractor: (Q, B) => ({
+        signingProperties: {
+          config: Q,
+          context: B
+        }
+      })
+    }
+  }
+
+  function A5Q(A) {
+    return {
+      schemeId: "smithy.api#noAuth"
+    }
+  }
+  var oj4 = (A) => {
+    let Q = [];
+    switch (A.operation) {
+      case "AssumeRoleWithSAML": {
+        Q.push(A5Q(A));
+        break
+      }
+      case "AssumeRoleWithWebIdentity": {
+        Q.push(A5Q(A));
+        break
+      }
+      default:
+        Q.push(rj4(A))
+    }
+    return Q
+  };
+  Q5Q.defaultSTSHttpAuthSchemeProvider = oj4;
+  var tj4 = (A) => Object.assign(A, {
+    stsClientCtor: aj4.STSClient
+  });
+  Q5Q.resolveStsAuthConfig = tj4;
+  var ej4 = (A) => {
+    let Q = Q5Q.resolveStsAuthConfig(A),
+      B = (0, nj4.resolveAwsSdkSigV4Config)(Q);
+    return Object.assign(B, {
+      authSchemePreference: (0, Ow1.normalizeProvider)(A.authSchemePreference ?? [])
+    })
+  };
+  Q5Q.resolveHttpAuthSchemeConfig = ej4
+})
+// @from(Start 2699291, End 2700178)
+IL = z((Z5Q) => {
+  Object.defineProperty(Z5Q, "__esModule", {
+    value: !0
+  });
+  Z5Q.commonParams = Z5Q.resolveClientEndpointParameters = void 0;
+  var BS4 = (A) => {
+    return Object.assign(A, {
+      useDualstackEndpoint: A.useDualstackEndpoint ?? !1,
+      useFipsEndpoint: A.useFipsEndpoint ?? !1,
+      useGlobalEndpoint: A.useGlobalEndpoint ?? !1,
+      defaultSigningName: "sts"
+    })
+  };
+  Z5Q.resolveClientEndpointParameters = BS4;
+  Z5Q.commonParams = {
+    UseGlobalEndpoint: {
+      type: "builtInParams",
+      name: "useGlobalEndpoint"
+    },
+    UseFIPS: {
+      type: "builtInParams",
+      name: "useFipsEndpoint"
+    },
+    Endpoint: {
+      type: "builtInParams",
+      name: "endpoint"
+    },
+    Region: {
+      type: "builtInParams",
+      name: "region"
+    },
+    UseDualStack: {
+      type: "builtInParams",
+      name: "useDualstackEndpoint"
+    }
+  }
+})
+// @from(Start 2700184, End 2703952)
+Y5Q = z((uz7, ZS4) => {
+  ZS4.exports = {
+    name: "@aws-sdk/client-sts",
+    description: "AWS SDK for JavaScript Sts Client for Node.js, Browser and React Native",
+    version: "3.840.0",
+    scripts: {
+      build: "concurrently 'yarn:build:cjs' 'yarn:build:es' 'yarn:build:types'",
+      "build:cjs": "node ../../scripts/compilation/inline client-sts",
+      "build:es": "tsc -p tsconfig.es.json",
+      "build:include:deps": "lerna run --scope $npm_package_name --include-dependencies build",
+      "build:types": "rimraf ./dist-types tsconfig.types.tsbuildinfo && tsc -p tsconfig.types.json",
+      "build:types:downlevel": "downlevel-dts dist-types dist-types/ts3.4",
+      clean: "rimraf ./dist-* && rimraf *.tsbuildinfo",
+      "extract:docs": "api-extractor run --local",
+      "generate:client": "node ../../scripts/generate-clients/single-service --solo sts",
+      test: "yarn g:vitest run",
+      "test:watch": "yarn g:vitest watch"
+    },
+    main: "./dist-cjs/index.js",
+    types: "./dist-types/index.d.ts",
+    module: "./dist-es/index.js",
+    sideEffects: !1,
+    dependencies: {
+      "@aws-crypto/sha256-browser": "5.2.0",
+      "@aws-crypto/sha256-js": "5.2.0",
+      "@aws-sdk/core": "3.840.0",
+      "@aws-sdk/credential-provider-node": "3.840.0",
+      "@aws-sdk/middleware-host-header": "3.840.0",
+      "@aws-sdk/middleware-logger": "3.840.0",
+      "@aws-sdk/middleware-recursion-detection": "3.840.0",
+      "@aws-sdk/middleware-user-agent": "3.840.0",
+      "@aws-sdk/region-config-resolver": "3.840.0",
+      "@aws-sdk/types": "3.840.0",
+      "@aws-sdk/util-endpoints": "3.840.0",
+      "@aws-sdk/util-user-agent-browser": "3.840.0",
+      "@aws-sdk/util-user-agent-node": "3.840.0",
+      "@smithy/config-resolver": "^4.1.4",
+      "@smithy/core": "^3.6.0",
+      "@smithy/fetch-http-handler": "^5.0.4",
+      "@smithy/hash-node": "^4.0.4",
+      "@smithy/invalid-dependency": "^4.0.4",
+      "@smithy/middleware-content-length": "^4.0.4",
+      "@smithy/middleware-endpoint": "^4.1.13",
+      "@smithy/middleware-retry": "^4.1.14",
+      "@smithy/middleware-serde": "^4.0.8",
+      "@smithy/middleware-stack": "^4.0.4",
+      "@smithy/node-config-provider": "^4.1.3",
+      "@smithy/node-http-handler": "^4.0.6",
+      "@smithy/protocol-http": "^5.1.2",
+      "@smithy/smithy-client": "^4.4.5",
+      "@smithy/types": "^4.3.1",
+      "@smithy/url-parser": "^4.0.4",
+      "@smithy/util-base64": "^4.0.0",
+      "@smithy/util-body-length-browser": "^4.0.0",
+      "@smithy/util-body-length-node": "^4.0.0",
+      "@smithy/util-defaults-mode-browser": "^4.0.21",
+      "@smithy/util-defaults-mode-node": "^4.0.21",
+      "@smithy/util-endpoints": "^3.0.6",
+      "@smithy/util-middleware": "^4.0.4",
+      "@smithy/util-retry": "^4.0.6",
+      "@smithy/util-utf8": "^4.0.0",
+      tslib: "^2.6.2"
+    },
+    devDependencies: {
+      "@tsconfig/node18": "18.2.4",
+      "@types/node": "^18.19.69",
+      concurrently: "7.0.0",
+      "downlevel-dts": "0.10.1",
+      rimraf: "3.0.2",
+      typescript: "~5.8.3"
+    },
+    engines: {
+      node: ">=18.0.0"
+    },
+    typesVersions: {
+      "<4.0": {
+        "dist-types/*": ["dist-types/ts3.4/*"]
+      }
+    },
+    files: ["dist-*/**"],
+    author: {
+      name: "AWS SDK for JavaScript Team",
+      url: "https://aws.amazon.com/javascript/"
+    },
+    license: "Apache-2.0",
+    browser: {
+      "./dist-es/runtimeConfig": "./dist-es/runtimeConfig.browser"
+    },
+    "react-native": {
+      "./dist-es/runtimeConfig": "./dist-es/runtimeConfig.native"
+    },
+    homepage: "https://github.com/aws/aws-sdk-js-v3/tree/main/clients/client-sts",
+    repository: {
+      type: "git",
+      url: "https://github.com/aws/aws-sdk-js-v3.git",
+      directory: "clients/client-sts"
+    }
+  }
+})
+// @from(Start 2703958, End 2706031)
+Tw1 = z((mz7, H5Q) => {
+  var {
+    defineProperty: ahA,
+    getOwnPropertyDescriptor: IS4,
+    getOwnPropertyNames: YS4
+  } = Object, JS4 = Object.prototype.hasOwnProperty, WS4 = (A, Q) => ahA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), XS4 = (A, Q) => {
+    for (var B in Q) ahA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, VS4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of YS4(Q))
+        if (!JS4.call(A, Z) && Z !== B) ahA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = IS4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, FS4 = (A) => VS4(ahA({}, "__esModule", {
+    value: !0
+  }), A), J5Q = {};
+  XS4(J5Q, {
+    ENV_ACCOUNT_ID: () => D5Q,
+    ENV_CREDENTIAL_SCOPE: () => K5Q,
+    ENV_EXPIRATION: () => F5Q,
+    ENV_KEY: () => W5Q,
+    ENV_SECRET: () => X5Q,
+    ENV_SESSION: () => V5Q,
+    fromEnv: () => HS4
+  });
+  H5Q.exports = FS4(J5Q);
+  var KS4 = QL(),
+    DS4 = j2(),
+    W5Q = "AWS_ACCESS_KEY_ID",
+    X5Q = "AWS_SECRET_ACCESS_KEY",
+    V5Q = "AWS_SESSION_TOKEN",
+    F5Q = "AWS_CREDENTIAL_EXPIRATION",
+    K5Q = "AWS_CREDENTIAL_SCOPE",
+    D5Q = "AWS_ACCOUNT_ID",
+    HS4 = WS4((A) => async () => {
+      A?.logger?.debug("@aws-sdk/credential-provider-env - fromEnv");
+      let Q = process.env[W5Q],
+        B = process.env[X5Q],
+        G = process.env[V5Q],
+        Z = process.env[F5Q],
+        I = process.env[K5Q],
+        Y = process.env[D5Q];
+      if (Q && B) {
+        let J = {
+          accessKeyId: Q,
+          secretAccessKey: B,
+          ...G && {
+            sessionToken: G
+          },
+          ...Z && {
+            expiration: new Date(Z)
+          },
+          ...I && {
+            credentialScope: I
+          },
+          ...Y && {
+            accountId: Y
+          }
+        };
+        return (0, KS4.setCredentialFeature)(J, "CREDENTIALS_ENV_VARS", "g"), J
+      }
+      throw new DS4.CredentialsProviderError("Unable to find environment variable credentials.", {
+        logger: A?.logger
+      })
+    }, "fromEnv")
+})
+// @from(Start 2706037, End 2717672)
+OV = z((dz7, T5Q) => {
+  var {
+    defineProperty: ohA,
+    getOwnPropertyDescriptor: CS4,
+    getOwnPropertyNames: ES4
+  } = Object, zS4 = Object.prototype.hasOwnProperty, OX = (A, Q) => ohA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), US4 = (A, Q) => {
+    for (var B in Q) ohA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, $S4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of ES4(Q))
+        if (!zS4.call(A, Z) && Z !== B) ohA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = CS4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, wS4 = (A) => $S4(ohA({}, "__esModule", {
+    value: !0
+  }), A), U5Q = {};
+  US4(U5Q, {
+    DEFAULT_MAX_RETRIES: () => N5Q,
+    DEFAULT_TIMEOUT: () => q5Q,
+    ENV_CMDS_AUTH_TOKEN: () => Sw1,
+    ENV_CMDS_FULL_URI: () => shA,
+    ENV_CMDS_RELATIVE_URI: () => rhA,
+    Endpoint: () => L5Q,
+    fromContainerMetadata: () => MS4,
+    fromInstanceMetadata: () => lS4,
+    getInstanceMetadataEndpoint: () => O5Q,
+    httpRequest: () => A8A,
+    providerConfigFromInit: () => _w1
+  });
+  T5Q.exports = wS4(U5Q);
+  var qS4 = UA("url"),
+    LS = j2(),
+    NS4 = UA("buffer"),
+    LS4 = UA("http");
+
+  function A8A(A) {
+    return new Promise((Q, B) => {
+      let G = (0, LS4.request)({
+        method: "GET",
+        ...A,
+        hostname: A.hostname?.replace(/^\[(.+)\]$/, "$1")
+      });
+      G.on("error", (Z) => {
+        B(Object.assign(new LS.ProviderError("Unable to connect to instance metadata service"), Z)), G.destroy()
+      }), G.on("timeout", () => {
+        B(new LS.ProviderError("TimeoutError from instance metadata service")), G.destroy()
+      }), G.on("response", (Z) => {
+        let {
+          statusCode: I = 400
+        } = Z;
+        if (I < 200 || 300 <= I) B(Object.assign(new LS.ProviderError("Error response received from instance metadata service"), {
+          statusCode: I
+        })), G.destroy();
+        let Y = [];
+        Z.on("data", (J) => {
+          Y.push(J)
+        }), Z.on("end", () => {
+          Q(NS4.Buffer.concat(Y)), G.destroy()
+        })
+      }), G.end()
+    })
+  }
+  OX(A8A, "httpRequest");
+  var $5Q = OX((A) => Boolean(A) && typeof A === "object" && typeof A.AccessKeyId === "string" && typeof A.SecretAccessKey === "string" && typeof A.Token === "string" && typeof A.Expiration === "string", "isImdsCredentials"),
+    w5Q = OX((A) => ({
+      accessKeyId: A.AccessKeyId,
+      secretAccessKey: A.SecretAccessKey,
+      sessionToken: A.Token,
+      expiration: new Date(A.Expiration),
+      ...A.AccountId && {
+        accountId: A.AccountId
+      }
+    }), "fromImdsCredentials"),
+    q5Q = 1000,
+    N5Q = 0,
+    _w1 = OX(({
+      maxRetries: A = N5Q,
+      timeout: Q = q5Q
+    }) => ({
+      maxRetries: A,
+      timeout: Q
+    }), "providerConfigFromInit"),
+    jw1 = OX((A, Q) => {
+      let B = A();
+      for (let G = 0; G < Q; G++) B = B.catch(A);
+      return B
+    }, "retry"),
+    shA = "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+    rhA = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+    Sw1 = "AWS_CONTAINER_AUTHORIZATION_TOKEN",
+    MS4 = OX((A = {}) => {
+      let {
+        timeout: Q,
+        maxRetries: B
+      } = _w1(A);
+      return () => jw1(async () => {
+        let G = await jS4({
+            logger: A.logger
+          }),
+          Z = JSON.parse(await OS4(Q, G));
+        if (!$5Q(Z)) throw new LS.CredentialsProviderError("Invalid response received from instance metadata service.", {
+          logger: A.logger
+        });
+        return w5Q(Z)
+      }, B)
+    }, "fromContainerMetadata"),
+    OS4 = OX(async (A, Q) => {
+      if (process.env[Sw1]) Q.headers = {
+        ...Q.headers,
+        Authorization: process.env[Sw1]
+      };
+      return (await A8A({
+        ...Q,
+        timeout: A
+      })).toString()
+    }, "requestFromEcsImds"),
+    RS4 = "169.254.170.2",
+    TS4 = {
+      localhost: !0,
+      "127.0.0.1": !0
+    },
+    PS4 = {
+      "http:": !0,
+      "https:": !0
+    },
+    jS4 = OX(async ({
+      logger: A
+    }) => {
+      if (process.env[rhA]) return {
+        hostname: RS4,
+        path: process.env[rhA]
+      };
+      if (process.env[shA]) {
+        let Q = (0, qS4.parse)(process.env[shA]);
+        if (!Q.hostname || !(Q.hostname in TS4)) throw new LS.CredentialsProviderError(`${Q.hostname} is not a valid container metadata service hostname`, {
+          tryNextLink: !1,
+          logger: A
+        });
+        if (!Q.protocol || !(Q.protocol in PS4)) throw new LS.CredentialsProviderError(`${Q.protocol} is not a valid container metadata service protocol`, {
+          tryNextLink: !1,
+          logger: A
+        });
+        return {
+          ...Q,
+          port: Q.port ? parseInt(Q.port, 10) : void 0
+        }
+      }
+      throw new LS.CredentialsProviderError(`The container metadata credential provider cannot be used unless the ${rhA} or ${shA} environment variable is set`, {
+        tryNextLink: !1,
+        logger: A
+      })
+    }, "getCmdsUri"),
+    SS4 = class A extends LS.CredentialsProviderError {
+      constructor(Q, B = !0) {
+        super(Q, B);
+        this.tryNextLink = B, this.name = "InstanceMetadataV1FallbackError", Object.setPrototypeOf(this, A.prototype)
+      }
+      static {
+        OX(this, "InstanceMetadataV1FallbackError")
+      }
+    },
+    kw1 = uI(),
+    _S4 = NJ(),
+    L5Q = ((A) => {
+      return A.IPv4 = "http://169.254.169.254", A.IPv6 = "http://[fd00:ec2::254]", A
+    })(L5Q || {}),
+    kS4 = "AWS_EC2_METADATA_SERVICE_ENDPOINT",
+    yS4 = "ec2_metadata_service_endpoint",
+    xS4 = {
+      environmentVariableSelector: (A) => A[kS4],
+      configFileSelector: (A) => A[yS4],
+      default: void 0
+    },
+    M5Q = ((A) => {
+      return A.IPv4 = "IPv4", A.IPv6 = "IPv6", A
+    })(M5Q || {}),
+    vS4 = "AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE",
+    bS4 = "ec2_metadata_service_endpoint_mode",
+    fS4 = {
+      environmentVariableSelector: (A) => A[vS4],
+      configFileSelector: (A) => A[bS4],
+      default: "IPv4"
+    },
+    O5Q = OX(async () => (0, _S4.parseUrl)(await hS4() || await gS4()), "getInstanceMetadataEndpoint"),
+    hS4 = OX(async () => (0, kw1.loadConfig)(xS4)(), "getFromEndpointConfig"),
+    gS4 = OX(async () => {
+      let A = await (0, kw1.loadConfig)(fS4)();
+      switch (A) {
+        case "IPv4":
+          return "http://169.254.169.254";
+        case "IPv6":
+          return "http://[fd00:ec2::254]";
+        default:
+          throw Error(`Unsupported endpoint mode: ${A}. Select from ${Object.values(M5Q)}`)
+      }
+    }, "getFromEndpointModeConfig"),
+    uS4 = 300,
+    mS4 = 300,
+    dS4 = "https://docs.aws.amazon.com/sdkref/latest/guide/feature-static-credentials.html",
+    C5Q = OX((A, Q) => {
+      let B = uS4 + Math.floor(Math.random() * mS4),
+        G = new Date(Date.now() + B * 1000);
+      Q.warn(`Attempting credential expiration extension due to a credential service availability issue. A refresh of these credentials will be attempted after ${new Date(G)}.
+For more information, please visit: ` + dS4);
+      let Z = A.originalExpiration ?? A.expiration;
+      return {
+        ...A,
+        ...Z ? {
+          originalExpiration: Z
+        } : {},
+        expiration: G
+      }
+    }, "getExtendedInstanceMetadataCredentials"),
+    cS4 = OX((A, Q = {}) => {
+      let B = Q?.logger || console,
+        G;
+      return async () => {
+        let Z;
+        try {
+          if (Z = await A(), Z.expiration && Z.expiration.getTime() < Date.now()) Z = C5Q(Z, B)
+        } catch (I) {
+          if (G) B.warn("Credential renew failed: ", I), Z = C5Q(G, B);
+          else throw I
+        }
+        return G = Z, Z
+      }
+    }, "staticStabilityProvider"),
+    R5Q = "/latest/meta-data/iam/security-credentials/",
+    pS4 = "/latest/api/token",
+    Pw1 = "AWS_EC2_METADATA_V1_DISABLED",
+    E5Q = "ec2_metadata_v1_disabled",
+    z5Q = "x-aws-ec2-metadata-token",
+    lS4 = OX((A = {}) => cS4(iS4(A), {
+      logger: A.logger
+    }), "fromInstanceMetadata"),
+    iS4 = OX((A = {}) => {
+      let Q = !1,
+        {
+          logger: B,
+          profile: G
+        } = A,
+        {
+          timeout: Z,
+          maxRetries: I
+        } = _w1(A),
+        Y = OX(async (J, W) => {
+          if (Q || W.headers?.[z5Q] == null) {
+            let F = !1,
+              K = !1,
+              D = await (0, kw1.loadConfig)({
+                environmentVariableSelector: (H) => {
+                  let C = H[Pw1];
+                  if (K = !!C && C !== "false", C === void 0) throw new LS.CredentialsProviderError(`${Pw1} not set in env, checking config file next.`, {
+                    logger: A.logger
+                  });
+                  return K
+                },
+                configFileSelector: (H) => {
+                  let C = H[E5Q];
+                  return F = !!C && C !== "false", F
+                },
+                default: !1
+              }, {
+                profile: G
+              })();
+            if (A.ec2MetadataV1Disabled || D) {
+              let H = [];
+              if (A.ec2MetadataV1Disabled) H.push("credential provider initialization (runtime option ec2MetadataV1Disabled)");
+              if (F) H.push(`config file profile (${E5Q})`);
+              if (K) H.push(`process environment variable (${Pw1})`);
+              throw new SS4(`AWS EC2 Metadata v1 fallback has been blocked by AWS SDK configuration in the following: [${H.join(", ")}].`)
+            }
+          }
+          let V = (await jw1(async () => {
+            let F;
+            try {
+              F = await aS4(W)
+            } catch (K) {
+              if (K.statusCode === 401) Q = !1;
+              throw K
+            }
+            return F
+          }, J)).trim();
+          return jw1(async () => {
+            let F;
+            try {
+              F = await sS4(V, W, A)
+            } catch (K) {
+              if (K.statusCode === 401) Q = !1;
+              throw K
+            }
+            return F
+          }, J)
+        }, "getCredentials");
+      return async () => {
+        let J = await O5Q();
+        if (Q) return B?.debug("AWS SDK Instance Metadata", "using v1 fallback (no token fetch)"), Y(I, {
+          ...J,
+          timeout: Z
+        });
+        else {
+          let W;
+          try {
+            W = (await nS4({
+              ...J,
+              timeout: Z
+            })).toString()
+          } catch (X) {
+            if (X?.statusCode === 400) throw Object.assign(X, {
+              message: "EC2 Metadata token request returned error"
+            });
+            else if (X.message === "TimeoutError" || [403, 404, 405].includes(X.statusCode)) Q = !0;
+            return B?.debug("AWS SDK Instance Metadata", "using v1 fallback (initial)"), Y(I, {
+              ...J,
+              timeout: Z
+            })
+          }
+          return Y(I, {
+            ...J,
+            headers: {
+              [z5Q]: W
+            },
+            timeout: Z
+          })
+        }
+      }
+    }, "getInstanceMetadataProvider"),
+    nS4 = OX(async (A) => A8A({
+      ...A,
+      path: pS4,
+      method: "PUT",
+      headers: {
+        "x-aws-ec2-metadata-token-ttl-seconds": "21600"
+      }
+    }), "getMetadataToken"),
+    aS4 = OX(async (A) => (await A8A({
+      ...A,
+      path: R5Q
+    })).toString(), "getProfile"),
+    sS4 = OX(async (A, Q, B) => {
+      let G = JSON.parse((await A8A({
+        ...Q,
+        path: R5Q + A
+      })).toString());
+      if (!$5Q(G)) throw new LS.CredentialsProviderError("Invalid response received from instance metadata service.", {
+        logger: B.logger
+      });
+      return w5Q(G)
+    }, "getCredentialsFromProfile")
+})
+// @from(Start 2717678, End 2718801)
+S5Q = z((P5Q) => {
+  Object.defineProperty(P5Q, "__esModule", {
+    value: !0
+  });
+  P5Q.checkUrl = void 0;
+  var rS4 = j2(),
+    oS4 = "169.254.170.2",
+    tS4 = "169.254.170.23",
+    eS4 = "[fd00:ec2::23]",
+    A_4 = (A, Q) => {
+      if (A.protocol === "https:") return;
+      if (A.hostname === oS4 || A.hostname === tS4 || A.hostname === eS4) return;
+      if (A.hostname.includes("[")) {
+        if (A.hostname === "[::1]" || A.hostname === "[0000:0000:0000:0000:0000:0000:0000:0001]") return
+      } else {
+        if (A.hostname === "localhost") return;
+        let B = A.hostname.split("."),
+          G = (Z) => {
+            let I = parseInt(Z, 10);
+            return 0 <= I && I <= 255
+          };
+        if (B[0] === "127" && G(B[1]) && G(B[2]) && G(B[3]) && B.length === 4) return
+      }
+      throw new rS4.CredentialsProviderError(`URL not accepted. It must either be HTTPS or match one of the following:
+  - loopback CIDR 127.0.0.0/8 or [::1/128]
+  - ECS container host 169.254.170.2
+  - EKS container host 169.254.170.23 or [fd00:ec2::23]`, {
+        logger: Q
       })
     };
-  ipA.headStream = $64;
-  class lpA extends E64.Writable {
-    constructor() {
-      super(...arguments);
-      this.buffers = [], this.limit = 1 / 0, this.bytesBuffered = 0
-    }
-    _write(A, B, Q) {
-      var I;
-      if (this.buffers.push(A), this.bytesBuffered += (I = A.byteLength) !== null && I !== void 0 ? I : 0, this.bytesBuffered >= this.limit) {
-        let G = this.bytesBuffered - this.limit,
-          Z = this.buffers[this.buffers.length - 1];
-        this.buffers[this.buffers.length - 1] = Z.subarray(0, Z.byteLength - G), this.emit("finish")
+  P5Q.checkUrl = A_4
+})
+// @from(Start 2718807, End 2720548)
+k5Q = z((_5Q) => {
+  Object.defineProperty(_5Q, "__esModule", {
+    value: !0
+  });
+  _5Q.createGetRequest = Z_4;
+  _5Q.getCredentials = I_4;
+  var yw1 = j2(),
+    Q_4 = nC(),
+    B_4 = K6(),
+    G_4 = Xd();
+
+  function Z_4(A) {
+    return new Q_4.HttpRequest({
+      protocol: A.protocol,
+      hostname: A.hostname,
+      port: Number(A.port),
+      path: A.pathname,
+      query: Array.from(A.searchParams.entries()).reduce((Q, [B, G]) => {
+        return Q[B] = G, Q
+      }, {}),
+      fragment: A.hash
+    })
+  }
+  async function I_4(A, Q) {
+    let G = await (0, G_4.sdkStreamMixin)(A.body).transformToString();
+    if (A.statusCode === 200) {
+      let Z = JSON.parse(G);
+      if (typeof Z.AccessKeyId !== "string" || typeof Z.SecretAccessKey !== "string" || typeof Z.Token !== "string" || typeof Z.Expiration !== "string") throw new yw1.CredentialsProviderError("HTTP credential provider response not of the required format, an object matching: { AccessKeyId: string, SecretAccessKey: string, Token: string, Expiration: string(rfc3339) }", {
+        logger: Q
+      });
+      return {
+        accessKeyId: Z.AccessKeyId,
+        secretAccessKey: Z.SecretAccessKey,
+        sessionToken: Z.Token,
+        expiration: (0, B_4.parseRfc3339DateTime)(Z.Expiration)
       }
-      Q()
+    }
+    if (A.statusCode >= 400 && A.statusCode < 500) {
+      let Z = {};
+      try {
+        Z = JSON.parse(G)
+      } catch (I) {}
+      throw Object.assign(new yw1.CredentialsProviderError(`Server responded with status: ${A.statusCode}`, {
+        logger: Q
+      }), {
+        Code: Z.Code,
+        Message: Z.Message
+      })
+    }
+    throw new yw1.CredentialsProviderError(`Server responded with status: ${A.statusCode}`, {
+      logger: Q
+    })
+  }
+})
+// @from(Start 2720554, End 2720924)
+v5Q = z((y5Q) => {
+  Object.defineProperty(y5Q, "__esModule", {
+    value: !0
+  });
+  y5Q.retryWrapper = void 0;
+  var W_4 = (A, Q, B) => {
+    return async () => {
+      for (let G = 0; G < Q; ++G) try {
+        return await A()
+      } catch (Z) {
+        await new Promise((I) => setTimeout(I, B))
+      }
+      return await A()
+    }
+  };
+  y5Q.retryWrapper = W_4
+})
+// @from(Start 2720930, End 2723417)
+u5Q = z((h5Q) => {
+  Object.defineProperty(h5Q, "__esModule", {
+    value: !0
+  });
+  h5Q.fromHttp = void 0;
+  var X_4 = yr(),
+    V_4 = QL(),
+    F_4 = IZ(),
+    b5Q = j2(),
+    K_4 = X_4.__importDefault(UA("fs/promises")),
+    D_4 = S5Q(),
+    f5Q = k5Q(),
+    H_4 = v5Q(),
+    C_4 = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+    E_4 = "http://169.254.170.2",
+    z_4 = "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+    U_4 = "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE",
+    $_4 = "AWS_CONTAINER_AUTHORIZATION_TOKEN",
+    w_4 = (A = {}) => {
+      A.logger?.debug("@aws-sdk/credential-provider-http - fromHttp");
+      let Q, B = A.awsContainerCredentialsRelativeUri ?? process.env[C_4],
+        G = A.awsContainerCredentialsFullUri ?? process.env[z_4],
+        Z = A.awsContainerAuthorizationToken ?? process.env[$_4],
+        I = A.awsContainerAuthorizationTokenFile ?? process.env[U_4],
+        Y = A.logger?.constructor?.name === "NoOpLogger" || !A.logger ? console.warn : A.logger.warn;
+      if (B && G) Y("@aws-sdk/credential-provider-http: you have set both awsContainerCredentialsRelativeUri and awsContainerCredentialsFullUri."), Y("awsContainerCredentialsFullUri will take precedence.");
+      if (Z && I) Y("@aws-sdk/credential-provider-http: you have set both awsContainerAuthorizationToken and awsContainerAuthorizationTokenFile."), Y("awsContainerAuthorizationToken will take precedence.");
+      if (G) Q = G;
+      else if (B) Q = `${E_4}${B}`;
+      else throw new b5Q.CredentialsProviderError(`No HTTP credential provider host provided.
+Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI.`, {
+        logger: A.logger
+      });
+      let J = new URL(Q);
+      (0, D_4.checkUrl)(J, A.logger);
+      let W = new F_4.NodeHttpHandler({
+        requestTimeout: A.timeout ?? 1000,
+        connectionTimeout: A.timeout ?? 1000
+      });
+      return (0, H_4.retryWrapper)(async () => {
+        let X = (0, f5Q.createGetRequest)(J);
+        if (Z) X.headers.Authorization = Z;
+        else if (I) X.headers.Authorization = (await K_4.default.readFile(I)).toString();
+        try {
+          let V = await W.handle(X);
+          return (0, f5Q.getCredentials)(V.response).then((F) => (0, V_4.setCredentialFeature)(F, "CREDENTIALS_HTTP", "z"))
+        } catch (V) {
+          throw new b5Q.CredentialsProviderError(String(V), {
+            logger: A.logger
+          })
+        }
+      }, A.maxRetries ?? 3, A.timeout ?? 1000)
+    };
+  h5Q.fromHttp = w_4
+})
+// @from(Start 2723423, End 2723675)
+vw1 = z((xw1) => {
+  Object.defineProperty(xw1, "__esModule", {
+    value: !0
+  });
+  xw1.fromHttp = void 0;
+  var q_4 = u5Q();
+  Object.defineProperty(xw1, "fromHttp", {
+    enumerable: !0,
+    get: function() {
+      return q_4.fromHttp
+    }
+  })
+})
+// @from(Start 2723681, End 2725369)
+fw1 = z((m5Q) => {
+  Object.defineProperty(m5Q, "__esModule", {
+    value: !0
+  });
+  m5Q.resolveHttpAuthSchemeConfig = m5Q.defaultSSOHttpAuthSchemeProvider = m5Q.defaultSSOHttpAuthSchemeParametersProvider = void 0;
+  var L_4 = MF(),
+    bw1 = w7(),
+    M_4 = async (A, Q, B) => {
+      return {
+        operation: (0, bw1.getSmithyContext)(Q).operation,
+        region: await (0, bw1.normalizeProvider)(A.region)() || (() => {
+          throw Error("expected `region` to be configured for `aws.auth#sigv4`")
+        })()
+      }
+    };
+  m5Q.defaultSSOHttpAuthSchemeParametersProvider = M_4;
+
+  function O_4(A) {
+    return {
+      schemeId: "aws.auth#sigv4",
+      signingProperties: {
+        name: "awsssoportal",
+        region: A.region
+      },
+      propertiesExtractor: (Q, B) => ({
+        signingProperties: {
+          config: Q,
+          context: B
+        }
+      })
     }
   }
+
+  function thA(A) {
+    return {
+      schemeId: "smithy.api#noAuth"
+    }
+  }
+  var R_4 = (A) => {
+    let Q = [];
+    switch (A.operation) {
+      case "GetRoleCredentials": {
+        Q.push(thA(A));
+        break
+      }
+      case "ListAccountRoles": {
+        Q.push(thA(A));
+        break
+      }
+      case "ListAccounts": {
+        Q.push(thA(A));
+        break
+      }
+      case "Logout": {
+        Q.push(thA(A));
+        break
+      }
+      default:
+        Q.push(O_4(A))
+    }
+    return Q
+  };
+  m5Q.defaultSSOHttpAuthSchemeProvider = R_4;
+  var T_4 = (A) => {
+    let Q = (0, L_4.resolveAwsSdkSigV4Config)(A);
+    return Object.assign(Q, {
+      authSchemePreference: (0, bw1.normalizeProvider)(A.authSchemePreference ?? [])
+    })
+  };
+  m5Q.resolveHttpAuthSchemeConfig = T_4
+})
+// @from(Start 2725375, End 2728963)
+c5Q = z((sz7, S_4) => {
+  S_4.exports = {
+    name: "@aws-sdk/client-sso",
+    description: "AWS SDK for JavaScript Sso Client for Node.js, Browser and React Native",
+    version: "3.840.0",
+    scripts: {
+      build: "concurrently 'yarn:build:cjs' 'yarn:build:es' 'yarn:build:types'",
+      "build:cjs": "node ../../scripts/compilation/inline client-sso",
+      "build:es": "tsc -p tsconfig.es.json",
+      "build:include:deps": "lerna run --scope $npm_package_name --include-dependencies build",
+      "build:types": "tsc -p tsconfig.types.json",
+      "build:types:downlevel": "downlevel-dts dist-types dist-types/ts3.4",
+      clean: "rimraf ./dist-* && rimraf *.tsbuildinfo",
+      "extract:docs": "api-extractor run --local",
+      "generate:client": "node ../../scripts/generate-clients/single-service --solo sso"
+    },
+    main: "./dist-cjs/index.js",
+    types: "./dist-types/index.d.ts",
+    module: "./dist-es/index.js",
+    sideEffects: !1,
+    dependencies: {
+      "@aws-crypto/sha256-browser": "5.2.0",
+      "@aws-crypto/sha256-js": "5.2.0",
+      "@aws-sdk/core": "3.840.0",
+      "@aws-sdk/middleware-host-header": "3.840.0",
+      "@aws-sdk/middleware-logger": "3.840.0",
+      "@aws-sdk/middleware-recursion-detection": "3.840.0",
+      "@aws-sdk/middleware-user-agent": "3.840.0",
+      "@aws-sdk/region-config-resolver": "3.840.0",
+      "@aws-sdk/types": "3.840.0",
+      "@aws-sdk/util-endpoints": "3.840.0",
+      "@aws-sdk/util-user-agent-browser": "3.840.0",
+      "@aws-sdk/util-user-agent-node": "3.840.0",
+      "@smithy/config-resolver": "^4.1.4",
+      "@smithy/core": "^3.6.0",
+      "@smithy/fetch-http-handler": "^5.0.4",
+      "@smithy/hash-node": "^4.0.4",
+      "@smithy/invalid-dependency": "^4.0.4",
+      "@smithy/middleware-content-length": "^4.0.4",
+      "@smithy/middleware-endpoint": "^4.1.13",
+      "@smithy/middleware-retry": "^4.1.14",
+      "@smithy/middleware-serde": "^4.0.8",
+      "@smithy/middleware-stack": "^4.0.4",
+      "@smithy/node-config-provider": "^4.1.3",
+      "@smithy/node-http-handler": "^4.0.6",
+      "@smithy/protocol-http": "^5.1.2",
+      "@smithy/smithy-client": "^4.4.5",
+      "@smithy/types": "^4.3.1",
+      "@smithy/url-parser": "^4.0.4",
+      "@smithy/util-base64": "^4.0.0",
+      "@smithy/util-body-length-browser": "^4.0.0",
+      "@smithy/util-body-length-node": "^4.0.0",
+      "@smithy/util-defaults-mode-browser": "^4.0.21",
+      "@smithy/util-defaults-mode-node": "^4.0.21",
+      "@smithy/util-endpoints": "^3.0.6",
+      "@smithy/util-middleware": "^4.0.4",
+      "@smithy/util-retry": "^4.0.6",
+      "@smithy/util-utf8": "^4.0.0",
+      tslib: "^2.6.2"
+    },
+    devDependencies: {
+      "@tsconfig/node18": "18.2.4",
+      "@types/node": "^18.19.69",
+      concurrently: "7.0.0",
+      "downlevel-dts": "0.10.1",
+      rimraf: "3.0.2",
+      typescript: "~5.8.3"
+    },
+    engines: {
+      node: ">=18.0.0"
+    },
+    typesVersions: {
+      "<4.0": {
+        "dist-types/*": ["dist-types/ts3.4/*"]
+      }
+    },
+    files: ["dist-*/**"],
+    author: {
+      name: "AWS SDK for JavaScript Team",
+      url: "https://aws.amazon.com/javascript/"
+    },
+    license: "Apache-2.0",
+    browser: {
+      "./dist-es/runtimeConfig": "./dist-es/runtimeConfig.browser"
+    },
+    "react-native": {
+      "./dist-es/runtimeConfig": "./dist-es/runtimeConfig.native"
+    },
+    homepage: "https://github.com/aws/aws-sdk-js-v3/tree/main/clients/client-sso",
+    repository: {
+      type: "git",
+      url: "https://github.com/aws/aws-sdk-js-v3.git",
+      directory: "clients/client-sso"
+    }
+  }
+})
+// @from(Start 2728969, End 2731145)
+XHA = z((rz7, r5Q) => {
+  var {
+    defineProperty: AgA,
+    getOwnPropertyDescriptor: __4,
+    getOwnPropertyNames: k_4
+  } = Object, y_4 = Object.prototype.hasOwnProperty, ehA = (A, Q) => AgA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), x_4 = (A, Q) => {
+    for (var B in Q) AgA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, v_4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of k_4(Q))
+        if (!y_4.call(A, Z) && Z !== B) AgA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = __4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, b_4 = (A) => v_4(AgA({}, "__esModule", {
+    value: !0
+  }), A), l5Q = {};
+  x_4(l5Q, {
+    NODE_APP_ID_CONFIG_OPTIONS: () => m_4,
+    UA_APP_ID_ENV_NAME: () => a5Q,
+    UA_APP_ID_INI_NAME: () => s5Q,
+    createDefaultUserAgentProvider: () => n5Q,
+    crtAvailability: () => i5Q,
+    defaultUserAgent: () => h_4
+  });
+  r5Q.exports = b_4(l5Q);
+  var p5Q = UA("os"),
+    hw1 = UA("process"),
+    i5Q = {
+      isCrtAvailable: !1
+    },
+    f_4 = ehA(() => {
+      if (i5Q.isCrtAvailable) return ["md/crt-avail"];
+      return null
+    }, "isCrtAvailable"),
+    n5Q = ehA(({
+      serviceId: A,
+      clientVersion: Q
+    }) => {
+      return async (B) => {
+        let G = [
+            ["aws-sdk-js", Q],
+            ["ua", "2.1"],
+            [`os/${(0,p5Q.platform)()}`, (0, p5Q.release)()],
+            ["lang/js"],
+            ["md/nodejs", `${hw1.versions.node}`]
+          ],
+          Z = f_4();
+        if (Z) G.push(Z);
+        if (A) G.push([`api/${A}`, Q]);
+        if (hw1.env.AWS_EXECUTION_ENV) G.push([`exec-env/${hw1.env.AWS_EXECUTION_ENV}`]);
+        let I = await B?.userAgentAppId?.();
+        return I ? [...G, [`app/${I}`]] : [...G]
+      }
+    }, "createDefaultUserAgentProvider"),
+    h_4 = n5Q,
+    g_4 = r4A(),
+    a5Q = "AWS_SDK_UA_APP_ID",
+    s5Q = "sdk_ua_app_id",
+    u_4 = "sdk-ua-app-id",
+    m_4 = {
+      environmentVariableSelector: ehA((A) => A[a5Q], "environmentVariableSelector"),
+      configFileSelector: ehA((A) => A[s5Q] ?? A[u_4], "configFileSelector"),
+      default: g_4.DEFAULT_UA_APP_ID
+    }
+})
+// @from(Start 2731151, End 2732824)
+RX = z((oz7, A3Q) => {
+  var {
+    defineProperty: QgA,
+    getOwnPropertyDescriptor: d_4,
+    getOwnPropertyNames: c_4
+  } = Object, p_4 = Object.prototype.hasOwnProperty, t5Q = (A, Q) => QgA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), l_4 = (A, Q) => {
+    for (var B in Q) QgA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, i_4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of c_4(Q))
+        if (!p_4.call(A, Z) && Z !== B) QgA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = d_4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, n_4 = (A) => i_4(QgA({}, "__esModule", {
+    value: !0
+  }), A), e5Q = {};
+  l_4(e5Q, {
+    Hash: () => r_4
+  });
+  A3Q.exports = n_4(e5Q);
+  var gw1 = hI(),
+    a_4 = O2(),
+    s_4 = UA("buffer"),
+    o5Q = UA("crypto"),
+    r_4 = class {
+      static {
+        t5Q(this, "Hash")
+      }
+      constructor(A, Q) {
+        this.algorithmIdentifier = A, this.secret = Q, this.reset()
+      }
+      update(A, Q) {
+        this.hash.update((0, a_4.toUint8Array)(uw1(A, Q)))
+      }
+      digest() {
+        return Promise.resolve(this.hash.digest())
+      }
+      reset() {
+        this.hash = this.secret ? (0, o5Q.createHmac)(this.algorithmIdentifier, uw1(this.secret)) : (0, o5Q.createHash)(this.algorithmIdentifier)
+      }
+    };
+
+  function uw1(A, Q) {
+    if (s_4.Buffer.isBuffer(A)) return A;
+    if (typeof A === "string") return (0, gw1.fromString)(A, Q);
+    if (ArrayBuffer.isView(A)) return (0, gw1.fromArrayBuffer)(A.buffer, A.byteOffset, A.byteLength);
+    return (0, gw1.fromArrayBuffer)(A)
+  }
+  t5Q(uw1, "castSourceData")
+})
+// @from(Start 2732830, End 2734261)
+TX = z((ez7, G3Q) => {
+  var {
+    defineProperty: BgA,
+    getOwnPropertyDescriptor: o_4,
+    getOwnPropertyNames: t_4
+  } = Object, e_4 = Object.prototype.hasOwnProperty, Ak4 = (A, Q) => BgA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), Qk4 = (A, Q) => {
+    for (var B in Q) BgA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, Bk4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of t_4(Q))
+        if (!e_4.call(A, Z) && Z !== B) BgA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = o_4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, Gk4 = (A) => Bk4(BgA({}, "__esModule", {
+    value: !0
+  }), A), B3Q = {};
+  Qk4(B3Q, {
+    calculateBodyLength: () => Zk4
+  });
+  G3Q.exports = Gk4(B3Q);
+  var Q3Q = UA("fs"),
+    Zk4 = Ak4((A) => {
+      if (!A) return 0;
+      if (typeof A === "string") return Buffer.byteLength(A);
+      else if (typeof A.byteLength === "number") return A.byteLength;
+      else if (typeof A.size === "number") return A.size;
+      else if (typeof A.start === "number" && typeof A.end === "number") return A.end + 1 - A.start;
+      else if (typeof A.path === "string" || Buffer.isBuffer(A.path)) return (0, Q3Q.lstatSync)(A.path).size;
+      else if (typeof A.fd === "number") return (0, Q3Q.fstatSync)(A.fd).size;
+      throw Error(`Body Length computation failed for ${A}`)
+    }, "calculateBodyLength")
+})
+// @from(Start 2734267, End 2738964)
+w3Q = z((U3Q) => {
+  Object.defineProperty(U3Q, "__esModule", {
+    value: !0
+  });
+  U3Q.ruleSet = void 0;
+  var H3Q = "required",
+    JL = "fn",
+    WL = "argv",
+    G8A = "ref",
+    Z3Q = !0,
+    I3Q = "isSet",
+    VHA = "booleanEquals",
+    Q8A = "error",
+    B8A = "endpoint",
+    Ov = "tree",
+    mw1 = "PartitionResult",
+    dw1 = "getAttr",
+    Y3Q = {
+      [H3Q]: !1,
+      type: "String"
+    },
+    J3Q = {
+      [H3Q]: !0,
+      default: !1,
+      type: "Boolean"
+    },
+    W3Q = {
+      [G8A]: "Endpoint"
+    },
+    C3Q = {
+      [JL]: VHA,
+      [WL]: [{
+        [G8A]: "UseFIPS"
+      }, !0]
+    },
+    E3Q = {
+      [JL]: VHA,
+      [WL]: [{
+        [G8A]: "UseDualStack"
+      }, !0]
+    },
+    YL = {},
+    X3Q = {
+      [JL]: dw1,
+      [WL]: [{
+        [G8A]: mw1
+      }, "supportsFIPS"]
+    },
+    z3Q = {
+      [G8A]: mw1
+    },
+    V3Q = {
+      [JL]: VHA,
+      [WL]: [!0, {
+        [JL]: dw1,
+        [WL]: [z3Q, "supportsDualStack"]
+      }]
+    },
+    F3Q = [C3Q],
+    K3Q = [E3Q],
+    D3Q = [{
+      [G8A]: "Region"
+    }],
+    Ik4 = {
+      version: "1.0",
+      parameters: {
+        Region: Y3Q,
+        UseDualStack: J3Q,
+        UseFIPS: J3Q,
+        Endpoint: Y3Q
+      },
+      rules: [{
+        conditions: [{
+          [JL]: I3Q,
+          [WL]: [W3Q]
+        }],
+        rules: [{
+          conditions: F3Q,
+          error: "Invalid Configuration: FIPS and custom endpoint are not supported",
+          type: Q8A
+        }, {
+          conditions: K3Q,
+          error: "Invalid Configuration: Dualstack and custom endpoint are not supported",
+          type: Q8A
+        }, {
+          endpoint: {
+            url: W3Q,
+            properties: YL,
+            headers: YL
+          },
+          type: B8A
+        }],
+        type: Ov
+      }, {
+        conditions: [{
+          [JL]: I3Q,
+          [WL]: D3Q
+        }],
+        rules: [{
+          conditions: [{
+            [JL]: "aws.partition",
+            [WL]: D3Q,
+            assign: mw1
+          }],
+          rules: [{
+            conditions: [C3Q, E3Q],
+            rules: [{
+              conditions: [{
+                [JL]: VHA,
+                [WL]: [Z3Q, X3Q]
+              }, V3Q],
+              rules: [{
+                endpoint: {
+                  url: "https://portal.sso-fips.{Region}.{PartitionResult#dualStackDnsSuffix}",
+                  properties: YL,
+                  headers: YL
+                },
+                type: B8A
+              }],
+              type: Ov
+            }, {
+              error: "FIPS and DualStack are enabled, but this partition does not support one or both",
+              type: Q8A
+            }],
+            type: Ov
+          }, {
+            conditions: F3Q,
+            rules: [{
+              conditions: [{
+                [JL]: VHA,
+                [WL]: [X3Q, Z3Q]
+              }],
+              rules: [{
+                conditions: [{
+                  [JL]: "stringEquals",
+                  [WL]: [{
+                    [JL]: dw1,
+                    [WL]: [z3Q, "name"]
+                  }, "aws-us-gov"]
+                }],
+                endpoint: {
+                  url: "https://portal.sso.{Region}.amazonaws.com",
+                  properties: YL,
+                  headers: YL
+                },
+                type: B8A
+              }, {
+                endpoint: {
+                  url: "https://portal.sso-fips.{Region}.{PartitionResult#dnsSuffix}",
+                  properties: YL,
+                  headers: YL
+                },
+                type: B8A
+              }],
+              type: Ov
+            }, {
+              error: "FIPS is enabled but this partition does not support FIPS",
+              type: Q8A
+            }],
+            type: Ov
+          }, {
+            conditions: K3Q,
+            rules: [{
+              conditions: [V3Q],
+              rules: [{
+                endpoint: {
+                  url: "https://portal.sso.{Region}.{PartitionResult#dualStackDnsSuffix}",
+                  properties: YL,
+                  headers: YL
+                },
+                type: B8A
+              }],
+              type: Ov
+            }, {
+              error: "DualStack is enabled but this partition does not support DualStack",
+              type: Q8A
+            }],
+            type: Ov
+          }, {
+            endpoint: {
+              url: "https://portal.sso.{Region}.{PartitionResult#dnsSuffix}",
+              properties: YL,
+              headers: YL
+            },
+            type: B8A
+          }],
+          type: Ov
+        }],
+        type: Ov
+      }, {
+        error: "Invalid Configuration: Missing Region",
+        type: Q8A
+      }]
+    };
+  U3Q.ruleSet = Ik4
+})
+// @from(Start 2738970, End 2739534)
+L3Q = z((q3Q) => {
+  Object.defineProperty(q3Q, "__esModule", {
+    value: !0
+  });
+  q3Q.defaultEndpointResolver = void 0;
+  var Yk4 = p4A(),
+    cw1 = FI(),
+    Jk4 = w3Q(),
+    Wk4 = new cw1.EndpointCache({
+      size: 50,
+      params: ["Endpoint", "Region", "UseDualStack", "UseFIPS"]
+    }),
+    Xk4 = (A, Q = {}) => {
+      return Wk4.get(A, () => (0, cw1.resolveEndpoint)(Jk4.ruleSet, {
+        endpointParams: A,
+        logger: Q.logger
+      }))
+    };
+  q3Q.defaultEndpointResolver = Xk4;
+  cw1.customEndpointFunctions.aws = Yk4.awsEndpointFunctions
+})
+// @from(Start 2739540, End 2740949)
+P3Q = z((R3Q) => {
+  Object.defineProperty(R3Q, "__esModule", {
+    value: !0
+  });
+  R3Q.getRuntimeConfig = void 0;
+  var Vk4 = MF(),
+    Fk4 = iB(),
+    Kk4 = K6(),
+    Dk4 = NJ(),
+    M3Q = Fd(),
+    O3Q = O2(),
+    Hk4 = fw1(),
+    Ck4 = L3Q(),
+    Ek4 = (A) => {
+      return {
+        apiVersion: "2019-06-10",
+        base64Decoder: A?.base64Decoder ?? M3Q.fromBase64,
+        base64Encoder: A?.base64Encoder ?? M3Q.toBase64,
+        disableHostPrefix: A?.disableHostPrefix ?? !1,
+        endpointProvider: A?.endpointProvider ?? Ck4.defaultEndpointResolver,
+        extensions: A?.extensions ?? [],
+        httpAuthSchemeProvider: A?.httpAuthSchemeProvider ?? Hk4.defaultSSOHttpAuthSchemeProvider,
+        httpAuthSchemes: A?.httpAuthSchemes ?? [{
+          schemeId: "aws.auth#sigv4",
+          identityProvider: (Q) => Q.getIdentityProvider("aws.auth#sigv4"),
+          signer: new Vk4.AwsSdkSigV4Signer
+        }, {
+          schemeId: "smithy.api#noAuth",
+          identityProvider: (Q) => Q.getIdentityProvider("smithy.api#noAuth") || (async () => ({})),
+          signer: new Fk4.NoAuthSigner
+        }],
+        logger: A?.logger ?? new Kk4.NoOpLogger,
+        serviceId: A?.serviceId ?? "SSO",
+        urlParser: A?.urlParser ?? Dk4.parseUrl,
+        utf8Decoder: A?.utf8Decoder ?? O3Q.fromUtf8,
+        utf8Encoder: A?.utf8Encoder ?? O3Q.toUtf8
+      }
+    };
+  R3Q.getRuntimeConfig = Ek4
+})
+// @from(Start 2740955, End 2743993)
+PX = z((GU7, x3Q) => {
+  var {
+    create: zk4,
+    defineProperty: FHA,
+    getOwnPropertyDescriptor: Uk4,
+    getOwnPropertyNames: $k4,
+    getPrototypeOf: wk4
+  } = Object, qk4 = Object.prototype.hasOwnProperty, pw1 = (A, Q) => FHA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), Nk4 = (A, Q) => {
+    for (var B in Q) FHA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, k3Q = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of $k4(Q))
+        if (!qk4.call(A, Z) && Z !== B) FHA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = Uk4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, Lk4 = (A, Q, B) => (B = A != null ? zk4(wk4(A)) : {}, k3Q(Q || !A || !A.__esModule ? FHA(B, "default", {
+    value: A,
+    enumerable: !0
+  }) : B, A)), Mk4 = (A) => k3Q(FHA({}, "__esModule", {
+    value: !0
+  }), A), y3Q = {};
+  Nk4(y3Q, {
+    resolveDefaultsModeConfig: () => xk4
+  });
+  x3Q.exports = Mk4(y3Q);
+  var Ok4 = f8(),
+    j3Q = uI(),
+    Rk4 = j2(),
+    Tk4 = "AWS_EXECUTION_ENV",
+    S3Q = "AWS_REGION",
+    _3Q = "AWS_DEFAULT_REGION",
+    Pk4 = "AWS_EC2_METADATA_DISABLED",
+    jk4 = ["in-region", "cross-region", "mobile", "standard", "legacy"],
+    Sk4 = "/latest/meta-data/placement/region",
+    _k4 = "AWS_DEFAULTS_MODE",
+    kk4 = "defaults_mode",
+    yk4 = {
+      environmentVariableSelector: (A) => {
+        return A[_k4]
+      },
+      configFileSelector: (A) => {
+        return A[kk4]
+      },
+      default: "legacy"
+    },
+    xk4 = pw1(({
+      region: A = (0, j3Q.loadConfig)(Ok4.NODE_REGION_CONFIG_OPTIONS),
+      defaultsMode: Q = (0, j3Q.loadConfig)(yk4)
+    } = {}) => (0, Rk4.memoize)(async () => {
+      let B = typeof Q === "function" ? await Q() : Q;
+      switch (B?.toLowerCase()) {
+        case "auto":
+          return vk4(A);
+        case "in-region":
+        case "cross-region":
+        case "mobile":
+        case "standard":
+        case "legacy":
+          return Promise.resolve(B?.toLocaleLowerCase());
+        case void 0:
+          return Promise.resolve("legacy");
+        default:
+          throw Error(`Invalid parameter for "defaultsMode", expect ${jk4.join(", ")}, got ${B}`)
+      }
+    }), "resolveDefaultsModeConfig"),
+    vk4 = pw1(async (A) => {
+      if (A) {
+        let Q = typeof A === "function" ? await A() : A,
+          B = await bk4();
+        if (!B) return "standard";
+        if (Q === B) return "in-region";
+        else return "cross-region"
+      }
+      return "standard"
+    }, "resolveNodeDefaultsModeAuto"),
+    bk4 = pw1(async () => {
+      if (process.env[Tk4] && (process.env[S3Q] || process.env[_3Q])) return process.env[S3Q] ?? process.env[_3Q];
+      if (!process.env[Pk4]) try {
+        let {
+          getInstanceMetadataEndpoint: A,
+          httpRequest: Q
+        } = await Promise.resolve().then(() => Lk4(OV())), B = await A();
+        return (await Q({
+          ...B,
+          path: Sk4
+        })).toString()
+      } catch (A) {}
+    }, "inferPhysicalRegion")
+})
+// @from(Start 2743999, End 2746298)
+m3Q = z((g3Q) => {
+  Object.defineProperty(g3Q, "__esModule", {
+    value: !0
+  });
+  g3Q.getRuntimeConfig = void 0;
+  var fk4 = yr(),
+    hk4 = fk4.__importDefault(c5Q()),
+    v3Q = MF(),
+    b3Q = XHA(),
+    GgA = f8(),
+    gk4 = RX(),
+    f3Q = D6(),
+    dr = uI(),
+    h3Q = IZ(),
+    uk4 = TX(),
+    mk4 = KW(),
+    dk4 = P3Q(),
+    ck4 = K6(),
+    pk4 = PX(),
+    lk4 = K6(),
+    ik4 = (A) => {
+      (0, lk4.emitWarningIfUnsupportedVersion)(process.version);
+      let Q = (0, pk4.resolveDefaultsModeConfig)(A),
+        B = () => Q().then(ck4.loadConfigsForDefaultMode),
+        G = (0, dk4.getRuntimeConfig)(A);
+      (0, v3Q.emitWarningIfUnsupportedVersion)(process.version);
+      let Z = {
+        profile: A?.profile,
+        logger: G.logger
+      };
+      return {
+        ...G,
+        ...A,
+        runtime: "node",
+        defaultsMode: Q,
+        authSchemePreference: A?.authSchemePreference ?? (0, dr.loadConfig)(v3Q.NODE_AUTH_SCHEME_PREFERENCE_OPTIONS, Z),
+        bodyLengthChecker: A?.bodyLengthChecker ?? uk4.calculateBodyLength,
+        defaultUserAgentProvider: A?.defaultUserAgentProvider ?? (0, b3Q.createDefaultUserAgentProvider)({
+          serviceId: G.serviceId,
+          clientVersion: hk4.default.version
+        }),
+        maxAttempts: A?.maxAttempts ?? (0, dr.loadConfig)(f3Q.NODE_MAX_ATTEMPT_CONFIG_OPTIONS, A),
+        region: A?.region ?? (0, dr.loadConfig)(GgA.NODE_REGION_CONFIG_OPTIONS, {
+          ...GgA.NODE_REGION_CONFIG_FILE_OPTIONS,
+          ...Z
+        }),
+        requestHandler: h3Q.NodeHttpHandler.create(A?.requestHandler ?? B),
+        retryMode: A?.retryMode ?? (0, dr.loadConfig)({
+          ...f3Q.NODE_RETRY_MODE_CONFIG_OPTIONS,
+          default: async () => (await B()).retryMode || mk4.DEFAULT_RETRY_MODE
+        }, A),
+        sha256: A?.sha256 ?? gk4.Hash.bind(null, "sha256"),
+        streamCollector: A?.streamCollector ?? h3Q.streamCollector,
+        useDualstackEndpoint: A?.useDualstackEndpoint ?? (0, dr.loadConfig)(GgA.NODE_USE_DUALSTACK_ENDPOINT_CONFIG_OPTIONS, Z),
+        useFipsEndpoint: A?.useFipsEndpoint ?? (0, dr.loadConfig)(GgA.NODE_USE_FIPS_ENDPOINT_CONFIG_OPTIONS, Z),
+        userAgentAppId: A?.userAgentAppId ?? (0, dr.loadConfig)(b3Q.NODE_APP_ID_CONFIG_OPTIONS, Z)
+      }
+    };
+  g3Q.getRuntimeConfig = ik4
+})
+// @from(Start 2746304, End 2748907)
+KHA = z((IU7, n3Q) => {
+  var {
+    defineProperty: ZgA,
+    getOwnPropertyDescriptor: nk4,
+    getOwnPropertyNames: ak4
+  } = Object, sk4 = Object.prototype.hasOwnProperty, MS = (A, Q) => ZgA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), rk4 = (A, Q) => {
+    for (var B in Q) ZgA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, ok4 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of ak4(Q))
+        if (!sk4.call(A, Z) && Z !== B) ZgA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = nk4(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, tk4 = (A) => ok4(ZgA({}, "__esModule", {
+    value: !0
+  }), A), c3Q = {};
+  rk4(c3Q, {
+    NODE_REGION_CONFIG_FILE_OPTIONS: () => By4,
+    NODE_REGION_CONFIG_OPTIONS: () => Qy4,
+    REGION_ENV_NAME: () => p3Q,
+    REGION_INI_NAME: () => l3Q,
+    getAwsRegionExtensionConfiguration: () => ek4,
+    resolveAwsRegionExtensionConfiguration: () => Ay4,
+    resolveRegionConfig: () => Gy4
+  });
+  n3Q.exports = tk4(c3Q);
+  var ek4 = MS((A) => {
+      return {
+        setRegion(Q) {
+          A.region = Q
+        },
+        region() {
+          return A.region
+        }
+      }
+    }, "getAwsRegionExtensionConfiguration"),
+    Ay4 = MS((A) => {
+      return {
+        region: A.region()
+      }
+    }, "resolveAwsRegionExtensionConfiguration"),
+    p3Q = "AWS_REGION",
+    l3Q = "region",
+    Qy4 = {
+      environmentVariableSelector: MS((A) => A[p3Q], "environmentVariableSelector"),
+      configFileSelector: MS((A) => A[l3Q], "configFileSelector"),
+      default: MS(() => {
+        throw Error("Region is missing")
+      }, "default")
+    },
+    By4 = {
+      preferredFile: "credentials"
+    },
+    i3Q = MS((A) => typeof A === "string" && (A.startsWith("fips-") || A.endsWith("-fips")), "isFipsRegion"),
+    d3Q = MS((A) => i3Q(A) ? ["fips-aws-global", "aws-fips"].includes(A) ? "us-east-1" : A.replace(/fips-(dkr-|prod-)?|-fips/, "") : A, "getRealRegion"),
+    Gy4 = MS((A) => {
+      let {
+        region: Q,
+        useFipsEndpoint: B
+      } = A;
+      if (!Q) throw Error("Region is missing");
+      return Object.assign(A, {
+        region: MS(async () => {
+          if (typeof Q === "string") return d3Q(Q);
+          let G = await Q();
+          return d3Q(G)
+        }, "region"),
+        useFipsEndpoint: MS(async () => {
+          let G = typeof Q === "string" ? Q : await Q();
+          if (i3Q(G)) return !0;
+          return typeof B !== "function" ? Promise.resolve(!!B) : B()
+        }, "useFipsEndpoint")
+      })
+    }, "resolveRegionConfig")
 })

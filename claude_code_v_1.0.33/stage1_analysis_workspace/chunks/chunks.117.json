@@ -1,0 +1,11 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "opentelemetry",
+    "protobuf",
+    "grpc",
+    "protobufjs",
+    "grpc-js"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 opentelemetry, protobuf, grpc, protobufjs, grpc-js)"
+}

@@ -1,0 +1,9 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "grpc",
+    "protobufjs",
+    "grpc-js"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 grpc, protobufjs, grpc-js)"
+}

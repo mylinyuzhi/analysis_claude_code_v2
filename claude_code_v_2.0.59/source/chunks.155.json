@@ -1,0 +1,10 @@
+{
+  "ossProjects": [
+    "claude-code",
+    "commander",
+    "react",
+    "protobufjs",
+    "sorted-map"
+  ],
+  "purpose": "Claude Code 应用逻辑 (使用 commander, react, protobufjs, sorted-map)"
+}

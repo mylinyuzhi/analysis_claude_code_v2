@@ -1,0 +1,7 @@
+{
+  "ossProjects": [
+    "protobufjs",
+    "sorted-map"
+  ],
+  "purpose": "OSS 库代码 (protobufjs, sorted-map)"
+}

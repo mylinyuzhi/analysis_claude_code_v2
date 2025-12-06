@@ -1,0 +1,7 @@
+{
+  "ossProjects": [
+    "aws-sdk",
+    "protobufjs"
+  ],
+  "purpose": "OSS 库代码 (aws-sdk, protobufjs)"
+}

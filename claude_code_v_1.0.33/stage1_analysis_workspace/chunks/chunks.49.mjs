@@ -1,1675 +1,2790 @@
 
-// @from(Start 4988681, End 5005570)
-Fx0 = z((Wx0) => {
-  Object.defineProperty(Wx0, "__esModule", {
+// @from(Start 4498800, End 4500457)
+Fk1 = z((osQ) => {
+  Object.defineProperty(osQ, "__esModule", {
     value: !0
   });
-  Wx0.RetryingCall = Wx0.MessageBufferTracker = Wx0.RetryThrottler = void 0;
-  var pD1 = y6(),
-    BG6 = Hr(),
-    QG6 = SZ(),
-    IG6 = GB(),
-    GG6 = "retrying_call";
-  class Zx0 {
-    constructor(A, B, Q) {
-      if (this.maxTokens = A, this.tokenRatio = B, Q) this.tokens = Q.tokens * (A / Q.maxTokens);
-      else this.tokens = A
-    }
-    addCallSucceeded() {
-      this.tokens = Math.min(this.tokens + this.tokenRatio, this.maxTokens)
-    }
-    addCallFailed() {
-      this.tokens = Math.max(this.tokens - 1, 0)
-    }
-    canRetryCall() {
-      return this.tokens > this.maxTokens / 2
-    }
-  }
-  Wx0.RetryThrottler = Zx0;
-  class Dx0 {
-    constructor(A, B) {
-      this.totalLimit = A, this.limitPerCall = B, this.totalAllocated = 0, this.allocatedPerCall = new Map
-    }
-    allocate(A, B) {
-      var Q;
-      let I = (Q = this.allocatedPerCall.get(B)) !== null && Q !== void 0 ? Q : 0;
-      if (this.limitPerCall - I < A || this.totalLimit - this.totalAllocated < A) return !1;
-      return this.allocatedPerCall.set(B, I + A), this.totalAllocated += A, !0
-    }
-    free(A, B) {
-      var Q;
-      if (this.totalAllocated < A) throw new Error(`Invalid buffer allocation state: call ${B} freed ${A} > total allocated ${this.totalAllocated}`);
-      this.totalAllocated -= A;
-      let I = (Q = this.allocatedPerCall.get(B)) !== null && Q !== void 0 ? Q : 0;
-      if (I < A) throw new Error(`Invalid buffer allocation state: call ${B} freed ${A} > allocated for call ${I}`);
-      this.allocatedPerCall.set(B, I - A)
-    }
-    freeAll(A) {
-      var B;
-      let Q = (B = this.allocatedPerCall.get(A)) !== null && B !== void 0 ? B : 0;
-      if (this.totalAllocated < Q) throw new Error(`Invalid buffer allocation state: call ${A} allocated ${Q} > total allocated ${this.totalAllocated}`);
-      this.totalAllocated -= Q, this.allocatedPerCall.delete(A)
+  osQ.resolveHttpAuthSchemeConfig = osQ.resolveStsAuthConfig = osQ.defaultSTSHttpAuthSchemeProvider = osQ.defaultSTSHttpAuthSchemeParametersProvider = void 0;
+  var dy8 = jF(),
+    Vk1 = w7(),
+    cy8 = zEA(),
+    py8 = async (A, Q, B) => {
+      return {
+        operation: (0, Vk1.getSmithyContext)(Q).operation,
+        region: await (0, Vk1.normalizeProvider)(A.region)() || (() => {
+          throw Error("expected `region` to be configured for `aws.auth#sigv4`")
+        })()
+      }
+    };
+  osQ.defaultSTSHttpAuthSchemeParametersProvider = py8;
+
+  function ly8(A) {
+    return {
+      schemeId: "aws.auth#sigv4",
+      signingProperties: {
+        name: "sts",
+        region: A.region
+      },
+      propertiesExtractor: (Q, B) => ({
+        signingProperties: {
+          config: Q,
+          context: B
+        }
+      })
     }
   }
-  Wx0.MessageBufferTracker = Dx0;
-  var im1 = "grpc-previous-rpc-attempts",
-    ZG6 = 5;
-  class Yx0 {
-    constructor(A, B, Q, I, G, Z, D, Y, W) {
-      var J;
-      this.channel = A, this.callConfig = B, this.methodName = Q, this.host = I, this.credentials = G, this.deadline = Z, this.callNumber = D, this.bufferTracker = Y, this.retryThrottler = W, this.listener = null, this.initialMetadata = null, this.underlyingCalls = [], this.writeBuffer = [], this.writeBufferOffset = 0, this.readStarted = !1, this.transparentRetryUsed = !1, this.attempts = 0, this.hedgingTimer = null, this.committedCallIndex = null, this.initialRetryBackoffSec = 0, this.nextRetryBackoffSec = 0;
-      let F = (J = A.getOptions()["grpc-node.retry_max_attempts_limit"]) !== null && J !== void 0 ? J : ZG6;
-      if (A.getOptions()["grpc.enable_retries"] === 0) this.state = "NO_RETRY", this.maxAttempts = 1;
-      else if (B.methodConfig.retryPolicy) {
-        this.state = "RETRY";
-        let X = B.methodConfig.retryPolicy;
-        this.nextRetryBackoffSec = this.initialRetryBackoffSec = Number(X.initialBackoff.substring(0, X.initialBackoff.length - 1)), this.maxAttempts = Math.min(X.maxAttempts, F)
-      } else if (B.methodConfig.hedgingPolicy) this.state = "HEDGING", this.maxAttempts = Math.min(B.methodConfig.hedgingPolicy.maxAttempts, F);
-      else this.state = "TRANSPARENT_ONLY", this.maxAttempts = 1;
-      this.startTime = new Date
+
+  function iy8(A) {
+    return {
+      schemeId: "smithy.api#noAuth"
     }
-    getDeadlineInfo() {
-      if (this.underlyingCalls.length === 0) return [];
-      let A = [],
-        B = this.underlyingCalls[this.underlyingCalls.length - 1];
-      if (this.underlyingCalls.length > 1) A.push(`previous attempts: ${this.underlyingCalls.length-1}`);
-      if (B.startTime > this.startTime) A.push(`time to current attempt start: ${BG6.formatDateDifference(this.startTime,B.startTime)}`);
-      return A.push(...B.call.getDeadlineInfo()), A
+  }
+  var ny8 = (A) => {
+    let Q = [];
+    switch (A.operation) {
+      case "AssumeRoleWithWebIdentity": {
+        Q.push(iy8(A));
+        break
+      }
+      default:
+        Q.push(ly8(A))
     }
-    getCallNumber() {
-      return this.callNumber
+    return Q
+  };
+  osQ.defaultSTSHttpAuthSchemeProvider = ny8;
+  var ay8 = (A) => Object.assign(A, {
+    stsClientCtor: cy8.STSClient
+  });
+  osQ.resolveStsAuthConfig = ay8;
+  var sy8 = (A) => {
+    let Q = osQ.resolveStsAuthConfig(A),
+      B = (0, dy8.resolveAwsSdkSigV4Config)(Q);
+    return Object.assign(B, {
+      authSchemePreference: (0, Vk1.normalizeProvider)(A.authSchemePreference ?? [])
+    })
+  };
+  osQ.resolveHttpAuthSchemeConfig = sy8
+})
+// @from(Start 4500463, End 4501351)
+UEA = z((ArQ) => {
+  Object.defineProperty(ArQ, "__esModule", {
+    value: !0
+  });
+  ArQ.commonParams = ArQ.resolveClientEndpointParameters = void 0;
+  var ty8 = (A) => {
+    return Object.assign(A, {
+      useDualstackEndpoint: A.useDualstackEndpoint ?? !1,
+      useFipsEndpoint: A.useFipsEndpoint ?? !1,
+      useGlobalEndpoint: A.useGlobalEndpoint ?? !1,
+      defaultSigningName: "sts"
+    })
+  };
+  ArQ.resolveClientEndpointParameters = ty8;
+  ArQ.commonParams = {
+    UseGlobalEndpoint: {
+      type: "builtInParams",
+      name: "useGlobalEndpoint"
+    },
+    UseFIPS: {
+      type: "builtInParams",
+      name: "useFipsEndpoint"
+    },
+    Endpoint: {
+      type: "builtInParams",
+      name: "endpoint"
+    },
+    Region: {
+      type: "builtInParams",
+      name: "region"
+    },
+    UseDualStack: {
+      type: "builtInParams",
+      name: "useDualstackEndpoint"
     }
-    trace(A) {
-      IG6.trace(pD1.LogVerbosity.DEBUG, GG6, "[" + this.callNumber + "] " + A)
+  }
+})
+// @from(Start 4501357, End 4509534)
+OrQ = z((LrQ) => {
+  Object.defineProperty(LrQ, "__esModule", {
+    value: !0
+  });
+  LrQ.ruleSet = void 0;
+  var DrQ = "required",
+    c8 = "type",
+    I7 = "fn",
+    Y7 = "argv",
+    Xc = "ref",
+    BrQ = !1,
+    Kk1 = !0,
+    Wc = "booleanEquals",
+    CD = "stringEquals",
+    HrQ = "sigv4",
+    CrQ = "sts",
+    ErQ = "us-east-1",
+    oI = "endpoint",
+    GrQ = "https://sts.{Region}.{PartitionResult#dnsSuffix}",
+    G_ = "tree",
+    S5A = "error",
+    Hk1 = "getAttr",
+    ZrQ = {
+      [DrQ]: !1,
+      [c8]: "String"
+    },
+    Dk1 = {
+      [DrQ]: !0,
+      default: !1,
+      [c8]: "Boolean"
+    },
+    zrQ = {
+      [Xc]: "Endpoint"
+    },
+    IrQ = {
+      [I7]: "isSet",
+      [Y7]: [{
+        [Xc]: "Region"
+      }]
+    },
+    ED = {
+      [Xc]: "Region"
+    },
+    YrQ = {
+      [I7]: "aws.partition",
+      [Y7]: [ED],
+      assign: "PartitionResult"
+    },
+    UrQ = {
+      [Xc]: "UseFIPS"
+    },
+    $rQ = {
+      [Xc]: "UseDualStack"
+    },
+    jH = {
+      url: "https://sts.amazonaws.com",
+      properties: {
+        authSchemes: [{
+          name: HrQ,
+          signingName: CrQ,
+          signingRegion: ErQ
+        }]
+      },
+      headers: {}
+    },
+    kw = {},
+    JrQ = {
+      conditions: [{
+        [I7]: CD,
+        [Y7]: [ED, "aws-global"]
+      }],
+      [oI]: jH,
+      [c8]: oI
+    },
+    wrQ = {
+      [I7]: Wc,
+      [Y7]: [UrQ, !0]
+    },
+    qrQ = {
+      [I7]: Wc,
+      [Y7]: [$rQ, !0]
+    },
+    WrQ = {
+      [I7]: Hk1,
+      [Y7]: [{
+        [Xc]: "PartitionResult"
+      }, "supportsFIPS"]
+    },
+    NrQ = {
+      [Xc]: "PartitionResult"
+    },
+    XrQ = {
+      [I7]: Wc,
+      [Y7]: [!0, {
+        [I7]: Hk1,
+        [Y7]: [NrQ, "supportsDualStack"]
+      }]
+    },
+    VrQ = [{
+      [I7]: "isSet",
+      [Y7]: [zrQ]
+    }],
+    FrQ = [wrQ],
+    KrQ = [qrQ],
+    Ax8 = {
+      version: "1.0",
+      parameters: {
+        Region: ZrQ,
+        UseDualStack: Dk1,
+        UseFIPS: Dk1,
+        Endpoint: ZrQ,
+        UseGlobalEndpoint: Dk1
+      },
+      rules: [{
+        conditions: [{
+          [I7]: Wc,
+          [Y7]: [{
+            [Xc]: "UseGlobalEndpoint"
+          }, Kk1]
+        }, {
+          [I7]: "not",
+          [Y7]: VrQ
+        }, IrQ, YrQ, {
+          [I7]: Wc,
+          [Y7]: [UrQ, BrQ]
+        }, {
+          [I7]: Wc,
+          [Y7]: [$rQ, BrQ]
+        }],
+        rules: [{
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "ap-northeast-1"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "ap-south-1"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "ap-southeast-1"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "ap-southeast-2"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, JrQ, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "ca-central-1"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "eu-central-1"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "eu-north-1"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "eu-west-1"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "eu-west-2"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "eu-west-3"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "sa-east-1"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, ErQ]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "us-east-2"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "us-west-1"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          conditions: [{
+            [I7]: CD,
+            [Y7]: [ED, "us-west-2"]
+          }],
+          endpoint: jH,
+          [c8]: oI
+        }, {
+          endpoint: {
+            url: GrQ,
+            properties: {
+              authSchemes: [{
+                name: HrQ,
+                signingName: CrQ,
+                signingRegion: "{Region}"
+              }]
+            },
+            headers: kw
+          },
+          [c8]: oI
+        }],
+        [c8]: G_
+      }, {
+        conditions: VrQ,
+        rules: [{
+          conditions: FrQ,
+          error: "Invalid Configuration: FIPS and custom endpoint are not supported",
+          [c8]: S5A
+        }, {
+          conditions: KrQ,
+          error: "Invalid Configuration: Dualstack and custom endpoint are not supported",
+          [c8]: S5A
+        }, {
+          endpoint: {
+            url: zrQ,
+            properties: kw,
+            headers: kw
+          },
+          [c8]: oI
+        }],
+        [c8]: G_
+      }, {
+        conditions: [IrQ],
+        rules: [{
+          conditions: [YrQ],
+          rules: [{
+            conditions: [wrQ, qrQ],
+            rules: [{
+              conditions: [{
+                [I7]: Wc,
+                [Y7]: [Kk1, WrQ]
+              }, XrQ],
+              rules: [{
+                endpoint: {
+                  url: "https://sts-fips.{Region}.{PartitionResult#dualStackDnsSuffix}",
+                  properties: kw,
+                  headers: kw
+                },
+                [c8]: oI
+              }],
+              [c8]: G_
+            }, {
+              error: "FIPS and DualStack are enabled, but this partition does not support one or both",
+              [c8]: S5A
+            }],
+            [c8]: G_
+          }, {
+            conditions: FrQ,
+            rules: [{
+              conditions: [{
+                [I7]: Wc,
+                [Y7]: [WrQ, Kk1]
+              }],
+              rules: [{
+                conditions: [{
+                  [I7]: CD,
+                  [Y7]: [{
+                    [I7]: Hk1,
+                    [Y7]: [NrQ, "name"]
+                  }, "aws-us-gov"]
+                }],
+                endpoint: {
+                  url: "https://sts.{Region}.amazonaws.com",
+                  properties: kw,
+                  headers: kw
+                },
+                [c8]: oI
+              }, {
+                endpoint: {
+                  url: "https://sts-fips.{Region}.{PartitionResult#dnsSuffix}",
+                  properties: kw,
+                  headers: kw
+                },
+                [c8]: oI
+              }],
+              [c8]: G_
+            }, {
+              error: "FIPS is enabled but this partition does not support FIPS",
+              [c8]: S5A
+            }],
+            [c8]: G_
+          }, {
+            conditions: KrQ,
+            rules: [{
+              conditions: [XrQ],
+              rules: [{
+                endpoint: {
+                  url: "https://sts.{Region}.{PartitionResult#dualStackDnsSuffix}",
+                  properties: kw,
+                  headers: kw
+                },
+                [c8]: oI
+              }],
+              [c8]: G_
+            }, {
+              error: "DualStack is enabled but this partition does not support DualStack",
+              [c8]: S5A
+            }],
+            [c8]: G_
+          }, JrQ, {
+            endpoint: {
+              url: GrQ,
+              properties: kw,
+              headers: kw
+            },
+            [c8]: oI
+          }],
+          [c8]: G_
+        }],
+        [c8]: G_
+      }, {
+        error: "Invalid Configuration: Missing Region",
+        [c8]: S5A
+      }]
+    };
+  LrQ.ruleSet = Ax8
+})
+// @from(Start 4509540, End 4510125)
+PrQ = z((RrQ) => {
+  Object.defineProperty(RrQ, "__esModule", {
+    value: !0
+  });
+  RrQ.defaultEndpointResolver = void 0;
+  var Qx8 = I5A(),
+    Ck1 = FI(),
+    Bx8 = OrQ(),
+    Gx8 = new Ck1.EndpointCache({
+      size: 50,
+      params: ["Endpoint", "Region", "UseDualStack", "UseFIPS", "UseGlobalEndpoint"]
+    }),
+    Zx8 = (A, Q = {}) => {
+      return Gx8.get(A, () => (0, Ck1.resolveEndpoint)(Bx8.ruleSet, {
+        endpointParams: A,
+        logger: Q.logger
+      }))
+    };
+  RrQ.defaultEndpointResolver = Zx8;
+  Ck1.customEndpointFunctions.aws = Qx8.awsEndpointFunctions
+})
+// @from(Start 4510131, End 4511541)
+yrQ = z((_rQ) => {
+  Object.defineProperty(_rQ, "__esModule", {
+    value: !0
+  });
+  _rQ.getRuntimeConfig = void 0;
+  var Ix8 = jF(),
+    Yx8 = iB(),
+    Jx8 = LJ(),
+    Wx8 = NJ(),
+    jrQ = Ak1(),
+    SrQ = O2(),
+    Xx8 = Fk1(),
+    Vx8 = PrQ(),
+    Fx8 = (A) => {
+      return {
+        apiVersion: "2011-06-15",
+        base64Decoder: A?.base64Decoder ?? jrQ.fromBase64,
+        base64Encoder: A?.base64Encoder ?? jrQ.toBase64,
+        disableHostPrefix: A?.disableHostPrefix ?? !1,
+        endpointProvider: A?.endpointProvider ?? Vx8.defaultEndpointResolver,
+        extensions: A?.extensions ?? [],
+        httpAuthSchemeProvider: A?.httpAuthSchemeProvider ?? Xx8.defaultSTSHttpAuthSchemeProvider,
+        httpAuthSchemes: A?.httpAuthSchemes ?? [{
+          schemeId: "aws.auth#sigv4",
+          identityProvider: (Q) => Q.getIdentityProvider("aws.auth#sigv4"),
+          signer: new Ix8.AwsSdkSigV4Signer
+        }, {
+          schemeId: "smithy.api#noAuth",
+          identityProvider: (Q) => Q.getIdentityProvider("smithy.api#noAuth") || (async () => ({})),
+          signer: new Yx8.NoAuthSigner
+        }],
+        logger: A?.logger ?? new Jx8.NoOpLogger,
+        serviceId: A?.serviceId ?? "STS",
+        urlParser: A?.urlParser ?? Wx8.parseUrl,
+        utf8Decoder: A?.utf8Decoder ?? SrQ.fromUtf8,
+        utf8Encoder: A?.utf8Encoder ?? SrQ.toUtf8
+      }
+    };
+  _rQ.getRuntimeConfig = Fx8
+})
+// @from(Start 4511547, End 4514210)
+urQ = z((hrQ) => {
+  Object.defineProperty(hrQ, "__esModule", {
+    value: !0
+  });
+  hrQ.getRuntimeConfig = void 0;
+  var Kx8 = r_1(),
+    Dx8 = Kx8.__importDefault(o_1()),
+    xrQ = jF(),
+    vrQ = eCA(),
+    ypA = f8(),
+    Hx8 = iB(),
+    Cx8 = RX(),
+    brQ = D6(),
+    _5A = uI(),
+    frQ = IZ(),
+    Ex8 = TX(),
+    zx8 = KW(),
+    Ux8 = yrQ(),
+    $x8 = LJ(),
+    wx8 = PX(),
+    qx8 = LJ(),
+    Nx8 = (A) => {
+      (0, qx8.emitWarningIfUnsupportedVersion)(process.version);
+      let Q = (0, wx8.resolveDefaultsModeConfig)(A),
+        B = () => Q().then($x8.loadConfigsForDefaultMode),
+        G = (0, Ux8.getRuntimeConfig)(A);
+      (0, xrQ.emitWarningIfUnsupportedVersion)(process.version);
+      let Z = {
+        profile: A?.profile
+      };
+      return {
+        ...G,
+        ...A,
+        runtime: "node",
+        defaultsMode: Q,
+        bodyLengthChecker: A?.bodyLengthChecker ?? Ex8.calculateBodyLength,
+        defaultUserAgentProvider: A?.defaultUserAgentProvider ?? (0, vrQ.createDefaultUserAgentProvider)({
+          serviceId: G.serviceId,
+          clientVersion: Dx8.default.version
+        }),
+        httpAuthSchemes: A?.httpAuthSchemes ?? [{
+          schemeId: "aws.auth#sigv4",
+          identityProvider: (I) => I.getIdentityProvider("aws.auth#sigv4") || (async (Y) => await A.credentialDefaultProvider(Y?.__config || {})()),
+          signer: new xrQ.AwsSdkSigV4Signer
+        }, {
+          schemeId: "smithy.api#noAuth",
+          identityProvider: (I) => I.getIdentityProvider("smithy.api#noAuth") || (async () => ({})),
+          signer: new Hx8.NoAuthSigner
+        }],
+        maxAttempts: A?.maxAttempts ?? (0, _5A.loadConfig)(brQ.NODE_MAX_ATTEMPT_CONFIG_OPTIONS, A),
+        region: A?.region ?? (0, _5A.loadConfig)(ypA.NODE_REGION_CONFIG_OPTIONS, {
+          ...ypA.NODE_REGION_CONFIG_FILE_OPTIONS,
+          ...Z
+        }),
+        requestHandler: frQ.NodeHttpHandler.create(A?.requestHandler ?? B),
+        retryMode: A?.retryMode ?? (0, _5A.loadConfig)({
+          ...brQ.NODE_RETRY_MODE_CONFIG_OPTIONS,
+          default: async () => (await B()).retryMode || zx8.DEFAULT_RETRY_MODE
+        }, A),
+        sha256: A?.sha256 ?? Cx8.Hash.bind(null, "sha256"),
+        streamCollector: A?.streamCollector ?? frQ.streamCollector,
+        useDualstackEndpoint: A?.useDualstackEndpoint ?? (0, _5A.loadConfig)(ypA.NODE_USE_DUALSTACK_ENDPOINT_CONFIG_OPTIONS, Z),
+        useFipsEndpoint: A?.useFipsEndpoint ?? (0, _5A.loadConfig)(ypA.NODE_USE_FIPS_ENDPOINT_CONFIG_OPTIONS, Z),
+        userAgentAppId: A?.userAgentAppId ?? (0, _5A.loadConfig)(vrQ.NODE_APP_ID_CONFIG_OPTIONS, Z)
+      }
+    };
+  hrQ.getRuntimeConfig = Nx8
+})
+// @from(Start 4514216, End 4515235)
+crQ = z((mrQ) => {
+  Object.defineProperty(mrQ, "__esModule", {
+    value: !0
+  });
+  mrQ.resolveHttpAuthRuntimeConfig = mrQ.getHttpAuthExtensionConfiguration = void 0;
+  var Lx8 = (A) => {
+    let {
+      httpAuthSchemes: Q,
+      httpAuthSchemeProvider: B,
+      credentials: G
+    } = A;
+    return {
+      setHttpAuthScheme(Z) {
+        let I = Q.findIndex((Y) => Y.schemeId === Z.schemeId);
+        if (I === -1) Q.push(Z);
+        else Q.splice(I, 1, Z)
+      },
+      httpAuthSchemes() {
+        return Q
+      },
+      setHttpAuthSchemeProvider(Z) {
+        B = Z
+      },
+      httpAuthSchemeProvider() {
+        return B
+      },
+      setCredentials(Z) {
+        G = Z
+      },
+      credentials() {
+        return G
+      }
     }
-    reportStatus(A) {
-      this.trace("ended with status: code=" + A.code + ' details="' + A.details + '" start time=' + this.startTime.toISOString()), this.bufferTracker.freeAll(this.callNumber), this.writeBufferOffset = this.writeBufferOffset + this.writeBuffer.length, this.writeBuffer = [], process.nextTick(() => {
-        var B;
-        (B = this.listener) === null || B === void 0 || B.onReceiveStatus({
-          code: A.code,
-          details: A.details,
-          metadata: A.metadata
+  };
+  mrQ.getHttpAuthExtensionConfiguration = Lx8;
+  var Mx8 = (A) => {
+    return {
+      httpAuthSchemes: A.httpAuthSchemes(),
+      httpAuthSchemeProvider: A.httpAuthSchemeProvider(),
+      credentials: A.credentials()
+    }
+  };
+  mrQ.resolveHttpAuthRuntimeConfig = Mx8
+})
+// @from(Start 4515241, End 4515967)
+rrQ = z((arQ) => {
+  Object.defineProperty(arQ, "__esModule", {
+    value: !0
+  });
+  arQ.resolveRuntimeExtensions = void 0;
+  var prQ = YEA(),
+    lrQ = PpA(),
+    irQ = LJ(),
+    nrQ = crQ(),
+    Rx8 = (A, Q) => {
+      let B = Object.assign((0, prQ.getAwsRegionExtensionConfiguration)(A), (0, irQ.getDefaultExtensionConfiguration)(A), (0, lrQ.getHttpHandlerExtensionConfiguration)(A), (0, nrQ.getHttpAuthExtensionConfiguration)(A));
+      return Q.forEach((G) => G.configure(B)), Object.assign(A, (0, prQ.resolveAwsRegionExtensionConfiguration)(B), (0, irQ.resolveDefaultRuntimeConfig)(B), (0, lrQ.resolveHttpHandlerRuntimeConfig)(B), (0, nrQ.resolveHttpAuthRuntimeConfig)(B))
+    };
+  arQ.resolveRuntimeExtensions = Rx8
+})
+// @from(Start 4515973, End 4517955)
+zEA = z((zk1) => {
+  Object.defineProperty(zk1, "__esModule", {
+    value: !0
+  });
+  zk1.STSClient = zk1.__Client = void 0;
+  var orQ = cCA(),
+    Tx8 = pCA(),
+    Px8 = lCA(),
+    trQ = F5A(),
+    jx8 = f8(),
+    Ek1 = iB(),
+    Sx8 = LX(),
+    _x8 = q5(),
+    erQ = D6(),
+    QoQ = LJ();
+  Object.defineProperty(zk1, "__Client", {
+    enumerable: !0,
+    get: function() {
+      return QoQ.Client
+    }
+  });
+  var AoQ = Fk1(),
+    kx8 = UEA(),
+    yx8 = urQ(),
+    xx8 = rrQ();
+  class BoQ extends QoQ.Client {
+    config;
+    constructor(...[A]) {
+      let Q = (0, yx8.getRuntimeConfig)(A || {});
+      super(Q);
+      this.initConfig = Q;
+      let B = (0, kx8.resolveClientEndpointParameters)(Q),
+        G = (0, trQ.resolveUserAgentConfig)(B),
+        Z = (0, erQ.resolveRetryConfig)(G),
+        I = (0, jx8.resolveRegionConfig)(Z),
+        Y = (0, orQ.resolveHostHeaderConfig)(I),
+        J = (0, _x8.resolveEndpointConfig)(Y),
+        W = (0, AoQ.resolveHttpAuthSchemeConfig)(J),
+        X = (0, xx8.resolveRuntimeExtensions)(W, A?.extensions || []);
+      this.config = X, this.middlewareStack.use((0, trQ.getUserAgentPlugin)(this.config)), this.middlewareStack.use((0, erQ.getRetryPlugin)(this.config)), this.middlewareStack.use((0, Sx8.getContentLengthPlugin)(this.config)), this.middlewareStack.use((0, orQ.getHostHeaderPlugin)(this.config)), this.middlewareStack.use((0, Tx8.getLoggerPlugin)(this.config)), this.middlewareStack.use((0, Px8.getRecursionDetectionPlugin)(this.config)), this.middlewareStack.use((0, Ek1.getHttpAuthSchemeEndpointRuleSetPlugin)(this.config, {
+        httpAuthSchemeParametersProvider: AoQ.defaultSTSHttpAuthSchemeParametersProvider,
+        identityProviderConfigProvider: async (V) => new Ek1.DefaultIdentityProviderConfig({
+          "aws.auth#sigv4": V.credentials
         })
-      })
+      })), this.middlewareStack.use((0, Ek1.getHttpSigningPlugin)(this.config))
     }
-    cancelWithStatus(A, B) {
-      this.trace("cancelWithStatus code: " + A + ' details: "' + B + '"'), this.reportStatus({
-        code: A,
-        details: B,
-        metadata: new QG6.Metadata
+    destroy() {
+      super.destroy()
+    }
+  }
+  zk1.STSClient = BoQ
+})
+// @from(Start 4517961, End 4541334)
+ak1 = z((_j7, nk1) => {
+  var {
+    defineProperty: xpA,
+    getOwnPropertyDescriptor: vx8,
+    getOwnPropertyNames: bx8
+  } = Object, fx8 = Object.prototype.hasOwnProperty, x2 = (A, Q) => xpA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), hx8 = (A, Q) => {
+    for (var B in Q) xpA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, uk1 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of bx8(Q))
+        if (!fx8.call(A, Z) && Z !== B) xpA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = vx8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, gx8 = (A, Q, B) => (uk1(A, Q, "default"), B && uk1(B, Q, "default")), ux8 = (A) => uk1(xpA({}, "__esModule", {
+    value: !0
+  }), A), dk1 = {};
+  hx8(dk1, {
+    AssumeRoleCommand: () => lk1,
+    AssumeRoleResponseFilterSensitiveLog: () => YoQ,
+    AssumeRoleWithWebIdentityCommand: () => ik1,
+    AssumeRoleWithWebIdentityRequestFilterSensitiveLog: () => DoQ,
+    AssumeRoleWithWebIdentityResponseFilterSensitiveLog: () => HoQ,
+    ClientInputEndpointParameters: () => kv8.ClientInputEndpointParameters,
+    CredentialsFilterSensitiveLog: () => ck1,
+    ExpiredTokenException: () => JoQ,
+    IDPCommunicationErrorException: () => CoQ,
+    IDPRejectedClaimException: () => FoQ,
+    InvalidIdentityTokenException: () => KoQ,
+    MalformedPolicyDocumentException: () => WoQ,
+    PackedPolicyTooLargeException: () => XoQ,
+    RegionDisabledException: () => VoQ,
+    STS: () => RoQ,
+    STSServiceException: () => qb,
+    decorateDefaultCredentialProvider: () => vv8,
+    getDefaultRoleAssumer: () => koQ,
+    getDefaultRoleAssumerWithWebIdentity: () => yoQ
+  });
+  nk1.exports = ux8(dk1);
+  gx8(dk1, zEA(), nk1.exports);
+  var mx8 = LJ(),
+    dx8 = q5(),
+    cx8 = GZ(),
+    px8 = LJ(),
+    lx8 = UEA(),
+    IoQ = LJ(),
+    ix8 = LJ(),
+    qb = class A extends ix8.ServiceException {
+      static {
+        x2(this, "STSServiceException")
+      }
+      constructor(Q) {
+        super(Q);
+        Object.setPrototypeOf(this, A.prototype)
+      }
+    },
+    ck1 = x2((A) => ({
+      ...A,
+      ...A.SecretAccessKey && {
+        SecretAccessKey: IoQ.SENSITIVE_STRING
+      }
+    }), "CredentialsFilterSensitiveLog"),
+    YoQ = x2((A) => ({
+      ...A,
+      ...A.Credentials && {
+        Credentials: ck1(A.Credentials)
+      }
+    }), "AssumeRoleResponseFilterSensitiveLog"),
+    JoQ = class A extends qb {
+      static {
+        x2(this, "ExpiredTokenException")
+      }
+      name = "ExpiredTokenException";
+      $fault = "client";
+      constructor(Q) {
+        super({
+          name: "ExpiredTokenException",
+          $fault: "client",
+          ...Q
+        });
+        Object.setPrototypeOf(this, A.prototype)
+      }
+    },
+    WoQ = class A extends qb {
+      static {
+        x2(this, "MalformedPolicyDocumentException")
+      }
+      name = "MalformedPolicyDocumentException";
+      $fault = "client";
+      constructor(Q) {
+        super({
+          name: "MalformedPolicyDocumentException",
+          $fault: "client",
+          ...Q
+        });
+        Object.setPrototypeOf(this, A.prototype)
+      }
+    },
+    XoQ = class A extends qb {
+      static {
+        x2(this, "PackedPolicyTooLargeException")
+      }
+      name = "PackedPolicyTooLargeException";
+      $fault = "client";
+      constructor(Q) {
+        super({
+          name: "PackedPolicyTooLargeException",
+          $fault: "client",
+          ...Q
+        });
+        Object.setPrototypeOf(this, A.prototype)
+      }
+    },
+    VoQ = class A extends qb {
+      static {
+        x2(this, "RegionDisabledException")
+      }
+      name = "RegionDisabledException";
+      $fault = "client";
+      constructor(Q) {
+        super({
+          name: "RegionDisabledException",
+          $fault: "client",
+          ...Q
+        });
+        Object.setPrototypeOf(this, A.prototype)
+      }
+    },
+    FoQ = class A extends qb {
+      static {
+        x2(this, "IDPRejectedClaimException")
+      }
+      name = "IDPRejectedClaimException";
+      $fault = "client";
+      constructor(Q) {
+        super({
+          name: "IDPRejectedClaimException",
+          $fault: "client",
+          ...Q
+        });
+        Object.setPrototypeOf(this, A.prototype)
+      }
+    },
+    KoQ = class A extends qb {
+      static {
+        x2(this, "InvalidIdentityTokenException")
+      }
+      name = "InvalidIdentityTokenException";
+      $fault = "client";
+      constructor(Q) {
+        super({
+          name: "InvalidIdentityTokenException",
+          $fault: "client",
+          ...Q
+        });
+        Object.setPrototypeOf(this, A.prototype)
+      }
+    },
+    DoQ = x2((A) => ({
+      ...A,
+      ...A.WebIdentityToken && {
+        WebIdentityToken: IoQ.SENSITIVE_STRING
+      }
+    }), "AssumeRoleWithWebIdentityRequestFilterSensitiveLog"),
+    HoQ = x2((A) => ({
+      ...A,
+      ...A.Credentials && {
+        Credentials: ck1(A.Credentials)
+      }
+    }), "AssumeRoleWithWebIdentityResponseFilterSensitiveLog"),
+    CoQ = class A extends qb {
+      static {
+        x2(this, "IDPCommunicationErrorException")
+      }
+      name = "IDPCommunicationErrorException";
+      $fault = "client";
+      constructor(Q) {
+        super({
+          name: "IDPCommunicationErrorException",
+          $fault: "client",
+          ...Q
+        });
+        Object.setPrototypeOf(this, A.prototype)
+      }
+    },
+    pk1 = jF(),
+    nx8 = PpA(),
+    O7 = LJ(),
+    ax8 = x2(async (A, Q) => {
+      let B = qoQ,
+        G;
+      return G = OoQ({
+        ...Iv8(A, Q),
+        [LoQ]: Lv8,
+        [MoQ]: NoQ
+      }), woQ(Q, B, "/", void 0, G)
+    }, "se_AssumeRoleCommand"),
+    sx8 = x2(async (A, Q) => {
+      let B = qoQ,
+        G;
+      return G = OoQ({
+        ...Yv8(A, Q),
+        [LoQ]: Mv8,
+        [MoQ]: NoQ
+      }), woQ(Q, B, "/", void 0, G)
+    }, "se_AssumeRoleWithWebIdentityCommand"),
+    rx8 = x2(async (A, Q) => {
+      if (A.statusCode >= 300) return EoQ(A, Q);
+      let B = await (0, pk1.parseXmlBody)(A.body, Q),
+        G = {};
+      return G = Dv8(B.AssumeRoleResult, Q), {
+        $metadata: Nb(A),
+        ...G
+      }
+    }, "de_AssumeRoleCommand"),
+    ox8 = x2(async (A, Q) => {
+      if (A.statusCode >= 300) return EoQ(A, Q);
+      let B = await (0, pk1.parseXmlBody)(A.body, Q),
+        G = {};
+      return G = Hv8(B.AssumeRoleWithWebIdentityResult, Q), {
+        $metadata: Nb(A),
+        ...G
+      }
+    }, "de_AssumeRoleWithWebIdentityCommand"),
+    EoQ = x2(async (A, Q) => {
+      let B = {
+          ...A,
+          body: await (0, pk1.parseXmlErrorBody)(A.body, Q)
+        },
+        G = Ov8(A, B.body);
+      switch (G) {
+        case "ExpiredTokenException":
+        case "com.amazonaws.sts#ExpiredTokenException":
+          throw await tx8(B, Q);
+        case "MalformedPolicyDocument":
+        case "com.amazonaws.sts#MalformedPolicyDocumentException":
+          throw await Bv8(B, Q);
+        case "PackedPolicyTooLarge":
+        case "com.amazonaws.sts#PackedPolicyTooLargeException":
+          throw await Gv8(B, Q);
+        case "RegionDisabledException":
+        case "com.amazonaws.sts#RegionDisabledException":
+          throw await Zv8(B, Q);
+        case "IDPCommunicationError":
+        case "com.amazonaws.sts#IDPCommunicationErrorException":
+          throw await ex8(B, Q);
+        case "IDPRejectedClaim":
+        case "com.amazonaws.sts#IDPRejectedClaimException":
+          throw await Av8(B, Q);
+        case "InvalidIdentityToken":
+        case "com.amazonaws.sts#InvalidIdentityTokenException":
+          throw await Qv8(B, Q);
+        default:
+          let Z = B.body;
+          return Nv8({
+            output: A,
+            parsedBody: Z.Error,
+            errorCode: G
+          })
+      }
+    }, "de_CommandError"),
+    tx8 = x2(async (A, Q) => {
+      let B = A.body,
+        G = Cv8(B.Error, Q),
+        Z = new JoQ({
+          $metadata: Nb(A),
+          ...G
+        });
+      return (0, O7.decorateServiceException)(Z, B)
+    }, "de_ExpiredTokenExceptionRes"),
+    ex8 = x2(async (A, Q) => {
+      let B = A.body,
+        G = Ev8(B.Error, Q),
+        Z = new CoQ({
+          $metadata: Nb(A),
+          ...G
+        });
+      return (0, O7.decorateServiceException)(Z, B)
+    }, "de_IDPCommunicationErrorExceptionRes"),
+    Av8 = x2(async (A, Q) => {
+      let B = A.body,
+        G = zv8(B.Error, Q),
+        Z = new FoQ({
+          $metadata: Nb(A),
+          ...G
+        });
+      return (0, O7.decorateServiceException)(Z, B)
+    }, "de_IDPRejectedClaimExceptionRes"),
+    Qv8 = x2(async (A, Q) => {
+      let B = A.body,
+        G = Uv8(B.Error, Q),
+        Z = new KoQ({
+          $metadata: Nb(A),
+          ...G
+        });
+      return (0, O7.decorateServiceException)(Z, B)
+    }, "de_InvalidIdentityTokenExceptionRes"),
+    Bv8 = x2(async (A, Q) => {
+      let B = A.body,
+        G = $v8(B.Error, Q),
+        Z = new WoQ({
+          $metadata: Nb(A),
+          ...G
+        });
+      return (0, O7.decorateServiceException)(Z, B)
+    }, "de_MalformedPolicyDocumentExceptionRes"),
+    Gv8 = x2(async (A, Q) => {
+      let B = A.body,
+        G = wv8(B.Error, Q),
+        Z = new XoQ({
+          $metadata: Nb(A),
+          ...G
+        });
+      return (0, O7.decorateServiceException)(Z, B)
+    }, "de_PackedPolicyTooLargeExceptionRes"),
+    Zv8 = x2(async (A, Q) => {
+      let B = A.body,
+        G = qv8(B.Error, Q),
+        Z = new VoQ({
+          $metadata: Nb(A),
+          ...G
+        });
+      return (0, O7.decorateServiceException)(Z, B)
+    }, "de_RegionDisabledExceptionRes"),
+    Iv8 = x2((A, Q) => {
+      let B = {};
+      if (A[h5A] != null) B[h5A] = A[h5A];
+      if (A[g5A] != null) B[g5A] = A[g5A];
+      if (A[b5A] != null) {
+        let G = zoQ(A[b5A], Q);
+        if (A[b5A]?.length === 0) B.PolicyArns = [];
+        Object.entries(G).forEach(([Z, I]) => {
+          let Y = `PolicyArns.${Z}`;
+          B[Y] = I
+        })
+      }
+      if (A[v5A] != null) B[v5A] = A[v5A];
+      if (A[x5A] != null) B[x5A] = A[x5A];
+      if (A[xk1] != null) {
+        let G = Kv8(A[xk1], Q);
+        if (A[xk1]?.length === 0) B.Tags = [];
+        Object.entries(G).forEach(([Z, I]) => {
+          let Y = `Tags.${Z}`;
+          B[Y] = I
+        })
+      }
+      if (A[bk1] != null) {
+        let G = Fv8(A[bk1], Q);
+        if (A[bk1]?.length === 0) B.TransitiveTagKeys = [];
+        Object.entries(G).forEach(([Z, I]) => {
+          let Y = `TransitiveTagKeys.${Z}`;
+          B[Y] = I
+        })
+      }
+      if (A[Mk1] != null) B[Mk1] = A[Mk1];
+      if (A[kk1] != null) B[kk1] = A[kk1];
+      if (A[vk1] != null) B[vk1] = A[vk1];
+      if (A[wb] != null) B[wb] = A[wb];
+      if (A[Tk1] != null) {
+        let G = Xv8(A[Tk1], Q);
+        if (A[Tk1]?.length === 0) B.ProvidedContexts = [];
+        Object.entries(G).forEach(([Z, I]) => {
+          let Y = `ProvidedContexts.${Z}`;
+          B[Y] = I
+        })
+      }
+      return B
+    }, "se_AssumeRoleRequest"),
+    Yv8 = x2((A, Q) => {
+      let B = {};
+      if (A[h5A] != null) B[h5A] = A[h5A];
+      if (A[g5A] != null) B[g5A] = A[g5A];
+      if (A[hk1] != null) B[hk1] = A[hk1];
+      if (A[Pk1] != null) B[Pk1] = A[Pk1];
+      if (A[b5A] != null) {
+        let G = zoQ(A[b5A], Q);
+        if (A[b5A]?.length === 0) B.PolicyArns = [];
+        Object.entries(G).forEach(([Z, I]) => {
+          let Y = `PolicyArns.${Z}`;
+          B[Y] = I
+        })
+      }
+      if (A[v5A] != null) B[v5A] = A[v5A];
+      if (A[x5A] != null) B[x5A] = A[x5A];
+      return B
+    }, "se_AssumeRoleWithWebIdentityRequest"),
+    zoQ = x2((A, Q) => {
+      let B = {},
+        G = 1;
+      for (let Z of A) {
+        if (Z === null) continue;
+        let I = Jv8(Z, Q);
+        Object.entries(I).forEach(([Y, J]) => {
+          B[`member.${G}.${Y}`] = J
+        }), G++
+      }
+      return B
+    }, "se_policyDescriptorListType"),
+    Jv8 = x2((A, Q) => {
+      let B = {};
+      if (A[gk1] != null) B[gk1] = A[gk1];
+      return B
+    }, "se_PolicyDescriptorType"),
+    Wv8 = x2((A, Q) => {
+      let B = {};
+      if (A[Rk1] != null) B[Rk1] = A[Rk1];
+      if (A[Nk1] != null) B[Nk1] = A[Nk1];
+      return B
+    }, "se_ProvidedContext"),
+    Xv8 = x2((A, Q) => {
+      let B = {},
+        G = 1;
+      for (let Z of A) {
+        if (Z === null) continue;
+        let I = Wv8(Z, Q);
+        Object.entries(I).forEach(([Y, J]) => {
+          B[`member.${G}.${Y}`] = J
+        }), G++
+      }
+      return B
+    }, "se_ProvidedContextsListType"),
+    Vv8 = x2((A, Q) => {
+      let B = {};
+      if (A[Ok1] != null) B[Ok1] = A[Ok1];
+      if (A[fk1] != null) B[fk1] = A[fk1];
+      return B
+    }, "se_Tag"),
+    Fv8 = x2((A, Q) => {
+      let B = {},
+        G = 1;
+      for (let Z of A) {
+        if (Z === null) continue;
+        B[`member.${G}`] = Z, G++
+      }
+      return B
+    }, "se_tagKeyListType"),
+    Kv8 = x2((A, Q) => {
+      let B = {},
+        G = 1;
+      for (let Z of A) {
+        if (Z === null) continue;
+        let I = Vv8(Z, Q);
+        Object.entries(I).forEach(([Y, J]) => {
+          B[`member.${G}.${Y}`] = J
+        }), G++
+      }
+      return B
+    }, "se_tagListType"),
+    UoQ = x2((A, Q) => {
+      let B = {};
+      if (A[$k1] != null) B[$k1] = (0, O7.expectString)(A[$k1]);
+      if (A[wk1] != null) B[wk1] = (0, O7.expectString)(A[wk1]);
+      return B
+    }, "de_AssumedRoleUser"),
+    Dv8 = x2((A, Q) => {
+      let B = {};
+      if (A[y5A] != null) B[y5A] = $oQ(A[y5A], Q);
+      if (A[k5A] != null) B[k5A] = UoQ(A[k5A], Q);
+      if (A[f5A] != null) B[f5A] = (0, O7.strictParseInt32)(A[f5A]);
+      if (A[wb] != null) B[wb] = (0, O7.expectString)(A[wb]);
+      return B
+    }, "de_AssumeRoleResponse"),
+    Hv8 = x2((A, Q) => {
+      let B = {};
+      if (A[y5A] != null) B[y5A] = $oQ(A[y5A], Q);
+      if (A[_k1] != null) B[_k1] = (0, O7.expectString)(A[_k1]);
+      if (A[k5A] != null) B[k5A] = UoQ(A[k5A], Q);
+      if (A[f5A] != null) B[f5A] = (0, O7.strictParseInt32)(A[f5A]);
+      if (A[jk1] != null) B[jk1] = (0, O7.expectString)(A[jk1]);
+      if (A[qk1] != null) B[qk1] = (0, O7.expectString)(A[qk1]);
+      if (A[wb] != null) B[wb] = (0, O7.expectString)(A[wb]);
+      return B
+    }, "de_AssumeRoleWithWebIdentityResponse"),
+    $oQ = x2((A, Q) => {
+      let B = {};
+      if (A[Uk1] != null) B[Uk1] = (0, O7.expectString)(A[Uk1]);
+      if (A[Sk1] != null) B[Sk1] = (0, O7.expectString)(A[Sk1]);
+      if (A[yk1] != null) B[yk1] = (0, O7.expectString)(A[yk1]);
+      if (A[Lk1] != null) B[Lk1] = (0, O7.expectNonNull)((0, O7.parseRfc3339DateTimeWithOffset)(A[Lk1]));
+      return B
+    }, "de_Credentials"),
+    Cv8 = x2((A, Q) => {
+      let B = {};
+      if (A[qW] != null) B[qW] = (0, O7.expectString)(A[qW]);
+      return B
+    }, "de_ExpiredTokenException"),
+    Ev8 = x2((A, Q) => {
+      let B = {};
+      if (A[qW] != null) B[qW] = (0, O7.expectString)(A[qW]);
+      return B
+    }, "de_IDPCommunicationErrorException"),
+    zv8 = x2((A, Q) => {
+      let B = {};
+      if (A[qW] != null) B[qW] = (0, O7.expectString)(A[qW]);
+      return B
+    }, "de_IDPRejectedClaimException"),
+    Uv8 = x2((A, Q) => {
+      let B = {};
+      if (A[qW] != null) B[qW] = (0, O7.expectString)(A[qW]);
+      return B
+    }, "de_InvalidIdentityTokenException"),
+    $v8 = x2((A, Q) => {
+      let B = {};
+      if (A[qW] != null) B[qW] = (0, O7.expectString)(A[qW]);
+      return B
+    }, "de_MalformedPolicyDocumentException"),
+    wv8 = x2((A, Q) => {
+      let B = {};
+      if (A[qW] != null) B[qW] = (0, O7.expectString)(A[qW]);
+      return B
+    }, "de_PackedPolicyTooLargeException"),
+    qv8 = x2((A, Q) => {
+      let B = {};
+      if (A[qW] != null) B[qW] = (0, O7.expectString)(A[qW]);
+      return B
+    }, "de_RegionDisabledException"),
+    Nb = x2((A) => ({
+      httpStatusCode: A.statusCode,
+      requestId: A.headers["x-amzn-requestid"] ?? A.headers["x-amzn-request-id"] ?? A.headers["x-amz-request-id"],
+      extendedRequestId: A.headers["x-amz-id-2"],
+      cfId: A.headers["x-amz-cf-id"]
+    }), "deserializeMetadata"),
+    Nv8 = (0, O7.withBaseException)(qb),
+    woQ = x2(async (A, Q, B, G, Z) => {
+      let {
+        hostname: I,
+        protocol: Y = "https",
+        port: J,
+        path: W
+      } = await A.endpoint(), X = {
+        protocol: Y,
+        hostname: I,
+        port: J,
+        method: "POST",
+        path: W.endsWith("/") ? W.slice(0, -1) + B : W + B,
+        headers: Q
+      };
+      if (G !== void 0) X.hostname = G;
+      if (Z !== void 0) X.body = Z;
+      return new nx8.HttpRequest(X)
+    }, "buildHttpRpcRequest"),
+    qoQ = {
+      "content-type": "application/x-www-form-urlencoded"
+    },
+    NoQ = "2011-06-15",
+    LoQ = "Action",
+    Uk1 = "AccessKeyId",
+    Lv8 = "AssumeRole",
+    $k1 = "AssumedRoleId",
+    k5A = "AssumedRoleUser",
+    Mv8 = "AssumeRoleWithWebIdentity",
+    wk1 = "Arn",
+    qk1 = "Audience",
+    y5A = "Credentials",
+    Nk1 = "ContextAssertion",
+    x5A = "DurationSeconds",
+    Lk1 = "Expiration",
+    Mk1 = "ExternalId",
+    Ok1 = "Key",
+    v5A = "Policy",
+    b5A = "PolicyArns",
+    Rk1 = "ProviderArn",
+    Tk1 = "ProvidedContexts",
+    Pk1 = "ProviderId",
+    f5A = "PackedPolicySize",
+    jk1 = "Provider",
+    h5A = "RoleArn",
+    g5A = "RoleSessionName",
+    Sk1 = "SecretAccessKey",
+    _k1 = "SubjectFromWebIdentityToken",
+    wb = "SourceIdentity",
+    kk1 = "SerialNumber",
+    yk1 = "SessionToken",
+    xk1 = "Tags",
+    vk1 = "TokenCode",
+    bk1 = "TransitiveTagKeys",
+    MoQ = "Version",
+    fk1 = "Value",
+    hk1 = "WebIdentityToken",
+    gk1 = "arn",
+    qW = "message",
+    OoQ = x2((A) => Object.entries(A).map(([Q, B]) => (0, O7.extendedEncodeURIComponent)(Q) + "=" + (0, O7.extendedEncodeURIComponent)(B)).join("&"), "buildFormUrlencodedString"),
+    Ov8 = x2((A, Q) => {
+      if (Q.Error?.Code !== void 0) return Q.Error.Code;
+      if (A.statusCode == 404) return "NotFound"
+    }, "loadQueryErrorCode"),
+    lk1 = class extends px8.Command.classBuilder().ep(lx8.commonParams).m(function(A, Q, B, G) {
+      return [(0, cx8.getSerdePlugin)(B, this.serialize, this.deserialize), (0, dx8.getEndpointPlugin)(B, A.getEndpointParameterInstructions())]
+    }).s("AWSSecurityTokenServiceV20110615", "AssumeRole", {}).n("STSClient", "AssumeRoleCommand").f(void 0, YoQ).ser(ax8).de(rx8).build() {
+      static {
+        x2(this, "AssumeRoleCommand")
+      }
+    },
+    Rv8 = q5(),
+    Tv8 = GZ(),
+    Pv8 = LJ(),
+    jv8 = UEA(),
+    ik1 = class extends Pv8.Command.classBuilder().ep(jv8.commonParams).m(function(A, Q, B, G) {
+      return [(0, Tv8.getSerdePlugin)(B, this.serialize, this.deserialize), (0, Rv8.getEndpointPlugin)(B, A.getEndpointParameterInstructions())]
+    }).s("AWSSecurityTokenServiceV20110615", "AssumeRoleWithWebIdentity", {}).n("STSClient", "AssumeRoleWithWebIdentityCommand").f(DoQ, HoQ).ser(sx8).de(ox8).build() {
+      static {
+        x2(this, "AssumeRoleWithWebIdentityCommand")
+      }
+    },
+    Sv8 = zEA(),
+    _v8 = {
+      AssumeRoleCommand: lk1,
+      AssumeRoleWithWebIdentityCommand: ik1
+    },
+    RoQ = class extends Sv8.STSClient {
+      static {
+        x2(this, "STS")
+      }
+    };
+  (0, mx8.createAggregatedClient)(_v8, RoQ);
+  var kv8 = UEA(),
+    mk1 = rS(),
+    ZoQ = "us-east-1",
+    ToQ = x2((A) => {
+      if (typeof A?.Arn === "string") {
+        let Q = A.Arn.split(":");
+        if (Q.length > 4 && Q[4] !== "") return Q[4]
+      }
+      return
+    }, "getAccountIdFromAssumedRoleUser"),
+    PoQ = x2(async (A, Q, B) => {
+      let G = typeof A === "function" ? await A() : A,
+        Z = typeof Q === "function" ? await Q() : Q;
+      return B?.debug?.("@aws-sdk/client-sts::resolveRegion", "accepting first of:", `${G} (provider)`, `${Z} (parent client)`, `${ZoQ} (STS default)`), G ?? Z ?? ZoQ
+    }, "resolveRegion"),
+    yv8 = x2((A, Q) => {
+      let B, G;
+      return async (Z, I) => {
+        if (G = Z, !B) {
+          let {
+            logger: V = A?.parentClientConfig?.logger,
+            region: F,
+            requestHandler: K = A?.parentClientConfig?.requestHandler,
+            credentialProviderLogger: D
+          } = A, H = await PoQ(F, A?.parentClientConfig?.region, D), C = !joQ(K);
+          B = new Q({
+            profile: A?.parentClientConfig?.profile,
+            credentialDefaultProvider: x2(() => async () => G, "credentialDefaultProvider"),
+            region: H,
+            requestHandler: C ? K : void 0,
+            logger: V
+          })
+        }
+        let {
+          Credentials: Y,
+          AssumedRoleUser: J
+        } = await B.send(new lk1(I));
+        if (!Y || !Y.AccessKeyId || !Y.SecretAccessKey) throw Error(`Invalid response from STS.assumeRole call with role ${I.RoleArn}`);
+        let W = ToQ(J),
+          X = {
+            accessKeyId: Y.AccessKeyId,
+            secretAccessKey: Y.SecretAccessKey,
+            sessionToken: Y.SessionToken,
+            expiration: Y.Expiration,
+            ...Y.CredentialScope && {
+              credentialScope: Y.CredentialScope
+            },
+            ...W && {
+              accountId: W
+            }
+          };
+        return (0, mk1.setCredentialFeature)(X, "CREDENTIALS_STS_ASSUME_ROLE", "i"), X
+      }
+    }, "getDefaultRoleAssumer"),
+    xv8 = x2((A, Q) => {
+      let B;
+      return async (G) => {
+        if (!B) {
+          let {
+            logger: W = A?.parentClientConfig?.logger,
+            region: X,
+            requestHandler: V = A?.parentClientConfig?.requestHandler,
+            credentialProviderLogger: F
+          } = A, K = await PoQ(X, A?.parentClientConfig?.region, F), D = !joQ(V);
+          B = new Q({
+            profile: A?.parentClientConfig?.profile,
+            region: K,
+            requestHandler: D ? V : void 0,
+            logger: W
+          })
+        }
+        let {
+          Credentials: Z,
+          AssumedRoleUser: I
+        } = await B.send(new ik1(G));
+        if (!Z || !Z.AccessKeyId || !Z.SecretAccessKey) throw Error(`Invalid response from STS.assumeRoleWithWebIdentity call with role ${G.RoleArn}`);
+        let Y = ToQ(I),
+          J = {
+            accessKeyId: Z.AccessKeyId,
+            secretAccessKey: Z.SecretAccessKey,
+            sessionToken: Z.SessionToken,
+            expiration: Z.Expiration,
+            ...Z.CredentialScope && {
+              credentialScope: Z.CredentialScope
+            },
+            ...Y && {
+              accountId: Y
+            }
+          };
+        if (Y)(0, mk1.setCredentialFeature)(J, "RESOLVED_ACCOUNT_ID", "T");
+        return (0, mk1.setCredentialFeature)(J, "CREDENTIALS_STS_ASSUME_ROLE_WEB_ID", "k"), J
+      }
+    }, "getDefaultRoleAssumerWithWebIdentity"),
+    joQ = x2((A) => {
+      return A?.metadata?.handlerProtocol === "h2"
+    }, "isH2"),
+    SoQ = zEA(),
+    _oQ = x2((A, Q) => {
+      if (!Q) return A;
+      else return class extends A {
+        static {
+          x2(this, "CustomizableSTSClient")
+        }
+        constructor(G) {
+          super(G);
+          for (let Z of Q) this.middlewareStack.use(Z)
+        }
+      }
+    }, "getCustomizableStsClientCtor"),
+    koQ = x2((A = {}, Q) => yv8(A, _oQ(SoQ.STSClient, Q)), "getDefaultRoleAssumer"),
+    yoQ = x2((A = {}, Q) => xv8(A, _oQ(SoQ.STSClient, Q)), "getDefaultRoleAssumerWithWebIdentity"),
+    vv8 = x2((A) => (Q) => A({
+      roleAssumer: koQ(Q),
+      roleAssumerWithWebIdentity: yoQ(Q),
+      ...Q
+    }), "decorateDefaultCredentialProvider")
+})
+// @from(Start 4541340, End 4544582)
+ok1 = z((vj7, boQ) => {
+  var {
+    defineProperty: vpA,
+    getOwnPropertyDescriptor: bv8,
+    getOwnPropertyNames: fv8
+  } = Object, hv8 = Object.prototype.hasOwnProperty, rk1 = (A, Q) => vpA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), gv8 = (A, Q) => {
+    for (var B in Q) vpA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, uv8 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of fv8(Q))
+        if (!hv8.call(A, Z) && Z !== B) vpA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = bv8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, mv8 = (A) => uv8(vpA({}, "__esModule", {
+    value: !0
+  }), A), voQ = {};
+  gv8(voQ, {
+    fromProcess: () => nv8
+  });
+  boQ.exports = mv8(voQ);
+  var xoQ = SG(),
+    sk1 = j2(),
+    dv8 = UA("child_process"),
+    cv8 = UA("util"),
+    pv8 = rS(),
+    lv8 = rk1((A, Q, B) => {
+      if (Q.Version !== 1) throw Error(`Profile ${A} credential_process did not return Version 1.`);
+      if (Q.AccessKeyId === void 0 || Q.SecretAccessKey === void 0) throw Error(`Profile ${A} credential_process returned invalid credentials.`);
+      if (Q.Expiration) {
+        let I = new Date;
+        if (new Date(Q.Expiration) < I) throw Error(`Profile ${A} credential_process returned expired credentials.`)
+      }
+      let G = Q.AccountId;
+      if (!G && B?.[A]?.aws_account_id) G = B[A].aws_account_id;
+      let Z = {
+        accessKeyId: Q.AccessKeyId,
+        secretAccessKey: Q.SecretAccessKey,
+        ...Q.SessionToken && {
+          sessionToken: Q.SessionToken
+        },
+        ...Q.Expiration && {
+          expiration: new Date(Q.Expiration)
+        },
+        ...Q.CredentialScope && {
+          credentialScope: Q.CredentialScope
+        },
+        ...G && {
+          accountId: G
+        }
+      };
+      return (0, pv8.setCredentialFeature)(Z, "CREDENTIALS_PROCESS", "w"), Z
+    }, "getValidatedProcessCredentials"),
+    iv8 = rk1(async (A, Q, B) => {
+      let G = Q[A];
+      if (Q[A]) {
+        let Z = G.credential_process;
+        if (Z !== void 0) {
+          let I = (0, cv8.promisify)(dv8.exec);
+          try {
+            let {
+              stdout: Y
+            } = await I(Z), J;
+            try {
+              J = JSON.parse(Y.trim())
+            } catch {
+              throw Error(`Profile ${A} credential_process returned invalid JSON.`)
+            }
+            return lv8(A, J, Q)
+          } catch (Y) {
+            throw new sk1.CredentialsProviderError(Y.message, {
+              logger: B
+            })
+          }
+        } else throw new sk1.CredentialsProviderError(`Profile ${A} did not contain credential_process.`, {
+          logger: B
+        })
+      } else throw new sk1.CredentialsProviderError(`Profile ${A} could not be found in shared credentials file.`, {
+        logger: B
+      })
+    }, "resolveProcessCredentials"),
+    nv8 = rk1((A = {}) => async ({
+      callerClientConfig: Q
+    } = {}) => {
+      A.logger?.debug("@aws-sdk/credential-provider-process - fromProcess");
+      let B = await (0, xoQ.parseKnownFiles)(A);
+      return iv8((0, xoQ.getProfileName)({
+        profile: A.profile ?? Q?.profile
+      }), B, A.logger)
+    }, "fromProcess")
+})
+// @from(Start 4544588, End 4546613)
+tk1 = z((Z_) => {
+  var av8 = Z_ && Z_.__createBinding || (Object.create ? function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      var Z = Object.getOwnPropertyDescriptor(Q, B);
+      if (!Z || ("get" in Z ? !Q.__esModule : Z.writable || Z.configurable)) Z = {
+        enumerable: !0,
+        get: function() {
+          return Q[B]
+        }
+      };
+      Object.defineProperty(A, G, Z)
+    } : function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      A[G] = Q[B]
+    }),
+    sv8 = Z_ && Z_.__setModuleDefault || (Object.create ? function(A, Q) {
+      Object.defineProperty(A, "default", {
+        enumerable: !0,
+        value: Q
+      })
+    } : function(A, Q) {
+      A.default = Q
+    }),
+    rv8 = Z_ && Z_.__importStar || function(A) {
+      if (A && A.__esModule) return A;
+      var Q = {};
+      if (A != null) {
+        for (var B in A)
+          if (B !== "default" && Object.prototype.hasOwnProperty.call(A, B)) av8(Q, A, B)
+      }
+      return sv8(Q, A), Q
+    };
+  Object.defineProperty(Z_, "__esModule", {
+    value: !0
+  });
+  Z_.fromWebToken = void 0;
+  var ov8 = (A) => async (Q) => {
+    A.logger?.debug("@aws-sdk/credential-provider-web-identity - fromWebToken");
+    let {
+      roleArn: B,
+      roleSessionName: G,
+      webIdentityToken: Z,
+      providerId: I,
+      policyArns: Y,
+      policy: J,
+      durationSeconds: W
+    } = A, {
+      roleAssumerWithWebIdentity: X
+    } = A;
+    if (!X) {
+      let {
+        getDefaultRoleAssumerWithWebIdentity: V
+      } = await Promise.resolve().then(() => rv8(ak1()));
+      X = V({
+        ...A.clientConfig,
+        credentialProviderLogger: A.logger,
+        parentClientConfig: {
+          ...Q?.callerClientConfig,
+          ...A.parentClientConfig
+        }
+      }, A.clientPlugins)
+    }
+    return X({
+      RoleArn: B,
+      RoleSessionName: G ?? `aws-sdk-js-session-${Date.now()}`,
+      WebIdentityToken: Z,
+      ProviderId: I,
+      PolicyArns: Y,
+      Policy: J,
+      DurationSeconds: W
+    })
+  };
+  Z_.fromWebToken = ov8
+})
+// @from(Start 4546619, End 4547694)
+uoQ = z((hoQ) => {
+  Object.defineProperty(hoQ, "__esModule", {
+    value: !0
+  });
+  hoQ.fromTokenFile = void 0;
+  var tv8 = rS(),
+    ev8 = j2(),
+    Ab8 = UA("fs"),
+    Qb8 = tk1(),
+    foQ = "AWS_WEB_IDENTITY_TOKEN_FILE",
+    Bb8 = "AWS_ROLE_ARN",
+    Gb8 = "AWS_ROLE_SESSION_NAME",
+    Zb8 = (A = {}) => async () => {
+      A.logger?.debug("@aws-sdk/credential-provider-web-identity - fromTokenFile");
+      let Q = A?.webIdentityTokenFile ?? process.env[foQ],
+        B = A?.roleArn ?? process.env[Bb8],
+        G = A?.roleSessionName ?? process.env[Gb8];
+      if (!Q || !B) throw new ev8.CredentialsProviderError("Web identity configuration not specified", {
+        logger: A.logger
       });
-      for (let {
-          call: Q
+      let Z = await (0, Qb8.fromWebToken)({
+        ...A,
+        webIdentityToken: (0, Ab8.readFileSync)(Q, {
+          encoding: "ascii"
+        }),
+        roleArn: B,
+        roleSessionName: G
+      })();
+      if (Q === process.env[foQ])(0, tv8.setCredentialFeature)(Z, "CREDENTIALS_ENV_VARS_STS_WEB_ID_TOKEN", "h");
+      return Z
+    };
+  hoQ.fromTokenFile = Zb8
+})
+// @from(Start 4547700, End 4548396)
+Qy1 = z((hj7, bpA) => {
+  var {
+    defineProperty: moQ,
+    getOwnPropertyDescriptor: Ib8,
+    getOwnPropertyNames: Yb8
+  } = Object, Jb8 = Object.prototype.hasOwnProperty, ek1 = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of Yb8(Q))
+        if (!Jb8.call(A, Z) && Z !== B) moQ(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = Ib8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, doQ = (A, Q, B) => (ek1(A, Q, "default"), B && ek1(B, Q, "default")), Wb8 = (A) => ek1(moQ({}, "__esModule", {
+    value: !0
+  }), A), Ay1 = {};
+  bpA.exports = Wb8(Ay1);
+  doQ(Ay1, uoQ(), bpA.exports);
+  doQ(Ay1, tk1(), bpA.exports)
+})
+// @from(Start 4548402, End 4558124)
+roQ = z((gj7, soQ) => {
+  var {
+    create: Xb8,
+    defineProperty: wEA,
+    getOwnPropertyDescriptor: Vb8,
+    getOwnPropertyNames: Fb8,
+    getPrototypeOf: Kb8
+  } = Object, Db8 = Object.prototype.hasOwnProperty, xX = (A, Q) => wEA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), Hb8 = (A, Q) => {
+    for (var B in Q) wEA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, ioQ = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of Fb8(Q))
+        if (!Db8.call(A, Z) && Z !== B) wEA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = Vb8(Q, Z)) || G.enumerable
+        })
+    }
+    return A
+  }, Vc = (A, Q, B) => (B = A != null ? Xb8(Kb8(A)) : {}, ioQ(Q || !A || !A.__esModule ? wEA(B, "default", {
+    value: A,
+    enumerable: !0
+  }) : B, A)), Cb8 = (A) => ioQ(wEA({}, "__esModule", {
+    value: !0
+  }), A), noQ = {};
+  Hb8(noQ, {
+    fromIni: () => Tb8
+  });
+  soQ.exports = Cb8(noQ);
+  var Gy1 = SG(),
+    Fc = rS(),
+    $EA = j2(),
+    Eb8 = xX((A, Q, B) => {
+      let G = {
+        EcsContainer: xX(async (Z) => {
+          let {
+            fromHttp: I
+          } = await Promise.resolve().then(() => Vc(_S1())), {
+            fromContainerMetadata: Y
+          } = await Promise.resolve().then(() => Vc(OV()));
+          return B?.debug("@aws-sdk/credential-provider-ini - credential_source is EcsContainer"), async () => (0, $EA.chain)(I(Z ?? {}), Y(Z))().then(By1)
+        }, "EcsContainer"),
+        Ec2InstanceMetadata: xX(async (Z) => {
+          B?.debug("@aws-sdk/credential-provider-ini - credential_source is Ec2InstanceMetadata");
+          let {
+            fromInstanceMetadata: I
+          } = await Promise.resolve().then(() => Vc(OV()));
+          return async () => I(Z)().then(By1)
+        }, "Ec2InstanceMetadata"),
+        Environment: xX(async (Z) => {
+          B?.debug("@aws-sdk/credential-provider-ini - credential_source is Environment");
+          let {
+            fromEnv: I
+          } = await Promise.resolve().then(() => Vc(HS1()));
+          return async () => I(Z)().then(By1)
+        }, "Environment")
+      };
+      if (A in G) return G[A];
+      else throw new $EA.CredentialsProviderError(`Unsupported credential source in profile ${Q}. Got ${A}, expected EcsContainer or Ec2InstanceMetadata or Environment.`, {
+        logger: B
+      })
+    }, "resolveCredentialSource"),
+    By1 = xX((A) => (0, Fc.setCredentialFeature)(A, "CREDENTIALS_PROFILE_NAMED_PROVIDER", "p"), "setNamedProvider"),
+    zb8 = xX((A, {
+      profile: Q = "default",
+      logger: B
+    } = {}) => {
+      return Boolean(A) && typeof A === "object" && typeof A.role_arn === "string" && ["undefined", "string"].indexOf(typeof A.role_session_name) > -1 && ["undefined", "string"].indexOf(typeof A.external_id) > -1 && ["undefined", "string"].indexOf(typeof A.mfa_serial) > -1 && (Ub8(A, {
+        profile: Q,
+        logger: B
+      }) || $b8(A, {
+        profile: Q,
+        logger: B
+      }))
+    }, "isAssumeRoleProfile"),
+    Ub8 = xX((A, {
+      profile: Q,
+      logger: B
+    }) => {
+      let G = typeof A.source_profile === "string" && typeof A.credential_source > "u";
+      if (G) B?.debug?.(`    ${Q} isAssumeRoleWithSourceProfile source_profile=${A.source_profile}`);
+      return G
+    }, "isAssumeRoleWithSourceProfile"),
+    $b8 = xX((A, {
+      profile: Q,
+      logger: B
+    }) => {
+      let G = typeof A.credential_source === "string" && typeof A.source_profile > "u";
+      if (G) B?.debug?.(`    ${Q} isCredentialSourceProfile credential_source=${A.credential_source}`);
+      return G
+    }, "isCredentialSourceProfile"),
+    wb8 = xX(async (A, Q, B, G = {}) => {
+      B.logger?.debug("@aws-sdk/credential-provider-ini - resolveAssumeRoleCredentials (STS)");
+      let Z = Q[A],
+        {
+          source_profile: I,
+          region: Y
+        } = Z;
+      if (!B.roleAssumer) {
+        let {
+          getDefaultRoleAssumer: W
+        } = await Promise.resolve().then(() => Vc(ak1()));
+        B.roleAssumer = W({
+          ...B.clientConfig,
+          credentialProviderLogger: B.logger,
+          parentClientConfig: {
+            ...B?.parentClientConfig,
+            region: Y ?? B?.parentClientConfig?.region
+          }
+        }, B.clientPlugins)
+      }
+      if (I && I in G) throw new $EA.CredentialsProviderError(`Detected a cycle attempting to resolve credentials for profile ${(0,Gy1.getProfileName)(B)}. Profiles visited: ` + Object.keys(G).join(", "), {
+        logger: B.logger
+      });
+      B.logger?.debug(`@aws-sdk/credential-provider-ini - finding credential resolver using ${I?`source_profile=[${I}]`:`profile=[${A}]`}`);
+      let J = I ? aoQ(I, Q, B, {
+        ...G,
+        [I]: !0
+      }, coQ(Q[I] ?? {})) : (await Eb8(Z.credential_source, A, B.logger)(B))();
+      if (coQ(Z)) return J.then((W) => (0, Fc.setCredentialFeature)(W, "CREDENTIALS_PROFILE_SOURCE_PROFILE", "o"));
+      else {
+        let W = {
+            RoleArn: Z.role_arn,
+            RoleSessionName: Z.role_session_name || `aws-sdk-js-${Date.now()}`,
+            ExternalId: Z.external_id,
+            DurationSeconds: parseInt(Z.duration_seconds || "3600", 10)
+          },
+          {
+            mfa_serial: X
+          } = Z;
+        if (X) {
+          if (!B.mfaCodeProvider) throw new $EA.CredentialsProviderError(`Profile ${A} requires multi-factor authentication, but no MFA code callback was provided.`, {
+            logger: B.logger,
+            tryNextLink: !1
+          });
+          W.SerialNumber = X, W.TokenCode = await B.mfaCodeProvider(X)
         }
-        of this.underlyingCalls) Q.cancelWithStatus(A, B)
+        let V = await J;
+        return B.roleAssumer(V, W).then((F) => (0, Fc.setCredentialFeature)(F, "CREDENTIALS_PROFILE_SOURCE_PROFILE", "o"))
+      }
+    }, "resolveAssumeRoleCredentials"),
+    coQ = xX((A) => {
+      return !A.role_arn && !!A.credential_source
+    }, "isCredentialSourceWithoutRoleArn"),
+    qb8 = xX((A) => Boolean(A) && typeof A === "object" && typeof A.credential_process === "string", "isProcessProfile"),
+    Nb8 = xX(async (A, Q) => Promise.resolve().then(() => Vc(ok1())).then(({
+      fromProcess: B
+    }) => B({
+      ...A,
+      profile: Q
+    })().then((G) => (0, Fc.setCredentialFeature)(G, "CREDENTIALS_PROFILE_PROCESS", "v"))), "resolveProcessCredentials"),
+    Lb8 = xX(async (A, Q, B = {}) => {
+      let {
+        fromSSO: G
+      } = await Promise.resolve().then(() => Vc(Xk1()));
+      return G({
+        profile: A,
+        logger: B.logger,
+        parentClientConfig: B.parentClientConfig,
+        clientConfig: B.clientConfig
+      })().then((Z) => {
+        if (Q.sso_session) return (0, Fc.setCredentialFeature)(Z, "CREDENTIALS_PROFILE_SSO", "r");
+        else return (0, Fc.setCredentialFeature)(Z, "CREDENTIALS_PROFILE_SSO_LEGACY", "t")
+      })
+    }, "resolveSsoCredentials"),
+    Mb8 = xX((A) => A && (typeof A.sso_start_url === "string" || typeof A.sso_account_id === "string" || typeof A.sso_session === "string" || typeof A.sso_region === "string" || typeof A.sso_role_name === "string"), "isSsoProfile"),
+    poQ = xX((A) => Boolean(A) && typeof A === "object" && typeof A.aws_access_key_id === "string" && typeof A.aws_secret_access_key === "string" && ["undefined", "string"].indexOf(typeof A.aws_session_token) > -1 && ["undefined", "string"].indexOf(typeof A.aws_account_id) > -1, "isStaticCredsProfile"),
+    loQ = xX(async (A, Q) => {
+      Q?.logger?.debug("@aws-sdk/credential-provider-ini - resolveStaticCredentials");
+      let B = {
+        accessKeyId: A.aws_access_key_id,
+        secretAccessKey: A.aws_secret_access_key,
+        sessionToken: A.aws_session_token,
+        ...A.aws_credential_scope && {
+          credentialScope: A.aws_credential_scope
+        },
+        ...A.aws_account_id && {
+          accountId: A.aws_account_id
+        }
+      };
+      return (0, Fc.setCredentialFeature)(B, "CREDENTIALS_PROFILE", "n")
+    }, "resolveStaticCredentials"),
+    Ob8 = xX((A) => Boolean(A) && typeof A === "object" && typeof A.web_identity_token_file === "string" && typeof A.role_arn === "string" && ["undefined", "string"].indexOf(typeof A.role_session_name) > -1, "isWebIdentityProfile"),
+    Rb8 = xX(async (A, Q) => Promise.resolve().then(() => Vc(Qy1())).then(({
+      fromTokenFile: B
+    }) => B({
+      webIdentityTokenFile: A.web_identity_token_file,
+      roleArn: A.role_arn,
+      roleSessionName: A.role_session_name,
+      roleAssumerWithWebIdentity: Q.roleAssumerWithWebIdentity,
+      logger: Q.logger,
+      parentClientConfig: Q.parentClientConfig
+    })().then((G) => (0, Fc.setCredentialFeature)(G, "CREDENTIALS_PROFILE_STS_WEB_ID_TOKEN", "q"))), "resolveWebIdentityCredentials"),
+    aoQ = xX(async (A, Q, B, G = {}, Z = !1) => {
+      let I = Q[A];
+      if (Object.keys(G).length > 0 && poQ(I)) return loQ(I, B);
+      if (Z || zb8(I, {
+          profile: A,
+          logger: B.logger
+        })) return wb8(A, Q, B, G);
+      if (poQ(I)) return loQ(I, B);
+      if (Ob8(I)) return Rb8(I, B);
+      if (qb8(I)) return Nb8(B, A);
+      if (Mb8(I)) return await Lb8(A, I, B);
+      throw new $EA.CredentialsProviderError(`Could not resolve credentials using profile: [${A}] in configuration/credentials file(s).`, {
+        logger: B.logger
+      })
+    }, "resolveProfileData"),
+    Tb8 = xX((A = {}) => async ({
+      callerClientConfig: Q
+    } = {}) => {
+      let B = {
+        ...A,
+        parentClientConfig: {
+          ...Q,
+          ...A.parentClientConfig
+        }
+      };
+      B.logger?.debug("@aws-sdk/credential-provider-ini - fromIni");
+      let G = await (0, Gy1.parseKnownFiles)(B);
+      return aoQ((0, Gy1.getProfileName)({
+        profile: A.profile ?? Q?.profile
+      }), G, B)
+    }, "fromIni")
+})
+// @from(Start 4558130, End 4563092)
+Iy1 = z((uj7, GtQ) => {
+  var {
+    create: Pb8,
+    defineProperty: qEA,
+    getOwnPropertyDescriptor: jb8,
+    getOwnPropertyNames: Sb8,
+    getPrototypeOf: _b8
+  } = Object, kb8 = Object.prototype.hasOwnProperty, fpA = (A, Q) => qEA(A, "name", {
+    value: Q,
+    configurable: !0
+  }), yb8 = (A, Q) => {
+    for (var B in Q) qEA(A, B, {
+      get: Q[B],
+      enumerable: !0
+    })
+  }, eoQ = (A, Q, B, G) => {
+    if (Q && typeof Q === "object" || typeof Q === "function") {
+      for (let Z of Sb8(Q))
+        if (!kb8.call(A, Z) && Z !== B) qEA(A, Z, {
+          get: () => Q[Z],
+          enumerable: !(G = jb8(Q, Z)) || G.enumerable
+        })
     }
-    getPeer() {
-      if (this.committedCallIndex !== null) return this.underlyingCalls[this.committedCallIndex].call.getPeer();
-      else return "unknown"
+    return A
+  }, u5A = (A, Q, B) => (B = A != null ? Pb8(_b8(A)) : {}, eoQ(Q || !A || !A.__esModule ? qEA(B, "default", {
+    value: A,
+    enumerable: !0
+  }) : B, A)), xb8 = (A) => eoQ(qEA({}, "__esModule", {
+    value: !0
+  }), A), AtQ = {};
+  yb8(AtQ, {
+    credentialsTreatedAsExpired: () => BtQ,
+    credentialsWillNeedRefresh: () => QtQ,
+    defaultProvider: () => fb8
+  });
+  GtQ.exports = xb8(AtQ);
+  var Zy1 = HS1(),
+    vb8 = SG(),
+    _o = j2(),
+    ooQ = "AWS_EC2_METADATA_DISABLED",
+    bb8 = fpA(async (A) => {
+      let {
+        ENV_CMDS_FULL_URI: Q,
+        ENV_CMDS_RELATIVE_URI: B,
+        fromContainerMetadata: G,
+        fromInstanceMetadata: Z
+      } = await Promise.resolve().then(() => u5A(OV()));
+      if (process.env[B] || process.env[Q]) {
+        A.logger?.debug("@aws-sdk/credential-provider-node - remoteProvider::fromHttp/fromContainerMetadata");
+        let {
+          fromHttp: I
+        } = await Promise.resolve().then(() => u5A(_S1()));
+        return (0, _o.chain)(I(A), G(A))
+      }
+      if (process.env[ooQ] && process.env[ooQ] !== "false") return async () => {
+        throw new _o.CredentialsProviderError("EC2 Instance Metadata Service access disabled", {
+          logger: A.logger
+        })
+      };
+      return A.logger?.debug("@aws-sdk/credential-provider-node - remoteProvider::fromInstanceMetadata"), Z(A)
+    }, "remoteProvider"),
+    toQ = !1,
+    fb8 = fpA((A = {}) => (0, _o.memoize)((0, _o.chain)(async () => {
+      if (A.profile ?? process.env[vb8.ENV_PROFILE]) {
+        if (process.env[Zy1.ENV_KEY] && process.env[Zy1.ENV_SECRET]) {
+          if (!toQ)(A.logger?.warn && A.logger?.constructor?.name !== "NoOpLogger" ? A.logger.warn : console.warn)(`@aws-sdk/credential-provider-node - defaultProvider::fromEnv WARNING:
+    Multiple credential sources detected: 
+    Both AWS_PROFILE and the pair AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY static credentials are set.
+    This SDK will proceed with the AWS_PROFILE value.
+    
+    However, a future version may change this behavior to prefer the ENV static credentials.
+    Please ensure that your environment only sets either the AWS_PROFILE or the
+    AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY pair.
+`), toQ = !0
+        }
+        throw new _o.CredentialsProviderError("AWS_PROFILE is set, skipping fromEnv provider.", {
+          logger: A.logger,
+          tryNextLink: !0
+        })
+      }
+      return A.logger?.debug("@aws-sdk/credential-provider-node - defaultProvider::fromEnv"), (0, Zy1.fromEnv)(A)()
+    }, async () => {
+      A.logger?.debug("@aws-sdk/credential-provider-node - defaultProvider::fromSSO");
+      let {
+        ssoStartUrl: Q,
+        ssoAccountId: B,
+        ssoRegion: G,
+        ssoRoleName: Z,
+        ssoSession: I
+      } = A;
+      if (!Q && !B && !G && !Z && !I) throw new _o.CredentialsProviderError("Skipping SSO provider in default chain (inputs do not include SSO fields).", {
+        logger: A.logger
+      });
+      let {
+        fromSSO: Y
+      } = await Promise.resolve().then(() => u5A(Xk1()));
+      return Y(A)()
+    }, async () => {
+      A.logger?.debug("@aws-sdk/credential-provider-node - defaultProvider::fromIni");
+      let {
+        fromIni: Q
+      } = await Promise.resolve().then(() => u5A(roQ()));
+      return Q(A)()
+    }, async () => {
+      A.logger?.debug("@aws-sdk/credential-provider-node - defaultProvider::fromProcess");
+      let {
+        fromProcess: Q
+      } = await Promise.resolve().then(() => u5A(ok1()));
+      return Q(A)()
+    }, async () => {
+      A.logger?.debug("@aws-sdk/credential-provider-node - defaultProvider::fromTokenFile");
+      let {
+        fromTokenFile: Q
+      } = await Promise.resolve().then(() => u5A(Qy1()));
+      return Q(A)()
+    }, async () => {
+      return A.logger?.debug("@aws-sdk/credential-provider-node - defaultProvider::remoteProvider"), (await bb8(A))()
+    }, async () => {
+      throw new _o.CredentialsProviderError("Could not load credentials from any providers", {
+        tryNextLink: !1,
+        logger: A.logger
+      })
+    }), BtQ, QtQ), "defaultProvider"),
+    QtQ = fpA((A) => A?.expiration !== void 0, "credentialsWillNeedRefresh"),
+    BtQ = fpA((A) => A?.expiration !== void 0 && A.expiration.getTime() - Date.now() < 300000, "credentialsTreatedAsExpired")
+})
+// @from(Start 4563098, End 4564913)
+YtQ = z((AU) => {
+  var hb8 = AU && AU.__createBinding || (Object.create ? function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      var Z = Object.getOwnPropertyDescriptor(Q, B);
+      if (!Z || ("get" in Z ? !Q.__esModule : Z.writable || Z.configurable)) Z = {
+        enumerable: !0,
+        get: function() {
+          return Q[B]
+        }
+      };
+      Object.defineProperty(A, G, Z)
+    } : function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      A[G] = Q[B]
+    }),
+    gb8 = AU && AU.__setModuleDefault || (Object.create ? function(A, Q) {
+      Object.defineProperty(A, "default", {
+        enumerable: !0,
+        value: Q
+      })
+    } : function(A, Q) {
+      A.default = Q
+    }),
+    ZtQ = AU && AU.__importStar || function(A) {
+      if (A && A.__esModule) return A;
+      var Q = {};
+      if (A != null) {
+        for (var B in A)
+          if (B !== "default" && Object.prototype.hasOwnProperty.call(A, B)) hb8(Q, A, B)
+      }
+      return gb8(Q, A), Q
+    };
+  Object.defineProperty(AU, "__esModule", {
+    value: !0
+  });
+  AU.req = AU.json = AU.toBuffer = void 0;
+  var ub8 = ZtQ(UA("http")),
+    mb8 = ZtQ(UA("https"));
+  async function ItQ(A) {
+    let Q = 0,
+      B = [];
+    for await (let G of A) Q += G.length, B.push(G);
+    return Buffer.concat(B, Q)
+  }
+  AU.toBuffer = ItQ;
+  async function db8(A) {
+    let B = (await ItQ(A)).toString("utf8");
+    try {
+      return JSON.parse(B)
+    } catch (G) {
+      let Z = G;
+      throw Z.message += ` (input: ${B})`, Z
     }
-    getBufferEntry(A) {
-      var B;
-      return (B = this.writeBuffer[A - this.writeBufferOffset]) !== null && B !== void 0 ? B : {
-        entryType: "FREED",
-        allocated: !1
+  }
+  AU.json = db8;
+
+  function cb8(A, Q = {}) {
+    let G = ((typeof A === "string" ? A : A.href).startsWith("https:") ? mb8 : ub8).request(A, Q),
+      Z = new Promise((I, Y) => {
+        G.once("response", I).once("error", Y).end()
+      });
+    return G.then = Z.then.bind(Z), G
+  }
+  AU.req = cb8
+})
+// @from(Start 4564919, End 4568697)
+Yy1 = z((yw) => {
+  var WtQ = yw && yw.__createBinding || (Object.create ? function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      var Z = Object.getOwnPropertyDescriptor(Q, B);
+      if (!Z || ("get" in Z ? !Q.__esModule : Z.writable || Z.configurable)) Z = {
+        enumerable: !0,
+        get: function() {
+          return Q[B]
+        }
+      };
+      Object.defineProperty(A, G, Z)
+    } : function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      A[G] = Q[B]
+    }),
+    pb8 = yw && yw.__setModuleDefault || (Object.create ? function(A, Q) {
+      Object.defineProperty(A, "default", {
+        enumerable: !0,
+        value: Q
+      })
+    } : function(A, Q) {
+      A.default = Q
+    }),
+    XtQ = yw && yw.__importStar || function(A) {
+      if (A && A.__esModule) return A;
+      var Q = {};
+      if (A != null) {
+        for (var B in A)
+          if (B !== "default" && Object.prototype.hasOwnProperty.call(A, B)) WtQ(Q, A, B)
+      }
+      return pb8(Q, A), Q
+    },
+    lb8 = yw && yw.__exportStar || function(A, Q) {
+      for (var B in A)
+        if (B !== "default" && !Object.prototype.hasOwnProperty.call(Q, B)) WtQ(Q, A, B)
+    };
+  Object.defineProperty(yw, "__esModule", {
+    value: !0
+  });
+  yw.Agent = void 0;
+  var ib8 = XtQ(UA("net")),
+    JtQ = XtQ(UA("http")),
+    nb8 = UA("https");
+  lb8(YtQ(), yw);
+  var I_ = Symbol("AgentBaseInternalState");
+  class VtQ extends JtQ.Agent {
+    constructor(A) {
+      super(A);
+      this[I_] = {}
+    }
+    isSecureEndpoint(A) {
+      if (A) {
+        if (typeof A.secureEndpoint === "boolean") return A.secureEndpoint;
+        if (typeof A.protocol === "string") return A.protocol === "https:"
+      }
+      let {
+        stack: Q
+      } = Error();
+      if (typeof Q !== "string") return !1;
+      return Q.split(`
+`).some((B) => B.indexOf("(https.js:") !== -1 || B.indexOf("node:https:") !== -1)
+    }
+    incrementSockets(A) {
+      if (this.maxSockets === 1 / 0 && this.maxTotalSockets === 1 / 0) return null;
+      if (!this.sockets[A]) this.sockets[A] = [];
+      let Q = new ib8.Socket({
+        writable: !1
+      });
+      return this.sockets[A].push(Q), this.totalSocketCount++, Q
+    }
+    decrementSockets(A, Q) {
+      if (!this.sockets[A] || Q === null) return;
+      let B = this.sockets[A],
+        G = B.indexOf(Q);
+      if (G !== -1) {
+        if (B.splice(G, 1), this.totalSocketCount--, B.length === 0) delete this.sockets[A]
       }
     }
-    getNextBufferIndex() {
-      return this.writeBufferOffset + this.writeBuffer.length
+    getName(A) {
+      if (typeof A.secureEndpoint === "boolean" ? A.secureEndpoint : this.isSecureEndpoint(A)) return nb8.Agent.prototype.getName.call(this, A);
+      return super.getName(A)
     }
-    clearSentMessages() {
-      if (this.state !== "COMMITTED") return;
-      let A;
-      if (this.underlyingCalls[this.committedCallIndex].state === "COMPLETED") A = this.getNextBufferIndex();
-      else A = this.underlyingCalls[this.committedCallIndex].nextMessageToSend;
-      for (let B = this.writeBufferOffset; B < A; B++) {
-        let Q = this.getBufferEntry(B);
-        if (Q.allocated) this.bufferTracker.free(Q.message.message.length, this.callNumber)
-      }
-      this.writeBuffer = this.writeBuffer.slice(A - this.writeBufferOffset), this.writeBufferOffset = A
-    }
-    commitCall(A) {
-      var B, Q;
-      if (this.state === "COMMITTED") return;
-      this.trace("Committing call [" + this.underlyingCalls[A].call.getCallNumber() + "] at index " + A), this.state = "COMMITTED", (Q = (B = this.callConfig).onCommitted) === null || Q === void 0 || Q.call(B), this.committedCallIndex = A;
-      for (let I = 0; I < this.underlyingCalls.length; I++) {
-        if (I === A) continue;
-        if (this.underlyingCalls[I].state === "COMPLETED") continue;
-        this.underlyingCalls[I].state = "COMPLETED", this.underlyingCalls[I].call.cancelWithStatus(pD1.Status.CANCELLED, "Discarded in favor of other hedged attempt")
-      }
-      this.clearSentMessages()
-    }
-    commitCallWithMostMessages() {
-      if (this.state === "COMMITTED") return;
-      let A = -1,
-        B = -1;
-      for (let [Q, I] of this.underlyingCalls.entries())
-        if (I.state === "ACTIVE" && I.nextMessageToSend > A) A = I.nextMessageToSend, B = Q;
-      if (B === -1) this.state = "TRANSPARENT_ONLY";
-      else this.commitCall(B)
-    }
-    isStatusCodeInList(A, B) {
-      return A.some((Q) => {
-        var I;
-        return Q === B || Q.toString().toLowerCase() === ((I = pD1.Status[B]) === null || I === void 0 ? void 0 : I.toLowerCase())
+    createSocket(A, Q, B) {
+      let G = {
+          ...Q,
+          secureEndpoint: this.isSecureEndpoint(Q)
+        },
+        Z = this.getName(G),
+        I = this.incrementSockets(Z);
+      Promise.resolve().then(() => this.connect(A, G)).then((Y) => {
+        if (this.decrementSockets(Z, I), Y instanceof JtQ.Agent) try {
+          return Y.addRequest(A, G)
+        } catch (J) {
+          return B(J)
+        }
+        this[I_].currentSocket = Y, super.createSocket(A, Q, B)
+      }, (Y) => {
+        this.decrementSockets(Z, I), B(Y)
       })
     }
-    getNextRetryBackoffMs() {
-      var A;
-      let B = (A = this.callConfig) === null || A === void 0 ? void 0 : A.methodConfig.retryPolicy;
-      if (!B) return 0;
-      let Q = Math.random() * this.nextRetryBackoffSec * 1000,
-        I = Number(B.maxBackoff.substring(0, B.maxBackoff.length - 1));
-      return this.nextRetryBackoffSec = Math.min(this.nextRetryBackoffSec * B.backoffMultiplier, I), Q
-    }
-    maybeRetryCall(A, B) {
-      if (this.state !== "RETRY") {
-        B(!1);
-        return
-      }
-      if (this.attempts >= this.maxAttempts) {
-        B(!1);
-        return
-      }
-      let Q;
-      if (A === null) Q = this.getNextRetryBackoffMs();
-      else if (A < 0) {
-        this.state = "TRANSPARENT_ONLY", B(!1);
-        return
-      } else Q = A, this.nextRetryBackoffSec = this.initialRetryBackoffSec;
-      setTimeout(() => {
-        var I, G;
-        if (this.state !== "RETRY") {
-          B(!1);
-          return
-        }
-        if ((G = (I = this.retryThrottler) === null || I === void 0 ? void 0 : I.canRetryCall()) !== null && G !== void 0 ? G : !0) B(!0), this.attempts += 1, this.startNewAttempt();
-        else this.trace("Retry attempt denied by throttling policy"), B(!1)
-      }, Q)
-    }
-    countActiveCalls() {
-      let A = 0;
-      for (let B of this.underlyingCalls)
-        if ((B === null || B === void 0 ? void 0 : B.state) === "ACTIVE") A += 1;
+    createConnection() {
+      let A = this[I_].currentSocket;
+      if (this[I_].currentSocket = void 0, !A) throw Error("No socket was returned in the `connect()` function");
       return A
     }
-    handleProcessedStatus(A, B, Q) {
-      var I, G, Z;
-      switch (this.state) {
-        case "COMMITTED":
-        case "NO_RETRY":
-        case "TRANSPARENT_ONLY":
-          this.commitCall(B), this.reportStatus(A);
-          break;
-        case "HEDGING":
-          if (this.isStatusCodeInList((I = this.callConfig.methodConfig.hedgingPolicy.nonFatalStatusCodes) !== null && I !== void 0 ? I : [], A.code)) {
-            (G = this.retryThrottler) === null || G === void 0 || G.addCallFailed();
-            let D;
-            if (Q === null) D = 0;
-            else if (Q < 0) {
-              this.state = "TRANSPARENT_ONLY", this.commitCall(B), this.reportStatus(A);
-              return
-            } else D = Q;
-            setTimeout(() => {
-              if (this.maybeStartHedgingAttempt(), this.countActiveCalls() === 0) this.commitCall(B), this.reportStatus(A)
-            }, D)
-          } else this.commitCall(B), this.reportStatus(A);
-          break;
-        case "RETRY":
-          if (this.isStatusCodeInList(this.callConfig.methodConfig.retryPolicy.retryableStatusCodes, A.code))(Z = this.retryThrottler) === null || Z === void 0 || Z.addCallFailed(), this.maybeRetryCall(Q, (D) => {
-            if (!D) this.commitCall(B), this.reportStatus(A)
-          });
-          else this.commitCall(B), this.reportStatus(A);
-          break
-      }
+    get defaultPort() {
+      return this[I_].defaultPort ?? (this.protocol === "https:" ? 443 : 80)
     }
-    getPushback(A) {
-      let B = A.get("grpc-retry-pushback-ms");
-      if (B.length === 0) return null;
-      try {
-        return parseInt(B[0])
-      } catch (Q) {
-        return -1
-      }
+    set defaultPort(A) {
+      if (this[I_]) this[I_].defaultPort = A
     }
-    handleChildStatus(A, B) {
-      var Q;
-      if (this.underlyingCalls[B].state === "COMPLETED") return;
-      if (this.trace("state=" + this.state + " handling status with progress " + A.progress + " from child [" + this.underlyingCalls[B].call.getCallNumber() + "] in state " + this.underlyingCalls[B].state), this.underlyingCalls[B].state = "COMPLETED", A.code === pD1.Status.OK) {
-        (Q = this.retryThrottler) === null || Q === void 0 || Q.addCallSucceeded(), this.commitCall(B), this.reportStatus(A);
-        return
-      }
-      if (this.state === "NO_RETRY") {
-        this.commitCall(B), this.reportStatus(A);
-        return
-      }
-      if (this.state === "COMMITTED") {
-        this.reportStatus(A);
-        return
-      }
-      let I = this.getPushback(A.metadata);
-      switch (A.progress) {
-        case "NOT_STARTED":
-          this.startNewAttempt();
-          break;
-        case "REFUSED":
-          if (this.transparentRetryUsed) this.handleProcessedStatus(A, B, I);
-          else this.transparentRetryUsed = !0, this.startNewAttempt();
-          break;
-        case "DROP":
-          this.commitCall(B), this.reportStatus(A);
-          break;
-        case "PROCESSED":
-          this.handleProcessedStatus(A, B, I);
-          break
-      }
+    get protocol() {
+      return this[I_].protocol ?? (this.isSecureEndpoint() ? "https:" : "http:")
     }
-    maybeStartHedgingAttempt() {
-      if (this.state !== "HEDGING") return;
-      if (!this.callConfig.methodConfig.hedgingPolicy) return;
-      if (this.attempts >= this.maxAttempts) return;
-      this.attempts += 1, this.startNewAttempt(), this.maybeStartHedgingTimer()
-    }
-    maybeStartHedgingTimer() {
-      var A, B, Q;
-      if (this.hedgingTimer) clearTimeout(this.hedgingTimer);
-      if (this.state !== "HEDGING") return;
-      if (!this.callConfig.methodConfig.hedgingPolicy) return;
-      let I = this.callConfig.methodConfig.hedgingPolicy;
-      if (this.attempts >= this.maxAttempts) return;
-      let G = (A = I.hedgingDelay) !== null && A !== void 0 ? A : "0s",
-        Z = Number(G.substring(0, G.length - 1));
-      this.hedgingTimer = setTimeout(() => {
-        this.maybeStartHedgingAttempt()
-      }, Z * 1000), (Q = (B = this.hedgingTimer).unref) === null || Q === void 0 || Q.call(B)
-    }
-    startNewAttempt() {
-      let A = this.channel.createLoadBalancingCall(this.callConfig, this.methodName, this.host, this.credentials, this.deadline);
-      this.trace("Created child call [" + A.getCallNumber() + "] for attempt " + this.attempts);
-      let B = this.underlyingCalls.length;
-      this.underlyingCalls.push({
-        state: "ACTIVE",
-        call: A,
-        nextMessageToSend: 0,
-        startTime: new Date
-      });
-      let Q = this.attempts - 1,
-        I = this.initialMetadata.clone();
-      if (Q > 0) I.set(im1, `${Q}`);
-      let G = !1;
-      if (A.start(I, {
-          onReceiveMetadata: (Z) => {
-            if (this.trace("Received metadata from child [" + A.getCallNumber() + "]"), this.commitCall(B), G = !0, Q > 0) Z.set(im1, `${Q}`);
-            if (this.underlyingCalls[B].state === "ACTIVE") this.listener.onReceiveMetadata(Z)
-          },
-          onReceiveMessage: (Z) => {
-            if (this.trace("Received message from child [" + A.getCallNumber() + "]"), this.commitCall(B), this.underlyingCalls[B].state === "ACTIVE") this.listener.onReceiveMessage(Z)
-          },
-          onReceiveStatus: (Z) => {
-            if (this.trace("Received status from child [" + A.getCallNumber() + "]"), !G && Q > 0) Z.metadata.set(im1, `${Q}`);
-            this.handleChildStatus(Z, B)
-          }
-        }), this.sendNextChildMessage(B), this.readStarted) A.startRead()
-    }
-    start(A, B) {
-      this.trace("start called"), this.listener = B, this.initialMetadata = A, this.attempts += 1, this.startNewAttempt(), this.maybeStartHedgingTimer()
-    }
-    handleChildWriteCompleted(A) {
-      var B, Q;
-      let I = this.underlyingCalls[A],
-        G = I.nextMessageToSend;
-      (Q = (B = this.getBufferEntry(G)).callback) === null || Q === void 0 || Q.call(B), this.clearSentMessages(), I.nextMessageToSend += 1, this.sendNextChildMessage(A)
-    }
-    sendNextChildMessage(A) {
-      let B = this.underlyingCalls[A];
-      if (B.state === "COMPLETED") return;
-      if (this.getBufferEntry(B.nextMessageToSend)) {
-        let Q = this.getBufferEntry(B.nextMessageToSend);
-        switch (Q.entryType) {
-          case "MESSAGE":
-            B.call.sendMessageWithContext({
-              callback: (I) => {
-                this.handleChildWriteCompleted(A)
-              }
-            }, Q.message.message);
-            break;
-          case "HALF_CLOSE":
-            B.nextMessageToSend += 1, B.call.halfClose();
-            break;
-          case "FREED":
-            break
-        }
-      }
-    }
-    sendMessageWithContext(A, B) {
-      var Q;
-      this.trace("write() called with message of length " + B.length);
-      let I = {
-          message: B,
-          flags: A.flags
-        },
-        G = this.getNextBufferIndex(),
-        Z = {
-          entryType: "MESSAGE",
-          message: I,
-          allocated: this.bufferTracker.allocate(B.length, this.callNumber)
-        };
-      if (this.writeBuffer.push(Z), Z.allocated) {
-        (Q = A.callback) === null || Q === void 0 || Q.call(A);
-        for (let [D, Y] of this.underlyingCalls.entries())
-          if (Y.state === "ACTIVE" && Y.nextMessageToSend === G) Y.call.sendMessageWithContext({
-            callback: (W) => {
-              this.handleChildWriteCompleted(D)
-            }
-          }, B)
-      } else {
-        if (this.commitCallWithMostMessages(), this.committedCallIndex === null) return;
-        let D = this.underlyingCalls[this.committedCallIndex];
-        if (Z.callback = A.callback, D.state === "ACTIVE" && D.nextMessageToSend === G) D.call.sendMessageWithContext({
-          callback: (Y) => {
-            this.handleChildWriteCompleted(this.committedCallIndex)
-          }
-        }, B)
-      }
-    }
-    startRead() {
-      this.trace("startRead called"), this.readStarted = !0;
-      for (let A of this.underlyingCalls)
-        if ((A === null || A === void 0 ? void 0 : A.state) === "ACTIVE") A.call.startRead()
-    }
-    halfClose() {
-      this.trace("halfClose called");
-      let A = this.getNextBufferIndex();
-      this.writeBuffer.push({
-        entryType: "HALF_CLOSE",
-        allocated: !1
-      });
-      for (let B of this.underlyingCalls)
-        if ((B === null || B === void 0 ? void 0 : B.state) === "ACTIVE" && B.nextMessageToSend === A) B.nextMessageToSend += 1, B.call.halfClose()
-    }
-    setCredentials(A) {
-      throw new Error("Method not implemented.")
-    }
-    getMethod() {
-      return this.methodName
-    }
-    getHost() {
-      return this.host
+    set protocol(A) {
+      if (this[I_]) this[I_].protocol = A
     }
   }
-  Wx0.RetryingCall = Yx0
+  yw.Agent = VtQ
 })
-// @from(Start 5005576, End 5007302)
-cD1 = z((Vx0) => {
-  Object.defineProperty(Vx0, "__esModule", {
+// @from(Start 4568703, End 4570846)
+FtQ = z((m5A) => {
+  var ab8 = m5A && m5A.__importDefault || function(A) {
+    return A && A.__esModule ? A : {
+      default: A
+    }
+  };
+  Object.defineProperty(m5A, "__esModule", {
     value: !0
   });
-  Vx0.BaseSubchannelWrapper = void 0;
-  class Xx0 {
-    constructor(A) {
-      this.child = A, this.healthy = !0, this.healthListeners = new Set, A.addHealthStateWatcher((B) => {
-        if (this.healthy) this.updateHealthListeners()
-      })
-    }
-    updateHealthListeners() {
-      for (let A of this.healthListeners) A(this.isHealthy())
-    }
-    getConnectivityState() {
-      return this.child.getConnectivityState()
-    }
-    addConnectivityStateListener(A) {
-      this.child.addConnectivityStateListener(A)
-    }
-    removeConnectivityStateListener(A) {
-      this.child.removeConnectivityStateListener(A)
-    }
-    startConnecting() {
-      this.child.startConnecting()
-    }
-    getAddress() {
-      return this.child.getAddress()
-    }
-    throttleKeepalive(A) {
-      this.child.throttleKeepalive(A)
-    }
-    ref() {
-      this.child.ref()
-    }
-    unref() {
-      this.child.unref()
-    }
-    getChannelzRef() {
-      return this.child.getChannelzRef()
-    }
-    isHealthy() {
-      return this.healthy && this.child.isHealthy()
-    }
-    addHealthStateWatcher(A) {
-      this.healthListeners.add(A)
-    }
-    removeHealthStateWatcher(A) {
-      this.healthListeners.delete(A)
-    }
-    setHealthy(A) {
-      if (A !== this.healthy) {
-        if (this.healthy = A, this.child.isHealthy()) this.updateHealthListeners()
-      }
-    }
-    getRealSubchannel() {
-      return this.child.getRealSubchannel()
-    }
-    realSubchannelEquals(A) {
-      return this.getRealSubchannel() === A.getRealSubchannel()
-    }
-    getCallCredentials() {
-      return this.child.getCallCredentials()
-    }
-  }
-  Vx0.BaseSubchannelWrapper = Xx0
-})
-// @from(Start 5007308, End 5023224)
-rm1 = z((Ux0) => {
-  Object.defineProperty(Ux0, "__esModule", {
-    value: !0
-  });
-  Ux0.InternalChannel = Ux0.SUBCHANNEL_ARGS_EXCLUDE_KEY_PREFIX = void 0;
-  var WG6 = us(),
-    JG6 = dS0(),
-    FG6 = Pk0(),
-    sm1 = FR(),
-    XG6 = SZ(),
-    UR = y6(),
-    VG6 = dm1(),
-    CG6 = lk0(),
-    Kx0 = Zw(),
-    lD1 = GB(),
-    KG6 = km1(),
-    iD1 = uY(),
-    kX = TX(),
-    wr = Aj(),
-    HG6 = ek0(),
-    zG6 = Hr(),
-    wG6 = Gx0(),
-    nm1 = vm1(),
-    EG6 = mD1(),
-    am1 = Fx0(),
-    UG6 = cD1(),
-    NG6 = 2147483647,
-    $G6 = 1000,
-    qG6 = 1800000,
-    nD1 = new Map,
-    MG6 = 16777216,
-    LG6 = 1048576;
-  class Hx0 extends UG6.BaseSubchannelWrapper {
-    constructor(A, B) {
-      super(A);
-      this.channel = B, this.refCount = 0, this.subchannelStateListener = (Q, I, G, Z) => {
-        B.throttleKeepalive(Z)
-      }
-    }
-    ref() {
-      if (this.refCount === 0) this.child.addConnectivityStateListener(this.subchannelStateListener), this.channel.addWrappedSubchannel(this);
-      this.child.ref(), this.refCount += 1
-    }
-    unref() {
-      if (this.child.unref(), this.refCount -= 1, this.refCount <= 0) this.child.removeConnectivityStateListener(this.subchannelStateListener), this.channel.removeWrappedSubchannel(this)
-    }
-  }
-  class zx0 {
-    pick(A) {
-      return {
-        pickResultType: sm1.PickResultType.DROP,
-        status: {
-          code: UR.Status.UNAVAILABLE,
-          details: "Channel closed before call started",
-          metadata: new XG6.Metadata
-        },
-        subchannel: null,
-        onCallStarted: null,
-        onCallEnded: null
-      }
-    }
-  }
-  Ux0.SUBCHANNEL_ARGS_EXCLUDE_KEY_PREFIX = "grpc.internal.no_subchannel";
-  class wx0 {
-    constructor(A) {
-      this.target = A, this.trace = new wr.ChannelzTrace, this.callTracker = new wr.ChannelzCallTracker, this.childrenTracker = new wr.ChannelzChildrenTracker, this.state = kX.ConnectivityState.IDLE
-    }
-    getChannelzInfoCallback() {
-      return () => {
-        return {
-          target: this.target,
-          state: this.state,
-          trace: this.trace,
-          callTracker: this.callTracker,
-          children: this.childrenTracker.getChildLists()
-        }
-      }
-    }
-  }
-  class Ex0 {
-    constructor(A, B, Q) {
-      var I, G, Z, D, Y, W;
-      if (this.credentials = B, this.options = Q, this.connectivityState = kX.ConnectivityState.IDLE, this.currentPicker = new sm1.UnavailablePicker, this.configSelectionQueue = [], this.pickQueue = [], this.connectivityStateWatchers = [], this.callRefTimer = null, this.configSelector = null, this.currentResolutionError = null, this.wrappedSubchannels = new Set, this.callCount = 0, this.idleTimer = null, this.channelzEnabled = !0, this.randomChannelId = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER), typeof A !== "string") throw new TypeError("Channel target must be a string");
-      if (!(B instanceof WG6.ChannelCredentials)) throw new TypeError("Channel credentials must be a ChannelCredentials object");
-      if (Q) {
-        if (typeof Q !== "object") throw new TypeError("Channel options must be an object")
-      }
-      this.channelzInfoTracker = new wx0(A);
-      let J = iD1.parseUri(A);
-      if (J === null) throw new Error(`Could not parse target name "${A}"`);
-      let F = Kx0.mapUriDefaultScheme(J);
-      if (F === null) throw new Error(`Could not find a default scheme for target name "${A}"`);
-      if (this.options["grpc.enable_channelz"] === 0) this.channelzEnabled = !1;
-      if (this.channelzRef = wr.registerChannelzChannel(A, this.channelzInfoTracker.getChannelzInfoCallback(), this.channelzEnabled), this.channelzEnabled) this.channelzInfoTracker.trace.addTrace("CT_INFO", "Channel created");
-      if (this.options["grpc.default_authority"]) this.defaultAuthority = this.options["grpc.default_authority"];
-      else this.defaultAuthority = Kx0.getDefaultAuthority(F);
-      let X = KG6.mapProxyName(F, Q);
-      this.target = X.target, this.options = Object.assign({}, this.options, X.extraOptions), this.subchannelPool = FG6.getSubchannelPool(((I = Q["grpc.use_local_subchannel_pool"]) !== null && I !== void 0 ? I : 0) === 0), this.retryBufferTracker = new am1.MessageBufferTracker((G = Q["grpc.retry_buffer_size"]) !== null && G !== void 0 ? G : MG6, (Z = Q["grpc.per_rpc_retry_buffer_size"]) !== null && Z !== void 0 ? Z : LG6), this.keepaliveTime = (D = Q["grpc.keepalive_time_ms"]) !== null && D !== void 0 ? D : -1, this.idleTimeoutMs = Math.max((Y = Q["grpc.client_idle_timeout_ms"]) !== null && Y !== void 0 ? Y : qG6, $G6);
-      let V = {
-        createSubchannel: (K, E) => {
-          let N = {};
-          for (let [R, T] of Object.entries(E))
-            if (!R.startsWith(Ux0.SUBCHANNEL_ARGS_EXCLUDE_KEY_PREFIX)) N[R] = T;
-          let q = this.subchannelPool.getOrCreateSubchannel(this.target, K, N, this.credentials);
-          if (q.throttleKeepalive(this.keepaliveTime), this.channelzEnabled) this.channelzInfoTracker.trace.addTrace("CT_INFO", "Created subchannel or used existing subchannel", q.getChannelzRef());
-          return new Hx0(q, this)
-        },
-        updateState: (K, E) => {
-          this.currentPicker = E;
-          let N = this.pickQueue.slice();
-          if (this.pickQueue = [], N.length > 0) this.callRefTimerUnref();
-          for (let q of N) q.doPick();
-          this.updateState(K)
-        },
-        requestReresolution: () => {
-          throw new Error("Resolving load balancer should never call requestReresolution")
-        },
-        addChannelzChild: (K) => {
-          if (this.channelzEnabled) this.channelzInfoTracker.childrenTracker.refChild(K)
-        },
-        removeChannelzChild: (K) => {
-          if (this.channelzEnabled) this.channelzInfoTracker.childrenTracker.unrefChild(K)
-        }
-      };
-      this.resolvingLoadBalancer = new JG6.ResolvingLoadBalancer(this.target, V, Q, (K, E) => {
-        var N;
-        if (K.retryThrottling) nD1.set(this.getTarget(), new am1.RetryThrottler(K.retryThrottling.maxTokens, K.retryThrottling.tokenRatio, nD1.get(this.getTarget())));
-        else nD1.delete(this.getTarget());
-        if (this.channelzEnabled) this.channelzInfoTracker.trace.addTrace("CT_INFO", "Address resolution succeeded");
-        (N = this.configSelector) === null || N === void 0 || N.unref(), this.configSelector = E, this.currentResolutionError = null, process.nextTick(() => {
-          let q = this.configSelectionQueue;
-          if (this.configSelectionQueue = [], q.length > 0) this.callRefTimerUnref();
-          for (let O of q) O.getConfig()
-        })
-      }, (K) => {
-        if (this.channelzEnabled) this.channelzInfoTracker.trace.addTrace("CT_WARNING", "Address resolution failed with code " + K.code + ' and details "' + K.details + '"');
-        if (this.configSelectionQueue.length > 0) this.trace("Name resolution failed with calls queued for config selection");
-        if (this.configSelector === null) this.currentResolutionError = Object.assign(Object.assign({}, EG6.restrictControlPlaneStatusCode(K.code, K.details)), {
-          metadata: K.metadata
-        });
-        let E = this.configSelectionQueue;
-        if (this.configSelectionQueue = [], E.length > 0) this.callRefTimerUnref();
-        for (let N of E) N.reportResolverError(K)
-      }), this.filterStackFactory = new VG6.FilterStackFactory([new CG6.CompressionFilterFactory(this, this.options)]), this.trace("Channel constructed with options " + JSON.stringify(Q, void 0, 2));
-      let C = new Error;
-      if (lD1.isTracerEnabled("channel_stacktrace")) lD1.trace(UR.LogVerbosity.DEBUG, "channel_stacktrace", "(" + this.channelzRef.id + `) Channel constructed 
-` + ((W = C.stack) === null || W === void 0 ? void 0 : W.substring(C.stack.indexOf(`
-`) + 1)));
-      this.lastActivityTimestamp = new Date
-    }
-    trace(A, B) {
-      lD1.trace(B !== null && B !== void 0 ? B : UR.LogVerbosity.DEBUG, "channel", "(" + this.channelzRef.id + ") " + iD1.uriToString(this.target) + " " + A)
-    }
-    callRefTimerRef() {
-      var A, B, Q, I;
-      if (!this.callRefTimer) this.callRefTimer = setInterval(() => {}, NG6);
-      if (!((B = (A = this.callRefTimer).hasRef) === null || B === void 0 ? void 0 : B.call(A))) this.trace("callRefTimer.ref | configSelectionQueue.length=" + this.configSelectionQueue.length + " pickQueue.length=" + this.pickQueue.length), (I = (Q = this.callRefTimer).ref) === null || I === void 0 || I.call(Q)
-    }
-    callRefTimerUnref() {
-      var A, B, Q;
-      if (!((A = this.callRefTimer) === null || A === void 0 ? void 0 : A.hasRef) || this.callRefTimer.hasRef()) this.trace("callRefTimer.unref | configSelectionQueue.length=" + this.configSelectionQueue.length + " pickQueue.length=" + this.pickQueue.length), (Q = (B = this.callRefTimer) === null || B === void 0 ? void 0 : B.unref) === null || Q === void 0 || Q.call(B)
-    }
-    removeConnectivityStateWatcher(A) {
-      let B = this.connectivityStateWatchers.findIndex((Q) => Q === A);
-      if (B >= 0) this.connectivityStateWatchers.splice(B, 1)
-    }
-    updateState(A) {
-      if (lD1.trace(UR.LogVerbosity.DEBUG, "connectivity_state", "(" + this.channelzRef.id + ") " + iD1.uriToString(this.target) + " " + kX.ConnectivityState[this.connectivityState] + " -> " + kX.ConnectivityState[A]), this.channelzEnabled) this.channelzInfoTracker.trace.addTrace("CT_INFO", "Connectivity state change to " + kX.ConnectivityState[A]);
-      this.connectivityState = A, this.channelzInfoTracker.state = A;
-      let B = this.connectivityStateWatchers.slice();
-      for (let Q of B)
-        if (A !== Q.currentState) {
-          if (Q.timer) clearTimeout(Q.timer);
-          this.removeConnectivityStateWatcher(Q), Q.callback()
-        } if (A !== kX.ConnectivityState.TRANSIENT_FAILURE) this.currentResolutionError = null
-    }
-    throttleKeepalive(A) {
-      if (A > this.keepaliveTime) {
-        this.keepaliveTime = A;
-        for (let B of this.wrappedSubchannels) B.throttleKeepalive(A)
-      }
-    }
-    addWrappedSubchannel(A) {
-      this.wrappedSubchannels.add(A)
-    }
-    removeWrappedSubchannel(A) {
-      this.wrappedSubchannels.delete(A)
-    }
-    doPick(A, B) {
-      return this.currentPicker.pick({
-        metadata: A,
-        extraPickInfo: B
-      })
-    }
-    queueCallForPick(A) {
-      this.pickQueue.push(A), this.callRefTimerRef()
-    }
-    getConfig(A, B) {
-      if (this.connectivityState !== kX.ConnectivityState.SHUTDOWN) this.resolvingLoadBalancer.exitIdle();
-      if (this.configSelector) return {
-        type: "SUCCESS",
-        config: this.configSelector.invoke(A, B, this.randomChannelId)
-      };
-      else if (this.currentResolutionError) return {
-        type: "ERROR",
-        error: this.currentResolutionError
-      };
-      else return {
-        type: "NONE"
-      }
-    }
-    queueCallForConfig(A) {
-      this.configSelectionQueue.push(A), this.callRefTimerRef()
-    }
-    enterIdle() {
-      if (this.resolvingLoadBalancer.destroy(), this.updateState(kX.ConnectivityState.IDLE), this.currentPicker = new sm1.QueuePicker(this.resolvingLoadBalancer), this.idleTimer) clearTimeout(this.idleTimer), this.idleTimer = null;
-      if (this.callRefTimer) clearInterval(this.callRefTimer), this.callRefTimer = null
-    }
-    startIdleTimeout(A) {
-      var B, Q;
-      this.idleTimer = setTimeout(() => {
-        if (this.callCount > 0) {
-          this.startIdleTimeout(this.idleTimeoutMs);
-          return
-        }
-        let G = new Date().valueOf() - this.lastActivityTimestamp.valueOf();
-        if (G >= this.idleTimeoutMs) this.trace("Idle timer triggered after " + this.idleTimeoutMs + "ms of inactivity"), this.enterIdle();
-        else this.startIdleTimeout(this.idleTimeoutMs - G)
-      }, A), (Q = (B = this.idleTimer).unref) === null || Q === void 0 || Q.call(B)
-    }
-    maybeStartIdleTimer() {
-      if (this.connectivityState !== kX.ConnectivityState.SHUTDOWN && !this.idleTimer) this.startIdleTimeout(this.idleTimeoutMs)
-    }
-    onCallStart() {
-      if (this.channelzEnabled) this.channelzInfoTracker.callTracker.addCallStarted();
-      this.callCount += 1
-    }
-    onCallEnd(A) {
-      if (this.channelzEnabled)
-        if (A.code === UR.Status.OK) this.channelzInfoTracker.callTracker.addCallSucceeded();
-        else this.channelzInfoTracker.callTracker.addCallFailed();
-      this.callCount -= 1, this.lastActivityTimestamp = new Date, this.maybeStartIdleTimer()
-    }
-    createLoadBalancingCall(A, B, Q, I, G) {
-      let Z = nm1.getNextCallNumber();
-      return this.trace("createLoadBalancingCall [" + Z + '] method="' + B + '"'), new HG6.LoadBalancingCall(this, A, B, Q, I, G, Z)
-    }
-    createRetryingCall(A, B, Q, I, G) {
-      let Z = nm1.getNextCallNumber();
-      return this.trace("createRetryingCall [" + Z + '] method="' + B + '"'), new am1.RetryingCall(this, A, B, Q, I, G, Z, this.retryBufferTracker, nD1.get(this.getTarget()))
-    }
-    createResolvingCall(A, B, Q, I, G) {
-      let Z = nm1.getNextCallNumber();
-      this.trace("createResolvingCall [" + Z + '] method="' + A + '", deadline=' + zG6.deadlineToString(B));
-      let D = {
-          deadline: B,
-          flags: G !== null && G !== void 0 ? G : UR.Propagate.DEFAULTS,
-          host: Q !== null && Q !== void 0 ? Q : this.defaultAuthority,
-          parentCall: I
-        },
-        Y = new wG6.ResolvingCall(this, A, D, this.filterStackFactory.clone(), Z);
-      return this.onCallStart(), Y.addStatusWatcher((W) => {
-        this.onCallEnd(W)
-      }), Y
-    }
-    close() {
-      var A;
-      this.resolvingLoadBalancer.destroy(), this.updateState(kX.ConnectivityState.SHUTDOWN), this.currentPicker = new zx0;
-      for (let B of this.configSelectionQueue) B.cancelWithStatus(UR.Status.UNAVAILABLE, "Channel closed before call started");
-      this.configSelectionQueue = [];
-      for (let B of this.pickQueue) B.cancelWithStatus(UR.Status.UNAVAILABLE, "Channel closed before call started");
-      if (this.pickQueue = [], this.callRefTimer) clearInterval(this.callRefTimer);
-      if (this.idleTimer) clearTimeout(this.idleTimer);
-      if (this.channelzEnabled) wr.unregisterChannelzRef(this.channelzRef);
-      this.subchannelPool.unrefUnusedSubchannels(), (A = this.configSelector) === null || A === void 0 || A.unref(), this.configSelector = null
-    }
-    getTarget() {
-      return iD1.uriToString(this.target)
-    }
-    getConnectivityState(A) {
-      let B = this.connectivityState;
-      if (A) this.resolvingLoadBalancer.exitIdle(), this.lastActivityTimestamp = new Date, this.maybeStartIdleTimer();
-      return B
-    }
-    watchConnectivityState(A, B, Q) {
-      if (this.connectivityState === kX.ConnectivityState.SHUTDOWN) throw new Error("Channel has been shut down");
-      let I = null;
-      if (B !== 1 / 0) {
-        let Z = B instanceof Date ? B : new Date(B),
-          D = new Date;
-        if (B === -1 / 0 || Z <= D) {
-          process.nextTick(Q, new Error("Deadline passed without connectivity state change"));
-          return
-        }
-        I = setTimeout(() => {
-          this.removeConnectivityStateWatcher(G), Q(new Error("Deadline passed without connectivity state change"))
-        }, Z.getTime() - D.getTime())
-      }
-      let G = {
-        currentState: A,
-        callback: Q,
-        timer: I
-      };
-      this.connectivityStateWatchers.push(G)
-    }
-    getChannelzRef() {
-      return this.channelzRef
-    }
-    createCall(A, B, Q, I, G) {
-      if (typeof A !== "string") throw new TypeError("Channel#createCall: method must be a string");
-      if (!(typeof B === "number" || B instanceof Date)) throw new TypeError("Channel#createCall: deadline must be a number or Date");
-      if (this.connectivityState === kX.ConnectivityState.SHUTDOWN) throw new Error("Channel has been shut down");
-      return this.createResolvingCall(A, B, Q, I, G)
-    }
-    getOptions() {
-      return this.options
-    }
-  }
-  Ux0.InternalChannel = Ex0
-})
-// @from(Start 5023230, End 5024606)
-yh1 = z((Mx0) => {
-  Object.defineProperty(Mx0, "__esModule", {
-    value: !0
-  });
-  Mx0.ChannelImplementation = void 0;
-  var RG6 = us(),
-    OG6 = rm1();
-  class qx0 {
-    constructor(A, B, Q) {
-      if (typeof A !== "string") throw new TypeError("Channel target must be a string");
-      if (!(B instanceof RG6.ChannelCredentials)) throw new TypeError("Channel credentials must be a ChannelCredentials object");
-      if (Q) {
-        if (typeof Q !== "object") throw new TypeError("Channel options must be an object")
-      }
-      this.internalChannel = new OG6.InternalChannel(A, B, Q)
-    }
-    close() {
-      this.internalChannel.close()
-    }
-    getTarget() {
-      return this.internalChannel.getTarget()
-    }
-    getConnectivityState(A) {
-      return this.internalChannel.getConnectivityState(A)
-    }
-    watchConnectivityState(A, B, Q) {
-      this.internalChannel.watchConnectivityState(A, B, Q)
-    }
-    getChannelzRef() {
-      return this.internalChannel.getChannelzRef()
-    }
-    createCall(A, B, Q, I, G) {
-      if (typeof A !== "string") throw new TypeError("Channel#createCall: method must be a string");
-      if (!(typeof B === "number" || B instanceof Date)) throw new TypeError("Channel#createCall: deadline must be a number or Date");
-      return this.internalChannel.createCall(A, B, Q, I, G)
-    }
-  }
-  Mx0.ChannelImplementation = qx0
-})
-// @from(Start 5024612, End 5028727)
-yx0 = z((_x0) => {
-  Object.defineProperty(_x0, "__esModule", {
-    value: !0
-  });
-  _x0.ServerDuplexStreamImpl = _x0.ServerWritableStreamImpl = _x0.ServerReadableStreamImpl = _x0.ServerUnaryCallImpl = void 0;
-  _x0.serverErrorToStatus = em1;
-  var TG6 = Z1("events"),
-    om1 = Z1("stream"),
-    tm1 = y6(),
-    Rx0 = SZ();
+  m5A.parseProxyResponse = void 0;
+  var sb8 = ab8(hs()),
+    hpA = (0, sb8.default)("https-proxy-agent:parse-proxy-response");
 
-  function em1(A, B) {
-    var Q;
-    let I = {
-      code: tm1.Status.UNKNOWN,
-      details: "message" in A ? A.message : "Unknown Error",
-      metadata: (Q = B !== null && B !== void 0 ? B : A.metadata) !== null && Q !== void 0 ? Q : null
-    };
-    if ("code" in A && typeof A.code === "number" && Number.isInteger(A.code)) {
-      if (I.code = A.code, "details" in A && typeof A.details === "string") I.details = A.details
-    }
-    return I
+  function rb8(A) {
+    return new Promise((Q, B) => {
+      let G = 0,
+        Z = [];
+
+      function I() {
+        let V = A.read();
+        if (V) X(V);
+        else A.once("readable", I)
+      }
+
+      function Y() {
+        A.removeListener("end", J), A.removeListener("error", W), A.removeListener("readable", I)
+      }
+
+      function J() {
+        Y(), hpA("onend"), B(Error("Proxy connection ended before receiving CONNECT response"))
+      }
+
+      function W(V) {
+        Y(), hpA("onerror %o", V), B(V)
+      }
+
+      function X(V) {
+        Z.push(V), G += V.length;
+        let F = Buffer.concat(Z, G),
+          K = F.indexOf(`\r
+\r
+`);
+        if (K === -1) {
+          hpA("have not received end of HTTP headers yet..."), I();
+          return
+        }
+        let D = F.slice(0, K).toString("ascii").split(`\r
+`),
+          H = D.shift();
+        if (!H) return A.destroy(), B(Error("No header received from proxy CONNECT response"));
+        let C = H.split(" "),
+          E = +C[1],
+          U = C.slice(2).join(" "),
+          q = {};
+        for (let w of D) {
+          if (!w) continue;
+          let N = w.indexOf(":");
+          if (N === -1) return A.destroy(), B(Error(`Invalid header from proxy CONNECT response: "${w}"`));
+          let R = w.slice(0, N).toLowerCase(),
+            T = w.slice(N + 1).trimStart(),
+            y = q[R];
+          if (typeof y === "string") q[R] = [y, T];
+          else if (Array.isArray(y)) y.push(T);
+          else q[R] = T
+        }
+        hpA("got proxy server response: %o %o", H, q), Y(), Q({
+          connect: {
+            statusCode: E,
+            statusText: U,
+            headers: q
+          },
+          buffered: F
+        })
+      }
+      A.on("error", W), A.on("end", J), I()
+    })
   }
-  class Ox0 extends TG6.EventEmitter {
-    constructor(A, B, Q, I) {
-      super();
-      this.path = A, this.call = B, this.metadata = Q, this.request = I, this.cancelled = !1
-    }
-    getPeer() {
-      return this.call.getPeer()
-    }
-    sendMetadata(A) {
-      this.call.sendMetadata(A)
-    }
-    getDeadline() {
-      return this.call.getDeadline()
-    }
-    getPath() {
-      return this.path
-    }
-    getHost() {
-      return this.call.getHost()
-    }
-  }
-  _x0.ServerUnaryCallImpl = Ox0;
-  class Tx0 extends om1.Readable {
-    constructor(A, B, Q) {
-      super({
-        objectMode: !0
-      });
-      this.path = A, this.call = B, this.metadata = Q, this.cancelled = !1
-    }
-    _read(A) {
-      this.call.startRead()
-    }
-    getPeer() {
-      return this.call.getPeer()
-    }
-    sendMetadata(A) {
-      this.call.sendMetadata(A)
-    }
-    getDeadline() {
-      return this.call.getDeadline()
-    }
-    getPath() {
-      return this.path
-    }
-    getHost() {
-      return this.call.getHost()
-    }
-  }
-  _x0.ServerReadableStreamImpl = Tx0;
-  class Px0 extends om1.Writable {
-    constructor(A, B, Q, I) {
-      super({
-        objectMode: !0
-      });
-      this.path = A, this.call = B, this.metadata = Q, this.request = I, this.pendingStatus = {
-        code: tm1.Status.OK,
-        details: "OK"
-      }, this.cancelled = !1, this.trailingMetadata = new Rx0.Metadata, this.on("error", (G) => {
-        this.pendingStatus = em1(G), this.end()
-      })
-    }
-    getPeer() {
-      return this.call.getPeer()
-    }
-    sendMetadata(A) {
-      this.call.sendMetadata(A)
-    }
-    getDeadline() {
-      return this.call.getDeadline()
-    }
-    getPath() {
-      return this.path
-    }
-    getHost() {
-      return this.call.getHost()
-    }
-    _write(A, B, Q) {
-      this.call.sendMessage(A, Q)
-    }
-    _final(A) {
-      var B;
-      A(null), this.call.sendStatus(Object.assign(Object.assign({}, this.pendingStatus), {
-        metadata: (B = this.pendingStatus.metadata) !== null && B !== void 0 ? B : this.trailingMetadata
-      }))
-    }
-    end(A) {
-      if (A) this.trailingMetadata = A;
-      return super.end()
-    }
-  }
-  _x0.ServerWritableStreamImpl = Px0;
-  class Sx0 extends om1.Duplex {
-    constructor(A, B, Q) {
-      super({
-        objectMode: !0
-      });
-      this.path = A, this.call = B, this.metadata = Q, this.pendingStatus = {
-        code: tm1.Status.OK,
-        details: "OK"
-      }, this.cancelled = !1, this.trailingMetadata = new Rx0.Metadata, this.on("error", (I) => {
-        this.pendingStatus = em1(I), this.end()
-      })
-    }
-    getPeer() {
-      return this.call.getPeer()
-    }
-    sendMetadata(A) {
-      this.call.sendMetadata(A)
-    }
-    getDeadline() {
-      return this.call.getDeadline()
-    }
-    getPath() {
-      return this.path
-    }
-    getHost() {
-      return this.call.getHost()
-    }
-    _read(A) {
-      this.call.startRead()
-    }
-    _write(A, B, Q) {
-      this.call.sendMessage(A, Q)
-    }
-    _final(A) {
-      var B;
-      A(null), this.call.sendStatus(Object.assign(Object.assign({}, this.pendingStatus), {
-        metadata: (B = this.pendingStatus.metadata) !== null && B !== void 0 ? B : this.trailingMetadata
-      }))
-    }
-    end(A) {
-      if (A) this.trailingMetadata = A;
-      return super.end()
-    }
-  }
-  _x0.ServerDuplexStreamImpl = Sx0
+  m5A.parseProxyResponse = rb8
 })
-// @from(Start 5028733, End 5035993)
-aD1 = z((kx0) => {
-  Object.defineProperty(kx0, "__esModule", {
+// @from(Start 4570852, End 4575037)
+LEA = z((nL) => {
+  var ob8 = nL && nL.__createBinding || (Object.create ? function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      var Z = Object.getOwnPropertyDescriptor(Q, B);
+      if (!Z || ("get" in Z ? !Q.__esModule : Z.writable || Z.configurable)) Z = {
+        enumerable: !0,
+        get: function() {
+          return Q[B]
+        }
+      };
+      Object.defineProperty(A, G, Z)
+    } : function(A, Q, B, G) {
+      if (G === void 0) G = B;
+      A[G] = Q[B]
+    }),
+    tb8 = nL && nL.__setModuleDefault || (Object.create ? function(A, Q) {
+      Object.defineProperty(A, "default", {
+        enumerable: !0,
+        value: Q
+      })
+    } : function(A, Q) {
+      A.default = Q
+    }),
+    CtQ = nL && nL.__importStar || function(A) {
+      if (A && A.__esModule) return A;
+      var Q = {};
+      if (A != null) {
+        for (var B in A)
+          if (B !== "default" && Object.prototype.hasOwnProperty.call(A, B)) ob8(Q, A, B)
+      }
+      return tb8(Q, A), Q
+    },
+    EtQ = nL && nL.__importDefault || function(A) {
+      return A && A.__esModule ? A : {
+        default: A
+      }
+    };
+  Object.defineProperty(nL, "__esModule", {
     value: !0
   });
-  kx0.ServerCredentials = void 0;
-  kx0.createCertificateProviderServerCredentials = yG6;
-  kx0.createServerCredentialsWithInterceptors = kG6;
-  var Ad1 = wh1();
-  class Xh {
-    constructor(A, B) {
-      this.serverConstructorOptions = A, this.watchers = new Set, this.latestContextOptions = null, this.latestContextOptions = B !== null && B !== void 0 ? B : null
-    }
-    _addWatcher(A) {
-      this.watchers.add(A)
-    }
-    _removeWatcher(A) {
-      this.watchers.delete(A)
-    }
-    getWatcherCount() {
-      return this.watchers.size
-    }
-    updateSecureContextOptions(A) {
-      this.latestContextOptions = A;
-      for (let B of this.watchers) B(this.latestContextOptions)
-    }
-    _isSecure() {
-      return this.serverConstructorOptions !== null
-    }
-    _getSecureContextOptions() {
-      return this.latestContextOptions
-    }
-    _getConstructorOptions() {
-      return this.serverConstructorOptions
-    }
-    _getInterceptors() {
-      return []
-    }
-    static createInsecure() {
-      return new Bd1
-    }
-    static createSsl(A, B, Q = !1) {
-      var I;
-      if (A !== null && !Buffer.isBuffer(A)) throw new TypeError("rootCerts must be null or a Buffer");
-      if (!Array.isArray(B)) throw new TypeError("keyCertPairs must be an array");
-      if (typeof Q !== "boolean") throw new TypeError("checkClientCertificate must be a boolean");
-      let G = [],
-        Z = [];
-      for (let D = 0; D < B.length; D++) {
-        let Y = B[D];
-        if (Y === null || typeof Y !== "object") throw new TypeError(`keyCertPair[${D}] must be an object`);
-        if (!Buffer.isBuffer(Y.private_key)) throw new TypeError(`keyCertPair[${D}].private_key must be a Buffer`);
-        if (!Buffer.isBuffer(Y.cert_chain)) throw new TypeError(`keyCertPair[${D}].cert_chain must be a Buffer`);
-        G.push(Y.cert_chain), Z.push(Y.private_key)
+  nL.HttpsProxyAgent = void 0;
+  var gpA = CtQ(UA("net")),
+    KtQ = CtQ(UA("tls")),
+    eb8 = EtQ(UA("assert")),
+    Af8 = EtQ(hs()),
+    Qf8 = Yy1(),
+    Bf8 = UA("url"),
+    Gf8 = FtQ(),
+    NEA = (0, Af8.default)("https-proxy-agent"),
+    DtQ = (A) => {
+      if (A.servername === void 0 && A.host && !gpA.isIP(A.host)) return {
+        ...A,
+        servername: A.host
+      };
+      return A
+    };
+  class Jy1 extends Qf8.Agent {
+    constructor(A, Q) {
+      super(Q);
+      this.options = {
+        path: void 0
+      }, this.proxy = typeof A === "string" ? new Bf8.URL(A) : A, this.proxyHeaders = Q?.headers ?? {}, NEA("Creating new HttpsProxyAgent instance: %o", this.proxy.href);
+      let B = (this.proxy.hostname || this.proxy.host).replace(/^\[|\]$/g, ""),
+        G = this.proxy.port ? parseInt(this.proxy.port, 10) : this.proxy.protocol === "https:" ? 443 : 80;
+      this.connectOpts = {
+        ALPNProtocols: ["http/1.1"],
+        ...Q ? HtQ(Q, "headers") : null,
+        host: B,
+        port: G
       }
-      return new Qd1({
-        requestCert: Q,
-        ciphers: Ad1.CIPHER_SUITES
-      }, {
-        ca: (I = A !== null && A !== void 0 ? A : Ad1.getDefaultRootsData()) !== null && I !== void 0 ? I : void 0,
-        cert: G,
-        key: Z
-      })
+    }
+    async connect(A, Q) {
+      let {
+        proxy: B
+      } = this;
+      if (!Q.host) throw TypeError('No "host" provided');
+      let G;
+      if (B.protocol === "https:") NEA("Creating `tls.Socket`: %o", this.connectOpts), G = KtQ.connect(DtQ(this.connectOpts));
+      else NEA("Creating `net.Socket`: %o", this.connectOpts), G = gpA.connect(this.connectOpts);
+      let Z = typeof this.proxyHeaders === "function" ? this.proxyHeaders() : {
+          ...this.proxyHeaders
+        },
+        I = gpA.isIPv6(Q.host) ? `[${Q.host}]` : Q.host,
+        Y = `CONNECT ${I}:${Q.port} HTTP/1.1\r
+`;
+      if (B.username || B.password) {
+        let F = `${decodeURIComponent(B.username)}:${decodeURIComponent(B.password)}`;
+        Z["Proxy-Authorization"] = `Basic ${Buffer.from(F).toString("base64")}`
+      }
+      if (Z.Host = `${I}:${Q.port}`, !Z["Proxy-Connection"]) Z["Proxy-Connection"] = this.keepAlive ? "Keep-Alive" : "close";
+      for (let F of Object.keys(Z)) Y += `${F}: ${Z[F]}\r
+`;
+      let J = (0, Gf8.parseProxyResponse)(G);
+      G.write(`${Y}\r
+`);
+      let {
+        connect: W,
+        buffered: X
+      } = await J;
+      if (A.emit("proxyConnect", W), this.emit("proxyConnect", W, A), W.statusCode === 200) {
+        if (A.once("socket", Zf8), Q.secureEndpoint) return NEA("Upgrading socket connection to TLS"), KtQ.connect({
+          ...HtQ(DtQ(Q), "host", "path", "port"),
+          socket: G
+        });
+        return G
+      }
+      G.destroy();
+      let V = new gpA.Socket({
+        writable: !1
+      });
+      return V.readable = !0, A.once("socket", (F) => {
+        NEA("Replaying proxy buffer for failed request"), (0, eb8.default)(F.listenerCount("data") > 0), F.push(X), F.push(null)
+      }), V
     }
   }
-  kx0.ServerCredentials = Xh;
-  class Bd1 extends Xh {
-    constructor() {
-      super(null)
+  Jy1.protocols = ["http", "https"];
+  nL.HttpsProxyAgent = Jy1;
+
+  function Zf8(A) {
+    A.resume()
+  }
+
+  function HtQ(A, ...Q) {
+    let B = {},
+      G;
+    for (G in A)
+      if (!Q.includes(G)) B[G] = A[G];
+    return B
+  }
+})
+// @from(Start 4575043, End 4577746)
+tI = z((lj7, ztQ) => {
+  ztQ.exports = {
+    kClose: Symbol("close"),
+    kDestroy: Symbol("destroy"),
+    kDispatch: Symbol("dispatch"),
+    kUrl: Symbol("url"),
+    kWriting: Symbol("writing"),
+    kResuming: Symbol("resuming"),
+    kQueue: Symbol("queue"),
+    kConnect: Symbol("connect"),
+    kConnecting: Symbol("connecting"),
+    kKeepAliveDefaultTimeout: Symbol("default keep alive timeout"),
+    kKeepAliveMaxTimeout: Symbol("max keep alive timeout"),
+    kKeepAliveTimeoutThreshold: Symbol("keep alive timeout threshold"),
+    kKeepAliveTimeoutValue: Symbol("keep alive timeout"),
+    kKeepAlive: Symbol("keep alive"),
+    kHeadersTimeout: Symbol("headers timeout"),
+    kBodyTimeout: Symbol("body timeout"),
+    kServerName: Symbol("server name"),
+    kLocalAddress: Symbol("local address"),
+    kHost: Symbol("host"),
+    kNoRef: Symbol("no ref"),
+    kBodyUsed: Symbol("used"),
+    kBody: Symbol("abstracted request body"),
+    kRunning: Symbol("running"),
+    kBlocking: Symbol("blocking"),
+    kPending: Symbol("pending"),
+    kSize: Symbol("size"),
+    kBusy: Symbol("busy"),
+    kQueued: Symbol("queued"),
+    kFree: Symbol("free"),
+    kConnected: Symbol("connected"),
+    kClosed: Symbol("closed"),
+    kNeedDrain: Symbol("need drain"),
+    kReset: Symbol("reset"),
+    kDestroyed: Symbol.for("nodejs.stream.destroyed"),
+    kResume: Symbol("resume"),
+    kOnError: Symbol("on error"),
+    kMaxHeadersSize: Symbol("max headers size"),
+    kRunningIdx: Symbol("running index"),
+    kPendingIdx: Symbol("pending index"),
+    kError: Symbol("error"),
+    kClients: Symbol("clients"),
+    kClient: Symbol("client"),
+    kParser: Symbol("parser"),
+    kOnDestroyed: Symbol("destroy callbacks"),
+    kPipelining: Symbol("pipelining"),
+    kSocket: Symbol("socket"),
+    kHostHeader: Symbol("host header"),
+    kConnector: Symbol("connector"),
+    kStrictContentLength: Symbol("strict content length"),
+    kMaxRedirections: Symbol("maxRedirections"),
+    kMaxRequests: Symbol("maxRequestsPerClient"),
+    kProxy: Symbol("proxy agent options"),
+    kCounter: Symbol("socket request counter"),
+    kInterceptors: Symbol("dispatch interceptors"),
+    kMaxResponseSize: Symbol("max response size"),
+    kHTTP2Session: Symbol("http2Session"),
+    kHTTP2SessionState: Symbol("http2Session state"),
+    kRetryHandlerDefaultRetry: Symbol("retry agent default retry"),
+    kConstruct: Symbol("constructable"),
+    kListeners: Symbol("listeners"),
+    kHTTPContext: Symbol("http context"),
+    kMaxConcurrentStreams: Symbol("max concurrent streams"),
+    kNoProxyAgent: Symbol("no proxy agent"),
+    kHttpProxyAgent: Symbol("http proxy agent"),
+    kHttpsProxyAgent: Symbol("https proxy agent")
+  }
+})
+// @from(Start 4577752, End 4583369)
+R7 = z((ij7, gtQ) => {
+  class MJ extends Error {
+    constructor(A) {
+      super(A);
+      this.name = "UndiciError", this.code = "UND_ERR"
     }
-    _getSettings() {
+  }
+  class UtQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "ConnectTimeoutError", this.message = A || "Connect Timeout Error", this.code = "UND_ERR_CONNECT_TIMEOUT"
+    }
+  }
+  class $tQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "HeadersTimeoutError", this.message = A || "Headers Timeout Error", this.code = "UND_ERR_HEADERS_TIMEOUT"
+    }
+  }
+  class wtQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "HeadersOverflowError", this.message = A || "Headers Overflow Error", this.code = "UND_ERR_HEADERS_OVERFLOW"
+    }
+  }
+  class qtQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "BodyTimeoutError", this.message = A || "Body Timeout Error", this.code = "UND_ERR_BODY_TIMEOUT"
+    }
+  }
+  class NtQ extends MJ {
+    constructor(A, Q, B, G) {
+      super(A);
+      this.name = "ResponseStatusCodeError", this.message = A || "Response Status Code Error", this.code = "UND_ERR_RESPONSE_STATUS_CODE", this.body = G, this.status = Q, this.statusCode = Q, this.headers = B
+    }
+  }
+  class LtQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "InvalidArgumentError", this.message = A || "Invalid Argument Error", this.code = "UND_ERR_INVALID_ARG"
+    }
+  }
+  class MtQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "InvalidReturnValueError", this.message = A || "Invalid Return Value Error", this.code = "UND_ERR_INVALID_RETURN_VALUE"
+    }
+  }
+  class Wy1 extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "AbortError", this.message = A || "The operation was aborted"
+    }
+  }
+  class OtQ extends Wy1 {
+    constructor(A) {
+      super(A);
+      this.name = "AbortError", this.message = A || "Request aborted", this.code = "UND_ERR_ABORTED"
+    }
+  }
+  class RtQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "InformationalError", this.message = A || "Request information", this.code = "UND_ERR_INFO"
+    }
+  }
+  class TtQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "RequestContentLengthMismatchError", this.message = A || "Request body length does not match content-length header", this.code = "UND_ERR_REQ_CONTENT_LENGTH_MISMATCH"
+    }
+  }
+  class PtQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "ResponseContentLengthMismatchError", this.message = A || "Response body length does not match content-length header", this.code = "UND_ERR_RES_CONTENT_LENGTH_MISMATCH"
+    }
+  }
+  class jtQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "ClientDestroyedError", this.message = A || "The client is destroyed", this.code = "UND_ERR_DESTROYED"
+    }
+  }
+  class StQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "ClientClosedError", this.message = A || "The client is closed", this.code = "UND_ERR_CLOSED"
+    }
+  }
+  class _tQ extends MJ {
+    constructor(A, Q) {
+      super(A);
+      this.name = "SocketError", this.message = A || "Socket error", this.code = "UND_ERR_SOCKET", this.socket = Q
+    }
+  }
+  class ktQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "NotSupportedError", this.message = A || "Not supported error", this.code = "UND_ERR_NOT_SUPPORTED"
+    }
+  }
+  class ytQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "MissingUpstreamError", this.message = A || "No upstream has been added to the BalancedPool", this.code = "UND_ERR_BPL_MISSING_UPSTREAM"
+    }
+  }
+  class xtQ extends Error {
+    constructor(A, Q, B) {
+      super(A);
+      this.name = "HTTPParserError", this.code = Q ? `HPE_${Q}` : void 0, this.data = B ? B.toString() : void 0
+    }
+  }
+  class vtQ extends MJ {
+    constructor(A) {
+      super(A);
+      this.name = "ResponseExceededMaxSizeError", this.message = A || "Response content exceeded max size", this.code = "UND_ERR_RES_EXCEEDED_MAX_SIZE"
+    }
+  }
+  class btQ extends MJ {
+    constructor(A, Q, {
+      headers: B,
+      data: G
+    }) {
+      super(A);
+      this.name = "RequestRetryError", this.message = A || "Request retry error", this.code = "UND_ERR_REQ_RETRY", this.statusCode = Q, this.data = G, this.headers = B
+    }
+  }
+  class ftQ extends MJ {
+    constructor(A, Q, {
+      headers: B,
+      data: G
+    }) {
+      super(A);
+      this.name = "ResponseError", this.message = A || "Response error", this.code = "UND_ERR_RESPONSE", this.statusCode = Q, this.data = G, this.headers = B
+    }
+  }
+  class htQ extends MJ {
+    constructor(A, Q, B) {
+      super(Q, {
+        cause: A,
+        ...B ?? {}
+      });
+      this.name = "SecureProxyConnectionError", this.message = Q || "Secure Proxy Connection failed", this.code = "UND_ERR_PRX_TLS", this.cause = A
+    }
+  }
+  gtQ.exports = {
+    AbortError: Wy1,
+    HTTPParserError: xtQ,
+    UndiciError: MJ,
+    HeadersTimeoutError: $tQ,
+    HeadersOverflowError: wtQ,
+    BodyTimeoutError: qtQ,
+    RequestContentLengthMismatchError: TtQ,
+    ConnectTimeoutError: UtQ,
+    ResponseStatusCodeError: NtQ,
+    InvalidArgumentError: LtQ,
+    InvalidReturnValueError: MtQ,
+    RequestAbortedError: OtQ,
+    ClientDestroyedError: jtQ,
+    ClientClosedError: StQ,
+    InformationalError: RtQ,
+    SocketError: _tQ,
+    NotSupportedError: ktQ,
+    ResponseContentLengthMismatchError: PtQ,
+    BalancedPoolMissingUpstreamError: ytQ,
+    ResponseExceededMaxSizeError: vtQ,
+    RequestRetryError: btQ,
+    ResponseError: ftQ,
+    SecureProxyConnectionError: htQ
+  }
+})
+// @from(Start 4583375, End 4585437)
+mpA = z((nj7, utQ) => {
+  var upA = {},
+    Xy1 = ["Accept", "Accept-Encoding", "Accept-Language", "Accept-Ranges", "Access-Control-Allow-Credentials", "Access-Control-Allow-Headers", "Access-Control-Allow-Methods", "Access-Control-Allow-Origin", "Access-Control-Expose-Headers", "Access-Control-Max-Age", "Access-Control-Request-Headers", "Access-Control-Request-Method", "Age", "Allow", "Alt-Svc", "Alt-Used", "Authorization", "Cache-Control", "Clear-Site-Data", "Connection", "Content-Disposition", "Content-Encoding", "Content-Language", "Content-Length", "Content-Location", "Content-Range", "Content-Security-Policy", "Content-Security-Policy-Report-Only", "Content-Type", "Cookie", "Cross-Origin-Embedder-Policy", "Cross-Origin-Opener-Policy", "Cross-Origin-Resource-Policy", "Date", "Device-Memory", "Downlink", "ECT", "ETag", "Expect", "Expect-CT", "Expires", "Forwarded", "From", "Host", "If-Match", "If-Modified-Since", "If-None-Match", "If-Range", "If-Unmodified-Since", "Keep-Alive", "Last-Modified", "Link", "Location", "Max-Forwards", "Origin", "Permissions-Policy", "Pragma", "Proxy-Authenticate", "Proxy-Authorization", "RTT", "Range", "Referer", "Referrer-Policy", "Refresh", "Retry-After", "Sec-WebSocket-Accept", "Sec-WebSocket-Extensions", "Sec-WebSocket-Key", "Sec-WebSocket-Protocol", "Sec-WebSocket-Version", "Server", "Server-Timing", "Service-Worker-Allowed", "Service-Worker-Navigation-Preload", "Set-Cookie", "SourceMap", "Strict-Transport-Security", "Supports-Loading-Mode", "TE", "Timing-Allow-Origin", "Trailer", "Transfer-Encoding", "Upgrade", "Upgrade-Insecure-Requests", "User-Agent", "Vary", "Via", "WWW-Authenticate", "X-Content-Type-Options", "X-DNS-Prefetch-Control", "X-Frame-Options", "X-Permitted-Cross-Domain-Policies", "X-Powered-By", "X-Requested-With", "X-XSS-Protection"];
+  for (let A = 0; A < Xy1.length; ++A) {
+    let Q = Xy1[A],
+      B = Q.toLowerCase();
+    upA[Q] = upA[B] = B
+  }
+  Object.setPrototypeOf(upA, null);
+  utQ.exports = {
+    wellknownHeaderNames: Xy1,
+    headerNameLowerCasedRecord: upA
+  }
+})
+// @from(Start 4585443, End 4587514)
+ptQ = z((aj7, ctQ) => {
+  var {
+    wellknownHeaderNames: mtQ,
+    headerNameLowerCasedRecord: If8
+  } = mpA();
+  class d5A {
+    value = null;
+    left = null;
+    middle = null;
+    right = null;
+    code;
+    constructor(A, Q, B) {
+      if (B === void 0 || B >= A.length) throw TypeError("Unreachable");
+      if ((this.code = A.charCodeAt(B)) > 127) throw TypeError("key must be ascii string");
+      if (A.length !== ++B) this.middle = new d5A(A, Q, B);
+      else this.value = Q
+    }
+    add(A, Q) {
+      let B = A.length;
+      if (B === 0) throw TypeError("Unreachable");
+      let G = 0,
+        Z = this;
+      while (!0) {
+        let I = A.charCodeAt(G);
+        if (I > 127) throw TypeError("key must be ascii string");
+        if (Z.code === I)
+          if (B === ++G) {
+            Z.value = Q;
+            break
+          } else if (Z.middle !== null) Z = Z.middle;
+        else {
+          Z.middle = new d5A(A, Q, G);
+          break
+        } else if (Z.code < I)
+          if (Z.left !== null) Z = Z.left;
+          else {
+            Z.left = new d5A(A, Q, G);
+            break
+          }
+        else if (Z.right !== null) Z = Z.right;
+        else {
+          Z.right = new d5A(A, Q, G);
+          break
+        }
+      }
+    }
+    search(A) {
+      let Q = A.length,
+        B = 0,
+        G = this;
+      while (G !== null && B < Q) {
+        let Z = A[B];
+        if (Z <= 90 && Z >= 65) Z |= 32;
+        while (G !== null) {
+          if (Z === G.code) {
+            if (Q === ++B) return G;
+            G = G.middle;
+            break
+          }
+          G = G.code < Z ? G.left : G.right
+        }
+      }
       return null
     }
-    _equals(A) {
-      return A instanceof Bd1
+  }
+  class Vy1 {
+    node = null;
+    insert(A, Q) {
+      if (this.node === null) this.node = new d5A(A, Q, 0);
+      else this.node.add(A, Q)
+    }
+    lookup(A) {
+      return this.node?.search(A)?.value ?? null
     }
   }
-  class Qd1 extends Xh {
-    constructor(A, B) {
-      super(A, B);
-      this.options = Object.assign(Object.assign({}, A), B)
-    }
-    _equals(A) {
-      if (this === A) return !0;
-      if (!(A instanceof Qd1)) return !1;
-      if (Buffer.isBuffer(this.options.ca) && Buffer.isBuffer(A.options.ca)) {
-        if (!this.options.ca.equals(A.options.ca)) return !1
-      } else if (this.options.ca !== A.options.ca) return !1;
-      if (Array.isArray(this.options.cert) && Array.isArray(A.options.cert)) {
-        if (this.options.cert.length !== A.options.cert.length) return !1;
-        for (let B = 0; B < this.options.cert.length; B++) {
-          let Q = this.options.cert[B],
-            I = A.options.cert[B];
-          if (Buffer.isBuffer(Q) && Buffer.isBuffer(I)) {
-            if (!Q.equals(I)) return !1
-          } else if (Q !== I) return !1
-        }
-      } else if (this.options.cert !== A.options.cert) return !1;
-      if (Array.isArray(this.options.key) && Array.isArray(A.options.key)) {
-        if (this.options.key.length !== A.options.key.length) return !1;
-        for (let B = 0; B < this.options.key.length; B++) {
-          let Q = this.options.key[B],
-            I = A.options.key[B];
-          if (Buffer.isBuffer(Q) && Buffer.isBuffer(I)) {
-            if (!Q.equals(I)) return !1
-          } else if (Q !== I) return !1
-        }
-      } else if (this.options.key !== A.options.key) return !1;
-      if (this.options.requestCert !== A.options.requestCert) return !1;
-      return !0
-    }
+  var dtQ = new Vy1;
+  for (let A = 0; A < mtQ.length; ++A) {
+    let Q = If8[mtQ[A]];
+    dtQ.insert(Q, Q)
   }
-  class Id1 extends Xh {
-    constructor(A, B, Q) {
-      super({
-        requestCert: B !== null,
-        rejectUnauthorized: Q,
-        ciphers: Ad1.CIPHER_SUITES
-      });
-      this.identityCertificateProvider = A, this.caCertificateProvider = B, this.requireClientCertificate = Q, this.latestCaUpdate = null, this.latestIdentityUpdate = null, this.caCertificateUpdateListener = this.handleCaCertificateUpdate.bind(this), this.identityCertificateUpdateListener = this.handleIdentityCertitificateUpdate.bind(this)
-    }
-    _addWatcher(A) {
-      var B;
-      if (this.getWatcherCount() === 0)(B = this.caCertificateProvider) === null || B === void 0 || B.addCaCertificateListener(this.caCertificateUpdateListener), this.identityCertificateProvider.addIdentityCertificateListener(this.identityCertificateUpdateListener);
-      super._addWatcher(A)
-    }
-    _removeWatcher(A) {
-      var B;
-      if (super._removeWatcher(A), this.getWatcherCount() === 0)(B = this.caCertificateProvider) === null || B === void 0 || B.removeCaCertificateListener(this.caCertificateUpdateListener), this.identityCertificateProvider.removeIdentityCertificateListener(this.identityCertificateUpdateListener)
-    }
-    _equals(A) {
-      if (this === A) return !0;
-      if (!(A instanceof Id1)) return !1;
-      return this.caCertificateProvider === A.caCertificateProvider && this.identityCertificateProvider === A.identityCertificateProvider && this.requireClientCertificate === A.requireClientCertificate
-    }
-    calculateSecureContextOptions() {
-      var A;
-      if (this.latestIdentityUpdate === null) return null;
-      if (this.caCertificateProvider !== null && this.latestCaUpdate === null) return null;
-      return {
-        ca: (A = this.latestCaUpdate) === null || A === void 0 ? void 0 : A.caCertificate,
-        cert: [this.latestIdentityUpdate.certificate],
-        key: [this.latestIdentityUpdate.privateKey]
-      }
-    }
-    finalizeUpdate() {
-      let A = this.calculateSecureContextOptions();
-      this.updateSecureContextOptions(A)
-    }
-    handleCaCertificateUpdate(A) {
-      this.latestCaUpdate = A, this.finalizeUpdate()
-    }
-    handleIdentityCertitificateUpdate(A) {
-      this.latestIdentityUpdate = A, this.finalizeUpdate()
-    }
-  }
-
-  function yG6(A, B, Q) {
-    return new Id1(A, B, Q)
-  }
-  class Gd1 extends Xh {
-    constructor(A, B) {
-      super({});
-      this.childCredentials = A, this.interceptors = B
-    }
-    _isSecure() {
-      return this.childCredentials._isSecure()
-    }
-    _equals(A) {
-      if (!(A instanceof Gd1)) return !1;
-      if (!this.childCredentials._equals(A.childCredentials)) return !1;
-      if (this.interceptors.length !== A.interceptors.length) return !1;
-      for (let B = 0; B < this.interceptors.length; B++)
-        if (this.interceptors[B] !== A.interceptors[B]) return !1;
-      return !0
-    }
-    _getInterceptors() {
-      return this.interceptors
-    }
-    _addWatcher(A) {
-      this.childCredentials._addWatcher(A)
-    }
-    _removeWatcher(A) {
-      this.childCredentials._removeWatcher(A)
-    }
-    _getConstructorOptions() {
-      return this.childCredentials._getConstructorOptions()
-    }
-    _getSecureContextOptions() {
-      return this.childCredentials._getSecureContextOptions()
-    }
-  }
-
-  function kG6(A, B) {
-    return new Gd1(A, B)
-  }
-})
-// @from(Start 5035999, End 5054358)
-Jd1 = z((nx0) => {
-  Object.defineProperty(nx0, "__esModule", {
-    value: !0
-  });
-  nx0.BaseServerInterceptingCall = nx0.ServerInterceptingCall = nx0.ResponderBuilder = nx0.ServerListenerBuilder = void 0;
-  nx0.isInterceptingServerListener = bG6;
-  nx0.getServerInterceptingCall = uG6;
-  var Dd1 = SZ(),
-    cY = y6(),
-    Vh = Z1("http2"),
-    fx0 = uZ1(),
-    vx0 = Z1("zlib"),
-    vG6 = xm1(),
-    mx0 = GB(),
-    dx0 = "server_call";
-
-  function Ij(A) {
-    mx0.trace(cY.LogVerbosity.DEBUG, dx0, A)
-  }
-  class ux0 {
-    constructor() {
-      this.metadata = void 0, this.message = void 0, this.halfClose = void 0, this.cancel = void 0
-    }
-    withOnReceiveMetadata(A) {
-      return this.metadata = A, this
-    }
-    withOnReceiveMessage(A) {
-      return this.message = A, this
-    }
-    withOnReceiveHalfClose(A) {
-      return this.halfClose = A, this
-    }
-    withOnCancel(A) {
-      return this.cancel = A, this
-    }
-    build() {
-      return {
-        onReceiveMetadata: this.metadata,
-        onReceiveMessage: this.message,
-        onReceiveHalfClose: this.halfClose,
-        onCancel: this.cancel
-      }
-    }
-  }
-  nx0.ServerListenerBuilder = ux0;
-
-  function bG6(A) {
-    return A.onReceiveMetadata !== void 0 && A.onReceiveMetadata.length === 1
-  }
-  class px0 {
-    constructor(A, B) {
-      this.listener = A, this.nextListener = B, this.cancelled = !1, this.processingMetadata = !1, this.hasPendingMessage = !1, this.pendingMessage = null, this.processingMessage = !1, this.hasPendingHalfClose = !1
-    }
-    processPendingMessage() {
-      if (this.hasPendingMessage) this.nextListener.onReceiveMessage(this.pendingMessage), this.pendingMessage = null, this.hasPendingMessage = !1
-    }
-    processPendingHalfClose() {
-      if (this.hasPendingHalfClose) this.nextListener.onReceiveHalfClose(), this.hasPendingHalfClose = !1
-    }
-    onReceiveMetadata(A) {
-      if (this.cancelled) return;
-      this.processingMetadata = !0, this.listener.onReceiveMetadata(A, (B) => {
-        if (this.processingMetadata = !1, this.cancelled) return;
-        this.nextListener.onReceiveMetadata(B), this.processPendingMessage(), this.processPendingHalfClose()
-      })
-    }
-    onReceiveMessage(A) {
-      if (this.cancelled) return;
-      this.processingMessage = !0, this.listener.onReceiveMessage(A, (B) => {
-        if (this.processingMessage = !1, this.cancelled) return;
-        if (this.processingMetadata) this.pendingMessage = B, this.hasPendingMessage = !0;
-        else this.nextListener.onReceiveMessage(B), this.processPendingHalfClose()
-      })
-    }
-    onReceiveHalfClose() {
-      if (this.cancelled) return;
-      this.listener.onReceiveHalfClose(() => {
-        if (this.cancelled) return;
-        if (this.processingMetadata || this.processingMessage) this.hasPendingHalfClose = !0;
-        else this.nextListener.onReceiveHalfClose()
-      })
-    }
-    onCancel() {
-      this.cancelled = !0, this.listener.onCancel(), this.nextListener.onCancel()
-    }
-  }
-  class cx0 {
-    constructor() {
-      this.start = void 0, this.metadata = void 0, this.message = void 0, this.status = void 0
-    }
-    withStart(A) {
-      return this.start = A, this
-    }
-    withSendMetadata(A) {
-      return this.metadata = A, this
-    }
-    withSendMessage(A) {
-      return this.message = A, this
-    }
-    withSendStatus(A) {
-      return this.status = A, this
-    }
-    build() {
-      return {
-        start: this.start,
-        sendMetadata: this.metadata,
-        sendMessage: this.message,
-        sendStatus: this.status
-      }
-    }
-  }
-  nx0.ResponderBuilder = cx0;
-  var sD1 = {
-      onReceiveMetadata: (A, B) => {
-        B(A)
-      },
-      onReceiveMessage: (A, B) => {
-        B(A)
-      },
-      onReceiveHalfClose: (A) => {
-        A()
-      },
-      onCancel: () => {}
-    },
-    rD1 = {
-      start: (A) => {
-        A()
-      },
-      sendMetadata: (A, B) => {
-        B(A)
-      },
-      sendMessage: (A, B) => {
-        B(A)
-      },
-      sendStatus: (A, B) => {
-        B(A)
-      }
-    };
-  class lx0 {
-    constructor(A, B) {
-      var Q, I, G, Z;
-      this.nextCall = A, this.processingMetadata = !1, this.sentMetadata = !1, this.processingMessage = !1, this.pendingMessage = null, this.pendingMessageCallback = null, this.pendingStatus = null, this.responder = {
-        start: (Q = B === null || B === void 0 ? void 0 : B.start) !== null && Q !== void 0 ? Q : rD1.start,
-        sendMetadata: (I = B === null || B === void 0 ? void 0 : B.sendMetadata) !== null && I !== void 0 ? I : rD1.sendMetadata,
-        sendMessage: (G = B === null || B === void 0 ? void 0 : B.sendMessage) !== null && G !== void 0 ? G : rD1.sendMessage,
-        sendStatus: (Z = B === null || B === void 0 ? void 0 : B.sendStatus) !== null && Z !== void 0 ? Z : rD1.sendStatus
-      }
-    }
-    processPendingMessage() {
-      if (this.pendingMessageCallback) this.nextCall.sendMessage(this.pendingMessage, this.pendingMessageCallback), this.pendingMessage = null, this.pendingMessageCallback = null
-    }
-    processPendingStatus() {
-      if (this.pendingStatus) this.nextCall.sendStatus(this.pendingStatus), this.pendingStatus = null
-    }
-    start(A) {
-      this.responder.start((B) => {
-        var Q, I, G, Z;
-        let D = {
-            onReceiveMetadata: (Q = B === null || B === void 0 ? void 0 : B.onReceiveMetadata) !== null && Q !== void 0 ? Q : sD1.onReceiveMetadata,
-            onReceiveMessage: (I = B === null || B === void 0 ? void 0 : B.onReceiveMessage) !== null && I !== void 0 ? I : sD1.onReceiveMessage,
-            onReceiveHalfClose: (G = B === null || B === void 0 ? void 0 : B.onReceiveHalfClose) !== null && G !== void 0 ? G : sD1.onReceiveHalfClose,
-            onCancel: (Z = B === null || B === void 0 ? void 0 : B.onCancel) !== null && Z !== void 0 ? Z : sD1.onCancel
-          },
-          Y = new px0(D, A);
-        this.nextCall.start(Y)
-      })
-    }
-    sendMetadata(A) {
-      this.processingMetadata = !0, this.sentMetadata = !0, this.responder.sendMetadata(A, (B) => {
-        this.processingMetadata = !1, this.nextCall.sendMetadata(B), this.processPendingMessage(), this.processPendingStatus()
-      })
-    }
-    sendMessage(A, B) {
-      if (this.processingMessage = !0, !this.sentMetadata) this.sendMetadata(new Dd1.Metadata);
-      this.responder.sendMessage(A, (Q) => {
-        if (this.processingMessage = !1, this.processingMetadata) this.pendingMessage = Q, this.pendingMessageCallback = B;
-        else this.nextCall.sendMessage(Q, B)
-      })
-    }
-    sendStatus(A) {
-      this.responder.sendStatus(A, (B) => {
-        if (this.processingMetadata || this.processingMessage) this.pendingStatus = B;
-        else this.nextCall.sendStatus(B)
-      })
-    }
-    startRead() {
-      this.nextCall.startRead()
-    }
-    getPeer() {
-      return this.nextCall.getPeer()
-    }
-    getDeadline() {
-      return this.nextCall.getDeadline()
-    }
-    getHost() {
-      return this.nextCall.getHost()
-    }
-  }
-  nx0.ServerInterceptingCall = lx0;
-  var ix0 = "grpc-accept-encoding",
-    Yd1 = "grpc-encoding",
-    bx0 = "grpc-message",
-    gx0 = "grpc-status",
-    Zd1 = "grpc-timeout",
-    gG6 = /(\d{1,8})\s*([HMSmun])/,
-    hG6 = {
-      H: 3600000,
-      M: 60000,
-      S: 1000,
-      m: 1,
-      u: 0.001,
-      n: 0.000001
-    },
-    mG6 = {
-      [ix0]: "identity,deflate,gzip",
-      [Yd1]: "identity"
-    },
-    hx0 = {
-      [Vh.constants.HTTP2_HEADER_STATUS]: Vh.constants.HTTP_STATUS_OK,
-      [Vh.constants.HTTP2_HEADER_CONTENT_TYPE]: "application/grpc+proto"
-    },
-    dG6 = {
-      waitForTrailers: !0
-    };
-  class Wd1 {
-    constructor(A, B, Q, I, G) {
-      var Z;
-      if (this.stream = A, this.callEventTracker = Q, this.handler = I, this.listener = null, this.deadlineTimer = null, this.deadline = 1 / 0, this.maxSendMessageSize = cY.DEFAULT_MAX_SEND_MESSAGE_LENGTH, this.maxReceiveMessageSize = cY.DEFAULT_MAX_RECEIVE_MESSAGE_LENGTH, this.cancelled = !1, this.metadataSent = !1, this.wantTrailers = !1, this.cancelNotified = !1, this.incomingEncoding = "identity", this.readQueue = [], this.isReadPending = !1, this.receivedHalfClose = !1, this.streamEnded = !1, this.stream.once("error", (J) => {}), this.stream.once("close", () => {
-          var J;
-          if (Ij("Request to method " + ((J = this.handler) === null || J === void 0 ? void 0 : J.path) + " stream closed with rstCode " + this.stream.rstCode), this.callEventTracker && !this.streamEnded) this.streamEnded = !0, this.callEventTracker.onStreamEnd(!1), this.callEventTracker.onCallEnd({
-            code: cY.Status.CANCELLED,
-            details: "Stream closed before sending status",
-            metadata: null
-          });
-          this.notifyOnCancel()
-        }), this.stream.on("data", (J) => {
-          this.handleDataFrame(J)
-        }), this.stream.pause(), this.stream.on("end", () => {
-          this.handleEndEvent()
-        }), "grpc.max_send_message_length" in G) this.maxSendMessageSize = G["grpc.max_send_message_length"];
-      if ("grpc.max_receive_message_length" in G) this.maxReceiveMessageSize = G["grpc.max_receive_message_length"];
-      this.host = (Z = B[":authority"]) !== null && Z !== void 0 ? Z : B.host, this.decoder = new vG6.StreamDecoder(this.maxReceiveMessageSize);
-      let D = Dd1.Metadata.fromHttp2Headers(B);
-      if (mx0.isTracerEnabled(dx0)) Ij("Request to " + this.handler.path + " received headers " + JSON.stringify(D.toJSON()));
-      let Y = D.get(Zd1);
-      if (Y.length > 0) this.handleTimeoutHeader(Y[0]);
-      let W = D.get(Yd1);
-      if (W.length > 0) this.incomingEncoding = W[0];
-      D.remove(Zd1), D.remove(Yd1), D.remove(ix0), D.remove(Vh.constants.HTTP2_HEADER_ACCEPT_ENCODING), D.remove(Vh.constants.HTTP2_HEADER_TE), D.remove(Vh.constants.HTTP2_HEADER_CONTENT_TYPE), this.metadata = D
-    }
-    handleTimeoutHeader(A) {
-      let B = A.toString().match(gG6);
-      if (B === null) {
-        let G = {
-          code: cY.Status.INTERNAL,
-          details: `Invalid ${Zd1} value "${A}"`,
-          metadata: null
-        };
-        process.nextTick(() => {
-          this.sendStatus(G)
-        });
-        return
-      }
-      let Q = +B[1] * hG6[B[2]] | 0,
-        I = new Date;
-      this.deadline = I.setMilliseconds(I.getMilliseconds() + Q), this.deadlineTimer = setTimeout(() => {
-        let G = {
-          code: cY.Status.DEADLINE_EXCEEDED,
-          details: "Deadline exceeded",
-          metadata: null
-        };
-        this.sendStatus(G)
-      }, Q)
-    }
-    checkCancelled() {
-      if (!this.cancelled && (this.stream.destroyed || this.stream.closed)) this.notifyOnCancel(), this.cancelled = !0;
-      return this.cancelled
-    }
-    notifyOnCancel() {
-      if (this.cancelNotified) return;
-      if (this.cancelNotified = !0, this.cancelled = !0, process.nextTick(() => {
-          var A;
-          (A = this.listener) === null || A === void 0 || A.onCancel()
-        }), this.deadlineTimer) clearTimeout(this.deadlineTimer);
-      this.stream.resume()
-    }
-    maybeSendMetadata() {
-      if (!this.metadataSent) this.sendMetadata(new Dd1.Metadata)
-    }
-    serializeMessage(A) {
-      let B = this.handler.serialize(A),
-        Q = B.byteLength,
-        I = Buffer.allocUnsafe(Q + 5);
-      return I.writeUInt8(0, 0), I.writeUInt32BE(Q, 1), B.copy(I, 5), I
-    }
-    decompressMessage(A, B) {
-      let Q = A.subarray(5);
-      if (B === "identity") return Q;
-      else if (B === "deflate" || B === "gzip") {
-        let I;
-        if (B === "deflate") I = vx0.createInflate();
-        else I = vx0.createGunzip();
-        return new Promise((G, Z) => {
-          let D = 0,
-            Y = [];
-          I.on("data", (W) => {
-            if (Y.push(W), D += W.byteLength, this.maxReceiveMessageSize !== -1 && D > this.maxReceiveMessageSize) I.destroy(), Z({
-              code: cY.Status.RESOURCE_EXHAUSTED,
-              details: `Received message that decompresses to a size larger than ${this.maxReceiveMessageSize}`
-            })
-          }), I.on("end", () => {
-            G(Buffer.concat(Y))
-          }), I.write(Q), I.end()
-        })
-      } else return Promise.reject({
-        code: cY.Status.UNIMPLEMENTED,
-        details: `Received message compressed with unsupported encoding "${B}"`
-      })
-    }
-    async decompressAndMaybePush(A) {
-      if (A.type !== "COMPRESSED") throw new Error(`Invalid queue entry type: ${A.type}`);
-      let Q = A.compressedMessage.readUInt8(0) === 1 ? this.incomingEncoding : "identity",
-        I;
-      try {
-        I = await this.decompressMessage(A.compressedMessage, Q)
-      } catch (G) {
-        this.sendStatus(G);
-        return
-      }
-      try {
-        A.parsedMessage = this.handler.deserialize(I)
-      } catch (G) {
-        this.sendStatus({
-          code: cY.Status.INTERNAL,
-          details: `Error deserializing request: ${G.message}`
-        });
-        return
-      }
-      A.type = "READABLE", this.maybePushNextMessage()
-    }
-    maybePushNextMessage() {
-      if (this.listener && this.isReadPending && this.readQueue.length > 0 && this.readQueue[0].type !== "COMPRESSED") {
-        this.isReadPending = !1;
-        let A = this.readQueue.shift();
-        if (A.type === "READABLE") this.listener.onReceiveMessage(A.parsedMessage);
-        else this.listener.onReceiveHalfClose()
-      }
-    }
-    handleDataFrame(A) {
-      var B;
-      if (this.checkCancelled()) return;
-      Ij("Request to " + this.handler.path + " received data frame of size " + A.length);
-      let Q;
-      try {
-        Q = this.decoder.write(A)
-      } catch (I) {
-        this.sendStatus({
-          code: cY.Status.RESOURCE_EXHAUSTED,
-          details: I.message
-        });
-        return
-      }
-      for (let I of Q) {
-        this.stream.pause();
-        let G = {
-          type: "COMPRESSED",
-          compressedMessage: I,
-          parsedMessage: null
-        };
-        this.readQueue.push(G), this.decompressAndMaybePush(G), (B = this.callEventTracker) === null || B === void 0 || B.addMessageReceived()
-      }
-    }
-    handleEndEvent() {
-      this.readQueue.push({
-        type: "HALF_CLOSE",
-        compressedMessage: null,
-        parsedMessage: null
-      }), this.receivedHalfClose = !0, this.maybePushNextMessage()
-    }
-    start(A) {
-      if (Ij("Request to " + this.handler.path + " start called"), this.checkCancelled()) return;
-      this.listener = A, A.onReceiveMetadata(this.metadata)
-    }
-    sendMetadata(A) {
-      if (this.checkCancelled()) return;
-      if (this.metadataSent) return;
-      this.metadataSent = !0;
-      let B = A ? A.toHttp2Headers() : null,
-        Q = Object.assign(Object.assign(Object.assign({}, hx0), mG6), B);
-      this.stream.respond(Q, dG6)
-    }
-    sendMessage(A, B) {
-      if (this.checkCancelled()) return;
-      let Q;
-      try {
-        Q = this.serializeMessage(A)
-      } catch (I) {
-        this.sendStatus({
-          code: cY.Status.INTERNAL,
-          details: `Error serializing response: ${fx0.getErrorMessage(I)}`,
-          metadata: null
-        });
-        return
-      }
-      if (this.maxSendMessageSize !== -1 && Q.length - 5 > this.maxSendMessageSize) {
-        this.sendStatus({
-          code: cY.Status.RESOURCE_EXHAUSTED,
-          details: `Sent message larger than max (${Q.length} vs. ${this.maxSendMessageSize})`,
-          metadata: null
-        });
-        return
-      }
-      this.maybeSendMetadata(), Ij("Request to " + this.handler.path + " sent data frame of size " + Q.length), this.stream.write(Q, (I) => {
-        var G;
-        if (I) {
-          this.sendStatus({
-            code: cY.Status.INTERNAL,
-            details: `Error writing message: ${fx0.getErrorMessage(I)}`,
-            metadata: null
-          });
-          return
-        }(G = this.callEventTracker) === null || G === void 0 || G.addMessageSent(), B()
-      })
-    }
-    sendStatus(A) {
-      var B, Q;
-      if (this.checkCancelled()) return;
-      if (Ij("Request to method " + ((B = this.handler) === null || B === void 0 ? void 0 : B.path) + " ended with status code: " + cY.Status[A.code] + " details: " + A.details), this.metadataSent)
-        if (!this.wantTrailers) this.wantTrailers = !0, this.stream.once("wantTrailers", () => {
-          var I;
-          if (this.callEventTracker && !this.streamEnded) this.streamEnded = !0, this.callEventTracker.onStreamEnd(!0), this.callEventTracker.onCallEnd(A);
-          let G = Object.assign({
-            [gx0]: A.code,
-            [bx0]: encodeURI(A.details)
-          }, (I = A.metadata) === null || I === void 0 ? void 0 : I.toHttp2Headers());
-          this.stream.sendTrailers(G), this.notifyOnCancel()
-        }), this.stream.end();
-        else this.notifyOnCancel();
-      else {
-        if (this.callEventTracker && !this.streamEnded) this.streamEnded = !0, this.callEventTracker.onStreamEnd(!0), this.callEventTracker.onCallEnd(A);
-        let I = Object.assign(Object.assign({
-          [gx0]: A.code,
-          [bx0]: encodeURI(A.details)
-        }, hx0), (Q = A.metadata) === null || Q === void 0 ? void 0 : Q.toHttp2Headers());
-        this.stream.respond(I, {
-          endStream: !0
-        }), this.notifyOnCancel()
-      }
-    }
-    startRead() {
-      if (Ij("Request to " + this.handler.path + " startRead called"), this.checkCancelled()) return;
-      if (this.isReadPending = !0, this.readQueue.length === 0) {
-        if (!this.receivedHalfClose) this.stream.resume()
-      } else this.maybePushNextMessage()
-    }
-    getPeer() {
-      var A;
-      let B = (A = this.stream.session) === null || A === void 0 ? void 0 : A.socket;
-      if (B === null || B === void 0 ? void 0 : B.remoteAddress)
-        if (B.remotePort) return `${B.remoteAddress}:${B.remotePort}`;
-        else return B.remoteAddress;
-      else return "unknown"
-    }
-    getDeadline() {
-      return this.deadline
-    }
-    getHost() {
-      return this.host
-    }
-  }
-  nx0.BaseServerInterceptingCall = Wd1;
-
-  function uG6(A, B, Q, I, G, Z) {
-    let D = {
-        path: G.path,
-        requestStream: G.type === "clientStream" || G.type === "bidi",
-        responseStream: G.type === "serverStream" || G.type === "bidi",
-        requestDeserialize: G.deserialize,
-        responseSerialize: G.serialize
-      },
-      Y = new Wd1(B, Q, I, G, Z);
-    return A.reduce((W, J) => {
-      return J(D, W)
-    }, Y)
+  ctQ.exports = {
+    TernarySearchTree: Vy1,
+    tree: dtQ
   }
 })
