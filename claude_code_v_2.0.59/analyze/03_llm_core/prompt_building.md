@@ -2,108 +2,194 @@
 
 This document analyzes how system prompts are constructed and assembled in Claude Code v2.0.59.
 
+## Related Symbols
+
+> Complete symbol mappings: [symbol_index.md](../00_overview/symbol_index.md)
+
+Key functions in this document:
+- `buildCompleteSystemPrompt` (Tn) - Main system prompt assembly function
+- `getSessionTypeIdentity` (rnA) - Select identity based on context
+- `getEnvironmentContext` (CE9) - Add environment information to prompt
+- `getAgentSpecificContext` (GSA) - Add agent-specific instructions
+- `getMCPToolsPrompt` (HE9) - Generate MCP CLI usage instructions
+- `getMCPServerInstructions` (bv3) - Add MCP server custom instructions
+- `getGitInstructions` (cU6) - Comprehensive git workflow instructions
+
 ## Overview
 
-Claude Code uses a modular approach to construct system prompts, combining multiple components based on the context, available tools, configuration, and user settings. The main prompt construction happens in the `Tn` function located in `chunks.152.mjs`.
+Claude Code uses a modular approach to construct system prompts, combining multiple components based on the context, available tools, configuration, and user settings. The main prompt construction happens in the `buildCompleteSystemPrompt` (Tn) function located in `chunks.152.mjs`.
 
 ## Core Prompt Construction Flow
 
-### 1. Main System Prompt Assembly Function: `Tn`
-
-**Location**: `chunks.152.mjs` lines 2307-2448
-
-The `Tn` function is the primary entry point for building the complete system prompt. It takes the following parameters:
+### 1. Main System Prompt Assembly Function: `buildCompleteSystemPrompt`
 
 ```javascript
-async function Tn(A, Q, B, G, Z)
+// ============================================
+// buildCompleteSystemPrompt - Main entry point for system prompt construction
+// Location: chunks.152.mjs:2307-2448
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Tn(A, Q, B, G, Z) {
+  // A = available tools, Q = model, B = additionalDirs, G = mcpClients, Z = permissions
+  // ... complex prompt assembly logic
+}
+
+// READABLE (for understanding):
+async function buildCompleteSystemPrompt(
+  availableTools,      // A: Set of tool names available for this session
+  modelName,           // Q: Current model (e.g., "claude-sonnet-4-5")
+  additionalDirs,      // B: Additional working directories
+  mcpClients,          // G: Connected MCP server clients
+  permissionSettings   // Z: Permission configuration object
+) {
+  // 1. Fetch supporting context
+  let [slashCommands, outputStyle, envContext] = await Promise.all([
+    getSlashCommands(),
+    getOutputStyleConfig(),
+    getEnvironmentContext(modelName, additionalDirs)
+  ]);
+
+  // 2. Determine available tools Set
+  let toolSet = new Set(availableTools.map(t => t.name));
+
+  // 3. Build prompt array (order matters!)
+  return [
+    // Core identity and behavior instructions
+    buildBaseIdentityPrompt(outputStyle),
+
+    // Tool-specific policies
+    buildToolUsagePolicy(toolSet),
+
+    // Git workflow instructions (if Bash available)
+    toolSet.has("Bash") ? getGitInstructions() : "",
+
+    // Security guidelines
+    SECURITY_GUIDELINES,  // DE9
+
+    // Task management (if TodoWrite available)
+    toolSet.has("TodoWrite") ? TASK_MANAGEMENT_PROMPT : "",
+
+    // MCP integration (if servers connected)
+    ...(mcpClients?.length > 0 ? [getMCPServerInstructions(mcpClients)] : []),
+
+    // Environment context (working dir, platform, date, model)
+    envContext
+  ];
+}
+
+// Mapping: Tn→buildCompleteSystemPrompt, A→availableTools, Q→modelName,
+//          B→additionalDirs, G→mcpClients, Z→permissionSettings
 ```
 
-Parameters:
-- `A`: Available tools
-- `Q`: Model name
-- `B`: Additional working directories
-- `G`: MCP clients (Model Context Protocol)
-- `Z`: Permission settings
+**Prompt Assembly Order** (critical for behavior):
 
-**Function Flow**:
+| Order | Component | Condition | Source |
+|-------|-----------|-----------|--------|
+| 1 | Base Identity | Always | Inline template |
+| 2 | Tool Usage Policy | Always | `buildToolUsagePolicy()` |
+| 3 | Git/PR Instructions | If Bash available | `cU6()` |
+| 4 | Security Guidelines | Always | `DE9` constant |
+| 5 | Task Management | If TodoWrite available | `TASK_MANAGEMENT_PROMPT` |
+| 6 | MCP Instructions | If MCP servers connected | `bv3()`, `HE9()` |
+| 7 | Environment Context | Always | `CE9()` |
+| 8 | Output Style | If user configured | Inline template |
 
-1. Fetches slash commands, output style configuration, and environment context
-2. Determines which tools are available
-3. Assembles prompt components in this order:
-   - Base identity and capabilities
-   - Tool usage policy
-   - Git/PR instructions (from `cU6()`)
-   - Security guidelines (`DE9`)
-   - Task management instructions (if TodoWrite enabled)
-   - MCP server instructions (if MCP clients configured)
-   - Environment information
-   - Output style instructions (if configured)
+**Why this order matters:**
+- Core identity establishes the persona and base behavior
+- Tool policies come early to guide tool selection decisions
+- Git instructions are prominent because commits/PRs are common operations
+- Security guidelines prevent dangerous actions
+- Task management helps organize complex work
+- MCP extends capabilities when available
+- Environment context provides grounding in current state
 
-### 2. Identity Prompts (Extracted from Source)
-
-**Location**: `chunks.60.mjs:465-482`
-
-Three identity variants depending on execution context:
+### 2. Identity Prompts
 
 ```javascript
 // ============================================
-// Identity Prompt Constants
-// Location: chunks.60.mjs:478-482
-// ============================================
-
-// Main interactive mode (default)
-const CLAUDE_CODE_IDENTITY = "You are Claude Code, Anthropic's official CLI for Claude.";
-// Original: hCB
-
-// SDK mode with append system prompt
-const CLAUDE_CODE_SDK_IDENTITY = "You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.";
-// Original: sY6
-
-// Pure SDK agent mode
-const CLAUDE_AGENT_IDENTITY = "You are a Claude agent, built on Anthropic's Claude Agent SDK.";
-// Original: rY6
-
-// ============================================
-// getSessionTypeIdentity - Select identity based on context
+// getSessionTypeIdentity - Select identity based on execution context
 // Location: chunks.60.mjs:465-472
-// Original function: rnA(A)
 // ============================================
+
+// ORIGINAL (for source lookup):
+function rnA(A) {
+  if (V6() === "vertex") return hCB;
+  if (A?.isNonInteractive) {
+    if (A.hasAppendSystemPrompt) return sY6;
+    return rY6
+  }
+  return hCB
+}
+
+// Identity constants (chunks.60.mjs:478-482):
+// hCB = "You are Claude Code, Anthropic's official CLI for Claude."
+// sY6 = "You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK."
+// rY6 = "You are a Claude agent, built on Anthropic's Claude Agent SDK."
+
+// READABLE (for understanding):
 function getSessionTypeIdentity(options) {
-  // Vertex AI always uses standard identity
+  // Vertex AI: Always use standard identity (compatibility)
   if (getProvider() === "vertex") {
-    return CLAUDE_CODE_IDENTITY;
+    return CLAUDE_CODE_IDENTITY;  // hCB
   }
 
-  // Non-interactive mode (SDK or agent)
+  // Non-interactive mode (SDK or programmatic usage)
   if (options?.isNonInteractive) {
-    // If there's an append system prompt, use SDK identity
+    // Has custom system prompt appended? Use SDK identity
     if (options.hasAppendSystemPrompt) {
-      return CLAUDE_CODE_SDK_IDENTITY;
+      return CLAUDE_CODE_SDK_IDENTITY;  // sY6
     }
-    // Otherwise use pure agent identity
-    return CLAUDE_AGENT_IDENTITY;
+    // Pure agent mode - no CLI branding
+    return CLAUDE_AGENT_IDENTITY;  // rY6
   }
 
-  // Default: interactive mode
-  return CLAUDE_CODE_IDENTITY;
+  // Default: Interactive CLI mode
+  return CLAUDE_CODE_IDENTITY;  // hCB
 }
 
-// ============================================
-// getCoreSystemPrompt - Placeholder function
-// Location: chunks.60.mjs:474-476
-// Original function: gCB()
-// ============================================
-function getCoreSystemPrompt() {
-  // Returns empty string - actual identity is in getSessionTypeIdentity
-  return "";
-}
+// Mapping: rnA→getSessionTypeIdentity, V6→getProvider, hCB→CLAUDE_CODE_IDENTITY,
+//          sY6→CLAUDE_CODE_SDK_IDENTITY, rY6→CLAUDE_AGENT_IDENTITY
 ```
 
-The identity selection logic:
-- **Vertex AI**: Always uses `CLAUDE_CODE_IDENTITY` (standard)
-- **Interactive Mode**: Uses `CLAUDE_CODE_IDENTITY` (standard)
-- **Non-Interactive + Append System Prompt**: Uses `CLAUDE_CODE_SDK_IDENTITY` (SDK mode)
-- **Non-Interactive (Agent)**: Uses `CLAUDE_AGENT_IDENTITY` (pure agent)
+**Identity Selection Decision Tree:**
+
+```
+┌─────────────────────────────────────┐
+│ getSessionTypeIdentity(options)     │
+└─────────────────────────────────────┘
+                  ↓
+    ┌─────────────────────────────┐
+    │ Provider === "vertex"?       │
+    └─────────────────────────────┘
+           ↓ Yes            ↓ No
+    ┌─────────────┐         │
+    │ CLAUDE_CODE │         │
+    │ _IDENTITY   │         │
+    └─────────────┘         ↓
+                  ┌─────────────────────────────┐
+                  │ options.isNonInteractive?   │
+                  └─────────────────────────────┘
+                       ↓ Yes            ↓ No
+              ┌─────────────────┐    ┌─────────────┐
+              │ hasAppendSystem │    │ CLAUDE_CODE │
+              │ Prompt?         │    │ _IDENTITY   │
+              └─────────────────┘    └─────────────┘
+               ↓ Yes      ↓ No
+        ┌────────────┐ ┌────────────┐
+        │ CLAUDE_CODE│ │ CLAUDE_    │
+        │ _SDK_      │ │ AGENT_     │
+        │ IDENTITY   │ │ IDENTITY   │
+        └────────────┘ └────────────┘
+```
+
+**Why three different identities:**
+1. **CLAUDE_CODE_IDENTITY**: Standard CLI branding for interactive users
+2. **CLAUDE_CODE_SDK_IDENTITY**: Acknowledges SDK context when user adds custom prompts
+3. **CLAUDE_AGENT_IDENTITY**: Pure agent mode - removes CLI branding for programmatic use
+
+**Why Vertex AI always uses standard identity:**
+Google Vertex AI has specific model behavior expectations. Using a consistent identity ensures predictable behavior across providers.
 
 ### 3. Environment Context: `CE9` Function
 

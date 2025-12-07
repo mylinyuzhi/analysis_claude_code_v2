@@ -1169,3 +1169,411 @@ Many attachments check `toolPermissionContext` to respect:
 6. **Parallel execution**: All attachments in a category generate concurrently
 
 This comprehensive system allows Claude Code to maintain rich contextual awareness while keeping the user-facing conversation clean and focused.
+
+---
+
+## Additional Attachment Types (From kb3 Switch Statement)
+
+The following attachment types are handled by `kb3()` (chunks.154.mjs:3-322) but were not covered in the main categories above:
+
+### 24. directory
+
+**Location:** `chunks.154.mjs:5-13`
+
+**Trigger:** @mention of a directory path
+
+**Content Format:**
+```javascript
+{
+  type: "directory",
+  path: "/absolute/path/to/dir",
+  content: "file1.txt\nfile2.js\nsubdir/"
+}
+```
+
+**System Message Format:**
+```xml
+<system-reminder>
+Called the Bash tool with the following input: {"command":"ls /path/to/dir","description":"Lists files in /path/to/dir"}
+
+Result of calling the Bash tool: [ls output]
+</system-reminder>
+```
+
+### 25. edited_text_file
+
+**Location:** `chunks.154.mjs:14-19`
+
+**Trigger:** File monitored via `readFileState` has been modified on disk
+
+**Content Format:**
+```javascript
+{
+  type: "edited_text_file",
+  filename: "/path/to/file",
+  snippet: "diff output with line numbers"
+}
+```
+
+**System Message Format:**
+```xml
+<system-reminder>
+Note: /path/to/file was modified, either by the user or by a linter. This change was intentional, so make sure to take it into account as you proceed (ie. don't revert it unless the user asks you to). Don't tell the user this, since they are already aware. Here are the relevant changes (shown with line numbers):
+[diff snippet]
+</system-reminder>
+```
+
+### 26. compact_file_reference
+
+**Location:** `chunks.154.mjs:45-49`
+
+**Trigger:** File was read before context compaction but content is too large to re-include
+
+**Content Format:**
+```javascript
+{
+  type: "compact_file_reference",
+  filename: "/path/to/large/file"
+}
+```
+
+**System Message Format:**
+```xml
+<system-reminder>
+Note: /path/to/file was read before the last conversation was summarized, but the contents are too large to include. Use Read tool if you need to access it.
+</system-reminder>
+```
+
+### 27. plan_file_reference
+
+**Location:** `chunks.154.mjs:77-87`
+
+**Trigger:** Plan file exists from previous plan mode session
+
+**Content Format:**
+```javascript
+{
+  type: "plan_file_reference",
+  planFilePath: "/path/to/.claude/plans/plan-id.md",
+  planContent: "# Plan Content..."
+}
+```
+
+**System Message Format:**
+```xml
+<system-reminder>
+A plan file exists from plan mode at: /path/to/plan.md
+
+Plan contents:
+
+[plan content]
+
+If this plan is relevant to the current work and not already complete, continue working on it.
+</system-reminder>
+```
+
+### 28. ultramemory
+
+**Location:** `chunks.154.mjs:121-125`
+
+**Trigger:** Ultra memory content available
+
+**Content Format:**
+```javascript
+{
+  type: "ultramemory",
+  content: "Ultra memory content string"
+}
+```
+
+**System Message Format:**
+```xml
+<system-reminder>
+[ultra memory content]
+</system-reminder>
+```
+
+### 29. hook_blocking_error
+
+**Location:** `chunks.154.mjs:284-288`
+
+**Trigger:** Hook encountered a blocking error
+
+**Content Format:**
+```javascript
+{
+  type: "hook_blocking_error",
+  hookName: "PreToolUse",
+  blockingError: {
+    command: "some-command",
+    blockingError: "Error message"
+  }
+}
+```
+
+**System Message Format:**
+```xml
+<system-reminder>
+PreToolUse hook blocking error from command: "some-command": Error message
+</system-reminder>
+```
+
+### 30. hook_success
+
+**Location:** `chunks.154.mjs:289-295`
+
+**Trigger:** Hook executed successfully (only for SessionStart and UserPromptSubmit events)
+
+**Content Format:**
+```javascript
+{
+  type: "hook_success",
+  hookEvent: "SessionStart" | "UserPromptSubmit",
+  hookName: "HookName",
+  content: "Success message"
+}
+```
+
+**System Message Format:**
+```xml
+<system-reminder>
+HookName hook success: Success message
+</system-reminder>
+```
+
+**Note:** Returns empty array for non-SessionStart/UserPromptSubmit events or empty content.
+
+### 31. hook_additional_context
+
+**Location:** `chunks.154.mjs:296-303`
+
+**Trigger:** Hook provides additional context
+
+**Content Format:**
+```javascript
+{
+  type: "hook_additional_context",
+  hookName: "HookName",
+  content: ["context line 1", "context line 2"]
+}
+```
+
+**System Message Format:**
+```xml
+<system-reminder>
+HookName hook additional context: context line 1
+context line 2
+</system-reminder>
+```
+
+### 32. hook_stopped_continuation
+
+**Location:** `chunks.154.mjs:304-308`
+
+**Trigger:** Hook stopped the continuation
+
+**Content Format:**
+```javascript
+{
+  type: "hook_stopped_continuation",
+  hookName: "HookName",
+  message: "Stop reason"
+}
+```
+
+**System Message Format:**
+```xml
+<system-reminder>
+HookName hook stopped continuation: Stop reason
+</system-reminder>
+```
+
+### 33. async_agent_status
+
+**Location:** `chunks.154.mjs:240-247`
+
+**Trigger:** Async agent completed or failed
+
+**Content Format:**
+```javascript
+{
+  type: "async_agent_status",
+  agentId: "agent-uuid",
+  description: "Agent Description",
+  status: "completed" | "failed",
+  error: "Optional error message"
+}
+```
+
+**System Message Format:**
+```xml
+<system-notification>Async agent "Agent Description" completed. The output can be retrieved using AgentOutputTool with agentId: "agent-uuid"</system-notification>
+```
+
+**Note:** Uses `<system-notification>` tag instead of `<system-reminder>`.
+
+### 34. background_remote_session_status
+
+**Location:** `chunks.154.mjs:210-216`
+
+**Trigger:** Background remote session has status update
+
+**Content Format:**
+```javascript
+{
+  type: "background_remote_session_status",
+  taskId: "task-uuid",
+  title: "Task Title",
+  status: "running" | "completed",
+  deltaSummarySinceLastFlushToAttachment: "Summary text"
+}
+```
+
+**System Message Format:**
+```xml
+<system-reminder>
+<background-remote-session-status>Task id:task-uuid
+Title:Task Title
+Status:running
+Delta summary since last flush:Summary text</background-remote-session-status>
+</system-reminder>
+```
+
+---
+
+## Silent Attachment Types (No Message Output)
+
+The following attachment types return empty arrays from `kb3()` and produce no system message:
+
+**Location:** `chunks.154.mjs:309-318, 320`
+
+| Type | Purpose |
+|------|---------|
+| `already_read_file` | File unchanged since last read (cached) |
+| `command_permissions` | Permission context (handled elsewhere) |
+| `edited_image_file` | Image file change (visual diff not supported) |
+| `hook_cancelled` | Hook was cancelled |
+| `hook_error_during_execution` | Hook execution error |
+| `hook_non_blocking_error` | Non-blocking hook error |
+| `hook_system_message` | Hook system message (handled elsewhere) |
+| `structured_output` | Structured output (handled differently) |
+| `hook_permission_decision` | Hook permission decision |
+| `autocheckpointing` | Auto-checkpoint event |
+| `background_task_status` | Background task status (generic) |
+
+---
+
+## Complete kb3() Switch Statement Reference
+
+**Location:** `chunks.154.mjs:3-322`
+
+```javascript
+// ============================================
+// kb3 (convertAttachmentToSystemMessage) - Complete Switch
+// Location: chunks.154.mjs:3-322
+// All 34+ attachment types handled
+// ============================================
+function convertAttachmentToSystemMessage(attachment) {
+  switch (attachment.type) {
+    case "directory":           // → NG() wrapped ls output
+    case "edited_text_file":    // → NG() wrapped change notification
+    case "file":                // → NG() wrapped file content (text/image/notebook/pdf)
+    case "compact_file_reference":  // → NG() wrapped reference
+    case "selected_lines_in_ide":   // → NG() wrapped IDE selection
+    case "opened_file_in_ide":      // → NG() wrapped file open notification
+    case "todo":                    // → NG() wrapped todo list update
+    case "plan_file_reference":     // → NG() wrapped plan reference
+    case "todo_reminder":           // → NG() wrapped reminder
+    case "nested_memory":           // → NG() wrapped related file content
+    case "queued_command":          // → NG() wrapped queued message
+    case "ultramemory":             // → NG() wrapped ultra memory
+    case "output_style":            // → NG() wrapped style reminder
+    case "diagnostics":             // → NG() wrapped diagnostics
+    case "plan_mode":               // → jb3() delegate (Sb3 or _b3)
+    case "plan_mode_reentry":       // → NG() wrapped reentry instructions
+    case "critical_system_reminder": // → NG() wrapped user-defined reminder
+    case "mcp_resource":            // → NG() wrapped resource content
+    case "agent_mention":           // → NG() wrapped agent invocation
+    case "background_remote_session_status": // → NG() wrapped status
+    case "background_shell_status":  // → R0() with Qu() wrapped status
+    case "async_hook_response":      // → NG() wrapped hook response
+    case "async_agent_status":       // → R0() with <system-notification>
+    case "teammate_mailbox":         // → R0() with formatted messages
+    case "memory":                   // → NG() wrapped session memory
+    case "token_usage":              // → R0() with Qu() wrapped usage
+    case "budget_usd":               // → R0() with Qu() wrapped budget
+    case "hook_blocking_error":      // → R0() with Qu() wrapped error
+    case "hook_success":             // → R0() with Qu() wrapped success
+    case "hook_additional_context":  // → R0() with Qu() wrapped context
+    case "hook_stopped_continuation": // → R0() with Qu() wrapped stop
+
+    // Silent types - return []
+    case "already_read_file":
+    case "command_permissions":
+    case "edited_image_file":
+    case "hook_cancelled":
+    case "hook_error_during_execution":
+    case "hook_non_blocking_error":
+    case "hook_system_message":
+    case "structured_output":
+    case "hook_permission_decision":
+      return [];
+
+    default:
+      // Unknown type - log error, return []
+      if (["autocheckpointing", "background_task_status"].includes(attachment.type))
+        return [];
+      logError("normalizeAttachmentForAPI", Error(`Unknown attachment type: ${attachment.type}`));
+      return [];
+  }
+}
+```
+
+---
+
+## Updated Summary Table (All 34+ Types)
+
+| Type | Category | Wrapping | Output |
+|------|----------|----------|--------|
+| directory | User Prompt | NG() | Tool use simulation |
+| file | User Prompt | NG() | Tool result simulation |
+| edited_text_file | Core | NG() | Change notification |
+| compact_file_reference | Core | NG() | File reference |
+| selected_lines_in_ide | Main Agent | NG() | IDE selection |
+| opened_file_in_ide | Main Agent | NG() | File open notice |
+| todo | Core | NG() | Todo list update |
+| plan_file_reference | Core | NG() | Plan reference |
+| todo_reminder | Core | NG() | Reminder |
+| nested_memory | Core | NG() | Related file |
+| queued_command | Main Agent | NG() | Queued message |
+| ultramemory | Core | NG() | Ultra memory |
+| output_style | Main Agent | NG() | Style reminder |
+| diagnostics | Main Agent | NG() | Diagnostic issues |
+| plan_mode | Core | jb3() | Plan workflow |
+| plan_mode_reentry | Core | NG() | Reentry guide |
+| critical_system_reminder | Core | NG() | User reminder |
+| mcp_resource | User Prompt | NG() | Resource content |
+| agent_mention | User Prompt | NG() | Agent invoke |
+| background_remote_session_status | Main Agent | NG() | Session status |
+| background_shell_status | Main Agent | R0(Qu()) | Shell status |
+| async_hook_response | Main Agent | NG() | Hook response |
+| async_agent_status | Main Agent | R0() | Agent notification |
+| teammate_mailbox | Core | R0() | Teammate messages |
+| memory | Main Agent | NG() | Session memory |
+| token_usage | Main Agent | R0(Qu()) | Token count |
+| budget_usd | Main Agent | R0(Qu()) | Budget info |
+| hook_blocking_error | Main Agent | R0(Qu()) | Hook error |
+| hook_success | Main Agent | R0(Qu()) | Hook success |
+| hook_additional_context | Main Agent | R0(Qu()) | Hook context |
+| hook_stopped_continuation | Main Agent | R0(Qu()) | Hook stop |
+| already_read_file | - | - | Silent |
+| command_permissions | - | - | Silent |
+| edited_image_file | - | - | Silent |
+| hook_cancelled | - | - | Silent |
+| hook_error_during_execution | - | - | Silent |
+| hook_non_blocking_error | - | - | Silent |
+| hook_system_message | - | - | Silent |
+| structured_output | - | - | Silent |
+| hook_permission_decision | - | - | Silent |
+| autocheckpointing | - | - | Silent |
+| background_task_status | - | - | Silent |

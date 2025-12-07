@@ -4,6 +4,19 @@
 
 This document provides a comprehensive analysis of how Claude Code v2.0.59 selects, configures, and manages different Claude models. The system supports multiple model tiers (Opus, Sonnet, Haiku) across different providers (Anthropic API, AWS Bedrock, Google Vertex AI, Azure Foundry) with sophisticated fallback mechanisms.
 
+## Related Symbols
+
+> Complete symbol mappings: [symbol_index.md](../00_overview/symbol_index.md)
+
+Key functions in this document:
+- `getProvider` (V6) - Determines which API provider to use
+- `getModelIds` (eI) - Gets provider-specific model ID mappings
+- `getActiveModel` (Tt) - Main model getter with priority chain
+- `normalizeModelName` (UD) - Resolves aliases to actual model IDs
+- `selectModelForPermissionMode` (Pt) - Plan mode model selection
+- `getSmallFastModel` (MW) - Returns Haiku for internal operations
+- `resolveAgentModel` (inA) - Model resolution for sub-agents
+
 ## Table of Contents
 
 1. [Model Taxonomy](#model-taxonomy)
@@ -99,150 +112,381 @@ Claude Code determines the active model through a cascading priority system:
 5. Final Fallback (Sonnet 4.5)
 ```
 
+**Why this priority order:**
+- Session override (`/model` command) allows runtime switching without restart
+- Environment variable supports CI/CD and automation scenarios
+- Config file provides persistent user preference
+- Default model adapts to subscription plan and A/B experiments
+- Fallback ensures system always has a valid model
+
 ### Code Implementation
 
 ```javascript
-// Main model resolution function
-function getActiveModel(options = {}) {
-  let model, sessionModel = getSessionOverrideModel();
+// ============================================
+// getActiveModelSource - Get model from priority chain (without defaults)
+// Location: chunks.59.mjs:2737-2745
+// ============================================
 
-  // Priority 1: Session override
-  if (sessionModel !== undefined) {
-    model = sessionModel;
+// ORIGINAL (for source lookup):
+function mnA() {
+  let A, Q = yE0();
+  if (Q !== void 0) A = Q;
+  else {
+    let B = l0() || {};
+    A = process.env.ANTHROPIC_MODEL || B.model || void 0
+  }
+  if (BB() && !pw() && A && KT(A)) return;
+  return A
+}
+
+// READABLE (for understanding):
+function getActiveModelSource() {
+  let model;
+  let sessionOverride = getSessionOverrideModel();  // yE0()
+
+  if (sessionOverride !== undefined) {
+    model = sessionOverride;
   } else {
-    // Priority 2 & 3: Environment or config file
-    let config = readConfigFile() || {};
+    let config = readConfigFile() || {};  // l0()
     model = process.env.ANTHROPIC_MODEL || config.model || undefined;
   }
 
-  // Check if Opus is allowed on current plan
+  // Opus not available on Pro plan without paid extras
   if (isClaudePro() && !hasPaidExtras() && model && isOpusModel(model)) {
-    // Opus not available on Pro plan - reset
-    return undefined;
+    return undefined;  // Reset to default
   }
+
+  return model;
+}
+
+// Mapping: mnA→getActiveModelSource, yE0→getSessionOverrideModel, l0→readConfigFile,
+//          BB→isClaudePro, pw→hasPaidExtras, KT→isOpusModel
+```
+
+**Key Design Decision - Opus Plan Restriction:**
+When a Pro user (without paid extras) tries to use Opus, the function returns `undefined` instead of throwing an error. This triggers graceful fallback to the default model rather than failing the request.
+
+```javascript
+// ============================================
+// getActiveModel - Main model getter with fallback to defaults
+// Location: chunks.59.mjs:2748-2754
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Tt(A = {}) {
+  let Q = mnA();
+  if (Q !== null && Q !== void 0) return Q;
+  let { forDisplay: B = !1 } = A;
+  return CCB(B)
+}
+
+// READABLE (for understanding):
+function getActiveModel(options = {}) {
+  let model = getActiveModelSource();  // mnA()
 
   if (model !== null && model !== undefined) {
     return model;
   }
 
-  // Priority 4 & 5: Default model
+  // No explicit model set - check for experiment overrides
   let { forDisplay = false } = options;
-  return getDefaultModel(forDisplay);
+  return getDefaultModelOverride(forDisplay);  // CCB()
 }
 
-// Default model selection
-function getDefaultModel(forDisplay = false) {
-  let experimentOverride = getExperimentModelOverride();
+// Mapping: Tt→getActiveModel, mnA→getActiveModelSource, CCB→getDefaultModelOverride
+```
+
+```javascript
+// ============================================
+// getDefaultModelOverride - Check for experiment-based model override
+// Location: chunks.59.mjs:2812-2816
+// ============================================
+
+// ORIGINAL (for source lookup):
+function CCB(A) {
+  let Q = _Y6();
+  if (Q !== null && Q.name) return A ? Q.displayName ?? Q.name : Q.name;
+  if (Wh1()) return "sonnet[1m]";
+  return
+}
+
+// READABLE (for understanding):
+function getDefaultModelOverride(forDisplay) {
+  let experimentOverride = getExperimentModelOverride();  // _Y6()
 
   if (experimentOverride !== null && experimentOverride.name) {
-    return forDisplay ?
-           (experimentOverride.displayName ?? experimentOverride.name) :
-           experimentOverride.name;
+    return forDisplay
+      ? (experimentOverride.displayName ?? experimentOverride.name)
+      : experimentOverride.name;
   }
 
   // Check for 1M context experiment
-  if (isSonnet1MExperimentEnabled()) {
+  if (isSonnet1MExperimentEnabled()) {  // Wh1()
     return "sonnet[1m]";
   }
 
-  // Return undefined (will use DEFAULT_MODEL constant)
-  return undefined;
+  return undefined;  // No override, use getFallbackModel
 }
 
-// Finalize model with fallback
-function getFinalModel(options = {}) {
-  let model = getActiveModel(options);
+// Mapping: CCB→getDefaultModelOverride, _Y6→getExperimentModelOverride, Wh1→isSonnet1MExperimentEnabled
+```
+
+```javascript
+// ============================================
+// getFinalModel - Resolve to provider-specific model ID
+// Location: chunks.59.mjs:2757-2760
+// ============================================
+
+// ORIGINAL (for source lookup):
+function k3() {
+  let A = Tt();
+  if (A !== void 0 && A !== null) return UD(A);
+  return jt()
+}
+
+// READABLE (for understanding):
+function getFinalModel() {
+  let model = getActiveModel();  // Tt()
 
   if (model !== undefined && model !== null) {
-    return normalizeModelName(model);
+    return normalizeModelName(model);  // UD() - resolve "sonnet" → actual model ID
   }
 
-  return getFallbackModel();
+  return getFallbackModelNormalized();  // jt()
 }
 
-// Fallback model selection
-function getFallbackModel() {
-  // Check if Haiku is default for Pro plan
-  if (isClaudePro() && !hasPaidExtras() && isHaikuDefaultForPro()) {
-    return getDefaultHaikuModel();
-  }
-
-  // Default to Sonnet
-  return getDefaultSonnetModel();
-}
+// Mapping: k3→getFinalModel, Tt→getActiveModel, UD→normalizeModelName, jt→getFallbackModelNormalized
 ```
+
+```javascript
+// ============================================
+// getFallbackModel - Ultimate fallback based on plan type
+// Location: chunks.59.mjs:2819-2827
+// ============================================
+
+// ORIGINAL (for source lookup):
+function cnA(A = {}) {
+  let { forDisplay: Q = !1 } = A, B = CCB(Q);
+  if (B !== void 0) return B;
+  if (BB() && !pw() && dnA()) return X7A();
+  if (UUA() || $UA()) return wUA();
+  return XU()
+}
+
+// READABLE (for understanding):
+function getFallbackModel(options = {}) {
+  let { forDisplay = false } = options;
+
+  // Check experiment override first
+  let override = getDefaultModelOverride(forDisplay);  // CCB()
+  if (override !== undefined) return override;
+
+  // Pro plan without paid extras + Haiku experiment enabled
+  if (isClaudePro() && !hasPaidExtras() && isHaikuDefaultForPro()) {
+    return getDefaultHaikuModel();  // X7A() - cost-saving default
+  }
+
+  // Max or Team plan gets Opus by default
+  if (isMaxPlan() || isTeamPlan()) {  // UUA() || $UA()
+    return getDefaultOpusModel();  // wUA()
+  }
+
+  // Standard default: Sonnet
+  return getDefaultSonnetModel();  // XU()
+}
+
+// Mapping: cnA→getFallbackModel, CCB→getDefaultModelOverride, BB→isClaudePro,
+//          pw→hasPaidExtras, dnA→isHaikuDefaultForPro, X7A→getDefaultHaikuModel,
+//          UUA→isMaxPlan, $UA→isTeamPlan, wUA→getDefaultOpusModel, XU→getDefaultSonnetModel
+```
+
+**Key Insight - Plan-Based Defaults:**
+The fallback model logic adapts to subscription plans:
+- **Pro plan**: Sonnet (or Haiku if experiment enabled) - balances capability and cost
+- **Max/Team plans**: Opus - premium users get the most capable model
+- **Default**: Sonnet 4.5 - best balance for most users
 
 ### Model Alias Resolution
 
 ```javascript
-function resolveModelAlias(alias) {
-  switch(alias) {
-    case "sonnet":
-      return getDefaultSonnetModel();  // claude-sonnet-4-5-20250929
+// ============================================
+// normalizeModelName - Resolve alias to actual model ID
+// Location: chunks.59.mjs:2998-3013
+// ============================================
 
-    case "sonnet[1m]":
-      return getDefaultSonnetModel();  // Same ID, context window managed elsewhere
-
-    case "opus":
-      return getDefaultOpusModel();    // claude-opus-4-5-20251101 (first-party)
-                                       // claude-opus-4-1-20250805 (Bedrock/Vertex)
-
-    case "haiku":
-      return getDefaultHaikuModel();   // claude-haiku-4-5-20251001 (first-party)
-                                       // claude-3-5-haiku-20241022 (Bedrock/Vertex)
-
+// ORIGINAL (for source lookup):
+function UD(A) {
+  let Q = A.toLowerCase().trim(),
+    B = Q.endsWith("[1m]"),
+    G = B ? Q.replace(/\[1m]$/i, "").trim() : Q;
+  if (Vh1(G)) switch (G) {
     case "opusplan":
-      // Dynamic selection based on permission mode
-      return "opusplan";  // Special handling in query logic
-
+      return XU() + (B ? "[1m]" : "");
+    case "sonnet":
+      return XU() + (B ? "[1m]" : "");
+    case "haiku":
+      return X7A() + (B ? "[1m]" : "");
+    case "opus":
+      return wUA();
     default:
-      return alias;  // Direct model ID
   }
+  return Q
 }
+
+// READABLE (for understanding):
+function normalizeModelName(model) {
+  let modelLower = model.toLowerCase().trim();
+  let has1MContext = modelLower.endsWith("[1m]");
+  let baseModel = has1MContext
+    ? modelLower.replace(/\[1m]$/i, "").trim()
+    : modelLower;
+
+  // Check if it's a known alias
+  if (isKnownAlias(baseModel)) {  // Vh1()
+    switch (baseModel) {
+      case "opusplan":
+        // opusplan resolves to Sonnet (Opus is selected at query time)
+        return getDefaultSonnetModel() + (has1MContext ? "[1m]" : "");
+      case "sonnet":
+        return getDefaultSonnetModel() + (has1MContext ? "[1m]" : "");
+      case "haiku":
+        return getDefaultHaikuModel() + (has1MContext ? "[1m]" : "");
+      case "opus":
+        return getDefaultOpusModel();  // Opus doesn't support [1m]
+      default:
+        // Unknown alias - fall through
+    }
+  }
+
+  // Direct model ID - return as-is
+  return modelLower;
+}
+
+// Mapping: UD→normalizeModelName, Vh1→isKnownAlias, XU→getDefaultSonnetModel,
+//          X7A→getDefaultHaikuModel, wUA→getDefaultOpusModel
 ```
+
+**Why opusplan resolves to Sonnet here:**
+The `opusplan` alias is special - it should use Opus during plan mode but Sonnet otherwise. However, `normalizeModelName` is called early in the pipeline before permission mode is known. The actual Opus selection happens later in `selectModelForPermissionMode` (Pt).
 
 ### Default Model Functions
 
 ```javascript
-// Default Sonnet (environment override or latest)
+// ============================================
+// getDefaultSonnetModel - Returns latest Sonnet model ID
+// Location: chunks.59.mjs:2763-2765
+// ============================================
+
+// ORIGINAL (for source lookup):
+function XU() {
+  if (process.env.ANTHROPIC_DEFAULT_SONNET_MODEL) return process.env.ANTHROPIC_DEFAULT_SONNET_MODEL;
+  return eI().sonnet45
+}
+
+// READABLE (for understanding):
 function getDefaultSonnetModel() {
+  // Allow environment override for testing/development
   if (process.env.ANTHROPIC_DEFAULT_SONNET_MODEL) {
     return process.env.ANTHROPIC_DEFAULT_SONNET_MODEL;
   }
-  return getModelIds().sonnet45;  // claude-sonnet-4-5-20250929
+  return getModelIds().sonnet45;  // eI() → claude-sonnet-4-5-20250929
 }
 
-// Default Opus (environment override or version based on provider)
+// Mapping: XU→getDefaultSonnetModel, eI→getModelIds
+```
+
+```javascript
+// ============================================
+// getDefaultOpusModel - Returns Opus model ID (provider-aware)
+// Location: chunks.59.mjs:2776-2779
+// ============================================
+
+// ORIGINAL (for source lookup):
+function wUA() {
+  if (process.env.ANTHROPIC_DEFAULT_OPUS_MODEL) return process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+  if (V6() === "firstParty") return eI().opus45;
+  return eI().opus41
+}
+
+// READABLE (for understanding):
 function getDefaultOpusModel() {
   if (process.env.ANTHROPIC_DEFAULT_OPUS_MODEL) {
     return process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
   }
 
-  if (getProvider() === "firstParty") {
+  // First-party API gets latest Opus 4.5
+  if (getProvider() === "firstParty") {  // V6()
     return getModelIds().opus45;  // claude-opus-4-5-20251101
   }
 
+  // Bedrock/Vertex use Opus 4.1 (4.5 not yet available)
   return getModelIds().opus41;  // claude-opus-4-1-20250805
 }
 
-// Default Haiku (environment override or version based on provider)
+// Mapping: wUA→getDefaultOpusModel, V6→getProvider, eI→getModelIds
+```
+
+**Why Opus 4.1 for third-party providers:**
+Opus 4.5 may not be immediately available on Bedrock/Vertex when released. The code defaults to 4.1 for these providers to ensure compatibility, while first-party API users get the latest version.
+
+```javascript
+// ============================================
+// getDefaultHaikuModel - Returns Haiku model ID (provider-aware)
+// Location: chunks.59.mjs:2782-2785
+// ============================================
+
+// ORIGINAL (for source lookup):
+function X7A() {
+  if (process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL) return process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL;
+  if (V6() === "firstParty" || V6() === "foundry") return eI().haiku45;
+  return eI().haiku35
+}
+
+// READABLE (for understanding):
 function getDefaultHaikuModel() {
   if (process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL) {
     return process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL;
   }
 
+  // First-party and Foundry get Haiku 4.5
   if (getProvider() === "firstParty" || getProvider() === "foundry") {
     return getModelIds().haiku45;  // claude-haiku-4-5-20251001
   }
 
+  // Bedrock/Vertex use Haiku 3.5 (4.5 not yet available)
   return getModelIds().haiku35;  // claude-3-5-haiku-20241022
 }
 
-// Small/fast model for internal operations
+// Mapping: X7A→getDefaultHaikuModel, V6→getProvider, eI→getModelIds
+```
+
+```javascript
+// ============================================
+// getSmallFastModel - Returns fastest/cheapest model for internal operations
+// Location: chunks.59.mjs:2725-2726
+// ============================================
+
+// ORIGINAL (for source lookup):
+function MW() {
+  return process.env.ANTHROPIC_SMALL_FAST_MODEL || X7A()
+}
+
+// READABLE (for understanding):
 function getSmallFastModel() {
+  // Allow override for testing with different models
   return process.env.ANTHROPIC_SMALL_FAST_MODEL || getDefaultHaikuModel();
 }
+
+// Mapping: MW→getSmallFastModel, X7A→getDefaultHaikuModel
 ```
+
+**Why Haiku for internal operations:**
+Claude Code uses Haiku for internal operations like:
+- Web content summarization (WebFetch tool)
+- Quick code analysis
+- Agent subprocess operations
+
+Haiku provides sufficient capability for these tasks at lower cost and latency.
 
 ---
 
@@ -253,161 +497,206 @@ function getSmallFastModel() {
 Different providers use different model naming conventions. Claude Code maintains a mapping table:
 
 ```javascript
+// ============================================
+// Model ID Constants - Provider-specific model identifiers
+// Location: chunks.56.mjs:1448-1495
+// ============================================
+
+// ORIGINAL (for source lookup):
+xzA = L(() => {
+  lK();
+  TzA = { firstParty: "claude-3-7-sonnet-20250219", bedrock: "us.anthropic.claude-3-7-sonnet-20250219-v1:0", vertex: "claude-3-7-sonnet@20250219", foundry: "claude-3-7-sonnet" },
+  PzA = { firstParty: "claude-3-5-sonnet-20241022", bedrock: "anthropic.claude-3-5-sonnet-20241022-v2:0", vertex: "claude-3-5-sonnet-v2@20241022", foundry: "claude-3-5-sonnet" },
+  jzA = { firstParty: "claude-3-5-haiku-20241022", bedrock: "us.anthropic.claude-3-5-haiku-20241022-v1:0", vertex: "claude-3-5-haiku@20241022", foundry: "claude-3-5-haiku" },
+  SzA = { firstParty: "claude-haiku-4-5-20251001", bedrock: "us.anthropic.claude-haiku-4-5-20251001-v1:0", vertex: "claude-haiku-4-5@20251001", foundry: "claude-haiku-4-5" },
+  At = { firstParty: "claude-sonnet-4-20250514", bedrock: "us.anthropic.claude-sonnet-4-20250514-v1:0", vertex: "claude-sonnet-4@20250514", foundry: "claude-sonnet-4" },
+  fv1 = { firstParty: "claude-sonnet-4-5-20250929", bedrock: "us.anthropic.claude-sonnet-4-5-20250929-v1:0", vertex: "claude-sonnet-4-5@20250929", foundry: "claude-sonnet-4-5" },
+  _zA = { firstParty: "claude-opus-4-20250514", bedrock: "us.anthropic.claude-opus-4-20250514-v1:0", vertex: "claude-opus-4@20250514", foundry: "claude-opus-4" },
+  kzA = { firstParty: "claude-opus-4-1-20250805", bedrock: "us.anthropic.claude-opus-4-1-20250805-v1:0", vertex: "claude-opus-4-1@20250805", foundry: "claude-opus-4-1" },
+  yzA = { firstParty: "claude-opus-4-5-20251101", bedrock: "us.anthropic.claude-opus-4-5-20251101-v1:0", vertex: "claude-opus-4-5@20251101", foundry: "claude-opus-4-5" }
+})
+
+// READABLE (for understanding):
 const MODEL_IDS = {
-  // Haiku 3.5
-  haiku35: {
-    firstParty: "claude-3-5-haiku-20241022",
-    bedrock: "us.anthropic.claude-3-5-haiku-20241022-v1:0",
-    vertex: "claude-3-5-haiku@20241022",
-    foundry: "claude-3-5-haiku"
-  },
-
-  // Haiku 4.5
-  haiku45: {
-    firstParty: "claude-haiku-4-5-20251001",
-    bedrock: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    vertex: "claude-haiku-4-5@20251001",
-    foundry: "claude-haiku-4-5"
-  },
-
-  // Sonnet 3.5
-  sonnet35: {
-    firstParty: "claude-3-5-sonnet-20241022",
-    bedrock: "anthropic.claude-3-5-sonnet-20241022-v2:0",
-    vertex: "claude-3-5-sonnet-v2@20241022",
-    foundry: "claude-3-5-sonnet"
-  },
-
-  // Sonnet 3.7
-  sonnet37: {
-    firstParty: "claude-3-7-sonnet-20250219",
-    bedrock: "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-    vertex: "claude-3-7-sonnet@20250219",
-    foundry: "claude-3-7-sonnet"
-  },
-
-  // Sonnet 4.0
-  sonnet40: {
-    firstParty: "claude-sonnet-4-20250514",
-    bedrock: "us.anthropic.claude-sonnet-4-20250514-v1:0",
-    vertex: "claude-sonnet-4@20250514",
-    foundry: "claude-sonnet-4"
-  },
-
-  // Sonnet 4.5
-  sonnet45: {
-    firstParty: "claude-sonnet-4-5-20250929",
-    bedrock: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    vertex: "claude-sonnet-4-5@20250929",
-    foundry: "claude-sonnet-4-5"
-  },
-
-  // Opus 4.0
-  opus40: {
-    firstParty: "claude-opus-4-20250514",
-    bedrock: "us.anthropic.claude-opus-4-20250514-v1:0",
-    vertex: "claude-opus-4@20250514",
-    foundry: "claude-opus-4"
-  },
-
-  // Opus 4.1
-  opus41: {
-    firstParty: "claude-opus-4-1-20250805",
-    bedrock: "us.anthropic.claude-opus-4-1-20250805-v1:0",
-    vertex: "claude-opus-4-1@20250805",
-    foundry: "claude-opus-4-1"
-  },
-
-  // Opus 4.5
-  opus45: {
-    firstParty: "claude-opus-4-5-20251101",
-    bedrock: "us.anthropic.claude-opus-4-5-20251101-v1:0",
-    vertex: "claude-opus-4-5@20251101",
-    foundry: "claude-opus-4-5"
-  }
+  SONNET_37: { firstParty: "claude-3-7-sonnet-20250219", bedrock: "us.anthropic.claude-3-7-sonnet-20250219-v1:0", vertex: "claude-3-7-sonnet@20250219", foundry: "claude-3-7-sonnet" },  // TzA
+  SONNET_35: { firstParty: "claude-3-5-sonnet-20241022", bedrock: "anthropic.claude-3-5-sonnet-20241022-v2:0", vertex: "claude-3-5-sonnet-v2@20241022", foundry: "claude-3-5-sonnet" },  // PzA
+  HAIKU_35:  { firstParty: "claude-3-5-haiku-20241022", bedrock: "us.anthropic.claude-3-5-haiku-20241022-v1:0", vertex: "claude-3-5-haiku@20241022", foundry: "claude-3-5-haiku" },      // jzA
+  HAIKU_45:  { firstParty: "claude-haiku-4-5-20251001", bedrock: "us.anthropic.claude-haiku-4-5-20251001-v1:0", vertex: "claude-haiku-4-5@20251001", foundry: "claude-haiku-4-5" },      // SzA
+  SONNET_40: { firstParty: "claude-sonnet-4-20250514", bedrock: "us.anthropic.claude-sonnet-4-20250514-v1:0", vertex: "claude-sonnet-4@20250514", foundry: "claude-sonnet-4" },          // At
+  SONNET_45: { firstParty: "claude-sonnet-4-5-20250929", bedrock: "us.anthropic.claude-sonnet-4-5-20250929-v1:0", vertex: "claude-sonnet-4-5@20250929", foundry: "claude-sonnet-4-5" },  // fv1
+  OPUS_40:   { firstParty: "claude-opus-4-20250514", bedrock: "us.anthropic.claude-opus-4-20250514-v1:0", vertex: "claude-opus-4@20250514", foundry: "claude-opus-4" },                  // _zA
+  OPUS_41:   { firstParty: "claude-opus-4-1-20250805", bedrock: "us.anthropic.claude-opus-4-1-20250805-v1:0", vertex: "claude-opus-4-1@20250805", foundry: "claude-opus-4-1" },          // kzA
+  OPUS_45:   { firstParty: "claude-opus-4-5-20251101", bedrock: "us.anthropic.claude-opus-4-5-20251101-v1:0", vertex: "claude-opus-4-5@20251101", foundry: "claude-opus-4-5" }           // yzA
 };
+
+// Mapping: TzA→SONNET_37, PzA→SONNET_35, jzA→HAIKU_35, SzA→HAIKU_45,
+//          At→SONNET_40, fv1→SONNET_45, _zA→OPUS_40, kzA→OPUS_41, yzA→OPUS_45
 ```
+
+**Provider Naming Convention Differences:**
+| Provider | Pattern | Example |
+|----------|---------|---------|
+| First-party | `claude-{model}-{version}-{date}` | `claude-sonnet-4-5-20250929` |
+| Bedrock | `us.anthropic.{model}-v1:0` | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` |
+| Vertex | `{model}@{date}` | `claude-sonnet-4-5@20250929` |
+| Foundry | `{model}` (no date) | `claude-sonnet-4-5` |
 
 ### Model ID Resolution
 
 ```javascript
-// Get model IDs for current provider
-function getModelIds() {
-  let cachedIds = getCachedModelIds();
+// ============================================
+// getProvider - Determine API provider from environment
+// Location: chunks.19.mjs:451-452
+// ============================================
 
-  if (cachedIds === null) {
-    initializeModelIds();
-    return getProviderModelIds(getProvider());
-  }
-
-  return cachedIds;
+// ORIGINAL (for source lookup):
+function V6() {
+  return Y0(process.env.CLAUDE_CODE_USE_BEDROCK) ? "bedrock" :
+         Y0(process.env.CLAUDE_CODE_USE_VERTEX) ? "vertex" :
+         Y0(process.env.CLAUDE_CODE_USE_FOUNDRY) ? "foundry" :
+         "firstParty"
 }
 
-// Get IDs for specific provider
+// READABLE (for understanding):
+function getProvider() {
+  // Check environment variables in priority order
+  if (parseBoolean(process.env.CLAUDE_CODE_USE_BEDROCK)) return "bedrock";
+  if (parseBoolean(process.env.CLAUDE_CODE_USE_VERTEX)) return "vertex";
+  if (parseBoolean(process.env.CLAUDE_CODE_USE_FOUNDRY)) return "foundry";
+  return "firstParty";  // Default to Anthropic API
+}
+
+// Mapping: V6→getProvider, Y0→parseBoolean
+```
+
+```javascript
+// ============================================
+// getProviderModelIds - Get all model IDs for a specific provider
+// Location: chunks.56.mjs:1533-1544
+// ============================================
+
+// ORIGINAL (for source lookup):
+function NiA(A) {
+  return {
+    haiku35: jzA[A], haiku45: SzA[A],
+    sonnet35: PzA[A], sonnet37: TzA[A], sonnet40: At[A], sonnet45: fv1[A],
+    opus40: _zA[A], opus41: kzA[A], opus45: yzA[A]
+  }
+}
+
+// READABLE (for understanding):
 function getProviderModelIds(provider) {
   return {
-    haiku35: MODEL_IDS.haiku35[provider],
-    haiku45: MODEL_IDS.haiku45[provider],
-    sonnet35: MODEL_IDS.sonnet35[provider],
-    sonnet37: MODEL_IDS.sonnet37[provider],
-    sonnet40: MODEL_IDS.sonnet40[provider],
-    sonnet45: MODEL_IDS.sonnet45[provider],
-    opus40: MODEL_IDS.opus40[provider],
-    opus41: MODEL_IDS.opus41[provider],
-    opus45: MODEL_IDS.opus45[provider]
+    haiku35: HAIKU_35_IDS[provider],
+    haiku45: HAIKU_45_IDS[provider],
+    sonnet35: SONNET_35_IDS[provider],
+    sonnet37: SONNET_37_IDS[provider],
+    sonnet40: SONNET_40_IDS[provider],
+    sonnet45: SONNET_45_IDS[provider],
+    opus40: OPUS_40_IDS[provider],
+    opus41: OPUS_41_IDS[provider],
+    opus45: OPUS_45_IDS[provider]
   };
 }
 
-// For Bedrock: Fetch available models dynamically
-async function fetchBedrockModelIds() {
-  try {
-    let availableModels = await listBedrockModels();
-
-    if (!availableModels?.length) {
-      return getProviderModelIds("bedrock");
-    }
-
-    // Map model names to IDs
-    return {
-      haiku35: findModel(availableModels, "claude-3-5-haiku-20241022") ||
-               MODEL_IDS.haiku35.bedrock,
-      haiku45: findModel(availableModels, "claude-haiku-4-5-20251001") ||
-               MODEL_IDS.haiku45.bedrock,
-      sonnet35: findModel(availableModels, "claude-3-5-sonnet-20241022") ||
-                MODEL_IDS.sonnet35.bedrock,
-      sonnet37: findModel(availableModels, "claude-3-7-sonnet-20250219") ||
-                MODEL_IDS.sonnet37.bedrock,
-      sonnet40: findModel(availableModels, "claude-sonnet-4-20250514") ||
-                MODEL_IDS.sonnet40.bedrock,
-      sonnet45: findModel(availableModels, "claude-sonnet-4-5-20250929") ||
-                MODEL_IDS.sonnet45.bedrock,
-      opus40: findModel(availableModels, "claude-opus-4-20250514") ||
-              MODEL_IDS.opus40.bedrock,
-      opus41: findModel(availableModels, "claude-opus-4-1-20250805") ||
-              MODEL_IDS.opus41.bedrock,
-      opus45: findModel(availableModels, "claude-opus-4-5-20251101") ||
-              MODEL_IDS.opus45.bedrock
-    };
-  } catch (error) {
-    logError(error);
-    return getProviderModelIds("bedrock");
-  }
-}
+// Mapping: NiA→getProviderModelIds
 ```
-
-### Model Name Normalization
 
 ```javascript
-// Remove special suffixes before API call
-function normalizeModelName(model) {
-  // Remove [1m] suffix (1M context indicator)
-  return model.replace(/\[1m\]/gi, "");
+// ============================================
+// getModelIds - Get model IDs for current provider (with caching)
+// Location: chunks.56.mjs:1586-1589
+// ============================================
+
+// ORIGINAL (for source lookup):
+function eI() {
+  let A = $kA();
+  if (A === null) return Pr8(), NiA(V6());
+  return A
 }
 
-// Examples:
-normalizeModelName("sonnet[1m]");  // → "sonnet"
-normalizeModelName("claude-sonnet-4-5-20250929[1m]");  // → "claude-sonnet-4-5-20250929"
+// READABLE (for understanding):
+function getModelIds() {
+  let cached = getCachedModelIds();  // $kA()
+
+  if (cached === null) {
+    // Initialize cache asynchronously, return default for now
+    initializeModelIds();  // Pr8()
+    return getProviderModelIds(getProvider());  // NiA(V6())
+  }
+
+  return cached;
+}
+
+// Mapping: eI→getModelIds, $kA→getCachedModelIds, Pr8→initializeModelIds,
+//          NiA→getProviderModelIds, V6→getProvider
 ```
+
+**Why caching matters:**
+For Bedrock, model IDs may need to be fetched dynamically from AWS. The caching pattern ensures:
+1. First call returns static defaults immediately (no blocking)
+2. Background fetch updates the cache for subsequent calls
+3. Fallback to static defaults if dynamic fetch fails
+
+```javascript
+// ============================================
+// fetchBedrockModelIds - Dynamically fetch available Bedrock models
+// Location: chunks.56.mjs:1547-1574
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Rr8() {
+  let A;
+  try { A = await y4B() }
+  catch (V) { return AA(V), NiA("bedrock") }
+  if (!A?.length) return NiA("bedrock");
+  let Q = w_(A, "claude-3-5-haiku-20241022"),
+    B = w_(A, "claude-haiku-4-5-20251001"),
+    // ... more model lookups
+    X = w_(A, "claude-opus-4-5-20251101");
+  return {
+    haiku35: Q || jzA.bedrock,
+    haiku45: B || SzA.bedrock,
+    // ... etc
+  }
+}
+
+// READABLE (for understanding):
+async function fetchBedrockModelIds() {
+  let availableModels;
+  try {
+    availableModels = await listBedrockModels();  // y4B()
+  } catch (error) {
+    logError(error);
+    return getProviderModelIds("bedrock");  // Fallback to static
+  }
+
+  if (!availableModels?.length) {
+    return getProviderModelIds("bedrock");
+  }
+
+  // Find actual ARN for each model, fallback to default if not found
+  return {
+    haiku35: findModel(availableModels, "claude-3-5-haiku-20241022") || HAIKU_35_IDS.bedrock,
+    haiku45: findModel(availableModels, "claude-haiku-4-5-20251001") || HAIKU_45_IDS.bedrock,
+    sonnet35: findModel(availableModels, "claude-3-5-sonnet-20241022") || SONNET_35_IDS.bedrock,
+    sonnet37: findModel(availableModels, "claude-3-7-sonnet-20250219") || SONNET_37_IDS.bedrock,
+    sonnet40: findModel(availableModels, "claude-sonnet-4-20250514") || SONNET_40_IDS.bedrock,
+    sonnet45: findModel(availableModels, "claude-sonnet-4-5-20250929") || SONNET_45_IDS.bedrock,
+    opus40: findModel(availableModels, "claude-opus-4-20250514") || OPUS_40_IDS.bedrock,
+    opus41: findModel(availableModels, "claude-opus-4-1-20250805") || OPUS_41_IDS.bedrock,
+    opus45: findModel(availableModels, "claude-opus-4-5-20251101") || OPUS_45_IDS.bedrock
+  };
+}
+
+// Mapping: Rr8→fetchBedrockModelIds, y4B→listBedrockModels, w_→findModel
+```
+
+**Why dynamic Bedrock lookup:**
+AWS Bedrock model ARNs can vary by region and account. Dynamic lookup ensures:
+1. Correct ARN for the user's AWS region
+2. Discovery of newly available model versions
+3. Graceful fallback if lookup fails
 
 ---
 

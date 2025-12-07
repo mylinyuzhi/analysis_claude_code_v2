@@ -2,228 +2,410 @@
 
 ## Overview
 
-Claude Code v2.0.59 provides a comprehensive set of built-in slash commands for configuration, debugging, context visualization, and more. This document lists all built-in commands with their syntax, options, and use cases.
+Claude Code v2.0.59 provides 40+ built-in slash commands for configuration, debugging, context visualization, and more. This document catalogs all built-in commands with their types, implementations, and usage.
+
+> Symbol mappings: [symbol_index.md](../00_overview/symbol_index.md)
 
 ---
 
-## Command Categories
+## Command Registry Architecture
 
-- [Help and Documentation](#help-and-documentation)
-- [Configuration](#configuration)
-- [Context and Usage](#context-and-usage)
-- [Session Management](#session-management)
-- [IDE Integration](#ide-integration)
-- [Initialization](#initialization)
-- [Memory and Files](#memory-and-files)
-- [Diagnostics](#diagnostics)
+### getAllBuiltinCommands (KE9)
+
+All built-in commands are registered through a centralized function:
+
+```javascript
+// ============================================
+// getAllBuiltinCommands - Registry of all built-in commands
+// Location: chunks.152.mjs:2265
+// ============================================
+
+// ORIGINAL (for source lookup):
+KE9 = s1(() => [
+  KV9,    // add-dir
+  mH9,    // model
+  LV9,    // clear
+  OV9,    // compact
+  rV9,    // config
+  QF9,    // context
+  GF9,    // cost
+  EF9,    // doctor
+  hI1,    // help
+  aD9,    // ide
+  kF9,    // init
+  gF9,    // memory
+  mF9,    // permissions
+  NK9,    // plan
+  jK9,    // pr-comments
+  MF9,    // ...more
+  rC9,    // release-notes
+  tC9,    // rename
+  IE9,    // resume
+  EC9,    // status
+  yK9,    // tasks
+  bK9,    // todos
+  hK9,    // usage
+  iK9,    // vim
+  sK9,    // review
+  XE9,    // mcp
+  xC9,    // feedback
+  ...!N_() ? [FO2, d49()] : [],  // Conditional commands
+  oK9,    // ...
+  ...[]
+]);
+
+// READABLE (for understanding):
+const getAllBuiltinCommands = memoize(() => [
+  addDirCommand,
+  modelCommand,
+  clearCommand,
+  compactCommand,
+  configCommand,
+  contextCommand,
+  costCommand,
+  doctorCommand,
+  helpCommand,
+  ideCommand,
+  initCommand,
+  memoryCommand,
+  permissionsCommand,
+  planCommand,
+  prCommentsCommand,
+  // ... more commands
+  ...(!isHeadlessMode() ? [debugCommands] : []),
+  // ... remaining commands
+]);
+
+// Mapping: KE9→getAllBuiltinCommands, s1→memoize
+```
+
+### getBuiltinCommandNames (Ny)
+
+Derived set for O(1) lookup of built-in command names:
+
+```javascript
+// Location: chunks.152.mjs:2265
+Ny = s1(() => new Set(KE9().map((A) => A.name)));
+
+// READABLE:
+const getBuiltinCommandNames = memoize(() =>
+  new Set(getAllBuiltinCommands().map(cmd => cmd.name))
+);
+```
 
 ---
 
-## Help and Documentation
+## Command Type Reference
 
-### /help
+| Type | Description | Example |
+|------|-------------|---------|
+| `local-jsx` | Interactive React/Ink UI component | `/help`, `/config` |
+| `local` | Synchronous text output | `/cost`, `/clear` |
+| `prompt` | LLM invocation with custom prompt | `/init`, `/pr-comments` |
+
+---
+
+## All Built-in Commands
+
+### Configuration Commands
+
+#### /config
 
 **Type:** `local-jsx`
 
-**Description:** Show help and available commands
-
-**Syntax:**
-```
-/help
-```
-
-**Features:**
-- Lists all available commands (built-in, custom, plugin)
-- Shows command descriptions
-- Displays command aliases
-- Interactive UI component
-- Filterable command list
-
-**Example Output:**
-```
-Available Commands:
-  /help          - Show this help
-  /config        - Open config panel
-  /context       - Visualize context usage
-  /cost          - Show session cost
-  ...
-```
-
-**Aliases:** None
-
----
-
-## Configuration
-
-### /config
-
-**Type:** `local-jsx`
+**Aliases:** `theme`
 
 **Description:** Open configuration panel
 
-**Syntax:**
-```
-/config
+**Definition:**
+```javascript
+// ============================================
+// configCommand - Open config panel
+// Location: chunks.148.mjs:309-326
+// ============================================
+
+// ORIGINAL (for source lookup):
+ky3 = {
+  aliases: ["theme"],
+  type: "local-jsx",
+  name: "config",
+  description: "Open config panel",
+  isEnabled: () => !0,
+  isHidden: !1,
+  async call(A, Q) {
+    return rV0.createElement(zVA, {
+      onClose: A,
+      context: Q,
+      defaultTab: "Config"
+    })
+  },
+  userFacingName() {
+    return "config"
+  }
+};
+
+// READABLE (for understanding):
+const configCommand = {
+  aliases: ["theme"],
+  type: "local-jsx",
+  name: "config",
+  description: "Open config panel",
+  isEnabled: () => true,
+  isHidden: false,
+  async call(onComplete, context) {
+    return React.createElement(ConfigPanel, {
+      onClose: onComplete,
+      context: context,
+      defaultTab: "Config"
+    });
+  },
+  userFacingName() {
+    return "config";
+  }
+};
 ```
 
 **Features:**
 - Interactive configuration UI
-- Tabs for different settings:
-  - **Config:** General settings
-  - **Usage:** Rate limits and usage data
-- Edit settings visually
-- View current configuration
-- Warning indicators for issues
-
-**Configuration Options:**
-- Model selection
-- Permission settings
-- MCP server configuration
-- Hook configuration
-- Plugin management
-- Theme settings
-- Environment variables
-
-**Aliases:** `theme`, `settings`
-
-**Example:**
-```
-/config          → Open config panel
-/theme           → Same as /config (alias)
-/settings        → Same as /config (alias)
-```
+- Multiple tabs: Config, Usage
+- Model selection, permissions, MCP servers
+- Theme settings, environment variables
 
 ---
 
-## Context and Usage
+#### /permissions
 
-### /context
+**Type:** `local-jsx`
+
+**Description:** Show and manage tool permissions
+
+**Features:**
+- View current permissions
+- Modify permission levels
+- Manage allowed/disallowed tools
+
+---
+
+#### /model
+
+**Type:** `local-jsx`
+
+**Description:** Select and switch AI models
+
+**Features:**
+- List available models
+- Switch between models
+- Show model capabilities
+
+---
+
+### Context Commands
+
+#### /context
 
 **Type:** `local-jsx`
 
 **Description:** Visualize current context usage as a colored grid
 
-**Syntax:**
-```
-/context
+**Definition:**
+```javascript
+// ============================================
+// contextCommand - Visualize context usage
+// Location: chunks.148.mjs:656-694
+// ============================================
+
+// ORIGINAL (for source lookup):
+by3 = {
+  name: "context",
+  description: "Visualize current context usage as a colored grid",
+  isEnabled: () => !0,
+  isHidden: !1,
+  type: "local-jsx",
+  userFacingName() {
+    return this.name
+  },
+  async call(A, {
+    messages: Q,
+    getAppState: B,
+    options: {
+      mainLoopModel: G,
+      tools: Z,
+      isNonInteractiveSession: I
+    }
+  }) {
+    // ... renders context visualization grid
+  }
+};
+
+// READABLE (for understanding):
+const contextCommand = {
+  name: "context",
+  description: "Visualize current context usage as a colored grid",
+  isEnabled: () => true,
+  isHidden: false,
+  type: "local-jsx",
+  userFacingName() {
+    return this.name;
+  },
+  async call(onComplete, {
+    messages,
+    getAppState,
+    options: { mainLoopModel, tools, isNonInteractiveSession }
+  }) {
+    // Renders colored grid showing token usage
+  }
+};
 ```
 
 **Features:**
 - Visual grid representation of token usage
-- Color-coded blocks:
-  - **Blue:** User messages
-  - **Green:** Assistant messages
-  - **Yellow:** Tool calls
-  - **Red:** Tool results
-  - **Purple:** Attachments
+- Color-coded blocks for different message types
 - Shows percentage of context used
-- Helps identify context-heavy operations
 - Supports non-interactive mode (text output)
-
-**Example Output:**
-```
-Context Usage: 45,234 / 200,000 tokens (22.6%)
-
-■■■■■■■■■■□□□□□□□□□□
-■■■■■■■■■■□□□□□□□□□□
-
-Legend:
-■ Used tokens
-□ Available tokens
-```
-
-**Aliases:** None
 
 ---
 
-### /cost
+#### /cost
 
 **Type:** `local`
 
 **Description:** Show the total cost and duration of the current session
 
-**Syntax:**
-```
-/cost
+**Definition:**
+```javascript
+// ============================================
+// costCommand - Show session cost
+// Location: chunks.148.mjs:705-732
+// ============================================
+
+// ORIGINAL (for source lookup):
+hy3 = {
+  type: "local",
+  name: "cost",
+  description: "Show the total cost and duration of the current session",
+  isEnabled: () => !0,
+  get isHidden() {
+    return BB()  // Hidden for subscription users
+  },
+  supportsNonInteractive: !0,
+  async call() {
+    if (BB()) {
+      // Subscription user message
+      let A;
+      if (ik.isUsingOverage)
+        A = "You are currently using your overages...";
+      else
+        A = "You are currently using your subscription...";
+      return { type: "text", value: A };
+    }
+    return {
+      // API cost calculation
+      type: "text",
+      value: formatCostOutput()
+    }
+  }
+};
+
+// READABLE (for understanding):
+const costCommand = {
+  type: "local",
+  name: "cost",
+  description: "Show the total cost and duration of the current session",
+  isEnabled: () => true,
+  get isHidden() {
+    return isSubscriptionUser();  // Hidden for Pro/Max users
+  },
+  supportsNonInteractive: true,
+  async call() {
+    if (isSubscriptionUser()) {
+      // Show subscription message instead of cost
+      if (subscriptionState.isUsingOverage) {
+        return { type: "text", value: "Using overages..." };
+      }
+      return { type: "text", value: "Using subscription..." };
+    }
+    // Show actual API cost
+    return { type: "text", value: formatCostOutput() };
+  }
+};
 ```
 
 **Features:**
-- Shows API costs (if applicable)
+- Shows API costs (for API key users)
 - Session duration
 - Token usage statistics
-- Model usage breakdown
-- Subscription vs overage usage (for Pro/Max users)
-
-**Example Output:**
-```
-Session Cost: $0.42
-Duration: 15 minutes 32 seconds
-Tokens Used: 45,234
-
-Model Usage:
-- claude-sonnet-4-5: 38,500 tokens
-- claude-haiku-3-5: 6,734 tokens
-```
-
-**Note:** Hidden for subscription users (shows subscription message instead)
-
-**Aliases:** None
+- Hidden for subscription users
 
 ---
 
-### /usage
+#### /usage
 
 **Type:** `local-jsx`
 
 **Description:** Show usage limits and rate limit information
 
-**Syntax:**
-```
-/usage
-```
-
 **Features:**
 - Visual usage bars for rate limits
-- Three time windows:
-  - Current session (5 hour window)
-  - Current week (all models)
-  - Current week (Sonnet only)
+- Time windows: session, weekly
 - Reset time countdowns
-- Utilization percentages
 - Interactive refresh (press 'r')
-
-**Example Output:**
-```
-Current session
-████████████░░░░░░░░ 62% used
-Resets in 3 hours 24 minutes
-
-Current week (all models)
-██████░░░░░░░░░░░░░░ 31% used
-Resets in 4 days
-
-Current week (Sonnet only)
-████░░░░░░░░░░░░░░░░ 18% used
-Resets in 4 days
-```
-
-**Note:** Only available for subscription plans
-
-**Aliases:** None
 
 ---
 
-## Session Management
+### Session Commands
 
-### /clear
+#### /clear
 
 **Type:** `local`
 
-**Description:** Clear the conversation history
+**Aliases:** `reset`, `new`
 
-**Syntax:**
-```
-/clear
+**Description:** Clear conversation history and free up context
+
+**Definition:**
+```javascript
+// ============================================
+// clearCommand - Clear conversation history
+// Location: chunks.147.mjs:2273-2290
+// ============================================
+
+// ORIGINAL (for source lookup):
+Ny3 = {
+  type: "local",
+  name: "clear",
+  description: "Clear conversation history and free up context",
+  aliases: ["reset", "new"],
+  isEnabled: () => !0,
+  isHidden: !1,
+  supportsNonInteractive: !1,
+  async call(A, Q) {
+    return await qy3(Q), {
+      type: "text",
+      value: ""
+    }
+  },
+  userFacingName() {
+    return "clear"
+  }
+};
+
+// READABLE (for understanding):
+const clearCommand = {
+  type: "local",
+  name: "clear",
+  description: "Clear conversation history and free up context",
+  aliases: ["reset", "new"],
+  isEnabled: () => true,
+  isHidden: false,
+  supportsNonInteractive: false,
+  async call(args, context) {
+    await clearConversation(context);
+    return { type: "text", value: "" };
+  },
+  userFacingName() {
+    return "clear";
+  }
+};
 ```
 
 **Features:**
@@ -232,179 +414,224 @@ Resets in 4 days
 - Keeps configuration settings
 - Cannot be undone
 
-**Example:**
-```
-/clear
-
-Conversation cleared.
-```
-
-**Aliases:** None
-
 ---
 
-### /compact
+#### /compact
 
 **Type:** `local`
 
-**Description:** Manually trigger context compaction
+**Description:** Clear conversation history but keep a summary in context
 
-**Syntax:**
-```
-/compact [custom instructions]
-```
+**Argument Hint:** `<optional custom summarization instructions>`
 
-**Arguments:**
-- `custom instructions` (optional): Additional instructions for summarization
+**Definition:**
+```javascript
+// ============================================
+// compactCommand - Compact conversation with summary
+// Location: chunks.147.mjs:2307-2357
+// ============================================
+
+// ORIGINAL (for source lookup):
+Ly3 = {
+  type: "local",
+  name: "compact",
+  description: "Clear conversation history but keep a summary in context. Optional: /compact [instructions for summarization]",
+  isEnabled: () => !Y0(process.env.DISABLE_COMPACT),
+  isHidden: !1,
+  supportsNonInteractive: !0,
+  argumentHint: "<optional custom summarization instructions>",
+  async call(A, Q) {
+    let { abortController: B, messages: G } = Q;
+    if (G.length === 0) throw Error("No messages to compact");
+    let Z = A.trim();
+    try {
+      if (!Z) {
+        // Auto-compact without custom instructions
+        let V = await f91(G, Q.agentId);
+        if (V) {
+          DK.cache.clear?.(), gV.cache.clear?.();
+          return {
+            type: "compact",
+            compactionResult: V,
+            displayText: tA.dim("Compacted...")
+          }
+        }
+      }
+      // Compact with custom instructions
+      let Y = (await Si(G, void 0, Q)).messages,
+        J = await j91(Y, Q, !1, Z);
+      DK.cache.clear?.(), gV.cache.clear?.();
+      return {
+        type: "compact",
+        compactionResult: J,
+        displayText: tA.dim("Compacted...")
+      }
+    } catch (I) {
+      if (B.signal.aborted) throw Error("Compaction canceled.");
+      throw Error(`Error during compaction: ${I}`)
+    }
+  }
+};
+
+// READABLE (for understanding):
+const compactCommand = {
+  type: "local",
+  name: "compact",
+  description: "Clear conversation history but keep a summary in context",
+  isEnabled: () => !parseBoolean(process.env.DISABLE_COMPACT),
+  isHidden: false,
+  supportsNonInteractive: true,
+  argumentHint: "<optional custom summarization instructions>",
+  async call(args, context) {
+    const { abortController, messages } = context;
+    if (messages.length === 0) {
+      throw Error("No messages to compact");
+    }
+
+    const customInstructions = args.trim();
+
+    try {
+      if (!customInstructions) {
+        // Try fast auto-compaction first
+        const result = await tryFastCompaction(messages, context.agentId);
+        if (result) {
+          clearCaches();
+          return { type: "compact", compactionResult: result };
+        }
+      }
+
+      // Full compaction with optional custom instructions
+      const processedMessages = (await processMessages(messages, undefined, context)).messages;
+      const result = await performCompaction(processedMessages, context, false, customInstructions);
+      clearCaches();
+      return { type: "compact", compactionResult: result };
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        throw Error("Compaction canceled.");
+      }
+      throw Error(`Error during compaction: ${error}`);
+    }
+  }
+};
+```
 
 **Features:**
 - Summarizes conversation to reduce tokens
 - Preserves important context
+- Supports custom summarization instructions
 - Runs PreCompact hooks
-- Adds boundary marker
-- Can add custom compaction instructions
-
-**Example:**
-```
-/compact
-
-Compacting conversation...
-Reduced from 45,000 to 8,500 tokens.
-```
-
-**Aliases:** None
+- Clears caches after compaction
 
 ---
 
-## IDE Integration
+#### /resume
 
-### /ide
+**Type:** `local-jsx`
+
+**Description:** Resume a previous conversation
+
+**Features:**
+- List recent sessions
+- Select session to resume
+- Load conversation history
+
+---
+
+### IDE Integration Commands
+
+#### /ide
 
 **Type:** `local-jsx`
 
 **Description:** Select and connect to an IDE
 
-**Syntax:**
-```
-/ide
-```
-
 **Features:**
-- Lists available IDEs
+- Lists available IDEs (VS Code, Cursor, JetBrains, Zed)
 - Shows workspace folders for each IDE
 - Auto-connect option
-- Support for multiple IDEs:
-  - VS Code
-  - Cursor
-  - JetBrains IDEs (IntelliJ, PyCharm, etc.)
-  - Zed
-- Displays unavailable IDEs with workspace info
-
-**Example Output:**
-```
-Select IDE
-
-Available:
-  • VS Code (Port 49152)
-    workspace: /Users/user/project
-
-  • Cursor (Port 49153)
-    workspace: /Users/user/another-project
-
-  • None
-
-Press Enter to confirm · Esc to exit
-```
-
-**Aliases:** None
+- Connection status display
 
 ---
 
-## Initialization
+### Memory Commands
 
-### /init
-
-**Type:** `local`
-
-**Description:** Initialize Claude Code configuration for current project
-
-**Syntax:**
-```
-/init
-```
-
-**Features:**
-- Creates `.claude/` directory
-- Generates initial `settings.json`
-- Sets up project configuration
-- Interactive setup wizard (if applicable)
-
-**Example:**
-```
-/init
-
-Initializing Claude Code for this project...
-Created .claude/settings.json
-✓ Configuration initialized
-```
-
-**Aliases:** None
-
----
-
-## Memory and Files
-
-### /memory
+#### /memory
 
 **Type:** `local-jsx`
 
-**Description:** Manage conversation memory and CLAUDE.md files
+**Description:** Edit Claude memory files
 
-**Syntax:**
-```
-/memory
+**Definition:**
+```javascript
+// ============================================
+// memoryCommand - Edit memory files
+// Location: chunks.148.mjs:1478-1493
+// ============================================
+
+// ORIGINAL (for source lookup):
+ny3 = {
+  type: "local-jsx",
+  name: "memory",
+  description: "Edit Claude memory files",
+  isEnabled: () => !0,
+  isHidden: !1,
+  async call(A) {
+    return JN.createElement(ay3, {
+      onDone: A
+    })
+  },
+  userFacingName() {
+    return this.name
+  }
+};
+
+// READABLE (for understanding):
+const memoryCommand = {
+  type: "local-jsx",
+  name: "memory",
+  description: "Edit Claude memory files",
+  isEnabled: () => true,
+  isHidden: false,
+  async call(onComplete) {
+    return React.createElement(MemoryEditor, {
+      onDone: onComplete
+    });
+  },
+  userFacingName() {
+    return this.name;
+  }
+};
 ```
 
 **Features:**
 - View CLAUDE.md files in context
-- Shows memory file locations:
-  - User: `~/.claude/CLAUDE.md`
-  - Project: `./.claude/CLAUDE.md`
-  - Local: `./CLAUDE.md`
+- Edit memory files (user, project, local)
 - Token counts for each file
-- Edit memory files
 - Memory hierarchy visualization
-
-**Example Output:**
-```
-Memory Files:
-
-User Memory (~/.claude/CLAUDE.md)
-  1,234 tokens
-
-Project Memory (./.claude/CLAUDE.md)
-  567 tokens
-
-Local Memory (./CLAUDE.md)
-  Not found
-```
-
-**Aliases:** None
 
 ---
 
-## Diagnostics
+#### /init
 
-### /doctor
+**Type:** `prompt`
+
+**Description:** Initialize Claude Code configuration for current project
+
+**Features:**
+- Creates `.claude/` directory
+- Generates initial `settings.json`
+- Interactive setup wizard
+- LLM-assisted configuration
+
+---
+
+### Diagnostics Commands
+
+#### /doctor
 
 **Type:** `local-jsx`
 
 **Description:** Run diagnostics and show system health
-
-**Syntax:**
-```
-/doctor
-```
 
 **Features:**
 - System health checks
@@ -413,496 +640,436 @@ Local Memory (./CLAUDE.md)
 - Environment variable validation
 - Large file warnings
 - Agent description size checks
-- MCP tool token usage
-- Detailed error messages
-- Fix suggestions
-
-**Diagnostic Categories:**
-
-#### 1. MCP Configuration
-- Parsing errors in `.mcp.json`
-- Server connection issues
-- Invalid server configurations
-- Severity: Error/Warning
-
-#### 2. Environment Variables
-- Missing required variables
-- Invalid values
-- Configuration issues
-- Validation status
-
-#### 3. CLAUDE.md Files
-- Large file warnings (> 25,000 chars)
-- Multiple large files
-- File locations and sizes
-- Severity: Warning
-
-#### 4. Agent Descriptions
-- Large agent description warnings
-- Token usage per agent
-- Total agent token count
-- Threshold: 5,000 tokens
-- Severity: Warning
-
-#### 5. MCP Tool Tokens
-- Large MCP tool definition warnings
-- Token usage per server
-- Top servers by token usage
-- Threshold: 10,000 tokens
-- Severity: Warning
-
-**Example Output:**
-```
-System Diagnostics
-
-✓ All checks passed
-
-MCP Servers: 3 configured, 3 running
-Environment: All variables valid
-CLAUDE.md: 1,234 tokens
-Agents: 2 configured, 567 tokens
-```
-
-**With Issues:**
-```
-System Diagnostics
-
-⚠ 2 warnings, 1 error
-
-ERROR: MCP Configuration
-  Server 'filesystem' failed to connect
-  → Check server command and permissions
-
-WARNING: Large CLAUDE.md
-  ./.claude/CLAUDE.md: 32,450 chars (> 25,000)
-  → Consider splitting into smaller files
-
-WARNING: MCP Tool Tokens
-  ~12,340 tokens from MCP tools (> 10,000)
-  Top servers:
-    - filesystem: ~5,600 tokens
-    - database: ~4,200 tokens
-    - api-server: ~2,540 tokens
-```
-
-**Aliases:** None
 
 ---
 
-## Hidden/Experimental Commands
+### Help Commands
 
-### /feedback
+#### /help
 
-**Type:** `local`
+**Type:** `local-jsx`
+
+**Description:** Show help and available commands
+
+**Features:**
+- Lists all available commands
+- Shows command descriptions
+- Displays command aliases
+- Multiple tabs: general, commands, custom-commands
+
+---
+
+### Task Management Commands
+
+#### /tasks
+
+**Type:** `local-jsx`
+
+**Aliases:** `bashes`
+
+**Description:** View and manage background tasks
+
+**Features:**
+- List running background tasks
+- View task output
+- Manage task lifecycle
+
+---
+
+#### /todos
+
+**Type:** `local-jsx`
+
+**Description:** View and manage todo list
+
+**Features:**
+- Display current todos
+- Mark todos as complete
+- Add/remove todo items
+
+---
+
+### GitHub Integration Commands
+
+#### /pr-comments
+
+**Type:** `prompt`
+
+**Description:** Review pull request comments
+
+**Features:**
+- Fetch PR comments from GitHub
+- LLM analysis of comments
+- Suggested responses
+
+---
+
+#### /review
+
+**Type:** `prompt`
+
+**Description:** Review code changes
+
+**Features:**
+- Analyze code diff
+- LLM-powered code review
+- Suggestions and improvements
+
+---
+
+### MCP Commands
+
+#### /mcp
+
+**Type:** `local-jsx`
+
+**Description:** MCP server management
+
+**Features:**
+- List configured MCP servers
+- Server status and health
+- Reconnect servers
+- View server tools
+
+---
+
+### Feedback Commands
+
+#### /feedback
+
+**Type:** `local-jsx`
+
+**Aliases:** `bug`
 
 **Description:** Submit feedback about Claude Code
 
-**Syntax:**
-```
-/feedback [message]
-```
+**Definition:**
+```javascript
+// ============================================
+// feedbackCommand - Submit feedback
+// Location: chunks.147.mjs:2209-2216
+// ============================================
 
-**Arguments:**
-- `message` (optional): Feedback message
+// ORIGINAL (for source lookup):
+wy3 = {
+  aliases: ["bug"],
+  type: "local-jsx",
+  name: "feedback",
+  description: "Submit feedback about Claude Code",
+  argumentHint: "[report]",
+  isEnabled: () => !(
+    Y0(process.env.CLAUDE_CODE_USE_BEDROCK) ||
+    Y0(process.env.CLAUDE_CODE_USE_VERTEX) ||
+    Y0(process.env.CLAUDE_CODE_USE_FOUNDRY) ||
+    process.env.DISABLE_FEEDBACK_COMMAND ||
+    process.env.DISABLE_BUG_COMMAND ||
+    process.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC
+  ),
+  // ...
+};
+
+// READABLE (for understanding):
+const feedbackCommand = {
+  aliases: ["bug"],
+  type: "local-jsx",
+  name: "feedback",
+  description: "Submit feedback about Claude Code",
+  argumentHint: "[report]",
+  isEnabled: () => !(
+    parseBoolean(process.env.CLAUDE_CODE_USE_BEDROCK) ||
+    parseBoolean(process.env.CLAUDE_CODE_USE_VERTEX) ||
+    parseBoolean(process.env.CLAUDE_CODE_USE_FOUNDRY) ||
+    process.env.DISABLE_FEEDBACK_COMMAND ||
+    process.env.DISABLE_BUG_COMMAND ||
+    process.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC
+  ),
+  // Disabled for Bedrock/Vertex/Foundry users
+};
+```
 
 **Features:**
 - Opens feedback form
 - Sends feedback to Anthropic
 - Can include session context
-
-**Note:** May be hidden or available only in certain builds
-
----
-
-### /code
-
-**Type:** `prompt`
-
-**Description:** Special code-focused prompt command
-
-**Features:**
-- Optimized for coding tasks
-- May include code-specific tools
-- Specific prompting strategies
-
-**Note:** Availability varies by version/build
+- Disabled for enterprise deployments
 
 ---
 
-## Plugin Management Commands
+### Directory Commands
 
-Claude Code supports plugin management through slash commands. The exact commands may vary based on plugin system version:
-
-### /plugin
-
-**Type:** `local` or `local-jsx`
-
-**Description:** Manage plugins (install, enable, disable, validate)
-
-**Possible Subcommands:**
-```
-/plugin install <plugin-id>
-/plugin enable <plugin-id>
-/plugin disable <plugin-id>
-/plugin validate <plugin-id>
-/plugin manage
-/plugin uninstall <plugin-id>
-```
-
-**Features:**
-- Install plugins from marketplaces
-- Enable/disable plugins
-- Validate plugin configurations
-- Manage plugin settings
-- Uninstall plugins
-
-**Note:** Exact syntax may vary based on version
-
----
-
-### /marketplace
+#### /add-dir
 
 **Type:** `local-jsx`
 
-**Description:** Browse and manage plugin marketplaces
+**Argument Hint:** `<path>`
 
-**Syntax:**
-```
-/marketplace
-/marketplace list
-/marketplace add <source>
-```
+**Description:** Add a new working directory
 
 **Features:**
-- List available marketplaces
-- Browse plugins
-- Add marketplace sources
-- View marketplace manifests
-
-**Marketplace Sources:**
-- GitHub repositories
-- Local directories
-- HTTP/HTTPS URLs
-- Git repositories
+- Add additional working directory
+- Path validation
+- Multi-directory support
 
 ---
 
-## MCP Tool Commands
+### Other Commands
 
-MCP (Model Context Protocol) servers provide tools that can be invoked as commands:
+#### /release-notes
 
-**Syntax:**
-```
-/mcp:server_name::tool_name [args]
-```
+**Type:** `local`
 
-**Example:**
-```
-/mcp:filesystem::read_file /path/to/file.txt
-/mcp:database::query SELECT * FROM users
-/mcp:api-server::fetch https://api.example.com/data
+**Description:** View release notes
+
+**Definition:**
+```javascript
+// ============================================
+// releaseNotesCommand - View release notes
+// Location: chunks.149.mjs:1527-1555
+// ============================================
+
+// ORIGINAL (for source lookup):
+{
+  description: "View release notes",
+  isEnabled: () => !0,
+  isHidden: !1,
+  name: "release-notes",
+  userFacingName() {
+    return "release-notes"
+  },
+  type: "local",
+  supportsNonInteractive: !0,
+  async call() {
+    let A = [];
+    try {
+      let B = new Promise((G, Z) => {
+        setTimeout(() => Z(Error("Timeout")), 500)  // 500ms timeout
+      });
+      await Promise.race([eW0(), B]), A = AX0(SQA())
+    } catch {}
+    if (A.length > 0) return {
+      type: "text",
+      value: vK9(A)
+    }
+    // ...
+  }
+};
+
+// READABLE (for understanding):
+const releaseNotesCommand = {
+  description: "View release notes",
+  isEnabled: () => true,
+  isHidden: false,
+  name: "release-notes",
+  type: "local",
+  supportsNonInteractive: true,
+  async call() {
+    let notes = [];
+    try {
+      // Race with 500ms timeout
+      const timeout = new Promise((_, reject) => {
+        setTimeout(() => reject(Error("Timeout")), 500);
+      });
+      await Promise.race([fetchReleaseNotes(), timeout]);
+      notes = parseReleaseNotes(getReleaseNotesCache());
+    } catch {}
+    if (notes.length > 0) {
+      return { type: "text", value: formatReleaseNotes(notes) };
+    }
+    // ...
+  }
+};
 ```
 
 **Features:**
-- Direct tool invocation
-- Bypasses normal tool approval workflow
-- Uses MCP server's tool implementation
-- Arguments passed as command args
+- Fetches release notes
+- 500ms timeout for responsiveness
+- Cached results
+- Supports non-interactive mode
 
-**Note:** Requires MCP server to be configured and running
+---
+
+#### /vim
+
+**Type:** `local`
+
+**Description:** Toggle vim mode
+
+**Features:**
+- Enable/disable vim keybindings
+- Vim mode indicators
+- Modal editing support
+
+---
+
+#### /plan
+
+**Type:** `prompt`
+
+**Description:** Create a plan for complex tasks
+
+**Features:**
+- LLM-assisted planning
+- Step-by-step task breakdown
+- Plan file generation
+
+---
+
+#### /status
+
+**Type:** `local-jsx`
+
+**Description:** Show current session status
+
+**Features:**
+- Display session info
+- Model in use
+- Context usage
+- Configuration state
+
+---
+
+## Command Property Reference
+
+### Standard Properties
+
+```typescript
+interface Command {
+  // Required
+  name: string;                    // Internal command name
+  type: "local" | "local-jsx" | "prompt";
+  description: string;             // User-visible description
+
+  // Optional
+  aliases?: string[];              // Alternative names
+  argumentHint?: string;           // Usage hint for args
+  isEnabled: () => boolean;        // Dynamic enable/disable
+  isHidden?: boolean | (() => boolean);  // Hide from /help
+  supportsNonInteractive?: boolean; // Works in headless mode
+
+  // Required methods
+  call: (...) => Promise<...>;     // Execution handler
+  userFacingName: () => string;    // Display name
+}
+```
+
+### Type-Specific Call Signatures
+
+**local-jsx:**
+```typescript
+async call(
+  onComplete: (output: string, options?: DisplayOptions) => void,
+  context: ToolUseContext,
+  args: string
+): Promise<JSX.Element>
+```
+
+**local:**
+```typescript
+async call(
+  args: string,
+  context: ToolUseContext
+): Promise<CommandResult>
+```
+
+**prompt:**
+```typescript
+// Uses getPromptForCommand() instead of call()
+async getPromptForCommand(
+  args: string,
+  context: ToolUseContext
+): Promise<ContentBlock[]>
+```
+
+---
+
+## isEnabled Patterns
+
+Commands use various conditions to determine availability:
+
+### Always Enabled
+```javascript
+isEnabled: () => true
+```
+
+### Environment Variable Control
+```javascript
+isEnabled: () => !parseBoolean(process.env.DISABLE_COMPACT)
+```
+
+### Subscription-Based
+```javascript
+isEnabled: () => isSubscriptionUser()
+```
+
+### Platform-Specific
+```javascript
+isEnabled: () => !isHeadlessMode()
+```
+
+### Feature Flag
+```javascript
+isEnabled: () => hasFeatureFlag("experimental_feature")
+```
+
+---
+
+## isHidden Patterns
+
+Commands can be hidden from `/help`:
+
+### Static Hidden
+```javascript
+isHidden: true
+```
+
+### Dynamic Hidden
+```javascript
+get isHidden() {
+  return isSubscriptionUser();  // Hide /cost for subscribers
+}
+```
+
+### Conditional
+```javascript
+isHidden: () => !isDebugMode()
+```
 
 ---
 
 ## Command Aliases
 
-Some commands have convenient aliases:
-
 | Command | Aliases |
 |---------|---------|
-| `/config` | `/theme`, `/settings` |
+| `/config` | `/theme` |
+| `/clear` | `/reset`, `/new` |
+| `/feedback` | `/bug` |
+| `/tasks` | `/bashes` |
 
 ---
 
-## Special Input Formats
-
-### Bash Commands
-
-Prefix with `!` to execute bash commands directly:
-
-```
-!npm install
-!git status
-!ls -la
-```
-
-**Features:**
-- Direct bash execution
-- Shows stdout and stderr
-- Inline progress display
-- Supports interruption (Ctrl+C)
-
-### File Paths
-
-Absolute paths starting with `/` are treated as regular input (not commands):
-
-```
-/var/log/app.log      → Treated as text
-/tmp/test.txt         → Treated as text
-/Users/name/file.txt  → Treated as text
-```
-
----
-
-## Command Options and Flags
-
-Some commands support options (syntax may vary):
-
-```
-/config --tab=usage
-/context --format=text
-/doctor --verbose
-```
-
-**Note:** Specific option support depends on command implementation
-
----
-
-## Common Command Patterns
-
-### Query vs No Query
-
-Commands set `shouldQuery` flag:
-
-**shouldQuery: false**
-- Command handles output directly
-- No LLM invocation
-- Examples: `/help`, `/config`, `/cost`, `/clear`
-
-**shouldQuery: true**
-- Command generates prompt for LLM
-- LLM processes and responds
-- Examples: Prompt-type commands, custom commands
-
-### Display Options
-
-Commands can control display:
-
-```typescript
-{
-  display: "skip"     // Don't show in conversation
-  display: "system"   // Show as system message
-  display: undefined  // Normal display (default)
-}
-```
-
-### Tool Restrictions
-
-Commands can restrict available tools:
-
-```typescript
-{
-  allowedTools: ["Read", "Grep", "Glob"]
-}
-```
-
-### Model Override
-
-Commands can specify model:
-
-```typescript
-{
-  model: "claude-sonnet-4-5-20250929"
-}
-// or
-{
-  useSmallFastModel: true
-}
-```
-
----
-
-## Command Lifecycle
-
-1. **User Input:** `/command [args]`
-2. **Parsing:** Extract command name and arguments
-3. **Validation:** Check if command exists
-4. **Execution:** Call command handler
-5. **Result Processing:** Handle command output
-6. **Display:** Show result to user
-7. **History:** Save to history (unless `skipHistory: true`)
-
----
-
-## Error Handling
-
-### Unknown Command
-
-```
-/unknown-cmd
-
-Unknown slash command: unknown-cmd
-```
-
-### Invalid Arguments
-
-```
-/config invalid-option
-
-Error: Invalid option 'invalid-option'
-```
-
-### Execution Error
-
-```
-/cost
-
-Error: Failed to fetch usage data
-```
-
----
-
-## Best Practices
-
-### 1. Use Tab Completion
-
-Most terminals support tab completion for command names
-
-### 2. Check /help
-
-Use `/help` to discover available commands and their descriptions
-
-### 3. Use Aliases
-
-Shorter aliases save typing (e.g., `/theme` instead of `/config`)
-
-### 4. Combine with Tools
-
-Commands can work with tools for powerful workflows
-
-### 5. Non-Interactive Mode
-
-Some commands support non-interactive mode for scripting
-
----
-
-## Command Implementation Types
-
-### local-jsx
-
-Interactive UI components using React/Ink:
-- `/help`
-- `/config`
-- `/context`
-- `/usage`
-- `/ide`
-- `/memory`
-- `/doctor`
-
-### local
-
-Synchronous text output:
-- `/cost`
-- `/clear`
-- `/init`
-
-### prompt
-
-LLM-invoked commands:
-- Custom commands
-- Plugin commands
-- Special prompt commands
-
----
-
-## Customization
-
-### Custom Commands
-
-Create `.claude/commands/my-command.json`:
-
-```json
-{
-  "name": "my-command",
-  "description": "My custom command",
-  "type": "prompt",
-  "prompt": "Execute this task: $ARGS"
-}
-```
-
-Usage: `/my-command argument`
-
-### Plugin Commands
-
-Install plugins that provide commands:
-
-```
-/plugin install code-review@anthropic-tools
-```
-
-Then use:
-```
-/code-review
-```
-
----
-
-## Telemetry
-
-Commands emit telemetry events:
-
-```typescript
-telemetry("tengu_input_command", {
-  input: commandType,
-  plugin_repository?: string,
-  plugin_name?: string,
-  plugin_version?: string
-});
-```
-
----
-
-## Debugging Commands
-
-### Verbose Output
-
-Some commands support verbose mode:
-
-```
-/doctor --verbose
-/context --verbose
-```
-
-### Hidden Commands
-
-Some commands are hidden from `/help` but still functional:
-
-- Internal debugging commands
-- Experimental features
-- Admin commands
-
----
-
-## Summary Table
-
-| Command | Type | Interactive | Hidden | Description |
-|---------|------|-------------|--------|-------------|
-| `/help` | local-jsx | Yes | No | Show available commands |
-| `/config` | local-jsx | Yes | No | Open config panel |
-| `/context` | local-jsx | Yes | No | Visualize context usage |
-| `/cost` | local | No | Conditional | Show session cost |
-| `/usage` | local-jsx | Yes | Conditional | Show usage limits |
-| `/clear` | local | No | No | Clear conversation |
-| `/compact` | local | No | No | Trigger compaction |
-| `/ide` | local-jsx | Yes | No | Select IDE |
-| `/init` | local | No | No | Initialize project config |
-| `/memory` | local-jsx | Yes | No | Manage memory files |
-| `/doctor` | local-jsx | Yes | No | Run diagnostics |
+## Command Categories Summary
+
+| Category | Commands | Count |
+|----------|----------|-------|
+| Configuration | config, permissions, model | 3 |
+| Context | context, cost, usage | 3 |
+| Session | clear, compact, resume | 3 |
+| IDE | ide | 1 |
+| Memory | memory, init | 2 |
+| Diagnostics | doctor | 1 |
+| Help | help | 1 |
+| Tasks | tasks, todos | 2 |
+| GitHub | pr-comments, review | 2 |
+| MCP | mcp | 1 |
+| Feedback | feedback | 1 |
+| Directory | add-dir | 1 |
+| Other | release-notes, vim, plan, status, ... | 5+ |
 
 ---
 
 ## See Also
 
-- [Command Parsing](./parsing.md) - Parsing logic and registration
-- [Plugin System](../10_skill/overview.md) - Plugin commands
-- [MCP Integration](../06_mcp/overview.md) - MCP tool commands
-- [Context Management](../07_compact/overview.md) - Compaction and context
+- [Command Parsing](./parsing.md) - How commands are parsed
+- [Command Execution](./execution.md) - How commands execute
+- [Custom Commands](./custom_commands.md) - Custom command loading
+- [Streaming and Errors](./streaming_errors.md) - Error handling

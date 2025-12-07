@@ -4,6 +4,38 @@
 
 Claude Code v2.0.59 ships with **5 built-in agents**, each specialized for different types of tasks. All built-in agents are defined in `/Users/linyuzhi/codespace/myagent/analyze/cc/analysis_claude_code/claude_code_v_2.0.59/source/chunks.125.mjs` except claude-code-guide which is in `chunks.60.mjs`.
 
+> Symbol mappings: [symbol_index.md](../00_overview/symbol_index.md)
+
+Key agent variables:
+- `generalPurposeAgent` (o51) - Full capabilities agent
+- `statuslineSetupAgent` (Gf2) - Status line specialist
+- `exploreAgent` (xq) - Read-only explorer
+- `planAgent` (kWA) - Architecture planner
+- `claudeCodeGuideAgent` (iCB) - Documentation helper
+
+---
+
+## Tool Restriction Summary
+
+All agents are subject to the **CTA (ALWAYS_BLOCKED_TOOLS)** set which blocks:
+- `Task` - No subagent recursion
+- `AskUserQuestion` - No direct user interaction
+- `EnterPlanMode` - No plan mode control
+- `ExitPlanMode` - No plan mode control
+- `KillShell` - No shell management
+
+| Agent | tools | disallowedTools | Effective Tools |
+|-------|-------|-----------------|-----------------|
+| general-purpose | `["*"]` | `[]` | All tools (minus CTA) |
+| statusline-setup | `["Read", "Edit"]` | `[]` | Read, Edit only |
+| Explore | `["*"]` | `[Write, Edit, NotebookEdit, Bash, TodoWrite]` | Read-only tools |
+| Plan | `["*"]` | `[TodoWrite]` | All except TodoWrite |
+| claude-code-guide | `["Glob", "Grep", "Read", "WebFetch", "WebSearch"]` | `[]` | Specified 5 tools |
+
+> See [tool_restrictions.md](tool_restrictions.md) for detailed filtering logic.
+
+---
+
 ## Complete Agent List
 
 ```javascript
@@ -551,6 +583,84 @@ if (Y0(process.env.ENABLE_CODE_GUIDE_SUBAGENT) ||
 | Explore | **Haiku** | Limited | **Yes** | **Fast** | Quick searches, exploration |
 | Plan | Inherit | Limited | **Yes** | Varies | Architecture planning |
 | claude-code-guide | **Haiku** | Web+Files | **Yes** | **Fast** | Documentation help |
+
+---
+
+## Advanced Configuration Properties
+
+### forkContext
+
+Controls whether the agent sees conversation history before the Task tool call.
+
+| Agent | forkContext | Behavior |
+|-------|-------------|----------|
+| general-purpose | `undefined` (false) | Only sees prompt parameter |
+| statusline-setup | `undefined` (false) | Only sees prompt parameter |
+| Explore | `undefined` (false) | Only sees prompt parameter |
+| Plan | `undefined` (false) | Only sees prompt parameter |
+| claude-code-guide | `undefined` (false) | Only sees prompt parameter |
+
+**Note**: None of the built-in agents use `forkContext: true`. This feature is primarily for custom agents that need conversation context.
+
+### criticalSystemReminder_EXPERIMENTAL
+
+An extra safety reminder injected into the system prompt for read-only agents.
+
+```javascript
+// Explore agent (chunks.125.mjs:1412)
+criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
+
+// Plan agent (chunks.125.mjs:1483)
+criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
+```
+
+| Agent | criticalSystemReminder_EXPERIMENTAL | Purpose |
+|-------|-------------------------------------|---------|
+| general-purpose | `undefined` | N/A (can modify) |
+| statusline-setup | `undefined` | N/A (can modify via Edit) |
+| Explore | **Set** | Reinforce read-only restriction |
+| Plan | **Set** | Reinforce read-only restriction |
+| claude-code-guide | `undefined` | N/A (tools naturally read-only) |
+
+**How It Works:**
+1. Stored in subagent context during BSA (createSubAgentContext)
+2. Injected into system prompt during execution
+3. Acts as additional safety layer beyond disallowedTools
+
+### permissionMode
+
+Controls how the agent handles permission prompts.
+
+| Agent | permissionMode | Behavior |
+|-------|---------------|----------|
+| general-purpose | `undefined` | Default permission handling |
+| statusline-setup | `undefined` | Default permission handling |
+| Explore | `undefined` | Default permission handling |
+| Plan | `undefined` | Default permission handling |
+| claude-code-guide | **`"dontAsk"`** | Never prompt for permissions |
+
+**Note**: The `"dontAsk"` mode is used by claude-code-guide because:
+1. It only uses read-only tools (Glob, Grep, Read, WebFetch, WebSearch)
+2. These tools don't require user permission confirmation
+3. Speeds up documentation lookups
+
+### model
+
+| Agent | model | Actual Model Used |
+|-------|-------|-------------------|
+| general-purpose | `"sonnet"` | Claude Sonnet |
+| statusline-setup | `"sonnet"` | Claude Sonnet |
+| Explore | `"haiku"` | Claude Haiku (fast) |
+| Plan | `"inherit"` | Same as parent agent |
+| claude-code-guide | `"haiku"` | Claude Haiku (fast) |
+
+**Model Selection Logic** (`resolveAgentModel` in chunks.59.mjs:3028):
+1. Agent definition model (if specified and not "inherit")
+2. Parent's main loop model
+3. Override from Task tool call
+4. Permission mode considerations
+
+---
 
 ## Common Patterns
 

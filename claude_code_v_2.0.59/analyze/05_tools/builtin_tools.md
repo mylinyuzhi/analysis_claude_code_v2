@@ -85,101 +85,101 @@ interface Tool {
 ```javascript
 // ============================================
 // Bash Tool - call() implementation
-// Location: chunks.106.mjs:775
+// Location: chunks.106.mjs:775-850
 // ============================================
-async function bashToolCall(input, context, toolUseId, metadata) {
-  const { command, timeout, run_in_background, dangerouslyDisableSandbox } = input;
-  const { abortController, setAppState, setToolJSX, messages } = context;
 
-  // Step 1: Determine execution parameters
-  const timeoutMs = timeout || getDefaultTimeout();  // Default 120000ms (2 min)
-  const isConcurrencySafe = isReadOnlyCommand(command);
-  const shouldSandbox = isSandboxingEnabled() && !dangerouslyDisableSandbox;
+// ORIGINAL (for source lookup):
+async call(A, Q, B, G, Z) {
+  let {
+    abortController: I, readFileState: Y, getAppState: J,
+    setAppState: W, setToolJSX: X, messages: V
+  } = Q, F = new h7A, K = new h7A, D, H = 0, C = !1, E, q = Q.agentId !== e1();
+  try {
+    let FA = TK5({ input: A, abortController: I, setAppState: W, setToolJSX: X, preventCwdChanges: q }), zA;
+    do
+      if (zA = await FA.next(), !zA.done && Z) {
+        let OA = zA.value;
+        Z({ toolUseID: `bash-progress-${H++}`, data: { type: "bash_progress", output: OA.output, fullOutput: OA.fullOutput, elapsedTimeSeconds: OA.elapsedTimeSeconds, totalLines: OA.totalLines } })
+      } while (!zA.done);
+    if (E = zA.value, LK5(A.command, E.code), F.append((E.stdout || "").trimEnd() + TMA), D = v32(A.command, E.code, E.stdout || "", E.stderr || ""), /* ... error handling ... */)
+    C = E.interrupted
+  } finally { if (X) X(null) }
+  let w = F.toString(), N = K.toString();
+  // ... file path extraction and tracking ...
+  return { data: { stdout: w, stderr: N, summary: void 0, interrupted: C, isImage: j02(w), backgroundTaskId: E?.backgroundTaskId, structuredContent: /* ... */, returnCodeInterpretation: D?.description } }
+}
+
+// READABLE (for understanding):
+async call(input, context, toolUseId, metadata, progressCallback) {
+  const {
+    abortController, readFileState, getAppState,
+    setAppState, setToolJSX, messages
+  } = context;
+
+  const stdoutBuffer = new StringBuilder();
+  const stderrBuffer = new StringBuilder();
+  let exitCodeInfo, progressCounter = 0, interrupted = false, result;
   const preventCwdChanges = context.agentId !== mainAgentId();
 
-  // Step 2: Execute command generator
-  const execution = executeCommandGenerator({
-    input: input,
-    abortController: abortController,
-    setAppState: setAppState,
-    setToolJSX: setToolJSX,
-    preventCwdChanges: preventCwdChanges
-  });
+  try {
+    // Step 1: Execute command via generator
+    const execution = executeCommandGenerator({
+      input, abortController, setAppState, setToolJSX, preventCwdChanges
+    });
 
-  // Step 3: Process execution results
-  let stdout = "", stderr = "", exitCode = 0;
-  let backgroundTaskId = undefined;
+    // Step 2: Process execution results with progress updates
+    let stepResult;
+    do {
+      stepResult = await execution.next();
+      if (!stepResult.done && progressCallback) {
+        const progressData = stepResult.value;
+        progressCallback({
+          toolUseID: `bash-progress-${progressCounter++}`,
+          data: {
+            type: "bash_progress",
+            output: progressData.output,
+            fullOutput: progressData.fullOutput,
+            elapsedTimeSeconds: progressData.elapsedTimeSeconds,
+            totalLines: progressData.totalLines
+          }
+        });
+      }
+    } while (!stepResult.done);
 
-  for await (const event of execution) {
-    if (event.type === "progress") {
-      // Emit progress updates
-      yield {
-        type: "tool_progress",
-        fullOutput: event.fullOutput,
-        output: event.output,
-        elapsedTimeSeconds: event.elapsedTimeSeconds,
-        totalLines: event.totalLines
-      };
-    } else {
-      // Final result
-      stdout = event.stdout;
-      stderr = event.stderr;
-      exitCode = event.code;
-      backgroundTaskId = event.backgroundTaskId;
-    }
+    result = stepResult.value;
+
+    // Step 3: Track git operations
+    trackGitOperations(input.command, result.code);
+
+    // Step 4: Process output
+    stdoutBuffer.append((result.stdout || "").trimEnd());
+    exitCodeInfo = interpretExitCode(input.command, result.code, result.stdout, result.stderr);
+
+    interrupted = result.interrupted;
+  } finally {
+    if (setToolJSX) setToolJSX(null);
   }
 
-  // Step 4: Track metrics
-  trackGitOperations(command, exitCode);  // Track git commits, PR creation
-
-  // Step 5: Handle MCP tool output (if structured content)
-  let structuredContent = undefined;
-  if (isMCPCommand(command)) {
-    const mcpResult = await parseMCPOutput(stdout, command);
-    if (mcpResult) {
-      structuredContent = mcpResult.structuredContent;
-      stdout = mcpResult.stdout;
-    }
-  }
-
-  // Step 6: Return result
+  // Step 5: Return result
   return {
     data: {
-      stdout: stdout,
-      stderr: stderr,
-      summary: undefined,  // May be populated for large outputs
-      interrupted: abortController.signal.aborted,
-      isImage: detectImageData(stdout),
-      backgroundTaskId: backgroundTaskId,
-      structuredContent: structuredContent,
-      returnCodeInterpretation: interpretExitCode(exitCode, command)
+      stdout: stdoutBuffer.toString(),
+      stderr: stderrBuffer.toString(),
+      summary: undefined,
+      interrupted: interrupted,
+      isImage: detectImageData(stdoutBuffer.toString()),
+      backgroundTaskId: result?.backgroundTaskId,
+      structuredContent: undefined,
+      returnCodeInterpretation: exitCodeInfo?.description
     }
   };
 }
 
-// Helper: Determine if command is read-only
-function isReadOnlyCommand(command) {
-  const commandType = getCommandType(command);
-  return commandBehaviorCheck(command).behavior === "allow";
-}
-
-// Helper: Track git operations
-function trackGitOperations(command, exitCode) {
-  if (exitCode !== 0) return;
-
-  if (command.match(/\bgit\s+commit\b/)) {
-    trackEvent("tengu_git_operation", { operation: "commit" });
-    if (command.match(/--amend\b/)) {
-      trackEvent("tengu_git_operation", { operation: "commit_amend" });
-    }
-    incrementGitCommitCounter();
-  }
-
-  if (command.match(/\bgh\s+pr\s+create\b/) || command.match(/\bglab\s+mr\s+create\b/)) {
-    trackEvent("tengu_git_operation", { operation: "pr_create" });
-    incrementPRCounter();
-  }
-}
+// Mapping: A→input, Q→context, B→toolUseId, G→metadata, Z→progressCallback
+// I→abortController, Y→readFileState, J→getAppState, W→setAppState, X→setToolJSX
+// F→stdoutBuffer, K→stderrBuffer, H→progressCounter, C→interrupted, E→result
+// TK5→executeCommandGenerator, LK5→trackGitOperations, v32→interpretExitCode
+// h7A→StringBuilder, e1→mainAgentId, j02→detectImageData
 ```
 
 ---
@@ -254,186 +254,85 @@ function trackGitOperations(command, exitCode) {
 ]
 ```
 
-**Implementation** (chunks.88.mjs:1258-1400):
+**Implementation** (chunks.88.mjs:1258-1373):
 ```javascript
 // ============================================
 // Read Tool - call() implementation
-// Location: chunks.88.mjs:1258
+// Location: chunks.88.mjs:1258-1373
 // ============================================
-async function readToolCall(input, context, toolUseId, metadata) {
-  const { file_path, offset = 1, limit = undefined } = input;
-  const { readFileState, getAppState } = context;
 
-  // Step 1: Resolve absolute path
+// ORIGINAL (for source lookup):
+async call({ file_path: A, offset: Q = 1, limit: B = void 0 }, G) {
+  let { readFileState: Z, fileReadingLimits: I } = G,
+    Y = uNA, J = I?.maxTokens ?? Xo1,
+    W = Jo1.extname(A).toLowerCase().slice(1), X = Pl(A);
+
+  if (W === "ipynb") {
+    let C = gOB(X), E = JSON.stringify(C);
+    if (E.length > Y) throw Error(/* ... */);
+    Z.set(X, { content: E, timestamp: PD(X), offset: Q, limit: B });
+    return { data: { type: "notebook", file: { filePath: A, cells: C } } }
+  }
+
+  if (B01.has(W)) {
+    let C = await Vo1(X, J, W);
+    Z.set(X, { content: C.file.base64, timestamp: PD(X), offset: Q, limit: B });
+    return { data: C }
+  }
+
+  if (g9A() && lxA(W)) {
+    let C = await nd0(X);
+    return { data: C, newMessages: [/* PDF document attachment */] }
+  }
+
+  let V = Q === 0 ? 0 : Q - 1, { content: F, lineCount: K, totalLines: D } = eeB(X, V, B);
+  if (F.length > Y) throw Error(Wo1(F.length, Y));
+  Z.set(X, { content: F, timestamp: PD(X), offset: Q, limit: B });
+  return { data: { type: "text", file: { filePath: A, content: F, numLines: K, startLine: Q, totalLines: D } } }
+}
+
+// READABLE (for understanding):
+async call({ file_path, offset = 1, limit = undefined }, context) {
+  const { readFileState, fileReadingLimits } = context;
+  const maxSize = MAX_FILE_SIZE;
+  const maxTokens = fileReadingLimits?.maxTokens ?? DEFAULT_MAX_TOKENS;
+  const extension = path.extname(file_path).toLowerCase().slice(1);
   const absolutePath = resolvePath(file_path);
 
-  // Step 2: Check file type
-  const fileType = detectFileType(absolutePath);
-
-  // Step 3: Handle different file types
-  switch (fileType) {
-    case "image": {
-      // Read image file
-      const imageData = fs.readFileSync(absolutePath);
-      const base64 = imageData.toString('base64');
-      const mimeType = detectMimeType(absolutePath);
-      const originalSize = imageData.length;
-
-      return {
-        data: {
-          type: "image",
-          file: {
-            filePath: file_path,
-            base64: base64,
-            type: mimeType,
-            originalSize: originalSize
-          }
-        }
-      };
-    }
-
-    case "pdf": {
-      // Read PDF file
-      const pdfData = fs.readFileSync(absolutePath);
-      const base64 = pdfData.toString('base64');
-      const originalSize = pdfData.length;
-
-      return {
-        data: {
-          type: "pdf",
-          file: {
-            filePath: file_path,
-            base64: base64,
-            originalSize: originalSize
-          }
-        }
-      };
-    }
-
-    case "notebook": {
-      // Read Jupyter notebook
-      const notebookContent = fs.readFileSync(absolutePath, 'utf-8');
-      const notebook = JSON.parse(notebookContent);
-      const cells = notebook.cells || [];
-
-      return {
-        data: {
-          type: "notebook",
-          file: {
-            filePath: file_path,
-            cells: cells
-          }
-        }
-      };
-    }
-
-    case "text":
-    default: {
-      // Read text file
-      const encoding = detectEncoding(absolutePath);
-      const content = fs.readFileSync(absolutePath, { encoding });
-
-      // Split into lines
-      const lines = content.split(/\r?\n/);
-      const totalLines = lines.length;
-
-      // Apply offset and limit
-      const startIndex = Math.max(0, offset - 1);
-      const endIndex = limit ? Math.min(totalLines, startIndex + limit) : totalLines;
-      const selectedLines = lines.slice(startIndex, endIndex);
-
-      // Format with line numbers (cat -n style)
-      const formattedContent = selectedLines
-        .map((line, idx) => {
-          const lineNum = startIndex + idx + 1;
-          return `${lineNum.toString().padStart(6)}\t${line}`;
-        })
-        .join('\n');
-
-      // Step 4: Update read file state
-      readFileState.set(absolutePath, {
-        content: content,
-        timestamp: getFileModificationTime(absolutePath),
-        offset: offset,
-        limit: limit
-      });
-
-      // Step 5: Detect language
-      const language = detectLanguage(absolutePath);
-
-      // Step 6: Track file operation
-      trackFileOperation({
-        operation: "read",
-        tool: "FileReadTool",
-        filePath: absolutePath
-      });
-
-      // Step 7: Return result
-      return {
-        data: {
-          type: "text",
-          file: {
-            filePath: file_path,
-            content: formattedContent,
-            language: language,
-            numLines: totalLines,
-            offsetApplied: offset,
-            limitApplied: limit || totalLines,
-            startLineNum: startIndex + 1,
-            endLineNum: endIndex
-          }
-        }
-      };
-    }
+  // Handle Jupyter notebooks
+  if (extension === "ipynb") {
+    const cells = parseNotebook(absolutePath);
+    const content = JSON.stringify(cells);
+    if (content.length > maxSize) throw Error("Notebook too large");
+    readFileState.set(absolutePath, { content, timestamp: getModTime(absolutePath), offset, limit });
+    return { data: { type: "notebook", file: { filePath: file_path, cells } } };
   }
+
+  // Handle images (png, jpg, gif, webp, etc.)
+  if (IMAGE_EXTENSIONS.has(extension)) {
+    const imageData = await readImageFile(absolutePath, maxTokens, extension);
+    readFileState.set(absolutePath, { content: imageData.file.base64, timestamp: getModTime(absolutePath), offset, limit });
+    return { data: imageData };
+  }
+
+  // Handle PDFs (with native PDF support)
+  if (isPDFEnabled() && isPdfExtension(extension)) {
+    const pdfData = await readPdfFile(absolutePath);
+    return { data: pdfData, newMessages: [/* PDF document attachment */] };
+  }
+
+  // Handle text files
+  const startOffset = offset === 0 ? 0 : offset - 1;
+  const { content, lineCount, totalLines } = readTextFile(absolutePath, startOffset, limit);
+  if (content.length > maxSize) throw Error(formatSizeError(content.length, maxSize));
+  readFileState.set(absolutePath, { content, timestamp: getModTime(absolutePath), offset, limit });
+  return { data: { type: "text", file: { filePath: file_path, content, numLines: lineCount, startLine: offset, totalLines } } };
 }
 
-// Helper: Detect file type based on extension
-function detectFileType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-
-  // Image extensions
-  if (['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'].includes(ext)) {
-    return "image";
-  }
-
-  // PDF extension
-  if (ext === '.pdf') {
-    return "pdf";
-  }
-
-  // Jupyter notebook extension
-  if (ext === '.ipynb') {
-    return "notebook";
-  }
-
-  // Default to text
-  return "text";
-}
-
-// Helper: Detect encoding (simplified)
-function detectEncoding(filePath) {
-  // Check for UTF-8 BOM, UTF-16, etc.
-  const buffer = fs.readFileSync(filePath);
-
-  // UTF-8 BOM
-  if (buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
-    return 'utf-8';
-  }
-
-  // UTF-16 LE BOM
-  if (buffer[0] === 0xFF && buffer[1] === 0xFE) {
-    return 'utf-16le';
-  }
-
-  // UTF-16 BE BOM
-  if (buffer[0] === 0xFE && buffer[1] === 0xFF) {
-    return 'utf-16be';
-  }
-
-  // Default to UTF-8
-  return 'utf-8';
-}
+// Mapping: A→file_path, Q→offset, B→limit, G→context, Z→readFileState, I→fileReadingLimits
+// Y→maxSize, J→maxTokens, W→extension, X→absolutePath, V→startOffset, F→content, K→lineCount, D→totalLines
+// uNA→MAX_FILE_SIZE, Xo1→DEFAULT_MAX_TOKENS, Jo1→path, Pl→resolvePath, PD→getModTime
+// gOB→parseNotebook, B01→IMAGE_EXTENSIONS, Vo1→readImageFile, eeB→readTextFile, Wo1→formatSizeError
 ```
 
 ---
@@ -492,24 +391,41 @@ function detectEncoding(filePath) {
 }
 ```
 
-**Implementation** (chunks.122.mjs:3371-3450):
+**Implementation** (chunks.122.mjs:3371-3449):
 ```javascript
 // ============================================
 // Write Tool - call() implementation
-// Location: chunks.122.mjs:3371
+// Location: chunks.122.mjs:3371-3449
 // ============================================
-async function writeToolCall(input, context, toolUseId, metadata) {
-  const { file_path, content } = input;
-  const { readFileState, updateFileHistoryState, setAppState } = context;
 
-  // Step 1: Resolve absolute path
+// ORIGINAL (for source lookup):
+async call({ file_path: A, content: Q }, { readFileState: B, updateFileHistoryState: G, setAppState: Z }, I, Y) {
+  let J = b9(A), W = bu5(J), X = RA();
+  await Oh.beforeFileEdited(J);
+  let V = X.existsSync(J);
+  if (V) {
+    let E = PD(J), U = B.get(J);
+    if (!U || E > U.timestamp) throw Error("File has been unexpectedly modified...")
+  }
+  let F = V ? CH(J) : "utf-8", K = V ? X.readFileSync(J, { encoding: F }) : null;
+  if (EG()) await kYA(G, J, Y.uuid);
+  let D = V ? M0A(J) : await m_2();
+  X.mkdirSync(W), KWA(J, Q, F, D);
+  /* ... LSP notification, file state update, diff generation ... */
+  if (K) return { data: { type: "update", filePath: A, content: Q, structuredPatch: E, originalFile: K } }
+  return { data: { type: "create", filePath: A, content: Q, structuredPatch: [], originalFile: null } }
+}
+
+// READABLE (for understanding):
+async call({ file_path, content }, { readFileState, updateFileHistoryState, setAppState }, toolUseId, metadata) {
   const absolutePath = resolvePath(file_path);
-  const parentDir = path.dirname(absolutePath);
+  const parentDir = getParentDir(absolutePath);
+  const fs = getFS();
 
-  // Step 2: Trigger pre-edit hook
+  // Step 1: Trigger pre-edit hook
   await hooks.beforeFileEdited(absolutePath);
 
-  // Step 3: Check if file exists
+  // Step 2: Check if file exists and validate modification time
   const fileExists = fs.existsSync(absolutePath);
 
   // Step 4: Validate file hasn't been modified
@@ -661,6 +577,12 @@ function generateUnifiedDiff({ filePath, fileContents, edits }) {
   // Parse patch into structured format
   return parsePatchToStructured(patch);
 }
+
+// Mapping: A→file_path, Q→content, B→readFileState, G→updateFileHistoryState, Z→setAppState, I→toolUseId, Y→metadata
+// J→absolutePath, W→parentDir, X→fs, V→fileExists, F→encoding, K→originalContent, D→permissions
+// b9→resolvePath, bu5→getParentDir, RA→getFS, Oh→hooks, PD→getModTime, CH→detectEncoding
+// EG→isFileHistoryEnabled, kYA→saveToFileHistory, M0A→getFilePermissions, m_2→getDefaultPermissions
+// KWA→writeFileWithPermissions, XWA→getLSPClient, Uq→generateUnifiedDiff, fMA→trackDiffMetrics, Uk→trackFileOperation
 ```
 
 ---
@@ -1421,6 +1343,390 @@ A6 = "Task"           // Task tool
 QEB = "TodoWrite"     // TodoWrite tool
 jW9 = "TaskCreate"    // TaskCreate tool
 ```
+
+---
+
+## Agent & Subagent Tools
+
+### Task (Subagent Launcher)
+
+**Name**: `Task`
+**Constant**: `A6 = "Task"` (chunks.19.mjs:2156)
+**Object**: `jn` (chunks.145.mjs:1812-2015)
+
+**Description**: Launch a new agent to handle complex, multi-step tasks autonomously.
+
+**Input Schema** (chunks.145.mjs:1771):
+```typescript
+{
+  description: string (required)    // Short (3-5 word) description of task
+  prompt: string (required)         // Detailed task for agent to perform
+  subagent_type: string (required)  // Type of specialized agent
+  model?: "sonnet" | "opus" | "haiku"  // Optional model override
+  run_in_background?: boolean       // Run agent asynchronously
+  resume?: string                   // Optional agent ID to resume from
+}
+```
+
+**Output Schema** (chunks.145.mjs:1803):
+```typescript
+{
+  // Completed task
+  result: string                    // Agent's final output
+  agentId: string                   // ID of the agent
+}
+// OR
+{
+  // Async task launched
+  agentId: string                   // ID of background agent
+  status: "running"                 // Current status
+}
+```
+
+**Properties**:
+- `isConcurrencySafe`: `true`
+- `isReadOnly`: `true`
+- In `ALWAYS_EXCLUDED_TOOLS` set (not available to subagents)
+
+**Available Subagent Types**:
+- `general-purpose`: General agent with all tools
+- `Explore`: Fast codebase exploration (quick/medium/thorough)
+- `Plan`: Software architect for implementation planning
+- `claude-code-guide`: Documentation lookup agent
+- `statusline-setup`: Configure status line settings
+
+---
+
+### AgentOutputTool
+
+**Name**: `AgentOutputTool`
+**Constant**: `Wa = "AgentOutputTool"` (chunks.139.mjs:1576)
+
+**Description**: Retrieves output from a completed async agent task.
+
+**Input Schema** (chunks.145.mjs:1683):
+```typescript
+{
+  agentId: string (required)        // The agent ID to retrieve results for
+  block?: boolean                   // Whether to block until results ready (default true)
+  wait_up_to?: number               // Max time to wait in seconds (0-300, default 150)
+}
+```
+
+**Output Schema**:
+```typescript
+{
+  agentId: string
+  status: "running" | "completed" | "failed"
+  result?: string                   // Agent output (if completed)
+  error?: string                    // Error message (if failed)
+}
+```
+
+**Properties**:
+- `isConcurrencySafe`: `true`
+- `isReadOnly`: `true`
+
+**Usage Notes**:
+- Use `block=false` for immediate status check
+- Use `block=true` when waiting for results (blocks execution)
+- Agent IDs can be found from Task tool output
+
+---
+
+### AskUserQuestion
+
+**Name**: `AskUserQuestion`
+**Constant**: `pJ` (chunks.153.mjs)
+
+**Description**: Ask the user questions during execution for clarification, preferences, or decisions.
+
+**Input Schema**:
+```typescript
+{
+  questions: Question[] (required)  // 1-4 questions to ask
+}
+
+interface Question {
+  question: string (required)       // The question text (end with ?)
+  header: string (required)         // Short label (max 12 chars)
+  options: Option[] (required)      // 2-4 options per question
+  multiSelect: boolean (required)   // Allow multiple answers
+}
+
+interface Option {
+  label: string (required)          // Display text (1-5 words)
+  description: string (required)    // Explanation of what this option means
+}
+```
+
+**Output Schema**:
+```typescript
+{
+  answers: Record<string, string>   // User's selected answers
+}
+```
+
+**Input Examples**:
+```json
+{
+  "questions": [
+    {
+      "question": "Which authentication method should we use?",
+      "header": "Auth method",
+      "options": [
+        { "label": "JWT tokens", "description": "Stateless authentication using JSON Web Tokens" },
+        { "label": "Session cookies", "description": "Server-side sessions with HTTP-only cookies" },
+        { "label": "OAuth 2.0", "description": "Third-party authentication via OAuth providers" }
+      ],
+      "multiSelect": false
+    }
+  ]
+}
+```
+
+```json
+{
+  "questions": [
+    {
+      "question": "Which features do you want to enable?",
+      "header": "Features",
+      "options": [
+        { "label": "Dark mode", "description": "Add dark theme support to the application" },
+        { "label": "Notifications", "description": "Enable push notifications for updates" },
+        { "label": "Analytics", "description": "Track user interactions for insights" },
+        { "label": "Caching", "description": "Cache API responses for better performance" }
+      ],
+      "multiSelect": true
+    }
+  ]
+}
+```
+
+**Properties**:
+- `isConcurrencySafe`: `true`
+- `isReadOnly`: `true`
+- In `ALWAYS_EXCLUDED_TOOLS` set (not available to subagents)
+
+**Usage Notes**:
+- Users can always select "Other" for custom input
+- Use `multiSelect: true` for non-mutually exclusive choices
+- Use when gathering preferences, clarifying ambiguity, or getting decisions
+
+---
+
+## Plan Mode Tools
+
+### EnterPlanMode
+
+**Name**: `EnterPlanMode`
+**Constant**: `A71 = "EnterPlanMode"` (chunks.130.mjs)
+**Object**: `cTA` (chunks.130.mjs:2336-2398)
+
+**Description**: Enter plan mode for complex tasks requiring careful planning.
+
+**Input Schema** (chunks.130.mjs):
+```typescript
+{
+  // No parameters required
+}
+```
+
+**Output Schema**:
+```typescript
+{
+  entered: boolean
+  planFile?: string                 // Path to plan file if created
+}
+```
+
+**Properties**:
+- `isConcurrencySafe`: `true`
+- `isReadOnly`: `true`
+- In `ALWAYS_EXCLUDED_TOOLS` set (not available to subagents)
+
+**When to Use**:
+- Multiple valid approaches exist
+- Significant architectural decisions required
+- Large-scale changes (many files)
+- Unclear requirements need exploration
+- User input needed for approach
+
+---
+
+### ExitPlanMode
+
+**Name**: `ExitPlanMode`
+**Constant**: `rRA = "ExitPlanMode"` (chunks.130.mjs)
+**Object**: `gq` (chunks.130.mjs:1850-1928)
+
+**Description**: Exit plan mode and proceed with implementation.
+
+**Input Schema** (chunks.130.mjs):
+```typescript
+{
+  launchSwarm?: boolean             // Whether to launch swarm for plan
+  teammateCount?: number            // Number of teammates in swarm
+}
+```
+
+**Output Schema**:
+```typescript
+{
+  exited: boolean
+  planContent?: string              // Content of the plan file
+}
+```
+
+**Properties**:
+- `isConcurrencySafe`: `true`
+- `isReadOnly`: `true`
+- In `ALWAYS_EXCLUDED_TOOLS` set (not available to subagents)
+
+---
+
+## Background Shell Tools
+
+### BashOutput
+
+**Name**: `BashOutput`
+**Object**: `CY1` (chunks.145.mjs:2281-2400)
+
+**Description**: Retrieves output from a running or completed background bash shell.
+
+**Input Schema**:
+```typescript
+{
+  bash_id: string (required)        // ID of background shell
+  filter?: string                   // Optional regex to filter output lines
+}
+```
+
+**Output Schema**:
+```typescript
+{
+  shellId: string
+  command: string
+  status: "running" | "completed" | "failed" | "killed"
+  exitCode: number | null
+  stdout: string
+  stderr: string
+  stdoutLines: number
+  stderrLines: number
+  timestamp: string                 // ISO timestamp
+  filterPattern?: string            // Applied filter (if any)
+}
+```
+
+**Properties**:
+- `isConcurrencySafe`: `true`
+- `isReadOnly`: `true`
+
+**Usage Notes**:
+- Shell IDs from Bash tool with `run_in_background: true`
+- Filter param uses regex to filter output lines
+- Use to monitor long-running background commands
+
+---
+
+### KillShell
+
+**Name**: `KillShell`
+**Object**: `HY1` (chunks.145.mjs)
+
+**Description**: Kills a running background bash shell by its ID.
+
+**Input Schema**:
+```typescript
+{
+  shell_id: string (required)       // ID of background shell to kill
+}
+```
+
+**Output Schema**:
+```typescript
+{
+  success: boolean
+  message?: string
+}
+```
+
+**Properties**:
+- `isConcurrencySafe`: `true`
+- `isReadOnly`: `false`
+
+**Usage Notes**:
+- Use to terminate long-running or stuck background processes
+- Shell IDs can be found from Bash tool output or BashOutput results
+
+---
+
+## Extension Tools
+
+### Skill
+
+**Name**: `Skill`
+**Object**: `lD` (chunks.146.mjs)
+
+**Description**: Execute a skill within the main conversation.
+
+**Input Schema**:
+```typescript
+{
+  skill: string (required)          // Skill name (no arguments)
+}
+```
+
+**Output Schema**:
+```typescript
+{
+  result: string                    // Skill execution output
+}
+```
+
+**Properties**:
+- `isConcurrencySafe`: `true`
+- `isReadOnly`: `true`
+- In `ASYNC_SAFE_TOOLS` set (available to async agents)
+
+**Usage Notes**:
+- Invoke skills by name (e.g., "pdf", "xlsx")
+- Skills provide specialized capabilities
+- Only use skills listed in available_skills
+- Do not invoke already-running skills
+
+---
+
+### SlashCommand
+
+**Name**: `SlashCommand`
+**Object**: `QV` (chunks.146.mjs)
+
+**Description**: Execute a slash command within the main conversation.
+
+**Input Schema**:
+```typescript
+{
+  command: string (required)        // Slash command with arguments (e.g., "/review-pr 123")
+}
+```
+
+**Output Schema**:
+```typescript
+{
+  result: string                    // Command execution output
+}
+```
+
+**Properties**:
+- `isConcurrencySafe`: `true`
+- `isReadOnly`: `true`
+- In `ASYNC_SAFE_TOOLS` set (available to async agents)
+
+**Usage Notes**:
+- Only use for custom slash commands in Available Commands list
+- Do NOT use for built-in CLI commands (/help, /clear)
+- Wait for `<command-message>` confirmation before proceeding
 
 ---
 

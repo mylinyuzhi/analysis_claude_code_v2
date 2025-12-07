@@ -1,923 +1,884 @@
-# Slash Command Parsing and Registration
+# Slash Command Parsing System
 
 ## Overview
 
-Claude Code v2.0.59 implements a comprehensive slash command system that supports built-in commands, custom commands from `.claude/commands/`, and plugin-provided commands. This document describes the parsing logic, command registration mechanism, and command loading.
+Claude Code v2.0.59 implements a comprehensive slash command parsing system that validates, classifies, and routes user input to the appropriate command handler. This document provides deep analysis of the parsing pipeline with pseudocode and source code snippets.
+
+> Symbol mappings: [symbol_index.md](../00_overview/symbol_index.md)
+
+**Key parsing functions:**
+- `parseSlashCommandInput` (_P2) - Main entry point for parsing
+- `extractCommandParts` (rJA) - Tokenizes input into command name and args
+- `isValidCommandName` (if5) - Validates command name format
+- `commandExists` (ph) - Checks if command is registered
+- `lookupCommand` (Pq) - Retrieves command definition with alias resolution
 
 ---
 
-## Command Parsing
+## Parsing Pipeline Architecture
 
-### Entry Point: `_P2()`
-
-Main function for parsing user input and determining if it's a slash command:
-
-```typescript
-async function _P2(
-  input: string,                    // User input
-  precedingInputBlocks: Block[],   // Previous input blocks
-  attachments: Attachment[],       // File attachments
-  historyMessages: Message[],      // Conversation history
-  toolUseContext: ToolUseContext,  // Tool execution context
-  setCommandRunning: (running: boolean) => void,
-  cwd: string,                     // Current working directory
-  uuid: string,                    // Message UUID
-  skipCompact: boolean             // Skip compaction flag
-): Promise<ParseResult>
+```
+User Input: "/help args"
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  1. extractCommandParts (rJA)                                    │
+│     - Trim and validate "/" prefix                               │
+│     - Split into tokens                                          │
+│     - Detect MCP marker "(MCP)"                                  │
+│     - Extract commandName, args, isMcp                           │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼ { commandName: "help", args: "args", isMcp: false }
+       │
+┌─────────────────────────────────────────────────────────────────┐
+│  2. isValidCommandName (if5)                                     │
+│     - Validate against regex: /[^a-zA-Z0-9:\-_]/                 │
+│     - Security: Prevent injection via special chars              │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼ true/false
+       │
+┌─────────────────────────────────────────────────────────────────┐
+│  3. Command Type Classification                                  │
+│     - isMcp → "mcp"                                              │
+│     - !Ny().has(commandName) → "custom"                          │
+│     - Otherwise → commandName (built-in)                         │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼ commandType: "mcp" | "custom" | "<command-name>"
+       │
+┌─────────────────────────────────────────────────────────────────┐
+│  4. commandExists (ph) + lookupCommand (Pq)                      │
+│     - Check name, userFacingName, aliases                        │
+│     - If not found: File path detection fallback                 │
+│     - Retrieve full command definition                           │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼ Command object or error
+       │
+┌─────────────────────────────────────────────────────────────────┐
+│  5. executeCommand (nf5)                                         │
+│     - Route to handler by type: local-jsx, local, prompt         │
+│     - Execute command.call()                                     │
+│     - Build response messages                                    │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼ { messages, shouldQuery, allowedTools, ... }
 ```
 
-### Parsing Flow
+---
 
-#### 1. Extract Command Name
+## Step 1: Command Extraction
 
-Function: `rJA(input: string)`
+### extractCommandParts (rJA)
 
-Extracts command name and arguments from input:
+The first step extracts the command name and arguments from user input.
 
-```typescript
-let parsed = rJA(input);
-if (!parsed) {
-  // Not a valid slash command
+```javascript
+// ============================================
+// extractCommandParts - Parse input into command name, args, and MCP flag
+// Location: chunks.121.mjs:862-877
+// ============================================
+
+// ORIGINAL (for source lookup):
+function rJA(A) {
+  let Q = A.trim();
+  if (!Q.startsWith("/")) return null;
+  let G = Q.slice(1).split(" ");
+  if (!G[0]) return null;
+  let Z = G[0],
+    I = !1,
+    Y = 1;
+  if (G.length > 1 && G[1] === "(MCP)") Z = Z + " (MCP)", I = !0, Y = 2;
+  let J = G.slice(Y).join(" ");
   return {
-    messages: [/* error message */],
-    shouldQuery: false
+    commandName: Z,
+    args: J,
+    isMcp: I
+  }
+}
+
+// READABLE (for understanding):
+function extractCommandParts(input) {
+  let trimmedInput = input.trim();
+
+  // Must start with "/" to be a slash command
+  if (!trimmedInput.startsWith("/")) return null;
+
+  // Split by space, skip the leading "/"
+  let tokens = trimmedInput.slice(1).split(" ");
+
+  // Command name is required
+  if (!tokens[0]) return null;
+
+  let commandName = tokens[0];
+  let isMcp = false;
+  let argsStartIndex = 1;
+
+  // Detect MCP marker: "/toolname (MCP) args..."
+  if (tokens.length > 1 && tokens[1] === "(MCP)") {
+    commandName = commandName + " (MCP)";
+    isMcp = true;
+    argsStartIndex = 2;  // Skip "(MCP)" token
+  }
+
+  // Join remaining tokens as args
+  let args = tokens.slice(argsStartIndex).join(" ");
+
+  return {
+    commandName: commandName,
+    args: args,
+    isMcp: isMcp
   };
 }
 
-let {
-  commandName: string,
-  args: string,
-  isMcp: boolean
-} = parsed;
+// Mapping: rJA→extractCommandParts, A→input, Q→trimmedInput, G→tokens,
+//          Z→commandName, I→isMcp, Y→argsStartIndex, J→args
 ```
 
-**Expected Format:**
-```
-/command arg1 arg2 ...
-```
+**How it works:**
+1. Trim whitespace and verify "/" prefix
+2. Split on spaces to get tokens
+3. First token is the command name
+4. Check for "(MCP)" marker as second token (MCP tool invocation)
+5. Remaining tokens join to form the args string
 
 **Examples:**
-- `/help` → `{ commandName: "help", args: "", isMcp: false }`
-- `/model claude-sonnet-4` → `{ commandName: "model", args: "claude-sonnet-4", isMcp: false }`
-- `/mcp:server::tool` → `{ commandName: "mcp:server::tool", args: "", isMcp: true }`
 
-#### 2. Validate Command Name
+| Input | Result |
+|-------|--------|
+| `/help` | `{ commandName: "help", args: "", isMcp: false }` |
+| `/model claude-sonnet-4` | `{ commandName: "model", args: "claude-sonnet-4", isMcp: false }` |
+| `/fetch (MCP) url` | `{ commandName: "fetch (MCP)", args: "url", isMcp: true }` |
+| `help` (no slash) | `null` |
 
-Function: `if5(commandName: string)`
+---
 
-Validates command name format:
+## Step 2: Command Name Validation
 
-```typescript
-function if5(commandName: string): boolean {
+### isValidCommandName (if5)
+
+Security function that validates command names against allowed characters.
+
+```javascript
+// ============================================
+// isValidCommandName - Validate command name format
+// Location: chunks.121.mjs:909-911
+// ============================================
+
+// ORIGINAL (for source lookup):
+function if5(A) {
+  return !/[^a-zA-Z0-9:\-_]/.test(A)
+}
+
+// READABLE (for understanding):
+function isValidCommandName(commandName) {
+  // Returns TRUE if command name contains ONLY allowed characters
+  // Regex matches any character NOT in the allowed set
+  // If regex matches, name is INVALID (return false)
   return !/[^a-zA-Z0-9:\-_]/.test(commandName);
 }
+
+// Mapping: if5→isValidCommandName, A→commandName
 ```
 
-**Valid Characters:**
+**Allowed characters:**
 - Letters: `a-z`, `A-Z`
 - Numbers: `0-9`
-- Special: `:`, `-`, `_`
+- Colon: `:` (for MCP namespacing, e.g., `mcp:server::tool`)
+- Hyphen: `-` (for kebab-case, e.g., `my-command`)
+- Underscore: `_` (for snake_case, e.g., `my_command`)
 
-#### 3. Command Type Classification
+**Why this approach:**
+- **Security:** Prevents command injection through special characters like `;`, `|`, `&`
+- **Simplicity:** Single regex test is fast and unambiguous
+- **Flexibility:** Supports multiple naming conventions (kebab-case, snake_case, namespacing)
 
-Determines command source:
+**Key insight:** The regex uses a negated character class `[^...]` to match ANY disallowed character. If the test succeeds (match found), the name is invalid.
 
-```typescript
-let commandType =
-  isMcp ? "mcp" :
-  !Ny().has(commandName) ? "custom" :
-  commandName;  // Built-in command name
+---
+
+## Step 3: Command Type Classification
+
+Commands are classified into three types based on their source:
+
+```javascript
+// Classification logic (inline in parseSlashCommandInput):
+let commandType = isMcp
+  ? "mcp"                           // MCP tool command
+  : !Ny().has(commandName)
+    ? "custom"                      // Custom command (not in built-in set)
+    : commandName;                  // Built-in command name
 ```
 
-**Types:**
-- `"mcp"`: MCP server tool invocation
-- `"custom"`: Custom command from `.claude/commands/`
-- `<name>`: Built-in command (e.g., "help", "model")
+### Type Classification Table
 
-#### 4. Command Existence Check
+| Condition | Type | Description |
+|-----------|------|-------------|
+| `isMcp === true` | `"mcp"` | MCP server tool invocation |
+| `!Ny().has(commandName)` | `"custom"` | Custom command from `.claude/commands/` or plugins |
+| Otherwise | `<command-name>` | Built-in command (e.g., "help", "config") |
 
-Function: `ph(commandName: string, commands: Command[])`
+### Built-in Command Registry (Ny)
 
-Checks if command exists in registry:
+The `Ny()` function returns a cached Set of all built-in command names:
 
-```typescript
-if (!ph(commandName, toolUseContext.options.commands)) {
-  // Check if it's a valid file path (special case)
-  let isFilePath = fs.existsSync(`/${commandName}`);
+```javascript
+// ============================================
+// getBuiltinCommandNames - Get Set of built-in command names
+// Location: chunks.152.mjs:2265
+// ============================================
 
-  if (if5(commandName) && !isFilePath) {
-    // Unknown command error
-    telemetry("tengu_input_slash_invalid", { input: commandName });
+// ORIGINAL (for source lookup):
+Ny = s1(() => new Set(KE9().map((A) => A.name)));
+
+// READABLE (for understanding):
+const getBuiltinCommandNames = memoize(() => {
+  // Get all built-in command objects
+  const builtinCommands = getAllBuiltinCommands();
+  // Extract just the names into a Set for O(1) lookup
+  return new Set(builtinCommands.map(cmd => cmd.name));
+});
+
+// Mapping: Ny→getBuiltinCommandNames, s1→memoize, KE9→getAllBuiltinCommands, A→cmd
+```
+
+**Why this approach:**
+- **Performance:** Memoized Set provides O(1) lookup
+- **Separation of concerns:** Built-in check before custom command lookup
+- **Telemetry categorization:** Different events for different command types
+
+---
+
+## Step 4: Command Existence and Lookup
+
+### commandExists (ph)
+
+Checks if a command exists in the registry by name, userFacingName, or aliases:
+
+```javascript
+// ============================================
+// commandExists - Check if command is registered
+// Location: chunks.152.mjs:2174-2176
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ph(A, Q) {
+  return Q.some((B) => B.name === A || B.userFacingName() === A || B.aliases?.includes(A))
+}
+
+// READABLE (for understanding):
+function commandExists(commandName, commands) {
+  return commands.some(cmd =>
+    cmd.name === commandName ||                    // Exact name match
+    cmd.userFacingName() === commandName ||        // Display name match
+    cmd.aliases?.includes(commandName)             // Alias match
+  );
+}
+
+// Mapping: ph→commandExists, A→commandName, Q→commands, B→cmd
+```
+
+**Three-way matching:**
+1. **name**: Internal command identifier (e.g., "config")
+2. **userFacingName()**: Display name, may include namespacing (e.g., "plugin:command")
+3. **aliases**: Alternative names (e.g., `/theme` → `/config`)
+
+### lookupCommand (Pq)
+
+Retrieves the full command definition, throwing descriptive error if not found:
+
+```javascript
+// ============================================
+// lookupCommand - Find command with error details
+// Location: chunks.152.mjs:2178-2182
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Pq(A, Q) {
+  let B = Q.find((G) => G.name === A || G.userFacingName() === A || G.aliases?.includes(A));
+  if (!B) throw ReferenceError(`Command ${A} not found. Available commands: ${Q.map((G)=>{let Z=G.userFacingName();return G.aliases?`${Z} (aliases: ${G.aliases.join(", ")})`:Z}).sort((G,Z)=>G.localeCompare(Z)).join(", ")}`);
+  return B
+}
+
+// READABLE (for understanding):
+function lookupCommand(commandName, commands) {
+  // Find command by name, userFacingName, or alias
+  let command = commands.find(cmd =>
+    cmd.name === commandName ||
+    cmd.userFacingName() === commandName ||
+    cmd.aliases?.includes(commandName)
+  );
+
+  if (!command) {
+    // Build helpful error message listing all available commands
+    const availableCommands = commands
+      .map(cmd => {
+        const name = cmd.userFacingName();
+        return cmd.aliases
+          ? `${name} (aliases: ${cmd.aliases.join(", ")})`
+          : name;
+      })
+      .sort((a, b) => a.localeCompare(b))
+      .join(", ");
+
+    throw ReferenceError(
+      `Command ${commandName} not found. Available commands: ${availableCommands}`
+    );
+  }
+
+  return command;
+}
+
+// Mapping: Pq→lookupCommand, A→commandName, Q→commands, B→command, G→cmd, Z→name
+```
+
+**Error handling design:**
+- Lists ALL available commands alphabetically
+- Includes alias information for discoverability
+- ReferenceError type caught by caller for special handling
+
+---
+
+## Step 5: Main Parsing Entry Point
+
+### parseSlashCommandInput (_P2)
+
+The main orchestrator function that combines all parsing steps:
+
+```javascript
+// ============================================
+// parseSlashCommandInput - Main entry point for slash command parsing
+// Location: chunks.121.mjs:913-1016
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function _P2(A, Q, B, G, Z, I, Y, J, W) {
+  let X = rJA(A);
+  if (!X) return GA("tengu_input_slash_missing", {}), {
+    messages: [cV(), ...G, R0({
+      content: Y$({
+        inputString: "Commands are in the form `/command [args]`",
+        precedingInputBlocks: Q
+      })
+    })],
+    shouldQuery: !1
+  };
+  let {
+    commandName: V,
+    args: F,
+    isMcp: K
+  } = X, D = K ? "mcp" : !Ny().has(V) ? "custom" : V;
+  if (!ph(V, Z.options.commands)) {
+    let y = RA().existsSync(`/${V}`);
+    if (if5(V) && !y) return GA("tengu_input_slash_invalid", {
+      input: V
+    }), {
+      messages: [cV(), ...G, R0({
+        content: Y$({
+          inputString: `Unknown slash command: ${V}`,
+          precedingInputBlocks: Q
+        })
+      })],
+      shouldQuery: !1
+    };
+    return GA("tengu_input_prompt", {}), HO("user_prompt", {
+      prompt_length: String(A.length),
+      prompt: n61(A)
+    }), {
+      messages: [R0({
+        content: Y$({
+          inputString: A,
+          precedingInputBlocks: Q
+        }),
+        uuid: J
+      }), ...G],
+      shouldQuery: !0
+    }
+  }
+  I(!0);
+  let {
+    messages: H,
+    shouldQuery: C,
+    allowedTools: E,
+    skipHistory: U,
+    maxThinkingTokens: q,
+    model: w,
+    command: N
+  } = await nf5(V, F, Y, Z, Q, B, W);
+  // ... (result processing continues)
+}
+
+// READABLE (for understanding):
+async function parseSlashCommandInput(
+  input,                    // Raw user input string
+  precedingInputBlocks,     // Previous input blocks in conversation
+  attachments,              // File attachments
+  historyMessages,          // Conversation history
+  toolUseContext,           // Tool execution context with commands list
+  setCommandRunning,        // Callback to set command running state
+  cwd,                      // Current working directory
+  uuid,                     // Message UUID
+  skipCompact               // Skip compaction flag
+) {
+  // Step 1: Extract command parts
+  let parsed = extractCommandParts(input);
+
+  if (!parsed) {
+    // Input doesn't look like a command (no "/" prefix or empty)
+    telemetry("tengu_input_slash_missing", {});
     return {
-      messages: [/* "Unknown slash command" error */],
+      messages: [
+        createSystemMessage(),
+        ...historyMessages,
+        createUserMessage({
+          content: buildMessageContent({
+            inputString: "Commands are in the form `/command [args]`",
+            precedingInputBlocks: precedingInputBlocks
+          })
+        })
+      ],
       shouldQuery: false
     };
   }
 
-  // Treat as regular prompt if looks like file path
-  telemetry("tengu_input_prompt", {});
-  return {
-    messages: [/* Regular user message */],
-    shouldQuery: true
-  };
-}
-```
+  let { commandName, args, isMcp } = parsed;
 
-#### 5. Command Execution
+  // Step 2: Classify command type for telemetry
+  let commandType = isMcp
+    ? "mcp"
+    : !getBuiltinCommandNames().has(commandName)
+      ? "custom"
+      : commandName;
 
-Function: `nf5(commandName, args, cwd, context, ...)`
+  // Step 3: Check if command exists
+  if (!commandExists(commandName, toolUseContext.options.commands)) {
+    // Special case: Check if it's actually a file path like /var/log/...
+    let isFilePath = fs.existsSync(`/${commandName}`);
 
-Executes the matched command:
-
-```typescript
-setCommandRunning(true);
-
-let {
-  messages,
-  shouldQuery,
-  allowedTools,
-  skipHistory,
-  maxThinkingTokens,
-  model,
-  command
-} = await nf5(commandName, args, cwd, toolUseContext, ...);
-```
-
-### Parse Result Structure
-
-```typescript
-{
-  messages: Message[],          // Messages to add to conversation
-  shouldQuery: boolean,         // Whether to send to LLM
-  allowedTools?: string[],      // Restricted tool list (if any)
-  skipHistory?: boolean,        // Skip saving to history
-  maxThinkingTokens?: number,   // Extended thinking tokens
-  model?: string                // Model override
-}
-```
-
----
-
-## Command Execution: `nf5()`
-
-Main function for executing a command after parsing:
-
-```typescript
-async function nf5(
-  commandName: string,
-  args: string,
-  cwd: string,
-  context: ToolUseContext,
-  precedingInputBlocks: Block[],
-  attachments: Attachment[],
-  skipCompact: boolean
-): Promise<ExecutionResult>
-```
-
-### Execution by Command Type
-
-#### 1. Local JSX Commands (`type: "local-jsx"`)
-
-Commands that render interactive UI components:
-
-```typescript
-case "local-jsx":
-  return new Promise((resolve) => {
-    command.call(
-      (output, displayOptions) => {
-        // Handle completion
-        if (displayOptions?.display === "skip") {
-          resolve({
-            messages: [],
-            shouldQuery: false,
-            skipHistory: true,
-            command
-          });
-          return;
-        }
-
-        resolve({
-          messages: [
-            /* User message with command */,
-            /* Output message */
-          ],
-          shouldQuery: false,
-          command
-        });
-      },
-      context,
-      args
-    ).then((jsx) => {
-      if (context.options.isNonInteractiveSession) {
-        // Skip JSX in non-interactive mode
-        resolve({
-          messages: [],
-          shouldQuery: false,
-          skipHistory: true,
-          command
-        });
-        return;
-      }
-
-      // Render JSX component
-      setLocalCommandJSX({
-        jsx: jsx,
-        shouldHidePromptInput: true,
-        showSpinner: false,
-        isLocalJSXCommand: false
-      });
-    });
-  });
-```
-
-**Examples:** `/help`, `/config`, `/context`, `/ide`
-
-#### 2. Local Commands (`type: "local"`)
-
-Commands that return text or perform actions synchronously:
-
-```typescript
-case "local": {
-  let userMessage = createUserMessage(command, args);
-
-  try {
-    let systemMessage = createSystemMessage();
-    let result = await command.call(args, context);
-
-    if (result.type === "skip") {
-      return {
-        messages: [],
-        shouldQuery: false,
-        skipHistory: true,
-        command
-      };
-    }
-
-    if (result.type === "compact") {
-      // Handle compaction result
-      let {
-        boundaryMarker,
-        summaryMessages,
-        attachments,
-        hookResults
-      } = result.compactionResult;
-
+    if (isValidCommandName(commandName) && !isFilePath) {
+      // Invalid command with valid name format
+      telemetry("tengu_input_slash_invalid", { input: commandName });
       return {
         messages: [
-          boundaryMarker,
-          ...summaryMessages,
-          systemMessage,
-          userMessage,
-          ...(result.displayText ? [createOutputMessage(result.displayText)] : []),
-          ...attachments,
-          ...hookResults
+          createSystemMessage(),
+          ...historyMessages,
+          createUserMessage({
+            content: buildMessageContent({
+              inputString: `Unknown slash command: ${commandName}`,
+              precedingInputBlocks: precedingInputBlocks
+            })
+          })
         ],
-        shouldQuery: false,
-        command
+        shouldQuery: false
       };
     }
 
-    // Regular text result
+    // Looks like a file path, treat as regular user prompt
+    telemetry("tengu_input_prompt", {});
+    logOtel("user_prompt", {
+      prompt_length: String(input.length),
+      prompt: truncatePrompt(input)
+    });
     return {
       messages: [
-        systemMessage,
-        userMessage,
-        createOutputMessage(result.value)
+        createUserMessage({
+          content: buildMessageContent({
+            inputString: input,
+            precedingInputBlocks: precedingInputBlocks
+          }),
+          uuid: uuid
+        }),
+        ...historyMessages
       ],
-      shouldQuery: false,
-      command
-    };
-  } catch (error) {
-    // Handle error
-    return {
-      messages: [
-        userMessage,
-        createErrorMessage(error)
-      ],
-      shouldQuery: false,
-      command
+      shouldQuery: true
     };
   }
-}
-```
 
-**Examples:** `/cost`, `/memory`, `/doctor`
+  // Step 4: Execute the command
+  setCommandRunning(true);
 
-#### 3. Prompt Commands (`type: "prompt"`)
-
-Commands that invoke LLM with specific prompts:
-
-```typescript
-case "prompt":
-  return await processPromptSlashCommand(
-    command,
+  let {
+    messages,
+    shouldQuery,
+    allowedTools,
+    skipHistory,
+    maxThinkingTokens,
+    model,
+    command
+  } = await executeCommand(
+    commandName,
     args,
-    context,
-    precedingInputBlocks,
     cwd,
+    toolUseContext,
+    precedingInputBlocks,
+    attachments,
     skipCompact
   );
-```
 
-See [Prompt Command Processing](#prompt-command-processing) below.
+  // Step 5: Process result and emit telemetry
+  // ... (result processing, telemetry emission)
 
-**Examples:** Plugin-provided commands, custom prompts
-
----
-
-## Prompt Command Processing
-
-Function: `processPromptSlashCommand()`
-
-Handles commands that invoke the LLM with custom prompts:
-
-```typescript
-async function processPromptSlashCommand(
-  command: PromptCommand,
-  args: string,
-  context: ToolUseContext,
-  precedingInputBlocks: Block[],
-  cwd: string,
-  skipCompact: boolean
-): Promise<{
-  messages: Message[],
-  shouldQuery: boolean,
-  allowedTools?: string[],
-  maxThinkingTokens?: number,
-  model?: string,
-  command: Command
-}>
-```
-
-### Processing Steps
-
-#### 1. Build Prompt Content
-
-```typescript
-let promptParts = [];
-
-// Add description
-if (command.description) {
-  promptParts.push(command.description);
-}
-
-// Add prompt template
-promptParts.push(command.prompt);
-
-// Replace placeholders
-let promptContent = promptParts
-  .join("\n\n")
-  .replace("$ARGS", args)
-  .replace("$CWD", cwd);
-```
-
-#### 2. Process Attachments
-
-```typescript
-let attachmentMessages = [];
-let textAttachments = [];
-
-if (command.attachments) {
-  for (let attachment of command.attachments) {
-    // Process each attachment (files, images, etc.)
-    let processed = await processAttachment(attachment, context);
-    textAttachments.push(processed);
-  }
-}
-```
-
-#### 3. Combine Content
-
-```typescript
-let combinedContent = [
-  ...precedingInputBlocks,
-  ...textAttachments,
-  ...promptParts
-];
-
-// Calculate thinking tokens if needed
-let maxThinkingTokens = calculateThinkingTokens(
-  combinedContent,
-  context,
-  command.maxThinkingTokens
-);
-```
-
-#### 4. Build Messages Array
-
-```typescript
-let messages = [
-  createUserMessage({ content: precedingInputBlocks }),
-  createUserMessage({
-    content: combinedContent,
-    isMeta: true
-  }),
-  ...processedAttachments,
-  ...additionalMessages
-];
-
-// Add command permissions if tools restricted
-if (command.allowedTools?.length || command.model) {
-  messages.push(createCommandPermissionsMessage({
-    allowedTools: command.allowedTools,
-    model: command.useSmallFastModel ? getSmallFastModel() : command.model
-  }));
-}
-```
-
-#### 5. Return Result
-
-```typescript
-return {
-  messages: messages,
-  shouldQuery: true,
-  allowedTools: command.allowedTools,
-  maxThinkingTokens: maxThinkingTokens > 0 ? maxThinkingTokens : undefined,
-  model: command.useSmallFastModel ? getSmallFastModel() : command.model,
-  command: command
-};
-```
-
-### Prompt Command Schema
-
-```typescript
-{
-  type: "prompt",
-  name: string,
-  description?: string,
-  prompt: string,              // Prompt template
-  allowedTools?: string[],     // Restricted tools
-  model?: string,              // Model override
-  useSmallFastModel?: boolean, // Use small fast model
-  attachments?: Attachment[],  // Files/images to include
-  maxThinkingTokens?: number,  // Extended thinking
-  pluginInfo?: {               // If from plugin
-    pluginManifest: Manifest,
-    repository: string
-  }
-}
-```
-
----
-
-## Command Registration
-
-### Built-in Command Registry
-
-Function: `Ny()`
-
-Returns a Set of built-in command names:
-
-```typescript
-function Ny(): Set<string> {
-  return new Set([
-    "help",
-    "config",
-    "context",
-    "cost",
-    "doctor",
-    "ide",
-    "init",
-    "memory",
-    // ... more built-in commands
-  ]);
-}
-```
-
-### Command Lookup
-
-Function: `Pq(commandName: string, commands: Command[])`
-
-Retrieves command definition from registry:
-
-```typescript
-function Pq(
-  commandName: string,
-  commands: Command[]
-): Command {
-  // Find exact match
-  let command = commands.find(c => c.name === commandName);
-
-  if (command) return command;
-
-  // Check aliases
-  command = commands.find(c =>
-    c.aliases && c.aliases.includes(commandName)
-  );
-
-  if (command) return command;
-
-  // Not found - will be caught by ph() check
-  throw new Error(`Command not found: ${commandName}`);
-}
-```
-
-### Command Existence Check
-
-Function: `ph(commandName: string, commands: Command[])`
-
-Checks if command exists (including aliases):
-
-```typescript
-function ph(
-  commandName: string,
-  commands: Command[]
-): boolean {
-  return commands.some(c =>
-    c.name === commandName ||
-    (c.aliases && c.aliases.includes(commandName))
-  );
-}
-```
-
----
-
-## Custom Command Loading
-
-### Location
-
-Custom commands are loaded from:
-```
-.claude/commands/
-```
-
-### Directory Structure
-
-```
-.claude/
-└── commands/
-    ├── my-command.json
-    ├── analyze.json
-    └── review/
-        └── code-review.json
-```
-
-### Custom Command Format
-
-```json
-{
-  "name": "my-command",
-  "description": "Description of what the command does",
-  "type": "prompt",
-  "prompt": "Prompt template with $ARGS placeholder",
-  "allowedTools": ["Read", "Grep"],
-  "model": "claude-sonnet-4-5-20250929"
-}
-```
-
-### Loading Process
-
-1. **Scan Directory:**
-   - Recursively scan `.claude/commands/`
-   - Find all `.json` files
-
-2. **Parse Command Files:**
-   - Read each JSON file
-   - Validate against command schema
-   - Extract command definition
-
-3. **Register Commands:**
-   - Add to command registry
-   - Check for name conflicts
-   - Merge with built-in commands
-
-4. **Validation:**
-   - Ensure unique names (no conflicts with built-ins)
-   - Validate required fields
-   - Check tool names in `allowedTools`
-
-### Custom Command Example
-
-File: `.claude/commands/analyze.json`
-
-```json
-{
-  "name": "analyze",
-  "description": "Analyze code quality and suggest improvements",
-  "type": "prompt",
-  "prompt": "Analyze the following code for quality, performance, and best practices:\n\n$ARGS\n\nProvide specific suggestions for improvement.",
-  "allowedTools": ["Read", "Grep", "Glob"],
-  "maxThinkingTokens": 5000
-}
-```
-
-Usage:
-```
-/analyze src/main.js
-```
-
----
-
-## Plugin Command Integration
-
-### Plugin Command Loading
-
-Plugins can contribute commands through manifests:
-
-```json
-{
-  "name": "my-plugin",
-  "version": "1.0.0",
-  "commands": [
-    {
-      "name": "plugin-command",
-      "description": "Command provided by plugin",
-      "type": "prompt",
-      "prompt": "Plugin-specific prompt..."
-    }
-  ]
-}
-```
-
-### Plugin Command Registration
-
-1. **Load Plugin Manifest:**
-   - Read plugin's manifest file
-   - Extract commands array
-
-2. **Add Plugin Context:**
-   ```typescript
-   {
-     ...command,
-     pluginInfo: {
-       pluginManifest: manifest,
-       repository: repositoryUrl
-     }
-   }
-   ```
-
-3. **Register with Namespace:**
-   - Optionally namespace: `/plugin:command`
-   - Or use plain name: `/command`
-
-4. **Track Source:**
-   - Commands know their source plugin
-   - Used for telemetry and debugging
-
-### MCP Command Integration
-
-MCP (Model Context Protocol) servers can provide tools that appear as commands:
-
-Format: `/mcp:server_name::tool_name`
-
-Example: `/mcp:filesystem::read_file path/to/file.txt`
-
-Parsing:
-```typescript
-{
-  commandName: "mcp:filesystem::read_file",
-  args: "path/to/file.txt",
-  isMcp: true
-}
-```
-
----
-
-## Command Aliases
-
-Commands can define aliases for convenience:
-
-```typescript
-{
-  name: "config",
-  aliases: ["theme", "settings"],
-  // ...
-}
-```
-
-Usage:
-- `/config` - Primary name
-- `/theme` - Alias
-- `/settings` - Alias
-
-All resolve to the same command.
-
----
-
-## Special Command Handling
-
-### Bash Input Detection
-
-If input starts with `!`, it's treated as bash command:
-
-```typescript
-if (input.startsWith("!")) {
-  let bashCommand = input.substring(1);
-  return await executeBashCommand(bashCommand, ...);
-}
-```
-
-Example:
-```
-!npm install
-!git status
-```
-
-### File Path Detection
-
-If command name looks like absolute file path, treat as regular input:
-
-```typescript
-let isFilePath = fs.existsSync(`/${commandName}`);
-
-if (!if5(commandName) || isFilePath) {
-  // Treat as regular prompt, not command
   return {
-    messages: [createUserMessage(input)],
-    shouldQuery: true
+    messages: messages,
+    shouldQuery: shouldQuery,
+    allowedTools: allowedTools,
+    maxThinkingTokens: maxThinkingTokens,
+    model: model
   };
 }
+
+// Mapping: _P2→parseSlashCommandInput, A→input, Q→precedingInputBlocks,
+//          B→attachments, G→historyMessages, Z→toolUseContext, I→setCommandRunning,
+//          Y→cwd, J→uuid, W→skipCompact, X→parsed, V→commandName, F→args, K→isMcp,
+//          D→commandType, rJA→extractCommandParts, ph→commandExists, if5→isValidCommandName,
+//          nf5→executeCommand, Ny→getBuiltinCommandNames, GA→telemetry
 ```
 
-Example:
+### Parsing Flow Pseudocode
+
 ```
-/var/log/app.log  → Treated as regular input
-/tmp/test.txt     → Treated as regular input
+FUNCTION parseSlashCommandInput(input, context, ...):
+
+    // Step 1: Extract command parts
+    parsed = extractCommandParts(input)
+
+    IF parsed IS NULL:
+        EMIT telemetry("tengu_input_slash_missing")
+        RETURN error message "Commands are in the form `/command [args]`"
+
+    { commandName, args, isMcp } = parsed
+
+    // Step 2: Classify command type
+    commandType =
+        IF isMcp: "mcp"
+        ELSE IF NOT builtinCommands.has(commandName): "custom"
+        ELSE: commandName
+
+    // Step 3: Check existence
+    IF NOT commandExists(commandName, registeredCommands):
+
+        // Special case: File path detection
+        isFilePath = fs.existsSync("/" + commandName)
+
+        IF isValidCommandName(commandName) AND NOT isFilePath:
+            EMIT telemetry("tengu_input_slash_invalid", commandName)
+            RETURN error message "Unknown slash command: {commandName}"
+
+        // Treat as regular prompt (e.g., "/var/log/app.log")
+        EMIT telemetry("tengu_input_prompt")
+        RETURN { messages: [userMessage], shouldQuery: true }
+
+    // Step 4: Execute command
+    setCommandRunning(true)
+    result = AWAIT executeCommand(commandName, args, context, ...)
+
+    // Step 5: Emit telemetry
+    EMIT telemetry("tengu_input_command", { type: commandType, pluginInfo? })
+
+    RETURN result
 ```
+
+---
+
+## File Path Detection
+
+A key edge case: input like `/var/log/app.log` looks like a command but is actually a file path.
+
+### Detection Logic
+
+```javascript
+// File path detection (inline in parseSlashCommandInput):
+let isFilePath = fs.existsSync(`/${commandName}`);
+
+if (isValidCommandName(commandName) && !isFilePath) {
+  // Valid command name format but command doesn't exist
+  // This is an error
+  return { messages: [/* error */], shouldQuery: false };
+}
+
+// Either invalid format OR is a file path
+// Treat as regular user prompt, send to LLM
+return { messages: [/* user message */], shouldQuery: true };
+```
+
+**Why this approach:**
+1. **User intent preservation:** User typing `/var/log/app.log` likely wants to reference the file
+2. **Minimal false positives:** Only checks paths starting with common system prefixes
+3. **Graceful fallback:** If ambiguous, send to LLM for interpretation
+
+**Special path prefixes handled:**
+- `/var` - Variable data files
+- `/tmp` - Temporary files
+- `/private` - macOS private directory
+
+---
+
+## Telemetry Events
+
+The parsing system emits several telemetry events for monitoring and debugging:
+
+### Event Types
+
+| Event Name | When Emitted | Data |
+|------------|--------------|------|
+| `tengu_input_slash_missing` | Input starts with "/" but invalid format | `{}` |
+| `tengu_input_slash_invalid` | Command name valid but not found | `{ input: commandName }` |
+| `tengu_input_prompt` | Input treated as regular prompt | `{ prompt_length, prompt }` |
+| `tengu_input_command` | Valid command executed | `{ input: type, plugin_*? }` |
+
+### Telemetry Data Structure
+
+```javascript
+// For command execution:
+telemetry("tengu_input_command", {
+  input: commandType,                    // "mcp", "custom", or command name
+  plugin_repository?: string,            // For plugin commands
+  plugin_name?: string,
+  plugin_version?: string
+});
+
+// For invalid commands:
+telemetry("tengu_input_slash_invalid", {
+  input: commandName                     // The attempted command name
+});
+```
+
+---
+
+## Parse Result Structure
+
+The final result from parsing contains everything needed for execution:
+
+```typescript
+interface ParseResult {
+  messages: Message[];           // Messages to add to conversation
+  shouldQuery: boolean;          // Whether to invoke LLM
+  allowedTools?: string[];       // Restricted tool list (if any)
+  skipHistory?: boolean;         // Skip saving to conversation history
+  maxThinkingTokens?: number;    // Extended thinking token budget
+  model?: string;                // Model override for this command
+}
+```
+
+### Result Scenarios
+
+| Scenario | shouldQuery | messages | Notes |
+|----------|-------------|----------|-------|
+| Invalid format | `false` | Error message | User sees format hint |
+| Unknown command | `false` | Error message | User sees command not found |
+| File path input | `true` | User message | Sent to LLM for interpretation |
+| Local command | `false` | Command output | Direct text response |
+| Local-JSX command | `false` | Empty or formatted | JSX UI rendered separately |
+| Prompt command | `true` | Prompt messages | Sent to LLM with custom prompt |
+
+---
+
+## Allowed Tools Parsing
+
+Commands can specify restricted tools via `allowedTools` property. The parsing handles comma-separated lists with parentheses:
+
+```javascript
+// ============================================
+// parseAllowedTools - Parse comma-separated tool list
+// Location: chunks.153.mjs:1569-1600
+// ============================================
+
+// ORIGINAL (for source lookup):
+function w0A(A) {
+  if (A.length === 0) return [];
+  let Q = [];
+  for (let B of A) {
+    if (!B) continue;
+    let G = "",
+      Z = !1;
+    for (let I of B) switch (I) {
+      case "(":
+        Z = !0, G += I;
+        break;
+      case ")":
+        Z = !1, G += I;
+        break;
+      case ",":
+        if (Z) G += I;
+        else {
+          if (G.trim()) Q.push(G.trim());
+          G = ""
+        }
+        break;
+      case " ":
+        if (Z) G += I;
+        else if (G.trim()) Q.push(G.trim()), G = "";
+        break;
+      default:
+        G += I
+    }
+    if (G.trim()) Q.push(G.trim())
+  }
+  return Q
+}
+
+// READABLE (for understanding):
+function parseAllowedTools(allowedToolStrings) {
+  if (allowedToolStrings.length === 0) return [];
+
+  let result = [];
+
+  for (let toolString of allowedToolStrings) {
+    if (!toolString) continue;
+
+    let currentToken = "";
+    let insideParentheses = false;
+
+    for (let char of toolString) {
+      switch (char) {
+        case "(":
+          insideParentheses = true;
+          currentToken += char;
+          break;
+        case ")":
+          insideParentheses = false;
+          currentToken += char;
+          break;
+        case ",":
+          if (insideParentheses) {
+            // Comma inside parens is part of token (e.g., "Bash(ls,-la)")
+            currentToken += char;
+          } else {
+            // Comma outside parens is delimiter
+            if (currentToken.trim()) {
+              result.push(currentToken.trim());
+            }
+            currentToken = "";
+          }
+          break;
+        case " ":
+          if (insideParentheses) {
+            currentToken += char;
+          } else if (currentToken.trim()) {
+            // Space outside parens also delimits
+            result.push(currentToken.trim());
+            currentToken = "";
+          }
+          break;
+        default:
+          currentToken += char;
+      }
+    }
+
+    // Don't forget the last token
+    if (currentToken.trim()) {
+      result.push(currentToken.trim());
+    }
+  }
+
+  return result;
+}
+
+// Mapping: w0A→parseAllowedTools, A→allowedToolStrings, Q→result, B→toolString,
+//          G→currentToken, Z→insideParentheses, I→char
+```
+
+**Why this approach:**
+- **Handles complex tool specs:** `Bash(ls:*, grep:*)` keeps parenthetical content together
+- **Multiple delimiters:** Both comma and space work as separators
+- **State machine pattern:** Tracks parentheses nesting for correct parsing
+
+**Examples:**
+
+| Input | Output |
+|-------|--------|
+| `["Read, Write"]` | `["Read", "Write"]` |
+| `["Bash(ls:*, grep:*)"]` | `["Bash(ls:*, grep:*)"]` |
+| `["Read Write Grep"]` | `["Read", "Write", "Grep"]` |
 
 ---
 
 ## Error Handling
 
-### Unknown Command
+### Error Types
 
-```typescript
-telemetry("tengu_input_slash_invalid", {
-  input: commandName
-});
+| Error | Handler | User Feedback |
+|-------|---------|---------------|
+| Invalid format | Return error message | "Commands are in the form `/command [args]`" |
+| Unknown command | Return error message | "Unknown slash command: {name}" |
+| Lookup failure | ReferenceError | Lists available commands with aliases |
+| Execution error | Catch and format | `<local-command-stderr>` tag |
 
-return {
-  messages: [
-    createSystemMessage(),
-    createUserMessage(`Unknown slash command: ${commandName}`)
-  ],
-  shouldQuery: false
-};
+### Command Not Found Error
+
+The `lookupCommand` function provides helpful error messages:
+
 ```
-
-### Command Execution Error
-
-```typescript
-try {
-  result = await command.call(args, context);
-} catch (error) {
-  return {
-    messages: [
-      createUserMessage(command, args),
-      createErrorMessage(error)
-    ],
-    shouldQuery: false,
-    command
-  };
-}
-```
-
-### Invalid Command Format
-
-```typescript
-if (!rJA(input)) {
-  return {
-    messages: [
-      createErrorMessage("Commands are in the form `/command [args]`")
-    ],
-    shouldQuery: false
-  };
-}
+Command mycommand not found. Available commands:
+clear (aliases: reset, new), compact, config (aliases: theme, settings),
+context, cost, doctor, help, ide, init, memory, ...
 ```
 
 ---
 
-## Telemetry
+## Command Registry Loading
 
-Command parsing emits telemetry events:
+All commands (built-in, custom, plugin) are merged into a single registry:
 
-```typescript
-// Unknown command
-telemetry("tengu_input_slash_invalid", {
-  input: commandName
+```javascript
+// ============================================
+// getAllEnabledCommands - Merge all command sources
+// Location: chunks.152.mjs:2266-2272
+// ============================================
+
+// ORIGINAL (for source lookup):
+sE = s1(async () => {
+  let [A, { skillDirCommands: Q, pluginSkills: B }, G, Z] =
+    await Promise.all([fC9(), Sv3(), PQA(), jv3()]);
+  return [...A, ...Q, ...G, ...B, ...Z, ...KE9()].filter((I) => I.isEnabled())
 });
 
-// Missing slash
-telemetry("tengu_input_slash_missing", {});
+// READABLE (for understanding):
+const getAllEnabledCommands = memoize(async () => {
+  // Load commands from all sources in parallel
+  const [
+    customCommands,          // From .claude/commands/
+    { skillDirCommands, pluginSkills },  // From skills and plugins
+    mcpCommands,             // From MCP servers
+    policyCommands           // From policy configuration
+  ] = await Promise.all([
+    loadCustomCommandsForExecution(),
+    getSkillsFromPluginsAndDirectories(),
+    getMcpCommands(),
+    getPolicyCommands()
+  ]);
 
-// Valid command
-telemetry("tengu_input_command", {
-  input: commandType,
-  plugin_repository?: string,
-  plugin_name?: string,
-  plugin_version?: string
+  // Merge all sources, add built-in commands last
+  return [
+    ...customCommands,
+    ...skillDirCommands,
+    ...mcpCommands,
+    ...pluginSkills,
+    ...policyCommands,
+    ...getAllBuiltinCommands()
+  ].filter(cmd => cmd.isEnabled());  // Only enabled commands
 });
 
-// Regular prompt
-telemetry("tengu_input_prompt", {
-  prompt_length: string,
-  prompt: string
-});
+// Mapping: sE→getAllEnabledCommands, s1→memoize, fC9→loadCustomCommandsForExecution,
+//          Sv3→getSkillsFromPluginsAndDirectories, KE9→getAllBuiltinCommands
 ```
 
----
+**Loading order matters:**
+1. Custom commands loaded first (can override)
+2. Skill and plugin commands
+3. MCP commands
+4. Policy commands
+5. Built-in commands (lowest priority)
 
-## Command Definition Types
-
-### LocalJSXCommand
-
-```typescript
-{
-  type: "local-jsx",
-  name: string,
-  description: string,
-  isEnabled: () => boolean,
-  isHidden: boolean,
-  async call(
-    onComplete: (output: string, options?: DisplayOptions) => void,
-    context: ToolUseContext,
-    args: string
-  ): Promise<JSX.Element>,
-  userFacingName(): string
-}
-```
-
-### LocalCommand
-
-```typescript
-{
-  type: "local",
-  name: string,
-  description: string,
-  isEnabled: () => boolean,
-  isHidden?: boolean,
-  supportsNonInteractive?: boolean,
-  async call(
-    args: string,
-    context: ToolUseContext
-  ): Promise<CommandResult>,
-  userFacingName(): string
-}
-```
-
-### PromptCommand
-
-```typescript
-{
-  type: "prompt",
-  name: string,
-  description?: string,
-  prompt: string,
-  allowedTools?: string[],
-  model?: string,
-  useSmallFastModel?: boolean,
-  attachments?: Attachment[],
-  maxThinkingTokens?: number,
-  pluginInfo?: PluginInfo,
-  isEnabled?: () => boolean,
-  isHidden?: boolean,
-  userFacingName(): string
-}
-```
-
----
-
-## Best Practices
-
-### 1. Command Naming
-
-- Use lowercase with hyphens: `/my-command`
-- Avoid special characters except `:`, `-`, `_`
-- Keep names short and descriptive
-- Use aliases for common variations
-
-### 2. Custom Commands
-
-- Place in `.claude/commands/` for project-wide use
-- Use descriptive filenames matching command name
-- Include clear descriptions
-- Test with various arguments
-
-### 3. Prompt Templates
-
-- Use `$ARGS` placeholder for arguments
-- Use `$CWD` placeholder for current directory
-- Provide clear instructions in prompt
-- Specify allowed tools to reduce context
-
-### 4. Error Handling
-
-- Validate arguments before execution
-- Provide helpful error messages
-- Use try-catch for async operations
-- Return appropriate shouldQuery flag
-
-### 5. Plugin Commands
-
-- Namespace commands to avoid conflicts
-- Include plugin metadata
-- Document command usage
-- Test in isolation
+**Key insight:** The `isEnabled()` filter runs after merging, allowing commands to be conditionally disabled based on runtime state.
 
 ---
 
 ## See Also
 
-- [Built-in Commands](./builtin_commands.md) - All built-in slash commands
-- [Plugin System](../10_skill/overview.md) - Plugin development and integration
-- [Command Permissions](../05_tools/permissions.md) - Tool restriction system
+- [Command Execution](./execution.md) - How commands execute after parsing
+- [Built-in Commands](./builtin_commands.md) - All built-in command definitions
+- [Custom Commands](./custom_commands.md) - Custom command loading system
+- [Streaming and Errors](./streaming_errors.md) - Streaming support and error handling

@@ -883,3 +883,655 @@ This allows Claude Code to maintain awareness of:
 - Budget/token limits
 
 All while maintaining a clean user-facing conversation experience.
+
+---
+
+## Attachment to Message Conversion Pipeline (kb3)
+
+### Overview
+
+The `kb3()` function (chunks.154.mjs:3-322) is the central switch that converts all attachment objects into API-compatible system messages.
+
+### Helper Functions
+
+#### kSA() - Create Tool Use Message
+
+**Location:** `chunks.154.mjs:343-348`
+
+**Obfuscated Name:** `kSA`
+
+**Readable Name:** `createToolUseMessage`
+
+```javascript
+// ============================================
+// createToolUseMessage - Simulate a tool use call
+// Location: chunks.154.mjs:343-348
+// ============================================
+
+// ORIGINAL (for source lookup):
+function kSA(A, Q) {
+  return R0({ content: `Called the ${A} tool with the following input: ${JSON.stringify(Q)}`, isMeta: !0 })
+}
+
+// READABLE (for understanding):
+function createToolUseMessage(toolName, input) {
+  return createMetaBlock({
+    content: `Called the ${toolName} tool with the following input: ${JSON.stringify(input)}`,
+    isMeta: true
+  });
+}
+
+// Mapping: kSA→createToolUseMessage, A→toolName, Q→input, R0→createMetaBlock, !0→true
+```
+
+**Usage:** Used for `directory` and `file` attachment types to simulate tool use context.
+
+#### _SA() - Create Tool Result Message
+
+**Location:** `chunks.154.mjs:324-341`
+
+**Obfuscated Name:** `_SA`
+
+**Readable Name:** `createToolResultMessage`
+
+```javascript
+// ============================================
+// createToolResultMessage - Simulate a tool result
+// Location: chunks.154.mjs:324-341
+// ============================================
+
+// ORIGINAL (for source lookup):
+function _SA(A, Q) {
+  try {
+    let B = A.mapToolResultToToolResultBlockParam(Q, "1");
+    if (Array.isArray(B.content) && B.content.some((G) => G.type === "image"))
+      return R0({ content: B.content, isMeta: !0 });
+    return R0({ content: `Result of calling the ${A.name} tool: ${JSON.stringify(B.content)}`, isMeta: !0 })
+  } catch {
+    return R0({ content: `Result of calling the ${A.name} tool: Error`, isMeta: !0 })
+  }
+}
+
+// READABLE (for understanding):
+function createToolResultMessage(tool, data) {
+  try {
+    let resultBlock = tool.mapToolResultToToolResultBlockParam(data, "1");
+    if (Array.isArray(resultBlock.content) &&
+        resultBlock.content.some((block) => block.type === "image")) {
+      return createMetaBlock({ content: resultBlock.content, isMeta: true });
+    }
+    return createMetaBlock({
+      content: `Result of calling the ${tool.name} tool: ${JSON.stringify(resultBlock.content)}`,
+      isMeta: true
+    });
+  } catch {
+    return createMetaBlock({ content: `Result of calling the ${tool.name} tool: Error`, isMeta: true });
+  }
+}
+
+// Mapping: _SA→createToolResultMessage, A→tool, Q→data, B→resultBlock, G→block,
+//          R0→createMetaBlock, !0→true
+```
+
+**Usage:** Used for `directory` and `file` attachment types to provide tool result context.
+
+### Complete kb3() Pseudocode
+
+```javascript
+// ============================================
+// kb3 (convertAttachmentToSystemMessage) - Main Converter
+// Location: chunks.154.mjs:3-322
+// Input: Attachment object from JH5() generators
+// Output: Array of message objects for API
+// ============================================
+
+// Key Symbol Mapping for kb3():
+// kb3→convertAttachmentToSystemMessage, A→attachment
+// NG→wrapInSystemReminder, R0→createMetaBlock, Qu→wrapSystemReminderText
+// kSA→createToolUseMessage, _SA→createToolResultMessage
+// D9→BashTool, n8→ReadTool, BY→TodoWriteTool
+// z8→quotePathArray, !0→true, !1→false
+
+// ===== CASE: directory =====
+// ORIGINAL (chunks.154.mjs:5-13):
+case "directory":
+  return NG([kSA(D9.name, {
+    command: `ls ${z8([A.path])}`,
+    description: `Lists files in ${A.path}`
+  }), _SA(D9, {
+    stdout: A.content,
+    stderr: "",
+    interrupted: !1
+  })]);
+
+// READABLE:
+case "directory":
+  return wrapInSystemReminder([
+    createToolUseMessage(BashTool.name, {
+      command: `ls ${quotePathArray([attachment.path])}`,
+      description: `Lists files in ${attachment.path}`
+    }),
+    createToolResultMessage(BashTool, {
+      stdout: attachment.content,
+      stderr: "",
+      interrupted: false
+    })
+  ]);
+// Mapping: D9→BashTool, z8→quotePathArray, A→attachment, !1→false
+
+// ===== CASE: file =====
+// ORIGINAL (chunks.154.mjs:20-44):
+case "file": {
+  let B = A.content;
+  switch (B.type) {
+    case "image":
+      return NG([kSA(n8.name, { file_path: A.filename }), _SA(n8, B)]);
+    case "text":
+      return NG([kSA(n8.name, { file_path: A.filename }), _SA(n8, B),
+        ...A.truncated ? [R0({
+          content: `Note: The file ${A.filename} was too large and has been truncated to the first ${NKA} lines. Don't tell the user about this truncation. Use ${n8.name} to read more of the file if you need.`,
+          isMeta: !0
+        })] : []]);
+    case "notebook":
+    case "pdf":
+      return NG([kSA(n8.name, { file_path: A.filename }), _SA(n8, B)]);
+  }
+  break
+}
+
+// READABLE:
+    case "file": {
+      // @mention of file → simulate Read tool call
+      let fileContent = attachment.content;
+      switch (fileContent.type) {
+        case "image":
+          return wrapInSystemReminder([
+            createToolUseMessage("Read", { file_path: attachment.filename }),
+            createToolResultMessage(ReadTool, fileContent)
+          ]);
+        case "text":
+          let messages = [
+            createToolUseMessage("Read", { file_path: attachment.filename }),
+            createToolResultMessage(ReadTool, fileContent)
+          ];
+          // Add truncation warning if needed
+          if (attachment.truncated) {
+            messages.push(createMetaBlock({
+              content: `Note: The file ${attachment.filename} was too large and has been truncated to the first ${MAX_LINES} lines. Don't tell the user about this truncation. Use Read to read more of the file if you need.`,
+              isMeta: true
+            }));
+          }
+          return wrapInSystemReminder(messages);
+        case "notebook":
+        case "pdf":
+          return wrapInSystemReminder([
+            createToolUseMessage("Read", { file_path: attachment.filename }),
+            createToolResultMessage(ReadTool, fileContent)
+          ]);
+      }
+      break;
+    }
+
+// ===== CASE: mcp_resource =====
+// ORIGINAL (chunks.154.mjs:170-204):
+case "mcp_resource": {
+  let B = A.content;
+  if (!B || !B.contents || B.contents.length === 0) return NG([R0({
+    content: `<mcp-resource server="${A.server}" uri="${A.uri}">(No content)</mcp-resource>`,
+    isMeta: !0
+  })]);
+  let G = [];
+  for (let Z of B.contents)
+    if (Z && typeof Z === "object") {
+      if ("text" in Z && typeof Z.text === "string") G.push({
+        type: "text", text: "Full contents of resource:"
+      }, { type: "text", text: Z.text }, {
+        type: "text", text: "Do NOT read this resource again unless you think it may have changed, since you already have the full contents."
+      });
+      else if ("blob" in Z) {
+        let I = "mimeType" in Z ? String(Z.mimeType) : "application/octet-stream";
+        G.push({ type: "text", text: `[Binary content: ${I}]` });
+      }
+    }
+  if (G.length > 0) return NG([R0({ content: G, isMeta: !0 })]);
+  else return y0(A.server, `No displayable content found in MCP resource ${A.uri}.`),
+    NG([R0({ content: `<mcp-resource server="${A.server}" uri="${A.uri}">(No displayable content)</mcp-resource>`, isMeta: !0 })]);
+}
+
+// READABLE:
+    case "mcp_resource": {
+      // @server:uri → MCP resource content
+      let resourceContent = attachment.content;
+      if (!resourceContent?.contents?.length) {
+        return wrapInSystemReminder([createMetaBlock({
+          content: `<mcp-resource server="${attachment.server}" uri="${attachment.uri}">(No content)</mcp-resource>`,
+          isMeta: true
+        })]);
+      }
+      // Format resource content blocks
+      let blocks = [];
+      for (let item of resourceContent.contents) {
+        if (item?.text) {
+          blocks.push(
+            { type: "text", text: "Full contents of resource:" },
+            { type: "text", text: item.text },
+            { type: "text", text: "Do NOT read this resource again unless you think it may have changed, since you already have the full contents." }
+          );
+        } else if (item?.blob) {
+          let mimeType = item.mimeType || "application/octet-stream";
+          blocks.push({ type: "text", text: `[Binary content: ${mimeType}]` });
+        }
+      }
+      if (blocks.length > 0) {
+        return wrapInSystemReminder([createMetaBlock({ content: blocks, isMeta: true })]);
+      } else {
+        logMcpWarning(attachment.server, `No displayable content found in MCP resource ${attachment.uri}.`);
+        return wrapInSystemReminder([createMetaBlock({
+          content: `<mcp-resource server="${attachment.server}" uri="${attachment.uri}">(No displayable content)</mcp-resource>`,
+          isMeta: true
+        })]);
+      }
+    }
+// Mapping: B→resourceContent, G→blocks, Z→item, I→mimeType, y0→logMcpWarning
+
+    case "agent_mention":
+      // @agent-type → agent invocation hint
+      return wrapInSystemReminder([createMetaBlock({
+        content: `The user has expressed a desire to invoke the agent "${attachment.agentType}". Please invoke the agent appropriately, passing in the required context to it.`,
+        isMeta: true
+      })]);
+
+    // ===== CORE ATTACHMENTS =====
+
+    case "edited_text_file":
+      // File modified on disk
+      return wrapInSystemReminder([createMetaBlock({
+        content: `Note: ${attachment.filename} was modified, either by the user or by a linter. This change was intentional, so make sure to take it into account as you proceed (ie. don't revert it unless the user asks you to). Don't tell the user this, since they are already aware. Here are the relevant changes (shown with line numbers):
+${attachment.snippet}`,
+        isMeta: true
+      })]);
+
+    case "nested_memory":
+      // Related file content (CLAUDE.md, etc.)
+      return wrapInSystemReminder([createMetaBlock({
+        content: `Contents of ${attachment.content.path}:
+
+${attachment.content.content}`,
+        isMeta: true
+      })]);
+
+// ===== CASE: todo =====
+// ORIGINAL (chunks.154.mjs:66-76):
+case "todo":
+  if (A.itemCount === 0) return NG([R0({
+    content: `This is a reminder that your todo list is currently empty. DO NOT mention this to the user explicitly because they are already aware. If you are working on tasks that would benefit from a todo list please use the ${BY.name} tool to create one. If not, please feel free to ignore. Again do not mention this message to the user.`,
+    isMeta: !0
+  })]);
+  else return NG([R0({
+    content: `Your todo list has changed. DO NOT mention this explicitly to the user. Here are the latest contents of your todo list:
+
+${JSON.stringify(A.content)}. Continue on with the tasks at hand if applicable.`,
+    isMeta: !0
+  })]);
+
+// READABLE:
+    case "todo":
+      if (attachment.itemCount === 0) {
+        return wrapInSystemReminder([createMetaBlock({
+          content: `This is a reminder that your todo list is currently empty. DO NOT mention this to the user explicitly because they are already aware. If you are working on tasks that would benefit from a todo list please use the ${TodoWriteTool.name} tool to create one. If not, please feel free to ignore. Again do not mention this message to the user.`,
+          isMeta: true
+        })]);
+      } else {
+        return wrapInSystemReminder([createMetaBlock({
+          content: `Your todo list has changed. DO NOT mention this explicitly to the user. Here are the latest contents of your todo list:
+
+${JSON.stringify(attachment.content)}. Continue on with the tasks at hand if applicable.`,
+          isMeta: true
+        })]);
+      }
+// Mapping: BY→TodoWriteTool, A→attachment, R0→createMetaBlock, NG→wrapInSystemReminder
+
+// ===== CASE: todo_reminder =====
+// ORIGINAL (chunks.154.mjs:88-102):
+case "todo_reminder": {
+  let B = A.content.map((Z, I) => `${I+1}. [${Z.status}] ${Z.content}`).join(`
+`),
+    G = `The TodoWrite tool hasn't been used recently. If you're working on tasks that would benefit from tracking progress, consider using the TodoWrite tool to track progress. Also consider cleaning up the todo list if has become stale and no longer matches what you are working on. Only use it if it's relevant to the current work. This is just a gentle reminder - ignore if not applicable. Make sure that you NEVER mention this reminder to the user
+`;
+  if (B.length > 0) G += `
+
+Here are the existing contents of your todo list:
+
+[${B}]`;
+  return NG([R0({ content: G, isMeta: !0 })])
+}
+
+// READABLE:
+    case "todo_reminder": {
+      // Periodic reminder to use TodoWrite
+      let formattedList = attachment.content
+        .map((item, i) => `${i+1}. [${item.status}] ${item.content}`)
+        .join('\n');
+      let message = `The TodoWrite tool hasn't been used recently. If you're working on tasks that would benefit from tracking progress, consider using the TodoWrite tool to track progress. Also consider cleaning up the todo list if has become stale and no longer matches what you are working on. Only use it if it's relevant to the current work. This is just a gentle reminder - ignore if not applicable. Make sure that you NEVER mention this reminder to the user
+`;
+      if (formattedList.length > 0) {
+        message += `
+
+Here are the existing contents of your todo list:
+
+[${formattedList}]`;
+      }
+      return wrapInSystemReminder([createMetaBlock({ content: message, isMeta: true })]);
+    }
+
+// ===== CASE: plan_mode =====
+// ORIGINAL (chunks.154.mjs:144-145):
+case "plan_mode":
+  return jb3(A);
+
+// READABLE:
+    case "plan_mode":
+      return generatePlanModeInstructions(attachment);  // jb3() → Sb3() or _b3()
+// Mapping: jb3→generatePlanModeInstructions (delegates to Sb3 for main agent, _b3 for sub-agent)
+
+// ===== CASE: plan_mode_reentry =====
+// ORIGINAL (chunks.154.mjs:146-164):
+case "plan_mode_reentry": {
+  let B = `## Re-entering Plan Mode
+
+You are returning to plan mode after having previously exited it. A plan file exists at ${A.planFilePath} from your previous planning session.
+
+**Before proceeding with any new planning, you should:**
+1. Read the existing plan file to understand what was previously planned
+2. Evaluate the user's current request against that plan
+3. Decide how to proceed:
+   - **Different task**: If the user's request is for a different task—even if it's similar or related—start fresh by overwriting the existing plan
+   - **Same task, continuing**: If this is explicitly a continuation or refinement of the exact same task, modify the existing plan while cleaning up outdated or irrelevant sections
+4. Continue on with the plan process and most importantly you should always edit the plan file one way or the other before calling ${gq.name}
+
+Treat this as a fresh planning session. Do not assume the existing plan is relevant without evaluating it first.`;
+  return NG([R0({ content: B, isMeta: !0 })])
+}
+
+// READABLE:
+    case "plan_mode_reentry":
+      return wrapInSystemReminder([createMetaBlock({
+        content: `## Re-entering Plan Mode
+
+You are returning to plan mode after having previously exited it. A plan file exists at ${attachment.planFilePath} from your previous planning session.
+
+**Before proceeding with any new planning, you should:**
+1. Read the existing plan file to understand what was previously planned
+2. Evaluate the user's current request against that plan
+3. Decide how to proceed:
+   - **Different task**: If the user's request is for a different task—even if it's similar or related—start fresh by overwriting the existing plan
+   - **Same task, continuing**: If this is explicitly a continuation or refinement of the exact same task, modify the existing plan while cleaning up outdated or irrelevant sections
+4. Continue on with the plan process and most importantly you should always edit the plan file one way or the other before calling ExitPlanMode
+
+Treat this as a fresh planning session. Do not assume the existing plan is relevant without evaluating it first.`,
+        isMeta: true
+      })]);
+
+    case "critical_system_reminder":
+      // User-defined critical instructions
+      return wrapInSystemReminder([createMetaBlock({
+        content: attachment.content,
+        isMeta: true
+      })]);
+
+    case "teammate_mailbox":
+      // Messages from other agents
+      return [createMetaBlock({
+        content: formatTeammateMessages(attachment.messages),
+        isMeta: true
+      })];
+
+    // ===== MAIN AGENT ATTACHMENTS =====
+
+    case "selected_lines_in_ide": {
+      // IDE selection
+      let content = attachment.content.length > 2000
+        ? attachment.content.substring(0, 2000) + '\n... (truncated)'
+        : attachment.content;
+      return wrapInSystemReminder([createMetaBlock({
+        content: `The user selected the lines ${attachment.lineStart} to ${attachment.lineEnd} from ${attachment.filename}:
+${content}
+
+This may or may not be related to the current task.`,
+        isMeta: true
+      })]);
+    }
+
+    case "opened_file_in_ide":
+      // IDE opened file
+      return wrapInSystemReminder([createMetaBlock({
+        content: `The user opened the file ${attachment.filename} in the IDE. This may or may not be related to the current task.`,
+        isMeta: true
+      })]);
+
+    case "diagnostics": {
+      // New diagnostic issues
+      if (attachment.files.length === 0) return [];
+      let summary = DiagnosticsFormatter.formatDiagnosticsSummary(attachment.files);
+      return wrapInSystemReminder([createMetaBlock({
+        content: `<new-diagnostics>The following new diagnostic issues were detected:
+
+${summary}</new-diagnostics>`,
+        isMeta: true
+      })]);
+    }
+
+    case "background_shell_status": {
+      // Background shell update - uses Qu() directly
+      let parts = [
+        `Background Bash ${attachment.taskId}`,
+        `(command: ${attachment.command})`,
+        `(status: ${attachment.status})`
+      ];
+      if (attachment.exitCode !== undefined) {
+        parts.push(`(exit code: ${attachment.exitCode})`);
+      }
+      if (attachment.hasNewOutput) {
+        parts.push("Has new output available. You can check its output using the BashOutput tool.");
+      }
+      return [createMetaBlock({
+        content: wrapSystemReminderText(parts.join(" ")),
+        isMeta: true
+      })];
+    }
+
+// ===== CASE: async_agent_status =====
+// ORIGINAL (chunks.154.mjs:240-247):
+case "async_agent_status": {
+  let B = A.status,
+    G = A.error ? `: ${A.error}` : "";
+  return [R0({
+    content: `<system-notification>Async agent "${A.description}" ${B}${G}. The output can be retrieved using AgentOutputTool with agentId: "${A.agentId}"</system-notification>`,
+    isMeta: !0
+  })]
+}
+
+// READABLE:
+    case "async_agent_status": {
+      // Async agent notification - uses <system-notification> tag
+      let status = attachment.status;
+      let errorSuffix = attachment.error ? `: ${attachment.error}` : "";
+      return [createMetaBlock({
+        content: `<system-notification>Async agent "${attachment.description}" ${status}${errorSuffix}. The output can be retrieved using AgentOutputTool with agentId: "${attachment.agentId}"</system-notification>`,
+        isMeta: true
+      })];
+    }
+// Mapping: B→status, G→errorSuffix, A→attachment
+
+    case "token_usage":
+      // Token usage info - uses Qu() directly
+      return [createMetaBlock({
+        content: wrapSystemReminderText(`Token usage: ${attachment.used}/${attachment.total}; ${attachment.remaining} remaining`),
+        isMeta: true
+      })];
+
+    case "budget_usd":
+      // Budget info - uses Qu() directly
+      return [createMetaBlock({
+        content: wrapSystemReminderText(`USD budget: $${attachment.used}/$${attachment.total}; $${attachment.remaining} remaining`),
+        isMeta: true
+      })];
+
+// ===== CASE: memory =====
+// ORIGINAL (chunks.154.mjs:253-272):
+case "memory": {
+  let B = A.memories.map((G) => {
+    let Z = G.remainingLines && G.remainingLines > 0 ? ` (${G.remainingLines} more lines in full file)` : "";
+    return `## Previous Session (${(G.lastModified instanceof Date?G.lastModified:new Date(G.lastModified)).toLocaleDateString()})
+Full session notes: ${G.fullPath}${Z}
+
+${G.content}`
+  }).join(`
+
+---
+
+`);
+  return NG([R0({
+    content: `<session-memory>
+These session summaries are from PAST sessions that might not be related to the current task and may have outdated info. Do not assume the current task is related to these summaries, until the user's messages indicate so or reference similar tasks. Only a preview of each memory is shown - use the Read tool with the provided path to access full session memory when a session is relevant.
+
+${B}
+</session-memory>`,
+    isMeta: !0
+  })])
+}
+
+// READABLE:
+    case "memory": {
+      // Session memory - uses <session-memory> tag
+      let formattedMemories = attachment.memories.map((memoryItem) => {
+        let suffix = memoryItem.remainingLines > 0 ? ` (${memoryItem.remainingLines} more lines in full file)` : "";
+        return `## Previous Session (${new Date(memoryItem.lastModified).toLocaleDateString()})
+Full session notes: ${memoryItem.fullPath}${suffix}
+
+${memoryItem.content}`;
+      }).join("\n\n---\n\n");
+      return wrapInSystemReminder([createMetaBlock({
+        content: `<session-memory>
+These session summaries are from PAST sessions that might not be related to the current task and may have outdated info. Do not assume the current task is related to these summaries, until the user's messages indicate so or reference similar tasks. Only a preview of each memory is shown - use the Read tool with the provided path to access full session memory when a session is relevant.
+
+${formattedMemories}
+</session-memory>`,
+        isMeta: true
+      })]);
+    }
+// Mapping: B→formattedMemories, G→memoryItem, Z→suffix
+
+    // ===== HOOK ATTACHMENTS =====
+
+    case "hook_blocking_error":
+      return [createMetaBlock({
+        content: wrapSystemReminderText(`${attachment.hookName} hook blocking error from command: "${attachment.blockingError.command}": ${attachment.blockingError.blockingError}`),
+        isMeta: true
+      })];
+
+    case "hook_success":
+      // Only show for SessionStart and UserPromptSubmit
+      if (attachment.hookEvent !== "SessionStart" && attachment.hookEvent !== "UserPromptSubmit")
+        return [];
+      if (attachment.content === "") return [];
+      return [createMetaBlock({
+        content: wrapSystemReminderText(`${attachment.hookName} hook success: ${attachment.content}`),
+        isMeta: true
+      })];
+
+    case "hook_additional_context":
+      if (attachment.content.length === 0) return [];
+      return [createMetaBlock({
+        content: wrapSystemReminderText(`${attachment.hookName} hook additional context: ${attachment.content.join('\n')}`),
+        isMeta: true
+      })];
+
+    case "hook_stopped_continuation":
+      return [createMetaBlock({
+        content: wrapSystemReminderText(`${attachment.hookName} hook stopped continuation: ${attachment.message}`),
+        isMeta: true
+      })];
+
+    // ===== SILENT TYPES (no output) =====
+
+    case "already_read_file":
+    case "command_permissions":
+    case "edited_image_file":
+    case "hook_cancelled":
+    case "hook_error_during_execution":
+    case "hook_non_blocking_error":
+    case "hook_system_message":
+    case "structured_output":
+    case "hook_permission_decision":
+      return [];
+
+    default:
+      // Handle legacy types silently
+      if (["autocheckpointing", "background_task_status"].includes(attachment.type))
+        return [];
+      // Log unknown types
+      logError("normalizeAttachmentForAPI", Error(`Unknown attachment type: ${attachment.type}`));
+      return [];
+  }
+}
+```
+
+### Data Flow Summary
+
+```
+Attachment Object (from JH5 generators)
+          │
+          ▼
+    ┌─────────────────────────────────────────┐
+    │           kb3() Switch Statement         │
+    │           chunks.154.mjs:3-322           │
+    └─────────────────────────────────────────┘
+          │
+          ├─────────────────────────────────────┐
+          │                                     │
+          ▼                                     ▼
+    ┌─────────────────┐              ┌─────────────────┐
+    │  NG() Wrapping  │              │  R0(Qu()) Direct│
+    │                 │              │                 │
+    │  Most types:    │              │  Some types:    │
+    │  - file         │              │  - shell_status │
+    │  - directory    │              │  - token_usage  │
+    │  - todo_reminder│              │  - budget_usd   │
+    │  - plan_mode    │              │  - hook_*       │
+    │  - diagnostics  │              │  - async_agent  │
+    │  - etc.         │              │                 │
+    └────────┬────────┘              └────────┬────────┘
+             │                                 │
+             ▼                                 ▼
+    ┌──────────────────────────────────────────────────┐
+    │          System Message with isMeta: true         │
+    │                                                  │
+    │  {                                               │
+    │    type: "user",                                 │
+    │    message: {                                    │
+    │      role: "user",                               │
+    │      content: "<system-reminder>...</system-reminder>"
+    │    },                                            │
+    │    isMeta: true,                                 │
+    │    uuid: "...",                                  │
+    │    timestamp: "..."                              │
+    │  }                                               │
+    └──────────────────────────────────────────────────┘
+          │
+          ▼
+    Inserted into conversation before API call
+```
+
+### Related Symbols
+
+> Symbol mappings are maintained in [symbol_index.md](../00_overview/symbol_index.md)
+
+Key functions in this document:
+- `convertAttachmentToSystemMessage` (kb3) - Main attachment to message converter
+- `createToolUseMessage` (kSA) - Simulate tool use
+- `createToolResultMessage` (_SA) - Simulate tool result
+- `wrapSystemReminderText` (Qu) - XML tag wrapper
+- `wrapInSystemReminder` (NG) - Array message wrapper
+- `createMetaBlock` (R0) - Create isMeta message
+- `generateAllAttachments` (JH5) - Main attachment orchestrator

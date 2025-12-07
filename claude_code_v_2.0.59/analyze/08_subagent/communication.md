@@ -4,6 +4,15 @@
 
 The Claude Code subagent system implements a **stateless, single-message communication model** between the main agent and subagents. This document details how main agents communicate with subagents, how results are passed back, and special features like background execution and agent resumption.
 
+> Symbol mappings: [symbol_index.md](../00_overview/symbol_index.md)
+
+Key functions in this document:
+- `agentEntryMessage` (Af2) - Creates entry message for subagents with fork context
+- `loadTranscript` (KY1) - Loads previous transcript for agent resume
+- `filterUnresolvedToolUses` (sX0) - Filters fork context messages
+
+---
+
 ## Communication Model
 
 ### Core Principle: Stateless One-Shot Execution
@@ -45,7 +54,125 @@ The main agent spawns a subagent using the Task tool with parameters:
 }
 ```
 
-### 2. Parameter Details
+### 2. Task Tool Input Schema
+
+```javascript
+// ============================================
+// Task Tool Input Schema - Complete Definition
+// Location: chunks.145.mjs:1771-1778
+// ============================================
+
+// ORIGINAL (for source lookup):
+OJ9 = j.object({
+  description: j.string().describe("A short (3-5 word) description of the task"),
+  prompt: j.string().describe("The task for the agent to perform"),
+  subagent_type: j.string().describe("The type of specialized agent to use for this task"),
+  model: j.enum(["sonnet", "opus", "haiku"]).optional().describe("Optional model to use for this agent. If not specified, inherits from parent. Prefer haiku for quick, straightforward tasks to minimize cost and latency."),
+  resume: j.string().optional().describe("Optional agent ID to resume from. If provided, the agent will continue from the previous execution transcript.")
+}), mtZ = OJ9.extend({
+  run_in_background: j.boolean().optional().describe("Set to true to run this agent in the background. Use AgentOutputTool to read the output later.")
+})
+
+// READABLE (for understanding):
+const taskInputSchema = z.object({
+  description: z.string()
+    .describe("A short (3-5 word) description of the task"),
+  prompt: z.string()
+    .describe("The task for the agent to perform"),
+  subagent_type: z.string()
+    .describe("The type of specialized agent to use for this task"),
+  model: z.enum(["sonnet", "opus", "haiku"]).optional()
+    .describe("Optional model to use for this agent"),
+  resume: z.string().optional()
+    .describe("Optional agent ID to resume from")
+});
+
+const asyncTaskInputSchema = taskInputSchema.extend({
+  run_in_background: z.boolean().optional()
+    .describe("Set to true to run this agent in the background")
+});
+
+// Mapping: OJ9→taskInputSchema, mtZ→asyncTaskInputSchema
+```
+
+### 3. Task Tool Output Schema
+
+```javascript
+// ============================================
+// Task Tool Output Schemas - All Response Types
+// Location: chunks.145.mjs:1779-1811
+// ============================================
+
+// ORIGINAL (for source lookup):
+T_3 = j.object({
+  agentId: j.string(),
+  content: j.array(j.object({
+    type: j.literal("text"),
+    text: j.string()
+  })),
+  totalToolUseCount: j.number(),
+  totalDurationMs: j.number(),
+  totalTokens: j.number(),
+  usage: j.object({
+    input_tokens: j.number(),
+    output_tokens: j.number(),
+    cache_creation_input_tokens: j.number().nullable(),
+    cache_read_input_tokens: j.number().nullable(),
+    server_tool_use: j.object({
+      web_search_requests: j.number(),
+      web_fetch_requests: j.number()
+    }).nullable(),
+    service_tier: j.enum(["standard", "priority", "batch"]).nullable(),
+    cache_creation: j.object({
+      ephemeral_1h_input_tokens: j.number(),
+      ephemeral_5m_input_tokens: j.number()
+    }).nullable()
+  })
+}),
+P_3 = T_3.extend({ status: j.literal("completed"), prompt: j.string() }),
+j_3 = j.object({
+  status: j.literal("async_launched"),
+  agentId: j.string(),
+  description: j.string(),
+  prompt: j.string()
+}),
+S_3 = j.union([P_3, j_3, eb2])
+
+// READABLE (for understanding):
+// Completed task response
+const completedOutputSchema = z.object({
+  status: z.literal("completed"),
+  prompt: z.string(),
+  agentId: z.string(),
+  content: z.array(z.object({
+    type: z.literal("text"),
+    text: z.string()
+  })),
+  totalToolUseCount: z.number(),
+  totalDurationMs: z.number(),
+  totalTokens: z.number(),
+  usage: z.object({ /* detailed token usage */ })
+});
+
+// Async launched response
+const asyncLaunchedOutputSchema = z.object({
+  status: z.literal("async_launched"),
+  agentId: z.string(),          // Use this to retrieve results later
+  description: z.string(),      // Task description
+  prompt: z.string()            // Original prompt
+});
+
+// Union of all possible responses
+const taskOutputSchema = z.union([
+  completedOutputSchema,
+  asyncLaunchedOutputSchema,
+  subAgentEnteredSchema
+]);
+
+// Mapping: T_3→baseTaskOutput, P_3→completedOutputSchema, j_3→asyncLaunchedOutputSchema, S_3→taskOutputSchema
+```
+
+### 4. Parameter Details
 
 #### subagent_type (Required)
 
@@ -158,7 +285,123 @@ Allows running the agent in the background:
 
 ### 3. Fork Context Feature
 
-Agents with `forkContext: true` receive additional information:
+Agents with `forkContext: true` receive additional information.
+
+#### Fork Context Entry Message Implementation
+
+```javascript
+// ============================================
+// agentEntryMessage - Creates entry message for fork context
+// Location: chunks.125.mjs:1178-1223
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Af2(A, Q) {
+  let B = R0({ content: A }),
+    G = Q.message.content.find((W) => {
+      if (W.type !== "tool_use" || W.name !== A6) return !1;
+      let X = W.input;
+      return "prompt" in X && X.prompt === A
+    });
+  if (!G) return g(`Could not find matching AgentTool tool use for prompt: ${A.slice(0,50)}...`, { level: "error" }), [B];
+  let Z = {
+      ...Q,
+      uuid: pi5(),
+      message: { ...Q.message, content: [G] }
+    },
+    I = `### FORKING CONVERSATION CONTEXT ###
+### ENTERING SUB-AGENT ROUTINE ###
+Entered sub-agent context
+
+PLEASE NOTE:
+- The messages above this point are from the main thread prior to sub-agent execution. They are provided as context only.
+- Context messages may include tool_use blocks for tools that are not available in the sub-agent context. You should only use the tools specifically provided to you in the system prompt.
+- Only complete the specific sub-agent task you have been assigned below.`,
+    Y = { status: "sub_agent_entered", description: "Entered sub-agent context", message: I },
+    J = R0({
+      content: [{ type: "tool_result", tool_use_id: G.id, content: [{ type: "text", text: I }] }],
+      toolUseResult: Y
+    });
+  return [Z, J, B]
+}
+
+// READABLE (for understanding):
+function agentEntryMessage(prompt, taskToolUseMessage) {
+  // Create user message containing the prompt
+  const userMessage = createMetaBlock({ content: prompt });
+
+  // Find the matching Task tool_use block
+  const taskToolUse = taskToolUseMessage.message.content.find((block) => {
+    if (block.type !== "tool_use" || block.name !== "Task") return false;
+    const input = block.input;
+    return "prompt" in input && input.prompt === prompt;
+  });
+
+  if (!taskToolUse) {
+    log(`Could not find matching AgentTool tool use for prompt: ${prompt.slice(0,50)}...`, { level: "error" });
+    return [userMessage];  // Fallback without context
+  }
+
+  // Create modified assistant message with ONLY the matching tool_use
+  const isolatedAssistantMessage = {
+    ...taskToolUseMessage,
+    uuid: generateUUID(),  // New UUID
+    message: {
+      ...taskToolUseMessage.message,
+      content: [taskToolUse]  // Only this tool_use
+    }
+  };
+
+  // Entry message text - shown to subagent as context boundary
+  const entryText = `### FORKING CONVERSATION CONTEXT ###
+### ENTERING SUB-AGENT ROUTINE ###
+Entered sub-agent context
+
+PLEASE NOTE:
+- The messages above this point are from the main thread prior to sub-agent execution. They are provided as context only.
+- Context messages may include tool_use blocks for tools that are not available in the sub-agent context. You should only use the tools specifically provided to you in the system prompt.
+- Only complete the specific sub-agent task you have been assigned below.`;
+
+  // Create tool_result message as boundary
+  const entryResult = createMetaBlock({
+    content: [{
+      type: "tool_result",
+      tool_use_id: taskToolUse.id,
+      content: [{ type: "text", text: entryText }]
+    }],
+    toolUseResult: {
+      status: "sub_agent_entered",
+      description: "Entered sub-agent context",
+      message: entryText
+    }
+  });
+
+  // Return: [isolated assistant msg, entry boundary, user prompt]
+  return [isolatedAssistantMessage, entryResult, userMessage];
+}
+
+// Mapping: Af2→agentEntryMessage, A→prompt, Q→taskToolUseMessage, G→taskToolUse, I→entryText
+```
+
+**Entry Message Structure (what subagent sees):**
+```
+[Fork context messages from main conversation]
+          ↓
+[Isolated assistant message with ONLY this Task tool_use]
+          ↓
+### FORKING CONVERSATION CONTEXT ###
+### ENTERING SUB-AGENT ROUTINE ###
+Entered sub-agent context
+
+PLEASE NOTE:
+- The messages above this point are from the main thread prior to sub-agent execution. They are provided as context only.
+- Context messages may include tool_use blocks for tools that are not available in the sub-agent context. You should only use the tools specifically provided to you in the system prompt.
+- Only complete the specific sub-agent task you have been assigned below.
+          ↓
+[User message containing the task prompt]
+```
+
+---
 
 **From Task tool description (chunks.125.mjs line 1016)**:
 ```
@@ -342,6 +585,114 @@ agent in parallel, send a single message with both tool calls.
 
 Agent resumption allows reusing an existing agent instance for follow-up queries.
 
+### Resume Transcript Loading Implementation
+
+```javascript
+// ============================================
+// loadTranscript - Load previous transcript for resume
+// Location: chunks.154.mjs:1243-1267
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function KY1(A) {
+  let Q = DVA(A),          // Get transcript file path for agentId
+    B = RA();               // fs module
+  try {
+    B.statSync(Q)           // Check if file exists
+  } catch {
+    return null             // No transcript found
+  }
+  try {
+    let {
+      messages: G
+    } = await jVA(Q),       // Parse session file
+      Z = Array.from(G.values()).filter((X) => X.agentId === A && X.isSidechain);
+    if (Z.length === 0) return null;
+    // Find leaf message (no children)
+    let I = new Set(Z.map((X) => X.parentUuid)),
+      Y = Z.filter((X) => !I.has(X.uuid))
+           .sort((X, V) => new Date(V.timestamp).getTime() - new Date(X.timestamp).getTime())[0];
+    if (!Y) return null;
+    // Build message chain and return filtered messages
+    return SJ1(G, Y).filter((X) => X.agentId === A).map(({ isSidechain: X, parentUuid: V, ...F }) => F)
+  } catch { return null }
+}
+
+// READABLE (for understanding):
+async function loadTranscript(agentId) {
+  const transcriptPath = getTranscriptPath(agentId);
+  const fs = getFileSystem();
+
+  // Check if transcript file exists
+  try {
+    fs.statSync(transcriptPath);
+  } catch {
+    return null;  // No transcript file found
+  }
+
+  try {
+    // Parse session file
+    const { messages } = await parseSessionFile(transcriptPath);
+
+    // Filter to only this agent's sidechain messages
+    const agentMessages = Array.from(messages.values())
+      .filter(msg => msg.agentId === agentId && msg.isSidechain);
+
+    if (agentMessages.length === 0) return null;
+
+    // Find leaf message (message with no children = most recent endpoint)
+    const parentUuids = new Set(agentMessages.map(msg => msg.parentUuid));
+    const leafMessages = agentMessages.filter(msg => !parentUuids.has(msg.uuid));
+
+    // Get most recent leaf (sorted by timestamp)
+    const mostRecentLeaf = leafMessages
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+    if (!mostRecentLeaf) return null;
+
+    // Build message chain from root to leaf
+    const messageChain = buildMessageChain(messages, mostRecentLeaf);
+
+    // Filter to this agent only and strip sidechain metadata
+    return messageChain
+      .filter(msg => msg.agentId === agentId)
+      .map(({ isSidechain, parentUuid, ...rest }) => rest);
+
+  } catch {
+    return null;  // Error parsing transcript
+  }
+}
+
+// Mapping: KY1→loadTranscript, A→agentId, Q→transcriptPath, G→messages
+```
+
+**Resume Flow:**
+```
+Main Agent calls Task with resume: "agent-xyz"
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. loadTranscript("agent-xyz")                                  │
+│    - Find transcript file for agentId                           │
+│    - Parse session file                                         │
+│    - Filter to agent's sidechain messages                       │
+│    - Build chain from root to most recent leaf                  │
+└─────────────────────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. Prepend to prompt messages                                   │
+│    promptMessages = [...resumeTranscript, ...newPromptMessages] │
+└─────────────────────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. Agent continues with full context                            │
+│    - Sees previous conversation                                 │
+│    - Continues from where it left off                           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 **From claude-code-guide (chunks.60.mjs line 831)**:
 ```
 **IMPORTANT:** Before spawning a new agent, check if there is already a
@@ -417,10 +768,80 @@ Background execution allows main agent to continue while subagent works.
 - Main agent continues with other work
 - Result available later when needed
 
-**Checking results later**:
+**Retrieving results with AgentOutputTool:**
+
 ```javascript
-// Main agent can check agent status/results
-// (Implementation details in chunks.145.mjs)
+// ============================================
+// AgentOutputTool Input Schema
+// Location: chunks.145.mjs:1683-1687
+// ============================================
+
+// ORIGINAL:
+VtZ = j.strictObject({
+  agentId: j.string().describe("The agent ID to retrieve results for"),
+  block: j.boolean().default(!0).describe("Whether to block until results are ready"),
+  wait_up_to: j.number().min(0).max(300).default(150).describe("Maximum time to wait in seconds")
+})
+
+// READABLE:
+agentOutputInputSchema = z.strictObject({
+  agentId: z.string()
+    .describe("The agent ID to retrieve results for"),
+  block: z.boolean().default(true)
+    .describe("Whether to block until results are ready"),
+  wait_up_to: z.number().min(0).max(300).default(150)
+    .describe("Maximum time to wait in seconds")
+});
+```
+
+**AgentOutputTool Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `agentId` | string | required | The agent ID from `async_launched` response |
+| `block` | boolean | `true` | Wait for completion vs immediate status check |
+| `wait_up_to` | number | 150 | Maximum wait time (0-300 seconds) |
+
+**Usage Patterns:**
+
+```javascript
+// Pattern 1: Check status without blocking (immediate)
+{
+  name: "AgentOutput",
+  input: {
+    agentId: "agent-xyz",
+    block: false
+  }
+}
+// Returns immediately with current status
+
+// Pattern 2: Wait for completion (blocking)
+{
+  name: "AgentOutput",
+  input: {
+    agentId: "agent-xyz",
+    block: true,
+    wait_up_to: 120  // Wait up to 2 minutes
+  }
+}
+// Blocks until agent completes or timeout
+```
+
+**From async_launched tool result:**
+```javascript
+// Task tool returns this for background agents:
+{
+  tool_use_id: "toolu_xyz",
+  type: "tool_result",
+  content: [{
+    type: "text",
+    text: `Async agent launched successfully.
+agentId: agent-xyz (This is an internal ID for your use, do not mention it to the user. Use this ID to retrieve results with AgentOutput when the agent finishes).
+The agent is currently working in the background. If you have other tasks you should continue working on them now. Wait to call AgentOutput until either:
+- If you want to check on the agent's progress - call AgentOutput with block=false to get an immediate update on the agent's status
+- If you run out of things to do and the agent is still running - call AgentOutput with block=true to idle and wait for the agent's result (do not use block=true unless you completely run out of things to do as it will waste time).`
+  }]
+}
 ```
 
 ### Background vs Foreground

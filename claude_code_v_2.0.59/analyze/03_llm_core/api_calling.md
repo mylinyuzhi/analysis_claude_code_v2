@@ -2,12 +2,25 @@
 
 ## Overview
 
-This document provides a comprehensive analysis of the LLM API calling mechanism in Claude Code v2.0.59. The core functionality is implemented through the `$E9` async generator function in `chunks.153.mjs`, which handles streaming API requests to the Claude API with sophisticated retry logic, error handling, and response processing.
+This document provides a comprehensive analysis of the LLM API calling mechanism in Claude Code v2.0.59. The core functionality is implemented through the `streamApiCall` ($E9) async generator function in `chunks.153.mjs`, which handles streaming API requests to the Claude API with sophisticated retry logic, error handling, and response processing.
+
+## Related Symbols
+
+> Complete symbol mappings: [symbol_index.md](../00_overview/symbol_index.md)
+
+Key functions in this document:
+- `streamApiCall` ($E9) - Main streaming API request handler
+- `withRetry` (t61) - Retry wrapper with exponential backoff
+- `createApiClient` (Kq) - Client initialization for providers
+- `buildRequestPayload` (U) - Request payload builder
+- `processStreamEvent` - Handlers for streaming events
+- `applySystemCacheBreakpoints` - Cache control application
+- `normalizeMessages` - Message format conversion
 
 ## Table of Contents
 
 1. [Core Architecture](#core-architecture)
-2. [The $E9 Async Generator](#the-e9-async-generator)
+2. [The streamApiCall Async Generator](#the-streamapicall-async-generator)
 3. [Request Payload Structure](#request-payload-structure)
 4. [Streaming Response Handling](#streaming-response-handling)
 5. [Retry Logic and Error Handling](#retry-logic-and-error-handling)
@@ -37,24 +50,46 @@ The API calling mechanism consists of several interconnected components:
 
 ---
 
-## The $E9 Async Generator
-
-### Function Signature
+## The streamApiCall Async Generator
 
 ```javascript
-async function* $E9(A, Q, B, G, Z, I)
+// ============================================
+// streamApiCall - Main streaming LLM API request handler
+// Location: chunks.153.mjs:3-361
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function* $E9(A, Q, B, G, Z, I) {
+  // A=messages, Q=systemPrompts, B=maxThinkingTokens, G=tools, Z=abortSignal, I=options
+  // ... 358 lines of complex API call logic
+}
+
+// READABLE (for understanding):
+async function* streamApiCall(
+  messages,           // A: Conversation history array
+  systemPrompts,      // Q: System prompts array
+  maxThinkingTokens,  // B: Extended thinking token budget
+  tools,              // G: Available tool definitions
+  abortSignal,        // Z: AbortSignal for cancellation
+  options             // I: Configuration object
+) {
+  // 5-phase execution flow (see diagram below)
+}
+
+// Mapping: $E9→streamApiCall, A→messages, Q→systemPrompts, B→maxThinkingTokens,
+//          G→tools, Z→abortSignal, I→options
 ```
 
 ### Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `A` | Messages array (conversation history) |
-| `Q` | System prompts array |
-| `B` | Max thinking tokens (budget for extended thinking) |
-| `G` | Tools array (available tool definitions) |
-| `Z` | AbortSignal (for cancellation) |
-| `I` | Options object (configuration) |
+| Parameter | Obfuscated | Description |
+|-----------|------------|-------------|
+| `messages` | A | Conversation history array |
+| `systemPrompts` | Q | System prompts array |
+| `maxThinkingTokens` | B | Budget for extended thinking |
+| `tools` | G | Available tool definitions |
+| `abortSignal` | Z | AbortSignal for cancellation |
+| `options` | I | Configuration object |
 
 ### Options Object Structure
 

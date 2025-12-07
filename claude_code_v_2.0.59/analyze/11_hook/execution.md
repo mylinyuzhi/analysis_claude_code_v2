@@ -2,1156 +2,1089 @@
 
 ## Overview
 
-This document describes how hooks are executed in Claude Code v2.0.59, including event types, matcher system, execution ordering, error handling, and output processing.
+This document describes how hooks are executed in Claude Code v2.0.59, including configuration loading, event types, matcher system, execution ordering, interruption mechanisms, error handling, and permission integration.
+
+> Symbol mappings: [symbol_index.md](../00_overview/symbol_index.md)
+
+Key functions in this document:
+- `executeHooksInREPL` (qa) - Main hook execution generator
+- `loadAllHooks` (ek3) - Configuration aggregator
+- `getMatchingHooks` (_V0) - Hook matcher
+- `createCombinedAbortSignal` (ck) - Signal combiner
+- `processHookResponse` (tX9) - Response processor
 
 ---
 
 ## Hook Event Types
 
-Claude Code supports 12 hook event types that trigger at different points in the session lifecycle:
+Claude Code supports **12 hook event types** that trigger at different points in the session lifecycle.
 
-### Tool-Related Events
+```javascript
+// ============================================
+// HOOK_EVENT_TYPES - All supported hook events
+// Location: chunks.94.mjs:2194
+// ============================================
 
-#### 1. PreToolUse
-**When:** Before a tool is executed
-**Context:**
-```typescript
-{
-  hook_event_name: "PreToolUse",
-  tool_name: string,        // Name of tool about to execute
-  tool_input: object,       // Input arguments for the tool
-  tool_use_id: string,      // Unique ID for this tool use
-  // ... session context
-}
+// ORIGINAL (for source lookup):
+zLA = ["PreToolUse", "PostToolUse", "PostToolUseFailure", "Notification",
+       "UserPromptSubmit", "SessionStart", "SessionEnd", "Stop",
+       "SubagentStart", "SubagentStop", "PreCompact", "PermissionRequest"]
+
+// READABLE (for understanding):
+const HOOK_EVENT_TYPES = [
+  "PreToolUse",           // Before tool execution
+  "PostToolUse",          // After successful tool execution
+  "PostToolUseFailure",   // After failed tool execution
+  "Notification",         // System notification
+  "UserPromptSubmit",     // User sends message
+  "SessionStart",         // Session begins
+  "SessionEnd",           // Session ends
+  "Stop",                 // User interruption (Ctrl+C)
+  "SubagentStart",        // Subagent spawns
+  "SubagentStop",         // Subagent ends
+  "PreCompact",           // Before context compaction
+  "PermissionRequest"     // Before permission prompt
+]
+
+// Mapping: zLA→HOOK_EVENT_TYPES
 ```
-**Use Cases:**
-- Pre-validation of tool inputs
-- Security checks
-- Input transformation
-- Permission decisions
 
 ---
 
-#### 2. PostToolUse
-**When:** After a tool executes successfully
-**Context:**
-```typescript
-{
-  hook_event_name: "PostToolUse",
-  tool_name: string,        // Name of executed tool
-  tool_input: object,       // Input arguments used
-  tool_response: object,    // Tool's response/output
-  tool_use_id: string,      // Unique ID for this tool use
-  // ... session context
-}
-```
-**Use Cases:**
-- Post-execution validation
-- Output verification
-- Cleanup operations
-- Logging/metrics
+## Configuration Loading Pipeline
 
-**Example:**
-```json
-{
-  "PostToolUse": [
-    {
-      "matcher": "Write",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "git add $FILE && git commit -m 'Auto-commit'",
-          "statusMessage": "Committing changes..."
+### Overview
+
+Hook configuration is loaded from multiple sources with a defined priority order. The system aggregates hooks from managed settings, user settings, project settings, and session-level programmatic hooks.
+
+### Configuration Priority (Highest to Lowest)
+
+```
+1. Managed/Policy Settings (Enterprise)
+2. User Settings (~/.claude/settings.json)
+3. Project Settings (.claude/settings.json)
+4. Session Hooks (Programmatic)
+```
+
+### Main Configuration Aggregator (`ek3`)
+
+```javascript
+// ============================================
+// loadAllHooks - Hook configuration aggregator
+// Location: chunks.146.mjs:3445-3476
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ek3(A) {
+  let Q = {},
+    B = SZ2();
+  if (B)
+    for (let [G, Z] of Object.entries(B))
+      Q[G] = Z.map((I) => ({
+        matcher: I.matcher,
+        hooks: I.hooks
+      }));
+  if (!t21()) {
+    let G = MkA();
+    if (G)
+      for (let [Z, I] of Object.entries(G)) {
+        if (!Q[Z]) Q[Z] = [];
+        for (let Y of I)
+          Q[Z].push({
+            matcher: Y.matcher,
+            hooks: Y.hooks
+          })
+      }
+  }
+  if (A) {
+    let G = e1(),
+      Z = r21(A, G);
+    for (let [I, Y] of Z.entries()) {
+      if (!Q[I]) Q[I] = [];
+      for (let J of Y)
+        Q[I].push({
+          matcher: J.matcher,
+          hooks: J.hooks
+        })
+    }
+  }
+  return Q
+}
+
+// READABLE (for understanding):
+function loadAllHooks(appState) {
+  let aggregatedHooks = {};
+
+  // 1. Load settings-based hooks (user/project/managed)
+  let settingsHooks = getSettingsHooks();
+  if (settingsHooks) {
+    for (let [eventType, matcherGroups] of Object.entries(settingsHooks)) {
+      aggregatedHooks[eventType] = matcherGroups.map((group) => ({
+        matcher: group.matcher,
+        hooks: group.hooks
+      }));
+    }
+  }
+
+  // 2. Load additional hooks (unless managed-only mode)
+  if (!isAllowManagedHooksOnly()) {
+    let additionalHooks = getAdditionalHooks();  // Project-specific
+    if (additionalHooks) {
+      for (let [eventType, matcherGroups] of Object.entries(additionalHooks)) {
+        if (!aggregatedHooks[eventType]) aggregatedHooks[eventType] = [];
+        for (let group of matcherGroups) {
+          aggregatedHooks[eventType].push({
+            matcher: group.matcher,
+            hooks: group.hooks
+          });
         }
-      ]
+      }
     }
-  ]
-}
-```
+  }
 
----
+  // 3. Load session hooks (programmatic)
+  if (appState) {
+    let sessionId = getSessionId(),
+      sessionHooks = getSessionHooks(appState, sessionId);
 
-#### 3. PostToolUseFailure
-**When:** After a tool execution fails or is interrupted
-**Context:**
-```typescript
-{
-  hook_event_name: "PostToolUseFailure",
-  tool_name: string,        // Name of failed tool
-  tool_input: object,       // Input arguments used
-  tool_use_id: string,      // Unique ID for this tool use
-  error: string,            // Error message
-  is_interrupt: boolean,    // True if user interrupted
-  // ... session context
-}
-```
-**Use Cases:**
-- Error recovery
-- Rollback operations
-- Error logging
-- Cleanup after failures
-
----
-
-### Session Events
-
-#### 4. SessionStart
-**When:** At the beginning of a new session
-**Context:**
-```typescript
-{
-  hook_event_name: "SessionStart",
-  source: string,           // Session source (e.g., "cli", "repl")
-  // ... session context
-}
-```
-**Use Cases:**
-- Environment setup
-- Initial configuration
-- Welcome messages
-- Logging session start
-
----
-
-#### 5. SessionEnd
-**When:** At the end of a session
-**Context:**
-```typescript
-{
-  hook_event_name: "SessionEnd",
-  // ... session context
-}
-```
-**Use Cases:**
-- Cleanup operations
-- Session summary
-- Saving state
-- Logging session end
-
----
-
-#### 6. Stop
-**When:** When user stops execution (Ctrl+C) or session ends
-**Context:**
-```typescript
-{
-  hook_event_name: "Stop",
-  stop_hook_active: boolean,  // True if already in stop hook
-  // ... session context
-}
-```
-**Use Cases:**
-- Cleanup on interruption
-- Save progress
-- Graceful shutdown
-- Message-based verification (function hooks)
-
-**Special:** Supports function hooks with message access
-
----
-
-### Subagent Events
-
-#### 7. SubagentStart
-**When:** When a subagent session begins
-**Context:**
-```typescript
-{
-  hook_event_name: "SubagentStart",
-  agent_id: string,         // ID of the subagent
-  agent_type: string,       // Type/name of agent
-  // ... session context
-}
-```
-**Use Cases:**
-- Subagent initialization
-- Context setup
-- Logging subagent creation
-
----
-
-#### 8. SubagentStop
-**When:** When a subagent session ends
-**Context:**
-```typescript
-{
-  hook_event_name: "SubagentStop",
-  stop_hook_active: boolean,
-  agent_id: string,             // ID of the subagent
-  agent_transcript_path: string, // Path to agent transcript
-  // ... session context
-}
-```
-**Use Cases:**
-- Subagent cleanup
-- Result aggregation
-- Transcript processing
-
----
-
-### User Interaction Events
-
-#### 9. UserPromptSubmit
-**When:** User submits a prompt/message
-**Context:**
-```typescript
-{
-  hook_event_name: "UserPromptSubmit",
-  prompt: string,           // User's submitted prompt
-  // ... session context
-}
-```
-**Use Cases:**
-- Prompt preprocessing
-- Content filtering
-- Logging user input
-- Rate limiting
-
----
-
-#### 10. Notification
-**When:** System sends a notification
-**Context:**
-```typescript
-{
-  hook_event_name: "Notification",
-  message: string,          // Notification message
-  title?: string,           // Notification title
-  notification_type: string, // Type of notification
-  // ... session context
-}
-```
-**Use Cases:**
-- External notification forwarding (Slack, email)
-- Logging important events
-- Custom alert handling
-
----
-
-### Context Compaction
-
-#### 11. PreCompact
-**When:** Before context compaction occurs
-**Context:**
-```typescript
-{
-  hook_event_name: "PreCompact",
-  trigger: string,          // What triggered compaction
-  custom_instructions?: string, // Current custom instructions
-  // ... session context
-}
-```
-**Use Cases:**
-- Add context before compaction
-- Inject custom instructions
-- Preserve important information
-
-**Special:** Can return new custom instructions
-
----
-
-### Permission Requests
-
-#### 12. PermissionRequest
-**When:** Before requesting permission from user
-**Context:**
-```typescript
-{
-  hook_event_name: "PermissionRequest",
-  // ... permission request details
-  // ... session context
-}
-```
-**Use Cases:**
-- Auto-approve specific permissions
-- Add verification logic
-- Log permission requests
-- Custom permission UI
-
----
-
-## Hook Matcher System
-
-### Matcher Definition
-
-Matchers filter which hooks execute based on context:
-
-```typescript
-{
-  matcher?: string,     // Optional pattern to match
-  hooks: Hook[]        // Hooks to execute if matched
-}
-```
-
-### Matching Logic
-
-#### Tool Events
-For `PreToolUse`, `PostToolUse`, `PostToolUseFailure`:
-- Matcher compares against **tool name**
-- Example: `"matcher": "Write"` matches Write tool only
-
-#### Other Events
-For `Notification`, `SessionStart`, `SubagentStart`, `PreCompact`:
-- Matcher compares against event-specific field:
-  - `Notification`: Matches `notification_type`
-  - `SessionStart`: Matches `source`
-  - `SubagentStart`: Matches `agent_type`
-  - `PreCompact`: Matches `trigger`
-
-#### No Matcher
-- If matcher is omitted, hook executes for all triggers of that event type
-
-### Matcher Examples
-
-```json
-{
-  "PostToolUse": [
-    {
-      "matcher": "Write",       // Only Write tool
-      "hooks": [...]
-    },
-    {
-      "matcher": "Edit",        // Only Edit tool
-      "hooks": [...]
-    },
-    {
-      // No matcher - all tools
-      "hooks": [...]
+    for (let [eventType, matcherGroups] of sessionHooks.entries()) {
+      if (!aggregatedHooks[eventType]) aggregatedHooks[eventType] = [];
+      for (let group of matcherGroups) {
+        aggregatedHooks[eventType].push({
+          matcher: group.matcher,
+          hooks: group.hooks
+        });
+      }
     }
-  ],
-  "Notification": [
-    {
-      "matcher": "error",       // Only error notifications
-      "hooks": [...]
-    }
-  ]
+  }
+
+  return aggregatedHooks;
 }
+
+// Mapping: ek3→loadAllHooks, SZ2→getSettingsHooks, t21→isAllowManagedHooksOnly,
+//          MkA→getAdditionalHooks, r21→getSessionHooks, e1→getSessionId
+```
+
+### Settings Hooks Loader (`SZ2`)
+
+```javascript
+// ============================================
+// getSettingsHooks - Load hooks from settings files
+// Location: chunks.106.mjs:1598-1601
+// ============================================
+
+// ORIGINAL (for source lookup):
+function SZ2() {
+  if (Oi === null) S00();
+  return Oi
+}
+
+// READABLE (for understanding):
+function getSettingsHooks() {
+  if (hooksCache === null) {
+    initializeHooksCache();  // Parses and caches hooks from settings
+  }
+  return hooksCache;
+}
+
+// Mapping: SZ2→getSettingsHooks, Oi→hooksCache, S00→initializeHooksCache
+```
+
+### Hook Sources Loader (`P00`)
+
+```javascript
+// ============================================
+// getHookSources - Determine hook source based on policy
+// Location: chunks.106.mjs:1522-1526
+// ============================================
+
+// ORIGINAL (for source lookup):
+function P00() {
+  let A = OB("policySettings");
+  if (A?.allowManagedHooksOnly === !0)
+    return A.hooks ?? {};
+  return l0().hooks ?? {}
+}
+
+// READABLE (for understanding):
+function getHookSources() {
+  let policySettings = getPolicySetting("policySettings");
+
+  // If managed-only mode, only use managed hooks
+  if (policySettings?.allowManagedHooksOnly === true) {
+    return policySettings.hooks ?? {};
+  }
+
+  // Otherwise use user/project settings
+  return getSettings().hooks ?? {};
+}
+
+// Mapping: P00→getHookSources, OB→getPolicySetting, l0→getSettings
+```
+
+### Session Hooks Loader (`r21`)
+
+```javascript
+// ============================================
+// getSessionHooks - Load programmatic session hooks
+// Location: chunks.106.mjs:1285-1299
+// ============================================
+
+// ORIGINAL (for source lookup):
+function r21(A, Q, B) {
+  let G = A.sessionHooks[Q];
+  if (!G) return new Map;
+  let Z = new Map;
+  if (B) {
+    let I = G.hooks[B];
+    if (I) Z.set(B, qZ2(I));
+    return Z
+  }
+  for (let I of zLA) {
+    let Y = G.hooks[I];
+    if (Y) Z.set(I, qZ2(Y))
+  }
+  return Z
+}
+
+// READABLE (for understanding):
+function getSessionHooks(appState, sessionId, specificEventType) {
+  let sessionData = appState.sessionHooks[sessionId];
+
+  if (!sessionData) {
+    return new Map();  // No session hooks registered
+  }
+
+  let result = new Map();
+
+  if (specificEventType) {
+    // Return hooks for specific event type only
+    let hooks = sessionData.hooks[specificEventType];
+    if (hooks) result.set(specificEventType, normalizeHooks(hooks));
+    return result;
+  }
+
+  // Return hooks for all event types
+  for (let eventType of HOOK_EVENT_TYPES) {
+    let hooks = sessionData.hooks[eventType];
+    if (hooks) result.set(eventType, normalizeHooks(hooks));
+  }
+
+  return result;
+}
+
+// Mapping: r21→getSessionHooks, zLA→HOOK_EVENT_TYPES, qZ2→normalizeHooks
 ```
 
 ---
 
-## Execution Flow
+## Matcher System
 
-### Main Execution Function: `qa()`
+### Overview
 
-The primary hook execution function is an async generator:
+Matchers filter which hooks execute based on context. Different event types use different match queries.
 
-```typescript
-async function* qa({
-  hookInput: HookInput,
-  toolUseID: string,
-  matchQuery?: string,
-  signal: AbortSignal,
-  timeoutMs?: number,
-  toolUseContext?: ToolUseContext,
-  messages?: Message[]
-}) { ... }
-```
+### Match Query Extraction by Event Type
 
-### Execution Steps
+| Event Type | Match Query Field |
+|------------|-------------------|
+| `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest` | `tool_name` |
+| `SessionStart` | `source` |
+| `PreCompact` | `trigger` |
+| `Notification` | `notification_type` |
+| `SessionEnd` | `reason` |
+| `SubagentStart` | `agent_type` |
+| `Stop`, `SubagentStop`, `UserPromptSubmit` | No matcher (all hooks run) |
 
-#### 1. Pre-Execution Checks
+### Hook Matcher Implementation (`_V0`)
 
-```
-1. Check if hooks are disabled (disableAllHooks setting)
-   → If true: Return early, skip all hooks
+```javascript
+// ============================================
+// getMatchingHooks - Filter hooks by event and matcher
+// Location: chunks.146.mjs:3478-3520
+// ============================================
 
-2. Check workspace trust
-   → If not accepted: Log skip message and return
-
-3. Get app state (if toolUseContext provided)
-   → Used for session-specific hook configuration
-
-4. Retrieve matching hooks for event
-   → Uses matcher system to filter hooks
-   → If no matching hooks: Return early
-
-5. Check abort signal
-   → If already aborted: Return early
-```
-
-#### 2. Hook Progress Notification
-
-For each hook about to execute, yield progress message:
-
-```typescript
-{
-  message: {
-    type: "progress",
-    data: {
-      type: "hook_progress",
-      hookEvent: string,
-      hookName: string,
-      command: string,
-      promptText?: string,
-      statusMessage?: string
-    },
-    parentToolUseID: string,
-    toolUseID: string,
-    timestamp: string,
-    uuid: string
+// ORIGINAL (for source lookup):
+function _V0(A, Q, B) {
+  try {
+    let Z = ek3(A)?.[Q] ?? [],
+      I = void 0;
+    switch (B.hook_event_name) {
+      case "PreToolUse":
+      case "PostToolUse":
+      case "PostToolUseFailure":
+      case "PermissionRequest":
+        I = B.tool_name;
+        break;
+      case "SessionStart":
+        I = B.source;
+        break;
+      case "PreCompact":
+        I = B.trigger;
+        break;
+      case "Notification":
+        I = B.notification_type;
+        break;
+      case "SessionEnd":
+        I = B.reason;
+        break;
+      case "SubagentStart":
+        I = B.agent_type;
+        break;
+      default:
+        break
+    }
+    g(`Getting matching hook commands for ${Q} with query: ${I}`);
+    let Y;
+    if (!I)
+      Y = Z.flatMap((K) => K.hooks);
+    else
+      Y = Z.filter((K) => !K.matcher || tk3(I, K.matcher)).flatMap((K) => K.hooks);
+    // Deduplicate by type
+    let J = Array.from(new Map(Y.filter((K) => K.type === "command").map((K) => [K.command, K])).values()),
+      W = Array.from(new Map(Y.filter((K) => K.type === "prompt").map((K) => [K.prompt, K])).values()),
+      X = Array.from(new Map(Y.filter((K) => K.type === "agent").map((K) => [K.prompt([]), K])).values()),
+      V = Y.filter((K) => K.type === "callback"),
+      F = [...J, ...W, ...X, ...V];
+    return F
+  } catch {
+    return []
   }
 }
-```
 
-#### 3. Parallel Hook Execution
+// READABLE (for understanding):
+function getMatchingHooks(appState, hookEventName, hookInput) {
+  try {
+    // Load all hooks for this event type
+    let matcherGroups = loadAllHooks(appState)?.[hookEventName] ?? [],
+      matchQuery = undefined;
 
-Hooks execute in parallel via `Promise.all()` pattern:
+    // Extract match query based on event type
+    switch (hookInput.hook_event_name) {
+      case "PreToolUse":
+      case "PostToolUse":
+      case "PostToolUseFailure":
+      case "PermissionRequest":
+        matchQuery = hookInput.tool_name;
+        break;
+      case "SessionStart":
+        matchQuery = hookInput.source;
+        break;
+      case "PreCompact":
+        matchQuery = hookInput.trigger;
+        break;
+      case "Notification":
+        matchQuery = hookInput.notification_type;
+        break;
+      case "SessionEnd":
+        matchQuery = hookInput.reason;
+        break;
+      case "SubagentStart":
+        matchQuery = hookInput.agent_type;
+        break;
+    }
 
-```typescript
-let hookPromises = hooks.map(async function*(hook, index) {
-  // Execute individual hook
-});
+    log(`Getting matching hook commands for ${hookEventName} with query: ${matchQuery}`);
 
-for await (let result of mergeAsyncGenerators(hookPromises)) {
-  // Process results as they complete
-}
-```
+    // Filter hooks by matcher
+    let allHooks;
+    if (!matchQuery) {
+      // No query - all hooks match
+      allHooks = matcherGroups.flatMap((group) => group.hooks);
+    } else {
+      // Filter by matcher pattern
+      allHooks = matcherGroups
+        .filter((group) => !group.matcher || matchPattern(matchQuery, group.matcher))
+        .flatMap((group) => group.hooks);
+    }
 
-#### 4. Individual Hook Execution
+    // Deduplicate hooks by type-specific key
+    let commandHooks = Array.from(
+      new Map(allHooks.filter((h) => h.type === "command").map((h) => [h.command, h])).values()
+    );
+    let promptHooks = Array.from(
+      new Map(allHooks.filter((h) => h.type === "prompt").map((h) => [h.prompt, h])).values()
+    );
+    let agentHooks = Array.from(
+      new Map(allHooks.filter((h) => h.type === "agent").map((h) => [h.prompt([]), h])).values()
+    );
+    let callbackHooks = allHooks.filter((h) => h.type === "callback");
 
-Each hook type has specific execution path:
-
-**Callback Hook:**
-```
-1. Create timeout signal
-2. Call callback(hookInput, toolUseID, signal, hookIndex)
-3. Process JSON output
-4. Cleanup timeout
-5. Return outcome
-```
-
-**Function Hook:**
-```
-1. Validate messages array exists
-2. Create timeout signal
-3. Call callback(messages, signal)
-4. Boolean result: true=success, false=blocking error
-5. Cleanup timeout
-6. Return outcome
-```
-
-**Command/Prompt/Agent Hook:**
-```
-1. Stringify hookInput to JSON
-2. Replace $ARGUMENTS placeholder
-3. Execute hook (command/prompt/agent specific)
-4. Process output/response
-5. Parse JSON if present
-6. Determine outcome from exit code/response
-7. Cleanup timeout
-8. Return outcome
-```
-
-#### 5. Result Aggregation
-
-Results are aggregated and tracked:
-
-```typescript
-{
-  success: number,            // Count of successful hooks
-  blocking: number,           // Count of blocking errors
-  non_blocking_error: number, // Count of non-blocking errors
-  cancelled: number           // Count of cancelled hooks
-}
-```
-
-#### 6. Output Processing
-
-Each result is processed and yields:
-
-```typescript
-// Success
-if (result.message) yield { message }
-
-// Blocking error
-if (result.blockingError) yield { blockingError }
-
-// System message
-if (result.systemMessage) yield { message: hook_system_message }
-
-// Additional context
-if (result.additionalContext) yield { additionalContexts: [...] }
-
-// Permission behavior
-if (result.permissionBehavior) yield { permissionBehavior, ... }
-
-// And more...
-```
-
-#### 7. Hook Success Callback
-
-If hook succeeds and session has `onHookSuccess` callback:
-
-```typescript
-if (appState && hook.type !== "callback") {
-  let sessionHook = findSessionHook(appState, hookEvent, matcher, hook);
-  if (sessionHook?.onHookSuccess && outcome === "success") {
-    sessionHook.onHookSuccess(hook, result);
+    return [...commandHooks, ...promptHooks, ...agentHooks, ...callbackHooks];
+  } catch {
+    return [];
   }
 }
+
+// Mapping: _V0→getMatchingHooks, ek3→loadAllHooks, tk3→matchPattern
 ```
 
-#### 8. Telemetry Event
+### Pattern Matcher (`tk3`)
 
-At the end, emit telemetry:
+```javascript
+// ============================================
+// matchPattern - Pattern matching for hook matchers
+// Location: chunks.146.mjs:3432-3443
+// ============================================
 
-```typescript
-telemetry("tengu_repl_hook_finished", {
-  hookName: string,
-  numCommands: number,
-  numSuccess: number,
-  numBlocking: number,
-  numNonBlockingError: number,
-  numCancelled: number
-});
+// ORIGINAL (for source lookup):
+function tk3(A, Q) {
+  if (!Q || Q === "*") return !0;
+  if (/^[a-zA-Z0-9_|]+$/.test(Q)) {
+    if (Q.includes("|"))
+      return Q.split("|").map((G) => G.trim()).includes(A);
+    return A === Q
+  }
+  try {
+    return new RegExp(Q).test(A)
+  } catch {
+    g(`Invalid regex pattern in hook matcher: ${Q}`);
+    return !1
+  }
+}
+
+// READABLE (for understanding):
+function matchPattern(value, pattern) {
+  // No pattern or wildcard - match all
+  if (!pattern || pattern === "*") return true;
+
+  // Simple alphanumeric pattern
+  if (/^[a-zA-Z0-9_|]+$/.test(pattern)) {
+    // Pipe-separated list: "Write|Edit|Bash"
+    if (pattern.includes("|")) {
+      return pattern.split("|").map((p) => p.trim()).includes(value);
+    }
+    // Exact match
+    return value === pattern;
+  }
+
+  // Regex pattern
+  try {
+    return new RegExp(pattern).test(value);
+  } catch {
+    log(`Invalid regex pattern in hook matcher: ${pattern}`);
+    return false;
+  }
+}
+
+// Mapping: tk3→matchPattern
+```
+
+**Pattern Examples:**
+
+| Pattern | Matches |
+|---------|---------|
+| `*` or (empty) | All values |
+| `Write` | Only "Write" |
+| `Write\|Edit\|Bash` | "Write", "Edit", or "Bash" |
+| `^(Read\|Write)$` | "Read" or "Write" (regex) |
+| `Bash.*` | "Bash", "BashOutput", etc. (regex) |
+
+---
+
+## Interruption Mechanism
+
+### Signal Combination
+
+Hooks use a signal combination pattern to handle multiple abort sources (timeout + parent abort).
+
+```javascript
+// ============================================
+// createCombinedAbortSignal - Combine multiple abort signals
+// Location: chunks.106.mjs:1725-1738
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ck(A, Q) {
+  let B = o9(),
+    G = () => { B.abort() };
+  A.addEventListener("abort", G);
+  Q?.addEventListener("abort", G);
+  let Z = () => {
+    A.removeEventListener("abort", G);
+    Q?.removeEventListener("abort", G)
+  };
+  return { signal: B.signal, cleanup: Z }
+}
+
+// READABLE (for understanding):
+function createCombinedAbortSignal(timeoutSignal, parentSignal) {
+  let combinedController = new AbortController(),
+    abortHandler = () => { combinedController.abort() };
+
+  // Listen to both signals
+  timeoutSignal.addEventListener("abort", abortHandler);
+  parentSignal?.addEventListener("abort", abortHandler);
+
+  // Cleanup function to remove listeners
+  let cleanup = () => {
+    timeoutSignal.removeEventListener("abort", abortHandler);
+    parentSignal?.removeEventListener("abort", abortHandler);
+  };
+
+  return {
+    signal: combinedController.signal,
+    cleanup: cleanup
+  };
+}
+
+// Mapping: ck→createCombinedAbortSignal, o9→new AbortController()
+```
+
+### Abort Flow Diagram
+
+```
+┌─────────────────┐     ┌─────────────────┐
+│  Parent Signal  │     │  Timeout Signal │
+│ (session abort) │     │ (hook timeout)  │
+└────────┬────────┘     └────────┬────────┘
+         │                       │
+         │    addEventListener   │
+         └───────────┬───────────┘
+                     │
+                     ▼
+         ┌───────────────────────┐
+         │  Combined Controller  │
+         │    (new AbortController) │
+         └───────────┬───────────┘
+                     │
+                     ▼
+         ┌───────────────────────┐
+         │    Hook Execution     │
+         │  (command/prompt/etc) │
+         └───────────┬───────────┘
+                     │
+                     ▼
+         ┌───────────────────────┐
+         │       Cleanup         │
+         │ (removeEventListener) │
+         └───────────────────────┘
+```
+
+### Workspace Trust Check
+
+```javascript
+// ============================================
+// shouldSkipWorkspaceTrust - Check if hooks should be skipped
+// Location: chunks.146.mjs:3182-3185
+// ============================================
+
+// ORIGINAL (for source lookup):
+function rX9() {
+  if (!!N6()) return !1;
+  return !TJ(!1)
+}
+
+// READABLE (for understanding):
+function shouldSkipWorkspaceTrust() {
+  // Remote environments skip trust check
+  if (isRemoteEnvironment()) return false;
+
+  // Skip hooks if workspace is not trusted
+  return !isWorkspaceTrusted(requireConfirmation = false);
+}
+
+// Mapping: rX9→shouldSkipWorkspaceTrust, N6→isRemoteEnvironment, TJ→isWorkspaceTrusted
+```
+
+### Managed Hooks Only Check
+
+```javascript
+// ============================================
+// isAllowManagedHooksOnly - Check enterprise restriction
+// Location: chunks.106.mjs:1528-1530
+// ============================================
+
+// ORIGINAL (for source lookup):
+function t21() {
+  return OB("policySettings")?.allowManagedHooksOnly === !0
+}
+
+// READABLE (for understanding):
+function isAllowManagedHooksOnly() {
+  return getPolicySetting("policySettings")?.allowManagedHooksOnly === true;
+}
+
+// Mapping: t21→isAllowManagedHooksOnly
 ```
 
 ---
 
-## Execution Ordering
+## Main Execution Function
 
-### Hook Order Within Event
+### `executeHooksInREPL` (qa)
 
-For a single hook event with multiple matchers:
+The primary hook execution function is an async generator that orchestrates all hook types.
 
-```
-1. Hooks are retrieved in configuration order
-2. All hooks execute in parallel (Promise.all)
-3. Results are processed as they complete (non-deterministic order)
-4. Aggregation happens after all hooks finish
-```
+```javascript
+// ============================================
+// executeHooksInREPL - Main hook execution orchestrator
+// Location: chunks.147.mjs:3-338
+// ============================================
 
-### Multiple Hook Events
+// READABLE (for understanding):
+async function* executeHooksInREPL({
+  hookInput,
+  toolUseID,
+  matchQuery,
+  signal,
+  timeoutMs = DEFAULT_HOOK_TIMEOUT,  // 60000ms
+  toolUseContext,
+  messages
+}) {
+  // ==========================================
+  // PHASE 1: Pre-Execution Guards
+  // ==========================================
 
-Different hook events execute at different times in the lifecycle:
+  // Guard 1: Global disable check
+  if (getSettings().disableAllHooks) return;
 
-```
-Session Lifecycle:
-  SessionStart
-    ↓
-  UserPromptSubmit (on each user message)
-    ↓
-  PreToolUse (before each tool)
-    ↓
-  PostToolUse | PostToolUseFailure (after each tool)
-    ↓
-  PreCompact (when context full)
-    ↓
-  Notification (as needed)
-    ↓
-  Stop | SubagentStop (on interruption)
-    ↓
-  SessionEnd
-```
+  let hookEventName = hookInput.hook_event_name,
+    hookName = matchQuery ? `${hookEventName}:${matchQuery}` : hookEventName;
 
-### Tool Use Lifecycle
+  // Guard 2: Workspace trust check
+  if (shouldSkipWorkspaceTrust()) {
+    log(`Skipping ${hookName} hook execution - workspace trust not accepted`);
+    return;
+  }
 
-```
-PreToolUse hooks
-    ↓
-Execute tool
-    ↓
-PostToolUse hooks (if success)
-    OR
-PostToolUseFailure hooks (if failure)
+  // Get app state and matching hooks
+  let appState = toolUseContext ? await toolUseContext.getAppState() : undefined,
+    matchingHooks = getMatchingHooks(appState, hookEventName, hookInput);
+
+  // Guard 3: No matching hooks
+  if (matchingHooks.length === 0) return;
+
+  // Guard 4: Already aborted
+  if (signal?.aborted) return;
+
+  // ==========================================
+  // PHASE 2: Analytics & Progress
+  // ==========================================
+
+  analytics("tengu_run_hook", {
+    hookName: hookName,
+    numCommands: matchingHooks.length
+  });
+
+  // Yield progress message for each hook
+  for (let hook of matchingHooks) {
+    yield {
+      message: {
+        type: "progress",
+        data: {
+          type: "hook_progress",
+          hookEvent: hookEventName,
+          hookName: hookName,
+          command: getHookCommandString(hook),
+          promptText: hook.type === "prompt" ? hook.prompt : undefined,
+          statusMessage: "statusMessage" in hook ? hook.statusMessage : undefined
+        },
+        parentToolUseID: toolUseID,
+        toolUseID: toolUseID,
+        timestamp: new Date().toISOString(),
+        uuid: generateUUID()
+      }
+    };
+  }
+
+  // ==========================================
+  // PHASE 3: Parallel Hook Execution
+  // ==========================================
+
+  let hookGenerators = matchingHooks.map(async function*(hook, hookIndex) {
+    // Execute based on hook type
+    if (hook.type === "callback") {
+      let timeout = hook.timeout ? hook.timeout * 1000 : timeoutMs,
+        { signal: combinedSignal, cleanup } = createCombinedAbortSignal(
+          AbortSignal.timeout(timeout), signal
+        );
+      yield executeCallbackHook({ ... }).finally(cleanup);
+      return;
+    }
+
+    if (hook.type === "function") {
+      if (!messages) {
+        yield { message: "Messages not provided for function hook", outcome: "non_blocking_error" };
+        return;
+      }
+      yield executeFunctionHook({ hook, messages, hookName, ... });
+      return;
+    }
+
+    // Command/Prompt/Agent hooks
+    let timeout = hook.timeout ? hook.timeout * 1000 : timeoutMs,
+      { signal: combinedSignal, cleanup } = createCombinedAbortSignal(
+        AbortSignal.timeout(timeout), signal
+      );
+
+    try {
+      let hookInputJSON = JSON.stringify(hookInput);
+
+      if (hook.type === "prompt") {
+        yield await executePromptHook(hook, hookName, hookEventName, hookInputJSON, ...);
+        cleanup?.();
+        return;
+      }
+
+      if (hook.type === "agent") {
+        yield await executeAgentHook(hook, hookName, hookEventName, hookInputJSON, ...);
+        cleanup?.();
+        return;
+      }
+
+      // Default: command hook
+      let result = await executeShellHook(hook, hookEventName, hookName, hookInputJSON, combinedSignal, hookIndex);
+      cleanup?.();
+
+      // Handle abort
+      if (result.aborted) {
+        yield { message: { type: "hook_cancelled", ... }, outcome: "cancelled", hook };
+        return;
+      }
+
+      // Parse JSON output
+      let { json, plainText, validationError } = parseHookJSONOutput(result.stdout);
+
+      if (validationError) {
+        yield { message: { type: "hook_non_blocking_error", stderr: validationError, ... }, outcome: "non_blocking_error", hook };
+        return;
+      }
+
+      // Process JSON response
+      if (json) {
+        if (isAsyncHookResponse(json)) {
+          yield { outcome: "success", hook };
+          return;
+        }
+
+        let processed = processHookResponse({ json, command: hook.command, hookName, toolUseID, hookEventName, ... });
+        yield { ...processed, outcome: "success", hook };
+        return;
+      }
+
+      // Handle exit codes
+      if (result.status === 0) {
+        yield { message: { type: "hook_success", content: result.stdout, ... }, outcome: "success", hook };
+      } else if (result.status === 2) {
+        // BLOCKING ERROR
+        yield { blockingError: { blockingError: result.stderr, command: hook.command }, outcome: "blocking", hook };
+      } else {
+        // Non-blocking error
+        yield { message: { type: "hook_non_blocking_error", stderr: result.stderr, ... }, outcome: "non_blocking_error", hook };
+      }
+
+    } catch (error) {
+      cleanup?.();
+      yield { message: { type: "hook_non_blocking_error", ... }, outcome: "non_blocking_error", hook };
+    }
+  });
+
+  // ==========================================
+  // PHASE 4: Result Aggregation
+  // ==========================================
+
+  let outcomes = {
+    success: 0,
+    blocking: 0,
+    non_blocking_error: 0,
+    cancelled: 0
+  };
+  let permissionDecision;
+
+  for await (let result of mergeAsyncGenerators(hookGenerators)) {
+    outcomes[result.outcome]++;
+
+    // Yield various result types
+    if (result.preventContinuation) yield { preventContinuation: true, stopReason: result.stopReason };
+    if (result.blockingError) yield { blockingError: result.blockingError };
+    if (result.message) yield { message: result.message };
+    if (result.systemMessage) yield { message: { type: "hook_system_message", content: result.systemMessage, ... } };
+    if (result.additionalContext) yield { additionalContexts: [result.additionalContext] };
+    if (result.updatedMCPToolOutput) yield { updatedMCPToolOutput: result.updatedMCPToolOutput };
+    if (result.updatedInput) yield { updatedInput: result.updatedInput };
+
+    // Aggregate permission decisions
+    if (result.permissionBehavior) {
+      if (!permissionDecision || result.permissionBehavior === "deny") {
+        permissionDecision = result.permissionBehavior;
+      }
+    }
+
+    if (result.permissionRequestResult) yield { permissionRequestResult: result.permissionRequestResult };
+
+    // Execute success callback
+    if (appState && result.hook.type !== "callback") {
+      let sessionHook = findSessionHook(appState, getSessionId(), hookEventName, matchQuery, result.hook);
+      if (sessionHook?.onHookSuccess && result.outcome === "success") {
+        sessionHook.onHookSuccess(result.hook, result);
+      }
+    }
+  }
+
+  // Yield aggregated permission decision
+  if (permissionDecision) {
+    yield { permissionBehavior: permissionDecision };
+  }
+
+  // ==========================================
+  // PHASE 5: Telemetry
+  // ==========================================
+
+  analytics("tengu_repl_hook_finished", {
+    hookName: hookName,
+    numCommands: matchingHooks.length,
+    numSuccess: outcomes.success,
+    numBlocking: outcomes.blocking,
+    numNonBlockingError: outcomes.non_blocking_error,
+    numCancelled: outcomes.cancelled
+  });
+}
 ```
 
 ---
 
 ## Error Handling
 
-### Hook Execution Errors
+### No Retry Logic
 
-#### 1. Timeout
-```typescript
-{
-  message: {
-    type: "hook_cancelled",
-    hookName: string,
-    toolUseID: string,
-    hookEvent: string
-  },
-  outcome: "cancelled"
-}
+**Important:** Hooks do NOT have retry logic. This is by design:
+
+| Outcome | Behavior |
+|---------|----------|
+| Success | Hook completed successfully |
+| Blocking Error | Stops execution, no retry |
+| Non-blocking Error | Logs warning, continues, no retry |
+| Cancelled | Timeout/abort, no retry |
+
+### Exit Code Semantics
+
+For command hooks, exit codes determine outcome:
+
+```
+Exit Code 0   → Success
+Exit Code 2   → BLOCKING ERROR (stops execution)
+Exit Code 1,3+ → Non-blocking error (continues with warning)
 ```
 
-#### 2. JSON Stringify Failure
-```typescript
-{
-  message: {
-    type: "hook_error_during_execution",
-    hookName: string,
-    toolUseID: string,
-    hookEvent: string,
-    content: "Failed to prepare hook input: <error>"
-  },
-  outcome: "non_blocking_error"
-}
-```
+### Error Types and Messages
 
-#### 3. Command Execution Error
-```typescript
-{
-  message: {
-    type: "hook_non_blocking_error",
-    hookName: string,
-    toolUseID: string,
-    hookEvent: string,
-    stderr: "Failed to run: <error>",
-    stdout: "",
-    exitCode: 1
-  },
-  outcome: "non_blocking_error"
-}
-```
-
-#### 4. Function Hook Missing Messages
-```typescript
-{
-  message: {
-    type: "hook_error_during_execution",
-    hookName: string,
-    toolUseID: string,
-    hookEvent: string,
-    content: "Messages not provided for function hook"
-  },
-  outcome: "non_blocking_error"
-}
-```
-
-### Error Recovery
-
-Claude Code handles hook errors gracefully:
-
-1. **Non-blocking errors:** Log error, continue execution
-2. **Blocking errors:** Stop execution, show error to user
-3. **Cancelled hooks:** Clean up, continue if possible
-4. **Missing context:** Skip hooks that can't execute
-
-### Workspace Trust
-
-If workspace trust is not accepted:
-```
-g(`Skipping ${hookName} hook execution - workspace trust not accepted`);
-return; // Exit early
-```
-
-### DisableAllHooks Setting
-
-If `disableAllHooks` is true:
-```
-if (settings.disableAllHooks) {
-  g(`Skipping hooks for ${hookName} due to 'disableAllHooks' setting`);
-  return [];
-}
-```
-
----
-
-## Hook Output Processing
-
-### JSON Output Parsing
-
-Function: `oX9(stdout: string)`
-
-Attempts to parse stdout as JSON:
-
-```typescript
-{
-  json: object | null,        // Parsed JSON if valid
-  plainText: string,          // Original stdout
-  validationError: string | null // Error message if invalid
-}
-```
-
-**Validation Error Handling:**
-```typescript
-if (validationError) {
-  yield {
-    message: {
-      type: "hook_non_blocking_error",
-      stderr: `JSON validation failed: ${validationError}`,
-      stdout: stdout,
-      exitCode: 1
-    },
-    outcome: "non_blocking_error"
-  };
-  return;
-}
-```
-
-### Special JSON Fields
-
-Function: `tX9()` processes JSON output for special fields:
-
-#### 1. Empty Output (No Decision)
-```json
-{}
-```
-Result: Silent success (no output to user)
-
-Check: `zYA(json)` returns true for empty/no-op output
-
-#### 2. Decision Field
-```json
-{
-  "decision": "approve" | "block",
-  "reason": "..."
-}
-```
-
-**approve:** Continue execution
-**block:** Stop execution with blocking error
-
-#### 3. Permission Decision
-```json
-{
-  "permissionDecision": "allow" | "deny" | "ask",
-  "updatedInput": { ... }
-}
-```
-
-**allow:** Auto-approve permission
-**deny:** Auto-deny permission
-**ask:** Prompt user (default behavior)
-
-#### 4. System Message
-```json
-{
-  "systemMessage": "Message visible to LLM and user"
-}
-```
-
-Adds message to conversation context
-
-#### 5. Additional Context
-```json
-{
-  "additionalContext": {
-    "type": "text",
-    "content": "..."
-  }
-}
-```
-
-Injects context into conversation without user visibility
-
-#### 6. Suppress Output
-```json
-{
-  "suppressOutput": true
-}
-```
-
-Prevents hook output from being shown to user
-
-#### 7. Stop Continuation
-```json
-{
-  "preventContinuation": true,
-  "stopReason": "..."
-}
-```
-
-Stops further execution with reason
-
----
-
-## Outside REPL Execution
-
-Function: `kV0()` - Execute hooks outside REPL context
-
-Used for synchronous hook execution without streaming:
-
-```typescript
-async function kV0({
-  getAppState: () => AppState,
-  hookInput: HookInput,
-  matchQuery?: string,
-  signal: AbortSignal,
-  timeoutMs?: number
-}): Promise<HookResult[]>
-```
-
-**Key Differences from REPL (`qa()`):**
-- Returns array of results instead of async generator
-- No streaming progress updates
-- Agent hooks not supported (returns error message)
-- Function hooks not supported (returns error)
-- Used for: `SessionEnd`, `Notification`, `PreCompact`
-
-**Example Usage:**
-```typescript
-// PreCompact hooks
-let results = await kV0({
-  hookInput: {
-    hook_event_name: "PreCompact",
-    trigger: "user",
-    custom_instructions: "..."
-  },
-  matchQuery: "user",
-  signal: abortSignal,
-  timeoutMs: 60000
-});
-
-// Process results
-let newInstructions = results
-  .filter(r => r.succeeded && r.output.trim())
-  .map(r => r.output.trim())
-  .join('\n\n');
-```
-
----
-
-## Hook Type Execution Implementation
-
-### Function Hook Execution
-
-**From chunks.147.mjs:698-754:**
 ```javascript
-// ============================================
-// Ay3 - Execute function hook
-// Location: chunks.147.mjs:698
-// ============================================
-async function Ay3({
-  hook,
-  messages,
-  hookName,
-  toolUseID,
-  hookEvent,
-  timeoutMs,
-  signal
-}) {
-  let timeout = hook.timeout ?? timeoutMs,
-    { signal: timeoutSignal, cleanup } = ck(AbortSignal.timeout(timeout), signal);
+// Success
+{ type: "hook_success", content: stdout, stdout, stderr, exitCode: 0 }
 
-  try {
-    if (timeoutSignal.aborted) {
-      return cleanup(), { outcome: "cancelled", hook };
-    }
+// Blocking Error
+{ type: "hook_blocking_error", blockingError: stderr, command }
 
-    // Execute function hook callback with messages
-    let result = await new Promise((resolve, reject) => {
-      let abortHandler = () => reject(Error("Function hook cancelled"));
-      timeoutSignal.addEventListener("abort", abortHandler);
+// Non-blocking Error
+{ type: "hook_non_blocking_error", stderr, stdout, exitCode }
 
-      Promise.resolve(hook.callback(messages, timeoutSignal))
-        .then((res) => {
-          timeoutSignal.removeEventListener("abort", abortHandler);
-          resolve(res);
-        })
-        .catch((err) => {
-          timeoutSignal.removeEventListener("abort", abortHandler);
-          reject(err);
-        });
-    });
+// Cancelled (timeout/abort)
+{ type: "hook_cancelled" }
 
-    cleanup();
-
-    // Boolean result: true = success, false = blocking error
-    if (result) {
-      return { outcome: "success", hook };
-    }
-
-    return {
-      blockingError: {
-        blockingError: hook.errorMessage,
-        command: "function"
-      },
-      outcome: "blocking",
-      hook
-    };
-  } catch (error) {
-    cleanup();
-
-    if (error instanceof Error &&
-        (error.message === "Function hook cancelled" || error.name === "AbortError")) {
-      return { outcome: "cancelled", hook };
-    }
-
-    AA(error instanceof Error ? error : Error(String(error)));
-    return {
-      message: l9({
-        type: "hook_error_during_execution",
-        hookName,
-        toolUseID,
-        hookEvent,
-        content: error instanceof Error ? error.message : "Function hook execution error"
-      }),
-      outcome: "non_blocking_error",
-      hook
-    };
-  }
-}
+// Execution Error
+{ type: "hook_error_during_execution", content: errorMessage }
 ```
 
-**Function Hook Logic:**
-- Receives `messages` array instead of hook input
-- Returns boolean: `true` for success, `false` for blocking error
-- Used exclusively in Stop hooks for message-based verification
-- Abort signal passed to callback for cancellation support
+### JSON Validation Errors
 
-### Callback Hook Execution
-
-**From chunks.147.mjs:756-784:**
 ```javascript
-// ============================================
-// Qy3 - Execute callback hook
-// Location: chunks.147.mjs:756
-// ============================================
-async function Qy3({
-  toolUseID,
-  hook,
-  hookEvent,
-  hookInput,
-  signal,
-  hookIndex
-}) {
-  // Execute callback with hook input
-  let result = await hook.callback(hookInput, toolUseID, signal, hookIndex);
+// When JSON output fails validation:
+{
+  type: "hook_non_blocking_error",
+  stderr: "Hook JSON output validation failed:\n  - path.to.field: error message",
+  stdout: originalOutput,
+  exitCode: 1
+}
+```
 
-  // Check if result is async/empty response
-  if (zYA(result)) {
-    return { outcome: "success", hook };
+---
+
+## Permission Integration
+
+### Hook-Based Permission Decisions
+
+Hooks can return permission decisions that override the default permission flow.
+
+### Permission Decision Values
+
+| Value | Effect |
+|-------|--------|
+| `"allow"` | Auto-approve the permission request |
+| `"deny"` | Auto-deny the permission request (blocking) |
+| `"ask"` | Prompt user as normal (default behavior) |
+
+### PreToolUse Permission Override
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "permissionDecisionReason": "Command matches whitelist",
+    "updatedInput": { /* optional modified input */ }
   }
-
-  // Process JSON result for special fields
-  return {
-    ...tX9({
-      json: result,
-      command: "callback",
-      hookName: `${hookEvent}:Callback`,
-      toolUseID,
-      hookEvent,
-      expectedHookEvent: hookEvent,
-      stdout: undefined,
-      stderr: undefined,
-      exitCode: undefined
-    }),
-    outcome: "success",
-    hook
-  };
 }
 ```
 
-**Callback Hook Features:**
-- Direct JavaScript function execution
-- Returns JSON object with special fields
-- Can modify permission behavior, add context, etc.
-- No shell execution overhead
+### PermissionRequest Decision
 
-## Helper Functions
-
-### `_V0()` - Get Matching Hooks
-
-Retrieves hooks that match the event and query:
-
-```typescript
-function _V0(
-  appState: AppState,
-  hookEvent: HookEvent,
-  hookInput: HookInput
-): Hook[]
-```
-
-1. Loads hook configuration from settings
-2. Filters by hook event type
-3. Applies matcher logic
-4. Returns array of hooks to execute
-
-### `hE()` - Get Hook Command String
-
-Returns display string for hook:
-
-```typescript
-function hE(hook: Hook): string {
-  if (hook.type === "command") return hook.command;
-  if (hook.type === "prompt") return "prompt";
-  if (hook.type === "agent") return "agent";
-  if (hook.type === "callback") return "callback";
-  if (hook.type === "function") return "function";
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PermissionRequest",
+    "decision": {
+      "behavior": "allow",
+      "updatedInput": { /* optional */ },
+      "updatedPermissions": [ /* optional */ ]
+    }
+  }
 }
 ```
 
-### `tE()` - Create Session Context
+Or to deny:
 
-Adds session context to hook input:
-
-```typescript
-function tE(
-  appState?: AppState,
-  agentContext?: AgentContext
-): SessionContext {
-  return {
-    cwd: string,
-    session_id: string,
-    // ... other context
-  };
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PermissionRequest",
+    "decision": {
+      "behavior": "deny",
+      "message": "Command not allowed by policy",
+      "interrupt": true
+    }
+  }
 }
 ```
 
-### `SV0()` - Execute Shell Command
+### Permission Aggregation
 
-Low-level command execution:
+When multiple hooks return permission decisions, **deny takes precedence**:
 
-```typescript
-async function SV0(
-  hook: CommandHook,
-  hookEvent: string,
-  hookName: string,
-  jsonInput: string,
-  signal: AbortSignal,
-  hookIndex?: number
-): Promise<{
-  stdout: string,
-  stderr: string,
-  status: number,
-  aborted: boolean
-}>
+```javascript
+// In executeHooksInREPL:
+if (result.permissionBehavior) {
+  if (!permissionDecision || result.permissionBehavior === "deny") {
+    permissionDecision = result.permissionBehavior;
+  }
+}
 ```
 
 ---
 
 ## Event-Specific Execution Functions
 
-Each hook event has a dedicated execution function:
+Each hook event has a dedicated wrapper function that builds the appropriate hook input.
 
 ### Tool Events
-```typescript
+
+```javascript
 // PreToolUse
-async function* OV0(toolName, toolUseID, toolInput, context, appState, signal, timeout)
+async function* executePreToolUseHooks(toolName, toolUseID, toolInput, context, appState, signal, timeout)
 
 // PostToolUse
-async function* RV0(toolName, toolUseID, toolInput, toolResponse, appState, context, signal, timeout)
+async function* executePostToolUseHooks(toolName, toolUseID, toolInput, toolResponse, appState, context, signal, timeout)
 
 // PostToolUseFailure
-async function* TV0(toolName, toolUseID, toolInput, error, isInterrupt, appState, context, signal, timeout)
+async function* executePostToolUseFailureHooks(toolName, toolUseID, toolInput, error, isInterrupt, appState, context, signal, timeout)
 ```
 
 ### Session Events
-```typescript
-// SessionStart
-async function* WQ0(source, agentContext, signal, timeout)
 
-// SubagentStart
-async function* rX0(agentId, agentType, signal, timeout)
+```javascript
+// SessionStart
+async function* executeSessionStartHooks(source, agentContext, signal, timeout)
+
+// SessionEnd (non-generator)
+async function executeSessionEndHooks(reason, options)
 
 // Stop / SubagentStop
-async function* PV0(appState, signal, timeout, stopHookActive, agentId?, context?, messages?)
+async function* executeStopHooks(appState, signal, timeout, stopHookActive, agentId?, context?, messages?)
 ```
 
 ### User Events
-```typescript
-// UserPromptSubmit
-async function* k60(prompt, appState, toolUseContext)
-```
 
-### Notification Events
-```typescript
-// Notification
-async function B60(notification, timeout)
+```javascript
+// UserPromptSubmit
+async function* executeUserPromptSubmitHooks(prompt, appState, toolUseContext)
+
+// Notification (non-generator)
+async function executeNotificationHooks(notification, timeout)
 ```
 
 ### Compaction Events
-```typescript
-// PreCompact
-async function FQ0(compactInput, signal, timeout): Promise<{
+
+```javascript
+// PreCompact (non-generator, returns new instructions)
+async function executePreCompactHooks(compactInput, signal, timeout): Promise<{
   newCustomInstructions?: string,
-  notificationLogs?: string[]
+  userDisplayMessage?: string
 }>
 ```
 
 ### Permission Events
-```typescript
+
+```javascript
 // PermissionRequest
-async function* VQ0(permissionRequest, signal, timeout)
+async function* executePermissionRequestHooks(toolName, toolUseID, toolInput, context, appState, permissionSuggestions, signal, timeout)
+```
+
+### Subagent Events
+
+```javascript
+// SubagentStart
+async function* executeSubagentStartHooks(agentId, agentType, signal, timeout)
 ```
 
 ---
 
-## StatusLine Execution
+## Hook Context Builder
 
-Special hook for status line display (separate from main hook system):
+```javascript
+// ============================================
+// createHookContext - Build base hook context
+// Location: chunks.146.mjs:3187-3195
+// ============================================
 
-```typescript
-async function cJ0(
-  statusInput: StatusInput,
-  signal?: AbortSignal,
-  timeout: number = 5000
-): Promise<string | undefined>
-```
-
-**Features:**
-- Executed on every status line update
-- Shorter default timeout (5 seconds)
-- Returns string for display
-- Respects `disableAllHooks` setting
-- Command type only (no prompt/agent)
-
-**Configuration:**
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "git branch --show-current",
-    "padding": 2
+// ORIGINAL (for source lookup):
+function tE(A, Q) {
+  let B = Q ?? e1();
+  return {
+    session_id: B,
+    transcript_path: WSA(B),
+    cwd: W0(),
+    permission_mode: A
   }
 }
+
+// READABLE (for understanding):
+function createHookContext(permissionContext, sessionIdOverride) {
+  let sessionId = sessionIdOverride ?? getSessionId();
+
+  return {
+    session_id: sessionId,
+    transcript_path: getSessionTranscriptPath(sessionId),
+    cwd: getCurrentWorkingDirectory(),
+    permission_mode: permissionContext
+  };
+}
+
+// Mapping: tE→createHookContext, e1→getSessionId, WSA→getSessionTranscriptPath, W0→getCurrentWorkingDirectory
 ```
-
----
-
-## Best Practices
-
-### 1. Use Appropriate Event Types
-
-- **PreToolUse:** Validation before execution
-- **PostToolUse:** Verification after success
-- **PostToolUseFailure:** Error recovery
-- **SessionStart:** One-time setup
-- **Stop:** Cleanup on interruption
-
-### 2. Handle Errors Gracefully
-
-- Use non-blocking errors for warnings
-- Use blocking errors only when execution must stop
-- Provide helpful error messages
-
-### 3. Optimize Performance
-
-- Keep hooks fast (< 5 seconds when possible)
-- Use matchers to reduce unnecessary executions
-- Avoid heavy operations in frequently-triggered events
-
-### 4. Use JSON Output for Control Flow
-
-- Return decisions for approval/blocking
-- Use `suppressOutput` for silent hooks
-- Add context with `systemMessage` or `additionalContext`
-
-### 5. Test Hook Behavior
-
-- Test with various inputs
-- Verify timeout handling
-- Check error scenarios
-- Ensure cleanup occurs
 
 ---
 
 ## Telemetry Events
 
-Hook execution emits telemetry events:
-
-```typescript
-// Hook start
-telemetry("tengu_run_hook", {
+```javascript
+// Hook execution start
+analytics("tengu_run_hook", {
   hookName: string,
   numCommands: number
 });
 
-// Hook finish
-telemetry("tengu_repl_hook_finished", {
+// Hook execution complete
+analytics("tengu_repl_hook_finished", {
   hookName: string,
   numCommands: number,
   numSuccess: number,
@@ -1167,19 +1100,23 @@ telemetry("tengu_repl_hook_finished", {
 
 Hook execution in Claude Code follows a well-defined flow:
 
-1. **Check** if hooks are enabled and workspace is trusted
-2. **Retrieve** matching hooks using matcher system
-3. **Execute** hooks in parallel with timeout protection
-4. **Process** JSON output for special fields and decisions
-5. **Aggregate** results and track outcomes
-6. **Yield** messages, errors, and context updates
-7. **Emit** telemetry for monitoring
+1. **Pre-Execution Guards** - Check global disable, workspace trust, and abort signal
+2. **Configuration Loading** - Aggregate hooks from managed, user, project, and session sources
+3. **Hook Matching** - Filter hooks by event type and matcher pattern
+4. **Parallel Execution** - Execute all matching hooks concurrently
+5. **Result Processing** - Parse JSON output, handle exit codes, process special fields
+6. **Permission Integration** - Aggregate permission decisions (deny takes precedence)
+7. **Telemetry** - Emit analytics events for monitoring
 
-This system provides powerful customization while maintaining safety and performance.
+Key design decisions:
+- **No retry logic** - Hooks either succeed or fail, no automatic retries
+- **Exit code 2 = blocking** - Special exit code for critical failures
+- **Signal combination** - Nested timeouts via `createCombinedAbortSignal()`
+- **Deny takes precedence** - Multiple hooks can vote on permissions
 
 ---
 
 ## See Also
 
 - [Hook Types](./types.md) - Hook type definitions and schemas
-- [Settings Schema](../00_overview/settings_schema.md) - Full configuration reference
+- [Hook Configuration](./configuration.md) - Configuration and custom hook development
