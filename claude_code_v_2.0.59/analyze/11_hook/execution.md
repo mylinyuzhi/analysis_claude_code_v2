@@ -57,7 +57,11 @@ const HOOK_EVENT_TYPES = [
 
 Hook configuration is loaded from multiple sources with a defined priority order. The system aggregates hooks from managed settings, user settings, project settings, and session-level programmatic hooks.
 
-### Configuration Priority (Highest to Lowest)
+### Key Design Decision: Configuration Aggregation Strategy
+
+**What it solves:** Enterprises need to enforce mandatory hooks, users want personal preferences, projects need custom validation, and SDK users need runtime hooks.
+
+**Configuration Priority (Highest to Lowest):**
 
 ```
 1. Managed/Policy Settings (Enterprise)
@@ -65,6 +69,18 @@ Hook configuration is loaded from multiple sources with a defined priority order
 3. Project Settings (.claude/settings.json)
 4. Session Hooks (Programmatic)
 ```
+
+**Why this specific order:**
+1. **Security first:** Managed settings can block all other hooks via `allowManagedHooksOnly`
+2. **User autonomy:** User settings override project settings for personal tools
+3. **Project flexibility:** Project hooks apply to all users working on that project
+4. **SDK integration:** Session hooks are last because they're ephemeral
+
+**Key insight:** Unlike permissions (where deny takes precedence), hooks from all sources are **aggregated and all execute**. Priority only matters for the `allowManagedHooksOnly` gate.
+
+**Trade-off:** Multiple hooks from different sources all run, which could cause:
+- Performance impact (many hooks = slow execution)
+- Conflicting decisions (mitigated by permission aggregation's "deny wins" rule)
 
 ### Main Configuration Aggregator (`ek3`)
 
@@ -616,11 +632,52 @@ function isAllowManagedHooksOnly() {
 
 The primary hook execution function is an async generator that orchestrates all hook types.
 
+### Key Design Decision: Generator-Based Execution
+
+**What it solves:** Hooks need to yield multiple types of results (messages, permissions, context) without blocking the main loop.
+
+**Why async generator instead of Promise:**
+1. **Streaming results:** Can yield partial results as hooks complete
+2. **Early termination:** Blocking errors can abort remaining hooks
+3. **Memory efficiency:** No need to buffer all results before returning
+4. **Interleaved execution:** Multiple hooks can run in parallel, yielding as they complete
+
+**Alternative considered:** Array of promises with `Promise.all`:
+- Pro: Simpler mental model
+- Con: Cannot yield partial results, must wait for all to complete
+- Con: Cannot early-terminate on blocking error
+
+**Key insight:** The generator pattern enables "fire and stream" semantics - hooks execute in parallel but results flow back as soon as they're ready.
+
 ```javascript
 // ============================================
 // executeHooksInREPL - Main hook execution orchestrator
 // Location: chunks.147.mjs:3-338
 // ============================================
+
+// ORIGINAL (for source lookup):
+async function* qa({
+  hookInput: A,
+  toolUseID: Q,
+  matchQuery: B,
+  signal: G,
+  timeoutMs: Z = ZN,
+  toolUseContext: I,
+  messages: Y
+}) {
+  if (l0().disableAllHooks) return;
+  let J = A.hook_event_name,
+    W = B ? `${J}:${B}` : J;
+  if (rX9()) {
+    g(`Skipping ${W} hook execution - workspace trust not accepted`);
+    return
+  }
+  let X = I ? await I.getAppState() : void 0,
+    V = _V0(X, J, A);
+  if (V.length === 0) return;
+  if (G?.aborted) return;
+  // ... continues with hook execution ...
+}
 
 // READABLE (for understanding):
 async function* executeHooksInREPL({
@@ -846,9 +903,9 @@ async function* executeHooksInREPL({
 
 ## Error Handling
 
-### No Retry Logic
+### Key Design Decision: No Retry Logic
 
-**Important:** Hooks do NOT have retry logic. This is by design:
+**Important:** Hooks do NOT have retry logic. This is by design.
 
 | Outcome | Behavior |
 |---------|----------|
@@ -856,6 +913,19 @@ async function* executeHooksInREPL({
 | Blocking Error | Stops execution, no retry |
 | Non-blocking Error | Logs warning, continues, no retry |
 | Cancelled | Timeout/abort, no retry |
+
+**Why no retries:**
+1. **Determinism:** Hooks should produce consistent results; if they fail, retrying likely fails again
+2. **Latency:** Hook execution is in the critical path; retries would add unpredictable delays
+3. **User control:** If retry is needed, the hook script should implement it internally
+4. **Side effects:** Retrying a command hook could cause duplicate side effects (file writes, API calls)
+
+**What to do instead:**
+- For transient failures: Implement retry logic inside the hook script
+- For timeouts: Increase the `timeout` configuration value
+- For blocking errors: Fix the underlying issue, not the symptom
+
+**Key insight:** The hook system is intentionally "thin" - it dispatches to hooks but doesn't try to be smart about error recovery. This keeps the system predictable and puts control in the hook author's hands.
 
 ### Exit Code Semantics
 
@@ -957,9 +1027,11 @@ Or to deny:
 }
 ```
 
-### Permission Aggregation
+### Key Design Decision: Permission Aggregation ("Deny Wins")
 
-When multiple hooks return permission decisions, **deny takes precedence**:
+**What it solves:** Multiple hooks can return conflicting permission decisions (allow/deny/ask). Need a deterministic way to resolve conflicts.
+
+**The rule:** When multiple hooks return permission decisions, **deny takes precedence**:
 
 ```javascript
 // In executeHooksInREPL:
@@ -969,6 +1041,27 @@ if (result.permissionBehavior) {
   }
 }
 ```
+
+**Why "deny wins":**
+1. **Security principle:** Fail-closed is safer than fail-open
+2. **Veto power:** Any hook can block an action, but no hook can force approval against another's denial
+3. **Enterprise control:** Managed hooks can always deny, even if project hooks allow
+
+**Resolution order:**
+| Hook 1 | Hook 2 | Result |
+|--------|--------|--------|
+| allow | allow | allow |
+| allow | deny | **deny** |
+| deny | allow | **deny** |
+| ask | deny | **deny** |
+| ask | allow | allow |
+
+**Alternative considered:** "First decision wins" or voting system
+- Pro: More predictable order
+- Con: Depends on hook execution order (non-deterministic in parallel)
+- Con: Security hooks might lose to earlier-finishing non-security hooks
+
+**Key insight:** This is the same pattern used in Unix permissions (any deny = denied) and firewall rules. It creates a reliable security boundary.
 
 ---
 

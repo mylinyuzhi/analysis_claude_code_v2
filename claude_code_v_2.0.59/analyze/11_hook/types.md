@@ -147,6 +147,29 @@ z.object({
 
 ## Hook Type Definitions
 
+### Key Design Decision: Hook Type Architecture
+
+**What it solves:** Different validation needs require different execution models - some need fast shell scripts, others need LLM reasoning, and SDK users need programmatic callbacks.
+
+**Design rationale:**
+| Hook Type | Use Case | Latency | Complexity | Security |
+|-----------|----------|---------|------------|----------|
+| `command` | Fast validation, file ops | Low | Low | Sandboxed process |
+| `prompt` | LLM-based decisions | Medium | Medium | Model filtering |
+| `agent` | Multi-step verification | High | High | Tool restrictions |
+| `callback` | SDK integration | Low | Variable | In-process |
+| `function` | Message analysis | Low | Variable | In-process (REPL only) |
+
+**Why 5 types instead of one generic:**
+1. **Performance:** Command hooks avoid LLM latency for simple checks
+2. **Flexibility:** Agent hooks can use tools; prompt hooks are constrained to JSON response
+3. **Security isolation:** Shell commands run in separate processes; callbacks run in-process
+4. **Cost control:** Prompt/agent hooks use smaller models by default
+
+**Key insight:** The type system creates a spectrum from "fast & simple" (command) to "powerful & slow" (agent), letting users choose the right tradeoff for each hook point.
+
+---
+
 ### 1. Command Hook
 
 Executes a bash command when triggered.
@@ -187,6 +210,22 @@ Executes a bash command when triggered.
 | `0` | Success | Hook succeeds, stdout included in output |
 | `2` | **Blocking Error** | Stops execution, shows error with stderr |
 | Others (`1`, `3+`) | Non-blocking Error | Logs warning with stderr, continues execution |
+
+### Key Design Decision: Exit Code 2 as Blocking Signal
+
+**What it solves:** Need to distinguish between "something went wrong but continue" (non-blocking) vs "stop everything now" (blocking).
+
+**Why exit code 2:**
+1. **Unix convention:** Exit code 2 often means "misuse" or "invalid input" in Unix tools
+2. **Intentional choice:** Requires explicit `exit 2` - unlikely to happen accidentally
+3. **Script compatibility:** Exit code 1 is common for general errors, so non-blocking avoids false positives
+
+**Alternative considered:** Using JSON output for blocking decisions:
+- Pro: More explicit control
+- Con: Requires JSON parsing overhead for simple scripts
+- Decision: Support both (exit code for simple scripts, JSON for complex control)
+
+**Key insight:** This dual-mode approach (exit codes + JSON) lets simple bash one-liners work without JSON overhead while complex hooks can use structured output.
 
 ### Command Hook Executor Implementation
 
@@ -241,55 +280,123 @@ async function executeShellHook(hook, hookEvent, hookName, hookInputJSON, signal
 // Mapping: SV0→executeShellHook, A→hook, Q→hookEvent, B→hookName, G→hookInputJSON, Z→signal, I→hookIndex
 ```
 
-**Key Algorithm: Async Hook Detection**
+### Key Algorithm: Async Hook Detection
+
+**What it does:** Detects if a command hook wants to run asynchronously by checking for `{"async": true}` in its early stdout output.
+
+**How it works:**
+1. Buffer all stdout data as it arrives
+2. When buffer contains `}`, attempt to parse as JSON
+3. If JSON has `async: true`, background the process and return immediately
+4. Otherwise, continue collecting output normally
+
+**Why this approach:**
+- **Early detection:** Checks as soon as possible (when `}` appears) to minimize blocking
+- **Non-blocking background:** Uses process backgrounding instead of waiting for completion
+- **Graceful fallback:** If JSON parsing fails, continues as normal synchronous hook
+- **State tracking:** Registers async hooks for later status checking
+
+**Key insight:** The system doesn't require a separate "async" hook type - any command hook can become async by returning `{"async": true}` as its first output. This provides flexibility without schema changes.
 
 ```javascript
 // ============================================
-// Async hook detection in command execution
-// Location: chunks.146.mjs:3370-3395
+// isAsyncHookResponse - Check for async response marker
+// Location: chunks.106.mjs:1665-1667
 // ============================================
 
+// ORIGINAL (for source lookup):
+function zYA(A) {
+  return "async" in A && A.async === !0
+}
+
 // READABLE (for understanding):
-let isAsync = false,
+function isAsyncHookResponse(response) {
+  return "async" in response && response.async === true;
+}
+
+// Mapping: zYA→isAsyncHookResponse, A→response
+```
+
+```javascript
+// ============================================
+// Async detection in shell hook - stdout handler
+// Location: chunks.146.mjs:3355-3389
+// ============================================
+
+// ORIGINAL (for source lookup):
+let H = !1,
+  C = null,
+  E = new Promise((N) => { C = N });
+V.stdout.on("data", (N) => {
+  if (K += N, !H && K.trim().includes("}")) {
+    H = !0, g(`Hooks: Checking initial response for async: ${K.trim()}`);
+    try {
+      let R = JSON.parse(K.trim());
+      if (g(`Hooks: Parsed initial response: ${JSON.stringify(R)}`), zYA(R)) {
+        let T = `async_hook_${V.pid}`;
+        g(`Hooks: Detected async hook, backgrounding process ${T}`);
+        let y = F.background(T);
+        if (y) yZ2({ processId: T, asyncResponse: R, hookEvent: Q, hookName: B, command: A.command, shellCommand: F }),
+          y.stdoutStream.on("data", (v) => { xZ2(T, v.toString()) }),
+          y.stderrStream.on("data", (v) => { vZ2(T, v.toString()) }),
+          C?.({ stdout: K, stderr: D, status: 0 })
+      } else g("Hooks: Initial response is not async, continuing normal processing")
+    } catch (R) {
+      g(`Hooks: Failed to parse initial response as JSON: ${R}`)
+    }
+  }
+});
+
+// READABLE (for understanding):
+let asyncDetected = false,
   asyncResolver = null,
   asyncPromise = new Promise((resolve) => { asyncResolver = resolve });
 
 childProcess.stdout.on("data", (chunk) => {
   stdoutBuffer += chunk;
 
-  // Check for early JSON completion (async detection)
-  if (!isAsync && stdoutBuffer.trim().includes("}")) {
-    isAsync = true;
+  // Check for early JSON completion (one-time check)
+  if (!asyncDetected && stdoutBuffer.trim().includes("}")) {
+    asyncDetected = true;
     log(`Hooks: Checking initial response for async: ${stdoutBuffer.trim()}`);
 
     try {
-      let json = JSON.parse(stdoutBuffer.trim());
-      if (isAsyncHookResponse(json)) {  // {"async": true}
+      let parsed = JSON.parse(stdoutBuffer.trim());
+      if (isAsyncHookResponse(parsed)) {  // {"async": true}
         let taskId = `async_hook_${childProcess.pid}`;
         log(`Hooks: Detected async hook, backgrounding process ${taskId}`);
 
         let backgrounded = shellWrapper.background(taskId);
         if (backgrounded) {
-          // Register async task for tracking
+          // Register for tracking
           registerAsyncHook({
             processId: taskId,
-            asyncResponse: json,
+            asyncResponse: parsed,
             hookEvent: hookEvent,
-            // ...
+            hookName: hookName,
+            command: hook.command,
+            shellCommand: shellWrapper
           });
 
-          // Stream remaining output
+          // Stream remaining output to async buffers
           backgrounded.stdoutStream.on("data", (data) => appendAsyncStdout(taskId, data.toString()));
           backgrounded.stderrStream.on("data", (data) => appendAsyncStderr(taskId, data.toString()));
 
+          // Resolve immediately with current state
           asyncResolver?.({ stdout: stdoutBuffer, stderr: stderrBuffer, status: 0 });
         }
+      } else {
+        log("Hooks: Initial response is not async, continuing normal processing");
       }
-    } catch (e) {
-      log(`Hooks: Failed to parse initial response as JSON: ${e}`);
+    } catch (error) {
+      log(`Hooks: Failed to parse initial response as JSON: ${error}`);
     }
   }
 });
+
+// Mapping: H→asyncDetected, C→asyncResolver, E→asyncPromise, V→childProcess, K→stdoutBuffer,
+//          D→stderrBuffer, F→shellWrapper, zYA→isAsyncHookResponse, yZ2→registerAsyncHook,
+//          xZ2→appendAsyncStdout, vZ2→appendAsyncStderr
 ```
 
 ---

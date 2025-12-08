@@ -1,7 +1,27 @@
-# Symbol Index
+# Symbol Index - Core Modules
 
-> 唯一的符号映射表。各模块文档不再维护 mapping。
+> 符号映射表 Part 1: 核心执行流程模块
 > 查找方式：按模块浏览，或 Ctrl+F 搜索混淆名/可读名。
+>
+> **Related file:** [symbol_index_infra.md](./symbol_index_infra.md) - Infrastructure modules (MCP, Permissions, Sandbox, etc.)
+
+---
+
+## Quick Navigation
+
+- [Plan Mode](#module-plan-mode) - Plan/Explore agents, plan file persistence
+- [Core Entry & CLI](#module-core-entry--cli) - Main entry, command handler
+- [State Management](#module-state-management) - App state, React context
+- [Agent Loop](#module-agent-loop) - Main loop, tool execution
+- [LLM API](#module-llm-api) - API calls, streaming
+- [System Prompts](#module-system-prompts--reminders) - Prompts, reminders, attachments
+- [Tools](#module-tools) - Tool definitions, execution pipeline
+- [Agents](#module-agents) - Built-in agents, helper functions
+- [Subagent Execution](#module-subagent-execution) - Task tool, agent output
+- [Todo List](#module-todo-list) - Todo tool, persistence, UI
+- [Compact](#module-compact) - Auto-compact, micro-compact, token counting
+- [Hooks](#module-hooks) - Hook execution, event handlers
+- [Skill System](#module-skill-system) - Skill tool, loading, aggregation
 
 ---
 
@@ -84,21 +104,165 @@
 
 ## Module: Core Entry & CLI
 
+### Entry Point Functions
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| mu3 | mainEntry | chunks.158.mjs:1-50 | function |
-| hu3 | commandHandler | chunks.158.mjs:51-150 | function |
+| mu3 | mainEntry | chunks.158.mjs:1438-1462 | function |
+| hu3 | commandHandler | chunks.158.mjs:3-600 | function |
 | FU9 | initializeConfig | chunks.158.mjs:200-300 | function |
 | ju3 | runMigrations | chunks.158.mjs:300-400 | function |
 | VG | renderInteractive | chunks.158.mjs:400-500 | function |
 | Rw9 | runNonInteractive | chunks.158.mjs:500-600 | function |
 | WVA | MainInteractiveApp | chunks.158.mjs:600-900 | function |
-| f0 | appState | chunks.158.mjs:500-700 | object |
-| Yu | stateUpdateCallback | chunks.158.mjs:700-750 | function |
-| $T | loadSettings | chunks.158.mjs:200-250 | function |
-| e1 | getSessionId | chunks.158.mjs:250-280 | function |
+| gu3 | reportInitTelemetry | chunks.158.mjs:987-1044 | function |
+| uu3 | cleanupCursor | chunks.158.mjs:1046-1048 | function |
+| Tu3 | setupTerminalCursor | chunks.158.mjs:416 | function |
+| bu3 | createRenderOptions | chunks.158.mjs:662 | function |
+
+### Commander.js Framework
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| pK0 | Command | chunks.155.mjs:26-500 | class |
+| Oz9 | Option | chunks.155.mjs (import) | class |
+| gf3 | Argument | chunks.155.mjs (import) | class |
+| fJ1 | CommanderInstance | chunks.158.mjs:3 | alias |
+| BF | OptionClass | chunks.158.mjs (addOption) | alias |
+| hf3 | EventEmitter | chunks.155.mjs:4 | import |
+
+### Session Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ki | loadMostRecentSession | chunks.158.mjs:418 | function |
+| nE | validateUUID | chunks.158.mjs:60 | function |
+| aE9 | sessionIdInUse | chunks.158.mjs:65 | function |
+| zR | setSessionId | chunks.1.mjs:2479 | function |
+| Fx | syncSessionState | chunks.158.mjs:422 | function |
+
+### Permission Resolution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SE9 | resolvePermissionMode | chunks.158.mjs:245-280 | function |
+| _E9 | initToolPermissionContext | chunks.153.mjs:1602-1657 | function |
+| kR | PERMISSION_MODES | chunks.158.mjs:50 | constant |
+
+### MCP CLI Mode
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bZ | isMcpEnabled | chunks.158.mjs:1439 | function |
+| iz9 | mcpCliHandler | chunks.158.mjs:1441 | function |
+
+### App State
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| f0 | appState | chunks.158.mjs:353-415 | object |
+| Yu | stateUpdateCallback | chunks.156.mjs:2146-2183 | function |
+| $T | loadSettings | chunks.154.mjs:2439-2475 | function |
+| e1 | getSessionId | chunks.1.mjs:2473 | function |
 | MQ | getClaudeDataDirectory | chunks.1.mjs:886 | function |
 | WQ | globalState | chunks.1.mjs | object |
+
+### Utility Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Y0 | parseBoolean | chunks.1.mjs:890-895 | function |
+| M9 | emitTelemetry | chunks.158.mjs (throughout) | function |
+| GA | trackEvent | chunks.158.mjs:417 | function |
+| AA | logError | chunks.158.mjs:795 | function |
+| tA | chalk | chunks.158.mjs (import) | import |
+| SD0 | resolvePath | chunks.158.mjs:71 | function |
+| YW1 | fileExists | chunks.158.mjs:72 | function |
+| nw9 | readFileSync | chunks.158.mjs:75 | function |
+| f7 | tryParseJSON | chunks.158.mjs:128 | function |
+| ZMA | validateMcpConfig | chunks.158.mjs:130 | function |
+| BYA | loadMcpConfigFile | chunks.158.mjs:135 | function |
+| ns | mapValues | chunks.158.mjs:147 | function |
+
+---
+
+## Module: State Management
+
+### App State Object & Factory
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| f0 | appState | chunks.158.mjs:353-415 | object |
+| wp | getDefaultAppState | chunks.70.mjs:2336-2397 | function |
+| k0 | todoSessionId | chunks.158.mjs:352 | variable |
+
+### React Context Provider
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| yG | AppStateProvider | chunks.70.mjs:2399-2437 | function |
+| OQ | useAppState | chunks.70.mjs:2440-2443 | function |
+| sMB | appStateContext | chunks.70.mjs:2460 | variable |
+| aMB | appStateProviderInitializedContext | chunks.70.mjs:2460 | variable |
+
+### State Change Callback
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Yu | onChangeAppState | chunks.156.mjs:2146-2183 | function |
+| cB | saveSettingsValue | chunks.156.mjs | function |
+| Ts | setCurrentModel | chunks.1.mjs:2598 | function |
+| c0 | updateSettings | chunks.106.mjs | function |
+| UYA | persistTodoData | chunks.106.mjs:1862-1864 | function |
+
+### State Initialization Helpers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| $T | loadSettings | chunks.154.mjs:2439-2475 | function |
+| Cf3 | loadAllSettings | chunks.154.mjs:2439-2475 | function |
+| wa | getCachedSettings | chunks.154.mjs | function |
+| vSA | settingsCache | chunks.154.mjs | variable |
+| e1 | getSessionId | chunks.1.mjs:2473 | function |
+| qE0 | generateNewSessionId | chunks.1.mjs:2476 | function |
+| zR | setSessionId | chunks.1.mjs:2479 | function |
+| _E9 | initializeToolPermissionContext | chunks.153.mjs:1602-1657 | function |
+| ZE | initializeDefaultToolPermissions | chunks.70.mjs:2169-2176 | function |
+| Kf2 | loadAgentDefinitions | chunks.125.mjs:1799-1846 | function |
+| $21 | initializeMcpState | chunks.101.mjs:3123-3162 | function |
+| VrA | isExtendedThinkingEnabled | chunks.70.mjs:2295-2303 | function |
+| UkA | getInitialMainLoopModel | chunks.1.mjs:2595 | function |
+| xE0 | setInitialMainLoopModel | chunks.1.mjs:2601 | function |
+
+### Notification Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| vZ | useNotificationManager | chunks.70.mjs:2463-2527 | function |
+| $U6 | sortNotificationsByPriority | chunks.70.mjs | function |
+| oMB | DEFAULT_NOTIFICATION_TIMEOUT | chunks.70.mjs | constant |
+| Qe | notificationTimeoutId | chunks.70.mjs | variable |
+
+### Git Diff State
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| K51 | incrementGitDiffVersion | chunks.122.mjs:2604-2612 | function |
+| L_2 | useGitDiffUpdater | chunks.122.mjs:2581-2596 | function |
+
+### Settings Watching
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| t7A | subscribeToSettingsChanges | chunks.70.mjs | function |
+| IxA | loadToolPermissions | chunks.70.mjs | function |
+| rMB | mergePermissionContexts | chunks.70.mjs | function |
+
+### Background Tasks State
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| q | updateBackgroundTaskState | chunks.106.mjs:475-486 | function |
 
 ---
 
@@ -621,556 +785,91 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| l9 | createHookMessage | chunks.107.mjs:2349 | function |
 | HVA | generateHookToolUseID | chunks.147.mjs | function |
+
+> Note: `l9` (createAttachment) is defined in [Module: System Prompts & Reminders](#module-system-prompts--reminders) and is used by hooks to create attachment messages.
 
 ---
 
 ## Module: Skill System
 
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| b69 | loadSkillFile | chunks.94.mjs:100-200 | function |
-| VK0 | loadSkillCommands | chunks.94.mjs:200-300 | function |
-| Sv3 | aggregateSkills | chunks.94.mjs:300-400 | function |
-
----
-
-## Module: MCP Protocol
+### Skill Tool Definition
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| D1A | connectMcpServer | chunks.131.mjs:100-200 | function |
-| y32 | callMcpTool | chunks.131.mjs:200-300 | function |
-| b10 | processMcpResult | chunks.131.mjs:300-400 | function |
-| v10 | batchConnect | chunks.131.mjs:400-500 | function |
+| kq | SKILL_TOOL_NAME | chunks.125.mjs:42 | constant |
+| ln | SkillTool | chunks.130.mjs:2555-2745 | object |
+| Ft5 | skillInputSchema | chunks.130.mjs:2548-2549 | object |
+| Kt5 | skillOutputSchema | chunks.130.mjs:2550-2554 | object |
+| _b2 | skillToolPrompt | chunks.125.mjs:9-39 | function |
 
----
-
-## Module: Code Indexing - Tree-sitter
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| Q05 | loadTreeSitterWasm | chunks.90.mjs:465-498 | function |
-| jA2 | ensureTreeSitterLoaded | chunks.90.mjs:500-503 | function |
-| B05 | parseCommand | chunks.90.mjs:505-523 | function |
-| SA2 | findCommandNode | chunks.90.mjs:525-539 | function |
-| G05 | extractEnvVars | chunks.90.mjs:541-550 | function |
-| Z05 | extractCommandArgs | chunks.90.mjs:552-569 | function |
-| I05 | stripQuotes | chunks.90.mjs:571-573 | function |
-| q01 | parserInstance | chunks.90.mjs | variable |
-| jo1 | bashLanguage | chunks.90.mjs | variable |
-| Po1 | initPromise | chunks.90.mjs | variable |
-| No1 | ParserClass | chunks.90.mjs | class |
-| qo1 | LanguageClass | chunks.90.mjs | class |
-| s15 | maxCommandLength | chunks.90.mjs | constant |
-| r15 | declarationCommands | chunks.90.mjs | constant |
-| o15 | argumentNodeTypes | chunks.90.mjs | constant |
-| t15 | substitutionTypes | chunks.90.mjs | constant |
-| To1 | commandNodeTypes | chunks.90.mjs | constant |
-
----
-
-## Module: Code Indexing - File Index
+### Skill Execution Functions
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| UO3 | getFileIndex | chunks.138.mjs:1954-1962 | function |
-| NO3 | buildFileIndex | chunks.138.mjs:1976-1998 | function |
-| MO3 | searchFileIndex | chunks.138.mjs:2028-2075 | function |
-| jJ0 | refreshIndexCache | chunks.138.mjs:2077-2086 | function |
-| x09 | autocompleteFiles | chunks.138.mjs:2102-2121 | function |
-| wO3 | extractDirectoryPrefixes | chunks.138.mjs:1964-1970 | function |
-| qO3 | getAdditionalFiles | chunks.138.mjs:1972-1974 | function |
-| LO3 | commonPrefix | chunks.138.mjs:2000-2005 | function |
-| y09 | findCommonCompletionPrefix | chunks.138.mjs:2007-2016 | function |
-| jZ1 | createFileResult | chunks.138.mjs:2018-2026 | function |
-| PZ1 | fileIndexInstance | chunks.138.mjs | variable |
-| PJ0 | useFuseJsFallback | chunks.138.mjs | variable |
-| SJ0 | cachedFileIndex | chunks.138.mjs | variable |
-| _J0 | cachedFileList | chunks.138.mjs | variable |
-| fXA | refreshPromise | chunks.138.mjs | variable |
-| k09 | lastRefreshTimestamp | chunks.138.mjs | variable |
-| $O3 | cacheTTL | chunks.138.mjs | constant |
-| sPA | maxResults | chunks.138.mjs | constant |
-| KO3 | lruMaxEntries | chunks.138.mjs | constant |
-| DO3 | lruCacheTTL | chunks.138.mjs | constant |
-| j09 | lruCacheInstance | chunks.138.mjs | variable |
+| s61 | processSlashCommand | chunks.121.mjs:1170-1174 | function |
+| kP2 | processPromptCommand | chunks.121.mjs:1177-1214 | function |
+| U60 | formatSkillMetadata | chunks.121.mjs:1155-1158 | function |
+| sf5 | formatCommandMetadata | chunks.121.mjs:1165-1168 | function |
+| af5 | formatSlashCommandMetadata | chunks.121.mjs:1160-1163 | function |
 
----
-
-## Module: Code Indexing - File Cache
+### Skill Loading Functions
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Kh0 | FileContentCache | chunks.16.mjs:199-247 | class |
-| Dh0 | fileContentCacheInstance | chunks.16.mjs:249 | variable |
+| XK0 | loadSkillsFromDirectory | chunks.152.mjs:1008-1093 | function |
+| VK0 | loadSkillDirectoryCommands | chunks.152.mjs:1115-1134 | function |
+| Sv3 | getSkillsFromAllSources | chunks.152.mjs:2151-2168 | function |
+| iW0 | getPluginSkills | chunks.142.mjs:3586-3617 | function |
+| b69 | loadSkillsFromPluginPath | chunks.142.mjs:3382-3451 | function |
+| gC9 | clearSkillDirectoryCache | chunks.152.mjs:1096-1098 | function |
 
----
-
-## Module: Code Indexing - File Watching
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| k64 | initializeWatcher | chunks.19.mjs:307-324 | function |
-| dd0 | disposeWatcher | chunks.19.mjs:326-329 | function |
-| y64 | subscribeToChanges | chunks.19.mjs:331-335 | function |
-| x64 | markInternalWrite | chunks.19.mjs:337-340 | function |
-| v64 | getWatchedFiles | chunks.19.mjs:342-354 | function |
-| b64 | onFileChange | chunks.19.mjs:356-365 | function |
-| f64 | onFileUnlink | chunks.19.mjs:367-371 | function |
-| cd0 | findSettingByPath | chunks.19.mjs:373-375 | function |
-| fm | watcherManager | chunks.19.mjs:403-408 | object |
-| h9A | chokidarInstance | chunks.19.mjs | variable |
-| gd0 | watcherInitialized | chunks.19.mjs | variable |
-| md0 | watcherDisposed | chunks.19.mjs | variable |
-| pxA | debounceTimestamps | chunks.19.mjs | variable |
-| wKA | subscriberCallbacks | chunks.19.mjs | variable |
-| j64 | stabilityThreshold | chunks.19.mjs | constant |
-| S64 | pollInterval | chunks.19.mjs | constant |
-| _64 | debounceWindow | chunks.19.mjs | constant |
-
----
-
-## Module: Shell Command Parser
+### Skill Aggregation & Filtering
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| _A2 | FallbackCommandParser | chunks.90.mjs:600-637 | class |
-| Y05 | createTreeSitterCommandParser | chunks.90.mjs:646-724 | function |
-| N01 | shellParserFacade | chunks.90.mjs:724-737 | object |
-| yA2 | analyzeCommandWithPipes | chunks.90.mjs:804-829 | function |
-| J05 | checkPipePermissions | chunks.90.mjs:739-797 | function |
-| W05 | stripOutputRedirections | chunks.90.mjs:799-802 | function |
-
----
-
-## Module: Permission Checking
-
-### Core Permission Decision Functions
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| Wb3 | toolPermissionDecisionEngine | chunks.153.mjs:1358-1417 | function |
-| M$ | toolPermissionDispatcher | chunks.153.mjs:1480-1502 | function |
-| KVA | getDenialRules | chunks.153.mjs:1299-1305 | function |
-| CVA | getAllowRules | chunks.153.mjs:1250-1256 | function |
-| yY1 | getAskRules | chunks.153.mjs:1307-1313 | function |
-| so1 | findAllowRuleForTool | chunks.153.mjs:1323-1325 | function |
-| ro1 | findDenyRuleForTool | chunks.153.mjs:1327-1329 | function |
-| oo1 | findAskRuleForTool | chunks.153.mjs:1331-1333 | function |
-| OK0 | ruleMatchesTool | chunks.153.mjs:1315-1321 | function |
-
-### Rule Parsing Functions
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| nN | parseRuleString | chunks.153.mjs:1230-1244 | function |
-| B3 | stringifyRule | chunks.153.mjs:1246-1248 | function |
-| mU | parseMcpToolName | chunks.154.mjs:2554-2563 | function |
-| RK0 | getRulesForToolByBehavior | chunks.153.mjs:1339-1356 | function |
-| fU | getRulesForToolWrapper | chunks.153.mjs:1335-1337 | function |
-
-### Permission Context Management
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| ZE | initializePermissionContext | chunks.70.mjs:2169-2176 | function |
-| UF | applyPermissionUpdate | chunks.16.mjs:1122-1192 | function |
-| JxA | persistRuleAddition | chunks.16.mjs:1072-1098 | function |
-| fh0 | persistRuleDeletion | chunks.16.mjs:1038-1060 | function |
-| FV9 | deletePermissionRule | chunks.153.mjs:1419-1446 | function |
-| PE9 | ruleAggregation | chunks.153.mjs:1448-1466 | function |
-| MK0 | PERMISSION_SOURCES | chunks.153.mjs:1517 | constant |
-| iN | FILE_BASED_SOURCES | chunks.16.mjs:1007 | constant |
-
-### File Permission Functions
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| jD | filePathRuleMatching | chunks.154.mjs:1697-1726 | function |
-| L0A | checkEditPermission | chunks.154.mjs:1815-1856 | function |
-| OB | readSettingsFile | chunks.154.mjs:2359-2366 | function |
-| cB | writeSettingsFile | chunks.154.mjs:2368-2407 | function |
-| X2 | isPlanFile | chunks.154.mjs | function |
-| yR | checkFileSafety | chunks.154.mjs | function |
-
-### Bash Permission Functions
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| no1 | bashCommandPermissionCheck | chunks.90.mjs:1935-2008 | function |
-| io1 | exactBashCommandMatcher | chunks.90.mjs:2055-2096 | function |
-| oA2 | prefixBashCommandMatcher | chunks.90.mjs:2098-2156 | function |
-| k05 | sandboxAutoAllowBash | chunks.90.mjs:1903-1933 | function |
-| fo1 | pathRedirectionPermissionCheck | chunks.90.mjs:1163-1185 | function |
-| _05 | mcpToolPermissionCheck | chunks.90.mjs:1759-1822 | function |
-| xo1 | checkPathPermission | chunks.90.mjs:854-888 | function |
-| F05 | resolveAndCheckPath | chunks.90.mjs:890-899 | function |
-| V05 | extractDirectoryFromGlob | chunks.90.mjs:845-852 | function |
-| hA2 | formatPathList | chunks.90.mjs:839-843 | function |
-| J05 | checkPipePermissions | chunks.90.mjs:739-797 | function |
-| WIA | bashSandboxingCheck | chunks.106.mjs:446-452 | function |
-
-### Helper Functions
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| hV0 | sourceLabelFormatter | chunks.153.mjs:1209-1228 | function |
-| yV | permissionMessageBuilder | chunks.153.mjs:1258-1297 | function |
-| Fv | permissionModeLabel | chunks.19.mjs:835-848 | function |
-| SE9 | initializePermissionMode | chunks.153.mjs:1537-1567 | function |
-| nT | extractCommandRedirections | chunks.153.mjs:800-848 | function |
-
----
-
-## Module: Telemetry
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| M9 | telemetryMarker | chunks.117.mjs:100-200 | function |
-| GA | analyticsEvent | chunks.117.mjs:200-300 | function |
-| AA | errorLog | chunks.117.mjs:300-400 | function |
-| uN | logWarning | chunks.107.mjs | function |
-
----
-
-## Module: UI Components
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| BsA | InternalApp | chunks.68.mjs:100-300 | class |
-
----
-
-## Module: Model Selection
-
-### Provider Detection
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| V6 | getProvider | chunks.19.mjs:451-452 | function |
-| Y0 | parseBoolean | chunks.107.mjs | function |
-
-### Model ID Constants
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| TzA | SONNET_37_IDS | chunks.56.mjs:1450-1454 | constant |
-| PzA | SONNET_35_IDS | chunks.56.mjs:1455-1459 | constant |
-| jzA | HAIKU_35_IDS | chunks.56.mjs:1460-1464 | constant |
-| SzA | HAIKU_45_IDS | chunks.56.mjs:1465-1469 | constant |
-| At | SONNET_40_IDS | chunks.56.mjs:1470-1474 | constant |
-| fv1 | SONNET_45_IDS | chunks.56.mjs:1475-1479 | constant |
-| _zA | OPUS_40_IDS | chunks.56.mjs:1480-1484 | constant |
-| kzA | OPUS_41_IDS | chunks.56.mjs:1485-1489 | constant |
-| yzA | OPUS_45_IDS | chunks.56.mjs:1490-1494 | constant |
-
-### Model ID Resolution
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| eI | getModelIds | chunks.56.mjs:1586-1589 | function |
-| NiA | getProviderModelIds | chunks.56.mjs:1533-1544 | function |
-| $kA | getCachedModelIds | chunks.56.mjs | function |
-| Pr8 | initializeModelIds | chunks.56.mjs:1577-1583 | function |
-| Rr8 | fetchBedrockModelIds | chunks.56.mjs:1547-1574 | function |
-| w_ | findModel | chunks.56.mjs | function |
-
-### Model Selection Priority Chain
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| yE0 | getSessionOverrideModel | chunks.1.mjs:2591-2592 | function |
-| mnA | getActiveModelSource | chunks.59.mjs:2737-2745 | function |
-| Tt | getActiveModel | chunks.59.mjs:2748-2754 | function |
-| k3 | getFinalModel | chunks.59.mjs:2757-2760 | function |
-| CCB | getDefaultModelOverride | chunks.59.mjs:2812-2816 | function |
-| cnA | getFallbackModel | chunks.59.mjs:2819-2827 | function |
-| jt | getFallbackModelNormalized | chunks.59.mjs:2829-2830 | function |
-
-### Default Model Functions
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| XU | getDefaultSonnetModel | chunks.59.mjs:2763-2765 | function |
-| wUA | getDefaultOpusModel | chunks.59.mjs:2776-2779 | function |
-| X7A | getDefaultHaikuModel | chunks.59.mjs:2782-2785 | function |
-| MW | getSmallFastModel | chunks.59.mjs:2725-2726 | function |
-
-### Model Alias & Normalization
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| Y7A | MODEL_ALIASES | chunks.59.mjs:3147 | constant |
-| J7A | FULL_MODEL_ALIASES | chunks.59.mjs:3147 | constant |
-| Vh1 | isKnownAlias | chunks.59.mjs:2994-2995 | function |
-| UD | normalizeModelName | chunks.59.mjs:2998-3013 | function |
-| inA | resolveAgentModel | chunks.59.mjs:3028-3037 | function |
-| YM | getModelDisplayName | chunks.59.mjs:3016-3025 | function |
-| nnA | getModelDisplayLabel | chunks.59.mjs:3040-3043 | function |
-
-### Plan/Subscription Checks
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| Pt | selectModelForPermissionMode | chunks.59.mjs:2792-2800 | function |
-| BB | isClaudePro | chunks.59.mjs | function |
-| pw | hasPaidExtras | chunks.59.mjs | function |
-| UUA | isMaxPlan | chunks.59.mjs:2768-2769 | function |
-| $UA | isTeamPlan | chunks.59.mjs:2772-2773 | function |
-| W7A | isOpusModelById | chunks.59.mjs:2729-2730 | function |
-| KT | isOpusModel | chunks.59.mjs:2733-2734 | function |
-| Wh1 | isSonnet1MExperimentEnabled | chunks.59.mjs:2803-2809 | function |
-| dnA | isHaikuDefaultForPro | chunks.59.mjs:2788-2789 | function |
-
-### Model Display Config
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| Xh1 | SONNET_CONFIG | chunks.59.mjs:3151-3155 | constant |
-| UCB | SONNET_1M_CONFIG | chunks.59.mjs:3156-3160 | constant |
-| wCB | HAIKU_45_CONFIG | chunks.59.mjs:3161-3165 | constant |
-| xY6 | HAIKU_35_CONFIG | chunks.59.mjs:3166-3170 | constant |
-| bY6 | OPUS_CONFIG | chunks.59.mjs:3172-3175 | constant |
-| pnA | getDefaultModelDescription | chunks.59.mjs:2874-2877 | function |
-
----
-
-## Module: Prompt Building
-
-### System Prompt Assembly
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| Tn | buildCompleteSystemPrompt | chunks.152.mjs:2307-2448 | function |
-| CE9 | getEnvironmentContext | chunks.152.mjs:2582-2601 | function |
-| GSA | getAgentSpecificContext | chunks.152.mjs:2616-2625 | function |
-| kv3 | getGitStatusPrompt | chunks.152.mjs | function |
-
-### Identity Selection
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| rnA | getSessionTypeIdentity | chunks.60.mjs:465-472 | function |
-| gCB | getCoreSystemPrompt | chunks.60.mjs:474-476 | function |
-| hCB | CLAUDE_CODE_IDENTITY | chunks.60.mjs:478 | constant |
-| sY6 | CLAUDE_CODE_SDK_IDENTITY | chunks.60.mjs:479 | constant |
-| rY6 | CLAUDE_AGENT_IDENTITY | chunks.60.mjs:480 | constant |
-
-### MCP Instructions
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| HE9 | getMCPToolsPrompt | chunks.152.mjs:2465-2580 | function |
-| bv3 | getMCPServerInstructions | chunks.152.mjs:2450-2463 | function |
-| bZ | isMCPEnabled | chunks.152.mjs | function |
-
-### Git Instructions
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| cU6 | getGitInstructions | chunks.71.mjs:787-875 | function |
-| EOB | getBashToolDescription | chunks.71.mjs:736-785 | function |
-
-### Security & Guidelines
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| DE9 | SECURITY_GUIDELINES | chunks.152.mjs | constant |
-
----
-
-## Module: API Calling
-
-### Core API Functions
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| $E9 | streamApiCall | chunks.153.mjs:3-361 | function |
-| t61 | withRetry | chunks.121.mjs:1988-2046 | function |
-| Kq | createApiClient | chunks.88.mjs:3-105 | function |
-| U | buildRequestPayload | chunks.153.mjs | function |
-
-### Response Processing
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| RYA | streamingApiCallWrapper | chunks.146.mjs | function |
-| wy | nonStreamingApiCall | chunks.153.mjs | function |
-| Ao1 | wrapMessageStream | chunks.153.mjs | function |
-
-### Error Handling
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| E81 | FallbackTriggeredError | chunks.121.mjs | class |
-| X81 | RetryError | chunks.121.mjs | class |
-
----
-
-## Constants (Cross-Module)
-
-### Threshold Constants
-
-| Obfuscated | Readable | Value | Description |
-|------------|----------|-------|-------------|
-| GY2.TURNS_SINCE_WRITE | TODO_TURNS_SINCE_WRITE | 7 | Min turns before todo reminder |
-| GY2.TURNS_BETWEEN_REMINDERS | TODO_TURNS_BETWEEN | 3 | Min turns between reminders |
-| IH5.TURNS_BETWEEN_ATTACHMENTS | PLAN_MODE_THROTTLE | 5 | Min turns between plan_mode |
-
-### String Constants
-
-| Obfuscated | Readable | Description |
-|------------|----------|-------------|
-| tA5 | MALWARE_WARNING_REMINDER | Appended to all file reads |
-| $q | EMPTY_CONTENT_PLACEHOLDER | Empty message placeholder |
-| xO | TOOL_USE_PLACEHOLDER | Tool use placeholder text |
-| sJA | EMPTY_PROMPT_PLACEHOLDER | Empty prompt text |
-| pXA | INTERRUPTED_MESSAGE | Interrupted tool message |
-
-### Numeric Constants
-
-| Obfuscated | Readable | Value | Description |
-|------------|----------|-------|-------------|
-| NKA | MAX_LINES_BEFORE_TRUNCATE | - | Truncation limit for files |
-| ZN | DEFAULT_HOOK_TIMEOUT | 60000 | Hook timeout in ms |
-
----
-
-## Utility Functions
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| nO | generateUUID | chunks.153.mjs | function |
-| Y0 | parseBooleanEnv | chunks.107.mjs | function |
-| o9 | createAbortController | chunks.107.mjs | function |
-| B9 | extractXmlTagContent | chunks.153.mjs:2260-2279 | function |
-| nJ | splitMessageContent | chunks.153.mjs:2290-2346 | function |
-| cV | createLocalCommandCaveat | chunks.153.mjs:2229-2234 | function |
-
----
-
-## Module: Slash Commands
-
-### Command Parsing
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| _P2 | parseSlashCommandInput | chunks.121.mjs:913-1016 | function |
-| rJA | extractCommandParts | chunks.121.mjs:862-877 | function |
-| if5 | isValidCommandName | chunks.121.mjs:909-911 | function |
+| sE | getAllCommands | chunks.152.mjs:2266-2271 | function |
+| OWA | getModelInvokableSkills | chunks.152.mjs:2273-2274 | function |
+| Z71 | getSlashCommands | chunks.152.mjs:2275-2276 | function |
+| n51 | getSlashCommandSkills | chunks.152.mjs:2277-2283 | function |
+| nH9 | clearAllSkillCaches | chunks.152.mjs:2170-2172 | function |
 | ph | commandExists | chunks.152.mjs:2174-2176 | function |
 | Pq | lookupCommand | chunks.152.mjs:2178-2182 | function |
+| KE9 | getBuiltinCommands | chunks.152.mjs:2265 | function |
 | Ny | getBuiltinCommandNames | chunks.152.mjs:2265 | function |
-| KE9 | getAllBuiltinCommands | chunks.152.mjs:2265 | function |
 
-### Command Execution
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| nf5 | executeCommand | chunks.121.mjs:1018-1147 | function |
-| kP2 | processPromptCommand | chunks.121.mjs:1177-1214 | function |
-| a61 | formatCommandMetadata | chunks.121.mjs:1149-1153 | function |
-| Y$ | buildMessageContent | chunks.153.mjs:2207-2216 | function |
-| w0A | parseAllowedTools | chunks.153.mjs:1569-1600 | function |
-| sf5 | formatCommandMetadataForPrompt | chunks.121.mjs:1155-1175 | function |
-| s61 | processSlashCommandTool | chunks.121.mjs:1217-1300 | function |
-
-### Custom Command Loading
+### Skill Token Budget
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| _n | loadCommandFilesFromDirectories | chunks.153.mjs:1855-1882 | function |
-| TK0 | scanMarkdownFiles | chunks.153.mjs:1809-1836 | function |
+| Dt5 | getSkillTokenBudget | chunks.130.mjs:2750-2752 | function |
+| Ht5 | limitCommandsByTokenBudget | chunks.130.mjs:2761-2770 | function |
+| Ct5 | getSkillTokenBudgetResult | chunks.130.mjs:2772-2776 | function |
+| qd2 | formatSkillForPrompt | chunks.130.mjs:2754-2759 | function |
+| Pi5 | formatSkillListWithCount | chunks.124.mjs:3192-3209 | function |
+| Sb2 | getLimitedSkills | chunks.124.mjs:3192 | function |
+
+### Frontmatter Parsing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
 | NV | parseFrontmatter | chunks.16.mjs:892-919 | function |
-| fC9 | loadCustomCommandsForExecution | chunks.152.mjs:909-994 | function |
-| Zv3 | generateCommandName | chunks.152.mjs:894-896 | function |
-| Bv3 | generateSkillCommandName | chunks.152.mjs:880-892 | function |
-| Gv3 | generateRegularCommandName | chunks.152.mjs:870-878 | function |
-| Qv3 | deduplicateCommands | chunks.152.mjs:852-868 | function |
-| WK0 | isSkillMarkdown | chunks.152.mjs:848-850 | function |
-| RSA | getDirectoryPath | chunks.152.mjs | function |
-| Sv3 | getSkillsFromPluginsAndDirectories | chunks.152.mjs:2151-2168 | function |
-| zb3 | getProjectRoots | chunks.153.mjs:1840-1853 | function |
-| PK0 | directoryExists | chunks.153.mjs:1805-1807 | function |
+| Wx | extractFirstHeading | chunks.153.mjs:1705-1716 | function |
+| UO | parseToolsArray | chunks.153.mjs:1737-1741 | function |
+| Y0 | parseBoolean | chunks.1.mjs:890-895 | function |
+| Fa | processPromptTemplate | chunks.152.mjs:~1065 | function |
 
-### Built-in Command Definitions
+### SlashCommand Tool (Related)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ky3 | configCommand | chunks.148.mjs:312-326 | object |
-| rV9 | configCommandRef | chunks.148.mjs:326 | object |
-| by3 | contextCommand | chunks.148.mjs:659-694 | object |
-| QF9 | contextCommandRef | chunks.148.mjs:694 | object |
-| hy3 | costCommand | chunks.148.mjs:707-732 | object |
-| GF9 | costCommandRef | chunks.148.mjs:732 | object |
-| cy3 | doctorCommand | chunks.148.mjs:1311-1324 | object |
-| EF9 | doctorCommandRef | chunks.148.mjs:1324 | object |
-| sy3 | helpCommand | chunks.148.mjs:1642-1659 | object |
-| kF9 | helpCommandRef | chunks.148.mjs:1659 | object |
-| ey3 | ideCommand | chunks.148.mjs:1921-2002 | object |
-| gF9 | ideCommandRef | chunks.148.mjs:2002 | object |
-| Ax3 | initCommand | chunks.148.mjs:2013-2048 | object |
-| mF9 | initCommandRef | chunks.148.mjs:2048 | object |
-| ny3 | memoryCommand | chunks.148.mjs:1480-1500 | object |
-| MF9 | memoryCommandRef | chunks.148.mjs:1500 | object |
-| Ny3 | clearCommand | chunks.147.mjs:2275-2290 | object |
-| LV9 | clearCommandRef | chunks.147.mjs:2290 | object |
-| Ly3 | compactCommand | chunks.147.mjs:2309-2357 | object |
-| OV9 | compactCommandRef | chunks.147.mjs:2357 | object |
-| wy3 | feedbackCommand | chunks.147.mjs:2208-2228 | object |
-| qV9 | feedbackCommandRef | chunks.147.mjs:2228 | object |
-| Ix3 | mcpCommand | chunks.149.mjs:1422-1455 | object |
-| jK9 | mcpCommandRef | chunks.149.mjs:1455 | object |
-| yK9 | prCommentsCommand | chunks.149.mjs:1457-1530 | object |
-| Yx3 | releaseNotesCommand | chunks.149.mjs:1531-1570 | object |
-| bK9 | releaseNotesCommandRef | chunks.149.mjs:1570 | object |
-| Jx3 | renameCommand | chunks.149.mjs:1571-1590 | object |
-| hK9 | renameCommandRef | chunks.149.mjs:1590 | object |
-| Kx3 | resumeCommand | chunks.149.mjs:2294-2357 | object |
-| JJ1 | reviewCommand | chunks.149.mjs:2367-2432 | object |
-| Dx3 | statusCommand | chunks.149.mjs:2419-2445 | object |
-| sK9 | statusCommandRef | chunks.149.mjs:2445 | object |
-| Hx3 | tasksCommand | chunks.149.mjs:2446-2494 | object |
-| oK9 | tasksCommandRef | chunks.149.mjs:2494 | object |
-| ID9 | usageCommand | chunks.149.mjs:2755-2770 | object |
-| Ux3 | vimCommand | chunks.149.mjs:2802-2823 | object |
-
-### Command Queue Management
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| m89 | enqueueCommand | chunks.142.mjs:1717-1722 | function |
-| n89 | dequeueSingleCommand | chunks.142.mjs:1724-1732 | function |
-| a89 | dequeueAllCommands | chunks.142.mjs:1734-1744 | function |
-| VI1 | popAllCommandsAndMerge | chunks.142.mjs:1755-1771 | function |
-| P8 | processCommandsCallback | chunks.145.mjs:164-170 | function |
-| D69 | handleEscapeKey | chunks.142.mjs:2494-2511 | function |
-
-### Error Classes
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| WW | AbortError | chunks.16.mjs:1329-1333 | class |
-| oj | CommandNotFoundError | chunks.16.mjs:1328 | class |
-| yY | SDKAbortError | chunks.153.mjs:259 | class |
-| IS | TimeoutError | chunks.153.mjs:264 | class |
-
-### Telemetry Events
-
-| Event Name | Description |
-|------------|-------------|
-| tengu_input_slash_missing | Input doesn't start with `/` or parse fails |
-| tengu_input_slash_invalid | Valid command name but command doesn't exist |
-| tengu_input_command | Command executed successfully |
-| tengu_input_prompt | Fallback to prompt mode |
-| tengu_slash_command_tool_invocation | Command invoked as tool |
-| tengu_dir_search | Directory search metrics |
+| cP | SLASHCOMMAND_TOOL_NAME | chunks.130.mjs:2748 | constant |
+| Nd2 | slashCommandToolPrompt | chunks.130.mjs:2784-2789 | function |
 
 ---
 
 ## See Also
 
+- [symbol_index_infra.md](./symbol_index_infra.md) - Infrastructure modules (MCP, Permissions, Sandbox, etc.)
 - [file_index.md](./file_index.md) - File → content index
 - [architecture.md](./architecture.md) - System architecture overview

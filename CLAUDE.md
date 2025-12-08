@@ -64,8 +64,21 @@ The algorithm prioritizes keeping recent messages because...
 **STOP**: Before adding ANY symbol reference to a module document, check:
 
 1. **Am I about to create a mapping table?** → If YES, use list format instead
-2. **Did I discover new symbols?** → Add them to `symbol_index.md` ONLY
-3. **Am I duplicating existing mappings?** → Check `symbol_index.md` first
+2. **Did I discover new symbols?** → Add them to `symbol_index_*.md` ONLY
+3. **Am I duplicating existing mappings?** → Check both symbol index files first
+
+### Symbol Index Split (Two Files)
+
+The symbol index is split into two files for easier navigation:
+
+| File | Content | When to Use |
+|------|---------|-------------|
+| `symbol_index_core.md` | Core execution modules (Agent Loop, Tools, Hooks, Todo, Compact, etc.) | For core execution flow analysis |
+| `symbol_index_infra.md` | Infrastructure modules (MCP, Permissions, Sandbox, Model Selection, etc.) | For infrastructure/support systems |
+
+**Quick lookup by topic:**
+- Agent/Loop/Tools/Hooks/Todo/Compact/Skill → `symbol_index_core.md`
+- MCP/Permissions/Sandbox/Model/API → `symbol_index_infra.md`
 
 ### ❌ NEVER DO THIS (in module docs):
 
@@ -84,7 +97,9 @@ The algorithm prioritizes keeping recent messages because...
 ```markdown
 ## Related Symbols
 
-> Symbol mappings: [symbol_index.md](../00_overview/symbol_index.md)
+> Symbol mappings:
+> - [symbol_index_core.md](../00_overview/symbol_index_core.md) - Core modules
+> - [symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Infrastructure modules
 
 Key functions in this document:
 - `functionName` (XY2) - Brief description
@@ -97,8 +112,8 @@ Key functions in this document:
 
 **Before finishing ANY analysis document, STOP and verify:**
 
-- [ ] **No mapping tables in module docs** - Only `symbol_index.md` has tables
-- [ ] **New symbols added to symbol_index.md** - Not embedded in module docs
+- [ ] **No mapping tables in module docs** - Only `symbol_index_*.md` has tables
+- [ ] **New symbols added to correct symbol_index file** - Core modules → `symbol_index_core.md`, Infrastructure → `symbol_index_infra.md`
 - [ ] **Using list format for symbol references** - `name` (obfuscated) format, NOT table
 - [ ] **Code snippets have header block** - `====` with ReadableName + Description + Location
 - [ ] **Code snippets have all 4 parts** - Header → ORIGINAL → READABLE → Mapping
@@ -116,17 +131,19 @@ Key functions in this document:
 
 **How to avoid**:
 - Use list format: `- \`name\` (XY2) - description`
-- Link to symbol_index.md instead of duplicating
+- Link to symbol_index files instead of duplicating
 
-## Mistake 2: Forgetting to Update symbol_index.md
+## Mistake 2: Forgetting to Update symbol_index Files
 
-**Symptom**: New symbols discovered in analysis but not added to symbol_index.md
+**Symptom**: New symbols discovered in analysis but not added to symbol_index files
 
 **Why it happens**: LLM focuses on analysis content, forgets central index
 
 **How to avoid**:
-- Add new Module section to symbol_index.md BEFORE finishing analysis
-- Check symbol_index.md as final step
+- Add new symbols to the appropriate file:
+  - Core modules (Agent, Tools, Hooks, etc.) → `symbol_index_core.md`
+  - Infrastructure (MCP, Permissions, Sandbox) → `symbol_index_infra.md`
+- Check both symbol index files as final step
 
 ## Mistake 3: Duplicating Existing Mappings
 
@@ -135,7 +152,7 @@ Key functions in this document:
 **Why it happens**: LLM doesn't check existing mappings first
 
 **How to avoid**:
-- Read symbol_index.md FIRST before starting analysis
+- Read both `symbol_index_core.md` and `symbol_index_infra.md` FIRST before starting analysis
 - Use existing readable names for consistency
 
 ## Mistake 4: Wrong Code Snippet Format
@@ -164,16 +181,18 @@ Key functions in this document:
 
 ```
 00_overview/
-├── symbol_index.md      # ONLY place for symbol mappings (grouped by module)
-├── file_index.md        # File → content index (what's in each chunk file)
-└── architecture.md      # System architecture overview
+├── symbol_index_core.md   # Core execution modules (Agent, Tools, Hooks, Todo, Compact, Skill)
+├── symbol_index_infra.md  # Infrastructure modules (MCP, Permissions, Sandbox, Model, API)
+├── file_index.md          # File → content index (what's in each chunk file)
+└── architecture.md        # System architecture overview
 ```
 
 ## What Goes Where
 
 | File | Content | When to Update |
 |------|---------|----------------|
-| `symbol_index.md` | Obfuscated → Readable mappings, grouped by module | When discovering new symbols |
+| `symbol_index_core.md` | Core execution symbols (Plan, CLI, State, Agent, LLM, Tools, Agents, Subagent, Todo, Compact, Hooks, Skill) | When discovering core module symbols |
+| `symbol_index_infra.md` | Infrastructure symbols (MCP, Code Indexing, Shell Parser, Permission, Sandbox, Model, Prompt, API, Slash Commands) | When discovering infrastructure symbols |
 | `file_index.md` | File line ranges → content description | When analyzing new files |
 | Module docs (`XX_module/`) | Implementation details, pseudocode, flow diagrams | When documenting features |
 
@@ -183,22 +202,24 @@ Key functions in this document:
 
 ### Step 1: Before Analysis
 ```
-1. Read symbol_index.md first
-2. Identify which module your target symbols belong to
+1. Identify which category your target symbols belong to:
+   - Core (Agent, Tools, Hooks, etc.) → symbol_index_core.md
+   - Infrastructure (MCP, Sandbox, etc.) → symbol_index_infra.md
+2. Read the appropriate symbol index file
 3. Note existing readable names to maintain consistency
 ```
 
 ### Step 2: During Analysis
 ```
 1. Use readable names in output: `readableName` (obfuscated: `XY2`)
-2. Reference symbol_index.md for lookups, don't create new tables
-3. For new symbols: add to symbol_index.md immediately
+2. Reference symbol_index files for lookups, don't create new tables
+3. For new symbols: add to the appropriate symbol_index file immediately
 ```
 
 ### Step 3: Validation
 ```
 If a mapping seems incorrect, verify via:
-- Location match (file:line in symbol_index.md)
+- Location match (file:line in symbol_index files)
 - Context/usage patterns in source code
 - Function signature analysis
 ```
@@ -227,10 +248,13 @@ If a mapping seems incorrect, verify via:
 
 ### Adding New Symbols
 
-1. **Find the correct module section** in `symbol_index.md`
-2. **Check for duplicates** - search the file first
-3. **Add in alphabetical order** within the module section
-4. **Include all columns**: Obfuscated, Readable, File:Line, Type
+1. **Choose the correct file**:
+   - Core modules (Agent, Tools, Hooks, Todo, Compact, Skill, Plan) → `symbol_index_core.md`
+   - Infrastructure (MCP, Sandbox, Permissions, Model, API, Slash Commands) → `symbol_index_infra.md`
+2. **Find the correct module section** in that file
+3. **Check for duplicates** - search both files first
+4. **Add in alphabetical order** within the module section
+5. **Include all columns**: Obfuscated, Readable, File:Line, Type
 
 ---
 
@@ -319,7 +343,20 @@ Enhance readability by restoring semantics:
 ### Symbol Lookup
 ```
 "What does XY2 mean?"
-→ symbol_index.md → Find module → Lookup in table
+→ Determine category (core vs infrastructure)
+→ symbol_index_core.md OR symbol_index_infra.md
+→ Find module section → Lookup in table
+```
+
+### Which File to Use?
+```
+Core (symbol_index_core.md):
+  Plan, CLI, State, Agent Loop, LLM API, System Prompts,
+  Tools, Agents, Subagent, Todo, Compact, Hooks, Skill
+
+Infrastructure (symbol_index_infra.md):
+  MCP, Code Indexing, Shell Parser, Permission, Sandbox,
+  Telemetry, UI, Model Selection, Prompt Building, API, Slash Commands
 ```
 
 ### File Content Lookup
@@ -330,9 +367,9 @@ Enhance readability by restoring semantics:
 
 ### Adding New Analysis
 ```
-1. Read symbol_index.md first
+1. Read both symbol_index_core.md and symbol_index_infra.md first
 2. Use existing readable names
-3. Add new symbols to symbol_index.md (not module docs)
-4. Reference symbol_index.md in module docs using list format
+3. Add new symbols to correct symbol_index file (not module docs)
+4. Reference symbol_index files in module docs using list format
 5. Run PRE-COMPLETION CHECKLIST before finishing
 ```
