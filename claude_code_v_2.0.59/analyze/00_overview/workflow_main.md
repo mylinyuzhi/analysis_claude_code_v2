@@ -1,12 +1,62 @@
-# Claude Code v2.0.59 - Application Workflow Analysis
+# Claude Code v2.0.59 - Workflow Analysis (Part 1: Main Workflow)
+
+> **Split Documentation:**
+> - **Part 1 (this file):** Lifecycle, Startup, Initialization, Mode Selection, Main Loop
+> - **Part 2:** [workflow_subsystems.md](./workflow_subsystems.md) - Subsystem Workflows, Summary
+
+> **Symbol References:**
+> - [symbol_index_core.md](./symbol_index_core.md) - Core execution modules
+> - [symbol_index_infra.md](./symbol_index_infra.md) - Infrastructure modules
 
 ## Application Lifecycle Overview
 
 ```
-Startup → Initialization → Mode Selection → Main Loop → Shutdown
-   │            │                 │              │           │
-   mu3()      preAction      Interactive/    Tool Exec   Cleanup
-              hooks         Non-Interactive   & Render   & Exit
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        CLAUDE CODE LIFECYCLE                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐     │
+│  │ STARTUP │───►│INITIALIZATION│───►│MODE SELECTION│───►│  MAIN LOOP  │     │
+│  │  mu3()  │    │   hu3()      │    │             │    │             │     │
+│  └─────────┘    └──────────────┘    └──────┬──────┘    └──────┬──────┘     │
+│                                            │                   │            │
+│                                     ┌──────┴──────┐           │            │
+│                                     ▼             ▼           │            │
+│                              ┌───────────┐ ┌────────────┐     │            │
+│                              │Interactive│ │Non-Interactive│  │            │
+│                              │   VG()    │ │   Rw9()    │     │            │
+│                              └─────┬─────┘ └─────┬──────┘     │            │
+│                                    │             │            │            │
+│                                    └──────┬──────┘            │            │
+│                                           ▼                   │            │
+│                                    ┌──────────────┐           │            │
+│                                    │   SHUTDOWN   │◄──────────┘            │
+│                                    │   Cleanup    │                        │
+│                                    └──────────────┘                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Startup Timeline
+
+```
+Time (ms)  │ Phase                  │ Function        │ Description
+───────────┼────────────────────────┼─────────────────┼──────────────────────────
+0          │ CLI Entry              │ mu3()           │ Parse process.argv
+5          │ Fast Path Check        │ -               │ --version, --mcp-cli, --ripgrep
+10         │ Dynamic Import         │ tw9(), ow9      │ Load main application module
+15         │ PreAction Hook         │ hu3()           │ Commander.js preAction
+20         │ Config Init            │ FU9()           │ Load & merge configurations
+30         │ DB Migrations          │ ju3()           │ Update database schema
+50         │ Permission Setup       │ _E9()           │ Initialize tool permissions
+75         │ Agent Loading          │ Kf2()           │ Load agent definitions
+100        │ Initial State          │ f0              │ Build 18-field state object
+150        │ MCP Connecting         │ $21()           │ Start MCP client connections
+200        │ Plugin Loading         │ L39()           │ Load enabled plugins
+300        │ Startup Hooks          │ wq("startup")   │ Execute startup event hooks
+500        │ UI Render              │ VG()            │ Ink.js component mount
+1000       │ MCP Connected          │ D1A()           │ All MCP servers connected
+1500       │ Background Tasks       │ -               │ Code indexing, git status
+2000       │ Ready                  │ -               │ Fully interactive
 ```
 
 ## Detailed Workflow Phases
@@ -1683,109 +1733,9 @@ PG(async () => {
 });
 ```
 
-## Summary of Key Workflows
+---
 
-### 1. Startup → Interactive Mode
-```
-mu3() → hu3() → preAction hooks → parse CLI →
-load MCP → load plugins → VG(WVA) → render UI →
-user input loop → shutdown
-```
 
-### 2. Startup → Non-Interactive Mode
-```
-mu3() → hu3() → preAction hooks → parse CLI →
-load MCP → Rw9() → process stdin → agentic loop →
-stream stdout → shutdown
-```
+---
 
-### 3. Tool Execution Flow
-```
-User message → Claude API → tool_use block →
-permission check → execute tool → tool_result →
-continue turn → final response
-```
-
-### 4. Session Resume Flow
-```
---continue flag → load last session → restore messages →
-restore file history → render UI with history →
-continue from last state
-```
-
-## Timing and Performance Notes
-
-**Initialization Phases:**
-- Fast path (version): <10ms
-- Full initialization: 100-500ms
-  - Config loading: 20-50ms
-  - MCP client initialization: 50-200ms
-  - Plugin loading: 30-100ms
-  - Ink.js setup: 20-50ms
-
-**Main Loop:**
-- API call latency: 200-2000ms
-- Tool execution: varies (1ms-10s)
-- Render update: 1-5ms
-
-**Shutdown:**
-- Graceful shutdown: 50-200ms
-- Force shutdown: <50ms
-
-## Configuration Flow
-
-```
-Command Line Args (highest priority)
-      │
-      ▼
-Environment Variables
-      │
-      ▼
-Local Config (.claude/config.json)
-      │
-      ▼
-Project Config (.mcp.json)
-      │
-      ▼
-User Config (~/.config/claude/settings.json)
-      │
-      ▼
-Default Values (lowest priority)
-```
-
-## Error Handling
-
-**Error Propagation:**
-```
-Error occurs
-      │
-      ▼
-Component error boundary (React)
-      │
-      ├─► Recoverable → Display error in UI
-      │
-      └─► Fatal → handleExit()
-                      │
-                      ├─► Cleanup
-                      ├─► Log error
-                      └─► Exit with code
-```
-
-**Non-Interactive Error Handling:**
-```
-Error occurs
-      │
-      ▼
-Stream error event to stdout
-      │
-      {
-        "type": "error",
-        "error": "...",
-        "code": "..."
-      }
-      │
-      ▼
-Exit with non-zero code
-```
-
-This comprehensive workflow documentation covers the complete lifecycle of Claude Code from startup to shutdown, detailing both interactive and non-interactive execution paths with code examples and explanations.
+> **Continue to Part 2:** [workflow_subsystems.md](./workflow_subsystems.md) for Subsystem Workflows, Summary, and Error Handling.

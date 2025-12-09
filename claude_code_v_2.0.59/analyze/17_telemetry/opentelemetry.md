@@ -23,6 +23,11 @@ Key functions in this document:
 - `telemetryMarker` (M9) - Performance checkpoint marking
 - `attachTelemetryProvider` (Hz0) - Provider initialization
 - `initializeOpenTelemetry` (XO2) - Master OTEL initialization
+- `logStructuredEvent` (HO) - OTEL structured log events
+- `logEventSync` (hg3) - Multi-destination sync routing
+- `sendToDatadog` ($D0) - Datadog batched sending
+- `BigQueryMetricsExporter` (W80) - Custom OTEL metrics exporter
+- `shouldShowGroveNotice` (zD9) - Privacy notice display logic
 
 ---
 
@@ -458,6 +463,28 @@ function logEventSync(eventName, metadata) {
 // Location: chunks.156.mjs:1909-1952
 // ============================================
 
+// ORIGINAL (for source lookup):
+async function $D0(A, Q) {
+  if (!await fg3() || !xg3.has(A)) return;
+  try {
+    let G = await lc({ model: Q.model }), { envContext: Z, ...I } = G,
+      Y = { ...I, ...Z, ...Q };
+    if (typeof Y.toolName === "string" && Y.toolName.startsWith("mcp__")) Y.toolName = "mcp";
+    if (typeof Y.model === "string" && !Y.model.startsWith("claude-")) Y.model = "other";
+    if (typeof Y.version === "string") Y.version = Y.version.replace(/^(\d+\.\d+\.\d+-dev\.\d{8})\.t\d+\.sha[a-f0-9]+$/, "$1");
+    if (Y.status !== void 0 && Y.status !== null) {
+      let V = String(Y.status); Y.http_status = V;
+      let F = V.charAt(0); if (F >= "1" && F <= "5") Y.http_status_range = `${F}xx`;
+      delete Y.status
+    }
+    let J = Y, X = { ddsource: "nodejs", ddtags: vg3.filter((V) => J[V] !== void 0 && J[V] !== null).map((V) => `${c$9(V)}:${J[V]}`).join(","),
+      message: A, service: "claude-code", hostname: "claude-code", env: "external" };
+    for (let [V, F] of Object.entries(Y)) if (F !== void 0 && F !== null) X[c$9(V)] = F;
+    if (iSA.push(X), iSA.length >= kg3) { if (Iu) clearTimeout(Iu), Iu = null; await UD0() }
+    else bg3()
+  } catch (G) { AA(G instanceof Error ? G : Error(String(G))) }
+}
+
 // READABLE (for understanding):
 async function sendToDatadog(eventName, metadata) {
   // Check feature gate and event whitelist
@@ -514,7 +541,33 @@ async function sendToDatadog(eventName, metadata) {
     scheduleFlush();  // 15 second delay
   }
 }
+
+// Mapping: $D0→sendToDatadog, A→eventName, Q→metadata, fg3→isDatadogEnabled,
+// xg3→trackedEventSet, lc→getEnvironmentContext, Y→mergedData, iSA→datadogBuffer,
+// kg3→DATADOG_BATCH_SIZE, UD0→flushDatadogBuffer, bg3→scheduleFlush, vg3→DATADOG_TAGS,
+// c$9→convertToSnakeCase, AA→errorLog
 ```
+
+**What it does:** Sends telemetry events to Datadog with batching and data normalization.
+
+**How it works:**
+1. **Gate check** - verifies Datadog feature gate enabled AND event in whitelist
+2. **Context enrichment** - merges environment context (model, version, OS) with event metadata
+3. **Data normalization**:
+   - Anonymizes MCP tool names (`mcp__*` → `mcp`)
+   - Anonymizes non-Claude models (`*` → `other`)
+   - Strips build hashes from version strings
+   - Converts HTTP status to status range (`500` → `5xx`)
+4. **Builds log entry** - formats for Datadog Logs API with tags, service, hostname
+5. **Batch buffering** - adds to buffer, flushes when full (100) or schedules delayed flush (15s)
+
+**Why this approach:**
+- **Data anonymization** protects privacy and reduces cardinality for analytics
+- **Batching** reduces network overhead and API costs
+- **Delayed flush** balances latency vs efficiency
+- **Event whitelist** limits what goes to Datadog (cost control)
+
+**Key insight:** The version regex strips development build metadata (`-dev.YYYYMMDD.tXXXX.shaXXXX`) to keep only the semantic version, preventing high-cardinality explosion in Datadog tags.
 
 **Datadog Configuration:**
 
@@ -535,6 +588,81 @@ async function sendToDatadog(eventName, metadata) {
 
 ---
 
+### 2.3 HO (logStructuredEvent) - OpenTelemetry Log Events
+
+```javascript
+// ============================================
+// logStructuredEvent - Emit structured telemetry event via OTEL LoggerProvider
+// Location: chunks.121.mjs:887-901
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function HO(A, Q = {}) {
+  let B = uE0();
+  if (!B) return;
+  let G = {
+    ...kJA(),
+    "event.name": A,
+    "event.timestamp": new Date().toISOString()
+  };
+  for (let [Z, I] of Object.entries(Q))
+    if (I !== void 0) G[Z] = I;
+  B.emit({
+    body: `claude_code.${A}`,
+    attributes: G
+  })
+}
+
+// READABLE (for understanding):
+async function logStructuredEvent(eventName, metadata = {}) {
+  let eventLogger = getEventLogger();
+  if (!eventLogger) return;  // Skip if OTEL not initialized
+
+  // Build attributes with common context
+  let attributes = {
+    ...getCommonAttributes(),
+    "event.name": eventName,
+    "event.timestamp": new Date().toISOString()
+  };
+
+  // Add custom metadata (skip undefined values)
+  for (let [key, value] of Object.entries(metadata)) {
+    if (value !== undefined) {
+      attributes[key] = value;
+    }
+  }
+
+  // Emit log record via OTEL
+  eventLogger.emit({
+    body: `claude_code.${eventName}`,
+    attributes: attributes
+  });
+}
+
+// Mapping: HO→logStructuredEvent, A→eventName, Q→metadata, B→eventLogger,
+// uE0→getEventLogger, kJA→getCommonAttributes, G→attributes
+```
+
+**What it does:** Emits structured telemetry events through the OpenTelemetry LoggerProvider.
+
+**How it works:**
+1. **Get logger** - retrieves the event logger instance (set during OTEL init)
+2. **Guard clause** - returns early if OTEL not initialized
+3. **Build attributes** - starts with common attributes (session info, etc.)
+4. **Add event context** - includes event name and ISO timestamp
+5. **Merge metadata** - adds custom properties, filtering out undefined values
+6. **Emit log** - sends to OTEL LoggerProvider with prefixed body
+
+**Why this approach:**
+- **Common attributes** ensures consistent context across all events
+- **Undefined filtering** prevents null/undefined from polluting logs
+- **Body prefix** (`claude_code.`) provides namespace for filtering in backends
+- **ISO timestamp** ensures consistent, parseable time format
+
+**Key insight:** This function is the bridge between the GA/eu analytics events and OpenTelemetry's structured logging. It's called for events that need OTEL-specific handling (like `user_prompt` events) rather than just Segment/Datadog routing.
+
+---
+
 ## 3. OpenTelemetry Integration
 
 ### 3.1 XO2 (initializeOpenTelemetry) - Master Initialization
@@ -545,7 +673,29 @@ async function sendToDatadog(eventName, metadata) {
 // Location: chunks.118.mjs:559-664
 // ============================================
 
-// READABLE (pseudocode):
+// ORIGINAL (for source lookup):
+function XO2() {
+  M9("telemetry_init_start");
+  ev5();
+  L_.diag.setLogger(new Wb5.DiagConsoleLogger, { logLevel: L_.DiagLogLevel.ERROR, suppressOverrideMessage: !0 });
+  let A = new uv5.Resource({ [kv5.SEMRESATTRS_SERVICE_NAME]: "claude-code", [kv5.SEMRESATTRS_SERVICE_VERSION]: f1A, "os.type": process.platform, "host.arch": process.arch, "wsl.version": ov5() || void 0 }),
+    Q = Yb5(), B = Kb5(), G = Fb5();
+  let Z = new av5.MeterProvider({ resource: A, readers: Q ? [new av5.PeriodicExportingMetricReader({ exporter: Q, exportIntervalMillis: process.env.OTEL_METRIC_EXPORT_INTERVAL ? parseInt(process.env.OTEL_METRIC_EXPORT_INTERVAL, 10) : 60000 })] : [] });
+  cE0(Z);
+  let I = new Jb5.LoggerProvider({ resource: A });
+  B && I.addLogRecordProcessor(new Jb5.BatchLogRecordProcessor(B, { scheduledDelayMillis: process.env.OTEL_LOGS_EXPORT_INTERVAL ? parseInt(process.env.OTEL_LOGS_EXPORT_INTERVAL, 10) : 5000 }));
+  gE0(I), mE0(I.getLogger("claude-code"));
+  if (process.env.ENABLE_ENHANCED_TELEMETRY_BETA && G) {
+    let Y = new Wb5.NodeTracerProvider({ resource: A });
+    Y.addSpanProcessor(new Wb5.BatchSpanProcessor(G, { scheduledDelayMillis: process.env.OTEL_TRACES_EXPORT_INTERVAL ? parseInt(process.env.OTEL_TRACES_EXPORT_INTERVAL, 10) : 5000 }));
+    pE0(Y)
+  }
+  if (Zb5()) Gb5();
+  process.on("SIGINT", Nb5), process.on("SIGTERM", Nb5);
+  return Z.getMeter("claude-code")
+}
+
+// READABLE (for understanding):
 function initializeOpenTelemetry() {
   telemetryMarker("telemetry_init_start");
 
@@ -616,7 +766,35 @@ function initializeOpenTelemetry() {
 
   return meterProvider.getMeter("claude-code");
 }
+
+// Mapping: XO2→initializeOpenTelemetry, M9→telemetryMarker, ev5→configureOtelHeaders,
+// A→resource, Q→metricsExporter, B→logsExporter, G→traceExporter, Z→meterProvider,
+// I→loggerProvider, cE0→setMeterProvider, gE0→setLoggerProvider, mE0→setEventLogger,
+// pE0→setTracerProvider, Zb5→isBigQueryEnabled, Gb5→setupBigQueryExporter, Nb5→gracefulShutdown,
+// Yb5→createMetricsExporter, Kb5→createLogsExporter, Fb5→createTraceExporter, ov5→getWslVersion
 ```
+
+**What it does:** Initializes the complete OpenTelemetry observability stack (metrics, logs, traces).
+
+**How it works:**
+1. **Mark checkpoint** - records `telemetry_init_start` for startup profiling
+2. **Configure headers** - parses `OTEL_EXPORTER_OTLP_HEADERS` env var
+3. **Set up diagnostics** - error-level only logging to avoid noise
+4. **Build resource** - creates resource with service name, version, OS, arch, WSL info
+5. **Create exporters** - creates OTLP exporters for metrics, logs, traces based on config
+6. **Initialize MeterProvider** - sets up periodic metric export (default 60s interval)
+7. **Initialize LoggerProvider** - sets up batch log processing (default 5s interval)
+8. **Initialize TracerProvider** - only if `ENABLE_ENHANCED_TELEMETRY_BETA` is set
+9. **BigQuery exporter** - sets up custom Anthropic metrics exporter if enabled
+10. **Register shutdown** - hooks SIGINT/SIGTERM for graceful cleanup
+
+**Why this approach:**
+- **Conditional initialization** - trace exporter only loads when explicitly enabled (reduces overhead)
+- **Periodic export** - batches data to reduce network calls
+- **Resource attributes** - provides context for all telemetry (which service, which OS)
+- **Graceful shutdown** - ensures data is flushed before process exit
+
+**Key insight:** The function returns a `Meter` instance, not the full provider - this is the only interface exposed to application code for recording metrics. The meter has methods like `createCounter()`, `createHistogram()` etc.
 
 ### 3.2 OTLP Exporters
 
@@ -644,27 +822,68 @@ Custom exporter for Anthropic internal metrics:
 // Location: chunks.118.mjs:3-115
 // ============================================
 
+// ORIGINAL (for source lookup):
+class W80 {
+  constructor(A) {
+    this.b65 = `${e9().BASE_API_URL}/api/claude_code/metrics`;
+    this.n65 = A.version; this.e65 = A.customerType; this.t65 = A.subscriptionType;
+    this.queue = []; this.pending = !1; this.c65 = null; this.authHeaders = A.authHeaders || {}
+  }
+  export(A, Q) {
+    let B = A.resourceMetrics.scopeMetrics.flatMap((G) => G.metrics).map((G) => ({
+      name: G.descriptor.name, description: G.descriptor.description, unit: G.descriptor.unit,
+      aggregationTemporality: G.aggregationTemporality,
+      dataPoints: G.dataPoints.filter((Z) => typeof Z.value === "number").map((Z) => ({
+        value: Z.value, attributes: Z.attributes, startTime: Z.startTime, endTime: Z.endTime
+      }))
+    }));
+    let G = { metrics: B, resource: { service_name: "claude-code", service_version: this.n65,
+      os_type: process.platform, host_arch: process.arch, customer_type: this.e65, subscription_type: this.t65 } };
+    this.queue.push(G), this.r65(), Q({ code: sv5.ExportResultCode.SUCCESS })
+  }
+  async forceFlush() { await this.flush() }
+  async shutdown() { this.c65 && (clearTimeout(this.c65), this.c65 = null); await this.flush() }
+  r65() { this.c65 || (this.c65 = setTimeout(() => { this.c65 = null, this.flush() }, 5000)) }
+  async flush() {
+    if (this.pending || this.queue.length === 0) return;
+    this.pending = !0; let A = [...this.queue]; this.queue = [];
+    try { await YQ.post(this.b65, { batches: A }, { headers: { ...this.authHeaders } }) }
+    catch (Q) { AA(Q instanceof Error ? Q : Error(String(Q))) }
+    finally { this.pending = !1 }
+  }
+}
+
+// READABLE (for understanding):
 class BigQueryMetricsExporter {
   constructor(config) {
-    this.endpoint = "https://api.anthropic.com/api/claude_code/metrics";
+    this.endpoint = `${getApiBaseUrl()}/api/claude_code/metrics`;
+    this.version = config.version;
+    this.customerType = config.customerType;
+    this.subscriptionType = config.subscriptionType;
     this.queue = [];
     this.pending = false;
+    this.flushTimer = null;
+    this.authHeaders = config.authHeaders || {};
   }
 
   export(metrics, resultCallback) {
     // Transform OTEL metrics to internal format
-    let transformed = metrics.map(metric => ({
-      name: metric.descriptor.name,
-      description: metric.descriptor.description,
-      unit: metric.descriptor.unit,
-      dataPoints: metric.dataPoints.filter(dp =>
-        typeof dp.value === "number"  // Numeric values only
-      ).map(dp => ({
-        value: dp.value,
-        attributes: dp.attributes,
-        timestamp: dp.endTime
-      }))
-    }));
+    let transformed = metrics.resourceMetrics.scopeMetrics
+      .flatMap(scope => scope.metrics)
+      .map(metric => ({
+        name: metric.descriptor.name,
+        description: metric.descriptor.description,
+        unit: metric.descriptor.unit,
+        aggregationTemporality: metric.aggregationTemporality,
+        dataPoints: metric.dataPoints
+          .filter(dp => typeof dp.value === "number")  // Numeric values only
+          .map(dp => ({
+            value: dp.value,
+            attributes: dp.attributes,
+            startTime: dp.startTime,
+            endTime: dp.endTime
+          }))
+      }));
 
     // Add resource attributes
     let payload = {
@@ -682,25 +901,66 @@ class BigQueryMetricsExporter {
     // Queue for batch sending
     this.queue.push(payload);
     this.scheduleFlush();
+    resultCallback({ code: ExportResultCode.SUCCESS });
+  }
+
+  async forceFlush() { await this.flush(); }
+  async shutdown() {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    await this.flush();
+  }
+
+  scheduleFlush() {
+    if (!this.flushTimer) {
+      this.flushTimer = setTimeout(() => {
+        this.flushTimer = null;
+        this.flush();
+      }, 5000);  // 5 second delay
+    }
   }
 
   async flush() {
     if (this.pending || this.queue.length === 0) return;
     this.pending = true;
+    let batches = [...this.queue];
+    this.queue = [];
 
     try {
-      await fetch(this.endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...this.authHeaders },
-        body: JSON.stringify({ batches: this.queue })
+      await httpClient.post(this.endpoint, { batches }, {
+        headers: { ...this.authHeaders }
       });
-      this.queue = [];
+    } catch (error) {
+      errorLog(error instanceof Error ? error : Error(String(error)));
     } finally {
       this.pending = false;
     }
   }
 }
+
+// Mapping: W80→BigQueryMetricsExporter, b65→endpoint, n65→version, e65→customerType,
+// t65→subscriptionType, c65→flushTimer, r65→scheduleFlush, YQ→httpClient, AA→errorLog
 ```
+
+**What it does:** Custom OTEL metrics exporter that sends metrics to Anthropic's internal BigQuery pipeline.
+
+**How it works:**
+1. **Transform metrics** - flattens OTEL scope metrics and extracts only numeric data points
+2. **Add resource context** - includes service info, OS, and customer/subscription type
+3. **Queue batching** - accumulates payloads in queue
+4. **Scheduled flush** - 5 second delay before sending (batches multiple exports)
+5. **Immediate callback** - returns SUCCESS immediately (fire-and-forget)
+6. **Graceful shutdown** - clears timer and flushes remaining data
+
+**Why this approach:**
+- **Immediate callback** prevents blocking the OTEL export pipeline
+- **Clone before clear** (`[...this.queue]`) prevents race conditions
+- **Numeric filter** ensures only countable metrics are sent (ignores histograms with complex values)
+- **Customer type tracking** enables per-customer analytics (claude_ai vs api users)
+
+**Key insight:** The exporter uses a `pending` flag to prevent concurrent flush operations - this is critical because HTTP requests are async and multiple flushes could overlap, causing duplicate data or race conditions.
 
 ---
 
@@ -755,6 +1015,20 @@ Fetched from `/api/claude_code_grove`:
 // Location: chunks.149.mjs:3076-3086
 // ============================================
 
+// ORIGINAL (for source lookup):
+function zD9(A, Q, B) {
+  if (A !== null && A.grove_enabled !== null) return !1;
+  if (B) return !0;
+  if (Q !== null && !Q.notice_is_grace_period) return !0;
+  let Z = Q?.notice_reminder_frequency;
+  if (Z !== null && Z !== void 0 && A?.grove_notice_viewed_at)
+    return Math.floor((Date.now() - new Date(A.grove_notice_viewed_at).getTime()) / 86400000) >= Z;
+  else {
+    let I = A?.grove_notice_viewed_at;
+    return I === null || I === void 0
+  }
+}
+
 // READABLE (for understanding):
 function shouldShowGroveNotice(userSettings, groveConfig, forceShow) {
   // Don't show if user already made explicit choice
@@ -772,7 +1046,7 @@ function shouldShowGroveNotice(userSettings, groveConfig, forceShow) {
 
   // Check if enough time has passed since last view
   let reminderFreq = groveConfig?.notice_reminder_frequency;
-  if (reminderFreq !== null && userSettings?.grove_notice_viewed_at) {
+  if (reminderFreq !== null && reminderFreq !== void 0 && userSettings?.grove_notice_viewed_at) {
     let daysSinceLastView = Math.floor(
       (Date.now() - new Date(userSettings.grove_notice_viewed_at).getTime()) / 86400000
     );
@@ -782,7 +1056,27 @@ function shouldShowGroveNotice(userSettings, groveConfig, forceShow) {
   // Show if never viewed before
   return userSettings?.grove_notice_viewed_at == null;
 }
+
+// Mapping: zD9→shouldShowGroveNotice, A→userSettings, Q→groveConfig, B→forceShow,
+// Z→reminderFreq, I→lastViewedAt, 86400000→MILLISECONDS_PER_DAY
 ```
+
+**What it does:** Determines whether to display the Grove privacy consent notice to the user.
+
+**How it works:**
+1. **Explicit choice check** - if user already set `grove_enabled` (true/false), don't show
+2. **Force flag** - if `forceShow` is true, always show (used for settings screen)
+3. **Grace period check** - if not in grace period, show notice (compliance requirement)
+4. **Reminder frequency** - if `notice_reminder_frequency` days have passed since last view, show again
+5. **First view** - if `grove_notice_viewed_at` is null/undefined, show notice
+
+**Why this approach:**
+- **Priority ordering** matters - explicit choice always wins over other conditions
+- **Grace period** allows time for legal/compliance preparation before mandatory notices
+- **Reminder frequency** enables periodic re-prompting without being too aggressive
+- **Day calculation** uses `Math.floor` for whole-day granularity (not hour/minute precision)
+
+**Key insight:** The `86400000` constant is milliseconds per day (24*60*60*1000). The function converts the timestamp difference to days using integer division to avoid partial-day calculations.
 
 **Decision Logic:**
 

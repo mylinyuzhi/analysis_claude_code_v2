@@ -584,9 +584,126 @@
 
 ## Module: UI Components
 
+### Ink Framework Core
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| BsA | InternalApp | chunks.68.mjs:100-300 | class |
+| Ap | InkRenderer | chunks.67.mjs:42-191 | object |
+| DaA | createInkNode | chunks.67.mjs:89 | function |
+| Bg1 | applyStyles | chunks.67.mjs:93 | function |
+| Gg1 | applyYogaStyles | chunks.67.mjs:93 | function |
+| Qg1 | setProperty | chunks.67.mjs:104 | function |
+| KUB | ReactReconciler | chunks.67.mjs:47 | module |
+
+### InternalApp Component
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| BsA | InternalApp | chunks.68.mjs:16-254 | class |
+| y_ | ReactModule | chunks.68.mjs:15 | module |
+| Bp | EventEmitter | chunks.68.mjs:30 | class |
+| S$B | INITIAL_PARSE_STATE | chunks.68.mjs:31 | constant |
+| XM | ANSI_CODES | chunks.68.mjs:78 | constant |
+| Qu1 | ErrorDisplay | chunks.68.mjs:73 | component |
+
+### Context Providers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Q$A | TerminalDimensionsContext | chunks.68.mjs:39 | context |
+| k_ | InkContext | chunks.68.mjs:44 | context |
+| daA | ExitContext | chunks.68.mjs:46 | context |
+| og1 | ThemeProvider | chunks.68.mjs:50 | component |
+| caA | StdinContext | chunks.68.mjs:52 | context |
+| paA | FocusContext | chunks.68.mjs:60 | context |
+
+### Key Input Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| EF6 | ESCAPE_KEY | chunks.68.mjs:128 | constant |
+| HF6 | TAB_KEY | chunks.68.mjs:132 | constant |
+| CF6 | SHIFT_TAB_KEY | chunks.68.mjs:133 | constant |
+| zF6 | IS_UNIX_PLATFORM | chunks.68.mjs:15 | constant |
+
+### Keyboard Parsing State Machine
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _$B | parseKeySequences | chunks.67.mjs:2895-2941 | function |
+| j$B | parseKey | chunks.67.mjs:2969-3039 | function |
+| yV6 | createPastedKey | chunks.67.mjs:2872-2884 | function |
+| bV6 | normalizeInput | chunks.67.mjs:2886-2893 | function |
+| S$B | INITIAL_PARSE_STATE | chunks.67.mjs:3043-3046 | constant |
+| kV6 | PASTE_START_MARKER | chunks.67.mjs:2947 | constant |
+| oaA | PASTE_END_MARKER | chunks.67.mjs:2949 | constant |
+| xV6 | COMPLETE_SEQ_REGEX | chunks.67.mjs:3042 | constant |
+| vV6 | INCOMPLETE_SEQ_REGEX | chunks.67.mjs:3042 | constant |
+| k$B | KEY_CODE_MAP | chunks.67.mjs:3047-3079 | constant |
+| fV6 | isShiftModifier | chunks.67.mjs:2961-2963 | function |
+| hV6 | isCtrlModifier | chunks.67.mjs:2965-2967 | function |
+
+### Text Input Components
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| DrA | TextInputComponent | chunks.71.mjs:133-184 | function |
+| s4 | TextInput | chunks.71.mjs:245-278 | function |
+| FrA | useInputState | chunks.71.mjs:249 | function |
+| ZOB | usePasteDetection | chunks.71.mjs:145 | function |
+| YOB | usePlaceholder | chunks.71.mjs:161 | function |
+| f1 | useInput | chunks.71.mjs:168 | function |
+
+### Highlighting & Animation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| VOB | HighlightedText | chunks.71.mjs:75-119 | function |
+| WOB | splitByHighlights | chunks.71.mjs:33-68 | function |
+| T$A | useShimmerAnimation | chunks.71.mjs:3-24 | function |
+| O$A | getRainbowColor | chunks.70.mjs:2200 | function |
+| AGA | AnimatedChar | chunks.71.mjs:92 | component |
+| CI | useInterval | chunks.71.mjs:10 | function |
+
+### Terminal Focus Detection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| HrA | useTerminalFocus | chunks.71.mjs:210-232 | function |
+| Rm1 | handleFocusData | chunks.71.mjs:196-200 | function |
+| Om1 | initialFocusState | chunks.71.mjs:236 | variable |
+| Be | focusListeners | chunks.71.mjs:238 | variable |
+
+### Stream Event Processing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| fQA | streamEventProcessor | chunks.153.mjs:2767-2847 | function |
+| ji | extractAssistantText | chunks.153.mjs:2753-2758 | function |
+| QWA | extractTextContent | chunks.153.mjs:2760-2765 | function |
+
+### Tool Rendering Functions (LSP Example)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| zW9 | renderToolUseMessage | chunks.145.mjs:3132-3149 | function |
+| UW9 | renderToolUseRejectedMessage | chunks.145.mjs:3151-3153 | function |
+| $W9 | renderToolUseErrorMessage | chunks.145.mjs:3155-3165 | function |
+| wW9 | renderToolUseProgressMessage | chunks.145.mjs:3167-3169 | function |
+| qW9 | renderToolResultMessage | chunks.145.mjs:3171-3182 | function |
+| Qk3 | LSPResultSummary | chunks.145.mjs:3197 | component |
+| Ak3 | LSP_OPERATION_LABELS | chunks.145.mjs:3197-3219 | constant |
+| HW9 | getSymbolAtPosition | chunks.145.mjs:3138 | function |
+
+### React Modules (Multiple Locations)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| QGA | ReactModule | chunks.71.mjs:30 | module |
+| BGA | ReactModule | chunks.71.mjs:186 | module |
+| Vf | ReactModule | chunks.71.mjs:234 | module |
+| IrA | ReactModule | chunks.70.mjs:2187 | module |
+| mH | ReactModule | chunks.71.mjs:122 | module |
 
 ---
 
