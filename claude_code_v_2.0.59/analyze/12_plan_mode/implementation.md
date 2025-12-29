@@ -1481,3 +1481,421 @@ Plan Mode provides a structured workflow for complex implementation tasks:
 - **"New Plan" Decision**: Prompt-based (LLM decides), NOT code-based detection
 - **Todo Integration**: TodoWrite available during plan mode; todos persist via file system
 - **Compaction Survival**: Both plans and todos re-injected via attachments after compaction
+
+---
+
+## 11. AskUserQuestion Integration in Plan Mode
+
+### 11.1 Overview
+
+AskUserQuestion is a critical tool for plan mode that allows the main agent to clarify ambiguities and gather user preferences before finalizing a plan. This section documents how AskUserQuestion interacts with plan mode.
+
+### 11.2 Availability Classification
+
+AskUserQuestion uses a **dual classification system** that determines where it can be used:
+
+**Classification Overview:**
+
+| Context | AskUserQuestion Available? | Reason |
+|---------|---------------------------|--------|
+| **Main Agent (normal mode)** | ✅ Yes | Not restricted |
+| **Main Agent (plan mode)** | ✅ Yes | Not in plan mode disallowedTools |
+| **Explore subagent** | ❌ No | In ALWAYS_EXCLUDED_TOOLS |
+| **Plan subagent** | ❌ No | In ALWAYS_EXCLUDED_TOOLS |
+| **Async/background agent** | ❌ No | Not in ASYNC_SAFE_TOOLS |
+| **Non-built-in agent** | ❌ No | In BUILTIN_ONLY_TOOLS |
+
+### 11.3 Classification Implementation
+
+#### ALWAYS_EXCLUDED_TOOLS Set
+
+**Location:** `chunks.146.mjs:949`
+
+```javascript
+// ============================================
+// ALWAYS_EXCLUDED_TOOLS (CTA) - Never for subagents
+// Location: chunks.146.mjs:949
+// ============================================
+
+const ALWAYS_EXCLUDED_TOOLS = new Set([
+  ExitPlanModeTool.name,      // gq - "ExitPlanMode"
+  ENTER_PLAN_MODE_NAME,       // A71 - "EnterPlanMode"
+  TASK_TOOL_NAME,             // A6 - "Task"
+  AskUserQuestionTool.name,   // pJ - "AskUserQuestion"  ← KEY
+  DY1,                        // (unknown/internal)
+])
+```
+
+**Key Insight:** AskUserQuestion is in `ALWAYS_EXCLUDED_TOOLS`, which means:
+- **EXCLUDED** from all subagents (Explore, Plan, general-purpose)
+- **EXCLUDED** from async/background agents
+- **NOT EXCLUDED** from main agent (regardless of mode)
+
+#### filterToolsByContext() Function
+
+**Location:** `chunks.125.mjs:1116-1128`
+
+```javascript
+// ============================================
+// filterToolsByContext - Filters tools based on agent context
+// Location: chunks.125.mjs:1116-1128
+// ============================================
+
+function filterToolsByContext({ tools, isBuiltIn, isAsync }) {
+  return tools.filter((tool) => {
+    // MCP tools override (env var)
+    if (process.env.CLAUDE_CODE_ALLOW_MCP_TOOLS_FOR_SUBAGENTS &&
+        tool.name.startsWith("mcp__")) {
+      return true
+    }
+
+    // ALWAYS_EXCLUDED_TOOLS check - affects subagents
+    // For main agent, this check is NOT performed
+    if (ALWAYS_EXCLUDED_TOOLS.has(tool.name)) {
+      return false   // AskUserQuestion blocked here for subagents
+    }
+
+    if (!isBuiltIn && BUILTIN_ONLY_TOOLS.has(tool.name)) {
+      return false
+    }
+
+    if (isAsync && !ASYNC_SAFE_TOOLS.has(tool.name)) {
+      return false
+    }
+
+    return true
+  })
+}
+```
+
+**Critical Point:** This function is only called for **subagents**. The main agent does NOT go through this filter, so AskUserQuestion remains available.
+
+### 11.4 Plan Mode Disallowed Tools (Does NOT Include AskUserQuestion)
+
+**Location:** `chunks.125.mjs:1407, 1477`
+
+```javascript
+// ============================================
+// Explore/Plan Agent disallowed tools
+// Location: chunks.125.mjs:1407, 1477
+// ============================================
+
+// For Explore agent
+xq = {
+  disallowedTools: [
+    "Task",          // A6 - Can't spawn sub-agents
+    "ExitPlanMode",  // P51 - Not needed for exploration
+    "Edit",          // $5 - Can't modify files
+    "Write",         // wX - Can't create files
+    "NotebookEdit"   // JS - Can't edit notebooks
+  ],
+  // ...
+}
+
+// For Plan agent
+kWA = {
+  disallowedTools: [
+    "Task",          // A6 - Can't spawn sub-agents
+    "ExitPlanMode",  // P51 - Not needed for planning
+    "Edit",          // $5 - Can't modify files
+    "Write",         // wX - Can't create files
+    "NotebookEdit"   // JS - Can't edit notebooks
+  ],
+  // ...
+}
+
+// NOTE: AskUserQuestion is NOT in these lists
+// However, it's already excluded via ALWAYS_EXCLUDED_TOOLS (CTA)
+// This is a two-layer exclusion system
+```
+
+### 11.5 Why AskUserQuestion Is Available in Plan Mode (Main Agent)
+
+**Design Rationale:**
+
+1. **User Interaction Centralization**
+   - Only main agent should interact with the user
+   - Subagent questions would fragment the conversation
+   - Main agent coordinates and synthesizes information
+
+2. **Plan Mode Purpose**
+   - Plan mode is designed for clarification BEFORE implementation
+   - AskUserQuestion helps resolve ambiguities
+   - System prompt explicitly encourages its use
+
+3. **Prompt Guidance**
+   - EnterPlanMode tool result says: "Use AskUserQuestion if you need to clarify the approach"
+   - ExitPlanMode prompt says: "Use the AskUserQuestion tool to clarify with the user"
+   - Both tools explicitly expect AskUserQuestion usage
+
+### 11.6 Usage Pattern in Plan Mode
+
+**Workflow Integration:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                  PLAN MODE + ASKUSERQUESTION WORKFLOW               │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. EnterPlanMode                                                   │
+│     ↓                                                               │
+│  2. Explore codebase (Read, Glob, Grep)                             │
+│     ↓                                                               │
+│  3. Identify ambiguities/choices                                    │
+│     ↓                                                               │
+│  4. AskUserQuestion for clarification    ← MAIN AGENT ONLY          │
+│     ├── "Which auth method?" (JWT vs Session vs OAuth)              │
+│     ├── "Which database?" (PostgreSQL vs MySQL)                     │
+│     └── "Include tests?" (yes/no)                                   │
+│     ↓                                                               │
+│  5. Write plan with user's choices                                  │
+│     ↓                                                               │
+│  6. ExitPlanMode (user approves plan)                               │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Example Usage:**
+
+```javascript
+// Main agent in plan mode calling AskUserQuestion
+{
+  type: "tool_use",
+  name: "AskUserQuestion",
+  input: {
+    questions: [{
+      question: "Which authentication approach should we implement?",
+      header: "Auth method",
+      options: [
+        { label: "JWT tokens (Recommended)", description: "Stateless, scalable, no server storage needed" },
+        { label: "Session cookies", description: "Server-side state, simpler but requires session store" },
+        { label: "OAuth 2.0", description: "Third-party providers, more complex setup" }
+      ],
+      multiSelect: false
+    }]
+  }
+}
+```
+
+### 11.7 Prompt References
+
+**EnterPlanMode Tool Result:**
+
+```
+In plan mode, you should:
+1. Thoroughly explore the codebase to understand existing patterns
+2. Identify similar features and architectural approaches
+3. Consider multiple approaches and their trade-offs
+4. Use AskUserQuestion if you need to clarify the approach    ← EXPLICIT REFERENCE
+5. Design a concrete implementation strategy
+6. When ready, use ExitPlanMode to present your plan for approval
+```
+
+**ExitPlanMode Tool Prompt:**
+
+```
+## Handling Ambiguity in Plans
+Before using this tool, ensure your plan is clear and unambiguous. If there are multiple valid approaches or unclear requirements:
+1. Use the AskUserQuestion tool to clarify with the user    ← EXPLICIT REFERENCE
+2. Ask about specific implementation choices (e.g., architectural patterns, which library to use)
+3. Clarify any assumptions that could affect the implementation
+4. Only proceed with ExitPlanMode after resolving ambiguities
+```
+
+### 11.8 Summary
+
+| Aspect | Detail |
+|--------|--------|
+| **Main Agent Availability** | ✅ Available in ALL modes (including plan mode) |
+| **Subagent Availability** | ❌ Excluded via ALWAYS_EXCLUDED_TOOLS |
+| **Classification Mechanism** | Two-layer: ALWAYS_EXCLUDED_TOOLS + disallowedTools |
+| **Purpose in Plan Mode** | Clarify approaches before finalizing plan |
+| **Prompt Integration** | Both EnterPlanMode and ExitPlanMode reference it |
+
+---
+
+## 12. Tool Filtering Mechanism
+
+### 12.1 Overview
+
+Claude Code implements a sophisticated multi-layer tool filtering system that controls which tools are available in different execution contexts. This is critical for enforcing plan mode restrictions.
+
+### 12.2 Tool Restriction Sets
+
+Three constant sets control tool availability:
+
+#### ALWAYS_EXCLUDED_TOOLS (CTA)
+
+```javascript
+// Location: chunks.146.mjs:949
+const ALWAYS_EXCLUDED_TOOLS = new Set([
+  "ExitPlanMode",     // gq
+  "EnterPlanMode",    // A71
+  "Task",             // A6
+  "AskUserQuestion",  // pJ
+  // DY1 (internal)
+])
+```
+
+**Purpose:** Tools that should NEVER be available to subagents
+**Applied to:** All subagents (Explore, Plan, general-purpose, async)
+
+#### BUILTIN_ONLY_TOOLS (Qf2)
+
+```javascript
+// Location: chunks.146.mjs:949
+const BUILTIN_ONLY_TOOLS = new Set([
+  ...ALWAYS_EXCLUDED_TOOLS  // Inherits from CTA
+])
+```
+
+**Purpose:** Tools only available to built-in agents
+**Applied to:** Custom/non-built-in agents
+
+#### ASYNC_SAFE_TOOLS (Bf2)
+
+```javascript
+// Location: chunks.146.mjs:949
+const ASYNC_SAFE_TOOLS = new Set([
+  "Read",         // n8
+  "Edit",         // ZSA
+  "TodoWrite",    // BY
+  "Grep",         // Py
+  "WebSearch",    // nV
+  "Glob",         // zO
+  "Bash",         // C9
+  "Skill",        // lD
+  "SlashCommand", // QV
+  "WebFetch",     // kP
+])
+```
+
+**Purpose:** Whitelist of tools safe for async/background agents
+**Applied to:** Async agents only
+
+### 12.3 Filter Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      TOOL FILTERING DECISION FLOW                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Tool Request                                                               │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  Step 1: Is this the MAIN AGENT?                                │       │
+│  │  ┌───────────────────────────────────────────────────────────┐  │       │
+│  │  │ YES → Skip all filtering, allow all tools                 │  │       │
+│  │  │       (except mode-based restrictions via system prompt)  │  │       │
+│  │  └───────────────────────────────────────────────────────────┘  │       │
+│  │                                                                 │       │
+│  │  NO → Continue to Step 2                                        │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  Step 2: Check MCP Override                                     │       │
+│  │  ┌───────────────────────────────────────────────────────────┐  │       │
+│  │  │ if (env.CLAUDE_CODE_ALLOW_MCP_TOOLS_FOR_SUBAGENTS &&      │  │       │
+│  │  │     tool.name.startsWith("mcp__")) → ALLOW                │  │       │
+│  │  └───────────────────────────────────────────────────────────┘  │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  Step 3: Check ALWAYS_EXCLUDED_TOOLS (CTA)                      │       │
+│  │  ┌───────────────────────────────────────────────────────────┐  │       │
+│  │  │ if tool in CTA → BLOCK                                    │  │       │
+│  │  │   Blocks: AskUserQuestion, EnterPlanMode, ExitPlanMode,   │  │       │
+│  │  │           Task                                            │  │       │
+│  │  └───────────────────────────────────────────────────────────┘  │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  Step 4: Check BUILTIN_ONLY_TOOLS (Qf2)                         │       │
+│  │  ┌───────────────────────────────────────────────────────────┐  │       │
+│  │  │ if (!isBuiltIn && tool in Qf2) → BLOCK                    │  │       │
+│  │  └───────────────────────────────────────────────────────────┘  │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  Step 5: Check ASYNC_SAFE_TOOLS (Bf2)                           │       │
+│  │  ┌───────────────────────────────────────────────────────────┐  │       │
+│  │  │ if (isAsync && tool NOT in Bf2) → BLOCK                   │  │       │
+│  │  └───────────────────────────────────────────────────────────┘  │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  Step 6: Check Agent-Specific disallowedTools                   │       │
+│  │  ┌───────────────────────────────────────────────────────────┐  │       │
+│  │  │ if (agent.disallowedTools.includes(tool)) → BLOCK         │  │       │
+│  │  │   Explore/Plan agents block: Edit, Write, Task,           │  │       │
+│  │  │                              NotebookEdit, ExitPlanMode   │  │       │
+│  │  └───────────────────────────────────────────────────────────┘  │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│       │                                                                     │
+│       ▼                                                                     │
+│    ALLOW TOOL                                                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 12.4 Mode-Based Restrictions (System Prompt Enforcement)
+
+For the **main agent**, tool restrictions in plan mode are enforced via **system prompt**, not code filtering:
+
+**Plan Mode System Prompt:**
+
+```
+Plan mode is active. The user indicated that they do not want you to execute yet --
+you MUST NOT make any edits (with the exception of the plan file mentioned below),
+run any non-readonly tools (including changing configs or making commits), or
+otherwise make any changes to the system. This supercedes any other instructions
+you have received.
+```
+
+**Enforced Restrictions:**
+- Edit: Blocked (except plan file)
+- Write: Only plan file allowed
+- Bash: Read-only commands only
+- NotebookEdit: Blocked
+- Task: Blocked (system prompt guidance)
+
+**Allowed Tools:**
+- Read, Glob, Grep: Full access
+- WebFetch, WebSearch: Full access
+- TodoWrite: Full access
+- AskUserQuestion: Full access
+- ExitPlanMode: Allowed (to exit plan mode)
+
+### 12.5 Summary Table
+
+| Tool | Main (Normal) | Main (Plan) | Explore Agent | Plan Agent | Async Agent |
+|------|---------------|-------------|---------------|------------|-------------|
+| **AskUserQuestion** | ✅ | ✅ | ❌ CTA | ❌ CTA | ❌ Not in Bf2 |
+| **EnterPlanMode** | ✅ | N/A | ❌ CTA | ❌ CTA | ❌ Not in Bf2 |
+| **ExitPlanMode** | ✅ | ✅ | ❌ CTA | ❌ CTA | ❌ Not in Bf2 |
+| **Task** | ✅ | ❌ Prompt | ❌ CTA | ❌ CTA | ❌ Not in Bf2 |
+| **Read** | ✅ | ✅ | ✅ | ✅ | ✅ Bf2 |
+| **Edit** | ✅ | ❌ Prompt | ❌ disallow | ❌ disallow | ✅ Bf2 |
+| **Write** | ✅ | ⚠️ Plan only | ❌ disallow | ❌ disallow | ❌ Not in Bf2 |
+| **Glob** | ✅ | ✅ | ✅ | ✅ | ✅ Bf2 |
+| **Grep** | ✅ | ✅ | ✅ | ✅ | ✅ Bf2 |
+| **Bash** | ✅ | ⚠️ Read-only | ⚠️ Read-only | ⚠️ Read-only | ✅ Bf2 |
+| **TodoWrite** | ✅ | ✅ | ✅ | ✅ | ✅ Bf2 |
+| **WebFetch** | ✅ | ✅ | ✅ | ✅ | ✅ Bf2 |
+| **WebSearch** | ✅ | ✅ | ✅ | ✅ | ✅ Bf2 |
+| **NotebookEdit** | ✅ | ❌ Prompt | ❌ disallow | ❌ disallow | ❌ Not in Bf2 |
+
+**Legend:**
+- ✅ = Available
+- ❌ = Blocked
+- ⚠️ = Limited/Conditional
+- CTA = Blocked by ALWAYS_EXCLUDED_TOOLS
+- Bf2 = Allowed by ASYNC_SAFE_TOOLS whitelist
+- Prompt = Blocked by system prompt
+- disallow = Blocked by agent's disallowedTools array

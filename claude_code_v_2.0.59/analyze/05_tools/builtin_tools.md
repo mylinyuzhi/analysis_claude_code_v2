@@ -1513,6 +1513,115 @@ interface Option {
 - Use `multiSelect: true` for non-mutually exclusive choices
 - Use when gathering preferences, clarifying ambiguity, or getting decisions
 
+### AskUserQuestion Classification and Plan Mode Integration
+
+#### Classification System
+
+AskUserQuestion uses a **dual classification system** that determines where it can be used:
+
+**1. Context-Based Exclusion (ALWAYS_EXCLUDED_TOOLS)**:
+
+```javascript
+// Location: chunks.146.mjs:949
+// AskUserQuestion is in ALWAYS_EXCLUDED_TOOLS (CTA)
+const ALWAYS_EXCLUDED_TOOLS = new Set([
+  // ...
+  AskUserQuestionTool.name,   // pJ - "AskUserQuestion"
+  // ...
+])
+```
+
+This means AskUserQuestion is **excluded from ALL subagents**, including:
+- Explore agents
+- Plan agents
+- General-purpose agents
+- Async/background agents
+- Non-built-in agents
+
+**2. Mode-Based Availability (Plan Mode)**:
+
+AskUserQuestion is **NOT** in the plan mode `disallowedTools` array, which means:
+- Main agent CAN use AskUserQuestion in plan mode
+- It's designed for clarifying approaches before finalizing the plan
+
+#### Availability Matrix
+
+| Context | AskUserQuestion Available? | Reason |
+|---------|---------------------------|--------|
+| **Main Agent (normal mode)** | ✅ Yes | Not restricted |
+| **Main Agent (plan mode)** | ✅ Yes | Not in plan mode disallowedTools |
+| **Explore subagent** | ❌ No | In ALWAYS_EXCLUDED_TOOLS |
+| **Plan subagent** | ❌ No | In ALWAYS_EXCLUDED_TOOLS |
+| **Async/background agent** | ❌ No | Not in ASYNC_SAFE_TOOLS |
+| **Non-built-in agent** | ❌ No | In BUILTIN_ONLY_TOOLS |
+
+#### Design Rationale
+
+**Why AskUserQuestion is excluded from subagents:**
+
+1. **User Interaction Centralization**
+   - Only main agent should interact with the user
+   - Subagent questions would fragment the conversation
+
+2. **Conversation Coherence**
+   - Multiple agents asking questions would confuse the user
+   - Main agent coordinates and synthesizes information
+
+3. **Control Flow**
+   - Main agent decides what clarifications are needed
+   - Subagents should work autonomously with the context provided
+
+4. **Permission Model**
+   - Subagents run in restricted context
+   - User approval flows through main agent
+
+#### Plan Mode Usage Pattern
+
+```javascript
+// In plan mode, main agent CAN use AskUserQuestion:
+{
+  type: "tool_use",
+  name: "AskUserQuestion",
+  input: {
+    questions: [{
+      question: "Which database should we use for the cache layer?",
+      header: "Cache DB",
+      options: [
+        { label: "Redis (Recommended)", description: "Distributed, persistent, supports TTL" },
+        { label: "In-memory", description: "Fast, no external dependencies, lost on restart" },
+        { label: "SQLite", description: "File-based, simple, good for single-instance" },
+        { label: "Memcached", description: "Simple key-value, high performance, no persistence" }
+      ],
+      multiSelect: false
+    }]
+  }
+}
+```
+
+**System Prompt Guidance (from plan mode prompt)**:
+
+```
+In plan mode, you should:
+...
+4. Use AskUserQuestion if you need to clarify the approach
+...
+```
+
+#### Integration with ExitPlanMode
+
+The ExitPlanMode tool prompt explicitly mentions AskUserQuestion:
+
+```
+## Handling Ambiguity in Plans
+Before using this tool, ensure your plan is clear and unambiguous. If there are multiple valid approaches or unclear requirements:
+1. Use the AskUserQuestion tool to clarify with the user
+2. Ask about specific implementation choices (e.g., architectural patterns, which library to use)
+3. Clarify any assumptions that could affect the implementation
+4. Only proceed with ExitPlanMode after resolving ambiguities
+```
+
+This confirms that **AskUserQuestion is intentionally available during plan mode** for resolving ambiguities before implementation.
+
 ---
 
 ## Plan Mode Tools
@@ -1523,20 +1632,19 @@ interface Option {
 **Constant**: `A71 = "EnterPlanMode"` (chunks.130.mjs)
 **Object**: `cTA` (chunks.130.mjs:2336-2398)
 
-**Description**: Enter plan mode for complex tasks requiring careful planning.
+**Description**: Enter plan mode for complex tasks requiring careful planning and exploration before implementation.
 
 **Input Schema** (chunks.130.mjs):
 ```typescript
 {
-  // No parameters required
+  // No parameters required - empty object
 }
 ```
 
 **Output Schema**:
 ```typescript
 {
-  entered: boolean
-  planFile?: string                 // Path to plan file if created
+  message: string  // Confirmation that plan mode was entered
 }
 ```
 
@@ -1544,6 +1652,211 @@ interface Option {
 - `isConcurrencySafe`: `true`
 - `isReadOnly`: `true`
 - In `ALWAYS_EXCLUDED_TOOLS` set (not available to subagents)
+- `checkPermissions()`: Returns `{ behavior: "ask", message: "Enter plan mode?" }`
+
+**Full Tool Prompt (Id2)**:
+
+**Location:** `chunks.130.mjs:2199-2272`
+
+```javascript
+// ============================================
+// EnterPlanMode Tool Description Prompt
+// Location: chunks.130.mjs:2199-2272
+// ============================================
+
+`Use this tool proactively when you're about to start a non-trivial implementation task. Getting user sign-off on your approach before writing code prevents wasted effort and ensures alignment. This tool transitions you into plan mode where you can explore the codebase and design an implementation approach for user approval.
+
+## When to Use This Tool
+
+**Prefer using EnterPlanMode** for implementation tasks unless they're simple. Use it when ANY of these conditions apply:
+
+1. **New Feature Implementation**: Adding meaningful new functionality
+   - Example: "Add a logout button" - where should it go? What should happen on click?
+   - Example: "Add form validation" - what rules? What error messages?
+
+2. **Multiple Valid Approaches**: The task can be solved in several different ways
+   - Example: "Add caching to the API" - could use Redis, in-memory, file-based, etc.
+   - Example: "Improve performance" - many optimization strategies possible
+
+3. **Code Modifications**: Changes that affect existing behavior or structure
+   - Example: "Update the login flow" - what exactly should change?
+   - Example: "Refactor this component" - what's the target architecture?
+
+4. **Architectural Decisions**: The task requires choosing between patterns or technologies
+   - Example: "Add real-time updates" - WebSockets vs SSE vs polling
+   - Example: "Implement state management" - Redux vs Context vs custom solution
+
+5. **Multi-File Changes**: The task will likely touch more than 2-3 files
+   - Example: "Refactor the authentication system"
+   - Example: "Add a new API endpoint with tests"
+
+6. **Unclear Requirements**: You need to explore before understanding the full scope
+   - Example: "Make the app faster" - need to profile and identify bottlenecks
+   - Example: "Fix the bug in checkout" - need to investigate root cause
+
+7. **User Preferences Matter**: The implementation could reasonably go multiple ways
+   - If you would use AskUserQuestion to clarify the approach, use EnterPlanMode instead
+   - Plan mode lets you explore first, then present options with context
+
+## When NOT to Use This Tool
+
+Only skip EnterPlanMode for simple tasks:
+- Single-line or few-line fixes (typos, obvious bugs, small tweaks)
+- Adding a single function with clear requirements
+- Tasks where the user has given very specific, detailed instructions
+- Pure research/exploration tasks (use the Task tool with explore agent instead)
+
+## What Happens in Plan Mode
+
+In plan mode, you'll:
+1. Thoroughly explore the codebase using Glob, Grep, and Read tools
+2. Understand existing patterns and architecture
+3. Design an implementation approach
+4. Present your plan to the user for approval
+5. Use AskUserQuestion if you need to clarify approaches
+6. Exit plan mode with ExitPlanMode when ready to implement
+
+## Examples
+
+### GOOD - Use EnterPlanMode:
+User: "Add user authentication to the app"
+- Requires architectural decisions (session vs JWT, where to store tokens, middleware structure)
+
+User: "Optimize the database queries"
+- Multiple approaches possible, need to profile first, significant impact
+
+User: "Implement dark mode"
+- Architectural decision on theme system, affects many components
+
+User: "Add a delete button to the user profile"
+- Seems simple but involves: where to place it, confirmation dialog, API call, error handling, state updates
+
+User: "Update the error handling in the API"
+- Affects multiple files, user should approve the approach
+
+### BAD - Don't use EnterPlanMode:
+User: "Fix the typo in the README"
+- Straightforward, no planning needed
+
+User: "Add a console.log to debug this function"
+- Simple, obvious implementation
+
+User: "What files handle routing?"
+- Research task, not implementation planning
+
+## Important Notes
+
+- This tool REQUIRES user approval - they must consent to entering plan mode
+- If unsure whether to use it, err on the side of planning - it's better to get alignment upfront than to redo work
+- Users appreciate being consulted before significant changes are made to their codebase`
+```
+
+**Tool Implementation (cTA)**:
+
+**Location:** `chunks.130.mjs:2336-2398`
+
+```javascript
+// ============================================
+// EnterPlanMode Tool Object
+// Location: chunks.130.mjs:2336-2398
+// ============================================
+
+cTA = {
+  name: "EnterPlanMode",  // A71
+  async description() {
+    return "Requests permission to enter plan mode for complex tasks requiring exploration and design"
+  },
+  async prompt() {
+    return Id2  // Full description shown above
+  },
+  inputSchema: j.strictObject({}),     // No parameters
+  outputSchema: j.object({
+    message: j.string().describe("Confirmation that plan mode was entered")
+  }),
+  userFacingName() {
+    return ""
+  },
+  isEnabled() {
+    return true
+  },
+  isConcurrencySafe() {
+    return true
+  },
+  isReadOnly() {
+    return true  // Plan mode is read-only exploration
+  },
+  async checkPermissions(input) {
+    return {
+      behavior: "ask",
+      message: "Enter plan mode?",
+      updatedInput: input
+    }
+  },
+  async call(A, Q) {
+    let sessionId = e1();
+    if (Q.agentId !== sessionId) {
+      throw Error("EnterPlanMode tool cannot be used in agent contexts");
+    }
+    return {
+      data: {
+        message: "Entered plan mode. You should now focus on exploring the codebase and designing an implementation approach."
+      }
+    }
+  },
+  mapToolResultToToolResultBlockParam({ message }, toolUseId) {
+    return {
+      type: "tool_result",
+      content: `${message}
+
+In plan mode, you should:
+1. Thoroughly explore the codebase to understand existing patterns
+2. Identify similar features and architectural approaches
+3. Consider multiple approaches and their trade-offs
+4. Use AskUserQuestion if you need to clarify the approach
+5. Design a concrete implementation strategy
+6. When ready, use ExitPlanMode to present your plan for approval
+
+Remember: DO NOT write or edit any files yet. This is a read-only exploration and planning phase.`,
+      tool_use_id: toolUseId
+    }
+  }
+}
+```
+
+**Confirmation UI Component (Dd2)**:
+
+**Location:** `chunks.130.mjs:2401-2449`
+
+```javascript
+// ============================================
+// EnterPlanMode Confirmation UI
+// Location: chunks.130.mjs:2401-2449
+// ============================================
+
+function Dd2({ toolUseConfirm: A, onDone: Q, onReject: B }) {
+  function G(Z) {
+    if (Z === "yes") Q(), A.onAllow({}, [{
+      type: "setMode",
+      mode: "plan",              // Set mode to plan
+      destination: "session"     // Session-scoped (not persisted)
+    }]);
+    else Q(), B(), A.onReject()
+  }
+
+  return React.createElement(uJ, {
+    color: "planMode",
+    title: "Enter plan mode?"
+  },
+    React.createElement($, null, "Claude wants to enter plan mode to explore and design an implementation approach."),
+    React.createElement($, { dimColor: true }, "In plan mode, Claude will:"),
+    React.createElement($, { dimColor: true }, " · Explore the codebase thoroughly"),
+    React.createElement($, { dimColor: true }, " · Identify existing patterns"),
+    React.createElement($, { dimColor: true }, " · Design an implementation strategy"),
+    React.createElement($, { dimColor: true }, " · Present a plan for your approval"),
+    React.createElement($, { dimColor: true }, "No code changes will be made until you approve the plan.")
+  )
+}
+```
 
 **When to Use**:
 - Multiple valid approaches exist
@@ -1560,21 +1873,22 @@ interface Option {
 **Constant**: `rRA = "ExitPlanMode"` (chunks.130.mjs)
 **Object**: `gq` (chunks.130.mjs:1850-1928)
 
-**Description**: Exit plan mode and proceed with implementation.
+**Description**: Exit plan mode and proceed with implementation after user approves the plan.
 
 **Input Schema** (chunks.130.mjs):
 ```typescript
 {
-  launchSwarm?: boolean             // Whether to launch swarm for plan
-  teammateCount?: number            // Number of teammates in swarm
+  // Empty object - the tool reads plan from file automatically
+  // Future extensibility: launchSwarm, teammateCount (not yet implemented)
 }
 ```
 
 **Output Schema**:
 ```typescript
 {
-  exited: boolean
-  planContent?: string              // Content of the plan file
+  plan: string        // The plan content that was presented to the user
+  isAgent: boolean    // Whether called from agent (vs main conversation)
+  filePath?: string   // Path where plan was saved
 }
 ```
 
@@ -1582,6 +1896,187 @@ interface Option {
 - `isConcurrencySafe`: `true`
 - `isReadOnly`: `true`
 - In `ALWAYS_EXCLUDED_TOOLS` set (not available to subagents)
+- **CRITICAL**: Plan file MUST exist before calling this tool
+
+**Full Tool Prompt - Simple Variant (TXZ)**:
+
+**Location:** `chunks.130.mjs:1702-1717`
+
+```javascript
+// ============================================
+// ExitPlanMode Simple Variant (inline plan)
+// Location: chunks.130.mjs:1702-1717
+// ============================================
+
+`Use this tool when you are in plan mode and have finished presenting your plan and are ready to code. This will prompt the user to exit plan mode.
+
+IMPORTANT: Only use this tool when the task requires planning the implementation steps of a task that requires writing code. For research tasks where you're gathering information, searching files, reading files or in general trying to understand the codebase - do NOT use this tool.
+
+## Handling Ambiguity in Plans
+Before using this tool, ensure your plan is clear and unambiguous. If there are multiple valid approaches or unclear requirements:
+1. Use the AskUserQuestion tool to clarify with the user
+2. Ask about specific implementation choices (e.g., architectural patterns, which library to use)
+3. Clarify any assumptions that could affect the implementation
+4. Only proceed with ExitPlanMode after resolving ambiguities
+
+## Examples
+
+1. Initial task: "Search for and understand the implementation of vim mode in the codebase" - Do not use the exit plan mode tool because you are not planning the implementation steps of a task.
+2. Initial task: "Help me implement yank mode for vim" - Use the exit plan mode tool after you have finished planning the implementation steps of the task.
+3. Initial task: "Add a new feature to handle user authentication" - If unsure about auth method (OAuth, JWT, etc.), use AskUserQuestion first, then use exit plan mode tool after clarifying the approach.`
+```
+
+**Full Tool Prompt - File-Based Variant (am2)**:
+
+**Location:** `chunks.130.mjs:1717-1741`
+
+```javascript
+// ============================================
+// ExitPlanMode File-Based Variant (plan in file)
+// Location: chunks.130.mjs:1717-1741
+// ============================================
+
+`Use this tool when you are in plan mode and have finished writing your plan to the plan file and are ready for user approval.
+
+## How This Tool Works
+- You should have already written your plan to the plan file specified in the plan mode system message
+- This tool does NOT take the plan content as a parameter - it will read the plan from the file you wrote
+- This tool simply signals that you're done planning and ready for the user to review and approve
+- The user will see the contents of your plan file when they review it
+
+## When to Use This Tool
+IMPORTANT: Only use this tool when the task requires planning the implementation steps of a task that requires writing code. For research tasks where you're gathering information, searching files, reading files or in general trying to understand the codebase - do NOT use this tool.
+
+## Handling Ambiguity in Plans
+Before using this tool, ensure your plan is clear and unambiguous. If there are multiple valid approaches or unclear requirements:
+1. Use the AskUserQuestion tool to clarify with the user
+2. Ask about specific implementation choices (e.g., architectural patterns, which library to use)
+3. Clarify any assumptions that could affect the implementation
+4. Edit your plan file to incorporate user feedback
+5. Only proceed with ExitPlanMode after resolving ambiguities and updating the plan file
+
+## Examples
+
+1. Initial task: "Search for and understand the implementation of vim mode in the codebase" - Do not use the exit plan mode tool because you are not planning the implementation steps of a task.
+2. Initial task: "Help me implement yank mode for vim" - Use the exit plan mode tool after you have finished planning the implementation steps of the task.
+3. Initial task: "Add a new feature to handle user authentication" - If unsure about auth method (OAuth, JWT, etc.), use AskUserQuestion first, then use exit plan mode tool after clarifying the approach.`
+```
+
+**Tool Implementation (gq)**:
+
+**Location:** `chunks.130.mjs:1850-1928`
+
+```javascript
+// ============================================
+// ExitPlanMode Tool Object
+// Location: chunks.130.mjs:1850-1928
+// ============================================
+
+gq = {
+  name: "ExitPlanMode",  // rRA
+  inputSchema: j.strictObject({}).passthrough(),  // Accepts any properties (future extensibility)
+  outputSchema: j.object({
+    plan: j.string().describe("The plan that was presented to the user"),
+    isAgent: j.boolean(),
+    filePath: j.string().optional().describe("The file path where the plan was saved")
+  }),
+  async call(A, Q) {
+    let sessionId = e1(),
+      isAgent = Q.agentId !== sessionId,
+      planFilePath = yU(Q.agentId),        // getPlanFilePath()
+      planContent = xU(Q.agentId);         // readPlanFile()
+
+    // CRITICAL: Plan file must exist before calling ExitPlanMode
+    if (!planContent) {
+      throw Error(`No plan file found at ${planFilePath}. Please write your plan to this file before calling ExitPlanMode.`);
+    }
+
+    return {
+      data: {
+        plan: planContent,     // Read plan from file
+        isAgent: isAgent,      // Is this being called from agent (vs main conversation)
+        filePath: planFilePath
+      }
+    }
+  },
+  mapToolResultToToolResultBlockParam({ isAgent, plan, filePath }, toolUseId) {
+    if (isAgent) {
+      // Sub-agent context - just confirm approval
+      return {
+        type: "tool_result",
+        content: 'User has approved the plan. There is nothing else needed from you now. Please respond with "ok"',
+        tool_use_id: toolUseId
+      };
+    }
+
+    // Main conversation context - start implementing
+    return {
+      type: "tool_result",
+      content: `User has approved your plan. You can now start coding. Start with updating your todo list if applicable
+
+Your plan has been saved to: ${filePath}
+You can refer back to it if needed during implementation.
+
+## Approved Plan:
+${plan}`,
+      tool_use_id: toolUseId
+    }
+  }
+}
+```
+
+**Exit Confirmation UI - Mode Selection**:
+
+**Location:** `chunks.130.mjs:2065-2085`
+
+```javascript
+// ============================================
+// ExitPlanMode Confirmation UI - Three exit paths
+// Location: chunks.130.mjs:2065-2085
+// ============================================
+
+// User can choose from three exit modes:
+
+if (response === "yes-bypass-permissions") {
+  analytics("tengu_plan_exit", { outcome: response });
+  setHasExitedPlanMode(true);
+
+  // Dispatch mode change
+  dispatchAction({
+    type: "setMode",
+    mode: "bypassPermissions",  // Auto-approve ALL tools
+    destination: "session"
+  });
+}
+else if (response === "yes-accept-edits") {
+  analytics("tengu_plan_exit", { outcome: response });
+  setHasExitedPlanMode(true);
+
+  dispatchAction({
+    type: "setMode",
+    mode: "acceptEdits",        // Auto-approve file edits only
+    destination: "session"
+  });
+}
+else if (response === "yes-default") {
+  analytics("tengu_plan_exit", { outcome: response });
+  setHasExitedPlanMode(true);
+
+  dispatchAction({
+    type: "setMode",
+    mode: "default",            // Ask for each action
+    destination: "session"
+  });
+}
+```
+
+**Exit Mode Options**:
+
+| Mode | Description | Auto-Approved Tools |
+|------|-------------|---------------------|
+| `default` | Ask for each action | None (user confirms each) |
+| `acceptEdits` | Auto-approve file edits | Write, Edit, NotebookEdit |
+| `bypassPermissions` | Auto-approve all tools | All tools |
 
 ---
 
@@ -1742,6 +2237,203 @@ Tools are defined in the following source files:
 - **chunks.60.mjs**: TodoWrite tool
 - **chunks.146.mjs**: TaskCreate, LSP operations
 - **chunks.94.mjs, chunks.95.mjs**: WebFetch, WebSearch tool references
+
+---
+
+## Tool Classification and Filtering System
+
+### Overview
+
+Claude Code implements a sophisticated tool restriction system that controls which tools are available in different execution contexts. This is crucial for plan mode, subagent execution, and async operations.
+
+### Tool Restriction Sets
+
+Three constant sets control tool availability:
+
+#### ALWAYS_EXCLUDED_TOOLS (CTA)
+
+**Location:** `chunks.146.mjs:949`
+
+Tools that are **NEVER available to subagents**:
+
+```javascript
+// ============================================
+// ALWAYS_EXCLUDED_TOOLS - Never for subagents
+// Location: chunks.146.mjs:949
+// ============================================
+
+const ALWAYS_EXCLUDED_TOOLS = new Set([
+  ExitPlanModeTool.name,      // gq - "ExitPlanMode"
+  ENTER_PLAN_MODE_NAME,       // A71 - "EnterPlanMode"
+  TASK_TOOL_NAME,             // A6 - "Task"
+  AskUserQuestionTool.name,   // pJ - "AskUserQuestion"
+  DY1,                        // (unknown/internal)
+])
+```
+
+**Rationale:**
+- **EnterPlanMode/ExitPlanMode**: Only main agent should control mode transitions
+- **Task**: Prevents subagents from spawning more subagents (recursion control)
+- **AskUserQuestion**: User interaction should be centralized at main agent level
+
+#### BUILTIN_ONLY_TOOLS (Qf2)
+
+**Location:** `chunks.146.mjs:949`
+
+Inherits from `ALWAYS_EXCLUDED_TOOLS`. Only available to built-in agents (not custom agents).
+
+```javascript
+// BUILTIN_ONLY_TOOLS inherits from ALWAYS_EXCLUDED_TOOLS
+const BUILTIN_ONLY_TOOLS = new Set([
+  ...ALWAYS_EXCLUDED_TOOLS    // All CTA tools
+])
+```
+
+#### ASYNC_SAFE_TOOLS (Bf2)
+
+**Location:** `chunks.146.mjs:949`
+
+Whitelist of tools that can safely run in async/background agents:
+
+```javascript
+// ============================================
+// ASYNC_SAFE_TOOLS - Whitelist for async agents
+// Location: chunks.146.mjs:949
+// ============================================
+
+const ASYNC_SAFE_TOOLS = new Set([
+  ReadTool.name,              // n8 - "Read"
+  EditTool.name,              // ZSA - "Edit"
+  TodoWriteTool.name,         // BY - "TodoWrite"
+  GrepTool.name,              // Py - "Grep"
+  WebSearchTool.name,         // nV - "WebSearch"
+  GlobTool.name,              // zO - "Glob"
+  BASH_TOOL_NAME,             // C9 - "Bash"
+  SkillTool.name,             // lD - "Skill"
+  SlashCommandTool.name,      // QV - "SlashCommand"
+  WebFetchTool.name,          // kP - "WebFetch"
+])
+```
+
+### filterToolsByContext() Implementation
+
+**Location:** `chunks.125.mjs:1116-1128`
+
+This function filters the tool list based on agent context:
+
+```javascript
+// ============================================
+// filterToolsByContext - Filter tools for subagent context
+// Location: chunks.125.mjs:1116-1128
+// ============================================
+
+// ORIGINAL (for source lookup):
+function bz0({ tools: A, isBuiltIn: Q, isAsync: B }) {
+  return A.filter((G) => {
+    if (process.env.CLAUDE_CODE_ALLOW_MCP_TOOLS_FOR_SUBAGENTS && G.name.startsWith("mcp__"))
+      return !0;
+    if (CTA.has(G.name)) return !1;
+    if (!Q && Qf2.has(G.name)) return !1;
+    if (B && !Bf2.has(G.name)) return !1;
+    return !0
+  })
+}
+
+// READABLE (for understanding):
+function filterToolsByContext({ tools, isBuiltIn, isAsync }) {
+  return tools.filter((tool) => {
+    // Step 1: Allow MCP tools if env var set (special override)
+    if (process.env.CLAUDE_CODE_ALLOW_MCP_TOOLS_FOR_SUBAGENTS &&
+        tool.name.startsWith("mcp__")) {
+      return true
+    }
+
+    // Step 2: Exclude always-banned tools (CTA)
+    // These are NEVER available to any subagent
+    if (ALWAYS_EXCLUDED_TOOLS.has(tool.name)) {
+      return false
+    }
+
+    // Step 3: Non-built-in agents have restricted tool access (Qf2)
+    // Custom agents can't use built-in-only tools
+    if (!isBuiltIn && BUILTIN_ONLY_TOOLS.has(tool.name)) {
+      return false
+    }
+
+    // Step 4: Async agents can only use curated whitelist (Bf2)
+    // Background agents have strict tool limitations
+    if (isAsync && !ASYNC_SAFE_TOOLS.has(tool.name)) {
+      return false
+    }
+
+    return true
+  })
+}
+
+// Mapping: A→tools, Q→isBuiltIn, B→isAsync, G→tool
+// CTA→ALWAYS_EXCLUDED_TOOLS, Qf2→BUILTIN_ONLY_TOOLS, Bf2→ASYNC_SAFE_TOOLS
+```
+
+### Tool Availability Matrix
+
+| Tool | Main Agent | Subagents | Async Agents | Plan Mode (Main) |
+|------|------------|-----------|--------------|------------------|
+| **AskUserQuestion** | ✅ Yes | ❌ No (CTA) | ❌ No | ✅ Yes |
+| **EnterPlanMode** | ✅ Yes | ❌ No (CTA) | ❌ No | N/A |
+| **ExitPlanMode** | ✅ Yes | ❌ No (CTA) | ❌ No | ✅ Yes |
+| **Task** | ✅ Yes | ❌ No (CTA) | ❌ No | ❌ No* |
+| **Read** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Edit** | ✅ Yes | ✅ Yes (filtered) | ✅ Yes | ❌ No* |
+| **Write** | ✅ Yes | ❌ No | ❌ No | ✅ Plan file only* |
+| **Glob** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Grep** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Bash** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Read-only only* |
+| **WebFetch** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| **WebSearch** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| **TodoWrite** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| **NotebookEdit** | ✅ Yes | ❌ No | ❌ No | ❌ No* |
+
+*Plan mode restrictions are enforced via system prompt, not filterToolsByContext()
+
+### Plan Mode Subagent Tool Restrictions
+
+**Location:** `chunks.125.mjs:1407-1483`
+
+Explore and Plan agents have additional restrictions beyond the standard filtering:
+
+```javascript
+// ============================================
+// Explore/Plan Agent disallowed tools
+// Location: chunks.125.mjs:1407, 1477
+// ============================================
+
+disallowedTools: [
+  A6,      // "Task" tool - can't spawn more agents
+  P51,     // Another variant
+  $5,      // "Edit" tool - can't edit files
+  wX,      // "Write" tool - can't create files
+  JS       // "NotebookEdit" - can't edit notebooks
+]
+
+// NOTE: AskUserQuestion is NOT in disallowedTools for Explore/Plan agents
+// However, it's already excluded via ALWAYS_EXCLUDED_TOOLS (CTA)
+// This is why AskUserQuestion is available to main agent but not subagents
+```
+
+### Key Insights
+
+1. **Dual Classification for AskUserQuestion:**
+   - Excluded from subagents via `ALWAYS_EXCLUDED_TOOLS`
+   - Available to main agent in ALL modes (including plan mode)
+   - Not in plan mode's `disallowedTools` array
+
+2. **Plan Mode vs Subagent Restrictions:**
+   - Plan mode main agent: System prompt enforces read-only behavior
+   - Plan mode subagents: Code-level restrictions via `disallowedTools`
+
+3. **MCP Tools Override:**
+   - Can bypass subagent restrictions with `CLAUDE_CODE_ALLOW_MCP_TOOLS_FOR_SUBAGENTS` env var
+   - Only applies to tools with `mcp__` prefix
 
 ---
 
