@@ -1172,8 +1172,8 @@ function createHookContext(permissionContext, sessionIdOverride) {
 ```javascript
 // Hook execution start
 analytics("tengu_run_hook", {
-  hookName: string,
-  numCommands: number
+  hookName: string,      // e.g., "PreToolUse:Write"
+  numCommands: number    // Count of matching hooks
 });
 
 // Hook execution complete
@@ -1185,7 +1185,406 @@ analytics("tengu_repl_hook_finished", {
   numNonBlockingError: number,
   numCancelled: number
 });
+
+// Permission granted by hook
+analytics("tengu_tool_use_granted_by_permission_hook");
 ```
+
+**Telemetry Use Cases:**
+- Monitor hook execution frequency and performance
+- Track blocking error rates
+- Identify slow or problematic hooks
+- Measure permission automation effectiveness
+
+---
+
+## Async Hook Tracking System
+
+When a hook returns `{"async": true}`, it enters the async tracking system for background execution.
+
+### Async Hook Lifecycle
+
+```
+1. Hook outputs {"async": true} as first JSON line
+       ↓
+2. Process backgrounded via shellCommand.background(taskId)
+       ↓
+3. taskId = "async_hook_${pid}" registered in global Map
+       ↓
+4. Stdout/stderr accumulated in registry (xZ2, vZ2 functions)
+       ↓
+5. bZ2() polls for completion
+       ↓
+6. Completion detected when non-async JSON found in stdout
+       ↓
+7. Results returned: {processId, response, hookName, hookEvent, stdout, stderr, exitCode}
+       ↓
+8. Registry entry cleaned up
+```
+
+### Registry Structure
+
+```typescript
+// Global async hook registry (qh Map)
+Map<string, {
+  processId: string;           // "async_hook_12345"
+  hookName: string;            // "PostToolUse:Write"
+  hookEvent: string;           // "PostToolUse"
+  toolName?: string;           // "Write"
+  command: string;             // Hook command
+  startTime: number;           // Date.now() at registration
+  timeout: number;             // From asyncTimeout or default 15000ms
+  stdout: string;              // Accumulated stdout
+  stderr: string;              // Accumulated stderr
+  responseAttachmentSent: boolean;  // Prevents duplicate processing
+  shellCommand: ShellCommand;  // For process management
+}>
+```
+
+### Special Handling
+
+**SessionStart async hooks:** After completion, calls `LNB()` to invalidate session environment cache, allowing subsequent hooks to see any environment changes made by the async hook.
+
+---
+
+## Hook Deduplication Algorithm
+
+When multiple hooks from different sources match the same event, deduplication prevents duplicate execution.
+
+### Deduplication by Hook Type
+
+| Hook Type | Deduplication Key | Behavior |
+|-----------|------------------|----------|
+| Command | `command` string | Hooks with identical command strings are deduplicated |
+| Prompt | `prompt` string | Hooks with identical prompts are deduplicated |
+| Agent | `prompt([])` evaluation | Hooks with identical prompt output are deduplicated |
+| Callback | Never deduplicated | All callback hooks execute |
+| Function | Never deduplicated | All function hooks execute |
+
+### Implementation
+
+```javascript
+// Deduplication using Map with type-specific keys
+let commandHooks = Array.from(
+  new Map(allHooks.filter(h => h.type === "command")
+    .map(h => [h.command, h])).values()  // Key = command string
+);
+
+let promptHooks = Array.from(
+  new Map(allHooks.filter(h => h.type === "prompt")
+    .map(h => [h.prompt, h])).values()   // Key = prompt string
+);
+
+let agentHooks = Array.from(
+  new Map(allHooks.filter(h => h.type === "agent")
+    .map(h => [h.prompt([]), h])).values()  // Key = prompt evaluation
+);
+
+let callbackHooks = allHooks.filter(h => h.type === "callback");
+// No deduplication for callbacks
+```
+
+### Debug Log
+
+When deduplication occurs, the system logs:
+```
+Hooks: Matched 3 unique hooks for query "Write" (5 before deduplication)
+```
+
+---
+
+## StatusLine Hook Execution
+
+StatusLine is a special hook type that displays custom status information.
+
+### Configuration
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "echo 'Branch: $(git branch --show-current)'",
+    "padding": 2
+  }
+}
+```
+
+### Execution Details
+
+| Property | Value |
+|----------|-------|
+| Executor Function | `cJ0()` |
+| Default Timeout | 5000ms (5 seconds) |
+| Event Name | "StatusLine" |
+| Error Handling | Caught and logged (graceful degradation) |
+| Return Value | Trimmed multi-line stdout or `undefined` |
+
+### Key Behaviors
+
+1. **Disabled when `disableAllHooks` is true:** StatusLine respects the global hook disable setting
+2. **Only command type supported:** `statusLine.type` must be `"command"`
+3. **Graceful degradation:** Errors are caught and logged, never thrown
+4. **Input:** Stringified AppState passed to hook
+5. **Output:** Multi-line output trimmed and returned for display
+
+### Integration Warning
+
+When StatusLine is configured but hooks are disabled:
+```
+Warning: Status line is configured but disableAllHooks is true
+```
+
+---
+
+## Hook Progress Message Structure
+
+Each hook yields progress messages during execution for UI feedback.
+
+### Message Format
+
+```typescript
+{
+  type: "progress",
+  data: {
+    type: "hook_progress",
+    hookEvent: string,          // "PreToolUse", "PostToolUse", etc.
+    hookName: string,           // "PreToolUse:Write"
+    command: string,            // Formatted command for display
+    promptText?: string,        // For prompt hooks only
+    statusMessage?: string      // Custom status message if specified
+  },
+  parentToolUseID: string,
+  toolUseID: string,
+  timestamp: string,            // ISO 8601 timestamp
+  uuid: string                  // Unique message identifier
+}
+```
+
+### Spinner Integration
+
+The UI integrates hook progress with spinners:
+```javascript
+Q.setSpinnerColor?.("claudeBlue_FOR_SYSTEM_SPINNER");
+Q.setSpinnerShimmerColor?.("claudeBlueShimmer_FOR_SYSTEM_SPINNER");
+Q.setSpinnerMessage?.("Running PreCompact hooks...");
+```
+
+After hook completion, colors and messages are reset with `null`.
+
+---
+
+## Workspace Trust Integration
+
+Hooks check workspace trust before execution to prevent untrusted code from running hooks.
+
+### Trust Check Logic
+
+```javascript
+function shouldSkipWorkspaceTrust() {
+  // Remote environments bypass trust check entirely
+  if (isRemoteEnvironment()) return false;
+
+  // Skip hooks if workspace is not trusted
+  return !isWorkspaceTrusted(requireConfirmation = false);
+}
+```
+
+### Check Flow
+
+```
+User runs Claude Code
+       ↓
+Hook execution requested
+       ↓
+Check: Is this a remote environment?
+  Yes → Proceed (trust assumed)
+  No  → Check workspace trust
+            ↓
+       Is workspace trusted?
+         Yes → Proceed with hook execution
+         No  → Skip hooks silently with log message
+```
+
+### Log Output
+
+When hooks are skipped due to trust:
+```
+Skipping PostToolUse:Write hook execution - workspace trust not accepted
+```
+
+---
+
+## Generator vs Non-Generator Execution
+
+Hook events are executed in two modes depending on their nature.
+
+### Generator (Streaming) Events
+
+These hooks yield results as they complete, enabling real-time feedback:
+
+| Event | Function | Use Case |
+|-------|----------|----------|
+| PreToolUse | `OV0()` | Early termination on blocking |
+| PostToolUse | `RV0()` | Stream context additions |
+| PostToolUseFailure | `TV0()` | Stream error handling |
+| SessionStart | `WQ0()` | Stream initial context |
+| SubagentStart | `rX0()` | Stream subagent context |
+| SubagentStop | `PV0()` | Stream cleanup results |
+| Stop | `PV0()` | Stream interruption handling |
+| UserPromptSubmit | `k60()` | Stream prompt context |
+| PermissionRequest | `mW0()` | Stream permission decisions |
+
+### Non-Generator (Collected) Events
+
+These hooks collect all results before returning:
+
+| Event | Function | Return Type |
+|-------|----------|-------------|
+| SessionEnd | `yV0()` | `void` (fire-and-forget) |
+| PreCompact | `FQ0()` | `{newCustomInstructions?, userDisplayMessage?}` |
+| Notification | `B60()` | `void` (fire-and-forget) |
+
+### Executor Functions
+
+- **Generator mode:** `qa()` - Main async generator for REPL context
+- **Non-generator mode:** `kV0()` - Returns array of collected results
+
+---
+
+## SessionStart Special Handling
+
+SessionStart hooks have special behavior for environment setup.
+
+### Environment File Injection
+
+Only SessionStart hooks receive the `CLAUDE_ENV_FILE` environment variable:
+
+```javascript
+if (hookEvent === "SessionStart" && hookIndex !== undefined) {
+  env.CLAUDE_ENV_FILE = getEnvFilePath(hookIndex);
+}
+```
+
+### Post-Execution Cache Invalidation
+
+After SessionStart hooks complete (including async ones), the system invalidates the session environment cache:
+
+```javascript
+// In bZ2() async hook polling
+if (event === "SessionStart") {
+  LNB();  // Invalidate session env cache
+}
+```
+
+**Purpose:** Allows SessionStart hooks to set up environment variables that subsequent hooks can see.
+
+---
+
+## Hook Timeout Error Codes
+
+Command hooks can fail with specific error codes indicating the failure type.
+
+### Error Types
+
+| Error Code | Name | Cause | Handling |
+|------------|------|-------|----------|
+| `EPIPE` | Pipe Error | Hook closed stdin early | Returns error message with stderr |
+| `ABORT_ERR` | Abort Error | Signal aborted (timeout/cancellation) | Returns `{aborted: true}` |
+| Other | Generic Error | Any other error | Returns stringified error message |
+
+### EPIPE Handling
+
+```javascript
+// Hook closed stdin before all data was written
+if (error.code === "EPIPE") {
+  return {
+    stdout: stdoutBuffer,
+    stderr: `Hook closed stdin early: ${stderrBuffer}`,
+    status: 1
+  };
+}
+```
+
+### Abort Handling
+
+```javascript
+// Timeout or user cancellation
+if (error.name === "ABORT_ERR" || signal.aborted) {
+  return { aborted: true };
+}
+```
+
+---
+
+## Function Hook REPL Restriction
+
+Function hooks have a strict execution context requirement.
+
+### Restriction Details
+
+| Aspect | Constraint |
+|--------|------------|
+| Valid Context | REPL/Stop hooks only |
+| Invalid Context | Outside REPL (e.g., headless mode) |
+| Error Message | "Function hook reached executeHooksOutsideREPL" |
+| Requirement | Must have access to `messages` array |
+
+### Implementation
+
+```javascript
+// In kV0() (executeHooksOutsideREPL)
+if (hook.type === "function") {
+  log("Error: Function hook reached executeHooksOutsideREPL");
+  return { outcome: "non_blocking_error", hook };
+}
+```
+
+### Design Intent
+
+Function hooks are specifically designed for Stop hooks that need to analyze the conversation history. They require:
+1. Access to the full message array
+2. REPL context for interactive decisions
+3. Ability to block further execution based on conversation state
+
+**Use Case Example:** A Stop hook that checks if the conversation contains unresolved errors before allowing the user to interrupt.
+
+---
+
+## Hook Trigger Points Reference
+
+Complete reference of where each hook is triggered in the codebase.
+
+### Tool Lifecycle Hooks
+
+| Hook | Trigger Location | Data Passed |
+|------|-----------------|-------------|
+| PreToolUse | `chunks.146.mjs:2721` (ak3 generator) | tool_name, tool_input, tool_use_id |
+| PostToolUse | `chunks.146.mjs:2575` (ik3 generator) | tool_name, tool_input, tool_response, tool_use_id |
+| PostToolUseFailure | `chunks.146.mjs:2656` (nk3 generator) | tool_name, tool_input, error, is_interrupt |
+| PermissionRequest | `chunks.142.mjs:2738` (SYA) | tool_name, tool_input, permission_suggestions |
+
+### Session Lifecycle Hooks
+
+| Hook | Trigger Location | Data Passed |
+|------|-----------------|-------------|
+| SessionStart | `chunks.107.mjs:1094` | source |
+| SessionEnd | `chunks.147.mjs:639` | reason |
+| SubagentStart | `chunks.145.mjs:1105` | agent_id, agent_type |
+| SubagentStop | `chunks.147.mjs:532` | stop_hook_active, agent_id |
+
+### User Interaction Hooks
+
+| Hook | Trigger Location | Data Passed |
+|------|-----------------|-------------|
+| UserPromptSubmit | `chunks.121.mjs:1618` | prompt |
+| Stop | `chunks.146.mjs:2030` | stop_hook_active (always true) |
+| Notification | `chunks.120.mjs:1435` | message, title, notification_type |
+
+### Context Management Hooks
+
+| Hook | Trigger Location | Data Passed |
+|------|-----------------|-------------|
+| PreCompact | `chunks.107.mjs:1133` | trigger ("auto"/"manual"), custom_instructions |
 
 ---
 

@@ -94,6 +94,36 @@ syncResponseSchema = z.object({
 // Mapping: xK5→syncResponseSchema
 ```
 
+### Hook Input Context Fields
+
+Every hook receives common context fields injected via the `tE()` helper function:
+
+```typescript
+// Base context provided to all hooks
+interface HookContext {
+  session_id: string;           // Current session identifier
+  transcript_path: string;      // Path to session transcript file
+  cwd: string;                  // Current working directory
+  permission_mode: object;      // Permission context from AppState
+}
+```
+
+**Example hook input (PreToolUse):**
+```json
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": { "file_path": "/path/to/file.txt", "content": "..." },
+  "tool_use_id": "tool-use-abc123",
+  "session_id": "session-xyz789",
+  "transcript_path": "/Users/user/.claude/sessions/session-xyz789/transcript.json",
+  "cwd": "/Users/user/project",
+  "permission_mode": { "mode": "ask", "alwaysAllowRules": {...} }
+}
+```
+
+---
+
 ### Event-Specific Output Schemas
 
 #### PreToolUse Output
@@ -142,6 +172,178 @@ z.object({
 ```
 
 **Use case:** Add context to conversation or transform MCP tool outputs.
+
+**updatedMCPToolOutput Details:**
+- Only applies to MCP (Model Context Protocol) tools
+- Non-MCP tools ignore this field
+- Checked via internal `lg()` function to detect MCP tools
+- When provided, replaces the original tool output in the conversation
+
+#### PostToolUseFailure Output
+
+```javascript
+z.object({
+  hookEventName: z.literal("PostToolUseFailure"),
+  additionalContext: z.string().optional()       // Context about the failure
+})
+```
+
+**Use case:** Add debugging context or error handling information after tool failures.
+
+#### UserPromptSubmit Output
+
+```javascript
+z.object({
+  hookEventName: z.literal("UserPromptSubmit"),
+  additionalContext: z.string().optional()       // Context to inject before processing
+})
+```
+
+**Use case:** Add project-specific context or instructions when user submits a prompt.
+
+#### SessionStart Output
+
+```javascript
+z.object({
+  hookEventName: z.literal("SessionStart"),
+  additionalContext: z.string().optional()       // Initial context for the session
+})
+```
+
+**Use case:** Inject project context, coding standards, or environment information at session start.
+
+#### SessionEnd Output
+
+```javascript
+z.object({
+  hookEventName: z.literal("SessionEnd")
+  // No additional fields - informational only
+})
+```
+
+**Use case:** Cleanup tasks, logging, or analytics when session ends.
+
+**Note:** SessionEnd hooks are informational and cannot modify behavior.
+
+#### SubagentStart Output
+
+```javascript
+z.object({
+  hookEventName: z.literal("SubagentStart"),
+  additionalContext: z.string().optional()       // Context for the subagent
+})
+```
+
+**Use case:** Inject context or restrictions for spawned subagents.
+
+#### SubagentStop Output
+
+```javascript
+z.object({
+  hookEventName: z.literal("SubagentStop")
+  // No additional fields - informational only
+})
+```
+
+**Hook Input Schema:**
+```typescript
+{
+  hook_event_name: "SubagentStop",
+  stop_hook_active: boolean,              // Whether stop was user-initiated
+  agent_id: string,                       // Subagent identifier
+  agent_transcript_path: string           // Path to subagent's transcript
+}
+```
+
+#### Stop Output
+
+```javascript
+z.object({
+  hookEventName: z.literal("Stop")
+  // Control flow handled via continue/stopReason fields
+})
+```
+
+**Hook Input Schema:**
+```typescript
+{
+  hook_event_name: "Stop",
+  stop_hook_active: true,                 // Always true for Stop hooks
+  session_id: string,
+  transcript_path: string,
+  cwd: string,
+  permission_mode: object
+}
+```
+
+**Use case:** Validate or prevent user interruption (Ctrl+C) during critical operations.
+
+#### Notification Output
+
+```javascript
+z.object({
+  hookEventName: z.literal("Notification")
+  // No additional output fields
+})
+```
+
+**Hook Input Schema:**
+```typescript
+{
+  hook_event_name: "Notification",
+  message: string,                        // Notification text
+  title: string,                          // Notification title
+  notification_type: string               // Type for matching (e.g., "error", "info")
+}
+```
+
+**Use case:** Forward notifications to external systems (Slack, email, monitoring).
+
+#### PreCompact Output
+
+```javascript
+z.object({
+  hookEventName: z.literal("PreCompact"),
+  newCustomInstructions: z.string().optional(),  // Added to existing instructions
+  userDisplayMessage: z.string().optional()      // Message shown during compaction
+})
+```
+
+**Hook Input Schema:**
+```typescript
+{
+  hook_event_name: "PreCompact",
+  trigger: "auto" | "manual",             // What triggered compaction
+  custom_instructions: string | null,     // Current custom instructions
+  session_id: string
+}
+```
+
+**Use case:** Inject additional instructions before context compaction.
+
+**customInstructions Integration:**
+- If hook returns `newCustomInstructions`, it's **appended** to existing instructions
+- Format: `existingInstructions + "\n\n" + newCustomInstructions`
+- Original instructions are preserved, not replaced
+
+---
+
+### suppressOutput Field
+
+The `suppressOutput` field in hook output controls visibility:
+
+```javascript
+{
+  suppressOutput: true,  // Collect but don't display to user
+  // ... other fields
+}
+```
+
+**Behavior:**
+- When `true`: stdout is collected but **not shown** to the user
+- Stderr is **always displayed** regardless of this setting
+- Useful for silent validation hooks that should not clutter output
+- Does not affect how Claude sees the output
 
 ---
 
@@ -1270,6 +1472,66 @@ Each hook type supports optional `timeout` field:
    - Outcome: `"cancelled"`
    - Message: `hook_cancelled` event
 3. **Cleanup:** Always runs after timeout via cleanup callback
+
+---
+
+## onHookSuccess Callback (SDK)
+
+When registering session hooks via SDK, you can provide an `onHookSuccess` callback that's called after successful hook execution.
+
+### Callback Signature
+
+```typescript
+type OnHookSuccess = (hook: HookConfig, result: HookResult) => void;
+
+interface HookResult {
+  outcome: "success" | "blocking" | "non_blocking_error" | "cancelled";
+  message?: object;
+  permissionBehavior?: "allow" | "deny" | "ask" | "passthrough";
+  blockingError?: { blockingError: string; command: string };
+  additionalContext?: string;
+  updatedInput?: Record<string, unknown>;
+  // ... other fields
+}
+```
+
+### Usage Example
+
+```javascript
+const onSuccess = (hook, result) => {
+  // Called only when outcome === "success"
+  console.log("Hook type:", hook.type);
+  console.log("Hook outcome:", result.outcome);
+
+  // Update application state based on result
+  if (result.additionalContext) {
+    appendContext(result.additionalContext);
+  }
+};
+
+registerSessionHook(
+  setAppState,
+  sessionId,
+  "PostToolUse",
+  "Write",
+  myHook,
+  onSuccess
+);
+```
+
+### Key Behaviors
+
+1. **Only called on success:** The callback is NOT invoked for blocking errors, non-blocking errors, or cancellations
+2. **Error isolation:** Exceptions in the callback are caught and logged, preventing them from blocking the main hook flow
+3. **Timing:** Called immediately after hook result is processed, before moving to the next hook
+4. **Access to result:** Receives full hook result object including any permission decisions, context, or modified inputs
+
+### Use Cases
+
+- Post-hook state synchronization
+- Analytics and logging
+- Conditional follow-up actions
+- Integration with external systems after successful validation
 
 ---
 

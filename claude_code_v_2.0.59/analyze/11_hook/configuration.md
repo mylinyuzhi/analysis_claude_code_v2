@@ -112,6 +112,13 @@ Restrict to enterprise-managed hooks (must be set in managed settings):
 
 **Effect:** User, project, and session hooks are ignored. Only hooks from managed settings run.
 
+**Important:** When `allowManagedHooksOnly` is enabled:
+- Plugin hooks are **completely excluded** (not filtered, entirely skipped)
+- User-defined hooks in `~/.claude/settings.json` are ignored
+- Project hooks in `.claude/settings.json` are ignored
+- Session hooks registered via SDK are ignored
+- Only hooks defined in managed policy settings will execute
+
 ### Workspace Trust
 
 Hooks automatically check workspace trust:
@@ -138,6 +145,27 @@ if (!isRemoteEnvironment() && !isWorkspaceTrusted()) {
 | Wildcard | `"*"` or omitted | All values |
 | Pipe-separated | `"Write\|Edit\|Bash"` | "Write", "Edit", or "Bash" |
 | Regex | `"Bash.*"` | "Bash", "BashOutput", etc. |
+
+### Matcher Edge Cases
+
+**Empty String or Wildcard:**
+- Empty string (`""`) matches all values (same as `*`)
+- Omitting the matcher field also matches all
+
+**Pattern Validation:**
+- Matchers are trimmed (whitespace removed) before comparison
+- Invalid regex patterns fail silently with a logged warning
+- Pipe-separated values are trimmed individually: `"Write | Edit"` → `["Write", "Edit"]`
+
+**Pattern Detection Logic:**
+```javascript
+// Simple patterns (alphanumeric + underscore + pipe)
+if (/^[a-zA-Z0-9_|]+$/.test(pattern)) {
+  // Uses exact match or pipe-split comparison
+} else {
+  // Falls back to regex evaluation
+}
+```
 
 ### Matcher Usage by Event
 
@@ -182,10 +210,34 @@ if (!isRemoteEnvironment() && !isWorkspaceTrusted()) {
 
 Command hooks receive these environment variables:
 
-| Variable | Description |
-|----------|-------------|
-| `CLAUDE_PROJECT_DIR` | Project root directory |
-| `CLAUDE_ENV_FILE` | Environment file path (SessionStart only) |
+| Variable | Description | Availability |
+|----------|-------------|--------------|
+| `CLAUDE_PROJECT_DIR` | Project root directory | All hooks |
+| `CLAUDE_ENV_FILE` | Environment file path | SessionStart only |
+| `CLAUDE_CODE_SHELL_PREFIX` | Custom shell prefix (if set) | All hooks |
+
+**CLAUDE_CODE_SHELL_PREFIX (Advanced):**
+
+Set this environment variable to prepend a custom shell wrapper to all hook commands:
+
+```bash
+# Set in your shell profile or before running Claude Code
+export CLAUDE_CODE_SHELL_PREFIX="/path/to/shell-init.sh"
+```
+
+This is useful for:
+- Custom shell environments requiring special initialization
+- Wrapper scripts that set up PATH or other variables
+- Debugging hook execution
+
+When set, all hook commands are transformed:
+```bash
+# Original command
+echo "Hello"
+
+# With CLAUDE_CODE_SHELL_PREFIX="/custom/init.sh"
+/custom/init.sh echo "Hello"
+```
 
 #### Input via Stdin
 
@@ -258,6 +310,31 @@ echo '{"async": true}'
 sleep 10
 echo "Background task complete"
 ```
+
+**Async Timeout Configuration:**
+
+You can specify a custom timeout for async hooks (default: 15000ms):
+
+```bash
+#!/bin/bash
+# Return immediately with custom timeout
+echo '{"async": true, "asyncTimeout": 30000}'  # 30 seconds
+
+# Long-running background task
+# ... your processing ...
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `async` | `true` | required | Marks hook as async |
+| `asyncTimeout` | number | 15000 | Timeout in milliseconds |
+
+**Async Hook Lifecycle:**
+1. Hook outputs `{"async": true}` as first JSON line
+2. Process is backgrounded and detached
+3. Stdout/stderr continue to accumulate in registry
+4. Completion detected when non-async JSON is found in output
+5. Results collected with `{processId, response, hookName, hookEvent, stdout, stderr, exitCode}`
 
 ---
 
@@ -509,6 +586,72 @@ registerSessionHook(setAppState, sessionId, "PostToolUse", "Write", hook, onSucc
 // Unregister when done
 unregisterSessionHook(setAppState, sessionId);
 ```
+
+**Function Signatures:**
+
+```typescript
+// Register a session hook
+function registerSessionHook(
+  setAppState: (updater: (state) => state) => void,
+  sessionId: string,
+  hookEventType: HookEventType,  // "PreToolUse", "PostToolUse", etc.
+  matcher: string,                // Pattern to match (e.g., "Write", "*")
+  hook: Hook,                     // Hook configuration object
+  onSuccessCallback?: (hook, result) => void  // Optional success callback
+): void;
+
+// Unregister all hooks for a session
+function unregisterSessionHook(
+  setAppState: (updater: (state) => state) => void,
+  sessionId: string
+): void;
+```
+
+**Hook Registration Structure:**
+
+Session hooks are stored in AppState as:
+```typescript
+{
+  sessionHooks: {
+    [sessionId]: {
+      hooks: {
+        [eventType]: [
+          {
+            matcher: string,
+            hooks: Array<{
+              hook: HookConfig,
+              onHookSuccess?: (hook, result) => void
+            }>
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+**onHookSuccess Callback:**
+
+The optional `onSuccessCallback` is called after successful hook execution:
+
+```javascript
+const onSuccess = (hook, result) => {
+  console.log("Hook executed:", hook.type);
+  console.log("Outcome:", result.outcome);
+  // Perform post-hook state updates or side effects
+};
+
+registerSessionHook(
+  setAppState,
+  sessionId,
+  "PostToolUse",
+  "Write",
+  myHook,
+  onSuccess  // Called on success only
+);
+```
+
+**Note:** Errors in the callback are caught and logged but don't propagate to block the main flow.
 
 ---
 
