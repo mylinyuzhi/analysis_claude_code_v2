@@ -719,6 +719,409 @@ function createNestedMemoryAttachments(fileList, context) {
 }
 ```
 
+---
+
+## Nested Memory Deep Dive
+
+This section provides comprehensive technical details about the nested memory system.
+
+### Trigger Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Read Tool Execution                          │
+│                        (chunks.88.mjs)                              │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+    ┌───────────────────────────────────────────────────────────┐
+    │  After successful read, add to triggers:                   │
+    │  context.nestedMemoryAttachmentTriggers?.add(absolutePath) │
+    │                                                            │
+    │  Trigger points:                                           │
+    │  - Text files:     chunks.88.mjs:1353                     │
+    │  - Notebook files: chunks.88.mjs:1283                     │
+    │  - Image files:    chunks.88.mjs:1307                     │
+    └───────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+    ┌───────────────────────────────────────────────────────────┐
+    │           Next API Call: generateAllAttachments()          │
+    │                  (JH5 - chunks.107.mjs:1813)               │
+    └───────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+    ┌───────────────────────────────────────────────────────────┐
+    │  qH5() - Generate Nested Memory Attachment                 │
+    │  (chunks.107.mjs:2152-2163)                               │
+    │                                                            │
+    │  for (let path of nestedMemoryAttachmentTriggers) {       │
+    │    let relatedFiles = ZY2(path, context, appState);       │
+    │    attachments.push(...relatedFiles);                     │
+    │  }                                                         │
+    │  nestedMemoryAttachmentTriggers.clear();                  │
+    └───────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+    ┌───────────────────────────────────────────────────────────┐
+    │  ZY2() - Read Related Files for Triggered Path            │
+    │  (chunks.107.mjs:1981-2005)                               │
+    │                                                            │
+    │  1. Permission check (qT)                                 │
+    │  2. pZ2() - Managed + User settings                       │
+    │  3. CH5() - Calculate directory hierarchy                 │
+    │  4. lZ2() - Project files in nested directories           │
+    │  5. iZ2() - Rules in cwd-level directories                │
+    └───────────────────────────────────────────────────────────┘
+```
+
+### Directory Hierarchy Calculation (CH5)
+
+**Function Location**: `chunks.107.mjs:1947-1963`
+
+The `CH5` function calculates two directory lists for file discovery:
+
+```javascript
+// ============================================
+// CH5 (getDirectoryHierarchy) - Calculate directory levels
+// Location: chunks.107.mjs:1947-1963
+// ============================================
+function CH5(filePath, cwd) {
+  // Get parent directory of the file
+  let currentDir = parentDir(getDirectory(filePath));
+
+  // NESTED DIRS: Directories from file's parent up to (not including) cwd
+  // These are directories BELOW cwd where the file lives
+  let nestedDirs = [];
+  while (currentDir !== cwd && currentDir !== root) {
+    if (currentDir.startsWith(cwd)) {
+      nestedDirs.push(currentDir);  // Only include if under cwd
+    }
+    currentDir = parentDir(currentDir);
+  }
+  nestedDirs.reverse();  // Order: closest to cwd first → closest to file last
+
+  // CWD-LEVEL DIRS: Directories from cwd up to root
+  // These are directories AT or ABOVE cwd
+  let cwdLevelDirs = [];
+  currentDir = cwd;
+  while (currentDir !== root) {
+    cwdLevelDirs.push(currentDir);
+    currentDir = parentDir(currentDir);
+  }
+  cwdLevelDirs.reverse();  // Order: root first → cwd last
+
+  return { nestedDirs, cwdLevelDirs };
+}
+```
+
+**Example**:
+```
+cwd = /Users/dev/project
+file = /Users/dev/project/src/components/Button.tsx
+
+nestedDirs = ["/Users/dev/project/src", "/Users/dev/project/src/components"]
+cwdLevelDirs = ["/Users", "/Users/dev", "/Users/dev/project"]
+```
+
+### File Discovery Functions
+
+#### pZ2 - Managed and User Settings
+
+**Location**: `chunks.106.mjs:2082-2090`
+
+```javascript
+function pZ2(triggeredPath, processedPaths) {
+  let files = [];
+
+  // 1. Read from managed rules directory (system-controlled)
+  let managedDir = nv1();  // Get managed rules path
+  files.push(...Y91(triggeredPath, managedDir, "Managed", processedPaths, false));
+
+  // 2. Read from user settings (if feature enabled)
+  if (EH("userSettings")) {  // Check feature flag
+    let userDir = av1();  // Get user rules path (~/.claude/rules/)
+    files.push(...Y91(triggeredPath, userDir, "User", processedPaths, true));
+  }
+
+  return files;
+}
+```
+
+#### lZ2 - Project Settings in Nested Directories
+
+**Location**: `chunks.106.mjs:2092-2115`
+
+```javascript
+function lZ2(directory, triggeredPath, processedPaths) {
+  let files = [];
+
+  // 1. Read project CLAUDE.md files (if feature enabled)
+  if (EH("projectSettings")) {
+    // ./CLAUDE.md
+    let claudeMd = path.join(directory, "CLAUDE.md");
+    files.push(...pk(claudeMd, "Project", processedPaths, false));
+
+    // ./.claude/CLAUDE.md
+    let dotClaudeMd = path.join(directory, ".claude", "CLAUDE.md");
+    files.push(...pk(dotClaudeMd, "Project", processedPaths, false));
+  }
+
+  // 2. Read local CLAUDE.md (if feature enabled)
+  if (EH("localSettings")) {
+    let localMd = path.join(directory, "CLAUDE.local.md");
+    files.push(...pk(localMd, "Local", processedPaths, false));
+  }
+
+  // 3. Read .claude/rules/ directory
+  let rulesDir = path.join(directory, ".claude", "rules");
+  let tempProcessed = new Set(processedPaths);
+
+  files.push(...$YA({
+    rulesDir: rulesDir,
+    type: "Project",
+    processedPaths: tempProcessed,
+    includeExternal: false,
+    conditionalRule: false
+  }));
+
+  // Add conditional rules filtered by globs
+  files.push(...Y91(triggeredPath, rulesDir, "Project", processedPaths, false));
+
+  // Merge processed paths
+  for (let p of tempProcessed) processedPaths.add(p);
+
+  return files;
+}
+```
+
+#### iZ2 - CWD-Level Rules
+
+**Location**: `chunks.106.mjs:2117-2120`
+
+```javascript
+function iZ2(directory, triggeredPath, processedPaths) {
+  // Only read .claude/rules/ at cwd level directories
+  let rulesDir = path.join(directory, ".claude", "rules");
+  return Y91(triggeredPath, rulesDir, "Project", processedPaths, false);
+}
+```
+
+### Conditional Rules with Glob Filtering (Y91)
+
+**Location**: `chunks.106.mjs:2122-2135`
+
+Rules files can have glob patterns that determine when they apply:
+
+```javascript
+function Y91(triggeredPath, rulesDir, type, processedPaths, includeExternal) {
+  // Read all rules with conditionalRule=true
+  return $YA({
+    rulesDir: rulesDir,
+    type: type,
+    processedPaths: processedPaths,
+    includeExternal: includeExternal,
+    conditionalRule: true
+  }).filter((rule) => {
+    // Only include if rule has globs and they match the triggered path
+    if (!rule.globs || rule.globs.length === 0) return false;
+
+    // Calculate relative path from rules dir
+    let baseDir = type === "Project" ? parentDir(parentDir(rulesDir)) : cwd;
+    let relativePath = isAbsolutePath(triggeredPath)
+      ? makeRelativePath(baseDir, triggeredPath)
+      : triggeredPath;
+
+    // Use ignore library to check glob match
+    return ignoreLib.add(rule.globs).ignores(relativePath);
+  });
+}
+```
+
+### Recursive Rules Reading ($YA)
+
+**Location**: `chunks.106.mjs:2015-2068`
+
+```javascript
+function $YA({ rulesDir, type, processedPaths, includeExternal, conditionalRule, visitedDirs = new Set }) {
+  let files = [];
+
+  // Prevent infinite loops
+  if (visitedDirs.has(rulesDir)) return files;
+  visitedDirs.add(rulesDir);
+
+  // Check if directory exists
+  if (!existsSync(rulesDir) || !statSync(rulesDir).isDirectory()) return files;
+
+  try {
+    let entries = readdirSync(rulesDir);
+
+    for (let entry of entries) {
+      let entryPath = path.join(rulesDir, entry.name);
+
+      if (entry.isDirectory()) {
+        // Recursively read subdirectories
+        let subFiles = $YA({
+          rulesDir: entryPath,
+          type: type,
+          processedPaths: processedPaths,
+          includeExternal: includeExternal,
+          conditionalRule: conditionalRule,
+          visitedDirs: visitedDirs
+        });
+        files.push(...subFiles);
+
+      } else if (entry.isFile() && entry.name.endsWith(".md")) {
+        // Read markdown files
+        let mdFiles = pk(entryPath, type, processedPaths, includeExternal);
+
+        if (conditionalRule) {
+          // Only include files WITH globs
+          files.push(...mdFiles.filter(f => f.globs));
+        } else {
+          // Only include files WITHOUT globs
+          files.push(...mdFiles.filter(f => !f.globs));
+        }
+      }
+    }
+  } catch (error) {
+    if (error.message.includes("EACCES")) {
+      // Log permission error telemetry
+      sendTelemetry("tengu_claude_rules_md_permission_error", {...});
+    }
+  }
+
+  return files;
+}
+```
+
+### Single File Reading with @import (pk)
+
+**Location**: `chunks.106.mjs:1994-2013`
+
+```javascript
+function pk(filePath, type, processedPaths, includeExternal, depth = 0, parent) {
+  // Max recursion depth: 5
+  if (processedPaths.has(filePath) || depth >= 5) return [];
+
+  // Read and parse file
+  let fileData = readClaudeMdFile(filePath, type);
+  if (!fileData || !fileData.content.trim()) return [];
+
+  // Set parent reference for import chain
+  if (parent) fileData.parent = parent;
+
+  processedPaths.add(filePath);
+
+  let files = [fileData];
+
+  // Handle symlinks
+  let { realpath } = resolveSymlink(fs, filePath);
+  if (realpath !== filePath) processedPaths.add(realpath);
+
+  // Find and process @imports
+  let imports = extractImportPaths(fileData.content, realpath);
+  for (let importPath of imports) {
+    // Check if external imports are allowed
+    if (!isLocalPath(importPath) && !includeExternal) continue;
+
+    // Recursively read imported file
+    let importedFiles = pk(importPath, type, processedPaths, includeExternal, depth + 1, filePath);
+    files.push(...importedFiles);
+  }
+
+  return files;
+}
+```
+
+### File Discovery Priority Order
+
+When a file is read, related files are discovered in this order:
+
+```
+Priority 1: MANAGED Settings
+├── System-managed rules directory (nv1())
+└── Read by: Y91() with type="Managed"
+
+Priority 2: USER Settings (if "userSettings" feature flag enabled)
+├── User rules directory (~/.claude/rules/ via av1())
+└── Read by: Y91() with type="User", includeExternal=true
+
+Priority 3: PROJECT Settings per nested directory (if "projectSettings" enabled)
+├── 3a. CLAUDE.md
+├── 3b. .claude/CLAUDE.md
+├── 3c. .claude/rules/*.md (non-conditional)
+└── 3d. .claude/rules/*.md (conditional, glob-matched)
+
+Priority 4: LOCAL Settings per nested directory (if "localSettings" enabled)
+└── CLAUDE.local.md
+
+Priority 5: CWD-Level Rules (ancestors of cwd)
+└── .claude/rules/*.md (conditional only)
+```
+
+### Feature Flag Dependencies
+
+| Feature Flag | Controls | Effect When Disabled |
+|--------------|----------|----------------------|
+| `userSettings` | User CLAUDE.md and ~/.claude/rules/ | Skip user-level settings |
+| `projectSettings` | Project CLAUDE.md and .claude/CLAUDE.md | Skip project-level settings |
+| `localSettings` | CLAUDE.local.md | Skip local-only settings |
+
+Feature flags are checked via `EH()` function.
+
+### Key Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `Lh` | 40000 | Max content size (40KB) |
+| `wYA` | 3000 | Max lines per file |
+| `dK5` | 5 | Max @import recursion depth |
+
+**Source Location**: `chunks.106.mjs:2153-2157`
+
+### Context Initialization
+
+**Source Location**: `chunks.145.mjs:255, 930`
+
+Both main agent and subagent contexts initialize with a fresh Set:
+
+```javascript
+// Main agent context creation:
+{
+  readFileState: new Map(),
+  nestedMemoryAttachmentTriggers: new Set(),  // Fresh Set for each session
+  // ... other fields
+}
+
+// Subagent context creation:
+{
+  readFileState: cloneMap(parentContext?.readFileState ?? mainContext.readFileState),
+  nestedMemoryAttachmentTriggers: new Set(),  // Fresh Set, NOT inherited
+  // ... other fields
+}
+```
+
+### Symbol Mapping Reference
+
+| Obfuscated | Readable | Location |
+|------------|----------|----------|
+| `qH5` | `generateNestedMemoryAttachment` | chunks.107.mjs:2152-2163 |
+| `ZY2` | `readRelatedFilesForPath` | chunks.107.mjs:1981-2005 |
+| `CH5` | `getDirectoryHierarchy` | chunks.107.mjs:1947-1963 |
+| `qQ0` | `createNestedMemoryAttachments` | chunks.107.mjs:1965-1979 |
+| `pZ2` | `readManagedAndUserSettings` | chunks.106.mjs:2082-2090 |
+| `lZ2` | `readProjectFilesInNestedDir` | chunks.106.mjs:2092-2115 |
+| `iZ2` | `readCwdLevelRules` | chunks.106.mjs:2117-2120 |
+| `Y91` | `readConditionalRules` | chunks.106.mjs:2122-2135 |
+| `$YA` | `readRulesDirectoryRecursive` | chunks.106.mjs:2015-2068 |
+| `pk` | `readSingleFileWithImports` | chunks.106.mjs:1994-2013 |
+| `nv1` | `getManagedRulesDirectory` | (referenced in pZ2) |
+| `av1` | `getUserRulesDirectory` | (referenced in pZ2) |
+| `EH` | `isFeatureFlagEnabled` | (feature flag checker) |
+
+---
+
 ### Todo Reminders (_H5)
 
 ```javascript

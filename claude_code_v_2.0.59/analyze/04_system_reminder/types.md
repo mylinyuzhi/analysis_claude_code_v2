@@ -316,16 +316,93 @@ Note: /path/to/file was modified, either by the user or by a linter. This change
 
 ### 5. nested_memory
 
-**Generator Function**: `qH5()` (chunks.107.mjs:2152-2163)
+**Generator Function Chain**:
+```
+qH5() → ZY2() → [pZ2(), lZ2(), iZ2()]
+```
 
-**Trigger**: Files are added to `nestedMemoryAttachmentTriggers` set
+| Function | Location | Purpose |
+|----------|----------|---------|
+| `qH5` | chunks.107.mjs:2152-2163 | Main generator (iterates triggers) |
+| `ZY2` | chunks.107.mjs:1981-2005 | Reads related files for a path |
+| `CH5` | chunks.107.mjs:1947-1963 | Calculates directory hierarchy |
+| `pZ2` | chunks.106.mjs:2082-2090 | Managed + User settings |
+| `lZ2` | chunks.106.mjs:2092-2115 | Project files in nested directories |
+| `iZ2` | chunks.106.mjs:2117-2120 | Rules at cwd-level directories |
+
+**Trigger Source Locations** (when `nestedMemoryAttachmentTriggers` is populated):
+
+| File Type | Location | Line |
+|-----------|----------|------|
+| Text files | chunks.88.mjs | 1353 |
+| Notebook files | chunks.88.mjs | 1283 |
+| Image files | chunks.88.mjs | 1307 |
+
+**Trigger Code Pattern**:
+```javascript
+// After successful file read:
+context.nestedMemoryAttachmentTriggers?.add(absolutePath);
+```
 
 **How It Works**:
-1. When a file is read, related files are identified:
-   - Parent directory files (CLAUDE.md, README.md, etc.)
-   - Sibling files in nested directories
-   - Files at cwd hierarchy levels
-2. These files are automatically read and attached
+1. **Read Tool Trigger**: When any file is read, its path is added to `nestedMemoryAttachmentTriggers`
+2. **Next API Call**: During `generateAllAttachments()`, `qH5()` iterates over triggered paths
+3. **Directory Hierarchy Calculation** (`CH5`):
+   - **nestedDirs**: Directories from file's parent up to (not including) cwd
+   - **cwdLevelDirs**: Directories from cwd up to filesystem root
+4. **File Discovery** (per triggered path):
+   - `pZ2()`: Managed settings + User settings (if feature flag enabled)
+   - `lZ2()`: Project files for each nested directory
+   - `iZ2()`: Rules for each cwd-level directory
+5. **Triggers Cleared**: After processing, the Set is cleared
+
+**Directory Hierarchy Example**:
+```
+cwd = /Users/dev/project
+file = /Users/dev/project/src/components/Button.tsx
+
+nestedDirs = ["/Users/dev/project/src", "/Users/dev/project/src/components"]
+cwdLevelDirs = ["/Users", "/Users/dev", "/Users/dev/project"]
+```
+
+**File Discovery Priority Order**:
+```
+Priority 1: MANAGED Settings
+├── System-managed rules directory
+└── via Y91() with type="Managed"
+
+Priority 2: USER Settings (requires "userSettings" feature flag)
+├── ~/.claude/rules/
+└── via Y91() with type="User", includeExternal=true
+
+Priority 3: PROJECT Settings per nested directory (requires "projectSettings")
+├── CLAUDE.md
+├── .claude/CLAUDE.md
+├── .claude/rules/*.md (non-conditional)
+└── .claude/rules/*.md (conditional, glob-matched)
+
+Priority 4: LOCAL Settings (requires "localSettings")
+└── CLAUDE.local.md
+
+Priority 5: CWD-Level Rules (ancestors of cwd)
+└── .claude/rules/*.md (conditional only)
+```
+
+**Feature Flag Dependencies**:
+
+| Flag | Controls | Effect When Disabled |
+|------|----------|----------------------|
+| `userSettings` | User CLAUDE.md and ~/.claude/rules/ | Skip user-level settings |
+| `projectSettings` | Project CLAUDE.md and .claude/CLAUDE.md | Skip project-level settings |
+| `localSettings` | CLAUDE.local.md | Skip local-only settings |
+
+**Key Constants** (chunks.106.mjs:2153-2157):
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `Lh` | 40000 | Max content size (40KB) |
+| `wYA` | 3000 | Max lines per file |
+| `dK5` | 5 | Max @import recursion depth |
 
 **Content Format**:
 ```javascript
@@ -340,18 +417,27 @@ Note: /path/to/file was modified, either by the user or by a linter. This change
 }
 ```
 
-**System Message Format**:
+**System Message Format** (kb3 - chunks.154.mjs:103-109):
 ```
 Contents of /path/to/related/file:
 
 <file contents>
 ```
 
-**Priority Files** (searched in parent directories):
-- CLAUDE.md
-- README.md
-- .cursorrules
-- .github/CODE_STYLE.md
+**UI Rendering** (chunks.142.mjs:317-318):
+```javascript
+case "nested_memory":
+  return <AttachmentInfo>{bold(relativePath(cwd(), attachment.path))}</AttachmentInfo>;
+```
+
+**Context Initialization** (chunks.145.mjs:255, 930):
+```javascript
+// Both main and subagent contexts get fresh Set:
+nestedMemoryAttachmentTriggers: new Set()
+// Note: NOT inherited from parent context
+```
+
+**Detailed Documentation**: See `mechanism.md` § "Nested Memory Deep Dive"
 
 ### 6. ultra_claude_md (CLAUDE.md)
 
