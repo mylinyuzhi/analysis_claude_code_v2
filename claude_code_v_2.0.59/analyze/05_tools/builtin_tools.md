@@ -1622,6 +1622,226 @@ Before using this tool, ensure your plan is clear and unambiguous. If there are 
 
 This confirms that **AskUserQuestion is intentionally available during plan mode** for resolving ambiguities before implementation.
 
+### AskUserQuestion Answer Injection Mechanism
+
+#### Overview
+
+AskUserQuestion uses a **UI-based answer collection mechanism** rather than waiting for the user's next message turn. Answers are injected directly into the tool input through the `onAllow` callback.
+
+**Key Finding:** Answers are NOT collected from user's next input message. Instead:
+1. UI component collects answers via option selection / text input
+2. Answers are injected into `input.answers` field
+3. Tool result is generated with formatted answer content
+
+#### Answer Injection Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ASKUSERQUESTION ANSWER INJECTION FLOW                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. Claude calls AskUserQuestion                                            │
+│     tool_use: { name: "AskUserQuestion", input: { questions: [...] } }      │
+│         ↓                                                                   │
+│  2. checkPermissions() returns { behavior: "ask" }                          │
+│     → Triggers permission UI display                                        │
+│         ↓                                                                   │
+│  3. UI Component (md2) renders question interface                           │
+│     ├─ User selects option OR enters custom text                            │
+│     ├─ onAnswer(questionText, selectedValue, customText) fires              │
+│     └─ React reducer updates: answers[questionText] = answer                │
+│         ↓                                                                   │
+│  4. User clicks Submit (or single question auto-submits)                    │
+│     N() callback is invoked                                                 │
+│         ↓                                                                   │
+│  5. ★ ANSWER INJECTION POINT ★                                              │
+│     v = { ...originalInput, answers: collectedAnswers }                     │
+│     A.onAllow(v, [])  ← Injects answers into updatedInput                   │
+│         ↓                                                                   │
+│  6. Tool.call({ questions, answers }) receives input with answers           │
+│     Returns: { data: { questions, answers } }                               │
+│         ↓                                                                   │
+│  7. mapToolResultToToolResultBlockParam() formats result                    │
+│     Returns: tool_result { content: "User has answered: ..." }              │
+│         ↓                                                                   │
+│  8. tool_result sent back to Claude API, conversation continues             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Key Implementation Code
+
+**Answer Injection Point (chunks.131.mjs:214-219)**:
+
+```javascript
+// ============================================
+// N() - Submit handler callback
+// Location: chunks.131.mjs:214-219
+// ============================================
+
+N = c0A.useCallback((y) => {
+  let v = {
+    ...A.input,              // Original input (questions, etc.)
+    answers: y               // ★ INJECT ANSWERS into input
+  };
+  Q();                       // onDone callback
+  A.onAllow(v, []);          // ★ Call onAllow with updated input containing answers
+}, [A, Q]);
+
+// Mapping: A→toolUseConfirm, Q→onDone, y→collectedAnswers
+```
+
+**Tool Call Receives Answers (chunks.130.mjs:3472-3481)**:
+
+```javascript
+// ============================================
+// Tool.call - Receives answers from injected input
+// Location: chunks.130.mjs:3472-3481
+// ============================================
+
+async call({
+  questions: A,
+  answers: Q = {}            // ★ Answers destructured from input.answers
+}, B) {
+  return {
+    data: {
+      questions: A,
+      answers: Q             // Return collected answers
+    }
+  }
+}
+```
+
+**Tool Result Formatting (chunks.130.mjs:3483-3491)**:
+
+```javascript
+// ============================================
+// mapToolResultToToolResultBlockParam - Formats answer response
+// Location: chunks.130.mjs:3483-3491
+// ============================================
+
+mapToolResultToToolResultBlockParam({ answers: A }, Q) {
+  return {
+    type: "tool_result",
+    content: `User has answered your questions: ${
+      Object.entries(A).map(([G,Z]) => `"${G}"="${Z}"`).join(", ")
+    }. You can now continue with the user's answers in mind.`,
+    tool_use_id: Q
+  }
+}
+
+// Example output:
+// "User has answered your questions: "Auth method"="JWT tokens", "Features"="Dark mode, Notifications". You can now continue with the user's answers in mind."
+```
+
+#### Pending/Wait Mechanism
+
+AskUserQuestion uses **React state + permission system blocking**, not Promise-based waiting:
+
+**1. `requiresUserInteraction` Flag**:
+
+```javascript
+// chunks.130.mjs:3438-3439
+requiresUserInteraction() {
+  return !0                  // true - marks tool as requiring user interaction
+}
+```
+
+**2. React State Management**:
+
+```javascript
+// ============================================
+// qt5 - Question state shape
+// Location: chunks.130.mjs:3589-3594
+// ============================================
+
+qt5 = {
+  currentQuestionIndex: 0,      // Which question user is on (0-N, N=review screen)
+  answers: {},                  // Map: question text → answer string
+  questionStates: {},           // Map: question text → {selectedValue, textInputValue}
+  isInTextInput: !1             // Is user in text input mode?
+}
+```
+
+**3. State Machine Actions**:
+
+```javascript
+// ============================================
+// wt5 - Question state reducer
+// Location: chunks.130.mjs:3495-3539
+// ============================================
+
+function wt5(A, Q) {
+  switch (Q.type) {
+    case "next-question":
+      return { ...A, currentQuestionIndex: A.currentQuestionIndex + 1, isInTextInput: !1 };
+
+    case "prev-question":
+      return { ...A, currentQuestionIndex: Math.max(0, A.currentQuestionIndex - 1), isInTextInput: !1 };
+
+    case "set-answer": {
+      let B = {
+        ...A,
+        answers: {
+          ...A.answers,
+          [Q.questionText]: Q.answer  // Store: question text → answer
+        }
+      };
+      if (Q.shouldAdvance) return {
+        ...B,
+        currentQuestionIndex: B.currentQuestionIndex + 1,
+        isInTextInput: !1
+      };
+      return B
+    }
+
+    case "set-text-input-mode":
+      return { ...A, isInTextInput: Q.isInInput };
+  }
+}
+```
+
+#### Timeout Handling
+
+**No explicit timeout.** The dialog remains open until user action (submit or cancel).
+
+```javascript
+// No timeout field in checkPermissions
+async checkPermissions(A) {
+  return {
+    behavior: "ask",
+    message: "Answer questions?",
+    updatedInput: A
+    // NOTE: No timeout field - waits indefinitely
+  }
+}
+```
+
+#### Multi-Select Answer Format
+
+```javascript
+// chunks.131.mjs:223
+if (Array.isArray(v)) u = v.join(", ");
+// Example: ["Option1", "Option2"] → "Option1, Option2"
+```
+
+#### Comparison: Answer Injection vs Next-Turn Input
+
+| Aspect | AskUserQuestion (Actual) | Hypothetical Next-Turn |
+|--------|--------------------------|------------------------|
+| **Answer Source** | UI component options/text | User sends new message |
+| **Injection Point** | `A.onAllow(updatedInput, [])` | API message flow |
+| **Message Structure** | tool_result block | user message |
+| **Flow Control** | Synchronous (UI blocking) | Asynchronous (new turn) |
+| **Data Validation** | At UI layer | Would need API validation |
+
+#### Why UI-Based Collection?
+
+1. **Structured Data**: Questions have fixed options, not free-form text
+2. **Tool Protocol**: Follows Anthropic's tool_use/tool_result protocol
+3. **Better UX**: Options are easier than typing answers
+4. **Validation**: UI layer can validate answer format before submission
+
 ---
 
 ## Plan Mode Tools

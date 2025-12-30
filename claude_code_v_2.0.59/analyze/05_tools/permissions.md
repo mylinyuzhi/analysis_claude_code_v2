@@ -187,98 +187,226 @@ async checkPermissions(input, context) {
 }
 ```
 
-### Main Permission Decision Engine
+### Main Permission Decision Engine (Full 8-Step Process)
+
+The central permission orchestrator `Wb3` implements an 8-step decision process:
 
 ```javascript
 // ============================================
-// toolPermissionDecisionEngine - Main permission checking function
+// toolPermissionDecisionEngine - Central Permission Orchestrator
 // Location: chunks.153.mjs:1358-1417
 // ============================================
 
 // ORIGINAL (for source lookup):
 async function Wb3(A, Q, B, G) {
-  let { checkPermissions: Z, name: K } = A,
-      { toolPermissionContext: F } = await B.getAppState(),
-      U = ro1(F, A)
-  if (U) return { behavior: "deny", decisionReason: { type: "rules", behavior: "deny", rule: U } }
+  // A = tool, Q = input, B = context with getAppState/abortController
+  if (B.abortController.signal.aborted) throw new WW;
 
-  let W = oo1(F, A)
-  if (W) return { behavior: "ask", decisionReason: { type: "rules", behavior: "ask", rule: W } }
+  let Z = await B.getAppState(),
+    I = ro1(Z.toolPermissionContext, A);
 
-  if (Z) {
-    let N = await Z(Q, B)
-    if (N?.behavior) return N
+  // 1. Check for global deny rules
+  if (I) return {
+    behavior: "deny",
+    decisionReason: { type: "rule", rule: I },
+    message: `Permission to use ${A.name} has been denied.`
+  };
+
+  // 2. Check for global ask rules (unless Bash + sandbox + autoAllow)
+  let Y = oo1(Z.toolPermissionContext, A);
+  if (Y) {
+    if (!(A.name === C9 && nQ.isSandboxingEnabled() && nQ.isAutoAllowBashIfSandboxedEnabled()))
+      return {
+        behavior: "ask",
+        decisionReason: { type: "rule", rule: Y },
+        message: yV(A.name)
+      }
   }
 
-  let Y = F.isBypassPermissionsModeAvailable && F.mode === "bypassPermissions"
-  if (Y) return { behavior: "allow", decisionReason: { type: "bypassPermissionsMode" } }
+  // 3. Call tool-specific checkPermissions (may be passthrough)
+  let J = { behavior: "passthrough", message: yV(A.name) };
+  try {
+    let V = A.inputSchema.parse(Q);
+    J = await A.checkPermissions(V, B)
+  } catch (V) {
+    AA(V)
+  }
 
-  let H = so1(F, A)
-  if (H) return { behavior: "allow", decisionReason: { type: "rules", behavior: "allow", rule: H } }
+  // 4. Return if explicitly deny
+  if (J?.behavior === "deny") return J;
 
-  return { behavior: "ask" }
+  // 5. Skip further checks if tool requires user interaction + returns ask
+  if (A.requiresUserInteraction?.() && J?.behavior === "ask") return J;
+
+  // 6. Check for bypassPermissions mode
+  if (Z = await B.getAppState(), Z.toolPermissionContext.mode === "bypassPermissions")
+    return {
+      behavior: "allow",
+      updatedInput: Q,
+      decisionReason: { type: "mode", mode: Z.toolPermissionContext.mode }
+    };
+
+  // 7. Check for global allow rules
+  let W = so1(Z.toolPermissionContext, A);
+  if (W) return {
+    behavior: "allow",
+    updatedInput: Q,
+    decisionReason: { type: "rule", rule: W }
+  };
+
+  // 8. Convert passthrough to ask, preserve existing ask
+  let X = J.behavior === "passthrough" ? {
+    ...J,
+    behavior: "ask",
+    message: yV(A.name, J.decisionReason)
+  } : J;
+
+  if (X.behavior === "ask" && X.suggestions)
+    g(`Permission suggestions for ${A.name}: ${JSON.stringify(X.suggestions,null,2)}`);
+
+  return X
 }
 
 // READABLE (for understanding):
-async function toolPermissionDecisionEngine(tool, input, sessionContext, additionalParam) {
-  const { checkPermissions, name: toolName } = tool
-  const { toolPermissionContext } = await sessionContext.getAppState()
+async function toolPermissionDecisionEngine(tool, input, context, additionalParam) {
+  // Step 0: Check for abort signal
+  if (context.abortController.signal.aborted) {
+    throw new AbortError();
+  }
 
-  // Step 1: Check deny rules first (highest priority)
-  const denyRule = findDenyRuleForTool(toolPermissionContext, tool)
+  const appState = await context.getAppState();
+  const { toolPermissionContext } = appState;
+
+  // Step 1: Check global deny rules (highest priority)
+  const denyRule = findDenyRuleForTool(toolPermissionContext, tool);
   if (denyRule) {
     return {
       behavior: "deny",
-      decisionReason: { type: "rules", behavior: "deny", rule: denyRule }
-    }
+      decisionReason: { type: "rule", rule: denyRule },
+      message: `Permission to use ${tool.name} has been denied.`
+    };
   }
 
-  // Step 2: Check ask rules
-  const askRule = findAskRuleForTool(toolPermissionContext, tool)
+  // Step 2: Check global ask rules
+  // EXCEPTION: Bash tool can bypass ask if sandboxed + autoAllow enabled
+  const askRule = findAskRuleForTool(toolPermissionContext, tool);
   if (askRule) {
-    return {
-      behavior: "ask",
-      decisionReason: { type: "rules", behavior: "ask", rule: askRule }
+    const isBashWithSandboxAutoAllow =
+      tool.name === BASH_TOOL_NAME &&
+      sandbox.isSandboxingEnabled() &&
+      sandbox.isAutoAllowBashIfSandboxedEnabled();
+
+    if (!isBashWithSandboxAutoAllow) {
+      return {
+        behavior: "ask",
+        decisionReason: { type: "rule", rule: askRule },
+        message: formatPermissionMessage(tool.name)
+      };
     }
   }
 
-  // Step 3: Call tool's custom permission check (if exists)
-  if (checkPermissions) {
-    const toolResult = await checkPermissions(input, sessionContext)
-    if (toolResult?.behavior) return toolResult
+  // Step 3: Call tool's custom checkPermissions
+  let toolDecision = { behavior: "passthrough", message: formatPermissionMessage(tool.name) };
+  try {
+    const parsedInput = tool.inputSchema.parse(input);
+    toolDecision = await tool.checkPermissions(parsedInput, context);
+  } catch (error) {
+    logError(error);
   }
 
-  // Step 4: Check bypassPermissions mode
-  const isBypassMode = toolPermissionContext.isBypassPermissionsModeAvailable &&
-                       toolPermissionContext.mode === "bypassPermissions"
-  if (isBypassMode) {
-    return { behavior: "allow", decisionReason: { type: "bypassPermissionsMode" } }
+  // Step 4: Return immediately if tool explicitly denies
+  if (toolDecision?.behavior === "deny") {
+    return toolDecision;
   }
 
-  // Step 5: Check allow rules
-  const allowRule = findAllowRuleForTool(toolPermissionContext, tool)
+  // Step 5: ★ CRITICAL - requiresUserInteraction bypass ★
+  // If tool requires user interaction AND returns "ask", skip all further checks
+  // This ensures tools like AskUserQuestion ALWAYS show their UI
+  if (tool.requiresUserInteraction?.() && toolDecision?.behavior === "ask") {
+    return toolDecision;
+  }
+
+  // Step 6: Check bypassPermissions mode
+  const refreshedState = await context.getAppState();
+  if (refreshedState.toolPermissionContext.mode === "bypassPermissions") {
+    return {
+      behavior: "allow",
+      updatedInput: input,
+      decisionReason: { type: "mode", mode: "bypassPermissions" }
+    };
+  }
+
+  // Step 7: Check global allow rules
+  const allowRule = findAllowRuleForTool(toolPermissionContext, tool);
   if (allowRule) {
     return {
       behavior: "allow",
-      decisionReason: { type: "rules", behavior: "allow", rule: allowRule }
-    }
+      updatedInput: input,
+      decisionReason: { type: "rule", rule: allowRule }
+    };
   }
 
-  // Step 6: Default to ask
-  return { behavior: "ask" }
+  // Step 8: Convert passthrough to ask, preserve existing ask
+  const finalDecision = toolDecision.behavior === "passthrough"
+    ? {
+        ...toolDecision,
+        behavior: "ask",
+        message: formatPermissionMessage(tool.name, toolDecision.decisionReason)
+      }
+    : toolDecision;
+
+  // Log suggestions if present
+  if (finalDecision.behavior === "ask" && finalDecision.suggestions) {
+    logDebug(`Permission suggestions for ${tool.name}: ${JSON.stringify(finalDecision.suggestions, null, 2)}`);
+  }
+
+  return finalDecision;
 }
 
-// Mapping: Wb3→toolPermissionDecisionEngine, A→tool, Q→input, B→sessionContext, G→additionalParam
-// ro1→findDenyRuleForTool, oo1→findAskRuleForTool, so1→findAllowRuleForTool, F→toolPermissionContext
+// Mapping: Wb3→toolPermissionDecisionEngine, A→tool, Q→input, B→context, G→additionalParam
+// ro1→findDenyRuleForTool, oo1→findAskRuleForTool, so1→findAllowRuleForTool
+// C9→BASH_TOOL_NAME, nQ→sandbox, yV→formatPermissionMessage, WW→AbortError
 ```
 
-**Decision Flow:**
-1. **Deny rules** are evaluated first (highest priority)
-2. **Ask rules** are evaluated second
-3. **Tool's custom checkPermissions()** hook runs if defined
-4. **BypassPermissions mode** grants auto-allow if enabled
-5. **Allow rules** are evaluated last
-6. **Default behavior** is to ask the user
+**Complete 8-Step Decision Flow:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PERMISSION DECISION FLOW (Wb3)                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  [Input: tool, input, context]                                              │
+│         ↓                                                                   │
+│  Step 0: Check abort signal                                                 │
+│         ↓                                                                   │
+│  Step 1: Check global DENY rules ──────────────────────────▶ DENY          │
+│         ↓ (no match)                                                        │
+│  Step 2: Check global ASK rules ───────────────────────────▶ ASK           │
+│         │ (exception: Bash + sandbox + autoAllow → continue)                │
+│         ↓ (no match or exception)                                           │
+│  Step 3: Call tool.checkPermissions() ─────────▶ toolDecision               │
+│         ↓                                                                   │
+│  Step 4: If toolDecision = DENY ───────────────────────────▶ DENY          │
+│         ↓ (not deny)                                                        │
+│  Step 5: If requiresUserInteraction + ASK ─────────────────▶ ASK (★)       │
+│         │ ★ CRITICAL: Bypasses bypassPermissions mode!                      │
+│         ↓ (not applicable)                                                  │
+│  Step 6: Check bypassPermissions mode ─────────────────────▶ ALLOW         │
+│         ↓ (not bypass mode)                                                 │
+│  Step 7: Check global ALLOW rules ─────────────────────────▶ ALLOW         │
+│         ↓ (no match)                                                        │
+│  Step 8: Convert passthrough → ask ────────────────────────▶ ASK           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Observations:**
+
+1. **Deny rules have highest priority** - Checked before anything else
+2. **Bash has special handling** - Can bypass ask rules when sandboxed
+3. **Tool-specific logic runs early** - Before bypassPermissions check
+4. **requiresUserInteraction is critical** - Ensures AskUserQuestion always prompts
+5. **Passthrough is internal state** - Converted to "ask" at the end
 
 ### Rule Finding Helpers
 
@@ -464,22 +592,51 @@ async checkPermissions(input, context) {
 
 ## Permission Behaviors
 
-### Three Permission Behaviors
+### Four Permission Behavior Types
+
+Claude Code uses four behavior types in its permission system. Three are external (returned to the caller), and one is internal (used during processing):
+
+```javascript
+// ============================================
+// Permission Behavior Schema
+// Location: chunks.106.mjs:1634-1644
+// ============================================
+
+// External behaviors (returned to caller)
+behavior: W2.enum(["allow", "deny", "ask"])
+
+// Internal behavior (used during processing)
+behavior: "passthrough"  // Means: no decision made yet, continue processing
+```
+
+| Behavior | Type | Meaning | Next Action |
+|----------|------|---------|-------------|
+| `"allow"` | External | Permission granted | Execute tool immediately |
+| `"deny"` | External | Permission denied | Block tool, show error |
+| `"ask"` | External | Request user approval | Show permission dialog |
+| `"passthrough"` | Internal | No decision yet | Continue to next check |
 
 #### 1. Allow (Auto-Approve)
 
 ```typescript
 {
   behavior: "allow",
-  updatedInput: input  // Input may be unchanged or modified
+  updatedInput: input,           // Input may be unchanged or modified
+  decisionReason?: {             // Optional reason for the decision
+    type: "rule" | "mode" | "other",
+    rule?: Rule,
+    mode?: string,
+    reason?: string
+  }
 }
 ```
 
 **When Used**:
-- File/directory is in allowlist
+- File/directory matches an allow rule
 - Command is explicitly allowed
 - Tool has blanket approval
-- Default allow mode is enabled
+- bypassPermissions mode is enabled
+- Plan files (auto-allowed during plan mode)
 
 **Effect**: Tool executes immediately without user prompt
 
@@ -488,34 +645,83 @@ async checkPermissions(input, context) {
 ```typescript
 {
   behavior: "deny",
-  updatedInput: input
+  updatedInput: input,
+  message?: string,              // Error message shown to user
+  decisionReason?: {
+    type: "rule" | "hook" | "fileSafety" | "other",
+    rule?: Rule,
+    hookName?: string,
+    issue?: string
+  }
 }
 ```
 
 **When Used**:
-- File/directory is in denylist
+- File/directory matches a deny rule
 - Command is explicitly denied
-- File is in restricted location
+- File is in restricted location (symlinks, special files)
 - Enterprise policy blocks the operation
+- Hook rejects the operation
+- Async agent attempting to prompt (shouldAvoidPermissionPrompts)
 
 **Effect**: Tool execution is blocked, error returned to Claude
 
-#### 3. Prompt (Ask User)
+#### 3. Ask (Prompt User)
 
 ```typescript
 {
-  behavior: "prompt",
+  behavior: "ask",
   updatedInput: input,
-  promptMessage: "Allow Claude to read /sensitive/file.txt?"
+  message?: string,              // Custom prompt message
+  suggestions?: Suggestion[],    // Suggested rules for user
+  decisionReason?: {
+    type: "rule" | "hook" | "classifier" | "workingDir" | "other",
+    // ... additional fields based on type
+  }
 }
 ```
 
 **When Used**:
 - No explicit allow or deny rule matches
-- User interaction available (non-interactive mode returns deny)
+- User interaction is available
 - First time accessing a path/command
+- Tool-specific validation requires confirmation
+- Tools that require user interaction (AskUserQuestion)
 
 **Effect**: User is prompted to allow/deny/always allow/always deny
+
+#### 4. Passthrough (Internal - No Decision)
+
+```typescript
+{
+  behavior: "passthrough",
+  message?: string,              // Default permission message
+  decisionReason?: {
+    type: "other",
+    reason: string
+  }
+}
+```
+
+**When Used**:
+- Default return from tool's checkPermissions when no specific decision is made
+- Tool wants to defer to the global rule checks
+- Used internally during permission evaluation
+
+**Effect**: Continue to next check in the decision flow. Eventually converted to "ask" at step 8 if no other decision is made.
+
+**Important**: Passthrough is NEVER returned to the caller. It's always converted to "ask" before the final return.
+
+### Behavior Conversion Flow
+
+```
+Tool.checkPermissions() returns:
+  ├── "allow"      → Return immediately (Step 3+7)
+  ├── "deny"       → Return immediately (Step 4)
+  ├── "ask"        → Return immediately if requiresUserInteraction (Step 5)
+  │                  Otherwise, continue to mode/rule checks
+  └── "passthrough" → Continue processing, convert to "ask" at Step 8
+```
 
 ---
 
@@ -1616,16 +1822,900 @@ if (managedSettings.permissions) {
 
 ---
 
+## AskUserQuestion Permission Integration
+
+AskUserQuestion has a unique permission implementation that ensures it **always prompts the user**, even when `bypassPermissions` mode is enabled.
+
+### Key Mechanism: requiresUserInteraction
+
+```javascript
+// ============================================
+// AskUserQuestion Tool - requiresUserInteraction method
+// Location: chunks.130.mjs:3438-3440
+// ============================================
+
+requiresUserInteraction() {
+  return true  // ★ CRITICAL: Always requires user interaction
+}
+```
+
+This method is checked in Step 5 of the permission decision flow:
+
+```javascript
+// Step 5 in Wb3 (permission orchestrator):
+if (tool.requiresUserInteraction?.() && toolDecision?.behavior === "ask") {
+  return toolDecision;  // Bypass all remaining checks including bypassPermissions mode
+}
+```
+
+### checkPermissions Implementation
+
+```javascript
+// ============================================
+// AskUserQuestion Tool - checkPermissions method
+// Location: chunks.130.mjs:3428-3434
+// ============================================
+
+// ORIGINAL (for source lookup):
+async checkPermissions(A) {
+  return {
+    behavior: "ask",
+    message: "Answer questions?",
+    updatedInput: A
+    // NOTE: No timeout field - waits indefinitely for user response
+  }
+}
+
+// READABLE (for understanding):
+async checkPermissions(input) {
+  return {
+    behavior: "ask",              // Always ask - triggers UI
+    message: "Answer questions?", // Prompt message
+    updatedInput: input           // Pass through original input
+  };
+}
+```
+
+### Permission Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                 ASKUSERQUESTION PERMISSION FLOW                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. Claude calls AskUserQuestion                                            │
+│     tool_use: { name: "AskUserQuestion", input: { questions: [...] } }      │
+│         ↓                                                                   │
+│  2. Wb3 (permission orchestrator) is invoked                                │
+│     ├── Step 1: No global deny rule for AskUserQuestion                     │
+│     ├── Step 2: No global ask rule (or bypassed)                            │
+│     └── Step 3: Call tool.checkPermissions(input)                           │
+│         ↓                                                                   │
+│  3. AskUserQuestion.checkPermissions() returns:                             │
+│     { behavior: "ask", message: "Answer questions?", updatedInput: input }  │
+│         ↓                                                                   │
+│  4. Wb3 Step 4: Not a deny → continue                                       │
+│         ↓                                                                   │
+│  5. Wb3 Step 5: ★ CRITICAL CHECK ★                                          │
+│     tool.requiresUserInteraction() → true                                   │
+│     toolDecision.behavior → "ask"                                           │
+│     → IMMEDIATELY RETURN, skip bypassPermissions check!                     │
+│         ↓                                                                   │
+│  6. Permission system triggers UI display                                   │
+│     ├── Custom UI component (md2) is rendered                               │
+│     ├── Questions are displayed with options                                │
+│     └── User selects answers or enters custom text                          │
+│         ↓                                                                   │
+│  7. User clicks Submit                                                      │
+│     N() callback fires → A.onAllow(updatedInputWithAnswers, [])             │
+│         ↓                                                                   │
+│  8. Tool.call() executes with injected answers                              │
+│     Returns: { data: { questions, answers } }                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Why requiresUserInteraction is Critical
+
+Without `requiresUserInteraction`, the permission flow would be:
+
+```
+Step 3: checkPermissions() → { behavior: "ask" }
+Step 4: Not deny → continue
+Step 5: No requiresUserInteraction check → continue
+Step 6: bypassPermissions mode? → YES → return "allow"
+        ★ BUG: Tool would execute without showing questions!
+```
+
+With `requiresUserInteraction`:
+
+```
+Step 3: checkPermissions() → { behavior: "ask" }
+Step 4: Not deny → continue
+Step 5: requiresUserInteraction() = true + behavior = "ask"
+        → RETURN "ask" immediately
+        ★ CORRECT: UI is always shown regardless of mode
+```
+
+### Tools Using requiresUserInteraction
+
+Only **AskUserQuestion** currently uses this mechanism:
+
+| Tool | requiresUserInteraction() | Reason |
+|------|---------------------------|--------|
+| AskUserQuestion | `true` | Must always show question UI |
+| Other tools | `undefined` | Standard permission flow |
+
+### Integration with Answer Injection
+
+After permissions are granted via `onAllow`, the answer injection mechanism takes over:
+
+```javascript
+// ============================================
+// Answer Injection via onAllow callback
+// Location: chunks.131.mjs:214-219
+// ============================================
+
+// Permission UI Submit handler:
+N = useCallback((collectedAnswers) => {
+  let updatedInput = {
+    ...originalInput,           // questions, etc.
+    answers: collectedAnswers   // ★ Inject answers here
+  };
+  onDone();                      // Close dialog
+  toolUseConfirm.onAllow(updatedInput, []);  // ★ Call onAllow with answers
+}, [toolUseConfirm, onDone]);
+```
+
+The flow continues in `Tool.call()`:
+
+```javascript
+// ============================================
+// Tool receives answers in call()
+// Location: chunks.130.mjs:3472-3481
+// ============================================
+
+async call({
+  questions: A,
+  answers: Q = {}     // ★ Answers available via input.answers
+}, B) {
+  return {
+    data: {
+      questions: A,
+      answers: Q
+    }
+  }
+}
+```
+
+### Input Schema with Answers Field
+
+```javascript
+// ============================================
+// AskUserQuestion Input Schema (ZZ0)
+// Location: chunks.130.mjs:3400-3402
+// ============================================
+
+ZZ0 = z.strictObject({
+  questions: z.array(QuestionSchema).min(1).max(4).describe("Questions to ask"),
+  answers: z.record(z.string(), z.string()).optional()
+    .describe("User answers collected by the permission component")
+    // ★ answers field is optional in schema, filled by UI component
+})
+```
+
+### Tool Result Format
+
+```javascript
+// ============================================
+// mapToolResultToToolResultBlockParam
+// Location: chunks.130.mjs:3483-3491
+// ============================================
+
+mapToolResultToToolResultBlockParam({ answers: A }, Q) {
+  return {
+    type: "tool_result",
+    content: `User has answered your questions: ${
+      Object.entries(A).map(([question, answer]) => `"${question}"="${answer}"`).join(", ")
+    }. You can now continue with the user's answers in mind.`,
+    tool_use_id: Q
+  }
+}
+
+// Example output:
+// "User has answered your questions: "Auth method"="JWT tokens", "Cache type"="Redis".
+//  You can now continue with the user's answers in mind."
+```
+
+### No Timeout Behavior
+
+AskUserQuestion has **no explicit timeout**. The permission dialog waits indefinitely:
+
+```javascript
+// checkPermissions returns no timeout field:
+{
+  behavior: "ask",
+  message: "Answer questions?",
+  updatedInput: input
+  // No timeout: dialog stays open until user action
+}
+```
+
+The dialog can only be dismissed by:
+1. User clicking Submit (onAllow)
+2. User clicking Cancel/Escape (onReject)
+3. User aborting the conversation
+
+---
+
+## requiresUserInteraction Mechanism
+
+The `requiresUserInteraction` method is an optional tool property that bypasses certain permission checks.
+
+### Method Definition
+
+```typescript
+interface Tool {
+  // ... other properties
+  requiresUserInteraction?(): boolean;
+}
+```
+
+### Effect on Permission Flow
+
+```javascript
+// Location: chunks.153.mjs:1392
+
+// In the permission orchestrator (Wb3):
+if (A.requiresUserInteraction?.() && J?.behavior === "ask") return J;
+```
+
+When a tool returns `true` from `requiresUserInteraction()`:
+1. The permission check at Step 5 short-circuits
+2. `bypassPermissions` mode is NOT checked (Step 6 skipped)
+3. Global allow rules are NOT checked (Step 7 skipped)
+4. The "ask" behavior is returned immediately
+
+### Use Cases
+
+| Use Case | Behavior |
+|----------|----------|
+| User input collection | Always show UI to collect data |
+| Confirmation dialogs | Force user acknowledgment |
+| Critical decisions | Prevent automation bypass |
+
+### Current Implementations
+
+Only AskUserQuestion uses this mechanism currently:
+
+```javascript
+// AskUserQuestion - chunks.130.mjs:3438-3440
+requiresUserInteraction() {
+  return true
+}
+```
+
+Other interactive tools like EnterPlanMode and ExitPlanMode do NOT use `requiresUserInteraction`. They rely on the standard "ask" behavior which can be affected by mode settings.
+
+---
+
+## Permission UI Components
+
+### UI Callback Structure
+
+The permission UI uses three callbacks to handle user responses:
+
+```javascript
+// ============================================
+// Permission UI Callbacks
+// Location: chunks.125.mjs:2504-2676
+// ============================================
+
+interface ToolUseConfirm {
+  input: any;                          // Original tool input
+  onAllow: (updatedInput, rules) => void;  // User approved
+  onReject: (feedback?: string) => void;   // User rejected
+  assistantMessage: Message;           // Context message
+}
+```
+
+### Response Option Types
+
+```javascript
+// ============================================
+// Permission Response Handlers
+// Location: chunks.125.mjs:2584-2600
+// ============================================
+
+const ResponseHandlers = {
+  "accept-once": handleAcceptOnce,     // Allow this time only
+  "accept-session": handleAcceptSession, // Allow + add session rule
+  "reject": handleReject               // Deny + optional feedback
+}
+```
+
+#### Accept-Once Handler
+
+```javascript
+// ============================================
+// handleAcceptOnce (Jn5)
+// Location: chunks.125.mjs
+// ============================================
+
+function handleAcceptOnce(params) {
+  const { messageId, toolUseConfirm, onDone, completionType, languageName } = params;
+
+  // Log telemetry
+  trackEvent("accept", completionType, languageName, messageId);
+
+  // Close dialog
+  onDone();
+
+  // Call onAllow with original input, no rule proposals
+  toolUseConfirm.onAllow(toolUseConfirm.input, []);
+}
+```
+
+#### Accept-Session Handler
+
+```javascript
+// ============================================
+// handleAcceptSession (Wn5)
+// Location: chunks.125.mjs
+// ============================================
+
+function handleAcceptSession(params) {
+  const {
+    messageId, path, toolUseConfirm, toolPermissionContext,
+    onDone, completionType, languageName, operationType
+  } = params;
+
+  trackEvent("accept", completionType, languageName, messageId);
+
+  // Generate rule suggestions based on path
+  const suggestions = path
+    ? generateRuleSuggestions(path, operationType, toolPermissionContext)
+    : [];
+
+  onDone();
+
+  // Call onAllow with suggestions for session rule creation
+  toolUseConfirm.onAllow(toolUseConfirm.input, suggestions);
+}
+```
+
+#### Reject Handler
+
+```javascript
+// ============================================
+// handleReject (Xn5)
+// Location: chunks.125.mjs
+// ============================================
+
+function handleReject(params, feedback) {
+  const {
+    messageId, toolUseConfirm, onDone, onReject,
+    completionType, languageName
+  } = params;
+
+  trackEvent("reject", completionType, languageName, messageId, feedback?.hasFeedback);
+
+  onDone();      // Close dialog
+  onReject();    // Internal cleanup
+
+  // Call onReject with optional user feedback
+  toolUseConfirm.onReject(feedback?.feedback);
+}
+```
+
+### File Edit Dialog Options
+
+```javascript
+// ============================================
+// generateFileEditDialogOptions (Pf2)
+// Location: chunks.125.mjs
+// ============================================
+
+function generateFileEditDialogOptions({ filePath, toolPermissionContext, operationType, onRejectFeedbackChange }) {
+  const options = [
+    {
+      label: "Yes",
+      value: "yes",
+      option: { type: "accept-once" }
+    }
+  ];
+
+  const isInWorkingDir = isInWorkingDirectory(filePath, toolPermissionContext);
+  const modeLabel = `(${ACCEPT_EDITS_MODE.displayText})`;
+
+  // Session-wide approval option
+  let sessionLabel;
+  if (isInWorkingDir) {
+    sessionLabel = `Yes, allow all ${operationType === "read" ? "reads" : "edits"} during this session ${bold(modeLabel)}`;
+  } else {
+    const dirName = getDirectoryDisplayName(filePath);
+    sessionLabel = `Yes, allow all ${operationType === "read" ? "reads from" : "edits in"} ${bold(`${dirName}/`)} during this session ${bold(modeLabel)}`;
+  }
+
+  options.push({
+    label: sessionLabel,
+    value: "yes-session",
+    option: { type: "accept-session" }
+  });
+
+  // Reject option with feedback
+  if (onRejectFeedbackChange) {
+    options.push({
+      type: "input",
+      label: "No",
+      value: "no",
+      placeholder: "Type to tell Claude what to do differently",
+      onChange: onRejectFeedbackChange,
+      option: { type: "reject" }
+    });
+  } else {
+    options.push({
+      label: `No, and tell Claude what to do differently ${bold("(esc)")}`,
+      value: "no",
+      option: { type: "reject" }
+    });
+  }
+
+  return options;
+}
+```
+
+---
+
+## Decision Reason Types
+
+The `decisionReason` field provides detailed context for permission decisions:
+
+```javascript
+// ============================================
+// Decision Reason Types
+// Location: chunks.153.mjs:1258-1297
+// ============================================
+
+type DecisionReason =
+  | { type: "hook"; hookName: string; reason?: string }
+  | { type: "rule"; rule: Rule }
+  | { type: "subcommandResults"; reasons: Map<string, DecisionResult> }
+  | { type: "permissionPromptTool"; permissionPromptToolName: string }
+  | { type: "sandboxOverride" }
+  | { type: "classifier"; classifier: string; reason: string }
+  | { type: "workingDir"; reason: string }
+  | { type: "other"; reason: string }
+  | { type: "mode"; mode: PermissionMode }
+  | { type: "asyncAgent"; reason: string }
+  | { type: "planFiles" }
+  | { type: "fileSafety"; issue: string }
+  | { type: "bypassPermissionsMode" }
+```
+
+### Reason Type Details
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `hook` | Hook blocked operation | `{ type: "hook", hookName: "pre-commit", reason: "Linting failed" }` |
+| `rule` | Permission rule matched | `{ type: "rule", rule: { source: "session", ruleValue: {...} } }` |
+| `subcommandResults` | Bash subcommand analysis | `{ type: "subcommandResults", reasons: Map{...} }` |
+| `permissionPromptTool` | Permission prompt tool | `{ type: "permissionPromptTool", permissionPromptToolName: "Bash" }` |
+| `sandboxOverride` | dangerouslyDisableSandbox | `{ type: "sandboxOverride" }` |
+| `classifier` | Command classifier | `{ type: "classifier", classifier: "destructive", reason: "rm -rf" }` |
+| `workingDir` | Path outside allowed dirs | `{ type: "workingDir", reason: "Path outside working directory" }` |
+| `other` | Generic reason | `{ type: "other", reason: "Custom message" }` |
+| `mode` | Permission mode setting | `{ type: "mode", mode: "bypassPermissions" }` |
+| `asyncAgent` | Async agent restriction | `{ type: "asyncAgent", reason: "Cannot prompt in async" }` |
+| `planFiles` | Plan file auto-allowed | `{ type: "planFiles" }` |
+| `fileSafety` | File safety issue | `{ type: "fileSafety", issue: "Symlink detected" }` |
+
+### Message Formatting
+
+```javascript
+// ============================================
+// formatPermissionMessage (yV)
+// Location: chunks.153.mjs:1258-1297
+// ============================================
+
+function formatPermissionMessage(toolName, decisionReason) {
+  if (decisionReason) {
+    switch (decisionReason.type) {
+      case "hook":
+        return decisionReason.reason
+          ? `Hook '${decisionReason.hookName}' blocked: ${decisionReason.reason}`
+          : `Hook requires approval`;
+
+      case "rule": {
+        const ruleStr = stringifyRule(decisionReason.rule.ruleValue);
+        const sourceStr = formatRuleSource(decisionReason.rule.source);
+        return `Permission rule '${ruleStr}' from ${sourceStr} requires approval`;
+      }
+
+      case "subcommandResults": {
+        const askCommands = [];
+        for (const [cmd, result] of decisionReason.reasons) {
+          if (result.behavior === "ask" || result.behavior === "passthrough") {
+            askCommands.push(cmd);
+          }
+        }
+        return askCommands.length > 0
+          ? `This command contains parts requiring approval: ${askCommands.join(", ")}`
+          : `This command contains operations requiring approval`;
+      }
+
+      case "workingDir":
+        return decisionReason.reason;
+
+      case "classifier":
+        return `Classifier '${decisionReason.classifier}' requires approval: ${decisionReason.reason}`;
+
+      case "mode":
+        return `Permission mode (${formatMode(decisionReason.mode)}) requires approval`;
+
+      case "other":
+        return decisionReason.reason;
+
+      default:
+        break;
+    }
+  }
+
+  return `Permission to use ${toolName} not granted yet.`;
+}
+```
+
+---
+
+## Permission Suggestions System
+
+When a permission dialog is shown, the system can suggest rules for the user to accept.
+
+### Suggestion Types
+
+```javascript
+// ============================================
+// Permission Suggestion Schema (A91)
+// Location: chunks.106.mjs:1631-1658
+// ============================================
+
+type PermissionSuggestion =
+  | {
+      type: "addRules";
+      rules: Rule[];
+      behavior: "allow" | "deny" | "ask";
+      destination: SettingsDestination;
+    }
+  | {
+      type: "replaceRules";
+      rules: Rule[];
+      behavior: "allow" | "deny" | "ask";
+      destination: SettingsDestination;
+    }
+  | {
+      type: "removeRules";
+      rules: Rule[];
+      behavior: "allow" | "deny" | "ask";
+      destination: SettingsDestination;
+    }
+  | {
+      type: "setMode";
+      mode: PermissionMode;
+      destination: SettingsDestination;
+    }
+  | {
+      type: "addDirectories";
+      directories: string[];
+      destination: SettingsDestination;
+    }
+  | {
+      type: "removeDirectories";
+      directories: string[];
+      destination: SettingsDestination;
+    };
+
+type SettingsDestination =
+  | "userSettings"
+  | "projectSettings"
+  | "localSettings"
+  | "session"
+  | "cliArg";
+```
+
+### Suggestion Generation
+
+```javascript
+// ============================================
+// generateRuleSuggestions (I31)
+// Location: chunks.154.mjs
+// ============================================
+
+function generateRuleSuggestions(filePath, operationType, permissionContext) {
+  const isOutsideWorkingDir = !isInWorkingDirectory(filePath, permissionContext);
+
+  if (operationType === "write" || operationType === "create") {
+    const suggestions = [
+      {
+        type: "setMode",
+        mode: "acceptEdits",     // Suggest switching to acceptEdits mode
+        destination: "session"
+      }
+    ];
+
+    if (isOutsideWorkingDir) {
+      const parentDir = getParentDirectory(filePath);
+      const ancestorDirs = getAncestorDirectories(parentDir);
+
+      suggestions.push({
+        type: "addDirectories",
+        directories: ancestorDirs,  // Suggest adding parent directories
+        destination: "session"
+      });
+    }
+
+    return suggestions;
+  }
+
+  // Default: just suggest mode change
+  return [
+    {
+      type: "setMode",
+      mode: "acceptEdits",
+      destination: "session"
+    }
+  ];
+}
+```
+
+### Suggestion Display
+
+```javascript
+// ============================================
+// SuggestionsDisplay (Tn5)
+// Location: chunks.125.mjs
+// ============================================
+
+function SuggestionsDisplay({ suggestions, width }) {
+  if (!suggestions || suggestions.length === 0) {
+    return <Box>Suggestions: None</Box>;
+  }
+
+  const ruleSuggestions = extractRuleSuggestions(suggestions);
+  const directorySuggestions = extractDirectorySuggestions(suggestions);
+  const modeSuggestion = extractModeSuggestion(suggestions);
+
+  return (
+    <Box flexDirection="column">
+      {ruleSuggestions.map(rule => (
+        <Text key={rule.ruleContent}>
+          {rule.toolName}({rule.ruleContent})
+        </Text>
+      ))}
+      {directorySuggestions.map(dir => (
+        <Text key={dir}>Add directory: {dir}</Text>
+      ))}
+      {modeSuggestion && (
+        <Text>Set mode to: {modeSuggestion}</Text>
+      )}
+    </Box>
+  );
+}
+```
+
+---
+
+## Tool-Specific checkPermissions Implementations
+
+### Edit Tool
+
+```javascript
+// ============================================
+// Edit Tool checkPermissions
+// Location: chunks.122.mjs:3333-3336
+// ============================================
+
+async checkPermissions(input, context) {
+  const appState = await context.getAppState();
+  return checkEditPermission(EditTool, input, appState.toolPermissionContext);
+}
+
+// checkEditPermission (L0A) is detailed in "File Path Permission Patterns" section
+```
+
+### WebFetch Tool
+
+```javascript
+// ============================================
+// WebFetch Tool checkPermissions
+// Location: chunks.130.mjs:1259-1317
+// ============================================
+
+async checkPermissions(input, context) {
+  const { toolPermissionContext } = await context.getAppState();
+
+  try {
+    const { url } = input;
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname;
+    const pathname = parsedUrl.pathname;
+
+    // 1. Check preapproved hosts (hardcoded allowlist)
+    for (const preapproved of PREAPPROVED_HOSTS) {
+      if (preapproved.includes("/")) {
+        // Host + path pattern (e.g., "docs.anthropic.com/api")
+        const [host, ...pathParts] = preapproved.split("/");
+        const path = "/" + pathParts.join("/");
+        if (hostname === host && pathname.startsWith(path)) {
+          return {
+            behavior: "allow",
+            updatedInput: input,
+            decisionReason: { type: "other", reason: "Preapproved host and path" }
+          };
+        }
+      } else {
+        // Host only pattern
+        if (hostname === preapproved) {
+          return {
+            behavior: "allow",
+            updatedInput: input,
+            decisionReason: { type: "other", reason: "Preapproved host" }
+          };
+        }
+      }
+    }
+  } catch {}
+
+  // 2. Extract domain key for rule matching
+  const domainKey = extractDomainKey(input);
+
+  // 3. Check deny rules
+  const denyRule = getRulesForTool(toolPermissionContext, WebFetchTool, "deny").get(domainKey);
+  if (denyRule) {
+    return {
+      behavior: "deny",
+      message: `WebFetch denied access to ${domainKey}.`,
+      decisionReason: { type: "rule", rule: denyRule }
+    };
+  }
+
+  // 4. Check ask rules
+  const askRule = getRulesForTool(toolPermissionContext, WebFetchTool, "ask").get(domainKey);
+  if (askRule) {
+    return {
+      behavior: "ask",
+      message: `Permission to use WebFetch not granted yet.`,
+      decisionReason: { type: "rule", rule: askRule }
+    };
+  }
+
+  // 5. Check allow rules
+  const allowRule = getRulesForTool(toolPermissionContext, WebFetchTool, "allow").get(domainKey);
+  if (allowRule) {
+    return {
+      behavior: "allow",
+      updatedInput: input,
+      decisionReason: { type: "rule", rule: allowRule }
+    };
+  }
+
+  // 6. Default to ask
+  return {
+    behavior: "ask",
+    message: `Permission to use WebFetch not granted yet.`
+  };
+}
+```
+
+### Skill Tool
+
+```javascript
+// ============================================
+// Skill Tool checkPermissions
+// Location: chunks.130.mjs:2603-2658
+// ============================================
+
+async checkPermissions({ skill }, context) {
+  const skillName = skill.trim();
+  const normalizedName = skillName.startsWith("/") ? skillName.substring(1) : skillName;
+
+  const { toolPermissionContext } = await context.getAppState();
+  const availableSkills = await getAvailableSkills();
+  const skillCommand = findSkillCommand(normalizedName, availableSkills);
+
+  // Helper: Check if rule matches skill (supports wildcards like "skill:*")
+  const ruleMatchesSkill = (ruleContent) => {
+    if (ruleContent === skill) return true;
+    if (ruleContent.endsWith(":*")) {
+      const prefix = ruleContent.slice(0, -2);
+      return skill.startsWith(prefix);
+    }
+    return false;
+  };
+
+  // 1. Check deny rules
+  const denyRules = getRulesForTool(toolPermissionContext, SkillTool, "deny");
+  for (const [content, rule] of denyRules.entries()) {
+    if (ruleMatchesSkill(content)) {
+      return {
+        behavior: "deny",
+        message: "Skill execution blocked",
+        decisionReason: { type: "rule", rule }
+      };
+    }
+  }
+
+  // 2. Check allow rules
+  const allowRules = getRulesForTool(toolPermissionContext, SkillTool, "allow");
+  for (const [content, rule] of allowRules.entries()) {
+    if (ruleMatchesSkill(content)) {
+      return {
+        behavior: "allow",
+        updatedInput: { skill },
+        decisionReason: { type: "rule", rule }
+      };
+    }
+  }
+
+  // 3. Default: ask with suggestion to allow this skill
+  const suggestions = [{
+    type: "addRules",
+    rules: [{ toolName: SKILL_TOOL_NAME, ruleContent: skill }],
+    behavior: "allow",
+    destination: "localSettings"
+  }];
+
+  return {
+    behavior: "ask",
+    message: `Execute skill: ${normalizedName}`,
+    decisionReason: undefined,
+    suggestions,
+    metadata: { command: skillCommand }
+  };
+}
+```
+
+---
+
 ## Summary
 
 The permission system in Claude Code provides:
 
-1. **Fine-grained control** - Per-tool, per-file, per-directory, per-command
-2. **Flexible patterns** - Glob patterns, exact matches, domain filtering
-3. **Layered settings** - Global → Project → Local → Managed hierarchy
-4. **Safety defaults** - Prompt or deny by default, allow via explicit rules
-5. **Enterprise support** - Managed settings enforce organization policies
-6. **User experience** - Interactive prompts with remember options
-7. **Validation** - Multi-level checks (permissions, state, consistency)
+1. **8-Step Decision Flow** - Comprehensive permission orchestrator (Wb3) with clear precedence rules
+2. **Four Behavior Types** - allow, deny, ask (external) + passthrough (internal)
+3. **Fine-grained Control** - Per-tool, per-file, per-directory, per-command
+4. **Flexible Patterns** - Glob patterns, exact matches, domain filtering
+5. **Layered Settings** - Global → Project → Local → Managed hierarchy
+6. **Safety Defaults** - Prompt or deny by default, allow via explicit rules
+7. **Enterprise Support** - Managed settings enforce organization policies
+8. **User Experience** - Interactive prompts with remember options and suggestions
+9. **Validation** - Multi-level checks (permissions, state, consistency)
+
+### Special Mechanisms
+
+| Mechanism | Purpose | Key Tool |
+|-----------|---------|----------|
+| `requiresUserInteraction` | Bypass automation, always prompt | AskUserQuestion |
+| `passthrough` behavior | Defer decision to global rules | Most tools |
+| Decision reasons | Detailed context for decisions | All tools |
+| Permission suggestions | Smart rule proposals | Edit, Write, Skill |
+
+### AskUserQuestion Integration
+
+AskUserQuestion uses a unique permission flow:
+- **Always prompts** via `requiresUserInteraction()` returning `true`
+- **Bypasses bypassPermissions mode** - UI is always shown
+- **Answer injection** via `onAllow(updatedInput)` callback
+- **No timeout** - Dialog waits indefinitely for user response
+
+### Key Functions Reference
+
+| Function | Location | Purpose |
+|----------|----------|---------|
+| `Wb3` | chunks.153.mjs:1358 | Central permission orchestrator |
+| `ro1/oo1/so1` | chunks.153.mjs:1323 | Find deny/ask/allow rules |
+| `L0A` | chunks.154.mjs:1815 | File edit permission checker |
+| `no1` | chunks.90.mjs:1935 | Bash command permission checker |
+| `yV` | chunks.153.mjs:1258 | Format permission messages |
+| `I31` | chunks.154.mjs | Generate rule suggestions |
 
 This ensures Claude Code operates safely while giving users and organizations full control over what operations are permitted.
