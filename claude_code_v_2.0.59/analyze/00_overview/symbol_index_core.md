@@ -24,6 +24,7 @@
 - [Skill System](#module-skill-system) - Skill tool, loading, aggregation
 - [Thinking Mode](#module-thinking-mode) - Ultrathink keyword, tab toggle, API integration
 - [Output Style](#module-output-style) - Output style command, built-in styles, custom styles
+- [Prompt Suggestions](#module-prompt-suggestions) - Autocomplete suggestions, fuzzy search, file index
 
 ---
 
@@ -984,6 +985,126 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | KH5 | generateOutputStyleReminder | chunks.107.mjs:1919-1926 | function |
+
+---
+
+## Module: Prompt Suggestions
+
+> Input autocomplete system - command, file, shell, and MCP suggestions.
+> Documentation: [09_slash_command/prompt_suggestions.md](../09_slash_command/prompt_suggestions.md)
+
+### Core Hook
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| e09 | usePromptSuggestions | chunks.138.mjs:2819-3172 | function |
+| A69 | usePromptSuggestionDisplay | chunks.142.mjs:1869-1897 | function |
+
+### Command Suggestions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bXA | isSlashCommand | chunks.138.mjs:1769-1771 | function |
+| IO3 | hasCommandArguments | chunks.138.mjs:1773-1778 | function |
+| T09 | getCommandSuggestions | chunks.138.mjs:1795-1845 | function |
+| R09 | formatCommandSuggestion | chunks.138.mjs:1784-1793 | function |
+| OJ0 | applyCommandSuggestion | chunks.138.mjs:1851-1858 | function |
+| ZO3 | HYPHEN_UNDERSCORE_COLON_REGEX | chunks.138.mjs:1865 | constant |
+
+### File Reference Suggestions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| vJ0 | getAtMentionSuggestions | chunks.138.mjs:2361-2417 | function |
+| x09 | searchFiles | chunks.138.mjs:2102-2121 | function |
+| MO3 | searchFileIndex | chunks.138.mjs:2028-2075 | function |
+| NO3 | buildFileIndex | chunks.138.mjs:1976-1998 | function |
+| jJ0 | refreshFileIndexCache | chunks.138.mjs:2077-2086 | function |
+| jZ1 | createFileSuggestion | chunks.138.mjs:2018-2026 | function |
+| u09 | formatUnifiedSuggestion | chunks.138.mjs:2295-2317 | function |
+
+### Token Parsing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| oPA | parseFilePath | chunks.138.mjs:2778-2798 | function |
+| t09 | extractTokenFromParsed | chunks.138.mjs:2739-2743 | function |
+| fJ0 | formatSuggestionText | chunks.138.mjs:2745-2757 | function |
+| SZ1 | applySuggestionToInput | chunks.138.mjs:2123-2129 | function |
+| mO3 | parseSlashCommandArgs | chunks.138.mjs:2800-2813 | function |
+| dO3 | shouldSkipCommandSuggestions | chunks.138.mjs:2815-2817 | function |
+
+### Shell Completions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SO3 | detectCompletionType | chunks.138.mjs:2187-2226 | function |
+| h09 | getShellCompletions | chunks.138.mjs:2260-2279 | function |
+| uO3 | getShellCompletionsCached | chunks.138.mjs:2769-2776 | function |
+| yO3 | executeShellCompletion | chunks.138.mjs:2244-2258 | function |
+| _O3 | generateBashCompgenCmd | chunks.138.mjs:2228-2234 | function |
+| kO3 | generateZshCompgenCmd | chunks.138.mjs:2236-2242 | function |
+| hJ0 | applyShellCompletion | chunks.138.mjs:2759-2767 | function |
+| b09 | inferTypeFromToken | chunks.138.mjs:2166-2170 | function |
+| PO3 | findLastStringToken | chunks.138.mjs:2172-2179 | function |
+| jO3 | isAtCommandPosition | chunks.138.mjs:2181-2185 | function |
+| f09 | isPipeOperator | chunks.138.mjs:2162-2164 | function |
+
+### Agent & MCP Server Suggestions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| vO3 | getAgentSuggestions | chunks.138.mjs:2324-2340 | function |
+| bO3 | getMcpServerSuggestions | chunks.138.mjs:2342-2359 | function |
+| xO3 | truncateDescription | chunks.138.mjs:2319-2322 | function |
+| r09 | isMcpServerSuggestion | chunks.138.mjs:2724-2726 | function |
+
+### Directory Suggestions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| S09 | searchDirectories | chunks.138.mjs:1901-1915 | function |
+| HO3 | parseDirectoryInput | chunks.138.mjs:1868-1884 | function |
+| CO3 | readDirectoryContents | chunks.138.mjs:1886-1899 | function |
+
+### Resume Session Suggestions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| o09 | formatResumeCommand | chunks.138.mjs:2734-2737 | function |
+
+### Common Prefix & Selection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| y09 | getCommonPrefix | chunks.138.mjs:2007-2016 | function |
+| LO3 | findCommonPrefixPair | chunks.138.mjs:2000-2005 | function |
+| rPA | preserveSelectedIndex | chunks.138.mjs:2728-2732 | function |
+
+### Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| sPA | MAX_FILE_SUGGESTIONS | chunks.138.mjs:2145 | constant |
+| xJ0 | MAX_UNIFIED_SUGGESTIONS | chunks.138.mjs:2419 | constant |
+| yJ0 | MAX_SHELL_COMPLETIONS | chunks.138.mjs:2281 | constant |
+| RO3 | SHELL_COMPLETION_TIMEOUT | chunks.138.mjs:2283 | constant |
+| $O3 | FILE_INDEX_CACHE_TTL | chunks.138.mjs:2143 | constant |
+| m09 | MAX_AGENT_DESCRIPTION_LEN | chunks.138.mjs:2421 | constant |
+| TO3 | SHELL_PIPE_OPERATORS | chunks.138.mjs:2292 | constant |
+| KO3 | DIRECTORY_CACHE_MAX | chunks.138.mjs:1917 | constant |
+| DO3 | DIRECTORY_CACHE_TTL | chunks.138.mjs:1919 | constant |
+
+### State Variables
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SJ0 | cachedFileIndex | chunks.138.mjs:2135 | variable |
+| _J0 | cachedFileList | chunks.138.mjs:2137 | variable |
+| fXA | pendingCacheRefresh | chunks.138.mjs:2139 | variable |
+| k09 | lastCacheRefreshTime | chunks.138.mjs:2141 | variable |
+| kZ1 | shellCompletionAbortController | chunks.138.mjs:3178 | variable |
+| j09 | directoryCache | chunks.138.mjs:1921 | variable |
 
 ---
 
