@@ -1899,3 +1899,627 @@ you have received.
 - Bf2 = Allowed by ASYNC_SAFE_TOOLS whitelist
 - Prompt = Blocked by system prompt
 - disallow = Blocked by agent's disallowedTools array
+
+---
+
+## 13. Plan File Context Management Deep Dive
+
+### 13.1 Plan Content in ExitPlanMode Tool Result
+
+When `ExitPlanMode` is called, the **full plan content is embedded in the tool result** and becomes part of the conversation context.
+
+```javascript
+// ============================================
+// ExitPlanMode - mapToolResultToToolResultBlockParam
+// Location: chunks.130.mjs:1905-1925
+// ============================================
+
+// ORIGINAL (for source lookup):
+mapToolResultToToolResultBlockParam({
+  isAgent: A,
+  plan: Q,
+  filePath: B
+}, G) {
+  if (A) return {
+    type: "tool_result",
+    content: 'User has approved the plan. There is nothing else needed from you now. Please respond with "ok"',
+    tool_use_id: G
+  };
+  return {
+    type: "tool_result",
+    content: `User has approved your plan. You can now start coding. Start with updating your todo list if applicable
+
+Your plan has been saved to: ${B}
+You can refer back to it if needed during implementation.
+
+## Approved Plan:
+${Q}`,
+    tool_use_id: G
+  }
+}
+
+// READABLE (for understanding):
+mapToolResultToToolResultBlockParam({ isAgent, plan, filePath }, toolUseId) {
+  if (isAgent) {
+    // Sub-agent context: minimal response
+    return {
+      type: "tool_result",
+      content: 'User has approved the plan. Please respond with "ok"',
+      tool_use_id: toolUseId
+    };
+  }
+
+  // Main agent context: include full plan
+  return {
+    type: "tool_result",
+    content: `User has approved your plan. You can now start coding...
+
+## Approved Plan:
+${plan}`,  // <-- Full plan content embedded here
+    tool_use_id: toolUseId
+  }
+}
+
+// Mapping: A→isAgent, Q→plan, B→filePath, G→toolUseId
+```
+
+**Key Insight:** The plan content is NOT read by the agent - it's injected BY the tool into the context.
+
+### 13.2 Token Consumption Analysis
+
+**The plan file DOES consume tokens in context.**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     PLAN FILE TOKEN FLOW                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ExitPlanMode Called                                                        │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  Tool reads plan file from disk: xU(Q.agentId)                   │       │
+│  │  File: ~/.claude/plans/{slug}.md                                 │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  Plan content embedded in tool_result message                    │       │
+│  │  content: "## Approved Plan:\n${planContent}"                    │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  Tool result becomes part of conversation history                │       │
+│  │  → Sent to API on EVERY subsequent turn                          │       │
+│  │  → Consumes tokens on every API call                             │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                                                                             │
+│  TOKEN IMPACT:                                                              │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  • Full plan content in conversation history                     │       │
+│  │  • No automatic trimming (unlike file reads)                     │       │
+│  │  • Survives until compaction (then re-injected)                  │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 13.3 Plan File Re-injection After Compaction
+
+When the conversation is compacted, the plan file is **re-read from disk and re-injected** via the `XQ0` (restorePlanFile) function.
+
+```javascript
+// ============================================
+// XQ0 - restorePlanFile (Post-Compaction Restoration)
+// Location: chunks.107.mjs:1282-1291
+// ============================================
+
+// ORIGINAL (for source lookup):
+function XQ0(A) {
+  let Q = xU(A);
+  if (!Q) return null;
+  let B = yU(A);
+  return l9({
+    type: "plan_file_reference",
+    planFilePath: B,
+    planContent: Q
+  })
+}
+
+// READABLE (for understanding):
+function restorePlanFile(agentId) {
+  let planContent = readPlanFile(agentId);
+
+  if (!planContent) {
+    return null;  // No plan file exists
+  }
+
+  let planFilePath = getPlanFilePath(agentId);
+
+  return createAttachment({
+    type: "plan_file_reference",
+    planFilePath: planFilePath,
+    planContent: planContent  // Full content included
+  });
+}
+
+// Mapping: XQ0→restorePlanFile, A→agentId, Q→planContent, B→planFilePath
+// xU→readPlanFile, yU→getPlanFilePath, l9→createAttachment
+```
+
+**Called in Compaction Flow:**
+
+```javascript
+// In fullCompact (j91) - chunks.107.mjs:1200
+let T = XQ0(Q.agentId);
+if (T) N.push(T);  // Add plan attachment to post-compact context
+
+// In micro-compact - chunks.107.mjs:1609
+J = XQ0(G);
+return {
+  // ...
+  attachments: J ? [J] : [],  // Plan file reference attachment
+}
+```
+
+### 13.4 Plan File Reference Attachment Conversion
+
+The `plan_file_reference` attachment is converted to a system reminder message:
+
+```javascript
+// ============================================
+// convertAttachmentToSystemMessage - plan_file_reference case
+// Location: chunks.154.mjs:77-87
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "plan_file_reference":
+  return NG([R0({
+    content: `A plan file exists from plan mode at: ${A.planFilePath}
+
+Plan contents:
+
+${A.planContent}
+
+If this plan is relevant to the current work and not already complete, continue working on it.`,
+    isMeta: !0
+  })]);
+
+// READABLE (for understanding):
+case "plan_file_reference":
+  return wrapInSystemReminder([createMetaBlock({
+    content: `A plan file exists from plan mode at: ${planFilePath}
+
+Plan contents:
+
+${planContent}
+
+If this plan is relevant to the current work and not already complete, continue working on it.`,
+    isMeta: true
+  })]);
+
+// Mapping: A→attachment, NG→wrapInSystemReminder, R0→createMetaBlock
+```
+
+### 13.5 Compaction Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                PLAN FILE SURVIVAL THROUGH COMPACTION                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  BEFORE COMPACTION:                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  Conversation History:                                           │       │
+│  │  [msg1] [msg2] ... [ExitPlanMode tool_result with plan] [msg...]│       │
+│  │                              ↑                                   │       │
+│  │                    Plan content here (consuming tokens)          │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                              │                                              │
+│                              ▼                                              │
+│                      Token limit reached                                    │
+│                              │                                              │
+│                              ▼                                              │
+│  COMPACTION TRIGGERED:                                                      │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  1. fullCompact (j91) or micro-compact called                    │       │
+│  │  2. Old messages summarized and removed                          │       │
+│  │  3. XQ0(agentId) called to restore plan file                     │       │
+│  │     → Reads plan from disk: ~/.claude/plans/{slug}.md            │       │
+│  │     → Creates "plan_file_reference" attachment                   │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                              │                                              │
+│                              ▼                                              │
+│  AFTER COMPACTION:                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  New Context:                                                    │       │
+│  │  [summary] [plan_file_reference attachment] [recent messages]    │       │
+│  │               ↑                                                  │       │
+│  │     Converted to system reminder:                                │       │
+│  │     "A plan file exists... Plan contents: {full plan}"           │       │
+│  │               ↑                                                  │       │
+│  │     Still consuming tokens!                                      │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                                                                             │
+│  KEY INSIGHT:                                                               │
+│  • Plan file survives compaction via disk persistence                       │
+│  • Content is re-read and re-injected every time                            │
+│  • Token cost is paid again after each compaction                           │
+│  • Only way to "remove" plan: delete the file from disk                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 13.6 Handling Unrelated Inputs After Plan Approval
+
+**There is NO automatic code-based detection of relevance.** The system relies on LLM judgment.
+
+#### Normal Mode (After ExitPlanMode)
+
+The only guidance is a soft hint in the plan_file_reference attachment:
+
+```
+"If this plan is relevant to the current work and not already complete, continue working on it."
+```
+
+Claude must decide:
+1. Is the user's new request related to the plan?
+2. If yes: continue with plan tasks
+3. If no: work on the new request (plan content still in context, consuming tokens)
+
+#### Plan Mode Re-entry (hasExitedPlanMode Flag)
+
+When re-entering plan mode with an existing plan file, explicit instructions are provided:
+
+```javascript
+// ============================================
+// plan_mode_reentry attachment message
+// Location: chunks.154.mjs:146-163
+// ============================================
+
+case "plan_mode_reentry": {
+  let B = `## Re-entering Plan Mode
+
+You are returning to plan mode after having previously exited it. A plan file exists at ${A.planFilePath} from your previous planning session.
+
+**Before proceeding with any new planning, you should:**
+1. Read the existing plan file to understand what was previously planned
+2. Evaluate the user's current request against that plan
+3. Decide how to proceed:
+   - **Different task**: If the user's request is for a different task—even if it's similar or related—start fresh by overwriting the existing plan
+   - **Same task, continuing**: If this is explicitly a continuation or refinement of the exact same task, modify the existing plan while cleaning up outdated or irrelevant sections
+4. Continue on with the plan process and most importantly you should always edit the plan file one way or the other before calling ${gq.name}
+
+Treat this as a fresh planning session. Do not assume the existing plan is relevant without evaluating it first.`;
+  return NG([R0({
+    content: B,
+    isMeta: !0
+  })])
+}
+```
+
+**Key Decision Points:**
+
+| Scenario | Mechanism | Action |
+|----------|-----------|--------|
+| Normal mode, next input related | LLM judgment | Continue with plan |
+| Normal mode, next input unrelated | LLM judgment (soft hint only) | Plan still in context (consuming tokens) |
+| Re-enter plan mode, same task | LLM judgment (explicit prompt) | Modify existing plan |
+| Re-enter plan mode, different task | LLM judgment (explicit prompt) | Overwrite plan file |
+
+### 13.7 Plan File Lifecycle Summary
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        PLAN FILE LIFECYCLE                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Phase 1: CREATION (Plan Mode Active)                                       │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  1. EnterPlanMode called → mode set to "plan"                    │       │
+│  │  2. Agent writes plan to ~/.claude/plans/{slug}.md               │       │
+│  │  3. Plan file exists on disk                                     │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                              │                                              │
+│                              ▼                                              │
+│  Phase 2: EXIT (ExitPlanMode)                                               │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  1. ExitPlanMode called                                          │       │
+│  │  2. Tool reads plan file: xU(agentId)                            │       │
+│  │  3. Full plan embedded in tool_result                            │       │
+│  │  4. Mode changed from "plan" to "default/acceptEdits/bypass"     │       │
+│  │  5. hasExitedPlanMode flag set to true                           │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                              │                                              │
+│                              ▼                                              │
+│  Phase 3: NORMAL EXECUTION                                                  │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  • Plan content in context (tool_result)                         │       │
+│  │  • Consuming tokens on every API call                            │       │
+│  │  • Soft hint: "If relevant... continue working on it"            │       │
+│  │  • No automatic cleanup of irrelevant plan                       │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                              │                                              │
+│                              ▼                                              │
+│  Phase 4: COMPACTION (if triggered)                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  1. XQ0(agentId) reads plan from disk                            │       │
+│  │  2. Creates plan_file_reference attachment                       │       │
+│  │  3. Plan content re-injected as system reminder                  │       │
+│  │  4. Token cost paid again                                        │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                              │                                              │
+│                              ▼                                              │
+│  Phase 5: RE-ENTRY (if EnterPlanMode called again)                          │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  1. hasExitedPlanMode checked → true                             │       │
+│  │  2. Plan file exists → generate "plan_mode_reentry" attachment   │       │
+│  │  3. Explicit prompt to evaluate: "Different task" vs "Same task" │       │
+│  │  4. Agent decides to overwrite or modify plan                    │       │
+│  │  5. hasExitedPlanMode reset to false                             │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 13.8 Related Symbols
+
+> Symbol mappings: [symbol_index_core.md](../00_overview/symbol_index_core.md)
+
+Key functions in this section:
+- `XQ0` (restorePlanFile) - Post-compaction plan file restoration
+- `xU` (readPlanFile) - Read plan file content from disk
+- `yU` (getPlanFilePath) - Get plan file path for agent/session
+- `l9` (createAttachment) - Create attachment for injection
+- `NG` (wrapInSystemReminder) - Wrap content as system reminder
+- `R0` (createMetaBlock) - Create meta content block
+- `Jz0` (hasExitedPlanMode) - Check if exited plan mode flag
+- `ou` (setHasExitedPlanMode) - Set exited plan mode flag
+
+---
+
+## 14. Plan File Editing & Context Synchronization
+
+### 14.1 Claude 支持直接编辑 Plan 文件
+
+**答案：是的，Claude 支持在 Plan Mode 中直接编辑 plan 文件。**
+
+#### 系统提示中的工具指引
+
+```javascript
+// ============================================
+// Plan Mode System Prompt - Tool Guidance
+// Location: chunks.153.mjs:2896-2898
+// ============================================
+
+// ORIGINAL (for source lookup):
+${A.planExists
+  ? `A plan file already exists at ${A.planFilePath}. You can read it and make incremental edits using the ${lD.name} tool.`
+  : `No plan file exists yet. You should create your plan at ${A.planFilePath} using the ${QV.name} tool.`}
+You should build your plan incrementally by writing to or editing this file. NOTE that this is the only file you are allowed to edit - other than this you are only allowed to take READ-ONLY actions.
+
+// READABLE (for understanding):
+${planExists
+  ? `A plan file already exists at ${planFilePath}. You can read it and make incremental edits using the Edit tool.`
+  : `No plan file exists yet. You should create your plan at ${planFilePath} using the Write tool.`}
+
+// Mapping: lD.name → "Edit", QV.name → "Write"
+```
+
+#### 工具选择逻辑
+
+| Plan 文件状态 | 推荐工具 | 说明 |
+|--------------|---------|------|
+| 不存在 | **Write** tool | 创建新的 plan 文件 |
+| 已存在 | **Edit** tool | 增量编辑现有 plan |
+
+#### Plan Mode 中的工具限制
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PLAN MODE TOOL RESTRICTIONS                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ✅ ALLOWED for Plan File:                                                  │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  • Write tool - 创建 plan 文件                                   │       │
+│  │  • Edit tool - 编辑 plan 文件                                    │       │
+│  │  • Read tool - 读取 plan 文件                                    │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                                                                             │
+│  ❌ BLOCKED for Other Files:                                                │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  • Write tool - 禁止写入其他文件                                  │       │
+│  │  • Edit tool - 禁止编辑其他文件                                   │       │
+│  │  • NotebookEdit - 禁止编辑 Notebook                              │       │
+│  │  • Bash (write operations) - 禁止写入命令                         │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                                                                             │
+│  ✅ ALLOWED (Read-only):                                                    │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  • Read, Glob, Grep - 读取代码                                   │       │
+│  │  • Bash (read-only) - 只读命令 (ls, cat, etc.)                   │       │
+│  │  • WebFetch, WebSearch - 网络搜索                                 │       │
+│  │  • TodoWrite - 任务列表                                          │       │
+│  │  • AskUserQuestion - 询问用户                                    │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 14.2 磁盘 vs Context：关键的不同步问题
+
+**核心问题：Edit/Write 工具只更新磁盘文件，不会自动更新 Context 中的 plan 内容！**
+
+#### 数据流分析
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                 PLAN FILE: DISK vs CONTEXT                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  DISK (Source of Truth):                                                    │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  ~/.claude/plans/{slug}.md                                       │       │
+│  │  ┌───────────────────────────────────────────────────────────┐  │       │
+│  │  │  # My Plan                                                 │  │       │
+│  │  │  ## Step 1: ...                                            │  │       │
+│  │  │  ## Step 2: ... (new edit by Claude)                       │  │       │
+│  │  └───────────────────────────────────────────────────────────┘  │       │
+│  │                    ↑                                             │       │
+│  │           Edit/Write tool updates here                           │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                              │                                              │
+│                              │ NOT automatically synced!                    │
+│                              ↓                                              │
+│  CONTEXT (What Claude sees in conversation):                                │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  [Previous ExitPlanMode tool_result]:                            │       │
+│  │  "## Approved Plan:                                              │       │
+│  │   # My Plan                                                      │       │
+│  │   ## Step 1: ..."                                                │       │
+│  │                    ↑                                             │       │
+│  │           OLD content! Not updated after Edit!                   │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                                                                             │
+│  SYNC POINTS (When context gets latest from disk):                          │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │  1. ExitPlanMode called → reads disk, embeds in tool_result      │       │
+│  │  2. Compaction triggered → XQ0 reads disk, re-injects            │       │
+│  │  3. Re-enter Plan Mode → reads disk for plan_mode_reentry        │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Context 同步时机
+
+| 事件 | 是否同步 | 机制 |
+|------|---------|------|
+| Edit tool 修改 plan | ❌ 不同步 | 只修改磁盘文件 |
+| Write tool 创建/覆盖 plan | ❌ 不同步 | 只修改磁盘文件 |
+| ExitPlanMode 调用 | ✅ 同步 | `xU()` 从磁盘读取最新内容 |
+| Compaction 触发 | ✅ 同步 | `XQ0()` 从磁盘重新读取 |
+| Re-enter Plan Mode | ✅ 同步 | 读取磁盘生成 reentry attachment |
+| 普通 user input | ❌ 不同步 | Context 保持旧内容 |
+
+### 14.3 实际影响分析
+
+#### 场景：Plan Mode 中多次编辑 Plan
+
+```
+时间线：
+────────────────────────────────────────────────────────────────────────────
+T1: 用户进入 Plan Mode
+    → 系统提示："No plan file exists yet. Use Write tool to create."
+
+T2: Claude 使用 Write tool 创建 plan
+    → 磁盘: plan-v1.md 写入
+    → Context: 无 plan 内容（只有 Write tool 的 result）
+
+T3: Claude 使用 Edit tool 更新 plan
+    → 磁盘: plan-v2.md 更新
+    → Context: 仍然只有 Write tool 的 result，无法看到完整 plan
+
+T4: Claude 调用 ExitPlanMode
+    → 磁盘: 读取 plan-v2.md
+    → Context: 完整 plan-v2 内容嵌入 tool_result
+    → 用户看到最新的 plan 并审批
+────────────────────────────────────────────────────────────────────────────
+```
+
+**关键洞察：**
+- 在 Plan Mode 中，Claude 每次 Edit 后**看不到完整的 plan 内容**
+- Claude 需要**主动 Read** plan 文件来查看最新内容
+- 或者依赖 Edit tool result 中返回的 diff/patch 信息
+
+### 14.4 /plan Slash Command
+
+用户可以通过 `/plan` 命令查看和编辑 plan 文件。
+
+```javascript
+// ============================================
+// /plan Slash Command Definition
+// Location: chunks.149.mjs:2878-2884
+// ============================================
+
+// ORIGINAL (for source lookup):
+qx3 = {
+  type: "local-jsx",
+  name: "plan",
+  description: "View or open the current session plan",
+  argumentHint: "[open]",
+  isEnabled: () => !0,
+  isHidden: !1,
+  // ...
+}
+
+// READABLE (for understanding):
+planSlashCommand = {
+  type: "local-jsx",
+  name: "plan",
+  description: "View or open the current session plan",
+  argumentHint: "[open]",  // Subcommand hint
+  isEnabled: () => true,
+  isHidden: false,
+  // ...
+}
+```
+
+#### 命令用法
+
+| 命令 | 功能 |
+|------|------|
+| `/plan` | 查看当前 session 的 plan 内容 |
+| `/plan open` | 在外部编辑器中打开 plan 文件 |
+
+#### 相关 UI 提示
+
+```javascript
+// ExitPlanMode 成功后的提示 (chunks.130.mjs:1804):
+"Plan saved to: ", filePath, " · /plan to edit"
+
+// Write tool 写入 plan 后的提示 (chunks.122.mjs:3205):
+"/plan to preview · ", shortPath
+```
+
+### 14.5 设计权衡分析
+
+**为什么 Edit/Write 不自动更新 Context？**
+
+| 设计选择 | 优点 | 缺点 |
+|----------|------|------|
+| **当前设计：不同步** | • 实现简单<br>• 避免 context 膨胀<br>• 磁盘为唯一真相源 | • Claude 编辑后需主动 Read<br>• 中间状态不可见 |
+| **替代方案：自动同步** | • Claude 总是看到最新内容<br>• 无需额外 Read | • Context 快速增长<br>• 每次 Edit 都增加 tokens |
+
+**当前设计的合理性：**
+1. Plan 文件通常在 Plan Mode 结束时一次性提交给用户审批
+2. ExitPlanMode 是关键同步点，确保用户看到最新内容
+3. Compaction 时从磁盘重读，保证长对话中 plan 不丢失
+
+### 14.6 Context 同步机制总结
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                  PLAN FILE CONTEXT SYNC SUMMARY                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Q: Claude 能否编辑 Plan 文件？                                               │
+│  A: ✅ 是的，使用 Edit tool（已存在）或 Write tool（新建）                      │
+│                                                                             │
+│  Q: Edit/Write 后 Context 会更新吗？                                          │
+│  A: ❌ 不会！只有磁盘文件更新，Context 保持旧内容                               │
+│                                                                             │
+│  Q: Context 什么时候获取最新 Plan？                                           │
+│  A: 三个同步点：                                                              │
+│     1. ExitPlanMode - 读取磁盘，嵌入 tool_result                             │
+│     2. Compaction - XQ0 读取磁盘，重新注入                                    │
+│     3. Re-enter Plan Mode - 读取磁盘生成 reentry attachment                  │
+│                                                                             │
+│  Q: 如何在 Plan Mode 中查看最新 Plan？                                        │
+│  A: Claude 需要主动使用 Read tool 读取 plan 文件                              │
+│     或用户使用 /plan 命令查看                                                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```

@@ -903,14 +903,99 @@ const releaseNotesCommand = {
 
 #### /plan
 
-**Type:** `prompt`
+**Type:** `local-jsx`
 
-**Description:** Create a plan for complex tasks
+**Argument Hint:** `[open]`
+
+**Description:** View or open the current session plan
+
+**Definition:**
+```javascript
+// ============================================
+// planCommand - View or open session plan
+// Location: chunks.149.mjs:2878-2917
+// ============================================
+
+// ORIGINAL (for source lookup):
+qx3 = {
+  type: "local-jsx",
+  name: "plan",
+  description: "View or open the current session plan",
+  argumentHint: "[open]",
+  isEnabled: () => !0,
+  isHidden: !1,
+  async call(A, { options: { isNonInteractiveSession: Q } }, B) {
+    let G = e1(),
+      Z = xU(G),  // readPlanFile
+      I = yU(G);  // getPlanFilePath
+    if (!Z) return A("No plan found for current session"), null;
+    if (B.trim().split(/\s+/)[0] === "open") try {
+      return await cn(I), A(`Opened plan in editor: ${I}`), null
+    } catch (V) {
+      return A(`Failed to open plan in editor: ${V}`), null
+    }
+    // ... renders PlanView component
+  }
+};
+
+// READABLE (for understanding):
+const planCommand = {
+  type: "local-jsx",
+  name: "plan",
+  description: "View or open the current session plan",
+  argumentHint: "[open]",
+  isEnabled: () => true,
+  isHidden: false,
+  async call(onComplete, { options: { isNonInteractiveSession } }, args) {
+    const agentId = getAgentId();
+    const planContent = readPlanFile(agentId);
+    const planPath = getPlanFilePath(agentId);
+
+    if (!planContent) {
+      return onComplete("No plan found for current session"), null;
+    }
+
+    // Handle /plan open - open in external editor
+    if (args.trim().split(/\s+/)[0] === "open") {
+      try {
+        await openInEditor(planPath);
+        return onComplete(`Opened plan in editor: ${planPath}`), null;
+      } catch (error) {
+        return onComplete(`Failed to open plan in editor: ${error}`), null;
+      }
+    }
+
+    // Render plan content view
+    const editorName = getEditorName();
+    return <PlanView
+      planContent={planContent}
+      planPath={planPath}
+      editorName={editorName}
+    />;
+  }
+};
+
+// Mapping: qx3→planCommand, xU→readPlanFile, yU→getPlanFilePath,
+//          cn→openInEditor, Jg→getEditorChoice, aF→getEditorName
+```
 
 **Features:**
-- LLM-assisted planning
-- Step-by-step task breakdown
-- Plan file generation
+- View current session plan content in terminal
+- Open plan file in external editor via `/plan open`
+- Shows hint: `"/plan open" to edit this plan in {EditorName}`
+- Supports non-interactive mode (text output)
+- Integrates with Plan Mode workflow
+
+**Subcommands:**
+
+| Command | Function |
+|---------|----------|
+| `/plan` | Display plan content in terminal |
+| `/plan open` | Open plan file in configured external editor |
+
+**Related Files:**
+- Plan file location: `~/.claude/plans/{session-slug}.md`
+- Editor configuration: `/config` → IDE selection
 
 ---
 
@@ -925,6 +1010,98 @@ const releaseNotesCommand = {
 - Model in use
 - Context usage
 - Configuration state
+
+---
+
+#### /output-style
+
+**Type:** `local-jsx`
+
+**Argument Hint:** `[style]`
+
+**Description:** Set the output style directly or from a selection menu
+
+**Definition:**
+```javascript
+// ============================================
+// outputStyleCommand - Set output style
+// Location: chunks.152.mjs:1707-1740
+// ============================================
+
+// ORIGINAL (for source lookup):
+tC9 = {
+  type: "local-jsx",
+  name: "output-style",
+  userFacingName() { return "output-style" },
+  description: "Set the output style directly or from a selection menu",
+  isEnabled: () => !0,
+  isHidden: !1,
+  argumentHint: "[style]",
+  async call(A, Q, B) {
+    if (B = B?.trim() || "", OJ1.includes(B)) // info keywords
+      return eg.createElement(Nv3, { onDone: A });
+    if (MJ1.includes(B)) { // help keywords
+      A("Run /output-style to open the output style selection menu...");
+      return
+    }
+    if (B) return eg.createElement(qv3, { args: B, onDone: A }); // direct set
+    return eg.createElement($v3, { onDone: A }) // show menu
+  }
+};
+
+// READABLE (for understanding):
+const outputStyleCommand = {
+  type: "local-jsx",
+  name: "output-style",
+  description: "Set the output style directly or from a selection menu",
+  argumentHint: "[style]",
+  isEnabled: () => true,
+  isHidden: false,
+  async call(onComplete, context, args) {
+    args = args?.trim() || "";
+
+    // Show current style
+    if (INFO_KEYWORDS.includes(args)) {
+      return <ShowCurrentStyleComponent onDone={onComplete} />;
+    }
+
+    // Show help
+    if (HELP_KEYWORDS.includes(args)) {
+      onComplete("Run /output-style to open the selection menu...");
+      return;
+    }
+
+    // Set style directly
+    if (args) {
+      return <SetStyleDirectComponent args={args} onDone={onComplete} />;
+    }
+
+    // Show selection menu
+    return <OutputStyleMenuComponent onDone={onComplete} />;
+  }
+};
+
+// Mapping: tC9→outputStyleCommand, $v3→OutputStyleMenuComponent,
+//          qv3→SetStyleDirectComponent, Nv3→ShowCurrentStyleComponent
+```
+
+**Features:**
+- Interactive selection menu with 3 built-in styles
+- Direct style setting via `/output-style [name]`
+- Case-insensitive style name matching
+- Custom styles from `~/.claude/output-styles/` directories
+- Supports plugin-provided styles
+
+**Built-in Styles:**
+| Style | Description |
+|-------|-------------|
+| Default | Standard efficient mode |
+| Explanatory | Educational insights with `★ Insight` blocks |
+| Learning | Hands-on practice with `TODO(human)` markers |
+
+**Related:** `/output-style:new` - Create custom styles via natural language description
+
+**See:** [Output Style System](./output_style.md) for full documentation.
 
 ---
 
@@ -1063,7 +1240,7 @@ isHidden: () => !isDebugMode()
 | MCP | mcp | 1 |
 | Feedback | feedback | 1 |
 | Directory | add-dir | 1 |
-| Other | release-notes, vim, plan, status, ... | 5+ |
+| Other | release-notes, vim, plan, status, output-style, ... | 6+ |
 
 ---
 
@@ -1073,3 +1250,4 @@ isHidden: () => !isDebugMode()
 - [Command Execution](./execution.md) - How commands execute
 - [Custom Commands](./custom_commands.md) - Custom command loading
 - [Streaming and Errors](./streaming_errors.md) - Error handling
+- [Output Style System](./output_style.md) - Output style command and customization

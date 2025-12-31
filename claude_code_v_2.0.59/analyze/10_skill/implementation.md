@@ -14,6 +14,20 @@ Key functions in this document:
 - `processSlashCommand` (s61) - Processes skill invocation
 - `processPromptCommand` (kP2) - Generates skill prompt messages
 - `parseFrontmatter` (NV) - Parses YAML frontmatter from markdown
+- `formatSkillForLLM` (jb2) - Formats skill as XML for LLM prompt (Section 13)
+- `limitSkillsByBudget` (Ri5) - Limits skills by token budget (Section 13.3)
+- `getContextSkills` (jv3) - Returns context-based skills (Section 15)
+- `getPassesEligibility` (xjA) - Checks organization eligibility (Section 15)
+- `getSmallFastModel` (MW) - Returns small/fast model (Section 16)
+- `clearAllSkillCaches` (nH9) - Master cache invalidation (Section 17)
+- `clearSkillDirectoryCache` (gC9) - Clears skill directory cache
+- `clearPluginSkillsCache` (f69) - Clears plugin skills cache
+- `clearPluginCommandsCache` (zI1) - Clears plugin commands cache
+- `getBuiltinCommands` (KE9) - Returns all built-in commands (Section 18)
+- `renderToolResultMessage` (Cd2) - UI result rendering (Section 14)
+- `renderToolUseMessage` (Ed2) - UI use message rendering (Section 14)
+- `renderToolUseProgressMessage` (zd2) - UI progress rendering (Section 14)
+- `renderToolUseErrorMessage` ($d2) - UI error rendering (Section 14)
 
 ---
 
@@ -261,6 +275,7 @@ interface SkillObject {
   // Configuration
   allowedTools: string[];            // Tools skill can invoke
   model: string | undefined;         // Model override
+  useSmallFastModel: boolean;        // Use small/fast model for this skill (see Section 16)
 
   // Functions
   userFacingName(): string;          // Returns name or directory name
@@ -795,6 +810,11 @@ ln = {
   renderToolUseErrorMessage: $d2
 };
 ```
+
+**Key clarifications:**
+- **SkillTool input**: Only accepts `skill` field (skill name), no arguments in tool input
+- **Arguments handling**: When user invokes `/skill-name args`, the args are passed via `$ARGUMENTS` placeholder replacement in skill prompt (see Section 11.4)
+- **LLM invocation**: SkillTool description says "skill name only (no arguments)" - LLM provides skill context through conversation, not tool input
 
 ### 5.2 Input Validation
 
@@ -1815,7 +1835,19 @@ Provide detailed analysis with file locations and recommendations.
 
 ### 11.3 Plugin Skills
 
-Plugins can bundle skills via manifest configuration:
+Plugins can bundle skills via manifest configuration.
+
+**Qualified Name Format:**
+Plugin skills use qualified names: `<plugin-name>:<skill-name>`
+
+Example: `ms-office-suite:pdf`
+
+When a skill's internal name differs from its `userFacingName`, debugging log is output:
+```
+Skill prompt: showing "pdf" (userFacingName="ms-office-suite:pdf")
+```
+
+**Manifest Configuration:**
 
 **Single path:**
 ```json
@@ -1893,9 +1925,573 @@ This allows skills to reference files relative to their location.
 
 ---
 
-## 12. Summary
+## 13. Skill Prompt Format for LLM
 
-### 12.1 Key Design Decisions
+### 13.1 XML Formatting Function
+
+Skills are formatted as XML for presentation in the LLM's available skills list:
+
+```javascript
+// ============================================
+// formatSkillForLLM - Formats a skill object into XML for LLM prompt
+// Location: chunks.124.mjs:3163-3179
+// ============================================
+
+// ORIGINAL (for source lookup):
+function jb2(A) {
+  let Q = A.name,
+    B = A.whenToUse ? `${A.description} - ${A.whenToUse}` : A.description,
+    G = A.type === "prompt" ? A.source === "localSettings" ? "project" : A.source === "userSettings" ? "user" : A.source === "plugin" ? "plugin" : "managed" : "unknown";
+  if (A.name !== A.userFacingName() && A.type === "prompt" && A.source === "plugin") g(`Skill prompt: showing "${A.name}" (userFacingName="${A.userFacingName()}")`);
+  return `<skill>\n<name>\n${Q}\n</name>\n<description>\n${B}\n</description>\n<location>\n${G}\n</location>\n</skill>`
+}
+
+// READABLE (for understanding):
+function formatSkillForLLM(skill) {
+  let skillName = skill.name;
+
+  // Combine description with whenToUse if available
+  let fullDescription = skill.whenToUse
+    ? `${skill.description} - ${skill.whenToUse}`
+    : skill.description;
+
+  // Map source type to user-friendly location label
+  let location;
+  if (skill.type === "prompt") {
+    switch (skill.source) {
+      case "localSettings": location = "project"; break;
+      case "userSettings":  location = "user";    break;
+      case "plugin":        location = "plugin";  break;
+      default:              location = "managed"; break;
+    }
+  } else {
+    location = "unknown";
+  }
+
+  // Log qualified name difference for plugin skills (debugging)
+  if (skill.name !== skill.userFacingName() && skill.type === "prompt" && skill.source === "plugin") {
+    log(`Skill prompt: showing "${skill.name}" (userFacingName="${skill.userFacingName()}")`);
+  }
+
+  // Return XML-formatted skill
+  return `<skill>
+<name>
+${skillName}
+</name>
+<description>
+${fullDescription}
+</description>
+<location>
+${location}
+</location>
+</skill>`;
+}
+
+// Mapping: jb2→formatSkillForLLM, A→skill, Q→skillName, B→fullDescription, G→location
+```
+
+**How it works:**
+1. Extracts skill name directly from object
+2. Combines `description` with `whenToUse` using " - " separator
+3. Maps internal source type to user-friendly location label
+4. Returns skill formatted as XML with name/description/location tags
+
+**Why this approach:**
+- **XML format**: Provides clear structure for LLM to parse skill metadata
+- **Location label**: Helps LLM understand skill provenance (project vs user vs plugin)
+- **Qualified name logging**: Aids debugging when plugin skills have different internal names
+
+### 13.2 Source Location Mapping
+
+| Internal Source | Display Location | Description |
+|-----------------|------------------|-------------|
+| `localSettings` | `project` | Project-level `.claude/skills/` |
+| `userSettings` | `user` | User-level `~/.claude/skills/` |
+| `plugin` | `plugin` | From installed plugin |
+| (default) | `managed` | Policy-managed skills |
+
+### 13.3 Token Budget Limiting
+
+```javascript
+// ============================================
+// limitSkillsByBudget - Limits skills to fit within token budget
+// Location: chunks.124.mjs:3181-3190
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Ri5(A) {
+  let Q = [],
+    B = 0;
+  for (let G of A) {
+    let Z = jb2(G);
+    if (B += Z.length + 1, B > Oi5()) break;
+    Q.push(G)
+  }
+  return Q
+}
+
+// READABLE (for understanding):
+function limitSkillsByBudget(skills) {
+  let result = [];
+  let currentChars = 0;
+
+  for (let skill of skills) {
+    let formatted = formatSkillForLLM(skill);
+    currentChars += formatted.length + 1;  // +1 for newline
+
+    if (currentChars > getSkillTokenBudget()) break;  // Budget exceeded
+    result.push(skill);
+  }
+
+  return result;
+}
+
+// Mapping: Ri5→limitSkillsByBudget, A→skills, Q→result, B→currentChars, Z→formatted, Oi5→getSkillTokenBudget
+```
+
+### 13.4 Token Limit Comment
+
+When skills are truncated due to budget limits:
+
+```javascript
+// ============================================
+// formatSkillsWithLimit - Adds token limit notice when truncated
+// Location: chunks.124.mjs:3204-3210
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Pi5(A, Q) {
+  let B = Ti5(A);
+  if (!B) return "";
+  let G = Q > A.length ? `\n<!-- Showing ${A.length} of ${Q} skills due to token limits -->` : "";
+  return `${B}${G}`
+}
+
+// READABLE (for understanding):
+function formatSkillsWithLimit(limitedSkills, totalCount) {
+  let formattedSkills = formatAllSkills(limitedSkills);
+  if (!formattedSkills) return "";
+
+  // Add notice if skills were truncated
+  let truncationNotice = totalCount > limitedSkills.length
+    ? `\n<!-- Showing ${limitedSkills.length} of ${totalCount} skills due to token limits -->`
+    : "";
+
+  return `${formattedSkills}${truncationNotice}`;
+}
+
+// Mapping: Pi5→formatSkillsWithLimit, A→limitedSkills, Q→totalCount, B→formattedSkills, G→truncationNotice, Ti5→formatAllSkills
+```
+
+---
+
+## 14. UI Rendering Components
+
+### 14.1 SkillTool Rendering Functions
+
+```javascript
+// ============================================
+// SkillTool UI Rendering Functions
+// Location: chunks.130.mjs:2462-2505
+// ============================================
+
+// renderToolResultMessage (Cd2) - Displays skill execution result
+// ORIGINAL:
+function Cd2(A, Q, { verbose: B }) {
+  let G = [];
+  if (A.success) G.push(`Skill: ${A.commandName}`);
+  if (A.allowedTools?.length) G.push(`Tools: ${A.allowedTools.join(", ")}`);
+  if (A.model) G.push(`Model: ${A.model}`);
+  return uq.createElement(S0, { height: 1, flexShrink: 0 },
+    uq.createElement($, null, G.join(" · ")))
+}
+
+// READABLE:
+function renderToolResultMessage(result, rawOutput, { verbose }) {
+  let displayParts = [];
+
+  // Show skill name if successful
+  if (result.success) {
+    displayParts.push(`Skill: ${result.commandName}`);
+  }
+
+  // Show allowed tools if any
+  if (result.allowedTools?.length) {
+    displayParts.push(`Tools: ${result.allowedTools.join(", ")}`);
+  }
+
+  // Show model override if specified
+  if (result.model) {
+    displayParts.push(`Model: ${result.model}`);
+  }
+
+  // Render as single-line box with parts joined by " · "
+  return createElement(Box, { height: 1, flexShrink: 0 },
+    createElement(Text, null, displayParts.join(" · ")));
+}
+
+// renderToolUseMessage (Ed2) - Shows skill name being invoked
+function renderToolUseMessage({ skill }, { verbose }) {
+  return skill;  // Simply returns the skill name
+}
+
+// renderToolUseProgressMessage (zd2) - Loading indicator
+function renderToolUseProgressMessage() {
+  return createElement(Box, { height: 1 },
+    createElement(Text, { dimColor: true }, "Loading…"));
+}
+
+// renderToolUseRejectedMessage (Ud2) - Rejection display
+function renderToolUseRejectedMessage() {
+  return createElement(EmptyComponent, null);  // k5 = empty component
+}
+
+// renderToolUseErrorMessage ($d2) - Error display
+function renderToolUseErrorMessage(error, { verbose }) {
+  return createElement(ErrorComponent, { message: error.message });  // Q6
+}
+
+// Mapping: Cd2→renderToolResultMessage, Ed2→renderToolUseMessage,
+//          zd2→renderToolUseProgressMessage, Ud2→renderToolUseRejectedMessage,
+//          $d2→renderToolUseErrorMessage, uq→React, S0→Box, $→Text, k5→EmptyComponent, Q6→ErrorComponent
+```
+
+### 14.2 Render Function Summary
+
+| Function | Readable Name | Purpose | Output |
+|----------|---------------|---------|--------|
+| `Cd2` | renderToolResultMessage | Shows execution result | "Skill: X · Tools: Y · Model: Z" |
+| `Ed2` | renderToolUseMessage | Shows skill being invoked | Skill name string |
+| `zd2` | renderToolUseProgressMessage | Loading indicator | "Loading…" (dimmed) |
+| `Ud2` | renderToolUseRejectedMessage | Permission rejected | Empty component |
+| `$d2` | renderToolUseErrorMessage | Error display | Error component with message |
+
+---
+
+## 15. Context Skills
+
+### 15.1 Context-Based Skill Loading
+
+Context skills are dynamically included based on user eligibility:
+
+```javascript
+// ============================================
+// getContextSkills - Returns skills based on user context/eligibility
+// Location: chunks.152.mjs:2143-2148
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function jv3() {
+  try {
+    return (await xjA())?.eligible ? [CD9] : []
+  } catch (A) {
+    return []
+  }
+}
+
+// READABLE (for understanding):
+async function getContextSkills() {
+  try {
+    // Check passes eligibility (organization-based feature)
+    let eligibilityResult = await getPassesEligibility();
+
+    // If eligible, return context skill object; otherwise empty
+    return eligibilityResult?.eligible ? [CONTEXT_SKILL_OBJECT] : [];
+  } catch (error) {
+    // Graceful degradation - return empty on error
+    return [];
+  }
+}
+
+// Mapping: jv3→getContextSkills, xjA→getPassesEligibility, CD9→CONTEXT_SKILL_OBJECT
+```
+
+### 15.2 Eligibility Checking
+
+```javascript
+// ============================================
+// getPassesEligibility - Checks if user is eligible for passes feature
+// Location: chunks.143.mjs:1068-1089
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function xjA() {
+  if (!q59()) return null;
+  let A = t6()?.organizationUuid;
+  if (!A) return null;
+  let B = N1().passesEligibilityCache?.[A],
+    G = Date.now();
+  if (B && G - B.timestamp < $59) return B;
+  return w59(A)
+}
+
+// READABLE (for understanding):
+async function getPassesEligibility() {
+  // Check if passes feature is enabled
+  if (!isPassesFeatureEnabled()) return null;
+
+  // Get organization UUID from session
+  let orgUuid = getSession()?.organizationUuid;
+  if (!orgUuid) return null;
+
+  // Check cache
+  let cachedResult = getLocalStorage().passesEligibilityCache?.[orgUuid];
+  let now = Date.now();
+
+  // Return cached result if not expired (1 hour TTL)
+  if (cachedResult && now - cachedResult.timestamp < ELIGIBILITY_CACHE_TTL) {
+    return cachedResult;
+  }
+
+  // Fetch fresh eligibility from server
+  return fetchAndCacheEligibility(orgUuid);
+}
+
+// Constants:
+// $59 = 3600000 (1 hour = 60 * 60 * 1000 ms)
+
+// Mapping: xjA→getPassesEligibility, q59→isPassesFeatureEnabled, t6→getSession,
+//          A→orgUuid, B→cachedResult, G→now, N1→getLocalStorage,
+//          $59→ELIGIBILITY_CACHE_TTL, w59→fetchAndCacheEligibility
+```
+
+**How it works:**
+1. `getContextSkills()` is called during command loading (`sE`)
+2. Checks passes eligibility via cached org-based lookup
+3. If eligible, returns context skill object(s)
+4. Cache has 1-hour TTL to reduce API calls
+
+**Why this approach:**
+- **Organization-based**: Eligibility tied to org UUID, not individual user
+- **Cached eligibility**: Reduces repeated API calls (1 hour TTL)
+- **Graceful degradation**: Returns empty array on any error
+
+---
+
+## 16. Small/Fast Model Override
+
+### 16.1 Model Selection Function
+
+```javascript
+// ============================================
+// getSmallFastModel - Returns the small/fast model for lightweight tasks
+// Location: chunks.59.mjs:2725-2727
+// ============================================
+
+// ORIGINAL (for source lookup):
+function MW() {
+  return process.env.ANTHROPIC_SMALL_FAST_MODEL || X7A()
+}
+
+// READABLE (for understanding):
+function getSmallFastModel() {
+  // Allow override via environment variable
+  // Falls back to default small model (X7A = claude-3-haiku-* or similar)
+  return process.env.ANTHROPIC_SMALL_FAST_MODEL || getDefaultSmallModel();
+}
+
+// Mapping: MW→getSmallFastModel, X7A→getDefaultSmallModel
+```
+
+### 16.2 Usage in Skill Processing
+
+```javascript
+// Location: chunks.121.mjs:1197 (processPromptCommand)
+model: A.useSmallFastModel ? MW() : A.model
+
+// READABLE:
+model: skill.useSmallFastModel ? getSmallFastModel() : skill.model
+```
+
+### 16.3 Environment Variables
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `ANTHROPIC_SMALL_FAST_MODEL` | Override small model name | `claude-3-haiku-20240307` |
+| `ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION` | AWS region for Bedrock | `us-east-1` |
+
+**How it works:**
+1. If skill has `useSmallFastModel: true`, uses small/fast model instead of default
+2. Small model determined by env var or built-in default
+3. For Bedrock, can specify separate region for small model
+
+**Why this approach:**
+- **Cost optimization**: Skills that don't need full model power can use cheaper model
+- **Environment override**: Organizations can specify their preferred small model
+- **Bedrock support**: Different regions may have different model availability
+
+---
+
+## 17. Cache Management
+
+### 17.1 Master Cache Invalidation
+
+```javascript
+// ============================================
+// clearAllSkillCaches - Master cache invalidation
+// Location: chunks.152.mjs:2170-2171
+// ============================================
+
+// ORIGINAL (for source lookup):
+function nH9() {
+  sE.cache?.clear?.(), OWA.cache?.clear?.(), n51.cache?.clear?.(), zI1(), f69(), gC9()
+}
+
+// READABLE (for understanding):
+function clearAllSkillCaches() {
+  // Clear memoized function caches
+  getAllCommands.cache?.clear?.();           // sE - master command list
+  getModelInvokableSkills.cache?.clear?.();  // OWA - skills for LLM
+  getSlashCommandSkills.cache?.clear?.();    // n51 - skills for slash commands
+
+  // Clear component-specific caches
+  clearPluginCommandsCache();                 // zI1 - PQA cache
+  clearPluginSkillsCache();                   // f69 - iW0 cache
+  clearSkillDirectoryCache();                 // gC9 - VK0 cache
+}
+
+// Mapping: nH9→clearAllSkillCaches, sE→getAllCommands, OWA→getModelInvokableSkills,
+//          n51→getSlashCommandSkills, zI1→clearPluginCommandsCache, f69→clearPluginSkillsCache,
+//          gC9→clearSkillDirectoryCache
+```
+
+### 17.2 Cache Hierarchy Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    CACHE INVALIDATION HIERARCHY                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  fullCacheRefresh (AF)                                               │
+│  Location: chunks.151.mjs:475                                        │
+│  │                                                                   │
+│  ├─► clearPartialCaches (vx3)                                        │
+│  │   ├── _IA()  - Unknown cache                                      │
+│  │   ├── zI1()  - Plugin commands (PQA)                              │
+│  │   ├── Xf2()  - Unknown cache                                      │
+│  │   ├── bI2()  - Unknown cache                                      │
+│  │   └── QK0()  - Unknown cache                                      │
+│  │                                                                   │
+│  └─► clearAllSkillCaches (nH9)                                       │
+│      ├── sE.cache?.clear?.()   → getAllCommands                      │
+│      ├── OWA.cache?.clear?.()  → getModelInvokableSkills             │
+│      ├── n51.cache?.clear?.()  → getSlashCommandSkills               │
+│      ├── zI1()                 → clearPluginCommandsCache            │
+│      ├── f69()                 → clearPluginSkillsCache              │
+│      └── gC9()                 → clearSkillDirectoryCache            │
+│                                                                      │
+│  Individual Clear Functions:                                         │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │ gC9() = VK0.cache?.clear?.()  // Skill directories        │     │
+│  │ f69() = iW0.cache?.clear?.()  // Plugin skills            │     │
+│  │ zI1() = PQA.cache?.clear?.()  // Plugin commands          │     │
+│  └────────────────────────────────────────────────────────────┘     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 17.3 Cache Clear Triggers
+
+- After adding/removing skills in `.claude/skills/`
+- After enabling/disabling plugins
+- When user runs `/clear` or similar commands
+- After config changes that affect skill visibility
+
+---
+
+## 18. Built-in Commands Reference
+
+### 18.1 Built-in Commands Array
+
+```javascript
+// ============================================
+// getBuiltinCommands - Returns all built-in commands
+// Location: chunks.152.mjs:2265
+// ============================================
+
+// ORIGINAL (for source lookup):
+KE9 = s1(() => [KV9, mH9, LV9, OV9, rV9, QF9, GF9, EF9, hI1, aD9, kF9, gF9, mF9,
+  NK9, jK9, MF9, rC9, tC9, IE9, EC9, yK9, bK9, hK9, iK9, sK9, XE9, xC9, QD9,
+  qV9, JJ1, UC9, GD9, Ep, PSA, Yx, JE9, ID9, JD9, XD9, FD9, qD9, iD9, lC9, kC9,
+  ...!N_() ? [FO2, d49()] : [], oK9, ...[]])
+
+// READABLE (for understanding):
+getBuiltinCommands = memoize(() => [
+  // Core tools (40+ commands)
+  ReadTool,           // KV9
+  WriteTool,          // mH9
+  EditTool,           // LV9
+  BashTool,           // OV9
+  GlobTool,           // rV9
+  GrepTool,           // QF9
+  TaskTool,           // GF9
+  WebFetchTool,       // EF9
+  WebSearchTool,      // hI1
+  // ... more tools ...
+
+  // Conditional tools (based on feature flags)
+  ...(!isFeatureDisabled() ? [ExperimentalTool1, ExperimentalTool2] : []),
+
+  // Final tools
+  TodoWriteTool,      // oK9
+]);
+
+// Name lookup set for fast checking
+Ny = memoize(() => new Set(getBuiltinCommands().map(cmd => cmd.name)));
+
+// Mapping: KE9→getBuiltinCommands, Ny→getBuiltinCommandNames, s1→memoize
+```
+
+### 18.2 Built-in Check Usage
+
+```javascript
+// Check if command name is built-in
+let D = K ? "mcp" : !Ny().has(V) ? "custom" : V;
+// Readable: telemetryType = isMcp ? "mcp" : !isBuiltinCommand(name) ? "custom" : name;
+```
+
+**Key insight:** The built-in command check (`Ny().has(name)`) is used for telemetry to distinguish built-in vs custom commands.
+
+---
+
+## 19. Source Label Formatting
+
+### 19.1 Source Type Display
+
+```javascript
+// ============================================
+// formatSourceLabel - Formats skill source for UI display
+// (Function pattern inferred from usage)
+// ============================================
+
+// READABLE (for understanding):
+function formatSourceLabel(source) {
+  switch (source) {
+    case "policySettings": return "Managed";
+    case "userSettings":   return "User";
+    case "projectSettings": return "Project";  // Note: code may use "localSettings"
+    case "plugin":         return "Plugin";
+    default:               return source;
+  }
+}
+```
+
+### 19.2 Source Type Reference
+
+| Internal Source | UI Display | Context |
+|-----------------|------------|---------|
+| `policySettings` | Managed | Organization-managed skills |
+| `userSettings` | User | User's global `~/.claude/skills/` |
+| `projectSettings`/`localSettings` | Project | Project's `.claude/skills/` |
+| `plugin` | Plugin | From installed plugin package |
+
+**Note:** The code inconsistently uses `projectSettings` and `localSettings` - both refer to project-level skills.
+
+---
+
+## 20. Summary
+
+### 20.1 Key Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
@@ -1909,7 +2505,7 @@ This allows skills to reference files relative to their location.
 | Token budget | Prevent context overflow |
 | Wildcard permissions | Flexible access control for skill groups |
 
-### 12.2 Performance Characteristics
+### 20.2 Performance Characteristics
 
 - **Skill discovery**: O(1) relative to source count (parallel loading)
 - **Directory scanning**: O(n) where n = subdirectories
@@ -1917,7 +2513,7 @@ This allows skills to reference files relative to their location.
 - **Cache hit**: O(1) via memoization
 - **Memory**: Skills cached until explicit invalidation
 
-### 12.3 Extensibility Points
+### 20.3 Extensibility Points
 
 1. **Custom skills**: Add SKILL.md in any supported directory
 2. **Plugin skills**: Bundle skills with plugins via manifest

@@ -22,6 +22,8 @@
 - [Compact](#module-compact) - Auto-compact, micro-compact, token counting
 - [Hooks](#module-hooks) - Hook execution, event handlers
 - [Skill System](#module-skill-system) - Skill tool, loading, aggregation
+- [Thinking Mode](#module-thinking-mode) - Ultrathink keyword, tab toggle, API integration
+- [Output Style](#module-output-style) - Output style command, built-in styles, custom styles
 
 ---
 
@@ -865,6 +867,123 @@
 |------------|----------|-----------|------|
 | cP | SLASHCOMMAND_TOOL_NAME | chunks.130.mjs:2748 | constant |
 | Nd2 | slashCommandToolPrompt | chunks.130.mjs:2784-2789 | function |
+
+---
+
+## Module: Thinking Mode
+
+> See detailed analysis: [19_think_level/think_keyword_analysis.md](../19_think_level/think_keyword_analysis.md)
+
+### Keyword Detection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ae | detectThinkingKeyword | chunks.70.mjs:2275-2281 | function |
+| WrA | isUltrathinkExact | chunks.70.mjs:2195-2198 | function |
+| XrA | extractKeywordPositions | chunks.70.mjs:2283-2293 | function |
+| zU6 | calculateThinkingTokens | chunks.70.mjs:2244-2268 | function |
+| EU6 | levelToTokens | chunks.70.mjs:2240-2242 | function |
+| UU6 | extractMessageContent | chunks.70.mjs:2270-2273 | function |
+| Xf | getMaxThinkingTokens | chunks.70.mjs:2228-2238 | function |
+| nMB | segmentTextByKeyword | chunks.70.mjs:2205-2226 | function |
+
+### Thinking Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| zm1 | THINKING_TOKEN_LEVELS | chunks.70.mjs:2330-2333 | constant |
+| CU6 | ULTRATHINK_REGEX_GLOBAL | chunks.70.mjs:2333 | constant |
+| JrA | THINKING_LEVEL_COLORS | chunks.70.mjs:2323-2326 | constant |
+| iMB | THINKING_SHIMMER_COLORS | chunks.70.mjs:2326-2329 | constant |
+
+### Thinking UI Components
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| DO2 | ThinkingIndicator | chunks.118.mjs:1074-1095 | function |
+
+### Thinking Block Processing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| NQ0 | isThinkingOnlyMessage | chunks.154.mjs:451-529 | function |
+| pE9 | isThinkingBlock | chunks.154.mjs | function |
+| xb3 | filterTrailingThinking | chunks.154.mjs | function |
+
+### Context Management / Preservation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bCB | buildContextManagementEdits | chunks.60.mjs:392-445 | function |
+| vo0 | INTERLEAVED_THINKING_BETA | chunks.24.mjs:1817 | constant |
+| nbA | CONTEXT_MANAGEMENT_BETA | chunks.24.mjs:1806 | constant |
+| aX4 | supportsInterleavedThinking | chunks.24.mjs | function |
+
+### API Token Calculations
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| UQ0 | getModelMaxOutputTokens | chunks.153.mjs:478-493 | function |
+| pv3 | capTokensForFallback | chunks.153.mjs:468-475 | function |
+| cv3 | MAX_CONTEXT_THRESHOLD | chunks.153.mjs:495 | constant |
+
+### Effort Level System (SEPARATE from Thinking)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| g60 | getEffortLevel | chunks.121.mjs:2208-2225 | function |
+| h60 | isValidEffortLevel | chunks.121.mjs | function |
+| kv3 | buildReasoningEffortPrompt | chunks.152.mjs:2286-2295 | function |
+| hv3 | applyTaskIntensity | chunks.152.mjs:2716-2718 | function |
+| _v3 | EFFORT_LEVEL_MAPPING | chunks.152.mjs:2655-2659 | constant |
+
+---
+
+## Module: Output Style
+
+> See detailed documentation: [09_slash_command/output_style.md](../09_slash_command/output_style.md)
+
+### Command Definition
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| tC9 | outputStyleCommand | chunks.152.mjs:1707-1740 | object |
+| OJ1 | OUTPUT_STYLE_INFO_KEYWORDS | chunks.152.mjs | constant |
+| MJ1 | OUTPUT_STYLE_HELP_KEYWORDS | chunks.152.mjs | constant |
+
+### UI Components
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| $v3 | OutputStyleMenuComponent | chunks.152.mjs:1624-1660 | function |
+| qv3 | SetStyleDirectComponent | chunks.152.mjs:1670-1684 | function |
+| Nv3 | ShowCurrentStyleComponent | chunks.152.mjs:1686-1691 | function |
+| wv3 | findStyleCaseInsensitive | chunks.152.mjs:1662-1668 | function |
+| uY1 | OutputStyleSelector | chunks.147.mjs:3116-3157 | function |
+| dV9 | convertStylesToOptions | chunks.147.mjs:3100-3114 | function |
+
+### Style Definitions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| TQA | BUILTIN_OUTPUT_STYLES | chunks.153.mjs:1967-2058 | object |
+| wK | DEFAULT_STYLE_NAME | chunks.153.mjs:1951 | constant |
+| gE9 | INSIGHT_BLOCK_TEMPLATE | chunks.153.mjs:1960-1966 | constant |
+
+### Style Loading
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cQA | loadAllOutputStyles | chunks.153.mjs:1923-1941 | async function |
+| fE9 | loadCustomOutputStyles | chunks.153.mjs:1892-1920 | async function |
+| EE9 | getCurrentStyleConfig | chunks.153.mjs:1944-1947 | async function |
+| AK0 | loadPluginOutputStyles | chunks.151.mjs | async function |
+
+### System Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| KH5 | generateOutputStyleReminder | chunks.107.mjs:1919-1926 | function |
 
 ---
 
