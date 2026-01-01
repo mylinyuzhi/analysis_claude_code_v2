@@ -641,13 +641,41 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | j91 | fullCompact | chunks.107.mjs:1120-1237 | function |
-| sI2 | autoCompactDispatcher | chunks.107.mjs:1707-1731 | function |
+| sI2 | autoCompactDispatcher | chunks.107.mjs:1708-1731 | function |
 | Si | microCompactToolResults | chunks.107.mjs:1440-1545 | function |
-| f91 | tryMicroCompact | chunks.107.mjs:1621-1645 | function |
-| tD5 | shouldTriggerAutoCompact | chunks.107.mjs:1698-1705 | function |
-| x1A | calculateThresholds | chunks.107.mjs:1677-1691 | function |
-| aI2 | getAutoCompactThreshold | chunks.107.mjs:1663-1674 | function |
-| b1A | isAutoCompactEnabled | chunks.107.mjs:1694-1695 | function |
+| f91 | tryNestedMemoryCache | chunks.107.mjs:1621-1645 | function |
+| tD5 | shouldTriggerAutoCompact | chunks.107.mjs:1698-1706 | function |
+| x1A | calculateThresholds | chunks.107.mjs:1677-1692 | function |
+| aI2 | getAutoCompactThreshold | chunks.107.mjs:1663-1675 | function |
+| b1A | isAutoCompactEnabled | chunks.107.mjs:1694-1696 | function |
+| R91 | buildCompactionPrompt | chunks.107.mjs:537-710 | function |
+| FQ0 | runPreCompactHooks | chunks.107.mjs | function |
+| wq | runSessionStartHooks | chunks.107.mjs:1203 | function |
+
+### Nested Memory (Session Memory Cache)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| b91 | isNestedMemoryEnabled | chunks.107.mjs:1597-1599 | function |
+| dI2 | waitForCacheLock | chunks.107.mjs:1362-1368 | function |
+| hI2 | getCachedBoundaryUuid | chunks.107.mjs:1346-1348 | function |
+| cI2 | getCachedSummaryContent | chunks.107.mjs:1371-1378 | function |
+| sD5 | rebuildFromCache | chunks.107.mjs:1601-1619 | function |
+| k91 | getSessionMemorySummaryPath | chunks.154.mjs:1501-1503 | function |
+| kJ1 | getSessionMemoryDir | chunks.154.mjs:1497-1499 | function |
+| S91 | createCompactBoundary | chunks.154.mjs:395-410 | function |
+
+### Nested Memory File Watching
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qH5 | getNestedMemoryAttachments | chunks.107.mjs:2152-2163 | function |
+| ZY2 | collectNestedMemoryFiles | chunks.107.mjs:1981-2005 | function |
+| qQ0 | addToReadState | chunks.107.mjs:1965-1979 | function |
+| CH5 | getRelatedDirectories | chunks.107.mjs | function |
+| pZ2 | getFilesAtPath | chunks.107.mjs | function |
+| lZ2 | getNestedFiles | chunks.107.mjs | function |
+| iZ2 | getCwdLevelFiles | chunks.107.mjs | function |
 
 ### Message Selection
 
