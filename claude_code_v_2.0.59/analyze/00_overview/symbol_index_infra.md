@@ -9,6 +9,7 @@
 
 ## Quick Navigation
 
+- [Authentication](#module-authentication) - API key, OAuth, token refresh, provider modes
 - [MCP Protocol](#module-mcp-protocol) - Server config, tool calling, result processing
 - [Code Indexing](#module-code-indexing---tree-sitter) - Tree-sitter, file index, file cache
 - [Shell Command Parser](#module-shell-command-parser) - Command parsing, pipes
@@ -22,6 +23,107 @@
 - [Slash Commands](#module-slash-commands) - Command parsing, execution
 - [SDK Transport](#module-sdk-transport) - SDK message handling, WebSocket transport
 - [Constants & Utilities](#constants-cross-module) - Cross-module constants
+
+---
+
+## Module: Authentication
+
+> **Related documentation:** [24_auth/](../24_auth/) - Detailed authentication analysis
+
+### API Key Resolution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cw | getApiKeyAndSource | chunks.56.mjs:1734-1782 | function |
+| Kw | getApiKey | chunks.56.mjs:1717-1722 | function |
+| rz1 | readApiKeyFromFileDescriptor | chunks.24.mjs:1474-1498 | function |
+| sz1 | readOAuthTokenFromFileDescriptor | chunks.24.mjs:1448-1472 | function |
+| fzA | executeApiKeyHelper | chunks.56.mjs (memoized) | function |
+| bzA | hasApiKeyHelper | chunks.56.mjs:1784-1786 | function |
+| dw | maskApiKey | chunks.56.mjs:1618-1620 | function |
+
+### OAuth Flow
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| KRA | OAuthFlow | chunks.118.mjs:823-908 | class |
+| jQ0 | LocalCallbackServer | chunks.108.mjs:110-199 | class |
+| oz1 | buildOAuthAuthorizeUrl | chunks.24.mjs:1556-1571 | function |
+| Lo0 | exchangeCodeForTokens | chunks.24.mjs:1573-1590 | function |
+| Mo0 | refreshAccessToken | chunks.24.mjs:1592-1636 | function |
+| M6 | getClaudeAiOAuth | chunks.56.mjs (memoized) | function |
+| gzA | saveOAuthTokens | chunks.56.mjs:1979-2015 | function |
+| Qt | refreshOAuthTokenIfNeeded | chunks.56.mjs:2017-2049 | function |
+| Ad | isTokenExpiringSoon | chunks.24.mjs:1674-1678 | function |
+| wv | hasClaudeAiScope | chunks.24.mjs:1548-1550 | function |
+| cbA | parseScopes | chunks.24.mjs:1552-1554 | function |
+| ez1 | saveAccountInfo | chunks.24.mjs:1736-1752 | function |
+| Vr0 | OAUTH_CONFIG | chunks.23.mjs:496-524 | constant |
+
+### PKCE Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SQ0 | base64UrlEncode | chunks.108.mjs:208-210 | function |
+| RY2 | generateCodeVerifier | chunks.108.mjs:212-214 | function |
+| TY2 | generateCodeChallenge | chunks.108.mjs:216-219 | function |
+| PY2 | generateState | chunks.108.mjs:221-223 | function |
+
+### Browser Operations
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cZ | openBrowserUrl | chunks.94.mjs:955-981 | function |
+| F95 | validateUrlFormat | chunks.94.mjs:948-953 | function |
+
+### User Profile
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| k4A | fetchOAuthProfile | chunks.24.mjs:1526-1538 | function |
+| tz1 | fetchProfileInfo | chunks.24.mjs:1680-1708 | function |
+| Oo0 | fetchUserRoles | chunks.24.mjs:1638-1651 | function |
+| Ro0 | fetchAndStoreApiKey | chunks.24.mjs:1653-1672 | function |
+| kc | getOAuthTokenSource | chunks.56.mjs:1689-1715 | function |
+
+### Storage Backends
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Fw | getStorageBackend | chunks.24.mjs:1438-1441 | function |
+| $o0 | keychainStorage | chunks.24.mjs:1325-1371 | object |
+| az1 | plaintextStorage | chunks.24.mjs:1388-1436 | object |
+| wo0 | isKeychainLocked | chunks.24.mjs:1306-1316 | function |
+
+### Provider Client Creation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Kq | createApiClient | chunks.88.mjs:3-105 | function |
+| PA5 | addAuthorizationHeader | chunks.88.mjs:107-110 | function |
+| jA5 | getCustomHeaders | chunks.88.mjs:112-126 | function |
+| fc | getUserAgent | chunks.88.mjs | function |
+
+### AWS Credential Helpers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| h3A | getAWSCredentials | chunks.56.mjs (memoized) | function |
+| yr8 | runAwsAuthRefresh | chunks.56.mjs:1845-1859 | function |
+| xr8 | runAwsCredentialExport | chunks.56.mjs:1886-1917 | function |
+| gv1 | getAwsAuthRefreshCommand | chunks.56.mjs:1796-1798 | function |
+| uv1 | getAwsCredentialExportCommand | chunks.56.mjs:1808-1810 | function |
+
+### Subscription Detection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| BB | isClaudeAiOAuth | chunks.56.mjs:2051-2054 | function |
+| JU | shouldUseOAuth | chunks.56.mjs | function |
+| f4 | getSubscriptionType | chunks.56.mjs:2072-2078 | function |
+| t6 | getOAuthAccount | chunks.56.mjs:2062-2064 | function |
+| pw | hasPaidExtras | chunks.56.mjs:2066-2070 | function |
+| N_ | isExternalProvider | chunks.56.mjs:2102-2104 | function |
 
 ---
 
