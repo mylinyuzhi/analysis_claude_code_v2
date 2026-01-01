@@ -20,6 +20,7 @@
 - [Prompt Building](#module-prompt-building) - System prompt assembly
 - [API Calling](#module-api-calling) - Core API functions
 - [Slash Commands](#module-slash-commands) - Command parsing, execution
+- [SDK Transport](#module-sdk-transport) - SDK message handling, WebSocket transport
 - [Constants & Utilities](#constants-cross-module) - Cross-module constants
 
 ---
@@ -856,6 +857,27 @@
 | Kq | createApiClient | chunks.88.mjs:3-105 | function |
 | U | buildRequestPayload | chunks.153.mjs | function |
 
+### Prompt Cache Control
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| UE9 | shouldEnablePromptCaching | chunks.152.mjs:2690-2705 | function |
+| jSA | buildCacheControlObject | chunks.152.mjs:2707-2714 | function |
+| gv3 | formatUserMessageWithCache | chunks.152.mjs:2766-2791 | function |
+| uv3 | formatAssistantMessageWithCache | chunks.152.mjs:2793-2818 | function |
+| mv3 | mapMessagesWithCache | chunks.153.mjs:406-413 | function |
+| dv3 | formatSystemPromptWithCache | chunks.153.mjs:415-423 | function |
+
+### Usage & Cost Tracking
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ljA | mergeUsage | chunks.153.mjs:370-386 | function |
+| vI1 | aggregateUsage | chunks.153.mjs:388-404 | function |
+| or8 | calculateCost | chunks.56.mjs:3145-3147 | function |
+| z_3 | trackForkAgentQuery | chunks.145.mjs:1028-1056 | function |
+| bO | EMPTY_USAGE_OBJECT | chunks.153.mjs | constant |
+
 ### Response Processing
 
 | Obfuscated | Readable | File:Line | Type |
@@ -1031,6 +1053,76 @@
 | tengu_input_prompt | Fallback to prompt mode |
 | tengu_slash_command_tool_invocation | Command invoked as tool |
 | tengu_dir_search | Directory search metrics |
+
+---
+
+## Module: SDK Transport
+
+### Core Transport Classes
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| aSA | StdioSDKTransport | chunks.156.mjs:2447-2616 | class |
+| RD0 | WebSocketSDKTransport | chunks.156.mjs:2805-2836 | class |
+| OD0 | ResilientWebSocket | chunks.156.mjs:2630-2770 | class |
+| YSA | AsyncMessageQueue | chunks.146.mjs:1635-1694 | class |
+| K$A | RingBuffer | chunks.156.mjs | class |
+
+### Output Pipeline Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| L9 | writeToStdout | chunks.1.mjs:646-648 | function |
+| Sj | writeToStderr | chunks.1.mjs:650-652 | function |
+| Qu3 | runSDKAgentLoop | chunks.156.mjs:3017-3256 | function |
+| Rw9 | runNonInteractiveSession | chunks.156.mjs:2934-3015 | function |
+| Wu3 | createIOHandler | chunks.157.mjs:95-110 | function |
+| dC/pQ4 | extractLastMessage | chunks.16.mjs:574-577 | function |
+| o59 | runAgentLoop | chunks.156.mjs | function |
+
+### Message Handling Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| gf5 | validateSDKMessage | chunks.121.mjs:35-41 | function |
+| LD0 | sdkFatalError | chunks.156.mjs:2618-2620 | function |
+| Hw9 | createWebSocketTransport | chunks.156.mjs:2789-2792 | function |
+| lg3 | generateControlRequestId | chunks.156.mjs:2524 | function |
+| ig3 | formatDecisionReason | chunks.156.mjs:2575 | function |
+| nSA | processToolPermissionResponse | chunks.156.mjs:2579 | function |
+| M$ | toolPermissionDispatcher | chunks.153.mjs:1480-1502 | function |
+
+### Control Protocol Schemas
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ZW1 | canUseToolResponseSchema | chunks.156.mjs:2578 | constant |
+| Q91 | hookCallbackResponseSchema | chunks.156.mjs:2600 | constant |
+
+### WebSocket Resilience Constants
+
+| Obfuscated | Readable | Value | Type |
+|------------|----------|-------|------|
+| ng3 | WEBSOCKET_BUFFER_SIZE | 1000 | constant |
+| Kw9 | MAX_RECONNECT_ATTEMPTS | 3 | constant |
+| ag3 | INITIAL_BACKOFF_MS | 1000 | constant |
+| sg3 | MAX_BACKOFF_MS | 30000 | constant |
+| rg3 | PING_INTERVAL_MS | 10000 | constant |
+
+### Entry Point Detection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| xu3 | getEntrypoint | chunks.157.mjs:1730-1742 | function |
+| cAA | getAuthToken | chunks.156.mjs | function |
+| uf5 | fetchSessionEvents | chunks.121.mjs:43-80 | function |
+
+### SDK Identity Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| sY6 | CLAUDE_CODE_SDK_IDENTITY | chunks.60.mjs:479 | constant |
+| rY6 | CLAUDE_AGENT_IDENTITY | chunks.60.mjs:480 | constant |
 
 ---
 

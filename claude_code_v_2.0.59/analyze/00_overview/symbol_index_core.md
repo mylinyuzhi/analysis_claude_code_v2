@@ -267,6 +267,19 @@
 |------------|----------|-----------|------|
 | q | updateBackgroundTaskState | chunks.106.mjs:475-486 | function |
 
+### Session Storage Paths
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| MQ | getClaudeConfigDir | chunks.1.mjs:886-888 | function |
+| PVA | getProjectsDir | chunks.154.mjs:586-588 | function |
+| fb3 | sanitizePath | chunks.154.mjs:627-628 | function |
+| vJ1 | sanitizePath | chunks.154.mjs:2198-2199 | function |
+| cH | getProjectDir | chunks.154.mjs:631-633 | function |
+| DVA | getAgentTranscriptPath | chunks.154.mjs:599-602 | function |
+| WSA | getSessionTranscriptPath | chunks.154.mjs:594-597 | function |
+| aJA | getCurrentSessionPath | chunks.154.mjs:590-592 | function |
+
 ---
 
 ## Module: Agent Loop
@@ -887,6 +900,7 @@
 | UU6 | extractMessageContent | chunks.70.mjs:2270-2273 | function |
 | Xf | getMaxThinkingTokens | chunks.70.mjs:2228-2238 | function |
 | nMB | segmentTextByKeyword | chunks.70.mjs:2205-2226 | function |
+| Qj3 | buildThinkingMetadata | chunks.142.mjs:3046-3060 | function |
 
 ### Thinking Constants
 

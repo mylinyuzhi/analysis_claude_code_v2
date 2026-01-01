@@ -683,6 +683,86 @@ function buildContextManagementEdits({ hasThinking = false }) {
 
 **Key insight:** The thinking system is binary - either off (0 tokens) or full (31,999 tokens). There are no intermediate thinking levels.
 
+### 9.1 ThinkingMetadata Construction (Key to Understanding "No Keyword" Case)
+
+```javascript
+// ============================================
+// buildThinkingMetadata - Constructs thinking metadata for messages
+// Location: chunks.142.mjs:3046-3060
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Qj3(A, Q, B, G) {
+  if (A !== "prompt") return;
+  let Z = Q > 0,
+    I = Z ? XrA(B) : [],
+    Y = !G && !Z;
+  return {
+    level: Y ? "none" : "high",
+    disabled: Y,
+    triggers: I.map((W) => ({
+      start: W.start,
+      end: W.end,
+      text: B.slice(W.start, W.end)
+    }))
+  }
+}
+
+// READABLE (for understanding):
+function buildThinkingMetadata(mode, keywordTokens, inputText, thinkingEnabled) {
+  if (mode !== "prompt") return;
+
+  let hasKeyword = keywordTokens > 0;
+  let keywordPositions = hasKeyword ? extractKeywordPositions(inputText) : [];
+  let disabled = !thinkingEnabled && !hasKeyword;
+
+  return {
+    level: disabled ? "none" : "high",   // ← ONLY two values possible!
+    disabled: disabled,
+    triggers: keywordPositions.map((match) => ({
+      start: match.start,
+      end: match.end,
+      text: inputText.slice(match.start, match.end)
+    }))
+  }
+}
+
+// Mapping: Qj3→buildThinkingMetadata, A→mode, Q→keywordTokens, B→inputText, G→thinkingEnabled
+```
+
+**Critical Logic Analysis:**
+
+| thinkingEnabled | hasKeyword | disabled | level | Resulting Budget |
+|-----------------|------------|----------|-------|------------------|
+| `false` | `false` | `true` | `"none"` | 0 tokens |
+| `false` | `true` | `false` | `"high"` | 31,999 tokens |
+| `true` | `false` | `false` | `"high"` | **31,999 tokens** ← Tab toggle without keyword |
+| `true` | `true` | `false` | `"high"` | 31,999 tokens |
+
+**Key insight:** When thinking is enabled via Tab toggle (`thinkingEnabled=true`) but no keyword is detected (`hasKeyword=false`), the level is still `"high"`, which converts to **31,999 tokens** via `levelToTokens()`.
+
+### 9.2 levelToTokens Conversion
+
+```javascript
+// ============================================
+// levelToTokens - Convert level string to token count
+// Location: chunks.70.mjs:2240-2242
+// ============================================
+
+// ORIGINAL:
+function EU6(A) {
+  return A === "high" ? zm1.ULTRATHINK : 0
+}
+
+// READABLE:
+function levelToTokens(level) {
+  return level === "high" ? THINKING_TOKEN_LEVELS.ULTRATHINK : 0
+  // Returns: 31999 if "high", 0 otherwise
+}
+```
+
+**Conclusion:** Keyword ("ultrathink") and Tab toggle produce **identical token budgets** (31,999 tokens). The keyword does NOT provide extra thinking capacity.
+
 ---
 
 ## 10. Model-Based Auto-Enable
@@ -1035,7 +1115,136 @@ function applyTaskIntensity(taskIntensityOverride, modelParams, betas) {
 
 ---
 
-## 18. Key Files Reference
+## 18. MAX_THINKING_TOKENS Deep Dive
+
+**Critical Finding:** `MAX_THINKING_TOKENS` has a **dual role** - it both enables thinking AND sets the budget.
+
+### 18.1 Dual Role Analysis
+
+```javascript
+// ============================================
+// Role 1: Auto-enable thinking mode
+// Location: chunks.70.mjs:2295-2296 (isExtendedThinkingEnabled)
+// ============================================
+
+// ORIGINAL:
+function VrA() {
+  if (process.env.MAX_THINKING_TOKENS) return parseInt(process.env.MAX_THINKING_TOKENS, 10) > 0;
+  // ... other checks
+}
+
+// READABLE:
+function isExtendedThinkingEnabled() {
+  // If MAX_THINKING_TOKENS is set and > 0, thinking is AUTO-ENABLED
+  if (process.env.MAX_THINKING_TOKENS) {
+    return parseInt(process.env.MAX_THINKING_TOKENS, 10) > 0;
+  }
+  // ... check config, model defaults
+}
+```
+
+```javascript
+// ============================================
+// Role 2: Set token budget (used every request)
+// Location: chunks.70.mjs:2228-2236 (getMaxThinkingTokens)
+// ============================================
+
+// ORIGINAL:
+function Xf(A, Q) {
+  if (process.env.MAX_THINKING_TOKENS) {
+    let B = parseInt(process.env.MAX_THINKING_TOKENS, 10);
+    if (B > 0) GA("tengu_thinking", { provider: _R(), tokenCount: B });
+    return B  // Returns env value directly, ignores other logic
+  }
+  return Math.max(...A.filter((B) => B.type === "user" && !B.isMeta).map(zU6), Q ?? 0)
+}
+
+// READABLE:
+function getMaxThinkingTokens(messages, defaultValue) {
+  // Priority 1: ENV override - used EVERY request when set
+  if (process.env.MAX_THINKING_TOKENS) {
+    let budget = parseInt(process.env.MAX_THINKING_TOKENS, 10);
+    if (budget > 0) logTelemetry("tengu_thinking", { provider, tokenCount: budget });
+    return budget;  // Always returns this value, no other checks
+  }
+  // Priority 2: Calculate from messages (keyword, thinkingMetadata)
+  return Math.max(...messages.filter(isUserMessage).map(getMessageTokens), defaultValue ?? 0);
+}
+```
+
+### 18.2 Call Chain Analysis
+
+```javascript
+// Location: chunks.145.mjs:211
+maxThinkingTokens: q6 ?? (U.thinkingEnabled ? Xf(eB, void 0) : 0)
+```
+
+**Decision Flow:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Is MAX_THINKING_TOKENS set?                                     │
+└─────────────────────────────────────────────────────────────────┘
+              │
+    ┌─────────┴─────────┐
+    ▼                   ▼
+┌─────────┐       ┌─────────────────────────────────────────────┐
+│ YES     │       │ NO                                          │
+└─────────┘       └─────────────────────────────────────────────┘
+    │                   │
+    ▼                   ▼
+┌─────────────────┐  ┌─────────────────────────────────────────────┐
+│ thinkingEnabled │  │ Check other conditions:                     │
+│ = true (auto)   │  │ - alwaysThinkingEnabled config              │
+│                 │  │ - Model auto-enable (sonnet-4-5)            │
+│ Budget = ENV    │  │ - Tab toggle state                          │
+│ value (always)  │  │ - Keyword detection                         │
+└─────────────────┘  └─────────────────────────────────────────────┘
+```
+
+### 18.3 Behavior Comparison
+
+| Scenario | thinkingEnabled | Xf() called? | Budget |
+|----------|-----------------|--------------|--------|
+| `MAX_THINKING_TOKENS=10000` | `true` (auto) | Yes | **10000** (every request) |
+| `MAX_THINKING_TOKENS=0` | `false` | No | **0** (disabled) |
+| No env + Tab ON | `true` | Yes | 31999 (from keyword/metadata) |
+| No env + Tab OFF | `false` | **No** | 0 |
+| No env + "ultrathink" keyword | `true` | Yes | 31999 |
+
+### 18.4 Key Differences: ENV vs Tab/Keyword
+
+| Aspect | MAX_THINKING_TOKENS | Tab Toggle / Keyword |
+|--------|---------------------|----------------------|
+| **Activation** | Automatic (env set) | Manual (user action) |
+| **Persistence** | Every request | Per-session / per-message |
+| **Budget** | Custom (any value) | Fixed (31999) |
+| **Override** | Highest priority | Lower priority |
+
+### 18.5 Usage Examples
+
+```bash
+# Always use 10000 tokens thinking budget (auto-enabled)
+MAX_THINKING_TOKENS=10000 claude
+
+# Disable thinking completely (even if Tab toggle is on)
+MAX_THINKING_TOKENS=0 claude
+
+# Use maximum thinking budget
+MAX_THINKING_TOKENS=31999 claude
+
+# Use minimal thinking for faster responses
+MAX_THINKING_TOKENS=1000 claude
+```
+
+**Key insight:** When `MAX_THINKING_TOKENS` is set:
+1. Thinking is **automatically enabled** (no need for Tab or keyword)
+2. The specified budget is used **every single request**
+3. It **overrides** all other thinking configurations (keyword, Tab toggle, model defaults)
+
+---
+
+## 19. Key Files Reference
 
 | File | Content | Lines |
 |------|---------|-------|
