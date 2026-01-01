@@ -747,7 +747,20 @@ Key functions in this document:
 
 ---
 
+## Thinking Block Handling Note
+
+For comprehensive coverage of how thinking blocks and reasoning signatures are handled during API requests, see:
+- [message_history_and_thinking.md](./message_history_and_thinking.md) - Full analysis of message history, thinking blocks, signatures, and ultrathink mode
+
+**Quick summary:**
+- Thinking blocks ARE included in message history sent to API (only `cache_control` is excluded)
+- Trailing thinking blocks are filtered from the last message via `xb3()` function
+- Signatures are accumulated on thinking blocks via `signature_delta` streaming events
+
+---
+
 ## Related Documents
 
 - [prompt_cache_overview.md](./prompt_cache_overview.md) - Architecture overview
 - [cache_strategies.md](./cache_strategies.md) - Usage patterns and optimization
+- [message_history_and_thinking.md](./message_history_and_thinking.md) - Message history and thinking blocks

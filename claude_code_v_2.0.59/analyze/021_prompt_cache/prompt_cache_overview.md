@@ -243,3 +243,4 @@ GA("tengu_fork_agent_query", {
 
 - [cache_control_implementation.md](./cache_control_implementation.md) - Detailed code analysis
 - [cache_strategies.md](./cache_strategies.md) - Usage patterns and optimization
+- [message_history_and_thinking.md](./message_history_and_thinking.md) - Message history, thinking blocks, ultrathink mode
