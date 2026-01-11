@@ -22,6 +22,7 @@
 - [API Calling](#module-api-calling) - Core API functions
 - [Slash Commands](#module-slash-commands) - Command parsing, execution
 - [SDK Transport](#module-sdk-transport) - SDK message handling, WebSocket transport
+- [Plugin System](#module-plugin-system) - Marketplace, installation, loading, schemas
 - [Constants & Utilities](#constants-cross-module) - Cross-module constants
 
 ---
@@ -902,6 +903,41 @@
 | bY6 | OPUS_CONFIG | chunks.59.mjs:3172-3175 | constant |
 | pnA | getDefaultModelDescription | chunks.59.mjs:2874-2877 | function |
 
+### Model Command UI Components
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| mH9 | modelCommand | chunks.152.mjs:1589-1622 | object |
+| Hv3 | ModelSelectionMenu | chunks.152.mjs:1466-1503 | function |
+| Cv3 | SetModelDirect | chunks.152.mjs:1505-1551 | function |
+| Zv3 | ShowCurrentModel | chunks.152.mjs:1562-1587 | function |
+| pJ1 | MODEL_INFO_KEYWORDS | chunks.152.mjs | constant |
+| dJ1 | MODEL_HELP_KEYWORDS | chunks.152.mjs | constant |
+
+### Thinking Block Processing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| xb3 | filterTrailingThinkingBlocks | chunks.154.mjs:499-529 | function |
+| pE9 | isThinkingBlock | chunks.154.mjs:495-497 | function |
+| MeB | hasThinkingBlocks | chunks.88.mjs:333-339 | function |
+| bCB | buildContextManagement | chunks.60.mjs:392-445 | function |
+
+### Context Management Constants
+
+| Obfuscated | Readable | Value | Type |
+|------------|----------|-------|------|
+| xCB | API_MAX_INPUT_TOKENS_DEFAULT | 180000 | constant |
+| vCB | API_TARGET_INPUT_TOKENS_DEFAULT | 40000 | constant |
+| nbA | CONTEXT_MANAGEMENT_BETA | string | constant |
+
+### Signature Processing (Streaming)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| signature_delta | signatureDeltaEvent | chunks.153.mjs:185-191 | event_type |
+| FA.signature | thinkingBlockSignature | chunks.153.mjs:191 | property |
+
 ---
 
 ## Module: Prompt Building
@@ -1225,6 +1261,107 @@
 |------------|----------|-----------|------|
 | sY6 | CLAUDE_CODE_SDK_IDENTITY | chunks.60.mjs:479 | constant |
 | rY6 | CLAUDE_AGENT_IDENTITY | chunks.60.mjs:480 | constant |
+
+---
+
+## Module: Plugin System
+
+> **Related documentation:** [25_plugin/](../25_plugin/) - Detailed plugin system analysis
+
+### Plugin Schemas
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| nAA | pluginManifestSchema | chunks.94.mjs:2529-2588 | constant |
+| TIA | marketplaceSchema | chunks.94.mjs:2591-2600 | constant |
+| $LA | installedPluginsV1Schema | chunks.94.mjs:2614-2622 | constant |
+| AB1 | installedPluginsV2Schema | chunks.94.mjs:2626-2638 | constant |
+| iAA | pluginIdSchema | chunks.94.mjs:2602-2612 | constant |
+| hAA | pluginSourceSchema | chunks.94.mjs:2520-2527 | constant |
+| oAA | pluginAuthorSchema | chunks.94.mjs:2490-2495 | constant |
+| tAA | commandsSchema | chunks.94.mjs:2497-2510 | constant |
+| sAA | hooksSchema | chunks.94.mjs:2512-2518 | constant |
+
+### Marketplace Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| rAA | addMarketplaceSource | chunks.95.mjs:572-589 | function |
+| ZB1 | removeMarketplace | chunks.95.mjs:591-617 | function |
+| IB1 | updateMarketplace | chunks.95.mjs:687-739 | function |
+| nl | findPluginInMarketplaces | chunks.95.mjs:654-685 | function |
+| _D | loadMarketplaceData | chunks.95.mjs:724-779 | function |
+| pZ | loadMarketplaceConfig | chunks.95.mjs:244-266 | function |
+| KB1 | saveMarketplaceConfig | chunks.95.mjs:268-278 | function |
+| HB1 | getMarketplaceCacheDir | chunks.95.mjs:619-625 | function |
+| FB1 | fetchAndCacheMarketplace | chunks.95.mjs:627-652 | function |
+
+### Plugin Installation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SIA | cachePluginFromSource | chunks.95.mjs:959-1097 | function |
+| Bj | installPlugin | chunks.144.mjs:~1800 | function |
+| al | getPluginCacheDir | chunks.95.mjs:791-793 | function |
+| JB1 | getPluginVersionPath | chunks.95.mjs:795-800 | function |
+| YB1 | resolvePluginVersion | chunks.95.mjs:742-789 | function |
+| oIA | copyToVersionedCache | chunks.95.mjs:1099-1152 | function |
+| tIA | validatePluginManifest | chunks.95.mjs:901-957 | function |
+| sIA | findPluginJsonFile | chunks.95.mjs:881-899 | function |
+| rIA | cloneGitRepository | chunks.95.mjs:803-879 | function |
+
+### Plugin State Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| QVA | getInstalledPlugins | chunks.143.mjs:3462-3480 | function |
+| cI1 | saveInstalledPlugins | chunks.143.mjs:3482-3498 | function |
+| L39 | initializePlugins | chunks.143.mjs:3665-3683 | function |
+| M39 | addInstalledPlugin | chunks.143.mjs:3685-3689 | function |
+| O39 | removeInstalledPlugin | chunks.143.mjs:3691-3698 | function |
+| gg | isPluginInstalled | chunks.143.mjs:3681-3683 | function |
+| N39 | togglePluginEnabled | chunks.143.mjs:3700-3718 | function |
+| RVA | getInstalledPluginsV2 | chunks.143.mjs:3500-3520 | function |
+| dI1 | saveInstalledPluginsV2 | chunks.143.mjs:3522-3540 | function |
+
+### Plugin Loading
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| l7 | getPluginsWithState | chunks.95.mjs:1751-1841 | function |
+| PQA | getPluginCommands | chunks.142.mjs:3474-3545 | function |
+| iW0 | getPluginSkills | chunks.142.mjs:3586-3620 | function |
+| _0A | getPluginAgents | chunks.142.mjs:3642-3678 | function |
+| $I1 | usePluginLoader | chunks.142.mjs:3623-3640 | function |
+| s1 | memoizeLoader | chunks.95.mjs:1154-1178 | function |
+| nIA | loadPluginManifest | chunks.95.mjs:1180-1210 | function |
+| aIA | getPluginComponentPath | chunks.95.mjs:1212-1235 | function |
+| eIA | requirePluginModule | chunks.95.mjs:1237-1268 | function |
+
+### Plugin Slash Command UI
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| DC9 | parsePluginCommand | chunks.152.mjs:76-164 | function |
+| lx3 | commandToViewState | chunks.152.mjs:186-248 | function |
+| HC9 | PluginCommandComponent | chunks.152.mjs:250-401 | function |
+| ix3 | pluginCommand | chunks.152.mjs:403-440 | object |
+| GC9 | PluginManageView | chunks.151.mjs:2540-2650 | function |
+| tH9 | PluginListItem | chunks.151.mjs:2652-2720 | function |
+| AK0 | PluginActionMenu | chunks.151.mjs:2722-2800 | function |
+
+### Plugin View States
+
+| Obfuscated | Readable | Description | Type |
+|------------|----------|-------------|------|
+| mx3 | ViewState.INSTALLING | Installing a plugin | enum |
+| ux3 | ViewState.VALIDATING | Validating plugin manifest | enum |
+| dx3 | ViewState.MANAGE | Managing installed plugins | enum |
+| cx3 | ViewState.MARKETPLACE_ADD | Adding a marketplace | enum |
+| px3 | ViewState.MARKETPLACE_REMOVE | Removing a marketplace | enum |
+| gx3 | ViewState.MARKETPLACE_UPDATE | Updating marketplace(s) | enum |
+| hx3 | ViewState.MARKETPLACE_LIST | Listing marketplaces | enum |
+| fx3 | ViewState.HELP | Showing help | enum |
 
 ---
 

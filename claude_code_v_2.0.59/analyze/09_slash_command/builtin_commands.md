@@ -190,12 +190,374 @@ const configCommand = {
 
 **Type:** `local-jsx`
 
-**Description:** Select and switch AI models
+**Description:** Set the AI model for Claude Code
+
+**Arguments:** `[model]` (optional)
+
+**Definition:**
+```javascript
+// ============================================
+// modelCommand - Set the AI model
+// Location: chunks.152.mjs:1589-1622
+// ============================================
+
+// ORIGINAL (for source lookup):
+mH9 = {
+  type: "local-jsx",
+  name: "model",
+  description: "Set the AI model for Claude Code",
+  argumentHint: "[model]",
+  isEnabled: () => !0,
+  isHidden: !1,
+  async call(A, Q, B) {
+    if (B = B?.trim() || "", pJ1.includes(B))  // info keywords
+      return gj.createElement(Zv3, { onDone: A });
+    if (dJ1.includes(B))  // help keywords
+      return gj.createElement(Hv3, { onDone: A });
+    if (B) return gj.createElement(Cv3, { args: B, onDone: A });
+    return gj.createElement(Hv3, { onDone: A })
+  },
+  userFacingName() { return "model" }
+};
+
+// READABLE (for understanding):
+const modelCommand = {
+  type: "local-jsx",
+  name: "model",
+  description: "Set the AI model for Claude Code",
+  argumentHint: "[model]",
+  isEnabled: () => true,
+  isHidden: false,
+  async call(onComplete, context, args) {
+    args = args?.trim() || "";
+
+    // Show current model info
+    if (INFO_KEYWORDS.includes(args)) {
+      return <ShowCurrentModel onDone={onComplete} />;
+    }
+
+    // Show help/list models
+    if (HELP_KEYWORDS.includes(args)) {
+      return <ModelSelectionMenu onDone={onComplete} />;
+    }
+
+    // Set model directly by name
+    if (args) {
+      return <SetModelDirect args={args} onDone={onComplete} />;
+    }
+
+    // Default: show selection menu
+    return <ModelSelectionMenu onDone={onComplete} />;
+  },
+  userFacingName() { return "model"; }
+};
+
+// Mapping: mH9→modelCommand, Hv3→ModelSelectionMenu, Cv3→SetModelDirect, Zv3→ShowCurrentModel
+```
 
 **Features:**
-- List available models
-- Switch between models
-- Show model capabilities
+- Interactive model selection menu
+- Direct model setting via `/model <name>`
+- Show current model info via `/model show`
+- Supports model aliases (opus, sonnet, haiku)
+- Session-specific model overrides
+
+---
+
+### Model Switch Implementation
+
+When a model is switched via `/model`, the following state changes occur:
+
+```javascript
+// ============================================
+// ModelSelectionMenu - Interactive model selector
+// Location: chunks.152.mjs:1466-1503
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Hv3({ onDone: A }) {
+  let [{ mainLoopModel: Q, mainLoopModelForSession: B }, G] = OQ();
+  // ... renders model selection UI
+
+  // On selection:
+  GA("tengu_model_change", { to_model: I });
+  G((Y) => ({
+    ...Y,
+    mainLoopModel: I,
+    mainLoopModelForSession: null  // Clear session override
+  }));
+  A(`Set model to ${tA.bold(YM(I))}`);
+}
+
+// READABLE (for understanding):
+function ModelSelectionMenu({ onDone }) {
+  const [{ mainLoopModel, mainLoopModelForSession }, setState] = useAppState();
+
+  function handleModelSelect(newModel) {
+    // Log telemetry
+    analyticsEvent("tengu_model_change", { to_model: newModel });
+
+    // Update state
+    setState((currentState) => ({
+      ...currentState,
+      mainLoopModel: newModel,
+      mainLoopModelForSession: null  // Clear any session override
+    }));
+
+    onDone(`Set model to ${chalk.bold(getModelDisplayName(newModel))}`);
+  }
+
+  // Render selection UI...
+}
+
+// Mapping: Hv3→ModelSelectionMenu, OQ→useAppState, GA→analyticsEvent, YM→getModelDisplayName
+```
+
+**Key insight:** Model switching only updates state variables (`mainLoopModel`, `mainLoopModelForSession`). It does **NOT** modify the message history.
+
+---
+
+### Thought Signature Handling During Model Switch
+
+#### The Problem
+
+When using extended thinking models (Opus, etc.), responses include `thinking` blocks with cryptographic `signature` fields:
+
+```javascript
+{
+  type: "thinking",
+  thinking: "...",
+  signature: "abc123..."  // Model-specific signature
+}
+```
+
+When switching from Opus to Sonnet mid-session, the history contains thinking blocks with Opus's signatures. Sonnet cannot validate these signatures.
+
+#### How Claude Code Handles This
+
+**Finding: Claude Code does NOT explicitly clean up thought signatures when switching models.**
+
+The handling relies on three mechanisms:
+
+##### 1. Trailing Thinking Block Removal (Client-side)
+
+```javascript
+// ============================================
+// filterTrailingThinkingBlocks (xb3) - Remove trailing thinking from last message
+// Location: chunks.154.mjs:499-529
+// ============================================
+
+// ORIGINAL (for source lookup):
+function xb3(A) {
+  let Q = A[A.length - 1];
+  if (!Q || Q.type !== "assistant") return A;
+  let B = Q.message.content,
+    G = B[B.length - 1];
+  if (!G || !pE9(G)) return A;  // pE9 checks thinking/redacted_thinking
+
+  let Z = B.length - 1;
+  while (Z >= 0) {
+    let J = B[Z];
+    if (!J || !pE9(J)) break;
+    Z--;
+  }
+
+  GA("tengu_filtered_trailing_thinking_block", {
+    messageUUID: Q.uuid,
+    blocksRemoved: B.length - Z - 1
+  });
+
+  // Replace with placeholder if all content was thinking
+  let I = Z < 0 ? [{ type: "text", text: "[No message content]" }]
+                : B.slice(0, Z + 1);
+  // Return modified messages
+}
+
+// READABLE (for understanding):
+function filterTrailingThinkingBlocks(messages) {
+  const lastMessage = messages[messages.length - 1];
+  if (!lastMessage || lastMessage.type !== "assistant") return messages;
+
+  const content = lastMessage.message.content;
+  const lastBlock = content[content.length - 1];
+
+  // Only process if last block is thinking
+  if (!lastBlock || !isThinkingBlock(lastBlock)) return messages;
+
+  // Find last non-thinking block
+  let lastNonThinkingIndex = content.length - 1;
+  while (lastNonThinkingIndex >= 0 && isThinkingBlock(content[lastNonThinkingIndex])) {
+    lastNonThinkingIndex--;
+  }
+
+  // Log telemetry
+  analyticsEvent("tengu_filtered_trailing_thinking_block", { ... });
+
+  // Remove trailing thinking, preserve rest
+  const newContent = lastNonThinkingIndex < 0
+    ? [{ type: "text", text: "[No message content]" }]
+    : content.slice(0, lastNonThinkingIndex + 1);
+
+  return [...messages.slice(0, -1), { ...lastMessage, content: newContent }];
+}
+
+// Mapping: xb3→filterTrailingThinkingBlocks, pE9→isThinkingBlock, GA→analyticsEvent
+```
+
+**Key insight:** Only **trailing** thinking blocks are removed. Thinking blocks in the middle of conversation history are **preserved**.
+
+##### 2. API Context Management (Server-side)
+
+```javascript
+// ============================================
+// buildContextManagement (bCB) - Configure API context handling
+// Location: chunks.60.mjs:392-445
+// ============================================
+
+// ORIGINAL (for source lookup):
+function bCB(A) {
+  let { hasThinking: Q = !1 } = A ?? {};
+  let B = BZ("preserve_thinking", "enabled", !1);  // Feature flag
+  if (!B) return;
+
+  let I = [];
+  // ... other edits for clear_tool_uses
+
+  if (B && Q) {
+    let Y = {
+      type: "clear_thinking_20251015",
+      keep: "all"
+    };
+    I.push(Y);
+  }
+
+  return I.length > 0 ? { edits: I } : void 0;
+}
+
+// READABLE (for understanding):
+function buildContextManagement(options) {
+  const { hasThinking = false } = options ?? {};
+  const preserveThinkingEnabled = getFeatureFlag("preserve_thinking", "enabled", false);
+
+  if (!preserveThinkingEnabled) return undefined;
+
+  const edits = [];
+
+  // Add clear_thinking directive if thinking is enabled
+  if (preserveThinkingEnabled && hasThinking) {
+    edits.push({
+      type: "clear_thinking_20251015",
+      keep: "all"  // Tell API to preserve thinking blocks
+    });
+  }
+
+  return edits.length > 0 ? { edits } : undefined;
+}
+
+// Mapping: bCB→buildContextManagement, BZ→getFeatureFlag
+```
+
+##### 3. API Request with Context Management
+
+```javascript
+// ============================================
+// streamApiCall ($E9) - Main API call with context_management
+// Location: chunks.153.mjs:62-78
+// ============================================
+
+// The API request payload includes context_management:
+{
+  model: modelId,
+  messages: normalizedMessages,  // May contain thinking blocks with signatures
+  thinking: thinkingConfig,
+  context_management: {          // This tells API how to handle thinking
+    edits: [{
+      type: "clear_thinking_20251015",
+      keep: "all"
+    }]
+  }
+}
+```
+
+#### Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│           Model Switch: Opus → Sonnet                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  /model sonnet                                                  │
+│         │                                                       │
+│         ▼                                                       │
+│  ┌─────────────────────────────────────┐                       │
+│  │ State Update Only:                   │                       │
+│  │  mainLoopModel = "sonnet"            │                       │
+│  │  mainLoopModelForSession = null      │                       │
+│  │                                      │                       │
+│  │  ⚠️ History NOT modified!            │                       │
+│  └─────────────────────────────────────┘                       │
+│         │                                                       │
+│         │  Next user message                                    │
+│         ▼                                                       │
+│  ┌─────────────────────────────────────┐                       │
+│  │ Message Normalization (WZ):          │                       │
+│  │  - Filter system/progress messages   │                       │
+│  │  - Consolidate user messages         │                       │
+│  │  - Remove TRAILING thinking (xb3)    │                       │
+│  │  - Keep middle thinking blocks! ⚠️   │                       │
+│  └─────────────────────────────────────┘                       │
+│         │                                                       │
+│         ▼                                                       │
+│  ┌─────────────────────────────────────┐                       │
+│  │ API Request to Sonnet:               │                       │
+│  │  messages: [..., {                   │                       │
+│  │    content: [                        │                       │
+│  │      { type: "thinking",             │                       │
+│  │        signature: "opus_sig_xxx" },  │ ← Opus signature!     │
+│  │      { type: "text", ... }           │                       │
+│  │    ]                                 │                       │
+│  │  }]                                  │                       │
+│  │  context_management: {               │                       │
+│  │    edits: [{                         │                       │
+│  │      type: "clear_thinking_20251015",│                       │
+│  │      keep: "all"                     │ ← API handles this    │
+│  │    }]                                │                       │
+│  │  }                                   │                       │
+│  └─────────────────────────────────────┘                       │
+│         │                                                       │
+│         ▼                                                       │
+│  ┌─────────────────────────────────────┐                       │
+│  │ Anthropic API Server:                │                       │
+│  │  - Validates/processes signatures    │                       │
+│  │  - Handles cross-model compatibility │                       │
+│  │  - Returns Sonnet response           │                       │
+│  └─────────────────────────────────────┘                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Design Rationale
+
+1. **Server Authority** - Signature validation is server-side, not client-side
+2. **Simplicity** - Client doesn't need to understand model-specific formats
+3. **Future-proof** - Server can update handling without client changes
+4. **`preserve_thinking` Feature Flag** - Controls whether `context_management` is sent
+
+#### Important Notes
+
+- If `preserve_thinking` feature flag is disabled (default `false`), `context_management` won't be included
+- The API server handles cross-model signature compatibility gracefully
+- Thinking blocks are preserved in history for context, even if signatures become invalid
+
+---
+
+> **Related symbols:**
+> - `Hv3` → ModelSelectionMenu (chunks.152.mjs:1466-1503)
+> - `Cv3` → SetModelDirect (chunks.152.mjs:1505-1551)
+> - `xb3` → filterTrailingThinkingBlocks (chunks.154.mjs:499-529)
+> - `bCB` → buildContextManagement (chunks.60.mjs:392-445)
+> - `pE9` → isThinkingBlock (chunks.154.mjs:495-497)
+> - See [symbol_index_infra.md](../00_overview/symbol_index_infra.md) for full mappings
 
 ---
 
