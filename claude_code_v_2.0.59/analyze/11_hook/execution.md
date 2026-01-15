@@ -1554,6 +1554,36 @@ Function hooks are specifically designed for Stop hooks that need to analyze the
 
 Complete reference of where each hook is triggered in the codebase.
 
+### Plugin Hooks Initialization
+
+Plugin hooks are loaded once at session start via memoized functions.
+
+| Function | Obfuscated | Location | Purpose |
+|----------|------------|----------|---------|
+| loadSessionStartHooks | `wq` | chunks.107.mjs:1074-1109 | Entry point for session hooks loading |
+| loadPluginHooks | `_1A` | chunks.107.mjs:1045-1071 | Memoized plugin hooks loader |
+| extractPluginHooks | `SD5` | chunks.107.mjs:999-1030 | Extract hooks from plugin.hooksConfig |
+| setRegisteredHooks | `LkA` | chunks.1.mjs:2823-2825 | Store loaded hooks globally |
+| getRegisteredHooks | `MkA` | chunks.1.mjs:2827-2829 | Retrieve global plugin hooks |
+| clearPluginHooksCache | `bI2` | chunks.107.mjs:1032-1034 | Invalidate memoized cache |
+
+**Plugin Hooks Loading Flow:**
+
+```
+Session Start
+    └─> wq() (loadSessionStartHooks)
+         └─> _1A() (loadPluginHooks) - memoized
+              ├─> l7() (getEnabledPlugins)
+              ├─> SD5() (extractPluginHooks) for each plugin
+              └─> LkA() (setRegisteredHooks) - store globally
+
+Hook Execution (any event)
+    └─> ek3() (loadAllHooks) - merge 3 sources
+         ├─ SZ2() - Settings hooks (user/project)
+         ├─ MkA() - Plugin hooks (global, if allowed)
+         └─ r21() - Session hooks (ephemeral)
+```
+
 ### Tool Lifecycle Hooks
 
 | Hook | Trigger Location | Data Passed |

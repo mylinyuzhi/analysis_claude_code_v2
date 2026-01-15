@@ -1,0 +1,14 @@
+{
+  "name": "claude-code-v2.1.7-analysis",
+  "version": "1.0.0",
+  "description": "Analysis workspace for Claude Code v2.1.7",
+  "scripts": {
+    "beautify": "node scripts/beautify.js",
+    "split": "node scripts/split.js"
+  },
+  "dependencies": {
+    "acorn": "^8.14.0",
+    "acorn-walk": "^8.3.4",
+    "js-beautify": "^1.15.1"
+  }
+}

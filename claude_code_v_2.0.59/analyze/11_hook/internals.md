@@ -615,6 +615,351 @@ function getHookSources() {
 
 ---
 
+## Plugin Hooks Loading
+
+### Overview
+
+Plugin hooks are loaded once per session at startup via a memoized function. This ensures efficient loading without re-parsing plugin configurations on every hook execution.
+
+### Plugin Hooks Storage (`LkA`, `MkA`)
+
+**Location:** `chunks.1.mjs:2823-2829`
+
+```javascript
+// ============================================
+// setRegisteredHooks / getRegisteredHooks - Global plugin hooks storage
+// Location: chunks.1.mjs:2823-2829
+// ============================================
+
+// ORIGINAL (for source lookup):
+function LkA(A) {
+  WQ.registeredHooks = A
+}
+function MkA() {
+  return WQ.registeredHooks
+}
+
+// READABLE (for understanding):
+function setRegisteredHooks(hooks) {
+  globalState.registeredHooks = hooks;
+}
+function getRegisteredHooks() {
+  return globalState.registeredHooks;
+}
+
+// Mapping: LkA→setRegisteredHooks, MkA→getRegisteredHooks, WQ→globalState
+```
+
+### Plugin Hooks Loader (`_1A`)
+
+**Location:** `chunks.107.mjs:1045-1071`
+
+The loader is wrapped with `s1()` (memoize) to ensure hooks are only loaded once per session.
+
+```javascript
+// ============================================
+// loadPluginHooks - Memoized plugin hooks loader
+// Location: chunks.107.mjs:1045-1071
+// ============================================
+
+// ORIGINAL (for source lookup):
+_1A = s1(async () => {
+  let {
+    enabled: A
+  } = await l7(), Q = {
+    PreToolUse: [],
+    PostToolUse: [],
+    PostToolUseFailure: [],
+    Notification: [],
+    UserPromptSubmit: [],
+    SessionStart: [],
+    SessionEnd: [],
+    Stop: [],
+    SubagentStart: [],
+    SubagentStop: [],
+    PreCompact: [],
+    PermissionRequest: []
+  };
+  for (let G of A) {
+    if (!G.hooksConfig) continue;
+    g(`Loading hooks from plugin: ${G.name}`);
+    let Z = SD5(G);
+    for (let I of Object.keys(Z)) Q[I].push(...Z[I])
+  }
+  LkA(Q);
+  let B = Object.values(Q).reduce((G, Z) => G + Z.reduce((I, Y) => I + Y.hooks.length, 0), 0);
+  g(`Registered ${B} hooks from ${A.length} plugins`)
+})
+
+// READABLE (for understanding):
+const loadPluginHooks = memoize(async () => {
+  let { enabled: enabledPlugins } = await getEnabledPlugins();
+  let aggregatedHooks = {
+    PreToolUse: [], PostToolUse: [], PostToolUseFailure: [],
+    Notification: [], UserPromptSubmit: [], SessionStart: [],
+    SessionEnd: [], Stop: [], SubagentStart: [], SubagentStop: [],
+    PreCompact: [], PermissionRequest: []
+  };
+
+  for (let plugin of enabledPlugins) {
+    if (!plugin.hooksConfig) continue;
+    log(`Loading hooks from plugin: ${plugin.name}`);
+    let extractedHooks = extractPluginHooks(plugin);
+    for (let eventType of Object.keys(extractedHooks)) {
+      aggregatedHooks[eventType].push(...extractedHooks[eventType]);
+    }
+  }
+
+  setRegisteredHooks(aggregatedHooks);
+  let totalHooks = Object.values(aggregatedHooks).reduce(
+    (sum, groups) => sum + groups.reduce((s, g) => s + g.hooks.length, 0), 0
+  );
+  log(`Registered ${totalHooks} hooks from ${enabledPlugins.length} plugins`);
+});
+
+// Mapping: _1A→loadPluginHooks, s1→memoize, l7→getEnabledPlugins,
+//          SD5→extractPluginHooks, LkA→setRegisteredHooks
+```
+
+### Plugin Hook Extraction (`SD5`)
+
+**Location:** `chunks.107.mjs:999-1030`
+
+Extracts hooks from a single plugin's `hooksConfig` configuration.
+
+```javascript
+// ============================================
+// extractPluginHooks - Parse hooks from plugin config
+// Location: chunks.107.mjs:999-1030
+// ============================================
+
+// ORIGINAL (for source lookup):
+function SD5(A) {
+  let Q = {
+    PreToolUse: [],
+    PostToolUse: [],
+    PostToolUseFailure: [],
+    Notification: [],
+    UserPromptSubmit: [],
+    SessionStart: [],
+    SessionEnd: [],
+    Stop: [],
+    SubagentStart: [],
+    SubagentStop: [],
+    PreCompact: [],
+    PermissionRequest: []
+  };
+  if (!A.hooksConfig) return Q;
+  for (let [B, G] of Object.entries(A.hooksConfig)) {
+    let Z = B;
+    if (!Q[Z]) continue;
+    for (let I of G) {
+      let Y = [];
+      for (let J of I.hooks)
+        if (J.type === "command") Y.push(jD5(J.command, A.path, J.timeout));
+      if (Y.length > 0) Q[Z].push({
+        matcher: I.matcher,
+        hooks: Y,
+        pluginName: A.name
+      })
+    }
+  }
+  return Q
+}
+
+// READABLE (for understanding):
+function extractPluginHooks(plugin) {
+  let result = {
+    PreToolUse: [], PostToolUse: [], PostToolUseFailure: [],
+    Notification: [], UserPromptSubmit: [], SessionStart: [],
+    SessionEnd: [], Stop: [], SubagentStart: [], SubagentStop: [],
+    PreCompact: [], PermissionRequest: []
+  };
+
+  if (!plugin.hooksConfig) return result;
+
+  for (let [eventType, matcherGroups] of Object.entries(plugin.hooksConfig)) {
+    if (!result[eventType]) continue;
+
+    for (let group of matcherGroups) {
+      let hooks = [];
+      for (let hookConfig of group.hooks) {
+        if (hookConfig.type === "command") {
+          hooks.push(transformHookCommand(hookConfig.command, plugin.path, hookConfig.timeout));
+        }
+      }
+      if (hooks.length > 0) {
+        result[eventType].push({
+          matcher: group.matcher,
+          hooks: hooks,
+          pluginName: plugin.name
+        });
+      }
+    }
+  }
+  return result;
+}
+
+// Mapping: SD5→extractPluginHooks, jD5→transformHookCommand
+```
+
+### Plugin Hooks Loading Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Session Start                                              │
+│  └─> wq() (loadSessionStartHooks)                          │
+│       └─> _1A() (loadPluginHooks) - memoized               │
+│            ├─> l7() (getEnabledPlugins)                    │
+│            ├─> SD5() (extractPluginHooks) for each plugin  │
+│            └─> LkA() (setRegisteredHooks) - store globally │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Plugin Hooks Cache Invalidation (`bI2`)
+
+**Location:** `chunks.107.mjs:1032-1034`
+
+```javascript
+// ORIGINAL (for source lookup):
+function bI2() {
+  _1A.cache?.clear?.()
+}
+
+// READABLE (for understanding):
+function clearPluginHooksCache() {
+  loadPluginHooks.cache?.clear?.();
+}
+
+// Mapping: bI2→clearPluginHooksCache
+```
+
+---
+
+## Hook Source Merging
+
+### Overview
+
+When hooks are executed, the system merges hooks from three sources in a specific order. This merging happens on every hook execution via `ek3()` (loadAllHooks).
+
+### Merging Function (`ek3`)
+
+**Location:** `chunks.146.mjs:3445-3476`
+
+```javascript
+// ============================================
+// loadAllHooks - Merge hooks from all sources
+// Location: chunks.146.mjs:3445-3476
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ek3(A) {
+  let Q = {},
+    B = SZ2();
+  if (B)
+    for (let [G, Z] of Object.entries(B)) Q[G] = Z.map((I) => ({
+      matcher: I.matcher,
+      hooks: I.hooks
+    }));
+  if (!t21()) {
+    let G = MkA();
+    if (G)
+      for (let [Z, I] of Object.entries(G)) {
+        if (!Q[Z]) Q[Z] = [];
+        for (let Y of I) Q[Z].push({
+          matcher: Y.matcher,
+          hooks: Y.hooks
+        })
+      }
+  }
+  if (A) {
+    let G = e1(),
+      Z = r21(A, G);
+    for (let [I, Y] of Z.entries()) {
+      if (!Q[I]) Q[I] = [];
+      for (let J of Y) Q[I].push({
+        matcher: J.matcher,
+        hooks: J.hooks
+      })
+    }
+  }
+  return Q
+}
+
+// READABLE (for understanding):
+function loadAllHooks(appState) {
+  let mergedHooks = {};
+
+  // 1. Settings hooks (SZ2) - user/project level
+  let settingsHooks = getSettingsHooks();
+  if (settingsHooks) {
+    for (let [eventType, matcherGroups] of Object.entries(settingsHooks)) {
+      mergedHooks[eventType] = matcherGroups.map(g => ({
+        matcher: g.matcher,
+        hooks: g.hooks
+      }));
+    }
+  }
+
+  // 2. Plugin hooks (MkA) - only if !allowManagedHooksOnly
+  if (!isAllowManagedHooksOnly()) {
+    let pluginHooks = getRegisteredHooks();
+    if (pluginHooks) {
+      for (let [eventType, matcherGroups] of Object.entries(pluginHooks)) {
+        if (!mergedHooks[eventType]) mergedHooks[eventType] = [];
+        for (let group of matcherGroups) {
+          mergedHooks[eventType].push({
+            matcher: group.matcher,
+            hooks: group.hooks
+          });
+        }
+      }
+    }
+  }
+
+  // 3. Session hooks (r21) - ephemeral per-session
+  if (appState) {
+    let sessionId = getSessionId();
+    let sessionHooks = getSessionHooks(appState, sessionId);
+    for (let [eventType, matcherGroups] of sessionHooks.entries()) {
+      if (!mergedHooks[eventType]) mergedHooks[eventType] = [];
+      for (let group of matcherGroups) {
+        mergedHooks[eventType].push({
+          matcher: group.matcher,
+          hooks: group.hooks
+        });
+      }
+    }
+  }
+
+  return mergedHooks;
+}
+
+// Mapping: ek3→loadAllHooks, SZ2→getSettingsHooks, t21→isAllowManagedHooksOnly,
+//          MkA→getRegisteredHooks, e1→getSessionId, r21→getSessionHooks
+```
+
+### Hook Merging Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Hook Execution (any event)                                 │
+│  └─> ek3() (loadAllHooks) - merge 3 sources               │
+│       ├─ SZ2() - Settings hooks (user/project)            │
+│       ├─ MkA() - Plugin hooks (global, if allowed)        │
+│       └─ r21() - Session hooks (ephemeral)                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Key Characteristics
+
+1. **Settings hooks are loaded first** - These are the base hooks from user/project settings
+2. **Plugin hooks are conditional** - Skipped if `allowManagedHooksOnly` is enabled
+3. **Session hooks are ephemeral** - Registered via SDK, cleared when session ends
+4. **Hooks are aggregated** - All sources are merged, not replaced
+
+---
+
 ## See Also
 
 - [Hook Configuration](./configuration.md) - User-facing configuration guide

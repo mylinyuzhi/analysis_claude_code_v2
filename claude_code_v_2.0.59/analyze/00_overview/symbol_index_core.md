@@ -797,6 +797,20 @@
 | tE | createHookContext | chunks.146.mjs:3187-3195 | function |
 | zLA | HOOK_EVENT_TYPES | chunks.94.mjs:2194 | constant |
 
+### Plugin Hooks Loading
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _1A | loadPluginHooks | chunks.107.mjs:1045-1071 | function |
+| SD5 | extractPluginHooks | chunks.107.mjs:999-1030 | function |
+| LkA | setRegisteredHooks | chunks.1.mjs:2823-2825 | function |
+| MkA | getRegisteredHooks | chunks.1.mjs:2827-2829 | function |
+| wq | loadSessionStartHooks | chunks.107.mjs:1074-1109 | function |
+| bI2 | clearPluginHooksCache | chunks.107.mjs:1032-1034 | function |
+| o22 | mergeHooks | chunks.95.mjs:1318-1327 | function |
+| l7 | getEnabledPlugins | chunks.95.mjs | function |
+| jD5 | transformHookCommand | chunks.107.mjs | function |
+
 ### Hook Output Processing
 
 | Obfuscated | Readable | File:Line | Type |
@@ -821,9 +835,11 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| s21 | registerSessionHook | chunks.106.mjs | function |
-| o21 | unregisterSessionHook | chunks.106.mjs | function |
-| NZ2 | findSessionHook | chunks.106.mjs | function |
+| kK5 | registerSessionHook | chunks.106.mjs:1237-1275 | function |
+| o21 | clearSessionHooks | chunks.106.mjs:1313-1322 | function |
+| NZ2 | findSessionHookWithCallback | chunks.106.mjs:1301-1310 | function |
+| SMA | compareHooks | chunks.106.mjs:1331-1343 | function |
+| qZ2 | normalizeHooks | chunks.106.mjs:1278-1283 | function |
 
 ### Hook Message Types
 
