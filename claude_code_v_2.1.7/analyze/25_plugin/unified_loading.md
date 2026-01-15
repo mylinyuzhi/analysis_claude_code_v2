@@ -394,16 +394,204 @@ Local Settings         Project Settings          Policy Settings
 
 ---
 
+## Output Styles Loading
+
+### Output Style Discovery
+
+Plugins can provide custom output styles through the `outputStyles` manifest key:
+
+```javascript
+// ============================================
+// getPluginOutputStyles - Load output styles from enabled plugins
+// Location: chunks.130.mjs:2043-2084
+// ============================================
+
+// ORIGINAL (for source lookup):
+ew0 = W0(async () => {
+  let { enabled: A } = await DG(), B = [];
+  for (let G of A) {
+    if (G.outputStylesPath) {
+      let Z = await yo2(G.outputStylesPath, G.name);
+      B.push(...Z);
+    }
+    if (G.outputStylesPaths) {
+      for (let Z of G.outputStylesPaths) {
+        let Y = await yo2(Z, G.name);
+        B.push(...Y);
+      }
+    }
+  }
+  return B;
+});
+
+// READABLE (for understanding):
+const getPluginOutputStyles = memoize(async () => {
+  const { enabled: enabledPlugins } = await discoverPluginsAndHooks();
+  const allStyles = [];
+
+  for (const plugin of enabledPlugins) {
+    // Load from default outputStylesPath
+    if (plugin.outputStylesPath) {
+      const styles = await scanOutputStylesDirectory(plugin.outputStylesPath, plugin.name);
+      allStyles.push(...styles);
+    }
+
+    // Load from additional outputStylesPaths
+    if (plugin.outputStylesPaths) {
+      for (const stylePath of plugin.outputStylesPaths) {
+        const styles = await scanOutputStylesDirectory(stylePath, plugin.name);
+        allStyles.push(...styles);
+      }
+    }
+  }
+
+  return allStyles;
+});
+
+// Mapping: ew0→getPluginOutputStyles, yo2→scanOutputStylesDirectory, DG→discoverPluginsAndHooks
+```
+
+### Output Style File Format
+
+Output styles are markdown files with YAML frontmatter:
+
+```markdown
+---
+name: concise
+description: Brief, to-the-point responses
+---
+
+# Concise Output Style
+
+Be brief and direct. Avoid unnecessary explanations.
+Focus on actionable information only.
+```
+
+### Output Style Priority
+
+| Source | Priority |
+|--------|----------|
+| Built-in styles | Lowest |
+| Plugin styles | Medium |
+| User styles (`~/.claude/output-styles/`) | Highest |
+
+---
+
+## LSP Server Loading
+
+### LSP Server Discovery
+
+Plugins can provide LSP server configurations through the `lspServers` manifest key:
+
+```javascript
+// ============================================
+// loadLspServersFromPlugin - Load LSP configs from plugin
+// Location: chunks.114.mjs:2016-2075
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function xg5(A, Q) {
+  let B = A.manifest?.lspServers;
+  if (!B) return {};
+
+  let G = {};
+  for (let [Z, Y] of Object.entries(B)) {
+    // Validate path is within plugin root
+    if (!Pg5(Y.command, A.path)) {
+      log(`LSP server ${Z} command path not within plugin`);
+      continue;
+    }
+
+    // Expand ${CLAUDE_PLUGIN_ROOT} in paths
+    G[Z] = vg5(Y, A.path);
+  }
+  return G;
+}
+
+// READABLE (for understanding):
+async function loadLspServersFromPlugin(plugin, context) {
+  const lspConfig = plugin.manifest?.lspServers;
+  if (!lspConfig) return {};
+
+  const loadedServers = {};
+  for (const [serverName, serverConfig] of Object.entries(lspConfig)) {
+    // Security: Validate command path is within plugin directory
+    if (!validatePluginPath(serverConfig.command, plugin.path)) {
+      log(`LSP server ${serverName} command path not within plugin`);
+      continue;
+    }
+
+    // Expand variables in config
+    loadedServers[serverName] = expandLspServerConfig(serverConfig, plugin.path);
+  }
+  return loadedServers;
+}
+
+// Mapping: xg5→loadLspServersFromPlugin, Pg5→validatePluginPath, vg5→expandLspServerConfig
+```
+
+### LSP Server Configuration Schema
+
+```json
+{
+  "lspServers": {
+    "typescript": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/node_modules/.bin/typescript-language-server",
+      "args": ["--stdio"],
+      "env": {
+        "NODE_PATH": "${CLAUDE_PLUGIN_ROOT}/node_modules"
+      },
+      "filePatterns": ["*.ts", "*.tsx"]
+    }
+  }
+}
+```
+
+### Variable Expansion
+
+| Variable | Expansion |
+|----------|-----------|
+| `${CLAUDE_PLUGIN_ROOT}` | Absolute path to plugin directory |
+| `${HOME}` | User home directory |
+| `${CWD}` | Current working directory |
+
+### LSP Server Merging
+
+LSP servers from multiple sources are merged with last-wins semantics:
+
+```
+┌──────────────────────────────────────────────────────┐
+│                LSP SERVER MERGING                     │
+├──────────────────────────────────────────────────────┤
+│                                                       │
+│  Built-in LSP configs                                 │
+│        │                                              │
+│        ▼                                              │
+│  Plugin LSP configs (merged by server name)           │
+│        │                                              │
+│        ▼                                              │
+│  User LSP configs (~/.claude/lsp-servers.json)        │
+│        │                                              │
+│        ▼                                              │
+│  Final merged config (last definition wins)           │
+│                                                       │
+└──────────────────────────────────────────────────────┘
+```
+
+**Key insight:** Plugin LSP servers must have their command paths validated to ensure they're within the plugin directory. This prevents plugins from executing arbitrary binaries.
+
+---
+
 ## Summary Table
 
-| Aspect | Hooks | Agents | Skills | Commands | MCP |
-|--------|-------|--------|--------|----------|-----|
-| **Manifest Key** | `hooks` | `agents` | `skills` | `commands` | `mcpServers` |
-| **Convention Dir** | `/hooks/` | `/agents/` | `/skills/` | `/commands/` | `/.mcp.json` |
-| **Priority** | 0-999 | 1-6 | Ordered | N/A | Last wins |
-| **Merging** | Concat | Map | Arrays | Arrays | Merge |
-| **Dedup** | No | By type | No | No | By name |
-| **Plugin Editable** | No | Yes | N/A | N/A | Yes |
+| Aspect | Hooks | Agents | Skills | Commands | MCP | Output Styles | LSP |
+|--------|-------|--------|--------|----------|-----|---------------|-----|
+| **Manifest Key** | `hooks` | `agents` | `skills` | `commands` | `mcpServers` | `outputStyles` | `lspServers` |
+| **Convention Dir** | `/hooks/` | `/agents/` | `/skills/` | `/commands/` | `/.mcp.json` | `/output-styles/` | manifest only |
+| **Priority** | 0-999 | 1-6 | Ordered | N/A | Last wins | Last wins | Last wins |
+| **Merging** | Concat | Map | Arrays | Arrays | Merge | Arrays | Merge |
+| **Dedup** | No | By type | No | No | By name | No | By name |
+| **Plugin Editable** | No | Yes | N/A | N/A | Yes | N/A | Yes |
 
 ---
 

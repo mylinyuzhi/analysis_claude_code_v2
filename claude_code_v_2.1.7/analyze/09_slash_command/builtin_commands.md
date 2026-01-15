@@ -189,11 +189,76 @@ WB9 = {
 
 **Arguments:** `[model]` (optional)
 
+```javascript
+// ============================================
+// modelCommand - Model selection command
+// Location: chunks.145.mjs:2226
+// ============================================
+
+// ORIGINAL (for source lookup):
+TG9 = {
+  type: "local-jsx",
+  name: "model",
+  description: "Set the AI model",
+  aliases: [],
+  isEnabled: () => !0,
+  isHidden: !1,
+  argumentHint: "[model]",
+  call(A, Q, B) {
+    let G = B.trim();
+    if (G === "show") return showCurrentModel(Q);
+    if (G) return setModelDirect(G, A, Q);
+    return React.createElement(ModelSelector, { onComplete: A, context: Q });
+  },
+  userFacingName() { return "model" }
+};
+```
+
 **Features:**
-- Interactive model selection menu
+- Interactive model selection menu (no argument)
 - Direct model setting via `/model <name>`
 - Show current model info via `/model show`
-- Supports model aliases (opus, sonnet, haiku)
+- Model aliases: `opus` → `claude-opus-4-5-20251101`, `sonnet` → `claude-sonnet-4-5-20251101`, `haiku` → `claude-haiku-3-5-20250115`
+
+#### Model Switching & Thought Signatures
+
+When switching between models (especially Opus ↔ Sonnet), Claude Code must handle extended thinking signature compatibility.
+
+**The Problem:**
+- Opus 4.5 produces extended thinking blocks with signatures
+- Sonnet may not support or may misinterpret these signatures
+- Switching models mid-conversation can cause context corruption
+
+**The Solution:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    MODEL SWITCH FLOW                              │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  User: /model sonnet                                              │
+│        │                                                          │
+│        ▼                                                          │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │ 1. Detect if switching from Opus → non-Opus                  │ │
+│  │ 2. Check for trailing thinking blocks in history             │ │
+│  │ 3. Filter incompatible thinking signatures                   │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│        │                                                          │
+│        ▼                                                          │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │ filterTrailingThinkingBlocks()                               │ │
+│  │ - Remove trailing thinking content from last assistant msg   │ │
+│  │ - Preserve conversation context                              │ │
+│  │ - Update API context management                              │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│        │                                                          │
+│        ▼                                                          │
+│  Model switch complete with clean context                         │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Key insight:** The model switching logic ensures context compatibility by cleaning up model-specific artifacts before switching, preventing API errors and context corruption.
 
 ---
 
@@ -363,6 +428,44 @@ const compactCommand = {
 
 **Description:** Edit CLAUDE.md project memory
 
+```javascript
+// ============================================
+// memoryCommand - Edit project memory
+// Location: chunks.138.mjs:79
+// ============================================
+
+// ORIGINAL (for source lookup):
+H49 = {
+  type: "local-jsx",
+  name: "memory",
+  description: "Edit CLAUDE.md project memory",
+  aliases: ["claude.md"],
+  isEnabled: () => !0,
+  isHidden: !1,
+  async call(A, Q) {
+    return React.createElement(MemoryEditor, {
+      onComplete: A,
+      context: Q,
+      memoryPath: await getClaudeMdPath(Q.cwd)
+    });
+  },
+  userFacingName() { return "memory" }
+};
+```
+
+**Features:**
+- Interactive editor for CLAUDE.md
+- Auto-creates if not exists
+- Shows current memory content
+- Validates markdown format
+
+**Memory Hierarchy:**
+| Level | Path | Priority |
+|-------|------|----------|
+| Managed | `{managed}/.claude/CLAUDE.md` | Highest |
+| User | `~/.claude/CLAUDE.md` | Medium |
+| Project | `.claude/CLAUDE.md` or `CLAUDE.md` | Lowest |
+
 ---
 
 ### /add-dir
@@ -385,6 +488,38 @@ const compactCommand = {
 
 **Description:** Show help and available commands
 
+```javascript
+// ============================================
+// helpCommand - Show help and available commands
+// Location: chunks.138.mjs:327
+// ============================================
+
+// ORIGINAL (for source lookup):
+F29 = {
+  type: "local-jsx",
+  name: "help",
+  description: "Show help and available commands",
+  aliases: ["?"],
+  isEnabled: () => !0,
+  isHidden: !1,
+  async call(A, Q) {
+    let B = await Aj(Q.options);  // Get all commands
+    return React.createElement(HelpPanel, {
+      commands: B.filter(G => !G.isHidden),
+      onComplete: A,
+      context: Q
+    });
+  },
+  userFacingName() { return "help" }
+};
+```
+
+**Features:**
+- Lists all available slash commands with descriptions
+- Filters hidden commands from display
+- Shows command aliases
+- Groups by category (built-in, custom, plugins)
+
 ---
 
 ### /cost
@@ -404,6 +539,41 @@ const compactCommand = {
 **Location:** chunks.142.mjs:3116
 
 **Description:** Show system status and information
+
+```javascript
+// ============================================
+// statusCommand - Show system status
+// Location: chunks.142.mjs:3116
+// ============================================
+
+// ORIGINAL (for source lookup):
+b39 = {
+  type: "local-jsx",
+  name: "status",
+  description: "Show status",
+  aliases: ["info"],
+  isEnabled: () => !0,
+  isHidden: !1,
+  async call(A, Q) {
+    return React.createElement(StatusPanel, {
+      onComplete: A,
+      context: Q,
+      sessionInfo: await getSessionInfo(Q),
+      systemInfo: await getSystemInfo()
+    });
+  },
+  userFacingName() { return "status" }
+};
+```
+
+**Information Displayed:**
+- Current session ID
+- Working directory
+- Current model
+- Authentication status
+- MCP servers connected
+- Plugin status
+- Memory/context usage
 
 ---
 
@@ -486,6 +656,35 @@ const compactCommand = {
 **Location:** chunks.137.mjs:3332
 
 **Description:** Check system health and diagnose issues
+
+```javascript
+// ============================================
+// doctorCommand - System health check
+// Location: chunks.137.mjs:3332
+// ============================================
+
+// Key health checks performed:
+// 1. Authentication status
+// 2. API connectivity
+// 3. MCP server health
+// 4. Permission configuration
+// 5. Plugin status
+// 6. LSP server connectivity
+```
+
+**Features:**
+- Validates authentication tokens
+- Tests API connectivity
+- Checks MCP server connections
+- Verifies file permissions
+- Diagnoses common issues with actionable fixes
+
+**Usage:**
+```
+/doctor          # Run all health checks
+/doctor auth     # Check only authentication
+/doctor mcp      # Check only MCP servers
+```
 
 ---
 

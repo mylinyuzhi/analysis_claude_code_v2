@@ -44,6 +44,198 @@ The Background Agents system allows Claude Code to:
 
 ---
 
+## Storage Mechanism
+
+### Dual Storage Strategy
+
+Claude Code uses two different storage mechanisms for background tasks:
+
+| Type | Storage | Persistence | Access |
+|------|---------|-------------|--------|
+| local_bash | In-memory (`backgroundTasks`) | Lost on exit | Direct via app state |
+| local_agent | File (JSONL transcript) | Persists | Enables resume |
+| remote_agent | File (JSONL transcript) | Persists | Via teleport |
+
+**Why this design:**
+- **Bash tasks are in-memory** because they are:
+  - Short-lived (commands complete quickly)
+  - Need real-time streaming (stdout/stderr events)
+  - Don't need resume capability
+  - Memory is fast for frequent reads/writes
+
+- **Agent tasks use files** because they:
+  - Run longer (complex multi-step operations)
+  - Need resume capability (can restart from transcript)
+  - Have complex message chains (JSONL preserves structure)
+  - Must survive process restarts
+
+- **Symlinks for output** because:
+  - Avoids duplicate storage (transcript + output)
+  - Provides unified access via `outputFile` path
+  - TaskOutput tool can read live progress
+
+### Task ID Generation
+
+```javascript
+// ============================================
+// generateAgentId - Creates 6-character unique ID
+// Location: chunks.91.mjs:906
+// ============================================
+
+// ORIGINAL (for source lookup):
+B = YG5().replace(/-/g, "").substring(0, 6);
+
+// READABLE (for understanding):
+agentId = generateUUID().replace(/-/g, "").substring(0, 6);
+
+// Examples: "a1b2c3", "def456", "789xyz"
+
+// Mapping: YG5→generateUUID
+```
+
+**ID prefixes by type:**
+- `local_agent`: No prefix (e.g., "a1b2c3")
+- `remote_agent`: "r" prefix (e.g., "r1a2b3")
+- `local_bash`: "s" prefix for shell (e.g., "s4d5e6")
+
+### Background Bash Tasks (In-Memory)
+
+```javascript
+// App state stores bash tasks directly
+{
+  backgroundTasks: {
+    [taskId]: {
+      id: string,           // 6-char ID
+      command: string,      // Shell command
+      status: "running" | "completed" | "failed",
+      stdout: string,       // Accumulated output
+      stderr: string,
+      type: "shell"
+    }
+  }
+}
+```
+
+**Key characteristics:**
+- Real-time streaming of stdout/stderr via event listeners
+- Lost on process exit (no persistence)
+- Fast access for short-lived commands
+
+### Background Agent Tasks (Transcript Files)
+
+**Path:** `~/.claude/projects/<sanitized-cwd>/subagents/agent-<agentId>.jsonl`
+
+```javascript
+// ============================================
+// getAgentTranscriptPath - Builds transcript file path
+// Location: chunks.148.mjs:692-696
+// ============================================
+
+// ORIGINAL (for source lookup):
+function yb(A) {
+  let Q = QV(ke),  // Get project dir for cwd
+    B = q0();      // Get current working dir
+  return $w(Q, B, "subagents", `agent-${A}.jsonl`)
+}
+
+// READABLE (for understanding):
+function getAgentTranscriptPath(agentId) {
+  let projectDir = getProjectDirForCwd(currentWorkingDir);
+  let cwd = getCurrentWorkingDir();
+  return path.join(projectDir, cwd, "subagents", `agent-${agentId}.jsonl`);
+}
+
+// Mapping: yb→getAgentTranscriptPath, QV→getProjectDirForCwd, ke→currentWorkingDir, q0→getCurrentWorkingDir, $w→path.join
+```
+
+**Key characteristics:**
+- JSONL format for message chains
+- Persistent across sessions (enables resume via `resume` parameter)
+- Supports complex message chain reconstruction
+
+### Path Encoding (sanitizePath)
+
+```javascript
+// ============================================
+// sanitizePath - Encodes paths for safe filesystem names
+// Location: fb3 function
+// ============================================
+
+function sanitizePath(pathStr) {
+  return pathStr.replace(/[^a-zA-Z0-9]/g, "-");
+}
+
+// Examples:
+// "/Users/john/project" → "-Users-john-project"
+// "/tmp/test" → "-tmp-test"
+// "C:\\Users\\john" → "C--Users-john"
+```
+
+### Temporary Directory Structure
+
+When sandbox mode is enabled:
+
+```
+/tmp/claude/                              # Base temp directory (TMPDIR)
+  <sanitized-cwd>/                        # Working directory encoded
+    tasks/                                # Tasks subdirectory
+      <taskId>.output                     # Output files
+```
+
+**Environment:** `TMPDIR=/tmp/claude` is set for child processes in sandbox mode.
+
+### Output File Symlinks
+
+Output files are symlinks to transcript files:
+
+```javascript
+// ============================================
+// registerOutputFile - Creates symlink for progress access
+// Location: chunks.86.mjs:174-183
+// ============================================
+
+// ORIGINAL (for source lookup):
+function OKA(A, Q) {
+  try {
+    JY0();
+    let B = aY(A);
+    if (h9A(B)) D12(B);  // Delete existing
+    return ze8(Q, B), B  // Create symlink: Q → B
+  } catch (B) { return e(B), Zr(A) }
+}
+
+// READABLE (for understanding):
+function registerOutputFile(agentId, transcriptPath) {
+  try {
+    ensureOutputDirExists();
+    let outputPath = formatOutputPath(agentId);
+    if (fileExists(outputPath)) {
+      unlinkSync(outputPath);  // Delete existing
+    }
+    symlinkSync(transcriptPath, outputPath);  // Link transcript → output
+    return outputPath;
+  } catch (error) {
+    logError(error);
+    return createEmptyOutputFile(agentId);
+  }
+}
+
+// Mapping: OKA→registerOutputFile, ze8→symlinkSync, D12→unlinkSync, Zr→createEmptyOutputFile
+```
+
+This allows TaskOutput tool to read live progress via the output path.
+
+### Storage Location Summary
+
+| Data Type | Storage Location | Format |
+|-----------|-----------------|--------|
+| Bash task output | In-memory `backgroundTasks` | Object |
+| Agent transcript | `~/.claude/projects/<cwd>/subagents/agent-<id>.jsonl` | JSONL |
+| Output file link | `~/.claude/projects/<cwd>/agents/<id>.output` | Symlink |
+| Sandbox temp | `/tmp/claude/` | Various |
+
+---
+
 ## TaskOutput Tool
 
 ### Purpose
@@ -308,15 +500,283 @@ Background sub-agent (Task tool with `run_in_background: true`).
 
 ### remote_agent
 
-Remote session agent (for `/teleport` and remote environments).
+Remote session agent for the `--teleport` feature. Enables running sessions on remote machines and resuming them locally.
+
+**Handler:** `RemoteAgentTaskHandler` (tu2)
+
+```javascript
+// ============================================
+// RemoteAgentTaskHandler - Handles teleport sessions
+// Location: chunks.121.mjs:185-252
+// ============================================
+
+// ORIGINAL (for source lookup):
+tu2 = {
+  name: "RemoteAgentTask",
+  type: "remote_agent",
+  async spawn(A, Q) {
+    let { command: B, title: G } = A,
+        { setAppState: Z, abortController: Y } = Q;
+    k(`RemoteAgentTask spawning: ${G}`);
+    let J = await cbA({
+      initialMessage: B,
+      description: G,
+      signal: Y.signal
+    });
+    if (!J) throw Error("Failed to create remote session");
+    let X = J.id,
+        I = `r${X.substring(0,6)}`;  // ID prefix: "r" for remote
+    Zr(I);  // Create empty output file
+    let D = {
+      ...KO(I, "remote_agent", G),
+      type: "remote_agent",
+      status: "running",
+      sessionId: X,
+      command: B,
+      title: J.title || G,
+      todoList: [],
+      log: [],
+      deltaSummarySinceLastFlushToAttachment: null
+    };
+    FO(D, Z);  // Add to state
+    let W = zi5(I, Q);  // Start polling
+    return { taskId: I, cleanup: () => { W() } }
+  },
+  async kill(A, Q) { /* Mark as killed locally */ },
+  renderStatus(A) { /* React component for UI */ },
+  renderOutput(A) { /* React component for output display */ },
+  getProgressMessage(A) {
+    let B = A.deltaSummarySinceLastFlushToAttachment;
+    if (!B) return null;
+    return `Remote task ${A.id} progress: ${B}. Read ${A.outputFile} to see full output.`
+  }
+}
+
+// READABLE (for understanding):
+RemoteAgentTaskHandler = {
+  name: "RemoteAgentTask",
+  type: "remote_agent",
+
+  async spawn({ command, title }, { setAppState, abortController }) {
+    log(`RemoteAgentTask spawning: ${title}`);
+
+    // Create remote session via API
+    let session = await createRemoteSession({
+      initialMessage: command,
+      description: title,
+      signal: abortController.signal
+    });
+
+    if (!session) throw Error("Failed to create remote session");
+
+    // Generate task ID with "r" prefix to distinguish from local
+    let taskId = `r${session.id.substring(0, 6)}`;
+    createEmptyOutputFile(taskId);
+
+    let task = {
+      ...createBaseTask(taskId, "remote_agent", title),
+      type: "remote_agent",
+      status: "running",
+      sessionId: session.id,
+      command: command,
+      title: session.title || title,
+      todoList: [],           // Remote session's todo list
+      log: [],                // Activity log
+      deltaSummarySinceLastFlushToAttachment: null
+    };
+
+    addTaskToState(task, setAppState);
+    let stopPolling = startPollingRemoteSession(taskId, context);
+
+    return { taskId, cleanup: () => stopPolling() };
+  }
+}
+
+// Mapping: tu2→RemoteAgentTaskHandler, cbA→createRemoteSession, Zr→createEmptyOutputFile,
+//          KO→createBaseTask, FO→addTaskToState, zi5→startPollingRemoteSession
+```
 
 **Output fields:**
-- `task_id` - Remote session ID
+- `task_id` - Remote session ID (prefixed with "r", e.g., "r1a2b3c")
 - `task_type` - "remote_agent"
-- `status` - Remote task status
+- `status` - Task status ("running", "completed", "failed", "killed")
 - `description` - Task description
-- `output` - Remote output
-- `prompt` - Command sent to remote
+- `output` - Remote output content
+- `prompt` - Command sent to remote (stored as `command`)
+- `sessionId` - Full remote session ID (not truncated)
+- `title` - Session title (may be auto-generated by API)
+- `todoList` - Remote session's todo list
+- `log` - Activity log entries
+- `deltaSummarySinceLastFlushToAttachment` - Progress delta for notifications
+
+**Task Type Handlers:**
+
+All three task types are handled by `getTaskHandlers()`:
+
+```javascript
+// ============================================
+// getTaskHandlers - Returns all task type handlers
+// Location: chunks.121.mjs:255-257
+// ============================================
+
+function $i5() {
+  return [es, kZ1, tu2]
+}
+
+// READABLE:
+function getTaskHandlers() {
+  return [LocalBashTaskHandler, LocalAgentTaskHandler, RemoteAgentTaskHandler]
+}
+
+// Mapping: $i5→getTaskHandlers, es→LocalBashTaskHandler, kZ1→LocalAgentTaskHandler, tu2→RemoteAgentTaskHandler
+```
+
+**Key differences from local_agent:**
+
+| Aspect | local_agent | remote_agent |
+|--------|-------------|--------------|
+| ID prefix | None | "r" |
+| Session creation | Local fork | Remote API (`cbA`) |
+| Updates | Direct progress | Polling (`zi5`) |
+| Extra fields | None | `sessionId`, `todoList`, `log`, `deltaSummary...` |
+| Use case | Task tool | `--teleport` feature |
+
+**Teleport Usage:**
+
+```bash
+# Start a teleport session (resume from another machine)
+claude --teleport <session-id>
+
+# Resume command shown on completion
+Resume with: claude --teleport <new-session-id>
+```
+
+The teleport feature allows:
+1. Starting a session on one machine
+2. Continuing it on another machine
+3. Tracking progress and todo list from the remote session
+4. Git stash handling for clean working directory
+
+### Remote Session Polling Mechanism
+
+```javascript
+// ============================================
+// startPollingRemoteSession - Polls remote session for updates
+// Location: chunks.121.mjs:110-155
+// ============================================
+
+// ORIGINAL (for source lookup):
+function zi5(A, Q) {
+  let B = !0,
+    G = 1000,  // Poll interval: 1 second
+    Z = async () => {
+      if (!B) return;
+      try {
+        let J = (await Q.getAppState()).tasks?.[A];
+        if (!J || J.status !== "running") return;
+        let X = await nu2(J.sessionId),  // Fetch remote session logs
+          I = X.log.find((V) => V.type === "result"),
+          D = I ? I.subtype === "success" ? "completed" : "failed" : X.log.length > 0 ? "running" : "starting",
+          W = X.log.slice(J.log.length),  // New log entries
+          K = null;
+        if (W.length > 0) {
+          let V = J.deltaSummarySinceLastFlushToAttachment;
+          K = await Ei5(W, V);  // Generate progress summary
+          // ... write to output file ...
+          if (F) g9A(A, F + `\n`)
+        }
+        // Update task state
+        oY(A, Q.setAppState, (V) => ({
+          ...V,
+          status: D === "starting" ? "running" : D,
+          log: X.log,
+          todoList: Hi5(X.log),
+          deltaSummarySinceLastFlushToAttachment: K,
+          endTime: I ? Date.now() : void 0
+        }));
+        if (I) {
+          let V = I.subtype === "success" ? "completed" : "failed";
+          Fi5(A, J.title, V, Q.setAppState);  // Notify completion
+          return
+        }
+      } catch (Y) { e(Y instanceof Error ? Y : Error(String(Y))) }
+      if (B) setTimeout(Z, G)  // Schedule next poll
+    };
+  return Z(), () => { B = !1 }  // Start polling, return stop function
+}
+
+// READABLE (for understanding):
+function startPollingRemoteSession(taskId, context) {
+  let isPolling = true;
+  let pollIntervalMs = 1000;  // Poll every 1 second
+
+  let poll = async () => {
+    if (!isPolling) return;
+
+    try {
+      let task = (await context.getAppState()).tasks?.[taskId];
+      if (!task || task.status !== "running") return;
+
+      // Fetch latest logs from remote session
+      let sessionData = await fetchRemoteSessionLogs(task.sessionId);
+
+      // Check for completion
+      let resultEntry = sessionData.log.find(entry => entry.type === "result");
+      let status = resultEntry
+        ? (resultEntry.subtype === "success" ? "completed" : "failed")
+        : (sessionData.log.length > 0 ? "running" : "starting");
+
+      // Process new log entries
+      let newEntries = sessionData.log.slice(task.log.length);
+      let deltaSummary = null;
+
+      if (newEntries.length > 0) {
+        deltaSummary = await generateProgressSummary(newEntries, task.deltaSummarySinceLastFlushToAttachment);
+        // Write new content to output file
+        appendToOutputFile(taskId, formattedContent + "\n");
+      }
+
+      // Update task state
+      updateTask(taskId, context.setAppState, (t) => ({
+        ...t,
+        status: status === "starting" ? "running" : status,
+        log: sessionData.log,
+        todoList: extractTodoList(sessionData.log),
+        deltaSummarySinceLastFlushToAttachment: deltaSummary,
+        endTime: resultEntry ? Date.now() : undefined
+      }));
+
+      // Notify completion
+      if (resultEntry) {
+        let finalStatus = resultEntry.subtype === "success" ? "completed" : "failed";
+        notifyRemoteTaskCompletion(taskId, task.title, finalStatus, context.setAppState);
+        return;  // Stop polling
+      }
+    } catch (error) {
+      logError(error instanceof Error ? error : Error(String(error)));
+    }
+
+    // Schedule next poll if still active
+    if (isPolling) setTimeout(poll, pollIntervalMs);
+  };
+
+  poll();  // Start polling immediately
+  return () => { isPolling = false };  // Return stop function
+}
+
+// Mapping: zi5→startPollingRemoteSession, nu2→fetchRemoteSessionLogs, Ei5→generateProgressSummary,
+//          Hi5→extractTodoList, Fi5→notifyRemoteTaskCompletion, g9A→appendToOutputFile, oY→updateTask
+```
+
+**How polling works:**
+1. Polls every 1 second (`pollIntervalMs = 1000`)
+2. Fetches remote session logs via API (`nu2`)
+3. Compares log length to find new entries
+4. Updates local task state with new data
+5. Writes new content to output file
+6. Stops when `result` entry found in logs
+
+**Key insight:** The polling interval is fixed at 1 second, balancing responsiveness with API load. The delta summary (`deltaSummarySinceLastFlushToAttachment`) ensures progress notifications only report changes.
 
 ---
 

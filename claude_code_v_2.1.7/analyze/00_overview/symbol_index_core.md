@@ -87,7 +87,58 @@
 | GjA | useKeyBindingContext | chunks.68.mjs | function |
 | J0 | useInput | chunks.68.mjs | function |
 
-> Key files: chunks.68.mjs (keybindings), chunks.121.mjs (background logic), chunks.91.mjs (task state), chunks.112/153.mjs (UI)
+### Agent Task Lifecycle Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| C4A | createTaskNotification | chunks.91.mjs:1222-1240 | function |
+| $4A | killBackgroundTask | chunks.91.mjs:1242-1251 | function |
+| RI0 | updateTaskProgress | chunks.91.mjs:1253-1261 | function |
+| _I0 | markTaskCompleted | chunks.91.mjs:1263-1274 | function |
+| jI0 | markTaskFailed | chunks.91.mjs:1276-1286 | function |
+| L32 | createFullyBackgroundedAgent | chunks.91.mjs:1288-1315 | function |
+| O32 | createBackgroundableAgent | chunks.91.mjs:1317-1351 | function |
+| Sr | isLocalAgentTask | chunks.91.mjs:1218-1220 | function |
+| KO | createBaseTask | chunks.91.mjs:1204-1216 | function |
+| FO | addTaskToState | chunks.91.mjs:1388-1398 | function |
+| oY | updateTask | chunks.91.mjs:1377-1386 | function |
+
+### Task Type Handlers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| es | LocalBashTaskHandler | chunks.121.mjs:755-834 | object |
+| kZ1 | LocalAgentTaskHandler | chunks.91.mjs:1412-1482 | object |
+| tu2 | RemoteAgentTaskHandler | chunks.121.mjs:185-252 | object |
+| $i5 | getTaskHandlers | chunks.121.mjs:255-257 | function |
+
+### Storage Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| aY | formatOutputPath | chunks.86.mjs:106-108 | function |
+| g9A | appendToOutputFile | chunks.86.mjs:110-131 | function |
+| OKA | registerOutputFile | chunks.86.mjs:174-183 | function |
+| Zr | createEmptyOutputFile | chunks.86.mjs:167-172 | function |
+| eSA | getAgentOutputDir | chunks.86.mjs:97-104 | function |
+| K71 | getTaskOutputContent | chunks.86.mjs:157-165 | function |
+| yb | getAgentTranscriptPath | chunks.148.mjs:692-696 | function |
+| fb3 | sanitizePath | various | function |
+
+### Remote Session Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| zi5 | startPollingRemoteSession | chunks.121.mjs:110-155 | function |
+| nu2 | fetchRemoteSessionLogs | (remote API) | function |
+| Ei5 | generateProgressSummary | chunks.121.mjs | function |
+| Hi5 | extractTodoList | chunks.121.mjs | function |
+| Fi5 | notifyRemoteTaskCompletion | chunks.121.mjs | function |
+| cbA | createRemoteSession | (remote API) | function |
+| lbA | getRemoteSessionUrl | chunks.121.mjs:157-159 | function |
+| eu2 | getTeleportCommand | chunks.121.mjs:161-163 | function |
+
+> Key files: chunks.68.mjs (keybindings), chunks.121.mjs (background logic), chunks.91.mjs (task state), chunks.86.mjs (storage), chunks.112/153.mjs (UI)
 
 ---
 
@@ -169,37 +220,81 @@
 
 ## Module: Agent Loop
 
+> Full analysis: [03_llm_core/agent_loop.md](../03_llm_core/agent_loop.md)
+
 ### Main Loop Functions
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TBD | mainAgentLoop | TBD | function |
-| TBD | StreamingToolExecutor | TBD | class |
-| TBD | executeSingleTool | TBD | function |
-| TBD | groupToolsByConcurrency | TBD | function |
+| $f | runSubagentLoop | chunks.112.mjs:2913-3057 | async generator |
+| aN | coreMessageLoop | chunks.134.mjs:99-400 | async generator |
+| HN | executeToolsParallel | chunks.134.mjs:402-500 | function |
+| ZA1 | aggregateToolResults | chunks.134.mjs:502-550 | function |
+| xVA | TaskTool | chunks.113.mjs:74-405 | object |
 
-### Async Execution (Enhanced in 2.0.64)
+### Background Agent Integration
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TBD | asyncAgentExecution | TBD | function |
-| TBD | wakeMainAgent | TBD | function |
+| Im2 | aggregateAsyncAgentExecution | chunks.121.mjs:486-542 | async generator |
+| TH1 | streamShellOutput | chunks.124.mjs:1313-1360 | function |
+| es | LocalBashTaskHandler | chunks.121.mjs:755-834 | object |
+
+### Turn & Progress Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| q82 | MAX_TURNS | chunks.113.mjs:39 | constant (500) |
+| L2 | PROGRESS_YIELD_INTERVAL | chunks.112.mjs:2946 | constant (3) |
+| FG5 | MAX_RECENT_ACTIVITIES | chunks.91.mjs:1394 | constant (5) |
+| j77 | MAX_OUTPUT_TOKEN_RECOVERY | chunks.134.mjs:155 | constant (3) |
+| wi5 | MAX_RECENT_TOOLS | chunks.121.mjs:490 | constant (5) |
+
+### Streaming Tool Execution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _H1 | StreamingToolExecutor | chunks.133.mjs:2911-3087 | class |
+| jH1 | executeSingleToolGenerator | chunks.133.mjs:3097 | function |
+| C77 | removeFromInProgressToolUseIDs | chunks.133.mjs:3089-3091 | function |
 
 ---
 
 ## Module: LLM API
 
-### API Calling
+> Full analysis: [03_llm_core/api_calling.md](../03_llm_core/api_calling.md)
+
+### Client Creation (Multi-Provider)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| v51 | retryApiCall | chunks.85.mjs:3-68 | function |
-| ps8 | parseRetryAfter | chunks.85.mjs:70-72 | function |
+| XS | createAnthropicClient | chunks.82.mjs:2634-2737 | function |
+| ss8 | createBedrockClient | chunks.85.mjs:177-250 | function |
+| ts8 | createVertexClient | chunks.85.mjs:252-310 | function |
+| oHA | streamingApiCall | chunks.147.mjs:162-285 | function |
+
+### Retry Logic & Error Handling
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| v51 | retryGenerator | chunks.85.mjs:3-68 | generator |
+| ps8 | parseRetryAfterHeader | chunks.85.mjs:70-72 | function |
 | fSA | calculateBackoffDelay | chunks.85.mjs:74-82 | function |
-| TeB | parseContextOverflow | chunks.85.mjs:84-103 | function |
-| ls8 | isOverloadedError | chunks.85.mjs:105-108 | function |
-| ns8 | shouldRetryError | chunks.85.mjs:122-137 | function |
+| TeB | parseContextLimitError | chunks.85.mjs:84-103 | function |
+| ls8 | isOverloadError | chunks.85.mjs:105-108 | function |
+| ns8 | isRetryableError | chunks.85.mjs:122-137 | function |
 | as8 | getMaxRetries | chunks.85.mjs:139-143 | function |
+
+### Streaming Response Processing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| - | message_start | chunks.147.mjs:180 | event type |
+| - | content_block_start | chunks.147.mjs:195 | event type |
+| - | content_block_delta | chunks.147.mjs:210 | event type |
+| - | content_block_stop | chunks.147.mjs:225 | event type |
+| - | message_delta | chunks.147.mjs:240 | event type |
+| - | message_stop | chunks.147.mjs:255 | event type |
 
 ### Constants
 
@@ -208,6 +303,8 @@
 | ms8 | MAX_RETRIES_DEFAULT | chunks.85.mjs:145 | constant (10) |
 | qZ0 | FLOOR_OUTPUT_TOKENS | chunks.85.mjs:147 | constant (3000) |
 | ds8 | FALLBACK_TRIGGER_COUNT | chunks.85.mjs:149 | constant (3) |
+| - | BACKOFF_DELAYS | chunks.85.mjs:75 | constant [1000,2000,4000,...] |
+| - | STALL_DETECTION_TIMEOUT | chunks.147.mjs:268 | constant (30000ms) |
 
 ---
 
@@ -382,6 +479,38 @@
 | sZ5 | exploreSystemPrompt | chunks.93.mjs:185-218 | constant |
 | tZ5 | planSystemPrompt | chunks.93.mjs:240-288 | constant |
 | QY5 | claudeCodeGuideSystemPrompt | chunks.93.mjs:324-381 | constant |
+
+### Plugin Agent Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| DG | loadPlugins | chunks.130.mjs:3246-3263 | function (memoized) |
+| O4A | getPluginAgents | chunks.93.mjs:554-587 | function (memoized) |
+| L52 | clearPluginAgentsCache | chunks.93.mjs:541-543 | function |
+| N52 | loadAgentsFromDirectory | chunks.93.mjs:475-497 | function |
+| w52 | loadAgentFromFile | chunks.93.mjs:499-539 | function |
+| mb | deduplicateAgents | chunks.93.mjs:602-614 | function |
+| DY5 | parseAgentFromJSON | chunks.93.mjs:638-672 | function |
+| NY1 | parseAgentsFromJSON | chunks.93.mjs:674-682 | function |
+| WY5 | parseAgentFromFrontmatter | chunks.93.mjs:684-769 | function |
+| XY5 | getAgentParseError | chunks.93.mjs:616-626 | function |
+| IY5 | parseAgentHooks | chunks.93.mjs:628-636 | function |
+| kG5 | getAllAgents | chunks.93.mjs:780-856 | function |
+| j52 | registerFrontmatterHooks | chunks.93.mjs:859-875 | function |
+| p_ | isBuiltInAgent | chunks.93.mjs:590-592 | function |
+| qY1 | isPluginAgent | chunks.93.mjs:598-600 | function |
+| R52 | isSettingsAgent | chunks.93.mjs:594-596 | function |
+
+### Agent Source Priority
+
+| Priority | Source | Override Behavior |
+|----------|--------|-------------------|
+| 1 (lowest) | built-in | Default agents |
+| 2 | plugin | Can override built-in |
+| 3 | userSettings | Can override plugin |
+| 4 | projectSettings | Can override user |
+| 5 | flagSettings | Can override project |
+| 6 (highest) | policySettings | Cannot be overridden |
 
 ---
 
@@ -711,6 +840,12 @@ Tool hook execution timeout changed from **60 seconds → 10 minutes**.
 | ib5 | executeForkedSlashCommand | chunks.112.mjs:2390-2475 | function |
 | MP2 | executeSkillFromTool | chunks.112.mjs:2771-2776 | function |
 | MD1 | trackSkillUsage | chunks.112.mjs:2362-2376 | function |
+| q0 | generateHookId | chunks.112.mjs | function |
+| H0 | createUserMessage | chunks.147.mjs:2410-2440 | function |
+| X4 | createPermissionMessage | chunks.132.mjs:87-94 | function |
+| Uc | parseAllowedTools | chunks.112.mjs | function |
+| Hm | calculateThinkingTokens | chunks.112.mjs | function |
+| QY1 | getSystemReminders | chunks.131.mjs | function |
 
 ### Metadata Formatting (v2.1.7)
 
@@ -720,6 +855,16 @@ Tool hook execution timeout changed from **60 seconds → 10 minutes**.
 | ob5 | formatSkillMetadata | chunks.112.mjs:2765-2768 | function |
 | xz0 | formatSkillFormat | chunks.112.mjs:2755-2758 | function |
 | LP2 | formatUserInvocableMetadata | chunks.112.mjs:2760-2762 | function |
+| VHA | extractTextContent | chunks.131.mjs:3614-3621 | function |
+
+### Serial Command Queue (v2.1.7)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bb5 | enqueueSerialCommand | chunks.112.mjs | function |
+| cb5 | dequeueSerialCommand | chunks.112.mjs | function |
+| db5 | processCommandQueue | chunks.112.mjs | function |
+| eb5 | clearCommandQueue | chunks.112.mjs | function |
 
 ### Hook Registration
 
@@ -784,9 +929,11 @@ Tool hook execution timeout changed from **60 seconds → 10 minutes**.
 | Background Agents | ✅ Complete | P1 |
 | Subagent Execution | ✅ Complete | P1 |
 | Built-in Agents | ✅ Complete (6 agents) | P1 |
+| Plugin Agent Integration | ✅ Complete (v2.1.7) | P1 |
 | Skill System + Slash Commands | ✅ Complete (v2.1.7) | P1 |
 | Plugin Skills | ✅ Complete (v2.1.7) | P1 |
-| LLM API | Partial mapping | P2 |
+| Agent Loop | ✅ Complete (v2.1.7) | P1 |
+| LLM API | ✅ Complete (v2.1.7) | P1 |
 | Plan Mode | TBD | P3 |
 | Hooks (frontmatter) | Partial | P2 |
 | All others | TBD | P3+ |

@@ -652,14 +652,622 @@ The prompt includes conditional sections based on environment:
 
 ---
 
+## Plugin Agent Integration
+
+Claude Code supports defining custom agents in plugins. This section covers how plugins define agents and how they integrate with the subagent system.
+
+### Plugin Loading Flow
+
+```javascript
+// ============================================
+// loadPlugins (DG) - Loads all plugins
+// Location: chunks.130.mjs:3246-3263
+// ============================================
+
+// ORIGINAL (for source lookup):
+DG = W0(async () => {
+  let A = await OB7(),
+    Q = [...A.plugins],
+    B = [...A.errors],
+    G = Qf0();
+  if (G.length > 0) {
+    let Y = await RB7(G);
+    Q.push(...Y.plugins), B.push(...Y.errors)
+  }
+  k(`Found ${Q.length} plugins (${Q.filter((Y)=>Y.enabled).length} enabled, ${Q.filter((Y)=>!Y.enabled).length} disabled)`);
+  let Z = Q.filter((Y) => Y.enabled);
+  if (Z.length > 0) T9("plugins");
+  return {
+    enabled: Z,
+    disabled: Q.filter((Y) => !Y.enabled),
+    errors: B
+  }
+})
+
+// READABLE (for understanding):
+loadPlugins = memoize(async () => {
+  // Load plugins from various sources
+  let result = await loadPluginsFromPaths();
+  let plugins = [...result.plugins];
+  let errors = [...result.errors];
+
+  // Load additional plugins from settings
+  let additionalPaths = getAdditionalPluginPaths();
+  if (additionalPaths.length > 0) {
+    let additional = await loadPluginsFromAdditionalPaths(additionalPaths);
+    plugins.push(...additional.plugins);
+    errors.push(...additional.errors);
+  }
+
+  log(`Found ${plugins.length} plugins (${plugins.filter(p=>p.enabled).length} enabled, ${plugins.filter(p=>!p.enabled).length} disabled)`);
+
+  let enabledPlugins = plugins.filter(p => p.enabled);
+  if (enabledPlugins.length > 0) trackFeatureUsage("plugins");
+
+  return {
+    enabled: enabledPlugins,
+    disabled: plugins.filter(p => !p.enabled),
+    errors: errors
+  };
+});
+
+// Mapping: DG→loadPlugins, OB7→loadPluginsFromPaths, Qf0→getAdditionalPluginPaths, RB7→loadPluginsFromAdditionalPaths, W0→memoize
+```
+
+### Plugin Agent Loading (O4A)
+
+Plugins can define agents in two ways:
+1. **Default directory**: `{plugin-root}/agents/` - all .md files are loaded
+2. **Custom paths**: Via `agents` field in plugin.json
+
+```javascript
+// ============================================
+// getPluginAgents (O4A) - Loads agents from all enabled plugins
+// Location: chunks.93.mjs:554-587
+// ============================================
+
+// ORIGINAL (for source lookup):
+O4A = W0(async () => {
+  let {
+    enabled: A,
+    errors: Q
+  } = await DG(), B = [];
+  if (Q.length > 0) k(`Plugin loading errors: ${Q.map((G)=>h_(G)).join(", ")}`);
+  for (let G of A) {
+    let Z = new Set;
+    if (G.agentsPath) try {
+      let Y = N52(G.agentsPath, G.name, G.source, Z);
+      if (B.push(...Y), Y.length > 0) k(`Loaded ${Y.length} agents from plugin ${G.name} default directory`)
+    } catch (Y) {
+      k(`Failed to load agents from plugin ${G.name} default directory: ${Y}`, {
+        level: "error"
+      })
+    }
+    if (G.agentsPaths)
+      for (let Y of G.agentsPaths) try {
+        let X = vA().statSync(Y);
+        if (X.isDirectory()) {
+          let I = N52(Y, G.name, G.source, Z);
+          if (B.push(...I), I.length > 0) k(`Loaded ${I.length} agents from plugin ${G.name} custom path: ${Y}`)
+        } else if (X.isFile() && Y.endsWith(".md")) {
+          let I = w52(Y, G.name, [], G.source, Z);
+          if (I) B.push(I), k(`Loaded agent from plugin ${G.name} custom file: ${Y}`)
+        }
+      } catch (J) {
+        k(`Failed to load agents from plugin ${G.name} custom path ${Y}: ${J}`, {
+          level: "error"
+        })
+      }
+  }
+  return k(`Total plugin agents loaded: ${B.length}`), B
+})
+
+// READABLE (for understanding):
+getPluginAgents = memoize(async () => {
+  let { enabled: enabledPlugins, errors: loadErrors } = await loadPlugins();
+  let agents = [];
+
+  if (loadErrors.length > 0) {
+    log(`Plugin loading errors: ${loadErrors.map(e => formatError(e)).join(", ")}`);
+  }
+
+  for (let plugin of enabledPlugins) {
+    let seenAgentNames = new Set();  // For deduplication within plugin
+
+    // 1. Load from default agents/ directory
+    if (plugin.agentsPath) {
+      try {
+        let loadedAgents = loadAgentsFromDirectory(plugin.agentsPath, plugin.name, plugin.source, seenAgentNames);
+        agents.push(...loadedAgents);
+        if (loadedAgents.length > 0) {
+          log(`Loaded ${loadedAgents.length} agents from plugin ${plugin.name} default directory`);
+        }
+      } catch (error) {
+        log(`Failed to load agents from plugin ${plugin.name} default directory: ${error}`, { level: "error" });
+      }
+    }
+
+    // 2. Load from custom paths (via plugin.json agents field)
+    if (plugin.agentsPaths) {
+      for (let customPath of plugin.agentsPaths) {
+        try {
+          let stats = fs.statSync(customPath);
+          if (stats.isDirectory()) {
+            let loadedAgents = loadAgentsFromDirectory(customPath, plugin.name, plugin.source, seenAgentNames);
+            agents.push(...loadedAgents);
+          } else if (stats.isFile() && customPath.endsWith(".md")) {
+            let agent = loadAgentFromFile(customPath, plugin.name, [], plugin.source, seenAgentNames);
+            if (agent) agents.push(agent);
+          }
+        } catch (error) {
+          log(`Failed to load agents from plugin ${plugin.name} custom path ${customPath}: ${error}`, { level: "error" });
+        }
+      }
+    }
+  }
+
+  log(`Total plugin agents loaded: ${agents.length}`);
+  return agents;
+});
+
+// Mapping: O4A→getPluginAgents, DG→loadPlugins, N52→loadAgentsFromDirectory, w52→loadAgentFromFile
+```
+
+### Plugin Agent Definition Format
+
+Plugin agents are defined as Markdown files with YAML frontmatter:
+
+```markdown
+---
+name: my-custom-agent
+description: "Description shown to main agent for selection"
+model: haiku           # Optional: sonnet, haiku, opus, or inherit
+tools:                 # Optional: specific tools allowed
+  - Read
+  - Glob
+  - Grep
+disallowedTools:       # Optional: tools to block
+  - Edit
+  - Write
+color: blue            # Optional: UI color
+forkContext: true      # Optional: receive conversation history
+permissionMode: dontAsk  # Optional: skip permission prompts
+mcpServers:            # Optional: MCP server connections
+  - name: myserver
+    transport: stdio
+    command: npx
+    args: ["-y", "@mcp/myserver"]
+hooks:                 # Optional: event hooks
+  Stop:
+    - matcher: ""
+      hooks:
+        - type: command
+          command: echo "Agent completed"
+---
+
+Your agent's system prompt goes here.
+
+This is the full markdown content that becomes the agent's system prompt.
+```
+
+**Agent Type Naming:**
+- For plugin agents, the `agentType` is automatically constructed as: `{plugin-name}:{agent-name}`
+- Example: Plugin `my-tools` with agent file `helper.md` → agentType `my-tools:helper`
+
+```javascript
+// ============================================
+// loadAgentFromFile (w52) - Parses single agent file
+// Location: chunks.93.mjs:499-539
+// ============================================
+
+// ORIGINAL (for source lookup):
+function w52(A, Q, B, G, Z) {
+  let Y = vA();
+  if (Py(Y, A, Z)) return null;  // Skip if already seen
+  try {
+    let J = Y.readFileSync(A, { encoding: "utf-8" }),
+      { frontmatter: X, content: I } = lK(J),
+      D = X.name || ZY5(A).replace(/\.md$/, ""),
+      K = [Q, ...B, D].join(":"),  // plugin:subdir:name
+      V = X.description || X["when-to-use"] || `Agent from ${Q} plugin`,
+      F = M4A(X.tools),
+      H = RS(X.skills),
+      E = X.color,
+      z = X.model,
+      $ = X.forkContext,
+      O = I.trim();
+    return {
+      agentType: K,
+      whenToUse: V,
+      tools: F,
+      ...H !== void 0 ? { skills: H } : {},
+      getSystemPrompt: () => O,
+      source: "plugin",
+      color: E,
+      model: z,
+      filename: D,
+      plugin: G,
+      ...{}
+    }
+  } catch (J) {
+    return k(`Failed to load agent from ${A}: ${J}`, { level: "error" }), null
+  }
+}
+
+// READABLE (for understanding):
+function loadAgentFromFile(filePath, pluginName, subdirs, pluginSource, seenNames) {
+  let fs = getFs();
+  if (alreadySeen(fs, filePath, seenNames)) return null;
+
+  try {
+    let content = fs.readFileSync(filePath, { encoding: "utf-8" });
+    let { frontmatter, content: body } = parseFrontmatter(content);
+
+    // Agent name from frontmatter or filename
+    let name = frontmatter.name || getBasename(filePath).replace(/\.md$/, "");
+
+    // Construct agentType: plugin:subdir:name
+    let agentType = [pluginName, ...subdirs, name].join(":");
+
+    let description = frontmatter.description || frontmatter["when-to-use"] || `Agent from ${pluginName} plugin`;
+    let tools = parseToolsArray(frontmatter.tools);
+    let skills = parseSkillsArray(frontmatter.skills);
+    let systemPrompt = body.trim();
+
+    return {
+      agentType: agentType,
+      whenToUse: description,
+      tools: tools,
+      ...(skills !== undefined ? { skills: skills } : {}),
+      getSystemPrompt: () => systemPrompt,
+      source: "plugin",
+      color: frontmatter.color,
+      model: frontmatter.model,
+      filename: name,
+      plugin: pluginSource,
+    };
+  } catch (error) {
+    log(`Failed to load agent from ${filePath}: ${error}`, { level: "error" });
+    return null;
+  }
+}
+
+// Mapping: w52→loadAgentFromFile, lK→parseFrontmatter, M4A→parseToolsArray, RS→parseSkillsArray
+```
+
+### Agent Merging & Priority
+
+All agents from different sources are merged with priority-based deduplication:
+
+```javascript
+// ============================================
+// deduplicateAgents (mb) - Merges agents by priority
+// Location: chunks.93.mjs:602-614
+// ============================================
+
+// ORIGINAL (for source lookup):
+function mb(A) {
+  let Q = A.filter((D) => D.source === "built-in"),
+    B = A.filter((D) => D.source === "plugin"),
+    G = A.filter((D) => D.source === "userSettings"),
+    Z = A.filter((D) => D.source === "projectSettings"),
+    Y = A.filter((D) => D.source === "policySettings"),
+    J = A.filter((D) => D.source === "flagSettings"),
+    X = [Q, B, G, Z, J, Y],  // Priority order: lowest to highest
+    I = new Map;
+  for (let D of X)
+    for (let W of D) I.set(W.agentType, W);
+  return Array.from(I.values())
+}
+
+// READABLE (for understanding):
+function deduplicateAgents(allAgents) {
+  // Group by source
+  let builtIn = allAgents.filter(a => a.source === "built-in");
+  let plugin = allAgents.filter(a => a.source === "plugin");
+  let userSettings = allAgents.filter(a => a.source === "userSettings");
+  let projectSettings = allAgents.filter(a => a.source === "projectSettings");
+  let policySettings = allAgents.filter(a => a.source === "policySettings");
+  let flagSettings = allAgents.filter(a => a.source === "flagSettings");
+
+  // Priority order: lowest first, highest last
+  // Later sources override earlier ones
+  let priorityOrder = [builtIn, plugin, userSettings, projectSettings, flagSettings, policySettings];
+
+  let agentMap = new Map();
+  for (let sourceAgents of priorityOrder) {
+    for (let agent of sourceAgents) {
+      agentMap.set(agent.agentType, agent);  // Later overwrites earlier
+    }
+  }
+
+  return Array.from(agentMap.values());
+}
+
+// Mapping: mb→deduplicateAgents
+```
+
+**Priority Implications:**
+- A plugin can override a built-in agent by using the same `agentType`
+- Project settings can override plugin agents
+- Policy settings (managed) have highest priority and cannot be overridden
+
+### Settings-based Agent Definition
+
+Agents can also be defined in settings JSON files:
+
+```json
+// In .claude/settings.json
+{
+  "agents": {
+    "my-agent": {
+      "description": "Custom agent for special tasks",
+      "prompt": "You are a specialized agent...",
+      "tools": ["Read", "Glob"],
+      "model": "haiku",
+      "permissionMode": "dontAsk"
+    }
+  }
+}
+```
+
+```javascript
+// ============================================
+// parseAgentFromJSON (DY5) - Parses single agent from JSON settings
+// Location: chunks.93.mjs:638-672
+// ============================================
+
+// ORIGINAL (for source lookup):
+function DY5(A, Q, B = "flagSettings") {
+  try {
+    let G = M52.parse(Q),
+      Z = M4A(G.tools),
+      Y = G.disallowedTools !== void 0 ? M4A(G.disallowedTools) : void 0,
+      J = G.prompt;
+    return {
+      agentType: A,
+      whenToUse: G.description,
+      ...Z !== void 0 ? { tools: Z } : {},
+      ...Y !== void 0 ? { disallowedTools: Y } : {},
+      getSystemPrompt: () => J,
+      source: B,
+      ...G.model ? { model: G.model } : {},
+      ...G.permissionMode ? { permissionMode: G.permissionMode } : {},
+      ...G.mcpServers && G.mcpServers.length > 0 ? { mcpServers: G.mcpServers } : {},
+      ...G.hooks ? { hooks: G.hooks } : {}
+    }
+  } catch (G) {
+    let Z = G instanceof Error ? G.message : String(G);
+    return k(`Error parsing agent '${A}' from JSON: ${Z}`), e(G instanceof Error ? G : Error(String(G))), null
+  }
+}
+
+// READABLE (for understanding):
+function parseAgentFromJSON(agentName, config, source = "flagSettings") {
+  try {
+    let validated = agentSchema.parse(config);
+    let tools = parseToolsArray(validated.tools);
+    let disallowedTools = validated.disallowedTools !== undefined ? parseToolsArray(validated.disallowedTools) : undefined;
+    let systemPrompt = validated.prompt;
+
+    return {
+      agentType: agentName,
+      whenToUse: validated.description,
+      ...(tools !== undefined ? { tools: tools } : {}),
+      ...(disallowedTools !== undefined ? { disallowedTools: disallowedTools } : {}),
+      getSystemPrompt: () => systemPrompt,
+      source: source,
+      ...(validated.model ? { model: validated.model } : {}),
+      ...(validated.permissionMode ? { permissionMode: validated.permissionMode } : {}),
+      ...(validated.mcpServers?.length > 0 ? { mcpServers: validated.mcpServers } : {}),
+      ...(validated.hooks ? { hooks: validated.hooks } : {}),
+    };
+  } catch (error) {
+    let message = error instanceof Error ? error.message : String(error);
+    log(`Error parsing agent '${agentName}' from JSON: ${message}`);
+    return null;
+  }
+}
+
+// Mapping: DY5→parseAgentFromJSON, M52→agentSchema
+```
+
+### Full Agent Loading Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    getAllAgents (kG5)                           │
+│                    Location: chunks.93.mjs:780-856              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+         ┌────────────────────┼────────────────────┐
+         │                    │                    │
+         ▼                    ▼                    ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│ getBuiltInAgents│  │ getPluginAgents │  │ getSettingsAgents│
+│     (ED0)       │  │     (O4A)       │  │ (from settings)  │
+│ Returns: 5-6    │  │ Returns: [...]  │  │ Returns: [...]   │
+│ built-in agents │  │ plugin agents   │  │ user/project     │
+└─────────────────┘  └─────────────────┘  └─────────────────┘
+         │                    │                    │
+         └────────────────────┼────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ Merge: [...getBuiltInAgents(), ...getPluginAgents(), ...G]      │
+│ Where G = agents from settings (user, project, flag, policy)    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ deduplicateAgents (mb)                                          │
+│ Priority: built-in < plugin < user < project < flag < policy    │
+│ Later sources override earlier ones with same agentType         │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ Result: { activeAgents, allAgents, failedFiles }               │
+│ - activeAgents: Deduplicated agents for use                    │
+│ - allAgents: All agents before deduplication                   │
+│ - failedFiles: Any agent files that failed to parse            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Plugin Hook: SubagentStop Conversion
+
+When agents from plugins define hooks for `Stop` event, they are automatically converted to `SubagentStop`:
+
+```javascript
+// ============================================
+// registerFrontmatterHooks (j52) - Registers hooks from agent frontmatter
+// Location: chunks.93.mjs:859-875
+// ============================================
+
+// ORIGINAL (for source lookup):
+function j52(A, Q, B, G, Z = !1) {
+  if (!B || Object.keys(B).length === 0) return;
+  let Y = 0;
+  for (let J of _b) {
+    let X = B[J];
+    if (!X || X.length === 0) continue;
+    let I = J;
+    if (Z && J === "Stop") I = "SubagentStop", k(`Converting Stop hook to SubagentStop for ${G} (subagents trigger SubagentStop)`);
+    for (let D of X) {
+      let W = D.matcher ?? "",
+        K = D.hooks;
+      if (!K || K.length === 0) continue;
+      for (let V of K) pZ1(A, Q, I, W, V), Y++
+    }
+  }
+  if (Y > 0) k(`Registered ${Y} frontmatter hook(s) from ${G} for session ${Q}`)
+}
+
+// READABLE (for understanding):
+function registerFrontmatterHooks(hookContext, sessionId, hooksConfig, agentName, isSubagent = false) {
+  if (!hooksConfig || Object.keys(hooksConfig).length === 0) return;
+
+  let hookCount = 0;
+  for (let hookType of HOOK_TYPES) {
+    let hookEntries = hooksConfig[hookType];
+    if (!hookEntries || hookEntries.length === 0) continue;
+
+    let eventName = hookType;
+    // Convert "Stop" to "SubagentStop" for subagent hooks
+    if (isSubagent && hookType === "Stop") {
+      eventName = "SubagentStop";
+      log(`Converting Stop hook to SubagentStop for ${agentName} (subagents trigger SubagentStop)`);
+    }
+
+    for (let entry of hookEntries) {
+      let matcher = entry.matcher ?? "";
+      let hooks = entry.hooks;
+      if (!hooks || hooks.length === 0) continue;
+
+      for (let hook of hooks) {
+        registerHook(hookContext, sessionId, eventName, matcher, hook);
+        hookCount++;
+      }
+    }
+  }
+
+  if (hookCount > 0) {
+    log(`Registered ${hookCount} frontmatter hook(s) from ${agentName} for session ${sessionId}`);
+  }
+}
+
+// Mapping: j52→registerFrontmatterHooks, pZ1→registerHook, _b→HOOK_TYPES
+```
+
+**Why SubagentStop conversion?**
+- When a plugin agent runs as a subagent, its "Stop" hook should fire on `SubagentStop` event
+- This ensures the hook runs when the subagent completes, not when the main session ends
+
+### Source Type Helpers
+
+```javascript
+// ============================================
+// Source Type Helpers
+// Location: chunks.93.mjs:590-600
+// ============================================
+
+// ORIGINAL (for source lookup):
+function p_(A) { return A.source === "built-in" }
+function R52(A) { return A.source !== "built-in" && A.source !== "plugin" }
+function qY1(A) { return A.source === "plugin" }
+
+// READABLE (for understanding):
+function isBuiltInAgent(agent) { return agent.source === "built-in"; }
+function isSettingsAgent(agent) { return agent.source !== "built-in" && agent.source !== "plugin"; }
+function isPluginAgent(agent) { return agent.source === "plugin"; }
+
+// Mapping: p_→isBuiltInAgent, R52→isSettingsAgent, qY1→isPluginAgent
+```
+
+### Plugin Agent Example
+
+**Example: Creating a plugin agent**
+
+1. Create plugin directory structure:
+```
+my-plugin/
+├── plugin.json
+└── agents/
+    └── code-reviewer.md
+```
+
+2. Define plugin.json:
+```json
+{
+  "name": "my-plugin",
+  "version": "1.0.0",
+  "description": "My custom plugin"
+}
+```
+
+3. Create agent file (agents/code-reviewer.md):
+```markdown
+---
+name: code-reviewer
+description: "Specialized agent for reviewing code quality and suggesting improvements"
+model: sonnet
+tools:
+  - Read
+  - Glob
+  - Grep
+color: green
+---
+
+You are a code review specialist. Your job is to:
+
+1. Analyze the code provided to you
+2. Identify potential issues, bugs, or improvements
+3. Suggest concrete fixes with code examples
+4. Focus on readability, maintainability, and best practices
+
+When reviewing code:
+- Check for error handling
+- Look for potential security issues
+- Verify naming conventions
+- Assess code organization
+```
+
+The agent will be available as `my-plugin:code-reviewer`.
+
+---
+
 ## Related Symbols
 
 > Symbol mappings: [symbol_index_core.md](../00_overview/symbol_index_core.md)
 
 Key symbols in this document:
+
+**Task Tool:**
 - `TaskTool` (xVA) - Task tool definition
 - `taskInputSchema` (uP2) - Input validation schema
 - `taskOutputSchema` (Yf5) - Output type union
+
+**Built-in Agents:**
 - `getBuiltInAgents` (ED0) - Built-in agents loader
 - `bashAgent` (K52) - Bash agent definition
 - `generalPurposeAgent` ($Y1) - General-purpose agent
@@ -669,11 +1277,28 @@ Key symbols in this document:
 - `claudeCodeGuideAgent` (z52) - Guide agent
 - `CLAUDE_CODE_GUIDE_NAME` (AY5) - Guide agent name constant
 
+**Plugin Integration:**
+- `loadPlugins` (DG) - Loads all plugins
+- `getPluginAgents` (O4A) - Loads agents from plugins
+- `loadAgentsFromDirectory` (N52) - Scans directory for agent files
+- `loadAgentFromFile` (w52) - Parses single agent markdown file
+- `deduplicateAgents` (mb) - Merges agents by priority
+- `parseAgentFromJSON` (DY5) - Parses agent from JSON settings
+- `parseAgentsFromJSON` (NY1) - Parses multiple agents from settings
+- `isBuiltInAgent` (p_) - Checks if agent is built-in
+- `isPluginAgent` (qY1) - Checks if agent is from plugin
+- `isSettingsAgent` (R52) - Checks if agent is from settings
+- `registerFrontmatterHooks` (j52) - Registers hooks from agent frontmatter
+
 ---
 
 ## See Also
 
 - [execution.md](./execution.md) - Execution flow and patterns
 - [tool_restrictions.md](./tool_restrictions.md) - Tool filtering system
+- [builtin_agents.md](./builtin_agents.md) - Detailed built-in agents documentation
+- [communication.md](./communication.md) - Communication patterns
+- [error_handling.md](./error_handling.md) - Error handling patterns
+- [integration.md](./integration.md) - System integration (Compact, Plan Mode, TodoWrite)
 - [Background Agents](../26_background_agents/background_agents.md) - Async execution
 - [Skill System](../10_skill/) - Skill-based execution (fork context)

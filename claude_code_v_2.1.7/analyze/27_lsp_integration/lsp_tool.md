@@ -119,6 +119,48 @@ lspTool = {
 
 ---
 
+## Tool Prompt (LLM Description)
+
+The tool prompt is the description shown to the LLM when it considers using the LSP tool:
+
+```javascript
+// ============================================
+// xU0 - LSP Tool Description (Prompt for LLM)
+// Location: chunks.119.mjs:3122-3141
+// ============================================
+
+// ORIGINAL (for source lookup):
+xU0 = `Interact with Language Server Protocol (LSP) servers to get code intelligence features.
+
+Supported operations:
+- goToDefinition: Find where a symbol is defined
+- findReferences: Find all references to a symbol
+- hover: Get hover information (documentation, type info) for a symbol
+- documentSymbol: Get all symbols (functions, classes, variables) in a document
+- workspaceSymbol: Search for symbols across the entire workspace
+- goToImplementation: Find implementations of an interface or abstract method
+- prepareCallHierarchy: Get call hierarchy item at a position (functions/methods)
+- incomingCalls: Find all functions/methods that call the function at a position
+- outgoingCalls: Find all functions/methods called by the function at a position
+
+All operations require:
+- filePath: The file to operate on
+- line: The line number (1-based, as shown in editors)
+- character: The character offset (1-based, as shown in editors)
+
+Note: LSP servers must be configured for the file type. If no server is available, an error will be returned.`
+
+// Mapping: xU0→lspToolDescription, Sg2→LSP_TOOL_NAME ("LSP")
+```
+
+**Key insight:** The prompt clearly explains:
+1. What the tool does (code intelligence via LSP)
+2. All 9 supported operations with brief descriptions
+3. Required parameters (filePath, line, character) with 1-based indexing clarification
+4. Constraints (servers must be configured)
+
+---
+
 ## Input/Output Schema
 
 ```javascript
@@ -560,6 +602,140 @@ function createLspServerManager() {
 
 ---
 
+## Manager Core Methods
+
+The LSP Server Manager exposes several key methods for server lifecycle and request routing:
+
+```javascript
+// ============================================
+// ensureServerStarted - Start server on demand
+// Location: chunks.114.mjs:2226-2234
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function J(H) {
+  let E = Y(H);
+  if (!E) return;
+  if (E.state === "stopped") try {
+    await E.start()
+  } catch (z) {
+    throw e(Error(`Failed to start LSP server for file ${H}: ${z.message}`)), z
+  }
+  return E
+}
+
+// READABLE (for understanding):
+async function ensureServerStarted(filePath) {
+  let server = getServerForFile(filePath);
+  if (!server) return;  // No server configured for this file type
+
+  if (server.state === "stopped") {
+    try {
+      await server.start();
+    } catch (error) {
+      throw logError(Error(`Failed to start LSP server for file ${filePath}: ${error.message}`)), error;
+    }
+  }
+  return server;
+}
+
+// Mapping: J→ensureServerStarted, H→filePath, E→server, Y→getServerForFile
+```
+
+```javascript
+// ============================================
+// sendRequest - Route LSP request to appropriate server
+// Location: chunks.114.mjs:2236-2243
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function X(H, E, z) {
+  let $ = await J(H);
+  if (!$) return;
+  try {
+    return await $.sendRequest(E, z)
+  } catch (O) {
+    throw e(Error(`LSP request failed for file ${H}, method '${E}': ${O.message}`)), O
+  }
+}
+
+// READABLE (for understanding):
+async function sendRequest(filePath, method, params) {
+  let server = await ensureServerStarted(filePath);
+  if (!server) return;  // No server available
+
+  try {
+    return await server.sendRequest(method, params);
+  } catch (error) {
+    throw logError(Error(`LSP request failed for file ${filePath}, method '${method}': ${error.message}`)), error;
+  }
+}
+
+// Mapping: X→sendRequest, H→filePath, E→method, z→params, $→server, J→ensureServerStarted
+```
+
+**Key insight:** `sendRequest` implements lazy server startup - the server is only started when a request is made for a file of that type. This optimizes startup time by deferring server initialization until actually needed.
+
+```javascript
+// ============================================
+// shutdown - Graceful shutdown of all servers
+// Location: chunks.114.mjs:2203-2216
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Z() {
+  let H = [];
+  for (let [E, z] of A.entries())
+    if (z.state === "running") try {
+      await z.stop()
+    } catch ($) {
+      let O = $;
+      e(Error(`Failed to stop LSP server ${E}: ${O.message}`)), H.push(O)
+    }
+  if (A.clear(), Q.clear(), B.clear(), H.length > 0) {
+    let E = Error(`Failed to stop ${H.length} LSP server(s): ${H.map((z)=>z.message).join("; ")}`);
+    throw e(E), E
+  }
+}
+
+// READABLE (for understanding):
+async function shutdown() {
+  let errors = [];
+
+  // Stop all running servers
+  for (let [serverName, server] of servers.entries()) {
+    if (server.state === "running") {
+      try {
+        await server.stop();
+      } catch (error) {
+        logError(Error(`Failed to stop LSP server ${serverName}: ${error.message}`));
+        errors.push(error);
+      }
+    }
+  }
+
+  // Clear all state maps
+  servers.clear();
+  extensionToServers.clear();
+  openFiles.clear();
+
+  // Throw aggregated error if any servers failed to stop
+  if (errors.length > 0) {
+    let aggregatedError = Error(`Failed to stop ${errors.length} LSP server(s): ${errors.map(e => e.message).join("; ")}`);
+    throw logError(aggregatedError), aggregatedError;
+  }
+}
+
+// Mapping: Z→shutdown, H→errors, A→servers, Q→extensionToServers, B→openFiles
+```
+
+**Why this approach:**
+- **Best-effort shutdown**: Attempts to stop all servers even if some fail
+- **Error aggregation**: Collects all errors and reports them together
+- **State cleanup**: Clears all tracking maps regardless of errors to prevent memory leaks
+
+---
+
 ## File Synchronization Methods
 
 The manager tracks file state and synchronizes with LSP servers via standard LSP text document notifications:
@@ -855,7 +1031,7 @@ function createLspServerInstance(serverName, config) {
     start,
     stop,
     restart,
-    isReady,
+    isHealthy,
     sendRequest,
     sendNotification,
     onNotification,
@@ -869,6 +1045,201 @@ function createLspServerInstance(serverName, config) {
 ```
 
 **Key insight:** The retry logic with exponential backoff handles `ContentModified` errors, which occur when the file content changes during an LSP operation.
+
+### Server Instance Additional Methods
+
+```javascript
+// ============================================
+// isHealthy - Health Check Function
+// Location: chunks.114.mjs:1888-1890
+// ============================================
+
+// ORIGINAL (for source lookup):
+function W() {
+  return G === "running" && B.isInitialized
+}
+
+// READABLE (for understanding):
+function isHealthy() {
+  return state === "running" && client.isInitialized;
+}
+
+// Mapping: W→isHealthy, G→state, B→client
+```
+
+**Key insight:** A server is considered healthy only when:
+1. State is "running" (not stopped/starting/error)
+2. LSP client connection is initialized (initialize handshake completed)
+
+```javascript
+// ============================================
+// stop - Graceful Server Stop
+// Location: chunks.114.mjs:1859-1865
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function I() {
+  if (G === "stopped" || G === "stopping") return;
+  try {
+    G = "stopping", await B.stop(), G = "stopped", k(`LSP server instance stopped: ${A}`)
+  } catch (E) {
+    throw G = "error", Y = E, e(E), E
+  }
+}
+
+// READABLE (for understanding):
+async function stop() {
+  // Idempotent: no-op if already stopped/stopping
+  if (state === "stopped" || state === "stopping") return;
+
+  try {
+    state = "stopping";
+    await client.stop();  // Send shutdown + exit, kill process
+    state = "stopped";
+    logDebug(`LSP server instance stopped: ${serverName}`);
+  } catch (error) {
+    state = "error";
+    lastError = error;
+    throw logError(error), error;
+  }
+}
+
+// Mapping: I→stop, G→state, B→client
+```
+
+```javascript
+// ============================================
+// restart - Server Restart with Max Retries
+// Location: chunks.114.mjs:1867-1886
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function D() {
+  try {
+    await I()  // stop first
+  } catch (z) {
+    let $ = Error(`Failed to stop LSP server '${A}' during restart: ${z.message}`);
+    throw e($), $
+  }
+  J++;  // Increment restart counter
+  let E = Q.maxRestarts ?? 3;
+  if (J > E) {
+    let z = Error(`Max restart attempts (${E}) exceeded for server '${A}'`);
+    throw e(z), z
+  }
+  try {
+    await X()  // start again
+  } catch (z) {
+    let $ = Error(`Failed to start LSP server '${A}' during restart (attempt ${J}/${E}): ${z.message}`);
+    throw e($), $
+  }
+}
+
+// READABLE (for understanding):
+async function restart() {
+  // Step 1: Stop the server
+  try {
+    await stop();
+  } catch (error) {
+    let wrappedError = Error(`Failed to stop LSP server '${serverName}' during restart: ${error.message}`);
+    throw logError(wrappedError), wrappedError;
+  }
+
+  // Step 2: Increment restart counter
+  restartCount++;
+  let maxRestarts = config.maxRestarts ?? 3;  // Default: 3 attempts
+
+  // Step 3: Check if max restarts exceeded
+  if (restartCount > maxRestarts) {
+    let error = Error(`Max restart attempts (${maxRestarts}) exceeded for server '${serverName}'`);
+    throw logError(error), error;
+  }
+
+  // Step 4: Start the server again
+  try {
+    await start();
+  } catch (error) {
+    let wrappedError = Error(`Failed to start LSP server '${serverName}' during restart (attempt ${restartCount}/${maxRestarts}): ${error.message}`);
+    throw logError(wrappedError), wrappedError;
+  }
+}
+
+// Mapping: D→restart, I→stop, X→start, J→restartCount, Q→config, E→maxRestarts
+```
+
+**Why this approach:**
+- **Stop-before-start**: Ensures clean state before restart
+- **Restart counter**: Tracks total restarts to prevent infinite loops
+- **Max restarts limit**: Default 3 attempts, configurable via `config.maxRestarts`
+- **Detailed error messages**: Includes attempt count for debugging
+
+**Note:** `restartOnCrash` (automatic crash recovery) is NOT YET IMPLEMENTED. The restart function is manually triggered.
+
+```javascript
+// ============================================
+// sendNotification - Send LSP Notification
+// Location: chunks.114.mjs:1912-1922
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function V(E, z) {
+  if (!W()) {
+    let $ = Error(`Cannot send notification to LSP server '${A}': server is ${G}`);
+    throw e($), $
+  }
+  try {
+    await B.sendNotification(E, z)
+  } catch ($) {
+    let O = Error(`LSP notification '${E}' failed for server '${A}': ${$.message}`);
+    throw e(O), O
+  }
+}
+
+// READABLE (for understanding):
+async function sendNotification(method, params) {
+  if (!isHealthy()) {
+    let error = Error(`Cannot send notification to LSP server '${serverName}': server is ${state}`);
+    throw logError(error), error;
+  }
+  try {
+    await client.sendNotification(method, params);
+  } catch (error) {
+    let wrappedError = Error(`LSP notification '${method}' failed for server '${serverName}': ${error.message}`);
+    throw logError(wrappedError), wrappedError;
+  }
+}
+
+// Mapping: V→sendNotification, W→isHealthy, B→client
+```
+
+```javascript
+// ============================================
+// onNotification, onRequest - Event Handlers
+// Location: chunks.114.mjs:1925-1931
+// ============================================
+
+// ORIGINAL (for source lookup):
+function F(E, z) {
+  B.onNotification(E, z)
+}
+function H(E, z) {
+  B.onRequest(E, z)
+}
+
+// READABLE (for understanding):
+function onNotification(method, handler) {
+  client.onNotification(method, handler);
+}
+function onRequest(method, handler) {
+  client.onRequest(method, handler);
+}
+
+// Mapping: F→onNotification, H→onRequest, B→client
+```
+
+**Key insight:** Event handlers allow the server instance to respond to:
+- **Notifications**: One-way messages from server (e.g., `textDocument/publishDiagnostics`)
+- **Requests**: Two-way messages requiring response (e.g., `workspace/configuration`)
 
 ---
 
@@ -1301,6 +1672,125 @@ function formatDocumentSymbolResult(symbols, workingDir) {
 
 **Key insight:** Document symbols can be hierarchical (e.g., methods inside classes). The formatter flattens the hierarchy and uses indentation to show nesting depth.
 
+### Workspace Symbol
+
+```javascript
+// ============================================
+// SU0 - Format Workspace Symbol Result
+// Location: chunks.119.mjs:3001-3023
+// ============================================
+
+// ORIGINAL (for source lookup):
+function SU0(A, Q) {
+  if (!A || A.length === 0) return "No symbols found in workspace. This may occur if the workspace is empty, or if the LSP server has not finished indexing the project.";
+  let B = A.filter((J) => !J || !J.location || !J.location.uri);
+  if (B.length > 0) k(`formatWorkspaceSymbolResult: Filtering out ${B.length} invalid symbol(s) - this should have been caught earlier`, { level: "warn" });
+  let G = A.filter((J) => J && J.location && J.location.uri);
+  if (G.length === 0) return "No symbols found in workspace...";
+  let Z = [`Found ${G.length} symbol${G.length===1?"":"s"} in workspace:`],
+    Y = wg2(G, Q);
+  for (let [J, X] of Y) {
+    Z.push(`\n${J}:`);
+    for (let I of X) {
+      let D = rHA(I.kind),
+        W = I.location.range.start.line + 1,
+        K = `  ${I.name} (${D}) - Line ${W}`;
+      if (I.containerName) K += ` in ${I.containerName}`;
+      Z.push(K)
+    }
+  }
+  return Z.join(`\n`)
+}
+
+// READABLE (for understanding):
+function formatWorkspaceSymbolResult(symbols, workingDir) {
+  if (!symbols || symbols.length === 0) {
+    return "No symbols found in workspace. This may occur if the workspace is empty, or if the LSP server has not finished indexing the project.";
+  }
+
+  // Filter out invalid symbols
+  let invalid = symbols.filter(sym => !sym || !sym.location || !sym.location.uri);
+  if (invalid.length > 0) {
+    logDebug(`formatWorkspaceSymbolResult: Filtering out ${invalid.length} invalid symbol(s) - this should have been caught earlier`, { level: "warn" });
+  }
+  let valid = symbols.filter(sym => sym && sym.location && sym.location.uri);
+
+  if (valid.length === 0) {
+    return "No symbols found in workspace...";
+  }
+
+  let lines = [`Found ${valid.length} symbol${valid.length === 1 ? "" : "s"} in workspace:`];
+
+  // Group symbols by file
+  let groupedByFile = groupLocationsByFile(valid, workingDir);
+
+  for (let [filePath, fileSymbols] of groupedByFile) {
+    lines.push(`\n${filePath}:`);
+    for (let symbol of fileSymbols) {
+      let kindName = symbolKindToName(symbol.kind);
+      let line = symbol.location.range.start.line + 1;
+      let entry = `  ${symbol.name} (${kindName}) - Line ${line}`;
+      // Include container name if present (e.g., "method in ClassName")
+      if (symbol.containerName) {
+        entry += ` in ${symbol.containerName}`;
+      }
+      lines.push(entry);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+// Mapping: SU0→formatWorkspaceSymbolResult, wg2→groupLocationsByFile, rHA→symbolKindToName
+```
+
+**Key insight:** Workspace symbols include a `containerName` field that shows the parent context (e.g., a method's containing class). This helps distinguish symbols with the same name in different contexts.
+
+### Call Hierarchy Item Helper
+
+```javascript
+// ============================================
+// Ng2 - Format Single Call Hierarchy Item
+// Location: chunks.119.mjs:3026-3035
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Ng2(A, Q) {
+  if (!A.uri) return k("formatCallHierarchyItem: CallHierarchyItem has undefined URI", { level: "warn" }),
+    `${A.name} (${rHA(A.kind)}) - <unknown location>`;
+  let B = hbA(A.uri, Q),
+    G = A.range.start.line + 1,
+    Z = rHA(A.kind),
+    Y = `${A.name} (${Z}) - ${B}:${G}`;
+  if (A.detail) Y += ` [${A.detail}]`;
+  return Y
+}
+
+// READABLE (for understanding):
+function formatCallHierarchyItem(item, workingDir) {
+  if (!item.uri) {
+    logDebug("formatCallHierarchyItem: CallHierarchyItem has undefined URI", { level: "warn" });
+    return `${item.name} (${symbolKindToName(item.kind)}) - <unknown location>`;
+  }
+
+  let relativePath = uriToRelativePath(item.uri, workingDir);
+  let line = item.range.start.line + 1;
+  let kindName = symbolKindToName(item.kind);
+  let result = `${item.name} (${kindName}) - ${relativePath}:${line}`;
+
+  // Include detail if present (e.g., function signature)
+  if (item.detail) {
+    result += ` [${item.detail}]`;
+  }
+
+  return result;
+}
+
+// Mapping: Ng2→formatCallHierarchyItem, hbA→uriToRelativePath, rHA→symbolKindToName
+```
+
+**Key insight:** The `detail` field contains additional context like function signatures, which helps identify overloaded methods.
+
 ### Call Hierarchy
 
 ```javascript
@@ -1608,6 +2098,298 @@ lspPluginSchema = zod.object({
 
 ---
 
+## Plugin LSP Server Loading
+
+The LSP system loads server configurations from plugins through a multi-step process with security validation:
+
+```javascript
+// ============================================
+// validatePluginPath - Security check for path traversal
+// Location: chunks.114.mjs:1971-1977
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Pg5(A, Q) {
+  let B = S$0(A),
+    G = S$0(A, Q),
+    Z = Tg5(B, G);
+  if (Z.startsWith("..") || S$0(Z) === Z) return null;
+  return G
+}
+
+// READABLE (for understanding):
+function validatePluginPath(pluginRoot, relativePath) {
+  let normalizedRoot = path.normalize(pluginRoot);
+  let fullPath = path.normalize(pluginRoot, relativePath);
+  let relative = path.relative(normalizedRoot, fullPath);
+
+  // Block path traversal attacks (e.g., "../../../etc/passwd")
+  if (relative.startsWith("..") || path.normalize(relative) === relative) {
+    return null;  // Blocked
+  }
+  return fullPath;  // Safe path
+}
+
+// Mapping: Pg5→validatePluginPath, A→pluginRoot, Q→relativePath, S$0→path.normalize, Tg5→path.relative
+```
+
+**Key insight:** This function prevents path traversal attacks where a malicious plugin could try to access files outside its directory (e.g., `../../etc/passwd`).
+
+```javascript
+// ============================================
+// loadLspServersFromPluginDefault - Load .lsp.json from plugin root
+// Location: chunks.114.mjs:1979-2013
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Sg5(A, Q = []) {
+  let B = {},
+    G = jg5(A.path, ".lsp.json");
+  try {
+    let Z = await Hy2(G, "utf-8"),
+      Y = AQ(Z),
+      J = m.record(m.string(), YVA).safeParse(Y);
+    if (J.success) Object.assign(B, J.data);
+    else {
+      let X = `LSP config validation failed for .lsp.json in plugin ${A.name}: ${J.error.message}`;
+      e(Error(X)), Q.push({ type: "lsp-config-invalid", plugin: A.name, serverName: ".lsp.json", validationError: J.error.message, source: "plugin" })
+    }
+  } catch (Z) {
+    if (Z.code !== "ENOENT") {
+      let Y = Z instanceof Error ? `Failed to read/parse .lsp.json in plugin ${A.name}: ${Z.message}` : `...`;
+      e(Z instanceof Error ? Z : Error(Y)), Q.push({ type: "lsp-config-invalid", ... })
+    }
+  }
+  if (A.manifest.lspServers) {
+    let Z = await xg5(A.manifest.lspServers, A.path, A.name, Q);
+    if (Z) Object.assign(B, Z)
+  }
+  return Object.keys(B).length > 0 ? B : void 0
+}
+
+// READABLE (for understanding):
+async function loadLspServersFromPluginDefault(plugin, errors = []) {
+  let servers = {};
+  let lspJsonPath = path.join(plugin.path, ".lsp.json");
+
+  // Step 1: Try to load .lsp.json from plugin root
+  try {
+    let content = await readFile(lspJsonPath, "utf-8");
+    let parsed = JSON.parse(content);
+    let validation = zod.record(zod.string(), lspServerConfigSchema).safeParse(parsed);
+
+    if (validation.success) {
+      Object.assign(servers, validation.data);
+    } else {
+      let message = `LSP config validation failed for .lsp.json in plugin ${plugin.name}: ${validation.error.message}`;
+      logError(Error(message));
+      errors.push({ type: "lsp-config-invalid", plugin: plugin.name, serverName: ".lsp.json", validationError: validation.error.message, source: "plugin" });
+    }
+  } catch (error) {
+    // ENOENT (file not found) is acceptable - .lsp.json is optional
+    if (error.code !== "ENOENT") {
+      let message = error instanceof Error
+        ? `Failed to read/parse .lsp.json in plugin ${plugin.name}: ${error.message}`
+        : `Failed to read/parse .lsp.json file in plugin ${plugin.name}`;
+      logError(error instanceof Error ? error : Error(message));
+      errors.push({ type: "lsp-config-invalid", plugin: plugin.name, serverName: ".lsp.json", validationError: `Failed to parse JSON: ${error.message}`, source: "plugin" });
+    }
+  }
+
+  // Step 2: Also load from manifest.lspServers if present
+  if (plugin.manifest.lspServers) {
+    let manifestServers = await loadLspServersFromManifest(plugin.manifest.lspServers, plugin.path, plugin.name, errors);
+    if (manifestServers) Object.assign(servers, manifestServers);
+  }
+
+  return Object.keys(servers).length > 0 ? servers : undefined;
+}
+
+// Mapping: Sg5→loadLspServersFromPluginDefault, A→plugin, Q→errors, jg5→path.join, Hy2→readFile, AQ→JSON.parse
+// Mapping: YVA→lspServerConfigSchema, xg5→loadLspServersFromManifest
+```
+
+**How it works:**
+1. First tries to load `.lsp.json` from plugin root (optional file)
+2. Then loads from `manifest.lspServers` if present
+3. Merges both sources into a single server configuration object
+4. Collects all errors for reporting instead of failing fast
+
+```javascript
+// ============================================
+// loadLspServersFromManifest - Parse lspServers from plugin manifest
+// Location: chunks.114.mjs:2016-2075
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function xg5(A, Q, B, G) {
+  let Z = {},
+    Y = Array.isArray(A) ? A : [A];
+  for (let J of Y)
+    if (typeof J === "string") {
+      // Path to config file
+      let X = Pg5(Q, J);
+      if (!X) {
+        let I = `Security: Path traversal attempt blocked in plugin ${B}: ${J}`;
+        e(Error(I)), k(I, { level: "warn" }), G.push({ type: "lsp-config-invalid", plugin: B, serverName: J, validationError: "Invalid path: must be relative and within plugin directory", source: "plugin" });
+        continue
+      }
+      // ... read and parse config file
+    } else {
+      // Inline config object
+      for (let [X, I] of Object.entries(J)) {
+        let D = YVA.safeParse(I);
+        if (D.success) Z[X] = D.data;
+        else { /* validation error */ }
+      }
+    }
+  return Object.keys(Z).length > 0 ? Z : void 0
+}
+
+// READABLE (for understanding):
+async function loadLspServersFromManifest(lspServers, pluginPath, pluginName, errors) {
+  let servers = {};
+
+  // Normalize to array format
+  let items = Array.isArray(lspServers) ? lspServers : [lspServers];
+
+  for (let item of items) {
+    if (typeof item === "string") {
+      // Item is a path to a config file (e.g., "servers/typescript.json")
+      let safePath = validatePluginPath(pluginPath, item);
+
+      if (!safePath) {
+        // Path traversal attack detected!
+        let message = `Security: Path traversal attempt blocked in plugin ${pluginName}: ${item}`;
+        logError(Error(message));
+        logDebug(message, { level: "warn" });
+        errors.push({
+          type: "lsp-config-invalid",
+          plugin: pluginName,
+          serverName: item,
+          validationError: "Invalid path: must be relative and within plugin directory",
+          source: "plugin"
+        });
+        continue;
+      }
+
+      // Read and parse the config file
+      try {
+        let content = await readFile(safePath, "utf-8");
+        let parsed = JSON.parse(content);
+        let validation = zod.record(zod.string(), lspServerConfigSchema).safeParse(parsed);
+        if (validation.success) {
+          Object.assign(servers, validation.data);
+        } else {
+          errors.push({ type: "lsp-config-invalid", ... });
+        }
+      } catch (error) { /* handle read/parse error */ }
+    } else {
+      // Item is an inline config object (e.g., { "typescript": { command: "...", ... } })
+      for (let [serverName, config] of Object.entries(item)) {
+        let validation = lspServerConfigSchema.safeParse(config);
+        if (validation.success) {
+          servers[serverName] = validation.data;
+        } else {
+          let message = `LSP config validation failed for inline server "${serverName}" in plugin ${pluginName}: ${validation.error.message}`;
+          logError(Error(message));
+          errors.push({ type: "lsp-config-invalid", plugin: pluginName, serverName, validationError: validation.error.message, source: "plugin" });
+        }
+      }
+    }
+  }
+
+  return Object.keys(servers).length > 0 ? servers : undefined;
+}
+
+// Mapping: xg5→loadLspServersFromManifest, A→lspServers, Q→pluginPath, B→pluginName, G→errors
+// Mapping: Pg5→validatePluginPath, YVA→lspServerConfigSchema
+```
+
+**Why this design:**
+- **Flexible config formats**: Supports paths, inline objects, and arrays mixing both
+- **Security-first**: Validates all file paths to prevent directory traversal
+- **Error aggregation**: Collects all errors instead of failing on first error
+- **Graceful degradation**: Skips invalid configs but continues loading valid ones
+
+```javascript
+// ============================================
+// expandLspServerConfig - Variable expansion in config
+// Location: chunks.114.mjs:2082-2111
+// ============================================
+
+// ORIGINAL (for source lookup):
+function vg5(A, Q, B) {
+  let G = [],
+    Z = (X) => {
+      let I = yg5(X, Q),  // Replace ${CLAUDE_PLUGIN_ROOT}
+        { expanded: D, missingVars: W } = BVA(I);  // Expand env vars
+      return G.push(...W), D
+    },
+    Y = { ...A };
+  if (Y.command) Y.command = Z(Y.command);
+  if (Y.args) Y.args = Y.args.map((X) => Z(X));
+  let J = { CLAUDE_PLUGIN_ROOT: Q, ...Y.env || {} };
+  for (let [X, I] of Object.entries(J))
+    if (X !== "CLAUDE_PLUGIN_ROOT") J[X] = Z(I);
+  if (Y.env = J, Y.workspaceFolder) Y.workspaceFolder = Z(Y.workspaceFolder);
+  if (G.length > 0) {
+    let I = `Missing environment variables in plugin LSP config: ${[...new Set(G)].join(", ")}`;
+    e(Error(I)), k(I, { level: "warn" })
+  }
+  return Y
+}
+
+// READABLE (for understanding):
+function expandLspServerConfig(config, pluginRoot, pluginName) {
+  let missingVars = [];
+
+  function expand(value) {
+    // Replace ${CLAUDE_PLUGIN_ROOT} with actual path
+    let replaced = value.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, pluginRoot);
+    // Expand other environment variables
+    let { expanded, missingVars: missing } = expandEnvVars(replaced);
+    missingVars.push(...missing);
+    return expanded;
+  }
+
+  let result = { ...config };
+
+  // Expand command and args
+  if (result.command) result.command = expand(result.command);
+  if (result.args) result.args = result.args.map(arg => expand(arg));
+
+  // Add CLAUDE_PLUGIN_ROOT to env and expand other env vars
+  let env = { CLAUDE_PLUGIN_ROOT: pluginRoot, ...result.env || {} };
+  for (let [key, value] of Object.entries(env)) {
+    if (key !== "CLAUDE_PLUGIN_ROOT") {
+      env[key] = expand(value);
+    }
+  }
+  result.env = env;
+
+  // Expand workspace folder
+  if (result.workspaceFolder) {
+    result.workspaceFolder = expand(result.workspaceFolder);
+  }
+
+  // Warn about missing variables
+  if (missingVars.length > 0) {
+    let message = `Missing environment variables in plugin LSP config: ${[...new Set(missingVars)].join(", ")}`;
+    logError(Error(message));
+    logDebug(message, { level: "warn" });
+  }
+
+  return result;
+}
+
+// Mapping: vg5→expandLspServerConfig, yg5→replacePluginRoot, BVA→expandEnvVars
+```
+
+**Key insight:** The `${CLAUDE_PLUGIN_ROOT}` placeholder allows plugins to reference files relative to their installation directory, making configs portable.
+
+---
+
 ## Symbol Extraction for UI
 
 ```javascript
@@ -1792,6 +2574,8 @@ initPromise             // Promise for awaiting initialization
 - `formatHoverResult` (Og2) - Format hover result
 - `formatDocumentSymbolResult` (Rg2) - Format document symbols
 - `flattenDocumentSymbol` (Mg2) - Flatten symbol hierarchy
+- `formatWorkspaceSymbolResult` (SU0) - Format workspace symbols grouped by file
+- `formatCallHierarchyItem` (Ng2) - Format single call hierarchy item
 - `formatPrepareCallHierarchy` (_g2) - Format call hierarchy item
 - `formatIncomingCalls` (jg2) - Format incoming callers
 - `formatOutgoingCalls` (Tg2) - Format outgoing callees
@@ -1814,11 +2598,26 @@ initPromise             // Promise for awaiting initialization
 - `createLspServerManager` (Uy2) - Create server manager instance
 - `getAllLspServers` ($y2) - Load all LSP server configs from plugins
 
+### Server Manager Core Methods
+- `ensureServerStarted` (J) - Start server on demand if stopped
+- `sendRequest` (X) - Route LSP request to appropriate server
+- `shutdown` (Z) - Graceful shutdown of all servers
+
 ### Server Instance
 - `createLspServerInstance` (Vy2) - Create server instance wrapper
 - `MAX_RETRIES` (P$0) - Max retry attempts for ContentModified
 - `CONTENT_MODIFIED_ERROR_CODE` (Rg5) - LSP error code -32801
 - `BASE_RETRY_DELAY` (_g5) - Base delay for exponential backoff
+
+### Server Instance Methods
+- `start` (X) - Start server and initialize LSP connection
+- `stop` (I) - Graceful shutdown (shutdown + exit)
+- `restart` (D) - Stop and restart with max retry limit
+- `isHealthy` (W) - Health check (running + initialized)
+- `sendRequest` (K) - Send LSP request with ContentModified retry
+- `sendNotification` (V) - Send one-way LSP notification
+- `onNotification` (F) - Register notification handler
+- `onRequest` (H) - Register request handler
 
 ### Low-level Client
 - `createLspClient` (Dy2) - Create low-level LSP client
@@ -1836,6 +2635,13 @@ initPromise             // Promise for awaiting initialization
 - `lspServerConfigSchema` (YVA) - Server config schema
 - `lspPluginSchema` (N75) - Plugin LSP servers schema
 - `lspConfigPathSchema` (ZVA) - Config file path schema
+
+### Plugin Loading
+- `loadLspServersFromPluginDefault` (Sg5) - Load .lsp.json from plugin root
+- `loadLspServersFromManifest` (xg5) - Parse lspServers from plugin manifest
+- `validatePluginPath` (Pg5) - Security check for path traversal
+- `expandLspServerConfig` (vg5) - Variable expansion in config
+- `replacePluginRoot` (yg5) - Replace ${CLAUDE_PLUGIN_ROOT} placeholder
 
 ---
 

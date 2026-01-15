@@ -1123,6 +1123,545 @@ if (process.argv[2] === "--claude-in-chrome-mcp") {
 
 ---
 
+## CLI Flag Handling
+
+The `--chrome` and `--no-chrome` flags control Chrome integration at startup.
+
+```javascript
+// ============================================
+// shouldEnableChromeIntegration - Determine if Chrome integration should be enabled
+// Location: chunks.145.mjs:1259-1268
+// ============================================
+
+// ORIGINAL (for source lookup):
+function az1(A) {
+  if (p2() && A !== !0) return !1;
+  if (A === !0) return !0;
+  if (A === !1) return !1;
+  if (a1(process.env.CLAUDE_CODE_ENABLE_CFC)) return !0;
+  if (iX(process.env.CLAUDE_CODE_ENABLE_CFC)) return !1;
+  let Q = L1();
+  if (Q.claudeInChromeDefaultEnabled !== void 0) return Q.claudeInChromeDefaultEnabled;
+  return !1
+}
+
+// READABLE (for understanding):
+function shouldEnableChromeIntegration(cliFlag) {
+  // In print mode, only enable if explicitly requested
+  if (isPrintMode() && cliFlag !== true) return false;
+
+  // CLI flags take highest precedence
+  if (cliFlag === true) return true;
+  if (cliFlag === false) return false;
+
+  // Environment variable is next
+  if (parseBoolean(process.env.CLAUDE_CODE_ENABLE_CFC)) return true;
+  if (parseFalse(process.env.CLAUDE_CODE_ENABLE_CFC)) return false;
+
+  // Settings file is last
+  const settings = getSettings();
+  if (settings.claudeInChromeDefaultEnabled !== undefined) {
+    return settings.claudeInChromeDefaultEnabled;
+  }
+
+  // Default: disabled
+  return false;
+}
+
+// Mapping: az1→shouldEnableChromeIntegration, p2→isPrintMode, a1→parseBoolean, iX→parseFalse, L1→getSettings
+```
+
+**Precedence Order:**
+```
+--chrome/--no-chrome flag  >  CLAUDE_CODE_ENABLE_CFC env var  >  claudeInChromeDefaultEnabled setting  >  false (default)
+```
+
+**Usage in CLI (chunks.157.mjs:208-244):**
+```javascript
+let A1 = az1(I.chrome) && qB();  // Enable if flag allows AND user is subscriber
+let n1 = !A1 && I$A();           // Auto-enable if not explicitly enabled but auto-enable conditions met
+```
+
+---
+
+## Auto-Enable Logic
+
+Chrome integration can auto-enable when the extension is installed and feature flags allow.
+
+```javascript
+// ============================================
+// isClaudeInChromeAutoEnabled - Check if auto-enable conditions are met
+// Location: chunks.145.mjs:1270-1273
+// ============================================
+
+// ORIGINAL (for source lookup):
+function I$A() {
+  if (iz1 !== void 0) return iz1;
+  return iz1 = e5A() && FH7() && ZZ("tengu_chrome_auto_enable", !1), iz1
+}
+
+// READABLE (for understanding):
+function isClaudeInChromeAutoEnabled() {
+  // Return cached result if available
+  if (cachedAutoEnableResult !== undefined) {
+    return cachedAutoEnableResult;
+  }
+
+  // All conditions must be true:
+  // 1. Platform is supported (macOS, Windows, Linux)
+  // 2. Chrome extension is installed
+  // 3. Feature flag is enabled
+  cachedAutoEnableResult =
+    isPlatformSupported() &&
+    getCachedExtensionStatus() &&
+    getFeatureFlag("tengu_chrome_auto_enable", false);
+
+  return cachedAutoEnableResult;
+}
+
+// Mapping: I$A→isClaudeInChromeAutoEnabled, iz1→cachedAutoEnableResult, e5A→isPlatformSupported, FH7→getCachedExtensionStatus, ZZ→getFeatureFlag
+```
+
+**Auto-Enable Conditions:**
+1. Platform is supported (macOS, Windows, Linux/WSL)
+2. Chrome extension is detected as installed
+3. Feature flag `tengu_chrome_auto_enable` is enabled
+
+---
+
+## Extension Detection
+
+The system detects if the Chrome extension is installed by scanning Chrome profiles.
+
+```javascript
+// ============================================
+// getCachedExtensionStatus - Return cached extension installation status
+// Location: chunks.145.mjs:1378-1385
+// ============================================
+
+// ORIGINAL (for source lookup):
+function FH7() {
+  return qp().then((Q) => {
+    if (L1().cachedChromeExtensionInstalled !== Q) S0((G) => ({
+      ...G,
+      cachedChromeExtensionInstalled: Q
+    }))
+  }), L1().cachedChromeExtensionInstalled ?? !1
+}
+
+// READABLE (for understanding):
+function getCachedExtensionStatus() {
+  // Trigger async detection and cache update
+  detectChromeExtension().then((isInstalled) => {
+    if (getSettings().cachedChromeExtensionInstalled !== isInstalled) {
+      updateLocalState((state) => ({
+        ...state,
+        cachedChromeExtensionInstalled: isInstalled
+      }));
+    }
+  });
+
+  // Return cached value (async detection updates for next call)
+  return getSettings().cachedChromeExtensionInstalled ?? false;
+}
+
+// Mapping: FH7→getCachedExtensionStatus, qp→detectChromeExtension, L1→getSettings, S0→updateLocalState
+```
+
+```javascript
+// ============================================
+// detectChromeExtension - Scan Chrome profiles for extension
+// Location: chunks.145.mjs:1387-1409
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function qp() {
+  let A = HH7();
+  if (!A) return k(`[Claude in Chrome] Unsupported platform: ${$Q()}`), !1;
+  let Q = [];
+  try {
+    await IZ9(A), Q = await XH7(A, { withFileTypes: !0 })
+  } catch {
+    return k(`[Claude in Chrome] Chrome base path does not exist: ${A}`), !1
+  }
+  let B = Q.filter((Z) => Z.isDirectory())
+    .filter((Z) => Z.name === "Default" || Z.name.startsWith("Profile "))
+    .map((Z) => Z.name);
+  let G = ["fcoeoabgfenejglbffodgkkbkcdhcgfn"];
+  for (let Z of B)
+    for (let Y of G) {
+      let J = xU(A, Z, "Extensions", Y);
+      try {
+        await IZ9(J);
+        return !0
+      } catch {}
+    }
+  return !1
+}
+
+// READABLE (for understanding):
+async function detectChromeExtension() {
+  const chromeUserDataPath = getChromeUserDataPath();
+  if (!chromeUserDataPath) {
+    debug(`[Claude in Chrome] Unsupported platform: ${getPlatform()}`);
+    return false;
+  }
+
+  let entries = [];
+  try {
+    await access(chromeUserDataPath);
+    entries = await readdir(chromeUserDataPath, { withFileTypes: true });
+  } catch {
+    debug(`[Claude in Chrome] Chrome base path does not exist: ${chromeUserDataPath}`);
+    return false;
+  }
+
+  // Find all Chrome profiles
+  const profiles = entries
+    .filter((entry) => entry.isDirectory())
+    .filter((entry) => entry.name === "Default" || entry.name.startsWith("Profile "))
+    .map((entry) => entry.name);
+
+  // Check for extension in each profile
+  const extensionIds = ["fcoeoabgfenejglbffodgkkbkcdhcgfn"];
+  for (const profile of profiles) {
+    for (const extId of extensionIds) {
+      const extensionPath = path.join(chromeUserDataPath, profile, "Extensions", extId);
+      try {
+        await access(extensionPath);
+        debug(`[Claude in Chrome] Extension ${extId} found in ${profile}`);
+        return true;
+      } catch {}
+    }
+  }
+
+  debug("[Claude in Chrome] Extension not found in any profile");
+  return false;
+}
+
+// Mapping: qp→detectChromeExtension, HH7→getChromeUserDataPath, IZ9→access, XH7→readdir
+```
+
+**Extension ID**: `fcoeoabgfenejglbffodgkkbkcdhcgfn`
+
+**Chrome User Data Paths (getChromeUserDataPath):**
+
+| Platform | Path |
+|----------|------|
+| macOS | `~/Library/Application Support/Google/Chrome` |
+| Windows | `%LOCALAPPDATA%\Google\Chrome\User Data` |
+| Linux/WSL | `~/.config/google-chrome` |
+
+---
+
+## MCP Configuration Generation
+
+When Chrome integration is enabled, the system generates MCP configuration dynamically.
+
+```javascript
+// ============================================
+// getClaudeInChromeConfig - Generate MCP config for Chrome integration
+// Location: chunks.145.mjs:1275-1309
+// ============================================
+
+// ORIGINAL (for source lookup):
+function oz1() {
+  let A = LG(),  // isNativeBinary
+    Q = Pe.map((B) => `mcp__claude-in-chrome__${B.name}`);
+  if (A) {
+    let B = `"${process.execPath}" --chrome-native-host`;
+    return KZ9(B).then((G) => WZ9(G)), {
+      mcpConfig: {
+        [Ej]: {
+          type: "stdio",
+          command: process.execPath,
+          args: ["--claude-in-chrome-mcp"],
+          scope: "dynamic"
+        }
+      },
+      allowedTools: Q,
+      systemPrompt: ST0()
+    }
+  } else {
+    let B = IH7(import.meta.url),
+      G = xU(B, ".."),
+      Z = xU(G, "cli.js");
+    return KZ9(`"${process.execPath}" "${Z}" --chrome-native-host`).then((J) => WZ9(J)), {
+      mcpConfig: {
+        [Ej]: {
+          type: "stdio",
+          command: "node",
+          args: [`${Z}`, "--claude-in-chrome-mcp"],
+          scope: "dynamic"
+        }
+      },
+      allowedTools: Q,
+      systemPrompt: ST0()
+    }
+  }
+}
+
+// READABLE (for understanding):
+function getClaudeInChromeConfig() {
+  const isNative = isNativeBinary();
+  const allowedTools = CHROME_MCP_TOOLS.map((tool) => `mcp__claude-in-chrome__${tool.name}`);
+
+  if (isNative) {
+    // Native binary mode - use execPath directly
+    const nativeHostCommand = `"${process.execPath}" --chrome-native-host`;
+    createNativeHostWrapperScript(nativeHostCommand)
+      .then((scriptPath) => installNativeHostManifest(scriptPath));
+
+    return {
+      mcpConfig: {
+        [CHROME_MCP_SERVER_NAME]: {
+          type: "stdio",
+          command: process.execPath,
+          args: ["--claude-in-chrome-mcp"],
+          scope: "dynamic"
+        }
+      },
+      allowedTools: allowedTools,
+      systemPrompt: getSystemPrompt()
+    };
+  } else {
+    // Node.js mode - use node with cli.js
+    const dirname = fileURLToPath(import.meta.url);
+    const cliPath = path.join(dirname, "..", "cli.js");
+    const nativeHostCommand = `"${process.execPath}" "${cliPath}" --chrome-native-host`;
+    createNativeHostWrapperScript(nativeHostCommand)
+      .then((scriptPath) => installNativeHostManifest(scriptPath));
+
+    return {
+      mcpConfig: {
+        [CHROME_MCP_SERVER_NAME]: {
+          type: "stdio",
+          command: "node",
+          args: [cliPath, "--claude-in-chrome-mcp"],
+          scope: "dynamic"
+        }
+      },
+      allowedTools: allowedTools,
+      systemPrompt: getSystemPrompt()
+    };
+  }
+}
+
+// Mapping: oz1→getClaudeInChromeConfig, LG→isNativeBinary, Pe→CHROME_MCP_TOOLS, Ej→CHROME_MCP_SERVER_NAME, KZ9→createNativeHostWrapperScript, WZ9→installNativeHostManifest, ST0→getSystemPrompt
+```
+
+**Return Value Structure:**
+```typescript
+{
+  mcpConfig: {
+    "claude-in-chrome": {
+      type: "stdio",
+      command: string,
+      args: string[],
+      scope: "dynamic"
+    }
+  },
+  allowedTools: string[],  // ["mcp__claude-in-chrome__javascript_tool", ...]
+  systemPrompt: string     // Browser automation guidelines
+}
+```
+
+---
+
+## Native Host Wrapper Script
+
+A wrapper script is created to launch the native host from Chrome.
+
+```javascript
+// ============================================
+// createNativeHostWrapperScript - Create platform-specific wrapper script
+// Location: chunks.145.mjs:1358-1376
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function KZ9(A) {
+  let Q = $Q(),
+    B = xU(zQ(), "chrome"),
+    G = Q === "windows" ? xU(B, "chrome-native-host.bat") : xU(B, "chrome-native-host"),
+    Z = Q === "windows" ? `@echo off
+REM Chrome native host wrapper script
+REM Generated by Claude Code - do not edit manually
+${A}
+` : `#!/bin/sh
+# Chrome native host wrapper script
+# Generated by Claude Code - do not edit manually
+exec ${A}
+`;
+  if (await FZ9(G, "utf-8").catch(() => null) === Z) return G;
+  if (await VZ9(B, { recursive: !0 }), await HZ9(G, Z), Q !== "windows") await JH7(G, 493);
+  return k(`[Claude in Chrome] Created Chrome native host wrapper script: ${G}`), G
+}
+
+// READABLE (for understanding):
+async function createNativeHostWrapperScript(command) {
+  const platform = getPlatform();
+  const chromeDir = path.join(getClaudeConfigDir(), "chrome");
+  const scriptPath = platform === "windows"
+    ? path.join(chromeDir, "chrome-native-host.bat")
+    : path.join(chromeDir, "chrome-native-host");
+
+  const scriptContent = platform === "windows"
+    ? `@echo off
+REM Chrome native host wrapper script
+REM Generated by Claude Code - do not edit manually
+${command}
+`
+    : `#!/bin/sh
+# Chrome native host wrapper script
+# Generated by Claude Code - do not edit manually
+exec ${command}
+`;
+
+  // Check if script already exists with same content
+  if (await readFile(scriptPath, "utf-8").catch(() => null) === scriptContent) {
+    return scriptPath;
+  }
+
+  // Create directory and write script
+  await mkdir(chromeDir, { recursive: true });
+  await writeFile(scriptPath, scriptContent);
+
+  // Make executable on Unix
+  if (platform !== "windows") {
+    await chmod(scriptPath, 0o755);
+  }
+
+  debug(`[Claude in Chrome] Created Chrome native host wrapper script: ${scriptPath}`);
+  return scriptPath;
+}
+
+// Mapping: KZ9→createNativeHostWrapperScript, $Q→getPlatform, zQ→getClaudeConfigDir, FZ9→readFile, VZ9→mkdir, HZ9→writeFile, JH7→chmod
+```
+
+**Script Locations:**
+
+| Platform | Path |
+|----------|------|
+| Windows | `~/.claude/chrome/chrome-native-host.bat` |
+| macOS/Linux | `~/.claude/chrome/chrome-native-host` |
+
+---
+
+## Onboarding UI
+
+The Chrome integration setup component provides user-facing configuration options.
+
+```javascript
+// ============================================
+// ChromeIntegrationSetup - Setup UI component
+// Location: chunks.145.mjs:1453-1550+
+// ============================================
+
+// ORIGINAL (for source lookup):
+function CH7({
+  onDone: A,
+  isExtensionInstalled: Q,
+  configEnabled: B,
+  isClaudeAISubscriber: G,
+  isWSL: Z
+}) {
+  let [Y] = a0(), [J, X] = VuA.useState(0), [I, D] = VuA.useState(B ?? !1), [W, K] = VuA.useState(!1), [V, F] = VuA.useState(Q), E = Y.mcp.clients.find((M) => M.name === Ej)?.type === "connected";
+
+  function z(M) {
+    switch (M) {
+      case "install-extension":
+        X((_) => _ + 1), K(!0), mEA(EH7);
+        break;
+      case "reconnect":
+        X((_) => _ + 1), qp().then((_) => {
+          if (F(_), _) K(!1)
+        }), mEA($H7);
+        break;
+      case "manage-permissions":
+        X((_) => _ + 1), mEA(zH7);
+        break;
+      case "toggle-default": {
+        let _ = !I;
+        S0((j) => ({ ...j, claudeInChromeDefaultEnabled: _ })), D(_);
+        break
+      }
+    }
+  }
+  // ...
+}
+
+// READABLE (for understanding):
+function ChromeIntegrationSetup({
+  onDone,
+  isExtensionInstalled,
+  configEnabled,
+  isClaudeAISubscriber,
+  isWSL
+}) {
+  const [appState] = useAppState();
+  const [clickCount, setClickCount] = useState(0);
+  const [isEnabled, setIsEnabled] = useState(configEnabled ?? false);
+  const [showReconnect, setShowReconnect] = useState(false);
+  const [extensionInstalled, setExtensionInstalled] = useState(isExtensionInstalled);
+
+  const isConnected = appState.mcp.clients
+    .find((client) => client.name === CHROME_MCP_SERVER_NAME)?.type === "connected";
+
+  function handleAction(action) {
+    switch (action) {
+      case "install-extension":
+        setClickCount((count) => count + 1);
+        setShowReconnect(true);
+        openBrowser(CHROME_EXTENSION_INSTALL_URL);
+        break;
+      case "reconnect":
+        setClickCount((count) => count + 1);
+        detectChromeExtension().then((installed) => {
+          setExtensionInstalled(installed);
+          if (installed) setShowReconnect(false);
+        });
+        openBrowser(CHROME_RECONNECT_URL);
+        break;
+      case "manage-permissions":
+        setClickCount((count) => count + 1);
+        openBrowser(CHROME_PERMISSIONS_URL);
+        break;
+      case "toggle-default": {
+        const newEnabled = !isEnabled;
+        updateLocalState((state) => ({
+          ...state,
+          claudeInChromeDefaultEnabled: newEnabled
+        }));
+        setIsEnabled(newEnabled);
+        break;
+      }
+    }
+  }
+  // ... render UI with options
+}
+
+// Mapping: CH7→ChromeIntegrationSetup, a0→useAppState, Ej→CHROME_MCP_SERVER_NAME, mEA→openBrowser, qp→detectChromeExtension, S0→updateLocalState
+```
+
+**Available Actions:**
+
+| Action | Description |
+|--------|-------------|
+| `install-extension` | Opens Chrome Web Store to install extension |
+| `reconnect` | Opens reconnect page and re-detects extension |
+| `manage-permissions` | Opens extension permissions page |
+| `toggle-default` | Toggles default enabled setting |
+
+**URLs:**
+
+| Constant | URL |
+|----------|-----|
+| `DH7` (CHROME_RECONNECT_URL) | `https://clau.de/chrome/reconnect` |
+| Extension Install | Chrome Web Store link |
+| Permissions | Extension options page |
+
+---
+
 ## System Prompts
 
 ### Browser Automation Guidelines
@@ -1202,6 +1741,85 @@ function getSystemPrompt() {
 
 ---
 
+## Slash Command: /chrome
+
+The `/chrome` command opens the Chrome integration settings UI.
+
+```javascript
+// ============================================
+// chromeSettingsCommand - /chrome slash command
+// Location: chunks.145.mjs:1583-1591
+// ============================================
+
+// ORIGINAL (for source lookup):
+qH7 = {
+  name: "chrome",
+  description: "Claude in Chrome (Beta) settings",
+  isEnabled: () => !p2(),
+  isHidden: !1,
+  type: "local-jsx",
+  userFacingName: () => "chrome",
+  call: UH7
+}, zZ9 = qH7
+
+// READABLE (for understanding):
+chromeSettingsCommand = {
+  name: "chrome",
+  description: "Claude in Chrome (Beta) settings",
+  isEnabled: () => !isPrintMode(),  // Only available in interactive mode
+  isHidden: false,
+  type: "local-jsx",
+  userFacingName: () => "chrome",
+  call: renderChromeSetup
+};
+
+// Mapping: qH7/zZ9→chromeSettingsCommand, p2→isPrintMode, UH7→renderChromeSetup
+```
+
+---
+
+## Status Line Integration
+
+Chrome extension status is shown in the status line.
+
+```javascript
+// ============================================
+// Chrome status line display
+// Location: chunks.153.mjs:703-709
+// ============================================
+
+// Status messages:
+// - Extension not installed: "Chrome extension not detected · https://claude.ai/chrome to install"
+// - Extension enabled: "Claude in Chrome enabled · /chrome"
+```
+
+---
+
+## URL Constants
+
+| Constant | URL | Purpose |
+|----------|-----|---------|
+| `EH7` | `https://claude.ai/chrome` | Extension install page |
+| `DH7` / `$H7` | `https://clau.de/chrome/reconnect` | Reconnect extension |
+| `zH7` | `https://clau.de/chrome/permissions` | Manage permissions |
+| `wU7` | `https://claude.ai/chrome` | Extension page (from chunks.157.mjs) |
+| `LU7` | `https://github.com/anthropics/claude-code/issues/new?labels=bug,claude-in-chrome` | Bug report |
+| `dB7` | `https://clau.de/chrome/tab/` | Tab deep link |
+
+---
+
+## Telemetry Events
+
+| Event | When Triggered |
+|-------|----------------|
+| `tengu_claude_in_chrome_setup` | Chrome integration initialized |
+| `tengu_claude_in_chrome_setup_failed` | Setup failed with error |
+| `tengu_claude_in_chrome_setting_changed` | User toggles enabled setting |
+| `cli_claude_in_chrome_mcp_path` | MCP client mode started |
+| `cli_chrome_native_host_path` | Native host bridge started |
+
+---
+
 ## Settings
 
 ### claudeInChromeDefaultEnabled
@@ -1265,16 +1883,21 @@ Fixed issue with macOS code-sign warning when using Chrome integration.
 | chunks.145.mjs:787-970 | SocketClient class |
 | chunks.145.mjs:1093-1125 | MCP server factory |
 | chunks.145.mjs:1140-1188 | System prompts |
-| chunks.145.mjs:1311-1360 | Native host registration |
+| chunks.145.mjs:1259-1309 | Chrome enable/config functions (az1, I$A, oz1) |
+| chunks.145.mjs:1311-1376 | Native host registration & scripts |
+| chunks.145.mjs:1378-1427 | Extension detection (FH7, qp, HH7) |
+| chunks.145.mjs:1453-1591 | Onboarding UI & /chrome command |
 | chunks.131.mjs:32-47 | Socket path functions |
 | chunks.137.mjs:954-967 | Settings UI |
 | chunks.149.mjs:2633-2654 | Skill registration |
-| chunks.155.mjs:2195-2202 | Onboarding UI |
+| chunks.153.mjs:703-709 | Status line integration |
+| chunks.155.mjs:2195-2202 | Onboarding welcome UI |
+| chunks.157.mjs:208-244 | CLI chrome flag handling |
 | chunks.157.mjs:1599-1616 | MCP client entry |
 | chunks.157.mjs:1666-1677 | Native host entry |
 | chunks.157.mjs:1679-1816 | NativeHostServer class |
 | chunks.157.mjs:1818-1858 | StdinReader class |
-| chunks.157.mjs:1879-1884 | CLI flag handling |
+| chunks.157.mjs:1879-1884 | CLI flag dispatch |
 
 ---
 
@@ -1285,24 +1908,56 @@ Fixed issue with macOS code-sign warning when using Chrome integration.
 > - [symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Infrastructure modules
 
 Key functions in this document:
+
+**Skill & Tools:**
 - `registerClaudeInChromeSkill` (TI9) - Skill registration
 - `chromeSkillPrompt` (Fq7) - Skill prompt template
 - `CHROME_MCP_TOOLS` (Pe) - MCP tool definitions array
-- `isClaudeInChromeEnabled` (I$A) - Check if feature enabled
-- `SocketClient` (AZ9) - MCP client socket connection
-- `createSocketClient` (QZ9) - Socket client factory
-- `SocketConnectionError` (z8A) - Connection error class
-- `handleToolCall` (GZ9) - Tool call handler
-- `createMcpServer` (PT0) - MCP server factory
-- `getSystemPrompt` (ST0) - Browser automation guidelines
+
+**Initialization & Detection:**
+- `shouldEnableChromeIntegration` (az1) - Determine if Chrome integration should be enabled
+- `isClaudeInChromeAutoEnabled` (I$A) - Check if auto-enable conditions are met
+- `getClaudeInChromeConfig` (oz1) - Generate MCP config for Chrome integration
+- `detectChromeExtension` (qp) - Scan Chrome profiles for extension
+- `getCachedExtensionStatus` (FH7) - Return cached extension installation status
+- `getChromeUserDataPath` (HH7) - Get platform-specific Chrome user data path
+
+**Native Host:**
+- `createNativeHostWrapperScript` (KZ9) - Create platform-specific wrapper script
+- `installNativeHostManifest` (WZ9) - Install native host manifest file
 - `getNativeHostDir` (KH7) - Native host manifest location
 - `startMcpClient` (oX9) - MCP client entry point
 - `startNativeHostBridge` (AI9) - Native host bridge entry
 - `NativeHostServer` (QI9) - Socket server for MCP clients
 - `StdinReader` (BI9) - Native messaging input handler
+
+**Socket Communication:**
+- `SocketClient` (AZ9) - MCP client socket connection
+- `createSocketClient` (QZ9) - Socket client factory
+- `SocketConnectionError` (z8A) - Connection error class
+- `handleToolCall` (GZ9) - Tool call handler
+- `createMcpServer` (PT0) - MCP server factory
 - `getSocketPath` (sfA) - Platform-specific socket path
 - `getSocketName` (oo2) - Socket name generator
 - `getUsername` (SB7) - Get current username
+
+**System Prompts:**
+- `getSystemPrompt` (ST0) - Browser automation guidelines
+- `BROWSER_AUTOMATION_PROMPT` (JZ9) - Full prompt constant
+- `CHROME_SKILL_REMINDER` (xT0) - Skill invocation reminder
+
+**UI Components:**
+- `ChromeIntegrationSetup` (CH7) - Onboarding setup component
+- `renderChromeSetup` (UH7) - Setup component wrapper
+
+**Slash Commands:**
+- `chromeSettingsCommand` (qH7/zZ9) - `/chrome` command definition
+
+**URL Constants:**
+- `CHROME_EXTENSION_INSTALL_URL` (EH7) - `https://claude.ai/chrome`
+- `CHROME_PERMISSIONS_URL` (zH7) - `https://clau.de/chrome/permissions`
+- `CHROME_RECONNECT_URL` ($H7/DH7) - `https://clau.de/chrome/reconnect`
+- `CHROME_BUG_REPORT_URL` (LU7) - GitHub issues link
 
 ---
 

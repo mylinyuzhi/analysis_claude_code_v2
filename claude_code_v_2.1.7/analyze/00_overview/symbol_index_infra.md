@@ -9,8 +9,11 @@
 
 ## Quick Navigation
 
+- [Model Selection](#module-model-selection) - **NEW analysis in 2.1.7**
+- [Prompt Building](#module-prompt-building) - **NEW analysis in 2.1.7**
 - [LSP Integration](#module-lsp-integration) - **NEW in 2.0.74**
 - [Chrome/Browser](#module-chromebrowser-integration) - **NEW in 2.0.72**
+- [IDE Integration](#module-ide-integration) - Process detection, keybindings, extension install
 - [MCP Protocol](#module-mcp-protocol) - Enhanced with auto-search
 - [Permissions & Sandbox](#module-permissions--sandbox) - Wildcard support
 - [Auth & OAuth](#module-auth--oauth) - Updated endpoints
@@ -19,6 +22,148 @@
 - [Plugin System](#module-plugin-system)
 - [Code Indexing](#module-code-indexing)
 - [Shell Parser](#module-shell-parser)
+
+---
+
+## Module: Model Selection
+
+> Full analysis: [03_llm_core/model_selection.md](../03_llm_core/model_selection.md)
+
+### Model Tier Definitions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ENA | MODEL_TIER_OPUS45 | chunks.28.mjs:1912-1920 | object |
+| zNA | MODEL_TIER_SONNET45 | chunks.28.mjs:1921-1929 | object |
+| $NA | MODEL_TIER_HAIKU45 | chunks.28.mjs:1930-1938 | object |
+| CNA | MODEL_TIER_OPUS4 | chunks.28.mjs:1939-1947 | object |
+| Z0A | MODEL_TIER_SONNET4 | chunks.28.mjs:1948-1956 | object |
+| fP1 | MODEL_TIER_HAIKU4 | chunks.28.mjs:1957-1965 | object |
+| UNA | MODEL_TIER_OPUS35 | chunks.28.mjs:1966-1974 | object |
+| qNA | MODEL_TIER_SONNET35 | chunks.28.mjs:1975-1983 | object |
+| NNA | MODEL_TIER_HAIKU35 | chunks.28.mjs:1984-1992 | object |
+
+### Provider Detection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| R4 | getActiveProvider | chunks.27.mjs:2062-2063 | function |
+| u2 | ANTHROPIC_PROVIDER | chunks.27.mjs:2000 | constant ("anthropic") |
+| p2 | BEDROCK_PROVIDER | chunks.27.mjs:2001 | constant ("bedrock") |
+| L1 | VERTEX_PROVIDER | chunks.27.mjs:2002 | constant ("vertex") |
+| Y1 | FOUNDRY_PROVIDER | chunks.27.mjs:2003 | constant ("foundry") |
+
+### Model Selection Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| B5 | getDefaultModel | chunks.46.mjs:2225-2228 | function |
+| OR | resolveModelFromFlag | chunks.46.mjs:2230-2245 | function |
+| sJA | resolveModelFromConfig | chunks.46.mjs:2247-2262 | function |
+| fp1 | resolveModelFromSubscription | chunks.46.mjs:2264-2280 | function |
+| Uz | normalizeModelName | chunks.46.mjs:2299-2306 | function |
+
+### Bedrock Model Discovery
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Cw3 | loadBedrockModels | chunks.46.mjs:1536-1564 | function |
+| Aw3 | parseBedrockModelId | chunks.46.mjs:1566-1580 | function |
+| zw3 | BEDROCK_MODEL_PATTERN | chunks.46.mjs:1535 | constant (RegExp) |
+
+### Vertex Region Selection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SdA | getVertexRegion | chunks.1.mjs:3084-3093 | function |
+| UdA | VERTEX_REGIONS | chunks.1.mjs:3076-3082 | constant |
+
+### Model Alias System
+
+| Alias | Resolution |
+|-------|------------|
+| `sonnet` | Sonnet 4.5 |
+| `opus` | Opus 4.5 |
+| `haiku` | Haiku 4.5 |
+| `opusplan` | Opus (planning mode) |
+| `inherit` | Parent model |
+
+---
+
+## Module: Prompt Building
+
+> Full analysis: [03_llm_core/prompt_building.md](../03_llm_core/prompt_building.md)
+
+### System Prompt Assembly
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| rc | buildSystemPrompt | chunks.146.mjs:2467-2605 | function |
+| Fz7 | buildMCPServerInstructions | chunks.146.mjs:2607-2619 | function |
+| oY9 | buildMCPCLIInstructions | chunks.146.mjs:2622-2737 | function |
+| rY9 | buildEnvironmentContext | chunks.146.mjs:2739-2765 | function |
+| sY9 | buildOutputStyle | chunks.147.mjs:2160-2172 | function |
+| qt8 | getGitInstructions | chunks.85.mjs:1601-1691 | function |
+
+### Prompt Caching
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qz7 | applyMessageCacheBreakpoints | chunks.147.mjs:483-490 | function |
+| $z7 | applyUserMessageCacheBreakpoint | chunks.146.mjs:2950-2970 | function |
+| Cz7 | applyAssistantMessageCacheBreakpoint | chunks.146.mjs:2975-3000 | function |
+| wuA | getCacheControl | chunks.146.mjs:2889-2895 | function |
+| AJ9 | isPromptCachingSupported | chunks.147.mjs:63 | function |
+
+### Agent Identity System
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| u3 | AGENT_IDENTITY_MAIN | chunks.93.mjs:100 | constant |
+| v3 | AGENT_IDENTITY_REPL | chunks.93.mjs:110 | constant |
+| w3 | AGENT_IDENTITY_BACKGROUND | chunks.93.mjs:120 | constant |
+| x3 | AGENT_IDENTITY_CUSTOM | chunks.93.mjs:130 | constant |
+| y3 | AGENT_IDENTITY_PLAN | chunks.93.mjs:140 | constant |
+
+### Conditional Sections
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| tY9 | buildPlanModeSection | chunks.147.mjs:2174-2200 | function |
+| uY9 | buildDelegateModeSection | chunks.147.mjs:2202-2230 | function |
+| vY9 | buildWebSearchSection | chunks.147.mjs:2232-2260 | function |
+| wY9 | buildTodoSection | chunks.147.mjs:2262-2290 | function |
+| xY9 | buildCodeReferencesSection | chunks.147.mjs:2292-2320 | function |
+
+### Git/PR Protocol Templates
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SS | GIT_SAFETY_PROTOCOL | chunks.85.mjs:1607-1655 | constant |
+| TS | COMMIT_INSTRUCTIONS | chunks.85.mjs:1657-1720 | constant |
+| US | PR_CREATION_TEMPLATE | chunks.85.mjs:1722-1800 | constant |
+
+### Section Assembly Order
+
+| Order | Section | Condition |
+|-------|---------|-----------|
+| 1 | Agent Identity | Always |
+| 2 | Tool Usage Policy | Always |
+| 3 | Tone & Style | Always |
+| 4 | Professional Objectivity | Always |
+| 5 | Task Management | Always |
+| 6 | Code References | Always |
+| 7 | Plan Mode | If in plan mode |
+| 8 | Delegate Mode | If delegate agent |
+| 9 | Web Search | If web search enabled |
+| 10 | Todo List | If todos tool available |
+| 11 | Security Guidelines | Always (repeated 2x) |
+| 12 | MCP Instructions | If MCP servers connected |
+| 13 | Environment Context | Always |
+| 14 | Git Status | If git repo |
+| 15 | Claude.md Content | If exists |
+| 16 | Background Info | Always |
+| 17 | Output Style | If custom style set |
 
 ---
 
@@ -67,6 +212,8 @@
 | Og2 | formatHoverResult | chunks.119.mjs:2935-2946 | function |
 | Rg2 | formatDocumentSymbolResult | chunks.119.mjs:2991-3003 | function |
 | Mg2 | flattenDocumentSymbol | chunks.119.mjs:2979-2989 | function |
+| SU0 | formatWorkspaceSymbolResult | chunks.119.mjs:3001-3023 | function |
+| Ng2 | formatCallHierarchyItem | chunks.119.mjs:3026-3035 | function |
 | _g2 | formatPrepareCallHierarchy | chunks.119.mjs:3038-3045 | function |
 | jg2 | formatIncomingCalls | chunks.119.mjs:3047-3080 | function |
 | Tg2 | formatOutgoingCalls | chunks.119.mjs:3082-3115 | function |
@@ -127,6 +274,18 @@ LSP Server Manager API:
 | Rg5 | CONTENT_MODIFIED_ERROR_CODE | chunks.114.mjs:~1784 | constant |
 | _g5 | BASE_RETRY_DELAY | chunks.114.mjs:~1784 | constant |
 
+LSP Server Instance Internal API:
+| Internal | Exported As | Description |
+|----------|-------------|-------------|
+| X | start | Start server and initialize LSP |
+| I | stop | Graceful shutdown |
+| D | restart | Stop and restart with max retry limit |
+| W | isHealthy | Health check (running + initialized) |
+| K | sendRequest | Send LSP request with retry logic |
+| V | sendNotification | Send LSP notification |
+| F | onNotification | Register notification handler |
+| H | onRequest | Register request handler |
+
 ### LSP Client (Low-level)
 
 | Obfuscated | Readable | File:Line | Type |
@@ -140,6 +299,18 @@ LSP Server Manager API:
 | N75 | lspPluginSchema | chunks.90.mjs:1688-1689 | object |
 | ZVA | lspConfigPathSchema | chunks.90.mjs:~1688 | schema |
 | YVA | lspServerConfigSchema | chunks.90.mjs:1668-1687 | schema |
+
+### LSP Plugin Loading
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Sg5 | loadLspServersFromPluginDefault | chunks.114.mjs:1979-2013 | function |
+| xg5 | loadLspServersFromManifest | chunks.114.mjs:2016-2075 | function |
+| Pg5 | validatePluginPath | chunks.114.mjs:1971-1977 | function |
+| vg5 | expandLspServerConfig | chunks.114.mjs:2082-2111 | function |
+| yg5 | replacePluginRoot | chunks.114.mjs:2078-2079 | function |
+| kg5 | namespaceLspServers | chunks.114.mjs:2113-2124 | function |
+| Ey2 | loadPluginLspServers | chunks.114.mjs:2126-2141 | function |
 
 > Key files: chunks.120.mjs (tool def), chunks.119.mjs (formatters/UI), chunks.114.mjs (server manager), chunks.90.mjs (plugin schema)
 
@@ -240,6 +411,61 @@ LSP Server Manager API:
 | - | claudeInChromeDefaultEnabled | chunks.137.mjs:954-967 | setting |
 | - | hasCompletedClaudeInChromeOnboarding | chunks.155.mjs:2195-2202 | state |
 
+### Chrome Initialization & Detection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| az1 | shouldEnableChromeIntegration | chunks.145.mjs:1259-1268 | function |
+| I$A | isClaudeInChromeAutoEnabled | chunks.145.mjs:1270-1273 | function |
+| oz1 | getClaudeInChromeConfig | chunks.145.mjs:1275-1309 | function |
+| FH7 | getCachedExtensionStatus | chunks.145.mjs:1378-1385 | function |
+| qp | detectChromeExtension | chunks.145.mjs:1387-1409 | function |
+| HH7 | getChromeUserDataPath | chunks.145.mjs:1411-1427 | function |
+| iz1 | cachedAutoEnableResult | chunks.145.mjs:1437 | variable |
+
+### Native Host Scripts
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| KZ9 | createNativeHostWrapperScript | chunks.145.mjs:1358-1376 | function |
+| WZ9 | installNativeHostManifest | chunks.145.mjs:1329-1349 | function |
+| nz1 | NATIVE_HOST_NAME | chunks.145.mjs:1431 | constant |
+| DH7 | CHROME_RECONNECT_URL | chunks.145.mjs:1429 | constant |
+
+### Chrome Onboarding UI
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| CH7 | ChromeIntegrationSetup | chunks.145.mjs:1453-1550 | component |
+| UH7 | renderChromeSetup | chunks.145.mjs:1543-1555 | function |
+| Ej | CHROME_MCP_SERVER_NAME | - | constant |
+
+### Chrome Slash Command
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qH7 | chromeSettingsCommand | chunks.145.mjs:1583-1591 | command |
+| zZ9 | chromeSettingsCommand | chunks.145.mjs:1591 | alias |
+
+### Chrome URL Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| EH7 | CHROME_EXTENSION_INSTALL_URL | chunks.145.mjs:1561 | constant |
+| zH7 | CHROME_PERMISSIONS_URL | chunks.145.mjs:1563 | constant |
+| $H7 | CHROME_RECONNECT_URL | chunks.145.mjs:1565 | constant |
+| wU7 | CHROME_EXTENSION_URL | chunks.157.mjs:1595 | constant |
+| LU7 | CHROME_BUG_REPORT_URL | chunks.157.mjs:1597 | constant |
+| dB7 | CHROME_TAB_DEEPLINK_URL | chunks.131.mjs:1035 | constant |
+
+### System Prompt Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| JZ9 | BROWSER_AUTOMATION_PROMPT | chunks.145.mjs:1191-1238 | constant |
+| XZ9 | MCP_SEARCH_REMINDER | chunks.145.mjs:1240-1251 | constant |
+| xT0 | CHROME_SKILL_REMINDER | chunks.145.mjs:1253-1257 | constant |
+
 ### MCP Tools (18 total)
 
 | Tool Name | Description |
@@ -263,6 +489,147 @@ LSP Server Manager API:
 | `shortcuts_execute` | Execute shortcuts |
 
 > Key files: chunks.145.mjs (MCP tools, socket client, server factory), chunks.149.mjs (skill), chunks.157.mjs (native host bridge), chunks.131.mjs (socket paths), chunks.137.mjs (settings)
+
+---
+
+## Module: IDE Integration
+
+> Full analysis: [../22_ide_integration/overview.md](../22_ide_integration/overview.md)
+> Supports 18+ IDEs including VSCode-based (Cursor, Windsurf, VS Code) and JetBrains suite
+
+### IDE Configuration Map
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| iEA | IDE_CONFIG_MAP | chunks.131.mjs:2903-3030 | object |
+| kF1 | isVSCodeIDE | chunks.131.mjs | function |
+| Rx | isJetBrainsIDE | chunks.131.mjs | function |
+
+### IDE Detection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| z27 | detectRunningIDEs | chunks.131.mjs:2733-2779 | function |
+| OL0 | populateIDECache | chunks.131.mjs:2782-2785 | function |
+| br2 | getAvailableIDEs | chunks.131.mjs:2787-2790 | function |
+| yr2 | checkCursorInstalled | chunks.131.mjs:2720-2722 | function |
+| vr2 | checkWindsurfInstalled | chunks.131.mjs:2724-2726 | function |
+| kr2 | checkVSCodeInstalled | chunks.131.mjs:2728-2731 | function |
+| pEA | getTerminalIDEName | chunks.131.mjs:2346-2349 | function |
+
+### Lock File Handling
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bF1 | getIDELockFiles | chunks.131.mjs:2351-2369 | function |
+| Sr2 | parseLockFile | chunks.131.mjs:2371-2403 | function |
+| I27 | getIDEDirectories | chunks.131.mjs:2426-2458 | function |
+| D27 | cleanupStaleLockFiles | chunks.131.mjs:2460-2490 | function |
+| yF1 | PATH_SEPARATOR | chunks.131.mjs | constant |
+
+### Connection Validation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| IhA | getAvailableIDEConnections | chunks.131.mjs:2532-2587 | function |
+| Mr2 | waitForIDEConnection | chunks.131.mjs:2517-2530 | function |
+| X27 | isIDEProcessRunning | chunks.131.mjs:2315-2332 | function |
+| Pr2 | isProcessAlive | chunks.131.mjs | function |
+| NL0 | isPortReachable | chunks.131.mjs:2405-2424 | function |
+| Cr2 | notifyIDEConnected | chunks.131.mjs:2589-2596 | function |
+
+### Extension Installation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| F27 | installVSCodeExtension | chunks.131.mjs:2614-2632 | function |
+| H27 | getInstalledExtensionVersion | chunks.131.mjs:2654-2666 | function |
+| Rr2 | checkExtensionInstalled | chunks.131.mjs:2602-2612 | function |
+| xr2 | getVSCodeCLIPath | chunks.131.mjs:2702-2718 | function |
+| E27 | findCLIFromParentProcess | chunks.131.mjs:2668-2700 | function |
+| _r2 | getMinRequiredVersion | chunks.131.mjs:2643-2652 | function |
+| LL0 | getCleanEnv | chunks.131.mjs:2635-2641 | function |
+| V27 | CLAUDE_CODE_EXTENSION_ID | chunks.131.mjs:2872 | constant ("anthropic.claude-code") |
+
+### Terminal Keybinding Setup
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| EjA | supportsKeybindingSetup | chunks.68.mjs:2412-2414 | function |
+| uB0 | setupTerminalKeybinding | chunks.68.mjs:2416-2458 | function |
+| fB0 | installVSCodeKeybinding | chunks.68.mjs:2476-2511 | function |
+| gE8 | setupAppleTerminal | chunks.68.mjs:2539-2573 | function |
+| uE8 | setupAlacritty | chunks.68.mjs:2575-2611 | function |
+
+### IDE Connection & State
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| hr2 | initializeIDEConnection | chunks.131.mjs:2830-2854 | function |
+| hF9 | useIDEAutoConnect | chunks.153.mjs:157-185 | function |
+| fF1 | hasConnectedIDE | chunks.131.mjs:2598-2600 | function |
+| nN | getIDEClient | chunks.131.mjs:2818-2822 | function |
+| hF1 | getIDEName | chunks.131.mjs:2792-2795 | function |
+| ML0 | getIDENameFromClient | chunks.131.mjs:2797-2800 | function |
+| EK | getIDEDisplayName | chunks.131.mjs:2802-2816 | function |
+| zK | isInCodeTerminal | chunks.131.mjs:3035-3037 | function |
+| JhA | isVSCodeTerminal | chunks.131.mjs:3031-3033 | function |
+| XhA | isJetBrainsTerminal | chunks.131.mjs:3033-3035 | function |
+
+### IDE Diff Support
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| tI9 | useDiffWithIDE | chunks.149.mjs:3253-3313 | function |
+| wq7 | openDiffInIDE | chunks.149.mjs:3328-3380 | function |
+| VS0 | closeTab | chunks.149.mjs:3382-3391 | function |
+| fr2 | closeAllDiffTabs | chunks.131.mjs:2824-2828 | function |
+| Nq7 | processEdits | chunks.149.mjs:3315-3326 | function |
+
+### IDE Context Attachments
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| k27 | generateIdeSelectionAttachment | chunks.131.mjs:3287-3300 | function |
+| f27 | generateIdeOpenedFileAttachment | chunks.131.mjs:3362-3370 | function |
+
+### IDE Display Name Mapping
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| jr2 | IDE_DISPLAY_NAMES | chunks.131.mjs:3039-3052 | object |
+
+**IDE Display Name Map:**
+| Key | Display Name |
+|-----|--------------|
+| code | VS Code |
+| cursor | Cursor |
+| windsurf | Windsurf |
+| vim/vi | Vim |
+| emacs | Emacs |
+| nano | nano |
+| subl | Sublime Text |
+
+### WSL Support
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| gr2 | getIDEHost | chunks.131.mjs:3053-3070 | function |
+| lEA | WSLPathConverter | chunks.149.mjs:3356 | class |
+
+### Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| CLAUDE_CODE_AUTO_CONNECT_IDE | Enable/disable auto-connect to IDE |
+| CLAUDE_CODE_SSE_PORT | Force specific IDE port connection |
+| CLAUDE_CODE_IDE_SKIP_VALID_CHECK | Skip workspace validation |
+| CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL | Skip extension auto-installation |
+| CLAUDE_CODE_IDE_HOST_OVERRIDE | Override IDE host address |
+| FORCE_CODE_TERMINAL | Force detection as running in code terminal |
+| WSL_DISTRO_NAME | WSL distribution name for path translation |
+
+> Key files: chunks.131.mjs (detection, connection, lock files), chunks.68.mjs (keybindings), chunks.149.mjs (diff support), chunks.153.mjs (auto-connect hook)
 
 ---
 
@@ -691,8 +1058,11 @@ LSP Server Manager API:
 
 | Module | Status | Priority |
 |--------|--------|----------|
+| Model Selection | ✅ Complete (v2.1.7) | P1 |
+| Prompt Building | ✅ Complete (v2.1.7) | P1 |
 | LSP Integration | ✅ Complete | P1 |
 | Chrome/Browser | ✅ Complete | P1 |
+| IDE Integration | ✅ Complete (v2.1.7) | P1 |
 | Wildcard Permissions | ✅ Complete | P1 |
 | Plugin System | ✅ Complete (v2.1.7) | P1 |
 | Plugin Unified Loading | ✅ Complete (v2.1.7) | P1 |
