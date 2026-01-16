@@ -144,44 +144,172 @@
 
 ## Module: Plan Mode
 
+> **Analysis Status:** ✅ Complete (v2.1.7)
+> **Related docs:** [12_plan_mode/](../12_plan_mode/)
+
 ### EnterPlanMode Tool
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TBD | ENTER_PLAN_MODE_NAME | TBD | constant |
-| TBD | EnterPlanModeTool | TBD | object |
-| TBD | EnterPlanModeConfirmUI | TBD | function |
+| VK1 | ENTER_PLAN_MODE_NAME | chunks.120.mjs:519 | constant ("EnterPlanMode") |
+| Au2 | enterPlanModeDescription | chunks.120.mjs:386-471 | constant |
+| gbA | EnterPlanModeTool | chunks.120.mjs:535-605 | object |
+| fl5 | enterPlanModeInputSchema | chunks.120.mjs:533 | object |
+| hl5 | enterPlanModeOutputSchema | chunks.120.mjs:534 | object |
+| Bu2 | renderEnterPlanToolUseMessage | chunks.120.mjs:474 | function |
+| Gu2 | renderEnterPlanProgressMessage | chunks.120.mjs:478 | function |
+| Zu2 | renderEnterPlanResultMessage | chunks.120.mjs:482-494 | function |
+| Yu2 | renderEnterPlanRejectedMessage | chunks.120.mjs:497-503 | function |
+| Ju2 | renderEnterPlanErrorMessage | chunks.120.mjs:506 | function |
 
 ### ExitPlanMode Tool
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TBD | EXIT_PLAN_MODE_NAME | TBD | constant |
-| TBD | ExitPlanModeTool | TBD | object |
+| vd | EXIT_PLAN_MODE_NAME | chunks.119.mjs:175 | constant ("ExitPlanMode") |
+| SBY | exitPlanModeDescriptionSimple | chunks.119.mjs:2317-2331 | constant |
+| Xg2 | exitPlanModeDescriptionFileBased | chunks.119.mjs:2332-2383 | constant |
+| Jg2 | permissionScopingGuidelines | chunks.119.mjs:2361 | constant |
+| V$ | ExitPlanModeTool | chunks.119.mjs:2494-2605 | object |
+| Zl5 | allowedPromptSchema | chunks.119.mjs:2483-2486 | object |
+| Yl5 | exitPlanModeInputSchema | chunks.119.mjs:2486-2489 | object |
+| Jl5 | exitPlanModeOutputSchema | chunks.119.mjs:2489-2494 | object |
+| Dg2 | renderExitPlanToolUseMessage | chunks.119.mjs:2386 | function |
+| Wg2 | renderExitPlanProgressMessage | chunks.119.mjs:2390 | function |
+| Kg2 | renderExitPlanResultMessage | chunks.119.mjs:2394-2433 | function |
+| Vg2 | renderExitPlanRejectedMessage | chunks.119.mjs:2436-2446 | function |
+| Fg2 | renderExitPlanErrorMessage | chunks.119.mjs:2449 | function |
+| iY1 | PlanPreview | chunks.119.mjs:2441 | component |
 
-### Plan File Persistence
+### Plan File Management
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TBD | getPlansDirectory | TBD | function |
-| TBD | getPlanFilePath | TBD | function |
-| TBD | readPlanFile | TBD | function |
-| TBD | generateRandomPlanSlug | TBD | function |
+| NN | getPlanDir | chunks.86.mjs:48-56 | function |
+| dC | getPlanFilePath | chunks.86.mjs:58-62 | function |
+| AK | readPlanFile | chunks.86.mjs:64-74 | function |
+| W71 | checkPlanExists | chunks.86.mjs:76-83 | function |
+| GY0 | getUniquePlanSlug | chunks.86.mjs:TBD | function |
+| ZY0 | cachePlanSlug | chunks.86.mjs:TBD | function |
+
+### Plan Mode State Tracking
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| g0 | globalState | chunks.1.mjs:TBD | object |
+| Xf0 | hasExitedPlanMode | chunks.1.mjs:2706-2708 | function |
+| Iq | setHasExitedPlanMode | chunks.1.mjs:2710-2712 | function |
+| If0 | needsPlanModeExitAttachment | chunks.1.mjs:2714-2716 | function |
+| lw | setNeedsPlanModeExitAttachment | chunks.1.mjs:2718-2720 | function |
+| Ty | onToolPermissionModeChanged | chunks.1.mjs:2722-2725 | function |
+
+### Plan Mode System Reminders
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| z$7 | buildPlanModeSystemReminder | chunks.147.mjs:3247-3251 | function (router) |
+| $$7 | buildFullPlanReminder | chunks.147.mjs:3253-3330 | function |
+| C$7 | buildSparsePlanReminder | chunks.147.mjs:3332-3338 | function (NEW) |
+| U$7 | buildSubAgentPlanReminder | chunks.147.mjs:3340-3351 | function |
+| LJ9 | getMaxPlanAgents | chunks.147.mjs:2289-2298 | function |
+| OJ9 | getMaxExploreAgents | chunks.147.mjs:2301-2306 | function |
+
+### Plan Mode Attachment Generation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| R27 | findPlanModeAttachmentInfo | chunks.131.mjs:3176-3192 | function |
+| _27 | countPlanModeAttachments | chunks.131.mjs:3195-3204 | function |
+| j27 | buildPlanModeAttachment | chunks.131.mjs:3207-3231 | function |
+| T27 | buildPlanModeExitAttachment | chunks.131.mjs:3233-3244 | function (NEW) |
+| ar2 | PLAN_MODE_CONSTANTS | chunks.131.mjs:TBD | object |
+
+### Plan Mode Permission Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| re | buildPermissionRules | chunks.150.mjs:2402-2418 | function |
+| aK1 | semanticToRegex | chunks.150.mjs:TBD | function |
+
+### Plan Mode Model Selection (Main Loop Integration)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| HQA | selectModelForPlanMode | chunks.46.mjs:2259-2268 | function |
+| h51 | checkExceeds200kTokens | chunks.85.mjs:921-931 | function |
+| FQA | getMainLoopModelSetting | chunks.46.mjs:TBD | function |
+| sJA | getOpusModel | chunks.46.mjs:2250-2252 | function |
+| OR | getSonnetModel | chunks.46.mjs:TBD | function |
+| k1 | handleModeCycle | chunks.152.mjs:2512-2529 | function (callback) |
+| kK9 | getNextModeInCycle | chunks.152.mjs:TBD | function |
+
+### Plan Mode Agent Configurations
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| MS | ExploreAgentConfig | chunks.93.mjs:219-228 | object |
+| UY1 | PlanAgentConfig | chunks.93.mjs:289-299 | object |
+| sZ5 | exploreAgentSystemPrompt | chunks.93.mjs:196-218 | constant |
+| tZ5 | planAgentSystemPrompt | chunks.93.mjs:240-289 | constant |
+
+### Plan Mode Disallowed Tools (Agent Restrictions)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| f3 | TASK_TOOL_NAME | chunks.93.mjs:222 | constant ("Task") |
+| CY1 | EXIT_PLAN_MODE_NAME_REF | chunks.93.mjs:222 | constant ("ExitPlanMode") |
+| I8 | EDIT_TOOL_NAME | chunks.93.mjs:222 | constant ("Edit") |
+| BY | WRITE_TOOL_NAME | chunks.93.mjs:222 | constant ("Write") |
+| tq | KILLSHELL_TOOL_NAME_REF | chunks.93.mjs:222 | constant ("KillShell") |
+
+### Plan Slug Caching (Session Restore)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Z7A | getPlanSlugCache | chunks.1.mjs:2778-2780 | function |
+| ZY0 | cachePlanSlug | chunks.86.mjs:39-41 | function |
+| J12 | clearPlanSlugCacheForSession | chunks.86.mjs:43-46 | function |
+
+### Plan Mode Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| TURNS_BETWEEN_ATTACHMENTS | 5 | Turns before showing another plan attachment |
+| FULL_REMINDER_EVERY_N_ATTACHMENTS | 3 | Show full reminder every N attachments |
+| CLAUDE_CODE_PLAN_V2_AGENT_COUNT | env | Max design agents (default: 1, max: 5) |
+| CLAUDE_CODE_PLAN_V2_EXPLORE_AGENT_COUNT | env | Max explore agents (default: 3, max: 5) |
 
 > Note: Plan files now persist across `/clear` (fixed in 2.1.3)
+> New in 2.1.7: Sparse reminders, exit attachments, improved state tracking
 
 ---
 
 ## Module: Core Entry & CLI
 
+> **Analysis Status:** ✅ Complete (v2.1.7)
+> **Related docs:** [01_cli/](../01_cli/)
+
 ### Entry Point Functions
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TBD | mainEntry | TBD | function |
-| TBD | commandHandler | TBD | function |
-| TBD | initializeConfig | TBD | function |
-| TBD | renderInteractive | TBD | function |
+| D_7 | mainEntry | chunks.157.mjs:1860-1891 | function |
+| J_7 | commandHandler | chunks.157.mjs:3-1153 | function |
+| X_7 | reportInitTelemetry | chunks.157.mjs:1155-1212 | function |
+| I_7 | cleanupCursor | chunks.157.mjs:1214-1216 | function |
+| Y_7 | processInputPrompt | chunks.157.mjs:294 | function |
+| Z_7 | createRenderOptions | chunks.157.mjs:455 | function |
+| HJ9 | resolvePermissionMode | chunks.157.mjs:151 | function |
+| EJ9 | initToolPermissionContext | chunks.157.mjs:253 | function |
+| hw9 | runNonInteractive | chunks.157.mjs:422 | function |
+| v$A | MainInteractiveApp | chunks.157.mjs:598 | component |
+
+### Commander.js Classes
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| O$1 | CommanderCommand | chunks.157.mjs:15 | class |
+| LK | CommanderOption | chunks.157.mjs:21 | class |
 
 ### Session Management
 
@@ -197,6 +325,22 @@
 |------------|----------|-----------|------|
 | TBD | renameSession | TBD | function |
 | TBD | resumeByName | TBD | function |
+
+### MCP CLI
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| de | mcpCliProgram | cli.chunks.mjs:1538 | constant |
+| nX9 | mcpCliHandler | chunks.157.mjs:1582-1593 | function |
+
+### Chrome Integration (NEW in 2.1.7)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| oX9 | claudeInChromeMcp | chunks.157.mjs:1599-1616 | function |
+| AI9 | chromeNativeHostMain | chunks.157.mjs:1666-1677 | function |
+| QI9 | ChromeNativeHostServer | chunks.157.mjs:1679-1816 | class |
+| BI9 | NativeMessageReader | chunks.157.mjs:1818-1857 | class |
 
 ---
 
@@ -415,28 +559,178 @@
 
 ## Module: Tools
 
+> **Analysis Status:** ✅ Complete (v2.1.7)
+> **Related docs:** [05_tools/](../05_tools/)
+
 ### Tool Name Constants
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | X9 | BASH_TOOL_NAME | chunks.93.mjs:22 | constant ("Bash") |
 | z3 | READ_TOOL_NAME | chunks.93.mjs:207 | constant ("Read") |
-| TBD | WRITE_TOOL_NAME | TBD | constant |
-| TBD | EDIT_TOOL_NAME | TBD | constant |
+| BY | WRITE_TOOL_NAME | chunks.93.mjs | constant ("Write") |
+| I8 | EDIT_TOOL_NAME | chunks.93.mjs | constant ("Edit") |
 | f3 | TASK_TOOL_NAME | chunks.113.mjs:83 | constant ("Task") |
-| TBD | TODOWRITE_TOOL_NAME | TBD | constant |
+| Bm | TODOWRITE_TOOL_NAME | chunks.59.mjs:224 | constant ("TodoWrite") |
 | lI | GLOB_TOOL_NAME | chunks.93.mjs:385 | constant ("Glob") |
 | DI | GREP_TOOL_NAME | chunks.93.mjs:385 | constant ("Grep") |
 | cI | WEBFETCH_TOOL_NAME | chunks.93.mjs:385 | constant ("WebFetch") |
 | aR | WEBSEARCH_TOOL_NAME | chunks.93.mjs:385 | constant ("WebSearch") |
 | kF | SKILL_TOOL_NAME | chunks.113.mjs:408 | constant ("Skill") |
+| zY | ASKUSERQUESTION_TOOL_NAME | chunks.119.mjs:2283 | constant ("AskUserQuestion") |
+| GK1 | KILLSHELL_TOOL_NAME | chunks.119.mjs:1427 | constant ("KillShell") |
+| aHA | TASKOUTPUT_TOOL_NAME | chunks.119.mjs:1574 | constant ("TaskOutput") |
+| VK1 | ENTERPLANMODE_TOOL_NAME | chunks.120.mjs:519 | constant ("EnterPlanMode") |
+
+### Tool Objects
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| v5 | ReadTool | chunks.86.mjs:561-827 | object |
+| X$ | WriteTool | chunks.115.mjs:1269-1441 | object |
+| J$ | EditTool | chunks.115.mjs:779-1056 | object |
+| vD | TodoWriteTool | chunks.59.mjs:402-481 | object |
+| as | GlobTool | chunks.115.mjs:1972+ | object |
+| Tc | GrepTool | chunks.115.mjs:1621+ | object |
+| o2 | BashTool | chunks.124.mjs:1505-1620 | object |
+| hF | WebFetchTool | chunks.119.mjs:1247-1424 | object |
+| vD | WebSearchTool | chunks.119.mjs:2110+ | object |
+| ZK1 | KillShellTool | chunks.119.mjs:1490-1571 | object |
+| xVA | TaskTool | chunks.113.mjs:74-405 | object |
+| Sg2 | LSPTool | chunks.119.mjs:3121, chunks.120.mjs:27+ | object (NEW in 2.1.7) |
+
+### Tool Input Schemas
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| je8 | readInputSchema | chunks.86.mjs:565-598 | object |
+| se8 | editInputSchema | chunks.115.mjs:783-812 | object |
+| Ne8 | writeInputSchema | chunks.115.mjs:1271-1285 | object |
+| SX8 | todoWriteInputSchema | chunks.59.mjs:397-398 | object |
+| wd2 | bashInputSchema | chunks.124.mjs:1458-1492 | object |
+| hh2 | webFetchInputSchema | chunks.119.mjs:1250-1259 | object |
+
+### Tool Output Schemas
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Pe8 | readOutputSchema | chunks.86.mjs:609-625 | object |
+| Te8 | editOutputSchema | chunks.115.mjs:814-829 | object |
+| qe8 | writeOutputSchema | chunks.115.mjs:1287-1296 | object |
+| xX8 | todoWriteOutputSchema | chunks.59.mjs:399-401 | object |
+| rq0 | bashOutputSchema | chunks.124.mjs:1493-1501 | object |
+
+### TodoWrite Supporting Types
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| NX8 | todoStatusEnum | chunks.59.mjs:197 | enum (pending/in_progress/completed) |
+| wX8 | todoItemSchema | chunks.59.mjs:197-201 | object |
+| jIA | todoArraySchema | chunks.59.mjs:201 | array |
+
+### Tool Execution (ToolUseQueueManager)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _H1 | ToolUseQueueManager | chunks.133.mjs:2911-3087 | class |
+| aN | queryGenerator | chunks.134.mjs:99-114 | async generator |
+| jH1 | toolExecutor | chunks.134.mjs:660-739 | function |
+| k77 | progressCallbackWrapper | chunks.134.mjs:741-770 | function |
+| b77 | toolValidationAndExecution | chunks.134.mjs:772-849 | function |
+| _77 | getMaxConcurrency | chunks.134.mjs:80 | function (default: 10) |
+| C77 | removeFromInProgressToolUseIDs | chunks.133.mjs:3089-3091 | function |
+| j77 | MAX_OUTPUT_TOKEN_RECOVERY | chunks.134.mjs:155 | constant (3) |
+
+### Tool Groupings
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| XG9 | getToolsByGrouping | chunks.144.mjs:1259-1281 | function |
+
+Tool groupings defined in `XG9`:
+- `READ_ONLY`: as, Tc, V$, v5, hF, vD, XK1, ZK1, JK1, Ud, qd
+- `EDIT`: J$, X$, qf
+- `EXECUTION`: o2
+- `MCP`: Dynamic MCP tools
+- `OTHER`: Remaining tools
+
+### Tool Restriction Sets
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| - | ALWAYS_EXCLUDED_TOOLS | chunks.144.mjs | Set (ExitPlanMode, EnterPlanMode, Task, AskUserQuestion) |
+| - | BUILTIN_ONLY_TOOLS | chunks.144.mjs | Set (inherits ALWAYS_EXCLUDED_TOOLS) |
+| - | ASYNC_SAFE_TOOLS | chunks.144.mjs | Set (Read, Edit, TodoWrite, Grep, WebSearch, Glob, Bash, Skill, SlashCommand, WebFetch) |
+
+### Read-Before-Edit Enforcement
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| mz | getFileModifiedTime | chunks.86.mjs | function |
+| Z | readFileState | chunks.86.mjs:764 | Map |
+
+**readFileState structure:**
+```typescript
+Map<string, {
+  content: string;      // File content at read time
+  timestamp: number;    // File mtime at read time
+  offset?: number;      // Starting line if partial read
+  limit?: number;       // Number of lines if partial read
+}>
+```
+
+**Error Codes (Edit tool):**
+| Code | Condition |
+|------|-----------|
+| 1 | old_string === new_string (no change) |
+| 2 | Permission denied (path in deny list) |
+| 3 | Cannot create - file already exists |
+| 4 | File does not exist |
+| 5 | Jupyter notebook (use NotebookEdit) |
+| 6 | File has not been read yet |
+| 7 | File modified since read |
+| 8 | String to replace not found |
+| 9 | Multiple matches found (replace_all=false) |
+| 10 | Settings.json validation failed |
+
+### Edit Tool String Matching
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| k6A | findStringWithQuoteNormalization | chunks.113.mjs:1708-1714 | function |
+| FS2 | normalizeQuotes | chunks.113.mjs:1692-1694 | function |
+| iD1 | replaceString | chunks.113.mjs:1716-1723 | function |
+| nD1 | applyEditAndPatch | chunks.113.mjs:1725-1741 | function |
+| QbA | applyEditsAndGeneratePatch | chunks.113.mjs:1743-1783 | function |
+| HS2 | getEditSnippet | chunks.113.mjs:1797-1807 | function |
+| $S2 | areEditsEquivalent | chunks.113.mjs:1937-1945 | function |
+| KS2 | editPrompt | chunks.113.mjs:1681-1689 | constant |
+| xy2 | editInputSchema | chunks.114.mjs:2693-2697 | object |
+| KW1 | editOutputSchema | chunks.114.mjs:2704-2712 | object |
+| ZRA | FILE_MODIFIED_ERROR | chunks.55.mjs:1151 | constant |
+
+### Edit Tool Settings Validation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| uy2 | validateSettingsJsonEdit | chunks.114.mjs:2913-2929 | function |
+| h$0 | isSettingsJsonFile | chunks.148.mjs:2039-2044 | function |
+| b$0 | validateSettingsJson | chunks.148.mjs | function |
+| C71 | findSimilarFileName | chunks.148.mjs:2812-2825 | function |
+
+### Quote Normalization Constants
+
+| Obfuscated | Readable | Value | Type |
+|------------|----------|-------|------|
+| Sf5 | LEFT_SINGLE_QUOTE | ' (U+2018) | constant |
+| xf5 | RIGHT_SINGLE_QUOTE | ' (U+2019) | constant |
+| yf5 | LEFT_DOUBLE_QUOTE | " (U+201C) | constant |
+| vf5 | RIGHT_DOUBLE_QUOTE | " (U+201D) | constant |
 
 ### Bash Tool with Background Support
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| wd2 | bashInputSchema | chunks.124.mjs:1458-1492 | object |
-| rq0 | bashOutputSchema | chunks.124.mjs:1493-1501 | object |
 | e51 | spawnShellCommand | chunks.85.mjs:1900-2016 | function |
 | Dm2 | createLocalBashTask | chunks.121.mjs:610-635 | function |
 | Li5 | backgroundShellTask | chunks.121.mjs:637-698 | function |
@@ -453,6 +747,59 @@
 | - | shellCommand.background | chunks.85.mjs:2008 | method (taskId) → streams |
 | - | shellCommand.kill | chunks.85.mjs:2009 | method () → void |
 | - | shellCommand.result | chunks.85.mjs:2010 | property (Promise) |
+
+### Tool Permission System
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| lz7 | toolPermissionDecisionEngine | chunks.147.mjs:1538 | function |
+| B$ | toolPermissionDispatcher | chunks.147.mjs:1658 | function |
+| Jr | fileReadPermissionCheck | chunks.148.mjs:2339 | function |
+| g6A | fileWritePermissionCheck | chunks.148.mjs:2419 | function |
+| AE | filePathRuleMatching | chunks.148.mjs:2308 | function |
+| CVA | getAllowRules | chunks.147.mjs:1422 | function |
+| _d | getDenyRules | chunks.147.mjs:1471 | function |
+| UVA | getAskRules | chunks.147.mjs:1479 | function |
+
+**Permission behaviors:**
+- `"allow"` - Automatically allowed
+- `"deny"` - Automatically blocked
+- `"ask"` - Requires user prompt
+- `"passthrough"` - No rule match, use defaults
+
+### Path Safety Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| XX9 | windowsSuspiciousPatternCheck | chunks.148.mjs:2136 | function |
+| a$7 | isLockedDirectory | chunks.148.mjs:2046 | function |
+| t$7 | isSensitiveFile | chunks.148.mjs:2113 | function |
+
+**Locked directories:** node_modules, .git, __pycache__, .venv, venv, dist, build
+**Sensitive files:** .env*, credentials*, secrets*, *.pem, *.key, id_rsa*, id_ed25519*
+
+### Tool Telemetry & Monitoring
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| l | logTelemetryEvent | chunks.134.mjs | function |
+| LF | logStructuredMetric | chunks.134.mjs:1008-1023 | function |
+| k9 | sanitizeToolName | chunks.134.mjs:668 | function |
+| aU1 | recordDuration | chunks.134.mjs:958 | function |
+| sZ1 | recordToolResult | chunks.134.mjs:985 | function |
+| J82 | trackToolInput | chunks.134.mjs:869 | function |
+| X82 | clearToolInput | chunks.134.mjs:869 | function |
+| D82 | logDebugOutput | chunks.134.mjs:973 | function |
+| pI0 | trackPermissionDecision | chunks.134.mjs:889 | function |
+| lI0 | recordToolSuccess | chunks.134.mjs:981-983 | function |
+
+**Telemetry Events:**
+- `tengu_tool_use_success` - Successful execution (chunks.134.mjs:992)
+- `tengu_tool_use_error` - Execution errors (chunks.134.mjs:668, 776, 804, 1073)
+- `tengu_tool_use_cancelled` - Cancelled execution (chunks.134.mjs:698)
+- `tengu_tool_use_progress` - Progress updates (chunks.134.mjs:744)
+- `tengu_tool_use_can_use_tool_allowed` - Permission granted (chunks.134.mjs:916)
+- `tengu_tool_use_can_use_tool_rejected` - Permission denied (chunks.134.mjs:889)
 
 ---
 
@@ -602,13 +949,124 @@
 
 ## Module: Compact
 
+> **Analysis Status:** ✅ Complete (v2.1.7)
+> **Related docs:** [07_compact/](../07_compact/)
+
 ### Core Compact Functions
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TBD | fullCompact | TBD | function |
-| TBD | autoCompactDispatcher | TBD | function |
-| TBD | microCompactToolResults | TBD | function |
+| cF1 | fullCompact | chunks.132.mjs:489-579 | function |
+| ys2 | autoCompactDispatcher | chunks.132.mjs:1511-1535 | function |
+| H97 | generateConversationSummary | chunks.132.mjs:590-652 | function |
+| lc | microCompactToolResults | chunks.132.mjs:1111-1224 | function |
+| ic | calculateThresholds | chunks.132.mjs:1472-1493 | function |
+| nc | isAutoCompactEnabled | chunks.132.mjs:1495-1499 | function |
+| l97 | shouldTriggerAutoCompact | chunks.132.mjs:1501-1509 | function |
+| xs2 | getAutoCompactTarget | chunks.132.mjs:1458-1470 | function |
+| q3A | calculateAvailableTokens | chunks.132.mjs:1452-1456 | function |
+| F97 | handleCompactError | chunks.132.mjs:581-588 | function |
+| FHA | flattenCompactResult | chunks.132.mjs:485-487 | function |
+
+### Session Memory Compact (NEW in 2.1.x)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| sF1 | sessionMemoryCompact | chunks.132.mjs:1392-1422 | function |
+| rF1 | isSessionMemoryCompactEnabled | chunks.132.mjs:1368-1370 | function |
+| d97 | buildSessionMemoryCompactResult | chunks.132.mjs:1372-1390 | function |
+| m97 | calculateCompactStartIndex | chunks.132.mjs:1346-1366 | function |
+| hL0 | adjustStartIndexForToolPairs | chunks.132.mjs:1327-1344 | function |
+| h97 | initSessionMemoryConfig | chunks.132.mjs:1288-1298 | function |
+| f97 | getSessionMemoryConfig | chunks.132.mjs:1282-1286 | function |
+| b97 | setSessionMemoryConfig | chunks.132.mjs:1275-1280 | function |
+| Os2 | isTemplateEmpty | chunks.132.mjs:1011-1014 | function |
+| Ms2 | buildSessionMemoryPrompt | chunks.132.mjs:1016-1024 | function |
+| Ks2 | readSessionMemoryFile | chunks.132.mjs:821-828 | function |
+
+### Post-Compact Attachment Generators
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| E97 | restoreRecentFilesAfterCompact | chunks.132.mjs:654-675 | function |
+| z97 | createTodoAttachment | chunks.132.mjs:677-686 | function |
+| xL0 | createPlanFileReferenceAttachment | chunks.132.mjs:688-697 | function |
+| $97 | createInvokedSkillsAttachment | chunks.132.mjs:699-711 | function |
+| C97 | createTaskStatusAttachments | chunks.132.mjs:713-730 | function |
+| U97 | shouldExcludeFileFromRestore | chunks.132.mjs:732-747 | function |
+| X4 | wrapAttachmentToMessage | chunks.132.mjs:87-94 | function |
+
+### Plan Mode Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Y97 | countUserMessagesSincePlanModeExit | chunks.132.mjs:264-272 | function |
+
+### PreCompact Hook
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| sU0 | executePreCompactHooks | chunks.120.mjs:2173-2202 | function |
+
+### /compact Slash Command
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| EY7 | compactSlashCommand | chunks.136.mjs:2097-2150 | object |
+
+### Token Counting & Estimation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| FhA | estimateTokensWithSafetyMargin | chunks.132.mjs:1087-1099 | function |
+| js2 | countMessageTokens | chunks.132.mjs:1071-1079 | function |
+| y97 | getCachedToolResultTokens | chunks.132.mjs:1081-1085 | function |
+| sH | countTotalTokens | chunks.132.mjs (imported) | function |
+
+### Compact Constants
+
+| Obfuscated | Value | Description |
+|------------|-------|-------------|
+| uL0 | 13000 | Minimum tokens to preserve when compacting |
+| c97 | 20000 | Warning threshold offset from context limit |
+| p97 | 20000 | Error threshold offset from context limit |
+| mL0 | 3000 | Minimum blocking limit offset |
+| K97 | 2 | Max summary generation retry attempts |
+| I97 | 5 | Maximum files to restore after compact |
+| D97 | 50000 | Total token budget for restored files |
+| W97 | 5000 | Maximum tokens per restored file |
+| T97 | 20000 | Minimum token savings for micro-compact |
+| P97 | 40000 | Default micro-compact threshold |
+| S97 | 3 | Number of recent tool results to keep |
+| _s2 | 2000 | Estimated tokens per image |
+
+### Micro-Compact State
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| x97 | COMPACTABLE_TOOLS | chunks.132.mjs:1272 | Set |
+| bL0 | compactedToolIds | chunks.132.mjs:1272 | Set |
+| fL0 | clearedMemoryUuids | chunks.132.mjs:1272 | Set |
+| Rs2 | toolResultTokenCache | chunks.132.mjs:1272 | Map |
+
+### Error Messages
+
+| Obfuscated | Value | Description |
+|------------|-------|-------------|
+| DhA | "Not enough messages to compact." | Empty conversation error |
+| V97 | "Conversation too long..." | Prompt too long error |
+| vkA | "API Error: Request was aborted." | Request abort error |
+| Bs2 | "Compaction interrupted..." | Network/streaming error |
+
+### Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| DISABLE_COMPACT | Completely disable all compaction |
+| DISABLE_AUTO_COMPACT | Disable automatic compaction only |
+| DISABLE_MICROCOMPACT | Disable micro-compaction |
+| CLAUDE_AUTOCOMPACT_PCT_OVERRIDE | Override target percentage (0-100) |
+| CLAUDE_CODE_BLOCKING_LIMIT_OVERRIDE | Override blocking limit calculation |
 
 ---
 
@@ -934,7 +1392,8 @@ Tool hook execution timeout changed from **60 seconds → 10 minutes**.
 | Plugin Skills | ✅ Complete (v2.1.7) | P1 |
 | Agent Loop | ✅ Complete (v2.1.7) | P1 |
 | LLM API | ✅ Complete (v2.1.7) | P1 |
-| Plan Mode | TBD | P3 |
+| Tools | ✅ Complete (v2.1.7) | P1 |
+| Plan Mode | ✅ Complete (v2.1.7) | P1 |
 | Hooks (frontmatter) | Partial | P2 |
 | All others | TBD | P3+ |
 
