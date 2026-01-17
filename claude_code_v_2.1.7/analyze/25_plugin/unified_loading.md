@@ -5,8 +5,10 @@
 Claude Code v2.1.7 plugins provide a unified system for loading multiple component types (agents, skills, commands, hooks, MCP servers) through a single manifest schema. This document details the unified loading architecture and how plugin components merge with local configurations.
 
 > Symbol mappings:
-> - [symbol_index_core.md](../00_overview/symbol_index_core.md) - Core modules
-> - [symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Infrastructure modules
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 **Key functions:**
 - `discoverPluginsAndHooks` (DG) - Master plugin discovery

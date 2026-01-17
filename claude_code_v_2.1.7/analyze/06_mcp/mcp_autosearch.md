@@ -436,7 +436,11 @@ function findDiscoveredToolsInHistory(messages) {
 
 ## Related Symbols
 
-> Symbol mappings: [symbol_index_infra.md](../00_overview/symbol_index_infra.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
 - `MCPSEARCH_TOOL_NAME` (Db) - Tool name constant "MCPSearch"
@@ -451,6 +455,8 @@ Key functions in this document:
 
 ## See Also
 
-- [../06_mcp/](.) - MCP protocol overview
+- [protocol_overview.md](./protocol_overview.md) - MCP architecture overview
+- [server_management.md](./server_management.md) - Server configuration and connection
+- [tool_execution.md](./tool_execution.md) - Tool calling details
+- [system_integration.md](./system_integration.md) - Integration with tools, system reminders, plan mode
 - [../00_overview/changelog_analysis.md](../00_overview/changelog_analysis.md) - Version changes
-

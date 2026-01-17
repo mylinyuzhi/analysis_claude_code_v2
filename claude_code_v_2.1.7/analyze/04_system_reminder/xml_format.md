@@ -7,8 +7,10 @@ System reminders in Claude Code v2.1.7 use XML-style tags to wrap metadata and c
 ## Related Symbols
 
 > Symbol mappings:
-> - [symbol_index_core.md](../00_overview/symbol_index_core.md) - Core modules
-> - [symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Infrastructure modules
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
 - `wrapSystemReminderText` (Yh) - Wrap text in XML tags
@@ -815,5 +817,7 @@ Treat this as a fresh planning session. Do not assume the existing plan is relev
 
 - [mechanism.md](./mechanism.md) - Complete attachment generation pipeline
 - [types.md](./types.md) - All attachment type catalog
-- [symbol_index_core.md](../00_overview/symbol_index_core.md) - Core symbol mapping
-- [symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Infrastructure symbol mapping
+- [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+- [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+- [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+- [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations

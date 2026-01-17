@@ -5,8 +5,10 @@
 Claude Code v2.1.7 implements a comprehensive slash command parsing system that validates, classifies, and routes user input to the appropriate command handler. Since v2.1.3, slash commands and skills have been merged into a unified system.
 
 > Symbol mappings:
-> - [symbol_index_core.md](../00_overview/symbol_index_core.md) - Core modules
-> - [symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Infrastructure modules
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 **Key parsing functions:**
 - `extractCommandParts` (wP2) - Tokenizes input into command name and args

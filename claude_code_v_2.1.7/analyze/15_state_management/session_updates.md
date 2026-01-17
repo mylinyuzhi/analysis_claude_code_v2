@@ -323,7 +323,11 @@ async function tagSession(sessionId, tag, storage) {
 
 ## Related Symbols
 
-> Symbol mappings: [symbol_index_infra.md](../00_overview/symbol_index_infra.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
 - `renameSession` (Vz1) - Set custom session title

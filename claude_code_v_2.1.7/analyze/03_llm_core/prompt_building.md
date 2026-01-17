@@ -13,7 +13,10 @@ The Prompt Building module constructs system prompts for Claude Code, managing:
 ## Related Symbols
 
 > Symbol mappings:
-> - [symbol_index_core.md](../00_overview/symbol_index_core.md) - Core modules
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
 - `buildSystemPrompt` (rc) - Main system prompt assembly

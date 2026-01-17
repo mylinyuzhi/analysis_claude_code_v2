@@ -4,7 +4,11 @@
 
 This document covers error handling, timeout mechanisms, and abort patterns for the Claude Code subagent system.
 
-> Symbol mappings: [symbol_index_core.md](../00_overview/symbol_index_core.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key elements in this document:
 - Error types and messages
@@ -530,7 +534,11 @@ Decide on recovery strategy:
 
 ## Related Symbols
 
-> Symbol mappings: [symbol_index_core.md](../00_overview/symbol_index_core.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key symbols in this document:
 - `aG` (AbortError) - Abort error class

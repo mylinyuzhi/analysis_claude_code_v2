@@ -4,7 +4,11 @@
 
 Claude Code v2.1.7 ships with **6 built-in agents**, each specialized for different types of tasks. All built-in agents are defined in `chunks.93.mjs`.
 
-> Symbol mappings: [symbol_index_core.md](../00_overview/symbol_index_core.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key agent variables:
 - `bashAgent` (K52) - Command execution specialist **(NEW in 2.1.x)**
@@ -754,7 +758,11 @@ This set covers:
 
 ## Related Symbols
 
-> Symbol mappings: [symbol_index_core.md](../00_overview/symbol_index_core.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key symbols in this document:
 - `ED0` (getBuiltInAgents) - Returns all built-in agents

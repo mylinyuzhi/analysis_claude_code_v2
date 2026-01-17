@@ -1856,7 +1856,11 @@ function expandLspServerConfig(config, pluginRoot, pluginName) {
 
 ## Related Symbols
 
-> Symbol mappings: [symbol_index_infra.md](../00_overview/symbol_index_infra.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 ### Server Manager (Singleton)
 - `initializeLspServerManager` (Py2) - Initialize manager singleton
@@ -1910,4 +1914,4 @@ function expandLspServerConfig(config, pluginRoot, pluginName) {
 
 - [lsp_tool.md](./lsp_tool.md) - Tool interface and result formatters
 - [../25_plugin/](../25_plugin/) - Plugin system
-- [../00_overview/symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Complete symbol index
+- [../00_overview/symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integration symbols (LSP section)

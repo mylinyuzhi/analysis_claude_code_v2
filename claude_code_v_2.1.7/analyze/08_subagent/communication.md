@@ -4,7 +4,11 @@
 
 The Claude Code subagent system implements a **stateless, single-message communication model** between the main agent and subagents. This document details how main agents communicate with subagents, how results are passed back, and special features like background execution and agent resumption.
 
-> Symbol mappings: [symbol_index_core.md](../00_overview/symbol_index_core.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
 - `prepareForkMessages` (I52) - Creates entry message for subagents with fork context
@@ -729,7 +733,11 @@ User
 
 ## Related Symbols
 
-> Symbol mappings: [symbol_index_core.md](../00_overview/symbol_index_core.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key symbols in this document:
 - `f3` (TASK_TOOL_NAME) - Task tool name constant

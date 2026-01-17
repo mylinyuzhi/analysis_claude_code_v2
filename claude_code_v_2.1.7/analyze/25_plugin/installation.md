@@ -2,7 +2,9 @@
 
 > Deep dive into plugin installation from various sources (github, git, file, directory).
 >
-> **Related Symbols:** See [symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Plugin System section
+> **Related Symbols:** See symbol index files:
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 ---
 

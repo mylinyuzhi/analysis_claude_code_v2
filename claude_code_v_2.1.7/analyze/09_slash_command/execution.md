@@ -5,8 +5,10 @@
 After parsing validates a slash command, the execution system routes it to the appropriate handler based on command type. This document details the execution flow, message creation, and display options.
 
 > Symbol mappings:
-> - [symbol_index_core.md](../00_overview/symbol_index_core.md) - Core modules
-> - [symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Infrastructure modules
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 **Key execution functions:**
 - `executeSlashCommand` (ab5) - Main dispatcher for command execution

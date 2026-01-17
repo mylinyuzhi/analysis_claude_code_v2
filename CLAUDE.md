@@ -67,18 +67,22 @@ The algorithm prioritizes keeping recent messages because...
 2. **Did I discover new symbols?** → Add them to `symbol_index_*.md` ONLY
 3. **Am I duplicating existing mappings?** → Check both symbol index files first
 
-### Symbol Index Split (Two Files)
+### Symbol Index Split (Four Files)
 
-The symbol index is split into two files for easier navigation:
+The symbol index is split into four files for easier navigation:
 
 | File | Content | When to Use |
 |------|---------|-------------|
-| `symbol_index_core.md` | Core execution modules (Agent Loop, Tools, Hooks, Todo, Compact, etc.) | For core execution flow analysis |
-| `symbol_index_infra.md` | Infrastructure modules (MCP, Permissions, Sandbox, Model Selection, etc.) | For infrastructure/support systems |
+| `symbol_index_core_execution.md` | Core execution (Agent Loop, Tools, LLM API, Agents, Subagent, State) | For agent/tool execution flow |
+| `symbol_index_core_features.md` | Core features (Plan Mode, Background Agents, Todo, Compact, Hooks, Skills, Thinking, Steering, CLI) | For feature-level analysis |
+| `symbol_index_infra_platform.md` | Platform infrastructure (MCP, Permissions, Sandbox, Auth, Model, Prompt, Telemetry) | For platform/protocol systems |
+| `symbol_index_infra_integration.md` | Integration infrastructure (LSP, Chrome, IDE, UI, Plugin, Code Indexing, Shell Parser) | For external integrations |
 
 **Quick lookup by topic:**
-- Agent/Loop/Tools/Hooks/Todo/Compact/Skill → `symbol_index_core.md`
-- MCP/Permissions/Sandbox/Model/API → `symbol_index_infra.md`
+- Agent/Loop/Tools/State/Subagent → `symbol_index_core_execution.md`
+- Plan/Todo/Compact/Hooks/Skills/Thinking/Background → `symbol_index_core_features.md`
+- MCP/Permissions/Sandbox/Auth/Model/Prompt → `symbol_index_infra_platform.md`
+- LSP/Chrome/IDE/UI/Plugin → `symbol_index_infra_integration.md`
 
 ### ❌ NEVER DO THIS (in module docs):
 
@@ -98,8 +102,10 @@ The symbol index is split into two files for easier navigation:
 ## Related Symbols
 
 > Symbol mappings:
-> - [symbol_index_core.md](../00_overview/symbol_index_core.md) - Core modules
-> - [symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Infrastructure modules
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
 - `functionName` (XY2) - Brief description
@@ -113,7 +119,7 @@ Key functions in this document:
 **Before finishing ANY analysis document, STOP and verify:**
 
 - [ ] **No mapping tables in module docs** - Only `symbol_index_*.md` has tables
-- [ ] **New symbols added to correct symbol_index file** - Core modules → `symbol_index_core.md`, Infrastructure → `symbol_index_infra.md`
+- [ ] **New symbols added to correct symbol_index file** - Core execution → `symbol_index_core_execution.md`, Core features → `symbol_index_core_features.md`, Platform infra → `symbol_index_infra_platform.md`, Integrations → `symbol_index_infra_integration.md`
 - [ ] **Using list format for symbol references** - `name` (obfuscated) format, NOT table
 - [ ] **Code snippets have header block** - `====` with ReadableName + Description + Location
 - [ ] **Code snippets have all 4 parts** - Header → ORIGINAL → READABLE → Mapping
@@ -141,9 +147,11 @@ Key functions in this document:
 
 **How to avoid**:
 - Add new symbols to the appropriate file:
-  - Core modules (Agent, Tools, Hooks, etc.) → `symbol_index_core.md`
-  - Infrastructure (MCP, Permissions, Sandbox) → `symbol_index_infra.md`
-- Check both symbol index files as final step
+  - Core execution (Agent, Tools, LLM API, etc.) → `symbol_index_core_execution.md`
+  - Core features (Plan, Hooks, Skills, etc.) → `symbol_index_core_features.md`
+  - Platform (MCP, Permissions, Sandbox, Auth) → `symbol_index_infra_platform.md`
+  - Integrations (LSP, Chrome, IDE, UI, Plugin) → `symbol_index_infra_integration.md`
+- Check all four symbol index files as final step
 
 ## Mistake 3: Duplicating Existing Mappings
 
@@ -152,7 +160,7 @@ Key functions in this document:
 **Why it happens**: LLM doesn't check existing mappings first
 
 **How to avoid**:
-- Read both `symbol_index_core.md` and `symbol_index_infra.md` FIRST before starting analysis
+- Read all four symbol_index files FIRST before starting analysis
 - Use existing readable names for consistency
 
 ## Mistake 4: Wrong Code Snippet Format
@@ -181,18 +189,22 @@ Key functions in this document:
 
 ```
 00_overview/
-├── symbol_index_core.md   # Core execution modules (Agent, Tools, Hooks, Todo, Compact, Skill)
-├── symbol_index_infra.md  # Infrastructure modules (MCP, Permissions, Sandbox, Model, API)
-├── file_index.md          # File → content index (what's in each chunk file)
-└── architecture.md        # System architecture overview
+├── symbol_index_core_execution.md   # Core execution (Agent Loop, Tools, LLM API, Agents, Subagent, State)
+├── symbol_index_core_features.md    # Core features (Plan Mode, Background Agents, Todo, Compact, Hooks, Skills, Thinking, Steering, CLI)
+├── symbol_index_infra_platform.md   # Platform infrastructure (MCP, Permissions, Sandbox, Auth, Model, Prompt, Telemetry)
+├── symbol_index_infra_integration.md # Integration infrastructure (LSP, Chrome, IDE, UI, Plugin, Code Indexing, Shell Parser)
+├── file_index.md                    # File → content index (what's in each chunk file)
+└── changelog_analysis.md            # Version changes analysis
 ```
 
 ## What Goes Where
 
 | File | Content | When to Update |
 |------|---------|----------------|
-| `symbol_index_core.md` | Core execution symbols (Plan, CLI, State, Agent, LLM, Tools, Agents, Subagent, Todo, Compact, Hooks, Skill) | When discovering core module symbols |
-| `symbol_index_infra.md` | Infrastructure symbols (MCP, Code Indexing, Shell Parser, Permission, Sandbox, Model, Prompt, API, Slash Commands) | When discovering infrastructure symbols |
+| `symbol_index_core_execution.md` | Core execution symbols (Agent Loop, LLM API, Tools, Agents, Subagent, State, System Prompts) | When discovering agent/tool execution symbols |
+| `symbol_index_core_features.md` | Core feature symbols (Plan Mode, Background Agents, Todo, Compact, Hooks, Skills, Thinking, Steering, CLI) | When discovering feature-level symbols |
+| `symbol_index_infra_platform.md` | Platform symbols (MCP, Permissions, Sandbox, Auth, Model, Prompt, Telemetry) | When discovering platform/protocol symbols |
+| `symbol_index_infra_integration.md` | Integration symbols (LSP, Chrome, IDE, UI, Plugin, Code Indexing, Shell Parser, Slash Commands) | When discovering integration symbols |
 | `file_index.md` | File line ranges → content description | When analyzing new files |
 | Module docs (`XX_module/`) | Implementation details, pseudocode, flow diagrams | When documenting features |
 
@@ -203,9 +215,11 @@ Key functions in this document:
 ### Step 1: Before Analysis
 ```
 1. Identify which category your target symbols belong to:
-   - Core (Agent, Tools, Hooks, etc.) → symbol_index_core.md
-   - Infrastructure (MCP, Sandbox, etc.) → symbol_index_infra.md
-2. Read the appropriate symbol index file
+   - Core execution (Agent, Tools, LLM, State) → symbol_index_core_execution.md
+   - Core features (Plan, Hooks, Skills, etc.) → symbol_index_core_features.md
+   - Platform (MCP, Sandbox, Auth, etc.) → symbol_index_infra_platform.md
+   - Integrations (LSP, Chrome, IDE, UI, Plugin) → symbol_index_infra_integration.md
+2. Read the appropriate symbol index file(s)
 3. Note existing readable names to maintain consistency
 ```
 
@@ -249,10 +263,12 @@ If a mapping seems incorrect, verify via:
 ### Adding New Symbols
 
 1. **Choose the correct file**:
-   - Core modules (Agent, Tools, Hooks, Todo, Compact, Skill, Plan) → `symbol_index_core.md`
-   - Infrastructure (MCP, Sandbox, Permissions, Model, API, Slash Commands) → `symbol_index_infra.md`
+   - Core execution (Agent Loop, Tools, LLM, Agents, Subagent, State) → `symbol_index_core_execution.md`
+   - Core features (Plan, Todo, Compact, Hooks, Skills, Thinking, Steering, CLI) → `symbol_index_core_features.md`
+   - Platform (MCP, Permissions, Sandbox, Auth, Model, Prompt, Telemetry) → `symbol_index_infra_platform.md`
+   - Integrations (LSP, Chrome, IDE, UI, Plugin, Slash Commands) → `symbol_index_infra_integration.md`
 2. **Find the correct module section** in that file
-3. **Check for duplicates** - search both files first
+3. **Check for duplicates** - search all four files first
 4. **Add in alphabetical order** within the module section
 5. **Include all columns**: Obfuscated, Readable, File:Line, Type
 
@@ -343,20 +359,27 @@ Enhance readability by restoring semantics:
 ### Symbol Lookup
 ```
 "What does XY2 mean?"
-→ Determine category (core vs infrastructure)
-→ symbol_index_core.md OR symbol_index_infra.md
+→ Determine category (execution, features, platform, or integration)
+→ Check the appropriate symbol_index_*.md file
 → Find module section → Lookup in table
 ```
 
 ### Which File to Use?
 ```
-Core (symbol_index_core.md):
-  Plan, CLI, State, Agent Loop, LLM API, System Prompts,
-  Tools, Agents, Subagent, Todo, Compact, Hooks, Skill
+Core Execution (symbol_index_core_execution.md):
+  Agent Loop, LLM API, System Prompts, Tools, Agents, Subagent, State
 
-Infrastructure (symbol_index_infra.md):
-  MCP, Code Indexing, Shell Parser, Permission, Sandbox,
-  Telemetry, UI, Model Selection, Prompt Building, API, Slash Commands
+Core Features (symbol_index_core_features.md):
+  Plan Mode, Background Agents, Todo, Compact, Hooks, Skills,
+  Thinking Mode, Steering, CLI
+
+Platform (symbol_index_infra_platform.md):
+  MCP Protocol, Permissions, Sandbox, Auth, Model Selection,
+  Prompt Building, Telemetry
+
+Integrations (symbol_index_infra_integration.md):
+  LSP, Chrome/Browser, IDE, UI Components, Plugin System,
+  Code Indexing, Shell Parser, Slash Commands
 ```
 
 ### File Content Lookup
@@ -367,7 +390,7 @@ Infrastructure (symbol_index_infra.md):
 
 ### Adding New Analysis
 ```
-1. Read both symbol_index_core.md and symbol_index_infra.md first
+1. Read all four symbol_index files first
 2. Use existing readable names
 3. Add new symbols to correct symbol_index file (not module docs)
 4. Reference symbol_index files in module docs using list format

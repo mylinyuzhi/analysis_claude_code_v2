@@ -5,8 +5,10 @@
 The Skill System in Claude Code v2.1.7 provides a unified framework for defining, loading, and executing reusable AI-powered operations. Since v2.1.3, skills and slash commands have been merged into a single system.
 
 > Symbol mappings:
-> - [symbol_index_core.md](../00_overview/symbol_index_core.md) - Core modules
-> - [symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Infrastructure modules
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 **Key components:**
 - `getSkills` (Wz7) - Main orchestrator for loading all skills

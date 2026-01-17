@@ -1,8 +1,10 @@
 # Compact System Implementation (v2.1.7)
 
 > Symbol mappings:
-> - [symbol_index_core.md](../00_overview/symbol_index_core.md) - Core modules (Compact section)
-> - [symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Infrastructure modules
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 ## Overview
 
@@ -1138,13 +1140,253 @@ async function createTaskStatusAttachments(context) {
 - **Skills**: Remember what skills were invoked (useful for context)
 - **Task Status**: Maintain background agent orchestration state
 
+### File Restoration Mechanism (E97)
+
+The file restoration system re-reads recently-accessed files after compaction.
+
+```javascript
+// ============================================
+// restoreFilesPostCompact - Re-read files after compaction
+// Location: chunks.132.mjs:654-675
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function E97(A, Q, B) {
+  let G = Object.entries(A).map(([J, X]) => ({
+      filename: J,
+      ...X
+    })).filter((J) => !U97(J.filename, Q.agentId)).sort((J, X) => X.timestamp - J.timestamp).slice(0, B),
+    Z = await Promise.all(G.map(async (J) => {
+      let X = await TL0(J.filename, {
+        ...Q,
+        fileReadingLimits: {
+          maxTokens: W97
+        }
+      }, "tengu_post_compact_file_restore_success", "tengu_post_compact_file_restore_error", "compact");
+      return X ? X4(X) : null
+    })),
+    Y = 0;
+  return Z.filter((J) => {
+    if (J === null) return !1;
+    let X = l7(eA(J));
+    if (Y + X <= D97) return Y += X, !0;
+    return !1
+  })
+}
+
+// READABLE (for understanding):
+async function restoreFilesPostCompact(readFileStateMap, sessionContext, maxFilesToRestore) {
+  // Step 1: Convert map entries to file objects with metadata
+  let fileList = Object.entries(readFileStateMap)
+    .map(([filename, metadata]) => ({ filename, ...metadata }))
+    // Step 2: Exclude files that shouldn't be restored
+    .filter((file) => !shouldExcludeFromRestore(file.filename, sessionContext.agentId))
+    // Step 3: Sort by most recent first
+    .sort((a, b) => b.timestamp - a.timestamp)
+    // Step 4: Take top N files (I97 = 5)
+    .slice(0, maxFilesToRestore);
+
+  // Step 5: Re-read each file with strict token limit
+  let restoredAttachments = await Promise.all(
+    fileList.map(async (file) => {
+      let result = await readFileForRestore(file.filename, {
+        ...sessionContext,
+        fileReadingLimits: { maxTokens: 5000 }  // W97 = 5000 per file
+      }, "tengu_post_compact_file_restore_success",
+         "tengu_post_compact_file_restore_error",
+         "compact");
+      return result ? wrapAttachmentToMessage(result) : null;
+    })
+  );
+
+  // Step 6: Filter by accumulated token budget (D97 = 50,000 total)
+  let accumulatedTokens = 0;
+  return restoredAttachments.filter((attachment) => {
+    if (attachment === null) return false;
+    let tokenCount = countTokens(JSON.stringify(attachment));
+    if (accumulatedTokens + tokenCount <= 50000) {
+      accumulatedTokens += tokenCount;
+      return true;
+    }
+    return false;  // Exceeds budget, drop this file
+  });
+}
+
+// Mapping: E97→restoreFilesPostCompact, A→readFileStateMap, Q→sessionContext, B→maxFilesToRestore,
+//          G→fileList, Z→restoredAttachments, Y→accumulatedTokens, U97→shouldExcludeFromRestore,
+//          TL0→readFileForRestore, W97→5000, D97→50000, X4→wrapAttachmentToMessage
+```
+
+### File Exclusion Filter (U97)
+
+Determines which files should NOT be restored (to avoid duplication):
+
+```javascript
+// ============================================
+// shouldExcludeFromRestore - Filters files that shouldn't be restored
+// Location: chunks.132.mjs:732-747
+// ============================================
+
+// ORIGINAL (for source lookup):
+function U97(A, Q) {
+  let B = Yr(A);
+  try {
+    let G = Q ?? q0(),
+      Z = Yr(Ir(G));
+    if (B === Z) return !0
+  } catch {}
+  try {
+    let G = Yr(dC(Q));
+    if (B === G) return !0
+  } catch {}
+  try {
+    if (new Set(sr2.map((Z) => Yr(MQA(Z)))).has(B)) return !0
+  } catch {}
+  return !1
+}
+
+// READABLE (for understanding):
+function shouldExcludeFromRestore(filepath, agentId) {
+  let normalizedPath = normalizePath(filepath);
+
+  // Exclude 1: Agent's own transcript directory
+  try {
+    let agentIdToUse = agentId ?? getCurrentSessionId();
+    let agentTranscriptDir = normalizePath(getAgentTranscriptDir(agentIdToUse));
+    if (normalizedPath === agentTranscriptDir) return true;
+  } catch {}
+
+  // Exclude 2: Plan file for this agent (restored separately via xL0)
+  try {
+    let planFilePath = normalizePath(getPlanFilePath(agentId));
+    if (normalizedPath === planFilePath) return true;
+  } catch {}
+
+  // Exclude 3: Skill directories (restored separately via $97)
+  try {
+    let skillPaths = new Set(skillDirectories.map((dir) => normalizePath(getSkillDirPath(dir))));
+    if (skillPaths.has(normalizedPath)) return true;
+  } catch {}
+
+  return false;  // Not excluded, can be restored
+}
+
+// Mapping: U97→shouldExcludeFromRestore, Yr→normalizePath, q0→getCurrentSessionId,
+//          Ir→getAgentTranscriptDir, dC→getPlanFilePath, sr2→skillDirectories, MQA→getSkillDirPath
+```
+
+**Why exclude these files?**
+- **Agent transcript**: Would be redundant with current context
+- **Plan file**: Already restored separately by `xL0()` with full content
+- **Skill directories**: Already restored separately by `$97()` with invocation history
+
+### File Reading for Restoration (TL0)
+
+The actual file reading with special handling for large files:
+
+```javascript
+// ============================================
+// readFileForRestore - Reads file with restoration-specific logic
+// Location: chunks.132.mjs:3-85
+// ============================================
+
+// READABLE (for understanding - decision flow):
+async function readFileForRestore(filepath, sessionContext, successEvent, errorEvent, mode) {
+  // Check 1: Permission guard
+  if (hasPermissionError(filepath, sessionContext.toolPermissionContext)) {
+    return null;
+  }
+
+  // Check 2: Use cached content if file unchanged
+  let previousRead = sessionContext.readFileState.get(filepath);
+  if (previousRead && mode === "at-mention") {
+    let currentTimestamp = getFileModTime(filepath);
+    if (previousRead.timestamp === currentTimestamp) {
+      logTelemetry(successEvent, {});
+      return {
+        type: "already_read_file",
+        filename: filepath,
+        content: { type: "text", file: { filePath: filepath, content: previousRead.content, ... } }
+      };
+    }
+  }
+
+  // Check 3: Validate file can be read
+  let validation = await readFileTool.validateInput({ file_path: filepath }, sessionContext);
+  if (!validation.result) {
+    if (validation.meta?.fileSize) {
+      // File exists but too large - create fallback
+      return createFallbackReference(filepath, mode);
+    }
+    return null;
+  }
+
+  // Attempt full read
+  try {
+    let readResult = await readFileTool.call({ file_path: filepath }, sessionContext);
+    logTelemetry(successEvent, {});
+    return { type: "file", filename: filepath, content: readResult.data };
+  } catch (error) {
+    if (error instanceof FileTooLargeError) {
+      return createFallbackReference(filepath, mode);
+    }
+    throw error;
+  }
+}
+
+// Fallback for large files during compact mode:
+function createFallbackReference(filepath, mode) {
+  if (mode === "compact") {
+    // During compact: create lightweight reference (no content)
+    return {
+      type: "compact_file_reference",
+      filename: filepath
+    };
+  }
+  // Other modes: try truncated read (first 2000 lines)
+  return readFileTool.call({ file_path: filepath, limit: 2000 }, sessionContext);
+}
+
+// Mapping: TL0→readFileForRestore, nEA→hasPermissionError, v5→readFileTool, $71→FileTooLargeError
+```
+
+### Attachment Type Differences
+
+| Type | When Created | Content Included | Display to User |
+|------|--------------|------------------|-----------------|
+| `file` | File read successfully within limits | Full file content | Shows file content |
+| `compact_file_reference` | File too large during compact | NO content (just filepath) | "Note: file was read before compaction. Use Read tool if needed." |
+| `already_read_file` | File unchanged from cached read | Cached content | Shows cached content |
+
+### File Restoration Error Handling
+
+The restoration system uses **non-blocking error handling**:
+
+```
+File Restoration Flow:
+    │
+    ├─ File 1: Success → Include in attachments
+    ├─ File 2: Permission Error → return null → filtered out
+    ├─ File 3: Success → Include in attachments
+    ├─ File 4: Too Large → compact_file_reference → Include reference
+    └─ File 5: Read Error → return null → filtered out
+
+    Result: [File 1, File 3, File 4 reference]
+    (Files 2 and 5 silently dropped, compaction continues)
+```
+
+**Telemetry Events:**
+- `tengu_post_compact_file_restore_success` - File read succeeded
+- `tengu_post_compact_file_restore_error` - File read failed
+- `tengu_attachment_file_too_large` - File size exceeded limit
+
 ---
 
 ## 8. Plan Mode Integration
 
-The compact system has special handling for plan mode.
+The compact system has extensive integration with plan mode to preserve planning context across compaction.
 
-### Plan Mode Exit Detection
+### Plan Mode Exit Detection (Y97)
 
 ```javascript
 // ============================================
@@ -1189,10 +1431,255 @@ function countUserMessagesSincePlanModeExit(messages) {
 // Mapping: Y97→countUserMessagesSincePlanModeExit
 ```
 
-**Why this matters:**
-- Plan mode exit is tracked via `plan_mode_exit` attachment type
-- Used to determine if plan-related reminders should be shown
-- Helps maintain plan mode context across compaction
+### Plan Mode Exit Attachment Generation (T27)
+
+When exiting plan mode, a special attachment is generated:
+
+```javascript
+// ============================================
+// createPlanModeExitAttachment - Notifies when plan mode exits
+// Location: chunks.131.mjs:3233-3244
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function T27(A) {
+  if (!If0()) return [];
+  if ((await A.getAppState()).toolPermissionContext.mode === "plan") return lw(!1), [];
+  lw(!1);
+  let B = dC(A.agentId),
+    G = AK(A.agentId) !== null;
+  return [{
+    type: "plan_mode_exit",
+    planFilePath: B,
+    planExists: G
+  }]
+}
+
+// READABLE (for understanding):
+async function createPlanModeExitAttachment(sessionContext) {
+  // Check if plan mode exit flag is set
+  if (!isPlanModeExitFlagSet()) {
+    return [];
+  }
+
+  // If still in plan mode, clear flag and return (no exit yet)
+  if ((await sessionContext.getAppState()).toolPermissionContext.mode === "plan") {
+    clearPlanModeExitFlag(false);
+    return [];
+  }
+
+  // Clear the flag
+  clearPlanModeExitFlag(false);
+
+  // Get plan file info for this agent
+  let planFilePath = getPlanFilePath(sessionContext.agentId);
+  let planFileExists = readPlanFile(sessionContext.agentId) !== null;
+
+  return [{
+    type: "plan_mode_exit",
+    planFilePath: planFilePath,
+    planExists: planFileExists
+  }];
+}
+
+// Mapping: T27→createPlanModeExitAttachment, If0→isPlanModeExitFlagSet, lw→clearPlanModeExitFlag,
+//          dC→getPlanFilePath, AK→readPlanFile
+```
+
+### Plan File Helper Functions
+
+```javascript
+// ============================================
+// getPlanFilePath - Constructs plan file path
+// Location: chunks.86.mjs:58-62
+// ============================================
+
+// ORIGINAL (for source lookup):
+function dC(A) {
+  let Q = GY0(q0());
+  if (!A) return tSA(NN(), `${Q}.md`);
+  return tSA(NN(), `${Q}-agent-${A}.md`)
+}
+
+// READABLE (for understanding):
+function getPlanFilePath(agentId) {
+  let datePrefix = generateDatePrefix(getCurrentTime());  // e.g., "rustling-doodling-anchor"
+  if (!agentId) {
+    // Main agent: ~/.claude/plans/{datePrefix}.md
+    return joinPath(getPlansDirectory(), `${datePrefix}.md`);
+  }
+  // Subagent: ~/.claude/plans/{datePrefix}-agent-{agentId}.md
+  return joinPath(getPlansDirectory(), `${datePrefix}-agent-${agentId}.md`);
+}
+
+// Mapping: dC→getPlanFilePath, GY0→generateDatePrefix, q0→getCurrentTime,
+//          tSA→joinPath, NN→getPlansDirectory
+
+
+// ============================================
+// readPlanFile - Reads plan file content
+// Location: chunks.86.mjs:64-74
+// ============================================
+
+// ORIGINAL (for source lookup):
+function AK(A) {
+  let Q = dC(A);
+  if (!vA().existsSync(Q)) return null;
+  try {
+    return vA().readFileSync(Q, { encoding: "utf-8" })
+  } catch (B) {
+    return e(B instanceof Error ? B : Error(String(B))), null
+  }
+}
+
+// READABLE (for understanding):
+function readPlanFile(agentId) {
+  let filePath = getPlanFilePath(agentId);
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  try {
+    return fs.readFileSync(filePath, { encoding: "utf-8" });
+  } catch (error) {
+    logError(error instanceof Error ? error : Error(String(error)));
+    return null;
+  }
+}
+
+// Mapping: AK→readPlanFile, dC→getPlanFilePath, vA→fs, e→logError
+```
+
+### Plan Mode Attachment Tracking
+
+To prevent attachment spam, the system tracks plan mode attachment frequency:
+
+```javascript
+// ============================================
+// analyzeRecentPlanModeActivity - Tracks plan mode attachment history
+// Location: chunks.131.mjs:3176-3193
+// ============================================
+
+// ORIGINAL (for source lookup):
+function R27(A) {
+  let Q = 0, B = !1;
+  for (let G = A.length - 1; G >= 0; G--) {
+    let Z = A[G];
+    if (Z?.type === "assistant") {
+      if (dF1(Z)) continue;
+      Q++
+    } else if (Z?.type === "attachment" && (Z.attachment.type === "plan_mode" || Z.attachment.type === "plan_mode_reentry")) {
+      B = !0;
+      break
+    }
+  }
+  return { turnCount: Q, foundPlanModeAttachment: B }
+}
+
+// READABLE (for understanding):
+function analyzeRecentPlanModeActivity(messages) {
+  let assistantTurnCount = 0;
+  let foundRecentPlanModeAttachment = false;
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    let message = messages[i];
+
+    if (message?.type === "assistant") {
+      if (isMetaOnlyMessage(message)) continue;
+      assistantTurnCount++;
+    } else if (message?.type === "attachment" &&
+               (message.attachment.type === "plan_mode" ||
+                message.attachment.type === "plan_mode_reentry")) {
+      foundRecentPlanModeAttachment = true;
+      break;
+    }
+  }
+
+  return {
+    turnCount: assistantTurnCount,
+    foundPlanModeAttachment: foundRecentPlanModeAttachment
+  };
+}
+
+// Mapping: R27→analyzeRecentPlanModeActivity, dF1→isMetaOnlyMessage
+
+
+// ============================================
+// countPlanModeAttachmentsSinceExit - Counts attachments since plan exit
+// Location: chunks.131.mjs:3195-3205
+// ============================================
+
+// ORIGINAL (for source lookup):
+function _27(A) {
+  let Q = 0;
+  for (let B = A.length - 1; B >= 0; B--) {
+    let G = A[B];
+    if (G?.type === "attachment") {
+      if (G.attachment.type === "plan_mode_exit") break;
+      if (G.attachment.type === "plan_mode") Q++
+    }
+  }
+  return Q
+}
+
+// READABLE (for understanding):
+function countPlanModeAttachmentsSinceExit(messages) {
+  let planModeAttachmentCount = 0;
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    let message = messages[i];
+    if (message?.type === "attachment") {
+      // Stop counting at plan_mode_exit boundary
+      if (message.attachment.type === "plan_mode_exit") break;
+      if (message.attachment.type === "plan_mode") {
+        planModeAttachmentCount++;
+      }
+    }
+  }
+
+  return planModeAttachmentCount;
+}
+
+// Mapping: _27→countPlanModeAttachmentsSinceExit
+```
+
+### Throttling Constants
+
+```javascript
+// Location: chunks.132.mjs:331-332
+ar2 = {
+  TURNS_BETWEEN_ATTACHMENTS: 5,           // Only inject plan reminder every 5 turns
+  FULL_REMINDER_EVERY_N_ATTACHMENTS: 5    // Show full plan content every 5 reminders
+}
+```
+
+### Plan Mode State Preservation Flow
+
+```
+Plan Mode → Implementation Mode Transition:
+    │
+    ├─ User approves plan (ExitPlanMode tool)
+    │   │
+    │   └─ T27() creates plan_mode_exit attachment
+    │       └─ { type: "plan_mode_exit", planFilePath, planExists }
+    │
+    ├─ During implementation...
+    │   │
+    │   └─ R27() checks if plan_mode attachment needed
+    │       └─ Uses turnCount and TURNS_BETWEEN_ATTACHMENTS throttling
+    │
+    └─ During compaction:
+        │
+        ├─ Y97() counts user messages since plan_mode_exit
+        │   └─ Used to determine plan context freshness
+        │
+        └─ xL0() restores plan file reference
+            └─ { type: "plan_file_reference", planFilePath, planContent }
+```
+
+**Why this integration matters:**
+- Plan context must survive compaction for long implementation tasks
+- Throttling prevents repetitive plan reminders
+- Separate exit/entry tracking allows resuming plan mode mid-conversation
 
 ---
 
@@ -1323,6 +1810,263 @@ async function microCompactToolResults(messages, threshold, context) {
 3. Only trigger if savings >= 20k tokens AND above warning threshold
 4. Replace content with `"[Old tool result content cleared]"`
 5. Track compacted IDs to avoid re-processing
+
+### Read Tool State Cleanup
+
+During micro-compact, Read tool file state is synchronized:
+
+```javascript
+// ============================================
+// Read Tool State Cleanup in Micro-Compact
+// Location: chunks.132.mjs:1197-1211
+// ============================================
+
+// READABLE (for understanding):
+if (sessionContext && compactedToolIds.size > 0) {
+  let compactedFilepaths = new Map();    // filepath → tool_use_id for compacted tools
+  let keptFilepaths = new Set();         // filepaths for kept Read tools
+
+  // Scan all messages to categorize Read tool operations
+  for (let msg of messages) {
+    if ((msg.type === "user" || msg.type === "assistant") &&
+        Array.isArray(msg.message.content)) {
+      for (let block of msg.message.content) {
+        // Only care about Read tool
+        if (block.type === "tool_use" && block.name === "Read") {
+          let filepath = block.input?.file_path;
+          if (typeof filepath === "string") {
+            if (compactedToolIds.has(block.id)) {
+              // This Read tool is being compacted
+              compactedFilepaths.set(filepath, block.id);
+            } else {
+              // This Read tool is being kept
+              keptFilepaths.add(filepath);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Clean up read file state for compacted-only files
+  for (let [filepath] of compactedFilepaths) {
+    if (!keptFilepaths.has(filepath)) {
+      // File was only read by compacted tools, safe to remove from state
+      sessionContext.readFileState.delete(filepath);
+    }
+  }
+}
+
+// Mapping: W→compactedToolIds, z3→"Read", F→compactedFilepaths, H→keptFilepaths
+```
+
+**Why this matters:**
+- Prevents re-reading files that were already compacted away
+- Keeps file state only if at least one Read tool using that file survives compaction
+- Optimizes future Read tool calls by maintaining accurate state
+
+### Read Tool Deduplication Tracking
+
+The system also tracks duplicate file reads for optimization:
+
+```javascript
+// ============================================
+// analyzeContentBlock - Tracks duplicate Read tool operations
+// Location: chunks.132.mjs:391-425
+// ============================================
+
+// READABLE (for understanding - partial):
+function analyzeContentBlock(block, message, stats, toolNameMap, filePathMap, duplicateTracking) {
+  // ... (token counting)
+
+  switch (block.type) {
+    case "tool_use":
+      if (block.name && block.id) {
+        toolNameMap.set(block.id, block.name);
+
+        // Special tracking for Read tool
+        if (block.name === "Read" && block.input?.file_path) {
+          filePathMap.set(block.id, String(block.input.file_path));
+        }
+      }
+      break;
+
+    case "tool_result":
+      if (block.tool_use_id) {
+        let toolName = toolNameMap.get(block.tool_use_id);
+
+        // Track duplicate Read operations
+        if (toolName === "Read") {
+          let filepath = filePathMap.get(block.tool_use_id);
+          if (filepath) {
+            let existing = duplicateTracking.get(filepath) || { count: 0, totalTokens: 0 };
+            duplicateTracking.set(filepath, {
+              count: existing.count + 1,
+              totalTokens: existing.totalTokens + tokenCount
+            });
+          }
+        }
+      }
+      break;
+  }
+}
+
+// Mapping: X97→analyzeContentBlock, Z→filePathMap, Y→duplicateTracking
+```
+
+**Duplicate savings calculation:**
+```javascript
+// If file read 3 times at 100 tokens per read:
+// Duplicate savings = (100 * 3 / 3) * (3 - 1) = 200 tokens saved
+duplicateTracking.forEach((stats, filepath) => {
+  if (stats.count > 1) {
+    let duplicateTokensSaved = Math.floor(stats.totalTokens / stats.count) * (stats.count - 1);
+    result.duplicateFileReads.set(filepath, { count: stats.count, tokens: duplicateTokensSaved });
+  }
+});
+```
+
+### Tool Result Persistence (Large Results)
+
+For very large tool results, content is persisted to disk:
+
+```javascript
+// ============================================
+// persistLargeToolResult - Save large tool result to disk
+// Location: chunks.89.mjs:2412-2443
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Z4A(A, Q) {
+  await K85();
+  let B = Array.isArray(A), G = B ? "json" : "txt",
+    Z = mX0(ZZ1(), `${Q}.${G}`), Y = B ? eA(A, null, 2) : A, J = !1;
+  try {
+    await D85(Z), J = !0
+  } catch {}
+  if (!J) {
+    try {
+      await I85(Z, Y, "utf-8")
+    } catch (D) {
+      let W = D instanceof Error ? D : Error(String(D));
+      return e(W), { error: E85(W) }
+    }
+    k(`Persisted tool result to ${Z} (${xD(Y.length)})`)
+  }
+  let { preview: X, hasMore: I } = H85(Y, q42);
+  return { filepath: Z, originalSize: Y.length, isJson: B, preview: X, hasMore: I }
+}
+
+// READABLE (for understanding):
+async function persistLargeToolResult(content, toolUseId) {
+  await ensureTempDirectory();
+
+  // Determine file type based on content
+  let isJson = Array.isArray(content);
+  let fileExt = isJson ? "json" : "txt";
+  let filepath = joinPath(getTempDir(), `${toolUseId}.${fileExt}`);
+  let serializedContent = isJson ? JSON.stringify(content, null, 2) : content;
+
+  // Check if file already exists (cached from previous compact)
+  let fileExists = false;
+  try {
+    await stat(filepath);
+    fileExists = true;
+  } catch {}
+
+  // Write if doesn't exist
+  if (!fileExists) {
+    try {
+      await writeFile(filepath, serializedContent, "utf-8");
+    } catch (error) {
+      logError(error instanceof Error ? error : Error(String(error)));
+      return { error: formatError(error) };
+    }
+    log(`Persisted tool result to ${filepath} (${formatBytes(serializedContent.length)})`);
+  }
+
+  // Create preview with truncation indicator
+  let { preview, hasMore } = createPreview(serializedContent, MAX_PREVIEW_LENGTH);
+  return {
+    filepath: filepath,
+    originalSize: serializedContent.length,
+    isJson: isJson,
+    preview: preview,
+    hasMore: hasMore
+  };
+}
+
+// Mapping: Z4A→persistLargeToolResult, K85→ensureTempDirectory, mX0→joinPath, ZZ1→getTempDir,
+//          D85→stat, I85→writeFile, H85→createPreview, q42→MAX_PREVIEW_LENGTH
+```
+
+```javascript
+// ============================================
+// wrapTruncatedToolResult - Replace large result with file reference
+// Location: chunks.89.mjs:2463-2483
+// ============================================
+
+// READABLE (for understanding):
+async function wrapTruncatedToolResult(toolResultBlock, toolName, maxResultSize) {
+  let content = toolResultBlock.content;
+  if (!content) return toolResultBlock;
+
+  // Skip if content contains images (preserve original)
+  if (Array.isArray(content)) {
+    if (content.some(item => typeof item === "object" && item.type === "image")) {
+      return toolResultBlock;
+    }
+  }
+
+  // Skip if content is within size limits
+  let size = typeof content === "string" ? content.length : JSON.stringify(content).length;
+  if (size <= (maxResultSize ?? DEFAULT_MAX_RESULT_SIZE)) {
+    return toolResultBlock;
+  }
+
+  // Persist to disk and wrap with preview
+  let persistResult = await persistLargeToolResult(content, toolResultBlock.tool_use_id);
+  if (hasErrorResult(persistResult)) {
+    return toolResultBlock;  // Return original on error
+  }
+
+  // Create replacement text with file reference
+  let previewText = `═══════════════════════════════════════
+Tool result saved to: ${persistResult.filepath}
+Use Read to view
+═══════════════════════════════════════`;
+
+  logTelemetry("tengu_tool_result_persisted", {
+    toolName: normalizeToolName(toolName),
+    originalSizeBytes: persistResult.originalSize,
+    persistedSizeBytes: previewText.length
+  });
+
+  return {
+    ...toolResultBlock,
+    content: previewText  // Replace with truncation message + filepath
+  };
+}
+
+// Mapping: F85→wrapTruncatedToolResult, Z4A→persistLargeToolResult, Y4A→hasErrorResult, V85→formatTruncationMessage
+```
+
+**Tool Result Size Flow:**
+```
+Tool Returns Result
+    │
+    ├─ Size ≤ DEFAULT_MAX_RESULT_SIZE → Pass through unchanged
+    │
+    └─ Size > DEFAULT_MAX_RESULT_SIZE:
+        │
+        ├─ Contains images? → Pass through unchanged
+        │
+        └─ Persist to disk:
+            ├─ Save to ~/.claude/temp/{tool_use_id}.txt or .json
+            ├─ Create preview text with file reference
+            ├─ Log telemetry: tengu_tool_result_persisted
+            └─ Replace content with: "Tool result saved to: {filepath}\nUse Read to view"
+```
 
 ---
 

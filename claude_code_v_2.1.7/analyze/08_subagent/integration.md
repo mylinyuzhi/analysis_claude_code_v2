@@ -4,7 +4,11 @@
 
 This document covers how the subagent system integrates with other Claude Code features: compact (context summarization), plan mode, TodoWrite, and background tasks.
 
-> Symbol mappings: [symbol_index_core.md](../00_overview/symbol_index_core.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key findings:
 - **Compact**: YES, subagents DO execute compact independently
@@ -398,7 +402,11 @@ Main Agent Context
 
 ## Related Symbols
 
-> Symbol mappings: [symbol_index_core.md](../00_overview/symbol_index_core.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key symbols in this document:
 - `L32` (createFullyBackgroundedAgent) - Create background task

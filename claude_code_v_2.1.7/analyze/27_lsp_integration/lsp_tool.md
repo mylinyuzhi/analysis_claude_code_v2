@@ -1030,7 +1030,11 @@ function extractSymbolAtPosition(filePath, line, character) {
 
 ## Related Symbols
 
-> Symbol mappings: [symbol_index_infra.md](../00_overview/symbol_index_infra.md)
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 ### Tool Definition
 - `lspTool` (vU0) - Main LSP tool definition
@@ -1080,4 +1084,4 @@ function extractSymbolAtPosition(filePath, line, character) {
 
 - [lsp_server.md](./lsp_server.md) - Server implementation details
 - [../25_plugin/](../25_plugin/) - Plugin system (LSP server configuration)
-- [../00_overview/symbol_index_infra.md](../00_overview/symbol_index_infra.md) - Complete symbol index
+- [../00_overview/symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integration symbols (LSP section)

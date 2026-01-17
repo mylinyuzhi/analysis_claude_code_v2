@@ -231,8 +231,9 @@ Files numbered >80 likely contain new features:
 ### Symbol Index Updates
 
 Both symbol index files updated with discovered symbols:
-- `symbol_index_core.md` - Background agents, hooks, skills
-- `symbol_index_infra.md` - LSP, Chrome, MCP, permissions, sessions
+- `symbol_index_core_features.md` - Background agents, hooks, skills, plan mode, etc.
+- `symbol_index_infra_platform.md` - MCP, permissions, sandbox, auth
+- `symbol_index_infra_integration.md` - LSP, Chrome, IDE, UI, plugin
 
 ### Key Symbols Discovered
 
