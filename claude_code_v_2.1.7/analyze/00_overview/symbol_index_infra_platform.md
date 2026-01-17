@@ -18,6 +18,7 @@
 - [Permissions & Sandbox](#module-permissions--sandbox) - Wildcards, security, sandbox
 - [Auth & OAuth](#module-auth--oauth) - OAuth endpoints, token management
 - [Telemetry](#module-telemetry) - Metrics, sanitization
+- [SDK Transport](#module-sdk-transport) - SDK communication layer
 
 ---
 
@@ -103,13 +104,25 @@
 
 ### Prompt Caching
 
+> Full analysis: [../23_prompt_cache/](../23_prompt_cache/)
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| qz7 | applyMessageCacheBreakpoints | chunks.147.mjs:483-490 | function |
-| $z7 | applyUserMessageCacheBreakpoint | chunks.146.mjs:2950-2970 | function |
-| Cz7 | applyAssistantMessageCacheBreakpoint | chunks.146.mjs:2975-3000 | function |
+| AJ9 | isPromptCachingSupported | chunks.146.mjs:2872-2886 | function |
 | wuA | getCacheControl | chunks.146.mjs:2889-2895 | function |
-| AJ9 | isPromptCachingSupported | chunks.147.mjs:63 | function |
+| qz7 | applyMessageCacheBreakpoints | chunks.147.mjs:483-490 | function |
+| $z7 | applyUserMessageCacheBreakpoint | chunks.146.mjs:2948-2972 | function |
+| Cz7 | applyAssistantMessageCacheBreakpoint | chunks.146.mjs:2975-3000 | function |
+| Nz7 | formatSystemPromptWithCache | chunks.147.mjs:492-502 | function |
+| rO0 | formatSystemPrompt | chunks.133.mjs:2563-2577 | function |
+| dhA | mergeUsage | chunks.147.mjs:447-462 | function |
+| SH1 | aggregateUsage | chunks.147.mjs:465-480 | function |
+| Cj | DEFAULT_USAGE | chunks.134.mjs:1847-1859 | constant |
+| Lw3 | calculateCost | chunks.46.mjs:1909-1910 | function |
+| i77 | trackForkAgentQuery | chunks.134.mjs:2036-2063 | function |
+| KQA | SONNET_PRICING | chunks.46.mjs:1961-1966 | constant |
+| seA | OPUS_PRICING | chunks.46.mjs:1967-1972 | constant |
+| vp1 | HAIKU45_PRICING | chunks.46.mjs:1985-1990 | constant |
 
 ### Agent Identity System
 
@@ -662,6 +675,132 @@ Tool groups defined in `XG9`:
 | k9 | obfuscateToolName | chunks.134.mjs | function |
 
 > Key files: chunks.155.mjs (event routing, Datadog), chunks.51.mjs (OpenTelemetry 1P, sampling), chunks.1.mjs (performance markers, provider attach), chunks.110.mjs (Segment)
+
+---
+
+## Module: SDK Transport
+
+> Full analysis: [../20_sdk/](../20_sdk/)
+
+### Transport Classes
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wmA | StdioSDKTransport | chunks.155.mjs:2621-2790 | class |
+| Fy0 | WebSocketSDKTransport | chunks.155.mjs:3000-3034 | class |
+| Vy0 | WebSocketTransport | chunks.155.mjs:2805-2963 | class |
+| khA | AsyncMessageQueue | chunks.133.mjs:3218-3281 | class |
+
+### SDK Entry Points
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| LR7 | runSDKAgentLoop | chunks.155.mjs:3207-3466 | function |
+| hw9 | runNonInteractiveSession | chunks.155.mjs:3094-3205 | function |
+| TR7 | createIOHandler | chunks.155.mjs:3159-3165 | function |
+| MR7 | createPermissionCallback | chunks.155.mjs:3513-3530 | function |
+| B_7 | setEntryPoint | chunks.156.mjs:1818-1831 | function |
+| G_7 | mainFunction | chunks.156.mjs:1833-1855 | function |
+
+### Control Request Handling
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| RR7 | handleInitializeRequest | chunks.155.mjs:3532-3602 | function |
+| _R7 | updatePermissionMode | chunks.155.mjs:3638-3660 | function |
+| gw9 | rewindFiles | chunks.155.mjs:3604-3636 | function |
+| SR7 | handleMcpSetServers | chunks.155.mjs:3427-3433 | function |
+| OR7 | createPermissionPromptTool | chunks.155.mjs:3468-3511 | function |
+
+### Response Schemas
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| JU1 | canUseToolResponseSchema | chunks.155.mjs:2600 | schema |
+| AY1 | hookCallbackResponseSchema | chunks.155.mjs (inferred) | schema |
+| VR7 | toolPermissionBehaviorSchema | chunks.155.mjs:~2595 | schema |
+| FR7 | toolPermissionPromptSchema | chunks.155.mjs:~2598 | schema |
+
+### Transport Methods
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| - | read() | chunks.155.mjs:2633-2652 | method (generator) |
+| - | processLine() | chunks.155.mjs:2659-2692 | method |
+| - | write() | chunks.155.mjs:2693-2696 | method |
+| - | sendRequest() | chunks.155.mjs:2697-2737 | method |
+| - | createCanUseTool() | chunks.155.mjs:2738-2762 | method |
+| - | createHookCallback() | chunks.155.mjs:2763-2780 | method |
+| - | sendMcpMessage() | chunks.155.mjs:2781-2789 | method |
+
+### WebSocket Constants
+
+| Obfuscated | Readable | Value | Type |
+|------------|----------|-------|------|
+| zR7 | MESSAGE_BUFFER_SIZE | 1000 | constant |
+| Rw9 | MAX_RECONNECT_ATTEMPTS | 3 | constant |
+| $R7 | INITIAL_RECONNECT_DELAY_MS | 1000 | constant |
+| CR7 | MAX_RECONNECT_DELAY_MS | 30000 | constant |
+| UR7 | PING_INTERVAL_MS | 10000 | constant |
+
+### Output Utilities
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| J9 | writeToStdout | chunks.1.mjs:646-648 | function |
+| HR7 | generateControlRequestId | chunks.155.mjs (inferred) | function |
+| Wy0 | exitWithError | chunks.155.mjs:2792-2794 | function |
+| QC | extractLastMessage | chunks.155.mjs (inferred) | function |
+| Sw9 | createIdleExitTimer | chunks.155.mjs:3036-3054 | function |
+
+### SDK Identity System
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| EB1 | getAgentIdentity | chunks.58.mjs:3251-3258 | function |
+| l10 | CLI_IDENTITY | chunks.58.mjs:3265 | constant |
+| XCB | SDK_CLI_IDENTITY | chunks.58.mjs:3267 | constant |
+| ICB | SDK_AGENT_IDENTITY | chunks.58.mjs:3269 | constant |
+| DCB | IDENTITY_SET | chunks.58.mjs:3279 | constant (Set) |
+
+### SDK Agent Loop
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| v19 | sdkAgentLoopGenerator | chunks.135.mjs:3-255 | async generator |
+| aN | coreMessageLoop | chunks.134.mjs:99-400 | async generator |
+
+### Session Loading (SDK Mode)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| jR7 | loadInitialMessages | chunks.156.mjs:3-62 | function |
+| vw9 | parseResumeTarget | chunks.155.mjs:3061-3088 | function |
+| PR7 | handleOrphanedPermission | chunks.156.mjs:81-110 | function |
+| fw9 | restoreFileHistory | chunks.156.mjs (inferred) | function |
+
+### Message Deduplication
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| pJ9 | isDuplicateMessage | chunks.148.mjs:1393-1395 | function |
+| bw9 | processedUuidsInMemory | chunks.156.mjs:311 | Set |
+| cJ9 | getProcessedMessageUuids | chunks.148.mjs (inferred) | function |
+
+### Entry Point Environment Variables
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `CLAUDE_CODE_ENTRYPOINT` | `cli` | Interactive CLI mode |
+| `CLAUDE_CODE_ENTRYPOINT` | `sdk-cli` | SDK print mode (--print) |
+| `CLAUDE_CODE_ENTRYPOINT` | `sdk-py` | Python SDK |
+| `CLAUDE_CODE_ENTRYPOINT` | `sdk-ts` | TypeScript SDK |
+| `CLAUDE_CODE_ENTRYPOINT` | `mcp` | MCP server mode |
+| `CLAUDE_CODE_ENTRYPOINT` | `local-agent` | Local agent mode |
+| `CLAUDE_AGENT_SDK_VERSION` | (version) | SDK version tracking |
+| `CLAUDE_CODE_EXIT_AFTER_STOP_DELAY` | (ms) | Idle exit delay |
+
+> Key files: chunks.155.mjs (transport, agent loop), chunks.156.mjs (entry points), chunks.133.mjs (AsyncMessageQueue), chunks.58.mjs (SDK identity prompts)
 
 ---
 

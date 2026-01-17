@@ -170,12 +170,54 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| - | message_start | chunks.147.mjs:180 | event type |
-| - | content_block_start | chunks.147.mjs:195 | event type |
-| - | content_block_delta | chunks.147.mjs:210 | event type |
-| - | content_block_stop | chunks.147.mjs:225 | event type |
-| - | message_delta | chunks.147.mjs:240 | event type |
-| - | message_stop | chunks.147.mjs:255 | event type |
+| BJ9 | queryWithStreaming | chunks.147.mjs:3-350 | generator |
+| v51 | createStreamingClientWithRetry | chunks.85.mjs:3-68 | function |
+| dhA | updateUsage | chunks.147.mjs | function |
+| JP0 | processContent | chunks.147.mjs | function |
+| - | message_start | chunks.147.mjs:182 | event type |
+| - | content_block_start | chunks.147.mjs:186 | event type |
+| - | content_block_delta | chunks.147.mjs:219 | event type |
+| - | content_block_stop | chunks.147.mjs:268 | event type |
+| - | message_delta | chunks.147.mjs:293 | event type |
+| - | message_stop | chunks.147.mjs:313 | event type |
+
+### Message Abstraction (Response Model)
+
+> Full analysis: [03_llm_core/response_abstraction.md](../03_llm_core/response_abstraction.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| PJ9 | createAssistantMessage | chunks.147.mjs:2358-2378 | function |
+| QU | createTextAssistantMessage | chunks.147.mjs:2381-2392 | function |
+| DZ | createErrorMessage | chunks.147.mjs:2394-2408 | function |
+| H0 | createUserMessage | chunks.147.mjs:2410-2440 | function |
+| GM | generateUUID | chunks.147.mjs | function |
+| eY9 | generateMessageUUID | chunks.147.mjs | function |
+| EKA | currentModel | chunks.147.mjs | variable |
+| JO | EMPTY_CONTENT_PLACEHOLDER | chunks.147.mjs | constant |
+
+### Message Type Guards
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| RJ9 | hasToolUse | chunks.147.mjs:2592 | function |
+| y19 | hasToolResult | chunks.147.mjs:2595-2596 | function |
+| Xt | getTextContent | chunks.147.mjs:3095-3099 | function |
+| UzA | isNonEmptyMessage | chunks.147.mjs:2516-2523 | function |
+| kD1 | isSpecialMessage | chunks.147.mjs:2314 | function |
+
+### Message Normalization (Internal → API)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| FI | normalizeMessagesToAPI | chunks.147.mjs:2876-2948 | function |
+| I$7 | reorderAttachments | chunks.147.mjs:2774-2784 | function |
+| F$7 | mergeUserMessages | chunks.147.mjs | function |
+| K$7 | mergeAssistantMessages | chunks.147.mjs:2962-2970 | function |
+| W$7 | mergeUserWithAttachment | chunks.147.mjs:2950-2960 | function |
+| q$7 | convertAttachmentToSystemMessage | chunks.148.mjs:3-371 | function |
+| uA9 | normalizeToolInput | chunks.147.mjs | function |
+| qz7 | addCacheBreakpoints | chunks.147.mjs:483-490 | function |
 
 ### Constants
 
