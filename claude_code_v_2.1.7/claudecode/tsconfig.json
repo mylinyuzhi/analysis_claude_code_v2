@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false,
+    "noEmit": true,
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@claudecode/shared": ["packages/shared/src"],
+      "@claudecode/core": ["packages/core/src"],
+      "@claudecode/tools": ["packages/tools/src"],
+      "@claudecode/features": ["packages/features/src"],
+      "@claudecode/integrations": ["packages/integrations/src"],
+      "@claudecode/platform": ["packages/platform/src"],
+      "@claudecode/ui": ["packages/ui/src"],
+      "@claudecode/plugin": ["packages/plugin/src"],
+      "@claudecode/sdk": ["packages/sdk/src"],
+      "@claudecode/cli": ["packages/cli/src"]
+    }
+  },
+  "include": ["packages/*/src/**/*"],
+  "exclude": ["node_modules", "**/dist/**"]
+}

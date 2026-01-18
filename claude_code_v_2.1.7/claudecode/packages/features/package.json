@@ -1,0 +1,53 @@
+{
+  "name": "@claudecode/features",
+  "version": "2.1.7",
+  "description": "Core feature modules for Claude Code",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./compact": {
+      "import": "./dist/compact/index.js",
+      "types": "./dist/compact/index.d.ts"
+    },
+    "./plan-mode": {
+      "import": "./dist/plan-mode/index.js",
+      "types": "./dist/plan-mode/index.d.ts"
+    },
+    "./hooks": {
+      "import": "./dist/hooks/index.js",
+      "types": "./dist/hooks/index.d.ts"
+    },
+    "./skills": {
+      "import": "./dist/skills/index.js",
+      "types": "./dist/skills/index.d.ts"
+    },
+    "./slash-commands": {
+      "import": "./dist/slash-commands/index.js",
+      "types": "./dist/slash-commands/index.d.ts"
+    },
+    "./thinking": {
+      "import": "./dist/thinking/index.js",
+      "types": "./dist/thinking/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@claudecode/shared": "workspace:*",
+    "@claudecode/core": "workspace:*",
+    "@claudecode/platform": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  }
+}

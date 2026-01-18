@@ -295,7 +295,7 @@ LSP Server Instance Internal API:
 |------------|----------|-----------|------|
 | CH7 | ChromeIntegrationSetup | chunks.145.mjs:1453-1550 | component |
 | UH7 | renderChromeSetup | chunks.145.mjs:1543-1555 | function |
-| Ej | CHROME_MCP_SERVER_NAME | - | constant |
+| Ej | CHROME_MCP_SERVER_NAME | chunks.131.mjs:49 | constant ("claude-in-chrome") |
 
 ### Chrome Slash Command
 
@@ -645,21 +645,28 @@ LSP Server Instance Internal API:
 | CLAUDE_CODE_ACCESSIBILITY | Disable focus reporting for accessibility |
 | CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY | Max parallel tool executions (default: 10) |
 
-### Vim Motions (NEW in 2.1.0)
+### Vim Mode State
+
+> Vim mode implemented via `vimMode` state flag and external readline library.
+> Motion-specific functions provided by readline/ink libraries.
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TBD | repeatFMotion | TBD | function |
-| TBD | yankOperator | TBD | function |
-| TBD | textObjectHandlers | TBD | object |
-| TBD | indentDedent | TBD | function |
+| Q | vimMode | chunks.152.mjs:65 | state |
+| s1 | vimModeRestored | chunks.154.mjs:1017 | state |
+| T9 | logFeatureUsage | chunks.143.mjs:1130 | function |
+
+**Vim mode toggle:** `/vim` command in chunks.143.mjs:1155-1161
 
 ### IME Support (2.0.68)
 
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| TBD | imeCompositionHandler | TBD | function |
-| TBD | positionImeWindow | TBD | function |
+> IME composition handled by external readline/ink libraries.
+> Claude Code passes vimMode state to UI components.
+
+| Setting | Location | Description |
+|---------|----------|-------------|
+| `vim-mode` | chunks.67.mjs:2828 | Feature tracking ID |
+| vimMode | chunks.152.mjs:65,263 | Mode state passed to components |
 
 ---
 
@@ -962,19 +969,118 @@ LSP Server Instance Internal API:
 
 ## Module: Shell Parser
 
-### Bash Parsing
+> Multi-layer shell command parsing, tokenization, and security analysis
+> See [shell_parser.md](../29_shell_parser/shell_parser.md) for full documentation
+
+### Tokenization Layer
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ZfA | tokenizeCommand | chunks.147.mjs:765-817 | function |
+| bY | bYParser | chunks.20.mjs:2044-2057 | function |
+| DJ9 | getEscapeMarkers | chunks.147.mjs:~760 | function |
+| IP0 | extractHeredocs | chunks.147.mjs:~750 | function |
+| YJ9 | reconstructHeredocs | chunks.147.mjs:~820 | function |
+| kGA | shellParseLib | chunks.20.mjs:~2044 | library |
+
+### Tree-based Parsing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cK1 | shellCommandParser | chunks.123.mjs:826-841 | object |
+| mm2 | RichCommand | chunks.123.mjs:768-807 | class |
+| um2 | SimpleCommand | chunks.123.mjs:695-732 | class |
+| xn5 | isTreeSitterAvailable | chunks.123.mjs:~826 | function |
+| Pn5 | extractPipePositions | chunks.123.mjs:~808 | function |
+| Sn5 | extractRedirections | chunks.123.mjs:~812 | function |
+
+### Output Redirection Extraction
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Hx | extractOutputRedirections | chunks.147.mjs:909-957 | function |
+| vn5 | stripOutputRedirections | chunks.123.mjs:904-907 | function |
+| BxA | VALID_FILE_DESCRIPTORS | chunks.147.mjs:~909 | constant |
+| NV | isOperator | chunks.147.mjs:~920 | function |
+
+### Security Analysis
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Mf | shellOperatorChecker | chunks.121.mjs:1446-1476 | function |
+| lm2 | hasShellOperators | chunks.123.mjs:~909 | function |
+| Ri5 | removeQuotes | chunks.121.mjs:892-924 | function |
+| _i5 | stripRedirectionNoise | chunks.121.mjs:926-928 | function |
+| eY | SECURITY_RISK_TYPES | chunks.121.mjs:1487-1523 | constant |
+
+### Security Risk Type Constants (14 types)
+
+| ID | Name | SubIds | Attack Vector |
+|----|------|--------|---------------|
+| 1 | INCOMPLETE_COMMANDS | 1-3 | Tab/flag/operator start fragments |
+| 2 | JQ_SYSTEM_FUNCTION | 1 | jq system() arbitrary exec |
+| 3 | JQ_FILE_ARGUMENTS | 1 | jq file access flags |
+| 4 | OBFUSCATED_FLAGS | 1-9 | Quoted/hidden flag names |
+| 5 | SHELL_METACHARACTERS | 1-3 | ;|& in arguments |
+| 6 | DANGEROUS_VARIABLES | 1 | $VAR in redirects/pipes |
+| 7 | NEWLINES | 1 | Multiline injection |
+| 8 | COMMAND_SUBSTITUTION | 1 | $(), ``, ${}, <(), >() |
+| 9 | INPUT_REDIRECTION | 1 | < file reading |
+| 10 | OUTPUT_REDIRECTION | 1 | > file writing |
+| 11 | IFS_INJECTION | 1 | $IFS manipulation |
+| 12 | GIT_COMMIT_SUBSTITUTION | 1 | Injection in -m |
+| 13 | PROC_ENVIRON_ACCESS | 1 | /proc/*/environ |
+| 14 | MALFORMED_TOKEN_INJECTION | 1 | Unbalanced delimiters |
+
+### Security Checker Functions (Phase 1 - Allow Checkers)
+
+| Obfuscated | Readable | File:Line | Purpose |
+|------------|----------|-----------|---------|
+| Ti5 | checkEmptyCommand | chunks.121.mjs:944-959 | Allow empty/whitespace commands |
+| Pi5 | checkIncompleteCommand | chunks.121.mjs:961-990 | Flag tab/flag/operator fragments |
+| xi5 | checkHeredocInSubstitution | chunks.121.mjs:1031-1053 | Allow safe $(cat <<'DELIM') |
+| vi5 | checkHeredocPatterns | chunks.121.mjs:1102-1126 | Allow <<'DELIM' or <<\\DELIM |
+| yi5 | checkGitCommitMessage | chunks.121.mjs:1055-1100 | Allow safe git commit -m |
+
+### Security Checker Functions (Phase 2 - Ask Checkers)
+
+| Obfuscated | Readable | File:Line | Risk Type |
+|------------|----------|-----------|-----------|
+| ki5 | checkJqDanger | chunks.121.mjs:1128-1156 | 2, 3 (jq system/files) |
+| ci5 | checkObfuscatedFlags | chunks.121.mjs:1328-1444 | 4 (9 sub-types) |
+| bi5 | checkShellMetacharacters | chunks.121.mjs:1158-1187 | 5 (;|& in args) |
+| fi5 | checkDangerousVariables | chunks.121.mjs:1189-1204 | 6 ($VAR near redirects) |
+| gi5 | checkNewlineInjection | chunks.121.mjs:1247-1266 | 7 (multiline) |
+| ui5 | checkIfsInjection | chunks.121.mjs:1268-1283 | 11 ($IFS) |
+| mi5 | checkProcEnvironAccess | chunks.121.mjs:1285-1300 | 13 (/proc/environ) |
+| hi5 | checkDangerousSubstitution | chunks.121.mjs:1206-1245 | 8, 9, 10 (subst, redirects) |
+| di5 | checkMalformedTokens | chunks.121.mjs:1302-1326 | 14 (unbalanced + separator) |
+
+### Security Helper Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Oi5 | isMalformedTokens | chunks.121.mjs:874-890 | function |
+| ji5 | hasUnescapedChar | chunks.121.mjs:930-942 | function |
+| Si5 | safeHeredocValidator | chunks.121.mjs:992-1029 | function |
+| Dq0 | heredocInSubstitutionPattern | chunks.121.mjs:~992 | regex |
+| Mi5 | dangerousPatterns | chunks.121.mjs:~1206 | array |
+
+### Pipe Permission Checking
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cm2 | pipePermissionChecker | chunks.123.mjs:909-934 | function |
+| yn5 | validatePipeSegments | chunks.123.mjs:~935 | function |
+| YD | formatDecisionMessage | chunks.123.mjs:~910 | function |
+| o2 | BASH_TOOL | chunks.123.mjs:~909 | constant |
+
+### CWD Reset Detection
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | Fb5 | extractCwdReset | chunks.112.mjs:53-64 | function |
 | UT2 | CWD_RESET_REGEX | chunks.112.mjs:118 | constant |
-
-### Command Extraction
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| TBD | extractCommandPrefix | TBD | function |
-| TBD | parseLineContinuation | TBD | function |
 
 ---
 
@@ -996,10 +1102,12 @@ LSP Server Instance Internal API:
 
 ### /plan (NEW in 2.1.0)
 
+> Plan mode commands defined in Plan Mode module. See [symbol_index_core_features.md](./symbol_index_core_features.md) for full details.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TBD | planCommand | TBD | object |
-| TBD | enablePlanMode | TBD | function |
+| VK1 | ENTER_PLAN_MODE_NAME | chunks.120.mjs:519 | constant ("EnterPlanMode") |
+| CY1 | EXIT_PLAN_MODE_NAME | chunks.93.mjs:173 | constant ("ExitPlanMode") |
 
 ---
 
@@ -1023,15 +1131,16 @@ LSP Server Instance Internal API:
 | Model Selection | ✅ Complete (v2.1.7) | P1 |
 | Prompt Building | ✅ Complete (v2.1.7) | P1 |
 | LSP Integration | ✅ Complete | P1 |
-| Chrome/Browser | ✅ Complete | P1 |
+| Chrome/Browser | ✅ Complete (v2.1.7) | P1 |
 | IDE Integration | ✅ Complete (v2.1.7) | P1 |
 | Wildcard Permissions | ✅ Complete | P1 |
 | Plugin System | ✅ Complete (v2.1.7) | P1 |
 | Plugin Unified Loading | ✅ Complete (v2.1.7) | P1 |
 | Code Indexing | ✅ Complete (v2.1.7) | P1 |
-| MCP Auto-Search | Locations found | P2 |
-| OAuth Updates | Endpoints documented | P3 |
-| All others | TBD | P3+ |
+| Shell Parser | ✅ Complete (v2.1.7) | P1 |
+| MCP Auto-Search | ✅ Complete | P2 |
+| OAuth Updates | ✅ Complete | P3 |
+| Vim Mode / IME | ✅ External library | P3 |
 
 ---
 

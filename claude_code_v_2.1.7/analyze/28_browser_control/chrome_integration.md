@@ -1963,6 +1963,553 @@ Key functions in this document:
 
 ---
 
+## Deep Dive: GIF Recording Algorithm
+
+### Frame Capture Pipeline
+
+The GIF recording system operates through a frame capture and export pipeline with visual overlays.
+
+```javascript
+// ============================================
+// GIF Recording State Machine
+// Location: chunks.145.mjs:211-265
+// ============================================
+
+gifRecordingStateMachine = {
+  states: ["idle", "recording", "stopped", "exporting"],
+  transitions: {
+    "idle → recording": "start_recording action",
+    "recording → stopped": "stop_recording action",
+    "stopped → exporting": "export action",
+    "stopped → idle": "clear action",
+    "exporting → idle": "export complete"
+  }
+};
+
+// Frame capture strategy:
+frameCapture = {
+  // CRITICAL: Capture extra frames for smooth playback
+  startBehavior: {
+    action: "Take screenshot IMMEDIATELY AFTER start_recording",
+    purpose: "Capture initial state as first frame"
+  },
+  stopBehavior: {
+    action: "Take screenshot IMMEDIATELY BEFORE stop_recording",
+    purpose: "Capture final state as last frame"
+  },
+
+  // Timing between frames
+  frameInterval: "Automatic based on user actions",
+  actionCapture: "Screenshot after each click/scroll/type action"
+};
+```
+
+### Export Options and Overlays
+
+```javascript
+// ============================================
+// GIF Export Configuration
+// Location: chunks.145.mjs:240-262
+// ============================================
+
+// READABLE (for understanding):
+gifExportOptions = {
+  // Visual overlays (all default to true)
+  showClickIndicators: {
+    enabled: true,
+    style: "Orange circle at click position",
+    animation: "Pulse effect on click frame"
+  },
+  showDragPaths: {
+    enabled: true,
+    style: "Red arrow from start to end coordinate",
+    animation: "Arrow drawn over drag duration"
+  },
+  showActionLabels: {
+    enabled: true,
+    style: "Black text label describing action",
+    position: "Near action location"
+  },
+  showProgressBar: {
+    enabled: true,
+    style: "Orange bar at bottom",
+    shows: "Current position in animation"
+  },
+  showWatermark: {
+    enabled: true,
+    style: "Claude logo watermark",
+    position: "Corner of frame"
+  },
+
+  // Quality setting
+  quality: {
+    range: [1, 30],
+    default: 10,
+    explanation: {
+      1: "Best quality, larger file size, slower encoding",
+      10: "Good balance (recommended)",
+      30: "Smallest file, lower quality, fastest encoding"
+    }
+  }
+};
+
+// Export destinations:
+exportDestinations = {
+  download: {
+    trigger: "Set download: true",
+    behavior: "Browser downloads GIF file",
+    filename: "recording-[timestamp].gif or custom"
+  },
+  dragDrop: {
+    trigger: "Provide coordinate: [x, y]",
+    behavior: "Simulates drag & drop to page element at coordinates"
+  },
+  fileInput: {
+    trigger: "Provide ref: 'ref_123'",
+    behavior: "Uploads GIF to file input element"
+  }
+};
+```
+
+### Recording Best Practices
+
+**Why extra frames matter:**
+
+```
+Timeline without extra frames:
+[Action 1] → [Action 2] → [Action 3]
+  ↓ instant    ↓ instant    ↓ instant
+Problem: GIF shows jarring jumps between states
+
+Timeline WITH extra frames:
+[Initial State] → [Action 1] → [After 1] → [Action 2] → [After 2] → [Final State]
+  ↓ capture        ↓ capture   ↓ capture   ↓ capture   ↓ capture   ↓ capture
+Result: Smooth playback showing transitions
+```
+
+---
+
+## Deep Dive: Network Monitoring Algorithm
+
+### Request Tracking Strategy
+
+```javascript
+// ============================================
+// Network Request Monitoring
+// Location: chunks.145.mjs:387-410
+// ============================================
+
+// READABLE (for understanding):
+networkMonitoring = {
+  monitoredRequestTypes: [
+    "XHR",           // XMLHttpRequest calls
+    "Fetch",         // Fetch API calls
+    "documents",     // Page navigation
+    "images",        // Image resources
+    "stylesheets",   // CSS files
+    "scripts",       // JavaScript files
+    "fonts",         // Web fonts
+    "websocket"      // WebSocket connections
+  ],
+
+  // Per-tab request buffer
+  bufferManagement: {
+    storage: "Per-tab array in extension memory",
+    maxSize: "No hard limit (controlled by user via limit param)",
+    autoClear: {
+      trigger: "Navigation to DIFFERENT domain",
+      reason: "Prevent stale data from previous site"
+    }
+  },
+
+  // Filtering options
+  filtering: {
+    urlPattern: {
+      type: "Substring or regex pattern",
+      examples: [
+        "/api/",           // Match API endpoints
+        "graphql",         // Match GraphQL requests
+        "\\.(jpg|png)$"    // Match image files (regex)
+      ]
+    },
+    limit: {
+      default: 100,
+      purpose: "Prevent overwhelming output"
+    }
+  },
+
+  // Return format
+  returnFormat: {
+    fields: [
+      "url",         // Full request URL
+      "method",      // GET, POST, PUT, DELETE, etc.
+      "status",      // HTTP status code
+      "type",        // Request type (xhr, fetch, etc.)
+      "timestamp",   // When request was made
+      "duration",    // Request duration in ms
+      "size"         // Response size in bytes
+    ]
+  }
+};
+```
+
+### Usage Pattern for Debugging
+
+```javascript
+// Effective debugging workflow:
+
+// Step 1: Start monitoring (passive - requests auto-collected)
+// No explicit "start" action needed
+
+// Step 2: Perform user actions that trigger API calls
+
+// Step 3: Read specific requests with filtering
+await callTool("read_network_requests", {
+  tabId: 123,
+  urlPattern: "/api/users",  // Only user-related API calls
+  limit: 20
+});
+
+// Step 4: Optionally clear after reading
+await callTool("read_network_requests", {
+  tabId: 123,
+  clear: true  // Discard all buffered requests
+});
+```
+
+---
+
+## Deep Dive: Permission Model
+
+### Three-Layer Permission Architecture
+
+```javascript
+// ============================================
+// Permission Model Architecture
+// ============================================
+
+permissionLayers = {
+  layer1_chromeExtension: {
+    scope: "Site-level (persistent)",
+    management: "Extension options page",
+    url: "chrome-extension://{id}/options.html",
+    persistence: "Stored in Chrome extension storage",
+    behavior: "Must be granted before any site interaction"
+  },
+
+  layer2_sessionApproval: {
+    scope: "Session-level (temporary)",
+    management: "update_plan MCP tool",
+    persistence: "In-memory for current session only",
+    behavior: "Pre-approves domains for current session"
+  },
+
+  layer3_actionApproval: {
+    scope: "Per-action (immediate)",
+    management: "User prompt in CLI",
+    persistence: "None (one-time)",
+    behavior: "Fallback when session approval not granted"
+  }
+};
+```
+
+### update_plan Approval Flow
+
+```javascript
+// ============================================
+// Session-Level Domain Approval via update_plan
+// Location: chunks.145.mjs:335-356
+// ============================================
+
+// READABLE (for understanding):
+updatePlanFlow = {
+  step1_claudePresents: {
+    action: "Call update_plan with domains and approach",
+    example: {
+      domains: ["github.com", "stackoverflow.com"],
+      approach: [
+        "Search GitHub for React examples",
+        "Find best practices on Stack Overflow",
+        "Compare implementations"
+      ]
+    }
+  },
+
+  step2_userSees: {
+    display: "Plan approval UI in terminal",
+    content: [
+      "Domains to visit: github.com, stackoverflow.com",
+      "Approach:",
+      "  1. Search GitHub for React examples",
+      "  2. Find best practices on Stack Overflow",
+      "  3. Compare implementations",
+      "",
+      "[Approve] [Reject]"
+    ]
+  },
+
+  step3_ifApproved: {
+    sessionCache: "Add domains to approved set",
+    result: "Subsequent actions on those domains skip prompts"
+  },
+
+  step4_ifRejected: {
+    behavior: "Claude must ask for per-action approval",
+    alternative: "Claude may revise plan and re-submit"
+  }
+};
+
+// Permission check flow:
+permissionCheckOrder = [
+  "1. Check Chrome extension site permissions",
+  "2. Check session-approved domains (from update_plan)",
+  "3. If neither, prompt user for this specific action"
+];
+```
+
+---
+
+## Deep Dive: Error Recovery & Reconnection
+
+### Exponential Backoff Algorithm
+
+```javascript
+// ============================================
+// SocketClient Reconnection Strategy
+// Location: chunks.145.mjs:845-862, 922-932
+// ============================================
+
+// ORIGINAL (for source lookup):
+class AZ9 {
+  reconnectAttempts = 0;
+  maxReconnectAttempts = 10;
+  reconnectDelay = 1000;
+
+  scheduleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.cleanup();
+      return;
+    }
+
+    this.reconnectAttempts++;
+    let delay = Math.min(
+      this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1),
+      30000
+    );
+
+    this.reconnectTimer = setTimeout(() => {
+      this.connect();
+    }, delay);
+  }
+}
+
+// READABLE (for understanding):
+reconnectionStrategy = {
+  algorithm: "Exponential backoff with multiplier 1.5",
+
+  constants: {
+    maxReconnectAttempts: 10,
+    initialDelay: 1000,         // 1 second
+    backoffMultiplier: 1.5,
+    maxDelay: 30000             // 30 seconds ceiling
+  },
+
+  // Calculated delays for each attempt:
+  delaySchedule: [
+    { attempt: 1, delay: 1000, cumulative: 1 },      // 1.0s
+    { attempt: 2, delay: 1500, cumulative: 2.5 },    // 1.5s
+    { attempt: 3, delay: 2250, cumulative: 4.75 },   // 2.25s
+    { attempt: 4, delay: 3375, cumulative: 8.125 },  // 3.375s
+    { attempt: 5, delay: 5063, cumulative: 13.188 }, // 5.06s
+    { attempt: 6, delay: 7594, cumulative: 20.782 }, // 7.59s
+    { attempt: 7, delay: 11391, cumulative: 32.173 }, // 11.39s
+    { attempt: 8, delay: 17086, cumulative: 49.259 }, // 17.09s
+    { attempt: 9, delay: 25629, cumulative: 74.888 }, // 25.63s
+    { attempt: 10, delay: 30000, cumulative: 104.888 } // 30s (capped)
+  ],
+  // Total time before giving up: ~105 seconds (1:45)
+};
+```
+
+### Error Classification
+
+```javascript
+// ============================================
+// Error Handling Classification
+// Location: chunks.145.mjs:922-932
+// ============================================
+
+errorHandling = {
+  retryableErrors: {
+    codes: ["ECONNREFUSED", "ECONNRESET", "EPIPE", "ETIMEDOUT"],
+    behavior: "Trigger reconnect schedule",
+    retry: "Single automatic retry after reconnect"
+  },
+
+  nonRetryableErrors: {
+    examples: [
+      "Security validation failures",
+      "Invalid socket permissions",
+      "Ownership mismatch"
+    ],
+    behavior: "Throw immediately, no retry"
+  },
+
+  // Request-level retry
+  requestRetry: {
+    method: "sendRequestWithRetry",
+    behavior: {
+      step1: "Attempt request",
+      step2: "On SocketConnectionError, close socket",
+      step3: "Re-establish connection",
+      step4: "Retry request ONCE",
+      step5: "If still fails, throw error"
+    }
+  }
+};
+
+// Cleanup on exhausted attempts:
+cleanupBehavior = {
+  trigger: "reconnectAttempts >= maxReconnectAttempts",
+  actions: [
+    "Clear reconnect timer",
+    "Close socket",
+    "Reset attempt counter",
+    "Discard response buffer",
+    "Cancel pending callbacks"
+  ],
+  userImpact: "Chrome integration becomes unavailable until manual restart"
+};
+```
+
+---
+
+## Deep Dive: Settings Configuration
+
+### Configuration Precedence
+
+```javascript
+// ============================================
+// Chrome Integration Enable Precedence
+// Location: chunks.145.mjs:1259-1268
+// ============================================
+
+// READABLE (for understanding):
+enablePrecedence = {
+  level1_cliFlag: {
+    source: "--chrome or --no-chrome flag",
+    priority: "HIGHEST",
+    examples: [
+      "claude --chrome",      // Force enable
+      "claude --no-chrome"    // Force disable
+    ]
+  },
+
+  level2_envVar: {
+    source: "CLAUDE_CODE_ENABLE_CFC environment variable",
+    priority: "HIGH",
+    validValues: ["true", "false", "1", "0", "yes", "no"]
+  },
+
+  level3_settingsFile: {
+    source: "claudeInChromeDefaultEnabled in settings",
+    priority: "MEDIUM",
+    location: "~/.claude/settings.json"
+  },
+
+  level4_autoEnable: {
+    source: "isClaudeInChromeAutoEnabled() function",
+    priority: "LOW",
+    conditions: [
+      "Platform is supported (macOS, Windows, Linux/WSL)",
+      "Chrome extension is detected as installed",
+      "Feature flag tengu_chrome_auto_enable is enabled"
+    ]
+  },
+
+  level5_default: {
+    value: false,
+    priority: "LOWEST"
+  }
+};
+```
+
+### Settings Schema
+
+```javascript
+// ============================================
+// Chrome Integration Settings
+// Location: chunks.137.mjs:954-967
+// ============================================
+
+chromeSettings = {
+  claudeInChromeDefaultEnabled: {
+    id: "claudeInChromeDefaultEnabled",
+    label: "Claude in Chrome enabled by default",
+    type: "boolean",
+    defaultValue: true,
+
+    storage: {
+      local: "~/.claude/local-state.json",
+      settings: "~/.claude/settings.json"
+    },
+
+    onChange: {
+      actions: [
+        "Update local app state (immediate UI update)",
+        "Save to settings file (persistence)",
+        "Track telemetry event"
+      ],
+      telemetryEvent: "tengu_claude_in_chrome_setting_changed"
+    }
+  },
+
+  cachedChromeExtensionInstalled: {
+    id: "cachedChromeExtensionInstalled",
+    type: "boolean",
+    purpose: "Cache extension detection result for faster startup",
+    autoUpdated: true,
+    refreshTrigger: "Async re-detection on getCachedExtensionStatus()"
+  }
+};
+```
+
+### Platform-Specific Paths
+
+```javascript
+// ============================================
+// All Platform-Specific Paths Summary
+// ============================================
+
+platformPaths = {
+  socketPath: {
+    windows: "\\\\.\\pipe\\claude-mcp-browser-bridge-{username}",
+    macos: "~/.socket/claude-mcp-browser-bridge-{username}",
+    linux: "~/.socket/claude-mcp-browser-bridge-{username}"
+  },
+
+  nativeHostManifest: {
+    macos: "~/Library/Application Support/Google/Chrome/NativeMessagingHosts/claude-in-chrome.json",
+    linux: "~/.config/google-chrome/NativeMessagingHosts/claude-in-chrome.json",
+    windows: "%APPDATA%\\Claude Code\\ChromeNativeHost\\claude-in-chrome.json"
+  },
+
+  wrapperScript: {
+    macos: "~/.claude/chrome/chrome-native-host",
+    linux: "~/.claude/chrome/chrome-native-host",
+    windows: "~/.claude/chrome/chrome-native-host.bat"
+  },
+
+  chromeUserData: {
+    macos: "~/Library/Application Support/Google/Chrome",
+    linux: "~/.config/google-chrome",
+    windows: "%LOCALAPPDATA%\\Google\\Chrome\\User Data"
+  }
+};
+```
+
+---
+
 ## See Also
 
 - [../10_skill/](../10_skill/) - Skill system

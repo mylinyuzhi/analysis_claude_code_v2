@@ -75,11 +75,71 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| g0 | globalState | chunks.1.mjs:2300+ | object |
+| q0 | getSessionId | chunks.1.mjs:2330-2332 | function |
+| wb0 | generateNewSessionId | chunks.1.mjs:2334-2336 | function |
+| pw | setSessionId | chunks.1.mjs:2338-2342 | function |
+| Nb0 | randomUUID | chunks.1.mjs (crypto) | function |
 | cAA | isSessionPersistenceDisabled | chunks.1.mjs:2702-2704 | function |
 | Z7A | getPlanSlugCache | chunks.1.mjs:2778-2780 | function |
 | PdA | setTeleportedSessionInfo | chunks.1.mjs:2782-2788 | function |
 | Iq1 | getTeleportedSessionInfo | chunks.1.mjs:2790-2792 | function |
 | Dq1 | markTeleportFirstMessageLogged | chunks.1.mjs:2794-2796 | function |
+
+### Session Persistence
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| mu2 | persistSessionToRemote | chunks.120.mjs:3004-3012 | function |
+| Qi5 | persistSessionLogEntry | chunks.120.mjs:2965-3002 | function |
+| uu2 | getSessionPersistenceHandler | chunks.120.mjs:2959-2963 | function |
+| wK1 | MAX_RETRIES | chunks.120.mjs | constant (10) |
+| Ai5 | BASE_DELAY_MS | chunks.120.mjs | constant (500) |
+| LK1 | lastUuidMap | chunks.120.mjs | Map |
+| G4A | getJwtToken | chunks.120.mjs | function |
+
+### Session Restore/Teleport
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Yt | resumeTeleportSession | chunks.120.mjs:3274-3320 | function |
+| Vi5 | teleportFromSessionsAPI | chunks.120.mjs:3349-3373 | function |
+| pu2 | fetchSessionLogs | chunks.120.mjs | function |
+| xkA | fetchRemoteSessionData | chunks.120.mjs | function |
+| Xq0 | validateRepository | chunks.120.mjs | function |
+| uK | TeleportError | chunks.120.mjs | class |
+| Zt | loadOrRestoreSession | chunks.120.mjs:2608-2643 | function |
+| xu2 | getLatestSession | chunks.120.mjs | function |
+| Gq0 | loadSessionFromDisk | chunks.148.mjs:1397-1414 | function |
+| Gj | isCompressed | chunks.148.mjs | function |
+| Vx | decompressSession | chunks.148.mjs | function |
+
+### Session Storage
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wp | getProjectsRoot | chunks.148.mjs:679-681 | function |
+| uz | getCurrentSessionPath | chunks.148.mjs:683-686 | function |
+| Bw | getSessionPath | chunks.148.mjs:688-692 | function |
+| Mp | parseSessionLogFile | chunks.148.mjs:1352-1386 | function |
+| pbA | isValidSessionMessage | chunks.148.mjs:675-677 | function |
+| LP0 | loadSessionIndex | chunks.148.mjs:1595-1610 | function |
+| $P0 | writeSessionIndex | chunks.148.mjs:1612-1625 | function |
+| y$7 | updateSessionIndexEntry | chunks.148.mjs:1627-1648 | function |
+| zP0 | SESSION_INDEX_VERSION | chunks.148.mjs | constant (2) |
+
+### Attachment Normalization (chunks.148.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| q$7 | normalizeAttachmentForAPI | chunks.148.mjs | function |
+| OuA | mapToolResultToContent | chunks.148.mjs | function |
+| MuA | createToolCallMessage | chunks.148.mjs | function |
+| hO | createSystemMessage | chunks.148.mjs | function |
+| V19 | createStopHookSummary | chunks.148.mjs | function |
+| qc | isCompactBoundary | chunks.148.mjs | function |
+| N$7 | findLastCompactBoundary | chunks.148.mjs | function |
+| _x | getMessagesAfterCompaction | chunks.148.mjs | function |
 
 ### Global State Flags (Hooks)
 
@@ -768,9 +828,12 @@ Map<string, {
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | CY1 | EXIT_PLAN_MODE_NAME | chunks.93.mjs:173 | constant ("ExitPlanMode") |
-| I8 | ENTER_PLAN_MODE_NAME | TBD | constant ("EnterPlanMode") |
-| BY | ASKUSER_NAME | TBD | constant ("AskUserQuestion") |
-| tq | KILLSHELL_NAME | TBD | constant ("KillShell") |
+| VK1 | ENTER_PLAN_MODE_NAME | chunks.120.mjs:519 | constant ("EnterPlanMode") |
+| zY | ASKUSER_TOOL_NAME | chunks.119.mjs:2283 | constant ("AskUserQuestion") |
+| GK1 | KILLSHELL_TOOL_NAME | chunks.119.mjs:1427 | constant ("KillShell") |
+| I8 | EDIT_TOOL_NAME | chunks.55.mjs:1149 | constant ("Edit") |
+| BY | WRITE_TOOL_NAME | chunks.58.mjs:3118 | constant ("Write") |
+| tq | NOTEBOOK_EDIT_NAME | chunks.58.mjs:3134 | constant ("NotebookEdit") |
 
 ---
 

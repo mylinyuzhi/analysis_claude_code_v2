@@ -1570,6 +1570,721 @@ Key functions in this document:
 
 ---
 
+---
+
+## Foreground vs Background Agent Creation
+
+Claude Code uses two different functions to create local agent tasks based on whether the agent starts backgrounded or foreground.
+
+### Create Fully Backgrounded Agent
+
+Used when `run_in_background: true` is specified - the agent is never shown in foreground.
+
+```javascript
+// ============================================
+// createFullyBackgroundedAgent - Creates agent that's always backgrounded
+// Location: chunks.91.mjs:1288-1315
+// ============================================
+
+// ORIGINAL (for source lookup):
+function L32({
+  agentId: A,
+  description: Q,
+  prompt: B,
+  selectedAgent: G,
+  setAppState: Z
+}) {
+  OKA(A, yb(iz(A)));
+  let Y = c9(),
+    J = {
+      ...KO(A, "local_agent", Q),
+      type: "local_agent",
+      status: "running",
+      agentId: A,
+      prompt: B,
+      selectedAgent: G,
+      agentType: G.agentType ?? "general-purpose",
+      abortController: Y,
+      retrieved: !1,
+      lastReportedToolCount: 0,
+      lastReportedTokenCount: 0,
+      isBackgrounded: !0
+    },
+    X = C6(async () => {
+      $4A(A, Z)
+    });
+  return J.unregisterCleanup = X, FO(J, Z), J
+}
+
+// READABLE (for understanding):
+function createFullyBackgroundedAgent({
+  agentId,
+  description,
+  prompt,
+  selectedAgent,
+  setAppState
+}) {
+  // Register output file symlink to transcript path
+  registerOutputFile(agentId, getAgentTranscriptPath(getSessionIdForAgent(agentId)));
+
+  let abortController = createAbortController();
+
+  let task = {
+    ...createBaseTask(agentId, "local_agent", description),
+    type: "local_agent",
+    status: "running",
+    agentId: agentId,
+    prompt: prompt,
+    selectedAgent: selectedAgent,
+    agentType: selectedAgent.agentType ?? "general-purpose",
+    abortController: abortController,
+    retrieved: false,
+    lastReportedToolCount: 0,
+    lastReportedTokenCount: 0,
+    isBackgrounded: true  // KEY: Always backgrounded
+  };
+
+  // Register cleanup handler
+  let unregisterCleanup = registerCleanup(async () => {
+    killBackgroundTask(agentId, setAppState);
+  });
+
+  task.unregisterCleanup = unregisterCleanup;
+  addTaskToState(task, setAppState);
+  return task;
+}
+
+// Mapping: L32→createFullyBackgroundedAgent, OKA→registerOutputFile, yb→getAgentTranscriptPath,
+//          iz→getSessionIdForAgent, c9→createAbortController, KO→createBaseTask,
+//          C6→registerCleanup, $4A→killBackgroundTask, FO→addTaskToState
+```
+
+### Create Backgroundable Agent
+
+Used when agent starts in foreground but can be backgrounded via Ctrl+B.
+
+```javascript
+// ============================================
+// createBackgroundableAgent - Creates agent that can be foregrounded initially
+// Location: chunks.91.mjs:1317-1351
+// ============================================
+
+// ORIGINAL (for source lookup):
+function O32({
+  agentId: A,
+  description: Q,
+  prompt: B,
+  selectedAgent: G,
+  setAppState: Z
+}) {
+  OKA(A, yb(iz(A)));
+  let Y = c9(),
+    J = C6(async () => {
+      $4A(A, Z)
+    }),
+    X = {
+      ...KO(A, "local_agent", Q),
+      type: "local_agent",
+      status: "running",
+      agentId: A,
+      prompt: B,
+      selectedAgent: G,
+      agentType: G.agentType ?? "general-purpose",
+      abortController: Y,
+      unregisterCleanup: J,
+      retrieved: !1,
+      lastReportedToolCount: 0,
+      lastReportedTokenCount: 0,
+      isBackgrounded: !1  // KEY: Starts foreground
+    },
+    I, D = new Promise((W) => {
+      I = W  // Resolver stored for Ctrl+B trigger
+    });
+  return yZ1.set(A, I), FO(X, Z), {
+    taskId: A,
+    backgroundSignal: D
+  }
+}
+
+// READABLE (for understanding):
+function createBackgroundableAgent({
+  agentId,
+  description,
+  prompt,
+  selectedAgent,
+  setAppState
+}) {
+  registerOutputFile(agentId, getAgentTranscriptPath(getSessionIdForAgent(agentId)));
+
+  let abortController = createAbortController();
+  let unregisterCleanup = registerCleanup(async () => {
+    killBackgroundTask(agentId, setAppState);
+  });
+
+  let task = {
+    ...createBaseTask(agentId, "local_agent", description),
+    type: "local_agent",
+    status: "running",
+    agentId: agentId,
+    prompt: prompt,
+    selectedAgent: selectedAgent,
+    agentType: selectedAgent.agentType ?? "general-purpose",
+    abortController: abortController,
+    unregisterCleanup: unregisterCleanup,
+    retrieved: false,
+    lastReportedToolCount: 0,
+    lastReportedTokenCount: 0,
+    isBackgrounded: false  // KEY: Starts foreground
+  };
+
+  // Create Promise for Ctrl+B backgrounding
+  let resolveBackgroundSignal;
+  let backgroundSignal = new Promise((resolve) => {
+    resolveBackgroundSignal = resolve;
+  });
+
+  // Store resolver in backgroundSignalMap for Ctrl+B to trigger
+  backgroundSignalMap.set(agentId, resolveBackgroundSignal);
+  addTaskToState(task, setAppState);
+
+  return {
+    taskId: agentId,
+    backgroundSignal: backgroundSignal  // Caller awaits this
+  };
+}
+
+// Mapping: O32→createBackgroundableAgent, yZ1→backgroundSignalMap
+```
+
+**Key difference:**
+- `L32` (fully backgrounded): `isBackgrounded: true` from start, no signal mechanism
+- `O32` (backgroundable): `isBackgrounded: false` initially, returns `backgroundSignal` Promise
+
+### Trigger Background Transition (Ctrl+B)
+
+```javascript
+// ============================================
+// triggerBackgroundTransition - Handles Ctrl+B to background running task
+// Location: chunks.91.mjs:1353-1373
+// ============================================
+
+// ORIGINAL (for source lookup):
+function M32(A, Q, B) {
+  let Z = Q().tasks[A];
+  if (!Sr(Z) || Z.isBackgrounded) return !1;
+  B((J) => {
+    let X = J.tasks[A];
+    if (!Sr(X)) return J;
+    return {
+      ...J,
+      tasks: {
+        ...J.tasks,
+        [A]: {
+          ...X,
+          isBackgrounded: !0
+        }
+      }
+    }
+  });
+  let Y = yZ1.get(A);
+  if (Y) Y(), yZ1.delete(A);
+  return !0
+}
+
+// READABLE (for understanding):
+function triggerBackgroundTransition(taskId, getAppState, setAppState) {
+  let task = getAppState().tasks[taskId];
+
+  // Only transition local_agent tasks that aren't already backgrounded
+  if (!isLocalAgentTask(task) || task.isBackgrounded) return false;
+
+  // Update task to backgrounded state
+  setAppState((state) => {
+    let currentTask = state.tasks[taskId];
+    if (!isLocalAgentTask(currentTask)) return state;
+    return {
+      ...state,
+      tasks: {
+        ...state.tasks,
+        [taskId]: {
+          ...currentTask,
+          isBackgrounded: true
+        }
+      }
+    };
+  });
+
+  // Resolve the backgroundSignal Promise to unblock caller
+  let resolveSignal = backgroundSignalMap.get(taskId);
+  if (resolveSignal) {
+    resolveSignal();  // This causes the awaited Promise to resolve
+    backgroundSignalMap.delete(taskId);
+  }
+
+  return true;
+}
+
+// Mapping: M32→triggerBackgroundTransition, Sr→isLocalAgentTask, yZ1→backgroundSignalMap
+```
+
+**How Ctrl+B works:**
+1. User presses Ctrl+B while agent is running in foreground
+2. `triggerBackgroundTransition` is called with the task ID
+3. Task's `isBackgrounded` flag is set to `true`
+4. The `backgroundSignal` Promise resolves, allowing the caller to continue
+5. The agent continues running but control returns to the user
+
+### Remove Backgroundable Task
+
+```javascript
+// ============================================
+// removeBackgroundableTask - Cleanup when task removed before backgrounding
+// Location: chunks.91.mjs:1375-1390
+// ============================================
+
+// ORIGINAL (for source lookup):
+function R32(A, Q) {
+  yZ1.delete(A);
+  let B;
+  Q((G) => {
+    let Z = G.tasks[A];
+    if (!Sr(Z) || Z.isBackgrounded) return G;
+    B = Z.unregisterCleanup;
+    let {
+      [A]: Y, ...J
+    } = G.tasks;
+    return {
+      ...G,
+      tasks: J
+    }
+  }), B?.()
+}
+
+// READABLE (for understanding):
+function removeBackgroundableTask(taskId, setAppState) {
+  backgroundSignalMap.delete(taskId);
+
+  let unregisterCleanup;
+  setAppState((state) => {
+    let task = state.tasks[taskId];
+    if (!isLocalAgentTask(task) || task.isBackgrounded) return state;
+
+    unregisterCleanup = task.unregisterCleanup;
+    let { [taskId]: removed, ...remainingTasks } = state.tasks;
+    return {
+      ...state,
+      tasks: remainingTasks
+    };
+  });
+
+  unregisterCleanup?.();
+}
+
+// Mapping: R32→removeBackgroundableTask
+```
+
+---
+
+## Bash Task Handlers
+
+### Notify Bash Task Completion
+
+```javascript
+// ============================================
+// notifyBashTaskCompletion - Notifies main agent of bash task completion
+// Location: chunks.121.mjs:571-588
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ibA(A, Q, B, G, Z) {
+  let Y = B === "completed" ? `completed${G!==void 0?` (exit code ${G})`:""}` : B === "failed" ? `failed${G!==void 0?` with exit code ${G}`:""}` : "was killed",
+    J = aY(A),
+    X = `<${zF}>
+<${IO}>${A}</${IO}>
+<${Kb}>${J}</${Kb}>
+<${hz}>${B}</${hz}>
+<${gz}>Background command "${Q}" ${Y}</${gz}>
+</${zF}>
+Read the output file to retrieve the result: ${J}`;
+  wF({
+    value: X,
+    mode: "task-notification"
+  }, Z), oY(A, Z, (I) => ({
+    ...I,
+    notified: !0
+  }))
+}
+
+// READABLE (for understanding):
+function notifyBashTaskCompletion(taskId, description, status, exitCode, setAppState) {
+  let statusMessage = status === "completed"
+    ? `completed${exitCode !== undefined ? ` (exit code ${exitCode})` : ""}`
+    : status === "failed"
+      ? `failed${exitCode !== undefined ? ` with exit code ${exitCode}` : ""}`
+      : "was killed";
+
+  let outputPath = formatOutputPath(taskId);
+
+  let notification = `<task-notification>
+<task-id>${taskId}</task-id>
+<output-file>${outputPath}</output-file>
+<status>${status}</status>
+<message>Background command "${description}" ${statusMessage}</message>
+</task-notification>
+Read the output file to retrieve the result: ${outputPath}`;
+
+  pushNotification({
+    value: notification,
+    mode: "task-notification"
+  }, setAppState);
+
+  updateTask(taskId, setAppState, (task) => ({
+    ...task,
+    notified: true
+  }));
+}
+
+// Mapping: ibA→notifyBashTaskCompletion, zF→"task-notification", IO→"task-id", Kb→"output-file",
+//          hz→"status", gz→"message", aY→formatOutputPath, wF→pushNotification, oY→updateTask
+```
+
+### Kill Local Bash Task
+
+```javascript
+// ============================================
+// killLocalBashTask - Terminates a running bash background task
+// Location: chunks.121.mjs:590-608
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Iq0(A, Q) {
+  oY(A, Q, (B) => {
+    if (B.status !== "running" || !It(B)) return B;
+    try {
+      k(`LocalBashTask ${A} kill requested`), B.shellCommand?.kill()
+    } catch (G) {
+      e(G instanceof Error ? G : Error(String(G)))
+    }
+    if (B.unregisterCleanup?.(), B.cleanupTimeoutId) clearTimeout(B.cleanupTimeoutId);
+    return {
+      ...B,
+      status: "killed",
+      shellCommand: null,
+      unregisterCleanup: void 0,
+      cleanupTimeoutId: void 0,
+      endTime: Date.now()
+    }
+  })
+}
+
+// READABLE (for understanding):
+function killLocalBashTask(taskId, setAppState) {
+  updateTask(taskId, setAppState, (task) => {
+    if (task.status !== "running" || !isLocalBashTask(task)) return task;
+
+    try {
+      log(`LocalBashTask ${taskId} kill requested`);
+      task.shellCommand?.kill();  // Send SIGTERM to process
+    } catch (error) {
+      logError(error instanceof Error ? error : Error(String(error)));
+    }
+
+    // Cleanup
+    task.unregisterCleanup?.();
+    if (task.cleanupTimeoutId) clearTimeout(task.cleanupTimeoutId);
+
+    return {
+      ...task,
+      status: "killed",
+      shellCommand: null,
+      unregisterCleanup: undefined,
+      cleanupTimeoutId: undefined,
+      endTime: Date.now()
+    };
+  });
+}
+
+// Mapping: Iq0→killLocalBashTask, It→isLocalBashTask, k→log, e→logError, oY→updateTask
+```
+
+### Create Local Bash Task
+
+```javascript
+// ============================================
+// createLocalBashTask - Registers new bash background task
+// Location: chunks.121.mjs:610-635
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Dm2(A, Q) {
+  let {
+    command: B,
+    description: G,
+    shellCommand: Z
+  } = A, Y = GyA("local_bash");
+  Zr(Y);
+  let J = C6(async () => {
+      Iq0(Y, Q)
+    }),
+    X = {
+      ...KO(Y, "local_bash", G),
+      type: "local_bash",
+      status: "running",
+      command: B,
+      completionStatusSentInAttachment: !1,
+      shellCommand: Z,
+      unregisterCleanup: J,
+      stdoutLineCount: 0,
+      stderrLineCount: 0,
+      lastReportedStdoutLines: 0,
+      lastReportedStderrLines: 0,
+      isBackgrounded: !1
+    };
+  return FO(X, Q), Y
+}
+
+// READABLE (for understanding):
+function createLocalBashTask({ command, description, shellCommand }, setAppState) {
+  let taskId = generateAgentId("local_bash");  // Generates "s" prefixed ID
+  createEmptyOutputFile(taskId);
+
+  let unregisterCleanup = registerCleanup(async () => {
+    killLocalBashTask(taskId, setAppState);
+  });
+
+  let task = {
+    ...createBaseTask(taskId, "local_bash", description),
+    type: "local_bash",
+    status: "running",
+    command: command,
+    completionStatusSentInAttachment: false,
+    shellCommand: shellCommand,  // Reference to child process
+    unregisterCleanup: unregisterCleanup,
+    stdoutLineCount: 0,
+    stderrLineCount: 0,
+    lastReportedStdoutLines: 0,
+    lastReportedStderrLines: 0,
+    isBackgrounded: false
+  };
+
+  addTaskToState(task, setAppState);
+  return taskId;
+}
+
+// Mapping: Dm2→createLocalBashTask, GyA→generateAgentId, Zr→createEmptyOutputFile,
+//          C6→registerCleanup, Iq0→killLocalBashTask, KO→createBaseTask, FO→addTaskToState
+```
+
+### Background Bash Task (Ctrl+B)
+
+```javascript
+// ============================================
+// backgroundBashTask - Transitions bash task to background via Ctrl+B
+// Location: chunks.121.mjs:637-667
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Li5(A, Q, B) {
+  let Z = Q().tasks[A];
+  if (!It(Z) || Z.isBackgrounded || !Z.shellCommand) return !1;
+  let {
+    shellCommand: Y,
+    description: J
+  } = Z, X = Y.background(A);
+  if (!X) return !1;
+  return B((I) => {
+    let D = I.tasks[A];
+    if (!It(D) || D.isBackgrounded) return I;
+    return {
+      ...I,
+      tasks: {
+        ...I.tasks,
+        [A]: {
+          ...D,
+          isBackgrounded: !0
+        }
+      }
+    }
+  }), X.stdoutStream.on("data", (I) => {
+    let D = I.toString();
+    g9A(A, D);
+    let W = D.split(`\n`).filter((K) => K.length > 0).length;
+    oY(A, B, (K) => ({
+      ...K,
+      stdoutLineCount: K.stdoutLineCount + W
+    }))
+  }), X.stderrStream.on("data", (I) => { /* similar stderr handling */ }), !0
+}
+
+// READABLE (for understanding):
+function backgroundBashTask(taskId, getAppState, setAppState) {
+  let task = getAppState().tasks[taskId];
+
+  // Validate task can be backgrounded
+  if (!isLocalBashTask(task) || task.isBackgrounded || !task.shellCommand) {
+    return false;
+  }
+
+  let { shellCommand, description } = task;
+
+  // Create background streams
+  let backgroundResult = shellCommand.background(taskId);
+  if (!backgroundResult) return false;
+
+  // Update task to backgrounded
+  setAppState((state) => {
+    let currentTask = state.tasks[taskId];
+    if (!isLocalBashTask(currentTask) || currentTask.isBackgrounded) return state;
+    return {
+      ...state,
+      tasks: {
+        ...state.tasks,
+        [taskId]: {
+          ...currentTask,
+          isBackgrounded: true
+        }
+      }
+    };
+  });
+
+  // Set up stdout stream handler
+  backgroundResult.stdoutStream.on("data", (data) => {
+    let content = data.toString();
+    appendToOutputFile(taskId, content);
+    let lineCount = content.split("\n").filter(line => line.length > 0).length;
+    updateTask(taskId, setAppState, (t) => ({
+      ...t,
+      stdoutLineCount: t.stdoutLineCount + lineCount
+    }));
+  });
+
+  // Set up stderr stream handler (similar)
+  backgroundResult.stderrStream.on("data", (data) => { /* similar */ });
+
+  return true;
+}
+
+// Mapping: Li5→backgroundBashTask, It→isLocalBashTask, g9A→appendToOutputFile, oY→updateTask
+```
+
+**Stream handling key insight:**
+- stdout/stderr streams are event-driven, writing to output file in real-time
+- Line counts are tracked for progress reporting
+- Writes are chained via promises for sequential order
+
+---
+
+## Task State Management Helpers
+
+### Update Task
+
+```javascript
+// ============================================
+// updateTask - Updates task in app state
+// Location: chunks.91.mjs (implicit, used throughout)
+// ============================================
+
+// ORIGINAL (for source lookup):
+function oY(A, Q, B) {
+  Q((G) => {
+    let Z = G.tasks?.[A];
+    if (!Z) return G;
+    return {
+      ...G,
+      tasks: {
+        ...G.tasks,
+        [A]: B(Z)
+      }
+    }
+  })
+}
+
+// READABLE (for understanding):
+function updateTask(taskId, setAppState, updater) {
+  setAppState((state) => {
+    let task = state.tasks?.[taskId];
+    if (!task) return state;
+    return {
+      ...state,
+      tasks: {
+        ...state.tasks,
+        [taskId]: updater(task)
+      }
+    };
+  });
+}
+
+// Mapping: oY→updateTask
+```
+
+### Add Task to State
+
+```javascript
+// ============================================
+// addTaskToState - Adds new task to app state
+// Location: chunks.91.mjs (used in task creation)
+// ============================================
+
+// ORIGINAL (for source lookup):
+function FO(A, Q) {
+  Q((B) => ({
+    ...B,
+    tasks: {
+      ...B.tasks,
+      [A.id]: A
+    }
+  }))
+}
+
+// READABLE (for understanding):
+function addTaskToState(task, setAppState) {
+  setAppState((state) => ({
+    ...state,
+    tasks: {
+      ...state.tasks,
+      [task.id]: task
+    }
+  }));
+}
+
+// Mapping: FO→addTaskToState
+```
+
+### Create Base Task
+
+```javascript
+// ============================================
+// createBaseTask - Creates base task object with common fields
+// Location: chunks.91.mjs (used in all task handlers)
+// ============================================
+
+// ORIGINAL (for source lookup):
+function KO(A, Q, B) {
+  return {
+    id: A,
+    type: Q,
+    description: B,
+    startTime: Date.now(),
+    outputFile: aY(A)
+  }
+}
+
+// READABLE (for understanding):
+function createBaseTask(taskId, taskType, description) {
+  return {
+    id: taskId,
+    type: taskType,
+    description: description,
+    startTime: Date.now(),
+    outputFile: formatOutputPath(taskId)
+  };
+}
+
+// Mapping: KO→createBaseTask, aY→formatOutputPath
+```
+
+---
+
 ## See Also
 
 - [08_subagent/](../08_subagent/) - Sub-agent execution (Task tool)

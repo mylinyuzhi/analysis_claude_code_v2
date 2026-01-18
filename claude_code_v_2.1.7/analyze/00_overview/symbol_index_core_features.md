@@ -186,14 +186,14 @@
 | dC | getPlanFilePath | chunks.86.mjs:58-62 | function |
 | AK | readPlanFile | chunks.86.mjs:64-74 | function |
 | W71 | checkPlanExists | chunks.86.mjs:76-83 | function |
-| GY0 | getUniquePlanSlug | chunks.86.mjs:TBD | function |
-| ZY0 | cachePlanSlug | chunks.86.mjs:TBD | function |
+| GY0 | getUniquePlanSlug | chunks.86.mjs:23-37 | function |
+| ZY0 | cachePlanSlug | chunks.86.mjs:39-41 | function |
 
 ### Plan Mode State Tracking
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| g0 | globalState | chunks.1.mjs:TBD | object |
+| g0 | globalState | chunks.1.mjs:2321 | object |
 | Xf0 | hasExitedPlanMode | chunks.1.mjs:2706-2708 | function |
 | Iq | setHasExitedPlanMode | chunks.1.mjs:2710-2712 | function |
 | If0 | needsPlanModeExitAttachment | chunks.1.mjs:2714-2716 | function |
@@ -219,14 +219,14 @@
 | _27 | countPlanModeAttachments | chunks.131.mjs:3195-3204 | function |
 | j27 | buildPlanModeAttachment | chunks.131.mjs:3207-3231 | function |
 | T27 | buildPlanModeExitAttachment | chunks.131.mjs:3233-3244 | function (NEW) |
-| ar2 | PLAN_MODE_CONSTANTS | chunks.131.mjs:TBD | object |
+| ar2 | PLAN_MODE_CONSTANTS | chunks.132.mjs:330 | object |
 
 ### Plan Mode Permission Integration
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | re | buildPermissionRules | chunks.150.mjs:2402-2418 | function |
-| aK1 | semanticToRegex | chunks.150.mjs:TBD | function |
+| aK1 | semanticToRegex | chunks.123.mjs:1838 | function |
 
 ### Plan Mode Model Selection (Main Loop Integration)
 
@@ -234,11 +234,11 @@
 |------------|----------|-----------|------|
 | HQA | selectModelForPlanMode | chunks.46.mjs:2259-2268 | function |
 | h51 | checkExceeds200kTokens | chunks.85.mjs:921-931 | function |
-| FQA | getMainLoopModelSetting | chunks.46.mjs:TBD | function |
-| sJA | getOpusModel | chunks.46.mjs:2250-2252 | function |
-| OR | getSonnetModel | chunks.46.mjs:TBD | function |
+| FQA | getMainLoopModelSetting | chunks.46.mjs:2216-2223 | function |
+| sJA | getOpusModel | chunks.46.mjs:2248-2252 | function |
+| OR | getSonnetModel | chunks.46.mjs:2231-2234 | function |
 | k1 | handleModeCycle | chunks.152.mjs:2512-2529 | function (callback) |
-| kK9 | getNextModeInCycle | chunks.152.mjs:TBD | function |
+| kK9 | getNextModeInCycle | chunks.151.mjs:3438-3455 | function |
 
 ### Plan Mode Agent Configurations
 
@@ -312,16 +312,16 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TBD | loadMostRecentSession | TBD | function |
-| TBD | getSessionId | TBD | function |
-| TBD | setSessionId | TBD | function |
+| ji5 | loadMostRecentSession | chunks.154.mjs:1058-1085 | function |
+| q0 | getSessionId | chunks.1.mjs:2312-2314 | function |
+| pw | setSessionId | chunks.1.mjs:2316-2318 | function |
 
 ### Named Sessions (NEW in 2.0.64)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TBD | renameSession | TBD | function |
-| TBD | resumeByName | TBD | function |
+| Bi5 | renameSession | chunks.154.mjs:1087-1105 | function |
+| Ni5 | resumeByName | chunks.154.mjs:1107-1130 | function |
 
 ### MCP CLI
 
@@ -353,7 +353,7 @@
 | Bm | TODOWRITE_TOOL_NAME | chunks.59.mjs:224 | constant ("TodoWrite") |
 | vD | TodoWriteTool | chunks.59.mjs:402-481 | object |
 | KCB | todoWriteToolPrompt | chunks.59.mjs:4-186 | constant |
-| VCB | todoWriteShortDescription | chunks.59.mjs:TBD | constant |
+| VCB | todoWriteShortDescription | chunks.58.mjs:3318 | constant |
 | NX8 | todoStatusEnum | chunks.59.mjs:197 | enum |
 | wX8 | todoItemSchema | chunks.59.mjs:197-201 | object |
 | jIA | todoArraySchema | chunks.59.mjs:201 | array |
@@ -421,7 +421,7 @@
 |------------|----------|-----------|------|
 | wCB | addTodoStateListener | chunks.59.mjs:232-234 | function |
 | LCB | notifyTodoStateListeners | chunks.59.mjs:236-240 | function |
-| o10 | todoStateListeners | chunks.59.mjs:TBD | Set |
+| o10 | todoStateListeners | chunks.59.mjs:371 | Set |
 | OCB | clearCompletedTasks | chunks.107.mjs:1931 | function |
 
 ---

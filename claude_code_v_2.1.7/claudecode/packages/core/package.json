@@ -1,0 +1,48 @@
+{
+  "name": "@claudecode/core",
+  "version": "2.1.7",
+  "description": "Core execution engine for Claude Code",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./agent-loop": {
+      "import": "./dist/agent-loop/index.js",
+      "types": "./dist/agent-loop/index.d.ts"
+    },
+    "./tools": {
+      "import": "./dist/tools/index.js",
+      "types": "./dist/tools/index.d.ts"
+    },
+    "./llm-api": {
+      "import": "./dist/llm-api/index.js",
+      "types": "./dist/llm-api/index.d.ts"
+    },
+    "./state": {
+      "import": "./dist/state/index.js",
+      "types": "./dist/state/index.d.ts"
+    },
+    "./message": {
+      "import": "./dist/message/index.js",
+      "types": "./dist/message/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@claudecode/shared": "workspace:*",
+    "@claudecode/platform": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  }
+}
