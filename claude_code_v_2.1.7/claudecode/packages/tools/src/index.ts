@@ -72,6 +72,31 @@ export { TodoWriteTool } from './todo-write.js';
 export { SkillTool } from './skill.js';
 
 // ============================================
+// Interactive Tools
+// ============================================
+
+export { AskUserQuestionTool } from './ask-user-question.js';
+
+// ============================================
+// Notebook Tools
+// ============================================
+
+export { NotebookEditTool } from './notebook-edit.js';
+
+// ============================================
+// Web Tools (Extended)
+// ============================================
+
+export { WebSearchTool } from './web-search.js';
+
+// ============================================
+// Background Task Tools
+// ============================================
+
+export { KillShellTool } from './kill-shell.js';
+export { TaskOutputTool } from './task-output.js';
+
+// ============================================
 // Tool Collection
 // ============================================
 
@@ -85,6 +110,11 @@ import { WebFetchTool } from './web-fetch.js';
 import { TaskTool } from './task.js';
 import { TodoWriteTool } from './todo-write.js';
 import { SkillTool } from './skill.js';
+import { AskUserQuestionTool } from './ask-user-question.js';
+import { NotebookEditTool } from './notebook-edit.js';
+import { WebSearchTool } from './web-search.js';
+import { KillShellTool } from './kill-shell.js';
+import { TaskOutputTool } from './task-output.js';
 import type { Tool, ToolGroupings } from './types.js';
 
 /**
@@ -98,9 +128,14 @@ export const builtinTools: Tool[] = [
   GrepTool,
   BashTool,
   WebFetchTool,
+  WebSearchTool,
   TaskTool,
   TodoWriteTool,
   SkillTool,
+  AskUserQuestionTool,
+  NotebookEditTool,
+  KillShellTool,
+  TaskOutputTool,
 ];
 
 /**

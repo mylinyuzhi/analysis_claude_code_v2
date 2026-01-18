@@ -8,6 +8,8 @@
  * - Run sub-agents in background
  * - Unified TaskOutput tool for result retrieval
  * - Transcript persistence for agent tasks
+ * - Ctrl+B signal handling for backgrounding
+ * - Task lifecycle management
  *
  * Storage:
  * - Bash tasks: In-memory (real-time streaming, lost on exit)
@@ -58,6 +60,177 @@ export {
   readTaskOutput,
   writeTaskOutput,
 } from './transcript.js';
+
+// ============================================
+// Signal Handling (Ctrl+B)
+// ============================================
+
+export {
+  isLocalAgentTask,
+  isLocalBashTask,
+  triggerBackgroundTransition,
+  triggerBashBackgroundTransition,
+  registerBackgroundableTask,
+  removeBackgroundableTaskSignal,
+  hasBackgroundSignal,
+  clearBackgroundSignals,
+  getBackgroundSignalMap,
+} from './signal.js';
+
+// ============================================
+// Task Handlers
+// ============================================
+
+export {
+  LocalBashTaskHandler,
+  LocalAgentTaskHandler,
+  RemoteAgentTaskHandler,
+  getTaskHandlers,
+  getTaskHandler,
+  type TaskHandler,
+  type TaskSpawnParams,
+  type TaskSpawnContext,
+  type TaskSpawnResult,
+  type TaskProgress,
+  type LocalAgentTaskWithProgress,
+  type LocalBashTaskWithProcess,
+  type RemoteAgentTaskWithSession,
+} from './handlers.js';
+
+// ============================================
+// Output File Management
+// ============================================
+
+export {
+  getAgentOutputDir,
+  formatOutputPath,
+  ensureOutputDirExists,
+  createEmptyOutputFile,
+  registerOutputFile,
+  appendToOutputFile,
+  getTaskOutputContent,
+  writeOutputFile,
+  outputFileExists,
+  deleteOutputFile,
+  clearPendingWrite,
+  waitForPendingWrites,
+} from './output.js';
+
+// ============================================
+// TaskOutput Tool Utilities
+// ============================================
+
+export {
+  TASKOUTPUT_TOOL_NAME,
+  KILLSHELL_TOOL_NAME,
+  getTaskMaxOutputLength,
+  formatTaskOutput,
+  truncateTaskOutput,
+  getFormattedTaskOutput,
+  waitForTaskCompletion,
+  waitForTask,
+  isTaskRunning,
+  isTaskCompleted,
+  isTaskFailed,
+  isTaskCancelled,
+  getTaskDuration,
+} from './task-output.js';
+
+// ============================================
+// Task Lifecycle
+// ============================================
+
+export {
+  updateTask,
+  addTaskToState,
+  removeTaskFromState,
+  createBaseTask,
+  createTaskNotification,
+  createBashTaskNotification,
+  killBackgroundTask,
+  updateTaskProgress,
+  markTaskCompleted,
+  markTaskFailed,
+  markBashTaskCompleted,
+  type AppStateWithTasks,
+  type SetAppState,
+  type TaskProgressInfo,
+  type AgentResult,
+  type NotificationValue,
+  type PushNotification,
+} from './lifecycle.js';
+
+// ============================================
+// Task Factories
+// ============================================
+
+import type { BackgroundBashTask, BackgroundAgentTask } from './types.js';
+import { generateBashTaskId, generateAgentTaskId, generateRemoteAgentTaskId } from './registry.js';
+import { getAgentTranscriptPath } from './transcript.js';
+
+/**
+ * Create a background bash task.
+ */
+export function createBashTask(command: string, pid?: number): BackgroundBashTask {
+  return {
+    id: generateBashTaskId(),
+    type: 'local_bash',
+    status: 'running',
+    startTime: Date.now(),
+    command,
+    stdout: '',
+    stderr: '',
+    pid,
+  };
+}
+
+/**
+ * Create a background agent task.
+ */
+export function createAgentTask(
+  description: string,
+  options?: {
+    prompt?: string;
+    subagentType?: string;
+    model?: string;
+    cwd?: string;
+  }
+): BackgroundAgentTask {
+  const id = generateAgentTaskId();
+  return {
+    id,
+    type: 'local_agent',
+    status: 'running',
+    startTime: Date.now(),
+    description,
+    transcriptPath: getAgentTranscriptPath(id, options?.cwd),
+    prompt: options?.prompt,
+    subagentType: options?.subagentType,
+    model: options?.model,
+  };
+}
+
+/**
+ * Create a remote agent task.
+ */
+export function createRemoteAgentTask(
+  description: string,
+  options?: {
+    prompt?: string;
+    cwd?: string;
+  }
+): BackgroundAgentTask {
+  const id = generateRemoteAgentTaskId();
+  return {
+    id,
+    type: 'remote_agent',
+    status: 'running',
+    startTime: Date.now(),
+    description,
+    transcriptPath: getAgentTranscriptPath(id, options?.cwd),
+    prompt: options?.prompt,
+  };
+}
 
 // ============================================
 // Task Factories

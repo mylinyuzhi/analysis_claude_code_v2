@@ -21,6 +21,17 @@ import type { ConversationMessage, ContentBlock } from '../message/types.js';
 import type { ToolDefinition, ToolUseContext, ToolResult, ToolInput } from './types.js';
 import type { ToolUseBlock, CanUseTool, ToolExecutionYield } from '../agent-loop/types.js';
 
+// Import hooks from features package
+import {
+  executePreToolHooks,
+  executePostToolHooks,
+  executePostToolFailureHooks,
+  type REPLHookYield,
+  type HookExecutionResult,
+  type PreToolUseOutput,
+  type PostToolUseOutput,
+} from '@claudecode/features';
+
 // ============================================
 // Constants
 // ============================================
@@ -232,6 +243,8 @@ export interface HookPermissionResult {
 /**
  * Execute pre-tool use hooks.
  * Original: g77 in chunks.134.mjs
+ *
+ * Integrates with @claudecode/features/hooks executePreToolHooks.
  */
 async function* executePreToolUseHooks(
   context: ToolUseContext,
@@ -249,39 +262,79 @@ async function* executePreToolUseHooks(
   shouldPreventContinuation?: boolean;
   stopReason?: string;
 }> {
-  // Check if hooks feature is enabled
-  const appState = await context.getAppState();
-  if (!appState.hooks || appState.hooks.length === 0) {
-    return;
-  }
+  // Get permission mode from context
+  const permissionMode = context.options?.permissionMode ?? 'default';
+  const signal = context.abortController?.signal;
 
-  // Find matching PreToolUse hooks
-  const matchingHooks = appState.hooks.filter(
-    (hook: { event: string }) => hook.event === 'PreToolUse'
-  );
-
-  if (matchingHooks.length === 0) {
-    return;
-  }
-
-  // Execute hooks (placeholder - would integrate with hooks module)
-  for (const hook of matchingHooks) {
-    try {
-      // Placeholder hook execution
-      const hookInput = {
-        hook_event_name: 'PreToolUse',
-        tool_name: tool.name,
-        tool_input: input,
-        tool_use_id: toolUseId,
-      };
-
-      // In real implementation, would call executeHooksInREPL
-      if (process.env.DEBUG_HOOKS) {
-        console.log(`[Hooks] PreToolUse hook for ${tool.name}:`, hookInput);
+  try {
+    // Execute hooks from features package
+    for await (const hookYield of executePreToolHooks(
+      tool.name,
+      toolUseId,
+      input,
+      context,
+      permissionMode,
+      signal
+    )) {
+      // Process hook yield results
+      if (hookYield.preventContinuation) {
+        yield {
+          type: 'preventContinuation',
+          shouldPreventContinuation: true,
+        };
+        yield {
+          type: 'stopReason',
+          stopReason: hookYield.stopReason,
+        };
+        yield { type: 'stop' };
+        return;
       }
-    } catch (error) {
-      logError(error instanceof Error ? error : new Error(String(error)));
+
+      // Check for permission decisions in hook output
+      if (hookYield.result?.output) {
+        const output = hookYield.result.output as { hookSpecificOutput?: PreToolUseOutput };
+        const specificOutput = output.hookSpecificOutput;
+
+        if (specificOutput?.hookEventName === 'PreToolUse') {
+          // Handle permission decision
+          if (specificOutput.permissionDecision) {
+            yield {
+              type: 'hookPermissionResult',
+              hookPermissionResult: {
+                behavior: specificOutput.permissionDecision,
+                updatedInput: specificOutput.updatedInput as ToolInput | undefined,
+                message: specificOutput.permissionDecisionReason,
+              },
+            };
+          }
+
+          // Handle updated input
+          if (specificOutput.updatedInput) {
+            yield {
+              type: 'hookUpdatedInput',
+              updatedInput: specificOutput.updatedInput as ToolInput,
+            };
+          }
+        }
+      }
+
+      // Check for blocking outcomes
+      if (hookYield.result?.outcome === 'blocking') {
+        yield {
+          type: 'hookPermissionResult',
+          hookPermissionResult: {
+            behavior: 'deny',
+            message: hookYield.result.blockingError?.blockingError || 'Hook blocked operation',
+          },
+        };
+      }
+
+      if (process.env.DEBUG_HOOKS) {
+        console.log(`[Hooks] PreToolUse result for ${tool.name}:`, hookYield.result);
+      }
     }
+  } catch (error) {
+    logError(error instanceof Error ? error : new Error(String(error)));
   }
 }
 
@@ -292,6 +345,8 @@ async function* executePreToolUseHooks(
 /**
  * Execute post-tool use hooks.
  * Original: f77 in chunks.134.mjs
+ *
+ * Integrates with @claudecode/features/hooks executePostToolHooks.
  */
 async function* executePostToolUseHooks(
   context: ToolUseContext,
@@ -306,38 +361,98 @@ async function* executePostToolUseHooks(
   updatedMCPToolOutput?: unknown;
   message?: ConversationMessage;
 }> {
-  // Check if hooks feature is enabled
-  const appState = await context.getAppState();
-  if (!appState.hooks || appState.hooks.length === 0) {
-    return;
-  }
+  // Get permission mode from context
+  const permissionMode = context.options?.permissionMode ?? 'default';
+  const signal = context.abortController?.signal;
 
-  // Find matching PostToolUse hooks
-  const matchingHooks = appState.hooks.filter(
-    (hook: { event: string }) => hook.event === 'PostToolUse'
-  );
+  try {
+    // Execute hooks from features package
+    for await (const hookYield of executePostToolHooks(
+      tool.name,
+      toolUseId,
+      input,
+      result,
+      context,
+      permissionMode,
+      signal
+    )) {
+      // Check for MCP output updates in hook result
+      if (hookYield.result?.output) {
+        const output = hookYield.result.output as { hookSpecificOutput?: PostToolUseOutput };
+        const specificOutput = output.hookSpecificOutput;
 
-  if (matchingHooks.length === 0) {
-    return;
-  }
+        if (specificOutput?.hookEventName === 'PostToolUse') {
+          // Handle updated MCP tool output
+          if (specificOutput.updatedMCPToolOutput !== undefined) {
+            yield {
+              updatedMCPToolOutput: specificOutput.updatedMCPToolOutput,
+            };
+          }
 
-  // Execute hooks (placeholder - would integrate with hooks module)
-  for (const hook of matchingHooks) {
-    try {
-      const hookInput = {
-        hook_event_name: 'PostToolUse',
-        tool_name: tool.name,
-        tool_input: input,
-        tool_output: result,
-        tool_use_id: toolUseId,
-      };
+          // Handle additional context (create a message for it)
+          if (specificOutput.additionalContext) {
+            yield {
+              message: createUserMessage({
+                content: `[PostToolUse Hook Context]: ${specificOutput.additionalContext}`,
+                isHookOutput: true,
+              }),
+            };
+          }
+        }
+      }
 
       if (process.env.DEBUG_HOOKS) {
-        console.log(`[Hooks] PostToolUse hook for ${tool.name}:`, hookInput);
+        console.log(`[Hooks] PostToolUse result for ${tool.name}:`, hookYield.result);
       }
-    } catch (error) {
-      logError(error instanceof Error ? error : new Error(String(error)));
     }
+  } catch (error) {
+    logError(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+// ============================================
+// Post-Tool Use Failure Hooks
+// ============================================
+
+/**
+ * Execute post-tool use failure hooks.
+ * Original: p77 in chunks.134.mjs
+ *
+ * Integrates with @claudecode/features/hooks executePostToolFailureHooks.
+ */
+async function* executePostToolFailureHooks(
+  context: ToolUseContext,
+  tool: ToolDefinition,
+  toolUseId: string,
+  input: ToolInput,
+  error: string,
+  isInterrupt: boolean
+): AsyncGenerator<{
+  message?: ConversationMessage;
+}> {
+  // Get permission mode from context
+  const permissionMode = context.options?.permissionMode ?? 'default';
+  const signal = context.abortController?.signal;
+
+  try {
+    // Execute hooks from features package
+    for await (const hookYield of executePostToolFailureHooks(
+      tool.name,
+      toolUseId,
+      input,
+      error,
+      isInterrupt,
+      context,
+      permissionMode,
+      signal
+    )) {
+      // Log hook results for failures
+      if (process.env.DEBUG_HOOKS) {
+        console.log(`[Hooks] PostToolUseFailure result for ${tool.name}:`, hookYield.result);
+      }
+    }
+  } catch (hookError) {
+    logError(hookError instanceof Error ? hookError : new Error(String(hookError)));
   }
 }
 
@@ -906,6 +1021,21 @@ export async function* executeSingleTool(
 
     const errorMessage = error instanceof Error ? error.message : String(error);
     const fullError = `Error calling tool${tool ? ` (${tool.name})` : ''}: ${errorMessage}`;
+    const isInterrupt = context.abortController?.signal.aborted ?? false;
+
+    // Execute post-tool failure hooks
+    for await (const hookResult of executePostToolFailureHooks(
+      context,
+      tool,
+      toolUseBlock.id,
+      input,
+      errorMessage,
+      isInterrupt
+    )) {
+      if (hookResult.message) {
+        yield { message: hookResult.message };
+      }
+    }
 
     yield {
       message: createUserMessage({
@@ -932,6 +1062,7 @@ export {
   executeSingleTool,
   executeToolWithValidation,
   executeToolWithProgress,
+  executePostToolFailureHooks,
   findToolByName,
   getToolDisplayName,
   parseMcpToolName,

@@ -51,15 +51,54 @@ export * as backgroundAgents from './background-agents/index.js';
 
 // Re-export commonly used Background Agent functions at top level
 export {
+  // Registry
   BackgroundTaskRegistry,
   generateTaskId,
   generateBashTaskId,
   generateAgentTaskId,
   getTaskRegistry,
+
+  // Task factories
   createBashTask,
   createAgentTask,
+  createRemoteAgentTask,
+
+  // Output management
   readTaskOutput,
   writeTaskOutput,
+  formatOutputPath,
+  appendToOutputFile,
+  getTaskOutputContent,
+  registerOutputFile,
+
+  // Signal handling (Ctrl+B)
+  triggerBackgroundTransition,
+  triggerBashBackgroundTransition,
+  registerBackgroundableTask,
+  isLocalAgentTask,
+  isLocalBashTask,
+
+  // Task handlers
+  LocalBashTaskHandler,
+  LocalAgentTaskHandler,
+  RemoteAgentTaskHandler,
+  getTaskHandlers,
+
+  // TaskOutput utilities
+  TASKOUTPUT_TOOL_NAME,
+  KILLSHELL_TOOL_NAME,
+  formatTaskOutput,
+  truncateTaskOutput,
+  waitForTaskCompletion,
+
+  // Lifecycle
+  killBackgroundTask,
+  updateTaskProgress,
+  markTaskCompleted,
+  markTaskFailed,
+  createTaskNotification,
+
+  // Constants
   BACKGROUND_AGENT_CONSTANTS,
 } from './background-agents/index.js';
 
@@ -71,6 +110,7 @@ export * as lspServer from './lsp-server/index.js';
 
 // Re-export commonly used LSP functions at top level
 export {
+  // Manager
   createLspClient,
   createLspServerInstance,
   createLspServerManager,
@@ -80,9 +120,20 @@ export {
   getLspManagerStatus,
   waitForLspManagerInit,
   LSP_CONSTANTS,
+
+  // Operations
+  LSP_OPERATIONS,
+  buildLspRequest,
+  formatLspResult,
+  symbolKindToName,
+  pathToFileUri,
+  uriToRelativePath,
+  formatLocation,
+  extractSymbolAtPosition,
 } from './lsp-server/index.js';
 
 export type {
+  // Manager types
   LspManagerState,
   LspServerState,
   LspServerConfig,
@@ -90,4 +141,19 @@ export type {
   LspServerInstance,
   LspServerManager,
   LspClient,
+  // Operation types
+  LspOperation,
+  LspOperationInput,
+  LspOperationResult,
+  LspRequest,
+  LspPosition,
+  LspRange,
+  LspLocation,
+  LspLocationLink,
+  LspHoverResult,
+  LspDocumentSymbol,
+  LspSymbolInformation,
+  LspCallHierarchyItem,
+  LspIncomingCall,
+  LspOutgoingCall,
 } from './lsp-server/index.js';

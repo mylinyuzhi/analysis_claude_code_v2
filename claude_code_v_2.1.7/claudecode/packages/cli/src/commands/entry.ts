@@ -24,6 +24,9 @@ import type {
 } from '../types.js';
 import { CLI_CONSTANTS } from '../types.js';
 import { parseOptions, validateOptions, CLI_OPTIONS } from './options.js';
+import { handleMcpCli } from './mcp-cli.js';
+import { handleChromeMcp, handleChromeNative } from './chrome-handlers.js';
+import { handleRipgrep } from './ripgrep-handler.js';
 
 // ============================================
 // Mode Detection
@@ -140,55 +143,10 @@ export async function mainEntry(): Promise<void> {
   }
 }
 
-// ============================================
-// Mode Handlers (Stubs)
-// ============================================
-
-/**
- * Handle MCP CLI mode.
- * Original: nX9 (mcpCliHandler) in chunks.157.mjs
- */
-async function handleMcpCli(args: string[]): Promise<number> {
-  // This would be implemented to handle MCP commands like:
-  // claude --mcp-cli add server-name --scope user
-  // claude --mcp-cli list
-  // claude --mcp-cli remove server-name
-
-  console.log('MCP CLI mode not yet implemented');
-  console.log('Arguments:', args);
-  return 0;
-}
-
-/**
- * Handle ripgrep mode.
- * Original: ripgrepMain in chunks.157.mjs
- */
-async function handleRipgrep(args: string[]): Promise<number> {
-  // This would execute the embedded ripgrep binary
-  // Used for file searching within Claude Code
-
-  console.log('Ripgrep mode not yet implemented');
-  console.log('Arguments:', args);
-  return 0;
-}
-
-/**
- * Handle Chrome MCP server mode.
- * Original: oX9 (claudeInChromeMcp) in chunks.157.mjs
- */
-async function handleChromeMcp(): Promise<void> {
-  // This would start an MCP server for the Chrome extension
-  console.log('Chrome MCP server mode not yet implemented');
-}
-
-/**
- * Handle Chrome native host mode.
- * Original: AI9 (chromeNativeHostMain) in chunks.157.mjs
- */
-async function handleChromeNative(): Promise<void> {
-  // This would handle native messaging for Chrome extension
-  console.log('Chrome native host mode not yet implemented');
-}
+// Mode handlers are imported from separate modules:
+// - handleMcpCli from './mcp-cli.js'
+// - handleChromeMcp, handleChromeNative from './chrome-handlers.js'
+// - handleRipgrep from './ripgrep-handler.js'
 
 /**
  * Handle main command (interactive or print mode).

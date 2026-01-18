@@ -36,81 +36,473 @@ export {
 } from './subagent-loop.js';
 
 // ============================================
-// Placeholder: Task Management
+// Task Management
+// Reconstructed from chunks.91.mjs, chunks.121.mjs
 // ============================================
 
+import { join } from 'path';
+import { homedir } from 'os';
+import { mkdirSync, existsSync, symlinkSync, writeFileSync } from 'fs';
+
 /**
- * Create background task (placeholder).
- * Original: L32() in chunks.121.mjs
+ * Background signal promise resolvers.
+ * Original: yZ1 in chunks.91.mjs
  */
-export function createFullyBackgroundedAgent(_options: {
-  agentId: string;
+const backgroundSignalResolvers = new Map<string, () => void>();
+
+/**
+ * Cleanup handlers registered for exit.
+ * Original: C6 pattern in chunks.91.mjs
+ */
+const cleanupHandlers = new Map<string, () => void>();
+
+/**
+ * App state type for task management.
+ */
+export interface AppState {
+  tasks: Record<string, LocalAgentTask>;
+}
+
+/**
+ * Local agent task structure.
+ * Original: from chunks.91.mjs:1299-1309
+ */
+export interface LocalAgentTask {
+  id: string;
+  type: 'local_agent';
   description: string;
+  status: 'running' | 'completed' | 'failed';
+  startTime: number;
+  endTime?: number;
+  agentId: string;
   prompt: string;
   selectedAgent: unknown;
-  setAppState: unknown;
-}): { taskId: string; outputFile: string } {
-  const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  const outputFile = `/tmp/claude-agent-${taskId}.jsonl`;
-
-  console.log(`[TaskManagement] Created background agent: ${taskId}`);
-
-  return { taskId, outputFile };
+  agentType: string;
+  abortController?: AbortController;
+  unregisterCleanup?: () => void;
+  retrieved: boolean;
+  lastReportedToolCount: number;
+  lastReportedTokenCount: number;
+  isBackgrounded: boolean;
+  outputPath?: string;
+  error?: string;
 }
 
 /**
- * Create backgroundable agent (placeholder).
- * Original: O32() in chunks.121.mjs
+ * Get agent transcript path.
+ * Original: yb() in chunks.148.mjs:692-696
  */
-export function createBackgroundableAgent(_options: {
-  agentId: string;
-  description: string;
-  setAppState: unknown;
-}): { taskId: string; backgroundSignal: Promise<void> | undefined } {
-  const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+function getAgentTranscriptPath(agentId: string, cwd: string): string {
+  const claudeDir = join(homedir(), '.claude');
+  const sanitizedCwd = cwd.replace(/[^a-zA-Z0-9]/g, '-');
+  const projectDir = join(claudeDir, 'projects', sanitizedCwd);
+  const subagentsDir = join(projectDir, 'subagents');
 
-  console.log(`[TaskManagement] Created backgroundable agent: ${taskId}`);
+  // Ensure directory exists
+  if (!existsSync(subagentsDir)) {
+    mkdirSync(subagentsDir, { recursive: true });
+  }
 
-  // backgroundSignal would be a promise that resolves when Ctrl+B is pressed
-  return { taskId, backgroundSignal: undefined };
+  return join(subagentsDir, `agent-${agentId}.jsonl`);
 }
 
 /**
- * Mark task as completed (placeholder).
- * Original: Zm2() in chunks.121.mjs
+ * Get agent output directory.
+ * Original: eSA() in chunks.86.mjs:97-104
  */
-export function markTaskCompleted(
-  taskId: string,
-  success: boolean,
-  _setAppState: unknown
+function getAgentOutputDir(): string {
+  const tmpDir = process.env.TMPDIR || '/tmp';
+  const outputDir = join(tmpDir, 'claude', 'agent-outputs');
+
+  if (!existsSync(outputDir)) {
+    mkdirSync(outputDir, { recursive: true });
+  }
+
+  return outputDir;
+}
+
+/**
+ * Register output file symlink for agent.
+ * Original: OKA() in chunks.86.mjs:174-183
+ */
+function registerOutputFile(agentId: string, transcriptPath: string): string {
+  const outputDir = getAgentOutputDir();
+  const outputPath = join(outputDir, `${agentId}.output`);
+
+  try {
+    // Create symlink to transcript
+    if (!existsSync(outputPath)) {
+      symlinkSync(transcriptPath, outputPath);
+    }
+  } catch {
+    // If symlink fails, create empty file
+    writeFileSync(outputPath, '');
+  }
+
+  return outputPath;
+}
+
+/**
+ * Create base task structure.
+ * Original: KO() in chunks.91.mjs:1204-1216
+ */
+function createBaseTask(
+  id: string,
+  type: 'local_agent',
+  description: string
+): Partial<LocalAgentTask> {
+  return {
+    id,
+    type,
+    description,
+    startTime: Date.now(),
+    retrieved: false,
+    lastReportedToolCount: 0,
+    lastReportedTokenCount: 0,
+  };
+}
+
+/**
+ * Register cleanup handler for process exit.
+ * Original: C6() pattern in chunks.91.mjs
+ */
+function registerCleanupHandler(taskId: string, handler: () => void): () => void {
+  cleanupHandlers.set(taskId, handler);
+
+  const unregister = () => {
+    cleanupHandlers.delete(taskId);
+  };
+
+  return unregister;
+}
+
+/**
+ * Add task to app state.
+ * Original: FO() in chunks.91.mjs:1388-1398
+ */
+function addTaskToState(
+  task: LocalAgentTask,
+  setAppState: (updater: (state: AppState) => AppState) => void
 ): void {
-  console.log(
-    `[TaskManagement] Marked task ${taskId} as ${success ? 'completed' : 'failed'}`
+  setAppState((state) => ({
+    ...state,
+    tasks: {
+      ...state.tasks,
+      [task.id]: task,
+    },
+  }));
+}
+
+/**
+ * Kill background task.
+ * Original: $4A() in chunks.91.mjs:1242-1251
+ */
+export function killBackgroundTask(
+  taskId: string,
+  setAppState: (updater: (state: AppState) => AppState) => void
+): void {
+  setAppState((state) => {
+    const task = state.tasks[taskId];
+    if (!task || task.type !== 'local_agent') {
+      return state;
+    }
+
+    // Abort the task
+    if (task.abortController) {
+      task.abortController.abort();
+    }
+
+    return {
+      ...state,
+      tasks: {
+        ...state.tasks,
+        [taskId]: {
+          ...task,
+          status: 'failed',
+          endTime: Date.now(),
+          error: 'Killed by user',
+        },
+      },
+    };
+  });
+}
+
+/**
+ * Check if task is a local agent task.
+ * Original: Sr() in chunks.91.mjs:1218-1220
+ */
+export function isLocalAgentTask(task: unknown): task is LocalAgentTask {
+  return (
+    task !== null &&
+    typeof task === 'object' &&
+    (task as LocalAgentTask).type === 'local_agent'
   );
 }
 
 /**
- * Aggregate async agent execution (placeholder).
+ * Create fully backgrounded agent.
+ * Original: L32() in chunks.91.mjs:1288-1315
+ *
+ * Creates an agent that runs entirely in the background from the start.
+ * The agent execution happens asynchronously and can be monitored via TaskOutput.
+ */
+export function createFullyBackgroundedAgent(options: {
+  agentId: string;
+  description: string;
+  prompt: string;
+  selectedAgent: { agentType?: string };
+  setAppState: (updater: (state: AppState) => AppState) => void;
+  cwd?: string;
+}): LocalAgentTask {
+  const { agentId, description, prompt, selectedAgent, setAppState, cwd = process.cwd() } = options;
+
+  // Get transcript path and register output file
+  const transcriptPath = getAgentTranscriptPath(agentId, cwd);
+  const outputPath = registerOutputFile(agentId, transcriptPath);
+
+  // Create abort controller
+  const abortController = new AbortController();
+
+  // Build task object
+  const task: LocalAgentTask = {
+    ...createBaseTask(agentId, 'local_agent', description),
+    id: agentId,
+    type: 'local_agent',
+    status: 'running',
+    agentId,
+    prompt,
+    selectedAgent,
+    agentType: selectedAgent.agentType ?? 'general-purpose',
+    abortController,
+    retrieved: false,
+    lastReportedToolCount: 0,
+    lastReportedTokenCount: 0,
+    isBackgrounded: true,
+    outputPath,
+  } as LocalAgentTask;
+
+  // Register cleanup handler for process exit
+  const unregisterCleanup = registerCleanupHandler(agentId, async () => {
+    killBackgroundTask(agentId, setAppState);
+  });
+  task.unregisterCleanup = unregisterCleanup;
+
+  // Add task to state
+  addTaskToState(task, setAppState);
+
+  return task;
+}
+
+/**
+ * Create backgroundable agent.
+ * Original: O32() in chunks.91.mjs:1317-1351
+ *
+ * Creates an agent that starts in foreground but can be backgrounded via Ctrl+B.
+ * Returns a backgroundSignal promise that resolves when the user presses Ctrl+B.
+ */
+export function createBackgroundableAgent(options: {
+  agentId: string;
+  description: string;
+  prompt: string;
+  selectedAgent: { agentType?: string };
+  setAppState: (updater: (state: AppState) => AppState) => void;
+  cwd?: string;
+}): { taskId: string; backgroundSignal: Promise<void> } {
+  const { agentId, description, prompt, selectedAgent, setAppState, cwd = process.cwd() } = options;
+
+  // Get transcript path and register output file
+  const transcriptPath = getAgentTranscriptPath(agentId, cwd);
+  const outputPath = registerOutputFile(agentId, transcriptPath);
+
+  // Create abort controller
+  const abortController = new AbortController();
+
+  // Register cleanup handler
+  const unregisterCleanup = registerCleanupHandler(agentId, async () => {
+    killBackgroundTask(agentId, setAppState);
+  });
+
+  // Build task object
+  const task: LocalAgentTask = {
+    ...createBaseTask(agentId, 'local_agent', description),
+    id: agentId,
+    type: 'local_agent',
+    status: 'running',
+    agentId,
+    prompt,
+    selectedAgent,
+    agentType: selectedAgent.agentType ?? 'general-purpose',
+    abortController,
+    unregisterCleanup,
+    retrieved: false,
+    lastReportedToolCount: 0,
+    lastReportedTokenCount: 0,
+    isBackgrounded: false, // Starts in foreground
+    outputPath,
+  } as LocalAgentTask;
+
+  // Create background signal promise
+  let resolveBackgroundSignal: () => void;
+  const backgroundSignal = new Promise<void>((resolve) => {
+    resolveBackgroundSignal = resolve;
+  });
+
+  // Store resolver for later triggering via Ctrl+B
+  backgroundSignalResolvers.set(agentId, resolveBackgroundSignal!);
+
+  // Add task to state
+  addTaskToState(task, setAppState);
+
+  return { taskId: agentId, backgroundSignal };
+}
+
+/**
+ * Trigger background transition for an agent.
+ * Original: M32() in chunks.91.mjs:1353-1373
+ *
+ * Called when user presses Ctrl+B to background a running agent.
+ */
+export function triggerBackgroundTransition(
+  taskId: string,
+  getAppState: () => AppState,
+  setAppState: (updater: (state: AppState) => AppState) => void
+): boolean {
+  const task = getAppState().tasks[taskId];
+
+  // Validate task
+  if (!isLocalAgentTask(task) || task.isBackgrounded) {
+    return false;
+  }
+
+  // Update task to backgrounded state
+  setAppState((state) => {
+    const currentTask = state.tasks[taskId];
+    if (!isLocalAgentTask(currentTask)) {
+      return state;
+    }
+
+    return {
+      ...state,
+      tasks: {
+        ...state.tasks,
+        [taskId]: {
+          ...currentTask,
+          isBackgrounded: true,
+        },
+      },
+    };
+  });
+
+  // Resolve background signal promise
+  const resolver = backgroundSignalResolvers.get(taskId);
+  if (resolver) {
+    resolver();
+    backgroundSignalResolvers.delete(taskId);
+  }
+
+  return true;
+}
+
+/**
+ * Mark task as completed.
+ * Original: _I0() in chunks.91.mjs:1263-1274
+ */
+export function markTaskCompleted(
+  taskId: string,
+  success: boolean,
+  setAppState: (updater: (state: AppState) => AppState) => void,
+  error?: string
+): void {
+  setAppState((state) => {
+    const task = state.tasks[taskId];
+    if (!task) {
+      return state;
+    }
+
+    return {
+      ...state,
+      tasks: {
+        ...state.tasks,
+        [taskId]: {
+          ...task,
+          status: success ? 'completed' : 'failed',
+          endTime: Date.now(),
+          ...(error ? { error } : {}),
+        },
+      },
+    };
+  });
+}
+
+/**
+ * Mark task as failed.
+ * Original: jI0() in chunks.91.mjs:1276-1286
+ */
+export function markTaskFailed(
+  taskId: string,
+  error: string,
+  setAppState: (updater: (state: AppState) => AppState) => void
+): void {
+  markTaskCompleted(taskId, false, setAppState, error);
+}
+
+/**
+ * Update task progress.
+ * Original: RI0() in chunks.91.mjs:1253-1261
+ */
+export function updateTaskProgress(
+  taskId: string,
+  toolCount: number,
+  tokenCount: number,
+  setAppState: (updater: (state: AppState) => AppState) => void
+): void {
+  setAppState((state) => {
+    const task = state.tasks[taskId];
+    if (!task) {
+      return state;
+    }
+
+    return {
+      ...state,
+      tasks: {
+        ...state.tasks,
+        [taskId]: {
+          ...task,
+          lastReportedToolCount: toolCount,
+          lastReportedTokenCount: tokenCount,
+        },
+      },
+    };
+  });
+}
+
+/**
+ * Aggregate async agent execution.
  * Original: Im2() in chunks.121.mjs:486-542
+ *
+ * Runs agent message generator in background, updating task state with progress.
+ * Handles completion, failure, and abort signals.
  */
 export function aggregateAsyncAgentExecution(
   messageGenerator: AsyncIterator<unknown>,
   taskId: string,
-  setAppState: unknown,
+  setAppState: (updater: (state: AppState) => AppState) => void,
   finalCallback: (messages: unknown[]) => void,
   initialMessages: unknown[] = [],
   abortSignal?: AbortSignal
 ): void {
-  console.log(`[TaskManagement] Started aggregating agent ${taskId}`);
-
-  // Placeholder - would run in background and update task state
+  // Run aggregation in background
   (async () => {
-    try {
-      const allMessages = [...initialMessages];
+    const allMessages = [...initialMessages];
+    let toolCount = 0;
+    let tokenCount = 0;
 
+    try {
       while (true) {
+        // Check abort signal
         if (abortSignal?.aborted) {
           finalCallback(allMessages);
+          markTaskCompleted(taskId, false, setAppState, 'Aborted');
           return;
         }
 
@@ -118,13 +510,35 @@ export function aggregateAsyncAgentExecution(
         if (done) break;
 
         allMessages.push(value);
+
+        // Update progress tracking
+        // Count tool uses and estimate tokens
+        if (value && typeof value === 'object') {
+          const msg = value as { type?: string; message?: { content?: unknown[] } };
+          if (msg.type === 'assistant' && Array.isArray(msg.message?.content)) {
+            for (const block of msg.message.content) {
+              if ((block as { type?: string }).type === 'tool_use') {
+                toolCount++;
+              }
+              if ((block as { type?: string }).type === 'text') {
+                const text = (block as { text?: string }).text || '';
+                tokenCount += Math.ceil(text.length / 4); // Rough estimate
+              }
+            }
+          }
+        }
+
+        // Update progress periodically
+        updateTaskProgress(taskId, toolCount, tokenCount, setAppState);
       }
 
+      // Success
       finalCallback(allMessages);
       markTaskCompleted(taskId, true, setAppState);
     } catch (error) {
-      console.error(`[TaskManagement] Agent ${taskId} failed:`, error);
-      markTaskCompleted(taskId, false, setAppState);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      finalCallback(allMessages);
+      markTaskFailed(taskId, errorMessage, setAppState);
     }
   })();
 }

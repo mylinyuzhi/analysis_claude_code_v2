@@ -41,6 +41,7 @@ export {
   executeSingleTool,
   executeToolWithValidation,
   executeToolWithProgress,
+  executePostToolFailureHooks,
   findToolByName,
   getToolDisplayName,
   parseMcpToolName,
@@ -50,3 +51,6 @@ export {
   USER_REJECTED_CONTENT,
   CANCELLED_BY_USER_MESSAGE,
 } from './execution.js';
+
+// Re-export hook permission result type
+export type { HookPermissionResult } from './execution.js';

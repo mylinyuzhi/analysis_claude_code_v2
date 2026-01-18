@@ -60,3 +60,28 @@ export type {
   ThinkingConfig,
   ThinkingDetectionResult,
 } from './thinking/index.js';
+
+// ============================================
+// Attachments Module
+// ============================================
+
+export * as attachments from './attachments/index.js';
+
+// Re-export commonly used Attachment functions at top level
+export {
+  generateAllAttachments,
+  wrapInSystemReminder,
+  extractSystemReminder,
+  attachmentToApiMessage,
+  attachmentsToApiMessage,
+  ATTACHMENT_CONSTANTS,
+  ATTACHMENT_TYPES,
+} from './attachments/index.js';
+
+export type {
+  Attachment,
+  AttachmentType,
+  AttachmentContext,
+  AttachmentMessage,
+  AttachmentGenerationResult,
+} from './attachments/index.js';

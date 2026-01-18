@@ -161,3 +161,56 @@ export {
   hasShellOperators,
   stripOutputRedirections,
 } from './shell-parser/index.js';
+
+// ============================================
+// Code Indexing Module
+// ============================================
+
+export * as codeIndexing from './code-indexing/index.js';
+export {
+  // Types
+  type TreeSitterNode,
+  type TreeSitterTree,
+  type ParseCommandResult,
+  type RedirectionInfo,
+  type Command,
+  type ShellCommandParser,
+  type FileIndex,
+  type FileSearchResult,
+  type FileSuggestion,
+  type FileSuggestionContext,
+  type FileIndexCache,
+
+  // Constants
+  MAX_COMMAND_LENGTH,
+  CACHE_TTL,
+  MAX_SUGGESTIONS,
+  DECLARATION_KEYWORDS,
+  ARGUMENT_TYPES,
+  SUBSTITUTION_TYPES,
+  COMMAND_NODE_TYPES,
+
+  // Tree-sitter functions
+  ensureTreeSitterLoaded,
+  isTreeSitterAvailable,
+  parseCommand,
+  findCommandNode,
+  extractEnvironmentVariables,
+  extractPipePositions,
+  extractRedirections,
+  traverseTree,
+
+  // File index functions
+  getFileSuggestions,
+  clearFileIndexCache,
+  refreshIndexCache,
+  initializeFileIndex,
+  isGitRepo,
+  getFilesUsingGit,
+  getFilesUsingRipgrep,
+  getProjectFiles,
+  extractDirectoryPrefixes,
+  performSearch,
+  createFileResult,
+  executeFileSuggestionCommand,
+} from './code-indexing/index.js';

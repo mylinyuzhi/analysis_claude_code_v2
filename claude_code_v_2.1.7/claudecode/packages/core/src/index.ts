@@ -34,3 +34,32 @@ export * from './state/index.js';
 // ============================================
 
 export * from './agent-loop/index.js';
+
+// ============================================
+// Steering Module
+// ============================================
+
+export * as steering from './steering/index.js';
+
+// Re-export commonly used Steering functions at top level
+export {
+  extractSystemReminder,
+  wrapInSystemReminder,
+  filterSystemReminderMessages,
+  createMetaBlock,
+  filterMetaMessages,
+  buildPlanModeSystemReminder,
+  isToolAllowedInPlanMode,
+  wasFileRead,
+  applySteeringLayers,
+  STEERING_LAYER_PRIORITY,
+} from './steering/index.js';
+
+export type {
+  SteeringContext,
+  SteeringMessage,
+  UserContext,
+  PlanModeState,
+  ReadFileState,
+  PermissionModeContext,
+} from './steering/index.js';

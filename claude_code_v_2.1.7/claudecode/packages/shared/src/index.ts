@@ -16,3 +16,6 @@ export * from './utils/index.js';
 
 // Re-export global state
 export * from './state/global-state.js';
+
+// Re-export session persistence
+export * from './state/session-persistence.js';

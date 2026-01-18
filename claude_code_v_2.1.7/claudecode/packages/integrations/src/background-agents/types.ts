@@ -17,7 +17,7 @@ export type BackgroundTaskType = 'local_bash' | 'local_agent' | 'remote_agent';
 /**
  * Background task status.
  */
-export type BackgroundTaskStatus = 'running' | 'completed' | 'failed' | 'cancelled';
+export type BackgroundTaskStatus = 'running' | 'completed' | 'failed' | 'cancelled' | 'killed' | 'pending';
 
 /**
  * Base background task.
@@ -191,6 +191,55 @@ export const BACKGROUND_AGENT_CONSTANTS = {
 } as const;
 
 // ============================================
+// Extended Task Types (with tracking fields)
+// ============================================
+
+/**
+ * Extended background bash task with process tracking.
+ * Used for Ctrl+B backgrounding support.
+ */
+export interface BackgroundBashTaskExtended extends BackgroundBashTask {
+  isBackgrounded: boolean;
+  notified?: boolean;
+  completionStatusSentInAttachment: boolean;
+  stdoutLineCount: number;
+  stderrLineCount: number;
+  lastReportedStdoutLines: number;
+  lastReportedStderrLines: number;
+}
+
+/**
+ * Extended background agent task with progress tracking.
+ * Used for local_agent and remote_agent types.
+ */
+export interface BackgroundAgentTaskExtended extends BackgroundAgentTask {
+  isBackgrounded: boolean;
+  notified?: boolean;
+  progress?: {
+    toolUseCount: number;
+    tokenCount: number;
+    lastActivity?: { toolName: string; input: unknown };
+    recentActivities: Array<{ toolName: string; input: unknown }>;
+  };
+  lastReportedToolCount: number;
+  lastReportedTokenCount: number;
+  result?: unknown;
+  error?: string;
+}
+
+/**
+ * Remote agent task with session tracking.
+ */
+export interface RemoteAgentTask extends BackgroundAgentTaskExtended {
+  type: 'remote_agent';
+  sessionId: string;
+  title: string;
+  todoList: unknown[];
+  log: unknown[];
+  deltaSummarySinceLastFlushToAttachment: string | null;
+}
+
+// ============================================
 // Export
 // ============================================
 
@@ -201,6 +250,9 @@ export type {
   BackgroundBashTask,
   BackgroundAgentTask,
   BackgroundTask,
+  BackgroundBashTaskExtended,
+  BackgroundAgentTaskExtended,
+  RemoteAgentTask,
   TaskRegistryEntry,
   TaskRegistry,
   TaskOutputInput,

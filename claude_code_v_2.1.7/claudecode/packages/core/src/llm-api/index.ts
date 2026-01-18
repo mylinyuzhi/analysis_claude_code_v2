@@ -45,3 +45,8 @@ export {
   streamApiCall,
   STALL_THRESHOLD_MS,
 } from './streaming.js';
+
+// Re-export streaming types
+export type {
+  StreamApiCallOptions,
+} from './streaming.js';

@@ -3,10 +3,22 @@
  *
  * LLM-based full conversation compaction.
  * Reconstructed from chunks.132.mjs:489-670
+ *
+ * Key symbols:
+ * - cF1 → fullCompact
+ * - H97 → generateConversationSummary
+ * - xZ0 → buildCompactInstructions
  */
 
 import { generateUUID } from '@claudecode/shared';
-import { createUserMessage, type ConversationMessage } from '@claudecode/core';
+import {
+  createUserMessage,
+  streamApiCall,
+  type ConversationMessage,
+  type MessagesRequest,
+  type StreamApiCallOptions,
+  type StreamingQueryResult,
+} from '@claudecode/core';
 import type {
   FullCompactResult,
   CompactSessionContext,
@@ -114,10 +126,33 @@ export function extractUsageStats(message: ConversationMessage): CompactUsageSta
 }
 
 /**
+ * Convert ConversationMessage to API message format.
+ */
+function convertToApiMessage(
+  msg: ConversationMessage
+): { role: 'user' | 'assistant'; content: string | unknown[] } | null {
+  if (msg.type === 'user') {
+    const userMsg = msg as { content?: string | unknown[] };
+    return {
+      role: 'user',
+      content: userMsg.content || '',
+    };
+  }
+  if (msg.type === 'assistant') {
+    const assistantMsg = msg as { message?: { content?: unknown[] } };
+    return {
+      role: 'assistant',
+      content: assistantMsg.message?.content || [],
+    };
+  }
+  return null;
+}
+
+/**
  * Generate conversation summary via LLM.
  * Original: H97() in chunks.132.mjs:590-652
  *
- * This is a placeholder that would need to integrate with the LLM API.
+ * Streams the summary generation request to the LLM and collects the response.
  */
 export async function generateConversationSummary(params: {
   messages: ConversationMessage[];
@@ -126,43 +161,130 @@ export async function generateConversationSummary(params: {
   context: CompactSessionContext;
   preCompactTokenCount?: number;
 }): Promise<ConversationMessage> {
-  // This would integrate with the LLM API for actual summary generation
-  // Placeholder implementation that creates a mock summary
+  const { messages, summaryRequest, context, preCompactTokenCount } = params;
 
-  const { messages, context } = params;
+  // Convert conversation messages to API format
+  const apiMessages: { role: 'user' | 'assistant'; content: string | unknown[] }[] = [];
 
-  // Simulate summary generation
-  const messageCount = messages.length;
-  const summaryText = `[Summary of ${messageCount} messages]
+  for (const msg of messages) {
+    const converted = convertToApiMessage(msg);
+    if (converted) {
+      apiMessages.push(converted);
+    }
+  }
 
-This conversation covered:
-- Discussion and context up to this point
-- Any files read or modified
-- Key decisions made
+  // Add the summary request as the final user message
+  const summaryRequestConverted = convertToApiMessage(summaryRequest);
+  if (summaryRequestConverted) {
+    apiMessages.push(summaryRequestConverted);
+  }
 
-The full conversation has been compacted to preserve context limits.`;
+  // Get model from context or use default compact model
+  const model = context.compactModel || 'claude-sonnet-4-20250514';
 
-  // Create assistant message with summary
-  return {
-    type: 'assistant',
-    uuid: generateUUID(),
-    timestamp: new Date().toISOString(),
-    message: {
-      id: generateUUID(),
-      container: null,
-      model: 'claude-sonnet-4-20250514',
-      role: 'assistant',
-      stop_reason: 'stop_sequence',
-      stop_sequence: null,
-      type: 'message',
-      usage: {
-        input_tokens: 1000,
-        output_tokens: 200,
-      },
-      content: [{ type: 'text', text: summaryText }],
-      context_management: null,
+  // Build the API request
+  const request: MessagesRequest = {
+    model,
+    max_tokens: 4096,
+    messages: apiMessages,
+    system: `You are a helpful assistant that summarizes conversations.
+Create a concise but comprehensive summary that preserves:
+- Key decisions and conclusions
+- Important files, code changes, and technical details
+- Outstanding tasks and next steps
+- Critical context needed for continuing the conversation
+
+The summary will replace the full conversation history, so include all essential information.`,
+  };
+
+  // Build streaming options
+  const options: StreamApiCallOptions = {
+    model,
+    signal: context.abortController?.signal,
+    onProgress: (text: string) => {
+      // Update response length for UI
+      context.setResponseLength?.(() => text.length);
     },
-  } as ConversationMessage;
+  };
+
+  try {
+    // Stream the API call
+    const stream = streamApiCall(request, options);
+
+    // Collect the response
+    let responseText = '';
+    let responseUsage: CompactUsageStats = {
+      input_tokens: 0,
+      output_tokens: 0,
+    };
+
+    for await (const chunk of stream) {
+      // Accumulate text from content blocks
+      if (chunk.contentBlocks) {
+        for (const block of chunk.contentBlocks) {
+          if (block.type === 'text' && typeof block.text === 'string') {
+            responseText = block.text;
+          }
+        }
+      }
+
+      // Capture usage statistics
+      if (chunk.usage) {
+        responseUsage = {
+          input_tokens: chunk.usage.input_tokens || 0,
+          output_tokens: chunk.usage.output_tokens || 0,
+          cache_read_input_tokens: chunk.usage.cache_read_input_tokens,
+          cache_creation_input_tokens: chunk.usage.cache_creation_input_tokens,
+        };
+      }
+    }
+
+    // Validate we got a response
+    if (!responseText) {
+      throw new CompactError(
+        CompactErrorCode.SUMMARY_FAILED,
+        'LLM returned empty summary'
+      );
+    }
+
+    // Create assistant message with summary
+    return {
+      type: 'assistant',
+      uuid: generateUUID(),
+      timestamp: new Date().toISOString(),
+      message: {
+        id: generateUUID(),
+        container: null,
+        model,
+        role: 'assistant',
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        type: 'message',
+        usage: responseUsage,
+        content: [{ type: 'text', text: responseText }],
+        context_management: null,
+      },
+    } as ConversationMessage;
+  } catch (error) {
+    // Check if aborted
+    if (context.abortController?.signal.aborted) {
+      throw new CompactError(
+        CompactErrorCode.INTERRUPTED,
+        COMPACTION_INTERRUPTED_ERROR
+      );
+    }
+
+    // Re-throw compact errors
+    if (error instanceof CompactError) {
+      throw error;
+    }
+
+    // Wrap other errors
+    throw new CompactError(
+      CompactErrorCode.SUMMARY_FAILED,
+      `Failed to generate summary: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 // ============================================

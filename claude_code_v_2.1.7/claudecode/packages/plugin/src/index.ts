@@ -39,3 +39,92 @@ export {
   loadHooksFile,
   mergeHookConfigs,
 } from './loader.js';
+
+// ============================================
+// Marketplace
+// ============================================
+
+export {
+  // Path utilities
+  getPluginsDir,
+  getKnownMarketplacesPath,
+  getMarketplacesCacheDir,
+  getMarketplaceInstallPath,
+
+  // Registry
+  loadKnownMarketplaces,
+  saveKnownMarketplaces,
+  getKnownMarketplace,
+
+  // Source utilities
+  formatSourceName,
+  parseSourceString,
+
+  // Marketplace loading
+  loadMarketplaceSource,
+  loadMarketplace,
+  validateMarketplaceName,
+
+  // CRUD operations
+  addMarketplaceSource,
+  removeMarketplace,
+  refreshMarketplace,
+  listMarketplaces,
+
+  // Plugin lookup
+  findPluginInMarketplace,
+  searchPlugins,
+} from './marketplace.js';
+
+// ============================================
+// Installation
+// ============================================
+
+export {
+  // Path utilities
+  getInstalledPluginsPath,
+  getPluginCacheDir,
+  getPluginInstallPath,
+
+  // Registry
+  loadInstalledPlugins,
+  saveInstalledPlugins,
+
+  // Plugin ID utilities
+  parsePluginId,
+  formatPluginId,
+
+  // Installation operations
+  cachePluginFromSource,
+  installPlugin,
+  uninstallPlugin,
+  updatePlugin,
+  listInstalledPlugins,
+} from './installation.js';
+
+// ============================================
+// Settings
+// ============================================
+
+export {
+  // Settings path
+  getSettingsPath,
+  loadSettings,
+  saveSettings,
+
+  // Enabled plugins
+  getEnabledPlugins,
+  setEnabledPlugins,
+  isPluginEnabled,
+
+  // Enable/disable operations
+  enablePlugin,
+  disablePlugin,
+  togglePlugin,
+  enablePlugins,
+  disablePlugins,
+  disableAllPlugins,
+
+  // Summary
+  getPluginStateSummary,
+} from './settings.js';

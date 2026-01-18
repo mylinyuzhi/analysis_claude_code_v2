@@ -67,7 +67,7 @@ export {
 } from './aggregation.js';
 
 // Re-export main execution
-export { executeHooksInREPL, executeHooksOutsideREPL } from './execution.js';
+export { executeHooksInREPL, executeHooksOutsideREPL, type REPLHookYield } from './execution.js';
 
 // Re-export event triggers
 export {
