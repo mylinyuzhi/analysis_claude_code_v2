@@ -14,33 +14,30 @@
  */
 
 import { Command } from 'commander';
+import {
+  getMcpState,
+  initializeMcp,
+  getServerList,
+  getToolList,
+  getResourceList,
+  findTool,
+  searchTools,
+  callMcpTool,
+  readMcpResource,
+  getServerError,
+  McpConnectionError,
+  type McpServerInfo,
+  type McpToolInfo,
+  type McpResourceInfo,
+} from '../mcp/state.js';
+import {
+  isRunningInEndpoint,
+  sendMcpCommand,
+} from '../endpoint/detection.js';
 
 // ============================================
 // Types
 // ============================================
-
-interface ServerInfo {
-  name: string;
-  type: 'connected' | 'failed' | 'disconnected' | 'pending';
-  hasTools?: boolean;
-  hasResources?: boolean;
-  hasPrompts?: boolean;
-  error?: string;
-}
-
-interface ToolInfo {
-  server: string;
-  name: string;
-  description?: string;
-  inputSchema?: Record<string, unknown>;
-}
-
-interface ResourceInfo {
-  server: string;
-  name?: string;
-  uri: string;
-  mimeType?: string;
-}
 
 interface TelemetryResult<T> {
   success: boolean;
@@ -52,7 +49,15 @@ interface TelemetryResult<T> {
 // Constants
 // ============================================
 
-const DEFAULT_TIMEOUT_MS = 60000; // 1 minute
+const MCP_COMMAND_SERVERS = 'servers';
+const MCP_COMMAND_TOOLS = 'tools';
+const MCP_COMMAND_INFO = 'info';
+const MCP_COMMAND_CALL = 'call';
+const MCP_COMMAND_GREP = 'grep';
+const MCP_COMMAND_RESOURCES = 'resources';
+const MCP_COMMAND_READ = 'read';
+
+const DEFAULT_TIMEOUT_MS = 100000000; // ~27 hours (effectively unlimited)
 
 // ============================================
 // Utilities
@@ -71,16 +76,6 @@ function parseToolIdentifier(identifier: string): { server: string; tool: string
     server: identifier.substring(0, slashIndex),
     tool: identifier.substring(slashIndex + 1),
   };
-}
-
-/**
- * Check if running in endpoint mode (Claude Code instance already running).
- * Original: P$ in cli.chunks.mjs
- */
-function isRunningInEndpoint(): boolean {
-  // Check for Claude Code state file or socket
-  // In standalone mode, this returns false
-  return false; // Default to standalone mode for now
 }
 
 /**
@@ -105,23 +100,40 @@ function getDefaultTimeout(): number {
 async function executeWithTelemetry<T>(
   commandName: string,
   executor: () => Promise<T>,
-  _successMetrics?: (data: T) => Record<string, unknown>,
-  _failureMetrics?: Record<string, unknown>
+  successMetrics?: (data: T) => Record<string, unknown>,
+  failureMetrics?: Record<string, unknown>
 ): Promise<TelemetryResult<T>> {
+  const startTime = Date.now();
+
   try {
     const data = await executor();
-    // Track telemetry (omitted for now)
+    const durationMs = Date.now() - startTime;
+
+    // Track telemetry
+    if (successMetrics) {
+      const metrics = successMetrics(data);
+      console.debug(`[Telemetry] ${commandName} succeeded:`, { ...metrics, duration_ms: durationMs });
+    }
+
     return { success: true, data };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    // Track telemetry (omitted for now)
+    const durationMs = Date.now() - startTime;
+
+    // Track telemetry
+    console.debug(`[Telemetry] ${commandName} failed:`, {
+      ...failureMetrics,
+      error: errorMessage.slice(0, 200),
+      duration_ms: durationMs,
+    });
+
     console.error(`Error in ${commandName}: ${errorMessage}`);
     return { success: false, error: errorMessage };
   }
 }
 
 /**
- * Format text with chalk-like styling.
+ * Format text with ANSI styling.
  */
 const chalk = {
   green: (text: string) => `\x1b[32m${text}\x1b[0m`,
@@ -131,36 +143,11 @@ const chalk = {
   dim: (text: string) => `\x1b[2m${text}\x1b[0m`,
 };
 
-// ============================================
-// MCP State (Stub Implementation)
-// ============================================
-
-interface McpState {
-  clients: Map<string, { type: string; hasTools: boolean; hasResources: boolean; hasPrompts: boolean }>;
-  tools: ToolInfo[];
-  resources: ResourceInfo[];
-  normalizedNames: Map<string, string>;
-}
-
 /**
- * Get MCP state.
- * In a full implementation, this would connect to MCP servers.
+ * Format JSON output.
  */
-function getMcpState(): McpState {
-  return {
-    clients: new Map(),
-    tools: [],
-    resources: [],
-    normalizedNames: new Map(),
-  };
-}
-
-/**
- * Initialize MCP connections.
- */
-async function initializeMcp(): Promise<void> {
-  // Load MCP configuration and connect to servers
-  // This would normally read from ~/.claude/settings.json
+function formatJson(data: unknown): string {
+  return JSON.stringify(data, null, 2);
 }
 
 // ============================================
@@ -168,28 +155,25 @@ async function initializeMcp(): Promise<void> {
 // ============================================
 
 /**
- * Format server list.
+ * Format server list for display.
  * Original: M$1 in cli.chunks.mjs
  */
-function formatServerList(clients: Map<string, any>): ServerInfo[] {
-  const servers: ServerInfo[] = [];
-  for (const [name, client] of clients) {
-    servers.push({
-      name,
-      type: client.type || 'connected',
-      hasTools: client.hasTools || false,
-      hasResources: client.hasResources || false,
-      hasPrompts: client.hasPrompts || false,
-    });
-  }
-  return servers;
+function formatServerListOutput(servers: McpServerInfo[]): McpServerInfo[] {
+  return servers.map((server) => ({
+    name: server.name,
+    type: server.type,
+    hasTools: server.hasTools || false,
+    hasResources: server.hasResources || false,
+    hasPrompts: server.hasPrompts || false,
+    error: server.error,
+  }));
 }
 
 /**
  * Filter tools by server.
  * Original: R$1 in cli.chunks.mjs
  */
-function filterTools(tools: ToolInfo[], params: { server?: string }): ToolInfo[] {
+function filterTools(tools: McpToolInfo[], params: { server?: string }): McpToolInfo[] {
   if (params.server) {
     return tools.filter((t) => t.server === params.server);
   }
@@ -197,39 +181,10 @@ function filterTools(tools: ToolInfo[], params: { server?: string }): ToolInfo[]
 }
 
 /**
- * Search tools by pattern.
- * Original: j$1 in cli.chunks.mjs
- */
-function searchTools(
-  tools: ToolInfo[],
-  params: { pattern: string; ignoreCase?: boolean }
-): ToolInfo[] {
-  const regex = new RegExp(params.pattern, params.ignoreCase ? 'i' : '');
-  return tools.filter((t) => {
-    return regex.test(t.name) || (t.description && regex.test(t.description));
-  });
-}
-
-/**
- * Find tool by name.
- * Original: _$1 in cli.chunks.mjs
- */
-function findTool(
-  tools: ToolInfo[],
-  params: { server: string; toolName: string }
-): ToolInfo | undefined {
-  return tools.find((t) => t.server === params.server && t.name === params.toolName);
-}
-
-/**
  * Filter resources by server.
  * Original: T$1 in cli.chunks.mjs
  */
-function filterResources(
-  resources: ResourceInfo[],
-  params: { server?: string },
-  _normalizedNames?: Map<string, string>
-): ResourceInfo[] {
+function filterResources(resources: McpResourceInfo[], params: { server?: string }): McpResourceInfo[] {
   if (params.server) {
     return resources.filter((r) => r.server === params.server);
   }
@@ -258,15 +213,18 @@ function createMcpCliProgram(): Command {
     .option('--json', 'Output in JSON format')
     .action(async (options) => {
       const result = await executeWithTelemetry(
-        'servers',
+        MCP_COMMAND_SERVERS,
         async () => {
+          // Check if running in endpoint mode
           if (isRunningInEndpoint()) {
-            // In endpoint mode, send command to running instance
-            console.error('Endpoint mode not implemented');
-            return [];
+            return await sendMcpCommand(MCP_COMMAND_SERVERS, {
+              command: 'servers',
+            }) as McpServerInfo[];
           }
+
+          // Standalone mode - initialize MCP and get servers
           await initializeMcp();
-          return formatServerList(getMcpState().clients);
+          return formatServerListOutput(getServerList());
         },
         (data) => ({ server_count: data.length })
       );
@@ -277,7 +235,7 @@ function createMcpCliProgram(): Command {
 
       const servers = result.data || [];
       if (options.json) {
-        console.log(JSON.stringify(servers));
+        console.log(formatJson(servers));
       } else if (servers.length === 0) {
         console.log('No MCP servers configured.');
       } else {
@@ -297,6 +255,7 @@ function createMcpCliProgram(): Command {
             if (server.hasPrompts) caps.push('prompts');
             if (caps.length > 0) capabilities = ` (${caps.join(', ')})`;
           }
+
           console.log(`${server.name} - ${status}${capabilities}`);
         });
       }
@@ -310,10 +269,19 @@ function createMcpCliProgram(): Command {
     .option('--json', 'Output in JSON format')
     .action(async (serverFilter, options) => {
       const result = await executeWithTelemetry(
-        'tools',
+        MCP_COMMAND_TOOLS,
         async () => {
+          const params = { server: serverFilter };
+
+          if (isRunningInEndpoint()) {
+            return await sendMcpCommand(MCP_COMMAND_TOOLS, {
+              command: 'tools',
+              params,
+            }) as McpToolInfo[];
+          }
+
           await initializeMcp();
-          return filterTools(getMcpState().tools, { server: serverFilter });
+          return filterTools(getToolList(), params);
         },
         (data) => ({ tool_count: data.length, filtered: !!serverFilter })
       );
@@ -324,7 +292,7 @@ function createMcpCliProgram(): Command {
 
       const tools = result.data || [];
       if (options.json) {
-        console.log(JSON.stringify(tools));
+        console.log(formatJson(tools));
       } else if (tools.length === 0) {
         console.log('No tools available.');
       } else if (serverFilter) {
@@ -342,16 +310,30 @@ function createMcpCliProgram(): Command {
     .option('--json', 'Output in JSON format')
     .action(async (toolIdentifier, options) => {
       const result = await executeWithTelemetry(
-        'info',
+        MCP_COMMAND_INFO,
         async () => {
           const { server, tool } = parseToolIdentifier(toolIdentifier);
+          const params = { server, toolName: tool };
+
+          if (isRunningInEndpoint()) {
+            return await sendMcpCommand(MCP_COMMAND_INFO, {
+              command: 'info',
+              params,
+            }) as McpToolInfo;
+          }
+
           await initializeMcp();
-          const state = getMcpState();
-          const toolInfo = findTool(state.tools, { server, toolName: tool });
+          const toolInfo = findTool(server, tool);
 
           if (!toolInfo) {
+            // Check for server error
+            const serverError = getServerError(server);
+            if (serverError) {
+              throw new Error(serverError);
+            }
             throw new Error(`Tool '${tool}' not found on server '${server}'`);
           }
+
           return toolInfo;
         },
         () => ({ tool_found: true }),
@@ -364,7 +346,7 @@ function createMcpCliProgram(): Command {
 
       const toolData = result.data!;
       if (options.json) {
-        console.log(JSON.stringify(toolData));
+        console.log(formatJson(toolData));
       } else {
         console.log(chalk.bold(`Tool: ${toolIdentifier}`));
         console.log(chalk.dim(`Server: ${toolData.server}`));
@@ -373,7 +355,7 @@ function createMcpCliProgram(): Command {
         }
         console.log();
         console.log(chalk.bold('Input Schema:'));
-        console.log(JSON.stringify(toolData.inputSchema, null, 2));
+        console.log(formatJson(toolData.inputSchema));
       }
     });
 
@@ -384,7 +366,7 @@ function createMcpCliProgram(): Command {
     .argument('<tool>', 'Tool identifier in format <server>/<tool>')
     .argument('<args>', 'Tool arguments as JSON string or "-" for stdin')
     .option('--json', 'Output in JSON format')
-    .option('--timeout <ms>', 'Timeout in milliseconds')
+    .option('--timeout <ms>', 'Timeout in milliseconds (default: MCP_TOOL_TIMEOUT env var or effectively infinite)')
     .option('--debug', 'Show debug output')
     .action(async (toolIdentifier, argsInput, options) => {
       const { server, tool } = parseToolIdentifier(toolIdentifier);
@@ -409,21 +391,54 @@ function createMcpCliProgram(): Command {
       }
 
       const timeout = parseInt(options.timeout || '', 10) || getDefaultTimeout();
+      const startTime = Date.now();
 
       try {
-        await initializeMcp();
+        let result: unknown;
 
-        // Execute the tool
-        // In a full implementation, this would call the MCP server
-        console.log(chalk.yellow('Tool execution not implemented in standalone mode'));
-        console.log(`Server: ${server}`);
-        console.log(`Tool: ${tool}`);
-        console.log(`Args: ${JSON.stringify(args, null, 2)}`);
-        console.log(`Timeout: ${timeout}ms`);
+        if (isRunningInEndpoint()) {
+          result = await sendMcpCommand(
+            MCP_COMMAND_CALL,
+            {
+              command: 'call',
+              params: { server, tool, args, timeoutMs: timeout },
+            },
+            timeout
+          );
+        } else {
+          await initializeMcp();
+          result = await callMcpTool(tool, server, args, {
+            debug: options.debug,
+            timeout,
+          });
+        }
+
+        // Output result
+        const output = options.json
+          ? formatJson(result)
+          : typeof result === 'string'
+            ? result
+            : formatJson(result);
+
+        await new Promise<void>((resolve) => {
+          process.stdout.write(output + '\n', () => resolve());
+        });
 
         process.exit(0);
       } catch (error) {
         console.error(chalk.red('Error calling tool:'), String(error));
+
+        const durationMs = Date.now() - startTime;
+        const errorType = error instanceof McpConnectionError
+          ? 'connection_failed'
+          : 'tool_execution_failed';
+
+        console.debug(`[Telemetry] call failed:`, {
+          tool: `${server}/${tool}`,
+          error_type: errorType,
+          duration_ms: durationMs,
+        });
+
         process.exit(1);
       }
     });
@@ -434,10 +449,10 @@ function createMcpCliProgram(): Command {
     .description('Search tool names and descriptions using regex patterns')
     .argument('<pattern>', 'Regex pattern to search for')
     .option('--json', 'Output in JSON format')
-    .option('-i, --ignore-case', 'Case insensitive search', true)
+    .option('-i, --ignore-case', 'Case insensitive search (default: true)', true)
     .action(async (pattern, options) => {
       const result = await executeWithTelemetry(
-        'grep',
+        MCP_COMMAND_GREP,
         async () => {
           // Validate regex
           try {
@@ -448,8 +463,17 @@ function createMcpCliProgram(): Command {
             );
           }
 
+          const params = { pattern, ignoreCase: options.ignoreCase };
+
+          if (isRunningInEndpoint()) {
+            return await sendMcpCommand(MCP_COMMAND_GREP, {
+              command: 'grep',
+              params,
+            }) as McpToolInfo[];
+          }
+
           await initializeMcp();
-          return searchTools(getMcpState().tools, { pattern, ignoreCase: options.ignoreCase });
+          return searchTools(pattern, { ignoreCase: options.ignoreCase });
         },
         (data) => ({ match_count: data.length })
       );
@@ -460,7 +484,7 @@ function createMcpCliProgram(): Command {
 
       const matches = result.data || [];
       if (options.json) {
-        console.log(JSON.stringify(matches));
+        console.log(formatJson(matches));
       } else if (matches.length === 0) {
         console.log(chalk.yellow('No tools found matching pattern'));
       } else {
@@ -486,11 +510,19 @@ function createMcpCliProgram(): Command {
     .option('--json', 'Output in JSON format')
     .action(async (serverFilter, options) => {
       const result = await executeWithTelemetry(
-        'resources',
+        MCP_COMMAND_RESOURCES,
         async () => {
+          const params = { server: serverFilter };
+
+          if (isRunningInEndpoint()) {
+            return await sendMcpCommand(MCP_COMMAND_RESOURCES, {
+              command: 'resources',
+              params,
+            }) as McpResourceInfo[];
+          }
+
           await initializeMcp();
-          const state = getMcpState();
-          return filterResources(state.resources, { server: serverFilter }, state.normalizedNames);
+          return filterResources(getResourceList(), params);
         },
         (data) => ({ resource_count: data.length, filtered: !!serverFilter })
       );
@@ -501,7 +533,7 @@ function createMcpCliProgram(): Command {
 
       const resources = result.data || [];
       if (options.json) {
-        console.log(JSON.stringify(resources));
+        console.log(formatJson(resources));
       } else if (resources.length === 0) {
         console.log('No resources available.');
       } else {
@@ -538,31 +570,83 @@ function createMcpCliProgram(): Command {
       const timeout = parseInt(options.timeout || '', 10) || getDefaultTimeout();
 
       try {
-        await initializeMcp();
+        let resolvedUri = uri;
 
         // Resolve URI if not directly provided
-        let resolvedUri = uri;
         if (!resolvedUri && resourceName) {
-          const state = getMcpState();
-          const resources = filterResources(state.resources, { server });
-          const resource = resources.find(
-            (r) => r.name === resourceName || r.uri === resourceName
-          );
+          if (isRunningInEndpoint()) {
+            const resources = await sendMcpCommand(MCP_COMMAND_RESOURCES, {
+              command: 'resources',
+              params: { server },
+            }) as McpResourceInfo[];
 
-          if (!resource) {
-            console.error(
-              chalk.red(`Error: Resource '${resourceName}' not found on server '${server}'`)
+            const resource = resources.find(
+              (r) => r.name === resourceName || r.uri === resourceName
             );
-            process.exit(1);
+
+            if (!resource) {
+              console.error(
+                chalk.red(`Error: Resource '${resourceName}' not found on server '${server}'`)
+              );
+              process.exit(1);
+            }
+            resolvedUri = resource.uri;
+          } else {
+            await initializeMcp();
+            const resources = filterResources(getResourceList(), { server });
+            const resource = resources.find(
+              (r) => r.name === resourceName || r.uri === resourceName
+            );
+
+            if (!resource) {
+              console.error(
+                chalk.red(`Error: Resource '${resourceName}' not found on server '${server}'`)
+              );
+              process.exit(1);
+            }
+            resolvedUri = resource.uri;
           }
-          resolvedUri = resource.uri;
+        }
+
+        if (!resolvedUri) {
+          console.error(chalk.red('Error: No resource URI specified'));
+          process.exit(1);
         }
 
         // Read resource
-        console.log(chalk.yellow('Resource reading not implemented in standalone mode'));
-        console.log(`Server: ${server}`);
-        console.log(`URI: ${resolvedUri}`);
-        console.log(`Timeout: ${timeout}ms`);
+        let result: { contents: Array<{ text?: string; blob?: string; mimeType?: string }> };
+
+        if (isRunningInEndpoint()) {
+          result = await sendMcpCommand(
+            MCP_COMMAND_READ,
+            {
+              command: 'read',
+              params: { server, uri: resolvedUri, timeoutMs: timeout },
+            },
+            timeout
+          ) as typeof result;
+        } else {
+          if (!getMcpState().initialized) {
+            await initializeMcp();
+          }
+          result = await readMcpResource(server, resolvedUri, {
+            debug: options.debug,
+            timeout,
+          });
+        }
+
+        // Output result
+        if (options.json) {
+          console.log(formatJson(result));
+        } else {
+          for (const content of result.contents) {
+            if (content.text) {
+              console.log(content.text);
+            } else if (content.blob) {
+              console.log(`[Binary data: ${content.mimeType || 'unknown type'}]`);
+            }
+          }
+        }
 
         process.exit(0);
       } catch (error) {

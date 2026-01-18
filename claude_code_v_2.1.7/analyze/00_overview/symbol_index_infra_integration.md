@@ -12,6 +12,7 @@
 
 ## Quick Navigation
 
+- [MCP CLI](#module-mcp-cli-clichunksmjs) - MCP CLI commands (--mcp-cli mode)
 - [LSP Integration](#module-lsp-integration) - Language Server Protocol (NEW in 2.0.74)
 - [Chrome/Browser](#module-chromebrowser-integration) - Chrome extension (NEW in 2.0.72)
 - [IDE Integration](#module-ide-integration) - VSCode, JetBrains, keybindings
@@ -21,6 +22,52 @@
 - [Shell Parser](#module-shell-parser) - Bash parsing
 - [Slash Commands](#new-slash-commands) - Session management
 - [Environment Variables](#environment-variables-new) - Configuration
+
+---
+
+## Module: MCP CLI (cli.chunks.mjs)
+
+> Dedicated MCP CLI bundled code for `--mcp-cli` mode (5,441 lines)
+> Full analysis: [../01_cli/mcp_cli.md](../01_cli/mcp_cli.md)
+
+### MCP CLI Program
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| de | mcpProgram | cli.chunks.mjs:5055 | object |
+| nX9 | mcpCliHandler | chunks.157.mjs:1582 | function |
+| vuA | executeWithTelemetry | cli.chunks.mjs:~5056 | function |
+| P$ | isRunningInEndpoint | cli.chunks.mjs:~5057 | function |
+| w8A | sendCommand | cli.chunks.mjs:~5057 | function |
+| me | getMcpState | cli.chunks.mjs:~5059 | function |
+
+### MCP CLI Command Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| rP0 | parseToolIdentifier | cli.chunks.mjs:~5108 | function |
+| qU7 | callMcpTool | cli.chunks.mjs:~5174 | function |
+| NU7 | readMcpResource | cli.chunks.mjs:~5807 | function |
+| M$1 | formatServerList | cli.chunks.mjs:~5059 | function |
+| R$1 | filterTools | cli.chunks.mjs:~5091 | function |
+| _$1 | findTool | cli.chunks.mjs:~5120 | function |
+| j$1 | searchTools | cli.chunks.mjs:~5599 | function |
+| T$1 | filterResources | cli.chunks.mjs:~5706 | function |
+| xuA | findClient | cli.chunks.mjs:~5122 | function |
+| N8A | getServerError | cli.chunks.mjs:~5123 | function |
+| UU7 | getServerResources | cli.chunks.mjs:~5280 | function |
+
+### MCP CLI Command Constants
+
+| Obfuscated | Readable | Purpose |
+|------------|----------|---------|
+| iP0 | SERVERS_COMMAND | servers command ID |
+| nP0 | TOOLS_COMMAND | tools command ID |
+| gX9 | INFO_COMMAND | info command ID |
+| iC | CALL_COMMAND | call command ID |
+| uX9 | GREP_COMMAND | grep command ID |
+| mX9 | RESOURCES_COMMAND | resources command ID |
+| i9A | READ_COMMAND | read command ID |
 
 ---
 

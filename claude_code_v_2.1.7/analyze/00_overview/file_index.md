@@ -56,8 +56,9 @@
 ### Entry & CLI
 | File | Content | Key Symbols |
 |------|---------|-------------|
-| chunks.158.mjs (if exists) | Main entry, command handler | mainEntry, commandHandler |
-| chunks.155.mjs | Commander.js framework | Command, Option, Argument |
+| chunks.157.mjs | Main CLI program, Commander.js | D_7 (mainEntry), J_7 (commandHandler), nX9 (mcpCliHandler) |
+| cli.chunks.mjs | MCP CLI (--mcp-cli mode), 5441 lines | de (mcpProgram), qU7 (callMcpTool), NU7 (readMcpResource) |
+| chunks.149.mjs | Commander.js library | O$1 (Command), LK (Option) |
 
 ### Agent Loop & Tool Execution
 | File | Content | Key Symbols |

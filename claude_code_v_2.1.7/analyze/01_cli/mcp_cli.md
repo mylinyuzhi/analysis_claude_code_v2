@@ -6,6 +6,18 @@ Claude Code v2.1.7 provides a dedicated MCP (Model Context Protocol) CLI for int
 
 ---
 
+## Source Files
+
+| File | Lines | Content |
+|------|-------|---------|
+| cli.chunks.mjs | 5,441 | MCP CLI commands (servers, tools, info, call, grep, resources, read) |
+| chunks.157.mjs:1582-1593 | 11 | MCP CLI entry handler (nX9/mcpCliHandler) |
+
+> Note: `packages/cli/src/commands/mcp-cli.ts` is a TypeScript scaffold with stubs.
+> See [packages_cli_scaffold.md](./packages_cli_scaffold.md) for details.
+
+---
+
 ## Related Symbols
 
 > Symbol mappings:

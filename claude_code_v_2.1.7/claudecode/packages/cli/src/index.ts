@@ -8,8 +8,10 @@
  * - 45+ CLI options across 10 categories
  * - Session management (continue, resume, fork, teleport)
  * - Custom help formatting with alphabetical sorting
+ * - MCP server management and tool execution
+ * - Endpoint detection and socket communication
  *
- * Reconstructed from chunks.157.mjs
+ * Reconstructed from chunks.157.mjs, cli.chunks.mjs
  */
 
 // ============================================
@@ -34,6 +36,24 @@ export {
   validateOptions,
   CLI_OPTIONS,
 } from './commands/index.js';
+
+// ============================================
+// Settings
+// ============================================
+
+export * from './settings/index.js';
+
+// ============================================
+// MCP
+// ============================================
+
+export * from './mcp/index.js';
+
+// ============================================
+// Endpoint
+// ============================================
+
+export * from './endpoint/index.js';
 
 // ============================================
 // Constants

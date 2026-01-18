@@ -27,6 +27,14 @@ import { parseOptions, validateOptions, CLI_OPTIONS } from './options.js';
 import { handleMcpCli } from './mcp-cli.js';
 import { handleChromeMcp, handleChromeNative } from './chrome-handlers.js';
 import { handleRipgrep } from './ripgrep-handler.js';
+import {
+  loadAllSettings,
+  loadMcpConfigFile,
+  parseMcpConfigJson,
+  getClaudeHomeDir,
+  getUserSettingsPath,
+} from '../settings/loader.js';
+import { initializeMcp, resetMcpState } from '../mcp/state.js';
 
 // ============================================
 // Mode Detection
@@ -328,10 +336,18 @@ async function initializeConfig(): Promise<void> {
  * Original: nOA (enableConfigs) in chunks.149.mjs
  */
 function enableConfigs(): void {
-  // Load settings from:
-  // - ~/.claude/settings.json (user)
-  // - .claude/settings.json (project)
-  // - .claude/settings.local.json (local)
+  // Load settings from all scopes
+  const settings = loadAllSettings();
+
+  // Store settings globally for access
+  (globalThis as any).__claudeSettings = settings;
+
+  // Ensure Claude home directory exists
+  const fs = require('fs');
+  const homeDir = getClaudeHomeDir();
+  if (!fs.existsSync(homeDir)) {
+    fs.mkdirSync(homeDir, { recursive: true });
+  }
 }
 
 /**
@@ -364,7 +380,10 @@ function setupGracefulShutdown(): void {
  * Cleanup function for shutdown.
  */
 async function cleanup(): Promise<void> {
-  // Clean up any resources (MCP connections, temp files, etc.)
+  // Clean up MCP connections
+  resetMcpState();
+
+  // Reset terminal cursor
   cleanupCursor();
 }
 
@@ -437,12 +456,16 @@ function validateSessionId(id: string): string | null {
  */
 async function loadMcpConfig(configPath: string): Promise<Record<string, unknown>> {
   try {
-    const { readFileSync } = await import('fs');
-    const content = readFileSync(configPath, 'utf-8');
-    return JSON.parse(content);
+    // Try to load from file
+    return loadMcpConfigFile(configPath);
   } catch {
-    console.warn(`Warning: Could not load MCP config from ${configPath}`);
-    return {};
+    // Try to parse as JSON string
+    try {
+      return parseMcpConfigJson(configPath);
+    } catch {
+      console.warn(`Warning: Could not load MCP config from ${configPath}`);
+      return {};
+    }
   }
 }
 

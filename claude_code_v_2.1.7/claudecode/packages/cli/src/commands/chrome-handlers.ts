@@ -355,20 +355,109 @@ function getChromeMcpTools(): unknown[] {
 }
 
 /**
- * Execute a Chrome tool (stub).
+ * Chrome extension client connection.
+ */
+let chromeExtensionClient: net.Socket | null = null;
+let pendingRequests = new Map<string, {
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+}>();
+
+/**
+ * Set Chrome extension client.
+ */
+export function setChromeExtensionClient(client: net.Socket | null): void {
+  chromeExtensionClient = client;
+}
+
+/**
+ * Execute a Chrome tool by forwarding to the extension.
  */
 async function executeChromeTool(
   params: { name: string; arguments: Record<string, unknown> }
 ): Promise<unknown> {
-  // In a full implementation, this would forward the request to the Chrome extension
-  return {
-    content: [
-      {
-        type: 'text',
-        text: `Tool ${params.name} execution not implemented in standalone mode`,
-      },
-    ],
+  // If no extension connected, return error
+  if (!chromeExtensionClient || !chromeExtensionClient.writable) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: 'text',
+          text: `Chrome extension not connected. Cannot execute tool: ${params.name}`,
+        },
+      ],
+    };
+  }
+
+  // Generate request ID
+  const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  // Create promise for response
+  const responsePromise = new Promise<unknown>((resolve, reject) => {
+    pendingRequests.set(requestId, { resolve, reject });
+
+    // Timeout after 30 seconds
+    setTimeout(() => {
+      if (pendingRequests.has(requestId)) {
+        pendingRequests.delete(requestId);
+        reject(new Error(`Tool execution timeout: ${params.name}`));
+      }
+    }, 30000);
+  });
+
+  // Send request to extension
+  const request = {
+    type: 'tool_call',
+    id: requestId,
+    name: params.name,
+    arguments: params.arguments,
   };
+
+  const json = JSON.stringify(request);
+  const jsonBuffer = Buffer.from(json, 'utf-8');
+  const lengthBuffer = Buffer.alloc(4);
+  lengthBuffer.writeUInt32LE(jsonBuffer.length, 0);
+
+  chromeExtensionClient.write(lengthBuffer);
+  chromeExtensionClient.write(jsonBuffer);
+
+  // Wait for response
+  try {
+    const result = await responsePromise;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
+        },
+      ],
+    };
+  } catch (error) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: 'text',
+          text: error instanceof Error ? error.message : String(error),
+        },
+      ],
+    };
+  }
+}
+
+/**
+ * Handle tool response from Chrome extension.
+ */
+export function handleToolResponse(requestId: string, result: unknown, error?: string): void {
+  const pending = pendingRequests.get(requestId);
+  if (pending) {
+    pendingRequests.delete(requestId);
+    if (error) {
+      pending.reject(new Error(error));
+    } else {
+      pending.resolve(result);
+    }
+  }
 }
 
 // ============================================
