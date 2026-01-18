@@ -73,6 +73,14 @@ export function cachePlanSlug(sessionId: string, slug: string): void {
   planSlugCache.set(sessionId, slug);
 }
 
+/**
+ * Clear plan slug cache for session.
+ * Original: J12 in chunks.86.mjs:43-46
+ */
+export function clearPlanSlugCacheForSession(sessionId: string): void {
+  planSlugCache.delete(sessionId);
+}
+
 // ============================================
 // Plan Directory
 // ============================================
@@ -261,6 +269,7 @@ export {
   setSessionId,
   getPlanSlugCache,
   cachePlanSlug,
+  clearPlanSlugCacheForSession,
   getPlanDir,
   getUniquePlanSlug,
   getPlanFilePath,

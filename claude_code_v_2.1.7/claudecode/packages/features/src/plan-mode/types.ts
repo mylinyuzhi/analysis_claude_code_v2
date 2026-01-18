@@ -150,6 +150,79 @@ export interface PlanModeReentryData {
 }
 
 // ============================================
+// Attachment Types
+// ============================================
+
+/**
+ * Plan mode attachment.
+ * Original: j27 output in chunks.131.mjs
+ */
+export interface PlanModeAttachment {
+  type: 'plan_mode';
+  reminderType: PlanReminderType;
+  isSubAgent: boolean;
+  planFilePath: string;
+  planExists: boolean;
+}
+
+/**
+ * Plan mode re-entry attachment.
+ */
+export interface PlanModeReentryAttachment {
+  type: 'plan_mode_reentry';
+  planFilePath: string;
+}
+
+/**
+ * Plan mode exit attachment.
+ * Original: T27 output in chunks.131.mjs
+ */
+export interface PlanModeExitAttachment {
+  type: 'plan_mode_exit';
+  planFilePath: string;
+  planExists: boolean;
+}
+
+/**
+ * Union of all plan mode attachment types.
+ */
+export type PlanModeAttachmentUnion =
+  | PlanModeAttachment
+  | PlanModeReentryAttachment
+  | PlanModeExitAttachment;
+
+/**
+ * Result from findPlanModeAttachmentInfo.
+ * Original: R27 output in chunks.131.mjs
+ */
+export interface PlanModeAttachmentInfo {
+  turnCount: number;
+  foundPlanModeAttachment: boolean;
+}
+
+/**
+ * Message type for attachment search.
+ */
+export interface AttachmentMessage {
+  type?: string;
+  attachment?: {
+    type?: string;
+  };
+}
+
+/**
+ * Tool use context for attachment building.
+ */
+export interface AttachmentToolUseContext {
+  agentId?: string;
+  getAppState: () => Promise<{
+    toolPermissionContext: {
+      mode: PermissionMode;
+    };
+  }>;
+}
+
+// ============================================
 // Constants
 // ============================================
 
@@ -198,6 +271,13 @@ export {
   PlanReminderType,
   PlanModeAttachmentData,
   PlanModeReentryData,
+  PlanModeAttachment,
+  PlanModeReentryAttachment,
+  PlanModeExitAttachment,
+  PlanModeAttachmentUnion,
+  PlanModeAttachmentInfo,
+  AttachmentMessage,
+  AttachmentToolUseContext,
   PLAN_MODE_CONSTANTS,
   PLAN_MODE_DISALLOWED_TOOLS,
 };
