@@ -6,6 +6,7 @@
  */
 
 import type { ConversationMessage } from '@claudecode/core';
+import { streamApiCall, type MessagesRequest } from '@claudecode/core';
 import type {
   HookEventType,
   HookDefinition,
@@ -16,13 +17,20 @@ import type {
   ExecuteHooksOutsideREPLOptions,
   NonREPLHookResult,
   CommandHook,
+  PromptHook,
+  AgentHook,
   HOOK_CONSTANTS,
 } from './types.js';
 import { getCurrentSessionId } from './context.js';
 import { executeCommandHookWithResult } from './command-hook.js';
-import { getMatchingHooks, isHooksDisabled, MatchedHook } from './aggregation.js';
+import { getMatchingHooks, isHooksDisabled } from './aggregation.js';
+import type { MatchedHook } from './aggregation.js';
 import { findSessionHook } from './state.js';
-import { parseHookOutput, substituteArguments } from './output-parser.js';
+import {
+  parseHookOutput,
+  substituteArguments,
+  parsePromptHookResponse,
+} from './output-parser.js';
 
 // ============================================
 // Logging Placeholder
@@ -177,24 +185,223 @@ async function executeSingleHook(
     };
   }
 
-  // Handle prompt hooks (placeholder)
-  if (hook.type === 'prompt') {
-    logDebug('Prompt hook execution - placeholder');
-    return {
-      hook,
-      outcome: 'success',
-      message: 'Prompt hook executed (placeholder)',
+  const linkAbortSignals = (outer: AbortSignal | undefined, controller: AbortController) => {
+    if (!outer) return;
+    if (outer.aborted) {
+      controller.abort();
+      return;
+    }
+    outer.addEventListener('abort', () => controller.abort(), { once: true });
+  };
+
+  const runWithTimeout = async <T>(fn: (signal: AbortSignal) => Promise<T>, timeoutMs: number): Promise<T> => {
+    const controller = new AbortController();
+    linkAbortSignals(signal, controller);
+
+    const t = setTimeout(() => controller.abort(), Math.max(0, timeoutMs));
+    try {
+      return await fn(controller.signal);
+    } finally {
+      clearTimeout(t);
+    }
+  };
+
+  const extractTextFromAssistantContent = (content: unknown): string => {
+    if (!Array.isArray(content)) return typeof content === 'string' ? content : '';
+    let out = '';
+    for (const block of content) {
+      if (block && typeof block === 'object' && (block as any).type === 'text') {
+        out += String((block as any).text ?? '');
+      }
+    }
+    return out;
+  };
+
+  const runLLM = async (params: {
+    model: string;
+    system: string;
+    user: string;
+    maxTokens?: number;
+    signal?: AbortSignal;
+  }): Promise<string> => {
+    const request: MessagesRequest = {
+      model: params.model,
+      system: params.system,
+      messages: [{ role: 'user', content: params.user } as any],
+      max_tokens: params.maxTokens ?? 1024,
+      stream: true,
     };
+
+    let text = '';
+    for await (const ev of streamApiCall(request, {
+      model: params.model,
+      signal: params.signal,
+    })) {
+      if (!ev || typeof ev !== 'object') continue;
+      if ((ev as any).type === 'assistant') {
+        const msg = (ev as any).message;
+        text += extractTextFromAssistantContent(msg?.content);
+      }
+      if ((ev as any).type === 'api_error') {
+        const err = (ev as any).error;
+        throw new Error(err?.message || 'LLM api_error');
+      }
+    }
+    return text.trim();
+  };
+
+  // Handle prompt hooks
+  if (hook.type === 'prompt') {
+    const promptHook = hook as PromptHook;
+    const timeoutMs = Math.max(0, (promptHook.timeout ?? 30) * 1000);
+    const model = promptHook.model || process.env.ANTHROPIC_SMALL_FAST_MODEL || 'claude-3-5-haiku-20241022';
+
+    const substituted = substituteArguments(promptHook.prompt, inputJson);
+    const system =
+      'You are a Claude Code prompt hook. You MUST reply with JSON only.\n' +
+      'Schema: {"ok": boolean, "reason"?: string}.\n' +
+      'Set ok=false if the operation should be blocked; include a short reason.';
+
+    try {
+      const stdout = await runWithTimeout(
+        (sig) => runLLM({ model, system, user: substituted, maxTokens: 256, signal: sig }),
+        timeoutMs
+      );
+
+      const parsed = parsePromptHookResponse(stdout);
+      if (!parsed.success) {
+        return {
+          hook,
+          outcome: 'non_blocking_error',
+          message: `Prompt hook output is not valid JSON ({ok,reason}): ${parsed.error}`,
+          stdout,
+        };
+      }
+
+      if (!parsed.data.ok) {
+        return {
+          hook,
+          outcome: 'blocking',
+          preventContinuation: true,
+          stopReason: parsed.data.reason,
+          blockingError: {
+            blockingError: parsed.data.reason || 'Prompt hook blocked operation',
+          },
+          stdout,
+          output: parsed.data,
+        };
+      }
+
+      return {
+        hook,
+        outcome: 'success',
+        message: parsed.data.reason || 'Prompt hook approved',
+        stdout,
+        output: parsed.data,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const aborted = /aborted|AbortError/i.test(msg);
+      return {
+        hook,
+        outcome: aborted ? 'cancelled' : 'non_blocking_error',
+        message: aborted ? 'Prompt hook was cancelled' : `Prompt hook failed: ${msg}`,
+      };
+    }
   }
 
-  // Handle agent hooks (placeholder)
+  // Handle agent hooks
   if (hook.type === 'agent') {
-    logDebug('Agent hook execution - placeholder');
-    return {
-      hook,
-      outcome: 'success',
-      message: 'Agent hook executed (placeholder)',
-    };
+    const agentHook = hook as AgentHook;
+    const timeoutMs = Math.max(0, (agentHook.timeout ?? 60) * 1000);
+    const model = agentHook.model || 'claude-3-5-haiku-20241022';
+
+    const hookPrompt =
+      typeof agentHook.prompt === 'function'
+        ? agentHook.prompt(_messages || [])
+        : substituteArguments(agentHook.prompt, inputJson);
+
+    const serializedMessages = (_messages || [])
+      .slice(-30)
+      .map((m) => {
+        if (!m || typeof m !== 'object') return '';
+        const t = (m as any).type;
+        const role = t === 'assistant' ? 'assistant' : t === 'user' ? 'user' : t;
+        const c = (m as any).message?.content;
+        const txt = extractTextFromAssistantContent(c) || (typeof c === 'string' ? c : '');
+        return `${role}: ${txt}`.trim();
+      })
+      .filter(Boolean)
+      .join('\n');
+
+    const user = `<hook_input>\n${inputJson}\n</hook_input>\n\n<conversation>\n${serializedMessages}\n</conversation>\n\n<hook_prompt>\n${hookPrompt}\n</hook_prompt>`;
+    const system =
+      'You are a Claude Code agent hook. Evaluate the hook_prompt given the conversation and hook_input.\n' +
+      'Reply with either:\n' +
+      '1) A JSON object compatible with hook output schema (e.g. {"continue": true} or {"continue": false, "stopReason": "..."} or {"decision": "block", "reason": "..."}), or\n' +
+      '2) Plain text (treated as non-blocking additional info).\n' +
+      'Prefer JSON when blocking.';
+
+    try {
+      const stdout = await runWithTimeout(
+        (sig) => runLLM({ model, system, user, maxTokens: 512, signal: sig }),
+        timeoutMs
+      );
+
+      const parsed = parseHookOutput(stdout);
+
+      if (parsed.json) {
+        // Blocking semantics are handled by the shared parser in executeSingleHook for command hooks.
+        // We replicate key subset here.
+        if ('continue' in parsed.json && (parsed.json as any).continue === false) {
+          return {
+            hook,
+            outcome: 'blocking',
+            preventContinuation: true,
+            stopReason: (parsed.json as any).stopReason,
+            blockingError: {
+              blockingError: (parsed.json as any).stopReason || 'Agent hook prevented continuation',
+            },
+            stdout,
+            output: parsed.json,
+          };
+        }
+        if ('decision' in parsed.json && (parsed.json as any).decision === 'block') {
+          return {
+            hook,
+            outcome: 'blocking',
+            blockingError: {
+              blockingError: (parsed.json as any).reason || 'Agent hook blocked operation',
+            },
+            stdout,
+            output: parsed.json,
+          };
+        }
+
+        return {
+          hook,
+          outcome: 'success',
+          message: parsed.plainText || 'Agent hook completed',
+          stdout,
+          output: parsed.json,
+        };
+      }
+
+      return {
+        hook,
+        outcome: 'success',
+        message: parsed.plainText || 'Agent hook completed',
+        stdout,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const aborted = /aborted|AbortError/i.test(msg);
+      return {
+        hook,
+        outcome: aborted ? 'cancelled' : 'non_blocking_error',
+        message: aborted ? 'Agent hook was cancelled' : `Agent hook failed: ${msg}`,
+      };
+    }
   }
 
   // Handle callback hooks
@@ -406,7 +613,7 @@ export async function executeHooksOutsideREPL(
   const inputJson = JSON.stringify(hookInput);
 
   for (let i = 0; i < matchingHooks.length; i++) {
-    const matchedHook = matchingHooks[i];
+    const matchedHook = matchingHooks[i]!;
     const { hook, pluginRoot } = matchedHook;
 
     // Only command hooks supported outside REPL
@@ -443,8 +650,4 @@ export async function executeHooksOutsideREPL(
 // Export
 // ============================================
 
-export {
-  executeHooksInREPL,
-  executeHooksOutsideREPL,
-  REPLHookYield,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

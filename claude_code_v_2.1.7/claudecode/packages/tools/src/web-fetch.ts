@@ -324,4 +324,4 @@ export const WebFetchTool = createTool<WebFetchInput, WebFetchOutput>({
 // Export
 // ============================================
 
-export { WebFetchTool };
+// NOTE: WebFetchTool 已在声明处导出；避免重复导出。

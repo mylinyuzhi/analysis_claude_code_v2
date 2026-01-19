@@ -245,4 +245,4 @@ Examples:
 // Export
 // ============================================
 
-export { GlobTool };
+// NOTE: GlobTool 已在声明处导出；避免重复导出。

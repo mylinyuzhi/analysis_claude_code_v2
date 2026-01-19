@@ -94,6 +94,9 @@ export interface ToolContext {
   abortSignal?: AbortSignal;
   /** Permission checker */
   checkPermission?: (key: string) => Promise<PermissionBehavior>;
+
+  /** Additional runtime options (optional) */
+  options?: Record<string, unknown>;
 }
 
 /**
@@ -191,6 +194,9 @@ export interface Tool<TInput = unknown, TOutput = unknown> {
 
   /** Whether tool modifies files */
   isReadOnly(input?: TInput): boolean;
+
+  /** Whether tool execution inherently requires user interaction */
+  requiresUserInteraction?(input?: TInput): boolean;
 
   /** Check if this is a search or read command */
   isSearchOrReadCommand?(input: TInput): SearchReadInfo;
@@ -565,6 +571,7 @@ export interface TaskOutput {
   status: 'running' | 'completed' | 'error';
   result?: string;
   error?: string;
+  outputFile?: string;
 }
 
 // ============================================
@@ -637,50 +644,4 @@ export const TOOL_NAMES = {
 // Exports
 // ============================================
 
-export type {
-  PermissionBehavior,
-  PermissionResult,
-  ValidationResult,
-  ToolResult,
-  ToolResultBlockParam,
-  ContentBlock,
-  ToolContext,
-  ReadFileState,
-  AppState,
-  TodoItem,
-  ToolMetadata,
-  ProgressCallback,
-  SearchReadInfo,
-  Tool,
-  ToolGroup,
-  ToolGroupings,
-  ReadInput,
-  ImageDimensions,
-  ImageMimeType,
-  NotebookCell,
-  ReadTextOutput,
-  ReadImageOutput,
-  ReadNotebookOutput,
-  ReadPdfOutput,
-  ReadOutput,
-  WriteInput,
-  Patch,
-  WriteOutput,
-  EditInput,
-  EditOutput,
-  GlobInput,
-  GlobOutput,
-  GrepOutputMode,
-  GrepInput,
-  GrepOutput,
-  BashInput,
-  BashOutput,
-  WebFetchInput,
-  WebFetchOutput,
-  TaskInput,
-  TaskOutput,
-  TodoWriteInput,
-  TodoWriteOutput,
-  SkillInput,
-  SkillOutput,
-};
+// NOTE: 本文件类型/常量均已在声明处导出；移除重复导出块避免冲突。

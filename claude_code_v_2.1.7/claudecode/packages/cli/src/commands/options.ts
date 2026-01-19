@@ -296,7 +296,8 @@ export function parseOptions(args: string[]): ParsedCLIArgs {
 
   let i = 0;
   while (i < args.length) {
-    const arg = args[i];
+    const arg = args[i]!;
+    const nextArg = args[i + 1];
 
     // Handle -- separator (everything after is positional)
     if (arg === '--') {
@@ -306,10 +307,10 @@ export function parseOptions(args: string[]): ParsedCLIArgs {
 
     // Handle long options
     if (arg.startsWith('--')) {
-      const [key, value] = parseOption(arg, args[i + 1]);
+      const [key, value] = parseOption(arg, nextArg);
       if (key) {
         (options as any)[key] = value;
-        if (value !== true && args[i + 1] && !args[i + 1].startsWith('-')) {
+        if (value !== true && nextArg && !nextArg.startsWith('-')) {
           i++; // Skip value
         }
       }
@@ -319,10 +320,10 @@ export function parseOptions(args: string[]): ParsedCLIArgs {
 
     // Handle short options
     if (arg.startsWith('-') && arg.length > 1) {
-      const [key, value] = parseShortOption(arg, args[i + 1]);
+      const [key, value] = parseShortOption(arg, nextArg);
       if (key) {
         (options as any)[key] = value;
-        if (value !== true && args[i + 1] && !args[i + 1].startsWith('-')) {
+        if (value !== true && nextArg && !nextArg.startsWith('-')) {
           i++; // Skip value
         }
       }
@@ -357,8 +358,9 @@ function parseOption(arg: string, nextArg?: string): [string | null, unknown] {
 
   // Handle --flag=value
   if (withoutPrefix.includes('=')) {
-    const [flag, ...valueParts] = withoutPrefix.split('=');
-    const value = valueParts.join('=');
+    const parts = withoutPrefix.split('=');
+    const flag = parts[0]!;
+    const value = parts.slice(1).join('=');
     const key = camelCase(flag);
     const def = findOptionByFlag(flag);
     return [key, def?.parser ? def.parser(value) : value];
@@ -485,8 +487,4 @@ function kebabCase(str: string): string {
 // Export
 // ============================================
 
-export {
-  CLI_OPTIONS,
-  parseOptions,
-  validateOptions,
-};
+// NOTE: 以上符号已在定义处 `export`，避免重复导出。

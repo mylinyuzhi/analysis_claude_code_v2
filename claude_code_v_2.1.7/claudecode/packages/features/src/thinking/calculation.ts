@@ -163,10 +163,4 @@ export function applySkillThinkingOverride<T extends { options: { maxThinkingTok
 // Export
 // ============================================
 
-export {
-  calculateMaxThinkingTokens,
-  buildThinkingConfig,
-  getThinkingConfigForCounting,
-  buildToolUseOptionsWithThinking,
-  applySkillThinkingOverride,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

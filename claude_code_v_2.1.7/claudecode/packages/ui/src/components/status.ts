@@ -231,14 +231,4 @@ export function formatError(error: unknown): string {
 // Export
 // ============================================
 
-export {
-  BlinkingManager,
-  getStatusIcon,
-  getStatusColor,
-  formatStatus,
-  isTerminalStatus,
-  isActiveStatus,
-  formatDuration,
-  formatToolResult,
-  formatError,
-};
+// Note: exports are declared inline above.

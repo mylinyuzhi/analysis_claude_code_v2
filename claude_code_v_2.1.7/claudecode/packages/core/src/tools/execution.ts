@@ -17,7 +17,8 @@
 
 import { generateUUID } from '@claudecode/shared';
 import { createUserMessage } from '../message/factory.js';
-import type { ConversationMessage, ContentBlock } from '../message/types.js';
+import type { ContentBlock } from '@claudecode/shared';
+import type { ConversationMessage } from '../message/types.js';
 import type { ToolDefinition, ToolUseContext, ToolResult, ToolInput } from './types.js';
 import type { ToolUseBlock, CanUseTool, ToolExecutionYield } from '../agent-loop/types.js';
 
@@ -25,7 +26,7 @@ import type { ToolUseBlock, CanUseTool, ToolExecutionYield } from '../agent-loop
 import {
   executePreToolHooks,
   executePostToolHooks,
-  executePostToolFailureHooks,
+  executePostToolFailureHooks as executePostToolFailureHooksFromFeatures,
   type REPLHookYield,
   type HookExecutionResult,
   type PreToolUseOutput,
@@ -40,13 +41,13 @@ import {
  * User rejected content message.
  * Original: v4A in chunks.134.mjs
  */
-const USER_REJECTED_CONTENT = '<tool_use_error>User rejected tool use</tool_use_error>';
+export const USER_REJECTED_CONTENT = '<tool_use_error>User rejected tool use</tool_use_error>';
 
 /**
  * Cancelled by user message.
  * Original: aVA in chunks.134.mjs
  */
-const CANCELLED_BY_USER_MESSAGE = 'Tool use cancelled by user';
+export const CANCELLED_BY_USER_MESSAGE = 'Tool use cancelled by user';
 
 // ============================================
 // Helper Functions
@@ -88,8 +89,10 @@ export function parseMcpToolName(
   if (parts.length < 3) {
     return null;
   }
+  const serverName = parts[1];
+  if (!serverName) return null;
   return {
-    serverName: parts[1],
+    serverName,
     toolName: parts.slice(2).join('__'),
   };
 }
@@ -420,7 +423,7 @@ async function* executePostToolUseHooks(
  *
  * Integrates with @claudecode/features/hooks executePostToolFailureHooks.
  */
-async function* executePostToolFailureHooks(
+export async function* executePostToolFailureHooks(
   context: ToolUseContext,
   tool: ToolDefinition,
   toolUseId: string,
@@ -436,7 +439,7 @@ async function* executePostToolFailureHooks(
 
   try {
     // Execute hooks from features package
-    for await (const hookYield of executePostToolFailureHooks(
+    for await (const hookYield of executePostToolFailureHooksFromFeatures(
       tool.name,
       toolUseId,
       input,
@@ -510,7 +513,7 @@ async function createToolResultContent(
  * @param progressCallback - Progress callback
  * @returns Array of tool execution yields
  */
-async function executeToolWithValidation(
+export async function executeToolWithValidation(
   tool: ToolDefinition,
   toolUseId: string,
   input: ToolInput,
@@ -656,12 +659,11 @@ async function executeToolWithValidation(
     // Hook denied
     permissionResult = hookPermissionResult;
   } else {
-    // Ask for permission
-    const askOverride = hookPermissionResult?.behavior === 'ask' ? hookPermissionResult : undefined;
-    if (hookPermissionResult?.behavior === 'ask' && hookPermissionResult.updatedInput) {
-      input = hookPermissionResult.updatedInput;
-    }
-    permissionResult = await canUseTool(tool, input, assistantMessage, askOverride);
+    // Ask for permission (execution pipeline expects structured result)
+    const allowed = await canUseTool(tool, input, assistantMessage);
+    permissionResult = allowed
+      ? { behavior: 'allow' }
+      : { behavior: 'deny', message: USER_REJECTED_CONTENT };
   }
 
   // 5. Handle permission denial
@@ -723,14 +725,11 @@ async function executeToolWithValidation(
         ...context,
         userModified: permissionResult.userModified ?? false,
       },
-      canUseTool,
-      assistantMessage,
+      toolUseId,
+      { assistantMessage, canUseTool },
       progressCallback
-        ? (progress: { toolUseID: string; data: unknown }) => {
-            progressCallback({
-              toolUseID: progress.toolUseID,
-              data: progress.data,
-            });
+        ? (progress) => {
+            progressCallback({ toolUseID: toolUseId, data: progress });
           }
         : undefined
     );
@@ -790,12 +789,7 @@ async function executeToolWithValidation(
         toolUseResult: typeof toolResult.data === 'string' ? toolResult.data : JSON.stringify(toolResult.data),
         sourceToolAssistantUUID: (assistantMessage as { uuid: string }).uuid,
       }),
-      contextModifier: toolResult.contextModifier
-        ? {
-            toolUseID: toolUseId,
-            modifyContext: toolResult.contextModifier,
-          }
-        : undefined,
+      contextModifier: toolResult.contextModifier,
     });
 
     // 8. Execute post-tool hooks
@@ -849,7 +843,7 @@ async function executeToolWithValidation(
  * Execute tool with progress streaming.
  * Original: k77 in chunks.134.mjs:741-770
  */
-function executeToolWithProgress(
+export function executeToolWithProgress(
   tool: ToolDefinition,
   toolUseId: string,
   input: ToolInput,
@@ -943,7 +937,10 @@ export async function* executeSingleTool(
   const tool = findToolByName(context.options.tools, toolName);
   const messageId = (assistantMessage as { message?: { id?: string } }).message?.id || '';
   const requestId = (assistantMessage as { requestId?: string }).requestId;
-  const mcpServerType = getMcpServerType(toolName, context.options.mcpClients || []);
+  const mcpServerType = getMcpServerType(
+    toolName,
+    (context.options.mcpClients as any) || []
+  );
 
   // Handle tool not found
   if (!tool) {
@@ -1058,17 +1055,4 @@ export async function* executeSingleTool(
 // Export
 // ============================================
 
-export {
-  executeSingleTool,
-  executeToolWithValidation,
-  executeToolWithProgress,
-  executePostToolFailureHooks,
-  findToolByName,
-  getToolDisplayName,
-  parseMcpToolName,
-  getMcpServerType,
-  createUserRejectedToolResult,
-  formatValidationError,
-  USER_REJECTED_CONTENT,
-  CANCELLED_BY_USER_MESSAGE,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

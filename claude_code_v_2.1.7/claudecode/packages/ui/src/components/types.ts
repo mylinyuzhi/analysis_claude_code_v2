@@ -7,6 +7,8 @@
 
 import type { ReactNode } from 'react';
 
+export type { BlinkingState } from '../types.js';
+
 // ============================================
 // Status Types
 // ============================================
@@ -305,7 +307,7 @@ export const COMPONENT_CONSTANTS = {
       frames: ['⠁', '⠂', '⠄', '⠂'],
       interval: 120,
     },
-  } as Record<string, SpinnerConfig>,
+  } satisfies Record<string, SpinnerConfig>,
 
   // Status icons
   STATUS_ICONS: {
@@ -335,30 +337,4 @@ export const COMPONENT_CONSTANTS = {
   SPINNER_INTERVAL: 80,
 } as const;
 
-// ============================================
-// Export
-// ============================================
-
-export type {
-  ToolStatus,
-  StatusIndicatorProps,
-  SpinnerProps,
-  SpinnerConfig,
-  ToolUseDisplayProps,
-  ToolResultDisplayProps,
-  MessageDisplayProps,
-  AssistantMessageProps,
-  MultilineInputProps,
-  AutocompleteSuggestion,
-  AutocompleteInputProps,
-  PermissionPromptProps,
-  QuestionPromptProps,
-  ProgressBarProps,
-  TaskProgressProps,
-  PanelProps,
-  DividerProps,
-  ScrollAreaProps,
-  BlinkingTextProps,
-  FadeProps,
-  TableProps,
-};
+// Note: exports are declared inline above.

@@ -232,11 +232,11 @@ export const NotebookEditTool = createTool<NotebookEditInput, NotebookEditOutput
 
     // Check for permission denied paths
     if (isPermissionDeniedPath(notebookPath)) {
-      return permissionAsk(input, `Edit notebook: ${notebookPath}`);
+      return permissionAsk(`Edit notebook: ${notebookPath}`);
     }
 
     // Ask permission for notebook edits
-    return permissionAsk(input, `Edit notebook cell in: ${notebookPath}`);
+    return permissionAsk(`Edit notebook cell in: ${notebookPath}`);
   },
 
   async validateInput(input, context) {
@@ -313,7 +313,7 @@ export const NotebookEditTool = createTool<NotebookEditInput, NotebookEditOutput
           }
 
           // Update cell
-          const cell = notebook.cells[cellIndex];
+          const cell = notebook.cells[cellIndex]!;
           cell.source = parseSource(new_source);
           if (cell_type) {
             cell.cell_type = cell_type;
@@ -377,7 +377,8 @@ export const NotebookEditTool = createTool<NotebookEditInput, NotebookEditOutput
             return toolError(`Cell not found for deletion: ${cell_id}`);
           }
 
-          resultCellId = notebook.cells[cellIndex].id || `cell_${cellIndex}`;
+          const cell = notebook.cells[cellIndex]!;
+          resultCellId = cell.id || `cell_${cellIndex}`;
           notebook.cells.splice(cellIndex, 1);
           break;
         }
@@ -422,4 +423,4 @@ export const NotebookEditTool = createTool<NotebookEditInput, NotebookEditOutput
 // Export
 // ============================================
 
-export { NotebookEditTool };
+// NOTE: NotebookEditTool 已在声明处导出；避免重复导出。

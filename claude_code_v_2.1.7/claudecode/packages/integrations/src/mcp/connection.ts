@@ -24,6 +24,10 @@ import type {
   McpServerCapabilities,
   McpClient,
   McpTransport,
+  McpToolCallParams,
+  McpToolResult,
+  McpPromptParams,
+  McpPromptResult,
   McpBatchDiagnostics,
   McpServerConnectionResult,
   McpServerConnectedCallback,
@@ -245,7 +249,9 @@ class SSEClientTransport implements McpTransport {
           const dataMatch = event.match(/^data: (.+)$/m);
           if (dataMatch) {
             try {
-              const message = JSON.parse(dataMatch[1]);
+              const payload = dataMatch[1];
+              if (!payload) continue;
+              const message = JSON.parse(payload);
               for (const handler of this.messageHandlers) {
                 handler(message);
               }
@@ -559,15 +565,15 @@ class MCPClientImpl implements McpClient {
     this.transport = transport;
 
     // Setup message handler
-    transport.onMessage((message: unknown) => {
+    transport.onMessage?.((message: unknown) => {
       this.handleMessage(message as { id?: number; method?: string; result?: unknown; error?: { message: string } });
     });
 
-    transport.onError((err: Error) => {
+    transport.onError?.((err: Error) => {
       this._onerror?.(err);
     });
 
-    transport.onClose(() => {
+    transport.onClose?.(() => {
       this._onclose?.();
     });
 
@@ -669,12 +675,12 @@ class MCPClientImpl implements McpClient {
   }
 
   async callTool(
-    params: { name: string; arguments: Record<string, unknown>; _meta?: object },
+    params: McpToolCallParams,
     _schema?: object,
     options?: { signal?: AbortSignal; timeout?: number }
-  ): Promise<{ isError?: boolean; content?: unknown[]; error?: string }> {
+  ): Promise<McpToolResult> {
     const result = await Promise.race([
-      this.request<{ isError?: boolean; content?: unknown[]; error?: string }>({
+      this.request<McpToolResult>({
         method: 'tools/call',
         params: {
           name: params.name,
@@ -694,11 +700,8 @@ class MCPClientImpl implements McpClient {
     return result;
   }
 
-  async getPrompt(params: {
-    name: string;
-    arguments?: Record<string, string>;
-  }): Promise<{ messages: Array<{ role: string; content: unknown }> }> {
-    return this.request({
+  async getPrompt(params: McpPromptParams): Promise<McpPromptResult> {
+    return this.request<McpPromptResult>({
       method: 'prompts/get',
       params,
     });
@@ -758,7 +761,7 @@ class McpAuthProvider {
 /**
  * Create a timeout promise.
  */
-function createTimeoutPromise(ms: number): Promise<never> {
+export function createTimeoutPromise(ms: number): Promise<never> {
   return new Promise((_, reject) => {
     setTimeout(() => {
       reject(new Error(`Connection timed out after ${ms}ms`));
@@ -1068,25 +1071,22 @@ async function batchProcessWithLimit<T, R>(
   const executing: Promise<void>[] = [];
 
   for (const item of items) {
-    const p = processor(item).then((result) => {
+    const p: Promise<void> = (async () => {
+      const result = await processor(item);
       results.push(result);
+    })();
+
+    // 任务结束后从 executing 中移除
+    p.finally(() => {
+      const idx = executing.indexOf(p);
+      if (idx >= 0) executing.splice(idx, 1);
+    }).catch(() => {
+      // errors are handled by awaiting below
     });
 
-    executing.push(p as Promise<void>);
-
+    executing.push(p);
     if (executing.length >= limit) {
       await Promise.race(executing);
-      // Remove completed promises
-      for (let i = executing.length - 1; i >= 0; i--) {
-        const promise = executing[i];
-        const isResolved = await Promise.race([
-          promise.then(() => true),
-          Promise.resolve(false),
-        ]);
-        if (isResolved) {
-          executing.splice(i, 1);
-        }
-      }
     }
   }
 
@@ -1259,18 +1259,4 @@ export async function ensureServerConnected(
 // Export
 // ============================================
 
-export {
-  connectMcpServer,
-  batchInitializeAllServers,
-  reconnectMcpServer,
-  ensureServerConnected,
-  createTimeoutPromise,
-  getBatchSize,
-  getConnectionTimeout,
-  StdioClientTransport,
-  SSEClientTransport,
-  HttpClientTransport,
-  WebSocketClientTransport,
-  MCPClientImpl,
-  AuthenticationRequiredError,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

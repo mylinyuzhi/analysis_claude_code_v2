@@ -310,4 +310,4 @@ Multiline matching: By default patterns match within single lines. Use multiline
 // Export
 // ============================================
 
-export { GrepTool };
+// NOTE: GrepTool 已在声明处导出；避免重复导出。

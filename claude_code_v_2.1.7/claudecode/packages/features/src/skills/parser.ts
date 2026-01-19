@@ -85,7 +85,8 @@ export function parseFrontmatter(content: string): {
 export function extractFirstHeading(content: string): string | null {
   // Match # Heading or ## Heading
   const match = content.match(/^#+\s+(.+?)$/m);
-  return match ? match[1].trim() : null;
+  const captured = match?.[1];
+  return captured ? captured.trim() : null;
 }
 
 /**
@@ -223,10 +224,4 @@ export function hasArgumentsPlaceholder(content: string): boolean {
 // Export
 // ============================================
 
-export {
-  parseFrontmatter,
-  extractFirstHeading,
-  parseSkillFile,
-  injectArguments,
-  hasArgumentsPlaceholder,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

@@ -285,18 +285,4 @@ export const LSP_CONSTANTS = {
 // Export
 // ============================================
 
-export type {
-  LspManagerState,
-  LspServerState,
-  LspServerConfig,
-  LspPluginConfig,
-  LspServerInstance,
-  LspServerManager,
-  LspClient,
-  LspClientStartOptions,
-  LspInitializeParams,
-  LspClientCapabilities,
-  LspInitializeResult,
-  LspServerCapabilities,
-  LspConfigError,
-};
+// NOTE: 类型/常量已在声明处导出；移除重复聚合导出以避免 TS2484。

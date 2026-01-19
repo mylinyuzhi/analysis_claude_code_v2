@@ -48,17 +48,17 @@ import type {
  * Regex for extracting system reminder content.
  * Original: PG5 in chunks.91.mjs:3581
  */
-const SYSTEM_REMINDER_REGEX = /^<system-reminder>\n?([\s\S]*?)\n?<\/system-reminder>$/;
+export const SYSTEM_REMINDER_REGEX = /^<system-reminder>\n?([\s\S]*?)\n?<\/system-reminder>$/;
 
 /**
  * Plan mode reminder interval (full reminder every N turns).
  */
-const FULL_REMINDER_INTERVAL = 5;
+export const FULL_REMINDER_INTERVAL = 5;
 
 /**
  * Read-only tools in plan mode.
  */
-const PLAN_MODE_READONLY_TOOLS = [
+export const PLAN_MODE_READONLY_TOOLS = [
   'Read',
   'Glob',
   'Grep',
@@ -70,7 +70,7 @@ const PLAN_MODE_READONLY_TOOLS = [
 /**
  * Blocked tools in plan mode.
  */
-const PLAN_MODE_BLOCKED_TOOLS = [
+export const PLAN_MODE_BLOCKED_TOOLS = [
   'Write',
   'Edit',
   'Bash',
@@ -675,52 +675,4 @@ export function applySteeringLayers(
 // Export
 // ============================================
 
-export {
-  // Constants
-  SYSTEM_REMINDER_REGEX,
-  FULL_REMINDER_INTERVAL,
-  PLAN_MODE_READONLY_TOOLS,
-  PLAN_MODE_BLOCKED_TOOLS,
-
-  // Layer 1: System Reminder
-  extractSystemReminder,
-  wrapInSystemReminder,
-  hasSystemReminder,
-  filterSystemReminderMessages,
-
-  // Layer 2: Meta Messages
-  createMetaBlock,
-  filterMetaMessages,
-  getMetaMessages,
-
-  // Layer 3: Context Modifiers
-  initExecutionContextFlow,
-  serialExecutionContextFlow,
-  applyContextUpdates,
-
-  // Layer 4: Append System Prompt
-  buildAppendSystemPrompt,
-
-  // Layer 5: Hook Injection
-  processHookInjections,
-
-  // Layer 6: Plan Mode
-  getPlanModeReminderType,
-  buildPlanModeSystemReminder,
-  getPlanModeToolRestrictions,
-  isToolAllowedInPlanMode,
-
-  // Layer 7: Permission Mode
-  shouldAutoAllow,
-  getEffectivePermissionMode,
-
-  // Layer 8: Read File State
-  buildReadFileStateMapping,
-  mergeReadFileState,
-  wasFileRead,
-  getReadFileContent,
-
-  // Combined
-  injectUserContext,
-  applySteeringLayers,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

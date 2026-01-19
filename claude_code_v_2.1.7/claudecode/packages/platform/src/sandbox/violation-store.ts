@@ -328,13 +328,13 @@ export function annotateStderrWithSandboxFailures(
     return stderr;
   }
 
-  const violationLines = violations
-    .map((v) => `  - ${v.line}`)
-    .join('\n');
+  const violationLines = violations.map((v) => v.line).join('\n');
 
+  // Embed in a structured tag so UIs can hide/show it.
+  // Matches the bundled runtime behavior described in analyze/18_sandbox/tool_integration.md.
   return (
     stderr +
-    `\n\n[Sandbox] ${violations.length} violation(s) detected:\n${violationLines}`
+    `\n\n<sandbox_violations>\n${violationLines}\n</sandbox_violations>`
   );
 }
 
@@ -346,25 +346,15 @@ export function annotateStderrWithSandboxFailures(
  * @returns Cleaned stderr
  */
 export function cleanSandboxViolations(stderr: string): string {
+  // Remove violation XML blocks (if present)
+  let out = stderr.replace(/<sandbox_violations>[\s\S]*?<\/sandbox_violations>/g, '');
   // Remove CMD64_xxx_END tags
-  return stderr.replace(/CMD64_[A-Za-z0-9+/=]+_END_[A-Za-z0-9_]+/g, '');
+  out = out.replace(/CMD64_[A-Za-z0-9+/=]+_END_[A-Za-z0-9_]+/g, '');
+  return out;
 }
 
 // ============================================
 // Export
 // ============================================
 
-export {
-  SandboxViolationStore,
-  encodeToBase64,
-  decodeFromBase64,
-  getUniqueSandboxTag,
-  encodeCommandTag,
-  decodeCommandFromTag,
-  parseViolationFromLog,
-  shouldIgnoreViolation,
-  getGlobalViolationStore,
-  resetGlobalViolationStore,
-  annotateStderrWithSandboxFailures,
-  cleanSandboxViolations,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

@@ -57,7 +57,6 @@ export function getArchitectureForSeccomp(): 'x64' | 'arm64' | null {
     case 'arm64':
       return 'arm64';
     case 'ia32':
-    case 'x32':
       // 32-bit x86 NOT supported due to socketcall() bypass vulnerability
       console.error(
         '[SeccompFilter] 32-bit x86 (ia32) is not supported due to missing socketcall() syscall blocking.'
@@ -317,16 +316,4 @@ export function getDependencyStatusMessage(): string {
 // Export
 // ============================================
 
-export {
-  getPlatform,
-  isSupportedPlatform,
-  getArchitectureForSeccomp,
-  isCommandAvailable,
-  getCommandPath,
-  checkLinuxDependencies,
-  checkMacOSDependencies,
-  findSeccompBpfFilter,
-  findApplySeccompBinary,
-  checkDependencies,
-  getDependencyStatusMessage,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

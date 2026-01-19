@@ -110,12 +110,4 @@ export function isInPlanMode(mode: PermissionMode): boolean {
 // Export
 // ============================================
 
-export {
-  hasExitedPlanMode,
-  setHasExitedPlanMode,
-  needsPlanModeExitAttachment,
-  setNeedsPlanModeExitAttachment,
-  onToolPermissionModeChanged,
-  resetPlanModeState,
-  isInPlanMode,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

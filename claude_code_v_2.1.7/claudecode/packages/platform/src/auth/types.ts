@@ -211,23 +211,4 @@ export type AuthEventType =
 // Export
 // ============================================
 
-export type {
-  OAuthConfig,
-  ApiKeySource,
-  ApiKeyResult,
-  GetApiKeyOptions,
-  OAuthTokens,
-  OAuthTokenSource,
-  OAuthAccount,
-  SubscriptionType,
-  ProviderType,
-  ProviderClientOptions,
-  BedrockConfig,
-  VertexConfig,
-  FoundryConfig,
-  KeychainEntry,
-  CredentialsStorage,
-  TokenRefreshResult,
-  RefreshLockState,
-  AuthEventType,
-};
+// NOTE: 类型已在声明处导出；移除重复聚合导出。

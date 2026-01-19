@@ -204,4 +204,4 @@ IMPORTANT: Mark tasks complete IMMEDIATELY after finishing (don't batch completi
 // Export
 // ============================================
 
-export { TodoWriteTool };
+// NOTE: TodoWriteTool 已在声明处导出；避免重复导出。

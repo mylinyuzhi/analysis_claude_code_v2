@@ -5,8 +5,9 @@
  * Reconstructed from chunks.133.mjs:2911-3087
  */
 
-import { createUserMessage } from '../message/factory.js';
-import type { ConversationMessage, ContentBlock } from '../message/types.js';
+import { createProgressMessage, createUserMessage } from '../message/factory.js';
+import type { ContentBlock } from '@claudecode/shared';
+import type { ConversationMessage, ProgressData } from '../message/types.js';
 import type { ToolDefinition, ToolUseContext } from '../tools/types.js';
 import type {
   TrackedToolExecution,
@@ -268,16 +269,30 @@ export class StreamingToolExecutor {
         const result = await toolDef.call(
           tool.block.input,
           this.toolUseContext,
-          this.canUseTool,
-          tool.assistantMessage,
+          tool.id,
+          { assistantMessage: tool.assistantMessage },
           (progress) => {
-            // Handle progress
-            if (progress) {
-              tool.pendingProgress.push(progress);
-              if (this.progressAvailableResolve) {
-                this.progressAvailableResolve();
-                this.progressAvailableResolve = undefined;
-              }
+            if (!progress) return;
+            const content =
+              typeof progress.data === 'string'
+                ? progress.data
+                : progress.data != null
+                  ? JSON.stringify(progress.data)
+                  : undefined;
+
+            const data: ProgressData = {
+              type: progress.type === 'complete' ? 'status' : progress.type,
+              content,
+              percentage: progress.percentage,
+            };
+
+            tool.pendingProgress.push(
+              createProgressMessage({ toolUseID: tool.id, data })
+            );
+
+            if (this.progressAvailableResolve) {
+              this.progressAvailableResolve();
+              this.progressAvailableResolve = undefined;
             }
           }
         );
@@ -462,4 +477,4 @@ export class StreamingToolExecutor {
 // Export
 // ============================================
 
-export { StreamingToolExecutor };
+// NOTE: 类已在声明处导出；移除重复导出。

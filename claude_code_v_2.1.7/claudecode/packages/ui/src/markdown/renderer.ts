@@ -345,7 +345,7 @@ function calculateColumnWidths(
 ): number[] {
   if (rows.length === 0) return [];
 
-  const numCols = rows[0].cells.length;
+  const numCols = rows[0]!.cells.length;
   const widths = new Array(numCols).fill(0);
 
   // Find max width for each column
@@ -499,4 +499,4 @@ export function renderMarkdown(
 // Export
 // ============================================
 
-export { tokenToStyledText, renderMarkdown };
+// Note: exports are declared inline above.

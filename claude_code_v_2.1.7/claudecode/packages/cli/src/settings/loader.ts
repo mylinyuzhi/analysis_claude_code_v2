@@ -8,6 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import type { SandboxConfig, SandboxSettings } from '@claudecode/platform';
 
 // ============================================
 // Types
@@ -35,6 +36,10 @@ export interface ClaudeSettings {
   approvedMcpServers?: string[];
   permissions?: Record<string, unknown>;
   preferences?: Record<string, unknown>;
+
+  // Sandbox settings (analyzed in analyze/18_sandbox/configuration.md)
+  sandbox?: SandboxSettings;
+  sandboxConfig?: SandboxConfig;
 }
 
 /**
@@ -47,42 +52,19 @@ export type SettingsScope = 'user' | 'project' | 'local' | 'enterprise';
 // ============================================
 
 /**
- * Get Claude data directory.
+ * Get Claude home directory.
+ *
+ * Source bundle uses `~/.claude` as the primary base for settings + sessions.
  */
 export function getClaudeDataDir(): string {
-  const homeDir = os.homedir();
-
-  // macOS: ~/Library/Application Support/claude
-  if (process.platform === 'darwin') {
-    return path.join(homeDir, 'Library', 'Application Support', 'claude');
-  }
-
-  // Linux: ~/.config/claude or $XDG_CONFIG_HOME/claude
-  if (process.platform === 'linux') {
-    const xdgConfig = process.env.XDG_CONFIG_HOME;
-    if (xdgConfig) {
-      return path.join(xdgConfig, 'claude');
-    }
-    return path.join(homeDir, '.config', 'claude');
-  }
-
-  // Windows: %APPDATA%/claude
-  if (process.platform === 'win32') {
-    const appData = process.env.APPDATA;
-    if (appData) {
-      return path.join(appData, 'claude');
-    }
-    return path.join(homeDir, 'AppData', 'Roaming', 'claude');
-  }
-
-  // Fallback
-  return path.join(homeDir, '.claude');
+  return path.join(os.homedir(), '.claude');
 }
 
 /**
  * Get user settings file path.
  */
 export function getUserSettingsPath(): string {
+  // `~/.claude/settings.json`
   return path.join(getClaudeDataDir(), 'settings.json');
 }
 
@@ -93,11 +75,11 @@ export function getProjectSettingsPath(cwd?: string): string | null {
   const startDir = cwd || process.cwd();
   let currentDir = startDir;
 
-  // Walk up directory tree looking for .mcp.json
+  // Walk up directory tree looking for `.claude/settings.json`
   while (currentDir !== path.dirname(currentDir)) {
-    const mcpPath = path.join(currentDir, '.mcp.json');
-    if (fs.existsSync(mcpPath)) {
-      return mcpPath;
+    const settingsPath = path.join(currentDir, '.claude', 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      return settingsPath;
     }
     currentDir = path.dirname(currentDir);
   }
@@ -109,15 +91,19 @@ export function getProjectSettingsPath(cwd?: string): string | null {
  * Get local settings file path.
  */
 export function getLocalSettingsPath(cwd?: string): string {
-  const dir = cwd || process.cwd();
-  return path.join(dir, '.claude.local.json');
+  // Local settings are project-scoped but intended to be machine/user specific.
+  // Convention used by the bundled runtime is `/.claude/settings.local.json`.
+  const startDir = cwd || process.cwd();
+  const projectSettingsPath = getProjectSettingsPath(startDir);
+  const projectDir = projectSettingsPath ? path.dirname(path.dirname(projectSettingsPath)) : startDir;
+  return path.join(projectDir, '.claude', 'settings.local.json');
 }
 
 /**
  * Get Claude home directory (~/.claude).
  */
 export function getClaudeHomeDir(): string {
-  return path.join(os.homedir(), '.claude');
+  return getClaudeDataDir();
 }
 
 /**
@@ -164,14 +150,12 @@ export function loadProjectSettings(cwd?: string): ClaudeSettings {
     return {};
   }
 
-  const config = readJsonFile<{ mcpServers?: Record<string, McpServerConfig> }>(settingsPath);
+  const config = readJsonFile<ClaudeSettings>(settingsPath);
   if (!config) {
     return {};
   }
 
-  return {
-    mcpServers: config.mcpServers || {},
-  };
+  return config;
 }
 
 /**
@@ -185,42 +169,92 @@ export function loadLocalSettings(cwd?: string): ClaudeSettings {
 /**
  * Load all settings merged (priority: local > project > user).
  */
-export function loadAllSettings(cwd?: string): ClaudeSettings {
+export function loadAllSettings(
+  cwd?: string,
+  overrides?: {
+    flagSettings?: ClaudeSettings;
+    policySettings?: ClaudeSettings;
+    enterpriseSettings?: ClaudeSettings;
+  }
+): ClaudeSettings {
   const userSettings = loadUserSettings();
   const projectSettings = loadProjectSettings(cwd);
   const localSettings = loadLocalSettings(cwd);
+  const enterpriseSettings = overrides?.enterpriseSettings ?? {};
+  const flagSettings = overrides?.flagSettings ?? {};
+  const policySettings = overrides?.policySettings ?? {};
 
-  // Merge MCP servers (later overrides earlier)
-  const mcpServers = {
-    ...(userSettings.mcpServers || {}),
-    ...(projectSettings.mcpServers || {}),
-    ...(localSettings.mcpServers || {}),
+  const mergeObject = (parts: Array<Record<string, unknown> | undefined>): Record<string, unknown> => {
+    return Object.assign({}, ...parts.filter(Boolean));
   };
 
-  // Merge disabled servers
-  const disabledMcpServers = [
-    ...(userSettings.disabledMcpServers || []),
-    ...(localSettings.disabledMcpServers || []),
-  ];
+  const uniq = (items: string[]): string[] => Array.from(new Set(items));
 
-  // Merge approved servers
-  const approvedMcpServers = [
+  // Merge order (lowest → highest priority): user → enterprise → project → local → flags → policy
+  const mcpServers = {
+    ...(userSettings.mcpServers || {}),
+    ...(enterpriseSettings.mcpServers || {}),
+    ...(projectSettings.mcpServers || {}),
+    ...(localSettings.mcpServers || {}),
+    ...(flagSettings.mcpServers || {}),
+    ...(policySettings.mcpServers || {}),
+  };
+
+  const disabledMcpServers = uniq([
+    ...(userSettings.disabledMcpServers || []),
+    ...(enterpriseSettings.disabledMcpServers || []),
+    ...(projectSettings.disabledMcpServers || []),
+    ...(localSettings.disabledMcpServers || []),
+    ...(flagSettings.disabledMcpServers || []),
+    ...(policySettings.disabledMcpServers || []),
+  ]);
+
+  const approvedMcpServers = uniq([
     ...(userSettings.approvedMcpServers || []),
+    ...(enterpriseSettings.approvedMcpServers || []),
+    ...(projectSettings.approvedMcpServers || []),
     ...(localSettings.approvedMcpServers || []),
-  ];
+    ...(flagSettings.approvedMcpServers || []),
+    ...(policySettings.approvedMcpServers || []),
+  ]);
 
   return {
     mcpServers,
     disabledMcpServers,
     approvedMcpServers,
-    permissions: {
-      ...(userSettings.permissions || {}),
-      ...(localSettings.permissions || {}),
+    permissions: mergeObject([
+      userSettings.permissions,
+      enterpriseSettings.permissions,
+      projectSettings.permissions,
+      localSettings.permissions,
+      flagSettings.permissions,
+      policySettings.permissions,
+    ]),
+    preferences: mergeObject([
+      userSettings.preferences,
+      enterpriseSettings.preferences,
+      projectSettings.preferences,
+      localSettings.preferences,
+      flagSettings.preferences,
+      policySettings.preferences,
+    ]),
+
+    // Sandbox (shallow merge; higher priority wins)
+    sandbox: {
+      ...(userSettings.sandbox || {}),
+      ...(enterpriseSettings.sandbox || {}),
+      ...(projectSettings.sandbox || {}),
+      ...(localSettings.sandbox || {}),
+      ...(flagSettings.sandbox || {}),
+      ...(policySettings.sandbox || {}),
     },
-    preferences: {
-      ...(userSettings.preferences || {}),
-      ...(localSettings.preferences || {}),
-    },
+    sandboxConfig:
+      policySettings.sandboxConfig ??
+      flagSettings.sandboxConfig ??
+      localSettings.sandboxConfig ??
+      projectSettings.sandboxConfig ??
+      enterpriseSettings.sandboxConfig ??
+      userSettings.sandboxConfig,
   };
 }
 
@@ -437,27 +471,4 @@ export function substituteConfigEnvVars(config: McpServerConfig): McpServerConfi
 // Export
 // ============================================
 
-export {
-  getClaudeDataDir,
-  getUserSettingsPath,
-  getProjectSettingsPath,
-  getLocalSettingsPath,
-  getClaudeHomeDir,
-  getProjectsDir,
-  loadUserSettings,
-  loadProjectSettings,
-  loadLocalSettings,
-  loadAllSettings,
-  saveUserSettings,
-  updateUserSettings,
-  getMcpServers,
-  isServerDisabled,
-  isServerApproved,
-  addMcpServer,
-  removeMcpServer,
-  setServerDisabled,
-  parseMcpConfigJson,
-  loadMcpConfigFile,
-  substituteEnvVars,
-  substituteConfigEnvVars,
-};
+// NOTE: 上述函数已在定义处导出；移除重复聚合导出。

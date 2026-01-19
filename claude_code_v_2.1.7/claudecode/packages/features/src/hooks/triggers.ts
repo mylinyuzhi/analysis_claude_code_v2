@@ -5,9 +5,12 @@
  * Reconstructed from chunks.120.mjs:2027-2247
  */
 
-import type { ConversationMessage } from '@claudecode/core';
+import { createUserMessage, type ConversationMessage } from '@claudecode/core';
 import { createHookEnvironmentContext, getAgentTranscriptPath, getCurrentSessionId } from './context.js';
-import { executeHooksInREPL, executeHooksOutsideREPL, REPLHookYield } from './execution.js';
+import { executeHooksInREPL, executeHooksOutsideREPL } from './execution.js';
+import type { REPLHookYield } from './execution.js';
+import { isAllowManagedHooksOnly } from './aggregation.js';
+import { wrapAttachmentMessage } from '../attachments/orchestrator.js';
 import type {
   PreToolUseInput,
   PostToolUseInput,
@@ -475,20 +478,81 @@ export async function* executePermissionRequestHooks(
 }
 
 // ============================================
+// Plugin Hook Bootstrap (SessionStart) - WU
+// ============================================
+
+/**
+ * Execute plugin hooks for a SessionStart-like event and return the yielded messages.
+ * Original: WU() in chunks.120.mjs:2526+
+ *
+ * Notes:
+ * - In source, this calls `Qt()` (load plugin hooks) unless allowManagedHooksOnly is enabled.
+ * - Then it runs SessionStart hooks and wraps any `additionalContext` strings into a
+ *   `hook_additional_context` attachment.
+ */
+export async function executePluginHooksForEvent(
+  source: string,
+  sessionId?: string,
+  agentType?: string
+): Promise<ConversationMessage[]> {
+  const yieldedMessages: ConversationMessage[] = [];
+  const additionalContexts: string[] = [];
+
+  // Mirror source behavior: skip plugin hook loading when managed-only.
+  if (isAllowManagedHooksOnly()) {
+    logDebug('Skipping plugin hooks - allowManagedHooksOnly is enabled');
+  }
+
+  const effectiveSessionId = sessionId ?? getCurrentSessionId();
+
+  for await (const hookYield of executeSessionStartHooks(source, effectiveSessionId, agentType)) {
+    const result = hookYield.result;
+    if (!result) continue;
+
+    const output = result.output as any;
+    const hookSpecific = output?.hookSpecificOutput as any;
+
+    if (
+      hookSpecific?.hookEventName === 'SessionStart' &&
+      typeof hookSpecific.additionalContext === 'string' &&
+      hookSpecific.additionalContext.trim().length > 0
+    ) {
+      additionalContexts.push(hookSpecific.additionalContext.trim());
+    }
+
+    // Respect suppressOutput when present
+    if (output && typeof output === 'object' && 'suppressOutput' in output && output.suppressOutput === true) {
+      continue;
+    }
+
+    // Convert hook result message into a user-visible message
+    if (typeof result.message === 'string' && result.message.trim().length > 0) {
+      yieldedMessages.push(
+        createUserMessage({
+          content: result.message.trim(),
+          isHookOutput: true,
+        }) as unknown as ConversationMessage
+      );
+    }
+  }
+
+  if (additionalContexts.length > 0) {
+    yieldedMessages.push(
+      wrapAttachmentMessage({
+        type: 'hook_additional_context',
+        content: additionalContexts,
+        hookName: 'SessionStart',
+        toolUseID: 'SessionStart',
+        hookEvent: 'SessionStart',
+      } as any) as unknown as ConversationMessage
+    );
+  }
+
+  return yieldedMessages;
+}
+
+// ============================================
 // Export
 // ============================================
 
-export {
-  executePreToolHooks,
-  executePostToolHooks,
-  executePostToolFailureHooks,
-  executeNotificationHooks,
-  executeStopHooks,
-  executeUserPromptSubmitHooks,
-  executeSessionStartHooks,
-  executeSessionEndHooks,
-  executeSubagentStartHooks,
-  executePreCompactHooks,
-  executePermissionRequestHooks,
-  PreCompactHookResult,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

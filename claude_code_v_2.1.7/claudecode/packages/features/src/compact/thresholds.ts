@@ -6,6 +6,7 @@
  */
 
 import { COMPACT_CONSTANTS, type ThresholdResult } from './types.js';
+import { parseBoolean } from '@claudecode/shared';
 
 // ============================================
 // Configuration State
@@ -27,6 +28,8 @@ export function setAutoCompactEnabled(enabled: boolean): void {
  * Original: nc() in chunks.132.mjs
  */
 export function isAutoCompactEnabled(): boolean {
+  if (parseBoolean(process.env.DISABLE_COMPACT)) return false;
+  if (parseBoolean(process.env.DISABLE_AUTO_COMPACT)) return false;
   return autoCompactEnabled;
 }
 
@@ -129,8 +132,18 @@ export async function shouldTriggerAutoCompact(
   messages: unknown[],
   sessionMemoryType?: string
 ): Promise<boolean> {
+  // Mirrors chunks.132.mjs: l97(A, Q) early-return for session_memory
+  if (sessionMemoryType === 'session_memory') {
+    return false;
+  }
+
   // Early exit if no messages
   if (messages.length === 0) {
+    return false;
+  }
+
+  // Mirrors chunks.132.mjs: nc() gating
+  if (!isAutoCompactEnabled()) {
     return false;
   }
 
@@ -159,14 +172,46 @@ export function estimateMessageTokens(messages: unknown[]): number {
         total += Math.ceil(msg.message.content.length / 4);
       } else if (Array.isArray(msg.message.content)) {
         for (const block of msg.message.content) {
-          const b = block as { type: string; text?: string; input?: unknown };
-          if (b.type === 'text' && b.text) {
+          const b = block as {
+            type: string;
+            text?: string;
+            input?: unknown;
+            content?: string | Array<{ type: string; text?: string }>;
+          };
+
+          if (b.type === 'text' && typeof b.text === 'string') {
             total += Math.ceil(b.text.length / 4);
-          } else if (b.type === 'tool_use' && b.input) {
-            total += Math.ceil(JSON.stringify(b.input).length / 4);
-          } else if (b.type === 'image') {
-            total += COMPACT_CONSTANTS.TOKENS_PER_IMAGE;
+            continue;
           }
+
+          if (b.type === 'tool_use' && b.input !== undefined) {
+            total += Math.ceil(JSON.stringify(b.input).length / 4);
+            continue;
+          }
+
+          if (b.type === 'tool_result') {
+            const content = b.content;
+            if (typeof content === 'string') {
+              total += Math.ceil(content.length / 4);
+            } else if (Array.isArray(content)) {
+              for (const item of content) {
+                if (item?.type === 'text' && typeof item.text === 'string') {
+                  total += Math.ceil(item.text.length / 4);
+                } else if (item?.type === 'image') {
+                  total += COMPACT_CONSTANTS.TOKENS_PER_IMAGE;
+                }
+              }
+            }
+            continue;
+          }
+
+          if (b.type === 'image') {
+            total += COMPACT_CONSTANTS.TOKENS_PER_IMAGE;
+            continue;
+          }
+
+          // Fallback: stringify unknown blocks (matches source behavior for unexpected types)
+          total += Math.ceil(JSON.stringify(block).length / 4);
         }
       }
     }
@@ -181,23 +226,12 @@ export function estimateMessageTokens(messages: unknown[]): number {
  */
 export function estimateTokensWithSafetyMargin(messages: unknown[]): number {
   const baseEstimate = estimateMessageTokens(messages);
-  // Add 10% safety margin
-  return Math.ceil(baseEstimate * 1.1);
+  // Source uses a 1.33x safety factor (see chunks.132.mjs: FhA)
+  return Math.ceil(baseEstimate * 1.3333333333333333);
 }
 
 // ============================================
 // Export
 // ============================================
 
-export {
-  setAutoCompactEnabled,
-  isAutoCompactEnabled,
-  setAutoCompactTarget,
-  getAutoCompactTarget,
-  setAvailableTokens,
-  calculateAvailableTokens,
-  calculateThresholds,
-  shouldTriggerAutoCompact,
-  estimateMessageTokens,
-  estimateTokensWithSafetyMargin,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

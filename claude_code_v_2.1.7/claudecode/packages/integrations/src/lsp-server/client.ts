@@ -26,7 +26,7 @@ import { LSP_CONSTANTS } from './types.js';
  * Uses JSON-RPC over stdio to communicate with LSP server.
  */
 export function createLspClient(serverName: string): LspClient {
-  let process: ChildProcess | undefined;
+  let childProcess: ChildProcess | undefined;
   let capabilities: LspServerCapabilities | undefined;
   let isInitialized = false;
   let hasError = false;
@@ -59,12 +59,12 @@ export function createLspClient(serverName: string): LspClient {
   }
 
   function sendMessage(message: object): void {
-    if (!process?.stdin) {
+    if (!childProcess?.stdin) {
       throw new Error('LSP client not started');
     }
     const content = JSON.stringify(message);
     const header = `Content-Length: ${Buffer.byteLength(content)}\r\n\r\n`;
-    process.stdin.write(header + content);
+    childProcess.stdin.write(header + content);
   }
 
   function handleMessage(message: {
@@ -137,7 +137,12 @@ export function createLspClient(serverName: string): LspClient {
         continue;
       }
 
-      const contentLength = parseInt(contentLengthMatch[1], 10);
+      const captured = contentLengthMatch[1];
+      if (!captured) {
+        buffer = buffer.substring(headerEnd + 4);
+        continue;
+      }
+      const contentLength = parseInt(captured, 10);
       const messageStart = headerEnd + 4;
       const messageEnd = messageStart + contentLength;
 
@@ -161,13 +166,13 @@ export function createLspClient(serverName: string): LspClient {
   return {
     async start(command: string, args: string[], options: LspClientStartOptions = {}) {
       // Spawn LSP server process
-      process = spawn(command, args, {
+      childProcess = spawn(command, args, {
         env: { ...process.env, ...options.env },
         cwd: options.cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
-      process.on('error', (error) => {
+      childProcess.on('error', (error) => {
         if (!isShuttingDown) {
           hasError = true;
           lastError = error;
@@ -175,7 +180,7 @@ export function createLspClient(serverName: string): LspClient {
         }
       });
 
-      process.on('exit', (code, signal) => {
+      childProcess.on('exit', (code, signal) => {
         if (!isShuttingDown) {
           isInitialized = false;
           console.log(
@@ -184,11 +189,11 @@ export function createLspClient(serverName: string): LspClient {
         }
       });
 
-      process.stdout?.on('data', (data: Buffer) => {
+      childProcess.stdout?.on('data', (data: Buffer) => {
         parseMessages(data.toString());
       });
 
-      process.stderr?.on('data', (data: Buffer) => {
+      childProcess.stderr?.on('data', (data: Buffer) => {
         console.error(`[LSP ${serverName} stderr]: ${data.toString()}`);
       });
 
@@ -196,7 +201,7 @@ export function createLspClient(serverName: string): LspClient {
     },
 
     async initialize(params: LspInitializeParams): Promise<LspInitializeResult> {
-      if (!process) {
+      if (!childProcess) {
         throw new Error('LSP client not started');
       }
       checkError();
@@ -219,7 +224,7 @@ export function createLspClient(serverName: string): LspClient {
     },
 
     async sendRequest<T>(method: string, params?: unknown): Promise<T> {
-      if (!process) {
+      if (!childProcess) {
         throw new Error('LSP client not started');
       }
       checkError();
@@ -240,7 +245,7 @@ export function createLspClient(serverName: string): LspClient {
     },
 
     async sendNotification(method: string, params?: unknown): Promise<void> {
-      if (!process) {
+      if (!childProcess) {
         throw new Error('LSP client not started');
       }
       checkError();
@@ -261,17 +266,17 @@ export function createLspClient(serverName: string): LspClient {
     async stop(): Promise<void> {
       isShuttingDown = true;
       try {
-        if (process && isInitialized) {
+        if (childProcess && isInitialized) {
           await this.sendRequest(LSP_CONSTANTS.METHODS.SHUTDOWN, null);
           await this.sendNotification(LSP_CONSTANTS.METHODS.EXIT, null);
         }
       } catch (error) {
         // Ignore errors during shutdown
       } finally {
-        if (process) {
-          process.removeAllListeners();
-          process.kill();
-          process = undefined;
+        if (childProcess) {
+          childProcess.removeAllListeners();
+          childProcess.kill();
+          childProcess = undefined;
         }
         isInitialized = false;
         capabilities = undefined;
@@ -295,4 +300,4 @@ export function createLspClient(serverName: string): LspClient {
 // Export
 // ============================================
 
-export { createLspClient };
+// NOTE: createLspClient 已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

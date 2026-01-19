@@ -1,20 +1,62 @@
 /**
  * @claudecode/features - Micro-Compact
  *
- * Micro-compaction for tool results without LLM calls.
- * Reconstructed from chunks.107.mjs:1600-1700
+ * Tool-result micro-compaction (no LLM calls).
+ * Original: lc() / microCompactToolResults in chunks.132.mjs:1111-1224
  */
 
-import type { ConversationMessage, ContentBlock } from '@claudecode/core';
+import { createUserMessage, type ConversationMessage } from '@claudecode/core';
+import { parseBoolean, type ContentBlock } from '@claudecode/shared';
 import type { MicroCompactOptions, MicroCompactResult } from './types.js';
 import { COMPACT_CONSTANTS } from './types.js';
-import { estimateMessageTokens } from './thresholds.js';
+import { calculateThresholds, estimateMessageTokens } from './thresholds.js';
 
 // ============================================
 // Constants
 // ============================================
 
-const CLEARED_MARKER = '[cleared]';
+export const CLEARED_MARKER = '[cleared]';
+
+// Tools whose results are eligible for micro-compaction.
+// Original: x97 = new Set([z3, X9, DI, lI, aR, cI, I8, BY])
+const COMPACTABLE_TOOLS = new Set([
+  'Read',
+  'Bash',
+  'Grep',
+  'Glob',
+  'WebSearch',
+  'WebFetch',
+  'Edit',
+  'Write',
+]);
+
+// Persistent micro-compact state (module-level)
+const compactedToolIds = new Set<string>();
+const toolResultTokenCache = new Map<string, number>();
+let microCompactOccurred = false;
+const microCompactListeners: Array<() => void> = [];
+
+export function didMicroCompactOccur(): boolean {
+  return microCompactOccurred;
+}
+
+export function addMicroCompactListener(listener: () => void): () => void {
+  microCompactListeners.push(listener);
+  return () => {
+    const idx = microCompactListeners.indexOf(listener);
+    if (idx >= 0) microCompactListeners.splice(idx, 1);
+  };
+}
+
+function notifyMicroCompactListeners(): void {
+  for (const l of microCompactListeners) {
+    try {
+      l();
+    } catch {
+      // Ignore listener errors
+    }
+  }
+}
 
 // ============================================
 // Tool Result Analysis
@@ -69,7 +111,7 @@ function findToolResultPairs(
  * @param block - Tool result content block
  * @returns Estimated tokens that would be saved
  */
-function estimateToolResultTokens(block: ContentBlock): number {
+function countMessageTokensForToolResult(block: ContentBlock): number {
   const content = (block as { content?: string | unknown[] }).content;
 
   if (typeof content === 'string') {
@@ -93,6 +135,15 @@ function estimateToolResultTokens(block: ContentBlock): number {
   return 0;
 }
 
+/** Cache token counts for tool results (Original: y97) */
+function getCachedToolResultTokens(toolUseId: string, block: ContentBlock): number {
+  const cached = toolResultTokenCache.get(toolUseId);
+  if (cached !== undefined) return cached;
+  const computed = countMessageTokensForToolResult(block);
+  toolResultTokenCache.set(toolUseId, computed);
+  return computed;
+}
+
 // ============================================
 // Micro-Compact Implementation
 // ============================================
@@ -108,128 +159,152 @@ function estimateToolResultTokens(block: ContentBlock): number {
  * @param options - Micro-compact options
  * @returns Micro-compact result
  */
-export function microCompact(
+/**
+ * Micro-compact tool results.
+ *
+ * Matches chunks.132.mjs behavior:
+ * - Keeps last 3 tool results intact
+ * - Clears older results when total tool-result tokens exceed threshold
+ * - When auto-triggered, also requires (a) above warning threshold and (b) savings >= 20k
+ */
+export async function microCompact(
   messages: ConversationMessage[],
-  options: MicroCompactOptions = {}
-): MicroCompactResult {
-  const {
-    minSavings = COMPACT_CONSTANTS.MICRO_COMPACT_MIN_SAVINGS,
-    recentToKeep = COMPACT_CONSTANTS.RECENT_TOOL_RESULTS_TO_KEEP,
-    threshold = COMPACT_CONSTANTS.MICRO_COMPACT_THRESHOLD,
-  } = options;
+  threshold?: number,
+  context?: { readFileState?: Map<string, unknown> }
+): Promise<{
+  messages: ConversationMessage[];
+  compactionInfo?: { systemMessage?: ConversationMessage };
+  resultsCleared: number;
+  tokensSaved: number;
+}> {
+  microCompactOccurred = false;
 
-  // Find all tool result pairs
-  const pairs = findToolResultPairs(messages);
-
-  if (pairs.size === 0) {
-    return {
-      messages,
-      tokensSaved: 0,
-      resultsCleared: 0,
-    };
+  if (parseBoolean(process.env.DISABLE_MICROCOMPACT)) {
+    return { messages, resultsCleared: 0, tokensSaved: 0 };
   }
 
-  // Sort by result index (most recent last)
-  const sortedPairs = [...pairs.entries()].sort(
-    ([, a], [, b]) => a.resultIndex - b.resultIndex
-  );
+  const hasExplicitThreshold = threshold !== undefined;
+  const targetThreshold = hasExplicitThreshold
+    ? threshold!
+    : COMPACT_CONSTANTS.MICRO_COMPACT_THRESHOLD; // P97 = 40000
 
-  // Determine which results to keep (most recent N)
-  const toKeep = new Set(
-    sortedPairs.slice(-recentToKeep).map(([id]) => id)
-  );
+  // Phase 1: collect compactable tool_use ids and tool_result token counts
+  const toolUseIds: string[] = [];
+  const toolResultTokens = new Map<string, number>();
 
-  // Calculate potential savings
-  let potentialSavings = 0;
-  const toClear: string[] = [];
+  for (const msg of messages) {
+    const m = msg as { type: string; message?: { content?: ContentBlock[] } };
+    if ((m.type !== 'assistant' && m.type !== 'user') || !Array.isArray(m.message?.content)) continue;
 
-  for (const [id, { resultIndex }] of sortedPairs) {
-    if (toKeep.has(id)) continue;
-
-    const msg = messages[resultIndex] as {
-      message?: { content?: ContentBlock[] };
-    };
-
-    if (msg.message?.content) {
-      for (const block of msg.message.content) {
-        if (
-          block.type === 'tool_result' &&
-          (block as { tool_use_id: string }).tool_use_id === id
-        ) {
-          const savings = estimateToolResultTokens(block);
-          potentialSavings += savings;
-          toClear.push(id);
-        }
+    for (const block of m.message.content) {
+      if (block.type === 'tool_use') {
+        const bu = block as { id?: string; name?: string };
+        if (!bu.id || !bu.name) continue;
+        if (!COMPACTABLE_TOOLS.has(bu.name)) continue;
+        if (compactedToolIds.has(bu.id)) continue;
+        toolUseIds.push(bu.id);
+      } else if (block.type === 'tool_result') {
+        const br = block as { tool_use_id?: string };
+        if (!br.tool_use_id) continue;
+        if (!toolUseIds.includes(br.tool_use_id)) continue;
+        const tokens = getCachedToolResultTokens(br.tool_use_id, block);
+        toolResultTokens.set(br.tool_use_id, tokens);
       }
     }
   }
 
-  // Check if savings meet minimum threshold
-  if (potentialSavings < minSavings) {
-    return {
-      messages,
-      tokensSaved: 0,
-      resultsCleared: 0,
-    };
+  if (toolUseIds.length === 0) {
+    return { messages, resultsCleared: 0, tokensSaved: 0 };
   }
 
-  // Check if current token count is above threshold
-  const currentTokens = estimateMessageTokens(messages);
-  if (currentTokens < threshold) {
-    return {
-      messages,
-      tokensSaved: 0,
-      resultsCleared: 0,
-    };
+  // Phase 2: determine which tool results to compact
+  const KEEP_RECENT = COMPACT_CONSTANTS.RECENT_TOOL_RESULTS_TO_KEEP; // S97 = 3
+  const toolsToKeep = new Set(toolUseIds.slice(-KEEP_RECENT));
+  const totalUncompactedTokens = [...toolResultTokens.values()].reduce((a, b) => a + b, 0);
+
+  let tokensToSave = 0;
+  const toolsToCompact = new Set<string>();
+  for (const id of toolUseIds) {
+    if (toolsToKeep.has(id)) continue;
+    if (totalUncompactedTokens - tokensToSave > targetThreshold) {
+      toolsToCompact.add(id);
+      tokensToSave += toolResultTokens.get(id) ?? 0;
+    }
   }
 
-  // Perform micro-compact
-  const clearedIds = new Set(toClear);
-  const modifiedMessages = messages.map((msg) => {
-    const m = msg as {
-      type: string;
-      message?: { content?: ContentBlock[] };
-    };
+  // Phase 3: auto-trigger gating (warning threshold + minimum savings)
+  if (!hasExplicitThreshold) {
+    const currentTokens = estimateMessageTokens(messages);
+    const thresholds = calculateThresholds(currentTokens);
+    if (!thresholds.isAboveWarningThreshold || tokensToSave < COMPACT_CONSTANTS.MICRO_COMPACT_MIN_SAVINGS) {
+      toolsToCompact.clear();
+      tokensToSave = 0;
+    }
+  }
 
-    if (m.type !== 'user' || !Array.isArray(m.message?.content)) {
-      return msg;
+  if (toolsToCompact.size === 0) {
+    return { messages, resultsCleared: 0, tokensSaved: 0 };
+  }
+
+  // Phase 4: readFileState cleanup (only for Read tool)
+  if (context?.readFileState && toolsToCompact.size > 0) {
+    const compactedFilepaths = new Map<string, string>();
+    const keptFilepaths = new Set<string>();
+
+    for (const msg of messages) {
+      const m = msg as { type: string; message?: { content?: ContentBlock[] } };
+      if ((m.type !== 'assistant' && m.type !== 'user') || !Array.isArray(m.message?.content)) continue;
+      for (const block of m.message.content) {
+        if (block.type !== 'tool_use') continue;
+        const tu = block as { id?: string; name?: string; input?: { file_path?: unknown } };
+        if (tu.name !== 'Read' || !tu.id) continue;
+        const fp = tu.input?.file_path;
+        if (typeof fp !== 'string') continue;
+
+        if (toolsToCompact.has(tu.id)) compactedFilepaths.set(fp, tu.id);
+        else keptFilepaths.add(fp);
+      }
     }
 
-    const hasToolResult = m.message.content.some(
-      (block) =>
-        block.type === 'tool_result' &&
-        clearedIds.has((block as { tool_use_id: string }).tool_use_id)
-    );
-
-    if (!hasToolResult) {
-      return msg;
+    for (const [fp] of compactedFilepaths) {
+      if (!keptFilepaths.has(fp)) {
+        context.readFileState.delete(fp);
+      }
     }
+  }
 
-    // Create modified message with cleared tool results
-    return {
-      ...msg,
-      message: {
-        ...m.message,
-        content: m.message.content.map((block) => {
-          if (
-            block.type === 'tool_result' &&
-            clearedIds.has((block as { tool_use_id: string }).tool_use_id)
-          ) {
-            return {
-              ...block,
-              content: CLEARED_MARKER,
-            };
-          }
-          return block;
-        }),
-      },
-    };
+  // Phase 5: replace tool_result content
+  const newMessages = messages.map((msg) => {
+    const m = msg as { type: string; message?: { content?: ContentBlock[] } };
+    if (!Array.isArray(m.message?.content)) return msg;
+
+    const updatedContent = m.message.content.map((block) => {
+      if (block.type !== 'tool_result') return block;
+      const tr = block as { tool_use_id?: string; content?: unknown };
+      if (!tr.tool_use_id || !toolsToCompact.has(tr.tool_use_id)) return block;
+      return { ...block, content: CLEARED_MARKER };
+    });
+
+    return { ...msg, message: { ...m.message, content: updatedContent } };
   });
 
+  // Phase 6: update state & return
+  for (const id of toolsToCompact) compactedToolIds.add(id);
+
+  microCompactOccurred = true;
+  notifyMicroCompactListeners();
+
+  const resultsCleared = toolsToCompact.size;
+  const systemMessage = createUserMessage({
+    content: `<system-reminder>Micro-compact cleared ${resultsCleared} tool result(s) to reduce context size.</system-reminder>`,
+    isMeta: true,
+  }) as unknown as ConversationMessage;
+
   return {
-    messages: modifiedMessages as ConversationMessage[],
-    tokensSaved: potentialSavings,
-    resultsCleared: toClear.length,
+    messages: newMessages as ConversationMessage[],
+    compactionInfo: { systemMessage },
+    resultsCleared,
+    tokensSaved: tokensToSave,
   };
 }
 
@@ -286,7 +361,7 @@ export function shouldMicroCompact(
           block.type === 'tool_result' &&
           (block as { tool_use_id: string }).tool_use_id === id
         ) {
-          potentialSavings += estimateToolResultTokens(block);
+          potentialSavings += countMessageTokensForToolResult(block);
         }
       }
     }
@@ -299,4 +374,4 @@ export function shouldMicroCompact(
 // Export
 // ============================================
 
-export { microCompact, shouldMicroCompact, CLEARED_MARKER };
+// NOTE: 符号已在声明处导出；移除重复导出。

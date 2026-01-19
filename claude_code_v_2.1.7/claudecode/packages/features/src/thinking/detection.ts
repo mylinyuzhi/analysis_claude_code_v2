@@ -211,14 +211,4 @@ export function extractThinkingFromMessage(
 // Export
 // ============================================
 
-export {
-  detectThinkingKeyword,
-  extractKeywordPositions,
-  isModelThinkingCapable,
-  getModelMaxThinkingTokens,
-  getModelThinkingInfo,
-  isThinkingEnabled,
-  getMessageTextContent,
-  thinkingLevelToTokens,
-  extractThinkingFromMessage,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

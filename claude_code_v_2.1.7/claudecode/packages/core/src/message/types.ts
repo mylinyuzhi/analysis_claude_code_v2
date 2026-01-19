@@ -5,7 +5,8 @@
  * Reconstructed from chunks.147.mjs:2314-2596
  */
 
-import type { ContentBlock, ToolResultBlock } from '@claudecode/shared';
+import type { ContentBlock } from '@claudecode/shared';
+import type { ToolResultBlock } from '../tools/types.js';
 
 // ============================================
 // Base Message Fields
@@ -138,7 +139,7 @@ export interface UserMessage extends BaseMessage {
   /** Whether this is a compaction summary */
   isCompactSummary?: boolean;
   /** Tool execution result */
-  toolUseResult?: ToolResultBlock;
+  toolUseResult?: ToolResultBlock | string;
   /** Extended thinking metadata */
   thinkingMetadata?: ThinkingMetadata;
   /** Current todo list state */
@@ -197,6 +198,9 @@ export type AttachmentType =
   | 'file'
   | 'image'
   | 'url'
+  | 'error'
+  | 'interrupted'
+  | 'structured_output'
   | 'hook_blocking_error'
   | 'hook_cancelled'
   | 'hook_error_during_execution'
@@ -214,9 +218,9 @@ export interface Attachment {
   /** File path or URL */
   path?: string;
   /** Attachment content */
-  content?: string;
+  content?: string | string[];
   /** Hook event type */
-  hookEvent?: 'PreToolUse' | 'PostToolUse';
+  hookEvent?: 'PreToolUse' | 'PostToolUse' | 'SubagentStart';
   /** Hook name */
   hookName?: string;
   /** Associated tool use ID */
@@ -297,7 +301,8 @@ export interface CreateUserMessageInput {
   isMeta?: boolean;
   isVisibleInTranscriptOnly?: boolean;
   isCompactSummary?: boolean;
-  toolUseResult?: ToolResultBlock;
+  toolUseResult?: ToolResultBlock | string;
+  isHookOutput?: boolean;
   uuid?: string;
   thinkingMetadata?: ThinkingMetadata;
   timestamp?: string;
@@ -356,27 +361,4 @@ export interface MessageAnalysisCache {
 // Export
 // ============================================
 
-export type {
-  BaseMessage,
-  APIMessage,
-  MessageUsage,
-  AssistantMessage,
-  UserMessageContent,
-  ThinkingMetadata,
-  UserMessage,
-  ProgressDataType,
-  ProgressData,
-  ProgressMessage,
-  AttachmentType,
-  Attachment,
-  AttachmentMessage,
-  SystemMessageSubtype,
-  SystemMessage,
-  ConversationMessage,
-  CreateAssistantMessageInput,
-  CreateUserMessageInput,
-  CreateErrorMessageInput,
-  CreateProgressMessageInput,
-  ToolUseGroup,
-  MessageAnalysisCache,
-};
+// NOTE: 类型已在声明处导出；移除重复聚合导出以避免 TS2484。

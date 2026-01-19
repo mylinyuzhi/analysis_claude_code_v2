@@ -31,6 +31,69 @@ let cachedOAuthTokens: OAuthTokens | null = null;
 let cachedOAuthAccount: OAuthAccount | null = null;
 let isRefreshing = false;
 
+type OAuthTokenEndpointResponse = {
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number | string;
+  token_type?: string;
+  scope?: string;
+};
+
+function parseOAuthTokenEndpointResponse(
+  data: unknown,
+  fallbackRefreshToken?: string
+): TokenRefreshResult {
+  if (!data || typeof data !== 'object') {
+    return {
+      success: false,
+      error: 'Token endpoint returned invalid JSON',
+    };
+  }
+
+  const record = data as Partial<OAuthTokenEndpointResponse> &
+    Record<string, unknown>;
+  const accessToken =
+    typeof record.access_token === 'string' ? record.access_token : undefined;
+
+  if (!accessToken) {
+    return {
+      success: false,
+      error: 'Token endpoint response missing access_token',
+    };
+  }
+
+  const refreshToken =
+    typeof record.refresh_token === 'string'
+      ? record.refresh_token
+      : fallbackRefreshToken;
+
+  const expiresInRaw = record.expires_in;
+  const expiresIn =
+    typeof expiresInRaw === 'number'
+      ? expiresInRaw
+      : typeof expiresInRaw === 'string' && expiresInRaw.trim() !== ''
+        ? Number(expiresInRaw)
+        : undefined;
+
+  const expiresAt = Number.isFinite(expiresIn)
+    ? Date.now() + (expiresIn as number) * 1000
+    : undefined;
+
+  const tokenType =
+    typeof record.token_type === 'string' ? record.token_type : 'Bearer';
+  const scope = typeof record.scope === 'string' ? record.scope : undefined;
+
+  const tokens: OAuthTokens = {
+    accessToken,
+    refreshToken,
+    expiresAt,
+    tokenType,
+    scope,
+  };
+
+  return { success: true, tokens };
+}
+
 // ============================================
 // OAuth Token Management
 // ============================================
@@ -305,19 +368,8 @@ export async function refreshOAuthToken(
       };
     }
 
-    const data = await response.json();
-
-    const tokens: OAuthTokens = {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token || refreshToken,
-      expiresAt: data.expires_in
-        ? Date.now() + data.expires_in * 1000
-        : undefined,
-      tokenType: data.token_type || 'Bearer',
-      scope: data.scope,
-    };
-
-    return { success: true, tokens };
+    const data = (await response.json()) as unknown;
+    return parseOAuthTokenEndpointResponse(data, refreshToken);
   } catch (error) {
     return {
       success: false,
@@ -434,19 +486,8 @@ export async function exchangeCodeForTokens(
       };
     }
 
-    const data = await response.json();
-
-    const tokens: OAuthTokens = {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresAt: data.expires_in
-        ? Date.now() + data.expires_in * 1000
-        : undefined,
-      tokenType: data.token_type || 'Bearer',
-      scope: data.scope,
-    };
-
-    return { success: true, tokens };
+    const data = (await response.json()) as unknown;
+    return parseOAuthTokenEndpointResponse(data);
   } catch (error) {
     return {
       success: false,
@@ -459,21 +500,4 @@ export async function exchangeCodeForTokens(
 // Export
 // ============================================
 
-export {
-  isClaudeAiOAuth,
-  getClaudeAiOAuth,
-  getOAuthTokenSource,
-  shouldUseOAuth,
-  getOAuthAccount,
-  saveOAuthTokens,
-  clearOAuthTokens,
-  isTokenExpiringSoon,
-  getTimeUntilExpiry,
-  refreshOAuthTokenIfNeeded,
-  refreshOAuthToken,
-  generateCodeVerifier,
-  generateCodeChallenge,
-  generateState,
-  buildAuthorizationUrl,
-  exchangeCodeForTokens,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

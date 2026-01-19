@@ -183,9 +183,11 @@ export function parseSourceString(sourceStr: string): PluginSource | null {
   if (sourceStr.startsWith('https://github.com/')) {
     const match = sourceStr.match(/github\.com\/([\w-]+\/[\w-]+)/);
     if (match) {
+      const repo = match[1];
+      if (!repo) return null;
       return {
         source: 'github-default-branch',
-        repo: match[1],
+        repo,
       };
     }
   }
@@ -480,8 +482,10 @@ export async function refreshMarketplace(
 
   // Update last updated time
   const knownMarketplaces = await loadKnownMarketplaces();
-  knownMarketplaces[name].lastUpdated = new Date().toISOString();
-  await saveKnownMarketplaces(knownMarketplaces);
+  if (knownMarketplaces[name]) {
+    knownMarketplaces[name].lastUpdated = new Date().toISOString();
+    await saveKnownMarketplaces(knownMarketplaces);
+  }
 
   return marketplace;
 }
@@ -552,23 +556,4 @@ export async function searchPlugins(
 // Export
 // ============================================
 
-export {
-  getPluginsDir,
-  getKnownMarketplacesPath,
-  getMarketplacesCacheDir,
-  getMarketplaceInstallPath,
-  loadKnownMarketplaces,
-  saveKnownMarketplaces,
-  getKnownMarketplace,
-  formatSourceName,
-  parseSourceString,
-  loadMarketplaceSource,
-  loadMarketplace,
-  validateMarketplaceName,
-  addMarketplaceSource,
-  removeMarketplace,
-  refreshMarketplace,
-  listMarketplaces,
-  findPluginInMarketplace,
-  searchPlugins,
-};
+// NOTE: 本文件函数已在声明处导出；移除重复聚合导出。

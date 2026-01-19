@@ -580,19 +580,4 @@ export function shellOperatorChecker(command: string): SecurityCheckResult {
 // Export
 // ============================================
 
-export {
-  checkEmptyCommand,
-  checkIncompleteCommand,
-  checkHeredocInSubstitution,
-  checkGitCommitMessage,
-  checkJqDanger,
-  checkObfuscatedFlags,
-  checkShellMetacharacters,
-  checkDangerousVariables,
-  checkNewlineInjection,
-  checkIfsInjection,
-  checkProcEnvironAccess,
-  checkDangerousSubstitution,
-  checkMalformedTokens,
-  shellOperatorChecker,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

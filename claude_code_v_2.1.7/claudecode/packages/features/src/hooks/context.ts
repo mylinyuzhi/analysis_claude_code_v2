@@ -7,25 +7,23 @@
 
 import type { HookEnvironmentContext } from './types.js';
 
-// ============================================
-// Session ID Management (Placeholder)
-// ============================================
-
-let currentSessionId: string | null = null;
+import { getCwd, getProjectRoot, getSessionId, setSessionId, getSessionPath, getProjectDir } from '@claudecode/shared';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 /**
  * Get current session ID.
  * Original: q0 in chunks.1.mjs
  */
 export function getCurrentSessionId(): string {
-  return currentSessionId || `session_${Date.now()}`;
+  return getSessionId();
 }
 
 /**
  * Set current session ID.
  */
 export function setCurrentSessionId(sessionId: string): void {
-  currentSessionId = sessionId;
+  setSessionId(sessionId);
 }
 
 // ============================================
@@ -37,9 +35,8 @@ export function setCurrentSessionId(sessionId: string): void {
  * Original: Bw in chunks.1.mjs
  */
 export function getSessionTranscriptPath(sessionId: string): string {
-  // Placeholder - would return actual transcript path
-  const homeDir = process.env.HOME || '~';
-  return `${homeDir}/.claude/transcripts/${sessionId}.jsonl`;
+  // Session log is persisted under the project cache directory.
+  return getSessionPath(sessionId, getProjectRoot());
 }
 
 /**
@@ -47,9 +44,11 @@ export function getSessionTranscriptPath(sessionId: string): string {
  * Original: yb in chunks.1.mjs
  */
 export function getAgentTranscriptPath(agentId: string): string {
-  // Placeholder - would return actual agent transcript path
-  const homeDir = process.env.HOME || '~';
-  return `${homeDir}/.claude/agents/${agentId}/transcript.jsonl`;
+  // Mirrors v2.1.x layout: <projectDir>/<sessionId>/agents/<agentId>/transcript.jsonl
+  // Note: agent transcript directory helpers are defined elsewhere in the codebase.
+  const projectDir = getProjectDir(getProjectRoot());
+  const sessionId = getSessionId();
+  return join(projectDir, sessionId, 'agents', agentId, 'transcript.jsonl');
 }
 
 // ============================================
@@ -61,7 +60,7 @@ export function getAgentTranscriptPath(agentId: string): string {
  * Original: o1 in chunks.1.mjs
  */
 export function getCurrentWorkingDirectory(): string {
-  return process.cwd();
+  return getCwd();
 }
 
 /**
@@ -69,8 +68,7 @@ export function getCurrentWorkingDirectory(): string {
  * Original: EQ in chunks.1.mjs
  */
 export function getProjectDirectory(): string {
-  // Placeholder - would find git root or similar
-  return process.cwd();
+  return getProjectRoot();
 }
 
 // ============================================
@@ -108,21 +106,12 @@ export function createHookEnvironmentContext(
  * Original: SA2 in chunks.120.mjs
  */
 export function getEnvFilePath(hookIndex: number): string {
-  const homeDir = process.env.HOME || '~';
-  return `${homeDir}/.claude/.env.hook.${hookIndex}`;
+  // Mirrors chunks.85.mjs: SA2(PA2(), `hook-${idx}.sh`) where PA2() is a temp session-env dir.
+  return join(tmpdir(), 'claude', 'session-env', getSessionId(), `hook-${hookIndex}.sh`);
 }
 
 // ============================================
 // Export
 // ============================================
 
-export {
-  getCurrentSessionId,
-  setCurrentSessionId,
-  getSessionTranscriptPath,
-  getAgentTranscriptPath,
-  getCurrentWorkingDirectory,
-  getProjectDirectory,
-  createHookEnvironmentContext,
-  getEnvFilePath,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

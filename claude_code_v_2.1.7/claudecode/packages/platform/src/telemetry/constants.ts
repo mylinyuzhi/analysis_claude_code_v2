@@ -218,18 +218,4 @@ export const COMMON_EVENTS = {
 // Export
 // ============================================
 
-export {
-  OTEL_DEFAULT_CONFIG,
-  OTEL_LOGGER_NAME,
-  OTEL_SERVICE_NAME,
-  DATADOG_CONFIG,
-  DATADOG_TRACKED_EVENTS,
-  DATADOG_ALLOWED_TAGS,
-  SEGMENT_WRITE_KEYS,
-  getSegmentConfig,
-  FEATURE_GATES,
-  TELEMETRY_ENV_VARS,
-  PERFORMANCE_CHECKPOINTS,
-  EVENT_PREFIX,
-  COMMON_EVENTS,
-};
+// NOTE: 常量/函数已在声明处导出；移除重复聚合导出。

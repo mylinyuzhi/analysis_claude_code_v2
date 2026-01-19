@@ -69,7 +69,7 @@ const TELEMETRY_SAMPLE_RATE = 0.05;
  * Wrap a generator with error handling.
  * Original: fJ in chunks.131.mjs
  */
-async function wrapWithErrorHandling<T>(
+export async function wrapWithErrorHandling<T>(
   name: string,
   generator: () => Promise<T>
 ): Promise<{ result: T | null; error: Error | null }> {
@@ -191,7 +191,7 @@ export async function generateAllAttachments(
 /**
  * Build list of generators based on current state.
  */
-function buildGeneratorList(
+export function buildGeneratorList(
   ctx: AttachmentContext,
   appState: Awaited<ReturnType<AttachmentContext['getAppState']>>,
   turnIndex: number
@@ -386,10 +386,4 @@ export async function* generateAttachmentsStreaming(
 // Export
 // ============================================
 
-export {
-  generateAllAttachments,
-  wrapWithErrorHandling,
-  buildGeneratorList,
-  wrapAttachmentMessage,
-  generateAttachmentsStreaming,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

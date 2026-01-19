@@ -36,8 +36,9 @@ import type {
   EditedTextFileAttachment,
   VerifyPlanReminderAttachment,
   CollabNotificationAttachment,
-  ATTACHMENT_CONSTANTS,
 } from './types.js';
+
+import { ATTACHMENT_CONSTANTS } from './types.js';
 
 // ============================================
 // Generator Result Type
@@ -582,27 +583,4 @@ function generateDiffSnippet(oldContent: string, newContent: string): string | n
 // Export
 // ============================================
 
-export {
-  generateTodoAttachment,
-  generateTodoReminderAttachment,
-  generatePlanModeAttachment,
-  generatePlanModeExitAttachment,
-  generateVerifyPlanReminderAttachment,
-  generateDelegateModeAttachment,
-  generateMemoryAttachment,
-  generateTaskStatusAttachment,
-  generateDiagnosticsAttachment,
-  generateIdeSelectionAttachment,
-  generateOpenedFileInIdeAttachment,
-  generateOutputStyleAttachment,
-  generateTokenUsageAttachment,
-  generateBudgetAttachment,
-  generateInvokedSkillsAttachment,
-  generateCriticalSystemReminderAttachment,
-  generateHookBlockingErrorAttachment,
-  generateHookSuccessAttachment,
-  generateHookAdditionalContextAttachment,
-  generateEditedTextFileAttachment,
-  generateCollabNotificationAttachment,
-  generateChangedFilesAttachment,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

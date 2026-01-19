@@ -330,18 +330,4 @@ export function createCancelledToolResult(toolUseId: string): {
 // Export
 // ============================================
 
-export {
-  EMPTY_CONTENT_PLACEHOLDER,
-  createAssistantMessage,
-  createTextAssistantMessage,
-  createErrorMessage,
-  createUserMessage,
-  createUserMessageWithPrecedingBlocks,
-  createContinuationPrompt,
-  createLocalCommandCaveat,
-  createProgressMessage,
-  createSystemMessage,
-  createCancelledToolResult,
-  setCurrentModel,
-  getCurrentModel,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

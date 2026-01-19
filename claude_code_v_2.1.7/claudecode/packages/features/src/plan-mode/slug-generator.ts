@@ -76,7 +76,11 @@ const ACTIONS = [
  * Get random element from array.
  */
 function randomChoice<T>(array: T[]): T {
-  return array[Math.floor(Math.random() * array.length)];
+  if (array.length === 0) {
+    throw new Error('randomChoice() called with empty array');
+  }
+  const idx = Math.floor(Math.random() * array.length);
+  return array[idx]!;
 }
 
 // ============================================
@@ -106,4 +110,4 @@ export const TOTAL_COMBINATIONS = ADJECTIVES.length * ACTIONS.length * NOUNS.len
 // Export
 // ============================================
 
-export { generateSlug, TOTAL_COMBINATIONS, ADJECTIVES, ACTIONS, NOUNS };
+// NOTE: 符号已在声明处导出；移除重复导出。

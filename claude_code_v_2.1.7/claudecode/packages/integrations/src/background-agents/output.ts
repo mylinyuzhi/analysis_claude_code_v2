@@ -253,17 +253,4 @@ export async function waitForPendingWrites(taskId: string): Promise<void> {
 // Export
 // ============================================
 
-export {
-  getAgentOutputDir,
-  formatOutputPath,
-  ensureOutputDirExists,
-  createEmptyOutputFile,
-  registerOutputFile,
-  appendToOutputFile,
-  getTaskOutputContent,
-  writeOutputFile,
-  outputFileExists,
-  deleteOutputFile,
-  clearPendingWrite,
-  waitForPendingWrites,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免构建期重复导出报错。

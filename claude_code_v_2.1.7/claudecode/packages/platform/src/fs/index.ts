@@ -559,24 +559,4 @@ export function wasFileModifiedSinceRead(
   return true;
 }
 
-// ============================================
-// Export
-// ============================================
-
-export {
-  FileSystemWrapper,
-  detectEncoding,
-  normalizeLineEndings,
-  detectLineEnding,
-  getFileModifiedTime,
-  resolvePath,
-  isAbsolutePath,
-  joinPath,
-  dirname,
-  basename,
-  extname,
-  recordFileRead,
-  wasFileRead,
-  getFileReadRecord,
-  wasFileModifiedSinceRead,
-};
+// Note: exports are declared inline above.

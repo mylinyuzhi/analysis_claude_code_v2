@@ -5,7 +5,8 @@
  * Reconstructed from chunks.132.mjs, chunks.107.mjs
  */
 
-import type { ConversationMessage, ContentBlock } from '@claudecode/core';
+import type { ConversationMessage } from '@claudecode/core';
+import type { ContentBlock } from '@claudecode/shared';
 
 // ============================================
 // Constants
@@ -73,10 +74,17 @@ export interface ThresholdResult {
  * Boundary marker for compact events
  */
 export interface BoundaryMarker {
-  type: 'compact_boundary';
-  trigger: 'auto' | 'manual';
-  preCompactTokenCount: number;
+  type: 'system';
+  subtype: 'compact_boundary';
+  content: string;
+  isMeta: boolean;
   timestamp: string;
+  uuid: string;
+  level: 'info';
+  compactMetadata: {
+    trigger: 'auto' | 'manual';
+    preTokens: number;
+  };
 }
 
 /**
@@ -118,6 +126,8 @@ export interface FullCompactResult {
   boundaryMarker: BoundaryMarker;
   /** Summary messages to replace original conversation */
   summaryMessages: ConversationMessage[];
+  /** Optional tail of recent messages to preserve verbatim (session-memory compact) */
+  messagesToKeep?: ConversationMessage[];
   /** Restored context attachments */
   attachments: CompactAttachment[];
   /** SessionStart hook results */
@@ -263,21 +273,4 @@ export class CompactError extends Error {
 // Export
 // ============================================
 
-export {
-  COMPACT_CONSTANTS,
-  ThresholdResult,
-  BoundaryMarker,
-  PreCompactHookResult,
-  CompactUsageStats,
-  CompactAttachment,
-  FullCompactResult,
-  SessionMemoryCompactResult,
-  AutoCompactResult,
-  SessionMemoryType,
-  SessionMemoryConfig,
-  MicroCompactOptions,
-  MicroCompactResult,
-  CompactSessionContext,
-  CompactErrorCode,
-  CompactError,
-};
+// NOTE: 类型/常量已在声明处导出；移除重复聚合导出。

@@ -37,9 +37,9 @@ export * as chrome from './chrome/index.js';
 // Re-export commonly used Chrome functions at top level
 export {
   ChromeSocketClient,
-  CHROME_TOOLS,
-  getChromeMcpConfig,
-  getChromeMcpSkill,
+  CHROME_MCP_TOOLS,
+  CHROME_SKILL_CONFIG,
+  CHROME_SKILL_PROMPT,
   CHROME_CONSTANTS,
 } from './chrome/index.js';
 

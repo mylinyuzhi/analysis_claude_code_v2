@@ -12,8 +12,14 @@
  * - C97 → createTaskStatusAttachments
  */
 
-import { generateUUID, getGlobalState } from '@claudecode/shared';
-import type { CompactAttachment, CompactSessionContext } from './types.js';
+import {
+  generateUUID,
+  getGlobalState,
+  getProjectRoot,
+  getSessionId,
+  getSessionPath,
+} from '@claudecode/shared';
+import type { BoundaryMarker, CompactAttachment, CompactSessionContext } from './types.js';
 import { COMPACT_CONSTANTS } from './types.js';
 import {
   getPlanFilePath,
@@ -378,17 +384,19 @@ export async function createTaskStatusAttachments(
 export function createBoundaryMarker(
   trigger: 'auto' | 'manual',
   preCompactTokenCount: number
-): {
-  type: 'compact_boundary';
-  trigger: 'auto' | 'manual';
-  preCompactTokenCount: number;
-  timestamp: string;
-} {
+): BoundaryMarker {
   return {
-    type: 'compact_boundary',
-    trigger,
-    preCompactTokenCount,
+    type: 'system',
+    subtype: 'compact_boundary',
+    content: 'Conversation compacted',
+    isMeta: false,
     timestamp: new Date().toISOString(),
+    uuid: generateUUID(),
+    level: 'info',
+    compactMetadata: {
+      trigger,
+      preTokens: preCompactTokenCount,
+    },
   };
 }
 
@@ -400,9 +408,9 @@ export function createBoundaryMarker(
  * Generate conversation ID for boundary.
  * Original: Bw() in chunks.132.mjs
  */
-export function generateConversationId(agentId?: string): string {
-  const base = agentId ?? 'main';
-  return `${base}-${generateUUID().slice(0, 8)}`;
+export function generateConversationId(_agentId?: string): string {
+  // NOTE: Despite the name, original Bw() returns the current session transcript path.
+  return getSessionPath(getSessionId(), getProjectRoot());
 }
 
 /**
@@ -417,14 +425,23 @@ export function generateConversationId(agentId?: string): string {
 export function formatSummaryContent(
   summaryText: string,
   preserveHistory: boolean,
-  conversationId: string
+  transcriptPath?: string,
+  recentMessagesPreserved?: boolean
 ): string {
-  const header = `[Conversation Summary - ID: ${conversationId}]`;
-  const preserveNote = preserveHistory
-    ? '\n\n(Previous conversation history preserved for reference)'
-    : '';
+  const normalized = summaryText.replace(/\n\n+/g, '\n\n').trim();
 
-  return `${header}\n\n${summaryText}${preserveNote}`;
+  let out = `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\n\n${normalized}`;
+
+  if (transcriptPath) {
+    out += `\n\nIf you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: ${transcriptPath}`;
+  }
+  if (recentMessagesPreserved) {
+    out += `\n\nRecent messages are preserved verbatim.`;
+  }
+  if (preserveHistory) {
+    out += `\nPlease continue the conversation from where we left it off without asking the user any further questions. Continue with the last task that you were asked to work on.`;
+  }
+  return out;
 }
 
 // ============================================
@@ -488,33 +505,4 @@ export async function collectContextAttachments(
 // Export
 // ============================================
 
-export {
-  // File restoration
-  restoreRecentFilesAfterCompact,
-
-  // Todo restoration
-  getTodoItems,
-  getTodoItemsAsync,
-  createTodoAttachment,
-
-  // Plan restoration
-  getCurrentPlanFilePath,
-  readPlanFile,
-  createPlanFileReferenceAttachment,
-
-  // Skills restoration
-  getInvokedSkills,
-  createInvokedSkillsAttachment,
-
-  // Task restoration
-  getActiveTaskStatuses,
-  createTaskStatusAttachments,
-
-  // Boundary and formatting
-  createBoundaryMarker,
-  generateConversationId,
-  formatSummaryContent,
-
-  // Main collection function
-  collectContextAttachments,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

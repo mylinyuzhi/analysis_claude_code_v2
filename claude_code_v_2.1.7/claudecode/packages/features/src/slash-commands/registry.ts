@@ -5,8 +5,218 @@
  * Reconstructed from chunks.146.mjs
  */
 
-import type { SlashCommand, CommandRegistry } from './types.js';
+import type {
+  SlashCommand,
+  PromptCommand,
+  CommandRegistry,
+  CommandExecutionContext,
+  CommandDisplayOptions,
+} from './types.js';
 import { COMMAND_CONSTANTS } from './types.js';
+
+// ============================================
+// Built-in Commands (Source: bundled runtime)
+// ============================================
+
+type MemoizeFn<T> = () => T;
+function memoize<T>(fn: MemoizeFn<T>): MemoizeFn<T> {
+  let hasValue = false;
+  let value: T;
+  return () => {
+    if (!hasValue) {
+      value = fn();
+      hasValue = true;
+    }
+    return value;
+  };
+}
+
+/**
+ * Return all built-in slash commands.
+ *
+ * In the real runtime, these are assembled from multiple chunks via a memoized
+ * function (see `source/chunks.146.mjs` → `nY9`). Here we restore the current
+ * built-in surface area as declarative command objects.
+ */
+export const getAllBuiltinCommands = memoize((): SlashCommand[] => {
+  const localJsx = (
+    name: string,
+    description: string,
+    opts?: Partial<Omit<SlashCommand, 'name' | 'type' | 'description'>>
+  ): SlashCommand =>
+    ({
+      type: 'local-jsx',
+      name,
+      description,
+      aliases: [],
+      isEnabled: () => true,
+      isHidden: false,
+      userFacingName: () => name,
+      async call(
+        onComplete: (output: string, displayOptions?: CommandDisplayOptions) => void,
+        _context: CommandExecutionContext,
+        _args: string
+      ) {
+        // Restored as a stub: interactive UI components live in the bundled runtime.
+        onComplete('', { display: 'skip', shouldQuery: false });
+        return null;
+      },
+      ...(opts ?? {}),
+      loadedFrom: 'builtin',
+    }) as unknown as SlashCommand;
+
+  const local = (
+    name: string,
+    description: string,
+    opts?: Partial<Omit<SlashCommand, 'name' | 'type' | 'description'>>
+  ): SlashCommand =>
+    ({
+      type: 'local',
+      name,
+      description,
+      aliases: [],
+      isEnabled: () => true,
+      isHidden: false,
+      supportsNonInteractive: false,
+      userFacingName: () => name,
+      async call(_args: string, _context: CommandExecutionContext) {
+        // Restored as a stub: actual effects (state mutation, config writes, etc)
+        // are implemented in the bundled runtime.
+        return { type: 'text', value: '' };
+      },
+      ...(opts ?? {}),
+      loadedFrom: 'builtin',
+    }) as unknown as SlashCommand;
+
+  const prompt = (
+    name: string,
+    description: string,
+    opts?: Partial<Omit<PromptCommand, 'name' | 'type' | 'description'>>
+  ): PromptCommand =>
+    ({
+      type: 'prompt',
+      name,
+      description,
+      aliases: [],
+      isEnabled: () => true,
+      isHidden: false,
+      userFacingName: () => name,
+      async getPromptForCommand(args: string, _context: CommandExecutionContext) {
+        return [{
+          type: 'text',
+          text: `Built-in prompt command: /${name}\n\nArgs: ${args}`,
+        }];
+      },
+      ...(opts ?? {}),
+      loadedFrom: 'builtin',
+    }) as unknown as PromptCommand;
+
+  // The following list mirrors the current bundled command surface.
+  return [
+    // Common UX
+    localJsx('help', 'Show help and available commands', { aliases: ['?'] }),
+    localJsx('discover', 'Explore Claude Code features and track your progress'),
+    local('clear', 'Clear conversation history and free up context', {
+      aliases: ['reset', 'new'],
+    }),
+    local('compact', 'Clear conversation history but keep a summary in context. Optional: /compact [instructions for summarization]', {
+      argumentHint: '[instructions]',
+    }),
+    localJsx('config', 'Open config panel', { aliases: ['theme'] }),
+    localJsx('model', 'Set the AI model'),
+    localJsx('permissions', 'Show and manage tool permissions'),
+    localJsx('status', 'Show status', { aliases: ['info'] }),
+    localJsx('todos', 'Show current todo list'),
+    localJsx('tasks', 'Show background tasks'),
+    localJsx('feedback', 'Send feedback about Claude Code'),
+    localJsx('usage', 'Show your Claude Code usage statistics and activity'),
+    localJsx('stats', 'Show your Claude Code usage statistics and activity'),
+    local('vim', 'Toggle between Vim and Normal editing modes'),
+
+    // Context / files / hooks
+    localJsx('context', 'See the context sent to Claude'),
+    localJsx('add-dir', 'Add a directory to the project context'),
+    local('files', 'List tracked files and context'),
+    localJsx('hooks', 'View and manage hooks'),
+
+    // Auth / platform / integrations
+    localJsx('login', 'Sign in with your Anthropic account', {
+      isEnabled: () => !process.env.DISABLE_LOGIN_COMMAND,
+    }),
+    localJsx('logout', 'Sign out of your Anthropic account'),
+    localJsx('ide', 'IDE integration settings'),
+    localJsx('mcp', 'MCP server management'),
+    localJsx('memory', 'Edit CLAUDE.md project memory'),
+    localJsx('plugin', 'Manage plugins'),
+
+    // Environment setup
+    localJsx('terminal-setup', 'Install Shift+Enter key binding for newlines'),
+    localJsx('install', 'Install Claude Code native build', { argumentHint: '[options]' }),
+
+    // Diagnostics / settings
+    local('color', 'Configure terminal color output'),
+    local('cost', 'Show token usage and cost statistics'),
+    localJsx('doctor', 'Diagnose and verify your Claude Code installation and settings', {
+      isEnabled: () => !process.env.DISABLE_DOCTOR_COMMAND,
+    }),
+    localJsx('privacy-settings', 'Manage privacy settings'),
+    localJsx('rate-limit-options', 'Configure rate limit options'),
+    localJsx('remote-env', 'Show remote environment information'),
+    localJsx('output-style', 'Configure output style'),
+
+    // Planning
+    localJsx('plan', 'Toggle plan mode for implementation planning'),
+
+    // Session / export
+    localJsx('resume', 'Resume a previous conversation'),
+    localJsx('export', 'Export session/transcript'),
+    localJsx('exit', 'Exit Claude Code'),
+
+    // Misc
+    localJsx('theme', 'Configure theme'),
+    localJsx('passes', 'Show evaluation passes'),
+    localJsx('think-back', 'Browse past thoughts'),
+    local('thinkback-play', 'Play back a saved thought'),
+    local('btw', 'Show a quick tip'),
+    local('stickers', 'Show stickers'),
+    localJsx('tag', 'Tag the current session'),
+    localJsx('mobile', 'Mobile app integration'),
+    localJsx('agents', 'List available agents'),
+    localJsx('skills', 'List available skills'),
+    localJsx('extra-usage', 'Show extra usage details'),
+    localJsx('upgrade', 'Upgrade Claude Code'),
+
+    // Prompt commands
+    prompt('init', 'Initialize CLAUDE.md file for the project'),
+    prompt('review', 'Review a pull request'),
+    prompt('pr-comments', 'Get comments from a GitHub pull request'),
+    prompt("statusline", "Set up Claude Code's status line UI", {
+      progressMessage: 'setting up statusLine',
+      allowedTools: ['Task', 'Read(~/**)', 'Edit(~/.claude/settings.json)'],
+      supportsNonInteractive: false,
+      async getPromptForCommand(args: string) {
+        const trimmed = args.trim();
+        const defaultPrompt = 'Configure my statusLine from my shell PS1 configuration';
+        return [
+          {
+            type: 'text',
+            text: `Create a Task with subagent_type "statusline-setup" and the prompt "${
+              trimmed || defaultPrompt
+            }"`,
+          },
+        ];
+      },
+    }),
+    localJsx('release-notes', 'Show release notes'),
+    local('rename', 'Rename the current session'),
+    local('install-slack-app', 'Install Slack app'),
+    localJsx('install-github-app', 'Install GitHub app'),
+  ];
+});
+
+export const getBuiltinCommandNames = memoize(() =>
+  new Set(getAllBuiltinCommands().map((c) => c.name))
+);
 
 // ============================================
 // Command Registry Class
@@ -130,6 +340,14 @@ let registryInstance: SlashCommandRegistry | null = null;
 export function getCommandRegistry(): SlashCommandRegistry {
   if (!registryInstance) {
     registryInstance = new SlashCommandRegistry();
+    // Auto-register built-in commands so downstream parsing can classify reliably.
+    // NOTE: call `registryInstance.register` directly to avoid recursion via `registerBuiltinCommands()`.
+    for (const command of getAllBuiltinCommands()) {
+      registryInstance.register({
+        ...command,
+        loadedFrom: 'builtin',
+      });
+    }
   }
   return registryInstance;
 }
@@ -202,8 +420,12 @@ export function lookupCommand(commandName: string): SlashCommand | undefined {
  * Check if command name is a built-in command.
  */
 export function isBuiltinCommand(commandName: string): boolean {
-  return COMMAND_CONSTANTS.BUILTIN_COMMANDS.includes(
-    commandName as (typeof COMMAND_CONSTANTS.BUILTIN_COMMANDS)[number]
+  // Prefer the runtime-derived set; fall back to constants.
+  return (
+    getBuiltinCommandNames().has(commandName) ||
+    COMMAND_CONSTANTS.BUILTIN_COMMANDS.includes(
+      commandName as (typeof COMMAND_CONSTANTS.BUILTIN_COMMANDS)[number]
+    )
   );
 }
 
@@ -211,12 +433,4 @@ export function isBuiltinCommand(commandName: string): boolean {
 // Export
 // ============================================
 
-export {
-  SlashCommandRegistry,
-  getCommandRegistry,
-  resetCommandRegistry,
-  createBuiltinCommand,
-  registerBuiltinCommands,
-  lookupCommand,
-  isBuiltinCommand,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

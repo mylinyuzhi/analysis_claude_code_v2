@@ -40,6 +40,8 @@ export interface CreateToolOptions<TInput, TOutput> {
   isEnabled?: () => boolean;
   isConcurrencySafe?: (input?: TInput) => boolean;
   isReadOnly?: (input?: TInput) => boolean;
+  /** Whether tool execution inherently requires user interaction (e.g. UI prompts). */
+  requiresUserInteraction?: (input?: TInput) => boolean;
   isSearchOrReadCommand?: (input: TInput) => { isSearch: boolean; isRead: boolean };
   getPath?: (input: TInput) => string;
 
@@ -89,6 +91,7 @@ export function createTool<TInput, TOutput>(
     isEnabled: options.isEnabled ?? (() => true),
     isConcurrencySafe: options.isConcurrencySafe ?? (() => true),
     isReadOnly: options.isReadOnly ?? (() => true),
+    requiresUserInteraction: options.requiresUserInteraction ?? (() => false),
     isSearchOrReadCommand: options.isSearchOrReadCommand,
     getPath: options.getPath,
 
@@ -269,19 +272,4 @@ export function isPdfExtension(filePath: string): boolean {
 // Export
 // ============================================
 
-export {
-  createTool,
-  validationSuccess,
-  validationError,
-  permissionAllow,
-  permissionDeny,
-  permissionAsk,
-  toolSuccess,
-  toolError,
-  isPermissionDeniedPath,
-  isUncPath,
-  isBinaryExtension,
-  isImageExtension,
-  isNotebookExtension,
-  isPdfExtension,
-};
+// NOTE: 本文件内函数已使用 `export` 导出；移除重复聚合导出。

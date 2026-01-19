@@ -36,8 +36,8 @@
     }
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsup src/index.ts src/compact/index.ts src/plan-mode/index.ts src/hooks/index.ts src/skills/index.ts src/slash-commands/index.ts src/thinking/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts src/compact/index.ts src/plan-mode/index.ts src/hooks/index.ts src/skills/index.ts src/slash-commands/index.ts src/thinking/index.ts --format esm --dts --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },

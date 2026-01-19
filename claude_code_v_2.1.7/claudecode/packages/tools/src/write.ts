@@ -270,4 +270,4 @@ Usage:
 // Export
 // ============================================
 
-export { WriteTool };
+// NOTE: WriteTool 已在声明处导出；避免重复导出。

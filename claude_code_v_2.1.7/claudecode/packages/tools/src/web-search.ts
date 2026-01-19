@@ -287,4 +287,4 @@ IMPORTANT - Use the correct year in search queries:
 // Export
 // ============================================
 
-export { WebSearchTool };
+// NOTE: WebSearchTool 已在声明处导出；避免重复导出。

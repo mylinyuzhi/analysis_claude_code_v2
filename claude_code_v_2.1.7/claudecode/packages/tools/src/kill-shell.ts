@@ -210,4 +210,4 @@ export const KillShellTool = createTool<KillShellInput, KillShellOutput>({
 // Export
 // ============================================
 
-export { KillShellTool };
+// NOTE: KillShellTool 已在声明处导出；避免重复导出。

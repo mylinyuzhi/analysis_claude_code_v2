@@ -252,21 +252,4 @@ export const CLI_CONSTANTS = {
   VERSION: '2.1.7',
 } as const;
 
-// ============================================
-// Export
-// ============================================
-
-export type {
-  PermissionMode,
-  OutputFormat,
-  InputFormat,
-  ModelOption,
-  CLIOptions,
-  ParsedCLIArgs,
-  Subcommand,
-  ConfigSubcommandOptions,
-  McpSubcommandOptions,
-  ExecutionMode,
-  ExecutionContext,
-  VersionInfo,
-};
+// NOTE: 类型已在声明处通过 `export type` 导出；避免重复聚合导出导致冲突。

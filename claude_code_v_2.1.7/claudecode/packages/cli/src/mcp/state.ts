@@ -1,18 +1,21 @@
 /**
  * @claudecode/cli - MCP State Manager
  *
- * Manages MCP server connections and state for CLI commands.
- * Reconstructed from cli.chunks.mjs analysis.
+ * CLI MCP 状态管理：复用 @claudecode/integrations/mcp 的 config/connection/discovery。
+ *
+ * 背景：早期还原版本在 CLI 内自建了一个“仅 stdio JSON-RPC”的简化 MCP client，
+ * 缺少 source 行为中的多 transport（sse/http/ide）、capabilities、keepalive、telemetry。
  */
 
-import { spawn, type ChildProcess } from 'child_process';
 import {
-  getMcpServers,
-  isServerDisabled,
-  isServerApproved,
-  substituteConfigEnvVars,
+  loadAllMcpConfig,
+  batchInitializeAllServers,
+  connectMcpServer as connectMcpServerFromIntegrations,
+  executeMcpTool,
   type McpServerConfig,
-} from '../settings/loader.js';
+  type McpServerConnection,
+  type McpConnectedServer,
+} from '@claudecode/integrations';
 
 // ============================================
 // Types
@@ -21,7 +24,7 @@ import {
 /**
  * MCP client connection status.
  */
-export type McpClientStatus = 'connected' | 'pending' | 'failed' | 'disabled';
+export type McpClientStatus = 'connected' | 'pending' | 'failed' | 'disabled' | 'needs-auth';
 
 /**
  * MCP server info for display.
@@ -63,19 +66,15 @@ export interface McpClientWrapper {
   name: string;
   status: McpClientStatus;
   config: McpServerConfig;
-  process?: ChildProcess;
   capabilities?: {
     tools?: boolean;
     resources?: boolean;
     prompts?: boolean;
   };
   error?: string;
-  requestId: number;
-  pendingRequests: Map<number, {
-    resolve: (value: unknown) => void;
-    reject: (error: Error) => void;
-  }>;
-  buffer: string;
+
+  /** integrations 连接对象（connected/failed/disabled/pending/needs-auth） */
+  connection?: McpServerConnection;
 }
 
 /**
@@ -123,10 +122,22 @@ export function isMcpInitialized(): boolean {
  * Reset MCP state.
  */
 export function resetMcpState(): void {
-  // Close all client processes
+  // Close all MCP connections (best-effort)
   for (const client of mcpState.clients.values()) {
-    if (client.process && !client.process.killed) {
-      client.process.kill();
+    const conn = client.connection;
+    if (conn && conn.type === 'connected') {
+      try {
+        const cleanup = conn.cleanup;
+        if (typeof cleanup === 'function') {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          Promise.resolve(cleanup());
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          conn.client.close();
+        }
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -140,382 +151,112 @@ export function resetMcpState(): void {
 }
 
 // ============================================
-// Client Communication
-// ============================================
-
-/**
- * Send JSON-RPC request to MCP server.
- */
-async function sendRequest(
-  client: McpClientWrapper,
-  method: string,
-  params?: object
-): Promise<unknown> {
-  if (!client.process || client.status !== 'connected') {
-    throw new Error(`Server ${client.name} is not connected`);
-  }
-
-  const id = ++client.requestId;
-  const request = {
-    jsonrpc: '2.0',
-    id,
-    method,
-    params,
-  };
-
-  return new Promise((resolve, reject) => {
-    client.pendingRequests.set(id, { resolve, reject });
-
-    const message = JSON.stringify(request) + '\n';
-    client.process!.stdin?.write(message, (err) => {
-      if (err) {
-        client.pendingRequests.delete(id);
-        reject(err);
-      }
-    });
-
-    // Timeout after 30 seconds
-    setTimeout(() => {
-      if (client.pendingRequests.has(id)) {
-        client.pendingRequests.delete(id);
-        reject(new Error(`Request timeout: ${method}`));
-      }
-    }, 30000);
-  });
-}
-
-/**
- * Handle response from MCP server.
- */
-function handleResponse(client: McpClientWrapper, data: string): void {
-  client.buffer += data;
-
-  // Process complete JSON lines
-  const lines = client.buffer.split('\n');
-  client.buffer = lines.pop() || '';
-
-  for (const line of lines) {
-    if (!line.trim()) continue;
-
-    try {
-      const response = JSON.parse(line);
-
-      // Handle response to request
-      if (response.id !== undefined && client.pendingRequests.has(response.id)) {
-        const { resolve, reject } = client.pendingRequests.get(response.id)!;
-        client.pendingRequests.delete(response.id);
-
-        if (response.error) {
-          reject(new Error(response.error.message || 'Unknown error'));
-        } else {
-          resolve(response.result);
-        }
-      }
-
-      // Handle notifications (we just log them for now)
-      if (response.method && !response.id) {
-        console.debug(`[MCP] ${client.name}: Notification ${response.method}`);
-      }
-    } catch {
-      // Ignore invalid JSON
-    }
-  }
-}
-
-// ============================================
-// Client Connection
-// ============================================
-
-/**
- * Connect to stdio MCP server.
- */
-async function connectStdioServer(
-  name: string,
-  config: McpServerConfig
-): Promise<McpClientWrapper> {
-  const client: McpClientWrapper = {
-    name,
-    status: 'pending',
-    config,
-    requestId: 0,
-    pendingRequests: new Map(),
-    buffer: '',
-  };
-
-  if (!config.command) {
-    client.status = 'failed';
-    client.error = 'No command specified';
-    return client;
-  }
-
-  try {
-    // Substitute environment variables
-    const resolvedConfig = substituteConfigEnvVars(config);
-
-    // Spawn process
-    const proc = spawn(resolvedConfig.command!, resolvedConfig.args || [], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        ...(resolvedConfig.env || {}),
-      },
-    });
-
-    client.process = proc;
-
-    // Handle stdout (JSON-RPC responses)
-    proc.stdout?.on('data', (data) => {
-      handleResponse(client, data.toString());
-    });
-
-    // Handle stderr (debug output)
-    proc.stderr?.on('data', (data) => {
-      console.debug(`[MCP] ${name} stderr:`, data.toString().trim());
-    });
-
-    // Handle process exit
-    proc.on('exit', (code) => {
-      if (client.status === 'connected') {
-        client.status = 'failed';
-        client.error = `Process exited with code ${code}`;
-      }
-    });
-
-    proc.on('error', (err) => {
-      client.status = 'failed';
-      client.error = err.message;
-    });
-
-    // Wait a bit for process to start
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Send initialize request
-    const initResult = await sendRequest(client, 'initialize', {
-      protocolVersion: '2024-11-05',
-      capabilities: {},
-      clientInfo: {
-        name: 'claude-code-cli',
-        version: '2.1.7',
-      },
-    }) as { capabilities?: { tools?: object; resources?: object; prompts?: object } };
-
-    client.status = 'connected';
-    client.capabilities = {
-      tools: !!initResult.capabilities?.tools,
-      resources: !!initResult.capabilities?.resources,
-      prompts: !!initResult.capabilities?.prompts,
-    };
-
-    // Send initialized notification
-    await sendRequest(client, 'notifications/initialized', {});
-
-    return client;
-  } catch (error) {
-    client.status = 'failed';
-    client.error = error instanceof Error ? error.message : String(error);
-    if (client.process && !client.process.killed) {
-      client.process.kill();
-    }
-    return client;
-  }
-}
-
-/**
- * Connect to MCP server.
- */
-export async function connectMcpServer(
-  name: string,
-  config: McpServerConfig
-): Promise<McpClientWrapper> {
-  const type = config.type || 'stdio';
-
-  switch (type) {
-    case 'stdio':
-      return connectStdioServer(name, config);
-    case 'sse':
-    case 'http':
-    case 'ws':
-    case 'ws-ide':
-    case 'sse-ide':
-      // TODO: Implement network transports
-      return {
-        name,
-        status: 'failed',
-        config,
-        error: `Transport type ${type} not yet implemented`,
-        requestId: 0,
-        pendingRequests: new Map(),
-        buffer: '',
-      };
-    default:
-      return {
-        name,
-        status: 'failed',
-        config,
-        error: `Unknown transport type: ${type}`,
-        requestId: 0,
-        pendingRequests: new Map(),
-        buffer: '',
-      };
-  }
-}
-
-// ============================================
 // Initialization
 // ============================================
 
 /**
  * Initialize MCP connections.
  */
-export async function initializeMcp(cwd?: string): Promise<void> {
-  if (mcpState.initialized) {
-    return;
+export async function initializeMcp(_cwd?: string): Promise<void> {
+  if (mcpState.initialized) return;
+
+  resetMcpState();
+
+  const { servers, errors } = await loadAllMcpConfig();
+
+  // 记录配置读取错误（不阻断初始化）
+  for (const e of errors || []) {
+    console.debug(`[MCP] config error: ${e.server}: ${e.error}`);
   }
 
-  const servers = getMcpServers(cwd);
-
-  // Connect to each server
-  const connectionPromises: Promise<void>[] = [];
-
-  for (const [name, config] of Object.entries(servers)) {
-    // Skip disabled servers
-    if (config.disabled || isServerDisabled(name, cwd)) {
-      mcpState.clients.set(name, {
-        name,
-        status: 'disabled',
-        config,
-        requestId: 0,
-        pendingRequests: new Map(),
-        buffer: '',
-      });
-      continue;
-    }
-
-    // Check if project server is approved
-    if (!isServerApproved(name, cwd)) {
-      mcpState.clients.set(name, {
-        name,
-        status: 'pending',
-        config,
-        error: 'Server not approved',
-        requestId: 0,
-        pendingRequests: new Map(),
-        buffer: '',
-      });
-      continue;
-    }
-
-    // Connect to server
-    connectionPromises.push(
-      connectMcpServer(name, config).then((client) => {
-        mcpState.clients.set(name, client);
-        mcpState.normalizedNames.set(normalizeServerName(name), name);
-      })
-    );
+  for (const name of Object.keys(servers)) {
+    mcpState.normalizedNames.set(name.toLowerCase(), name);
   }
 
-  // Wait for all connections
-  await Promise.allSettled(connectionPromises);
+  await batchInitializeAllServers(({ client, tools, resources }) => {
+    const status = client.type as McpClientStatus;
 
-  // Discover tools and resources
-  await discoverToolsAndResources();
+    const wrapper: McpClientWrapper = {
+      name: client.name,
+      status,
+      config: (client as any).config || (servers as any)[client.name],
+      capabilities:
+        client.type === 'connected'
+          ? {
+              tools: !!client.capabilities?.tools,
+              resources: !!client.capabilities?.resources,
+              prompts: !!client.capabilities?.prompts,
+            }
+          : undefined,
+      error: (client as any).error,
+      connection: client as McpServerConnection,
+    };
+
+    mcpState.clients.set(client.name, wrapper);
+
+    if (Array.isArray(tools)) {
+      for (const t of tools) {
+        mcpState.tools.push({
+          name: (t as any).name,
+          server: client.name,
+          description: (t as any).description,
+          inputSchema: (t as any).inputSchema,
+        });
+      }
+    }
+
+    if (Array.isArray(resources)) {
+      for (const r of resources) {
+        mcpState.resources.push({
+          uri: (r as any).uri,
+          name: (r as any).name,
+          server: client.name,
+          description: (r as any).description,
+          mimeType: (r as any).mimeType,
+        });
+      }
+    }
+  }, servers);
 
   mcpState.initialized = true;
 }
 
 /**
- * Normalize server name for lookup.
+ * Connect to a single MCP server (best-effort, primarily for tests/diagnostics).
  */
-export function normalizeServerName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-}
-
-/**
- * Find client by name (supports normalized lookup).
- */
-export function findClient(name: string): McpClientWrapper | undefined {
-  // Direct lookup
-  if (mcpState.clients.has(name)) {
-    return mcpState.clients.get(name);
-  }
-
-  // Normalized lookup
-  const normalized = normalizeServerName(name);
-  const originalName = mcpState.normalizedNames.get(normalized);
-  if (originalName) {
-    return mcpState.clients.get(originalName);
-  }
-
-  return undefined;
+export async function connectMcpServer(serverName: string, config: McpServerConfig): Promise<void> {
+  const conn = await connectMcpServerFromIntegrations(serverName, config);
+  const wrapper: McpClientWrapper = {
+    name: serverName,
+    status: conn.type as McpClientStatus,
+    config,
+    capabilities:
+      conn.type === 'connected'
+        ? {
+            tools: !!conn.capabilities?.tools,
+            resources: !!conn.capabilities?.resources,
+            prompts: !!conn.capabilities?.prompts,
+          }
+        : undefined,
+    error: (conn as any).error,
+    connection: conn,
+  };
+  mcpState.clients.set(serverName, wrapper);
 }
 
 // ============================================
-// Discovery
+// Lookups
 // ============================================
 
 /**
- * Discover tools and resources from connected servers.
+ * Find client by name (supports case-insensitive lookup).
  */
-async function discoverToolsAndResources(): Promise<void> {
-  const tools: McpToolInfo[] = [];
-  const resources: McpResourceInfo[] = [];
-
-  for (const client of mcpState.clients.values()) {
-    if (client.status !== 'connected') continue;
-
-    // Discover tools
-    if (client.capabilities?.tools) {
-      try {
-        const result = await sendRequest(client, 'tools/list', {}) as { tools?: Array<{
-          name: string;
-          description?: string;
-          inputSchema?: object;
-        }> };
-
-        if (result.tools) {
-          for (const tool of result.tools) {
-            tools.push({
-              name: tool.name,
-              server: client.name,
-              description: tool.description,
-              inputSchema: tool.inputSchema,
-            });
-          }
-        }
-      } catch (error) {
-        console.error(`[MCP] ${client.name}: Failed to discover tools:`, error);
-      }
-    }
-
-    // Discover resources
-    if (client.capabilities?.resources) {
-      try {
-        const result = await sendRequest(client, 'resources/list', {}) as { resources?: Array<{
-          uri: string;
-          name?: string;
-          description?: string;
-          mimeType?: string;
-        }> };
-
-        if (result.resources) {
-          for (const resource of result.resources) {
-            resources.push({
-              uri: resource.uri,
-              name: resource.name,
-              server: client.name,
-              description: resource.description,
-              mimeType: resource.mimeType,
-            });
-          }
-        }
-      } catch (error) {
-        console.error(`[MCP] ${client.name}: Failed to discover resources:`, error);
-      }
-    }
-  }
-
-  mcpState.tools = tools;
-  mcpState.resources = resources;
+export function findClient(serverName: string): McpClientWrapper | undefined {
+  const exact = mcpState.clients.get(serverName);
+  if (exact) return exact;
+  const normalized = mcpState.normalizedNames.get(serverName.toLowerCase());
+  if (!normalized) return undefined;
+  return mcpState.clients.get(normalized);
 }
 
 // ============================================
@@ -536,7 +277,7 @@ export async function callMcpTool(
     throw new McpConnectionError(`Server '${serverName}' not found`);
   }
 
-  if (client.status !== 'connected') {
+  if (client.status !== 'connected' || client.connection?.type !== 'connected') {
     throw new McpConnectionError(
       `Server '${serverName}' is not connected: ${client.error || client.status}`
     );
@@ -546,26 +287,15 @@ export async function callMcpTool(
     console.debug(`[MCP] ${serverName}: Calling tool ${toolName} with args:`, args);
   }
 
-  const result = await sendRequest(client, 'tools/call', {
-    name: toolName,
-    arguments: args,
-  }) as { isError?: boolean; content?: Array<{ type: string; text?: string }>; error?: string };
-
-  if (result.isError) {
-    const errorMsg = result.content?.[0]?.text || result.error || 'Unknown error';
-    throw new Error(errorMsg);
-  }
-
-  // Extract text content
-  if (result.content) {
-    const textContent = result.content
-      .filter((c) => c.type === 'text')
-      .map((c) => c.text)
-      .join('\n');
-    return textContent || result;
-  }
-
-  return result;
+  // integrations 层已包含 timeout / keepalive / telemetry
+  const connected = client.connection as McpConnectedServer;
+  return await executeMcpTool({
+    client: connected,
+    tool: toolName,
+    args,
+    meta: options?.debug ? { debug: true } : undefined,
+    signal: undefined,
+  });
 }
 
 /**
@@ -581,7 +311,7 @@ export async function readMcpResource(
     throw new McpConnectionError(`Server '${serverName}' not found`);
   }
 
-  if (client.status !== 'connected') {
+  if (client.status !== 'connected' || client.connection?.type !== 'connected') {
     throw new McpConnectionError(
       `Server '${serverName}' is not connected: ${client.error || client.status}`
     );
@@ -591,25 +321,17 @@ export async function readMcpResource(
     console.debug(`[MCP] ${serverName}: Reading resource ${uri}`);
   }
 
-  const result = await sendRequest(client, 'resources/read', {
-    uri,
-  }) as { contents?: Array<{ text?: string; blob?: string; mimeType?: string }> };
+  const connected = client.connection as McpConnectedServer;
+  const result = await connected.client.request<{
+    contents?: Array<{ text?: string; blob?: string; mimeType?: string }>;
+  }>(
+    {
+      method: 'resources/read',
+      params: { uri },
+    } as any
+  );
 
-  return { contents: result.contents || [] };
-}
-
-// ============================================
-// Custom Errors
-// ============================================
-
-/**
- * MCP connection error.
- */
-export class McpConnectionError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'McpConnectionError';
-  }
+  return { contents: result?.contents || [] };
 }
 
 // ============================================
@@ -643,7 +365,6 @@ export function getToolList(serverFilter?: string): McpToolInfo[] {
   if (!serverFilter) {
     return mcpState.tools;
   }
-
   return mcpState.tools.filter((t) => t.server === serverFilter);
 }
 
@@ -654,7 +375,6 @@ export function getResourceList(serverFilter?: string): McpResourceInfo[] {
   if (!serverFilter) {
     return mcpState.resources;
   }
-
   return mcpState.resources.filter((r) => r.server === serverFilter);
 }
 
@@ -662,18 +382,13 @@ export function getResourceList(serverFilter?: string): McpResourceInfo[] {
  * Find tool by name.
  */
 export function findTool(serverName: string, toolName: string): McpToolInfo | undefined {
-  return mcpState.tools.find(
-    (t) => t.server === serverName && t.name === toolName
-  );
+  return mcpState.tools.find((t) => t.server === serverName && t.name === toolName);
 }
 
 /**
  * Search tools by pattern.
  */
-export function searchTools(
-  pattern: string,
-  options?: { ignoreCase?: boolean }
-): McpToolInfo[] {
+export function searchTools(pattern: string, options?: { ignoreCase?: boolean }): McpToolInfo[] {
   const flags = options?.ignoreCase ? 'i' : '';
   const regex = new RegExp(pattern, flags);
 
@@ -699,27 +414,23 @@ export function getServerError(serverName: string): string | undefined {
   if (client.status === 'pending') {
     return 'Server not approved';
   }
+  if (client.status === 'needs-auth') {
+    return 'Server needs authentication';
+  }
   return undefined;
 }
 
 // ============================================
-// Export
+// Custom Errors
 // ============================================
 
-export {
-  getMcpState,
-  isMcpInitialized,
-  resetMcpState,
-  initializeMcp,
-  connectMcpServer,
-  normalizeServerName,
-  findClient,
-  callMcpTool,
-  readMcpResource,
-  getServerList,
-  getToolList,
-  getResourceList,
-  findTool,
-  searchTools,
-  getServerError,
-};
+/**
+ * MCP connection error.
+ */
+export class McpConnectionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'McpConnectionError';
+  }
+}
+

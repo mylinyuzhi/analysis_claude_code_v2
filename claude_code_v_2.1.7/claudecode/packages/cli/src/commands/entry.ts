@@ -33,8 +33,55 @@ import {
   parseMcpConfigJson,
   getClaudeHomeDir,
   getUserSettingsPath,
+  getLocalSettingsPath,
+  getProjectSettingsPath,
 } from '../settings/loader.js';
 import { initializeMcp, resetMcpState } from '../mcp/state.js';
+import {
+  getCommandRegistry,
+  parseSlashCommandInput,
+} from '@claudecode/features/slash-commands';
+import { compact as compactFeature } from '@claudecode/features';
+import { coreMessageLoop, type LoopEvent } from '@claudecode/core/agent-loop';
+import {
+  createUserMessage as createCoreUserMessage,
+  createTextAssistantMessage,
+  type ConversationMessage,
+} from '@claudecode/core/message';
+import { createDefaultAppState } from '@claudecode/core/state';
+import { builtinTools as builtinToolImpls } from '@claudecode/tools';
+import {
+  addSessionToIndex,
+  appendJsonlEntry,
+  generateNewSessionId,
+  getProjectDir,
+  getSessionId,
+  getSessionPath,
+  loadOrRestoreSession,
+  setSessionId,
+  type SessionLogEntry,
+} from '@claudecode/shared';
+import * as nodeFs from 'fs';
+import * as nodePath from 'path';
+import type {
+  Tool as ToolsTool,
+  ToolContext as ToolsToolContext,
+  ToolResult as ToolsToolResult,
+  ToolResultBlockParam as ToolsToolResultBlockParam,
+} from '@claudecode/tools';
+import type {
+  Tool as CoreTool,
+  ToolUseContext as CoreToolUseContext,
+  ToolResult as CoreToolResult,
+} from '@claudecode/core/tools';
+import {
+  sandboxManager,
+  setSandboxConfig,
+  getSandboxConfig,
+  SANDBOX_CONSTANTS,
+  type SandboxConfig,
+  type SandboxSettings,
+} from '@claudecode/platform';
 
 // ============================================
 // Mode Detection
@@ -244,7 +291,7 @@ async function handleMainCommand(): Promise<void> {
         prompt: stdinPrompt,
         outputFormat,
         verbose,
-        debug: debug || debugToStderr,
+        debug: Boolean(debug || debugToStderr),
         model,
         systemPrompt,
         appendSystemPrompt,
@@ -256,7 +303,7 @@ async function handleMainCommand(): Promise<void> {
       // Interactive mode (default)
       await runInteractiveMode({
         initialPrompt: stdinPrompt,
-        debug: debug || debugToStderr,
+        debug: Boolean(debug || debugToStderr),
         verbose,
         shouldContinue,
         resume,
@@ -342,12 +389,86 @@ function enableConfigs(): void {
   // Store settings globally for access
   (globalThis as any).__claudeSettings = settings;
 
+  // Apply sandbox settings/config (if present)
+  applySandboxFromSettings(settings);
+
   // Ensure Claude home directory exists
   const fs = require('fs');
   const homeDir = getClaudeHomeDir();
   if (!fs.existsSync(homeDir)) {
     fs.mkdirSync(homeDir, { recursive: true });
   }
+}
+
+function applySandboxFromSettings(settings: any): void {
+  const rawSandbox: SandboxSettings | undefined = settings?.sandbox;
+  if (rawSandbox && typeof rawSandbox === 'object') {
+    sandboxManager.setSandboxSettings(rawSandbox);
+  }
+
+  let cfg: SandboxConfig | undefined = settings?.sandboxConfig;
+  if (!cfg && rawSandbox?.enabled) {
+    cfg = buildDefaultSandboxConfig(process.cwd());
+  }
+  setSandboxConfig(cfg);
+}
+
+function buildDefaultSandboxConfig(cwd: string): SandboxConfig {
+  return {
+    network: {
+      allowedDomains: [],
+      deniedDomains: [],
+      allowLocalBinding: true,
+    },
+    filesystem: {
+      denyRead: [],
+      allowWrite: [cwd, SANDBOX_CONSTANTS.SANDBOX_TEMP_DIR],
+      denyWrite: [],
+    },
+    mandatoryDenySearchDepth: 3,
+  };
+}
+
+async function initializeSandboxIfEnabled(): Promise<void> {
+  if (!sandboxManager.isSandboxingEnabled()) return;
+  const cfg = getSandboxConfig();
+  if (!cfg) {
+    throw new Error('Sandbox is enabled but sandboxConfig is missing.');
+  }
+
+  const permissionCallback = await createSandboxPermissionCallback();
+  await sandboxManager.initialize(cfg, permissionCallback, true);
+}
+
+async function createSandboxPermissionCallback(): Promise<
+  (domain: string, type: 'http' | 'socks') => Promise<boolean>
+> {
+  // If no TTY, never prompt.
+  if (!process.stdin.isTTY) {
+    return async () => false;
+  }
+
+  const cache = new Map<string, boolean>();
+
+  return async (domain: string, type: 'http' | 'socks') => {
+    const key = `${type}:${domain}`;
+    const cached = cache.get(key);
+    if (cached !== undefined) return cached;
+
+    const readline = await import('readline');
+    const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+    const ans = await new Promise<string>((resolve) => {
+      rl.question(`Allow ${type.toUpperCase()} access to ${domain}? [y/N] `, (a: string) => {
+        rl.close();
+        resolve(a);
+      });
+    });
+    const normalized = ans.trim().toLowerCase();
+
+    const ok = normalized === 'y' || normalized === 'yes';
+    cache.set(key, ok);
+    return ok;
+  };
 }
 
 /**
@@ -522,6 +643,156 @@ interface PrintModeOptions {
   mcpServers: Record<string, unknown>;
 }
 
+function resolveAllowedToolSet(allowedTools: string[] | undefined): Set<string> | null {
+  if (!allowedTools || allowedTools.length === 0) return null;
+  if (allowedTools.includes('*')) return null;
+  return new Set(allowedTools);
+}
+
+function resolveDisallowedToolSet(disallowedTools: string[] | undefined): Set<string> {
+  return new Set((disallowedTools ?? []).filter(Boolean));
+}
+
+function filterToolsByAllowDeny<T extends { name: string }>(
+  tools: T[],
+  allowedTools: string[] | undefined,
+  disallowedTools: string[] | undefined
+): T[] {
+  const allowed = resolveAllowedToolSet(allowedTools);
+  const denied = resolveDisallowedToolSet(disallowedTools);
+  return tools.filter((t) => {
+    if (denied.has(t.name)) return false;
+    if (allowed && !allowed.has(t.name)) return false;
+    return true;
+  });
+}
+
+function textFromContentBlocks(blocks: unknown): string {
+  if (!Array.isArray(blocks)) return '';
+  let out = '';
+  for (const b of blocks) {
+    if (b && typeof b === 'object' && (b as any).type === 'text') {
+      out += String((b as any).text ?? '');
+    }
+  }
+  return out;
+}
+
+function isConversationMessage(event: LoopEvent): event is ConversationMessage {
+  return typeof event === 'object' && event !== null && 'type' in event &&
+    (event as any).type !== 'progress' && (event as any).type !== 'tombstone' && (event as any).type !== 'stream_request_start';
+}
+
+function adaptToolsForCore(options: {
+  allowedTools?: string[];
+  disallowedTools?: string[];
+  getAppState: () => Promise<any>;
+  setAppState: (updater: (state: any) => any) => void;
+  readFileState: Map<string, any>;
+  agentId?: string;
+  sessionId?: string;
+  abortController?: AbortController;
+}): CoreTool[] {
+  const filtered = filterToolsByAllowDeny(builtinToolImpls as ToolsTool[], options.allowedTools, options.disallowedTools);
+
+  return filtered.map((tool) => {
+    const adapted: CoreTool = {
+      name: tool.name,
+      maxResultSizeChars: (tool as any).maxResultSizeChars ?? 30000,
+      strict: (tool as any).strict,
+      input_examples: (tool as any).input_examples,
+      description: tool.description as any,
+      prompt: tool.prompt as any,
+      inputSchema: tool.inputSchema as any,
+      outputSchema: tool.outputSchema as any,
+      userFacingName: (tool as any).userFacingName,
+      isEnabled: tool.isEnabled as any,
+      isConcurrencySafe: tool.isConcurrencySafe as any,
+      isReadOnly: tool.isReadOnly as any,
+      isSearchOrReadCommand: (tool as any).isSearchOrReadCommand,
+      getPath: (tool as any).getPath,
+      checkPermissions: async (input: unknown, ctx: CoreToolUseContext) => {
+        if (!(tool as any).checkPermissions) return { result: true };
+        const toolCtx: ToolsToolContext = {
+          getCwd: () => process.cwd(),
+          getAppState: options.getAppState,
+          setAppState: options.setAppState,
+          readFileState: options.readFileState,
+          agentId: options.agentId ?? ctx.agentId,
+          sessionId: options.sessionId,
+          abortSignal: options.abortController?.signal ?? ctx.abortController?.signal,
+        };
+        const res = await (tool as any).checkPermissions(input, toolCtx);
+        if (res?.behavior === 'deny') return { result: false, behavior: 'deny', message: res.message };
+        if (res?.behavior === 'ask') return { result: false, behavior: 'ask', message: res.message };
+        return { result: true };
+      },
+      validateInput: async (input: unknown, ctx: CoreToolUseContext) => {
+        if (!(tool as any).validateInput) return { result: true };
+        const toolCtx: ToolsToolContext = {
+          getCwd: () => process.cwd(),
+          getAppState: options.getAppState,
+          setAppState: options.setAppState,
+          readFileState: options.readFileState,
+          agentId: options.agentId ?? ctx.agentId,
+          sessionId: options.sessionId,
+          abortSignal: options.abortController?.signal ?? ctx.abortController?.signal,
+        };
+        const res = await (tool as any).validateInput(input, toolCtx);
+        return { result: !!res?.result, message: res?.message, errorCode: res?.errorCode };
+      },
+      call: async (
+        input: unknown,
+        ctx: CoreToolUseContext,
+        toolUseId: string,
+        metadata: unknown,
+        progressCallback?: (progress: any) => void
+      ): Promise<CoreToolResult> => {
+        const toolCtx: ToolsToolContext = {
+          getCwd: () => process.cwd(),
+          getAppState: options.getAppState,
+          setAppState: options.setAppState,
+          readFileState: options.readFileState,
+          agentId: options.agentId ?? ctx.agentId,
+          sessionId: options.sessionId,
+          abortSignal: options.abortController?.signal ?? ctx.abortController?.signal,
+        };
+
+        const res: ToolsToolResult<any> = await (tool as any).call(
+          input,
+          toolCtx,
+          toolUseId,
+          metadata,
+          progressCallback as any
+        );
+
+        return {
+          data: res?.data,
+          error: res?.error,
+        } as CoreToolResult;
+      },
+      mapToolResultToToolResultBlockParam: (
+        result: CoreToolResult,
+        toolUseId: string
+      ) => {
+        const data = (result as any)?.data;
+        const raw: ToolsToolResultBlockParam = (tool as any).mapToolResultToToolResultBlockParam
+          ? (tool as any).mapToolResultToToolResultBlockParam(data, toolUseId)
+          : ({ tool_use_id: toolUseId, type: 'tool_result', content: JSON.stringify(data) } as any);
+
+        return {
+          type: 'tool_result',
+          tool_use_id: raw.tool_use_id,
+          content: raw.content as any,
+          is_error: Boolean((result as any)?.error) || raw.is_error,
+        } as any;
+      },
+    };
+
+    return adapted;
+  });
+}
+
 /**
  * Run in print (non-interactive) mode.
  * Original: hw9 (runNonInteractive) in chunks.157.mjs
@@ -539,52 +810,131 @@ async function runPrintMode(options: PrintModeOptions): Promise<void> {
     console.error(`Processing prompt: ${prompt.substring(0, 100)}...`);
   }
 
-  // Setup JSON output if requested
-  const isJsonOutput = outputFormat === 'json' || outputFormat === 'stream-json';
-
   try {
-    // Import and run the agent loop
-    const { streamApiCall } = await import('@claudecode/core/llm-api');
+    // Initialize sandbox (if enabled)
+    if (sandboxManager.isSandboxingEnabled()) {
+      try {
+        await initializeSandboxIfEnabled();
+      } catch (err) {
+        process.stderr.write(
+          `\n❌ Sandbox Error: ${err instanceof Error ? err.message : String(err)}\n`
+        );
+        process.exit(CLI_CONSTANTS.EXIT_CODES.ERROR);
+      }
+    }
+    const isStreamJson = outputFormat === 'stream-json';
+    const isJson = outputFormat === 'json';
 
-    // Build the request
-    const request = {
-      model: options.model || 'claude-sonnet-4-20250514',
-      max_tokens: 8192,
-      messages: [{ role: 'user' as const, content: prompt }],
-      system: options.systemPrompt || options.appendSystemPrompt,
+    // 1) 初始化运行态状态（非 React，供 toolUseContext 使用）
+    let appState = createDefaultAppState();
+    appState.verbose = Boolean(options.verbose);
+    if (options.model) {
+      (appState as any).mainLoopModel = options.model;
+      (appState as any).mainLoopModelForSession = options.model;
+    }
+
+    const readFileState = new Map<string, any>();
+    const abortController = new AbortController();
+
+    const getAppState = async () => appState;
+    const setAppState = (updater: (s: any) => any) => {
+      appState = updater(appState);
     };
 
-    // Stream or collect response
-    let fullResponse = '';
-    const generator = streamApiCall(request, {
-      apiKey: process.env.ANTHROPIC_API_KEY || '',
+    const tools = adaptToolsForCore({
+      allowedTools: options.allowedTools,
+      disallowedTools: options.disallowedTools,
+      getAppState,
+      setAppState,
+      readFileState,
+      abortController,
     });
 
-    for await (const result of generator) {
-      if (result.type === 'assistant') {
-        const content = result.message.content;
-        if (Array.isArray(content)) {
-          for (const block of content) {
-            if (block.type === 'text') {
-              if (isJsonOutput) {
-                fullResponse += block.text;
-              } else {
-                process.stdout.write(block.text);
-              }
-            }
-          }
-        }
+    // 2) 先走 slash command parser（与 interactive 行为一致）
+    const registry = getCommandRegistry();
+    const commands = registry.getAll();
+    const cmdResult = prompt.trim().startsWith('/')
+      ? await parseSlashCommandInput(prompt, {
+          options: {
+            commands,
+            isNonInteractiveSession: true,
+            model: options.model,
+          },
+          messages: [],
+          abortController,
+          cwd: process.cwd(),
+        })
+      : { messages: [{ role: 'user', content: prompt }], shouldQuery: true };
+
+    if (!cmdResult.shouldQuery) {
+      // 非交互模式下，local-jsx 等命令会被跳过；这里保持安静即可
+      if (isJson) {
+        process.stdout.write(JSON.stringify({ response: '' }) + '\n');
+      }
+      return;
+    }
+
+    const conversation: ConversationMessage[] = [];
+    for (const m of cmdResult.messages) {
+      if (!m?.content) continue;
+      const content = Array.isArray(m.content) ? (m.content as any) : String(m.content);
+      conversation.push(
+        createCoreUserMessage({
+          content,
+          isMeta: Boolean((m as any).isMeta) || m.role === 'system',
+        }) as any
+      );
+    }
+
+    // 3) 跑 core message loop
+    let fullResponse = '';
+    for await (const ev of coreMessageLoop({
+      messages: conversation,
+      systemPrompt: options.systemPrompt || options.appendSystemPrompt || '',
+      userContext: undefined,
+      systemContext: undefined,
+      canUseTool: async (tool) => {
+        const denied = resolveDisallowedToolSet(options.disallowedTools);
+        const allowed = resolveAllowedToolSet(options.allowedTools);
+        if (denied.has(tool.name)) return false;
+        if (allowed && !allowed.has(tool.name)) return false;
+        return true;
+      },
+      toolUseContext: {
+        getAppState,
+        setAppState,
+        readFileState,
+        abortController,
+        messages: conversation,
+        options: {
+          tools,
+          mainLoopModel: options.model,
+          agentDefinitions: (appState as any).agentDefinitions,
+          mcpClients: (appState as any).mcp?.clients,
+        },
+      } as any,
+      querySource: 'cli',
+    })) {
+      if (isStreamJson) {
+        process.stdout.write(JSON.stringify(ev) + '\n');
+        continue;
+      }
+
+      if (isConversationMessage(ev) && ev.type === 'assistant') {
+        const text = textFromContentBlocks((ev as any).message?.content);
+        fullResponse += text;
+        if (!isJson) process.stdout.write(text);
       }
     }
 
-    if (isJsonOutput) {
-      console.log(JSON.stringify({ response: fullResponse }));
+    if (isJson) {
+      process.stdout.write(JSON.stringify({ response: fullResponse }) + '\n');
     } else {
-      console.log(); // Final newline
+      process.stdout.write('\n');
     }
   } catch (error) {
-    if (isJsonOutput) {
-      console.log(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
+    if (outputFormat === 'json' || outputFormat === 'stream-json') {
+      process.stdout.write(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }) + '\n');
     } else {
       console.error('Error:', error instanceof Error ? error.message : String(error));
     }
@@ -599,6 +949,7 @@ interface InteractiveModeOptions {
   shouldContinue: boolean;
   resume?: string;
   sessionId?: string;
+  agentId?: string;
   model?: string;
   systemPrompt?: string;
   appendSystemPrompt?: string;
@@ -626,11 +977,160 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
   }
 
   // Start the interactive REPL
-  // This would normally render the React UI with Ink
+  // Bundled runtime uses Ink; here we keep a minimal stdin loop but复用 coreMessageLoop 逻辑。
   console.log('Claude Code v' + CLI_CONSTANTS.VERSION);
-  console.log('Interactive mode started. Type your prompt or use /help for commands.');
+  console.log('交互模式启动。输入问题，或用 /help 查看命令。');
 
-  // For now, implement a basic REPL
+  // 1) 初始化运行态状态（非 React，供 toolUseContext / tools 使用）
+  let appState = createDefaultAppState();
+  appState.verbose = Boolean(options.verbose);
+  if (options.model) {
+    (appState as any).mainLoopModel = options.model;
+    (appState as any).mainLoopModelForSession = options.model;
+  }
+
+  const readFileState = new Map<string, any>();
+  const abortController = new AbortController();
+
+  // Initialize sandbox (if enabled)
+  if (sandboxManager.isSandboxingEnabled()) {
+    try {
+      await initializeSandboxIfEnabled();
+    } catch (err) {
+      process.stderr.write(
+        `\n❌ Sandbox Error: ${err instanceof Error ? err.message : String(err)}\n`
+      );
+      process.exit(CLI_CONSTANTS.EXIT_CODES.ERROR);
+    }
+  }
+
+  const getAppState = async () => appState;
+  const setAppState = (updater: (s: any) => any) => {
+    appState = updater(appState);
+  };
+
+  const tools = adaptToolsForCore({
+    allowedTools: options.allowedTools,
+    disallowedTools: options.disallowedTools,
+    getAppState,
+    setAppState,
+    readFileState,
+    agentId: options.agentId,
+    sessionId: options.sessionId,
+    abortController,
+  });
+
+  const conversation: ConversationMessage[] = [];
+
+  const canUseTool = async (tool: { name: string }) => {
+    const denied = resolveDisallowedToolSet(options.disallowedTools);
+    const allowed = resolveAllowedToolSet(options.allowedTools);
+    if (denied.has(tool.name)) return false;
+    if (allowed && !allowed.has(tool.name)) return false;
+    return true;
+  };
+
+  async function runOneTurn(
+    userMessages: Array<{ role: 'user' | 'system'; content: string | any[]; isMeta?: boolean }>
+  ): Promise<void> {
+    for (const m of userMessages) {
+      conversation.push(
+        createCoreUserMessage({
+          content: Array.isArray(m.content) ? (m.content as any) : m.content,
+          isMeta: Boolean(m.isMeta) || m.role === 'system',
+        }) as any
+      );
+    }
+
+    for await (const ev of coreMessageLoop({
+      messages: conversation,
+      systemPrompt: options.systemPrompt || options.appendSystemPrompt || '',
+      userContext: undefined,
+      systemContext: undefined,
+      canUseTool: async (tool, _input, _assistantMessage) => canUseTool(tool),
+      toolUseContext: {
+        getAppState,
+        setAppState,
+        readFileState,
+        abortController,
+        messages: conversation,
+        options: {
+          tools,
+          mainLoopModel: options.model,
+          agentDefinitions: (appState as any).agentDefinitions,
+          mcpClients: (appState as any).mcp?.clients,
+        },
+      } as any,
+      querySource: 'cli',
+    })) {
+      if (ev && typeof ev === 'object' && (ev as any).type === 'progress') {
+        continue;
+      }
+      if (ev && typeof ev === 'object' && (ev as any).type === 'tombstone') {
+        continue;
+      }
+      if (ev && typeof ev === 'object' && (ev as any).type === 'stream_request_start') {
+        continue;
+      }
+      if (!isConversationMessage(ev as any)) continue;
+
+      // 持久化消息（用于后续 turn 上下文）
+      conversation.push(ev as any);
+
+      // 最小输出：assistant 文本 + tool_use/tool_result + error attachment
+      if ((ev as any).type === 'assistant') {
+        const content = (ev as any).message?.content;
+        if (Array.isArray(content)) {
+          for (const block of content) {
+            if (block?.type === 'text') {
+              process.stdout.write(String(block.text ?? ''));
+            } else if (block?.type === 'tool_use') {
+              const toolName = String(block.name ?? 'unknown');
+              // 交互 UI 中会有更丰富渲染，这里给出可读的文本占位。
+              process.stderr.write(`\n[工具调用] ${toolName}\n`);
+              if (block.input !== undefined) {
+                try {
+                  process.stderr.write(JSON.stringify(block.input) + '\n');
+                } catch {
+                  process.stderr.write(String(block.input) + '\n');
+                }
+              }
+            }
+          }
+        }
+      } else if ((ev as any).type === 'user') {
+        const content = (ev as any).message?.content;
+        if (Array.isArray(content)) {
+          for (const block of content) {
+            if (block?.type === 'tool_result') {
+              const c = block.content;
+              if (typeof c === 'string') {
+                process.stdout.write(String(c));
+                if (!String(c).endsWith('\n')) process.stdout.write('\n');
+              } else {
+                const t = textFromContentBlocks(c);
+                if (t) process.stdout.write(t + (t.endsWith('\n') ? '' : '\n'));
+              }
+            }
+          }
+        }
+      } else if ((ev as any).type === 'attachment') {
+        const att = (ev as any).attachment;
+        if (att?.type === 'error' && att?.content) {
+          process.stderr.write(String(att.content) + '\n');
+        }
+      }
+    }
+
+    process.stdout.write('\n');
+  }
+
+  // Handle session continuation (占位，保持与 source 入口结构一致)
+  if (shouldContinue || resume) {
+    console.log('Session continuation...');
+  }
+
+  // 2) REPL
   const readline = await import('readline');
   const rl = readline.createInterface({
     input: process.stdin,
@@ -638,32 +1138,110 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
     prompt: '> ',
   });
 
+  async function handleInput(trimmed: string): Promise<void> {
+    const registry = getCommandRegistry();
+    const commands = registry.getAll();
+
+    // Special-case: /compact [custom instructions]
+    // In the bundled runtime, /compact is a local command that mutates the session message history.
+    // Our CLI is not Ink-based, so we apply the compaction here and replace `conversation`.
+    if (trimmed === '/compact' || trimmed.startsWith('/compact ')) {
+      const customInstructions = trimmed.slice('/compact'.length).trim() || undefined;
+      if (conversation.length === 0) {
+        process.stdout.write('Cannot compact: no messages yet.\n');
+        return;
+      }
+
+      const compactContext = {
+        agentId: options.agentId,
+        getAppState,
+        setAppState,
+        abortController,
+        readFileState,
+        options: {
+          mainLoopModel: options.model,
+          isNonInteractiveSession: false,
+          appendSystemPrompt: options.appendSystemPrompt || options.systemPrompt || '',
+          agentDefinitions: (appState as any).agentDefinitions,
+        },
+      };
+
+      const result = await compactFeature.manualCompact(
+        conversation as any,
+        compactContext as any,
+        customInstructions
+      );
+
+      // Replace conversation history with compacted boundary + summary messages.
+      // NOTE: `attachments` / `hookResults` are typed as non-message structures in this reconstruction,
+      // so we keep the minimal canonical history that the core loop understands.
+      conversation.length = 0;
+      conversation.push(result.boundaryMarker as any, ...(result.summaryMessages as any));
+
+      if (result.userDisplayMessage) {
+        process.stdout.write(String(result.userDisplayMessage).trimEnd() + '\n');
+      }
+      process.stdout.write('Conversation compacted.\n');
+      return;
+    }
+
+    if (trimmed.startsWith('/')) {
+      const result = await parseSlashCommandInput(trimmed, {
+        options: {
+          commands,
+          isNonInteractiveSession: false,
+          model: options.model,
+        },
+        messages: [],
+        abortController,
+        cwd: process.cwd(),
+      });
+
+      if (!result.shouldQuery) {
+        // local/local-jsx: 直接打印输出消息
+        for (const msg of result.messages) {
+          if (!msg?.content) continue;
+          if (Array.isArray(msg.content)) {
+            const text = msg.content
+              .map((b: any) => (b && b.type === 'text' ? String(b.text ?? '') : ''))
+              .join('');
+            if (text) process.stdout.write(text + '\n');
+          } else {
+            process.stdout.write(String(msg.content) + '\n');
+          }
+        }
+        return;
+      }
+
+      await runOneTurn(
+        result.messages.map((m) => ({
+          role: m.role as any,
+          content: Array.isArray(m.content) ? (m.content as any) : String(m.content ?? ''),
+          isMeta: Boolean((m as any).isMeta),
+        }))
+      );
+      return;
+    }
+
+    await runOneTurn([{ role: 'user', content: trimmed }]);
+  }
+
   if (initialPrompt) {
-    // Process initial prompt
-    console.log(`Processing: ${initialPrompt}`);
-    await processInteractivePrompt(initialPrompt, options);
+    await handleInput(initialPrompt.trim());
   }
 
   rl.prompt();
-
   rl.on('line', async (line: string) => {
     const trimmed = line.trim();
-
     if (!trimmed) {
       rl.prompt();
       return;
     }
-
-    // Handle slash commands
-    if (trimmed.startsWith('/')) {
-      await handleSlashCommand(trimmed, rl);
+    try {
+      await handleInput(trimmed);
+    } finally {
       rl.prompt();
-      return;
     }
-
-    // Process as prompt
-    await processInteractivePrompt(trimmed, options);
-    rl.prompt();
   });
 
   rl.on('close', () => {
@@ -671,96 +1249,7 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
     process.exit(0);
   });
 
-  // Keep the process running
   await new Promise(() => {});
-}
-
-/**
- * Process a prompt in interactive mode.
- */
-async function processInteractivePrompt(
-  prompt: string,
-  _options: InteractiveModeOptions
-): Promise<void> {
-  try {
-    const { streamApiCall } = await import('@claudecode/core/llm-api');
-
-    const request = {
-      model: _options.model || 'claude-sonnet-4-20250514',
-      max_tokens: 8192,
-      messages: [{ role: 'user' as const, content: prompt }],
-      system: _options.systemPrompt || _options.appendSystemPrompt,
-    };
-
-    const generator = streamApiCall(request, {
-      apiKey: process.env.ANTHROPIC_API_KEY || '',
-    });
-
-    for await (const result of generator) {
-      if (result.type === 'assistant') {
-        const content = result.message.content;
-        if (Array.isArray(content)) {
-          for (const block of content) {
-            if (block.type === 'text') {
-              process.stdout.write(block.text);
-            }
-          }
-        }
-      }
-    }
-    console.log(); // Final newline
-  } catch (error) {
-    console.error('Error:', error instanceof Error ? error.message : String(error));
-  }
-}
-
-/**
- * Handle slash commands.
- */
-async function handleSlashCommand(
-  command: string,
-  rl: import('readline').Interface
-): Promise<void> {
-  const [cmd, ...args] = command.slice(1).split(/\s+/);
-
-  switch (cmd.toLowerCase()) {
-    case 'help':
-      console.log(`
-Available commands:
-  /help     - Show this help message
-  /clear    - Clear conversation history
-  /quit     - Exit Claude Code
-  /version  - Show version info
-  /model    - Show or set model
-`);
-      break;
-
-    case 'quit':
-    case 'exit':
-      console.log('Goodbye!');
-      rl.close();
-      process.exit(0);
-      break;
-
-    case 'clear':
-      console.log('Conversation cleared.');
-      break;
-
-    case 'version':
-      console.log(`Claude Code v${CLI_CONSTANTS.VERSION}`);
-      break;
-
-    case 'model':
-      if (args.length > 0) {
-        console.log(`Model set to: ${args.join(' ')}`);
-      } else {
-        console.log('Current model: claude-sonnet-4-20250514');
-      }
-      break;
-
-    default:
-      console.log(`Unknown command: /${cmd}. Type /help for available commands.`);
-  }
 }
 
 // ============================================
@@ -818,9 +1307,4 @@ export function createExecutionContext(
 // Export
 // ============================================
 
-export {
-  detectExecutionMode,
-  isVersionFastPath,
-  mainEntry,
-  createExecutionContext,
-};
+// NOTE: 以上符号已在定义处 `export`，避免重复导出。

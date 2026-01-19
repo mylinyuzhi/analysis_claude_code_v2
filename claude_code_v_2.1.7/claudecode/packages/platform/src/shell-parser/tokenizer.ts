@@ -97,7 +97,7 @@ export function removeQuotes(
   let isEscaped = false;
 
   for (let i = 0; i < command.length; i++) {
-    const char = command[i];
+    const char = command[i]!;
 
     // Handle escaped characters
     if (isEscaped) {
@@ -173,7 +173,7 @@ export function parseShellCommand(command: string): ParseResult {
     let isEscaped = false;
 
     for (let i = 0; i < command.length; i++) {
-      const char = command[i];
+      const char = command[i]!;
 
       if (isEscaped) {
         current += char;
@@ -324,13 +324,4 @@ export function isMalformedTokens(tokens: ShellToken[]): boolean {
 // Export
 // ============================================
 
-export {
-  extractHeredocs,
-  reconstructHeredocs,
-  removeQuotes,
-  hasUnescapedChar,
-  parseShellCommand,
-  tokenizeCommand,
-  stripRedirectionNoise,
-  isMalformedTokens,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

@@ -5,7 +5,14 @@
  * Reconstructed from chunks.147.mjs:2516-2788
  */
 
-import type { ContentBlock } from '@claudecode/shared';
+import type {
+  ContentBlock,
+  TextContentBlock,
+  ToolUseContentBlock,
+  ToolResultContentBlock,
+  ThinkingContentBlock,
+  ImageContentBlock,
+} from '@claudecode/shared';
 import type {
   ConversationMessage,
   AssistantMessage,
@@ -186,10 +193,12 @@ export function hasSubstantiveContent(message: ConversationMessage): boolean {
   if (content.length > 1) return true;
 
   // Single non-text block is substantive
-  if (content[0].type !== 'text') return true;
+  const firstBlock = content[0];
+  if (!firstBlock) return false;
+  if (firstBlock.type !== 'text') return true;
 
   // Check text content
-  const text = (content[0] as { type: 'text'; text: string }).text;
+  const text = (firstBlock as { type: 'text'; text: string }).text;
   return (
     text.trim().length > 0 &&
     text !== EMPTY_CONTENT_PLACEHOLDER &&
@@ -243,7 +252,7 @@ export function isToolReference(
  */
 export function isTextBlock(
   block: ContentBlock
-): block is { type: 'text'; text: string } {
+): block is TextContentBlock {
   return block.type === 'text';
 }
 
@@ -252,7 +261,7 @@ export function isTextBlock(
  */
 export function isToolUseBlock(
   block: ContentBlock
-): block is { type: 'tool_use'; id: string; name: string; input: unknown } {
+): block is ToolUseContentBlock {
   return block.type === 'tool_use';
 }
 
@@ -261,12 +270,7 @@ export function isToolUseBlock(
  */
 export function isToolResultBlock(
   block: ContentBlock
-): block is {
-  type: 'tool_result';
-  tool_use_id: string;
-  content: string | ContentBlock[];
-  is_error?: boolean;
-} {
+): block is ToolResultContentBlock {
   return block.type === 'tool_result';
 }
 
@@ -275,7 +279,7 @@ export function isToolResultBlock(
  */
 export function isThinkingBlock(
   block: ContentBlock
-): block is { type: 'thinking'; thinking: string; signature?: string } {
+): block is ThinkingContentBlock {
   return block.type === 'thinking';
 }
 
@@ -284,10 +288,7 @@ export function isThinkingBlock(
  */
 export function isImageBlock(
   block: ContentBlock
-): block is {
-  type: 'image';
-  source: { type: string; media_type: string; data: string };
-} {
+): block is ImageContentBlock {
   return block.type === 'image';
 }
 
@@ -295,24 +296,4 @@ export function isImageBlock(
 // Export
 // ============================================
 
-export {
-  isAssistantMessage,
-  isUserMessage,
-  isProgressMessage,
-  isAttachmentMessage,
-  isSystemMessage,
-  hasToolUse,
-  hasToolResult,
-  hasToolResultBlocks,
-  isHookAttachment,
-  isLocalCommandMessage,
-  isApiErrorMessage,
-  hasSubstantiveContent,
-  isFilteredMessage,
-  isToolReference,
-  isTextBlock,
-  isToolUseBlock,
-  isToolResultBlock,
-  isThinkingBlock,
-  isImageBlock,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

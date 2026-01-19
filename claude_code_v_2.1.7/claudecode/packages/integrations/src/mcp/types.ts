@@ -140,6 +140,9 @@ export interface McpConnectedServer {
   client: McpClient;
   capabilities: McpServerCapabilities;
   config?: McpServerConfig;
+  serverInfo?: unknown;
+  instructions?: string;
+  cleanup?: (() => void) | (() => Promise<void>);
 }
 
 /**
@@ -219,6 +222,10 @@ export interface McpTransport {
   start(): Promise<void>;
   close(): Promise<void>;
   send(message: object): Promise<void>;
+  // 运行时事件回调（不同 transport 可能实现不同）
+  onMessage?: (handler: (message: unknown) => void) => void;
+  onError?: (handler: (error: Error) => void) => void;
+  onClose?: (handler: () => void) => void;
 }
 
 /**
@@ -555,26 +562,4 @@ export const MCP_CONSTANTS = {
 // Export
 // ============================================
 
-export type {
-  McpTransportType,
-  McpServerConfig,
-  McpConnectionState,
-  McpServerCapabilities,
-  McpServerConnection,
-  McpClient,
-  McpTransport,
-  McpContent,
-  McpToolDefinition,
-  McpWrappedTool,
-  McpPromptDefinition,
-  McpWrappedPrompt,
-  McpResourceDefinition,
-  McpWrappedResource,
-  McpConfigScope,
-  McpConfigResult,
-  McpServerConnectionResult,
-  McpToolSearchMode,
-  McpAutoSearchDecision,
-  McpBatchDiagnostics,
-  McpServerConnectedCallback,
-};
+// NOTE: 类型/常量已在声明处导出；移除重复聚合导出以避免 TS2484。

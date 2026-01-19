@@ -16,7 +16,6 @@ import type { ThinkingBlock, ThinkingBlockType } from './types.js';
  */
 interface ContentBlock {
   type: string;
-  [key: string]: unknown;
 }
 
 /**
@@ -226,11 +225,4 @@ export function shouldSkipInTurnCount(message: MessageWithContent): boolean {
 // Export
 // ============================================
 
-export {
-  isThinkingBlock,
-  isThinkingOnlyMessage,
-  containsThinkingContent,
-  removeTrailingThinkingBlocks,
-  filterOrphanedThinkingMessages,
-  shouldSkipInTurnCount,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

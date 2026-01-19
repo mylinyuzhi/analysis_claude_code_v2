@@ -351,23 +351,4 @@ export const SANDBOX_CONSTANTS = {
 // Export
 // ============================================
 
-export {
-  NetworkConfig,
-  FilesystemConfig,
-  RipgrepConfig,
-  IgnoreViolationsConfig,
-  SandboxConfig,
-  SandboxSettings,
-  ReadConfig,
-  WriteConfig,
-  NetworkInfrastructure,
-  LinuxBridgeInfo,
-  SandboxViolation,
-  ViolationListener,
-  SandboxWrapperOptions,
-  SandboxPlatform,
-  PermissionCallback,
-  SandboxManager,
-  SandboxViolationStore,
-  SANDBOX_CONSTANTS,
-};
+// NOTE: 类型/常量已在声明处导出；移除重复聚合导出。

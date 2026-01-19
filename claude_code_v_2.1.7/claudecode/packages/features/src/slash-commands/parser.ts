@@ -188,7 +188,8 @@ export function createUserMessage(options: {
 }): CommandMessage {
   return {
     role: 'user',
-    content: options.content as string,
+    // Preserve structured content blocks (e.g. prompt command content).
+    content: options.content as any,
     isMeta: options.isMeta,
   };
 }
@@ -301,19 +302,4 @@ export function formatStderr(error: string): string {
 // Export
 // ============================================
 
-export {
-  extractCommandParts,
-  isValidCommandName,
-  isFilePath,
-  commandExists,
-  findCommand,
-  classifyCommand,
-  createUserMessage,
-  createSystemMessage,
-  createFormatError,
-  createUnknownSkillError,
-  formatCommandMetadata,
-  formatSkillMetadata,
-  formatStdout,
-  formatStderr,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

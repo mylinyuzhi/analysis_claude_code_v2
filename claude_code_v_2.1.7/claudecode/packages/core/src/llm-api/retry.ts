@@ -28,27 +28,27 @@ import {
 /**
  * Default maximum retry attempts
  */
-const DEFAULT_MAX_RETRIES = 10;
+export const DEFAULT_MAX_RETRIES = 10;
 
 /**
  * Maximum fallback attempts before giving up
  */
-const MAX_FALLBACK_ATTEMPTS = 3;
+export const MAX_FALLBACK_ATTEMPTS = 3;
 
 /**
  * Minimum output tokens floor
  */
-const MIN_OUTPUT_TOKENS = 3000;
+export const MIN_OUTPUT_TOKENS = 3000;
 
 /**
  * Base delay for exponential backoff (ms)
  */
-const BASE_RETRY_DELAY = 1000;
+export const BASE_RETRY_DELAY = 1000;
 
 /**
  * Maximum retry delay (ms)
  */
-const MAX_RETRY_DELAY = 60000;
+export const MAX_RETRY_DELAY = 60000;
 
 // ============================================
 // Error Classification
@@ -172,9 +172,14 @@ export function parseContextLimitError(error: unknown): ContextOverflowError | n
   // Pattern: "prompt is too long: X tokens > Y maximum"
   const match = message.match(/(\d+)\s*tokens?\s*>\s*(\d+)/i);
   if (match) {
+    const inputTokensStr = match[1];
+    const contextLimitStr = match[2];
+    if (!inputTokensStr || !contextLimitStr) {
+      return null;
+    }
     return {
-      inputTokens: parseInt(match[1], 10),
-      contextLimit: parseInt(match[2], 10),
+      inputTokens: parseInt(inputTokensStr, 10),
+      contextLimit: parseInt(contextLimitStr, 10),
     };
   }
 
@@ -365,18 +370,4 @@ export async function* retryGenerator<T>(
 // Export
 // ============================================
 
-export {
-  retryGenerator,
-  isApiError,
-  isOverloadError,
-  isRetryableError,
-  isProviderAuthError,
-  getRetryAfter,
-  parseContextLimitError,
-  calculateBackoffDelay,
-  DEFAULT_MAX_RETRIES,
-  MAX_FALLBACK_ATTEMPTS,
-  MIN_OUTPUT_TOKENS,
-  BASE_RETRY_DELAY,
-  MAX_RETRY_DELAY,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

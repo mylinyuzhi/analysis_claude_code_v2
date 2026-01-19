@@ -65,16 +65,26 @@ export function trackSkillUsage(
     existingUsage.usageCount !== newCount ||
     existingUsage.lastUsedAt !== currentTime
   ) {
-    setState((state: Record<string, unknown>) => ({
-      ...state,
-      skillUsage: {
-        ...(state.skillUsage as Record<string, SkillUsage>),
-        [skillName]: {
-          usageCount: newCount,
-          lastUsedAt: currentTime,
+    setState((state: unknown) => {
+      const s: Record<string, unknown> =
+        state && typeof state === 'object' ? (state as Record<string, unknown>) : {};
+
+      const prevSkillUsage: Record<string, SkillUsage> =
+        s.skillUsage && typeof s.skillUsage === 'object'
+          ? (s.skillUsage as Record<string, SkillUsage>)
+          : {};
+
+      return {
+        ...s,
+        skillUsage: {
+          ...prevSkillUsage,
+          [skillName]: {
+            usageCount: newCount,
+            lastUsedAt: currentTime,
+          },
         },
-      },
-    }));
+      };
+    });
   }
 }
 
@@ -316,6 +326,12 @@ export async function processPromptSlashCommand(
   args: string,
   context: CommandExecutionContext
 ): Promise<CommandExecutionResult> {
+  // Some prompt commands are explicitly disabled for non-interactive sessions.
+  // Source uses `disableNonInteractive`; we map it via `supportsNonInteractive: false`.
+  if (context.options.isNonInteractiveSession && command.supportsNonInteractive === false) {
+    return { messages: [], shouldQuery: false, command };
+  }
+
   // 1. Get the prompt content from command
   const promptContent = await command.getPromptForCommand(args, context);
 
@@ -328,7 +344,7 @@ export async function processPromptSlashCommand(
   // 4. Build message array
   const messages: CommandMessage[] = [
     createUserMessage({ content: metadataString }),
-    createUserMessage({ content: promptContent as unknown as string, isMeta: true }),
+    createUserMessage({ content: promptContent as unknown as any, isMeta: true }),
   ];
 
   return {
@@ -349,6 +365,10 @@ export async function executeForkedSlashCommand(
   args: string,
   context: CommandExecutionContext
 ): Promise<CommandExecutionResult> {
+  if (context.options.isNonInteractiveSession && command.supportsNonInteractive === false) {
+    return { messages: [], shouldQuery: false, command };
+  }
+
   // Get prompt content
   const promptContent = await command.getPromptForCommand(args, context);
 
@@ -358,7 +378,7 @@ export async function executeForkedSlashCommand(
   // Build messages for forked execution
   const messages: CommandMessage[] = [
     createUserMessage({ content: metadataString }),
-    createUserMessage({ content: promptContent as unknown as string, isMeta: true }),
+    createUserMessage({ content: promptContent as unknown as any, isMeta: true }),
   ];
 
   return {
@@ -405,10 +425,4 @@ function handleCommandError(
 // Export
 // ============================================
 
-export {
-  trackSkillUsage,
-  parseSlashCommandInput,
-  executeSlashCommand,
-  processPromptSlashCommand,
-  executeForkedSlashCommand,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

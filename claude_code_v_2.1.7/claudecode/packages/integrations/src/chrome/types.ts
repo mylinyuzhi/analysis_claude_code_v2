@@ -296,26 +296,4 @@ export const CHROME_MCP_TOOLS: ChromeMcpToolName[] = [
 // Export
 // ============================================
 
-export type {
-  SocketMessage,
-  SocketClientOptions,
-  SocketClientState,
-  NativeMessage,
-  NativeHostOptions,
-  ChromeMcpToolName,
-  ChromeMcpTool,
-  TabInfo,
-  TabGroupInfo,
-  TabsContextInput,
-  TabsCreateInput,
-  TabsNavigateInput,
-  PageClickInput,
-  PageFillInput,
-  ScreenshotInput,
-  EvaluateInput,
-  ChromeToolResult,
-  ScreenshotResult,
-  ConsoleLogEntry,
-  NetworkRequestEntry,
-  ChromeSkillConfig,
-};
+// NOTE: 类型已在声明处导出；移除重复聚合导出以避免 TS2484。

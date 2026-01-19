@@ -51,7 +51,8 @@ export class RingBuffer<T> {
     let index = this.head;
 
     for (let i = 0; i < this.size; i++) {
-      result.push(this.buffer[index]);
+      // size 约束保证该槽位已被写入；这里用非空断言避免 noUncheckedIndexedAccess 误报。
+      result.push(this.buffer[index]!);
       index = (index + 1) % this.capacity;
     }
 
@@ -91,8 +92,4 @@ export class RingBuffer<T> {
   }
 }
 
-// ============================================
-// Export
-// ============================================
-
-export { RingBuffer };
+// NOTE: RingBuffer 已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

@@ -9,13 +9,23 @@
 // LLM API Module
 // ============================================
 
-export * from './llm-api/index.js';
+// NOTE: 避免与 ./message、./tools、./state、./agent-loop 的同名导出产生冲突（TS2308）。
+// 这些模块在 package.json 中也提供了子路径导出（如 @claudecode/core/llm-api）。
+export * as llmApi from './llm-api/index.js';
+
+// 兼容内部依赖（@claudecode/features）对顶层导出的引用。
+export { streamApiCall } from './llm-api/index.js';
+export type {
+  MessagesRequest,
+  StreamApiCallOptions,
+  StreamingQueryResult,
+} from './llm-api/index.js';
 
 // ============================================
 // Tools Framework
 // ============================================
 
-export * from './tools/index.js';
+export * as tools from './tools/index.js';
 
 // ============================================
 // Message Module
@@ -27,13 +37,13 @@ export * from './message/index.js';
 // State Module
 // ============================================
 
-export * from './state/index.js';
+export * as state from './state/index.js';
 
 // ============================================
 // Agent Loop Module
 // ============================================
 
-export * from './agent-loop/index.js';
+export * as agentLoop from './agent-loop/index.js';
 
 // ============================================
 // Steering Module

@@ -96,7 +96,7 @@ function getClaudeDir(): string {
  * Get user skills directory.
  * Original: Q in lO0
  */
-function getUserSkillsDir(): string {
+export function getUserSkillsDir(): string {
   return join(getClaudeDir(), 'skills');
 }
 
@@ -104,7 +104,7 @@ function getUserSkillsDir(): string {
  * Get managed/policy skills directory.
  * Original: B in lO0
  */
-function getManagedSkillsDir(): string {
+export function getManagedSkillsDir(): string {
   // Default to user's .claude directory if no policy dir set
   const policyDir = process.env.CLAUDE_POLICY_DIR || getClaudeDir();
   return join(policyDir, 'skills');
@@ -114,7 +114,7 @@ function getManagedSkillsDir(): string {
  * Get project skills directories.
  * Original: iO0 in chunks.133.mjs
  */
-function getProjectSkillDirs(cwd?: string): string[] {
+export function getProjectSkillDirs(cwd?: string): string[] {
   const workingDir = cwd || process.cwd();
   const dirs: string[] = [];
 
@@ -590,34 +590,4 @@ export function clearSkillCaches(): void {
 // Export
 // ============================================
 
-export {
-  // Types
-  type SkillSource,
-  type LoadedSkillEntry,
-  type PluginWithSkills,
-  type SkillLoadContext,
-  type SkillLoadResult,
-
-  // Directory utilities
-  getUserSkillsDir,
-  getManagedSkillsDir,
-  getProjectSkillDirs,
-
-  // Scanning
-  scanSkillDirectory,
-  loadSkillsFromPath,
-
-  // Loading
-  loadSkillDirectoryCommands,
-  getPluginSkills,
-
-  // Bundled
-  registerBundledSkill,
-  getBundledSkills,
-  clearBundledSkills,
-
-  // Orchestrator
-  getSkills,
-  getSkillsCached,
-  clearSkillCaches,
-};
+// NOTE: 类型/函数已在声明处导出；移除重复聚合导出。

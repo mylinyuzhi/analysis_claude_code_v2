@@ -194,10 +194,11 @@ export function updateTranscriptMetadata(
   const content = readFileSync(transcriptPath, 'utf-8');
   const lines = content.split('\n');
 
-  if (lines.length === 0) return;
+  const firstLine = lines[0];
+  if (!firstLine) return;
 
   try {
-    const firstEntry = JSON.parse(lines[0]);
+    const firstEntry = JSON.parse(firstLine);
     if (firstEntry.type === 'system' && firstEntry.content?.metadata) {
       firstEntry.content.metadata = {
         ...firstEntry.content.metadata,
@@ -232,8 +233,10 @@ export function readTaskOutput(taskId: string, cwd?: string): string | null {
     // Get last assistant message
     const assistantMessages = entries.filter((e) => e.type === 'assistant');
     if (assistantMessages.length > 0) {
-      const last = assistantMessages[assistantMessages.length - 1];
-      return typeof last.content === 'string' ? last.content : JSON.stringify(last.content);
+      const last = assistantMessages[assistantMessages.length - 1]!;
+      return typeof last.content === 'string'
+        ? last.content
+        : JSON.stringify(last.content);
     }
   }
 
@@ -253,19 +256,4 @@ export function writeTaskOutput(taskId: string, output: string, cwd?: string): v
 // Export
 // ============================================
 
-export {
-  sanitizePath,
-  getClaudeDir,
-  getProjectDir,
-  getAgentTranscriptPath,
-  getTaskOutputPath,
-  ensureDir,
-  readTranscript,
-  readTranscriptStream,
-  readTranscriptMetadata,
-  initTranscript,
-  appendTranscriptEntry,
-  updateTranscriptMetadata,
-  readTaskOutput,
-  writeTaskOutput,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免构建期重复导出报错。

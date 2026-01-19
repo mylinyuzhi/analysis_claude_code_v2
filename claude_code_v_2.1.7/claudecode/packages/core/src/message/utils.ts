@@ -88,7 +88,7 @@ export function splitMessagesToBlocks(
 ): ConversationMessage[] {
   let needsNewUUIDs = false;
 
-  return messages.flatMap((msg) => {
+  return messages.flatMap((msg): ConversationMessage[] => {
     switch (msg.type) {
       case 'assistant': {
         // Track if we need new UUIDs (when splitting multi-block messages)
@@ -109,7 +109,7 @@ export function splitMessagesToBlocks(
             uuid,
             error: msg.error,
             isApiErrorMessage: msg.isApiErrorMessage,
-          };
+          } as ConversationMessage;
         });
       }
 
@@ -132,7 +132,7 @@ export function splitMessagesToBlocks(
                 ...msg.message,
                 content: [{ type: 'text' as const, text: content }],
               },
-            },
+            } as ConversationMessage,
           ];
         }
 
@@ -157,7 +157,7 @@ export function splitMessagesToBlocks(
               imagePasteIds: imagePasteId !== undefined ? [imagePasteId] : undefined,
             }),
             uuid: needsNewUUIDs ? generateUUID() : msg.uuid,
-          };
+          } as ConversationMessage;
         });
       }
     }
@@ -582,18 +582,4 @@ export function getTextContent(message: ConversationMessage): string | null {
 // Export
 // ============================================
 
-export {
-  extractXmlTagContent,
-  splitMessagesToBlocks,
-  getToolUseId,
-  getAllToolUseIds,
-  getToolResultErrors,
-  getPendingToolUseIds,
-  getFailedToolUseIds,
-  reorderByToolUseGroups,
-  buildMessageAnalysisCache,
-  getSiblingToolUseIds,
-  getProgressMessages,
-  isHookInProgress,
-  getTextContent,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

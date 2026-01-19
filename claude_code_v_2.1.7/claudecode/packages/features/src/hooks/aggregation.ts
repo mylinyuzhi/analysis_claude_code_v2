@@ -311,16 +311,4 @@ export function getMatchingHooks(
 // Export
 // ============================================
 
-export {
-  getPolicyHooks,
-  setPolicyHooks,
-  setPluginHooks,
-  getPluginHooks,
-  clearPluginHooks,
-  isAllowManagedHooksOnly,
-  isHooksDisabled,
-  aggregateHooksFromAllSources,
-  matchHookPattern,
-  getMatchingHooks,
-  MatchedHook,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

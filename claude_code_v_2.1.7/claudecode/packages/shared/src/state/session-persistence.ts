@@ -135,10 +135,11 @@ export interface TeleportResult {
 // ============================================
 
 /**
- * Get the cache directory for Claude Code
+ * Get the Claude home directory (~/.claude).
+ * Original: zQ() in chunks.148.mjs
  */
 export function getCacheDir(): string {
-  return join(homedir(), '.cache', 'claude-code');
+  return join(homedir(), '.claude');
 }
 
 /**
@@ -150,7 +151,16 @@ export function getProjectsRoot(): string {
 }
 
 /**
- * Get project directory hash
+ * Sanitize a project root path to a stable directory name.
+ * Original: gGA() in chunks.20.mjs
+ */
+export function sanitizeProjectRoot(projectRoot: string): string {
+  return projectRoot.replace(/[^a-zA-Z0-9]/g, '-');
+}
+
+/**
+ * Legacy: Get project directory hash.
+ * NOTE: Original Claude Code uses sanitized project root (gGA), not a hash.
  */
 export function getProjectHash(projectRoot: string): string {
   return createHash('sha256').update(projectRoot).digest('hex').slice(0, 16);
@@ -161,8 +171,7 @@ export function getProjectHash(projectRoot: string): string {
  * Original: QV in chunks.148.mjs
  */
 export function getProjectDir(projectRoot: string): string {
-  const hash = getProjectHash(projectRoot);
-  return join(getProjectsRoot(), hash);
+  return join(getProjectsRoot(), sanitizeProjectRoot(projectRoot));
 }
 
 /**
@@ -825,7 +834,8 @@ async function fetchSessionLogs(
       return null;
     }
 
-    return response.json();
+    const data = (await response.json()) as unknown;
+    return Array.isArray(data) ? (data as SessionLogEntry[]) : null;
   } catch {
     return null;
   }
@@ -906,17 +916,4 @@ export async function resumeTeleportSession(
   }
 }
 
-// ============================================
-// Export
-// ============================================
-
-export {
-  SESSION_INDEX_VERSION,
-  getCacheDir,
-  getProjectsRoot,
-  getProjectDir,
-  getProjectHash,
-  getCurrentSessionPath,
-  getSessionPath,
-  getSessionIndexPath,
-};
+// Note: functions/constants are exported at their declarations.

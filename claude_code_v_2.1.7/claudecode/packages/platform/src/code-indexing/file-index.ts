@@ -113,7 +113,7 @@ async function getFileIndex(): Promise<FileIndex | null> {
  * Check if current directory is a git repository.
  * Original: GY7 in chunks.136.mjs
  */
-async function isGitRepo(cwd: string): Promise<boolean> {
+export async function isGitRepo(cwd: string): Promise<boolean> {
   // Use cache if CWD hasn't changed
   if (isGitRepoCache !== null && gitRepoCacheCwd === cwd) {
     return isGitRepoCache;
@@ -142,7 +142,7 @@ async function isGitRepo(cwd: string): Promise<boolean> {
  * Get files using git ls-files.
  * Original: YY7 in chunks.136.mjs:1594-1649
  */
-async function getFilesUsingGit(
+export async function getFilesUsingGit(
   cwd: string,
   _abortSignal?: AbortSignal,
   _respectGitignore = true
@@ -173,7 +173,7 @@ async function getFilesUsingGit(
  * Get files using ripgrep fallback.
  * Original: XY7 (part) in chunks.136.mjs
  */
-async function getFilesUsingRipgrep(
+export async function getFilesUsingRipgrep(
   cwd: string,
   _respectGitignore = true
 ): Promise<string[]> {
@@ -193,7 +193,7 @@ async function getFilesUsingRipgrep(
  * Get project files (git first, then ripgrep fallback).
  * Original: XY7 in chunks.136.mjs
  */
-async function getProjectFiles(
+export async function getProjectFiles(
   cwd: string,
   abortSignal?: AbortSignal,
   respectGitignore = true
@@ -239,7 +239,7 @@ export function extractDirectoryPrefixes(files: string[]): string[] {
  * Initialize file index.
  * Original: IY7 in chunks.136.mjs:1680-1711
  */
-async function initializeFileIndex(cwd: string): Promise<FileIndexCache> {
+export async function initializeFileIndex(cwd: string): Promise<FileIndexCache> {
   console.log('[FileIndex] Building index...');
   const startTime = Date.now();
 
@@ -292,7 +292,7 @@ async function initializeFileIndex(cwd: string): Promise<FileIndexCache> {
  * Refresh index cache.
  * Original: XR0 in chunks.136.mjs:1791-1799
  */
-function refreshIndexCache(cwd: string): void {
+export function refreshIndexCache(cwd: string): void {
   // Promise deduplication - only one refresh at a time
   if (!refreshPromise) {
     refreshPromise = initializeFileIndex(cwd)
@@ -319,7 +319,7 @@ function refreshIndexCache(cwd: string): void {
  * Create file suggestion result.
  * Original: ehA in chunks.136.mjs
  */
-function createFileResult(filePath: string, score?: number): FileSuggestion {
+export function createFileResult(filePath: string, score?: number): FileSuggestion {
   const isDirectory = filePath.endsWith(path.sep);
   return {
     path: filePath,
@@ -333,7 +333,7 @@ function createFileResult(filePath: string, score?: number): FileSuggestion {
  * Perform search in file index.
  * Original: WY7 in chunks.136.mjs:1742-1789
  */
-async function performSearch(
+export async function performSearch(
   rustIndex: FileIndex | null,
   fallbackList: string[],
   query: string
@@ -494,18 +494,4 @@ export async function executeFileSuggestionCommand(
 // Export
 // ============================================
 
-export {
-  getFileIndex,
-  isGitRepo,
-  getFilesUsingGit,
-  getFilesUsingRipgrep,
-  getProjectFiles,
-  extractDirectoryPrefixes,
-  initializeFileIndex,
-  refreshIndexCache,
-  performSearch,
-  getFileSuggestions,
-  clearFileIndexCache,
-  executeFileSuggestionCommand,
-  createFileResult,
-};
+// NOTE: 本文件内函数已在定义处 `export`；移除重复聚合导出以避免冲突。

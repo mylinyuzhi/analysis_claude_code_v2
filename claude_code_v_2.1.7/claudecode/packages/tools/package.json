@@ -12,15 +12,16 @@
     }
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@claudecode/shared": "workspace:*",
     "@claudecode/core": "workspace:*",
-    "@claudecode/platform": "workspace:*"
+    "@claudecode/platform": "workspace:*",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
