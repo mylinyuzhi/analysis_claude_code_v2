@@ -71,7 +71,13 @@ export interface ToolResult<T = unknown> {
   isCacheable?: boolean;
   /** Result metadata */
   metadata?: Record<string, unknown>;
+
+  /** Optional context modifier (used by some tools) */
+  contextModifier?: { modifyContext: (ctx: ToolUseContext) => ToolUseContext };
 }
+
+/** Generic tool input type used by execution pipeline */
+export type ToolInput = unknown;
 
 /**
  * Tool result block for API
@@ -111,10 +117,27 @@ export interface ToolUseContext {
   messages: unknown[];
   /** Read file state for validation */
   readFileState: Map<string, ReadFileState>;
+
+  /** Track in-progress tool_use IDs (used by streaming tool execution) */
+  setInProgressToolUseIDs?: (
+    updater: (ids: Set<string>) => Set<string>
+  ) => void;
   /** Abort controller for cancellation */
   abortController?: AbortController;
   /** Options */
   options: ToolUseOptions;
+
+  /** Query tracking (telemetry / compaction heuristics) */
+  queryTracking?: { chainId: string; depth: number };
+
+  /** Optional critical system reminder injected for subagents */
+  criticalSystemReminder_EXPERIMENTAL?: string;
+
+  /** Tool permission decisions cache (used by execution pipeline) */
+  toolDecisions?: Map<string, unknown>;
+
+  /** Whether user modified tool input in prompt */
+  userModified?: boolean;
 }
 
 /**
@@ -127,6 +150,27 @@ export interface ToolUseOptions {
   mcpClients?: unknown[];
   /** Main loop model */
   mainLoopModel?: string;
+
+  /** Max thinking tokens override (streaming) */
+  maxThinkingTokens?: number;
+
+  /** Whether this is a non-interactive session */
+  isNonInteractiveSession?: boolean;
+
+  /** Extra system prompt appended at runtime */
+  appendSystemPrompt?: string;
+
+  /** Permission mode override */
+  permissionMode?: string;
+
+  /** Debug logging */
+  debug?: boolean;
+
+  /** Verbose rendering */
+  verbose?: boolean;
+
+  /** MCP resources snapshot */
+  mcpResources?: unknown;
   /** Agent definitions */
   agentDefinitions?: {
     activeAgents: AgentDefinition[];
@@ -151,12 +195,17 @@ export interface AgentDefinition {
  * App state (simplified)
  */
 export interface AppState {
+  [key: string]: unknown;
   toolPermissionContext: {
     mode: 'auto' | 'dontAsk' | 'bypassPermissions' | 'plan';
     shouldAvoidPermissionPrompts?: boolean;
+    additionalWorkingDirectories?: Map<string, unknown>;
   };
-  tasks: Record<string, unknown>;
-  queuedCommands: unknown[];
+  tasks?: Record<string, unknown>;
+  queuedCommands?: unknown[];
+
+  /** MCP runtime state (present in full AppState) */
+  mcp?: { tools?: unknown };
 }
 
 // ============================================
@@ -220,6 +269,12 @@ export interface Tool<TInput = unknown, TOutput = unknown> {
   /** Whether tool is currently enabled */
   isEnabled(): boolean;
 
+  /** Whether tool is MCP-backed (optional) */
+  isMcp?: boolean;
+
+  /** Whether tool requires explicit user interaction (optional) */
+  requiresUserInteraction?: () => boolean;
+
   /** Whether tool can run in parallel with other tools */
   isConcurrencySafe(input?: TInput): boolean;
 
@@ -274,6 +329,12 @@ export interface Tool<TInput = unknown, TOutput = unknown> {
   /** Render progress message in UI */
   renderToolUseProgressMessage?(input: TInput, options: RenderOptions): unknown;
 }
+
+/**
+ * Tool definition used by agent-loop types.
+ * In this codebase the runtime passes full Tool objects around.
+ */
+export type ToolDefinition = Tool;
 
 /**
  * Render options for UI
@@ -364,21 +425,4 @@ export const BUILTIN_TOOL_NAMES = new Set([
 // Export all types
 // ============================================
 
-export type {
-  Schema,
-  PermissionResult,
-  ValidationResult,
-  ToolResult,
-  ToolResultBlock,
-  ReadFileState,
-  ToolUseContext,
-  ToolUseOptions,
-  AgentDefinition,
-  AppState,
-  ProgressCallback,
-  ToolProgress,
-  Tool,
-  RenderOptions,
-  ToolGroup,
-  ToolGroupings,
-};
+// NOTE: 类型已在声明处导出；移除重复聚合导出以避免 TS2484。

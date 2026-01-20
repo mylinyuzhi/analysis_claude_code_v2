@@ -373,7 +373,7 @@ async function extractPDFText(filePath: string): Promise<PDFPageContent[]> {
     // Split by form feed characters (page breaks)
     const pageTexts = result.split('\f');
     for (let i = 0; i < pageTexts.length && i < MAX_PDF_PAGES; i++) {
-      const text = pageTexts[i].trim();
+      const text = pageTexts[i]!.trim();
       if (text.length > 0) {
         pages.push({
           pageNumber: i + 1,
@@ -393,7 +393,7 @@ async function extractPDFText(filePath: string): Promise<PDFPageContent[]> {
         }
       );
       const pageMatch = pdfInfo.match(/Pages:\s+(\d+)/);
-      const pageCount = pageMatch ? parseInt(pageMatch[1], 10) : 0;
+      const pageCount = pageMatch?.[1] ? parseInt(pageMatch[1], 10) : 0;
 
       // Return metadata only if text extraction failed
       pages.push({
@@ -861,4 +861,4 @@ Assume this tool is able to read all files on the machine. If the User provides 
 // Export
 // ============================================
 
-export { ReadTool };
+// NOTE: ReadTool 已在声明处导出；避免重复导出。

@@ -37,11 +37,11 @@ export class SpinnerState {
     if (this.intervalId) return;
 
     this.frameIndex = 0;
-    this.onFrame(this.config.frames[0]);
+    this.onFrame(this.config.frames[0] ?? '');
 
     this.intervalId = setInterval(() => {
       this.frameIndex = (this.frameIndex + 1) % this.config.frames.length;
-      this.onFrame(this.config.frames[this.frameIndex]);
+      this.onFrame(this.config.frames[this.frameIndex] ?? '');
     }, this.config.interval);
   }
 
@@ -59,7 +59,7 @@ export class SpinnerState {
    * Get current frame.
    */
   getCurrentFrame(): string {
-    return this.config.frames[this.frameIndex];
+    return this.config.frames[this.frameIndex] ?? '';
   }
 
   /**
@@ -99,7 +99,7 @@ export async function* createSpinnerGenerator(
   let frameIndex = 0;
 
   while (!signal?.aborted) {
-    yield config.frames[frameIndex];
+    yield config.frames[frameIndex] ?? '';
     frameIndex = (frameIndex + 1) % config.frames.length;
     await new Promise((resolve) => setTimeout(resolve, config.interval));
   }
@@ -109,4 +109,4 @@ export async function* createSpinnerGenerator(
 // Export
 // ============================================
 
-export { SpinnerState, getSpinnerFrames, getSpinnerInterval, createSpinnerGenerator };
+// Note: exports are declared inline above.

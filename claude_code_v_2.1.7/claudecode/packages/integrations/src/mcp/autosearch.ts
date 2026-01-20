@@ -11,6 +11,7 @@ import type {
   McpWrappedTool,
 } from './types.js';
 import { MCP_CONSTANTS } from './types.js';
+import { telemetry } from '@claudecode/platform';
 
 // ============================================
 // Context Window Configuration
@@ -125,8 +126,11 @@ export async function calculateMcpDescriptionSize(
  * Original: gW (isInternalUser) in chunks.85.mjs
  */
 function isInternalUser(): boolean {
-  // TODO: Implement internal user detection
-  return false;
+  return (
+    parseBoolean(process.env.CLAUDECODE_INTERNAL_USER) ||
+    parseBoolean(process.env.ANTHROPIC_INTERNAL_USER) ||
+    parseBoolean(process.env.INTERNAL_USER)
+  );
 }
 
 /**
@@ -134,7 +138,14 @@ function isInternalUser(): boolean {
  * Original: ZZ (getFeatureFlag) in chunks.85.mjs
  */
 function getFeatureFlag(flagName: string, defaultValue: boolean): boolean {
-  // TODO: Implement feature flag system
+  // Minimal feature flag bridge for the reconstructed runtime.
+  // Priority:
+  // - `CLAUDE_FEATURE_<FLAGNAME>` env var
+  // - defaultValue
+  const envKey = `CLAUDE_FEATURE_${flagName.toUpperCase()}`;
+  if (envKey in process.env) {
+    return parseBoolean(process.env[envKey]);
+  }
   return defaultValue;
 }
 
@@ -201,8 +212,17 @@ export function getToolSearchMode(): McpToolSearchMode {
  * Track tool search mode decision.
  */
 function trackToolSearchDecision(decision: McpAutoSearchDecision): void {
-  // TODO: Send telemetry event
-  console.debug('[MCP] Tool search decision:', decision);
+  // Prefer platform telemetry; fall back to debug logging.
+  try {
+    telemetry.logEvent('tengu_mcp_tool_search_decision', {
+      ...decision,
+    } as any);
+  } catch {
+    // ignore
+  }
+  if (process.env.DEBUG_TELEMETRY || process.env.CLAUDE_DEBUG) {
+    console.debug('[MCP] Tool search decision:', decision);
+  }
 }
 
 // ============================================
@@ -372,12 +392,4 @@ export function findDiscoveredToolsInHistory(
 // Export
 // ============================================
 
-export {
-  shouldEnableToolSearch,
-  calculateContextThreshold,
-  calculateMcpDescriptionSize,
-  isModelSupportedForToolSearch,
-  isMcpSearchToolAvailable,
-  getToolSearchMode,
-  findDiscoveredToolsInHistory,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

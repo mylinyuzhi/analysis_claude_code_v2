@@ -465,6 +465,9 @@ async function loadInlinePlugins(
 
   for (let i = 0; i < inlinePluginPaths.length; i++) {
     const pluginPath = inlinePluginPaths[i];
+    if (!pluginPath) {
+      continue;
+    }
 
     try {
       const normalizedPath = resolve(pluginPath);
@@ -622,13 +625,9 @@ export function formatPluginError(error: PluginError): string {
 // ============================================
 
 export {
-  setSessionContext,
   loadPluginDefinitionFromPath,
   loadInlinePlugins,
   loadMarketplacePlugins,
-  discoverPluginsAndHooks,
-  clearPluginCache,
-  formatPluginError,
   loadHooksFile,
   mergeHookConfigs,
 };

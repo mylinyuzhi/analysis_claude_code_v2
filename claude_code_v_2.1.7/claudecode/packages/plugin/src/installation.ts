@@ -375,7 +375,7 @@ export async function uninstallPlugin(
     throw new Error(`Plugin '${fullPluginId}' is not installed in scope '${scope}'.`);
   }
 
-  const entry = entries[index];
+  const entry = entries[index]!;
 
   // Remove from registry
   entries.splice(index, 1);
@@ -525,17 +525,4 @@ export async function listInstalledPlugins(options: {
 // Export
 // ============================================
 
-export {
-  getInstalledPluginsPath,
-  getPluginCacheDir,
-  getPluginInstallPath,
-  loadInstalledPlugins,
-  saveInstalledPlugins,
-  parsePluginId,
-  formatPluginId,
-  cachePluginFromSource,
-  installPlugin,
-  uninstallPlugin,
-  updatePlugin,
-  listInstalledPlugins,
-};
+// NOTE: 本文件函数已在声明处导出；移除重复聚合导出。

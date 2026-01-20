@@ -158,15 +158,4 @@ export const THINKING_CONSTANTS = {
 // Export
 // ============================================
 
-export type {
-  ThinkingLevel,
-  ThinkingMetadata,
-  ThinkingDetectionResult,
-  ThinkingBlockType,
-  ThinkingBlock,
-  RedactedThinkingBlock,
-  ThinkingConfig,
-  ModelThinkingInfo,
-  ThinkingLevelColors,
-  ThinkingShimmerColors,
-};
+// NOTE: 类型已在声明处导出；移除重复导出。

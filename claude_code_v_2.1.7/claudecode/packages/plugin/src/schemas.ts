@@ -300,27 +300,5 @@ export const knownMarketplacesSchema = z.record(
 // Export
 // ============================================
 
-export {
-  pluginIdSchema,
-  hookEntrySchema,
-  hooksFileSchema,
-  commandDefinitionSchema,
-  githubSourceSchema,
-  githubDefaultBranchSourceSchema,
-  gitSourceSchema,
-  urlSourceSchema,
-  fileSourceSchema,
-  directorySourceSchema,
-  npmSourceSchema,
-  pluginSourceSchema,
-  marketplaceSourceSchema,
-  lspServerConfigSchema,
-  pluginManifestSchema,
-  marketplacePluginEntrySchema,
-  marketplaceJsonSchema,
-  installScopeSchema,
-  installedPluginEntrySchema,
-  installedPluginsV1Schema,
-  installedPluginsV2Schema,
-  knownMarketplacesSchema,
-};
+// NOTE: 以上 schema 在本文件内已使用 `export const ...` 导出。
+// 保留重复的 `export { ... }` 会导致 TypeScript / esbuild 报“重复导出”。

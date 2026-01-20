@@ -360,15 +360,4 @@ export function startSocketServer(handler: CommandHandler): net.Server {
 // Export
 // ============================================
 
-export {
-  getSocketPath,
-  getStatePath,
-  readEndpointState,
-  writeEndpointState,
-  clearEndpointState,
-  isRunningInEndpoint,
-  isSocketAvailable,
-  sendCommand,
-  sendMcpCommand,
-  startSocketServer,
-};
+// NOTE: 函数已在定义处导出；移除重复聚合导出。

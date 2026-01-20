@@ -58,7 +58,7 @@ export interface Question {
   /** Available choices (2-4 options) */
   options: QuestionOption[];
   /** Allow multiple selections */
-  multiSelect: boolean;
+  multiSelect?: boolean;
 }
 
 /**
@@ -234,7 +234,7 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
 
     // Validate each question
     for (let i = 0; i < input.questions.length; i++) {
-      const q = input.questions[i];
+      const q = input.questions[i]!;
 
       if (!q.question || q.question.trim().length === 0) {
         return validationError(`Question ${i + 1} must have text`, 3);
@@ -263,7 +263,7 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
 
       // Validate options
       for (let j = 0; j < q.options.length; j++) {
-        const opt = q.options[j];
+        const opt = q.options[j]!;
         if (!opt.label || opt.label.trim().length === 0) {
           return validationError(
             `Question ${i + 1}, option ${j + 1} must have a label`,
@@ -360,4 +360,4 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
 // Export
 // ============================================
 
-export { AskUserQuestionTool };
+// NOTE: AskUserQuestionTool 已在声明处导出；避免重复导出。

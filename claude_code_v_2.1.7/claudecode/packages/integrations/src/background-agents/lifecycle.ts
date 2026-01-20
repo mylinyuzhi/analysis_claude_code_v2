@@ -383,16 +383,4 @@ export function markBashTaskCompleted(
 // Export
 // ============================================
 
-export {
-  updateTask,
-  addTaskToState,
-  removeTaskFromState,
-  createBaseTask,
-  createTaskNotification,
-  createBashTaskNotification,
-  killBackgroundTask,
-  updateTaskProgress,
-  markTaskCompleted,
-  markTaskFailed,
-  markBashTaskCompleted,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免构建期重复导出报错。

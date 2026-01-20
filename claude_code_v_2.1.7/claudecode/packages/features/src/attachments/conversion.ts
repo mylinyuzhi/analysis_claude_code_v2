@@ -98,7 +98,8 @@ export function wrapInSystemReminder(content: string): string {
  */
 export function extractSystemReminder(message: string): string | null {
   const match = message.match(/<system-reminder>([\s\S]*?)<\/system-reminder>/);
-  return match ? match[1].trim() : null;
+  const captured = match?.[1];
+  return captured ? captured.trim() : null;
 }
 
 /**
@@ -535,14 +536,4 @@ export function attachmentsToApiMessage(attachments: Attachment[]): ApiMessage |
 // Export
 // ============================================
 
-export {
-  wrapInSystemReminder,
-  extractSystemReminder,
-  hasSystemReminder,
-  stripSystemReminder,
-  attachmentToText,
-  filterSystemReminderMessages,
-  getSystemReminderMessages,
-  attachmentToApiMessage,
-  attachmentsToApiMessage,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

@@ -699,21 +699,4 @@ export const ATTACHMENT_CONSTANTS = {
 // Export
 // ============================================
 
-export {
-  ATTACHMENT_TYPES,
-  AttachmentType,
-  FileContent,
-  TextFileContent,
-  ImageFileContent,
-  NotebookFileContent,
-  PdfFileContent,
-  Attachment,
-  AttachmentMessage,
-  AttachmentContext,
-  IdeContext,
-  ReadFileStateEntry,
-  AppState,
-  AttachmentOptions,
-  TodoItem,
-  ATTACHMENT_CONSTANTS,
-};
+// NOTE: 类型/常量已在声明处导出；移除重复聚合导出。

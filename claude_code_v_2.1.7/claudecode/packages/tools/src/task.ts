@@ -32,6 +32,29 @@ import {
 import type { TaskInput, TaskOutput, ToolContext } from './types.js';
 import { TOOL_NAMES } from './types.js';
 
+import type {
+  Tool as CoreTool,
+  ToolUseContext as CoreToolUseContext,
+  ToolResult as CoreToolResult,
+} from '@claudecode/core/tools';
+import { runSubagentLoop as runCoreSubagentLoop } from '@claudecode/core/agent-loop';
+import { createUserMessage as createCoreUserMessage } from '@claudecode/core/message';
+
+import { ReadTool } from './read.js';
+import { WriteTool } from './write.js';
+import { EditTool } from './edit.js';
+import { GlobTool } from './glob.js';
+import { GrepTool } from './grep.js';
+import { BashTool } from './bash.js';
+import { WebFetchTool } from './web-fetch.js';
+import { WebSearchTool } from './web-search.js';
+import { TodoWriteTool } from './todo-write.js';
+import { SkillTool } from './skill.js';
+import { AskUserQuestionTool } from './ask-user-question.js';
+import { NotebookEditTool } from './notebook-edit.js';
+import { KillShellTool } from './kill-shell.js';
+import { TaskOutputTool } from './task-output.js';
+
 // ============================================
 // Constants
 // ============================================
@@ -40,76 +63,231 @@ const MAX_RESULT_SIZE = 30000;
 const BACKGROUND_HINT_DELAY = 3000; // 3 seconds before showing Ctrl+B hint
 
 /**
- * Available agent types with their configurations.
- * Original: chunks.93.mjs - Agent definitions
+ * Built-in agent configs.
+ *
+ * Source of truth: `claude_code_v_2.1.7/source/chunks.93.mjs`.
  */
-const AGENT_CONFIGS: Record<string, AgentConfig> = {
-  'Bash': {
-    agentType: 'Bash',
-    whenToUse: 'Command execution specialist for running bash commands. Use this for git operations, command execution, and other terminal tasks.',
-    tools: ['Bash'],
-    model: 'inherit',
-    forkContext: false,
-  },
-  'general-purpose': {
-    agentType: 'general-purpose',
-    whenToUse: 'General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks.',
-    tools: ['*'], // All tools
-    model: 'inherit',
-    forkContext: true,
-  },
-  'statusline-setup': {
-    agentType: 'statusline-setup',
-    whenToUse: 'Use this agent to configure the user\'s Claude Code status line setting.',
-    tools: ['Read', 'Edit'],
-    model: 'haiku',
-    forkContext: false,
-  },
-  'Explore': {
-    agentType: 'Explore',
-    whenToUse: 'Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns.',
-    tools: ['Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch'],
-    model: 'haiku',
-    forkContext: true,
-  },
-  'Plan': {
-    agentType: 'Plan',
-    whenToUse: 'Software architect agent for designing implementation plans.',
-    tools: ['Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch'],
-    model: 'inherit',
-    forkContext: true,
-  },
-  'claude-code-guide': {
-    agentType: 'claude-code-guide',
-    whenToUse: 'Use this agent when the user asks questions about Claude Code features, hooks, MCP servers, or the Agent SDK.',
-    tools: ['Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch'],
-    model: 'haiku',
-    forkContext: false,
-  },
-  'code-simplifier': {
-    agentType: 'code-simplifier',
-    whenToUse: 'Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality.',
-    tools: ['*'], // All tools
-    model: 'inherit',
-    forkContext: true,
-  },
-};
+const BASH_SYSTEM_PROMPT = `You are a command execution specialist for Claude Code. Your role is to execute bash commands efficiently and safely.
 
-/**
- * Available agent types.
- */
-const AGENT_TYPES = new Set(Object.keys(AGENT_CONFIGS));
+Guidelines:
+- Execute commands precisely as instructed
+- For git operations, follow git safety protocols
+- Report command output clearly and concisely
+- If a command fails, explain the error and suggest solutions
+- Use command chaining (&&) for dependent operations
+- Quote paths with spaces properly
+- For clear communication, avoid using emojis
 
-/**
- * Agent configuration interface.
- */
+Complete the requested operations efficiently.`;
+
+const GENERAL_PURPOSE_SYSTEM_PROMPT = `You are an agent for Claude Code, Anthropic's official CLI for Claude. Given the user's message, you should use the tools available to complete the task. Do what has been asked; nothing more, nothing less. When you complete the task simply respond with a detailed writeup.
+
+Your strengths:
+- Searching for code, configurations, and patterns across large codebases
+- Analyzing multiple files to understand system architecture
+- Investigating complex questions that require exploring many files
+- Performing multi-step research tasks
+
+Guidelines:
+- For file searches: Use Grep or Glob when you need to search broadly. Use Read when you know the specific file path.
+- For analysis: Start broad and narrow down. Use multiple search strategies if the first doesn't yield results.
+- Be thorough: Check multiple locations, consider different naming conventions, look for related files.
+- NEVER create files unless they're absolutely necessary for achieving your goal. ALWAYS prefer editing an existing file to creating a new one.
+- NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested.
+- In your final response always share relevant file names and code snippets. Any file paths you return in your response MUST be absolute. Do NOT use relative paths.
+- For clear communication, avoid using emojis.`;
+
+const EXPLORE_SYSTEM_PROMPT = `You are a file search specialist for Claude Code, Anthropic's official CLI for Claude. You excel at thoroughly navigating and exploring codebases.
+
+=== CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS ===
+This is a READ-ONLY exploration task. You are STRICTLY PROHIBITED from:
+- Creating new files (no Write, touch, or file creation of any kind)
+- Modifying existing files (no Edit operations)
+- Deleting files (no rm or deletion)
+- Moving or copying files (no mv or cp)
+- Creating temporary files anywhere, including /tmp
+- Using redirect operators (>, >>, |) or heredocs to write to files
+- Running ANY commands that change system state
+
+Your role is EXCLUSIVELY to search and analyze existing code. You do NOT have access to file editing tools - attempting to edit files will fail.
+
+Your strengths:
+- Rapidly finding files using glob patterns
+- Searching code and text with powerful regex patterns
+- Reading and analyzing file contents
+
+Guidelines:
+- Use Glob for broad file pattern matching
+- Use Grep for searching file contents with regex
+- Use Read when you know the specific file path you need to read
+- Use Bash ONLY for read-only operations (ls, git status, git log, git diff, find, cat, head, tail)
+- NEVER use Bash for: mkdir, touch, rm, cp, mv, git add, git commit, npm install, pip install, or any file creation/modification
+- Adapt your search approach based on the thoroughness level specified by the caller
+- Return file paths as absolute paths in your final response
+- For clear communication, avoid using emojis
+- Communicate your final report directly as a regular message - do NOT attempt to create files
+
+NOTE: You are meant to be a fast agent that returns output as quickly as possible. In order to achieve this you must:
+- Make efficient use of the tools that you have at your disposal: be smart about how you search for files and implementations
+- Wherever possible you should try to spawn multiple parallel tool calls for grepping and reading files
+
+Complete the user's search request efficiently and report your findings clearly.`;
+
+const PLAN_SYSTEM_PROMPT = `You are a software architect and planning specialist for Claude Code. Your role is to explore the codebase and design implementation plans.
+
+=== CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS ===
+This is a READ-ONLY planning task. You are STRICTLY PROHIBITED from:
+- Creating new files (no Write, touch, or file creation of any kind)
+- Modifying existing files (no Edit operations)
+- Deleting files (no rm or deletion)
+- Moving or copying files (no mv or cp)
+- Creating temporary files anywhere, including /tmp
+- Using redirect operators (>, >>, |) or heredocs to write to files
+- Running ANY commands that change system state
+
+Your role is EXCLUSIVELY to explore the codebase and design implementation plans. You do NOT have access to file editing tools - attempting to edit files will fail.
+
+You will be provided with a set of requirements and optionally a perspective on how to approach the design process.
+
+## Your Process
+1. Understand Requirements
+2. Explore Thoroughly (use Glob/Grep/Read; Bash only for read-only ops)
+3. Design Solution
+4. Detail the Plan
+
+## Required Output
+End your response with:
+
+### Critical Files for Implementation
+- path/to/file1.ts - [Brief reason]
+- path/to/file2.ts - [Brief reason]
+- path/to/file3.ts - [Brief reason]
+
+REMEMBER: You can ONLY explore and plan. You CANNOT and MUST NOT write, edit, or modify any files. You do NOT have access to file editing tools.`;
+
+const CLAUDE_CODE_GUIDE_SYSTEM_PROMPT = `You are the Claude guide agent. Your primary responsibility is helping users understand and use Claude Code, the Claude Agent SDK, and the Claude API (formerly the Anthropic API) effectively.
+
+Your expertise spans three domains:
+1. Claude Code (the CLI tool)
+2. Claude Agent SDK
+3. Claude API
+
+Approach:
+1. Determine which domain the user's question falls into
+2. Fetch the appropriate docs map
+3. Identify the most relevant documentation URLs
+4. Fetch the specific documentation pages
+5. Provide clear, actionable guidance based on official documentation.`;
+
+type BuiltInAgentModel = 'inherit' | 'sonnet' | 'opus' | 'haiku' | undefined;
+
 interface AgentConfig {
   agentType: string;
   whenToUse: string;
-  tools: string[];
-  model: 'inherit' | 'sonnet' | 'opus' | 'haiku';
-  forkContext: boolean;
+  tools?: string[];
+  disallowedTools?: string[];
+  model?: BuiltInAgentModel;
+  permissionMode?: 'dontAsk' | undefined;
+  color?: string;
+  criticalSystemReminder_EXPERIMENTAL?: string;
+  isEnabled?: () => boolean;
+  getSystemPrompt: () => string;
 }
+
+function shouldEnableClaudeCodeGuideAgent(): boolean {
+  return (
+    process.env.CLAUDE_CODE_ENTRYPOINT !== 'sdk-ts' &&
+    process.env.CLAUDE_CODE_ENTRYPOINT !== 'sdk-py' &&
+    process.env.CLAUDE_CODE_ENTRYPOINT !== 'sdk-cli'
+  );
+}
+
+/**
+ * Built-in agents available to Task tool.
+ */
+const AGENT_CONFIGS: Record<string, AgentConfig> = {
+  Bash: {
+    agentType: 'Bash',
+    whenToUse:
+      'Command execution specialist for running bash commands. Use this for git operations, command execution, and other terminal tasks.',
+    tools: ['Bash'],
+    model: 'inherit',
+    getSystemPrompt: () => BASH_SYSTEM_PROMPT,
+  },
+  'general-purpose': {
+    agentType: 'general-purpose',
+    whenToUse:
+      "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you.",
+    tools: ['*'],
+    // NOTE: source does not set model here; it uses the caller's model / defaults.
+    model: undefined,
+    getSystemPrompt: () => GENERAL_PURPOSE_SYSTEM_PROMPT,
+  },
+  'statusline-setup': {
+    agentType: 'statusline-setup',
+    whenToUse: "Use this agent to configure the user's Claude Code status line setting.",
+    tools: ['Read', 'Edit'],
+    model: 'sonnet',
+    color: 'orange',
+    getSystemPrompt: () =>
+      // Source prompt is very long; keep it in the source bundle as the canonical version.
+      'You are a status line setup agent for Claude Code. Your job is to create or update the statusLine command in the user\'s Claude Code settings.',
+  },
+  Explore: {
+    agentType: 'Explore',
+    whenToUse:
+      'Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns, search code for keywords, or answer questions about the codebase. When calling this agent, specify a thoroughness level.',
+    // Source relies on the underlying agent toolset; keep tool list minimal and enforce via disallowedTools.
+    tools: undefined,
+    // Keep consistent with source/chunks.93.mjs (disallow self-spawn + any write/edit + user-interactive tool).
+    disallowedTools: [
+      TOOL_NAMES.TASK,
+      TOOL_NAMES.EXIT_PLAN_MODE,
+      TOOL_NAMES.EDIT,
+      TOOL_NAMES.WRITE,
+      TOOL_NAMES.ASK_USER_QUESTION,
+    ],
+    model: 'haiku',
+    criticalSystemReminder_EXPERIMENTAL:
+      'CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files.',
+    getSystemPrompt: () => EXPLORE_SYSTEM_PROMPT,
+  },
+  Plan: {
+    agentType: 'Plan',
+    whenToUse:
+      'Software architect agent for designing implementation plans. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs.',
+    tools: undefined,
+    // Keep consistent with source/chunks.93.mjs (disallow self-spawn + any write/edit + user-interactive tool).
+    disallowedTools: [
+      TOOL_NAMES.TASK,
+      TOOL_NAMES.EXIT_PLAN_MODE,
+      TOOL_NAMES.EDIT,
+      TOOL_NAMES.WRITE,
+      TOOL_NAMES.ASK_USER_QUESTION,
+    ],
+    model: 'inherit',
+    criticalSystemReminder_EXPERIMENTAL:
+      'CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files.',
+    getSystemPrompt: () => PLAN_SYSTEM_PROMPT,
+  },
+  'claude-code-guide': {
+    agentType: 'claude-code-guide',
+    whenToUse:
+      'Use this agent when the user asks questions about Claude Code, the Claude Agent SDK, or the Claude API. Prefer resuming an existing claude-code-guide instance when possible.',
+    tools: ['Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch'],
+    model: 'haiku',
+    permissionMode: 'dontAsk',
+    isEnabled: shouldEnableClaudeCodeGuideAgent,
+    getSystemPrompt: () => CLAUDE_CODE_GUIDE_SYSTEM_PROMPT,
+  },
+};
+
+const AGENT_TYPES = new Set(
+  Object.keys(AGENT_CONFIGS).filter((k) => {
+    const cfg = AGENT_CONFIGS[k]!;
+    return cfg.isEnabled?.() !== false;
+  })
+);
 
 /**
  * Task state for background execution.
@@ -250,7 +428,7 @@ function appendToOutputFile(agentId: string, content: string): void {
  * 5. Default (sonnet)
  */
 function resolveAgentModel(
-  agentModel: string,
+  agentModel: BuiltInAgentModel,
   parentModel: string | undefined,
   taskModel: string | undefined
 ): string {
@@ -444,10 +622,161 @@ function markTaskError(taskId: string, error: string): void {
 
 /**
  * Run subagent loop.
- * Original: $f (runAgentLoop) in chunks.113.mjs
+ * Original: $f (runSubagentLoop) in chunks.113.mjs
  *
- * This is a simplified version that executes the agent's task.
+ * 使用 @claudecode/core 的 subagent loop，确保与 source 的执行链路一致：
+ * - 走 coreMessageLoop（支持 tools / hooks / compact / MCP 等）
+ * - 通过 ToolUseContext 适配层复用当前进程内的 built-in tools
  */
+function getBuiltinToolsForSubagents() {
+  return [
+    ReadTool,
+    WriteTool,
+    EditTool,
+    GlobTool,
+    GrepTool,
+    BashTool,
+    WebFetchTool,
+    WebSearchTool,
+    TodoWriteTool,
+    SkillTool,
+    AskUserQuestionTool,
+    NotebookEditTool,
+    KillShellTool,
+    TaskOutputTool,
+    // 允许子代理再次调用 Task（与 source 行为一致；具体是否允许由 tools/disallowedTools 决定）
+    TaskTool,
+  ];
+}
+
+function filterToolsByAllowDeny<T extends { name: string }>(
+  tools: T[],
+  allowedTools?: string[],
+  disallowedTools?: string[]
+): T[] {
+  const denied = new Set(disallowedTools || []);
+  const allowed = allowedTools && allowedTools.length > 0 && !allowedTools.includes('*')
+    ? new Set(allowedTools)
+    : null;
+
+  return tools.filter((t) => {
+    if (denied.has(t.name)) return false;
+    if (allowed && !allowed.has(t.name)) return false;
+    return true;
+  });
+}
+
+function adaptToolsForCore(options: {
+  allowedTools?: string[];
+  disallowedTools?: string[];
+  getAppState: () => Promise<any>;
+  setAppState: (updater: (state: any) => any) => void;
+  readFileState: Map<string, any>;
+  agentId?: string;
+  sessionId?: string;
+  abortController?: AbortController;
+}): CoreTool[] {
+  const filtered = filterToolsByAllowDeny(getBuiltinToolsForSubagents() as any, options.allowedTools, options.disallowedTools);
+
+  return (filtered as any[]).map((tool) => {
+    const adapted: CoreTool = {
+      name: tool.name,
+      maxResultSizeChars: tool.maxResultSizeChars ?? 30000,
+      strict: tool.strict,
+      input_examples: tool.input_examples,
+      description: tool.description,
+      prompt: tool.prompt,
+      inputSchema: tool.inputSchema,
+      outputSchema: tool.outputSchema,
+      userFacingName: tool.userFacingName,
+      isEnabled: tool.isEnabled,
+      isConcurrencySafe: tool.isConcurrencySafe,
+      isReadOnly: tool.isReadOnly,
+      requiresUserInteraction: tool.requiresUserInteraction,
+      isSearchOrReadCommand: tool.isSearchOrReadCommand,
+      getPath: tool.getPath,
+      checkPermissions: async (input: unknown, ctx: CoreToolUseContext) => {
+        if (!tool.checkPermissions) return { result: true };
+        const toolCtx: ToolContext = {
+          getCwd: () => process.cwd(),
+          getAppState: options.getAppState,
+          setAppState: options.setAppState,
+          readFileState: options.readFileState,
+          agentId: options.agentId ?? ctx.agentId,
+          sessionId: options.sessionId,
+          abortSignal: options.abortController?.signal ?? ctx.abortController?.signal,
+          options: (ctx as any).options,
+        };
+
+        const res = await tool.checkPermissions(input, toolCtx);
+        if (res?.behavior === 'deny') return { result: false, behavior: 'deny', message: res.message };
+        if (res?.behavior === 'ask') return { result: false, behavior: 'ask', message: res.message };
+        return { result: true };
+      },
+      validateInput: async (input: unknown, ctx: CoreToolUseContext) => {
+        if (!tool.validateInput) return { result: true };
+        const toolCtx: ToolContext = {
+          getCwd: () => process.cwd(),
+          getAppState: options.getAppState,
+          setAppState: options.setAppState,
+          readFileState: options.readFileState,
+          agentId: options.agentId ?? ctx.agentId,
+          sessionId: options.sessionId,
+          abortSignal: options.abortController?.signal ?? ctx.abortController?.signal,
+          options: (ctx as any).options,
+        };
+        const res = await tool.validateInput(input, toolCtx);
+        return { result: !!res?.result, message: res?.message, errorCode: res?.errorCode };
+      },
+      call: async (
+        input: unknown,
+        ctx: CoreToolUseContext,
+        toolUseId: string,
+        metadata: unknown,
+        progressCallback?: (progress: any) => void
+      ): Promise<CoreToolResult> => {
+        const toolCtx: ToolContext = {
+          getCwd: () => process.cwd(),
+          getAppState: options.getAppState,
+          setAppState: options.setAppState,
+          readFileState: options.readFileState,
+          agentId: options.agentId ?? ctx.agentId,
+          sessionId: options.sessionId,
+          abortSignal: options.abortController?.signal ?? ctx.abortController?.signal,
+          options: (ctx as any).options,
+        };
+        const res: any = await tool.call(input, toolCtx, toolUseId, metadata, progressCallback as any);
+        return { data: res?.data, error: res?.error } as any;
+      },
+      mapToolResultToToolResultBlockParam: (result: CoreToolResult, toolUseId: string) => {
+        const data = (result as any)?.data;
+        const raw = tool.mapToolResultToToolResultBlockParam
+          ? tool.mapToolResultToToolResultBlockParam(data, toolUseId)
+          : ({ tool_use_id: toolUseId, type: 'tool_result', content: JSON.stringify(data) } as any);
+        return {
+          type: 'tool_result',
+          tool_use_id: raw.tool_use_id,
+          content: raw.content,
+          is_error: Boolean((result as any)?.error) || raw.is_error,
+        } as any;
+      },
+    };
+    return adapted;
+  });
+}
+
+function extractTextFromContentBlocks(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  let out = '';
+  for (const block of content) {
+    if (block && typeof block === 'object' && (block as any).type === 'text') {
+      out += String((block as any).text ?? '');
+    }
+  }
+  return out;
+}
+
 async function runSubagentLoop(params: {
   agentId: string;
   prompt: string;
@@ -455,87 +784,159 @@ async function runSubagentLoop(params: {
   model: string;
   maxTurns?: number;
   abortSignal?: AbortSignal;
+  toolContext: ToolContext;
+  isAsync?: boolean;
 }): Promise<string> {
-  const { agentId, prompt, agentConfig, model, maxTurns = 10, abortSignal } = params;
+  const {
+    agentId,
+    prompt,
+    agentConfig,
+    model,
+    maxTurns = 10,
+    abortSignal,
+    toolContext,
+    isAsync,
+  } = params;
 
-  try {
-    // Import the LLM API dynamically to avoid circular dependencies
-    const { streamApiCall } = await import('@claudecode/core/llm-api');
+  const linkAbort = (signal: AbortSignal | undefined, controller: AbortController) => {
+    if (!signal) return;
+    if (signal.aborted) {
+      controller.abort();
+      return;
+    }
+    signal.addEventListener('abort', () => controller.abort(), { once: true });
+  };
 
-    let result = '';
-    let turnCount = 0;
+  const abortController = new AbortController();
+  linkAbort(abortSignal, abortController);
+  linkAbort(toolContext.abortSignal, abortController);
 
-    // Build system prompt based on agent type
-    const systemPrompt = buildAgentSystemPrompt(agentConfig);
+  const getAppState = toolContext.getAppState;
+  const setAppState = toolContext.setAppState;
+  const readFileState = toolContext.readFileState;
 
-    // Simple agent loop - make API calls until done or max turns
-    while (turnCount < maxTurns) {
-      if (abortSignal?.aborted) {
-        throw new Error('Agent execution aborted');
+  const coreTools = adaptToolsForCore({
+    allowedTools: agentConfig.tools,
+    disallowedTools: agentConfig.disallowedTools,
+    getAppState,
+    setAppState,
+    readFileState,
+    agentId,
+    sessionId: toolContext.sessionId,
+    abortController,
+  });
+
+  const conversation: any[] = [];
+  const coreToolUseContext: any = {
+    getAppState,
+    setAppState,
+    readFileState,
+    abortController,
+    agentId,
+    messages: conversation,
+    options: {
+      tools: coreTools,
+      mainLoopModel: typeof toolContext.options?.model === 'string' ? (toolContext.options as any).model : undefined,
+      debug: Boolean((toolContext.options as any)?.debug),
+      verbose: Boolean((toolContext.options as any)?.verbose),
+      isNonInteractiveSession: Boolean((toolContext.options as any)?.isNonInteractiveSession),
+    },
+  };
+
+  const allowed = agentConfig.tools && agentConfig.tools.length > 0 && !agentConfig.tools.includes('*')
+    ? new Set(agentConfig.tools)
+    : null;
+  const denied = new Set(agentConfig.disallowedTools || []);
+
+  const canUseTool = async (tool: { name: string }) => {
+    if (denied.has(tool.name)) return false;
+    if (allowed && !allowed.has(tool.name)) return false;
+    return true;
+  };
+
+  let resultText = '';
+  let toolUseCount = 0;
+
+  // 记录开头
+  appendToOutputFile(agentId, `\n--- Subagent Started (${agentConfig.agentType}) ---\n`);
+
+  for await (const ev of runCoreSubagentLoop({
+    agentDefinition: {
+      agentType: agentConfig.agentType,
+      whenToUse: agentConfig.whenToUse,
+      tools: agentConfig.tools,
+      disallowedTools: agentConfig.disallowedTools,
+      model: agentConfig.model,
+      permissionMode: agentConfig.permissionMode,
+      criticalSystemReminder_EXPERIMENTAL: agentConfig.criticalSystemReminder_EXPERIMENTAL,
+      getSystemPrompt: () => agentConfig.getSystemPrompt(),
+    } as any,
+    promptMessages: [createCoreUserMessage({ content: prompt }) as any],
+    toolUseContext: coreToolUseContext,
+    canUseTool: async (tool: any, _input: any, _assistantMessage: any) => canUseTool(tool),
+    querySource: isAsync ? 'background' : 'subagent',
+    model,
+    maxTurns,
+    isAsync,
+  } as any)) {
+    if (!ev || typeof ev !== 'object') continue;
+
+    // 持久化到 conversation（便于后续工具/上下文引用）
+    conversation.push(ev as any);
+
+    if ((ev as any).type === 'assistant') {
+      const content = (ev as any).message?.content;
+      if (Array.isArray(content)) {
+        for (const block of content) {
+          if (block?.type === 'text') {
+            const t = String(block.text ?? '');
+            resultText += t;
+            appendToOutputFile(agentId, t);
+          } else if (block?.type === 'tool_use') {
+            toolUseCount += 1;
+            updateTaskProgress(agentId, { toolUseCount });
+            appendToOutputFile(agentId, `\n[Tool: ${String(block.name ?? 'unknown')}]\n`);
+          }
+        }
+      } else {
+        const t = extractTextFromContentBlocks(content);
+        if (t) {
+          resultText += t;
+          appendToOutputFile(agentId, t);
+        }
       }
-
-      turnCount++;
-      updateTaskProgress(agentId, { toolUseCount: turnCount });
-      appendToOutputFile(agentId, `\n--- Turn ${turnCount} ---\n`);
-
-      const request = {
-        model,
-        max_tokens: 8192,
-        messages: [{ role: 'user' as const, content: prompt }],
-        system: systemPrompt,
-      };
-
-      const generator = streamApiCall(request, {
-        apiKey: process.env.ANTHROPIC_API_KEY || '',
-      });
-
-      for await (const streamResult of generator) {
-        if (streamResult.type === 'assistant') {
-          const content = streamResult.message.content;
-          if (Array.isArray(content)) {
-            for (const block of content) {
-              if (block.type === 'text') {
-                result += block.text;
-                appendToOutputFile(agentId, block.text);
-              } else if (block.type === 'tool_use') {
-                // Log tool use
-                appendToOutputFile(agentId, `\n[Tool: ${block.name}]\n`);
-              }
+    } else if ((ev as any).type === 'user') {
+      // 将 tool_result 也写入输出，便于 debug（source 里也会记录 transcript）
+      const blocks = (ev as any).message?.content;
+      if (Array.isArray(blocks)) {
+        for (const b of blocks) {
+          if (b?.type === 'tool_result') {
+            const text = extractTextFromContentBlocks(b.content);
+            if (text) {
+              appendToOutputFile(agentId, `\n[Tool Result]\n${text}\n`);
             }
           }
         }
       }
-
-      // For now, simple agents complete after one turn
-      // A full implementation would continue based on tool_use blocks
-      break;
+    } else if ((ev as any).type === 'attachment') {
+      const att = (ev as any).attachment;
+      if (att?.type === 'error' && att?.content) {
+        appendToOutputFile(agentId, `\n[Attachment Error]\n${String(att.content)}\n`);
+      }
+    } else if ((ev as any).type === 'progress') {
+      // 可选：将进度写入
+      const p = (ev as any).progress;
+      if (p && typeof p === 'object') {
+        appendToOutputFile(agentId, `\n[Progress] ${JSON.stringify(p)}\n`);
+      }
     }
-
-    return result || `Agent "${agentConfig.agentType}" completed task.`;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    appendToOutputFile(agentId, `\n[Error: ${errorMessage}]\n`);
-    throw error;
   }
-}
 
-/**
- * Build system prompt for agent type.
- */
-function buildAgentSystemPrompt(config: AgentConfig): string {
-  const basePrompt = `You are a specialized ${config.agentType} agent for Claude Code.
+  updateTaskProgress(agentId, { toolUseCount });
+  appendToOutputFile(agentId, `\n--- Subagent Finished (${agentConfig.agentType}) ---\n`);
 
-Your role: ${config.whenToUse}
-
-Available tools: ${config.tools.join(', ')}
-
-Guidelines:
-- Focus on completing the assigned task efficiently
-- Use the available tools appropriately
-- Report your findings clearly and concisely
-- If you encounter errors, explain them and suggest solutions`;
-
-  return basePrompt;
+  const final = resultText.trim();
+  return final || `Agent "${agentConfig.agentType}" completed task.`;
 }
 
 // Export for Ctrl+B handling
@@ -560,10 +961,11 @@ The Task tool launches specialized agents (subprocesses) that autonomously handl
 
 Available agent types:
 - Bash: Command execution specialist for running bash commands
-- general-purpose: General-purpose agent for researching complex questions
-- Explore: Fast agent specialized for exploring codebases
-- Plan: Software architect agent for designing implementation plans
-- claude-code-guide: Agent for questions about Claude Code features`;
+- general-purpose: General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks
+- statusline-setup: Configure Claude Code status line settings (Read/Edit only)
+- Explore: Fast read-only exploration agent
+- Plan: Read-only planning agent
+- claude-code-guide: Documentation agent for Claude Code / Agent SDK / Claude API (disabled for SDK entrypoints)`;
   },
 
   async prompt() {
@@ -640,7 +1042,7 @@ When NOT to use the Task tool:
       // Resolve model
       const resolvedModel = resolveAgentModel(
         agentConfig.model,
-        context.options?.model,
+        typeof context.options?.model === 'string' ? context.options.model : undefined,
         model
       );
 
@@ -667,6 +1069,8 @@ When NOT to use the Task tool:
           model: resolvedModel,
           maxTurns: max_turns,
           abortSignal: task.abortController.signal,
+          toolContext: context,
+          isAsync: true,
         })
           .then((result) => {
             markTaskCompleted(agentId, result);
@@ -705,6 +1109,8 @@ When NOT to use the Task tool:
           model: resolvedModel,
           maxTurns: max_turns,
           abortSignal: task.abortController.signal,
+          toolContext: context,
+          isAsync: false,
         });
 
         // Race between completion and background signal
@@ -794,4 +1200,4 @@ To check the agent's progress or retrieve its results, use the Read tool to read
 // Export
 // ============================================
 
-export { TaskTool };
+// NOTE: TaskTool 已在声明处导出；避免重复导出。

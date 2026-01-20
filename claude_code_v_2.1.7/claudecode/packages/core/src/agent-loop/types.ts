@@ -5,8 +5,9 @@
  * Reconstructed from chunks.134.mjs, chunks.112.mjs
  */
 
-import type { ConversationMessage, ContentBlock } from '../message/types.js';
-import type { ToolDefinition, ToolPermissionContext, ToolUseContext } from '../tools/types.js';
+import type { ContentBlock } from '@claudecode/shared';
+import type { ConversationMessage } from '../message/types.js';
+import type { ToolDefinition, ToolUseContext } from '../tools/types.js';
 
 // ============================================
 // Query Tracking
@@ -37,21 +38,44 @@ export type QuerySource = 'main' | 'subagent' | 'background' | 'sdk';
 export interface AgentDefinition {
   /** Agent type identifier */
   agentType: string;
+  /** Human-readable guidance for the caller */
+  whenToUse?: string;
+  /** Source of agent definition */
+  source?: 'built-in' | 'plugin' | 'skills' | 'bundled' | string;
+  /** Base directory (used by runtime to resolve relative assets) */
+  baseDir?: string;
+  /** Optional UI color (used by interactive renderer) */
+  color?: string;
+
   /** Display name */
   name?: string;
-  /** Model to use */
-  model?: string;
+
+  /** Model to use (supports "inherit" in bundled runtime) */
+  model?: 'inherit' | 'sonnet' | 'opus' | 'haiku' | string;
+
   /** Permission mode override */
-  permissionMode?: 'default' | 'plan' | 'bypassPermissions';
-  /** Available tools */
+  permissionMode?: 'default' | 'plan' | 'bypassPermissions' | 'dontAsk' | string;
+
+  /** Allowed tools ("*" means all) */
   tools?: string[];
+  /** Disallowed tools (enforced in runtime tool filtering) */
+  disallowedTools?: string[];
+
   /** Skills to load */
   skills?: string[];
+
+  /** Optional MCP server definitions */
+  mcpServers?: unknown[];
+
   /** Custom hooks */
   hooks?: AgentHooks;
+
+  /** Custom system prompt generator (bundled runtime uses this) */
+  getSystemPrompt?: (args: { toolUseContext: ToolUseContext }) => string | string[];
+
   /** Concurrency safety */
   isConcurrencySafe?: boolean;
-  /** Custom system prompt */
+  /** Custom system prompt (static) */
   systemPrompt?: string;
   /** Critical system reminder */
   criticalSystemReminder_EXPERIMENTAL?: string;
@@ -133,6 +157,9 @@ export interface ToolExecutionResult {
   };
 }
 
+// Alias used by tools/execution pipeline
+export type ToolExecutionYield = ToolExecutionResult;
+
 // ============================================
 // Core Message Loop
 // ============================================
@@ -144,11 +171,11 @@ export interface CoreMessageLoopOptions {
   /** Conversation messages */
   messages: ConversationMessage[];
   /** System prompt */
-  systemPrompt: string;
-  /** User context (user info) */
-  userContext?: string;
-  /** System context (environment info) */
-  systemContext?: string;
+  systemPrompt: string | string[];
+  /** User context (user info) - can be structured key/value like system-reminder */
+  userContext?: string | Record<string, string>;
+  /** System context (environment info) - can be structured key/value like system-reminder */
+  systemContext?: string | Record<string, string>;
   /** Tool permission checker */
   canUseTool: CanUseTool;
   /** Tool use context */
@@ -159,8 +186,8 @@ export interface CoreMessageLoopOptions {
   fallbackModel?: string;
   /** Whether stop hook is active */
   stopHookActive?: boolean;
-  /** Query source */
-  querySource?: QuerySource;
+  /** Query source (used for telemetry and compact heuristics) */
+  querySource?: QuerySource | string;
   /** Max output tokens override */
   maxOutputTokensOverride?: number;
   /** Max output tokens recovery count */
@@ -234,6 +261,9 @@ export interface SubagentOverride {
   userContext?: string;
   /** Custom system context */
   systemContext?: string;
+
+  /** Abort controller override */
+  abortController?: AbortController;
 }
 
 // ============================================
@@ -425,32 +455,4 @@ export const AGENT_LOOP_CONSTANTS = {
 // Export
 // ============================================
 
-export {
-  QueryTracking,
-  QuerySource,
-  AgentDefinition,
-  AgentHooks,
-  ToolExecutionStatus,
-  TrackedToolExecution,
-  ToolUseBlock,
-  ToolResultBlock,
-  ToolExecutionResult,
-  CoreMessageLoopOptions,
-  AutoCompactTracking,
-  CanUseTool,
-  SubagentLoopOptions,
-  SubagentOverride,
-  TaskToolInput,
-  TaskToolResult,
-  TaskType,
-  TaskState,
-  BaseTask,
-  LocalAgentTask,
-  LocalBashTask,
-  TaskProgress,
-  StreamRequestStartEvent,
-  ProgressEvent,
-  TombstoneEvent,
-  LoopEvent,
-  AGENT_LOOP_CONSTANTS,
-};
+// NOTE: 类型/常量已在声明处导出；移除重复聚合导出。

@@ -11,17 +11,17 @@
       "types": "./dist/index.d.ts"
     },
     "./loader": {
-      "import": "./dist/loader/index.js",
-      "types": "./dist/loader/index.d.ts"
+      "import": "./dist/loader.js",
+      "types": "./dist/loader.d.ts"
     },
     "./schemas": {
-      "import": "./dist/schemas/index.js",
-      "types": "./dist/schemas/index.d.ts"
+      "import": "./dist/schemas.js",
+      "types": "./dist/schemas.d.ts"
     }
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsup src/index.ts src/loader.ts src/schemas.ts --format esm --dts",
+    "dev": "tsup src/index.ts src/loader.ts src/schemas.ts --format esm --dts --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },

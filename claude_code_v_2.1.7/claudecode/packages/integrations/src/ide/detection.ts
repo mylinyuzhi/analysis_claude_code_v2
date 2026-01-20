@@ -267,7 +267,9 @@ export async function getParentPid(pid: number): Promise<number | null> {
         const fs = await import('fs/promises');
         const stat = await fs.readFile(`/proc/${pid}/stat`, 'utf-8');
         const parts = stat.split(' ');
-        const ppid = parseInt(parts[3], 10);
+        const ppidRaw = parts[3];
+        if (!ppidRaw) return null;
+        const ppid = parseInt(ppidRaw, 10);
         return isNaN(ppid) ? null : ppid;
       } catch {
         // Fallback to ps
@@ -280,7 +282,8 @@ export async function getParentPid(pid: number): Promise<number | null> {
         `wmic process where processid=${pid} get parentprocessid /format:value`
       );
       const match = stdout.match(/ParentProcessId=(\d+)/);
-      return match ? parseInt(match[1], 10) : null;
+      const captured = match?.[1];
+      return captured ? parseInt(captured, 10) : null;
     }
   } catch {
     return null;
@@ -354,11 +357,4 @@ export function isInCodeTerminal(): boolean {
 // Export
 // ============================================
 
-export {
-  getOS,
-  detectRunningIDEs,
-  isProcessAlive,
-  getParentPid,
-  isIDEProcessRunning,
-  isInCodeTerminal,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

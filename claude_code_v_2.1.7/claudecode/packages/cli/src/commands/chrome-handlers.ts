@@ -607,4 +607,4 @@ async function handleLocalMessage(message: NativeMessage): Promise<unknown> {
 // Export
 // ============================================
 
-export { getSocketPath, readNativeMessage, writeNativeMessage };
+export { readNativeMessage, writeNativeMessage };

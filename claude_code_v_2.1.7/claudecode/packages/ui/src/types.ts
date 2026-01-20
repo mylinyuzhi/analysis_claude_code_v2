@@ -314,25 +314,4 @@ export const UI_CONSTANTS = {
   } as const,
 } as const;
 
-// ============================================
-// Export
-// ============================================
-
-export type {
-  InkElementType,
-  InkNode,
-  InkStyle,
-  TextStyle,
-  BoxProps,
-  TextProps,
-  LinkProps,
-  StaticProps,
-  KeyInput,
-  TextInputProps,
-  BlinkingState,
-  SpinnerType,
-  TerminalDimensions,
-  MeasureFunction,
-  RenderOptions,
-  RenderInstance,
-};
+// Note: exports are declared inline above.

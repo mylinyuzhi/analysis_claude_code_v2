@@ -213,9 +213,4 @@ export async function buildPlanModeExitAttachment(
 // Export
 // ============================================
 
-export {
-  findPlanModeAttachmentInfo,
-  countPlanModeAttachments,
-  buildPlanModeAttachment,
-  buildPlanModeExitAttachment,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

@@ -264,18 +264,4 @@ export function shortenPath(filePath: string): string {
 // Export
 // ============================================
 
-export {
-  getSessionId,
-  setSessionId,
-  getPlanSlugCache,
-  cachePlanSlug,
-  clearPlanSlugCacheForSession,
-  getPlanDir,
-  getUniquePlanSlug,
-  getPlanFilePath,
-  readPlanFile,
-  checkPlanExists,
-  planFileExists,
-  writePlanFile,
-  shortenPath,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

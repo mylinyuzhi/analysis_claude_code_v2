@@ -291,26 +291,4 @@ export const STEERING_LAYER_PRIORITY = {
 // Export
 // ============================================
 
-export {
-  SystemReminderResult,
-  UserContext,
-  ContentBlock,
-  SteeringMessage,
-  MessageWrapper,
-  ExecutionContextFlow,
-  ToolExecutionState,
-  ContextUpdate,
-  AppendSystemPromptOptions,
-  HookInjectionEvent,
-  HookInjectionResult,
-  PlanModeReminderType,
-  PlanModeState,
-  PlanModeToolRestrictions,
-  PermissionMode,
-  PermissionModeContext,
-  ReadFileStateEntry,
-  ReadFileState,
-  ReadFileStateMergeOptions,
-  SteeringContext,
-  STEERING_LAYER_PRIORITY,
-};
+// NOTE: 类型/常量已在声明处导出；移除重复聚合导出。

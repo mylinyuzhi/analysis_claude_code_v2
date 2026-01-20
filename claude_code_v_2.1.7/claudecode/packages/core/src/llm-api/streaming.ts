@@ -34,7 +34,7 @@ import { createAnthropicClient } from './client.js';
  * Stall detection threshold (30 seconds)
  * Original: ZA = 30000 in chunks.147.mjs
  */
-const STALL_THRESHOLD_MS = 30_000;
+export const STALL_THRESHOLD_MS = 30_000;
 
 /**
  * Maximum tokens for non-streaming fallback
@@ -174,7 +174,6 @@ function initializeContentBlock(
 
     default:
       return {
-        type: block.type,
         index,
         ...block,
       };
@@ -465,6 +464,9 @@ export async function* queryWithStreaming(
 export interface StreamApiCallOptions {
   /** Model to use */
   model: string;
+
+  /** Optional API key override (used by tools package) */
+  apiKey?: string;
   /** Fallback model if primary fails */
   fallbackModel?: string;
   /** Maximum thinking tokens */
@@ -516,6 +518,7 @@ export async function* streamApiCall(
       async () => createAnthropicClient({
         maxRetries: 0,
         model: options.model,
+        apiKey: options.apiKey,
         fetchOverride: options.fetchOverride,
       }),
       async (client, attempt, context) => {
@@ -717,32 +720,4 @@ export async function* streamApiCall(
 // Export
 // ============================================
 
-export {
-  // Main functions
-  queryWithStreaming,
-  streamApiCall,
-
-  // State management
-  createAggregationState,
-
-  // Content block processing
-  initializeContentBlock,
-  applyDelta,
-  finalizeContentBlock,
-
-  // Usage tracking
-  updateUsage,
-  updateUsageFromStart,
-  updateUsageFromDelta,
-
-  // Constants
-  STALL_THRESHOLD_MS,
-  MAX_NON_STREAMING_TOKENS,
-  EMPTY_PLACEHOLDER,
-};
-
-export type {
-  StreamApiCallOptions,
-  ExtendedUsage,
-  AggregationState,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

@@ -25,7 +25,7 @@ import {
 /**
  * Central tool registry singleton
  */
-class ToolRegistry {
+export class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
   private mcpTools: Map<string, Tool> = new Map();
 
@@ -269,7 +269,7 @@ export function filterToolsByPermission(
  */
 export function canRunConcurrently(tools: Tool[], inputs: unknown[]): boolean {
   for (let i = 0; i < tools.length; i++) {
-    const tool = tools[i];
+    const tool = tools[i]!;
     const input = inputs[i];
 
     if (!tool.isConcurrencySafe(input)) {
@@ -359,15 +359,4 @@ export function toolsToApiFormat(
 // Export
 // ============================================
 
-export {
-  ToolRegistry,
-  toolRegistry,
-  getToolGroupings,
-  getToolGroup,
-  filterToolsForSubagent,
-  filterToolsByPermission,
-  canRunConcurrently,
-  partitionByConcurrency,
-  resolveTool,
-  toolsToApiFormat,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

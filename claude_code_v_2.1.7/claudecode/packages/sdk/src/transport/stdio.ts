@@ -27,7 +27,7 @@ import { SDK_CONSTANTS } from '../types.js';
  * Generate unique request ID.
  * Original: HR7 (generateControlRequestId) in chunks.155.mjs
  */
-function generateControlRequestId(): string {
+export function generateControlRequestId(): string {
   // Use crypto.randomUUID if available, otherwise fallback
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -48,7 +48,7 @@ function generateControlRequestId(): string {
  * Write to stdout in chunks to prevent buffer issues.
  * Original: J9 (writeToStdout) in chunks.1.mjs:646-648
  */
-function writeToStdout(content: string): void {
+export function writeToStdout(content: string): void {
   for (let offset = 0; offset < content.length; offset += SDK_CONSTANTS.STDOUT_CHUNK_SIZE) {
     process.stdout.write(content.substring(offset, offset + SDK_CONSTANTS.STDOUT_CHUNK_SIZE));
   }
@@ -387,9 +387,4 @@ export async function* readStdin(): AsyncGenerator<string, void, unknown> {
 // Export
 // ============================================
 
-export {
-  StdioSDKTransport,
-  generateControlRequestId,
-  writeToStdout,
-  readStdin,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

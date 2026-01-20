@@ -91,7 +91,7 @@ export function formatTaskOutput(task: BackgroundTask): TaskOutputResult {
     const bashTask = task as BackgroundBashTask;
     return {
       ...baseOutput,
-      exitCode: bashTask.exitCode ?? null,
+      exitCode: bashTask.exitCode,
     };
   }
 
@@ -301,18 +301,4 @@ export function getTaskDuration(task: BackgroundTask): number | undefined {
 // Export
 // ============================================
 
-export {
-  TASKOUTPUT_TOOL_NAME,
-  KILLSHELL_TOOL_NAME,
-  getTaskMaxOutputLength,
-  formatTaskOutput,
-  truncateTaskOutput,
-  getFormattedTaskOutput,
-  waitForTaskCompletion,
-  waitForTask,
-  isTaskRunning,
-  isTaskCompleted,
-  isTaskFailed,
-  isTaskCancelled,
-  getTaskDuration,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免构建期重复导出报错。

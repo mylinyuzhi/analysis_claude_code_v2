@@ -354,28 +354,4 @@ export const SDK_CONSTANTS = {
 // Export
 // ============================================
 
-export type {
-  SDKMessage,
-  SDKUserMessage,
-  SDKControlRequest,
-  SDKControlResponse,
-  SDKKeepAliveMessage,
-  SDKSystemMessage,
-  SDKResultMessage,
-  SDKAssistantMessage,
-  SDKCanUseToolRequest,
-  SDKCanUseToolResponse,
-  SDKHookCallbackRequest,
-  SDKHookCallbackResponse,
-  SDKMcpMessageRequest,
-  SDKMcpMessageResponse,
-  SDKInitializeRequest,
-  SDKInitializeResponse,
-  SDKHookConfig,
-  SDKInitializeOptions,
-  SDKPermissionDenial,
-  SDKTransport,
-  SDKPendingRequest,
-  WebSocketTransportState,
-  WebSocketTransportOptions,
-};
+// NOTE: 类型/常量已在声明处导出；移除重复聚合导出以避免 TS2484。

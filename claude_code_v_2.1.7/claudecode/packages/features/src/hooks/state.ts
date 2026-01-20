@@ -111,7 +111,7 @@ function addHookToState(
     if (existingIndex >= 0) {
       // Add to existing matcher
       updatedHooks = [...eventHooks];
-      const existingEntry = updatedHooks[existingIndex];
+      const existingEntry = updatedHooks[existingIndex]!;
       updatedHooks[existingIndex] = {
         matcher: existingEntry.matcher,
         hooks: [...existingEntry.hooks, { hook, onHookSuccess }],
@@ -334,12 +334,4 @@ export function clearSessionHooks(setAppState: SetAppState, sessionId: string): 
 // Export
 // ============================================
 
-export {
-  isHookEqual,
-  addSessionHook,
-  removeHookFromState,
-  getSessionHooks,
-  getSessionFunctionHooks,
-  findSessionHook,
-  clearSessionHooks,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

@@ -19,6 +19,7 @@ import {
   type StreamApiCallOptions,
   type StreamingQueryResult,
 } from '@claudecode/core';
+import type { Message } from '@claudecode/shared';
 import type {
   FullCompactResult,
   CompactSessionContext,
@@ -34,44 +35,38 @@ import {
   formatSummaryContent,
 } from './context-restore.js';
 
+import {
+  executePreCompactHooks as executePreCompactHooksTrigger,
+  executePluginHooksForEvent as executePluginHooksForEventTrigger,
+} from '../hooks/triggers.js';
+
 // ============================================
 // Error Messages
 // ============================================
 
-const NOT_ENOUGH_MESSAGES_ERROR = 'Cannot compact: No messages to summarize';
-const COMPACTION_INTERRUPTED_ERROR = 'Compaction was interrupted';
-const SUMMARY_FAILED_ERROR = 'Failed to generate conversation summary';
+export const NOT_ENOUGH_MESSAGES_ERROR = 'Cannot compact: No messages to summarize';
+export const COMPACTION_INTERRUPTED_ERROR = 'Compaction was interrupted';
+export const SUMMARY_FAILED_ERROR = 'Failed to generate conversation summary';
 
 // ============================================
-// Pre-Compact Hooks
+// Hook Integration (delegate to hooks module)
 // ============================================
 
 /**
- * Execute pre-compact hooks.
- * Original: sU0() in chunks.120.mjs:2173-2202
- *
- * @param params - Hook parameters
- * @param signal - Abort signal
- * @returns Hook results
+ * Execute PreCompact hooks.
+ * Delegates to `features/hooks/triggers.ts` implementation.
  */
-export async function executePreCompactHooks(
+export const executePreCompactHooks: (
   params: { trigger: 'auto' | 'manual'; customInstructions: string | null },
   signal?: AbortSignal
-): Promise<PreCompactHookResult> {
-  // This would integrate with the hooks system
-  // Placeholder implementation
-  return {};
-}
+) => Promise<PreCompactHookResult> = executePreCompactHooksTrigger as any;
 
 /**
- * Execute plugin hooks for an event.
- * Original: WU() in chunks.132.mjs
+ * Execute plugin hooks (SessionStart) for the given source.
+ * Delegates to `features/hooks/triggers.ts` WU-equivalent.
  */
-export async function executePluginHooksForEvent(event: string): Promise<unknown[]> {
-  // This would integrate with the plugin system
-  // Placeholder implementation
-  return [];
-}
+export const executePluginHooksForEvent: (event: string) => Promise<unknown[]> =
+  (async (event: string) => executePluginHooksForEventTrigger(event)) as any;
 
 // ============================================
 // Summary Generation
@@ -130,19 +125,21 @@ export function extractUsageStats(message: ConversationMessage): CompactUsageSta
  */
 function convertToApiMessage(
   msg: ConversationMessage
-): { role: 'user' | 'assistant'; content: string | unknown[] } | null {
+): Message | null {
   if (msg.type === 'user') {
-    const userMsg = msg as { content?: string | unknown[] };
+    const userMsg = msg as { message?: { content?: unknown } };
+    const content = userMsg.message?.content;
     return {
       role: 'user',
-      content: userMsg.content || '',
+      content: typeof content === 'string' || Array.isArray(content) ? (content as any) : '',
     };
   }
   if (msg.type === 'assistant') {
-    const assistantMsg = msg as { message?: { content?: unknown[] } };
+    const assistantMsg = msg as { message?: { content?: unknown } };
+    const content = assistantMsg.message?.content;
     return {
       role: 'assistant',
-      content: assistantMsg.message?.content || [],
+      content: Array.isArray(content) ? (content as any) : [],
     };
   }
   return null;
@@ -164,7 +161,7 @@ export async function generateConversationSummary(params: {
   const { messages, summaryRequest, context, preCompactTokenCount } = params;
 
   // Convert conversation messages to API format
-  const apiMessages: { role: 'user' | 'assistant'; content: string | unknown[] }[] = [];
+  const apiMessages: Message[] = [];
 
   for (const msg of messages) {
     const converted = convertToApiMessage(msg);
@@ -180,7 +177,7 @@ export async function generateConversationSummary(params: {
   }
 
   // Get model from context or use default compact model
-  const model = context.compactModel || 'claude-sonnet-4-20250514';
+  const model = context.options.mainLoopModel || 'claude-sonnet-4-20250514';
 
   // Build the API request
   const request: MessagesRequest = {
@@ -201,10 +198,6 @@ The summary will replace the full conversation history, so include all essential
   const options: StreamApiCallOptions = {
     model,
     signal: context.abortController?.signal,
-    onProgress: (text: string) => {
-      // Update response length for UI
-      context.setResponseLength?.(() => text.length);
-    },
   };
 
   try {
@@ -219,22 +212,23 @@ The summary will replace the full conversation history, so include all essential
     };
 
     for await (const chunk of stream) {
-      // Accumulate text from content blocks
-      if (chunk.contentBlocks) {
-        for (const block of chunk.contentBlocks) {
-          if (block.type === 'text' && typeof block.text === 'string') {
-            responseText = block.text;
-          }
-        }
-      }
+      const c = chunk as StreamingQueryResult;
+      if (c.type === 'assistant') {
+        const textBlocks = c.message.content
+          .filter((b) => (b as any).type === 'text')
+          .map((b) => (b as any).text)
+          .filter((t): t is string => typeof t === 'string');
 
-      // Capture usage statistics
-      if (chunk.usage) {
+        if (textBlocks.length > 0) {
+          responseText = textBlocks.join('\n');
+          context.setResponseLength?.(() => responseText.length);
+        }
+
         responseUsage = {
-          input_tokens: chunk.usage.input_tokens || 0,
-          output_tokens: chunk.usage.output_tokens || 0,
-          cache_read_input_tokens: chunk.usage.cache_read_input_tokens,
-          cache_creation_input_tokens: chunk.usage.cache_creation_input_tokens,
+          input_tokens: c.message.usage?.input_tokens ?? 0,
+          output_tokens: c.message.usage?.output_tokens ?? 0,
+          cache_read_input_tokens: c.message.usage?.cache_read_input_tokens,
+          cache_creation_input_tokens: c.message.usage?.cache_creation_input_tokens,
         };
       }
     }
@@ -269,7 +263,7 @@ The summary will replace the full conversation history, so include all essential
     // Check if aborted
     if (context.abortController?.signal.aborted) {
       throw new CompactError(
-        CompactErrorCode.INTERRUPTED,
+        CompactErrorCode.COMPACTION_INTERRUPTED,
         COMPACTION_INTERRUPTED_ERROR
       );
     }
@@ -392,11 +386,11 @@ export async function fullCompact(
       isAuto ? 'auto' : 'manual',
       preCompactTokenCount
     );
-    const conversationId = generateConversationId(context.agentId);
+    const transcriptPath = generateConversationId(context.agentId);
 
     const summaryMessages: ConversationMessage[] = [
       createUserMessage({
-        content: formatSummaryContent(summaryText, preserveHistory, conversationId),
+        content: formatSummaryContent(summaryText, preserveHistory, transcriptPath),
         isCompactSummary: true,
         isVisibleInTranscriptOnly: true,
       }),
@@ -435,15 +429,4 @@ export async function fullCompact(
 // Export
 // ============================================
 
-export {
-  executePreCompactHooks,
-  executePluginHooksForEvent,
-  buildCompactInstructions,
-  extractTextContent,
-  extractUsageStats,
-  generateConversationSummary,
-  fullCompact,
-  NOT_ENOUGH_MESSAGES_ERROR,
-  COMPACTION_INTERRUPTED_ERROR,
-  SUMMARY_FAILED_ERROR,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

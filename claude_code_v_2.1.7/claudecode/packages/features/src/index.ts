@@ -8,7 +8,10 @@
 // Compact Module
 // ============================================
 
-export * from './compact/index.js';
+export * as compact from './compact/index.js';
+
+// Re-export compact entry points used by core
+export { microCompact, autoCompactDispatcher } from './compact/index.js';
 
 // ============================================
 // Hooks Module
@@ -20,7 +23,7 @@ export * from './hooks/index.js';
 // Plan Mode Module
 // ============================================
 
-export * from './plan-mode/index.js';
+export * as planMode from './plan-mode/index.js';
 
 // ============================================
 // Skills Module
@@ -32,7 +35,7 @@ export * from './skills/index.js';
 // Slash Commands Module
 // ============================================
 
-export * from './slash-commands/index.js';
+export * as slashCommands from './slash-commands/index.js';
 
 // ============================================
 // Thinking Module

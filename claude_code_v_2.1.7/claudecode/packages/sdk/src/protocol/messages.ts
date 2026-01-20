@@ -283,22 +283,4 @@ export function isValidUuid(uuid: string): boolean {
 // Export
 // ============================================
 
-export {
-  isUserMessage,
-  isControlRequest,
-  isControlResponse,
-  isSystemMessage,
-  isResultMessage,
-  isAssistantMessage,
-  isKeepAlive,
-  createUserMessage,
-  createStatusMessage,
-  createErrorMessage,
-  createResultMessage,
-  createAssistantMessage,
-  createControlResponse,
-  validateUserMessage,
-  validateControlRequest,
-  generateMessageUuid,
-  isValidUuid,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

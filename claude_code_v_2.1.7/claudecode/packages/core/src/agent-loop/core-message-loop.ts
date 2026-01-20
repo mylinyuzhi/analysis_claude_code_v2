@@ -21,10 +21,17 @@
 
 import { generateUUID } from '@claudecode/shared';
 import { createUserMessage } from '../message/factory.js';
-import type { ConversationMessage, ContentBlock } from '../message/types.js';
+import type { ContentBlock } from '@claudecode/shared';
+import type { ConversationMessage } from '../message/types.js';
 import type { ToolUseContext } from '../tools/types.js';
 import { StreamingToolExecutor } from './streaming-tool-executor.js';
 import { streamApiCall, type StreamApiCallOptions } from '../llm-api/streaming.js';
+import { normalizeMessagesToAPI } from '../message/normalization.js';
+import { executeSingleTool } from '../tools/execution.js';
+import {
+  autoCompactDispatcher as autoCompactDispatcherFeature,
+  microCompact as microCompactFeature,
+} from '@claudecode/features';
 import type {
   CoreMessageLoopOptions,
   LoopEvent,
@@ -47,7 +54,7 @@ const performanceMarkers = new Map<string, number>();
  * Record a performance marker.
  * Original: h6 in chunks.134.mjs
  */
-function recordMarker(name: string): void {
+export function recordMarker(name: string): void {
   performanceMarkers.set(name, Date.now());
 }
 
@@ -89,7 +96,7 @@ function logException(context: string, error: unknown): void {
  * Check if feature is enabled.
  * Original: f8 in chunks
  */
-function isFeatureEnabled(feature: string): boolean {
+export function isFeatureEnabled(feature: string): boolean {
   // Check environment variable override
   const envVar = `FEATURE_${feature.toUpperCase().replace(/-/g, '_')}`;
   if (process.env[envVar]) {
@@ -112,66 +119,92 @@ function isFeatureEnabled(feature: string): boolean {
  * Normalize messages for API submission.
  * Original: _x in chunks.134.mjs
  */
-function normalizeMessages(
-  messages: ConversationMessage[]
+export function normalizeMessages(
+  messages: ConversationMessage[],
+  tools: unknown[] = []
 ): ConversationMessage[] {
-  // Filter out non-API messages and normalize structure
-  return messages.filter((msg) => {
-    // Keep user, assistant, and tool result messages
-    if (msg.type === 'user' || msg.type === 'assistant') return true;
-    // Keep attachments that contribute to conversation
-    if (msg.type === 'attachment') {
-      const attachment = (msg as { attachment?: { type?: string } }).attachment;
-      return (
-        attachment?.type === 'tool_result' ||
-        attachment?.type === 'edited_text_file' ||
-        attachment?.type === 'error'
-      );
-    }
-    return false;
-  });
+  // In the original implementation, this step normalizes ordering/merging and filters non-API messages.
+  // The closest reconstructed equivalent is normalizeMessagesToAPI (FI in chunks.147.mjs).
+  return normalizeMessagesToAPI(messages, tools as any);
 }
 
 /**
  * Add user context to messages.
  * Original: _3A in chunks.134.mjs
  */
-function addUserContextToMessages(
-  messages: ConversationMessage[],
-  userContext?: string
-): ConversationMessage[] {
-  if (!userContext) return messages;
-
-  // Inject user context into system reminders
-  return messages.map((msg) => {
-    if (msg.type === 'user') {
-      // Add context as system reminder
-      return {
-        ...msg,
-        systemReminder: userContext,
-      };
+function normalizeContextRecord(value: unknown): Record<string, string> {
+  if (!value) return {};
+  if (typeof value === 'string') {
+    // Allow JSON object string, otherwise treat as single blob.
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return Object.fromEntries(
+          Object.entries(parsed as Record<string, unknown>).map(([k, v]) => [k, String(v)])
+        );
+      }
+    } catch {
+      // ignore
     }
-    return msg;
-  });
+    return { UserContext: value };
+  }
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, String(v)])
+    );
+  }
+  return { UserContext: String(value) };
+}
+
+export function addUserContextToMessages(
+  messages: ConversationMessage[],
+  userContext?: unknown
+): ConversationMessage[] {
+  const ctx = normalizeContextRecord(userContext);
+  if (Object.keys(ctx).length === 0) return messages;
+
+  // Mirror chunks.133.mjs:_3A (injectUserContext): prepend a meta user message containing a <system-reminder> block.
+  const reminder = `<system-reminder>
+As you answer the user's questions, you can use the following context:
+${Object.entries(ctx)
+  .map(([k, v]) => `# ${k}\n${v}`)
+  .join('\n')}
+
+      IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.
+</system-reminder>
+`;
+
+  return [
+    createUserMessage({
+      content: reminder,
+      isMeta: true,
+    }) as ConversationMessage,
+    ...messages,
+  ];
 }
 
 /**
  * Merge system prompt with context.
  * Original: fA9 in chunks.134.mjs
  */
-function mergeSystemPromptWithContext(
-  systemPrompt: string,
-  systemContext?: string
+export function mergeSystemPromptWithContext(
+  systemPrompt: string | string[],
+  systemContext?: unknown
 ): string {
-  if (!systemContext) return systemPrompt;
-  return `${systemPrompt}\n\n${systemContext}`;
+  const promptParts = Array.isArray(systemPrompt) ? systemPrompt : [systemPrompt].filter(Boolean);
+  const ctx = normalizeContextRecord(systemContext);
+  const ctxLines = Object.entries(ctx)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('\n');
+  const merged = [...promptParts, ctxLines].filter((s) => Boolean(s && String(s).trim()));
+  return merged.join('\n\n');
 }
 
 /**
  * Resolve model with permissions.
  * Original: HQA in chunks.134.mjs
  */
-function resolveModelWithPermissions(options: {
+export function resolveModelWithPermissions(options: {
   permissionMode: string;
   mainLoopModel?: string;
   exceeds200kTokens?: boolean;
@@ -237,7 +270,7 @@ function exceeds200kTokens(messages: ConversationMessage[]): boolean {
  * Create error attachment message.
  * Original: DZ in chunks.134.mjs
  */
-function createErrorAttachment(options: {
+export function createErrorAttachment(options: {
   content: string;
   error?: string;
 }): ConversationMessage {
@@ -257,7 +290,7 @@ function createErrorAttachment(options: {
  * Create interrupted attachment message.
  * Original: fhA in chunks.134.mjs
  */
-function createInterruptedAttachment(options: {
+export function createInterruptedAttachment(options: {
   toolUse: boolean;
 }): ConversationMessage {
   return {
@@ -275,7 +308,7 @@ function createInterruptedAttachment(options: {
  * Create max turns attachment message.
  * Original: X4 in chunks.134.mjs
  */
-function createMaxTurnsAttachment(options: {
+export function createMaxTurnsAttachment(options: {
   type: string;
   maxTurns: number;
   turnCount: number;
@@ -296,7 +329,7 @@ function createMaxTurnsAttachment(options: {
  * Create system message.
  * Original: hO in chunks.134.mjs
  */
-function createSystemMessage(
+export function createSystemMessage(
   content: string,
   level: 'info' | 'warning' | 'error'
 ): ConversationMessage {
@@ -313,7 +346,7 @@ function createSystemMessage(
  * Create tool result messages for error case.
  * Original: DM0 in chunks.134.mjs:83-97
  */
-function* createToolErrorResults(
+export function* createToolErrorResults(
   assistantMessages: ConversationMessage[],
   errorMessage: string
 ): Generator<ConversationMessage> {
@@ -335,7 +368,6 @@ function* createToolErrorResults(
             tool_use_id: toolUse.id,
           },
         ],
-        toolUseResult: errorMessage,
         sourceToolAssistantUUID: (msg as { uuid: string }).uuid,
       }) as ConversationMessage;
     }
@@ -358,8 +390,19 @@ async function microCompact(
   messages: ConversationMessage[];
   compactionInfo?: { systemMessage?: ConversationMessage };
 }> {
-  // Placeholder - would integrate with compact module
-  return { messages };
+  const result = (await microCompactFeature(messages as any, _options as any, _context as any)) as any;
+  if (result?.resultsCleared > 0) {
+    return {
+      messages: result.messages as any,
+      compactionInfo: {
+        systemMessage: createUserMessage({
+          content: `<system-reminder>Micro-compact cleared ${result.resultsCleared} tool result(s) to reduce context size.</system-reminder>`,
+          isMeta: true,
+        }) as ConversationMessage,
+      },
+    };
+  }
+  return { messages: result.messages as any };
 }
 
 /**
@@ -368,10 +411,11 @@ async function microCompact(
  */
 async function autoCompactDispatcher(
   messages: ConversationMessage[],
-  _context: ToolUseContext,
-  _querySource?: string
+  context: ToolUseContext,
+  sessionMemoryType?: unknown
 ): Promise<{
   compactionResult?: {
+    boundaryMarker: ConversationMessage;
     summaryMessages: ConversationMessage[];
     attachments: ConversationMessage[];
     hookResults: ConversationMessage[];
@@ -385,8 +429,20 @@ async function autoCompactDispatcher(
     };
   };
 }> {
-  // Placeholder - would integrate with compact module
-  return {};
+  // Adapt ToolUseContext to CompactSessionContext (features/compact expects a superset)
+  const compactContext = {
+    agentId: context.agentId,
+    getAppState: context.getAppState as any,
+    setAppState: context.setAppState as any,
+    abortController: context.abortController ?? new AbortController(),
+    readFileState: context.readFileState as any,
+    options: context.options as any,
+  };
+
+  const result = await autoCompactDispatcherFeature(messages as any, compactContext as any, sessionMemoryType as any);
+  return {
+    compactionResult: (result as any).compactionResult,
+  };
 }
 
 /**
@@ -397,9 +453,11 @@ function formatCompactionMessages(
   compactionResult: NonNullable<Awaited<ReturnType<typeof autoCompactDispatcher>>['compactionResult']>
 ): ConversationMessage[] {
   return [
+    compactionResult.boundaryMarker as any,
     ...compactionResult.summaryMessages,
-    ...compactionResult.attachments,
-    ...compactionResult.hookResults,
+    ...((compactionResult as { messagesToKeep?: ConversationMessage[] }).messagesToKeep ?? []),
+    ...(compactionResult.attachments as any),
+    ...(compactionResult.hookResults as any),
   ];
 }
 
@@ -413,9 +471,9 @@ function formatCompactionMessages(
  */
 function normalizeToolResults(
   messages: ConversationMessage[],
-  _tools: unknown[]
+  tools: unknown[]
 ): ConversationMessage[] {
-  return messages.filter((msg) => msg.type === 'user');
+  return normalizeMessagesToAPI(messages, tools as any);
 }
 
 /**
@@ -431,8 +489,9 @@ async function* executeToolsSequentially(
   message?: ConversationMessage;
   newContext?: ToolUseContext;
 }> {
+  let currentContext: ToolUseContext = toolUseContext;
+
   for (const toolCall of toolCalls) {
-    // Find the assistant message containing this tool call
     const sourceMessage = assistantMessages.find((msg) => {
       const content = (msg as { message?: { content?: unknown[] } }).message?.content;
       if (!Array.isArray(content)) return false;
@@ -442,47 +501,22 @@ async function* executeToolsSequentially(
           (block as { id: string }).id === toolCall.id
       );
     });
-
     if (!sourceMessage) continue;
 
-    // Check permission
-    const tool = toolUseContext.options.tools.find(
-      (t) => (t as { name: string }).name === toolCall.name
-    );
-    if (!tool) continue;
-
-    const allowed = await canUseTool(tool, toolCall.input, sourceMessage);
-    if (!allowed) {
-      yield {
-        message: createUserMessage({
-          content: [
-            {
-              type: 'tool_result',
-              content: 'Tool use denied by permission check',
-              is_error: true,
-              tool_use_id: toolCall.id,
-            },
-          ],
-          toolUseResult: 'Tool use denied',
-          sourceToolAssistantUUID: (sourceMessage as { uuid: string }).uuid,
-        }) as ConversationMessage,
-      };
-      continue;
+    for await (const step of executeSingleTool(
+      toolCall,
+      sourceMessage,
+      canUseTool as any,
+      currentContext as any
+    )) {
+      if (step.message) {
+        yield { message: step.message as ConversationMessage };
+      }
+      if (step.contextModifier) {
+        currentContext = step.contextModifier.modifyContext(currentContext as any) as any;
+        yield { newContext: currentContext };
+      }
     }
-
-    // Execute tool (placeholder - would call actual tool executor)
-    yield {
-      message: createUserMessage({
-        content: [
-          {
-            type: 'tool_result',
-            content: 'Tool execution placeholder',
-            tool_use_id: toolCall.id,
-          },
-        ],
-        sourceToolAssistantUUID: (sourceMessage as { uuid: string }).uuid,
-      }) as ConversationMessage,
-    };
   }
 }
 
@@ -494,7 +528,7 @@ async function* executeToolsSequentially(
  * Model fallback error.
  * Original: y51 in chunks.134.mjs
  */
-class ModelFallbackError extends Error {
+export class ModelFallbackError extends Error {
   constructor(
     public originalModel: string,
     public fallbackModel: string
@@ -554,6 +588,92 @@ async function* streamApiResponse(options: {
     agentId?: string;
   };
 }): AsyncGenerator<ConversationMessage> {
+  // In the bundled runtime, tools are provided to the API as JSON-schema tool definitions.
+  // The reconstruction keeps internal ToolDefinitions in `options.tools`, so we convert them here.
+  function zodToJsonSchema(schema: any): { type: 'object'; properties: Record<string, unknown>; required?: string[] } {
+    // Best-effort conversion (covers common Zod constructs used by tool inputs).
+    const fallback = { type: 'object' as const, properties: {} as Record<string, unknown> };
+    if (!schema || typeof schema !== 'object') return fallback;
+
+    const def = (schema as any)._def;
+    const typeName = def?.typeName;
+
+    // Unwrap optional/nullable/default/effects
+    const unwrap = (s: any): { schema: any; optional: boolean } => {
+      let cur = s;
+      let optional = false;
+      while (cur && cur._def) {
+        const tn = cur._def.typeName;
+        if (tn === 'ZodOptional' || tn === 'ZodNullable' || tn === 'ZodDefault') {
+          optional = true;
+          cur = cur._def.innerType;
+          continue;
+        }
+        if (tn === 'ZodEffects') {
+          cur = cur._def.schema;
+          continue;
+        }
+        break;
+      }
+      return { schema: cur, optional };
+    };
+
+    const toSchema = (s: any): any => {
+      const unwrapped = unwrap(s);
+      const cur = unwrapped.schema;
+      const d = cur?._def;
+      const tn = d?.typeName;
+
+      switch (tn) {
+        case 'ZodString':
+          return { type: 'string' };
+        case 'ZodNumber':
+          return { type: 'number' };
+        case 'ZodBoolean':
+          return { type: 'boolean' };
+        case 'ZodEnum':
+          return { type: 'string', enum: d?.values ?? [] };
+        case 'ZodLiteral':
+          return { const: d?.value };
+        case 'ZodArray':
+          return { type: 'array', items: toSchema(d?.type) };
+        case 'ZodUnion':
+          return { anyOf: (d?.options ?? []).map((o: any) => toSchema(o)) };
+        case 'ZodObject': {
+          const shape = typeof d?.shape === 'function' ? d.shape() : d?.shape;
+          const properties: Record<string, unknown> = {};
+          const required: string[] = [];
+          if (shape && typeof shape === 'object') {
+            for (const [k, v] of Object.entries(shape)) {
+              const inner = unwrap(v);
+              properties[k] = toSchema(inner.schema);
+              if (!inner.optional) required.push(k);
+            }
+          }
+          const out: any = { type: 'object', properties };
+          if (required.length > 0) out.required = required;
+          return out;
+        }
+        default:
+          return {};
+      }
+    };
+
+    const base = toSchema(schema);
+    // Ensure object root for Anthropic tool schema
+    if (base && base.type === 'object') return base;
+    return fallback;
+  }
+
+  const apiTools = (await Promise.all(
+    (options.tools as any[]).map(async (t) => {
+      const name = String(t?.name ?? 'unknown');
+      const description = typeof t?.description === 'function' ? await t.description() : String(t?.description ?? '');
+      const input_schema = t?.inputSchema ? zodToJsonSchema(t.inputSchema) : ({ type: 'object', properties: {} } as const);
+      return { name, description, input_schema };
+    })
+  )) as any;
+
   // Build request payload for the API
   const request = {
     model: options.options.model,
@@ -574,15 +694,15 @@ async function* streamApiResponse(options: {
     }).filter(Boolean) as Array<{ role: 'user' | 'assistant'; content: unknown }>,
     system: options.systemPrompt,
     max_tokens: options.options.maxOutputTokensOverride || 8192,
-    tools: options.tools as Array<{ name: string; description: string; input_schema: unknown }>,
-  };
+    tools: apiTools,
+  } as any;
 
   // Stream options
   const streamOptions: StreamApiCallOptions = {
     model: options.options.model,
     fallbackModel: options.options.fallbackModel,
     maxThinkingTokens: options.maxThinkingTokens,
-    tools: options.tools as Array<{ name: string; description: string; input_schema: unknown }>,
+    tools: apiTools as any,
     agentId: options.options.agentId,
     signal: options.signal,
     onStreamingFallback: options.options.onStreamingFallback,
@@ -591,7 +711,7 @@ async function* streamApiResponse(options: {
 
   try {
     // Use the real streaming API
-    for await (const result of streamApiCall(request, streamOptions)) {
+    for await (const result of streamApiCall(request as any, streamOptions)) {
       if (result.type === 'assistant') {
         // Convert streaming result to ConversationMessage format
         const message: ConversationMessage = {
@@ -727,6 +847,12 @@ function recordApiCallInfo(
  * Original: w3A in chunks.134.mjs
  */
 function getTaskIntensityOverride(): unknown {
+  const raw = process.env.CLAUDE_CODE_EFFORT_LEVEL;
+  if (!raw) return undefined;
+  if (raw === 'unset') return undefined;
+  const asInt = parseInt(raw, 10);
+  if (!Number.isNaN(asInt) && Number.isInteger(asInt)) return asInt;
+  if (raw === 'low' || raw === 'medium' || raw === 'high') return raw;
   return undefined;
 }
 
@@ -855,7 +981,7 @@ export async function* coreMessageLoop(
   };
 
   // 3. Normalize messages
-  let processedMessages = normalizeMessages(inputMessages);
+  let processedMessages = normalizeMessages(inputMessages, toolUseContext.options.tools as any);
   let autoCompactTracking = inputAutoCompactTracking;
 
   // 4. Micro-compaction
@@ -882,7 +1008,9 @@ export async function* coreMessageLoop(
     logTelemetry('tengu_auto_compact_succeeded', {
       originalMessageCount: inputMessages.length,
       compactedMessageCount:
+        1 +
         compactionResult.summaryMessages.length +
+        ((compactionResult as { messagesToKeep?: unknown[] }).messagesToKeep?.length ?? 0) +
         compactionResult.attachments.length +
         compactionResult.hookResults.length,
       preCompactTokenCount,
@@ -996,7 +1124,9 @@ export async function* coreMessageLoop(
             hasAppendSystemPrompt: !!updatedContext.options.appendSystemPrompt,
             maxOutputTokensOverride,
             fetchOverride,
-            mcpTools: appState.mcp?.tools,
+            mcpTools: Array.isArray(appState.mcp?.tools)
+              ? (appState.mcp?.tools as unknown[])
+              : undefined,
             queryTracking,
             taskIntensityOverride: getTaskIntensityOverride(),
             agentId: updatedContext.agentId,
@@ -1122,9 +1252,17 @@ export async function* coreMessageLoop(
   if (assistantMessages.length > 0) {
     recordApiCallInfo(
       [...processedMessages, ...assistantMessages],
-      systemPrompt,
-      userContext,
-      systemContext,
+      Array.isArray(systemPrompt) ? systemPrompt.join('\n') : systemPrompt,
+      typeof userContext === 'string'
+        ? userContext
+        : userContext
+          ? JSON.stringify(userContext)
+          : undefined,
+      typeof systemContext === 'string'
+        ? systemContext
+        : systemContext
+          ? JSON.stringify(systemContext)
+          : undefined,
       updatedContext,
       querySource
     );
@@ -1198,10 +1336,18 @@ export async function* coreMessageLoop(
     yield* checkPendingToolCalls(
       processedMessages,
       assistantMessages,
-      systemPrompt,
-      userContext,
-      systemContext,
-      canUseTool,
+      Array.isArray(systemPrompt) ? systemPrompt.join('\n') : systemPrompt,
+      typeof userContext === 'string'
+        ? userContext
+        : userContext
+          ? JSON.stringify(userContext)
+          : undefined,
+      typeof systemContext === 'string'
+        ? systemContext
+        : systemContext
+          ? JSON.stringify(systemContext)
+          : undefined,
+      canUseTool as any,
       updatedContext,
       querySource,
       autoCompactTracking,
@@ -1214,10 +1360,18 @@ export async function* coreMessageLoop(
     yield* processContinuationTriggers(
       processedMessages,
       assistantMessages,
-      systemPrompt,
-      userContext,
-      systemContext,
-      canUseTool,
+      Array.isArray(systemPrompt) ? systemPrompt.join('\n') : systemPrompt,
+      typeof userContext === 'string'
+        ? userContext
+        : userContext
+          ? JSON.stringify(userContext)
+          : undefined,
+      typeof systemContext === 'string'
+        ? systemContext
+        : systemContext
+          ? JSON.stringify(systemContext)
+          : undefined,
+      canUseTool as any,
       updatedContext,
       querySource,
       autoCompactTracking,
@@ -1277,7 +1431,7 @@ export async function* coreMessageLoop(
     for await (const result of executeToolsSequentially(
       toolCalls,
       assistantMessages,
-      canUseTool,
+      canUseTool as any,
       updatedContext
     )) {
       if (result.message) {
@@ -1340,7 +1494,9 @@ export async function* coreMessageLoop(
   }
 
   // 16. Process queued commands and attachments
-  const queuedCommands = [...(await contextAfterTools.getAppState()).queuedCommands];
+  const queuedCommands = [
+    ...(((await contextAfterTools.getAppState()).queuedCommands ?? []) as unknown[]),
+  ];
   const fileChangeAttachments: ConversationMessage[] = [];
 
   logTelemetry('tengu_query_before_attachments', {
@@ -1382,7 +1538,7 @@ export async function* coreMessageLoop(
   const promptCommands = queuedCommands.filter(
     (cmd) => (cmd as { mode?: string }).mode === 'prompt'
   );
-  updateQueuedCommands(promptCommands, contextAfterTools.setAppState);
+  updateQueuedCommands(promptCommands, contextAfterTools.setAppState as any);
 
   // 17. Check max turns limit
   const nextTurn = turnCount + 1;
@@ -1416,18 +1572,4 @@ export async function* coreMessageLoop(
 // Export
 // ============================================
 
-export {
-  coreMessageLoop,
-  normalizeMessages,
-  addUserContextToMessages,
-  mergeSystemPromptWithContext,
-  resolveModelWithPermissions,
-  createErrorAttachment,
-  createInterruptedAttachment,
-  createMaxTurnsAttachment,
-  createSystemMessage,
-  createToolErrorResults,
-  isFeatureEnabled,
-  recordMarker,
-  ModelFallbackError,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

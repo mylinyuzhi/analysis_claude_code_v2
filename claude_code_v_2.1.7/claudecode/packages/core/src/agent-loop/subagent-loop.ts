@@ -15,11 +15,26 @@
  * - YA1 → resolveAgentModel
  */
 
-import { generateUUID } from '@claudecode/shared';
+import { appendJsonlEntry, generateUUID, getProjectDir, getSessionId, type SessionLogEntry } from '@claudecode/shared';
 import { createUserMessage } from '../message/factory.js';
 import type { ConversationMessage } from '../message/types.js';
 import type { ToolDefinition, ToolUseContext } from '../tools/types.js';
 import { coreMessageLoop } from './core-message-loop.js';
+import {
+  getSkillsCached as getSkillsCachedFromFeatures,
+  injectArguments as injectSkillArguments,
+  addSessionHook,
+  clearSessionHooks,
+  executeSubagentStartHooks as executeSubagentStartHooksFromFeatures,
+  parseHookOutput,
+  shouldSuppressOutput,
+  extractTextFromOutput,
+  type HookEventType,
+  HOOK_EVENT_TYPES,
+} from '@claudecode/features';
+import { userInfo, homedir, hostname, platform as osPlatform, release as osRelease, type as osType } from 'os';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
 import type {
   SubagentLoopOptions,
   AgentDefinition,
@@ -127,20 +142,15 @@ export function resolveAgentModel(
   modelOverride: string | undefined,
   permissionMode: string
 ): string {
-  // Check agent definition model
-  if (agentModel) {
+  // NOTE: bundled runtime supports `model: "inherit"` for some agents.
+  // Treat it as "use parent/main loop model".
+  if (agentModel && agentModel !== 'inherit') {
     return agentModel;
   }
 
-  // Check main loop model
-  if (mainLoopModel) {
-    return mainLoopModel;
-  }
-
-  // Check override
-  if (modelOverride) {
-    return modelOverride;
-  }
+  // Priority: main loop model → override
+  if (mainLoopModel) return mainLoopModel;
+  if (modelOverride) return modelOverride;
 
   // Default based on permission mode
   if (permissionMode === 'plan') {
@@ -169,7 +179,16 @@ export function resolveAgentTools(
   // Filter based on agent definition
   if (agentDefinition.tools) {
     const allowedTools = new Set(agentDefinition.tools);
-    tools = tools.filter((t) => allowedTools.has(t.name));
+    // "*" means allow all tools (subject to disallowed tools below)
+    if (!allowedTools.has('*')) {
+      tools = tools.filter((t) => allowedTools.has(t.name));
+    }
+  }
+
+  // Apply disallowed tools
+  if (agentDefinition.disallowedTools && agentDefinition.disallowedTools.length > 0) {
+    const disallowed = new Set(agentDefinition.disallowedTools);
+    tools = tools.filter((t) => !disallowed.has(t.name));
   }
 
   // Filter out certain tools in async mode
@@ -225,7 +244,7 @@ export function createChildToolUseContext(
     messages: ConversationMessage[];
     readFileState?: Map<string, unknown>;
     abortController?: AbortController;
-    getAppState: () => Promise<unknown>;
+    getAppState: ToolUseContext['getAppState'];
     shareSetAppState?: boolean;
     shareSetResponseLength?: boolean;
     criticalSystemReminder_EXPERIMENTAL?: string;
@@ -262,21 +281,81 @@ export async function setupMcpClients(
   tools: ToolDefinition[];
   cleanup: () => Promise<void>;
 }> {
-  // Inherit parent MCP clients
-  const clients = [...parentMcpClients];
+  // NOTE: 在该还原版本中，MCP 连接/发现主要由上层（主循环/集成层）管理并注入到 toolUseContext.options。
+  // 这里做两件事：
+  // 1) 继承父级 MCP clients
+  // 2) 若 agentDefinition.mcpServers 提供了“已连接 client / server bundle”，则合并并提供可选 cleanup
+
+  const clients: unknown[] = [...parentMcpClients];
   const tools: ToolDefinition[] = [];
 
-  // Add agent-specific MCP clients if defined
-  if (agentDefinition.mcpServers) {
-    // Would connect to additional MCP servers here
-    logDebug(`Agent has ${agentDefinition.mcpServers.length} MCP servers defined`);
-  }
+  const addedClients: unknown[] = [];
+  const cleanupFns: Array<() => Promise<void>> = [];
 
-  const cleanup = async () => {
-    // Would cleanup agent-specific MCP connections
+  const dedupeByName = (list: unknown[]) => {
+    const seen = new Set<string>();
+    const out: unknown[] = [];
+    for (const item of list) {
+      const name = (item as any)?.name;
+      if (typeof name === 'string') {
+        if (seen.has(name)) continue;
+        seen.add(name);
+      }
+      out.push(item);
+    }
+    return out;
   };
 
-  return { clients, tools, cleanup };
+  if (Array.isArray(agentDefinition.mcpServers) && agentDefinition.mcpServers.length > 0) {
+    logDebug(`Agent has ${agentDefinition.mcpServers.length} MCP servers defined`);
+
+    for (const entry of agentDefinition.mcpServers) {
+      // 允许多种形态：
+      // - 直接是 client（带 name/type/callTool 等）
+      // - bundle: { client, tools, cleanup }
+      // - bundle: { clients, tools, cleanup }
+      const bundle = entry as any;
+
+      if (bundle?.client) {
+        addedClients.push(bundle.client);
+      } else if (Array.isArray(bundle?.clients)) {
+        addedClients.push(...bundle.clients);
+      } else if (bundle && typeof bundle === 'object') {
+        // 如果看起来像 client，就直接追加
+        if (typeof bundle.name === 'string') {
+          addedClients.push(bundle);
+        }
+      }
+
+      if (Array.isArray(bundle?.tools)) {
+        tools.push(...(bundle.tools as ToolDefinition[]));
+      }
+
+      if (typeof bundle?.cleanup === 'function') {
+        cleanupFns.push(async () => {
+          await bundle.cleanup();
+        });
+      } else if (typeof bundle?.close === 'function') {
+        cleanupFns.push(async () => {
+          await bundle.close();
+        });
+      }
+    }
+  }
+
+  clients.push(...addedClients);
+
+  const cleanup = async () => {
+    for (const fn of cleanupFns) {
+      try {
+        await fn();
+      } catch (err) {
+        logDebug(`MCP cleanup error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  };
+
+  return { clients: dedupeByName(clients), tools, cleanup };
 }
 
 // ============================================
@@ -294,20 +373,59 @@ export async function loadAgentSkills(
   const skillMessages: ConversationMessage[] = [];
   const skills = agentDefinition.skills ?? [];
 
-  if (skills.length === 0) {
+  if (!Array.isArray(skills) || skills.length === 0) {
     return skillMessages;
   }
 
-  // Would integrate with skill loading system
-  for (const skillName of skills) {
+  // 使用 @claudecode/features/skills 的 loader，避免在 core 重复实现扫描/解析逻辑。
+  // 该 loader 会聚合 managed/user/project/plugin/bundled 等来源。
+  const cwd = process.cwd();
+  const { skillDirCommands, pluginSkills, bundledSkills } = await getSkillsCachedFromFeatures(
+    { cwd },
+    // enabledPlugins 当前还原版本通常由插件系统注入；这里保持 undefined。
+    undefined
+  );
+
+  const all = [
+    ...skillDirCommands,
+    ...pluginSkills,
+    ...bundledSkills,
+  ] as Array<{ name: string; content: string; filePath?: string }>;
+
+  const findByName = (name: string) => all.find((s) => s?.name === name);
+
+  for (const rawSkillRef of skills) {
+    const ref = String(rawSkillRef ?? '').trim();
+    if (!ref) continue;
+
+    // 允许 "skillName arg1 arg2" 这种形式，将剩余部分作为 $ARGUMENTS 注入。
+    const [maybeName, ...rest] = ref.split(/\s+/);
+    const skillName = (maybeName ?? '').trim();
+    if (!skillName) continue;
+    const args = rest.length > 0 ? rest.join(' ') : undefined;
+
     logDebug(`Loading skill '${skillName}' for agent '${agentDefinition.agentType}'`);
 
-    // Placeholder - would load skill and get prompt
+    const skill = findByName(skillName);
+    if (!skill) {
+      const missing = createUserMessage({
+        content: [
+          {
+            type: 'text',
+            text: `<skill name="${skillName}">\n[missing skill]\n</skill>`,
+          },
+        ],
+      });
+      skillMessages.push(missing as ConversationMessage);
+      continue;
+    }
+
+    const injected = injectSkillArguments(skill.content, args);
     const skillMessage = createUserMessage({
       content: [
         {
           type: 'text',
-          text: `<skill name="${skillName}">\nSkill loaded (placeholder)\n</skill>`,
+          text: `<skill name="${skillName}">\n${injected}\n</skill>`,
         },
       ],
     });
@@ -329,12 +447,44 @@ export async function loadAgentSkills(
 export function registerAgentHooks(
   setAppState: unknown,
   agentId: string,
-  hooks: unknown[],
+  hooks: unknown,
   source: string,
   isSession: boolean
 ): void {
-  logDebug(`Registering ${hooks.length} hooks for ${source}`);
-  // Would integrate with hook registration system
+  if (!setAppState || typeof setAppState !== 'function') return;
+
+  // 支持 EventHooksConfig 形态（features/hooks/types.ts），这是 tools/execution.ts 的执行引擎所依赖的。
+  // 若 hooks 是 AgentHooks（onStart/onEnd/onError）之类的结构，则忽略。
+  if (!hooks || typeof hooks !== 'object') return;
+
+  const hooksObj = hooks as Record<string, unknown>;
+  const hookEventTypes = new Set<string>(HOOK_EVENT_TYPES as readonly string[]);
+
+  const registered: Array<{ eventType: HookEventType; matcher: string; hook: unknown }> = [];
+
+  for (const [eventKey, matchers] of Object.entries(hooksObj)) {
+    if (!hookEventTypes.has(eventKey)) continue;
+    if (!Array.isArray(matchers)) continue;
+
+    const eventType = eventKey as HookEventType;
+    for (const m of matchers) {
+      const matcher = (m as any)?.matcher;
+      const matcherStr = typeof matcher === 'string' ? matcher : '';
+      const hookList = (m as any)?.hooks;
+      if (!Array.isArray(hookList)) continue;
+
+      for (const hookDef of hookList) {
+        try {
+          addSessionHook(setAppState as any, agentId, eventType, matcherStr, hookDef as any);
+          registered.push({ eventType, matcher: matcherStr, hook: hookDef });
+        } catch (err) {
+          logDebug(`Failed to register hook for ${eventType} (${source}): ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    }
+  }
+
+  logDebug(`Registering ${registered.length} hooks for ${source}`);
 }
 
 /**
@@ -342,8 +492,13 @@ export function registerAgentHooks(
  * Original: wVA in chunks.112.mjs
  */
 export function unregisterAgentHooks(setAppState: unknown, agentId: string): void {
+  if (!setAppState || typeof setAppState !== 'function') return;
   logDebug(`Unregistering hooks for agent ${agentId}`);
-  // Would integrate with hook unregistration system
+  try {
+    clearSessionHooks(setAppState as any, agentId);
+  } catch (err) {
+    logDebug(`Failed to clear hooks for agent ${agentId}: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 // ============================================
@@ -359,9 +514,64 @@ async function recordSidechainTranscript(
   agentId: string,
   afterUUID?: string | null
 ): Promise<void> {
-  // Placeholder - would write to transcript file
+  const cwd = process.cwd();
+  const projectDir = getProjectDir(cwd);
+  const transcriptPath = join(projectDir, 'subagents', `agent-${agentId}.jsonl`);
+
+  // 初始化 transcript（首行写入 metadata）
+  if (!existsSync(transcriptPath)) {
+    mkdirSync(dirname(transcriptPath), { recursive: true });
+    const metaEntry: SessionLogEntry = {
+      type: 'system',
+      sessionId: getSessionId(),
+      isSidechain: true,
+      agentName: agentId,
+      content: {
+        metadata: {
+          agentId,
+          cwd,
+          createdAt: Date.now(),
+          version: 1,
+        },
+      },
+    };
+    writeFileSync(transcriptPath, JSON.stringify(metaEntry) + '\n', 'utf-8');
+  }
+
+  // afterUUID 过滤：
+  // - 若 messages 内包含 afterUUID：仅追加其后消息
+  // - 若 messages 只有一条且 uuid === afterUUID：跳过
+  let startIdx = 0;
+  if (afterUUID) {
+    if (messages.length === 1 && (messages[0] as any)?.uuid === afterUUID) {
+      return;
+    }
+    const idx = messages.findIndex((m) => (m as any)?.uuid === afterUUID);
+    if (idx >= 0) startIdx = idx + 1;
+  }
+
+  const toWrite = messages.slice(startIdx);
+  if (toWrite.length === 0) return;
+
+  for (const m of toWrite) {
+    if (!m || typeof m !== 'object') continue;
+
+    const entry: SessionLogEntry = {
+      type: (m as any).type,
+      uuid: (m as any).uuid,
+      parentUuid: afterUUID ?? null,
+      sessionId: getSessionId(),
+      isSidechain: true,
+      agentName: agentId,
+      // 保留原始结构，便于后续 restore/telemetry 对齐
+      content: m,
+    };
+
+    await appendJsonlEntry(transcriptPath, entry);
+  }
+
   if (process.env.DEBUG_TRANSCRIPT) {
-    console.log(`[Transcript] Recording ${messages.length} messages for agent ${agentId}`);
+    console.log(`[Transcript] Recorded ${toWrite.length} messages for agent ${agentId} -> ${transcriptPath}`);
   }
 }
 
@@ -374,8 +584,17 @@ async function recordSidechainTranscript(
  * Original: ZV in chunks.112.mjs
  */
 async function getUserContext(): Promise<string> {
-  // Would load user context from various sources
-  return '';
+  try {
+    const u = userInfo();
+    const username = u.username || '';
+    // 以 Record 序列化的 JSON 形式返回，便于 core-message-loop 统一注入为 <system-reminder>
+    return JSON.stringify({
+      Username: username,
+      HomeDirectory: homedir(),
+    });
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -383,8 +602,17 @@ async function getUserContext(): Promise<string> {
  * Original: OF in chunks.112.mjs
  */
 async function getSystemContext(): Promise<string> {
-  // Would load system context
-  return '';
+  try {
+    return JSON.stringify({
+      Hostname: hostname(),
+      Platform: osPlatform(),
+      OS: `${osType()} ${osRelease()}`,
+      Node: process.version,
+      Cwd: process.cwd(),
+    });
+  } catch {
+    return '';
+  }
 }
 
 // ============================================
@@ -400,8 +628,37 @@ async function* executeSubagentStartHooks(
   agentType: string,
   signal: AbortSignal
 ): AsyncGenerator<{ additionalContexts?: string[] }> {
-  // Placeholder - would execute SubagentStart hooks
-  // These hooks can add additional context to the agent
+  // 直接复用 @claudecode/features/hooks 的 SubagentStart 触发器。
+  // 该触发器会运行匹配的 hooks，并通过 stdout / JSON(systemMessage) 传回可注入上下文。
+  for await (const y of executeSubagentStartHooksFromFeatures(agentId, agentType, signal)) {
+    if (y?.preventContinuation) {
+      throw new Error(y.stopReason || 'SubagentStart hook prevented continuation');
+    }
+
+    const r = y?.result;
+    if (!r) continue;
+
+    const raw = (r as any).stdout;
+    if (typeof raw !== 'string' || raw.trim().length === 0) continue;
+
+    const parsed = parseHookOutput(raw);
+    if (parsed.json) {
+      if (shouldSuppressOutput(parsed.json)) continue;
+      const extracted = extractTextFromOutput(parsed.json);
+      if (extracted && extracted.trim().length > 0) {
+        yield { additionalContexts: [extracted.trim()] };
+        continue;
+      }
+      // 如果是合法 JSON 但没有可抽取字段，则保留原始输出
+      yield { additionalContexts: [raw.trim()] };
+      continue;
+    }
+
+    // 纯文本输出
+    if (parsed.plainText && parsed.plainText.trim().length > 0) {
+      yield { additionalContexts: [parsed.plainText.trim()] };
+    }
+  }
 }
 
 // ============================================
@@ -606,7 +863,7 @@ export async function* runSubagentLoop(
     messages,
     readFileState,
     abortController: abortController ?? undefined,
-    getAppState,
+    getAppState: getAppState as any,
     shareSetAppState: !isAsync,
     shareSetResponseLength: true,
     criticalSystemReminder_EXPERIMENTAL: agentDefinition.criticalSystemReminder_EXPERIMENTAL,
@@ -627,7 +884,7 @@ export async function* runSubagentLoop(
     // Run core message loop
     for await (const event of coreMessageLoop({
       messages,
-      systemPrompt: Array.isArray(systemPrompt) ? systemPrompt.join('\n') : systemPrompt,
+      systemPrompt,
       userContext,
       systemContext,
       canUseTool: canUseTool as (tool: unknown, input: unknown, msg: ConversationMessage) => Promise<boolean>,
@@ -640,7 +897,7 @@ export async function* runSubagentLoop(
         const attachment = (event as { attachment: { type: string } }).attachment;
         if (attachment.type === 'max_turns_reached') {
           logDebug(
-            `Agent '${agentDefinition.agentType}' reached max turns limit (${(attachment as { maxTurns: number }).maxTurns})`
+            `Agent '${agentDefinition.agentType}' reached max turns limit (${(attachment as unknown as { maxTurns: number }).maxTurns})`
           );
           break;
         }
@@ -686,16 +943,4 @@ export async function* runSubagentLoop(
 // Export
 // ============================================
 
-export {
-  runSubagentLoop,
-  isYieldableMessage,
-  filterForkContextMessages,
-  resolveAgentModel,
-  resolveAgentTools,
-  getAgentSystemPrompt,
-  createChildToolUseContext,
-  setupMcpClients,
-  loadAgentSkills,
-  registerAgentHooks,
-  unregisterAgentHooks,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

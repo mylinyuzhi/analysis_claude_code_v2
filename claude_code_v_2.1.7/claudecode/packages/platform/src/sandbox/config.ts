@@ -44,31 +44,25 @@ let excludedCommands: string[] = [];
  * Check if sandbox is enabled in settings.
  * Original: xEB in chunks.55.mjs:1509-1511
  */
-export const isSandboxEnabledInSettings = memoize(
-  (settings?: SandboxSettings): boolean => {
-    return settings?.enabled ?? false;
-  }
-);
+export function isSandboxEnabledInSettings(settings?: SandboxSettings): boolean {
+  return settings?.enabled ?? false;
+}
 
 /**
  * Check if auto-allow bash mode is enabled.
  * Original: yEB in chunks.55.mjs:1512-1514
  */
-export const isAutoAllowBashEnabled = memoize(
-  (settings?: SandboxSettings): boolean => {
-    return settings?.autoAllowBashIfSandboxed ?? true;
-  }
-);
+export function isAutoAllowBashEnabled(settings?: SandboxSettings): boolean {
+  return settings?.autoAllowBashIfSandboxed ?? true;
+}
 
 /**
  * Check if unsandboxed commands are allowed (dangerouslyDisableSandbox bypass).
  * Original: vEB in chunks.55.mjs:1515-1517
  */
-export const areUnsandboxedCommandsAllowedInSettings = memoize(
-  (settings?: SandboxSettings): boolean => {
-    return settings?.allowUnsandboxedCommands ?? true;
-  }
-);
+export function areUnsandboxedCommandsAllowedInSettings(settings?: SandboxSettings): boolean {
+  return settings?.allowUnsandboxedCommands ?? true;
+}
 
 // ============================================
 // Global Settings Management
@@ -292,29 +286,4 @@ export function resetSandboxConfig(): void {
 // Export
 // ============================================
 
-export {
-  isSandboxEnabledInSettings,
-  isAutoAllowBashEnabled,
-  areUnsandboxedCommandsAllowedInSettings,
-  getSandboxSettings,
-  setSandboxSettings,
-  getSandboxConfig,
-  setSandboxConfig,
-  areSandboxSettingsLockedByPolicy,
-  lockSandboxSettings,
-  isSandboxingEnabled,
-  isAutoAllowBashIfSandboxedEnabled,
-  areUnsandboxedCommandsAllowed,
-  getFsReadConfig,
-  getFsWriteConfig,
-  getNetworkRestrictionConfig,
-  getIgnoreViolations,
-  getAllowUnixSockets,
-  getAllowLocalBinding,
-  getEnableWeakerNestedSandbox,
-  getExcludedCommands,
-  addExcludedCommand,
-  removeExcludedCommand,
-  isExcludedCommand,
-  resetSandboxConfig,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

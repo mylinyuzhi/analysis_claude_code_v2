@@ -226,26 +226,4 @@ export const COMMAND_NODE_TYPES = new Set(['command', 'declaration_command']);
 // Export
 // ============================================
 
-export type {
-  TreeSitterNode,
-  TreeSitterTree,
-  ParseCommandResult,
-  RedirectionInfo,
-  Command,
-  ShellCommandParser,
-  FileIndex,
-  FileSearchResult,
-  FileSuggestion,
-  FileSuggestionContext,
-  FileIndexCache,
-};
-
-export {
-  MAX_COMMAND_LENGTH,
-  CACHE_TTL,
-  MAX_SUGGESTIONS,
-  DECLARATION_KEYWORDS,
-  ARGUMENT_TYPES,
-  SUBSTITUTION_TYPES,
-  COMMAND_NODE_TYPES,
-};
+// NOTE: 类型/常量已在声明处使用 `export` 导出；避免在文件末尾再次导出导致冲突。

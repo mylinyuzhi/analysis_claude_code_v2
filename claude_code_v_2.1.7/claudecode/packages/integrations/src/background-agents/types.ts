@@ -28,6 +28,9 @@ export interface BackgroundTaskBase {
   status: BackgroundTaskStatus;
   startTime: number;
   endTime?: number;
+  // 运行时附加字段（用于通知/进度追踪；在重建源码中可选存在）
+  notified?: boolean;
+  progress?: unknown;
 }
 
 /**
@@ -243,23 +246,4 @@ export interface RemoteAgentTask extends BackgroundAgentTaskExtended {
 // Export
 // ============================================
 
-export type {
-  BackgroundTaskType,
-  BackgroundTaskStatus,
-  BackgroundTaskBase,
-  BackgroundBashTask,
-  BackgroundAgentTask,
-  BackgroundTask,
-  BackgroundBashTaskExtended,
-  BackgroundAgentTaskExtended,
-  RemoteAgentTask,
-  TaskRegistryEntry,
-  TaskRegistry,
-  TaskOutputInput,
-  TaskOutputResult,
-  TranscriptEntry,
-  TranscriptMetadata,
-  TaskEventType,
-  TaskEvent,
-  TaskEventHandler,
-};
+// NOTE: 类型已在声明处导出；移除重复聚合导出以避免构建期重复导出报错。

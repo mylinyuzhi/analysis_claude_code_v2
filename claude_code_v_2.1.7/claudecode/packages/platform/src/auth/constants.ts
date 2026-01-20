@@ -183,16 +183,4 @@ export const API_VERSION = '2023-06-01';
 // Export
 // ============================================
 
-export {
-  OAUTH_CONFIG,
-  AUTH_ENV_VARS,
-  PROVIDER_ENV_VARS,
-  VERTEX_REGION_ENV_VARS,
-  FD_PATH_PATTERNS,
-  CREDENTIALS_PATHS,
-  KEYCHAIN_CONFIG,
-  TOKEN_REFRESH_CONFIG,
-  API_KEY_HELPER_CONFIG,
-  API_HEADERS,
-  API_VERSION,
-};
+// NOTE: 常量已在声明处导出；移除重复聚合导出。

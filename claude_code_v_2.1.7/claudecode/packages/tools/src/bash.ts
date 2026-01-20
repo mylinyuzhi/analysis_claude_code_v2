@@ -8,6 +8,8 @@
  */
 
 import { spawn, ChildProcess } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 import { z } from 'zod';
 import {
   createTool,
@@ -19,6 +21,13 @@ import {
 } from './base.js';
 import type { BashInput, BashOutput, ToolContext } from './types.js';
 import { TOOL_NAMES } from './types.js';
+import {
+  sandboxManager,
+  isBashSandboxed,
+  SANDBOX_CONSTANTS,
+  getSandboxConfig,
+  type SandboxConfig,
+} from '@claudecode/platform';
 
 // ============================================
 // Constants
@@ -154,7 +163,8 @@ async function executeCommand(
   command: string,
   cwd: string,
   timeout: number,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  env?: NodeJS.ProcessEnv
 ): Promise<{ stdout: string; stderr: string; interrupted: boolean; exitCode: number }> {
   return new Promise((resolve) => {
     let stdout = '';
@@ -165,6 +175,7 @@ async function executeCommand(
     const proc = spawn(command, [], {
       cwd,
       shell: true,
+      env,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -261,8 +272,8 @@ IMPORTANT: This tool is for terminal operations like git, npm, docker, etc. DO N
   },
 
   isConcurrencySafe(input) {
-    // Delegates to isReadOnly check
-    return this.isReadOnly(input);
+    if (!input) return false;
+    return isReadOnlyCommand(input.command);
   },
 
   isReadOnly(input) {
@@ -313,17 +324,69 @@ IMPORTANT: This tool is for terminal operations like git, npm, docker, etc. DO N
         return toolSuccess(result);
       }
 
+      // Sandbox wrapping (if enabled)
+      const shouldSandbox = isBashSandboxed(command, Boolean(input.dangerouslyDisableSandbox));
+
+      let wrappedCommand = command;
+      let env: NodeJS.ProcessEnv | undefined = undefined;
+
+      if (shouldSandbox) {
+        // Ensure sandbox temp dir exists
+        try {
+          fs.mkdirSync(SANDBOX_CONSTANTS.SANDBOX_TEMP_DIR, { recursive: true });
+        } catch {
+          // ignore
+        }
+
+        // Best-effort initialize if caller hasn't already
+        await ensureSandboxInitialized(cwd).catch(() => {});
+
+        const readConfig = sandboxManager.getFsReadConfig();
+        const writeConfig = sandboxManager.getFsWriteConfig();
+        const netConfig = sandboxManager.getNetworkRestrictionConfig();
+        const needsNetworkRestriction = Boolean(
+          netConfig && ((netConfig.allowedDomains?.length ?? 0) > 0 || (netConfig.deniedDomains?.length ?? 0) > 0)
+        );
+
+        wrappedCommand = await sandboxManager.wrapWithSandbox({
+          command,
+          needsNetworkRestriction,
+          httpSocketPath: sandboxManager.getLinuxHttpSocketPath(),
+          socksSocketPath: sandboxManager.getLinuxSocksSocketPath(),
+          httpProxyPort: sandboxManager.getProxyPort(),
+          socksProxyPort: sandboxManager.getSocksProxyPort(),
+          readConfig: readConfig,
+          writeConfig: writeConfig,
+          enableWeakerNestedSandbox: sandboxManager.getEnableWeakerNestedSandbox(),
+          allowUnixSockets: sandboxManager.getAllowUnixSockets(),
+          allowLocalBinding: sandboxManager.getAllowLocalBinding(),
+          abortSignal: context.abortSignal,
+        });
+
+        env = {
+          ...process.env,
+          TMPDIR: SANDBOX_CONSTANTS.SANDBOX_TEMP_DIR,
+          CLAUDE_CODE_TMPDIR: SANDBOX_CONSTANTS.SANDBOX_TEMP_DIR,
+          SANDBOX_RUNTIME: '1',
+        };
+      }
+
       // Execute command synchronously
       const { stdout, stderr, interrupted, exitCode } = await executeCommand(
-        command,
+        wrappedCommand,
         cwd,
         Math.min(timeout, MAX_TIMEOUT),
-        context.abortSignal
+        context.abortSignal,
+        env
       );
+
+      const annotatedStderr = shouldSandbox
+        ? sandboxManager.annotateStderrWithSandboxFailures(stderr, command)
+        : stderr;
 
       const result: BashOutput = {
         stdout,
-        stderr,
+        stderr: annotatedStderr,
         interrupted,
         dangerouslyDisableSandbox: input.dangerouslyDisableSandbox,
       };
@@ -368,7 +431,37 @@ IMPORTANT: This tool is for terminal operations like git, npm, docker, etc. DO N
 });
 
 // ============================================
+// Sandbox bootstrap (best-effort)
+// ============================================
+
+async function ensureSandboxInitialized(cwd: string): Promise<void> {
+  if (!sandboxManager.isSandboxingEnabled()) return;
+  // Already initialized
+  const existing = await sandboxManager.waitForNetworkInitialization();
+  if (existing) return;
+
+  // Prefer config provided by the CLI (via @claudecode/platform global config)
+  let cfg = getSandboxConfig();
+  if (!cfg) {
+    // Conservative defaults (align with analyze/18_sandbox/configuration.md)
+    cfg = {
+      network: { allowedDomains: [], deniedDomains: [] },
+      filesystem: {
+        denyRead: [],
+        allowWrite: [cwd, SANDBOX_CONSTANTS.SANDBOX_TEMP_DIR],
+        denyWrite: [],
+      },
+      mandatoryDenySearchDepth: SANDBOX_CONSTANTS.DEFAULT_MANDATORY_DENY_SEARCH_DEPTH,
+    } satisfies SandboxConfig;
+  }
+
+  // Non-interactive environments should not prompt; default to deny when callback is used.
+  const permissionCallback = async () => false;
+  await sandboxManager.initialize(cfg, permissionCallback, true);
+}
+
+// ============================================
 // Export
 // ============================================
 
-export { BashTool };
+// NOTE: BashTool 已在声明处导出；避免重复导出。

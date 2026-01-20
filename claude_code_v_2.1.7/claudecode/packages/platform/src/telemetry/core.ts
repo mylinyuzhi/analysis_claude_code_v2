@@ -590,25 +590,4 @@ export function registerTelemetryCleanup(): void {
 // Export
 // ============================================
 
-export {
-  isTelemetryEnabled,
-  isSegmentEnabled,
-  isDatadogEnabled,
-  setFeatureGates,
-  setEventSamplingConfig,
-  getSampleRate,
-  getEnvironmentContext,
-  toSnakeCase,
-  logEvent,
-  logEventAsync,
-  analyticsEvent,
-  analyticsEventAsync,
-  attachTelemetryProvider,
-  registerTelemetryProvider,
-  initializeStartupProfiling,
-  telemetryMarker,
-  getPerformanceCheckpoints,
-  clearPerformanceData,
-  flushTelemetry,
-  registerTelemetryCleanup,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

@@ -287,10 +287,4 @@ export function getTaskHandler(type: BackgroundTask['type']): TaskHandler | unde
 // Export
 // ============================================
 
-export {
-  LocalBashTaskHandler,
-  LocalAgentTaskHandler,
-  RemoteAgentTaskHandler,
-  getTaskHandlers,
-  getTaskHandler,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免构建期重复导出报错。

@@ -403,4 +403,4 @@ async function* createAsyncIterableFromStream(
 // Export
 // ============================================
 
-export { WebSocketTransport, WebSocketSDKTransport };
+// NOTE: 类已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

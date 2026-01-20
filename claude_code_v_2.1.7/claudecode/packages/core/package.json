@@ -32,16 +32,18 @@
     }
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsup src/index.ts src/agent-loop/index.ts src/tools/index.ts src/llm-api/index.ts src/state/index.ts src/message/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts src/agent-loop/index.ts src/tools/index.ts src/llm-api/index.ts src/state/index.ts src/message/index.ts --format esm --dts --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@claudecode/shared": "workspace:*",
-    "@claudecode/platform": "workspace:*"
+    "@claudecode/platform": "workspace:*",
+    "react": "^18.2.0"
   },
   "devDependencies": {
+    "@types/react": "^18.2.0",
     "tsup": "^8.0.0",
     "typescript": "^5.3.0"
   }

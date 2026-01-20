@@ -257,27 +257,4 @@ export const PLAN_MODE_DISALLOWED_TOOLS = [
 // Export
 // ============================================
 
-export {
-  EnterPlanModeInput,
-  EnterPlanModeOutput,
-  AllowedPrompt,
-  ExitPlanModeInput,
-  ExitPlanModeOutput,
-  PermissionMode,
-  SetModeAction,
-  ToolPermissionContext,
-  PlanSlugCache,
-  PlanModeState,
-  PlanReminderType,
-  PlanModeAttachmentData,
-  PlanModeReentryData,
-  PlanModeAttachment,
-  PlanModeReentryAttachment,
-  PlanModeExitAttachment,
-  PlanModeAttachmentUnion,
-  PlanModeAttachmentInfo,
-  AttachmentMessage,
-  AttachmentToolUseContext,
-  PLAN_MODE_CONSTANTS,
-  PLAN_MODE_DISALLOWED_TOOLS,
-};
+// NOTE: 类型/常量已在声明处导出；移除重复聚合导出。

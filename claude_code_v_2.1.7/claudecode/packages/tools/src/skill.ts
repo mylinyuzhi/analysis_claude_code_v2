@@ -102,6 +102,9 @@ function parseSkillFrontmatter(content: string): Partial<SkillDefinition> {
   }
 
   const frontmatter = frontmatterMatch[1];
+  if (frontmatter === undefined) {
+    return {};
+  }
   const result: Partial<SkillDefinition> = {};
 
   // Parse key: value pairs
@@ -109,7 +112,11 @@ function parseSkillFrontmatter(content: string): Partial<SkillDefinition> {
   for (const line of lines) {
     const match = line.match(/^(\w+):\s*(.*)$/);
     if (match) {
-      const [, key, value] = match;
+      const key = match[1];
+      const value = match[2];
+      if (!key || value === undefined) {
+        continue;
+      }
       switch (key) {
         case 'name':
           result.name = value.trim();
@@ -152,7 +159,8 @@ function loadSkillFromFile(filePath: string): SkillDefinition | null {
 
     // Extract content after frontmatter
     const contentMatch = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
-    const skillContent = contentMatch ? contentMatch[1].trim() : content;
+    const afterFrontmatter = contentMatch?.[1];
+    const skillContent = (afterFrontmatter ?? content).trim();
 
     return {
       name,
@@ -491,7 +499,6 @@ Important:
 // ============================================
 
 export {
-  SkillTool,
   // Helper functions for skill management
   getSkill,
   skillExists,

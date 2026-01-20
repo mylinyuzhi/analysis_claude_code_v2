@@ -104,9 +104,11 @@ function convertWindowsToWslPath(windowsPath: string, distro?: string): string |
   try {
     // Simple conversion: C:\Users\foo -> /mnt/c/Users/foo
     const match = windowsPath.match(/^([A-Za-z]):\\(.*)$/);
-    if (match) {
-      const drive = match[1].toLowerCase();
-      const rest = match[2].replace(/\\/g, '/');
+    const driveLetter = match?.[1];
+    const restRaw = match?.[2];
+    if (driveLetter && restRaw !== undefined) {
+      const drive = driveLetter.toLowerCase();
+      const rest = restRaw.replace(/\\/g, '/');
       return `/mnt/${drive}/${rest}`;
     }
     return null;
@@ -122,9 +124,11 @@ function convertWslToWindowsPath(wslPath: string, distro?: string): string | nul
   try {
     // /mnt/c/Users/foo -> C:\Users\foo
     const match = wslPath.match(/^\/mnt\/([a-z])\/(.*)$/);
-    if (match) {
-      const drive = match[1].toUpperCase();
-      const rest = match[2].replace(/\//g, '\\');
+    const driveLetter = match?.[1];
+    const restRaw = match?.[2];
+    if (driveLetter && restRaw !== undefined) {
+      const drive = driveLetter.toUpperCase();
+      const rest = restRaw.replace(/\//g, '\\');
       return `${drive}:\\${rest}`;
     }
     return null;
@@ -359,9 +363,8 @@ export async function getIDEHost(runningInWindows: boolean, port: number): Promi
       // Get nameserver from /etc/resolv.conf (usually Windows host IP)
       const resolv = readFileSync('/etc/resolv.conf', 'utf-8');
       const match = resolv.match(/nameserver\s+(\d+\.\d+\.\d+\.\d+)/);
-      if (match) {
-        return match[1];
-      }
+      const ip = match?.[1];
+      if (ip) return ip;
     } catch {
       // Fall through to default
     }
@@ -522,7 +525,7 @@ export async function waitForIDEConnection(): Promise<IdeConnection | null> {
   while (Date.now() - startTime < timeout && !signal.aborted) {
     const connections = await getAvailableIDEConnections(false);
     if (signal.aborted) return null;
-    if (connections.length === 1) return connections[0]; // Found exactly one valid connection
+    if (connections.length === 1) return connections[0] ?? null; // Found exactly one valid connection
     await new Promise((resolve) => setTimeout(resolve, interval));
   }
 
@@ -562,15 +565,4 @@ export function createIdeMcpConfig(connection: IdeConnection): IdeMcpConfig {
 // Export
 // ============================================
 
-export {
-  getIDEDirectories,
-  getIDELockFiles,
-  parseLockFile,
-  isPortReachable,
-  cleanupStaleLockFiles,
-  getIDEHost,
-  getAvailableIDEConnections,
-  waitForIDEConnection,
-  cancelWaitForIDEConnection,
-  createIdeMcpConfig,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

@@ -12,6 +12,11 @@ import type {
 } from './types.js';
 import { MCP_CONSTANTS } from './types.js';
 import { normalizeToolName } from './discovery.js';
+import { parseBoolean } from '@claudecode/shared';
+import { telemetry } from '@claudecode/platform';
+import * as fs from 'fs/promises';
+import * as os from 'os';
+import * as path from 'path';
 
 // ============================================
 // Timeout Configuration
@@ -41,16 +46,32 @@ export function getMCPToolTimeout(): number {
  * Original: E42 (isKeepAliveEnabled) in chunks.131.mjs
  */
 function isKeepAliveEnabled(): boolean {
-  // TODO: Check if session requires keep-alive
-  return false;
+  return parseBoolean(process.env.ENABLE_MCP_KEEPALIVE) || parseBoolean(process.env.MCP_KEEPALIVE);
 }
 
 /**
  * Send keep-alive signal.
  * Original: H42 (sendKeepAlive) in chunks.131.mjs
  */
-function sendKeepAlive(): void {
-  // TODO: Send keep-alive to prevent connection timeout
+function sendKeepAlive(client: McpConnectedServer): void {
+  // Best-effort keepalive. Different MCP clients may expose different methods.
+  try {
+    const c: any = client.client as any;
+    if (typeof c?.ping === 'function') {
+      void c.ping();
+      return;
+    }
+    if (typeof c?.keepAlive === 'function') {
+      void c.keepAlive();
+      return;
+    }
+    if (typeof c?.request === 'function') {
+      // Some clients support raw request (method name varies).
+      void c.request('ping', {});
+    }
+  } catch {
+    // ignore
+  }
 }
 
 // ============================================
@@ -62,7 +83,9 @@ function sendKeepAlive(): void {
  * Original: w42 (mapToIndexingTool) in chunks.131.mjs
  */
 function mapToIndexingTool(serverName: string): string | null {
-  // TODO: Map known indexing servers
+  const name = serverName.toLowerCase();
+  if (name === 'ide') return 'ide';
+  if (name.includes('index')) return 'code_indexing';
   return null;
 }
 
@@ -70,7 +93,14 @@ function mapToIndexingTool(serverName: string): string | null {
  * Track telemetry event.
  */
 function trackEvent(eventName: string, data: Record<string, unknown>): void {
-  // TODO: Send to telemetry service
+  try {
+    telemetry.logEvent(eventName, data as any);
+  } catch {
+    // ignore
+  }
+  if (process.env.DEBUG_TELEMETRY) {
+    console.log(`[Telemetry] ${eventName}:`, data);
+  }
 }
 
 // ============================================
@@ -108,8 +138,14 @@ function containsImages(content: unknown): boolean {
  * Original: hX0 (saveToLargeOutputFile) in chunks.131.mjs
  */
 async function saveToLargeOutputFile(content: unknown): Promise<string> {
-  // TODO: Save to temporary file and return reference
-  return '[Content saved to file]';
+  const timestamp = Date.now();
+  const fileName = `mcp-large-output-${timestamp}`;
+  const contentString = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+  const saveResult = await saveContentToFile(contentString, fileName);
+  if (isSaveError(saveResult)) {
+    return `Error: result (${contentString.length.toLocaleString()} characters) exceeds maximum allowed tokens. Failed to save output to file: ${saveResult.error}. If this MCP server provides pagination or filtering tools, use them to retrieve specific portions of the data.`;
+  }
+  return formatFileReference(saveResult.filepath, saveResult.originalSize, '');
 }
 
 /**
@@ -120,11 +156,15 @@ async function saveContentToFile(
   content: string,
   fileName: string
 ): Promise<{ filepath: string; originalSize: number } | { error: string }> {
-  // TODO: Actually save to file
-  return {
-    filepath: `/tmp/${fileName}.txt`,
-    originalSize: content.length,
-  };
+  try {
+    const baseDir = path.join(os.tmpdir(), 'claude-code-mcp');
+    await fs.mkdir(baseDir, { recursive: true });
+    const filepath = path.join(baseDir, `${fileName}.txt`);
+    await fs.writeFile(filepath, content, 'utf8');
+    return { filepath, originalSize: content.length };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /**
@@ -250,8 +290,8 @@ async function processToolResult(
     return processedContent;
   }
 
-  // Step 4: If large output files disabled, save to file directly
-  if (process.env.ENABLE_MCP_LARGE_OUTPUT_FILES === 'false') {
+  // Step 4: If large output files enabled, save to file directly
+  if (parseBoolean(process.env.ENABLE_MCP_LARGE_OUTPUT_FILES)) {
     return await saveToLargeOutputFile(processedContent);
   }
 
@@ -337,7 +377,7 @@ export async function executeMcpTool({
     // Step 3: Setup keep-alive if enabled (50s interval)
     if (isKeepAliveEnabled()) {
       keepAliveInterval = setInterval(() => {
-        sendKeepAlive();
+        sendKeepAlive(client);
       }, MCP_CONSTANTS.KEEPALIVE_INTERVAL);
     }
 
@@ -439,9 +479,4 @@ export async function executeMcpTool({
 // Export
 // ============================================
 
-export {
-  executeMcpTool,
-  getMCPToolTimeout,
-  processToolResult,
-  normalizeToolResponse,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

@@ -44,6 +44,21 @@ export type TaskType = 'local_bash' | 'local_agent' | 'remote_agent';
  */
 export type TaskStatus = 'running' | 'completed' | 'failed' | 'cancelled';
 
+function normalizeTaskStatus(status: unknown): TaskStatus {
+  switch (status) {
+    case 'running':
+    case 'completed':
+    case 'failed':
+    case 'cancelled':
+      return status;
+    case 'canceled':
+      // normalize American spelling
+      return 'cancelled';
+    default:
+      return 'failed';
+  }
+}
+
 // ============================================
 // Input Types
 // ============================================
@@ -115,7 +130,7 @@ const taskOutputInputSchema = z.object({
 const taskOutputOutputSchema = z.object({
   task_id: z.string(),
   task_type: z.enum(['local_bash', 'local_agent', 'remote_agent']),
-  status: z.string(),
+  status: z.enum(['running', 'completed', 'failed', 'cancelled']),
   description: z.string(),
   output: z.string(),
   exitCode: z.number().optional(),
@@ -243,7 +258,7 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
           return toolSuccess({
             task_id,
             task_type: taskType,
-            status: task.status || 'completed',
+            status: normalizeTaskStatus(task.status ?? 'completed'),
             description: task.description || '',
             output: task.output || task.stdout || '',
             exitCode: task.exitCode,
@@ -254,7 +269,7 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
           return toolSuccess({
             task_id,
             task_type: taskType,
-            status: task.status || 'completed',
+            status: normalizeTaskStatus(task.status ?? 'completed'),
             description: task.description || '',
             output: task.output || '',
             prompt: task.prompt,
@@ -266,7 +281,7 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
           return toolSuccess({
             task_id,
             task_type: taskType,
-            status: task.status || 'unknown',
+            status: normalizeTaskStatus(task.status ?? 'failed'),
             description: task.description || '',
             output: task.output || '',
           });
@@ -362,4 +377,4 @@ async function waitForTask(
 // Export
 // ============================================
 
-export { TaskOutputTool };
+// NOTE: TaskOutputTool 已在声明处导出；避免重复导出。

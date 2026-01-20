@@ -360,24 +360,4 @@ export function createDefaultAppState(): AppState {
 // Export
 // ============================================
 
-export {
-  createDefaultSettings,
-  createDefaultPermissionContext,
-  createDefaultAttribution,
-  createDefaultAgentDefinitions,
-  createDefaultFileHistory,
-  createDefaultMCPState,
-  createDefaultPluginState,
-  createDefaultNotificationState,
-  createDefaultElicitationState,
-  createDefaultPromptSuggestionState,
-  createDefaultSpeculationState,
-  createDefaultWorkerPermissionsState,
-  createDefaultPromptCoachingState,
-  createDefaultGitDiffState,
-  createDefaultFeedbackSurveyState,
-  createDefaultInboxState,
-  isExtendedThinkingEnabled,
-  isPromptSuggestionEnabled,
-  createDefaultAppState,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

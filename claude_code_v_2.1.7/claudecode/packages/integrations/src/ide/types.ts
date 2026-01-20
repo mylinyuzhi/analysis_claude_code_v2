@@ -174,14 +174,4 @@ export const IDE_CONSTANTS = {
 // Export
 // ============================================
 
-export type {
-  IdeKind,
-  IdeConfig,
-  IdeName,
-  IdeLockInfo,
-  IdeConnection,
-  IdeInstallationState,
-  IdeDiffRequest,
-  IdeDiffResponse,
-  IdeMcpConfig,
-};
+// NOTE: 类型/常量已在声明处导出；移除重复聚合导出以避免 TS2484。

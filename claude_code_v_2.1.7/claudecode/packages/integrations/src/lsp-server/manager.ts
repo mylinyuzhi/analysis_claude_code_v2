@@ -141,6 +141,7 @@ export function createLspServerManager(
       return undefined;
     }
     const serverName = serverNames[0]; // Use first matching server
+    if (!serverName) return undefined;
     return servers.get(serverName);
   }
 
@@ -420,11 +421,4 @@ export async function waitForLspManagerInit(): Promise<void> {
 // Export
 // ============================================
 
-export {
-  createLspServerManager,
-  initializeLspServerManager,
-  shutdownLspServerManager,
-  getLspManager,
-  getLspManagerStatus,
-  waitForLspManagerInit,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

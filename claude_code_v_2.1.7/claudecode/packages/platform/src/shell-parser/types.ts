@@ -206,24 +206,4 @@ export type SecurityChecker = (context: SecurityContext) => SecurityCheckResult;
 // Export
 // ============================================
 
-export type {
-  ParsedCommand,
-  OutputRedirection,
-  ShellToken,
-  ParseResult,
-  SecurityBehavior,
-  SecurityCheckResult,
-  DecisionReason,
-  SecurityContext,
-  PipePermissionRequest,
-  PermissionChecker,
-  QuoteRemovalResult,
-  CwdResetResult,
-  HeredocExtractionResult,
-  HeredocInfo,
-  EscapeMarkers,
-  RedirectionExtractionResult,
-  SecurityChecker,
-};
-
-export { SecurityRiskType };
+// NOTE: 类型/枚举已在声明处导出；移除重复聚合导出。

@@ -282,12 +282,4 @@ export function initializeSkills(options?: SkillLoadOptions): SkillDiscoveryResu
 // Export
 // ============================================
 
-export {
-  SkillRegistry,
-  loadSkillsFromDirectory,
-  discoverSkills,
-  toRegisteredSkill,
-  getSkillRegistry,
-  resetSkillRegistry,
-  initializeSkills,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

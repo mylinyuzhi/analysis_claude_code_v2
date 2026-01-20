@@ -243,7 +243,7 @@ export function extractOutputRedirections(
   let i = 0;
 
   while (i < tokens.length) {
-    const token = tokens[i];
+    const token = tokens[i]!;
 
     // Skip subshell boundary tokens
     if (subshellRedirections.has(i)) {
@@ -400,12 +400,4 @@ export async function stripOutputRedirections(segment: string): Promise<string> 
 // Export
 // ============================================
 
-export {
-  RichCommand,
-  SimpleCommand,
-  shellCommandParser,
-  extractOutputRedirections,
-  extractCwdReset,
-  hasShellOperators,
-  stripOutputRedirections,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

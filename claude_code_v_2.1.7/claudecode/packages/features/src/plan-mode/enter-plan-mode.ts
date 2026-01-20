@@ -211,9 +211,4 @@ export const EnterPlanModeTool = {
 // Export
 // ============================================
 
-export {
-  ENTER_PLAN_MODE_NAME,
-  ENTER_PLAN_MODE_DESCRIPTION,
-  EnterPlanModeTool,
-  getEnterPlanModeResultMessage,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

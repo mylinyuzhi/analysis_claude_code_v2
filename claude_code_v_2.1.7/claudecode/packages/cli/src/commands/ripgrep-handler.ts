@@ -137,7 +137,7 @@ export async function getRipgrepVersion(): Promise<string | null> {
       if (code === 0 && output) {
         // Parse version from output like "ripgrep 14.1.0"
         const match = output.match(/ripgrep\s+(\d+\.\d+\.\d+)/);
-        resolve(match ? match[1] : null);
+        resolve(match?.[1] ?? null);
       } else {
         resolve(null);
       }

@@ -120,7 +120,7 @@ import type { Tool, ToolGroupings } from './types.js';
 /**
  * All built-in tools.
  */
-export const builtinTools: Tool[] = [
+export const builtinTools: Array<Tool<any, any>> = [
   ReadTool,
   WriteTool,
   EditTool,
@@ -141,7 +141,7 @@ export const builtinTools: Tool[] = [
 /**
  * Get tool by name.
  */
-export function getToolByName(name: string): Tool | undefined {
+export function getToolByName(name: string): Tool<any, any> | undefined {
   return builtinTools.find((tool) => tool.name === name);
 }
 

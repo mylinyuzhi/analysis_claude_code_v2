@@ -430,11 +430,4 @@ export function extractChromeToolName(mcpName: string): ChromeMcpToolName | null
 // Export
 // ============================================
 
-export {
-  CHROME_TOOL_DEFINITIONS,
-  getChromeTool,
-  getChromeToolNames,
-  isValidChromeTool,
-  getMcpToolName,
-  extractChromeToolName,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

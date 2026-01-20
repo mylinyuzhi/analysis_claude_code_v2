@@ -46,20 +46,23 @@ export interface AppStateProviderProps {
  * Shallow equality check for state objects.
  * Original: SG7 in chunks.135.mjs:1225-1233
  */
-export function shallowEqual<T extends Record<string, unknown>>(
-  objA: T,
-  objB: T
+export function shallowEqual<T extends object>(
+  objA: T | null | undefined,
+  objB: T | null | undefined
 ): boolean {
   if (objA === objB) return true;
   if (!objA || !objB) return false;
 
-  const keysA = Object.keys(objA);
-  const keysB = Object.keys(objB);
+  const recordA = objA as Record<string, unknown>;
+  const recordB = objB as Record<string, unknown>;
+
+  const keysA = Object.keys(recordA);
+  const keysB = Object.keys(recordB);
 
   if (keysA.length !== keysB.length) return false;
 
   for (const key of keysA) {
-    if (objA[key] !== objB[key]) {
+    if (recordA[key] !== recordB[key]) {
       return false;
     }
   }
@@ -75,7 +78,7 @@ export function shallowEqual<T extends Record<string, unknown>>(
  * Main app state context.
  * Original: RM0 in chunks.135.mjs:1419
  */
-const AppStateContext = createContext<AppStateContextValue>([
+export const AppStateContext = createContext<AppStateContextValue>([
   {} as AppState,
   (updater) => updater,
 ] as AppStateContextValue);
@@ -84,7 +87,7 @@ const AppStateContext = createContext<AppStateContextValue>([
  * Provider initialized context (prevents nesting).
  * Original: c19 in chunks.135.mjs:1419
  */
-const ProviderInitializedContext = createContext<boolean>(false);
+export const ProviderInitializedContext = createContext<boolean>(false);
 
 // ============================================
 // Permission Helpers
@@ -94,7 +97,7 @@ const ProviderInitializedContext = createContext<boolean>(false);
  * Check if remote bypass is disabled.
  * Original: phA in chunks.135.mjs
  */
-function isRemoteBypassDisabled(): boolean {
+export function isRemoteBypassDisabled(): boolean {
   return process.env.CLAUDE_CODE_DISABLE_BYPASS === 'true';
 }
 
@@ -102,7 +105,7 @@ function isRemoteBypassDisabled(): boolean {
  * Disable bypass mode.
  * Original: lhA in chunks.135.mjs
  */
-function disableBypassMode(context: ToolPermissionContext): ToolPermissionContext {
+export function disableBypassMode(context: ToolPermissionContext): ToolPermissionContext {
   return {
     ...context,
     isBypassPermissionsModeAvailable: false,
@@ -114,7 +117,7 @@ function disableBypassMode(context: ToolPermissionContext): ToolPermissionContex
  * Merge permission contexts.
  * Original: p19 in chunks.135.mjs
  */
-function mergePermissionContexts(
+export function mergePermissionContexts(
   current: ToolPermissionContext,
   updates: Partial<ToolPermissionContext>
 ): ToolPermissionContext {
@@ -323,17 +326,4 @@ export function useAppStateSelector<T>(selector: (state: AppState) => T): T {
 // Export
 // ============================================
 
-export {
-  AppStateContext,
-  ProviderInitializedContext,
-  shallowEqual,
-  isRemoteBypassDisabled,
-  disableBypassMode,
-  mergePermissionContexts,
-  AppStateProvider,
-  useAppState,
-  useAppStateSafe,
-  useAppStateValue,
-  useAppStateUpdater,
-  useAppStateSelector,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

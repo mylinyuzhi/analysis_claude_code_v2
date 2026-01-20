@@ -143,4 +143,4 @@ export function unregisterSkillHooks(
 // Export
 // ============================================
 
-export { registerSkillFrontmatterHooks, unregisterSkillHooks };
+// NOTE: 函数已在声明处导出；移除重复导出。

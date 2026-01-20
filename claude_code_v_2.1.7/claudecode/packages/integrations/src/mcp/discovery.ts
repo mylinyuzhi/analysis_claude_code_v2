@@ -197,7 +197,10 @@ function mapArgsToNames(
 ): Record<string, string> {
   const result: Record<string, string> = {};
   for (let i = 0; i < argNames.length && i < argValues.length; i++) {
-    result[argNames[i]] = argValues[i];
+    const name = argNames[i];
+    const value = argValues[i];
+    if (!name || value === undefined) continue;
+    result[name] = value;
   }
   return result;
 }
@@ -206,7 +209,7 @@ function mapArgsToNames(
  * Convert MCP content to Claude format.
  * Original: Er2 (convertMcpContent) in chunks.131.mjs:1242-1303
  */
-async function convertMcpContent(
+export async function convertMcpContent(
   content: McpContent | McpContent[],
   serverName: string
 ): Promise<unknown[]> {
@@ -475,13 +478,4 @@ export function setupListChangedHandlers(
 // Export
 // ============================================
 
-export {
-  fetchMcpTools,
-  fetchMcpPrompts,
-  fetchMcpResources,
-  normalizeToolName,
-  clearDiscoveryCache,
-  refreshToolsOnListChanged,
-  setupListChangedHandlers,
-  convertMcpContent,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

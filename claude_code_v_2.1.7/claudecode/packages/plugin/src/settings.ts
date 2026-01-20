@@ -245,18 +245,4 @@ export async function getPluginStateSummary(): Promise<{
 // Export
 // ============================================
 
-export {
-  getSettingsPath,
-  loadSettings,
-  saveSettings,
-  getEnabledPlugins,
-  setEnabledPlugins,
-  isPluginEnabled,
-  enablePlugin,
-  disablePlugin,
-  togglePlugin,
-  enablePlugins,
-  disablePlugins,
-  disableAllPlugins,
-  getPluginStateSummary,
-};
+// NOTE: 本文件函数已在声明处导出；移除重复聚合导出。

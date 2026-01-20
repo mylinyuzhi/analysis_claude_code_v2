@@ -14,6 +14,7 @@ import type {
   AnthropicClientInterface,
   ApiProvider,
   MessagesRequest,
+  MessagesResponse,
   StreamEvent,
 } from './types.js';
 
@@ -24,12 +25,12 @@ import type {
 /**
  * Default API timeout (10 minutes)
  */
-const DEFAULT_API_TIMEOUT = 600_000;
+export const DEFAULT_API_TIMEOUT = 600_000;
 
 /**
  * Default max retries
  */
-const DEFAULT_MAX_RETRIES = 10;
+export const DEFAULT_MAX_RETRIES = 10;
 
 /**
  * Default base URL
@@ -135,7 +136,7 @@ export function detectProvider(): ApiProvider {
  * Native HTTP Anthropic client implementation
  * Uses fetch API directly instead of requiring @anthropic-ai/sdk
  */
-class NativeAnthropicClient implements AnthropicClientInterface {
+export class NativeAnthropicClient implements AnthropicClientInterface {
   private apiKey: string;
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
@@ -211,7 +212,7 @@ class NativeAnthropicClient implements AnthropicClientInterface {
     /**
      * Create a message (non-streaming)
      */
-    create: async (request: MessagesRequest) => {
+    create: async (request: MessagesRequest): Promise<MessagesResponse> => {
       const body = {
         model: request.model,
         max_tokens: request.max_tokens,
@@ -228,7 +229,7 @@ class NativeAnthropicClient implements AnthropicClientInterface {
       };
 
       const response = await this.makeRequest('/v1/messages', body);
-      return response.json();
+      return (await response.json()) as MessagesResponse;
     },
 
     /**
@@ -468,13 +469,4 @@ async function createFirstPartyClient(options: ClientOptions & { defaultHeaders?
 // Export
 // ============================================
 
-export {
-  createAnthropicClient,
-  detectProvider,
-  buildDefaultHeaders,
-  getUserAgent,
-  parseCustomHeaders,
-  DEFAULT_API_TIMEOUT,
-  DEFAULT_MAX_RETRIES,
-  NativeAnthropicClient,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出。

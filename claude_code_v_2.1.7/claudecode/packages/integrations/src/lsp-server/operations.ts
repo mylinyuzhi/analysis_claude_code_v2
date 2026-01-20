@@ -385,7 +385,7 @@ export function formatGoToDefinitionResult(
 
     if (locations.length === 1) {
       return {
-        formatted: `Defined in ${formatLocation(locations[0], workingDir)}`,
+        formatted: `Defined in ${formatLocation(locations[0]!, workingDir)}`,
         resultCount: 1,
         fileCount: 1,
       };
@@ -433,7 +433,7 @@ export function formatFindReferencesResult(
 
   if (valid.length === 1) {
     return {
-      formatted: `Found 1 reference:\n  ${formatLocation(valid[0], workingDir)}`,
+      formatted: `Found 1 reference:\n  ${formatLocation(valid[0]!, workingDir)}`,
       resultCount: 1,
       fileCount: 1,
     };
@@ -662,7 +662,7 @@ export function formatPrepareCallHierarchyResult(
     };
   }
 
-  const item = items[0];
+  const item = items[0]!;
   const relativePath = uriToRelativePath(item.uri, workingDir);
   const line = item.range.start.line + 1;
   const kindName = symbolKindToName(item.kind);
@@ -864,26 +864,4 @@ export function extractSymbolAtPosition(
 // Export
 // ============================================
 
-export {
-  LSP_OPERATIONS,
-  buildLspRequest,
-  formatLspResult,
-  symbolKindToName,
-  pathToFileUri,
-  uriToRelativePath,
-  isLocationLink,
-  locationLinkToLocation,
-  formatLocation,
-  groupLocationsByFile,
-  formatGoToDefinitionResult,
-  formatFindReferencesResult,
-  formatHoverResult,
-  formatDocumentSymbolResult,
-  formatWorkspaceSymbolResult,
-  formatGoToImplementationResult,
-  formatPrepareCallHierarchyResult,
-  formatIncomingCallsResult,
-  formatOutgoingCallsResult,
-  extractHoverContent,
-  extractSymbolAtPosition,
-};
+// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

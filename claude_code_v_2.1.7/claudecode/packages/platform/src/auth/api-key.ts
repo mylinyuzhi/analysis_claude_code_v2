@@ -427,18 +427,5 @@ export function getApiKey(): string | null {
 // Export
 // ============================================
 
-export {
-  isSDKMode,
-  isHostedMode,
-  readApiKeyFromFileDescriptor,
-  readOAuthTokenFromFileDescriptor,
-  maskApiKey,
-  hashApiKey,
-  hasApiKeyHelper,
-  executeApiKeyHelper,
-  clearApiKeyHelperCache,
-  getKeychainKey,
-  saveKeychainKey,
-  getApiKeyAndSource,
-  getApiKey,
-};
+// NOTE: 上述函数/常量在本文件内已通过 `export function/const` 导出。
+// 额外的聚合导出会触发重复导出错误。

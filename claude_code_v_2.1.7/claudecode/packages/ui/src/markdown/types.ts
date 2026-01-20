@@ -283,25 +283,4 @@ export const MARKDOWN_CONSTANTS = {
   } as const,
 } as const;
 
-// ============================================
-// Export
-// ============================================
-
-export type {
-  MarkdownTokenType,
-  MarkdownTokenBase,
-  HeadingToken,
-  CodeBlockToken,
-  LinkToken,
-  ListToken,
-  ListItemToken,
-  TableToken,
-  TableRowToken,
-  TableCellToken,
-  MarkdownToken,
-  MarkdownRendererOptions,
-  StyledText,
-  RenderResult,
-  HighlightLanguage,
-  SyntaxToken,
-};
+// Note: exports are declared inline above.

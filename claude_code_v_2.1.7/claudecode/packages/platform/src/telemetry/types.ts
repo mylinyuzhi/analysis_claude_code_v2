@@ -242,25 +242,4 @@ export type TelemetryEventType =
 // Export
 // ============================================
 
-export type {
-  EventMetadata,
-  QueuedEvent,
-  TelemetryProvider,
-  EnvironmentContext,
-  UserMetadata,
-  DatadogLogEntry,
-  DatadogConfig,
-  SegmentTrackPayload,
-  SegmentConfig,
-  LogRecordAttributes,
-  OtelBatchConfig,
-  EventSamplingConfig,
-  SampleRateResult,
-  PerformanceCheckpoint,
-  StartupPerformanceData,
-  ApiEventType,
-  ToolEventType,
-  SessionEventType,
-  PlanModeEventType,
-  TelemetryEventType,
-};
+// NOTE: 类型已在声明处导出；移除重复聚合导出。

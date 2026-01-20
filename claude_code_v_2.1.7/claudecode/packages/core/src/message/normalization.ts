@@ -5,13 +5,15 @@
  * Reconstructed from chunks.147.mjs:2774-2998
  */
 
-import type { Tool, ContentBlock } from '@claudecode/shared';
+import type { ContentBlock } from '@claudecode/shared';
+import type { Tool } from '../tools/types.js';
 import type {
   ConversationMessage,
   AssistantMessage,
   UserMessage,
   AttachmentMessage,
   ToolUseGroup,
+  Attachment,
 } from './types.js';
 import {
   hasToolUse,
@@ -41,7 +43,7 @@ export function reorderAttachments(
 
   // Process in reverse to collect attachments and place them correctly
   for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
+    const msg = messages[i]!;
 
     if (msg.type === 'attachment') {
       pendingAttachments.unshift(msg);
@@ -220,11 +222,6 @@ export function normalizeToolInput(
   tool: Tool,
   input: unknown
 ): unknown {
-  // If input is already correctly typed, return as-is
-  if (typeof input !== 'object' || input === null) {
-    return input;
-  }
-
   // Parse if string
   if (typeof input === 'string') {
     try {
@@ -234,8 +231,28 @@ export function normalizeToolInput(
     }
   }
 
+  // If input is already correctly typed, return as-is
+  if (typeof input !== 'object' || input === null) {
+    return input;
+  }
+
   // Tool-specific normalization could be added here
   return input;
+}
+
+function coerceToolInputToRecord(input: unknown): Record<string, unknown> {
+  let value = input;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      value = undefined;
+    }
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
 }
 
 // ============================================
@@ -392,7 +409,7 @@ export function stripToolUseCaller(
           type: 'tool_use',
           id: (block as { id: string }).id,
           name: (block as { name: string }).name,
-          input: (block as { input: unknown }).input,
+          input: coerceToolInputToRecord((block as { input: unknown }).input),
         };
       }),
     },
@@ -417,7 +434,7 @@ function getLastElement<T>(arr: T[]): T | undefined {
  */
 function removeEmptyMessages(messages: ConversationMessage[]): void {
   for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
+    const msg = messages[i]!;
     if (msg.type === 'user' || msg.type === 'assistant') {
       const content =
         msg.type === 'user' ? msg.message.content : msg.message.content;
@@ -448,10 +465,13 @@ function ensureAlternatingMessages(
  * Original: q$7 in chunks.147.mjs
  */
 function convertAttachmentToUserMessage(
-  attachment: { type: string; content?: string; [key: string]: unknown }
+  attachment: Attachment
 ): UserMessage[] {
   // Convert attachment content to a user message
-  const content = attachment.content || `[Attachment: ${attachment.type}]`;
+  const content =
+    (Array.isArray(attachment.content)
+      ? attachment.content.join('\n')
+      : attachment.content) || `[Attachment: ${attachment.type}]`;
   return [
     createUserMessage({
       content: [{ type: 'text', text: content }],
@@ -526,14 +546,16 @@ export function normalizeMessagesToAPI(
                     ? normalizeToolInput(tool, (block as { input: unknown }).input)
                     : (block as { input: unknown }).input;
 
+                  const inputRecord = coerceToolInputToRecord(normalizedInput);
+
                   if (isToolSearchEnabled()) {
-                    return { ...block, input: normalizedInput };
+                    return { ...block, input: inputRecord };
                   }
                   return {
                     type: 'tool_use' as const,
                     id: (block as { id: string }).id,
                     name: (block as { name: string }).name,
-                    input: normalizedInput,
+                    input: inputRecord,
                   };
                 }
                 return block;
@@ -543,7 +565,7 @@ export function normalizeMessagesToAPI(
 
           // Check for merge with previous assistant message (same message.id)
           for (let i = output.length - 1; i >= 0; i--) {
-            const prevMsg = output[i];
+            const prevMsg = output[i]!;
             if (prevMsg.type !== 'assistant' && !hasToolResultBlocks(prevMsg)) {
               break;
             }
@@ -599,19 +621,4 @@ function hasToolResultBlocks(msg: ConversationMessage): boolean {
 // Export
 // ============================================
 
-export {
-  reorderAttachments,
-  mergeUserMessages,
-  mergeAssistantMessages,
-  mergeUserWithAttachment,
-  normalizeContentToArray,
-  reorderToolResultsFirst,
-  mergeToolResultWithText,
-  normalizeToolInput,
-  filterToolReferences,
-  removeAllToolReferences,
-  stripToolUseCaller,
-  normalizeMessagesToAPI,
-  setToolSearchEnabled,
-  isToolSearchEnabled,
-};
+// NOTE: 函数已在声明处导出；移除重复聚合导出。

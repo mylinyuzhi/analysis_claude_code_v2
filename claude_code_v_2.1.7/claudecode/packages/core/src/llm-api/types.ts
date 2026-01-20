@@ -25,6 +25,15 @@ export interface ClientOptions {
   timeout?: number;
   model?: string;
   fetchOverride?: typeof fetch;
+
+  /** Override Anthropic API base URL */
+  baseURL?: string;
+
+  /** Additional default headers applied to every request */
+  defaultHeaders?: Record<string, string>;
+
+  /** SDK compatibility flag (kept for parity with upstream options shape) */
+  dangerouslyAllowBrowser?: boolean;
 }
 
 /**
@@ -295,6 +304,7 @@ export interface AggregatedContentBlock {
 export type StreamingQueryResult =
   | { type: 'assistant'; message: AssistantMessage }
   | { type: 'stream_event'; event: StreamEvent }
+  | { type: 'retry'; attempt: number; maxAttempts: number; delayMs: number }
   | { type: 'api_error'; error: ApiError; retryInfo?: RetryInfo };
 
 /**
@@ -386,7 +396,10 @@ export class AbortError extends Error {
 export interface AnthropicClientInterface {
   messages: {
     create(request: MessagesRequest): Promise<MessagesResponse>;
-    stream(request: MessagesRequest): AsyncIterable<StreamEvent>;
+    stream(
+      request: MessagesRequest,
+      options?: { signal?: AbortSignal }
+    ): AsyncIterable<StreamEvent>;
   };
 }
 
@@ -418,39 +431,4 @@ export interface RetryContext {
 // Export all types
 // ============================================
 
-export type {
-  ApiProvider,
-  ClientOptions,
-  BedrockOptions,
-  VertexOptions,
-  FoundryOptions,
-  MessagesRequest,
-  SystemContent,
-  CacheControl,
-  ToolDefinition,
-  ToolChoice,
-  RequestMetadata,
-  MessagesResponse,
-  StopReason,
-  StreamEventType,
-  BaseStreamEvent,
-  MessageStartEvent,
-  ContentBlockStartEvent,
-  ContentBlockDeltaEvent,
-  ContentDelta,
-  ContentBlockStopEvent,
-  MessageDeltaEvent,
-  MessageStopEvent,
-  PingEvent,
-  ErrorEvent,
-  StreamEvent,
-  AggregatedContentBlock,
-  StreamingQueryResult,
-  AssistantMessage,
-  RetryInfo,
-  ApiError,
-  ContextOverflowError,
-  AnthropicClientInterface,
-  RetryOptions,
-  RetryContext,
-};
+// NOTE: 类型已在声明处导出；移除重复聚合导出以避免 TS2484。

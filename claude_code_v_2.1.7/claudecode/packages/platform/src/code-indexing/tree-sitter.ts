@@ -122,7 +122,7 @@ async function initializeTreeSitter(): Promise<void> {
  * Ensure tree-sitter is loaded (lazy initialization).
  * Original: hm2 in chunks.123.mjs:595-598
  */
-async function ensureTreeSitterLoaded(): Promise<void> {
+export async function ensureTreeSitterLoaded(): Promise<void> {
   if (!initPromise) {
     initPromise = initializeTreeSitter();
   }
@@ -146,7 +146,7 @@ export async function isTreeSitterAvailable(): Promise<boolean> {
  * Traverse AST tree and call visitor on each node.
  * Original: Mq0 in chunks.123.mjs
  */
-function traverseTree(node: TreeSitterNode, visitor: (node: TreeSitterNode) => void): void {
+export function traverseTree(node: TreeSitterNode, visitor: (node: TreeSitterNode) => void): void {
   if (!node) return;
 
   visitor(node);
@@ -162,7 +162,7 @@ function traverseTree(node: TreeSitterNode, visitor: (node: TreeSitterNode) => v
  * Find command node in AST.
  * Original: gm2 in chunks.123.mjs:620-634
  */
-function findCommandNode(node: TreeSitterNode): TreeSitterNode | null {
+export function findCommandNode(node: TreeSitterNode): TreeSitterNode | null {
   const { type, children, parent } = node;
 
   // Already a command node
@@ -200,7 +200,7 @@ function findCommandNode(node: TreeSitterNode): TreeSitterNode | null {
  * Extract environment variables from command node.
  * Original: _n5 in chunks.123.mjs:636-645
  */
-function extractEnvironmentVariables(commandNode: TreeSitterNode | null): string[] {
+export function extractEnvironmentVariables(commandNode: TreeSitterNode | null): string[] {
   if (!commandNode || commandNode.type !== 'command') {
     return [];
   }
@@ -227,7 +227,7 @@ function extractEnvironmentVariables(commandNode: TreeSitterNode | null): string
  * Extract pipe operator positions from AST.
  * Original: Pn5 in chunks.123.mjs:741-749
  */
-function extractPipePositions(rootNode: TreeSitterNode): number[] {
+export function extractPipePositions(rootNode: TreeSitterNode): number[] {
   const positions: number[] = [];
 
   traverseTree(rootNode, (node) => {
@@ -247,7 +247,7 @@ function extractPipePositions(rootNode: TreeSitterNode): number[] {
  * Extract output redirections from AST.
  * Original: Sn5 in chunks.123.mjs:751-766
  */
-function extractRedirections(rootNode: TreeSitterNode): RedirectionInfo[] {
+export function extractRedirections(rootNode: TreeSitterNode): RedirectionInfo[] {
   const redirections: RedirectionInfo[] = [];
 
   traverseTree(rootNode, (node) => {
@@ -328,7 +328,7 @@ export async function parseCommand(commandString: string): Promise<ParseCommandR
  * Simple tokenizer for fallback parsing.
  * Original: ZfA in chunks.147.mjs
  */
-function tokenizeCommand(command: string): string[] {
+export function tokenizeCommand(command: string): string[] {
   const tokens: string[] = [];
   let current = '';
   let inSingleQuote = false;
@@ -410,7 +410,7 @@ function extractOutputRedirectionsFromString(command: string): {
     redirections.push({
       startIndex: match.index,
       endIndex: match.index + match[0].length,
-      target: match[2],
+      target: match[2]!,
       operator: match[1] as '>' | '>>',
     });
     lastIndex = match.index + match[0].length;
@@ -597,17 +597,4 @@ export const shellCommandParser: ShellCommandParser = {
 // Export
 // ============================================
 
-export {
-  ensureTreeSitterLoaded,
-  isTreeSitterAvailable,
-  parseCommand,
-  findCommandNode,
-  extractEnvironmentVariables,
-  extractPipePositions,
-  extractRedirections,
-  traverseTree,
-  tokenizeCommand,
-  SimpleCommand,
-  RichCommand,
-  shellCommandParser,
-};
+// NOTE: 本文件内符号已在声明处导出，移除重复导出避免 esbuild 报错。
