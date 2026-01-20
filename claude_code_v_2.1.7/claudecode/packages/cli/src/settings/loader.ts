@@ -184,6 +184,18 @@ export function loadAllSettings(
   const flagSettings = overrides?.flagSettings ?? {};
   const policySettings = overrides?.policySettings ?? {};
 
+  // Preserve unknown / future settings keys (e.g. hooks, thinking, plugins).
+  // Merge order (lowest → highest priority): user → enterprise → project → local → flags → policy
+  const mergedRaw: Record<string, unknown> = Object.assign(
+    {},
+    userSettings as any,
+    enterpriseSettings as any,
+    projectSettings as any,
+    localSettings as any,
+    flagSettings as any,
+    policySettings as any
+  );
+
   const mergeObject = (parts: Array<Record<string, unknown> | undefined>): Record<string, unknown> => {
     return Object.assign({}, ...parts.filter(Boolean));
   };
@@ -219,6 +231,7 @@ export function loadAllSettings(
   ]);
 
   return {
+    ...(mergedRaw as any),
     mcpServers,
     disabledMcpServers,
     approvedMcpServers,

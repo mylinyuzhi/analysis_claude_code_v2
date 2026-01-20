@@ -18,9 +18,10 @@
  */
 
 import { z } from 'zod';
-import { writeFileSync, mkdirSync, appendFileSync, existsSync } from 'fs';
+import { writeFileSync, readFileSync, mkdirSync, appendFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { randomUUID } from 'crypto';
+import { homedir } from 'os';
 import {
   createTool,
   validationSuccess,
@@ -780,22 +781,28 @@ function extractTextFromContentBlocks(content: unknown): string {
 async function runSubagentLoop(params: {
   agentId: string;
   prompt: string;
-  agentConfig: AgentConfig;
+  agentDefinition: any;
   model: string;
   maxTurns?: number;
   abortSignal?: AbortSignal;
   toolContext: ToolContext;
   isAsync?: boolean;
+  forkContextMessages?: any[];
+  resumeMessages?: any[];
+  canUseToolFromRunner?: (tool: any, input: unknown, assistantMessage: any) => Promise<boolean>;
 }): Promise<string> {
   const {
     agentId,
     prompt,
-    agentConfig,
+    agentDefinition,
     model,
     maxTurns = 10,
     abortSignal,
     toolContext,
     isAsync,
+    forkContextMessages,
+    resumeMessages,
+    canUseToolFromRunner,
   } = params;
 
   const linkAbort = (signal: AbortSignal | undefined, controller: AbortController) => {
@@ -816,8 +823,8 @@ async function runSubagentLoop(params: {
   const readFileState = toolContext.readFileState;
 
   const coreTools = adaptToolsForCore({
-    allowedTools: agentConfig.tools,
-    disallowedTools: agentConfig.disallowedTools,
+    allowedTools: (agentDefinition as any)?.tools,
+    disallowedTools: (agentDefinition as any)?.disallowedTools,
     getAppState,
     setAppState,
     readFileState,
@@ -836,19 +843,33 @@ async function runSubagentLoop(params: {
     messages: conversation,
     options: {
       tools: coreTools,
-      mainLoopModel: typeof toolContext.options?.model === 'string' ? (toolContext.options as any).model : undefined,
+      mainLoopModel:
+        typeof (toolContext.options as any)?.mainLoopModel === 'string'
+          ? (toolContext.options as any).mainLoopModel
+          : typeof (toolContext.options as any)?.model === 'string'
+            ? (toolContext.options as any).model
+            : undefined,
+      maxThinkingTokens:
+        typeof (toolContext.options as any)?.maxThinkingTokens === 'number'
+          ? (toolContext.options as any).maxThinkingTokens
+          : undefined,
       debug: Boolean((toolContext.options as any)?.debug),
       verbose: Boolean((toolContext.options as any)?.verbose),
       isNonInteractiveSession: Boolean((toolContext.options as any)?.isNonInteractiveSession),
+      appendSystemPrompt: (toolContext.options as any)?.appendSystemPrompt,
+      mcpClients: (toolContext.options as any)?.mcpClients,
+      mcpResources: (toolContext.options as any)?.mcpResources,
+      agentDefinitions: (toolContext.options as any)?.agentDefinitions,
     },
   };
 
-  const allowed = agentConfig.tools && agentConfig.tools.length > 0 && !agentConfig.tools.includes('*')
-    ? new Set(agentConfig.tools)
+  const allowed =
+    (agentDefinition as any)?.tools && Array.isArray((agentDefinition as any).tools) && (agentDefinition as any).tools.length > 0 && !(agentDefinition as any).tools.includes('*')
+      ? new Set((agentDefinition as any).tools)
     : null;
-  const denied = new Set(agentConfig.disallowedTools || []);
+  const denied = new Set(((agentDefinition as any)?.disallowedTools as string[] | undefined) || []);
 
-  const canUseTool = async (tool: { name: string }) => {
+  const canUseToolLocalOnly = async (tool: { name: string }) => {
     if (denied.has(tool.name)) return false;
     if (allowed && !allowed.has(tool.name)) return false;
     return true;
@@ -858,26 +879,30 @@ async function runSubagentLoop(params: {
   let toolUseCount = 0;
 
   // 记录开头
-  appendToOutputFile(agentId, `\n--- Subagent Started (${agentConfig.agentType}) ---\n`);
+  appendToOutputFile(agentId, `\n--- Subagent Started (${String((agentDefinition as any)?.agentType ?? 'unknown')}) ---\n`);
+
+  const promptMessages = [
+    ...((resumeMessages && Array.isArray(resumeMessages)) ? resumeMessages : []),
+    createCoreUserMessage({ content: prompt }) as any,
+  ];
 
   for await (const ev of runCoreSubagentLoop({
-    agentDefinition: {
-      agentType: agentConfig.agentType,
-      whenToUse: agentConfig.whenToUse,
-      tools: agentConfig.tools,
-      disallowedTools: agentConfig.disallowedTools,
-      model: agentConfig.model,
-      permissionMode: agentConfig.permissionMode,
-      criticalSystemReminder_EXPERIMENTAL: agentConfig.criticalSystemReminder_EXPERIMENTAL,
-      getSystemPrompt: () => agentConfig.getSystemPrompt(),
-    } as any,
-    promptMessages: [createCoreUserMessage({ content: prompt }) as any],
+    agentDefinition: agentDefinition as any,
+    promptMessages,
     toolUseContext: coreToolUseContext,
-    canUseTool: async (tool: any, _input: any, _assistantMessage: any) => canUseTool(tool),
-    querySource: isAsync ? 'background' : 'subagent',
+    canUseTool: async (tool: any, input: any, assistantMessage: any) => {
+      if (!(await canUseToolLocalOnly(tool))) return false;
+      return canUseToolFromRunner ? await canUseToolFromRunner(tool, input, assistantMessage) : true;
+    },
+    forkContextMessages: forkContextMessages as any,
+    querySource: (toolContext.options as any)?.querySource ?? (isAsync ? 'background' : 'subagent'),
     model,
     maxTurns,
     isAsync,
+    override: {
+      agentId,
+      abortController,
+    },
   } as any)) {
     if (!ev || typeof ev !== 'object') continue;
 
@@ -933,10 +958,43 @@ async function runSubagentLoop(params: {
   }
 
   updateTaskProgress(agentId, { toolUseCount });
-  appendToOutputFile(agentId, `\n--- Subagent Finished (${agentConfig.agentType}) ---\n`);
+  appendToOutputFile(agentId, `\n--- Subagent Finished (${String((agentDefinition as any)?.agentType ?? 'unknown')}) ---\n`);
 
   const final = resultText.trim();
-  return final || `Agent "${agentConfig.agentType}" completed task.`;
+  return final || `Agent "${String((agentDefinition as any)?.agentType ?? 'unknown')}" completed task.`;
+}
+
+function getSubagentTranscriptPath(agentId: string, cwd?: string): string {
+  const workingDir = cwd ?? process.cwd();
+  const sanitizedCwd = workingDir.replace(/[^a-zA-Z0-9]/g, '-');
+  return join(homedir(), '.claude', 'projects', sanitizedCwd, 'subagents', `agent-${agentId}.jsonl`);
+}
+
+function loadResumeMessages(agentId: string, cwd?: string): any[] {
+  const transcriptPath = getSubagentTranscriptPath(agentId, cwd);
+  if (!existsSync(transcriptPath)) {
+    throw new Error(`No transcript found for agent ID: ${agentId}`);
+  }
+
+  const raw = readFileSync(transcriptPath, 'utf-8');
+  const messages: any[] = [];
+
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const entry = JSON.parse(trimmed);
+      // recordSidechainTranscript writes SessionLogEntry lines with `content` holding the ConversationMessage
+      const content = entry?.content;
+      if (content && typeof content === 'object' && typeof content.type === 'string') {
+        messages.push(content);
+      }
+    } catch {
+      // ignore invalid lines
+    }
+  }
+
+  return messages;
 }
 
 // Export for Ctrl+B handling
@@ -1022,27 +1080,64 @@ When NOT to use the Task tool:
     return validationSuccess();
   },
 
-  async call(input, context) {
+  async call(input, context, _toolUseId, metadata, _progressCallback) {
     const { prompt, description, subagent_type, model, max_turns, run_in_background, resume } =
       input;
+
+    const md = metadata && typeof metadata === 'object' ? (metadata as any) : {};
+    const canUseToolFromRunner = typeof md.canUseTool === 'function' ? (md.canUseTool as any) : undefined;
 
     // Check if background tasks are disabled
     const disableBackground = process.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS === 'true';
 
     try {
-      // Get agent configuration
+      // Prefer configured agent definitions from the core runtime (matches source behavior)
+      const activeAgents = (context.options as any)?.agentDefinitions?.activeAgents;
+      const selectedFromActive = Array.isArray(activeAgents)
+        ? activeAgents.find((a: any) => a && typeof a === 'object' && a.agentType === subagent_type)
+        : undefined;
+
+      // Fallback: built-in agent configs bundled with tools
       const agentConfig = AGENT_CONFIGS[subagent_type];
-      if (!agentConfig) {
-        return toolError(`Unknown agent type: ${subagent_type}`);
+
+      if (!selectedFromActive && !agentConfig) {
+        const available = Array.isArray(activeAgents)
+          ? activeAgents.map((a: any) => a?.agentType).filter((x: any) => typeof x === 'string')
+          : Object.keys(AGENT_CONFIGS);
+        return toolError(
+          `Agent type '${subagent_type}' not found. Available agents: ${available.join(', ')}`
+        );
       }
+
+      const agentDefinition: any = selectedFromActive
+        ? selectedFromActive
+        : ({
+            agentType: agentConfig!.agentType,
+            whenToUse: agentConfig!.whenToUse,
+            tools: agentConfig!.tools,
+            disallowedTools: agentConfig!.disallowedTools,
+            model: agentConfig!.model,
+            permissionMode: agentConfig!.permissionMode,
+            criticalSystemReminder_EXPERIMENTAL: agentConfig!.criticalSystemReminder_EXPERIMENTAL,
+            color: agentConfig!.color,
+            getSystemPrompt: (_args: any) => agentConfig!.getSystemPrompt(),
+          } as any);
 
       // Generate or use provided agent ID
       const agentId = resume ? sanitizeId(resume) : generateAgentId();
 
+      // Resume transcript (if requested)
+      const resumeMessages = resume ? loadResumeMessages(agentId, context.getCwd()) : undefined;
+
+      // Fork context support (if agent opts-in)
+      const forkContextMessages = (agentDefinition as any)?.forkContext
+        ? ((context.options as any)?.__messages as any[] | undefined)
+        : undefined;
+
       // Resolve model
       const resolvedModel = resolveAgentModel(
-        agentConfig.model,
-        typeof context.options?.model === 'string' ? context.options.model : undefined,
+        (agentDefinition as any)?.model as any,
+        typeof (context.options as any)?.mainLoopModel === 'string' ? (context.options as any).mainLoopModel : undefined,
         model
       );
 
@@ -1065,12 +1160,15 @@ When NOT to use the Task tool:
         runSubagentLoop({
           agentId,
           prompt,
-          agentConfig,
+          agentDefinition,
           model: resolvedModel,
           maxTurns: max_turns,
           abortSignal: task.abortController.signal,
           toolContext: context,
           isAsync: true,
+          forkContextMessages,
+          resumeMessages,
+          canUseToolFromRunner,
         })
           .then((result) => {
             markTaskCompleted(agentId, result);
@@ -1105,12 +1203,15 @@ When NOT to use the Task tool:
         const agentPromise = runSubagentLoop({
           agentId: taskId,
           prompt,
-          agentConfig,
+          agentDefinition,
           model: resolvedModel,
           maxTurns: max_turns,
           abortSignal: task.abortController.signal,
           toolContext: context,
           isAsync: false,
+          forkContextMessages,
+          resumeMessages,
+          canUseToolFromRunner,
         });
 
         // Race between completion and background signal

@@ -59,6 +59,67 @@ function logDebug(message: string): void {
 }
 
 // ============================================
+// Thinking Tokens
+// ============================================
+
+const ULTRATHINK_TOKENS = 31_999;
+const ULTRATHINK_REGEX = /\bultrathink\b/i;
+
+function getUserMessageTextContent(message: ConversationMessage): string {
+  if (message.type !== 'user') return '';
+
+  const content = (message as { message?: { content?: unknown } }).message?.content;
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+
+  return content
+    .map((b) => ((b as { type?: string; text?: unknown }).type === 'text' ? String((b as any).text ?? '') : ''))
+    .join('');
+}
+
+function extractThinkingTokensFromUserMessage(message: ConversationMessage): number {
+  if (message.type !== 'user') return 0;
+  if ((message as { isMeta?: boolean }).isMeta) return 0;
+
+  const thinkingMetadata = (message as { thinkingMetadata?: unknown }).thinkingMetadata as
+    | { level?: unknown; disabled?: unknown }
+    | undefined;
+
+  // Prefer explicit thinking metadata (matches source qz8)
+  if (thinkingMetadata && typeof thinkingMetadata === 'object') {
+    if (thinkingMetadata.disabled === true) return 0;
+    if (thinkingMetadata.level === 'high') return ULTRATHINK_TOKENS;
+    return 0;
+  }
+
+  // Fallback to keyword detection in message text content
+  const text = getUserMessageTextContent(message);
+  return ULTRATHINK_REGEX.test(text) ? ULTRATHINK_TOKENS : 0;
+}
+
+function calculateMaxThinkingTokensFromConversation(
+  messages: ConversationMessage[],
+  defaultTokens?: number
+): number {
+  const env = process.env.MAX_THINKING_TOKENS;
+  if (env) {
+    const budget = parseInt(env, 10);
+    // Source: if NaN, Math.max(...) path would have been taken; here we just return NaN -> 0.
+    if (Number.isFinite(budget)) return budget;
+  }
+
+  const userTokens: number[] = [];
+  for (const m of messages) {
+    if (m.type !== 'user') continue;
+    if ((m as { isMeta?: boolean }).isMeta) continue;
+    userTokens.push(extractThinkingTokensFromUserMessage(m));
+  }
+
+  const fallback = defaultTokens ?? 0;
+  return userTokens.length > 0 ? Math.max(...userTokens, fallback) : fallback;
+}
+
+// ============================================
 // Message Filtering
 // ============================================
 
@@ -850,7 +911,8 @@ export async function* runSubagentLoop(
     debug: toolUseContext.options.debug,
     verbose: toolUseContext.options.verbose,
     mainLoopModel: resolvedModel,
-    maxThinkingTokens: toolUseContext.options.maxThinkingTokens,
+    // Match source: maxThinkingTokens: Hm(messages)
+    maxThinkingTokens: calculateMaxThinkingTokensFromConversation(messages),
     mcpClients,
     mcpResources: toolUseContext.options.mcpResources,
     agentDefinitions: toolUseContext.options.agentDefinitions,

@@ -109,16 +109,22 @@ export function clearPluginHooks(): void {
  * Original: br in chunks.91.mjs
  */
 export function isAllowManagedHooksOnly(): boolean {
-  // Placeholder - would check settings.allowManagedHooksOnly
-  return false;
+  const settings = (globalThis as any).__claudeSettings;
+  const hookSettings = settings && typeof settings === 'object' && (settings as any).hooks && typeof (settings as any).hooks === 'object'
+    ? (settings as any).hooks
+    : settings;
+  return Boolean(hookSettings?.allowManagedHooksOnly);
 }
 
 /**
  * Check if all hooks are disabled.
  */
 export function isHooksDisabled(): boolean {
-  // Placeholder - would check settings.disableAllHooks
-  return false;
+  const settings = (globalThis as any).__claudeSettings;
+  const hookSettings = settings && typeof settings === 'object' && (settings as any).hooks && typeof (settings as any).hooks === 'object'
+    ? (settings as any).hooks
+    : settings;
+  return Boolean(hookSettings?.disableAllHooks);
 }
 
 // ============================================

@@ -51,7 +51,16 @@ function logDebug(message: string): void {
  * Original: Ou2 in chunks.1.mjs
  */
 function isWorkspaceTrustRequired(): boolean {
-  // Placeholder - would check workspace trust state
+  const settings = (globalThis as any).__claudeSettings;
+  if (settings && typeof settings === 'object') {
+    const accepted = (settings as any).sessionTrustAccepted ?? (settings as any).workspaceTrustAccepted;
+    if (accepted === false) return true;
+    if (accepted === true) return false;
+  }
+
+  // Optional runtime override (CLI/IDE integration can set this)
+  const globalAccepted = (globalThis as any).__claudeWorkspaceTrustAccepted;
+  if (globalAccepted === false) return true;
   return false;
 }
 
@@ -59,17 +68,16 @@ function isWorkspaceTrustRequired(): boolean {
 // Settings Check (Placeholder)
 // ============================================
 
-interface HookSettings {
-  disableAllHooks?: boolean;
-}
-
 /**
  * Get hook settings.
  * Original: jQ in chunks.1.mjs
  */
-function getSettings(): HookSettings {
-  // Placeholder - would load settings
-  return {};
+function getSettings(): { disableAllHooks?: boolean } {
+  const settings = (globalThis as any).__claudeSettings;
+  const hookSettings = settings && typeof settings === 'object' && (settings as any).hooks && typeof (settings as any).hooks === 'object'
+    ? (settings as any).hooks
+    : settings;
+  return (hookSettings && typeof hookSettings === 'object') ? hookSettings : {};
 }
 
 // ============================================

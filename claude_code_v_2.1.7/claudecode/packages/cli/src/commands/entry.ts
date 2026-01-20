@@ -721,6 +721,12 @@ function adaptToolsForCore(options: {
           agentId: options.agentId ?? ctx.agentId,
           sessionId: options.sessionId,
           abortSignal: options.abortController?.signal ?? ctx.abortController?.signal,
+          // Pass core tool use options through (Task tool relies on agentDefinitions/mcpClients, etc.)
+          // Also attach current message history for forkContext behaviors.
+          options: {
+            ...(ctx as any).options,
+            __messages: (ctx as any).messages,
+          },
         };
         const res = await (tool as any).checkPermissions(input, toolCtx);
         if (res?.behavior === 'deny') return { result: false, behavior: 'deny', message: res.message };
@@ -737,6 +743,10 @@ function adaptToolsForCore(options: {
           agentId: options.agentId ?? ctx.agentId,
           sessionId: options.sessionId,
           abortSignal: options.abortController?.signal ?? ctx.abortController?.signal,
+          options: {
+            ...(ctx as any).options,
+            __messages: (ctx as any).messages,
+          },
         };
         const res = await (tool as any).validateInput(input, toolCtx);
         return { result: !!res?.result, message: res?.message, errorCode: res?.errorCode };
@@ -756,6 +766,10 @@ function adaptToolsForCore(options: {
           agentId: options.agentId ?? ctx.agentId,
           sessionId: options.sessionId,
           abortSignal: options.abortController?.signal ?? ctx.abortController?.signal,
+          options: {
+            ...(ctx as any).options,
+            __messages: (ctx as any).messages,
+          },
         };
 
         const res: ToolsToolResult<any> = await (tool as any).call(
