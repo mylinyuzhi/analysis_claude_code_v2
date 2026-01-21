@@ -5,10 +5,11 @@
  * Reconstructed from chunks.133.mjs:2911-3087
  */
 
-import { createProgressMessage, createUserMessage } from '../message/factory.js';
+import { createUserMessage } from '../message/factory.js';
 import type { ContentBlock } from '@claudecode/shared';
-import type { ConversationMessage, ProgressData } from '../message/types.js';
+import type { ConversationMessage } from '../message/types.js';
 import type { ToolDefinition, ToolUseContext } from '../tools/types.js';
+import { executeSingleTool } from '../tools/execution.js';
 import type {
   TrackedToolExecution,
   ToolExecutionResult,
@@ -159,6 +160,13 @@ export class StreamingToolExecutor {
     return null;
   }
 
+  private isToolResultErrorMessage(message: ConversationMessage | undefined): boolean {
+    if (!message || message.type !== 'user') return false;
+    const content = (message as { message?: { content?: unknown } }).message?.content;
+    if (!Array.isArray(content)) return false;
+    return content.some((b) => (b as any)?.type === 'tool_result' && (b as any)?.is_error === true);
+  }
+
   /**
    * Create synthetic error message for aborted tool.
    */
@@ -167,32 +175,22 @@ export class StreamingToolExecutor {
     abortReason: string,
     assistantMessage: ConversationMessage
   ): ConversationMessage {
-    let errorContent: string;
-
-    switch (abortReason) {
-      case 'streaming_fallback':
-        errorContent = 'Tool execution was cancelled due to streaming fallback.';
-        break;
-      case 'sibling_error':
-        errorContent =
-          'Tool execution was skipped because a previous tool returned an error.';
-        break;
-      case 'user_interrupted':
-        errorContent = 'Tool execution was cancelled by user.';
-        break;
-      default:
-        errorContent = `Tool execution was cancelled: ${abortReason}`;
-    }
+    // Source alignment (chunks.133.mjs): synthetic error message is
+    // - "Interrupted by user" when user aborted
+    // - "Sibling tool call errored" for other abort reasons (including streaming fallback)
+    const message = abortReason === 'user_interrupted' ? 'Interrupted by user' : 'Sibling tool call errored';
 
     return createUserMessage({
       content: [
         {
           type: 'tool_result',
-          content: `<tool_use_error>${errorContent}</tool_use_error>`,
+          content: `<tool_use_error>${message}</tool_use_error>`,
           is_error: true,
           tool_use_id: toolUseId,
         } as ContentBlock,
       ],
+      toolUseResult: message,
+      sourceToolAssistantUUID: (assistantMessage as any)?.uuid,
     });
   }
 
@@ -213,140 +211,65 @@ export class StreamingToolExecutor {
     const contextModifiers: Array<(ctx: ToolUseContext) => ToolUseContext> = [];
 
     const execution = (async () => {
-      // Check for abort conditions
+      // Abort before starting
       const abortReason = this.getAbortReason();
       if (abortReason) {
-        results.push(
-          this.createSyntheticErrorMessage(tool.id, abortReason, tool.assistantMessage)
-        );
+        results.push(this.createSyntheticErrorMessage(tool.id, abortReason, tool.assistantMessage));
         tool.results = results;
+        tool.contextModifiers = contextModifiers;
         tool.status = 'completed';
         return;
       }
 
-      // Find tool definition
-      const toolDef = this.toolDefinitions.find((t) => t.name === tool.block.name);
-      if (!toolDef) {
-        results.push(
-          this.createSyntheticErrorMessage(
-            tool.id,
-            'unknown_tool',
-            tool.assistantMessage
-          )
-        );
-        tool.results = results;
-        tool.status = 'completed';
-        return;
-      }
-
-      // Check permission
-      const hasPermission = await this.canUseTool(
-        toolDef,
-        tool.block.input,
-        tool.assistantMessage
+      // Execute via the unified tool execution pipeline (chunks.134.mjs: jH1)
+      const generator = executeSingleTool(
+        tool.block,
+        tool.assistantMessage,
+        this.canUseTool as any,
+        this.toolUseContext
       );
 
-      if (!hasPermission) {
-        results.push(
-          createUserMessage({
-            content: [
-              {
-                type: 'tool_result',
-                content: '<tool_use_error>User rejected tool use</tool_use_error>',
-                is_error: true,
-                tool_use_id: tool.id,
-              } as ContentBlock,
-            ],
-          })
-        );
-        tool.results = results;
-        tool.status = 'completed';
-        return;
-      }
+      let hasReceivedError = false;
 
-      // Execute the tool
-      try {
-        const result = await toolDef.call(
-          tool.block.input,
-          this.toolUseContext,
-          tool.id,
-          { assistantMessage: tool.assistantMessage },
-          (progress) => {
-            if (!progress) return;
-            const content =
-              typeof progress.data === 'string'
-                ? progress.data
-                : progress.data != null
-                  ? JSON.stringify(progress.data)
-                  : undefined;
+      for await (const item of generator) {
+        const duringAbort = this.getAbortReason();
+        if (duringAbort && !hasReceivedError) {
+          results.push(this.createSyntheticErrorMessage(tool.id, duringAbort, tool.assistantMessage));
+          break;
+        }
 
-            const data: ProgressData = {
-              type: progress.type === 'complete' ? 'status' : progress.type,
-              content,
-              percentage: progress.percentage,
-            };
-
-            tool.pendingProgress.push(
-              createProgressMessage({ toolUseID: tool.id, data })
-            );
-
+        const msg = item.message as ConversationMessage | undefined;
+        if (msg) {
+          if (msg.type === 'progress') {
+            tool.pendingProgress.push(msg);
             if (this.progressAvailableResolve) {
               this.progressAvailableResolve();
               this.progressAvailableResolve = undefined;
             }
+          } else {
+            results.push(msg);
           }
-        );
 
-        // Create result message
-        const resultMessage = createUserMessage({
-          content: [
-            {
-              type: 'tool_result',
-              content:
-                typeof result === 'string' ? result : JSON.stringify(result),
-              tool_use_id: tool.id,
-            } as ContentBlock,
-          ],
-        });
+          if (this.isToolResultErrorMessage(msg)) {
+            this.hasErrored = true;
+            hasReceivedError = true;
+          }
+        }
 
-        results.push(resultMessage);
-      } catch (error) {
-        this.hasErrored = true;
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-
-        results.push(
-          createUserMessage({
-            content: [
-              {
-                type: 'tool_result',
-                content: `<tool_use_error>${errorMessage}</tool_use_error>`,
-                is_error: true,
-                tool_use_id: tool.id,
-              } as ContentBlock,
-            ],
-          })
-        );
+        if (item.contextModifier) {
+          contextModifiers.push(item.contextModifier.modifyContext);
+        }
       }
 
       tool.results = results;
       tool.contextModifiers = contextModifiers;
       tool.status = 'completed';
 
-      // Apply context modifiers for non-concurrent tools
+      // Apply context modifiers immediately for non-concurrent tools
       if (!tool.isConcurrencySafe && contextModifiers.length > 0) {
         for (const modifier of contextModifiers) {
           this.toolUseContext = modifier(this.toolUseContext);
         }
-      }
-
-      // Remove from in-progress set
-      if (this.toolUseContext.setInProgressToolUseIDs) {
-        this.toolUseContext.setInProgressToolUseIDs((ids) => {
-          const newIds = new Set(ids);
-          newIds.delete(tool.id);
-          return newIds;
-        });
       }
     })();
 
@@ -377,6 +300,15 @@ export class StreamingToolExecutor {
         tool.status = 'yielded';
         for (const result of tool.results) {
           yield { message: result };
+        }
+
+        // Remove from in-progress set when we yield the results (source: C77)
+        if (this.toolUseContext.setInProgressToolUseIDs) {
+          this.toolUseContext.setInProgressToolUseIDs((ids) => {
+            const next = new Set(ids);
+            next.delete(tool.id);
+            return next;
+          });
         }
       } else if (tool.status === 'executing' && !tool.isConcurrencySafe) {
         // Non-concurrent tool blocks further yielding

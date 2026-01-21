@@ -111,10 +111,13 @@ export interface CompactUsageStats {
  * Attachment for restored context
  */
 export interface CompactAttachment {
-  type: 'file' | 'todo' | 'plan' | 'skill' | 'task_status';
-  content: string | unknown;
-  path?: string;
   context: 'post-compact';
+  /**
+   * Post-compact restored attachments are later converted to system reminders.
+   * Their payload shape varies by type (e.g. `todo` has `itemCount`, `plan_file_reference` has `planFilePath`).
+   */
+  type: 'file' | 'todo' | 'plan_file_reference' | 'skill' | 'task_status';
+  [key: string]: unknown;
 }
 
 /**

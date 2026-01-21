@@ -31,6 +31,7 @@ import { executeSingleTool } from '../tools/execution.js';
 import {
   autoCompactDispatcher as autoCompactDispatcherFeature,
   microCompact as microCompactFeature,
+  attachments as attachmentsModule,
 } from '@claudecode/features';
 import type {
   CoreMessageLoopOptions,
@@ -782,9 +783,61 @@ async function* processPendingAttachments(
   _subAgentResult: unknown,
   _queuedCommands: unknown[],
   _messages: ConversationMessage[],
-  _querySource?: string
+  _querySource?: string,
+  _turnIndex: number = 0
 ): AsyncGenerator<ConversationMessage> {
-  // Placeholder - would process file change attachments, etc.
+  // Source alignment: generateAllAttachments() runs once per turn and yields
+  // a stream of attachment messages (todo, plan mode, task status, etc.).
+  // The reconstructed attachments module is best-effort but keeps the same surface.
+  const ctx = _context;
+
+  const getAttachmentAppState = async () => {
+    const s: any = await ctx.getAppState();
+    const mode = s?.toolPermissionContext?.mode;
+
+    // Attachment generators expect `tasks` as a Map (see `@claudecode/features/attachments`).
+    // Core app state stores tasks as a plain object keyed by taskId.
+    const rawTasks = s?.tasks;
+    let tasks: Map<string, unknown> | undefined;
+    if (rawTasks instanceof Map) {
+      tasks = rawTasks;
+    } else if (rawTasks && typeof rawTasks === 'object' && !Array.isArray(rawTasks)) {
+      tasks = new Map(Object.entries(rawTasks));
+    }
+
+    return {
+      toolPermissionContext: {
+        mode: mode === 'plan' || mode === 'delegate' ? mode : 'normal',
+      },
+      teamContext: s?.teamContext,
+      todos: s?.todos ?? {},
+      tasks,
+    };
+  };
+
+  const attachmentCtx: any = {
+    agentId: ctx.agentId,
+    readFileState: ctx.readFileState ?? new Map(),
+    abortController: ctx.abortController,
+    getAppState: getAttachmentAppState,
+    options: {
+      agentDefinitions: ctx.options?.agentDefinitions
+        ? {
+            activeAgents: (ctx.options.agentDefinitions.activeAgents ?? []).map((a: any) => ({
+              type: a.agentType ?? a.type ?? 'unknown',
+              name: a.agentType ?? a.name ?? 'unknown',
+            })),
+          }
+        : undefined,
+      maxBudgetUsd: (ctx.options as any)?.maxBudgetUsd,
+      outputStyle: (ctx.options as any)?.outputStyle,
+      criticalSystemReminder_EXPERIMENTAL: (ctx as any)?.criticalSystemReminder_EXPERIMENTAL,
+    },
+  };
+
+  for await (const a of attachmentsModule.generateAttachmentsStreaming(attachmentCtx, _turnIndex)) {
+    yield a as ConversationMessage;
+  }
 }
 
 /**
@@ -807,7 +860,17 @@ function updateQueuedCommands(
   _commands: unknown[],
   _setAppState: (update: (state: unknown) => unknown) => void
 ): void {
-  // Placeholder - would update app state with prompt commands
+  if (typeof _setAppState !== 'function') return;
+  if (!Array.isArray(_commands) || _commands.length === 0) return;
+  const toRemove = new Set(_commands);
+  _setAppState((state: any) => {
+    const current = state?.queuedCommands;
+    if (!Array.isArray(current)) return state;
+    return {
+      ...state,
+      queuedCommands: current.filter((c: any) => !toRemove.has(c)),
+    };
+  });
 }
 
 // ============================================
@@ -839,7 +902,22 @@ function recordApiCallInfo(
   _context?: ToolUseContext,
   _querySource?: string
 ): void {
-  // Placeholder - would record for debugging/analysis
+  if (!process.env.DEBUG_API_CALL_INFO) return;
+  try {
+    const last = _messages[_messages.length - 1];
+    const lastType = (last as any)?.type;
+    console.log('[API_CALL_INFO]', {
+      querySource: _querySource,
+      lastType,
+      messageCount: _messages.length,
+      systemPromptSize: _systemPrompt?.length ?? 0,
+      hasUserContext: Boolean(_userContext),
+      hasSystemContext: Boolean(_systemContext),
+      agentId: _context?.agentId,
+    });
+  } catch {
+    // ignore
+  }
 }
 
 /**
@@ -879,7 +957,7 @@ async function* checkPendingToolCalls(
   _maxTurns?: number,
   _turnCount?: number
 ): AsyncGenerator<ConversationMessage> {
-  // Placeholder - would check for additional work
+  return;
 }
 
 /**
@@ -900,7 +978,7 @@ async function* processContinuationTriggers(
   _maxTurns?: number,
   _turnCount?: number
 ): AsyncGenerator<ConversationMessage> {
-  // Placeholder - would check for continuation triggers
+  return;
 }
 
 // ============================================
@@ -1513,7 +1591,8 @@ export async function* coreMessageLoop(
     null,
     queuedCommands,
     [...processedMessages, ...assistantMessages, ...toolResultMessages],
-    querySource
+    querySource,
+    turnCount
   )) {
     yield attachment;
     toolResultMessages.push(attachment);

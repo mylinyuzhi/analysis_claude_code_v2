@@ -30,13 +30,87 @@ function logDebug(message: string): void {
 
 let cachedPolicyHooks: EventHooksConfig | null = null;
 
+type UnknownRecord = Record<string, unknown>;
+
+function getGlobalSettings(): UnknownRecord {
+  const s = (globalThis as any).__claudeSettings;
+  return s && typeof s === 'object' ? (s as UnknownRecord) : {};
+}
+
+function getPolicySettings(settings: UnknownRecord): UnknownRecord | undefined {
+  const p = (settings as any).policySettings;
+  return p && typeof p === 'object' ? (p as UnknownRecord) : undefined;
+}
+
+function hookSortKey(h: HookDefinition): string {
+  switch (h.type) {
+    case 'command':
+      return `command:${h.command}`;
+    case 'prompt':
+      return `prompt:${typeof h.prompt === 'string' ? h.prompt : ''}`;
+    case 'agent':
+      return `agent:${typeof h.prompt === 'string' ? h.prompt : 'function'}`;
+    case 'callback':
+      return 'callback';
+    default:
+      return JSON.stringify(h);
+  }
+}
+
+/**
+ * Normalize hook config for stable iteration.
+ * Source alignment: bI0() in `source/chunks.91.mjs` (sort events, matchers, hooks).
+ */
+function normalizeEventHooksConfig(raw: unknown): EventHooksConfig {
+  if (!raw || typeof raw !== 'object') return {};
+  const input = raw as Record<string, unknown>;
+  const out: Record<string, HookMatcher[]> = {};
+
+  for (const key of Object.keys(input).sort()) {
+    const matchersRaw = input[key];
+    if (!Array.isArray(matchersRaw)) continue;
+
+    const matchers: HookMatcher[] = matchersRaw
+      .filter((m): m is HookMatcher => Boolean(m && typeof m === 'object'))
+      .map((m: any) => ({
+        matcher: typeof m.matcher === 'string' ? m.matcher : undefined,
+        hooks: Array.isArray(m.hooks) ? (m.hooks as HookDefinition[]) : [],
+        // Preserve extra metadata (e.g. pluginRoot) for downstream filtering.
+        ...(m as object),
+      }))
+      .sort((a, b) => (a.matcher || '').localeCompare(b.matcher || ''))
+      .map((m) => ({
+        ...m,
+        hooks: [...m.hooks].sort((a, b) => hookSortKey(a).localeCompare(hookSortKey(b))),
+      }));
+
+    if (matchers.length > 0) out[key] = matchers;
+  }
+
+  return out as EventHooksConfig;
+}
+
 /**
  * Initialize policy hooks.
  * Original: fI0 in chunks.91.mjs
  */
 function initializePolicyHooks(): void {
-  // Placeholder - would load from policy settings
-  cachedPolicyHooks = {};
+  const settings = getGlobalSettings();
+  const policySettings = getPolicySettings(settings);
+
+  // Source alignment: kI0() in `source/chunks.91.mjs`
+  // - If allowManagedHooksOnly is enabled by policy, the hook editor and runtime
+  //   should use policy hooks.
+  // - Otherwise use the merged settings' `hooks`.
+  const allowManagedHooksOnly =
+    (policySettings as any)?.allowManagedHooksOnly === true ||
+    (settings as any)?.allowManagedHooksOnly === true;
+
+  const hooksConfig = allowManagedHooksOnly
+    ? ((policySettings as any)?.hooks ?? {})
+    : ((settings as any)?.hooks ?? {});
+
+  cachedPolicyHooks = normalizeEventHooksConfig(hooksConfig);
 }
 
 /**
@@ -109,22 +183,28 @@ export function clearPluginHooks(): void {
  * Original: br in chunks.91.mjs
  */
 export function isAllowManagedHooksOnly(): boolean {
-  const settings = (globalThis as any).__claudeSettings;
-  const hookSettings = settings && typeof settings === 'object' && (settings as any).hooks && typeof (settings as any).hooks === 'object'
-    ? (settings as any).hooks
-    : settings;
-  return Boolean(hookSettings?.allowManagedHooksOnly);
+  const settings = getGlobalSettings();
+  const policySettings = getPolicySettings(settings);
+  // Source alignment: br() in `source/chunks.91.mjs` checks policySettings first.
+  if ((policySettings as any)?.allowManagedHooksOnly === true) return true;
+  // Fallback for environments that only expose merged settings.
+  return (settings as any)?.allowManagedHooksOnly === true;
 }
 
 /**
  * Check if all hooks are disabled.
  */
 export function isHooksDisabled(): boolean {
-  const settings = (globalThis as any).__claudeSettings;
-  const hookSettings = settings && typeof settings === 'object' && (settings as any).hooks && typeof (settings as any).hooks === 'object'
-    ? (settings as any).hooks
-    : settings;
-  return Boolean(hookSettings?.disableAllHooks);
+  const settings = getGlobalSettings();
+  const policySettings = getPolicySettings(settings);
+  const localDisabled = (settings as any)?.disableAllHooks === true;
+  // If policy settings are available, treat disableAllHooks as restricted unless
+  // both local + policy are disabled (mirrors hooks UI logic in source/chunks.143.mjs).
+  if (policySettings) {
+    const policyDisabled = (policySettings as any)?.disableAllHooks === true;
+    return localDisabled && policyDisabled;
+  }
+  return localDisabled;
 }
 
 // ============================================

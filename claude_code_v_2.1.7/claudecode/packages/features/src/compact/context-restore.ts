@@ -179,6 +179,7 @@ export async function createTodoAttachment(
   return {
     type: 'todo',
     content: formattedTodos,
+    itemCount: formattedTodos.length,
     context: 'post-compact',
   };
 }
@@ -241,9 +242,9 @@ export async function createPlanFileReferenceAttachment(
   }
 
   return {
-    type: 'plan',
-    content: planContent,
-    path: planPath,
+    type: 'plan_file_reference',
+    planFilePath: planPath,
+    planContent,
     context: 'post-compact',
   };
 }
