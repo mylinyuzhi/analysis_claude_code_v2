@@ -660,10 +660,25 @@ export async function executeToolWithValidation(
     permissionResult = hookPermissionResult;
   } else {
     // Ask for permission (execution pipeline expects structured result)
-    const allowed = await canUseTool(tool, input, assistantMessage);
-    permissionResult = allowed
-      ? { behavior: 'allow' }
-      : { behavior: 'deny', message: USER_REJECTED_CONTENT };
+    const canUseResult = await canUseTool(tool, input, assistantMessage);
+    
+    if (typeof canUseResult === 'boolean') {
+      permissionResult = canUseResult
+        ? { behavior: 'allow' }
+        : { behavior: 'deny', message: USER_REJECTED_CONTENT };
+    } else {
+      permissionResult = {
+        behavior: canUseResult.behavior ?? (canUseResult.result ? 'allow' : 'deny'),
+        message: canUseResult.message,
+        updatedInput: (canUseResult as any).updatedInput,
+        userModified: (canUseResult as any).userModified,
+        acceptFeedback: (canUseResult as any).acceptFeedback,
+      };
+      
+      if (!permissionResult.message && permissionResult.behavior === 'deny') {
+        permissionResult.message = USER_REJECTED_CONTENT;
+      }
+    }
   }
 
   // 5. Handle permission denial

@@ -120,7 +120,7 @@ export function getProjectsDir(): string {
 /**
  * Read JSON file safely.
  */
-function readJsonFile<T>(filePath: string): T | null {
+export function readJsonFile<T>(filePath: string): T | null {
   try {
     if (!fs.existsSync(filePath)) {
       return null;
@@ -287,7 +287,7 @@ function ensureDir(dirPath: string): void {
 /**
  * Write JSON file.
  */
-function writeJsonFile(filePath: string, data: unknown): void {
+export function writeJsonFile(filePath: string, data: unknown): void {
   ensureDir(path.dirname(filePath));
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }
@@ -511,4 +511,4 @@ export function applySafeEnvVars(): void {
 // Export
 // ============================================
 
-// NOTE: 上述函数已在定义处导出；移除重复聚合导出。
+export * from './permissions.js';

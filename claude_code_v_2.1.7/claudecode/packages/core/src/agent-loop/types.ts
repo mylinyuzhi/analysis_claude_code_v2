@@ -7,7 +7,7 @@
 
 import type { ContentBlock } from '@claudecode/shared';
 import type { ConversationMessage } from '../message/types.js';
-import type { ToolDefinition, ToolUseContext } from '../tools/types.js';
+import type { ToolDefinition, ToolUseContext, PermissionResult } from '../tools/types.js';
 
 // ============================================
 // Query Tracking
@@ -217,7 +217,7 @@ export type CanUseTool = (
   tool: ToolDefinition,
   input: unknown,
   assistantMessage: ConversationMessage
-) => Promise<boolean>;
+) => Promise<boolean | PermissionResult>;
 
 // ============================================
 // Sub-Agent Loop

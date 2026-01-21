@@ -16,6 +16,9 @@
  * - v$A → MainInteractiveApp
  */
 
+import React from 'react';
+import { render } from 'ink';
+import { InteractiveSession } from '../components/InteractiveSession.js';
 import type {
   ExecutionMode,
   ExecutionContext,
@@ -1058,19 +1061,13 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
     console.error('Starting interactive mode...');
   }
 
-  // Handle session continuation
+  // Handle session continuation logic
   if (shouldContinue || resume) {
-    console.log('Session continuation...');
-    // Load previous session messages
-    // This would use the session management system
+    // console.log('Session continuation...');
+    // Load previous session messages logic would go here
   }
 
-  // Start the interactive REPL
-  // Bundled runtime uses Ink; here we keep a minimal stdin loop but复用 coreMessageLoop 逻辑。
-  console.log('Claude Code v' + CLI_CONSTANTS.VERSION);
-  console.log('交互模式启动。输入问题，或用 /help 查看命令。');
-
-  // 1) 初始化运行态状态（非 React，供 toolUseContext / tools 使用）
+  // 1) Initialize AppState
   let appState = createDefaultAppState();
   appState.verbose = Boolean(options.verbose);
   if (options.model) {
@@ -1135,242 +1132,30 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
   });
 
   const conversation: ConversationMessage[] = [];
+  if (initialPrompt) {
+    conversation.push(createCoreUserMessage(initialPrompt.trim()) as any);
+  }
 
-  const canUseTool = async (tool: { name: string }) => {
-    const denied = resolveDisallowedToolSet(options.disallowedTools);
-    const allowed = resolveAllowedToolSet(options.allowedTools);
-    if (denied.has(tool.name)) return false;
-    if (allowed && !allowed.has(tool.name)) return false;
-    return true;
-  };
+  console.log('Claude Code v' + CLI_CONSTANTS.VERSION);
 
-  async function runOneTurn(
-    userMessages: Array<{ role: 'user' | 'system'; content: string | any[]; isMeta?: boolean }>
-  ): Promise<void> {
-    for (const m of userMessages) {
-      conversation.push(
-        createCoreUserMessage({
-          content: Array.isArray(m.content) ? (m.content as any) : m.content,
-          isMeta: Boolean(m.isMeta) || m.role === 'system',
-        }) as any
-      );
-    }
-
-    for await (const ev of coreMessageLoop({
-      messages: conversation,
+  // Launch Ink Renderer
+  const { waitUntilExit } = render(
+    React.createElement(InteractiveSession, {
+      initialMessages: conversation,
+      tools,
       systemPrompt: options.systemPrompt || options.appendSystemPrompt || '',
       userContext: undefined,
-      systemContext: undefined,
-      canUseTool: async (tool, _input, _assistantMessage) => canUseTool(tool),
-      toolUseContext: {
-        getAppState,
-        setAppState,
-        readFileState,
-        abortController,
-        messages: conversation,
-        options: {
-          tools,
-          mainLoopModel: options.model,
-          agentDefinitions: (appState as any).agentDefinitions,
-          mcpClients: (appState as any).mcp?.clients,
-        },
-      } as any,
-      querySource: 'cli',
-    })) {
-      if (ev && typeof ev === 'object' && (ev as any).type === 'progress') {
-        continue;
-      }
-      if (ev && typeof ev === 'object' && (ev as any).type === 'tombstone') {
-        continue;
-      }
-      if (ev && typeof ev === 'object' && (ev as any).type === 'stream_request_start') {
-        continue;
-      }
-      if (!isConversationMessage(ev as any)) continue;
+      getAppState,
+      setAppState,
+      readFileState,
+      abortController,
+      mcpClients: (appState as any).mcp?.clients,
+      agentDefinitions: (appState as any).agentDefinitions,
+      model: options.model || 'claude-3-5-sonnet-20241022'
+    })
+  );
 
-      // 持久化消息（用于后续 turn 上下文）
-      conversation.push(ev as any);
-
-      // 最小输出：assistant 文本 + tool_use/tool_result + error attachment
-      if ((ev as any).type === 'assistant') {
-        const content = (ev as any).message?.content;
-        if (Array.isArray(content)) {
-          for (const block of content) {
-            if (block?.type === 'text') {
-              process.stdout.write(String(block.text ?? ''));
-            } else if (block?.type === 'tool_use') {
-              const toolName = String(block.name ?? 'unknown');
-              process.stdout.write(formatToolCall(toolName, block.input));
-            }
-          }
-        }
-      } else if ((ev as any).type === 'user') {
-        const content = (ev as any).message?.content;
-        if (Array.isArray(content)) {
-          for (const block of content) {
-            if (block?.type === 'tool_result') {
-              const c = block.content;
-              
-              // Only show full result in verbose mode
-              if (options.verbose) {
-                if (typeof c === 'string') {
-                  process.stdout.write(String(c));
-                  if (!String(c).endsWith('\n')) process.stdout.write('\n');
-                } else {
-                  const t = textFromContentBlocks(c);
-                  if (t) process.stdout.write(t + (t.endsWith('\n') ? '' : '\n'));
-                }
-              } else {
-                // In normal mode, just show a confirmation or summary
-                process.stdout.write(formatToolResult(typeof c === 'string' ? c : '...'));
-              }
-            }
-          }
-        }
-      } else if ((ev as any).type === 'attachment') {
-        const att = (ev as any).attachment;
-        if (att?.type === 'error' && att?.content) {
-          process.stderr.write(`${Colors.red}Error: ${String(att.content)}${Colors.reset}\n`);
-        }
-      }
-    }
-
-    process.stdout.write('\n');
-  }
-
-  // Handle session continuation (占位，保持与 source 入口结构一致)
-  if (shouldContinue || resume) {
-    console.log('Session continuation...');
-  }
-
-  // 2) REPL
-  const readline = await import('readline');
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: '> ',
-  });
-
-  async function handleInput(trimmed: string): Promise<void> {
-    const registry = getCommandRegistry();
-    const commands = registry.getAll();
-
-    // Special-case: /compact [custom instructions]
-    // In the bundled runtime, /compact is a local command that mutates the session message history.
-    // Our CLI is not Ink-based, so we apply the compaction here and replace `conversation`.
-    if (trimmed === '/compact' || trimmed.startsWith('/compact ')) {
-      const customInstructions = trimmed.slice('/compact'.length).trim() || undefined;
-      if (conversation.length === 0) {
-        process.stdout.write('Cannot compact: no messages yet.\n');
-        return;
-      }
-
-      const compactContext = {
-        agentId: options.agentId,
-        getAppState,
-        setAppState,
-        abortController,
-        readFileState,
-        options: {
-          mainLoopModel: options.model,
-          isNonInteractiveSession: false,
-          appendSystemPrompt: options.appendSystemPrompt || options.systemPrompt || '',
-          agentDefinitions: (appState as any).agentDefinitions,
-        },
-      };
-
-      const result = await compactFeature.manualCompact(
-        conversation as any,
-        compactContext as any,
-        customInstructions
-      );
-
-      // Replace conversation history with compacted boundary + summary messages.
-      // NOTE: `attachments` / `hookResults` are typed as non-message structures in this reconstruction,
-      // so we keep the minimal canonical history that the core loop understands.
-      conversation.length = 0;
-      conversation.push(result.boundaryMarker as any, ...(result.summaryMessages as any));
-
-      if (result.userDisplayMessage) {
-        process.stdout.write(String(result.userDisplayMessage).trimEnd() + '\n');
-      }
-      process.stdout.write('Conversation compacted.\n');
-      return;
-    }
-
-    // Special-case: /clear, /reset, /new
-    // Clears the conversation history entirely.
-    if (trimmed === '/clear' || trimmed === '/reset' || trimmed === '/new') {
-      conversation.length = 0;
-      process.stdout.write('Context cleared.\n');
-      return;
-    }
-
-    if (trimmed.startsWith('/')) {
-      const result = await parseSlashCommandInput(trimmed, {
-        options: {
-          commands,
-          isNonInteractiveSession: false,
-          model: options.model,
-        },
-        messages: [],
-        abortController,
-        cwd: process.cwd(),
-      });
-
-      if (!result.shouldQuery) {
-        // local/local-jsx: 直接打印输出消息
-        for (const msg of result.messages) {
-          if (!msg?.content) continue;
-          if (Array.isArray(msg.content)) {
-            const text = msg.content
-              .map((b: any) => (b && b.type === 'text' ? String(b.text ?? '') : ''))
-              .join('');
-            if (text) process.stdout.write(text + '\n');
-          } else {
-            process.stdout.write(String(msg.content) + '\n');
-          }
-        }
-        return;
-      }
-
-      await runOneTurn(
-        result.messages.map((m) => ({
-          role: m.role as any,
-          content: Array.isArray(m.content) ? (m.content as any) : String(m.content ?? ''),
-          isMeta: Boolean((m as any).isMeta),
-        }))
-      );
-      return;
-    }
-
-    await runOneTurn([{ role: 'user', content: trimmed }]);
-  }
-
-  if (initialPrompt) {
-    await handleInput(initialPrompt.trim());
-  }
-
-  rl.prompt();
-  rl.on('line', async (line: string) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      rl.prompt();
-      return;
-    }
-    try {
-      await handleInput(trimmed);
-    } finally {
-      rl.prompt();
-    }
-  });
-
-  rl.on('close', () => {
-    console.log('\nGoodbye!');
-    process.exit(0);
-  });
-
-  await new Promise(() => {});
+  await waitUntilExit();
 }
 
 // ============================================
