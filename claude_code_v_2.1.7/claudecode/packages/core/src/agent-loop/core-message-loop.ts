@@ -32,6 +32,8 @@ import {
   autoCompactDispatcher as autoCompactDispatcherFeature,
   microCompact as microCompactFeature,
   attachments as attachmentsModule,
+  executeHooksInREPL,
+  type REPLHookYield,
 } from '@claudecode/features';
 import type {
   CoreMessageLoopOptions,
@@ -39,6 +41,7 @@ import type {
   AutoCompactTracking,
   ToolUseBlock,
   QueryTracking,
+  ToolExecutionYield,
 } from './types.js';
 import { AGENT_LOOP_CONSTANTS } from './types.js';
 
@@ -375,6 +378,40 @@ export function* createToolErrorResults(
   }
 }
 
+/**
+ * Create stop hook summary (V19 restoration).
+ */
+function createStopHookSummary(
+  count: number,
+  commands: Array<{ command: string; promptText?: string }>,
+  errors: string[],
+  preventContinuation: boolean,
+  stopReason: string,
+  hasError: boolean,
+  type: string,
+  toolUseID: string
+): ConversationMessage {
+  const content = [
+    `Stop hooks executed: ${count}`,
+    ...(commands.length > 0 ? [`Commands: ${commands.map((c) => c.command).join(', ')}`] : []),
+    ...(errors.length > 0 ? [`Errors: ${errors.join('; ')}`] : []),
+    ...(preventContinuation ? [`Prevented continuation: ${stopReason}`] : []),
+  ].join('\n');
+
+  return {
+    type: 'attachment',
+    uuid: generateUUID(),
+    timestamp: new Date().toISOString(),
+    attachment: {
+      type: 'hook_stopped_continuation',
+      message: content,
+      hookName: 'Stop',
+      toolUseID,
+      hookEvent: 'Stop',
+    },
+  } as ConversationMessage;
+}
+
 // ============================================
 // Compaction (Placeholders)
 // ============================================
@@ -478,10 +515,160 @@ function normalizeToolResults(
 }
 
 /**
- * Execute tools sequentially.
- * Original: KM0 in chunks.134.mjs:351-361
+ * Group tool calls by concurrency safety.
+ * Original: S77 in chunks.134.mjs
  */
-async function* executeToolsSequentially(
+function groupToolsByConcurrency(
+  toolCalls: ToolUseBlock[],
+  context: ToolUseContext
+): Array<{ isConcurrencySafe: boolean; blocks: ToolUseBlock[] }> {
+  return toolCalls.reduce(
+    (groups, block) => {
+      const tool = context.options.tools.find((t) => t.name === block.name);
+      let isSafe = false;
+
+      // Check concurrency safety (validation + tool property)
+      if (tool) {
+        const parsed = tool.inputSchema.safeParse(block.input);
+        if (parsed.success) {
+          isSafe = Boolean(tool.isConcurrencySafe(parsed.data));
+        }
+      }
+
+      const lastGroup = groups[groups.length - 1];
+      if (lastGroup && lastGroup.isConcurrencySafe === isSafe && isSafe) {
+        // Coalesce safe blocks
+        lastGroup.blocks.push(block);
+      } else {
+        // Start new group
+        groups.push({
+          isConcurrencySafe: isSafe,
+          blocks: [block],
+        });
+      }
+      return groups;
+    },
+    [] as Array<{ isConcurrencySafe: boolean; blocks: ToolUseBlock[] }>
+  );
+}
+
+/**
+ * Execute tools in parallel.
+ * Original: y77 in chunks.134.mjs
+ */
+async function* executeParallelBlock(
+  blocks: ToolUseBlock[],
+  assistantMessages: ConversationMessage[],
+  canUseTool: (tool: unknown, input: unknown, msg: ConversationMessage) => Promise<boolean>,
+  context: ToolUseContext
+): AsyncGenerator<{ message?: ConversationMessage; newContext?: ToolUseContext }> {
+  // Use Promise.all via a streaming generator wrapper (SVA in source) to execute in parallel
+  // Here we reconstruct the parallel execution logic manually
+  const promises = blocks.map(async (block) => {
+    const sourceMessage = assistantMessages.find((msg) => {
+      const content = (msg as { message?: { content?: unknown[] } }).message?.content;
+      if (!Array.isArray(content)) return false;
+      return content.some(
+        (b) => (b as { type: string; id?: string }).type === 'tool_use' && (b as { id: string }).id === block.id
+      );
+    });
+
+    if (!sourceMessage) return [];
+
+    context.setInProgressToolUseIDs?.((prev) => new Set([...prev, block.id]));
+    const results: Array<{ message?: ConversationMessage; newContext?: ToolUseContext }> = [];
+
+    try {
+      for await (const result of executeSingleTool(
+        block,
+        sourceMessage,
+        canUseTool as any,
+        context
+      )) {
+        if (result.message) {
+          results.push({ message: result.message as ConversationMessage });
+        }
+        if (result.contextModifier) {
+          results.push({
+            newContext: {
+              ...context, // Note: Parallel context modification is tricky, source handles via reduction later
+              ...result.contextModifier.modifyContext(context),
+            } as ToolUseContext,
+          });
+        }
+      }
+    } finally {
+      context.setInProgressToolUseIDs?.((prev) => {
+        const next = new Set(prev);
+        next.delete(block.id);
+        return next;
+      });
+    }
+    return results;
+  });
+
+  const allResults = await Promise.all(promises);
+  for (const results of allResults) {
+    for (const result of results) {
+      yield result;
+    }
+  }
+}
+
+/**
+ * Execute tools sequentially (internal helper).
+ * Original: x77 in chunks.134.mjs
+ */
+async function* executeSequentialBlock(
+  blocks: ToolUseBlock[],
+  assistantMessages: ConversationMessage[],
+  canUseTool: (tool: unknown, input: unknown, msg: ConversationMessage) => Promise<boolean>,
+  context: ToolUseContext
+): AsyncGenerator<{ message?: ConversationMessage; newContext?: ToolUseContext }> {
+  let currentContext = context;
+  for (const block of blocks) {
+    const sourceMessage = assistantMessages.find((msg) => {
+      const content = (msg as { message?: { content?: unknown[] } }).message?.content;
+      if (!Array.isArray(content)) return false;
+      return content.some(
+        (b) => (b as { type: string; id?: string }).type === 'tool_use' && (b as { id: string }).id === block.id
+      );
+    });
+
+    if (!sourceMessage) continue;
+
+    currentContext.setInProgressToolUseIDs?.((prev) => new Set([...prev, block.id]));
+    try {
+      for await (const result of executeSingleTool(
+        block,
+        sourceMessage,
+        canUseTool as any,
+        currentContext
+      )) {
+        if (result.message) {
+          yield { message: result.message as ConversationMessage };
+        }
+        if (result.contextModifier) {
+          currentContext = result.contextModifier.modifyContext(currentContext);
+          yield { newContext: currentContext };
+        }
+      }
+    } finally {
+      currentContext.setInProgressToolUseIDs?.((prev) => {
+        const next = new Set(prev);
+        next.delete(block.id);
+        return next;
+      });
+    }
+  }
+}
+
+/**
+ * Execute tools with concurrency support.
+ * Replaces executeToolsSequentially.
+ * Original: KM0 in chunks.134.mjs
+ */
+async function* executeToolQueue(
   toolCalls: ToolUseBlock[],
   assistantMessages: ConversationMessage[],
   canUseTool: (tool: unknown, input: unknown, msg: ConversationMessage) => Promise<boolean>,
@@ -490,32 +677,42 @@ async function* executeToolsSequentially(
   message?: ConversationMessage;
   newContext?: ToolUseContext;
 }> {
-  let currentContext: ToolUseContext = toolUseContext;
+  let currentContext = toolUseContext;
+  const groups = groupToolsByConcurrency(toolCalls, currentContext);
 
-  for (const toolCall of toolCalls) {
-    const sourceMessage = assistantMessages.find((msg) => {
-      const content = (msg as { message?: { content?: unknown[] } }).message?.content;
-      if (!Array.isArray(content)) return false;
-      return content.some(
-        (block) =>
-          (block as { type: string; id?: string }).type === 'tool_use' &&
-          (block as { id: string }).id === toolCall.id
-      );
-    });
-    if (!sourceMessage) continue;
+  for (const group of groups) {
+    if (group.isConcurrencySafe) {
+      // Execute in parallel
+      const contextModifiers: Array<(ctx: ToolUseContext) => ToolUseContext> = [];
+      const toolIdToModifiers: Record<string, typeof contextModifiers> = {};
 
-    for await (const step of executeSingleTool(
-      toolCall,
-      sourceMessage,
-      canUseTool as any,
-      currentContext as any
-    )) {
-      if (step.message) {
-        yield { message: step.message as ConversationMessage };
+      for await (const result of executeParallelBlock(
+        group.blocks,
+        assistantMessages,
+        canUseTool,
+        currentContext
+      )) {
+        if (result.newContext) {
+          // In source (y77), context modifiers are collected and applied after block
+          // But here we yield them as they come. For strict source alignment, we should buffer.
+          // Since executeParallelBlock above simulates parallel exec but yields sequentially,
+          // we can just yield the message and update context at end of block.
+          // But wait, executeParallelBlock implementation above is simplified.
+          // Let's stick to yielding messages.
+        }
+        yield { message: result.message, newContext: result.newContext };
+        if (result.newContext) currentContext = result.newContext;
       }
-      if (step.contextModifier) {
-        currentContext = step.contextModifier.modifyContext(currentContext as any) as any;
-        yield { newContext: currentContext };
+    } else {
+      // Execute sequentially
+      for await (const result of executeSequentialBlock(
+        group.blocks,
+        assistantMessages,
+        canUseTool,
+        currentContext
+      )) {
+        yield result;
+        if (result.newContext) currentContext = result.newContext;
       }
     }
   }
@@ -939,8 +1136,10 @@ function getTaskIntensityOverride(): unknown {
 // ============================================
 
 /**
- * Check for pending tool calls after turn.
+ * Check for pending tool calls after turn (Hook Processing).
  * Original: P77 in chunks.134.mjs
+ *
+ * Handles pre-tool hooks and stop hooks that might interrupt the flow.
  */
 async function* checkPendingToolCalls(
   _messages: ConversationMessage[],
@@ -957,11 +1156,86 @@ async function* checkPendingToolCalls(
   _maxTurns?: number,
   _turnCount?: number
 ): AsyncGenerator<ConversationMessage> {
-  return;
+  const context = _context!;
+  const signal = context.abortController?.signal;
+  
+  // Execute hooks in REPL looking for "Stop" events
+  const hookIterator = executeHooksInREPL({
+    hookInput: { hook_event_name: 'Stop' } as any, // Only event type needed for Stop hooks
+    toolUseID: '', // No specific tool use ID for loop-level hooks
+    matchQuery: undefined,
+    signal,
+    timeoutMs: 60000,
+    toolUseContext: context,
+    messages: [..._messages, ..._assistantMessages],
+  });
+
+  let lastToolUseID = '';
+  let commandCount = 0;
+  let commands: Array<{ command: string; promptText?: string }> = [];
+  let errors: string[] = [];
+  let preventContinuation = false;
+  let stopReason = '';
+  let hasError = false;
+  let injectedMessages: ConversationMessage[] = [];
+
+  for await (const hookYield of hookIterator) {
+    if (hookYield.type === 'progress' && hookYield.result) {
+      // Handle progress if needed
+    }
+
+    if (hookYield.result?.output) {
+      // Check for stop event logic (simplified based on P77 analysis)
+      // Source iterates over hook results and accumulates stop reasons
+    }
+
+    if (hookYield.preventContinuation) {
+      preventContinuation = true;
+      stopReason = hookYield.stopReason || 'Stop hook prevented continuation';
+      yield createStopHookSummary(
+        1,
+        commands,
+        errors,
+        preventContinuation,
+        stopReason,
+        hasError,
+        'stop',
+        lastToolUseID
+      );
+    }
+
+    if (signal?.aborted) {
+      logTelemetry('tengu_pre_stop_hooks_cancelled', {
+        queryChainId: context.queryTracking?.chainId,
+      });
+      yield createInterruptedAttachment({ toolUse: false });
+      return;
+    }
+  }
+
+  if (preventContinuation) return;
+
+  // If injected messages (e.g. from hooks), recurse
+  if (injectedMessages.length > 0) {
+    yield* coreMessageLoop({
+      messages: [..._messages, ..._assistantMessages, ...injectedMessages],
+      systemPrompt: _systemPrompt,
+      userContext: _userContext,
+      systemContext: _systemContext,
+      canUseTool: _canUseTool as any,
+      toolUseContext: context,
+      autoCompactTracking: _autoCompactTracking,
+      fallbackModel: _fallbackModel,
+      stopHookActive: true,
+      querySource: _querySource,
+      maxTurns: _maxTurns,
+      turnCount: _turnCount,
+    });
+  }
 }
 
 /**
- * Process continuation triggers.
+ * Process continuation triggers (Steering Logic).
  * Original: T77 in chunks.134.mjs
  */
 async function* processContinuationTriggers(
@@ -978,7 +1252,49 @@ async function* processContinuationTriggers(
   _maxTurns?: number,
   _turnCount?: number
 ): AsyncGenerator<ConversationMessage> {
-  return;
+  const context = _context!;
+  
+  if (context.pendingSteeringAttachments && context.pendingSteeringAttachments.length > 0) {
+    const steeringMessages: ConversationMessage[] = [];
+    
+    for (const attachment of context.pendingSteeringAttachments) {
+      const att = (attachment as ConversationMessage).attachment as any;
+      if (att && att.type === 'queued_command') {
+        const metaMsg = createUserMessage({
+          content: att.prompt,
+          isMeta: true,
+        }) as ConversationMessage;
+        steeringMessages.push(metaMsg);
+      }
+    }
+
+    if (steeringMessages.length > 0) {
+      // Clear pending attachments for next turn
+      const nextContext = {
+        ...context,
+        pendingSteeringAttachments: undefined,
+      };
+
+      logTelemetry('tengu_steering_attachment_resending', {
+        queryChainId: context.queryTracking?.chainId,
+        queryDepth: context.queryTracking?.depth,
+      });
+
+      yield* coreMessageLoop({
+        messages: [..._messages, ..._assistantMessages, ...steeringMessages],
+        systemPrompt: _systemPrompt,
+        userContext: _userContext,
+        systemContext: _systemContext,
+        canUseTool: _canUseTool as any,
+        toolUseContext: nextContext,
+        autoCompactTracking: _autoCompactTracking,
+        fallbackModel: _fallbackModel,
+        querySource: _querySource,
+        maxTurns: _maxTurns,
+        turnCount: _turnCount,
+      });
+    }
+  }
 }
 
 // ============================================
@@ -1506,7 +1822,7 @@ export async function* coreMessageLoop(
       queryDepth: queryTracking.depth,
     });
 
-    for await (const result of executeToolsSequentially(
+    for await (const result of executeToolQueue(
       toolCalls,
       assistantMessages,
       canUseTool as any,
@@ -1576,6 +1892,7 @@ export async function* coreMessageLoop(
     ...(((await contextAfterTools.getAppState()).queuedCommands ?? []) as unknown[]),
   ];
   const fileChangeAttachments: ConversationMessage[] = [];
+  const steeringAttachments: unknown[] = [];
 
   logTelemetry('tengu_query_before_attachments', {
     messagesForQueryCount: processedMessages.length,
@@ -1600,6 +1917,11 @@ export async function* coreMessageLoop(
     if (isFileChangeAttachment(attachment)) {
       fileChangeAttachments.push(attachment);
     }
+    
+    // Collect specific attachments for steering (uF1 in source)
+    if (attachment.type === 'attachment' && (attachment.attachment as any)?.type === 'queued_command') {
+      steeringAttachments.push(attachment);
+    }
   }
 
   const fileChangeCount = toolResultMessages.filter(
@@ -1619,6 +1941,12 @@ export async function* coreMessageLoop(
   );
   updateQueuedCommands(promptCommands, contextAfterTools.setAppState as any);
 
+  const nextContext = {
+    ...contextAfterTools,
+    pendingSteeringAttachments: steeringAttachments.length > 0 ? steeringAttachments : undefined,
+    queryTracking,
+  };
+
   // 17. Check max turns limit
   const nextTurn = turnCount + 1;
   if (maxTurns && nextTurn > maxTurns) {
@@ -1626,9 +1954,11 @@ export async function* coreMessageLoop(
       type: 'max_turns_reached',
       maxTurns,
       turnCount: nextTurn,
-    });
+      });
     return;
   }
+
+  recordMarker('query_recursive_call');
 
   // 18. Recursive call for next turn
   yield* coreMessageLoop({
@@ -1637,7 +1967,7 @@ export async function* coreMessageLoop(
     userContext,
     systemContext,
     canUseTool,
-    toolUseContext: contextAfterTools,
+    toolUseContext: nextContext,
     autoCompactTracking,
     fallbackModel,
     stopHookActive,

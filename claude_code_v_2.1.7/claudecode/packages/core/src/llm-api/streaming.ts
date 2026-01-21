@@ -677,40 +677,39 @@ export async function* streamApiCall(
       throw error;
     }
 
-    if (isOverloadError(error)) {
-      state.didFallBackToNonStreaming = true;
-      options.onStreamingFallback?.();
+    // Check for timeout errors (if specific type exists, otherwise assume non-abort is fallback-able)
+    // For now, we fall back on almost any error that isn't a user abort, matching source behavior.
 
-      // Fall back to non-streaming with capped tokens
-      const client = await createAnthropicClient({
-        model: options.model,
-        fetchOverride: options.fetchOverride,
-      });
+    state.didFallBackToNonStreaming = true;
+    options.onStreamingFallback?.();
 
-      const payload: MessagesRequest = {
-        ...request,
-        max_tokens: Math.min(request.max_tokens || MAX_NON_STREAMING_TOKENS, MAX_NON_STREAMING_TOKENS),
-      };
+    // Fall back to non-streaming with capped tokens
+    const client = await createAnthropicClient({
+      model: options.model,
+      fetchOverride: options.fetchOverride,
+    });
 
-      const response = await client.messages.create(payload);
+    const payload: MessagesRequest = {
+      ...request,
+      max_tokens: Math.min(request.max_tokens || MAX_NON_STREAMING_TOKENS, MAX_NON_STREAMING_TOKENS),
+    };
 
-      // Yield non-streaming result as assistant message
-      const message: AssistantMessage = {
-        uuid: generateUUID(),
-        role: 'assistant',
-        content: response.content as ContentBlock[],
-        model: response.model,
-        stopReason: response.stop_reason,
-        usage: response.usage as ExtendedUsage,
-      };
+    const response = await client.messages.create(payload);
 
-      state.usage = updateUsage(state.usage, response.usage as ExtendedUsage);
-      state.stopReason = response.stop_reason;
+    // Yield non-streaming result as assistant message
+    const message: AssistantMessage = {
+      uuid: generateUUID(),
+      role: 'assistant',
+      content: response.content as ContentBlock[],
+      model: response.model,
+      stopReason: response.stop_reason,
+      usage: response.usage as ExtendedUsage,
+    };
 
-      yield { type: 'assistant', message };
-    } else {
-      throw error;
-    }
+    state.usage = updateUsage(state.usage, response.usage as ExtendedUsage);
+    state.stopReason = response.stop_reason;
+
+    yield { type: 'assistant', message };
   }
 
   return { usage: state.usage, stopReason: state.stopReason };

@@ -138,6 +138,9 @@ export interface ToolUseContext {
 
   /** Whether user modified tool input in prompt */
   userModified?: boolean;
+
+  /** Pending steering attachments from previous turn */
+  pendingSteeringAttachments?: unknown[];
 }
 
 /**
