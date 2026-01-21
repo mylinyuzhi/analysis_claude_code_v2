@@ -514,18 +514,27 @@ export function aggregateAsyncAgentExecution(
         allMessages.push(value);
 
         // Update progress tracking
-        // Count tool uses and estimate tokens
+        // Source alignment: MI0()/RI0() derives token count from assistant message usage
         if (value && typeof value === 'object') {
-          const msg = value as { type?: string; message?: { content?: unknown[] } };
+          const msg = value as {
+            type?: string;
+            message?: { content?: unknown[]; usage?: any };
+          };
           if (msg.type === 'assistant' && Array.isArray(msg.message?.content)) {
             for (const block of msg.message.content) {
               if ((block as { type?: string }).type === 'tool_use') {
                 toolCount++;
               }
-              if ((block as { type?: string }).type === 'text') {
-                const text = (block as { text?: string }).text || '';
-                tokenCount += Math.ceil(text.length / 4); // Rough estimate
-              }
+            }
+
+            const usage = msg.message?.usage;
+            if (usage && typeof usage === 'object') {
+              const input = typeof usage.input_tokens === 'number' ? usage.input_tokens : 0;
+              const output = typeof usage.output_tokens === 'number' ? usage.output_tokens : 0;
+              const cacheRead = typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : 0;
+              const cacheCreate =
+                typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : 0;
+              tokenCount = input + output + cacheRead + cacheCreate;
             }
           }
         }

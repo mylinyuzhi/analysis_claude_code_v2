@@ -398,7 +398,10 @@ const taskOutputSchema = z.union([
 // ============================================
 
 function generateAgentId(): string {
-  return randomUUID();
+  // Source alignment: GyA('local_agent') in chunks.91.mjs
+  // local_agent => 'a' + randomUUID(without dashes).substring(0, 6)
+  const suffix = randomUUID().replace(/-/g, '').substring(0, 6);
+  return `a${suffix}`;
 }
 
 /**
@@ -412,6 +415,69 @@ function sanitizeId(id: string): string {
 function estimateTokensFromText(text: string): number {
   // Rough heuristic, same strategy used in core aggregateAsyncAgentExecution.
   return Math.ceil(text.length / 4);
+}
+
+type TaskUsage = z.infer<typeof taskUsageSchema>;
+
+/**
+ * Source alignment: Task tool returns the last assistant message's `usage`.
+ * Original: uz0() returns `usage: X.message.usage` (chunks.112.mjs:3459+)
+ */
+function normalizeTaskUsage(raw: unknown): TaskUsage {
+  const u = raw && typeof raw === 'object' ? (raw as any) : {};
+
+  const serverToolUse =
+    u.server_tool_use && typeof u.server_tool_use === 'object' ? (u.server_tool_use as any) : null;
+  const cacheCreation =
+    u.cache_creation && typeof u.cache_creation === 'object' ? (u.cache_creation as any) : null;
+
+  const serviceTier: TaskUsage['service_tier'] =
+    u.service_tier === 'standard' || u.service_tier === 'priority' || u.service_tier === 'batch'
+      ? u.service_tier
+      : null;
+
+  return {
+    input_tokens: typeof u.input_tokens === 'number' ? u.input_tokens : 0,
+    output_tokens: typeof u.output_tokens === 'number' ? u.output_tokens : 0,
+    cache_creation_input_tokens:
+      typeof u.cache_creation_input_tokens === 'number' ? u.cache_creation_input_tokens : null,
+    cache_read_input_tokens:
+      typeof u.cache_read_input_tokens === 'number' ? u.cache_read_input_tokens : null,
+    server_tool_use: serverToolUse
+      ? {
+          web_search_requests:
+            typeof serverToolUse.web_search_requests === 'number' ? serverToolUse.web_search_requests : 0,
+          web_fetch_requests:
+            typeof serverToolUse.web_fetch_requests === 'number' ? serverToolUse.web_fetch_requests : 0,
+        }
+      : null,
+    service_tier: serviceTier,
+    cache_creation: cacheCreation
+      ? {
+          ephemeral_1h_input_tokens:
+            typeof cacheCreation.ephemeral_1h_input_tokens === 'number'
+              ? cacheCreation.ephemeral_1h_input_tokens
+              : 0,
+          ephemeral_5m_input_tokens:
+            typeof cacheCreation.ephemeral_5m_input_tokens === 'number'
+              ? cacheCreation.ephemeral_5m_input_tokens
+              : 0,
+        }
+      : null,
+  };
+}
+
+/**
+ * Source alignment: uSA(usage) in chunks.112.mjs:3468
+ * totalTokens = input + output + cache_creation_input + cache_read_input
+ */
+function totalTokensFromUsage(usage: TaskUsage): number {
+  return (
+    usage.input_tokens +
+    usage.output_tokens +
+    (usage.cache_creation_input_tokens ?? 0) +
+    (usage.cache_read_input_tokens ?? 0)
+  );
 }
 
 /**
@@ -893,7 +959,9 @@ When NOT to use the Task tool:
       const collected: unknown[] = [];
       let toolUseCount = 0;
       let tokenCount = 0;
+      let estimatedTokenCount = 0;
       let resultText = '';
+      let lastAssistantUsage: unknown | undefined;
 
       const updateProgress = () => {
         updateCoreTaskProgress(agentId, toolUseCount, tokenCount, context.setAppState as any);
@@ -909,9 +977,17 @@ When NOT to use the Task tool:
               if (b?.type === 'text') {
                 const t = String(b.text ?? '');
                 resultText += t;
-                tokenCount += estimateTokensFromText(t);
+                estimatedTokenCount += estimateTokensFromText(t);
               }
             }
+          }
+
+          // Keep last assistant usage (source returns last assistant usage).
+          lastAssistantUsage = value.message?.usage;
+          if (lastAssistantUsage) {
+            tokenCount = totalTokensFromUsage(normalizeTaskUsage(lastAssistantUsage));
+          } else {
+            tokenCount = estimatedTokenCount;
           }
         }
       };
@@ -964,6 +1040,12 @@ When NOT to use the Task tool:
 
         const durationMs = Date.now() - startTime;
         const text = resultText.trim();
+
+        const usage = lastAssistantUsage
+          ? normalizeTaskUsage(lastAssistantUsage)
+          : normalizeTaskUsage(undefined);
+        const totalTokens = lastAssistantUsage ? totalTokensFromUsage(usage) : tokenCount;
+
         const completed = {
           status: 'completed',
           agentId,
@@ -971,16 +1053,8 @@ When NOT to use the Task tool:
           content: [{ type: 'text', text: text.length > 0 ? text : `Agent "${subagent_type}" completed task.` }],
           totalToolUseCount: toolUseCount,
           totalDurationMs: durationMs,
-          totalTokens: tokenCount,
-          usage: {
-            input_tokens: 0,
-            output_tokens: 0,
-            cache_creation_input_tokens: null,
-            cache_read_input_tokens: null,
-            server_tool_use: null,
-            service_tier: null,
-            cache_creation: null,
-          },
+          totalTokens,
+          usage,
         };
         return toolSuccess(completed as any);
       } catch (err) {
