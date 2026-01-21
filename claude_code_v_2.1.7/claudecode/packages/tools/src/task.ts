@@ -18,8 +18,8 @@
  */
 
 import { z } from 'zod';
-import { writeFileSync, readFileSync, mkdirSync, appendFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { homedir } from 'os';
 import {
@@ -38,7 +38,15 @@ import type {
   ToolUseContext as CoreToolUseContext,
   ToolResult as CoreToolResult,
 } from '@claudecode/core/tools';
-import { runSubagentLoop as runCoreSubagentLoop } from '@claudecode/core/agent-loop';
+import {
+  aggregateAsyncAgentExecution,
+  createBackgroundableAgent,
+  createFullyBackgroundedAgent,
+  markTaskCompleted as markCoreTaskCompleted,
+  markTaskFailed as markCoreTaskFailed,
+  runSubagentLoop as runCoreSubagentLoop,
+  updateTaskProgress as updateCoreTaskProgress,
+} from '@claudecode/core/agent-loop';
 import { createUserMessage as createCoreUserMessage } from '@claudecode/core/message';
 
 import { ReadTool } from './read.js';
@@ -60,8 +68,11 @@ import { TaskOutputTool } from './task-output.js';
 // Constants
 // ============================================
 
-const MAX_RESULT_SIZE = 30000;
-const BACKGROUND_HINT_DELAY = 3000; // 3 seconds before showing Ctrl+B hint
+// Source: chunks.113.mjs sets maxResultSizeChars to 1e5.
+const MAX_RESULT_SIZE = 100000;
+
+// Source: q82 (MAX_TURNS) in chunks.113.mjs
+const DEFAULT_MAX_TURNS = 500;
 
 /**
  * Built-in agent configs.
@@ -290,40 +301,6 @@ const AGENT_TYPES = new Set(
   })
 );
 
-/**
- * Task state for background execution.
- */
-interface TaskState {
-  taskId: string;
-  status: 'running' | 'completed' | 'error' | 'backgrounded';
-  agentType: string;
-  prompt: string;
-  description: string;
-  isBackgrounded: boolean;
-  startTime: number;
-  toolUseCount: number;
-  tokenCount: number;
-  outputFile: string;
-  abortController: AbortController;
-}
-
-/**
- * Background signal map for Ctrl+B handling.
- * Original: yZ1 (backgroundSignalMap) in chunks.91.mjs
- */
-const backgroundSignalMap = new Map<string, () => void>();
-
-/**
- * Active task states.
- */
-const activeTasks = new Map<string, TaskState>();
-
-/**
- * Output file registry.
- * Original: OKA (registerOutputFile) in chunks.91.mjs
- */
-const outputFileRegistry = new Map<string, string>();
-
 // ============================================
 // Input/Output Schemas
 // ============================================
@@ -331,7 +308,7 @@ const outputFileRegistry = new Map<string, string>();
 /**
  * Task tool input schema.
  */
-const taskInputSchema = z.object({
+const baseTaskInputSchema = z.object({
   prompt: z.string().describe('The task for the agent to perform'),
   description: z.string().describe('A short (3-5 word) description of the task'),
   subagent_type: z.string().describe('The type of specialized agent to use for this task'),
@@ -341,6 +318,7 @@ const taskInputSchema = z.object({
     .describe('Optional model to use for this agent'),
   max_turns: z
     .number()
+    .int()
     .positive()
     .optional()
     .describe('Maximum number of agentic turns (API round-trips) before stopping'),
@@ -348,25 +326,77 @@ const taskInputSchema = z.object({
   resume: z.string().optional().describe('Optional agent ID to resume from'),
 });
 
+// Source behavior: when background tasks are disabled, omit run_in_background from the schema.
+const taskInputSchema =
+  process.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS === 'true'
+    ? baseTaskInputSchema.omit({ run_in_background: true })
+    : baseTaskInputSchema;
+
+const taskUsageSchema = z.object({
+  input_tokens: z.number(),
+  output_tokens: z.number(),
+  cache_creation_input_tokens: z.number().nullable(),
+  cache_read_input_tokens: z.number().nullable(),
+  server_tool_use: z
+    .object({
+      web_search_requests: z.number(),
+      web_fetch_requests: z.number(),
+    })
+    .nullable(),
+  service_tier: z.enum(['standard', 'priority', 'batch']).nullable(),
+  cache_creation: z
+    .object({
+      ephemeral_1h_input_tokens: z.number(),
+      ephemeral_5m_input_tokens: z.number(),
+    })
+    .nullable(),
+});
+
 /**
  * Task tool output schema.
  */
-const taskOutputSchema = z.object({
-  taskId: z.string(),
-  status: z.enum(['running', 'completed', 'error']),
-  result: z.string().optional(),
-  error: z.string().optional(),
-  outputFile: z.string().optional(),
+const completedOutputSchema = z.object({
+  status: z.literal('completed'),
+  agentId: z.string(),
+  prompt: z.string(),
+  content: z.array(
+    z.object({
+      type: z.literal('text'),
+      text: z.string(),
+    })
+  ),
+  totalToolUseCount: z.number(),
+  totalDurationMs: z.number(),
+  totalTokens: z.number(),
+  usage: taskUsageSchema,
 });
+
+const asyncLaunchedOutputSchema = z.object({
+  status: z.literal('async_launched'),
+  agentId: z.string().describe('The ID of the async agent'),
+  description: z.string().describe('The description of the task'),
+  prompt: z.string().describe('The prompt for the agent'),
+  outputFile: z.string().describe('Path to the output file for checking agent progress'),
+  // Source returns isAsync in practice (schema appears permissive); keep optional for compatibility.
+  isAsync: z.boolean().optional(),
+});
+
+const subAgentEnteredOutputSchema = z.object({
+  status: z.literal('sub_agent_entered'),
+  description: z.string(),
+  message: z.string(),
+});
+
+const taskOutputSchema = z.union([
+  completedOutputSchema,
+  asyncLaunchedOutputSchema,
+  subAgentEnteredOutputSchema,
+]);
 
 // ============================================
 // Helper Functions
 // ============================================
 
-/**
- * Generate a task/agent ID.
- * Original: LS (generateSessionId) in chunks.86.mjs
- */
 function generateAgentId(): string {
   return randomUUID();
 }
@@ -379,246 +409,9 @@ function sanitizeId(id: string): string {
   return id.replace(/[^a-zA-Z0-9-]/g, '');
 }
 
-/**
- * Get output file path for an agent.
- * Original: yb/aY (getOutputPath/formatOutputPath) in chunks.91.mjs
- */
-function getOutputPath(agentId: string): string {
-  const baseDir = process.env.CLAUDE_CODE_DATA_DIR || join(process.env.HOME || '/tmp', '.claude');
-  const outputDir = join(baseDir, 'agents', 'output');
-
-  // Ensure directory exists
-  if (!existsSync(outputDir)) {
-    mkdirSync(outputDir, { recursive: true });
-  }
-
-  return join(outputDir, `${agentId}.txt`);
-}
-
-/**
- * Register output file for an agent.
- * Original: OKA (registerOutputFile) in chunks.91.mjs
- */
-function registerOutputFile(agentId: string, outputPath: string): void {
-  outputFileRegistry.set(agentId, outputPath);
-
-  // Create empty file
-  writeFileSync(outputPath, '');
-}
-
-/**
- * Append to output file.
- * Original: g9A (appendToOutputFile) in chunks.121.mjs
- */
-function appendToOutputFile(agentId: string, content: string): void {
-  const outputPath = outputFileRegistry.get(agentId);
-  if (outputPath) {
-    appendFileSync(outputPath, content);
-  }
-}
-
-/**
- * Resolve agent model.
- * Original: YA1 (resolveAgentModel) in chunks.113.mjs
- *
- * Priority:
- * 1. CLAUDE_CODE_SUBAGENT_MODEL env var
- * 2. Task tool model parameter
- * 3. Agent definition model
- * 4. "inherit" → parent model
- * 5. Default (sonnet)
- */
-function resolveAgentModel(
-  agentModel: BuiltInAgentModel,
-  parentModel: string | undefined,
-  taskModel: string | undefined
-): string {
-  // Environment override
-  if (process.env.CLAUDE_CODE_SUBAGENT_MODEL) {
-    return process.env.CLAUDE_CODE_SUBAGENT_MODEL;
-  }
-
-  // Task tool parameter
-  if (taskModel) {
-    switch (taskModel) {
-      case 'sonnet':
-        return 'claude-sonnet-4-20250514';
-      case 'opus':
-        return 'claude-opus-4-20250514';
-      case 'haiku':
-        return 'claude-3-5-haiku-20241022';
-      default:
-        return taskModel;
-    }
-  }
-
-  // Agent definition model
-  if (agentModel && agentModel !== 'inherit') {
-    switch (agentModel) {
-      case 'sonnet':
-        return 'claude-sonnet-4-20250514';
-      case 'opus':
-        return 'claude-opus-4-20250514';
-      case 'haiku':
-        return 'claude-3-5-haiku-20241022';
-      default:
-        return agentModel;
-    }
-  }
-
-  // Inherit from parent or default
-  return parentModel || 'claude-sonnet-4-20250514';
-}
-
-/**
- * Create fully backgrounded agent.
- * Original: L32 (createFullyBackgroundedAgent) in chunks.91.mjs
- *
- * For run_in_background: true - immediately backgrounded.
- */
-function createFullyBackgroundedAgent(params: {
-  agentId: string;
-  description: string;
-  prompt: string;
-  agentType: string;
-}): TaskState {
-  const { agentId, description, prompt, agentType } = params;
-  const outputPath = getOutputPath(sanitizeId(agentId));
-
-  registerOutputFile(agentId, outputPath);
-
-  const task: TaskState = {
-    taskId: agentId,
-    status: 'running',
-    agentType,
-    prompt,
-    description,
-    isBackgrounded: true, // Key: immediately backgrounded
-    startTime: Date.now(),
-    toolUseCount: 0,
-    tokenCount: 0,
-    outputFile: outputPath,
-    abortController: new AbortController(),
-  };
-
-  activeTasks.set(agentId, task);
-  return task;
-}
-
-/**
- * Create backgroundable agent (sync with Ctrl+B support).
- * Original: O32 (createBackgroundableAgent) in chunks.91.mjs
- *
- * For run_in_background: false - can be backgrounded via Ctrl+B.
- */
-function createBackgroundableAgent(params: {
-  agentId: string;
-  description: string;
-  prompt: string;
-  agentType: string;
-}): { taskId: string; backgroundSignal: Promise<void> } {
-  const { agentId, description, prompt, agentType } = params;
-  const outputPath = getOutputPath(sanitizeId(agentId));
-
-  registerOutputFile(agentId, outputPath);
-
-  const task: TaskState = {
-    taskId: agentId,
-    status: 'running',
-    agentType,
-    prompt,
-    description,
-    isBackgrounded: false, // Key: NOT backgrounded initially
-    startTime: Date.now(),
-    toolUseCount: 0,
-    tokenCount: 0,
-    outputFile: outputPath,
-    abortController: new AbortController(),
-  };
-
-  activeTasks.set(agentId, task);
-
-  // Create background signal promise
-  let resolveBackground: () => void;
-  const backgroundSignal = new Promise<void>((resolve) => {
-    resolveBackground = resolve;
-  });
-
-  // Store resolver for Ctrl+B handler
-  backgroundSignalMap.set(agentId, resolveBackground!);
-
-  return {
-    taskId: agentId,
-    backgroundSignal,
-  };
-}
-
-/**
- * Trigger background transition.
- * Original: M32 (triggerBackgroundTransition) in chunks.91.mjs
- *
- * Called when user presses Ctrl+B.
- */
-function triggerBackgroundTransition(taskId: string): boolean {
-  const task = activeTasks.get(taskId);
-  if (!task || task.isBackgrounded) {
-    return false;
-  }
-
-  // Mark as backgrounded
-  task.isBackgrounded = true;
-  task.status = 'backgrounded';
-
-  // Resolve the background signal promise
-  const resolveBackground = backgroundSignalMap.get(taskId);
-  if (resolveBackground) {
-    resolveBackground();
-    backgroundSignalMap.delete(taskId);
-  }
-
-  return true;
-}
-
-/**
- * Update task progress.
- * Original: RI0 (updateTaskProgress) in chunks.91.mjs
- */
-function updateTaskProgress(
-  taskId: string,
-  progress: { toolUseCount?: number; tokenCount?: number }
-): void {
-  const task = activeTasks.get(taskId);
-  if (task && task.status === 'running') {
-    if (progress.toolUseCount !== undefined) {
-      task.toolUseCount = progress.toolUseCount;
-    }
-    if (progress.tokenCount !== undefined) {
-      task.tokenCount = progress.tokenCount;
-    }
-  }
-}
-
-/**
- * Mark task as completed.
- * Original: oY + status update in chunks.91.mjs
- */
-function markTaskCompleted(taskId: string, result: string): void {
-  const task = activeTasks.get(taskId);
-  if (task) {
-    task.status = 'completed';
-    appendToOutputFile(taskId, `\n\n=== Task Completed ===\n${result}`);
-  }
-}
-
-/**
- * Mark task as error.
- */
-function markTaskError(taskId: string, error: string): void {
-  const task = activeTasks.get(taskId);
-  if (task) {
-    task.status = 'error';
-    appendToOutputFile(taskId, `\n\n=== Task Error ===\n${error}`);
-  }
+function estimateTokensFromText(text: string): number {
+  // Rough heuristic, same strategy used in core aggregateAsyncAgentExecution.
+  return Math.ceil(text.length / 4);
 }
 
 /**
@@ -766,204 +559,6 @@ function adaptToolsForCore(options: {
   });
 }
 
-function extractTextFromContentBlocks(content: unknown): string {
-  if (typeof content === 'string') return content;
-  if (!Array.isArray(content)) return '';
-  let out = '';
-  for (const block of content) {
-    if (block && typeof block === 'object' && (block as any).type === 'text') {
-      out += String((block as any).text ?? '');
-    }
-  }
-  return out;
-}
-
-async function runSubagentLoop(params: {
-  agentId: string;
-  prompt: string;
-  agentDefinition: any;
-  model: string;
-  maxTurns?: number;
-  abortSignal?: AbortSignal;
-  toolContext: ToolContext;
-  isAsync?: boolean;
-  forkContextMessages?: any[];
-  resumeMessages?: any[];
-  canUseToolFromRunner?: (tool: any, input: unknown, assistantMessage: any) => Promise<boolean>;
-}): Promise<string> {
-  const {
-    agentId,
-    prompt,
-    agentDefinition,
-    model,
-    maxTurns = 10,
-    abortSignal,
-    toolContext,
-    isAsync,
-    forkContextMessages,
-    resumeMessages,
-    canUseToolFromRunner,
-  } = params;
-
-  const linkAbort = (signal: AbortSignal | undefined, controller: AbortController) => {
-    if (!signal) return;
-    if (signal.aborted) {
-      controller.abort();
-      return;
-    }
-    signal.addEventListener('abort', () => controller.abort(), { once: true });
-  };
-
-  const abortController = new AbortController();
-  linkAbort(abortSignal, abortController);
-  linkAbort(toolContext.abortSignal, abortController);
-
-  const getAppState = toolContext.getAppState;
-  const setAppState = toolContext.setAppState;
-  const readFileState = toolContext.readFileState;
-
-  const coreTools = adaptToolsForCore({
-    allowedTools: (agentDefinition as any)?.tools,
-    disallowedTools: (agentDefinition as any)?.disallowedTools,
-    getAppState,
-    setAppState,
-    readFileState,
-    agentId,
-    sessionId: toolContext.sessionId,
-    abortController,
-  });
-
-  const conversation: any[] = [];
-  const coreToolUseContext: any = {
-    getAppState,
-    setAppState,
-    readFileState,
-    abortController,
-    agentId,
-    messages: conversation,
-    options: {
-      tools: coreTools,
-      mainLoopModel:
-        typeof (toolContext.options as any)?.mainLoopModel === 'string'
-          ? (toolContext.options as any).mainLoopModel
-          : typeof (toolContext.options as any)?.model === 'string'
-            ? (toolContext.options as any).model
-            : undefined,
-      maxThinkingTokens:
-        typeof (toolContext.options as any)?.maxThinkingTokens === 'number'
-          ? (toolContext.options as any).maxThinkingTokens
-          : undefined,
-      debug: Boolean((toolContext.options as any)?.debug),
-      verbose: Boolean((toolContext.options as any)?.verbose),
-      isNonInteractiveSession: Boolean((toolContext.options as any)?.isNonInteractiveSession),
-      appendSystemPrompt: (toolContext.options as any)?.appendSystemPrompt,
-      mcpClients: (toolContext.options as any)?.mcpClients,
-      mcpResources: (toolContext.options as any)?.mcpResources,
-      agentDefinitions: (toolContext.options as any)?.agentDefinitions,
-    },
-  };
-
-  const allowed =
-    (agentDefinition as any)?.tools && Array.isArray((agentDefinition as any).tools) && (agentDefinition as any).tools.length > 0 && !(agentDefinition as any).tools.includes('*')
-      ? new Set((agentDefinition as any).tools)
-    : null;
-  const denied = new Set(((agentDefinition as any)?.disallowedTools as string[] | undefined) || []);
-
-  const canUseToolLocalOnly = async (tool: { name: string }) => {
-    if (denied.has(tool.name)) return false;
-    if (allowed && !allowed.has(tool.name)) return false;
-    return true;
-  };
-
-  let resultText = '';
-  let toolUseCount = 0;
-
-  // 记录开头
-  appendToOutputFile(agentId, `\n--- Subagent Started (${String((agentDefinition as any)?.agentType ?? 'unknown')}) ---\n`);
-
-  const promptMessages = [
-    ...((resumeMessages && Array.isArray(resumeMessages)) ? resumeMessages : []),
-    createCoreUserMessage({ content: prompt }) as any,
-  ];
-
-  for await (const ev of runCoreSubagentLoop({
-    agentDefinition: agentDefinition as any,
-    promptMessages,
-    toolUseContext: coreToolUseContext,
-    canUseTool: async (tool: any, input: any, assistantMessage: any) => {
-      if (!(await canUseToolLocalOnly(tool))) return false;
-      return canUseToolFromRunner ? await canUseToolFromRunner(tool, input, assistantMessage) : true;
-    },
-    forkContextMessages: forkContextMessages as any,
-    querySource: (toolContext.options as any)?.querySource ?? (isAsync ? 'background' : 'subagent'),
-    model,
-    maxTurns,
-    isAsync,
-    override: {
-      agentId,
-      abortController,
-    },
-  } as any)) {
-    if (!ev || typeof ev !== 'object') continue;
-
-    // 持久化到 conversation（便于后续工具/上下文引用）
-    conversation.push(ev as any);
-
-    if ((ev as any).type === 'assistant') {
-      const content = (ev as any).message?.content;
-      if (Array.isArray(content)) {
-        for (const block of content) {
-          if (block?.type === 'text') {
-            const t = String(block.text ?? '');
-            resultText += t;
-            appendToOutputFile(agentId, t);
-          } else if (block?.type === 'tool_use') {
-            toolUseCount += 1;
-            updateTaskProgress(agentId, { toolUseCount });
-            appendToOutputFile(agentId, `\n[Tool: ${String(block.name ?? 'unknown')}]\n`);
-          }
-        }
-      } else {
-        const t = extractTextFromContentBlocks(content);
-        if (t) {
-          resultText += t;
-          appendToOutputFile(agentId, t);
-        }
-      }
-    } else if ((ev as any).type === 'user') {
-      // 将 tool_result 也写入输出，便于 debug（source 里也会记录 transcript）
-      const blocks = (ev as any).message?.content;
-      if (Array.isArray(blocks)) {
-        for (const b of blocks) {
-          if (b?.type === 'tool_result') {
-            const text = extractTextFromContentBlocks(b.content);
-            if (text) {
-              appendToOutputFile(agentId, `\n[Tool Result]\n${text}\n`);
-            }
-          }
-        }
-      }
-    } else if ((ev as any).type === 'attachment') {
-      const att = (ev as any).attachment;
-      if (att?.type === 'error' && att?.content) {
-        appendToOutputFile(agentId, `\n[Attachment Error]\n${String(att.content)}\n`);
-      }
-    } else if ((ev as any).type === 'progress') {
-      // 可选：将进度写入
-      const p = (ev as any).progress;
-      if (p && typeof p === 'object') {
-        appendToOutputFile(agentId, `\n[Progress] ${JSON.stringify(p)}\n`);
-      }
-    }
-  }
-
-  updateTaskProgress(agentId, { toolUseCount });
-  appendToOutputFile(agentId, `\n--- Subagent Finished (${String((agentDefinition as any)?.agentType ?? 'unknown')}) ---\n`);
-
-  const final = resultText.trim();
-  return final || `Agent "${String((agentDefinition as any)?.agentType ?? 'unknown')}" completed task.`;
-}
-
 function getSubagentTranscriptPath(agentId: string, cwd?: string): string {
   const workingDir = cwd ?? process.cwd();
   const sanitizedCwd = workingDir.replace(/[^a-zA-Z0-9]/g, '-');
@@ -996,9 +591,6 @@ function loadResumeMessages(agentId: string, cwd?: string): any[] {
 
   return messages;
 }
-
-// Export for Ctrl+B handling
-export { triggerBackgroundTransition, activeTasks, backgroundSignalMap };
 
 // ============================================
 // Task Tool
@@ -1060,8 +652,28 @@ When NOT to use the Task tool:
   },
 
   async validateInput(input, context) {
-    // Check agent type is valid
-    if (!AGENT_TYPES.has(input.subagent_type)) {
+    // If runtime provided agent definitions, validate against them (matches source).
+    const defs = (context.options as any)?.agentDefinitions as
+      | { activeAgents?: Array<{ agentType: string }>; allAgents?: Array<{ agentType: string }> }
+      | undefined;
+    const active = defs?.activeAgents ?? [];
+    const all = defs?.allAgents ?? active;
+    if (active.length > 0 || all.length > 0) {
+      const allowed = active.some((a) => a?.agentType === input.subagent_type);
+      const exists = all.some((a) => a?.agentType === input.subagent_type);
+      if (!allowed && exists) {
+        return validationError(
+          `Agent type '${input.subagent_type}' has been denied by permission rule '${TOOL_NAMES.TASK}(${input.subagent_type})'.`,
+          1
+        );
+      }
+      if (!allowed && !exists) {
+        return validationError(
+          `Agent type '${input.subagent_type}' not found. Available agents: ${active.map((a) => a.agentType).join(', ')}`,
+          1
+        );
+      }
+    } else if (!AGENT_TYPES.has(input.subagent_type)) {
       return validationError(
         `Unknown agent type: ${input.subagent_type}. Available types: ${Array.from(AGENT_TYPES).join(', ')}`,
         1
@@ -1081,27 +693,33 @@ When NOT to use the Task tool:
   },
 
   async call(input, context, _toolUseId, metadata, _progressCallback) {
-    const { prompt, description, subagent_type, model, max_turns, run_in_background, resume } =
-      input;
+    const { prompt, description, subagent_type, model, max_turns, run_in_background, resume } = input;
 
     const md = metadata && typeof metadata === 'object' ? (metadata as any) : {};
     const canUseToolFromRunner = typeof md.canUseTool === 'function' ? (md.canUseTool as any) : undefined;
 
-    // Check if background tasks are disabled
     const disableBackground = process.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS === 'true';
 
     try {
-      // Prefer configured agent definitions from the core runtime (matches source behavior)
-      const activeAgents = (context.options as any)?.agentDefinitions?.activeAgents;
-      const selectedFromActive = Array.isArray(activeAgents)
-        ? activeAgents.find((a: any) => a && typeof a === 'object' && a.agentType === subagent_type)
-        : undefined;
+      // Prefer runtime-provided agent definitions.
+      const defs = (context.options as any)?.agentDefinitions as
+        | { activeAgents?: any[]; allAgents?: any[] }
+        | undefined;
+      const activeAgents = Array.isArray(defs?.activeAgents) ? defs!.activeAgents : [];
+      const allAgents = Array.isArray(defs?.allAgents) ? defs!.allAgents : activeAgents;
+      const selectedFromActive = activeAgents.find((a: any) => a && typeof a === 'object' && a.agentType === subagent_type);
 
-      // Fallback: built-in agent configs bundled with tools
       const agentConfig = AGENT_CONFIGS[subagent_type];
-
       if (!selectedFromActive && !agentConfig) {
-        const available = Array.isArray(activeAgents)
+        // Source-specific: if agent exists but is denied, report denial.
+        const existsButDenied = allAgents.some((a: any) => a && typeof a === 'object' && a.agentType === subagent_type);
+        if (existsButDenied) {
+          return toolError(
+            `Agent type '${subagent_type}' has been denied by permission rule '${TOOL_NAMES.TASK}(${subagent_type})'.`
+          );
+        }
+
+        const available = activeAgents.length > 0
           ? activeAgents.map((a: any) => a?.agentType).filter((x: any) => typeof x === 'string')
           : Object.keys(AGENT_CONFIGS);
         return toolError(
@@ -1123,131 +741,252 @@ When NOT to use the Task tool:
             getSystemPrompt: (_args: any) => agentConfig!.getSystemPrompt(),
           } as any);
 
-      // Generate or use provided agent ID
       const agentId = resume ? sanitizeId(resume) : generateAgentId();
-
-      // Resume transcript (if requested)
       const resumeMessages = resume ? loadResumeMessages(agentId, context.getCwd()) : undefined;
-
-      // Fork context support (if agent opts-in)
       const forkContextMessages = (agentDefinition as any)?.forkContext
         ? ((context.options as any)?.__messages as any[] | undefined)
         : undefined;
 
-      // Resolve model
-      const resolvedModel = resolveAgentModel(
-        (agentDefinition as any)?.model as any,
-        typeof (context.options as any)?.mainLoopModel === 'string' ? (context.options as any).mainLoopModel : undefined,
-        model
-      );
+      const startTime = Date.now();
 
-      // Handle resume case - load previous transcript
-      if (resume) {
-        // In a full implementation, this would load previous messages
-        // For now, we just continue with the provided prompt
-      }
-
-      // Async execution path (run_in_background: true)
-      if (run_in_background && !disableBackground) {
+      // run_in_background: true -> immediate async
+      if (run_in_background === true && !disableBackground) {
         const task = createFullyBackgroundedAgent({
           agentId,
           description,
           prompt,
-          agentType: subagent_type,
+          selectedAgent: agentDefinition,
+          setAppState: context.setAppState as any,
+          cwd: context.getCwd(),
         });
 
-        // Start agent execution in background (non-blocking)
-        runSubagentLoop({
+        const conversation: any[] = [];
+        const coreToolUseContext: any = {
+          getAppState: context.getAppState,
+          setAppState: context.setAppState,
+          readFileState: context.readFileState,
+          abortController: (task as any).abortController,
           agentId,
-          prompt,
-          agentDefinition,
-          model: resolvedModel,
-          maxTurns: max_turns,
-          abortSignal: task.abortController.signal,
-          toolContext: context,
-          isAsync: true,
-          forkContextMessages,
-          resumeMessages,
-          canUseToolFromRunner,
-        })
-          .then((result) => {
-            markTaskCompleted(agentId, result);
-          })
-          .catch((error) => {
-            markTaskError(agentId, error instanceof Error ? error.message : String(error));
-          });
-
-        // Return immediately with async_launched status
-        const result: TaskOutput = {
-          taskId: task.taskId,
-          status: 'running',
-          outputFile: task.outputFile,
+          messages: conversation,
+          setToolJSX: (context as any).setToolJSX,
+          options: {
+            ...(context.options as any),
+            tools: adaptToolsForCore({
+              allowedTools: (agentDefinition as any)?.tools,
+              disallowedTools: (agentDefinition as any)?.disallowedTools,
+              getAppState: context.getAppState,
+              setAppState: context.setAppState,
+              readFileState: context.readFileState,
+              agentId,
+              sessionId: context.sessionId,
+              abortController: (task as any).abortController,
+            }),
+          },
         };
 
-        return toolSuccess(result);
+        const messageGenerator = runCoreSubagentLoop({
+          agentDefinition,
+          promptMessages: [
+            ...((resumeMessages && Array.isArray(resumeMessages)) ? resumeMessages : []),
+            createCoreUserMessage({ content: prompt }) as any,
+          ],
+          toolUseContext: coreToolUseContext,
+          canUseTool: async (tool: any, input: any, assistantMessage: any) => {
+            return canUseToolFromRunner ? await canUseToolFromRunner(tool, input, assistantMessage) : true;
+          },
+          forkContextMessages,
+          querySource: (context.options as any)?.querySource ?? 'background',
+          model,
+          maxTurns: max_turns ?? DEFAULT_MAX_TURNS,
+          isAsync: true,
+          override: {
+            agentId,
+            abortController: (task as any).abortController,
+          },
+        } as any)[Symbol.asyncIterator]();
+
+        // Aggregate in background and keep appState.tasks up-to-date.
+        aggregateAsyncAgentExecution(
+          messageGenerator,
+          agentId,
+          context.setAppState as any,
+          () => {
+            // Best-effort: mark task completed is handled inside aggregator.
+          },
+          [],
+          (task as any).abortController?.signal
+        );
+
+        return toolSuccess({
+          status: 'async_launched',
+          isAsync: true,
+          agentId,
+          description,
+          prompt,
+          outputFile: (task as any).outputPath ?? '',
+        } as any);
       }
 
-      // Sync execution path (run_in_background: false)
-      const { taskId, backgroundSignal } = createBackgroundableAgent({
-        agentId,
-        description,
-        prompt,
-        agentType: subagent_type,
-      });
-
-      const task = activeTasks.get(taskId)!;
-
-      // Run agent loop with background detection
-      try {
-        // Use Promise.race to allow Ctrl+B interruption
-        const agentPromise = runSubagentLoop({
-          agentId: taskId,
+      // Foreground path (can be backgrounded via Ctrl+B if enabled)
+      let backgroundSignal: Promise<void> | undefined;
+      if (!disableBackground) {
+        const created = createBackgroundableAgent({
+          agentId,
+          description,
           prompt,
-          agentDefinition,
-          model: resolvedModel,
-          maxTurns: max_turns,
-          abortSignal: task.abortController.signal,
-          toolContext: context,
-          isAsync: false,
-          forkContextMessages,
-          resumeMessages,
-          canUseToolFromRunner,
+          selectedAgent: agentDefinition,
+          setAppState: context.setAppState as any,
+          cwd: context.getCwd(),
         });
+        backgroundSignal = created.backgroundSignal;
+      }
 
-        // Race between completion and background signal
-        const raceResult = await Promise.race([
-          agentPromise.then((result) => ({ type: 'completed' as const, result })),
-          backgroundSignal.then(() => ({ type: 'background' as const })),
-        ]);
-
-        if (raceResult.type === 'background') {
-          // User pressed Ctrl+B - switch to background execution
-          // The agent continues running in the background
-
-          const result: TaskOutput = {
-            taskId,
-            status: 'running',
-            outputFile: task.outputFile,
-          };
-
-          return toolSuccess(result);
-        }
-
-        // Agent completed normally
-        markTaskCompleted(taskId, raceResult.result);
-
-        const result: TaskOutput = {
-          taskId,
-          status: 'completed',
-          result: raceResult.result,
+      // Run loop and allow Ctrl+B background.
+      const iterator = (async () => {
+        const conversation: any[] = [];
+        const coreToolUseContext: any = {
+          getAppState: context.getAppState,
+          setAppState: context.setAppState,
+          readFileState: context.readFileState,
+          abortController: new AbortController(),
+          agentId,
+          messages: conversation,
+          setToolJSX: (context as any).setToolJSX,
+          options: {
+            ...(context.options as any),
+            tools: adaptToolsForCore({
+              allowedTools: (agentDefinition as any)?.tools,
+              disallowedTools: (agentDefinition as any)?.disallowedTools,
+              getAppState: context.getAppState,
+              setAppState: context.setAppState,
+              readFileState: context.readFileState,
+              agentId,
+              sessionId: context.sessionId,
+              abortController: new AbortController(),
+            }),
+          },
         };
 
-        return toolSuccess(result);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        markTaskError(taskId, errorMessage);
+        return runCoreSubagentLoop({
+          agentDefinition,
+          promptMessages: [
+            ...((resumeMessages && Array.isArray(resumeMessages)) ? resumeMessages : []),
+            createCoreUserMessage({ content: prompt }) as any,
+          ],
+          toolUseContext: coreToolUseContext,
+          canUseTool: async (tool: any, input: any, assistantMessage: any) => {
+            return canUseToolFromRunner ? await canUseToolFromRunner(tool, input, assistantMessage) : true;
+          },
+          forkContextMessages,
+          querySource: (context.options as any)?.querySource ?? 'subagent',
+          model,
+          maxTurns: max_turns ?? DEFAULT_MAX_TURNS,
+          isAsync: false,
+          override: {
+            agentId,
+            abortController: coreToolUseContext.abortController,
+          },
+        } as any)[Symbol.asyncIterator]();
+      })();
 
-        return toolError(`Agent execution failed: ${errorMessage}`);
+      const it = await iterator;
+      const collected: unknown[] = [];
+      let toolUseCount = 0;
+      let tokenCount = 0;
+      let resultText = '';
+
+      const updateProgress = () => {
+        updateCoreTaskProgress(agentId, toolUseCount, tokenCount, context.setAppState as any);
+      };
+
+      const handleValue = (value: any) => {
+        collected.push(value);
+        if (value && typeof value === 'object' && value.type === 'assistant') {
+          const blocks = value.message?.content;
+          if (Array.isArray(blocks)) {
+            for (const b of blocks) {
+              if (b?.type === 'tool_use') toolUseCount += 1;
+              if (b?.type === 'text') {
+                const t = String(b.text ?? '');
+                resultText += t;
+                tokenCount += estimateTokensFromText(t);
+              }
+            }
+          }
+        }
+      };
+
+      try {
+        while (true) {
+          const nextPromise = it.next();
+          const raced = backgroundSignal
+            ? await Promise.race([
+                nextPromise.then((r) => ({ kind: 'next' as const, r })),
+                backgroundSignal.then(() => ({ kind: 'background' as const })),
+              ])
+            : ({ kind: 'next' as const, r: await nextPromise });
+
+          if (raced.kind === 'background') {
+            // Continue consuming in background
+            const state = (await context.getAppState()) as any;
+            const taskObj = state?.tasks?.[agentId];
+            const abortSignal = taskObj?.abortController?.signal;
+            aggregateAsyncAgentExecution(
+              it,
+              agentId,
+              context.setAppState as any,
+              () => {
+                // no-op
+              },
+              collected,
+              abortSignal
+            );
+
+            updateProgress();
+            return toolSuccess({
+              status: 'async_launched',
+              isAsync: true,
+              agentId,
+              description,
+              prompt,
+              outputFile: taskObj?.outputPath ?? '',
+            } as any);
+          }
+
+          const { done, value } = raced.r;
+          if (done) break;
+          handleValue(value);
+          updateProgress();
+        }
+
+        // Completed
+        markCoreTaskCompleted(agentId, true, context.setAppState as any);
+
+        const durationMs = Date.now() - startTime;
+        const text = resultText.trim();
+        const completed = {
+          status: 'completed',
+          agentId,
+          prompt,
+          content: [{ type: 'text', text: text.length > 0 ? text : `Agent "${subagent_type}" completed task.` }],
+          totalToolUseCount: toolUseCount,
+          totalDurationMs: durationMs,
+          totalTokens: tokenCount,
+          usage: {
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_creation_input_tokens: null,
+            cache_read_input_tokens: null,
+            server_tool_use: null,
+            service_tier: null,
+            cache_creation: null,
+          },
+        };
+        return toolSuccess(completed as any);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        markCoreTaskFailed(agentId, msg, context.setAppState as any);
+        return toolError(`Agent execution failed: ${msg}`);
       }
     } catch (error) {
       return toolError(`Failed to launch agent: ${(error as Error).message}`);
@@ -1256,15 +995,15 @@ When NOT to use the Task tool:
 
   mapToolResultToToolResultBlockParam(result, toolUseId) {
     // Async launched - return immediately with output file info
-    if (result.status === 'running') {
+    if ((result as any).status === 'async_launched') {
       return {
         tool_use_id: toolUseId,
         type: 'tool_result',
         content: [{
           type: 'text',
           text: `Async agent launched successfully.
-agentId: ${result.taskId} (This is an internal ID for your use, do not mention it to the user unless they ask for it.)
-output_file: ${result.outputFile || 'N/A'}
+agentId: ${(result as any).agentId} (This is an internal ID for your use, do not mention it to the user. You can use this ID to resume the agent later if needed.)
+output_file: ${(result as any).outputFile || 'N/A'}
 
 The agent is currently working in the background. You can continue with other tasks.
 To check the agent's progress or retrieve its results, use the Read tool to read the output file, or use Bash with \`tail\` to see recent output.`,
@@ -1272,28 +1011,20 @@ To check the agent's progress or retrieve its results, use the Read tool to read
       };
     }
 
-    // Error case
-    if (result.error) {
+    // Completed (or other) – return content blocks as-is.
+    if ((result as any)?.content) {
       return {
         tool_use_id: toolUseId,
         type: 'tool_result',
-        content: `Agent error: ${result.error}`,
-        is_error: true,
-      };
+        content: (result as any).content,
+      } as any;
     }
 
-    // Completed successfully
     return {
       tool_use_id: toolUseId,
       type: 'tool_result',
-      content: [{
-        type: 'text',
-        text: result.result || 'Agent completed with no output.',
-      }, {
-        type: 'text',
-        text: `\nagentId: ${result.taskId} (for resuming to continue this agent's work if needed)`,
-      }],
-    };
+      content: [{ type: 'text', text: 'Agent completed.' }],
+    } as any;
   },
 });
 

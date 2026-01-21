@@ -291,6 +291,12 @@ async function initializeHTTPProxy(
       const [host, portStr] = target.split(':');
       const port = Number(portStr || 443);
 
+      if (!host) {
+        clientSocket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+        clientSocket.destroy();
+        return;
+      }
+
       const allowed = await checkDomainAllowed(host, 'http', permissionCallback);
       if (!allowed) {
         clientSocket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
@@ -357,8 +363,8 @@ async function initializeSOCKSProxy(
       // Greeting: VER, NMETHODS, METHODS...
       if (stage === 'greeting') {
         if (buffered.length < 2) return;
-        const ver = buffered[0];
-        const nmethods = buffered[1];
+        const ver = buffered[0] ?? 0;
+        const nmethods = buffered[1] ?? 0;
         if (buffered.length < 2 + nmethods) return;
         if (ver !== 0x05) {
           socket.destroy();
@@ -392,7 +398,9 @@ async function initializeSOCKSProxy(
         } else if (atyp === 0x03) {
           // Domain
           if (buffered.length < offset + 1) return;
-          const len = buffered[offset];
+          const lenByte = buffered[offset];
+          if (lenByte === undefined) return;
+          const len = lenByte;
           if (buffered.length < offset + 1 + len + 2) return;
           host = buffered.slice(offset + 1, offset + 1 + len).toString('utf8');
           offset += 1 + len;

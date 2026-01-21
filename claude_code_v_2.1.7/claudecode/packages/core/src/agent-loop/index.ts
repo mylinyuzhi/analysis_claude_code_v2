@@ -42,7 +42,7 @@ export {
 
 import { join } from 'path';
 import { homedir } from 'os';
-import { mkdirSync, existsSync, symlinkSync, writeFileSync } from 'fs';
+import { mkdirSync, existsSync, symlinkSync, writeFileSync, unlinkSync } from 'fs';
 
 /**
  * Background signal promise resolvers.
@@ -71,7 +71,7 @@ export interface LocalAgentTask {
   id: string;
   type: 'local_agent';
   description: string;
-  status: 'running' | 'completed' | 'failed';
+  status: 'running' | 'completed' | 'failed' | 'killed';
   startTime: number;
   endTime?: number;
   agentId: string;
@@ -110,9 +110,12 @@ function getAgentTranscriptPath(agentId: string, cwd: string): string {
  * Get agent output directory.
  * Original: eSA() in chunks.86.mjs:97-104
  */
-function getAgentOutputDir(): string {
-  const tmpDir = process.env.TMPDIR || '/tmp';
-  const outputDir = join(tmpDir, 'claude', 'agent-outputs');
+function getAgentOutputDir(cwd: string): string {
+  // Source (eSA / getAgentOutputDir): ~/.claude/projects/<sanitized-cwd>/agents
+  const claudeDir = join(homedir(), '.claude');
+  const sanitizedCwd = cwd.replace(/[^a-zA-Z0-9]/g, '-');
+  const projectDir = join(claudeDir, 'projects', sanitizedCwd);
+  const outputDir = join(projectDir, 'agents');
 
   if (!existsSync(outputDir)) {
     mkdirSync(outputDir, { recursive: true });
@@ -125,15 +128,16 @@ function getAgentOutputDir(): string {
  * Register output file symlink for agent.
  * Original: OKA() in chunks.86.mjs:174-183
  */
-function registerOutputFile(agentId: string, transcriptPath: string): string {
-  const outputDir = getAgentOutputDir();
+function registerOutputFile(agentId: string, transcriptPath: string, cwd: string): string {
+  const outputDir = getAgentOutputDir(cwd);
   const outputPath = join(outputDir, `${agentId}.output`);
 
   try {
-    // Create symlink to transcript
-    if (!existsSync(outputPath)) {
-      symlinkSync(transcriptPath, outputPath);
+    // Replace existing file/symlink, then create symlink to transcript
+    if (existsSync(outputPath)) {
+      unlinkSync(outputPath);
     }
+    symlinkSync(transcriptPath, outputPath);
   } catch {
     // If symlink fails, create empty file
     writeFileSync(outputPath, '');
@@ -208,9 +212,8 @@ export function killBackgroundTask(
     }
 
     // Abort the task
-    if (task.abortController) {
-      task.abortController.abort();
-    }
+    task.abortController?.abort();
+    task.unregisterCleanup?.();
 
     return {
       ...state,
@@ -218,9 +221,8 @@ export function killBackgroundTask(
         ...state.tasks,
         [taskId]: {
           ...task,
-          status: 'failed',
+          status: 'killed',
           endTime: Date.now(),
-          error: 'Killed by user',
         },
       },
     };
@@ -258,7 +260,7 @@ export function createFullyBackgroundedAgent(options: {
 
   // Get transcript path and register output file
   const transcriptPath = getAgentTranscriptPath(agentId, cwd);
-  const outputPath = registerOutputFile(agentId, transcriptPath);
+  const outputPath = registerOutputFile(agentId, transcriptPath, cwd);
 
   // Create abort controller
   const abortController = new AbortController();
@@ -312,7 +314,7 @@ export function createBackgroundableAgent(options: {
 
   // Get transcript path and register output file
   const transcriptPath = getAgentTranscriptPath(agentId, cwd);
-  const outputPath = registerOutputFile(agentId, transcriptPath);
+  const outputPath = registerOutputFile(agentId, transcriptPath, cwd);
 
   // Create abort controller
   const abortController = new AbortController();

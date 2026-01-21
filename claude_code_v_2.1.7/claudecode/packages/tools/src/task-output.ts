@@ -23,12 +23,19 @@ import {
 import type { ToolContext } from './types.js';
 import { TOOL_NAMES } from './types.js';
 
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+
 // ============================================
 // Constants
 // ============================================
 
 const MAX_TIMEOUT_MS = 600000; // 10 minutes
 const DEFAULT_TIMEOUT_MS = 30000; // 30 seconds
+
+// Source: np5() reads TASK_MAX_OUTPUT_LENGTH
+const DEFAULT_MAX_OUTPUT_LENGTH = 30000;
 
 // ============================================
 // Task Types
@@ -42,21 +49,40 @@ export type TaskType = 'local_bash' | 'local_agent' | 'remote_agent';
 /**
  * Task status.
  */
-export type TaskStatus = 'running' | 'completed' | 'failed' | 'cancelled';
+export type TaskStatus = 'running' | 'pending' | 'completed' | 'failed' | 'cancelled' | 'killed';
 
 function normalizeTaskStatus(status: unknown): TaskStatus {
   switch (status) {
     case 'running':
+    case 'pending':
     case 'completed':
     case 'failed':
     case 'cancelled':
+    case 'killed':
       return status;
     case 'canceled':
       // normalize American spelling
       return 'cancelled';
+    case 'backgrounded':
+      // Source has local_agent tasks that can become backgrounded (still running)
+      return 'running';
     default:
       return 'failed';
   }
+}
+
+type RetrievalStatus = 'success' | 'timeout' | 'not_ready';
+
+interface TaskOutputTask {
+  task_id: string;
+  task_type: TaskType;
+  status: string;
+  description: string;
+  output: string;
+  exitCode?: number | null;
+  prompt?: string;
+  result?: string;
+  error?: string;
 }
 
 // ============================================
@@ -79,24 +105,8 @@ export interface TaskOutputInput {
  * TaskOutput output.
  */
 export interface TaskOutputOutput {
-  /** The task ID */
-  task_id: string;
-  /** The type of task */
-  task_type: TaskType;
-  /** Current status */
-  status: TaskStatus;
-  /** Task description */
-  description: string;
-  /** Output content */
-  output: string;
-  /** Exit code (for local_bash) */
-  exitCode?: number;
-  /** Original prompt (for agents) */
-  prompt?: string;
-  /** Final result (for agents) */
-  result?: string;
-  /** Error message (for agents) */
-  error?: string;
+  retrieval_status: RetrievalStatus;
+  task: TaskOutputTask | null;
 }
 
 // ============================================
@@ -128,16 +138,171 @@ const taskOutputInputSchema = z.object({
 // ============================================
 
 const taskOutputOutputSchema = z.object({
-  task_id: z.string(),
-  task_type: z.enum(['local_bash', 'local_agent', 'remote_agent']),
-  status: z.enum(['running', 'completed', 'failed', 'cancelled']),
-  description: z.string(),
-  output: z.string(),
-  exitCode: z.number().optional(),
-  prompt: z.string().optional(),
-  result: z.string().optional(),
-  error: z.string().optional(),
+  retrieval_status: z.enum(['success', 'timeout', 'not_ready']),
+  task: z
+    .object({
+      task_id: z.string(),
+      task_type: z.enum(['local_bash', 'local_agent', 'remote_agent']),
+      status: z.string(),
+      description: z.string(),
+      output: z.string(),
+      exitCode: z.number().nullable().optional(),
+      prompt: z.string().optional(),
+      result: z.string().optional(),
+      error: z.string().optional(),
+    })
+    .nullable(),
 });
+
+function getTaskOutputPath(taskId: string, cwd?: string): string {
+  // Source (aY / formatOutputPath): ~/.claude/projects/<sanitized-cwd>/agents/<taskId>.output
+  const workingDir = cwd ?? process.cwd();
+  const sanitizedCwd = workingDir.replace(/[^a-zA-Z0-9]/g, '-');
+  return join(homedir(), '.claude', 'projects', sanitizedCwd, 'agents', `${taskId}.output`);
+}
+
+function getSubagentTranscriptPath(agentId: string, cwd?: string): string {
+  const workingDir = cwd ?? process.cwd();
+  const sanitizedCwd = workingDir.replace(/[^a-zA-Z0-9]/g, '-');
+  return join(homedir(), '.claude', 'projects', sanitizedCwd, 'subagents', `agent-${agentId}.jsonl`);
+}
+
+function readTaskMaxOutputLength(): number {
+  const raw = process.env.TASK_MAX_OUTPUT_LENGTH;
+  if (!raw) return DEFAULT_MAX_OUTPUT_LENGTH;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_MAX_OUTPUT_LENGTH;
+  return n;
+}
+
+function truncateOutput(content: string, taskId: string): { content: string; wasTruncated: boolean } {
+  const maxLen = readTaskMaxOutputLength();
+  if (content.length <= maxLen) return { content, wasTruncated: false };
+
+  const hint = `[Truncated. Full output: ${getTaskOutputPath(taskId)}]\n\n`;
+  const remaining = Math.max(0, maxLen - hint.length);
+  return {
+    content: hint + content.slice(-remaining),
+    wasTruncated: true,
+  };
+}
+
+function setTaskNotified(setAppState: any, taskId: string): void {
+  if (typeof setAppState !== 'function') return;
+  setAppState((state: any) => {
+    const t = state?.tasks?.[taskId];
+    if (!t) return state;
+    return {
+      ...state,
+      tasks: {
+        ...state.tasks,
+        [taskId]: {
+          ...t,
+          notified: true,
+        },
+      },
+    };
+  });
+}
+
+async function waitForTaskCompletion(
+  taskId: string,
+  getAppState: () => Promise<any>,
+  timeoutMs: number,
+  abortController?: AbortController
+): Promise<any | null> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (abortController?.signal.aborted) {
+      throw new Error('aborted');
+    }
+    const t = (await getAppState())?.tasks?.[taskId];
+    if (!t) return null;
+    if (t.status !== 'running' && t.status !== 'pending') return t;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return (await getAppState())?.tasks?.[taskId] ?? null;
+}
+
+function extractLocalAgentText(taskId: string, cwd?: string): string {
+  const outputPath = getTaskOutputPath(taskId, cwd);
+  if (existsSync(outputPath)) {
+    try {
+      const raw = readFileSync(outputPath, 'utf-8');
+      if (raw && raw.trim().length > 0) return raw;
+    } catch {
+      // ignore
+    }
+  }
+
+  const transcriptPath = getSubagentTranscriptPath(taskId, cwd);
+  if (!existsSync(transcriptPath)) return '';
+
+  try {
+    const raw = readFileSync(transcriptPath, 'utf-8');
+    const out: string[] = [];
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        const entry = JSON.parse(trimmed);
+        const msg = entry?.content;
+        if (!msg || typeof msg !== 'object') continue;
+        if (msg.type !== 'assistant') continue;
+        const blocks = msg.message?.content;
+        if (!Array.isArray(blocks)) continue;
+        for (const b of blocks) {
+          if (b?.type === 'text' && typeof b.text === 'string') out.push(b.text);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return out.join('\n');
+  } catch {
+    return '';
+  }
+}
+
+function formatTaskForOutput(task: any, cwd?: string): TaskOutputTask {
+  const type: TaskType = task.type;
+  const id: string = task.id ?? task.taskId ?? task.agentId;
+
+  if (type === 'local_bash') {
+    const output = String(task.stdout ?? task.output ?? '');
+    return {
+      task_id: id,
+      task_type: 'local_bash',
+      status: String(task.status ?? ''),
+      description: String(task.description ?? ''),
+      output,
+      exitCode: task.result?.code ?? task.exitCode ?? null,
+    };
+  }
+
+  if (type === 'local_agent') {
+    const text = extractLocalAgentText(id, cwd);
+    return {
+      task_id: id,
+      task_type: 'local_agent',
+      status: String(task.status ?? ''),
+      description: String(task.description ?? ''),
+      output: text,
+      prompt: task.prompt,
+      result: text,
+      error: task.error,
+    };
+  }
+
+  return {
+    task_id: id,
+    task_type: 'remote_agent',
+    status: String(task.status ?? ''),
+    description: String(task.description ?? ''),
+    output: String(task.output ?? ''),
+    prompt: String(task.command ?? ''),
+  };
+}
 
 // ============================================
 // TaskOutput Tool
@@ -216,76 +381,57 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
     } = input;
 
     try {
-      // Get task manager from context
-      const taskManager = (context as any).taskManager;
+      // Source: tasks live in appState.tasks (plain object), keyed by task_id.
       const appState = await context.getAppState?.();
-      const tasks = (appState as any)?.tasks;
-
-      // Try to find the task
-      let task: any = null;
-
-      if (taskManager && typeof taskManager.getTask === 'function') {
-        task = await taskManager.getTask(task_id);
-      } else if (tasks) {
-        task = tasks.get?.(task_id) || tasks[task_id];
-      }
-
+      const task = (appState as any)?.tasks?.[task_id];
       if (!task) {
         return toolError(`Task not found: ${task_id}`);
       }
 
-      // Determine task type
-      const taskType: TaskType = task.type || 'local_bash';
+      const cwd = (context as any).getCwd ? (context as any).getCwd() : process.cwd();
 
-      // If blocking, wait for completion
-      if (block && task.status === 'running') {
-        const waitResult = await waitForTask(task, timeout);
-        if (waitResult.timedOut) {
+      // Non-blocking
+      if (!block) {
+        if (task.status !== 'running' && task.status !== 'pending') {
+          setTaskNotified((context as any).setAppState, task_id);
           return toolSuccess({
-            task_id,
-            task_type: taskType,
-            status: 'running',
-            description: task.description || '',
-            output: task.output || '',
-            prompt: task.prompt,
+            retrieval_status: 'success',
+            task: formatTaskForOutput(task, cwd),
           });
         }
+        return toolSuccess({
+          retrieval_status: 'not_ready',
+          task: formatTaskForOutput(task, cwd),
+        });
       }
 
-      // Get task output based on type
-      switch (taskType) {
-        case 'local_bash':
-          return toolSuccess({
-            task_id,
-            task_type: taskType,
-            status: normalizeTaskStatus(task.status ?? 'completed'),
-            description: task.description || '',
-            output: task.output || task.stdout || '',
-            exitCode: task.exitCode,
-          });
+      // Blocking
+      const finished = await waitForTaskCompletion(
+        task_id,
+        (context as any).getAppState,
+        timeout,
+        (context as any).abortController
+      );
 
-        case 'local_agent':
-        case 'remote_agent':
-          return toolSuccess({
-            task_id,
-            task_type: taskType,
-            status: normalizeTaskStatus(task.status ?? 'completed'),
-            description: task.description || '',
-            output: task.output || '',
-            prompt: task.prompt,
-            result: task.result,
-            error: task.error,
-          });
-
-        default:
-          return toolSuccess({
-            task_id,
-            task_type: taskType,
-            status: normalizeTaskStatus(task.status ?? 'failed'),
-            description: task.description || '',
-            output: task.output || '',
-          });
+      if (!finished) {
+        return toolSuccess({
+          retrieval_status: 'timeout',
+          task: null,
+        });
       }
+
+      if (finished.status === 'running' || finished.status === 'pending') {
+        return toolSuccess({
+          retrieval_status: 'timeout',
+          task: formatTaskForOutput(finished, cwd),
+        });
+      }
+
+      setTaskNotified((context as any).setAppState, task_id);
+      return toolSuccess({
+        retrieval_status: 'success',
+        task: formatTaskForOutput(finished, cwd),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to get task output: ${message}`);
@@ -296,82 +442,36 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
    * Map tool result to API format.
    */
   mapToolResultToToolResultBlockParam(result, toolUseId) {
-    const lines: string[] = [
-      `Task: ${result.task_id}`,
-      `Type: ${result.task_type}`,
-      `Status: ${result.status}`,
-    ];
+    const lines: string[] = [];
+    lines.push(`<retrieval_status>${result.retrieval_status}</retrieval_status>`);
 
-    if (result.description) {
-      lines.push(`Description: ${result.description}`);
-    }
-
-    if (result.exitCode !== undefined) {
-      lines.push(`Exit Code: ${result.exitCode}`);
-    }
-
-    if (result.output) {
-      lines.push('', 'Output:', result.output);
-    }
-
-    if (result.result) {
-      lines.push('', 'Result:', result.result);
-    }
-
-    if (result.error) {
-      lines.push('', 'Error:', result.error);
+    const t = result.task;
+    if (t) {
+      lines.push(`<task_id>${t.task_id}</task_id>`);
+      lines.push(`<task_type>${t.task_type}</task_type>`);
+      lines.push(`<status>${t.status}</status>`);
+      if (t.exitCode !== undefined && t.exitCode !== null) {
+        lines.push(`<exit_code>${t.exitCode}</exit_code>`);
+      }
+      const out = t.output ?? '';
+      if (out.trim()) {
+        const truncated = truncateOutput(out, t.task_id);
+        lines.push(`<output>\n${truncated.content.trimEnd()}\n</output>`);
+      }
+      if (t.error) {
+        lines.push(`<error>${t.error}</error>`);
+      }
     }
 
     return {
       tool_use_id: toolUseId,
       type: 'tool_result',
-      content: lines.join('\n'),
+      content: lines.join('\n\n'),
     };
   },
 });
 
-// ============================================
-// Helper Functions
-// ============================================
-
-/**
- * Wait for a task to complete with timeout.
- */
-async function waitForTask(
-  task: any,
-  timeoutMs: number
-): Promise<{ timedOut: boolean }> {
-  const startTime = Date.now();
-
-  return new Promise((resolve) => {
-    const checkInterval = setInterval(() => {
-      // Check if task is done
-      if (task.status !== 'running') {
-        clearInterval(checkInterval);
-        resolve({ timedOut: false });
-        return;
-      }
-
-      // Check for timeout
-      if (Date.now() - startTime >= timeoutMs) {
-        clearInterval(checkInterval);
-        resolve({ timedOut: true });
-        return;
-      }
-    }, 100);
-
-    // Also listen for completion if task has promise
-    if (task.promise && typeof task.promise.then === 'function') {
-      task.promise.then(() => {
-        clearInterval(checkInterval);
-        resolve({ timedOut: false });
-      }).catch(() => {
-        clearInterval(checkInterval);
-        resolve({ timedOut: false });
-      });
-    }
-  });
-}
+// Helper functions are defined above (waitForTaskCompletion, truncateOutput, etc.)
 
 // ============================================
 // Export

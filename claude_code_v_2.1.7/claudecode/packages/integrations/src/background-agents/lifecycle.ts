@@ -284,7 +284,7 @@ export function killBackgroundTask(taskId: string, setAppState: SetAppState): vo
 
     return {
       ...task,
-      status: 'cancelled' as BackgroundTaskStatus,
+      status: 'killed' as BackgroundTaskStatus,
       endTime: Date.now(),
     };
   });

@@ -566,13 +566,46 @@ export interface TaskInput {
 /**
  * Task tool output.
  */
-export interface TaskOutput {
-  taskId: string;
-  status: 'running' | 'completed' | 'error';
-  result?: string;
-  error?: string;
-  outputFile?: string;
+export interface TaskUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens: number | null;
+  cache_read_input_tokens: number | null;
+  server_tool_use: {
+    web_search_requests: number;
+    web_fetch_requests: number;
+  } | null;
+  service_tier: 'standard' | 'priority' | 'batch' | null;
+  cache_creation: {
+    ephemeral_1h_input_tokens: number;
+    ephemeral_5m_input_tokens: number;
+  } | null;
 }
+
+export type TaskOutput =
+  | {
+      status: 'completed';
+      agentId: string;
+      prompt: string;
+      content: Array<{ type: 'text'; text: string }>;
+      totalToolUseCount: number;
+      totalDurationMs: number;
+      totalTokens: number;
+      usage: TaskUsage;
+    }
+  | {
+      status: 'async_launched';
+      agentId: string;
+      description: string;
+      prompt: string;
+      outputFile: string;
+      isAsync?: boolean;
+    }
+  | {
+      status: 'sub_agent_entered';
+      description: string;
+      message: string;
+    };
 
 // ============================================
 // TodoWrite Tool Types
