@@ -74,6 +74,7 @@ export interface MessagesRequest {
   stop_sequences?: string[];
   tools?: ToolDefinition[];
   tool_choice?: ToolChoice;
+  thinking?: ThinkingConfig;
   metadata?: RequestMetadata;
   stream?: boolean;
 }
@@ -122,6 +123,18 @@ export type ToolChoice =
  */
 export interface RequestMetadata {
   user_id?: string;
+}
+
+// ============================================
+// Thinking Config
+// ============================================
+
+/**
+ * Thinking configuration
+ */
+export interface ThinkingConfig {
+  type: 'enabled';
+  budget_tokens: number;
 }
 
 // ============================================

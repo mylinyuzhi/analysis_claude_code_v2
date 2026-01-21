@@ -893,7 +893,36 @@ async function* streamApiResponse(options: {
     system: options.systemPrompt,
     max_tokens: options.options.maxOutputTokensOverride || 8192,
     tools: apiTools,
+    thinking: options.maxThinkingTokens
+      ? { type: 'enabled', budget_tokens: options.maxThinkingTokens }
+      : undefined,
   } as any;
+
+  // Inject cache control (Prompt Caching)
+  // 1. Cache Tools (last tool)
+  if (request.tools && request.tools.length > 0) {
+    request.tools[request.tools.length - 1].cache_control = { type: 'ephemeral' };
+  }
+
+  // 2. Cache Messages (last user message)
+  // Find last user message
+  for (let i = request.messages.length - 1; i >= 0; i--) {
+    if (request.messages[i].role === 'user') {
+      const msg = request.messages[i];
+      if (typeof msg.content === 'string') {
+        msg.content = [
+          { type: 'text', text: msg.content, cache_control: { type: 'ephemeral' } }
+        ];
+      } else if (Array.isArray(msg.content) && msg.content.length > 0) {
+        // Add cache_control to the last block of the user message
+        const lastBlock = msg.content[msg.content.length - 1];
+        if (typeof lastBlock === 'object') {
+          (lastBlock as any).cache_control = { type: 'ephemeral' };
+        }
+      }
+      break; // Only cache the last user message
+    }
+  }
 
   // Stream options
   const streamOptions: StreamApiCallOptions = {

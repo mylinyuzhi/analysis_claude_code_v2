@@ -480,6 +480,33 @@ export function substituteConfigEnvVars(config: McpServerConfig): McpServerConfi
   return result;
 }
 
+/**
+ * Apply safe environment variables.
+ * Original: KI9 (applySafeEnvVars) in chunks.149.mjs
+ */
+export function applySafeEnvVars(): void {
+  // 1. Force color output if not explicitly disabled
+  if (process.env.NO_COLOR === undefined) {
+    process.env.FORCE_COLOR = '1';
+  }
+
+  // 2. Set default NODE_ENV to production if not set
+  if (!process.env.NODE_ENV) {
+    process.env.NODE_ENV = 'production';
+  }
+
+  // 3. Configure Node.js TLS rejection (allow unauthorized for self-signed certs if configured)
+  if (process.env.CLAUDE_Insecure_Requests === 'true') {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  }
+
+  // 4. Set suppression for experimental warnings
+  const existingOptions = process.env.NODE_OPTIONS || '';
+  if (!existingOptions.includes('--no-warnings')) {
+    process.env.NODE_OPTIONS = `${existingOptions} --no-warnings`.trim();
+  }
+}
+
 // ============================================
 // Export
 // ============================================

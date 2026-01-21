@@ -35,8 +35,15 @@ import {
   getUserSettingsPath,
   getLocalSettingsPath,
   getProjectSettingsPath,
+  applySafeEnvVars,
 } from '../settings/loader.js';
-import { initializeMcp, resetMcpState } from '../mcp/state.js';
+import {
+  initializeMcp,
+  resetMcpState,
+  getMcpState,
+  connectMcpServer,
+  type McpServerConfig as StateMcpServerConfig,
+} from '../mcp/state.js';
 import {
   getCommandRegistry,
   parseSlashCommandInput,
@@ -81,6 +88,8 @@ import {
   SANDBOX_CONSTANTS,
   type SandboxConfig,
   type SandboxSettings,
+  telemetry,
+  refreshOAuthTokenIfNeeded,
 } from '@claudecode/platform';
 
 // ============================================
@@ -471,14 +480,6 @@ async function createSandboxPermissionCallback(): Promise<
   };
 }
 
-/**
- * Apply safe environment variables.
- * Original: KI9 (applySafeEnvVars) in chunks.149.mjs
- */
-function applySafeEnvVars(): void {
-  // Set safe defaults for environment variables
-  // e.g., NODE_TLS_REJECT_UNAUTHORIZED, etc.
-}
 
 /**
  * Setup graceful shutdown handlers.
@@ -529,6 +530,7 @@ function cleanupCursor(): void {
  */
 function initializeEventLogging(): void {
   // Initialize first-party telemetry
+  telemetry.initializeStartupProfiling();
 }
 
 /**
@@ -537,6 +539,14 @@ function initializeEventLogging(): void {
  */
 async function populateOAuth(): Promise<void> {
   // Load OAuth tokens from token cache
+  try {
+    // Attempt to refresh the token to ensure we have valid credentials available
+    // for the session. This is a best-effort operation at startup.
+    await refreshOAuthTokenIfNeeded('claude_ai');
+  } catch (error) {
+    // Ignore errors during startup - authentication may be handled later
+    // or the user may not be logged in yet.
+  }
 }
 
 /**
@@ -553,6 +563,9 @@ async function runMigrations(): Promise<void> {
  */
 async function loadRemoteSettings(): Promise<void> {
   // Load settings from remote server if enabled
+  // TODO: Implement remote settings fetching when backend is available.
+  // This typically involves fetching dynamic configuration/feature flags
+  // from a remote endpoint.
 }
 
 // ============================================
@@ -855,6 +868,31 @@ async function runPrintMode(options: PrintModeOptions): Promise<void> {
       appState = updater(appState);
     };
 
+    // Initialize MCP and update AppState
+    if (!getMcpState().initialized) {
+      await initializeMcp(process.cwd());
+    }
+    
+    // Connect any additional servers from options
+    if (options.mcpServers && Object.keys(options.mcpServers).length > 0) {
+      for (const [name, config] of Object.entries(options.mcpServers)) {
+        try {
+          await connectMcpServer(name, config as StateMcpServerConfig);
+        } catch (err) {
+          console.error(`Failed to connect to MCP server ${name}:`, err);
+        }
+      }
+    }
+    
+    // Sync MCP state to AppState
+    const mcpState = getMcpState();
+    (appState as any).mcp = {
+      clients: mcpState.clients,
+      tools: mcpState.tools,
+      resources: mcpState.resources,
+      initialized: mcpState.initialized
+    };
+
     const tools = adaptToolsForCore({
       allowedTools: options.allowedTools,
       disallowedTools: options.disallowedTools,
@@ -956,6 +994,43 @@ async function runPrintMode(options: PrintModeOptions): Promise<void> {
   }
 }
 
+// ============================================
+// Output Formatting
+// ============================================
+
+const Colors = {
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  dim: '\x1b[2m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  gray: '\x1b[90m',
+};
+
+function formatToolCall(name: string, input: any): string {
+  let inputStr = '';
+  try {
+    inputStr = JSON.stringify(input, null, 2);
+  } catch {
+    inputStr = String(input);
+  }
+  // Indent input for better readability
+  const indentedInput = inputStr.split('\n').map(line => '  ' + line).join('\n');
+  
+  return `\n${Colors.yellow}🔨 ${Colors.bold}${name}${Colors.reset}\n${Colors.dim}${indentedInput}${Colors.reset}\n`;
+}
+
+function formatToolResult(content: any): string {
+  if (typeof content === 'string') {
+    return `\n${Colors.dim}Result: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}${Colors.reset}\n`;
+  }
+  return `\n${Colors.dim}Result: [Complex Data]${Colors.reset}\n`;
+}
+
 interface InteractiveModeOptions {
   initialPrompt?: string;
   debug: boolean;
@@ -1021,6 +1096,31 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
   const getAppState = async () => appState;
   const setAppState = (updater: (s: any) => any) => {
     appState = updater(appState);
+  };
+
+  // Initialize MCP and update AppState
+  if (!getMcpState().initialized) {
+    await initializeMcp(process.cwd());
+  }
+  
+  // Connect any additional servers from options
+  if (options.mcpServers && Object.keys(options.mcpServers).length > 0) {
+    for (const [name, config] of Object.entries(options.mcpServers)) {
+      try {
+        await connectMcpServer(name, config as StateMcpServerConfig);
+      } catch (err) {
+        console.error(`Failed to connect to MCP server ${name}:`, err);
+      }
+    }
+  }
+  
+  // Sync MCP state to AppState
+  const mcpState = getMcpState();
+  (appState as any).mcp = {
+    clients: mcpState.clients,
+    tools: mcpState.tools,
+    resources: mcpState.resources,
+    initialized: mcpState.initialized
   };
 
   const tools = adaptToolsForCore({
@@ -1100,15 +1200,7 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
               process.stdout.write(String(block.text ?? ''));
             } else if (block?.type === 'tool_use') {
               const toolName = String(block.name ?? 'unknown');
-              // 交互 UI 中会有更丰富渲染，这里给出可读的文本占位。
-              process.stderr.write(`\n[工具调用] ${toolName}\n`);
-              if (block.input !== undefined) {
-                try {
-                  process.stderr.write(JSON.stringify(block.input) + '\n');
-                } catch {
-                  process.stderr.write(String(block.input) + '\n');
-                }
-              }
+              process.stdout.write(formatToolCall(toolName, block.input));
             }
           }
         }
@@ -1118,12 +1210,19 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
           for (const block of content) {
             if (block?.type === 'tool_result') {
               const c = block.content;
-              if (typeof c === 'string') {
-                process.stdout.write(String(c));
-                if (!String(c).endsWith('\n')) process.stdout.write('\n');
+              
+              // Only show full result in verbose mode
+              if (options.verbose) {
+                if (typeof c === 'string') {
+                  process.stdout.write(String(c));
+                  if (!String(c).endsWith('\n')) process.stdout.write('\n');
+                } else {
+                  const t = textFromContentBlocks(c);
+                  if (t) process.stdout.write(t + (t.endsWith('\n') ? '' : '\n'));
+                }
               } else {
-                const t = textFromContentBlocks(c);
-                if (t) process.stdout.write(t + (t.endsWith('\n') ? '' : '\n'));
+                // In normal mode, just show a confirmation or summary
+                process.stdout.write(formatToolResult(typeof c === 'string' ? c : '...'));
               }
             }
           }
@@ -1131,7 +1230,7 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
       } else if ((ev as any).type === 'attachment') {
         const att = (ev as any).attachment;
         if (att?.type === 'error' && att?.content) {
-          process.stderr.write(String(att.content) + '\n');
+          process.stderr.write(`${Colors.red}Error: ${String(att.content)}${Colors.reset}\n`);
         }
       }
     }
@@ -1196,6 +1295,14 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
         process.stdout.write(String(result.userDisplayMessage).trimEnd() + '\n');
       }
       process.stdout.write('Conversation compacted.\n');
+      return;
+    }
+
+    // Special-case: /clear, /reset, /new
+    // Clears the conversation history entirely.
+    if (trimmed === '/clear' || trimmed === '/reset' || trimmed === '/new') {
+      conversation.length = 0;
+      process.stdout.write('Context cleared.\n');
       return;
     }
 

@@ -114,10 +114,50 @@ export const getAllBuiltinCommands = memoize((): SlashCommand[] => {
   // The following list mirrors the current bundled command surface.
   return [
     // Common UX
-    localJsx('help', 'Show help and available commands', { aliases: ['?'] }),
+    localJsx('help', 'Show help and available commands', { 
+      aliases: ['?'],
+      // Partial implementation of help for non-JSX environments
+      async call(onComplete, context, args) {
+        const commands = context.options.commands
+          .filter(c => !c.isHidden)
+          .sort((a, b) => a.name.localeCompare(b.name));
+        
+        const builtin = commands.filter(c => c.loadedFrom === 'builtin');
+        const custom = commands.filter(c => c.loadedFrom !== 'builtin');
+        
+        let output = 'Available Commands:\n\n';
+        
+        output += 'Built-in:\n';
+        for (const cmd of builtin) {
+          output += `  /${cmd.name.padEnd(15)} ${cmd.description}\n`;
+        }
+        
+        if (custom.length > 0) {
+          output += '\nCustom:\n';
+          for (const cmd of custom) {
+            output += `  /${cmd.name.padEnd(15)} ${cmd.description}\n`;
+          }
+        }
+        
+        output += '\nUse /help <command> for more information.\n';
+        
+        onComplete(output, { display: 'system', shouldQuery: false });
+        return null;
+      }
+    }),
     localJsx('discover', 'Explore Claude Code features and track your progress'),
     local('clear', 'Clear conversation history and free up context', {
       aliases: ['reset', 'new'],
+      async call(_args, _context) {
+        // The actual clearing happens in the entry loop when it sees the result type.
+        // We return a text message, but we need a way to signal the clear.
+        // Since we don't have a 'clear' result type yet, we rely on entry.ts handling
+        // based on the command name or we add a text output that implies it.
+        // 
+        // NOTE: Real implementation clears the messages in AppState or returns a 
+        // specific signal. For now, we return a text indicating action.
+        return { type: 'text', value: 'Session cleared (simulated).\n' };
+      }
     }),
     local('compact', 'Clear conversation history but keep a summary in context. Optional: /compact [instructions for summarization]', {
       argumentHint: '[instructions]',
@@ -125,7 +165,21 @@ export const getAllBuiltinCommands = memoize((): SlashCommand[] => {
     localJsx('config', 'Open config panel', { aliases: ['theme'] }),
     localJsx('model', 'Set the AI model'),
     localJsx('permissions', 'Show and manage tool permissions'),
-    localJsx('status', 'Show status', { aliases: ['info'] }),
+    localJsx('status', 'Show status', { 
+      aliases: ['info'],
+      async call(onComplete, context, args) {
+        // Basic status implementation
+        const cwd = context.cwd;
+        const model = context.options.model || 'default';
+        const output = `Status:
+  Working Directory: ${cwd}
+  Model: ${model}
+  Platform: ${process.platform}
+`;
+        onComplete(output, { display: 'system', shouldQuery: false });
+        return null;
+      }
+    }),
     localJsx('todos', 'Show current todo list'),
     localJsx('tasks', 'Show background tasks'),
     localJsx('feedback', 'Send feedback about Claude Code'),
