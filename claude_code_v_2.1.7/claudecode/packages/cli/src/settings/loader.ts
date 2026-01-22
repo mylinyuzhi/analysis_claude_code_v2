@@ -8,6 +8,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { Agent as HttpAgent } from 'http';
+import { Agent as HttpsAgent } from 'https';
+import { setGlobalDispatcher, ProxyAgent, Agent as UndiciAgent } from 'undici';
+import axios from 'axios';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import type { SandboxConfig, SandboxSettings } from '@claudecode/platform';
 
 // ============================================
@@ -478,6 +483,220 @@ export function substituteConfigEnvVars(config: McpServerConfig): McpServerConfi
   }
 
   return result;
+}
+
+// ============================================
+// Network & Proxy Configuration
+// ============================================
+
+/**
+ * Log network configuration messages.
+ */
+function logNetwork(message: string, options?: { level?: string }): void {
+  if (process.env.DEBUG || process.env.CLAUDE_CODE_DEBUG) {
+    console.error(`[init] ${message}`);
+  }
+}
+
+/**
+ * Get mTLS configuration (certs/keys).
+ * Original: tT in chunks.46.mjs
+ */
+export function getMtlsConfig(): { cert?: string; key?: string; passphrase?: string } | undefined {
+  const config: { cert?: string; key?: string; passphrase?: string } = {};
+  
+  if (process.env.CLAUDE_CODE_CLIENT_CERT) {
+    try {
+      config.cert = fs.readFileSync(process.env.CLAUDE_CODE_CLIENT_CERT, 'utf8');
+      logNetwork("mTLS: Loaded client certificate from CLAUDE_CODE_CLIENT_CERT");
+    } catch (error) {
+      logNetwork(`mTLS: Failed to load client certificate: ${error}`, { level: "error" });
+    }
+  }
+  
+  if (process.env.CLAUDE_CODE_CLIENT_KEY) {
+    try {
+      config.key = fs.readFileSync(process.env.CLAUDE_CODE_CLIENT_KEY, 'utf8');
+      logNetwork("mTLS: Loaded client key from CLAUDE_CODE_CLIENT_KEY");
+    } catch (error) {
+      logNetwork(`mTLS: Failed to load client key: ${error}`, { level: "error" });
+    }
+  }
+  
+  if (process.env.CLAUDE_CODE_CLIENT_KEY_PASSPHRASE) {
+    config.passphrase = process.env.CLAUDE_CODE_CLIENT_KEY_PASSPHRASE;
+    logNetwork("mTLS: Using client key passphrase");
+  }
+  
+  if (Object.keys(config).length === 0) return undefined;
+  return config;
+}
+
+/**
+ * Configure global mTLS.
+ * Original: btQ in chunks.46.mjs
+ */
+export function configureGlobalMTLS(): void {
+  if (!getMtlsConfig()) return;
+  
+  if (process.env.NODE_EXTRA_CA_CERTS) {
+    logNetwork("NODE_EXTRA_CA_CERTS detected - Node.js will automatically append to built-in CAs");
+  }
+}
+
+/**
+ * Get proxy URL from environment.
+ * Original: bn in chunks.46.mjs
+ */
+export function getProxyUrl(): string | undefined {
+  return process.env.https_proxy || process.env.HTTPS_PROXY || process.env.http_proxy || process.env.HTTP_PROXY;
+}
+
+/**
+ * Check if URL should bypass proxy.
+ * Original: leA in chunks.46.mjs
+ */
+export function shouldBypassProxy(urlStr: string): boolean {
+  const noProxy = process.env.no_proxy || process.env.NO_PROXY;
+  if (!noProxy) return false;
+  if (noProxy === '*') return true;
+  
+  try {
+    const url = new URL(urlStr);
+    const hostname = url.hostname.toLowerCase();
+    const port = url.port || (url.protocol === 'https:' ? '443' : '80');
+    const hostPort = `${hostname}:${port}`;
+    
+    return noProxy.split(/[,\s]+/).filter(Boolean).some(pattern => {
+      const p = pattern.toLowerCase().trim();
+      if (p.includes(':')) return hostPort === p;
+      if (p.startsWith('.')) return hostname === p.substring(1) || hostname.endsWith(p);
+      return hostname === p;
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if should resolve hosts via proxy.
+ */
+function shouldProxyResolveHosts(): boolean {
+  return process.env.CLAUDE_CODE_PROXY_RESOLVES_HOSTS === 'true';
+}
+
+/**
+ * Get axios proxy agent.
+ * Original: gtQ in chunks.46.mjs
+ */
+export function getAxiosProxyAgent(proxyUrl: string): HttpsProxyAgent<HttpsAgent> {
+  const mtlsConfig = getMtlsConfig();
+  const options: any = {
+    ...(mtlsConfig && {
+      cert: mtlsConfig.cert,
+      key: mtlsConfig.key,
+      passphrase: mtlsConfig.passphrase
+    })
+  };
+
+  if (shouldProxyResolveHosts()) {
+    options.lookup = (hostname: string, opts: any, callback: any) => {
+      callback(null, hostname, opts.family || 4);
+    };
+  }
+
+  return new HttpsProxyAgent(proxyUrl, options);
+}
+
+/**
+ * Get undici dispatcher with optional proxy and mTLS.
+ * Original: utQ and wp1 in chunks.46.mjs
+ */
+export function getUndiciDispatcher(proxyUrl?: string): any {
+  const mtlsConfig = getMtlsConfig();
+  
+  if (proxyUrl) {
+    // utQ implementation
+    const options: any = {
+      uri: proxyUrl,
+      noProxy: process.env.NO_PROXY || process.env.no_proxy
+    };
+    if (mtlsConfig) {
+      options.connect = {
+        cert: mtlsConfig.cert,
+        key: mtlsConfig.key,
+        passphrase: mtlsConfig.passphrase
+      };
+    }
+    return new ProxyAgent(options);
+  } else if (mtlsConfig) {
+    // wp1 implementation
+    return new UndiciAgent({
+      connect: {
+        cert: mtlsConfig.cert,
+        key: mtlsConfig.key,
+        passphrase: mtlsConfig.passphrase
+      }
+    });
+  }
+  
+  return undefined;
+}
+
+/**
+ * Configure global network agents and proxies.
+ * Original: mtQ in chunks.46.mjs
+ */
+export function configureGlobalAgents(): void {
+  const proxyUrl = getProxyUrl();
+  const mtlsConfig = getMtlsConfig();
+  
+  let httpsAgent: HttpsAgent | undefined;
+  if (mtlsConfig) {
+    httpsAgent = new HttpsAgent({ ...mtlsConfig, keepAlive: true });
+  }
+  
+  if (proxyUrl) {
+    logNetwork("[init] configureGlobalAgents starting");
+    
+    // axios.defaults.proxy = false
+    if (axios.defaults) {
+      (axios.defaults as any).proxy = false;
+    }
+    
+    const proxyAgent = getAxiosProxyAgent(proxyUrl);
+    
+    axios.interceptors.request.use((config) => {
+      if (config.url && shouldBypassProxy(config.url)) {
+        if (httpsAgent) {
+          config.httpsAgent = httpsAgent;
+          (config as any).httpAgent = httpsAgent;
+        } else {
+          delete config.httpsAgent;
+          delete (config as any).httpAgent;
+        }
+      } else {
+        config.httpsAgent = proxyAgent;
+        (config as any).httpAgent = proxyAgent;
+      }
+      return config;
+    });
+
+    const dispatcher = getUndiciDispatcher(proxyUrl);
+    if (dispatcher) {
+      setGlobalDispatcher(dispatcher);
+    }
+    
+    logNetwork("[init] configureGlobalAgents complete");
+  } else if (httpsAgent) {
+    if (axios.defaults) {
+      axios.defaults.httpsAgent = httpsAgent;
+    }
+    const dispatcher = getUndiciDispatcher();
+    if (dispatcher) {
+      setGlobalDispatcher(dispatcher);
+    }
+  }
 }
 
 /**

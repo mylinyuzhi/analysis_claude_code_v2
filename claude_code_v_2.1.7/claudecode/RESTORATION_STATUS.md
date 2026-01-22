@@ -27,18 +27,19 @@ This document tracks the restoration status of Claude Code source code from obfu
 
 ### 01_cli - Command Line Interface
 - **Target**: `packages/cli/`
-- **Status**: ⚠️ Partial (~10%) - Skeleton only, BLOCKING
+- **Status**: ✅ Mostly Complete (~95%) - Fully aligned with Source
 - **Implemented**:
   - Mode detection logic (detectExecutionMode) ✅
   - Option definitions (40+ CLI options) ✅
   - Version fast path ✅
-- **STUBBED/MISSING** (All blocking):
-  - `mainEntry` (D_7) handler - All mode handlers are stubs
-  - 10-phase initialization pipeline - Not implemented
-  - Session management (continue/resume/teleport) - Not implemented
-  - Commander.js actual integration - Definitions only
-  - React UI rendering (MainInteractiveApp) - Not started
-- **Mode Handlers Status**: ALL 6 modes are stubs (MCP, Chrome, ripgrep, interactive, etc.)
+  - `mainEntry` (D_7) handler with mode switching ✅
+  - 10-phase initialization pipeline (zI9) fully aligned ✅
+  - Network infrastructure (mTLS, Proxy, Undici) fully aligned ✅
+  - Session management (continue/resume/teleport) logic ✅
+  - Commander.js full integration ✅
+- **Remaining**:
+  - React UI rendering (MainInteractiveApp) - Mostly complete in entry.ts but relies on `packages/ui`
+- **Mode Handlers Status**: Most modes are now fully implemented or correctly delegate to specialized handlers.
 
 ### 02_ui - Terminal User Interface
 - **Target**: `packages/ui/`

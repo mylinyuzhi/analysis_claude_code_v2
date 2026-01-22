@@ -17,6 +17,7 @@
 - [MCP Protocol](#module-mcp-protocol) - Auto-search, connection, execution
 - [Permissions & Sandbox](#module-permissions--sandbox) - Wildcards, security, sandbox
 - [Auth & OAuth](#module-auth--oauth) - OAuth endpoints, token management
+- [CLI Initialization & Network](#module-cli-initialization--network) - Startup pipeline, proxy, mTLS
 - [Telemetry](#module-telemetry) - Metrics, sanitization
 - [SDK Transport](#module-sdk-transport) - SDK communication layer
 
@@ -545,6 +546,33 @@ Tool groups defined in `XG9`:
 | mrB | isRateLimitError | chunks.82.mjs:2788-2790 | function |
 
 > Key files: chunks.20.mjs (OAuth config), chunks.48.mjs (token management, auth resolution), chunks.82.mjs (API client creation), chunks.85.mjs (Bedrock auth)
+
+## Module: CLI Initialization & Network
+
+### Startup Pipeline
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| zI9 | initializeConfig | chunks.149.mjs:2065-2105 | function |
+| F7Q | configureWindowsShell | chunks.20.mjs:2146-2152 | function |
+| B2B | initializeFirstLaunchTime | chunks.48.mjs:3148-3153 | function |
+| AX9 | registerMcpCliCleanup | chunks.148.mjs:1924-1929 | function |
+| K$A | isScratchpadEnabled | chunks.148.mjs:2082-2084 | function |
+| YX9 | initializeScratchpad | chunks.148.mjs:2099-2105 | function |
+
+### Network & Proxy Configuration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| btQ | configureGlobalMTLS | chunks.46.mjs:1148-1151 | function |
+| mtQ | configureGlobalAgents | chunks.46.mjs:1273-1291 | function |
+| gtQ | getAxiosProxyAgent | chunks.46.mjs:1242-1255 | function |
+| utQ | getUndiciProxyAgent | chunks.46.mjs:1326-1339 | function |
+| wp1 | getUndiciMtlsAgent | chunks.46.mjs:1131-1144 | function |
+| tT | getMtlsConfig | chunks.46.mjs:1162-1184 | function |
+| ktQ | getHttpsAgentWithMtls | chunks.46.mjs:1185-1193 | function |
+| bn | getProxyUrl | chunks.46.mjs:1212-1214 | function |
+| leA | shouldBypassProxy | chunks.46.mjs:1220-1240 | function |
 
 ---
 

@@ -43,7 +43,8 @@ const DEFAULT_OPTIONS: Required<MarkdownRendererOptions> = {
  */
 export function tokenToStyledText(
   token: MarkdownToken,
-  options: MarkdownRendererOptions = {}
+  options: MarkdownRendererOptions = {},
+  depth = 0
 ): StyledText[] {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
@@ -52,20 +53,20 @@ export function tokenToStyledText(
       return renderHeading(token as HeadingToken, opts);
 
     case 'paragraph':
-      return renderParagraph(token, opts);
+      return renderParagraph(token, opts, depth);
 
     case 'fenced_code':
     case 'code':
-      return renderCodeBlock(token as CodeBlockToken, opts);
+      return renderCodeBlock(token as CodeBlockToken, opts, depth);
 
     case 'code_inline':
       return [{ text: token.content ?? '', style: { color: 'cyan' } }];
 
     case 'blockquote':
-      return renderBlockquote(token, opts);
+      return renderBlockquote(token, opts, depth);
 
     case 'list':
-      return renderList(token as ListToken, opts);
+      return renderList(token as ListToken, opts, depth);
 
     case 'table':
       return renderTable(token as TableToken, opts);
@@ -75,13 +76,13 @@ export function tokenToStyledText(
 
     case 'strong':
       return (token.children ?? []).flatMap((child) => {
-        const rendered = tokenToStyledText(child, opts);
+        const rendered = tokenToStyledText(child, opts, depth);
         return rendered.map((s) => ({ ...s, style: { ...s.style, bold: true } }));
       });
 
     case 'em':
       return (token.children ?? []).flatMap((child) => {
-        const rendered = tokenToStyledText(child, opts);
+        const rendered = tokenToStyledText(child, opts, depth);
         return rendered.map((s) => ({ ...s, style: { ...s.style, italic: true } }));
       });
 
@@ -135,28 +136,34 @@ function renderHeading(token: HeadingToken, options: Required<MarkdownRendererOp
 /**
  * Render paragraph token.
  */
-function renderParagraph(token: MarkdownToken, options: Required<MarkdownRendererOptions>): StyledText[] {
+function renderParagraph(token: MarkdownToken, options: Required<MarkdownRendererOptions>, depth = 0): StyledText[] {
   const children = token.children ?? [];
-  return children.flatMap((child) => tokenToStyledText(child, options));
+  const indent = '  '.repeat(depth);
+  const result = children.flatMap((child) => tokenToStyledText(child, options, depth));
+  if (depth > 0 && result.length > 0) {
+    result[0]!.text = indent + result[0]!.text;
+  }
+  return result;
 }
 
 /**
  * Render code block.
  */
-function renderCodeBlock(token: CodeBlockToken, options: Required<MarkdownRendererOptions>): StyledText[] {
+function renderCodeBlock(token: CodeBlockToken, options: Required<MarkdownRendererOptions>, depth = 0): StyledText[] {
   const language = token.language || token.info || '';
   const code = token.content ?? '';
+  const indent = '  '.repeat(depth);
 
   const result: StyledText[] = [];
 
   // Language header
   if (language) {
     result.push({
-      text: `\n┌─ ${language} `,
+      text: `\n${indent}┌─ ${language} `,
       style: { color: 'gray' },
     });
     result.push({
-      text: '─'.repeat(Math.max(0, options.width - language.length - 4)),
+      text: '─'.repeat(Math.max(0, options.width - language.length - 4 - (depth * 2))),
       style: { dimColor: true },
     });
     result.push({ text: '\n' });
@@ -166,7 +173,7 @@ function renderCodeBlock(token: CodeBlockToken, options: Required<MarkdownRender
   const lines = code.split('\n');
   for (const line of lines) {
     result.push({
-      text: '│ ',
+      text: `${indent}│ `,
       style: { dimColor: true },
     });
 
@@ -181,7 +188,7 @@ function renderCodeBlock(token: CodeBlockToken, options: Required<MarkdownRender
 
   // Bottom border
   result.push({
-    text: '└' + '─'.repeat(options.width - 1),
+    text: `${indent}└` + '─'.repeat(Math.max(0, options.width - 1 - (depth * 2))),
     style: { dimColor: true },
   });
 
@@ -191,9 +198,9 @@ function renderCodeBlock(token: CodeBlockToken, options: Required<MarkdownRender
 /**
  * Render blockquote.
  */
-function renderBlockquote(token: MarkdownToken, options: Required<MarkdownRendererOptions>): StyledText[] {
+function renderBlockquote(token: MarkdownToken, options: Required<MarkdownRendererOptions>, depth = 0): StyledText[] {
   const children = token.children ?? [];
-  const content = children.flatMap((child) => tokenToStyledText(child, options));
+  const content = children.flatMap((child) => tokenToStyledText(child, options, depth + 1));
 
   // Add quote prefix
   return [
@@ -205,9 +212,10 @@ function renderBlockquote(token: MarkdownToken, options: Required<MarkdownRender
 /**
  * Render list.
  */
-function renderList(token: ListToken, options: Required<MarkdownRendererOptions>): StyledText[] {
+function renderList(token: ListToken, options: Required<MarkdownRendererOptions>, depth = 0): StyledText[] {
   const result: StyledText[] = [];
   const items = token.children ?? [];
+  const indent = '  '.repeat(depth);
 
   items.forEach((item, index) => {
     // Bullet or number
@@ -215,10 +223,10 @@ function renderList(token: ListToken, options: Required<MarkdownRendererOptions>
       ? `${(token.start ?? 1) + index}. `
       : `${getBulletChar(options.bulletStyle)} `;
 
-    result.push({ text: marker, style: { color: 'cyan' } });
+    result.push({ text: indent + marker, style: { color: 'cyan' } });
 
     // Item content
-    const content = (item.children ?? []).flatMap((child) => tokenToStyledText(child, options));
+    const content = (item.children ?? []).flatMap((child) => tokenToStyledText(child, options, depth + 1));
     result.push(...content);
     result.push({ text: '\n' });
   });
@@ -231,61 +239,133 @@ function renderList(token: ListToken, options: Required<MarkdownRendererOptions>
  * Original: gG2 (TableRenderer) in chunks.97.mjs
  */
 function renderTable(token: TableToken, options: Required<MarkdownRendererOptions>): StyledText[] {
-  const result: StyledText[] = [];
+  const width = options.width;
+  
+  // Helper to get text content from tokens
+  const getText = (tokens?: MarkdownToken[]) => tokens?.map(t => t.content || '').join('') || '';
 
-  // Calculate column widths
-  const allRows = [token.header, ...token.rows];
-  const colWidths = calculateColumnWidths(allRows, options.width);
-
-  // Header
-  result.push({ text: '\n' });
-  result.push(...renderTableRow(token.header, colWidths, true, token.align));
-  result.push({ text: '\n' });
-
-  // Separator
-  result.push({
-    text: colWidths.map((w) => '─'.repeat(w + 2)).join('┼'),
-    style: { dimColor: true },
+  // Calculate minimum column widths (longest word in each column)
+  const minWidths = token.header.cells.map((_, colIdx) => {
+    const getMin = (tokens?: MarkdownToken[]) => {
+      const words = getText(tokens).split(/\s+/).filter(w => w.length > 0);
+      return words.length === 0 ? 3 : Math.max(...words.map(w => w.length), 3);
+    };
+    let min = getMin(token.header.cells[colIdx]?.children);
+    for (const row of token.rows) {
+      min = Math.max(min, getMin(row.cells[colIdx]?.children));
+    }
+    return min;
   });
-  result.push({ text: '\n' });
 
-  // Data rows
-  for (const row of token.rows) {
-    result.push(...renderTableRow(row, colWidths, false, token.align));
-    result.push({ text: '\n' });
+  // Calculate preferred column widths (full content width)
+  const preferredWidths = token.header.cells.map((_, colIdx) => {
+    const getPref = (tokens?: MarkdownToken[]) => Math.max(getText(tokens).length, 3);
+    let pref = getPref(token.header.cells[colIdx]?.children);
+    for (const row of token.rows) {
+      pref = Math.max(pref, getPref(row.cells[colIdx]?.children));
+    }
+    return pref;
+  });
+
+  const numColumns = token.header.cells.length;
+  const overhead = 1 + numColumns * 3;
+  const availableWidth = Math.max(width - overhead, numColumns * 3);
+
+  const totalMinWidth = minWidths.reduce((a, b) => a + b, 0);
+  const totalPreferredWidth = preferredWidths.reduce((a, b) => a + b, 0);
+  const needsOverflow = totalMinWidth + overhead > width;
+
+  let columnWidths: number[];
+  if (needsOverflow) {
+    columnWidths = minWidths;
+  } else if (totalPreferredWidth <= availableWidth) {
+    columnWidths = preferredWidths;
+  } else {
+    const extraSpace = availableWidth - totalMinWidth;
+    const diffs = preferredWidths.map((p, i) => p - minWidths[i]);
+    const totalDiff = diffs.reduce((a, b) => a + b, 0);
+    columnWidths = minWidths.map((m, i) => {
+      if (totalDiff === 0) return m;
+      return m + Math.floor((diffs[i] / totalDiff) * extraSpace);
+    });
   }
 
+  if (needsOverflow) {
+    return renderMobileTable(token, options);
+  }
+
+  return renderBorderedTable(token, columnWidths, options);
+}
+
+/**
+ * Render table in mobile-friendly key-value format.
+ */
+function renderMobileTable(token: TableToken, options: Required<MarkdownRendererOptions>): StyledText[] {
+  const result: StyledText[] = [];
+  const headers = token.header.cells.map(c => c.children?.map(t => t.content || '').join('') || '');
+  
+  token.rows.forEach((row, rowIdx) => {
+    if (rowIdx > 0) {
+      result.push({ text: '─'.repeat(Math.min(options.width, 40)) + '\n', style: { dimColor: true } });
+    }
+    row.cells.forEach((cell, colIdx) => {
+      const header = headers[colIdx] || `Column ${colIdx + 1}`;
+      const content = cell.children?.map(t => t.content || '').join('') || '';
+      result.push({ text: header + ': ', style: { bold: true } });
+      result.push({ text: content + '\n' });
+    });
+  });
+  
   return result;
 }
 
 /**
- * Render table row.
+ * Render bordered table with specified column widths.
  */
-function renderTableRow(
-  row: { cells: { children?: MarkdownToken[] }[] },
-  colWidths: number[],
-  isHeader: boolean,
-  align?: ('left' | 'center' | 'right' | null)[]
+function renderBorderedTable(
+  token: TableToken, 
+  colWidths: number[], 
+  options: Required<MarkdownRendererOptions>
 ): StyledText[] {
   const result: StyledText[] = [];
-
-  row.cells.forEach((cell, i) => {
-    const content = (cell.children ?? [])
-      .map((c) => c.content ?? '')
-      .join('');
-    const width = colWidths[i] ?? 10;
-    const padded = padCell(content, width, align?.[i] ?? 'left');
-
-    if (i > 0) {
-      result.push({ text: ' │ ', style: { dimColor: true } });
-    }
-
-    result.push({
-      text: padded,
-      style: isHeader ? { bold: true } : undefined,
+  
+  const drawLine = (type: 'top' | 'middle' | 'bottom') => {
+    const chars = {
+      top: { start: '┌', mid: '┬', end: '┐' },
+      middle: { start: '├', mid: '┼', end: '┤' },
+      bottom: { start: '└', mid: '┴', end: '┘' }
+    }[type];
+    let line = chars.start;
+    colWidths.forEach((w, i) => {
+      line += '─'.repeat(w + 2);
+      line += i < colWidths.length - 1 ? chars.mid : chars.end;
     });
-  });
+    return line + '\n';
+  };
 
+  const renderRow = (row: TableRowToken, isHeader: boolean) => {
+    const cells = row.cells.map((cell, i) => {
+      const content = cell.children?.map(t => t.content || '').join('') || '';
+      const width = colWidths[i] || 10;
+      const align = isHeader ? 'center' : token.align?.[i] || 'left';
+      return padCell(content, width, align);
+    });
+    return '│ ' + cells.join(' │ ') + ' │\n';
+  };
+
+  result.push({ text: drawLine('top'), style: { dimColor: true } });
+  result.push({ text: renderRow(token.header, true) });
+  result.push({ text: drawLine('middle'), style: { dimColor: true } });
+  
+  token.rows.forEach((row, i) => {
+    result.push({ text: renderRow(row, false) });
+    if (i < token.rows.length - 1) {
+      result.push({ text: drawLine('middle'), style: { dimColor: true } });
+    }
+  });
+  
+  result.push({ text: drawLine('bottom'), style: { dimColor: true } });
+  
   return result;
 }
 

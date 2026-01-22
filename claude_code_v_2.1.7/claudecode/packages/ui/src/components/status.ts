@@ -30,7 +30,7 @@ export class BlinkingManager {
   private subscribers: Set<(state: BlinkingState) => void> = new Set();
   private interval: number;
 
-  private constructor(interval = COMPONENT_CONSTANTS.BLINK_INTERVAL) {
+  private constructor(interval = 600) {
     this.interval = interval;
   }
 
@@ -88,8 +88,9 @@ export class BlinkingManager {
 
   /**
    * Subscribe to state changes.
+   * Returns current visibility state (matching source zW5).
    */
-  subscribe(callback: (state: BlinkingState) => void): () => void {
+  subscribe(callback: (state: BlinkingState) => void): boolean {
     this.subscribers.add(callback);
 
     // Start if first subscriber
@@ -97,15 +98,19 @@ export class BlinkingManager {
       this.start();
     }
 
-    // Return unsubscribe function
-    return () => {
-      this.subscribers.delete(callback);
+    return this.isVisible;
+  }
 
-      // Stop if no subscribers
-      if (this.subscribers.size === 0) {
-        this.stop();
-      }
-    };
+  /**
+   * Unsubscribe from state changes.
+   */
+  unsubscribe(callback: (state: BlinkingState) => void): void {
+    this.subscribers.delete(callback);
+
+    // Stop if no subscribers
+    if (this.subscribers.size === 0) {
+      this.stop();
+    }
   }
 
   /**
@@ -132,17 +137,27 @@ export class BlinkingManager {
 
 /**
  * React hook for synchronized blinking state.
- * Original: WZ2 (useBlinkingState) in chunks.66.mjs
+ * Original: WZ2 (useBlinkingState) in chunks.97.mjs
+ * 
+ * @param shouldAnimate Whether to subscribe to blinking state. If false, returns true.
  */
-export function useBlinkingState(): BlinkingState {
+export function useBlinkingState(shouldAnimate = true): boolean {
   const manager = BlinkingManager.getInstance();
-  const [state, setState] = useState<BlinkingState>(() => manager.getState());
+  const [isVisible, setIsVisible] = useState<boolean>(() => manager.getState().isVisible);
 
   useEffect(() => {
-    return manager.subscribe(setState);
-  }, [manager]);
+    if (!shouldAnimate) return;
 
-  return state;
+    const handleBlink = () => setIsVisible(manager.getState().isVisible);
+    const initialState = manager.subscribe(handleBlink);
+    setIsVisible(initialState);
+
+    return () => {
+      manager.unsubscribe(handleBlink);
+    };
+  }, [shouldAnimate, manager]);
+
+  return shouldAnimate ? isVisible : true;
 }
 
 // ============================================
@@ -153,13 +168,13 @@ const BULLET_CHAR = process.platform === 'darwin' ? '⏺' : '●';
 
 /**
  * Status indicator dot that blinks while unresolved.
- * Original: k4A (StatusIndicator) in chunks.66.mjs
+ * Original: k4A (StatusIndicator) in chunks.97.mjs
  */
 export function StatusIndicator({ shouldAnimate, isUnresolved, isError }: StatusIndicatorProps): React.ReactElement {
-  const { isVisible } = useBlinkingState();
+  const isVisible = useBlinkingState(shouldAnimate);
 
-  const color = isError ? 'red' : !isUnresolved ? 'green' : undefined;
-  const dimColor = !isError && isUnresolved;
+  const color = isUnresolved ? undefined : isError ? 'red' : 'green';
+  const dimColor = isUnresolved;
 
   // Show dot when:
   // - not animating, or
@@ -177,6 +192,23 @@ export function StatusIndicator({ shouldAnimate, isUnresolved, isError }: Status
       shouldRenderDot ? BULLET_CHAR : ' '
     )
   );
+}
+
+// ============================================
+// Terminal Focus Management
+// ============================================
+
+export interface TerminalFocusState {
+  isTerminalFocused: boolean;
+}
+
+export const TerminalFocusContext = React.createContext<TerminalFocusState>({
+  isTerminalFocused: true,
+});
+
+export function useTerminalFocus(): boolean {
+  const context = React.useContext(TerminalFocusContext);
+  return context.isTerminalFocused;
 }
 
 // ============================================

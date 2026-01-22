@@ -86,8 +86,23 @@ export function streamEventProcessor(
         setToolInputs((prev) => [...prev, { index: idx, contentBlock: block, unparsedToolInput: '' }]);
         return;
       }
-      // Server tools / MCP / web search etc
-      setStatus('tool-input');
+      
+      const toolInputTypes = [
+        'server_tool_use',
+        'web_search_tool_result',
+        'code_execution_tool_result',
+        'mcp_tool_use',
+        'mcp_tool_result',
+        'container_upload',
+        'web_fetch_tool_result',
+        'bash_code_execution_tool_result',
+        'text_editor_code_execution_tool_result'
+      ];
+
+      if (toolInputTypes.includes(blockType)) {
+        setStatus('tool-input');
+        return;
+      }
       return;
     }
 

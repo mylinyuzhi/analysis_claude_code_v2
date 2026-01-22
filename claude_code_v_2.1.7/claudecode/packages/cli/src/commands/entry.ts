@@ -39,6 +39,8 @@ import {
   getLocalSettingsPath,
   getProjectSettingsPath,
   applySafeEnvVars,
+  configureGlobalMTLS,
+  configureGlobalAgents,
 } from '../settings/loader.js';
 import {
   initializeMcp,
@@ -163,16 +165,15 @@ export function isVersionFastPath(args: string[]): boolean {
  * 4. Load and execute appropriate handler
  */
 export async function mainEntry(): Promise<void> {
+  const { telemetryMarker } = await import('@claudecode/platform');
   const args = process.argv.slice(2);
   const mode = detectExecutionMode(args);
-
-  // Emit telemetry marker for mode
-  emitTelemetryMarker(mode);
 
   switch (mode) {
     case 'print':
       // Version fast path
       if (isVersionFastPath(args)) {
+        telemetryMarker('cli_version_fast_path');
         console.log(`${CLI_CONSTANTS.VERSION} (Claude Code)`);
         return;
       }
@@ -187,6 +188,7 @@ export async function mainEntry(): Promise<void> {
 
     case 'ripgrep':
       // Ripgrep mode - execute embedded ripgrep
+      telemetryMarker('cli_ripgrep_path');
       const rgArgs = args.slice(1);
       const rgExitCode = await handleRipgrep(rgArgs);
       process.exitCode = rgExitCode;
@@ -194,18 +196,24 @@ export async function mainEntry(): Promise<void> {
 
     case 'chrome-mcp':
       // Chrome MCP server
+      telemetryMarker('cli_claude_in_chrome_mcp_path');
       await handleChromeMcp();
       return;
 
     case 'chrome-native':
       // Chrome native host
+      telemetryMarker('cli_chrome_native_host_path');
       await handleChromeNative();
       return;
 
     case 'interactive':
     default:
       // Standard mode - load main module
+      telemetryMarker('cli_before_main_import');
+      // In source, there's a dynamic import here.
+      telemetryMarker('cli_after_main_import');
       await handleMainCommand();
+      telemetryMarker('cli_after_main_complete');
       break;
   }
 }
@@ -227,11 +235,12 @@ export async function mainEntry(): Promise<void> {
  * 5. Branch to print or interactive mode
  */
 async function handleMainCommand(): Promise<void> {
+  const { telemetryMarker } = await import('@claudecode/platform');
   const args = process.argv.slice(2);
 
   try {
     // Phase 1: Parse CLI options
-    emitTelemetryMarker('run_function_start' as any);
+    telemetryMarker('run_function_start');
     const options = parseOptions(args);
 
     // Phase 2: Validate options
@@ -244,9 +253,9 @@ async function handleMainCommand(): Promise<void> {
     }
 
     // Phase 3: Run preAction hook - initialization pipeline
-    emitTelemetryMarker('preAction_start' as any);
+    telemetryMarker('preAction_start');
     await runPreActionHook();
-    emitTelemetryMarker('preAction_after_init' as any);
+    telemetryMarker('preAction_after_init');
 
     // Phase 4: Extract key options
     const {
@@ -283,7 +292,7 @@ async function handleMainCommand(): Promise<void> {
     }
 
     // Phase 7: Load MCP configuration
-    emitTelemetryMarker('action_mcp_configs_loaded' as any);
+    telemetryMarker('action_mcp_configs_loaded');
     let mcpServers: Record<string, unknown> = {};
     if (mcpConfig) {
       mcpServers = await loadMcpConfig(mcpConfig);
@@ -294,9 +303,17 @@ async function handleMainCommand(): Promise<void> {
     if (!stdinPrompt && !process.stdin.isTTY) {
       stdinPrompt = await readStdinPrompt();
     }
-    emitTelemetryMarker('action_after_input_prompt' as any);
+    telemetryMarker('action_after_input_prompt');
 
     // Phase 9: Mode branching
+    telemetryMarker('action_before_setup');
+    // ... setup logic ...
+    telemetryMarker('action_after_setup');
+    
+    telemetryMarker('action_commands_loaded');
+    telemetryMarker('action_after_plugins_init');
+    telemetryMarker('action_after_hooks');
+
     if (isPrintMode) {
       // Print mode (non-interactive)
       await runPrintMode({
@@ -328,8 +345,6 @@ async function handleMainCommand(): Promise<void> {
         mcpServers,
       });
     }
-
-    emitTelemetryMarker('cli_after_main_complete' as any);
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : String(error));
     process.exit(CLI_CONSTANTS.EXIT_CODES.ERROR);
@@ -371,23 +386,243 @@ async function runPreActionHook(): Promise<void> {
  * Original: zI9 (initializeConfig) in chunks.149.mjs:2065-2105
  */
 async function initializeConfig(): Promise<void> {
-  // Enable configs
-  enableConfigs();
+  const { telemetryMarker } = await import('@claudecode/platform');
+  const startTime = Date.now();
+  
+  // OB("info", "init_started")
+  logInfo("init_started");
+  telemetryMarker('init_function_start');
 
-  // Apply safe environment variables
-  applySafeEnvVars();
+  try {
+    // Phase 1: Enable configs
+    const phase1Start = Date.now();
+    enableConfigs(); // nOA
+    logInfo("init_configs_enabled", { duration_ms: Date.now() - phase1Start });
+    telemetryMarker('init_configs_enabled');
 
-  // Initialize detectors (settings, skills)
-  // These would normally watch for file changes
+    // Phase 2: Apply safe environment variables
+    const phase2Start = Date.now();
+    applySafeEnvVars(); // KI9
+    logInfo("init_safe_env_vars_applied", { duration_ms: Date.now() - phase2Start });
+    telemetryMarker('init_safe_env_vars_applied');
 
-  // Setup graceful shutdown handlers
-  setupGracefulShutdown();
+    // Phase 3: Initialize detectors
+    const phase3Start = Date.now();
+    // HC.initialize() -> SettingsDetector.initialize()
+    await initializeSettingsDetector();
+    logInfo("init_settings_detector_initialized", { duration_ms: Date.now() - phase3Start });
+    telemetryMarker('init_settings_detector_initialized');
 
-  // Initialize event logging
-  initializeEventLogging();
+    // k$1.initialize() -> SkillDetector.initialize()
+    await initializeSkillDetector();
+    telemetryMarker('init_skill_detector_initialized');
 
-  // Populate OAuth tokens
-  await populateOAuth();
+    // Phase 4: Setup graceful shutdown handlers
+    setupGracefulShutdown(); // LZ2
+    telemetryMarker('init_after_graceful_shutdown');
+
+    // Phase 5: Initialize event logging
+    initializeEventLogging(); // IKB
+    telemetryMarker('init_after_1p_event_logging');
+
+    // Phase 6: Populate OAuth tokens
+    await populateOAuth(); // jEQ
+    telemetryMarker('init_after_oauth_populate');
+
+    // Phase 7: Load remote settings check
+    if (shouldFetchRemoteSettings()) { // iH0()
+      initFetchRemoteSettings(); // FL2()
+    }
+    telemetryMarker('init_after_remote_settings_check');
+
+    // Phase 8: Initialize first launch time if needed
+    initializeFirstLaunchTime(); // B2B()
+
+    // Phase 9: Configure network (mTLS, proxy)
+    const phase9Start = Date.now();
+    logDebug("[init] configureGlobalMTLS starting");
+    configureGlobalMTLS(); // btQ()
+    logInfo("init_mtls_configured", { duration_ms: Date.now() - phase9Start });
+    logDebug("[init] configureGlobalMTLS complete");
+
+    const phase10Start = Date.now();
+    logDebug("[init] configureGlobalAgents starting");
+    configureGlobalAgents(); // mtQ()
+    logInfo("init_proxy_configured", { duration_ms: Date.now() - phase10Start });
+    logDebug("[init] configureGlobalAgents complete");
+    telemetryMarker('init_network_configured');
+
+    // Phase 10: Configure Windows shell and handle MCP-CLI session
+    configureWindowsShell(); // F7Q()
+    
+    // C6(Sy2) -> Register shutdown hook for LSP manager
+    registerShutdownHook(shutdownLspManager);
+
+    if (isMcpCliMode()) { // jJ()
+      process.env.CLAUDE_CODE_SESSION_ID = getSessionId() || generateNewSessionId(); // q0()
+      registerMcpCliCleanup(); // AX9()
+    }
+
+    // Phase 11: Initialize scratchpad if enabled
+    if (isScratchpadEnabled()) { // K$A()
+      const phase11Start = Date.now();
+      await initializeScratchpad(); // YX9()
+      logInfo("init_scratchpad_created", { duration_ms: Date.now() - phase11Start });
+    }
+
+    logInfo("init_completed", { duration_ms: Date.now() - startTime });
+    telemetryMarker('init_function_end');
+
+  } catch (error) {
+    if (error instanceof ConfigParseError) { // Hq
+      return handleConfigError({ error }); // VI9
+    }
+    throw error;
+  }
+}
+
+/**
+ * Helper for logging info events (OB equivalent).
+ */
+function logInfo(event: string, metadata?: Record<string, unknown>): void {
+  // In source, this goes to an internal logger/telemetry system
+  if (process.env.DEBUG) {
+    console.error(`[INFO] ${event}`, metadata || '');
+  }
+}
+
+/**
+ * Helper for logging debug messages (k equivalent).
+ */
+function logDebug(message: string): void {
+  if (process.env.DEBUG) {
+    console.error(`[DEBUG] ${message}`);
+  }
+}
+
+/**
+ * Placeholder for SettingsDetector initialization.
+ * Original: HC.initialize() (cG8 in chunks.55.mjs)
+ */
+async function initializeSettingsDetector(): Promise<void> {
+  // Implementation would involve setting up a file watcher for settings files
+}
+
+/**
+ * Placeholder for SkillDetector initialization.
+ * Original: k$1.initialize() (pU7 in chunks.149.mjs)
+ */
+async function initializeSkillDetector(): Promise<void> {
+  // Implementation would involve setting up a directory watcher for skills
+}
+
+/**
+ * Placeholder for remote settings check.
+ * Original: iH0() (Zc in chunks.107.mjs)
+ */
+function shouldFetchRemoteSettings(): boolean {
+  // Enterprise/First-party check logic
+  return false; 
+}
+
+/**
+ * Placeholder for starting remote settings fetch.
+ * Original: FL2() (chunks.107.mjs)
+ */
+function initFetchRemoteSettings(): void {
+  // Sets up a global promise for remote settings
+}
+
+/**
+ * Initialize first launch time if not set.
+ * Original: B2B() (chunks.48.mjs)
+ */
+function initializeFirstLaunchTime(): void {
+  // Sets firstStartTime in global config/state
+}
+
+/**
+ * Configure shell for Windows (Git Bash detection).
+ * Original: F7Q() (chunks.20.mjs)
+ */
+function configureWindowsShell(): void {
+  if (process.platform === 'win32') {
+    // Logic to find Git Bash and set process.env.SHELL
+  }
+}
+
+/**
+ * Shutdown hooks registration system.
+ * Original: C6() (chunks.1.mjs)
+ */
+const shutdownHooks = new Set<() => Promise<void> | void>();
+function registerShutdownHook(hook: () => Promise<void> | void): void {
+  shutdownHooks.add(hook);
+}
+
+/**
+ * LSP Manager shutdown hook.
+ * Original: Sy2() (chunks.114.mjs)
+ */
+async function shutdownLspManager(): Promise<void> {
+  // Implementation to shutdown Yx (LSP Server Manager)
+}
+
+/**
+ * Check if running in MCP-CLI mode.
+ * Original: jJ() (chunks.148.mjs)
+ */
+function isMcpCliMode(): boolean {
+  // Check if args include --mcp-cli or related mode
+  return process.argv.includes('--mcp-cli');
+}
+
+/**
+ * Register cleanup hook for MCP-CLI mode.
+ * Original: AX9() (chunks.148.mjs)
+ */
+function registerMcpCliCleanup(): void {
+  registerShutdownHook(async () => {
+    // Cleanup MCP-CLI specific session files
+  });
+}
+
+/**
+ * Check if scratchpad feature is enabled.
+ * Original: K$A() (chunks.148.mjs)
+ */
+function isScratchpadEnabled(): boolean {
+  // Feature flag check for tengu_scratch
+  return false;
+}
+
+/**
+ * Initialize scratchpad directory.
+ * Original: YX9() (chunks.148.mjs)
+ */
+async function initializeScratchpad(): Promise<void> {
+  // Create scratchpad directory if needed
+}
+
+/**
+ * Custom error class for configuration parsing errors.
+ * Original: Hq (chunks.20.mjs)
+ */
+class ConfigParseError extends Error {
+  constructor(public filePath: string, public defaultConfig: any) {
+    super(`Failed to parse config at ${filePath}`);
+    this.name = 'ConfigParseError';
+  }
+}
+
+/**
+ * Handle configuration error by showing an interactive UI.
+ * Original: VI9() (chunks.149.mjs)
+ */
+async function handleConfigError(options: { error: ConfigParseError }): Promise<void> {
+  console.error(`\n❌ Configuration Error in ${options.error.filePath}`);
+  console.error('Please fix the JSON or delete the file to reset to defaults.');
+  process.exit(CLI_CONSTANTS.EXIT_CODES.ERROR);
 }
 
 /**
@@ -1163,37 +1398,6 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
   );
 
   await waitUntilExit();
-}
-
-// ============================================
-// Telemetry
-// ============================================
-
-/**
- * Emit telemetry marker for execution mode.
- */
-function emitTelemetryMarker(mode: ExecutionMode): void {
-  const markers = CLI_CONSTANTS.TELEMETRY_MARKERS;
-
-  switch (mode) {
-    case 'mcp-cli':
-      // No specific marker for MCP CLI
-      break;
-    case 'ripgrep':
-      console.debug(markers.RIPGREP_PATH);
-      break;
-    case 'chrome-mcp':
-      console.debug(markers.CHROME_MCP_PATH);
-      break;
-    case 'chrome-native':
-      console.debug(markers.CHROME_NATIVE_PATH);
-      break;
-    case 'interactive':
-    case 'print':
-    default:
-      console.debug(markers.BEFORE_MAIN_IMPORT);
-      break;
-  }
 }
 
 // ============================================

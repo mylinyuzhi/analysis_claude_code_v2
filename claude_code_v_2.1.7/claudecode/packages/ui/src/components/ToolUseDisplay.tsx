@@ -74,6 +74,7 @@ export const ToolUseDisplay: React.FC<ToolUseDisplayProps> = ({
   progressMessagesForMessage,
   shouldAnimate = true,
   shouldShowDot = true,
+  isWaitingPermission = false,
 }) => {
   const toolName = param?.name;
   const toolUseId = param?.id;
@@ -137,8 +138,14 @@ export const ToolUseDisplay: React.FC<ToolUseDisplayProps> = ({
 
           {tag}
         </Box>
+        
+        {isWaitingPermission && (
+          <Box paddingLeft={2}>
+            <Text dimColor>Waiting for permission...</Text>
+          </Box>
+        )}
 
-        {!isResolved && !isAborted && progress !== '' && (
+        {!isResolved && !isAborted && !isWaitingPermission && progress !== '' && (
           <Box paddingLeft={2}>
             <Text dimColor>{progress}</Text>
           </Box>
@@ -146,7 +153,7 @@ export const ToolUseDisplay: React.FC<ToolUseDisplayProps> = ({
 
         {!isResolved && isAborted && (
           <Box paddingLeft={2}>
-            <Text dimColor>Aborted</Text>
+            <Text dimColor>{typeof toolDef?.renderAbortedIndicator === 'function' ? toolDef.renderAbortedIndicator(parsedInput) : 'Aborted'}</Text>
           </Box>
         )}
       </Box>

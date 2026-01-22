@@ -12,5 +12,7 @@ export * from './Confirmation.js';
 export * from './Select.js';
 export * from './PermissionPrompt.js';
 export * from './TextInput.js';
+export * from './animations.js';
 export * from './ToolUseDisplay.js';
+export * from './Markdown.js';
 export * from './streamEventProcessor.js';

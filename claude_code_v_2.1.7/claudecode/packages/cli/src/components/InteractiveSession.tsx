@@ -5,10 +5,14 @@ import {
   PermissionPrompt,
   ToolUseDisplay,
   streamEventProcessor,
+  Markdown,
+  parseMarkdown,
   type PermissionResponse,
   type UIStreamingStatus,
   type ToolInputPreview,
   type ThinkingState,
+  TextInput,
+  TerminalFocusContext,
 } from '@claudecode/ui';
 import { coreMessageLoop } from '@claudecode/core/agent-loop';
 import { createUserMessage } from '@claudecode/core/message';
@@ -16,26 +20,7 @@ import type { ConversationMessage } from '@claudecode/core/message';
 import type { LoopEvent } from '@claudecode/core/agent-loop';
 import type { ToolDefinition } from '@claudecode/core/tools';
 
-// Simple TextInput component
-const TextInput = ({ value, onChange, onSubmit }: { value: string, onChange: (v: string) => void, onSubmit: (v: string) => void }) => {
-  useInput((input: string, key: any) => {
-    if (key.return) {
-      onSubmit(value);
-    } else if (key.backspace || key.delete) {
-      onChange(value.slice(0, -1));
-    } else if (!key.ctrl && !key.meta) {
-      onChange(value + input);
-    }
-  });
-
-  return (
-    <Box>
-      <Text color="green">❯ </Text>
-      <Text>{value}</Text>
-      <Text inverse> </Text>
-    </Box>
-  );
-};
+// Simple TextInput component is now imported from @claudecode/ui
 
 export interface InteractiveSessionProps {
   initialMessages: ConversationMessage[];
@@ -68,8 +53,31 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
   const [messages, setMessages] = useState<ConversationMessage[]>(initialMessages);
   const [inputValue, setInputValue] = useState('');
   const [isThinking, setIsThinking] = useState(false);
-  const [permissionReq, setPermissionReq] = useState<{tool: string, input: any} | null>(null);
-  const [history, setHistory] = useState<{id: string, text: string}[]>([]);
+  const [permissionReq, setPermissionReq] = useState<{tool: string, input: any, toolUseId?: string} | null>(null);
+  const [history, setHistory] = useState<{id: string, text: string, tokens?: any[]}[]>([]);
+  const [isTerminalFocused, setIsTerminalFocused] = useState(true);
+  
+  // Terminal focus reporting (simplified)
+  useEffect(() => {
+    // Only enable focus reporting if:
+    // 1. Output is a TTY
+    // 2. Accessibility mode is NOT enabled
+    const accessibilityMode = process.env.CLAUDE_CODE_ACCESSIBILITY === '1' || process.env.CLAUDE_CODE_ACCESSIBILITY === 'true';
+    
+    if (process.stdout.isTTY && !accessibilityMode) {
+      process.stdout.write('\x1b[?1004h');
+      const handleData = (data: Buffer) => {
+        const str = data.toString();
+        if (str.includes('\x1b[I')) setIsTerminalFocused(true);
+        if (str.includes('\x1b[O')) setIsTerminalFocused(false);
+      };
+      process.stdin.on('data', handleData);
+      return () => {
+        process.stdin.off('data', handleData);
+        process.stdout.write('\x1b[?1004l');
+      };
+    }
+  }, []);
 
   // Streaming UI state
   const [uiStatus, setUiStatus] = useState<UIStreamingStatus>('requesting');
@@ -94,9 +102,16 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
   }, [permissionReq]);
 
   // Permission check callback
-  const canUseTool = useCallback(async (tool: ToolDefinition, input: any) => {
+  const canUseTool = useCallback(async (tool: ToolDefinition, input: any, assistantMessage: ConversationMessage) => {
+    // Find the tool_use block in the assistant message that matches this tool and name
+    const content = (assistantMessage as any)?.message?.content;
+    const toolUseBlock = Array.isArray(content) 
+      ? content.find((b: any) => b.type === 'tool_use' && b.name === tool.name)
+      : null;
+    const toolUseId = toolUseBlock?.id;
+
     return new Promise<boolean | any>((resolve) => {
-      setPermissionReq({ tool: tool.name, input });
+      setPermissionReq({ tool: tool.name, input, toolUseId });
       permissionResolveRef.current = (response: PermissionResponse) => {
         if (response.type === 'allow') {
           resolve(true);
@@ -156,7 +171,7 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
   const handleSubmit = async (text: string) => {
     if (!text.trim()) return;
     
-    setHistory(prev => [...prev, { id: Date.now().toString(), text: `> ${text}` }]);
+    setHistory(prev => [...prev, { id: Date.now().toString(), text: `> ${text}`, tokens: parseMarkdown(`> ${text}`) }]);
     setInputValue('');
     setIsThinking(true);
 
@@ -287,25 +302,26 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
 
       // Add final assistant response to history
       if (fullResponse) {
-        setHistory((prev) => [...prev, { id: Date.now().toString(), text: fullResponse }]);
+        setHistory((prev) => [...prev, { id: Date.now().toString(), text: fullResponse, tokens: parseMarkdown(fullResponse) }]);
       }
 
     } catch (err) {
-      setHistory(prev => [...prev, { id: Date.now().toString(), text: `Error: ${err}` }]);
+      setHistory(prev => [...prev, { id: Date.now().toString(), text: `Error: ${err}`, tokens: parseMarkdown(`Error: ${err}`) }]);
     } finally {
       setIsThinking(false);
     }
   };
 
   return (
-    <Box flexDirection="column">
-      <Static items={history}>
-        {(item) => (
-          <Box key={item.id} marginBottom={1}>
-            <Text>{item.text}</Text>
-          </Box>
-        )}
-      </Static>
+    <TerminalFocusContext.Provider value={{ isTerminalFocused }}>
+      <Box flexDirection="column">
+        <Static items={history}>
+          {(item) => (
+            <Box key={item.id} marginBottom={1}>
+              {item.tokens ? <Markdown tokens={item.tokens} /> : <Text>{item.text}</Text>}
+            </Box>
+          )}
+        </Static>
 
       {/* Streaming preview (best-effort) */}
       {!permissionReq && (uiStatus === 'responding' || uiStatus === 'thinking') && streamingDelta && (
@@ -339,6 +355,7 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
                   resolvedToolUseIDs={resolvedToolUseIDsRef.current}
                   shouldAnimate={true}
                   shouldShowDot={true}
+                  isWaitingPermission={permissionReq?.toolUseId === id}
                 />
               );
             })}
@@ -355,13 +372,15 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
         <Box>
           <Text color="cyan"><Spinner /> Claude is thinking...</Text>
         </Box>
-      ) : (
-        <TextInput 
-          value={inputValue} 
-          onChange={setInputValue} 
-          onSubmit={handleSubmit} 
-        />
-      )}
-    </Box>
+        ) : (
+          <TextInput 
+            value={inputValue} 
+            onChange={setInputValue} 
+            onSubmit={handleSubmit} 
+            placeholder="Type your message..."
+          />
+        )}
+      </Box>
+    </TerminalFocusContext.Provider>
   );
 };

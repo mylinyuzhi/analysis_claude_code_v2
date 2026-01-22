@@ -83,6 +83,8 @@ export interface ToolUseDisplayProps {
   shouldAnimate?: boolean;
   /** Whether to render the status dot */
   shouldShowDot?: boolean;
+  /** Whether this tool use is waiting for permission */
+  isWaitingPermission?: boolean;
 }
 
 /**
