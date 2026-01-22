@@ -45,8 +45,8 @@ import {
   resetMcpState,
   getMcpState,
   connectMcpServer,
-  type McpServerConfig as StateMcpServerConfig,
 } from '../mcp/state.js';
+import type { McpServerConfig as StateMcpServerConfig } from '@claudecode/integrations';
 import {
   getCommandRegistry,
   parseSlashCommandInput,
@@ -545,7 +545,7 @@ async function populateOAuth(): Promise<void> {
   try {
     // Attempt to refresh the token to ensure we have valid credentials available
     // for the session. This is a best-effort operation at startup.
-    await refreshOAuthTokenIfNeeded('claude_ai');
+    await refreshOAuthTokenIfNeeded();
   } catch (error) {
     // Ignore errors during startup - authentication may be handled later
     // or the user may not be logged in yet.
@@ -696,7 +696,12 @@ function textFromContentBlocks(blocks: unknown): string {
 
 function isConversationMessage(event: LoopEvent): event is ConversationMessage {
   return typeof event === 'object' && event !== null && 'type' in event &&
-    (event as any).type !== 'progress' && (event as any).type !== 'tombstone' && (event as any).type !== 'stream_request_start';
+    (event as any).type !== 'progress' &&
+    (event as any).type !== 'tombstone' &&
+    (event as any).type !== 'stream_request_start' &&
+    (event as any).type !== 'stream_event' &&
+    (event as any).type !== 'retry' &&
+    (event as any).type !== 'api_error';
 }
 
 function adaptToolsForCore(options: {
@@ -1133,7 +1138,9 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
 
   const conversation: ConversationMessage[] = [];
   if (initialPrompt) {
-    conversation.push(createCoreUserMessage(initialPrompt.trim()) as any);
+    conversation.push(
+      createCoreUserMessage({ content: initialPrompt.trim() }) as unknown as ConversationMessage
+    );
   }
 
   console.log('Claude Code v' + CLI_CONSTANTS.VERSION);

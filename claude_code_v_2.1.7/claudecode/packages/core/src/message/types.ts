@@ -220,7 +220,7 @@ export interface Attachment {
   /** Attachment content */
   content?: string | string[];
   /** Hook event type */
-  hookEvent?: 'PreToolUse' | 'PostToolUse' | 'SubagentStart';
+  hookEvent?: 'PreToolUse' | 'PostToolUse' | 'SubagentStart' | 'Stop';
   /** Hook name */
   hookName?: string;
   /** Associated tool use ID */

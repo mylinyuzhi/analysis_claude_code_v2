@@ -12,3 +12,5 @@ export * from './Confirmation.js';
 export * from './Select.js';
 export * from './PermissionPrompt.js';
 export * from './TextInput.js';
+export * from './ToolUseDisplay.js';
+export * from './streamEventProcessor.js';

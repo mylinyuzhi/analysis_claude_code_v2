@@ -7,6 +7,7 @@
 
 import type { ContentBlock } from '@claudecode/shared';
 import type { ConversationMessage } from '../message/types.js';
+import type { ApiError, RetryInfo, StreamEvent } from '../llm-api/types.js';
 import type { ToolDefinition, ToolUseContext, PermissionResult } from '../tools/types.js';
 
 // ============================================
@@ -414,12 +415,46 @@ export interface TombstoneEvent {
 }
 
 /**
+ * Raw streaming event from the LLM API.
+ *
+ * Source: streamApiCall/queryWithStreaming yields raw `StreamEvent` for UI.
+ */
+export interface StreamEventLoopEvent {
+  type: 'stream_event';
+  event: StreamEvent;
+}
+
+/**
+ * Retry event for streaming API call (used by UI for feedback).
+ */
+export interface RetryLoopEvent {
+  type: 'retry';
+  attempt: number;
+  maxAttempts: number;
+  delayMs: number;
+}
+
+/**
+ * API error surfaced from streaming pipeline.
+ *
+ * Note: the loop may also emit an `assistant` error message or an `attachment`.
+ */
+export interface ApiErrorLoopEvent {
+  type: 'api_error';
+  error: ApiError;
+  retryInfo?: RetryInfo;
+}
+
+/**
  * Loop events union
  */
 export type LoopEvent =
   | StreamRequestStartEvent
   | ProgressEvent
   | TombstoneEvent
+  | StreamEventLoopEvent
+  | RetryLoopEvent
+  | ApiErrorLoopEvent
   | ConversationMessage;
 
 // ============================================

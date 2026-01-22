@@ -42,6 +42,9 @@ import type {
   ToolUseBlock,
   QueryTracking,
   ToolExecutionYield,
+  ApiErrorLoopEvent,
+  RetryLoopEvent,
+  StreamEventLoopEvent,
 } from './types.js';
 import { AGENT_LOOP_CONSTANTS } from './types.js';
 
@@ -785,7 +788,7 @@ async function* streamApiResponse(options: {
     taskIntensityOverride?: unknown;
     agentId?: string;
   };
-}): AsyncGenerator<ConversationMessage> {
+}): AsyncGenerator<LoopEvent> {
   // In the bundled runtime, tools are provided to the API as JSON-schema tool definitions.
   // The reconstruction keeps internal ToolDefinitions in `options.tools`, so we convert them here.
   function zodToJsonSchema(schema: any): { type: 'object'; properties: Record<string, unknown>; required?: string[] } {
@@ -951,31 +954,39 @@ async function* streamApiResponse(options: {
           },
         } as ConversationMessage;
 
+        // UI consumes this as a regular ConversationMessage LoopEvent
         yield message;
       } else if (result.type === 'stream_event') {
-        // Could yield stream events for UI if needed
-        // For now, we only yield complete assistant messages
+        // Surface raw stream events so UI can implement fine-grained streaming.
+        const event: StreamEventLoopEvent = {
+          type: 'stream_event',
+          event: result.event,
+        };
+        yield event;
       } else if (result.type === 'api_error') {
-        // Handle API errors
-        const errorMessage: ConversationMessage = {
-          type: 'attachment',
-          uuid: generateUUID(),
-          timestamp: new Date().toISOString(),
-          attachment: {
-            type: 'error',
-            content: result.error.message,
-            apiError: result.error.type,
-          },
-        } as ConversationMessage;
-
-        yield errorMessage;
+        // Surface API error as dedicated LoopEvent for UI; coreMessageLoop
+        // can still choose to turn this into a user-visible message upstream.
+        const errorEvent: ApiErrorLoopEvent = {
+          type: 'api_error',
+          error: result.error,
+          retryInfo: result.retryInfo,
+        };
+        yield errorEvent;
       } else if (result.type === 'retry') {
-        // Log retry attempts
+        // Log retry attempts and surface to UI for feedback.
         logTelemetry('tengu_api_retry', {
           attempt: result.attempt,
           maxAttempts: result.maxAttempts,
           delayMs: result.delayMs,
         });
+
+        const retryEvent: RetryLoopEvent = {
+          type: 'retry',
+          attempt: result.attempt,
+          maxAttempts: result.maxAttempts,
+          delayMs: result.delayMs,
+        };
+        yield retryEvent;
       }
     }
   } catch (error) {
@@ -1184,7 +1195,7 @@ async function* checkPendingToolCalls(
   _stopHookActive?: boolean,
   _maxTurns?: number,
   _turnCount?: number
-): AsyncGenerator<ConversationMessage> {
+): AsyncGenerator<LoopEvent> {
   const context = _context!;
   const signal = context.abortController?.signal;
   
@@ -1280,14 +1291,14 @@ async function* processContinuationTriggers(
   _fallbackModel?: string,
   _maxTurns?: number,
   _turnCount?: number
-): AsyncGenerator<ConversationMessage> {
+): AsyncGenerator<LoopEvent> {
   const context = _context!;
   
   if (context.pendingSteeringAttachments && context.pendingSteeringAttachments.length > 0) {
     const steeringMessages: ConversationMessage[] = [];
     
     for (const attachment of context.pendingSteeringAttachments) {
-      const att = (attachment as ConversationMessage).attachment as any;
+      const att = (attachment as any).attachment as any;
       if (att && att.type === 'queued_command') {
         const metaMsg = createUserMessage({
           content: att.prompt,
@@ -1525,7 +1536,7 @@ export async function* coreMessageLoop(
 
         recordMarker('query_api_streaming_start');
 
-        for await (const message of streamApiResponse({
+        for await (const event of streamApiResponse({
           messages: addUserContextToMessages(processedMessages, userContext),
           systemPrompt: finalSystemPrompt,
           maxThinkingTokens: updatedContext.options.maxThinkingTokens,
@@ -1576,22 +1587,22 @@ export async function* coreMessageLoop(
             }
           }
 
-          yield message;
+          yield event;
 
           // Track assistant messages
-          if (message.type === 'assistant') {
-            assistantMessages.push(message);
+          if (event.type === 'assistant') {
+            assistantMessages.push(event);
 
             // Feed tool uses to streaming executor
             if (streamingToolExecutor) {
-              const content = (message as { message?: { content?: unknown[] } }).message?.content;
+              const content = (event as { message?: { content?: unknown[] } }).message?.content;
               if (Array.isArray(content)) {
                 const toolUses = content.filter(
                   (block): block is ToolUseBlock =>
                     (block as { type: string }).type === 'tool_use'
                 );
                 for (const toolUse of toolUses) {
-                  streamingToolExecutor.addTool(toolUse, message);
+                  streamingToolExecutor.addTool(toolUse, event);
                 }
               }
             }

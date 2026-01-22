@@ -1,14 +1,24 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Text, useInput, Static, useApp } from 'ink';
-import { Spinner, PermissionPrompt, type PermissionResponse } from '@claudecode/ui';
-import { coreMessageLoop } from '@claudecode/core';
+import {
+  Spinner,
+  PermissionPrompt,
+  ToolUseDisplay,
+  streamEventProcessor,
+  type PermissionResponse,
+  type UIStreamingStatus,
+  type ToolInputPreview,
+  type ThinkingState,
+} from '@claudecode/ui';
+import { coreMessageLoop } from '@claudecode/core/agent-loop';
 import { createUserMessage } from '@claudecode/core/message';
 import type { ConversationMessage } from '@claudecode/core/message';
+import type { LoopEvent } from '@claudecode/core/agent-loop';
 import type { ToolDefinition } from '@claudecode/core/tools';
 
 // Simple TextInput component
 const TextInput = ({ value, onChange, onSubmit }: { value: string, onChange: (v: string) => void, onSubmit: (v: string) => void }) => {
-  useInput((input, key) => {
+  useInput((input: string, key: any) => {
     if (key.return) {
       onSubmit(value);
     } else if (key.backspace || key.delete) {
@@ -60,9 +70,28 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
   const [isThinking, setIsThinking] = useState(false);
   const [permissionReq, setPermissionReq] = useState<{tool: string, input: any} | null>(null);
   const [history, setHistory] = useState<{id: string, text: string}[]>([]);
+
+  // Streaming UI state
+  const [uiStatus, setUiStatus] = useState<UIStreamingStatus>('requesting');
+  const uiStatusRef = useRef<UIStreamingStatus>('requesting');
+  const [streamingDelta, setStreamingDelta] = useState('');
+  const [toolInputs, setToolInputs] = useState<ToolInputPreview[]>([]);
+  const [thinkingState, setThinkingState] = useState<ThinkingState | null>(null);
+  const erroredToolUseIDsRef = useRef<Set<string>>(new Set());
+  const inProgressToolUseIDsRef = useRef<Set<string>>(new Set());
+  const resolvedToolUseIDsRef = useRef<Set<string>>(new Set());
   
   // Ref for permission resolution
   const permissionResolveRef = useRef<((response: PermissionResponse) => void) | null>(null);
+
+  // When permission prompt is active, suppress streaming previews and tool input previews.
+  // This matches the UX of focusing the user on an explicit confirmation step.
+  useEffect(() => {
+    if (!permissionReq) return;
+    setStreamingDelta('');
+    setToolInputs(() => []);
+    setUiStatus('tool-use');
+  }, [permissionReq]);
 
   // Permission check callback
   const canUseTool = useCallback(async (tool: ToolDefinition, input: any) => {
@@ -71,6 +100,8 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
       permissionResolveRef.current = (response: PermissionResponse) => {
         if (response.type === 'allow') {
           resolve(true);
+        } else if (response.type === 'allow-with-feedback') {
+          resolve({ result: true, acceptFeedback: response.feedback });
         } else if (response.type === 'allow-always') {
           // Add rule to local settings
           import('../settings/permissions.js').then(({ addPermissionRule }) => {
@@ -87,6 +118,20 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
             addPermissionRule(rule);
           });
           resolve(true);
+        } else if (response.type === 'allow-always-with-feedback') {
+          import('../settings/permissions.js').then(({ addPermissionRule }) => {
+            const rule: any = {
+              type: 'addRules',
+              rules: [{
+                toolName: tool.name,
+                ruleContent: undefined
+              }],
+              behavior: 'allow',
+              destination: 'localSettings'
+            };
+            addPermissionRule(rule);
+          });
+          resolve({ result: true, acceptFeedback: response.feedback });
         } else if (response.type === 'deny-with-feedback') {
           resolve({
             result: false,
@@ -115,7 +160,7 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
     setInputValue('');
     setIsThinking(true);
 
-    const userMsg = createUserMessage(text);
+    const userMsg = createUserMessage({ content: text });
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
 
@@ -143,36 +188,106 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
       });
 
       let fullResponse = '';
-      const updatedMessages = [...newMessages];
+
+      // reset streaming state for this turn
+      setStreamingDelta('');
+      setToolInputs([]);
+      setThinkingState(null);
+      erroredToolUseIDsRef.current = new Set();
+      inProgressToolUseIDsRef.current = new Set();
+      resolvedToolUseIDsRef.current = new Set();
+
+      const addMessage = (msg: any) => {
+        const t = msg?.type;
+
+        // LoopEvent-only signals
+        if (t === 'retry') {
+          setHistory((prev) => [
+            ...prev,
+            { id: Date.now().toString(), text: `Retrying... (${msg.attempt}/${msg.maxAttempts}, ${msg.delayMs}ms)` },
+          ]);
+          return;
+        }
+        if (t === 'api_error') {
+          const m = msg?.error?.message ? String(msg.error.message) : 'API error';
+          setHistory((prev) => [...prev, { id: Date.now().toString(), text: `API Error: ${m}` }]);
+          return;
+        }
+
+        // Conversation messages
+        if (t === 'assistant' || t === 'user' || t === 'attachment' || t === 'progress' || t === 'system') {
+          setMessages((prev) => [...prev, msg as ConversationMessage]);
+
+          // Track tool use lifecycle (best-effort)
+          if (t === 'assistant') {
+            const blocks = msg?.message?.content;
+            if (Array.isArray(blocks)) {
+              for (const b of blocks) {
+                if (b && typeof b === 'object' && (b as any).type === 'tool_use') {
+                  inProgressToolUseIDsRef.current.add(String((b as any).id));
+                }
+              }
+            }
+          }
+          if (t === 'user') {
+            const blocks = msg?.message?.content;
+            if (Array.isArray(blocks)) {
+              for (const b of blocks) {
+                if (b && typeof b === 'object' && (b as any).type === 'tool_result') {
+                  const id = String((b as any).tool_use_id);
+                  resolvedToolUseIDsRef.current.add(id);
+                  inProgressToolUseIDsRef.current.delete(id);
+                  if ((b as any).is_error) erroredToolUseIDsRef.current.add(id);
+                }
+              }
+            }
+          }
+
+          // Extract assistant text for history (when complete blocks arrive)
+          if (t === 'assistant') {
+            const blocks = msg?.message?.content;
+            if (Array.isArray(blocks)) {
+              const text = blocks
+                .filter((c: any) => c?.type === 'text')
+                .map((c: any) => String(c?.text ?? ''))
+                .join('');
+              fullResponse += text;
+            }
+          }
+        }
+      };
+
+      const updateDelta = (delta: string) => {
+        // Keep a single delta buffer like source; only render it when status is text/thinking.
+        setStreamingDelta((prev) => prev + delta);
+      };
+
+      const setStatus = (s: UIStreamingStatus) => {
+        uiStatusRef.current = s;
+        setUiStatus(s);
+      };
+
+      const setTombstone = (msg: any) => {
+        const uuid = msg?.uuid;
+        if (!uuid) return;
+        setMessages((prev) => prev.filter((m: any) => m?.uuid !== uuid));
+      };
 
       for await (const ev of resultStream) {
-        if (ev && typeof ev === 'object' && 'type' in ev) {
-           if (ev.type === 'assistant') {
-             // We could stream output here if we want to be fancy
-             // For now just collect it
-             updatedMessages.push(ev as ConversationMessage);
-             // Extract text for history display
-             const content = (ev as ConversationMessage).content;
-             if (Array.isArray(content)) {
-                const text = content.filter(c => c.type === 'text').map(c => c.text).join('');
-                fullResponse += text;
-                // Update history in real-time? Maybe too much re-rendering.
-             }
-           } else if (ev.type === 'user') {
-             updatedMessages.push(ev as ConversationMessage);
-           }
-        }
+        streamEventProcessor(
+          ev as LoopEvent,
+          addMessage,
+          updateDelta,
+          setStatus,
+          setToolInputs,
+          setTombstone,
+          (updater) => setThinkingState((prev) => updater(prev))
+        );
       }
-      
-      setMessages(updatedMessages);
-      
-      // Add assistant response to history
+
+      // Add final assistant response to history
       if (fullResponse) {
-        setHistory(prev => [...prev, { id: Date.now().toString(), text: fullResponse }]);
-      } else {
-        // If there were tool uses but no text, maybe show something?
-        // For simplicity, we assume text or tool results will appear.
-        setHistory(prev => [...prev, { id: Date.now().toString(), text: '(Command executed)' }]);
+        setHistory((prev) => [...prev, { id: Date.now().toString(), text: fullResponse }]);
       }
 
     } catch (err) {
@@ -191,6 +306,44 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
           </Box>
         )}
       </Static>
+
+      {/* Streaming preview (best-effort) */}
+      {!permissionReq && (uiStatus === 'responding' || uiStatus === 'thinking') && streamingDelta && (
+        <Box marginBottom={1}>
+          <Text dimColor>{streamingDelta}</Text>
+        </Box>
+      )}
+
+      {/* Tool input preview while streaming tool_use */}
+      {!permissionReq && uiStatus === 'tool-input' && toolInputs.length > 0 && (
+        <Box flexDirection="column" marginBottom={1}>
+          {toolInputs
+            .slice()
+            .sort((a, b) => a.index - b.index)
+            .map((t) => {
+              const block: any = t.contentBlock as any;
+              const id = String(block?.id ?? t.index);
+
+              // Prefer streaming partial JSON when tool input hasn't been finalized yet.
+              const toolInput = (t.unparsedToolInput && t.unparsedToolInput.trim() !== '')
+                ? t.unparsedToolInput
+                : (block?.input ?? {});
+
+              return (
+                <ToolUseDisplay
+                  key={id}
+                  param={{ type: 'tool_use', id: String(block?.id ?? ''), name: String(block?.name ?? ''), input: toolInput }}
+                  tools={Array.isArray(tools) ? tools : []}
+                  erroredToolUseIDs={erroredToolUseIDsRef.current}
+                  inProgressToolUseIDs={inProgressToolUseIDsRef.current}
+                  resolvedToolUseIDs={resolvedToolUseIDsRef.current}
+                  shouldAnimate={true}
+                  shouldShowDot={true}
+                />
+              );
+            })}
+        </Box>
+      )}
 
       {permissionReq ? (
         <PermissionPrompt 

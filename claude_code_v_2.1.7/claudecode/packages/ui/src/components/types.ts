@@ -29,9 +29,12 @@ export type ToolStatus =
  * Original: k4A (StatusIndicator) in chunks.66.mjs
  */
 export interface StatusIndicatorProps {
-  status: ToolStatus;
-  label?: string;
-  showSpinner?: boolean;
+  /** Whether the dot should blink. */
+  shouldAnimate: boolean;
+  /** Whether the operation is unresolved (in-progress). */
+  isUnresolved: boolean;
+  /** Whether this tool use is errored (dot stays visible). */
+  isError: boolean;
 }
 
 // ============================================
@@ -64,14 +67,22 @@ export interface SpinnerConfig {
  * Original: VZ2 (ToolUseDisplay) in chunks.66.mjs
  */
 export interface ToolUseDisplayProps {
-  toolName: string;
-  toolInput: Record<string, unknown>;
-  status: ToolStatus;
-  result?: unknown;
-  error?: string;
-  duration?: number;
-  isExpanded?: boolean;
-  onToggleExpand?: () => void;
+  /** Tool use block from model output */
+  param: { type?: 'tool_use'; id: string; name: string; input: unknown };
+  /** Available tool definitions (duck-typed) */
+  tools: unknown[];
+  /** Tool use IDs that errored */
+  erroredToolUseIDs?: Set<string>;
+  /** Tool use IDs currently in progress */
+  inProgressToolUseIDs?: Set<string>;
+  /** Tool use IDs resolved */
+  resolvedToolUseIDs?: Set<string>;
+  /** Progress messages associated with the parent assistant message */
+  progressMessagesForMessage?: unknown[];
+  /** Whether blinking animations should run */
+  shouldAnimate?: boolean;
+  /** Whether to render the status dot */
+  shouldShowDot?: boolean;
 }
 
 /**
@@ -148,21 +159,6 @@ export interface AutocompleteInputProps {
 // ============================================
 // Permission Types
 // ============================================
-
-/**
- * Permission prompt props.
- */
-export interface PermissionPromptProps {
-  toolName: string;
-  description: string;
-  details?: string;
-  options: Array<{
-    label: string;
-    value: string;
-    isDefault?: boolean;
-  }>;
-  onSelect: (value: string) => void;
-}
 
 /**
  * Question prompt props (for AskUserQuestion).

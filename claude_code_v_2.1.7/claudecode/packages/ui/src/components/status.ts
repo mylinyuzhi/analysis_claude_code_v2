@@ -5,7 +5,9 @@
  * Reconstructed from chunks.66.mjs
  */
 
-import type { ToolStatus, BlinkingState } from './types.js';
+import React, { useEffect, useState } from 'react';
+import { Box, Text } from 'ink';
+import type { ToolStatus, BlinkingState, StatusIndicatorProps } from './types.js';
 import { COMPONENT_CONSTANTS } from './types.js';
 
 // ============================================
@@ -122,6 +124,59 @@ export class BlinkingManager {
       callback(state);
     }
   }
+}
+
+// ============================================
+// React Hook: useBlinkingState
+// ============================================
+
+/**
+ * React hook for synchronized blinking state.
+ * Original: WZ2 (useBlinkingState) in chunks.66.mjs
+ */
+export function useBlinkingState(): BlinkingState {
+  const manager = BlinkingManager.getInstance();
+  const [state, setState] = useState<BlinkingState>(() => manager.getState());
+
+  useEffect(() => {
+    return manager.subscribe(setState);
+  }, [manager]);
+
+  return state;
+}
+
+// ============================================
+// React Component: StatusIndicator
+// ============================================
+
+const BULLET_CHAR = process.platform === 'darwin' ? '⏺' : '●';
+
+/**
+ * Status indicator dot that blinks while unresolved.
+ * Original: k4A (StatusIndicator) in chunks.66.mjs
+ */
+export function StatusIndicator({ shouldAnimate, isUnresolved, isError }: StatusIndicatorProps): React.ReactElement {
+  const { isVisible } = useBlinkingState();
+
+  const color = isError ? 'red' : !isUnresolved ? 'green' : undefined;
+  const dimColor = !isError && isUnresolved;
+
+  // Show dot when:
+  // - not animating, or
+  // - currently visible during blink, or
+  // - error (always visible), or
+  // - resolved (always visible)
+  const shouldRenderDot = !shouldAnimate || isVisible || isError || !isUnresolved;
+
+  return React.createElement(
+    Box as any,
+    { minWidth: 2 },
+    React.createElement(
+      Text as any,
+      { color, dimColor },
+      shouldRenderDot ? BULLET_CHAR : ' '
+    )
+  );
 }
 
 // ============================================

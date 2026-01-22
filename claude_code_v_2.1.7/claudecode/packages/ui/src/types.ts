@@ -192,20 +192,6 @@ export interface KeyInput {
   pageDown: boolean;
 }
 
-/**
- * Text input props.
- */
-export interface TextInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  onSubmit?: (value: string) => void;
-  placeholder?: string;
-  focus?: boolean;
-  mask?: string;
-  showCursor?: boolean;
-  highlightPastedText?: boolean;
-}
-
 // ============================================
 // Animation Types
 // ============================================

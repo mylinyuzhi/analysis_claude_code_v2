@@ -433,4 +433,3 @@ export class McpConnectionError extends Error {
     this.name = 'McpConnectionError';
   }
 }
-

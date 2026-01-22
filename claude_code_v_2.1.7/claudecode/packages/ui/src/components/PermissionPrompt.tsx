@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { Box, Text } from 'ink';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Box, Text, useInput } from 'ink';
 import { Select } from './Select.js';
 import { TextInput } from './TextInput.js';
 
 export type PermissionResponse = 
   | { type: 'allow' }
+  | { type: 'allow-with-feedback', feedback: string }
   | { type: 'allow-always' }
+  | { type: 'allow-always-with-feedback', feedback: string }
   | { type: 'deny' }
   | { type: 'deny-with-feedback', feedback: string };
 
@@ -22,6 +24,37 @@ export const PermissionPrompt: React.FC<PermissionPromptProps> = ({
 }) => {
   const [isProvidingFeedback, setIsProvidingFeedback] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [focusedOption, setFocusedOption] = useState<'yes' | 'yes-always' | 'no' | 'no-feedback'>('yes');
+  const [feedbackTarget, setFeedbackTarget] = useState<'yes' | 'yes-always' | 'no'>('yes');
+
+  // Esc cancels; Tab jumps into feedback mode (source-aligned hint)
+  useInput((_, key) => {
+    if (key.escape) {
+      onRespond({ type: 'deny' });
+      return;
+    }
+    if (key.tab) {
+      // Tab 作为“输入模式”开关
+      if (isProvidingFeedback) {
+        setIsProvidingFeedback(false);
+        return;
+      }
+
+      // 只有在当前高亮的选项支持“额外指令”时才进入输入模式
+      if (focusedOption === 'yes' || focusedOption === 'yes-always') {
+        setFeedbackTarget(focusedOption);
+        setIsProvidingFeedback(true);
+      } else if (focusedOption === 'no') {
+        setFeedbackTarget('no');
+        setIsProvidingFeedback(true);
+      }
+    }
+  });
+
+  // Keep feedback input cleared when leaving feedback mode
+  useEffect(() => {
+    if (!isProvidingFeedback) setFeedback('');
+  }, [isProvidingFeedback]);
 
   let message = `Claude wants to use tool: ${tool}`;
   let details = '';
@@ -56,28 +89,48 @@ export const PermissionPrompt: React.FC<PermissionPromptProps> = ({
     details = input?.path || '.';
   }
 
-  const options = [
-    { label: 'Yes', value: 'yes' },
-    { label: 'Yes, and don\'t ask again for this tool', value: 'yes-always' },
-    { label: 'No', value: 'no' },
-    { label: 'No, with feedback', value: 'no-feedback' },
-  ];
+  const options = useMemo(
+    () => [
+      { label: 'Yes', value: 'yes' },
+      { label: "Yes, and don't ask again for this tool", value: 'yes-always' },
+      { label: 'No', value: 'no' },
+      { label: 'No, with feedback', value: 'no-feedback' },
+    ],
+    []
+  );
 
   if (isProvidingFeedback) {
     return (
       <Box flexDirection="column" borderStyle="round" borderColor="yellow" padding={1} marginY={1}>
         <Box marginBottom={1}>
-          <Text bold color="yellow">Permission Request - Feedback</Text>
+          <Text bold color="yellow">Permission Request - Additional Instructions</Text>
         </Box>
         <Box marginBottom={1}>
-           <Text>Please provide feedback for why this tool use is being denied:</Text>
+          <Text>
+            {feedbackTarget === 'no'
+              ? 'Tell Claude what to do differently:'
+              : 'Tell Claude what to do next:'}
+          </Text>
         </Box>
         <TextInput 
           value={feedback}
           onChange={setFeedback}
-          onSubmit={(value) => onRespond({ type: 'deny-with-feedback', feedback: value })}
-          placeholder="Type your reason..."
+          onSubmit={(value) => {
+            if (feedbackTarget === 'no') {
+              onRespond({ type: 'deny-with-feedback', feedback: value });
+              return;
+            }
+            if (feedbackTarget === 'yes-always') {
+              onRespond({ type: 'allow-always-with-feedback', feedback: value });
+              return;
+            }
+            onRespond({ type: 'allow-with-feedback', feedback: value });
+          }}
+          placeholder={feedbackTarget === 'no' ? 'and tell Claude what to do differently' : 'and tell Claude what to do next'}
         />
+        <Box marginTop={1}>
+          <Text dimColor>Esc to cancel</Text>
+        </Box>
       </Box>
     );
   }
@@ -99,7 +152,7 @@ export const PermissionPrompt: React.FC<PermissionPromptProps> = ({
         </Box>
       )}
       <Box>
-        <Select 
+        <Select
           items={options}
           onSelect={(item) => {
             if (item.value === 'yes') {
@@ -107,12 +160,32 @@ export const PermissionPrompt: React.FC<PermissionPromptProps> = ({
             } else if (item.value === 'yes-always') {
               onRespond({ type: 'allow-always' });
             } else if (item.value === 'no-feedback') {
+              setFeedbackTarget('no');
               setIsProvidingFeedback(true);
             } else {
               onRespond({ type: 'deny' });
             }
           }}
+          onFocus={(item) => {
+            // 记录当前高亮项，用于决定 Tab 是否可进入“额外指令”输入模式
+            if (
+              item.value === 'yes' ||
+              item.value === 'yes-always' ||
+              item.value === 'no' ||
+              item.value === 'no-feedback'
+            ) {
+              setFocusedOption(item.value);
+            }
+          }}
         />
+      </Box>
+      <Box marginTop={1}>
+        <Text dimColor>
+          {'Esc to cancel'}
+          {(focusedOption === 'yes' || focusedOption === 'yes-always' || focusedOption === 'no')
+            ? ' · Tab to add additional instructions'
+            : ''}
+        </Text>
       </Box>
     </Box>
   );

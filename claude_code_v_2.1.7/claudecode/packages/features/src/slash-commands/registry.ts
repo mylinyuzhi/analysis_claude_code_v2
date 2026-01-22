@@ -8,6 +8,8 @@
 import type {
   SlashCommand,
   PromptCommand,
+  LocalCommand,
+  LocalJSXCommand,
   CommandRegistry,
   CommandExecutionContext,
   CommandDisplayOptions,
@@ -39,11 +41,14 @@ function memoize<T>(fn: MemoizeFn<T>): MemoizeFn<T> {
  * built-in surface area as declarative command objects.
  */
 export const getAllBuiltinCommands = memoize((): SlashCommand[] => {
+  type LocalJsxOpts = Partial<Omit<LocalJSXCommand, 'name' | 'type' | 'description'>>;
+  type LocalOpts = Partial<Omit<LocalCommand, 'name' | 'type' | 'description'>>;
+
   const localJsx = (
     name: string,
     description: string,
-    opts?: Partial<Omit<SlashCommand, 'name' | 'type' | 'description'>>
-  ): SlashCommand =>
+    opts?: LocalJsxOpts
+  ): LocalJSXCommand =>
     ({
       type: 'local-jsx',
       name,
@@ -63,13 +68,13 @@ export const getAllBuiltinCommands = memoize((): SlashCommand[] => {
       },
       ...(opts ?? {}),
       loadedFrom: 'builtin',
-    }) as unknown as SlashCommand;
+    }) as LocalJSXCommand;
 
   const local = (
     name: string,
     description: string,
-    opts?: Partial<Omit<SlashCommand, 'name' | 'type' | 'description'>>
-  ): SlashCommand =>
+    opts?: LocalOpts
+  ): LocalCommand =>
     ({
       type: 'local',
       name,
@@ -86,7 +91,7 @@ export const getAllBuiltinCommands = memoize((): SlashCommand[] => {
       },
       ...(opts ?? {}),
       loadedFrom: 'builtin',
-    }) as unknown as SlashCommand;
+    }) as LocalCommand;
 
   const prompt = (
     name: string,

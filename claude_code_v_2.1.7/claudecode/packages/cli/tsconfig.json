@@ -6,6 +6,7 @@
     "baseUrl": ".",
     "paths": {},
     "noEmit": false,
+    "jsx": "react-jsx",
     "declaration": true,
     "declarationMap": true
   },
