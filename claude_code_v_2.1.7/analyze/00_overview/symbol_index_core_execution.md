@@ -222,8 +222,31 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | _H1 | StreamingToolExecutor | chunks.133.mjs:2911-3087 | class |
-| jH1 | executeSingleToolGenerator | chunks.133.mjs:3097 | function |
+| jH1 | executeSingleToolGenerator | chunks.134.mjs:660-739 | async generator |
+| k77 | executeToolWithProgress | chunks.134.mjs:741-770 | function |
+| b77 | executeToolCore | chunks.134.mjs:772-1125 | function |
 | C77 | removeFromInProgressToolUseIDs | chunks.133.mjs:3089-3091 | function |
+| - | - | - | - |
+| YZ1 | createToolResultContent | chunks.89.mjs:2458-2461 | function |
+| F85 | persistLargeResultIfNeeded | chunks.89.mjs:2463-2483 | function |
+| Z4A | persistToolResult | chunks.89.mjs:2412-2444 | function |
+| V85 | createPersistedResultPreview | chunks.89.mjs:2446-2456 | function |
+| H85 | createResultPreview | chunks.89.mjs:2485-2497 | function |
+| ZZ1 | getToolResultsDir | chunks.89.mjs:2400-2402 | function |
+| - | - | - | - |
+| **Execution Constants & Messages** | | | |
+| v4A | USER_REJECTED_MESSAGE | chunks.148.mjs:623 | constant |
+| aVA | CANCELLED_BY_USER_MESSAGE | chunks.148.mjs:621 | constant |
+| gyA | USER_REJECTED_WITH_FEEDBACK_MESSAGE | chunks.148.mjs:625 | constant |
+| jJ9 | PERMISSION_DENIED_MESSAGE | chunks.148.mjs:628 | constant |
+| TJ9 | PERMISSION_DENIED_WITH_FEEDBACK_MESSAGE | chunks.148.mjs:630 | constant |
+| v9A | NO_RESPONSE_REQUESTED | chunks.148.mjs:638 | constant |
+| EKA | SYNTHETIC_SOURCE | chunks.148.mjs:640 | constant |
+| GZ1 | PERSISTED_OUTPUT_START | chunks.89.mjs:2526 | constant ("<persisted-output>") |
+| cX0 | PERSISTED_OUTPUT_END | chunks.89.mjs:2528 | constant ("</persisted-output>") |
+| U42 | DEFAULT_MAX_RESULT_SIZE | chunks.89.mjs:2392 | constant (400000) |
+| q42 | PREVIEW_SIZE | chunks.89.mjs:2532 | constant (2000) |
+| - | - | - | - |
 
 ---
 
@@ -277,6 +300,8 @@
 | QU | createTextAssistantMessage | chunks.147.mjs:2381-2392 | function |
 | DZ | createErrorMessage | chunks.147.mjs:2394-2408 | function |
 | H0 | createUserMessage | chunks.147.mjs:2410-2440 | function |
+| FM0 | createCancelledToolResult | chunks.147.mjs:2486-2493 | function |
+| K19 | createProgressMessage | chunks.147.mjs:2471-2484 | function |
 | GM | generateUUID | chunks.147.mjs | function |
 | eY9 | generateMessageUUID | chunks.147.mjs | function |
 | EKA | currentModel | chunks.147.mjs | variable |

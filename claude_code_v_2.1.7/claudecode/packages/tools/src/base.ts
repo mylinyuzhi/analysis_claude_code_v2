@@ -262,10 +262,41 @@ export function isNotebookExtension(filePath: string): boolean {
 }
 
 /**
- * Check if file extension indicates a PDF.
+ * Check if path is a PDF.
  */
 export function isPdfExtension(filePath: string): boolean {
   return filePath.toLowerCase().endsWith('.pdf');
+}
+
+/**
+ * Check if the file is a Claude Code settings file.
+ * Original: h$0 in chunks.148.mjs:2039-2044
+ */
+export function isSettingsJsonFile(filePath: string): boolean {
+  return (
+    filePath.endsWith('/.claude/settings.json') ||
+    filePath.endsWith('/.claude/settings.local.json') ||
+    filePath.endsWith('\\.claude\\settings.json') ||
+    filePath.endsWith('\\.claude\\settings.local.json')
+  );
+}
+
+/**
+ * Validate settings JSON content.
+ * Placeholder for actual implementation.
+ * Original: b$0 in chunks.114.mjs:2883-2904
+ */
+export function validateSettingsJson(content: string): { isValid: boolean; error?: string; fullSchema?: string } {
+  try {
+    JSON.parse(content);
+    return { isValid: true };
+  } catch (e) {
+    return {
+      isValid: false,
+      error: `Invalid JSON: ${(e as Error).message}`,
+      fullSchema: '{}',
+    };
+  }
 }
 
 // ============================================

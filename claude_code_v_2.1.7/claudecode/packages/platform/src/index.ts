@@ -108,6 +108,7 @@ export {
   logEventAsync,
   analyticsEvent,
   analyticsEventAsync,
+  logStructuredMetric,
   attachTelemetryProvider,
   registerTelemetryProvider,
   telemetryMarker,

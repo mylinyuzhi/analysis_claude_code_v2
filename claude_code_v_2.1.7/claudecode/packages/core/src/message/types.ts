@@ -301,7 +301,7 @@ export interface Attachment extends Record<string, any> {
 /**
  * Attachment message
  */
-export interface AttachmentMessage {
+export interface AttachmentMessage extends BaseMessage {
   type: 'attachment';
   /** The attachment data */
   attachment: Attachment;

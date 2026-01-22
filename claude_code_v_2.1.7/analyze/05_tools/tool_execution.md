@@ -608,11 +608,12 @@ async function executeToolWithValidation(tool, toolUseId, toolInput, context, sy
 ```javascript
 // ============================================
 // getAbortReason - Check why execution should abort
-// Location: chunks.133.mjs:3007-3008
+// Location: chunks.133.mjs:3004-3009
 // ============================================
 
 // READABLE (for understanding):
 getAbortReason() {
+  if (this.discarded) return "streaming_fallback";
   if (this.hasErrored) return "sibling_error";
   if (this.toolUseContext.abortController.signal.aborted) return "user_interrupted";
   return null;
@@ -624,23 +625,33 @@ getAbortReason() {
 ```javascript
 // ============================================
 // createSyntheticErrorMessage - Create error for aborted tools
-// Location: chunks.133.mjs:2975-3005
+// Location: chunks.133.mjs:2972-3003
 // ============================================
 
 // READABLE (for understanding):
 createSyntheticErrorMessage(toolUseId, reason, assistantMessage) {
-  const message = reason === "user_interrupted"
-    ? "Interrupted by user"
-    : "Sibling tool call errored";
+  let content;
+  let toolUseResult;
+
+  if (reason === "user_interrupted") {
+    content = "The user doesn't want to proceed with this tool use..."; // v4A
+    toolUseResult = "User rejected tool use";
+  } else if (reason === "streaming_fallback") {
+    content = "<tool_use_error>Error: Streaming fallback - tool execution discarded</tool_use_error>";
+    toolUseResult = "Streaming fallback - tool execution discarded";
+  } else {
+    content = "<tool_use_error>Sibling tool call errored</tool_use_error>";
+    toolUseResult = "Sibling tool call errored";
+  }
 
   return createUserMessage({
     content: [{
       type: "tool_result",
-      content: `<tool_use_error>${message}</tool_use_error>`,
+      content: content,
       is_error: true,
       tool_use_id: toolUseId
     }],
-    toolUseResult: message,
+    toolUseResult: toolUseResult,
     sourceToolAssistantUUID: assistantMessage.uuid
   });
 }

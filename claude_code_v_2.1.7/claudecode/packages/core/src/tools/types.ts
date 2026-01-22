@@ -134,7 +134,7 @@ export interface ToolUseContext {
   criticalSystemReminder_EXPERIMENTAL?: string;
 
   /** Tool permission decisions cache (used by execution pipeline) */
-  toolDecisions?: Map<string, unknown>;
+  toolDecisions?: Map<string, { decision: string; source: string }>;
 
   /** Whether user modified tool input in prompt */
   userModified?: boolean;
@@ -171,6 +171,9 @@ export interface ToolUseOptions {
 
   /** Verbose rendering */
   verbose?: boolean;
+
+  /** Session directory for tool result persistence */
+  sessionDir?: string;
 
   /** MCP resources snapshot */
   mcpResources?: unknown;

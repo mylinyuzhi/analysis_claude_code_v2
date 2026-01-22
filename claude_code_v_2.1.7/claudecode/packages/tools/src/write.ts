@@ -8,7 +8,7 @@
  */
 
 import { writeFile, readFile, stat, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, statSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { z } from 'zod';
 import {
@@ -39,7 +39,7 @@ const MAX_RESULT_SIZE = 30000;
  * Original: Lu5 in chunks.115.mjs:1260-1263
  */
 const writeInputSchema = z.object({
-  file_path: z.string().describe('The absolute path to the file to write (must be absolute)'),
+  file_path: z.string().describe('The absolute path to the file to write (must be absolute, not relative)'),
   content: z.string().describe('The content to write to the file'),
 });
 
@@ -48,19 +48,11 @@ const writeInputSchema = z.object({
  * Original: o$0 in chunks.115.mjs:1263-1269
  */
 const writeOutputSchema = z.object({
-  type: z.enum(['create', 'update']),
-  filePath: z.string(),
-  content: z.string(),
-  structuredPatch: z.array(
-    z.object({
-      oldStart: z.number(),
-      oldLines: z.number(),
-      newStart: z.number(),
-      newLines: z.number(),
-      lines: z.array(z.string()),
-    })
-  ),
-  originalFile: z.string().nullable(),
+  type: z.enum(['create', 'update']).describe("Whether a new file was created or an existing file was updated"),
+  filePath: z.string().describe("The path to the file that was written"),
+  content: z.string().describe("The content that was written to the file"),
+  structuredPatch: z.array(z.any()).describe("Diff patch showing the changes"),
+  originalFile: z.string().nullable().describe("The original file content before the write (null for new files)"),
 });
 
 // ============================================
@@ -69,54 +61,14 @@ const writeOutputSchema = z.object({
 
 /**
  * Get file modification time.
+ * Original: mz in chunks.148.mjs:2692
  */
-async function getFileModificationTime(filePath: string): Promise<number> {
+function getFileModifiedTime(filePath: string): number {
   try {
-    const stats = await stat(filePath);
-    return stats.mtimeMs;
+    return Math.floor(statSync(filePath).mtimeMs);
   } catch {
     return 0;
   }
-}
-
-/**
- * Create a simple diff patch.
- */
-function createSimplePatch(original: string | null, newContent: string): Patch[] {
-  if (original === null) {
-    // New file - entire content is addition
-    const lines = newContent.split('\n');
-    return [
-      {
-        oldStart: 0,
-        oldLines: 0,
-        newStart: 1,
-        newLines: lines.length,
-        lines: lines.map((line) => `+${line}`),
-      },
-    ];
-  }
-
-  const oldLines = original.split('\n');
-  const newLines = newContent.split('\n');
-
-  // Simple diff - show all changes
-  const patches: Patch[] = [];
-
-  if (original !== newContent) {
-    patches.push({
-      oldStart: 1,
-      oldLines: oldLines.length,
-      newStart: 1,
-      newLines: newLines.length,
-      lines: [
-        ...oldLines.map((line) => `-${line}`),
-        ...newLines.map((line) => `+${line}`),
-      ],
-    });
-  }
-
-  return patches;
 }
 
 // ============================================
@@ -129,24 +81,20 @@ function createSimplePatch(original: string | null, newContent: string): Patch[]
  */
 export const WriteTool = createTool<WriteInput, WriteOutput>({
   name: TOOL_NAMES.WRITE,
-  maxResultSizeChars: MAX_RESULT_SIZE,
+  maxResultSizeChars: 100000,
   strict: true,
 
   async description() {
-    return `Writes a file to the local filesystem.
-
-Usage:
-- This tool will overwrite the existing file if there is one at the provided path.
-- If this is an existing file, you MUST use the Read tool first to read the file's contents. This tool will fail if you did not read the file first.
-- ALWAYS prefer editing existing files in the codebase. NEVER write new files unless explicitly required.`;
+    return `Writes a file to the local filesystem.`;
   },
 
   async prompt() {
-    return `Writing files:
-- The file_path parameter must be an absolute path
-- Parent directories will be created if they don't exist
-- Existing files require reading first to prevent accidental overwrites
-- The tool returns a diff showing what changed`;
+    // Original: QCB in chunks.115.mjs:1283
+    return `Usage:
+- This tool will overwrite the existing file if there is one at the provided path.
+- If this is an existing file, you MUST use the Read tool first to read the file's contents. This tool will fail if you did not read the file first.
+- ALWAYS prefer editing existing files in the codebase. NEVER write new files unless explicitly required.
+- Only use emojis if the user explicitly requests it. Avoid writing emojis to files unless asked.`;
   },
 
   inputSchema: writeInputSchema,
@@ -157,111 +105,110 @@ Usage:
   },
 
   isConcurrencySafe() {
-    return false; // File writes must be sequential
+    return false;
   },
 
   isReadOnly() {
-    return false; // Modifies files
+    return false;
   },
 
   getPath(input) {
     return input.file_path;
   },
 
-  async checkPermissions(input) {
-    if (isPermissionDeniedPath(input.file_path)) {
-      return permissionDeny(`Writing to ${input.file_path} is not allowed for security reasons`);
-    }
+  async checkPermissions(input, context) {
+    // Original: chunks.115.mjs:1302 (calls g6A)
     return permissionAllow(input);
   },
 
   async validateInput(input, context) {
+    // Original: chunks.115.mjs:1308-1336
     const filePath = resolve(input.file_path);
+    const appState = await context.getAppState();
 
-    // Check permission denied paths (errorCode: 1)
+    // errorCode: 1 - Permission denied
     if (isPermissionDeniedPath(filePath)) {
-      return validationError(
-        `Writing to ${filePath} is not allowed for security reasons`,
-        1
-      );
+      return validationError("File is in a directory that is denied by your permission settings.", 1);
     }
 
-    // If file exists, check it was read first (errorCode: 2)
-    if (existsSync(filePath)) {
-      const readState = context.readFileState.get(filePath);
-      if (!readState) {
-        return validationError(
-          'File has not been read yet. Read it first before writing to it.',
-          2
-        );
-      }
+    if (!existsSync(filePath)) return validationSuccess();
 
-      // Check file hasn't been modified since read (errorCode: 3)
-      const currentMtime = await getFileModificationTime(filePath);
-      if (currentMtime > readState.timestamp) {
-        return validationError(
-          'File has been modified since it was read. Read it again before writing.',
-          3
-        );
-      }
+    // errorCode: 2 - Not read yet
+    const readRecord = context.readFileState.get(filePath);
+    if (!readRecord) {
+      return validationError("File has not been read yet. Read it first before writing to it.", 2);
+    }
+
+    // errorCode: 3 - Modified since read
+    if (getFileModifiedTime(filePath) > readRecord.timestamp) {
+      return validationError("File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.", 3);
     }
 
     return validationSuccess();
   },
 
-  async call(input, context) {
+  async call(input, context, toolUseId, metadata, progressCallback) {
+    // Original: chunks.115.mjs:1338-1422
     const filePath = resolve(input.file_path);
     const newContent = input.content;
 
     try {
-      // Get original content if file exists
-      let originalContent: string | null = null;
-      let isCreate = true;
+      // Hook beforeFileEdited
+      // await Ec.beforeFileEdited(filePath);
 
-      if (existsSync(filePath)) {
-        originalContent = await readFile(filePath, 'utf-8');
-        isCreate = false;
+      const exists = existsSync(filePath);
+      const originalContent = exists ? readFileSync(filePath, 'utf8').replaceAll('\r\n', '\n') : null;
+
+      // Runtime check (Original: chunks.115.mjs:1350)
+      if (exists) {
+        const currentMtime = getFileModifiedTime(filePath);
+        const readRecord = context.readFileState.get(filePath);
+        if (!readRecord || currentMtime > readRecord.timestamp) {
+          if (!(readRecord && readRecord.offset === undefined && readRecord.limit === undefined && originalContent === readRecord.content)) {
+            throw Error("File has been unexpectedly modified. Read it again before attempting to write it.");
+          }
+        }
       }
 
-      // Create parent directories if needed
-      const dir = dirname(filePath);
-      if (!existsSync(dir)) {
-        await mkdir(dir, { recursive: true });
-      }
+      // await ps(context.updateFileHistoryState, filePath, metadata.uuid);
 
-      // Write the file
-      await writeFile(filePath, newContent, 'utf-8');
+      await mkdir(dirname(filePath), { recursive: true });
+      await writeFile(filePath, newContent, 'utf8');
 
-      // Create diff patch
-      const structuredPatch = createSimplePatch(originalContent, newContent);
-
-      // Update read state
+      // Update state
       context.readFileState.set(filePath, {
         content: newContent,
-        timestamp: Date.now(),
+        timestamp: getFileModifiedTime(filePath),
         totalLines: newContent.split('\n').length,
+        offset: undefined,
+        limit: undefined
       });
 
-      const result: WriteOutput = {
-        type: isCreate ? 'create' : 'update',
+      return toolSuccess({
+        type: exists ? 'update' : 'create',
         filePath,
         content: newContent,
-        structuredPatch,
-        originalFile: originalContent,
-      };
-
-      return toolSuccess(result);
+        structuredPatch: [], // Simplified
+        originalFile: originalContent
+      });
     } catch (error) {
       return toolError(`Failed to write file: ${(error as Error).message}`);
     }
   },
 
   mapToolResultToToolResultBlockParam(result, toolUseId) {
-    const action = result.type === 'create' ? 'Created' : 'Updated';
+    // Original: chunks.115.mjs:1424-1441
+    if (result.type === 'create') {
+      return {
+        tool_use_id: toolUseId,
+        type: "tool_result",
+        content: `File created successfully at: ${result.filePath}`
+      };
+    }
     return {
       tool_use_id: toolUseId,
-      type: 'tool_result',
-      content: `${action} file: ${result.filePath}`,
+      type: "tool_result",
+      content: `The file ${result.filePath} has been updated. Here's the result of running \`cat -n\` on a snippet of the edited file:\n${result.content.slice(0, 1000)}`
     };
   },
 });

@@ -17,6 +17,12 @@ import type {
   CanUseTool,
 } from './types.js';
 
+// Original: v4A in chunks.148.mjs:623
+const USER_REJECTED_MESSAGE = "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+
+// Original: aVA in chunks.148.mjs:621
+const CANCELLED_BY_USER_MESSAGE = "The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.";
+
 // ============================================
 // Streaming Tool Executor
 // ============================================
@@ -24,6 +30,7 @@ import type {
 /**
  * Streaming tool executor for parallel tool execution.
  * Original: _H1 class in chunks.133.mjs:2911-3087
+ * Also known as: ToolUseQueueManager
  *
  * Enables parallel execution of concurrency-safe tools while
  * streaming API responses, significantly improving responsiveness.
@@ -33,8 +40,8 @@ export class StreamingToolExecutor {
   private canUseTool: CanUseTool;
   private tools: TrackedToolExecution[] = [];
   private toolUseContext: ToolUseContext;
-  private hasErrored = false;
-  private discarded = false;
+  private hasErrored = false; // Original: hasErrored in chunks.133.mjs:2916
+  private discarded = false;  // Original: discarded in chunks.133.mjs:2917
   private progressAvailableResolve?: () => void;
 
   constructor(
@@ -48,20 +55,27 @@ export class StreamingToolExecutor {
   }
 
   /**
+   * Discard all pending tool executions.
+   * Called on streaming fallback.
+   * Original: discard method in chunks.133.mjs:2924-2926
+   */
+  discard(): void {
+    this.discarded = true;
+  }
+
+  /**
    * Add a tool for execution.
    * Called for each tool_use block as it streams in.
-   * Original: addTool method
+   * Original: addTool method in chunks.133.mjs:2927-2960
    *
    * @param toolUseBlock - Tool use block from assistant message
    * @param assistantMessage - The assistant message containing this tool use
    */
   addTool(toolUseBlock: ToolUseBlock, assistantMessage: ConversationMessage): void {
-    if (this.discarded) return;
-
     // Find tool definition
     const toolDef = this.toolDefinitions.find((t) => t.name === toolUseBlock.name);
 
-    // Unknown tool - create error result immediately
+    // Unknown tool - create error result immediately (Original: chunks.133.mjs:2929-2949)
     if (!toolDef) {
       this.tools.push({
         id: toolUseBlock.id,
@@ -80,22 +94,19 @@ export class StreamingToolExecutor {
                 tool_use_id: toolUseBlock.id,
               } as ContentBlock,
             ],
+            toolUseResult: `Error: No such tool available: ${toolUseBlock.name}`,
+            sourceToolAssistantUUID: assistantMessage.uuid,
           }),
         ],
       });
       return;
     }
 
-    // Validate input and determine concurrency safety
-    let isConcurrencySafe = false;
-    if (toolDef.inputSchema) {
-      const parsed = toolDef.inputSchema.safeParse(toolUseBlock.input);
-      if (parsed?.success && toolDef.isConcurrencySafe) {
-        isConcurrencySafe = toolDef.isConcurrencySafe(parsed.data);
-      }
-    }
+    // Validate input and determine concurrency safety (Original: safeParse in chunks.133.mjs:2950-2951)
+    const parsed = toolDef.inputSchema?.safeParse(toolUseBlock.input);
+    const isConcurrencySafe = parsed?.success ? toolDef.isConcurrencySafe(parsed.data) : false;
 
-    // Queue the tool
+    // Queue the tool (Original: chunks.133.mjs:2952-2959)
     this.tools.push({
       id: toolUseBlock.id,
       block: toolUseBlock,
@@ -105,30 +116,33 @@ export class StreamingToolExecutor {
       pendingProgress: [],
     });
 
-    // Trigger queue processing (may start execution immediately)
+    // Trigger queue processing
     this.processQueue();
   }
 
   /**
    * Determine if a tool can be executed now.
+   * Original: canExecuteTool method in chunks.133.mjs:2961-3004
    *
    * @param isConcurrencySafe - Whether the new tool is concurrency-safe
    * @returns Whether execution can proceed
    */
-  private canExecuteTool(isConcurrencySafe: boolean): boolean {
+  canExecuteTool(isConcurrencySafe: boolean): boolean {
     const executing = this.tools.filter((t) => t.status === 'executing');
 
     // Can execute if:
     // 1. Nothing is currently executing, OR
     // 2. New tool is concurrency-safe AND all executing tools are concurrency-safe
+    // Original: Q.length === 0 || A && Q.every((B) => B.isConcurrencySafe)
     return (
       executing.length === 0 ||
-      (isConcurrencySafe && executing.every((t) => t.isConcurrencySafe))
+      (!!isConcurrencySafe && executing.every((t) => t.isConcurrencySafe))
     );
   }
 
   /**
    * Process queued tools.
+   * Original: processQueue method in chunks.133.mjs:2965-2971
    */
   private async processQueue(): Promise<void> {
     for (const tool of this.tools) {
@@ -145,7 +159,61 @@ export class StreamingToolExecutor {
   }
 
   /**
+   * Create synthetic error message for aborted tool.
+   * Original: createSyntheticErrorMessage method in chunks.133.mjs:2972-3003
+   */
+  private createSyntheticErrorMessage(
+    toolUseId: string,
+    abortReason: string,
+    assistantMessage: ConversationMessage
+  ): ConversationMessage {
+    if (abortReason === 'user_interrupted') {
+      return createUserMessage({
+        content: [
+          {
+            type: 'tool_result',
+            content: USER_REJECTED_MESSAGE,
+            is_error: true,
+            tool_use_id: toolUseId,
+          } as ContentBlock,
+        ],
+        toolUseResult: 'User rejected tool use',
+        sourceToolAssistantUUID: assistantMessage.uuid,
+      });
+    }
+
+    if (abortReason === 'streaming_fallback') {
+      return createUserMessage({
+        content: [
+          {
+            type: 'tool_result',
+            content: '<tool_use_error>Error: Streaming fallback - tool execution discarded</tool_use_error>',
+            is_error: true,
+            tool_use_id: toolUseId,
+          } as ContentBlock,
+        ],
+        toolUseResult: 'Streaming fallback - tool execution discarded',
+        sourceToolAssistantUUID: assistantMessage.uuid,
+      });
+    }
+
+    return createUserMessage({
+      content: [
+        {
+          type: 'tool_result',
+          content: '<tool_use_error>Sibling tool call errored</tool_use_error>',
+          is_error: true,
+          tool_use_id: toolUseId,
+        } as ContentBlock,
+      ],
+      toolUseResult: 'Sibling tool call errored',
+      sourceToolAssistantUUID: assistantMessage.uuid,
+    });
+  }
+
+  /**
    * Get abort reason if execution should stop.
+   * Original: getAbortReason method in chunks.133.mjs:3004-3009
    */
   private getAbortReason(): string | null {
     if (this.discarded) {
@@ -160,47 +228,14 @@ export class StreamingToolExecutor {
     return null;
   }
 
-  private isToolResultErrorMessage(message: ConversationMessage | undefined): boolean {
-    if (!message || message.type !== 'user') return false;
-    const content = (message as { message?: { content?: unknown } }).message?.content;
-    if (!Array.isArray(content)) return false;
-    return content.some((b) => (b as any)?.type === 'tool_result' && (b as any)?.is_error === true);
-  }
-
-  /**
-   * Create synthetic error message for aborted tool.
-   */
-  private createSyntheticErrorMessage(
-    toolUseId: string,
-    abortReason: string,
-    assistantMessage: ConversationMessage
-  ): ConversationMessage {
-    // Source alignment (chunks.133.mjs): synthetic error message is
-    // - "Interrupted by user" when user aborted
-    // - "Sibling tool call errored" for other abort reasons (including streaming fallback)
-    const message = abortReason === 'user_interrupted' ? 'Interrupted by user' : 'Sibling tool call errored';
-
-    return createUserMessage({
-      content: [
-        {
-          type: 'tool_result',
-          content: `<tool_use_error>${message}</tool_use_error>`,
-          is_error: true,
-          tool_use_id: toolUseId,
-        } as ContentBlock,
-      ],
-      toolUseResult: message,
-      sourceToolAssistantUUID: (assistantMessage as any)?.uuid,
-    });
-  }
-
   /**
    * Execute a single tool.
+   * Original: executeTool method in chunks.133.mjs:3010-3040
    */
   private async executeTool(tool: TrackedToolExecution): Promise<void> {
     tool.status = 'executing';
 
-    // Track in-progress tool use IDs
+    // Track in-progress tool use IDs (Original: chunks.133.mjs:3011)
     if (this.toolUseContext.setInProgressToolUseIDs) {
       this.toolUseContext.setInProgressToolUseIDs((ids) =>
         new Set([...ids, tool.id])
@@ -221,7 +256,7 @@ export class StreamingToolExecutor {
         return;
       }
 
-      // Execute via the unified tool execution pipeline (chunks.134.mjs: jH1)
+      // Execute via the unified tool execution generator (Original: jH1 in chunks.134.mjs:660)
       const generator = executeSingleTool(
         tool.block,
         tool.assistantMessage,
@@ -238,6 +273,18 @@ export class StreamingToolExecutor {
           break;
         }
 
+        // Error detection logic (Original: chunks.133.mjs:3028)
+        if (
+          item.message?.type === 'user' &&
+          Array.isArray((item.message as any).message?.content) &&
+          (item.message as any).message.content.some(
+            (b: any) => b.type === 'tool_result' && b.is_error === true
+          )
+        ) {
+          this.hasErrored = true;
+          hasReceivedError = true;
+        }
+
         const msg = item.message as ConversationMessage | undefined;
         if (msg) {
           if (msg.type === 'progress') {
@@ -248,11 +295,6 @@ export class StreamingToolExecutor {
             }
           } else {
             results.push(msg);
-          }
-
-          if (this.isToolResultErrorMessage(msg)) {
-            this.hasErrored = true;
-            hasReceivedError = true;
           }
         }
 
@@ -265,7 +307,7 @@ export class StreamingToolExecutor {
       tool.contextModifiers = contextModifiers;
       tool.status = 'completed';
 
-      // Apply context modifiers immediately for non-concurrent tools
+      // Apply context modifiers immediately for non-concurrent tools (Original: chunks.133.mjs:3035-3036)
       if (!tool.isConcurrencySafe && contextModifiers.length > 0) {
         for (const modifier of contextModifiers) {
           this.toolUseContext = modifier(this.toolUseContext);
@@ -275,7 +317,7 @@ export class StreamingToolExecutor {
 
     tool.promise = execution;
 
-    // Chain to process next queued tool when this completes
+    // Chain to process next queued tool when this completes (Original: chunks.133.mjs:3038-3040)
     execution.finally(() => {
       this.processQueue();
     });
@@ -284,7 +326,7 @@ export class StreamingToolExecutor {
   /**
    * Get completed results (non-blocking).
    * Yields results that are ready without waiting.
-   * Original: getCompletedResults in chunks.133.mjs:3041-3056
+   * Original: getCompletedResults generator in chunks.133.mjs:3041-3056
    */
   *getCompletedResults(): Generator<ToolExecutionResult> {
     if (this.discarded) return;
@@ -303,14 +345,8 @@ export class StreamingToolExecutor {
           yield { message: result };
         }
 
-        // Remove from in-progress set when we yield the results (source: C77)
-        if (this.toolUseContext.setInProgressToolUseIDs) {
-          this.toolUseContext.setInProgressToolUseIDs((ids) => {
-            const next = new Set(ids);
-            next.delete(tool.id);
-            return next;
-          });
-        }
+        // Remove from in-progress set (Original: C77 in chunks.133.mjs:3053)
+        removeFromInProgressToolUseIDs(this.toolUseContext, tool.id);
       } else if (tool.status === 'executing' && !tool.isConcurrencySafe) {
         // Non-concurrent tool blocks further yielding
         break;
@@ -319,9 +355,17 @@ export class StreamingToolExecutor {
   }
 
   /**
+   * Check if there are pending progress messages.
+   * Original: hasPendingProgress in chunks.133.mjs:3057-3059
+   */
+  private hasPendingProgress(): boolean {
+    return this.tools.some((t) => t.pendingProgress.length > 0);
+  }
+
+  /**
    * Get all remaining results (blocking).
    * Waits for all tools to complete and yields their results.
-   * Original: getRemainingResults in chunks.133.mjs:3060-3074
+   * Original: getRemainingResults async generator in chunks.133.mjs:3060-3074
    */
   async *getRemainingResults(): AsyncGenerator<ToolExecutionResult> {
     if (this.discarded) return;
@@ -333,7 +377,7 @@ export class StreamingToolExecutor {
         yield result;
       }
 
-      // Wait for executing tools if no results available
+      // Wait for executing tools if no results available (Original: chunks.133.mjs:3065-3071)
       if (
         this.hasExecutingTools() &&
         !this.hasCompletedResults() &&
@@ -360,55 +404,46 @@ export class StreamingToolExecutor {
   }
 
   /**
-   * Check if there are unfinished tools.
+   * Check if there are completed results.
+   * Original: hasCompletedResults in chunks.133.mjs:3075-3077
    */
-  private hasUnfinishedTools(): boolean {
-    return this.tools.some(
-      (t) => t.status === 'queued' || t.status === 'executing'
-    );
+  private hasCompletedResults(): boolean {
+    return this.tools.some((t) => t.status === 'completed');
   }
 
   /**
    * Check if there are executing tools.
+   * Original: hasExecutingTools in chunks.133.mjs:3078-3080
    */
   private hasExecutingTools(): boolean {
     return this.tools.some((t) => t.status === 'executing');
   }
 
   /**
-   * Check if there are completed but not yielded results.
+   * Check if there are unfinished tools.
+   * Original: hasUnfinishedTools in chunks.133.mjs:3081-3083
    */
-  private hasCompletedResults(): boolean {
-    return this.tools.some(
-      (t) => t.status === 'completed' && t.results && t.results.length > 0
-    );
-  }
-
-  /**
-   * Check if there are pending progress messages.
-   */
-  private hasPendingProgress(): boolean {
-    return this.tools.some((t) => t.pendingProgress.length > 0);
-  }
-
-  /**
-   * Discard all pending tool executions.
-   * Called on streaming fallback.
-   */
-  discard(): void {
-    this.discarded = true;
+  private hasUnfinishedTools(): boolean {
+    return this.tools.some((t) => t.status !== 'yielded');
   }
 
   /**
    * Get updated context after tool execution.
+   * Original: getUpdatedContext in chunks.133.mjs:3084-3086
    */
   getUpdatedContext(): ToolUseContext {
     return this.toolUseContext;
   }
 }
 
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类已在声明处导出；移除重复导出。
+/**
+ * Remove a tool use ID from the in-progress set.
+ * Original: C77 function in chunks.133.mjs:3089-3091
+ */
+function removeFromInProgressToolUseIDs(context: ToolUseContext, toolUseId: string): void {
+  if (context.setInProgressToolUseIDs) {
+    context.setInProgressToolUseIDs((ids) => {
+      return new Set([...ids].filter((id) => id !== toolUseId));
+    });
+  }
+}

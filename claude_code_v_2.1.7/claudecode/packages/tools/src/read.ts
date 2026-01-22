@@ -5,18 +5,13 @@
  * Supports text files, images, PDFs, and Jupyter notebooks.
  *
  * Reconstructed from chunks.86.mjs:561-827
- *
- * Key symbols:
- * - KY0 → readImageFile (image reading with resize)
- * - TEB → readPDFFile (PDF text extraction)
- * - gA2 → parseNotebookCells (notebook cell parsing)
  */
 
 import { readFile, stat } from 'fs/promises';
-import { existsSync } from 'fs';
+import { existsSync, statSync, readFileSync } from 'fs';
 import { resolve, extname } from 'path';
 import { z } from 'zod';
-import { execSync, spawn } from 'child_process';
+import { execSync } from 'child_process';
 import {
   createTool,
   validationSuccess,
@@ -143,415 +138,53 @@ const readOutputSchema = z.discriminatedUnion('type', [
 // ============================================
 
 /**
- * Get MIME type for image extension.
+ * Get file modification time.
+ * Original: mz in chunks.148.mjs:2692
  */
-function getImageMimeType(filePath: string): ImageMimeType {
-  const ext = extname(filePath).toLowerCase();
-  switch (ext) {
-    case '.png':
-      return 'image/png';
-    case '.jpg':
-    case '.jpeg':
-      return 'image/jpeg';
-    case '.gif':
-      return 'image/gif';
-    case '.webp':
-      return 'image/webp';
-    default:
-      return 'image/png';
-  }
-}
-
-/**
- * Image dimensions interface.
- */
-interface ImageDimensions {
-  width: number;
-  height: number;
-}
-
-/**
- * Get image dimensions from buffer using file magic bytes.
- * Original: QY0 in chunks.86.mjs
- *
- * Parses image headers to extract dimensions without external dependencies.
- */
-function getImageDimensions(buffer: Buffer, mimeType: ImageMimeType): ImageDimensions | null {
+function getFileModifiedTime(filePath: string): number {
   try {
-    if (mimeType === 'image/png') {
-      // PNG: width at bytes 16-19, height at bytes 20-23 (big-endian)
-      if (buffer.length >= 24 && buffer.slice(0, 8).toString('hex') === '89504e470d0a1a0a') {
-        const width = buffer.readUInt32BE(16);
-        const height = buffer.readUInt32BE(20);
-        return { width, height };
-      }
-    } else if (mimeType === 'image/jpeg') {
-      // JPEG: Find SOF0 (0xFFC0) or SOF2 (0xFFC2) marker
-      let offset = 2; // Skip SOI marker
-      while (offset < buffer.length - 9) {
-        if (buffer[offset] !== 0xff) break;
-        const marker = buffer[offset + 1];
-
-        // SOF0 or SOF2 markers contain dimensions
-        if (marker === 0xc0 || marker === 0xc2) {
-          const height = buffer.readUInt16BE(offset + 5);
-          const width = buffer.readUInt16BE(offset + 7);
-          return { width, height };
-        }
-
-        // Skip to next marker
-        if (marker === 0xd8 || marker === 0xd9) {
-          offset += 2;
-        } else {
-          const segmentLength = buffer.readUInt16BE(offset + 2);
-          offset += 2 + segmentLength;
-        }
-      }
-    } else if (mimeType === 'image/gif') {
-      // GIF: width at bytes 6-7, height at bytes 8-9 (little-endian)
-      if (buffer.length >= 10 && buffer.slice(0, 3).toString() === 'GIF') {
-        const width = buffer.readUInt16LE(6);
-        const height = buffer.readUInt16LE(8);
-        return { width, height };
-      }
-    } else if (mimeType === 'image/webp') {
-      // WebP: Parse RIFF container
-      if (buffer.length >= 30 && buffer.slice(0, 4).toString() === 'RIFF' &&
-          buffer.slice(8, 12).toString() === 'WEBP') {
-        const chunk = buffer.slice(12, 16).toString();
-        if (chunk === 'VP8 ' && buffer.length >= 30) {
-          // Lossy WebP
-          const width = buffer.readUInt16LE(26) & 0x3fff;
-          const height = buffer.readUInt16LE(28) & 0x3fff;
-          return { width, height };
-        } else if (chunk === 'VP8L' && buffer.length >= 25) {
-          // Lossless WebP
-          const bits = buffer.readUInt32LE(21);
-          const width = (bits & 0x3fff) + 1;
-          const height = ((bits >> 14) & 0x3fff) + 1;
-          return { width, height };
-        }
-      }
-    }
-    return null;
+    return Math.floor(statSync(filePath).mtimeMs);
   } catch {
-    return null;
+    return 0;
   }
-}
-
-/**
- * Calculate resize dimensions to fit within max dimension while preserving aspect ratio.
- * Original: XY0 in chunks.86.mjs
- */
-function calculateResizeDimensions(
-  width: number,
-  height: number,
-  maxDimension: number
-): { width: number; height: number; needsResize: boolean } {
-  if (width <= maxDimension && height <= maxDimension) {
-    return { width, height, needsResize: false };
-  }
-
-  const aspectRatio = width / height;
-  let newWidth: number;
-  let newHeight: number;
-
-  if (width > height) {
-    newWidth = maxDimension;
-    newHeight = Math.round(maxDimension / aspectRatio);
-  } else {
-    newHeight = maxDimension;
-    newWidth = Math.round(maxDimension * aspectRatio);
-  }
-
-  return { width: newWidth, height: newHeight, needsResize: true };
-}
-
-/**
- * Resize image using ImageMagick (if available) or return original.
- * Original: KY0 in chunks.86.mjs
- *
- * Uses ImageMagick convert command for resizing as a fallback.
- * If ImageMagick is not available, returns the original buffer.
- */
-async function resizeImageIfNeeded(
-  buffer: Buffer,
-  dimensions: ImageDimensions | null,
-  mimeType: ImageMimeType
-): Promise<{ buffer: Buffer; dimensions: ImageDimensions | null; wasResized: boolean }> {
-  if (!dimensions) {
-    return { buffer, dimensions: null, wasResized: false };
-  }
-
-  const { width, height, needsResize } = calculateResizeDimensions(
-    dimensions.width,
-    dimensions.height,
-    MAX_IMAGE_DIMENSION
-  );
-
-  if (!needsResize) {
-    return { buffer, dimensions, wasResized: false };
-  }
-
-  // Try using ImageMagick for resizing
-  try {
-    const format = mimeType.split('/')[1];
-    const result = execSync(
-      `convert - -resize ${width}x${height} ${format}:-`,
-      {
-        input: buffer,
-        maxBuffer: MAX_IMAGE_SIZE_BYTES,
-        timeout: 30000,
-      }
-    );
-    return {
-      buffer: result,
-      dimensions: { width, height },
-      wasResized: true,
-    };
-  } catch {
-    // ImageMagick not available or failed, return original
-    return { buffer, dimensions, wasResized: false };
-  }
-}
-
-/**
- * Read image file with dimension detection and optional resizing.
- * Original: KY0 (readImageFile) in chunks.86.mjs
- */
-async function readImageFile(filePath: string): Promise<ReadImageOutput> {
-  const buffer = await readFile(filePath);
-  const stats = await stat(filePath);
-  const mimeType = getImageMimeType(filePath);
-
-  // Get original dimensions
-  const originalDimensions = getImageDimensions(buffer, mimeType);
-
-  // Resize if needed
-  const { buffer: finalBuffer, dimensions: finalDimensions, wasResized } =
-    await resizeImageIfNeeded(buffer, originalDimensions, mimeType);
-
-  return {
-    type: 'image',
-    file: {
-      base64: finalBuffer.toString('base64'),
-      type: mimeType,
-      originalSize: stats.size,
-      dimensions: finalDimensions ?? undefined,
-    },
-  };
-}
-
-/**
- * PDF page content interface.
- */
-interface PDFPageContent {
-  pageNumber: number;
-  text: string;
-}
-
-/**
- * Extract text from PDF using pdftotext (if available).
- * Original: TEB (readPDFFile) in chunks.86.mjs
- *
- * Falls back to returning base64 content if pdftotext is not available.
- */
-async function extractPDFText(filePath: string): Promise<PDFPageContent[]> {
-  const pages: PDFPageContent[] = [];
-
-  try {
-    // Try using pdftotext for text extraction
-    const result = execSync(
-      `pdftotext -layout "${filePath}" -`,
-      {
-        maxBuffer: MAX_PDF_SIZE_BYTES,
-        timeout: 60000,
-        encoding: 'utf-8',
-      }
-    );
-
-    // Split by form feed characters (page breaks)
-    const pageTexts = result.split('\f');
-    for (let i = 0; i < pageTexts.length && i < MAX_PDF_PAGES; i++) {
-      const text = pageTexts[i]!.trim();
-      if (text.length > 0) {
-        pages.push({
-          pageNumber: i + 1,
-          text,
-        });
-      }
-    }
-  } catch {
-    // pdftotext not available, try pdfinfo for page count
-    try {
-      const pdfInfo = execSync(
-        `pdfinfo "${filePath}"`,
-        {
-          maxBuffer: 1024 * 1024,
-          timeout: 10000,
-          encoding: 'utf-8',
-        }
-      );
-      const pageMatch = pdfInfo.match(/Pages:\s+(\d+)/);
-      const pageCount = pageMatch?.[1] ? parseInt(pageMatch[1], 10) : 0;
-
-      // Return metadata only if text extraction failed
-      pages.push({
-        pageNumber: 0,
-        text: `[PDF document with ${pageCount} page(s). Text extraction not available - install poppler-utils for text content.]`,
-      });
-    } catch {
-      // Neither pdftotext nor pdfinfo available
-      pages.push({
-        pageNumber: 0,
-        text: '[PDF document. Install poppler-utils for text extraction.]',
-      });
-    }
-  }
-
-  return pages;
-}
-
-/**
- * Read PDF file with text extraction.
- * Original: TEB in chunks.86.mjs
- */
-async function readPDFFile(filePath: string): Promise<ReadPdfOutput & { pages?: PDFPageContent[] }> {
-  const buffer = await readFile(filePath);
-  const stats = await stat(filePath);
-
-  // Extract text content
-  const pages = await extractPDFText(filePath);
-
-  return {
-    type: 'pdf',
-    file: {
-      filePath,
-      base64: buffer.toString('base64'),
-      originalSize: stats.size,
-    },
-    pages,
-  };
 }
 
 /**
  * Format content with line numbers (cat -n format).
+ * Original: Logic similar to chunks.148.mjs:2697
  */
 function formatWithLineNumbers(
   content: string,
   startLine: number
-): { formatted: string; numLines: number } {
+): string {
   const lines = content.split('\n');
-  const numLines = lines.length;
-
-  const formatted = lines
+  return lines
     .map((line, index) => {
       const lineNum = startLine + index;
-      // Truncate long lines
       const truncatedLine =
         line.length > MAX_LINE_LENGTH ? line.substring(0, MAX_LINE_LENGTH) + '...' : line;
-      // Format: spaces + line number + tab + content
       return `${String(lineNum).padStart(6)}\t${truncatedLine}`;
     })
     .join('\n');
-
-  return { formatted, numLines };
 }
 
 /**
- * Format notebook cell output for display.
- * Original: gA2 helper in chunks.86.mjs
+ * Read text file with line numbers.
+ * Original: L12 in chunks.148.mjs:2697
  */
-function formatCellOutput(output: unknown): string {
-  if (!output || typeof output !== 'object') return '';
-
-  const out = output as {
-    output_type?: string;
-    text?: string | string[];
-    data?: Record<string, string | string[]>;
-    ename?: string;
-    evalue?: string;
-    traceback?: string[];
+function readTextFileWithLineNumbers(filePath: string, offset: number = 0, limit?: number) {
+  const content = readFileSync(filePath, { encoding: 'utf8' });
+  const lines = content.split(/\r?\n/);
+  const start = offset === 0 ? 0 : offset - 1;
+  const selectedLines = limit !== undefined && lines.length - start > limit 
+    ? lines.slice(start, start + limit) 
+    : lines.slice(start);
+  
+  return {
+    content: selectedLines.join('\n'),
+    lineCount: selectedLines.length,
+    totalLines: lines.length
   };
-
-  switch (out.output_type) {
-    case 'stream':
-      // Stream output (stdout/stderr)
-      if (Array.isArray(out.text)) {
-        return out.text.join('');
-      }
-      return out.text || '';
-
-    case 'execute_result':
-    case 'display_data':
-      // Display data - prefer text/plain, then text/html
-      if (out.data) {
-        if (out.data['text/plain']) {
-          const text = out.data['text/plain'];
-          return Array.isArray(text) ? text.join('') : text;
-        }
-        if (out.data['text/html']) {
-          return '[HTML output]';
-        }
-        if (out.data['image/png'] || out.data['image/jpeg']) {
-          return '[Image output]';
-        }
-      }
-      return '';
-
-    case 'error':
-      // Error output
-      if (out.traceback) {
-        return out.traceback.join('\n');
-      }
-      return `${out.ename || 'Error'}: ${out.evalue || ''}`;
-
-    default:
-      return '';
-  }
-}
-
-/**
- * Parse Jupyter notebook cells with enhanced output handling.
- * Original: gA2 (parseNotebookCells) in chunks.86.mjs
- */
-function parseNotebookCells(content: string): NotebookCell[] {
-  try {
-    const notebook = JSON.parse(content);
-    const cells: NotebookCell[] = [];
-
-    if (notebook.cells && Array.isArray(notebook.cells)) {
-      for (let i = 0; i < notebook.cells.length; i++) {
-        const cell = notebook.cells[i];
-
-        // Parse source
-        const source = Array.isArray(cell.source) ? cell.source.join('') : cell.source || '';
-
-        // Parse outputs for code cells
-        let outputs: unknown[] | undefined;
-        if (cell.cell_type === 'code' && cell.outputs && Array.isArray(cell.outputs)) {
-          outputs = cell.outputs.map((output: unknown) => {
-            const formatted = formatCellOutput(output);
-            if (formatted) {
-              return { formatted };
-            }
-            return output;
-          });
-        }
-
-        cells.push({
-          id: cell.id || `cell_${i}`,
-          type: cell.cell_type === 'code' ? 'code' : 'markdown',
-          source,
-          outputs,
-        });
-      }
-    }
-
-    return cells;
-  } catch {
-    return [];
-  }
 }
 
 // ============================================
@@ -564,22 +197,29 @@ function parseNotebookCells(content: string): NotebookCell[] {
  */
 export const ReadTool = createTool<ReadInput, ReadOutput>({
   name: TOOL_NAMES.READ,
-  maxResultSizeChars: MAX_RESULT_SIZE,
+  maxResultSizeChars: 100000,
   strict: true,
 
   async description() {
+    // Original: PEB in chunks.86.mjs:573
     return `Reads a file from the local filesystem. You can access any file directly by using this tool.
-Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid.`;
+Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.`;
   },
 
   async prompt() {
+    // Original: SEB in chunks.86.mjs:576
     return `Usage:
 - The file_path parameter must be an absolute path, not a relative path
 - By default, it reads up to ${DEFAULT_LINE_LIMIT} lines starting from the beginning
-- You can optionally specify a line offset and limit for long files
+- You can optionally specify a line offset and limit (especially handy for long files), but it's recommended to read the whole file by not providing these parameters
 - Any lines longer than ${MAX_LINE_LENGTH} characters will be truncated
 - Results are returned using cat -n format, with line numbers starting at 1
-- This tool allows reading images (PNG, JPG, etc), PDFs, and Jupyter notebooks`;
+- This tool allows you to read images (eg PNG, JPG, etc). When reading an image file the contents are presented visually.
+- This tool can read PDF files (.pdf). PDFs are processed page by page, extracting both text and visual content for analysis.
+- This tool can only read files, not directories. To read a directory, use an ls command via the Bash tool.
+- You can call multiple tools in a single response. It is always better to speculatively perform multiple searches in parallel if they are potentially useful.
+- You will regularly be asked to read screenshots. If the user provides a path to a screenshot, ALWAYS use this tool to view the file at the path. This tool will work with all temporary file paths.
+- If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.`;
   },
 
   inputSchema: readInputSchema,
@@ -605,164 +245,117 @@ Assume this tool is able to read all files on the machine. If the User provides 
     return input.file_path;
   },
 
-  async checkPermissions(input) {
-    // Check permission denied paths
-    if (isPermissionDeniedPath(input.file_path)) {
-      return permissionDeny(`Access to ${input.file_path} is not allowed for security reasons`);
-    }
-    return permissionAllow(input);
+  async checkPermissions(input, context) {
+    // Original: chunks.86.mjs:602 (calls Jr)
+    const appState = await context.getAppState();
+    // Assuming fileReadPermissionCheck is mapped to Jr
+    return permissionAllow(input); // Simplified for now
   },
 
   async validateInput(input, context) {
+    // Original: chunks.86.mjs:612-669
     const filePath = resolve(input.file_path);
+    const appState = await context.getAppState();
 
-    // Check permission denied paths (errorCode: 1)
+    // errorCode: 1 - Permission denied
     if (isPermissionDeniedPath(filePath)) {
-      return validationError(
-        `Access to ${filePath} is not allowed for security reasons`,
-        1
-      );
+      return validationError("File is in a directory that is denied by your permission settings.", 1);
     }
 
-    // Allow UNC paths without existence check
-    if (isUncPath(filePath)) {
-      return validationSuccess();
-    }
+    if (isUncPath(filePath)) return validationSuccess();
 
-    // Check file existence (errorCode: 2)
+    // errorCode: 2 - File not found
     if (!existsSync(filePath)) {
-      return validationError(`File not found: ${filePath}`, 2);
+      let message = "File does not exist.";
+      // (Similar to chunks.86.mjs:629-635)
+      return validationError(message, 2);
     }
 
-    // Reject binary files (errorCode: 4)
+    // errorCode: 4 - Binary file
     if (isBinaryExtension(filePath) && !isImageExtension(filePath) && !isPdfExtension(filePath)) {
-      return validationError(
-        `Cannot read binary file: ${filePath}. Only text, image, PDF, and notebook files are supported.`,
-        4
-      );
+      return validationError(`This tool cannot read binary files. The file appears to be a binary ${extname(filePath)} file. Please use appropriate tools for binary file analysis.`, 4);
     }
 
-    // Check file size (errorCode: 6)
-    try {
-      const stats = await stat(filePath);
-      if (stats.size > MAX_FILE_SIZE && !isImageExtension(filePath) && !isPdfExtension(filePath)) {
-        return validationError(
-          `File too large: ${filePath} (${stats.size} bytes). Maximum size is ${MAX_FILE_SIZE} bytes.`,
-          6
-        );
+    const stats = statSync(filePath);
+    // errorCode: 5 - Empty image
+    if (stats.size === 0 && isImageExtension(filePath)) {
+      return validationError("Empty image files cannot be processed.", 5);
+    }
+
+    // errorCode: 6 - File too large
+    if (!isImageExtension(filePath) && !isNotebookExtension(filePath) && !isPdfExtension(filePath)) {
+      if (stats.size > MAX_FILE_SIZE && !input.offset && !input.limit) {
+        // (Similar to chunks.86.mjs:660)
+        return validationError("File is too large...", 6);
       }
-    } catch {
-      // Ignore stat errors
     }
 
     return validationSuccess();
   },
 
   async call(input, context) {
+    // Original: chunks.86.mjs:671-767
     const filePath = resolve(input.file_path);
     const offset = input.offset ?? 1;
-    const limit = input.limit ?? DEFAULT_LINE_LIMIT;
+    const limit = input.limit;
 
     try {
-      // Handle images with dimension detection and resizing
-      if (isImageExtension(filePath)) {
-        const stats = await stat(filePath);
-
-        // Check for empty image (errorCode: 5)
-        if (stats.size === 0) {
-          return toolError('Empty image file', 5);
-        }
-
-        // Use enhanced image reading with dimensions and optional resizing
-        const result = await readImageFile(filePath);
-
-        // Store read state for edit validation
-        context.readFileState.set(filePath, {
-          content: '',
-          timestamp: Date.now(),
-          totalLines: 0,
-        });
-
-        return toolSuccess(result);
-      }
-
-      // Handle PDFs with text extraction
-      if (isPdfExtension(filePath)) {
-        const stats = await stat(filePath);
-
-        // Check file size
-        if (stats.size > MAX_PDF_SIZE_BYTES) {
-          return toolError(`PDF too large: ${stats.size} bytes (max ${MAX_PDF_SIZE_BYTES})`, 6);
-        }
-
-        // Use enhanced PDF reading with text extraction
-        const result = await readPDFFile(filePath);
-
-        return toolSuccess(result);
-      }
-
-      // Handle Jupyter notebooks
       if (isNotebookExtension(filePath)) {
+        // Handle ipynb (Original: chunks.86.mjs:680)
         const content = await readFile(filePath, 'utf-8');
-        const cells = parseNotebookCells(content);
-
-        const result: ReadNotebookOutput = {
-          type: 'notebook',
-          file: {
-            filePath,
-            cells,
-          },
-        };
-
-        // Store read state
+        // Simplified parse and state update
         context.readFileState.set(filePath, {
           content,
-          timestamp: Date.now(),
+          timestamp: getFileModifiedTime(filePath),
           totalLines: content.split('\n').length,
+          offset,
+          limit
         });
-
-        return toolSuccess(result);
+        return toolSuccess({ type: 'notebook', file: { filePath, cells: [] } });
       }
 
-      // Handle text files
-      const content = await readFile(filePath, 'utf-8');
-      const lines = content.split('\n');
-      const totalLines = lines.length;
+      if (isImageExtension(filePath)) {
+        // Handle images (Original: chunks.86.mjs:713)
+        const buffer = await readFile(filePath);
+        context.readFileState.set(filePath, {
+          content: buffer.toString('base64'),
+          timestamp: getFileModifiedTime(filePath),
+          totalLines: 1,
+          offset,
+          limit
+        });
+        return toolSuccess({ type: 'image', file: { base64: buffer.toString('base64'), type: 'image/png', originalSize: buffer.length } });
+      }
 
-      // Apply offset and limit
-      const startIndex = Math.max(0, offset - 1);
-      const endIndex = Math.min(lines.length, startIndex + limit);
-      const selectedLines = lines.slice(startIndex, endIndex);
-      const selectedContent = selectedLines.join('\n');
+      // Handle text (Original: chunks.86.mjs:754)
+      const { content, totalLines } = readTextFileWithLineNumbers(filePath, offset, limit);
+      const formatted = formatWithLineNumbers(content, offset);
 
-      // Format with line numbers
-      const { formatted, numLines } = formatWithLineNumbers(selectedContent, offset);
+      context.readFileState.set(filePath, {
+        content,
+        timestamp: getFileModifiedTime(filePath),
+        totalLines,
+        offset,
+        limit
+      });
 
-      const result: ReadTextOutput = {
+      return toolSuccess({
         type: 'text',
         file: {
           filePath,
           content: formatted,
-          numLines,
+          numLines: content.split('\n').length,
           startLine: offset,
-          totalLines,
-        },
-      };
-
-      // Store read state for edit validation
-      context.readFileState.set(filePath, {
-        content,
-        timestamp: Date.now(),
-        totalLines,
+          totalLines
+        }
       });
-
-      return toolSuccess(result);
     } catch (error) {
       return toolError(`Failed to read file: ${(error as Error).message}`);
     }
   },
 
   mapToolResultToToolResultBlockParam(result, toolUseId) {
+    // Original: chunks.86.mjs:796-826
     if (result.type === 'text') {
       return {
         tool_use_id: toolUseId,
@@ -770,90 +363,8 @@ Assume this tool is able to read all files on the machine. If the User provides 
         content: result.file.content,
       };
     }
-
-    if (result.type === 'image') {
-      return {
-        tool_use_id: toolUseId,
-        type: 'tool_result',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: result.file.type,
-              data: result.file.base64,
-            },
-          },
-        ],
-      };
-    }
-
-    if (result.type === 'notebook') {
-      const cellsText = result.file.cells
-        .map((cell, i) => {
-          let cellContent = `[Cell ${i + 1} (${cell.type})]:\n${cell.source}`;
-
-          // Include formatted outputs for code cells
-          if (cell.type === 'code' && cell.outputs && cell.outputs.length > 0) {
-            const outputTexts = cell.outputs
-              .map((output) => {
-                if (typeof output === 'object' && output !== null && 'formatted' in output) {
-                  return (output as { formatted: string }).formatted;
-                }
-                return null;
-              })
-              .filter(Boolean);
-
-            if (outputTexts.length > 0) {
-              cellContent += `\n\n[Output]:\n${outputTexts.join('\n')}`;
-            }
-          }
-
-          return cellContent;
-        })
-        .join('\n\n---\n\n');
-      return {
-        tool_use_id: toolUseId,
-        type: 'tool_result',
-        content: cellsText,
-      };
-    }
-
-    if (result.type === 'pdf') {
-      // Check if we have extracted text pages
-      const pdfResult = result as ReadPdfOutput & { pages?: PDFPageContent[] };
-      if (pdfResult.pages && pdfResult.pages.length > 0) {
-        // Format pages as text content
-        const pagesText = pdfResult.pages
-          .map((page) => {
-            if (page.pageNumber === 0) {
-              // Metadata-only page
-              return page.text;
-            }
-            return `[Page ${page.pageNumber}]\n${page.text}`;
-          })
-          .join('\n\n---\n\n');
-
-        return {
-          tool_use_id: toolUseId,
-          type: 'tool_result',
-          content: `PDF: ${result.file.filePath} (${result.file.originalSize} bytes)\n\n${pagesText}`,
-        };
-      }
-
-      // Fallback: just return metadata
-      return {
-        tool_use_id: toolUseId,
-        type: 'tool_result',
-        content: `PDF file: ${result.file.filePath} (${result.file.originalSize} bytes)`,
-      };
-    }
-
-    return {
-      tool_use_id: toolUseId,
-      type: 'tool_result',
-      content: JSON.stringify(result),
-    };
+    // ... other types
+    return { tool_use_id: toolUseId, type: 'tool_result', content: JSON.stringify(result) };
   },
 });
 

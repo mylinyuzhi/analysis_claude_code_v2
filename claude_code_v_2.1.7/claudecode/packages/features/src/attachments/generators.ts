@@ -36,6 +36,9 @@ import type {
   EditedTextFileAttachment,
   VerifyPlanReminderAttachment,
   CollabNotificationAttachment,
+  AgentMentionAttachment,
+  QueuedCommandAttachment,
+  DelegateModeExitAttachment,
 } from './types.js';
 
 import { ATTACHMENT_CONSTANTS } from './types.js';
@@ -133,9 +136,6 @@ export async function generatePlanModeAttachment(
   
   const attachments: Attachment[] = [];
 
-  // Re-entry check (simulated)
-  // if (hasExitedPlanMode() && planExists) ...
-
   // Determine reminder type (full or sparse)
   const attachmentCount = countPlanModeAttachments(history ?? []);
   const reminderType = (attachmentCount + 1) % 5 === 1 ? 'full' : 'sparse'; // 5 is from ar2.FULL_REMINDER_EVERY_N_ATTACHMENTS
@@ -149,6 +149,166 @@ export async function generatePlanModeAttachment(
   });
 
   return attachments;
+}
+
+/**
+ * Generate critical system reminder attachment.
+ * Original: x27 in chunks.131.mjs:3265-3272
+ */
+export function generateCriticalSystemReminderAttachment(
+  ctx: AttachmentContext
+): CriticalSystemReminderAttachment[] {
+  const reminder = ctx.options.criticalSystemReminder_EXPERIMENTAL;
+  if (!reminder) return [];
+  return [{
+    type: 'critical_system_reminder',
+    content: reminder
+  }];
+}
+
+/**
+ * Generate delegate mode attachment.
+ * Original: P27 in chunks.131.mjs:3246-3256
+ */
+export async function generateDelegateModeAttachment(
+  ctx: AttachmentContext
+): Promise<DelegateModeAttachment[]> {
+  const appState = await ctx.getAppState();
+  if (appState.toolPermissionContext.mode !== 'delegate') return [];
+  if (!appState.teamContext) return [];
+  
+  const home = process.env.HOME || process.env.USERPROFILE || '.';
+  const taskListPath = `${home}/.claude/tasks/${appState.teamContext.teamName}/`;
+  
+  return [{
+    type: 'delegate_mode',
+    teamName: appState.teamContext.teamName,
+    taskListPath
+  }];
+}
+
+/**
+ * Generate memory attachment.
+ * Original: mr2 in chunks.131.mjs:3073-3076
+ */
+export async function generateMemoryAttachment(
+  ctx: AttachmentContext,
+  history: any[],
+  additionalParam?: any
+): Promise<MemoryAttachment[]> {
+  // Source mr2 returns [] if additionalParam !== "repl_main_thread"
+  if (additionalParam !== 'repl_main_thread') return [];
+  return [];
+}
+
+/**
+ * Generate diagnostics attachment.
+ * Original: o27 in chunks.131.mjs:3583-3591
+ */
+export async function generateDiagnosticsAttachment(): Promise<DiagnosticsAttachment[]> {
+  // Placeholder for Ec.getNewDiagnostics()
+  const diagnostics: any[] = []; 
+  if (diagnostics.length === 0) return [];
+  return [{
+    type: 'diagnostics',
+    files: diagnostics,
+    isNew: true
+  }];
+}
+
+/**
+ * Generate LSP diagnostics attachment.
+ * Original: r27 in chunks.131.mjs:3593-3612
+ */
+export async function generateLspDiagnosticsAttachment(): Promise<DiagnosticsAttachment[]> {
+  // In real implementation, get LSP diagnostics from registry
+  const pendingDiagnostics: any[] = [];
+  if (pendingDiagnostics.length === 0) return [];
+  
+  return pendingDiagnostics.map(({ files }) => ({
+    type: 'diagnostics',
+    files,
+    isNew: true
+  }));
+}
+
+/**
+ * Generate IDE selection attachment.
+ * Original: k27 in chunks.131.mjs:3287-3299
+ */
+export async function generateIdeSelectionAttachment(
+  ideContext: any,
+  ctx: AttachmentContext
+): Promise<IdeSelectionAttachment[]> {
+  // hF1 is a helper to get IDE name from MCP clients
+  const ideName = 'vscode'; // Placeholder
+  if (!ideName || ideContext?.lineStart === undefined || !ideContext.text || !ideContext.filePath) return [];
+  
+  const appState = await ctx.getAppState();
+  // nEA is fileReadPermissionCheck
+  
+  return [{
+    type: 'selected_lines_in_ide',
+    ideName,
+    lineStart: ideContext.lineStart,
+    lineEnd: ideContext.lineStart + (ideContext.lineCount || 1) - 1,
+    filename: ideContext.filePath,
+    content: ideContext.text
+  }];
+}
+
+/**
+ * Generate invoked skills attachment.
+ * Original: chunks.132.mjs:708
+ */
+export async function generateInvokedSkillsAttachment(
+  skills: any[]
+): Promise<InvokedSkillsAttachment[]> {
+  if (!skills || skills.length === 0) return [];
+  return [{
+    type: 'invoked_skills',
+    skills: skills.map(s => ({
+      name: s.name,
+      path: s.path,
+      content: s.content
+    }))
+  }];
+}
+
+/**
+ * Generate todo attachment.
+ */
+export function generateTodoAttachment(todos: TodoItem[]): TodoAttachment {
+  return {
+    type: 'todo',
+    content: todos,
+    itemCount: todos.length,
+  };
+}
+
+/**
+ * Alias for generateTodoRemindersAttachment.
+ */
+export const generateTodoReminderAttachment = generateTodoRemindersAttachment;
+
+/**
+ * Generate task status attachment.
+ */
+export function generateTaskStatusAttachment(
+  taskId: string,
+  taskType: 'shell' | 'agent' | 'remote_session',
+  status: 'running' | 'completed' | 'failed',
+  description: string,
+  deltaSummary?: string
+): TaskStatusAttachment {
+  return {
+    type: 'task_status',
+    taskId,
+    taskType,
+    status,
+    description,
+    deltaSummary
+  };
 }
 
 /**

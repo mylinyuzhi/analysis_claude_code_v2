@@ -2,17 +2,22 @@
  * @claudecode/core - LLM API Streaming
  *
  * Streaming response handling with incremental aggregation.
- * Reconstructed from chunks.147.mjs (queryWithStreaming / BJ9)
+ * Reconstructed from chunks.147.mjs (BJ9 / queryWithStreaming) and chunks.146.mjs.
  *
  * Key symbols:
  * - BJ9 → queryWithStreaming (main streaming function)
+ * - v51 → retryGenerator (retry wrapper)
+ * - XS → createAnthropicClient
  * - dhA → updateUsage (merge usage statistics)
  * - JP0 → processContent (parse tool inputs)
  * - eY9 → generateMessageUUID
+ * - H19 → logApiQuery (telemetry)
+ * - E19 → logApiError (telemetry)
  */
 
 import { generateUUID } from '@claudecode/shared';
 import type { TokenUsage, ContentBlock, ToolDefinition } from '@claudecode/shared';
+import { analyticsEvent } from '@claudecode/platform';
 import type {
   StreamEvent,
   StreamingQueryResult,
@@ -491,6 +496,15 @@ export interface StreamApiCallOptions {
   temperatureOverride?: number;
   /** Max output tokens override */
   maxOutputTokensOverride?: number;
+  /** Query source tracking */
+  querySource?: string;
+  /** Query tracking info */
+  queryTracking?: {
+    chainId: string;
+    depth: number;
+  };
+  /** Permission mode */
+  permissionMode?: string;
 }
 
 /**
@@ -526,6 +540,19 @@ export async function* streamApiCall({
 }: StreamApiCallArgs): AsyncGenerator<StreamingQueryResult, { usage: ExtendedUsage; stopReason: StopReason }, undefined> {
   const state = createAggregationState();
   state.requestStartTime = Date.now();
+
+  analyticsEvent('tengu_api_query', {
+    model: options.model,
+    messagesLength: messages.length,
+    temperature: options.temperatureOverride ?? 1,
+    querySource: options.querySource,
+    permissionMode: options.permissionMode,
+    provider: 'anthropic',
+    ...(options.queryTracking ? {
+      queryChainId: options.queryTracking.chainId,
+      queryDepth: options.queryTracking.depth
+    } : {}),
+  });
 
   try {
     // Create streaming client with retry logic
@@ -693,6 +720,20 @@ export async function* streamApiCall({
     }
 
   } catch (error) {
+    const duration = Date.now() - state.requestStartTime;
+    
+    analyticsEvent('tengu_api_error', {
+      model: options.model,
+      error: error instanceof Error ? error.message : String(error),
+      messageCount: messages.length,
+      durationMs: duration,
+      querySource: options.querySource,
+      ...(options.queryTracking ? {
+        queryChainId: options.queryTracking.chainId,
+        queryDepth: options.queryTracking.depth
+      } : {}),
+    });
+
     // Handle streaming errors with fallback to non-streaming
     if (options.signal?.aborted) {
       throw error;

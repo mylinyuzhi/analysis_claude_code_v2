@@ -33,17 +33,11 @@ const MAX_RESULT_SIZE = 100000;
 // ============================================
 
 /**
- * Todo status enum.
- * Original: NX8 in chunks.59.mjs
- */
-const todoStatusSchema = z.enum(['pending', 'in_progress', 'completed']);
-
-/**
  * Todo item schema.
  */
 const todoItemSchema = z.object({
   content: z.string().min(1).describe('Task description'),
-  status: todoStatusSchema.describe('Task status'),
+  status: z.enum(['pending', 'in_progress', 'completed']).describe('Task status'),
   activeForm: z.string().min(1).describe('Present continuous form (e.g., "Fixing the login bug")'),
 });
 
@@ -60,20 +54,9 @@ const todoWriteInputSchema = z.object({
  * Original: xX8 in chunks.59.mjs:399-401
  */
 const todoWriteOutputSchema = z.object({
-  oldTodos: z.array(todoItemSchema),
-  newTodos: z.array(todoItemSchema),
+  oldTodos: z.array(todoItemSchema).describe("The todo list before the update"),
+  newTodos: z.array(todoItemSchema).describe("The todo list after the update"),
 });
-
-// ============================================
-// Helper Functions
-// ============================================
-
-/**
- * Generate a simple ID.
- */
-function generateId(): string {
-  return `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
 
 // ============================================
 // TodoWrite Tool
@@ -115,11 +98,13 @@ export const TodoWriteTool = createTool<TodoWriteInput, TodoWriteOutput>({
   ],
 
   async description() {
+    // Original: VCB in chunks.59.mjs:424
     return `Use this tool to create and manage a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
 It also helps the user understand the progress of the task and overall progress of their requests.`;
   },
 
   async prompt() {
+    // Original: KCB in chunks.59.mjs:427
     return `When to Use:
 1. Complex multi-step tasks - When a task requires 3 or more distinct steps
 2. Non-trivial and complex tasks - Tasks that require careful planning
@@ -143,59 +128,53 @@ IMPORTANT: Mark tasks complete IMMEDIATELY after finishing (don't batch completi
   inputSchema: todoWriteInputSchema,
   outputSchema: todoWriteOutputSchema,
 
+  userFacingName() {
+    return "";
+  },
+
   isEnabled() {
     return true;
   },
 
   isConcurrencySafe() {
-    return false; // State modifications must be sequential
+    return false;
   },
 
   isReadOnly() {
-    return false; // Modifies app state
+    return false;
   },
 
   async checkPermissions(input) {
-    // TodoWrite is always allowed
-    return permissionAllow(input);
+    // Original: chunks.59.mjs:443
+    return { behavior: "allow", updatedInput: input };
   },
 
   async validateInput(input, context) {
     return validationSuccess();
   },
 
-  async call(input, context) {
-    const { todos } = input;
+  async call({ todos }, context) {
+    // Original: chunks.59.mjs:454-472
     const appState = await context.getAppState();
-    const agentId = context.agentId ?? generateId();
+    const agentId = context.agentId ?? "default"; // Simplified fallback for q0()
+    
+    const oldTodos = appState.todos[agentId] ?? [];
+    const newTodos = todos.every((t) => t.status === "completed") ? [] : todos;
 
-    // Get old todos
-    const oldTodos: TodoItem[] = appState.todos[agentId] ?? [];
-
-    // If all todos completed, clear the list
-    const allCompleted = todos.every((t) => t.status === 'completed');
-    const newTodos: TodoItem[] = allCompleted ? [] : todos;
-
-    // Update app state
     context.setAppState((state) => ({
       ...state,
-      todos: { ...state.todos, [agentId]: newTodos },
+      todos: { ...state.todos, [agentId]: newTodos }
     }));
 
-    const result: TodoWriteOutput = {
-      oldTodos,
-      newTodos,
-    };
-
-    return toolSuccess(result);
+    return toolSuccess({ oldTodos, newTodos: todos });
   },
 
   mapToolResultToToolResultBlockParam(result, toolUseId) {
+    // Original: chunks.59.mjs:474-480
     return {
       tool_use_id: toolUseId,
-      type: 'tool_result',
-      content:
-        'Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable',
+      type: "tool_result",
+      content: "Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable"
     };
   },
 });

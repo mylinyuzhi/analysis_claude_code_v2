@@ -265,12 +265,48 @@ if (J) {
 1. Check `old_string !== new_string` (errorCode: 1)
 2. Check permission denied paths (errorCode: 2)
 3. Handle file creation when `old_string === ""` (errorCode: 3)
+   - If file exists and is not empty, returns "Cannot create new file - file already exists."
 4. Check file existence (errorCode: 4)
 5. Check not Jupyter notebook (errorCode: 5)
 6. Check file was read first (errorCode: 6)
 7. Check file not modified since read (errorCode: 7)
 8. Check `old_string` found in file (errorCode: 8)
 9. Check `old_string` is unique unless `replace_all` (errorCode: 9)
+10. Settings validation (errorCode: 10)
+    - Original: uy2 in chunks.114.mjs:2913-2929
+    - Validates settings.json schema after edit.
+
+**LSP Integration**:
+After a successful edit, the tool notifies the active LSP server (if any) to synchronize the file state and trigger diagnostics.
+
+```javascript
+// ============================================
+// EditTool LSP Notification
+// Location: chunks.115.mjs:998-1003
+// ============================================
+
+// ORIGINAL (for source lookup):
+let O = Rc();
+if (O) XW1(`file://${W}`), O.changeFile(W, H).catch((M) => {
+  k(`LSP: Failed to notify server of file change for ${W}: ${M.message}`), e(M)
+}), O.saveFile(W).catch((M) => {
+  k(`LSP: Failed to notify server of file save for ${W}: ${M.message}`), e(M)
+});
+
+// READABLE (for understanding):
+const lspManager = getLspManager();
+if (lspManager) {
+  notifyLspFileChange(`file://${filePath}`);
+  lspManager.changeFile(filePath, updatedContent).catch((err) => {
+    logError(`LSP: Failed to notify server of file change for ${filePath}: ${err.message}`);
+  });
+  lspManager.saveFile(filePath).catch((err) => {
+    logError(`LSP: Failed to notify server of file save for ${filePath}: ${err.message}`);
+  });
+}
+
+// Mapping: Rc→getLspManager, XW1→notifyLspFileChange, W→filePath, H→updatedContent
+```
 
 ---
 
@@ -431,6 +467,40 @@ if (J) {
 - `isReadOnly(input)`: Analyzes command to determine if read-only
 - `maxResultSizeChars`: 30000
 - `strict`: `true`
+
+**Haiku Path Extraction (Optimization)**:
+After a bash command executes, the system attempts to automatically extract and "pre-read" files mentioned in the output to avoid explicit `Read` calls in the next turn.
+
+```javascript
+// ============================================
+// extractFilePaths - LLM-based path extraction from command output
+// Location: chunks.85.mjs:2675-2712
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function bA2(A, Q, B, G) {
+  let Y = (await CF({
+    systemPrompt: [`Extract any file paths that this command reads or modifies...`],
+    userPrompt: `Command: ${A}\nOutput: ${Q}`,
+    ...
+  })).message.content...;
+  return Q9(Y, "filepaths")?.trim().split("\n").filter(Boolean) || []
+}
+
+// READABLE (for understanding):
+async function extractFilePaths(command, output, signal, isNonInteractive) {
+  const result = await queryAssistant({
+    systemPrompt: ["Extract any file paths that this command reads or modifies..."],
+    userPrompt: `Command: ${command}\nOutput: ${output}`,
+    querySource: "bash_extract_command_paths",
+    ...
+  });
+  const text = result.message.content.filter(c => c.type === "text").map(c => c.text).join("");
+  return extractTagContent(text, "filepaths")?.trim().split("\n").filter(Boolean) || [];
+}
+
+// Mapping: bA2→extractFilePaths, CF→queryAssistant, Q9→extractTagContent
+```
 
 **Concurrency Safety Algorithm** (chunks.124.mjs:1517-1523):
 ```javascript

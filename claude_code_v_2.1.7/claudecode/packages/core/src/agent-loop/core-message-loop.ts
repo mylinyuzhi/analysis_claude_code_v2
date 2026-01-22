@@ -19,11 +19,19 @@
  * - FI → normalizeToolResults
  */
 
-import { generateUUID } from '@claudecode/shared';
+import { 
+  generateUUID,
+  getTeleportedSessionInfo,
+  markTeleportFirstMessageLogged,
+} from '@claudecode/shared';
 import { createUserMessage } from '../message/factory.js';
 import type { ContentBlock } from '@claudecode/shared';
 import type { AssistantMessage as LLMAssistantMessage } from '../llm-api/types.js';
 import type { ConversationMessage, AssistantMessage as InternalAssistantMessage } from '../message/types.js';
+import { 
+  analyticsEvent, 
+  logStructuredMetric 
+} from '@claudecode/platform';
 
 /**
  * Convert LLM API assistant message to internal message format.
@@ -95,9 +103,160 @@ export function recordMarker(name: string): void {
  * Original: l in chunks.134.mjs
  */
 function logTelemetry(event: string, data: Record<string, unknown>): void {
-  if (process.env.DEBUG_TELEMETRY) {
-    console.log(`[Telemetry] ${event}:`, data);
+  analyticsEvent(event, data);
+}
+
+/**
+ * Log API query telemetry.
+ * Original: mapped to chunks.134.mjs:1595
+ */
+function logApiQueryTelemetry(options: {
+  model: string;
+  messagesLength: number;
+  temperature?: number;
+  betas?: string[];
+  permissionMode?: string;
+  querySource?: string;
+  queryTracking?: QueryTracking;
+}): void {
+  logTelemetry('tengu_api_query', {
+    model: options.model,
+    messagesLength: options.messagesLength,
+    temperature: options.temperature,
+    provider: 'anthropic', // PT() in source
+    ...options.betas?.length ? { betas: options.betas.join(',') } : {},
+    permissionMode: options.permissionMode,
+    querySource: options.querySource,
+    ...options.queryTracking ? {
+      queryChainId: options.queryTracking.chainId,
+      queryDepth: options.queryTracking.depth
+    } : {},
+  });
+}
+
+/**
+ * Log API success telemetry.
+ * Original: mapped to chunks.134.mjs:1710
+ */
+function logApiSuccessTelemetry(options: {
+  model: string;
+  preNormalizedModel?: string;
+  messageCount: number;
+  messageTokens: number;
+  usage: any;
+  durationMs: number;
+  durationMsIncludingRetries: number;
+  attempt: number;
+  ttftMs?: number;
+  requestId?: string;
+  stopReason?: string;
+  costUSD: number;
+  didFallBackToNonStreaming: boolean;
+  querySource?: string;
+  queryTracking?: QueryTracking;
+  permissionMode?: string;
+}): void {
+  logTelemetry('tengu_api_success', {
+    model: options.model,
+    ...options.preNormalizedModel && options.preNormalizedModel !== options.model ? {
+      preNormalizedModel: options.preNormalizedModel
+    } : {},
+    messageCount: options.messageCount,
+    messageTokens: options.messageTokens,
+    inputTokens: options.usage.input_tokens,
+    outputTokens: options.usage.output_tokens,
+    cachedInputTokens: options.usage.cache_read_input_tokens ?? 0,
+    uncachedInputTokens: options.usage.cache_creation_input_tokens ?? 0,
+    durationMs: options.durationMs,
+    durationMsIncludingRetries: options.durationMsIncludingRetries,
+    attempt: options.attempt,
+    ttftMs: options.ttftMs,
+    requestId: options.requestId,
+    stop_reason: options.stopReason,
+    costUSD: options.costUSD,
+    didFallBackToNonStreaming: options.didFallBackToNonStreaming,
+    querySource: options.querySource,
+    ...options.queryTracking ? {
+      queryChainId: options.queryTracking.chainId,
+      queryDepth: options.queryTracking.depth
+    } : {},
+    permissionMode: options.permissionMode,
+  });
+
+  // Teleport telemetry (mapped to chunks.134.mjs:1813)
+  const teleportInfo = getTeleportedSessionInfo();
+  if (teleportInfo?.isTeleported && !teleportInfo.hasLoggedFirstMessage) {
+    logTelemetry('tengu_teleport_first_message_success', {
+      session_id: teleportInfo.sessionId,
+    });
+    markTeleportFirstMessageLogged();
   }
+
+  // Log structured metric as well (LF in source)
+  logStructuredMetric('api_request', {
+    model: options.model,
+    input_tokens: String(options.usage.input_tokens),
+    output_tokens: String(options.usage.output_tokens),
+    cache_read_tokens: String(options.usage.cache_read_input_tokens),
+    cache_creation_tokens: String(options.usage.cache_creation_input_tokens),
+    cost_usd: String(options.costUSD),
+    duration_ms: String(options.durationMs),
+  });
+}
+
+/**
+ * Log API error telemetry.
+ * Original: mapped to chunks.134.mjs:1643
+ */
+function logApiErrorTelemetry(options: {
+  error: Error;
+  model: string;
+  messageCount: number;
+  messageTokens: number;
+  durationMs: number;
+  durationMsIncludingRetries: number;
+  attempt: number;
+  requestId?: string;
+  didFallBackToNonStreaming: boolean;
+  queryTracking?: QueryTracking;
+  querySource?: string;
+}): void {
+  logTelemetry('tengu_api_error', {
+    model: options.model,
+    error: options.error.message,
+    status: (options.error as any).status,
+    messageCount: options.messageCount,
+    messageTokens: options.messageTokens,
+    durationMs: options.durationMs,
+    durationMsIncludingRetries: options.durationMsIncludingRetries,
+    attempt: options.attempt,
+    provider: 'anthropic',
+    requestId: options.requestId,
+    didFallBackToNonStreaming: options.didFallBackToNonStreaming,
+    ...options.queryTracking ? {
+      queryChainId: options.queryTracking.chainId,
+      queryDepth: options.queryTracking.depth
+    } : {},
+    ...options.querySource ? { querySource: options.querySource } : {},
+  });
+
+  // Teleport telemetry (mapped to chunks.134.mjs:1683)
+  const teleportInfo = getTeleportedSessionInfo();
+  if (teleportInfo?.isTeleported && !teleportInfo.hasLoggedFirstMessage) {
+    logTelemetry('tengu_teleport_first_message_error', {
+      session_id: teleportInfo.sessionId,
+      error_type: (options.error as any).type || 'UnknownError',
+    });
+    markTeleportFirstMessageLogged();
+  }
+
+  logStructuredMetric('api_error', {
+    model: options.model,
+    error: options.error.message,
+    status_code: String((options.error as any).status || ''),
+    duration_ms: String(options.durationMs),
+    attempt: String(options.attempt),
+  });
 }
 
 /**
@@ -1019,6 +1178,18 @@ async function* streamApiResponse(options: {
     }
   }
 
+  logApiQueryTelemetry({
+    model: options.options.model,
+    messagesLength: options.messages.length,
+    betas: (options.options as any).sdkBetas,
+    permissionMode: (options.options as any).permissionMode,
+    querySource: options.options.querySource,
+    queryTracking: options.options.queryTracking,
+  });
+
+  const startTime = Date.now();
+  let attempt = 1;
+
   // Stream options
   const streamOptions: StreamApiCallOptions = {
     model: options.options.model,
@@ -1033,6 +1204,7 @@ async function* streamApiResponse(options: {
 
   try {
     // Use the real streaming API
+    let ttftMs: number | undefined;
     for await (const result of streamApiCall({
       messages: request.messages as any[],
       systemPrompt: typeof request.system === 'string' ? request.system : undefined,
@@ -1040,7 +1212,32 @@ async function* streamApiResponse(options: {
       signal: streamOptions.signal,
       options: streamOptions
     })) {
+      if (result.type === 'stream_event') {
+        if (!ttftMs && (result.event.type === 'content_block_start' || result.event.type === 'content_block_delta')) {
+          ttftMs = Date.now() - startTime;
+        }
+      }
+
       if (result.type === 'assistant') {
+        // Log success when assistant message is complete
+        logApiSuccessTelemetry({
+          model: result.message.model,
+          preNormalizedModel: options.options.model,
+          messageCount: options.messages.length,
+          messageTokens: 0, // Would need estimation
+          usage: result.message.usage || { input_tokens: 0, output_tokens: 0 },
+          durationMs: Date.now() - startTime,
+          durationMsIncludingRetries: Date.now() - startTime,
+          attempt,
+          ttftMs,
+          stopReason: result.message.stopReason || undefined,
+          costUSD: 0, // Would need calculation
+          didFallBackToNonStreaming: false,
+          querySource: options.options.querySource,
+          queryTracking: options.options.queryTracking,
+          permissionMode: (options.options as any).permissionMode,
+        });
+
         // Convert streaming result to ConversationMessage format
         const message: ConversationMessage = {
           type: 'assistant',
@@ -1088,6 +1285,20 @@ async function* streamApiResponse(options: {
       }
     }
   } catch (error) {
+    // Log API error telemetry
+    logApiErrorTelemetry({
+      error: error instanceof Error ? error : new Error(String(error)),
+      model: options.options.model,
+      messageCount: options.messages.length,
+      messageTokens: 0,
+      durationMs: Date.now() - startTime,
+      durationMsIncludingRetries: Date.now() - startTime,
+      attempt,
+      didFallBackToNonStreaming: false,
+      queryTracking: options.options.queryTracking,
+      querySource: options.options.querySource,
+    });
+
     // Convert errors to appropriate types
     if (error instanceof Error) {
       if (error.message.includes('fallback')) {
@@ -1170,7 +1381,14 @@ async function* processPendingAttachments(
     },
   };
 
-  for await (const a of attachmentsModule.generateAttachmentsStreaming(attachmentCtx, _turnIndex)) {
+  for await (const a of attachmentsModule.generateAttachmentsStreaming(
+    attachmentCtx,
+    _turnIndex,
+    null,
+    _subAgentResult,
+    _queuedCommands,
+    _messages
+  )) {
     yield a as ConversationMessage;
   }
 }
@@ -1513,7 +1731,13 @@ export async function* coreMessageLoop(
   };
 
   // 3. Normalize messages
+  logTelemetry('tengu_api_before_normalize', {
+    preNormalizedMessageCount: inputMessages.length,
+  });
   let processedMessages = normalizeMessages(inputMessages);
+  logTelemetry('tengu_api_after_normalize', {
+    postNormalizedMessageCount: processedMessages.length,
+  });
   let autoCompactTracking = inputAutoCompactTracking;
 
   // 4. Micro-compaction
@@ -1571,6 +1795,16 @@ export async function* coreMessageLoop(
     }
 
     const compactedMessages = formatCompactionMessages(compactionResult);
+    if (autoCompactTracking?.compacted) {
+      autoCompactTracking.turnCounter++;
+      logTelemetry('tengu_post_autocompact_turn', {
+        turnId: autoCompactTracking.turnId,
+        turnCounter: autoCompactTracking.turnCounter,
+        queryChainId,
+        queryDepth: queryTracking.depth,
+      });
+    }
+
     for (const msg of compactedMessages) {
       yield msg;
     }
@@ -1652,6 +1886,9 @@ export async function* coreMessageLoop(
             maxOutputTokensOverride,
             fetchOverride: fetchOverride as any,
             agentId: updatedContext.agentId,
+            queryTracking,
+            querySource,
+            permissionMode,
           },
         })) {
           // Handle fallback: tombstone previous messages

@@ -420,6 +420,34 @@ export async function logEventAsync(
  */
 export const trackEvent = analyticsEvent;
 
+/**
+ * Log structured metric (OpenTelemetry).
+ * Original: LF in chunks.91.mjs:3298
+ */
+export async function logStructuredMetric(
+  eventName: string,
+  metadata: Record<string, unknown> = {}
+): Promise<void> {
+  if (!isTelemetryEnabled()) return;
+
+  const envContext = await getEnvironmentContext();
+  const attributes: Record<string, unknown> = {
+    ...envContext,
+    'event.name': eventName,
+    'event.timestamp': new Date().toISOString(),
+  };
+
+  for (const [key, value] of Object.entries(metadata)) {
+    if (value !== undefined) {
+      attributes[key] = value;
+    }
+  }
+
+  // In real implementation, this would emit to OTEL
+  // For now, route to 1P logger placeholder
+  sendTo1PLogger(eventName, attributes as any);
+}
+
 // ============================================
 // Provider Management
 // ============================================

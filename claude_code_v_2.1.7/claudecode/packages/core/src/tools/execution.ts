@@ -2,35 +2,27 @@
  * @claudecode/core - Tool Execution Flow
  *
  * Complete tool execution pipeline with validation, permissions, and hooks.
- * Reconstructed from chunks.134.mjs:660-1050
- *
- * Key symbols:
- * - jH1 → executeSingleTool (main entry)
- * - k77 → executeToolWithProgress (progress streaming wrapper)
- * - b77 → executeToolWithValidation (validation and permission flow)
- * - g77 → preToolUseHooks (pre-execution hooks)
- * - f77 → postToolUseHooks (post-execution hooks)
- * - K91 → findToolByName
- * - FM0 → createUserRejectedToolResult
- * - v4A → USER_REJECTED_CONTENT
+ * Reconstructed from chunks.134.mjs:660-1125 and chunks.89.mjs:2458-2483
  */
 
 import { generateUUID } from '@claudecode/shared';
 import { createUserMessage } from '../message/factory.js';
-import type { ContentBlock } from '@claudecode/shared';
-import type { ConversationMessage } from '../message/types.js';
+import type { ContentBlock, ToolResultContentBlock } from '@claudecode/shared';
+import type { ConversationMessage, UserMessage, AssistantMessage } from '../message/types.js';
 import type { ToolDefinition, ToolUseContext, ToolResult, ToolInput } from './types.js';
 import type { ToolUseBlock, CanUseTool, ToolExecutionYield } from '../agent-loop/types.js';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { 
+  analyticsEvent, 
+  logStructuredMetric 
+} from '@claudecode/platform';
 
 // Import hooks from features package
 import {
   executePreToolHooks,
   executePostToolHooks,
   executePostToolFailureHooks as executePostToolFailureHooksFromFeatures,
-  type REPLHookYield,
-  type HookExecutionResult,
-  type PreToolUseOutput,
-  type PostToolUseOutput,
 } from '@claudecode/features';
 
 // ============================================
@@ -39,15 +31,47 @@ import {
 
 /**
  * User rejected content message.
- * Original: v4A in chunks.134.mjs
+ * Original: v4A in chunks.148.mjs:623
  */
-export const USER_REJECTED_CONTENT = '<tool_use_error>User rejected tool use</tool_use_error>';
+export const USER_REJECTED_CONTENT = "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
 
 /**
  * Cancelled by user message.
- * Original: aVA in chunks.134.mjs
+ * Original: aVA in chunks.148.mjs:621
  */
-export const CANCELLED_BY_USER_MESSAGE = 'Tool use cancelled by user';
+export const CANCELLED_BY_USER_MESSAGE = "The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.";
+
+/**
+ * Default maximum result size before persistence.
+ * Original: U42 in chunks.89.mjs:2392
+ */
+const DEFAULT_MAX_RESULT_SIZE = 400000;
+
+/**
+ * Preview size for persisted results.
+ * Original: q42 in chunks.89.mjs:2532
+ */
+const PREVIEW_SIZE = 2000;
+
+/**
+ * Persisted output markers.
+ * Original: GZ1 and cX0 in chunks.89.mjs:2526-2528
+ */
+const PERSISTED_OUTPUT_START = '<persisted-output>';
+const PERSISTED_OUTPUT_END = '</persisted-output>';
+
+// ============================================
+// Types
+// ============================================
+
+/**
+ * Hook permission result.
+ */
+export interface HookPermissionResult {
+  behavior: 'allow' | 'deny' | 'ask';
+  updatedInput?: ToolInput;
+  message?: string;
+}
 
 // ============================================
 // Helper Functions
@@ -55,7 +79,7 @@ export const CANCELLED_BY_USER_MESSAGE = 'Tool use cancelled by user';
 
 /**
  * Find tool by name.
- * Original: K91 in chunks.134.mjs
+ * Original: K91 in chunks.134.mjs:662
  */
 export function findToolByName(
   tools: ToolDefinition[],
@@ -66,11 +90,14 @@ export function findToolByName(
 
 /**
  * Get display name for tool (strips mcp__ prefix).
- * Original: k9 in chunks.134.mjs
+ * Original: k9 in chunks.134.mjs:667
  */
 export function getToolDisplayName(name: string): string {
   if (name.startsWith('mcp__')) {
-    return name.replace(/^mcp__[^_]+__/, '');
+    const parts = name.split('__');
+    if (parts.length >= 3) {
+      return parts.slice(2).join('__');
+    }
   }
   return name;
 }
@@ -99,7 +126,7 @@ export function parseMcpToolName(
 
 /**
  * Get MCP server type from tool name.
- * Original: v77 in chunks.134.mjs
+ * Original: v77 in chunks.134.mjs:651
  */
 export function getMcpServerType(
   toolName: string,
@@ -109,30 +136,35 @@ export function getMcpServerType(
 
   const parsed = parseMcpToolName(toolName);
   if (!parsed) return undefined;
-
-  const client = mcpClients.find((c) => c.name === parsed.serverName);
+  
+  const client = mcpClients.find((c) => c.name === parsed.serverName) as any;
   if (client?.type === 'connected') {
-    return (client.config as { type?: string })?.type ?? 'stdio';
+    return client.config?.type ?? 'stdio';
   }
   return undefined;
 }
 
 /**
  * Create user rejected tool result.
- * Original: FM0 in chunks.134.mjs
+ * Original: FM0 in chunks.147.mjs:2486
  */
 export function createUserRejectedToolResult(toolUseId: string): ContentBlock {
   return {
     type: 'tool_result',
-    content: USER_REJECTED_CONTENT,
+    content: CANCELLED_BY_USER_MESSAGE,
     is_error: true,
     tool_use_id: toolUseId,
   } as ContentBlock;
 }
 
 /**
+ * Alias for createUserRejectedToolResult to match index.ts expectations
+ */
+export const createCancelledToolResult = createUserRejectedToolResult;
+
+/**
  * Format Zod validation error.
- * Original: u77 in chunks.134.mjs
+ * Original: u77 in chunks.134.mjs:775
  */
 export function formatValidationError(toolName: string, error: { message: string; errors?: Array<{ path: string[]; message: string }> }): string {
   if (error.errors && error.errors.length > 0) {
@@ -145,19 +177,107 @@ export function formatValidationError(toolName: string, error: { message: string
 }
 
 // ============================================
-// Telemetry (Placeholder)
+// Monitoring & Telemetry
 // ============================================
 
+/**
+ * Log telemetry event.
+ * Original: l in chunks.134.mjs
+ */
 function logTelemetry(event: string, data: Record<string, unknown>): void {
-  if (process.env.DEBUG_TELEMETRY) {
-    console.log(`[Telemetry] ${event}:`, data);
+  analyticsEvent(event, data);
+}
+
+/**
+ * Record duration of tool execution.
+ * Original: aU1 in chunks.134.mjs:958
+ */
+function recordDuration(durationMs: number): void {
+  // Global state update or performance mark
+}
+
+/**
+ * Record tool success/failure state.
+ * Original: lI0 in chunks.134.mjs:981
+ */
+function recordToolSuccess(result: { success: boolean; error?: string }): void {
+  // Span management placeholder
+}
+
+/**
+ * Record raw tool result for monitoring.
+ * Original: sZ1 in chunks.134.mjs:985
+ */
+function recordToolResult(result: string): void {
+  // Span management placeholder
+}
+
+/**
+ * Log structured metric for tool result.
+ * Original: LF in chunks.134.mjs:1008
+ */
+async function logToolResultMetric(eventName: string, data: Record<string, unknown>): Promise<void> {
+  await logStructuredMetric(eventName, data);
+}
+
+/**
+ * Track tool input for tracing.
+ * Original: J82 in chunks.134.mjs:869
+ */
+function trackToolInput(toolName: string, input: Record<string, unknown>): void {
+  // Tracing placeholder
+}
+
+/**
+ * Clear tool input tracing state.
+ * Original: X82 in chunks.134.mjs:869
+ */
+function clearToolInput(): void {
+  // Tracing placeholder
+}
+
+/**
+ * Log debug output for tools.
+ * Original: D82 in chunks.134.mjs:973
+ */
+function logDebugOutput(key: string, data: Record<string, unknown>): void {
+  if (process.env.DEBUG_TOOLS) {
+    console.log(`[Debug] ${key}:`, data);
   }
 }
 
-function logError(error: Error): void {
-  if (process.env.DEBUG_ERRORS) {
-    console.error('[Error]', error);
-  }
+/**
+ * Track permission decision.
+ * Original: pI0 in chunks.134.mjs:889
+ */
+function trackPermissionDecision(decision: string, source: string): void {
+  // Decision tracking placeholder
+}
+
+/**
+ * Start tool execution span.
+ * Original: I82 in chunks.134.mjs:946
+ */
+function startSpan(): void {
+  // Span start placeholder
+}
+
+/**
+ * Is tool an MCP tool?
+ * Original: $j in chunks.134.mjs:1007
+ */
+function isMcpTool(tool: ToolDefinition): boolean {
+  return tool.name.startsWith('mcp__');
+}
+
+/**
+ * Get MCP server scope.
+ * Original: WM0 in chunks.134.mjs:1007
+ */
+function getMcpServerScope(toolName: string): string | null {
+  if (!toolName.startsWith('mcp__')) return null;
+  const parts = toolName.split('__');
+  return parts.length >= 2 ? (parts[1] as string) : null;
 }
 
 // ============================================
@@ -166,11 +286,11 @@ function logError(error: Error): void {
 
 /**
  * Async queue for streaming progress.
- * Original: khA in chunks.134.mjs
+ * Reconstructed from chunks.133.mjs:3221-3280 (khA class)
  */
 class AsyncQueue<T> {
   private queue: T[] = [];
-  private waiting: Array<{ resolve: (value: T | undefined) => void; reject: (error: Error) => void }> = [];
+  private waiting: Array<{ resolve: (value: { done: boolean; value: T | undefined }) => void; reject: (error: Error) => void }> = [];
   private isDone = false;
   private error: Error | null = null;
 
@@ -179,16 +299,17 @@ class AsyncQueue<T> {
 
     if (this.waiting.length > 0) {
       const waiter = this.waiting.shift()!;
-      waiter.resolve(item);
+      waiter.resolve({ done: false, value: item });
     } else {
       this.queue.push(item);
     }
   }
 
   done(): void {
+    if (this.isDone) return;
     this.isDone = true;
     for (const waiter of this.waiting) {
-      waiter.resolve(undefined);
+      waiter.resolve({ done: true, value: undefined });
     }
     this.waiting = [];
   }
@@ -204,258 +325,134 @@ class AsyncQueue<T> {
 
   async *[Symbol.asyncIterator](): AsyncGenerator<T> {
     while (true) {
-      if (this.error) {
-        throw this.error;
-      }
-
-      if (this.queue.length > 0) {
-        yield this.queue.shift()!;
-        continue;
-      }
-
-      if (this.isDone) {
-        return;
-      }
-
-      const item = await new Promise<T | undefined>((resolve, reject) => {
-        this.waiting.push({ resolve, reject });
-      });
-
-      if (item === undefined) {
-        return;
-      }
-
-      yield item;
+      const result = await this.next();
+      if (result.done) return;
+      yield result.value!;
     }
+  }
+
+  private next(): Promise<{ done: boolean; value: T | undefined }> {
+    if (this.queue.length > 0) {
+      return Promise.resolve({ done: false, value: this.queue.shift() });
+    }
+    if (this.isDone) {
+      return Promise.resolve({ done: true, value: undefined });
+    }
+    if (this.error) {
+      return Promise.reject(this.error);
+    }
+    return new Promise((resolve, reject) => {
+      this.waiting.push({ resolve, reject });
+    });
   }
 }
 
 // ============================================
-// Pre-Tool Use Hooks
+// Tool Result Persistence
 // ============================================
 
 /**
- * Hook permission result.
+ * Get preview of result.
+ * Original: H85 in chunks.89.mjs:2485
  */
-export interface HookPermissionResult {
-  behavior: 'allow' | 'deny' | 'ask';
-  updatedInput?: ToolInput;
-  message?: string;
-}
-
-/**
- * Execute pre-tool use hooks.
- * Original: g77 in chunks.134.mjs
- *
- * Integrates with @claudecode/features/hooks executePreToolHooks.
- */
-async function* executePreToolUseHooks(
-  context: ToolUseContext,
-  tool: ToolDefinition,
-  input: ToolInput,
-  toolUseId: string,
-  messageId: string,
-  requestId?: string,
-  mcpServerType?: string
-): AsyncGenerator<{
-  type: 'message' | 'hookPermissionResult' | 'hookUpdatedInput' | 'preventContinuation' | 'stopReason' | 'stop';
-  message?: ConversationMessage;
-  hookPermissionResult?: HookPermissionResult;
-  updatedInput?: ToolInput;
-  shouldPreventContinuation?: boolean;
-  stopReason?: string;
-}> {
-  // Get permission mode from context
-  const permissionMode = context.options?.permissionMode ?? 'default';
-  const signal = context.abortController?.signal;
-
-  try {
-    // Execute hooks from features package
-    for await (const hookYield of executePreToolHooks(
-      tool.name,
-      toolUseId,
-      input,
-      context,
-      permissionMode,
-      signal
-    )) {
-      // Process hook yield results
-      if (hookYield.preventContinuation) {
-        yield {
-          type: 'preventContinuation',
-          shouldPreventContinuation: true,
-        };
-        yield {
-          type: 'stopReason',
-          stopReason: hookYield.stopReason,
-        };
-        yield { type: 'stop' };
-        return;
-      }
-
-      // Check for permission decisions in hook output
-      if (hookYield.result?.output) {
-        const output = hookYield.result.output as { hookSpecificOutput?: PreToolUseOutput };
-        const specificOutput = output.hookSpecificOutput;
-
-        if (specificOutput?.hookEventName === 'PreToolUse') {
-          // Handle permission decision
-          if (specificOutput.permissionDecision) {
-            yield {
-              type: 'hookPermissionResult',
-              hookPermissionResult: {
-                behavior: specificOutput.permissionDecision,
-                updatedInput: specificOutput.updatedInput as ToolInput | undefined,
-                message: specificOutput.permissionDecisionReason,
-              },
-            };
-          }
-
-          // Handle updated input
-          if (specificOutput.updatedInput) {
-            yield {
-              type: 'hookUpdatedInput',
-              updatedInput: specificOutput.updatedInput as ToolInput,
-            };
-          }
-        }
-      }
-
-      // Check for blocking outcomes
-      if (hookYield.result?.outcome === 'blocking') {
-        yield {
-          type: 'hookPermissionResult',
-          hookPermissionResult: {
-            behavior: 'deny',
-            message: hookYield.result.blockingError?.blockingError || 'Hook blocked operation',
-          },
-        };
-      }
-
-      if (process.env.DEBUG_HOOKS) {
-        console.log(`[Hooks] PreToolUse result for ${tool.name}:`, hookYield.result);
-      }
-    }
-  } catch (error) {
-    logError(error instanceof Error ? error : new Error(String(error)));
+function createResultPreview(content: string, limit: number): { preview: string; hasMore: boolean } {
+  if (content.length <= limit) {
+    return { preview: content, hasMore: false };
   }
+  
+  const lastNewline = content.slice(0, limit).lastIndexOf('\n');
+  const splitPos = lastNewline > limit * 0.5 ? lastNewline : limit;
+  
+  return {
+    preview: content.slice(0, splitPos),
+    hasMore: true,
+  };
 }
 
-// ============================================
-// Post-Tool Use Hooks
-// ============================================
-
 /**
- * Execute post-tool use hooks.
- * Original: f77 in chunks.134.mjs
- *
- * Integrates with @claudecode/features/hooks executePostToolHooks.
+ * Create persisted result preview block.
+ * Original: V85 in chunks.89.mjs:2446
  */
-async function* executePostToolUseHooks(
-  context: ToolUseContext,
-  tool: ToolDefinition,
-  toolUseId: string,
-  messageId: string,
-  input: ToolInput,
-  result: unknown,
-  requestId?: string,
-  mcpServerType?: string
-): AsyncGenerator<{
-  updatedMCPToolOutput?: unknown;
-  message?: ConversationMessage;
-}> {
-  // Get permission mode from context
-  const permissionMode = context.options?.permissionMode ?? 'default';
-  const signal = context.abortController?.signal;
-
-  try {
-    // Execute hooks from features package
-    for await (const hookYield of executePostToolHooks(
-      tool.name,
-      toolUseId,
-      input,
-      result,
-      context,
-      permissionMode,
-      signal
-    )) {
-      // Check for MCP output updates in hook result
-      if (hookYield.result?.output) {
-        const output = hookYield.result.output as { hookSpecificOutput?: PostToolUseOutput };
-        const specificOutput = output.hookSpecificOutput;
-
-        if (specificOutput?.hookEventName === 'PostToolUse') {
-          // Handle updated MCP tool output
-          if (specificOutput.updatedMCPToolOutput !== undefined) {
-            yield {
-              updatedMCPToolOutput: specificOutput.updatedMCPToolOutput,
-            };
-          }
-
-          // Handle additional context (create a message for it)
-          if (specificOutput.additionalContext) {
-            yield {
-              message: createUserMessage({
-                content: `[PostToolUse Hook Context]: ${specificOutput.additionalContext}`,
-                isHookOutput: true,
-              }),
-            };
-          }
-        }
-      }
-
-      if (process.env.DEBUG_HOOKS) {
-        console.log(`[Hooks] PostToolUse result for ${tool.name}:`, hookYield.result);
-      }
-    }
-  } catch (error) {
-    logError(error instanceof Error ? error : new Error(String(error)));
+function createPersistedResultPreview(info: { filepath: string; originalSize: number; preview: string; hasMore: boolean }): string {
+  let output = `${PERSISTED_OUTPUT_START}\n`;
+  output += `Output too large (${info.originalSize.toLocaleString()} characters). Full output saved to: ${info.filepath}\n\n`;
+  output += `Preview (first ${PREVIEW_SIZE.toLocaleString()} chars):\n`;
+  output += info.preview;
+  if (info.hasMore) {
+    output += '\n...';
   }
+  output += `\n${PERSISTED_OUTPUT_END}`;
+  return output;
 }
 
-// ============================================
-// Post-Tool Use Failure Hooks
-// ============================================
-
 /**
- * Execute post-tool use failure hooks.
- * Original: p77 in chunks.134.mjs
- *
- * Integrates with @claudecode/features/hooks executePostToolFailureHooks.
+ * Persist large result if needed.
+ * Original: F85 in chunks.89.mjs:2463
  */
-export async function* executePostToolFailureHooks(
-  context: ToolUseContext,
-  tool: ToolDefinition,
-  toolUseId: string,
-  input: ToolInput,
-  error: string,
-  isInterrupt: boolean
-): AsyncGenerator<{
-  message?: ConversationMessage;
-}> {
-  // Get permission mode from context
-  const permissionMode = context.options?.permissionMode ?? 'default';
-  const signal = context.abortController?.signal;
+async function persistLargeResultIfNeeded(
+  contentBlock: ContentBlock,
+  toolName: string,
+  maxSize?: number,
+  sessionDir?: string
+): Promise<ContentBlock> {
+  if (contentBlock.type !== 'tool_result') return contentBlock;
+  const resultBlock = contentBlock as ToolResultContentBlock;
+  
+  const content = resultBlock.content;
+  if (!content || !sessionDir) return contentBlock;
+
+  // Don't persist if it contains images (Original: chunks.89.mjs:2467)
+  if (Array.isArray(content) && content.some(b => typeof b === 'object' && 'type' in b && b.type === 'image')) {
+    return contentBlock;
+  }
+
+  const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+  const limit = maxSize ?? DEFAULT_MAX_RESULT_SIZE;
+
+  if (contentStr.length <= limit) {
+    return contentBlock;
+  }
+
+  // Persist to disk (Original: Z4A in chunks.89.mjs:2412)
+  const resultsDir = join(sessionDir, 'tool-results');
+  if (!existsSync(resultsDir)) {
+    mkdirSync(resultsDir, { recursive: true });
+  }
+
+  const isJson = typeof content !== 'string';
+  const ext = isJson ? 'json' : 'txt';
+  const fileName = `${resultBlock.tool_use_id}.${ext}`;
+  const filePath = join(resultsDir, fileName);
 
   try {
-    // Execute hooks from features package
-    for await (const hookYield of executePostToolFailureHooksFromFeatures(
-      tool.name,
-      toolUseId,
-      input,
-      error,
-      isInterrupt,
-      context,
-      permissionMode,
-      signal
-    )) {
-      // Log hook results for failures
-      if (process.env.DEBUG_HOOKS) {
-        console.log(`[Hooks] PostToolUseFailure result for ${tool.name}:`, hookYield.result);
-      }
-    }
-  } catch (hookError) {
-    logError(hookError instanceof Error ? hookError : new Error(String(hookError)));
+    writeFileSync(filePath, contentStr, 'utf-8');
+    
+    const previewInfo = createResultPreview(contentStr, PREVIEW_SIZE);
+    const persistedPreview = createPersistedResultPreview({
+      filepath: filePath,
+      originalSize: contentStr.length,
+      preview: previewInfo.preview,
+      hasMore: previewInfo.hasMore,
+    });
+
+    logTelemetry('tengu_tool_result_persisted', {
+      toolName: getToolDisplayName(toolName),
+      originalSizeBytes: contentStr.length,
+      persistedSizeBytes: persistedPreview.length,
+      estimatedOriginalTokens: Math.ceil(contentStr.length / 4),
+      estimatedPersistedTokens: Math.ceil(persistedPreview.length / 4),
+    });
+
+    return {
+      ...resultBlock,
+      content: persistedPreview,
+    } as ContentBlock;
+  } catch (err) {
+    logTelemetry('tengu_tool_result_persistence_failed', {
+      toolName: getToolDisplayName(toolName),
+      error: String(err),
+    });
+    return contentBlock;
   }
 }
 
@@ -465,53 +462,40 @@ export async function* executePostToolFailureHooks(
 
 /**
  * Create tool result content block.
- * Original: YZ1 in chunks.134.mjs
+ * Original: YZ1 in chunks.89.mjs:2458
  */
 async function createToolResultContent(
   tool: ToolDefinition,
   result: unknown,
-  toolUseId: string
+  toolUseId: string,
+  context: ToolUseContext
 ): Promise<ContentBlock> {
-  let content: string;
-
-  if (typeof result === 'string') {
-    content = result;
-  } else if (result === null || result === undefined) {
-    content = '';
+  let block: ContentBlock;
+  if ((tool as any).mapToolResultToToolResultBlockParam) {
+    block = (tool as any).mapToolResultToToolResultBlockParam(result, toolUseId);
   } else {
-    try {
-      content = JSON.stringify(result, null, 2);
-    } catch {
-      content = String(result);
-    }
+    block = {
+      type: 'tool_result',
+      content: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
+      tool_use_id: toolUseId,
+    } as ContentBlock;
   }
 
-  return {
-    type: 'tool_result',
-    content,
-    tool_use_id: toolUseId,
-  } as ContentBlock;
+  return persistLargeResultIfNeeded(
+    block,
+    tool.name,
+    (tool as any).maxResultSizeChars,
+    context.options.sessionDir
+  );
 }
 
 // ============================================
-// Main Tool Execution
+// Tool Execution Flow
 // ============================================
 
 /**
  * Execute tool with validation and hooks.
- * Original: b77 in chunks.134.mjs:772-1050
- *
- * @param tool - Tool definition
- * @param toolUseId - Tool use ID
- * @param input - Tool input
- * @param context - Tool use context
- * @param canUseTool - Permission checker
- * @param assistantMessage - Assistant message containing tool use
- * @param messageId - Message ID
- * @param requestId - Request ID
- * @param mcpServerType - MCP server type (if applicable)
- * @param progressCallback - Progress callback
- * @returns Array of tool execution yields
+ * Original: b77 in chunks.134.mjs:772-1125
  */
 export async function executeToolWithValidation(
   tool: ToolDefinition,
@@ -525,166 +509,198 @@ export async function executeToolWithValidation(
   mcpServerType?: string,
   progressCallback?: (progress: { toolUseID: string; data: unknown }) => void
 ): Promise<ToolExecutionYield[]> {
-  const results: ToolExecutionYield[] = [];
+  const yields: ToolExecutionYield[] = [];
 
-  // 1. Validate input schema
+  // 1. Input Validation (Zod)
   if (tool.inputSchema) {
     const parsed = tool.inputSchema.safeParse(input);
     if (!parsed.success) {
-      const errorMessage = formatValidationError(tool.name, parsed.error);
-
+      const errorMsg = formatValidationError(tool.name, (parsed as any).error);
       logTelemetry('tengu_tool_use_error', {
         error: 'InputValidationError',
-        errorDetails: errorMessage.slice(0, 2000),
+        errorDetails: errorMsg.slice(0, 2000),
         messageID: messageId,
         toolName: getToolDisplayName(tool.name),
-        isMcp: tool.isMcp ?? false,
+        isMcp: isMcpTool(tool),
         queryChainId: context.queryTracking?.chainId,
         queryDepth: context.queryTracking?.depth,
         ...(mcpServerType ? { mcpServerType } : {}),
         ...(requestId ? { requestId } : {}),
       });
 
-      results.push({
+      yields.push({
         message: createUserMessage({
           content: [
             {
               type: 'tool_result',
-              content: `<tool_use_error>InputValidationError: ${errorMessage}</tool_use_error>`,
+              content: `<tool_use_error>InputValidationError: ${errorMsg}</tool_use_error>`,
               is_error: true,
               tool_use_id: toolUseId,
             } as ContentBlock,
           ],
-          toolUseResult: `InputValidationError: ${parsed.error.message}`,
-          sourceToolAssistantUUID: (assistantMessage as { uuid: string }).uuid,
+          toolUseResult: `InputValidationError: ${(parsed as any).error.message}`,
+          sourceToolAssistantUUID: (assistantMessage as any).uuid,
         }),
       });
-      return results;
+      return yields;
     }
     input = parsed.data;
   }
 
-  // 2. Run custom input validation
+  // 2. Custom Validation
   if (tool.validateInput) {
-    const validationResult = await tool.validateInput(input, context);
-    if (validationResult?.result === false) {
+    const customValid = await tool.validateInput(input, context);
+    if (customValid?.result === false) {
       logTelemetry('tengu_tool_use_error', {
         messageID: messageId,
         toolName: getToolDisplayName(tool.name),
-        error: validationResult.message,
-        errorCode: validationResult.errorCode,
-        isMcp: tool.isMcp ?? false,
+        error: customValid.message,
+        errorCode: customValid.errorCode,
+        isMcp: isMcpTool(tool),
         queryChainId: context.queryTracking?.chainId,
         queryDepth: context.queryTracking?.depth,
         ...(mcpServerType ? { mcpServerType } : {}),
         ...(requestId ? { requestId } : {}),
       });
 
-      results.push({
+      yields.push({
         message: createUserMessage({
           content: [
             {
               type: 'tool_result',
-              content: `<tool_use_error>${validationResult.message}</tool_use_error>`,
+              content: `<tool_use_error>${customValid.message}</tool_use_error>`,
               is_error: true,
               tool_use_id: toolUseId,
             } as ContentBlock,
           ],
-          toolUseResult: `Error: ${validationResult.message}`,
-          sourceToolAssistantUUID: (assistantMessage as { uuid: string }).uuid,
+          toolUseResult: `Error: ${customValid.message}`,
+          sourceToolAssistantUUID: (assistantMessage as any).uuid,
         }),
       });
-      return results;
+      return yields;
     }
   }
 
-  // 3. Execute pre-tool hooks
-  let hookPermissionResult: HookPermissionResult | undefined;
+  // 3. Pre-execution Hooks
+  let hookPermission: HookPermissionResult | undefined;
   let preventContinuation = false;
   let stopReason: string | undefined;
 
-  for await (const hookYield of executePreToolUseHooks(
-    context,
-    tool,
-    input,
-    toolUseId,
-    messageId,
-    requestId,
-    mcpServerType
-  )) {
-    switch (hookYield.type) {
-      case 'message':
-        if (hookYield.message) {
-          const msg = hookYield.message as { message?: { type?: string } };
-          if (msg.message?.type === 'progress' && progressCallback) {
-            progressCallback({ toolUseID: toolUseId, data: hookYield.message });
-          } else {
-            results.push({ message: hookYield.message });
-          }
-        }
-        break;
-      case 'hookPermissionResult':
-        hookPermissionResult = hookYield.hookPermissionResult;
-        break;
-      case 'hookUpdatedInput':
-        if (hookYield.updatedInput) {
-          input = hookYield.updatedInput;
-        }
-        break;
-      case 'preventContinuation':
-        preventContinuation = hookYield.shouldPreventContinuation ?? false;
-        break;
-      case 'stopReason':
-        stopReason = hookYield.stopReason;
-        break;
-      case 'stop':
-        results.push({
-          message: createUserMessage({
-            content: [createUserRejectedToolResult(toolUseId)],
-            toolUseResult: `Error: ${stopReason}`,
-            sourceToolAssistantUUID: (assistantMessage as { uuid: string }).uuid,
-          }),
+  const preHookStartTime = Date.now();
+  try {
+    for await (const hookYield of executePreToolHooks(
+      tool.name,
+      toolUseId,
+      input,
+      context,
+      context.options.permissionMode || 'default',
+      context.abortController?.signal
+    )) {
+      if (hookYield.result?.outcome === 'cancelled') {
+        analyticsEvent('tengu_pre_tool_hooks_cancelled', {
+          toolName: getToolDisplayName(tool.name),
+          queryChainId: context.queryTracking?.chainId,
+          queryDepth: context.queryTracking?.depth,
         });
-        return results;
-    }
-  }
+      }
 
-  // 4. Check permission
-  let permissionResult: { behavior: string; message?: string; updatedInput?: ToolInput; userModified?: boolean; acceptFeedback?: string };
-
-  if (hookPermissionResult?.behavior === 'allow' && !tool.requiresUserInteraction?.()) {
-    // Hook approved, skip permission check
-    permissionResult = hookPermissionResult;
-  } else if (hookPermissionResult?.behavior === 'deny') {
-    // Hook denied
-    permissionResult = hookPermissionResult;
-  } else {
-    // Ask for permission (execution pipeline expects structured result)
-    const canUseResult = await canUseTool(tool, input, assistantMessage);
-    
-    if (typeof canUseResult === 'boolean') {
-      permissionResult = canUseResult
-        ? { behavior: 'allow' }
-        : { behavior: 'deny', message: USER_REJECTED_CONTENT };
-    } else {
-      permissionResult = {
-        behavior: canUseResult.behavior ?? (canUseResult.result ? 'allow' : 'deny'),
-        message: canUseResult.message,
-        updatedInput: (canUseResult as any).updatedInput,
-        userModified: (canUseResult as any).userModified,
-        acceptFeedback: (canUseResult as any).acceptFeedback,
-      };
+      if (hookYield.preventContinuation) {
+        preventContinuation = true;
+        stopReason = hookYield.stopReason;
+      }
       
-      if (!permissionResult.message && permissionResult.behavior === 'deny') {
-        permissionResult.message = USER_REJECTED_CONTENT;
+      if (hookYield.result?.outcome === 'blocking') {
+        hookPermission = {
+          behavior: 'deny',
+          message: hookYield.result.blockingError?.blockingError || 'Blocked by hook',
+        };
+      }
+
+      if (hookYield.result?.output) {
+        const out = (hookYield.result.output as any).hookSpecificOutput;
+        if (out?.hookEventName === 'PreToolUse') {
+          if (out.permissionDecision) {
+            hookPermission = {
+              behavior: out.permissionDecision,
+              updatedInput: out.updatedInput,
+              message: out.permissionDecisionReason,
+            };
+          }
+          if (out.updatedInput) input = out.updatedInput;
+        }
       }
     }
+  } catch (err) {
+    analyticsEvent('tengu_pre_tool_hook_error', {
+      messageID: messageId,
+      toolName: getToolDisplayName(tool.name),
+      isMcp: isMcpTool(tool),
+      duration: Date.now() - preHookStartTime,
+      queryChainId: context.queryTracking?.chainId,
+      queryDepth: context.queryTracking?.depth,
+      ...(mcpServerType ? { mcpServerType } : {}),
+      ...(requestId ? { requestId } : {}),
+    });
   }
 
-  // 5. Handle permission denial
-  if (permissionResult.behavior !== 'allow') {
-    const decision = context.toolDecisions?.get(toolUseId);
+  if (preventContinuation) {
+    yields.push({
+      message: createUserMessage({
+        content: [createUserRejectedToolResult(toolUseId)],
+        toolUseResult: `Error: ${stopReason || 'Execution stopped by hook'}`,
+        sourceToolAssistantUUID: (assistantMessage as any).uuid,
+      }),
+    });
+    return yields;
+  }
 
+  // 4. Permission Check
+  let decision: { behavior: string; message?: string; updatedInput?: ToolInput; userModified?: boolean; acceptFeedback?: string; decisionReason?: any };
+
+  const toolParameters: Record<string, unknown> = {};
+  if (input && typeof input === 'object') {
+    if (tool.name === 'Bash' && 'command' in input) {
+      const bashInput = input as any;
+      toolParameters.bash_command = bashInput.command.trim().split(/\s+/)[0] || '';
+      toolParameters.full_command = bashInput.command;
+      if (bashInput.timeout !== undefined) toolParameters.timeout = bashInput.timeout;
+      if (bashInput.description !== undefined) toolParameters.description = bashInput.description;
+      if ('dangerouslyDisableSandbox' in bashInput) toolParameters.dangerouslyDisableSandbox = bashInput.dangerouslyDisableSandbox;
+    } else if (tool.name === 'Write' && 'file_path' in input) {
+      toolParameters.file_path = String((input as any).file_path);
+    } else if ((tool.name === 'Edit' || tool.name === 'Read') && 'file_path' in input) {
+      toolParameters.file_path = String((input as any).file_path);
+    }
+  }
+
+  // Track tool input (Original: J82 in chunks.134.mjs:869)
+  trackToolInput(tool.name, toolParameters);
+  clearToolInput(); // Original: X82 in chunks.134.mjs:869
+
+  if (hookPermission?.behavior === 'allow' && !tool.requiresUserInteraction?.()) {
+    decision = hookPermission as any;
+  } else if (hookPermission?.behavior === 'deny') {
+    decision = hookPermission as any;
+  } else {
+    const canUse = await canUseTool(tool, input, assistantMessage);
+    if (typeof canUse === 'boolean') {
+      decision = canUse ? { behavior: 'allow' } : { behavior: 'deny', message: USER_REJECTED_CONTENT };
+    } else {
+      decision = {
+        behavior: canUse.behavior || (canUse.result ? 'allow' : 'deny'),
+        message: canUse.message,
+        updatedInput: (canUse as any).updatedInput,
+        userModified: (canUse as any).userModified,
+        acceptFeedback: (canUse as any).acceptFeedback,
+        decisionReason: (canUse as any).decisionReason,
+      };
+    }
+  }
+
+  const toolDecision = context.toolDecisions?.get(toolUseId);
+
+  if (decision.behavior !== 'allow') {
+    trackPermissionDecision('reject', toolDecision?.source || 'unknown');
     logTelemetry('tengu_tool_use_can_use_tool_rejected', {
       messageID: messageId,
       toolName: getToolDisplayName(tool.name),
@@ -694,32 +710,24 @@ export async function executeToolWithValidation(
       ...(requestId ? { requestId } : {}),
     });
 
-    let errorMessage = permissionResult.message;
-    if (preventContinuation && !errorMessage) {
-      errorMessage = `Execution stopped by PreToolUse hook${stopReason ? `: ${stopReason}` : ''}`;
-    }
-
-    results.push({
+    yields.push({
       message: createUserMessage({
         content: [
           {
             type: 'tool_result',
-            content: errorMessage || USER_REJECTED_CONTENT,
+            content: decision.message || USER_REJECTED_CONTENT,
             is_error: true,
             tool_use_id: toolUseId,
           } as ContentBlock,
         ],
-        toolUseResult: `Error: ${errorMessage}`,
-        sourceToolAssistantUUID: (assistantMessage as { uuid: string }).uuid,
+        toolUseResult: `Error: ${decision.message}`,
+        sourceToolAssistantUUID: (assistantMessage as any).uuid,
       }),
     });
-    return results;
+    return yields;
   }
 
-  // 6. Update input if permission modified it
-  if (permissionResult.updatedInput !== undefined) {
-    input = permissionResult.updatedInput;
-  }
+  if (decision.updatedInput) input = decision.updatedInput;
 
   logTelemetry('tengu_tool_use_can_use_tool_allowed', {
     messageID: messageId,
@@ -730,79 +738,62 @@ export async function executeToolWithValidation(
     ...(requestId ? { requestId } : {}),
   });
 
-  // 7. Execute the tool
+  // 5. Execution
+  const toolDecisionForExec = context.toolDecisions?.get(toolUseId);
+  trackPermissionDecision(toolDecisionForExec?.decision || 'unknown', toolDecisionForExec?.source || 'unknown');
+  startSpan();
   const startTime = Date.now();
-
   try {
     const toolResult = await tool.call(
       input,
-      {
-        ...context,
-        userModified: permissionResult.userModified ?? false,
-      },
+      { ...context, userModified: decision.userModified ?? false },
       toolUseId,
       { assistantMessage, canUseTool },
-      progressCallback
-        ? (progress) => {
-            progressCallback({ toolUseID: toolUseId, data: progress });
-          }
-        : undefined
+      progressCallback ? (p) => progressCallback({ toolUseID: toolUseId, data: p }) : undefined
     );
 
-    const durationMs = Date.now() - startTime;
-
-    // Calculate result size
-    let resultSizeBytes = 0;
-    try {
-      resultSizeBytes = JSON.stringify(toolResult.data).length;
-    } catch {
-      // Ignore serialization errors
-    }
+    const duration = Date.now() - startTime;
+    recordDuration(duration);
+    recordToolSuccess({ success: true });
+    
+    const resultStr = typeof toolResult.data === 'string' ? toolResult.data : JSON.stringify(toolResult.data);
+    recordToolResult(resultStr);
 
     logTelemetry('tengu_tool_use_success', {
       messageID: messageId,
       toolName: getToolDisplayName(tool.name),
-      isMcp: tool.isMcp ?? false,
-      durationMs,
-      toolResultSizeBytes: resultSizeBytes,
+      isMcp: isMcpTool(tool),
+      durationMs: duration,
+      toolResultSizeBytes: resultStr.length,
       queryChainId: context.queryTracking?.chainId,
       queryDepth: context.queryTracking?.depth,
       ...(mcpServerType ? { mcpServerType } : {}),
       ...(requestId ? { requestId } : {}),
     });
 
-    // Handle structured output
-    if (typeof toolResult === 'object' && 'structured_output' in toolResult) {
-      results.push({
-        message: {
-          type: 'attachment',
-          uuid: generateUUID(),
-          timestamp: new Date().toISOString(),
-          attachment: {
-            type: 'structured_output',
-            data: (toolResult as { structured_output: unknown }).structured_output,
-          },
-        } as ConversationMessage,
-      });
-    }
+    const mcpServerScope = isMcpTool(tool) ? getMcpServerScope(tool.name) : null;
+    logToolResultMetric('tool_result', {
+      tool_name: getToolDisplayName(tool.name),
+      success: 'true',
+      duration_ms: String(duration),
+      ...(Object.keys(toolParameters).length > 0 ? { tool_parameters: JSON.stringify(toolParameters) } : {}),
+      tool_result_size_bytes: String(resultStr.length),
+      ...(toolDecision ? { decision_source: toolDecision.source, decision_type: toolDecision.decision } : {}),
+      ...(mcpServerScope ? { mcp_server_scope: mcpServerScope } : {}),
+    });
 
-    // Create tool result message
-    const resultContent = await createToolResultContent(tool, toolResult.data, toolUseId);
+    // 6. Post-execution mapping and hooks
+    const resultContent = await createToolResultContent(tool, toolResult.data, toolUseId, context);
     const contentBlocks: ContentBlock[] = [resultContent];
-
-    // Add accept feedback if present
-    if ('acceptFeedback' in permissionResult && permissionResult.acceptFeedback) {
-      contentBlocks.push({
-        type: 'text',
-        text: permissionResult.acceptFeedback,
-      } as ContentBlock);
+    if (decision.acceptFeedback) {
+      contentBlocks.push({ type: 'text', text: decision.acceptFeedback } as ContentBlock);
     }
 
-    results.push({
+    yields.push({
       message: createUserMessage({
         content: contentBlocks,
-        toolUseResult: typeof toolResult.data === 'string' ? toolResult.data : JSON.stringify(toolResult.data),
-        sourceToolAssistantUUID: (assistantMessage as { uuid: string }).uuid,
+        toolUseResult: resultStr,
+        sourceToolAssistantUUID: (assistantMessage as any).uuid,
       }),
       contextModifier: toolResult.contextModifier ? {
         toolUseID: toolUseId,
@@ -810,56 +801,169 @@ export async function executeToolWithValidation(
       } : undefined,
     });
 
-    // 8. Execute post-tool hooks
-    for await (const hookYield of executePostToolUseHooks(
-      context,
-      tool,
-      toolUseId,
-      messageId,
-      input,
-      toolResult.data,
-      requestId,
-      mcpServerType
-    )) {
-      if ('updatedMCPToolOutput' in hookYield) {
-        // MCP output was modified by hook
-        // In real implementation, would update the result
-      } else if (hookYield.message) {
-        results.push({ message: hookYield.message });
+    // Post-tool hooks
+    try {
+      for await (const hookYield of executePostToolHooks(
+        tool.name,
+        toolUseId,
+        input,
+        toolResult.data,
+        context,
+        context.options.permissionMode || 'default',
+        context.abortController?.signal
+      )) {
+        if (hookYield.result?.outcome === 'cancelled') {
+          analyticsEvent('tengu_post_tool_hooks_cancelled', {
+            toolName: getToolDisplayName(tool.name),
+            queryChainId: context.queryTracking?.chainId,
+            queryDepth: context.queryTracking?.depth,
+          });
+        }
+
+        if (hookYield.result?.output) {
+          const out = (hookYield.result.output as any).hookSpecificOutput;
+          if (out?.additionalContext) {
+            yields.push({
+              message: createUserMessage({
+                content: `[PostToolUse Hook]: ${out.additionalContext}`,
+                isHookOutput: true,
+              }),
+            });
+          }
+        }
       }
+    } catch (hookErr) {
+      analyticsEvent('tengu_post_tool_hook_error', {
+        messageID: messageId,
+        toolName: getToolDisplayName(tool.name),
+        isMcp: isMcpTool(tool),
+        duration: 0, // Should track duration
+        queryChainId: context.queryTracking?.chainId,
+        queryDepth: context.queryTracking?.depth,
+        ...(mcpServerType ? { mcpServerType } : {}),
+        ...(requestId ? { requestId } : {}),
+      });
     }
-  } catch (error) {
-    logError(error instanceof Error ? error : new Error(String(error)));
 
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const fullError = `Error calling tool${tool ? ` (${tool.name})` : ''}: ${errorMessage}`;
+  } catch (err) {
+    const duration = Date.now() - startTime;
+    recordDuration(duration);
+    recordToolSuccess({ success: false, error: String(err) });
+    recordToolResult('');
 
-    results.push({
+    logTelemetry('tengu_tool_use_error', {
+      messageID: messageId,
+      toolName: getToolDisplayName(tool.name),
+      error: err instanceof Error ? err.constructor.name : 'UnknownError',
+      isMcp: isMcpTool(tool),
+      queryChainId: context.queryTracking?.chainId,
+      queryDepth: context.queryTracking?.depth,
+      ...(mcpServerType ? { mcpServerType } : {}),
+      ...(requestId ? { requestId } : {}),
+    });
+
+    const mcpServerScope = isMcpTool(tool) ? getMcpServerScope(tool.name) : null;
+    logToolResultMetric('tool_result', {
+      tool_name: getToolDisplayName(tool.name),
+      use_id: toolUseId,
+      success: 'false',
+      duration_ms: String(duration),
+      error: err instanceof Error ? err.message : String(err),
+      ...(Object.keys(toolParameters).length > 0 ? { tool_parameters: JSON.stringify(toolParameters) } : {}),
+      ...(toolDecision ? { decision_source: toolDecision.source, decision_type: toolDecision.decision } : {}),
+      ...(mcpServerScope ? { mcp_server_scope: mcpServerScope } : {}),
+    });
+
+    const fullError = `Error calling tool (${tool.name}): ${err instanceof Error ? err.message : String(err)}`;
+    
+    // Failure hooks
+    const failureHookStartTime = Date.now();
+    try {
+      for await (const hookYield of executePostToolFailureHooksFromFeatures(
+        tool.name,
+        toolUseId,
+        input,
+        String(err),
+        context.abortController?.signal?.aborted ?? false,
+        context,
+        context.options.permissionMode || 'default',
+        context.abortController?.signal
+      )) {
+        if (hookYield.result?.outcome === 'cancelled') {
+          analyticsEvent('tengu_post_tool_failure_hooks_cancelled', {
+            toolName: getToolDisplayName(tool.name),
+            queryChainId: context.queryTracking?.chainId,
+            queryDepth: context.queryTracking?.depth,
+          });
+        }
+        // Process failure hook outputs if needed
+      }
+    } catch (hookErr) {
+      analyticsEvent('tengu_post_tool_failure_hook_error', {
+        messageID: messageId,
+        toolName: getToolDisplayName(tool.name),
+        isMcp: isMcpTool(tool),
+        duration: Date.now() - failureHookStartTime,
+        queryChainId: context.queryTracking?.chainId,
+        queryDepth: context.queryTracking?.depth,
+        ...(mcpServerType ? { mcpServerType } : {}),
+        ...(requestId ? { requestId } : {}),
+      });
+    }
+
+    yields.push({
       message: createUserMessage({
-        content: [
-          {
-            type: 'tool_result',
-            content: `<tool_use_error>${fullError}</tool_use_error>`,
-            is_error: true,
-            tool_use_id: toolUseId,
-          } as ContentBlock,
-        ],
+        content: [{ type: 'tool_result', content: `<tool_use_error>${fullError}</tool_use_error>`, is_error: true, tool_use_id: toolUseId } as ContentBlock],
         toolUseResult: fullError,
-        sourceToolAssistantUUID: (assistantMessage as { uuid: string }).uuid,
+        sourceToolAssistantUUID: (assistantMessage as any).uuid,
       }),
     });
   }
 
-  return results;
+  return yields;
 }
 
-// ============================================
-// Progress Streaming Wrapper
-// ============================================
+/**
+ * Execute post-tool use failure hooks.
+ * Original: p77 in chunks.134.mjs
+ */
+export async function* executePostToolFailureHooks(
+  context: ToolUseContext,
+  tool: ToolDefinition,
+  toolUseId: string,
+  input: ToolInput,
+  error: string,
+  isInterrupt: boolean
+): AsyncGenerator<{
+  message?: ConversationMessage;
+}> {
+  for await (const hookYield of executePostToolFailureHooksFromFeatures(
+    tool.name,
+    toolUseId,
+    input,
+    error,
+    isInterrupt,
+    context,
+    context.options.permissionMode || 'default',
+    context.abortController?.signal
+  )) {
+    if (hookYield.result?.output) {
+      const out = (hookYield.result.output as any).hookSpecificOutput;
+      if (out?.additionalContext) {
+        yield {
+          message: createUserMessage({
+            content: `[PostToolUseFailure Hook]: ${out.additionalContext}`,
+            isHookOutput: true,
+          }),
+        };
+      }
+    }
+  }
+}
 
 /**
- * Execute tool with progress streaming.
- * Original: k77 in chunks.134.mjs:741-770
+ * Main entry for tool execution with progress.
+ * Original: k77 in chunks.134.mjs:741
  */
 export function executeToolWithProgress(
   tool: ToolDefinition,
@@ -874,12 +978,11 @@ export function executeToolWithProgress(
 ): AsyncIterable<ToolExecutionYield> {
   const queue = new AsyncQueue<ToolExecutionYield>();
 
-  // Progress callback that enqueues progress messages
-  const progressCallback = (progress: { toolUseID: string; data: unknown }) => {
+  const progressCallback = (p: { toolUseID: string; data: unknown }) => {
     logTelemetry('tengu_tool_use_progress', {
       messageID: messageId,
       toolName: getToolDisplayName(tool.name),
-      isMcp: tool.isMcp ?? false,
+      isMcp: isMcpTool(tool),
       queryChainId: context.queryTracking?.chainId,
       queryDepth: context.queryTracking?.depth,
       ...(mcpServerType ? { mcpServerType } : {}),
@@ -891,59 +994,29 @@ export function executeToolWithProgress(
         type: 'progress',
         uuid: generateUUID(),
         timestamp: new Date().toISOString(),
-        toolUseID: progress.toolUseID,
+        toolUseID: p.toolUseID,
         parentToolUseID: toolUseId,
-        data: progress.data,
+        data: p.data,
       } as ConversationMessage,
     });
   };
 
-  // Execute tool and enqueue results
   executeToolWithValidation(
-    tool,
-    toolUseId,
-    input,
-    context,
-    canUseTool,
-    assistantMessage,
-    messageId,
-    requestId,
-    mcpServerType,
-    progressCallback
-  )
-    .then((results) => {
-      for (const result of results) {
-        queue.enqueue(result);
-      }
-    })
-    .catch((error) => {
-      queue.setError(error instanceof Error ? error : new Error(String(error)));
-    })
-    .finally(() => {
-      queue.done();
-    });
+    tool, toolUseId, input, context, canUseTool, assistantMessage, messageId, requestId, mcpServerType, progressCallback
+  ).then(results => {
+    for (const res of results) queue.enqueue(res);
+  }).catch(err => {
+    queue.setError(err instanceof Error ? err : new Error(String(err)));
+  }).finally(() => {
+    queue.done();
+  });
 
   return queue;
 }
 
-// ============================================
-// Main Entry Point
-// ============================================
-
 /**
- * Execute single tool.
- * Original: jH1 in chunks.134.mjs:660-739
- *
- * Main entry point for tool execution. Handles:
- * 1. Tool not found errors
- * 2. Abort checking
- * 3. Delegation to executeToolWithProgress
- *
- * @param toolUseBlock - Tool use block from assistant message
- * @param assistantMessage - Assistant message containing the tool use
- * @param canUseTool - Permission checker function
- * @param context - Tool use context
- * @yields Tool execution results and progress
+ * Unified tool executor generator.
+ * Original: jH1 in chunks.134.mjs:660
  */
 export async function* executeSingleTool(
   toolUseBlock: ToolUseBlock,
@@ -951,24 +1024,18 @@ export async function* executeSingleTool(
   canUseTool: CanUseTool,
   context: ToolUseContext
 ): AsyncGenerator<ToolExecutionYield> {
-  const toolName = toolUseBlock.name;
-  const tool = findToolByName(context.options.tools, toolName);
-  const messageId = (assistantMessage as { message?: { id?: string } }).message?.id || '';
-  const requestId = (assistantMessage as { requestId?: string }).requestId;
-  const mcpServerType = getMcpServerType(
-    toolName,
-    (context.options.mcpClients as any) || []
-  );
+  const tool = findToolByName(context.options.tools, toolUseBlock.name);
+  const messageId = (assistantMessage as any).message?.id || '';
+  const requestId = (assistantMessage as any).requestId;
+  const mcpServerType = getMcpServerType(toolUseBlock.name, (context.options.mcpClients as any) || []);
 
-  // Handle tool not found
   if (!tool) {
-    const displayName = getToolDisplayName(toolName);
-
+    const name = getToolDisplayName(toolUseBlock.name);
     logTelemetry('tengu_tool_use_error', {
-      error: `No such tool available: ${displayName}`,
-      toolName: displayName,
+      error: `No such tool available: ${name}`,
+      toolName: name,
       toolUseID: toolUseBlock.id,
-      isMcp: toolName.startsWith('mcp__'),
+      isMcp: toolUseBlock.name.startsWith('mcp__'),
       queryChainId: context.queryTracking?.chainId,
       queryDepth: context.queryTracking?.depth,
       ...(mcpServerType ? { mcpServerType } : {}),
@@ -977,100 +1044,38 @@ export async function* executeSingleTool(
 
     yield {
       message: createUserMessage({
-        content: [
-          {
-            type: 'tool_result',
-            content: `<tool_use_error>Error: No such tool available: ${toolName}</tool_use_error>`,
-            is_error: true,
-            tool_use_id: toolUseBlock.id,
-          } as ContentBlock,
-        ],
-        toolUseResult: `Error: No such tool available: ${toolName}`,
-        sourceToolAssistantUUID: (assistantMessage as { uuid: string }).uuid,
+        content: [{ type: 'tool_result', content: `<tool_use_error>Error: No such tool available: ${toolUseBlock.name}</tool_use_error>`, is_error: true, tool_use_id: toolUseBlock.id } as ContentBlock],
+        toolUseResult: `Error: No such tool available: ${toolUseBlock.name}`,
+        sourceToolAssistantUUID: (assistantMessage as any).uuid,
       }),
     };
     return;
   }
 
-  const input = toolUseBlock.input;
-
-  try {
-    // Check for abort before execution
-    if (context.abortController?.signal.aborted) {
-      logTelemetry('tengu_tool_use_cancelled', {
-        toolName: getToolDisplayName(tool.name),
-        toolUseID: toolUseBlock.id,
-        isMcp: tool.isMcp ?? false,
-        queryChainId: context.queryTracking?.chainId,
-        queryDepth: context.queryTracking?.depth,
-        ...(mcpServerType ? { mcpServerType } : {}),
-        ...(requestId ? { requestId } : {}),
-      });
-
-      yield {
-        message: createUserMessage({
-          content: [createUserRejectedToolResult(toolUseBlock.id)],
-          toolUseResult: CANCELLED_BY_USER_MESSAGE,
-          sourceToolAssistantUUID: (assistantMessage as { uuid: string }).uuid,
-        }),
-      };
-      return;
-    }
-
-    // Execute tool with progress streaming
-    for await (const result of executeToolWithProgress(
-      tool,
-      toolUseBlock.id,
-      input,
-      context,
-      canUseTool,
-      assistantMessage,
-      messageId,
-      requestId,
-      mcpServerType
-    )) {
-      yield result;
-    }
-  } catch (error) {
-    logError(error instanceof Error ? error : new Error(String(error)));
-
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const fullError = `Error calling tool${tool ? ` (${tool.name})` : ''}: ${errorMessage}`;
-    const isInterrupt = context.abortController?.signal.aborted ?? false;
-
-    // Execute post-tool failure hooks
-    for await (const hookResult of executePostToolFailureHooks(
-      context,
-      tool,
-      toolUseBlock.id,
-      input,
-      errorMessage,
-      isInterrupt
-    )) {
-      if (hookResult.message) {
-        yield { message: hookResult.message };
-      }
-    }
+  if (context.abortController?.signal?.aborted) {
+    logTelemetry('tengu_tool_use_cancelled', {
+      toolName: getToolDisplayName(tool.name),
+      toolUseID: toolUseBlock.id,
+      isMcp: isMcpTool(tool),
+      queryChainId: context.queryTracking?.chainId,
+      queryDepth: context.queryTracking?.depth,
+      ...(mcpServerType ? { mcpServerType } : {}),
+      ...(requestId ? { requestId } : {}),
+    });
 
     yield {
       message: createUserMessage({
-        content: [
-          {
-            type: 'tool_result',
-            content: `<tool_use_error>${fullError}</tool_use_error>`,
-            is_error: true,
-            tool_use_id: toolUseBlock.id,
-          } as ContentBlock,
-        ],
-        toolUseResult: fullError,
-        sourceToolAssistantUUID: (assistantMessage as { uuid: string }).uuid,
+        content: [createUserRejectedToolResult(toolUseBlock.id)],
+        toolUseResult: CANCELLED_BY_USER_MESSAGE,
+        sourceToolAssistantUUID: (assistantMessage as any).uuid,
       }),
     };
+    return;
+  }
+
+  for await (const res of executeToolWithProgress(
+    tool, toolUseBlock.id, toolUseBlock.input, context, canUseTool, assistantMessage, messageId, requestId, mcpServerType
+  )) {
+    yield res;
   }
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出。

@@ -21,12 +21,15 @@ import type {
 import {
   generateTodoAttachment,
   generateTodoReminderAttachment,
+  generateTodoRemindersAttachment,
   generatePlanModeAttachment,
   generatePlanModeExitAttachment,
   generateDelegateModeAttachment,
+  generateDelegateModeExitAttachment,
   generateMemoryAttachment,
   generateTaskStatusAttachment,
   generateDiagnosticsAttachment,
+  generateLspDiagnosticsAttachment,
   generateIdeSelectionAttachment,
   generateOpenedFileInIdeAttachment,
   generateOutputStyleAttachment,
@@ -35,6 +38,15 @@ import {
   generateInvokedSkillsAttachment,
   generateCriticalSystemReminderAttachment,
   generateChangedFilesAttachment,
+  generateAtMentionedFilesAttachment,
+  generateMcpResourcesAttachment,
+  generateAgentMentionsAttachment,
+  generateNestedMemoryAttachment,
+  generateCollabNotificationAttachment,
+  generateQueuedCommandsAttachment,
+  generateUnifiedTasksAttachment,
+  generateAsyncHookResponsesAttachment,
+  generateVerifyPlanReminderAttachment,
 } from './generators.js';
 
 // ============================================
@@ -158,7 +170,7 @@ export async function generateAllAttachments(
     // Step 4: Generate CORE ATTACHMENTS (always checked, available to all agents)
     const coreGenerators = [
       wrapWithErrorHandling('changed_files', () =>
-        generateChangedFilesAttachment(context)
+        Promise.resolve(generateChangedFilesAttachment(context, new Map()))
       ),
       wrapWithErrorHandling('nested_memory', () =>
         generateNestedMemoryAttachment(context)
@@ -176,10 +188,10 @@ export async function generateAllAttachments(
         Promise.resolve(generateDelegateModeExitAttachment())
       ),
       wrapWithErrorHandling('todo_reminders', () =>
-        generateTodoRemindersAttachment(conversationHistory, context)
+        Promise.resolve(generateTodoRemindersAttachment(conversationHistory, context))
       ),
       wrapWithErrorHandling('collab_notification', async () =>
-        generateCollabNotificationAttachment()
+        generateCollabNotificationAttachment([])
       ),
       wrapWithErrorHandling('critical_system_reminder', () =>
         Promise.resolve(generateCriticalSystemReminderAttachment(context))
@@ -279,9 +291,7 @@ export function buildGeneratorList(
       name: 'critical_system_reminder',
       priority: 1,
       generator: async () =>
-        generateCriticalSystemReminderAttachment(
-          ctx.options.criticalSystemReminder_EXPERIMENTAL!
-        ),
+        generateCriticalSystemReminderAttachment(ctx),
     });
   }
 
@@ -291,10 +301,7 @@ export function buildGeneratorList(
       name: 'plan_mode',
       priority: 10,
       generator: async () => {
-        // In a real implementation, get plan file path from state
-        const planFilePath = '/tmp/plan.md';
-        const planExists = false; // Would check file system
-        return generatePlanModeAttachment(planFilePath, planExists, turnIndex, !!ctx.agentId);
+        return generatePlanModeAttachment([], ctx);
       },
     });
   }
@@ -305,7 +312,7 @@ export function buildGeneratorList(
       name: 'delegate_mode',
       priority: 11,
       generator: async () =>
-        generateDelegateModeAttachment(teamContext.teamName, '/tmp/tasks.md'),
+        generateDelegateModeAttachment(ctx),
     });
   }
 
@@ -315,7 +322,7 @@ export function buildGeneratorList(
     generators.push({
       name: 'todo',
       priority: 20,
-      generator: async () => generateTodoAttachment(agentTodos),
+      generator: async () => Promise.resolve([generateTodoAttachment(agentTodos)]),
     });
   }
 
@@ -324,8 +331,10 @@ export function buildGeneratorList(
     generators.push({
       name: 'output_style',
       priority: 30,
-      generator: async () =>
-        generateOutputStyleAttachment(ctx.options.outputStyle!),
+      generator: async () => {
+        const result = generateOutputStyleAttachment(ctx);
+        return result ? [result] : [];
+      },
     });
   }
 
@@ -335,9 +344,7 @@ export function buildGeneratorList(
       name: 'budget',
       priority: 40,
       generator: async () => {
-        // In real implementation, get actual usage from state
-        const used = 0;
-        return generateBudgetAttachment(used, ctx.options.maxBudgetUsd!);
+        return generateBudgetAttachment(ctx.options.maxBudgetUsd);
       },
     });
   }
@@ -347,8 +354,7 @@ export function buildGeneratorList(
     name: 'memory',
     priority: 50,
     generator: async () => {
-      // In real implementation, load memory files from disk
-      return generateMemoryAttachment([]);
+      return generateMemoryAttachment(ctx, [], "repl_main_thread");
     },
   });
 
@@ -439,9 +445,20 @@ function generateUuid(): string {
  */
 export async function* generateAttachmentsStreaming(
   ctx: AttachmentContext,
-  turnIndex: number = 0
+  turnIndex: number = 0,
+  userPrompt: string | null = null,
+  ideContext: any = null,
+  queuedCommands: any[] = [],
+  conversationHistory: any[] = []
 ): AsyncGenerator<AttachmentMessage> {
-  const result = await generateAllAttachments(ctx, turnIndex);
+  const result = await generateAllAttachments(
+    userPrompt,
+    ctx,
+    ideContext,
+    queuedCommands,
+    conversationHistory,
+    turnIndex
+  );
 
   for (const attachment of result.attachments) {
     yield wrapAttachmentMessage(attachment);

@@ -201,6 +201,7 @@ export type ToolEventType =
   | 'tengu_tool_use_success'
   | 'tengu_tool_use_error'
   | 'tengu_tool_use_cancelled'
+  | 'tengu_tool_use_progress'
   | 'tengu_tool_use_can_use_tool_allowed'
   | 'tengu_tool_use_can_use_tool_rejected'
   | 'tengu_tool_use_granted_in_config'

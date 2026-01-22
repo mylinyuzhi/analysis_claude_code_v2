@@ -106,6 +106,8 @@ export interface ReadFileState {
   content: string;
   timestamp: number;
   totalLines: number;
+  offset?: number;
+  limit?: number;
 }
 
 /**
@@ -140,11 +142,7 @@ export interface ToolMetadata {
 /**
  * Progress callback for long-running tools.
  */
-export type ProgressCallback = (progress: {
-  stage: string;
-  percent?: number;
-  message?: string;
-}) => void;
+export type ProgressCallback = (progress: any) => void;
 
 /**
  * Search/read command info.
