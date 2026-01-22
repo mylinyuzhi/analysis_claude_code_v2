@@ -28,6 +28,17 @@ import {
   getSandboxConfig,
   type SandboxConfig,
 } from '@claudecode/platform';
+import {
+  addTaskToState,
+  updateTask,
+  notifyBashTaskCompletion,
+  killLocalBashTask,
+  createBaseTask,
+  registerCleanupHandler,
+  generateTaskId,
+  type LocalBashTask,
+} from '@claudecode/core/agent-loop';
+import { appendToOutputFile } from '@claudecode/features';
 
 // ============================================
 // Constants
@@ -296,32 +307,92 @@ IMPORTANT: This tool is for terminal operations like git, npm, docker, etc. DO N
   },
 
   async call(input, context) {
-    const { command, timeout = DEFAULT_TIMEOUT, run_in_background } = input;
+    const { command, timeout = DEFAULT_TIMEOUT, run_in_background, description } = input;
     const cwd = context.getCwd();
 
     try {
       // Handle background execution
       if (run_in_background) {
-        // In a real implementation, this would create a background task
-        const taskId = `bash_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-        // Start process in background (simplified)
+        const taskId = generateTaskId('local_bash');
+        
         const proc = spawn(command, [], {
           cwd,
           shell: true,
-          detached: true,
-          stdio: 'ignore',
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: { ...process.env, TMPDIR: SANDBOX_CONSTANTS.SANDBOX_TEMP_DIR },
         });
-        proc.unref();
 
-        const result: BashOutput = {
+        const unregisterCleanup = registerCleanupHandler(taskId, async () => {
+          killLocalBashTask(taskId, context.setAppState as any);
+        });
+
+        const task: LocalBashTask = {
+          ...createBaseTask(taskId, 'local_bash', description || command),
+          status: 'running',
+          command,
+          shellCommand: proc,
+          unregisterCleanup,
+          stdoutLineCount: 0,
+          stderrLineCount: 0,
+          lastReportedStdoutLines: 0,
+          lastReportedStderrLines: 0,
+          isBackgrounded: true,
+        } as LocalBashTask;
+
+        addTaskToState(task, context.setAppState as any);
+
+        proc.stdout.on('data', (data) => {
+          const content = data.toString();
+          appendToOutputFile(taskId, content);
+          const lines = content.split('\n').filter(l => l.length > 0).length;
+          updateTask<LocalBashTask>(taskId, context.setAppState as any, (t) => ({
+            ...t,
+            stdoutLineCount: t.stdoutLineCount + lines,
+          }));
+        });
+
+        proc.stderr.on('data', (data) => {
+          const content = data.toString();
+          appendToOutputFile(taskId, `[stderr] ${content}`);
+          const lines = content.split('\n').filter(l => l.length > 0).length;
+          updateTask<LocalBashTask>(taskId, context.setAppState as any, (t) => ({
+            ...t,
+            stderrLineCount: t.stderrLineCount + lines,
+          }));
+        });
+
+        proc.on('close', (code) => {
+          let killed = false;
+          updateTask<LocalBashTask>(taskId, context.setAppState as any, (t) => {
+            if (t.status === 'killed') {
+              killed = true;
+              return t;
+            }
+            return {
+              ...t,
+              status: code === 0 ? 'completed' : 'failed',
+              result: { code: code ?? 0, interrupted: false },
+              endTime: Date.now(),
+              shellCommand: null,
+              unregisterCleanup: undefined,
+            };
+          });
+
+          notifyBashTaskCompletion(
+            taskId,
+            description || command,
+            killed ? 'killed' : (code === 0 ? 'completed' : 'failed'),
+            code ?? 0,
+            context.setAppState
+          );
+        });
+
+        return toolSuccess({
           stdout: '',
           stderr: '',
           interrupted: false,
           backgroundTaskId: taskId,
-        };
-
-        return toolSuccess(result);
+        });
       }
 
       // Sandbox wrapping (if enabled)

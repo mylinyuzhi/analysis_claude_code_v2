@@ -11,6 +11,8 @@
  * - $i5 → getTaskHandlers
  */
 
+import React from 'react';
+import { Box, Text } from 'ink';
 import type {
   BackgroundTask,
   BackgroundBashTask,
@@ -153,13 +155,17 @@ export const LocalBashTaskHandler: TaskHandler<LocalBashTaskWithProcess> = {
   },
 
   renderStatus(task) {
-    // React component for status display
-    return null;
+    const { status, command } = task;
+    const color = status === 'running' ? 'yellow' : status === 'completed' ? 'green' : status === 'failed' ? 'red' : 'gray';
+    return React.createElement(Box, null,
+      React.createElement(Text, { color }, `[${status}] ${command}`)
+    );
   },
 
   renderOutput(output) {
-    // React component for output display
-    return null;
+    return React.createElement(Box, null,
+      React.createElement(Text, null, String(output))
+    );
   },
 
   getProgressMessage(task) {
@@ -199,13 +205,18 @@ export const LocalAgentTaskHandler: TaskHandler<LocalAgentTaskWithProgress> = {
   },
 
   renderStatus(task) {
-    // React component for status display
-    return null;
+    const { status, description, progress } = task;
+    const color = status === 'running' ? 'yellow' : status === 'completed' ? 'green' : status === 'failed' ? 'red' : 'gray';
+    const progressText = progress ? ` (${progress.toolUseCount} tools, ${progress.tokenCount} tokens)` : '';
+    return React.createElement(Box, null,
+      React.createElement(Text, { color }, `[${status}] ${description}${progressText}`)
+    );
   },
 
   renderOutput(output) {
-    // React component for output display
-    return null;
+    return React.createElement(Box, null,
+      React.createElement(Text, null, String(output))
+    );
   },
 
   getProgressMessage(task) {
@@ -247,13 +258,18 @@ export const RemoteAgentTaskHandler: TaskHandler<RemoteAgentTaskWithSession> = {
   },
 
   renderStatus(task) {
-    // React component for status display
-    return null;
+    const { status, title, deltaSummarySinceLastFlushToAttachment } = task;
+    const color = status === 'running' ? 'yellow' : status === 'completed' ? 'green' : status === 'failed' ? 'red' : 'gray';
+    const summaryText = deltaSummarySinceLastFlushToAttachment ? ` (${deltaSummarySinceLastFlushToAttachment})` : '';
+    return React.createElement(Box, null,
+      React.createElement(Text, { color }, `[${status}] ${title}${summaryText}`)
+    );
   },
 
   renderOutput(output) {
-    // React component for output display
-    return null;
+    return React.createElement(Box, null,
+      React.createElement(Text, null, String(output))
+    );
   },
 
   getProgressMessage(task) {

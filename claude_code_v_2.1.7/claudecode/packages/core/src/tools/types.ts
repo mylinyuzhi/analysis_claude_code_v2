@@ -385,7 +385,9 @@ export interface ToolGroupings {
 export const ALWAYS_EXCLUDED_TOOLS = new Set([
   'AskUserQuestion',
   'EnterPlanMode',
-  // Add more as needed
+  'ExitPlanMode',
+  'Task',
+  'KillShell',
 ]);
 
 /**

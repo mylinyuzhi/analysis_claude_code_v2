@@ -40,9 +40,12 @@
   "dependencies": {
     "@claudecode/shared": "workspace:*",
     "@claudecode/core": "workspace:*",
-    "@claudecode/platform": "workspace:*"
+    "@claudecode/platform": "workspace:*",
+    "ink": "^4.4.1",
+    "react": "^18.2.0"
   },
   "devDependencies": {
+    "@types/react": "^18.2.0",
     "tsup": "^8.0.0",
     "typescript": "^5.3.0"
   }

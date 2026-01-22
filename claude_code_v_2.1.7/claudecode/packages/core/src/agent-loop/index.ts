@@ -35,6 +35,8 @@ export {
   unregisterAgentHooks,
 } from './subagent-loop.js';
 
+import { appendToOutputFile } from '@claudecode/features';
+
 // ============================================
 // Task Management
 // Reconstructed from chunks.91.mjs, chunks.121.mjs
@@ -43,6 +45,22 @@ export {
 import { join } from 'path';
 import { homedir } from 'os';
 import { mkdirSync, existsSync, symlinkSync, writeFileSync, unlinkSync } from 'fs';
+import { randomUUID } from 'crypto';
+
+/**
+ * Generate task ID with type prefix.
+ * Original: GyA() in chunks.91.mjs
+ */
+export function generateTaskId(type: 'local_bash' | 'local_agent' | 'remote_agent'): string {
+  const prefixes = {
+    local_bash: 'b',
+    local_agent: 'a',
+    remote_agent: 'r',
+  };
+  const prefix = prefixes[type] || 'x';
+  const suffix = randomUUID().replace(/-/g, '').substring(0, 6);
+  return `${prefix}${suffix}`;
+}
 
 /**
  * Background signal promise resolvers.
@@ -60,7 +78,7 @@ const cleanupHandlers = new Map<string, () => void>();
  * App state type for task management.
  */
 export interface AppState {
-  tasks: Record<string, LocalAgentTask>;
+  tasks: Record<string, LocalAgentTask | LocalBashTask>;
 }
 
 /**
@@ -86,6 +104,35 @@ export interface LocalAgentTask {
   isBackgrounded: boolean;
   outputPath?: string;
   error?: string;
+  notified?: boolean;
+}
+
+/**
+ * Local bash task structure.
+ * Original: from chunks.121.mjs
+ */
+export interface LocalBashTask {
+  id: string;
+  type: 'local_bash';
+  description: string;
+  status: 'running' | 'completed' | 'failed' | 'killed';
+  startTime: number;
+  endTime?: number;
+  command: string;
+  shellCommand?: any; // Reference to ShellCommand instance
+  unregisterCleanup?: () => void;
+  cleanupTimeoutId?: NodeJS.Timeout;
+  stdoutLineCount: number;
+  stderrLineCount: number;
+  lastReportedStdoutLines: number;
+  lastReportedStderrLines: number;
+  isBackgrounded: boolean;
+  outputPath?: string;
+  result?: {
+    code: number;
+    interrupted: boolean;
+  };
+  notified?: boolean;
 }
 
 /**
@@ -128,7 +175,7 @@ function getAgentOutputDir(cwd: string): string {
  * Register output file symlink for agent.
  * Original: OKA() in chunks.86.mjs:174-183
  */
-function registerOutputFile(agentId: string, transcriptPath: string, cwd: string): string {
+export function registerOutputFile(agentId: string, transcriptPath: string, cwd: string): string {
   const outputDir = getAgentOutputDir(cwd);
   const outputPath = join(outputDir, `${agentId}.output`);
 
@@ -150,19 +197,17 @@ function registerOutputFile(agentId: string, transcriptPath: string, cwd: string
  * Create base task structure.
  * Original: KO() in chunks.91.mjs:1204-1216
  */
-function createBaseTask(
+export function createBaseTask(
   id: string,
-  type: 'local_agent',
+  type: 'local_agent' | 'local_bash',
   description: string
-): Partial<LocalAgentTask> {
+): Partial<LocalAgentTask | LocalBashTask> {
   return {
     id,
     type,
     description,
     startTime: Date.now(),
-    retrieved: false,
-    lastReportedToolCount: 0,
-    lastReportedTokenCount: 0,
+    isBackgrounded: false,
   };
 }
 
@@ -170,7 +215,7 @@ function createBaseTask(
  * Register cleanup handler for process exit.
  * Original: C6() pattern in chunks.91.mjs
  */
-function registerCleanupHandler(taskId: string, handler: () => void): () => void {
+export function registerCleanupHandler(taskId: string, handler: () => void): () => void {
   cleanupHandlers.set(taskId, handler);
 
   const unregister = () => {
@@ -184,8 +229,8 @@ function registerCleanupHandler(taskId: string, handler: () => void): () => void
  * Add task to app state.
  * Original: FO() in chunks.91.mjs:1388-1398
  */
-function addTaskToState(
-  task: LocalAgentTask,
+export function addTaskToState(
+  task: LocalAgentTask | LocalBashTask,
   setAppState: (updater: (state: AppState) => AppState) => void
 ): void {
   setAppState((state) => ({
@@ -198,6 +243,28 @@ function addTaskToState(
 }
 
 /**
+ * Update task in app state.
+ * Original: oY() in chunks.121.mjs:269-277
+ */
+export function updateTask<T extends LocalAgentTask | LocalBashTask>(
+  taskId: string,
+  setAppState: (updater: (state: AppState) => AppState) => void,
+  updater: (task: T) => T
+): void {
+  setAppState((state) => {
+    const task = state.tasks[taskId] as T;
+    if (!task) return state;
+    return {
+      ...state,
+      tasks: {
+        ...state.tasks,
+        [taskId]: updater(task),
+      },
+    };
+  });
+}
+
+/**
  * Kill background task.
  * Original: $4A() in chunks.91.mjs:1242-1251
  */
@@ -205,28 +272,71 @@ export function killBackgroundTask(
   taskId: string,
   setAppState: (updater: (state: AppState) => AppState) => void
 ): void {
-  setAppState((state) => {
-    const task = state.tasks[taskId];
-    if (!task || task.type !== 'local_agent') {
-      return state;
-    }
+  updateTask<LocalAgentTask>(taskId, setAppState, (task) => {
+    if (task.status !== 'running') return task;
 
     // Abort the task
     task.abortController?.abort();
     task.unregisterCleanup?.();
 
     return {
-      ...state,
-      tasks: {
-        ...state.tasks,
-        [taskId]: {
-          ...task,
-          status: 'killed',
-          endTime: Date.now(),
-        },
-      },
+      ...task,
+      status: 'killed',
+      endTime: Date.now(),
     };
   });
+}
+
+/**
+ * Kill local bash task.
+ * Original: Iq0() in chunks.121.mjs:590-608
+ */
+export function killLocalBashTask(
+  taskId: string,
+  setAppState: (updater: (state: AppState) => AppState) => void
+): void {
+  updateTask<LocalBashTask>(taskId, setAppState, (task) => {
+    if (task.status !== 'running') return task;
+
+    try {
+      task.shellCommand?.kill();
+    } catch (e) {
+      // ignore
+    }
+
+    task.unregisterCleanup?.();
+    if (task.cleanupTimeoutId) {
+      clearTimeout(task.cleanupTimeoutId);
+    }
+
+    return {
+      ...task,
+      status: 'killed',
+      shellCommand: null,
+      unregisterCleanup: undefined,
+      cleanupTimeoutId: undefined,
+      endTime: Date.now(),
+    };
+  });
+}
+
+/**
+ * Notify bash task completion.
+ * Original: ibA() in chunks.121.mjs:571-588
+ */
+export function notifyBashTaskCompletion(
+  taskId: string,
+  description: string,
+  status: 'completed' | 'failed' | 'killed',
+  exitCode: number | undefined,
+  setAppState: any
+): void {
+  // Logic to push notification to UI/Agent loop
+  // Placeholder for now as pushNotification logic is in @claudecode/ui or similar
+  updateTask<LocalBashTask>(taskId, setAppState, (task) => ({
+    ...task,
+    notified: true,
+  }));
 }
 
 /**
@@ -238,6 +348,18 @@ export function isLocalAgentTask(task: unknown): task is LocalAgentTask {
     task !== null &&
     typeof task === 'object' &&
     (task as LocalAgentTask).type === 'local_agent'
+  );
+}
+
+/**
+ * Check if task is a local bash task.
+ * Original: It() in chunks.121.mjs
+ */
+export function isLocalBashTask(task: unknown): task is LocalBashTask {
+  return (
+    task !== null &&
+    typeof task === 'object' &&
+    (task as LocalBashTask).type === 'local_bash'
   );
 }
 

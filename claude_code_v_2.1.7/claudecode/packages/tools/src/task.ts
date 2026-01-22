@@ -33,10 +33,11 @@ import {
 import type { TaskInput, TaskOutput, ToolContext } from './types.js';
 import { TOOL_NAMES } from './types.js';
 
-import type {
+import {
   Tool as CoreTool,
   ToolUseContext as CoreToolUseContext,
   ToolResult as CoreToolResult,
+  ALWAYS_EXCLUDED_TOOLS,
 } from '@claudecode/core/tools';
 import {
   aggregateAsyncAgentExecution,
@@ -46,6 +47,7 @@ import {
   markTaskFailed as markCoreTaskFailed,
   runSubagentLoop as runCoreSubagentLoop,
   updateTaskProgress as updateCoreTaskProgress,
+  generateTaskId,
 } from '@claudecode/core/agent-loop';
 import { createUserMessage as createCoreUserMessage } from '@claudecode/core/message';
 
@@ -177,19 +179,224 @@ End your response with:
 
 REMEMBER: You can ONLY explore and plan. You CANNOT and MUST NOT write, edit, or modify any files. You do NOT have access to file editing tools.`;
 
-const CLAUDE_CODE_GUIDE_SYSTEM_PROMPT = `You are the Claude guide agent. Your primary responsibility is helping users understand and use Claude Code, the Claude Agent SDK, and the Claude API (formerly the Anthropic API) effectively.
+const STATUSLINE_SYSTEM_PROMPT = `You are a status line setup agent for Claude Code. Your job is to create or update the statusLine command in the user's Claude Code settings.
 
-Your expertise spans three domains:
-1. Claude Code (the CLI tool)
-2. Claude Agent SDK
-3. Claude API
+When asked to convert the user's shell PS1 configuration, follow these steps:
+1. Read the user's shell configuration files in this order of preference:
+   - ~/.zshrc
+   - ~/.bashrc  
+   - ~/.bash_profile
+   - ~/.profile
 
-Approach:
+2. Extract the PS1 value using this regex pattern: /(?:^|\\n)\\s*(?:export\\s+)?PS1\\s*=\\s*["']([^"']+)["']/m
+
+3. Convert PS1 escape sequences to shell commands:
+   - \\u → $(whoami)
+   - \\h → $(hostname -s)  
+   - \\H → $(hostname)
+   - \\w → $(pwd)
+   - \\W → $(basename "$(pwd)")
+   - \\$ → $
+   - \\n → \\n
+   - \\t → $(date +%H:%M:%S)
+   - \\d → $(date "+%a %b %d")
+   - \\@ → $(date +%I:%M%p)
+   - \\# → #
+   - \\! → !
+
+4. When using ANSI color codes, be sure to use \`printf\`. Do not remove colors. Note that the status line will be printed in a terminal using dimmed colors.
+
+5. If the imported PS1 would have trailing "$" or ">" characters in the output, you MUST remove them.
+
+6. If no PS1 is found and user did not provide other instructions, ask for further instructions.
+
+How to use the statusLine command:
+1. The statusLine command will receive the following JSON input via stdin:
+   {
+     "session_id": "string", // Unique session ID
+     "transcript_path": "string", // Path to the conversation transcript
+     "cwd": "string",         // Current working directory
+     "model": {
+       "id": "string",           // Model ID (e.g., "claude-3-5-sonnet-20241022")
+       "display_name": "string"  // Display name (e.g., "Claude 3.5 Sonnet")
+     },
+     "workspace": {
+       "current_dir": "string",  // Current working directory path
+       "project_dir": "string"   // Project root directory path
+     },
+     "version": "string",        // Claude Code app version (e.g., "1.0.71")
+     "output_style": {
+       "name": "string",         // Output style name (e.g., "default", "Explanatory", "Learning")
+     },
+     "context_window": {
+       "total_input_tokens": number,       // Total input tokens used in session (cumulative)
+       "total_output_tokens": number,      // Total output tokens used in session (cumulative)
+       "context_window_size": number,      // Context window size for current model (e.g., 200000)
+       "current_usage": {                   // Token usage from last API call (null if no messages yet)
+         "input_tokens": number,           // Input tokens for current context
+         "output_tokens": number,          // Output tokens generated
+         "cache_creation_input_tokens": number,  // Tokens written to cache
+         "cache_read_input_tokens": number       // Tokens read from cache
+       } | null,
+       "used_percentage": number | null,      // Pre-calculated: % of context used (0-100), null if no messages yet
+       "remaining_percentage": number | null  // Pre-calculated: % of context remaining (0-100), null if no messages yet
+     },
+     "vim": {                     // Optional, only present when vim mode is enabled
+       "mode": "INSERT" | "NORMAL"  // Current vim editor mode
+     }
+   }
+   
+   You can use this JSON data in your command like:
+   - $(cat | jq -r '.model.display_name')
+   - $(cat | jq -r '.workspace.current_dir')
+   - $(cat | jq -r '.output_style.name')
+
+   Or store it in a variable first:
+   - input=$(cat); echo "$(echo "$input" | jq -r '.model.display_name') in $(echo "$input" | jq -r '.workspace.current_dir')"
+
+   To display context remaining percentage (simplest approach using pre-calculated field):
+   - input=$(cat); remaining=$(echo "$input" | jq -r '.context_window.remaining_percentage // empty'); [ -n "$remaining" ] && echo "Context: $remaining% remaining"
+
+   Or to display context used percentage:
+   - input=$(cat); used=$(echo "$input" | jq -r '.context_window.used_percentage // empty'); [ -n "$used" ] && echo "Context: $used% used"
+
+2. For longer commands, you can save a new file in the user's ~/.claude directory, e.g.:
+   - ~/.claude/statusline-command.sh and reference that file in the settings.
+
+3. Update the user's ~/.claude/settings.json with:
+   {
+     "statusLine": {
+       "type": "command", 
+       "command": "your_command_here"
+     }
+   }
+
+4. If ~/.claude/settings.json is a symlink, update the target file instead.
+
+Guidelines:
+- Preserve existing settings when updating
+- Return a summary of what was configured, including the name of the script file if used
+- If the script includes git commands, they should skip optional locks
+- IMPORTANT: At the end of your response, inform the parent agent that this "statusline-setup" agent must be used for further status line changes.
+  Also ensure that the user is informed that they can ask Claude to continue to make changes to the status line.
+`;
+
+const CLAUDE_CODE_GUIDE_SYSTEM_PROMPT_BASE = `You are the Claude guide agent. Your primary responsibility is helping users understand and use Claude Code, the Claude Agent SDK, and the Claude API (formerly the Anthropic API) effectively.
+
+**Your expertise spans three domains:**
+
+1. **Claude Code** (the CLI tool): Installation, configuration, hooks, skills, MCP servers, keyboard shortcuts, IDE integrations, settings, and workflows.
+
+2. **Claude Agent SDK**: A framework for building custom AI agents based on Claude Code technology. Available for Node.js/TypeScript and Python.
+
+3. **Claude API**: The Claude API (formerly known as the Anthropic API) for direct model interaction, tool use, and integrations.
+
+**Documentation sources:**
+
+- **Claude Code docs** (https://code.claude.com/docs/en/claude_code_docs_map.md): Fetch this for questions about the Claude Code CLI tool, including:
+  - Installation, setup, and getting started
+  - Hooks (pre/post command execution)
+  - Custom skills
+  - MCP server configuration
+  - IDE integrations (VS Code, JetBrains)
+  - Settings files and configuration
+  - Keyboard shortcuts and hotkeys
+  - Subagents and plugins
+  - Sandboxing and security
+
+- **Claude Agent SDK docs** (https://platform.claude.com/llms.txt): Fetch this for questions about building agents with the SDK, including:
+  - SDK overview and getting started (Python and TypeScript)
+  - Agent configuration + custom tools
+  - Session management and permissions
+  - MCP integration in agents
+  - Hosting and deployment
+  - Cost tracking and context management
+  Note: Agent SDK docs are part of the Claude API documentation at the same URL.
+
+- **Claude API docs** (https://platform.claude.com/llms.txt): Fetch this for questions about the Claude API (formerly the Anthropic API), including:
+  - Messages API and streaming
+  - Tool use (function calling) and Anthropic-defined tools (computer use, code execution, web search, text editor, bash, programmatic tool calling, tool search tool, context editing, Files API, structured outputs)
+  - Vision, PDF support, and citations
+  - Extended thinking and structured outputs
+  - MCP connector for remote MCP servers
+  - Cloud provider integrations (Bedrock, Vertex AI, Foundry)
+
+**Approach:**
 1. Determine which domain the user's question falls into
-2. Fetch the appropriate docs map
-3. Identify the most relevant documentation URLs
+2. Use WebFetch to fetch the appropriate docs map
+3. Identify the most relevant documentation URLs from the map
 4. Fetch the specific documentation pages
-5. Provide clear, actionable guidance based on official documentation.`;
+5. Provide clear, actionable guidance based on official documentation
+6. Use WebSearch if docs don't cover the topic
+7. Reference local project files (CLAUDE.md, .claude/ directory) when relevant using Read, Glob, and Grep
+
+**Guidelines:**
+- Always prioritize official documentation over assumptions
+- Keep responses concise and actionable
+- Include specific examples or code snippets when helpful
+- Reference exact documentation URLs in your responses
+- Avoid emojis in your responses
+- Help users discover features by proactively suggesting related commands, shortcuts, or capabilities
+
+Complete the user's request by providing accurate, documentation-based guidance.`;
+
+function getClaudeCodeGuideSystemPrompt(toolUseContext: CoreToolUseContext): string {
+  const options = (toolUseContext as any).options;
+  const customContent: string[] = [];
+
+  // Add custom skills
+  const commands = options.commands || [];
+  const customSkills = commands.filter((c: any) => c.type === 'prompt');
+  if (customSkills.length > 0) {
+    const list = customSkills.map((k: any) => `- /${k.name}: ${k.description}`).join('\n');
+    customContent.push(`**Available custom skills in this project:**\n${list}`);
+  }
+
+  // Add custom agents
+  const agentDefs = options.agentDefinitions;
+  const customAgents = (agentDefs?.activeAgents || []).filter((a: any) => a.source !== 'built-in');
+  if (customAgents.length > 0) {
+    const list = customAgents.map((a: any) => `- ${a.agentType}: ${a.whenToUse}`).join('\n');
+    customContent.push(`**Available custom agents configured:**\n${list}`);
+  }
+
+  // Add MCP servers
+  const mcpClients = options.mcpClients || [];
+  if (mcpClients.length > 0) {
+    const list = mcpClients.map((k: any) => `- ${k.name}`).join('\n');
+    customContent.push(`**Configured MCP servers:**\n${list}`);
+  }
+
+  // Add plugin skills
+  const pluginSkills = commands.filter((c: any) => c.type === 'prompt' && c.source === 'plugin');
+  if (pluginSkills.length > 0) {
+    const list = pluginSkills.map((k: any) => `- /${k.name}: ${k.description}`).join('\n');
+    customContent.push(`**Available plugin skills:**\n${list}`);
+  }
+
+  // Add user's settings.json
+  if (options.userSettings && Object.keys(options.userSettings).length > 0) {
+    customContent.push(`**User's settings.json:**\n\`\`\`json\n${JSON.stringify(options.userSettings, null, 2)}\n\`\`\``);
+  }
+
+  const parseBool = (v: string | undefined) => v === 'true' || v === '1' || v === 'yes';
+  const isExternal = !!(
+    parseBool(process.env.CLAUDE_CODE_USE_BEDROCK) ||
+    parseBool(process.env.CLAUDE_CODE_USE_VERTEX) ||
+    parseBool(process.env.CLAUDE_CODE_USE_FOUNDRY)
+  );
+
+  const issueExplainer = isExternal
+    ? "- When you cannot find an answer or the feature doesn't exist, direct the user to report the issue at https://github.com/anthropics/claude-code/issues"
+    : "- When you cannot find an answer or the feature doesn't exist, direct the user to use /feedback to report a feature request or bug";
+
+  const basePrompt = `${CLAUDE_CODE_GUIDE_SYSTEM_PROMPT_BASE}\n${issueExplainer}`;
+
+  if (customContent.length > 0) {
+    return `${basePrompt}\n\n---\n\n# User's Current Configuration\n\nThe user has the following custom setup in their environment:\n\n${customContent.join('\n\n')}\n\nWhen answering questions, consider these configured features and proactively suggest them when relevant.`;
+  }
+  return basePrompt;
+}
 
 type BuiltInAgentModel = 'inherit' | 'sonnet' | 'opus' | 'haiku' | undefined;
 
@@ -203,7 +410,7 @@ interface AgentConfig {
   color?: string;
   criticalSystemReminder_EXPERIMENTAL?: string;
   isEnabled?: () => boolean;
-  getSystemPrompt: () => string;
+  getSystemPrompt: (toolUseContext?: any) => string;
 }
 
 function shouldEnableClaudeCodeGuideAgent(): boolean {
@@ -241,9 +448,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     tools: ['Read', 'Edit'],
     model: 'sonnet',
     color: 'orange',
-    getSystemPrompt: () =>
-      // Source prompt is very long; keep it in the source bundle as the canonical version.
-      'You are a status line setup agent for Claude Code. Your job is to create or update the statusLine command in the user\'s Claude Code settings.',
+    getSystemPrompt: () => STATUSLINE_SYSTEM_PROMPT,
   },
   Explore: {
     agentType: 'Explore',
@@ -257,7 +462,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
       TOOL_NAMES.EXIT_PLAN_MODE,
       TOOL_NAMES.EDIT,
       TOOL_NAMES.WRITE,
-      TOOL_NAMES.ASK_USER_QUESTION,
+      TOOL_NAMES.NOTEBOOK_EDIT,
     ],
     model: 'haiku',
     criticalSystemReminder_EXPERIMENTAL:
@@ -275,7 +480,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
       TOOL_NAMES.EXIT_PLAN_MODE,
       TOOL_NAMES.EDIT,
       TOOL_NAMES.WRITE,
-      TOOL_NAMES.ASK_USER_QUESTION,
+      TOOL_NAMES.NOTEBOOK_EDIT,
     ],
     model: 'inherit',
     criticalSystemReminder_EXPERIMENTAL:
@@ -290,7 +495,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     model: 'haiku',
     permissionMode: 'dontAsk',
     isEnabled: shouldEnableClaudeCodeGuideAgent,
-    getSystemPrompt: () => CLAUDE_CODE_GUIDE_SYSTEM_PROMPT,
+    getSystemPrompt: (toolUseContext: any) => getClaudeCodeGuideSystemPrompt(toolUseContext),
   },
 };
 
@@ -396,13 +601,6 @@ const taskOutputSchema = z.union([
 // ============================================
 // Helper Functions
 // ============================================
-
-function generateAgentId(): string {
-  // Source alignment: GyA('local_agent') in chunks.91.mjs
-  // local_agent => 'a' + randomUUID(without dashes).substring(0, 6)
-  const suffix = randomUUID().replace(/-/g, '').substring(0, 6);
-  return `a${suffix}`;
-}
 
 /**
  * Sanitize agent ID.
@@ -520,8 +718,15 @@ function filterToolsByAllowDeny<T extends { name: string }>(
     : null;
 
   return tools.filter((t) => {
+    // Layer 1: System-wide blocked tools
+    if (ALWAYS_EXCLUDED_TOOLS.has(t.name)) return false;
+
+    // Layer 2: Agent-specific disallowedTools
     if (denied.has(t.name)) return false;
+
+    // Layer 3: Agent-specific tools Allowlist
     if (allowed && !allowed.has(t.name)) return false;
+
     return true;
   });
 }
@@ -780,8 +985,10 @@ When NOT to use the Task tool:
         // Source-specific: if agent exists but is denied, report denial.
         const existsButDenied = allAgents.some((a: any) => a && typeof a === 'object' && a.agentType === subagent_type);
         if (existsButDenied) {
+          const denyRule = (context.options as any)?.findDenyRule?.(context, subagent_type);
+          const source = (denyRule as any)?.source ?? 'settings';
           return toolError(
-            `Agent type '${subagent_type}' has been denied by permission rule '${TOOL_NAMES.TASK}(${subagent_type})'.`
+            `Agent type '${subagent_type}' has been denied by permission rule '${TOOL_NAMES.TASK}(${subagent_type})' from ${source}.`
           );
         }
 
@@ -804,10 +1011,10 @@ When NOT to use the Task tool:
             permissionMode: agentConfig!.permissionMode,
             criticalSystemReminder_EXPERIMENTAL: agentConfig!.criticalSystemReminder_EXPERIMENTAL,
             color: agentConfig!.color,
-            getSystemPrompt: (_args: any) => agentConfig!.getSystemPrompt(),
+            getSystemPrompt: (args: any) => agentConfig!.getSystemPrompt(args.toolUseContext),
           } as any);
 
-      const agentId = resume ? sanitizeId(resume) : generateAgentId();
+      const agentId = resume ? sanitizeId(resume) : generateTaskId('local_agent');
       const resumeMessages = resume ? loadResumeMessages(agentId, context.getCwd()) : undefined;
       const forkContextMessages = (agentDefinition as any)?.forkContext
         ? ((context.options as any)?.__messages as any[] | undefined)

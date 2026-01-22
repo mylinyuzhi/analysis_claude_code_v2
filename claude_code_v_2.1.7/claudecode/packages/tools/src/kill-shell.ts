@@ -21,6 +21,7 @@ import {
 } from './base.js';
 import type { ToolContext } from './types.js';
 import { TOOL_NAMES } from './types.js';
+import { killLocalBashTask } from '@claudecode/core/agent-loop';
 
 // ============================================
 // Input Types
@@ -153,41 +154,12 @@ export const KillShellTool = createTool<KillShellInput, KillShellOutput>({
     const { shell_id } = input;
 
     try {
-      // Get the shell manager from context
-      const shellManager = (context as any).shellManager;
-
-      if (shellManager && typeof shellManager.kill === 'function') {
-        await shellManager.kill(shell_id);
-        return toolSuccess({
-          message: `Successfully killed shell: ${shell_id}`,
-          shell_id,
-        });
-      }
-
-      // Try to get from app state
-      const appState = await context.getAppState?.();
-      const tasks = (appState as any)?.tasks;
-
-      if (tasks) {
-        const task = tasks.get?.(shell_id) || tasks[shell_id];
-        if (task && task.kill) {
-          await task.kill();
-          return toolSuccess({
-            message: `Successfully killed shell: ${shell_id}`,
-            shell_id,
-          });
-        }
-
-        if (task && task.process) {
-          task.process.kill('SIGTERM');
-          return toolSuccess({
-            message: `Successfully killed shell: ${shell_id}`,
-            shell_id,
-          });
-        }
-      }
-
-      return toolError(`Could not find shell to kill: ${shell_id}`);
+      await killLocalBashTask(shell_id, context.setAppState as any);
+      
+      return toolSuccess({
+        message: `Successfully killed shell: ${shell_id}`,
+        shell_id,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return toolError(`Failed to kill shell: ${message}`);

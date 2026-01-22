@@ -20,6 +20,7 @@ import { createUserMessage } from '../message/factory.js';
 import type { ConversationMessage } from '../message/types.js';
 import type { ToolDefinition, ToolUseContext } from '../tools/types.js';
 import { coreMessageLoop } from './core-message-loop.js';
+import { generateTaskId } from './index.js';
 import {
   getSkillsCached as getSkillsCachedFromFeatures,
   injectArguments as injectSkillArguments,
@@ -534,12 +535,18 @@ export function registerAgentHooks(
       const hookList = (m as any)?.hooks;
       if (!Array.isArray(hookList)) continue;
 
+      let finalEventType = eventType;
+      if (isSession && eventType === 'Stop') {
+        finalEventType = 'SubagentStop' as HookEventType;
+        logDebug(`Converting Stop hook to SubagentStop for ${source} (subagents trigger SubagentStop)`);
+      }
+
       for (const hookDef of hookList) {
         try {
-          addSessionHook(setAppState as any, agentId, eventType, matcherStr, hookDef as any);
-          registered.push({ eventType, matcher: matcherStr, hook: hookDef });
+          addSessionHook(setAppState as any, agentId, finalEventType, matcherStr, hookDef as any);
+          registered.push({ eventType: finalEventType, matcher: matcherStr, hook: hookDef });
         } catch (err) {
-          logDebug(`Failed to register hook for ${eventType} (${source}): ${err instanceof Error ? err.message : String(err)}`);
+          logDebug(`Failed to register hook for ${finalEventType} (${source}): ${err instanceof Error ? err.message : String(err)}`);
         }
       }
     }
@@ -782,7 +789,7 @@ export async function* runSubagentLoop(
   );
 
   // Generate agent ID
-  const agentId = override?.agentId ?? generateUUID();
+  const agentId = override?.agentId ?? generateTaskId('local_agent');
 
   // Build initial messages
   const messages: ConversationMessage[] = [

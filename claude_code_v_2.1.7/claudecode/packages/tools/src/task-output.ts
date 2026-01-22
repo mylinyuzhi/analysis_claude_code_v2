@@ -264,12 +264,24 @@ function extractLocalAgentText(taskId: string, cwd?: string): string {
   }
 }
 
+function extractLocalBashText(taskId: string, cwd?: string): string {
+  const outputPath = getTaskOutputPath(taskId, cwd);
+  if (existsSync(outputPath)) {
+    try {
+      return readFileSync(outputPath, 'utf-8');
+    } catch {
+      // ignore
+    }
+  }
+  return '';
+}
+
 function formatTaskForOutput(task: any, cwd?: string): TaskOutputTask {
   const type: TaskType = task.type;
   const id: string = task.id ?? task.taskId ?? task.agentId;
 
   if (type === 'local_bash') {
-    const output = String(task.stdout ?? task.output ?? '');
+    const output = extractLocalBashText(id, cwd) || String(task.stdout ?? task.output ?? '');
     return {
       task_id: id,
       task_type: 'local_bash',
