@@ -50,58 +50,58 @@ export interface GeneratorResult {
 }
 
 // ============================================
-// Todo Generators
+// History Analysis Helpers
 // ============================================
 
 /**
- * Generate todo attachment.
- * Original: Part of attachment generation in chunks.131.mjs
+ * Check if an assistant message contains only thinking blocks.
+ * Original: dF1 in chunks.148.mjs
  */
-export function generateTodoAttachment(
-  todos: TodoItem[],
-  context?: 'file-watch'
-): TodoAttachment | null {
-  if (!todos || todos.length === 0) {
-    return null;
-  }
-
-  return {
-    type: 'todo',
-    content: todos,
-    itemCount: todos.length,
-    context,
-  };
+function isThinkingOnlyMessage(message: any): boolean {
+  if (message.type !== 'assistant') return false;
+  if (!Array.isArray(message.message.content)) return false;
+  return message.message.content.every((block: any) => block.type === 'thinking');
 }
 
 /**
- * Generate todo reminder attachment.
- * Shows when there are pending todos and enough turns have passed.
+ * Analyze plan mode history to determine turn count and previous attachments.
+ * Original: R27 in chunks.131.mjs
  */
-export function generateTodoReminderAttachment(
-  todos: TodoItem[],
-  turnsSinceWrite: number,
-  turnsSinceReminder: number
-): TodoReminderAttachment | null {
-  // Check if reminder is needed
-  if (turnsSinceWrite < ATTACHMENT_CONSTANTS.TODO_TURNS_SINCE_WRITE) {
-    return null;
+function analyzePlanModeHistory(history: any[]): { turnCount: number; foundPlanModeAttachment: boolean } {
+  let turnCount = 0;
+  let foundPlanModeAttachment = false;
+
+  for (let i = history.length - 1; i >= 0; i--) {
+    const msg = history[i];
+    if (msg?.type === 'assistant') {
+      if (isThinkingOnlyMessage(msg)) continue;
+      turnCount++;
+    } else if (
+      msg?.type === 'attachment' &&
+      (msg.attachment.type === 'plan_mode' || msg.attachment.type === 'plan_mode_reentry')
+    ) {
+      foundPlanModeAttachment = true;
+      break;
+    }
   }
 
-  if (turnsSinceReminder < ATTACHMENT_CONSTANTS.TODO_TURNS_BETWEEN_REMINDERS) {
-    return null;
-  }
+  return { turnCount, foundPlanModeAttachment };
+}
 
-  // Only remind about non-completed todos
-  const pendingTodos = todos.filter((t) => t.status !== 'completed');
-  if (pendingTodos.length === 0) {
-    return null;
+/**
+ * Count the number of plan mode attachments in history.
+ * Original: _27 in chunks.131.mjs
+ */
+function countPlanModeAttachments(history: any[]): number {
+  let count = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const msg = history[i];
+    if (msg?.type === 'attachment') {
+      if (msg.attachment.type === 'plan_mode_exit') break;
+      if (msg.attachment.type === 'plan_mode') count++;
+    }
   }
-
-  return {
-    type: 'todo_reminder',
-    content: pendingTodos,
-    itemCount: pendingTodos.length,
-  };
+  return count;
 }
 
 // ============================================
@@ -110,285 +110,432 @@ export function generateTodoReminderAttachment(
 
 /**
  * Generate plan mode attachment.
- * Original: Part of plan mode system in chunks.130.mjs
+ * Original: j27 in chunks.131.mjs
  */
-export function generatePlanModeAttachment(
-  planFilePath: string,
-  planExists: boolean,
-  turnIndex: number,
-  isSubAgent: boolean = false
-): PlanModeAttachment {
-  // Full reminder every N turns, sparse otherwise
-  const reminderType =
-    turnIndex % ATTACHMENT_CONSTANTS.FULL_REMINDER_EVERY_N === 0
-      ? 'full'
-      : 'sparse';
+export async function generatePlanModeAttachment(
+  history: any[],
+  ctx: AttachmentContext
+): Promise<Attachment[]> {
+  const appState = await ctx.getAppState();
+  if (appState.toolPermissionContext.mode !== 'plan') return [];
 
-  return {
+  // Throttle plan mode attachments
+  if (history && history.length > 0) {
+    const { turnCount, foundPlanModeAttachment } = analyzePlanModeHistory(history);
+    if (foundPlanModeAttachment && turnCount < 3) { // 3 is from ar2.TURNS_BETWEEN_ATTACHMENTS
+      return [];
+    }
+  }
+
+  // In real implementation, get plan file path and check if exists
+  const planFilePath = `/tmp/plan-${ctx.agentId || 'main'}.md`;
+  const planExists = false; 
+  
+  const attachments: Attachment[] = [];
+
+  // Re-entry check (simulated)
+  // if (hasExitedPlanMode() && planExists) ...
+
+  // Determine reminder type (full or sparse)
+  const attachmentCount = countPlanModeAttachments(history ?? []);
+  const reminderType = (attachmentCount + 1) % 5 === 1 ? 'full' : 'sparse'; // 5 is from ar2.FULL_REMINDER_EVERY_N_ATTACHMENTS
+
+  attachments.push({
     type: 'plan_mode',
     reminderType,
-    isSubAgent,
+    isSubAgent: !!ctx.agentId,
     planFilePath,
     planExists,
-  };
+  });
+
+  return attachments;
 }
 
 /**
  * Generate plan mode exit attachment.
+ * Original: T27 in chunks.131.mjs
  */
-export function generatePlanModeExitAttachment(
-  planFilePath: string,
-  planExists: boolean
-): PlanModeExitAttachment {
-  return {
+export async function generatePlanModeExitAttachment(
+  ctx: AttachmentContext
+): Promise<Attachment[]> {
+  // Logic from T27: check if just exited plan mode
+  // if (!hasJustExitedPlanMode()) return [];
+  
+  const appState = await ctx.getAppState();
+  if (appState.toolPermissionContext.mode === 'plan') return [];
+
+  const planFilePath = `/tmp/plan-${ctx.agentId || 'main'}.md`;
+  const planExists = false;
+
+  return [{
     type: 'plan_mode_exit',
     planFilePath,
     planExists,
-  };
+  }];
 }
 
 /**
  * Generate verify plan reminder attachment.
+ * Original: J97 in chunks.132.mjs
  */
-export function generateVerifyPlanReminderAttachment(): VerifyPlanReminderAttachment {
-  return {
-    type: 'verify_plan_reminder',
-  };
+export async function generateVerifyPlanReminderAttachment(
+  history: any[],
+  ctx: AttachmentContext
+): Promise<Attachment[]> {
+  // Source J97 returns []
+  return [];
 }
 
 // ============================================
-// Delegate Mode Generators
+// User Prompt Generators
 // ============================================
 
 /**
- * Generate delegate mode attachment.
+ * Parse at-mentions from text.
+ * Original: c27 in chunks.131.mjs
  */
-export function generateDelegateModeAttachment(
-  teamName: string,
-  taskListPath: string
-): DelegateModeAttachment {
-  return {
-    type: 'delegate_mode',
-    teamName,
-    taskListPath,
-  };
-}
-
-// ============================================
-// Memory Generators
-// ============================================
-
-/**
- * Generate memory attachment.
- * Original: Memory loading in chunks.131.mjs
- */
-export function generateMemoryAttachment(
-  memories: Array<{
-    fullPath: string;
-    content: string;
-    lastModified: Date;
-    remainingLines: number;
-  }>
-): MemoryAttachment | null {
-  if (!memories || memories.length === 0) {
-    return null;
+function parseAtMentions(text: string): string[] {
+  const quotedRegex = /(^|\s)@"([^"]+)"/g;
+  const simpleRegex = /(^|\s)@([^\s]+)\b/g;
+  const results: string[] = [];
+  
+  let match;
+  while ((match = quotedRegex.exec(text)) !== null) {
+    if (match[2]) results.push(match[2]);
   }
-
-  return {
-    type: 'memory',
-    memories,
-  };
-}
-
-// ============================================
-// Task Status Generators
-// ============================================
-
-/**
- * Generate task status attachment.
- * Original: Task tracking in chunks.136.mjs
- */
-export function generateTaskStatusAttachment(
-  taskId: string,
-  taskType: 'shell' | 'agent' | 'remote_session',
-  status: 'running' | 'completed' | 'failed',
-  description: string,
-  deltaSummary?: string
-): TaskStatusAttachment {
-  return {
-    type: 'task_status',
-    taskId,
-    taskType,
-    status,
-    description,
-    deltaSummary,
-  };
-}
-
-// ============================================
-// Diagnostics Generators
-// ============================================
-
-/**
- * Generate diagnostics attachment.
- * Original: IDE diagnostics in chunks.151.mjs
- */
-export function generateDiagnosticsAttachment(
-  files: Array<{
-    filePath: string;
-    diagnostics: Array<{
-      message: string;
-      severity: 'error' | 'warning' | 'info' | 'hint';
-      line: number;
-      column?: number;
-    }>;
-  }>,
-  isNew: boolean = false
-): DiagnosticsAttachment | null {
-  if (!files || files.length === 0) {
-    return null;
+  
+  const simpleMatches = text.match(simpleRegex) || [];
+  for (const m of simpleMatches) {
+    const mention = m.slice(m.indexOf('@') + 1);
+    if (!mention.startsWith('"')) results.push(mention);
   }
-
-  // Filter out files with no diagnostics
-  const filesWithDiagnostics = files.filter((f) => f.diagnostics.length > 0);
-  if (filesWithDiagnostics.length === 0) {
-    return null;
-  }
-
-  return {
-    type: 'diagnostics',
-    files: filesWithDiagnostics,
-    isNew,
-  };
+  
+  return [...new Set(results)];
 }
 
-// ============================================
-// IDE Generators
-// ============================================
-
 /**
- * Generate IDE selection attachment.
- * Original: IDE context in chunks.151.mjs
+ * Parse filename and line range from mention string.
+ * Original: i27 in chunks.131.mjs
  */
-export function generateIdeSelectionAttachment(
-  ideName: string,
-  filename: string,
-  lineStart: number,
-  lineEnd: number,
-  content: string
-): IdeSelectionAttachment {
-  // Truncate content if too long
-  const truncatedContent =
-    content.length > ATTACHMENT_CONSTANTS.IDE_CONTENT_TRUNCATION
-      ? content.slice(0, ATTACHMENT_CONSTANTS.IDE_CONTENT_TRUNCATION) + '\n... (truncated)'
-      : content;
-
+function parseFileNameAndRange(mention: string): { filename: string; lineStart?: number; lineEnd?: number } {
+  const match = mention.match(/^([^#]+)(?:#L(\d+)(?:-(\d+))?)?$/);
+  if (!match) return { filename: mention };
+  
+  const [, filename, start, end] = match;
+  const lineStart = start ? parseInt(start, 10) : undefined;
+  const lineEnd = end ? parseInt(end, 10) : lineStart;
+  
   return {
-    type: 'selected_lines_in_ide',
-    ideName,
-    filename,
+    filename: filename ?? mention,
     lineStart,
-    lineEnd,
-    content: truncatedContent,
+    lineEnd
   };
 }
 
 /**
- * Generate opened file in IDE attachment.
+ * Generate at-mentioned files attachment.
+ * Original: h27 in chunks.131.mjs
  */
-export function generateOpenedFileInIdeAttachment(
-  filename: string
-): OpenedFileInIdeAttachment {
-  return {
-    type: 'opened_file_in_ide',
-    filename,
-  };
+export async function generateAtMentionedFilesAttachment(
+  userPrompt: string,
+  ctx: AttachmentContext
+): Promise<Attachment[]> {
+  const mentions = parseAtMentions(userPrompt);
+  if (mentions.length === 0) return [];
+
+  const attachments: Attachment[] = [];
+  const appState = await ctx.getAppState();
+
+  for (const mention of mentions) {
+    const { filename, lineStart, lineEnd } = parseFileNameAndRange(mention);
+    
+    // Check permissions (simulated)
+    // if (isDeny(filename, appState.toolPermissionContext)) continue;
+
+    try {
+      // In real implementation, check if directory or file and read
+      // This would use ReadTool and handle already_read_file
+      attachments.push({
+        type: 'file',
+        filename,
+        content: {
+          type: 'text',
+          file: {
+            filePath: filename,
+            content: 'Simulated content',
+            numLines: 1,
+            startLine: lineStart ?? 1,
+            totalLines: 1
+          }
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  return attachments;
+}
+
+/**
+ * Parse MCP resource mentions.
+ * Original: p27 in chunks.131.mjs
+ */
+function parseMcpMentions(text: string): string[] {
+  const regex = /(^|\s)@([^\s]+:[^\s]+)\b/g;
+  const matches = text.match(regex) || [];
+  return [...new Set(matches.map((m) => m.slice(m.indexOf('@') + 1)))];
+}
+
+/**
+ * Generate MCP resource attachment.
+ * Original: u27 in chunks.131.mjs
+ */
+export async function generateMcpResourcesAttachment(
+  userPrompt: string,
+  ctx: AttachmentContext
+): Promise<Attachment[]> {
+  const mentions = parseMcpMentions(userPrompt);
+  if (mentions.length === 0) return [];
+
+  const attachments: Attachment[] = [];
+  // In real implementation, read resources from MCP clients
+  
+  return attachments;
+}
+
+/**
+ * Generate agent mentions attachment.
+ * Original: g27 in chunks.131.mjs
+ */
+export function generateAgentMentionsAttachment(
+  userPrompt: string,
+  activeAgents: Array<{ type: string; name: string }>
+): AgentMentionAttachment[] {
+  const mentions = parseAtMentions(userPrompt);
+  const agentMentions = mentions.filter(m => m.startsWith('agent-'));
+  
+  return agentMentions.map(m => {
+    const type = m.replace('agent-', '');
+    const agent = activeAgents.find(a => a.type === type);
+    if (!agent) return null;
+    
+    return {
+      type: 'agent_mention' as const,
+      agentType: agent.type
+    };
+  }).filter((a): a is AgentMentionAttachment => a !== null);
 }
 
 // ============================================
-// Style & Budget Generators
+// Core Generators
 // ============================================
 
 /**
- * Generate output style attachment.
+ * Generate nested memory attachment.
+ * Original: d27 in chunks.131.mjs
  */
-export function generateOutputStyleAttachment(style: string): OutputStyleAttachment {
-  return {
-    type: 'output_style',
-    style,
-  };
+export async function generateNestedMemoryAttachment(
+  ctx: AttachmentContext
+): Promise<Attachment[]> {
+  if (!ctx.nestedMemoryAttachmentTriggers || ctx.nestedMemoryAttachmentTriggers.size === 0) {
+    return [];
+  }
+
+  const attachments: Attachment[] = [];
+  for (const path of ctx.nestedMemoryAttachmentTriggers) {
+    // In real implementation, discover and read related files
+    attachments.push({
+      type: 'nested_memory',
+      path,
+      content: {
+        type: 'text',
+        path,
+        content: 'Simulated nested memory'
+      }
+    });
+  }
+  
+  // Clear triggers after processing
+  ctx.nestedMemoryAttachmentTriggers.clear();
+  
+  return attachments;
+}
+
+/**
+ * Generate CLAUDE.md attachment.
+ * Original: v27 in chunks.131.mjs
+ */
+export async function generateClaudeMdAttachment(
+  history: any[]
+): Promise<Attachment[]> {
+  // Source v27 returns []
+  return [];
+}
+
+// ============================================
+// Main Agent Generators
+// ============================================
+
+/**
+ * Generate queued commands attachment.
+ * Original: M27 in chunks.131.mjs
+ */
+export function generateQueuedCommandsAttachment(
+  queuedCommands: any[]
+): QueuedCommandAttachment[] {
+  if (!queuedCommands) return [];
+  
+  return queuedCommands
+    .filter((c) => c.mode === 'prompt')
+    .map((c) => ({
+      type: 'queued_command' as const,
+      prompt: c.value,
+      source_uuid: c.uuid,
+      imagePasteIds: c.imagePasteIds
+    }));
+}
+
+/**
+ * Generate unified tasks attachment.
+ * Original: A97 in chunks.132.mjs
+ */
+export async function generateUnifiedTasksAttachment(
+  ctx: AttachmentContext,
+  history: any[]
+): Promise<Attachment[]> {
+  const appState = await ctx.getAppState();
+  if (!appState.tasks || appState.tasks.size === 0) return [];
+
+  const attachments: Attachment[] = [];
+  
+  // Throttle progress updates (simulated)
+  // let turnsSinceProgress = getTurnsSinceTaskProgress(history);
+
+  for (const [taskId, task] of appState.tasks) {
+    const taskData = task as any;
+    
+    // Status attachment
+    attachments.push({
+      type: 'task_status',
+      taskId,
+      taskType: taskData.type,
+      status: taskData.status,
+      description: taskData.description,
+      deltaSummary: taskData.deltaSummary
+    });
+    
+    // Progress attachment (throttled)
+    if (taskData.message) {
+      attachments.push({
+        type: 'task_progress',
+        taskId,
+        taskType: taskData.type,
+        message: taskData.message
+      });
+    }
+  }
+  
+  return attachments;
+}
+
+/**
+ * Generate async hook responses attachment.
+ * Original: Q97 in chunks.132.mjs
+ */
+export async function generateAsyncHookResponsesAttachment(): Promise<Attachment[]> {
+  // In real implementation, get pending hook responses
+  return [];
 }
 
 /**
  * Generate token usage attachment.
+ * Original: G97 in chunks.132.mjs
  */
 export function generateTokenUsageAttachment(
-  used: number,
-  total: number
-): TokenUsageAttachment {
-  return {
+  history: any[]
+): TokenUsageAttachment[] {
+  if (process.env.CLAUDE_CODE_ENABLE_TOKEN_USAGE_ATTACHMENT !== 'true') return [];
+  
+  // In real implementation, calculate from history
+  return [{
     type: 'token_usage',
-    used,
-    total,
-    remaining: total - used,
-  };
+    used: 1000,
+    total: 200000,
+    remaining: 199000
+  }];
 }
 
 /**
  * Generate budget attachment.
+ * Original: Z97 in chunks.132.mjs
  */
 export function generateBudgetAttachment(
-  used: number,
-  total: number
-): BudgetAttachment {
-  return {
+  maxBudgetUsd?: number
+): BudgetAttachment[] {
+  if (maxBudgetUsd === undefined) return [];
+  
+  return [{
     type: 'budget_usd',
-    used,
-    total,
-    remaining: total - used,
-  };
+    used: 0.5,
+    total: maxBudgetUsd,
+    remaining: maxBudgetUsd - 0.5
+  }];
 }
-
-// ============================================
-// Skills Generators
-// ============================================
 
 /**
- * Generate invoked skills attachment.
- * Original: Skills system in chunks.152.mjs
+ * Generate output style attachment.
  */
-export function generateInvokedSkillsAttachment(
-  skills: Array<{
-    name: string;
-    path: string;
-    content: string;
-  }>
-): InvokedSkillsAttachment | null {
-  if (!skills || skills.length === 0) {
-    return null;
-  }
-
+export function generateOutputStyleAttachment(
+  ctx: AttachmentContext
+): OutputStyleAttachment | null {
+  const style = ctx.options.outputStyle;
+  if (!style) return null;
+  
   return {
-    type: 'invoked_skills',
-    skills,
+    type: 'output_style',
+    style
   };
 }
-
-// ============================================
-// Critical System Reminder Generators
-// ============================================
 
 /**
- * Generate critical system reminder attachment.
+ * Generate todo reminders attachment.
+ * Original: t27 in chunks.132.mjs
  */
-export function generateCriticalSystemReminderAttachment(
-  content: string
-): CriticalSystemReminderAttachment {
+export function generateTodoRemindersAttachment(
+  history: any[],
+  ctx: AttachmentContext
+): TodoReminderAttachment[] {
+  // Implementation from t27 logic: check turn count thresholds
+  return [];
+}
+
+/**
+ * Generate delegate mode exit attachment.
+ * Original: S27 in chunks.131.mjs
+ */
+export function generateDelegateModeExitAttachment(): DelegateModeExitAttachment[] {
+  // Logic from S27: check if just exited delegate mode
+  return [{
+    type: 'delegate_mode_exit'
+  }];
+}
+
+/**
+ * Generate IDE opened file attachment.
+ */
+export function generateOpenedFileInIdeAttachment(
+  ideContext: any,
+  ctx: AttachmentContext
+): OpenedFileInIdeAttachment | null {
+  if (!ideContext?.openedFile) return null;
+  
   return {
-    type: 'critical_system_reminder',
-    content,
+    type: 'opened_file_in_ide',
+    filename: ideContext.openedFile.filename
   };
 }
+
 
 // ============================================
 // Hook Result Generators

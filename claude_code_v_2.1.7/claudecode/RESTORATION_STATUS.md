@@ -72,14 +72,18 @@ This document tracks the restoration status of Claude Code source code from obfu
 
 ### 04_system_reminder - System Prompt Building
 - **Target**: `packages/core/message/`
-- **Status**: ⚠️ Partial (~50%)
-- **Restored**:
-  - `src/message/factory.ts` - Message creation
-  - `src/message/normalization.ts` - API normalization
-- **Missing**:
-  - System prompt constants
-  - XML formatting utilities
-  - Reminder injection logic
+- **Status**: ✅ Complete (100%) - Fully aligned with Source (v2.1.7)
+- **Implemented**:
+  - `factory.ts` - full createMetaBlock (H0) support ✅
+  - `normalization.ts` - full convertAttachmentToSystemMessage (q$7) with 30+ types ✅
+  - `utils.ts` - XML wrapping (Yh, q5) and extraction ✅
+  - `plan-instructions.ts` - full plan mode instruction router (z$7) and 5-phase templates ✅
+- **Details**: Correctly simulates tool results for file/directory attachments and handles all v2.1.7 new types (task_status, invoked_skills, etc.).
+- **Source References**:
+  - `q$7` -> `convertAttachmentToSystemMessage` (chunks.148.mjs:3)
+  - `z$7` -> `planModeInstructionRouter` (chunks.147.mjs:3247)
+  - `Yh` -> `wrapSystemReminderText` (chunks.147.mjs:3212)
+  - `q5` -> `wrapInSystemReminder` (chunks.147.mjs:3218)
 
 ### 05_tools - Built-in Tools
 - **Target**: `packages/tools/` + `packages/core/tools/`

@@ -71,6 +71,7 @@ export {
   normalizeMessagesToAPI,
   setToolSearchEnabled,
   isToolSearchEnabled,
+  convertAttachmentToSystemMessage,
 } from './normalization.js';
 
 // Re-export utilities
@@ -88,4 +89,14 @@ export {
   getProgressMessages,
   isHookInProgress,
   getTextContent,
+  wrapSystemReminderText,
+  wrapInSystemReminder,
 } from './utils.js';
+
+// Re-export plan instructions
+export {
+  generatePlanModeInstructions,
+  generateFullPlanModeInstructions,
+  generateSparsePlanModeInstructions,
+  generateSubAgentPlanModeInstructions,
+} from './plan-instructions.js';

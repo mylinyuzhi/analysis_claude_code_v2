@@ -196,11 +196,39 @@ export interface ProgressMessage extends BaseMessage {
  */
 export type AttachmentType =
   | 'file'
-  | 'image'
-  | 'url'
-  | 'error'
-  | 'interrupted'
-  | 'structured_output'
+  | 'directory'
+  | 'edited_text_file'
+  | 'edited_image_file'
+  | 'compact_file_reference'
+  | 'selected_lines_in_ide'
+  | 'opened_file_in_ide'
+  | 'todo'
+  | 'todo_reminder'
+  | 'plan_file_reference'
+  | 'plan_mode'
+  | 'plan_mode_reentry'
+  | 'plan_mode_exit'
+  | 'delegate_mode'
+  | 'delegate_mode_exit'
+  | 'critical_system_reminder'
+  | 'invoked_skills'
+  | 'task_status'
+  | 'task_progress'
+  | 'task_reminder'
+  | 'nested_memory'
+  | 'queued_command'
+  | 'ultramemory'
+  | 'output_style'
+  | 'diagnostics'
+  | 'lsp_diagnostics'
+  | 'async_hook_response'
+  | 'memory'
+  | 'token_usage'
+  | 'budget_usd'
+  | 'collab_notification'
+  | 'verify_plan_reminder'
+  | 'already_read_file'
+  | 'command_permissions'
   | 'hook_blocking_error'
   | 'hook_cancelled'
   | 'hook_error_during_execution'
@@ -208,25 +236,66 @@ export type AttachmentType =
   | 'hook_success'
   | 'hook_system_message'
   | 'hook_additional_context'
-  | 'hook_stopped_continuation';
+  | 'hook_stopped_continuation'
+  | 'structured_output'
+  | 'hook_permission_decision'
+  | 'mcp_resource'
+  | 'agent_mention'
+  | 'url'
+  | 'error'
+  | 'interrupted';
 
 /**
  * Attachment structure
+ * Fully aligned with v2.1.7 source (chunks.148.mjs:3-371)
  */
-export interface Attachment {
+export interface Attachment extends Record<string, any> {
   type: AttachmentType;
-  /** File path or URL */
+  /** Common fields */
   path?: string;
-  /** Attachment content */
-  content?: string | string[];
-  /** Hook event type */
-  hookEvent?: 'PreToolUse' | 'PostToolUse' | 'SubagentStart' | 'Stop';
-  /** Hook name */
+  filename?: string;
+  content?: any;
+  message?: string;
+  
+  /** Type-specific fields */
+  snippet?: string;
+  truncated?: boolean;
+  lineStart?: number;
+  lineEnd?: number;
+  itemCount?: number;
+  planFilePath?: string;
+  planContent?: string;
+  planExists?: boolean;
+  skills?: Array<{ name: string; path: string; content: string }>;
+  prompt?: string | ContentBlock[];
+  style?: string;
+  files?: any[];
+  isSubAgent?: boolean;
+  reminderType?: 'full' | 'sparse';
+  taskId?: string;
+  taskType?: string;
+  status?: string;
+  deltaSummary?: string;
+  response?: {
+    systemMessage?: string;
+    hookSpecificOutput?: { additionalContext?: string };
+  };
+  memories?: Array<{
+    fullPath: string;
+    content: string;
+    lastModified: string | Date;
+    remainingLines?: number;
+  }>;
+  used?: number;
+  total?: number;
+  remaining?: number;
   hookName?: string;
-  /** Associated tool use ID */
-  toolUseID?: string;
-  /** Additional metadata */
-  metadata?: Record<string, unknown>;
+  hookEvent?: string;
+  blockingError?: { command: string; blockingError: string };
+  chats?: Array<{ handle: string; unreadCount: number }>;
+  server?: string;
+  uri?: string;
+  agentType?: string;
 }
 
 /**

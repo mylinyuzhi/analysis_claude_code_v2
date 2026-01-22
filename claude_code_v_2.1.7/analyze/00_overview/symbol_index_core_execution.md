@@ -132,10 +132,10 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| q$7 | normalizeAttachmentForAPI | chunks.148.mjs | function |
-| OuA | mapToolResultToContent | chunks.148.mjs | function |
-| MuA | createToolCallMessage | chunks.148.mjs | function |
-| hO | createSystemMessage | chunks.148.mjs | function |
+| q$7 | convertAttachmentToSystemMessage | chunks.148.mjs:3-371 | function |
+| OuA | createToolResultMessage | chunks.148.mjs:373-390 | function |
+| MuA | createToolUseMessage | chunks.148.mjs:392-397 | function |
+| hO | createSystemMessage | chunks.148.mjs:399-435 | function |
 | V19 | createStopHookSummary | chunks.148.mjs | function |
 | qc | isCompactBoundary | chunks.148.mjs | function |
 | N$7 | findLastCompactBoundary | chunks.148.mjs | function |

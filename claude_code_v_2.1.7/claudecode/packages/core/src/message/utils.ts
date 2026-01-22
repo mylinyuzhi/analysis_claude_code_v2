@@ -579,6 +579,58 @@ export function getTextContent(message: ConversationMessage): string | null {
 }
 
 // ============================================
+// XML Wrapping
+// ============================================
+
+/**
+ * Wrap text in XML tags.
+ * Original: Yh in chunks.147.mjs:3212-3216
+ */
+export function wrapSystemReminderText(text: string): string {
+  return `<system-reminder>
+${text}
+</system-reminder>`;
+}
+
+/**
+ * Wrap message array contents with system-reminder tags.
+ * Original: q5 in chunks.147.mjs:3218-3245
+ */
+export function wrapInSystemReminder<T extends ConversationMessage>(
+  messages: T[]
+): T[] {
+  return messages.map((msg) => {
+    if (msg.type === 'user' || msg.type === 'assistant') {
+      const content = (msg as any).message.content;
+      if (typeof content === 'string') {
+        return {
+          ...msg,
+          message: {
+            ...(msg as any).message,
+            content: wrapSystemReminderText(content),
+          },
+        };
+      } else if (Array.isArray(content)) {
+        const wrappedContent = content.map((block) => {
+          if (block.type === 'text') {
+            return { ...block, text: wrapSystemReminderText(block.text) };
+          }
+          return block;
+        });
+        return {
+          ...msg,
+          message: {
+            ...(msg as any).message,
+            content: wrappedContent,
+          },
+        };
+      }
+    }
+    return msg;
+  });
+}
+
+// ============================================
 // Export
 // ============================================
 

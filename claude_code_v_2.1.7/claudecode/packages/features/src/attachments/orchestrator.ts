@@ -96,86 +96,159 @@ export async function wrapWithErrorHandling<T>(
  * Generate all attachments with timeout handling.
  * Original: O27 in chunks.131.mjs
  *
- * This function orchestrates the generation of all system reminder attachments.
- * It runs generators in parallel with a 1-second timeout to ensure responsiveness.
- *
- * Key design decisions:
- * 1. Parallel execution for speed
- * 2. 1-second timeout to prevent blocking
- * 3. Error isolation - one failing generator doesn't break others
- * 4. Priority ordering for consistent attachment order
+ * @param userPrompt - User's input text (null if no user input)
+ * @param context - Tool use context with agentId, options, readFileState, etc.
+ * @param ideContext - IDE context (selection, opened file)
+ * @param queuedCommands - Commands queued from hooks or async systems
+ * @param conversationHistory - Array of previous messages
+ * @param additionalParam - Additional parameter
  */
 export async function generateAllAttachments(
-  ctx: AttachmentContext,
-  turnIndex: number = 0
+  userPrompt: string | null,
+  context: AttachmentContext,
+  ideContext: any,
+  queuedCommands: any[],
+  conversationHistory: any[],
+  additionalParam?: any
 ): Promise<AttachmentGenerationResult> {
   const startTime = Date.now();
   const attachments: Attachment[] = [];
   const errors: Array<{ generator: string; error: Error }> = [];
   let timedOut = false;
 
-  // Create abort controller for timeout
-  const abortController = ctx.abortController ?? new AbortController();
+  // Create abort controller for timeout (1 second max for all attachments)
+  const abortController = context.abortController ?? new AbortController();
   const timeoutId = setTimeout(() => {
     abortController.abort();
     timedOut = true;
   }, GENERATION_TIMEOUT_MS);
 
   try {
-    // Get app state for generation context
-    const appState = await ctx.getAppState();
+    // Step 1: Check if attachments are globally disabled
+    if (process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS === 'true') {
+      return { attachments: [], errors: [], timedOut: false, durationMs: 0 };
+    }
 
-    // Build list of generators based on current state
-    const generators = buildGeneratorList(ctx, appState, turnIndex);
+    // Step 2: Determine if this is the main agent (vs sub-agent)
+    const isMainAgent = !context.agentId;
 
-    // Run all generators in parallel
-    const results = await Promise.allSettled(
-      generators.map(async (config) => {
-        // Check if aborted
-        if (abortController.signal.aborted) {
-          return { name: config.name, result: null, aborted: true };
-        }
+    // Step 3: Generate USER PROMPT ATTACHMENTS (only if user provided input)
+    const userPromptGenerators = userPrompt ? [
+      wrapWithErrorHandling('at_mentioned_files', () =>
+        generateAtMentionedFilesAttachment(userPrompt, context)
+      ),
+      wrapWithErrorHandling('mcp_resources', () =>
+        generateMcpResourcesAttachment(userPrompt, context)
+      ),
+      wrapWithErrorHandling('agent_mentions', () =>
+        Promise.resolve(generateAgentMentionsAttachment(userPrompt, context.options.agentDefinitions?.activeAgents || []))
+      )
+    ] : [];
 
-        const { result, error } = await wrapWithErrorHandling(
-          config.name,
-          config.generator
-        );
-
-        if (error) {
-          errors.push({ generator: config.name, error });
-        }
-
-        return { name: config.name, result, priority: config.priority };
-      })
-    );
-
-    // Collect successful results
-    const successfulResults: Array<{
-      name: string;
-      result: Attachment | Attachment[] | null;
-      priority: number;
-    }> = [];
-
-    for (const settledResult of results) {
-      if (settledResult.status === 'fulfilled' && settledResult.value.result) {
-        successfulResults.push(settledResult.value as {
-          name: string;
-          result: Attachment | Attachment[];
-          priority: number;
-        });
+    // Wait for user prompt attachments to complete
+    const userPromptResults = await Promise.all(userPromptGenerators);
+    for (const { result, error } of userPromptResults) {
+      if (error) errors.push({ generator: 'user_prompt', error });
+      if (result) {
+        if (Array.isArray(result)) attachments.push(...result);
+        else attachments.push(result);
       }
     }
 
-    // Sort by priority and flatten attachments
-    successfulResults.sort((a, b) => a.priority - b.priority);
+    // Step 4: Generate CORE ATTACHMENTS (always checked, available to all agents)
+    const coreGenerators = [
+      wrapWithErrorHandling('changed_files', () =>
+        generateChangedFilesAttachment(context)
+      ),
+      wrapWithErrorHandling('nested_memory', () =>
+        generateNestedMemoryAttachment(context)
+      ),
+      wrapWithErrorHandling('plan_mode', () =>
+        generatePlanModeAttachment(conversationHistory, context)
+      ),
+      wrapWithErrorHandling('plan_mode_exit', () =>
+        generatePlanModeExitAttachment(context)
+      ),
+      wrapWithErrorHandling('delegate_mode', () =>
+        generateDelegateModeAttachment(context)
+      ),
+      wrapWithErrorHandling('delegate_mode_exit', () =>
+        Promise.resolve(generateDelegateModeExitAttachment())
+      ),
+      wrapWithErrorHandling('todo_reminders', () =>
+        generateTodoRemindersAttachment(conversationHistory, context)
+      ),
+      wrapWithErrorHandling('collab_notification', async () =>
+        generateCollabNotificationAttachment()
+      ),
+      wrapWithErrorHandling('critical_system_reminder', () =>
+        Promise.resolve(generateCriticalSystemReminderAttachment(context))
+      )
+    ];
 
-    for (const { result } of successfulResults) {
-      if (Array.isArray(result)) {
-        attachments.push(...result);
-      } else if (result) {
-        attachments.push(result);
+    // Step 5: Generate MAIN AGENT ONLY ATTACHMENTS (only for primary agent)
+    const mainAgentGenerators = isMainAgent ? [
+      wrapWithErrorHandling('ide_selection', async () =>
+        generateIdeSelectionAttachment(ideContext, context)
+      ),
+      wrapWithErrorHandling('ide_opened_file', async () =>
+        generateOpenedFileInIdeAttachment(ideContext, context)
+      ),
+      wrapWithErrorHandling('output_style', async () =>
+        Promise.resolve(generateOutputStyleAttachment(context))
+      ),
+      wrapWithErrorHandling('queued_commands', async () =>
+        generateQueuedCommandsAttachment(queuedCommands)
+      ),
+      wrapWithErrorHandling('diagnostics', async () =>
+        generateDiagnosticsAttachment()
+      ),
+      wrapWithErrorHandling('lsp_diagnostics', async () =>
+        generateLspDiagnosticsAttachment()
+      ),
+      wrapWithErrorHandling('unified_tasks', async () =>
+        generateUnifiedTasksAttachment(context, conversationHistory)
+      ),
+      wrapWithErrorHandling('async_hook_responses', async () =>
+        generateAsyncHookResponsesAttachment()
+      ),
+      wrapWithErrorHandling('memory', async () =>
+        generateMemoryAttachment(context, conversationHistory, additionalParam)
+      ),
+      wrapWithErrorHandling('token_usage', async () =>
+        Promise.resolve(generateTokenUsageAttachment(conversationHistory))
+      ),
+      wrapWithErrorHandling('budget_usd', async () =>
+        Promise.resolve(generateBudgetAttachment(context.options.maxBudgetUsd))
+      ),
+      wrapWithErrorHandling('verify_plan_reminder', async () =>
+        generateVerifyPlanReminderAttachment(conversationHistory, context)
+      )
+    ] : [];
+
+    // Execute all core and main agent generators in parallel
+    const [coreResults, mainAgentResults] = await Promise.all([
+      Promise.all(coreGenerators),
+      Promise.all(mainAgentGenerators)
+    ]);
+
+    // Flatten and combine all attachments
+    for (const { result, error } of coreResults) {
+      if (error) errors.push({ generator: 'core', error });
+      if (result) {
+        if (Array.isArray(result)) attachments.push(...result);
+        else attachments.push(result);
       }
     }
+
+    for (const { result, error } of mainAgentResults) {
+      if (error) errors.push({ generator: 'main_agent', error });
+      if (result) {
+        if (Array.isArray(result)) attachments.push(...result);
+        else attachments.push(result);
+      }
+    }
+
   } finally {
     clearTimeout(timeoutId);
   }

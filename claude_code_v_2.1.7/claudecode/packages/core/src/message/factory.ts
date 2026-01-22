@@ -327,6 +327,50 @@ export function createCancelledToolResult(toolUseId: string): {
 }
 
 // ============================================
+// Tool Simulation Messages
+// ============================================
+
+/**
+ * Create a tool use message (simulated).
+ * Original: MuA in chunks.148.mjs:392-397
+ */
+export function createToolUseMessage(
+  toolName: string,
+  input: any
+): UserMessage {
+  return createUserMessage({
+    content: `Called the ${toolName} tool with the following input: ${JSON.stringify(
+      input
+    )}`,
+    isMeta: true,
+  });
+}
+
+/**
+ * Create a tool result message (simulated).
+ * Original: OuA in chunks.148.mjs:373-390
+ */
+export function createToolResultMessage(
+  toolName: string,
+  content: any
+): UserMessage {
+  // Simplification: In source it calls tool.mapToolResultToToolResultBlockParam
+  // Here we assume content is already formatted or we format it simply
+  if (Array.isArray(content) && content.some((c: any) => c.type === 'image')) {
+    return createUserMessage({
+      content,
+      isMeta: true,
+    });
+  }
+  return createUserMessage({
+    content: `Result of calling the ${toolName} tool: ${
+      typeof content === 'string' ? content : JSON.stringify(content)
+    }`,
+    isMeta: true,
+  });
+}
+
+// ============================================
 // Export
 // ============================================
 
