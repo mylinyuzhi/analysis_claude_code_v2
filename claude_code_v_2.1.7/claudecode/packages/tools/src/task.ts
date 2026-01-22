@@ -34,9 +34,9 @@ import type { TaskInput, TaskOutput, ToolContext } from './types.js';
 import { TOOL_NAMES } from './types.js';
 
 import {
-  Tool as CoreTool,
-  ToolUseContext as CoreToolUseContext,
-  ToolResult as CoreToolResult,
+  type Tool as CoreTool,
+  type ToolUseContext as CoreToolUseContext,
+  type ToolResult as CoreToolResult,
   ALWAYS_EXCLUDED_TOOLS,
 } from '@claudecode/core/tools';
 import {

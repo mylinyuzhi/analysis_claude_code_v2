@@ -56,6 +56,14 @@ export interface HeadingToken extends MarkdownTokenBase {
 }
 
 /**
+ * Paragraph token.
+ */
+export interface ParagraphToken extends MarkdownTokenBase {
+  type: 'paragraph';
+  children: MarkdownToken[];
+}
+
+/**
  * Code block token.
  */
 export interface CodeBlockToken extends MarkdownTokenBase {
@@ -127,6 +135,7 @@ export interface TableCellToken extends MarkdownTokenBase {
 export type MarkdownToken =
   | MarkdownTokenBase
   | HeadingToken
+  | ParagraphToken
   | CodeBlockToken
   | LinkToken
   | ListToken
@@ -181,6 +190,7 @@ export interface StyledText {
     color?: string;
     bgColor?: string;
     dimColor?: boolean;
+    inverse?: boolean;
   };
 }
 

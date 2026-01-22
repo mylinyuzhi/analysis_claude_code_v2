@@ -26,6 +26,7 @@ import {
   isBashSandboxed,
   SANDBOX_CONSTANTS,
   getSandboxConfig,
+  appendToOutputFile,
   type SandboxConfig,
 } from '@claudecode/platform';
 import {
@@ -38,7 +39,6 @@ import {
   generateTaskId,
   type LocalBashTask,
 } from '@claudecode/core/agent-loop';
-import { appendToOutputFile } from '@claudecode/features';
 
 // ============================================
 // Constants
@@ -344,7 +344,7 @@ IMPORTANT: This tool is for terminal operations like git, npm, docker, etc. DO N
         proc.stdout.on('data', (data) => {
           const content = data.toString();
           appendToOutputFile(taskId, content);
-          const lines = content.split('\n').filter(l => l.length > 0).length;
+          const lines = content.split('\n').filter((l: string) => l.length > 0).length;
           updateTask<LocalBashTask>(taskId, context.setAppState as any, (t) => ({
             ...t,
             stdoutLineCount: t.stdoutLineCount + lines,
@@ -354,7 +354,7 @@ IMPORTANT: This tool is for terminal operations like git, npm, docker, etc. DO N
         proc.stderr.on('data', (data) => {
           const content = data.toString();
           appendToOutputFile(taskId, `[stderr] ${content}`);
-          const lines = content.split('\n').filter(l => l.length > 0).length;
+          const lines = content.split('\n').filter((l: string) => l.length > 0).length;
           updateTask<LocalBashTask>(taskId, context.setAppState as any, (t) => ({
             ...t,
             stderrLineCount: t.stderrLineCount + lines,

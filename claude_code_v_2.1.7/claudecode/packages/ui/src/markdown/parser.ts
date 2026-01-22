@@ -70,8 +70,8 @@ export function parseMarkdown(text: string): MarkdownToken[] {
       
       // Check if we can append to last list or start new one
       const lastToken = tokens[tokens.length - 1];
-      if (lastToken?.type === 'list' && !lastToken.ordered) {
-        lastToken.children.push({
+      if (lastToken?.type === 'list' && !(lastToken as ListToken).ordered) {
+        (lastToken as ListToken).children.push({
           type: 'list_item',
           children: [{ type: 'text', content: content }]
         } as ListItemToken);

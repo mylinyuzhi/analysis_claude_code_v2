@@ -72,6 +72,8 @@ Now that this skill is invoked, you have access to Chrome browser automation too
 IMPORTANT: Start by calling mcp__claude-in-chrome__tabs_context_mcp to get information about the user's current browser tabs.
 `;
 
+import * as nodeFs from 'fs';
+
 /**
  * Check if Chrome integration is available.
  * Original: I$A (isClaudeInChromeEnabled)
@@ -80,8 +82,7 @@ export function isChromeIntegrationAvailable(): boolean {
   // Check if socket path exists
   const socketPath = getSocketPath();
   try {
-    const fs = require('fs');
-    return fs.existsSync(socketPath);
+    return nodeFs.existsSync(socketPath);
   } catch {
     return false;
   }

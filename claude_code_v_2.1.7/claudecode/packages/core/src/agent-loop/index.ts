@@ -35,7 +35,7 @@ export {
   unregisterAgentHooks,
 } from './subagent-loop.js';
 
-import { appendToOutputFile } from '@claudecode/features';
+import { appendToOutputFile } from '@claudecode/platform';
 
 // ============================================
 // Task Management

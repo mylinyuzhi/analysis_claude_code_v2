@@ -12,6 +12,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 
 // ============================================
 // Types
@@ -358,6 +359,51 @@ export const FileSystemWrapper = {
     );
   },
 };
+
+// ============================================
+// Output File Management (Background Tasks)
+// Reconstructed from chunks.86.mjs
+// ============================================
+
+/**
+ * Map of pending write promises per task.
+ * Ensures sequential writes for each task.
+ * Original: X12 in chunks.86.mjs
+ */
+const pendingWrites = new Map<string, Promise<void>>();
+
+/**
+ * Append content to output file for background tasks.
+ * Original: g9A in chunks.86.mjs
+ */
+export function appendToOutputFile(taskId: string, content: string, cwd?: string): void {
+  // Use core task path conventions
+  const claudeDir = path.join(os.homedir(), '.claude');
+  const workingDir = cwd ?? process.cwd();
+  const sanitizedCwd = workingDir.replace(/[^a-zA-Z0-9]/g, '-');
+  const projectDir = path.join(claudeDir, 'projects', sanitizedCwd);
+  const outputDir = path.join(projectDir, 'agents');
+  const outputPath = path.join(outputDir, `${taskId}.output`);
+
+  try {
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+  } catch (error) {
+    // ignore
+  }
+
+  // Chain writes to ensure sequential order
+  const writePromise = (pendingWrites.get(taskId) ?? Promise.resolve()).then(async () => {
+    try {
+      fs.appendFileSync(outputPath, content, 'utf-8');
+    } catch (error) {
+      // ignore
+    }
+  });
+
+  pendingWrites.set(taskId, writePromise);
+}
 
 // ============================================
 // Encoding Detection

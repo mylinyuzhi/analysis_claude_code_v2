@@ -16,3 +16,5 @@ export * from './animations.js';
 export * from './ToolUseDisplay.js';
 export * from './Markdown.js';
 export * from './streamEventProcessor.js';
+export * from './InternalApp.js';
+export * from './IDEDiffSupport.js';

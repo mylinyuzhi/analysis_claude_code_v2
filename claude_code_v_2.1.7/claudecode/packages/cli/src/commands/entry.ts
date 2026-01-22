@@ -19,6 +19,7 @@
 import React from 'react';
 import { render } from 'ink';
 import { InteractiveSession } from '../components/InteractiveSession.js';
+import { InternalApp } from '@claudecode/ui';
 import type {
   ExecutionMode,
   ExecutionContext,
@@ -640,10 +641,9 @@ function enableConfigs(): void {
   applySandboxFromSettings(settings);
 
   // Ensure Claude home directory exists
-  const fs = require('fs');
   const homeDir = getClaudeHomeDir();
-  if (!fs.existsSync(homeDir)) {
-    fs.mkdirSync(homeDir, { recursive: true });
+  if (!nodeFs.existsSync(homeDir)) {
+    nodeFs.mkdirSync(homeDir, { recursive: true });
   }
 }
 
@@ -1382,7 +1382,18 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
 
   // Launch Ink Renderer
   const { waitUntilExit } = render(
-    React.createElement(InteractiveSession, {
+    React.createElement(InternalApp, {
+      terminalColumns: process.stdout.columns || 80,
+      terminalRows: process.stdout.rows || 24,
+      ink2: false, // Ink internal instance if needed
+      stdin: process.stdin,
+      stdout: process.stdout,
+      exitOnCtrlC: true,
+      initialTheme: (appState as any).theme,
+      onExit: (err) => {
+        if (err) console.error(err);
+      }
+    }, React.createElement(InteractiveSession, {
       initialMessages: conversation,
       tools,
       systemPrompt: options.systemPrompt || options.appendSystemPrompt || '',
@@ -1394,7 +1405,7 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
       mcpClients: (appState as any).mcp?.clients,
       agentDefinitions: (appState as any).agentDefinitions,
       model: options.model || 'claude-3-5-sonnet-20241022'
-    })
+    }))
   );
 
   await waitUntilExit();

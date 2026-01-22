@@ -589,7 +589,7 @@ function shouldProxyResolveHosts(): boolean {
  * Get axios proxy agent.
  * Original: gtQ in chunks.46.mjs
  */
-export function getAxiosProxyAgent(proxyUrl: string): HttpsProxyAgent<HttpsAgent> {
+export function getAxiosProxyAgent(proxyUrl: string): any {
   const mtlsConfig = getMtlsConfig();
   const options: any = {
     ...(mtlsConfig && {
@@ -666,7 +666,7 @@ export function configureGlobalAgents(): void {
     
     const proxyAgent = getAxiosProxyAgent(proxyUrl);
     
-    axios.interceptors.request.use((config) => {
+    axios.interceptors.request.use((config: any) => {
       if (config.url && shouldBypassProxy(config.url)) {
         if (httpsAgent) {
           config.httpsAgent = httpsAgent;

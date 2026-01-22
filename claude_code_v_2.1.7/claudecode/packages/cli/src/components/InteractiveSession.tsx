@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { Box, Text, useInput, Static, useApp } from 'ink';
 import {
   Spinner,
@@ -13,6 +13,7 @@ import {
   type ThinkingState,
   TextInput,
   TerminalFocusContext,
+  IDEDiffSupport,
 } from '@claudecode/ui';
 import { coreMessageLoop } from '@claudecode/core/agent-loop';
 import { createUserMessage } from '@claudecode/core/message';
@@ -50,35 +51,15 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
   model
 }) => {
   const { exit } = useApp();
+  const { isTerminalFocused } = useContext(TerminalFocusContext);
   const [messages, setMessages] = useState<ConversationMessage[]>(initialMessages);
   const [inputValue, setInputValue] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [permissionReq, setPermissionReq] = useState<{tool: string, input: any, toolUseId?: string} | null>(null);
   const [history, setHistory] = useState<{id: string, text: string, tokens?: any[]}[]>([]);
-  const [isTerminalFocused, setIsTerminalFocused] = useState(true);
   
-  // Terminal focus reporting (simplified)
-  useEffect(() => {
-    // Only enable focus reporting if:
-    // 1. Output is a TTY
-    // 2. Accessibility mode is NOT enabled
-    const accessibilityMode = process.env.CLAUDE_CODE_ACCESSIBILITY === '1' || process.env.CLAUDE_CODE_ACCESSIBILITY === 'true';
-    
-    if (process.stdout.isTTY && !accessibilityMode) {
-      process.stdout.write('\x1b[?1004h');
-      const handleData = (data: Buffer) => {
-        const str = data.toString();
-        if (str.includes('\x1b[I')) setIsTerminalFocused(true);
-        if (str.includes('\x1b[O')) setIsTerminalFocused(false);
-      };
-      process.stdin.on('data', handleData);
-      return () => {
-        process.stdin.off('data', handleData);
-        process.stdout.write('\x1b[?1004l');
-      };
-    }
-  }, []);
-
+  // Removed redundant focus reporting - now handled by InternalApp
+  
   // Streaming UI state
   const [uiStatus, setUiStatus] = useState<UIStreamingStatus>('requesting');
   const uiStatusRef = useRef<UIStreamingStatus>('requesting');
@@ -97,7 +78,6 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
   useEffect(() => {
     if (!permissionReq) return;
     setStreamingDelta('');
-    setToolInputs(() => []);
     setUiStatus('tool-use');
   }, [permissionReq]);
 
@@ -313,9 +293,8 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
   };
 
   return (
-    <TerminalFocusContext.Provider value={{ isTerminalFocused }}>
-      <Box flexDirection="column">
-        <Static items={history}>
+    <Box flexDirection="column">
+      <Static items={history}>
           {(item) => (
             <Box key={item.id} marginBottom={1}>
               {item.tokens ? <Markdown tokens={item.tokens} /> : <Text>{item.text}</Text>}
@@ -330,8 +309,8 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
         </Box>
       )}
 
-      {/* Tool input preview while streaming tool_use */}
-      {!permissionReq && uiStatus === 'tool-input' && toolInputs.length > 0 && (
+      {/* Tool input preview while streaming tool_use or waiting for permission */}
+      {(uiStatus === 'tool-input' || uiStatus === 'tool-use') && toolInputs.length > 0 && (
         <Box flexDirection="column" marginBottom={1}>
           {toolInputs
             .slice()
@@ -363,11 +342,37 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
       )}
 
       {permissionReq ? (
-        <PermissionPrompt 
-          tool={permissionReq.tool} 
-          input={permissionReq.input}
-          onRespond={handlePermission}
-        />
+        permissionReq.tool === 'Edit' ? (
+          <IDEDiffSupport
+            filePath={permissionReq.input?.file_path || ''}
+            ideName="VS Code"
+            input={permissionReq.input}
+            options={[
+              { label: 'Yes', value: 'yes' },
+              { label: 'No', value: 'no' }
+            ]}
+            onChange={(option, input, feedback) => {
+              if (option.value === 'yes') {
+                handlePermission(feedback ? { type: 'allow-with-feedback', feedback } : { type: 'allow' });
+              } else {
+                handlePermission(feedback ? { type: 'deny-with-feedback', feedback } : { type: 'deny' });
+              }
+            }}
+            onInputModeToggle={(_id) => {}}
+            focusedOption="yes"
+            yesInputMode={false}
+            noInputMode={false}
+            acceptFeedback=""
+            rejectFeedback=""
+            setFocusedOption={(_opt) => {}}
+          />
+        ) : (
+          <PermissionPrompt 
+            tool={permissionReq.tool} 
+            input={permissionReq.input}
+            onRespond={handlePermission}
+          />
+        )
       ) : isThinking ? (
         <Box>
           <Text color="cyan"><Spinner /> Claude is thinking...</Text>
@@ -381,6 +386,5 @@ export const InteractiveSession: React.FC<InteractiveSessionProps> = ({
           />
         )}
       </Box>
-    </TerminalFocusContext.Provider>
   );
 };

@@ -7,6 +7,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
+import { TerminalFocusContext } from '../contexts.js';
 import type { ToolStatus, BlinkingState, StatusIndicatorProps } from './types.js';
 import { COMPONENT_CONSTANTS } from './types.js';
 
@@ -197,14 +198,6 @@ export function StatusIndicator({ shouldAnimate, isUnresolved, isError }: Status
 // ============================================
 // Terminal Focus Management
 // ============================================
-
-export interface TerminalFocusState {
-  isTerminalFocused: boolean;
-}
-
-export const TerminalFocusContext = React.createContext<TerminalFocusState>({
-  isTerminalFocused: true,
-});
 
 export function useTerminalFocus(): boolean {
   const context = React.useContext(TerminalFocusContext);

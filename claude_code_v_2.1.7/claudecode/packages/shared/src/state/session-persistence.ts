@@ -14,7 +14,7 @@
  * - Yt → resumeTeleportSession
  */
 
-import { readFileSync, writeFileSync, existsSync, renameSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, renameSync, statSync, unlinkSync } from 'fs';
 import { readFile, writeFile, stat, rename } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -445,7 +445,7 @@ export function writeSessionIndex(
     // Clean up temp file on error
     try {
       if (existsSync(tempPath)) {
-        require('fs').unlinkSync(tempPath);
+        unlinkSync(tempPath);
       }
     } catch {
       // Ignore cleanup errors

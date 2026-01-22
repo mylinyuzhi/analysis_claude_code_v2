@@ -301,7 +301,7 @@ export const TextInput: React.FC<TextInputProps> = ({
             ? renderedPlaceholder
             : hasHighlights
               ? <HighlightedText text={value} highlights={filteredHighlights} />
-              : <Transform>{value}</Transform>}
+              : value}
         {shouldShowArgumentHint && (
           <Text dimColor={true}>
             {value.endsWith(' ') ? '' : ' '}

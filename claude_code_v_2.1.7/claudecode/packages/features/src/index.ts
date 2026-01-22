@@ -88,3 +88,9 @@ export type {
   AttachmentMessage,
   AttachmentGenerationResult,
 } from './attachments/index.js';
+
+// ============================================
+// Platform Re-exports (to satisfy legacy core imports)
+// ============================================
+
+export { appendToOutputFile } from '@claudecode/platform';

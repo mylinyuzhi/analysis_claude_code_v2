@@ -14,6 +14,8 @@ import type {
   CodeBlockToken,
   ListToken,
   TableToken,
+  TableRowToken,
+  TableCellToken,
   LinkToken,
 } from './types.js';
 import { MARKDOWN_CONSTANTS } from './types.js';
@@ -282,11 +284,12 @@ function renderTable(token: TableToken, options: Required<MarkdownRendererOption
     columnWidths = preferredWidths;
   } else {
     const extraSpace = availableWidth - totalMinWidth;
-    const diffs = preferredWidths.map((p, i) => p - minWidths[i]);
+    const diffs = preferredWidths.map((p, i) => p - (minWidths[i] ?? 0));
     const totalDiff = diffs.reduce((a, b) => a + b, 0);
     columnWidths = minWidths.map((m, i) => {
       if (totalDiff === 0) return m;
-      return m + Math.floor((diffs[i] / totalDiff) * extraSpace);
+      const diff = diffs[i] ?? 0;
+      return m + Math.floor((diff / totalDiff) * extraSpace);
     });
   }
 
@@ -299,20 +302,25 @@ function renderTable(token: TableToken, options: Required<MarkdownRendererOption
 
 /**
  * Render table in mobile-friendly key-value format.
+ * Original: j() in chunks.97.mjs
  */
 function renderMobileTable(token: TableToken, options: Required<MarkdownRendererOptions>): StyledText[] {
   const result: StyledText[] = [];
   const headers = token.header.cells.map(c => c.children?.map(t => t.content || '').join('') || '');
+  const separatorWidth = Math.min(options.width - 1, 40);
+  const separator = '─'.repeat(separatorWidth) + '\n';
   
   token.rows.forEach((row, rowIdx) => {
     if (rowIdx > 0) {
-      result.push({ text: '─'.repeat(Math.min(options.width, 40)) + '\n', style: { dimColor: true } });
+      result.push({ text: separator, style: { dimColor: true } });
     }
     row.cells.forEach((cell, colIdx) => {
       const header = headers[colIdx] || `Column ${colIdx + 1}`;
       const content = cell.children?.map(t => t.content || '').join('') || '';
-      result.push({ text: header + ': ', style: { bold: true } });
-      result.push({ text: content + '\n' });
+      
+      // ANSI bold start: \x1B[1m, bold end: \x1B[22m
+      result.push({ text: header + ':', style: { bold: true } });
+      result.push({ text: ' ' + content + '\n' });
     });
   });
   
@@ -344,8 +352,8 @@ function renderBorderedTable(
   };
 
   const renderRow = (row: TableRowToken, isHeader: boolean) => {
-    const cells = row.cells.map((cell, i) => {
-      const content = cell.children?.map(t => t.content || '').join('') || '';
+    const cells = row.cells.map((cell: TableCellToken, i: number) => {
+      const content = cell.children?.map((t: MarkdownToken) => t.content || '').join('') || '';
       const width = colWidths[i] || 10;
       const align = isHeader ? 'center' : token.align?.[i] || 'left';
       return padCell(content, width, align);
