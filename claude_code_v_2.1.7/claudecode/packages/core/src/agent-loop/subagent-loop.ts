@@ -126,7 +126,7 @@ function calculateMaxThinkingTokensFromConversation(
 
 /**
  * Check if message should be yielded from subagent.
- * Original: tb5 in chunks.112.mjs
+ * Original: tb5 in chunks.112.mjs:283
  */
 export function isYieldableMessage(message: ConversationMessage): boolean {
   if (message.type === 'assistant' || message.type === 'user' || message.type === 'progress') {
@@ -143,7 +143,7 @@ export function isYieldableMessage(message: ConversationMessage): boolean {
 
 /**
  * Filter fork context messages to remove orphaned tool uses.
- * Original: vz0 in chunks.112.mjs
+ * Original: vz0 in chunks.112.mjs:251
  *
  * Filters out assistant messages that have tool_use blocks without corresponding
  * tool_result blocks in the context.
@@ -194,7 +194,7 @@ export function filterForkContextMessages(
 
 /**
  * Resolve agent model based on priority chain.
- * Original: YA1 in chunks.112.mjs
+ * Original: YA1 in chunks.112.mjs:249
  *
  * Priority: agentModel → mainLoopModel → modelOverride → default for permission mode
  */
@@ -228,7 +228,7 @@ export function resolveAgentModel(
 
 /**
  * Resolve tools for agent.
- * Original: ur in chunks.112.mjs
+ * Original: ur in chunks.112.mjs:349
  */
 export function resolveAgentTools(
   agentDefinition: AgentDefinition,
@@ -267,7 +267,7 @@ export function resolveAgentTools(
 
 /**
  * Get system prompt for agent.
- * Original: eb5 in chunks.112.mjs
+ * Original: eb5 in chunks.112.mjs:352
  */
 export async function getAgentSystemPrompt(
   agentDefinition: AgentDefinition,
@@ -296,7 +296,7 @@ export async function getAgentSystemPrompt(
 
 /**
  * Create child tool use context for subagent.
- * Original: lkA in chunks.112.mjs
+ * Original: lkA in chunks.112.mjs:267
  */
 export function createChildToolUseContext(
   parentContext: ToolUseContext,
@@ -333,7 +333,7 @@ export function createChildToolUseContext(
 
 /**
  * Setup MCP clients for agent.
- * Original: sb5 in chunks.112.mjs
+ * Original: sb5 in chunks.112.mjs:263
  */
 export async function setupMcpClients(
   agentDefinition: AgentDefinition,
@@ -504,7 +504,7 @@ export async function loadAgentSkills(
 
 /**
  * Register agent hooks.
- * Original: j52 in chunks.112.mjs
+ * Original: j52 in chunks.112.mjs:367
  */
 export function registerAgentHooks(
   setAppState: unknown,
@@ -557,7 +557,7 @@ export function registerAgentHooks(
 
 /**
  * Unregister agent hooks.
- * Original: wVA in chunks.112.mjs
+ * Original: wVA in chunks.112.mjs:428
  */
 export function unregisterAgentHooks(setAppState: unknown, agentId: string): void {
   if (!setAppState || typeof setAppState !== 'function') return;
@@ -575,7 +575,7 @@ export function unregisterAgentHooks(setAppState: unknown, agentId: string): voi
 
 /**
  * Record sidechain transcript.
- * Original: yz0 in chunks.112.mjs
+ * Original: yz0 in chunks.112.mjs:397, 417
  */
 async function recordSidechainTranscript(
   messages: ConversationMessage[],
@@ -689,7 +689,7 @@ async function getSystemContext(): Promise<string> {
 
 /**
  * Execute SubagentStart hooks.
- * Original: kz0 in chunks.112.mjs
+ * Original: kz0 in chunks.112.mjs:356
  */
 async function* executeSubagentStartHooks(
   agentId: string,

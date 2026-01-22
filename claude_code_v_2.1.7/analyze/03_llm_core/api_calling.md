@@ -651,6 +651,32 @@ function calculateBackoffDelay(attempt, retryAfterHeader) {
 
 ## 5. Context Limit Recovery
 
+### Context Overflow Recovery Algorithm
+
+**What it does:** Automatically adjusts `max_tokens` when the API returns a context limit error, allowing the request to succeed with a smaller response window.
+
+**How it works:**
+
+1.  **Detection**: The `retryGenerator` (`v51`) catches an `APIError` and uses `parseContextLimitError` (`TeB`) to extract `inputTokens` ($H$) and `contextLimit` ($E$) from the error message using a regex.
+2.  **Space Calculation**:
+    -   Calculate buffer: $1000$ tokens.
+    -   Calculate available space: $S = \max(0, E - H - 1000)$.
+3.  **Feasibility Check**: If $S < 3000$ (`qZ0` - floor output tokens), the recovery is deemed impossible as the resulting output window would be too small for meaningful work. The original error is thrown.
+4.  **Token Adjustment**:
+    -   Calculate minimum tokens for thinking: $T = (\text{maxThinkingTokens} || 0) + 1$.
+    -   Set adjusted limit: $L = \max(3000, S, T)$.
+5.  **Retry**: The algorithm sets `maxTokensOverride = L` in the retry context and performs an immediate retry (by calling `continue` in the retry loop).
+
+**Why this approach:**
+-   **Resilience**: Instead of failing the entire task when the context is tight, it tries to squeeze in a smaller response.
+-   **Safety**: The $1000$ token buffer accounts for potential estimation errors or minor changes in prompt building between retries.
+-   **Feature Preservation**: Ensuring at least one token more than `maxThinkingTokens` prevents the thinking feature from being disabled entirely during recovery.
+
+**Key insight:**
+This algorithm transforms a terminal "Context Window Exceeded" error into a recoverable state by sacrificing output length for task continuity. It's particularly effective when the user has provided a very large context (e.g., via `@` mentions) that almost fills the window.
+
+---
+
 ### parseContextLimitError (TeB) - chunks.85.mjs:84-103
 
 ```javascript
@@ -712,17 +738,53 @@ function parseContextLimitError(error) {
 
 ## 6. Streaming Response Processing
 
-### streamApiCall (oHA) - chunks.147.mjs:100-400
+### streamApiCall (oHA) - chunks.146.mjs:3018-3029
 
-The streaming API call handles real-time response processing with parallel content block handling.
+The streaming API call handles real-time response processing with parallel content block handling. It is a wrapper around the main execution function `BJ9`.
 
 ```javascript
 // ============================================
-// streamApiCall - Main streaming API entry point (simplified)
-// Location: chunks.147.mjs:100-400
+// streamApiCall - Main streaming API entry point
+// Location: chunks.146.mjs:3018-3029
 // ============================================
 
-// Key streaming event handling:
+// ORIGINAL (for source lookup):
+async function* oHA({
+  messages: A,
+  systemPrompt: Q,
+  maxThinkingTokens: B,
+  tools: G,
+  signal: Z,
+  options: Y
+}) {
+  return yield* LZ0(A, async function* () {
+    yield* BJ9(A, Q, B, G, Z, Y)
+  })
+}
+
+// READABLE (for understanding):
+async function* streamApiCall({
+  messages,
+  systemPrompt,
+  maxThinkingTokens,
+  tools,
+  signal,
+  options
+}) {
+  // LZ0 handles message preparation and streaming aggregation
+  return yield* streamAggregateWrapper(messages, async function* () {
+    // BJ9 is the core queryWithStreaming function
+    yield* queryWithStreaming(messages, systemPrompt, maxThinkingTokens, tools, signal, options)
+  })
+}
+
+// Mapping: oHA→streamApiCall, BJ9→queryWithStreaming, LZ0→streamAggregateWrapper,
+//          A→messages, Q→systemPrompt, B→maxThinkingTokens, G→tools, Z→signal, Y→options
+```
+
+### queryWithStreaming (BJ9) - chunks.147.mjs:3-350
+
+This is the core engine for processing SSE events from the Anthropic API and aggregating them into messages.
 
 // message_start - Initialize message and usage
 case "message_start":
@@ -1086,49 +1148,28 @@ function applyMessageCacheBreakpoints(messages, cachingEnabled) {
 
 ### Cache Breakpoint Placement Strategy
 
-**What it does:** Places `cache_control` markers on messages to enable Anthropic's prompt caching feature.
+**What it does:** Optimizes API performance and cost by placing `cache_control` markers on stable parts of the conversation history.
 
 **How it works:**
-
-1. **Skip Recent Messages**: Last 3 messages don't get cache breakpoints (they change frequently)
-2. **User Messages**: Apply breakpoint to first content block
-3. **Assistant Messages**: Apply breakpoint to last content block
-4. **System Prompt**: Always cached (applied in system prompt builder)
-
-```
-Cache Breakpoint Placement Example:
-
-Messages:  [User1, Asst1, User2, Asst2, User3, Asst3]
-                                        ↑     ↑     ↑
-                                        Last 3 (no cache)
-
-Cache markers applied:
-┌─────────────────────────────────────────────────────────────┐
-│ User1:     cache_control on first block  ✓                 │
-│ Asst1:     cache_control on last block   ✓                 │
-│ User2:     cache_control on first block  ✓                 │
-│ Asst2:     (skipped - in last 3)         ✗                 │
-│ User3:     (skipped - in last 3)         ✗                 │
-│ Asst3:     (skipped - in last 3)         ✗                 │
-└─────────────────────────────────────────────────────────────┘
-```
+1.  **Stable vs. Volatile**: The algorithm identifies "stable" messages (older history) and "volatile" messages (recent turns).
+2.  **Skipping Recents**: The last 3 messages are always skipped for caching. This is because the immediate conversation context is most likely to change in the next turn, causing a cache miss.
+3.  **User Message Strategy**: For user messages that are eligible for caching, the breakpoint is applied to the *first* content block.
+4.  **Assistant Message Strategy**: For eligible assistant messages, the breakpoint is applied to the *last* content block. This ensures that the entire reasoning and tool output are cached.
+5.  **System Prompt**: The system prompt is considered highly stable and is always cached (with its own internal breakpoint).
 
 **Why this approach:**
-- Recent messages are volatile and would cause cache misses
-- Older conversation history is stable and benefits from caching
-- Cache hits significantly reduce token processing costs
-- 5-minute default TTL (or 1-hour with experiment flag) balances freshness vs cost
+-   **Hit Rate Optimization**: By skipping the most recent turns, it avoids wasting cache writes on context that will immediately be invalidated by the next user reply.
+-   **Cost Efficiency**: Cache hits are significantly cheaper than processing raw tokens. This strategy maximizes hits on long conversations where the "tail" of the history is fixed.
+-   **Latency Reduction**: Cached tokens are processed much faster by the Anthropic inference engine, improving "Time to First Token" (TTFT) for subsequent turns.
 
-### Cache Support Detection - chunks.147.mjs:63
+**Key insight:**
+The choice of "3 messages" as the volatile buffer is a heuristic that balances the overhead of cache management against the likelihood of context re-use. It ensures that once a turn is "buried" by newer turns, it becomes part of the long-term cacheable state.
 
-```javascript
-// Check if model supports prompt caching
-const enableCaching = options.enablePromptCaching ?? isPromptCachingSupported(retryContext.model);
+---
 
-// isPromptCachingSupported (AJ9) checks model against known cached models
-```
+### Models Supporting Prompt Caching
 
-**Models Supporting Prompt Caching:**
+**The following model families support prompt caching:**
 - Claude Opus 4.5
 - Claude Sonnet 4.5
 - Claude Haiku 4.5
@@ -1136,6 +1177,16 @@ const enableCaching = options.enablePromptCaching ?? isPromptCachingSupported(re
 - Claude Sonnet 4
 - Claude Haiku 4
 - Claude 3.5 family
+
+### Request Payload Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `model` | `string` | Normalized model ID |
+| `messages` | `array` | Conversation with cache breakpoints |
+| `system` | `string` | System prompt with context |
+| `tools` | `array` | Available tools + extra schemas |
+| `tool_choice` | `object?` | Tool selection strategy |
 | `betas` | `array?` | Enabled beta features |
 | `max_tokens` | `number` | Max output tokens (includes thinking budget) |
 | `thinking` | `object?` | `{ type: "enabled", budget_tokens: N }` |

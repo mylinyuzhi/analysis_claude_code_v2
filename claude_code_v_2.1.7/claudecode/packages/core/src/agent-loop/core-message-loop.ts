@@ -2,7 +2,7 @@
  * @claudecode/core - Core Message Loop
  *
  * Main message processing loop for agent execution.
- * Reconstructed from chunks.134.mjs:99-410
+ * Reconstructed from chunks.134.mjs:99-428
  *
  * Key symbols:
  * - aN → coreMessageLoop (main function)
@@ -22,7 +22,31 @@
 import { generateUUID } from '@claudecode/shared';
 import { createUserMessage } from '../message/factory.js';
 import type { ContentBlock } from '@claudecode/shared';
-import type { ConversationMessage } from '../message/types.js';
+import type { AssistantMessage as LLMAssistantMessage } from '../llm-api/types.js';
+import type { ConversationMessage, AssistantMessage as InternalAssistantMessage } from '../message/types.js';
+
+/**
+ * Convert LLM API assistant message to internal message format.
+ */
+function convertToInternalAssistantMessage(apiMsg: LLMAssistantMessage): InternalAssistantMessage {
+  return {
+    type: 'assistant',
+    uuid: apiMsg.uuid,
+    timestamp: new Date().toISOString(),
+    message: {
+      id: generateUUID(),
+      container: null,
+      model: apiMsg.model,
+      role: 'assistant',
+      stop_reason: apiMsg.stopReason,
+      stop_sequence: null,
+      type: 'message',
+      usage: apiMsg.usage as any,
+      content: apiMsg.content,
+      context_management: null,
+    },
+  };
+}
 import type { ToolUseContext } from '../tools/types.js';
 import { StreamingToolExecutor } from './streaming-tool-executor.js';
 import { streamApiCall, type StreamApiCallOptions } from '../llm-api/streaming.js';
@@ -37,6 +61,7 @@ import {
 } from '@claudecode/features';
 import type {
   CoreMessageLoopOptions,
+  CanUseTool,
   LoopEvent,
   AutoCompactTracking,
   ToolUseBlock,
@@ -67,7 +92,7 @@ export function recordMarker(name: string): void {
 
 /**
  * Log telemetry event.
- * Original: l in chunks (telemetry)
+ * Original: l in chunks.134.mjs
  */
 function logTelemetry(event: string, data: Record<string, unknown>): void {
   if (process.env.DEBUG_TELEMETRY) {
@@ -124,15 +149,20 @@ export function isFeatureEnabled(feature: string): boolean {
 
 /**
  * Normalize messages for API submission.
- * Original: _x in chunks.134.mjs
+ * Original: _x in chunks.148.mjs
+ * Slices from the last compact boundary if present.
  */
 export function normalizeMessages(
-  messages: ConversationMessage[],
-  tools: unknown[] = []
+  messages: ConversationMessage[]
 ): ConversationMessage[] {
-  // In the original implementation, this step normalizes ordering/merging and filters non-API messages.
-  // The closest reconstructed equivalent is normalizeMessagesToAPI (FI in chunks.147.mjs).
-  return normalizeMessagesToAPI(messages, tools as any);
+  // Original _x logic: slice from the last compact boundary
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg?.type === 'system' && (msg as any).subtype === 'compact_boundary') {
+      return messages.slice(i);
+    }
+  }
+  return messages;
 }
 
 /**
@@ -197,19 +227,18 @@ ${Object.entries(ctx)
 export function mergeSystemPromptWithContext(
   systemPrompt: string | string[],
   systemContext?: unknown
-): string {
+): string[] {
   const promptParts = Array.isArray(systemPrompt) ? systemPrompt : [systemPrompt].filter(Boolean);
   const ctx = normalizeContextRecord(systemContext);
   const ctxLines = Object.entries(ctx)
     .map(([k, v]) => `${k}: ${v}`)
     .join('\n');
-  const merged = [...promptParts, ctxLines].filter((s) => Boolean(s && String(s).trim()));
-  return merged.join('\n\n');
+  return [...promptParts, ctxLines].filter(Boolean);
 }
 
 /**
  * Resolve model with permissions.
- * Original: HQA in chunks.134.mjs
+ * Original: HQA in chunks.46.mjs:2259-2268
  */
 export function resolveModelWithPermissions(options: {
   permissionMode: string;
@@ -218,47 +247,81 @@ export function resolveModelWithPermissions(options: {
 }): string {
   const { permissionMode, mainLoopModel, exceeds200kTokens } = options;
 
-  // If in plan mode with large context, may need different model
-  if (permissionMode === 'plan' && exceeds200kTokens) {
-    // Use extended context model
-    return 'claude-sonnet-4-20250514';
+  // Mirror HQA logic
+  // FQA() experiment checks are omitted here but the structure is preserved
+  if (permissionMode === 'plan') {
+    if (exceeds200kTokens) {
+      // In source, exceeds200kTokens is passed but HQA mostly returns B if not opusplan/haiku experiments
+      return mainLoopModel || 'claude-3-5-sonnet-20241022';
+    }
   }
 
-  return mainLoopModel || 'claude-sonnet-4-20250514';
+  return mainLoopModel || 'claude-3-5-sonnet-20241022';
 }
 
 /**
  * Check if at blocking token limit.
- * Original: ic in chunks.134.mjs
+ * Original: ic in chunks.132.mjs
  */
 function checkTokenLimit(tokenCount: number): { isAtBlockingLimit: boolean } {
-  const maxTokens = parseInt(process.env.CLAUDE_CODE_MAX_TOKENS || '200000', 10);
+  // Simplified ic logic focusing on isAtBlockingLimit
+  const blockingLimitOverride = process.env.CLAUDE_CODE_BLOCKING_LIMIT_OVERRIDE;
+  const maxTokens = blockingLimitOverride ? parseInt(blockingLimitOverride, 10) : 200000;
+  
   return {
-    isAtBlockingLimit: tokenCount > maxTokens,
+    isAtBlockingLimit: tokenCount >= maxTokens,
   };
 }
 
 /**
  * Estimate token count for messages.
- * Original: HKA in chunks
+ * Original: HKA in chunks.85.mjs
+ * Uses Math.round(len/4) and handles fixed image tokens (1334).
  */
 function estimateTokenCount(messages: ConversationMessage[]): number {
-  let count = 0;
-  for (const msg of messages) {
-    const content = (msg as { message?: { content?: unknown[] } }).message?.content;
-    if (Array.isArray(content)) {
-      for (const block of content) {
-        if ((block as { type: string }).type === 'text') {
-          // Rough estimate: 4 characters per token
-          count += Math.ceil(((block as { text: string }).text || '').length / 4);
-        } else if ((block as { type: string }).type === 'tool_result') {
-          const resultContent = (block as { content?: string }).content || '';
-          count += Math.ceil(resultContent.length / 4);
-        }
+  const l7 = (text: string) => Math.round(text.length / 4);
+
+  const it8 = (block: any): number => {
+    if (typeof block === 'string') return l7(block);
+    if (block.type === 'text') return l7(block.text || '');
+    if (block.type === 'image') return 1334;
+    if (block.type === 'tool_result') {
+      if (typeof block.content === 'string') return l7(block.content);
+      if (Array.isArray(block.content)) {
+        return block.content.reduce((sum: number, b: any) => sum + it8(b), 0);
       }
     }
+    return 0;
+  };
+
+  const pz0 = (msg: ConversationMessage): number => {
+    if (msg.type !== 'assistant' && msg.type !== 'user') return 0;
+    const content = (msg as any).message?.content;
+    if (!content) return 0;
+    if (typeof content === 'string') return l7(content);
+    if (Array.isArray(content)) {
+      return content.reduce((sum, block) => sum + it8(block), 0);
+    }
+    return 0;
+  };
+
+  // Find last assistant message with usage (Jd in source)
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]!;
+    if (msg.type === 'assistant' && (msg as any).message?.usage) {
+      const usage = (msg as any).message.usage;
+      const totalTokens = (usage.input_tokens || 0) + 
+                          (usage.cache_creation_input_tokens || 0) + 
+                          (usage.cache_read_input_tokens || 0) + 
+                          (usage.output_tokens || 0);
+      
+      // Add estimated tokens for messages after this one
+      const subsequentTokens = messages.slice(i + 1).reduce((sum, m) => sum + pz0(m), 0);
+      return totalTokens + subsequentTokens;
+    }
   }
-  return count;
+
+  return messages.reduce((sum, m) => sum + pz0(m), 0);
 }
 
 /**
@@ -275,7 +338,7 @@ function exceeds200kTokens(messages: ConversationMessage[]): boolean {
 
 /**
  * Create error attachment message.
- * Original: DZ in chunks.134.mjs
+ * Original: DZ in chunks.134.mjs:188
  */
 export function createErrorAttachment(options: {
   content: string;
@@ -295,7 +358,7 @@ export function createErrorAttachment(options: {
 
 /**
  * Create interrupted attachment message.
- * Original: fhA in chunks.134.mjs
+ * Original: fhA in chunks.134.mjs:281, 296
  */
 export function createInterruptedAttachment(options: {
   toolUse: boolean;
@@ -313,7 +376,7 @@ export function createInterruptedAttachment(options: {
 
 /**
  * Create max turns attachment message.
- * Original: X4 in chunks.134.mjs
+ * Original: X4 in chunks.134.mjs:367, 407
  */
 export function createMaxTurnsAttachment(options: {
   type: string;
@@ -334,7 +397,7 @@ export function createMaxTurnsAttachment(options: {
 
 /**
  * Create system message.
- * Original: hO in chunks.134.mjs
+ * Original: hO in chunks.134.mjs:261
  */
 export function createSystemMessage(
   content: string,
@@ -421,7 +484,7 @@ function createStopHookSummary(
 
 /**
  * Micro-compact messages.
- * Original: lc in chunks.134.mjs
+ * Original: lc in chunks.134.mjs:133
  */
 async function microCompact(
   messages: ConversationMessage[],
@@ -448,7 +511,7 @@ async function microCompact(
 
 /**
  * Auto-compact dispatcher.
- * Original: ys2 in chunks.134.mjs
+ * Original: ys2 in chunks.134.mjs:138
  */
 async function autoCompactDispatcher(
   messages: ConversationMessage[],
@@ -488,7 +551,7 @@ async function autoCompactDispatcher(
 
 /**
  * Format compaction messages.
- * Original: FHA in chunks.134.mjs
+ * Original: FHA in chunks.134.mjs:162
  */
 function formatCompactionMessages(
   compactionResult: NonNullable<Awaited<ReturnType<typeof autoCompactDispatcher>>['compactionResult']>
@@ -508,7 +571,7 @@ function formatCompactionMessages(
 
 /**
  * Normalize tool results to messages.
- * Original: FI in chunks.134.mjs
+ * Original: FI in chunks.134.mjs:249, 339, 354
  */
 function normalizeToolResults(
   messages: ConversationMessage[],
@@ -519,7 +582,7 @@ function normalizeToolResults(
 
 /**
  * Group tool calls by concurrency safety.
- * Original: S77 in chunks.134.mjs
+ * Original: S77 in chunks.134.mjs (indirectly via KM0)
  */
 function groupToolsByConcurrency(
   toolCalls: ToolUseBlock[],
@@ -556,18 +619,60 @@ function groupToolsByConcurrency(
 }
 
 /**
+ * Merge multiple async generators into one, yielding values as they are produced.
+ * Original: SVA in chunks.92.mjs
+ */
+async function* mergeAsyncGenerators<T>(
+  generators: AsyncGenerator<T>[],
+  concurrencyLimit: number = Infinity
+): AsyncGenerator<T> {
+  const activeGenerators = new Set<
+    Promise<{ done: boolean; value?: T; generator: AsyncGenerator<T>; promise: Promise<any> }>
+  >();
+  const queue = [...generators];
+
+  const getNext = (generator: AsyncGenerator<T>): Promise<any> => {
+    let promise: Promise<any>;
+    promise = generator.next().then(({ done, value }) => ({
+      done,
+      value,
+      generator,
+      promise,
+    }));
+    return promise;
+  };
+
+  while (activeGenerators.size < concurrencyLimit && queue.length > 0) {
+    activeGenerators.add(getNext(queue.shift()!));
+  }
+
+  while (activeGenerators.size > 0) {
+    const { done, value, generator, promise } = await Promise.race(activeGenerators);
+    activeGenerators.delete(promise);
+
+    if (!done) {
+      activeGenerators.add(getNext(generator));
+      if (value !== undefined) yield value;
+    } else if (queue.length > 0) {
+      activeGenerators.add(getNext(queue.shift()!));
+    }
+  }
+}
+
+/**
  * Execute tools in parallel.
- * Original: y77 in chunks.134.mjs
+ * Original: HN (executeToolsParallel) in chunks.134.mjs / y77 in chunks.134.mjs
+ * Uses a streaming approach to yield results as they complete.
  */
 async function* executeParallelBlock(
   blocks: ToolUseBlock[],
   assistantMessages: ConversationMessage[],
-  canUseTool: (tool: unknown, input: unknown, msg: ConversationMessage) => Promise<boolean>,
+  canUseTool: CanUseTool,
   context: ToolUseContext
-): AsyncGenerator<{ message?: ConversationMessage; newContext?: ToolUseContext }> {
-  // Use Promise.all via a streaming generator wrapper (SVA in source) to execute in parallel
-  // Here we reconstruct the parallel execution logic manually
-  const promises = blocks.map(async (block) => {
+): AsyncGenerator<ToolExecutionYield> {
+  const concurrencyLimit = parseInt(process.env.CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY || '10', 10);
+
+  const generators = blocks.map(async function* (block) {
     const sourceMessage = assistantMessages.find((msg) => {
       const content = (msg as { message?: { content?: unknown[] } }).message?.content;
       if (!Array.isArray(content)) return false;
@@ -576,30 +681,11 @@ async function* executeParallelBlock(
       );
     });
 
-    if (!sourceMessage) return [];
+    if (!sourceMessage) return;
 
     context.setInProgressToolUseIDs?.((prev) => new Set([...prev, block.id]));
-    const results: Array<{ message?: ConversationMessage; newContext?: ToolUseContext }> = [];
-
     try {
-      for await (const result of executeSingleTool(
-        block,
-        sourceMessage,
-        canUseTool as any,
-        context
-      )) {
-        if (result.message) {
-          results.push({ message: result.message as ConversationMessage });
-        }
-        if (result.contextModifier) {
-          results.push({
-            newContext: {
-              ...context, // Note: Parallel context modification is tricky, source handles via reduction later
-              ...result.contextModifier.modifyContext(context),
-            } as ToolUseContext,
-          });
-        }
-      }
+      yield* executeSingleTool(block, sourceMessage, canUseTool as any, context);
     } finally {
       context.setInProgressToolUseIDs?.((prev) => {
         const next = new Set(prev);
@@ -607,15 +693,9 @@ async function* executeParallelBlock(
         return next;
       });
     }
-    return results;
   });
 
-  const allResults = await Promise.all(promises);
-  for (const results of allResults) {
-    for (const result of results) {
-      yield result;
-    }
-  }
+  yield* mergeAsyncGenerators(generators as any, concurrencyLimit);
 }
 
 /**
@@ -625,9 +705,9 @@ async function* executeParallelBlock(
 async function* executeSequentialBlock(
   blocks: ToolUseBlock[],
   assistantMessages: ConversationMessage[],
-  canUseTool: (tool: unknown, input: unknown, msg: ConversationMessage) => Promise<boolean>,
+  canUseTool: CanUseTool,
   context: ToolUseContext
-): AsyncGenerator<{ message?: ConversationMessage; newContext?: ToolUseContext }> {
+): AsyncGenerator<ToolExecutionYield & { newContext?: ToolUseContext }> {
   let currentContext = context;
   for (const block of blocks) {
     const sourceMessage = assistantMessages.find((msg) => {
@@ -649,7 +729,7 @@ async function* executeSequentialBlock(
         currentContext
       )) {
         if (result.message) {
-          yield { message: result.message as ConversationMessage };
+          yield { message: result.message as ConversationMessage, newContext: currentContext };
         }
         if (result.contextModifier) {
           currentContext = result.contextModifier.modifyContext(currentContext);
@@ -674,7 +754,7 @@ async function* executeSequentialBlock(
 async function* executeToolQueue(
   toolCalls: ToolUseBlock[],
   assistantMessages: ConversationMessage[],
-  canUseTool: (tool: unknown, input: unknown, msg: ConversationMessage) => Promise<boolean>,
+  canUseTool: CanUseTool,
   toolUseContext: ToolUseContext
 ): AsyncGenerator<{
   message?: ConversationMessage;
@@ -685,9 +765,8 @@ async function* executeToolQueue(
 
   for (const group of groups) {
     if (group.isConcurrencySafe) {
-      // Execute in parallel
-      const contextModifiers: Array<(ctx: ToolUseContext) => ToolUseContext> = [];
-      const toolIdToModifiers: Record<string, typeof contextModifiers> = {};
+      // Execute in parallel (y77 in source)
+      const toolIdToModifiers: Record<string, Array<(ctx: ToolUseContext) => ToolUseContext>> = {};
 
       for await (const result of executeParallelBlock(
         group.blocks,
@@ -695,19 +774,32 @@ async function* executeToolQueue(
         canUseTool,
         currentContext
       )) {
-        if (result.newContext) {
-          // In source (y77), context modifiers are collected and applied after block
-          // But here we yield them as they come. For strict source alignment, we should buffer.
-          // Since executeParallelBlock above simulates parallel exec but yields sequentially,
-          // we can just yield the message and update context at end of block.
-          // But wait, executeParallelBlock implementation above is simplified.
-          // Let's stick to yielding messages.
+        if (result.contextModifier) {
+          const { toolUseID, modifyContext } = result.contextModifier;
+          if (!toolIdToModifiers[toolUseID]) toolIdToModifiers[toolUseID] = [];
+          toolIdToModifiers[toolUseID].push(modifyContext);
         }
-        yield { message: result.message, newContext: result.newContext };
-        if (result.newContext) currentContext = result.newContext;
+
+        if (result.message) {
+          // In parallel mode, yield messages with the context as it was at start of block
+          yield { message: result.message, newContext: currentContext };
+        }
       }
+
+      // Context merging logic (reduction pattern from KM0)
+      for (const block of group.blocks) {
+        const modifiers = toolIdToModifiers[block.id];
+        if (modifiers) {
+          for (const modify of modifiers) {
+            currentContext = modify(currentContext);
+          }
+        }
+      }
+
+      // Yield the final context after all parallel tools in the block finished
+      yield { newContext: currentContext };
     } else {
-      // Execute sequentially
+      // Execute sequentially (x77 in source)
       for await (const result of executeSequentialBlock(
         group.blocks,
         assistantMessages,
@@ -941,7 +1033,13 @@ async function* streamApiResponse(options: {
 
   try {
     // Use the real streaming API
-    for await (const result of streamApiCall(request as any, streamOptions)) {
+    for await (const result of streamApiCall({
+      messages: request.messages as any[],
+      systemPrompt: typeof request.system === 'string' ? request.system : undefined,
+      tools: request.tools as any[],
+      signal: streamOptions.signal,
+      options: streamOptions
+    })) {
       if (result.type === 'assistant') {
         // Convert streaming result to ConversationMessage format
         const message: ConversationMessage = {
@@ -1012,7 +1110,7 @@ async function* streamApiResponse(options: {
 
 /**
  * Process pending attachments.
- * Original: VHA in chunks.134.mjs
+ * Original: VHA in chunks.134.mjs:390 (defined in chunks.131.mjs:3614-3621)
  */
 async function* processPendingAttachments(
   _hookResult: unknown,
@@ -1091,7 +1189,7 @@ function isFileChangeAttachment(message: ConversationMessage): boolean {
 
 /**
  * Update queued commands.
- * Original: U32 in chunks.134.mjs
+ * Original: U32 in chunks.134.mjs:399
  */
 function updateQueuedCommands(
   _commands: unknown[],
@@ -1116,7 +1214,7 @@ function updateQueuedCommands(
 
 /**
  * Check for overly agreeable response.
- * Original: lA9 in chunks.134.mjs
+ * Original: lA9 in chunks.134.mjs:287
  */
 function isOverlyAgreeable(text: string): boolean {
   const agreeablePatterns = [
@@ -1129,7 +1227,7 @@ function isOverlyAgreeable(text: string): boolean {
 
 /**
  * Record API call info.
- * Original: aA9 in chunks.134.mjs
+ * Original: aA9 in chunks.134.mjs:286
  */
 function recordApiCallInfo(
   _messages: ConversationMessage[],
@@ -1159,7 +1257,7 @@ function recordApiCallInfo(
 
 /**
  * Get task intensity override.
- * Original: w3A in chunks.134.mjs
+ * Original: w3A in chunks.134.mjs:226
  */
 function getTaskIntensityOverride(): unknown {
   const raw = process.env.CLAUDE_CODE_EFFORT_LEVEL;
@@ -1276,7 +1374,7 @@ async function* checkPendingToolCalls(
 
 /**
  * Process continuation triggers (Steering Logic).
- * Original: T77 in chunks.134.mjs
+ * Original: T77 in chunks.134.mjs:430-467
  */
 async function* processContinuationTriggers(
   _messages: ConversationMessage[],
@@ -1415,7 +1513,7 @@ export async function* coreMessageLoop(
   };
 
   // 3. Normalize messages
-  let processedMessages = normalizeMessages(inputMessages, toolUseContext.options.tools as any);
+  let processedMessages = normalizeMessages(inputMessages);
   let autoCompactTracking = inputAutoCompactTracking;
 
   // 4. Micro-compaction
@@ -1536,33 +1634,23 @@ export async function* coreMessageLoop(
 
         recordMarker('query_api_streaming_start');
 
-        for await (const event of streamApiResponse({
-          messages: addUserContextToMessages(processedMessages, userContext),
-          systemPrompt: finalSystemPrompt,
+        for await (const event of streamApiCall({
+          messages: addUserContextToMessages(processedMessages, userContext) as any[],
+          systemPrompt:
+            typeof finalSystemPrompt === 'string'
+              ? finalSystemPrompt
+              : finalSystemPrompt.join('\n'),
           maxThinkingTokens: updatedContext.options.maxThinkingTokens,
-          tools: updatedContext.options.tools,
+          tools: updatedContext.options.tools as any[],
           signal: updatedContext.abortController?.signal,
           options: {
-            async getToolPermissionContext() {
-              return (await updatedContext.getAppState()).toolPermissionContext;
-            },
             model,
-            toolChoice: undefined,
-            isNonInteractiveSession: updatedContext.options.isNonInteractiveSession,
             fallbackModel,
             onStreamingFallback: () => {
               didFallback = true;
             },
-            querySource,
-            agents: updatedContext.options.agentDefinitions?.activeAgents,
-            hasAppendSystemPrompt: !!updatedContext.options.appendSystemPrompt,
             maxOutputTokensOverride,
-            fetchOverride,
-            mcpTools: Array.isArray(appState.mcp?.tools)
-              ? (appState.mcp?.tools as unknown[])
-              : undefined,
-            queryTracking,
-            taskIntensityOverride: getTaskIntensityOverride(),
+            fetchOverride: fetchOverride as any,
             agentId: updatedContext.agentId,
           },
         })) {
@@ -1583,29 +1671,26 @@ export async function* coreMessageLoop(
 
             if (streamingToolExecutor) {
               streamingToolExecutor.discard();
-              // Would recreate streaming executor
             }
           }
 
-          yield event;
-
-          // Track assistant messages
+          // Map and yield event
           if (event.type === 'assistant') {
-            assistantMessages.push(event);
+            const internalMsg = convertToInternalAssistantMessage(event.message);
+            yield internalMsg;
+            assistantMessages.push(internalMsg);
 
             // Feed tool uses to streaming executor
             if (streamingToolExecutor) {
-              const content = (event as { message?: { content?: unknown[] } }).message?.content;
-              if (Array.isArray(content)) {
-                const toolUses = content.filter(
-                  (block): block is ToolUseBlock =>
-                    (block as { type: string }).type === 'tool_use'
-                );
-                for (const toolUse of toolUses) {
-                  streamingToolExecutor.addTool(toolUse, event);
-                }
+              const toolUses = internalMsg.message.content.filter(
+                (block) => block.type === 'tool_use'
+              );
+              for (const toolUse of toolUses) {
+                streamingToolExecutor.addTool(toolUse as any, internalMsg);
               }
             }
+          } else {
+            yield event as LoopEvent;
           }
 
           // Yield completed tool results (parallel execution)

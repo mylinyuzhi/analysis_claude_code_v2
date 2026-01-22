@@ -700,6 +700,28 @@ After normalization:
 
 ---
 
+### Message Normalization Pipeline Algorithm
+
+**What it does:** Converts Claude Code's internal, extended message format into the strict, alternating user/assistant format required by the Anthropic Messages API.
+
+**How it works:**
+1.  **Filtering**: Removes purely internal message types like `progress` and `system` (except the root system prompt). Also removes messages explicitly marked as filtered.
+2.  **Attachment Reordering**: Ensures that any `attachment` messages are correctly positioned relative to the conversation flow.
+3.  **Merge Per-Block Yields**: During streaming, each content block might be yielded as a separate `assistant` message. This step identifies messages with the same API `message.id` and merges their `content` arrays into a single message object.
+4.  **Consecutive User Merge**: The API forbids consecutive messages with the same role. Adjacent `user` messages (often resulting from tool results or attachments) are merged into a single user message with multiple content blocks.
+5.  **Tool Input Sanitization**: For `tool_use` blocks, it cross-references the tool's defined schema and removes any extra properties from the `input` object that aren't allowed, ensuring API schema validation passes.
+6.  **Attachment Conversion**: Converts `attachment` messages into `user` messages containing `<system-reminder>` or other informational blocks, as the API has no native "attachment" role.
+
+**Why this approach:**
+-   **Robustness**: The internal loop can yield many fine-grained updates (progress, block starts, etc.) for UI responsiveness without worrying about API constraints.
+-   **Transparency**: Keeping the internal format decoupled from the API format allows the UI to show a much richer transcript than what is actually sent back to the model.
+-   **Compliance**: Ensures the final payload always adheres to the "alternating roles" and "no empty messages" rules of the Messages API.
+
+**Key insight:**
+The normalization pipeline acts as a "lossy but compliant" filter that preserves the semantic history of the conversation while flattening the complex internal state into a format the model can process.
+
+---
+
 ## Usage in Agent Loop
 
 ### Message Flow

@@ -339,7 +339,7 @@ function updateUsageFromDelta(
 /**
  * Process a streaming API response and yield messages.
  *
- * Original: BJ9 (queryWithStreaming) in chunks.147.mjs
+ * Original: BJ9 (queryWithStreaming) in chunks.147.mjs:3-350 / chunks.146.mjs:3027
  *
  * This generator:
  * 1. Processes SSE events from the API
@@ -489,26 +489,41 @@ export interface StreamApiCallOptions {
   fetchOverride?: typeof fetch;
   /** Temperature override */
   temperatureOverride?: number;
+  /** Max output tokens override */
+  maxOutputTokensOverride?: number;
+}
+
+/**
+ * Arguments for streamApiCall
+ */
+export interface StreamApiCallArgs {
+  messages: any[];
+  systemPrompt?: string;
+  maxThinkingTokens?: number;
+  tools?: ToolDefinition[];
+  signal?: AbortSignal;
+  options: StreamApiCallOptions;
 }
 
 /**
  * Create a streaming request to the API with retry logic.
  *
- * Original: BJ9 (queryWithStreaming) in chunks.147.mjs:435933-436570
+ * Original: oHA in chunks.146.mjs / BJ9 in chunks.147.mjs
  *
  * This is the main entry point for streaming API calls. It:
  * 1. Creates client with retry wrapper
  * 2. Streams response with aggregation
  * 3. Falls back to non-streaming on error
  * 4. Tracks usage and timing metrics
- *
- * @param request - Messages request
- * @param options - Streaming options
  */
-export async function* streamApiCall(
-  request: MessagesRequest,
-  options: StreamApiCallOptions
-): AsyncGenerator<StreamingQueryResult, { usage: ExtendedUsage; stopReason: StopReason }, undefined> {
+export async function* streamApiCall({
+  messages,
+  systemPrompt,
+  maxThinkingTokens,
+  tools,
+  signal,
+  options
+}: StreamApiCallArgs): AsyncGenerator<StreamingQueryResult, { usage: ExtendedUsage; stopReason: StopReason }, undefined> {
   const state = createAggregationState();
   state.requestStartTime = Date.now();
 
@@ -524,19 +539,25 @@ export async function* streamApiCall(
       async (client, attempt, context) => {
         // Build request payload with context overrides
         const payload: MessagesRequest = {
-          ...request,
           model: context.model || options.model,
-          max_tokens: context.maxTokensOverride || request.max_tokens,
+          messages: messages as any[],
+          system: systemPrompt,
+          max_tokens: context.maxTokensOverride || options.maxOutputTokensOverride || 4096,
+          tools: tools,
+          thinking: maxThinkingTokens ? {
+            type: 'enabled',
+            budget_tokens: maxThinkingTokens
+          } : undefined,
         };
 
         // Start streaming
-        return client.messages.stream(payload, { signal: options.signal });
+        return client.messages.stream(payload, { signal: signal });
       },
       {
         model: options.model,
         fallbackModel: options.fallbackModel,
-        maxThinkingTokens: options.maxThinkingTokens,
-        signal: options.signal,
+        maxThinkingTokens: maxThinkingTokens,
+        signal: signal,
       }
     );
 
@@ -690,8 +711,11 @@ export async function* streamApiCall(
     });
 
     const payload: MessagesRequest = {
-      ...request,
-      max_tokens: Math.min(request.max_tokens || MAX_NON_STREAMING_TOKENS, MAX_NON_STREAMING_TOKENS),
+      model: options.model,
+      messages: messages as any[],
+      system: systemPrompt,
+      max_tokens: Math.min(options.maxOutputTokensOverride || MAX_NON_STREAMING_TOKENS, MAX_NON_STREAMING_TOKENS),
+      tools: tools,
     };
 
     const response = await client.messages.create(payload);

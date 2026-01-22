@@ -154,6 +154,7 @@ export interface ToolExecutionResult {
   message?: ConversationMessage;
   /** Context modifier */
   contextModifier?: {
+    toolUseID: string;
     modifyContext: (ctx: ToolUseContext) => ToolUseContext;
   };
 }

@@ -461,6 +461,27 @@ yield {
 
 ---
 
+### Incremental Yield Strategy Algorithm
+
+**What it does:** Maximizes concurrency and responsiveness by yielding content blocks to the agent loop as soon as they are fully received, rather than waiting for the entire stream to finish.
+
+**How it works:**
+1.  **Event Buffer**: The handler maintains an array of `contentBlocks` indexed by their position in the response.
+2.  **Block Completion Detection**: When a `content_block_stop` event is received for index $i$, the strategy identifies that block $i$ is now stable and complete.
+3.  **Partial Message Construction**: It takes the current `partialMessage` metadata (id, role, model) and creates a full message object containing *only* that single completed block.
+4.  **Immediate Yield**: This constructed message is yielded immediately to the `coreMessageLoop`.
+5.  **Downstream Action**: The `coreMessageLoop` receives this message and, if it's a `tool_use` block, can immediately start executing the tool in parallel while the stream continues for block $i+1$.
+
+**Why this approach:**
+-   **Parallelism**: This is the primary driver for Claude Code's speed. By yielding tools as they arrive, multiple tools can be running while Claude is still "talking".
+-   **User Experience**: The UI can render finished text sections and show active tool progress simultaneously, providing a very fluid interactive experience.
+-   **Resilience**: If the stream stalls or fails late in the process, the system has already captured and potentially executed earlier tool calls.
+
+**Key insight:**
+The strategy shifts the unit of work from the "Message" level to the "Content Block" level. This allows for a much more granular execution pipeline where the LLM and the local tools work in a tightly interleaved fashion.
+
+---
+
 ## Stall Detection
 
 ### Stall Monitoring

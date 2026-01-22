@@ -446,11 +446,128 @@ async function* runSubagentLoop({
 
 ---
 
-## 3. Core Message Loop
+## 3. Tool Execution Aggregation
+
+### aggregateToolResults (KM0) - chunks.134.mjs:571-610
+
+The aggregation function manages the execution of multiple tool calls, alternating between parallel and sequential blocks based on concurrency safety.
+
+```javascript
+// ============================================
+// aggregateToolResults - Main tool execution aggregator
+// Location: chunks.134.mjs:571-610
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function* KM0(A, Q, B, G) {
+  let Z = G;
+  for (let { isConcurrencySafe: Y, blocks: J } of S77(A, Z))
+    if (Y) {
+      let X = {};
+      for await (let I of y77(J, Q, B, Z)) {
+        if (I.contextModifier) {
+          let { toolUseID: D, modifyContext: W } = I.contextModifier;
+          if (!X[D]) X[D] = [];
+          X[D].push(W)
+        }
+        yield { message: I.message, newContext: Z }
+      }
+      for (let I of J) {
+        let D = X[I.id];
+        if (!D) continue;
+        for (let W of D) Z = W(Z)
+      }
+      yield { newContext: Z }
+    } else
+      for await (let X of x77(J, Q, B, Z)) {
+        if (X.newContext) Z = X.newContext;
+        yield { message: X.message, newContext: Z }
+      }
+}
+
+// READABLE (for understanding):
+async function* aggregateToolResults(toolCalls, assistantMessages, canUseTool, initialContext) {
+  let currentContext = initialContext;
+
+  // Group tools by concurrency safety (S77)
+  const groups = groupToolsByConcurrency(toolCalls, currentContext);
+
+  for (const group of groups) {
+    if (group.isConcurrencySafe) {
+      // PARALLEL EXECUTION BLOCK (y77)
+      const toolIdToModifiers = {};
+
+      for await (const result of executeParallelBlock(group.blocks, assistantMessages, canUseTool, currentContext)) {
+        if (result.contextModifier) {
+          const { toolUseID, modifyContext } = result.contextModifier;
+          if (!toolIdToModifiers[toolUseID]) toolIdToModifiers[toolUseID] = [];
+          toolIdToModifiers[toolUseID].push(modifyContext);
+        }
+        // Yield results with the ORIGINAL context of the block
+        yield { message: result.message, newContext: currentContext };
+      }
+
+      // Context merging logic (Reduction Pattern)
+      for (const block of group.blocks) {
+        const modifiers = toolIdToModifiers[block.id];
+        if (modifiers) {
+          for (const modify of modifiers) {
+            currentContext = modify(currentContext); // Chain state updates
+          }
+        }
+      }
+      // Yield the final context after all parallel tools finished
+      yield { newContext: currentContext };
+
+    } else {
+      // SEQUENTIAL EXECUTION BLOCK (x77)
+      for await (const result of executeSequentialBlock(group.blocks, assistantMessages, canUseTool, currentContext)) {
+        if (result.newContext) currentContext = result.newContext;
+        yield result;
+      }
+    }
+  }
+}
+
+// Mapping: KM0→aggregateToolResults, S77→groupToolsByConcurrency, y77→executeParallelBlock,
+//          x77→executeSequentialBlock, G→initialContext, Z→currentContext
+```
+
+### Context Merging Strategy (Reduction Pattern)
+
+**What it does:** Safely merges state updates from multiple tools executed in parallel.
+
+**How it works:**
+1. Each tool in a parallel block receives the *same* initial context.
+2. Tools return `contextModifier` functions rather than full context objects.
+3. The loop collects these modifiers without applying them immediately.
+4. Once the block completes, the modifiers are applied sequentially to the context: `context = modifier(context)`.
+
+**Why this approach:**
+- **Consistency**: Prevents tools from seeing intermediate states of sibling tools in the same block.
+- **Composition**: Allows multiple tools to contribute to the state (e.g. updating `readFileState` for different files) without conflicts.
+- **Safety**: Non-concurrent tools (which might have overlapping side effects) are guaranteed to run sequentially.
+
+**Key Insight:**
+The use of functional reduction for state updates is a robust way to handle concurrency in an asynchronous environment. However, a potential bug was identified in `StreamingToolExecutor` (`_H1`) where it stores modifiers for concurrent tools but fails to apply them, unlike the fallback `KM0` implementation.
+
+---
+
+## 4. Core Message Loop
 
 ### coreMessageLoop (aN) - chunks.134.mjs:99-410
 
 The core message loop handles the actual API streaming, tool execution, and recursive continuation.
+
+**Key Message Normalization Logic:**
+- `normalizeMessages` (`_x`) slices messages from the last `compact_boundary` system message. This ensures that the LLM only sees messages since the last compaction.
+- `addUserContextToMessages` (`_3A`) prepends a `<system-reminder>` user message with the provided user context.
+- `mergeSystemPromptWithContext` (`fA9`) appends the system context lines to the system prompt.
+
+**Token Estimation Strategy (`HKA` / `l7` / `It8`):**
+- **Text estimation**: `Math.round(text.length / 4)` tokens.
+- **Images**: Fixed cost of **1334 tokens** per image.
+- **Incremental Estimation**: The loop finds the last assistant message with a real `usage` object and adds the estimated tokens for subsequent messages to get the current total.
 
 ```javascript
 // ============================================
@@ -1501,6 +1618,50 @@ while (true) {
 
 ---
 
+### Recursive Turn-Based Execution Algorithm
+
+**What it does:** Manages the iterative conversation between Claude and the tools, handling state accumulation and termination conditions.
+
+**How it works:**
+1.  **Context Preparation**: Normalizes the message history, applies compaction (micro/auto) to stay within token limits, and merges system/user context.
+2.  **API Invocation**: Calls `streamApiCall` to get the next assistant response.
+3.  **Parallel Tool Feeding**: As tool use blocks arrive in the stream, they are immediately fed to the `StreamingToolExecutor`.
+4.  **Yielding Results**: Completed tool results are yielded to the UI as they finish (even before the API stream ends).
+5.  **Completion & Cleanup**: Once the API stream ends, it waits for any remaining tools to finish.
+6.  **Recursive Step**: If tools were called, it gathers all new messages (assistant response + tool results) and recursively calls itself (`coreMessageLoop`) for the next turn.
+7.  **Termination**: The recursion stops if no tools were called, the max turns limit is reached, a stop hook prevents continuation, or the user aborts.
+
+**Why this approach:**
+-   **Simplicity**: Recursion naturally models the "next turn" behavior of an agent.
+-   **State Isolation**: Each recursive call has its own state (turn count, etc.), making it easier to manage per-turn logic like max thinking tokens.
+-   **Stream Compatibility**: By yielding from within the recursive structure, it maintains a continuous stream of events for the consumer.
+
+**Key insight:**
+The recursion depth corresponds to the number of tool "rounds". By passing the updated message list into the next call, it accumulates the entire chain of thought and action until the task is complete.
+
+---
+
+### Streaming Parallel Tool Execution Strategy
+
+**What it does:** Allows multiple tools to execute simultaneously while the LLM is still generating its response.
+
+**How it works:**
+1.  **Safety Check**: For each `tool_use` block, it checks the tool's `isConcurrencySafe` property.
+2.  **Queueing**: Concurrent tools are added to an active execution pool.
+3.  **Blocking**: Non-concurrent tools (like `Edit`) act as a barrier; they won't start until all previous tools finish, and subsequent tools won't start until they finish.
+4.  **Immediate Yielding**: Progress messages and results from completed tools are yielded to the `coreMessageLoop` immediately.
+5.  **Context Reduction**: For non-concurrent tools, state updates (`contextModifiers`) are applied to the local context immediately after execution.
+
+**Why this approach:**
+-   **Performance**: Tools like `Read` or `Grep` often take time (I/O). Running them in parallel with the LLM stream significantly reduces overall turn time.
+-   **Correctness**: Ensuring non-concurrent tools run sequentially prevents race conditions on file system operations.
+-   **Responsiveness**: The user sees tool progress and results in real-time, making the agent feel faster and more transparent.
+
+**Key insight:**
+The "barrier" pattern for non-concurrent tools allows the system to maximize parallelism while maintaining strict serial order where side effects are present.
+
+---
+
 ## 6. Task State Management
 
 ### Task Types and Lifecycle
@@ -1530,16 +1691,14 @@ State Transitions:
 
 ### Key Task Management Functions
 
-| Function | Obfuscated | Purpose |
-|----------|------------|---------|
-| `createBaseTask` | KO | Creates base task structure |
-| `addTaskToState` | FO | Adds task to app state |
-| `updateTask` | oY | Updates task properties |
-| `markTaskCompleted` | Zm2 | Marks task as completed/failed |
-| `createFullyBackgroundedAgent` | L32 | Creates fully async agent task |
-| `createBackgroundableAgent` | O32 | Creates foreground task with background support |
-| `backgroundAllTasks` | vD1 | Backgrounds all active tasks (Ctrl+B) |
-| `hasBackgroundableTasks` | Wm2 | Checks if any tasks can be backgrounded |
+- `createBaseTask` (KO) - Creates base task structure
+- `addTaskToState` (FO) - Adds task to app state
+- `updateTask` (oY) - Updates task properties
+- `markTaskCompleted` (Zm2) - Marks task as completed/failed
+- `createFullyBackgroundedAgent` (L32) - Creates fully async agent task
+- `createBackgroundableAgent` (O32) - Creates foreground task with background support
+- `backgroundAllTasks` (vD1) - Backgrounds all active tasks (Ctrl+B)
+- `hasBackgroundableTasks` (Wm2) - Checks if any tasks can be backgrounded
 
 ---
 

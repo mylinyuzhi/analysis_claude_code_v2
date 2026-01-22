@@ -284,6 +284,7 @@ export class StreamingToolExecutor {
   /**
    * Get completed results (non-blocking).
    * Yields results that are ready without waiting.
+   * Original: getCompletedResults in chunks.133.mjs:3041-3056
    */
   *getCompletedResults(): Generator<ToolExecutionResult> {
     if (this.discarded) return;
@@ -320,6 +321,7 @@ export class StreamingToolExecutor {
   /**
    * Get all remaining results (blocking).
    * Waits for all tools to complete and yields their results.
+   * Original: getRemainingResults in chunks.133.mjs:3060-3074
    */
   async *getRemainingResults(): AsyncGenerator<ToolExecutionResult> {
     if (this.discarded) return;

@@ -804,7 +804,10 @@ export async function executeToolWithValidation(
         toolUseResult: typeof toolResult.data === 'string' ? toolResult.data : JSON.stringify(toolResult.data),
         sourceToolAssistantUUID: (assistantMessage as { uuid: string }).uuid,
       }),
-      contextModifier: toolResult.contextModifier,
+      contextModifier: toolResult.contextModifier ? {
+        toolUseID: toolUseId,
+        modifyContext: toolResult.contextModifier.modifyContext
+      } : undefined,
     });
 
     // 8. Execute post-tool hooks

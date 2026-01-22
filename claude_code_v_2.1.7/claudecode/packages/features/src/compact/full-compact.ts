@@ -202,7 +202,13 @@ The summary will replace the full conversation history, so include all essential
 
   try {
     // Stream the API call
-    const stream = streamApiCall(request, options);
+    const stream = streamApiCall({
+      messages: request.messages as any[],
+      systemPrompt: typeof request.system === 'string' ? request.system : undefined,
+      tools: request.tools as any[],
+      signal: options.signal,
+      options: options as any
+    });
 
     // Collect the response
     let responseText = '';

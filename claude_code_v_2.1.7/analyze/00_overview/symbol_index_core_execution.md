@@ -167,11 +167,37 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| $f | runSubagentLoop | chunks.112.mjs:2913-3057 | async generator |
-| aN | coreMessageLoop | chunks.134.mjs:99-400 | async generator |
+| aA9 | recordApiCallInfo | chunks.134.mjs:286 | function |
+| aN | coreMessageLoop | chunks.134.mjs:99-428 | async generator |
+| DM0 | createToolErrorResults | chunks.134.mjs:83-97 | function |
+| DZ | createErrorAttachment | chunks.134.mjs | function |
+| fA9 | mergeSystemPromptWithContext | chunks.133.mjs:2580-2583 | function |
+| fhA | createInterruptedAttachment | chunks.134.mjs | function |
+| FHA | formatCompactionMessages | chunks.134.mjs:162 | function |
 | HN | executeToolsParallel | chunks.134.mjs:402-500 | function |
-| ZA1 | aggregateToolResults | chunks.134.mjs:502-550 | function |
+| HQA | resolveModelWithPermissions | chunks.46.mjs:2259-2268 | function |
+| ic | checkTokenLimit | chunks.132.mjs:1472-1495 | function |
+| It8 | estimateContentBlockTokens | chunks.85.mjs:801-807 | function |
+| KM0 | aggregateToolResults | chunks.134.mjs:571-610 | function |
+| l7 | estimateStringTokens | chunks.85.mjs:738-740 | function |
+| lA9 | isOverlyAgreeable | chunks.134.mjs | function |
+| lc | microCompact | chunks.134.mjs:133 | function |
+| N$7 | findLastCompactBoundary | chunks.148.mjs:490-496 | function |
+| P77 | checkPendingToolCalls | chunks.134.mjs:469+ | function |
+| qc | isCompactBoundary | chunks.148.mjs:486-488 | function |
+| S77 | groupToolsByConcurrency | chunks.134.mjs:612-624 | function |
+| SVA | mergeAsyncGenerators | chunks.92.mjs:285-318 | async generator |
+| T77 | processContinuationTriggers | chunks.134.mjs:430-467 | function |
+| U32 | updateQueuedCommands | chunks.134.mjs:399 | function |
+| w3A | getTaskIntensityOverride | chunks.134.mjs:226 | function |
+| x77 | executeSequentialBlock | chunks.134.mjs:626-639 | function |
+| X4 | createMaxTurnsAttachment | chunks.134.mjs | function |
 | xVA | TaskTool | chunks.113.mjs:74-405 | object |
+| y77 | executeParallelBlock | chunks.134.mjs:641-645 | function |
+| ys2 | autoCompactDispatcher | chunks.134.mjs:138 | function |
+| _3A | addUserContextToMessages | chunks.133.mjs:2585-2599 | function |
+| _x | normalizeMessages | chunks.148.mjs:498-502 | function |
+| $f | runSubagentLoop | chunks.112.mjs:2913-3057 | async generator |
 
 ### Background Agent Integration
 
@@ -784,6 +810,18 @@ Map<string, {
 | LS | generateSessionId | chunks.113.mjs:162 | function |
 | gP2 | getParentSessionId | chunks.113.mjs:163 | function |
 
+### Task Management Infrastructure
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| GyA | generateTaskId | chunks.91.mjs:904-908 | function |
+| KO | createBaseTask | chunks.91.mjs:910-921 | function |
+| FO | addTaskToState | chunks.121.mjs:283-291 | function |
+| oY | updateTask | chunks.121.mjs:269-281 | function |
+| It | isLocalBashTask | chunks.121.mjs:567-569 | function |
+| Iq0 | killLocalBashTask | chunks.121.mjs:590-608 | function |
+| ibA | notifyBashTaskCompletion | chunks.121.mjs:571-588 | function |
+
 ### Background Agent Creation
 
 | Obfuscated | Readable | File:Line | Type |
@@ -821,7 +859,7 @@ Map<string, {
 | jI0 | markTaskFailed | chunks.91.mjs:1276-1286 | function |
 | Sr | isLocalAgentTask | chunks.91.mjs:1218-1220 | function |
 | kZ1 | LocalAgentTaskHandler | chunks.91.mjs:1412-1482 | object |
-| yZ1 | backgroundSignalMap | chunks.91.mjs:1483 | Map |
+| yZ1 | backgroundSignalResolvers | chunks.91.mjs:1483 | Map |
 
 ### Tool Restriction Constants
 

@@ -49,28 +49,30 @@ import { randomUUID } from 'crypto';
 
 /**
  * Generate task ID with type prefix.
- * Original: GyA() in chunks.91.mjs
+ * Original: GyA() in chunks.91.mjs:904-908
  */
 export function generateTaskId(type: 'local_bash' | 'local_agent' | 'remote_agent'): string {
+  // Source alignment: GyA uses XG5(type) to get prefix and YG5() for random suffix
   const prefixes = {
     local_bash: 'b',
     local_agent: 'a',
     remote_agent: 'r',
   };
   const prefix = prefixes[type] || 'x';
+  // YG5() replaces hyphens and takes first 6 chars of a random UUID
   const suffix = randomUUID().replace(/-/g, '').substring(0, 6);
   return `${prefix}${suffix}`;
 }
 
 /**
  * Background signal promise resolvers.
- * Original: yZ1 in chunks.91.mjs
+ * Original: yZ1 in chunks.91.mjs:1483
  */
 const backgroundSignalResolvers = new Map<string, () => void>();
 
 /**
  * Cleanup handlers registered for exit.
- * Original: C6 pattern in chunks.91.mjs
+ * Original: pZ1 / oZ1 pattern in chunks.91.mjs:3580
  */
 const cleanupHandlers = new Map<string, () => void>();
 
@@ -83,13 +85,13 @@ export interface AppState {
 
 /**
  * Local agent task structure.
- * Original: from chunks.91.mjs:1299-1309
+ * Original: from chunks.91.mjs:1297-1309 (in L32)
  */
 export interface LocalAgentTask {
   id: string;
   type: 'local_agent';
   description: string;
-  status: 'running' | 'completed' | 'failed' | 'killed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'killed';
   startTime: number;
   endTime?: number;
   agentId: string;
@@ -109,13 +111,13 @@ export interface LocalAgentTask {
 
 /**
  * Local bash task structure.
- * Original: from chunks.121.mjs
+ * Original: from chunks.121.mjs (in ibA)
  */
 export interface LocalBashTask {
   id: string;
   type: 'local_bash';
   description: string;
-  status: 'running' | 'completed' | 'failed' | 'killed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'killed';
   startTime: number;
   endTime?: number;
   command: string;
@@ -155,7 +157,7 @@ function getAgentTranscriptPath(agentId: string, cwd: string): string {
 
 /**
  * Get agent output directory.
- * Original: eSA() in chunks.86.mjs:97-104
+ * Original: eSA() in chunks.86.mjs:95-104
  */
 function getAgentOutputDir(cwd: string): string {
   // Source (eSA / getAgentOutputDir): ~/.claude/projects/<sanitized-cwd>/agents
@@ -195,7 +197,7 @@ export function registerOutputFile(agentId: string, transcriptPath: string, cwd:
 
 /**
  * Create base task structure.
- * Original: KO() in chunks.91.mjs:1204-1216
+ * Original: KO() in chunks.91.mjs:910-921
  */
 export function createBaseTask(
   id: string,
@@ -205,17 +207,19 @@ export function createBaseTask(
   return {
     id,
     type,
+    status: 'pending',
     description,
     startTime: Date.now(),
-    isBackgrounded: false,
+    // outputFile: aY(A) in chunks.91.mjs:917
   };
 }
 
 /**
  * Register cleanup handler for process exit.
- * Original: C6() pattern in chunks.91.mjs
+ * Original: C6() pattern in chunks.91.mjs:1311, 1326
  */
 export function registerCleanupHandler(taskId: string, handler: () => void): () => void {
+  // In source, C6 registers a global cleanup that iterates over a set
   cleanupHandlers.set(taskId, handler);
 
   const unregister = () => {
@@ -227,7 +231,7 @@ export function registerCleanupHandler(taskId: string, handler: () => void): () 
 
 /**
  * Add task to app state.
- * Original: FO() in chunks.91.mjs:1388-1398
+ * Original: FO() in chunks.121.mjs:283-291
  */
 export function addTaskToState(
   task: LocalAgentTask | LocalBashTask,
@@ -244,7 +248,7 @@ export function addTaskToState(
 
 /**
  * Update task in app state.
- * Original: oY() in chunks.121.mjs:269-277
+ * Original: oY() in chunks.121.mjs:269-281
  */
 export function updateTask<T extends LocalAgentTask | LocalBashTask>(
   taskId: string,
@@ -332,7 +336,7 @@ export function notifyBashTaskCompletion(
   setAppState: any
 ): void {
   // Logic to push notification to UI/Agent loop
-  // Placeholder for now as pushNotification logic is in @claudecode/ui or similar
+  // Source alignment: ibA also handles notification via pushNotification
   updateTask<LocalBashTask>(taskId, setAppState, (task) => ({
     ...task,
     notified: true,
@@ -353,7 +357,7 @@ export function isLocalAgentTask(task: unknown): task is LocalAgentTask {
 
 /**
  * Check if task is a local bash task.
- * Original: It() in chunks.121.mjs
+ * Original: It() in chunks.121.mjs:567-569
  */
 export function isLocalBashTask(task: unknown): task is LocalBashTask {
   return (
@@ -366,9 +370,6 @@ export function isLocalBashTask(task: unknown): task is LocalBashTask {
 /**
  * Create fully backgrounded agent.
  * Original: L32() in chunks.91.mjs:1288-1315
- *
- * Creates an agent that runs entirely in the background from the start.
- * The agent execution happens asynchronously and can be monitored via TaskOutput.
  */
 export function createFullyBackgroundedAgent(options: {
   agentId: string;
@@ -420,9 +421,6 @@ export function createFullyBackgroundedAgent(options: {
 /**
  * Create backgroundable agent.
  * Original: O32() in chunks.91.mjs:1317-1351
- *
- * Creates an agent that starts in foreground but can be backgrounded via Ctrl+B.
- * Returns a backgroundSignal promise that resolves when the user presses Ctrl+B.
  */
 export function createBackgroundableAgent(options: {
   agentId: string;
@@ -483,8 +481,6 @@ export function createBackgroundableAgent(options: {
 /**
  * Trigger background transition for an agent.
  * Original: M32() in chunks.91.mjs:1353-1373
- *
- * Called when user presses Ctrl+B to background a running agent.
  */
 export function triggerBackgroundTransition(
   taskId: string,
@@ -603,16 +599,13 @@ export function updateTaskProgress(
 /**
  * Aggregate async agent execution.
  * Original: Im2() in chunks.121.mjs:486-542
- *
- * Runs agent message generator in background, updating task state with progress.
- * Handles completion, failure, and abort signals.
  */
 export function aggregateAsyncAgentExecution(
-  messageGenerator: AsyncIterator<unknown>,
+  messageGenerator: AsyncIterator<any>,
   taskId: string,
   setAppState: (updater: (state: AppState) => AppState) => void,
-  finalCallback: (messages: unknown[]) => void,
-  initialMessages: unknown[] = [],
+  finalCallback: (messages: any[]) => void,
+  initialMessages: any[] = [],
   abortSignal?: AbortSignal
 ): void {
   // Run aggregation in background
@@ -636,15 +629,12 @@ export function aggregateAsyncAgentExecution(
         allMessages.push(value);
 
         // Update progress tracking
-        // Source alignment: MI0()/RI0() derives token count from assistant message usage
+        // Source alignment: Im2 derives token count from assistant message usage
         if (value && typeof value === 'object') {
-          const msg = value as {
-            type?: string;
-            message?: { content?: unknown[]; usage?: any };
-          };
+          const msg = value as any;
           if (msg.type === 'assistant' && Array.isArray(msg.message?.content)) {
             for (const block of msg.message.content) {
-              if ((block as { type?: string }).type === 'tool_use') {
+              if (block.type === 'tool_use') {
                 toolCount++;
               }
             }
@@ -675,3 +665,4 @@ export function aggregateAsyncAgentExecution(
     }
   })();
 }
+

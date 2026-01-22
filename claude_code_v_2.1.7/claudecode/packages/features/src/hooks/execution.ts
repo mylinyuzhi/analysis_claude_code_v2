@@ -241,9 +241,16 @@ async function executeSingleHook(
     };
 
     let text = '';
-    for await (const ev of streamApiCall(request, {
+    const streamOptions: any = {
       model: params.model,
       signal: params.signal,
+    };
+    for await (const ev of streamApiCall({
+      messages: request.messages as any[],
+      systemPrompt: typeof request.system === 'string' ? request.system : undefined,
+      tools: request.tools as any[],
+      signal: params.signal,
+      options: streamOptions
     })) {
       if (!ev || typeof ev !== 'object') continue;
       if ((ev as any).type === 'assistant') {
