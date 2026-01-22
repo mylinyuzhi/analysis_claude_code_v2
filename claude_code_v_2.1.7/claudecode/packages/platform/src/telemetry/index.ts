@@ -57,6 +57,7 @@ export {
   logEventAsync,
   analyticsEvent,
   analyticsEventAsync,
+  trackEvent,
 
   // Provider management
   attachTelemetryProvider,

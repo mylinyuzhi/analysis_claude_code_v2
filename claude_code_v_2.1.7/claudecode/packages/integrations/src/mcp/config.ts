@@ -330,6 +330,32 @@ export async function loadAllMcpConfig(): Promise<McpConfigResult> {
   return { servers: filteredServers, errors: pluginErrors };
 }
 
+/**
+ * Find MCP server by name across all scopes.
+ * Original: vs in chunks.131.mjs:518
+ */
+export function findMcpServer(serverName: string): (McpServerConfig & { scope: McpConfigScope }) | null {
+  const { servers: enterprise } = loadScopeServers('enterprise');
+  if (enterprise[serverName]) return { ...enterprise[serverName], scope: 'enterprise' };
+
+  const { servers: local } = loadScopeServers('local');
+  if (local[serverName]) return { ...local[serverName], scope: 'local' };
+
+  const { servers: project } = loadScopeServers('project');
+  if (project[serverName]) return { ...project[serverName], scope: 'project' };
+
+  const { servers: user } = loadScopeServers('user');
+  if (user[serverName]) return { ...user[serverName], scope: 'user' };
+
+  return null;
+}
+
+/**
+ * Get MCP configuration (alias for loadAllMcpConfig).
+ * Original: it in chunks.131.mjs:589
+ */
+export const getMcpConfiguration = loadAllMcpConfig;
+
 // ============================================
 // Server Config Parsing
 // ============================================

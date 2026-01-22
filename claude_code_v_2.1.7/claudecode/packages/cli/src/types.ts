@@ -104,16 +104,28 @@ export interface CLIOptions {
 
   // ---- Advanced ----
   maxBudget?: number;
+  maxBudgetUsd?: number;
   maxTurns?: number;
   maxConversationTurns?: number;
+  maxThinkingTokens?: number;
   jsonOutputSchema?: string;
   plugins?: string;
+  pluginDir?: string[];
   autoConnectIde?: boolean;
   installIdeExtension?: string;
   skipInstallIdeExtension?: boolean;
   noAutoUpdater?: boolean;
   useBedrock?: boolean;
   useVertex?: boolean;
+  replayUserMessages?: boolean;
+  enableAuthStatus?: boolean;
+  resumeSessionAt?: string;
+  rewindFiles?: string;
+  agents?: string;
+  loopy?: boolean | number;
+  chrome?: boolean;
+  noChrome?: boolean;
+  disableSlashCommands?: boolean;
 
   // ---- Internal/Hidden ----
   mcpCli?: boolean;

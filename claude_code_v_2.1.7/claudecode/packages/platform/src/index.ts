@@ -214,3 +214,15 @@ export {
   createFileResult,
   executeFileSuggestionCommand,
 } from './code-indexing/index.js';
+
+// ============================================
+// UI Symbols
+// ============================================
+
+export const symbols = {
+  tick: '✓',
+  cross: '✗',
+  warning: '⚠',
+  pointer: '›',
+  circle: '○',
+};

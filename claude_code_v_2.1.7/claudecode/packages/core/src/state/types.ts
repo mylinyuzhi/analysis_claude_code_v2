@@ -677,7 +677,13 @@ export interface AppState {
 
   // Initial Message
   /** Initial message for session */
-  initialMessage: string | null;
+  initialMessage: {
+    message: any; // ConversationMessage
+  } | null;
+
+  // Team
+  /** Team collaboration context */
+  teamContext: any | undefined;
 }
 
 // ============================================

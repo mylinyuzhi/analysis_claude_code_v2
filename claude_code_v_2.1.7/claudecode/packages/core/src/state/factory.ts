@@ -353,6 +353,9 @@ export function createDefaultAppState(): AppState {
 
     // Initial Message
     initialMessage: null,
+
+    // Team
+    teamContext: undefined,
   };
 }
 

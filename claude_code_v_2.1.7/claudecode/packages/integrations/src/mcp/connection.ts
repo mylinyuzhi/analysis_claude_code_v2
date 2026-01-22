@@ -1039,6 +1039,31 @@ export async function connectMcpServer(
   return connectionPromise;
 }
 
+/**
+ * Check MCP server health by attempting a connection.
+ * Original: EL9 in chunks.156.mjs:1688
+ */
+export async function checkServerHealth(serverName: string, config: McpServerConfig): Promise<string> {
+  try {
+    const conn = await connectMcpServer(serverName, config);
+    if (conn.type === 'connected') {
+      // Cleanup after check
+      if (typeof (conn as any).cleanup === 'function') {
+        await (conn as any).cleanup();
+      } else {
+        (conn as any).client.close();
+      }
+      return '✓ Connected';
+    } else if (conn.type === 'needs-auth') {
+      return '⚠ Needs authentication';
+    } else {
+      return '✗ Failed to connect';
+    }
+  } catch (err) {
+    return `✗ Connection error: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
 // ============================================
 // Batch Initialization
 // ============================================

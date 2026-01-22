@@ -415,6 +415,11 @@ export async function logEventAsync(
   await Promise.all(asyncOps);
 }
 
+/**
+ * Track event (alias for analyticsEvent).
+ */
+export const trackEvent = analyticsEvent;
+
 // ============================================
 // Provider Management
 // ============================================

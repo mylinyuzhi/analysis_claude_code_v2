@@ -31,6 +31,7 @@ export {
   getDisabledServers,
   setServerDisabled,
   substituteEnvVariables,
+  findMcpServer,
 } from './config.js';
 
 // ============================================
@@ -43,6 +44,7 @@ export {
   reconnectMcpServer,
   ensureServerConnected,
   createTimeoutPromise,
+  checkServerHealth,
 } from './connection.js';
 
 // ============================================

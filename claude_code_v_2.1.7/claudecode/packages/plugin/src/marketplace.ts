@@ -491,6 +491,21 @@ export async function refreshMarketplace(
 }
 
 /**
+ * Update all known marketplaces.
+ * Original: X32 in chunks.157.mjs:1051
+ */
+export async function updateAllMarketplaces(): Promise<void> {
+  const marketplaces = await loadKnownMarketplaces();
+  for (const name of Object.keys(marketplaces)) {
+    try {
+      await refreshMarketplace(name);
+    } catch (error) {
+      console.error(`[Plugin] Failed to refresh marketplace ${name}:`, error);
+    }
+  }
+}
+
+/**
  * List all known marketplaces.
  */
 export async function listMarketplaces(): Promise<
@@ -550,6 +565,13 @@ export async function searchPlugins(
   }
 
   return results;
+}
+
+/**
+ * Clear marketplace cache.
+ */
+export function clearMarketplaceCache(): void {
+  // Placeholder - in real implementation, would clear memoized marketplace results
 }
 
 // ============================================

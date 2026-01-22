@@ -38,6 +38,7 @@ export {
   formatPluginError,
   loadHooksFile,
   mergeHookConfigs,
+  validateManifest,
 } from './loader.js';
 
 // ============================================
@@ -70,10 +71,12 @@ export {
   removeMarketplace,
   refreshMarketplace,
   listMarketplaces,
+  updateAllMarketplaces,
 
   // Plugin lookup
   findPluginInMarketplace,
   searchPlugins,
+  clearMarketplaceCache,
 } from './marketplace.js';
 
 // ============================================

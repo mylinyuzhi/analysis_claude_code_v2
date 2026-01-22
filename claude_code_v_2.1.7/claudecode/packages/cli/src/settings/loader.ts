@@ -105,6 +105,13 @@ export function getLocalSettingsPath(cwd?: string): string {
 }
 
 /**
+ * Get current working directory.
+ */
+export function getWorkingDirectory(): string {
+  return process.cwd();
+}
+
+/**
  * Get Claude home directory (~/.claude).
  */
 export function getClaudeHomeDir(): string {
@@ -312,6 +319,16 @@ export function updateUserSettings(updates: Partial<ClaudeSettings>): void {
   const current = loadUserSettings();
   const merged = { ...current, ...updates };
   saveUserSettings(merged);
+}
+
+/**
+ * Update local settings.
+ */
+export function updateLocalSettings(updater: (settings: ClaudeSettings) => ClaudeSettings): void {
+  const localPath = getLocalSettingsPath();
+  const settings = readJsonFile<ClaudeSettings>(localPath) || {};
+  const updated = updater(settings);
+  writeJsonFile(localPath, updated);
 }
 
 // ============================================

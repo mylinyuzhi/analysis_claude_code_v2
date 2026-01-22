@@ -65,20 +65,27 @@ export const CLI_OPTIONS: Record<string, OptionDefinition> = {
   },
   outputFormat: {
     flags: '--output-format <format>',
-    description: 'Output format',
+    description: 'Output format (only works with --print): "text" (default), "json", or "stream-json"',
     choices: ['text', 'json', 'stream-json'],
     defaultValue: 'text',
   },
+  jsonSchema: {
+    flags: '--json-schema <schema>',
+    description: 'JSON Schema for structured output validation',
+  },
   inputFormat: {
     flags: '--input-format <format>',
-    description: 'Input format',
+    description: 'Input format (only works with --print): "text" (default), or "stream-json"',
     choices: ['text', 'stream-json'],
     defaultValue: 'text',
   },
   includePartialMessages: {
     flags: '--include-partial-messages',
-    description: 'Include partial streaming messages in output',
-    implies: ['print'],
+    description: 'Include partial streaming messages in output (works with --print and --output-format=stream-json)',
+  },
+  replayUserMessages: {
+    flags: '--replay-user-messages',
+    description: 'Re-emit user messages from stdin back on stdout for acknowledgment',
   },
   outputFile: {
     flags: '-o, --output-file <path>',
@@ -95,37 +102,42 @@ export const CLI_OPTIONS: Record<string, OptionDefinition> = {
     description: 'Continue most recent conversation',
     conflicts: ['resume', 'fork', 'teleport'],
   },
-  continueRecent: {
-    flags: '-cr, --continue-recent',
-    description: 'Continue most recent conversation, skip if none exists',
-    hidden: true,
-    conflicts: ['resume', 'fork', 'teleport'],
-  },
   resume: {
-    flags: '-r, --resume <session>',
-    description: 'Resume a specific session by ID',
+    flags: '-r, --resume [value]',
+    description: 'Resume a conversation by session ID, or open interactive picker',
     conflicts: ['continue', 'fork', 'teleport'],
   },
-  fork: {
-    flags: '--fork <session>',
-    description: 'Fork a session (create new from existing)',
-    conflicts: ['continue', 'resume', 'teleport'],
+  forkSession: {
+    flags: '--fork-session',
+    description: 'When resuming, create a new session ID instead of reusing the original',
+  },
+  noSessionPersistence: {
+    flags: '--no-session-persistence',
+    description: 'Disable session persistence (only works with --print)',
+  },
+  resumeSessionAt: {
+    flags: '--resume-session-at <message-id>',
+    description: 'When resuming, only messages up to specified message ID',
+    hidden: true,
+  },
+  rewindFiles: {
+    flags: '--rewind-files <user-message-id>',
+    description: 'Restore files to state at the specified user message and exit',
+    hidden: true,
   },
   teleport: {
-    flags: '--teleport <session>',
+    flags: '--teleport [session]',
     description: 'Teleport to a remote session',
-    conflicts: ['continue', 'resume', 'fork'],
     hidden: true,
   },
   remote: {
-    flags: '--remote',
-    description: 'Enable remote session features',
+    flags: '--remote <description>',
+    description: 'Create a remote session with the given description',
     hidden: true,
   },
   sessionId: {
-    flags: '--session-id <id>',
-    description: 'Set specific session ID',
-    hidden: true,
+    flags: '--session-id <uuid>',
+    description: 'Use a specific session ID (must be a valid UUID)',
   },
 
   // ---- Model & Agent ----
@@ -133,65 +145,76 @@ export const CLI_OPTIONS: Record<string, OptionDefinition> = {
     flags: '-m, --model <model>',
     description: 'Model to use (sonnet, opus, haiku, or model ID)',
   },
+  agent: {
+    flags: '--agent <agent>',
+    description: 'Agent for the current session. Overrides the "agent" setting.',
+  },
   fallbackModel: {
     flags: '--fallback-model <model>',
-    description: 'Fallback model for overloaded primary',
+    description: 'Fallback model for overloaded primary (only works with --print)',
+  },
+  maxThinkingTokens: {
+    flags: '--max-thinking-tokens <tokens>',
+    description: 'Maximum number of thinking tokens (only works with --print)',
     hidden: true,
   },
-  agentId: {
-    flags: '--agent-id <id>',
-    description: 'Agent identifier for subagent mode',
-    hidden: true,
+  maxTurns: {
+    flags: '--max-turns <turns>',
+    description: 'Maximum number of agentic turns in non-interactive mode',
   },
-  addToTodo: {
-    flags: '--add-to-todo',
-    description: 'Add prompt to todo list instead of executing',
-    hidden: true,
+  maxBudgetUsd: {
+    flags: '--max-budget-usd <amount>',
+    description: 'Maximum dollar amount to spend on API calls (only works with --print)',
   },
-  permission: {
-    flags: '--permission <mode>',
-    description: 'Permission mode',
-    choices: ['default', 'plan', 'plan-force', 'bypassPermissions', 'acceptEdits'],
-    hidden: true,
+  permissionMode: {
+    flags: '--permission-mode <mode>',
+    description: 'Permission mode to use for the session',
+  },
+  dangerouslySkipPermissions: {
+    flags: '--dangerously-skip-permissions',
+    description: 'Bypass all permission checks',
+  },
+  allowDangerouslySkipPermissions: {
+    flags: '--allow-dangerously-skip-permissions',
+    description: 'Enable bypassing all permission checks as an option',
   },
 
   // ---- System Prompts ----
   systemPrompt: {
     flags: '-s, --system-prompt <prompt>',
     description: 'Custom system prompt (replaces default)',
-    conflicts: ['appendSystemPrompt'],
+  },
+  systemPromptFile: {
+    flags: '--system-prompt-file <file>',
+    description: 'Read system prompt from file',
+    hidden: true,
   },
   appendSystemPrompt: {
     flags: '-a, --append-system-prompt <prompt>',
     description: 'Append to system prompt',
-    conflicts: ['systemPrompt'],
-  },
-  systemPromptFile: {
-    flags: '--system-prompt-file <path>',
-    description: 'Read system prompt from file',
-    conflicts: ['systemPrompt', 'appendSystemPromptFile'],
   },
   appendSystemPromptFile: {
-    flags: '--append-system-prompt-file <path>',
+    flags: '--append-system-prompt-file <file>',
     description: 'Append system prompt from file',
-    conflicts: ['systemPromptFile', 'appendSystemPrompt'],
+    hidden: true,
   },
 
   // ---- Tool Configuration ----
+  tools: {
+    flags: '--tools <tools...>',
+    description: 'Specify the list of available tools',
+  },
   allowedTools: {
     flags: '--allowed-tools <tools...>',
     description: 'Tools to allow (comma-separated)',
-    parser: (value) => value.split(',').map((t) => t.trim()),
   },
   disallowedTools: {
     flags: '--disallowed-tools <tools...>',
     description: 'Tools to disallow (comma-separated)',
-    parser: (value) => value.split(',').map((t) => t.trim()),
   },
-  additionalDirectories: {
-    flags: '--additional-directories <dirs...>',
-    description: 'Additional directories to allow',
-    parser: (value) => value.split(',').map((d) => d.trim()),
+  addDir: {
+    flags: '--add-dir <directories...>',
+    description: 'Additional directories to allow tool access to',
   },
   cwd: {
     flags: '--cwd <path>',
@@ -200,84 +223,54 @@ export const CLI_OPTIONS: Record<string, OptionDefinition> = {
 
   // ---- MCP Configuration ----
   mcpConfig: {
-    flags: '--mcp-config <path>',
-    description: 'MCP config file path',
+    flags: '--mcp-config <configs...>',
+    description: 'Load MCP servers from JSON files or strings',
   },
-  mcpConfigJson: {
-    flags: '--mcp-config-json <json>',
-    description: 'MCP config as JSON string',
-  },
-  mcpStrictTransportMode: {
-    flags: '--mcp-strict-transport-mode',
-    description: 'Enforce MCP transport mode',
-    hidden: true,
-  },
-  allowMcpPromptAccess: {
-    flags: '--allow-mcp-prompt-access',
-    description: 'Allow MCP servers to access prompts',
-    hidden: true,
+  strictMcpConfig: {
+    flags: '--strict-mcp-config',
+    description: 'Only use MCP servers from --mcp-config',
   },
 
   // ---- Chrome Integration ----
-  autoConnectChrome: {
-    flags: '--auto-connect-chrome',
-    description: 'Auto-connect to Chrome extension',
+  chrome: {
+    flags: '--chrome',
+    description: 'Enable Claude in Chrome integration',
   },
-  installChrome: {
-    flags: '--install-chrome',
-    description: 'Install Chrome extension native host',
+  noChrome: {
+    flags: '--no-chrome',
+    description: 'Disable Claude in Chrome integration',
   },
 
   // ---- Advanced ----
-  maxBudget: {
-    flags: '--max-budget <amount>',
-    description: 'Maximum API cost budget',
-    parser: (value) => parseFloat(value),
+  settings: {
+    flags: '--settings <file-or-json>',
+    description: 'Additional settings JSON file or string',
   },
-  maxTurns: {
-    flags: '--max-turns <count>',
-    description: 'Maximum conversation turns',
-    parser: (value) => parseInt(value, 10),
+  settingSources: {
+    flags: '--setting-sources <sources>',
+    description: 'Setting sources to load (user, project, local)',
   },
-  maxConversationTurns: {
-    flags: '--max-conversation-turns <count>',
-    description: 'Maximum total conversation turns',
-    parser: (value) => parseInt(value, 10),
-    hidden: true,
+  pluginDir: {
+    flags: '--plugin-dir <paths...>',
+    description: 'Load plugins from directories',
   },
-  jsonOutputSchema: {
-    flags: '--json-output-schema <schema>',
-    description: 'JSON schema for structured output',
-    hidden: true,
-  },
-  plugins: {
-    flags: '--plugins <path>',
-    description: 'Plugin directory path',
-    hidden: true,
+  disableSlashCommands: {
+    flags: '--disable-slash-commands',
+    description: 'Disable all skills',
   },
   autoConnectIde: {
-    flags: '--auto-connect-ide',
-    description: 'Auto-connect to IDE',
+    flags: '--ide',
+    description: 'Automatically connect to IDE on startup',
   },
-  installIdeExtension: {
-    flags: '--install-ide-extension <ide>',
-    description: 'Install IDE extension (vscode, cursor, windsurf)',
+  loopy: {
+    flags: '--loopy [interval]',
+    description: 'Enable loopy mode (autonomous agent)',
+    hidden: true,
   },
-  skipInstallIdeExtension: {
-    flags: '--skip-install-ide-extension',
-    description: 'Skip IDE extension installation',
-  },
-  noAutoUpdater: {
-    flags: '--no-auto-updater',
-    description: 'Disable auto-updater',
-  },
-  useBedrock: {
-    flags: '--use-bedrock',
-    description: 'Use AWS Bedrock as provider',
-  },
-  useVertex: {
-    flags: '--use-vertex',
-    description: 'Use Google Vertex AI as provider',
+  enableAuthStatus: {
+    flags: '--enable-auth-status',
+    description: 'Enable auth status messages in SDK mode',
+    hidden: true,
   },
 };
 
@@ -482,9 +475,3 @@ export function validateOptions(options: ParsedCLIArgs): { valid: boolean; error
 function kebabCase(str: string): string {
   return str.replace(/([A-Z])/g, '-$1').toLowerCase();
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 以上符号已在定义处 `export`，避免重复导出。

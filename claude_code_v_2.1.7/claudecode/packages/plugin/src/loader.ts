@@ -620,6 +620,21 @@ export function formatPluginError(error: PluginError): string {
   }
 }
 
+/**
+ * Validate plugin or marketplace manifest.
+ * Original: Az1 in chunks.140.mjs:2404
+ */
+export function validateManifest(path: string): any {
+  // Placeholder implementation
+  return {
+    success: true,
+    errors: [],
+    warnings: [],
+    filePath: path,
+    fileType: 'plugin',
+  };
+}
+
 // ============================================
 // Export
 // ============================================

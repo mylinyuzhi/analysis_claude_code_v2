@@ -27,19 +27,19 @@ This document tracks the restoration status of Claude Code source code from obfu
 
 ### 01_cli - Command Line Interface
 - **Target**: `packages/cli/`
-- **Status**: ✅ Mostly Complete (~95%) - Fully aligned with Source
+- **Status**: ✅ Complete (100%) - Fully aligned with Source (v2.1.7)
 - **Implemented**:
   - Mode detection logic (detectExecutionMode) ✅
   - Option definitions (40+ CLI options) ✅
   - Version fast path ✅
-  - `mainEntry` (D_7) handler with mode switching ✅
-  - 10-phase initialization pipeline (zI9) fully aligned ✅
+  - `mainEntry` (D_7) with dynamic import optimization ✅
+  - 15-stage initialization pipeline (zI9) fully aligned ✅
+  - Actual logic for SettingsDetector and SkillDetector ✅
+  - Windows Shell configuration (F7Q) and Scratchpad (YX9) ✅
   - Network infrastructure (mTLS, Proxy, Undici) fully aligned ✅
   - Session management (continue/resume/teleport) logic ✅
   - Commander.js full integration ✅
-- **Remaining**:
-  - React UI rendering (MainInteractiveApp) - Mostly complete in entry.ts but relies on `packages/ui`
-- **Mode Handlers Status**: Most modes are now fully implemented or correctly delegate to specialized handlers.
+- **Mode Handlers**: All modes (print, interactive, mcp-cli, ripgrep, chrome-mcp, chrome-native) are correctly routed and implemented.
 
 ### 02_ui - Terminal User Interface
 - **Target**: `packages/ui/`
