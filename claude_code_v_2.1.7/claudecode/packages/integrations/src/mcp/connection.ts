@@ -814,6 +814,7 @@ export const connectMcpServer = memoize(async (
       const headers = await getMcpHeaders(serverName, config);
       const options = {
         authProvider,
+        // Original: fetch: Wr2(Q4A(fetch, { headers: B })), chunks.131.mjs:1580
         fetch: withMcpTimeout(withDefaultFetchOptions(fetch, { headers })),
         requestInit: {
           headers: {
@@ -918,6 +919,7 @@ export const connectMcpServer = memoize(async (
         }
       };
       const redacted = options.requestInit?.headers ? Object.fromEntries(Object.entries(options.requestInit.headers as any).map(([k, v]) => k.toLowerCase() === "authorization" ? [k, "[REDACTED]"] : [k, v])) : undefined;
+      // Original timeout: Fr2 = 60000ms
       logMcpDebug(serverName, `HTTP transport options: ${JSON.stringify({url:httpConfig.url, headers:redacted, hasAuthProvider:!!authProvider, timeoutMs: 60000})}`);
       transport = new HttpClientTransport(new URL(httpConfig.url), options);
       logMcpDebug(serverName, "HTTP transport created successfully");
@@ -949,6 +951,7 @@ export const connectMcpServer = memoize(async (
       }
     }
 
+    // Original: const client = new PG1({ name: "claude-code", version: "2.1.7" }, { capabilities: { roots: {} } });
     const client = new MCPClientImpl({
       name: "claude-code",
       version: "2.1.7"
@@ -1203,6 +1206,7 @@ export async function batchInitializeAllServers(
         onServerConnected({ client: clientConnection, tools: [], commands: [] });
         return;
       }
+      // Original: Capability fetching in parallel
       const hasResources = !!clientConnection.capabilities?.resources;
       const [tools, commands, resources] = await Promise.all([
         fetchMcpTools(clientConnection),
@@ -1221,6 +1225,7 @@ export async function batchInitializeAllServers(
     }
   };
 
+  // Original batch sizes: local=3, remote=20
   const localBatchSize = parseInt(process.env.MCP_SERVER_CONNECTION_BATCH_SIZE || "", 10) || 3;
   const remoteBatchSize = parseInt(process.env.MCP_REMOTE_SERVER_CONNECTION_BATCH_SIZE || "", 10) || 20;
 

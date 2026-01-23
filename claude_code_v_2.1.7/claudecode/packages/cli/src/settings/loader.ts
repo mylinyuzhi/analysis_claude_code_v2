@@ -524,40 +524,6 @@ function logNetwork(message: string, options?: { level?: string }): void {
 }
 
 /**
- * Get mTLS configuration (certs/keys).
- * Original: tT in chunks.46.mjs
- */
-export function getMtlsConfig(): { cert?: string; key?: string; passphrase?: string } | undefined {
-  const config: { cert?: string; key?: string; passphrase?: string } = {};
-  
-  if (process.env.CLAUDE_CODE_CLIENT_CERT) {
-    try {
-      config.cert = fs.readFileSync(process.env.CLAUDE_CODE_CLIENT_CERT, 'utf8');
-      logNetwork("mTLS: Loaded client certificate from CLAUDE_CODE_CLIENT_CERT");
-    } catch (error) {
-      logNetwork(`mTLS: Failed to load client certificate: ${error}`, { level: "error" });
-    }
-  }
-  
-  if (process.env.CLAUDE_CODE_CLIENT_KEY) {
-    try {
-      config.key = fs.readFileSync(process.env.CLAUDE_CODE_CLIENT_KEY, 'utf8');
-      logNetwork("mTLS: Loaded client key from CLAUDE_CODE_CLIENT_KEY");
-    } catch (error) {
-      logNetwork(`mTLS: Failed to load client key: ${error}`, { level: "error" });
-    }
-  }
-  
-  if (process.env.CLAUDE_CODE_CLIENT_KEY_PASSPHRASE) {
-    config.passphrase = process.env.CLAUDE_CODE_CLIENT_KEY_PASSPHRASE;
-    logNetwork("mTLS: Using client key passphrase");
-  }
-  
-  if (Object.keys(config).length === 0) return undefined;
-  return config;
-}
-
-/**
  * Configure global mTLS.
  * Original: btQ in chunks.46.mjs
  */
@@ -570,67 +536,10 @@ export function configureGlobalMTLS(): void {
 }
 
 /**
- * Get proxy URL from environment.
- * Original: bn in chunks.46.mjs
- */
-export function getProxyUrl(): string | undefined {
-  return process.env.https_proxy || process.env.HTTPS_PROXY || process.env.http_proxy || process.env.HTTP_PROXY;
-}
-
-/**
- * Check if URL should bypass proxy.
- * Original: leA in chunks.46.mjs
- */
-export function shouldBypassProxy(urlStr: string): boolean {
-  const noProxy = process.env.no_proxy || process.env.NO_PROXY;
-  if (!noProxy) return false;
-  if (noProxy === '*') return true;
-  
-  try {
-    const url = new URL(urlStr);
-    const hostname = url.hostname.toLowerCase();
-    const port = url.port || (url.protocol === 'https:' ? '443' : '80');
-    const hostPort = `${hostname}:${port}`;
-    
-    return noProxy.split(/[,\s]+/).filter(Boolean).some(pattern => {
-      const p = pattern.toLowerCase().trim();
-      if (p.includes(':')) return hostPort === p;
-      if (p.startsWith('.')) return hostname === p.substring(1) || hostname.endsWith(p);
-      return hostname === p;
-    });
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Check if should resolve hosts via proxy.
  */
 function shouldProxyResolveHosts(): boolean {
   return process.env.CLAUDE_CODE_PROXY_RESOLVES_HOSTS === 'true';
-}
-
-/**
- * Get axios proxy agent.
- * Original: gtQ in chunks.46.mjs
- */
-export function getAxiosProxyAgent(proxyUrl: string): any {
-  const mtlsConfig = getMtlsConfig();
-  const options: any = {
-    ...(mtlsConfig && {
-      cert: mtlsConfig.cert,
-      key: mtlsConfig.key,
-      passphrase: mtlsConfig.passphrase
-    })
-  };
-
-  if (shouldProxyResolveHosts()) {
-    options.lookup = (hostname: string, opts: any, callback: any) => {
-      callback(null, hostname, opts.family || 4);
-    };
-  }
-
-  return new HttpsProxyAgent(proxyUrl, options);
 }
 
 /**

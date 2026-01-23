@@ -42,6 +42,7 @@ export {
   isTelemetryEnabled,
   isSegmentEnabled,
   isDatadogEnabled,
+  checkFeatureGate,
   setFeatureGates,
 
   // Sampling

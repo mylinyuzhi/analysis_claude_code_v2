@@ -26,7 +26,7 @@ import { z } from 'zod';
 
 /**
  * Tool result schema hint for LLM.
- * Original: iC in chunks.131.mjs:1382
+ * Original: iC in chunks.131.mjs:1382 (referenced in callTool schema param)
  */
 const toolResultSchema = z.any();
 
@@ -234,8 +234,7 @@ async function truncateContentArray(content: any[], limit: number): Promise<any[
         const imageLimit = Math.floor(remainingLimit * 0.75);
         if (imageLimit > 0) {
           try {
-            // OeB would resize image, here we just skip if too large for simplicity or implement resize
-            // For now, let's just skip if it doesn't fit comfortably
+            // OeB would resize image, here we just skip if too large for simplicity
           } catch {}
         }
       }
@@ -379,7 +378,7 @@ export async function convertMcpContent(contentItem: any, serverName: string): P
 
 /**
  * Normalize tool response to standard format.
- * Original: sq0 in chunks.131.mjs:1320
+ * Original: sq0 in chunks.131.mjs:1320-1342
  */
 async function normalizeToolResponse(response: McpToolResult, toolName: string, serverName: string): Promise<{
   content: any;
@@ -413,7 +412,7 @@ async function normalizeToolResponse(response: McpToolResult, toolName: string, 
 
 /**
  * Process tool result for size and format.
- * Original: tB7 in chunks.131.mjs:1349
+ * Original: tB7 in chunks.131.mjs:1349-1367
  */
 export async function processToolResult(
   toolResponse: McpToolResult,
@@ -425,7 +424,7 @@ export async function processToolResult(
   if (serverName === "ide") return content;
   if (!await exceedsOutputLimit(content)) return content;
   
-  // NOTE: Logic in chunks.131.mjs:1357 - if flag is FALSE (via iX), save to file
+  // Original: if (iX(process.env.ENABLE_MCP_LARGE_OUTPUT_FILES)) return await hX0(G);
   if (parseBooleanFalse(process.env.ENABLE_MCP_LARGE_OUTPUT_FILES)) {
     return await saveToLargeOutputFile(content);
   }
@@ -474,11 +473,13 @@ export async function executeMcpTool({
   try {
     logMcpDebug(client.name, `Calling MCP tool: ${tool}`);
 
+    // Original: progress monitoring interval (30s)
     progressInterval = setInterval(() => {
       const elapsed = Date.now() - startTime;
       logMcpDebug(client.name, `Tool '${tool}' still running (${Math.floor(elapsed / 1000)}s elapsed)`);
     }, 30000);
 
+    // Original: keep-alive interval (50s)
     if (isKeepAliveEnabled()) {
       keepAliveInterval = setInterval(() => {
         sendKeepAlive();
@@ -493,6 +494,7 @@ export async function executeMcpTool({
       }, toolTimeout);
     });
 
+    // Original: callTool with Promise.race against timeout
     const toolResult = await Promise.race([
       client.client.callTool(
         { name: tool, arguments: args, _meta: meta },
@@ -504,13 +506,13 @@ export async function executeMcpTool({
       if (timeoutHandle) clearTimeout(timeoutHandle);
     });
 
-    if ("isError" in toolResult && toolResult.isError) {
+    if ("isError" in toolResult && (toolResult as any).isError) {
       let msg = "Unknown error";
-      if ("content" in toolResult && Array.isArray(toolResult.content) && toolResult.content.length > 0) {
-        const first = toolResult.content[0];
+      if ("content" in toolResult && Array.isArray((toolResult as any).content) && (toolResult as any).content.length > 0) {
+        const first = (toolResult as any).content[0];
         if (first && typeof first === "object" && "text" in first) msg = first.text;
       } else if ("error" in toolResult) {
-        msg = String(toolResult.error);
+        msg = String((toolResult as any).error);
       }
       logMcpError(client.name, msg);
       throw Error(msg);

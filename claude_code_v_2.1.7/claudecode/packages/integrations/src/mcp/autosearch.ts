@@ -1,12 +1,12 @@
 /**
  * @claudecode/integrations - MCP Auto Search
- *
+ * 
  * Decision logic for auto-search mode and MCPSearch tool.
- * Reconstructed from chunks.85.mjs and chunks.120.mjs
+ * Original: logic in chunks.85.mjs and chunks.120.mjs
  */
 
 import { parseBoolean } from '@claudecode/shared';
-import { trackEvent, getModelBetas, getContextWindowSize } from '@claudecode/platform';
+import { trackEvent, getModelBetas, getContextWindowSize, checkFeatureGate } from '@claudecode/platform';
 import { logMcpDebug } from './connection.js';
 import { z } from 'zod';
 
@@ -24,13 +24,13 @@ export const MCP_SEARCH_TOOL_NAME = "MCPSearch";
  * Threshold for auto-search mode (10% of context window).
  * Original: heB in chunks.85.mjs:623
  */
-const AUTO_SEARCH_THRESHOLD_PERCENT = 0.1;
+const MCP_SEARCH_CONTEXT_RATIO = 0.1;
 
 /**
  * Character per token multiplier for threshold calculation.
  * Original: At8 in chunks.85.mjs:625
  */
-const AUTO_SEARCH_CHAR_PER_TOKEN = 2.5;
+const CHAR_TO_TOKEN_MULTIPLIER = 2.5;
 
 /**
  * Models that do not support tool search (haiku series).
@@ -38,8 +38,11 @@ const AUTO_SEARCH_CHAR_PER_TOKEN = 2.5;
  */
 const UNSUPPORTED_SEARCH_MODELS = ["haiku"];
 
-// Cache for change detection
-let lastMcpToolNamesHash: string | null = null;
+/**
+ * Cache for MCP tool list changes.
+ * Original: rg2 in chunks.120.mjs:261
+ */
+let lastMcpToolsHash: string | null = null;
 
 // ============================================
 // Logic Helpers
@@ -47,33 +50,39 @@ let lastMcpToolNamesHash: string | null = null;
 
 /**
  * Calculate character threshold for auto-search based on model context window.
- * Original: geB in chunks.85.mjs:491
+ * Original: geB in chunks.85.mjs:491-495
  */
 export function calculateContextThreshold(modelId: string): number {
   const betas = getModelBetas(modelId);
   const contextWindow = getContextWindowSize(modelId, betas);
-  return Math.floor(contextWindow * AUTO_SEARCH_THRESHOLD_PERCENT * AUTO_SEARCH_CHAR_PER_TOKEN);
+  return Math.floor(contextWindow * MCP_SEARCH_CONTEXT_RATIO * CHAR_TO_TOKEN_MULTIPLIER);
 }
 
 /**
  * Get tool search mode from environment or experiment.
- * Original: k9A in chunks.85.mjs:506
+ * Original: k9A in chunks.85.mjs:506-516
  */
 export function getToolSearchMode(): "tst-auto" | "tst" | "mcp-cli" | "standard" {
-  const env = process.env.ENABLE_TOOL_SEARCH;
-  if (env === "auto") return "tst-auto";
-  if (parseBoolean(env)) return "tst";
+  if (process.env.ENABLE_TOOL_SEARCH === "auto") return "tst-auto";
+  if (parseBoolean(process.env.ENABLE_TOOL_SEARCH)) return "tst";
   if (parseBoolean(process.env.ENABLE_EXPERIMENTAL_MCP_CLI)) return "mcp-cli";
-  if (parseBoolean(env) === false) return "standard";
+  if (parseBoolean(process.env.ENABLE_TOOL_SEARCH) === false) return "standard";
+  if (parseBoolean(process.env.ENABLE_EXPERIMENTAL_MCP_CLI) === false) return "standard";
   
-  // Default to auto unless disabled by experiment
-  // Original uses ZZ ("tengu_mcp_tool_search", true) check
+  try {
+    if (checkFeatureGate("tengu_mcp_tool_search", true) === false) {
+      return "standard";
+    }
+  } catch {
+    // Ignore gate check errors
+  }
+  
   return "tst-auto";
 }
 
 /**
- * Check if auto-search is enabled globally.
- * Original: Zd in chunks.85.mjs:534
+ * Check if auto-search is enabled based on current mode.
+ * Original: Zd in chunks.85.mjs:534-543
  */
 export function isAutoSearchEnabled(): boolean {
   const mode = getToolSearchMode();
@@ -82,16 +91,17 @@ export function isAutoSearchEnabled(): boolean {
 
 /**
  * Check if model supports tool search.
- * Original: ueB in chunks.85.mjs:526
+ * Original: ueB in chunks.85.mjs:526-532
  */
 export function isModelSupportedForToolSearch(modelId: string): boolean {
   const id = modelId.toLowerCase();
+  // Original: Gt8() returns supported/unsupported list from feature gate or default Bt8
   return !UNSUPPORTED_SEARCH_MODELS.some(m => id.includes(m.toLowerCase()));
 }
 
 /**
  * Check if MCPSearch tool is in the tool list.
- * Original: meB in chunks.85.mjs:545
+ * Original: meB in chunks.85.mjs:545-547
  */
 export function isMcpSearchToolAvailable(tools: any[]): boolean {
   return tools.some(t => t.name === MCP_SEARCH_TOOL_NAME);
@@ -99,7 +109,7 @@ export function isMcpSearchToolAvailable(tools: any[]): boolean {
 
 /**
  * Calculate total size of MCP tool descriptions.
- * Original: Zt8 in chunks.85.mjs:549
+ * Original: Zt8 in chunks.85.mjs:549-557
  */
 export async function calculateMcpDescriptionSize(tools: any[], context: any): Promise<number> {
   const mcpTools = tools.filter(t => t.isMcp);
@@ -108,10 +118,6 @@ export async function calculateMcpDescriptionSize(tools: any[], context: any): P
   const prompts = await Promise.all(mcpTools.map(t => t.prompt(context)));
   return prompts.reduce((sum, p) => sum + (p?.length || 0), 0);
 }
-
-// ============================================
-// Main Decision Logic
-// ============================================
 
 /**
  * Determine if auto-search mode should be enabled for the current session.
@@ -138,13 +144,13 @@ export async function shouldEnableAutoSearch(
   };
 
   if (!isModelSupportedForToolSearch(modelId)) {
-    logMcpDebug("autosearch", `Tool search disabled for model '${modelId}': haiku models not supported`);
+    logMcpDebug("autosearch", `Tool search disabled for model '${modelId}': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.`);
     logDecision(false, "standard", "model_unsupported");
     return false;
   }
 
   if (!isMcpSearchToolAvailable(tools)) {
-    logMcpDebug("autosearch", "Tool search disabled: MCPSearch tool not found in tool list");
+    logMcpDebug("autosearch", "Tool search disabled: MCPSearchTool is not available (may have been disallowed via disallowedTools).");
     logDecision(false, "standard", "mcp_search_unavailable");
     return false;
   }
@@ -164,7 +170,7 @@ export async function shouldEnableAutoSearch(
       const threshold = calculateContextThreshold(modelId);
       const enabled = descriptionSize >= threshold;
       
-      logMcpDebug("autosearch", `Auto tool search ${enabled ? "enabled" : "disabled"}: ${descriptionSize} chars (threshold: ${threshold}, ${Math.round(AUTO_SEARCH_THRESHOLD_PERCENT * 100)}% of context)`);
+      logMcpDebug("autosearch", `Auto tool search ${enabled ? "enabled" : "disabled"}: ${descriptionSize} chars (threshold: ${threshold}, ${Math.round(MCP_SEARCH_CONTEXT_RATIO * 100)}% of context)`);
       
       logDecision(enabled, mode, enabled ? "auto_above_threshold" : "auto_below_threshold", {
         mcpToolDescriptionChars: descriptionSize,
@@ -191,63 +197,12 @@ export async function shouldEnableAutoSearch(
 
 /**
  * Generate description/prompt for MCPSearch tool.
- * Original: MZ0 in chunks.85.mjs:381
+ * Original: MZ0 in chunks.85.mjs:381-485
  */
 function getMcpSearchPrompt(tools: any[]): string {
   const mcpTools = tools.filter(t => t.isMcp);
-  if (mcpTools.length === 0) {
-    return `Search for or select MCP tools to make them available for use.
-
-**MANDATORY PREREQUISITE - THIS IS A HARD REQUIREMENT**
-
-You MUST use this tool to load MCP tools BEFORE calling them directly.
-
-This is a BLOCKING REQUIREMENT - MCP tools are NOT available until you load them using this tool.
-
-**Why this is non-negotiable:**
-- MCP tools are deferred and not loaded until discovered via this tool
-- Calling an MCP tool without first loading it will fail
-
-**Query modes:**
-
-1. **Direct selection** - Use \`select:<tool_name>\` when you know exactly which tool you need:
-   - "select:mcp__slack__read_channel"
-   - "select:mcp__filesystem__list_directory"
-   - Returns just that tool if it exists
-
-2. **Keyword search** - Use keywords when you're unsure which tool to use:
-   - "list directory" - find tools for listing directories
-   - "read file" - find tools for reading files
-   - "slack message" - find slack messaging tools
-   - Returns up to 5 matching tools ranked by relevance
-
-**CORRECT Usage Patterns:**
-
-<example>
-User: List files in the src directory
-Assistant: I can see mcp__filesystem__list_directory in the available tools. Let me select it.
-[Calls MCPSearch with query: "select:mcp__filesystem__list_directory"]
-[Calls the MCP tool]
-</example>
-
-<example>
-User: I need to work with slack somehow
-Assistant: Let me search for slack tools.
-[Calls MCPSearch with query: "slack"]
-Assistant: Found several options including mcp__slack__read_channel.
-[Calls the MCP tool]
-</example>
-
-**INCORRECT Usage Pattern - NEVER DO THIS:**
-
-<bad-example>
-User: Read my slack messages
-Assistant: [Directly calls mcp__slack__read_channel without loading it first]
-WRONG - You must load the tool FIRST using this tool
-</bad-example>`;
-  }
-
-  return `Search for or select MCP tools to make them available for use.
+  
+  const basePrompt = `Search for or select MCP tools to make them available for use.
 
 **MANDATORY PREREQUISITE - THIS IS A HARD REQUIREMENT**
 
@@ -295,28 +250,51 @@ Assistant: Found several options including mcp__slack__read_channel.
 User: Read my slack messages
 Assistant: [Directly calls mcp__slack__read_channel without loading it first]
 WRONG - You must load the tool FIRST using this tool
-</bad-example>
+</bad-example>`;
+
+  if (mcpTools.length === 0) return basePrompt;
+
+  return `${basePrompt}
 
 Available MCP tools (must be loaded before use):
 ${mcpTools.map(t => t.name).join('\n')}`;
 }
 
+// Memoized prompt fetcher for search
+// Original: sg2 in chunks.120.mjs:282-297
+const fetchToolPromptCached = (function() {
+  const cache = new Map<string, string>();
+  return async (toolName: string, tools: any[]) => {
+    if (cache.has(toolName)) return cache.get(toolName)!;
+    const tool = tools.find(t => t.name === toolName);
+    if (!tool) return "";
+    const prompt = await tool.prompt({
+      getToolPermissionContext: async () => ({
+        mode: "default",
+        additionalWorkingDirectories: new Map(),
+        alwaysAllowRules: {},
+        alwaysDenyRules: {},
+        alwaysAskRules: {},
+        isBypassPermissionsModeAvailable: false
+      }),
+      tools,
+      agents: []
+    });
+    cache.set(toolName, prompt);
+    return prompt;
+  };
+})();
+
 /**
  * Keyword search logic for MCP tools.
- * Original: bl5 in chunks.120.mjs:239
+ * Original: bl5 in chunks.120.mjs:239-255
  */
 async function searchMcpTools(query: string, mcpTools: any[], allTools: any[], limit: number): Promise<string[]> {
   const keywords = query.toLowerCase().split(/\s+/).filter(k => k.length > 0);
   
   const results = await Promise.all(mcpTools.map(async (tool) => {
     const nameMatch = tool.name.toLowerCase().replace(/__/g, " ");
-    // Fetch description via prompt()
-    // Original uses sg2 memoized wrapper
-    const description = (await tool.prompt({
-      getToolPermissionContext: async () => ({ mode: "default" }),
-      tools: allTools,
-      agents: []
-    })).toLowerCase();
+    const description = (await fetchToolPromptCached(tool.name, allTools)).toLowerCase();
     
     let score = 0;
     for (const kw of keywords) {
@@ -337,7 +315,7 @@ async function searchMcpTools(query: string, mcpTools: any[], allTools: any[], l
 
 /**
  * Create the MCPSearch tool.
- * Original: tg2 in chunks.120.mjs:298
+ * Original: tg2 in chunks.120.mjs:298-381
  */
 export function createMcpSearchTool(): any {
   return {
@@ -371,6 +349,14 @@ export function createMcpSearchTool(): any {
       const { query, max_results = 5 } = args;
       const mcpTools = tools.filter((t: any) => t.isMcp);
       
+      // Original kl5 cache invalidation check
+      const currentHash = mcpTools.map((t: any) => t.name).sort().join(",");
+      if (lastMcpToolsHash !== currentHash) {
+        logMcpDebug("MCPSearch", "MCPSearchTool: cache invalidated - MCP tools changed");
+        // Clear memoized prompts if needed
+        lastMcpToolsHash = currentHash;
+      }
+
       const logOutcome = (matches: string[], type: string) => {
         trackEvent("tengu_mcp_search_outcome", {
           query,
@@ -387,17 +373,17 @@ export function createMcpSearchTool(): any {
         const toolName = selectMatch[1].trim();
         const found = mcpTools.find((t: any) => t.name === toolName);
         if (!found) {
-          logMcpDebug("MCPSearch", `Tool not found: ${toolName}`);
+          logMcpDebug("MCPSearch", `MCPSearchTool: select failed - tool not found: ${toolName}`);
           logOutcome([], "select");
           return { data: { matches: [], query, total_mcp_tools: mcpTools.length } };
         }
-        logMcpDebug("MCPSearch", `Selected tool: ${toolName}`);
+        logMcpDebug("MCPSearch", `MCPSearchTool: selected "${toolName}"`);
         logOutcome([found.name], "select");
         return { data: { matches: [found.name], query, total_mcp_tools: mcpTools.length } };
       }
       
       const matches = await searchMcpTools(query, mcpTools, tools, max_results);
-      logMcpDebug("MCPSearch", `Keyword search for "${query}" found ${matches.length} matches`);
+      logMcpDebug("MCPSearch", `MCPSearchTool: keyword search for "${query}", found ${matches.length} matches`);
       logOutcome(matches, "keyword");
       
       return { data: { matches, query, total_mcp_tools: mcpTools.length } };
@@ -429,19 +415,26 @@ export function createMcpSearchTool(): any {
 
 /**
  * Scan message history for tools discovered via tool_reference.
- * Original: _Z0 in chunks.85.mjs:607
+ * Original: _Z0 in chunks.85.mjs:607-621
  */
 export function findDiscoveredToolsInHistory(messages: any[]): Set<string> {
   const discovered = new Set<string>();
+  
+  const isToolResultWithContent = (block: any) => 
+    typeof block === "object" && block !== null && block.type === "tool_result" && Array.isArray(block.content);
+    
+  const isToolReference = (item: any) =>
+    typeof item === "object" && item !== null && item.type === "tool_reference" && typeof item.tool_name === "string";
+
   for (const msg of messages) {
     if (msg.type !== "user" && msg.role !== "user") continue;
     const content = msg.message?.content || msg.content;
     if (!Array.isArray(content)) continue;
     
     for (const block of content) {
-      if (block.type === "tool_result" && Array.isArray(block.content)) {
+      if (isToolResultWithContent(block)) {
         for (const item of block.content) {
-          if (item.type === "tool_reference" && item.tool_name) {
+          if (isToolReference(item)) {
             discovered.add(item.tool_name);
           }
         }
@@ -450,8 +443,9 @@ export function findDiscoveredToolsInHistory(messages: any[]): Set<string> {
   }
   
   if (discovered.size > 0) {
-    logMcpDebug("autosearch", `Found ${discovered.size} discovered tools in message history`);
+    logMcpDebug("autosearch", `Dynamic tool loading: found ${discovered.size} discovered tools in message history`);
   }
   
   return discovered;
 }
+

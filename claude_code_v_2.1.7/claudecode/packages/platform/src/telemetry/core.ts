@@ -95,6 +95,16 @@ export function isDatadogEnabled(): boolean {
 }
 
 /**
+ * Check a feature gate value.
+ * Original: f8 in chunks.51.mjs
+ */
+export function checkFeatureGate(gateName: string, defaultValue: any): any {
+  // In real implementation, this would use GrowthBook
+  // For now, return default value
+  return defaultValue;
+}
+
+/**
  * Set feature gate values (for testing/configuration).
  */
 export function setFeatureGates(options: {

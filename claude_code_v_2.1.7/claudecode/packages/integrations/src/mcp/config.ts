@@ -219,6 +219,7 @@ async function discoverPluginsAndHooks(): Promise<{
   servers: Record<string, McpServerConfig>;
   errors: Array<{ server: string; error: string }>;
 }> {
+  // Original: DG in chunks.131.mjs:544
   // 尝试从已安装插件的 manifest 里读取 `mcpServers`（若存在）。
   // 该字段不在当前还原的 plugin types 中，但 source 运行时支持插件扩展。
   const errors: Array<{ server: string; error: string }> = [];
@@ -279,14 +280,17 @@ async function discoverPluginsAndHooks(): Promise<{
  * 5. Plugin (plugin manifests)
  */
 export async function loadAllMcpConfig(): Promise<McpConfigResult> {
+  // Original: let {servers: A} = sX("enterprise")
   // Step 1: Load enterprise servers (highest priority)
   const { servers: enterpriseServers } = loadScopeServers('enterprise');
 
   // Step 2: If enterprise config exists, ONLY use enterprise servers
+  // Original: if (_10()) { ... }
   if (enterpriseConfigExists()) {
     const filteredServers: Record<string, McpServerConfig> = {};
     for (const [name, config] of Object.entries(enterpriseServers)) {
       // Apply policy filter
+      // Original: if (!P10(K, D)) continue;
       if (!isServerAllowedByPolicy(name, config)) continue;
       filteredServers[name] = config;
     }
@@ -294,16 +298,19 @@ export async function loadAllMcpConfig(): Promise<McpConfigResult> {
   }
 
   // Step 3: Load from all other scopes
+  // Original: let {servers: Q} = sX("user"), {servers: B} = sX("project"), {servers: G} = sX("local")
   const { servers: userServers } = loadScopeServers('user');
   const { servers: projectServers } = loadScopeServers('project');
   const { servers: localServers } = loadScopeServers('local');
 
   // Step 4: Load plugin-provided servers
+  // Original: I = await DG()
   const pluginResult = await discoverPluginsAndHooks();
   const pluginServers = pluginResult.servers;
   const pluginErrors = pluginResult.errors;
 
   // Step 5: Filter project servers to only "approved" ones
+  // Original: for (let [F, K] of Object.entries(B)) if (C21(F) === "approved") J[F] = K;
   const approvedProjectServers: Record<string, McpServerConfig> = {};
   for (const [name, config] of Object.entries(projectServers)) {
     if (getProjectServerApprovalStatus(name) === 'approved') {
@@ -313,6 +320,7 @@ export async function loadAllMcpConfig(): Promise<McpConfigResult> {
 
   // Step 6: Merge servers (later overwrites earlier)
   // Priority: plugins → user → approved project → local
+  // Original: let W = Object.assign({}, Z, Q, J, G)
   const mergedServers: Record<string, McpServerConfig> = {
     ...pluginServers,
     ...userServers,
@@ -321,6 +329,7 @@ export async function loadAllMcpConfig(): Promise<McpConfigResult> {
   };
 
   // Step 7: Apply policy filters
+  // Original: for (let [F, K] of Object.entries(W)) { if (!P10(F, K)) continue; X[F] = K }
   const filteredServers: Record<string, McpServerConfig> = {};
   for (const [name, config] of Object.entries(mergedServers)) {
     if (!isServerAllowedByPolicy(name, config)) continue;

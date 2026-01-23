@@ -101,6 +101,7 @@ export {
   isTelemetryEnabled,
   isSegmentEnabled,
   isDatadogEnabled,
+  checkFeatureGate,
   setFeatureGates,
   setEventSamplingConfig,
   getSampleRate,

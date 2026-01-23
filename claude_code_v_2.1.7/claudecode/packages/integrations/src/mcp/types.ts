@@ -547,34 +547,44 @@ export type McpServerConnectedCallback = (result: McpServerConnectionResult) => 
  */
 export const MCP_CONSTANTS = {
   // Connection timeout (Fr2)
+  // Original: Fr2 in chunks.131.mjs:1507
   CONNECTION_TIMEOUT: 60000, // 60 seconds
 
   // Tool timeout ($C7)
+  // Original: $C7 in chunks.148.mjs:3546
   DEFAULT_TOOL_TIMEOUT: 100000000, // ~27 hours (effectively unlimited)
 
   // Batch size
+  // Original: Vr2 usage in chunks.131.mjs:1168
   DEFAULT_BATCH_SIZE: 3,
 
   // Progress interval
+  // Original: setInterval in zr2 (chunks.131.mjs:1382)
   PROGRESS_INTERVAL: 30000, // 30 seconds
 
   // Keep-alive interval
+  // Original: setInterval in zr2 (chunks.131.mjs:1385)
   KEEPALIVE_INTERVAL: 50000, // 50 seconds
 
   // Auto-search constants
+  // Original: heB in chunks.85.mjs:623
   SEARCH_CONTEXT_RATIO: 0.1, // 10% (heB)
+  // Original: At8 in chunks.85.mjs:624
   CHAR_TO_TOKEN_MULTIPLIER: 2.5, // (At8)
 
   // Tool naming
   TOOL_PREFIX: 'mcp__',
 
   // MCPSearch tool name (Db)
+  // Original: Db in chunks.85.mjs:487
   MCPSEARCH_TOOL_NAME: 'MCPSearch',
 
   // Reserved server names
+  // Original: Ej, uEA usage
   RESERVED_SERVERS: ['claude-in-chrome', 'ide'] as const,
 
   // Notification types
+  // Original: jY0, _Y0, NY0 in chunks.86.mjs
   NOTIFICATIONS: {
     TOOLS_LIST_CHANGED: 'notifications/tools/list_changed',
     PROMPTS_LIST_CHANGED: 'notifications/prompts/list_changed',
@@ -582,6 +592,7 @@ export const MCP_CONSTANTS = {
   } as const,
 
   // Supported image MIME types (nB7)
+  // Original: nB7 in chunks.131.mjs:1561
   SUPPORTED_IMAGE_TYPES: new Set([
     'image/jpeg',
     'image/png',

@@ -74,7 +74,6 @@ function getIndexingToolMetadata(toolName: string): any {
       return `Claude in Chrome[${toolName.replace(/_mcp$/, "")}]`;
     },
     renderToolUseMessage(input: any, { verbose }: { verbose?: boolean }) {
-      // Reconstructed UI rendering logic would go here
       return null;
     },
     renderToolUseTag(input: any) {
@@ -115,12 +114,14 @@ export const fetchMcpTools = memoize(async (server: McpConnectedServer): Promise
   try {
     if (!server.capabilities?.tools) return [];
     
+    // Original: let Q = await A.client.request({ method: "tools/list" }, WxA);
     const response = await server.client.request<{ tools: any[] }>({
       method: "tools/list"
     }, McpListToolsSchema);
     
     return ensureArray(response.tools).map((tool) => ({
       ...DEFAULT_TOOL_PROPS,
+      // Original: name: `mcp__${e3(A.name)}__${e3(G.name)}`
       name: `mcp__${sanitizeServerName(server.name)}__${sanitizeServerName(tool.name)}`,
       originalMcpToolName: tool.name,
       isMcp: true as const,
@@ -168,7 +169,7 @@ export const fetchMcpTools = memoize(async (server: McpConnectedServer): Promise
       },
       
       async call(args: any, { abortController }: any, _meta: any, extraContext: any) {
-        // Extract toolUseId if available (Original: eB7 in chunks.131.mjs:1964)
+        // Original: Extract toolUseId if available
         const toolUseId = extraContext?.toolUseId;
         const meta = toolUseId ? { "claudecode/toolUseId": toolUseId } : {};
         
@@ -272,7 +273,6 @@ export const fetchMcpPrompts = memoize(async (server: McpConnectedServer): Promi
               name: prompt.name,
               arguments: mapArgsToNames(argNames, argValues)
             });
-            // Import dynamically to avoid circular dependency if needed, or use re-exported from index
             const { convertMcpContent } = await import('./execution.js');
             return (await Promise.all(
               result.messages.map((msg: any) => convertMcpContent(msg.content, client.name))
@@ -308,19 +308,50 @@ export function clearDiscoveryCache(): void {
 
 /**
  * Refresh tools when list changed notification is received.
+ * Original: handleToolsListChanged in chunks.138.mjs:2917-2927
  */
 export async function refreshToolsOnListChanged(server: McpConnectedServer): Promise<void> {
-  const cacheKey = JSON.stringify(server); // Simple key for memoize default
+  const cacheKey = JSON.stringify(server); 
   (fetchMcpTools as any).cache.delete(cacheKey);
   (fetchMcpPrompts as any).cache.delete(cacheKey);
   (fetchMcpResources as any).cache.delete(cacheKey);
   
-  // Re-fetch to populate cache
   await Promise.all([
     fetchMcpTools(server),
     fetchMcpPrompts(server),
     fetchMcpResources(server)
   ]);
+}
+
+/**
+ * Setup notification handlers for list changes.
+ * Reconstructed from chunks.138.mjs
+ */
+export function setupListChangedHandlers(
+  server: McpConnectedServer,
+  onToolsChanged: () => void,
+  onPromptsChanged: () => void,
+  onResourcesChanged: () => void
+): void {
+  if (server.type !== "connected") return;
+  
+  if (server.capabilities?.tools?.listChanged) {
+    server.client.setNotificationHandler("notifications/tools/list_changed", async () => {
+      onToolsChanged();
+    });
+  }
+  
+  if (server.capabilities?.prompts?.listChanged) {
+    server.client.setNotificationHandler("notifications/prompts/list_changed", async () => {
+      onPromptsChanged();
+    });
+  }
+  
+  if (server.capabilities?.resources?.listChanged) {
+    server.client.setNotificationHandler("notifications/resources/list_changed", async () => {
+      onResourcesChanged();
+    });
+  }
 }
 
 /**
@@ -415,34 +446,3 @@ export const readResourceTool: McpWrappedTool = {
   },
   userFacingName: () => "readMcpResource"
 } as any as McpWrappedTool;
-
-/**
- * Setup notification handlers for list changes.
- * Reconstructed from chunks.131.mjs:1241
- */
-export function setupListChangedHandlers(
-  server: McpConnectedServer,
-  onToolsChanged: () => void,
-  onPromptsChanged: () => void,
-  onResourcesChanged: () => void
-): void {
-  if (server.type !== "connected") return;
-  
-  if (server.capabilities?.tools) {
-    server.client.setNotificationHandler("notifications/tools/list_changed", async () => {
-      onToolsChanged();
-    });
-  }
-  
-  if (server.capabilities?.prompts) {
-    server.client.setNotificationHandler("notifications/prompts/list_changed", async () => {
-      onPromptsChanged();
-    });
-  }
-  
-  if (server.capabilities?.resources) {
-    server.client.setNotificationHandler("notifications/resources/list_changed", async () => {
-      onResourcesChanged();
-    });
-  }
-}
