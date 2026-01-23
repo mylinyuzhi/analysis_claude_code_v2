@@ -41,31 +41,54 @@ type SetAppState = (updater: (state: AppState) => AppState) => void;
 
 /**
  * Check if two hooks are equal.
- * Original: LVA in chunks.91.mjs
+ * Original: LVA in chunks.91.mjs:2951
  */
 export function isHookEqual(hook1: HookDefinition, hook2: HookDefinition): boolean {
   if (hook1.type !== hook2.type) return false;
 
-  if (hook1.type === 'command' && hook2.type === 'command') {
-    return hook1.command === hook2.command;
+  switch (hook1.type) {
+    case 'command':
+      return hook2.type === 'command' && hook1.command === hook2.command;
+    case 'prompt':
+      return hook2.type === 'prompt' && hook1.prompt === hook2.prompt;
+    case 'agent':
+      return (
+        hook2.type === 'agent' &&
+        (typeof hook1.prompt === 'function' ? 'fn' : hook1.prompt) ===
+          (typeof hook2.prompt === 'function' ? 'fn' : hook2.prompt)
+      );
+    case 'callback':
+      return false;
+    default:
+      return false;
   }
+}
 
-  if (hook1.type === 'prompt' && hook2.type === 'prompt') {
-    return hook1.prompt === hook2.prompt;
-  }
+// ... (addSessionHook)
 
-  if (hook1.type === 'agent' && hook2.type === 'agent') {
-    // For agent hooks, compare prompt strings
-    const prompt1 = typeof hook1.prompt === 'function' ? 'fn' : hook1.prompt;
-    const prompt2 = typeof hook2.prompt === 'function' ? 'fn' : hook2.prompt;
-    return prompt1 === prompt2;
-  }
-
-  if (hook1.type === 'callback' && hook2.type === 'callback') {
-    return hook1.callback === hook2.callback;
-  }
-
-  return false;
+/**
+ * Add a function-type hook to session state.
+ * Original: f32 in chunks.91.mjs:2786-2796
+ */
+export function addFunctionHook(
+  setAppState: SetAppState,
+  sessionId: string,
+  eventType: HookEventType,
+  matcher: string,
+  callback: any,
+  errorMessage?: string,
+  options?: { id?: string; timeout?: number }
+): string {
+  const id = options?.id || `function-hook-${Date.now()}-${Math.random()}`;
+  const hook: any = {
+    type: 'function',
+    id,
+    timeout: options?.timeout || 5000,
+    callback,
+    errorMessage,
+  };
+  addHookToState(setAppState, sessionId, eventType, matcher, hook);
+  return id;
 }
 
 // ============================================

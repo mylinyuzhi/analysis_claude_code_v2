@@ -155,6 +155,100 @@ export function shouldSuppressOutput(output: HookOutput): boolean {
   return output.suppressOutput === true;
 }
 
+/**
+ * Process hook JSON output and return structured result.
+ * Original: Ru2 in chunks.120.mjs:1209-1316
+ */
+export function processHookJsonOutput(params: {
+  json: any;
+  command: string;
+  hookName: string;
+  toolUseID?: string;
+  hookEvent: string;
+  expectedHookEvent: string;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}): any {
+  const { json, command, hookName, hookEvent, expectedHookEvent, stdout, stderr, exitCode } = params;
+  
+  const result: any = {};
+  let outcome = 'success';
+
+  // Support both camelCase and snake_case as seen in Ru2 (chunks.120.mjs:1209-1316)
+  const shouldContinue = json.continue ?? json.prevent_continuation === false;
+  const preventContinuation = json.continue === false || json.prevent_continuation === true;
+
+  if (preventContinuation) {
+    result.preventContinuation = true;
+    result.stopReason = json.stopReason || json.stop_reason || 'Hook prevented continuation';
+    outcome = 'blocking';
+    result.blockingError = {
+      blockingError: result.stopReason,
+      command,
+    };
+  } else if (json.decision === 'block') {
+    outcome = 'blocking';
+    result.blockingError = {
+      blockingError: json.reason || 'Hook blocked operation',
+      command,
+    };
+  }
+
+  const systemMessage = json.systemMessage ?? json.system_message;
+  if (systemMessage) {
+    result.systemMessage = systemMessage;
+  }
+
+  const hookSpecificOutput = json.hookSpecificOutput ?? json.hook_specific_output;
+  if (hookSpecificOutput) {
+    const specific = hookSpecificOutput;
+    const specificHookEventName = specific.hookEventName ?? specific.hook_event_name;
+    
+    if (specificHookEventName !== expectedHookEvent) {
+      logDebug(`Hook ${hookName} returned hookSpecificOutput for ${specificHookEventName}, but was executed for ${expectedHookEvent}`);
+    } else {
+      switch (specificHookEventName) {
+        case 'PreToolUse':
+          result.permissionBehavior = specific.permissionDecision ?? specific.permission_decision;
+          result.updatedInput = specific.updatedInput ?? specific.updated_input;
+          result.hookPermissionDecisionReason = specific.permissionDecisionReason ?? specific.permission_decision_reason;
+          break;
+        case 'PostToolUse':
+          result.additionalContext = specific.additionalContext ?? specific.additional_context;
+          result.updatedMCPToolOutput = specific.updatedMCPToolOutput ?? specific.updated_mcp_tool_output;
+          break;
+        case 'PermissionRequest':
+          const decision = specific.decision;
+          if (decision) {
+            result.permissionRequestResult = {
+              behavior: decision.behavior,
+              updatedInput: decision.updatedInput ?? decision.updated_input,
+              updatedPermissions: decision.updatedPermissions ?? decision.updated_permissions,
+              message: decision.message,
+              interrupt: decision.interrupt,
+            };
+          }
+          break;
+        case 'UserPromptSubmit':
+        case 'SessionStart':
+        case 'SubagentStart':
+        case 'PostToolUseFailure':
+          result.additionalContext = specific.additionalContext ?? specific.additional_context;
+          break;
+      }
+    }
+  }
+
+  return {
+    ...result,
+    outcome,
+    stdout,
+    stderr,
+    exitCode,
+  };
+}
+
 // ============================================
 // Prompt Hook Response Validation
 // ============================================

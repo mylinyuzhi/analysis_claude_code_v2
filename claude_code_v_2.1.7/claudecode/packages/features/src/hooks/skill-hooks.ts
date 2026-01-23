@@ -9,14 +9,9 @@ import type {
   HookEventType,
   HookDefinition,
   EventHooksConfig,
-  HookExecutionResult,
-  HOOK_EVENT_TYPES,
 } from './types.js';
+import { HOOK_EVENT_TYPES } from './types.js';
 import { addSessionHook, removeHookFromState } from './state.js';
-
-// ============================================
-// Logging Placeholder
-// ============================================
 
 function logDebug(message: string): void {
   if (process.env.CLAUDE_DEBUG) {
@@ -24,34 +19,7 @@ function logDebug(message: string): void {
   }
 }
 
-// ============================================
-// App State Types
-// ============================================
-
-type SetAppState = (updater: (state: unknown) => unknown) => void;
-
-// ============================================
-// Hook Event Types Array
-// ============================================
-
-const ALL_HOOK_EVENT_TYPES: HookEventType[] = [
-  'PreToolUse',
-  'PostToolUse',
-  'PostToolUseFailure',
-  'Notification',
-  'UserPromptSubmit',
-  'SessionStart',
-  'SessionEnd',
-  'Stop',
-  'SubagentStart',
-  'SubagentStop',
-  'PreCompact',
-  'PermissionRequest',
-];
-
-// ============================================
-// Register Skill Hooks
-// ============================================
+type SetAppState = (updater: (state: any) => any) => void;
 
 /**
  * Register hooks from skill frontmatter.
@@ -71,23 +39,24 @@ export function registerSkillFrontmatterHooks(
 ): number {
   let registeredCount = 0;
 
-  for (const eventType of ALL_HOOK_EVENT_TYPES) {
+  for (const eventType of HOOK_EVENT_TYPES) {
     const eventMatchers = hooksConfig[eventType];
     if (!eventMatchers) continue;
 
     for (const matcher of eventMatchers) {
       for (const hook of matcher.hooks) {
         // Create removal callback for one-shot hooks
+        // Original: D = I.once ? () => { ... g32(A, Q, Y, I) } : void 0
         const onSuccessCallback = hook.once
           ? () => {
               logDebug(`Removing one-shot hook for event ${eventType} in skill '${skillName}'`);
-              removeHookFromState(setAppState as never, sessionId, eventType, hook);
+              removeHookFromState(setAppState, sessionId, eventType, hook);
             }
           : undefined;
 
         // Register the hook
         addSessionHook(
-          setAppState as never,
+          setAppState,
           sessionId,
           eventType,
           matcher.matcher || '',
@@ -117,7 +86,7 @@ export function unregisterSkillHooks(
 ): number {
   let removedCount = 0;
 
-  for (const eventType of ALL_HOOK_EVENT_TYPES) {
+  for (const eventType of HOOK_EVENT_TYPES) {
     const eventMatchers = hooksConfig[eventType];
     if (!eventMatchers) continue;
 
@@ -125,7 +94,7 @@ export function unregisterSkillHooks(
       for (const hook of matcher.hooks) {
         // Only remove non-once hooks (once hooks remove themselves)
         if (!hook.once) {
-          removeHookFromState(setAppState as never, sessionId, eventType, hook);
+          removeHookFromState(setAppState, sessionId, eventType, hook);
           removedCount++;
         }
       }
@@ -138,9 +107,3 @@ export function unregisterSkillHooks(
 
   return removedCount;
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 函数已在声明处导出；移除重复导出。

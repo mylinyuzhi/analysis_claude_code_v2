@@ -89,9 +89,9 @@ export interface AgentHook {
 }
 
 /**
- * Function hook - internal callback type.
+ * Callback hook - internal JS callback.
  */
-export interface FunctionHook {
+export interface CallbackHook {
   type: 'callback';
   /** Callback function */
   callback: (input: HookInput) => Promise<HookOutput | void>;
@@ -102,10 +102,32 @@ export interface FunctionHook {
 }
 
 /**
+ * Internal function hook - for state updates.
+ */
+export interface InternalFunctionHook {
+  type: 'function';
+  /** Unique ID */
+  id: string;
+  /** Callback function */
+  callback: any;
+  /** Error message on failure */
+  errorMessage?: string;
+  /** Timeout in milliseconds */
+  timeout?: number;
+  /** Auto-remove after first execution */
+  once?: boolean;
+}
+
+/**
  * Hook type union.
  * Original: v75 in chunks.90.mjs:1898
  */
-export type HookDefinition = CommandHook | PromptHook | AgentHook | FunctionHook;
+export type HookDefinition =
+  | CommandHook
+  | PromptHook
+  | AgentHook
+  | CallbackHook
+  | InternalFunctionHook;
 
 // ============================================
 // Hook Matcher
@@ -422,6 +444,20 @@ export interface HookExecutionResult {
   stdout?: string;
   /** Raw stderr from command hook */
   stderr?: string;
+  /** System message from hook */
+  systemMessage?: string;
+  /** Additional context from hook */
+  additionalContext?: any;
+  /** Updated MCP tool output from hook */
+  updatedMCPToolOutput?: any;
+  /** Permission behavior decision from hook */
+  permissionBehavior?: 'allow' | 'deny' | 'ask' | 'passthrough';
+  /** Updated tool input from hook */
+  updatedInput?: any;
+  /** Reason for permission decision */
+  hookPermissionDecisionReason?: string;
+  /** Permission request result */
+  permissionRequestResult?: any;
 }
 
 /**

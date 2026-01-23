@@ -36,6 +36,7 @@ export {
   shouldSuppressOutput,
   isValidPromptHookResponse,
   parsePromptHookResponse,
+  processHookJsonOutput,
 } from './output-parser.js';
 
 // Re-export command hook execution
@@ -45,6 +46,7 @@ export { executeCommandHook, executeCommandHookWithResult } from './command-hook
 export {
   isHookEqual,
   addSessionHook,
+  addFunctionHook,
   removeHookFromState,
   getSessionHooks,
   getSessionFunctionHooks,

@@ -365,32 +365,94 @@ export function getMatchingHooks(
   const matchedHooks: MatchedHook[] = [];
 
   // Determine match query based on event type
+  // Original: uU0 in chunks.120.mjs:1473-1497
   let matchQuery: string | undefined;
-  if ('tool_name' in hookInput) {
-    matchQuery = hookInput.tool_name;
-  } else if ('notification_type' in hookInput) {
-    matchQuery = hookInput.notification_type;
-  } else if ('agent_type' in hookInput && 'agent_id' in hookInput) {
-    matchQuery = hookInput.agent_type;
-  } else if ('trigger' in hookInput) {
-    matchQuery = hookInput.trigger;
-  } else if ('reason' in hookInput) {
-    matchQuery = hookInput.reason;
+  switch (hookInput.hook_event_name) {
+    case 'PreToolUse':
+    case 'PostToolUse':
+    case 'PostToolUseFailure':
+    case 'PermissionRequest':
+      matchQuery = (hookInput as any).tool_name;
+      break;
+    case 'SessionStart':
+      matchQuery = (hookInput as any).source;
+      break;
+    case 'PreCompact':
+      matchQuery = (hookInput as any).trigger;
+      break;
+    case 'Notification':
+      matchQuery = (hookInput as any).notification_type;
+      break;
+    case 'SessionEnd':
+      matchQuery = (hookInput as any).reason;
+      break;
+    case 'SubagentStart':
+      matchQuery = (hookInput as any).agent_type;
+      break;
   }
 
-  for (const matcher of eventHooks) {
+  logDebug(`Getting matching hook commands for ${eventType} with query: ${matchQuery || 'no match query'}`);
+
+  // 1. Filter and flatten matchers
+  const rawMatchedHooks: MatchedHook[] = [];
+  for (const matcherEntry of eventHooks) {
     // Check if pattern matches
-    if (!matchQuery || !matcher.matcher || matchHookPattern(matchQuery, matcher.matcher)) {
-      for (const hook of matcher.hooks) {
-        matchedHooks.push({
-          hook,
-          pluginRoot: (matcher as { pluginRoot?: string }).pluginRoot,
-        });
+    if (!matchQuery || !matcherEntry.matcher || matchHookPattern(matchQuery, matcherEntry.matcher)) {
+      const pluginRoot = (matcherEntry as any).pluginRoot;
+      for (const hook of matcherEntry.hooks) {
+        rawMatchedHooks.push({ hook, pluginRoot });
       }
     }
   }
 
-  return matchedHooks;
+  // 2. Deduplicate unique hooks by type-specific identifiers
+  // Original: uU0 in chunks.120.mjs:1506-1511
+  const commandHooks = Array.from(
+    new Map(
+      rawMatchedHooks
+        .filter((m) => m.hook.type === 'command')
+        .map((m) => [(m.hook as any).command, m])
+    ).values()
+  );
+
+  const promptHooks = Array.from(
+    new Map(
+      rawMatchedHooks
+        .filter((m) => m.hook.type === 'prompt')
+        .map((m) => [(m.hook as any).prompt, m])
+    ).values()
+  );
+
+  const agentHooks = Array.from(
+    new Map(
+      rawMatchedHooks
+        .filter((m) => m.hook.type === 'agent')
+        .map((m) => {
+          const prompt = typeof (m.hook as any).prompt === 'function' 
+            ? (m.hook as any).prompt([]) 
+            : (m.hook as any).prompt;
+          return [prompt, m];
+        })
+    ).values()
+  );
+
+  const callbackHooks = rawMatchedHooks.filter((m) => m.hook.type === 'callback');
+  const functionHooks = rawMatchedHooks.filter((m) => m.hook.type === 'function');
+
+  const uniqueMatchedHooks = [
+    ...commandHooks,
+    ...promptHooks,
+    ...agentHooks,
+    ...callbackHooks,
+    ...functionHooks,
+  ];
+
+  logDebug(
+    `Matched ${uniqueMatchedHooks.length} unique hooks for query "${matchQuery || 'no match query'}" ` +
+    `(${rawMatchedHooks.length} before deduplication)`
+  );
+
+  return uniqueMatchedHooks;
 }
 
 // ============================================
