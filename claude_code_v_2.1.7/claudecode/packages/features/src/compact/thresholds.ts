@@ -3,6 +3,12 @@
  *
  * Threshold calculation for compaction triggers.
  * Reconstructed from chunks.132.mjs:1472-1493
+ *
+ * Key symbols:
+ * - ic → calculateThresholds
+ * - nc → isAutoCompactEnabled
+ * - xs2 → getAutoCompactTarget
+ * - q3A → calculateAvailableTokens
  */
 
 import { COMPACT_CONSTANTS, type ThresholdResult } from './types.js';
@@ -13,7 +19,7 @@ import { parseBoolean } from '@claudecode/shared';
 // ============================================
 
 let autoCompactEnabled = true;
-let autoCompactTarget = 80000; // Default target
+let autoCompactTarget = COMPACT_CONSTANTS.MIN_TOKENS_TO_PRESERVE; // uL0 = 13000
 let availableTokens = 100000; // Model context limit
 
 /**
@@ -75,36 +81,40 @@ export function calculateAvailableTokens(): number {
  * @returns Threshold calculation result
  */
 export function calculateThresholds(currentTokenCount: number): ThresholdResult {
-  const autoTarget = getAutoCompactTarget();
+  const target = getAutoCompactTarget();
+  const enabled = isAutoCompactEnabled();
+  const totalLimit = calculateAvailableTokens();
 
-  // Effective limit depends on whether auto-compact is enabled
-  const effectiveLimit = isAutoCompactEnabled()
-    ? autoTarget
-    : calculateAvailableTokens();
+  // Effective base for percentage and warnings
+  // Original: B = nc() ? Q : q3A()
+  const effectiveBase = enabled ? target : totalLimit;
 
   // Calculate percentage of context remaining
+  // Original: G = Math.max(0, Math.round((B - A) / B * 100))
   const percentLeft = Math.max(
     0,
-    Math.round(((effectiveLimit - currentTokenCount) / effectiveLimit) * 100)
+    Math.round(((effectiveBase - currentTokenCount) / effectiveBase) * 100)
   );
 
   // Warning threshold: WARNING_THRESHOLD_OFFSET tokens before limit
-  const warningThreshold = effectiveLimit - COMPACT_CONSTANTS.WARNING_THRESHOLD_OFFSET;
+  // Original: Z = B - c97
+  const warningThreshold = effectiveBase - COMPACT_CONSTANTS.WARNING_THRESHOLD_OFFSET;
 
   // Error threshold: ERROR_THRESHOLD_OFFSET tokens before limit
-  const errorThreshold = effectiveLimit - COMPACT_CONSTANTS.ERROR_THRESHOLD_OFFSET;
+  // Original: Y = B - p97
+  const errorThreshold = effectiveBase - COMPACT_CONSTANTS.ERROR_THRESHOLD_OFFSET;
 
   // Check threshold conditions
   const isAboveWarningThreshold = currentTokenCount >= warningThreshold;
   const isAboveErrorThreshold = currentTokenCount >= errorThreshold;
 
   // Auto-compact triggers when enabled AND above target
-  const isAboveAutoCompactThreshold =
-    isAutoCompactEnabled() && currentTokenCount >= autoTarget;
+  // Original: I = nc() && A >= Q
+  const isAboveAutoCompactThreshold = enabled && currentTokenCount >= target;
 
   // Blocking limit with optional override
-  const defaultBlockingLimit =
-    calculateAvailableTokens() - COMPACT_CONSTANTS.MIN_BLOCKING_OFFSET;
+  // Original: D = q3A() - mL0
+  const defaultBlockingLimit = totalLimit - COMPACT_CONSTANTS.MIN_BLOCKING_OFFSET;
   const overrideValue = process.env.CLAUDE_CODE_BLOCKING_LIMIT_OVERRIDE;
   const parsedOverride = overrideValue ? parseInt(overrideValue, 10) : NaN;
   const blockingLimit =
@@ -119,6 +129,7 @@ export function calculateThresholds(currentTokenCount: number): ThresholdResult 
     isAtBlockingLimit,
   };
 }
+
 
 /**
  * Check if compaction should be triggered.

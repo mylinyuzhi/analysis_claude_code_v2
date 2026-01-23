@@ -10,7 +10,7 @@
  * - xZ0 → buildCompactInstructions
  */
 
-import { generateUUID } from '@claudecode/shared';
+import { generateUUID, sleep } from '@claudecode/shared';
 import {
   createUserMessage,
   streamApiCall,
@@ -19,6 +19,7 @@ import {
   type StreamApiCallOptions,
   type StreamingQueryResult,
 } from '@claudecode/core';
+import { analyticsEvent } from '@claudecode/platform';
 import type { Message } from '@claudecode/shared';
 import type {
   FullCompactResult,
@@ -44,8 +45,8 @@ import {
 // Error Messages
 // ============================================
 
-export const NOT_ENOUGH_MESSAGES_ERROR = 'Cannot compact: No messages to summarize';
-export const COMPACTION_INTERRUPTED_ERROR = 'Compaction was interrupted';
+export const NOT_ENOUGH_MESSAGES_ERROR = 'Not enough messages to compact.'; // DhA
+export const COMPACTION_INTERRUPTED_ERROR = 'Compaction interrupted. Please try again.'; // Bs2
 export const SUMMARY_FAILED_ERROR = 'Failed to generate conversation summary';
 
 // ============================================
@@ -69,7 +70,7 @@ export const executePluginHooksForEvent: (event: string) => Promise<unknown[]> =
   (async (event: string) => executePluginHooksForEventTrigger(event)) as any;
 
 // ============================================
-// Summary Generation
+// Summary Generation Helpers
 // ============================================
 
 /**
@@ -146,145 +147,138 @@ function convertToApiMessage(
 }
 
 /**
+ * Calculate exponential backoff.
+ * Original: fSA() in chunks.85.mjs
+ */
+function calculateBackoff(attempt: number): number {
+  return Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+}
+
+// ============================================
+// Summary Generation Implementation
+// ============================================
+
+/**
  * Generate conversation summary via LLM.
  * Original: H97() in chunks.132.mjs:590-652
  *
  * Streams the summary generation request to the LLM and collects the response.
+ * Includes retry logic and specific tool setup.
  */
 export async function generateConversationSummary(params: {
   messages: ConversationMessage[];
   summaryRequest: ConversationMessage;
-  appState: unknown;
+  appState: any;
   context: CompactSessionContext;
   preCompactTokenCount?: number;
 }): Promise<ConversationMessage> {
-  const { messages, summaryRequest, context, preCompactTokenCount } = params;
+  const { messages, summaryRequest, appState, context, preCompactTokenCount } = params;
 
-  // Convert conversation messages to API format
-  const apiMessages: Message[] = [];
+  // Check if streaming retry is enabled via feature flag (source: tengu_compact_streaming_retry)
+  // We use the constant from COMPACT_CONSTANTS.
+  const maxAttempts = COMPACT_CONSTANTS.MAX_SUMMARY_RETRIES; // K97 = 2
 
-  for (const msg of messages) {
-    const converted = convertToApiMessage(msg);
-    if (converted) {
-      apiMessages.push(converted);
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let hasStartedStreaming = false;
+    let assistantResponse: ConversationMessage | undefined;
+
+    context.setResponseLength?.(() => 0);
+
+    // Convert conversation messages to API format
+    const apiMessages: Message[] = [];
+    for (const msg of messages) {
+      const converted = convertToApiMessage(msg);
+      if (converted) apiMessages.push(converted);
     }
-  }
+    const summaryRequestConverted = convertToApiMessage(summaryRequest);
+    if (summaryRequestConverted) apiMessages.push(summaryRequestConverted);
 
-  // Add the summary request as the final user message
-  const summaryRequestConverted = convertToApiMessage(summaryRequest);
-  if (summaryRequestConverted) {
-    apiMessages.push(summaryRequestConverted);
-  }
+    const model = context.options.mainLoopModel || 'claude-sonnet-4-20250514';
 
-  // Get model from context or use default compact model
-  const model = context.options.mainLoopModel || 'claude-sonnet-4-20250514';
+    try {
+      // Build and stream the API call
+      // Original includes Read tool + MCP tools
+      const stream = streamApiCall({
+        messages: apiMessages as any[],
+        systemPrompt: 'You are a helpful AI assistant tasked with summarizing conversations.',
+        tools: appState.mcp?.tools || [], // Wi([v5, ...B.mcp.tools], "name") in source
+        signal: context.abortController?.signal,
+        options: {
+          model,
+          maxOutputTokensOverride: COMPACT_CONSTANTS.MAX_COMPACT_OUTPUT_TOKENS, // nU1
+          querySource: 'compact', // Mark as compaction request
+          isNonInteractiveSession: context.options.isNonInteractiveSession,
+          hasAppendSystemPrompt: !!context.options.appendSystemPrompt,
+          agents: context.options.agentDefinitions?.activeAgents || [],
+        } as any,
+      });
 
-  // Build the API request
-  const request: MessagesRequest = {
-    model,
-    max_tokens: 4096,
-    messages: apiMessages,
-    system: `You are a helpful assistant that summarizes conversations.
-Create a concise but comprehensive summary that preserves:
-- Key decisions and conclusions
-- Important files, code changes, and technical details
-- Outstanding tasks and next steps
-- Critical context needed for continuing the conversation
+      let responseText = '';
+      let responseUsage: CompactUsageStats = { input_tokens: 0, output_tokens: 0 };
 
-The summary will replace the full conversation history, so include all essential information.`,
-  };
+      for await (const chunk of stream) {
+        const c = chunk as StreamingQueryResult;
 
-  // Build streaming options
-  const options: StreamApiCallOptions = {
-    model,
-    signal: context.abortController?.signal,
-  };
-
-  try {
-    // Stream the API call
-    const stream = streamApiCall({
-      messages: request.messages as any[],
-      systemPrompt: typeof request.system === 'string' ? request.system : undefined,
-      tools: request.tools as any[],
-      signal: options.signal,
-      options: options as any
-    });
-
-    // Collect the response
-    let responseText = '';
-    let responseUsage: CompactUsageStats = {
-      input_tokens: 0,
-      output_tokens: 0,
-    };
-
-    for await (const chunk of stream) {
-      const c = chunk as StreamingQueryResult;
-      if (c.type === 'assistant') {
-        const textBlocks = c.message.content
-          .filter((b) => (b as any).type === 'text')
-          .map((b) => (b as any).text)
-          .filter((t): t is string => typeof t === 'string');
-
-        if (textBlocks.length > 0) {
-          responseText = textBlocks.join('\n');
-          context.setResponseLength?.(() => responseText.length);
+        // Detect when streaming starts
+        if (!hasStartedStreaming && c.type === 'stream_event' && (c as any).event?.type === 'content_block_start') {
+          hasStartedStreaming = true;
+          context.setStreamMode?.('responding');
         }
 
-        responseUsage = {
-          input_tokens: c.message.usage?.input_tokens ?? 0,
-          output_tokens: c.message.usage?.output_tokens ?? 0,
-          cache_read_input_tokens: c.message.usage?.cache_read_input_tokens,
-          cache_creation_input_tokens: c.message.usage?.cache_creation_input_tokens,
-        };
+        // Track response length for UI
+        if (c.type === 'stream_event' && (c as any).event?.type === 'content_block_delta') {
+          const delta = (c as any).event.delta;
+          if (delta?.type === 'text_delta') {
+            responseText += delta.text;
+            context.setResponseLength?.((current) => current + delta.text.length);
+          }
+        }
+
+        // Capture final assistant response
+        if (c.type === 'assistant') {
+          assistantResponse = c as unknown as ConversationMessage;
+          responseUsage = {
+            input_tokens: c.message.usage?.input_tokens ?? 0,
+            output_tokens: c.message.usage?.output_tokens ?? 0,
+            cache_read_input_tokens: c.message.usage?.cache_read_input_tokens,
+            cache_creation_input_tokens: c.message.usage?.cache_creation_input_tokens,
+          };
+        }
       }
-    }
 
-    // Validate we got a response
-    if (!responseText) {
-      throw new CompactError(
-        CompactErrorCode.SUMMARY_FAILED,
-        'LLM returned empty summary'
-      );
-    }
+      if (assistantResponse) {
+        return assistantResponse;
+      }
 
-    // Create assistant message with summary
-    return {
-      type: 'assistant',
-      uuid: generateUUID(),
-      timestamp: new Date().toISOString(),
-      message: {
-        id: generateUUID(),
-        container: null,
-        model,
-        role: 'assistant',
-        stop_reason: 'end_turn',
-        stop_sequence: null,
-        type: 'message',
-        usage: responseUsage,
-        content: [{ type: 'text', text: responseText }],
-        context_management: null,
-      },
-    } as ConversationMessage;
-  } catch (error) {
-    // Check if aborted
-    if (context.abortController?.signal.aborted) {
-      throw new CompactError(
-        CompactErrorCode.COMPACTION_INTERRUPTED,
-        COMPACTION_INTERRUPTED_ERROR
-      );
-    }
+      // If we got here without a response, it might be a silent failure or interruption
+      throw new Error('No assistant response received');
+    } catch (error) {
+      if (context.abortController?.signal.aborted) {
+        throw new CompactError(CompactErrorCode.COMPACTION_INTERRUPTED, COMPACTION_INTERRUPTED_ERROR);
+      }
 
-    // Re-throw compact errors
-    if (error instanceof CompactError) {
-      throw error;
-    }
+      if (attempt < maxAttempts) {
+        analyticsEvent('tengu_compact_streaming_retry', {
+          attempt,
+          preCompactTokenCount,
+          hasStartedStreaming,
+        });
+        await sleep(calculateBackoff(attempt), context.abortController?.signal);
+        continue;
+      }
 
-    // Wrap other errors
-    throw new CompactError(
-      CompactErrorCode.SUMMARY_FAILED,
-      `Failed to generate summary: ${error instanceof Error ? error.message : String(error)}`
-    );
+      // All retries exhausted
+      analyticsEvent('tengu_compact_failed', {
+        reason: 'no_streaming_response',
+        preCompactTokenCount,
+        hasStartedStreaming,
+        attempts: attempt,
+      });
+      throw new CompactError(CompactErrorCode.COMPACTION_INTERRUPTED, COMPACTION_INTERRUPTED_ERROR);
+    }
   }
+
+  throw new CompactError(CompactErrorCode.COMPACTION_INTERRUPTED, COMPACTION_INTERRUPTED_ERROR);
 }
 
 // ============================================
@@ -294,13 +288,6 @@ The summary will replace the full conversation history, so include all essential
 /**
  * Perform full LLM-based compaction.
  * Original: cF1() in chunks.132.mjs:489-579
- *
- * @param messages - Conversation messages to compact
- * @param context - Compact session context
- * @param preserveHistory - Whether to mark summary as preserving history
- * @param customInstructions - Custom instructions for summary
- * @param isAuto - Whether this is an auto-triggered compact
- * @returns Full compact result
  */
 export async function fullCompact(
   messages: ConversationMessage[],
@@ -318,8 +305,9 @@ export async function fullCompact(
     // Get pre-compact token count for telemetry
     const preCompactTokenCount = estimateMessageTokens(messages);
 
-    // Get app state
-    const appState = await context.getAppState();
+    // Get app state and validate permissions
+    const appState = (await context.getAppState()) as any;
+    // Source: q71(I.toolPermissionContext, "summary") - validation
 
     // Update UI spinners
     context.setSpinnerColor?.('claudeBlue_FOR_SYSTEM_SPINNER');
@@ -366,10 +354,8 @@ export async function fullCompact(
     // PHASE 4: Validate summary response
     const summaryText = extractTextContent(summaryResponse);
     if (!summaryText) {
-      throw new CompactError(
-        CompactErrorCode.SUMMARY_FAILED,
-        SUMMARY_FAILED_ERROR
-      );
+      analyticsEvent('tengu_compact_failed', { reason: 'no_summary', preCompactTokenCount });
+      throw new CompactError(CompactErrorCode.SUMMARY_FAILED, SUMMARY_FAILED_ERROR);
     }
 
     // PHASE 5: Restore context
@@ -387,11 +373,18 @@ export async function fullCompact(
     const usageStats = extractUsageStats(summaryResponse);
     const postCompactTokenCount = estimateMessageTokens([summaryResponse]);
 
+    // PHASE 8: Log telemetry
+    analyticsEvent('tengu_compact', {
+      preCompactTokenCount,
+      postCompactTokenCount,
+      compactionInputTokens: usageStats?.input_tokens,
+      compactionOutputTokens: usageStats?.output_tokens,
+      compactionCacheReadTokens: usageStats?.cache_read_input_tokens ?? 0,
+      compactionCacheCreationTokens: usageStats?.cache_creation_input_tokens ?? 0,
+    });
+
     // Create boundary marker and format summary
-    const boundaryMarker = createBoundaryMarker(
-      isAuto ? 'auto' : 'manual',
-      preCompactTokenCount
-    );
+    const boundaryMarker = createBoundaryMarker(isAuto ? 'auto' : 'manual', preCompactTokenCount);
     const transcriptPath = generateConversationId(context.agentId);
 
     const summaryMessages: ConversationMessage[] = [
@@ -399,7 +392,7 @@ export async function fullCompact(
         content: formatSummaryContent(summaryText, preserveHistory, transcriptPath),
         isCompactSummary: true,
         isVisibleInTranscriptOnly: true,
-      }),
+      }) as any,
     ];
 
     return {
@@ -414,8 +407,6 @@ export async function fullCompact(
     };
   } catch (error) {
     // Reset UI state on error
-    context.setStreamMode?.('requesting');
-    context.setResponseLength?.(() => 0);
     context.setSpinnerMessage?.(null);
     context.setSDKStatus?.(null);
     context.setSpinnerColor?.(null);
@@ -423,13 +414,14 @@ export async function fullCompact(
 
     throw error;
   } finally {
-    // Reset UI state
+    // Final UI reset
     context.setSpinnerMessage?.(null);
     context.setSDKStatus?.(null);
     context.setSpinnerColor?.(null);
     context.setSpinnerShimmerColor?.(null);
   }
 }
+
 
 // ============================================
 // Export

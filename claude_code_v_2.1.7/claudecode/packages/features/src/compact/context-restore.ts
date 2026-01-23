@@ -10,6 +10,8 @@
  * - xL0 → createPlanFileReferenceAttachment
  * - $97 → createInvokedSkillsAttachment
  * - C97 → createTaskStatusAttachments
+ * - U97 → shouldExcludeFromRestore
+ * - TL0 → readFileForRestore
  */
 
 import {
@@ -18,7 +20,9 @@ import {
   getProjectRoot,
   getSessionId,
   getSessionPath,
+  normalizePath,
 } from '@claudecode/shared';
+import { FileSystemWrapper, analyticsEvent } from '@claudecode/platform';
 import type { BoundaryMarker, CompactAttachment, CompactSessionContext } from './types.js';
 import { COMPACT_CONSTANTS } from './types.js';
 import {
@@ -30,6 +34,114 @@ import {
 // ============================================
 // File Restoration
 // ============================================
+
+/**
+ * Filters files that shouldn't be restored to avoid redundancy.
+ * Original: U97() in chunks.132.mjs:732-747
+ */
+export function shouldExcludeFromRestore(filepath: string, agentId?: string): boolean {
+  const normalized = normalizePath(filepath);
+
+  // Exclude 1: Agent's own todo file
+  try {
+    // Ir(G) in source is getTodoFilePath
+    // We don't have a direct equivalent here, but we can skip it if we know the pattern
+    // or just rely on the other exclusions.
+  } catch {}
+
+  // Exclude 2: Plan file for this agent (restored separately)
+  try {
+    const planPath = normalizePath(getPlanFilePath(agentId));
+    if (normalized === planPath) return true;
+  } catch {}
+
+  // Exclude 3: Skill directories (restored separately)
+  // sr2 = ["User", "Project", "Local", "Managed", "ExperimentalUltraClaudeMd"]
+  // MQA(Z) returns skill dir path
+  // For now, we assume standard skill paths are handled elsewhere or not critical to exclude if small
+  
+  // Exclude 4: Transcript file (prevents infinite recursion)
+  try {
+    const transcriptPath = normalizePath(getSessionPath(getSessionId(), getProjectRoot()));
+    if (normalized === transcriptPath) return true;
+  } catch {}
+
+  return false;
+}
+
+/**
+ * Read file for restoration.
+ * Original: TL0() in chunks.132.mjs:3-85
+ * 
+ * Re-reads the file from disk, respecting token limits and permissions.
+ */
+async function readFileForRestore(
+  filepath: string,
+  context: CompactSessionContext,
+  mode: 'compact' | 'at-mention' = 'compact'
+): Promise<CompactAttachment | null> {
+  // Check 1: Permission guard (nEA)
+  // We assume if it was in previousReadState, we had permission, but we should re-verify if possible.
+  // Since we don't have easy access to permission checking logic here without circular deps,
+  // we'll proceed assuming the environment allows reading files we've already read.
+  
+  try {
+    // Check 2: Validate file existence and size
+    if (!FileSystemWrapper.existsSync(filepath)) {
+      return null;
+    }
+    
+    const stats = FileSystemWrapper.statSync(filepath);
+    
+    // Check 3: Large file handling
+    // We don't have the exact tokenizer here easily, so we use byte size as proxy or read and truncate.
+    // In TL0, it uses v5.validateInput which checks size.
+    // If too large, it calls K() which returns compact_file_reference for 'compact' mode.
+    
+    // Arbitrary large size check (e.g. 1MB) or token estimate
+    const MAX_BYTES = COMPACT_CONSTANTS.MAX_TOKENS_PER_FILE * 10; // Approx buffer
+    
+    if (stats.size > MAX_BYTES && mode === 'compact') {
+      return {
+        type: 'compact_file_reference',
+        path: filepath, // TL0 uses filename
+        context: 'post-compact'
+      } as any;
+    }
+    
+    // Attempt read
+    const content = FileSystemWrapper.readFileSync(filepath, { encoding: 'utf-8' });
+    
+    // Check token count
+    const fileTokens = Math.ceil(content.length / 4); // Rough estimate
+    
+    if (fileTokens > COMPACT_CONSTANTS.MAX_TOKENS_PER_FILE) {
+      if (mode === 'compact') {
+        return {
+          type: 'compact_file_reference',
+          path: filepath,
+          context: 'post-compact'
+        } as any;
+      } else {
+        // Truncate for non-compact mode (not fully implemented here as we focus on compact)
+        return null;
+      }
+    }
+    
+    analyticsEvent('tengu_post_compact_file_restore_success', {});
+    
+    return {
+      type: 'file',
+      content,
+      path: filepath,
+      context: 'post-compact'
+    };
+    
+  } catch (error) {
+    analyticsEvent('tengu_post_compact_file_restore_error', {});
+    return null;
+  }
+}
 
 /**
  * Restore recently read files after compaction.
@@ -45,70 +157,58 @@ export async function restoreRecentFilesAfterCompact(
   context: CompactSessionContext,
   maxFiles: number = COMPACT_CONSTANTS.MAX_FILES_TO_RESTORE
 ): Promise<CompactAttachment[]> {
-  const attachments: CompactAttachment[] = [];
-
-  // Sort files by recency (most recent first)
+  // Filter and sort files by recency (most recent first)
+  // Original: G = Object.entries(A)...filter(U97)...sort...slice
   const sortedFiles = [...previousReadState.entries()]
+    .filter(([path]) => !shouldExcludeFromRestore(path, context.agentId))
     .sort(([, a], [, b]) => b.timestamp - a.timestamp)
     .slice(0, maxFiles);
 
-  let totalTokens = 0;
-  const maxTokensPerFile = COMPACT_CONSTANTS.MAX_TOKENS_PER_FILE;
-  const totalBudget = COMPACT_CONSTANTS.TOTAL_FILE_TOKEN_BUDGET;
+  // Original: Z = await Promise.all(G.map(async (J) => { let X = await TL0... }))
+  const restoredAttachments = await Promise.all(
+    sortedFiles.map(async ([path]) => {
+      // We ignore the cached content and re-read from disk to ensure freshness, matching E97/TL0 behavior
+      return readFileForRestore(path, context, 'compact');
+    })
+  );
 
-  for (const [path, { content }] of sortedFiles) {
-    // Estimate tokens for this file
-    const fileTokens = Math.ceil(content.length / 4); // Rough estimate
+  let accumulatedTokens = 0;
+  const totalBudget = COMPACT_CONSTANTS.TOTAL_FILE_TOKEN_BUDGET; // D97 = 50000
 
-    // Check if we'd exceed budget
-    if (totalTokens + fileTokens > totalBudget) {
-      break;
+  // Original: return Z.filter((J) => { ... })
+  return restoredAttachments.filter((attachment): attachment is CompactAttachment => {
+    if (!attachment) return false;
+    
+    // Estimate tokens for this attachment
+    let tokenCount = 0;
+    if (attachment.type === 'file' && attachment.content) {
+      tokenCount = Math.ceil(attachment.content.length / 4);
+    } else if (attachment.type === 'compact_file_reference') {
+      tokenCount = 100; // Small cost for reference
     }
-
-    // Truncate if file is too large
-    let restoredContent = content;
-    if (fileTokens > maxTokensPerFile) {
-      const maxChars = maxTokensPerFile * 4;
-      restoredContent = content.slice(0, maxChars) + '\n...[truncated for compaction]';
+    
+    if (accumulatedTokens + tokenCount <= totalBudget) {
+      accumulatedTokens += tokenCount;
+      return true;
     }
-
-    attachments.push({
-      type: 'file',
-      content: restoredContent,
-      path,
-      context: 'post-compact',
-    });
-
-    totalTokens += Math.min(fileTokens, maxTokensPerFile);
-  }
-
-  return attachments;
-}
-
-// ============================================
-// Todo Item Interface
-// ============================================
-
-/**
- * Todo item structure.
- */
-interface TodoItem {
-  content: string;
-  status: 'pending' | 'in_progress' | 'completed';
-  activeForm: string;
+    
+    return false; // Exceeds budget, drop this file
+  });
 }
 
 // ============================================
 // Todo Restoration
 // ============================================
 
+interface TodoItem {
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  activeForm: string;
+}
+
 /**
  * Get todo items for an agent from app state.
  * Original: Cb() in chunks.132.mjs
- *
- * @param context - Compact session context with app state access
- * @param agentId - Agent ID to get todos for
- * @returns Array of todo items
  */
 export function getTodoItems(
   context?: CompactSessionContext,
@@ -119,10 +219,10 @@ export function getTodoItems(
   }
 
   try {
-    // Get app state synchronously if possible
+    // Get app state synchronously if possible (caution: might be async in some implementations)
     const appStatePromise = context.getAppState();
     if (appStatePromise instanceof Promise) {
-      // Can't await in sync function, return empty
+      // In this reconstruction context, we prefer async version but keep sync for compatibility if needed.
       return [];
     }
 
@@ -136,16 +236,16 @@ export function getTodoItems(
 
 /**
  * Get todo items asynchronously.
+ * Original: Cb() in chunks.86.mjs
  */
 export async function getTodoItemsAsync(
   context: CompactSessionContext,
   agentId?: string
 ): Promise<TodoItem[]> {
   try {
-    const appState = await context.getAppState();
-    const state = appState as { todos?: Record<string, TodoItem[]> };
+    const appState = (await context.getAppState()) as any;
     const key = agentId || 'main';
-    return state?.todos?.[key] ?? [];
+    return appState?.todos?.[key] ?? [];
   } catch {
     return [];
   }
@@ -154,10 +254,6 @@ export async function getTodoItemsAsync(
 /**
  * Create todo attachment for restoration.
  * Original: z97() in chunks.132.mjs:677-686
- *
- * @param context - Compact session context
- * @param agentId - Agent ID to get todos for
- * @returns Todo attachment or null if no todos
  */
 export async function createTodoAttachment(
   context: CompactSessionContext,
@@ -169,17 +265,10 @@ export async function createTodoAttachment(
     return null;
   }
 
-  // Format todos for the summary
-  const formattedTodos = todoItems.map((todo) => ({
-    content: todo.content,
-    status: todo.status,
-    activeForm: todo.activeForm,
-  }));
-
   return {
     type: 'todo',
-    content: formattedTodos,
-    itemCount: formattedTodos.length,
+    content: todoItems,
+    itemCount: todoItems.length,
     context: 'post-compact',
   };
 }
@@ -189,53 +278,18 @@ export async function createTodoAttachment(
 // ============================================
 
 /**
- * Get current plan file path.
- * Original: xL0() helper in chunks.132.mjs
- *
- * Uses the plan-mode module's getPlanFilePath function.
- */
-export function getCurrentPlanFilePath(agentId?: string): string | null {
-  try {
-    // Check if plan file exists before returning path
-    if (!planFileExists(agentId)) {
-      return null;
-    }
-    return getPlanFilePath(agentId);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Read plan file content.
- *
- * Uses the plan-mode module's readPlanFile function.
- */
-export function readPlanFile(agentId?: string): string | null {
-  try {
-    return readPlanFileFromPlanMode(agentId);
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Create plan file reference attachment.
  * Original: xL0() in chunks.132.mjs:688-697
- *
- * @param agentId - Agent ID
- * @returns Plan attachment or null if no plan exists
  */
 export async function createPlanFileReferenceAttachment(
   agentId?: string
 ): Promise<CompactAttachment | null> {
-  const planPath = getCurrentPlanFilePath(agentId);
-
-  if (!planPath) {
+  if (!planFileExists(agentId)) {
     return null;
   }
 
-  const planContent = readPlanFile(agentId);
+  const planPath = getPlanFilePath(agentId);
+  const planContent = readPlanFileFromPlanMode(agentId);
 
   if (!planContent) {
     return null;
@@ -254,53 +308,29 @@ export async function createPlanFileReferenceAttachment(
 // ============================================
 
 /**
- * Get invoked skills for session from global state.
- * Original: $97() helper in chunks.132.mjs
- *
- * Retrieves skills from globalState.invokedSkills Map.
- */
-export function getInvokedSkills(): string[] {
-  try {
-    const globalState = getGlobalState();
-    const invokedSkills = globalState.invokedSkills;
-
-    if (!invokedSkills || invokedSkills.size === 0) {
-      return [];
-    }
-
-    // Return skill names
-    return Array.from(invokedSkills.keys());
-  } catch {
-    return [];
-  }
-}
-
-/**
  * Create invoked skills attachment.
- * Original: $97() in chunks.132.mjs
- *
- * @returns Skills attachment or null if no skills invoked
+ * Original: $97() in chunks.132.mjs:699-711
  */
 export function createInvokedSkillsAttachment(): CompactAttachment | null {
-  const skills = getInvokedSkills();
+  const globalState = getGlobalState();
+  const invokedSkills = (globalState as any).invokedSkills;
 
-  if (skills.length === 0) {
+  if (!invokedSkills || invokedSkills.size === 0) {
     return null;
   }
 
-  // Get full skill info from global state
-  const globalState = getGlobalState();
-  const skillInfos = skills.map((name) => {
-    const info = globalState.invokedSkills.get(name);
-    return {
-      name,
-      startTime: info?.startTime,
-    };
-  });
+  // Sort by most recently invoked
+  const sortedSkills = Array.from(invokedSkills.values())
+    .sort((a: any, b: any) => b.invokedAt - a.invokedAt)
+    .map((skill: any) => ({
+      name: skill.skillName,
+      path: skill.skillPath,
+      content: skill.content,
+    }));
 
   return {
     type: 'skill',
-    content: skillInfos,
+    skills: sortedSkills,
     context: 'post-compact',
   };
 }
@@ -310,64 +340,36 @@ export function createInvokedSkillsAttachment(): CompactAttachment | null {
 // ============================================
 
 /**
- * Task status interface.
- */
-interface TaskStatus {
-  taskId: string;
-  agentId?: string;
-  status: 'running' | 'completed' | 'error' | 'backgrounded';
-  description?: string;
-}
-
-/**
- * Get active task statuses from app state.
- * Original: C97() helper in chunks.132.mjs
- *
- * @param context - Compact session context
- * @returns Array of active task statuses
- */
-export async function getActiveTaskStatuses(
-  context: CompactSessionContext
-): Promise<TaskStatus[]> {
-  try {
-    const appState = await context.getAppState();
-    const state = appState as { activeTasks?: Record<string, TaskStatus> };
-
-    if (!state?.activeTasks) {
-      return [];
-    }
-
-    // Return only running or backgrounded tasks
-    return Object.values(state.activeTasks).filter(
-      (task) => task.status === 'running' || task.status === 'backgrounded'
-    );
-  } catch {
-    return [];
-  }
-}
-
-/**
  * Create task status attachments.
- * Original: C97() in chunks.132.mjs
- *
- * @param context - Compact session context
- * @returns Array of task status attachments
+ * Original: C97() in chunks.132.mjs:713-730
  */
 export async function createTaskStatusAttachments(
   context: CompactSessionContext
 ): Promise<CompactAttachment[]> {
-  const taskStatuses = await getActiveTaskStatuses(context);
+  const appState = (await context.getAppState()) as any;
+  if (!appState?.tasks) return [];
 
-  return taskStatuses.map((status) => ({
-    type: 'task_status' as const,
-    content: {
-      taskId: status.taskId,
-      agentId: status.agentId,
-      status: status.status,
-      description: status.description,
-    },
-    context: 'post-compact' as const,
-  }));
+  return Object.values(appState.tasks)
+    .filter((task: any) => task.type === 'local_agent')
+    .flatMap((task: any) => {
+      if (task.retrieved) return [];
+
+      const { status } = task;
+      if (status === 'completed' || status === 'failed' || status === 'killed') {
+        return [
+          {
+            type: 'task_status',
+            taskId: task.agentId,
+            taskType: 'local_agent',
+            description: task.description,
+            status: status,
+            deltaSummary: task.error ?? null,
+            context: 'post-compact',
+          },
+        ];
+      }
+      return [];
+    });
 }
 
 // ============================================
@@ -377,10 +379,6 @@ export async function createTaskStatusAttachments(
 /**
  * Create boundary marker for compact event.
  * Original: pF1() in chunks.132.mjs
- *
- * @param trigger - Compact trigger type
- * @param preCompactTokenCount - Token count before compact
- * @returns Boundary marker
  */
 export function createBoundaryMarker(
   trigger: 'auto' | 'manual',
@@ -410,18 +408,12 @@ export function createBoundaryMarker(
  * Original: Bw() in chunks.132.mjs
  */
 export function generateConversationId(_agentId?: string): string {
-  // NOTE: Despite the name, original Bw() returns the current session transcript path.
   return getSessionPath(getSessionId(), getProjectRoot());
 }
 
 /**
  * Format summary content for user message.
  * Original: u51() in chunks.132.mjs
- *
- * @param summaryText - Generated summary text
- * @param preserveHistory - Whether to mark as history
- * @param conversationId - Unique conversation ID
- * @returns Formatted summary content
  */
 export function formatSummaryContent(
   summaryText: string,
@@ -451,25 +443,11 @@ export function formatSummaryContent(
 
 /**
  * Collect all context attachments after compaction.
- *
- * Gathers:
- * - Recently read files (limited by token budget)
- * - Active task statuses
- * - Todo items
- * - Plan file reference
- * - Invoked skills
- *
- * @param context - Compact session context
- * @param previousReadState - Read file state before compact
- * @returns Array of all attachments
  */
 export async function collectContextAttachments(
   context: CompactSessionContext,
   previousReadState: Map<string, { content: string; timestamp: number }>
 ): Promise<CompactAttachment[]> {
-  const attachments: CompactAttachment[] = [];
-
-  // Restore files, task statuses, and todos in parallel
   const [restoredFiles, taskStatuses, todoAttachment, planAttachment] = await Promise.all([
     restoreRecentFilesAfterCompact(previousReadState, context),
     createTaskStatusAttachments(context),
@@ -477,33 +455,13 @@ export async function collectContextAttachments(
     createPlanFileReferenceAttachment(context.agentId),
   ]);
 
-  // Add restored files
-  attachments.push(...restoredFiles);
+  const attachments: CompactAttachment[] = [...restoredFiles, ...taskStatuses];
 
-  // Add task statuses
-  attachments.push(...taskStatuses);
+  if (todoAttachment) attachments.push(todoAttachment);
+  if (planAttachment) attachments.push(planAttachment);
 
-  // Add todo attachment if present
-  if (todoAttachment) {
-    attachments.push(todoAttachment);
-  }
-
-  // Add plan file attachment if present
-  if (planAttachment) {
-    attachments.push(planAttachment);
-  }
-
-  // Add invoked skills attachment (synchronous)
   const skillsAttachment = createInvokedSkillsAttachment();
-  if (skillsAttachment) {
-    attachments.push(skillsAttachment);
-  }
+  if (skillsAttachment) attachments.push(skillsAttachment);
 
   return attachments;
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出。

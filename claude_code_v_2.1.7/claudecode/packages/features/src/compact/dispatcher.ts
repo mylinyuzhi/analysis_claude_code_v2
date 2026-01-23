@@ -3,12 +3,16 @@
  *
  * Main entry point for automatic compaction.
  * Reconstructed from chunks.132.mjs:1511-1535
+ *
+ * Key symbols:
+ * - ys2 → autoCompactDispatcher
+ * - sF1 → sessionMemoryCompact
  */
 
 import { parseBoolean } from '@claudecode/shared';
 import type { ConversationMessage } from '@claudecode/core';
 import { getProjectDir, getProjectRoot, getSessionId } from '@claudecode/shared';
-import { FileSystemWrapper, joinPath } from '@claudecode/platform';
+import { FileSystemWrapper, joinPath, analyticsEvent } from '@claudecode/platform';
 import { homedir } from 'os';
 import type {
   AutoCompactResult,
@@ -24,7 +28,7 @@ import {
   estimateTokensWithSafetyMargin,
   estimateMessageTokens,
 } from './thresholds.js';
-import { fullCompact } from './full-compact.js';
+import { fullCompact, COMPACTION_INTERRUPTED_ERROR } from './full-compact.js';
 import {
   createBoundaryMarker,
   createPlanFileReferenceAttachment,
@@ -35,12 +39,9 @@ import { createUserMessage } from '@claudecode/core';
 import { executePluginHooksForEvent } from '../hooks/triggers.js';
 
 // ============================================
-// Session Memory Compact
+// Session Memory Compact State
 // ============================================
 
-/**
- * Session memory compact state
- */
 let lastSummarizedId: string | undefined;
 
 /**
@@ -52,10 +53,7 @@ let pendingSessionMemoryUpdateStartedAt: number | undefined;
 const SESSION_MEMORY_WAIT_TIMEOUT_MS = 15000; // q97
 const SESSION_MEMORY_STALE_UPDATE_MS = 60000; // N97
 
-/**
- * Default session-memory template (w97 in chunks.132.mjs).
- * Used when custom template is not present.
- */
+// Default session-memory template (w97 in chunks.132.mjs)
 const DEFAULT_SESSION_MEMORY_TEMPLATE = `
 # Session Title
 _A short and distinctive 5-10 word descriptive title for the session. Super info dense, no filler_
@@ -104,6 +102,10 @@ const DEFAULT_SM_COMPACT_RANGE: SessionMemoryCompactRangeConfig = {
 let smCompactRangeConfig: SessionMemoryCompactRangeConfig = { ...DEFAULT_SM_COMPACT_RANGE };
 let smCompactRangeLoaded = false;
 
+// ============================================
+// Helper Functions
+// ============================================
+
 /**
  * Set last summarized message ID.
  * Original: oEA() in chunks.132.mjs
@@ -120,14 +122,18 @@ export function getLastSummarizedId(): string | undefined {
   return lastSummarizedId;
 }
 
-function markSessionMemoryUpdateStart(): void {
+export function markSessionMemoryUpdateStart(): void {
   pendingSessionMemoryUpdateStartedAt = Date.now();
 }
 
-function markSessionMemoryUpdateEnd(): void {
+export function markSessionMemoryUpdateEnd(): void {
   pendingSessionMemoryUpdateStartedAt = undefined;
 }
 
+/**
+ * Wait for pending session memory update.
+ * Original: Ws2() in chunks.132.mjs
+ */
 async function waitForPendingSessionMemoryUpdate(): Promise<void> {
   const start = Date.now();
   while (pendingSessionMemoryUpdateStartedAt) {
@@ -142,9 +148,8 @@ async function waitForPendingSessionMemoryUpdate(): Promise<void> {
  * Original: rF1() in chunks.132.mjs
  */
 export function isSessionMemoryCompactEnabled(): boolean {
-  // Feature-gated in source via flags: tengu_session_memory + tengu_sm_compact
-  // We mirror this with env toggles.
   if (parseBoolean(process.env.DISABLE_COMPACT)) return false;
+  // In source, this checks tengu_session_memory and tengu_sm_compact feature flags
   return (
     parseBoolean(process.env.CLAUDE_CODE_ENABLE_SESSION_MEMORY ?? '') ||
     parseBoolean(process.env.CLAUDE_CODE_ENABLE_SM_COMPACT ?? '')
@@ -152,17 +157,14 @@ export function isSessionMemoryCompactEnabled(): boolean {
 }
 
 function getSessionMemoryDir(): string {
-  // Mirrors chunks.148.mjs: lz1() = join(getProjectDir(getProjectRoot()), getSessionId(), 'session-memory')
   return joinPath(getProjectDir(getProjectRoot()), getSessionId(), 'session-memory');
 }
 
 function getSessionMemorySummaryPath(): string {
-  // Mirrors chunks.148.mjs: VhA() = join(lz1(), 'summary.md')
   return joinPath(getSessionMemoryDir(), 'summary.md');
 }
 
 function getSessionMemoryConfigPath(fileName: 'template.md' | 'prompt.md'): string {
-  // Mirrors chunks.132.mjs: ws2(zQ(), 'session-memory', 'config', <file>)
   return joinPath(homedir(), '.claude', 'session-memory', 'config', fileName);
 }
 
@@ -184,17 +186,19 @@ function readSessionMemoryFile(): string | null {
   return FileSystemWrapper.readFileSync(p, { encoding: 'utf-8' });
 }
 
+/**
+ * Check if template is empty.
+ * Original: Os2() in chunks.132.mjs
+ */
 async function isTemplateEmpty(summaryContent: string): Promise<boolean> {
-  // Mirrors chunks.132.mjs: Os2(summary) compares against the template.
   const template = loadSessionMemoryTemplate();
   return summaryContent.trim() === template.trim();
 }
 
 async function ensureSmCompactRangeLoaded(): Promise<void> {
-  // Mirrors chunks.132.mjs: h97() loads remote overrides once.
   if (smCompactRangeLoaded) return;
   smCompactRangeLoaded = true;
-  // No remote config available in this reconstruction; keep defaults.
+  // h97 in source loads remote config; we use defaults here.
 }
 
 function hasTextContent(msg: ConversationMessage): boolean {
@@ -233,11 +237,14 @@ function assistantHasToolUseForIds(msg: ConversationMessage, ids: Set<string>): 
   });
 }
 
+/**
+ * Adjust start index to include corresponding tool uses.
+ * Original: hL0() in chunks.132.mjs
+ */
 function adjustStartIndexToIncludeToolUses(
   messages: ConversationMessage[],
   startIndex: number
 ): number {
-  // Mirrors chunks.132.mjs: hL0(A, G)
   if (startIndex <= 0 || startIndex >= messages.length) return startIndex;
 
   let idx = startIndex;
@@ -265,11 +272,14 @@ function adjustStartIndexToIncludeToolUses(
   return idx;
 }
 
+/**
+ * Compute start index for messages to keep.
+ * Original: m97() in chunks.132.mjs
+ */
 function computeSessionMemoryKeepStartIndex(
   messages: ConversationMessage[],
   summarizedMessageIndex: number
 ): number {
-  // Mirrors chunks.132.mjs: m97(A, Y)
   if (messages.length === 0) return 0;
 
   const cfg = { ...smCompactRangeConfig };
@@ -278,6 +288,7 @@ function computeSessionMemoryKeepStartIndex(
   let tokenTotal = 0;
   let textBlockMessages = 0;
 
+  // Scan forward from summarized message
   for (let j = start; j < messages.length; j++) {
     const m = messages[j];
     if (!m) continue;
@@ -285,11 +296,13 @@ function computeSessionMemoryKeepStartIndex(
     if (hasTextContent(m)) textBlockMessages++;
   }
 
+  // If already above limit, just adjust tool pairs
   if (tokenTotal >= cfg.maxTokens) return adjustStartIndexToIncludeToolUses(messages, start);
   if (tokenTotal >= cfg.minTokens && textBlockMessages >= cfg.minTextBlockMessages) {
     return adjustStartIndexToIncludeToolUses(messages, start);
   }
 
+  // Otherwise scan backward to reach minimums
   for (let j = start - 1; j >= 0; j--) {
     const m = messages[j];
     if (!m) continue;
@@ -303,6 +316,10 @@ function computeSessionMemoryKeepStartIndex(
   return adjustStartIndexToIncludeToolUses(messages, start);
 }
 
+/**
+ * Flatten result for token counting.
+ * Original: FHA() in chunks.132.mjs
+ */
 function flattenCompactionMessages(result: {
   boundaryMarker: unknown;
   summaryMessages: ConversationMessage[];
@@ -310,7 +327,6 @@ function flattenCompactionMessages(result: {
   attachments: unknown[];
   hookResults: unknown[];
 }): unknown[] {
-  // Mirrors chunks.132.mjs: FHA(A)
   return [
     result.boundaryMarker,
     ...result.summaryMessages,
@@ -320,6 +336,10 @@ function flattenCompactionMessages(result: {
   ].filter(Boolean);
 }
 
+/**
+ * Build session memory compact result.
+ * Original: d97() in chunks.132.mjs
+ */
 function buildSessionMemoryCompactResult(params: {
   messages: ConversationMessage[];
   cachedSummary: string;
@@ -351,37 +371,32 @@ function buildSessionMemoryCompactResult(params: {
   } as any;
 }
 
+// ============================================
+// Session Memory Compact Implementation
+// ============================================
+
 /**
  * Session memory compact.
  * Original: sF1() in chunks.132.mjs:1392-1422
  *
  * Uses cached session summary for fast compaction without LLM call.
- *
- * @param messages - Conversation messages
- * @param agentId - Agent ID
- * @param autoCompactThreshold - Token threshold
- * @returns Session memory compact result or null if not available
  */
 export async function sessionMemoryCompact(
   messages: ConversationMessage[],
   agentId: string | undefined,
   autoCompactThreshold?: number
 ): Promise<SessionMemoryCompactResult | null> {
-  // Check if session memory compact feature is enabled
-  if (!isSessionMemoryCompactEnabled()) {
-    return null;
-  }
+  if (!isSessionMemoryCompactEnabled()) return null;
 
-  // Mirrors chunks.132.mjs: await h97(), await Ws2();
   await ensureSmCompactRangeLoaded();
   await waitForPendingSessionMemoryUpdate();
 
-  // Get last summarized message ID and read cached summary
   const lastId = getLastSummarizedId();
   const cachedSummary = readSessionMemoryFile();
   if (!cachedSummary) return null;
 
   if (await isTemplateEmpty(cachedSummary)) {
+    analyticsEvent('tengu_sm_compact_empty_template', {});
     return null;
   }
 
@@ -389,9 +404,13 @@ export async function sessionMemoryCompact(
     let summarizedIndex: number;
     if (lastId) {
       summarizedIndex = messages.findIndex((m) => (m as any).uuid === lastId);
-      if (summarizedIndex === -1) return null;
+      if (summarizedIndex === -1) {
+        analyticsEvent('tengu_sm_compact_summarized_id_not_found', {});
+        return null;
+      }
     } else {
       summarizedIndex = messages.length - 1;
+      analyticsEvent('tengu_sm_compact_resumed_session', {});
     }
 
     const keepStartIndex = computeSessionMemoryKeepStartIndex(messages, summarizedIndex);
@@ -415,6 +434,10 @@ export async function sessionMemoryCompact(
     const postCompactTokenCount = estimateTokensWithSafetyMargin(flattened);
 
     if (autoCompactThreshold !== undefined && postCompactTokenCount >= autoCompactThreshold) {
+      analyticsEvent('tengu_sm_compact_threshold_exceeded', {
+        postCompactTokenCount,
+        autoCompactThreshold,
+      });
       return null;
     }
 
@@ -428,14 +451,10 @@ export async function sessionMemoryCompact(
 }
 
 // ============================================
-// Error Handling
+// Auto-Compact Dispatcher
 // ============================================
 
-/**
- * API abort error identifier.
- * Original: vkA in chunks.132.mjs
- */
-const API_ABORT_ERROR = 'API_ABORT';
+const API_ABORT_ERROR = 'API Error: Request was aborted.'; // vkA
 
 /**
  * Check if error is an expected abort error.
@@ -445,20 +464,12 @@ function isExpectedError(error: unknown, errorType: string): boolean {
   if (error instanceof Error) {
     return error.message.includes(errorType) || error.name === errorType;
   }
-  return false;
+  return String(error).includes(errorType);
 }
 
-/**
- * Log error.
- * Original: e() in chunks.132.mjs
- */
 function logError(error: Error): void {
   console.error('[Compact Error]', error.message);
 }
-
-// ============================================
-// Auto-Compact Dispatcher
-// ============================================
 
 /**
  * Auto-compact dispatcher.
@@ -466,11 +477,6 @@ function logError(error: Error): void {
  *
  * Main entry point for automatic compaction. Tries session memory first,
  * then falls back to full LLM-based compaction.
- *
- * @param messages - Conversation messages
- * @param context - Compact session context
- * @param sessionMemoryType - Type of session memory
- * @returns Auto-compact result
  */
 export async function autoCompactDispatcher(
   messages: ConversationMessage[],
@@ -512,6 +518,7 @@ export async function autoCompactDispatcher(
     );
 
     // Clear the last summarized message ID after full compact
+    // Original: oEA(void 0)
     setLastSummarizedId(undefined);
 
     return {
@@ -531,11 +538,6 @@ export async function autoCompactDispatcher(
  * Manual compact dispatcher.
  *
  * Triggers compaction manually with optional custom instructions.
- *
- * @param messages - Conversation messages
- * @param context - Compact session context
- * @param customInstructions - Custom instructions for summary
- * @returns Full compact result
  */
 export async function manualCompact(
   messages: ConversationMessage[],
@@ -557,6 +559,7 @@ export async function manualCompact(
 export function isAutoCompactAvailable(): boolean {
   return isAutoCompactEnabled() && !parseBoolean(process.env.DISABLE_COMPACT);
 }
+
 
 // ============================================
 // Export

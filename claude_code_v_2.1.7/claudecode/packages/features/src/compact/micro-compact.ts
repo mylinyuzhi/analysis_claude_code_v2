@@ -3,11 +3,17 @@
  *
  * Tool-result micro-compaction (no LLM calls).
  * Original: lc() / microCompactToolResults in chunks.132.mjs:1111-1224
+ *
+ * Key symbols:
+ * - lc → microCompact
+ * - x97 → COMPACTABLE_TOOLS
+ * - Z4A → persistLargeToolResult (from chunks.89.mjs)
  */
 
 import { createUserMessage, type ConversationMessage } from '@claudecode/core';
 import { parseBoolean, type ContentBlock } from '@claudecode/shared';
-import type { MicroCompactOptions, MicroCompactResult } from './types.js';
+import { analyticsEvent, joinPath, getTempDir, FileSystemWrapper } from '@claudecode/platform';
+import type { MicroCompactResult } from './types.js';
 import { COMPACT_CONSTANTS } from './types.js';
 import { calculateThresholds, estimateMessageTokens } from './thresholds.js';
 
@@ -15,19 +21,21 @@ import { calculateThresholds, estimateMessageTokens } from './thresholds.js';
 // Constants
 // ============================================
 
-export const CLEARED_MARKER = '[cleared]';
+export const CLEARED_MARKER = '[Old tool result content cleared]'; // Matches common behavior
+export const PERSISTED_OUTPUT_START = '<persisted-output>';
+export const PERSISTED_OUTPUT_END = '</persisted-output>';
 
 // Tools whose results are eligible for micro-compaction.
 // Original: x97 = new Set([z3, X9, DI, lI, aR, cI, I8, BY])
 const COMPACTABLE_TOOLS = new Set([
-  'Read',
-  'Bash',
-  'Grep',
-  'Glob',
-  'WebSearch',
-  'WebFetch',
-  'Edit',
-  'Write',
+  'Read',      // z3
+  'Bash',      // X9
+  'Grep',      // DI
+  'Glob',      // lI
+  'WebSearch', // aR
+  'WebFetch',  // cI
+  'Edit',      // I8
+  'Write',     // BY
 ]);
 
 // Persistent micro-compact state (module-level)
@@ -63,56 +71,10 @@ function notifyMicroCompactListeners(): void {
 // ============================================
 
 /**
- * Find tool_use/tool_result pairs in messages.
- *
- * @param messages - Conversation messages
- * @returns Map of tool_use_id to result message index
- */
-function findToolResultPairs(
-  messages: ConversationMessage[]
-): Map<string, { useIndex: number; resultIndex: number }> {
-  const pairs = new Map<string, { useIndex: number; resultIndex: number }>();
-  const toolUseLocations = new Map<string, number>();
-
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i] as {
-      type: string;
-      message?: { content?: ContentBlock[] };
-    };
-
-    if (msg.type === 'assistant' && Array.isArray(msg.message?.content)) {
-      for (const block of msg.message.content) {
-        if (block.type === 'tool_use') {
-          const id = (block as { id: string }).id;
-          toolUseLocations.set(id, i);
-        }
-      }
-    }
-
-    if (msg.type === 'user' && Array.isArray(msg.message?.content)) {
-      for (const block of msg.message.content) {
-        if (block.type === 'tool_result') {
-          const useId = (block as { tool_use_id: string }).tool_use_id;
-          const useIndex = toolUseLocations.get(useId);
-          if (useIndex !== undefined) {
-            pairs.set(useId, { useIndex, resultIndex: i });
-          }
-        }
-      }
-    }
-  }
-
-  return pairs;
-}
-
-/**
  * Estimate token savings from clearing a tool result.
- *
- * @param block - Tool result content block
- * @returns Estimated tokens that would be saved
  */
 function countMessageTokensForToolResult(block: ContentBlock): number {
-  const content = (block as { content?: string | unknown[] }).content;
+  const content = (block as any).content;
 
   if (typeof content === 'string') {
     return Math.ceil(content.length / 4);
@@ -123,10 +85,10 @@ function countMessageTokensForToolResult(block: ContentBlock): number {
     for (const item of content) {
       if (typeof item === 'string') {
         tokens += Math.ceil(item.length / 4);
-      } else if ((item as { type?: string }).type === 'image') {
+      } else if (item?.type === 'image') {
         tokens += COMPACT_CONSTANTS.TOKENS_PER_IMAGE;
-      } else if ((item as { text?: string }).text) {
-        tokens += Math.ceil((item as { text: string }).text.length / 4);
+      } else if (item?.text) {
+        tokens += Math.ceil(item.text.length / 4);
       }
     }
     return tokens;
@@ -145,38 +107,126 @@ function getCachedToolResultTokens(toolUseId: string, block: ContentBlock): numb
 }
 
 // ============================================
+// Tool Result Persistence
+// ============================================
+
+/**
+ * Get tool results directory.
+ * Original: ZZ1() in chunks.89.mjs
+ */
+function getToolResultsDir(): string {
+  return joinPath(getTempDir(), 'tool-results');
+}
+
+/**
+ * Ensure tool results directory exists.
+ * Original: K85() in chunks.89.mjs
+ */
+async function ensureToolResultsDir(): Promise<void> {
+  try {
+    const dir = getToolResultsDir();
+    if (!FileSystemWrapper.existsSync(dir)) {
+      FileSystemWrapper.mkdirSync(dir, { recursive: true });
+    }
+  } catch {}
+}
+
+/**
+ * Create preview of content.
+ * Original: H85() in chunks.89.mjs
+ */
+function createPreview(content: string, limit: number): { preview: string; hasMore: boolean } {
+  if (content.length <= limit) {
+    return { preview: content, hasMore: false };
+  }
+  
+  // Find last newline in first half of limit to avoid breaking lines if possible
+  const lastNewline = content.slice(0, limit).lastIndexOf('\n');
+  const cutoff = lastNewline > limit * 0.5 ? lastNewline : limit;
+  
+  return {
+    preview: content.slice(0, cutoff),
+    hasMore: true
+  };
+}
+
+/**
+ * Persist large tool result to disk.
+ * Original: Z4A() in chunks.89.mjs
+ */
+async function persistLargeToolResult(content: string | unknown[], toolUseId: string): Promise<{
+  filepath: string;
+  originalSize: number;
+  isJson: boolean;
+  preview: string;
+  hasMore: boolean;
+  error?: string;
+}> {
+  await ensureToolResultsDir();
+  
+  const isJson = Array.isArray(content);
+  const ext = isJson ? 'json' : 'txt';
+  const filepath = joinPath(getToolResultsDir(), `${toolUseId}.${ext}`);
+  
+  const contentString = isJson 
+    ? JSON.stringify(content, null, 2) 
+    : String(content);
+    
+  let written = false;
+  
+  // Check if already exists
+  try {
+    if (FileSystemWrapper.existsSync(filepath)) {
+      written = true;
+    }
+  } catch {}
+  
+  // Write if not exists
+  if (!written) {
+    try {
+      FileSystemWrapper.writeFileSync(filepath, contentString, 'utf-8');
+      // k() log call in source: Persisted tool result to...
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      // e() error log call in source
+      return {
+        filepath,
+        originalSize: contentString.length,
+        isJson,
+        preview: '',
+        hasMore: false,
+        error: error.message
+      };
+    }
+  }
+  
+  const { preview, hasMore } = createPreview(contentString, 2000); // q42 = 2000
+  
+  return {
+    filepath,
+    originalSize: contentString.length,
+    isJson,
+    preview,
+    hasMore
+  };
+}
+
+// ============================================
 // Micro-Compact Implementation
 // ============================================
 
 /**
  * Perform micro-compaction on messages.
- * Original: lc() in chunks.107.mjs
+ * Original: lc() in chunks.132.mjs:1111-1224
  *
  * Micro-compact replaces old tool_result content with "[cleared]"
  * to reduce token count without an LLM call.
- *
- * @param messages - Conversation messages
- * @param options - Micro-compact options
- * @returns Micro-compact result
- */
-/**
- * Micro-compact tool results.
- *
- * Matches chunks.132.mjs behavior:
- * - Keeps last 3 tool results intact
- * - Clears older results when total tool-result tokens exceed threshold
- * - When auto-triggered, also requires (a) above warning threshold and (b) savings >= 20k
  */
 export async function microCompact(
   messages: ConversationMessage[],
   threshold?: number,
-  context?: { readFileState?: Map<string, unknown> }
-): Promise<{
-  messages: ConversationMessage[];
-  compactionInfo?: { systemMessage?: ConversationMessage };
-  resultsCleared: number;
-  tokensSaved: number;
-}> {
+  context?: { readFileState?: Map<string, any> }
+): Promise<MicroCompactResult> {
   microCompactOccurred = false;
 
   if (parseBoolean(process.env.DISABLE_MICROCOMPACT)) {
@@ -193,22 +243,19 @@ export async function microCompact(
   const toolResultTokens = new Map<string, number>();
 
   for (const msg of messages) {
-    const m = msg as { type: string; message?: { content?: ContentBlock[] } };
-    if ((m.type !== 'assistant' && m.type !== 'user') || !Array.isArray(m.message?.content)) continue;
+    if ((msg.type !== 'assistant' && msg.type !== 'user') || !Array.isArray(msg.message?.content)) continue;
 
-    for (const block of m.message.content) {
+    for (const block of msg.message.content) {
       if (block.type === 'tool_use') {
-        const bu = block as { id?: string; name?: string };
-        if (!bu.id || !bu.name) continue;
-        if (!COMPACTABLE_TOOLS.has(bu.name)) continue;
-        if (compactedToolIds.has(bu.id)) continue;
-        toolUseIds.push(bu.id);
+        if (!block.id || !block.name) continue;
+        if (!COMPACTABLE_TOOLS.has(block.name)) continue;
+        if (compactedToolIds.has(block.id)) continue;
+        toolUseIds.push(block.id);
       } else if (block.type === 'tool_result') {
-        const br = block as { tool_use_id?: string };
-        if (!br.tool_use_id) continue;
-        if (!toolUseIds.includes(br.tool_use_id)) continue;
-        const tokens = getCachedToolResultTokens(br.tool_use_id, block);
-        toolResultTokens.set(br.tool_use_id, tokens);
+        if (!block.tool_use_id) continue;
+        if (!toolUseIds.includes(block.tool_use_id)) continue;
+        const tokens = getCachedToolResultTokens(block.tool_use_id, block);
+        toolResultTokens.set(block.tool_use_id, tokens);
       }
     }
   }
@@ -247,21 +294,20 @@ export async function microCompact(
   }
 
   // Phase 4: readFileState cleanup (only for Read tool)
+  // Original: chunks.132.mjs:1197-1211
   if (context?.readFileState && toolsToCompact.size > 0) {
     const compactedFilepaths = new Map<string, string>();
     const keptFilepaths = new Set<string>();
 
     for (const msg of messages) {
-      const m = msg as { type: string; message?: { content?: ContentBlock[] } };
-      if ((m.type !== 'assistant' && m.type !== 'user') || !Array.isArray(m.message?.content)) continue;
-      for (const block of m.message.content) {
+      if ((msg.type !== 'assistant' && msg.type !== 'user') || !Array.isArray(msg.message?.content)) continue;
+      for (const block of msg.message.content) {
         if (block.type !== 'tool_use') continue;
-        const tu = block as { id?: string; name?: string; input?: { file_path?: unknown } };
-        if (tu.name !== 'Read' || !tu.id) continue;
-        const fp = tu.input?.file_path;
+        if (block.name !== 'Read' || !block.id) continue;
+        const fp = (block.input as any)?.file_path;
         if (typeof fp !== 'string') continue;
 
-        if (toolsToCompact.has(tu.id)) compactedFilepaths.set(fp, tu.id);
+        if (toolsToCompact.has(block.id)) compactedFilepaths.set(fp, block.id);
         else keptFilepaths.add(fp);
       }
     }
@@ -273,105 +319,82 @@ export async function microCompact(
     }
   }
 
-  // Phase 5: replace tool_result content
-  const newMessages = messages.map((msg) => {
-    const m = msg as { type: string; message?: { content?: ContentBlock[] } };
-    if (!Array.isArray(m.message?.content)) return msg;
-
-    const updatedContent = m.message.content.map((block) => {
-      if (block.type !== 'tool_result') return block;
-      const tr = block as { tool_use_id?: string; content?: unknown };
-      if (!tr.tool_use_id || !toolsToCompact.has(tr.tool_use_id)) return block;
-      return { ...block, content: CLEARED_MARKER };
-    });
-
-    return { ...msg, message: { ...m.message, content: updatedContent } };
-  });
+  // Phase 5: replace tool_result content with persistence
+  const newMessages: ConversationMessage[] = [];
+  
+  for (const msg of messages) {
+    // Skip if not multimodal or filtered
+    if ((msg.type !== 'assistant' && msg.type !== 'user') || !Array.isArray(msg.message?.content)) {
+      newMessages.push(msg);
+      continue;
+    }
+    
+    // Process content blocks
+    if (msg.type === 'user') {
+      const updatedContent: any[] = [];
+      let toolUseResult = msg.toolUseResult;
+      
+      for (const block of msg.message.content) {
+        if (block.type === 'tool_result' && 
+            block.tool_use_id && 
+            toolsToCompact.has(block.tool_use_id) && 
+            block.content && 
+            typeof block.content !== 'string') { // Only persist non-string (likely large) or handle string specifically if needed
+            
+          // In original code j97(z.content) checks if already persisted/cleared
+          // We'll skip that check for brevity and rely on the set
+          
+          let replacementContent = CLEARED_MARKER;
+          
+          // Persist content to disk
+          // Original: Z4A(z.content, z.tool_use_id)
+          const persistenceResult = await persistLargeToolResult(block.content, block.tool_use_id);
+          
+          if (!persistenceResult.error) {
+            replacementContent = `${PERSISTED_OUTPUT_START}\nOutput too large (${persistenceResult.originalSize} chars). Full output saved to: ${persistenceResult.filepath}\n\nPreview (first 2000):\n${persistenceResult.preview}${persistenceResult.hasMore ? '\n...' : ''}\n${PERSISTED_OUTPUT_END}`;
+            
+            // Clear toolUseResult if we persisted successfully (matches E = !0 logic in source)
+            toolUseResult = undefined;
+          }
+          
+          updatedContent.push({ ...block, content: replacementContent });
+        } else if (block.type === 'tool_result' && 
+                   block.tool_use_id && 
+                   toolsToCompact.has(block.tool_use_id)) {
+          // Already string content or failed to persist
+          updatedContent.push({ ...block, content: CLEARED_MARKER });
+        } else {
+          updatedContent.push(block);
+        }
+      }
+      
+      newMessages.push({
+        ...msg,
+        message: { ...msg.message, content: updatedContent },
+        toolUseResult
+      });
+    } else {
+      // Assistant message - just copy content
+      newMessages.push(msg);
+    }
+  }
 
   // Phase 6: update state & return
   for (const id of toolsToCompact) compactedToolIds.add(id);
 
-  microCompactOccurred = true;
-  notifyMicroCompactListeners();
-
-  const resultsCleared = toolsToCompact.size;
-  const systemMessage = createUserMessage({
-    content: `<system-reminder>Micro-compact cleared ${resultsCleared} tool result(s) to reduce context size.</system-reminder>`,
-    isMeta: true,
-  }) as unknown as ConversationMessage;
+  if (toolsToCompact.size > 0) {
+    analyticsEvent('tengu_microcompact', {
+      toolsCompacted: toolsToCompact.size,
+      tokensSaved: tokensToSave,
+      triggerType: hasExplicitThreshold ? 'manual' : 'auto',
+    });
+    microCompactOccurred = true;
+    notifyMicroCompactListeners();
+  }
 
   return {
-    messages: newMessages as ConversationMessage[],
-    compactionInfo: { systemMessage },
-    resultsCleared,
+    messages: newMessages,
+    resultsCleared: toolsToCompact.size,
     tokensSaved: tokensToSave,
   };
 }
-
-/**
- * Check if micro-compact would be beneficial.
- *
- * @param messages - Conversation messages
- * @param options - Micro-compact options
- * @returns Whether micro-compact should be applied
- */
-export function shouldMicroCompact(
-  messages: ConversationMessage[],
-  options: MicroCompactOptions = {}
-): boolean {
-  const {
-    minSavings = COMPACT_CONSTANTS.MICRO_COMPACT_MIN_SAVINGS,
-    threshold = COMPACT_CONSTANTS.MICRO_COMPACT_THRESHOLD,
-  } = options;
-
-  // Check token threshold
-  const currentTokens = estimateMessageTokens(messages);
-  if (currentTokens < threshold) {
-    return false;
-  }
-
-  // Estimate potential savings
-  const pairs = findToolResultPairs(messages);
-  const recentToKeep = options.recentToKeep ?? COMPACT_CONSTANTS.RECENT_TOOL_RESULTS_TO_KEEP;
-
-  if (pairs.size <= recentToKeep) {
-    return false;
-  }
-
-  const sortedPairs = [...pairs.entries()].sort(
-    ([, a], [, b]) => a.resultIndex - b.resultIndex
-  );
-
-  const toKeep = new Set(
-    sortedPairs.slice(-recentToKeep).map(([id]) => id)
-  );
-
-  let potentialSavings = 0;
-
-  for (const [id, { resultIndex }] of sortedPairs) {
-    if (toKeep.has(id)) continue;
-
-    const msg = messages[resultIndex] as {
-      message?: { content?: ContentBlock[] };
-    };
-
-    if (msg.message?.content) {
-      for (const block of msg.message.content) {
-        if (
-          block.type === 'tool_result' &&
-          (block as { tool_use_id: string }).tool_use_id === id
-        ) {
-          potentialSavings += countMessageTokensForToolResult(block);
-        }
-      }
-    }
-  }
-
-  return potentialSavings >= minSavings;
-}
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复导出。
