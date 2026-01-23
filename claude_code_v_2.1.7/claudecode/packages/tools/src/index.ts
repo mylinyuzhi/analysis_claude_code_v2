@@ -68,6 +68,13 @@ export { WebFetchTool } from './web-fetch.js';
 // ============================================
 
 export { TaskTool } from './task.js';
+export { 
+  getAllAgents, 
+  getBuiltInAgents, 
+  resolveAgentModel,
+  type AgentDefinition,
+  type AgentDiscoveryResult 
+} from './agents.js';
 export { TodoWriteTool } from './todo-write.js';
 export { SkillTool } from './skill.js';
 

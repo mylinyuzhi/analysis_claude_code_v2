@@ -5,6 +5,7 @@
  * Reconstructed from chunks.91.mjs, chunks.121.mjs
  */
 
+import { generateTaskId as generateCoreTaskId } from '@claudecode/shared';
 import type {
   BackgroundTask,
   BackgroundBashTask,

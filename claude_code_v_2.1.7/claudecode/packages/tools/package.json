@@ -21,6 +21,7 @@
     "@claudecode/shared": "workspace:*",
     "@claudecode/core": "workspace:*",
     "@claudecode/platform": "workspace:*",
+    "@claudecode/integrations": "workspace:*",
     "zod": "^3.22.0"
   },
   "devDependencies": {

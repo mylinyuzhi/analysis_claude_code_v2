@@ -2,25 +2,24 @@
  * @claudecode/core - Sub-Agent Loop
  *
  * Main agent loop generator that sets up execution context and delegates to core message loop.
- * Reconstructed from chunks.112.mjs:2913-3057
+ * Reconstructed from chunks.112.mjs:2913-3057.
  *
  * Key symbols:
- * - $f → runSubagentLoop
- * - tb5 → isYieldableMessage
- * - vz0 → filterForkContextMessages
- * - eb5 → getAgentSystemPrompt
- * - lkA → createChildToolUseContext
- * - sb5 → setupMcpClients
- * - ur → resolveAgentTools
- * - YA1 → resolveAgentModel
+ * - $f → runSubagentLoop (chunks.112.mjs:2913)
+ * - tb5 → isYieldableMessage (chunks.112.mjs:283)
+ * - vz0 → filterForkContextMessages (chunks.112.mjs:251)
+ * - eb5 → getAgentSystemPrompt (chunks.112.mjs:352)
+ * - lkA → createChildToolUseContext (chunks.112.mjs:267)
+ * - sb5 → setupMcpClients (chunks.112.mjs:263)
+ * - ur → resolveAgentTools (chunks.92.mjs:3188)
+ * - YA1 → resolveAgentModel (chunks.46.mjs:2513)
  */
 
-import { appendJsonlEntry, generateUUID, getProjectDir, getSessionId, type SessionLogEntry } from '@claudecode/shared';
+import { appendJsonlEntry, generateUUID, getProjectDir, getSessionId, generateTaskId, type SessionLogEntry } from '@claudecode/shared';
 import { createUserMessage } from '../message/factory.js';
 import type { ConversationMessage } from '../message/types.js';
 import type { ToolDefinition, ToolUseContext } from '../tools/types.js';
-import { coreMessageLoop } from './core-message-loop.js';
-import { generateTaskId } from './index.js';
+import { coreMessageLoop, resolveModelWithPermissions } from './core-message-loop.js';
 import {
   getSkillsCached as getSkillsCachedFromFeatures,
   injectArguments as injectSkillArguments,
@@ -193,8 +192,56 @@ export function filterForkContextMessages(
 // ============================================
 
 /**
+ * Resolve model ID from alias.
+ * Original: FX in chunks.46.mjs:2483
+ */
+export function resolveModelId(model: string): string {
+  const m = model.trim().toLowerCase();
+  const is1m = m.endsWith('[1m]');
+  const base = is1m ? m.replace(/\[1m\]$/i, '').trim() : m;
+
+  // Source maps sonnet, haiku, opus, opusplan
+  switch (base) {
+    case 'opusplan':
+      // Simplified: return actual model ID
+      return 'claude-3-7-sonnet-20250219' + (is1m ? '[1m]' : '');
+    case 'sonnet':
+      return 'claude-3-7-sonnet-20250219' + (is1m ? '[1m]' : '');
+    case 'haiku':
+      return 'claude-3-5-haiku-20241022' + (is1m ? '[1m]' : '');
+    case 'opus':
+      return 'claude-3-opus-20240229';
+    default:
+      return model;
+  }
+}
+
+/**
+ * Get region from model ID (for Bedrock).
+ * Original: jp1 in chunks.46.mjs:1414
+ */
+function getRegion(modelId: string): string | undefined {
+  const regions = ['us', 'eu', 'apac', 'global'];
+  for (const r of regions) {
+    if (modelId.startsWith(`${r}.anthropic.`)) return r;
+  }
+  return undefined;
+}
+
+/**
+ * Resolve Bedrock model ID with region.
+ * Original: itQ in chunks.46.mjs:1420
+ */
+function resolveBedrockModelId(modelId: string, region: string): string {
+  const currentRegion = getRegion(modelId);
+  if (currentRegion) return modelId.replace(`${currentRegion}.`, `${region}.`);
+  if (modelId.startsWith('anthropic.')) return `${region}.${modelId}`;
+  return modelId;
+}
+
+/**
  * Resolve agent model based on priority chain.
- * Original: YA1 in chunks.112.mjs:249
+ * Original: YA1 in chunks.46.mjs:2513-2529
  *
  * Priority: agentModel → mainLoopModel → modelOverride → default for permission mode
  */
@@ -204,22 +251,28 @@ export function resolveAgentModel(
   modelOverride: string | undefined,
   permissionMode: string
 ): string {
-  // NOTE: bundled runtime supports `model: "inherit"` for some agents.
-  // Treat it as "use parent/main loop model".
-  if (agentModel && agentModel !== 'inherit') {
-    return agentModel;
+  if (process.env.CLAUDE_CODE_SUBAGENT_MODEL) return process.env.CLAUDE_CODE_SUBAGENT_MODEL;
+
+  const region = mainLoopModel ? getRegion(mainLoopModel) : undefined;
+  const isBedrock = process.env.CLAUDE_CODE_USE_BEDROCK === 'true';
+
+  const wrapModel = (m: string) => {
+    const resolved = resolveModelId(m);
+    if (region && isBedrock) return resolveBedrockModelId(resolved, region);
+    return resolved;
+  };
+
+  if (modelOverride) return wrapModel(modelOverride);
+
+  const model = agentModel ?? 'inherit';
+  if (model === 'inherit') {
+    return resolveModelWithPermissions({
+      permissionMode: permissionMode || 'default',
+      mainLoopModel: mainLoopModel || 'claude-3-7-sonnet-20250219',
+    });
   }
 
-  // Priority: main loop model → override
-  if (mainLoopModel) return mainLoopModel;
-  if (modelOverride) return modelOverride;
-
-  // Default based on permission mode
-  if (permissionMode === 'plan') {
-    return 'claude-sonnet-4-20250514';
-  }
-
-  return 'claude-sonnet-4-20250514';
+  return wrapModel(model);
 }
 
 // ============================================
@@ -228,37 +281,60 @@ export function resolveAgentModel(
 
 /**
  * Resolve tools for agent.
- * Original: ur in chunks.112.mjs:349
+ * Original: ur in chunks.92.mjs:3188-3233
  */
 export function resolveAgentTools(
   agentDefinition: AgentDefinition,
   parentTools: ToolDefinition[],
   isAsync: boolean
 ): { resolvedTools: ToolDefinition[] } {
-  // Start with parent tools
-  let tools = [...parentTools];
+  const { tools: allowedToolNames, disallowedTools, source } = agentDefinition;
 
-  // Filter based on agent definition
-  if (agentDefinition.tools) {
-    const allowedTools = new Set(agentDefinition.tools);
-    // "*" means allow all tools (subject to disallowed tools below)
-    if (!allowedTools.has('*')) {
-      tools = tools.filter((t) => allowedTools.has(t.name));
+  // Filter based on system restrictions (VD0)
+  let tools = parentTools.filter((t) => {
+    if (t.name.startsWith('mcp__')) return true;
+    
+    // NYA: ALWAYS_EXCLUDED_TOOLS
+    const NYA = new Set(['ExitPlanMode', 'EnterPlanMode', 'Task', 'AskUserQuestion']);
+    if (NYA.has(t.name)) return false;
+
+    // D52: FORBIDDEN_FOR_NON_BUILTIN
+    if (source !== 'built-in' && NYA.has(t.name)) return false;
+
+    // W52: ASYNC_SAFE_TOOLS
+    if (isAsync) {
+      const W52 = new Set([
+        'Read', 'Edit', 'Write', 'TodoWrite', 'Grep', 'WebSearch', 
+        'Glob', 'Bash', 'Skill', 'SlashCommand', 'WebFetch', 'KillShell', 'TaskOutput'
+      ]);
+      if (!W52.has(t.name)) return false;
+    }
+
+    return true;
+  });
+
+  // Apply agent-specific disallowedTools
+  if (disallowedTools && disallowedTools.length > 0) {
+    const denied = new Set(disallowedTools);
+    tools = tools.filter((t) => !denied.has(t.name));
+  }
+
+  // Filter based on allowedTools list
+  if (allowedToolNames === undefined || (allowedToolNames.length === 1 && allowedToolNames[0] === '*')) {
+    return { resolvedTools: tools };
+  }
+
+  const toolMap = new Map(tools.map(t => [t.name, t]));
+  const resolved: ToolDefinition[] = [];
+  
+  for (const name of allowedToolNames) {
+    const tool = toolMap.get(name);
+    if (tool) {
+      if (!resolved.includes(tool)) resolved.push(tool);
     }
   }
 
-  // Apply disallowed tools
-  if (agentDefinition.disallowedTools && agentDefinition.disallowedTools.length > 0) {
-    const disallowed = new Set(agentDefinition.disallowedTools);
-    tools = tools.filter((t) => !disallowed.has(t.name));
-  }
-
-  // Filter out certain tools in async mode
-  if (isAsync) {
-    tools = tools.filter((t) => t.name !== 'AskUserQuestion');
-  }
-
-  return { resolvedTools: tools };
+  return { resolvedTools: resolved };
 }
 
 // ============================================
@@ -504,7 +580,7 @@ export async function loadAgentSkills(
 
 /**
  * Register agent hooks.
- * Original: j52 in chunks.112.mjs:367
+ * Original: j52 in chunks.93.mjs:859-875
  */
 export function registerAgentHooks(
   setAppState: unknown,
@@ -584,7 +660,8 @@ async function recordSidechainTranscript(
 ): Promise<void> {
   const cwd = process.cwd();
   const projectDir = getProjectDir(cwd);
-  const transcriptPath = join(projectDir, 'subagents', `agent-${agentId}.jsonl`);
+  const sessionId = getSessionId();
+  const transcriptPath = join(projectDir, sessionId, 'subagents', `agent-${agentId}.jsonl`);
 
   // 初始化 transcript（首行写入 metadata）
   if (!existsSync(transcriptPath)) {
@@ -738,19 +815,6 @@ async function* executeSubagentStartHooks(
  * Original: $f in chunks.112.mjs:2913-3057
  *
  * Sets up the execution context for a sub-agent and delegates to the core message loop.
- * Handles:
- * 1. Model resolution
- * 2. Fork context filtering
- * 3. User/system context loading
- * 4. Tool resolution
- * 5. Skill loading
- * 6. MCP client setup
- * 7. Hook registration
- * 8. Core message loop execution
- * 9. Cleanup
- *
- * @param options - Subagent loop options
- * @yields Conversation messages and events
  */
 export async function* runSubagentLoop(
   options: SubagentLoopOptions
@@ -768,7 +832,7 @@ export async function* runSubagentLoop(
     maxTurns,
   } = options;
 
-  // Track feature usage
+  // T9("subagents");
   trackFeatureUsage('subagents');
 
   // Get app state and permission mode
@@ -780,7 +844,7 @@ export async function* runSubagentLoop(
   };
   const permissionMode = appState.toolPermissionContext.mode;
 
-  // Resolve model
+  // Resolve model (YA1)
   const resolvedModel = resolveAgentModel(
     agentDefinition.model,
     toolUseContext.options.mainLoopModel,
@@ -788,22 +852,22 @@ export async function* runSubagentLoop(
     permissionMode
   );
 
-  // Generate agent ID
+  // Generate agent ID (LS)
   const agentId = override?.agentId ?? generateTaskId('local_agent');
 
-  // Build initial messages
+  // Build initial messages (vz0)
   const messages: ConversationMessage[] = [
     ...(forkContextMessages ? filterForkContextMessages(forkContextMessages) : []),
     ...promptMessages,
   ];
 
-  // Clone read file state if forking
+  // Clone read file state (m9A / Id(u9A))
   const readFileState =
     forkContextMessages !== undefined
       ? new Map(toolUseContext.readFileState)
       : new Map();
 
-  // Get user and system context
+  // Get user and system context (ZV, OF)
   const [userContext, systemContext] = await Promise.all([
     override?.userContext ?? getUserContext(),
     override?.systemContext ?? getSystemContext(),
@@ -841,7 +905,7 @@ export async function* runSubagentLoop(
     };
   };
 
-  // Resolve tools for agent
+  // Resolve tools for agent (ur)
   const { resolvedTools } = resolveAgentTools(
     agentDefinition,
     toolUseContext.options.tools,
@@ -853,7 +917,7 @@ export async function* runSubagentLoop(
     appState.toolPermissionContext.additionalWorkingDirectories.keys()
   );
 
-  // Get system prompt
+  // Get system prompt (eb5)
   const systemPrompt = override?.systemPrompt
     ?? await getAgentSystemPrompt(agentDefinition, toolUseContext, resolvedModel, additionalWorkingDirs);
 
@@ -861,7 +925,7 @@ export async function* runSubagentLoop(
   const abortController = override?.abortController
     ?? (isAsync ? new AbortController() : toolUseContext.abortController);
 
-  // Execute SubagentStart hooks and collect additional contexts
+  // Execute SubagentStart hooks (kz0)
   const additionalContexts: string[] = [];
   for await (const hookResult of executeSubagentStartHooks(agentId, agentDefinition.agentType, abortController!.signal)) {
     if (hookResult.additionalContexts && hookResult.additionalContexts.length > 0) {
@@ -869,7 +933,7 @@ export async function* runSubagentLoop(
     }
   }
 
-  // Add hook contexts to messages
+  // Add hook contexts to messages (X4)
   if (additionalContexts.length > 0) {
     const hookContextMessage = {
       type: 'attachment',
@@ -885,7 +949,7 @@ export async function* runSubagentLoop(
     messages.push(hookContextMessage);
   }
 
-  // Register agent hooks if defined
+  // Register agent hooks (j52)
   if (agentDefinition.hooks) {
     registerAgentHooks(
       toolUseContext.setAppState,
@@ -896,11 +960,11 @@ export async function* runSubagentLoop(
     );
   }
 
-  // Load skills
+  // Load skills (Skill loading in chunks.112.mjs:2963-3001)
   const skillMessages = await loadAgentSkills(agentDefinition, toolUseContext);
   messages.push(...skillMessages);
 
-  // Setup MCP clients
+  // Setup MCP clients (sb5)
   const { clients: mcpClients, tools: mcpTools, cleanup } = await setupMcpClients(
     agentDefinition,
     toolUseContext.options.mcpClients || []
@@ -918,14 +982,14 @@ export async function* runSubagentLoop(
     debug: toolUseContext.options.debug,
     verbose: toolUseContext.options.verbose,
     mainLoopModel: resolvedModel,
-    // Match source: maxThinkingTokens: Hm(messages)
+    // Match source: maxThinkingTokens: Hm(E)
     maxThinkingTokens: calculateMaxThinkingTokensFromConversation(messages),
     mcpClients,
     mcpResources: toolUseContext.options.mcpResources,
     agentDefinitions: toolUseContext.options.agentDefinitions,
   };
 
-  // Create child tool use context
+  // Create child tool use context (lkA)
   const childContext = createChildToolUseContext(toolUseContext, {
     options: childOptions,
     agentId,
@@ -938,7 +1002,7 @@ export async function* runSubagentLoop(
     criticalSystemReminder_EXPERIMENTAL: agentDefinition.criticalSystemReminder_EXPERIMENTAL,
   });
 
-  // Record initial transcript
+  // Record initial transcript (yz0)
   await recordSidechainTranscript(messages, agentId).catch((err) =>
     logDebug(`Failed to record sidechain transcript: ${err}`)
   );
@@ -946,11 +1010,8 @@ export async function* runSubagentLoop(
   // Track last message UUID for transcript continuity
   let lastUUID: string | null = messages.length > 0 ? (messages[messages.length - 1] as { uuid: string }).uuid : null;
 
-  // Collected messages for yield
-  const collectedMessages: ConversationMessage[] = [];
-
   try {
-    // Run core message loop
+    // Run core message loop (aN)
     for await (const event of coreMessageLoop({
       messages,
       systemPrompt,
@@ -974,11 +1035,9 @@ export async function* runSubagentLoop(
         continue;
       }
 
-      // Yield yieldable messages
+      // Yield yieldable messages (tb5)
       if (isYieldableMessage(event as ConversationMessage)) {
-        collectedMessages.push(event as ConversationMessage);
-
-        // Record to transcript
+        // Record to transcript (yz0)
         await recordSidechainTranscript([event as ConversationMessage], agentId, lastUUID).catch(
           (err) => logDebug(`Failed to record sidechain transcript: ${err}`)
         );
@@ -993,7 +1052,7 @@ export async function* runSubagentLoop(
       throw new Error('Agent execution was aborted');
     }
 
-    // Execute callback if agent has one
+    // Execute callback if agent has one (p_(A))
     if (agentDefinition.callback) {
       agentDefinition.callback();
     }
@@ -1001,15 +1060,9 @@ export async function* runSubagentLoop(
     // Cleanup MCP connections
     await cleanup();
 
-    // Unregister agent hooks
+    // Unregister agent hooks (wVA)
     if (agentDefinition.hooks) {
       unregisterAgentHooks(toolUseContext.setAppState, agentId);
     }
   }
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 函数已在声明处导出；移除重复聚合导出。

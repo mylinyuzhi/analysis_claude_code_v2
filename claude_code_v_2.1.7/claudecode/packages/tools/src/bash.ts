@@ -33,13 +33,12 @@ import {
 import {
   addTaskToState,
   updateTask,
-  notifyBashTaskCompletion,
-  killLocalBashTask,
-  createBaseTask,
-  registerCleanupHandler,
   generateTaskId,
-  type LocalBashTask,
-} from '@claudecode/core/agent-loop';
+  createBaseTask,
+  killBackgroundTask as killLocalBashTask,
+  createBashTaskNotification as notifyBashTaskCompletion,
+  type BackgroundTask as LocalBashTask,
+} from '@claudecode/integrations/background-agents';
 
 // ============================================
 // Constants
@@ -342,9 +341,9 @@ Usage notes:
           env: { ...process.env, TMPDIR: SANDBOX_CONSTANTS.SANDBOX_TEMP_DIR },
         });
 
-        const unregisterCleanup = registerCleanupHandler(taskId, async () => {
+        const unregisterCleanup = () => {
           killLocalBashTask(taskId, context.setAppState as any);
-        });
+        };
 
         const task: LocalBashTask = {
           ...createBaseTask(taskId, 'local_bash', description || command),

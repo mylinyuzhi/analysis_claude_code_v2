@@ -2,21 +2,21 @@
  * @claudecode/core - Core Message Loop
  *
  * Main message processing loop for agent execution.
- * Reconstructed from chunks.134.mjs:99-428
+ * Reconstructed from chunks.134.mjs:99-428.
  *
  * Key symbols:
- * - aN → coreMessageLoop (main function)
- * - _H1 → StreamingToolExecutor
- * - lc → microCompact
- * - ys2 → autoCompactDispatcher
- * - _x → normalizeMessages
- * - oHA → streamApiResponse
- * - HQA → resolveModelWithPermissions
- * - fA9 → mergeSystemPromptWithContext
- * - _3A → addUserContextToMessages
- * - KM0 → executeToolsSequentially
- * - FHA → formatCompactionMessages
- * - FI → normalizeToolResults
+ * - aN → coreMessageLoop (chunks.134.mjs:99)
+ * - _H1 → StreamingToolExecutor (chunks.133.mjs:2911)
+ * - lc → microCompact (chunks.134.mjs:133)
+ * - ys2 → autoCompactDispatcher (chunks.134.mjs:138)
+ * - _x → normalizeMessages (chunks.148.mjs:498)
+ * - oHA → streamApiResponse (chunks.134.mjs:1015)
+ * - HQA → resolveModelWithPermissions (chunks.46.mjs:2259)
+ * - fA9 → mergeSystemPromptWithContext (chunks.133.mjs:2580)
+ * - _3A → addUserContextToMessages (chunks.133.mjs:2585)
+ * - KM0 → aggregateToolResults (chunks.134.mjs:571)
+ * - FHA → formatCompactionMessages (chunks.134.mjs:162)
+ * - FI → normalizeMessagesToAPI (chunks.147.mjs:2876)
  */
 
 import { 
@@ -308,7 +308,7 @@ export function isFeatureEnabled(feature: string): boolean {
 
 /**
  * Normalize messages for API submission.
- * Original: _x in chunks.148.mjs
+ * Original: _x in chunks.148.mjs:498-502
  * Slices from the last compact boundary if present.
  */
 export function normalizeMessages(
@@ -326,7 +326,7 @@ export function normalizeMessages(
 
 /**
  * Add user context to messages.
- * Original: _3A in chunks.134.mjs
+ * Original: _3A in chunks.133.mjs:2585-2599
  */
 function normalizeContextRecord(value: unknown): Record<string, string> {
   if (!value) return {};
@@ -381,7 +381,7 @@ ${Object.entries(ctx)
 
 /**
  * Merge system prompt with context.
- * Original: fA9 in chunks.134.mjs
+ * Original: fA9 in chunks.133.mjs:2580-2583
  */
 export function mergeSystemPromptWithContext(
   systemPrompt: string | string[],
@@ -907,8 +907,7 @@ async function* executeSequentialBlock(
 
 /**
  * Execute tools with concurrency support.
- * Replaces executeToolsSequentially.
- * Original: KM0 in chunks.134.mjs
+ * Original: KM0 in chunks.134.mjs:571-610
  */
 async function* executeToolQueue(
   toolCalls: ToolUseBlock[],
@@ -1012,7 +1011,7 @@ class ServerError extends Error {
 
 /**
  * Stream API response.
- * Original: oHA in chunks.134.mjs
+ * Original: oHA in chunks.134.mjs:1015-1120
  *
  * Integrates with the LLM API streaming module to get responses from Claude.
  */
@@ -1321,7 +1320,7 @@ async function* streamApiResponse(options: {
 
 /**
  * Process pending attachments.
- * Original: VHA in chunks.134.mjs:390 (defined in chunks.131.mjs:3614-3621)
+ * Original: VHA in chunks.131.mjs:3614-3621
  */
 async function* processPendingAttachments(
   _hookResult: unknown,
@@ -1493,7 +1492,7 @@ function getTaskIntensityOverride(): unknown {
 
 /**
  * Check for pending tool calls after turn (Hook Processing).
- * Original: P77 in chunks.134.mjs
+ * Original: P77 in chunks.134.mjs:469+
  *
  * Handles pre-tool hooks and stop hooks that might interrupt the flow.
  */
@@ -1672,7 +1671,7 @@ const MAX_OUTPUT_TOKEN_RECOVERY = AGENT_LOOP_CONSTANTS.MAX_OUTPUT_TOKEN_RECOVERY
 
 /**
  * Core message loop generator.
- * Original: aN() in chunks.134.mjs:99-410
+ * Original: aN() in chunks.134.mjs:99-428
  *
  * Handles the main execution cycle:
  * 1. Micro-compaction for token optimization

@@ -40,7 +40,7 @@ import {
   type ConversationMessage,
 } from '@claudecode/core/message';
 import { createDefaultAppState, createDefaultPermissionContext } from '@claudecode/core/state';
-import { builtinTools as builtinToolImpls } from '@claudecode/tools';
+import { builtinTools as builtinToolImpls, getAllAgents } from '@claudecode/tools';
 import {
   generateNewSessionId,
   getSessionId,
@@ -901,11 +901,13 @@ async function runPrintMode(options: PrintModeOptions): Promise<void> {
     
     const mcpState = getMcpState();
 
+    const agentDefinitions = await getAllAgents({ cwd: process.cwd() });
+    
     let appState = createInitialAppState({
       verbose: Boolean(options.verbose),
       model: options.model,
       toolPermissionContext: createDefaultPermissionContext(),
-      agentDefinitions: { activeAgents: [], allAgents: [] },
+      agentDefinitions,
       mcpClients: mcpState.clients,
       mcpTools: mcpState.tools,
       mcpCommands: mcpState.commands,
@@ -1072,11 +1074,13 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
   
   const mcpState = getMcpState();
 
+  const agentDefinitions = await getAllAgents({ cwd: process.cwd() });
+
   let appState = createInitialAppState({
     verbose: Boolean(options.verbose),
     model: options.model,
     toolPermissionContext: createDefaultPermissionContext(),
-    agentDefinitions: { activeAgents: [], allAgents: [] },
+    agentDefinitions,
     mcpClients: mcpState.clients,
     mcpTools: mcpState.tools,
     mcpCommands: mcpState.commands,

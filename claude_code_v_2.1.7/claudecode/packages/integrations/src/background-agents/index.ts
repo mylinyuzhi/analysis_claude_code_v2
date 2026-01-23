@@ -141,23 +141,16 @@ export {
 // ============================================
 
 export {
-  updateTask,
-  addTaskToState,
-  removeTaskFromState,
-  createBaseTask,
-  createTaskNotification,
-  createBashTaskNotification,
-  killBackgroundTask,
+  createFullyBackgroundedAgent,
+  createBackgroundableAgent,
   updateTaskProgress,
   markTaskCompleted,
   markTaskFailed,
-  markBashTaskCompleted,
-  type AppStateWithTasks,
-  type SetAppState,
-  type TaskProgressInfo,
-  type AgentResult,
-  type NotificationValue,
-  type PushNotification,
+  markTaskCancelled,
+  killBackgroundTask,
+  createTaskNotification,
+  aggregateAsyncAgentExecution,
+  // Note: updateTask, addTaskToState, etc. removed as they were replaced by registry-based approach
 } from './lifecycle.js';
 
 // ============================================

@@ -23,6 +23,12 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { homedir } from 'os';
 import {
+  getProjectDir,
+  getSessionId,
+  parseSessionLogFile,
+  type SessionLogEntry,
+} from '@claudecode/shared';
+import {
   createTool,
   validationSuccess,
   validationError,
@@ -30,6 +36,17 @@ import {
   toolSuccess,
   toolError,
 } from './base.js';
+import {
+  type AgentDefinition,
+  getBuiltInAgents,
+  getAllAgents,
+  resolveAgentModel,
+  AGENT_TYPES,
+  filterAgentsByPermission,
+  findDenyRule,
+  isBuiltInAgent,
+  getQuerySource,
+} from './agents.js';
 import type { TaskInput, TaskOutput, ToolContext } from './types.js';
 import { TOOL_NAMES } from './types.js';
 
@@ -40,16 +57,18 @@ import {
   ALWAYS_EXCLUDED_TOOLS,
 } from '@claudecode/core/tools';
 import {
+  runSubagentLoop as runCoreSubagentLoop,
+} from '@claudecode/core/agent-loop';
+import { createUserMessage as createCoreUserMessage } from '@claudecode/core/message';
+import {
   aggregateAsyncAgentExecution,
   createBackgroundableAgent,
   createFullyBackgroundedAgent,
   markTaskCompleted as markCoreTaskCompleted,
   markTaskFailed as markCoreTaskFailed,
-  runSubagentLoop as runCoreSubagentLoop,
   updateTaskProgress as updateCoreTaskProgress,
   generateTaskId,
-} from '@claudecode/core/agent-loop';
-import { createUserMessage as createCoreUserMessage } from '@claudecode/core/message';
+} from '@claudecode/integrations/background-agents';
 
 import { ReadTool } from './read.js';
 import { WriteTool } from './write.js';
@@ -75,436 +94,6 @@ const MAX_RESULT_SIZE = 100000;
 
 // Source: q82 (MAX_TURNS) in chunks.113.mjs
 const DEFAULT_MAX_TURNS = 500;
-
-/**
- * Built-in agent configs.
- *
- * Source of truth: `claude_code_v_2.1.7/source/chunks.93.mjs`.
- */
-const BASH_SYSTEM_PROMPT = `You are a command execution specialist for Claude Code. Your role is to execute bash commands efficiently and safely.
-
-Guidelines:
-- Execute commands precisely as instructed
-- For git operations, follow git safety protocols
-- Report command output clearly and concisely
-- If a command fails, explain the error and suggest solutions
-- Use command chaining (&&) for dependent operations
-- Quote paths with spaces properly
-- For clear communication, avoid using emojis
-
-Complete the requested operations efficiently.`;
-
-const GENERAL_PURPOSE_SYSTEM_PROMPT = `You are an agent for Claude Code, Anthropic's official CLI for Claude. Given the user's message, you should use the tools available to complete the task. Do what has been asked; nothing more, nothing less. When you complete the task simply respond with a detailed writeup.
-
-Your strengths:
-- Searching for code, configurations, and patterns across large codebases
-- Analyzing multiple files to understand system architecture
-- Investigating complex questions that require exploring many files
-- Performing multi-step research tasks
-
-Guidelines:
-- For file searches: Use Grep or Glob when you need to search broadly. Use Read when you know the specific file path.
-- For analysis: Start broad and narrow down. Use multiple search strategies if the first doesn't yield results.
-- Be thorough: Check multiple locations, consider different naming conventions, look for related files.
-- NEVER create files unless they're absolutely necessary for achieving your goal. ALWAYS prefer editing an existing file to creating a new one.
-- NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested.
-- In your final response always share relevant file names and code snippets. Any file paths you return in your response MUST be absolute. Do NOT use relative paths.
-- For clear communication, avoid using emojis.`;
-
-const EXPLORE_SYSTEM_PROMPT = `You are a file search specialist for Claude Code, Anthropic's official CLI for Claude. You excel at thoroughly navigating and exploring codebases.
-
-=== CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS ===
-This is a READ-ONLY exploration task. You are STRICTLY PROHIBITED from:
-- Creating new files (no Write, touch, or file creation of any kind)
-- Modifying existing files (no Edit operations)
-- Deleting files (no rm or deletion)
-- Moving or copying files (no mv or cp)
-- Creating temporary files anywhere, including /tmp
-- Using redirect operators (>, >>, |) or heredocs to write to files
-- Running ANY commands that change system state
-
-Your role is EXCLUSIVELY to search and analyze existing code. You do NOT have access to file editing tools - attempting to edit files will fail.
-
-Your strengths:
-- Rapidly finding files using glob patterns
-- Searching code and text with powerful regex patterns
-- Reading and analyzing file contents
-
-Guidelines:
-- Use Glob for broad file pattern matching
-- Use Grep for searching file contents with regex
-- Use Read when you know the specific file path you need to read
-- Use Bash ONLY for read-only operations (ls, git status, git log, git diff, find, cat, head, tail)
-- NEVER use Bash for: mkdir, touch, rm, cp, mv, git add, git commit, npm install, pip install, or any file creation/modification
-- Adapt your search approach based on the thoroughness level specified by the caller
-- Return file paths as absolute paths in your final response
-- For clear communication, avoid using emojis
-- Communicate your final report directly as a regular message - do NOT attempt to create files
-
-NOTE: You are meant to be a fast agent that returns output as quickly as possible. In order to achieve this you must:
-- Make efficient use of the tools that you have at your disposal: be smart about how you search for files and implementations
-- Wherever possible you should try to spawn multiple parallel tool calls for grepping and reading files
-
-Complete the user's search request efficiently and report your findings clearly.`;
-
-const PLAN_SYSTEM_PROMPT = `You are a software architect and planning specialist for Claude Code. Your role is to explore the codebase and design implementation plans.
-
-=== CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS ===
-This is a READ-ONLY planning task. You are STRICTLY PROHIBITED from:
-- Creating new files (no Write, touch, or file creation of any kind)
-- Modifying existing files (no Edit operations)
-- Deleting files (no rm or deletion)
-- Moving or copying files (no mv or cp)
-- Creating temporary files anywhere, including /tmp
-- Using redirect operators (>, >>, |) or heredocs to write to files
-- Running ANY commands that change system state
-
-Your role is EXCLUSIVELY to explore the codebase and design implementation plans. You do NOT have access to file editing tools - attempting to edit files will fail.
-
-You will be provided with a set of requirements and optionally a perspective on how to approach the design process.
-
-## Your Process
-1. Understand Requirements
-2. Explore Thoroughly (use Glob/Grep/Read; Bash only for read-only ops)
-3. Design Solution
-4. Detail the Plan
-
-## Required Output
-End your response with:
-
-### Critical Files for Implementation
-- path/to/file1.ts - [Brief reason]
-- path/to/file2.ts - [Brief reason]
-- path/to/file3.ts - [Brief reason]
-
-REMEMBER: You can ONLY explore and plan. You CANNOT and MUST NOT write, edit, or modify any files. You do NOT have access to file editing tools.`;
-
-const STATUSLINE_SYSTEM_PROMPT = `You are a status line setup agent for Claude Code. Your job is to create or update the statusLine command in the user's Claude Code settings.
-
-When asked to convert the user's shell PS1 configuration, follow these steps:
-1. Read the user's shell configuration files in this order of preference:
-   - ~/.zshrc
-   - ~/.bashrc  
-   - ~/.bash_profile
-   - ~/.profile
-
-2. Extract the PS1 value using this regex pattern: /(?:^|\\n)\\s*(?:export\\s+)?PS1\\s*=\\s*["']([^"']+)["']/m
-
-3. Convert PS1 escape sequences to shell commands:
-   - \\u → $(whoami)
-   - \\h → $(hostname -s)  
-   - \\H → $(hostname)
-   - \\w → $(pwd)
-   - \\W → $(basename "$(pwd)")
-   - \\$ → $
-   - \\n → \\n
-   - \\t → $(date +%H:%M:%S)
-   - \\d → $(date "+%a %b %d")
-   - \\@ → $(date +%I:%M%p)
-   - \\# → #
-   - \\! → !
-
-4. When using ANSI color codes, be sure to use \`printf\`. Do not remove colors. Note that the status line will be printed in a terminal using dimmed colors.
-
-5. If the imported PS1 would have trailing "$" or ">" characters in the output, you MUST remove them.
-
-6. If no PS1 is found and user did not provide other instructions, ask for further instructions.
-
-How to use the statusLine command:
-1. The statusLine command will receive the following JSON input via stdin:
-   {
-     "session_id": "string", // Unique session ID
-     "transcript_path": "string", // Path to the conversation transcript
-     "cwd": "string",         // Current working directory
-     "model": {
-       "id": "string",           // Model ID (e.g., "claude-3-5-sonnet-20241022")
-       "display_name": "string"  // Display name (e.g., "Claude 3.5 Sonnet")
-     },
-     "workspace": {
-       "current_dir": "string",  // Current working directory path
-       "project_dir": "string"   // Project root directory path
-     },
-     "version": "string",        // Claude Code app version (e.g., "1.0.71")
-     "output_style": {
-       "name": "string",         // Output style name (e.g., "default", "Explanatory", "Learning")
-     },
-     "context_window": {
-       "total_input_tokens": number,       // Total input tokens used in session (cumulative)
-       "total_output_tokens": number,      // Total output tokens used in session (cumulative)
-       "context_window_size": number,      // Context window size for current model (e.g., 200000)
-       "current_usage": {                   // Token usage from last API call (null if no messages yet)
-         "input_tokens": number,           // Input tokens for current context
-         "output_tokens": number,          // Output tokens generated
-         "cache_creation_input_tokens": number,  // Tokens written to cache
-         "cache_read_input_tokens": number       // Tokens read from cache
-       } | null,
-       "used_percentage": number | null,      // Pre-calculated: % of context used (0-100), null if no messages yet
-       "remaining_percentage": number | null  // Pre-calculated: % of context remaining (0-100), null if no messages yet
-     },
-     "vim": {                     // Optional, only present when vim mode is enabled
-       "mode": "INSERT" | "NORMAL"  // Current vim editor mode
-     }
-   }
-   
-   You can use this JSON data in your command like:
-   - $(cat | jq -r '.model.display_name')
-   - $(cat | jq -r '.workspace.current_dir')
-   - $(cat | jq -r '.output_style.name')
-
-   Or store it in a variable first:
-   - input=$(cat); echo "$(echo "$input" | jq -r '.model.display_name') in $(echo "$input" | jq -r '.workspace.current_dir')"
-
-   To display context remaining percentage (simplest approach using pre-calculated field):
-   - input=$(cat); remaining=$(echo "$input" | jq -r '.context_window.remaining_percentage // empty'); [ -n "$remaining" ] && echo "Context: $remaining% remaining"
-
-   Or to display context used percentage:
-   - input=$(cat); used=$(echo "$input" | jq -r '.context_window.used_percentage // empty'); [ -n "$used" ] && echo "Context: $used% used"
-
-2. For longer commands, you can save a new file in the user's ~/.claude directory, e.g.:
-   - ~/.claude/statusline-command.sh and reference that file in the settings.
-
-3. Update the user's ~/.claude/settings.json with:
-   {
-     "statusLine": {
-       "type": "command", 
-       "command": "your_command_here"
-     }
-   }
-
-4. If ~/.claude/settings.json is a symlink, update the target file instead.
-
-Guidelines:
-- Preserve existing settings when updating
-- Return a summary of what was configured, including the name of the script file if used
-- If the script includes git commands, they should skip optional locks
-- IMPORTANT: At the end of your response, inform the parent agent that this "statusline-setup" agent must be used for further status line changes.
-  Also ensure that the user is informed that they can ask Claude to continue to make changes to the status line.
-`;
-
-const CLAUDE_CODE_GUIDE_SYSTEM_PROMPT_BASE = `You are the Claude guide agent. Your primary responsibility is helping users understand and use Claude Code, the Claude Agent SDK, and the Claude API (formerly the Anthropic API) effectively.
-
-**Your expertise spans three domains:**
-
-1. **Claude Code** (the CLI tool): Installation, configuration, hooks, skills, MCP servers, keyboard shortcuts, IDE integrations, settings, and workflows.
-
-2. **Claude Agent SDK**: A framework for building custom AI agents based on Claude Code technology. Available for Node.js/TypeScript and Python.
-
-3. **Claude API**: The Claude API (formerly known as the Anthropic API) for direct model interaction, tool use, and integrations.
-
-**Documentation sources:**
-
-- **Claude Code docs** (https://code.claude.com/docs/en/claude_code_docs_map.md): Fetch this for questions about the Claude Code CLI tool, including:
-  - Installation, setup, and getting started
-  - Hooks (pre/post command execution)
-  - Custom skills
-  - MCP server configuration
-  - IDE integrations (VS Code, JetBrains)
-  - Settings files and configuration
-  - Keyboard shortcuts and hotkeys
-  - Subagents and plugins
-  - Sandboxing and security
-
-- **Claude Agent SDK docs** (https://platform.claude.com/llms.txt): Fetch this for questions about building agents with the SDK, including:
-  - SDK overview and getting started (Python and TypeScript)
-  - Agent configuration + custom tools
-  - Session management and permissions
-  - MCP integration in agents
-  - Hosting and deployment
-  - Cost tracking and context management
-  Note: Agent SDK docs are part of the Claude API documentation at the same URL.
-
-- **Claude API docs** (https://platform.claude.com/llms.txt): Fetch this for questions about the Claude API (formerly the Anthropic API), including:
-  - Messages API and streaming
-  - Tool use (function calling) and Anthropic-defined tools (computer use, code execution, web search, text editor, bash, programmatic tool calling, tool search tool, context editing, Files API, structured outputs)
-  - Vision, PDF support, and citations
-  - Extended thinking and structured outputs
-  - MCP connector for remote MCP servers
-  - Cloud provider integrations (Bedrock, Vertex AI, Foundry)
-
-**Approach:**
-1. Determine which domain the user's question falls into
-2. Use WebFetch to fetch the appropriate docs map
-3. Identify the most relevant documentation URLs from the map
-4. Fetch the specific documentation pages
-5. Provide clear, actionable guidance based on official documentation
-6. Use WebSearch if docs don't cover the topic
-7. Reference local project files (CLAUDE.md, .claude/ directory) when relevant using Read, Glob, and Grep
-
-**Guidelines:**
-- Always prioritize official documentation over assumptions
-- Keep responses concise and actionable
-- Include specific examples or code snippets when helpful
-- Reference exact documentation URLs in your responses
-- Avoid emojis in your responses
-- Help users discover features by proactively suggesting related commands, shortcuts, or capabilities
-
-Complete the user's request by providing accurate, documentation-based guidance.`;
-
-function getClaudeCodeGuideSystemPrompt(toolUseContext: CoreToolUseContext): string {
-  const options = (toolUseContext as any).options;
-  const customContent: string[] = [];
-
-  // Add custom skills
-  const commands = options.commands || [];
-  const customSkills = commands.filter((c: any) => c.type === 'prompt');
-  if (customSkills.length > 0) {
-    const list = customSkills.map((k: any) => `- /${k.name}: ${k.description}`).join('\n');
-    customContent.push(`**Available custom skills in this project:**\n${list}`);
-  }
-
-  // Add custom agents
-  const agentDefs = options.agentDefinitions;
-  const customAgents = (agentDefs?.activeAgents || []).filter((a: any) => a.source !== 'built-in');
-  if (customAgents.length > 0) {
-    const list = customAgents.map((a: any) => `- ${a.agentType}: ${a.whenToUse}`).join('\n');
-    customContent.push(`**Available custom agents configured:**\n${list}`);
-  }
-
-  // Add MCP servers
-  const mcpClients = options.mcpClients || [];
-  if (mcpClients.length > 0) {
-    const list = mcpClients.map((k: any) => `- ${k.name}`).join('\n');
-    customContent.push(`**Configured MCP servers:**\n${list}`);
-  }
-
-  // Add plugin skills
-  const pluginSkills = commands.filter((c: any) => c.type === 'prompt' && c.source === 'plugin');
-  if (pluginSkills.length > 0) {
-    const list = pluginSkills.map((k: any) => `- /${k.name}: ${k.description}`).join('\n');
-    customContent.push(`**Available plugin skills:**\n${list}`);
-  }
-
-  // Add user's settings.json
-  if (options.userSettings && Object.keys(options.userSettings).length > 0) {
-    customContent.push(`**User's settings.json:**\n\`\`\`json\n${JSON.stringify(options.userSettings, null, 2)}\n\`\`\``);
-  }
-
-  const parseBool = (v: string | undefined) => v === 'true' || v === '1' || v === 'yes';
-  const isExternal = !!(
-    parseBool(process.env.CLAUDE_CODE_USE_BEDROCK) ||
-    parseBool(process.env.CLAUDE_CODE_USE_VERTEX) ||
-    parseBool(process.env.CLAUDE_CODE_USE_FOUNDRY)
-  );
-
-  const issueExplainer = isExternal
-    ? "- When you cannot find an answer or the feature doesn't exist, direct the user to report the issue at https://github.com/anthropics/claude-code/issues"
-    : "- When you cannot find an answer or the feature doesn't exist, direct the user to use /feedback to report a feature request or bug";
-
-  const basePrompt = `${CLAUDE_CODE_GUIDE_SYSTEM_PROMPT_BASE}\n${issueExplainer}`;
-
-  if (customContent.length > 0) {
-    return `${basePrompt}\n\n---\n\n# User's Current Configuration\n\nThe user has the following custom setup in their environment:\n\n${customContent.join('\n\n')}\n\nWhen answering questions, consider these configured features and proactively suggest them when relevant.`;
-  }
-  return basePrompt;
-}
-
-type BuiltInAgentModel = 'inherit' | 'sonnet' | 'opus' | 'haiku' | undefined;
-
-interface AgentConfig {
-  agentType: string;
-  whenToUse: string;
-  tools?: string[];
-  disallowedTools?: string[];
-  model?: BuiltInAgentModel;
-  permissionMode?: 'dontAsk' | undefined;
-  color?: string;
-  criticalSystemReminder_EXPERIMENTAL?: string;
-  isEnabled?: () => boolean;
-  getSystemPrompt: (toolUseContext?: any) => string;
-}
-
-function shouldEnableClaudeCodeGuideAgent(): boolean {
-  return (
-    process.env.CLAUDE_CODE_ENTRYPOINT !== 'sdk-ts' &&
-    process.env.CLAUDE_CODE_ENTRYPOINT !== 'sdk-py' &&
-    process.env.CLAUDE_CODE_ENTRYPOINT !== 'sdk-cli'
-  );
-}
-
-/**
- * Built-in agents available to Task tool.
- */
-const AGENT_CONFIGS: Record<string, AgentConfig> = {
-  Bash: {
-    agentType: 'Bash',
-    whenToUse:
-      'Command execution specialist for running bash commands. Use this for git operations, command execution, and other terminal tasks.',
-    tools: ['Bash'],
-    model: 'inherit',
-    getSystemPrompt: () => BASH_SYSTEM_PROMPT,
-  },
-  'general-purpose': {
-    agentType: 'general-purpose',
-    whenToUse:
-      "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you.",
-    tools: ['*'],
-    // NOTE: source does not set model here; it uses the caller's model / defaults.
-    model: undefined,
-    getSystemPrompt: () => GENERAL_PURPOSE_SYSTEM_PROMPT,
-  },
-  'statusline-setup': {
-    agentType: 'statusline-setup',
-    whenToUse: "Use this agent to configure the user's Claude Code status line setting.",
-    tools: ['Read', 'Edit'],
-    model: 'sonnet',
-    color: 'orange',
-    getSystemPrompt: () => STATUSLINE_SYSTEM_PROMPT,
-  },
-  Explore: {
-    agentType: 'Explore',
-    whenToUse:
-      'Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns, search code for keywords, or answer questions about the codebase. When calling this agent, specify a thoroughness level.',
-    // Source relies on the underlying agent toolset; keep tool list minimal and enforce via disallowedTools.
-    tools: undefined,
-    // Keep consistent with source/chunks.93.mjs (disallow self-spawn + any write/edit + user-interactive tool).
-    disallowedTools: [
-      TOOL_NAMES.TASK,
-      TOOL_NAMES.EXIT_PLAN_MODE,
-      TOOL_NAMES.EDIT,
-      TOOL_NAMES.WRITE,
-      TOOL_NAMES.NOTEBOOK_EDIT,
-    ],
-    model: 'haiku',
-    criticalSystemReminder_EXPERIMENTAL:
-      'CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files.',
-    getSystemPrompt: () => EXPLORE_SYSTEM_PROMPT,
-  },
-  Plan: {
-    agentType: 'Plan',
-    whenToUse:
-      'Software architect agent for designing implementation plans. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs.',
-    tools: undefined,
-    // Keep consistent with source/chunks.93.mjs (disallow self-spawn + any write/edit + user-interactive tool).
-    disallowedTools: [
-      TOOL_NAMES.TASK,
-      TOOL_NAMES.EXIT_PLAN_MODE,
-      TOOL_NAMES.EDIT,
-      TOOL_NAMES.WRITE,
-      TOOL_NAMES.NOTEBOOK_EDIT,
-    ],
-    model: 'inherit',
-    criticalSystemReminder_EXPERIMENTAL:
-      'CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files.',
-    getSystemPrompt: () => PLAN_SYSTEM_PROMPT,
-  },
-  'claude-code-guide': {
-    agentType: 'claude-code-guide',
-    whenToUse:
-      'Use this agent when the user asks questions about Claude Code, the Claude Agent SDK, or the Claude API. Prefer resuming an existing claude-code-guide instance when possible.',
-    tools: ['Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch'],
-    model: 'haiku',
-    permissionMode: 'dontAsk',
-    isEnabled: shouldEnableClaudeCodeGuideAgent,
-    getSystemPrompt: (toolUseContext: any) => getClaudeCodeGuideSystemPrompt(toolUseContext),
-  },
-};
-
-const AGENT_TYPES = new Set(
-  Object.keys(AGENT_CONFIGS).filter((k) => {
-    const cfg = AGENT_CONFIGS[k]!;
-    return cfg.isEnabled?.() !== false;
-  })
-);
 
 // ============================================
 // Input/Output Schemas
@@ -603,88 +192,205 @@ const taskOutputSchema = z.union([
 // ============================================
 
 /**
- * Sanitize agent ID.
- * Original: iz (sanitizeId) in chunks.113.mjs
+ * Get environment info for subagent.
+ * Original: rY9 in chunks.146.mjs:2739-2766
  */
-function sanitizeId(id: string): string {
-  return id.replace(/[^a-zA-Z0-9-]/g, '');
+async function getEnvironmentInfo(model: string, additionalWorkingDirs: string[]): Promise<string> {
+  const isGit = existsSync(join(process.cwd(), '.git'));
+  const platform = process.platform;
+  const osVersion = 'unknown'; // Simplified (original calls uname -sr)
+  const today = new Date().toLocaleDateString();
+  
+  const modelInfo = `You are powered by the model ${model}.`;
+  const dirsInfo = additionalWorkingDirs.length > 0 
+    ? `Additional working directories: ${additionalWorkingDirs.join(', ')}\n` 
+    : '';
+
+  let cutoff = '';
+  if (model.includes('claude-3-7')) cutoff = '\n\nAssistant knowledge cutoff is May 2025.';
+  else if (model.includes('claude-3-5')) cutoff = '\n\nAssistant knowledge cutoff is January 2025.';
+
+  return `Here is useful information about the environment you are running in:
+<env>
+Working directory: ${process.cwd()}
+Is directory a git repo: ${isGit ? 'Yes' : 'No'}
+${dirsInfo}Platform: ${platform}
+OS Version: ${osVersion}
+Today's date: ${today}
+</env>
+${modelInfo}${cutoff}
+`;
 }
 
+/**
+ * Token estimation helper.
+ */
 function estimateTokensFromText(text: string): number {
-  // Rough heuristic, same strategy used in core aggregateAsyncAgentExecution.
   return Math.ceil(text.length / 4);
 }
 
-type TaskUsage = z.infer<typeof taskUsageSchema>;
-
 /**
- * Source alignment: Task tool returns the last assistant message's `usage`.
- * Original: uz0() returns `usage: X.message.usage` (chunks.112.mjs:3459+)
+ * Normalize task usage helper.
  */
-function normalizeTaskUsage(raw: unknown): TaskUsage {
-  const u = raw && typeof raw === 'object' ? (raw as any) : {};
-
-  const serverToolUse =
-    u.server_tool_use && typeof u.server_tool_use === 'object' ? (u.server_tool_use as any) : null;
-  const cacheCreation =
-    u.cache_creation && typeof u.cache_creation === 'object' ? (u.cache_creation as any) : null;
-
-  const serviceTier: TaskUsage['service_tier'] =
-    u.service_tier === 'standard' || u.service_tier === 'priority' || u.service_tier === 'batch'
-      ? u.service_tier
-      : null;
-
+function normalizeTaskUsage(usage: any): any {
+  if (!usage) return { input_tokens: 0, output_tokens: 0 };
   return {
-    input_tokens: typeof u.input_tokens === 'number' ? u.input_tokens : 0,
-    output_tokens: typeof u.output_tokens === 'number' ? u.output_tokens : 0,
-    cache_creation_input_tokens:
-      typeof u.cache_creation_input_tokens === 'number' ? u.cache_creation_input_tokens : null,
-    cache_read_input_tokens:
-      typeof u.cache_read_input_tokens === 'number' ? u.cache_read_input_tokens : null,
-    server_tool_use: serverToolUse
-      ? {
-          web_search_requests:
-            typeof serverToolUse.web_search_requests === 'number' ? serverToolUse.web_search_requests : 0,
-          web_fetch_requests:
-            typeof serverToolUse.web_fetch_requests === 'number' ? serverToolUse.web_fetch_requests : 0,
-        }
-      : null,
-    service_tier: serviceTier,
-    cache_creation: cacheCreation
-      ? {
-          ephemeral_1h_input_tokens:
-            typeof cacheCreation.ephemeral_1h_input_tokens === 'number'
-              ? cacheCreation.ephemeral_1h_input_tokens
-              : 0,
-          ephemeral_5m_input_tokens:
-            typeof cacheCreation.ephemeral_5m_input_tokens === 'number'
-              ? cacheCreation.ephemeral_5m_input_tokens
-              : 0,
-        }
-      : null,
+    input_tokens: usage.input_tokens ?? 0,
+    output_tokens: usage.output_tokens ?? 0,
+    cache_creation_input_tokens: usage.cache_creation_input_tokens ?? null,
+    cache_read_input_tokens: usage.cache_read_input_tokens ?? null,
   };
 }
 
 /**
- * Source alignment: uSA(usage) in chunks.112.mjs:3468
- * totalTokens = input + output + cache_creation_input + cache_read_input
+ * Total tokens from usage helper.
  */
-function totalTokensFromUsage(usage: TaskUsage): number {
-  return (
-    usage.input_tokens +
-    usage.output_tokens +
-    (usage.cache_creation_input_tokens ?? 0) +
-    (usage.cache_read_input_tokens ?? 0)
-  );
+function totalTokensFromUsage(usage: any): number {
+  if (!usage) return 0;
+  return (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
+}
+
+/**
+ * Process system prompt.
+ * Original: pkA in chunks.146.mjs:2781-2791
+ */
+async function processSystemPrompt(prompt: string, model: string, additionalWorkingDirs: string[]): Promise<string[]> {
+  const envInfo = await getEnvironmentInfo(model, additionalWorkingDirs);
+  const notes = `
+
+Notes:
+- Agent threads always have their cwd reset between bash calls, as a result please only use absolute file paths.
+- In your final response always share relevant file names and code snippets. Any file paths you return in your response MUST be absolute. Do NOT use relative paths.
+- For clear communication with the user the assistant MUST avoid using emojis.
+- Do not use a colon before tool calls. Text like "Let me read the file:" followed by a read tool call should just be "Let me read the file." with a period.`;
+
+  return [prompt, notes, envInfo];
+}
+
+// ============================================
+// prepareForkMessages
+// Original: I52 in chunks.113.mjs:138
+// ============================================
+function prepareForkMessages(prompt: string, toolUseMessage: any): any[] {
+  const metaBlock = createCoreUserMessage({ content: prompt }) as any;
+  const toolUseBlock = toolUseMessage.message.content.find((block: any) => {
+    if (block.type !== 'tool_use' || block.name !== TOOL_NAMES.TASK) return false;
+    return 'prompt' in block.input && block.input.prompt === prompt;
+  });
+
+  if (!toolUseBlock) {
+    // In original code, k() is used for logging
+    return [metaBlock];
+  }
+
+  const clonedMessage = {
+    ...toolUseMessage,
+    uuid: randomUUID(), // Original uses oZ5()
+    message: {
+      ...toolUseMessage.message,
+      content: [toolUseBlock],
+    },
+  };
+
+  const forkHeader = `### FORKING CONVERSATION CONTEXT ###
+### ENTERING SUB-AGENT ROUTINE ###
+Entered sub-agent context
+
+PLEASE NOTE: 
+- The messages above this point are from the main thread prior to sub-agent execution. They are provided as context only.
+- Context messages may include tool_use blocks for tools that are not available in the sub-agent context. You should only use the tools specifically provided to you in the system prompt.
+- Only complete the specific sub-agent task you have been assigned below.`;
+
+  const subAgentEnteredResult = {
+    status: 'sub_agent_entered',
+    description: 'Entered sub-agent context',
+    message: forkHeader,
+  };
+
+  const toolResultMessage = createCoreUserMessage({
+    content: [{
+      type: 'tool_result',
+      tool_use_id: toolUseBlock.id,
+      content: [{
+        type: 'text',
+        text: forkHeader,
+      }],
+    }],
+    // @ts-ignore
+    toolUseResult: subAgentEnteredResult,
+  }) as any;
+
+  return [clonedMessage, toolResultMessage, metaBlock];
+}
+
+// ============================================
+// sanitizeId
+// Original: iz in chunks.113.mjs:123
+// ============================================
+function sanitizeId(id: string): string {
+  return id.replace(/[^a-zA-Z0-9-]/g, '');
+}
+
+// ============================================
+// formatAgentResult
+// Original: uz0 in chunks.113.mjs:187
+// ============================================
+function formatAgentResult(messages: any[], agentId: string, metadata: {
+  prompt: string;
+  resolvedAgentModel: string;
+  isBuiltInAgent: boolean;
+  startTime: number;
+}): any {
+  const lastAssistantMessage = messages.slice().reverse().find((m) => m.type === 'assistant');
+  if (!lastAssistantMessage) throw new Error("No assistant messages found");
+
+  const content = lastAssistantMessage.message.content.filter((c: any) => c.type === 'text');
+  const usage = normalizeTaskUsage(lastAssistantMessage.message.usage);
+  const totalTokens = totalTokensFromUsage(usage);
+  
+  // Count tool uses: Jf5(A)
+  let totalToolUses = 0;
+  for (const msg of messages) {
+    if (msg.type === 'assistant') {
+      for (const block of msg.message.content) {
+        if (block.type === 'tool_use') totalToolUses++;
+      }
+    }
+  }
+
+  return {
+    agentId,
+    content,
+    totalDurationMs: Date.now() - metadata.startTime,
+    totalTokens,
+    totalToolUseCount: totalToolUses,
+    usage: lastAssistantMessage.message.usage,
+  };
+}
+
+// ============================================
+// generateSessionId
+// Original: LS in chunks.113.mjs:162
+// ============================================
+function generateSessionId(): string {
+  // Original: return "a" + hG5(3).toString("hex")
+  // hG5(3) is 3 random bytes -> 6 hex chars
+  const randomHex = randomUUID().replace(/-/g, '').substring(0, 6);
+  return `a${randomHex}`;
+}
+
+// ============================================
+// getParentSessionId
+// Original: gP2 in chunks.113.mjs:172
+// ============================================
+function getParentSessionId(): string | undefined {
+  // Original is an empty function returning undefined
+  return undefined;
 }
 
 /**
  * Run subagent loop.
- * Original: $f (runSubagentLoop) in chunks.113.mjs
- *
- * 使用 @claudecode/core 的 subagent loop，确保与 source 的执行链路一致：
- * - 走 coreMessageLoop（支持 tools / hooks / compact / MCP 等）
- * - 通过 ToolUseContext 适配层复用当前进程内的 built-in tools
+ * Original: $f (runSubagentLoop) in chunks.113.mjs:179-187
  */
 function getBuiltinToolsForSubagents() {
   return [
@@ -830,77 +536,202 @@ function adaptToolsForCore(options: {
   });
 }
 
-function getSubagentTranscriptPath(agentId: string, cwd?: string): string {
-  const workingDir = cwd ?? process.cwd();
-  const sanitizedCwd = workingDir.replace(/[^a-zA-Z0-9]/g, '-');
-  return join(homedir(), '.claude', 'projects', sanitizedCwd, 'subagents', `agent-${agentId}.jsonl`);
+// ============================================
+// reconstructChain
+// Original: F$A in chunks.148.mjs:1102-1107
+// ============================================
+function reconstructChain(messages: Map<string, SessionLogEntry>, leaf: SessionLogEntry): SessionLogEntry[] {
+  const chain: SessionLogEntry[] = [];
+  let current: SessionLogEntry | undefined = leaf;
+  while (current) {
+    chain.unshift(current);
+    current = current.parentUuid ? messages.get(current.parentUuid) : undefined;
+  }
+  return chain;
 }
 
-function loadResumeMessages(agentId: string, cwd?: string): any[] {
-  const transcriptPath = getSubagentTranscriptPath(agentId, cwd);
+// ============================================
+// getSubagentTranscriptPath
+// Original: yb in chunks.148.mjs:692-696
+// ============================================
+function getSubagentTranscriptPath(agentId: string): string {
+  // Original uses getProjectsRoot(), getSessionId(), "subagents", `agent-${agentId}.jsonl`
+  // We'll use the shared utility if available, or reproduce it.
+  const projectDir = getProjectDir(process.cwd());
+  const sessionId = getSessionId();
+  return join(projectDir, sessionId, 'subagents', `agent-${agentId}.jsonl`);
+}
+
+// ============================================
+// loadResumeMessages
+// Original: bD1 in chunks.148.mjs:1526-1550
+// ============================================
+async function loadResumeMessages(agentId: string): Promise<any[]> {
+  const transcriptPath = getSubagentTranscriptPath(agentId);
   if (!existsSync(transcriptPath)) {
-    throw new Error(`No transcript found for agent ID: ${agentId}`);
+    return [];
   }
 
-  const raw = readFileSync(transcriptPath, 'utf-8');
-  const messages: any[] = [];
+  try {
+    const { messages: msgMap } = await parseSessionLogFile(transcriptPath);
+    const sidechainMessages = Array.from(msgMap.values()).filter(
+      (m) => m.agentId === agentId && m.isSidechain
+    );
+    
+    if (sidechainMessages.length === 0) return [];
 
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      const entry = JSON.parse(trimmed);
-      // recordSidechainTranscript writes SessionLogEntry lines with `content` holding the ConversationMessage
-      const content = entry?.content;
-      if (content && typeof content === 'object' && typeof content.type === 'string') {
-        messages.push(content);
-      }
-    } catch {
-      // ignore invalid lines
-    }
+    const parentUuids = new Set(sidechainMessages.map((m) => m.parentUuid));
+    const leaf = sidechainMessages.filter((m) => !parentUuids.has(m.uuid)).sort((a, b) => 
+      new Date(String(b.timestamp)).getTime() - new Date(String(a.timestamp)).getTime()
+    )[0];
+
+    if (!leaf) return [];
+
+    return reconstructChain(msgMap, leaf)
+      .filter((m) => m.agentId === agentId)
+      .map(({ isSidechain, parentUuid, ...rest }) => rest.content);
+  } catch {
+    return [];
   }
-
-  return messages;
 }
 
 // ============================================
 // Task Tool
 // ============================================
 
+// ============================================
+// formatAgentTools
+// Original: fG5 in chunks.92.mjs:535-542
+// ============================================
+function formatAgentTools(agent: any): string {
+  const { tools, disallowedTools } = agent;
+  const hasTools = tools && tools.length > 0;
+  const hasDisallowed = disallowedTools && disallowedTools.length > 0;
+
+  if (hasTools && hasDisallowed) {
+    const disallowedSet = new Set(disallowedTools);
+    const filtered = tools.filter((t: string) => !disallowedSet.has(t));
+    if (filtered.length === 0) return 'None';
+    return filtered.join(', ');
+  } else if (hasTools) {
+    if (tools[0] === '*') return 'All tools';
+    return tools.join(', ');
+  } else if (hasDisallowed) {
+    return `All tools except ${disallowedTools.join(', ')}`;
+  }
+  return 'All tools';
+}
+
+// ============================================
+// generateTaskToolPrompt
+// Original: O82 in chunks.92.mjs:544-617
+// ============================================
+async function generateTaskToolPrompt(availableAgents: any[]): Promise<string> {
+  const agentDescriptions = availableAgents
+    .map((agent) => {
+      let properties = '';
+      if (agent?.forkContext) {
+        properties = 'Properties: access to current context; ';
+      }
+      const toolsList = formatAgentTools(agent);
+      return `- ${agent.agentType}: ${agent.whenToUse} (${properties}Tools: ${toolsList})`;
+    })
+    .join('\n');
+
+  const disableBackground = process.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS === 'true';
+
+  return `Launch a new agent to handle complex, multi-step tasks autonomously. 
+
+The Task tool launches specialized agents (subprocesses) that autonomously handle complex tasks. Each agent type has specific capabilities and tools available to it.
+
+Available agent types and the tools they have access to:
+${agentDescriptions}
+
+When using the Task tool, you must specify a subagent_type parameter to select which agent type to use.
+
+When NOT to use the Task tool:
+- If you want to read a specific file path, use the Read or Glob tool instead of the Task tool, to find the match more quickly
+- If you are searching for a specific class definition like "class Foo", use the Glob tool instead, to find the match more quickly
+- If you are searching for code within a specific file or set of 2-3 files, use the Read tool instead of the Task tool, to find the match more quickly
+- Other tasks that are not related to the agent descriptions above
+
+
+Usage notes:
+- Always include a short description (3-5 words) summarizing what the agent will do
+- Launch multiple agents concurrently whenever possible, to maximize performance; to do that, use a single message with multiple tool uses
+- When the agent is done, it will return a single message back to you. The result returned by the agent is not visible to the user. To show the user the result, you should send a text message back to the user with a concise summary of the result.${
+    !disableBackground
+      ? '\n- You can optionally run agents in the background using the run_in_background parameter. When an agent runs in the background, the tool result will include an output_file path. To check on the agent\'s progress or retrieve its results, use the Read tool to read the output file, or use Bash with `tail` to see recent output. You can continue working while background agents run.'
+      : ''
+  }
+- Agents can be resumed using the \`resume\` parameter by passing the agent ID from a previous invocation. When resumed, the agent continues with its full previous context preserved. When NOT resuming, each invocation starts fresh and you should provide a detailed task description with all necessary context.
+- When the agent is done, it will return a single message back to you along with its agent ID. You can use this ID to resume the agent later if needed for follow-up work.
+- Provide clear, detailed prompts so the agent can work autonomously and return exactly the information you need.
+- Agents with "access to current context" can see the full conversation history before the tool call. When using these agents, you can write concise prompts that reference earlier context (e.g., "investigate the error discussed above") instead of repeating information. The agent will receive all prior messages and understand the context.
+- The agent's outputs should generally be trusted
+- Clearly tell the agent whether you expect it to write code or just to do research (search, file reads, web fetches, etc.), since it is not aware of the user's intent
+- If the agent description mentions that it should be used proactively, then you should try your best to use it without the user having to ask for it first. Use your judgement.
+- If the user specifies that they want you to run agents "in parallel", you MUST send a single message with multiple Task tool use content blocks. For example, if you need to launch both a build-validator agent and a test-runner agent in parallel, send a single message with both tool calls.
+
+Example usage:
+
+<example_agent_descriptions>
+"test-runner": use this agent after you are done writing code to run tests
+"greeting-responder": use this agent when to respond to user greetings with a friendly joke
+</example_agent_description>
+
+<example>
+user: "Please write a function that checks if a number is prime"
+assistant: Sure let me write a function that checks if a number is prime
+assistant: First let me use the Write tool to write a function that checks if a number is prime
+assistant: I'm going to use the Write tool to write the following code:
+<code>
+function isPrime(n) {
+  if (n <= 1) return false
+  for (let i = 2; i * i <= n; i++) {
+    if (n % i === 0) return false
+  }
+  return true
+}
+</code>
+<commentary>
+Since a significant piece of code was written and the task was completed, now use the test-runner agent to run the tests
+</commentary>
+assistant: Now let me use the test-runner agent to run the tests
+assistant: Uses the Task tool to launch the test-runner agent
+</example>
+
+<example>
+user: "Hello"
+<commentary>
+Since the user is greeting, use the greeting-responder agent to respond with a friendly joke
+</commentary>
+assistant: "I'm going to use the Task tool to launch the greeting-responder agent"
+</example>
+`;
+}
+
 /**
  * Task tool implementation.
- * Original: V$ (TaskTool) in chunks.91.mjs, chunks.113.mjs
+ * Original: xVA (TaskTool) in chunks.113.mjs:74-405
  */
 export const TaskTool = createTool<TaskInput, TaskOutput>({
   name: TOOL_NAMES.TASK,
   maxResultSizeChars: MAX_RESULT_SIZE,
 
   async description() {
-    return `Launch a new agent to handle complex, multi-step tasks autonomously.
-
-The Task tool launches specialized agents (subprocesses) that autonomously handle complex tasks. Each agent type has specific capabilities and tools available to it.
-
-Available agent types:
-- Bash: Command execution specialist for running bash commands
-- general-purpose: General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks
-- statusline-setup: Configure Claude Code status line settings (Read/Edit only)
-- Explore: Fast read-only exploration agent
-- Plan: Read-only planning agent
-- claude-code-guide: Documentation agent for Claude Code / Agent SDK / Claude API (disabled for SDK entrypoints)`;
+    return 'Launch a new task';
   },
 
-  async prompt() {
-    return `When using the Task tool:
-- Always include a short description (3-5 words) summarizing what the agent will do
-- Launch multiple agents concurrently whenever possible
-- Agents can be resumed using the resume parameter
-- When the agent is done, it will return a single message back to you
-- Provide clear, detailed prompts so the agent can work autonomously
-
-When NOT to use the Task tool:
-- If you want to read a specific file path, use the Read or Glob tool instead
-- If you are searching for a specific class definition, use the Glob tool instead
-- For tasks that are not related to the agent descriptions above`;
+  async prompt(context) {
+    const options = (context as any).options;
+    const defs = options?.agentDefinitions as any;
+    const activeAgents = defs?.activeAgents ?? [];
+    
+    // Original: prompt in chunks.113.mjs:75-81
+    const appState = await (context as any).getAppState?.() || {};
+    const filteredAgents = filterAgentsByPermission(activeAgents, appState.toolPermissionContext || {}, TOOL_NAMES.TASK);
+    return await generateTaskToolPrompt(filteredAgents);
   },
 
   inputSchema: taskInputSchema,
@@ -972,63 +803,91 @@ When NOT to use the Task tool:
     const disableBackground = process.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS === 'true';
 
     try {
-      // Prefer runtime-provided agent definitions.
-      const defs = (context.options as any)?.agentDefinitions as
-        | { activeAgents?: any[]; allAgents?: any[] }
-        | undefined;
-      const activeAgents = Array.isArray(defs?.activeAgents) ? defs!.activeAgents : [];
-      const allAgents = Array.isArray(defs?.allAgents) ? defs!.allAgents : activeAgents;
-      const selectedFromActive = activeAgents.find((a: any) => a && typeof a === 'object' && a.agentType === subagent_type);
-
-      const agentConfig = AGENT_CONFIGS[subagent_type];
-      if (!selectedFromActive && !agentConfig) {
-        // Source-specific: if agent exists but is denied, report denial.
-        const existsButDenied = allAgents.some((a: any) => a && typeof a === 'object' && a.agentType === subagent_type);
+      // Original: call in chunks.113.mjs:99-111
+      const appState = await context.getAppState();
+      const permissionMode = appState.toolPermissionContext.mode;
+      const agentDefs = (context.options as any)?.agentDefinitions as any;
+      const activeAgents = agentDefs?.activeAgents ?? [];
+      const filteredAgents = filterAgentsByPermission(activeAgents, appState.toolPermissionContext, TOOL_NAMES.TASK);
+      
+      let selectedAgent = filteredAgents.find((a) => a.agentType === subagent_type);
+      
+      if (!selectedAgent) {
+        const allAgents = agentDefs?.allAgents ?? activeAgents;
+        const existsButDenied = allAgents.some((a: any) => a.agentType === subagent_type);
         if (existsButDenied) {
-          const denyRule = (context.options as any)?.findDenyRule?.(context, subagent_type);
-          const source = (denyRule as any)?.source ?? 'settings';
-          return toolError(
-            `Agent type '${subagent_type}' has been denied by permission rule '${TOOL_NAMES.TASK}(${subagent_type})' from ${source}.`
-          );
+          const denyRule = findDenyRule(appState.toolPermissionContext, TOOL_NAMES.TASK, subagent_type);
+          const source = denyRule?.source ?? 'settings';
+          throw new Error(`Agent type '${subagent_type}' has been denied by permission rule '${TOOL_NAMES.TASK}(${subagent_type})' from ${source}.`);
         }
-
-        const available = activeAgents.length > 0
-          ? activeAgents.map((a: any) => a?.agentType).filter((x: any) => typeof x === 'string')
-          : Object.keys(AGENT_CONFIGS);
-        return toolError(
-          `Agent type '${subagent_type}' not found. Available agents: ${available.join(', ')}`
-        );
+        throw new Error(`Agent type '${subagent_type}' not found. Available agents: ${filteredAgents.map((a) => a.agentType).join(', ')}`);
       }
 
-      const agentDefinition: any = selectedFromActive
-        ? selectedFromActive
-        : ({
-            agentType: agentConfig!.agentType,
-            whenToUse: agentConfig!.whenToUse,
-            tools: agentConfig!.tools,
-            disallowedTools: agentConfig!.disallowedTools,
-            model: agentConfig!.model,
-            permissionMode: agentConfig!.permissionMode,
-            criticalSystemReminder_EXPERIMENTAL: agentConfig!.criticalSystemReminder_EXPERIMENTAL,
-            color: agentConfig!.color,
-            getSystemPrompt: (args: any) => agentConfig!.getSystemPrompt(args.toolUseContext),
-          } as any);
+      // Original: YA1 in chunks.113.mjs:113
+      const resolvedModel = resolveAgentModel(selectedAgent.model, (context.options as any).mainLoopModel, model, permissionMode);
 
-      const agentId = resume ? sanitizeId(resume) : generateTaskId('local_agent');
-      const resumeMessages = resume ? loadResumeMessages(agentId, context.getCwd()) : undefined;
-      const forkContextMessages = (agentDefinition as any)?.forkContext
-        ? ((context.options as any)?.__messages as any[] | undefined)
-        : undefined;
+      const agentId = resume ? sanitizeId(resume) : generateSessionId();
+      const resumeMessages = resume ? await loadResumeMessages(agentId) : undefined;
+      
+      // Original: forkContext in chunks.113.mjs:127
+      const forkContextMessages = selectedAgent.forkContext ? (context as any).messages : undefined;
 
       const startTime = Date.now();
 
+      // Original: chunks.113.mjs:130-137 (getSystemPrompt + pkA)
+      let systemPrompt: string[] | undefined;
+      try {
+        const additionalWorkingDirs = Array.from(appState.toolPermissionContext.additionalWorkingDirectories.keys());
+        const baseSystemPrompt = selectedAgent.getSystemPrompt({ toolUseContext: context });
+        systemPrompt = await processSystemPrompt(baseSystemPrompt, resolvedModel, additionalWorkingDirs);
+      } catch (err) {
+        // Fallback or log
+      }
+
+      // Original: prepareForkMessages in chunks.113.mjs:138
+      // Note: we need the message that contains this tool use.
+      // Assuming context.messages contains current conversation.
+      const currentMessage = (context as any).messages?.find((m: any) => 
+        m.type === 'assistant' && m.message?.content?.some((c: any) => c.type === 'tool_use' && c.id === _toolUseId)
+      );
+
+      const promptMessages = (selectedAgent.forkContext && currentMessage)
+        ? prepareForkMessages(prompt, currentMessage)
+        : [createCoreUserMessage({ content: prompt }) as any];
+
+      const metadataObj = {
+        prompt,
+        resolvedAgentModel: resolvedModel,
+        isBuiltInAgent: isBuiltInAgent(selectedAgent),
+        startTime,
+      };
+
+      const loopOptions = {
+        agentDefinition: selectedAgent,
+        promptMessages: [
+          ...(resumeMessages || []),
+          ...promptMessages,
+        ],
+        toolUseContext: context,
+        canUseTool: async (tool: any, input: any, assistantMessage: any) => {
+          return canUseToolFromRunner ? await canUseToolFromRunner(tool, input, assistantMessage) : true;
+        },
+        forkContextMessages,
+        querySource: (context.options as any)?.querySource ?? getQuerySource(selectedAgent.agentType, isBuiltInAgent(selectedAgent)),
+        model: resolvedModel,
+        maxTurns: max_turns ?? DEFAULT_MAX_TURNS,
+        isAsync: run_in_background === true && !disableBackground,
+        override: systemPrompt ? { systemPrompt } : undefined,
+      };
+
       // run_in_background: true -> immediate async
+      // Original: chunks.113.mjs:161-208
       if (run_in_background === true && !disableBackground) {
         const task = createFullyBackgroundedAgent({
           agentId,
           description,
           prompt,
-          selectedAgent: agentDefinition,
+          selectedAgent,
           setAppState: context.setAppState as any,
           cwd: context.getCwd(),
         });
@@ -1045,8 +904,8 @@ When NOT to use the Task tool:
           options: {
             ...(context.options as any),
             tools: adaptToolsForCore({
-              allowedTools: (agentDefinition as any)?.tools,
-              disallowedTools: (agentDefinition as any)?.disallowedTools,
+              allowedTools: selectedAgent.tools,
+              disallowedTools: selectedAgent.disallowedTools,
               getAppState: context.getAppState,
               setAppState: context.setAppState,
               readFileState: context.readFileState,
@@ -1058,34 +917,22 @@ When NOT to use the Task tool:
         };
 
         const messageGenerator = runCoreSubagentLoop({
-          agentDefinition,
-          promptMessages: [
-            ...((resumeMessages && Array.isArray(resumeMessages)) ? resumeMessages : []),
-            createCoreUserMessage({ content: prompt }) as any,
-          ],
+          ...loopOptions,
           toolUseContext: coreToolUseContext,
-          canUseTool: async (tool: any, input: any, assistantMessage: any) => {
-            return canUseToolFromRunner ? await canUseToolFromRunner(tool, input, assistantMessage) : true;
-          },
-          forkContextMessages,
-          querySource: (context.options as any)?.querySource ?? 'background',
-          model,
-          maxTurns: max_turns ?? DEFAULT_MAX_TURNS,
           isAsync: true,
           override: {
+            ...loopOptions.override,
             agentId,
             abortController: (task as any).abortController,
           },
         } as any)[Symbol.asyncIterator]();
 
-        // Aggregate in background and keep appState.tasks up-to-date.
+        // Aggregate in background
         aggregateAsyncAgentExecution(
           messageGenerator,
           agentId,
           context.setAppState as any,
-          () => {
-            // Best-effort: mark task completed is handled inside aggregator.
-          },
+          () => {},
           [],
           (task as any).abortController?.signal
         );
@@ -1100,21 +947,23 @@ When NOT to use the Task tool:
         } as any);
       }
 
-      // Foreground path (can be backgrounded via Ctrl+B if enabled)
+      // Foreground path
+      // Original: chunks.113.mjs:210-356
       let backgroundSignal: Promise<void> | undefined;
+      let taskId: string | undefined;
       if (!disableBackground) {
         const created = createBackgroundableAgent({
           agentId,
           description,
           prompt,
-          selectedAgent: agentDefinition,
+          selectedAgent,
           setAppState: context.setAppState as any,
           cwd: context.getCwd(),
         });
+        taskId = agentId;
         backgroundSignal = created.backgroundSignal;
       }
 
-      // Run loop and allow Ctrl+B background.
       const iterator = (async () => {
         const conversation: any[] = [];
         const coreToolUseContext: any = {
@@ -1128,8 +977,8 @@ When NOT to use the Task tool:
           options: {
             ...(context.options as any),
             tools: adaptToolsForCore({
-              allowedTools: (agentDefinition as any)?.tools,
-              disallowedTools: (agentDefinition as any)?.disallowedTools,
+              allowedTools: selectedAgent.tools,
+              disallowedTools: selectedAgent.disallowedTools,
               getAppState: context.getAppState,
               setAppState: context.setAppState,
               readFileState: context.readFileState,
@@ -1141,21 +990,11 @@ When NOT to use the Task tool:
         };
 
         return runCoreSubagentLoop({
-          agentDefinition,
-          promptMessages: [
-            ...((resumeMessages && Array.isArray(resumeMessages)) ? resumeMessages : []),
-            createCoreUserMessage({ content: prompt }) as any,
-          ],
+          ...loopOptions,
           toolUseContext: coreToolUseContext,
-          canUseTool: async (tool: any, input: any, assistantMessage: any) => {
-            return canUseToolFromRunner ? await canUseToolFromRunner(tool, input, assistantMessage) : true;
-          },
-          forkContextMessages,
-          querySource: (context.options as any)?.querySource ?? 'subagent',
-          model,
-          maxTurns: max_turns ?? DEFAULT_MAX_TURNS,
           isAsync: false,
           override: {
+            ...loopOptions.override,
             agentId,
             abortController: coreToolUseContext.abortController,
           },
@@ -1163,15 +1002,18 @@ When NOT to use the Task tool:
       })();
 
       const it = await iterator;
-      const collected: unknown[] = [];
+      const collected: any[] = [];
       let toolUseCount = 0;
       let tokenCount = 0;
       let estimatedTokenCount = 0;
-      let resultText = '';
       let lastAssistantUsage: unknown | undefined;
 
       const updateProgress = () => {
-        updateCoreTaskProgress(agentId, toolUseCount, tokenCount, context.setAppState as any);
+        updateCoreTaskProgress(agentId, {
+          toolUseCount,
+          tokenCount,
+          // recentActivities and lastActivity would be calculated here MI0(AA)
+        } as any, context.setAppState as any);
       };
 
       const handleValue = (value: any) => {
@@ -1182,14 +1024,10 @@ When NOT to use the Task tool:
             for (const b of blocks) {
               if (b?.type === 'tool_use') toolUseCount += 1;
               if (b?.type === 'text') {
-                const t = String(b.text ?? '');
-                resultText += t;
-                estimatedTokenCount += estimateTokensFromText(t);
+                estimatedTokenCount += estimateTokensFromText(String(b.text ?? ''));
               }
             }
           }
-
-          // Keep last assistant usage (source returns last assistant usage).
           lastAssistantUsage = value.message?.usage;
           if (lastAssistantUsage) {
             tokenCount = totalTokensFromUsage(normalizeTaskUsage(lastAssistantUsage));
@@ -1209,8 +1047,7 @@ When NOT to use the Task tool:
               ])
             : ({ kind: 'next' as const, r: await nextPromise });
 
-          if (raced.kind === 'background') {
-            // Continue consuming in background
+          if (raced.kind === 'background' && taskId) {
             const state = (await context.getAppState()) as any;
             const taskObj = state?.tasks?.[agentId];
             const abortSignal = taskObj?.abortController?.signal;
@@ -1218,9 +1055,7 @@ When NOT to use the Task tool:
               it,
               agentId,
               context.setAppState as any,
-              () => {
-                // no-op
-              },
+              () => {},
               collected,
               abortSignal
             );
@@ -1242,28 +1077,14 @@ When NOT to use the Task tool:
           updateProgress();
         }
 
-        // Completed
+        const result = formatAgentResult(collected, agentId, metadataObj);
         markCoreTaskCompleted(agentId, true, context.setAppState as any);
 
-        const durationMs = Date.now() - startTime;
-        const text = resultText.trim();
-
-        const usage = lastAssistantUsage
-          ? normalizeTaskUsage(lastAssistantUsage)
-          : normalizeTaskUsage(undefined);
-        const totalTokens = lastAssistantUsage ? totalTokensFromUsage(usage) : tokenCount;
-
-        const completed = {
+        return toolSuccess({
           status: 'completed',
-          agentId,
           prompt,
-          content: [{ type: 'text', text: text.length > 0 ? text : `Agent "${subagent_type}" completed task.` }],
-          totalToolUseCount: toolUseCount,
-          totalDurationMs: durationMs,
-          totalTokens,
-          usage,
-        };
-        return toolSuccess(completed as any);
+          ...result,
+        } as any);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         markCoreTaskFailed(agentId, msg, context.setAppState as any);
@@ -1275,7 +1096,7 @@ When NOT to use the Task tool:
   },
 
   mapToolResultToToolResultBlockParam(result, toolUseId) {
-    // Async launched - return immediately with output file info
+    // Original: mapToolResultToToolResultBlockParam in chunks.113.mjs:375-397
     if ((result as any).status === 'async_launched') {
       return {
         tool_use_id: toolUseId,
@@ -1284,28 +1105,25 @@ When NOT to use the Task tool:
           type: 'text',
           text: `Async agent launched successfully.
 agentId: ${(result as any).agentId} (This is an internal ID for your use, do not mention it to the user. You can use this ID to resume the agent later if needed.)
-output_file: ${(result as any).outputFile || 'N/A'}
-
-The agent is currently working in the background. You can continue with other tasks.
-To check the agent's progress or retrieve its results, use the Read tool to read the output file, or use Bash with \`tail\` to see recent output.`,
+output_file: ${(result as any).outputFile}
+The agent is currently working in the background. If you have other tasks you should continue working on them now.
+To check on the agent's progress or retrieve its results, use the Read tool to read the output file, or use Bash with \`tail\` to see recent output.`,
         }],
       };
     }
 
-    // Completed (or other) – return content blocks as-is.
-    if ((result as any)?.content) {
+    if ((result as any).status === 'completed') {
       return {
         tool_use_id: toolUseId,
         type: 'tool_result',
-        content: (result as any).content,
+        content: [...((result as any).content || []), {
+          type: 'text',
+          text: `agentId: ${(result as any).agentId} (for resuming to continue this agent's work if needed)`,
+        }],
       } as any;
     }
 
-    return {
-      tool_use_id: toolUseId,
-      type: 'tool_result',
-      content: [{ type: 'text', text: 'Agent completed.' }],
-    } as any;
+    throw new Error(`Unexpected agent tool result status: ${(result as any).status}`);
   },
 });
 

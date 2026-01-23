@@ -102,6 +102,21 @@ export function generateUUID(): string {
   return randomUUID();
 }
 
+/**
+ * Generate a unique task ID with optional prefix.
+ * Original: GyA in chunks.91.mjs:904-908
+ */
+export function generateTaskId(type?: 'local_bash' | 'local_agent' | 'remote_agent' | string): string {
+  const prefixes: Record<string, string> = {
+    local_bash: 'b',
+    local_agent: 'a',
+    remote_agent: 'r',
+  };
+  const prefix = prefixes[type || ''] ?? (type && type.length === 1 ? type : 'x');
+  const id = randomUUID().replace(/-/g, '').substring(0, 6);
+  return `${prefix}${id}`;
+}
+
 // ============================================
 // Model Utilities
 // ============================================

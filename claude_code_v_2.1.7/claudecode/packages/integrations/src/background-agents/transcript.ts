@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, cre
 import { createInterface } from 'readline';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
+import { getSessionId } from '@claudecode/shared';
 import type { TranscriptEntry, TranscriptMetadata, BackgroundTaskStatus } from './types.js';
 import { BACKGROUND_AGENT_CONSTANTS } from './types.js';
 
@@ -45,12 +46,13 @@ export function getProjectDir(cwd: string): string {
  * Get agent transcript path.
  * Original: yb (getAgentTranscriptPath) in chunks.148.mjs
  *
- * Path: ~/.claude/projects/<sanitized-cwd>/subagents/agent-<agentId>.jsonl
+ * Path: ~/.claude/projects/<sanitized-cwd>/<sessionId>/subagents/agent-<agentId>.jsonl
  */
 export function getAgentTranscriptPath(agentId: string, cwd?: string): string {
   const workingDir = cwd ?? process.cwd();
   const projectDir = getProjectDir(workingDir);
-  return join(projectDir, BACKGROUND_AGENT_CONSTANTS.SUBAGENTS_DIR, `agent-${agentId}.jsonl`);
+  const sessionId = getSessionId();
+  return join(projectDir, sessionId, BACKGROUND_AGENT_CONSTANTS.SUBAGENTS_DIR, `agent-${agentId}.jsonl`);
 }
 
 /**

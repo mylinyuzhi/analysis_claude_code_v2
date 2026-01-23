@@ -13,6 +13,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
+import { createBaseTask, killBackgroundTask, addTaskToState } from './lifecycle.js';
 import type {
   BackgroundTask,
   BackgroundBashTask,
@@ -195,19 +196,56 @@ export const LocalAgentTaskHandler: TaskHandler<LocalAgentTaskWithProgress> = {
   type: 'local_agent',
 
   async spawn(params, context) {
-    // Implementation would spawn sub-agent
-    throw new Error('LocalAgentTaskHandler.spawn not implemented in stub');
+    const { prompt, description, agentType, model, selectedAgent, agentId: X } = params as any;
+    const { setAppState } = context;
+    // GyA
+    const agentId = X ?? `a${Math.random().toString(16).substring(2, 8)}`;
+    
+    // OKA(agentId, yb(iz(agentId)));
+    const abortController = new AbortController();
+    
+    const task: LocalAgentTaskWithProgress = {
+      ...createBaseTask(agentId, 'local_agent', description),
+      type: 'local_agent',
+      status: 'running',
+      agentId,
+      prompt,
+      selectedAgent,
+      agentType,
+      model,
+      abortController,
+      retrieved: false,
+      lastReportedToolCount: 0,
+      lastReportedTokenCount: 0,
+      isBackgrounded: true,
+    } as any;
+
+    const unregisterCleanup = () => {
+      killBackgroundTask(agentId, setAppState as any);
+    };
+    (task as any).unregisterCleanup = unregisterCleanup;
+
+    // FO(task, setAppState)
+    addTaskToState(task as any, setAppState as any);
+
+    return {
+      taskId: agentId,
+      cleanup: () => {
+        unregisterCleanup();
+        abortController.abort();
+      }
+    };
   },
 
   async kill(taskId, context) {
-    // Implementation would abort the agent
-    // Original: $4A (killBackgroundTask) in chunks.91.mjs
+    killBackgroundTask(taskId, context.setAppState as any);
   },
 
   renderStatus(task) {
     const { status, description, progress } = task;
     const color = status === 'running' ? 'yellow' : status === 'completed' ? 'green' : status === 'failed' ? 'red' : 'gray';
     const progressText = progress ? ` (${progress.toolUseCount} tools, ${progress.tokenCount} tokens)` : '';
+    // Original uses Md.createElement(T, null, Md.createElement(C, { color: Y }, "[", B, "] ", G, J))
     return React.createElement(Box, null,
       React.createElement(Text, { color }, `[${status}] ${description}${progressText}`)
     );
@@ -232,7 +270,7 @@ export const LocalAgentTaskHandler: TaskHandler<LocalAgentTaskWithProgress> = {
     if (newTools > 0) updates.push(`${newTools} new tool${newTools > 1 ? 's' : ''} used`);
     if (newTokens > 0) updates.push(`${newTokens} new tokens`);
 
-    return `Agent ${task.id} progress: ${updates.join(', ')}. The agent is still running. You usually do not need to read ${task.outputPath} unless you need specific details right away. You will receive a notification when the agent is done.`;
+    return `Agent ${task.id} progress: ${updates.join(', ')}. The agent is still running. You usually do not need to read ${(task as any).outputFile} unless you need specific details right away. You will receive a notification when the agent is done.`;
   },
 };
 

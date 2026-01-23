@@ -218,6 +218,7 @@ export interface BackgroundBashTaskExtended extends BackgroundBashTask {
 export interface BackgroundAgentTaskExtended extends BackgroundAgentTask {
   isBackgrounded: boolean;
   notified?: boolean;
+  abortController?: AbortController;
   progress?: {
     toolUseCount: number;
     tokenCount: number;
