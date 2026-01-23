@@ -150,7 +150,11 @@ export {
   killBackgroundTask,
   createTaskNotification,
   aggregateAsyncAgentExecution,
-  // Note: updateTask, addTaskToState, etc. removed as they were replaced by registry-based approach
+  addTaskToState,
+  updateTask,
+  createBaseTask,
+  createBashTaskNotification,
+  markBashTaskCompleted,
 } from './lifecycle.js';
 
 // ============================================

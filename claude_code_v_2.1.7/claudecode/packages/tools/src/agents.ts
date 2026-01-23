@@ -16,7 +16,7 @@
 
 import { z } from 'zod';
 import { readFileSync, readdirSync, existsSync, statSync } from 'fs';
-import { join, basename } from 'path';
+import { join, basename, dirname } from 'path';
 import { homedir } from 'os';
 import { parseFrontmatter } from '@claudecode/features';
 import { getProjectDir, getSessionId } from '@claudecode/shared';
@@ -73,6 +73,7 @@ const agentSchema = z.object({
 // Original: rZ5, sZ5, tZ5, QY5 in chunks.93.mjs
 // ============================================
 
+// Original: rZ5
 const BASH_SYSTEM_PROMPT = `You are a command execution specialist for Claude Code. Your role is to execute bash commands efficiently and safely.
 
 Guidelines:
@@ -86,6 +87,7 @@ Guidelines:
 
 Complete the requested operations efficiently.`;
 
+// Original: sZ5
 const GENERAL_PURPOSE_SYSTEM_PROMPT = `You are an agent for Claude Code, Anthropic's official CLI for Claude. Given the user's message, you should use the tools available to complete the task. Do what has been asked; nothing more, nothing less. When you complete the task simply respond with a detailed writeup.
 
 Your strengths:
@@ -103,6 +105,7 @@ Guidelines:
 - In your final response always share relevant file names and code snippets. Any file paths you return in your response MUST be absolute. Do NOT use relative paths.
 - For clear communication, avoid using emojis.`;
 
+// Original: QY5
 const EXPLORE_SYSTEM_PROMPT = `You are a file search specialist for Claude Code, Anthropic's official CLI for Claude. You excel at thoroughly navigating and exploring codebases.
 
 === CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS ===
@@ -190,6 +193,7 @@ List 3-5 files most critical for implementing this plan:
 
 REMEMBER: You can ONLY explore and plan. You CANNOT and MUST NOT write, edit, or modify any files. You do NOT have access to file editing tools.`;
 
+// Original: tZ5
 const STATUSLINE_SYSTEM_PROMPT = `You are a status line setup agent for Claude Code. Your job is to create or update the statusLine command in the user's Claude Code settings.
 
 When asked to convert the user's shell PS1 configuration, follow these steps:
@@ -415,6 +419,7 @@ function getClaudeCodeGuideSystemPrompt(toolUseContext: any): string {
 // Original: K52, $Y1, F52, MS, UY1, z52 in chunks.93.mjs
 // ============================================
 
+// Original: K52
 const BASH_AGENT: AgentDefinition = {
   agentType: 'Bash',
   whenToUse: 'Command execution specialist for running bash commands. Use this for git operations, command execution, and other terminal tasks.',
@@ -425,6 +430,7 @@ const BASH_AGENT: AgentDefinition = {
   getSystemPrompt: () => BASH_SYSTEM_PROMPT,
 };
 
+// Original: $Y1
 const GENERAL_PURPOSE_AGENT: AgentDefinition = {
   agentType: 'general-purpose',
   whenToUse: "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you.",
@@ -434,6 +440,7 @@ const GENERAL_PURPOSE_AGENT: AgentDefinition = {
   getSystemPrompt: () => GENERAL_PURPOSE_SYSTEM_PROMPT,
 };
 
+// Original: F52
 const STATUSLINE_SETUP_AGENT: AgentDefinition = {
   agentType: 'statusline-setup',
   whenToUse: "Use this agent to configure the user's Claude Code status line setting.",
@@ -445,6 +452,7 @@ const STATUSLINE_SETUP_AGENT: AgentDefinition = {
   getSystemPrompt: () => STATUSLINE_SYSTEM_PROMPT,
 };
 
+// Original: MS
 const EXPLORE_AGENT: AgentDefinition = {
   agentType: 'Explore',
   whenToUse: 'Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.',
@@ -456,6 +464,7 @@ const EXPLORE_AGENT: AgentDefinition = {
   getSystemPrompt: () => EXPLORE_SYSTEM_PROMPT,
 };
 
+// Original: UY1
 const PLAN_AGENT: AgentDefinition = {
   agentType: 'Plan',
   whenToUse: 'Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs.',
@@ -486,6 +495,7 @@ function generateIssuesExplainer(): string {
   return "- When you cannot find an answer or the feature doesn't exist, direct the user to use /feedback to report a feature request or bug";
 }
 
+// Original: z52
 const CLAUDE_CODE_GUIDE_AGENT: AgentDefinition = {
   agentType: 'claude-code-guide',
   whenToUse: 'Use this agent when the user asks questions ("Can Claude...", "Does Claude...", "How do I...") about: (1) Claude Code (the CLI tool) - features, hooks, slash commands, MCP servers, settings, IDE integrations, keyboard shortcuts; (2) Claude Agent SDK - building custom agents; (3) Claude API (formerly Anthropic API) - API usage, tool use, Anthropic SDK usage. **IMPORTANT:** Before spawning a new agent, check if there is already a running or recently completed claude-code-guide agent that you can resume using the "resume" parameter.',
@@ -767,6 +777,7 @@ export function loadAgentFromFile(
       permissionMode: (frontmatter as any).permissionMode,
       criticalSystemReminder_EXPERIMENTAL: (frontmatter as any).criticalSystemReminder_EXPERIMENTAL,
       disallowedTools: (frontmatter as any).disallowedTools,
+      baseDir: join(process.cwd(), dirname(filePath)),
     };
   } catch (error) {
     console.error(`Failed to load agent from ${filePath}:`, error);

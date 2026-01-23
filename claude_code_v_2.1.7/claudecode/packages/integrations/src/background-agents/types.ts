@@ -58,6 +58,8 @@ export interface BackgroundAgentTask extends BackgroundTaskBase {
   prompt?: string;
   subagentType?: string;
   model?: string;
+  result?: unknown;
+  error?: string;
 }
 
 /**

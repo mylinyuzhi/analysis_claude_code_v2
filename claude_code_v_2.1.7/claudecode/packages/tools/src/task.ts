@@ -730,9 +730,10 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
     const defs = options?.agentDefinitions as any;
     const activeAgents = defs?.activeAgents ?? [];
     
-    // Original: prompt in chunks.113.mjs:75-81
+      // Original: prompt in chunks.113.mjs:75-81
     const appState = await (context as any).getAppState?.() || {};
-    const filteredAgents = filterAgentsByPermission(activeAgents, appState.toolPermissionContext || {}, TOOL_NAMES.TASK);
+    const permissionContext = (appState as any).toolPermissionContext || {};
+    const filteredAgents = filterAgentsByPermission(activeAgents, permissionContext, TOOL_NAMES.TASK);
     return await generateTaskToolPrompt(filteredAgents);
   },
 
@@ -806,8 +807,8 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
 
     try {
       // Original: call in chunks.113.mjs:99-111
-      const appState = await context.getAppState();
-      const permissionMode = appState.toolPermissionContext.mode;
+      const appState = await context.getAppState() as any;
+      const permissionMode = appState.toolPermissionContext?.mode;
       const agentDefs = (context.options as any)?.agentDefinitions as any;
       const activeAgents = agentDefs?.activeAgents ?? [];
       const filteredAgents = filterAgentsByPermission(activeAgents, appState.toolPermissionContext, TOOL_NAMES.TASK);
@@ -839,7 +840,7 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
       // Original: chunks.113.mjs:130-137 (getSystemPrompt + pkA)
       let systemPrompt: string[] | undefined;
       try {
-        const additionalWorkingDirs = Array.from(appState.toolPermissionContext.additionalWorkingDirectories.keys());
+        const additionalWorkingDirs = Array.from((appState.toolPermissionContext?.additionalWorkingDirectories as Map<string, any> | undefined)?.keys() || []);
         const baseSystemPrompt = selectedAgent.getSystemPrompt({ toolUseContext: context });
         systemPrompt = await processSystemPrompt(baseSystemPrompt, resolvedModel, additionalWorkingDirs);
       } catch (err) {
@@ -885,6 +886,7 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
       // run_in_background: true -> immediate async
       // Original: chunks.113.mjs:161-208
       if (run_in_background === true && !disableBackground) {
+        // Original: L32 (createFullyBackgroundedAgent) in chunks.91.mjs:1288
         const task = createFullyBackgroundedAgent({
           agentId,
           description,
@@ -954,6 +956,7 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
       let backgroundSignal: Promise<void> | undefined;
       let taskId: string | undefined;
       if (!disableBackground) {
+        // Original: O32 (createBackgroundableAgent) in chunks.91.mjs:1317
         const created = createBackgroundableAgent({
           agentId,
           description,
@@ -991,6 +994,7 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
           },
         };
 
+        // Original: $f (runSubagentLoop)
         return runCoreSubagentLoop({
           ...loopOptions,
           toolUseContext: coreToolUseContext,
@@ -1010,12 +1014,9 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
       let estimatedTokenCount = 0;
       let lastAssistantUsage: unknown | undefined;
 
+      // Original: RI0 (updateTaskProgress) in chunks.91.mjs:1253
       const updateProgress = () => {
-        updateCoreTaskProgress(agentId, {
-          toolUseCount,
-          tokenCount,
-          // recentActivities and lastActivity would be calculated here MI0(AA)
-        } as any, context.setAppState as any);
+        updateCoreTaskProgress(agentId, toolUseCount, tokenCount, context.setAppState as any);
       };
 
       const handleValue = (value: any) => {
@@ -1042,6 +1043,7 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
       try {
         while (true) {
           const nextPromise = it.next();
+          // Original: Promise.race pattern in chunks.113.mjs:262-312
           const raced = backgroundSignal
             ? await Promise.race([
                 nextPromise.then((r) => ({ kind: 'next' as const, r })),
@@ -1073,10 +1075,12 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
             } as any);
           }
 
-          const { done, value } = raced.r;
-          if (done) break;
-          handleValue(value);
-          updateProgress();
+          if (raced.kind === 'next') {
+            const { done, value } = raced.r;
+            if (done) break;
+            handleValue(value);
+            updateProgress();
+          }
         }
 
         const result = formatAgentResult(collected, agentId, metadataObj);

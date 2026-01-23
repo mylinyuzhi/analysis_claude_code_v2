@@ -6,10 +6,15 @@
     "baseUrl": ".",
     "paths": {
       "@claudecode/shared": ["../shared/src"],
+      "@claudecode/shared/*": ["../shared/src/*"],
       "@claudecode/core": ["../core/src"],
+      "@claudecode/core/*": ["../core/src/*"],
       "@claudecode/features": ["../features/src"],
+      "@claudecode/features/*": ["../features/src/*"],
       "@claudecode/integrations": ["../integrations/src"],
-      "@claudecode/platform": ["../platform/src"]
+      "@claudecode/integrations/*": ["../integrations/src/*"],
+      "@claudecode/platform": ["../platform/src"],
+      "@claudecode/platform/*": ["../platform/src/*"]
     },
     "noEmit": false,
     "declaration": true,

@@ -30,7 +30,7 @@ export interface CreateToolOptions<TInput, TOutput> {
   input_examples?: TInput[];
 
   description: () => Promise<string>;
-  prompt: () => Promise<string>;
+  prompt: (context?: ToolContext) => Promise<string>;
 
   inputSchema: Tool<TInput, TOutput>['inputSchema'];
   outputSchema: Tool<TInput, TOutput>['outputSchema'];

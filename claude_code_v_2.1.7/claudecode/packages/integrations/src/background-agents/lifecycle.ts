@@ -274,10 +274,10 @@ export function updateTaskProgress(
  * Original: _I0 in chunks.91.mjs:1263-1274
  */
 export function markTaskCompleted(
+  taskId: string,
   result: any,
   setAppState: SetAppState
 ): void {
-  const taskId = result.agentId;
   updateTask(taskId, setAppState, (task) => {
     if (task.status !== 'running') return task;
     (task as any).unregisterCleanup?.();
@@ -447,7 +447,7 @@ export function aggregateAsyncAgentExecution(
         // Check abort signal
         if (abortSignal?.aborted) {
           finalCallback(allMessages);
-          markTaskCompleted(taskId, false, setAppState, 'Aborted');
+          markTaskFailed(taskId, 'Aborted', setAppState);
           return;
         }
 
