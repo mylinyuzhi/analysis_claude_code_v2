@@ -24,10 +24,9 @@ export const ENTER_PLAN_MODE_NAME = 'EnterPlanMode';
 
 /**
  * Detailed description for when to use EnterPlanMode.
- * Original: Au2 in chunks.120.mjs
+ * Original: Au2 in chunks.120.mjs:386-471
  */
-export const ENTER_PLAN_MODE_DESCRIPTION = `
-Use this tool proactively when you're about to start a non-trivial implementation task. Getting user sign-off on your approach before writing code prevents wasted effort and ensures alignment. This tool transitions you into plan mode where you can explore the codebase and design an implementation approach for user approval.
+export const ENTER_PLAN_MODE_DESCRIPTION = `Use this tool proactively when you're about to start a non-trivial implementation task. Getting user sign-off on your approach before writing code prevents wasted effort and ensures alignment. This tool transitions you into plan mode where you can explore the codebase and design an implementation approach for user approval.
 
 ## When to Use This Tool
 
@@ -78,6 +77,40 @@ In plan mode, you'll:
 4. Present your plan to the user for approval
 5. Use AskUserQuestion if you need to clarify approaches
 6. Exit plan mode with ExitPlanMode when ready to implement
+
+## Examples
+
+### GOOD - Use EnterPlanMode:
+User: "Add user authentication to the app"
+- Requires architectural decisions (session vs JWT, where to store tokens, middleware structure)
+
+User: "Optimize the database queries"
+- Multiple approaches possible, need to profile first, significant impact
+
+User: "Implement dark mode"
+- Architectural decision on theme system, affects many components
+
+User: "Add a delete button to the user profile"
+- Seems simple but involves: where to place it, confirmation dialog, API call, error handling, state updates
+
+User: "Update the error handling in the API"
+- Affects multiple files, user should approve the approach
+
+### BAD - Don't use EnterPlanMode:
+User: "Fix the typo in the README"
+- Straightforward, no planning needed
+
+User: "Add a console.log to debug this function"
+- Simple, obvious implementation
+
+User: "What files handle routing?"
+- Research task, not implementation planning
+
+## Important Notes
+
+- This tool REQUIRES user approval - they must consent to entering plan mode
+- If unsure whether to use it, err on the side of planning - it's better to get alignment upfront than to redo work
+- Users appreciate being consulted before significant changes are made to their codebase
 `;
 
 // ============================================
@@ -86,19 +119,20 @@ In plan mode, you'll:
 
 /**
  * Generate result message for tool result.
+ * Original: content in gbA.mapToolResultToToolResultBlockParam
  */
 export function getEnterPlanModeResultMessage(message: string): string {
   return `${message}
 
 In plan mode, you should:
-1. Thoroughly explore the codebase using Glob, Grep, and Read tools
-2. Identify similar existing features or patterns to follow
-3. Consider multiple implementation approaches
-4. Use AskUserQuestion to clarify ambiguities
+1. Thoroughly explore the codebase to understand existing patterns
+2. Identify similar features and architectural approaches
+3. Consider multiple approaches and their trade-offs
+4. Use AskUserQuestion if you need to clarify the approach
 5. Design a concrete implementation strategy
-6. When ready, use ExitPlanMode to request approval
+6. When ready, use ExitPlanMode to present your plan for approval
 
-Remember: DO NOT write or edit any files yet. Focus on understanding and planning.`;
+Remember: DO NOT write or edit any files yet. This is a read-only exploration and planning phase.`;
 }
 
 // ============================================
@@ -107,7 +141,7 @@ Remember: DO NOT write or edit any files yet. Focus on understanding and plannin
 
 /**
  * EnterPlanMode tool definition.
- * Original: gbA in chunks.120.mjs
+ * Original: gbA in chunks.120.mjs:535-605
  */
 export const EnterPlanModeTool = {
   name: ENTER_PLAN_MODE_NAME,
@@ -121,20 +155,27 @@ export const EnterPlanModeTool = {
     return ENTER_PLAN_MODE_DESCRIPTION;
   },
 
-  // Empty input schema
+  // Empty input schema (fl5)
   inputSchema: {
     type: 'object' as const,
     properties: {},
     required: [] as string[],
   },
 
-  // Message output schema
+  // Message output schema (hl5)
   outputSchema: {
     type: 'object' as const,
     properties: {
-      message: { type: 'string' },
+      message: { 
+        type: 'string',
+        description: 'Confirmation that plan mode was entered'
+      },
     },
     required: ['message'],
+  },
+
+  userFacingName(): string {
+    return '';
   },
 
   isEnabled(): boolean {
@@ -164,8 +205,8 @@ export const EnterPlanModeTool = {
       getAppState: () => Promise<{ toolPermissionContext: { mode: PermissionMode } }>;
       setAppState: (
         updater: (
-          state: { toolPermissionContext: { mode: PermissionMode } }
-        ) => { toolPermissionContext: { mode: PermissionMode } }
+          state: any
+        ) => any
       ) => void;
     }
   ): Promise<{ data: EnterPlanModeOutput }> {
@@ -176,17 +217,16 @@ export const EnterPlanModeTool = {
 
     const appState = await toolUseContext.getAppState();
 
-    // Trigger mode transition handler
-    // Original: Ty(B.toolPermissionContext.mode, "plan")
+    // Trigger mode transition handler (Ty)
     onToolPermissionModeChanged(appState.toolPermissionContext.mode, 'plan');
 
-    // Update app state to plan mode
-    // Original: toolPermissionContext: UJ(G.toolPermissionContext, { type: "setMode", mode: "plan", destination: "session" })
-    toolUseContext.setAppState((state) => ({
+    // Update app state to plan mode (UJ)
+    toolUseContext.setAppState((state: any) => ({
       ...state,
       toolPermissionContext: {
         ...state.toolPermissionContext,
         mode: 'plan' as PermissionMode,
+        // In Source, UJ might handle more but the effect is mode: 'plan'
       },
     }));
 

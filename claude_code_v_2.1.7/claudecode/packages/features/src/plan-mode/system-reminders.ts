@@ -105,12 +105,8 @@ export interface PlanModeReminderContext {
 export function buildPlanModeSystemReminder(
   context: PlanModeReminderContext
 ): string {
-  if (context.isSubAgent) {
-    return buildSubAgentPlanReminder(context);
-  }
-  if (context.reminderType === 'sparse') {
-    return buildSparsePlanReminder(context);
-  }
+  if (context.isSubAgent) return buildSubAgentPlanReminder(context);
+  if (context.reminderType === 'sparse') return buildSparsePlanReminder(context);
   return buildFullPlanReminder(context);
 }
 
@@ -125,7 +121,7 @@ export function buildFullPlanReminder(
   context: PlanModeReminderContext
 ): string {
   if (context.isSubAgent) {
-    return '';
+    return ''; // $$7 returns [] which means empty reminder for subagents
   }
 
   const maxPlanAgents = getMaxPlanAgents();
@@ -170,6 +166,7 @@ Goal: Gain a comprehensive understanding of the user's request by reading throug
    - Quality over quantity - ${maxExploreAgents} agents maximum, but you should try to use the minimum number of agents necessary (usually just 1)
    - If using multiple agents: Provide each agent with a specific search focus or area to explore. Example: One agent searches for existing implementations, another explores related components, a third investigating testing patterns
 
+3. After exploring the code, use the ${ASK_USER_QUESTION_NAME} tool to clarify ambiguities in the user request up front.
 
 ### Phase 2: Design
 Goal: Design an implementation approach.
@@ -250,13 +247,15 @@ Answer the user's query comprehensively, using the ${ASK_USER_QUESTION_NAME} too
 
 /**
  * Determine reminder type based on attachment count.
- * Original: Part of z$7 logic
+ * Original: (_27(A) + 1) % ar2.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse"
  */
 export function getReminderType(
   attachmentCount: number
 ): PlanReminderType {
   const interval = PLAN_MODE_CONSTANTS.FULL_REMINDER_EVERY_N_ATTACHMENTS;
-  if (attachmentCount === 0 || attachmentCount % interval === 0) {
+  // If attachmentCount is the number of PREVIOUS attachments,
+  // then the NEXT one is (attachmentCount + 1).
+  if ((attachmentCount + 1) % interval === 1) {
     return 'full';
   }
   return 'sparse';

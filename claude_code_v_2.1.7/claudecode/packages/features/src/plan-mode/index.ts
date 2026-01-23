@@ -42,10 +42,11 @@ export function getPlanModeAgent() {
     // Plan agent uses standard read-only tools (injected by system)
     // It explicitly disallows modification tools and ExitPlanMode (only main agent exits)
     disallowedTools: [
-      ...PLAN_MODE_DISALLOWED_TOOLS,
-      'ExitPlanMode', // Subagents cannot exit plan mode
-      'Task',         // Subagents cannot spawn more subagents (usually)
-      'KillShell',    // Safety
+      'Task',
+      'ExitPlanMode',
+      'Edit',
+      'Write',
+      'KillShell',
     ],
   };
 }

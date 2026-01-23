@@ -51,13 +51,15 @@ export interface ExitPlanModeInput {
  */
 export interface ExitPlanModeOutput {
   /** Plan content */
-  plan?: string;
+  plan?: string | null;
   /** Whether from agent context */
   isAgent?: boolean;
   /** Plan file path */
   filePath?: string;
   /** Awaiting team lead approval (enterprise) */
   awaitingLeaderApproval?: boolean;
+  /** Request ID for approval tracking */
+  requestId?: string;
 }
 
 // ============================================
