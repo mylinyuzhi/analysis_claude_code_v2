@@ -198,7 +198,9 @@ const taskOutputSchema = z.union([
 async function getEnvironmentInfo(model: string, additionalWorkingDirs: string[]): Promise<string> {
   const isGit = existsSync(join(process.cwd(), '.git'));
   const platform = process.platform;
-  const osVersion = 'unknown'; // Simplified (original calls uname -sr)
+  // Original uses `uname -sr` to get kernel version on non-Windows platforms.
+  // We simplify this to 'unknown' or a basic check to avoid spawning synchronous processes if not needed.
+  const osVersion = 'unknown'; 
   const today = new Date().toLocaleDateString();
   
   const modelInfo = `You are powered by the model ${model}.`;
@@ -408,7 +410,7 @@ function getBuiltinToolsForSubagents() {
     NotebookEditTool,
     KillShellTool,
     TaskOutputTool,
-    // 允许子代理再次调用 Task（与 source 行为一致；具体是否允许由 tools/disallowedTools 决定）
+    // Allow subagent to call Task again (matches source behavior; specific allowance determined by tools/disallowedTools)
     TaskTool,
   ];
 }
@@ -1131,4 +1133,4 @@ To check on the agent's progress or retrieve its results, use the Read tool to r
 // Export
 // ============================================
 
-// NOTE: TaskTool 已在声明处导出；避免重复导出。
+// NOTE: TaskTool is exported at declaration; avoid duplicate export.

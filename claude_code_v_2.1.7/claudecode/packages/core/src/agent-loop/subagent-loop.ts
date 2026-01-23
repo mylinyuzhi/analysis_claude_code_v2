@@ -419,10 +419,11 @@ export async function setupMcpClients(
   tools: ToolDefinition[];
   cleanup: () => Promise<void>;
 }> {
-  // NOTE: 在该还原版本中，MCP 连接/发现主要由上层（主循环/集成层）管理并注入到 toolUseContext.options。
-  // 这里做两件事：
-  // 1) 继承父级 MCP clients
-  // 2) 若 agentDefinition.mcpServers 提供了“已连接 client / server bundle”，则合并并提供可选 cleanup
+  // NOTE: In this reconstructed version, MCP connection/discovery is mainly managed upstream (main loop / integration layer)
+  // and injected into toolUseContext.options.
+  // Here we do two things:
+  // 1) Inherit parent MCP clients
+  // 2) If agentDefinition.mcpServers provides "connected client / server bundle", merge it and provide optional cleanup
 
   const clients: unknown[] = [...parentMcpClients];
   const tools: ToolDefinition[] = [];
@@ -459,7 +460,7 @@ export async function setupMcpClients(
       } else if (Array.isArray(bundle?.clients)) {
         addedClients.push(...bundle.clients);
       } else if (bundle && typeof bundle === 'object') {
-        // 如果看起来像 client，就直接追加
+        // If it looks like a client, append it directly
         if (typeof bundle.name === 'string') {
           addedClients.push(bundle);
         }
@@ -515,12 +516,12 @@ export async function loadAgentSkills(
     return skillMessages;
   }
 
-  // 使用 @claudecode/features/skills 的 loader，避免在 core 重复实现扫描/解析逻辑。
-  // 该 loader 会聚合 managed/user/project/plugin/bundled 等来源。
+  // Use @claudecode/features/skills loader to avoid duplicating scan/parse logic in core.
+  // This loader aggregates managed/user/project/plugin/bundled sources.
   const cwd = process.cwd();
   const { skillDirCommands, pluginSkills, bundledSkills } = await getSkillsCachedFromFeatures(
     { cwd },
-    // enabledPlugins 当前还原版本通常由插件系统注入；这里保持 undefined。
+    // enabledPlugins is usually injected by the plugin system; keep undefined here.
     undefined
   );
 
@@ -536,7 +537,7 @@ export async function loadAgentSkills(
     const ref = String(rawSkillRef ?? '').trim();
     if (!ref) continue;
 
-    // 允许 "skillName arg1 arg2" 这种形式，将剩余部分作为 $ARGUMENTS 注入。
+    // Allow "skillName arg1 arg2" format, injecting the rest as $ARGUMENTS.
     const [maybeName, ...rest] = ref.split(/\s+/);
     const skillName = (maybeName ?? '').trim();
     if (!skillName) continue;
@@ -591,8 +592,8 @@ export function registerAgentHooks(
 ): void {
   if (!setAppState || typeof setAppState !== 'function') return;
 
-  // 支持 EventHooksConfig 形态（features/hooks/types.ts），这是 tools/execution.ts 的执行引擎所依赖的。
-  // 若 hooks 是 AgentHooks（onStart/onEnd/onError）之类的结构，则忽略。
+  // Support EventHooksConfig shape (features/hooks/types.ts), relied upon by tools/execution.ts engine.
+  // If hooks is AgentHooks (onStart/onEnd/onError), ignore it.
   if (!hooks || typeof hooks !== 'object') return;
 
   const hooksObj = hooks as Record<string, unknown>;
@@ -663,7 +664,7 @@ async function recordSidechainTranscript(
   const sessionId = getSessionId();
   const transcriptPath = join(projectDir, sessionId, 'subagents', `agent-${agentId}.jsonl`);
 
-  // 初始化 transcript（首行写入 metadata）
+  // Initialize transcript (write metadata to first line)
   if (!existsSync(transcriptPath)) {
     mkdirSync(dirname(transcriptPath), { recursive: true });
     const metaEntry: SessionLogEntry = {
@@ -683,9 +684,9 @@ async function recordSidechainTranscript(
     writeFileSync(transcriptPath, JSON.stringify(metaEntry) + '\n', 'utf-8');
   }
 
-  // afterUUID 过滤：
-  // - 若 messages 内包含 afterUUID：仅追加其后消息
-  // - 若 messages 只有一条且 uuid === afterUUID：跳过
+  // afterUUID filtering:
+  // - If messages contains afterUUID: only append messages after it
+  // - If messages has only one item and uuid === afterUUID: skip
   let startIdx = 0;
   if (afterUUID) {
     if (messages.length === 1 && (messages[0] as any)?.uuid === afterUUID) {
@@ -708,7 +709,7 @@ async function recordSidechainTranscript(
       sessionId: getSessionId(),
       isSidechain: true,
       agentName: agentId,
-      // 保留原始结构，便于后续 restore/telemetry 对齐
+      // Keep original structure for restore/telemetry alignment
       content: m,
     };
 
@@ -732,7 +733,7 @@ async function getUserContext(): Promise<string> {
   try {
     const u = userInfo();
     const username = u.username || '';
-    // 以 Record 序列化的 JSON 形式返回，便于 core-message-loop 统一注入为 <system-reminder>
+    // Return as JSON string serialized Record, for core-message-loop to inject as <system-reminder>
     return JSON.stringify({
       Username: username,
       HomeDirectory: homedir(),
@@ -773,8 +774,8 @@ async function* executeSubagentStartHooks(
   agentType: string,
   signal: AbortSignal
 ): AsyncGenerator<{ additionalContexts?: string[] }> {
-  // 直接复用 @claudecode/features/hooks 的 SubagentStart 触发器。
-  // 该触发器会运行匹配的 hooks，并通过 stdout / JSON(systemMessage) 传回可注入上下文。
+  // Directly reuse SubagentStart trigger from @claudecode/features/hooks.
+  // This trigger runs matching hooks and returns injectable contexts via stdout / JSON(systemMessage).
   for await (const y of executeSubagentStartHooksFromFeatures(agentId, agentType, signal)) {
     if (y?.preventContinuation) {
       throw new Error(y.stopReason || 'SubagentStart hook prevented continuation');
@@ -794,12 +795,12 @@ async function* executeSubagentStartHooks(
         yield { additionalContexts: [extracted.trim()] };
         continue;
       }
-      // 如果是合法 JSON 但没有可抽取字段，则保留原始输出
+      // If valid JSON but no extractable fields, keep original output
       yield { additionalContexts: [raw.trim()] };
       continue;
     }
 
-    // 纯文本输出
+    // Plain text output
     if (parsed.plainText && parsed.plainText.trim().length > 0) {
       yield { additionalContexts: [parsed.plainText.trim()] };
     }
