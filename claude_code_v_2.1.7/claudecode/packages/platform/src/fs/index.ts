@@ -360,11 +360,16 @@ export const FileSystemWrapper = {
   },
 };
 
+/**
+ * Get system temp directory
+ */
+export function getTempDir(): string {
+  return os.tmpdir();
+}
+
 // ============================================
 // Output File Management (Background Tasks)
-// Reconstructed from chunks.86.mjs
 // ============================================
-
 /**
  * Map of pending write promises per task.
  * Ensures sequential writes for each task.

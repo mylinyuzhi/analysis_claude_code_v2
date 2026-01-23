@@ -49,7 +49,6 @@ export {
 // Re-export micro-compact
 export {
   microCompact,
-  shouldMicroCompact,
   CLEARED_MARKER,
 } from './micro-compact.js';
 

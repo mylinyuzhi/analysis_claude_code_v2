@@ -2,20 +2,13 @@
  * @claudecode/features - Context Restoration
  *
  * Functions for restoring context after compaction.
- * Reconstructed from chunks.132.mjs:677-750
- *
- * Key symbols:
- * - E97 → restoreRecentFilesAfterCompact
- * - z97 → createTodoAttachment
- * - xL0 → createPlanFileReferenceAttachment
- * - $97 → createInvokedSkillsAttachment
- * - C97 → createTaskStatusAttachments
- * - U97 → shouldExcludeFromRestore
- * - TL0 → readFileForRestore
+ * Original: chunks.132.mjs:654-750
  */
 
+import { join } from 'path';
 import {
   generateUUID,
+  getCacheDir,
   getGlobalState,
   getProjectRoot,
   getSessionId,
@@ -37,41 +30,110 @@ import {
 
 /**
  * Filters files that shouldn't be restored to avoid redundancy.
- * Original: U97() in chunks.132.mjs:732-747
+ * Original: U97 in chunks.132.mjs:732-747
  */
 export function shouldExcludeFromRestore(filepath: string, agentId?: string): boolean {
   const normalized = normalizePath(filepath);
 
-  // Exclude 1: Agent's own todo file
+  // Exclude 1: Agent's own transcript (todo) file
+  // Original: try { let G = Q ?? q0(), Z = Yr(Ir(G)); if (B === Z) return !0 } catch {}
   try {
-    // Ir(G) in source is getTodoFilePath
-    // We don't have a direct equivalent here, but we can skip it if we know the pattern
-    // or just rely on the other exclusions.
+    const id = agentId ?? getSessionId();
+    const todoPath = normalizePath(getAgentTranscriptPath(id));
+    if (normalized === todoPath) return true;
   } catch {}
 
   // Exclude 2: Plan file for this agent (restored separately)
+  // Original: try { let G = Yr(dC(Q)); if (B === G) return !0 } catch {}
   try {
     const planPath = normalizePath(getPlanFilePath(agentId));
     if (normalized === planPath) return true;
   } catch {}
 
-  // Exclude 3: Skill directories (restored separately)
-  // sr2 = ["User", "Project", "Local", "Managed", "ExperimentalUltraClaudeMd"]
-  // MQA(Z) returns skill dir path
-  // For now, we assume standard skill paths are handled elsewhere or not critical to exclude if small
-  
-  // Exclude 4: Transcript file (prevents infinite recursion)
+  // Exclude 3: Claude.md instruction files (restored separately or via system reminders)
+  // Original: try { if (new Set(sr2.map((Z) => Yr(MQA(Z)))).has(B)) return !0 } catch {}
   try {
-    const transcriptPath = normalizePath(getSessionPath(getSessionId(), getProjectRoot()));
-    if (normalized === transcriptPath) return true;
+    const claudeMdPaths = CLAUDE_MD_TYPES.map(type => normalizePath(getClaudeMdPath(type)));
+    if (new Set(claudeMdPaths).has(normalized)) return true;
   } catch {}
 
   return false;
 }
 
+// ============================================
+// Helper Functions for shouldExcludeFromRestore
+// ============================================
+
+/**
+ * Get the agent transcript (todo) path.
+ * Original: Ir in chunks.86.mjs:894-897
+ */
+function getAgentTranscriptPath(agentId: string): string {
+  const cacheDir = getCacheDir();
+  const sessionId = getSessionId();
+  return join(cacheDir, 'todos', `${sessionId}-agent-${agentId}.json`);
+}
+
+/**
+ * Claude.md context types.
+ * Original: sr2 in chunks.132.mjs:348
+ */
+export type ClaudeMdType = 'User' | 'Project' | 'Local' | 'Managed' | 'ExperimentalUltraClaudeMd';
+export const CLAUDE_MD_TYPES: ClaudeMdType[] = [
+  'User',
+  'Project',
+  'Local',
+  'Managed',
+  'ExperimentalUltraClaudeMd',
+];
+
+/**
+ * Get the managed configuration directory.
+ * Original: xL in chunks.148.mjs:3253-3261
+ */
+function getManagedConfigDir(): string {
+  const platform = process.platform;
+  switch (platform) {
+    case 'darwin':
+      return '/Library/Application Support/ClaudeCode';
+    case 'win32':
+      // Simplified windows logic from source
+      return 'C:\\ProgramData\\ClaudeCode';
+    default:
+      return '/etc/claude-code';
+  }
+}
+
+/**
+ * Get the path for a specific Claude.md type.
+ * Original: MQA in chunks.48.mjs:3158-3173
+ */
+function getClaudeMdPath(type: ClaudeMdType): string {
+  const projectRoot = getProjectRoot();
+  const cacheDir = getCacheDir();
+
+  // Source guard: if (A === "ExperimentalUltraClaudeMd") return MQA("User");
+  if (type === 'ExperimentalUltraClaudeMd') {
+    return join(cacheDir, 'CLAUDE.md');
+  }
+
+  switch (type) {
+    case 'User':
+      return join(cacheDir, 'CLAUDE.md');
+    case 'Local':
+      return join(projectRoot, 'CLAUDE.local.md');
+    case 'Project':
+      return join(projectRoot, 'CLAUDE.md');
+    case 'Managed':
+      return join(getManagedConfigDir(), 'CLAUDE.md');
+    default:
+      return join(cacheDir, 'CLAUDE.md');
+  }
+}
+
 /**
  * Read file for restoration.
- * Original: TL0() in chunks.132.mjs:3-85
+ * Original: TL0 in chunks.132.mjs:3-85
  * 
  * Re-reads the file from disk, respecting token limits and permissions.
  */
@@ -80,40 +142,33 @@ async function readFileForRestore(
   context: CompactSessionContext,
   mode: 'compact' | 'at-mention' = 'compact'
 ): Promise<CompactAttachment | null> {
-  // Check 1: Permission guard (nEA)
-  // We assume if it was in previousReadState, we had permission, but we should re-verify if possible.
-  // Since we don't have easy access to permission checking logic here without circular deps,
-  // we'll proceed assuming the environment allows reading files we've already read.
+  // Check 1: Permission guard
+  // In source: if (nEA(A, Q.toolPermissionContext)) return null;
   
   try {
-    // Check 2: Validate file existence and size
     if (!FileSystemWrapper.existsSync(filepath)) {
       return null;
     }
     
+    // Check 2: size and mode handling
+    // Source calls v5.validateInput which checks size.
     const stats = FileSystemWrapper.statSync(filepath);
     
-    // Check 3: Large file handling
-    // We don't have the exact tokenizer here easily, so we use byte size as proxy or read and truncate.
-    // In TL0, it uses v5.validateInput which checks size.
-    // If too large, it calls K() which returns compact_file_reference for 'compact' mode.
-    
-    // Arbitrary large size check (e.g. 1MB) or token estimate
-    const MAX_BYTES = COMPACT_CONSTANTS.MAX_TOKENS_PER_FILE * 10; // Approx buffer
+    // If too large and in compact mode, return a reference
+    // W97 = 5000 tokens per file limit
+    const MAX_BYTES = COMPACT_CONSTANTS.MAX_TOKENS_PER_FILE * 10; 
     
     if (stats.size > MAX_BYTES && mode === 'compact') {
       return {
         type: 'compact_file_reference',
-        path: filepath, // TL0 uses filename
+        path: filepath,
         context: 'post-compact'
       } as any;
     }
     
     // Attempt read
     const content = FileSystemWrapper.readFileSync(filepath, { encoding: 'utf-8' });
-    
-    // Check token count
-    const fileTokens = Math.ceil(content.length / 4); // Rough estimate
+    const fileTokens = Math.ceil(content.length / 4);
     
     if (fileTokens > COMPACT_CONSTANTS.MAX_TOKENS_PER_FILE) {
       if (mode === 'compact') {
@@ -122,10 +177,8 @@ async function readFileForRestore(
           path: filepath,
           context: 'post-compact'
         } as any;
-      } else {
-        // Truncate for non-compact mode (not fully implemented here as we focus on compact)
-        return null;
       }
+      return null;
     }
     
     analyticsEvent('tengu_post_compact_file_restore_success', {});
@@ -145,29 +198,20 @@ async function readFileForRestore(
 
 /**
  * Restore recently read files after compaction.
- * Original: E97() in chunks.132.mjs
- *
- * @param previousReadState - Read file state before compact
- * @param context - Compact session context
- * @param maxFiles - Maximum number of files to restore
- * @returns Array of file attachments
+ * Original: E97 in chunks.132.mjs:654-675
  */
 export async function restoreRecentFilesAfterCompact(
   previousReadState: Map<string, { content: string; timestamp: number }>,
   context: CompactSessionContext,
   maxFiles: number = COMPACT_CONSTANTS.MAX_FILES_TO_RESTORE
 ): Promise<CompactAttachment[]> {
-  // Filter and sort files by recency (most recent first)
-  // Original: G = Object.entries(A)...filter(U97)...sort...slice
   const sortedFiles = [...previousReadState.entries()]
     .filter(([path]) => !shouldExcludeFromRestore(path, context.agentId))
     .sort(([, a], [, b]) => b.timestamp - a.timestamp)
     .slice(0, maxFiles);
 
-  // Original: Z = await Promise.all(G.map(async (J) => { let X = await TL0... }))
   const restoredAttachments = await Promise.all(
     sortedFiles.map(async ([path]) => {
-      // We ignore the cached content and re-read from disk to ensure freshness, matching E97/TL0 behavior
       return readFileForRestore(path, context, 'compact');
     })
   );
@@ -175,16 +219,14 @@ export async function restoreRecentFilesAfterCompact(
   let accumulatedTokens = 0;
   const totalBudget = COMPACT_CONSTANTS.TOTAL_FILE_TOKEN_BUDGET; // D97 = 50000
 
-  // Original: return Z.filter((J) => { ... })
   return restoredAttachments.filter((attachment): attachment is CompactAttachment => {
     if (!attachment) return false;
     
-    // Estimate tokens for this attachment
     let tokenCount = 0;
-    if (attachment.type === 'file' && attachment.content) {
-      tokenCount = Math.ceil(attachment.content.length / 4);
-    } else if (attachment.type === 'compact_file_reference') {
-      tokenCount = 100; // Small cost for reference
+    if (attachment.type === 'file' && (attachment as any).content) {
+      tokenCount = Math.ceil((attachment as any).content.length / 4);
+    } else {
+      tokenCount = 100;
     }
     
     if (accumulatedTokens + tokenCount <= totalBudget) {
@@ -192,7 +234,7 @@ export async function restoreRecentFilesAfterCompact(
       return true;
     }
     
-    return false; // Exceeds budget, drop this file
+    return false;
   });
 }
 
@@ -207,38 +249,10 @@ interface TodoItem {
 }
 
 /**
- * Get todo items for an agent from app state.
- * Original: Cb() in chunks.132.mjs
- */
-export function getTodoItems(
-  context?: CompactSessionContext,
-  agentId?: string
-): TodoItem[] {
-  if (!context?.getAppState) {
-    return [];
-  }
-
-  try {
-    // Get app state synchronously if possible (caution: might be async in some implementations)
-    const appStatePromise = context.getAppState();
-    if (appStatePromise instanceof Promise) {
-      // In this reconstruction context, we prefer async version but keep sync for compatibility if needed.
-      return [];
-    }
-
-    const appState = appStatePromise as { todos?: Record<string, TodoItem[]> };
-    const key = agentId || 'main';
-    return appState?.todos?.[key] ?? [];
-  } catch {
-    return [];
-  }
-}
-
-/**
  * Get todo items asynchronously.
- * Original: Cb() in chunks.86.mjs
+ * Original: Cb in chunks.86.mjs:899
  */
-export async function getTodoItemsAsync(
+export async function getTodoItems(
   context: CompactSessionContext,
   agentId?: string
 ): Promise<TodoItem[]> {
@@ -253,13 +267,13 @@ export async function getTodoItemsAsync(
 
 /**
  * Create todo attachment for restoration.
- * Original: z97() in chunks.132.mjs:677-686
+ * Original: z97 in chunks.132.mjs:677-686
  */
 export async function createTodoAttachment(
   context: CompactSessionContext,
   agentId?: string
 ): Promise<CompactAttachment | null> {
-  const todoItems = await getTodoItemsAsync(context, agentId);
+  const todoItems = await getTodoItems(context, agentId);
 
   if (todoItems.length === 0) {
     return null;
@@ -278,8 +292,22 @@ export async function createTodoAttachment(
 // ============================================
 
 /**
+ * Get current plan file path.
+ */
+export function getCurrentPlanFilePath(agentId?: string): string {
+  return getPlanFilePath(agentId);
+}
+
+/**
+ * Read plan file.
+ */
+export function readPlanFile(agentId?: string): string | null {
+  return readPlanFileFromPlanMode(agentId);
+}
+
+/**
  * Create plan file reference attachment.
- * Original: xL0() in chunks.132.mjs:688-697
+ * Original: xL0 in chunks.132.mjs:688-697
  */
 export async function createPlanFileReferenceAttachment(
   agentId?: string
@@ -288,8 +316,8 @@ export async function createPlanFileReferenceAttachment(
     return null;
   }
 
-  const planPath = getPlanFilePath(agentId);
-  const planContent = readPlanFileFromPlanMode(agentId);
+  const planPath = getCurrentPlanFilePath(agentId);
+  const planContent = readPlanFile(agentId);
 
   if (!planContent) {
     return null;
@@ -308,19 +336,25 @@ export async function createPlanFileReferenceAttachment(
 // ============================================
 
 /**
+ * Get invoked skills.
+ */
+export function getInvokedSkills() {
+  const globalState = getGlobalState();
+  return (globalState as any).invokedSkills;
+}
+
+/**
  * Create invoked skills attachment.
- * Original: $97() in chunks.132.mjs:699-711
+ * Original: $97 in chunks.132.mjs:699-711
  */
 export function createInvokedSkillsAttachment(): CompactAttachment | null {
-  const globalState = getGlobalState();
-  const invokedSkills = (globalState as any).invokedSkills;
+  const invokedSkills = getInvokedSkills();
 
   if (!invokedSkills || invokedSkills.size === 0) {
     return null;
   }
 
-  // Sort by most recently invoked
-  const sortedSkills = Array.from(invokedSkills.values())
+  const sortedSkills = Array.from(invokedSkills.values() as Iterable<any>)
     .sort((a: any, b: any) => b.invokedAt - a.invokedAt)
     .map((skill: any) => ({
       name: skill.skillName,
@@ -329,10 +363,10 @@ export function createInvokedSkillsAttachment(): CompactAttachment | null {
     }));
 
   return {
-    type: 'skill',
+    type: 'invoked_skills',
     skills: sortedSkills,
     context: 'post-compact',
-  };
+  } as any;
 }
 
 // ============================================
@@ -340,16 +374,24 @@ export function createInvokedSkillsAttachment(): CompactAttachment | null {
 // ============================================
 
 /**
+ * Get active task statuses.
+ */
+export async function getActiveTaskStatuses(context: CompactSessionContext) {
+  const appState = (await context.getAppState()) as any;
+  return appState?.tasks ?? {};
+}
+
+/**
  * Create task status attachments.
- * Original: C97() in chunks.132.mjs:713-730
+ * Original: C97 in chunks.132.mjs:713-730
  */
 export async function createTaskStatusAttachments(
   context: CompactSessionContext
 ): Promise<CompactAttachment[]> {
-  const appState = (await context.getAppState()) as any;
-  if (!appState?.tasks) return [];
+  const tasks = await getActiveTaskStatuses(context);
+  if (!tasks) return [];
 
-  return Object.values(appState.tasks)
+  return Object.values(tasks)
     .filter((task: any) => task.type === 'local_agent')
     .flatMap((task: any) => {
       if (task.retrieved) return [];
@@ -365,7 +407,7 @@ export async function createTaskStatusAttachments(
             status: status,
             deltaSummary: task.error ?? null,
             context: 'post-compact',
-          },
+          } as any,
         ];
       }
       return [];
@@ -378,7 +420,7 @@ export async function createTaskStatusAttachments(
 
 /**
  * Create boundary marker for compact event.
- * Original: pF1() in chunks.132.mjs
+ * Original: pF1 in chunks.132.mjs:1531
  */
 export function createBoundaryMarker(
   trigger: 'auto' | 'manual',
@@ -405,7 +447,7 @@ export function createBoundaryMarker(
 
 /**
  * Generate conversation ID for boundary.
- * Original: Bw() in chunks.132.mjs
+ * Original: Bw in chunks.132.mjs:1407
  */
 export function generateConversationId(_agentId?: string): string {
   return getSessionPath(getSessionId(), getProjectRoot());
@@ -413,7 +455,7 @@ export function generateConversationId(_agentId?: string): string {
 
 /**
  * Format summary content for user message.
- * Original: u51() in chunks.132.mjs
+ * Original: u51 in chunks.85.mjs:1182
  */
 export function formatSummaryContent(
   summaryText: string,

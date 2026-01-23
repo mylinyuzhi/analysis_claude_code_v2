@@ -2,13 +2,7 @@
  * @claudecode/features - Compact Thresholds
  *
  * Threshold calculation for compaction triggers.
- * Reconstructed from chunks.132.mjs:1472-1493
- *
- * Key symbols:
- * - ic → calculateThresholds
- * - nc → isAutoCompactEnabled
- * - xs2 → getAutoCompactTarget
- * - q3A → calculateAvailableTokens
+ * Original: ic in chunks.132.mjs:1472-1493
  */
 
 import { COMPACT_CONSTANTS, type ThresholdResult } from './types.js';
@@ -19,7 +13,7 @@ import { parseBoolean } from '@claudecode/shared';
 // ============================================
 
 let autoCompactEnabled = true;
-let autoCompactTarget = COMPACT_CONSTANTS.MIN_TOKENS_TO_PRESERVE; // uL0 = 13000
+let autoCompactTarget: number = COMPACT_CONSTANTS.MIN_TOKENS_TO_PRESERVE; // uL0 = 13000
 let availableTokens = 100000; // Model context limit
 
 /**
@@ -31,7 +25,7 @@ export function setAutoCompactEnabled(enabled: boolean): void {
 
 /**
  * Check if auto-compact is enabled.
- * Original: nc() in chunks.132.mjs
+ * Original: nc in chunks.132.mjs:1495
  */
 export function isAutoCompactEnabled(): boolean {
   if (parseBoolean(process.env.DISABLE_COMPACT)) return false;
@@ -48,10 +42,23 @@ export function setAutoCompactTarget(target: number): void {
 
 /**
  * Get auto-compact target threshold.
- * Original: xs2() in chunks.132.mjs
+ * Original: xs2 in chunks.132.mjs:1458
  */
 export function getAutoCompactTarget(): number {
-  return autoCompactTarget;
+  let tokens = calculateAvailableTokens();
+  let defaultTarget = tokens - COMPACT_CONSTANTS.MIN_TOKENS_TO_PRESERVE; // uL0 = 13000
+  
+  // Handle CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
+  const pctOverride = process.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE;
+  if (pctOverride) {
+    const pct = parseFloat(pctOverride);
+    if (!isNaN(pct) && pct > 0 && pct <= 100) {
+      const calculated = Math.floor(tokens * (pct / 100));
+      return Math.min(calculated, defaultTarget);
+    }
+  }
+  
+  return defaultTarget;
 }
 
 /**
@@ -63,9 +70,11 @@ export function setAvailableTokens(tokens: number): void {
 
 /**
  * Calculate available tokens for context.
- * Original: q3A() in chunks.132.mjs
+ * Original: q3A in chunks.132.mjs:1452
  */
 export function calculateAvailableTokens(): number {
+  // In source, this subtracts some buffers (dL0) from total (SM)
+  // For now, return the set available tokens.
   return availableTokens;
 }
 
@@ -75,7 +84,7 @@ export function calculateAvailableTokens(): number {
 
 /**
  * Calculate compaction thresholds.
- * Original: ic() in chunks.132.mjs:1472-1493
+ * Original: ic in chunks.132.mjs:1472-1493
  *
  * @param currentTokenCount - Current token count in conversation
  * @returns Threshold calculation result
@@ -133,7 +142,7 @@ export function calculateThresholds(currentTokenCount: number): ThresholdResult 
 
 /**
  * Check if compaction should be triggered.
- * Original: l97() in chunks.132.mjs
+ * Original: l97 in chunks.132.mjs:1501
  *
  * @param messages - Current conversation messages
  * @param sessionMemoryType - Type of session memory
@@ -149,7 +158,7 @@ export async function shouldTriggerAutoCompact(
   }
 
   // Early exit if no messages
-  if (messages.length === 0) {
+  if (!Array.isArray(messages) || messages.length === 0) {
     return false;
   }
 
@@ -158,7 +167,7 @@ export async function shouldTriggerAutoCompact(
     return false;
   }
 
-  // Get current token count (would need actual implementation)
+  // Get current token count
   const currentTokenCount = estimateMessageTokens(messages);
 
   // Calculate thresholds
@@ -169,60 +178,41 @@ export async function shouldTriggerAutoCompact(
 }
 
 /**
+ * Simplified character-based token estimation.
+ * Original: l7() equivalent
+ */
+function countTokens(text: string): number {
+  // Rough estimate: 4 characters per token
+  return Math.ceil(text.length / 4);
+}
+
+/**
  * Estimate tokens for messages.
- * Simplified implementation - would need actual tokenizer.
+ * Original: js2 in chunks.132.mjs:1071 (for content)
  */
 export function estimateMessageTokens(messages: unknown[]): number {
   let total = 0;
 
   for (const message of messages) {
-    const msg = message as { message?: { content?: unknown } };
+    const msg = message as { type?: string; message?: { content?: unknown } };
+    if (msg.type !== 'user' && msg.type !== 'assistant') continue;
+    
     if (msg.message?.content) {
       if (typeof msg.message.content === 'string') {
-        // Rough estimate: 4 characters per token
-        total += Math.ceil(msg.message.content.length / 4);
+        total += countTokens(msg.message.content);
       } else if (Array.isArray(msg.message.content)) {
         for (const block of msg.message.content) {
-          const b = block as {
-            type: string;
-            text?: string;
-            input?: unknown;
-            content?: string | Array<{ type: string; text?: string }>;
-          };
-
-          if (b.type === 'text' && typeof b.text === 'string') {
-            total += Math.ceil(b.text.length / 4);
-            continue;
+          if (block.type === 'text' && typeof block.text === 'string') {
+            total += countTokens(block.text);
+          } else if (block.type === 'tool_result') {
+            // Original: js2(G)
+            total += estimateToolResultTokens(block);
+          } else if (block.type === 'image') {
+            total += COMPACT_CONSTANTS.TOKENS_PER_IMAGE; // _s2 = 2000
+          } else {
+            // Fallback: JSON stringify unknown blocks
+            total += countTokens(JSON.stringify(block));
           }
-
-          if (b.type === 'tool_use' && b.input !== undefined) {
-            total += Math.ceil(JSON.stringify(b.input).length / 4);
-            continue;
-          }
-
-          if (b.type === 'tool_result') {
-            const content = b.content;
-            if (typeof content === 'string') {
-              total += Math.ceil(content.length / 4);
-            } else if (Array.isArray(content)) {
-              for (const item of content) {
-                if (item?.type === 'text' && typeof item.text === 'string') {
-                  total += Math.ceil(item.text.length / 4);
-                } else if (item?.type === 'image') {
-                  total += COMPACT_CONSTANTS.TOKENS_PER_IMAGE;
-                }
-              }
-            }
-            continue;
-          }
-
-          if (b.type === 'image') {
-            total += COMPACT_CONSTANTS.TOKENS_PER_IMAGE;
-            continue;
-          }
-
-          // Fallback: stringify unknown blocks (matches source behavior for unexpected types)
-          total += Math.ceil(JSON.stringify(block).length / 4);
         }
       }
     }
@@ -232,17 +222,29 @@ export function estimateMessageTokens(messages: unknown[]): number {
 }
 
 /**
+ * Estimate tokens for tool result block.
+ * Original: js2 in chunks.132.mjs:1071
+ */
+function estimateToolResultTokens(block: any): number {
+  if (!block.content) return 0;
+  if (typeof block.content === 'string') return countTokens(block.content);
+  if (Array.isArray(block.content)) {
+    return block.content.reduce((acc: number, item: any) => {
+      if (item.type === 'text' && typeof item.text === 'string') return acc + countTokens(item.text);
+      if (item.type === 'image') return acc + COMPACT_CONSTANTS.TOKENS_PER_IMAGE;
+      return acc;
+    }, 0);
+  }
+  return 0;
+}
+
+/**
  * Estimate tokens with safety margin.
- * Original: FhA() in chunks.132.mjs
+ * Original: FhA in chunks.132.mjs:1087
  */
 export function estimateTokensWithSafetyMargin(messages: unknown[]): number {
   const baseEstimate = estimateMessageTokens(messages);
-  // Source uses a 1.33x safety factor (see chunks.132.mjs: FhA)
+  // Source uses a 1.33x safety factor
+  // Original: return Math.ceil(Q * 1.3333333333333333)
   return Math.ceil(baseEstimate * 1.3333333333333333);
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 函数已在声明处导出；移除重复聚合导出。

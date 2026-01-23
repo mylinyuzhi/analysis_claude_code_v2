@@ -116,7 +116,7 @@ export interface CompactAttachment {
    * Post-compact restored attachments are later converted to system reminders.
    * Their payload shape varies by type (e.g. `todo` has `itemCount`, `plan_file_reference` has `planFilePath`).
    */
-  type: 'file' | 'todo' | 'plan_file_reference' | 'skill' | 'task_status';
+  type: 'file' | 'todo' | 'plan_file_reference' | 'invoked_skills' | 'task_status';
   [key: string]: unknown;
 }
 

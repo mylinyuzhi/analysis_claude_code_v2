@@ -2,11 +2,7 @@
  * @claudecode/features - Compact Dispatcher
  *
  * Main entry point for automatic compaction.
- * Reconstructed from chunks.132.mjs:1511-1535
- *
- * Key symbols:
- * - ys2 → autoCompactDispatcher
- * - sF1 → sessionMemoryCompact
+ * Original: ys2 (autoCompactDispatcher) in chunks.132.mjs:1511-1535
  */
 
 import { parseBoolean } from '@claudecode/shared';
@@ -28,7 +24,7 @@ import {
   estimateTokensWithSafetyMargin,
   estimateMessageTokens,
 } from './thresholds.js';
-import { fullCompact, COMPACTION_INTERRUPTED_ERROR } from './full-compact.js';
+import { fullCompact } from './full-compact.js';
 import {
   createBoundaryMarker,
   createPlanFileReferenceAttachment,
@@ -42,18 +38,22 @@ import { executePluginHooksForEvent } from '../hooks/triggers.js';
 // Session Memory Compact State
 // ============================================
 
+/**
+ * Last summarized message ID.
+ * Original: Xs2 / oEA in chunks.132.mjs:1395, 1525
+ */
 let lastSummarizedId: string | undefined;
 
 /**
  * Pending session-memory update marker.
- * Mirrors lF1 / Is2 / Ds2 in chunks.132.mjs
+ * Original: lF1 / Is2 / Ds2 in chunks.132.mjs:1394
  */
 let pendingSessionMemoryUpdateStartedAt: number | undefined;
 
-const SESSION_MEMORY_WAIT_TIMEOUT_MS = 15000; // q97
-const SESSION_MEMORY_STALE_UPDATE_MS = 60000; // N97
+const SESSION_MEMORY_WAIT_TIMEOUT_MS = 15000; // q97 in chunks.132.mjs:1394
+const SESSION_MEMORY_STALE_UPDATE_MS = 60000; // N97 in chunks.132.mjs:1394
 
-// Default session-memory template (w97 in chunks.132.mjs)
+// Default session-memory template (w97 in chunks.132.mjs:1394)
 const DEFAULT_SESSION_MEMORY_TEMPLATE = `
 # Session Title
 _A short and distinctive 5-10 word descriptive title for the session. Super info dense, no filler_
@@ -86,7 +86,7 @@ _If the user asked a specific output such as an answer to a question, a table, o
 _Step by step, what was attempted, done? Very terse summary for each step_
 `;
 
-// Session-memory compact range config (oF1 / gL0 / h97 in chunks.132.mjs)
+// Session-memory compact range config (oF1 / gL0 / h97 in chunks.132.mjs:1394)
 type SessionMemoryCompactRangeConfig = {
   minTokens: number;
   minTextBlockMessages: number;
@@ -108,7 +108,7 @@ let smCompactRangeLoaded = false;
 
 /**
  * Set last summarized message ID.
- * Original: oEA() in chunks.132.mjs
+ * Original: oEA in chunks.132.mjs:1525
  */
 export function setLastSummarizedId(id: string | undefined): void {
   lastSummarizedId = id;
@@ -116,7 +116,7 @@ export function setLastSummarizedId(id: string | undefined): void {
 
 /**
  * Get last summarized message ID.
- * Original: Xs2() in chunks.132.mjs
+ * Original: Xs2 in chunks.132.mjs:1395
  */
 export function getLastSummarizedId(): string | undefined {
   return lastSummarizedId;
@@ -132,7 +132,7 @@ export function markSessionMemoryUpdateEnd(): void {
 
 /**
  * Wait for pending session memory update.
- * Original: Ws2() in chunks.132.mjs
+ * Original: Ws2 in chunks.132.mjs:1394
  */
 async function waitForPendingSessionMemoryUpdate(): Promise<void> {
   const start = Date.now();
@@ -145,13 +145,13 @@ async function waitForPendingSessionMemoryUpdate(): Promise<void> {
 
 /**
  * Check if session memory compact is enabled.
- * Original: rF1() in chunks.132.mjs
+ * Original: rF1 in chunks.132.mjs:1393
  */
 export function isSessionMemoryCompactEnabled(): boolean {
   if (parseBoolean(process.env.DISABLE_COMPACT)) return false;
-  // In source, this checks tengu_session_memory and tengu_sm_compact feature flags
+  // Source checks "tengu_session_memory" AND "tengu_sm_compact" feature flags
   return (
-    parseBoolean(process.env.CLAUDE_CODE_ENABLE_SESSION_MEMORY ?? '') ||
+    parseBoolean(process.env.CLAUDE_CODE_ENABLE_SESSION_MEMORY ?? '') &&
     parseBoolean(process.env.CLAUDE_CODE_ENABLE_SM_COMPACT ?? '')
   );
 }
@@ -180,6 +180,10 @@ function loadSessionMemoryTemplate(): string {
   return DEFAULT_SESSION_MEMORY_TEMPLATE;
 }
 
+/**
+ * Read session memory file.
+ * Original: Ks2 in chunks.132.mjs:1396
+ */
 function readSessionMemoryFile(): string | null {
   const p = getSessionMemorySummaryPath();
   if (!FileSystemWrapper.existsSync(p)) return null;
@@ -188,17 +192,26 @@ function readSessionMemoryFile(): string | null {
 
 /**
  * Check if template is empty.
- * Original: Os2() in chunks.132.mjs
+ * Original: Os2 in chunks.132.mjs:1398
  */
 async function isTemplateEmpty(summaryContent: string): Promise<boolean> {
   const template = loadSessionMemoryTemplate();
   return summaryContent.trim() === template.trim();
 }
 
+/**
+ * Initialize session memory config.
+ * Original: h97 in chunks.132.mjs:1394
+ */
 async function ensureSmCompactRangeLoaded(): Promise<void> {
   if (smCompactRangeLoaded) return;
   smCompactRangeLoaded = true;
-  // h97 in source loads remote config; we use defaults here.
+  // h97 in source loads remote config; we use defaults.
+  smCompactRangeConfig = {
+    minTokens: 10000,
+    minTextBlockMessages: 5,
+    maxTokens: 40000,
+  };
 }
 
 function hasTextContent(msg: ConversationMessage): boolean {
@@ -239,7 +252,7 @@ function assistantHasToolUseForIds(msg: ConversationMessage, ids: Set<string>): 
 
 /**
  * Adjust start index to include corresponding tool uses.
- * Original: hL0() in chunks.132.mjs
+ * Original: hL0 in chunks.132.mjs:1404
  */
 function adjustStartIndexToIncludeToolUses(
   messages: ConversationMessage[],
@@ -274,7 +287,7 @@ function adjustStartIndexToIncludeToolUses(
 
 /**
  * Compute start index for messages to keep.
- * Original: m97() in chunks.132.mjs
+ * Original: m97 in chunks.132.mjs:1404
  */
 function computeSessionMemoryKeepStartIndex(
   messages: ConversationMessage[],
@@ -318,7 +331,7 @@ function computeSessionMemoryKeepStartIndex(
 
 /**
  * Flatten result for token counting.
- * Original: FHA() in chunks.132.mjs
+ * Original: FHA in chunks.132.mjs:1409
  */
 function flattenCompactionMessages(result: {
   boundaryMarker: unknown;
@@ -338,7 +351,7 @@ function flattenCompactionMessages(result: {
 
 /**
  * Build session memory compact result.
- * Original: d97() in chunks.132.mjs
+ * Original: d97 in chunks.132.mjs:1408
  */
 function buildSessionMemoryCompactResult(params: {
   messages: ConversationMessage[];
@@ -458,7 +471,7 @@ const API_ABORT_ERROR = 'API Error: Request was aborted.'; // vkA
 
 /**
  * Check if error is an expected abort error.
- * Original: sUA() in chunks.132.mjs
+ * Original: sUA in chunks.132.mjs:1530
  */
 function isExpectedError(error: unknown, errorType: string): boolean {
   if (error instanceof Error) {
@@ -473,27 +486,24 @@ function logError(error: Error): void {
 
 /**
  * Auto-compact dispatcher.
- * Original: ys2() in chunks.132.mjs:1511-1535
- *
- * Main entry point for automatic compaction. Tries session memory first,
- * then falls back to full LLM-based compaction.
+ * Original: ys2 (autoCompactDispatcher) in chunks.132.mjs:1511-1535
  */
 export async function autoCompactDispatcher(
   messages: ConversationMessage[],
   context: CompactSessionContext,
   sessionMemoryType?: SessionMemoryType
 ): Promise<AutoCompactResult> {
-  // Check if compaction is completely disabled
+  // Check if compaction is completely disabled (a1 in source)
   if (parseBoolean(process.env.DISABLE_COMPACT)) {
     return { wasCompacted: false };
   }
 
-  // Check if we should trigger auto-compact (threshold + feature checks)
+  // Check if we should trigger auto-compact (l97 in source)
   if (!(await shouldTriggerAutoCompact(messages, sessionMemoryType))) {
     return { wasCompacted: false };
   }
 
-  // TIER 1: Try Session Memory Compact first (fastest, uses cached summary)
+  // TIER 1: Try Session Memory Compact first (sF1 in source)
   const sessionMemoryResult = await sessionMemoryCompact(
     messages,
     context.agentId,
@@ -507,7 +517,7 @@ export async function autoCompactDispatcher(
     };
   }
 
-  // TIER 2: Fall back to Full Compact (slow, requires LLM call)
+  // TIER 2: Fall back to Full Compact (cF1 in source)
   try {
     const fullCompactResult = await fullCompact(
       messages,
@@ -518,7 +528,7 @@ export async function autoCompactDispatcher(
     );
 
     // Clear the last summarized message ID after full compact
-    // Original: oEA(void 0)
+    // Original: oEA(void 0) in chunks.132.mjs:1525
     setLastSummarizedId(undefined);
 
     return {
@@ -527,6 +537,7 @@ export async function autoCompactDispatcher(
     };
   } catch (error) {
     // Suppress expected "API aborted" errors, log others
+    // Original: sUA(Y, vkA) check
     if (!isExpectedError(error, API_ABORT_ERROR)) {
       logError(error instanceof Error ? error : new Error(String(error)));
     }
@@ -559,10 +570,3 @@ export async function manualCompact(
 export function isAutoCompactAvailable(): boolean {
   return isAutoCompactEnabled() && !parseBoolean(process.env.DISABLE_COMPACT);
 }
-
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出。
