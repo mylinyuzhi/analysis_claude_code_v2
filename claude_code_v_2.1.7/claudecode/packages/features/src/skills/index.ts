@@ -58,7 +58,7 @@ export {
 
 export {
   // Types
-  type SkillSource,
+  type DirectoryCommandSource,
   type LoadedSkillEntry,
   type PluginWithSkills,
   type SkillLoadContext,
@@ -86,4 +86,11 @@ export {
   getSkills,
   getSkillsCached,
   clearSkillCaches,
+
+  // Aggregation & filtering (source-aligned)
+  type GetAllCommandsContext,
+  getAllCommands,
+  getLLMInvocableSkills,
+  getUserSkills,
+  clearAllCommandCaches,
 } from './loader.js';

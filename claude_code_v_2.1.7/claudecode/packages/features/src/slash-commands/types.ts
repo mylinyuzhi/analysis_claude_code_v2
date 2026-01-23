@@ -6,6 +6,7 @@
  */
 
 import type { AppState, AgentDefinitions } from '@claudecode/core/state';
+import type { EventHooksConfig } from '../hooks/types.js';
 
 // ============================================
 // Command Types
@@ -56,8 +57,10 @@ export interface BaseCommand {
   context?: CommandContext;
   allowedTools?: string[];
   model?: string;
-  hooks?: CommandHooks;
-  loadedFrom?: 'builtin' | 'skills' | 'plugin';
+  /** Hook config carried by prompt commands (skills/plugins/policy). */
+  hooks?: EventHooksConfig;
+  /** Where this command was loaded from (source-aligned). */
+  loadedFrom?: 'builtin' | 'skills' | 'plugin' | 'bundled' | 'commands_DEPRECATED' | string;
   userInvocable?: boolean;
   progressMessage?: string;
   agent?: string;
@@ -169,28 +172,6 @@ export interface ImageSource {
   type: 'base64';
   media_type: string;
   data: string;
-}
-
-// ============================================
-// Command Hooks
-// ============================================
-
-/**
- * Hooks that can be registered by commands.
- */
-export interface CommandHooks {
-  preToolCall?: HookDefinition;
-  postToolCall?: HookDefinition;
-  onError?: HookDefinition;
-}
-
-/**
- * Hook definition.
- */
-export interface HookDefinition {
-  type: 'bash' | 'javascript';
-  command: string;
-  timeout?: number;
 }
 
 // ============================================

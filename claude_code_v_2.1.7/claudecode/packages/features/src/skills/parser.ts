@@ -27,50 +27,29 @@ export function parseFrontmatter(content: string): {
   frontmatter: SkillFrontmatter;
   content: string;
 } {
+  // NOTE: Intentionally minimal parser to match source NV.
+  // - Only supports single-line `key: value` pairs.
+  // - Does NOT support nested YAML / lists / multiline blocks.
+  // - Values are kept as strings (boolean coercion happens later).
   const pattern = /^---\s*\n([\s\S]*?)---\s*\n?/;
   const match = content.match(pattern);
 
-  if (!match) {
-    return { frontmatter: {}, content };
-  }
+  if (!match) return { frontmatter: {}, content };
 
-  const yamlContent = match[1] || '';
+  const frontmatterBlock = match[1] || '';
   const markdownContent = content.slice(match[0].length);
   const frontmatter: SkillFrontmatter = {};
 
-  // Parse YAML line by line (simple parser)
-  const lines = yamlContent.split('\n');
-
+  const lines = frontmatterBlock.split('\n');
   for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-
-    const colonIndex = trimmed.indexOf(':');
-    if (colonIndex === -1) continue;
-
-    const key = trimmed.slice(0, colonIndex).trim();
-    let value: string | string[] | boolean = trimmed.slice(colonIndex + 1).trim();
-
-    // Handle quoted strings
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-
-    // Handle arrays (simple format: ["a", "b"])
-    if (value.startsWith('[') && value.endsWith(']')) {
-      try {
-        value = JSON.parse(value);
-      } catch {
-        // Keep as string if parse fails
-      }
-    }
-
-    // Handle booleans
-    if (value === 'true') value = true as any;
-    if (value === 'false') value = false as any;
-
-    (frontmatter as any)[key] = value;
+    const colonIndex = line.indexOf(':');
+    if (colonIndex <= 0) continue;
+    const key = line.slice(0, colonIndex).trim();
+    const rawValue = line.slice(colonIndex + 1).trim();
+    if (!key) continue;
+    // Strip surrounding quotes if present.
+    const cleanValue = rawValue.replace(/^["']|["']$/g, '');
+    (frontmatter as any)[key] = cleanValue;
   }
 
   return { frontmatter, content: markdownContent };
@@ -101,21 +80,37 @@ function normalizeFrontmatter(frontmatter: SkillFrontmatter): {
   allowedTools?: string[];
   model?: string;
   disableModelInvocation: boolean;
+  userInvocable: boolean;
 } {
+  const parseBoolean = (v: unknown, defaultValue: boolean): boolean => {
+    if (v === undefined || v === null) return defaultValue;
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'string') {
+      const t = v.trim().toLowerCase();
+      if (t === 'true') return true;
+      if (t === 'false') return false;
+    }
+    return defaultValue;
+  };
+
   return {
     name: frontmatter.name,
     description: frontmatter.description,
     version: frontmatter.version,
     whenToUse: frontmatter.when_to_use ?? frontmatter['when-to-use'],
     argumentHint: frontmatter.argument_hint ?? frontmatter['argument-hint'],
-    allowedTools: normalizeAllowedTools(
-      frontmatter.allowed_tools ?? frontmatter['allowed-tools']
-    ),
+    allowedTools: normalizeAllowedTools(frontmatter.allowed_tools ?? frontmatter['allowed-tools']),
     model: frontmatter.model,
-    disableModelInvocation:
-      frontmatter['disable-model-invocation'] ??
-      frontmatter.disableModelInvocation ??
-      false,
+    // Source alignment: `disable-model-invocation` controls LLM/tool eligibility (Nc filter).
+    disableModelInvocation: parseBoolean(
+      (frontmatter as any)['disable-model-invocation'] ?? (frontmatter as any).disableModelInvocation,
+      false
+    ),
+    // Source alignment: `user-invocable` blocks direct `/command` if false.
+    userInvocable: parseBoolean(
+      (frontmatter as any)['user-invocable'] ?? (frontmatter as any).userInvocable,
+      true
+    ),
   };
 }
 
@@ -126,7 +121,59 @@ function normalizeAllowedTools(tools: string | string[] | undefined): string[] |
   if (!tools) return undefined;
   if (Array.isArray(tools)) return tools;
   if (tools === '*') return undefined; // All tools
-  return [tools];
+  const trimmed = tools.trim();
+  // Inline JSON array (commonly used in frontmatter examples).
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed) && parsed.every((x) => typeof x === 'string')) {
+        return parsed;
+      }
+    } catch {
+      // fall through
+    }
+  }
+  // Allow comma/space separated expressions while preserving parentheses.
+  return splitAllowedToolsExpression(trimmed);
+}
+
+/**
+ * Split an allowed-tools expression into tokens.
+ *
+ * Source alignment goal:
+ * - Matches Uc/RS style parsing: split by commas/spaces **outside** parentheses.
+ * - Keep parentheses content intact (e.g. `Bash(npm i)` stays one token).
+ */
+function splitAllowedToolsExpression(expr: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let depth = 0;
+
+  const push = () => {
+    const t = current.trim();
+    if (t) result.push(t);
+    current = '';
+  };
+
+  for (const ch of expr) {
+    if (ch === '(') {
+      depth++;
+      current += ch;
+      continue;
+    }
+    if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+      current += ch;
+      continue;
+    }
+    if ((ch === ',' || ch === ' ') && depth === 0) {
+      push();
+      continue;
+    }
+    current += ch;
+  }
+  push();
+  return result;
 }
 
 // ============================================
@@ -165,7 +212,8 @@ export function parseSkillFile(
       content,
       whenToUse: normalized.whenToUse,
       argumentHint: normalized.argumentHint,
-      userInvocable: !normalized.disableModelInvocation || !!normalized.whenToUse,
+      // Source alignment: user invocability is independent from disableModelInvocation.
+      userInvocable: normalized.userInvocable,
       allowedTools: normalized.allowedTools,
       model: normalized.model,
       disableModelInvocation: normalized.disableModelInvocation,
@@ -207,10 +255,13 @@ function extractNameFromPath(filePath: string): string | null {
  * Replaces $ARGUMENTS placeholder with actual arguments.
  */
 export function injectArguments(content: string, args?: string): string {
-  if (!args) {
-    return content.replace(SKILL_CONSTANTS.ARGUMENTS_PLACEHOLDER, '');
+  if (!args) return content;
+
+  // Replace all placeholders, otherwise append args block.
+  if (content.includes(SKILL_CONSTANTS.ARGUMENTS_PLACEHOLDER)) {
+    return content.replace(/\$ARGUMENTS/g, args);
   }
-  return content.replace(SKILL_CONSTANTS.ARGUMENTS_PLACEHOLDER, args);
+  return `${content}\n\nARGUMENTS: ${args}`;
 }
 
 /**
@@ -218,6 +269,31 @@ export function injectArguments(content: string, args?: string): string {
  */
 export function hasArgumentsPlaceholder(content: string): boolean {
   return content.includes(SKILL_CONSTANTS.ARGUMENTS_PLACEHOLDER);
+}
+
+/**
+ * Build the final prompt text for a skill/command.
+ *
+ * Source alignment:
+ * - Skill mode (SKILL.md) injects a base directory header.
+ * - Arguments are injected using `$ARGUMENTS` (replaceAll) or appended as `ARGUMENTS: ...`.
+ *
+ * Mirrors nfA.getPromptForCommand() in `source/chunks.130.mjs:1692`.
+ */
+export function buildSkillPromptText(options: {
+  rawContent: string;
+  baseDir?: string;
+  args?: string;
+  isSkillMode: boolean;
+}): string {
+  const { rawContent, baseDir, args, isSkillMode } = options;
+  let text = rawContent;
+
+  if (isSkillMode && baseDir) {
+    text = `Base directory for this skill: ${baseDir}\n\n${rawContent}`;
+  }
+
+  return injectArguments(text, args);
 }
 
 // ============================================

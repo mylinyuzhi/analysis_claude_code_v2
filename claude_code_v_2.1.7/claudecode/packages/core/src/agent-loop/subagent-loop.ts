@@ -22,7 +22,6 @@ import type { ToolDefinition, ToolUseContext } from '../tools/types.js';
 import { coreMessageLoop, resolveModelWithPermissions } from './core-message-loop.js';
 import {
   getSkillsCached as getSkillsCachedFromFeatures,
-  injectArguments as injectSkillArguments,
   addSessionHook,
   clearSessionHooks,
   executeSubagentStartHooks as executeSubagentStartHooksFromFeatures,
@@ -525,13 +524,11 @@ export async function loadAgentSkills(
     undefined
   );
 
-  const all = [
-    ...skillDirCommands,
-    ...pluginSkills,
-    ...bundledSkills,
-  ] as Array<{ name: string; content: string; filePath?: string }>;
+  const allPromptCommands = [...skillDirCommands, ...pluginSkills, ...bundledSkills].filter(
+    (c) => Boolean(c && (c as any).type === 'prompt' && typeof (c as any).getPromptForCommand === 'function')
+  ) as any[];
 
-  const findByName = (name: string) => all.find((s) => s?.name === name);
+  const findByName = (name: string) => allPromptCommands.find((s: any) => s?.name === name) as any;
 
   for (const rawSkillRef of skills) {
     const ref = String(rawSkillRef ?? '').trim();
@@ -559,7 +556,26 @@ export async function loadAgentSkills(
       continue;
     }
 
-    const injected = injectSkillArguments(skill.content, args);
+    // Build the prompt text via the prompt-command entrypoint.
+    // NOTE: our reconstructed skill prompt commands only need a minimal context.
+    const promptBlocks = await (skill as any).getPromptForCommand(args ?? '', {
+      options: {
+        commands: [],
+        isNonInteractiveSession: true,
+        tools: [],
+        model: undefined,
+      },
+      messages: [],
+      abortController: new AbortController(),
+      cwd,
+    });
+
+    const injected = Array.isArray(promptBlocks)
+      ? promptBlocks
+          .filter((b: any) => b && b.type === 'text')
+          .map((b: any) => String(b.text ?? ''))
+          .join('\n')
+      : '';
     const skillMessage = createUserMessage({
       content: [
         {

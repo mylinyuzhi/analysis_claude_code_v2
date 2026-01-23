@@ -1,53 +1,39 @@
 /**
- * @claudecode/features - Skill Loader
+ * @claudecode/features - Skill Loader (Source-aligned)
  *
- * Full skill loading pipeline with multi-source support.
- * Reconstructed from chunks.130.mjs, chunks.133.mjs, chunks.146.mjs
+ * IMPORTANT: In v2.1.x, “skills” are prompt-type slash commands.
+ * This module reconstructs the multi-source loading pipeline and builds
+ * prompt commands compatible with the unified slash-command executor.
  *
- * Key symbols:
- * - Wz7 → getSkills (main orchestrator)
- * - lO0 → loadSkillDirectoryCommands
- * - tw0 → getPluginSkills
- * - kZ9 → getBundledSkills
- * - cO0 → scanSkillDirectory
- * - So2 → loadSkillsFromPath
- *
- * Loading pipeline:
- * 1. Directory skills (managed, user, project)
- * 2. Plugin skills (from enabled plugins)
- * 3. Bundled skills (built-in)
+ * Source of truth:
+ * - `source/chunks.133.mjs`: cO0 (skills dir scan), Y77 (legacy commands), lO0 (dir orchestrator)
+ * - `source/chunks.130.mjs`: So2/nfA (plugin skills)
+ * - `source/chunks.146.mjs`: Wz7 (getSkills)
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { homedir } from 'os';
-import type {
-  SkillDefinition,
-  RegisteredSkill,
-  SkillDiscoveryResult,
-} from './types.js';
+import type { SlashCommand, CommandContent } from '../slash-commands/types.js';
+import type { EventHooksConfig } from '../hooks/types.js';
+import type { SkillPromptCommand, PluginInfo, LoadedFrom, SkillSource } from './types.js';
 import { SKILL_CONSTANTS } from './types.js';
-import { parseSkillFile } from './parser.js';
+import { parseFrontmatter, extractFirstHeading, buildSkillPromptText } from './parser.js';
+import { getAllBuiltinCommands } from '../slash-commands/registry.js';
 
 // ============================================
 // Types
 // ============================================
 
 /**
- * Skill source type.
+ * Directory-origin source labels (matches source strings).
+ * - `policySettings` / `userSettings` / `projectSettings` are used for skills & legacy commands.
  */
-export type SkillSource =
-  | 'managed'        // Policy/managed directory
-  | 'user'           // User home directory
-  | 'project'        // Project directory
-  | 'plugin'         // From plugin
-  | 'bundled';       // Built-in
+export type DirectoryCommandSource = 'policySettings' | 'userSettings' | 'projectSettings';
 
-/**
- * Loaded skill with metadata.
- */
+/** Loaded prompt command with its filePath (for inode-based dedupe). */
 export interface LoadedSkillEntry {
-  skill: SkillDefinition & { source: SkillSource };
+  skill: SkillPromptCommand;
   filePath: string;
 }
 
@@ -57,6 +43,7 @@ export interface LoadedSkillEntry {
 export interface PluginWithSkills {
   name: string;
   path: string;
+  /** Repository / identifier (source: `repository` in pluginInfo). */
   source: string;
   manifest?: unknown;
   skillsPath?: string;
@@ -76,9 +63,9 @@ export interface SkillLoadContext {
  * Skill loading result.
  */
 export interface SkillLoadResult {
-  skillDirCommands: SkillDefinition[];
-  pluginSkills: SkillDefinition[];
-  bundledSkills: RegisteredSkill[];
+  skillDirCommands: SkillPromptCommand[];
+  pluginSkills: SkillPromptCommand[];
+  bundledSkills: SlashCommand[];
 }
 
 // ============================================
@@ -90,6 +77,14 @@ export interface SkillLoadResult {
  */
 function getClaudeDir(): string {
   return join(homedir(), '.claude');
+}
+
+/**
+ * Policy root directory.
+ * Source alignment: managed skills use `join(policyRoot, ".claude", "skills")`.
+ */
+function getPolicyRootDir(): string {
+  return process.env.CLAUDE_POLICY_DIR || homedir();
 }
 
 /**
@@ -105,9 +100,8 @@ export function getUserSkillsDir(): string {
  * Original: B in lO0
  */
 export function getManagedSkillsDir(): string {
-  // Default to user's .claude directory if no policy dir set
-  const policyDir = process.env.CLAUDE_POLICY_DIR || getClaudeDir();
-  return join(policyDir, 'skills');
+  // Source-aligned layout: <policyRoot>/.claude/skills
+  return join(getPolicyRootDir(), '.claude', 'skills');
 }
 
 /**
@@ -115,22 +109,29 @@ export function getManagedSkillsDir(): string {
  * Original: iO0 in chunks.133.mjs
  */
 export function getProjectSkillDirs(cwd?: string): string[] {
-  const workingDir = cwd || process.cwd();
-  const dirs: string[] = [];
+  return findProjectConfigDirs('skills', cwd);
+}
 
-  // Check for .claude/skills in current directory
-  const projectDir = join(workingDir, '.claude', 'skills');
-  if (existsSync(projectDir)) {
-    dirs.push(projectDir);
+function findProjectConfigDirs(configLeaf: 'skills' | 'commands', cwd?: string): string[] {
+  const start = cwd || process.cwd();
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  let current = start;
+  // Walk upwards until filesystem root.
+  while (true) {
+    const candidate = join(current, '.claude', configLeaf);
+    if (existsSync(candidate) && !seen.has(candidate)) {
+      out.push(candidate);
+      seen.add(candidate);
+    }
+
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
   }
 
-  // Also check for legacy commands directory
-  const legacyDir = join(workingDir, '.claude', 'commands');
-  if (existsSync(legacyDir)) {
-    dirs.push(legacyDir);
-  }
-
-  return dirs;
+  return out;
 }
 
 // ============================================
@@ -138,16 +139,198 @@ export function getProjectSkillDirs(cwd?: string): string[] {
 // ============================================
 
 /**
- * Get file inode for deduplication.
- * Original: A77 in chunks.133.mjs
+ * Get inode key for deduplication.
+ * Source alignment: `A77()` returns `${dev}:${ino}` and returns null on failure.
  */
-function getFileInode(filePath: string): number | null {
+function getFileInodeKey(filePath: string): string | null {
   try {
     const stats = statSync(filePath);
-    return stats.ino;
+    return `${stats.dev}:${stats.ino}`;
   } catch {
     return null;
   }
+}
+
+function parseBooleanFrontmatter(value: unknown, defaultValue: boolean): boolean {
+  if (value === undefined || value === null) return defaultValue;
+  if (value === true || value === 'true') return true;
+  if (value === false || value === 'false') return false;
+  return defaultValue;
+}
+
+/**
+ * Minimal `allowed-tools` parser.
+ * Source alignment: RS() handles "*" and expression tokenization.
+ */
+function parseAllowedToolsFrontmatter(raw: unknown): string[] | undefined {
+  if (raw === undefined || raw === null) return undefined;
+
+  if (Array.isArray(raw)) {
+    const vals = raw.filter((x): x is string => typeof x === 'string');
+    return vals.length > 0 ? vals : undefined;
+  }
+
+  if (typeof raw !== 'string') return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed === '*') return undefined;
+
+  // JSON array string (common for plugin manifests).
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed) && parsed.every((x) => typeof x === 'string')) {
+        return parsed as string[];
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  // Split by commas/spaces outside parentheses.
+  const result: string[] = [];
+  let current = '';
+  let depth = 0;
+  const push = () => {
+    const t = current.trim();
+    if (t) result.push(t);
+    current = '';
+  };
+
+  for (const ch of trimmed) {
+    if (ch === '(') {
+      depth++;
+      current += ch;
+      continue;
+    }
+    if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+      current += ch;
+      continue;
+    }
+    if ((ch === ',' || ch === ' ') && depth === 0) {
+      push();
+      continue;
+    }
+    current += ch;
+  }
+  push();
+  return result.length > 0 ? result : undefined;
+}
+
+function replacePluginRootPlaceholders(text: string, pluginRoot: string): string {
+  return text.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, pluginRoot);
+}
+
+/**
+ * Parse `hooks` frontmatter.
+ * Source alignment: SA9() validates against the hooks schema; here we accept JSON-only.
+ */
+function parseHooksFrontmatter(raw: unknown, skillNameForLog: string): EventHooksConfig | undefined {
+  if (raw === undefined || raw === null) return undefined;
+
+  let parsed: unknown = raw;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch (err) {
+      console.warn(`[Skills] Invalid hooks JSON in skill '${skillNameForLog}': ${String(err)}`);
+      return undefined;
+    }
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    console.warn(`[Skills] Invalid hooks in skill '${skillNameForLog}': expected object`);
+    return undefined;
+  }
+  return parsed as EventHooksConfig;
+}
+
+function markdownTitleOrDefault(markdown: string, fallback: string): string {
+  return extractFirstHeading(markdown) ?? fallback;
+}
+
+function createPromptCommand(params: {
+  name: string;
+  displayName?: string;
+  description: string;
+  hasUserSpecifiedDescription: boolean;
+  markdownContent: string;
+  allowedTools?: string[];
+  argumentHint?: string;
+  whenToUse?: string;
+  version?: string;
+  model?: string;
+  disableModelInvocation?: boolean;
+  userInvocable?: boolean;
+  source: SkillSource;
+  baseDir?: string;
+  loadedFrom: LoadedFrom;
+  hooks?: EventHooksConfig;
+  executionContext?: 'fork';
+  agent?: string;
+  pluginInfo?: PluginInfo;
+  progressMessage?: string;
+  isHidden?: boolean;
+}): SkillPromptCommand {
+  const {
+    name,
+    displayName,
+    description,
+    hasUserSpecifiedDescription,
+    markdownContent,
+    allowedTools,
+    argumentHint,
+    whenToUse,
+    version,
+    model,
+    disableModelInvocation,
+    userInvocable,
+    source,
+    baseDir,
+    loadedFrom,
+    hooks,
+    executionContext,
+    agent,
+    pluginInfo,
+    progressMessage,
+    isHidden,
+  } = params;
+
+  return {
+    type: 'prompt',
+    name,
+    description,
+    hasUserSpecifiedDescription,
+    allowedTools,
+    argumentHint,
+    whenToUse,
+    version,
+    model,
+    disableModelInvocation,
+    userInvocable,
+    context: executionContext,
+    agent,
+    isEnabled: () => true,
+    isHidden: isHidden ?? userInvocable === false,
+    progressMessage: progressMessage ?? 'running',
+    userFacingName: () => displayName || name,
+    source,
+    loadedFrom,
+    hooks,
+    pluginInfo,
+    baseDir,
+    async getPromptForCommand(args: string, _context: any): Promise<CommandContent[]> {
+      const text = buildSkillPromptText({
+        rawContent: markdownContent,
+        baseDir,
+        args,
+        isSkillMode: Boolean(baseDir),
+      });
+      return [{ type: 'text', text }];
+    },
+  };
 }
 
 // ============================================
@@ -155,80 +338,79 @@ function getFileInode(filePath: string): number | null {
 // ============================================
 
 /**
- * Scan a directory for skill files.
- * Original: cO0 in chunks.133.mjs
- *
- * @param dirPath - Directory to scan
- * @param source - Skill source type
- * @returns Array of loaded skill entries
+ * Scan a skills directory (one level deep) for `SKILL.md` entries.
+ * Source alignment: cO0 only considers subdirectories/symlinks containing `SKILL.md`.
  */
 export async function scanSkillDirectory(
   dirPath: string,
-  source: SkillSource
+  source: DirectoryCommandSource
 ): Promise<LoadedSkillEntry[]> {
   const entries: LoadedSkillEntry[] = [];
-
-  if (!existsSync(dirPath)) {
-    return entries;
-  }
+  if (!existsSync(dirPath)) return entries;
 
   try {
-    const files = readdirSync(dirPath, { withFileTypes: true });
+    const children = readdirSync(dirPath, { withFileTypes: true });
+    for (const child of children) {
+      if (!child.isDirectory() && !child.isSymbolicLink()) continue;
 
-    for (const file of files) {
-      const fullPath = join(dirPath, file.name);
+      const skillDir = join(dirPath, child.name);
+      const skillFile = join(skillDir, SKILL_CONSTANTS.SKILL_FILENAME);
+      if (!existsSync(skillFile)) continue;
 
-      if (file.isDirectory()) {
-        // Check for SKILL.md in subdirectory
-        const skillPath = join(fullPath, SKILL_CONSTANTS.SKILL_FILENAME);
-        if (existsSync(skillPath)) {
-          const result = loadSkillFile(skillPath, source);
-          if (result) {
-            entries.push(result);
-          }
-        }
-      } else if (
-        file.name === SKILL_CONSTANTS.SKILL_FILENAME ||
-        file.name.endsWith(SKILL_CONSTANTS.SKILL_EXTENSION)
-      ) {
-        // Direct .md file
-        const result = loadSkillFile(fullPath, source);
-        if (result) {
-          entries.push(result);
-        }
+      try {
+        const raw = readFileSync(skillFile, { encoding: 'utf-8' });
+        const { frontmatter, content } = parseFrontmatter(raw);
+
+        const description =
+          (frontmatter as any).description ??
+          markdownTitleOrDefault(content, 'Skill');
+        const allowedTools = parseAllowedToolsFrontmatter((frontmatter as any)['allowed-tools']);
+        const userInvocable =
+          (frontmatter as any)['user-invocable'] === undefined
+            ? true
+            : parseBooleanFrontmatter((frontmatter as any)['user-invocable'], true);
+        const disableModelInvocation = parseBooleanFrontmatter(
+          (frontmatter as any)['disable-model-invocation'],
+          false
+        );
+        const model = (frontmatter as any).model === 'inherit' ? undefined : (frontmatter as any).model;
+        const hooks = parseHooksFrontmatter((frontmatter as any).hooks, child.name);
+        const executionContext = (frontmatter as any).context === 'fork' ? 'fork' : undefined;
+        const agent = (frontmatter as any).agent;
+
+        const skill = createPromptCommand({
+          name: child.name,
+          displayName: (frontmatter as any).name,
+          description,
+          hasUserSpecifiedDescription: Boolean((frontmatter as any).description),
+          markdownContent: content,
+          allowedTools,
+          argumentHint: (frontmatter as any)['argument-hint'],
+          whenToUse: (frontmatter as any).when_to_use,
+          version: (frontmatter as any).version,
+          model,
+          disableModelInvocation,
+          userInvocable,
+          source,
+          baseDir: skillDir,
+          loadedFrom: 'skills',
+          hooks,
+          executionContext,
+          agent,
+          progressMessage: 'running',
+          isHidden: !userInvocable,
+        });
+
+        entries.push({ skill, filePath: skillFile });
+      } catch (err) {
+        console.error(`[Skills] Failed to load skill from ${skillFile}:`, err);
       }
     }
-  } catch (error) {
-    console.error(`[Skills] Failed to scan directory ${dirPath}:`, error);
+  } catch (err) {
+    console.error(`[Skills] Failed to scan directory ${dirPath}:`, err);
   }
 
   return entries;
-}
-
-/**
- * Load a single skill file.
- */
-function loadSkillFile(
-  filePath: string,
-  source: SkillSource
-): LoadedSkillEntry | null {
-  try {
-    const content = readFileSync(filePath, 'utf-8');
-    const skill = parseSkillFile(filePath, content);
-
-    if ('error' in skill) {
-      console.error(`[Skills] Parse error for ${filePath}:`, skill.error);
-      return null;
-    }
-
-    return {
-      skill: { ...skill, source } as SkillDefinition & { source: SkillSource },
-      filePath,
-    };
-  } catch (error) {
-    console.error(`[Skills] Failed to read ${filePath}:`, error);
-    return null;
-  }
 }
 
 // ============================================
@@ -246,7 +428,7 @@ function loadSkillFile(
  */
 export async function loadSkillDirectoryCommands(
   context?: SkillLoadContext
-): Promise<SkillDefinition[]> {
+): Promise<SkillPromptCommand[]> {
   const managedDir = getManagedSkillsDir();
   const userDir = getUserSkillsDir();
   const projectDirs = getProjectSkillDirs(context?.cwd);
@@ -256,19 +438,15 @@ export async function loadSkillDirectoryCommands(
   );
 
   // Load from all directories in parallel
-  const [managedSkills, userSkills, projectSkillsArrays] = await Promise.all([
-    // Managed/policy skills (always loaded)
-    scanSkillDirectory(managedDir, 'managed'),
-
-    // User skills (if enabled, default true)
+  const [managedSkills, userSkills, projectSkillsArrays, legacyCommands] = await Promise.all([
+    scanSkillDirectory(managedDir, 'policySettings'),
     context?.userEnabled !== false
-      ? scanSkillDirectory(userDir, 'user')
+      ? scanSkillDirectory(userDir, 'userSettings')
       : Promise.resolve([]),
-
-    // Project skills (if enabled, default true)
     context?.projectEnabled !== false
-      ? Promise.all(projectDirs.map((dir) => scanSkillDirectory(dir, 'project')))
+      ? Promise.all(projectDirs.map((dir) => scanSkillDirectory(dir, 'projectSettings')))
       : Promise.resolve([]),
+    loadLegacyCommands(context),
   ]);
 
   // Combine all skills
@@ -276,33 +454,31 @@ export async function loadSkillDirectoryCommands(
     ...managedSkills,
     ...userSkills,
     ...projectSkillsArrays.flat(),
+    ...legacyCommands,
   ];
 
   // Deduplicate by inode
-  const inodeMap = new Map<number, string>();
-  const uniqueSkills: SkillDefinition[] = [];
+  const inodeMap = new Map<string, string>();
+  const uniqueSkills: SkillPromptCommand[] = [];
 
   for (const { skill, filePath } of allSkills) {
-    // Get file inode
-    const inode = getFileInode(filePath);
+    if (skill.type !== 'prompt') continue;
 
-    // Virtual files (no inode) are always included
-    if (inode === null) {
+    const inodeKey = getFileInodeKey(filePath);
+    if (inodeKey === null) {
       uniqueSkills.push(skill);
       continue;
     }
 
-    // Check for duplicate
-    const existingSource = inodeMap.get(inode);
+    const existingSource = inodeMap.get(inodeKey);
     if (existingSource !== undefined) {
       console.log(
-        `[Skills] Skipping duplicate '${skill.name}' from ${skill.source} (same inode from ${existingSource})`
+        `[Skills] Skipping duplicate skill '${skill.name}' from ${skill.source} (same inode already loaded from ${existingSource})`
       );
       continue;
     }
 
-    // Track and include
-    inodeMap.set(inode, skill.source);
+    inodeMap.set(inodeKey, String(skill.source));
     uniqueSkills.push(skill);
   }
 
@@ -311,8 +487,195 @@ export async function loadSkillDirectoryCommands(
     console.log(`[Skills] Deduplicated ${deduplicatedCount} skills (same inode)`);
   }
 
-  console.log(`[Skills] Loaded ${uniqueSkills.length} unique directory skills`);
+  console.log(
+    `[Skills] Loaded ${uniqueSkills.length} unique skills (managed: ${managedSkills.length}, user: ${userSkills.length}, project: ${projectSkillsArrays.flat().length}, legacy commands: ${legacyCommands.length})`
+  );
   return uniqueSkills;
+}
+
+// ============================================
+// Legacy `.claude/commands` loading (commands_DEPRECATED)
+// ============================================
+
+interface LegacyMarkdownFile {
+  baseDir: string;
+  filePath: string;
+  frontmatter: Record<string, unknown>;
+  content: string;
+  source: DirectoryCommandSource;
+}
+
+async function loadLegacyMarkdownFiles(
+  baseDir: string,
+  source: DirectoryCommandSource
+): Promise<LegacyMarkdownFile[]> {
+  const out: LegacyMarkdownFile[] = [];
+  if (!existsSync(baseDir)) return out;
+
+  const walk = (dir: string) => {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const ent of entries) {
+      const full = join(dir, ent.name);
+      if (ent.isDirectory() || ent.isSymbolicLink()) {
+        walk(full);
+        continue;
+      }
+      if (!/\.md$/i.test(ent.name)) continue;
+
+      try {
+        const raw = readFileSync(full, { encoding: 'utf-8' });
+        const { frontmatter, content } = parseFrontmatter(raw);
+        out.push({
+          baseDir,
+          filePath: full,
+          frontmatter: frontmatter as Record<string, unknown>,
+          content,
+          source,
+        });
+      } catch (err) {
+        console.error(`[Skills] Failed to read legacy command ${full}:`, err);
+      }
+    }
+  };
+
+  try {
+    walk(baseDir);
+  } catch (err) {
+    console.error(`[Skills] Failed to scan legacy commands dir ${baseDir}:`, err);
+  }
+  return out;
+}
+
+function isSkillMdPath(filePath: string): boolean {
+  return /^skill\.md$/i.test(basename(filePath));
+}
+
+/**
+ * Source alignment: Q77() groups by directory and prefers `SKILL.md` if present.
+ */
+function preferSkillMdWithinFolder(files: LegacyMarkdownFile[]): LegacyMarkdownFile[] {
+  const byDir = new Map<string, LegacyMarkdownFile[]>();
+  for (const f of files) {
+    const dir = dirname(f.filePath);
+    const list = byDir.get(dir) ?? [];
+    list.push(f);
+    byDir.set(dir, list);
+  }
+
+  const out: LegacyMarkdownFile[] = [];
+  for (const [dir, group] of byDir.entries()) {
+    const skillFiles = group.filter((g) => isSkillMdPath(g.filePath));
+    if (skillFiles.length > 0) {
+      const chosen = skillFiles[0]!;
+      if (skillFiles.length > 1) {
+        console.log(
+          `[Skills] Multiple skill files found in ${dir}, using ${basename(chosen.filePath)}`
+        );
+      }
+      out.push(chosen);
+    } else {
+      out.push(...group);
+    }
+  }
+  return out;
+}
+
+function relativePathLabel(pathToDir: string, baseDir: string): string {
+  const base = baseDir.replace(/[/\\]+$/, '');
+  if (pathToDir === base) return '';
+  const rest = pathToDir.slice(base.length + 1);
+  return rest ? rest.split(/[/\\]/).join(':') : '';
+}
+
+function legacyCommandName(filePath: string, baseDir: string): string {
+  if (isSkillMdPath(filePath)) {
+    const folder = dirname(filePath);
+    const parent = dirname(folder);
+    const leaf = basename(folder);
+    const prefix = relativePathLabel(parent, baseDir);
+    return prefix ? `${prefix}:${leaf}` : leaf;
+  }
+
+  const dir = dirname(filePath);
+  const leaf = basename(filePath).replace(/\.md$/i, '');
+  const prefix = relativePathLabel(dir, baseDir);
+  return prefix ? `${prefix}:${leaf}` : leaf;
+}
+
+async function loadLegacyCommands(context?: SkillLoadContext): Promise<LoadedSkillEntry[]> {
+  try {
+    const managed = join(getPolicyRootDir(), '.claude', 'commands');
+    const user = join(getClaudeDir(), 'commands');
+    const projectDirs = findProjectConfigDirs('commands', context?.cwd);
+
+    const [managedFiles, userFiles, projectFilesArrays] = await Promise.all([
+      loadLegacyMarkdownFiles(managed, 'policySettings'),
+      context?.userEnabled !== false
+        ? loadLegacyMarkdownFiles(user, 'userSettings')
+        : Promise.resolve([]),
+      context?.projectEnabled !== false
+        ? Promise.all(projectDirs.map((d) => loadLegacyMarkdownFiles(d, 'projectSettings')))
+        : Promise.resolve([]),
+    ]);
+
+    const allFiles = [...managedFiles, ...userFiles, ...projectFilesArrays.flat()];
+    const chosen = preferSkillMdWithinFolder(allFiles);
+
+    const out: LoadedSkillEntry[] = [];
+    for (const file of chosen) {
+      try {
+        const fm = file.frontmatter as any;
+        const name = legacyCommandName(file.filePath, file.baseDir);
+        const description = fm.description ?? markdownTitleOrDefault(file.content, 'Custom command');
+        const allowedTools = parseAllowedToolsFrontmatter(fm['allowed-tools']);
+        const userInvocable =
+          fm['user-invocable'] === undefined
+            ? true
+            : parseBooleanFrontmatter(fm['user-invocable'], true);
+        const disableModelInvocation = parseBooleanFrontmatter(
+          fm['disable-model-invocation'],
+          false
+        );
+        const model = fm.model === 'inherit' ? undefined : fm.model;
+        const executionContext = fm.context === 'fork' ? 'fork' : undefined;
+        const agent = fm.agent;
+        const baseDir = isSkillMdPath(file.filePath) ? dirname(file.filePath) : undefined;
+        const hooks = parseHooksFrontmatter(fm.hooks, name);
+
+        const skill = createPromptCommand({
+          name,
+          displayName: undefined,
+          description,
+          hasUserSpecifiedDescription: Boolean(fm.description),
+          markdownContent: file.content,
+          allowedTools,
+          argumentHint: fm['argument-hint'],
+          whenToUse: fm.when_to_use,
+          version: fm.version,
+          model,
+          disableModelInvocation,
+          userInvocable,
+          source: file.source,
+          baseDir,
+          loadedFrom: 'commands_DEPRECATED',
+          hooks,
+          executionContext,
+          agent,
+          progressMessage: 'running',
+          isHidden: !userInvocable,
+        });
+
+        out.push({ skill, filePath: file.filePath });
+      } catch (err) {
+        console.error(`[Skills] Failed to build legacy command from ${file.filePath}:`, err);
+      }
+    }
+
+    return out;
+  } catch (err) {
+    console.error(`[Skills] Failed to load legacy commands:`, err);
+    return [];
+  }
 }
 
 // ============================================
@@ -326,44 +689,135 @@ export async function loadSkillDirectoryCommands(
 export async function loadSkillsFromPath(
   skillPath: string,
   pluginName: string,
-  _pluginSource: string,
-  _manifest?: unknown,
-  _pluginPath?: string,
-  seenSkills?: Set<string>
-): Promise<SkillDefinition[]> {
-  const skills: SkillDefinition[] = [];
+  pluginRepository: string,
+  pluginManifest?: unknown,
+  pluginRoot?: string,
+  seenInodes?: Set<string>
+): Promise<SkillPromptCommand[]> {
+  const out: SkillPromptCommand[] = [];
+  if (!existsSync(skillPath)) return out;
 
-  if (!existsSync(skillPath)) {
-    return skills;
-  }
+  const pluginInfo: PluginInfo = {
+    pluginManifest: pluginManifest,
+    repository: pluginRepository,
+  };
+
+  const shouldSkipByInode = (filePath: string): boolean => {
+    if (!seenInodes) return false;
+    const key = getFileInodeKey(filePath);
+    if (!key) return false;
+    if (seenInodes.has(key)) return true;
+    seenInodes.add(key);
+    return false;
+  };
 
   try {
-    const entries = await scanSkillDirectory(skillPath, 'plugin');
+    // Source alignment: So2() supports a direct `SKILL.md` at the root of skillPath.
+    const rootSkillFile = join(skillPath, 'SKILL.md');
+    if (existsSync(rootSkillFile)) {
+      if (shouldSkipByInode(rootSkillFile)) return out;
 
-    for (const { skill } of entries) {
-      // Skip if already seen
-      if (seenSkills?.has(skill.name)) {
-        continue;
-      }
+      const raw = readFileSync(rootSkillFile, { encoding: 'utf-8' });
+      const { frontmatter, content } = parseFrontmatter(raw);
+      const fm = frontmatter as any;
 
-      seenSkills?.add(skill.name);
+      const name = `${pluginName}:${basename(skillPath)}`;
+      const description = fm.description ?? markdownTitleOrDefault(content, 'Plugin skill');
+      const allowedToolsRaw = fm['allowed-tools'];
+      const allowedTools = parseAllowedToolsFrontmatter(
+        typeof allowedToolsRaw === 'string' && pluginRoot
+          ? replacePluginRootPlaceholders(allowedToolsRaw, pluginRoot)
+          : allowedToolsRaw
+      );
+      const model = fm.model === 'inherit' ? undefined : fm.model;
+      const disableModelInvocation =
+        fm['disable-model-invocation'] === undefined
+          ? false
+          : parseBooleanFrontmatter(fm['disable-model-invocation'], false);
 
-      // Add plugin metadata
-      const pluginSkill: SkillDefinition = {
-        ...skill,
-        description: skill.description || `From plugin: ${pluginName}`,
-      };
-
-      skills.push(pluginSkill);
+      const skill = createPromptCommand({
+        name,
+        displayName: fm.name,
+        description,
+        hasUserSpecifiedDescription: Boolean(fm.description),
+        markdownContent: pluginRoot ? replacePluginRootPlaceholders(content, pluginRoot) : content,
+        allowedTools,
+        argumentHint: fm['argument-hint'],
+        whenToUse: fm.when_to_use,
+        version: fm.version,
+        model,
+        disableModelInvocation,
+        userInvocable: false,
+        source: 'plugin',
+        baseDir: dirname(rootSkillFile),
+        loadedFrom: 'plugin',
+        pluginInfo,
+        progressMessage: 'loading',
+        isHidden: true,
+      });
+      out.push(skill);
+      return out;
     }
-  } catch (error) {
-    console.error(
-      `[Skills] Failed to load from plugin ${pluginName} path ${skillPath}:`,
-      error
-    );
+
+    // Otherwise, scan one level of child dirs/symlinks for `SKILL.md`.
+    const children = readdirSync(skillPath, { withFileTypes: true });
+    for (const child of children) {
+      if (!child.isDirectory() && !child.isSymbolicLink()) continue;
+
+      const childDir = join(skillPath, child.name);
+      const skillFile = join(childDir, 'SKILL.md');
+      if (!existsSync(skillFile)) continue;
+      if (shouldSkipByInode(skillFile)) continue;
+
+      try {
+        const raw = readFileSync(skillFile, { encoding: 'utf-8' });
+        const { frontmatter, content } = parseFrontmatter(raw);
+        const fm = frontmatter as any;
+        const name = `${pluginName}:${child.name}`;
+
+        const description = fm.description ?? markdownTitleOrDefault(content, 'Plugin skill');
+        const allowedToolsRaw = fm['allowed-tools'];
+        const allowedTools = parseAllowedToolsFrontmatter(
+          typeof allowedToolsRaw === 'string' && pluginRoot
+            ? replacePluginRootPlaceholders(allowedToolsRaw, pluginRoot)
+            : allowedToolsRaw
+        );
+        const model = fm.model === 'inherit' ? undefined : fm.model;
+        const disableModelInvocation =
+          fm['disable-model-invocation'] === undefined
+            ? false
+            : parseBooleanFrontmatter(fm['disable-model-invocation'], false);
+
+        const skill = createPromptCommand({
+          name,
+          displayName: fm.name,
+          description,
+          hasUserSpecifiedDescription: Boolean(fm.description),
+          markdownContent: pluginRoot ? replacePluginRootPlaceholders(content, pluginRoot) : content,
+          allowedTools,
+          argumentHint: fm['argument-hint'],
+          whenToUse: fm.when_to_use,
+          version: fm.version,
+          model,
+          disableModelInvocation,
+          userInvocable: false,
+          source: 'plugin',
+          baseDir: dirname(skillFile),
+          loadedFrom: 'plugin',
+          pluginInfo,
+          progressMessage: 'loading',
+          isHidden: true,
+        });
+        out.push(skill);
+      } catch (err) {
+        console.error(`[Skills] Failed to load skill from ${skillFile}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error(`[Skills] Failed to load from plugin ${pluginName} path ${skillPath}:`, err);
   }
 
-  return skills;
+  return out;
 }
 
 /**
@@ -375,17 +829,17 @@ export async function loadSkillsFromPath(
  */
 export async function getPluginSkills(
   enabledPlugins?: PluginWithSkills[]
-): Promise<SkillDefinition[]> {
+): Promise<SkillPromptCommand[]> {
   if (!enabledPlugins || enabledPlugins.length === 0) {
     return [];
   }
 
-  const allSkills: SkillDefinition[] = [];
+  const allSkills: SkillPromptCommand[] = [];
 
   console.log(`[Skills] Processing ${enabledPlugins.length} enabled plugins`);
 
   for (const plugin of enabledPlugins) {
-    const seenSkills = new Set<string>();
+    const seenInodes = new Set<string>();
 
     console.log(
       `[Skills] Checking plugin ${plugin.name}: skillsPath=${plugin.skillsPath ? 'exists' : 'none'}, skillsPaths=${plugin.skillsPaths?.length ?? 0} paths`
@@ -400,7 +854,7 @@ export async function getPluginSkills(
           plugin.source,
           plugin.manifest,
           plugin.path,
-          seenSkills
+          seenInodes
         );
         allSkills.push(...skills);
         console.log(
@@ -424,7 +878,7 @@ export async function getPluginSkills(
             plugin.source,
             plugin.manifest,
             plugin.path,
-            seenSkills
+            seenInodes
           );
           allSkills.push(...skills);
           console.log(
@@ -449,31 +903,28 @@ export async function getPluginSkills(
 // ============================================
 
 /**
- * Bundled skills registry.
- * Original: vZ9 in chunks.145.mjs
+ * Bundled commands registry.
+ * Source alignment: kZ9() returns a shallow copy of a module-level array.
  */
-const bundledSkillsRegistry: RegisteredSkill[] = [];
+const bundledCommandsRegistry: SlashCommand[] = [];
 
-/**
- * Register a bundled skill.
- */
-export function registerBundledSkill(skill: RegisteredSkill): void {
-  bundledSkillsRegistry.push(skill);
+export function registerBundledSkill(skill: SlashCommand): void {
+  bundledCommandsRegistry.push(skill);
 }
 
 /**
  * Get all bundled skills.
  * Original: kZ9 in chunks.145.mjs:1774-1775
  */
-export function getBundledSkills(): RegisteredSkill[] {
-  return [...bundledSkillsRegistry];
+export function getBundledSkills(): SlashCommand[] {
+  return [...bundledCommandsRegistry];
 }
 
 /**
  * Clear bundled skills (for testing).
  */
 export function clearBundledSkills(): void {
-  bundledSkillsRegistry.length = 0;
+  bundledCommandsRegistry.length = 0;
 }
 
 // ============================================
@@ -552,6 +1003,15 @@ export async function getSkills(
 // Simple memoization cache
 let skillsCache: SkillLoadResult | null = null;
 let cacheContext: SkillLoadContext | null = null;
+let cachePluginKey: string | null = null;
+
+function pluginCacheKey(plugins?: PluginWithSkills[]): string {
+  if (!plugins || plugins.length === 0) return '';
+  return plugins
+    .map((p) => `${p.name}|${p.path}|${p.source}|${p.skillsPath ?? ''}|${(p.skillsPaths ?? []).join(',')}`)
+    .sort()
+    .join(';');
+}
 
 /**
  * Get skills with caching.
@@ -561,11 +1021,13 @@ export async function getSkillsCached(
   enabledPlugins?: PluginWithSkills[]
 ): Promise<SkillLoadResult> {
   // Check if cache is valid
+  const pk = pluginCacheKey(enabledPlugins);
   if (
     skillsCache &&
     cacheContext?.cwd === context?.cwd &&
     cacheContext?.userEnabled === context?.userEnabled &&
-    cacheContext?.projectEnabled === context?.projectEnabled
+    cacheContext?.projectEnabled === context?.projectEnabled &&
+    cachePluginKey === pk
   ) {
     return skillsCache;
   }
@@ -573,6 +1035,7 @@ export async function getSkillsCached(
   // Load and cache
   skillsCache = await getSkills(context, enabledPlugins);
   cacheContext = context || null;
+  cachePluginKey = pk;
   return skillsCache;
 }
 
@@ -583,7 +1046,154 @@ export async function getSkillsCached(
 export function clearSkillCaches(): void {
   skillsCache = null;
   cacheContext = null;
+  cachePluginKey = null;
   console.log('[Skills] Caches cleared');
+}
+
+// ============================================
+// Aggregation & Filtering (Source-aligned)
+// ============================================
+
+export interface GetAllCommandsContext extends SkillLoadContext {
+  enabledPlugins?: PluginWithSkills[];
+  /** Plugin commands loaded from plugins' commandsPath(s) (source: z3A()). */
+  pluginCommands?: SlashCommand[];
+  /** MCP prompts/commands (source: Dz7()). */
+  mcpPrompts?: SlashCommand[];
+  /** Extra dynamic commands/skills injected by runtime. */
+  dynamicSkills?: SlashCommand[];
+  /** Override builtin commands list (defaults to `getAllBuiltinCommands()`). */
+  builtinCommands?: SlashCommand[];
+}
+
+function createMemoizedAsync<TArg, TResult>(
+  fn: (arg: TArg) => Promise<TResult>,
+  keyFn: (arg: TArg) => string
+): ((arg: TArg) => Promise<TResult>) & { cache: { clear: () => void } } {
+  const cache = new Map<string, Promise<TResult>>();
+
+  const wrapped = (async (arg: TArg) => {
+    const key = keyFn(arg);
+    const existing = cache.get(key);
+    if (existing) return existing;
+    const p = fn(arg);
+    cache.set(key, p);
+    return p;
+  }) as ((arg: TArg) => Promise<TResult>) & { cache: { clear: () => void } };
+
+  wrapped.cache = {
+    clear: () => cache.clear(),
+  };
+
+  return wrapped;
+}
+
+function commandContextKey(ctx: GetAllCommandsContext): string {
+  return [
+    ctx.cwd ?? '',
+    String(ctx.userEnabled ?? true),
+    String(ctx.projectEnabled ?? true),
+    pluginCacheKey(ctx.enabledPlugins),
+    String(ctx.pluginCommands?.length ?? 0),
+    String(ctx.mcpPrompts?.length ?? 0),
+    String(ctx.dynamicSkills?.length ?? 0),
+    String(ctx.builtinCommands?.length ?? 0),
+  ].join('|');
+}
+
+/**
+ * Return all enabled commands.
+ * Source alignment: Aj() in `source/chunks.146.mjs:2448`.
+ */
+export const getAllCommands = createMemoizedAsync(
+  async (ctx: GetAllCommandsContext): Promise<SlashCommand[]> => {
+    const { enabledPlugins, pluginCommands, mcpPrompts, dynamicSkills, builtinCommands } = ctx;
+    const { skillDirCommands, pluginSkills, bundledSkills } = await getSkillsCached(
+      {
+        cwd: ctx.cwd,
+        userEnabled: ctx.userEnabled,
+        projectEnabled: ctx.projectEnabled,
+      },
+      enabledPlugins
+    );
+
+    const builtins = builtinCommands ?? getAllBuiltinCommands();
+    return [
+      ...bundledSkills,
+      ...skillDirCommands,
+      ...(pluginCommands ?? []),
+      ...pluginSkills,
+      ...(mcpPrompts ?? []),
+      ...(dynamicSkills ?? []),
+      ...builtins,
+    ].filter((c) => c.isEnabled());
+  },
+  commandContextKey
+);
+
+/**
+ * Return LLM-invocable skills.
+ * Source alignment: Nc() in `source/chunks.146.mjs:2456-2457`.
+ */
+export const getLLMInvocableSkills = createMemoizedAsync(
+  async (ctx: GetAllCommandsContext): Promise<SkillPromptCommand[]> => {
+    const all = await getAllCommands(ctx);
+    return all.filter((c): c is SkillPromptCommand => {
+      if (c.type !== 'prompt') return false;
+      const pc = c as SkillPromptCommand;
+      return (
+        !pc.disableModelInvocation &&
+        pc.source !== 'builtin' &&
+        (pc.loadedFrom === 'bundled' ||
+          pc.loadedFrom === 'commands_DEPRECATED' ||
+          pc.hasUserSpecifiedDescription ||
+          Boolean(pc.whenToUse))
+      );
+    });
+  },
+  commandContextKey
+);
+
+/**
+ * Return user-visible skills for `/help`.
+ * Source alignment: hD1() in `source/chunks.146.mjs:2458-2463`.
+ */
+export const getUserSkills = createMemoizedAsync(
+  async (ctx: GetAllCommandsContext): Promise<SkillPromptCommand[]> => {
+    try {
+      const all = await getAllCommands(ctx);
+      return all.filter((c): c is SkillPromptCommand => {
+        if (c.type !== 'prompt') return false;
+        const pc = c as SkillPromptCommand;
+        return (
+          pc.source !== 'builtin' &&
+          (pc.hasUserSpecifiedDescription || Boolean(pc.whenToUse)) &&
+          (pc.loadedFrom === 'skills' ||
+            pc.loadedFrom === 'plugin' ||
+            pc.loadedFrom === 'bundled' ||
+            Boolean(pc.disableModelInvocation))
+        );
+      });
+    } catch (err) {
+      console.error(
+        err instanceof Error ? err : new Error('Failed to load slash command skills')
+      );
+      console.log('[Skills] Returning empty skills array due to load failure');
+      return [];
+    }
+  },
+  commandContextKey
+);
+
+/**
+ * Clear caches for command aggregation and skill loading.
+ * Source alignment: lt() in `source/chunks.146.mjs:2320-2321`.
+ */
+export function clearAllCommandCaches(): void {
+  getAllCommands.cache.clear();
+  getLLMInvocableSkills.cache.clear();
+  getUserSkills.cache.clear();
+  clearSkillCaches();
 }
 
 // ============================================
