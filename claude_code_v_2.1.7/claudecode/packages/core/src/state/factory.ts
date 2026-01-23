@@ -356,6 +356,9 @@ export function createDefaultAppState(): AppState {
 
     // Team
     teamContext: undefined,
+
+    // Skill Usage
+    skillUsage: {},
   };
 }
 

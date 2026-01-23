@@ -684,6 +684,22 @@ export interface AppState {
   // Team
   /** Team collaboration context */
   teamContext: any | undefined;
+
+  // Skill Usage
+  /** Skill usage tracking */
+  skillUsage: Record<string, SkillUsage>;
+}
+
+// ============================================
+// Skill Usage
+// ============================================
+
+/**
+ * Skill usage state type.
+ */
+export interface SkillUsage {
+  usageCount: number;
+  lastUsedAt: number;
 }
 
 // ============================================

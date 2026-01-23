@@ -59,6 +59,7 @@ export {
 
 export {
   trackSkillUsage,
+  getDecayedUsage,
   parseSlashCommandInput,
   executeSlashCommand,
   processPromptSlashCommand,

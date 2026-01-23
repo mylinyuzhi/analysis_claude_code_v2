@@ -27,7 +27,7 @@ export interface QueryTracking {
 /**
  * Query source identifier
  */
-export type QuerySource = 'main' | 'subagent' | 'background' | 'sdk';
+export type QuerySource = 'main' | 'subagent' | 'background' | 'sdk' | 'slash_command';
 
 // ============================================
 // Agent Definition

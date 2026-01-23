@@ -12,39 +12,70 @@ import type {
   PromptCommand,
   CommandExecutionResult,
   CommandExecutionContext,
-  CommandDisplayOptions,
   CommandMessage,
-  CommandContent,
+  SkillUsage,
 } from './types.js';
-import { COMMAND_CONSTANTS } from './types.js';
 import {
   extractCommandParts,
   isValidCommandName,
   isFilePath,
   commandExists,
   findCommand,
-  classifyCommand,
   createUserMessage,
-  createFormatError,
-  createUnknownSkillError,
   formatCommandMetadata,
   formatSkillMetadata,
-  formatStdout,
-  formatStderr,
 } from './parser.js';
 import { getCommandRegistry } from './registry.js';
+import { runSubagentLoop, isYieldableMessage } from '@claudecode/core/agent-loop';
+import { generateTaskId, generateUUID } from '@claudecode/shared';
+
+// Placeholder for telemetry if not available in imports
+// In source: l("tengu_input_slash_missing", {})
+const telemetry = (event: string, properties?: any) => {
+  // Implementation would go here
+  // console.log(`Telemetry: ${event}`, properties);
+};
+
+// Placeholder for missing functions that were in source
+// TD1: prepareForkContext
+async function prepareForkContext(command: PromptCommand, args: string, context: CommandExecutionContext) {
+  // Mock implementation based on source analysis
+  return {
+    skillContent: await command.getPromptForCommand(args, context),
+    modifiedGetAppState: context.getAppState, // simplified
+    baseAgent: { agentType: command.name },
+    promptMessages: []
+  };
+}
+
+// yz0: recordSidechainTranscript
+async function recordSidechainTranscript(messages: any[], agentId: string, parentId?: string | null) {
+  // Mock implementation
+}
+
+// a7: normalizeMessages (simplified)
+function normalizeMessages(messages: any[]) {
+  return messages;
+}
+
+// WHA: renderToolUse (simplified)
+function renderToolUse(messages: any[], options: any) {
+  return null;
+}
+
+// g51: getResponseLength (simplified)
+function getResponseLength(message: any) {
+  return 0;
+}
+
+// PD1: formatSkillResult (simplified)
+function formatSkillResult(messages: any[], defaultText: string) {
+  return defaultText;
+}
 
 // ============================================
 // Skill Usage Tracking
 // ============================================
-
-/**
- * Skill usage state type.
- */
-interface SkillUsage {
-  usageCount: number;
-  lastUsedAt: number;
-}
 
 /**
  * Track skill usage for analytics.
@@ -52,40 +83,45 @@ interface SkillUsage {
  */
 export function trackSkillUsage(
   skillName: string,
-  getState: () => { skillUsage?: Record<string, SkillUsage> },
-  setState: (updater: (state: unknown) => unknown) => void
+  getAppState: () => { skillUsage?: Record<string, SkillUsage> },
+  setAppState: (updater: (state: any) => any) => void
 ): void {
-  const existingUsage = getState().skillUsage?.[skillName];
-  const currentTime = Date.now();
-  const newCount = (existingUsage?.usageCount ?? 0) + 1;
+  const appState = getAppState();
+  const skillData = appState.skillUsage?.[skillName];
+  const now = Date.now();
+  const newUsageCount = (skillData?.usageCount ?? 0) + 1;
 
-  // Update state if changed
-  if (
-    !existingUsage ||
-    existingUsage.usageCount !== newCount ||
-    existingUsage.lastUsedAt !== currentTime
-  ) {
-    setState((state: unknown) => {
-      const s: Record<string, unknown> =
-        state && typeof state === 'object' ? (state as Record<string, unknown>) : {};
-
-      const prevSkillUsage: Record<string, SkillUsage> =
-        s.skillUsage && typeof s.skillUsage === 'object'
-          ? (s.skillUsage as Record<string, SkillUsage>)
-          : {};
-
-      return {
-        ...s,
-        skillUsage: {
-          ...prevSkillUsage,
-          [skillName]: {
-            usageCount: newCount,
-            lastUsedAt: currentTime,
-          },
+  if (!skillData || skillData.usageCount !== newUsageCount || skillData.lastUsedAt !== now) {
+    setAppState((prevState: any) => ({
+      ...prevState,
+      skillUsage: {
+        ...prevState.skillUsage,
+        [skillName]: {
+          usageCount: newUsageCount,
+          lastUsedAt: now,
         },
-      };
-    });
+      },
+    }));
   }
+}
+
+/**
+ * Get decayed skill usage count.
+ * Original: RD1 (getDecayedUsage) in chunks.112.mjs:2378-2384
+ */
+export function getDecayedUsage(
+  skillName: string,
+  getAppState: () => { skillUsage?: Record<string, SkillUsage> }
+): number {
+  const skillData = getAppState().skillUsage?.[skillName];
+  if (!skillData) return 0;
+  
+  const daysSinceLastUse = (Date.now() - skillData.lastUsedAt) / 86400000;
+  // Source: Math.pow(0.5, G / 7) where G is days
+  const decayFactor = Math.pow(0.5, daysSinceLastUse / 7);
+  
+  // Source: B.usageCount * Math.max(Z, 0.1)
+  return skillData.usageCount * Math.max(decayFactor, 0.1);
 }
 
 // ============================================
@@ -98,55 +134,139 @@ export function trackSkillUsage(
  */
 export async function parseSlashCommandInput(
   input: string,
+  precedingInputBlocks: any[],
+  setCommandJSX: (jsx: any) => void,
   context: CommandExecutionContext,
-  options?: {
-    setProcessing?: (processing: boolean) => void;
-    setCommandJSX?: (jsx: { jsx: JSX.Element | null; shouldHidePromptInput: boolean }) => void;
-    telemetry?: (event: string) => void;
-  }
+  attachments: any[], // Z in source
+  setProcessing: (processing: boolean) => void, // Y in source (boolean callback)
+  messages: CommandMessage[], // J
+  uuid: string, // X
+  outputWriter: any, // I
+  abortController: any // D
 ): Promise<CommandExecutionResult> {
-  // Step 1: Extract command parts
-  const parsed = extractCommandParts(input);
-  if (!parsed) {
-    options?.telemetry?.('tengu_input_slash_missing');
-    return createFormatError();
+  const extractedParts = extractCommandParts(input); // wP2
+  
+  if (!extractedParts) {
+    telemetry("tengu_input_slash_missing", {});
+    const usageTip = 'Commands are in the form `/command [args]`';
+    return {
+      messages: [
+        ...messages, 
+        createUserMessage({ content: usageTip }) // simplified IU call
+      ],
+      shouldQuery: false,
+      resultText: usageTip
+    };
   }
 
-  const { commandName, args, isMcp } = parsed;
+  const { commandName, args, isMcp } = extractedParts;
+  const telemetryCommandName = isMcp ? 'mcp' : !getCommandRegistry().getBuiltinNameSet().has(commandName) ? 'custom' : commandName;
 
-  // Step 2: Classify command type
-  const builtinSet = getCommandRegistry().getBuiltinNameSet();
-  const commandType = classifyCommand(commandName, isMcp, builtinSet);
-
-  // Step 3: Check if command exists
-  if (!commandExists(commandName, context.options.commands)) {
-    // Check if it's actually a file path
-    const isFile = isFilePath(`/${commandName}`);
-
-    if (isValidCommandName(commandName) && !isFile) {
-      // Unknown skill error
-      options?.telemetry?.('tengu_input_slash_invalid');
-      return createUnknownSkillError(commandName);
+  if (!commandExists(commandName, context.options.commands)) { // Cc
+    const isPath = isFilePath(`/${commandName}`); // vA().existsSync(...)
+    
+    if (isValidCommandName(commandName) && !isPath) { // nb5
+      telemetry("tengu_input_slash_invalid", { input: commandName });
+      const unknownSkillMessage = `Unknown skill: ${commandName}`;
+      return {
+        messages: [
+          ...messages,
+          createUserMessage({ content: unknownSkillMessage })
+        ],
+        shouldQuery: false,
+        resultText: unknownSkillMessage
+      };
     }
-
-    // Treat as regular user prompt (file path or invalid name)
-    options?.telemetry?.('tengu_input_prompt');
+    
+    telemetry("tengu_input_prompt", {});
+    // LF("user_prompt", ...)
+    
     return {
-      messages: [createUserMessage({ content: input })],
+      messages: [
+        createUserMessage({
+          content: input, // IU({ inputString: A, precedingInputBlocks: Q })
+          uuid: uuid
+        }),
+        ...messages
+      ],
       shouldQuery: true,
     };
   }
 
-  // Step 4: Execute the command
-  options?.setProcessing?.(true);
-  options?.telemetry?.('tengu_input_command');
+  setProcessing(true);
+  // T9("slash-commands");
+  
+  const result = await executeSlashCommand(
+    commandName, 
+    args, 
+    setCommandJSX, 
+    context, 
+    precedingInputBlocks, 
+    attachments, 
+    messages, 
+    outputWriter
+  );
+  
+  const { messages: resultMessages, shouldQuery, allowedTools, maxThinkingTokens, model, command, resultText } = result;
 
-  return executeSlashCommand(commandName, args, context, options?.setCommandJSX);
+  if (resultMessages.length === 0) {
+    const telemetryData: any = { input: telemetryCommandName };
+    if (command?.type === 'prompt' && command.pluginInfo) {
+      const { pluginManifest, repository } = command.pluginInfo;
+      telemetryData.plugin_repository = repository;
+      telemetryData.plugin_name = pluginManifest.name;
+      if (pluginManifest.version) telemetryData.plugin_version = pluginManifest.version;
+    }
+    telemetry("tengu_input_command", telemetryData);
+    
+    return {
+      messages: [],
+      shouldQuery: false,
+      maxThinkingTokens,
+      model,
+    };
+  }
+  
+  // Handle unknown command error format from ab5
+  // Source checks: E.length === 2 && E[1].type === "user" && ... startsWith("Unknown command:")
+  if (resultMessages.length === 2 && 
+      resultMessages[1]?.role === 'user' && 
+      typeof resultMessages[1]?.content === 'string' && 
+      resultMessages[1]?.content.startsWith('Unknown command:')) {
+      
+    if (!(input.startsWith("/var") || input.startsWith("/tmp") || input.startsWith("/private"))) {
+      telemetry("tengu_input_slash_invalid", { input: commandName });
+    }
+    
+    return {
+      messages: [...messages, ...resultMessages],
+      shouldQuery,
+      allowedTools,
+      maxThinkingTokens,
+      model
+    };
+  }
+
+  const telemetryData: any = { input: telemetryCommandName };
+  if (command?.type === 'prompt' && command.pluginInfo) {
+    const { pluginManifest, repository } = command.pluginInfo;
+    telemetryData.plugin_repository = repository;
+    telemetryData.plugin_name = pluginManifest.name;
+    if (pluginManifest.version) telemetryData.plugin_version = pluginManifest.version;
+  }
+  telemetry("tengu_input_command", telemetryData);
+
+  // qc(E[0]) check?
+  
+  return {
+    messages: shouldQuery ? resultMessages : [...messages, ...resultMessages],
+    shouldQuery,
+    allowedTools,
+    maxThinkingTokens,
+    model,
+    resultText
+  };
 }
-
-// ============================================
-// Command Execution Dispatcher
-// ============================================
 
 /**
  * Execute a slash command.
@@ -155,13 +275,20 @@ export async function parseSlashCommandInput(
 export async function executeSlashCommand(
   commandName: string,
   args: string,
+  setCommandJSX: (jsx: any) => void,
   context: CommandExecutionContext,
-  setCommandJSX?: (jsx: { jsx: JSX.Element | null; shouldHidePromptInput: boolean }) => void
+  precedingInputBlocks: any[],
+  attachments: any[],
+  messages: CommandMessage[],
+  outputWriter: any
 ): Promise<CommandExecutionResult> {
-  // 1. Lookup command definition
-  const command = findCommand(commandName, context.options.commands);
-
-  // 2. Block non-user-invocable skills
+  let command = findCommand(commandName, context.options.commands); // eS
+  
+  // Track usage for prompt commands
+  if (command.type === 'prompt' && command.userInvocable !== false) {
+    trackSkillUsage(commandName, context.getAppState!, context.setAppState!); // MD1
+  }
+  
   if (command.userInvocable === false) {
     return {
       messages: [
@@ -171,151 +298,155 @@ export async function executeSlashCommand(
         }),
       ],
       shouldQuery: false,
-      command,
+      command: command,
     };
   }
-
-  // 3. Route by command type
+  
   try {
     switch (command.type) {
       case 'local-jsx':
-        return handleLocalJSXCommand(command as LocalJSXCommand, args, context, setCommandJSX);
-
-      case 'local':
-        return handleLocalCommand(command as LocalCommand, args, context);
-
+        return new Promise((resolve) => {
+          (command as LocalJSXCommand).call(
+            (jsxContent, options) => {
+              if (options?.display === 'skip') {
+                resolve({ messages: [], shouldQuery: false, command: command });
+                return;
+              }
+              
+              const metadata = formatCommandMetadata(command, args); // ckA
+              
+              resolve({
+                messages:
+                  options?.display === 'system'
+                    ? [
+                        { role: 'system', content: metadata }, // Sz0
+                        { role: 'system', content: `<local-command-stdout>${jsxContent}</local-command-stdout>` }
+                      ] as any
+                    : [
+                        createUserMessage({ content: metadata }),
+                        jsxContent
+                          ? createUserMessage({ content: `<local-command-stdout>${jsxContent}</local-command-stdout>` })
+                          : createUserMessage({ content: `<local-command-stdout>(no content)</local-command-stdout>` }), // JO
+                      ],
+                shouldQuery: options?.shouldQuery ?? false,
+                command: command,
+              });
+            },
+            context,
+            args
+          ).then((jsxResult) => {
+            if (context.options.isNonInteractiveSession) {
+              resolve({ messages: [], shouldQuery: false, command: command });
+              return;
+            }
+            setCommandJSX({
+              jsx: jsxResult,
+              shouldHidePromptInput: true,
+              showSpinner: false,
+              isLocalJSXCommand: true,
+            });
+          });
+        });
+        
+      case 'local': {
+        const metadata = formatCommandMetadata(command, args);
+        let metadataMessage = createUserMessage({ content: metadata });
+        
+        try {
+          // NE() ?
+          let result = await (command as LocalCommand).call(args, context);
+          
+          if (result.type === 'skip') {
+            return { messages: [], shouldQuery: false, command: command };
+          }
+          
+          if (result.type === 'compact') {
+            // Source: K.type === "compact" logic
+            let compactMessages = [
+              // NE(), 
+              metadataMessage, 
+              ...((result as any).displayText ? [createUserMessage({ 
+                content: `<local-command-stdout>${(result as any).displayText}</local-command-stdout>`,
+                // timestamp: ...
+              })] : [])
+            ];
+            
+            // FHA(F) logic
+            return {
+              messages: [...((result as any).compactionResult.messagesToKeep ?? []), ...compactMessages] as any,
+              shouldQuery: false,
+              command: command,
+            };
+          }
+          
+          return {
+            messages: [
+              metadataMessage, 
+              createUserMessage({ content: `<local-command-stdout>${result.value}</local-command-stdout>` })
+            ],
+            shouldQuery: false,
+            command: command,
+          };
+        } catch (error) {
+          return {
+            messages: [
+              metadataMessage, 
+              createUserMessage({ content: `<local-command-stderr>${String(error)}</local-command-stderr>` })
+            ],
+            shouldQuery: false,
+            command: command,
+          };
+        }
+      }
+      
       case 'prompt':
-        return handlePromptCommand(command as PromptCommand, args, context);
-
-      default:
-        throw new Error(`Unknown command type: ${(command as SlashCommand).type}`);
+        try {
+          if (command.context === 'fork') {
+            return await executeForkedSlashCommand(
+              command as PromptCommand, 
+              args, 
+              context, 
+              precedingInputBlocks, 
+              setCommandJSX, 
+              (context as any).canUseTool
+            );
+          }
+          return await processPromptSlashCommand(command as PromptCommand, args, context, precedingInputBlocks, attachments);
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') { // aG
+            return {
+              messages: [
+                createUserMessage({ content: formatCommandMetadata(command, args) }), 
+                createUserMessage({ content: '[Request interrupted by user]' }) // Ss
+              ],
+              shouldQuery: false,
+              command: command,
+            };
+          }
+          return {
+            messages: [
+              createUserMessage({ content: formatCommandMetadata(command, args) }), 
+              createUserMessage({ content: `<local-command-stderr>${String(error)}</local-command-stderr>` })
+            ],
+            shouldQuery: false,
+            command: command,
+          };
+        }
     }
-  } catch (error) {
-    return handleCommandError(error, command, args);
-  }
-}
-
-// ============================================
-// Type-Specific Handlers
-// ============================================
-
-/**
- * Handle local-jsx command (interactive UI).
- * From ab5, chunks.112.mjs:2614-2655
- */
-async function handleLocalJSXCommand(
-  command: LocalJSXCommand,
-  args: string,
-  context: CommandExecutionContext,
-  setCommandJSX?: (jsx: { jsx: JSX.Element | null; shouldHidePromptInput: boolean }) => void
-): Promise<CommandExecutionResult> {
-  return new Promise((resolve) => {
-    const onComplete = (output: string, displayOptions?: CommandDisplayOptions) => {
-      if (displayOptions?.display === 'skip') {
-        resolve({ messages: [], shouldQuery: false, command });
-        return;
-      }
-
-      const metadata = formatCommandMetadata(command, args);
-
-      // Build messages based on display option
-      const messages: CommandMessage[] =
-        displayOptions?.display === 'system'
-          ? [
-              { role: 'system', content: metadata },
-              { role: 'system', content: output },
-            ]
-          : [createUserMessage({ content: metadata }), createUserMessage({ content: output })];
-
-      resolve({
-        messages,
-        shouldQuery: displayOptions?.shouldQuery ?? false,
-        command,
-      });
-    };
-
-    command.call(onComplete, context, args).then((jsxElement) => {
-      // Non-interactive: skip rendering
-      if (context.options.isNonInteractiveSession) {
-        resolve({ messages: [], shouldQuery: false, command });
-        return;
-      }
-
-      // Render JSX component
-      setCommandJSX?.({ jsx: jsxElement, shouldHidePromptInput: true });
-    });
-  });
-}
-
-/**
- * Handle local command (text output).
- * From ab5, chunks.112.mjs:2656-2701
- */
-async function handleLocalCommand(
-  command: LocalCommand,
-  args: string,
-  context: CommandExecutionContext
-): Promise<CommandExecutionResult> {
-  const userMsg = createUserMessage({ content: formatCommandMetadata(command, args) });
-
-  try {
-    const result = await command.call(args, context);
-
-    if (result.type === 'skip') {
-      return { messages: [], shouldQuery: false, command };
-    }
-
-    if (result.type === 'compact') {
-      // Handle compaction result
-      return {
-        messages: [
-          userMsg,
-          createUserMessage({
-            content: `Conversation compacted. Kept ${result.compactionResult.messagesToKeep} messages. Summary: ${result.compactionResult.summary}`,
-          }),
-        ],
+  } catch (error: any) {
+    // ny error check
+    if (error.message?.startsWith('Unknown command:')) {
+       return {
+        messages: [createUserMessage({ content: error.message })],
         shouldQuery: false,
-        command,
+        command: command,
       };
     }
-
-    // Normal text result
-    return {
-      messages: [userMsg, createUserMessage({ content: formatStdout(result.value) })],
-      shouldQuery: false,
-      command,
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      messages: [userMsg, createUserMessage({ content: formatStderr(errorMessage) })],
-      shouldQuery: false,
-      command,
-    };
+    throw error;
   }
+  
+  return { messages: [], shouldQuery: false };
 }
-
-/**
- * Handle prompt command (LLM invocation).
- * From ab5, chunks.112.mjs:2703-2732
- */
-async function handlePromptCommand(
-  command: PromptCommand,
-  args: string,
-  context: CommandExecutionContext
-): Promise<CommandExecutionResult> {
-  // Fork context: Execute in separate agent
-  if (command.context === 'fork') {
-    return executeForkedSlashCommand(command, args, context);
-  }
-
-  // Normal: Process in main thread
-  return processPromptSlashCommand(command, args, context);
-}
-
-// ============================================
-// Prompt Command Processing
-// ============================================
 
 /**
  * Process prompt-type slash command.
@@ -324,105 +455,158 @@ async function handlePromptCommand(
 export async function processPromptSlashCommand(
   command: PromptCommand,
   args: string,
-  context: CommandExecutionContext
+  context: CommandExecutionContext,
+  precedingBlocks: any[] = [],
+  attachments: any[] = []
 ): Promise<CommandExecutionResult> {
-  // Some prompt commands are explicitly disabled for non-interactive sessions.
-  // Source uses `disableNonInteractive`; we map it via `supportsNonInteractive: false`.
-  if (context.options.isNonInteractiveSession && command.supportsNonInteractive === false) {
-    return { messages: [], shouldQuery: false, command };
+  let promptContent = await command.getPromptForCommand(args, context);
+  
+  if (command.hooks) {
+    // registerSkillHooks(context.setAppState, q0(), command.hooks, command.name)
+    // Placeholder for OD1
   }
-
-  // 1. Get the prompt content from command
-  const promptContent = await command.getPromptForCommand(args, context);
-
-  // 2. Format metadata string for display
-  const metadataString = formatSkillMetadata(command, args);
-
-  // 3. Parse allowed tools from command
-  const allowedTools = command.allowedTools ?? [];
-
-  // 4. Build message array
-  const messages: CommandMessage[] = [
-    createUserMessage({ content: metadataString }),
-    createUserMessage({ content: promptContent as unknown as any, isMeta: true }),
+  
+  let metadata = formatSkillMetadata(command, args); // ob5
+  
+  // k(`Metadata string for ${command.userFacingName()}:`)
+  
+  let allowedTools = command.allowedTools ?? []; // Uc
+  
+  let finalContent = attachments.length > 0 || precedingBlocks.length > 0 
+    ? [...attachments, ...precedingBlocks, ...promptContent] 
+    : promptContent;
+    
+  // W = Hm(...) -> calculateThinkingTokens
+  
+  // K = QY1(...) -> getSystemReminders
+  const systemReminders: any[] = []; // Placeholder
+  
+  let messages = [
+    createUserMessage({ content: metadata }), // H0
+    createUserMessage({ content: finalContent as any, isMeta: true }), // H0 with isMeta
+    ...systemReminders,
+    // X4({ type: "command_permissions", ... })
+    {
+      role: 'system',
+      content: `command_permissions: ${JSON.stringify({ allowedTools: allowedTools, model: command.model })}`,
+    } as any,
   ];
-
+  
   return {
-    messages,
+    messages: messages,
     shouldQuery: true,
-    allowedTools,
+    allowedTools: allowedTools,
     model: command.model,
-    command,
+    command: command,
   };
 }
 
 /**
  * Execute forked slash command in separate agent.
- * Original: ib5 (executeForkedSlashCommand)
+ * Original: ib5 (executeForkedSlashCommand) in chunks.112.mjs:2390-2476
  */
 export async function executeForkedSlashCommand(
   command: PromptCommand,
   args: string,
-  context: CommandExecutionContext
+  context: CommandExecutionContext,
+  precedingInputBlocks: any[],
+  setCommandJSX: (jsx: any) => void,
+  canUseTool: any
 ): Promise<CommandExecutionResult> {
-  if (context.options.isNonInteractiveSession && command.supportsNonInteractive === false) {
-    return { messages: [], shouldQuery: false, command };
-  }
-
-  // Get prompt content
-  const promptContent = await command.getPromptForCommand(args, context);
-
-  // Format metadata
-  const metadataString = formatSkillMetadata(command, args);
-
-  // Build messages for forked execution
-  const messages: CommandMessage[] = [
-    createUserMessage({ content: metadataString }),
-    createUserMessage({ content: promptContent as unknown as any, isMeta: true }),
-  ];
-
-  return {
-    messages,
-    shouldQuery: true,
-    allowedTools: command.allowedTools,
-    model: command.model,
-    command,
-  };
-}
-
-// ============================================
-// Error Handling
-// ============================================
-
-/**
- * Handle command execution error.
- */
-function handleCommandError(
-  error: unknown,
-  command: SlashCommand,
-  args: string
-): CommandExecutionResult {
-  const userMsg = createUserMessage({ content: formatCommandMetadata(command, args) });
-
-  // Check for abort error
-  if (error instanceof Error && error.name === 'AbortError') {
+  const agentId = generateTaskId('local_agent'); // LS()
+  telemetry("tengu_slash_command_forked", { command_name: command.name });
+  
+  // TD1
+  const { skillContent, modifiedGetAppState, baseAgent, promptMessages } = await prepareForkContext(command, args, context);
+  
+  const normalizedMessages: any[] = []; // K
+  const progressMessages: any[] = []; // V
+  const parentToolUseID = `forked-command-${command.name}`; // F
+  let toolUseCounter = 0; // H
+  
+  // E helper
+  const createProgressEvent = (message: any) => {
+    toolUseCounter++;
     return {
-      messages: [userMsg, createUserMessage({ content: 'Command was aborted' })],
-      shouldQuery: false,
-      command,
+      type: "progress",
+      data: {
+        message: message,
+        normalizedMessages: normalizeMessages(normalizedMessages),
+        type: "agent_progress",
+        prompt: skillContent,
+        agentId: agentId
+      },
+      parentToolUseID: parentToolUseID,
+      toolUseID: `${parentToolUseID}-${toolUseCounter}`,
+      timestamp: new Date().toISOString(),
+      uuid: generateUUID() // lb5
     };
+  };
+  
+  // z helper
+  const updateJSX = () => {
+    setCommandJSX({
+      jsx: renderToolUse(progressMessages, { tools: context.options.tools, verbose: false }), // WHA
+      shouldHidePromptInput: false, // !1 in source? Wait, source says !1 (false)
+      shouldContinueAnimation: true,
+      showSpinner: true
+    });
+  };
+  
+  updateJSX();
+  
+  try {
+    // $f (runAgentLoop)
+    const generator = runSubagentLoop({
+      agentDefinition: baseAgent as any,
+      promptMessages: promptMessages as any[],
+      toolUseContext: { ...context, getAppState: modifiedGetAppState },
+      canUseTool,
+      isAsync: false,
+      querySource: 'agent:custom',
+      model: command.model
+    });
+
+    for await (const event of generator) {
+      const message = event as any;
+      normalizedMessages.push(message);
+      
+      if (message.type === 'assistant') {
+        const length = getResponseLength(message); // g51
+        if (length > 0) context.setResponseLength?.((prev: number) => prev + length);
+        
+        const normalized = normalizeMessages([message])[0];
+        if (normalized && normalized.type === 'assistant') {
+          progressMessages.push(createProgressEvent(message));
+          updateJSX();
+        }
+      }
+      
+      if (message.type === 'user') {
+        const normalized = normalizeMessages([message])[0];
+        if (normalized && normalized.type === 'user') {
+          progressMessages.push(createProgressEvent(message));
+          updateJSX();
+        }
+      }
+    }
+  } finally {
+    setCommandJSX(null);
   }
 
-  const errorMessage = error instanceof Error ? error.message : String(error);
+  const resultText = formatSkillResult(normalizedMessages, "Command completed"); // PD1
+  
   return {
-    messages: [userMsg, createUserMessage({ content: formatStderr(errorMessage) })],
+    messages: [
+      createUserMessage({ 
+        content: `/${command.userFacingName()} ${args}`.trim() 
+      }),
+      createUserMessage({ 
+        content: `<local-command-stdout>\n${resultText}\n</local-command-stdout>` 
+      })
+    ],
     shouldQuery: false,
-    command,
+    command: command,
+    resultText: resultText
   };
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 函数已在声明处导出；移除重复聚合导出。

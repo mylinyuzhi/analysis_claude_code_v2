@@ -180,6 +180,21 @@ export interface HookDefinition {
 }
 
 // ============================================
+// State Types
+// ============================================
+
+/**
+ * Skill usage state type.
+ * Original: MD1 related
+ */
+// Temporary duplicate to break circular dependency
+export interface SkillUsage {
+  usageCount: number;
+  lastUsedAt: number;
+}
+// export type { SkillUsage } from '@claudecode/core/state';
+
+// ============================================
 // Execution Context
 // ============================================
 
@@ -257,6 +272,13 @@ export const COMMAND_CONSTANTS = {
   COMMAND_ARGS_TAG: 'command-args',
   STDOUT_TAG: 'local-command-stdout',
   STDERR_TAG: 'local-command-stderr',
+  SKILL_FORMAT_TAG: 'skill-format',
+  SKILL_NAME_TAG: 'skill-name',
+  SKILL_PROGRESS_TAG: 'skill-progress',
+
+  // Messages
+  ABORT_MESSAGE: '[Request interrupted by user]',
+  EMPTY_CONTENT: '(no content)',
 
   // Built-in command names
   BUILTIN_COMMANDS: [
@@ -321,9 +343,3 @@ export const COMMAND_CONSTANTS = {
     'vim',
   ] as const,
 } as const;
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类型/常量已在声明处导出；移除重复聚合导出以避免 TS2484。

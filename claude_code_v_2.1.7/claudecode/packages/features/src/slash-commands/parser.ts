@@ -21,9 +21,6 @@ import { COMMAND_CONSTANTS } from './types.js';
 /**
  * Extract command parts from user input.
  * Original: wP2 (extractCommandParts) in chunks.112.mjs:2323-2337
- *
- * @param input - Raw user input
- * @returns Extracted command parts or null if invalid
  */
 export function extractCommandParts(input: string): ExtractedCommand | null {
   const trimmedInput = input.trim();
@@ -69,17 +66,9 @@ export function extractCommandParts(input: string): ExtractedCommand | null {
 /**
  * Validate command name format.
  * Original: nb5 (isValidCommandName) in chunks.112.mjs:2478-2479
- *
- * Allowed characters: a-z, A-Z, 0-9, :, -, _
- *
- * @param commandName - Command name to validate
- * @returns True if valid, false otherwise
  */
 export function isValidCommandName(commandName: string): boolean {
-  // Returns TRUE if command name contains ONLY allowed characters
-  // Regex matches any character NOT in the allowed set
-  // If regex matches, name is INVALID (return false)
-  return !COMMAND_CONSTANTS.INVALID_CHAR_REGEX.test(commandName);
+  return !/[^a-zA-Z0-9:\-_]/.test(commandName);
 }
 
 /**
@@ -235,8 +224,8 @@ export function createUnknownSkillError(commandName: string): CommandExecutionRe
 export function formatCommandMetadata(command: SlashCommand, args: string): string {
   const name = command.userFacingName();
   return `<${COMMAND_CONSTANTS.COMMAND_NAME_TAG}>/${name}</${COMMAND_CONSTANTS.COMMAND_NAME_TAG}>
-<${COMMAND_CONSTANTS.COMMAND_MESSAGE_TAG}>${name}</${COMMAND_CONSTANTS.COMMAND_MESSAGE_TAG}>
-<${COMMAND_CONSTANTS.COMMAND_ARGS_TAG}>${args}</${COMMAND_CONSTANTS.COMMAND_ARGS_TAG}>`;
+            <${COMMAND_CONSTANTS.COMMAND_MESSAGE_TAG}>${name}</${COMMAND_CONSTANTS.COMMAND_MESSAGE_TAG}>
+            <${COMMAND_CONSTANTS.COMMAND_ARGS_TAG}>${args}</${COMMAND_CONSTANTS.COMMAND_ARGS_TAG}>`;
 }
 
 /**
@@ -247,23 +236,14 @@ export function formatSkillMetadata(
   command: SlashCommand,
   args: string
 ): string {
-  // User-invocable commands: standard format
-  if (command.userInvocable !== false) {
-    return formatUserInvocableMetadata(command.userFacingName(), args);
-  }
-
-  // Model-only skills from skills dir or plugins: skill format
-  if (command.loadedFrom === 'skills' || command.loadedFrom === 'plugin') {
-    return formatSkillFormatMetadata(command.userFacingName(), command.progressMessage);
-  }
-
-  // Default: standard format
+  if (command.userInvocable !== false) return formatUserInvocableMetadata(command.userFacingName(), args);
+  if (command.loadedFrom === 'skills' || command.loadedFrom === 'plugin') return formatSkillFormatMetadata(command.userFacingName(), command.progressMessage);
   return formatUserInvocableMetadata(command.userFacingName(), args);
 }
 
 /**
  * Format user-invocable command metadata.
- * Original: LP2
+ * Original: LP2 in chunks.112.mjs:2760-2763
  */
 function formatUserInvocableMetadata(name: string, args: string): string {
   return `<${COMMAND_CONSTANTS.COMMAND_NAME_TAG}>/${name}</${COMMAND_CONSTANTS.COMMAND_NAME_TAG}>
@@ -272,9 +252,9 @@ function formatUserInvocableMetadata(name: string, args: string): string {
 
 /**
  * Format model-only skill metadata.
- * Original: xz0
+ * Original: xz0 in chunks.112.mjs:2755-2758
  */
-function formatSkillFormatMetadata(name: string, progressMessage?: string): string {
+function formatSkillFormatMetadata(name: string, progressMessage: string = 'loading'): string {
   return `<skill-format>true</skill-format>
 <skill-name>${name}</skill-name>
 ${progressMessage ? `<skill-progress>${progressMessage}</skill-progress>` : ''}`;
@@ -297,9 +277,3 @@ export function formatStdout(output: string): string {
 export function formatStderr(error: string): string {
   return `<${COMMAND_CONSTANTS.STDERR_TAG}>${error}</${COMMAND_CONSTANTS.STDERR_TAG}>`;
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 函数已在声明处导出；移除重复聚合导出。
