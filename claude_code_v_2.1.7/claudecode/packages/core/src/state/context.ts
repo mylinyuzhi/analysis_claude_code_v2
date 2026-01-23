@@ -240,8 +240,14 @@ export function AppStateProvider({
   useEffect(() => {
     const unsubscribe = subscribeToSettingsChanges((source, newSettings) => {
       console.log(`Settings changed from ${source}, updating AppState`);
+      
+      // $01 corresponds to loading current tool permissions
+      // Since we don't have direct access to CLI's permission loader here,
+      // we'll use a placeholder that returns defaults for now.
+      // In a full implementation, this should call a permission loader service.
+      const permissionUpdates = createDefaultPermissionContext(); 
+      
       updateState((state) => {
-        const permissionUpdates = createDefaultPermissionContext();
         let newPermissionContext = mergePermissionContexts(
           state.toolPermissionContext,
           permissionUpdates
