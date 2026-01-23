@@ -5,20 +5,14 @@
  * Parses shell commands into ASTs to extract pipes, redirections, and env vars.
  *
  * Reconstructed from chunks.122.mjs, chunks.123.mjs
- *
- * Key symbols:
- * - Mn5 → initializeTreeSitter
- * - hm2 → ensureTreeSitterLoaded
- * - Rn5 → parseCommand
- * - gm2 → findCommandNode
- * - _n5 → extractEnvironmentVariables
- * - Pn5 → extractPipePositions
- * - Sn5 → extractRedirections
- * - um2 → SimpleCommand
- * - mm2 → RichCommand
- * - cK1 → shellCommandParser
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+import Parser from 'web-tree-sitter';
+
+import { recordTelemetry } from '../telemetry/index.js';
 import type {
   TreeSitterNode,
   TreeSitterTree,
@@ -31,23 +25,23 @@ import type {
 import {
   MAX_COMMAND_LENGTH,
   COMMAND_NODE_TYPES,
+  ARGUMENT_TYPES,
+  SUBSTITUTION_TYPES,
+  DECLARATION_KEYWORDS,
 } from './types.js';
 
 // ============================================
 // Global State
 // ============================================
 
-/** Parser singleton */
-let globalParser: any = null;
+/** Parser singleton (DEA) */
+let globalParser: Parser | null = null;
 
-/** Bash language instance */
-let globalBashLanguage: any = null;
+/** Bash language instance (GfA) */
+let globalBashLanguage: Parser.Language | null = null;
 
-/** Initialization promise (for deduplication) */
+/** Initialization promise (wq0) */
 let initPromise: Promise<void> | null = null;
-
-/** Whether initialization failed */
-let initFailed = false;
 
 // ============================================
 // Initialization
@@ -55,29 +49,44 @@ let initFailed = false;
 
 /**
  * Check if running in bundled mode (has embedded WASM).
- * Original: LG() in chunks.123.mjs
+ * Original: LG()
  */
 function isBundledMode(): boolean {
-  // In real implementation, check for Bun.embeddedFiles
   return typeof (globalThis as any).Bun?.embeddedFiles !== 'undefined';
 }
 
 /**
  * Load embedded file (Bun runtime).
+ * Original: fm2
  */
 async function loadEmbeddedFile(filename: string): Promise<Uint8Array | null> {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const embedded = (globalThis as any).Bun?.embeddedFiles;
     if (embedded) {
-      const file = embedded.get(filename);
-      if (file) {
-        return new Uint8Array(await file.arrayBuffer());
+      // Find file ending with filename
+      for (const file of embedded) {
+        if (file.name && file.name.endsWith(filename)) {
+          return new Uint8Array(await file.arrayBuffer());
+        }
       }
     }
   } catch {
-    // Ignore
+    // Ignore errors
   }
   return null;
+}
+
+/**
+ * Get current module directory.
+ * Original: Ln5
+ */
+function getModuleDir(): string {
+  try {
+    return path.dirname(fileURLToPath(import.meta.url));
+  } catch {
+    return process.cwd();
+  }
 }
 
 /**
@@ -85,37 +94,93 @@ async function loadEmbeddedFile(filename: string): Promise<Uint8Array | null> {
  * Original: Mn5 in chunks.123.mjs:562-593
  */
 async function initializeTreeSitter(): Promise<void> {
-  if (initFailed) return;
+  // Strategy 1: Embedded WASM (Bun bundled mode)
+  if (isBundledMode()) {
+    const treeSitterWasm = await loadEmbeddedFile('tree-sitter.wasm');
+    const bashWasm = await loadEmbeddedFile('tree-sitter-bash.wasm');
 
-  try {
-    // Try embedded WASM first (Bun bundled mode)
-    if (isBundledMode()) {
-      const treeSitterWasm = await loadEmbeddedFile('tree-sitter.wasm');
-      const bashWasm = await loadEmbeddedFile('tree-sitter-bash.wasm');
+    if (treeSitterWasm && bashWasm) {
+      // Initialize with embedded binary
+      await Parser.init({
+        wasmBinary: treeSitterWasm,
+      });
+      globalParser = new Parser();
+      globalBashLanguage = await Parser.Language.load(bashWasm);
+      globalParser.setLanguage(globalBashLanguage);
 
-      if (treeSitterWasm && bashWasm) {
-        // In real implementation:
-        // const Parser = await import('web-tree-sitter');
-        // await Parser.default.init({ wasmBinary: treeSitterWasm });
-        // globalParser = new Parser.default();
-        // globalBashLanguage = await Parser.Language.load(bashWasm);
-        // globalParser.setLanguage(globalBashLanguage);
-        return;
-      }
+      // log("tree-sitter: loaded from embedded");
+      recordTelemetry('tengu_tree_sitter_load', {
+        success: true,
+        from_embedded: true,
+      });
+      return;
     }
-
-    // Fallback: Load from disk
-    // In real implementation:
-    // 1. Find WASM files in node_modules or ~/.claude/dependencies
-    // 2. Load and initialize Parser
-    // 3. Load Bash language grammar
-
-    // For now, mark as unavailable
-    initFailed = true;
-  } catch (error) {
-    initFailed = true;
-    throw error;
   }
+
+  // Strategy 2: Load from disk
+  const basePath = getModuleDir();
+  // Original code has G = !1, so it looks in basePath directly for .wasm files
+  // But in development/node_modules, they might be inside the packages.
+  // We'll try to find them.
+  
+  // Construct paths - assuming adjacent to this file or in node_modules
+  // In source: dK1(B, "tree-sitter.wasm")
+  const wasmPath = path.join(basePath, 'tree-sitter.wasm');
+  const bashWasmPath = path.join(basePath, 'tree-sitter-bash.wasm');
+
+  // Fallback paths for node_modules resolution if not found
+  // (This handles the case where we are running from source/dist)
+  let finalWasmPath = wasmPath;
+  let finalBashWasmPath = bashWasmPath;
+
+  if (!fs.existsSync(finalWasmPath)) {
+    // Try to resolve via require/import or typical node_modules locations
+    // This part adapts the original logic to work in our reconstructed environment
+    try {
+        // Attempt to find where web-tree-sitter is
+        const webTreeSitterPath = require.resolve('web-tree-sitter');
+        finalWasmPath = path.join(path.dirname(webTreeSitterPath), 'tree-sitter.wasm');
+    } catch {
+        // ignore
+    }
+  }
+  
+  // Original logic checks existence:
+  if (!fs.existsSync(finalWasmPath) || !fs.existsSync(finalBashWasmPath)) {
+      // One last try: check if tree-sitter-bash is in node_modules
+      if (!fs.existsSync(finalBashWasmPath)) {
+          try {
+             // This file is usually inside tree-sitter-bash/tree-sitter-bash.wasm
+             // but we need to find it.
+             // For now we will assume it is placed correctly or we fail gracefully.
+          } catch {
+              // ignore
+          }
+      }
+  }
+
+  if (!fs.existsSync(finalWasmPath) || !fs.existsSync(finalBashWasmPath)) {
+    // console.log("tree-sitter: WASM files not found");
+    recordTelemetry('tengu_tree_sitter_load', { success: false });
+    return;
+  }
+
+  await Parser.init({
+    locateFile: (file: string) => {
+        if (file.endsWith('tree-sitter.wasm')) return finalWasmPath;
+        return file;
+    }
+  });
+
+  globalParser = new Parser();
+  globalBashLanguage = await Parser.Language.load(fs.readFileSync(finalBashWasmPath));
+  globalParser.setLanguage(globalBashLanguage);
+
+  // console.log("tree-sitter: loaded from disk");
+  recordTelemetry('tengu_tree_sitter_load', {
+    success: true,
+    from_embedded: false,
+  });
 }
 
 /**
@@ -139,7 +204,7 @@ export async function isTreeSitterAvailable(): Promise<boolean> {
 }
 
 // ============================================
-// AST Traversal
+// AST Traversal & Extraction
 // ============================================
 
 /**
@@ -165,12 +230,11 @@ export function traverseTree(node: TreeSitterNode, visitor: (node: TreeSitterNod
 export function findCommandNode(node: TreeSitterNode): TreeSitterNode | null {
   const { type, children, parent } = node;
 
-  // Already a command node
   if (COMMAND_NODE_TYPES.has(type)) {
     return node;
   }
 
-  // Handle variable assignments (find command after assignment)
+  // Handle variable assignments: VAR=val cmd -> find 'cmd'
   if (type === 'variable_assignment' && parent) {
     return (
       parent.children.find(
@@ -210,12 +274,10 @@ export function extractEnvironmentVariables(commandNode: TreeSitterNode | null):
   for (const child of commandNode.children) {
     if (!child) continue;
 
-    // Collect variable assignments at start of command
     if (child.type === 'variable_assignment') {
       envVars.push(child.text);
-    }
-    // Stop at first command name or argument
-    else if (child.type === 'command_name' || child.type === 'word') {
+    } else if (child.type === 'command_name' || child.type === 'word') {
+      // Stop at the first command/argument
       break;
     }
   }
@@ -287,7 +349,6 @@ export function extractRedirections(rootNode: TreeSitterNode): RedirectionInfo[]
 export async function parseCommand(commandString: string): Promise<ParseCommandResult | null> {
   await ensureTreeSitterLoaded();
 
-  // Validate input
   if (
     !commandString ||
     commandString.length > MAX_COMMAND_LENGTH ||
@@ -298,19 +359,17 @@ export async function parseCommand(commandString: string): Promise<ParseCommandR
   }
 
   try {
-    // Parse with tree-sitter
-    const tree: TreeSitterTree = globalParser.parse(commandString);
+    const tree = globalParser.parse(commandString);
     const rootNode = tree?.rootNode;
 
     if (!rootNode) return null;
 
-    // Extract semantic information
-    const commandNode = findCommandNode(rootNode);
+    const commandNode = findCommandNode(rootNode as unknown as TreeSitterNode);
     const envVars = extractEnvironmentVariables(commandNode);
 
     return {
-      tree,
-      rootNode,
+      tree: tree as unknown as TreeSitterTree,
+      rootNode: rootNode as unknown as TreeSitterNode,
       envVars,
       commandNode,
       originalCommand: commandString,
@@ -592,9 +651,3 @@ export const shellCommandParser: ShellCommandParser = {
     return new SimpleCommand(command);
   },
 };
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 本文件内符号已在声明处导出，移除重复导出避免 esbuild 报错。

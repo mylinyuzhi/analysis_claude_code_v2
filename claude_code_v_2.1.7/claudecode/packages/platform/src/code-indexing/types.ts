@@ -107,7 +107,7 @@ export interface ShellCommandParser {
 // ============================================
 
 /**
- * File search result.
+ * File search result from Rust module.
  */
 export interface FileSearchResult {
   /** File path */
@@ -128,17 +128,18 @@ export interface FileIndex {
 }
 
 /**
- * File suggestion result.
+ * File suggestion result for UI.
+ * Original: Return type of ehA (createFileResult) in chunks.136.mjs
  */
 export interface FileSuggestion {
-  /** File or directory path */
-  path: string;
-  /** Whether this is a directory */
-  isDirectory: boolean;
-  /** Display name */
-  name: string;
-  /** Optional score */
-  score?: number;
+  /** Unique ID */
+  id: string;
+  /** Display text (path) */
+  displayText: string;
+  /** Metadata */
+  metadata?: {
+    score?: number;
+  };
 }
 
 /**
@@ -158,11 +159,9 @@ export interface FileSuggestionContext {
  */
 export interface FileIndexCache {
   /** Rust file index instance (if available) */
-  rustIndex: FileIndex | null;
+  fileIndex: FileIndex | null;
   /** Fallback file list */
   fileList: string[];
-  /** Last refresh timestamp */
-  timestamp: number;
 }
 
 // ============================================
@@ -221,9 +220,3 @@ export const SUBSTITUTION_TYPES = new Set([
  * Original: Nq0 in chunks.123.mjs:687
  */
 export const COMMAND_NODE_TYPES = new Set(['command', 'declaration_command']);
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类型/常量已在声明处使用 `export` 导出；避免在文件末尾再次导出导致冲突。
