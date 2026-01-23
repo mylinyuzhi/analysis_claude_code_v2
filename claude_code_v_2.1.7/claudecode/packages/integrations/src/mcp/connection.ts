@@ -751,7 +751,7 @@ class MCPClientImpl implements McpClient {
     this.notificationHandlers.set(type, handler);
   }
 
-  setRequestHandler<T extends z.ZodTypeAny>(schema: T, handler: (params: z.infer<T>) => Promise<unknown>): void {
+  setRequestHandler(schema: any, handler: (params: any) => Promise<unknown>): void {
     const method = (schema as any).shape?.method?.value || (schema as any)._def?.innerType?.shape?.method?.value;
     if (method) this.requestHandlers.set(method, handler);
   }

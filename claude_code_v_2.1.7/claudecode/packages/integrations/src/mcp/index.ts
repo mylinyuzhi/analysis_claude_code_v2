@@ -45,6 +45,8 @@ export {
   ensureServerConnected,
   createTimeoutPromise,
   checkServerHealth,
+  logMcpDebug,
+  logMcpError,
 } from './connection.js';
 
 // ============================================
@@ -59,6 +61,8 @@ export {
   clearDiscoveryCache,
   refreshToolsOnListChanged,
   setupListChangedHandlers,
+  listResourcesTool,
+  readResourceTool,
 } from './discovery.js';
 
 // ============================================
@@ -83,4 +87,7 @@ export {
   isMcpSearchToolAvailable,
   getToolSearchMode,
   findDiscoveredToolsInHistory,
+  createMcpSearchTool,
+  MCP_SEARCH_TOOL_NAME,
+  isAutoSearchEnabled,
 } from './autosearch.js';

@@ -212,6 +212,88 @@ function getProjectServerApprovalStatus(
 }
 
 /**
+ * Expand plugin MCP configuration with variables.
+ * Original: sQ7 in chunks.130.mjs:1464-1528
+ */
+function expandPluginMcpConfig(
+  serverConfig: McpServerConfig,
+  pluginRoot: string,
+  userConfig: Record<string, unknown> | undefined,
+  errors: Array<{ server: string; error: string }>,
+  pluginName: string,
+  serverName: string
+): McpServerConfig {
+  const missingVars: string[] = [];
+
+  const expand = (str: string): string => {
+    // 1. Replace ${CLAUDE_PLUGIN_ROOT}
+    let result = str.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, pluginRoot);
+
+    // 2. Replace ${user_config.xxx}
+    if (userConfig) {
+      result = result.replace(/\$\{user_config\.([^}]+)\}/g, (_, key) => {
+        const value = userConfig[key];
+        if (value === undefined) {
+          missingVars.push(`user_config.${key}`);
+          return ''; // Or keep original? Original throws or errors.
+        }
+        return String(value);
+      });
+    }
+
+    // 3. Expand environment variables (simple version)
+    result = result.replace(/\$\{([^}]+)\}/g, (_, key) => {
+      // Skip already processed ones
+      if (key === 'CLAUDE_PLUGIN_ROOT' || key.startsWith('user_config.')) return _;
+      return process.env[key] || '';
+    });
+
+    return result;
+  };
+
+  let expandedConfig: McpServerConfig;
+  const anyConfig = serverConfig as any;
+
+  if (!anyConfig.type || anyConfig.type === 'stdio') {
+    expandedConfig = {
+      ...anyConfig,
+      command: expand(anyConfig.command),
+      args: anyConfig.args?.map(expand),
+      env: {
+        CLAUDE_PLUGIN_ROOT: pluginRoot,
+        ...Object.fromEntries(
+          Object.entries(anyConfig.env || {})
+            .filter(([k]) => k !== 'CLAUDE_PLUGIN_ROOT')
+            .map(([k, v]) => [k, expand(v as string)])
+        ),
+      },
+    };
+  } else if (['sse', 'http', 'ws'].includes(anyConfig.type)) {
+    expandedConfig = {
+      ...anyConfig,
+      url: expand(anyConfig.url),
+      headers: anyConfig.headers
+        ? Object.fromEntries(
+            Object.entries(anyConfig.headers).map(([k, v]) => [k, expand(v as string)])
+          )
+        : undefined,
+    };
+  } else {
+    expandedConfig = serverConfig;
+  }
+
+  if (missingVars.length > 0) {
+    const uniqueVars = [...new Set(missingVars)].join(', ');
+    errors.push({
+      server: serverName,
+      error: `Missing variables in plugin MCP config: ${uniqueVars}`,
+    });
+  }
+
+  return expandedConfig;
+}
+
+/**
  * Discover plugins and their MCP servers.
  * Original: To2 (getPluginMcpServers) in chunks.130.mjs:1530-1537
  */
@@ -219,9 +301,6 @@ async function discoverPluginsAndHooks(): Promise<{
   servers: Record<string, McpServerConfig>;
   errors: Array<{ server: string; error: string }>;
 }> {
-  // Original: DG in chunks.131.mjs:544
-  // 尝试从已安装插件的 manifest 里读取 `mcpServers`（若存在）。
-  // 该字段不在当前还原的 plugin types 中，但 source 运行时支持插件扩展。
   const errors: Array<{ server: string; error: string }> = [];
   const servers: Record<string, McpServerConfig> = {};
 
@@ -232,14 +311,17 @@ async function discoverPluginsAndHooks(): Promise<{
   if (enabledPlugins.length === 0) return { servers, errors };
 
   const registryPath = join(getClaudeDir(), 'installed_plugins_v2.json');
-  const registry = safeReadJson<{ version?: number; plugins?: Record<string, Array<{ installPath?: string }> > }>(registryPath);
+  const registry = safeReadJson<{ version?: number; plugins?: Record<string, Array<{ installPath?: string; userConfig?: Record<string, unknown> }> > }>(registryPath);
   if (!registry?.plugins) return { servers, errors };
 
   for (const pluginId of enabledPlugins) {
     const entries = registry.plugins[pluginId];
-    const installPath = entries && entries[0] && typeof entries[0].installPath === 'string'
-      ? entries[0].installPath
+    const entry = entries && entries[0];
+    const installPath = entry && typeof entry.installPath === 'string'
+      ? entry.installPath
       : undefined;
+    const userConfig = entry?.userConfig;
+
     if (!installPath) continue;
 
     const manifestPath = join(installPath, '.claude-plugin', 'plugin.json');
@@ -251,7 +333,18 @@ async function discoverPluginsAndHooks(): Promise<{
       try {
         const parsed = parseServerConfig(name, cfg);
         if (parsed) {
-          servers[name] = parsed;
+          // Apply expansion
+          const expanded = expandPluginMcpConfig(
+            parsed,
+            installPath,
+            userConfig,
+            errors,
+            pluginId,
+            name
+          );
+          // Apply namespacing: plugin:pluginName:serverName
+          const namespacedName = `plugin:${pluginId}:${name}`;
+          servers[namespacedName] = expanded;
         } else {
           errors.push({ server: name, error: 'Invalid MCP server config in plugin manifest' });
         }
@@ -554,9 +647,3 @@ export function substituteEnvVariables(
 
   return result;
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

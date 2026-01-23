@@ -205,6 +205,8 @@ export interface McpClient {
   connect(transport: McpTransport): Promise<void>;
   close(): Promise<void>;
   getServerCapabilities(): McpServerCapabilities;
+  getServerVersion(): string | undefined;
+  getInstructions(): string | undefined;
   request<T>(params: McpRequest, schema?: object): Promise<T>;
   callTool(
     params: McpToolCallParams,
@@ -213,6 +215,7 @@ export interface McpClient {
   ): Promise<McpToolResult>;
   getPrompt(params: McpPromptParams): Promise<McpPromptResult>;
   setNotificationHandler(type: string, handler: () => Promise<void>): void;
+  setRequestHandler(schema: any, handler: (params: any) => Promise<unknown>): void;
 }
 
 /**
@@ -361,7 +364,8 @@ export interface McpWrappedTool {
   name: string;
   originalMcpToolName: string;
   isMcp: true;
-  description(): Promise<string>;
+  description(arg?: unknown, context?: unknown): Promise<string>;
+  prompt?(context: unknown): Promise<string>;
   inputJSONSchema?: object;
   isConcurrencySafe(): boolean;
   isReadOnly(): boolean;
@@ -370,10 +374,11 @@ export interface McpWrappedTool {
   call(
     args: Record<string, unknown>,
     context: ToolUseContext,
-    assistantTurn?: unknown,
-    lastApiMessage?: unknown
+    _meta?: unknown,
+    extraContext?: unknown
   ): Promise<{ data: unknown }>;
   userFacingName(): string;
+  checkPermissions?(): Promise<unknown>;
 }
 
 /**
@@ -382,6 +387,10 @@ export interface McpWrappedTool {
 export interface ToolUseContext {
   abortController: AbortController;
   agentId?: string;
+  options?: {
+    tools?: any[];
+    mcpClients?: McpConnectedServer[];
+  };
 }
 
 // ============================================
@@ -600,9 +609,3 @@ export const MCP_CONSTANTS = {
     'image/webp',
   ]),
 } as const;
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类型/常量已在声明处导出；移除重复聚合导出以避免 TS2484。
