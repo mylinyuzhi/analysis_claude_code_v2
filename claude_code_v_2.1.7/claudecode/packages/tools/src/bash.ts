@@ -345,7 +345,7 @@ Usage notes:
           killLocalBashTask(taskId, context.setAppState as any);
         };
 
-        const task: LocalBashTask = {
+        const task: any = {
           ...createBaseTask(taskId, 'local_bash', description || command),
           status: 'running',
           command,
@@ -356,7 +356,7 @@ Usage notes:
           lastReportedStdoutLines: 0,
           lastReportedStderrLines: 0,
           isBackgrounded: true,
-        } as LocalBashTask;
+        };
 
         addTaskToState(task, context.setAppState as any);
 
@@ -364,9 +364,9 @@ Usage notes:
           const content = data.toString();
           appendToOutputFile(taskId, content);
           const lines = content.split('\n').filter((l: string) => l.length > 0).length;
-          updateTask<LocalBashTask>(taskId, context.setAppState as any, (t) => ({
+          updateTask(taskId, context.setAppState as any, (t: any) => ({
             ...t,
-            stdoutLineCount: t.stdoutLineCount + lines,
+            stdoutLineCount: (t.stdoutLineCount || 0) + lines,
           }));
         });
 
@@ -374,15 +374,15 @@ Usage notes:
           const content = data.toString();
           appendToOutputFile(taskId, `[stderr] ${content}`);
           const lines = content.split('\n').filter((l: string) => l.length > 0).length;
-          updateTask<LocalBashTask>(taskId, context.setAppState as any, (t) => ({
+          updateTask(taskId, context.setAppState as any, (t: any) => ({
             ...t,
-            stderrLineCount: t.stderrLineCount + lines,
+            stderrLineCount: (t.stderrLineCount || 0) + lines,
           }));
         });
 
         proc.on('close', (code) => {
           let killed = false;
-          updateTask<LocalBashTask>(taskId, context.setAppState as any, (t) => {
+          updateTask(taskId, context.setAppState as any, (t: any) => {
             if (t.status === 'killed') {
               killed = true;
               return t;
@@ -402,7 +402,7 @@ Usage notes:
             description || command,
             killed ? 'killed' : (code === 0 ? 'completed' : 'failed'),
             code ?? 0,
-            context.setAppState
+            context.setAppState as any
           );
         });
 

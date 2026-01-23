@@ -44,6 +44,7 @@ import { builtinTools as builtinToolImpls, getAllAgents } from '@claudecode/tool
 import {
   generateNewSessionId,
   getSessionId,
+  generateUUID,
 } from '@claudecode/shared';
 import * as nodeFs from 'fs';
 import * as nodePath from 'path';
@@ -319,7 +320,7 @@ async function initializeSettingsDetector(): Promise<void> {
       ignoreInitial: true,
       depth: 0,
     });
-    watcher.on('change', (filePath) => {
+    watcher.on('change', (filePath: any) => {
       if (filePath.endsWith('settings.json')) {
         logDebug(`Settings change detected: ${filePath}`);
       }
@@ -345,7 +346,7 @@ async function initializeSkillDetector(): Promise<void> {
       ignoreInitial: true,
       depth: 1,
     });
-    watcher.on('all', (event, filePath) => {
+    watcher.on('all', (event: any, filePath: any) => {
       logDebug(`Skill change detected: ${event} ${filePath}`);
     });
     registerShutdownHook(async () => {
@@ -908,9 +909,9 @@ async function runPrintMode(options: PrintModeOptions): Promise<void> {
       model: options.model,
       toolPermissionContext: createDefaultPermissionContext(),
       agentDefinitions,
-      mcpClients: mcpState.clients,
+      mcpClients: Array.from(mcpState.clients.values()),
       mcpTools: mcpState.tools,
-      mcpCommands: mcpState.commands,
+      mcpCommands: [],
       initialPrompt: stdinPrompt || undefined,
     });
 
@@ -934,16 +935,31 @@ async function runPrintMode(options: PrintModeOptions): Promise<void> {
     const registry = getCommandRegistry();
     const commands = registry.getAll();
     const cmdResult = prompt.trim().startsWith('/')
-      ? await parseSlashCommandInput(prompt, {
-          options: {
-            commands,
-            isNonInteractiveSession: true,
-            model: options.model,
+      ? await parseSlashCommandInput(
+          prompt,
+          [], // precedingInputBlocks
+          () => {}, // setCommandJSX
+          {
+            options: {
+              commands,
+              isNonInteractiveSession: true,
+              model: options.model,
+              tools,
+            },
+            messages: [],
+            abortController,
+            cwd: process.cwd(),
+            getAppState,
+            setAppState,
+            readFileState,
           },
-          messages: [],
-          abortController,
-          cwd: process.cwd(),
-        })
+          [], // attachments
+          () => {}, // setProcessing
+          [], // messages
+          generateUUID(), // uuid
+          process.stdout, // outputWriter
+          abortController
+        )
       : { messages: [{ role: 'user', content: prompt }], shouldQuery: true };
 
     if (!cmdResult.shouldQuery) {
@@ -1081,9 +1097,9 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
     model: options.model,
     toolPermissionContext: createDefaultPermissionContext(),
     agentDefinitions,
-    mcpClients: mcpState.clients,
+    mcpClients: Array.from(mcpState.clients.values()),
     mcpTools: mcpState.tools,
-    mcpCommands: mcpState.commands,
+    mcpCommands: [],
     initialPrompt: initialPrompt || undefined,
   });
 

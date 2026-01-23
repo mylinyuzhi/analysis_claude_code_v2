@@ -21,7 +21,7 @@ import {
 } from './base.js';
 import type { ToolContext } from './types.js';
 import { TOOL_NAMES } from './types.js';
-import { killLocalBashTask } from '@claudecode/core/agent-loop';
+import { killBackgroundTask as killLocalBashTask } from '@claudecode/integrations/background-agents';
 
 // ============================================
 // Input Types

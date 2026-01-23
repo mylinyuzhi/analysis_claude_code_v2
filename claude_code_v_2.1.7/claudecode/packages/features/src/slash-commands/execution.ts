@@ -241,7 +241,7 @@ export async function parseSlashCommandInput(
     const usageTip = 'Commands are in the form `/command [args]`';
     return {
       messages: [
-        createLocalCommandCaveat(),
+        createLocalCommandCaveat() as any,
         ...messages, 
         createUserMessage({ content: usageTip })
       ],
@@ -261,7 +261,7 @@ export async function parseSlashCommandInput(
       const unknownSkillMessage = `Unknown skill: ${commandName}`;
       return {
         messages: [
-          createLocalCommandCaveat(),
+          createLocalCommandCaveat() as any,
           ...messages,
           createUserMessage({ 
             content: createUserMessageWithPrecedingBlocks({
@@ -662,10 +662,14 @@ export async function executeForkedSlashCommand(
     const generator = runSubagentLoop({
       agentDefinition: baseAgent as any,
       promptMessages: promptMessages as any[],
-      toolUseContext: { ...context, getAppState: modifiedGetAppState },
+      toolUseContext: { 
+        ...context, 
+        getAppState: modifiedGetAppState,
+        readFileState: context.readFileState ?? new Map()
+      } as any,
       canUseTool,
       isAsync: false,
-      querySource: 'agent:custom',
+      querySource: 'slash_command',
       model: command.model
     });
 

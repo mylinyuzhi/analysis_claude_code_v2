@@ -137,12 +137,20 @@ export interface CommandExecutionResult {
 
 /**
  * Command message (for transcript).
+ * Fully compatible with @claudecode/core/message/types.ts
  */
 export interface CommandMessage {
   role: 'user' | 'assistant' | 'system';
   content: string | CommandContent[];
   isMeta?: boolean;
   uuid?: string;
+  // Fields for compatibility with core UserMessage/AssistantMessage
+  type?: 'user' | 'assistant' | 'system' | 'progress' | 'attachment';
+  message?: {
+    role: string;
+    content: any;
+  };
+  timestamp?: string;
 }
 
 /**
@@ -215,6 +223,10 @@ export interface CommandExecutionContext {
   getAppState?: () => Promise<AppState>;
   setAppState?: (updater: (state: any) => any) => void;
   setResponseLength?: (updater: (prev: number) => number) => void;
+  // Compatibility with ToolUseContext
+  readFileState?: Map<string, any>;
+  setInProgressToolUseIDs?: (updater: (ids: Set<string>) => Set<string>) => void;
+  queryTracking?: { chainId: string; depth: number };
 }
 
 /**
