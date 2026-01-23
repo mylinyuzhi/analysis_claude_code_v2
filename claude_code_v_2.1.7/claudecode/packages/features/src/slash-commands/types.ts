@@ -5,6 +5,8 @@
  * Reconstructed from chunks.112.mjs, chunks.136.mjs, chunks.146.mjs
  */
 
+import type { AppState, AgentDefinitions } from '@claudecode/core/state';
+
 // ============================================
 // Command Types
 // ============================================
@@ -58,6 +60,8 @@ export interface BaseCommand {
   loadedFrom?: 'builtin' | 'skills' | 'plugin';
   userInvocable?: boolean;
   progressMessage?: string;
+  agent?: string;
+  pluginInfo?: any;
 }
 
 /**
@@ -124,6 +128,7 @@ export interface CommandExecutionResult {
   allowedTools?: string[];
   maxThinkingTokens?: number;
   model?: string;
+  resultText?: string;
 }
 
 // ============================================
@@ -137,6 +142,7 @@ export interface CommandMessage {
   role: 'user' | 'assistant' | 'system';
   content: string | CommandContent[];
   isMeta?: boolean;
+  uuid?: string;
 }
 
 /**
@@ -206,7 +212,9 @@ export interface CommandExecutionContext {
   messages: CommandMessage[];
   abortController: AbortController;
   cwd: string;
-  setAppState?: (updater: (state: unknown) => unknown) => void;
+  getAppState?: () => Promise<AppState>;
+  setAppState?: (updater: (state: any) => any) => void;
+  setResponseLength?: (updater: (prev: number) => number) => void;
 }
 
 /**
@@ -216,6 +224,8 @@ export interface CommandOptions {
   commands: SlashCommand[];
   isNonInteractiveSession: boolean;
   model?: string;
+  agentDefinitions?: AgentDefinitions;
+  tools: any[];
 }
 
 // ============================================

@@ -174,12 +174,13 @@ export function classifyCommand(
 export function createUserMessage(options: {
   content: string | unknown[];
   isMeta?: boolean;
+  uuid?: string;
 }): CommandMessage {
   return {
     role: 'user',
-    // Preserve structured content blocks (e.g. prompt command content).
     content: options.content as any,
     isMeta: options.isMeta,
+    uuid: options.uuid,
   };
 }
 
