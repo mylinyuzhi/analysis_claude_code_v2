@@ -252,9 +252,3 @@ export const PLAN_MODE_DISALLOWED_TOOLS = [
   'MultiEdit',
   // Task tool for Plan agent type only allows certain subagent types
 ] as const;
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类型/常量已在声明处导出；移除重复聚合导出。

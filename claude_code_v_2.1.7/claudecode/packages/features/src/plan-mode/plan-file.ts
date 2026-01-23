@@ -11,37 +11,40 @@ import { generateSlug } from './slug-generator.js';
 import { PLAN_MODE_CONSTANTS } from './types.js';
 
 // ============================================
-// Logging Placeholder
+// Internal Utilities
 // ============================================
 
 function logError(error: Error): void {
+  // In a real implementation this might use a shared logger
+  // Original: e in chunks.86.mjs
   console.error(`[PlanMode] Error: ${error.message}`);
 }
-
-// ============================================
-// Config Directory (Placeholder)
-// ============================================
 
 /**
  * Get Claude config directory.
  * Original: zQ in chunks.1.mjs
  */
 function getClaudeConfigDir(): string {
-  const homeDir = process.env.HOME || '~';
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
   return path.join(homeDir, '.claude');
 }
 
 // ============================================
-// Session ID (Placeholder)
+// Session Management
 // ============================================
 
 let currentSessionId: string | null = null;
 
 /**
  * Get current session ID.
+ * Original: q0 in chunks.1.mjs
  */
 export function getSessionId(): string {
-  return currentSessionId || `session_${Date.now()}`;
+  if (!currentSessionId) {
+    // Fallback if not set (should be set by initialization)
+    currentSessionId = `session_${Date.now()}`;
+  }
+  return currentSessionId;
 }
 
 /**
@@ -125,11 +128,12 @@ export function getUniquePlanSlug(sessionId?: string): string {
     const planDir = getPlanDir();
 
     // Try up to MAX_SLUG_RETRIES times to find unused slug
+    // Original: Fe8 loop in chunks.86.mjs
     for (let attempt = 0; attempt < PLAN_MODE_CONSTANTS.MAX_SLUG_RETRIES; attempt++) {
       slug = generateSlug();
       const planPath = path.join(planDir, `${slug}.md`);
       if (!fs.existsSync(planPath)) {
-        break;
+        break; // Found unused name
       }
     }
 
@@ -138,6 +142,7 @@ export function getUniquePlanSlug(sessionId?: string): string {
     }
   }
 
+  // Ensure we return a string even if something went wrong
   return slug || generateSlug();
 }
 
@@ -253,15 +258,9 @@ export function writePlanFile(content: string, agentId?: string): void {
  * Original: k6 in chunks.119.mjs
  */
 export function shortenPath(filePath: string): string {
-  const homeDir = process.env.HOME || '~';
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
   if (filePath.startsWith(homeDir)) {
     return filePath.replace(homeDir, '~');
   }
   return filePath;
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 函数已在声明处导出；移除重复聚合导出。

@@ -210,6 +210,7 @@ export const ExitPlanModeTool = {
       }
 
       // Set flags for re-entry detection
+      // Original: Iq(!0), lw(!0)
       setHasExitedPlanMode(true);
       setNeedsPlanModeExitAttachment(true);
 
@@ -258,9 +259,3 @@ export const ExitPlanModeTool = {
     };
   },
 };
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出。

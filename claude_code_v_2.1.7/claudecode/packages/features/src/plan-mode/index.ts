@@ -10,76 +10,42 @@
  * - State tracking - hasExitedPlanMode, needsPlanModeExitAttachment
  * - System reminders - Full, sparse, and subagent reminders
  *
- * Reconstructed from chunks.86.mjs, chunks.119.mjs, chunks.120.mjs, chunks.147.mjs
  */
 
-// Re-export types
+// ============================================
+// Exports
+// ============================================
+
 export * from './types.js';
+export * from './state.js';
+export * from './slug-generator.js';
+export * from './plan-file.js';
+export * from './enter-plan-mode.js';
+export * from './exit-plan-mode.js';
+export * from './system-reminders.js';
+export * from './attachments.js';
 
-// Re-export slug generator
-export { generateSlug, TOTAL_COMBINATIONS } from './slug-generator.js';
+// ============================================
+// Agent Definition
+// ============================================
 
-// Re-export plan file management
-export {
-  getSessionId,
-  setSessionId,
-  getPlanSlugCache,
-  cachePlanSlug,
-  clearPlanSlugCacheForSession,
-  getPlanDir,
-  getUniquePlanSlug,
-  getPlanFilePath,
-  readPlanFile,
-  checkPlanExists,
-  planFileExists,
-  writePlanFile,
-  shortenPath,
-} from './plan-file.js';
+import { PlanAgentConfig } from './system-reminders.js';
+import { PLAN_MODE_DISALLOWED_TOOLS } from './types.js';
 
-// Re-export state management
-export {
-  hasExitedPlanMode,
-  setHasExitedPlanMode,
-  needsPlanModeExitAttachment,
-  setNeedsPlanModeExitAttachment,
-  onToolPermissionModeChanged,
-  resetPlanModeState,
-  isInPlanMode,
-} from './state.js';
-
-// Re-export EnterPlanMode tool
-export {
-  ENTER_PLAN_MODE_NAME,
-  ENTER_PLAN_MODE_DESCRIPTION,
-  EnterPlanModeTool,
-  getEnterPlanModeResultMessage,
-} from './enter-plan-mode.js';
-
-// Re-export ExitPlanMode tool
-export {
-  EXIT_PLAN_MODE_NAME,
-  EXIT_PLAN_MODE_DESCRIPTION,
-  ExitPlanModeTool,
-} from './exit-plan-mode.js';
-
-// Re-export system reminders
-export {
-  buildPlanModeSystemReminder,
-  buildFullPlanReminder,
-  buildSparsePlanReminder,
-  buildSubAgentPlanReminder,
-  getMaxPlanAgents,
-  getMaxExploreAgents,
-  getReminderType,
-  ExploreAgentConfig,
-  PlanAgentConfig,
-} from './system-reminders.js';
-export type { PlanModeReminderContext } from './system-reminders.js';
-
-// Re-export attachment generation
-export {
-  findPlanModeAttachmentInfo,
-  countPlanModeAttachments,
-  buildPlanModeAttachment,
-  buildPlanModeExitAttachment,
-} from './attachments.js';
+/**
+ * Get the Plan Mode agent definition.
+ * Original: UY1 in chunks.93.mjs
+ */
+export function getPlanModeAgent() {
+  return {
+    ...PlanAgentConfig,
+    // Plan agent uses standard read-only tools (injected by system)
+    // It explicitly disallows modification tools and ExitPlanMode (only main agent exits)
+    disallowedTools: [
+      ...PLAN_MODE_DISALLOWED_TOOLS,
+      'ExitPlanMode', // Subagents cannot exit plan mode
+      'Task',         // Subagents cannot spawn more subagents (usually)
+      'KillShell',    // Safety
+    ],
+  };
+}

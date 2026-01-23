@@ -1,53 +1,34 @@
 /**
- * @claudecode/features - Plan Mode Attachment Generation
+ * @claudecode/features - Plan Mode Attachments
  *
- * Generate plan mode attachments for system context.
- * Reconstructed from chunks.131.mjs:3176-3244
+ * Logic for building plan mode attachments in the context window.
+ * Reconstructed from chunks.131.mjs
  */
 
 import type {
-  PlanModeAttachment,
-  PlanModeReentryAttachment,
-  PlanModeExitAttachment,
-  PlanModeAttachmentUnion,
-  PlanModeAttachmentInfo,
   AttachmentMessage,
   AttachmentToolUseContext,
-  PlanReminderType,
+  PlanModeAttachment,
+  PlanModeAttachmentInfo,
+  PlanModeAttachmentUnion,
+  PlanModeExitAttachment,
+  PlanModeReentryAttachment,
 } from './types.js';
 import { PLAN_MODE_CONSTANTS } from './types.js';
-import { getPlanFilePath, readPlanFile } from './plan-file.js';
-import {
-  hasExitedPlanMode,
-  setHasExitedPlanMode,
-  needsPlanModeExitAttachment,
-  setNeedsPlanModeExitAttachment,
-} from './state.js';
+import { getPlanFilePath, checkPlanExists, planFileExists, readPlanFile, shortenPath } from './plan-file.js';
+import { hasExitedPlanMode, needsPlanModeExitAttachment, setHasExitedPlanMode, setNeedsPlanModeExitAttachment } from './state.js';
+import { getReminderType } from './system-reminders.js';
 
 // ============================================
-// Helper Functions
+// Attachment Search
 // ============================================
 
 /**
- * Check if message is empty (no content).
- * Original: dF1 in chunks.131.mjs
- */
-function isEmptyMessage(message: AttachmentMessage): boolean {
-  if (message.type !== 'assistant') return false;
-  // Consider empty if no meaningful content
-  return false; // Simplified - in real impl checks content array
-}
-
-// ============================================
-// Attachment Throttling
-// ============================================
-
-/**
- * Find plan mode attachment info (turns since last attachment).
- * Original: R27 in chunks.131.mjs:3176-3192
+ * Find information about previous plan mode attachments.
+ * Original: R27 in chunks.131.mjs
  *
- * @param messages - Message array to search
- * @returns Turn count and whether attachment was found
+ * @param messages - Conversation history
+ * @returns Info about last attachment and total count
  */
 export function findPlanModeAttachmentInfo(
   messages: AttachmentMessage[]
@@ -55,20 +36,18 @@ export function findPlanModeAttachmentInfo(
   let turnCount = 0;
   let foundPlanModeAttachment = false;
 
-  // Search backwards through messages
+  // Iterate backwards to find last plan mode attachment
   for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-
-    if (message?.type === 'assistant') {
-      if (isEmptyMessage(message)) continue;
-      turnCount++;
-    } else if (
-      message?.type === 'attachment' &&
-      (message.attachment?.type === 'plan_mode' ||
-        message.attachment?.type === 'plan_mode_reentry')
-    ) {
+    const msg = messages[i];
+    if (msg?.attachment?.type === 'plan_mode' || msg?.attachment?.type === 'plan_mode_reentry') {
       foundPlanModeAttachment = true;
       break;
+    }
+    // Only count assistant messages (approximation of turns) or skip?
+    // Original R27: checks if message type is assistant and not empty, then increments.
+    // Assuming messages pass filter.
+    if (msg?.type === 'assistant') {
+        turnCount++;
     }
   }
 
@@ -76,141 +55,126 @@ export function findPlanModeAttachmentInfo(
 }
 
 /**
- * Count plan_mode attachments since last exit.
- * Original: _27 in chunks.131.mjs:3195-3204
- *
- * @param messages - Message array to search
- * @returns Count of plan_mode attachments
+ * Count plan mode attachments since last exit.
+ * Original: _27 in chunks.131.mjs
  */
-export function countPlanModeAttachments(messages: AttachmentMessage[]): number {
+function countPlanModeAttachments(messages: AttachmentMessage[]): number {
   let count = 0;
-
   for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-
-    if (message?.type === 'attachment') {
-      // Stop counting at plan_mode_exit
-      if (message.attachment?.type === 'plan_mode_exit') break;
-
-      if (message.attachment?.type === 'plan_mode') {
+    const msg = messages[i];
+    if (msg?.type === 'attachment' && msg.attachment) {
+      if (msg.attachment.type === 'plan_mode_exit') {
+        break; // Stop at exit
+      }
+      if (msg.attachment.type === 'plan_mode') {
         count++;
       }
     }
   }
-
   return count;
 }
 
 // ============================================
-// Main Attachment Builder
+// Attachment Builders
 // ============================================
 
 /**
- * Build plan mode attachment for system context.
- * Original: j27 in chunks.131.mjs:3207-3231
- *
- * @param messages - Current message array
- * @param toolUseContext - Tool use context with getAppState
- * @returns Array of plan mode attachments
+ * Build plan mode attachment if needed.
+ * Original: j27 in chunks.131.mjs
  */
 export async function buildPlanModeAttachment(
-  messages: AttachmentMessage[] | undefined,
-  toolUseContext: AttachmentToolUseContext
-): Promise<PlanModeAttachmentUnion[]> {
-  const appState = await toolUseContext.getAppState();
+  messages: AttachmentMessage[],
+  context: AttachmentToolUseContext
+): Promise<PlanModeAttachmentUnion | undefined> {
+  const { toolPermissionContext } = await context.getAppState();
 
-  // Only generate in plan mode
-  if (appState.toolPermissionContext.mode !== 'plan') {
-    return [];
+  // Case 1: Active Plan Mode
+  if (toolPermissionContext.mode === 'plan') {
+    const { turnCount, foundPlanModeAttachment } = findPlanModeAttachmentInfo(messages);
+    
+    // Throttle: Don't send if recent attachment exists
+    if (messages && messages.length > 0) {
+      if (foundPlanModeAttachment && turnCount < PLAN_MODE_CONSTANTS.TURNS_BETWEEN_ATTACHMENTS) {
+        return undefined; // Too recent
+      }
+    }
+
+    // Determine reminder type: full every N attachments, sparse otherwise
+    // Note: count is 1-based index of the *next* attachment effectively
+    // Original logic: (_27(A) + 1) % N === 1 ? 'full' : 'sparse'
+    const attachmentCount = countPlanModeAttachments(messages);
+    const reminderType = getReminderType(attachmentCount); // getReminderType handles the +0 logic? 
+    // Wait, getReminderType logic in system-reminders.ts:
+    // if (count === 0 || count % 3 === 0) -> full.
+    // If I pass `attachmentCount` (previous ones), then for the 0th (first one), count is 0. -> full.
+    // For 1st (second one), count is 1. -> sparse.
+    // For 2nd (third one), count is 2. -> sparse.
+    // For 3rd (fourth one), count is 3. -> full.
+    // This matches: 1st(full), 2nd(sparse), 3rd(sparse), 4th(full).
+    // Original code: (_27(...) + 1) % 3 === 1.
+    // If _27 returns 0 (0 prev), (0+1)%3 = 1 -> full.
+    // If _27 returns 1 (1 prev), (1+1)%3 = 2 -> sparse.
+    // If _27 returns 2 (2 prev), (2+1)%3 = 0 -> sparse.
+    // If _27 returns 3 (3 prev), (3+1)%3 = 1 -> full.
+    // My getReminderType(count) logic: count=0 -> full. count=1 -> sparse. count=3 -> full.
+    // It seems consistent.
+
+    return {
+      type: 'plan_mode',
+      reminderType: reminderType,
+      isSubAgent: !!context.agentId,
+      planFilePath: shortenPath(getPlanFilePath(context.agentId)),
+      planExists: planFileExists(context.agentId),
+    };
   }
 
-  // Throttle: Skip if recent plan attachment exists
-  if (messages && messages.length > 0) {
-    const { turnCount, foundPlanModeAttachment } =
-      findPlanModeAttachmentInfo(messages);
-    if (
-      foundPlanModeAttachment &&
-      turnCount < PLAN_MODE_CONSTANTS.TURNS_BETWEEN_ATTACHMENTS
-    ) {
-      return []; // Too recent
+  // Case 2: Re-entry Detection
+  // If we have exited plan mode, but we see a plan slug in the history that implies
+  // we were in plan mode for this session.
+  if (hasExitedPlanMode()) {
+    const planExists = checkPlanExists({ messages: messages as any });
+    const planContent = readPlanFile(context.agentId);
+
+    if (planExists && planContent !== null) {
+      setHasExitedPlanMode(false); // Reset flag
+      return {
+        type: 'plan_mode_reentry',
+        planFilePath: shortenPath(getPlanFilePath(context.agentId)),
+      };
     }
   }
 
-  const planFilePath = getPlanFilePath(toolUseContext.agentId);
-  const planContent = readPlanFile(toolUseContext.agentId);
-  const attachments: PlanModeAttachmentUnion[] = [];
-
-  // Re-entry detection: exited plan mode before but re-entering with existing plan
-  if (hasExitedPlanMode() && planContent !== null) {
-    attachments.push({
-      type: 'plan_mode_reentry',
-      planFilePath: planFilePath,
-    } as PlanModeReentryAttachment);
-    setHasExitedPlanMode(false); // Reset
+  // Case 3: Exit Attachment
+  if (needsPlanModeExitAttachment()) {
+    return buildPlanModeExitAttachment(context);
   }
 
-  // Determine full vs sparse: full every N attachments, sparse otherwise
-  const attachmentCount = countPlanModeAttachments(messages ?? []);
-  const reminderType: PlanReminderType =
-    (attachmentCount + 1) % PLAN_MODE_CONSTANTS.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1
-      ? 'full'
-      : 'sparse';
-
-  attachments.push({
-    type: 'plan_mode',
-    reminderType: reminderType,
-    isSubAgent: !!toolUseContext.agentId,
-    planFilePath: planFilePath,
-    planExists: planContent !== null,
-  } as PlanModeAttachment);
-
-  return attachments;
+  return undefined;
 }
-
-// ============================================
-// Exit Attachment Builder
-// ============================================
 
 /**
  * Build plan mode exit attachment.
- * Original: T27 in chunks.131.mjs:3233-3244
- *
- * @param toolUseContext - Tool use context with getAppState
- * @returns Array of exit attachments (0 or 1)
+ * Original: T27 in chunks.131.mjs
  */
 export async function buildPlanModeExitAttachment(
-  toolUseContext: AttachmentToolUseContext
-): Promise<PlanModeExitAttachment[]> {
-  // Only if exit attachment flag is set
-  if (!needsPlanModeExitAttachment()) {
-    return [];
-  }
+  context: AttachmentToolUseContext
+): Promise<PlanModeExitAttachment | undefined> {
+  if (needsPlanModeExitAttachment()) {
+    const { toolPermissionContext } = await context.getAppState();
+    
+    // If still in plan mode, just clear flag (shouldn't happen if logic is correct but safe guard)
+    if (toolPermissionContext.mode === 'plan') {
+       setNeedsPlanModeExitAttachment(false);
+       return undefined;
+    }
 
-  const appState = await toolUseContext.getAppState();
-
-  // If still in plan mode, just clear the flag
-  if (appState.toolPermissionContext.mode === 'plan') {
     setNeedsPlanModeExitAttachment(false);
-    return [];
-  }
 
-  // Clear flag
-  setNeedsPlanModeExitAttachment(false);
-
-  const planFilePath = getPlanFilePath(toolUseContext.agentId);
-  const planExists = readPlanFile(toolUseContext.agentId) !== null;
-
-  return [
-    {
+    return {
       type: 'plan_mode_exit',
-      planFilePath: planFilePath,
-      planExists: planExists,
-    },
-  ];
+      planFilePath: shortenPath(getPlanFilePath(context.agentId)),
+      planExists: planFileExists(context.agentId),
+    };
+  }
+  return undefined;
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 函数已在声明处导出；移除重复聚合导出。

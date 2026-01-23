@@ -177,9 +177,11 @@ export const EnterPlanModeTool = {
     const appState = await toolUseContext.getAppState();
 
     // Trigger mode transition handler
+    // Original: Ty(B.toolPermissionContext.mode, "plan")
     onToolPermissionModeChanged(appState.toolPermissionContext.mode, 'plan');
 
     // Update app state to plan mode
+    // Original: toolPermissionContext: UJ(G.toolPermissionContext, { type: "setMode", mode: "plan", destination: "session" })
     toolUseContext.setAppState((state) => ({
       ...state,
       toolPermissionContext: {
@@ -206,9 +208,3 @@ export const EnterPlanModeTool = {
     };
   },
 };
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出。

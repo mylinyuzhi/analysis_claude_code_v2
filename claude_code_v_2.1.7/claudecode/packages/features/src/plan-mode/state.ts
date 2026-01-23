@@ -105,9 +105,3 @@ export function resetPlanModeState(): void {
 export function isInPlanMode(mode: PermissionMode): boolean {
   return mode === 'plan';
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 函数已在声明处导出；移除重复聚合导出。

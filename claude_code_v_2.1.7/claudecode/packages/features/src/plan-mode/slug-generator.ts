@@ -102,12 +102,5 @@ export function generateSlug(): string {
 
 /**
  * Total possible combinations.
- * ~8 million with current word lists.
  */
 export const TOTAL_COMBINATIONS = ADJECTIVES.length * ACTIONS.length * NOUNS.length;
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复导出。
