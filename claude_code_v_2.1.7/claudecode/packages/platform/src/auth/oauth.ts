@@ -182,6 +182,15 @@ export function getOAuthAccount(): OAuthAccount | null {
   return null;
 }
 
+/**
+ * Get current session JWT token.
+ * Original: G4A in chunks.89.mjs:2190
+ */
+export function getJwtToken(): string | undefined {
+  // @ts-ignore
+  return globalThis.EJ?.jwtToken;
+}
+
 // ============================================
 // Token Loading
 // ============================================

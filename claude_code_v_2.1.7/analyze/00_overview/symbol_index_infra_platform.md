@@ -195,6 +195,7 @@
 | _Z0 | findDiscoveredToolsInHistory | chunks.85.mjs:607-620 | function |
 | ueB | isModelSupportedForToolSearch | chunks.85.mjs:526-531 | function |
 | meB | isMcpSearchToolAvailable | chunks.85.mjs:545-546 | function |
+| e3 | sanitizeMcpServerName | chunks.131.mjs:60-63 | function |
 
 ### list_changed Notifications (NEW in 2.1.0)
 
@@ -216,6 +217,11 @@
 | $r2 | dynamicMcpServerInit | chunks.131.mjs:1440-1520 | function |
 | PF1 | prefetchAllMcpResources | chunks.131.mjs:2047-2087 | function |
 | Fr2 | CONNECTION_TIMEOUT | chunks.131.mjs:1507 | constant (60000ms) |
+| _F1 | getMcpHeaders | chunks.131.mjs:816-823 | function |
+| Wr2 | withMcpTimeout | chunks.131.mjs:1050-1074 | function |
+| Q4A | withDefaultFetchOptions | chunks.89.mjs:859-872 | function |
+| NZ | logMCPError | chunks.1.mjs:4618-4630 | function |
+| i0 | logMCPDebug | chunks.1.mjs:4632-4644 | function |
 
 ### MCP Tool Discovery
 

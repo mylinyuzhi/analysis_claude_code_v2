@@ -137,7 +137,7 @@ function loadScopeServers(scope: McpConfigScope): { servers: Record<string, McpS
 
 /**
  * Check if enterprise config exists.
- * Original: _10 in chunks.131.mjs
+ * Original: _10 in chunks.131.mjs:534
  */
 function enterpriseConfigExists(): boolean {
   return getEnterpriseSettingsPathCandidates().some((p) => existsSync(p));
@@ -145,7 +145,7 @@ function enterpriseConfigExists(): boolean {
 
 /**
  * Check if server is allowed by policy.
- * Original: P10 in chunks.131.mjs
+ * Original: P10 in chunks.131.mjs:525
  */
 function isServerAllowedByPolicy(
   serverName: string,
@@ -182,7 +182,7 @@ function isServerAllowedByPolicy(
 
 /**
  * Get project server approval status.
- * Original: C21 in chunks.131.mjs
+ * Original: C21 in chunks.131.mjs:510
  */
 function getProjectServerApprovalStatus(
   serverName: string
@@ -213,7 +213,7 @@ function getProjectServerApprovalStatus(
 
 /**
  * Discover plugins and their MCP servers.
- * Original: DG (discoverPluginsAndHooks) in chunks.91.mjs
+ * Original: To2 (getPluginMcpServers) in chunks.130.mjs:1530-1537
  */
 async function discoverPluginsAndHooks(): Promise<{
   servers: Record<string, McpServerConfig>;
@@ -362,7 +362,7 @@ export const getMcpConfiguration = loadAllMcpConfig;
 
 /**
  * Parse server config object from JSON.
- * Original: efA (parseConfigObj) in chunks.131.mjs
+ * Original: efA (parseMcpConfigObject) in chunks.131.mjs:604-665
  */
 export function parseServerConfig(
   serverName: string,

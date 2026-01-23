@@ -64,6 +64,7 @@ export {
   getOAuthTokenSource,
   shouldUseOAuth,
   getOAuthAccount,
+  getJwtToken,
   saveOAuthTokens,
   clearOAuthTokens,
   isTokenExpiringSoon,
@@ -108,6 +109,7 @@ export {
   logEventAsync,
   analyticsEvent,
   analyticsEventAsync,
+  trackEvent,
   logStructuredMetric,
   attachTelemetryProvider,
   registerTelemetryProvider,
@@ -215,6 +217,36 @@ export {
   createFileResult,
   executeFileSuggestionCommand,
 } from './code-indexing/index.js';
+
+// ============================================
+// Network & Proxy Module
+// ============================================
+
+export * from './network.js';
+export {
+  getMtlsConfig,
+  getMtlsCredentials,
+  getProxyUrl,
+  shouldBypassProxy,
+  getUndiciProxyAgent,
+  getUndiciMtlsAgent,
+  getGlobalDispatcher,
+  getHttpsAgentWithMtls,
+  getProxyAgentForUrl,
+  getAxiosProxyAgent,
+} from './network.js';
+
+// ============================================
+// Image Processing
+// ============================================
+
+export * from './images.js';
+
+// ============================================
+// LLM & API Module
+// ============================================
+
+export * from './llm.js';
 
 // ============================================
 // UI Symbols

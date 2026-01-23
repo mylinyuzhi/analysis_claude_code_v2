@@ -1,481 +1,448 @@
 /**
  * @claudecode/integrations - MCP Discovery
  *
- * Tool, prompt, and resource discovery from MCP servers.
- * Reconstructed from chunks.131.mjs:1917-2046
+ * Fetch tools, prompts, and resources from MCP servers.
+ * Reconstructed from chunks.131.mjs:1917-2015
  */
 
 import type {
   McpConnectedServer,
-  McpServerConnection,
-  McpToolDefinition,
+  McpTool,
   McpWrappedTool,
-  McpPromptDefinition,
+  McpPrompt,
   McpWrappedPrompt,
-  McpResourceDefinition,
+  McpResource,
   McpWrappedResource,
-  McpContent,
-  ToolUseContext,
 } from './types.js';
-import { MCP_CONSTANTS } from './types.js';
+import {
+  sanitizeServerName,
+  isValidTool,
+  ensureServerConnected,
+  logMcpError,
+  memoize,
+} from './connection.js';
 import { executeMcpTool } from './execution.js';
+import { z } from 'zod';
 
 // ============================================
-// Utility Functions
-// ============================================
-
-/**
- * Normalize tool/server name for use in tool naming.
- * Original: e3 (normalizeToolName) in chunks.131.mjs
- */
-export function normalizeToolName(name: string): string {
-  return name.replace(/[^a-zA-Z0-9_-]/g, '_');
-}
-
-/**
- * Normalize array (ensure it's an array).
- * Original: Nr (normalizeArray) in chunks.131.mjs
- */
-function normalizeArray<T>(value: T | T[] | undefined | null): T[] {
-  if (!value) return [];
-  return Array.isArray(value) ? value : [value];
-}
-
-/**
- * Simple memoization for async functions.
- * Original: W0 (memoize) in chunks.131.mjs
- */
-function memoize<T extends McpConnectedServer, R>(
-  fn: (arg: T) => Promise<R>
-): ((arg: T) => Promise<R>) & { cache: Map<T, R> } {
-  const cache = new Map<T, R>();
-
-  const memoized = async (arg: T): Promise<R> => {
-    if (cache.has(arg)) {
-      return cache.get(arg)!;
-    }
-    const result = await fn(arg);
-    cache.set(arg, result);
-    return result;
-  };
-
-  memoized.cache = cache;
-  return memoized;
-}
-
-/**
- * Check if tool is valid.
- * Original: rB7 (isValidTool) in chunks.131.mjs
- */
-function isValidTool(tool: McpWrappedTool): boolean {
-  return !!tool.name && !!tool.originalMcpToolName;
-}
-
-// ============================================
-// Base Tool Properties
+// Internal Constants & Helpers
 // ============================================
 
 /**
- * Base properties for MCP tools.
- * Original: P42 (baseToolProperties) in chunks.131.mjs
+ * Default tool properties.
+ * Original: P42 in chunks.89.mjs:2853
  */
-const baseToolProperties = {
-  maxResultSizeChars: 100000,
-
-  isEnabled(): boolean {
-    return true;
-  },
-
-  requiresUserInteraction(): boolean {
-    return false;
-  },
-
-  async checkPermissions(
-    input: Record<string, unknown>
-  ): Promise<{ behavior: 'allow' | 'deny' | 'ask'; updatedInput: Record<string, unknown> }> {
-    return { behavior: 'allow', updatedInput: input };
-  },
+const DEFAULT_TOOL_PROPS = {
+  isEnabled: () => true,
+  isConcurrencySafe: () => false,
+  isReadOnly: () => false,
+  isDestructive: () => false,
+  isOpenWorld: () => false,
+  maxResultSizeChars: 1e5
 };
 
-// ============================================
-// Tool Discovery
-// ============================================
+/**
+ * Ensure input is an array.
+ * Original: Nr in chunks.22.mjs
+ */
+function ensureArray<T>(input: T | T[] | undefined | null): T[] {
+  if (input === null || input === undefined) return [];
+  return Array.isArray(input) ? input : [input];
+}
 
 /**
- * Fetch tools from MCP server.
- * Original: Ax (fetchMcpTools) in chunks.131.mjs:1917-1988
+ * Reserved MCP server name for chrome integration.
+ * Original: Ej in chunks.131.mjs:49
  */
-export const fetchMcpTools = memoize(
-  async (serverConnection: McpConnectedServer): Promise<McpWrappedTool[]> => {
-    if (serverConnection.type !== 'connected') return [];
+const CLAUDE_IN_CHROME_SERVER = "claude-in-chrome";
 
-    try {
-      // Check if server supports tools
-      if (!serverConnection.capabilities?.tools) return [];
+/**
+ * Check if server is an indexing server (specifically chrome integration).
+ * Original: uEA in chunks.130.mjs:3266
+ */
+function isIndexingServer(serverName: string): boolean {
+  return sanitizeServerName(serverName) === CLAUDE_IN_CHROME_SERVER;
+}
 
-      // Request tool list from server
-      const response = await serverConnection.client.request<{
-        tools: McpToolDefinition[];
-      }>({ method: 'tools/list' });
-
-      // Transform each tool into Claude Code tool format
-      return normalizeArray(response.tools)
-        .map((tool) => {
-          const wrappedTool: McpWrappedTool = {
-            ...baseToolProperties,
-
-            // Renamed with mcp__ prefix to avoid conflicts
-            name: `${MCP_CONSTANTS.TOOL_PREFIX}${normalizeToolName(serverConnection.name)}__${normalizeToolName(tool.name)}`,
-            originalMcpToolName: tool.name,
-            isMcp: true,
-
-            // Tool metadata
-            async description(): Promise<string> {
-              return tool.description ?? '';
-            },
-            inputJSONSchema: tool.inputSchema,
-
-            // Annotations from MCP spec
-            isConcurrencySafe(): boolean {
-              return tool.annotations?.readOnlyHint ?? false;
-            },
-            isReadOnly(): boolean {
-              return tool.annotations?.readOnlyHint ?? false;
-            },
-            isDestructive(): boolean {
-              return tool.annotations?.destructiveHint ?? false;
-            },
-            isOpenWorld(): boolean {
-              return tool.annotations?.openWorldHint ?? false;
-            },
-
-            // Tool execution
-            async call(
-              args: Record<string, unknown>,
-              context: ToolUseContext,
-              _assistantTurn?: unknown,
-              _lastApiMessage?: unknown
-            ): Promise<{ data: unknown }> {
-              const result = await executeMcpTool({
-                client: serverConnection,
-                tool: tool.name,
-                args,
-                signal: context.abortController.signal,
-              });
-              return { data: result };
-            },
-
-            // Display name for UI
-            userFacingName(): string {
-              const displayName = tool.annotations?.title || tool.name;
-              return `${serverConnection.name} - ${displayName} (MCP)`;
-            },
-          };
-
-          return wrappedTool;
-        })
-        .filter(isValidTool);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[MCP] ${serverConnection.name}: Failed to fetch tools: ${errorMessage}`);
-      return [];
+/**
+ * Get specific metadata/UI functions for indexing tools.
+ * Original: Ir2 in chunks.131.mjs:1003
+ */
+function getIndexingToolMetadata(toolName: string): any {
+  return {
+    userFacingName() {
+      return `Claude in Chrome[${toolName.replace(/_mcp$/, "")}]`;
+    },
+    renderToolUseMessage(input: any, { verbose }: { verbose?: boolean }) {
+      // Reconstructed UI rendering logic would go here
+      return null;
+    },
+    renderToolUseTag(input: any) {
+      return null;
+    },
+    renderToolResultMessage(result: any, input: any, { verbose }: { verbose?: boolean }) {
+      return null;
     }
-  }
-);
+  };
+}
 
 // ============================================
-// Prompt Discovery
+// Discovery Logic
 // ============================================
 
 /**
- * Map argument values to names.
- * Original: s9Q (mapArgsToNames) in chunks.131.mjs
+ * Zod schemas for MCP list responses.
  */
-function mapArgsToNames(
-  argNames: string[],
-  argValues: string[]
-): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (let i = 0; i < argNames.length && i < argValues.length; i++) {
-    const name = argNames[i];
-    const value = argValues[i];
-    if (!name || value === undefined) continue;
-    result[name] = value;
+const McpListToolsSchema = z.object({
+  tools: z.array(z.any())
+});
+
+const McpListResourcesSchema = z.object({
+  resources: z.array(z.any())
+});
+
+const McpListPromptsSchema = z.object({
+  prompts: z.array(z.any())
+});
+
+/**
+ * Fetch tools from a connected MCP server.
+ * Original: Ax (fetchMcpTools) in chunks.131.mjs:1917-1987
+ */
+export const fetchMcpTools = memoize(async (server: McpConnectedServer): Promise<McpWrappedTool[]> => {
+  if (server.type !== "connected") return [];
+  
+  try {
+    if (!server.capabilities?.tools) return [];
+    
+    const response = await server.client.request<{ tools: any[] }>({
+      method: "tools/list"
+    }, McpListToolsSchema);
+    
+    return ensureArray(response.tools).map((tool) => ({
+      ...DEFAULT_TOOL_PROPS,
+      name: `mcp__${sanitizeServerName(server.name)}__${sanitizeServerName(tool.name)}`,
+      originalMcpToolName: tool.name,
+      isMcp: true as const,
+      
+      async description() {
+        return tool.description ?? "";
+      },
+      
+      async prompt() {
+        return tool.description ?? "";
+      },
+      
+      isConcurrencySafe() {
+        return tool.annotations?.readOnlyHint ?? false;
+      },
+      
+      isReadOnly() {
+        return tool.annotations?.readOnlyHint ?? false;
+      },
+      
+      isDestructive() {
+        return tool.annotations?.destructiveHint ?? false;
+      },
+      
+      isOpenWorld() {
+        return tool.annotations?.openWorldHint ?? false;
+      },
+      
+      inputJSONSchema: tool.inputSchema,
+      
+      async checkPermissions() {
+        return {
+          behavior: "passthrough" as const,
+          message: "MCPTool requires permission.",
+          suggestions: [{
+            type: "addRules" as const,
+            rules: [{
+              toolName: `mcp__${sanitizeServerName(server.name)}__${sanitizeServerName(tool.name)}`,
+              ruleContent: undefined
+            }],
+            behavior: "allow" as const,
+            destination: "localSettings" as const
+          }]
+        };
+      },
+      
+      async call(args: any, { abortController }: any, _meta: any, extraContext: any) {
+        // Extract toolUseId if available (Original: eB7 in chunks.131.mjs:1964)
+        const toolUseId = extraContext?.toolUseId;
+        const meta = toolUseId ? { "claudecode/toolUseId": toolUseId } : {};
+        
+        const connectedServer = await ensureServerConnected(server);
+        const data = await executeMcpTool({
+          client: connectedServer,
+          tool: tool.name,
+          args,
+          meta,
+          signal: abortController.signal
+        });
+        
+        return { data };
+      },
+      
+      userFacingName() {
+        const title = tool.annotations?.title || tool.name;
+        return `${server.name} - ${title} (MCP)`;
+      },
+      
+      ...(isIndexingServer(server.name) ? getIndexingToolMetadata(tool.name) : {})
+    } as McpWrappedTool)).filter(isValidTool);
+  } catch (err) {
+    logMcpError(server.name, `Failed to fetch tools: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
   }
+});
+
+/**
+ * Fetch resources from a connected MCP server.
+ * Original: GhA (fetchMcpResources) in chunks.131.mjs:1988-2002
+ */
+export const fetchMcpResources = memoize(async (server: McpConnectedServer): Promise<McpWrappedResource[]> => {
+  if (server.type !== "connected") return [];
+  
+  try {
+    if (!server.capabilities?.resources) return [];
+    
+    const response = await server.client.request<{ resources: any[] }>({
+      method: "resources/list"
+    }, McpListResourcesSchema);
+    
+    if (!response.resources) return [];
+    
+    return response.resources.map((res) => ({
+      ...res,
+      server: server.name
+    } as McpWrappedResource));
+  } catch (err) {
+    logMcpError(server.name, `Failed to fetch resources: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
+  }
+});
+
+/**
+ * Helper to map positional arguments to names.
+ * Original: s9Q in chunks.131.mjs
+ */
+function mapArgsToNames(argNames: string[], argValues: string[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  argNames.forEach((name, i) => {
+    if (argValues[i] !== undefined) result[name] = argValues[i];
+  });
   return result;
 }
 
 /**
- * Convert MCP content to Claude format.
- * Original: Er2 (convertMcpContent) in chunks.131.mjs:1242-1303
+ * Fetch prompts from a connected MCP server.
+ * Original: ZhA (fetchMcpPrompts) in chunks.131.mjs:2003-2015
  */
-export async function convertMcpContent(
-  content: McpContent | McpContent[],
-  serverName: string
-): Promise<unknown[]> {
-  const contents = Array.isArray(content) ? content : [content];
-  const results: unknown[] = [];
-
-  for (const item of contents) {
-    if (item.type === 'text') {
-      results.push({ type: 'text', text: item.text });
-    } else if (item.type === 'image') {
-      if (MCP_CONSTANTS.SUPPORTED_IMAGE_TYPES.has(item.mimeType)) {
-        results.push({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: item.mimeType,
-            data: item.data,
-          },
-        });
-      } else {
-        results.push({
-          type: 'text',
-          text: `[Unsupported image type: ${item.mimeType}]`,
-        });
-      }
-    } else if (item.type === 'resource') {
-      if (item.resource?.text) {
-        results.push({
-          type: 'text',
-          text: `Resource: ${item.resource.uri}\n${item.resource.text}`,
-        });
-      } else if (item.resource?.blob) {
-        const mimeType = item.resource.mimeType || 'application/octet-stream';
-        if (MCP_CONSTANTS.SUPPORTED_IMAGE_TYPES.has(mimeType)) {
-          results.push({
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: mimeType,
-              data: item.resource.blob,
-            },
-          });
-        } else {
-          results.push({
-            type: 'text',
-            text: `[Binary resource: ${item.resource.uri} (${mimeType})]`,
-          });
+export const fetchMcpPrompts = memoize(async (server: McpConnectedServer): Promise<McpWrappedPrompt[]> => {
+  if (server.type !== "connected") return [];
+  
+  try {
+    if (!server.capabilities?.prompts) return [];
+    
+    const response = await server.client.request<{ prompts: any[] }>({
+      method: "prompts/list"
+    }, McpListPromptsSchema);
+    
+    if (!response.prompts) return [];
+    
+    return response.prompts.map((prompt) => {
+      const argNames = prompt.arguments?.map((a: any) => a.name) ?? [];
+      
+      return {
+        type: 'prompt',
+        name: `mcp__${sanitizeServerName(server.name)}__${sanitizeServerName(prompt.name)}`,
+        description: prompt.description ?? "",
+        isMcp: true as const,
+        argNames,
+        source: 'mcp' as const,
+        userFacingName() {
+          return `${server.name}:${prompt.name} (MCP)`;
+        },
+        async getPromptForCommand(argsString: string) {
+          const argValues = argsString.split(" ");
+          try {
+            const client = await ensureServerConnected(server);
+            const result = await client.client.getPrompt({
+              name: prompt.name,
+              arguments: mapArgsToNames(argNames, argValues)
+            });
+            // Import dynamically to avoid circular dependency if needed, or use re-exported from index
+            const { convertMcpContent } = await import('./execution.js');
+            return (await Promise.all(
+              result.messages.map((msg: any) => convertMcpContent(msg.content, client.name))
+            )).flat();
+          } catch (error) {
+            logMcpError(server.name, `Error running '${prompt.name}': ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
+          }
         }
+      } as McpWrappedPrompt;
+    });
+  } catch (err) {
+    logMcpError(server.name, `Failed to fetch prompts: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
+  }
+});
+
+/**
+ * Normalize tool name.
+ */
+export function normalizeToolName(name: string): string {
+  return sanitizeServerName(name);
+}
+
+/**
+ * Clear discovery cache.
+ */
+export function clearDiscoveryCache(): void {
+  (fetchMcpTools as any).cache.clear();
+  (fetchMcpPrompts as any).cache.clear();
+  (fetchMcpResources as any).cache.clear();
+}
+
+/**
+ * Refresh tools when list changed notification is received.
+ */
+export async function refreshToolsOnListChanged(server: McpConnectedServer): Promise<void> {
+  const cacheKey = JSON.stringify(server); // Simple key for memoize default
+  (fetchMcpTools as any).cache.delete(cacheKey);
+  (fetchMcpPrompts as any).cache.delete(cacheKey);
+  (fetchMcpResources as any).cache.delete(cacheKey);
+  
+  // Re-fetch to populate cache
+  await Promise.all([
+    fetchMcpTools(server),
+    fetchMcpPrompts(server),
+    fetchMcpResources(server)
+  ]);
+}
+
+/**
+ * MCP list resources tool definition.
+ * Original: Ud in chunks.89.mjs:2998
+ */
+export const listResourcesTool: McpWrappedTool = {
+  isEnabled: () => true,
+  isConcurrencySafe: () => true,
+  isReadOnly: () => true,
+  isDestructive: () => false,
+  isOpenWorld: () => false,
+  isMcp: true as const,
+  originalMcpToolName: "listMcpResources",
+  name: "listMcpResources",
+  async description() {
+    return "List all resources available across connected MCP servers.";
+  },
+  async prompt() {
+    return "List available MCP resources.";
+  },
+  inputJSONSchema: z.object({
+    server: z.string().optional().describe("Filter by server name")
+  }),
+  async call(args: any, { options }: any) {
+    const { server: targetServer } = args;
+    const mcpClients = options?.mcpClients ?? [];
+    const results: any[] = [];
+    
+    const targets = targetServer 
+      ? mcpClients.filter((c: any) => c.name === targetServer)
+      : mcpClients;
+      
+    if (targetServer && targets.length === 0) {
+      throw Error(`Server "${targetServer}" not found.`);
+    }
+    
+    for (const server of targets) {
+      if (server.type !== "connected") continue;
+      try {
+        if (!server.capabilities?.resources) continue;
+        const response = await server.client.request({ method: "resources/list" }, z.any());
+        if (response.resources) {
+          results.push(...response.resources.map((r: any) => ({ ...r, server: server.name })));
+        }
+      } catch (err) {
+        logMcpError(server.name, `Failed to fetch resources: ${err instanceof Error ? err.message : String(err)}`);
       }
-    } else if (item.type === 'resource_link') {
-      results.push({
-        type: 'text',
-        text: `Resource link: ${item.uri}`,
-      });
-    } else {
-      results.push({
-        type: 'text',
-        text: JSON.stringify(item),
-      });
     }
-  }
-
-  return results;
-}
+    return { data: results };
+  },
+  userFacingName: () => "listMcpResources"
+} as any as McpWrappedTool;
 
 /**
- * Fetch prompts from MCP server.
- * Original: ZhA (fetchMcpPrompts) in chunks.131.mjs:2003-2046
+ * MCP read resource tool definition.
+ * Original: qd in chunks.89.mjs:3167
  */
-export const fetchMcpPrompts = memoize(
-  async (serverConnection: McpConnectedServer): Promise<McpWrappedPrompt[]> => {
-    if (serverConnection.type !== 'connected') return [];
-
-    try {
-      // Check if server supports prompts
-      if (!serverConnection.capabilities?.prompts) return [];
-
-      // Request prompt list from server
-      const response = await serverConnection.client.request<{
-        prompts: McpPromptDefinition[];
-      }>({ method: 'prompts/list' });
-
-      if (!response.prompts) return [];
-
-      return normalizeArray(response.prompts).map((prompt) => {
-        // Extract argument names
-        const argNames = Object.values(prompt.arguments ?? {}).map((arg) => arg.name);
-
-        const wrappedPrompt: McpWrappedPrompt = {
-          type: 'prompt',
-          name: `${MCP_CONSTANTS.TOOL_PREFIX}${normalizeToolName(serverConnection.name)}__${prompt.name}`,
-          description: prompt.description ?? '',
-          isMcp: true,
-          argNames,
-          source: 'mcp',
-
-          userFacingName(): string {
-            return `${serverConnection.name}:${prompt.name} (MCP)`;
-          },
-
-          async getPromptForCommand(argsString: string): Promise<unknown[]> {
-            const argValues = argsString.split(' ').filter(Boolean);
-
-            try {
-              const result = await serverConnection.client.getPrompt({
-                name: prompt.name,
-                arguments: mapArgsToNames(argNames, argValues),
-              });
-
-              // Convert MCP content format to Claude message format
-              const converted = await Promise.all(
-                result.messages.map((msg) =>
-                  convertMcpContent(msg.content as McpContent | McpContent[], serverConnection.name)
-                )
-              );
-
-              return converted.flat();
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : String(error);
-              console.error(
-                `[MCP] ${serverConnection.name}: Error running '${prompt.name}': ${errorMessage}`
-              );
-              throw error;
-            }
-          },
-        };
-
-        return wrappedPrompt;
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(
-        `[MCP] ${serverConnection.name}: Failed to fetch prompts: ${errorMessage}`
-      );
-      return [];
-    }
-  }
-);
-
-// ============================================
-// Resource Discovery
-// ============================================
+export const readResourceTool: McpWrappedTool = {
+  isEnabled: () => true,
+  isConcurrencySafe: () => true,
+  isReadOnly: () => true,
+  isDestructive: () => false,
+  isOpenWorld: () => false,
+  isMcp: true as const,
+  originalMcpToolName: "readMcpResource",
+  name: "readMcpResource",
+  async description() {
+    return "Read a specific resource from an MCP server.";
+  },
+  async prompt() {
+    return "Read an MCP resource.";
+  },
+  inputJSONSchema: z.object({
+    server: z.string().describe("The name of the MCP server"),
+    uri: z.string().describe("The resource URI to read")
+  }),
+  async call(args: any, { options }: any) {
+    const { server: serverName, uri } = args;
+    const mcpClients = options?.mcpClients ?? [];
+    const server = mcpClients.find((c: any) => c.name === serverName);
+    
+    if (!server) throw Error(`Server "${serverName}" not found.`);
+    if (server.type !== "connected") throw Error(`Server "${serverName}" is not connected`);
+    
+    const result = await server.client.request({
+      method: "resources/read",
+      params: { uri }
+    }, z.any());
+    
+    return { data: result };
+  },
+  userFacingName: () => "readMcpResource"
+} as any as McpWrappedTool;
 
 /**
- * Fetch resources from MCP server.
- * Original: GhA (fetchMcpResources) in chunks.131.mjs:1988-2002
- */
-export const fetchMcpResources = memoize(
-  async (serverConnection: McpConnectedServer): Promise<McpWrappedResource[]> => {
-    if (serverConnection.type !== 'connected') return [];
-
-    try {
-      // Check if server supports resources
-      if (!serverConnection.capabilities?.resources) return [];
-
-      // Request resource list from server
-      const response = await serverConnection.client.request<{
-        resources: McpResourceDefinition[];
-      }>({ method: 'resources/list' });
-
-      if (!response.resources) return [];
-
-      // Add server name to each resource for tracking
-      return response.resources.map((resource) => ({
-        ...resource,
-        server: serverConnection.name,
-      }));
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(
-        `[MCP] ${serverConnection.name}: Failed to fetch resources: ${errorMessage}`
-      );
-      return [];
-    }
-  }
-);
-
-// ============================================
-// Cache Management
-// ============================================
-
-/**
- * Clear discovery caches for a server.
- */
-export function clearDiscoveryCache(serverConnection: McpConnectedServer): void {
-  fetchMcpTools.cache.delete(serverConnection);
-  fetchMcpPrompts.cache.delete(serverConnection);
-  fetchMcpResources.cache.delete(serverConnection);
-}
-
-/**
- * Refresh tools after list_changed notification.
- * Original: Handles jY0 notification in chunks.138.mjs
- */
-export async function refreshToolsOnListChanged(
-  serverConnection: McpConnectedServer,
-  updateState: (tools: McpWrappedTool[]) => void
-): Promise<void> {
-  // Clear cached tool list
-  fetchMcpTools.cache.delete(serverConnection);
-
-  // Fetch fresh tool list
-  const newTools = await fetchMcpTools(serverConnection);
-
-  // Update state
-  updateState(newTools);
-}
-
-/**
- * Setup list_changed notification handlers.
- * Original: chunks.138.mjs:2917-2927
+ * Setup notification handlers for list changes.
+ * Reconstructed from chunks.131.mjs:1241
  */
 export function setupListChangedHandlers(
-  serverConnection: McpConnectedServer,
-  onToolsChanged: (tools: McpWrappedTool[]) => void,
-  onPromptsChanged: (prompts: McpWrappedPrompt[]) => void,
-  onResourcesChanged: (resources: McpWrappedResource[]) => void
+  server: McpConnectedServer,
+  onToolsChanged: () => void,
+  onPromptsChanged: () => void,
+  onResourcesChanged: () => void
 ): void {
-  // Tools list changed
-  if (serverConnection.capabilities?.tools?.listChanged) {
-    serverConnection.client.setNotificationHandler(
-      MCP_CONSTANTS.NOTIFICATIONS.TOOLS_LIST_CHANGED,
-      async () => {
-        console.debug(
-          `[MCP] ${serverConnection.name}: Received tools/list_changed notification, refreshing tools`
-        );
-        fetchMcpTools.cache.delete(serverConnection);
-        const newTools = await fetchMcpTools(serverConnection);
-        onToolsChanged(newTools);
-      }
-    );
+  if (server.type !== "connected") return;
+  
+  if (server.capabilities?.tools) {
+    server.client.setNotificationHandler("notifications/tools/list_changed", async () => {
+      onToolsChanged();
+    });
   }
-
-  // Prompts list changed
-  if (serverConnection.capabilities?.prompts?.listChanged) {
-    serverConnection.client.setNotificationHandler(
-      MCP_CONSTANTS.NOTIFICATIONS.PROMPTS_LIST_CHANGED,
-      async () => {
-        console.debug(
-          `[MCP] ${serverConnection.name}: Received prompts/list_changed notification, refreshing prompts`
-        );
-        fetchMcpPrompts.cache.delete(serverConnection);
-        const newPrompts = await fetchMcpPrompts(serverConnection);
-        onPromptsChanged(newPrompts);
-      }
-    );
+  
+  if (server.capabilities?.prompts) {
+    server.client.setNotificationHandler("notifications/prompts/list_changed", async () => {
+      onPromptsChanged();
+    });
   }
-
-  // Resources list changed
-  if (serverConnection.capabilities?.resources?.listChanged) {
-    serverConnection.client.setNotificationHandler(
-      MCP_CONSTANTS.NOTIFICATIONS.RESOURCES_LIST_CHANGED,
-      async () => {
-        console.debug(
-          `[MCP] ${serverConnection.name}: Received resources/list_changed notification, refreshing resources`
-        );
-        fetchMcpResources.cache.delete(serverConnection);
-        const newResources = await fetchMcpResources(serverConnection);
-        onResourcesChanged(newResources);
-      }
-    );
+  
+  if (server.capabilities?.resources) {
+    server.client.setNotificationHandler("notifications/resources/list_changed", async () => {
+      onResourcesChanged();
+    });
   }
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

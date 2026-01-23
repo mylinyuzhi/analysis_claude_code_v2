@@ -59,7 +59,6 @@ export {
   clearDiscoveryCache,
   refreshToolsOnListChanged,
   setupListChangedHandlers,
-  convertMcpContent,
 } from './discovery.js';
 
 // ============================================
@@ -69,6 +68,7 @@ export {
 export {
   executeMcpTool,
   getMCPToolTimeout,
+  convertMcpContent,
 } from './execution.js';
 
 // ============================================
@@ -76,7 +76,7 @@ export {
 // ============================================
 
 export {
-  shouldEnableToolSearch,
+  shouldEnableAutoSearch,
   calculateContextThreshold,
   calculateMcpDescriptionSize,
   isModelSupportedForToolSearch,

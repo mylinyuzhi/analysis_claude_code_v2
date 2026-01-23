@@ -13,7 +13,15 @@ import { Agent as HttpsAgent } from 'https';
 import { setGlobalDispatcher, ProxyAgent, Agent as UndiciAgent } from 'undici';
 import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import type { SandboxConfig, SandboxSettings } from '@claudecode/platform';
+import {
+  type SandboxConfig,
+  type SandboxSettings,
+  getMtlsConfig,
+  getProxyUrl,
+  shouldBypassProxy,
+  getAxiosProxyAgent,
+  getGlobalDispatcher
+} from '@claudecode/platform';
 
 // ============================================
 // Types
@@ -630,34 +638,7 @@ export function getAxiosProxyAgent(proxyUrl: string): any {
  * Original: utQ and wp1 in chunks.46.mjs
  */
 export function getUndiciDispatcher(proxyUrl?: string): any {
-  const mtlsConfig = getMtlsConfig();
-  
-  if (proxyUrl) {
-    // utQ implementation
-    const options: any = {
-      uri: proxyUrl,
-      noProxy: process.env.NO_PROXY || process.env.no_proxy
-    };
-    if (mtlsConfig) {
-      options.connect = {
-        cert: mtlsConfig.cert,
-        key: mtlsConfig.key,
-        passphrase: mtlsConfig.passphrase
-      };
-    }
-    return new ProxyAgent(options);
-  } else if (mtlsConfig) {
-    // wp1 implementation
-    return new UndiciAgent({
-      connect: {
-        cert: mtlsConfig.cert,
-        key: mtlsConfig.key,
-        passphrase: mtlsConfig.passphrase
-      }
-    });
-  }
-  
-  return undefined;
+  return getGlobalDispatcher();
 }
 
 /**

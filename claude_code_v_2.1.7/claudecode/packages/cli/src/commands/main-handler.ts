@@ -27,6 +27,7 @@ import {
   resetMcpState,
   getMcpState,
   connectMcpServer,
+  getToolSearchMode
 } from '../mcp/state.js';
 import type { McpServerConfig as StateMcpServerConfig } from '@claudecode/integrations';
 import {
@@ -390,7 +391,7 @@ async function shutdownLspManager(): Promise<void> {
 }
 
 function isMcpCliMode(): boolean {
-  return process.argv.includes('--mcp-cli');
+  return process.argv.includes('--mcp-cli') && getToolSearchMode() === 'mcp-cli';
 }
 
 function registerMcpCliCleanup(): void {

@@ -61,6 +61,7 @@ export {
   getOAuthTokenSource,
   shouldUseOAuth,
   getOAuthAccount,
+  getJwtToken,
   saveOAuthTokens,
   clearOAuthTokens,
   isTokenExpiringSoon,

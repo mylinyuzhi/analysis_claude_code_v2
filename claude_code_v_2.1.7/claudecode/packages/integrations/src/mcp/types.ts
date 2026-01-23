@@ -310,7 +310,39 @@ export interface McpResourceLinkContent {
 /**
  * MCP tool definition from server.
  */
-export interface McpToolDefinition {
+export interface McpTool {
+  name: string;
+  description?: string;
+  inputSchema?: object;
+}
+
+/**
+ * MCP prompt definition from server.
+ */
+export interface McpPrompt {
+  name: string;
+  description?: string;
+  arguments?: Array<{
+    name: string;
+    description?: string;
+    required?: boolean;
+  }>;
+}
+
+/**
+ * MCP resource definition from server.
+ */
+export interface McpResource {
+  uri: string;
+  name?: string;
+  description?: string;
+  mimeType?: string;
+}
+
+/**
+ * MCP tool definition from server (alternate name).
+ */
+export interface McpToolDefinition extends McpTool {
   name: string;
   description?: string;
   inputSchema?: object;

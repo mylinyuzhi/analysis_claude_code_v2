@@ -12,10 +12,20 @@ import {
   batchInitializeAllServers,
   connectMcpServer as connectMcpServerFromIntegrations,
   executeMcpTool,
+  getToolSearchMode as getToolSearchModeFromIntegrations,
   type McpServerConfig,
   type McpServerConnection,
   type McpConnectedServer,
 } from '@claudecode/integrations';
+
+// ...
+
+/**
+ * Get tool search mode.
+ */
+export function getToolSearchMode() {
+  return getToolSearchModeFromIntegrations();
+}
 
 // ============================================
 // Types

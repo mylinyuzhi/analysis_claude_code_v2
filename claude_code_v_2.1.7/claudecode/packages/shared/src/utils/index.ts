@@ -59,13 +59,23 @@ export function isFunction(value: unknown): value is Function {
 // ============================================
 
 /**
- * Parse a boolean from string or environment variable
- * Original: Y0 in analysis docs (parseBoolean)
+ * Parse a boolean from string or environment variable (true variants)
+ * Original: a1 in chunks.1.mjs
  */
 export function parseBoolean(value: string | undefined | null): boolean {
   if (value == null) return false;
   const normalized = String(value).toLowerCase().trim();
   return normalized === 'true' || normalized === '1' || normalized === 'yes';
+}
+
+/**
+ * Parse a boolean for false variants
+ * Original: iX in chunks.1.mjs
+ */
+export function parseBooleanFalse(value: string | undefined | null): boolean {
+  if (value == null) return false;
+  const normalized = String(value).toLowerCase().trim();
+  return normalized === 'false' || normalized === '0' || normalized === 'no';
 }
 
 /**

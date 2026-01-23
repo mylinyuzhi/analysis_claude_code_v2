@@ -149,6 +149,9 @@ importers:
       react:
         specifier: ^18.2.0
         version: 18.3.1
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.76
     devDependencies:
       '@types/react':
         specifier: ^18.2.0
@@ -165,6 +168,12 @@ importers:
       '@claudecode/shared':
         specifier: workspace:*
         version: link:../shared
+      https-proxy-agent:
+        specifier: ^7.0.2
+        version: 7.0.6
+      undici:
+        specifier: ^6.0.0
+        version: 6.23.0
     devDependencies:
       tsup:
         specifier: ^8.0.0
@@ -1524,6 +1533,21 @@ packages:
     cpu: [x64]
     os: [linux]
 
+  turbo-linux-arm64@2.7.5:
+    resolution: {integrity: sha512-8PIva4L6BQhiPikUTds9lSFSHXVDAsEvV6QUlgwPsXrtXVQMVi6Sv9p+IxtlWQFvGkdYJUgX9GnK2rC030Xcmw==}
+    cpu: [arm64]
+    os: [linux]
+
+  turbo-windows-64@2.7.5:
+    resolution: {integrity: sha512-rupskv/mkIUgQXzX/wUiK00mKMorQcK8yzhGFha/D5lm05FEnLx8dsip6rWzMcVpvh+4GUMA56PgtnOgpel2AA==}
+    cpu: [x64]
+    os: [win32]
+
+  turbo-windows-arm64@2.7.5:
+    resolution: {integrity: sha512-G377Gxn6P42RnCzfMyDvsqQV7j69kVHKlhz9J4RhtJOB5+DyY4yYh/w0oTIxZQ4JRMmhjwLu3w9zncMoQ6nNDw==}
+    cpu: [arm64]
+    os: [win32]
+
   turbo@2.7.5:
     resolution: {integrity: sha512-7Imdmg37joOloTnj+DPrab9hIaQcDdJ5RwSzcauo/wMOSAgO+A/I/8b3hsGGs6PWQz70m/jkPgdqWsfNKtwwDQ==}
     hasBin: true
@@ -1546,6 +1570,10 @@ packages:
 
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+
+  undici@6.23.0:
+    resolution: {integrity: sha512-VfQPToRA5FZs/qJxLIinmU59u0r7LXqoJkCzinq3ckNJp3vKEh7jTWN589YQ5+aoAC/TGRLyJLCPKcLQbM8r9g==}
+    engines: {node: '>=18.17'}
 
   undici@7.19.0:
     resolution: {integrity: sha512-Heho1hJD81YChi+uS2RkSjcVO+EQLmLSyUlHyp7Y/wFbxQaGb4WXVKD073JytrjXJVkSZVzoE2MCSOKugFGtOQ==}
@@ -2691,11 +2719,23 @@ snapshots:
   turbo-linux-64@2.7.5:
     optional: true
 
+  turbo-linux-arm64@2.7.5:
+    optional: true
+
+  turbo-windows-64@2.7.5:
+    optional: true
+
+  turbo-windows-arm64@2.7.5:
+    optional: true
+
   turbo@2.7.5:
     optionalDependencies:
       turbo-darwin-64: 2.7.5
       turbo-darwin-arm64: 2.7.5
       turbo-linux-64: 2.7.5
+      turbo-linux-arm64: 2.7.5
+      turbo-windows-64: 2.7.5
+      turbo-windows-arm64: 2.7.5
 
   type-detect@4.1.0: {}
 
@@ -2706,6 +2746,8 @@ snapshots:
   ufo@1.6.3: {}
 
   undici-types@6.21.0: {}
+
+  undici@6.23.0: {}
 
   undici@7.19.0: {}
 

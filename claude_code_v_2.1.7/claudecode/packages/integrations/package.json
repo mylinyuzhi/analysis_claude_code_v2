@@ -41,6 +41,7 @@
     "@claudecode/shared": "workspace:*",
     "@claudecode/core": "workspace:*",
     "@claudecode/platform": "workspace:*",
+    "zod": "^3.22.4",
     "ink": "^4.4.1",
     "react": "^18.2.0"
   },

@@ -11,336 +11,444 @@ import type {
   McpContent,
 } from './types.js';
 import { MCP_CONSTANTS } from './types.js';
-import { normalizeToolName } from './discovery.js';
-import { parseBoolean } from '@claudecode/shared';
-import { telemetry } from '@claudecode/platform';
+import { logMcpDebug, logMcpError, sanitizeServerName } from './connection.js';
+import { parseBoolean, parseBooleanFalse } from '@claudecode/shared';
+import { trackEvent, processImage, countTokens } from '@claudecode/platform';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 
-// ============================================
-// Timeout Configuration
-// ============================================
-
-/**
- * Get MCP tool timeout.
- * Original: U3A (getMCPToolTimeout) in chunks.148.mjs:3508-3510
- */
-export function getMCPToolTimeout(): number {
-  const envTimeout = process.env.MCP_TOOL_TIMEOUT;
-  if (envTimeout) {
-    const parsed = parseInt(envTimeout, 10);
-    if (!isNaN(parsed) && parsed > 0) {
-      return parsed;
-    }
-  }
-  return MCP_CONSTANTS.DEFAULT_TOOL_TIMEOUT;
-}
+import { z } from 'zod';
 
 // ============================================
-// Keep-Alive Management
+// Internal Helpers
 // ============================================
 
 /**
- * Check if keep-alive is enabled.
- * Original: E42 (isKeepAliveEnabled) in chunks.131.mjs
+ * Tool result schema hint for LLM.
+ * Original: iC in chunks.131.mjs:1382
  */
-function isKeepAliveEnabled(): boolean {
-  return parseBoolean(process.env.ENABLE_MCP_KEEPALIVE) || parseBoolean(process.env.MCP_KEEPALIVE);
-}
-
-/**
- * Send keep-alive signal.
- * Original: H42 (sendKeepAlive) in chunks.131.mjs
- */
-function sendKeepAlive(client: McpConnectedServer): void {
-  // Best-effort keepalive. Different MCP clients may expose different methods.
-  try {
-    const c: any = client.client as any;
-    if (typeof c?.ping === 'function') {
-      void c.ping();
-      return;
-    }
-    if (typeof c?.keepAlive === 'function') {
-      void c.keepAlive();
-      return;
-    }
-    if (typeof c?.request === 'function') {
-      // Some clients support raw request (method name varies).
-      void c.request('ping', {});
-    }
-  } catch {
-    // ignore
-  }
-}
-
-// ============================================
-// Telemetry
-// ============================================
-
-/**
- * Map server name to indexing tool for telemetry.
- * Original: w42 (mapToIndexingTool) in chunks.131.mjs
- */
-function mapToIndexingTool(serverName: string): string | null {
-  const name = serverName.toLowerCase();
-  if (name === 'ide') return 'ide';
-  if (name.includes('index')) return 'code_indexing';
-  return null;
-}
-
-/**
- * Track telemetry event.
- */
-function trackEvent(eventName: string, data: Record<string, unknown>): void {
-  try {
-    telemetry.logEvent(eventName, data as any);
-  } catch {
-    // ignore
-  }
-  if (process.env.DEBUG_TELEMETRY) {
-    console.log(`[Telemetry] ${eventName}:`, data);
-  }
-}
-
-// ============================================
-// Result Processing
-// ============================================
-
-/**
- * Check if content exceeds output limit.
- * Original: ixA (exceedsOutputLimit) in chunks.131.mjs
- */
-async function exceedsOutputLimit(content: unknown): Promise<boolean> {
-  if (!content) return false;
-
-  const str = typeof content === 'string' ? content : JSON.stringify(content);
-  // Default limit is around 100K characters
-  return str.length > 100000;
-}
-
-/**
- * Check if content contains images.
- * Original: sB7 (containsImages) in chunks.131.mjs
- */
-function containsImages(content: unknown): boolean {
-  if (!content) return false;
-  if (Array.isArray(content)) {
-    return content.some(
-      (item) => item && typeof item === 'object' && 'type' in item && item.type === 'image'
-    );
-  }
-  return false;
-}
-
-/**
- * Save large content to file.
- * Original: hX0 (saveToLargeOutputFile) in chunks.131.mjs
- */
-async function saveToLargeOutputFile(content: unknown): Promise<string> {
-  const timestamp = Date.now();
-  const fileName = `mcp-large-output-${timestamp}`;
-  const contentString = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
-  const saveResult = await saveContentToFile(contentString, fileName);
-  if (isSaveError(saveResult)) {
-    return `Error: result (${contentString.length.toLocaleString()} characters) exceeds maximum allowed tokens. Failed to save output to file: ${saveResult.error}. If this MCP server provides pagination or filtering tools, use them to retrieve specific portions of the data.`;
-  }
-  return formatFileReference(saveResult.filepath, saveResult.originalSize, '');
-}
-
-/**
- * Save content to file with name.
- * Original: Z4A (saveContentToFile) in chunks.131.mjs
- */
-async function saveContentToFile(
-  content: string,
-  fileName: string
-): Promise<{ filepath: string; originalSize: number } | { error: string }> {
-  try {
-    const baseDir = path.join(os.tmpdir(), 'claude-code-mcp');
-    await fs.mkdir(baseDir, { recursive: true });
-    const filepath = path.join(baseDir, `${fileName}.txt`);
-    await fs.writeFile(filepath, content, 'utf8');
-    return { filepath, originalSize: content.length };
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-/**
- * Check if save result is an error.
- * Original: Y4A (isSaveError) in chunks.131.mjs
- */
-function isSaveError(
-  result: { filepath: string; originalSize: number } | { error: string }
-): result is { error: string } {
-  return 'error' in result;
-}
+const toolResultSchema = z.any();
 
 /**
  * Format schema hint.
- * Original: QZ1 (formatSchemaHint) in chunks.131.mjs
+ * Original: QZ1 in chunks.89.mjs:2359
  */
-function formatSchemaHint(type: string, schema?: unknown): string {
-  if (!schema) return '';
-  return `Schema: ${JSON.stringify(schema)}`;
+function formatSchemaHint(type: string, schema?: any): string {
+  switch (type) {
+    case "toolResult": return "Plain text";
+    case "structuredContent": return schema ? `JSON with schema: ${schema}` : "JSON";
+    case "contentArray": return schema ? `JSON array with schema: ${schema}` : "JSON array";
+    default: return "";
+  }
 }
 
 /**
- * Format file reference.
- * Original: BZ1 (formatFileReference) in chunks.131.mjs
+ * Format file reference for large output.
+ * Original: BZ1 in chunks.89.mjs:2370
  */
-function formatFileReference(
-  filepath: string,
-  originalSize: number,
-  schemaHint: string
-): string {
-  return `Result saved to: ${filepath} (${originalSize.toLocaleString()} characters)${schemaHint ? `\n${schemaHint}` : ''}`;
+function formatFileReference(filepath: string, originalSize: number, format: string): string {
+  const GREP_TOOL = "Grep"; // DI in chunks.58.mjs:3114
+  const BASH_LIMIT = 400000; // U42 in chunks.89.mjs:2392
+  
+  return `Error: result (${originalSize.toLocaleString()} characters) exceeds maximum allowed tokens. Output has been saved to ${filepath}.
+Format: ${format}
+Use offset and limit parameters to read specific portions of the file, the ${GREP_TOOL} tool to search for specific content, and jq to make structured queries.
+REQUIREMENTS FOR SUMMARIZATION/ANALYSIS/REVIEW:
+- You MUST read the content from the file at ${filepath} in sequential chunks until 100% of the content has been read.
+- If you receive truncation warnings when reading the file ("[N lines truncated]"), reduce the chunk size until you have read 100% of the content without truncation ***DO NOT PROCEED UNTIL YOU HAVE DONE THIS***. Bash output is limited to ${BASH_LIMIT.toLocaleString()} chars.
+- Before producing ANY summary or analysis, you MUST explicitly describe what portion of the content you have read. ***If you did not read the entire content, you MUST explicitly state this.***`;
 }
 
 /**
  * Summarize schema for large content.
- * Original: TF1 (summarizeSchema) in chunks.131.mjs
+ * Original: TF1 in chunks.131.mjs:1305
  */
-function summarizeSchema(content: unknown): unknown {
-  if (!content) return undefined;
-  if (Array.isArray(content)) {
-    if (content.length === 0) return undefined;
-    return { type: 'array', itemCount: content.length };
+function summarizeSchema(A: any, Q = 2): any {
+  if (A === null) return "null";
+  if (Array.isArray(A)) {
+    if (A.length === 0) return "[]";
+    return `[${summarizeSchema(A[0], Q - 1)}]`;
   }
-  if (typeof content === 'object') {
-    return { type: 'object', keys: Object.keys(content as object) };
+  if (typeof A === "object") {
+    if (Q <= 0) return "{...}";
+    let G = Object.entries(A).slice(0, 10).map(([Y, J]) => `${Y}: ${summarizeSchema(J, Q - 1)}`),
+      Z = Object.keys(A).length > 10 ? ", ..." : "";
+    return `{${G.join(", ")}${Z}}`;
+  }
+  return typeof A;
+}
+
+/**
+ * Get MCP tool timeout.
+ * Original: U3A in chunks.148.mjs:3508
+ */
+export function getMCPToolTimeout(): number {
+  return parseInt(process.env.MCP_TOOL_TIMEOUT || "", 10) || 1e8;
+}
+
+/**
+ * Check if keep-alive is enabled.
+ * Original: E42 in chunks.89.mjs:2214
+ */
+function isKeepAliveEnabled(): boolean {
+  return (globalThis as any).tG1 !== null;
+}
+
+/**
+ * Send keep-alive notification.
+ * Original: H42 in chunks.89.mjs:2210
+ */
+function sendKeepAlive(): void {
+  const tG1 = (globalThis as any).tG1;
+  if (tG1) tG1();
+}
+
+/**
+ * Map server name to indexing tool name for telemetry.
+ * Original: w42 in chunks.89.mjs:2556
+ */
+function mapToIndexingTool(serverName: string): string | undefined {
+  const patterns = [
+    { pattern: /^sourcegraph$/i, tool: "sourcegraph" },
+    { pattern: /^cody$/i, tool: "cody" },
+    { pattern: /^openctx$/i, tool: "openctx" },
+    { pattern: /^aider$/i, tool: "aider" },
+    { pattern: /^continue$/i, tool: "continue" },
+    { pattern: /^github[-_]?copilot$/i, tool: "github-copilot" },
+    { pattern: /^cursor$/i, tool: "cursor" },
+    { pattern: /^codeium$/i, tool: "codeium" },
+    { pattern: /^tabnine$/i, tool: "tabnine" },
+    { pattern: /^augment$/i, tool: "augment" },
+    { pattern: /^windsurf$/i, tool: "windsurf" },
+    { pattern: /^aide$/i, tool: "aide" },
+    { pattern: /^pieces$/i, tool: "pieces" },
+    { pattern: /^qodo$/i, tool: "qodo" },
+    { pattern: /^amazon[-_]?q$/i, tool: "amazon-q" },
+    { pattern: /^gemini$/i, tool: "gemini" }
+  ];
+  for (const { pattern, tool } of patterns) {
+    if (pattern.test(serverName)) return tool;
   }
   return undefined;
 }
 
 /**
- * Normalize tool response to standard format.
- * Original: sq0 (normalizeToolResponse) in chunks.131.mjs:1320-1342
+ * Max tokens for MCP output.
+ * Original: eG1 in chunks.89.mjs:2241
  */
-async function normalizeToolResponse(
-  response: McpToolResult,
-  toolName: string,
-  serverName: string
-): Promise<{
-  content: unknown;
-  type: string;
-  schema?: unknown;
-}> {
-  if (response && typeof response === 'object') {
-    // Format 1: Simple toolResult string
-    if ('toolResult' in response) {
-      return {
-        content: String(response.toolResult),
-        type: 'toolResult',
-      };
-    }
+function getMaxMcpOutputTokens(): number {
+  return parseInt(process.env.MAX_MCP_OUTPUT_TOKENS || "25000", 10);
+}
 
-    // Format 2: Structured content (JSON object)
-    if ('structuredContent' in response && response.structuredContent !== undefined) {
+/**
+ * Max chars for MCP output before truncation.
+ * Original: B85 in chunks.89.mjs:2263
+ */
+function getMaxChars(): number {
+  return getMaxMcpOutputTokens() * 4;
+}
+
+/**
+ * Truncation threshold factor.
+ * Original: Q85 in chunks.89.mjs:2349
+ */
+const TRUNCATION_THRESHOLD_FACTOR = 0.5;
+
+/**
+ * Count characters in content.
+ * Original: fX0 in chunks.89.mjs:2253
+ */
+function getCharCount(content: any): number {
+  if (typeof content === "string") return content.length;
+  return JSON.stringify(content).length;
+}
+
+/**
+ * Check if output exceeds character limit.
+ * Original: ixA in chunks.89.mjs:2313
+ */
+async function exceedsOutputLimit(content: any): Promise<boolean> {
+  if (!content) return false;
+  const maxTokens = getMaxMcpOutputTokens();
+  if (getCharCount(content) <= maxTokens * TRUNCATION_THRESHOLD_FACTOR) return false;
+  
+  try {
+    const messages = typeof content === "string" 
+      ? [{ role: "user", content }] 
+      : [{ role: "user", content }];
+    const tokens = await countTokens(messages as any, []);
+    return !!(tokens && tokens > maxTokens);
+  } catch (err) {
+    logMcpError("execution", err);
+    return false;
+  }
+}
+
+/**
+ * Get truncation footer.
+ * Original: G85 in chunks.89.mjs:2267
+ */
+function getTruncationFooter(): string {
+  return `\n\n[OUTPUT TRUNCATED - exceeded ${getMaxMcpOutputTokens()} token limit]\n\nThe tool output was truncated. If this MCP server provides pagination or filtering tools, use them to retrieve specific portions of the data. If pagination is not available, inform the user that you are working with truncated output and results may be incomplete.`;
+}
+
+/**
+ * Truncate string to char limit.
+ * Original: Z85 in chunks.89.mjs:2275
+ */
+function truncateString(str: string, limit: number): string {
+  if (str.length <= limit) return str;
+  return str.slice(0, limit);
+}
+
+/**
+ * Truncate content array to char limit.
+ * Original: Y85 in chunks.89.mjs:2280
+ */
+async function truncateContentArray(content: any[], limit: number): Promise<any[]> {
+  let truncated: any[] = [];
+  let currentChars = 0;
+  
+  for (const item of content) {
+    const remainingLimit = limit - currentChars;
+    if (remainingLimit <= 0) break;
+    
+    if (item.type === "text") {
+      if (item.text.length <= remainingLimit) {
+        truncated.push(item);
+        currentChars += item.text.length;
+      } else {
+        truncated.push({
+          type: "text",
+          text: item.text.slice(0, remainingLimit)
+        });
+        break;
+      }
+    } else if (item.type === "image") {
+      const IMAGE_CHARS = 1600 * 4; // z42 * 4 in chunks.89.mjs:2296
+      if (currentChars + IMAGE_CHARS <= limit) {
+        truncated.push(item);
+        currentChars += IMAGE_CHARS;
+      } else {
+        const imageLimit = Math.floor(remainingLimit * 0.75);
+        if (imageLimit > 0) {
+          try {
+            // OeB would resize image, here we just skip if too large for simplicity or implement resize
+            // For now, let's just skip if it doesn't fit comfortably
+          } catch {}
+        }
+      }
+    } else {
+      truncated.push(item);
+    }
+  }
+  return truncated;
+}
+
+/**
+ * Truncate output if it exceeds token limit.
+ * Original: J85 in chunks.89.mjs:2330
+ */
+async function truncateOutput(content: any): Promise<any> {
+  if (!content) return content;
+  const limit = getMaxChars();
+  const footer = getTruncationFooter();
+  
+  if (typeof content === "string") {
+    return truncateString(content, limit) + footer;
+  } else {
+    const truncated = await truncateContentArray(content, limit);
+    truncated.push({
+      type: "text",
+      text: footer
+    });
+    return truncated;
+  }
+}
+
+/**
+ * Truncate output if necessary based on limit check.
+ * Original: hX0 in chunks.89.mjs:2344
+ */
+async function saveToLargeOutputFile(content: any): Promise<any> {
+  if (!await exceedsOutputLimit(content)) return content;
+  return await truncateOutput(content);
+}
+
+/**
+ * Check if content contains images.
+ * Original: sB7 in chunks.131.mjs:1344
+ */
+function containsImages(content: any): boolean {
+  if (!content || typeof content === "string") return false;
+  return content.some((item: any) => item.type === "image");
+}
+
+/**
+ * Save content to a temporary file.
+ * Original: Z4A in chunks.89.mjs:2412
+ */
+async function saveContentToFile(content: string, fileName: string): Promise<{ filepath: string; originalSize: number } | { error: string }> {
+  try {
+    const baseDir = path.join(os.tmpdir(), "claude-code", "tool-results");
+    await fs.mkdir(baseDir, { recursive: true });
+    const filepath = path.join(baseDir, `${fileName}.txt`);
+    await fs.writeFile(filepath, content, "utf-8");
+    return { filepath, originalSize: content.length };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { error: msg };
+  }
+}
+
+/**
+ * Check if save result is an error.
+ */
+function isSaveError(result: any): result is { error: string } {
+  return result && "error" in result;
+}
+
+/**
+ * Convert MCP content item to Claude format.
+ * Original: Er2 in chunks.131.mjs:1242-1303
+ */
+export async function convertMcpContent(contentItem: any, serverName: string): Promise<any[]> {
+  const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]); // nB7 in chunks.131.mjs:1561
+  
+  // Text content
+  if (contentItem.type === "text") {
+    return [{ type: "text", text: contentItem.text }];
+  }
+  
+  // Image content
+  if (contentItem.type === "image") {
+    if (!IMAGE_MIME_TYPES.has(contentItem.mimeType)) {
+      return [{ type: "text", text: `[Unsupported image type: ${contentItem.mimeType}]` }];
+    }
+    const buffer = Buffer.from(String(contentItem.data), "base64");
+    const processed = await processImage(buffer, undefined, contentItem.mimeType);
+    return [{
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: contentItem.mimeType,
+        data: processed.base64
+      }
+    }];
+  }
+  
+  // Resources
+  if (contentItem.type === "resource") {
+    const resource = contentItem.resource;
+    if (resource?.text) {
+      return [{ type: "text", text: `Resource: ${resource.uri}\n${resource.text}` }];
+    }
+    if (resource?.blob) {
+      const mimeType = resource.mimeType || "application/octet-stream";
+      if (IMAGE_MIME_TYPES.has(mimeType)) {
+        const buffer = Buffer.from(resource.blob, "base64");
+        const processed = await processImage(buffer, undefined, mimeType);
+        return [{
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: mimeType,
+            data: processed.base64
+          }
+        }];
+      }
+      return [{ type: "text", text: `[Binary resource: ${resource.uri} (${mimeType})]` }];
+    }
+  }
+  
+  // Resource link (URI reference)
+  if (contentItem.type === "resource_link") {
+    return [{
+      type: "text",
+      text: `Resource link: ${contentItem.uri}`
+    }];
+  }
+  
+  // Unknown type - pass through as text
+  return [{
+    type: "text",
+    text: JSON.stringify(contentItem)
+  }];
+}
+
+/**
+ * Normalize tool response to standard format.
+ * Original: sq0 in chunks.131.mjs:1320
+ */
+async function normalizeToolResponse(response: McpToolResult, toolName: string, serverName: string): Promise<{
+  content: any;
+  type: string;
+  schema?: any;
+}> {
+  if (response && typeof response === "object") {
+    if ("toolResult" in response) {
+      return { content: String(response.toolResult), type: "toolResult" };
+    }
+    if ("structuredContent" in response && response.structuredContent !== undefined) {
       return {
         content: JSON.stringify(response.structuredContent),
-        type: 'structuredContent',
-        schema: summarizeSchema(response.structuredContent),
+        type: "structuredContent",
+        schema: summarizeSchema(response.structuredContent)
       };
     }
-
-    // Format 3: Content array (MCP standard format)
-    if ('content' in response && Array.isArray(response.content)) {
-      const { convertMcpContent } = await import('./discovery.js');
-      const convertedContent = (
-        await Promise.all(
-          response.content.map((item) => convertMcpContent(item as McpContent, serverName))
-        )
-      ).flat();
+    if ("content" in response && Array.isArray(response.content)) {
+      const converted = (await Promise.all(response.content.map(item => convertMcpContent(item, serverName)))).flat();
       return {
-        content: convertedContent,
-        type: 'contentArray',
-        schema: summarizeSchema(convertedContent),
+        content: converted,
+        type: "contentArray",
+        schema: summarizeSchema(converted)
       };
     }
   }
-
-  // Unknown format - throw error
-  const errorMsg = `Unexpected response format from tool ${toolName}`;
-  console.error(`[MCP] ${serverName}: ${errorMsg}`);
-  throw new Error(errorMsg);
+  const msg = `Unexpected response format from tool ${toolName}`;
+  logMcpError(serverName, msg);
+  throw Error(msg);
 }
 
 /**
  * Process tool result for size and format.
- * Original: tB7 (processToolResult) in chunks.131.mjs:1349-1367
+ * Original: tB7 in chunks.131.mjs:1349
  */
-async function processToolResult(
+export async function processToolResult(
   toolResponse: McpToolResult,
   toolName: string,
   serverName: string
 ): Promise<unknown> {
-  // Step 1: Normalize response format
-  const { content: processedContent, type: contentType, schema: schemaInfo } =
-    await normalizeToolResponse(toolResponse, toolName, serverName);
-
-  // Step 2: IDE clients get full content (no truncation)
-  if (serverName === 'ide') {
-    return processedContent;
+  const { content, type, schema } = await normalizeToolResponse(toolResponse, toolName, serverName);
+  
+  if (serverName === "ide") return content;
+  if (!await exceedsOutputLimit(content)) return content;
+  
+  // NOTE: Logic in chunks.131.mjs:1357 - if flag is FALSE (via iX), save to file
+  if (parseBooleanFalse(process.env.ENABLE_MCP_LARGE_OUTPUT_FILES)) {
+    return await saveToLargeOutputFile(content);
   }
-
-  // Step 3: Check if content exceeds size limit
-  if (!(await exceedsOutputLimit(processedContent))) {
-    return processedContent;
-  }
-
-  // Step 4: If large output files enabled, save to file directly
-  if (parseBoolean(process.env.ENABLE_MCP_LARGE_OUTPUT_FILES)) {
-    return await saveToLargeOutputFile(processedContent);
-  }
-
-  // Step 5: Empty content passes through
-  if (!processedContent) {
-    return processedContent;
-  }
-
-  // Step 6: Content with images goes to file storage
-  if (containsImages(processedContent)) {
-    return await saveToLargeOutputFile(processedContent);
-  }
-
-  // Step 7: Save large text content to file
+  
+  if (!content) return content;
+  if (containsImages(content)) return await saveToLargeOutputFile(content);
+  
   const timestamp = Date.now();
-  const fileName = `mcp-${normalizeToolName(serverName)}-${normalizeToolName(toolName)}-${timestamp}`;
-  const contentString =
-    typeof processedContent === 'string'
-      ? processedContent
-      : JSON.stringify(processedContent, null, 2);
-
+  const fileName = `mcp-${sanitizeServerName(serverName)}-${sanitizeServerName(toolName)}-${timestamp}`;
+  const contentString = typeof content === "string" ? content : JSON.stringify(content, null, 2);
   const saveResult = await saveContentToFile(contentString, fileName);
-
-  // Step 8: Handle save failure
+  
   if (isSaveError(saveResult)) {
     return `Error: result (${contentString.length.toLocaleString()} characters) exceeds maximum allowed tokens. Failed to save output to file: ${saveResult.error}. If this MCP server provides pagination or filtering tools, use them to retrieve specific portions of the data.`;
   }
-
-  // Step 9: Return file reference with metadata
-  const schemaHint = formatSchemaHint(contentType, schemaInfo);
+  
+  const schemaHint = formatSchemaHint(type, schema);
   return formatFileReference(saveResult.filepath, saveResult.originalSize, schemaHint);
 }
 
 // ============================================
 // Main Tool Execution
 // ============================================
-
-/**
- * Format elapsed time for logging.
- */
-function formatElapsedTime(ms: number): string {
-  if (ms < 1000) {
-    return `${ms}ms`;
-  }
-  if (ms < 60000) {
-    return `${Math.floor(ms / 1000)}s`;
-  }
-  return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
-}
 
 /**
  * Execute MCP tool with timeout and progress monitoring.
@@ -360,123 +468,78 @@ export async function executeMcpTool({
   signal?: AbortSignal;
 }): Promise<unknown> {
   const startTime = Date.now();
-  let progressInterval: ReturnType<typeof setInterval> | undefined;
-  let keepAliveInterval: ReturnType<typeof setInterval> | undefined;
+  let progressInterval: any;
+  let keepAliveInterval: any;
 
   try {
-    // Step 1: Log tool call initiation
-    console.debug(`[MCP] ${client.name}: Calling MCP tool: ${tool}`);
+    logMcpDebug(client.name, `Calling MCP tool: ${tool}`);
 
-    // Step 2: Setup 30-second progress monitoring
     progressInterval = setInterval(() => {
-      const elapsedMs = Date.now() - startTime;
-      const elapsedStr = formatElapsedTime(elapsedMs);
-      console.debug(`[MCP] ${client.name}: Tool '${tool}' still running (${elapsedStr} elapsed)`);
-    }, MCP_CONSTANTS.PROGRESS_INTERVAL);
+      const elapsed = Date.now() - startTime;
+      logMcpDebug(client.name, `Tool '${tool}' still running (${Math.floor(elapsed / 1000)}s elapsed)`);
+    }, 30000);
 
-    // Step 3: Setup keep-alive if enabled (50s interval)
     if (isKeepAliveEnabled()) {
       keepAliveInterval = setInterval(() => {
-        sendKeepAlive(client);
-      }, MCP_CONSTANTS.KEEPALIVE_INTERVAL);
+        sendKeepAlive();
+      }, 50000);
     }
 
-    // Step 4: Get timeout (default: 100M ms ~ 27 hours)
     const toolTimeout = getMCPToolTimeout();
-
-    // Step 5: Create timeout promise
-    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    let timeoutHandle: any;
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutHandle = setTimeout(() => {
-        reject(
-          new Error(
-            `MCP tool call '${tool}' timed out after ${Math.floor(toolTimeout / 1000)}s`
-          )
-        );
+        reject(Error(`MCP tool call '${tool}' timed out after ${Math.floor(toolTimeout / 1000)}s`));
       }, toolTimeout);
     });
 
-    // Step 6: Execute tool call with race against timeout
     const toolResult = await Promise.race([
       client.client.callTool(
-        {
-          name: tool,
-          arguments: args,
-          _meta: meta,
-        },
-        undefined,
-        {
-          signal,
-          timeout: toolTimeout,
-        }
+        { name: tool, arguments: args, _meta: meta },
+        toolResultSchema,
+        { signal, timeout: toolTimeout }
       ),
       timeoutPromise,
     ]).finally(() => {
       if (timeoutHandle) clearTimeout(timeoutHandle);
     });
 
-    // Step 7: Check for error response
-    if ('isError' in toolResult && toolResult.isError) {
-      let errorMessage = 'Unknown error';
-
-      // Extract error from content or error property
-      if ('content' in toolResult && Array.isArray(toolResult.content) && toolResult.content.length > 0) {
-        const firstContent = toolResult.content[0] as { text?: string };
-        if (firstContent && typeof firstContent === 'object' && 'text' in firstContent) {
-          errorMessage = firstContent.text || errorMessage;
-        }
-      } else if ('error' in toolResult) {
-        errorMessage = String(toolResult.error);
+    if ("isError" in toolResult && toolResult.isError) {
+      let msg = "Unknown error";
+      if ("content" in toolResult && Array.isArray(toolResult.content) && toolResult.content.length > 0) {
+        const first = toolResult.content[0];
+        if (first && typeof first === "object" && "text" in first) msg = first.text;
+      } else if ("error" in toolResult) {
+        msg = String(toolResult.error);
       }
-
-      console.error(`[MCP] ${client.name}: ${errorMessage}`);
-      throw new Error(errorMessage);
+      logMcpError(client.name, msg);
+      throw Error(msg);
     }
 
-    // Step 8: Format duration for logging
-    const totalTime = Date.now() - startTime;
-    const durationStr = formatElapsedTime(totalTime);
-    console.debug(`[MCP] ${client.name}: Tool '${tool}' completed successfully in ${durationStr}`);
+    const elapsed = Date.now() - startTime;
+    const durationStr = elapsed < 1000 ? `${elapsed}ms` : elapsed < 60000 ? `${Math.floor(elapsed / 1000)}s` : `${Math.floor(elapsed / 60000)}m ${Math.floor((elapsed % 60000) / 1000)}s`;
+    logMcpDebug(client.name, `Tool '${tool}' completed successfully in ${durationStr}`);
 
-    // Step 9: Emit telemetry if applicable
     const indexingTool = mapToIndexingTool(client.name);
     if (indexingTool) {
-      trackEvent('tengu_code_indexing_tool_used', {
+      trackEvent("tengu_code_indexing_tool_used", {
         tool: indexingTool,
-        source: 'mcp',
+        source: "mcp",
         success: true,
       });
     }
 
-    // Step 10: Process and return result
     return await processToolResult(toolResult as McpToolResult, tool, client.name);
-  } catch (error) {
-    // Clean up intervals
+  } catch (err) {
     if (progressInterval !== undefined) clearInterval(progressInterval);
     if (keepAliveInterval !== undefined) clearInterval(keepAliveInterval);
-
-    const totalTime = Date.now() - startTime;
-
-    // Log errors (except AbortError which is expected during cancellation)
-    if (error instanceof Error && error.name !== 'AbortError') {
-      console.debug(
-        `[MCP] ${client.name}: Tool '${tool}' failed after ${Math.floor(totalTime / 1000)}s: ${error.message}`
-      );
+    const elapsed = Date.now() - startTime;
+    if (err instanceof Error && err.name !== "AbortError") {
+      logMcpDebug(client.name, `Tool '${tool}' failed after ${Math.floor(elapsed / 1000)}s: ${err.message}`);
     }
-
-    // Re-throw unless it was an abort
-    if (!(error instanceof Error) || error.name !== 'AbortError') {
-      throw error;
-    }
+    if (!(err instanceof Error) || err.name !== "AbortError") throw err;
   } finally {
-    // Always clean up intervals
     if (progressInterval !== undefined) clearInterval(progressInterval);
     if (keepAliveInterval !== undefined) clearInterval(keepAliveInterval);
   }
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。
