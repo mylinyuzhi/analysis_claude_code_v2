@@ -140,16 +140,17 @@ export class SandboxViolationStore implements ISandboxViolationStore {
 /**
  * Unique tag for sandbox log correlation.
  * This is generated per-session to filter log stream.
+ * Original: VHB in chunks.53.mjs:2672
  */
 let uniqueSandboxTag: string | undefined;
 
 /**
  * Get or generate unique sandbox tag.
- * Original: VHB in chunks.53.mjs
+ * Original: zHB initializer in chunks.53.mjs:2672
  */
 export function getUniqueSandboxTag(): string {
   if (!uniqueSandboxTag) {
-    uniqueSandboxTag = `CLAUDE_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    uniqueSandboxTag = `_${Math.random().toString(36).slice(2, 11)}_SBX`;
   }
   return uniqueSandboxTag;
 }

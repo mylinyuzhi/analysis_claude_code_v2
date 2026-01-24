@@ -5,8 +5,177 @@
  * Reconstructed from chunks.55.mjs:1509-1517
  */
 
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { memoize } from '@claudecode/shared';
+import {
+  BASH_TOOL_NAME,
+  EDIT_TOOL_NAME,
+  READ_TOOL_NAME,
+  WEBFETCH_TOOL_NAME,
+} from '@claudecode/shared';
 import type { SandboxSettings, SandboxConfig, NetworkConfig } from './types.js';
+import { SANDBOX_CONSTANTS } from './types.js';
+import { getPlatform } from './dependencies.js';
+
+// ============================================
+// Internal Helpers
+// ============================================
+
+/**
+ * Resolve rule path based on source.
+ * Original: cr1 in chunks.55.mjs:1250-1257
+ */
+function resolveRulePath(ruleContent: string, sourceRoot?: string): string {
+  if (ruleContent.startsWith('//')) {
+    return ruleContent.slice(1);
+  }
+  if (ruleContent.startsWith('/') && !ruleContent.startsWith('//')) {
+    if (sourceRoot) {
+      return path.join(sourceRoot, ruleContent.slice(1));
+    }
+  }
+  return ruleContent;
+}
+
+/**
+ * Parse a permission rule string into tool name and content.
+ * Original: JRA in source
+ */
+function parsePermissionRule(rule: string): { toolName: string; ruleContent?: string } {
+  const colonIndex = rule.indexOf(':');
+  if (colonIndex === -1) {
+    return { toolName: rule };
+  }
+  return {
+    toolName: rule.slice(0, colonIndex),
+    ruleContent: rule.slice(colonIndex + 1),
+  };
+}
+
+/**
+ * Parse settings to sandbox configuration.
+ * Original: lr1 in chunks.55.mjs:1259-1338
+ *
+ * @param settings - User/policy settings object
+ * @param sourceRoots - Map of setting sources to their root directories
+ * @returns Fully resolved SandboxConfig
+ */
+export function parseSettingsToConfig(
+  settings: any,
+  sourceRoots: Record<string, string> = {}
+): SandboxConfig {
+  const permissions = settings.permissions || {};
+  const allowedDomains: string[] = [];
+  const deniedDomains: string[] = [];
+
+  // 1. Collect domains from sandbox config
+  if (settings.sandbox?.network?.allowedDomains) {
+    allowedDomains.push(...settings.sandbox.network.allowedDomains);
+  }
+
+  // 2. Collect domains from general permission rules
+  for (const rule of permissions.allow || []) {
+    const { toolName, ruleContent } = parsePermissionRule(rule);
+    if (toolName === WEBFETCH_TOOL_NAME && ruleContent?.startsWith('domain:')) {
+      allowedDomains.push(ruleContent.substring(7));
+    }
+  }
+
+  for (const rule of permissions.deny || []) {
+    const { toolName, ruleContent } = parsePermissionRule(rule);
+    if (toolName === WEBFETCH_TOOL_NAME && ruleContent?.startsWith('domain:')) {
+      deniedDomains.push(ruleContent.substring(7));
+    }
+  }
+
+  // 3. Filesystem restrictions
+  const allowWrite: string[] = ['.'];
+  const denyWrite: string[] = [];
+  const denyRead: string[] = [];
+
+  const cwd = process.cwd();
+
+  // Add standard protected files
+  denyWrite.push(
+    path.join(cwd, '.claude', 'settings.json'),
+    path.join(cwd, '.claude', 'settings.local.json')
+  );
+
+  // Check git directory for potential extra write access (submodules)
+  const gitPath = path.join(cwd, '.git');
+  try {
+    const stat = fs.statSync(gitPath);
+    if (stat.isFile()) {
+      const content = fs.readFileSync(gitPath, 'utf8');
+      const match = content.match(/^gitdir:\s*(.+)$/m);
+      if (match?.[1]) {
+        const gitDir = match[1].trim();
+        const gitIndex = gitDir.indexOf('.git');
+        if (gitIndex > 0) {
+          const root = gitDir.substring(0, gitIndex - 1);
+          if (root !== cwd) {
+            allowWrite.push(root);
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore git errors
+  }
+
+  // Parse tool-specific path permissions
+  // Note: In source, this iterates over setting sources
+  for (const [source, root] of Object.entries(sourceRoots)) {
+    const sourceSettings = settings[source] || {};
+    if (!sourceSettings.permissions) continue;
+
+    for (const rule of sourceSettings.permissions.allow || []) {
+      const { toolName, ruleContent } = parsePermissionRule(rule);
+      if (toolName === EDIT_TOOL_NAME && ruleContent) {
+        allowWrite.push(resolveRulePath(ruleContent, root));
+      }
+    }
+
+    for (const rule of sourceSettings.permissions.deny || []) {
+      const { toolName, ruleContent } = parsePermissionRule(rule);
+      if (toolName === EDIT_TOOL_NAME && ruleContent) {
+        denyWrite.push(resolveRulePath(ruleContent, root));
+      }
+      if (toolName === READ_TOOL_NAME && ruleContent) {
+        denyRead.push(resolveRulePath(ruleContent, root));
+      }
+    }
+  }
+
+  // 4. Ripgrep config
+  const ripgrep = settings.sandbox?.ripgrep || {
+    command: 'rg',
+    args: [], // GGA would return default args if any
+  };
+
+  return {
+    network: {
+      allowedDomains: [...new Set(allowedDomains)],
+      deniedDomains: [...new Set(deniedDomains)],
+      allowUnixSockets: settings.sandbox?.network?.allowUnixSockets,
+      allowAllUnixSockets: settings.sandbox?.network?.allowAllUnixSockets,
+      allowLocalBinding: settings.sandbox?.network?.allowLocalBinding,
+      httpProxyPort: settings.sandbox?.network?.httpProxyPort,
+      socksProxyPort: settings.sandbox?.network?.socksProxyPort,
+    },
+    filesystem: {
+      denyRead: [...new Set(denyRead)],
+      allowWrite: [...new Set(allowWrite)],
+      denyWrite: [...new Set(denyWrite)],
+    },
+    ignoreViolations: settings.sandbox?.ignoreViolations,
+    enableWeakerNestedSandbox: settings.sandbox?.enableWeakerNestedSandbox,
+    ripgrep,
+    mandatoryDenySearchDepth: settings.sandbox?.mandatoryDenySearchDepth ?? 3,
+  };
+}
 
 // ============================================
 // Settings State

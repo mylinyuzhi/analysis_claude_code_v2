@@ -98,6 +98,268 @@ let cleanupOnExitRegistered = false;
 const domainDecisionCache = new Map<string, boolean>();
 
 // ============================================
+// SOCKS5 Server Implementation
+// Original: cFB in chunks.53.mjs:1589-1803
+// ============================================
+
+enum SocksCommand {
+  CONNECT = 0x01,
+  BIND = 0x02,
+  UDP_ASSOCIATE = 0x03,
+}
+
+enum SocksAddressType {
+  IPv4 = 0x01,
+  DOMAIN = 0x03,
+  IPv6 = 0x04,
+}
+
+enum SocksReplyStatus {
+  REQUEST_GRANTED = 0x00,
+  GENERAL_FAILURE = 0x01,
+  CONNECTION_NOT_ALLOWED = 0x02,
+  NETWORK_UNREACHABLE = 0x03,
+  HOST_UNREACHABLE = 0x04,
+  CONNECTION_REFUSED = 0x05,
+  TTL_EXPIRED = 0x06,
+  COMMAND_NOT_SUPPORTED = 0x07,
+  ADDRESS_TYPE_NOT_SUPPORTED = 0x08,
+}
+
+type SocksRulesetValidator = (
+  session: SocksSession,
+  accept: () => void,
+  deny: () => void
+) => Promise<boolean | void>;
+
+class SocksSession {
+  public socket: net.Socket;
+  public server: Socks5Server;
+  public destAddress?: string;
+  public destPort?: number;
+  public command?: string;
+
+  constructor(server: Socks5Server, socket: net.Socket) {
+    this.server = server;
+    this.socket = socket;
+    socket.on('error', () => {});
+    socket.pause();
+    this.handleGreeting();
+  }
+
+  private readBytes(n: number): Promise<Buffer> {
+    return new Promise((resolve) => {
+      let buffer = Buffer.allocUnsafe(n);
+      let offset = 0;
+      const onData = (chunk: Buffer) => {
+        const bytesToCopy = Math.min(chunk.length, n - offset);
+        chunk.copy(buffer, offset, 0, bytesToCopy);
+        offset += bytesToCopy;
+        if (offset < n) return;
+
+        this.socket.removeListener('data', onData);
+        const remaining = chunk.subarray(bytesToCopy);
+        if (remaining.length > 0) {
+          (this.socket as any).unshift(remaining);
+        }
+        this.socket.pause();
+        resolve(buffer);
+      };
+      this.socket.on('data', onData);
+      this.socket.resume();
+    });
+  }
+
+  private async handleGreeting(): Promise<void> {
+    const header = await this.readBytes(1);
+    if (header.readUInt8() !== 0x05) {
+      this.socket.destroy();
+      return;
+    }
+
+    const nMethodsHeader = await this.readBytes(1);
+    const nMethods = nMethodsHeader.readUInt8();
+    if (nMethods > 128 || nMethods === 0) {
+      this.socket.destroy();
+      return;
+    }
+
+    const methods = await this.readBytes(nMethods);
+    const selectedMethod = 0x00; // NO AUTHENTICATION REQUIRED
+    if (!methods.includes(selectedMethod)) {
+      this.socket.write(Buffer.from([0x05, 0xff]));
+      this.socket.destroy();
+      return;
+    }
+
+    this.socket.write(Buffer.from([0x05, selectedMethod]));
+    await this.handleConnectionRequest();
+  }
+
+  private async handleConnectionRequest(): Promise<void> {
+    await this.readBytes(1); // VER
+    const cmdByte = (await this.readBytes(1))[0]!;
+    const cmd = SocksCommand[cmdByte];
+    if (!cmd) {
+      this.socket.destroy();
+      return;
+    }
+    this.command = cmd.toLowerCase();
+
+    await this.readBytes(1); // RSV
+    const atyp = (await this.readBytes(1)).readUInt8();
+    let host = '';
+
+    switch (atyp) {
+      case SocksAddressType.IPv4:
+        host = (await this.readBytes(4)).join('.');
+        break;
+      case SocksAddressType.DOMAIN: {
+        const len = (await this.readBytes(1)).readUInt8();
+        host = (await this.readBytes(len)).toString();
+        break;
+      }
+      case SocksAddressType.IPv6: {
+        const bytes = await this.readBytes(16);
+        const parts: string[] = [];
+        for (let i = 0; i < 16; i += 2) {
+          parts.push(bytes.readUInt16BE(i).toString(16));
+        }
+        host = parts.join(':');
+        break;
+      }
+      default:
+        this.socket.destroy();
+        return;
+    }
+
+    const port = (await this.readBytes(2)).readUInt16BE();
+    if (this.command !== 'connect') {
+      this.socket.write(Buffer.from([0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+      this.socket.destroy();
+      return;
+    }
+
+    this.destAddress = host;
+    this.destPort = port;
+
+    let decisionMade = false;
+    const accept = () => {
+      if (decisionMade) return;
+      decisionMade = true;
+      this.establishConnection();
+    };
+    const deny = () => {
+      if (decisionMade) return;
+      decisionMade = true;
+      this.socket.write(Buffer.from([0x05, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+      this.socket.destroy();
+    };
+
+    if (!this.server.rulesetValidator) {
+      accept();
+      return;
+    }
+
+    const result = await this.server.rulesetValidator(this, accept, deny);
+    if (result === true) accept();
+    else if (result === false) deny();
+  }
+
+  private establishConnection(): void {
+    this.server.connectionHandler(this, (status: keyof typeof SocksReplyStatus) => {
+      const statusCode = SocksReplyStatus[status];
+      if (statusCode === undefined) throw new Error(`"${status}" is not a valid status.`);
+      this.socket.write(Buffer.from([0x05, statusCode, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+      if (status !== 'REQUEST_GRANTED') this.socket.destroy();
+    });
+    this.socket.resume();
+  }
+}
+
+class Socks5Server {
+  public server: net.Server;
+  public rulesetValidator?: SocksRulesetValidator;
+  public connectionHandler: (
+    session: SocksSession,
+    reply: (status: keyof typeof SocksReplyStatus) => void
+  ) => void;
+
+  constructor() {
+    this.connectionHandler = defaultSocksConnectionHandler;
+    this.server = net.createServer((socket) => {
+      socket.setNoDelay();
+      new SocksSession(this, socket);
+    });
+  }
+
+  public listen(port: number, host: string, callback?: () => void): this {
+    this.server.listen(port, host, callback);
+    return this;
+  }
+
+  public close(callback?: (err?: Error) => void): this {
+    this.server.close(callback);
+    return this;
+  }
+
+  public unref(): void {
+    this.server.unref();
+  }
+}
+
+function defaultSocksConnectionHandler(
+  session: SocksSession,
+  reply: (status: keyof typeof SocksReplyStatus) => void
+): void {
+  if (session.command !== 'connect' || !session.destAddress || session.destPort === undefined) {
+    reply('COMMAND_NOT_SUPPORTED');
+    return;
+  }
+  
+  const host = session.destAddress;
+  const port = session.destPort;
+
+  const upstream = net.createConnection({
+    host,
+    port,
+  });
+  upstream.setNoDelay();
+
+  let connected = false;
+  upstream.on('error', (err: any) => {
+    if (!connected) {
+      switch (err.code) {
+        case 'EINVAL':
+        case 'ENOENT':
+        case 'ENOTFOUND':
+        case 'ETIMEDOUT':
+        case 'EADDRNOTAVAIL':
+        case 'EHOSTUNREACH':
+          reply('HOST_UNREACHABLE');
+          break;
+        case 'ENETUNREACH':
+          reply('NETWORK_UNREACHABLE');
+          break;
+        case 'ECONNREFUSED':
+          reply('CONNECTION_REFUSED');
+          break;
+        default:
+          reply('GENERAL_FAILURE');
+      }
+    }
+  });
+
+  upstream.on('ready', () => {
+    connected = true;
+    reply('REQUEST_GRANTED');
+    session.socket.pipe(upstream).pipe(session.socket);
+  });
+
+  session.socket.on('close', () => upstream.destroy());
+}
+
+// ============================================
 // Initialization
 // ============================================
 
@@ -214,253 +476,169 @@ function refreshConfig(): void {
 }
 
 // ============================================
-// Placeholder Implementations
+// Network Infrastructure & Proxies
 // ============================================
 
 /**
- * Initialize HTTP proxy (placeholder).
- * Would start an HTTP proxy server for network filtering.
+ * Initialize HTTP proxy.
+ * Original: j58() in chunks.53.mjs:2754-2769
  */
 async function initializeHTTPProxy(
   permissionCallback: PermissionCallback
 ): Promise<number> {
-  if (httpProxyServer) {
-    const addr = httpProxyServer.address();
-    if (addr && typeof addr === 'object') return addr.port;
-  }
-
   httpProxyServer = http.createServer();
 
-  // Basic forward proxy for absolute-form HTTP requests.
-  httpProxyServer.on('request', async (req, res) => {
-    try {
-      const urlStr = req.url ?? '';
-      // Proxies usually receive absolute URLs; fall back to Host header.
-      const parsed = (() => {
-        try {
-          if (/^https?:\/\//i.test(urlStr)) return new URL(urlStr);
-        } catch {
-          // ignore
-        }
-        const host = String(req.headers.host ?? '');
-        return new URL(`http://${host}${urlStr.startsWith('/') ? urlStr : `/${urlStr}`}`);
-      })();
+  // HTTPS CONNECT tunneling
+  // Original: kFB(A).on('connect', ...) in chunks.53.mjs:1495-1543
+  httpProxyServer.on('connect', async (req, clientSocket, head) => {
+    clientSocket.on('error', () => {});
 
-      const hostname = parsed.hostname;
-      const port = Number(parsed.port || 80);
-      const allowed = await checkDomainAllowed(hostname, 'http', permissionCallback);
-      if (!allowed) {
-        res.writeHead(403, { 'content-type': 'text/plain' });
-        res.end('Blocked by sandbox network policy');
+    try {
+      const url = req.url || '';
+      const [host, portStr] = url.split(':');
+      const port = portStr ? parseInt(portStr, 10) : 443;
+
+      if (!host || !port) {
+        clientSocket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
         return;
       }
 
-      const proxyReq = http.request(
+      const allowed = await checkDomainAllowed(port, host, permissionCallback);
+      if (!allowed) {
+        clientSocket.end(
+          'HTTP/1.1 403 Forbidden\r\n' +
+          'Content-Type: text/plain\r\n' +
+          'X-Proxy-Error: blocked-by-allowlist\r\n\r\n' +
+          'Connection blocked by network allowlist'
+        );
+        return;
+      }
+
+      const serverSocket = net.createConnection(port, host, () => {
+        clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+        if (head && head.length > 0) serverSocket.write(head);
+        serverSocket.pipe(clientSocket);
+        clientSocket.pipe(serverSocket);
+      });
+
+      serverSocket.on('error', () => {
+        clientSocket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n');
+      });
+
+      clientSocket.on('end', () => serverSocket.end());
+      serverSocket.on('end', () => clientSocket.end());
+    } catch (err) {
+      clientSocket.end('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+    }
+  });
+
+  // Basic forward proxy for absolute-form HTTP requests.
+  // Original: kFB(A).on('request', ...) in chunks.53.mjs:1544-1584
+  httpProxyServer.on('request', async (req, res) => {
+    try {
+      const urlStr = req.url || '';
+      const parsed = new URL(urlStr);
+      const host = parsed.hostname;
+      const port = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === 'https:' ? 443 : 80);
+
+      const allowed = await checkDomainAllowed(port, host, permissionCallback);
+      if (!allowed) {
+        res.writeHead(403, {
+          'Content-Type': 'text/plain',
+          'X-Proxy-Error': 'blocked-by-allowlist'
+        });
+        res.end('Connection blocked by network allowlist');
+        return;
+      }
+
+      const proxyReq = (parsed.protocol === 'https:' ? require('https') : http).request(
         {
-          method: req.method,
-          host: hostname,
+          hostname: host,
           port,
           path: parsed.pathname + parsed.search,
+          method: req.method,
           headers: {
             ...req.headers,
-            host: req.headers.host,
+            host: parsed.host,
           },
         },
-        (proxyRes) => {
-          res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers as any);
+        (proxyRes: any) => {
+          res.writeHead(proxyRes.statusCode, proxyRes.headers);
           proxyRes.pipe(res);
         }
       );
 
-      proxyReq.on('error', (err) => {
-        res.writeHead(502, { 'content-type': 'text/plain' });
-        res.end(`Proxy error: ${err.message}`);
+      proxyReq.on('error', () => {
+        if (!res.headersSent) {
+          res.writeHead(502, { 'Content-Type': 'text/plain' });
+          res.end('Bad Gateway');
+        }
       });
 
       req.pipe(proxyReq);
     } catch (err) {
-      res.writeHead(500, { 'content-type': 'text/plain' });
-      res.end(`Proxy internal error: ${(err as Error).message}`);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Internal Server Error');
+      }
     }
-  });
-
-  // HTTPS CONNECT tunneling
-  httpProxyServer.on('connect', (req, clientSocket, head) => {
-    (async () => {
-      const target = req.url ?? '';
-      const [host, portStr] = target.split(':');
-      const port = Number(portStr || 443);
-
-      if (!host) {
-        clientSocket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
-        clientSocket.destroy();
-        return;
-      }
-
-      const allowed = await checkDomainAllowed(host, 'http', permissionCallback);
-      if (!allowed) {
-        clientSocket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
-        clientSocket.destroy();
-        return;
-      }
-
-      const serverSocket = net.connect(port, host, () => {
-        clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-        if (head && head.length > 0) serverSocket.write(head);
-        clientSocket.pipe(serverSocket);
-        serverSocket.pipe(clientSocket);
-      });
-
-      serverSocket.on('error', () => {
-        try {
-          clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n');
-        } catch {
-          // ignore
-        }
-        clientSocket.destroy();
-      });
-    })().catch(() => {
-      try {
-        clientSocket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
-      } catch {
-        // ignore
-      }
-      clientSocket.destroy();
-    });
   });
 
   await new Promise<void>((resolve, reject) => {
     httpProxyServer!.once('error', reject);
-    httpProxyServer!.listen(0, '127.0.0.1', () => resolve());
+    httpProxyServer!.listen(0, '127.0.0.1', () => {
+      const addr = httpProxyServer!.address();
+      if (addr && typeof addr === 'object') {
+        httpProxyServer!.unref();
+        resolve();
+      } else {
+        reject(new Error('Failed to get proxy server address'));
+      }
+    });
   });
 
-  const addr = httpProxyServer.address();
-  if (!addr || typeof addr !== 'object') {
-    throw new Error('Failed to bind HTTP proxy server');
-  }
+  const addr = httpProxyServer!.address() as net.AddressInfo;
   return addr.port;
 }
 
 /**
- * Initialize SOCKS proxy (placeholder).
- * Would start a SOCKS proxy server for network filtering.
+ * Initialize SOCKS proxy.
+ * Original: T58() in chunks.53.mjs:2771-2783
  */
 async function initializeSOCKSProxy(
   permissionCallback: PermissionCallback
 ): Promise<number> {
-  if (socksProxyServer) {
-    const addr = socksProxyServer.address();
-    if (addr && typeof addr === 'object') return addr.port;
-  }
+  const server = new Socks5Server();
+  socksProxyServer = server.server;
 
-  socksProxyServer = net.createServer((socket) => {
-    let stage: 'greeting' | 'request' = 'greeting';
-    let buffered = Buffer.alloc(0);
+  server.rulesetValidator = async (session) => {
+    try {
+      const { destAddress, destPort } = session;
+      if (!destAddress || destPort === undefined) return false;
 
-    const onData = (chunk: Buffer) => {
-      buffered = Buffer.concat([buffered, chunk]);
+      const allowed = await checkDomainAllowed(destPort, destAddress, permissionCallback);
+      return allowed;
+    } catch (err) {
+      return false;
+    }
+  };
 
-      // Greeting: VER, NMETHODS, METHODS...
-      if (stage === 'greeting') {
-        if (buffered.length < 2) return;
-        const ver = buffered[0] ?? 0;
-        const nmethods = buffered[1] ?? 0;
-        if (buffered.length < 2 + nmethods) return;
-        if (ver !== 0x05) {
-          socket.destroy();
-          return;
-        }
-        // NO AUTH
-        socket.write(Buffer.from([0x05, 0x00]));
-        buffered = buffered.slice(2 + nmethods);
-        stage = 'request';
+  return new Promise((resolve, reject) => {
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.server.address();
+      if (addr && typeof addr === 'object' && 'port' in addr) {
+        server.unref();
+        resolve(addr.port);
+      } else {
+        reject(new Error('Failed to get SOCKS proxy server port'));
       }
-
-      // Request: VER, CMD, RSV, ATYP, DST.ADDR, DST.PORT
-      if (stage === 'request') {
-        if (buffered.length < 4) return;
-        const ver = buffered[0];
-        const cmd = buffered[1];
-        const atyp = buffered[3];
-        if (ver !== 0x05 || cmd !== 0x01) {
-          // Only CONNECT supported
-          socket.end(Buffer.from([0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
-          return;
-        }
-
-        let offset = 4;
-        let host = '';
-        if (atyp === 0x01) {
-          // IPv4
-          if (buffered.length < offset + 4 + 2) return;
-          host = `${buffered[offset]}.${buffered[offset + 1]}.${buffered[offset + 2]}.${buffered[offset + 3]}`;
-          offset += 4;
-        } else if (atyp === 0x03) {
-          // Domain
-          if (buffered.length < offset + 1) return;
-          const lenByte = buffered[offset];
-          if (lenByte === undefined) return;
-          const len = lenByte;
-          if (buffered.length < offset + 1 + len + 2) return;
-          host = buffered.slice(offset + 1, offset + 1 + len).toString('utf8');
-          offset += 1 + len;
-        } else if (atyp === 0x04) {
-          // IPv6
-          if (buffered.length < offset + 16 + 2) return;
-          const addrBytes = buffered.slice(offset, offset + 16);
-          host = addrBytes.toString('hex').match(/.{1,4}/g)?.join(':') ?? '';
-          offset += 16;
-        } else {
-          socket.end(Buffer.from([0x05, 0x08, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
-          return;
-        }
-
-        const port = buffered.readUInt16BE(offset);
-        buffered = Buffer.alloc(0);
-
-        (async () => {
-          const allowed = await checkDomainAllowed(host, 'socks', permissionCallback);
-          if (!allowed) {
-            socket.end(Buffer.from([0x05, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
-            return;
-          }
-
-          const upstream = net.connect(port, host, () => {
-            // Success reply with dummy bind address
-            socket.write(Buffer.from([0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
-            socket.pipe(upstream);
-            upstream.pipe(socket);
-          });
-
-          upstream.on('error', () => {
-            socket.end(Buffer.from([0x05, 0x04, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
-          });
-        })().catch(() => {
-          socket.end(Buffer.from([0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
-        });
-
-        socket.off('data', onData);
-      }
-    };
-
-    socket.on('data', onData);
+    });
   });
-
-  await new Promise<void>((resolve, reject) => {
-    socksProxyServer!.once('error', reject);
-    socksProxyServer!.listen(0, '127.0.0.1', () => resolve());
-  });
-
-  const addr = socksProxyServer.address();
-  if (!addr || typeof addr !== 'object') {
-    throw new Error('Failed to bind SOCKS proxy server');
-  }
-  return addr.port;
 }
 
 /**
- * Initialize Linux bridges (placeholder).
- * Would start socat processes to bridge Unix sockets.
+ * Initialize Linux bridges.
+ * Original: XHB() in chunks.53.mjs:2194-2265
  */
 async function initializeLinuxBridges(
   httpProxyPort: number,
@@ -482,7 +660,7 @@ async function initializeLinuxBridges(
     throw new Error('Failed to start HTTP bridge process');
   }
   httpBridgeProcess.on('error', (err) => {
-    console.error(`[Sandbox Linux] HTTP bridge process error: ${err}`);
+    // console.error(`[Sandbox Linux] HTTP bridge error: ${err}`);
   });
 
   const socksArgs = [
@@ -491,11 +669,7 @@ async function initializeLinuxBridges(
   ];
   const socksBridgeProcess = spawn('socat', socksArgs, { stdio: 'ignore' });
   if (!socksBridgeProcess.pid) {
-    try {
-      process.kill(httpBridgeProcess.pid!, 'SIGTERM');
-    } catch {
-      // ignore
-    }
+    if (httpBridgeProcess.pid) try { process.kill(httpBridgeProcess.pid, 'SIGTERM'); } catch {}
     throw new Error('Failed to start SOCKS bridge process');
   }
 
@@ -511,16 +685,8 @@ async function initializeLinuxBridges(
     }
     if (fs.existsSync(httpSocketPath) && fs.existsSync(socksSocketPath)) break;
     if (attempt === MAX_RETRIES - 1) {
-      try {
-        process.kill(httpBridgeProcess.pid!, 'SIGTERM');
-      } catch {
-        // ignore
-      }
-      try {
-        process.kill(socksBridgeProcess.pid!, 'SIGTERM');
-      } catch {
-        // ignore
-      }
+      if (httpBridgeProcess.pid) try { process.kill(httpBridgeProcess.pid, 'SIGTERM'); } catch {}
+      if (socksBridgeProcess.pid) try { process.kill(socksBridgeProcess.pid, 'SIGTERM'); } catch {}
       throw new Error(`Failed to create bridge sockets after ${MAX_RETRIES} attempts`);
     }
     await new Promise((r) => setTimeout(r, attempt * 100));
@@ -537,8 +703,123 @@ async function initializeLinuxBridges(
 }
 
 /**
- * Shutdown sandbox (placeholder).
- * Would stop proxy servers and bridges.
+ * Check if a domain matches a pattern (supports *.domain.com).
+ * Original: CHB() in chunks.53.mjs:2725-2731
+ */
+function matchesDomainPattern(domain: string, pattern: string): boolean {
+  const normalizedDomain = domain.toLowerCase();
+  const normalizedPattern = pattern.toLowerCase();
+
+  if (normalizedPattern.startsWith('*.')) {
+    const suffix = normalizedPattern.slice(2);
+    return normalizedDomain.endsWith('.' + suffix) || normalizedDomain === suffix;
+  }
+
+  return normalizedDomain === normalizedPattern;
+}
+
+/**
+ * Check if a domain is allowed by network policy.
+ * Original: NHB() in chunks.53.mjs:2733-2752
+ *
+ * @param port - Destination port
+ * @param host - Destination host
+ * @param permissionCallback - Callback for permission prompts
+ */
+async function checkDomainAllowed(
+  port: number,
+  host: string,
+  permissionCallback: PermissionCallback
+): Promise<boolean> {
+  const normalized = (host || '').trim().toLowerCase();
+  if (!normalized) return false;
+
+  const cacheKey = `${normalized}:${port}`;
+  const cached = domainDecisionCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const config = getSandboxConfig();
+  if (!config) return false;
+
+  // Deny list priority
+  for (const pattern of config.network.deniedDomains) {
+    if (matchesDomainPattern(normalized, pattern)) {
+      domainDecisionCache.set(cacheKey, false);
+      return false;
+    }
+  }
+
+  // Allow list
+  for (const pattern of config.network.allowedDomains) {
+    if (matchesDomainPattern(normalized, pattern)) {
+      domainDecisionCache.set(cacheKey, true);
+      return true;
+    }
+  }
+
+  // Permission callback (User prompt)
+  try {
+    const ok = await permissionCallback({ host: normalized, port });
+    domainDecisionCache.set(cacheKey, ok);
+    return ok;
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * Get environment variables for the sandbox.
+ * Original: M01() in chunks.53.mjs:2005-2016
+ */
+export function getSandboxEnvVars(httpPort?: number, socksPort?: number): string[] {
+  const env = ['SANDBOX_RUNTIME=1', 'TMPDIR=/tmp/claude'];
+  if (!httpPort && !socksPort) return env;
+
+  const noProxy = [
+    'localhost',
+    '127.0.0.1',
+    '::1',
+    '*.local',
+    '.local',
+    '169.254.0.0/16',
+    '10.0.0.0/8',
+    '172.16.0.0/12',
+    '192.168.0.0/16',
+  ].join(',');
+
+  env.push(`NO_PROXY=${noProxy}`, `no_proxy=${noProxy}`);
+
+  if (httpPort) {
+    const proxyUrl = `http://localhost:${httpPort}`;
+    env.push(`HTTP_PROXY=${proxyUrl}`, `HTTPS_PROXY=${proxyUrl}`, `http_proxy=${proxyUrl}`, `https_proxy=${proxyUrl}`);
+  }
+
+  if (socksPort) {
+    const socksUrl = `socks5h://localhost:${socksPort}`;
+    env.push(`ALL_PROXY=${socksUrl}`, `all_proxy=${socksUrl}`);
+
+    if (getPlatform() === 'macos') {
+      env.push(`GIT_SSH_COMMAND=ssh -o ProxyCommand='nc -X 5 -x localhost:${socksPort} %h %p'`);
+    }
+
+    env.push(`FTP_PROXY=${socksUrl}`, `ftp_proxy=${socksUrl}`, `RSYNC_PROXY=localhost:${socksPort}`);
+    
+    const dockerProxyUrl = `http://localhost:${httpPort || socksPort}`;
+    env.push(`DOCKER_HTTP_PROXY=${dockerProxyUrl}`, `DOCKER_HTTPS_PROXY=${dockerProxyUrl}`);
+
+    if (httpPort) {
+      env.push('CLOUDSDK_PROXY_TYPE=https', 'CLOUDSDK_PROXY_ADDRESS=localhost', `CLOUDSDK_PROXY_PORT=${httpPort}`);
+    }
+
+    env.push(`GRPC_PROXY=${socksUrl}`, `grpc_proxy=${socksUrl}`);
+  }
+
+  return env;
+}
+
+/**
+ * Shutdown sandbox.
+ * Original: qr1() in chunks.53.mjs
  */
 async function shutdown(): Promise<void> {
   if (violationMonitorCleanup) {
@@ -561,25 +842,17 @@ async function shutdown(): Promise<void> {
     const { httpBridgeProcess, socksBridgeProcess, httpSocketPath, socksSocketPath } =
       networkInfrastructure.linuxBridge;
 
-    const killIfPossible = (p: unknown) => {
-      const pid = (p as any)?.pid as number | undefined;
-      if (!pid) return;
-      try {
-        process.kill(pid, 'SIGTERM');
-      } catch {
-        // ignore
-      }
+    const killIfPossible = (p: any) => {
+      if (!p || !p.pid) return;
+      try { process.kill(p.pid, 'SIGTERM'); } catch {}
     };
+
     killIfPossible(httpBridgeProcess);
     killIfPossible(socksBridgeProcess);
 
     try {
-      if (httpSocketPath) fs.rmSync(httpSocketPath, { force: true });
-    } catch {
-      // ignore
-    }
-    try {
-      if (socksSocketPath) fs.rmSync(socksSocketPath, { force: true });
+      if (httpSocketPath && fs.existsSync(httpSocketPath)) fs.unlinkSync(httpSocketPath);
+      if (socksSocketPath && fs.existsSync(socksSocketPath)) fs.unlinkSync(socksSocketPath);
     } catch {
       // ignore
     }
@@ -639,8 +912,8 @@ async function wrapWithSandbox(options: SandboxWrapperOptions): Promise<string> 
 }
 
 /**
- * Wrap command with Linux sandbox (placeholder).
- * Would build bwrap command with proper restrictions.
+ * Wrap command with Linux sandbox.
+ * Original: IHB() in chunks.53.mjs:2339-2423
  */
 async function wrapWithLinuxSandbox(
   options: SandboxWrapperOptions
@@ -657,9 +930,9 @@ async function wrapWithLinuxSandbox(
     enableWeakerNestedSandbox,
     allowAllUnixSockets,
     binShell,
-    ripgrepConfig,
-    mandatoryDenySearchDepth,
-    allowGitConfig,
+    ripgrepConfig = { command: 'rg' },
+    mandatoryDenySearchDepth = 3,
+    allowGitConfig = false,
     abortSignal,
   } = options;
 
@@ -671,99 +944,344 @@ async function wrapWithLinuxSandbox(
   }
 
   const bwrapArgs: string[] = ['--new-session', '--die-with-parent'];
+  let seccompFilter: string | undefined;
 
-  // Network isolation
-  if (needsNetworkRestriction) {
-    bwrapArgs.push('--unshare-net');
-
-    if (httpSocketPath && socksSocketPath) {
-      if (!fs.existsSync(httpSocketPath)) {
-        throw new Error(`Linux HTTP bridge socket does not exist: ${httpSocketPath}`);
-      }
-      if (!fs.existsSync(socksSocketPath)) {
-        throw new Error(`Linux SOCKS bridge socket does not exist: ${socksSocketPath}`);
-      }
-
-      bwrapArgs.push('--bind', httpSocketPath, httpSocketPath);
-      bwrapArgs.push('--bind', socksSocketPath, socksSocketPath);
-
-      // Container-side proxy ports are fixed
-      for (const env of buildProxyEnvironmentVars(
-        SANDBOX_CONSTANTS.CONTAINER_HTTP_PROXY_PORT,
-        SANDBOX_CONSTANTS.CONTAINER_SOCKS_PROXY_PORT
-      )) {
-        const idx = env.indexOf('=');
-        bwrapArgs.push('--setenv', env.slice(0, idx), env.slice(idx + 1));
-      }
-
-      if (httpProxyPort !== undefined) {
-        bwrapArgs.push('--setenv', 'CLAUDE_CODE_HOST_HTTP_PROXY_PORT', String(httpProxyPort));
-      }
-      if (socksProxyPort !== undefined) {
-        bwrapArgs.push('--setenv', 'CLAUDE_CODE_HOST_SOCKS_PROXY_PORT', String(socksProxyPort));
+  try {
+    if (!allowAllUnixSockets) {
+      seccompFilter = getBestEffortSeccompFilter();
+      if (!seccompFilter) {
+        // console.warn('[Sandbox Linux] Seccomp filter not available...');
+      } else {
+        // In the original, there's logic to add to cleanup set if it's a temp file
+        // For now, we assume it's pre-generated or handled by the system.
       }
     }
-  }
 
-  // Filesystem restrictions
-  const fsArgs = await buildFilesystemRestrictions(
-    readConfig,
-    writeConfig,
-    ripgrepConfig,
-    mandatoryDenySearchDepth,
-    Boolean(allowGitConfig),
-    abortSignal
-  );
-  bwrapArgs.push(...fsArgs);
+    // Network isolation
+    if (needsNetworkRestriction) {
+      bwrapArgs.push('--unshare-net');
+      if (httpSocketPath && socksSocketPath) {
+        if (!fs.existsSync(httpSocketPath)) {
+          throw new Error(`Linux HTTP bridge socket does not exist: ${httpSocketPath}`);
+        }
+        if (!fs.existsSync(socksSocketPath)) {
+          throw new Error(`Linux SOCKS bridge socket does not exist: ${socksSocketPath}`);
+        }
 
-  // Namespaces and devices
-  bwrapArgs.push('--dev', '/dev');
-  bwrapArgs.push('--unshare-pid');
-  if (!enableWeakerNestedSandbox) {
-    bwrapArgs.push('--proc', '/proc');
-  }
+        bwrapArgs.push('--bind', httpSocketPath, httpSocketPath);
+        bwrapArgs.push('--bind', socksSocketPath, socksSocketPath);
 
-  const shellPath = resolveShellPath(binShell || 'bash');
+        // Container-side proxy ports are fixed (3128, 1080)
+        const envVars = getSandboxEnvVars(3128, 1080);
+        for (const env of envVars) {
+          const idx = env.indexOf('=');
+          bwrapArgs.push('--setenv', env.slice(0, idx), env.slice(idx + 1));
+        }
 
-  // Build inner command for network reverse-bridges and optional seccomp
-  const seccompFilter = !allowAllUnixSockets ? getBestEffortSeccompFilter() : undefined;
-  let finalInner: string;
+        if (httpProxyPort !== undefined) {
+          bwrapArgs.push('--setenv', 'CLAUDE_CODE_HOST_HTTP_PROXY_PORT', String(httpProxyPort));
+        }
+        if (socksProxyPort !== undefined) {
+          bwrapArgs.push('--setenv', 'CLAUDE_CODE_HOST_SOCKS_PROXY_PORT', String(socksProxyPort));
+        }
+      }
+    }
 
-  if (needsNetworkRestriction && httpSocketPath && socksSocketPath) {
-    finalInner = buildNetworkAndSeccompCommand(
-      httpSocketPath,
-      socksSocketPath,
-      command,
-      seccompFilter,
-      shellPath
+    // Filesystem restrictions
+    // Original: C58() in chunks.53.mjs:2284-2337
+    const fsArgs = await buildFilesystemRestrictions(
+      readConfig,
+      writeConfig,
+      ripgrepConfig,
+      mandatoryDenySearchDepth,
+      allowGitConfig,
+      abortSignal
     );
-  } else if (seccompFilter) {
-    const applySeccomp = findApplySeccompBinaryOrThrow();
-    finalInner = shellQuote([applySeccomp, seccompFilter, shellPath, '-c', command]);
-  } else {
-    finalInner = command;
+    bwrapArgs.push(...fsArgs);
+
+    // Devices and PID namespace
+    bwrapArgs.push('--dev', '/dev');
+    bwrapArgs.push('--unshare-pid');
+    if (!enableWeakerNestedSandbox) {
+      bwrapArgs.push('--proc', '/proc');
+    }
+
+    const shell = binShell || 'bash';
+    const shellPath = resolveShellPath(shell);
+
+    bwrapArgs.push('--', shellPath, '-c');
+
+    let finalInner: string;
+    if (needsNetworkRestriction && httpSocketPath && socksSocketPath) {
+      // Original: $58() in chunks.53.mjs:2267-2282
+      finalInner = buildNetworkAndSeccompCommand(
+        httpSocketPath,
+        socksSocketPath,
+        command,
+        seccompFilter,
+        shellPath
+      );
+    } else if (seccompFilter) {
+      const applySeccomp = findApplySeccompBinaryOrThrow();
+      finalInner = shellQuote([applySeccomp, seccompFilter, shellPath, '-c', command]);
+    } else {
+      finalInner = command;
+    }
+
+    bwrapArgs.push(finalInner);
+
+    const restrictions: string[] = [];
+    if (needsNetworkRestriction) restrictions.push('network');
+    if (hasReadRestrictions || hasWriteRestrictions) restrictions.push('filesystem');
+    if (seccompFilter) restrictions.push('seccomp(unix-block)');
+
+    // console.log(`[Sandbox Linux] Wrapped command with bwrap (${restrictions.join(', ')} restrictions)`);
+    return shellQuote(['bwrap', ...bwrapArgs]);
+  } catch (err) {
+    throw err;
   }
-
-  bwrapArgs.push('--', shellPath, '-c', finalInner);
-
-  const restrictions: string[] = [];
-  if (needsNetworkRestriction) restrictions.push('network');
-  if (hasReadRestrictions || hasWriteRestrictions) restrictions.push('filesystem');
-  if (seccompFilter) restrictions.push('seccomp(unix-block)');
-  console.log(
-    `[Sandbox Linux] Wrapped command with bwrap (${restrictions.join(', ')} restrictions)`
-  );
-
-  return shellQuote(['bwrap', ...bwrapArgs]);
 }
 
 /**
- * Wrap command with macOS sandbox (placeholder).
- * Would build sandbox-exec command with Seatbelt profile.
+ * Build filesystem restriction arguments for bwrap.
+ * Original: C58() in chunks.53.mjs:2284-2337
  */
-async function wrapWithMacOSSandbox(
-  options: SandboxWrapperOptions
-): Promise<string> {
+async function buildFilesystemRestrictions(
+  readConfig: ReadConfig | undefined,
+  writeConfig: WriteConfig | undefined,
+  ripgrepConfig: { command: string; args?: string[] },
+  searchDepth: number,
+  allowGitConfig: boolean,
+  abortSignal?: AbortSignal
+): Promise<string[]> {
+  const args: string[] = [];
+
+  if (writeConfig) {
+    args.push('--ro-bind', '/', '/');
+    const writablePaths: string[] = [];
+
+    for (const p of writeConfig.allowOnly || []) {
+      const normalized = normalizePath(p);
+      if (normalized.startsWith('/dev/')) continue;
+      if (!fs.existsSync(normalized)) continue;
+      args.push('--bind', normalized, normalized);
+      writablePaths.push(normalized);
+    }
+
+    const denyPaths = [
+      ...(writeConfig.denyWithinAllow || []),
+      ...(await findDangerousFiles(ripgrepConfig, searchDepth, allowGitConfig, abortSignal, writablePaths)),
+    ];
+
+    for (const p of denyPaths) {
+      const normalized = normalizePath(p);
+      if (normalized.startsWith('/dev/')) continue;
+
+      // Anti-symlink logic
+      // Original: F58() in chunks.53.mjs:2090-2106
+      const symlinkViolation = findSymlinkViolation(normalized, writablePaths);
+      if (symlinkViolation) {
+        args.push('--ro-bind', '/dev/null', symlinkViolation);
+        continue;
+      }
+
+      if (!fs.existsSync(normalized)) {
+        let parent = path.dirname(normalized);
+        while (parent !== '/' && !fs.existsSync(parent)) parent = path.dirname(parent);
+
+        if (writablePaths.some((wp) => parent.startsWith(wp + '/') || parent === wp || normalized.startsWith(wp + '/'))) {
+          // Original: H58() in chunks.53.mjs:2108-2118
+          const target = findFirstNonExistent(normalized);
+          args.push('--ro-bind', '/dev/null', target);
+        }
+        continue;
+      }
+
+      if (writablePaths.some((wp) => normalized.startsWith(wp + '/') || normalized === wp)) {
+        args.push('--ro-bind', normalized, normalized);
+      }
+    }
+  } else {
+    args.push('--bind', '/', '/');
+  }
+
+  // Read restrictions
+  const readDenyPaths = [...(readConfig?.denyOnly || [])];
+  if (fs.existsSync('/etc/ssh/ssh_config.d')) {
+    readDenyPaths.push('/etc/ssh/ssh_config.d');
+  }
+
+  for (const p of readDenyPaths) {
+    const normalized = normalizePath(p);
+    if (!fs.existsSync(normalized)) continue;
+    if (fs.statSync(normalized).isDirectory()) {
+      args.push('--tmpfs', normalized);
+    } else {
+      args.push('--ro-bind', '/dev/null', normalized);
+    }
+  }
+
+  return args;
+}
+
+/**
+ * Scan for dangerous config files under writable roots.
+ * Original: E58() in chunks.53.mjs:2120-2159
+ */
+async function findDangerousFiles(
+  ripgrepConfig: { command: string; args?: string[] },
+  searchDepth: number,
+  allowGitConfig: boolean,
+  abortSignal: AbortSignal | undefined,
+  writablePaths: string[]
+): Promise<string[]> {
+  const rg = ripgrepConfig.command;
+  const extraArgs = ripgrepConfig.args || [];
+
+  const protectedNames = new Set<string>(SANDBOX_CONSTANTS.PROTECTED_FILES as unknown as string[]);
+  const protectedDirs = new Set<string>(SANDBOX_CONSTANTS.PROTECTED_DIRS as unknown as string[]);
+
+  if (allowGitConfig) {
+    protectedNames.delete('.gitconfig');
+    protectedDirs.delete('.git');
+  }
+
+  const results = new Set<string>();
+  const cwd = process.cwd();
+
+  // Basic set from home/cwd
+  const baseSet = [
+    ...Array.from(protectedNames).map(n => path.resolve(cwd, n)),
+    path.resolve(cwd, '.git/hooks')
+  ];
+  if (!allowGitConfig) baseSet.push(path.resolve(cwd, '.git/config'));
+  
+  for (const p of baseSet) results.add(p);
+
+  // Scan with ripgrep
+  const iglobs: string[] = [];
+  for (const n of protectedNames) iglobs.push('--iglob', n);
+  iglobs.push('--iglob', '**/.git/hooks/**');
+  if (!allowGitConfig) iglobs.push('--iglob', '**/.git/config');
+
+  let rgFiles: string[] = [];
+  try {
+    const args = [
+      '--files',
+      '--hidden',
+      '--max-depth', String(searchDepth),
+      ...iglobs,
+      '-g', '!**/node_modules/**',
+      ...extraArgs,
+      cwd
+    ];
+    // console.log(`[Sandbox] Scanning for dangerous files: rg ${args.join(' ')}`);
+    // Note: In original it's a wrapper aFB
+    const proc = spawnSync(rg, args, { encoding: 'utf8', timeout: 10000, signal: abortSignal });
+    if (proc.status === 0 && proc.stdout) {
+      rgFiles = proc.stdout.split('\n').map(l => l.trim()).filter(Boolean);
+    }
+  } catch (err) {
+    // ignore
+  }
+
+  for (const file of rgFiles) {
+    const fullPath = path.resolve(cwd, file);
+    let matched = false;
+    for (const pDir of ['.git']) { // Original O01 returns more dirs but .git is key
+      const lowerFile = fullPath.toLowerCase();
+      const lowerDir = pDir.toLowerCase();
+      if (lowerFile.includes(path.sep + lowerDir + path.sep) || lowerFile.endsWith(path.sep + lowerDir)) {
+        if (pDir === '.git') {
+          const idx = lowerFile.indexOf(path.sep + '.git' + path.sep);
+          if (idx !== -1) {
+            const gitRoot = fullPath.slice(0, idx + 5);
+            if (lowerFile.includes('.git/hooks')) results.add(path.join(gitRoot, 'hooks'));
+            else if (lowerFile.includes('.git/config')) results.add(path.join(gitRoot, 'config'));
+          }
+        }
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) results.add(fullPath);
+  }
+
+  return Array.from(results);
+}
+
+/**
+ * Detect symlink within a path that points to a restricted area.
+ * Original: F58() in chunks.53.mjs:2090-2106
+ */
+function findSymlinkViolation(fullPath: string, writablePaths: string[]): string | null {
+  const parts = fullPath.split(path.sep);
+  let current = '';
+  for (const part of parts) {
+    if (!part) continue;
+    current = current + path.sep + part;
+    try {
+      if (fs.lstatSync(current).isSymbolicLink()) {
+        if (writablePaths.some(wp => current.startsWith(wp + '/') || current === wp)) {
+          return current;
+        }
+      }
+    } catch {
+      break;
+    }
+  }
+  return null;
+}
+
+/**
+ * Find the first non-existent component in a path.
+ * Original: H58() in chunks.53.mjs:2108-2118
+ */
+function findFirstNonExistent(fullPath: string): string {
+  const parts = fullPath.split(path.sep);
+  let current = '';
+  for (const part of parts) {
+    if (!part) continue;
+    const next = current + path.sep + part;
+    if (!fs.existsSync(next)) return next;
+    current = next;
+  }
+  return fullPath;
+}
+
+/**
+ * Build inner command for network reverse-bridges and optional seccomp.
+ * Original: $58() in chunks.53.mjs:2267-2282
+ */
+function buildNetworkAndSeccompCommand(
+  httpSocketPath: string,
+  socksSocketPath: string,
+  userCommand: string,
+  seccompFilter: string | undefined,
+  shellPath: string
+): string {
+  const bridgeScript = [
+    `socat TCP-LISTEN:3128,fork,reuseaddr UNIX-CONNECT:${httpSocketPath} >/dev/null 2>&1 &`,
+    `socat TCP-LISTEN:1080,fork,reuseaddr UNIX-CONNECT:${socksSocketPath} >/dev/null 2>&1 &`,
+    'trap "kill %1 %2 2>/dev/null; exit" EXIT',
+  ];
+
+  if (seccompFilter) {
+    const applySeccomp = findApplySeccompBinaryOrThrow();
+    const seccompCmd = shellQuote([applySeccomp, seccompFilter, shellPath, '-c', userCommand]);
+    const fullScript = [...bridgeScript, seccompCmd].join('\n');
+    return `${shellPath} -c ${shellQuote([fullScript])}`;
+  } else {
+    const fullScript = [...bridgeScript, `eval ${shellQuote([userCommand])}`].join('\n');
+    return `${shellPath} -c ${shellQuote([fullScript])}`;
+  }
+}
+
+/**
+ * Wrap command with macOS sandbox.
+ * Original: HHB() in chunks.53.mjs:2576-2615
+ */
+async function wrapWithMacOSSandbox(options: SandboxWrapperOptions): Promise<string> {
   const {
     command,
     needsNetworkRestriction,
@@ -775,12 +1293,14 @@ async function wrapWithMacOSSandbox(
     readConfig,
     writeConfig,
     allowPty,
-    allowGitConfig,
+    allowGitConfig = false,
     binShell,
   } = options;
 
   const hasReadRestrictions = !!(readConfig && readConfig.denyOnly.length > 0);
-  if (!needsNetworkRestriction && !hasReadRestrictions && writeConfig === undefined) {
+  const hasWriteRestrictions = writeConfig !== undefined;
+
+  if (!needsNetworkRestriction && !hasReadRestrictions && !hasWriteRestrictions) {
     return command;
   }
 
@@ -795,391 +1315,22 @@ async function wrapWithMacOSSandbox(
     allowAllUnixSockets,
     allowLocalBinding,
     allowPty,
-    allowGitConfig: Boolean(allowGitConfig),
+    allowGitConfig,
     logTag,
   });
 
-  const envVars = buildProxyEnvironmentVars(httpProxyPort, socksProxyPort);
-  const shellPath = resolveShellPath(binShell || 'bash');
+  const envVars = getSandboxEnvVars(httpProxyPort, socksProxyPort);
+  const shell = binShell || 'bash';
+  const shellPath = resolveShellPath(shell);
 
-  console.log(
-    `[Sandbox macOS] Applied restrictions - network: ${needsNetworkRestriction}, ` +
-      `read: ${readConfig ? 'restricted' : 'none'}, write: ${writeConfig ? 'restricted' : 'none'}`
-  );
-
-  return shellQuote(['env', ...envVars, 'sandbox-exec', '-p', profile, shellPath, '-c', command]);
+  const wrapped = shellQuote(['env', ...envVars, 'sandbox-exec', '-p', profile, shellPath, '-c', command]);
+  return wrapped;
 }
 
-// ============================================
-// Helpers
-// ============================================
-
-function ensureDir(dirPath: string): void {
-  try {
-    fs.mkdirSync(dirPath, { recursive: true });
-  } catch {
-    // ignore
-  }
-}
-
-function getSandboxTempDir(): string {
-  return SANDBOX_CONSTANTS.SANDBOX_TEMP_DIR;
-}
-
-function normalizePath(inputPath: string): string {
-  let p = inputPath.trim();
-  if (!p) return p;
-
-  // Home expansion
-  if (p.startsWith('~/')) {
-    p = path.join(os.homedir(), p.slice(2));
-  }
-
-  // Relative to current cwd
-  if (!path.isAbsolute(p)) {
-    p = path.resolve(process.cwd(), p);
-  }
-
-  return path.normalize(p);
-}
-
-function shellQuote(args: string[]): string {
-  const quote = (s: string) => {
-    if (s.length === 0) return "''";
-    if (/^[A-Za-z0-9_\-.,/:=@]+$/.test(s)) return s;
-    return `'${s.replace(/'/g, `'"'"'`)}'`;
-  };
-  return args.map(quote).join(' ');
-}
-
-function resolveShellPath(shell: string): string {
-  const result = spawnSync('which', [shell], { encoding: 'utf8', timeout: 1000 });
-  if (result.status !== 0 || !result.stdout) {
-    throw new Error(`Shell '${shell}' not found in PATH`);
-  }
-  return result.stdout.trim();
-}
-
-function buildProxyEnvironmentVars(httpPort?: number, socksPort?: number): string[] {
-  const out: string[] = [];
-  if (httpPort !== undefined) {
-    out.push(`HTTP_PROXY=http://localhost:${httpPort}`);
-    out.push(`HTTPS_PROXY=http://localhost:${httpPort}`);
-  }
-  if (socksPort !== undefined) {
-    out.push(`ALL_PROXY=socks5://localhost:${socksPort}`);
-  }
-  out.push('NO_PROXY=localhost,127.0.0.1,::1,*.local');
-  return out;
-}
-
-function getBestEffortSeccompFilter(): string | undefined {
-  const p = findSeccompBpfFilter();
-  if (!p) {
-    console.warn(
-      '[Sandbox Linux] Seccomp filtering not available (missing binaries). Continuing without Unix socket blocking.'
-    );
-    return undefined;
-  }
-  return p;
-}
-
-function findApplySeccompBinaryOrThrow(): string {
-  const p = findApplySeccompBinary();
-  if (!p) throw new Error('apply-seccomp binary not found');
-  return p;
-}
-
-function buildNetworkAndSeccompCommand(
-  httpSocketPath: string,
-  socksSocketPath: string,
-  userCommand: string,
-  seccompFilter: string | undefined,
-  shellPath: string
-): string {
-  const scriptLines = [
-    `socat TCP-LISTEN:${SANDBOX_CONSTANTS.CONTAINER_HTTP_PROXY_PORT},fork,reuseaddr UNIX-CONNECT:${httpSocketPath} >/dev/null 2>&1 &`,
-    `socat TCP-LISTEN:${SANDBOX_CONSTANTS.CONTAINER_SOCKS_PROXY_PORT},fork,reuseaddr UNIX-CONNECT:${socksSocketPath} >/dev/null 2>&1 &`,
-    'trap "kill %1 %2 2>/dev/null; exit" EXIT',
-  ];
-
-  if (seccompFilter) {
-    const applySeccomp = findApplySeccompBinaryOrThrow();
-    const seccompCmd = shellQuote([applySeccomp, seccompFilter, shellPath, '-c', userCommand]);
-    const fullScript = [...scriptLines, seccompCmd].join('\n');
-    return `${shellPath} -c ${shellQuote([fullScript])}`;
-  }
-
-  const fullScript = [...scriptLines, `eval ${shellQuote([userCommand])}`].join('\n');
-  return `${shellPath} -c ${shellQuote([fullScript])}`;
-}
-
-async function buildFilesystemRestrictions(
-  readConfig: ReadConfig | undefined,
-  writeConfig: WriteConfig | undefined,
-  ripgrepConfig: SandboxWrapperOptions['ripgrepConfig'] | undefined,
-  searchDepth: number | undefined,
-  allowGitConfig: boolean,
-  abortSignal?: AbortSignal
-): Promise<string[]> {
-  const args: string[] = [];
-
-  // Write restrictions
-  if (writeConfig) {
-    args.push('--ro-bind', '/', '/');
-
-    const writablePaths: string[] = [];
-    for (const p of writeConfig.allowOnly || []) {
-      const normalized = normalizePath(p);
-      if (normalized.startsWith('/dev/')) continue;
-      if (!fs.existsSync(normalized)) continue;
-      args.push('--bind', normalized, normalized);
-      writablePaths.push(normalized);
-    }
-
-    const denyPaths = [
-      ...(writeConfig.denyWithinAllow || []),
-      ...await findDangerousFiles(ripgrepConfig, searchDepth, allowGitConfig, abortSignal, writablePaths),
-    ];
-
-    for (const p of denyPaths) {
-      const normalized = normalizePath(p);
-      if (normalized.startsWith('/dev/')) continue;
-      if (!fs.existsSync(normalized)) {
-        // Best-effort: block creation if the denied path is under a writable area
-        const parent = findFirstExistingParent(normalized);
-        if (writablePaths.some((wp) => parent === wp || parent.startsWith(wp + path.sep))) {
-          const firstNonExistent = findFirstNonExistent(normalized);
-          args.push('--ro-bind', '/dev/null', firstNonExistent);
-        }
-        continue;
-      }
-
-      // Only apply deny within writable areas
-      if (writablePaths.some((wp) => normalized === wp || normalized.startsWith(wp + path.sep))) {
-        args.push('--ro-bind', normalized, normalized);
-      }
-    }
-  } else {
-    // No write restrictions
-    args.push('--bind', '/', '/');
-  }
-
-  // Read restrictions
-  const readDenyPaths = [...(readConfig?.denyOnly || [])];
-  if (fs.existsSync('/etc/ssh/ssh_config.d')) {
-    readDenyPaths.push('/etc/ssh/ssh_config.d');
-  }
-
-  for (const p of readDenyPaths) {
-    const normalized = normalizePath(p);
-    if (!fs.existsSync(normalized)) continue;
-    try {
-      const stat = fs.statSync(normalized);
-      if (stat.isDirectory()) {
-        args.push('--tmpfs', normalized);
-      } else {
-        args.push('--ro-bind', '/dev/null', normalized);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  return args;
-}
-
-function findFirstExistingParent(p: string): string {
-  let cur = p;
-  while (cur !== '/' && !fs.existsSync(cur)) {
-    cur = path.dirname(cur);
-  }
-  return cur;
-}
-
-function findFirstNonExistent(p: string): string {
-  const parts = normalizePath(p).split(path.sep);
-  let cur = '';
-  for (const part of parts) {
-    if (!part) continue;
-    cur = cur ? path.join(cur, part) : path.sep + part;
-    if (!fs.existsSync(cur)) return cur;
-  }
-  return normalizePath(p);
-}
-
-async function findDangerousFiles(
-  ripgrepConfig: SandboxWrapperOptions['ripgrepConfig'] | undefined,
-  searchDepth: number | undefined,
-  allowGitConfig: boolean,
-  abortSignal: AbortSignal | undefined,
-  writablePaths: string[]
-): Promise<string[]> {
-  const depth = searchDepth ?? SANDBOX_CONSTANTS.DEFAULT_MANDATORY_DENY_SEARCH_DEPTH;
-  const rg = ripgrepConfig?.command || 'rg';
-  const extraArgs = ripgrepConfig?.args || [];
-
-  // Protect a known set of config files and dirs from modification.
-  const protectedNames = new Set<string>(SANDBOX_CONSTANTS.PROTECTED_FILES as unknown as string[]);
-  const protectedDirs = new Set<string>(SANDBOX_CONSTANTS.PROTECTED_DIRS as unknown as string[]);
-
-  if (allowGitConfig) {
-    protectedNames.delete('.gitconfig');
-    protectedDirs.delete('.git');
-  }
-
-  const results = new Set<string>();
-
-  for (const base of writablePaths) {
-    if (abortSignal?.aborted) break;
-
-    // Scan for protected filenames under writable roots.
-    const patterns = Array.from(protectedNames).map((n) => n.replace(/\./g, '\\.') + '$');
-    if (patterns.length === 0) continue;
-
-    const rgArgs = [
-      '--files',
-      '--hidden',
-      '--follow',
-      '--max-depth',
-      String(depth),
-      ...extraArgs,
-      base,
-    ];
-
-    const proc = spawnSync(rg, rgArgs, { encoding: 'utf8', timeout: 5000 });
-    if (proc.status === 0 && proc.stdout) {
-      const files = proc.stdout.split('\n').map((l) => l.trim()).filter(Boolean);
-      for (const f of files) {
-        const bn = path.basename(f);
-        if (protectedNames.has(bn)) results.add(f);
-        if (protectedDirs.has(bn)) results.add(f);
-      }
-    }
-  }
-
-  return Array.from(results);
-}
-
-async function checkDomainAllowed(
-  domain: string,
-  type: 'http' | 'socks',
-  permissionCallback: PermissionCallback
-): Promise<boolean> {
-  const normalized = (domain || '').trim().toLowerCase();
-  if (!normalized) return false;
-
-  const cacheKey = `${type}:${normalized}`;
-  const cached = domainDecisionCache.get(cacheKey);
-  if (cached !== undefined) return cached;
-
-  const cfg = getSandboxConfig();
-  const netCfg = cfg?.network;
-
-  // Deny list has priority
-  if (netCfg?.deniedDomains?.some((p) => matchesDomainPattern(normalized, p))) {
-    domainDecisionCache.set(cacheKey, false);
-    return false;
-  }
-
-  // If allow list exists, require match
-  if (netCfg?.allowedDomains && netCfg.allowedDomains.length > 0) {
-    const ok = netCfg.allowedDomains.some((p) => matchesDomainPattern(normalized, p));
-    domainDecisionCache.set(cacheKey, ok);
-    return ok;
-  }
-
-  // Otherwise defer to callback
-  const ok = await permissionCallback(normalized, type);
-  domainDecisionCache.set(cacheKey, ok);
-  return ok;
-}
-
-function matchesDomainPattern(domain: string, pattern: string): boolean {
-  const p = String(pattern || '').trim().toLowerCase();
-  if (!p) return false;
-  if (p === '*') return true;
-  if (p.startsWith('*.')) {
-    const suffix = p.slice(1); // keep leading '.'
-    return domain.endsWith(suffix);
-  }
-  if (p.startsWith('.')) {
-    return domain.endsWith(p);
-  }
-  // Exact or subdomain match
-  return domain === p || domain.endsWith('.' + p);
-}
-
-function startMacOSViolationMonitor(
-  store: ISandboxViolationStore,
-  ignoreRules?: Record<string, string[] | undefined>
-): () => void {
-  const uniqueTag = getUniqueSandboxTag();
-
-  const logProc = spawn('log', [
-    'stream',
-    '--predicate',
-    `(eventMessage ENDSWITH "${uniqueTag}")`,
-    '--style',
-    'compact',
-  ]);
-
-  let lastCmdLine: string | undefined;
-
-  logProc.stdout?.on('data', (chunk) => {
-    const lines = chunk.toString().split('\n');
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-
-      if (trimmed.startsWith('CMD64_')) {
-        lastCmdLine = trimmed;
-        continue;
-      }
-
-      if (!trimmed.includes('Sandbox:') || !trimmed.includes('deny')) continue;
-
-      // Extract violation message
-      const m = trimmed.match(/Sandbox:\s+(.+)$/);
-      if (!m?.[1]) continue;
-      const violationMsg = m[1];
-
-      // Extract encoded command from last CMD64 line
-      const encoded = lastCmdLine?.match(/CMD64_(.+?)_END/)?.[1];
-      let decoded: string | undefined;
-      if (encoded) {
-        try {
-          decoded = decodeCommandFromTag(encoded);
-        } catch {
-          // ignore
-        }
-      }
-
-      const v: SandboxViolation = {
-        line: violationMsg,
-        command: decoded,
-        encodedCommand: encoded,
-        timestamp: new Date(),
-      };
-
-      if (shouldIgnoreViolation(v, ignoreRules)) continue;
-      store.addViolation(v);
-    }
-  });
-
-  logProc.on('error', (err) => {
-    console.warn(`[Sandbox macOS] Failed to start violation monitor: ${err.message}`);
-  });
-
-  return () => {
-    try {
-      logProc.kill('SIGTERM');
-    } catch {
-      // ignore
-    }
-  };
-}
-
+/**
+ * Generate macOS Seatbelt sandbox profile.
+ * Original: M58() in chunks.53.mjs:2531-2560
+ */
 function generateSandboxProfile(params: {
   readConfig?: ReadConfig;
   writeConfig?: WriteConfig;
@@ -1207,45 +1358,74 @@ function generateSandboxProfile(params: {
     logTag,
   } = params;
 
-  const quote = (s: string) => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  const hasGlob = (s: string) => /[*?\[]/.test(s);
-  const globToRegex = (globPattern: string) => {
-    return (
-      '^' +
-      globPattern
-        .replace(/[.^$+{}()|\\]/g, '\\$&')
-        .replace(/\[([^\]]*?)$/g, '\\[$1')
-        .replace(/\*\*\//g, '__GLOBSTAR_SLASH__')
-        .replace(/\*\*/g, '__GLOBSTAR__')
-        .replace(/\*/g, '[^/]*')
-        .replace(/\?/g, '[^/]')
-        .replace(/__GLOBSTAR_SLASH__/g, '(.*/)?')
-        .replace(/__GLOBSTAR__/g, '.*') +
-      '$'
-    );
-  };
+  const rules: string[] = [
+    '(version 1)',
+    `(deny default (with message ${escapeSandboxString(logTag)}))`,
+    '',
+    `; LogTag: ${logTag}`,
+    '',
+    '; Essential permissions',
+    '(allow process-exec)',
+    '(allow process-fork)',
+    '(allow process-info* (target same-sandbox))',
+    '(allow signal (target same-sandbox))',
+    '(allow mach-priv-task-port (target same-sandbox))',
+    '',
+    '(allow user-preference-read)',
+    '',
+    '(allow mach-lookup',
+    '  (global-name "com.apple.audio.systemsoundserver")',
+    '  (global-name "com.apple.distributed_notifications@Uv3")',
+    '  (global-name "com.apple.FontObjectsServer")',
+    '  (global-name "com.apple.fonts")',
+    '  (global-name "com.apple.logd")',
+    '  (global-name "com.apple.lsd.mapdb")',
+    '  (global-name "com.apple.PowerManagement.control")',
+    '  (global-name "com.apple.system.logger")',
+    '  (global-name "com.apple.system.notification_center")',
+    '  (global-name "com.apple.trustd.agent")',
+    '  (global-name "com.apple.system.opendirectoryd.libinfo")',
+    '  (global-name "com.apple.system.opendirectoryd.membership")',
+    '  (global-name "com.apple.bsd.dirhelper")',
+    '  (global-name "com.apple.securityd.xpc")',
+    '  (global-name "com.apple.coreservices.launchservicesd")',
+    ')',
+    '',
+    '(allow ipc-posix-shm)',
+    '(allow ipc-posix-sem)',
+    '',
+    '(allow iokit-open',
+    '  (iokit-registry-entry-class "IOSurfaceRootUserClient")',
+    '  (iokit-registry-entry-class "RootDomainUserClient")',
+    '  (iokit-user-client-class "IOSurfaceSendRight")',
+    ')',
+    '(allow iokit-get-properties)',
+    '',
+    '(allow system-socket (require-all (socket-domain AF_SYSTEM) (socket-protocol 2)))',
+    '',
+    '(allow sysctl-read)',
+    '(allow sysctl-write',
+    '  (sysctl-name "kern.tcsm_enable")',
+    ')',
+    '',
+    '(allow distributed-notification-post)',
+    '(allow mach-lookup (global-name "com.apple.SecurityServer"))',
+    '',
+    '(allow file-ioctl (literal "/dev/null"))',
+    '(allow file-ioctl (literal "/dev/zero"))',
+    '(allow file-ioctl (literal "/dev/random"))',
+    '(allow file-ioctl (literal "/dev/urandom"))',
+    '(allow file-ioctl (literal "/dev/dtracehelper"))',
+    '(allow file-ioctl (literal "/dev/tty"))',
+    '',
+    '(allow file-ioctl file-read-data file-write-data',
+    '  (require-all',
+    '    (literal "/dev/null")',
+    '    (vnode-type CHARACTER-DEVICE)',
+    '  )',
+    ')',
+  ];
 
-  const rules: string[] = [];
-  rules.push('(version 1)');
-  rules.push(`(deny default (with message ${quote(logTag)}))`);
-  rules.push('');
-  rules.push(`; LogTag: ${logTag}`);
-  rules.push('');
-  rules.push('; Essential permissions');
-  rules.push('(allow process-exec)');
-  rules.push('(allow process-fork)');
-  rules.push('(allow process-info* (target same-sandbox))');
-  rules.push('(allow signal (target same-sandbox))');
-  rules.push('(allow user-preference-read)');
-  rules.push('');
-  // Broad mach lookup to reduce breakage in this reconstructed runtime.
-  rules.push('(allow mach-lookup (global-name "*"))');
-  rules.push('(allow ipc-posix-shm)');
-  rules.push('(allow ipc-posix-sem)');
-
-  // Network
-  rules.push('');
-  rules.push('; Network');
   if (!needsNetworkRestriction) {
     rules.push('(allow network*)');
   } else {
@@ -1254,102 +1434,314 @@ function generateSandboxProfile(params: {
       rules.push('(allow network-inbound (local ip "localhost:*"))');
       rules.push('(allow network-outbound (local ip "localhost:*"))');
     }
-
     if (allowAllUnixSockets) {
       rules.push('(allow network* (subpath "/"))');
     } else if (allowUnixSockets && allowUnixSockets.length > 0) {
-      for (const p of allowUnixSockets) {
-        const normalized = normalizePath(p);
-        rules.push(`(allow network* (subpath ${quote(normalized)}))`);
+      for (const socket of allowUnixSockets) {
+        rules.push(`(allow network* (subpath ${escapeSandboxString(normalizePath(socket))}))`);
       }
     }
-
     if (httpProxyPort !== undefined) {
-      rules.push(`(allow network-outbound (remote ip "localhost:${httpProxyPort}"))`);
-      rules.push(`(allow network-inbound (local ip "localhost:${httpProxyPort}"))`);
       rules.push(`(allow network-bind (local ip "localhost:${httpProxyPort}"))`);
+      rules.push(`(allow network-inbound (local ip "localhost:${httpProxyPort}"))`);
+      rules.push(`(allow network-outbound (remote ip "localhost:${httpProxyPort}"))`);
     }
     if (socksProxyPort !== undefined) {
-      rules.push(`(allow network-outbound (remote ip "localhost:${socksProxyPort}"))`);
-      rules.push(`(allow network-inbound (local ip "localhost:${socksProxyPort}"))`);
       rules.push(`(allow network-bind (local ip "localhost:${socksProxyPort}"))`);
+      rules.push(`(allow network-inbound (local ip "localhost:${socksProxyPort}"))`);
+      rules.push(`(allow network-outbound (remote ip "localhost:${socksProxyPort}"))`);
     }
   }
 
-  // File read
   rules.push('');
   rules.push('; File read');
-  if (!readConfig) {
-    rules.push('(allow file-read*)');
-  } else {
-    rules.push('(allow file-read*)');
-    for (const p of readConfig.denyOnly || []) {
-      const normalized = normalizePath(p);
-      if (hasGlob(normalized)) {
-        const r = globToRegex(normalized);
-        rules.push('(deny file-read*');
-        rules.push(`  (regex ${quote(r)})`);
-        rules.push(`  (with message ${quote(logTag)}))`);
-      } else {
-        rules.push('(deny file-read*');
-        rules.push(`  (subpath ${quote(normalized)})`);
-        rules.push(`  (with message ${quote(logTag)}))`);
-      }
-    }
-  }
-
-  // File write
+  rules.push(...generateReadRules(readConfig, logTag));
   rules.push('');
   rules.push('; File write');
-  if (!writeConfig) {
-    rules.push('(allow file-write*)');
-  } else {
-    // Always allow temp dir
-    rules.push('(allow file-write*');
-    rules.push(`  (subpath ${quote(getSandboxTempDir())})`);
-    rules.push(`  (with message ${quote(logTag)}))`);
-
-    for (const p of writeConfig.allowOnly || []) {
-      const normalized = normalizePath(p);
-      if (hasGlob(normalized)) {
-        const r = globToRegex(normalized);
-        rules.push('(allow file-write*');
-        rules.push(`  (regex ${quote(r)})`);
-        rules.push(`  (with message ${quote(logTag)}))`);
-      } else {
-        rules.push('(allow file-write*');
-        rules.push(`  (subpath ${quote(normalized)})`);
-        rules.push(`  (with message ${quote(logTag)}))`);
-      }
-    }
-
-    const denyPaths = [
-      ...(writeConfig.denyWithinAllow || []),
-      ...getConfigPathsToProtect(Boolean(allowGitConfig)),
-    ];
-
-    for (const p of denyPaths) {
-      const normalized = normalizePath(p);
-      if (hasGlob(normalized)) {
-        const r = globToRegex(normalized);
-        rules.push('(deny file-write*');
-        rules.push(`  (regex ${quote(r)})`);
-        rules.push(`  (with message ${quote(logTag)}))`);
-      } else {
-        rules.push('(deny file-write*');
-        rules.push(`  (subpath ${quote(normalized)})`);
-        rules.push(`  (with message ${quote(logTag)}))`);
-      }
-    }
-  }
+  rules.push(...generateWriteRules(writeConfig, logTag, !!allowGitConfig));
 
   if (allowPty) {
     rules.push('');
-    rules.push('; Pseudo-terminal (pty) support');
+    rules.push('; PTY support');
     rules.push('(allow pseudo-tty)');
+    rules.push('(allow file-ioctl (literal "/dev/ptmx") (regex #"^/dev/ttys"))');
+    rules.push('(allow file-read* file-write* (literal "/dev/ptmx") (regex #"^/dev/ttys"))');
   }
 
   return rules.join('\n');
+}
+
+function generateReadRules(config: ReadConfig | undefined, logTag: string): string[] {
+  if (!config) return ['(allow file-read*)'];
+  const rules: string[] = ['(allow file-read*)'];
+  for (const p of config.denyOnly) {
+    const normalized = normalizePath(p);
+    if (normalized.includes('*') || normalized.includes('?')) {
+      rules.push(`(deny file-read* (regex ${escapeSandboxString(globToRegex(normalized))}) (with message ${escapeSandboxString(logTag)}))`);
+    } else {
+      rules.push(`(deny file-read* (subpath ${escapeSandboxString(normalized)}) (with message ${escapeSandboxString(logTag)}))`);
+    }
+  }
+  rules.push(...generateUnlinkRules(config.denyOnly, logTag));
+  return rules;
+}
+
+function generateWriteRules(config: WriteConfig | undefined, logTag: string, allowGitConfig: boolean): string[] {
+  if (!config) return ['(allow file-write*)'];
+  const rules: string[] = [];
+  const tmpRoots = getMacTmpDirRoots();
+  for (const root of tmpRoots) {
+    rules.push(`(allow file-write* (subpath ${escapeSandboxString(root)}) (with message ${escapeSandboxString(logTag)}))`);
+  }
+
+  for (const p of config.allowOnly) {
+    const normalized = normalizePath(p);
+    if (normalized.includes('*') || normalized.includes('?')) {
+      rules.push(`(allow file-write* (regex ${escapeSandboxString(globToRegex(normalized))}) (with message ${escapeSandboxString(logTag)}))`);
+    } else {
+      rules.push(`(allow file-write* (subpath ${escapeSandboxString(normalized)}) (with message ${escapeSandboxString(logTag)}))`);
+    }
+  }
+
+  const denyPaths = [...config.denyWithinAllow, ...getProtectedPaths(allowGitConfig)];
+  for (const p of denyPaths) {
+    const normalized = normalizePath(p);
+    if (normalized.includes('*') || normalized.includes('?')) {
+      rules.push(`(deny file-write* (regex ${escapeSandboxString(globToRegex(normalized))}) (with message ${escapeSandboxString(logTag)}))`);
+    } else {
+      rules.push(`(deny file-write* (subpath ${escapeSandboxString(normalized)}) (with message ${escapeSandboxString(logTag)}))`);
+    }
+  }
+  rules.push(...generateUnlinkRules(denyPaths, logTag));
+  return rules;
+}
+
+function generateUnlinkRules(paths: string[], logTag: string): string[] {
+  const rules: string[] = [];
+  for (const p of paths) {
+    const normalized = normalizePath(p);
+    if (normalized.includes('*') || normalized.includes('?')) {
+      const regex = globToRegex(normalized);
+      rules.push(`(deny file-write-unlink (regex ${escapeSandboxString(regex)}) (with message ${escapeSandboxString(logTag)}))`);
+      const prefix = normalized.split(/[*?]/)[0];
+      if (prefix && prefix !== '/') {
+        const dir = prefix.endsWith('/') ? prefix.slice(0, -1) : path.dirname(prefix);
+        rules.push(`(deny file-write-unlink (literal ${escapeSandboxString(dir)}) (with message ${escapeSandboxString(logTag)}))`);
+        for (const parent of getParentDirectories(dir)) {
+          rules.push(`(deny file-write-unlink (literal ${escapeSandboxString(parent)}) (with message ${escapeSandboxString(logTag)}))`);
+        }
+      }
+    } else {
+      rules.push(`(deny file-write-unlink (subpath ${escapeSandboxString(normalized)}) (with message ${escapeSandboxString(logTag)}))`);
+      for (const parent of getParentDirectories(normalized)) {
+        rules.push(`(deny file-write-unlink (literal ${escapeSandboxString(parent)}) (with message ${escapeSandboxString(logTag)}))`);
+      }
+    }
+  }
+  return rules;
+}
+
+function getParentDirectories(p: string): string[] {
+  const dirs: string[] = [];
+  let current = path.dirname(p);
+  while (current !== '/' && current !== '.') {
+    dirs.push(current);
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return dirs;
+}
+
+function getMacTmpDirRoots(): string[] {
+  const tmp = process.env.TMPDIR;
+  if (!tmp) return [];
+  if (!tmp.match(/^\/(private\/)?var\/folders\/[^/]{2}\/[^/]+\/T\/?$/)) return [];
+  const root = tmp.replace(/\/T\/?$/, '');
+  if (root.startsWith('/private/var/')) return [root, root.replace('/private', '')];
+  if (root.startsWith('/var/')) return [root, '/private' + root];
+  return [root];
+}
+
+function getProtectedPaths(allowGitConfig: boolean): string[] {
+  const cwd = process.cwd();
+  const paths: string[] = [];
+  for (const f of SANDBOX_CONSTANTS.PROTECTED_FILES as unknown as string[]) {
+    if (allowGitConfig && f === '.gitconfig') continue;
+    paths.push(path.resolve(cwd, f));
+    paths.push(`**/${f}`);
+  }
+  // Simplified logic for protected dirs
+  paths.push(path.resolve(cwd, '.git/hooks'));
+  paths.push('**/.git/hooks/**');
+  if (!allowGitConfig) {
+    paths.push(path.resolve(cwd, '.git/config'));
+    paths.push('**/.git/config');
+  }
+  return [...new Set(paths)];
+}
+
+function escapeSandboxString(s: string): string {
+  return JSON.stringify(s);
+}
+
+function globToRegex(glob: string): string {
+  return '^' + glob
+    .replace(/[.^$+{}()|\\]/g, '\\$&')
+    .replace(/\[([^\]]*?)$/g, '\\[$1')
+    .replace(/\*\*\//g, '__GLOBSTAR_SLASH__')
+    .replace(/\*\*/g, '__GLOBSTAR__')
+    .replace(/\*/g, '[^/]*')
+    .replace(/\?/g, '[^/]')
+    .replace(/__GLOBSTAR_SLASH__/g, '(.*/)?')
+    .replace(/__GLOBSTAR__/g, '.*') + '$';
+}
+
+/**
+ * Start violation monitor on macOS.
+ * Original: EHB() in chunks.53.mjs:2617-2663
+ */
+function startMacOSViolationMonitor(
+  store: ISandboxViolationStore,
+  ignoreConfig?: IgnoreViolationsConfig
+): () => void {
+  const cmdRegex = /CMD64_(.+?)_END/;
+  const sandboxRegex = /Sandbox:\s+(.+)$/;
+  const globalIgnores = ignoreConfig?.['*'] || [];
+  const perCommandIgnores = ignoreConfig ? Object.entries(ignoreConfig).filter(([k]) => k !== '*') : [];
+
+  const logTagSuffix = '_SBX'; // Simplified, original uses VHB which is random but consistent per session
+
+  const logProcess = spawn('log', ['stream', '--predicate', `(eventMessage ENDSWITH "${logTagSuffix}")`, '--style', 'compact']);
+
+  logProcess.stdout?.on('data', (data) => {
+    const lines = data.toString().split('\n');
+    const denyLine = lines.find((l: string) => l.includes('Sandbox:') && l.includes('deny'));
+    const tagLine = lines.find((l: string) => l.startsWith('CMD64_'));
+
+    if (!denyLine) return;
+
+    const match = denyLine.match(sandboxRegex);
+    if (!match?.[1]) return;
+
+    const violation = match[1];
+    let command: string | undefined;
+    let encodedCommand: string | undefined;
+
+    if (tagLine) {
+      const tagMatch = tagLine.match(cmdRegex);
+      const tagVal = tagMatch?.[1];
+      if (tagVal) {
+        encodedCommand = tagVal;
+        try {
+          command = Buffer.from(tagVal, 'base64').toString('utf8');
+        } catch {}
+      }
+    }
+
+    // Filter noisy system violations
+    if (
+      violation.includes('mDNSResponder') ||
+      violation.includes('mach-lookup com.apple.diagnosticd') ||
+      violation.includes('mach-lookup com.apple.analyticsd')
+    ) {
+      return;
+    }
+
+    // Apply ignores
+    if (ignoreConfig && command) {
+      if (globalIgnores.some((p) => violation.includes(p))) return;
+      for (const [cmdPattern, patterns] of perCommandIgnores) {
+        if (command.includes(cmdPattern)) {
+          if (patterns && patterns.some((p) => violation.includes(p))) return;
+        }
+      }
+    }
+
+    store.addViolation({
+      line: violation,
+      command,
+      encodedCommand,
+      timestamp: new Date(),
+    });
+  });
+
+  return () => {
+    logProcess.kill('SIGTERM');
+  };
+}
+
+// ============================================
+// Helpers
+// ============================================
+
+function ensureDir(dirPath: string): void {
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
+  } catch {
+    // ignore
+  }
+}
+
+function getSandboxTempDir(): string {
+  return SANDBOX_CONSTANTS.SANDBOX_TEMP_DIR;
+}
+
+/**
+ * Normalize path and handle home expansion.
+ */
+function normalizePath(inputPath: string): string {
+  let p = inputPath.trim();
+  if (!p) return p;
+
+  if (p.startsWith('~/')) {
+    p = path.join(os.homedir(), p.slice(2));
+  }
+
+  if (!path.isAbsolute(p)) {
+    p = path.resolve(process.cwd(), p);
+  }
+
+  return path.normalize(p);
+}
+
+/**
+ * Shell quote arguments for command string.
+ */
+function shellQuote(args: string[]): string {
+  const quote = (s: string) => {
+    if (s.length === 0) return "''";
+    if (/^[A-Za-z0-9_\-.,/:=@]+$/.test(s)) return s;
+    return `'${s.replace(/'/g, `'"'"'`)}'`;
+  };
+  return args.map(quote).join(' ');
+}
+
+/**
+ * Resolve full path to shell binary.
+ */
+function resolveShellPath(shell: string): string {
+  const result = spawnSync('which', [shell], { encoding: 'utf8', timeout: 1000 });
+  if (result.status !== 0 || !result.stdout) {
+    throw new Error(`Shell '${shell}' not found in PATH`);
+  }
+  return result.stdout.trim();
+}
+
+/**
+ * Get best-effort seccomp filter path.
+ */
+function getBestEffortSeccompFilter(): string | undefined {
+  return findSeccompBpfFilter() || undefined;
+}
+
+/**
+ * Find apply-seccomp binary or throw.
+ */
+function findApplySeccompBinaryOrThrow(): string {
+  const p = findApplySeccompBinary();
+  if (!p) throw new Error('apply-seccomp binary not found');
+  return p;
 }
 
 function getConfigPathsToProtect(allowGitConfig: boolean): string[] {

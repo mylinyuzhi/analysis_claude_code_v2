@@ -57,9 +57,9 @@ export function getArchitectureForSeccomp(): 'x64' | 'arm64' | null {
     case 'arm64':
       return 'arm64';
     case 'ia32':
-      // 32-bit x86 NOT supported due to socketcall() bypass vulnerability
+      // 32-bit x86 (ia32) is not currently supported due to missing socketcall() syscall blocking.
       console.error(
-        '[SeccompFilter] 32-bit x86 (ia32) is not supported due to missing socketcall() syscall blocking.'
+        '[SeccompFilter] 32-bit x86 (ia32) is not currently supported due to missing socketcall() syscall blocking. The current seccomp filter only blocks socket(AF_UNIX, ...), but on 32-bit x86, socketcall() can be used to bypass this.'
       );
       return null;
     default:

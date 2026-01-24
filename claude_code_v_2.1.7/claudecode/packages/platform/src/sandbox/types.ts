@@ -229,10 +229,10 @@ export type SandboxPlatform = 'linux' | 'macos' | 'unsupported';
 /**
  * Permission callback for network access
  */
-export type PermissionCallback = (
-  domain: string,
-  type: 'http' | 'socks'
-) => Promise<boolean>;
+export type PermissionCallback = (params: {
+  host: string;
+  port: number;
+}) => Promise<boolean>;
 
 // ============================================
 // Manager Types
@@ -327,7 +327,10 @@ export const SANDBOX_CONSTANTS = {
   /** Max violations to keep in store */
   MAX_VIOLATIONS: 100,
 
-  /** Protected configuration files */
+  /**
+   * Protected configuration files.
+   * Original: pMA in chunks.53.mjs:2032
+   */
   PROTECTED_FILES: [
     '.gitconfig',
     '.gitmodules',
@@ -340,8 +343,26 @@ export const SANDBOX_CONSTANTS = {
     '.mcp.json',
   ] as const,
 
-  /** Protected directories */
+  /**
+   * Protected directories.
+   * Original: K58 in chunks.53.mjs:2032
+   */
   PROTECTED_DIRS: ['.git', '.vscode', '.idea'] as const,
+
+  /**
+   * Default allowed device and temporary paths.
+   * Original: iMA in chunks.53.mjs:2000-2003
+   */
+  DEFAULT_ALLOWED_PATHS: [
+    '/dev/stdout',
+    '/dev/stderr',
+    '/dev/null',
+    '/dev/tty',
+    '/dev/dtracehelper',
+    '/dev/autofs_nowait',
+    '/tmp/claude',
+    '/private/tmp/claude',
+  ] as const,
 
   /** Temp directory for sandbox */
   SANDBOX_TEMP_DIR: '/tmp/claude',
