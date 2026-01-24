@@ -238,9 +238,3 @@ export type TelemetryEventType =
   | SessionEventType
   | PlanModeEventType
   | string;
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类型已在声明处导出；移除重复聚合导出。

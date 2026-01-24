@@ -1,92 +1,31 @@
 /**
  * @claudecode/platform - File System Operations
- *
- * File system abstraction layer with:
- * - Read-before-edit enforcement
- * - File state tracking
- * - Line ending normalization
- * - Encoding detection
- *
- * Reconstructed from chunks.1.mjs, chunks.148.mjs, chunks.86.mjs
+ * 
+ * File system abstraction layer matching source implementation.
+ * Reconstructed from chunks.1.mjs
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { monitoringWrapper } from './monitoring.js';
 
 // ============================================
 // Types
 // ============================================
 
-/**
- * File read record for tracking file state
- */
-export interface FileReadRecord {
-  /** File content (text or base64) */
-  content: string;
-  /** File modification time at read (mtimeMs) */
-  timestamp: number;
-  /** Line offset if partial read (1-based) */
-  offset?: number;
-  /** Line limit if partial read */
-  limit?: number;
-}
-
-/**
- * Read file state map type
- */
-export type ReadFileState = Map<string, FileReadRecord>;
-
-/**
- * File stat result
- */
-export interface FileStat {
-  isFile: boolean;
-  isDirectory: boolean;
-  isSymbolicLink: boolean;
-  size: number;
-  mtimeMs: number;
-  ctimeMs: number;
-}
-
-/**
- * Read sync options
- */
-export interface ReadSyncOptions {
-  length: number;
-}
-
-/**
- * Read sync result
- */
-export interface ReadSyncResult {
-  buffer: Buffer;
-  bytesRead: number;
-}
-
-/**
- * Mkdir options
- */
 export interface MkdirOptions {
   mode?: number;
   recursive?: boolean;
 }
 
-// ============================================
-// Monitoring Wrapper
-// ============================================
+export interface ReadSyncOptions {
+  length: number;
+}
 
-/**
- * Wrapper for monitoring file system operations.
- * Original: MW in chunks.1.mjs
- *
- * @param operation - Operation description for logging
- * @param fn - Function to execute
- */
-function monitoringWrapper<T>(operation: string, fn: () => T): T {
-  // In production, this could log to telemetry
-  // For now, just execute the function
-  return fn();
+export interface ReadSyncResult {
+  buffer: Buffer;
+  bytesRead: number;
 }
 
 // ============================================
@@ -94,8 +33,8 @@ function monitoringWrapper<T>(operation: string, fn: () => T): T {
 // ============================================
 
 /**
- * File system wrapper that provides unified monitoring and error handling.
- * Original: NT9 (FileSystemWrapper) in chunks.1.mjs:2929-3040
+ * File system wrapper object (singleton).
+ * Original: NT9 in chunks.1.mjs:2929-3040
  */
 export const FileSystemWrapper = {
   /**
@@ -106,7 +45,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Check if file/directory exists
+   * Check if file exists
    */
   existsSync(filePath: string): boolean {
     return monitoringWrapper(`existsSync(${filePath})`, () =>
@@ -116,6 +55,7 @@ export const FileSystemWrapper = {
 
   /**
    * Get file stat asynchronously
+   * Original: CT9 helper used in NT9.stat
    */
   async stat(filePath: string): Promise<fs.Stats> {
     return monitoringWrapper(`stat(${filePath})`, () =>
@@ -133,7 +73,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Get symlink stat synchronously
+   * Get lstat synchronously
    */
   lstatSync(filePath: string): fs.Stats {
     return monitoringWrapper(`lstatSync(${filePath})`, () =>
@@ -142,7 +82,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Read file with encoding
+   * Read file synchronously with encoding
    */
   readFileSync(filePath: string, options: { encoding: BufferEncoding }): string {
     return monitoringWrapper(`readFileSync(${filePath})`, () =>
@@ -151,7 +91,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Read file as raw bytes (Buffer)
+   * Read file bytes synchronously
    */
   readFileBytesSync(filePath: string): Buffer {
     return monitoringWrapper(`readFileBytesSync(${filePath})`, () =>
@@ -160,7 +100,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Partial read with buffer
+   * Partial read synchronously
    */
   readSync(filePath: string, options: ReadSyncOptions): ReadSyncResult {
     return monitoringWrapper(
@@ -182,12 +122,12 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Append to file
+   * Append to file synchronously
    */
   appendFileSync(
     filePath: string,
     data: string | Buffer,
-    options?: { encoding?: BufferEncoding }
+    options?: { encoding?: BufferEncoding; mode?: number }
   ): void {
     monitoringWrapper(`appendFileSync(${filePath})`, () =>
       fs.appendFileSync(filePath, data, options)
@@ -195,7 +135,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Copy file
+   * Copy file synchronously
    */
   copyFileSync(src: string, dest: string): void {
     monitoringWrapper(`copyFileSync(${src} -> ${dest})`, () =>
@@ -204,7 +144,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Delete file
+   * Unlink (delete) file synchronously
    */
   unlinkSync(filePath: string): void {
     monitoringWrapper(`unlinkSync(${filePath})`, () =>
@@ -213,7 +153,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Rename/move file
+   * Rename file synchronously
    */
   renameSync(oldPath: string, newPath: string): void {
     monitoringWrapper(`renameSync(${oldPath} -> ${newPath})`, () =>
@@ -222,7 +162,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Create hard link
+   * Link synchronously
    */
   linkSync(existingPath: string, newPath: string): void {
     monitoringWrapper(`linkSync(${existingPath} -> ${newPath})`, () =>
@@ -231,7 +171,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Create symbolic link
+   * Symlink synchronously
    */
   symlinkSync(target: string, linkPath: string): void {
     monitoringWrapper(`symlinkSync(${target} -> ${linkPath})`, () =>
@@ -240,7 +180,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Read symlink target
+   * Read link synchronously
    */
   readlinkSync(filePath: string): string {
     return monitoringWrapper(`readlinkSync(${filePath})`, () =>
@@ -249,7 +189,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Resolve real path
+   * Realpath synchronously
    */
   realpathSync(filePath: string): string {
     return monitoringWrapper(`realpathSync(${filePath})`, () =>
@@ -258,10 +198,10 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Create directory (recursive by default)
+   * Mkdir synchronously (recursive check)
    */
   mkdirSync(dirPath: string, options?: MkdirOptions): void {
-    monitoringWrapper(`mkdirSync(${dirPath})`, () => {
+    return monitoringWrapper(`mkdirSync(${dirPath})`, () => {
       if (!fs.existsSync(dirPath)) {
         const mkdirOptions: fs.MakeDirectoryOptions = { recursive: true };
         if (options?.mode !== undefined) {
@@ -273,7 +213,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * List directory with file types
+   * Readdir synchronously
    */
   readdirSync(dirPath: string): fs.Dirent[] {
     return monitoringWrapper(`readdirSync(${dirPath})`, () =>
@@ -282,7 +222,7 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * List directory as string array
+   * Readdir as strings
    */
   readdirStringSync(dirPath: string): string[] {
     return monitoringWrapper(`readdirStringSync(${dirPath})`, () =>
@@ -301,14 +241,14 @@ export const FileSystemWrapper = {
   },
 
   /**
-   * Remove empty directory
+   * Rmdir synchronously
    */
   rmdirSync(dirPath: string): void {
     monitoringWrapper(`rmdirSync(${dirPath})`, () => fs.rmdirSync(dirPath));
   },
 
   /**
-   * Remove file or directory recursively
+   * Remove synchronously (recursive)
    */
   rmSync(filePath: string, options?: { recursive?: boolean; force?: boolean }): void {
     monitoringWrapper(`rmSync(${filePath})`, () => fs.rmSync(filePath, options));
@@ -320,294 +260,23 @@ export const FileSystemWrapper = {
   createWriteStream(filePath: string): fs.WriteStream {
     return fs.createWriteStream(filePath);
   },
-
+  
   /**
    * Write file synchronously
    */
   writeFileSync(
     filePath: string,
     data: string | Buffer,
-    options?: { encoding?: BufferEncoding }
+    options?: { encoding?: BufferEncoding; mode?: number }
   ): void {
-    monitoringWrapper(`writeFileSync(${filePath})`, () =>
+    monitoringWrapper(`writeFileSync(${filePath})`, () => 
       fs.writeFileSync(filePath, data, options)
     );
-  },
-
-  /**
-   * Write file asynchronously
-   */
-  async writeFile(
-    filePath: string,
-    data: string | Buffer,
-    options?: { encoding?: BufferEncoding }
-  ): Promise<void> {
-    return monitoringWrapper(`writeFile(${filePath})`, () =>
-      fs.promises.writeFile(filePath, data, options)
-    );
-  },
-
-  /**
-   * Read file asynchronously
-   */
-  async readFile(
-    filePath: string,
-    options?: { encoding?: BufferEncoding }
-  ): Promise<string | Buffer> {
-    return monitoringWrapper(`readFile(${filePath})`, () =>
-      fs.promises.readFile(filePath, options)
-    );
-  },
+  }
 };
 
 /**
- * Get system temp directory
+ * Get the file system wrapper.
+ * Original: vA in chunks.1.mjs
  */
-export function getTempDir(): string {
-  return os.tmpdir();
-}
-
-// ============================================
-// Output File Management (Background Tasks)
-// ============================================
-/**
- * Map of pending write promises per task.
- * Ensures sequential writes for each task.
- * Original: X12 in chunks.86.mjs
- */
-const pendingWrites = new Map<string, Promise<void>>();
-
-/**
- * Append content to output file for background tasks.
- * Original: g9A in chunks.86.mjs
- */
-export function appendToOutputFile(taskId: string, content: string, cwd?: string): void {
-  // Use core task path conventions
-  const claudeDir = path.join(os.homedir(), '.claude');
-  const workingDir = cwd ?? process.cwd();
-  const sanitizedCwd = workingDir.replace(/[^a-zA-Z0-9]/g, '-');
-  const projectDir = path.join(claudeDir, 'projects', sanitizedCwd);
-  const outputDir = path.join(projectDir, 'agents');
-  const outputPath = path.join(outputDir, `${taskId}.output`);
-
-  try {
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-  } catch (error) {
-    // ignore
-  }
-
-  // Chain writes to ensure sequential order
-  const writePromise = (pendingWrites.get(taskId) ?? Promise.resolve()).then(async () => {
-    try {
-      fs.appendFileSync(outputPath, content, 'utf-8');
-    } catch (error) {
-      // ignore
-    }
-  });
-
-  pendingWrites.set(taskId, writePromise);
-}
-
-// ============================================
-// Encoding Detection
-// ============================================
-
-/**
- * Detect file encoding from BOM or content
- * Original: RW in analysis docs
- */
-export function detectEncoding(filePath: string): BufferEncoding {
-  try {
-    const { buffer, bytesRead } = FileSystemWrapper.readSync(filePath, {
-      length: 4,
-    });
-
-    if (bytesRead < 2) {
-      return 'utf-8';
-    }
-
-    // Check for UTF-16LE BOM (FF FE)
-    if (buffer[0] === 0xff && buffer[1] === 0xfe) {
-      return 'utf-16le';
-    }
-
-    // Check for UTF-8 BOM (EF BB BF)
-    if (bytesRead >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
-      return 'utf-8';
-    }
-
-    // Default to UTF-8
-    return 'utf-8';
-  } catch {
-    return 'utf-8';
-  }
-}
-
-// ============================================
-// Line Ending Utilities
-// ============================================
-
-/**
- * Normalize line endings to LF
- */
-export function normalizeLineEndings(content: string): string {
-  return content.replace(/\r\n/g, '\n');
-}
-
-/**
- * Detect line ending style in content
- */
-export function detectLineEnding(content: string): '\r\n' | '\n' {
-  const crlfCount = (content.match(/\r\n/g) || []).length;
-  const lfCount = (content.match(/(?<!\r)\n/g) || []).length;
-  return crlfCount > lfCount ? '\r\n' : '\n';
-}
-
-// ============================================
-// File Modified Time
-// ============================================
-
-/**
- * Get file modified time in milliseconds
- * Original: mz (getFileModifiedTime) in chunks.86.mjs
- */
-export function getFileModifiedTime(filePath: string): number {
-  try {
-    const stat = FileSystemWrapper.statSync(filePath);
-    return stat.mtimeMs;
-  } catch {
-    return 0;
-  }
-}
-
-// ============================================
-// Path Utilities
-// ============================================
-
-/**
- * Resolve path to absolute
- * Original: Y4 in chunks.115.mjs
- */
-export function resolvePath(filePath: string): string {
-  return path.resolve(filePath);
-}
-
-/**
- * Check if path is absolute
- */
-export function isAbsolutePath(filePath: string): boolean {
-  return path.isAbsolute(filePath);
-}
-
-/**
- * Join path components
- */
-export function joinPath(...parts: string[]): string {
-  return path.join(...parts);
-}
-
-/**
- * Get directory name
- */
-export function dirname(filePath: string): string {
-  return path.dirname(filePath);
-}
-
-/**
- * Get base name
- */
-export function basename(filePath: string, ext?: string): string {
-  return path.basename(filePath, ext);
-}
-
-/**
- * Get file extension
- */
-export function extname(filePath: string): string {
-  return path.extname(filePath);
-}
-
-// ============================================
-// Read File State Management
-// ============================================
-
-/**
- * Record a file read in the state map
- * Original: from chunks.86.mjs:764-768
- */
-export function recordFileRead(
-  readFileState: ReadFileState,
-  filePath: string,
-  content: string,
-  offset?: number,
-  limit?: number
-): void {
-  const resolvedPath = resolvePath(filePath);
-  readFileState.set(resolvedPath, {
-    content,
-    timestamp: getFileModifiedTime(resolvedPath),
-    offset,
-    limit,
-  });
-}
-
-/**
- * Check if file was read
- */
-export function wasFileRead(
-  readFileState: ReadFileState,
-  filePath: string
-): boolean {
-  const resolvedPath = resolvePath(filePath);
-  return readFileState.has(resolvedPath);
-}
-
-/**
- * Get file read record
- */
-export function getFileReadRecord(
-  readFileState: ReadFileState,
-  filePath: string
-): FileReadRecord | undefined {
-  const resolvedPath = resolvePath(filePath);
-  return readFileState.get(resolvedPath);
-}
-
-/**
- * Check if file was modified since read
- */
-export function wasFileModifiedSinceRead(
-  readFileState: ReadFileState,
-  filePath: string
-): boolean {
-  const record = getFileReadRecord(readFileState, filePath);
-  if (!record) return false;
-
-  const resolvedPath = resolvePath(filePath);
-  const currentMtime = getFileModifiedTime(resolvedPath);
-
-  if (currentMtime <= record.timestamp) {
-    return false;
-  }
-
-  // If full file was read, compare content
-  if (record.offset === undefined && record.limit === undefined) {
-    try {
-      const currentContent = normalizeLineEndings(
-        FileSystemWrapper.readFileSync(resolvedPath, {
-          encoding: detectEncoding(resolvedPath),
-        })
-      );
-      return currentContent !== record.content;
-    } catch {
-      return true;
-    }
-  }
-
-  // Partial read - can only use timestamp
-  return true;
-}
-
-// Note: exports are declared inline above.
+export const getFileSystem = () => FileSystemWrapper;

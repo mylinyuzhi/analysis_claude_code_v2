@@ -213,9 +213,3 @@ export const COMMON_EVENTS = {
   STARTUP_PERF: 'tengu_startup_perf',
   ATTACHMENT_COMPUTE: 'tengu_attachment_compute_duration',
 } as const;
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 常量/函数已在声明处导出；移除重复聚合导出。
