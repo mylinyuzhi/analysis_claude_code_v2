@@ -2,187 +2,125 @@
  * @claudecode/plugin - Plugin Loader
  *
  * Discovery and loading of plugins from marketplaces and inline paths.
- * Reconstructed from chunks.130.mjs:2612-3263
+ * Reconstructed from chunks.1.mjs, chunks.91.mjs, and chunks.130.mjs.
  */
 
-import { readFileSync, existsSync, statSync, realpathSync, readdirSync } from 'fs';
-import { join, basename, resolve } from 'path';
+import { readFileSync, existsSync, statSync, realpathSync, mkdirSync, renameSync, rmSync } from 'fs';
+import { join, resolve, dirname, basename } from 'path';
 import type {
   PluginDefinition,
   PluginManifest,
   PluginDiscoveryResult,
   PluginError,
   HooksConfig,
-  HooksFile,
 } from './types.js';
-import { pluginManifestSchema, hooksFileSchema } from './schemas.js';
+import {
+  unifiedPluginManifestSchema,
+  hooksFileSchema,
+} from './schemas.js';
+import {
+  loadKnownMarketplaces,
+  findPluginInCachedMarketplace,
+  isMarketplaceSourceAllowed,
+  isMarketplaceSourceBlocked,
+} from './marketplace.js';
+import {
+  getVersionedCachePath,
+  copyToVersionedCache,
+  resolvePluginVersion,
+  downloadPluginFromSource,
+} from './installation.js';
+import { loadSettings } from './settings.js';
 
 // ============================================
-// Memoization
+// Internal State & Helpers
 // ============================================
 
 /**
- * Simple memoization wrapper.
- * Original: W0 / _U1 in chunks.1.mjs:636-656
+ * Simple memoization wrapper for async functions.
+ * Original: W0 / _U1 in chunks.1.mjs
  */
-function memoize<T>(fn: () => Promise<T>): (() => Promise<T>) & { cache?: Map<string, T> } {
-  const cache = new Map<string, T>();
+function createMemoizedAsync<T>(fn: () => Promise<T>): (() => Promise<T>) & { cache?: { clear: () => void } } {
+  let cachedResult: T | undefined;
+  let promise: Promise<T> | undefined;
+
   const memoized = async () => {
-    if (cache.has('result')) {
-      return cache.get('result')!;
-    }
-    const result = await fn();
-    cache.set('result', result);
-    return result;
+    if (cachedResult !== undefined) return cachedResult;
+    if (promise) return promise;
+
+    promise = fn().then((result) => {
+      cachedResult = result;
+      promise = undefined;
+      return result;
+    });
+
+    return promise;
   };
-  memoized.cache = cache;
+
+  memoized.cache = {
+    clear: () => {
+      cachedResult = undefined;
+      promise = undefined;
+    },
+  };
+
   return memoized;
 }
 
-// ============================================
-// Session Context (Placeholder)
-// ============================================
-
-interface SessionContext {
-  inlinePlugins?: string[];
-  enabledPlugins?: Record<string, boolean>;
-}
-
-let sessionContext: SessionContext = {};
+const log = (msg: string, options?: { level?: string }) => {
+  if (process.env.DEBUG || process.env.CLAUDE_CODE_DEBUG) {
+    const prefix = options?.level === 'error' ? '✖' : options?.level === 'warn' ? '⚠' : 'ℹ';
+    console.error(`[Plugin] ${prefix} ${msg}`);
+  }
+};
 
 /**
- * Set session context for plugin loading.
+ * Placeholder for telemetry tracking.
+ * Original: e in chunks.130.mjs
  */
-export function setSessionContext(context: SessionContext): void {
-  sessionContext = context;
+const trackError = (err: Error) => {
+  // Telemetry implementation omitted
+};
+
+async function getEnabledPlugins(): Promise<Record<string, any>> {
+  const settings = await loadSettings();
+  return (settings.enabledPlugins as Record<string, any>) || {};
 }
 
-/**
- * Get inline plugin paths from session.
- * Original: Qf0 in chunks.1.mjs:2678
- */
+let inlinePluginPaths: string[] = [];
+export function setInlinePluginPaths(paths: string[]): void {
+  inlinePluginPaths = paths;
+}
 function getInlinePlugins(): string[] {
-  return sessionContext.inlinePlugins || [];
-}
-
-/**
- * Get enabled plugins configuration.
- */
-function getEnabledPlugins(): Record<string, boolean> {
-  return sessionContext.enabledPlugins || {};
+  return inlinePluginPaths;
 }
 
 // ============================================
-// File System Helpers
+// Hook Loading & Merging
 // ============================================
 
-/**
- * Check if symlink points to already-loaded path (deduplication).
- */
-function isSymlinkDuplicate(filePath: string, loadedPaths: Set<string>): boolean {
-  try {
-    const realPath = realpathSync(filePath);
-    if (loadedPaths.has(realPath)) {
-      return true;
-    }
-    loadedPaths.add(realPath);
-    return false;
-  } catch {
-    if (loadedPaths.has(filePath)) {
-      return true;
-    }
-    loadedPaths.add(filePath);
-    return false;
-  }
-}
-
-// ============================================
-// Manifest Loading
-// ============================================
-
-/**
- * Load and validate plugin manifest.
- * Original: LF1 in chunks.130.mjs
- */
-function loadManifest(
-  manifestPath: string,
-  pluginName: string,
-  source: string
-): PluginManifest {
-  if (!existsSync(manifestPath)) {
-    throw new Error(
-      `Plugin manifest not found at ${manifestPath} for plugin ${pluginName}`
-    );
-  }
-
-  const content = readFileSync(manifestPath, { encoding: 'utf-8' });
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw new Error(`Invalid JSON in plugin manifest: ${manifestPath}`);
-  }
-
-  const result = pluginManifestSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error(
-      `Invalid plugin manifest for ${pluginName}: ${result.error.message}`
-    );
-  }
-
-  return result.data as PluginManifest;
-}
-
-/**
- * Load hooks file.
- * Original: po2 in chunks.130.mjs:2602-2610
- */
-function loadHooksFile(hooksPath: string, pluginName: string): HooksConfig {
+/** Original: po2 in chunks.130.mjs:2602-2610 */
+export function loadHooksFile(hooksPath: string, pluginName: string): HooksConfig {
   if (!existsSync(hooksPath)) {
-    throw new Error(
-      `Hooks file not found at ${hooksPath} for plugin ${pluginName}. If the manifest declares hooks, the file must exist.`
-    );
+    throw new Error(`Hooks file not found at ${hooksPath} for plugin ${pluginName}. If the manifest declares hooks, the file must exist.`);
   }
 
   const content = readFileSync(hooksPath, { encoding: 'utf-8' });
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw new Error(`Invalid JSON in hooks file: ${hooksPath}`);
-  }
-
-  const result = hooksFileSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error(`Invalid hooks file for ${pluginName}: ${result.error.message}`);
-  }
-
-  return (result.data as HooksFile).hooks;
+  const json = JSON.parse(content);
+  return hooksFileSchema.parse(json).hooks;
 }
 
-/**
- * Merge hook configurations.
- * Original: lo2 in chunks.130.mjs:2830-2838
- */
-function mergeHookConfigs(
-  baseConfig: HooksConfig | undefined,
-  additionalConfig: HooksConfig
-): HooksConfig {
-  if (!baseConfig) return additionalConfig;
-
-  const merged: HooksConfig = { ...baseConfig };
-
-  for (const [hookType, hooks] of Object.entries(additionalConfig)) {
-    const key = hookType as keyof HooksConfig;
+/** Original: lo2 in chunks.130.mjs:2830-2838 */
+export function mergeHookConfigs(base: HooksConfig | undefined, extra: HooksConfig): HooksConfig {
+  if (!base) return extra;
+  const merged = { ...base };
+  for (const [key, hooks] of Object.entries(extra)) {
     if (!merged[key]) {
       merged[key] = hooks;
     } else {
       merged[key] = [...(merged[key] || []), ...hooks];
     }
   }
-
   return merged;
 }
 
@@ -190,23 +128,37 @@ function mergeHookConfigs(
 // Plugin Definition Loading
 // ============================================
 
-/**
- * Load plugin definition from filesystem path.
- * Original: ao2 in chunks.130.mjs:2612-2820
+/** Original: LF1 in chunks.130.mjs */
+function loadPluginManifestFromFile(manifestPath: string, pluginName: string, source: string): PluginManifest {
+  if (!existsSync(manifestPath)) {
+    return { name: pluginName, description: `Plugin from ${source}` } as PluginManifest;
+  }
+  try {
+    const content = readFileSync(manifestPath, 'utf-8');
+    const json = JSON.parse(content);
+    const result = unifiedPluginManifestSchema.safeParse(json);
+    if (result.success) return result.data;
+    throw new Error(`Invalid manifest at ${manifestPath}: ${result.error.message}`);
+  } catch (err: any) {
+    throw err;
+  }
+}
+
+/** 
+ * Scans a plugin directory and constructs a PluginDefinition.
+ * Original: ao2 in chunks.130.mjs:2612-2820 
  */
-function loadPluginDefinitionFromPath(
+export function loadPluginDefinitionFromPath(
   pluginPath: string,
   source: string,
   enabled: boolean,
-  pluginName: string
+  pluginName: string,
+  strict = true
 ): { plugin: PluginDefinition; errors: PluginError[] } {
   const errors: PluginError[] = [];
+  const manifestJsonPath = join(pluginPath, '.claude-plugin', 'plugin.json');
+  const manifest = loadPluginManifestFromFile(manifestJsonPath, pluginName, source);
 
-  // Load manifest
-  const manifestPath = join(pluginPath, '.claude-plugin', 'plugin.json');
-  const manifest = loadManifest(manifestPath, pluginName, source);
-
-  // Base plugin definition
   const pluginDef: PluginDefinition = {
     name: manifest.name,
     manifest,
@@ -216,433 +168,535 @@ function loadPluginDefinitionFromPath(
     enabled,
   };
 
-  // === COMMANDS ===
-  const defaultCommandsPath = join(pluginPath, 'commands');
-  if (!manifest.commands && existsSync(defaultCommandsPath)) {
-    pluginDef.commandsPath = defaultCommandsPath;
-  }
-
+  // Commands scanning
+  const commandsDir = join(pluginPath, 'commands');
+  if (!manifest.commands && existsSync(commandsDir)) pluginDef.commandsPath = commandsDir;
   if (manifest.commands) {
-    if (typeof manifest.commands === 'string') {
-      const cmdPath = join(pluginPath, manifest.commands);
-      if (existsSync(cmdPath)) {
-        pluginDef.commandsPaths = [cmdPath];
-      } else {
-        errors.push({
-          type: 'path-not-found',
-          source,
-          plugin: manifest.name,
-          path: cmdPath,
-          component: 'commands',
-        });
-      }
-    } else if (Array.isArray(manifest.commands)) {
-      const resolvedPaths = manifest.commands
-        .filter((p) => {
-          const fullPath = join(pluginPath, p);
-          if (existsSync(fullPath)) return true;
-          errors.push({
-            type: 'path-not-found',
-            source,
-            plugin: manifest.name,
-            path: fullPath,
-            component: 'commands',
-          });
-          return false;
-        })
-        .map((p) => join(pluginPath, p));
-      if (resolvedPaths.length > 0) {
-        pluginDef.commandsPaths = resolvedPaths;
-      }
-    } else {
-      // Object format with metadata
-      pluginDef.commandsMetadata = {};
-      const commandsPaths: string[] = [];
-
-      for (const [cmdName, cmdDef] of Object.entries(manifest.commands)) {
-        if (cmdDef.source) {
-          const cmdPath = join(pluginPath, cmdDef.source);
-          if (existsSync(cmdPath)) {
-            commandsPaths.push(cmdPath);
-            pluginDef.commandsMetadata[cmdName] = cmdDef;
+    const firstVal = Object.values(manifest.commands)[0];
+    if (typeof manifest.commands === 'object' && !Array.isArray(manifest.commands) && firstVal && typeof firstVal === 'object' && ('source' in firstVal || 'content' in firstVal)) {
+      const meta: Record<string, any> = {};
+      const paths: string[] = [];
+      for (const [name, cmd] of Object.entries(manifest.commands)) {
+        if (!cmd || typeof cmd !== 'object') continue;
+        if ((cmd as any).source) {
+          const p = join(pluginPath, (cmd as any).source);
+          if (existsSync(p)) {
+            paths.push(p);
+            meta[name] = cmd;
           } else {
-            errors.push({
-              type: 'path-not-found',
-              source,
-              plugin: manifest.name,
-              path: cmdPath,
-              component: 'commands',
-            });
+            log(`Command ${name} path ${(cmd as any).source} specified in manifest but not found at ${p} for ${manifest.name}`, { level: 'warn' });
+            trackError(new Error(`Plugin component file not found: ${p} for ${manifest.name}`));
+            errors.push({ type: 'path-not-found', source, plugin: manifest.name, path: p, component: 'commands' });
           }
-        } else if (cmdDef.content) {
-          pluginDef.commandsMetadata[cmdName] = cmdDef;
+        } else if ((cmd as any).content) {
+          meta[name] = cmd;
         }
       }
-
-      if (commandsPaths.length > 0) {
-        pluginDef.commandsPaths = commandsPaths;
+      if (paths.length > 0) pluginDef.commandsPaths = paths;
+      if (Object.keys(meta).length > 0) pluginDef.commandsMetadata = meta;
+    } else {
+      const raw = Array.isArray(manifest.commands) ? manifest.commands : [manifest.commands];
+      const paths: string[] = [];
+      for (const p of raw) {
+        if (typeof p !== 'string') {
+          log(`Unexpected command format in manifest for ${manifest.name}`, { level: 'error' });
+          continue;
+        }
+        const full = join(pluginPath, p);
+        if (existsSync(full)) {
+          paths.push(full);
+        } else {
+          log(`Command path ${p} specified in manifest but not found at ${full} for ${manifest.name}`, { level: 'warn' });
+          trackError(new Error(`Plugin component file not found: ${full} for ${manifest.name}`));
+          errors.push({ type: 'path-not-found', source, plugin: manifest.name, path: full, component: 'commands' });
+        }
       }
+      if (paths.length > 0) pluginDef.commandsPaths = paths;
     }
   }
 
-  // === AGENTS ===
-  const defaultAgentsPath = join(pluginPath, 'agents');
-  if (!manifest.agents && existsSync(defaultAgentsPath)) {
-    pluginDef.agentsPath = defaultAgentsPath;
-  }
-
+  // Agents scanning
+  const agentsDir = join(pluginPath, 'agents');
+  if (!manifest.agents && existsSync(agentsDir)) pluginDef.agentsPath = agentsDir;
   if (manifest.agents) {
-    const paths = Array.isArray(manifest.agents)
-      ? manifest.agents
-      : [manifest.agents];
-    const resolvedPaths = paths
-      .filter((p) => {
-        const fullPath = join(pluginPath, p);
-        if (existsSync(fullPath)) return true;
-        errors.push({
-          type: 'path-not-found',
-          source,
-          plugin: manifest.name,
-          path: fullPath,
-          component: 'agents',
-        });
-        return false;
-      })
-      .map((p) => join(pluginPath, p));
-    if (resolvedPaths.length > 0) {
-      pluginDef.agentsPaths = resolvedPaths;
+    const raw = Array.isArray(manifest.agents) ? manifest.agents : [manifest.agents];
+    const paths: string[] = [];
+    for (const p of raw) {
+      const full = join(pluginPath, p as string);
+      if (existsSync(full)) {
+        paths.push(full);
+      } else {
+        log(`Agent path ${p} specified in manifest but not found at ${full} for ${manifest.name}`, { level: 'warn' });
+        trackError(new Error(`Plugin component file not found: ${full} for ${manifest.name}`));
+        errors.push({ type: 'path-not-found', source, plugin: manifest.name, path: full, component: 'agents' });
+      }
     }
+    if (paths.length > 0) pluginDef.agentsPaths = paths;
   }
 
-  // === SKILLS ===
-  const defaultSkillsPath = join(pluginPath, 'skills');
-  if (!manifest.skills && existsSync(defaultSkillsPath)) {
-    pluginDef.skillsPath = defaultSkillsPath;
-  }
-
+  // Skills scanning
+  const skillsDir = join(pluginPath, 'skills');
+  if (!manifest.skills && existsSync(skillsDir)) pluginDef.skillsPath = skillsDir;
   if (manifest.skills) {
-    const paths = Array.isArray(manifest.skills)
-      ? manifest.skills
-      : [manifest.skills];
-    const resolvedPaths = paths
-      .filter((p) => {
-        const fullPath = join(pluginPath, p);
-        if (existsSync(fullPath)) return true;
-        errors.push({
-          type: 'path-not-found',
-          source,
-          plugin: manifest.name,
-          path: fullPath,
-          component: 'skills',
-        });
-        return false;
-      })
-      .map((p) => join(pluginPath, p));
-    if (resolvedPaths.length > 0) {
-      pluginDef.skillsPaths = resolvedPaths;
+    const raw = Array.isArray(manifest.skills) ? manifest.skills : [manifest.skills];
+    const paths: string[] = [];
+    for (const p of raw) {
+      const full = join(pluginPath, p as string);
+      if (existsSync(full)) {
+        paths.push(full);
+      } else {
+        log(`Skill path ${p} specified in manifest but not found at ${full} for ${manifest.name}`, { level: 'warn' });
+        trackError(new Error(`Plugin component file not found: ${full} for ${manifest.name}`));
+        errors.push({ type: 'path-not-found', source, plugin: manifest.name, path: full, component: 'skills' });
+      }
     }
+    if (paths.length > 0) pluginDef.skillsPaths = paths;
   }
 
-  // === OUTPUT STYLES ===
-  const defaultOutputStylesPath = join(pluginPath, 'output-styles');
-  if (!manifest.outputStyles && existsSync(defaultOutputStylesPath)) {
-    pluginDef.outputStylesPath = defaultOutputStylesPath;
-  }
-
+  // Output Styles scanning
+  const outputStylesDir = join(pluginPath, 'output-styles');
+  if (!manifest.outputStyles && existsSync(outputStylesDir)) pluginDef.outputStylesPath = outputStylesDir;
   if (manifest.outputStyles) {
-    const paths = Array.isArray(manifest.outputStyles)
-      ? manifest.outputStyles
-      : [manifest.outputStyles];
-    const resolvedPaths = paths
-      .filter((p) => existsSync(join(pluginPath, p)))
-      .map((p) => join(pluginPath, p));
-    if (resolvedPaths.length > 0) {
-      pluginDef.outputStylesPaths = resolvedPaths;
+    const raw = Array.isArray(manifest.outputStyles) ? manifest.outputStyles : [manifest.outputStyles];
+    const paths: string[] = [];
+    for (const p of raw) {
+      const full = join(pluginPath, p as string);
+      if (existsSync(full)) {
+        paths.push(full);
+      } else {
+        log(`Output style path ${p} specified in manifest but not found at ${full} for ${manifest.name}`, { level: 'warn' });
+        trackError(new Error(`Plugin component file not found: ${full} for ${manifest.name}`));
+        errors.push({ type: 'path-not-found', source, plugin: manifest.name, path: full, component: 'output-styles' });
+      }
     }
+    if (paths.length > 0) pluginDef.outputStylesPaths = paths;
   }
 
-  // === HOOKS ===
-  let hooksConfig: HooksConfig | undefined;
-  const loadedHookFiles = new Set<string>();
-
-  // Load from standard location
-  const standardHooksPath = join(pluginPath, 'hooks', 'hooks.json');
-  if (existsSync(standardHooksPath)) {
+  // Hooks processing
+  let hooks: HooksConfig | undefined;
+  const loadedHooksPaths = new Set<string>();
+  const stdHooksPath = join(pluginPath, 'hooks', 'hooks.json');
+  if (existsSync(stdHooksPath)) {
     try {
-      hooksConfig = loadHooksFile(standardHooksPath, manifest.name);
+      hooks = loadHooksFile(stdHooksPath, manifest.name);
       try {
-        loadedHookFiles.add(realpathSync(standardHooksPath));
+        loadedHooksPaths.add(realpathSync(stdHooksPath));
       } catch {
-        loadedHookFiles.add(standardHooksPath);
+        loadedHooksPaths.add(stdHooksPath);
       }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      errors.push({
-        type: 'hook-load-failed',
-        source,
-        plugin: manifest.name,
-        hookPath: standardHooksPath,
-        reason: errorMessage,
-      });
+      log(`Loaded hooks from standard location for plugin ${manifest.name}: ${stdHooksPath}`);
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log(`Failed to load hooks for ${manifest.name}: ${msg}`, { level: 'error' });
+      trackError(err instanceof Error ? err : new Error(msg));
+      errors.push({ type: 'hook-load-failed', source, plugin: manifest.name, reason: msg });
     }
   }
 
-  // Load from manifest-declared paths
-  if (manifest.hooks && typeof manifest.hooks !== 'object') {
-    const hookPaths = Array.isArray(manifest.hooks)
-      ? manifest.hooks
-      : [manifest.hooks];
-
-    for (const hookPath of hookPaths) {
-      if (typeof hookPath !== 'string') continue;
-
-      const fullHookPath = join(pluginPath, hookPath);
-
-      if (!existsSync(fullHookPath)) {
-        errors.push({
-          type: 'path-not-found',
-          source,
-          plugin: manifest.name,
-          path: fullHookPath,
-          component: 'hooks',
-        });
-        continue;
-      }
-
-      if (isSymlinkDuplicate(fullHookPath, loadedHookFiles)) {
-        continue;
-      }
-
-      try {
-        const additionalHooks = loadHooksFile(fullHookPath, manifest.name);
-        hooksConfig = mergeHookConfigs(hooksConfig, additionalHooks);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        errors.push({
-          type: 'hook-load-failed',
-          source,
-          plugin: manifest.name,
-          hookPath: fullHookPath,
-          reason: errorMessage,
-        });
+  if (manifest.hooks) {
+    const rawHooks = Array.isArray(manifest.hooks) ? manifest.hooks : [manifest.hooks];
+    for (const h of rawHooks) {
+      if (typeof h === 'string') {
+        const p = join(pluginPath, h);
+        if (!existsSync(p)) {
+          log(`Hooks file ${h} specified in manifest but not found at ${p} for ${manifest.name}`, { level: 'error' });
+          trackError(new Error(`Plugin component file not found: ${p} for ${manifest.name}`));
+          errors.push({ type: 'path-not-found', source, plugin: manifest.name, path: p, component: 'hooks' });
+          continue;
+        }
+        let rp: string;
+        try {
+          rp = realpathSync(p);
+        } catch {
+          rp = p;
+        }
+        if (loadedHooksPaths.has(rp)) {
+          log(`Skipping duplicate hooks file for plugin ${manifest.name}: ${h} (resolves to already-loaded file: ${rp})`);
+          if (strict) {
+            const msg = `Duplicate hooks file detected: ${h} resolves to already-loaded file ${rp}. The standard hooks/hooks.json is loaded automatically, so manifest.hooks should only reference additional hook files.`;
+            trackError(new Error(msg));
+            errors.push({ type: 'hook-load-failed', source, plugin: manifest.name, reason: msg });
+          }
+          continue;
+        }
+        try {
+          const config = loadHooksFile(p, manifest.name);
+          try {
+            hooks = mergeHookConfigs(hooks, config);
+            loadedHooksPaths.add(rp);
+            log(`Loaded and merged hooks from manifest for plugin ${manifest.name}: ${h}`);
+          } catch (mergeErr: any) {
+            const msg = mergeErr instanceof Error ? mergeErr.message : String(mergeErr);
+            log(`Failed to merge hooks from ${h} for ${manifest.name}: ${msg}`, { level: 'error' });
+            trackError(mergeErr instanceof Error ? mergeErr : new Error(msg));
+            errors.push({ type: 'hook-load-failed', source, plugin: manifest.name, reason: `Failed to merge: ${msg}` });
+          }
+        } catch (loadErr: any) {
+          const msg = loadErr instanceof Error ? loadErr.message : String(loadErr);
+          log(`Failed to load hooks from ${h} for ${manifest.name}: ${msg}`, { level: 'error' });
+          trackError(loadErr instanceof Error ? loadErr : new Error(msg));
+          errors.push({ type: 'hook-load-failed', source, plugin: manifest.name, reason: msg });
+        }
+      } else if (typeof h === 'object') {
+        hooks = mergeHookConfigs(hooks, h as HooksConfig);
       }
     }
   }
-
-  if (hooksConfig) {
-    pluginDef.hooksConfig = hooksConfig;
-  }
+  if (hooks) pluginDef.hooksConfig = hooks;
 
   return { plugin: pluginDef, errors };
 }
 
-// ============================================
-// Inline Plugin Loading
-// ============================================
-
-/**
- * Extract plugin name from path.
+/** 
+ * Initializes a plugin from a marketplace entry, handling caching and manifest merging.
+ * Original: MB7 in chunks.130.mjs:2890-3177 
  */
-function extractPluginNameFromPath(pluginPath: string): string {
-  return basename(resolve(pluginPath));
-}
+export async function initializePluginFromMarketplace(
+  entry: any,
+  marketLocation: string,
+  sourceId: string,
+  enabled: boolean,
+  accumulatedErrors: PluginError[]
+): Promise<PluginDefinition | null> {
+  log(`Loading plugin ${entry.name} from source: ${JSON.stringify(entry.source)}`);
+  let installPath: string;
+  const marketDir = statSync(marketLocation).isDirectory() ? marketLocation : dirname(marketLocation);
 
-/**
- * Load plugins from --plugin-dir paths.
- * Original: RB7 in chunks.130.mjs:3180-3221
- */
-async function loadInlinePlugins(
-  inlinePluginPaths: string[]
-): Promise<{ plugins: PluginDefinition[]; errors: PluginError[] }> {
-  if (inlinePluginPaths.length === 0) {
-    return { plugins: [], errors: [] };
+  if (typeof entry.source === 'string') {
+    const sourcePath = join(marketDir, entry.source);
+    if (!existsSync(sourcePath)) {
+      const err = new Error(`Plugin path not found: ${sourcePath}`);
+      log(`Plugin path not found: ${sourcePath}`, { level: 'error' });
+      trackError(err);
+      accumulatedErrors.push({ 
+        type: 'generic-error', 
+        source: sourceId, 
+        error: `Plugin directory not found at path: ${sourcePath}. Check that the marketplace entry has the correct path.` 
+      });
+      return null;
+    }
+    try {
+      const manifestPath = join(sourcePath, '.claude-plugin', 'plugin.json');
+      let diskManifest: PluginManifest | undefined;
+      try {
+        diskManifest = loadPluginManifestFromFile(manifestPath, entry.name, entry.source);
+      } catch {}
+      const version = await resolvePluginVersion(sourceId, entry.source, diskManifest, marketDir, entry.version);
+      installPath = await copyToVersionedCache(sourcePath, sourceId, version, entry, marketDir);
+      log(`Copied local plugin ${entry.name} to versioned cache: ${installPath}`);
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log(`Failed to copy plugin ${entry.name} to versioned cache: ${msg}. Using marketplace path.`, { level: 'warn' });
+      installPath = sourcePath;
+    }
+  } else {
+    try {
+      const version = await resolvePluginVersion(sourceId, entry.source, undefined, undefined, entry.version);
+      const cachePath = getVersionedCachePath(sourceId, version);
+      if (existsSync(cachePath)) {
+        log(`Using versioned cached plugin ${entry.name} from ${cachePath}`);
+        installPath = cachePath;
+      } else {
+        const downloaded = await downloadPluginFromSource(entry.source, { manifest: { name: entry.name } });
+        const finalVersion = await resolvePluginVersion(sourceId, entry.source, downloaded.manifest, downloaded.path, entry.version);
+        installPath = await copyToVersionedCache(downloaded.path, sourceId, finalVersion, entry, undefined);
+        if (downloaded.path !== installPath) {
+          rmSync(downloaded.path, { recursive: true, force: true });
+        }
+      }
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log(`Failed to cache plugin ${entry.name}: ${msg}`, { level: 'error' });
+      trackError(err instanceof Error ? err : new Error(msg));
+      accumulatedErrors.push({
+        type: 'generic-error',
+        source: sourceId,
+        error: `Failed to download/cache plugin ${entry.name}: ${msg}`
+      });
+      return null;
+    }
   }
 
-  const loadedPlugins: PluginDefinition[] = [];
-  const errors: PluginError[] = [];
+  const manifestPath = join(installPath, '.claude-plugin', 'plugin.json');
+  const hasManifestOnDisk = existsSync(manifestPath);
+  const { plugin, errors } = loadPluginDefinitionFromPath(installPath, sourceId, enabled, entry.name, entry.strict ?? true);
+  
+  const innerErrors: PluginError[] = [...errors];
 
-  for (let i = 0; i < inlinePluginPaths.length; i++) {
-    const pluginPath = inlinePluginPaths[i];
-    if (!pluginPath) {
-      continue;
+  if (!hasManifestOnDisk) {
+    plugin.manifest = { ...entry, id: undefined, source: undefined, strict: undefined };
+    plugin.name = plugin.manifest.name;
+    
+    // Commands merge from marketplace
+    if (entry.commands) {
+      const firstVal = Object.values(entry.commands)[0];
+      if (typeof entry.commands === 'object' && !Array.isArray(entry.commands) && firstVal && typeof firstVal === 'object' && ('source' in firstVal || 'content' in firstVal)) {
+        const meta: Record<string, any> = {};
+        const paths: string[] = [];
+        for (const [name, cmd] of Object.entries(entry.commands)) {
+          if (!cmd || typeof cmd !== 'object' || !(cmd as any).source) continue;
+          const p = join(installPath, (cmd as any).source);
+          if (existsSync(p)) {
+            paths.push(p);
+            meta[name] = cmd;
+          } else {
+            log(`Command ${name} path ${(cmd as any).source} from marketplace entry not found at ${p} for ${entry.name}`, { level: 'warn' });
+            trackError(new Error(`Plugin component file not found: ${p} for ${entry.name}`));
+            innerErrors.push({ type: 'path-not-found', source: sourceId, plugin: entry.name, path: p, component: 'commands' });
+          }
+        }
+        if (paths.length > 0) {
+          plugin.commandsPaths = paths;
+          plugin.commandsMetadata = meta;
+        }
+      } else {
+        const raw = Array.isArray(entry.commands) ? entry.commands : [entry.commands];
+        const paths: string[] = [];
+        for (const p of raw) {
+          if (typeof p !== 'string') continue;
+          const full = join(installPath, p);
+          if (existsSync(full)) {
+            paths.push(full);
+          } else {
+            log(`Command path ${p} from marketplace entry not found at ${full} for ${entry.name}`, { level: 'warn' });
+            trackError(new Error(`Plugin component file not found: ${full} for ${entry.name}`));
+            innerErrors.push({ type: 'path-not-found', source: sourceId, plugin: entry.name, path: full, component: 'commands' });
+          }
+        }
+        if (paths.length > 0) plugin.commandsPaths = paths;
+      }
+    }
+    
+    // Agents merge
+    if (entry.agents) {
+      const raw = Array.isArray(entry.agents) ? entry.agents : [entry.agents];
+      const paths: string[] = [];
+      for (const p of raw) {
+        const full = join(installPath, p as string);
+        if (existsSync(full)) paths.push(full);
+        else {
+          log(`Agent path ${p} from marketplace entry not found at ${full} for ${entry.name}`, { level: 'warn' });
+          trackError(new Error(`Plugin component file not found: ${full} for ${entry.name}`));
+          innerErrors.push({ type: 'path-not-found', source: sourceId, plugin: entry.name, path: full, component: 'agents' });
+        }
+      }
+      if (paths.length > 0) plugin.agentsPaths = paths;
     }
 
-    try {
-      const normalizedPath = resolve(pluginPath);
+    // Skills merge
+    if (entry.skills) {
+      const raw = Array.isArray(entry.skills) ? entry.skills : [entry.skills];
+      const paths: string[] = [];
+      for (const p of raw) {
+        const full = join(installPath, p as string);
+        if (existsSync(full)) paths.push(full);
+        else {
+          log(`Skill path ${p} from marketplace entry not found at ${full} for ${entry.name}`, { level: 'warn' });
+          trackError(new Error(`Plugin component file not found: ${full} for ${entry.name}`));
+          innerErrors.push({ type: 'path-not-found', source: sourceId, plugin: entry.name, path: full, component: 'skills' });
+        }
+      }
+      if (paths.length > 0) plugin.skillsPaths = paths;
+    }
 
-      if (!existsSync(normalizedPath)) {
-        console.warn(`Plugin path does not exist: ${normalizedPath}, skipping`);
-        errors.push({
-          type: 'path-not-found',
-          source: `inline[${i}]`,
-          plugin: '',
-          path: normalizedPath,
-          component: 'commands',
+    // Output Styles merge
+    if (entry.outputStyles) {
+      const raw = Array.isArray(entry.outputStyles) ? entry.outputStyles : [entry.outputStyles];
+      const paths: string[] = [];
+      for (const p of raw) {
+        const full = join(installPath, p as string);
+        if (existsSync(full)) paths.push(full);
+        else {
+          log(`Output style path ${p} from marketplace entry not found at ${full} for ${entry.name}`, { level: 'warn' });
+          trackError(new Error(`Plugin component file not found: ${full} for ${entry.name}`));
+          innerErrors.push({ type: 'path-not-found', source: sourceId, plugin: entry.name, path: full, component: 'output-styles' });
+        }
+      }
+      if (paths.length > 0) plugin.outputStylesPaths = paths;
+    }
+
+    if (entry.hooks) plugin.hooksConfig = entry.hooks;
+  } else if (!entry.strict && hasManifestOnDisk && (entry.commands || entry.agents || entry.skills || entry.hooks || entry.outputStyles)) {
+    const conflictErr = new Error(`Plugin ${entry.name} has both plugin.json and marketplace manifest entries for commands/agents/skills/hooks/outputStyles. This is a conflict.`);
+    log(conflictErr.message, { level: 'error' });
+    trackError(conflictErr);
+    accumulatedErrors.push({
+      type: 'generic-error',
+      source: sourceId,
+      error: `Plugin ${entry.name} has conflicting manifests: both plugin.json and marketplace entry specify components. Set strict: true in marketplace entry or remove component specs from one location.`
+    });
+    return null;
+  } else if (hasManifestOnDisk) {
+    // Merge marketplace components into existing plugin def if not strict
+    if (entry.commands) {
+      const firstVal = Object.values(entry.commands)[0];
+      if (typeof entry.commands === 'object' && !Array.isArray(entry.commands) && firstVal && typeof firstVal === 'object' && ('source' in firstVal || 'content' in firstVal)) {
+        const meta = { ...plugin.commandsMetadata || {} };
+        const paths: string[] = [];
+        for (const [name, cmd] of Object.entries(entry.commands)) {
+          if (!cmd || typeof cmd !== 'object' || !(cmd as any).source) continue;
+          const p = join(installPath, (cmd as any).source);
+          if (existsSync(p)) {
+            paths.push(p);
+            meta[name] = cmd;
+          } else {
+            innerErrors.push({ type: 'path-not-found', source: sourceId, plugin: entry.name, path: p, component: 'commands' });
+          }
+        }
+        if (paths.length > 0) {
+          plugin.commandsPaths = [...(plugin.commandsPaths || []), ...paths];
+          plugin.commandsMetadata = meta;
+        }
+      } else {
+        const raw = Array.isArray(entry.commands) ? entry.commands : [entry.commands];
+        const paths: string[] = [];
+        for (const p of raw) {
+          if (typeof p !== 'string') continue;
+          const full = join(installPath, p);
+          if (existsSync(full)) paths.push(full);
+          else innerErrors.push({ type: 'path-not-found', source: sourceId, plugin: entry.name, path: full, component: 'commands' });
+        }
+        if (paths.length > 0) plugin.commandsPaths = [...(plugin.commandsPaths || []), ...paths];
+      }
+    }
+    // Similar merging for agents, skills, outputStyles
+    if (entry.agents) {
+      const raw = Array.isArray(entry.agents) ? entry.agents : [entry.agents];
+      const paths = (raw as string[]).map(p => join(installPath, p)).filter(p => existsSync(p));
+      if (paths.length > 0) plugin.agentsPaths = [...(plugin.agentsPaths || []), ...paths];
+    }
+    if (entry.skills) {
+      const raw = Array.isArray(entry.skills) ? entry.skills : [entry.skills];
+      const paths = (raw as string[]).map(p => join(installPath, p)).filter(p => existsSync(p));
+      if (paths.length > 0) plugin.skillsPaths = [...(plugin.skillsPaths || []), ...paths];
+    }
+    if (entry.outputStyles) {
+      const raw = Array.isArray(entry.outputStyles) ? entry.outputStyles : [entry.outputStyles];
+      const paths = (raw as string[]).map(p => join(installPath, p)).filter(p => existsSync(p));
+      if (paths.length > 0) plugin.outputStylesPaths = [...(plugin.outputStylesPaths || []), ...paths];
+    }
+    if (entry.hooks) {
+      plugin.hooksConfig = { ...plugin.hooksConfig || {}, ...entry.hooks };
+    }
+  }
+
+  accumulatedErrors.push(...innerErrors);
+  return plugin;
+}
+
+/** 
+ * Orchestrates loading of plugins from all enabled marketplace sources.
+ * Original: OB7 in chunks.130.mjs:2841-2888 
+ */
+export async function loadMarketplacePlugins(): Promise<{ plugins: PluginDefinition[]; errors: PluginError[] }> {
+  const enabledPlugins = await getEnabledPlugins();
+  const plugins: PluginDefinition[] = [];
+  const errors: PluginError[] = [];
+  
+  // Filtering for marketplace style IDs like plugin@marketplace
+  const entries = Object.entries(enabledPlugins).filter(([id, enabled]) => {
+    // Simple check for '@' to identify marketplace plugins
+    return id.includes('@') && enabled !== undefined;
+  });
+  
+  const marketplaces = await loadKnownMarketplaces();
+
+  for (const [sourceId, enabled] of entries) {
+    try {
+      const [name, marketName] = sourceId.split('@');
+      const marketConfig = marketplaces[marketName!];
+      
+      if (marketConfig && !isMarketplaceSourceAllowed(marketConfig.source)) {
+        errors.push({ 
+          type: 'marketplace-blocked-by-policy', 
+          source: sourceId, 
+          plugin: name!, 
+          marketplace: marketName!, 
+          blockedByBlocklist: isMarketplaceSourceBlocked(marketConfig.source), 
+          allowedSources: [] 
         });
         continue;
       }
-
-      const pluginName = extractPluginNameFromPath(normalizedPath);
-
-      const { plugin, errors: loadErrors } = loadPluginDefinitionFromPath(
-        normalizedPath,
-        `${pluginName}@inline`,
-        true,
-        pluginName
+      
+      const cached = findPluginInCachedMarketplace(sourceId);
+      if (!cached) {
+        errors.push({ 
+          type: 'plugin-not-found', 
+          source: sourceId, 
+          pluginId: name!, 
+          marketplace: marketName! 
+        });
+        continue;
+      }
+      
+      const plugin = await initializePluginFromMarketplace(
+        cached.entry, 
+        cached.marketplaceInstallLocation, 
+        sourceId, 
+        enabled === true, 
+        errors
       );
-
-      plugin.source = `${plugin.name}@inline`;
-      plugin.repository = `${plugin.name}@inline`;
-
-      loadedPlugins.push(plugin);
-      errors.push(...loadErrors);
-
-      console.log(`Loaded inline plugin from path: ${plugin.name}`);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.warn(
-        `Failed to load session plugin from ${pluginPath}: ${errorMessage}`
-      );
-      errors.push({
-        type: 'generic-error',
-        source: `inline[${i}]`,
-        error: `Failed to load plugin: ${errorMessage}`,
+      
+      if (plugin) {
+        plugins.push(plugin);
+      }
+    } catch (err: any) {
+      errors.push({ 
+        type: 'generic-error', 
+        source: sourceId, 
+        error: err.message 
       });
     }
   }
-
-  if (loadedPlugins.length > 0) {
-    console.log(
-      `Loaded ${loadedPlugins.length} session-only plugins from --plugin-dir`
-    );
-  }
-
-  return { plugins: loadedPlugins, errors };
+  return { plugins, errors };
 }
 
-// ============================================
-// Marketplace Plugin Loading (Placeholder)
-// ============================================
-
 /**
- * Load plugins from marketplaces.
- * Original: OB7 in chunks.130.mjs:2841-2888
- *
- * Note: This is a placeholder that returns empty results.
- * Full implementation would require marketplace integration.
+ * Loads inline plugins from specified paths.
+ * Original: RB7 in chunks.130.mjs:3180-3244
  */
-async function loadMarketplacePlugins(): Promise<{
-  plugins: PluginDefinition[];
-  errors: PluginError[];
-}> {
-  // Placeholder - would load from configured marketplaces
-  return { plugins: [], errors: [] };
-}
-
-// ============================================
-// Main Discovery Function
-// ============================================
-
-/**
- * Discover all plugins from marketplaces and inline paths.
- * Original: DG in chunks.130.mjs:3246-3263
- */
-export const discoverPluginsAndHooks = memoize(
-  async (): Promise<PluginDiscoveryResult> => {
-    // Load marketplace plugins
-    const marketplaceResult = await loadMarketplacePlugins();
-    const allPlugins = [...marketplaceResult.plugins];
-    const allErrors = [...marketplaceResult.errors];
-
-    // Load inline plugins
-    const inlinePluginPaths = getInlinePlugins();
-    if (inlinePluginPaths.length > 0) {
-      const inlineResult = await loadInlinePlugins(inlinePluginPaths);
-      allPlugins.push(...inlineResult.plugins);
-      allErrors.push(...inlineResult.errors);
-    }
-
-    // Log discovery results
-    const enabledCount = allPlugins.filter((p) => p.enabled).length;
-    const disabledCount = allPlugins.filter((p) => !p.enabled).length;
-    console.log(
-      `Found ${allPlugins.length} plugins (${enabledCount} enabled, ${disabledCount} disabled)`
-    );
-
-    return {
-      enabled: allPlugins.filter((p) => p.enabled),
-      disabled: allPlugins.filter((p) => !p.enabled),
-      errors: allErrors,
-    };
-  }
-);
-
-/**
- * Clear plugin discovery cache.
- * Original: Bt in chunks.130.mjs:3224-3226
- */
-export function clearPluginCache(): void {
-  discoverPluginsAndHooks.cache?.clear?.();
-}
-
-// ============================================
-// Error Formatting
-// ============================================
-
-/**
- * Format plugin error for display.
- */
-export function formatPluginError(error: PluginError): string {
-  switch (error.type) {
-    case 'plugin-not-found':
-      return `Plugin '${error.pluginId}' not found in marketplace '${error.marketplace}'`;
-
-    case 'marketplace-blocked-by-policy':
-      if (error.blockedByBlocklist) {
-        return `Marketplace '${error.marketplace}' is blocked by enterprise policy`;
+async function loadInlinePlugins(paths: string[]): Promise<{ plugins: PluginDefinition[]; errors: PluginError[] }> {
+  if (paths.length === 0) return { plugins: [], errors: [] };
+  
+  const plugins: PluginDefinition[] = [];
+  const errors: PluginError[] = [];
+  
+  for (const path of paths) {
+    try {
+      const fullPath = resolve(path);
+      if (!existsSync(fullPath)) {
+        errors.push({ type: 'generic-error', source: path, error: `Inline plugin path not found: ${fullPath}` });
+        continue;
       }
-      return `Marketplace '${error.marketplace}' is not in the allowed list. Allowed: ${error.allowedSources.join(', ')}`;
-
-    case 'path-not-found':
-      return `${error.component} path not found for plugin '${error.plugin}': ${error.path}`;
-
-    case 'hook-load-failed':
-      return `Failed to load hooks for '${error.plugin}': ${error.reason}`;
-
-    case 'lsp-config-invalid':
-      return `Invalid LSP config for '${error.serverName}' in plugin '${error.plugin}': ${error.validationError}`;
-
-    default:
-      return (error as { error?: string }).error || 'Unknown error';
+      
+      const pluginName = basename(fullPath);
+      const { plugin, errors: loadErrors } = loadPluginDefinitionFromPath(fullPath, fullPath, true, pluginName, true);
+      
+      plugins.push(plugin);
+      errors.push(...loadErrors);
+    } catch (err: any) {
+      errors.push({ type: 'generic-error', source: path, error: err.message });
+    }
   }
+  
+  return { plugins, errors };
 }
 
-/**
- * Validate plugin or marketplace manifest.
- * Original: Az1 in chunks.140.mjs:2404
+/** 
+ * Main orchestration entry point for plugin and hook discovery.
+ * Original: DG in chunks.130.mjs:3246-3263 
  */
-export function validateManifest(path: string): any {
-  // Placeholder implementation
+export const discoverPluginsAndHooks = createMemoizedAsync(async (): Promise<PluginDiscoveryResult> => {
+  const marketplaceResult = await loadMarketplacePlugins();
+  const inlinePaths = getInlinePlugins();
+  const inlineResult = await loadInlinePlugins(inlinePaths);
+  
+  const allPlugins = [...marketplaceResult.plugins, ...inlineResult.plugins];
+  const allErrors = [...marketplaceResult.errors, ...inlineResult.errors];
+
   return {
-    success: true,
-    errors: [],
-    warnings: [],
-    filePath: path,
-    fileType: 'plugin',
+    enabled: allPlugins.filter(p => p.enabled),
+    disabled: allPlugins.filter(p => !p.enabled),
+    errors: allErrors,
   };
-}
-
-// ============================================
-// Export
-// ============================================
-
-export {
-  loadPluginDefinitionFromPath,
-  loadInlinePlugins,
-  loadMarketplacePlugins,
-  loadHooksFile,
-  mergeHookConfigs,
-};
+});

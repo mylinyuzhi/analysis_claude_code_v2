@@ -2,580 +2,460 @@
  * @claudecode/plugin - Marketplace Management
  *
  * Discovery, registration, and management of plugin marketplaces.
- *
- * Reconstructed from chunks.91.mjs
- *
- * Key symbols:
- * - NS → addMarketplaceSource
- * - VI0 → loadMarketplaceSource (fetchMarketplace)
- * - _Z1 → removeMarketplace
- * - D5 → loadKnownMarketplaces
- * - FVA → saveKnownMarketplaces
- * - rC → loadMarketplace (with caching)
+ * Reconstructed from chunks.90.mjs and chunks.91.mjs.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync, renameSync, rmSync, realpathSync } from 'fs';
+import { join, dirname, basename } from 'path';
+import { spawnSync } from 'child_process';
+import {
+  marketplaceSourceSchema,
+  marketplaceJsonSchema,
+  knownMarketplacesConfigSchema,
+} from './schemas.js';
 import type {
-  PluginSource,
+  MarketplaceSource,
   MarketplaceManifest,
-  MarketplacePluginEntry,
   KnownMarketplace,
+  MarketplacePluginEntry,
 } from './types.js';
+import { loadSettings, saveSettings } from './settings.js';
 
 // ============================================
-// Constants
+// Internal State & Helpers
 // ============================================
 
-/** Base directory for plugins */
-const PLUGINS_BASE_DIR = '.claude/plugins';
+const log = (msg: string, options?: { level?: string }) => {
+  if (process.env.DEBUG || process.env.CLAUDE_CODE_DEBUG) {
+    console.error(`[Plugin:Marketplace] ${msg}`);
+  }
+};
 
-/** Known marketplaces filename */
-const KNOWN_MARKETPLACES_FILE = 'known_marketplaces.json';
-
-/** Marketplace cache directory */
-const MARKETPLACES_DIR = 'marketplaces';
-
-/** Marketplace manifest filename */
-const MARKETPLACE_MANIFEST = 'marketplace.json';
-
-/** Plugin manifest directory */
-const PLUGIN_DIR = '.claude-plugin';
-
-/** Default official marketplace */
-const OFFICIAL_MARKETPLACE = 'official';
-
-// ============================================
-// Path Utilities
-// ============================================
-
-/**
- * Get home directory.
- */
-function getHomeDir(): string {
-  return process.env.HOME || process.env.USERPROFILE || '';
+/** Original: zQ in chunks.1.mjs */
+function getClaudeDir(): string {
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  return join(home, '.claude');
 }
 
-/**
- * Get plugins directory.
- */
-export function getPluginsDir(): string {
-  return path.join(getHomeDir(), PLUGINS_BASE_DIR);
-}
-
-/**
- * Get known marketplaces file path.
- */
+/** Original: MZ1 in chunks.90.mjs */
 export function getKnownMarketplacesPath(): string {
-  return path.join(getPluginsDir(), KNOWN_MARKETPLACES_FILE);
+  return join(getClaudeDir(), 'plugins', 'known_marketplaces.json');
 }
 
-/**
- * Get marketplace cache directory.
- */
+/** Original: Z32 in chunks.90.mjs */
 export function getMarketplacesCacheDir(): string {
-  return path.join(getPluginsDir(), MARKETPLACES_DIR);
-}
-
-/**
- * Get marketplace install location.
- */
-export function getMarketplaceInstallPath(marketplaceName: string): string {
-  return path.join(getMarketplacesCacheDir(), marketplaceName);
+  return join(getClaudeDir(), 'plugins', 'marketplaces');
 }
 
 // ============================================
-// Known Marketplaces Registry
+// Config Management
 // ============================================
 
-/**
- * Load known marketplaces from disk.
- * Original: D5 in chunks.91.mjs
- */
+/** Original: D5 in chunks.90.mjs:2232-2256 */
 export async function loadKnownMarketplaces(): Promise<Record<string, KnownMarketplace>> {
   const filePath = getKnownMarketplacesPath();
+  if (!existsSync(filePath)) return {};
 
   try {
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      return JSON.parse(content);
+    const content = readFileSync(filePath, 'utf-8');
+    const json = JSON.parse(content);
+    const result = knownMarketplacesConfigSchema.safeParse(json);
+    if (!result.success) {
+      log(`Marketplace configuration file is corrupted: ${result.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(', ')}`, { level: 'error' });
+      return {};
     }
-  } catch (error) {
-    console.error('[Plugin] Failed to load known marketplaces:', error);
+    return result.data;
+  } catch (err: any) {
+    log(`Failed to load marketplace configuration: ${err.message}`, { level: 'error' });
+    return {};
   }
-
-  return {};
 }
 
-/**
- * Save known marketplaces to disk.
- * Original: FVA in chunks.91.mjs
- */
-export async function saveKnownMarketplaces(
-  marketplaces: Record<string, KnownMarketplace>
-): Promise<void> {
+/** Original: FVA in chunks.90.mjs:2258-2268 */
+export async function saveKnownMarketplaces(marketplaces: Record<string, KnownMarketplace>): Promise<void> {
   const filePath = getKnownMarketplacesPath();
+  const dir = dirname(filePath);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-  try {
-    // Ensure directory exists
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    fs.writeFileSync(filePath, JSON.stringify(marketplaces, null, 2), 'utf-8');
-  } catch (error) {
-    console.error('[Plugin] Failed to save known marketplaces:', error);
-    throw error;
-  }
-}
-
-/**
- * Get a specific known marketplace.
- */
-export async function getKnownMarketplace(name: string): Promise<KnownMarketplace | null> {
-  const marketplaces = await loadKnownMarketplaces();
-  return marketplaces[name] ?? null;
+  const result = knownMarketplacesConfigSchema.safeParse(marketplaces);
+  if (!result.success) throw new Error(`Invalid marketplace config: ${result.error.message}`);
+  
+  writeFileSync(filePath, JSON.stringify(result.data, null, 2), 'utf-8');
 }
 
 // ============================================
-// Source Formatting
+// Policy Checks
 // ============================================
 
-/**
- * Format source name for display.
- * Original: KVA in chunks.91.mjs
- */
-export function formatSourceName(source: PluginSource): string {
-  switch (source.source) {
-    case 'github':
-      return `github:${source.repo}${source.ref ? `@${source.ref}` : ''}`;
-    case 'github-default-branch':
-      return `github:${source.repo}${source.path ? `/${source.path}` : ''}`;
-    case 'git':
-      return `git:${source.url}${source.ref ? `@${source.ref}` : ''}`;
-    case 'url':
-      return `url:${source.url}`;
-    case 'file':
-      return `file:${source.path}`;
-    case 'directory':
-      return `dir:${source.path}`;
-    case 'npm':
-      return `npm:${source.package}`;
-    default:
-      return 'unknown';
-  }
-}
-
-/**
- * Parse source string into PluginSource object.
- */
-export function parseSourceString(sourceStr: string): PluginSource | null {
-  // Check for github shorthand (owner/repo)
-  if (/^[\w-]+\/[\w-]+$/.test(sourceStr)) {
-    return {
-      source: 'github-default-branch',
-      repo: sourceStr,
-    };
-  }
-
-  // Check for github URL
-  if (sourceStr.startsWith('https://github.com/')) {
-    const match = sourceStr.match(/github\.com\/([\w-]+\/[\w-]+)/);
-    if (match) {
-      const repo = match[1];
-      if (!repo) return null;
-      return {
-        source: 'github-default-branch',
-        repo,
-      };
-    }
-  }
-
-  // Check for git URL
-  if (sourceStr.startsWith('git@') || sourceStr.endsWith('.git')) {
-    return {
-      source: 'git',
-      url: sourceStr,
-    };
-  }
-
-  // Check for HTTP URL
-  if (sourceStr.startsWith('http://') || sourceStr.startsWith('https://')) {
-    return {
-      source: 'url',
-      url: sourceStr,
-    };
-  }
-
-  // Check for local path
-  if (sourceStr.startsWith('/') || sourceStr.startsWith('.') || sourceStr.startsWith('~')) {
-    const resolvedPath = sourceStr.startsWith('~')
-      ? path.join(getHomeDir(), sourceStr.slice(1))
-      : path.resolve(sourceStr);
-
-    // Check if it's a file or directory
-    try {
-      const stat = fs.statSync(resolvedPath);
-      if (stat.isDirectory()) {
-        return { source: 'directory', path: resolvedPath };
-      } else {
-        return { source: 'file', path: resolvedPath };
-      }
-    } catch {
-      // Path doesn't exist yet, assume directory
-      return { source: 'directory', path: resolvedPath };
-    }
-  }
-
-  // Check for npm package
-  if (sourceStr.startsWith('@') || /^[\w-]+$/.test(sourceStr)) {
-    return {
-      source: 'npm',
-      package: sourceStr,
-    };
-  }
-
+/** Original: WVA in chunks.90.mjs:2089-2093 */
+function getAllowedMarketplaceSources(): MarketplaceSource[] | null {
+  // Stub for dB("policySettings")
   return null;
+}
+
+/** Original: c75 in chunks.90.mjs:2095-2099 */
+function getBlockedMarketplaceSources(): MarketplaceSource[] | null {
+  // Stub for dB("policySettings")
+  return null;
+}
+
+/** Original: p75 in chunks.90.mjs:2101-2118 */
+function areMarketplaceSourcesEqualStrict(a: MarketplaceSource, b: MarketplaceSource): boolean {
+  if (a.source !== b.source) return false;
+  switch (a.source) {
+    case 'url': return a.url === (b as any).url;
+    case 'github': return a.repo === (b as any).repo && a.ref === (b as any).ref && a.path === (b as any).path;
+    case 'git': return a.url === (b as any).url && a.ref === (b as any).ref && a.path === (b as any).path;
+    case 'npm': return a.package === (b as any).package;
+    case 'file': return a.path === (b as any).path;
+    case 'directory': return a.path === (b as any).path;
+    default: return false;
+  }
+}
+
+/** Original: s62 in chunks.90.mjs:2121-2127 */
+function extractGitHubRepoFromUrl(url: string): string | null {
+  const sshMatch = url.match(/^git@github\.com:([^/]+\/[^/]+?)(?:\.git)?$/);
+  if (sshMatch && sshMatch[1]) return sshMatch[1];
+  const httpsMatch = url.match(/^https?:\/\/github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/);
+  if (httpsMatch && httpsMatch[1]) return httpsMatch[1];
+  return null;
+}
+
+/** Original: Or in chunks.90.mjs:2129-2132 */
+function areRefsEqual(a?: string, b?: string): boolean {
+  return (a || undefined) === (b || undefined);
+}
+
+/** Original: l75 in chunks.90.mjs:2134-2164 */
+function areMarketplaceSourcesEquivalent(a: MarketplaceSource, b: MarketplaceSource): boolean {
+  if (a.source === b.source) {
+    switch (a.source) {
+      case 'github': return a.repo === (b as any).repo && areRefsEqual(a.ref, (b as any).ref) && areRefsEqual(a.path, (b as any).path);
+      case 'git': return a.url === (b as any).url && areRefsEqual(a.ref, (b as any).ref) && areRefsEqual(a.path, (b as any).path);
+      case 'url': return a.url === (b as any).url;
+      case 'npm': return a.package === (b as any).package;
+      case 'file': return a.path === (b as any).path;
+      case 'directory': return a.path === (b as any).path;
+      default: return false;
+    }
+  }
+  if (a.source === 'git' && b.source === 'github') {
+    if (extractGitHubRepoFromUrl(a.url) === b.repo) return areRefsEqual(a.ref, b.ref) && areRefsEqual(a.path, b.path);
+  }
+  if (a.source === 'github' && b.source === 'git') {
+    if (extractGitHubRepoFromUrl(b.url) === a.repo) return areRefsEqual(a.ref, b.ref) && areRefsEqual(a.path, b.path);
+  }
+  return false;
+}
+
+/** Original: AyA in chunks.90.mjs:2166-2170 */
+export function isMarketplaceSourceBlocked(source: MarketplaceSource): boolean {
+  const blocked = getBlockedMarketplaceSources();
+  if (blocked === null) return false;
+  return blocked.some(b => areMarketplaceSourcesEquivalent(source, b));
+}
+
+/** Original: H4A in chunks.90.mjs:2172-2177 */
+export function isMarketplaceSourceAllowed(source: MarketplaceSource): boolean {
+  if (isMarketplaceSourceBlocked(source)) return false;
+  const allowed = getAllowedMarketplaceSources();
+  if (allowed === null) return true;
+  return allowed.some(a => areMarketplaceSourcesEqualStrict(source, a));
+}
+
+/** Original: KVA in chunks.90.mjs:2179-2196 */
+export function formatMarketplaceSourceForDisplay(source: MarketplaceSource): string {
+  switch (source.source) {
+    case 'github': return `github:${source.repo}${source.ref ? `@${source.ref}` : ''}`;
+    case 'url': return source.url;
+    case 'git': return `git:${source.url}${source.ref ? `@${source.ref}` : ''}`;
+    case 'npm': return `npm:${source.package}`;
+    case 'file': return `file:${source.path}`;
+    case 'directory': return `dir:${source.path}`;
+    default: return 'unknown source';
+  }
+}
+
+// ============================================
+// Source Utilities
+// ============================================
+
+/** Original: t75 in chunks.91.mjs:3-5 */
+function generateTempName(source: MarketplaceSource): string {
+  switch (source.source) {
+    case 'github': return source.repo.replace(/\//g, '-');
+    case 'npm': return source.package.replace(/@/g, '').replace(/\//g, '-');
+    case 'file': return basename(source.path).replace('.json', '');
+    case 'directory': return basename(source.path);
+    default: return `temp_${Date.now()}`;
+  }
+}
+
+/** Original: QyA in chunks.90.mjs:2270-2283 */
+function getGitEnv() {
+  const env: Record<string, string> = { ...process.env as any };
+  if (process.env.GITHUB_TOKEN) env.GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+  if (process.env.GH_TOKEN) env.GH_TOKEN = process.env.GH_TOKEN;
+  // ... rest of tokens
+  env.GIT_TERMINAL_PROMPT = '0';
+  env.GIT_ASKPASS = '';
+  return env;
+}
+
+/** Original: n75 in chunks.90.mjs:2285-2298 */
+function injectAuthIntoUrl(url: string): string {
+  if (!url.startsWith('https://')) return url;
+  try {
+    const u = new URL(url);
+    if (u.username || u.password) return url;
+    if (u.hostname.toLowerCase() === 'github.com') {
+      const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+      if (token) {
+        u.username = 'x-access-token';
+        u.password = token;
+        return u.toString();
+      }
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
+/** Original: o75 in chunks.90.mjs:264414 */
+async function isSshConfigured(): Promise<boolean> {
+  try {
+    const res = spawnSync('ssh', ['-T', 'git@github.com'], { env: getGitEnv() });
+    return res.status === 1;
+  } catch {
+    return false;
+  }
+}
+
+/** Original: VVA in chunks.90.mjs:264424 */
+async function gitCloneWithSubmodules(url: string, dest: string, ref?: string, progress?: (msg: string) => void): Promise<void> {
+  const authenticatedUrl = injectAuthIntoUrl(url);
+  progress?.(`Cloning ${url} to ${dest}...`);
+  const args = ['clone', '--depth', '1', '--recurse-submodules', '--shallow-submodules'];
+  if (ref) args.push('--branch', ref);
+  args.push(authenticatedUrl, dest);
+  
+  const res = spawnSync('git', args, { env: getGitEnv() });
+  if (res.status !== 0) {
+    throw new Error(`Failed to clone repository: ${res.stderr.toString()}`);
+  }
 }
 
 // ============================================
 // Marketplace Loading
 // ============================================
 
-/**
- * Load marketplace manifest from path.
- */
-async function loadMarketplaceManifestFromPath(dirPath: string): Promise<MarketplaceManifest | null> {
-  // Try .claude-plugin/marketplace.json
-  const pluginManifestPath = path.join(dirPath, PLUGIN_DIR, MARKETPLACE_MANIFEST);
-  if (fs.existsSync(pluginManifestPath)) {
-    try {
-      const content = fs.readFileSync(pluginManifestPath, 'utf-8');
-      return JSON.parse(content);
-    } catch {
-      // Continue to try other paths
-    }
-  }
-
-  // Try marketplace.json in root
-  const rootManifestPath = path.join(dirPath, MARKETPLACE_MANIFEST);
-  if (fs.existsSync(rootManifestPath)) {
-    try {
-      const content = fs.readFileSync(rootManifestPath, 'utf-8');
-      return JSON.parse(content);
-    } catch {
-      // Continue
-    }
-  }
-
-  return null;
-}
-
-/**
- * Load marketplace from source.
- * Original: VI0 (fetchMarketplace) in chunks.91.mjs
- */
+/** Original: VI0 in chunks.91.mjs:17-134 */
 export async function loadMarketplaceSource(
-  source: PluginSource,
-  progressCallback?: (message: string) => void
+  source: MarketplaceSource,
+  progress?: (msg: string) => void
 ): Promise<{ marketplace: MarketplaceManifest; cachePath: string }> {
-  progressCallback?.(`Loading marketplace from ${formatSourceName(source)}...`);
+  const cacheDir = getMarketplacesCacheDir();
+  if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
 
-  switch (source.source) {
-    case 'directory': {
-      const manifest = await loadMarketplaceManifestFromPath(source.path);
-      if (!manifest) {
-        throw new Error(`No marketplace manifest found in ${source.path}`);
-      }
-      return { marketplace: manifest, cachePath: source.path };
-    }
+  let tempPath: string;
+  let manifestPath: string;
+  let isTemp = false;
+  const tempName = generateTempName(source);
 
-    case 'file': {
-      const content = fs.readFileSync(source.path, 'utf-8');
-      const manifest = JSON.parse(content);
-      return { marketplace: manifest, cachePath: path.dirname(source.path) };
-    }
-
-    case 'github':
-    case 'github-default-branch': {
-      // In real implementation:
-      // 1. Clone repo to cache directory
-      // 2. Checkout correct branch/ref
-      // 3. Load marketplace.json
-      throw new Error('GitHub source not yet implemented in stub');
-    }
-
-    case 'git': {
-      // In real implementation:
-      // 1. Clone repo to cache directory
-      // 2. Checkout ref if specified
-      // 3. Load marketplace.json
-      throw new Error('Git source not yet implemented in stub');
-    }
-
-    case 'url': {
-      // In real implementation:
-      // 1. Fetch URL
-      // 2. Parse JSON
-      // 3. Cache locally
-      throw new Error('URL source not yet implemented in stub');
-    }
-
-    case 'npm': {
-      throw new Error('NPM source not yet implemented');
-    }
-
-    default:
-      throw new Error(`Unknown source type: ${(source as PluginSource).source}`);
-  }
-}
-
-/**
- * Load marketplace with caching.
- * Original: rC in chunks.91.mjs
- */
-export async function loadMarketplace(
-  name: string,
-  forceRefresh = false
-): Promise<MarketplaceManifest | null> {
-  // Get known marketplace
-  const known = await getKnownMarketplace(name);
-  if (!known) {
-    return null;
-  }
-
-  const cachePath = known.installLocation;
-
-  // Check if refresh needed
-  if (!forceRefresh && fs.existsSync(cachePath)) {
-    const manifest = await loadMarketplaceManifestFromPath(cachePath);
-    if (manifest) {
-      return manifest;
-    }
-  }
-
-  // Reload from source
   try {
-    const { marketplace } = await loadMarketplaceSource(known.source);
-    return marketplace;
-  } catch (error) {
-    console.error(`[Plugin] Failed to load marketplace ${name}:`, error);
-    return null;
+    switch (source.source) {
+      case 'url': {
+        tempPath = join(cacheDir, `${tempName}.json`);
+        isTemp = true;
+        // Logic for download from URL...
+        throw new Error("URL marketplace sources not fully implemented");
+      }
+      case 'github': {
+        const sshUrl = `git@github.com:${source.repo}.git`;
+        const httpsUrl = `https://github.com/${source.repo}.git`;
+        tempPath = join(cacheDir, tempName);
+        isTemp = true;
+        
+        let error: Error | null = null;
+        if (await isSshConfigured()) {
+          try {
+            await gitCloneWithSubmodules(sshUrl, tempPath, source.ref, progress);
+          } catch (err: any) {
+            error = err;
+            if (existsSync(tempPath)) rmSync(tempPath, { recursive: true, force: true });
+            await gitCloneWithSubmodules(httpsUrl, tempPath, source.ref, progress);
+            error = null;
+          }
+        } else {
+          try {
+            await gitCloneWithSubmodules(httpsUrl, tempPath, source.ref, progress);
+          } catch (err: any) {
+            error = err;
+            if (existsSync(tempPath)) rmSync(tempPath, { recursive: true, force: true });
+            await gitCloneWithSubmodules(sshUrl, tempPath, source.ref, progress);
+            error = null;
+          }
+        }
+        if (error) throw error;
+        manifestPath = join(tempPath, source.path || '.claude-plugin/marketplace.json');
+        break;
+      }
+      case 'git': {
+        tempPath = join(cacheDir, tempName);
+        isTemp = true;
+        await gitCloneWithSubmodules(source.url, tempPath, source.ref, progress);
+        manifestPath = join(tempPath, source.path || '.claude-plugin/marketplace.json');
+        break;
+      }
+      case 'file': {
+        manifestPath = source.path;
+        tempPath = dirname(dirname(source.path)); 
+        isTemp = false;
+        break;
+      }
+      case 'directory': {
+        manifestPath = join(source.path, '.claude-plugin', 'marketplace.json');
+        tempPath = source.path;
+        isTemp = false;
+        break;
+      }
+      default:
+        throw new Error('Unsupported marketplace source type');
+    }
+
+    if (!existsSync(manifestPath)) throw new Error(`Marketplace file not found at ${manifestPath}`);
+    
+    const manifest = marketplaceJsonSchema.parse(JSON.parse(readFileSync(manifestPath, 'utf-8')));
+    const finalCachePath = join(cacheDir, manifest.name);
+
+    if (tempPath !== finalCachePath && !['file', 'directory'].includes(source.source)) {
+      if (existsSync(finalCachePath)) {
+        progress?.('Cleaning up old marketplace cache…');
+        rmSync(finalCachePath, { recursive: true, force: true });
+      }
+      renameSync(tempPath, finalCachePath);
+      tempPath = finalCachePath;
+      isTemp = false;
+    }
+
+    return { marketplace: manifest, cachePath: tempPath };
+  } catch (err: any) {
+    if (isTemp && tempPath! && existsSync(tempPath)) {
+      rmSync(tempPath, { recursive: true, force: true });
+    }
+    throw err;
   }
 }
 
-// ============================================
-// Marketplace CRUD
-// ============================================
+/** Original: rC in chunks.91.mjs:355-370 */
+// Implementation should be memoized using createMemoizedAsync-like structure if needed
+export async function loadMarketplaceManifest(name: string): Promise<MarketplaceManifest> {
+  const known = (await loadKnownMarketplaces())[name];
+  if (!known) throw new Error(`Marketplace '${name}' not found`);
 
-/**
- * Validate marketplace name.
- * Original: c62 in chunks.91.mjs
- */
-export function validateMarketplaceName(
-  name: string,
-  source: PluginSource
-): string | null {
-  // Name must be lowercase alphanumeric with hyphens
-  if (!/^[a-z0-9-]+$/.test(name)) {
-    return `Invalid marketplace name '${name}'. Names must be lowercase alphanumeric with hyphens.`;
+  try {
+    const loc = known.installLocation;
+    const manifestPath = statSync(loc).isDirectory() ? join(loc, '.claude-plugin', 'marketplace.json') : loc;
+    if (existsSync(manifestPath)) {
+      return marketplaceJsonSchema.parse(JSON.parse(readFileSync(manifestPath, 'utf-8')));
+    }
+  } catch (err) {}
+
+  const { marketplace, cachePath } = await loadMarketplaceSource(known.source);
+  const all = await loadKnownMarketplaces();
+  if (all[name]) {
+    all[name].lastUpdated = new Date().toISOString();
+    all[name].installLocation = cachePath;
+    await saveKnownMarketplaces(all);
   }
-
-  // Reserved names
-  const reserved = ['inline', 'local', 'official', 'plugin', 'claude'];
-  if (reserved.includes(name)) {
-    return `Marketplace name '${name}' is reserved.`;
-  }
-
-  return null;
+  return marketplace;
 }
 
-/**
- * Add a new marketplace source.
- * Original: NS in chunks.91.mjs:136-156
- */
+// ============================================
+// CRUD Operations
+// ============================================
+
+/** Original: NS in chunks.91.mjs:136-156 */
 export async function addMarketplaceSource(
-  source: PluginSource,
-  progressCallback?: (message: string) => void
+  source: MarketplaceSource,
+  progress?: (msg: string) => void
 ): Promise<{ name: string }> {
-  // 1. Check enterprise policy (stub - always allowed)
-  // In real implementation: check isMarketplaceSourceAllowed(source)
-
-  // 2. Download and validate marketplace
-  const { marketplace, cachePath } = await loadMarketplaceSource(source, progressCallback);
-
-  // 3. Validate marketplace name
-  const validationError = validateMarketplaceName(marketplace.name, source);
-  if (validationError) {
-    throw new Error(validationError);
+  if (!isMarketplaceSourceAllowed(source)) {
+    if (isMarketplaceSourceBlocked(source)) throw new Error(`Marketplace source '${formatMarketplaceSourceForDisplay(source)}' is blocked by enterprise policy.`);
+    throw new Error(`Marketplace source '${formatMarketplaceSourceForDisplay(source)}' is not in the allowed marketplace list.`);
   }
 
-  // 4. Check if already installed
-  const knownMarketplaces = await loadKnownMarketplaces();
-  if (knownMarketplaces[marketplace.name]) {
-    throw new Error(
-      `Marketplace '${marketplace.name}' is already installed. ` +
-        `Please remove it first using '/plugin marketplace remove ${marketplace.name}'.`
-    );
-  }
+  const { marketplace, cachePath } = await loadMarketplaceSource(source, progress);
+  // Official name impersonation check (c62 in source)
+  // ...
 
-  // 5. Register marketplace
-  knownMarketplaces[marketplace.name] = {
+  const marketplaces = await loadKnownMarketplaces();
+  if (marketplaces[marketplace.name]) throw new Error(`Marketplace '${marketplace.name}' already exists.`);
+
+  marketplaces[marketplace.name] = {
     source,
     installLocation: cachePath,
     lastUpdated: new Date().toISOString(),
   };
 
-  await saveKnownMarketplaces(knownMarketplaces);
-
-  console.log(`[Plugin] Added marketplace source: ${marketplace.name}`);
-
+  await saveKnownMarketplaces(marketplaces);
   return { name: marketplace.name };
 }
 
-/**
- * Remove a marketplace.
- * Original: _Z1 in chunks.91.mjs
- */
+/** Original: _Z1 in chunks.91.mjs:158-201 */
 export async function removeMarketplace(name: string): Promise<void> {
-  const knownMarketplaces = await loadKnownMarketplaces();
-
-  if (!knownMarketplaces[name]) {
-    throw new Error(`Marketplace '${name}' is not installed.`);
-  }
-
-  // Get install location for cleanup
-  const installLocation = knownMarketplaces[name].installLocation;
-
-  // Remove from registry
-  delete knownMarketplaces[name];
-  await saveKnownMarketplaces(knownMarketplaces);
-
-  // Clean up cached files (if not a local source)
-  if (installLocation.startsWith(getMarketplacesCacheDir())) {
-    try {
-      fs.rmSync(installLocation, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
-  }
-
-  console.log(`[Plugin] Removed marketplace: ${name}`);
-}
-
-/**
- * Refresh marketplace from source.
- */
-export async function refreshMarketplace(
-  name: string,
-  progressCallback?: (message: string) => void
-): Promise<MarketplaceManifest> {
-  const known = await getKnownMarketplace(name);
-  if (!known) {
-    throw new Error(`Marketplace '${name}' is not installed.`);
-  }
-
-  progressCallback?.(`Refreshing marketplace ${name}...`);
-
-  const { marketplace } = await loadMarketplaceSource(known.source, progressCallback);
-
-  // Update last updated time
-  const knownMarketplaces = await loadKnownMarketplaces();
-  if (knownMarketplaces[name]) {
-    knownMarketplaces[name].lastUpdated = new Date().toISOString();
-    await saveKnownMarketplaces(knownMarketplaces);
-  }
-
-  return marketplace;
-}
-
-/**
- * Update all known marketplaces.
- * Original: X32 in chunks.157.mjs:1051
- */
-export async function updateAllMarketplaces(): Promise<void> {
   const marketplaces = await loadKnownMarketplaces();
-  for (const name of Object.keys(marketplaces)) {
-    try {
-      await refreshMarketplace(name);
-    } catch (error) {
-      console.error(`[Plugin] Failed to refresh marketplace ${name}:`, error);
-    }
-  }
-}
+  if (!marketplaces[name]) throw new Error(`Marketplace '${name}' not found`);
 
-/**
- * List all known marketplaces.
- */
-export async function listMarketplaces(): Promise<
-  Array<{ name: string; source: PluginSource; lastUpdated: string }>
-> {
-  const known = await loadKnownMarketplaces();
+  const loc = marketplaces[name].installLocation;
+  delete marketplaces[name];
+  await saveKnownMarketplaces(marketplaces);
 
-  return Object.entries(known).map(([name, config]) => ({
-    name,
-    source: config.source,
-    lastUpdated: config.lastUpdated,
-  }));
-}
-
-// ============================================
-// Plugin Lookup
-// ============================================
-
-/**
- * Find plugin in marketplace.
- */
-export async function findPluginInMarketplace(
-  marketplaceName: string,
-  pluginName: string
-): Promise<MarketplacePluginEntry | null> {
-  const marketplace = await loadMarketplace(marketplaceName);
-  if (!marketplace) {
-    return null;
+  if (loc.startsWith(getMarketplacesCacheDir()) && existsSync(loc)) {
+    rmSync(loc, { recursive: true, force: true });
   }
 
-  return marketplace.plugins.find((p) => p.name === pluginName) ?? null;
-}
-
-/**
- * Search for plugin across all marketplaces.
- */
-export async function searchPlugins(
-  query: string
-): Promise<Array<{ marketplace: string; plugin: MarketplacePluginEntry }>> {
-  const results: Array<{ marketplace: string; plugin: MarketplacePluginEntry }> = [];
-  const knownMarketplaces = await loadKnownMarketplaces();
-  const lowerQuery = query.toLowerCase();
-
-  for (const marketplaceName of Object.keys(knownMarketplaces)) {
-    const marketplace = await loadMarketplace(marketplaceName);
-    if (!marketplace) continue;
-
-    for (const plugin of marketplace.plugins) {
-      if (
-        plugin.name.toLowerCase().includes(lowerQuery) ||
-        plugin.description?.toLowerCase().includes(lowerQuery) ||
-        plugin.tags?.some((tag) => tag.toLowerCase().includes(lowerQuery))
-      ) {
-        results.push({ marketplace: marketplaceName, plugin });
+  // Cleanup settings enabledPlugins
+  const settings = await loadSettings();
+  if (settings.enabledPlugins) {
+    const suffix = `@${name}`;
+    let changed = false;
+    for (const id of Object.keys(settings.enabledPlugins)) {
+      if (id.endsWith(suffix)) {
+        delete settings.enabledPlugins[id];
+        changed = true;
       }
     }
+    if (changed) await saveSettings(settings);
   }
-
-  return results;
 }
 
-/**
- * Clear marketplace cache.
- */
-export function clearMarketplaceCache(): void {
-  // Placeholder - in real implementation, would clear memoized marketplace results
+/** Original: HI0 in chunks.91.mjs:237-262 */
+export function findPluginInCachedMarketplace(sourceId: string): { entry: MarketplacePluginEntry; marketplaceInstallLocation: string } | null {
+  const [pluginName, marketName] = sourceId.split('@');
+  if (!pluginName || !marketName) return null;
+
+  try {
+    const configPath = getKnownMarketplacesPath();
+    if (!existsSync(configPath)) return null;
+
+    const marketplaces = JSON.parse(readFileSync(configPath, 'utf-8'));
+    const marketConfig = marketplaces[marketName];
+    if (!marketConfig) return null;
+
+    const loc = marketConfig.installLocation;
+    const manifestPath = statSync(loc).isDirectory() ? join(loc, '.claude-plugin', 'marketplace.json') : loc;
+    
+    if (!existsSync(manifestPath)) return null;
+    const manifest: MarketplaceManifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+    
+    const entry = manifest.plugins.find(p => p.name === pluginName);
+    if (!entry) return null;
+
+    return { entry, marketplaceInstallLocation: loc };
+  } catch {
+    return null;
+  }
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 本文件函数已在声明处导出；移除重复聚合导出。

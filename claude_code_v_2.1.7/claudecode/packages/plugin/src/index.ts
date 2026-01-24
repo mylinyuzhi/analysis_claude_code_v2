@@ -29,16 +29,16 @@ export * from './schemas.js';
 // ============================================
 
 export {
-  setSessionContext,
+  setInlinePluginPaths,
   loadPluginDefinitionFromPath,
-  loadInlinePlugins,
+  // loadInlinePlugins is internal
   loadMarketplacePlugins,
   discoverPluginsAndHooks,
-  clearPluginCache,
-  formatPluginError,
+  // clearPluginCache, // Not implemented in current reconstruction
+  // formatPluginError, // Not implemented in current reconstruction
   loadHooksFile,
   mergeHookConfigs,
-  validateManifest,
+  // validateManifest, // Not implemented in current reconstruction
 } from './loader.js';
 
 // ============================================
@@ -47,36 +47,36 @@ export {
 
 export {
   // Path utilities
-  getPluginsDir,
+  // getPluginsDir, // Not exported from marketplace.ts
   getKnownMarketplacesPath,
   getMarketplacesCacheDir,
-  getMarketplaceInstallPath,
+  // getMarketplaceInstallPath, // Not exported
 
   // Registry
   loadKnownMarketplaces,
   saveKnownMarketplaces,
-  getKnownMarketplace,
+  // getKnownMarketplace, // Not exported
 
   // Source utilities
-  formatSourceName,
-  parseSourceString,
+  // formatSourceName, // Not exported
+  // parseSourceString, // Not exported
 
   // Marketplace loading
   loadMarketplaceSource,
-  loadMarketplace,
-  validateMarketplaceName,
+  loadMarketplaceManifest,
+  // validateMarketplaceName, // Not exported
 
   // CRUD operations
   addMarketplaceSource,
   removeMarketplace,
-  refreshMarketplace,
-  listMarketplaces,
-  updateAllMarketplaces,
+  // refreshMarketplace, // Not implemented
+  // listMarketplaces, // Not implemented
+  // updateAllMarketplaces, // Not implemented
 
   // Plugin lookup
-  findPluginInMarketplace,
-  searchPlugins,
-  clearMarketplaceCache,
+  findPluginInCachedMarketplace,
+  // searchPlugins, // Not implemented
+  // clearMarketplaceCache, // Not implemented
 } from './marketplace.js';
 
 // ============================================
@@ -87,22 +87,22 @@ export {
   // Path utilities
   getInstalledPluginsPath,
   getPluginCacheDir,
-  getPluginInstallPath,
+  // getPluginInstallPath, // Not exported
 
   // Registry
   loadInstalledPlugins,
   saveInstalledPlugins,
 
   // Plugin ID utilities
-  parsePluginId,
-  formatPluginId,
+  // parsePluginId, // Not exported
+  // formatPluginId, // Not exported
 
   // Installation operations
-  cachePluginFromSource,
+  // cachePluginFromSource, // Not exported
   installPlugin,
-  uninstallPlugin,
-  updatePlugin,
-  listInstalledPlugins,
+  // uninstallPlugin, // Not implemented
+  // updatePlugin, // Not implemented
+  // listInstalledPlugins, // Not implemented
 } from './installation.js';
 
 // ============================================

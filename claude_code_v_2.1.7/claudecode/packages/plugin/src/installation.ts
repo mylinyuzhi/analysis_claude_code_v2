@@ -2,261 +2,383 @@
  * @claudecode/plugin - Plugin Installation
  *
  * Install, uninstall, enable, and disable plugins.
- *
- * Reconstructed from chunks.91.mjs, chunks.130.mjs
- *
- * Key symbols:
- * - ofA → installPlugin
- * - G32 → cachePluginFromSource
- * - f_ → loadInstalledPlugins
- * - UI0 → saveInstalledPlugins
+ * Reconstructed from chunks.90.mjs, chunks.91.mjs, and chunks.130.mjs.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync, readdirSync, rmSync, copyFileSync, renameSync, readlinkSync, symlinkSync, realpathSync } from 'fs';
+import { join, dirname, basename, resolve } from 'path';
+import { spawnSync } from 'child_process';
 import type {
   PluginSource,
   PluginManifest,
   InstalledPluginEntry,
   InstalledPluginsRegistry,
   InstallScope,
-  MarketplacePluginEntry,
 } from './types.js';
-
 import {
-  getPluginsDir,
-  loadMarketplace,
-  findPluginInMarketplace,
-  formatSourceName,
+  installedPluginsV2Schema,
+  unifiedPluginManifestSchema,
+} from './schemas.js';
+import {
+  loadMarketplaceManifest,
 } from './marketplace.js';
 
 // ============================================
-// Constants
+// Internal State & Helpers
 // ============================================
 
-/** Installed plugins v1 filename (legacy) */
-const INSTALLED_PLUGINS_V1_FILE = 'installed_plugins.json';
+const log = (msg: string, options?: { level?: string }) => {
+  if (process.env.DEBUG || process.env.CLAUDE_CODE_DEBUG) {
+    console.error(`[Plugin:Installation] ${msg}`);
+  }
+};
 
-/** Installed plugins v2 filename */
-const INSTALLED_PLUGINS_V2_FILE = 'installed_plugins_v2.json';
-
-/** Plugin cache directory */
-const CACHE_DIR = 'cache';
-
-/** Plugin manifest directory */
-const PLUGIN_DIR = '.claude-plugin';
-
-/** Plugin manifest filename */
-const PLUGIN_MANIFEST = 'plugin.json';
-
-// ============================================
-// Path Utilities
-// ============================================
-
-/**
- * Get home directory.
- */
-function getHomeDir(): string {
-  return process.env.HOME || process.env.USERPROFILE || '';
+/** Original: zQ in chunks.1.mjs */
+function getClaudeDir(): string {
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  return join(home, '.claude');
 }
 
-/**
- * Get installed plugins registry path.
- */
+/** Original: ByA in chunks.91.mjs:444 */
 export function getInstalledPluginsPath(): string {
-  return path.join(getHomeDir(), '.claude', INSTALLED_PLUGINS_V2_FILE);
+  return join(getClaudeDir(), 'plugins', 'installed_plugins.json');
 }
 
-/**
- * Get plugin cache directory.
- */
+/** Original: BG5 in chunks.91.mjs:448 */
+export function getInstalledPluginsV2Path(): string {
+  return join(getClaudeDir(), 'plugins', 'installed_plugins_v2.json');
+}
+
+/** Original: Tr in chunks.130.mjs:2319 */
 export function getPluginCacheDir(): string {
-  return path.join(getPluginsDir(), CACHE_DIR);
+  return join(getClaudeDir(), 'plugins', 'cache');
+}
+
+/** Original: xb in chunks.130.mjs:2324-2331 */
+export function getVersionedCachePath(sourceId: string, version: string): string {
+  const [pluginName, marketName] = sourceId.split('@');
+  return join(getPluginCacheDir(), marketName!, pluginName!, version);
 }
 
 /**
- * Get plugin install path.
+ * Recursive file copy helper.
+ * Original: rfA in chunks.130.mjs:2333-2365
  */
-export function getPluginInstallPath(
-  marketplace: string,
-  pluginName: string,
-  version: string
-): string {
-  return path.join(getPluginCacheDir(), marketplace, pluginName, version);
-}
-
-// ============================================
-// Installed Plugins Registry
-// ============================================
-
-/**
- * Load installed plugins registry.
- * Original: f_ in chunks.91.mjs
- */
-export async function loadInstalledPlugins(): Promise<InstalledPluginsRegistry> {
-  const filePath = getInstalledPluginsPath();
-
-  try {
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const data = JSON.parse(content);
-
-      // Check version
-      if (data.version === 2) {
-        return data;
+export function recursiveCopySync(src: string, dest: string): void {
+  if (!existsSync(dest)) mkdirSync(dest, { recursive: true });
+  const entries = readdirSync(src, { withFileTypes: true });
+  
+  for (const entry of entries) {
+    const srcPath = join(src, entry.name);
+    const destPath = join(dest, entry.name);
+    
+    if (entry.isDirectory()) {
+      recursiveCopySync(srcPath, destPath);
+    } else if (entry.isFile()) {
+      copyFileSync(srcPath, destPath);
+    } else if (entry.isSymbolicLink()) {
+      const target = readlinkSync(srcPath);
+      try {
+        realpathSync(srcPath);
+        symlinkSync(target, destPath);
+      } catch {
+        // Handle broken symlinks or complex path issues matching source catch block
+        symlinkSync(target, destPath);
       }
-
-      // Migrate from v1 if needed
-      return migrateV1ToV2(data);
     }
-  } catch (error) {
-    console.error('[Plugin] Failed to load installed plugins:', error);
   }
-
-  // Return empty registry
-  return { version: 2, plugins: {} };
 }
 
-/**
- * Save installed plugins registry.
- * Original: UI0 in chunks.91.mjs
- */
-export async function saveInstalledPlugins(registry: InstalledPluginsRegistry): Promise<void> {
-  const filePath = getInstalledPluginsPath();
+// ============================================
+// Git Helpers
+// ============================================
 
+/** Original: J2 / TQ in source */
+function runGit(args: string[], options: any = {}) {
   try {
-    // Ensure directory exists
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    fs.writeFileSync(filePath, JSON.stringify(registry, null, 2), 'utf-8');
-  } catch (error) {
-    console.error('[Plugin] Failed to save installed plugins:', error);
-    throw error;
-  }
-}
-
-/**
- * Migrate v1 registry to v2 format.
- */
-function migrateV1ToV2(v1Data: Record<string, unknown>): InstalledPluginsRegistry {
-  const plugins: Record<string, InstalledPluginEntry[]> = {};
-
-  for (const [pluginId, entry] of Object.entries(v1Data)) {
-    if (typeof entry === 'object' && entry !== null) {
-      const v1Entry = entry as {
-        installPath?: string;
-        version?: string;
-        installedAt?: string;
-      };
-
-      plugins[pluginId] = [
-        {
-          scope: 'user',
-          version: v1Entry.version || '1.0.0',
-          installPath: v1Entry.installPath || '',
-          installedAt: v1Entry.installedAt || new Date().toISOString(),
-        },
-      ];
-    }
-  }
-
-  return { version: 2, plugins };
-}
-
-// ============================================
-// Plugin Installation
-// ============================================
-
-/**
- * Parse plugin ID into name and marketplace.
- * Format: "plugin-name@marketplace" or "plugin-name" (uses default)
- */
-export function parsePluginId(pluginId: string): { name: string; marketplace: string } {
-  const atIndex = pluginId.lastIndexOf('@');
-  if (atIndex > 0) {
+    const result = spawnSync('git', args, {
+      encoding: 'utf-8',
+      ...options,
+      env: { ...process.env, ...options.env, GIT_TERMINAL_PROMPT: '0' },
+    });
     return {
-      name: pluginId.substring(0, atIndex),
-      marketplace: pluginId.substring(atIndex + 1),
+      code: result.status,
+      stdout: result.stdout,
+      stderr: result.stderr,
     };
+  } catch (err: any) {
+    return { code: -1, stderr: err.message };
   }
-  return { name: pluginId, marketplace: 'official' };
 }
 
-/**
- * Format plugin ID.
- */
-export function formatPluginId(name: string, marketplace: string): string {
-  return `${name}@${marketplace}`;
-}
-
-/**
- * Load plugin manifest from path.
- */
-async function loadPluginManifest(pluginPath: string): Promise<PluginManifest | null> {
-  const manifestPath = path.join(pluginPath, PLUGIN_DIR, PLUGIN_MANIFEST);
-
-  try {
-    if (fs.existsSync(manifestPath)) {
-      const content = fs.readFileSync(manifestPath, 'utf-8');
-      return JSON.parse(content);
-    }
-  } catch {
-    // Ignore errors
-  }
-
+/** Original: AG5 in chunks.91.mjs:386 */
+async function getGitHeadSha(cwd: string): Promise<string | null> {
+  const res = runGit(['rev-parse', 'HEAD'], { cwd });
+  if (res.code === 0 && res.stdout) return res.stdout.trim();
   return null;
 }
 
-/**
- * Cache plugin from source.
- * Original: G32 in chunks.130.mjs
- */
-export async function cachePluginFromSource(
-  source: PluginSource,
-  marketplace: string,
-  pluginName: string,
-  version: string,
-  progressCallback?: (message: string) => void
-): Promise<string> {
-  const installPath = getPluginInstallPath(marketplace, pluginName, version);
-
-  progressCallback?.(`Caching plugin to ${installPath}...`);
-
-  switch (source.source) {
-    case 'directory': {
-      // For directory source, just use the path directly
-      return source.path;
-    }
-
-    case 'github':
-    case 'github-default-branch': {
-      // In real implementation:
-      // 1. Clone repo to install path
-      // 2. Checkout correct branch/ref
-      // 3. Return install path
-      throw new Error('GitHub source caching not yet implemented');
-    }
-
-    case 'git': {
-      // In real implementation:
-      // 1. Clone repo to install path
-      // 2. Checkout ref if specified
-      // 3. Return install path
-      throw new Error('Git source caching not yet implemented');
-    }
-
-    default:
-      throw new Error(`Unsupported source type for caching: ${source.source}`);
+/** Original: qB7 in chunks.130.mjs:2415-2421 */
+async function gitCloneWithSubmodules(url: string, dest: string, ref?: string) {
+  const args = ['clone', '--depth', '1', '--recurse-submodules', '--shallow-submodules'];
+  if (ref) args.push('--branch', ref);
+  args.push(url, dest);
+  
+  const res = runGit(args, { timeout: 60000 });
+  if (res.code !== 0) {
+    throw new Error(`Failed to clone repository: ${res.stderr}`);
   }
 }
 
-/**
- * Install a plugin.
- * Original: ofA in chunks.91.mjs
- */
+// ============================================
+// Registry Management
+// ============================================
+
+let cachedRegistry: InstalledPluginsRegistry | null = null;
+
+/** Original: f_ in chunks.91.mjs:551-578 */
+export async function loadInstalledPlugins(): Promise<InstalledPluginsRegistry> {
+  if (cachedRegistry) return cachedRegistry;
+  
+  const filePath = getInstalledPluginsPath();
+  if (!existsSync(filePath)) {
+    return { version: 2, plugins: {} };
+  }
+
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    const json = JSON.parse(content);
+    
+    if (json.version === 2) {
+      cachedRegistry = installedPluginsV2Schema.parse(json);
+    } else {
+      log('Loading legacy V1 plugin registry');
+      const v1Plugins = json.plugins || {};
+      const v2Plugins: Record<string, InstalledPluginEntry[]> = {};
+      for (const [id, entry] of Object.entries(v1Plugins as any)) {
+        v2Plugins[id] = [{
+          scope: 'user',
+          installPath: (entry as any).installPath,
+          version: (entry as any).version,
+          installedAt: (entry as any).installedAt,
+          lastUpdated: (entry as any).lastUpdated,
+          gitCommitSha: (entry as any).gitCommitSha,
+        }];
+      }
+      cachedRegistry = { version: 2, plugins: v2Plugins };
+    }
+    return cachedRegistry!;
+  } catch (err: any) {
+    log(`Failed to load installed plugins: ${err.message}`, { level: 'error' });
+    return { version: 2, plugins: {} };
+  }
+}
+
+/** Original: UI0 in chunks.91.mjs:580-595 */
+export async function saveInstalledPlugins(registry: InstalledPluginsRegistry): Promise<void> {
+  const filePath = getInstalledPluginsPath();
+  const dir = dirname(filePath);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+  const validated = installedPluginsV2Schema.parse(registry);
+  writeFileSync(filePath, JSON.stringify(validated, null, 2), 'utf-8');
+  cachedRegistry = validated;
+}
+
+// ============================================
+// Versioning & Caching
+// ============================================
+
+/** Original: Od in chunks.91.mjs:373-384 */
+export async function resolvePluginVersion(
+  sourceId: string,
+  source: PluginSource,
+  manifest?: PluginManifest,
+  dir?: string,
+  providedVersion?: string
+): Promise<string> {
+  if (manifest?.version) {
+    log(`Using manifest version for ${sourceId}: ${manifest.version}`);
+    return manifest.version;
+  }
+  if (providedVersion) {
+    log(`Using provided version for ${sourceId}: ${providedVersion}`);
+    return providedVersion;
+  }
+  if (dir) {
+    const sha = await getGitHeadSha(dir);
+    if (sha) {
+      const shortSha = sha.substring(0, 12);
+      log(`Using git SHA for ${sourceId}: ${shortSha}`);
+      return shortSha;
+    }
+  }
+  log(`No version found for ${sourceId}, using 'unknown'`);
+  return 'unknown';
+}
+
+/** Original: wF1 in chunks.130.mjs:2368-2400 */
+export async function copyToVersionedCache(
+  srcPath: string,
+  sourceId: string,
+  version: string,
+  entry?: any,
+  marketDir?: string
+): Promise<string> {
+  const destPath = getVersionedCachePath(sourceId, version);
+  
+  const isDirEmpty = (p: string) => {
+    try {
+      return readdirSync(p).length === 0;
+    } catch {
+      return true;
+    }
+  };
+
+  if (existsSync(destPath) && !isDirEmpty(destPath)) {
+    log(`Plugin ${sourceId} version ${version} already cached at ${destPath}`);
+    return destPath;
+  }
+  
+  if (existsSync(destPath) && isDirEmpty(destPath)) {
+    log(`Removing empty cache directory for ${sourceId} at ${destPath}`);
+    rmSync(destPath, { recursive: true, force: true });
+  }
+
+  mkdirSync(destPath, { recursive: true });
+  
+  if (entry && typeof entry.source === 'string' && marketDir) {
+    const fullSrc = join(marketDir, entry.source);
+    if (existsSync(fullSrc)) {
+      log(`Copying source directory ${entry.source} for plugin ${sourceId}`);
+      recursiveCopySync(fullSrc, destPath);
+    } else {
+      throw new Error(`Plugin source directory not found: ${fullSrc} (from entry.source: ${entry.source})`);
+    }
+  } else {
+    log(`Copying plugin ${sourceId} to versioned cache (fallback to full copy)`);
+    recursiveCopySync(srcPath, destPath);
+  }
+  
+  const gitDir = join(destPath, '.git');
+  if (existsSync(gitDir)) {
+    rmSync(gitDir, { recursive: true, force: true });
+  }
+
+  if (isDirEmpty(destPath)) {
+    throw new Error(`Failed to copy plugin ${sourceId} to versioned cache: destination is empty after copy`);
+  }
+  
+  log(`Successfully cached plugin ${sourceId} at ${destPath}`);
+  return destPath;
+}
+
+// ============================================
+// Download Logic
+// ============================================
+
+/** Original: LB7 in chunks.130.mjs:2447 */
+function generateDownloadTempName(source: PluginSource): string {
+  const ts = Date.now();
+  const rnd = Math.random().toString(36).substring(2, 8);
+  let type = 'unknown';
+  if (typeof source === 'string') type = 'local';
+  else {
+    switch(source.source) {
+      case 'npm': type = 'npm'; break;
+      case 'pip': type = 'pip'; break;
+      case 'github': type = 'github'; break;
+      case 'url': type = 'git'; break;
+      default: type = 'unknown';
+    }
+  }
+  return `temp_plugin_${type}_${ts}_${rnd}`;
+}
+
+/** Original: $3A in chunks.130.mjs:2471-2566 */
+export async function downloadPluginFromSource(
+  source: PluginSource,
+  options?: { manifest?: Partial<PluginManifest> }
+): Promise<{ path: string; manifest: PluginManifest }> {
+  const cacheDir = getPluginCacheDir();
+  if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
+
+  const tempName = generateDownloadTempName(source);
+  const tempPath = join(cacheDir, tempName);
+  let isPathCreated = false;
+
+  try {
+    log(`Caching plugin from source to temporary path ${tempPath}`);
+    isPathCreated = true;
+
+    if (typeof source === 'string') {
+      if (!existsSync(source)) throw new Error(`Source path does not exist: ${source}`);
+      mkdirSync(tempPath, { recursive: true });
+      recursiveCopySync(source, tempPath);
+      const gitDir = join(tempPath, '.git');
+      if (existsSync(gitDir)) rmSync(gitDir, { recursive: true, force: true });
+    } else {
+      switch (source.source) {
+        case 'github':
+          const ghUrl = `git@github.com:${source.repo}.git`;
+          await gitCloneWithSubmodules(ghUrl, tempPath, source.ref);
+          break;
+        case 'url':
+          await gitCloneWithSubmodules(source.url, tempPath, source.ref);
+          break;
+        case 'npm':
+          throw new Error('NPM plugin sources not yet supported');
+        case 'pip':
+          throw new Error('Python/Pip plugin sources not yet supported');
+        default:
+          throw new Error('Unsupported plugin source type');
+      }
+    }
+  } catch (err) {
+    if (isPathCreated && existsSync(tempPath)) rmSync(tempPath, { recursive: true, force: true });
+    throw err;
+  }
+
+  // Load manifest to find official name
+  const manifestLocations = [
+    join(tempPath, '.claude-plugin', 'plugin.json'),
+    join(tempPath, 'plugin.json')
+  ];
+  
+  let manifest: PluginManifest | null = null;
+  for (const loc of manifestLocations) {
+    if (existsSync(loc)) {
+      try {
+        const content = readFileSync(loc, 'utf-8');
+        manifest = unifiedPluginManifestSchema.parse(JSON.parse(content));
+        break;
+      } catch (err) {
+        log(`Failed to parse manifest at ${loc}: ${err}`, { level: 'warn' });
+      }
+    }
+  }
+
+  if (!manifest) {
+    manifest = {
+      name: options?.manifest?.name || tempName,
+      description: options?.manifest?.description || 'Cached plugin',
+    } as PluginManifest;
+  }
+
+  const finalName = manifest.name.replace(/[^a-zA-Z0-9-_]/g, '-');
+  const finalPath = join(cacheDir, finalName);
+  
+  if (existsSync(finalPath)) rmSync(finalPath, { recursive: true, force: true });
+  renameSync(tempPath, finalPath);
+  
+  return { path: finalPath, manifest };
+}
+
+// ============================================
+// Installation Operations
+// ============================================
+
+/** Original: ofA in chunks.130.mjs:2267-2303 */
 export async function installPlugin(
   pluginId: string,
   options: {
@@ -265,264 +387,41 @@ export async function installPlugin(
     progressCallback?: (message: string) => void;
   } = {}
 ): Promise<{ pluginId: string; installPath: string }> {
-  const { name, marketplace } = parsePluginId(pluginId);
+  const [name, marketName] = pluginId.split('@');
+  if (!name || !marketName) throw new Error(`Invalid plugin ID format: ${pluginId}`);
+  
   const scope = options.scope || 'user';
-  const progressCallback = options.progressCallback;
+  
+  const manifest = await loadMarketplaceManifest(marketName);
+  const entry = manifest.plugins.find(p => p.name === name);
+  if (!entry) throw new Error(`Plugin '${name}' not found in marketplace '${marketName}'`);
 
-  progressCallback?.(`Looking up plugin ${name} in marketplace ${marketplace}...`);
+  if (options.progressCallback) options.progressCallback(`Downloading ${name} from ${marketName}...`);
+  const { path: downloadPath, manifest: pluginManifest } = await downloadPluginFromSource(entry.source, { manifest: entry });
+  
+  const version = await resolvePluginVersion(pluginId, entry.source, pluginManifest, downloadPath, entry.version);
+  const installPath = await copyToVersionedCache(downloadPath, pluginId, version, entry, undefined);
 
-  // 1. Find plugin in marketplace
-  const pluginEntry = await findPluginInMarketplace(marketplace, name);
-  if (!pluginEntry) {
-    throw new Error(`Plugin '${name}' not found in marketplace '${marketplace}'.`);
-  }
+  if (downloadPath !== installPath) rmSync(downloadPath, { recursive: true, force: true });
 
-  // 2. Check if already installed
   const registry = await loadInstalledPlugins();
-  const fullPluginId = formatPluginId(name, marketplace);
-
-  if (registry.plugins[fullPluginId]) {
-    const existing = registry.plugins[fullPluginId].find(
-      (e) => e.scope === scope && (!options.projectPath || e.projectPath === options.projectPath)
-    );
-    if (existing) {
-      throw new Error(
-        `Plugin '${fullPluginId}' is already installed in scope '${scope}'.` +
-          ` Use '/plugin update ${fullPluginId}' to update.`
-      );
-    }
-  }
-
-  // 3. Get source from plugin entry
-  let source: PluginSource;
-  if (typeof pluginEntry.source === 'string') {
-    // Relative path from marketplace
-    const marketplaceConfig = await loadMarketplace(marketplace);
-    if (!marketplaceConfig) {
-      throw new Error(`Failed to load marketplace '${marketplace}'.`);
-    }
-    // Treat as directory relative to marketplace
-    source = { source: 'directory', path: pluginEntry.source };
-  } else {
-    source = pluginEntry.source;
-  }
-
-  // 4. Cache plugin
-  progressCallback?.(`Downloading plugin ${name}...`);
-  const version = pluginEntry.version || '1.0.0';
-  const installPath = await cachePluginFromSource(
-    source,
-    marketplace,
-    name,
-    version,
-    progressCallback
-  );
-
-  // 5. Validate plugin manifest
-  const manifest = await loadPluginManifest(installPath);
-  if (!manifest) {
-    throw new Error(`Invalid plugin: no manifest found at ${installPath}`);
-  }
-
-  // 6. Register installation
-  if (!registry.plugins[fullPluginId]) {
-    registry.plugins[fullPluginId] = [];
-  }
-
-  registry.plugins[fullPluginId].push({
+  const entries = registry.plugins[pluginId] || [];
+  const newEntry: InstalledPluginEntry = {
     scope,
-    version,
-    installPath,
-    installedAt: new Date().toISOString(),
     projectPath: options.projectPath,
-  });
+    installPath,
+    version,
+    installedAt: new Date().toISOString(),
+    lastUpdated: new Date().toISOString(),
+    gitCommitSha: await getGitHeadSha(installPath) || undefined,
+  };
 
+  const idx = entries.findIndex(e => e.scope === scope && e.projectPath === options.projectPath);
+  if (idx >= 0) entries[idx] = newEntry;
+  else entries.push(newEntry);
+
+  registry.plugins[pluginId] = entries;
   await saveInstalledPlugins(registry);
 
-  progressCallback?.(`Successfully installed ${fullPluginId}`);
-  console.log(`[Plugin] Installed: ${fullPluginId} (${scope})`);
-
-  return { pluginId: fullPluginId, installPath };
+  return { pluginId, installPath };
 }
-
-/**
- * Uninstall a plugin.
- */
-export async function uninstallPlugin(
-  pluginId: string,
-  options: {
-    scope?: InstallScope;
-    projectPath?: string;
-  } = {}
-): Promise<void> {
-  const { name, marketplace } = parsePluginId(pluginId);
-  const fullPluginId = formatPluginId(name, marketplace);
-  const scope = options.scope || 'user';
-
-  const registry = await loadInstalledPlugins();
-
-  if (!registry.plugins[fullPluginId]) {
-    throw new Error(`Plugin '${fullPluginId}' is not installed.`);
-  }
-
-  // Find and remove the matching installation
-  const entries = registry.plugins[fullPluginId];
-  const index = entries.findIndex(
-    (e) => e.scope === scope && (!options.projectPath || e.projectPath === options.projectPath)
-  );
-
-  if (index === -1) {
-    throw new Error(`Plugin '${fullPluginId}' is not installed in scope '${scope}'.`);
-  }
-
-  const entry = entries[index]!;
-
-  // Remove from registry
-  entries.splice(index, 1);
-  if (entries.length === 0) {
-    delete registry.plugins[fullPluginId];
-  }
-
-  await saveInstalledPlugins(registry);
-
-  // Clean up cached files (if in cache directory)
-  const cacheDir = getPluginCacheDir();
-  if (entry.installPath.startsWith(cacheDir)) {
-    try {
-      fs.rmSync(entry.installPath, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
-  }
-
-  console.log(`[Plugin] Uninstalled: ${fullPluginId} (${scope})`);
-}
-
-/**
- * Update a plugin to latest version.
- */
-export async function updatePlugin(
-  pluginId: string,
-  options: {
-    scope?: InstallScope;
-    projectPath?: string;
-    progressCallback?: (message: string) => void;
-  } = {}
-): Promise<{ pluginId: string; oldVersion: string; newVersion: string }> {
-  const { name, marketplace } = parsePluginId(pluginId);
-  const fullPluginId = formatPluginId(name, marketplace);
-  const scope = options.scope || 'user';
-
-  const registry = await loadInstalledPlugins();
-
-  if (!registry.plugins[fullPluginId]) {
-    throw new Error(`Plugin '${fullPluginId}' is not installed.`);
-  }
-
-  // Find the installation to update
-  const entries = registry.plugins[fullPluginId];
-  const entry = entries.find(
-    (e) => e.scope === scope && (!options.projectPath || e.projectPath === options.projectPath)
-  );
-
-  if (!entry) {
-    throw new Error(`Plugin '${fullPluginId}' is not installed in scope '${scope}'.`);
-  }
-
-  const oldVersion = entry.version;
-
-  // Get latest version from marketplace
-  const pluginEntry = await findPluginInMarketplace(marketplace, name);
-  if (!pluginEntry) {
-    throw new Error(`Plugin '${name}' not found in marketplace '${marketplace}'.`);
-  }
-
-  const newVersion = pluginEntry.version || '1.0.0';
-
-  if (oldVersion === newVersion) {
-    console.log(`[Plugin] ${fullPluginId} is already at latest version (${newVersion})`);
-    return { pluginId: fullPluginId, oldVersion, newVersion };
-  }
-
-  // Re-install to update
-  options.progressCallback?.(`Updating ${fullPluginId} from ${oldVersion} to ${newVersion}...`);
-
-  // Get source
-  let source: PluginSource;
-  if (typeof pluginEntry.source === 'string') {
-    source = { source: 'directory', path: pluginEntry.source };
-  } else {
-    source = pluginEntry.source;
-  }
-
-  // Cache new version
-  const newInstallPath = await cachePluginFromSource(
-    source,
-    marketplace,
-    name,
-    newVersion,
-    options.progressCallback
-  );
-
-  // Update registry entry
-  entry.version = newVersion;
-  entry.installPath = newInstallPath;
-  entry.lastUpdated = new Date().toISOString();
-
-  await saveInstalledPlugins(registry);
-
-  console.log(`[Plugin] Updated: ${fullPluginId} (${oldVersion} → ${newVersion})`);
-
-  return { pluginId: fullPluginId, oldVersion, newVersion };
-}
-
-/**
- * List installed plugins.
- */
-export async function listInstalledPlugins(options: {
-  scope?: InstallScope;
-  projectPath?: string;
-} = {}): Promise<
-  Array<{
-    pluginId: string;
-    scope: InstallScope;
-    version: string;
-    installPath: string;
-    installedAt: string;
-  }>
-> {
-  const registry = await loadInstalledPlugins();
-  const results: Array<{
-    pluginId: string;
-    scope: InstallScope;
-    version: string;
-    installPath: string;
-    installedAt: string;
-  }> = [];
-
-  for (const [pluginId, entries] of Object.entries(registry.plugins)) {
-    for (const entry of entries) {
-      // Filter by scope if specified
-      if (options.scope && entry.scope !== options.scope) continue;
-
-      // Filter by project path if specified
-      if (options.projectPath && entry.projectPath !== options.projectPath) continue;
-
-      results.push({
-        pluginId,
-        scope: entry.scope,
-        version: entry.version,
-        installPath: entry.installPath,
-        installedAt: entry.installedAt,
-      });
-    }
-  }
-
-  return results;
-}
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 本文件函数已在声明处导出；移除重复聚合导出。
