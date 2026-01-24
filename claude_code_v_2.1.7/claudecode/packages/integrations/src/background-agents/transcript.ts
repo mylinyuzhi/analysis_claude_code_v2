@@ -10,7 +10,7 @@ import { createInterface } from 'readline';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { getSessionId } from '@claudecode/shared';
-import type { TranscriptEntry, TranscriptMetadata, BackgroundTaskStatus } from './types.js';
+import type { TranscriptEntry, TranscriptMetadata } from './types.js';
 import { BACKGROUND_AGENT_CONSTANTS } from './types.js';
 
 // ============================================
@@ -19,7 +19,7 @@ import { BACKGROUND_AGENT_CONSTANTS } from './types.js';
 
 /**
  * Sanitize path for safe filesystem names.
- * Original: fb3 (sanitizePath)
+ * Original: gGA (sanitizePath)
  */
 export function sanitizePath(pathStr: string): string {
   return pathStr.replace(/[^a-zA-Z0-9]/g, '-');
@@ -27,6 +27,7 @@ export function sanitizePath(pathStr: string): string {
 
 /**
  * Get Claude configuration directory.
+ * Original: wp()
  */
 export function getClaudeDir(): string {
   return join(homedir(), '.claude');
@@ -53,15 +54,6 @@ export function getAgentTranscriptPath(agentId: string, cwd?: string): string {
   const projectDir = getProjectDir(workingDir);
   const sessionId = getSessionId();
   return join(projectDir, sessionId, BACKGROUND_AGENT_CONSTANTS.SUBAGENTS_DIR, `agent-${agentId}.jsonl`);
-}
-
-/**
- * Get task output file path.
- */
-export function getTaskOutputPath(taskId: string, cwd?: string): string {
-  const workingDir = cwd ?? process.cwd();
-  const projectDir = getProjectDir(workingDir);
-  return join(projectDir, BACKGROUND_AGENT_CONSTANTS.TASKS_DIR, `${taskId}${BACKGROUND_AGENT_CONSTANTS.OUTPUT_EXTENSION}`);
 }
 
 /**
@@ -126,22 +118,12 @@ export async function* readTranscriptStream(transcriptPath: string): AsyncGenera
  * Read transcript metadata from first line.
  */
 export function readTranscriptMetadata(transcriptPath: string): TranscriptMetadata | null {
-  if (!existsSync(transcriptPath)) {
-    return null;
-  }
+  const entries = readTranscript(transcriptPath);
+  if (entries.length === 0) return null;
 
-  const content = readFileSync(transcriptPath, 'utf-8');
-  const firstLine = content.split('\n')[0];
-
-  if (!firstLine) return null;
-
-  try {
-    const entry = JSON.parse(firstLine);
-    if (entry.type === 'system' && entry.metadata) {
-      return entry.metadata as TranscriptMetadata;
-    }
-  } catch {
-    // Invalid metadata
+  const firstEntry = entries[0];
+  if (firstEntry && firstEntry.type === 'system' && (firstEntry.content as any)?.metadata) {
+    return (firstEntry.content as any).metadata as TranscriptMetadata;
   }
 
   return null;
@@ -212,46 +194,6 @@ export function updateTranscriptMetadata(
   } catch {
     // Failed to update
   }
-}
-
-// ============================================
-// Task Output
-// ============================================
-
-/**
- * Read task output from file or transcript.
- */
-export function readTaskOutput(taskId: string, cwd?: string): string | null {
-  // Try output file first
-  const outputPath = getTaskOutputPath(taskId, cwd);
-  if (existsSync(outputPath)) {
-    return readFileSync(outputPath, 'utf-8');
-  }
-
-  // Try transcript (for agent tasks)
-  const transcriptPath = getAgentTranscriptPath(taskId, cwd);
-  if (existsSync(transcriptPath)) {
-    const entries = readTranscript(transcriptPath);
-    // Get last assistant message
-    const assistantMessages = entries.filter((e) => e.type === 'assistant');
-    if (assistantMessages.length > 0) {
-      const last = assistantMessages[assistantMessages.length - 1]!;
-      return typeof last.content === 'string'
-        ? last.content
-        : JSON.stringify(last.content);
-    }
-  }
-
-  return null;
-}
-
-/**
- * Write task output to file.
- */
-export function writeTaskOutput(taskId: string, output: string, cwd?: string): void {
-  const outputPath = getTaskOutputPath(taskId, cwd);
-  ensureDir(dirname(outputPath));
-  writeFileSync(outputPath, output, 'utf-8');
 }
 
 // ============================================

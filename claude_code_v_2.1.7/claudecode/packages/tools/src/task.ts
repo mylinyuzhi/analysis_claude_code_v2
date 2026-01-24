@@ -1016,7 +1016,7 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
 
       // Original: RI0 (updateTaskProgress) in chunks.91.mjs:1253
       const updateProgress = () => {
-        updateCoreTaskProgress(agentId, toolUseCount, tokenCount, context.setAppState as any);
+        updateCoreTaskProgress(agentId, { toolUseCount, tokenCount }, context.setAppState as any);
       };
 
       const handleValue = (value: any) => {
@@ -1084,7 +1084,7 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
         }
 
         const result = formatAgentResult(collected, agentId, metadataObj);
-        markCoreTaskCompleted(agentId, true, context.setAppState as any);
+        markCoreTaskCompleted({ ...result, agentId }, context.setAppState as any);
 
         return toolSuccess({
           status: 'completed',

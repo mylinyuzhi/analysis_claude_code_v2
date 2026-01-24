@@ -2,16 +2,11 @@
  * @claudecode/integrations - Background Signal Handling
  *
  * Handles Ctrl+B backgrounding for running tasks.
- * Reconstructed from chunks.91.mjs:1317-1390
- *
- * Key symbols:
- * - yZ1 → backgroundSignalMap
- * - O32 → createBackgroundableAgent
- * - M32 → triggerBackgroundTransition
- * - R32 → removeBackgroundableTask
+ * Reconstructed from chunks.91.mjs and chunks.121.mjs
  */
 
-import type { BackgroundTask, BackgroundAgentTask, BackgroundTaskStatus } from './types.js';
+import type { BackgroundTask, BackgroundAgentTask, BackgroundBashTask } from './types.js';
+import { appendToOutputFile } from './output.js';
 
 // ============================================
 // Types
@@ -23,14 +18,6 @@ import type { BackgroundTask, BackgroundAgentTask, BackgroundTaskStatus } from '
 export type BackgroundSignalResolver = () => void;
 
 /**
- * Backgroundable task result.
- */
-export interface BackgroundableTaskResult {
-  taskId: string;
-  backgroundSignal: Promise<void>;
-}
-
-/**
  * App state getter.
  */
 export type GetAppState = () => { tasks: Record<string, BackgroundTask> };
@@ -38,7 +25,7 @@ export type GetAppState = () => { tasks: Record<string, BackgroundTask> };
 /**
  * App state setter.
  */
-export type SetAppState = (updater: (state: { tasks: Record<string, BackgroundTask> }) => { tasks: Record<string, BackgroundTask> }) => void;
+export type SetAppState = (updater: (state: any) => any) => void;
 
 // ============================================
 // Background Signal Map
@@ -52,7 +39,7 @@ export type SetAppState = (updater: (state: { tasks: Record<string, BackgroundTa
 const backgroundSignalMap = new Map<string, BackgroundSignalResolver>();
 
 /**
- * Get the background signal map (for testing).
+ * Get the background signal map.
  */
 export function getBackgroundSignalMap(): Map<string, BackgroundSignalResolver> {
   return backgroundSignalMap;
@@ -66,7 +53,7 @@ export function getBackgroundSignalMap(): Map<string, BackgroundSignalResolver> 
  * Check if task is a local agent task.
  * Original: Sr in chunks.91.mjs:1218-1220
  */
-export function isLocalAgentTask(task: unknown): task is BackgroundAgentTask & { type: 'local_agent' } {
+export function isLocalAgentTask(task: unknown): task is BackgroundAgentTask {
   return (
     typeof task === 'object' &&
     task !== null &&
@@ -77,9 +64,9 @@ export function isLocalAgentTask(task: unknown): task is BackgroundAgentTask & {
 
 /**
  * Check if task is a local bash task.
- * Original: It in chunks.121.mjs
+ * Original: It in chunks.121.mjs:567-569
  */
-export function isLocalBashTask(task: unknown): task is BackgroundTask & { type: 'local_bash' } {
+export function isLocalBashTask(task: unknown): task is BackgroundBashTask {
   return (
     typeof task === 'object' &&
     task !== null &&
@@ -93,14 +80,8 @@ export function isLocalBashTask(task: unknown): task is BackgroundTask & { type:
 // ============================================
 
 /**
- * Trigger background transition (Ctrl+B handler).
- * Transitions a foreground task to background mode.
+ * Trigger background transition for agent task (Ctrl+B handler).
  * Original: M32 in chunks.91.mjs:1353-1373
- *
- * @param taskId - The task ID to background
- * @param getAppState - Function to get current app state
- * @param setAppState - Function to update app state
- * @returns true if task was backgrounded, false otherwise
  */
 export function triggerBackgroundTransition(
   taskId: string,
@@ -110,12 +91,12 @@ export function triggerBackgroundTransition(
   const task = getAppState().tasks[taskId];
 
   // Only transition local_agent tasks that aren't already backgrounded
-  if (!isLocalAgentTask(task) || (task as { isBackgrounded?: boolean }).isBackgrounded) {
+  if (!isLocalAgentTask(task) || task.isBackgrounded) {
     return false;
   }
 
   // Update task to backgrounded state
-  setAppState((state) => {
+  setAppState((state: any) => {
     const currentTask = state.tasks[taskId];
     if (!isLocalAgentTask(currentTask)) return state;
 
@@ -126,7 +107,7 @@ export function triggerBackgroundTransition(
         [taskId]: {
           ...currentTask,
           isBackgrounded: true,
-        } as BackgroundTask,
+        },
       },
     };
   });
@@ -134,7 +115,7 @@ export function triggerBackgroundTransition(
   // Resolve the backgroundSignal Promise to unblock caller
   const resolveSignal = backgroundSignalMap.get(taskId);
   if (resolveSignal) {
-    resolveSignal(); // This causes the awaited Promise to resolve
+    resolveSignal();
     backgroundSignalMap.delete(taskId);
   }
 
@@ -143,7 +124,7 @@ export function triggerBackgroundTransition(
 
 /**
  * Trigger background transition for bash task (Ctrl+B).
- * Original: Li5 in chunks.121.mjs:637-667
+ * Original: Li5 in chunks.121.mjs:637-698
  */
 export function triggerBashBackgroundTransition(
   taskId: string,
@@ -153,14 +134,18 @@ export function triggerBashBackgroundTransition(
   const task = getAppState().tasks[taskId];
 
   // Validate task can be backgrounded
-  if (!isLocalBashTask(task) || (task as { isBackgrounded?: boolean }).isBackgrounded) {
+  if (!isLocalBashTask(task) || task.isBackgrounded || !task.shellCommand) {
     return false;
   }
 
+  const { shellCommand } = task;
+  const streams = shellCommand.background(taskId);
+  if (!streams) return false;
+
   // Update task to backgrounded
-  setAppState((state) => {
+  setAppState((state: any) => {
     const currentTask = state.tasks[taskId];
-    if (!isLocalBashTask(currentTask) || (currentTask as { isBackgrounded?: boolean }).isBackgrounded) {
+    if (!isLocalBashTask(currentTask) || currentTask.isBackgrounded) {
       return state;
     }
 
@@ -171,9 +156,42 @@ export function triggerBashBackgroundTransition(
         [taskId]: {
           ...currentTask,
           isBackgrounded: true,
-        } as BackgroundTask,
+        },
       },
     };
+  });
+
+  // Attach data listeners to streams
+  streams.stdoutStream.on('data', (data: Buffer | string) => {
+    const content = data.toString();
+    appendToOutputFile(taskId, content);
+    const lineCount = content.split('\n').filter(l => l.length > 0).length;
+    setAppState((state: any) => ({
+      ...state,
+      tasks: {
+        ...state.tasks,
+        [taskId]: {
+          ...state.tasks[taskId],
+          stdoutLineCount: (state.tasks[taskId] as BackgroundBashTask).stdoutLineCount + lineCount,
+        },
+      },
+    }));
+  });
+
+  streams.stderrStream.on('data', (data: Buffer | string) => {
+    const content = data.toString();
+    appendToOutputFile(taskId, `[stderr] ${content}`);
+    const lineCount = content.split('\n').filter(l => l.length > 0).length;
+    setAppState((state: any) => ({
+      ...state,
+      tasks: {
+        ...state.tasks,
+        [taskId]: {
+          ...state.tasks[taskId],
+          stderrLineCount: (state.tasks[taskId] as BackgroundBashTask).stderrLineCount + lineCount,
+        },
+      },
+    }));
   });
 
   return true;
@@ -181,8 +199,7 @@ export function triggerBashBackgroundTransition(
 
 /**
  * Register a backgroundable task with signal Promise.
- * Creates a Promise that resolves when Ctrl+B is pressed.
- * Original: Part of O32 in chunks.91.mjs:1317-1351
+ * Original: Part of O32 in chunks.91.mjs
  */
 export function registerBackgroundableTask(taskId: string): Promise<void> {
   let resolveBackgroundSignal: BackgroundSignalResolver;
@@ -191,7 +208,6 @@ export function registerBackgroundableTask(taskId: string): Promise<void> {
     resolveBackgroundSignal = resolve;
   });
 
-  // Store resolver in backgroundSignalMap for Ctrl+B to trigger
   backgroundSignalMap.set(taskId, resolveBackgroundSignal!);
 
   return backgroundSignal;
@@ -201,22 +217,44 @@ export function registerBackgroundableTask(taskId: string): Promise<void> {
  * Remove backgroundable task signal.
  * Original: R32 in chunks.91.mjs:1375-1390
  */
-export function removeBackgroundableTaskSignal(taskId: string): void {
+export function removeBackgroundableTaskSignal(taskId: string, setAppState: SetAppState): void {
   backgroundSignalMap.delete(taskId);
+
+  let unregisterCleanup: (() => void) | undefined;
+  setAppState((state: any) => {
+    const task = state.tasks[taskId];
+    if (!isLocalAgentTask(task) || task.isBackgrounded) return state;
+
+    unregisterCleanup = task.unregisterCleanup;
+    const { [taskId]: removed, ...remainingTasks } = state.tasks;
+    return {
+      ...state,
+      tasks: remainingTasks,
+    };
+  });
+
+  unregisterCleanup?.();
 }
 
 /**
- * Check if a task has a pending background signal.
+ * Remove backgroundable bash task.
+ * Original: Km2 in chunks.121.mjs:722-736
  */
-export function hasBackgroundSignal(taskId: string): boolean {
-  return backgroundSignalMap.has(taskId);
-}
+export function removeBackgroundableBashTask(taskId: string, setAppState: SetAppState): void {
+  let unregisterCleanup: (() => void) | undefined;
+  setAppState((state: any) => {
+    const task = state.tasks[taskId];
+    if (!isLocalBashTask(task) || task.isBackgrounded) return state;
 
-/**
- * Clear all background signals (for cleanup).
- */
-export function clearBackgroundSignals(): void {
-  backgroundSignalMap.clear();
+    unregisterCleanup = task.unregisterCleanup;
+    const { [taskId]: removed, ...remainingTasks } = state.tasks;
+    return {
+      ...state,
+      tasks: remainingTasks,
+    };
+  });
+
+  unregisterCleanup?.();
 }
 
 // ============================================

@@ -3,15 +3,6 @@
  *
  * Manages output files for background tasks.
  * Reconstructed from chunks.86.mjs
- *
- * Key symbols:
- * - aY → formatOutputPath
- * - g9A → appendToOutputFile
- * - K71 → getTaskOutputContent
- * - OKA → registerOutputFile
- * - Zr → createEmptyOutputFile
- * - JY0 → ensureOutputDirExists
- * - eSA → getAgentOutputDir
  */
 
 import {
@@ -19,14 +10,14 @@ import {
   mkdirSync,
   readFileSync,
   writeFileSync,
-  appendFileSync,
   unlinkSync,
   symlinkSync,
+  statSync,
 } from 'fs';
+import { appendFile } from 'fs/promises';
 import { join, dirname } from 'path';
-import { homedir } from 'os';
 import { BACKGROUND_AGENT_CONSTANTS } from './types.js';
-import { sanitizePath } from './transcript.js';
+import { getProjectDir } from './transcript.js';
 
 // ============================================
 // Pending Writes Queue
@@ -42,22 +33,6 @@ const pendingWrites = new Map<string, Promise<void>>();
 // ============================================
 // Path Utilities
 // ============================================
-
-/**
- * Get Claude configuration directory.
- */
-function getClaudeDir(): string {
-  return join(homedir(), '.claude');
-}
-
-/**
- * Get project directory for working directory.
- */
-function getProjectDir(cwd: string): string {
-  const claudeDir = getClaudeDir();
-  const sanitized = sanitizePath(cwd);
-  return join(claudeDir, 'projects', sanitized);
-}
 
 /**
  * Get agent output directory.
@@ -104,13 +79,9 @@ export function createEmptyOutputFile(taskId: string, cwd?: string): string {
   try {
     ensureOutputDirExists(cwd);
     const outputPath = formatOutputPath(taskId, cwd);
-    const dir = dirname(outputPath);
-
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
+    if (!existsSync(outputPath)) {
+      writeFileSync(outputPath, '', 'utf8');
     }
-
-    writeFileSync(outputPath, '', 'utf-8');
     return outputPath;
   } catch (error) {
     console.error('[Background] Failed to create empty output file:', error);
@@ -122,7 +93,7 @@ export function createEmptyOutputFile(taskId: string, cwd?: string): string {
  * Register output file as symlink to transcript.
  * Original: OKA in chunks.86.mjs:174-183
  *
- * Creates symlink: transcript → output
+ * Creates symlink: transcript -> output
  * This allows TaskOutput tool to read live progress via the output path.
  */
 export function registerOutputFile(taskId: string, transcriptPath: string, cwd?: string): string {
@@ -135,7 +106,7 @@ export function registerOutputFile(taskId: string, transcriptPath: string, cwd?:
       unlinkSync(outputPath);
     }
 
-    // Create symlink: transcript → output
+    // Create symlink: transcript -> output
     symlinkSync(transcriptPath, outputPath);
     return outputPath;
   } catch (error) {
@@ -171,7 +142,7 @@ export function appendToOutputFile(taskId: string, content: string, cwd?: string
   // Chain writes to ensure sequential order
   const writePromise = (pendingWrites.get(taskId) ?? Promise.resolve()).then(async () => {
     try {
-      appendFileSync(outputPath, content, 'utf-8');
+      await appendFile(outputPath, content, 'utf8');
     } catch (error) {
       console.error('[Background] Failed to append to output file:', error);
     }
@@ -181,14 +152,14 @@ export function appendToOutputFile(taskId: string, content: string, cwd?: string
 }
 
 /**
- * Get task output content.
+ * Read task output content.
  * Original: K71 in chunks.86.mjs:157-165
  */
 export function getTaskOutputContent(taskId: string, cwd?: string): string {
   try {
     const outputPath = formatOutputPath(taskId, cwd);
     if (!existsSync(outputPath)) return '';
-    return readFileSync(outputPath, 'utf-8');
+    return readFileSync(outputPath, 'utf8');
   } catch (error) {
     console.error('[Background] Failed to read output file:', error);
     return '';
@@ -196,39 +167,47 @@ export function getTaskOutputContent(taskId: string, cwd?: string): string {
 }
 
 /**
- * Write content to output file (overwrite).
+ * Read task output content.
+ * Alias for getTaskOutputContent for external package compatibility.
  */
-export function writeOutputFile(taskId: string, content: string, cwd?: string): void {
+export const readTaskOutput = getTaskOutputContent;
+
+/**
+ * Write to task output file (full write).
+ */
+export function writeTaskOutput(taskId: string, content: string, cwd?: string): void {
   try {
     ensureOutputDirExists(cwd);
     const outputPath = formatOutputPath(taskId, cwd);
-    writeFileSync(outputPath, content, 'utf-8');
+    writeFileSync(outputPath, content, 'utf8');
   } catch (error) {
     console.error('[Background] Failed to write output file:', error);
   }
 }
 
 /**
- * Check if output file exists.
+ * Read delta from output file since last offset.
+ * Original: XY0 in chunks.86.mjs:133-155
  */
-export function outputFileExists(taskId: string, cwd?: string): boolean {
-  const outputPath = formatOutputPath(taskId, cwd);
-  return existsSync(outputPath);
-}
-
-/**
- * Delete output file.
- */
-export function deleteOutputFile(taskId: string, cwd?: string): boolean {
+export function readTaskOutputDelta(taskId: string, offset: number, cwd?: string): { content: string; newOffset: number } {
   try {
     const outputPath = formatOutputPath(taskId, cwd);
-    if (existsSync(outputPath)) {
-      unlinkSync(outputPath);
-      return true;
+    if (!existsSync(outputPath)) {
+      return { content: '', newOffset: offset };
     }
-    return false;
-  } catch {
-    return false;
+
+    const size = statSync(outputPath).size;
+    if (size <= offset) {
+      return { content: '', newOffset: offset };
+    }
+
+    // Since we are reading as utf8 string, slice might be tricky if offset is not at character boundary,
+    // but the original code uses I12(B, "utf8").slice(Q).
+    const content = readFileSync(outputPath, 'utf8').slice(offset);
+    return { content, newOffset: size };
+  } catch (error) {
+    console.error('[Background] Failed to read output delta:', error);
+    return { content: '', newOffset: offset };
   }
 }
 

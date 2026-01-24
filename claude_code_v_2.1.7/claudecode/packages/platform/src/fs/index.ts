@@ -292,6 +292,12 @@ export const getFileSystem = () => FileSystemWrapper;
 export const joinPath = (...args: string[]) => path.join(...args);
 
 /**
+ * Resolve absolute path.
+ * Original: Yr in chunks.148.mjs
+ */
+export const resolvePath = (...args: string[]) => path.resolve(...args);
+
+/**
  * Get system temporary directory.
  * Original: part of chunks.1.mjs temp handling
  */

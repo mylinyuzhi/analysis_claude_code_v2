@@ -20,52 +20,99 @@ export type BackgroundTaskType = 'local_bash' | 'local_agent' | 'remote_agent';
 export type BackgroundTaskStatus = 'running' | 'completed' | 'failed' | 'cancelled' | 'killed' | 'pending';
 
 /**
+ * App state updater function type.
+ */
+export type SetAppState = (updater: (state: any) => any) => void;
+
+/**
  * Base background task.
+ * Original: KO in chunks.91.mjs
  */
 export interface BackgroundTaskBase {
   id: string;
   type: BackgroundTaskType;
   status: BackgroundTaskStatus;
+  description: string;
   startTime: number;
   endTime?: number;
-  // 运行时附加字段（用于通知/进度追踪；在重建源码中可选存在）
-  notified?: boolean;
-  progress?: unknown;
+  outputFile: string;
+  outputOffset: number;
+  notified: boolean;
 }
 
 /**
  * Background bash task.
  * Stored in-memory for real-time streaming.
+ * Original: es in chunks.121.mjs
  */
 export interface BackgroundBashTask extends BackgroundTaskBase {
   type: 'local_bash';
   command: string;
-  stdout: string;
-  stderr: string;
-  exitCode?: number;
-  pid?: number;
+  stdoutLineCount: number;
+  stderrLineCount: number;
+  lastReportedStdoutLines: number;
+  lastReportedStderrLines: number;
+  isBackgrounded: boolean;
+  completionStatusSentInAttachment: boolean;
+  shellCommand?: {
+    kill: () => void;
+    background: (taskId: string) => {
+      stdoutStream: NodeJS.ReadableStream;
+      stderrStream: NodeJS.ReadableStream;
+    } | null;
+    result: Promise<{ code: number; interrupted: boolean }>;
+  } | null;
+  unregisterCleanup?: () => void;
+  cleanupTimeoutId?: NodeJS.Timeout;
+  result?: { code: number; interrupted: boolean };
 }
 
 /**
  * Background agent task.
  * Stored in transcript files for persistence.
+ * Original: kZ1 in chunks.91.mjs
  */
 export interface BackgroundAgentTask extends BackgroundTaskBase {
   type: 'local_agent' | 'remote_agent';
-  description: string;
-  transcriptPath: string;
-  outputPath?: string;
-  prompt?: string;
-  subagentType?: string;
-  model?: string;
-  result?: unknown;
+  agentId: string;
+  prompt: string;
+  selectedAgent: any;
+  agentType: string;
+  abortController?: AbortController;
+  unregisterCleanup?: () => void;
+  retrieved: boolean;
+  lastReportedToolCount: number;
+  lastReportedTokenCount: number;
+  isBackgrounded: boolean;
+  progress?: {
+    toolUseCount: number;
+    tokenCount: number;
+    lastActivity?: { toolName: string; input: unknown };
+    recentActivities: Array<{ toolName: string; input: unknown }>;
+  };
+  messages?: any[];
   error?: string;
+  result?: any;
+}
+
+/**
+ * Remote agent task with session tracking.
+ * Original: tu2 in chunks.121.mjs
+ */
+export interface RemoteAgentTask extends BackgroundAgentTask {
+  type: 'remote_agent';
+  sessionId: string;
+  title: string;
+  todoList: any[];
+  log: any[];
+  deltaSummarySinceLastFlushToAttachment: string | null;
+  command: string; // The command sent to remote
 }
 
 /**
  * Union type for all background tasks.
  */
-export type BackgroundTask = BackgroundBashTask | BackgroundAgentTask;
+export type BackgroundTask = BackgroundBashTask | BackgroundAgentTask | RemoteAgentTask;
 
 // ============================================
 // Task Registry
@@ -77,7 +124,6 @@ export type BackgroundTask = BackgroundBashTask | BackgroundAgentTask;
 export interface TaskRegistryEntry {
   task: BackgroundTask;
   abortController?: AbortController;
-  process?: unknown; // ChildProcess for bash tasks
 }
 
 /**
@@ -85,7 +131,6 @@ export interface TaskRegistryEntry {
  */
 export interface TaskRegistry {
   tasks: Map<string, TaskRegistryEntry>;
-  outputFiles: Map<string, string>; // taskId -> outputPath
 }
 
 // ============================================
@@ -103,15 +148,18 @@ export interface TaskOutputInput {
 
 /**
  * TaskOutput tool result.
+ * Original: YK1 in chunks.119.mjs
  */
 export interface TaskOutputResult {
   task_id: string;
-  type: BackgroundTaskType;
+  task_type: BackgroundTaskType;
   status: BackgroundTaskStatus;
-  output?: string;
+  description: string;
+  output: string;
+  exitCode?: number | null;
+  prompt?: string;
+  result?: any;
   error?: string;
-  exitCode?: number;
-  duration?: number;
 }
 
 // ============================================
@@ -123,8 +171,9 @@ export interface TaskOutputResult {
  */
 export interface TranscriptEntry {
   type: 'user' | 'assistant' | 'system' | 'tool_result';
-  content: unknown;
+  content: any;
   timestamp: number;
+  message?: any; // For assistant messages
 }
 
 /**
@@ -161,7 +210,7 @@ export interface TaskEvent {
   type: TaskEventType;
   taskId: string;
   timestamp: number;
-  data?: unknown;
+  data?: any;
 }
 
 /**
@@ -170,13 +219,32 @@ export interface TaskEvent {
 export type TaskEventHandler = (event: TaskEvent) => void;
 
 // ============================================
+// XML Notification Tags
+// ============================================
+
+/**
+ * Constants for XML notification tags.
+ * Original: chunks.85.mjs
+ */
+export const TASK_NOTIFICATION_TAGS = {
+  NOTIFICATION: 'task-notification', // zF
+  TASK_ID: 'task-id',               // IO
+  TASK_TYPE: 'task-type',           // p51
+  OUTPUT_FILE: 'output-file',       // Kb
+  STATUS: 'status',                 // hz
+  SUMMARY: 'summary',               // gz
+  RESULT: 'result',
+} as const;
+
+// ============================================
 // Constants
 // ============================================
 
 export const BACKGROUND_AGENT_CONSTANTS = {
   // ID generation
   ID_LENGTH: 6,
-  BASH_ID_PREFIX: 's',
+  BASH_ID_PREFIX: 'b',
+  AGENT_ID_PREFIX: 'a',
   REMOTE_ID_PREFIX: 'r',
 
   // Directories
@@ -195,58 +263,3 @@ export const BACKGROUND_AGENT_CONSTANTS = {
   MAX_CONCURRENT_TASKS: 10,
 } as const;
 
-// ============================================
-// Extended Task Types (with tracking fields)
-// ============================================
-
-/**
- * Extended background bash task with process tracking.
- * Used for Ctrl+B backgrounding support.
- */
-export interface BackgroundBashTaskExtended extends BackgroundBashTask {
-  isBackgrounded: boolean;
-  notified?: boolean;
-  completionStatusSentInAttachment: boolean;
-  stdoutLineCount: number;
-  stderrLineCount: number;
-  lastReportedStdoutLines: number;
-  lastReportedStderrLines: number;
-}
-
-/**
- * Extended background agent task with progress tracking.
- * Used for local_agent and remote_agent types.
- */
-export interface BackgroundAgentTaskExtended extends BackgroundAgentTask {
-  isBackgrounded: boolean;
-  notified?: boolean;
-  abortController?: AbortController;
-  progress?: {
-    toolUseCount: number;
-    tokenCount: number;
-    lastActivity?: { toolName: string; input: unknown };
-    recentActivities: Array<{ toolName: string; input: unknown }>;
-  };
-  lastReportedToolCount: number;
-  lastReportedTokenCount: number;
-  result?: unknown;
-  error?: string;
-}
-
-/**
- * Remote agent task with session tracking.
- */
-export interface RemoteAgentTask extends BackgroundAgentTaskExtended {
-  type: 'remote_agent';
-  sessionId: string;
-  title: string;
-  todoList: unknown[];
-  log: unknown[];
-  deltaSummarySinceLastFlushToAttachment: string | null;
-}
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类型已在声明处导出；移除重复聚合导出以避免构建期重复导出报错。
