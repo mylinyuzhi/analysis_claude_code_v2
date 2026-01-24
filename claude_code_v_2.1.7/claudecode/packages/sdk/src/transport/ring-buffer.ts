@@ -91,5 +91,3 @@ export class RingBuffer<T> {
     return arr.slice(startIndex);
   }
 }
-
-// NOTE: RingBuffer 已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

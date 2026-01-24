@@ -349,9 +349,3 @@ export const SDK_CONSTANTS = {
     "You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.",
   SDK_AGENT_IDENTITY: 'You are a Claude agent, built on Anthropic\'s Claude Agent SDK.',
 } as const;
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类型/常量已在声明处导出；移除重复聚合导出以避免 TS2484。

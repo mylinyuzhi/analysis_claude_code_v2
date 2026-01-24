@@ -38,6 +38,8 @@ export {
   // WebSocket transport
   WebSocketTransport,
   WebSocketSDKTransport,
+  // Async Message Queue
+  AsyncMessageQueue,
 } from './transport/index.js';
 
 // ============================================
@@ -45,6 +47,10 @@ export {
 // ============================================
 
 export {
+  // Message schemas
+  permissionRuleSchema,
+  canUseToolResponseSchema,
+  hookCallbackResponseSchema,
   // Message type guards
   isUserMessage,
   isControlRequest,
@@ -67,6 +73,18 @@ export {
   generateMessageUuid,
   isValidUuid,
 } from './protocol/index.js';
+
+// ============================================
+// Core SDK Logic
+// ============================================
+
+export { runSDKAgentLoop } from './loop.js';
+export { runNonInteractiveSession } from './runner.js';
+export { 
+  loadInitialMessages, 
+  createIOHandler, 
+  parseResumeTarget 
+} from './session.js';
 
 // ============================================
 // SDK Mode Detection

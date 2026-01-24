@@ -5,12 +5,12 @@
  * Reconstructed from chunks.155.mjs:2621-2790 (wmA)
  */
 
+import { z } from 'zod';
 import type {
   SDKMessage,
   SDKUserMessage,
   SDKControlRequest,
   SDKControlResponse,
-  SDKKeepAliveMessage,
   SDKTransport,
   SDKPendingRequest,
   SDKCanUseToolResponse,
@@ -18,6 +18,10 @@ import type {
   SDKMcpMessageResponse,
 } from '../types.js';
 import { SDK_CONSTANTS } from '../types.js';
+import {
+  canUseToolResponseSchema,
+  hookCallbackResponseSchema,
+} from '../protocol/messages.js';
 
 // ============================================
 // Request ID Generation
@@ -32,7 +36,7 @@ export function generateControlRequestId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback UUID generation
+  // Fallback UUID generation (matches source behavior)
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -55,6 +59,104 @@ export function writeToStdout(content: string): void {
 }
 
 // ============================================
+// Error Exit
+// ============================================
+
+/**
+ * Exit with error message.
+ * Original: Wy0 (exitWithError) in chunks.155.mjs:2792-2794
+ */
+export function exitWithError(message: string): never {
+  console.error(message);
+  process.exit(1);
+}
+
+// ============================================
+// Helper Functions
+// ============================================
+
+/**
+ * Extract decision reason for SDK.
+ * Original: ER7 (extractDecisionReason) in chunks.155.mjs:2603-2619
+ */
+function extractDecisionReason(reason: any): string | undefined {
+  if (!reason) return undefined;
+  switch (reason.type) {
+    case 'rule':
+    case 'mode':
+    case 'subcommandResults':
+    case 'permissionPromptTool':
+      return undefined;
+    case 'hook':
+    case 'asyncAgent':
+    case 'sandboxOverride':
+    case 'classifier':
+    case 'workingDir':
+    case 'other':
+      return reason.reason;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Process tool permission response from SDK.
+ * Original: NmA (processToolPermissionResponse) in chunks.155.mjs:2551-2572
+ */
+function processToolPermissionResponse(
+  response: any,
+  tool: any,
+  input: any,
+  context: any
+): any {
+  const decisionReason = {
+    type: 'permissionPromptTool',
+    permissionPromptToolName: tool.name,
+    toolResult: response,
+  };
+
+  if (response.behavior === 'allow') {
+    const updatedPermissions = response.updatedPermissions;
+    if (updatedPermissions) {
+      // NOTE: context.setAppState implementation depends on core state management
+      context.setAppState((state: any) => ({
+        ...state,
+        // Original: Wk(J.toolPermissionContext, Y) - mergePermissions
+        toolPermissionContext: {
+          ...state.toolPermissionContext,
+          // Placeholder for merge logic until implemented in core
+          rules: [...(state.toolPermissionContext.rules || []), ...updatedPermissions],
+        },
+      }));
+      // Original: cMA(Y) - savePermissions
+      // Implementation placeholder for persisting permissions
+    }
+    return {
+      ...response,
+      decisionReason,
+    };
+  } else if (response.behavior === 'deny' && response.interrupt) {
+    context.abortController.abort();
+  }
+
+  return {
+    ...response,
+    decisionReason,
+  };
+}
+
+/**
+ * AbortError class.
+ * Original: aG in source
+ */
+class AbortError extends Error {
+  constructor() {
+    super('Request aborted');
+    this.name = 'AbortError';
+  }
+}
+
+// ============================================
 // Stdio SDK Transport
 // ============================================
 
@@ -65,151 +167,116 @@ export function writeToStdout(content: string): void {
 export class StdioSDKTransport implements SDKTransport {
   protected input: AsyncIterable<string>;
   protected replayUserMessages: boolean;
+  protected structuredInput: AsyncGenerator<SDKMessage, void, unknown>;
   protected pendingRequests: Map<string, SDKPendingRequest> = new Map();
   protected inputClosed: boolean = false;
-  protected unexpectedResponseCallback?: (response: SDKControlResponse) => void;
+  protected unexpectedResponseCallback?: (response: SDKControlResponse) => Promise<void>;
 
   constructor(input: AsyncIterable<string>, replayUserMessages: boolean = false) {
     this.input = input;
     this.replayUserMessages = replayUserMessages;
+    this.structuredInput = this.read();
   }
 
   /**
    * Async generator that reads and parses JSON-lines from input.
-   * Original: read() method in wmA
+   * Original: read() method in wmA (chunks.155.mjs:2633-2652)
    */
   async *read(): AsyncGenerator<SDKMessage, void, unknown> {
     let buffer = '';
 
-    try {
-      for await (const chunk of this.input) {
-        buffer += chunk;
-
-        let newlineIndex: number;
-        while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
-          const line = buffer.slice(0, newlineIndex);
-          buffer = buffer.slice(newlineIndex + 1);
-
-          if (line.trim() === '') continue;
-
-          const message = await this.processLine(line);
-          if (message) {
-            yield message;
-          }
-        }
+    for await (const chunk of this.input) {
+      buffer += chunk;
+      let newlineIndex: number;
+      while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, newlineIndex);
+        buffer = buffer.slice(newlineIndex + 1);
+        const message = await this.processLine(line);
+        if (message) yield message;
       }
-    } finally {
-      this.inputClosed = true;
+    }
+
+    if (buffer) {
+      const message = await this.processLine(buffer);
+      if (message) yield message;
+    }
+
+    this.inputClosed = true;
+    for (const pending of this.pendingRequests.values()) {
+      pending.reject(new Error('Tool permission stream closed before response received'));
     }
   }
 
   /**
    * Process a single JSON line and route appropriately.
-   * Original: processLine() in wmA
+   * Original: processLine() in wmA (chunks.155.mjs:2659-2692)
    */
-  protected async processLine(line: string): Promise<SDKMessage | null> {
-    let parsed: unknown;
-
+  protected async processLine(line: string): Promise<SDKMessage | null | undefined> {
     try {
-      parsed = JSON.parse(line);
-    } catch (error) {
-      console.error(`[SDK] Failed to parse JSON: ${line}`);
-      return null;
-    }
+      const message = JSON.parse(line) as SDKMessage;
 
-    if (!parsed || typeof parsed !== 'object') {
-      console.error(`[SDK] Invalid message format: ${line}`);
-      return null;
-    }
+      if (message.type === 'keep_alive') return;
 
-    const message = parsed as SDKMessage;
+      if (message.type === 'control_response') {
+        const controlResponse = message as SDKControlResponse;
+        const pending = this.pendingRequests.get(controlResponse.request_id);
 
-    // Route by message type
-    switch (message.type) {
-      case 'keep_alive':
-        // Silently ignore keep-alive messages
-        return null;
-
-      case 'control_response':
-        // Route to pending request
-        this.handleControlResponse(message as SDKControlResponse);
-        return null;
-
-      case 'control_request':
-      case 'user':
-        // Validate and yield to consumer
-        return this.validateAndReturn(message);
-
-      default:
-        console.error(`[SDK] Unknown message type: ${message.type}`);
-        // Exit on unknown message type in production
-        if (process.env.NODE_ENV !== 'test') {
-          process.exit(1);
+        if (!pending) {
+          if (this.unexpectedResponseCallback) {
+            await this.unexpectedResponseCallback(controlResponse);
+          }
+          return;
         }
-        return null;
-    }
-  }
 
-  /**
-   * Handle control response by resolving/rejecting pending request.
-   */
-  protected handleControlResponse(response: SDKControlResponse): void {
-    const pending = this.pendingRequests.get(response.request_id);
+        this.pendingRequests.delete(controlResponse.request_id);
 
-    if (!pending) {
-      // Unexpected response (e.g., after timeout)
-      console.debug(`[SDK] Unexpected control response: ${response.request_id}`);
-      if (this.unexpectedResponseCallback) {
-        this.unexpectedResponseCallback(response);
+        if ('subtype' in controlResponse.response && controlResponse.response.subtype === 'error') {
+          pending.reject(new Error(String(controlResponse.response.error)));
+          return;
+        }
+
+        const responseData = (controlResponse.response as any).response || controlResponse.response;
+        if (pending.schema) {
+          try {
+            pending.resolve((pending.schema as any).parse(responseData));
+          } catch (validationError) {
+            pending.reject(validationError as Error);
+          }
+        } else {
+          pending.resolve(responseData || {});
+        }
+
+        if (this.replayUserMessages) return message;
+        return;
       }
-      return;
-    }
 
-    this.pendingRequests.delete(response.request_id);
+      if (message.type !== 'user' && message.type !== 'control_request') {
+        exitWithError(`Error: Expected message type 'user' or 'control', got '${message.type}'`);
+      }
 
-    // Validate response if schema provided
-    if (pending.schema) {
-      // TODO: Validate against schema
-    }
+      if (message.type === 'control_request') {
+        const controlRequest = message as SDKControlRequest;
+        if (!controlRequest.request) {
+          exitWithError('Error: Missing request on control_request');
+        }
+        return controlRequest;
+      }
 
-    // Check for error
-    if ('error' in response.response && response.response.error) {
-      pending.reject(new Error(String(response.response.error)));
-    } else {
-      pending.resolve(response.response);
-    }
-  }
-
-  /**
-   * Validate message and return for processing.
-   */
-  protected validateAndReturn(message: SDKMessage): SDKMessage | null {
-    if (message.type === 'user') {
       const userMessage = message as SDKUserMessage;
-      if (
-        !userMessage.message ||
-        typeof userMessage.message !== 'object' ||
-        userMessage.message.role !== 'user'
-      ) {
-        console.error('[SDK] Invalid user message format');
-        return null;
+      if (userMessage.message.role !== 'user') {
+        exitWithError(`Error: Expected message role 'user', got '${userMessage.message.role}'`);
       }
-    }
 
-    if (message.type === 'control_request') {
-      const controlRequest = message as SDKControlRequest;
-      if (!controlRequest.request_id || !controlRequest.request) {
-        console.error('[SDK] Invalid control request format');
-        return null;
-      }
+      return userMessage;
+    } catch (error) {
+      console.error(`Error parsing streaming input line: ${line}: ${error}`);
+      process.exit(1);
     }
-
-    return message;
   }
 
   /**
    * Write message to stdout as JSON-line.
-   * Original: write() in wmA
+   * Original: write() in wmA (chunks.155.mjs:2693-2696)
    */
   write(message: SDKMessage): void {
     const jsonLine = JSON.stringify(message) + '\n';
@@ -218,7 +285,7 @@ export class StdioSDKTransport implements SDKTransport {
 
   /**
    * Send control request and wait for response.
-   * Original: sendRequest() in wmA
+   * Original: sendRequest() in wmA (chunks.155.mjs:2697-2737)
    */
   async sendRequest<T>(
     request: object,
@@ -226,144 +293,173 @@ export class StdioSDKTransport implements SDKTransport {
     signal?: AbortSignal
   ): Promise<T> {
     const requestId = generateControlRequestId();
-
     const controlRequest: SDKControlRequest = {
       type: 'control_request',
       request_id: requestId,
-      request: request as SDKControlRequest['request'],
+      request: request as any,
     };
 
-    return new Promise<T>((resolve, reject) => {
-      // Store pending request
-      this.pendingRequests.set(requestId, {
-        request: controlRequest,
-        resolve: resolve as (response: unknown) => void,
-        reject,
-        schema,
-      });
+    if (this.inputClosed) throw new Error('Stream closed');
+    if (signal?.aborted) throw new Error('Request aborted');
 
-      // Handle abort signal
-      if (signal) {
-        signal.addEventListener('abort', () => {
-          if (this.pendingRequests.has(requestId)) {
-            this.pendingRequests.delete(requestId);
-            reject(new Error('Request aborted'));
-          }
+    this.write(controlRequest);
+
+    const abortHandler = () => {
+      this.write({
+        type: 'control_cancel_request',
+        request_id: requestId,
+      } as any);
+      const pending = this.pendingRequests.get(requestId);
+      if (pending) pending.reject(new AbortError());
+    };
+
+    if (signal) {
+      signal.addEventListener('abort', abortHandler, { once: true });
+    }
+
+    try {
+      return await new Promise<T>((resolve, reject) => {
+        this.pendingRequests.set(requestId, {
+          request: controlRequest,
+          resolve: resolve as (response: unknown) => void,
+          reject,
+          schema,
         });
+      });
+    } finally {
+      if (signal) {
+        signal.removeEventListener('abort', abortHandler);
       }
-
-      // Send request
-      this.write(controlRequest);
-    });
+      this.pendingRequests.delete(requestId);
+    }
   }
 
   /**
    * Get all pending permission requests (can_use_tool type).
-   * Original: getPendingPermissionRequests() in wmA
+   * Original: getPendingPermissionRequests() in wmA (chunks.155.mjs:2653-2655)
    */
   getPendingPermissionRequests(): SDKControlRequest[] {
-    const permissionRequests: SDKControlRequest[] = [];
-
-    for (const pending of this.pendingRequests.values()) {
-      if (
-        pending.request.request &&
-        'type' in pending.request.request &&
-        pending.request.request.type === 'can_use_tool'
-      ) {
-        permissionRequests.push(pending.request);
-      }
-    }
-
-    return permissionRequests;
+    return Array.from(this.pendingRequests.values())
+      .map((p) => p.request)
+      .filter((r) => (r.request as any).subtype === 'can_use_tool');
   }
 
   /**
    * Set callback for unexpected responses.
-   * Original: setUnexpectedResponseCallback() in wmA
+   * Original: setUnexpectedResponseCallback() in wmA (chunks.155.mjs:2656-2658)
    */
-  setUnexpectedResponseCallback(callback: (response: SDKControlResponse) => void): void {
+  setUnexpectedResponseCallback(callback: (response: SDKControlResponse) => Promise<void>): void {
     this.unexpectedResponseCallback = callback;
   }
 
   /**
    * Create can-use-tool callback.
-   * Original: createCanUseTool() in wmA
+   * Original: createCanUseTool() in wmA (chunks.155.mjs:2738-2762)
    */
   createCanUseTool(): (
-    tool: unknown,
+    tool: any,
     input: Record<string, unknown>,
-    context: unknown,
-    globals: unknown,
-    toolUseId: string,
-    querySource?: string
+    context: any,
+    globals: any,
+    toolUseId: string
   ) => Promise<SDKCanUseToolResponse> {
-    return async (tool, input, _context, _globals, toolUseId, _querySource) => {
-      const toolName = typeof tool === 'object' && tool !== null && 'name' in tool
-        ? String((tool as { name: string }).name)
-        : 'unknown';
+    return async (tool, input, context, globals, toolUseId) => {
+      // NOTE: toolPermissionDispatcher (B$) needs implementation in core
+      // For now, assume it's passed or available. 
+      // Original calls B$(tool, input, context, globals, toolUseId)
+      const localResult = await (context.toolPermissionDispatcher || 
+        (async () => ({ behavior: 'ask' })))(tool, input, context, globals, toolUseId);
 
-      const response = await this.sendRequest<SDKCanUseToolResponse>({
-        type: 'can_use_tool',
-        tool_name: toolName,
-        tool_input: input,
-        tool_use_id: toolUseId,
-      });
+      if (localResult.behavior === 'allow' || localResult.behavior === 'deny') {
+        return localResult;
+      }
 
-      return response;
+      try {
+        const response = await this.sendRequest<any>(
+          {
+            subtype: 'can_use_tool',
+            tool_name: tool.name,
+            input: input,
+            permission_suggestions: localResult.suggestions,
+            blocked_path: localResult.blockedPath,
+            decision_reason: extractDecisionReason(localResult.decisionReason),
+            tool_use_id: toolUseId,
+            agent_id: context.agentId,
+          },
+          canUseToolResponseSchema,
+          context.abortController?.signal
+        );
+
+        return processToolPermissionResponse(response, tool, input, context);
+      } catch (error) {
+        return processToolPermissionResponse(
+          {
+            behavior: 'deny',
+            message: `Tool permission request failed: ${error}`,
+            toolUseID: toolUseId,
+          },
+          tool,
+          input,
+          context
+        );
+      }
     };
   }
 
   /**
    * Create hook callback.
-   * Original: createHookCallback() in wmA
+   * Original: createHookCallback() in wmA (chunks.155.mjs:2763-2780)
    */
   createHookCallback(
     callbackId: string,
     timeout?: number
-  ): (eventType: string, eventData: Record<string, unknown>) => Promise<SDKHookCallbackResponse> {
-    return async (eventType, eventData) => {
-      const controller = new AbortController();
-      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-
-      if (timeout) {
-        timeoutHandle = setTimeout(() => {
-          controller.abort();
-        }, timeout);
-      }
-
-      try {
-        const response = await this.sendRequest<SDKHookCallbackResponse>(
-          {
-            type: 'hook_callback',
-            callback_id: callbackId,
-            event_type: eventType,
-            event_data: eventData,
-          },
-          undefined,
-          controller.signal
-        );
-        return response;
-      } finally {
-        if (timeoutHandle) {
-          clearTimeout(timeoutHandle);
+  ): {
+    type: 'callback';
+    timeout?: number;
+    callback: (input: any, toolUseId: string | null, abortSignal?: AbortSignal) => Promise<SDKHookCallbackResponse>;
+  } {
+    return {
+      type: 'callback',
+      timeout,
+      callback: async (input, toolUseId, abortSignal) => {
+        try {
+          return await this.sendRequest<SDKHookCallbackResponse>(
+            {
+              subtype: 'hook_callback',
+              callback_id: callbackId,
+              input: input,
+              tool_use_id: toolUseId || undefined,
+            },
+            hookCallbackResponseSchema,
+            abortSignal
+          );
+        } catch (error) {
+          console.error(`Error in hook callback ${callbackId}:`, error);
+          return {} as SDKHookCallbackResponse;
         }
-      }
+      },
     };
   }
 
   /**
    * Send MCP message to SDK-connected server.
-   * Original: sendMcpMessage() in wmA
+   * Original: sendMcpMessage() in wmA (chunks.155.mjs:2781-2789)
    */
   async sendMcpMessage(
     serverName: string,
     message: object
-  ): Promise<SDKMcpMessageResponse> {
-    return this.sendRequest<SDKMcpMessageResponse>({
-      type: 'mcp_message',
-      server_name: serverName,
-      message,
-    });
+  ): Promise<any> {
+    const response = await this.sendRequest<any>(
+      {
+        subtype: 'mcp_message',
+        server_name: serverName,
+        message,
+      },
+      z.object({
+        mcp_response: z.any(),
+      })
+    );
+    return response.mcp_response;
   }
 }
 
@@ -382,9 +478,3 @@ export async function* readStdin(): AsyncGenerator<string, void, unknown> {
     yield chunk;
   }
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

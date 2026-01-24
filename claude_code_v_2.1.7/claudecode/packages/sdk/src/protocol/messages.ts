@@ -5,6 +5,7 @@
  * Reconstructed from chunks.155.mjs, chunks.156.mjs
  */
 
+import { z } from 'zod';
 import type {
   SDKMessage,
   SDKUserMessage,
@@ -16,6 +17,160 @@ import type {
   SDKPermissionDenial,
   SDKContentBlock,
 } from '../types.js';
+
+// ============================================
+// Protocol Schemas
+// ============================================
+
+/**
+ * Permission rule destination.
+ * Original: TVA in chunks.92.mjs:58
+ */
+export const permissionDestinationSchema = z.enum([
+  'userSettings',
+  'projectSettings',
+  'localSettings',
+  'session',
+  'cliArg',
+]);
+
+/**
+ * Permission rule tool match.
+ * Original: tZ1 in chunks.92.mjs:44
+ */
+export const toolRuleSchema = z.object({
+  toolName: z.string(),
+  ruleContent: z.string().optional(),
+});
+
+/**
+ * Permission rule schema.
+ * Original: eZ1 in chunks.92.mjs:58
+ */
+export const permissionRuleSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('addRules'),
+    rules: z.array(toolRuleSchema),
+    behavior: z.enum(['allow', 'deny', 'ask']),
+    destination: permissionDestinationSchema,
+  }),
+  z.object({
+    type: z.literal('replaceRules'),
+    rules: z.array(toolRuleSchema),
+    behavior: z.enum(['allow', 'deny', 'ask']),
+    destination: permissionDestinationSchema,
+  }),
+  z.object({
+    type: z.literal('removeRules'),
+    rules: z.array(toolRuleSchema),
+    behavior: z.enum(['allow', 'deny', 'ask']),
+    destination: permissionDestinationSchema,
+  }),
+  z.object({
+    type: z.literal('setMode'),
+    mode: z.string(), // k$B in source, usually permission mode
+    destination: permissionDestinationSchema,
+  }),
+  z.object({
+    type: z.literal('addDirectories'),
+    directories: z.array(z.string()),
+    destination: permissionDestinationSchema,
+  }),
+  z.object({
+    type: z.literal('removeDirectories'),
+    directories: z.array(z.string()),
+    destination: permissionDestinationSchema,
+  }),
+]);
+
+/**
+ * Tool permission behavior schemas.
+ * Original: VR7, FR7 in chunks.155.mjs:2590-2600
+ */
+export const toolPermissionAllowSchema = z.object({
+  behavior: z.literal('allow'),
+  updatedInput: z.record(z.string(), z.unknown()),
+  updatedPermissions: z.array(permissionRuleSchema).optional(),
+  toolUseID: z.string().optional(),
+});
+
+export const toolPermissionDenySchema = z.object({
+  behavior: z.literal('deny'),
+  message: z.string(),
+  interrupt: z.boolean().optional(),
+  toolUseID: z.string().optional(),
+});
+
+/**
+ * can_use_tool response schema.
+ * Original: JU1 in chunks.155.mjs:2600
+ */
+export const canUseToolResponseSchema = z.union([
+  toolPermissionAllowSchema,
+  toolPermissionDenySchema,
+]);
+
+/**
+ * Hook callback result schemas.
+ * Original: vG5, kG5 in chunks.92.mjs:106-149
+ */
+export const asyncHookResponseSchema = z.object({
+  async: z.literal(true),
+  asyncTimeout: z.number().optional(),
+});
+
+export const syncHookResponseSchema = z.object({
+  continue: z.boolean().optional(),
+  suppressOutput: z.boolean().optional(),
+  stopReason: z.string().optional(),
+  decision: z.enum(['approve', 'block']).optional(),
+  reason: z.string().optional(),
+  systemMessage: z.string().optional(),
+  hookSpecificOutput: z
+    .union([
+      z.object({
+        hookEventName: z.literal('PreToolUse'),
+        permissionDecision: z.enum(['allow', 'deny', 'ask']).optional(),
+        permissionDecisionReason: z.string().optional(),
+        updatedInput: z.record(z.string(), z.unknown()).optional(),
+      }),
+      z.object({
+        hookEventName: z.literal('UserPromptSubmit'),
+        additionalContext: z.string().optional(),
+      }),
+      z.object({
+        hookEventName: z.literal('SessionStart'),
+        additionalContext: z.string().optional(),
+      }),
+      z.object({
+        hookEventName: z.literal('SubagentStart'),
+        additionalContext: z.string().optional(),
+      }),
+      z.object({
+        hookEventName: z.literal('PostToolUse'),
+        additionalContext: z.string().optional(),
+        updatedMCPToolOutput: z.unknown().optional(),
+      }),
+      z.object({
+        hookEventName: z.literal('PostToolUseFailure'),
+        additionalContext: z.string().optional(),
+      }),
+      z.object({
+        hookEventName: z.literal('PermissionRequest'),
+        decision: canUseToolResponseSchema,
+      }),
+    ])
+    .optional(),
+});
+
+/**
+ * hook_callback response schema.
+ * Original: AY1 in chunks.92.mjs:149
+ */
+export const hookCallbackResponseSchema = z.union([
+  asyncHookResponseSchema,
+  syncHookResponseSchema,
+]);
 
 // ============================================
 // Message Type Guards
@@ -278,9 +433,3 @@ export function isValidUuid(uuid: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(uuid);
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

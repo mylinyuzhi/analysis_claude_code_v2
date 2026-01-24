@@ -17,3 +17,6 @@ export {
 
 // WebSocket transport
 export { WebSocketTransport, WebSocketSDKTransport } from './websocket.js';
+
+// Async Message Queue
+export { AsyncMessageQueue } from './queue.js';

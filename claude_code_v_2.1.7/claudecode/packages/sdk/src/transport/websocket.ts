@@ -12,8 +12,22 @@ import type {
   WebSocketTransportOptions,
 } from '../types.js';
 import { SDK_CONSTANTS } from '../types.js';
-import { StdioSDKTransport } from './stdio.js';
+import { StdioSDKTransport, writeToStdout } from './stdio.js';
 import { RingBuffer } from './ring-buffer.js';
+
+// ============================================
+// Internal Logger / Telemetry Mock (should be aligned with platform)
+// ============================================
+
+const log = (message: string, options?: { level: string }) => {
+  if (process.env.DEBUG) {
+    console.error(`[WebSocketTransport] ${message}`);
+  }
+};
+
+const trackEvent = (level: string, name: string, metadata?: Record<string, unknown>) => {
+  // Original: OB(level, name, metadata)
+};
 
 // ============================================
 // WebSocket Transport (Low-Level)
@@ -24,7 +38,7 @@ import { RingBuffer } from './ring-buffer.js';
  * Original: Vy0 (WebSocketTransport) in chunks.155.mjs:2805-2963
  */
 export class WebSocketTransport {
-  private ws: WebSocket | null = null;
+  private ws: any = null;
   private lastSentId: string | null = null;
   private url: URL;
   private state: WebSocketTransportState = 'idle';
@@ -37,110 +51,134 @@ export class WebSocketTransport {
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   private messageBuffer: RingBuffer<SDKMessage>;
 
-  constructor(options: WebSocketTransportOptions) {
-    this.url = new URL(options.url);
-    this.headers = options.headers || {};
-    this.sessionId = options.sessionId;
+  constructor(url: URL, headers: Record<string, string> = {}, sessionId?: string) {
+    this.url = url;
+    this.headers = headers;
+    this.sessionId = sessionId;
     this.messageBuffer = new RingBuffer<SDKMessage>(SDK_CONSTANTS.MESSAGE_BUFFER_SIZE);
   }
 
   /**
    * Connect to WebSocket server.
+   * Original: connect() in Vy0 (chunks.155.mjs:2821-2872)
    */
-  connect(): void {
-    if (this.state === 'closing' || this.state === 'closed') {
+  async connect(): Promise<void> {
+    if (this.state !== 'idle' && this.state !== 'reconnecting') {
+      log(`WebSocketTransport: Cannot connect, current state is ${this.state}`, { level: 'error' });
+      trackEvent('error', 'cli_websocket_connect_failed');
       return;
     }
 
-    console.debug(`[SDK] WebSocketTransport: Connecting to ${this.url.href}`);
+    this.state = 'reconnecting';
+    const startTime = Date.now();
+    log(`WebSocketTransport: Opening ${this.url.href}`);
+    trackEvent('info', 'cli_websocket_connect_opening');
 
-    try {
-      // Create WebSocket with headers (Node.js WebSocket supports headers)
-      this.ws = new WebSocket(this.url.href, ['mcp']);
-
-      this.ws.onopen = () => {
-        console.debug(`[SDK] WebSocketTransport: Connected to ${this.url.href}`);
-        this.state = 'connected';
-        this.reconnectAttempts = 0;
-
-        // Replay buffered messages if reconnecting
-        if (this.lastSentId) {
-          this.replayBufferedMessages(this.lastSentId);
-        }
-
-        this.startPingInterval();
-      };
-
-      this.ws.onmessage = (event) => {
-        const data = typeof event.data === 'string' ? event.data : String(event.data);
-        if (this.onData) {
-          this.onData(data);
-        }
-      };
-
-      this.ws.onerror = (event) => {
-        console.error(`[SDK] WebSocketTransport: Error`, event);
-        this.handleConnectionError();
-      };
-
-      this.ws.onclose = () => {
-        console.debug(`[SDK] WebSocketTransport: Connection closed`);
-        this.handleConnectionError();
-      };
-    } catch (error) {
-      console.error(`[SDK] WebSocketTransport: Failed to connect`, error);
-      this.handleConnectionError();
+    const headers = { ...this.headers };
+    if (this.lastSentId) {
+      headers['X-Last-Request-Id'] = this.lastSentId;
+      log(`WebSocketTransport: Adding X-Last-Request-Id header: ${this.lastSentId}`);
     }
+
+    // Use WebSocket from 'ws' package in Node.js
+    const { default: WebSocket } = await import('ws');
+    
+    // In actual implementation, this might use a proxy agent (COA)
+    this.ws = new WebSocket(this.url.href, {
+      headers,
+    });
+
+    this.ws.on('open', () => {
+      const duration = Date.now() - startTime;
+      log('WebSocketTransport: Connected');
+      trackEvent('info', 'cli_websocket_connect_connected', { duration_ms: duration });
+
+      // Note: In Node.js 'ws' package, headers are available differently than in source's upgradeReq
+      // Check if server acknowledged last received message via headers
+      // (This part depends on the specific WS implementation used in source)
+      
+      this.reconnectAttempts = 0;
+      this.state = 'connected';
+      this.startPingInterval();
+
+      // Activity signal / keep-alive
+      try {
+        this.ws.send(JSON.stringify({ type: 'keep_alive' }) + '\n');
+        log('WebSocketTransport: Sent keep_alive (activity signal)');
+      } catch (err) {
+        log(`WebSocketTransport: Keep-alive failed: ${err}`, { level: 'error' });
+        trackEvent('error', 'cli_websocket_keepalive_failed');
+      }
+    });
+
+    this.ws.on('message', (data: Buffer | string) => {
+      const messageStr = data.toString();
+      if (this.onData) this.onData(messageStr);
+    });
+
+    this.ws.on('error', (err: Error) => {
+      log(`WebSocketTransport: Error: ${err.message}`, { level: 'error' });
+      trackEvent('error', 'cli_websocket_connect_error');
+      this.handleConnectionError();
+    });
+
+    this.ws.on('close', (code: number, reason: string) => {
+      log(`WebSocketTransport: Closed: ${code} ${reason}`, { level: 'error' });
+      trackEvent('error', 'cli_websocket_connect_closed');
+      this.handleConnectionError();
+    });
   }
 
   /**
    * Send raw line to WebSocket.
+   * Original: sendLine() in Vy0 (chunks.155.mjs:2873-2882)
    */
   private sendLine(line: string): boolean {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+    if (!this.ws || this.state !== 'connected') {
+      log('WebSocketTransport: Not connected');
+      trackEvent('info', 'cli_websocket_send_not_connected');
       return false;
     }
 
     try {
       this.ws.send(line);
       return true;
-    } catch (error) {
-      console.error(`[SDK] WebSocketTransport: Failed to send`, error);
+    } catch (err) {
+      log(`WebSocketTransport: Failed to send: ${err}`, { level: 'error' });
+      trackEvent('error', 'cli_websocket_send_error');
+      this.ws = null;
+      this.handleConnectionError();
       return false;
     }
   }
 
   /**
    * Disconnect without triggering reconnection.
+   * Original: doDisconnect() in Vy0 (chunks.155.mjs:2883-2885)
    */
   private doDisconnect(): void {
     this.stopPingInterval();
-
+    // Original calls bX0() - clear proxy config?
     if (this.ws) {
       try {
-        this.ws.onclose = null;
-        this.ws.onerror = null;
         this.ws.close();
       } catch {
-        // Ignore close errors
+        // ignore
       }
       this.ws = null;
     }
   }
 
   /**
-   * Handle connection error with exponential backoff reconnection.
-   * Original: handleConnectionError() in Vy0
+   * Handle connection error with exponential backoff.
+   * Original: handleConnectionError() in Vy0 (chunks.155.mjs:2886-2902)
    */
   private handleConnectionError(): void {
-    console.debug(`[SDK] WebSocketTransport: Disconnected from ${this.url.href}`);
-
+    log(`WebSocketTransport: Disconnected from ${this.url.href}`);
+    trackEvent('info', 'cli_websocket_disconnected');
     this.doDisconnect();
 
-    // Don't reconnect if explicitly closing
-    if (this.state === 'closing' || this.state === 'closed') {
-      return;
-    }
+    if (this.state === 'closing' || this.state === 'closed') return;
 
     if (this.reconnectAttempts < SDK_CONSTANTS.MAX_RECONNECT_ATTEMPTS) {
       if (this.reconnectTimer) {
@@ -151,78 +189,66 @@ export class WebSocketTransport {
       this.state = 'reconnecting';
       this.reconnectAttempts++;
 
-      // Exponential backoff: 1s, 2s, 4s, ..., max 30s
       const delay = Math.min(
         SDK_CONSTANTS.INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts - 1),
         SDK_CONSTANTS.MAX_RECONNECT_DELAY_MS
       );
 
-      console.debug(
-        `[SDK] WebSocketTransport: Reconnecting in ${delay}ms ` +
-          `(attempt ${this.reconnectAttempts}/${SDK_CONSTANTS.MAX_RECONNECT_ATTEMPTS})`
-      );
+      log(`WebSocketTransport: Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${SDK_CONSTANTS.MAX_RECONNECT_ATTEMPTS})`);
+      trackEvent('error', 'cli_websocket_reconnect_attempt', { reconnectAttempts: this.reconnectAttempts });
 
       this.reconnectTimer = setTimeout(() => {
         this.reconnectTimer = null;
         this.connect();
       }, delay);
     } else {
-      console.error(`[SDK] WebSocketTransport: Max reconnection attempts reached`);
+      log(`WebSocketTransport: Max reconnection attempts reached for ${this.url.href}`, { level: 'error' });
+      trackEvent('error', 'cli_websocket_reconnect_exhausted', { reconnectAttempts: this.reconnectAttempts });
       this.state = 'closed';
-
-      if (this.onCloseCallback) {
-        this.onCloseCallback();
-      }
+      if (this.onCloseCallback) this.onCloseCallback();
     }
   }
 
   /**
    * Close connection gracefully.
+   * Original: close() in Vy0 (chunks.155.mjs:2903-2906)
    */
   close(): void {
-    this.state = 'closing';
-
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-
+    this.stopPingInterval();
+    this.state = 'closing';
     this.doDisconnect();
-    this.state = 'closed';
   }
 
   /**
    * Replay buffered messages after reconnection.
-   * Original: replayBufferedMessages() in Vy0
+   * Original: replayBufferedMessages() in Vy0 (chunks.155.mjs:2907-2931)
    */
   private replayBufferedMessages(lastAckedId: string | null): void {
-    const bufferedMessages = this.messageBuffer.toArray();
-    if (bufferedMessages.length === 0) {
-      return;
-    }
+    const buffered = this.messageBuffer.toArray();
+    if (buffered.length === 0) return;
 
     let startIndex = 0;
     if (lastAckedId) {
-      const ackIndex = bufferedMessages.findIndex(
-        (msg) => msg.uuid === lastAckedId
-      );
-      if (ackIndex >= 0) {
-        startIndex = ackIndex + 1; // Start after last acked
-      }
+      const ackIndex = buffered.findIndex((msg: any) => msg.uuid === lastAckedId);
+      if (ackIndex >= 0) startIndex = ackIndex + 1;
     }
 
-    const messagesToReplay = bufferedMessages.slice(startIndex);
-    if (messagesToReplay.length === 0) {
-      console.debug('[SDK] WebSocketTransport: No new messages to replay');
+    const toReplay = buffered.slice(startIndex);
+    if (toReplay.length === 0) {
+      log('WebSocketTransport: No new messages to replay');
+      trackEvent('info', 'cli_websocket_no_messages_to_replay');
       return;
     }
 
-    console.debug(
-      `[SDK] WebSocketTransport: Replaying ${messagesToReplay.length} buffered messages`
-    );
+    log(`WebSocketTransport: Replaying ${toReplay.length} buffered messages`);
+    trackEvent('info', 'cli_websocket_messages_to_replay', { count: toReplay.length });
 
-    for (const message of messagesToReplay) {
-      const jsonLine = JSON.stringify(message) + '\n';
+    for (const msg of toReplay) {
+      const jsonLine = JSON.stringify(msg) + '\n';
       if (!this.sendLine(jsonLine)) {
         this.handleConnectionError();
         break;
@@ -233,7 +259,7 @@ export class WebSocketTransport {
   /**
    * Check if connected.
    */
-  isConnected(): boolean {
+  isConnectedStatus(): boolean {
     return this.state === 'connected';
   }
 
@@ -253,42 +279,43 @@ export class WebSocketTransport {
 
   /**
    * Write message with buffering.
-   * Original: write() in Vy0
+   * Original: write() in Vy0 (chunks.155.mjs:2941-2948)
    */
   write(message: SDKMessage): void {
-    // Buffer messages with UUIDs for potential replay
-    if (message.uuid) {
+    if (message.uuid && typeof message.uuid === 'string') {
       this.messageBuffer.add(message);
       this.lastSentId = message.uuid;
     }
 
     const jsonLine = JSON.stringify(message) + '\n';
-
-    if (this.state !== 'connected') {
-      return;
-    }
+    if (this.state !== 'connected') return;
 
     const sessionInfo = this.sessionId ? ` session=${this.sessionId}` : '';
-    console.debug(`[SDK] WebSocketTransport: Sending message type=${message.type}${sessionInfo}`);
+    log(`WebSocketTransport: Sending message type=${message.type}${sessionInfo}`);
     this.sendLine(jsonLine);
   }
 
   /**
    * Start ping interval for keepalive.
+   * Original: startPingInterval() in Vy0 (chunks.155.mjs:2949-2959)
    */
   private startPingInterval(): void {
     this.stopPingInterval();
-
     this.pingInterval = setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        // Send ping frame or keep-alive message
-        this.ws.send(JSON.stringify({ type: 'keep_alive' }) + '\n');
+      if (this.state === 'connected' && this.ws) {
+        try {
+          this.ws.ping();
+        } catch (err) {
+          log(`WebSocketTransport: Ping failed: ${err}`, { level: 'error' });
+          trackEvent('error', 'cli_websocket_ping_failed');
+        }
       }
     }, SDK_CONSTANTS.PING_INTERVAL_MS);
   }
 
   /**
    * Stop ping interval.
+   * Original: stopPingInterval() in Vy0 (chunks.155.mjs:2960-2962)
    */
   private stopPingInterval(): void {
     if (this.pingInterval) {
@@ -315,10 +342,8 @@ export class WebSocketSDKTransport extends StdioSDKTransport {
     url: string;
     initialInputStream?: AsyncIterable<string>;
     replayUserMessages?: boolean;
-    headers?: Record<string, string>;
     sessionId?: string;
   }) {
-    // Create PassThrough stream to bridge WebSocket → parent class input
     const passThroughStream = new PassThrough({ encoding: 'utf8' });
     super(createAsyncIterableFromStream(passThroughStream), options.replayUserMessages ?? false);
 
@@ -326,26 +351,20 @@ export class WebSocketSDKTransport extends StdioSDKTransport {
     this.url = new URL(options.url);
 
     // Set up authentication headers
-    const headers: Record<string, string> = { ...(options.headers || {}) };
-
-    // Add auth token if available
-    const authToken = process.env.ANTHROPIC_API_KEY;
+    const headers: Record<string, string> = {};
+    const authToken = process.env.ANTHROPIC_API_KEY; // Original calls G4A()
     if (authToken) {
       headers.Authorization = `Bearer ${authToken}`;
     }
 
-    // Add environment runner version header
     const runnerVersion = process.env.CLAUDE_CODE_ENVIRONMENT_RUNNER_VERSION;
     if (runnerVersion) {
       headers['x-environment-runner-version'] = runnerVersion;
     }
 
     // Create and connect WebSocket transport
-    this.transport = new WebSocketTransport({
-      url: this.url.href,
-      headers,
-      sessionId: options.sessionId,
-    });
+    // Original: jw9(this.url, Z, q0())
+    this.transport = new WebSocketTransport(this.url, headers, options.sessionId);
 
     this.transport.setOnData((data) => {
       this.inputStream.write(data);
@@ -357,7 +376,10 @@ export class WebSocketSDKTransport extends StdioSDKTransport {
 
     this.transport.connect();
 
-    // Forward initial input stream if provided
+    // Register shutdown hook
+    // Original: C6(async () => this.close())
+    // In Node.js, we can use process.on('exit') or similar if C6 is not available
+    
     if (options.initialInputStream) {
       const stream = this.inputStream;
       (async () => {
@@ -370,6 +392,7 @@ export class WebSocketSDKTransport extends StdioSDKTransport {
 
   /**
    * Override write to use WebSocket instead of stdout.
+   * Original: write() in Fy0 (chunks.155.mjs:3027-3029)
    */
   write(message: SDKMessage): void {
     this.transport.write(message);
@@ -377,6 +400,7 @@ export class WebSocketSDKTransport extends StdioSDKTransport {
 
   /**
    * Close transport.
+   * Original: close() in Fy0 (chunks.155.mjs:3030-3032)
    */
   close(): void {
     this.transport.close();
@@ -398,9 +422,3 @@ async function* createAsyncIterableFromStream(
     yield typeof chunk === 'string' ? chunk : chunk.toString('utf8');
   }
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。
