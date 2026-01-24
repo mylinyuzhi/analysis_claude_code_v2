@@ -5,7 +5,7 @@
  *
  * This module handles:
  * - Type definitions for all 30+ attachment types
- * - Individual attachment generators
+ * - Individual attachment generator functions
  * - Orchestration with timeout handling
  * - Conversion to API message format
  *
@@ -19,13 +19,16 @@ export * from './types.js';
 export {
   generateTodoAttachment,
   generateTodoReminderAttachment,
+  generateTodoRemindersAttachment,
   generatePlanModeAttachment,
   generatePlanModeExitAttachment,
   generateVerifyPlanReminderAttachment,
   generateDelegateModeAttachment,
+  generateDelegateModeExitAttachment,
   generateMemoryAttachment,
   generateTaskStatusAttachment,
   generateDiagnosticsAttachment,
+  generateLspDiagnosticsAttachment,
   generateIdeSelectionAttachment,
   generateOpenedFileInIdeAttachment,
   generateOutputStyleAttachment,
@@ -45,25 +48,13 @@ export {
 // Orchestrator
 export {
   generateAllAttachments,
-  wrapWithErrorHandling,
-  buildGeneratorList,
   wrapAttachmentMessage,
   generateAttachmentsStreaming,
-  type AttachmentGenerationResult,
-  type GeneratorConfig,
 } from './orchestrator.js';
 
 // Conversion
 export {
-  wrapInSystemReminder,
-  extractSystemReminder,
-  hasSystemReminder,
-  stripSystemReminder,
-  attachmentToText,
-  filterSystemReminderMessages,
-  getSystemReminderMessages,
-  attachmentToApiMessage,
-  attachmentsToApiMessage,
-  type ContentBlock,
-  type ApiMessage,
+  convertAttachmentToMessages,
+  filterMetaMessages,
+  getMetaMessages,
 } from './conversion.js';

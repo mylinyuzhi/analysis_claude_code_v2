@@ -1381,12 +1381,12 @@ async function* processPendingAttachments(
   };
 
   for await (const a of attachmentsModule.generateAttachmentsStreaming(
+    null, // userPrompt
     attachmentCtx,
-    _turnIndex,
-    null,
-    _subAgentResult,
+    null, // ideContext
     _queuedCommands,
-    _messages
+    _messages,
+    _subAgentResult // additionalParam
   )) {
     yield a as ConversationMessage;
   }

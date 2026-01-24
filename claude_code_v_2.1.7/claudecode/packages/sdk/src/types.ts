@@ -61,7 +61,8 @@ export interface SDKControlResponse extends SDKMessage {
     | SDKCanUseToolResponse
     | SDKHookCallbackResponse
     | SDKMcpMessageResponse
-    | SDKInitializeResponse;
+    | SDKInitializeResponse
+    | { subtype: 'error'; error: string };
 }
 
 /**
@@ -263,15 +264,18 @@ export interface SDKTransport {
     input: Record<string, unknown>,
     context: unknown,
     globals: unknown,
-    toolUseId: string,
-    querySource?: string
+    toolUseId: string
   ) => Promise<SDKCanUseToolResponse>;
 
   /** Create hook callback */
   createHookCallback(
     callbackId: string,
     timeout?: number
-  ): (eventType: string, eventData: Record<string, unknown>) => Promise<SDKHookCallbackResponse>;
+  ): {
+    type: 'callback';
+    timeout?: number;
+    callback: (input: any, toolUseId: string | null, abortSignal?: AbortSignal) => Promise<SDKHookCallbackResponse>;
+  };
 
   /** Send MCP message */
   sendMcpMessage(
@@ -281,7 +285,7 @@ export interface SDKTransport {
 
   /** Set callback for unexpected responses */
   setUnexpectedResponseCallback(
-    callback: (response: SDKControlResponse) => void
+    callback: (response: SDKControlResponse) => Promise<void>
   ): void;
 
   /** Close transport */

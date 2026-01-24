@@ -671,28 +671,29 @@ export interface AttachmentOptions {
 
 /**
  * Attachment generation constants.
+ * Aligned with nr2, ar2, N27, L27 in chunks.132.mjs:327
  */
 export const ATTACHMENT_CONSTANTS = {
   /** Timeout for all attachment generation (ms) */
   GENERATION_TIMEOUT: 1000,
   /** Telemetry sampling rate */
   TELEMETRY_SAMPLE_RATE: 0.05,
-  /** Max content size */
+  /** Max content size (simulated) */
   MAX_CONTENT_SIZE: 40000,
-  /** Max lines per file */
-  MAX_LINES: 3000,
-  /** Max @import depth */
-  MAX_IMPORT_DEPTH: 5,
-  /** Turns since last todo write before reminder */
-  TODO_TURNS_SINCE_WRITE: 5,
-  /** Turns between todo reminders */
-  TODO_TURNS_BETWEEN_REMINDERS: 3,
-  /** Task progress turn threshold */
+  /** Turns between plan mode attachments (ar2.TURNS_BETWEEN_ATTACHMENTS) */
+  TURNS_BETWEEN_PLAN_ATTACHMENTS: 5,
+  /** Full plan reminder interval (ar2.FULL_REMINDER_EVERY_N_ATTACHMENTS) */
+  FULL_PLAN_REMINDER_EVERY_N: 5,
+  /** Turns since last todo write before reminder (nr2.TURNS_SINCE_WRITE) */
+  TODO_TURNS_SINCE_WRITE: 10,
+  /** Turns between todo reminders (nr2.TURNS_BETWEEN_REMINDERS) */
+  TODO_TURNS_BETWEEN_REMINDERS: 10,
+  /** Task progress turn threshold (w27 in chunks.132.mjs:288) */
   PROGRESS_TURN_THRESHOLD: 3,
-  /** Full plan reminder interval */
-  FULL_REMINDER_EVERY_N: 5,
-  /** IDE content truncation limit */
-  IDE_CONTENT_TRUNCATION: 2000,
+  /** Token cooldown (N27.TOKEN_COOLDOWN) */
+  TOKEN_COOLDOWN: 5000,
+  /** Turns between general reminders (L27.TURNS_BETWEEN_REMINDERS) */
+  GENERAL_REMINDER_INTERVAL: 10,
 } as const;
 
 // ============================================

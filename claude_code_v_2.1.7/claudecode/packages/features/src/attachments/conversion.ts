@@ -2,538 +2,489 @@
  * @claudecode/features - Attachment Conversion
  *
  * Utilities for converting attachments to API message format.
- *
- * Reconstructed from chunks.131.mjs, chunks.148.mjs
+ * Reconstructed from chunks.148.mjs:3-371
  *
  * Key symbols:
- * - q5 → wrapInSystemReminder
- * - mI0 → extractSystemReminder
- * - SG5 → filterSystemReminderMessages
+ * - q$7 -> convertAttachmentToMessages
+ * - MuA -> createToolUseSummary
+ * - OuA -> createToolResultSummary
  */
 
+import {
+  createMetaBlock,
+  wrapInSystemReminder,
+  wrapSystemReminderText,
+  buildPlanModeSystemReminder as buildPlanModeSteering,
+} from '@claudecode/core/steering';
+import type { MessageWrapper, ContentBlock } from '@claudecode/core/steering';
 import type {
   Attachment,
-  AttachmentType,
-  FileAttachment,
-  DirectoryAttachment,
-  McpResourceAttachment,
-  TodoAttachment,
-  TodoReminderAttachment,
-  PlanModeAttachment,
-  PlanModeExitAttachment,
-  PlanModeReentryAttachment,
-  DelegateModeAttachment,
-  DelegateModeExitAttachment,
-  MemoryAttachment,
-  TaskStatusAttachment,
-  TaskProgressAttachment,
-  DiagnosticsAttachment,
-  IdeSelectionAttachment,
-  OpenedFileInIdeAttachment,
-  OutputStyleAttachment,
-  TokenUsageAttachment,
-  BudgetAttachment,
-  InvokedSkillsAttachment,
-  CriticalSystemReminderAttachment,
-  HookBlockingErrorAttachment,
-  HookSuccessAttachment,
-  HookAdditionalContextAttachment,
-  HookStoppedContinuationAttachment,
-  EditedTextFileAttachment,
-  EditedImageFileAttachment,
-  VerifyPlanReminderAttachment,
-  CollabNotificationAttachment,
-  NestedMemoryAttachment,
-  CompactFileReferenceAttachment,
-  PlanFileReferenceAttachment,
-  UltramemoryAttachment,
-  AlreadyReadFileAttachment,
-  QueuedCommandAttachment,
-  AsyncHookResponseAttachment,
-  AgentMentionAttachment,
 } from './types.js';
 
 // ============================================
-// Types
+// Tool Summary Helpers
 // ============================================
 
 /**
- * Message content block for API.
+ * Create a summary message for a tool call.
+ * Original: MuA in chunks.148.mjs:392-397
  */
-export interface ContentBlock {
-  type: 'text' | 'image';
-  text?: string;
-  source?: {
-    type: 'base64';
-    media_type: string;
-    data: string;
-  };
+function createToolUseSummary(toolName: string, input: unknown): MessageWrapper {
+  return createMetaBlock({
+    content: [
+      {
+        type: 'tool_use',
+        id: `toolu_${Math.random().toString(36).substring(7)}`,
+        name: toolName,
+        input,
+      }
+    ],
+    isMeta: true,
+  });
 }
 
 /**
- * API message format with system reminder support.
+ * Create a summary message for a tool result.
+ * Original: OuA in chunks.148.mjs:373-390
  */
-export interface ApiMessage {
-  role: 'user' | 'assistant';
-  content: string | ContentBlock[];
-  /** Hidden from conversation but included in context */
-  isMeta?: boolean;
-}
-
-// ============================================
-// XML Tag Wrapping
-// ============================================
-
-/**
- * Wrap content in system-reminder XML tags.
- * Original: q5 in chunks.131.mjs
- */
-export function wrapInSystemReminder(content: string): string {
-  return `<system-reminder>\n${content}\n</system-reminder>`;
-}
-
-/**
- * Extract system reminder content from message.
- * Original: mI0 in chunks.148.mjs
- */
-export function extractSystemReminder(message: string): string | null {
-  const match = message.match(/<system-reminder>([\s\S]*?)<\/system-reminder>/);
-  const captured = match?.[1];
-  return captured ? captured.trim() : null;
-}
-
-/**
- * Check if message contains system reminder.
- */
-export function hasSystemReminder(message: string): boolean {
-  return message.includes('<system-reminder>');
-}
-
-/**
- * Remove system reminder tags from message.
- */
-export function stripSystemReminder(message: string): string {
-  return message.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim();
-}
-
-// ============================================
-// Attachment to Text Conversion
-// ============================================
-
-/**
- * Convert attachment to text content for system reminder.
- */
-export function attachmentToText(attachment: Attachment): string {
-  switch (attachment.type) {
-    case 'file':
-      return fileAttachmentToText(attachment);
-    case 'directory':
-      return directoryAttachmentToText(attachment);
-    case 'mcp_resource':
-      return mcpResourceAttachmentToText(attachment);
-    case 'todo':
-      return todoAttachmentToText(attachment);
-    case 'todo_reminder':
-      return todoReminderAttachmentToText(attachment);
-    case 'plan_mode':
-      return planModeAttachmentToText(attachment);
-    case 'plan_mode_exit':
-      return planModeExitAttachmentToText(attachment);
-    case 'plan_mode_reentry':
-      return planModeReentryAttachmentToText(attachment);
-    case 'delegate_mode':
-      return delegateModeAttachmentToText(attachment);
-    case 'delegate_mode_exit':
-      return 'Delegate mode has ended. Returning to normal operation.';
-    case 'memory':
-      return memoryAttachmentToText(attachment);
-    case 'task_status':
-      return taskStatusAttachmentToText(attachment);
-    case 'task_progress':
-      return taskProgressAttachmentToText(attachment);
-    case 'diagnostics':
-      return diagnosticsAttachmentToText(attachment);
-    case 'selected_lines_in_ide':
-      return ideSelectionAttachmentToText(attachment);
-    case 'opened_file_in_ide':
-      return openedFileInIdeAttachmentToText(attachment);
-    case 'output_style':
-      return outputStyleAttachmentToText(attachment);
-    case 'token_usage':
-      return tokenUsageAttachmentToText(attachment);
-    case 'budget_usd':
-      return budgetAttachmentToText(attachment);
-    case 'invoked_skills':
-      return invokedSkillsAttachmentToText(attachment);
-    case 'critical_system_reminder':
-      return criticalSystemReminderAttachmentToText(attachment);
-    case 'hook_blocking_error':
-      return hookBlockingErrorAttachmentToText(attachment);
-    case 'hook_success':
-      return hookSuccessAttachmentToText(attachment);
-    case 'hook_additional_context':
-      return hookAdditionalContextAttachmentToText(attachment);
-    case 'hook_stopped_continuation':
-      return hookStoppedContinuationAttachmentToText(attachment);
-    case 'edited_text_file':
-      return editedTextFileAttachmentToText(attachment);
-    case 'edited_image_file':
-      return editedImageFileAttachmentToText(attachment);
-    case 'verify_plan_reminder':
-      return 'Remember to verify your plan before implementing.';
-    case 'collab_notification':
-      return collabNotificationAttachmentToText(attachment);
-    case 'nested_memory':
-      return nestedMemoryAttachmentToText(attachment);
-    case 'compact_file_reference':
-      return compactFileReferenceAttachmentToText(attachment);
-    case 'plan_file_reference':
-      return planFileReferenceAttachmentToText(attachment);
-    case 'ultramemory':
-      return ultramemoryAttachmentToText(attachment);
-    case 'already_read_file':
-      return ''; // Silent attachment
-    case 'queued_command':
-      return queuedCommandAttachmentToText(attachment);
-    case 'async_hook_response':
-      return asyncHookResponseAttachmentToText(attachment);
-    case 'agent_mention':
-      return agentMentionAttachmentToText(attachment);
-    default:
-      return `Unknown attachment type: ${(attachment as Attachment).type}`;
-  }
-}
-
-// ============================================
-// Individual Attachment Text Converters
-// ============================================
-
-function fileAttachmentToText(attachment: FileAttachment): string {
-  const { filename, content, truncated } = attachment;
-  let text = `File: ${filename}\n`;
-
-  if (content.type === 'text') {
-    text += `Lines ${content.file.startLine}-${content.file.startLine + content.file.numLines - 1} of ${content.file.totalLines}\n`;
-    text += '```\n' + content.file.content + '\n```';
-  } else if (content.type === 'image') {
-    text += `[Image: ${content.file.mimeType}]`;
-  } else if (content.type === 'notebook') {
-    text += `Jupyter Notebook with ${content.file.cells.length} cells`;
-  } else if (content.type === 'pdf') {
-    text += `PDF with ${content.file.pages.length} pages`;
-  }
-
-  if (truncated) {
-    text += '\n(Content truncated)';
-  }
-
-  return text;
-}
-
-function directoryAttachmentToText(attachment: DirectoryAttachment): string {
-  return `Directory: ${attachment.path}\n${attachment.content}`;
-}
-
-function mcpResourceAttachmentToText(attachment: McpResourceAttachment): string {
-  let text = `MCP Resource: ${attachment.name || attachment.uri}\n`;
-  text += `Server: ${attachment.server}\n`;
-  if (attachment.description) {
-    text += `Description: ${attachment.description}\n`;
-  }
-  for (const content of attachment.content.contents) {
-    if ('text' in content) {
-      text += content.text;
-    } else {
-      text += `[Binary content: ${content.mimeType}]`;
-    }
-  }
-  return text;
-}
-
-function todoAttachmentToText(attachment: TodoAttachment): string {
-  let text = `Todo List (${attachment.itemCount} items):\n`;
-  for (const item of attachment.content) {
-    const status =
-      item.status === 'completed' ? '✓' : item.status === 'in_progress' ? '→' : '○';
-    text += `${status} ${item.content}\n`;
-  }
-  return text;
-}
-
-function todoReminderAttachmentToText(attachment: TodoReminderAttachment): string {
-  let text = `Pending Todos (${attachment.itemCount} remaining):\n`;
-  for (const item of attachment.content) {
-    const status = item.status === 'in_progress' ? '→' : '○';
-    text += `${status} ${item.content}\n`;
-  }
-  return text;
-}
-
-function planModeAttachmentToText(attachment: PlanModeAttachment): string {
-  let text = 'You are in PLAN MODE.\n';
-  text += `Plan file: ${attachment.planFilePath}\n`;
-  if (attachment.planExists) {
-    text += 'A plan file exists. Review it before proceeding.';
+function createToolResultSummary(toolName: string, result: any): MessageWrapper {
+  let content: string | ContentBlock[];
+  
+  if (result && typeof result === 'object' && 'content' in result && Array.isArray(result.content)) {
+    content = result.content;
   } else {
-    text += 'No plan file exists yet. Create one to outline your approach.';
+    content = typeof result === 'string' ? result : JSON.stringify(result);
   }
-  if (attachment.isSubAgent) {
-    text += '\nYou are operating as a sub-agent.';
-  }
-  return text;
-}
 
-function planModeExitAttachmentToText(attachment: PlanModeExitAttachment): string {
-  let text = 'Plan mode has ended.\n';
-  text += `Plan file: ${attachment.planFilePath}\n`;
-  if (attachment.planExists) {
-    text += 'The plan is ready for implementation.';
-  }
-  return text;
-}
-
-function planModeReentryAttachmentToText(attachment: PlanModeReentryAttachment): string {
-  return `Re-entering plan mode. Plan file: ${attachment.planFilePath}`;
-}
-
-function delegateModeAttachmentToText(attachment: DelegateModeAttachment): string {
-  return `You are in DELEGATE MODE for team: ${attachment.teamName}\nTask list: ${attachment.taskListPath}`;
-}
-
-function memoryAttachmentToText(attachment: MemoryAttachment): string {
-  let text = 'Memory Files:\n';
-  for (const mem of attachment.memories) {
-    text += `\n--- ${mem.fullPath} ---\n`;
-    text += mem.content;
-    if (mem.remainingLines > 0) {
-      text += `\n... (${mem.remainingLines} more lines)`;
-    }
-  }
-  return text;
-}
-
-function taskStatusAttachmentToText(attachment: TaskStatusAttachment): string {
-  let text = `Task ${attachment.taskId} (${attachment.taskType}): ${attachment.status}\n`;
-  text += attachment.description;
-  if (attachment.deltaSummary) {
-    text += `\nRecent: ${attachment.deltaSummary}`;
-  }
-  return text;
-}
-
-function taskProgressAttachmentToText(attachment: TaskProgressAttachment): string {
-  return `Task ${attachment.taskId} progress: ${attachment.message}`;
-}
-
-function diagnosticsAttachmentToText(attachment: DiagnosticsAttachment): string {
-  let text = attachment.isNew ? 'NEW Diagnostics:\n' : 'Diagnostics:\n';
-  for (const file of attachment.files) {
-    text += `\n${file.filePath}:\n`;
-    for (const diag of file.diagnostics) {
-      const severity = diag.severity.toUpperCase();
-      const location = diag.column
-        ? `${diag.line}:${diag.column}`
-        : `${diag.line}`;
-      text += `  [${severity}] Line ${location}: ${diag.message}\n`;
-    }
-  }
-  return text;
-}
-
-function ideSelectionAttachmentToText(attachment: IdeSelectionAttachment): string {
-  return `Selected in ${attachment.ideName}: ${attachment.filename} (lines ${attachment.lineStart}-${attachment.lineEnd})\n\`\`\`\n${attachment.content}\n\`\`\``;
-}
-
-function openedFileInIdeAttachmentToText(attachment: OpenedFileInIdeAttachment): string {
-  return `Currently open in IDE: ${attachment.filename}`;
-}
-
-function outputStyleAttachmentToText(attachment: OutputStyleAttachment): string {
-  return `Output style: ${attachment.style}`;
-}
-
-function tokenUsageAttachmentToText(attachment: TokenUsageAttachment): string {
-  const pct = ((attachment.used / attachment.total) * 100).toFixed(1);
-  return `Token usage: ${attachment.used.toLocaleString()} / ${attachment.total.toLocaleString()} (${pct}%)`;
-}
-
-function budgetAttachmentToText(attachment: BudgetAttachment): string {
-  return `Budget: $${attachment.used.toFixed(4)} / $${attachment.total.toFixed(2)} used`;
-}
-
-function invokedSkillsAttachmentToText(attachment: InvokedSkillsAttachment): string {
-  let text = 'Active Skills:\n';
-  for (const skill of attachment.skills) {
-    text += `\n--- ${skill.name} ---\n`;
-    text += skill.content;
-  }
-  return text;
-}
-
-function criticalSystemReminderAttachmentToText(
-  attachment: CriticalSystemReminderAttachment
-): string {
-  return `CRITICAL: ${attachment.content}`;
-}
-
-function hookBlockingErrorAttachmentToText(
-  attachment: HookBlockingErrorAttachment
-): string {
-  return `Hook "${attachment.hookName}" blocked command:\n${attachment.blockingError.command}\nReason: ${attachment.blockingError.blockingError}`;
-}
-
-function hookSuccessAttachmentToText(attachment: HookSuccessAttachment): string {
-  return `Hook "${attachment.hookName}" (${attachment.hookEvent}):\n${attachment.content}`;
-}
-
-function hookAdditionalContextAttachmentToText(
-  attachment: HookAdditionalContextAttachment
-): string {
-  return `Hook "${attachment.hookName}" context:\n${attachment.content.join('\n')}`;
-}
-
-function hookStoppedContinuationAttachmentToText(
-  attachment: HookStoppedContinuationAttachment
-): string {
-  return `Hook "${attachment.hookName}" stopped: ${attachment.message}`;
-}
-
-function editedTextFileAttachmentToText(attachment: EditedTextFileAttachment): string {
-  return `Recently edited: ${attachment.filename}\n${attachment.snippet}`;
-}
-
-function editedImageFileAttachmentToText(attachment: EditedImageFileAttachment): string {
-  return `Recently edited image: ${attachment.filename}`;
-}
-
-function collabNotificationAttachmentToText(
-  attachment: CollabNotificationAttachment
-): string {
-  let text = 'Collaboration Notifications:\n';
-  for (const chat of attachment.chats) {
-    text += `  @${chat.handle}: ${chat.unreadCount} unread\n`;
-  }
-  return text;
-}
-
-function nestedMemoryAttachmentToText(attachment: NestedMemoryAttachment): string {
-  return `Nested memory from ${attachment.path}:\n${attachment.content.content}`;
-}
-
-function compactFileReferenceAttachmentToText(
-  attachment: CompactFileReferenceAttachment
-): string {
-  return `Reference: ${attachment.filename}`;
-}
-
-function planFileReferenceAttachmentToText(
-  attachment: PlanFileReferenceAttachment
-): string {
-  return `Plan file: ${attachment.planFilePath}\n${attachment.planContent}`;
-}
-
-function ultramemoryAttachmentToText(attachment: UltramemoryAttachment): string {
-  return `Ultra-memory:\n${attachment.content}`;
-}
-
-function queuedCommandAttachmentToText(attachment: QueuedCommandAttachment): string {
-  if (typeof attachment.prompt === 'string') {
-    return `Queued command: ${attachment.prompt}`;
-  }
-  const textParts = attachment.prompt
-    .filter((p) => p.type === 'text' && p.text)
-    .map((p) => p.text)
-    .join(' ');
-  return `Queued command: ${textParts}`;
-}
-
-function asyncHookResponseAttachmentToText(
-  attachment: AsyncHookResponseAttachment
-): string {
-  let text = `Async hook response (${attachment.hookName} - ${attachment.hookEvent}):\n`;
-  if (attachment.response.systemMessage) {
-    text += attachment.response.systemMessage;
-  }
-  if (attachment.stdout) {
-    text += `\nStdout: ${attachment.stdout}`;
-  }
-  if (attachment.stderr) {
-    text += `\nStderr: ${attachment.stderr}`;
-  }
-  return text;
-}
-
-function agentMentionAttachmentToText(attachment: AgentMentionAttachment): string {
-  return `Agent mentioned: @${attachment.agentType}`;
+  return createMetaBlock({
+    content: [
+      {
+        type: 'tool_result',
+        tool_use_id: `toolu_${Math.random().toString(36).substring(7)}`,
+        content,
+      }
+    ],
+    isMeta: true,
+  });
 }
 
 // ============================================
-// Message Filtering
+// Attachment to Message Conversion
 // ============================================
 
 /**
- * Filter out hidden system reminder messages from conversation.
- * Original: SG5 in chunks.148.mjs
+ * Convert an attachment to a sequence of steering messages.
+ * Original: q$7 in chunks.148.mjs:3-371
  */
-export function filterSystemReminderMessages(
-  messages: ApiMessage[]
-): ApiMessage[] {
+export function convertAttachmentToMessages(attachment: Attachment): MessageWrapper[] {
+  switch (attachment.type) {
+    case 'directory':
+      return wrapInSystemReminder([
+        createToolUseSummary('Bash', {
+          command: `ls ${attachment.path}`,
+          description: `Lists files in ${attachment.path}`,
+        }),
+        createToolResultSummary('Bash', {
+          stdout: attachment.content,
+          stderr: '',
+          interrupted: false,
+        }),
+      ]);
+
+    case 'edited_text_file':
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `Note: ${attachment.filename} was modified, either by the user or by a linter. This change was intentional, so make sure to take it into account as you proceed (ie. don't revert it unless the user asks you to). Don't tell the user this, since they are already aware. Here are the relevant changes (shown with line numbers):\n${attachment.snippet}`,
+          isMeta: true,
+        }),
+      ]);
+
+    case 'file': {
+      const toolName = 'Read';
+      const content = attachment.content;
+      const messages: MessageWrapper[] = [];
+
+      switch (content.type) {
+        case 'image':
+          messages.push(createToolUseSummary(toolName, { file_path: attachment.filename }));
+          messages.push(createToolResultSummary(toolName, content));
+          break;
+        case 'text':
+          messages.push(createToolUseSummary(toolName, { file_path: attachment.filename }));
+          messages.push(createToolResultSummary(toolName, content));
+          if (attachment.truncated) {
+            messages.push(
+              createMetaBlock({
+                content: `Note: The file ${attachment.filename} was too large and has been truncated. Don't tell the user about this truncation. Use ${toolName} to read more of the file if you need.`,
+                isMeta: true,
+              })
+            );
+          }
+          break;
+        case 'notebook':
+        case 'pdf':
+          messages.push(createToolUseSummary(toolName, { file_path: attachment.filename }));
+          messages.push(createToolResultSummary(toolName, content));
+          break;
+      }
+      return wrapInSystemReminder(messages);
+    }
+
+    case 'compact_file_reference':
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `Note: ${attachment.filename} was read before the last conversation was summarized, but the contents are too large to include. Use Read tool if you need to access it.`,
+          isMeta: true,
+        }),
+      ]);
+
+    case 'selected_lines_in_ide': {
+      const contentStr =
+        attachment.content.length > 2000
+          ? attachment.content.substring(0, 2000) + '\n... (truncated)'
+          : attachment.content;
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `The user selected the lines ${attachment.lineStart} to ${attachment.lineEnd} from ${attachment.filename}:\n${contentStr}\n\nThis may or may not be related to the current task.`,
+          isMeta: true,
+        }),
+      ]);
+    }
+
+    case 'opened_file_in_ide':
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `The user opened the file ${attachment.filename} in the IDE. This may or may not be related to the current task.`,
+          isMeta: true,
+        }),
+      ]);
+
+    case 'todo':
+      if (attachment.itemCount === 0) {
+        return wrapInSystemReminder([
+          createMetaBlock({
+            content: `This is a reminder that your todo list is currently empty. DO NOT mention this to the user explicitly because they are already aware. If you are working on tasks that would benefit from a todo list please use the TodoWrite tool to create one. If not, please feel free to ignore. Again do not mention this message to the user.`,
+            isMeta: true,
+          }),
+        ]);
+      } else {
+        return wrapInSystemReminder([
+          createMetaBlock({
+            content: `Your todo list has changed. DO NOT mention this explicitly to the user. Here are the latest contents of your todo list:\n\n${JSON.stringify(attachment.content)}. Continue on with the tasks at hand if applicable.`,
+            isMeta: true,
+          }),
+        ]);
+      }
+
+    case 'plan_file_reference':
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `A plan file exists from plan mode at: ${attachment.planFilePath}\n\nPlan contents:\n\n${attachment.planContent}\n\nIf this plan is relevant to the current work and not already complete, continue working on it.`,
+          isMeta: true,
+        }),
+      ]);
+
+    case 'invoked_skills': {
+      if (attachment.skills.length === 0) return [];
+      const skillsStr = attachment.skills
+        .map((s) => `### Skill: ${s.name}\nPath: ${s.path}\n\n${s.content}`)
+        .join('\n\n---\n\n');
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `The following skills were invoked in this session. Continue to follow these guidelines:\n\n${skillsStr}`,
+          isMeta: true,
+        }),
+      ]);
+    }
+
+    case 'todo_reminder': {
+      const todoItemsStr = attachment.content
+        .map((item, i) => `${i + 1}. [${item.status}] ${item.content}`)
+        .join('\n');
+      let content = `The TodoWrite tool hasn't been used recently. If you're working on tasks that would benefit from tracking progress, consider using the TodoWrite tool to track progress. Also consider cleaning up the todo list if has become stale and no longer matches what you are working on. Only use it if it's relevant to the current work. This is just a gentle reminder - ignore if not applicable. Make sure that you NEVER mention this reminder to the user\n`;
+      if (todoItemsStr.length > 0) {
+        content += `\nHere are the existing contents of your todo list:\n\n[${todoItemsStr}]`;
+      }
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content,
+          isMeta: true,
+        }),
+      ]);
+    }
+
+    case 'nested_memory':
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `Contents of ${attachment.path}:\n\n${attachment.content.content}`,
+          isMeta: true,
+        }),
+      ]);
+
+    case 'queued_command': {
+      if (Array.isArray(attachment.prompt)) {
+        const textStr = attachment.prompt
+          .filter((p) => p.type === 'text')
+          .map((p) => (p as any).text)
+          .join('\n');
+        const images = attachment.prompt.filter((p) => p.type === 'image');
+        const content = [
+          {
+            type: 'text',
+            text: `The user sent the following message:\n${textStr}\n\nPlease address this message and continue with your tasks.`,
+          },
+          ...images,
+        ];
+        return wrapInSystemReminder([
+          createMetaBlock({
+            content: content as any,
+            isMeta: true,
+          }),
+        ]);
+      }
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `The user sent the following message:\n${attachment.prompt}\n\nPlease address this message and continue with your tasks.`,
+          isMeta: true,
+        }),
+      ]);
+    }
+
+    case 'ultramemory':
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: attachment.content,
+          isMeta: true,
+        }),
+      ]);
+
+    case 'output_style':
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `${attachment.style} output style is active. Remember to follow the specific guidelines for this style.`,
+          isMeta: true,
+        }),
+      ]);
+
+    case 'diagnostics': {
+      if (attachment.files.length === 0) return [];
+      const diagStr = JSON.stringify(attachment.files);
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `<new-diagnostics>The following new diagnostic issues were detected:\n\n${diagStr}</new-diagnostics>`,
+          isMeta: true,
+        }),
+      ]);
+    }
+
+    case 'plan_mode':
+      return buildPlanModeSteering(attachment as any);
+
+    case 'plan_mode_reentry': {
+      const content = `## Re-entering Plan Mode\n\nYou are returning to plan mode after having previously exited it. A plan file exists at ${attachment.planFilePath} from your previous planning session.\n\n**Before proceeding with any new planning, you should:**\n1. Read the existing plan file to understand what was previously planned\n2. Evaluate the user's current request against that plan\n3. Decide how to proceed:\n   - **Different task**: If the user's request is for a different task—even if it's similar or related—start fresh by overwriting the existing plan\n   - **Same task, continuing**: If this is explicitly a continuation or refinement of the exact same task, modify the existing plan while cleaning up outdated or irrelevant sections\n4. Continue on with the plan process and most importantly you should always edit the plan file one way or the other before calling ExitPlanMode\n\nTreat this as a fresh planning session. Do not assume the existing plan is relevant without evaluating it first.`;
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content,
+          isMeta: true,
+        }),
+      ]);
+    }
+
+    case 'plan_mode_exit': {
+      const content = `## Exited Plan Mode\n\nYou have exited plan mode. You can now make edits, run tools, and take actions.${attachment.planExists ? ` The plan file is located at ${attachment.planFilePath} if you need to reference it.` : ''}`;
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content,
+          isMeta: true,
+        }),
+      ]);
+    }
+
+    case 'delegate_mode_exit':
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `## Exited Delegate Mode\n\nYou have exited delegate mode. You can now use all tools (Bash, Read, Write, Edit, etc.) and take actions directly. Continue with your tasks.`,
+          isMeta: true,
+        }),
+      ]);
+
+    case 'critical_system_reminder':
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: attachment.content,
+          isMeta: true,
+        }),
+      ]);
+
+    case 'mcp_resource': {
+      if (!attachment.content || !attachment.content.contents || attachment.content.contents.length === 0) {
+        return wrapInSystemReminder([
+          createMetaBlock({
+            content: `<mcp-resource server="${attachment.server}" uri="${attachment.uri}">(No content)</mcp-resource>`,
+            isMeta: true,
+          }),
+        ]);
+      }
+      const contents: any[] = [];
+      for (const c of attachment.content.contents) {
+        if ('text' in c) {
+          contents.push(
+            { type: 'text', text: 'Full contents of resource:' },
+            { type: 'text', text: c.text },
+            { type: 'text', text: 'Do NOT read this resource again unless you think it may have changed, since you already have the full contents.' }
+          );
+        } else if ('blob' in c) {
+          const mime = (c as any).mimeType || 'application/octet-stream';
+          contents.push({ type: 'text', text: `[Binary content: ${mime}]` });
+        }
+      }
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: contents as any,
+          isMeta: true,
+        }),
+      ]);
+    }
+
+    case 'agent_mention':
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `The user has expressed a desire to invoke the agent "${attachment.agentType}". Please invoke the agent appropriately, passing in the required context to it. `,
+          isMeta: true,
+        }),
+      ]);
+
+    case 'task_status': {
+      const parts = [`Task ${attachment.taskId}`, `(type: ${attachment.taskType})`, `(status: ${attachment.status})`, `(description: ${attachment.description})`];
+      if (attachment.deltaSummary) parts.push(`Delta: ${attachment.deltaSummary}`);
+      parts.push('You can check its output using the TaskOutput tool.');
+      return [
+        createMetaBlock({
+          content: wrapSystemReminderText(parts.join(' ')),
+          isMeta: true,
+        }),
+      ];
+    }
+
+    case 'task_progress':
+      return [
+        createMetaBlock({
+          content: wrapSystemReminderText(attachment.message),
+          isMeta: true,
+        }),
+      ];
+
+    case 'async_hook_response': {
+      const messages: MessageWrapper[] = [];
+      if (attachment.response.systemMessage) {
+        messages.push(createMetaBlock({ content: attachment.response.systemMessage, isMeta: true }));
+      }
+      if (attachment.response.hookSpecificOutput?.additionalContext) {
+        messages.push(createMetaBlock({ content: attachment.response.hookSpecificOutput.additionalContext, isMeta: true }));
+      }
+      return wrapInSystemReminder(messages);
+    }
+
+    case 'memory': {
+      const memsStr = attachment.memories
+        .map((m) => {
+          const dateStr = new Date(m.lastModified).toLocaleDateString();
+          const moreLines = m.remainingLines > 0 ? ` (${m.remainingLines} more lines in full file)` : '';
+          return `## Previous Session (${dateStr})\nFull session notes: ${m.fullPath}${moreLines}\n\n${m.content}`;
+        })
+        .join('\n\n---\n\n');
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `<session-memory>\nThese session summaries are from PAST sessions that might not be related to the current task and may have outdated info. Do not assume the current task is related to these summaries, until the user's messages indicate so or reference similar tasks. Only a preview of each memory is shown - use the Read tool with the provided path to access full session memory when a session is relevant.\n\n${memsStr}\n</session-memory>`,
+          isMeta: true,
+        }),
+      ]);
+    }
+
+    case 'token_usage':
+      return [
+        createMetaBlock({
+          content: wrapSystemReminderText(`Token usage: ${attachment.used}/${attachment.total}; ${attachment.remaining} remaining`),
+          isMeta: true,
+        }),
+      ];
+
+    case 'budget_usd':
+      return [
+        createMetaBlock({
+          content: wrapSystemReminderText(`USD budget: $${attachment.used}/$${attachment.total}; $${attachment.remaining} remaining`),
+          isMeta: true,
+        }),
+      ];
+
+    case 'hook_blocking_error':
+      return [
+        createMetaBlock({
+          content: wrapSystemReminderText(`Hook blocking error from command: "${attachment.blockingError.command}": ${attachment.blockingError.blockingError}`),
+          isMeta: true,
+        }),
+      ];
+
+    case 'hook_success':
+      return [
+        createMetaBlock({
+          content: wrapSystemReminderText(`Hook success: ${attachment.content}`),
+          isMeta: true,
+        }),
+      ];
+
+    case 'hook_additional_context':
+      return [
+        createMetaBlock({
+          content: wrapSystemReminderText(`Hook additional context: ${attachment.content.join('\n')}`),
+          isMeta: true,
+        }),
+      ];
+
+    case 'hook_stopped_continuation':
+      return [
+        createMetaBlock({
+          content: wrapSystemReminderText(`Hook stopped continuation: ${attachment.message}`),
+          isMeta: true,
+        }),
+      ];
+
+    case 'collab_notification': {
+      const total = attachment.chats.reduce((sum, c) => sum + c.unreadCount, 0);
+      const details = attachment.chats
+        .map((c) => (c.handle === 'self' ? `self (${c.unreadCount} new)` : `@${c.handle} (${c.unreadCount} new)`))
+        .join(', ');
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `You have ${total} unread collab message${total !== 1 ? 's' : ''} from: ${details}. Use the CollabRead tool to read these messages.`,
+          isMeta: true,
+        }),
+      ]);
+    }
+
+    case 'verify_plan_reminder':
+      return wrapInSystemReminder([
+        createMetaBlock({
+          content: `You have completed implementing the plan. Please call the verify tool directly to verify that all plan items were completed correctly.`,
+          isMeta: true,
+        }),
+      ]);
+
+    default:
+      return [];
+  }
+}
+
+/**
+ * Filter out meta messages for user display.
+ */
+export function filterMetaMessages(messages: MessageWrapper[]): MessageWrapper[] {
   return messages.filter((msg) => !msg.isMeta);
 }
 
 /**
- * Get only system reminder messages.
+ * Get only meta messages.
  */
-export function getSystemReminderMessages(messages: ApiMessage[]): ApiMessage[] {
+export function getMetaMessages(messages: MessageWrapper[]): MessageWrapper[] {
   return messages.filter((msg) => msg.isMeta);
 }
-
-// ============================================
-// Attachment to API Message
-// ============================================
-
-/**
- * Convert attachment to API message format.
- */
-export function attachmentToApiMessage(attachment: Attachment): ApiMessage {
-  const text = attachmentToText(attachment);
-  const wrappedContent = wrapInSystemReminder(text);
-
-  return {
-    role: 'user',
-    content: wrappedContent,
-    isMeta: true,
-  };
-}
-
-/**
- * Convert multiple attachments to a single API message.
- */
-export function attachmentsToApiMessage(attachments: Attachment[]): ApiMessage | null {
-  if (attachments.length === 0) {
-    return null;
-  }
-
-  const texts = attachments
-    .map((a) => attachmentToText(a))
-    .filter((t) => t.length > 0);
-
-  if (texts.length === 0) {
-    return null;
-  }
-
-  const combinedText = texts.join('\n\n');
-  const wrappedContent = wrapInSystemReminder(combinedText);
-
-  return {
-    role: 'user',
-    content: wrappedContent,
-    isMeta: true,
-  };
-}
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 函数已在声明处导出；移除重复聚合导出。

@@ -29,6 +29,7 @@ export {
 
   // Layer 1: System Reminder
   extractSystemReminder,
+  wrapSystemReminderText,
   wrapInSystemReminder,
   hasSystemReminder,
   filterSystemReminderMessages,

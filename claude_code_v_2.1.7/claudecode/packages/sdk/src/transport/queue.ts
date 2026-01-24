@@ -7,7 +7,7 @@
 
 export class AsyncMessageQueue<T> implements AsyncIterable<T> {
   private queue: T[] = [];
-  private readResolve?: (value: { done: boolean; value: T | undefined }) => void;
+  private readResolve?: (value: IteratorResult<T>) => void;
   private readReject?: (error: Error) => void;
   private isDone = false;
   private hasError: Error | null = null;

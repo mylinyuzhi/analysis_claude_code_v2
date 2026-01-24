@@ -74,10 +74,8 @@ export * as attachments from './attachments/index.js';
 // Re-export commonly used Attachment functions at top level
 export {
   generateAllAttachments,
-  wrapInSystemReminder,
-  extractSystemReminder,
-  attachmentToApiMessage,
-  attachmentsToApiMessage,
+  convertAttachmentToMessages,
+  generateAttachmentsStreaming,
   ATTACHMENT_CONSTANTS,
   ATTACHMENT_TYPES,
 } from './attachments/index.js';
@@ -87,5 +85,4 @@ export type {
   AttachmentType,
   AttachmentContext,
   AttachmentMessage,
-  AttachmentGenerationResult,
 } from './attachments/index.js';

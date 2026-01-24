@@ -230,14 +230,15 @@ export interface AttachmentToolUseContext {
 
 /**
  * Plan mode constants.
+ * Aligned with ar2 in chunks.132.mjs:330-333
  */
 export const PLAN_MODE_CONSTANTS = {
   /** Max retries for unique slug generation */
   MAX_SLUG_RETRIES: 10,
-  /** Turns between plan mode attachments */
+  /** Turns between plan mode attachments (ar2.TURNS_BETWEEN_ATTACHMENTS) */
   TURNS_BETWEEN_ATTACHMENTS: 5,
-  /** Full reminder every N attachments */
-  FULL_REMINDER_EVERY_N_ATTACHMENTS: 3,
+  /** Full reminder every N attachments (ar2.FULL_REMINDER_EVERY_N_ATTACHMENTS) */
+  FULL_REMINDER_EVERY_N_ATTACHMENTS: 5,
   /** Max Plan agents */
   DEFAULT_PLAN_AGENT_COUNT: 1,
   /** Max Explore agents */

@@ -40,10 +40,16 @@ export interface UserContext {
  * Content block for messages.
  */
 export interface ContentBlock {
-  type: 'text' | 'image' | 'tool_use' | 'tool_result';
+  type: 'text' | 'image' | 'tool_use' | 'tool_result' | 'thinking' | 'redacted_thinking';
   text?: string;
-  tool_use_id?: string;
-  content?: string | ContentBlock[];
+  id?: string; // tool_use id
+  name?: string; // tool_use name
+  input?: unknown; // tool_use input
+  tool_use_id?: string; // tool_result id
+  content?: string | ContentBlock[]; // tool_result content
+  is_error?: boolean; // tool_result error flag
+  thinking?: string;
+  signature?: string;
   source?: {
     type: 'base64';
     media_type: string;
@@ -57,17 +63,19 @@ export interface ContentBlock {
 export interface SteeringMessage {
   role: 'user' | 'assistant';
   content: string | ContentBlock[];
-  /** Hidden from user but visible to model */
-  isMeta?: boolean;
 }
 
 /**
  * Message wrapper for steering system.
  */
 export interface MessageWrapper {
+  type: 'user' | 'assistant' | 'system' | 'attachment' | 'progress';
   message: SteeringMessage;
   uuid?: string;
   timestamp?: string;
+  isMeta?: boolean;
+  isVisibleInTranscriptOnly?: boolean;
+  toolUseResult?: any;
 }
 
 // ============================================
