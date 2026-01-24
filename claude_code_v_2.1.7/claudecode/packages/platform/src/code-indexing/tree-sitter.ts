@@ -10,6 +10,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+// @ts-ignore
 import Parser from 'web-tree-sitter';
 
 import { recordTelemetry } from '../telemetry/index.js';

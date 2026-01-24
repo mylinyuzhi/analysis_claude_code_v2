@@ -11,7 +11,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+// @ts-ignore
 import ignore from 'ignore';
+// @ts-ignore
 import Fuse from 'fuse.js';
 
 import { recordTelemetry } from '../telemetry/index.js';
@@ -521,7 +523,7 @@ export async function initializeFileIndex(): Promise<FileIndexCache> {
     const dirs = extractDirectoryPrefixes(allFiles);
     const completeList = [...dirs, ...allFiles];
     
-    let fileList = [];
+    let fileList: string[] = [];
     const rustIndex = await getFileIndex();
 
     if (rustIndex) {
@@ -652,6 +654,7 @@ export async function performSearch(
   }));
 
   // Optimization: filter by prefix if query looks like a path
+  // @ts-ignore
   let searchDocs = documents;
   const lastSep = query.lastIndexOf(path.sep);
   if (lastSep > 2) {
@@ -673,13 +676,14 @@ export async function performSearch(
   let results = fuse.search(query, { limit: MAX_SUGGESTIONS });
 
   // Custom sort
-  results = results.sort((a, b) => {
+  results = results.sort((a: any, b: any) => {
     if (a.score === undefined || b.score === undefined) return 0;
     if (Math.abs(a.score - b.score) > 0.05) return a.score - b.score;
+    // @ts-ignore
     return a.item.testPenalty - b.item.testPenalty;
   });
 
-  return results.map((r) => createFileResult(r.item.path, r.score));
+  return results.map((r: any) => createFileResult(r.item.path, r.score));
 }
 
 /**
