@@ -135,6 +135,46 @@ function logApiQueryTelemetry(options: {
 }
 
 /**
+ * Log fork agent query telemetry.
+ * Original: i77 in chunks.134.mjs:2036-2063
+ */
+export function trackForkAgentQuery(options: {
+  forkLabel: string;
+  querySource?: string;
+  durationMs: number;
+  messageCount: number;
+  totalUsage: any;
+  queryTracking?: QueryTracking;
+}): void {
+  const usage = options.totalUsage;
+  const totalInputTokens = 
+    (usage.input_tokens || 0) + 
+    (usage.cache_creation_input_tokens || 0) + 
+    (usage.cache_read_input_tokens || 0);
+  
+  const cacheHitRate = totalInputTokens > 0 ? (usage.cache_read_input_tokens || 0) / totalInputTokens : 0;
+
+  logTelemetry('tengu_fork_agent_query', {
+    forkLabel: options.forkLabel,
+    querySource: options.querySource,
+    durationMs: options.durationMs,
+    messageCount: options.messageCount,
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
+    cacheReadInputTokens: usage.cache_read_input_tokens,
+    cacheCreationInputTokens: usage.cache_creation_input_tokens,
+    serviceTier: usage.service_tier,
+    cacheCreationEphemeral1hTokens: usage.cache_creation?.ephemeral_1h_input_tokens,
+    cacheCreationEphemeral5mTokens: usage.cache_creation?.ephemeral_5m_input_tokens,
+    cacheHitRate,
+    ...options.queryTracking ? {
+      queryChainId: options.queryTracking.chainId,
+      queryDepth: options.queryTracking.depth
+    } : {}
+  });
+}
+
+/**
  * Log API success telemetry.
  * Original: mapped to chunks.134.mjs:1710
  */
@@ -1701,6 +1741,7 @@ export async function* coreMessageLoop(
     maxOutputTokensRecoveryCount = 0,
     maxTurns,
     turnCount = 1,
+    enablePromptCaching,
   } = options;
 
   // 1. Signal stream request start
@@ -1888,6 +1929,7 @@ export async function* coreMessageLoop(
             queryTracking,
             querySource,
             permissionMode,
+            enablePromptCaching,
           },
         })) {
           // Handle fallback: tombstone previous messages

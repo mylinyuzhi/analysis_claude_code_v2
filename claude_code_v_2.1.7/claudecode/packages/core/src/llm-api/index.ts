@@ -50,3 +50,15 @@ export {
 export type {
   StreamApiCallOptions,
 } from './streaming.js';
+
+// Re-export prompt caching
+export {
+  isPromptCachingSupported,
+  getCacheControl,
+  applyMessageCacheBreakpoints,
+  formatSystemPromptWithCache,
+  formatSystemPrompt,
+  getHaikuModel,
+  getSonnetModel,
+  getOpusModel,
+} from './prompt-cache.js';

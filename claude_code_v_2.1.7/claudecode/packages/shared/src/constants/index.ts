@@ -266,6 +266,86 @@ export const AUTO_COMPACT_THRESHOLD = 0.8;
 export const MICRO_COMPACT_TURN_WINDOW = 3;
 
 // ============================================
+// Pricing Models (per Million Tokens)
+// ============================================
+
+export interface PricingModel {
+  inputTokens: number;
+  outputTokens: number;
+  promptCacheWriteTokens: number;
+  promptCacheReadTokens: number;
+  webSearchRequests: number;
+}
+
+// Sonnet 4.5 (KQA)
+export const SONNET_4_5_PRICING: PricingModel = {
+  inputTokens: 3,
+  outputTokens: 15,
+  promptCacheWriteTokens: 3.75,
+  promptCacheReadTokens: 0.3,
+  webSearchRequests: 0.01,
+};
+
+// Opus 4.5 (seA)
+export const OPUS_4_5_PRICING: PricingModel = {
+  inputTokens: 15,
+  outputTokens: 75,
+  promptCacheWriteTokens: 18.75,
+  promptCacheReadTokens: 1.5,
+  webSearchRequests: 0.01,
+};
+
+// Sonnet 4 (teA)
+export const SONNET_4_PRICING: PricingModel = {
+  inputTokens: 5,
+  outputTokens: 25,
+  promptCacheWriteTokens: 6.25,
+  promptCacheReadTokens: 0.5,
+  webSearchRequests: 0.01,
+};
+
+// Sonnet 4.5 > 200k (yp1)
+export const SONNET_4_5_EXTENDED_PRICING: PricingModel = {
+  inputTokens: 6,
+  outputTokens: 22.5,
+  promptCacheWriteTokens: 7.5,
+  promptCacheReadTokens: 0.6,
+  webSearchRequests: 0.01,
+};
+
+// Haiku 4.5 (vp1)
+export const HAIKU_4_5_PRICING: PricingModel = {
+  inputTokens: 0.8,
+  outputTokens: 4,
+  promptCacheWriteTokens: 1,
+  promptCacheReadTokens: 0.08,
+  webSearchRequests: 0.01,
+};
+
+// Haiku 3.5 (kp1)
+export const HAIKU_3_5_PRICING: PricingModel = {
+  inputTokens: 1,
+  outputTokens: 5,
+  promptCacheWriteTokens: 1.25,
+  promptCacheReadTokens: 0.1,
+  webSearchRequests: 0.01,
+};
+
+// ============================================
+// Identity Headers
+// ============================================
+
+export const CLI_IDENTITY_HEADER = 'x-anthropic-cli-identity';
+export const SDK_CLI_IDENTITY_HEADER = 'x-anthropic-sdk-cli-identity';
+export const SDK_AGENT_IDENTITY_HEADER = 'x-anthropic-sdk-agent-identity';
+
+export const IDENTITY_HEADERS = new Set([
+  CLI_IDENTITY_HEADER,
+  SDK_CLI_IDENTITY_HEADER,
+  SDK_AGENT_IDENTITY_HEADER,
+]);
+
+// ============================================
 // Type Tags (for runtime type checking)
 // ============================================
 
@@ -277,4 +357,3 @@ export const TYPE_TAGS = {
   GENERATOR_FUNCTION: '[object GeneratorFunction]',
   PROXY: '[object Proxy]',
 } as const;
-

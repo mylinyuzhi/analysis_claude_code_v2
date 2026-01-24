@@ -31,9 +31,22 @@ export interface TokenUsage {
   output_tokens: number;
   cache_read_input_tokens?: number;
   cache_creation_input_tokens?: number;
+  cache_creation?: {
+    ephemeral_1h_input_tokens?: number;
+    ephemeral_5m_input_tokens?: number;
+  };
   server_tool_use?: {
     web_search_requests?: number;
+    web_fetch_requests?: number;
   };
+}
+
+/**
+ * Cache control for prompt caching
+ */
+export interface CacheControl {
+  type: 'ephemeral';
+  ttl?: string;
 }
 
 // ============================================
@@ -226,13 +239,15 @@ export type ContentBlockType =
   | 'image'
   | 'tool_use'
   | 'tool_result'
-  | 'thinking';
+  | 'thinking'
+  | 'redacted_thinking';
 
 /**
  * Base content block
  */
 export interface BaseContentBlock {
   type: ContentBlockType;
+  cache_control?: CacheControl;
 }
 
 /**
@@ -284,6 +299,14 @@ export interface ThinkingContentBlock extends BaseContentBlock {
 }
 
 /**
+ * Redacted thinking content block
+ */
+export interface RedactedThinkingContentBlock extends BaseContentBlock {
+  type: 'redacted_thinking';
+  data: string;
+}
+
+/**
  * Union of all content block types
  */
 export type ContentBlock =
@@ -291,7 +314,8 @@ export type ContentBlock =
   | ImageContentBlock
   | ToolUseContentBlock
   | ToolResultContentBlock
-  | ThinkingContentBlock;
+  | ThinkingContentBlock
+  | RedactedThinkingContentBlock;
 
 /**
  * Message role

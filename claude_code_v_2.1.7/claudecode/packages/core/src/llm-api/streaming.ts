@@ -15,8 +15,8 @@
  * - E19 → logApiError (telemetry)
  */
 
-import { generateUUID } from '@claudecode/shared';
-import type { TokenUsage, ContentBlock, ToolDefinition } from '@claudecode/shared';
+import { generateUUID, mergeUsage } from '@claudecode/shared';
+import type { TokenUsage, ContentBlock, ToolDefinition, Message } from '@claudecode/shared';
 import { analyticsEvent } from '@claudecode/platform';
 import type {
   StreamEvent,
@@ -27,9 +27,15 @@ import type {
   AnthropicClientInterface,
   MessagesRequest,
   RetryContext,
+  SystemContent,
 } from './types.js';
 import { retryGenerator, isOverloadError } from './retry.js';
 import { createAnthropicClient } from './client.js';
+import {
+  isPromptCachingSupported,
+  formatSystemPromptWithCache,
+  applyMessageCacheBreakpoints,
+} from './prompt-cache.js';
 
 // ============================================
 // Constants
@@ -268,53 +274,7 @@ function updateUsage(
   accumulated: ExtendedUsage,
   newUsage: Partial<ExtendedUsage>
 ): ExtendedUsage {
-  return {
-    // Use new values if present and > 0, otherwise keep accumulated
-    input_tokens:
-      newUsage.input_tokens !== null &&
-      newUsage.input_tokens !== undefined &&
-      newUsage.input_tokens > 0
-        ? newUsage.input_tokens
-        : accumulated.input_tokens,
-
-    cache_creation_input_tokens:
-      newUsage.cache_creation_input_tokens !== null &&
-      newUsage.cache_creation_input_tokens !== undefined &&
-      newUsage.cache_creation_input_tokens > 0
-        ? newUsage.cache_creation_input_tokens
-        : accumulated.cache_creation_input_tokens,
-
-    cache_read_input_tokens:
-      newUsage.cache_read_input_tokens !== null &&
-      newUsage.cache_read_input_tokens !== undefined &&
-      newUsage.cache_read_input_tokens > 0
-        ? newUsage.cache_read_input_tokens
-        : accumulated.cache_read_input_tokens,
-
-    output_tokens: newUsage.output_tokens ?? accumulated.output_tokens,
-
-    server_tool_use: {
-      web_search_requests:
-        newUsage.server_tool_use?.web_search_requests ??
-        accumulated.server_tool_use?.web_search_requests ??
-        0,
-      web_fetch_requests:
-        newUsage.server_tool_use?.web_fetch_requests ??
-        accumulated.server_tool_use?.web_fetch_requests ??
-        0,
-    },
-
-    service_tier: accumulated.service_tier,
-
-    cache_creation: {
-      ephemeral_1h_input_tokens:
-        newUsage.cache_creation?.ephemeral_1h_input_tokens ??
-        accumulated.cache_creation?.ephemeral_1h_input_tokens,
-      ephemeral_5m_input_tokens:
-        newUsage.cache_creation?.ephemeral_5m_input_tokens ??
-        accumulated.cache_creation?.ephemeral_5m_input_tokens,
-    },
-  };
+  return mergeUsage(accumulated, newUsage as TokenUsage) as ExtendedUsage;
 }
 
 /**
@@ -512,7 +472,7 @@ export interface StreamApiCallOptions {
  */
 export interface StreamApiCallArgs {
   messages: any[];
-  systemPrompt?: string;
+  systemPrompt?: string | string[];
   maxThinkingTokens?: number;
   tools?: ToolDefinition[];
   signal?: AbortSignal;
@@ -564,17 +524,43 @@ export async function* streamApiCall({
         fetchOverride: options.fetchOverride,
       }),
       async (client, attempt, context) => {
+        // Determine if prompt caching should be used for this attempt
+        const currentModel = context.model || options.model;
+        const enablePromptCaching = options.enablePromptCaching && isPromptCachingSupported(currentModel);
+
+        let system: string | SystemContent[] | undefined;
+        let messagesToUse = messages as Message[];
+
+        if (enablePromptCaching) {
+          // Handle system prompt caching
+          if (systemPrompt) {
+            const parts = Array.isArray(systemPrompt) ? systemPrompt : [systemPrompt];
+            system = formatSystemPromptWithCache(parts, true);
+          }
+
+          // Handle message caching
+          messagesToUse = applyMessageCacheBreakpoints(messages as Message[], true);
+        } else {
+          // If caching is disabled, handle system prompt format
+          if (Array.isArray(systemPrompt)) {
+            system = systemPrompt.join('\n');
+          } else {
+            system = systemPrompt;
+          }
+        }
+
         // Build request payload with context overrides
         const payload: MessagesRequest = {
-          model: context.model || options.model,
-          messages: messages as any[],
-          system: systemPrompt,
+          model: currentModel,
+          messages: messagesToUse,
+          system: system,
           max_tokens: context.maxTokensOverride || options.maxOutputTokensOverride || 4096,
           tools: tools,
           thinking: maxThinkingTokens ? {
             type: 'enabled',
             budget_tokens: maxThinkingTokens
           } : undefined,
+          enablePromptCaching: options.enablePromptCaching,
         };
 
         // Start streaming
@@ -754,9 +740,10 @@ export async function* streamApiCall({
     const payload: MessagesRequest = {
       model: options.model,
       messages: messages as any[],
-      system: systemPrompt,
+      system: Array.isArray(systemPrompt) ? systemPrompt.join('\n') : systemPrompt,
       max_tokens: Math.min(options.maxOutputTokensOverride || MAX_NON_STREAMING_TOKENS, MAX_NON_STREAMING_TOKENS),
       tools: tools,
+      enablePromptCaching: options.enablePromptCaching,
     };
 
     const response = await client.messages.create(payload);

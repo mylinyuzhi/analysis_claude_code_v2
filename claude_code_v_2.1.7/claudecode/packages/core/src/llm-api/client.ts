@@ -6,6 +6,11 @@
  */
 
 import { parseBoolean } from '@claudecode/shared';
+import { 
+  isPromptCachingSupported, 
+  applyMessageCacheBreakpoints, 
+  formatSystemPromptWithCache 
+} from './prompt-cache.js';
 import type {
   ClientOptions,
   BedrockOptions,
@@ -156,7 +161,7 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
   private async makeRequest(
     endpoint: string,
     body: unknown,
-    options?: { signal?: AbortSignal; stream?: boolean }
+    options?: { signal?: AbortSignal; stream?: boolean; betas?: string[] }
   ): Promise<Response> {
     const url = `${this.baseURL}${endpoint}`;
 
@@ -166,6 +171,10 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
       'anthropic-version': API_VERSION,
       ...this.defaultHeaders,
     };
+
+    if (options?.betas && options.betas.length > 0) {
+      headers['anthropic-beta'] = options.betas.join(',');
+    }
 
     if (options?.stream) {
       headers['Accept'] = 'text/event-stream';
@@ -213,11 +222,23 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
      * Create a message (non-streaming)
      */
     create: async (request: MessagesRequest): Promise<MessagesResponse> => {
+      let { messages, system, enablePromptCaching, model } = request;
+      const cachingEnabled = enablePromptCaching && isPromptCachingSupported(model);
+
+      if (cachingEnabled) {
+        messages = applyMessageCacheBreakpoints(messages, true);
+        if (Array.isArray(system)) {
+          system = formatSystemPromptWithCache(system.map(s => s.text), true);
+        } else if (typeof system === 'string') {
+          system = formatSystemPromptWithCache([system], true);
+        }
+      }
+
       const body = {
-        model: request.model,
+        model,
         max_tokens: request.max_tokens,
-        messages: request.messages,
-        system: request.system,
+        messages,
+        system,
         tools: request.tools,
         tool_choice: request.tool_choice,
         thinking: request.thinking,
@@ -229,7 +250,9 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
         stream: false,
       };
 
-      const response = await this.makeRequest('/v1/messages', body);
+      const response = await this.makeRequest('/v1/messages', body, {
+        betas: cachingEnabled ? ['prompt-caching-2024-07-31'] : []
+      });
       return (await response.json()) as MessagesResponse;
     },
 
@@ -241,11 +264,23 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
       request: MessagesRequest,
       options?: { signal?: AbortSignal }
     ): AsyncGenerator<StreamEvent> {
+      let { messages, system, enablePromptCaching, model } = request;
+      const cachingEnabled = enablePromptCaching && isPromptCachingSupported(model);
+
+      if (cachingEnabled) {
+        messages = applyMessageCacheBreakpoints(messages, true);
+        if (Array.isArray(system)) {
+          system = formatSystemPromptWithCache(system.map(s => s.text), true);
+        } else if (typeof system === 'string') {
+          system = formatSystemPromptWithCache([system], true);
+        }
+      }
+
       const body = {
-        model: request.model,
+        model,
         max_tokens: request.max_tokens,
-        messages: request.messages,
-        system: request.system,
+        messages,
+        system,
         tools: request.tools,
         tool_choice: request.tool_choice,
         thinking: request.thinking,
@@ -260,6 +295,7 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
       const response = await this.makeRequest('/v1/messages', body, {
         signal: options?.signal,
         stream: true,
+        betas: cachingEnabled ? ['prompt-caching-2024-07-31'] : []
       });
 
       if (!response.body) {

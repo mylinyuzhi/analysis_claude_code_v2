@@ -198,6 +198,8 @@ export interface CoreMessageLoopOptions {
   maxTurns?: number;
   /** Current turn count */
   turnCount?: number;
+  /** Enable prompt caching */
+  enablePromptCaching?: boolean;
 }
 
 /**

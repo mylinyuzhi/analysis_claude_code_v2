@@ -77,6 +77,7 @@ export interface MessagesRequest {
   thinking?: ThinkingConfig;
   metadata?: RequestMetadata;
   stream?: boolean;
+  enablePromptCaching?: boolean;
 }
 
 /**
@@ -93,6 +94,7 @@ export interface SystemContent {
  */
 export interface CacheControl {
   type: 'ephemeral';
+  ttl?: string;
 }
 
 /**
