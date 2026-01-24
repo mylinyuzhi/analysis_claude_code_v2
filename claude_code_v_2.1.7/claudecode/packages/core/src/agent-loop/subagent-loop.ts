@@ -17,6 +17,7 @@
 
 import { appendJsonlEntry, generateUUID, getProjectDir, getSessionId, generateTaskId, type SessionLogEntry } from '@claudecode/shared';
 import { createUserMessage } from '../message/factory.js';
+import { analyticsEvent } from '@claudecode/platform';
 import type { ConversationMessage } from '../message/types.js';
 import type { ToolDefinition, ToolUseContext } from '../tools/types.js';
 import { coreMessageLoop, resolveModelWithPermissions } from './core-message-loop.js';
@@ -30,6 +31,7 @@ import {
   extractTextFromOutput,
   type HookEventType,
   HOOK_EVENT_TYPES,
+  calculateMaxThinkingTokens,
 } from '@claudecode/features';
 import { userInfo, homedir, hostname, platform as osPlatform, release as osRelease, type as osType } from 'os';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
@@ -55,67 +57,6 @@ function logDebug(message: string): void {
   if (process.env.CLAUDE_DEBUG) {
     console.log(`[SubagentLoop] ${message}`);
   }
-}
-
-// ============================================
-// Thinking Tokens
-// ============================================
-
-const ULTRATHINK_TOKENS = 31_999;
-const ULTRATHINK_REGEX = /\bultrathink\b/i;
-
-function getUserMessageTextContent(message: ConversationMessage): string {
-  if (message.type !== 'user') return '';
-
-  const content = (message as { message?: { content?: unknown } }).message?.content;
-  if (typeof content === 'string') return content;
-  if (!Array.isArray(content)) return '';
-
-  return content
-    .map((b) => ((b as { type?: string; text?: unknown }).type === 'text' ? String((b as any).text ?? '') : ''))
-    .join('');
-}
-
-function extractThinkingTokensFromUserMessage(message: ConversationMessage): number {
-  if (message.type !== 'user') return 0;
-  if ((message as { isMeta?: boolean }).isMeta) return 0;
-
-  const thinkingMetadata = (message as { thinkingMetadata?: unknown }).thinkingMetadata as
-    | { level?: unknown; disabled?: unknown }
-    | undefined;
-
-  // Prefer explicit thinking metadata (matches source qz8)
-  if (thinkingMetadata && typeof thinkingMetadata === 'object') {
-    if (thinkingMetadata.disabled === true) return 0;
-    if (thinkingMetadata.level === 'high') return ULTRATHINK_TOKENS;
-    return 0;
-  }
-
-  // Fallback to keyword detection in message text content
-  const text = getUserMessageTextContent(message);
-  return ULTRATHINK_REGEX.test(text) ? ULTRATHINK_TOKENS : 0;
-}
-
-function calculateMaxThinkingTokensFromConversation(
-  messages: ConversationMessage[],
-  defaultTokens?: number
-): number {
-  const env = process.env.MAX_THINKING_TOKENS;
-  if (env) {
-    const budget = parseInt(env, 10);
-    // Source: if NaN, Math.max(...) path would have been taken; here we just return NaN -> 0.
-    if (Number.isFinite(budget)) return budget;
-  }
-
-  const userTokens: number[] = [];
-  for (const m of messages) {
-    if (m.type !== 'user') continue;
-    if ((m as { isMeta?: boolean }).isMeta) continue;
-    userTokens.push(extractThinkingTokensFromUserMessage(m));
-  }
-
-  const fallback = defaultTokens ?? 0;
-  return userTokens.length > 0 ? Math.max(...userTokens, fallback) : fallback;
 }
 
 // ============================================
@@ -1000,7 +941,7 @@ export async function* runSubagentLoop(
     verbose: toolUseContext.options.verbose,
     mainLoopModel: resolvedModel,
     // Match source: maxThinkingTokens: Hm(E)
-    maxThinkingTokens: calculateMaxThinkingTokensFromConversation(messages),
+    maxThinkingTokens: calculateMaxThinkingTokens(messages as any, undefined, process.env.MAX_THINKING_TOKENS, undefined, analyticsEvent as any),
     mcpClients,
     mcpResources: toolUseContext.options.mcpResources,
     agentDefinitions: toolUseContext.options.agentDefinitions,

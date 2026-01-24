@@ -62,4 +62,5 @@ export {
   removeTrailingThinkingBlocks,
   filterOrphanedThinkingMessages,
   shouldSkipInTurnCount,
+  filterCompactableMessages,
 } from './filtering.js';

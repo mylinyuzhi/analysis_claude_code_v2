@@ -280,3 +280,19 @@ export const FileSystemWrapper = {
  * Original: vA in chunks.1.mjs
  */
 export const getFileSystem = () => FileSystemWrapper;
+
+// ============================================
+// Path Utilities
+// ============================================
+
+/**
+ * Join path segments.
+ * Original: part of chunks.1.mjs path handling
+ */
+export const joinPath = (...args: string[]) => path.join(...args);
+
+/**
+ * Get system temporary directory.
+ * Original: part of chunks.1.mjs temp handling
+ */
+export const getTempDir = () => os.tmpdir();

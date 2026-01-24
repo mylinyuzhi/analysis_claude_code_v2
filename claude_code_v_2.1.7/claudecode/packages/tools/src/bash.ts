@@ -27,7 +27,6 @@ import {
   isBashSandboxed,
   SANDBOX_CONSTANTS,
   getSandboxConfig,
-  appendToOutputFile,
   type SandboxConfig,
 } from '@claudecode/platform';
 import {
@@ -37,6 +36,7 @@ import {
   createBaseTask,
   killBackgroundTask as killLocalBashTask,
   createBashTaskNotification as notifyBashTaskCompletion,
+  appendToOutputFile,
   type BackgroundTask as LocalBashTask,
 } from '@claudecode/integrations/background-agents';
 

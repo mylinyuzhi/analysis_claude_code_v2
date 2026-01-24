@@ -21,7 +21,9 @@ interface ThinkingMessage {
   role?: string;
   isMeta?: boolean;
   thinkingMetadata?: ThinkingMetadata;
-  content: string | Array<{ type: string; text?: string }>;
+  message: {
+    content: string | Array<{ type: string; text?: string }>;
+  };
 }
 
 /**
@@ -31,6 +33,7 @@ interface ThinkingMessage {
  * @param messages - Messages to analyze
  * @param defaultTokens - Default token count if none found
  * @param envMaxThinkingTokens - Environment variable override
+ * @param provider - Optional provider for telemetry
  * @param telemetry - Optional telemetry callback
  * @returns Maximum thinking token budget
  */
@@ -38,13 +41,17 @@ export function calculateMaxThinkingTokens(
   messages: ThinkingMessage[],
   defaultTokens?: number,
   envMaxThinkingTokens?: string,
+  provider?: string,
   telemetry?: (event: string, data: Record<string, unknown>) => void
 ): number {
   // Priority 1: Environment variable override
   if (envMaxThinkingTokens) {
     const budget = parseInt(envMaxThinkingTokens, 10);
     if (budget > 0) {
-      telemetry?.('tengu_thinking', { tokenCount: budget });
+      telemetry?.('tengu_thinking', {
+        provider,
+        tokenCount: budget,
+      });
     }
     return budget;
   }
@@ -53,7 +60,7 @@ export function calculateMaxThinkingTokens(
   // Filter to non-meta user messages, extract thinking tokens from each
   const messageTokens = messages
     .filter((msg) => (msg.type === 'user' || msg.role === 'user') && !msg.isMeta)
-    .map((msg) => extractThinkingFromMessage(msg, telemetry));
+    .map((msg) => extractThinkingFromMessage(msg as any, telemetry));
 
   return Math.max(...messageTokens, defaultTokens ?? 0);
 }

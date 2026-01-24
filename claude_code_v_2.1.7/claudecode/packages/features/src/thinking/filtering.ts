@@ -221,6 +221,55 @@ export function shouldSkipInTurnCount(message: MessageWithContent): boolean {
   return isThinkingOnlyMessage(message);
 }
 
+/**
+ * Filter compactable blocks from messages (removes thinking and orphaned tool blocks).
+ * Original: UG7 (filterCompactableMessages) in chunks.135.mjs:694-712
+ *
+ * @param messages - Messages to filter
+ * @returns Filtered messages
+ */
+export function filterCompactableMessages(messages: any[]): any[] {
+  const isToolResult = (block: any) =>
+    typeof block === 'object' &&
+    block !== null &&
+    block.type === 'tool_result' &&
+    typeof block.tool_use_id === 'string';
+
+  const isSuccessfulResult = (block: any) =>
+    !block.is_error &&
+    !(typeof block.content === 'string' && block.content.includes('[Compacted]'));
+
+  const isUserMessage = (msg: any) =>
+    msg.type === 'user' || msg.role === 'user';
+
+  // Build set of valid tool_use_ids (successful tool results)
+  const validToolResultIds = new Set(
+    messages
+      .filter(isUserMessage)
+      .flatMap((msg) => (Array.isArray(msg.message?.content) ? msg.message.content : []))
+      .filter(isToolResult)
+      .filter(isSuccessfulResult)
+      .map((toolResult) => toolResult.tool_use_id)
+  );
+
+  // KEY FILTER: Exclude thinking blocks and orphaned tool references
+  const shouldKeepBlock = (block: any) =>
+    block.type !== 'thinking' &&
+    block.type !== 'redacted_thinking' &&
+    !(block.type === 'tool_use' && !validToolResultIds.has(block.id)) &&
+    !(block.type === 'tool_result' && !validToolResultIds.has(block.tool_use_id));
+
+  return messages
+    .map((msg) => {
+      if (!msg.message || !Array.isArray(msg.message.content)) return msg;
+      const filteredContent = msg.message.content.filter(shouldKeepBlock);
+      if (filteredContent.length === msg.message.content.length) return msg;
+      if (filteredContent.length === 0) return null; // Drop empty messages
+      return { ...msg, message: { ...msg.message, content: filteredContent } };
+    })
+    .filter((msg) => msg !== null);
+}
+
 // ============================================
 // Export
 // ============================================

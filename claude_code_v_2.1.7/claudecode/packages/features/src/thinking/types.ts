@@ -102,44 +102,57 @@ export interface ThinkingShimmerColors {
 // Constants
 // ============================================
 
+/**
+ * Thinking mode constants and default values.
+ * Reconstructed from chunks.1.mjs, chunks.68.mjs, chunks.85.mjs
+ */
 export const THINKING_CONSTANTS = {
   // Token levels (binary system)
+  // Original: sB0 in chunks.68.mjs:3573-3576
   ULTRATHINK: 31999,
   NONE: 0,
 
   // Default budget for token counting
+  // Original: jZ0 in chunks.85.mjs:856
   DEFAULT_BUDGET: 1024,
 
-  // Keyword detection
+  // Keyword detection regex
+  // Original: Cz8 in chunks.68.mjs:3576
   ULTRATHINK_REGEX: /\bultrathink\b/gi,
 
   // Model-specific max tokens
+  // Original: o5A in chunks.1.mjs:2240-2252
   MODEL_MAX_TOKENS: {
-    'claude-3-haiku': 4096,
+    '3-5': 8192,
     'claude-3-opus': 4096,
     'claude-3-sonnet': 8192,
-    'claude-3.5': 8192,
-    'opus-4': 32000,
+    'claude-3-haiku': 4096,
     'opus-4-5': 64000,
+    'opus-4': 32000,
     'sonnet-4': 64000,
     'haiku-4': 64000,
   } as Record<string, number>,
 
   // Default max thinking tokens
+  // Original: FT9 in chunks.1.mjs:2258
   DEFAULT_MAX_TOKENS: 32000,
 
   // UI colors
+  // Original: C91 in chunks.68.mjs:3566-3569
   LEVEL_COLORS: {
-    none: 'promptBorder',
+    none: 'text',
     high: 'claude',
   } as ThinkingLevelColors,
 
+  // UI shimmer effects
+  // Original: kRB in chunks.68.mjs:3569-3572
   SHIMMER_COLORS: {
     none: 'promptBorderShimmer',
     high: 'claudeShimmer',
   } as ThinkingShimmerColors,
 
   // Rainbow colors for keyword highlighting
+  // Original: zz8 in chunks.68.mjs:3572
   RAINBOW_COLORS: [
     'rainbow_red',
     'rainbow_orange',
@@ -150,7 +163,20 @@ export const THINKING_CONSTANTS = {
     'rainbow_violet',
   ] as const,
 
-  // Beta flags
+  // Rainbow shimmer variants
+  // Original: $z8 in chunks.68.mjs:3572
+  RAINBOW_SHIMMER_COLORS: [
+    'rainbow_red_shimmer',
+    'rainbow_orange_shimmer',
+    'rainbow_yellow_shimmer',
+    'rainbow_green_shimmer',
+    'rainbow_blue_shimmer',
+    'rainbow_indigo_shimmer',
+    'rainbow_violet_shimmer',
+  ] as const,
+
+  // Beta flag for interleaved thinking
+  // Original: $b0 in chunks.1.mjs:2207
   INTERLEAVED_THINKING_BETA: 'interleaved-thinking-2025-05-14',
 } as const;
 

@@ -38,15 +38,18 @@ export function detectThinkingKeyword(messageText: string): ThinkingDetectionRes
  */
 export function extractKeywordPositions(
   text: string
-): Array<{ start: number; end: number }> {
-  const positions: Array<{ start: number; end: number }> = [];
+): Array<{ word: string; start: number; end: number }> {
+  const positions: Array<{ word: string; start: number; end: number }> = [];
   const regex = /\bultrathink\b/gi;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    positions.push({
-      start: match.index,
-      end: match.index + match[0].length,
-    });
+  const matches = text.matchAll(regex);
+  for (const match of matches) {
+    if (match.index !== undefined) {
+      positions.push({
+        word: match[0],
+        start: match.index,
+        end: match.index + match[0].length,
+      });
+    }
   }
   return positions;
 }
@@ -153,15 +156,15 @@ export function isThinkingEnabled(options: {
  * Original: Nz8 (getMessageTextContent) in chunks.68.mjs:3508-3511
  */
 export function getMessageTextContent(message: {
-  content: string | Array<{ type: string; text?: string }>;
+  message: {
+    content: string | Array<{ type: string; text?: string }>;
+  };
 }): string {
-  if (typeof message.content === 'string') {
-    return message.content;
+  const content = message.message.content;
+  if (typeof content === 'string') {
+    return content;
   }
-  return message.content
-    .filter((block) => block.type === 'text' && block.text)
-    .map((block) => block.text)
-    .join('\n');
+  return content.map((block) => (block.type === 'text' ? block.text : '')).join('');
 }
 
 /**
@@ -180,7 +183,9 @@ export function extractThinkingFromMessage(
   message: {
     isMeta?: boolean;
     thinkingMetadata?: ThinkingMetadata;
-    content: string | Array<{ type: string; text?: string }>;
+    message: {
+      content: string | Array<{ type: string; text?: string }>;
+    };
   },
   telemetry?: (event: string, data: Record<string, unknown>) => void
 ): number {
