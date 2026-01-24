@@ -1,76 +1,25 @@
 /**
- * @claudecode/integrations - IDE Integration Module
+ * @claudecode/integrations - IDE Integration
  *
- * Provides IDE detection, connection management, and integration features.
+ * This module handles deep integration with various IDEs including:
+ * - Process-based IDE detection
+ * - MCP-based connection handling (SSE/WebSocket)
+ * - Extension installation and management
+ * - Terminal keybinding configuration
+ * - Diff view integration
+ * - Context attachments
  *
- * Key features:
- * - Process-based IDE detection (18+ supported IDEs)
- * - Lock file discovery and parsing
- * - Workspace validation and connection matching
- * - WSL support with path translation
- *
- * Reconstructed from chunks.131.mjs, chunks.149.mjs, chunks.153.mjs
+ * Supported IDEs:
+ * - VS Code family: VS Code, Cursor, Windsurf
+ * - JetBrains family: IntelliJ, PyCharm, WebStorm, etc.
  */
 
-// ============================================
-// Types
-// ============================================
-
-export type {
-  IdeKind,
-  IdeConfig,
-  IdeName,
-  IdeLockInfo,
-  IdeConnection,
-  IdeInstallationState,
-  IdeDiffRequest,
-  IdeDiffResponse,
-  IdeMcpConfig,
-} from './types.js';
-
-export { IDE_CONSTANTS } from './types.js';
-
-// ============================================
-// Configuration
-// ============================================
-
-export {
-  IDE_CONFIG_MAP,
-  isVSCodeIDE,
-  isJetBrainsIDE,
-  getIdeKind,
-  getIdeDisplayName,
-  getIdeExtensionId,
-  getSupportedIdeNames,
-  getIdesByKind,
-} from './config.js';
-
-// ============================================
-// Detection
-// ============================================
-
-export {
-  getOS,
-  detectRunningIDEs,
-  isProcessAlive,
-  getParentPid,
-  isIDEProcessRunning,
-  isInCodeTerminal,
-} from './detection.js';
-
-// ============================================
-// Connection
-// ============================================
-
-export {
-  getIDEDirectories,
-  getIDELockFiles,
-  parseLockFile,
-  isPortReachable,
-  cleanupStaleLockFiles,
-  getIDEHost,
-  getAvailableIDEConnections,
-  waitForIDEConnection,
-  cancelWaitForIDEConnection,
-  createIdeMcpConfig,
-} from './connection.js';
+export * from './types.js';
+export * from './config.js';
+export * from './detection.js';
+export * from './connection.js';
+export * from './extension.js';
+export * from './keybindings.js';
+export * from './diff.js';
+export * from './attachments.js';
+export * from './hooks.js';

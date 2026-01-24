@@ -134,6 +134,37 @@ export interface IdeMcpConfig {
 }
 
 // ============================================
+// IDE Attachment Types
+// ============================================
+
+/**
+ * IDE context information captured from the connected IDE.
+ */
+export interface IdeContext {
+  filePath?: string;
+  lineStart?: number;
+  lineCount?: number;
+  text?: string;
+}
+
+/**
+ * IDE-related prompt attachments.
+ */
+export type IdeAttachment =
+  | {
+      type: 'selected_lines_in_ide';
+      ideName: string;
+      lineStart: number;
+      lineEnd: number;
+      filename: string;
+      content: string;
+    }
+  | {
+      type: 'opened_file_in_ide';
+      filename: string;
+    };
+
+// ============================================
 // Constants
 // ============================================
 
@@ -170,8 +201,16 @@ export const IDE_CONSTANTS = {
   } as const,
 } as const;
 
-// ============================================
-// Export
-// ============================================
+/**
+ * Terminal info.
+ */
+export interface TerminalInfo {
+  terminal: string | null;
+}
 
-// NOTE: 类型/常量已在声明处导出；移除重复聚合导出以避免 TS2484。
+/**
+ * Keybinding installation context.
+ */
+export interface KeybindingContext {
+  // Add any specific context fields if needed
+}

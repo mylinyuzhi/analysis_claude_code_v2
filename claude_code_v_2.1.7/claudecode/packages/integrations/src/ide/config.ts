@@ -232,9 +232,3 @@ export function getIdesByKind(kind: IdeKind): IdeName[] {
     .filter(([_, config]) => config.ideKind === kind)
     .map(([name]) => name);
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

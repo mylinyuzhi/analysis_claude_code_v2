@@ -13,7 +13,18 @@ import net from 'net';
 import type { IdeLockInfo, IdeConnection, IdeMcpConfig } from './types.js';
 import { IDE_CONSTANTS } from './types.js';
 import { getOS, isProcessAlive, isIDEProcessRunning, isInCodeTerminal } from './detection.js';
-import { getIdeDisplayName } from './config.js';
+import { getIdeDisplayName, isVSCodeIDE, isJetBrainsIDE } from './config.js';
+import { installVSCodeExtension, getInstalledExtensionVersion, getVSCodeCLIPath } from './extension.js';
+
+// ============================================
+// Internal State
+// ============================================
+
+/**
+ * Global abort controller for connection polling.
+ * Original: xF1 in chunks.131.mjs:2870
+ */
+let connectionAbortController: AbortController | null = null;
 
 // ============================================
 // Directory Utilities
@@ -547,6 +558,137 @@ export function cancelWaitForIDEConnection(): void {
 // ============================================
 
 /**
+ * Check if the onboarding has been shown for the current terminal.
+ * Original: SF1 in chunks.131.mjs:2236
+ */
+export function hasIdeOnboardingBeenShown(settings: any, terminal: string = 'unknown'): boolean {
+  return settings.hasIdeOnboardingBeenShown?.[terminal] === true;
+}
+
+/**
+ * Check if the extension is installed for the given IDE.
+ * Original: Rr2 in chunks.131.mjs:2602
+ */
+export async function isExtensionInstalled(ideName: string): Promise<boolean> {
+  if (isVSCodeIDE(ideName)) {
+    const cliPath = getVSCodeCLIPath(ideName as any);
+    if (!cliPath) return false;
+    try {
+      const version = await getInstalledExtensionVersion(cliPath);
+      return version !== null;
+    } catch {
+      return false;
+    }
+  }
+  // JetBrains support is handled differently in original source (zL0)
+  return false;
+}
+
+/**
+ * Orchestrate the installation of the extension.
+ * Original: K27 in chunks.131.mjs:2492
+ */
+export async function handleExtensionInstallation(
+  ideName: string,
+  settings: any,
+  updateSettings: (updates: any) => void,
+  logTelemetry: (event: string, data: any) => void
+): Promise<any> {
+  try {
+    const version = await installVSCodeExtension(ideName as any);
+    logTelemetry('tengu_ext_installed', {});
+    
+    if (!settings.diffTool) {
+      updateSettings({ diffTool: 'auto' });
+    }
+
+    return {
+      installed: true,
+      error: null,
+      installedVersion: version,
+      ideType: ideName,
+    };
+  } catch (error: any) {
+    logTelemetry('tengu_ext_install_error', {});
+    return {
+      installed: false,
+      error: error.message || String(error),
+      installedVersion: null,
+      ideType: ideName,
+    };
+  }
+}
+
+/**
+ * Initialize IDE connection and extension installation.
+ * Original: hr2 in chunks.131.mjs:2830-2854
+ */
+export async function initializeIDEConnection(
+  onConnection: (conn: IdeConnection | null) => void,
+  ideToInstall: string | undefined,
+  showOnboarding: () => void,
+  setInstallationState: (state: any) => void,
+  settings: any,
+  updateSettings: (updates: any) => void,
+  logTelemetry: (event: string, data: any) => void,
+  currentTerminal: string = 'unknown'
+): Promise<void> {
+  // Start polling for connection
+  waitForIDEConnection().then(onConnection);
+
+  const shouldAutoInstall = process.env.CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL !== 'true' && 
+                           (settings.autoInstallIdeExtension ?? true);
+
+  if (shouldAutoInstall) {
+    const targetIDE = ideToInstall ?? currentTerminal;
+    if (targetIDE) {
+      if (isVSCodeIDE(targetIDE)) {
+        const alreadyInstalled = await isExtensionInstalled(targetIDE);
+        handleExtensionInstallation(targetIDE, settings, updateSettings, logTelemetry)
+          .then((result) => {
+            setInstallationState(result);
+            if (result.installed) {
+              waitForIDEConnection().then(onConnection);
+            }
+            if (!alreadyInstalled && result.installed && !hasIdeOnboardingBeenShown(settings, currentTerminal)) {
+              showOnboarding();
+            }
+          });
+      } else if (isJetBrainsIDE(targetIDE) && !hasIdeOnboardingBeenShown(settings, currentTerminal)) {
+        isExtensionInstalled(targetIDE).then((installed) => {
+          if (installed) showOnboarding();
+        });
+      }
+    }
+  }
+}
+
+/**
+ * Get the IDE MCP client from a map of clients.
+ * Original: nN in chunks.131.mjs:2818-2822
+ */
+export function getIDEClient(mcpClients: any): any | null {
+  return mcpClients?.ide ?? null;
+}
+
+/**
+ * Get the IDE name from connected clients.
+ * Original: hF1 in chunks.131.mjs:2792-2795
+ */
+export function getIDEName(mcpClients: any): string | null {
+  const ideClient = getIDEClient(mcpClients);
+  return ideClient?.type === 'connected' ? ideClient.config.ideName : null;
+}
+
+/**
+ * Check if an IDE is connected.
+ * Original: fF1 in chunks.131.mjs:2598-2600
+ */
+export function hasConnectedIDE(mcpClients: any): boolean {
+  return getIDEName(mcpClients) !== null;
+}
+
+/**
  * Create IDE MCP configuration from connection.
  * Used for dynamic MCP config when auto-connecting to IDE.
  */
@@ -560,9 +702,3 @@ export function createIdeMcpConfig(connection: IdeConnection): IdeMcpConfig {
     scope: 'dynamic',
   };
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。
