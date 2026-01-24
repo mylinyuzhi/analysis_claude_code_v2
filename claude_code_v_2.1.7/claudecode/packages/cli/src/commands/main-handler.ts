@@ -69,6 +69,7 @@ import {
   telemetry,
   refreshOAuthTokenIfNeeded,
 } from '@claudecode/platform';
+import { showSetupScreens } from './setup-screens.js';
 
 // ============================================
 // Main Command Handler
@@ -1091,6 +1092,17 @@ async function runInteractiveMode(options: InteractiveModeOptions): Promise<void
   const mcpState = getMcpState();
 
   const agentDefinitions = await getAllAgents({ cwd: process.cwd() });
+
+  // Phase: Run setup screens (onboarding, login, trust)
+  if (options.verbose) {
+    console.error('Running setup screens...');
+  }
+  await showSetupScreens(
+    options.dangerouslySkipPermissions,
+    false, // forceSetup
+    [], // commands
+    false // isChrome
+  );
 
   let appState = createInitialAppState({
     verbose: Boolean(options.verbose),

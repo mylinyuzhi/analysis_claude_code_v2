@@ -56,6 +56,7 @@ export {
   // Event logging
   logEvent,
   logEventAsync,
+  logError,
   recordTelemetry,
   analyticsEvent,
   analyticsEventAsync,

@@ -62,6 +62,7 @@ export {
   shouldUseOAuth,
   getOAuthAccount,
   getJwtToken,
+  injectAuthHeader,
   saveOAuthTokens,
   clearOAuthTokens,
   isTokenExpiringSoon,
@@ -73,4 +74,9 @@ export {
   generateState,
   buildAuthorizationUrl,
   exchangeCodeForTokens,
+  fetchOAuthProfile,
+  fetchUserRoles,
+  createApiKey,
+  AuthCodeListener,
+  OAuthManager,
 } from './oauth.js';

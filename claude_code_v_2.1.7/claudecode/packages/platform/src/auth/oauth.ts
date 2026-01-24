@@ -9,89 +9,82 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
+import * as http from 'node:http';
+import { analyticsEvent, logError, telemetryMarker } from '../telemetry/index.js';
+import { openBrowser } from '../utils/browser.js';
 import type {
   OAuthTokens,
   OAuthTokenSource,
   OAuthAccount,
   TokenRefreshResult,
+  SubscriptionType,
 } from './types.js';
 import {
-  OAUTH_CONFIG,
+  getOAuthConfig,
   AUTH_ENV_VARS,
   TOKEN_REFRESH_CONFIG,
   CREDENTIALS_PATHS,
+  getSettingsFilePath,
+  DEFAULT_OAUTH_SCOPES,
 } from './constants.js';
-import { readOAuthTokenFromFileDescriptor } from './api-key.js';
+import { readOAuthTokenFromFileDescriptor, executeApiKeyHelper } from './api-key.js';
 
 // ============================================
 // State
 // ============================================
 
 let cachedOAuthTokens: OAuthTokens | null = null;
-let cachedOAuthAccount: OAuthAccount | null = null;
 let isRefreshing = false;
 
-type OAuthTokenEndpointResponse = {
-  access_token: string;
-  refresh_token?: string;
-  expires_in?: number | string;
-  token_type?: string;
-  scope?: string;
-};
+// ============================================
+// Internal Helpers
+// ============================================
 
-function parseOAuthTokenEndpointResponse(
-  data: unknown,
-  fallbackRefreshToken?: string
-): TokenRefreshResult {
-  if (!data || typeof data !== 'object') {
-    return {
-      success: false,
-      error: 'Token endpoint returned invalid JSON',
-    };
-  }
+/**
+ * Check if the scopes include claude.ai access.
+ * Original: xg in chunks.48.mjs
+ */
+function hasClaudeAiScope(scopes?: string[] | string): boolean {
+  if (!scopes) return false;
+  const scopeList = Array.isArray(scopes) ? scopes : scopes.split(' ');
+  // In source it checks for specific scopes, usually includes 'user:inference' or similar
+  return (
+    scopeList.includes('user:inference') ||
+    scopeList.includes('user:profile') ||
+    scopeList.some((s) => s.startsWith('claude-ai'))
+  );
+}
 
-  const record = data as Partial<OAuthTokenEndpointResponse> &
-    Record<string, unknown>;
-  const accessToken =
-    typeof record.access_token === 'string' ? record.access_token : undefined;
-
-  if (!accessToken) {
-    return {
-      success: false,
-      error: 'Token endpoint response missing access_token',
-    };
-  }
-
-  const refreshToken =
-    typeof record.refresh_token === 'string'
-      ? record.refresh_token
-      : fallbackRefreshToken;
-
-  const expiresInRaw = record.expires_in;
-  const expiresIn =
-    typeof expiresInRaw === 'number'
-      ? expiresInRaw
-      : typeof expiresInRaw === 'string' && expiresInRaw.trim() !== ''
-        ? Number(expiresInRaw)
-        : undefined;
-
-  const expiresAt = Number.isFinite(expiresIn)
-    ? Date.now() + (expiresIn as number) * 1000
-    : undefined;
-
-  const tokenType =
-    typeof record.token_type === 'string' ? record.token_type : 'Bearer';
-  const scope = typeof record.scope === 'string' ? record.scope : undefined;
-
-  const tokens: OAuthTokens = {
-    accessToken,
-    refreshToken,
-    expiresAt,
-    tokenType,
-    scope,
+/**
+ * Get the storage provider.
+ * Original: ZL in chunks.27.mjs
+ */
+function getStorage(): any {
+  const settingsPath = getSettingsFilePath();
+  return {
+    read: () => {
+      try {
+        if (fs.existsSync(settingsPath)) {
+          return JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+        }
+      } catch {
+        // Ignore errors
+      }
+      return {};
+    },
+    update: (data: any) => {
+      try {
+        const settingsDir = path.dirname(settingsPath);
+        if (!fs.existsSync(settingsDir)) {
+          fs.mkdirSync(settingsDir, { recursive: true, mode: 0o700 });
+        }
+        fs.writeFileSync(settingsPath, JSON.stringify(data, null, 2), { mode: 0o600 });
+        return { success: true };
+      } catch (error) {
+        return { success: false, error };
+      }
+    },
   };
-
-  return { success: true, tokens };
 }
 
 // ============================================
@@ -103,24 +96,57 @@ function parseOAuthTokenEndpointResponse(
  * Original: qB in chunks.48.mjs:2125-2128
  */
 export function isClaudeAiOAuth(): boolean {
+  const source = getOAuthTokenSource();
+  if (source === 'none') return false;
   const tokens = getClaudeAiOAuth();
-  return tokens !== null && !!tokens.accessToken;
+  return !!tokens?.accessToken && hasClaudeAiScope(tokens.scopes || tokens.scope);
 }
 
 /**
  * Get cached Claude.ai OAuth tokens (memoized).
- * Original: g4 in chunks.48.mjs
+ * Original: g4 in chunks.48.mjs:2346
  */
 export function getClaudeAiOAuth(): OAuthTokens | null {
   if (cachedOAuthTokens) {
     return cachedOAuthTokens;
   }
 
-  // Try loading from settings
-  const tokens = loadOAuthTokensFromSettings();
-  if (tokens) {
-    cachedOAuthTokens = tokens;
-    return tokens;
+  // 1. Check environment variable
+  if (process.env[AUTH_ENV_VARS.CLAUDE_CODE_OAUTH_TOKEN]) {
+    cachedOAuthTokens = {
+      accessToken: process.env[AUTH_ENV_VARS.CLAUDE_CODE_OAUTH_TOKEN]!,
+      refreshToken: null,
+      expiresAt: null,
+      scopes: [...DEFAULT_OAUTH_SCOPES],
+      subscriptionType: null,
+      rateLimitTier: null,
+    };
+    return cachedOAuthTokens;
+  }
+
+  // 2. Check file descriptor
+  const fdToken = readOAuthTokenFromFileDescriptor();
+  if (fdToken) {
+    cachedOAuthTokens = {
+      accessToken: fdToken,
+      refreshToken: null,
+      expiresAt: null,
+      scopes: [...DEFAULT_OAUTH_SCOPES],
+      subscriptionType: null,
+      rateLimitTier: null,
+    };
+    return cachedOAuthTokens;
+  }
+
+  // 3. Load from settings
+  try {
+    const data = getStorage().read();
+    if (data?.claudeAiOauth?.accessToken) {
+      cachedOAuthTokens = data.claudeAiOauth;
+      return cachedOAuthTokens;
+    }
+  } catch (error) {
+    logError(error instanceof Error ? error : Error(String(error)));
   }
 
   return null;
@@ -131,20 +157,19 @@ export function getClaudeAiOAuth(): OAuthTokens | null {
  * Original: an in chunks.48.mjs:1735-1761
  */
 export function getOAuthTokenSource(): OAuthTokenSource {
-  // Check Claude.ai OAuth first
-  if (isClaudeAiOAuth()) {
-    return 'claudeAi';
+  if (process.env[AUTH_ENV_VARS.ANTHROPIC_AUTH_TOKEN]) {
+    return 'environment'; // Mapped from ANTHROPIC_AUTH_TOKEN
   }
-
-  // Check file descriptor
-  const fdToken = readOAuthTokenFromFileDescriptor();
-  if (fdToken) {
-    return 'fileDescriptor';
-  }
-
-  // Check environment variable
   if (process.env[AUTH_ENV_VARS.CLAUDE_CODE_OAUTH_TOKEN]) {
     return 'environment';
+  }
+  if (readOAuthTokenFromFileDescriptor()) {
+    return 'fileDescriptor';
+  }
+  
+  const tokens = getClaudeAiOAuth();
+  if (tokens?.accessToken && hasClaudeAiScope(tokens.scopes || tokens.scope)) {
+    return 'claudeAi';
   }
 
   return 'none';
@@ -155,31 +180,19 @@ export function getOAuthTokenSource(): OAuthTokenSource {
  * Original: iq in chunks.48.mjs:1723-1733
  */
 export function shouldUseOAuth(): boolean {
-  const source = getOAuthTokenSource();
-  return source !== 'none';
+  return getOAuthTokenSource() !== 'none';
 }
 
 /**
  * Get OAuth account info.
  */
 export function getOAuthAccount(): OAuthAccount | null {
-  if (cachedOAuthAccount) {
-    return cachedOAuthAccount;
-  }
-
-  // Load from settings
-  const settingsPath = path.join(os.homedir(), '.claude', CREDENTIALS_PATHS.SETTINGS_FILE);
   try {
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    if (settings.claudeAiOauth?.account) {
-      cachedOAuthAccount = settings.claudeAiOauth.account;
-      return cachedOAuthAccount;
-    }
+    const data = getStorage().read();
+    return data?.claudeAiOauth?.account || null;
   } catch {
-    // Settings file doesn't exist or is invalid
+    return null;
   }
-
-  return null;
 }
 
 /**
@@ -191,77 +204,60 @@ export function getJwtToken(): string | undefined {
   return globalThis.EJ?.jwtToken;
 }
 
-// ============================================
-// Token Loading
-// ============================================
-
 /**
- * Load OAuth tokens from settings file.
+ * Inject authorization header into headers object.
+ * Original: Xn8 in chunks.82.mjs:2739
  */
-function loadOAuthTokensFromSettings(): OAuthTokens | null {
-  const settingsPath = path.join(os.homedir(), '.claude', CREDENTIALS_PATHS.SETTINGS_FILE);
-
-  try {
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    const oauthData = settings.claudeAiOauth;
-
-    if (oauthData?.accessToken) {
-      return {
-        accessToken: oauthData.accessToken,
-        refreshToken: oauthData.refreshToken,
-        expiresAt: oauthData.expiresAt,
-        tokenType: oauthData.tokenType || 'Bearer',
-        scope: oauthData.scope,
-      };
-    }
-  } catch {
-    // Settings file doesn't exist or is invalid
+export function injectAuthHeader(headers: Record<string, string>, isTrusted: boolean = true): void {
+  const token = process.env[AUTH_ENV_VARS.ANTHROPIC_AUTH_TOKEN] || executeApiKeyHelper(isTrusted);
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
-
-  return null;
 }
+
+// ============================================
+// Token Persistence
+// ============================================
 
 /**
  * Save OAuth tokens to settings file.
- * Original: XXA in chunks.48.mjs
+ * Original: XXA in chunks.48.mjs:2034
  */
 export function saveOAuthTokens(tokens: OAuthTokens): boolean {
-  const settingsDir = path.join(os.homedir(), '.claude');
-  const settingsPath = path.join(settingsDir, CREDENTIALS_PATHS.SETTINGS_FILE);
+  if (tokens.scopes && !hasClaudeAiScope(tokens.scopes)) {
+    analyticsEvent('tengu_oauth_tokens_not_claude_ai', {});
+    return true;
+  }
+
+  if (!tokens.refreshToken || !tokens.expiresAt) {
+    analyticsEvent('tengu_oauth_tokens_inference_only', {});
+    return true;
+  }
 
   try {
-    // Ensure directory exists
-    if (!fs.existsSync(settingsDir)) {
-      fs.mkdirSync(settingsDir, { recursive: true, mode: 0o700 });
-    }
-
-    // Load existing settings
-    let settings: Record<string, unknown> = {};
-    try {
-      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    } catch {
-      // File doesn't exist or is invalid
-    }
-
-    // Update OAuth tokens
-    settings.claudeAiOauth = {
+    const storage = getStorage();
+    const data = storage.read() || {};
+    data.claudeAiOauth = {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: tokens.expiresAt,
-      tokenType: tokens.tokenType,
-      scope: tokens.scope,
-      lastUpdated: new Date().toISOString(),
+      scopes: tokens.scopes,
+      subscriptionType: tokens.subscriptionType,
+      rateLimitTier: tokens.rateLimitTier,
     };
-
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), {
-      mode: 0o600,
-    });
-
-    // Update cache
-    cachedOAuthTokens = tokens;
-
-    return true;
-  } catch {
+    
+    const result = storage.update(data);
+    if (result.success) {
+      analyticsEvent('tengu_oauth_tokens_saved', { storageBackend: 'file' });
+      cachedOAuthTokens = tokens;
+      return true;
+    } else {
+      analyticsEvent('tengu_oauth_tokens_save_failed', { storageBackend: 'file' });
+      return false;
+    }
+  } catch (error) {
+    logError(error instanceof Error ? error : Error(String(error)));
+    analyticsEvent('tengu_oauth_tokens_save_exception', { error: (error as Error).message });
     return false;
   }
 }
@@ -271,17 +267,11 @@ export function saveOAuthTokens(tokens: OAuthTokens): boolean {
  */
 export function clearOAuthTokens(): void {
   cachedOAuthTokens = null;
-  cachedOAuthAccount = null;
-
-  const settingsPath = path.join(os.homedir(), '.claude', CREDENTIALS_PATHS.SETTINGS_FILE);
-  try {
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    delete settings.claudeAiOauth;
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), {
-      mode: 0o600,
-    });
-  } catch {
-    // Ignore errors
+  const storage = getStorage();
+  const data = storage.read();
+  if (data?.claudeAiOauth) {
+    delete data.claudeAiOauth;
+    storage.update(data);
   }
 }
 
@@ -293,26 +283,25 @@ export function clearOAuthTokens(): void {
  * Check if token is expiring soon.
  * Original: yg in chunks.48.mjs
  */
-export function isTokenExpiringSoon(tokens: OAuthTokens): boolean {
-  if (!tokens.expiresAt) {
-    return false; // No expiry info, assume valid
+export function isTokenExpiringSoon(expiresAt?: number | null): boolean {
+  if (!expiresAt) {
+    return false;
   }
 
   const now = Date.now();
-  const expiryTime = tokens.expiresAt;
   const bufferTime = TOKEN_REFRESH_CONFIG.EXPIRY_BUFFER_MS;
 
-  return now >= expiryTime - bufferTime;
+  return now >= expiresAt - bufferTime;
 }
 
 /**
  * Get time until token expiry in milliseconds.
  */
-export function getTimeUntilExpiry(tokens: OAuthTokens): number | null {
-  if (!tokens.expiresAt) {
+export function getTimeUntilExpiry(expiresAt?: number | null): number | null {
+  if (!expiresAt) {
     return null;
   }
-  return Math.max(0, tokens.expiresAt - Date.now());
+  return Math.max(0, expiresAt - Date.now());
 }
 
 // ============================================
@@ -321,43 +310,55 @@ export function getTimeUntilExpiry(tokens: OAuthTokens): number | null {
 
 /**
  * Refresh OAuth token if needed.
- * Original: xR in chunks.48.mjs:2056-2123
+ * Original: xR in chunks.48.mjs:2084-2123
  */
-export async function refreshOAuthTokenIfNeeded(): Promise<void> {
-  const tokens = getClaudeAiOAuth();
-  if (!tokens || !tokens.refreshToken) {
-    return;
+export async function refreshOAuthTokenIfNeeded(retryCount = 0, force = false): Promise<boolean> {
+  let tokens = getClaudeAiOAuth();
+  
+  if (!force) {
+    if (!tokens?.refreshToken || !isTokenExpiringSoon(tokens.expiresAt)) {
+      return false;
+    }
   }
 
-  if (!isTokenExpiringSoon(tokens)) {
-    return;
+  if (!tokens?.refreshToken || !hasClaudeAiScope(tokens.scopes || tokens.scope)) {
+    return false;
   }
 
-  // Prevent concurrent refresh attempts
+  // Prevent concurrent refresh attempts using a lock if possible
   if (isRefreshing) {
-    return;
+    return false;
   }
 
   isRefreshing = true;
 
   try {
-    const result = await refreshOAuthToken(tokens.refreshToken);
+    analyticsEvent('tengu_oauth_token_refresh_starting', {});
+    const result = await refreshAccessToken(tokens.refreshToken);
     if (result.success && result.tokens) {
       saveOAuthTokens(result.tokens);
+      return true;
     }
+    return false;
+  } catch (error) {
+    logError(error instanceof Error ? error : Error(String(error)));
+    return false;
   } finally {
     isRefreshing = false;
   }
 }
 
+/** Alias for refreshOAuthTokenIfNeeded */
+export const refreshOAuthToken = refreshOAuthTokenIfNeeded;
+
 /**
- * Refresh OAuth token using refresh token.
+ * Refresh access token using refresh token.
+ * Original: rT1 in chunks.48.mjs
  */
-export async function refreshOAuthToken(
-  refreshToken: string
-): Promise<TokenRefreshResult> {
+export async function refreshAccessToken(refreshToken: string): Promise<TokenRefreshResult> {
+  const oauthConfig = getOAuthConfig();
   try {
-    const response = await fetch(OAUTH_CONFIG.TOKEN_URL, {
+    const response = await fetch(oauthConfig.TOKEN_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -365,7 +366,7 @@ export async function refreshOAuthToken(
       body: new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
-        client_id: OAUTH_CONFIG.CLIENT_ID,
+        client_id: oauthConfig.CLIENT_ID,
       }),
     });
 
@@ -377,8 +378,19 @@ export async function refreshOAuthToken(
       };
     }
 
-    const data = (await response.json()) as unknown;
-    return parseOAuthTokenEndpointResponse(data, refreshToken);
+    const data = (await response.json()) as any;
+    const expiresAt = data.expires_in ? Date.now() + data.expires_in * 1000 : null;
+    
+    return {
+      success: true,
+      tokens: {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token || refreshToken,
+        expiresAt,
+        scopes: data.scope ? data.scope.split(' ') : [],
+        tokenType: data.token_type || 'Bearer',
+      },
+    };
   } catch (error) {
     return {
       success: false,
@@ -436,12 +448,13 @@ export function buildAuthorizationUrl(options: {
   scope?: string;
   useClaudeAi?: boolean;
 }): string {
+  const oauthConfig = getOAuthConfig();
   const baseUrl = options.useClaudeAi
-    ? OAUTH_CONFIG.CLAUDE_AI_AUTHORIZE_URL
-    : OAUTH_CONFIG.CONSOLE_AUTHORIZE_URL;
+    ? oauthConfig.CLAUDE_AI_AUTHORIZE_URL
+    : oauthConfig.CONSOLE_AUTHORIZE_URL;
 
   const params = new URLSearchParams({
-    client_id: OAUTH_CONFIG.CLIENT_ID,
+    client_id: oauthConfig.CLIENT_ID,
     response_type: 'code',
     code_challenge: options.codeChallenge,
     code_challenge_method: 'S256',
@@ -467,19 +480,20 @@ export async function exchangeCodeForTokens(
   codeVerifier: string,
   redirectUri?: string
 ): Promise<TokenRefreshResult> {
+  const oauthConfig = getOAuthConfig();
   try {
     const params: Record<string, string> = {
       grant_type: 'authorization_code',
       code,
       code_verifier: codeVerifier,
-      client_id: OAUTH_CONFIG.CLIENT_ID,
+      client_id: oauthConfig.CLIENT_ID,
     };
 
     if (redirectUri) {
       params.redirect_uri = redirectUri;
     }
 
-    const response = await fetch(OAUTH_CONFIG.TOKEN_URL, {
+    const response = await fetch(oauthConfig.TOKEN_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -495,8 +509,19 @@ export async function exchangeCodeForTokens(
       };
     }
 
-    const data = (await response.json()) as unknown;
-    return parseOAuthTokenEndpointResponse(data);
+    const data = (await response.json()) as any;
+    const expiresAt = data.expires_in ? Date.now() + data.expires_in * 1000 : null;
+
+    return {
+      success: true,
+      tokens: {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        expiresAt,
+        scopes: data.scope ? data.scope.split(' ') : [],
+        tokenType: data.token_type || 'Bearer',
+      },
+    };
   } catch (error) {
     return {
       success: false,
@@ -505,8 +530,313 @@ export async function exchangeCodeForTokens(
   }
 }
 
+/**
+ * Fetch OAuth profile/account info.
+ * Original: RZA in chunks.27.mjs:1767-1779
+ */
+export async function fetchOAuthProfile(accessToken: string): Promise<any> {
+  const oauthConfig = getOAuthConfig();
+  const url = `${oauthConfig.BASE_API_URL}/api/oauth/profile`;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    logError(error instanceof Error ? error : Error(String(error)));
+    return null;
+  }
+}
+
+/**
+ * Fetch user roles and store in account info.
+ * Original: REQ in chunks.27.mjs:1884-1904
+ */
+export async function fetchUserRoles(accessToken: string): Promise<any> {
+  const oauthConfig = getOAuthConfig();
+  try {
+    const response = await fetch(oauthConfig.ROLES_URL, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user roles: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    logError(error instanceof Error ? error : Error(String(error)));
+    throw error;
+  }
+}
+
+/**
+ * Create a managed API key using OAuth access token.
+ * Original: _EQ in chunks.27.mjs:1906-1925
+ */
+export async function createApiKey(accessToken: string): Promise<string | null> {
+  const oauthConfig = getOAuthConfig();
+  try {
+    const response = await fetch(oauthConfig.API_KEY_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to create API key: ${response.statusText}`);
+    }
+    const data = (await response.json()) as any;
+    const apiKey = data?.raw_key;
+    if (apiKey) {
+      analyticsEvent('tengu_oauth_api_key', { status: 'success', statusCode: response.status });
+      return apiKey;
+    }
+    return null;
+  } catch (error) {
+    analyticsEvent('tengu_oauth_api_key', {
+      status: 'failure',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
 // ============================================
-// Export
+// Auth Listener & Manager
 // ============================================
 
-// NOTE: 函数已在声明处导出；移除重复聚合导出。
+/**
+ * Local server to listen for OAuth redirect callbacks.
+ * Original: eD0 in chunks.97.mjs:983-1072
+ */
+export class AuthCodeListener {
+  private server: http.Server;
+  private port: number = 0;
+  private promiseResolver: ((code: string) => void) | null = null;
+  private promiseRejecter: ((error: Error) => void) | null = null;
+  private expectedState: string | null = null;
+  private pendingResponse: http.ServerResponse | null = null;
+  private callbackPath: string;
+
+  constructor(callbackPath: string = '/callback') {
+    this.server = http.createServer();
+    this.callbackPath = callbackPath;
+  }
+
+  async start(port: number = 0): Promise<number> {
+    return new Promise((resolve, reject) => {
+      this.server.once('error', (err) => {
+        reject(new Error(`Failed to start OAuth callback server: ${err.message}`));
+      });
+      this.server.listen(port, 'localhost', () => {
+        const address = this.server.address() as any;
+        this.port = address.port;
+        resolve(this.port);
+      });
+    });
+  }
+
+  getPort(): number {
+    return this.port;
+  }
+
+  hasPendingResponse(): boolean {
+    return this.pendingResponse !== null;
+  }
+
+  async waitForAuthorization(state: string, onStarted: () => void): Promise<string> {
+    return new Promise((resolve, reject) => {
+      this.promiseResolver = resolve;
+      this.promiseRejecter = reject;
+      this.expectedState = state;
+      this.startLocalListener(onStarted);
+    });
+  }
+
+  handleSuccessRedirect(scopes?: string[]): void {
+    if (!this.pendingResponse) return;
+    
+    const oauthConfig = getOAuthConfig();
+    const isClaudeAi = scopes?.some(s => s.startsWith('user:'));
+    const location = isClaudeAi ? oauthConfig.CLAUDEAI_SUCCESS_URL : oauthConfig.CONSOLE_SUCCESS_URL;
+
+    this.pendingResponse.writeHead(302, { Location: location });
+    this.pendingResponse.end();
+    this.pendingResponse = null;
+    analyticsEvent('tengu_oauth_automatic_redirect', {});
+  }
+
+  handleErrorRedirect(): void {
+    if (!this.pendingResponse) return;
+    const oauthConfig = getOAuthConfig();
+    this.pendingResponse.writeHead(302, { Location: oauthConfig.CLAUDEAI_SUCCESS_URL });
+    this.pendingResponse.end();
+    this.pendingResponse = null;
+    analyticsEvent('tengu_oauth_automatic_redirect_error', {});
+  }
+
+  private startLocalListener(onStarted: () => void): void {
+    this.server.on('request', this.handleRequest.bind(this));
+    this.server.on('error', (err) => {
+      logError(err);
+      this.close();
+      if (this.promiseRejecter) this.promiseRejecter(err);
+    });
+    onStarted();
+  }
+
+  private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+    const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+    if (url.pathname !== this.callbackPath) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+
+    const code = url.searchParams.get('code') || undefined;
+    const state = url.searchParams.get('state') || undefined;
+    this.validateAndRespond(code, state, res);
+  }
+
+  private validateAndRespond(code: string | undefined, state: string | undefined, res: http.ServerResponse): void {
+    if (!code) {
+      res.writeHead(400);
+      res.end('Authorization code not found');
+      if (this.promiseRejecter) this.promiseRejecter(new Error('No authorization code received'));
+      return;
+    }
+
+    if (state !== this.expectedState) {
+      res.writeHead(400);
+      res.end('Invalid state parameter');
+      if (this.promiseRejecter) this.promiseRejecter(new Error('Invalid state parameter'));
+      return;
+    }
+
+    this.pendingResponse = res;
+    if (this.promiseResolver) {
+      this.promiseResolver(code);
+      this.promiseResolver = null;
+      this.promiseRejecter = null;
+    }
+  }
+
+  close(): void {
+    if (this.pendingResponse) this.handleErrorRedirect();
+    this.server.removeAllListeners();
+    this.server.close();
+  }
+}
+
+/**
+ * Manager for the OAuth PKCE flow.
+ * Original: YkA in chunks.107.mjs:1589-1674
+ */
+export class OAuthManager {
+  private codeVerifier: string;
+  private listener: AuthCodeListener | null = null;
+  private port: number | null = null;
+  private manualAuthCodeResolver: ((code: string) => void) | null = null;
+
+  constructor() {
+    this.codeVerifier = generateCodeVerifier();
+  }
+
+  async startOAuthFlow(
+    onUrlReady: (url: string) => Promise<void>,
+    options?: {
+      loginWithClaudeAi?: boolean;
+      inferenceOnly?: boolean;
+      orgUUID?: string;
+      expiresIn?: number;
+    }
+  ): Promise<any> {
+    this.listener = new AuthCodeListener();
+    this.port = await this.listener.start();
+
+    const codeChallenge = generateCodeChallenge(this.codeVerifier);
+    const state = generateState();
+
+    const authOptions = {
+      codeChallenge,
+      state,
+      redirectUri: `http://localhost:${this.port}/callback`,
+      useClaudeAi: options?.loginWithClaudeAi,
+    };
+
+    const manualUrl = buildAuthorizationUrl({ ...authOptions });
+    const autoUrl = buildAuthorizationUrl({ ...authOptions }); // In source they might be slightly different or same
+
+    const code = await this.waitForAuthorizationCode(state, async () => {
+      await onUrlReady(manualUrl);
+      await openBrowser(autoUrl);
+    });
+
+    const isAutomatic = this.listener?.hasPendingResponse() ?? false;
+    analyticsEvent('tengu_oauth_auth_code_received', { automatic: isAutomatic });
+
+    try {
+      const result = await exchangeCodeForTokens(code, this.codeVerifier, authOptions.redirectUri);
+      if (!result.success || !result.tokens) {
+        throw new Error(result.error || 'Token exchange failed');
+      }
+
+      const tokens = result.tokens;
+      
+      // Update account info if provided
+      const profile = await fetchOAuthProfile(tokens.accessToken);
+      
+      if (isAutomatic) {
+        this.listener?.handleSuccessRedirect(tokens.scopes);
+      }
+
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: tokens.expiresAt,
+        scopes: tokens.scopes,
+        subscriptionType: profile?.subscriptionType,
+        rateLimitTier: profile?.rateLimitTier,
+      };
+    } catch (error) {
+      if (isAutomatic) this.listener?.handleErrorRedirect();
+      throw error;
+    } finally {
+      this.listener?.close();
+    }
+  }
+
+  private async waitForAuthorizationCode(state: string, onStarted: () => void): Promise<string> {
+    return new Promise((resolve, reject) => {
+      this.manualAuthCodeResolver = resolve;
+      this.listener?.waitForAuthorization(state, onStarted).then((code) => {
+        this.manualAuthCodeResolver = null;
+        resolve(code);
+      }).catch((err) => {
+        this.manualAuthCodeResolver = null;
+        reject(err);
+      });
+    });
+  }
+
+  handleManualAuthCodeInput(options: { authorizationCode: string; state: string }): void {
+    if (this.manualAuthCodeResolver) {
+      this.manualAuthCodeResolver(options.authorizationCode);
+      this.manualAuthCodeResolver = null;
+      this.listener?.close();
+    }
+  }
+
+  cleanup(): void {
+    this.listener?.close();
+    this.manualAuthCodeResolver = null;
+  }
+}

@@ -42,6 +42,7 @@ export type ApiKeySource =
   | 'apiKeyHelper'
   | 'keychain'
   | 'config'
+  | '/login managed key'
   | 'none';
 
 /**
@@ -68,10 +69,13 @@ export interface GetApiKeyOptions {
  */
 export interface OAuthTokens {
   accessToken: string;
-  refreshToken?: string;
-  expiresAt?: number;
+  refreshToken?: string | null;
+  expiresAt?: number | null;
   tokenType?: string;
   scope?: string;
+  scopes?: string[];
+  subscriptionType?: SubscriptionType;
+  rateLimitTier?: string | null;
 }
 
 /**
@@ -89,7 +93,11 @@ export type OAuthTokenSource =
 export interface OAuthAccount {
   accountUuid?: string;
   organizationUuid?: string;
-  email?: string;
+  organizationName?: string;
+  emailAddress?: string;
+  displayName?: string;
+  billingType?: string;
+  hasExtraUsageEnabled?: boolean;
   subscriptionType?: SubscriptionType;
 }
 
@@ -116,33 +124,37 @@ export interface ProviderClientOptions {
   maxRetries?: number;
   timeout?: number;
   fetchOverride?: typeof fetch;
+  model?: string;
 }
 
 /**
  * Bedrock configuration.
  */
-export interface BedrockConfig {
+export interface BedrockConfig extends ProviderClientOptions {
   awsAccessKey?: string;
   awsSecretKey?: string;
   awsRegion?: string;
   awsSessionToken?: string;
+  skipAuth?: boolean;
+  logger?: any;
 }
 
 /**
  * Vertex configuration.
  */
-export interface VertexConfig {
+export interface VertexConfig extends ProviderClientOptions {
   projectId?: string;
   region?: string;
-  googleAuthOptions?: unknown;
+  googleAuth?: any;
+  logger?: any;
 }
 
 /**
  * Foundry configuration.
  */
-export interface FoundryConfig {
-  azureADToken?: string;
-  managedIdentity?: boolean;
+export interface FoundryConfig extends ProviderClientOptions {
+  azureADTokenProvider?: () => Promise<string>;
+  logger?: any;
 }
 
 // ============================================
@@ -204,11 +216,11 @@ export type AuthEventType =
   | 'tengu_oauth_token_refresh_failure'
   | 'tengu_oauth_token_refresh_lock_acquiring'
   | 'tengu_oauth_token_refresh_lock_acquired'
+  | 'tengu_oauth_token_refresh_lock_retry'
+  | 'tengu_oauth_token_refresh_lock_retry_limit_reached'
+  | 'tengu_oauth_token_refresh_lock_error'
+  | 'tengu_oauth_token_refresh_starting'
+  | 'tengu_oauth_token_refresh_race_resolved'
+  | 'tengu_oauth_token_refresh_race_recovered'
   | 'tengu_api_key_saved_to_keychain'
   | 'tengu_api_key_keychain_error';
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类型已在声明处导出；移除重复聚合导出。

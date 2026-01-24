@@ -11,7 +11,7 @@ import path from 'path';
 import { promisify } from 'util';
 import semver from 'semver';
 import { getOS } from './detection.js';
-import { IdeName } from './types.js';
+import type { IdeName } from './types.js';
 import { IDE_CONFIG_MAP } from './config.js';
 
 const execAsync = promisify(exec);

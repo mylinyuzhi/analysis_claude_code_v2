@@ -9,6 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execSync } from 'node:child_process';
+import { isInteractive, getClientType, parseBoolean, isNonInteractive } from '@claudecode/shared';
 import type {
   ApiKeyResult,
   ApiKeySource,
@@ -21,6 +22,7 @@ import {
   KEYCHAIN_CONFIG,
   API_KEY_HELPER_CONFIG,
   CREDENTIALS_PATHS,
+  getConfigFilePath,
 } from './constants.js';
 
 // ============================================
@@ -36,22 +38,23 @@ let apiKeyHelperCacheExpiry: number = 0;
 
 /**
  * Check if running in SDK mode.
- * Original: eb0 in chunks.48.mjs
+ * Original: eb0 in chunks.1.mjs:2670
  */
 export function isSDKMode(): boolean {
-  return process.env.CLAUDE_CODE_SDK_MODE === '1';
+  // Returns true if not interactive and not in VS Code
+  return !isInteractive() && getClientType() !== 'claude-vscode';
 }
 
 /**
  * Check if running in hosted mode.
- * Original: a1 in chunks.48.mjs
+ * Original: a1 in chunks.1.mjs:3046 (General boolean parser used for env vars)
  */
 export function isHostedMode(strict: boolean = false): boolean {
   const envValue = process.env.CLAUDE_CODE_HOSTED_MODE;
   if (strict) {
     return envValue === '1' || envValue === 'true';
   }
-  return !!envValue && envValue !== '0' && envValue !== 'false';
+  return parseBoolean(envValue);
 }
 
 // ============================================
@@ -89,6 +92,7 @@ export function readApiKeyFromFileDescriptor(): string | null {
 
 /**
  * Read OAuth token from file descriptor.
+ * Original: nT1 in chunks.48.mjs
  */
 export function readOAuthTokenFromFileDescriptor(): string | null {
   const fd = process.env[AUTH_ENV_VARS.OAUTH_TOKEN_FILE_DESCRIPTOR];
@@ -106,20 +110,21 @@ export function readOAuthTokenFromFileDescriptor(): string | null {
 }
 
 // ============================================
-// API Key Masking
+// API Key Masking & Config
 // ============================================
 
 /**
  * Mask API key for display/storage.
- * Original: TL in chunks.48.mjs
+ * For approval check, it returns last 20 characters.
+ * Original: TL in chunks.48.mjs:1664
  */
 export function maskApiKey(apiKey: string): string {
-  if (apiKey.length <= 8) return '*'.repeat(apiKey.length);
-  return `${apiKey.slice(0, 4)}..${apiKey.slice(-4)}`;
+  if (apiKey.length <= 20) return apiKey;
+  return apiKey.slice(-20);
 }
 
 /**
- * Hash API key for config storage.
+ * Hash API key for config storage (Simple fallback).
  */
 export function hashApiKey(apiKey: string): string {
   // Simple hash for comparison (not cryptographic)
@@ -132,46 +137,53 @@ export function hashApiKey(apiKey: string): string {
   return `hash_${Math.abs(hash).toString(16)}`;
 }
 
+/**
+ * Get configuration from the main config file.
+ * Original: L1 in chunks.48.mjs (inferred)
+ */
+function getConfig(): any {
+  const configPath = getConfigFilePath();
+  try {
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    }
+  } catch {
+    // Ignore errors
+  }
+  return {};
+}
+
 // ============================================
 // API Key Helper
 // ============================================
 
 /**
  * Check if API key helper is configured.
- * Original: uOA in chunks.48.mjs
+ * Original: uOA in chunks.48.mjs:1830
  */
 export function hasApiKeyHelper(): boolean {
-  // Check config for apiKeyHelper setting
-  const configPath = path.join(os.homedir(), CREDENTIALS_PATHS.CONFIG_FILE);
-  try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    return !!config.apiKeyHelper;
-  } catch {
-    return false;
-  }
+  // Check settings for apiKeyHelper
+  const config = getConfig();
+  return !!config.apiKeyHelper;
 }
 
 /**
  * Execute API key helper script.
- * Original: mOA in chunks.48.mjs
+ * Original: mOA in chunks.48.mjs:2299
  */
-export function executeApiKeyHelper(trustedContext?: unknown): string | null {
+export function executeApiKeyHelper(isTrusted: boolean = true): string | null {
   // Check cache
   if (cachedApiKeyHelperResult && Date.now() < apiKeyHelperCacheExpiry) {
     return cachedApiKeyHelperResult;
   }
 
-  const configPath = path.join(os.homedir(), CREDENTIALS_PATHS.CONFIG_FILE);
-  let helperCommand: string | undefined;
-
-  try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    helperCommand = config.apiKeyHelper;
-  } catch {
-    return null;
-  }
+  const config = getConfig();
+  const helperCommand = config.apiKeyHelper;
 
   if (!helperCommand) return null;
+
+  // Note: In source, it also checks for workspace trust if helper is from project settings.
+  // Here we assume basic execution.
 
   try {
     const result = execSync(helperCommand, {
@@ -191,8 +203,11 @@ export function executeApiKeyHelper(trustedContext?: unknown): string | null {
       apiKeyHelperCacheExpiry = Date.now() + ttl;
       return result;
     }
-  } catch {
-    // Helper failed, return null
+  } catch (error) {
+    // Helper failed, log error similar to source line 2313
+    const errorMessage = "Error getting API key from apiKeyHelper (in settings or ~/.claude.json):";
+    console.error(errorMessage, error instanceof Error ? error.message : String(error));
+    return " "; // Source returns a space on failure to indicate attempt but error
   }
 
   return null;
@@ -211,40 +226,39 @@ export function clearApiKeyHelperCache(): void {
 // ============================================
 
 /**
- * Read API key from macOS Keychain.
- * Original: dOA in chunks.48.mjs
+ * Read API key from macOS Keychain or Config.
+ * Original: dOA in chunks.48.mjs:2326
  */
 export function getKeychainKey(): ApiKeyResult | null {
-  if (process.platform !== 'darwin') {
-    return getConfigFileKey();
-  }
+  if (process.platform === 'darwin') {
+    try {
+      const serviceName = KEYCHAIN_CONFIG.SERVICE_NAME;
+      // Source uses `security find-generic-password -a $USER -w -s "${Q}"`
+      const result = execSync(
+        `security find-generic-password -a $USER -w -s "${serviceName}"`,
+        { encoding: 'utf-8', timeout: 5000 }
+      ).trim();
 
-  try {
-    const result = execSync(
-      `security find-generic-password -s "${KEYCHAIN_CONFIG.SERVICE_NAME}" -a "${KEYCHAIN_CONFIG.API_KEY_ACCOUNT}" -w 2>/dev/null`,
-      { encoding: 'utf-8', timeout: 5000 }
-    ).trim();
-
-    if (result) {
-      // Keychain stores hex-encoded JSON
-      try {
-        const decoded = Buffer.from(result, 'hex').toString('utf-8');
-        const data = JSON.parse(decoded) as KeychainEntry;
-        return { key: data.key, source: 'keychain' };
-      } catch {
-        // Might be plain API key
+      if (result) {
         return { key: result, source: 'keychain' };
       }
+    } catch {
+      // Keychain access failed
     }
-  } catch {
-    // Keychain access failed, fallback to config file
   }
 
-  return getConfigFileKey();
+  // Fallback to primaryApiKey in config file
+  const config = getConfig();
+  if (config.primaryApiKey) {
+    return { key: config.primaryApiKey, source: 'config' };
+  }
+
+  return null;
 }
 
 /**
  * Save API key to macOS Keychain.
+ * Original: TEQ in chunks.48.mjs:1985
  */
 export function saveKeychainKey(apiKey: string): boolean {
   if (process.platform !== 'darwin') {
@@ -252,31 +266,17 @@ export function saveKeychainKey(apiKey: string): boolean {
   }
 
   try {
-    const entry: KeychainEntry = {
-      key: apiKey,
-      source: 'user',
-      createdAt: new Date().toISOString(),
-    };
-    const encoded = Buffer.from(JSON.stringify(entry)).toString('hex');
+    const serviceName = KEYCHAIN_CONFIG.SERVICE_NAME;
+    const accountName = os.userInfo().username;
+    const hexKey = Buffer.from(apiKey, 'utf-8').toString('hex');
 
-    // Delete existing entry first
-    try {
-      execSync(
-        `security delete-generic-password -s "${KEYCHAIN_CONFIG.SERVICE_NAME}" -a "${KEYCHAIN_CONFIG.API_KEY_ACCOUNT}" 2>/dev/null`,
-        { encoding: 'utf-8', timeout: 5000 }
-      );
-    } catch {
-      // May not exist
-    }
-
-    // Add new entry
-    execSync(
-      `security add-generic-password -s "${KEYCHAIN_CONFIG.SERVICE_NAME}" -a "${KEYCHAIN_CONFIG.API_KEY_ACCOUNT}" -w "${encoded}"`,
-      { encoding: 'utf-8', timeout: 5000 }
-    );
+    // Add/Update entry using security command
+    const command = `add-generic-password -U -a "${accountName}" -s "${serviceName}" -X "${hexKey}"`;
+    execSync(`security -i <<EOF\n${command}\nEOF`, { timeout: 5000 });
 
     return true;
-  } catch {
+  } catch (error) {
+    console.error('Failed to save API key to keychain:', error);
     return saveConfigFileKey(apiKey);
   }
 }
@@ -289,20 +289,10 @@ export function saveKeychainKey(apiKey: string): boolean {
  * Read API key from config file (plaintext fallback).
  */
 function getConfigFileKey(): ApiKeyResult | null {
-  const credentialsPath = path.join(
-    os.homedir(),
-    CREDENTIALS_PATHS.CREDENTIALS_FILE
-  );
-
-  try {
-    const data = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
-    if (data.apiKey) {
-      return { key: data.apiKey, source: 'config' };
-    }
-  } catch {
-    // File doesn't exist or is invalid
+  const config = getConfig();
+  if (config.apiKey) {
+    return { key: config.apiKey, source: 'config' };
   }
-
   return null;
 }
 
@@ -310,24 +300,22 @@ function getConfigFileKey(): ApiKeyResult | null {
  * Save API key to config file (plaintext fallback).
  */
 function saveConfigFileKey(apiKey: string): boolean {
-  const credentialsDir = path.join(os.homedir(), '.claude');
-  const credentialsPath = path.join(
-    os.homedir(),
-    CREDENTIALS_PATHS.CREDENTIALS_FILE
-  );
+  const configPath = getConfigFilePath();
+  const configDir = path.dirname(configPath);
 
   try {
-    // Ensure directory exists
-    if (!fs.existsSync(credentialsDir)) {
-      fs.mkdirSync(credentialsDir, { recursive: true, mode: 0o700 });
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
     }
 
-    const data = {
+    const currentConfig = getConfig();
+    const updatedConfig = {
+      ...currentConfig,
       apiKey,
       lastUpdated: new Date().toISOString(),
     };
 
-    fs.writeFileSync(credentialsPath, JSON.stringify(data, null, 2), {
+    fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2), {
       mode: 0o600,
     });
 
@@ -347,10 +335,11 @@ function saveConfigFileKey(apiKey: string): boolean {
  *
  * Priority order:
  * 1. ANTHROPIC_API_KEY (SDK mode)
- * 2. File descriptor
+ * 2. File descriptor (if hosted)
  * 3. ANTHROPIC_API_KEY (user approved)
- * 4. API key helper script
- * 5. Keychain/config storage
+ * 4. File descriptor (general)
+ * 5. API key helper script
+ * 6. Keychain/config storage
  */
 export function getApiKeyAndSource(
   options: GetApiKeyOptions = {}
@@ -390,23 +379,39 @@ export function getApiKeyAndSource(
     return { key: null, source: 'none' };
   }
 
-  // 3. Try file descriptor
+  // 3. Normal mode: Check user-approved API key
+  const envKey = process.env[AUTH_ENV_VARS.ANTHROPIC_API_KEY];
+  if (envKey) {
+    const config = getConfig();
+    const maskedKey = maskApiKey(envKey);
+    if (config.customApiKeyResponses?.approved?.includes(maskedKey)) {
+      return {
+        key: envKey,
+        source: 'ANTHROPIC_API_KEY',
+      };
+    }
+  }
+
+  // 4. Try file descriptor
   const apiKeyFromFd = readApiKeyFromFileDescriptor();
   if (apiKeyFromFd) {
     return { key: apiKeyFromFd, source: 'ANTHROPIC_API_KEY' };
   }
 
-  // 4. Try apiKeyHelper script
-  if (!options.skipRetrievingKeyFromApiKeyHelper) {
-    const helperKey = executeApiKeyHelper();
+  // 5. Try apiKeyHelper script
+  if (options.skipRetrievingKeyFromApiKeyHelper) {
+    if (hasApiKeyHelper()) {
+      return { key: null, source: 'apiKeyHelper' };
+    }
+  } else {
+    // Pass trust context: true if interactive
+    const helperKey = executeApiKeyHelper(isInteractive());
     if (helperKey) {
       return { key: helperKey, source: 'apiKeyHelper' };
     }
-  } else if (hasApiKeyHelper()) {
-    return { key: null, source: 'apiKeyHelper' };
   }
 
-  // 5. Try keychain/stored credentials
+  // 6. Try keychain/stored credentials
   const storedKey = getKeychainKey();
   if (storedKey) {
     return storedKey;
@@ -422,10 +427,3 @@ export function getApiKeyAndSource(
 export function getApiKey(): string | null {
   return getApiKeyAndSource().key;
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 上述函数/常量在本文件内已通过 `export function/const` 导出。
-// 额外的聚合导出会触发重复导出错误。

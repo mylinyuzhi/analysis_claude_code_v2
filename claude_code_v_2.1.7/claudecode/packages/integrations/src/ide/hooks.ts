@@ -8,7 +8,7 @@
 import { useEffect } from 'react';
 import { initializeIDEConnection } from './connection.js';
 import { isInCodeTerminal } from './detection.js';
-import { IdeName, IdeConnection } from './types.js';
+import type { IdeName, IdeConnection } from './types.js';
 
 // ============================================
 // Types

@@ -50,6 +50,18 @@ export interface ClaudeSettings {
   permissions?: Record<string, unknown>;
   preferences?: Record<string, unknown>;
 
+  // Onboarding & Theme
+  theme?: string;
+  hasCompletedOnboarding?: boolean;
+  hasCompletedClaudeInChromeOnboarding?: boolean;
+  bypassPermissionsModeAccepted?: boolean;
+  lastReleaseNotesSeen?: string;
+  groveConfigCache?: Record<string, any>;
+  customApiKeyResponses?: {
+    approved?: string[];
+    rejected?: string[];
+  };
+
   // Sandbox settings (analyzed in analyze/18_sandbox/configuration.md)
   sandbox?: SandboxSettings;
   sandboxConfig?: SandboxConfig;

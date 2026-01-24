@@ -69,10 +69,16 @@ export {
   clearOAuthTokens,
   isTokenExpiringSoon,
   refreshOAuthTokenIfNeeded,
+  refreshOAuthToken,
   generateCodeVerifier,
   generateCodeChallenge,
   buildAuthorizationUrl,
   exchangeCodeForTokens,
+  fetchOAuthProfile,
+  fetchUserRoles,
+  createApiKey,
+  AuthCodeListener,
+  OAuthManager,
 } from './auth/index.js';
 
 // ============================================
@@ -247,7 +253,12 @@ export * from './images.js';
 // LLM & API Module
 // ============================================
 
-export * from './llm.js';
+export {
+  countTokens,
+  getDefaultModel,
+  getContextWindowSize,
+  getModelBetas,
+} from './llm.js';
 
 // ============================================
 // UI Symbols

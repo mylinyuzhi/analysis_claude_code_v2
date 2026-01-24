@@ -481,9 +481,20 @@ async function logToSentryAsync(eventName: string, metadata: EventMetadata): Pro
   logToSentry(eventName, metadata);
 }
 
-// ============================================
-// Core Event Functions
-// ============================================
+/**
+ * Log an error to telemetry.
+ * Original: e in chunks.1.mjs:4596
+ */
+export function logError(error: Error, metadata: EventMetadata = {}): void {
+  // In real implementation, this would call Sentry.captureException
+  // For now, log as a telemetry event
+  logEvent('error', {
+    ...metadata,
+    error_message: error.message,
+    error_stack: error.stack,
+    error_name: error.name,
+  });
+}
 
 /**
  * Log event synchronously to multiple destinations.

@@ -5,7 +5,15 @@
  * Reconstructed from chunks.82.mjs:2634-2737 (createAnthropicClient / XS)
  */
 
-import { parseBoolean } from '@claudecode/shared';
+import { parseBoolean, isInteractive } from '@claudecode/shared';
+import { 
+  isClaudeAiOAuth, 
+  getClaudeAiOAuth, 
+  refreshOAuthTokenIfNeeded, 
+  injectAuthHeader, 
+  getApiKey,
+} from '@claudecode/platform/auth';
+import { getModelBetas } from '@claudecode/platform';
 import { 
   isPromptCachingSupported, 
   applyMessageCacheBreakpoints, 
@@ -56,38 +64,38 @@ const API_VERSION = '2023-06-01';
  * Original: gn (getUserAgent) in chunks.82.mjs
  */
 export function getUserAgent(): string {
-  const version = process.env.npm_package_version || '2.1.7';
+  // In source, it might be more complex, but this is the standard restored version
+  const version = '2.1.7';
   return `claude-code/${version}`;
 }
 
 /**
  * Parse custom headers from environment
- * Original: In8 (parseCustomHeaders) in chunks.82.mjs
+ * Original: In8 (parseCustomHeaders) in chunks.82.mjs:2744
  */
 export function parseCustomHeaders(): Record<string, string> {
   const customHeaders = process.env.ANTHROPIC_CUSTOM_HEADERS;
   if (!customHeaders) return {};
 
-  try {
-    // Format: "Header1: value1, Header2: value2"
-    const headers: Record<string, string> = {};
-    const pairs = customHeaders.split(',');
-    for (const pair of pairs) {
-      const [key, ...valueParts] = pair.split(':');
-      if (key && valueParts.length > 0) {
-        headers[key.trim()] = valueParts.join(':').trim();
+  const headers: Record<string, string> = {};
+  const lines = customHeaders.split(/\n|\r\n/);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const match = line.match(/^\s*(.*?)\s*:\s*(.*?)\s*$/);
+    if (match) {
+      const [, key, value] = match;
+      if (key && value !== undefined) {
+        headers[key] = value;
       }
     }
-    return headers;
-  } catch {
-    return {};
   }
+  return headers;
 }
 
 /**
  * Build default headers for API requests
  */
-export function buildDefaultHeaders(): Record<string, string> {
+export async function buildDefaultHeaders(): Promise<Record<string, string>> {
   const containerId = process.env.CLAUDE_CODE_CONTAINER_ID;
   const remoteSessionId = process.env.CLAUDE_CODE_REMOTE_SESSION_ID;
   const customHeaders = parseCustomHeaders();
@@ -108,6 +116,14 @@ export function buildDefaultHeaders(): Record<string, string> {
 
   if (parseBoolean(process.env.CLAUDE_CODE_ADDITIONAL_PROTECTION)) {
     headers['x-anthropic-additional-protection'] = 'true';
+  }
+
+  // Refresh OAuth token if needed before adding auth headers
+  await refreshOAuthTokenIfNeeded();
+
+  // If not using Claude AI OAuth, add Authorization header (Xn8 in source)
+  if (!isClaudeAiOAuth()) {
+    injectAuthHeader(headers, isInteractive());
   }
 
   return headers;
@@ -140,17 +156,20 @@ export function detectProvider(): ApiProvider {
 /**
  * Native HTTP Anthropic client implementation
  * Uses fetch API directly instead of requiring @anthropic-ai/sdk
+ * Compatible with the structure expected by the rest of the app.
  */
 export class NativeAnthropicClient implements AnthropicClientInterface {
-  private apiKey: string;
+  private apiKey: string | null;
+  private authToken?: string;
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
   private timeout: number;
   private maxRetries: number;
   private fetchFn: typeof fetch;
 
-  constructor(options: ClientOptions & { defaultHeaders?: Record<string, string> }) {
-    this.apiKey = options.apiKey || process.env.ANTHROPIC_API_KEY || '';
+  constructor(options: ClientOptions & { authToken?: string }) {
+    this.apiKey = options.apiKey || null;
+    this.authToken = options.authToken;
     this.baseURL = options.baseURL || process.env.ANTHROPIC_BASE_URL || DEFAULT_BASE_URL;
     this.defaultHeaders = options.defaultHeaders || {};
     this.timeout = options.timeout || DEFAULT_API_TIMEOUT;
@@ -167,10 +186,17 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'x-api-key': this.apiKey,
       'anthropic-version': API_VERSION,
       ...this.defaultHeaders,
     };
+
+    if (this.apiKey) {
+      headers['x-api-key'] = this.apiKey;
+    }
+
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`;
+    }
 
     if (options?.betas && options.betas.length > 0) {
       headers['anthropic-beta'] = options.betas.join(',');
@@ -250,8 +276,13 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
         stream: false,
       };
 
+      const betas = getModelBetas(model);
+      if (cachingEnabled) {
+        betas.push('prompt-caching-2024-07-31');
+      }
+
       const response = await this.makeRequest('/v1/messages', body, {
-        betas: cachingEnabled ? ['prompt-caching-2024-07-31'] : []
+        betas: Array.from(new Set(betas))
       });
       return (await response.json()) as MessagesResponse;
     },
@@ -292,10 +323,15 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
         stream: true,
       };
 
+      const betas = getModelBetas(model);
+      if (cachingEnabled) {
+        betas.push('prompt-caching-2024-07-31');
+      }
+
       const response = await this.makeRequest('/v1/messages', body, {
         signal: options?.signal,
         stream: true,
-        betas: cachingEnabled ? ['prompt-caching-2024-07-31'] : []
+        betas: Array.from(new Set(betas))
       });
 
       if (!response.body) {
@@ -334,27 +370,6 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
             }
           }
         }
-
-        // Process any remaining data
-        if (buffer.trim()) {
-          const lines = buffer.split('\n');
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith(':')) continue;
-
-            if (trimmed.startsWith('data: ')) {
-              const data = trimmed.slice(6);
-              if (data === '[DONE]') continue;
-
-              try {
-                const event = JSON.parse(data) as StreamEvent;
-                yield event;
-              } catch {
-                // Skip invalid JSON
-              }
-            }
-          }
-        }
       } finally {
         reader.releaseLock();
       }
@@ -370,26 +385,20 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
  * Create an Anthropic API client for the appropriate provider.
  *
  * Original: XS (createAnthropicClient) in chunks.82.mjs:2634-2737
- *
- * Provider selection based on environment variables:
- * - CLAUDE_CODE_USE_BEDROCK -> AWS Bedrock
- * - CLAUDE_CODE_USE_FOUNDRY -> Azure Foundry
- * - CLAUDE_CODE_USE_VERTEX -> Google Vertex AI
- * - Default -> First-party Anthropic API
  */
 export async function createAnthropicClient(
   options: ClientOptions = {}
 ): Promise<AnthropicClientInterface> {
-  const defaultHeaders = buildDefaultHeaders();
+  const defaultHeaders = await buildDefaultHeaders();
   const timeout = parseInt(process.env.API_TIMEOUT_MS || String(DEFAULT_API_TIMEOUT), 10);
   const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
 
-  const baseOptions = {
+  const commonConfig = {
     defaultHeaders,
     maxRetries,
     timeout,
     dangerouslyAllowBrowser: true,
-    ...(options.fetchOverride && { fetchOverride: options.fetchOverride }),
+    fetchOverride: options.fetchOverride || globalThis.fetch,
   };
 
   const provider = detectProvider();
@@ -398,25 +407,25 @@ export async function createAnthropicClient(
     case 'bedrock':
       return createBedrockClient({
         ...options,
-        ...baseOptions,
+        ...commonConfig,
       } as BedrockOptions);
 
     case 'foundry':
       return createFoundryClient({
         ...options,
-        ...baseOptions,
+        ...commonConfig,
       } as FoundryOptions);
 
     case 'vertex':
       return createVertexClient({
         ...options,
-        ...baseOptions,
+        ...commonConfig,
       } as VertexOptions);
 
     default:
       return createFirstPartyClient({
         ...options,
-        ...baseOptions,
+        ...commonConfig,
       });
   }
 }
@@ -426,24 +435,18 @@ export async function createAnthropicClient(
  * Original: b41 (BedrockClient) in chunks.82.mjs
  */
 async function createBedrockClient(options: BedrockOptions): Promise<AnthropicClientInterface> {
-  // Determine AWS region
   const awsRegion =
     process.env.ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION ||
     process.env.AWS_REGION ||
     process.env.AWS_DEFAULT_REGION ||
     'us-east-1';
 
-  // For Bedrock, we need to use AWS SDK credentials
-  // The base URL would be the Bedrock endpoint
   const bedrockEndpoint = `https://bedrock-runtime.${awsRegion}.amazonaws.com`;
 
+  // Note: True Bedrock implementation would sign requests with AWS SigV4
   return new NativeAnthropicClient({
     ...options,
     baseURL: bedrockEndpoint,
-    defaultHeaders: {
-      ...options.defaultHeaders,
-      // AWS credentials would be handled by AWS SDK signature
-    },
   });
 }
 
@@ -467,21 +470,17 @@ async function createFoundryClient(options: FoundryOptions): Promise<AnthropicCl
  * Original: v61 (VertexClient) in chunks.82.mjs
  */
 async function createVertexClient(options: VertexOptions): Promise<AnthropicClientInterface> {
-  // Determine project ID
   const projectId =
     process.env.GCLOUD_PROJECT ||
     process.env.GOOGLE_CLOUD_PROJECT ||
     process.env.ANTHROPIC_VERTEX_PROJECT_ID;
 
   const region = process.env.ANTHROPIC_VERTEX_REGION || 'us-central1';
-
-  // Vertex AI uses a different endpoint format
   const vertexEndpoint = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/anthropic/models`;
 
   return new NativeAnthropicClient({
     ...options,
     baseURL: vertexEndpoint,
-    // Vertex uses Google Cloud authentication
   });
 }
 
@@ -489,22 +488,14 @@ async function createVertexClient(options: VertexOptions): Promise<AnthropicClie
  * Create first-party Anthropic client
  * Original: hP (AnthropicClient) in chunks.82.mjs
  */
-async function createFirstPartyClient(options: ClientOptions & { defaultHeaders?: Record<string, string> }): Promise<AnthropicClientInterface> {
-  // Get API key
-  const apiKey = options.apiKey || process.env.ANTHROPIC_API_KEY;
-
-  if (!apiKey) {
-    console.warn('No API key found. Set ANTHROPIC_API_KEY environment variable.');
-  }
+async function createFirstPartyClient(options: ClientOptions): Promise<AnthropicClientInterface> {
+  const oauthTokens = getClaudeAiOAuth();
+  const apiKey = isClaudeAiOAuth() ? null : options.apiKey || getApiKey();
+  const authToken = isClaudeAiOAuth() ? oauthTokens?.accessToken || undefined : undefined;
 
   return new NativeAnthropicClient({
     ...options,
-    apiKey,
+    apiKey: apiKey || undefined,
+    authToken,
   });
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出。
