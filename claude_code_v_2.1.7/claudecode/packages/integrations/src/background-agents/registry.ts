@@ -6,6 +6,7 @@
  */
 
 import { BACKGROUND_AGENT_CONSTANTS } from './types.js';
+import { randomUUID } from 'crypto';
 import type { 
   BackgroundTaskType,
   BackgroundTask,
@@ -123,7 +124,8 @@ const TASK_TYPE_PREFIXES: Record<string, string> = {
  */
 export function generateTaskId(type: BackgroundTaskType): string {
   const prefix = TASK_TYPE_PREFIXES[type] ?? 'x';
-  const id = crypto.randomUUID().replace(/-/g, '').substring(0, BACKGROUND_AGENT_CONSTANTS.ID_LENGTH);
+  // Source: GyA in chunks.91.mjs:904-908
+  const id = randomUUID().replace(/-/g, '').substring(0, BACKGROUND_AGENT_CONSTANTS.ID_LENGTH);
   return `${prefix}${id}`;
 }
 

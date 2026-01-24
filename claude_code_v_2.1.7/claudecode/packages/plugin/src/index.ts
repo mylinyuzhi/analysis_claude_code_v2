@@ -38,7 +38,7 @@ export {
   // formatPluginError, // Not implemented in current reconstruction
   loadHooksFile,
   mergeHookConfigs,
-  // validateManifest, // Not implemented in current reconstruction
+  validateManifest,
 } from './loader.js';
 
 // ============================================
@@ -69,14 +69,14 @@ export {
   // CRUD operations
   addMarketplaceSource,
   removeMarketplace,
-  // refreshMarketplace, // Not implemented
-  // listMarketplaces, // Not implemented
-  // updateAllMarketplaces, // Not implemented
+  refreshMarketplace,
+  listMarketplaces,
+  updateAllMarketplaces,
 
   // Plugin lookup
   findPluginInCachedMarketplace,
   // searchPlugins, // Not implemented
-  // clearMarketplaceCache, // Not implemented
+  clearMarketplaceCache,
 } from './marketplace.js';
 
 // ============================================
@@ -100,8 +100,8 @@ export {
   // Installation operations
   // cachePluginFromSource, // Not exported
   installPlugin,
-  // uninstallPlugin, // Not implemented
-  // updatePlugin, // Not implemented
+  uninstallPlugin,
+  updatePlugin,
   // listInstalledPlugins, // Not implemented
 } from './installation.js';
 

@@ -64,7 +64,7 @@ export function OnboardingFlow({ onDone }: OnboardingFlowProps) {
               { label: 'Dark', value: 'dark' },
               { label: 'Light', value: 'light' },
             ]}
-            onChange={(val) => {
+            onChange={(val: string) => {
               // Save theme here
               nextStep();
             }}
@@ -92,12 +92,16 @@ export function OnboardingFlow({ onDone }: OnboardingFlowProps) {
             <Text dimColor wrap="wrap">
               You should always review Claude's responses, especially when running code.
             </Text>
-            <Text marginTop={1}>• Due to prompt injection risks, only use it with code you trust</Text>
+            <Box marginTop={1}>
+              <Text>• Due to prompt injection risks, only use it with code you trust</Text>
+            </Box>
             <Text dimColor wrap="wrap">
               For more details see: https://code.claude.com/docs/en/security
             </Text>
           </Box>
-          <Text marginTop={1} dimColor>Press Enter to continue…</Text>
+          <Box marginTop={1}>
+            <Text dimColor>Press Enter to continue…</Text>
+          </Box>
         </Box>
       ),
     });

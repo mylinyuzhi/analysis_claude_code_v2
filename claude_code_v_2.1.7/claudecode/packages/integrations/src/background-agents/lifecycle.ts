@@ -5,9 +5,8 @@
  * Reconstructed from chunks.91.mjs and chunks.121.mjs
  */
 
-import { generateAgentTaskId } from './registry.js';
-import { getAgentTranscriptPath, initTranscript } from './transcript.js';
-import { formatOutputPath, registerOutputFile, appendToOutputFile } from './output.js';
+import { getAgentTranscriptPath } from './transcript.js';
+import { formatOutputPath, registerOutputFile } from './output.js';
 import type { 
   BackgroundAgentTask, 
   BackgroundBashTask, 
@@ -16,7 +15,7 @@ import type {
   SetAppState
 } from './types.js';
 import { TASK_NOTIFICATION_TAGS } from './types.js';
-import { isLocalAgentTask, isLocalBashTask } from './signal.js';
+import { getBackgroundSignalMap, isLocalAgentTask, isLocalBashTask } from './signal.js';
 
 // ============================================
 // State Management Helpers
@@ -172,7 +171,6 @@ export function createBackgroundableAgent(options: {
   });
 
   // Store resolver in global/shared map for Ctrl+B
-  const { getBackgroundSignalMap } = require('./signal.js');
   getBackgroundSignalMap().set(agentId, resolveSignal!);
 
   addTaskToState(task, setAppState);

@@ -190,7 +190,7 @@ export function LoginFlow({
                     value: 'console',
                   },
                 ]}
-                onChange={(val) => {
+                onChange={(val: string) => {
                   setLoginWithClaudeAi(val === 'claudeai');
                   setLoginState({ state: 'ready_to_start' });
                   analyticsEvent(val === 'claudeai' ? 'tengu_oauth_claudeai_selected' : 'tengu_oauth_console_selected', {});

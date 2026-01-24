@@ -16,6 +16,7 @@ import type {
 } from './types.js';
 import {
   unifiedPluginManifestSchema,
+  marketplaceJsonSchema,
   hooksFileSchema,
 } from './schemas.js';
 import {
@@ -81,6 +82,91 @@ const log = (msg: string, options?: { level?: string }) => {
 const trackError = (err: Error) => {
   // Telemetry implementation omitted
 };
+
+export type ManifestValidationError = { path: string; message: string };
+
+export type ManifestValidationResult = {
+  fileType: 'plugin' | 'marketplace' | 'unknown';
+  filePath: string;
+  success: boolean;
+  errors: ManifestValidationError[];
+};
+
+/**
+ * validateManifest - Validate a plugin or marketplace manifest on disk.
+ *
+ * CLI uses this for `claude plugin validate <path>`.
+ */
+export function validateManifest(inputPath: string): ManifestValidationResult {
+  if (!existsSync(inputPath)) {
+    throw new Error(`Path does not exist: ${inputPath}`);
+  }
+
+  let filePath = inputPath;
+  let fileType: ManifestValidationResult['fileType'] = 'unknown';
+
+  if (statSync(inputPath).isDirectory()) {
+    const pluginManifestPath = join(inputPath, '.claude-plugin', 'plugin.json');
+    const marketplaceManifestPath = join(inputPath, '.claude-plugin', 'marketplace.json');
+
+    if (existsSync(pluginManifestPath)) {
+      filePath = pluginManifestPath;
+      fileType = 'plugin';
+    } else if (existsSync(marketplaceManifestPath)) {
+      filePath = marketplaceManifestPath;
+      fileType = 'marketplace';
+    } else {
+      filePath = inputPath;
+      fileType = 'unknown';
+    }
+  } else {
+    const name = basename(inputPath);
+    if (name === 'plugin.json') fileType = 'plugin';
+    if (name === 'marketplace.json') fileType = 'marketplace';
+  }
+
+  const raw = readFileSync(filePath, { encoding: 'utf-8' });
+  const json = JSON.parse(raw);
+
+  const toErrors = (issues: { path: (string | number)[]; message: string }[]) =>
+    issues.map((i) => ({ path: i.path.join('.'), message: i.message }));
+
+  if (fileType === 'plugin') {
+    const parsed = unifiedPluginManifestSchema.safeParse(json);
+    return {
+      fileType,
+      filePath,
+      success: parsed.success,
+      errors: parsed.success ? [] : toErrors(parsed.error.issues),
+    };
+  }
+
+  if (fileType === 'marketplace') {
+    const parsed = marketplaceJsonSchema.safeParse(json);
+    return {
+      fileType,
+      filePath,
+      success: parsed.success,
+      errors: parsed.success ? [] : toErrors(parsed.error.issues),
+    };
+  }
+
+  // Unknown file type: try plugin first, then marketplace.
+  const pluginParsed = unifiedPluginManifestSchema.safeParse(json);
+  if (pluginParsed.success) {
+    return { fileType: 'plugin', filePath, success: true, errors: [] };
+  }
+  const marketplaceParsed = marketplaceJsonSchema.safeParse(json);
+  if (marketplaceParsed.success) {
+    return { fileType: 'marketplace', filePath, success: true, errors: [] };
+  }
+  return {
+    fileType: 'unknown',
+    filePath,
+    success: false,
+    errors: toErrors(pluginParsed.error.issues),
+  };
+}
 
 async function getEnabledPlugins(): Promise<Record<string, any>> {
   const settings = await loadSettings();

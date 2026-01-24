@@ -425,3 +425,46 @@ export async function installPlugin(
 
   return { pluginId, installPath };
 }
+
+/**
+ * uninstallPlugin - Remove an installed plugin entry from the registry.
+ *
+ * Note: This intentionally does not delete cached plugin files, because cache
+ * entries may be shared across scopes/projects and versions.
+ */
+export async function uninstallPlugin(
+  pluginId: string,
+  options: { scope?: InstallScope; projectPath?: string } = {}
+): Promise<boolean> {
+  const scope = options.scope || 'user';
+  const registry = await loadInstalledPlugins();
+  const entries = registry.plugins[pluginId];
+  if (!entries || entries.length === 0) return false;
+
+  const next = entries.filter(
+    (e) => !(e.scope === scope && e.projectPath === options.projectPath)
+  );
+
+  if (next.length === entries.length) return false;
+  if (next.length === 0) {
+    delete registry.plugins[pluginId];
+  } else {
+    registry.plugins[pluginId] = next;
+  }
+  await saveInstalledPlugins(registry);
+  return true;
+}
+
+/**
+ * updatePlugin - Re-install the plugin entry in-place.
+ */
+export async function updatePlugin(
+  pluginId: string,
+  options: {
+    scope?: InstallScope;
+    projectPath?: string;
+    progressCallback?: (message: string) => void;
+  } = {}
+): Promise<{ pluginId: string; installPath: string }> {
+  return installPlugin(pluginId, options);
+}

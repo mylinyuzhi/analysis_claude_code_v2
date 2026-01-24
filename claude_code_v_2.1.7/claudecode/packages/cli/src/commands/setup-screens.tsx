@@ -33,22 +33,32 @@ export async function showSetupScreens(
   // 1. Core Onboarding (Theme + Login)
   if (!settings.theme || !settings.hasCompletedOnboarding || forceSetup) {
     onboardingShown = true;
-    
-    const { waitUntilExit } = render(
-      React.createElement(InternalApp, {
-        terminalColumns: process.stdout.columns || 80,
-        terminalRows: process.stdout.rows || 24,
-        ink2: false,
-        stdin: process.stdin,
-        stdout: process.stdout,
-        exitOnCtrlC: true,
-      }, React.createElement(OnboardingFlow, {
-        onDone: () => {
-          updateUserSettings({ hasCompletedOnboarding: true });
-        }
-      }))
+
+    let unmountFn: (() => void) | undefined;
+    const { waitUntilExit, unmount } = render(
+      React.createElement(
+        InternalApp,
+        {
+          terminalColumns: process.stdout.columns || 80,
+          terminalRows: process.stdout.rows || 24,
+          ink2: false,
+          stdin: process.stdin,
+          stdout: process.stdout,
+          exitOnCtrlC: true,
+          // The reconstructed `InternalApp` requires these props.
+          initialTheme: (settings.theme ?? 'dark') as any,
+          onExit: () => unmountFn?.(),
+        },
+        React.createElement(OnboardingFlow, {
+          onDone: () => {
+            updateUserSettings({ hasCompletedOnboarding: true });
+            unmountFn?.();
+          },
+        })
+      )
     );
 
+    unmountFn = unmount;
     await waitUntilExit();
   }
 

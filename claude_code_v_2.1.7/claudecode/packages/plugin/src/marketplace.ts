@@ -432,6 +432,66 @@ export async function removeMarketplace(name: string): Promise<void> {
   }
 }
 
+/** List all configured marketplaces (name -> config). */
+export async function listMarketplaces(): Promise<Record<string, KnownMarketplace>> {
+  return loadKnownMarketplaces();
+}
+
+/**
+ * refreshMarketplace - Force re-download and refresh a marketplace cache.
+ */
+export async function refreshMarketplace(
+  name: string,
+  progress?: (msg: string) => void
+): Promise<MarketplaceManifest> {
+  const marketplaces = await loadKnownMarketplaces();
+  const existing = marketplaces[name];
+  if (!existing) throw new Error(`Marketplace '${name}' not found`);
+
+  const oldLocation = existing.installLocation;
+  const { marketplace, cachePath } = await loadMarketplaceSource(existing.source, progress);
+
+  marketplaces[name] = {
+    ...existing,
+    installLocation: cachePath,
+    lastUpdated: new Date().toISOString(),
+  };
+  await saveKnownMarketplaces(marketplaces);
+
+  if (oldLocation !== cachePath && oldLocation.startsWith(getMarketplacesCacheDir()) && existsSync(oldLocation)) {
+    rmSync(oldLocation, { recursive: true, force: true });
+  }
+
+  return marketplace;
+}
+
+/** Refresh all marketplaces, returning the ones that succeeded. */
+export async function updateAllMarketplaces(
+  progress?: (msg: string) => void
+): Promise<Record<string, MarketplaceManifest>> {
+  const marketplaces = await loadKnownMarketplaces();
+  const result: Record<string, MarketplaceManifest> = {};
+
+  for (const name of Object.keys(marketplaces)) {
+    try {
+      progress?.(`Refreshing marketplace ${name}…`);
+      result[name] = await refreshMarketplace(name, progress);
+    } catch (err: any) {
+      log(`Failed to refresh marketplace '${name}': ${err?.message || String(err)}`, { level: 'warn' });
+    }
+  }
+
+  return result;
+}
+
+/** Delete the marketplace cache directory on disk. */
+export async function clearMarketplaceCache(): Promise<void> {
+  const dir = getMarketplacesCacheDir();
+  if (existsSync(dir)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 /** Original: HI0 in chunks.91.mjs:237-262 */
 export function findPluginInCachedMarketplace(sourceId: string): { entry: MarketplacePluginEntry; marketplaceInstallLocation: string } | null {
   const [pluginName, marketName] = sourceId.split('@');

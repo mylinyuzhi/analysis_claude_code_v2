@@ -35,6 +35,16 @@ import type {
   RemoteAgentTask,
 } from './types.js';
 
+/**
+ * Serialize a log entry for output file append.
+ *
+ * Source: remote polling uses `eA(entry)` (JSON serialization) for non-assistant log items.
+ * Location: claude_code_v_2.1.7/source/chunks.121.mjs:126-133
+ */
+function serializeLogEntry(entry: unknown): string {
+  return JSON.stringify(entry);
+}
+
 // ============================================
 // Types
 // ============================================
@@ -477,8 +487,7 @@ function startPollingRemoteSession(taskId: string, context: TaskSpawnContext): (
               .map((c: any) => c.text)
               .join('\n');
           }
-          // Assuming eA is some formatting util
-          return JSON.stringify(entry);
+          return serializeLogEntry(entry);
         }).join('\n');
 
         if (formattedContent) {

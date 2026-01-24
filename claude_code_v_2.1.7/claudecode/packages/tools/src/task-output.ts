@@ -23,9 +23,10 @@ import {
 import type { ToolContext } from './types.js';
 import { TOOL_NAMES } from './types.js';
 
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
-import { homedir } from 'os';
+import {
+  formatOutputPath,
+  getTaskOutputContent,
+} from '@claudecode/integrations/background-agents';
 
 // ============================================
 // Constants
@@ -50,26 +51,6 @@ export type TaskType = 'local_bash' | 'local_agent' | 'remote_agent';
  * Task status.
  */
 export type TaskStatus = 'running' | 'pending' | 'completed' | 'failed' | 'cancelled' | 'killed';
-
-function normalizeTaskStatus(status: unknown): TaskStatus {
-  switch (status) {
-    case 'running':
-    case 'pending':
-    case 'completed':
-    case 'failed':
-    case 'cancelled':
-    case 'killed':
-      return status;
-    case 'canceled':
-      // normalize American spelling
-      return 'cancelled';
-    case 'backgrounded':
-      // Source has local_agent tasks that can become backgrounded (still running)
-      return 'running';
-    default:
-      return 'failed';
-  }
-}
 
 type RetrievalStatus = 'success' | 'timeout' | 'not_ready';
 
@@ -154,24 +135,22 @@ const taskOutputOutputSchema = z.object({
     .nullable(),
 });
 
-function getTaskOutputPath(taskId: string, cwd?: string): string {
-  // Source (aY / formatOutputPath): ~/.claude/projects/<sanitized-cwd>/agents/<taskId>.output
-  const workingDir = cwd ?? process.cwd();
-  const sanitizedCwd = workingDir.replace(/[^a-zA-Z0-9]/g, '-');
-  return join(homedir(), '.claude', 'projects', sanitizedCwd, 'agents', `${taskId}.output`);
-}
-
-function getSubagentTranscriptPath(agentId: string, cwd?: string): string {
-  const workingDir = cwd ?? process.cwd();
-  const sanitizedCwd = workingDir.replace(/[^a-zA-Z0-9]/g, '-');
-  return join(homedir(), '.claude', 'projects', sanitizedCwd, 'subagents', `agent-${agentId}.jsonl`);
-}
-
 function readTaskMaxOutputLength(): number {
+  // Source: Hb0.validate in claude_code_v_2.1.7/source/chunks.1.mjs:2143-2167
   const raw = process.env.TASK_MAX_OUTPUT_LENGTH;
   if (!raw) return DEFAULT_MAX_OUTPUT_LENGTH;
+
   const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n) || n <= 0) return DEFAULT_MAX_OUTPUT_LENGTH;
+  if (!Number.isFinite(n) || n <= 0) {
+    return DEFAULT_MAX_OUTPUT_LENGTH;
+  }
+
+  if (n > 150000) {
+    // Source np5() logs only on capped
+    console.warn(`TASK_MAX_OUTPUT_LENGTH Capped from ${n} to 150000`);
+    return 150000;
+  }
+
   return n;
 }
 
@@ -179,7 +158,8 @@ function truncateOutput(content: string, taskId: string): { content: string; was
   const maxLen = readTaskMaxOutputLength();
   if (content.length <= maxLen) return { content, wasTruncated: false };
 
-  const hint = `[Truncated. Full output: ${getTaskOutputPath(taskId)}]\n\n`;
+  // Source: bbA uses aY(taskId) (output file path) in the header.
+  const hint = `[Truncated. Full output: ${formatOutputPath(taskId)}]\n\n`;
   const remaining = Math.max(0, maxLen - hint.length);
   return {
     content: hint + content.slice(-remaining),
@@ -224,96 +204,48 @@ async function waitForTaskCompletion(
   return (await getAppState())?.tasks?.[taskId] ?? null;
 }
 
-function extractLocalAgentText(taskId: string, cwd?: string): string {
-  const outputPath = getTaskOutputPath(taskId, cwd);
-  if (existsSync(outputPath)) {
-    try {
-      const raw = readFileSync(outputPath, 'utf-8');
-      if (raw && raw.trim().length > 0) return raw;
-    } catch {
-      // ignore
-    }
-  }
+/**
+ * Convert in-memory task state to TaskOutput response shape.
+ *
+ * Source: YK1 in claude_code_v_2.1.7/source/chunks.119.mjs:1605-1632
+ */
+function formatTaskOutputForTool(task: any, cwd?: string): TaskOutputTask {
+  const id: string = task?.id;
+  const type: TaskType = task?.type;
 
-  const transcriptPath = getSubagentTranscriptPath(taskId, cwd);
-  if (!existsSync(transcriptPath)) return '';
-
-  try {
-    const raw = readFileSync(transcriptPath, 'utf-8');
-    const out: string[] = [];
-    for (const line of raw.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      try {
-        const entry = JSON.parse(trimmed);
-        const msg = entry?.content;
-        if (!msg || typeof msg !== 'object') continue;
-        if (msg.type !== 'assistant') continue;
-        const blocks = msg.message?.content;
-        if (!Array.isArray(blocks)) continue;
-        for (const b of blocks) {
-          if (b?.type === 'text' && typeof b.text === 'string') out.push(b.text);
-        }
-      } catch {
-        // ignore
-      }
-    }
-    return out.join('\n');
-  } catch {
-    return '';
-  }
-}
-
-function extractLocalBashText(taskId: string, cwd?: string): string {
-  const outputPath = getTaskOutputPath(taskId, cwd);
-  if (existsSync(outputPath)) {
-    try {
-      return readFileSync(outputPath, 'utf-8');
-    } catch {
-      // ignore
-    }
-  }
-  return '';
-}
-
-function formatTaskForOutput(task: any, cwd?: string): TaskOutputTask {
-  const type: TaskType = task.type;
-  const id: string = task.id ?? task.taskId ?? task.agentId;
+  const outputContent = getTaskOutputContent(id, cwd);
+  const base = {
+    task_id: id,
+    task_type: type,
+    status: task?.status,
+    description: task?.description,
+    output: outputContent,
+  } as TaskOutputTask;
 
   if (type === 'local_bash') {
-    const output = extractLocalBashText(id, cwd) || String(task.stdout ?? task.output ?? '');
     return {
-      task_id: id,
-      task_type: 'local_bash',
-      status: String(task.status ?? ''),
-      description: String(task.description ?? ''),
-      output,
-      exitCode: task.result?.code ?? task.exitCode ?? null,
+      ...base,
+      exitCode: task?.result?.code ?? null,
     };
   }
 
   if (type === 'local_agent') {
-    const text = extractLocalAgentText(id, cwd);
     return {
-      task_id: id,
-      task_type: 'local_agent',
-      status: String(task.status ?? ''),
-      description: String(task.description ?? ''),
-      output: text,
-      prompt: task.prompt,
-      result: text,
-      error: task.error,
+      ...base,
+      prompt: task?.prompt,
+      result: outputContent,
+      error: task?.error,
     };
   }
 
-  return {
-    task_id: id,
-    task_type: 'remote_agent',
-    status: String(task.status ?? ''),
-    description: String(task.description ?? ''),
-    output: String(task.output ?? ''),
-    prompt: String(task.command ?? ''),
-  };
+  if (type === 'remote_agent') {
+    return {
+      ...base,
+      prompt: task?.command,
+    };
+  }
+
+  return base;
 }
 
 // ============================================
@@ -334,6 +266,12 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
   strict: false,
 
   async description() {
+    // Source: chunks.119.mjs:1767-1769
+    return 'Retrieves output from a running or completed task';
+  },
+
+  async prompt() {
+    // Source: chunks.119.mjs:1785-1792
     return `- Retrieves output from a running or completed task (background shell, agent, or remote session)
 - Takes a task_id parameter identifying the task
 - Returns the task output along with status information
@@ -341,10 +279,6 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
 - Use block=false for non-blocking check of current status
 - Task IDs can be found using the /tasks command
 - Works with all task types: background shells, async agents, and remote sessions`;
-  },
-
-  async prompt() {
-    return '';
   },
 
   inputSchema: taskOutputInputSchema,
@@ -369,23 +303,19 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
   },
 
   async validateInput(input, context) {
-    const { task_id, timeout } = input;
-
-    if (!task_id || task_id.trim().length === 0) {
-      return validationError('task_id is required', 1);
+    // Source: chunks.119.mjs:1794-1811
+    const taskId = input.task_id;
+    if (!taskId) {
+      return validationError('Task ID is required', 1);
     }
-
-    if (timeout !== undefined && (timeout < 0 || timeout > MAX_TIMEOUT_MS)) {
-      return validationError(
-        `timeout must be between 0 and ${MAX_TIMEOUT_MS}ms`,
-        2
-      );
+    const state = await (context as any).getAppState?.();
+    if (!state?.tasks?.[taskId]) {
+      return validationError(`No task found with ID: ${taskId}`, 2);
     }
-
     return validationSuccess();
   },
 
-  async call(input, context) {
+  async call(input, context, _toolUseId, _metadata, progressCallback) {
     const {
       task_id,
       block = true,
@@ -393,12 +323,10 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
     } = input;
 
     try {
-      // Source: tasks live in appState.tasks (plain object), keyed by task_id.
-      const appState = await context.getAppState?.();
-      const task = (appState as any)?.tasks?.[task_id];
-      if (!task) {
-        return toolError(`Task not found: ${task_id}`);
-      }
+      // Source: tasks live in appState.tasks, keyed by task_id
+      const appState = await (context as any).getAppState?.();
+      const task = appState?.tasks?.[task_id];
+      if (!task) throw new Error(`No task found with ID: ${task_id}`);
 
       const cwd = (context as any).getCwd ? (context as any).getCwd() : process.cwd();
 
@@ -408,16 +336,27 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
           setTaskNotified((context as any).setAppState, task_id);
           return toolSuccess({
             retrieval_status: 'success',
-            task: formatTaskForOutput(task, cwd),
+            task: formatTaskOutputForTool(task, cwd),
           });
         }
         return toolSuccess({
           retrieval_status: 'not_ready',
-          task: formatTaskForOutput(task, cwd),
+          task: formatTaskOutputForTool(task, cwd),
         });
       }
 
-      // Blocking
+      // Blocking: emit waiting progress event
+      if (typeof progressCallback === 'function') {
+        progressCallback({
+          toolUseID: `task-output-waiting-${Date.now()}`,
+          data: {
+            type: 'waiting_for_task',
+            taskDescription: task.description,
+            taskType: task.type,
+          },
+        });
+      }
+
       const finished = await waitForTaskCompletion(
         task_id,
         (context as any).getAppState,
@@ -435,14 +374,14 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
       if (finished.status === 'running' || finished.status === 'pending') {
         return toolSuccess({
           retrieval_status: 'timeout',
-          task: formatTaskForOutput(finished, cwd),
+          task: formatTaskOutputForTool(finished, cwd),
         });
       }
 
       setTaskNotified((context as any).setAppState, task_id);
       return toolSuccess({
         retrieval_status: 'success',
-        task: formatTaskForOutput(finished, cwd),
+        task: formatTaskOutputForTool(finished, cwd),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -454,22 +393,25 @@ export const TaskOutputTool = createTool<TaskOutputInput, TaskOutputOutput>({
    * Map tool result to API format.
    */
   mapToolResultToToolResultBlockParam(result, toolUseId) {
+    // Source: chunks.119.mjs:1868-1888
     const lines: string[] = [];
     lines.push(`<retrieval_status>${result.retrieval_status}</retrieval_status>`);
 
-    const t = result.task;
-    if (t) {
+    if (result.task) {
+      const t = result.task;
       lines.push(`<task_id>${t.task_id}</task_id>`);
       lines.push(`<task_type>${t.task_type}</task_type>`);
       lines.push(`<status>${t.status}</status>`);
+
       if (t.exitCode !== undefined && t.exitCode !== null) {
         lines.push(`<exit_code>${t.exitCode}</exit_code>`);
       }
-      const out = t.output ?? '';
-      if (out.trim()) {
-        const truncated = truncateOutput(out, t.task_id);
-        lines.push(`<output>\n${truncated.content.trimEnd()}\n</output>`);
+
+      if (t.output?.trim()) {
+        const { content } = truncateOutput(t.output, t.task_id);
+        lines.push(`<output>\n${content.trimEnd()}\n</output>`);
       }
+
       if (t.error) {
         lines.push(`<error>${t.error}</error>`);
       }

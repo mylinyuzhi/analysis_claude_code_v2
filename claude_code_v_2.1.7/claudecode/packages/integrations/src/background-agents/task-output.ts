@@ -42,17 +42,52 @@ export const KILLSHELL_TOOL_NAME = 'KillShell';
  * Original: np5 in chunks.119.mjs:1576-1580
  */
 export function getTaskMaxOutputLength(): number {
-  // Original uses Eb0.validate which handles capped status.
-  // Here we use a simpler but equivalent logic.
-  const envValue = process.env.TASK_MAX_OUTPUT_LENGTH;
-  if (envValue) {
-    const parsed = parseInt(envValue, 10);
-    if (!isNaN(parsed) && parsed > 0) {
-      // Logic for capped/effective would go here if needed
-      return parsed;
-    }
+  // Source: Eb0 is Hb0("TASK_MAX_OUTPUT_LENGTH")
+  // - default: 30000
+  // - invalid/<=0: fallback to 30000
+  // - >150000: capped to 150000 and logs a warning
+  // Location: Hb0 in chunks.1.mjs:2143-2167
+  const validated = validateTaskMaxOutputLength(process.env.TASK_MAX_OUTPUT_LENGTH);
+  if (validated.status === 'capped') {
+    // Source: np5() logs only on capped
+    console.warn(`TASK_MAX_OUTPUT_LENGTH ${validated.message}`);
   }
-  return 100000; // Default: 100KB
+  return validated.effective;
+}
+
+/**
+ * Validate TASK_MAX_OUTPUT_LENGTH environment variable.
+ *
+ * Source: Hb0.validate in chunks.1.mjs:2143-2167
+ */
+export function validateTaskMaxOutputLength(raw: string | undefined): {
+  effective: number;
+  status: 'valid' | 'invalid' | 'capped';
+  message?: string;
+} {
+  // default
+  if (!raw) {
+    return { effective: 30000, status: 'valid' };
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return {
+      effective: 30000,
+      status: 'invalid',
+      message: `Invalid value "${raw}" (using default: 30000)`,
+    };
+  }
+
+  if (parsed > 150000) {
+    return {
+      effective: 150000,
+      status: 'capped',
+      message: `Capped from ${parsed} to 150000`,
+    };
+  }
+
+  return { effective: parsed, status: 'valid' };
 }
 
 // ============================================

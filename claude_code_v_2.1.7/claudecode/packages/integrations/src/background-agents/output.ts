@@ -16,8 +16,9 @@ import {
 } from 'fs';
 import { appendFile } from 'fs/promises';
 import { join, dirname } from 'path';
+import { tmpdir } from 'os';
 import { BACKGROUND_AGENT_CONSTANTS } from './types.js';
-import { getProjectDir } from './transcript.js';
+import { sanitizePath } from './transcript.js';
 
 // ============================================
 // Pending Writes Queue
@@ -36,21 +37,38 @@ const pendingWrites = new Map<string, Promise<void>>();
 
 /**
  * Get agent output directory.
- * Original: eSA in chunks.86.mjs
  *
- * Path: ~/.claude/projects/<sanitized-cwd>/agents/
+ * NOTE: Despite the legacy name, source stores output files under a temp root
+ * (not under ~/.claude/projects).
+ *
+ * Original path composition:
+ * - MM0() in chunks.148.mjs:2086-2089 → (CLAUDE_CODE_TMPDIR || /tmp) + '/claude/'
+ * - V71() in chunks.148.mjs:2091-2093 → join(MM0(), sanitizePath(cwd))
+ * - eSA() in chunks.86.mjs:95-97 → join(V71(), 'tasks')
+ *
+ * Effective path: <tmp>/claude/<sanitized-cwd>/tasks/
  */
 export function getAgentOutputDir(cwd?: string): string {
   const workingDir = cwd ?? process.cwd();
-  const projectDir = getProjectDir(workingDir);
-  return join(projectDir, 'agents');
+
+  // Source: MM0() prefers CLAUDE_CODE_TMPDIR, defaults to '/tmp' on non-Windows.
+  const baseTmp = process.env.CLAUDE_CODE_TMPDIR ?? (process.platform === 'win32' ? tmpdir() : '/tmp');
+
+  // Source: MM0() then appends '/claude'. We keep it as a directory, no trailing separator needed.
+  const claudeTmpRoot = join(baseTmp, 'claude');
+
+  // Source: V71() uses sanitizePath(cwd) (gGA).
+  const cwdSlug = sanitizePath(workingDir);
+
+  // Source: eSA() uses 'tasks' directory name.
+  return join(claudeTmpRoot, cwdSlug, 'tasks');
 }
 
 /**
  * Format output file path.
  * Original: aY in chunks.86.mjs:106-108
  *
- * Path: ~/.claude/projects/<sanitized-cwd>/agents/<taskId>.output
+ * Path: <tmp>/claude/<sanitized-cwd>/tasks/<taskId>.output
  */
 export function formatOutputPath(taskId: string, cwd?: string): string {
   return join(getAgentOutputDir(cwd), `${taskId}${BACKGROUND_AGENT_CONSTANTS.OUTPUT_EXTENSION}`);

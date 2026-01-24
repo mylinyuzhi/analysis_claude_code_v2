@@ -66,6 +66,7 @@ import {
   SANDBOX_CONSTANTS,
   type SandboxConfig,
   type SandboxSettings,
+  type PermissionCallback,
   telemetry,
   refreshOAuthTokenIfNeeded,
 } from '@claudecode/platform';
@@ -479,7 +480,7 @@ async function initializeSandboxIfEnabled(): Promise<void> {
 }
 
 async function createSandboxPermissionCallback(): Promise<
-  (domain: string, type: 'http' | 'socks') => Promise<boolean>
+  PermissionCallback
 > {
   if (!process.stdin.isTTY) {
     return async () => false;
@@ -487,15 +488,15 @@ async function createSandboxPermissionCallback(): Promise<
 
   const cache = new Map<string, boolean>();
 
-  return async (domain: string, type: 'http' | 'socks') => {
-    const key = `${type}:${domain}`;
+  return async ({ host, port }) => {
+    const key = `${host}:${port}`;
     const cached = cache.get(key);
     if (cached !== undefined) return cached;
 
     const readline = await import('readline');
     const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
     const ans = await new Promise<string>((resolve) => {
-      rl.question(`Allow ${type.toUpperCase()} access to ${domain}? [y/N] `, (a: string) => {
+      rl.question(`Allow network access to ${host}:${port}? [y/N] `, (a: string) => {
         rl.close();
         resolve(a);
       });
@@ -1051,6 +1052,7 @@ interface InteractiveModeOptions {
   allowedTools: string[];
   disallowedTools: string[];
   mcpServers: Record<string, unknown>;
+  dangerouslySkipPermissions?: boolean;
 }
 
 async function runInteractiveMode(options: InteractiveModeOptions): Promise<void> {

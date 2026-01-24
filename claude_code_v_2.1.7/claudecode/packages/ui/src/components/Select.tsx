@@ -1,24 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, type ReactNode } from 'react';
 import { Box, Text, useInput } from 'ink';
 
 export interface SelectOption {
-  label: string;
+  label: ReactNode;
   value: string;
 }
 
-export interface SelectProps {
+type SelectPropsNewApi = {
+  /** New API used by CLI reconstruction */
+  options: SelectOption[];
+  onChange: (value: string) => void;
+  initialIndex?: number;
+  onFocus?: (item: SelectOption) => void;
+};
+
+type SelectPropsLegacyApi = {
+  /** Legacy API kept for internal callers */
   items: SelectOption[];
   onSelect: (item: SelectOption) => void;
   initialIndex?: number;
   onFocus?: (item: SelectOption) => void;
-}
+};
 
-export const Select: React.FC<SelectProps> = ({
-  items,
-  onSelect,
-  initialIndex = 0,
-  onFocus,
-}) => {
+export type SelectProps = SelectPropsNewApi | SelectPropsLegacyApi;
+
+export const Select: React.FC<SelectProps> = (props) => {
+  const items = 'options' in props ? props.options : props.items;
+  const initialIndex = props.initialIndex ?? 0;
+  const onFocus = props.onFocus;
+
   const [selectedIndex, setSelectedIndex] = useState(initialIndex);
 
   useEffect(() => {
@@ -33,7 +43,13 @@ export const Select: React.FC<SelectProps> = ({
       setSelectedIndex(prev => Math.min(items.length - 1, prev + 1));
     } else if (key.return) {
       const item = items[selectedIndex];
-      if (item) onSelect(item);
+      if (!item) return;
+
+      if ('onChange' in props) {
+        props.onChange(item.value);
+      } else {
+        props.onSelect(item);
+      }
     }
   });
 
