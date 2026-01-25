@@ -43,6 +43,14 @@ import type {
 } from './types.js';
 
 import { ATTACHMENT_CONSTANTS } from './types.js';
+import { getPlanFilePath, readPlanFile } from '../plan-mode/plan-file.js';
+import {
+  hasExitedPlanMode,
+  needsPlanModeExitAttachment,
+  setHasExitedPlanMode,
+  setNeedsPlanModeExitAttachment,
+} from '../plan-mode/state.js';
+import { PLAN_MODE_CONSTANTS } from '../plan-mode/types.js';
 
 // ============================================
 // History Analysis Helpers
@@ -278,28 +286,35 @@ export async function generatePlanModeAttachment(
 
   if (history && history.length > 0) {
     const { turnCount, foundPlanModeAttachment } = analyzePlanModeHistory(history);
-    if (foundPlanModeAttachment && turnCount < ATTACHMENT_CONSTANTS.TURNS_BETWEEN_PLAN_ATTACHMENTS) {
+    // Original: j27 in chunks.131.mjs:3214 (ar2.TURNS_BETWEEN_ATTACHMENTS)
+    if (foundPlanModeAttachment && turnCount < PLAN_MODE_CONSTANTS.TURNS_BETWEEN_ATTACHMENTS) {
       return [];
     }
   }
 
-  const planFilePath = `/Users/bytedance/codespace/myapp/analysis_claude_code_v2/plan-${ctx.agentId || 'main'}.md`; // Simulated dC()
-  const planExists = true; // Simulated AK() !== null
-  
+  // Original: dC in chunks.86.mjs (plan file path)
+  const planFilePath = getPlanFilePath(ctx.agentId);
+  // Original: AK in chunks.86.mjs (read plan file; null means not found)
+  const planContent = readPlanFile(ctx.agentId);
+  const planExists = planContent !== null;
+
   const attachments: Attachment[] = [];
 
-  // Plan Mode Reentry (if just entered)
-  // Simulated Xf0() && Y !== null
-  if (false) {
+  // Plan Mode Reentry
+  // Original: Xf0 + Iq in chunks.1.mjs, and j27 in chunks.131.mjs:3219-3222
+  if (hasExitedPlanMode() && planExists) {
     attachments.push({
       type: 'plan_mode_reentry',
-      planFilePath
+      planFilePath,
     });
+    setHasExitedPlanMode(false);
   }
 
   // Determine reminder type (full or sparse)
+  // Original: (_27(A ?? []) + 1) % ar2.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse"
   const attachmentCount = countPlanModeAttachments(history ?? []);
-  const reminderType = (attachmentCount + 1) % ATTACHMENT_CONSTANTS.FULL_PLAN_REMINDER_EVERY_N === 1 ? 'full' : 'sparse';
+  const reminderType =
+    (attachmentCount + 1) % PLAN_MODE_CONSTANTS.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? 'full' : 'sparse';
 
   attachments.push({
     type: 'plan_mode',
@@ -319,17 +334,30 @@ export async function generatePlanModeAttachment(
 export async function generatePlanModeExitAttachment(
   ctx: AttachmentContext
 ): Promise<Attachment[]> {
+  // Original: T27 in chunks.131.mjs:3233
+  if (!needsPlanModeExitAttachment()) return [];
+
   const appState = await ctx.getAppState();
-  if (appState.toolPermissionContext.mode === 'plan') return [];
 
-  const planFilePath = `/Users/bytedance/codespace/myapp/analysis_claude_code_v2/plan-${ctx.agentId || 'main'}.md`;
-  const planExists = true;
+  // If still in plan mode, clear flag and do not emit.
+  if (appState.toolPermissionContext.mode === 'plan') {
+    setNeedsPlanModeExitAttachment(false);
+    return [];
+  }
 
-  return [{
-    type: 'plan_mode_exit',
-    planFilePath,
-    planExists,
-  }];
+  // Clear flag before emitting once.
+  setNeedsPlanModeExitAttachment(false);
+
+  const planFilePath = getPlanFilePath(ctx.agentId);
+  const planExists = readPlanFile(ctx.agentId) !== null;
+
+  return [
+    {
+      type: 'plan_mode_exit',
+      planFilePath,
+      planExists,
+    },
+  ];
 }
 
 // ============================================

@@ -5,7 +5,7 @@
  * Reconstructed from chunks.145.mjs, chunks.149.mjs, chunks.131.mjs
  */
 
-import type { McpTool } from '../../mcp/types.js';
+import type { McpTool } from '../mcp/types.js';
 
 // ============================================
 // Constants

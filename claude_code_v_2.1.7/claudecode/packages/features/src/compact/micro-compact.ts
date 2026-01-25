@@ -10,7 +10,7 @@ import { parseBoolean, type ContentBlock } from '@claudecode/shared';
 import { analyticsEvent, joinPath, getTempDir, FileSystemWrapper } from '@claudecode/platform';
 import type { MicroCompactResult } from './types.js';
 import { COMPACT_CONSTANTS } from './types.js';
-import { calculateThresholds, estimateMessageTokens } from './thresholds.js';
+import { calculateThresholds, estimateMessageTokens, setThresholdComputationContext } from './thresholds.js';
 
 // ============================================
 // Constants
@@ -260,6 +260,14 @@ export async function microCompact(
   context?: { readFileState?: Map<string, any> }
 ): Promise<MicroCompactResult> {
   microCompactOccurred = false;
+
+  // If the caller passed the full ToolUseContext, it includes `options.mainLoopModel` and may include `sdkBetas`.
+  setThresholdComputationContext({
+    model: (context as any)?.options?.mainLoopModel,
+    sdkBetas: Array.isArray((context as any)?.options?.sdkBetas)
+      ? ((context as any).options.sdkBetas as string[])
+      : undefined,
+  });
 
   if (parseBoolean(process.env.DISABLE_MICROCOMPACT)) {
     return { messages, resultsCleared: 0, tokensSaved: 0 };

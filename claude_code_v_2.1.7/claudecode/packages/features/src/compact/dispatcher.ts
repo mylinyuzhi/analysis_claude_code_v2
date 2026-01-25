@@ -23,6 +23,7 @@ import {
   isAutoCompactEnabled,
   estimateTokensWithSafetyMargin,
   estimateMessageTokens,
+  setThresholdComputationContext,
 } from './thresholds.js';
 import { fullCompact } from './full-compact.js';
 import {
@@ -493,6 +494,14 @@ export async function autoCompactDispatcher(
   context: CompactSessionContext,
   sessionMemoryType?: SessionMemoryType
 ): Promise<AutoCompactResult> {
+  // Ensure q3A()/xs2()/ic() match the active request model/betas.
+  setThresholdComputationContext({
+    model: context.options.mainLoopModel,
+    sdkBetas: Array.isArray((context.options as any).sdkBetas)
+      ? ((context.options as any).sdkBetas as string[])
+      : undefined,
+  });
+
   // Check if compaction is completely disabled (a1 in source)
   if (parseBoolean(process.env.DISABLE_COMPACT)) {
     return { wasCompacted: false };

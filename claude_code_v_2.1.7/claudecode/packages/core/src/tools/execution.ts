@@ -5,7 +5,7 @@
  * Reconstructed from chunks.134.mjs:660-1125 and chunks.89.mjs:2458-2483
  */
 
-import { generateUUID } from '@claudecode/shared';
+import { addToolDuration, generateUUID, parseBoolean } from '@claudecode/shared';
 import { createUserMessage } from '../message/factory.js';
 import type { ContentBlock, ToolResultContentBlock } from '@claudecode/shared';
 import type { ConversationMessage, UserMessage, AssistantMessage } from '../message/types.js';
@@ -13,8 +13,10 @@ import type { ToolDefinition, ToolUseContext, ToolResult, ToolInput } from './ty
 import type { ToolUseBlock, CanUseTool, ToolExecutionYield } from '../agent-loop/types.js';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { 
   analyticsEvent, 
+  isTelemetryEnabled,
   logStructuredMetric 
 } from '@claudecode/platform';
 
@@ -181,6 +183,60 @@ export function formatValidationError(toolName: string, error: { message: string
 // ============================================
 
 /**
+ * The source code (chunks.91.mjs) uses OpenTelemetry spans + AsyncLocalStorage.
+ * This reconstruction keeps the same *behavioral contract* (span lifetimes and
+ * timing/decision annotations) without requiring a full OTEL SDK.
+ */
+
+type ToolSpanType = 'tool' | 'tool.blocked_on_user' | 'tool.execution';
+
+interface ToolSpanEntry {
+  type: ToolSpanType;
+  name: string;
+  startTime: number;
+  attributes: Record<string, unknown>;
+}
+
+const toolSpanStore = new AsyncLocalStorage<ToolSpanEntry[]>();
+
+function getToolSpanStack(): ToolSpanEntry[] {
+  return toolSpanStore.getStore() ?? [];
+}
+
+function ensureToolSpanStore(): ToolSpanEntry[] {
+  const existing = toolSpanStore.getStore();
+  if (existing) return existing;
+  const stack: ToolSpanEntry[] = [];
+  toolSpanStore.enterWith(stack);
+  return stack;
+}
+
+function isToolTracingEnabled(): boolean {
+  // Source: wS() = enhanced_telemetry_beta || JK();
+  // We approximate by checking telemetry is enabled + either beta env gates.
+  if (!isTelemetryEnabled()) return false;
+  const enhancedBeta = parseBoolean(
+    process.env.CLAUDE_CODE_ENHANCED_TELEMETRY_BETA ??
+      process.env.ENABLE_ENHANCED_TELEMETRY_BETA ??
+      ''
+  );
+  const betaTracingDetailed =
+    parseBoolean(process.env.ENABLE_BETA_TRACING_DETAILED ?? '') &&
+    Boolean(process.env.BETA_TRACING_ENDPOINT);
+  return enhancedBeta || betaTracingDetailed;
+}
+
+function truncateForTracing(content: string, limit = 60_000): { content: string; truncated: boolean } {
+  if (content.length <= limit) return { content, truncated: false };
+  return {
+    content:
+      content.slice(0, limit) +
+      '\n\n[TRUNCATED - Content exceeds 60KB limit]',
+    truncated: true,
+  };
+}
+
+/**
  * Log telemetry event.
  * Original: l in chunks.134.mjs
  */
@@ -193,7 +249,9 @@ function logTelemetry(event: string, data: Record<string, unknown>): void {
  * Original: aU1 in chunks.134.mjs:958
  */
 function recordDuration(durationMs: number): void {
-  // Global state update or performance mark
+  // Source: aU1(durationMs) in chunks.1.mjs:2401-2403
+  // Tracks cumulative tool execution time (used for session stats).
+  addToolDuration(durationMs);
 }
 
 /**
@@ -201,7 +259,22 @@ function recordDuration(durationMs: number): void {
  * Original: lI0 in chunks.134.mjs:981
  */
 function recordToolSuccess(result: { success: boolean; error?: string }): void {
-  // Span management placeholder
+  // Source: lI0({success, error}) ends the latest "tool.execution" span.
+  if (!isToolTracingEnabled()) return;
+  const stack = getToolSpanStack();
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const span = stack[i];
+    if (span.type !== 'tool.execution') continue;
+    const durationMs = Date.now() - span.startTime;
+    span.attributes = {
+      ...span.attributes,
+      duration_ms: durationMs,
+      ...(result.success !== undefined ? { success: result.success } : {}),
+      ...(result.error !== undefined ? { error: result.error } : {}),
+    };
+    stack.splice(i, 1);
+    return;
+  }
 }
 
 /**
@@ -209,7 +282,42 @@ function recordToolSuccess(result: { success: boolean; error?: string }): void {
  * Original: sZ1 in chunks.134.mjs:985
  */
 function recordToolResult(result: string): void {
-  // Span management placeholder
+  // Source: sZ1(resultString) ends the latest "tool" span and exits context.
+  if (!isToolTracingEnabled()) return;
+  const stack = getToolSpanStack();
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const span = stack[i];
+    if (span.type !== 'tool') continue;
+    const durationMs = Date.now() - span.startTime;
+
+    const attrs: Record<string, unknown> = { ...span.attributes, duration_ms: durationMs };
+    if (result) {
+      const toolName = String(span.attributes.tool_name ?? 'unknown');
+      // Only attach content if explicitly enabled (source: OTEL_LOG_TOOL_CONTENT).
+      if (parseBoolean(process.env.OTEL_LOG_TOOL_CONTENT ?? '')) {
+        const { content, truncated } = truncateForTracing(result);
+        attrs.tool_result = content;
+        attrs.tool_result_length = result.length;
+        if (truncated) {
+          attrs.tool_result_truncated = true;
+          attrs.tool_result_original_length = result.length;
+        }
+      } else {
+        // Always keep lightweight summary fields.
+        attrs.tool_result_length = result.length;
+        attrs.tool_name = toolName;
+      }
+    }
+
+    span.attributes = attrs;
+    stack.splice(i, 1);
+
+    // Clear store for this async context once the outermost tool span ends.
+    if (stack.length === 0) {
+      toolSpanStore.enterWith([]);
+    }
+    return;
+  }
 }
 
 /**
@@ -225,7 +333,20 @@ async function logToolResultMetric(eventName: string, data: Record<string, unkno
  * Original: J82 in chunks.134.mjs:869
  */
 function trackToolInput(toolName: string, input: Record<string, unknown>): void {
-  // Tracing placeholder
+  // Source: J82(toolName, params) starts a "tool" span.
+  if (!isToolTracingEnabled()) return;
+  const stack = ensureToolSpanStore();
+  const attrs: Record<string, unknown> = {
+    'span.type': 'tool',
+    tool_name: toolName,
+    ...input,
+  };
+  stack.push({
+    type: 'tool',
+    name: 'claude_code.tool',
+    startTime: Date.now(),
+    attributes: attrs,
+  });
 }
 
 /**
@@ -233,7 +354,16 @@ function trackToolInput(toolName: string, input: Record<string, unknown>): void 
  * Original: X82 in chunks.134.mjs:869
  */
 function clearToolInput(): void {
-  // Tracing placeholder
+  // Source: X82() starts a "tool.blocked_on_user" span.
+  if (!isToolTracingEnabled()) return;
+  const stack = ensureToolSpanStore();
+  const attrs: Record<string, unknown> = { 'span.type': 'tool.blocked_on_user' };
+  stack.push({
+    type: 'tool.blocked_on_user',
+    name: 'claude_code.tool.blocked_on_user',
+    startTime: Date.now(),
+    attributes: attrs,
+  });
 }
 
 /**
@@ -251,7 +381,22 @@ function logDebugOutput(key: string, data: Record<string, unknown>): void {
  * Original: pI0 in chunks.134.mjs:889
  */
 function trackPermissionDecision(decision: string, source: string): void {
-  // Decision tracking placeholder
+  // Source: pI0(decision, source) ends the latest "tool.blocked_on_user" span.
+  if (!isToolTracingEnabled()) return;
+  const stack = getToolSpanStack();
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const span = stack[i];
+    if (span.type !== 'tool.blocked_on_user') continue;
+    const durationMs = Date.now() - span.startTime;
+    span.attributes = {
+      ...span.attributes,
+      duration_ms: durationMs,
+      ...(decision ? { decision } : {}),
+      ...(source ? { source } : {}),
+    };
+    stack.splice(i, 1);
+    return;
+  }
 }
 
 /**
@@ -259,7 +404,16 @@ function trackPermissionDecision(decision: string, source: string): void {
  * Original: I82 in chunks.134.mjs:946
  */
 function startSpan(): void {
-  // Span start placeholder
+  // Source: I82() starts a "tool.execution" span.
+  if (!isToolTracingEnabled()) return;
+  const stack = ensureToolSpanStore();
+  const attrs: Record<string, unknown> = { 'span.type': 'tool.execution' };
+  stack.push({
+    type: 'tool.execution',
+    name: 'claude_code.tool.execution',
+    startTime: Date.now(),
+    attributes: attrs,
+  });
 }
 
 /**
