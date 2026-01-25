@@ -63,6 +63,8 @@ import { executeSingleTool } from '../tools/execution.js';
 import {
   autoCompactDispatcher as autoCompactDispatcherFeature,
   microCompact as microCompactFeature,
+  calculateThresholds as calculateThresholdsFeature,
+  setThresholdComputationContext as setThresholdComputationContextFeature,
   attachments as attachmentsModule,
   executeHooksInREPL,
   type REPLHookYield,
@@ -462,14 +464,19 @@ export function resolveModelWithPermissions(options: {
  * Check if at blocking token limit.
  * Original: ic in chunks.132.mjs
  */
-function checkTokenLimit(tokenCount: number): { isAtBlockingLimit: boolean } {
-  // Simplified ic logic focusing on isAtBlockingLimit
-  const blockingLimitOverride = process.env.CLAUDE_CODE_BLOCKING_LIMIT_OVERRIDE;
-  const maxTokens = blockingLimitOverride ? parseInt(blockingLimitOverride, 10) : 200000;
-  
-  return {
-    isAtBlockingLimit: tokenCount >= maxTokens,
-  };
+function checkTokenLimit(
+  tokenCount: number,
+  options: { model?: string; sdkBetas?: string[] }
+): { isAtBlockingLimit: boolean } {
+  // Align with source `ic()` (chunks.132.mjs:1472-1493):
+  //   D = q3A() - mL0; override via CLAUDE_CODE_BLOCKING_LIMIT_OVERRIDE.
+  setThresholdComputationContextFeature({
+    model: options.model,
+    sdkBetas: options.sdkBetas,
+  });
+
+  const thresholds = calculateThresholdsFeature(tokenCount);
+  return { isAtBlockingLimit: thresholds.isAtBlockingLimit };
 }
 
 /**
@@ -1886,7 +1893,12 @@ export async function* coreMessageLoop(
 
   // 7. Check blocking token limit
   let fetchOverride: unknown = undefined;
-  const { isAtBlockingLimit } = checkTokenLimit(estimateTokenCount(processedMessages));
+  const { isAtBlockingLimit } = checkTokenLimit(estimateTokenCount(processedMessages), {
+    model,
+    sdkBetas: Array.isArray((updatedContext.options as any).sdkBetas)
+      ? ((updatedContext.options as any).sdkBetas as string[])
+      : undefined,
+  });
   if (isAtBlockingLimit) {
     yield createErrorAttachment({
       content: CONTEXT_LIMIT_ERROR,

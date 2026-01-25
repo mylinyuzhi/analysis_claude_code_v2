@@ -11,7 +11,12 @@
 export * as compact from './compact/index.js';
 
 // Re-export compact entry points used by core
-export { microCompact, autoCompactDispatcher } from './compact/index.js';
+export {
+  microCompact,
+  autoCompactDispatcher,
+  calculateThresholds,
+  setThresholdComputationContext,
+} from './compact/index.js';
 
 // ============================================
 // Hooks Module

@@ -264,6 +264,7 @@ function recordToolSuccess(result: { success: boolean; error?: string }): void {
   const stack = getToolSpanStack();
   for (let i = stack.length - 1; i >= 0; i--) {
     const span = stack[i];
+    if (!span) continue;
     if (span.type !== 'tool.execution') continue;
     const durationMs = Date.now() - span.startTime;
     span.attributes = {
@@ -287,6 +288,7 @@ function recordToolResult(result: string): void {
   const stack = getToolSpanStack();
   for (let i = stack.length - 1; i >= 0; i--) {
     const span = stack[i];
+    if (!span) continue;
     if (span.type !== 'tool') continue;
     const durationMs = Date.now() - span.startTime;
 
@@ -386,6 +388,7 @@ function trackPermissionDecision(decision: string, source: string): void {
   const stack = getToolSpanStack();
   for (let i = stack.length - 1; i >= 0; i--) {
     const span = stack[i];
+    if (!span) continue;
     if (span.type !== 'tool.blocked_on_user') continue;
     const durationMs = Date.now() - span.startTime;
     span.attributes = {

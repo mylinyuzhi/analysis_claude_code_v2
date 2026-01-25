@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@claudecode/core": "workspace:*",
+    "@claudecode/plugin": "workspace:*",
     "@claudecode/platform": "workspace:*",
     "@claudecode/shared": "workspace:*",
     "ink": "^4.4.1",

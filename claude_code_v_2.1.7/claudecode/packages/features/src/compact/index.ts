@@ -18,6 +18,7 @@ export * from './types.js';
 export {
   setAutoCompactEnabled,
   isAutoCompactEnabled,
+  setThresholdComputationContext,
   setAutoCompactTarget,
   getAutoCompactTarget,
   setAvailableTokens,

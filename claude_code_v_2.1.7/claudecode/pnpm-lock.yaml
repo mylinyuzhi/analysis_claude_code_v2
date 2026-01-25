@@ -173,6 +173,9 @@ importers:
       '@claudecode/platform':
         specifier: workspace:*
         version: link:../platform
+      '@claudecode/plugin':
+        specifier: workspace:*
+        version: link:../plugin
       '@claudecode/shared':
         specifier: workspace:*
         version: link:../shared

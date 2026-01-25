@@ -281,7 +281,7 @@ export async function initializeConfig(): Promise<void> {
     registerShutdownHook(shutdownLspServerManager); // C6(Sy2)
 
     // Phase 12.5: Initialize LSP Manager
-    initializeLspServerManager(() => process.cwd(), getAllLspServers);
+    initializeLspServerManager();
 
     // Phase 13: MCP initialization
     if (isMcpCliMode()) { // jJ()
