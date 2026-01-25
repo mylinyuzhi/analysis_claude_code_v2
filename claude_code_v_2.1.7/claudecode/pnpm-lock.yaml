@@ -185,6 +185,9 @@ importers:
       semver:
         specifier: ^7.5.4
         version: 7.7.3
+      vscode-jsonrpc:
+        specifier: ^8.2.1
+        version: 8.2.1
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -2384,6 +2387,10 @@ packages:
         optional: true
       jsdom:
         optional: true
+
+  vscode-jsonrpc@8.2.1:
+    resolution: {integrity: sha512-kdjOSJ2lLIn7r1rtrMbbNCHjyMPfRnowdKjBQ+mGq6NAW5QY2bEZC/khaC5OR8svbbjvLEaIXkOq45e2X9BIbQ==}
+    engines: {node: '>=14.0.0'}
 
   web-streams-polyfill@4.0.0-beta.3:
     resolution: {integrity: sha512-QW95TCTaHmsYfHDybGMwO5IJIM93I/6vTRk+daHTWFPhwh+C8Cg7j7XyKrwrj8Ib6vYXe0ocYNrmzY4xAAN6ug==}
@@ -4836,6 +4843,8 @@ snapshots:
       - sugarss
       - supports-color
       - terser
+
+  vscode-jsonrpc@8.2.1: {}
 
   web-streams-polyfill@4.0.0-beta.3: {}
 

@@ -25,6 +25,12 @@ import {
   parseShellCommand,
 } from './tokenizer.js';
 import { shellOperatorChecker } from './security.js';
+import {
+  isTreeSitterSupported,
+  parseCommand,
+  extractPipePositions,
+  extractRedirectionNodes,
+} from './tree-sitter.js';
 
 // ============================================
 // Helpers
@@ -274,8 +280,21 @@ export const shellCommandParser = {
   async parse(command: string): Promise<ParsedCommand | null> {
     if (!command) return null;
 
-    // Tree-sitter check (stubbed as per source behavior where it may fail/be missing)
-    // In real env, this would load WASM.
+    // Tree-sitter check
+    if (await isTreeSitterSupported()) {
+      try {
+        const result = await parseCommand(command);
+        if (result) {
+          const pipePositions = extractPipePositions(result.rootNode);
+          const redirectionNodes = extractRedirectionNodes(result.rootNode);
+          result.tree.delete();
+          return new RichCommand(command, pipePositions, redirectionNodes);
+        }
+      } catch {
+        // Fallback to SimpleCommand
+      }
+    }
+
     return new SimpleCommand(command);
   },
 };

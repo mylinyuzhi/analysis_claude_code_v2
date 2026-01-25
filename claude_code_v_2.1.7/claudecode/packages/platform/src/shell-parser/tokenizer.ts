@@ -317,31 +317,43 @@ export function parseShellCommand(
     for (let i = 0; i < command.length; i++) {
       const char = command[i]!;
 
+      // 1. Handle escaped character
       if (isEscaped) {
         current += char;
         isEscaped = false;
         continue;
       }
 
+      // 2. Handle Single Quotes (Literal content, NO escaping inside)
+      if (inSingleQuote) {
+        if (char === "'") {
+          inSingleQuote = false;
+        } else {
+          current += char;
+        }
+        continue;
+      }
+
+      // 3. Handle Backslash (Escape next char)
       if (char === '\\') {
         isEscaped = true;
-        current += char;
         continue;
       }
 
-      if (char === "'" && !inDoubleQuote) {
-        inSingleQuote = !inSingleQuote;
-        current += char;
-        continue;
-      }
-
-      if (char === '"' && !inSingleQuote) {
+      // 4. Handle Double Quotes
+      if (char === '"') {
         inDoubleQuote = !inDoubleQuote;
-        current += char;
         continue;
       }
 
-      if (!inSingleQuote && !inDoubleQuote) {
+      // 5. Handle Single Quote start (only if not in double quote)
+      if (char === "'" && !inDoubleQuote) {
+        inSingleQuote = true;
+        continue;
+      }
+
+      // 6. Handle separators (only if not in quotes)
+      if (!inDoubleQuote) {
         if (/\s/.test(char)) {
           flush();
           continue;
@@ -361,20 +373,16 @@ export function parseShellCommand(
           tokens.push({ op: char });
           continue;
         }
-
-        // Glob detection (very basic)
-        if (['*', '?'].includes(char)) {
-          // In a real shell parser, globs are identified as such
-          // For our purposes, we'll keep them in the string or mark as glob if alone
-        }
       }
 
+      // 7. Append regular char
       current += char;
     }
     flush();
 
     return { success: true, tokens };
   } catch (error) {
+    console.error('parseShellCommand error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown parse error',
@@ -457,7 +465,8 @@ export function tokenizeCommand(command: string): string[] {
       });
 
     return reconstructHeredocs(finalTokens, heredocs);
-  } catch {
+  } catch (error) {
+    console.error('tokenizeCommand error:', error);
     return [command];
   }
 }
