@@ -1,640 +1,152 @@
 /**
  * @claudecode/integrations - LSP Operations
  *
- * High-level LSP operations for code intelligence features.
- * Reconstructed from chunks.119.mjs, chunks.120.mjs
- *
- * Key symbols:
- * - Rl5 → buildLspRequest
- * - jl5 → formatLspResult
- * - PU0 → formatGoToDefinitionResult
- * - Lg2 → formatFindReferencesResult
- * - Og2 → formatHoverResult
- * - Rg2 → formatDocumentSymbolResult
- * - SU0 → formatWorkspaceSymbolResult
- * - rHA → symbolKindToName
+ * Handles mapping of abstract LSP operations (like "goToDefinition") to specific
+ * LSP protocol requests, and formatting the results for display.
+ * Reconstructed from chunks.119.mjs
  */
 
-import { relative } from 'path';
-import { pathToFileURL } from 'url';
-import { getFileSystem } from '@claudecode/platform';
-import type {
-  LspOperation,
-  LspOperationInput,
-  LspLocation,
-  LspLocationLink,
-  LspHoverResult,
-  LspDocumentSymbol,
-  LspSymbolInformation,
-  LspCallHierarchyItem,
-  LspIncomingCall,
-  LspOutgoingCall,
-  LspPosition,
-  LspRange,
-  LspRequest,
-} from './types.js';
+import * as path from 'path';
+import {
+  type LspOperation,
+  type LspOperationInput,
+  type LspRequest,
+  type LspLocation,
+  type LspLocationLink,
+  type LspRange,
+  type LspDocumentSymbol,
+  type LspSymbolInformation,
+  type LspCallHierarchyItem,
+  type LspIncomingCall,
+  type LspOutgoingCall,
+  type LspHoverResult,
+  LSP_CONSTANTS
+} from './types';
 
 // ============================================
-// Constants
+// Helpers
 // ============================================
 
 /**
- * All supported LSP operations.
+ * Converts a file path to a file URI.
+ * Original: Ll5 in chunks.119.mjs:~3320
  */
-export const LSP_OPERATIONS = [
-  'goToDefinition',
-  'findReferences',
-  'hover',
-  'documentSymbol',
-  'workspaceSymbol',
-  'goToImplementation',
-  'prepareCallHierarchy',
-  'incomingCalls',
-  'outgoingCalls',
-] as const;
-
-// ============================================
-// Symbol Kind Mapping
-// ============================================
-
-/**
- * Map LSP SymbolKind to human-readable name.
- * Original: rHA in chunks.119.mjs:2948-2977
- */
-export function symbolKindToName(kind: number): string {
-  const kindMap: Record<number, string> = {
-    1: 'File',
-    2: 'Module',
-    3: 'Namespace',
-    4: 'Package',
-    5: 'Class',
-    6: 'Method',
-    7: 'Property',
-    8: 'Field',
-    9: 'Constructor',
-    10: 'Enum',
-    11: 'Interface',
-    12: 'Function',
-    13: 'Variable',
-    14: 'Constant',
-    15: 'String',
-    16: 'Number',
-    17: 'Boolean',
-    18: 'Array',
-    19: 'Object',
-    20: 'Key',
-    21: 'Null',
-    22: 'EnumMember',
-    23: 'Struct',
-    24: 'Event',
-    25: 'Operator',
-    26: 'TypeParameter',
-  };
-  return kindMap[kind] || 'Unknown';
-}
-
-// ============================================
-// Path/URI Utilities
-// ============================================
-
-/**
- * Convert file path to file:// URI.
- * Original: Ll5 in chunks.119.mjs
- */
-export function pathToFileUri(filePath: string): URL {
-  return pathToFileURL(filePath);
+export function pathToFileUri(filePath: string): string {
+  // Simple implementation, in reality might need more robust handling
+  let resolved = path.resolve(filePath);
+  // Windows handling if needed, but we assume posix for now or node handles it
+  if (path.sep === '\\') {
+    resolved = resolved.replace(/\\/g, '/');
+  }
+  if (!resolved.startsWith('/')) {
+    resolved = '/' + resolved;
+  }
+  return `file://${encodeURI(resolved).replace(/#/g, '%23')}`;
 }
 
 /**
- * Convert file:// URI to relative path.
- * Original: hbA in chunks.119.mjs:2828-2846
+ * Formats a URI for display, making it relative to CWD if possible.
+ * Original: hbA in chunks.119.mjs:353700
  */
-export function uriToRelativePath(uri: string, workingDir: string): string {
+export function uriToRelativePath(uri: string, cwd?: string): string {
   if (!uri) {
-    console.warn('formatUri called with undefined URI - indicates malformed LSP server response');
+    console.warn('formatUri called with undefined URI');
     return '<unknown location>';
   }
+
   let filePath = uri.replace(/^file:\/\//, '');
   try {
     filePath = decodeURIComponent(filePath);
-  } catch (error) {
-    console.warn(`Failed to decode LSP URI '${uri}': ${(error as Error).message}. Using un-decoded path: ${filePath}`);
+  } catch (err: any) {
+    console.warn(`Failed to decode LSP URI '${uri}': ${err.message}. Using un-decoded path: ${filePath}`);
   }
-  
-  if (workingDir) {
-    const relPath = relative(workingDir, filePath);
-    // Prefer relative path if it's shorter and doesn't escape workspace too far
-    if (relPath.length < filePath.length && !relPath.startsWith('../../')) {
-      return relPath;
+
+  if (cwd) {
+    const relative = path.relative(cwd, filePath);
+    // Use relative path if it's shorter and within the CWD (doesn't start with ..)
+    if (relative.length < filePath.length && !relative.startsWith('..')) {
+      return relative;
     }
   }
   return filePath;
 }
 
-// ============================================
-// Location Utilities
-// ============================================
-
 /**
- * Check if result is LocationLink (vs Location).
- * Original: qg2 in chunks.119.mjs:2874-2876
+ * Groups locations by file URI.
+ * Original: wg2 in chunks.119.mjs:353720
  */
-export function isLocationLink(location: LspLocation | LspLocationLink): location is LspLocationLink {
-  return 'targetUri' in location;
-}
-
-/**
- * Convert LocationLink to Location.
- * Original: Ug2 in chunks.119.mjs:2867-2872
- */
-export function locationLinkToLocation(link: LspLocationLink): LspLocation {
-  return {
-    uri: link.targetUri,
-    range: link.targetSelectionRange || link.targetRange,
-  };
-}
-
-/**
- * Format location as relative-path:line:col.
- * Original: WK1 in chunks.119.mjs:2860-2865
- */
-export function formatLocation(location: LspLocation, workingDir: string): string {
-  const relativePath = uriToRelativePath(location.uri, workingDir);
-  const line = location.range.start.line + 1; // 0-based → 1-based
-  const char = location.range.start.character + 1;
-  return `${relativePath}:${line}:${char}`;
-}
-
-/**
- * Group locations by file path.
- * Original: wg2 in chunks.119.mjs:2848-2858
- */
-export function groupLocationsByFile<T extends { uri?: string; location?: LspLocation }>(
-  items: T[],
-  workingDir: string
-): Map<string, T[]> {
-  const grouped = new Map<string, T[]>();
-
-  for (const item of items) {
-    const uri = 'uri' in item && item.uri ? item.uri : item.location?.uri;
-    if (!uri) continue;
-
-    const relativePath = uriToRelativePath(uri, workingDir);
-    const existing = grouped.get(relativePath) || [];
-    existing.push(item);
-    grouped.set(relativePath, existing);
-  }
-
-  return grouped;
-}
-
-// ============================================
-// Request Builder
-// ============================================
-
-/**
- * Build LSP request from operation input.
- * Original: Rl5 in chunks.119.mjs:3320-3407
- *
- * Key insight: Position conversion from 1-based (user) to 0-based (LSP).
- */
-export function buildLspRequest(input: LspOperationInput, resolvedPath: string): LspRequest {
-  const fileUri = pathToFileUri(resolvedPath).href;
-  const position: LspPosition = {
-    line: input.line - 1,     // 1-based → 0-based
-    character: input.character - 1,
-  };
-
-  switch (input.operation) {
-    case 'goToDefinition':
-      return {
-        method: 'textDocument/definition',
-        params: { textDocument: { uri: fileUri }, position },
-      };
-
-    case 'findReferences':
-      return {
-        method: 'textDocument/references',
-        params: {
-          textDocument: { uri: fileUri },
-          position,
-          context: { includeDeclaration: true },
-        },
-      };
-
-    case 'hover':
-      return {
-        method: 'textDocument/hover',
-        params: { textDocument: { uri: fileUri }, position },
-      };
-
-    case 'documentSymbol':
-      return {
-        method: 'textDocument/documentSymbol',
-        params: { textDocument: { uri: fileUri } },
-      };
-
-    case 'workspaceSymbol':
-      return {
-        method: 'workspace/symbol',
-        params: { query: '' }, // Empty query = all symbols
-      };
-
-    case 'goToImplementation':
-      return {
-        method: 'textDocument/implementation',
-        params: { textDocument: { uri: fileUri }, position },
-      };
-
-    case 'prepareCallHierarchy':
-    case 'incomingCalls':
-    case 'outgoingCalls':
-      // All start with prepareCallHierarchy (additional call made in handler)
-      return {
-        method: 'textDocument/prepareCallHierarchy',
-        params: { textDocument: { uri: fileUri }, position },
-      };
-
-    default:
-      throw new Error(`Unknown LSP operation: ${input.operation}`);
-  }
-}
-
-// ============================================
-// Result Formatters
-// ============================================
-
-/**
- * Format Go To Definition result.
- * Original: PU0 in chunks.119.mjs:2878-2896
- */
-export function formatGoToDefinitionResult(
-  result: LspLocation | LspLocationLink | Array<LspLocation | LspLocationLink> | null,
-  workingDir: string
-): string {
-  if (!result) {
-    return 'No definition found. This may occur if the cursor is not on a symbol, or if the definition is in an external library not indexed by the LSP server.';
-  }
-
-  if (Array.isArray(result)) {
-    const locations: LspLocation[] = result
-      .map((item) => (isLocationLink(item) ? locationLinkToLocation(item) : item))
-      .filter((loc): loc is LspLocation => !!loc && !!loc.uri);
-
-    if (locations.length === 0) {
-      return 'No definition found. This may occur if the cursor is not on a symbol, or if the definition is in an external library not indexed by the LSP server.';
-    }
-
-    if (locations.length === 1) {
-      return `Defined in ${formatLocation(locations[0]!, workingDir)}`;
-    }
-
-    const lines = locations.map((loc) => `  ${formatLocation(loc, workingDir)}`);
-    return `Found ${locations.length} definitions:\n${lines.join('\n')}`;
-  }
-
-  const location = isLocationLink(result) ? locationLinkToLocation(result) : result;
-  return `Defined in ${formatLocation(location, workingDir)}`;
-}
-
-/**
- * Format Find References result.
- * Original: Lg2 in chunks.119.mjs:2898-2921
- */
-export function formatFindReferencesResult(
-  locations: LspLocation[] | null,
-  workingDir: string
-): string {
-  if (!locations || locations.length === 0) {
-    return 'No references found. This may occur if the symbol has no usages, or if the LSP server has not fully indexed the workspace.';
-  }
-
-  const valid = locations.filter((loc) => loc && loc.uri);
-
-  if (valid.length === 0) {
-    return 'No references found. This may occur if the symbol has no usages, or if the LSP server has not fully indexed the workspace.';
-  }
-
-  if (valid.length === 1) {
-    return `Found 1 reference:\n  ${formatLocation(valid[0]!, workingDir)}`;
-  }
-
-  const groupedByFile = groupLocationsByFile(valid, workingDir);
-  const lines: string[] = [`Found ${valid.length} references across ${groupedByFile.size} files:`];
-
-  for (const [filePath, fileLocations] of groupedByFile) {
-    lines.push(`\n${filePath}:`);
-    for (const location of fileLocations) {
-      const line = location.range.start.line + 1;
-      const char = location.range.start.character + 1;
-      lines.push(`  Line ${line}:${char}`);
-    }
-  }
-
-  return lines.join('\n');
-}
-
-/**
- * Extract content from hover result.
- * Original: Ul5 in chunks.119.mjs:2923-2933
- */
-export function extractHoverContent(
-  contents: string | { kind: string; value: string } | Array<string | { kind: string; value: string }>
-): string {
-  if (Array.isArray(contents)) {
-    return contents
-      .map((c) => (typeof c === 'string' ? c : c.value))
-      .join('\n\n');
-  }
-  if (typeof contents === 'string') return contents;
-  return contents.value;
-}
-
-/**
- * Format Hover result.
- * Original: Og2 in chunks.119.mjs:2935-2946
- */
-export function formatHoverResult(
-  hover: LspHoverResult | null,
-  _workingDir: string
-): string {
-  if (!hover) {
-    return 'No hover information available. This may occur if the cursor is not on a symbol, or if the LSP server has not fully indexed the file.';
-  }
-
-  const content = extractHoverContent(hover.contents);
-
-  if (hover.range) {
-    const line = hover.range.start.line + 1;
-    const char = hover.range.start.character + 1;
-    return `Hover info at ${line}:${char}:\n\n${content}`;
-  }
-
-  return content;
-}
-
-/**
- * Flatten hierarchical document symbols.
- * Original: Mg2 in chunks.119.mjs:2979-2989
- */
-function flattenDocumentSymbol(
-  symbol: LspDocumentSymbol,
-  depth: number = 0
-): string[] {
-  const result: string[] = [];
-  const indent = '  '.repeat(depth);
-  const kindName = symbolKindToName(symbol.kind);
-  let entry = `${indent}${symbol.name} (${kindName})`;
+function groupLocationsByFile(locations: Array<LspLocation | LspSymbolInformation>, cwd?: string): Map<string, Array<LspLocation | LspSymbolInformation>> {
+  const groups = new Map<string, Array<LspLocation | LspSymbolInformation>>();
   
-  if (symbol.detail) entry += ` ${symbol.detail}`;
-  const line = symbol.range.start.line + 1;
-  entry += ` - Line ${line}`;
-  result.push(entry);
-
-  if (symbol.children && symbol.children.length > 0) {
-    for (const child of symbol.children) {
-      result.push(...flattenDocumentSymbol(child, depth + 1));
+  for (const loc of locations) {
+    const uri = 'uri' in loc ? loc.uri : loc.location.uri;
+    const formattedPath = uriToRelativePath(uri, cwd);
+    
+    if (!groups.has(formattedPath)) {
+      groups.set(formattedPath, []);
     }
+    groups.get(formattedPath)!.push(loc);
   }
-
-  return result;
+  return groups;
 }
 
 /**
- * Format Document Symbol result.
- * Original: Rg2 in chunks.119.mjs:2991-2999
+ * Formats a location string (file:line:char).
+ * Original: WK1 in chunks.119.mjs:353732
  */
-export function formatDocumentSymbolResult(
-  symbols: LspDocumentSymbol[] | null,
-  workingDir: string
-): string {
-  if (!symbols || symbols.length === 0) {
-    return 'No symbols found in this document. This may occur if the file is empty, not supported by the LSP server, or if the server has not fully indexed the file.';
-  }
-
-  // Handle case where workspace symbols are returned instead
-  if (symbols[0] && 'location' in symbols[0]) {
-    return formatWorkspaceSymbolResult(symbols as unknown as LspSymbolInformation[], workingDir);
-  }
-
-  const lines: string[] = ['Document symbols:'];
-  for (const symbol of symbols) {
-    lines.push(...flattenDocumentSymbol(symbol));
-  }
-
-  return lines.join('\n');
+export function formatLocation(loc: { uri: string; range: LspRange }, cwd?: string): string {
+  const filePath = uriToRelativePath(loc.uri, cwd);
+  const line = loc.range.start.line + 1;
+  const char = loc.range.start.character + 1;
+  return `${filePath}:${line}:${char}`;
 }
 
 /**
- * Format Workspace Symbol result.
- * Original: SU0 in chunks.119.mjs:3001-3024
+ * Normalizes LocationLink to Location.
+ * Original: Ug2/mg2 in chunks.119.mjs:353739
  */
-export function formatWorkspaceSymbolResult(
-  symbols: LspSymbolInformation[] | null,
-  workingDir: string
-): string {
-  if (!symbols || symbols.length === 0) {
-    return 'No symbols found in workspace. This may occur if the workspace is empty, or if the LSP server has not finished indexing the project.';
+function normalizeLocation(loc: LspLocation | LspLocationLink): { uri: string; range: LspRange } {
+  if ('targetUri' in loc) {
+    return {
+      uri: loc.targetUri,
+      range: loc.targetSelectionRange || loc.targetRange
+    };
   }
-
-  const valid = symbols.filter((sym) => sym && sym.location && sym.location.uri);
-
-  if (valid.length === 0) {
-    return 'No symbols found in workspace. This may occur if the workspace is empty, or if the LSP server has not finished indexing the project.';
-  }
-
-  const lines: string[] = [`Found ${valid.length} symbol${valid.length === 1 ? '' : 's'} in workspace:`];
-  const groupedByFile = groupLocationsByFile(valid, workingDir);
-
-  for (const [filePath, fileSymbols] of groupedByFile) {
-    lines.push(`\n${filePath}:`);
-    for (const symbol of fileSymbols) {
-      const kindName = symbolKindToName(symbol.kind);
-      const line = symbol.location.range.start.line + 1;
-      let entry = `  ${symbol.name} (${kindName}) - Line ${line}`;
-      if (symbol.containerName) {
-        entry += ` in ${symbol.containerName}`;
-      }
-      lines.push(entry);
-    }
-  }
-
-  return lines.join('\n');
+  return loc;
 }
 
 /**
- * Format single Call Hierarchy Item.
- * Original: Ng2 in chunks.119.mjs:3026-3036
+ * Counts unique URIs in a list of items.
+ * Original: KK1 in chunks.119.mjs:354288
  */
-export function formatCallHierarchyItem(item: LspCallHierarchyItem, workingDir: string): string {
-  if (!item.uri) {
-    console.warn('formatCallHierarchyItem: CallHierarchyItem has undefined URI');
-    return `${item.name} (${symbolKindToName(item.kind)}) - <unknown location>`;
-  }
-  const relPath = uriToRelativePath(item.uri, workingDir);
-  const line = item.range.start.line + 1;
-  const kindName = symbolKindToName(item.kind);
-  let result = `${item.name} (${kindName}) - ${relPath}:${line}`;
-  if (item.detail) result += ` [${item.detail}]`;
-  return result;
-}
-
-/**
- * Format Prepare Call Hierarchy result.
- * Original: _g2 in chunks.119.mjs:3038-3045
- */
-export function formatPrepareCallHierarchyResult(
-  items: LspCallHierarchyItem[] | null,
-  workingDir: string
-): string {
-  if (!items || items.length === 0) {
-    return 'No call hierarchy item found at this position';
-  }
-  if (items.length === 1) {
-    return `Call hierarchy item: ${formatCallHierarchyItem(items[0]!, workingDir)}`;
-  }
-  const lines: string[] = [`Found ${items.length} call hierarchy items:`];
+function countUniqueFiles(items: Array<{ uri?: string; location?: { uri: string } }>): number {
+  const uris = new Set<string>();
   for (const item of items) {
-    lines.push(`  ${formatCallHierarchyItem(item, workingDir)}`);
+    if (item.uri) uris.add(item.uri);
+    else if (item.location && item.location.uri) uris.add(item.location.uri);
   }
-  return lines.join('\n');
+  return uris.size;
 }
 
 /**
- * Format Incoming Calls result.
- * Original: jg2 in chunks.119.mjs:3047-3080
+ * Maps symbol kind number to string name.
+ * Original: rHA in chunks.119.mjs:353820
  */
-export function formatIncomingCallsResult(
-  calls: LspIncomingCall[] | null,
-  workingDir: string
-): string {
-  if (!calls || calls.length === 0) {
-    return 'No incoming calls found (nothing calls this function)';
-  }
-
-  const lines: string[] = [`Found ${calls.length} incoming call${calls.length === 1 ? '' : 's'}:`];
-  const groupedByFile = new Map<string, LspIncomingCall[]>();
-
-  for (const call of calls) {
-    if (!call.from) {
-      console.warn('formatIncomingCallsResult: CallHierarchyIncomingCall has undefined from field');
-      continue;
-    }
-    const relPath = uriToRelativePath(call.from.uri, workingDir);
-    const existing = groupedByFile.get(relPath) || [];
-    existing.push(call);
-    groupedByFile.set(relPath, existing);
-  }
-
-  for (const [filePath, fileCalls] of groupedByFile) {
-    lines.push(`\n${filePath}:`);
-    for (const call of fileCalls) {
-      const from = call.from;
-      const kindName = symbolKindToName(from.kind);
-      const line = from.range.start.line + 1;
-      let entry = `  ${from.name} (${kindName}) - Line ${line}`;
-      if (call.fromRanges && call.fromRanges.length > 0) {
-        const ranges = call.fromRanges.map((r) => `${r.start.line + 1}:${r.start.character + 1}`).join(', ');
-        entry += ` [calls at: ${ranges}]`;
-      }
-      lines.push(entry);
-    }
-  }
-
-  return lines.join('\n');
+export function symbolKindToName(kind: number): string {
+  const kinds: Record<number, string> = {
+    1: "File", 2: "Module", 3: "Namespace", 4: "Package", 5: "Class",
+    6: "Method", 7: "Property", 8: "Field", 9: "Constructor", 10: "Enum",
+    11: "Interface", 12: "Function", 13: "Variable", 14: "Constant", 15: "String",
+    16: "Number", 17: "Boolean", 18: "Array", 19: "Object", 20: "Key",
+    21: "Null", 22: "EnumMember", 23: "Struct", 24: "Event", 25: "Operator",
+    26: "TypeParameter"
+  };
+  return kinds[kind] || "Unknown";
 }
 
 /**
- * Format Outgoing Calls result.
- * Original: Tg2 in chunks.119.mjs:3082-3115
- */
-export function formatOutgoingCallsResult(
-  calls: LspOutgoingCall[] | null,
-  workingDir: string
-): string {
-  if (!calls || calls.length === 0) {
-    return 'No outgoing calls found (this function calls nothing)';
-  }
-
-  const lines: string[] = [`Found ${calls.length} outgoing call${calls.length === 1 ? '' : 's'}:`];
-  const groupedByFile = new Map<string, LspOutgoingCall[]>();
-
-  for (const call of calls) {
-    if (!call.to) {
-      console.warn('formatOutgoingCallsResult: CallHierarchyOutgoingCall has undefined to field');
-      continue;
-    }
-    const relPath = uriToRelativePath(call.to.uri, workingDir);
-    const existing = groupedByFile.get(relPath) || [];
-    existing.push(call);
-    groupedByFile.set(relPath, existing);
-  }
-
-  for (const [filePath, fileCalls] of groupedByFile) {
-    lines.push(`\n${filePath}:`);
-    for (const call of fileCalls) {
-      const to = call.to;
-      const kindName = symbolKindToName(to.kind);
-      const line = to.range.start.line + 1;
-      let entry = `  ${to.name} (${kindName}) - Line ${line}`;
-      if (call.fromRanges && call.fromRanges.length > 0) {
-        const ranges = call.fromRanges.map((r) => `${r.start.line + 1}:${r.start.character + 1}`).join(', ');
-        entry += ` [called from: ${ranges}]`;
-      }
-      lines.push(entry);
-    }
-  }
-
-  return lines.join('\n');
-}
-
-/**
- * Extract symbol name at position for display.
- * Original: xg2 in chunks.119.mjs:3143-3172
- */
-export function extractSymbolAtPosition(
-  filePath: string,
-  line: number,
-  character: number
-): string | null {
-  try {
-    const fs = getFileSystem();
-    if (!fs.existsSync(filePath)) return null;
-
-    const content = fs.readFileSync(filePath, { encoding: 'utf-8' });
-    const lines = content.split('\n');
-    if (line < 0 || line >= lines.length) return null;
-
-    const lineContent = lines[line];
-    if (!lineContent || character < 0 || character >= lineContent.length) return null;
-
-    // Match identifiers OR operators
-    const symbolRegex = /[\w$'!]+|[+\-*/%&|^~<>=]+/g;
-    let match;
-
-    while ((match = symbolRegex.exec(lineContent)) !== null) {
-      const startIndex = match.index;
-      const endIndex = startIndex + match[0].length;
-
-      if (character >= startIndex && character < endIndex) {
-        const symbol = match[0];
-        // Truncate long symbols to 30 chars
-        return symbol.length > 30 ? symbol.slice(0, 27) + '...' : symbol;
-      }
-    }
-    return null;
-  } catch (error) {
-    return null;
-  }
-}
-
-// ============================================
-// Main Result Formatter
-// ============================================
-
-/**
- * Count total results including children for document symbols.
- * Original: dg2 in chunks.119.mjs:3410-3415
+ * Recursively counts document symbols.
+ * Original: dg2 in chunks.119.mjs:354281
  */
 function countDocumentSymbols(symbols: LspDocumentSymbol[]): number {
   let count = symbols.length;
@@ -647,138 +159,480 @@ function countDocumentSymbols(symbols: LspDocumentSymbol[]): number {
 }
 
 /**
- * Count unique files in a list of locations.
- * Original: KK1 in chunks.119.mjs:3417-3419
+ * Extracts symbol name at a given position from file content.
+ * Original: xg2 in chunks.119.mjs:3143-3172
  */
-function countUniqueFiles(locations: LspLocation[]): number {
-  return new Set(locations.map((l) => l.uri)).size;
+export function extractSymbolAtPosition(content: string, line: number, character: number): string | undefined {
+  const lines = content.split(/\r?\n/);
+  // Line is 1-based in input usually, need to check usage.
+  // In mapToLspRequest we convert 1-based to 0-based.
+  // Assuming 0-based here for internal utility, or aligned with `formatLocation`.
+  // Wait, if it comes from user input/cursor, it might be 1-based.
+  // But typically array access is 0-based.
+  
+  if (line < 0 || line >= lines.length) return undefined;
+  
+  const lineContent = lines[line];
+  if (!lineContent) return undefined;
+  
+  if (character < 0 || character >= lineContent.length) return undefined;
+
+  // Simple regex to find word at position
+  // Look backward
+  let start = character;
+  while (start > 0 && /[\w\d_$]/.test(lineContent[start - 1] || '')) {
+    start--;
+  }
+  
+  // Look forward
+  let end = character;
+  while (end < lineContent.length && /[\w\d_$]/.test(lineContent[end] || '')) {
+    end++;
+  }
+  
+  if (start === end) return undefined;
+  return lineContent.substring(start, end);
+}
+
+// ============================================
+// Formatters
+// ============================================
+
+/**
+ * Formats goToDefinition result.
+ * Original: PU0 in chunks.119.mjs:353750
+ */
+function formatDefinition(result: any, cwd?: string): string {
+  if (!result) return "No definition found. This may occur if the cursor is not on a symbol, or if the definition is in an external library not indexed by the LSP server.";
+  
+  if (Array.isArray(result)) {
+    const locations = result.map(normalizeLocation);
+    const validLocations = locations.filter(l => l && l.uri);
+    
+    if (validLocations.length === 0) return "No definition found. This may occur if the cursor is not on a symbol, or if the definition is in an external library not indexed by the LSP server.";
+    
+    if (validLocations.length === 1) return `Defined in ${formatLocation(validLocations[0]!, cwd)}`;
+    
+    const list = validLocations.map(l => `  ${formatLocation(l, cwd)}`).join('\n');
+    return `Found ${validLocations.length} definitions:\n${list}`;
+  }
+  
+  const loc = normalizeLocation(result);
+  return `Defined in ${formatLocation(loc, cwd)}`;
 }
 
 /**
- * Format LSP result based on operation type.
- * Original: jl5 in chunks.119.mjs:3433-3518
+ * Formats findReferences result.
+ * Original: Lg2 in chunks.119.mjs:353770
+ */
+function formatReferences(result: any, cwd?: string): string {
+  const refs = (result || []) as LspLocation[];
+  const validRefs = refs.filter(r => r && r.uri);
+  
+  if (validRefs.length === 0) return "No references found. This may occur if the symbol has no usages, or if the LSP server has not fully indexed the workspace.";
+  
+  if (validRefs.length === 1) return `Found 1 reference:\n  ${formatLocation(validRefs[0]!, cwd)}`;
+  
+  const groups = groupLocationsByFile(validRefs as any, cwd);
+  const lines = [`Found ${validRefs.length} references across ${groups.size} files:`];
+  
+  for (const [file, locs] of groups) {
+    lines.push(`\n${file}:`);
+    for (const loc of locs) {
+      const l = (loc as LspLocation);
+      const line = l.range.start.line + 1;
+      const char = l.range.start.character + 1;
+      lines.push(`  Line ${line}:${char}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Formats hover contents.
+ * Original: Ul5 in chunks.119.mjs:353795
+ */
+function formatHoverContents(contents: any): string {
+  if (Array.isArray(contents)) {
+    return contents.map(c => {
+      if (typeof c === 'string') return c;
+      return c.value;
+    }).join('\n\n');
+  }
+  if (typeof contents === 'string') return contents;
+  if ('kind' in contents) return contents.value;
+  return String(contents);
+}
+
+/**
+ * Formats hover result.
+ * Original: Og2 in chunks.119.mjs:353807
+ */
+function formatHover(result: any, cwd?: string): string {
+  if (!result) return "No hover information available. This may occur if the cursor is not on a symbol, or if the LSP server has not fully indexed the file.";
+  
+  const contents = formatHoverContents(result.contents);
+  if (result.range) {
+    const line = result.range.start.line + 1;
+    const char = result.range.start.character + 1;
+    return `Hover info at ${line}:${char}:\n\n${contents}`;
+  }
+  return contents;
+}
+
+/**
+ * Helper for document symbol recursion.
+ * Original: Mg2 in chunks.119.mjs:353851
+ */
+function formatSymbolRecursive(symbol: LspDocumentSymbol, depth: number = 0): string[] {
+  const lines: string[] = [];
+  const indent = "  ".repeat(depth);
+  const kind = symbolKindToName(symbol.kind);
+  let line = `${indent}${symbol.name} (${kind})`;
+  
+  if (symbol.detail) line += ` ${symbol.detail}`;
+  
+  const lineNum = symbol.range.start.line + 1;
+  line += ` - Line ${lineNum}`;
+  
+  lines.push(line);
+  
+  if (symbol.children && symbol.children.length > 0) {
+    for (const child of symbol.children) {
+      lines.push(...formatSymbolRecursive(child, depth + 1));
+    }
+  }
+  return lines;
+}
+
+/**
+ * Formats document symbols.
+ * Original: Rg2 in chunks.119.mjs:353863
+ */
+function formatDocumentSymbols(result: any, cwd?: string): string {
+  const symbols = (result || []) as (LspDocumentSymbol | LspSymbolInformation)[];
+  if (symbols.length === 0) return "No symbols found in document. This may occur if the file is empty, not supported by the LSP server, or if the server has not fully indexed the file.";
+  
+  // Handle SymbolInformation (flat list) vs DocumentSymbol (hierarchy)
+  const first = symbols[0];
+  if (first && 'location' in first) {
+    return formatWorkspaceSymbols(result, cwd);
+  }
+  
+  const docSymbols = symbols as LspDocumentSymbol[];
+  const lines = ["Document symbols:"];
+  for (const sym of docSymbols) {
+    lines.push(...formatSymbolRecursive(sym));
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Formats workspace symbols.
+ * Original: SU0 in chunks.119.mjs:353873
+ */
+function formatWorkspaceSymbols(result: any, cwd?: string): string {
+  const symbols = (result || []) as LspSymbolInformation[];
+  const validSymbols = symbols.filter(s => s && s.location && s.location.uri);
+  
+  if (validSymbols.length === 0) return "No symbols found in workspace. This may occur if the workspace is empty, or if the LSP server has not finished indexing the project.";
+  
+  const lines = [`Found ${validSymbols.length} symbol${validSymbols.length === 1 ? '' : 's'} in workspace:`];
+  const groups = groupLocationsByFile(validSymbols, cwd);
+  
+  for (const [file, items] of groups) {
+    lines.push(`\n${file}:`);
+    for (const item of items) {
+      const sym = item as LspSymbolInformation;
+      const kind = symbolKindToName(sym.kind);
+      const line = sym.location.range.start.line + 1;
+      let text = `  ${sym.name} (${kind}) - Line ${line}`;
+      if (sym.containerName) text += ` in ${sym.containerName}`;
+      lines.push(text);
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Formats a call hierarchy item.
+ * Original: Ng2 in chunks.119.mjs:353898
+ */
+function formatCallHierarchyItem(item: LspCallHierarchyItem, cwd?: string): string {
+  if (!item.uri) return `${item.name} (${symbolKindToName(item.kind)}) - <unknown location>`;
+  
+  const file = uriToRelativePath(item.uri, cwd);
+  const line = item.range.start.line + 1;
+  const kind = symbolKindToName(item.kind);
+  let text = `${item.name} (${kind}) - ${file}:${line}`;
+  if (item.detail) text += ` [${item.detail}]`;
+  return text;
+}
+
+/**
+ * Formats prepareCallHierarchy result.
+ * Original: _g2 in chunks.119.mjs:353910
+ */
+function formatCallHierarchyPrepare(result: any, cwd?: string): string {
+  const items = (result || []) as LspCallHierarchyItem[];
+  if (items.length === 0) return "No call hierarchy item found at this position";
+  
+  if (items.length === 1) return `Call hierarchy item: ${formatCallHierarchyItem(items[0]!, cwd)}`;
+  
+  const lines = [`Found ${items.length} call hierarchy items:`];
+  for (const item of items) {
+    lines.push(`  ${formatCallHierarchyItem(item, cwd)}`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Formats incoming calls.
+ * Original: jg2 in chunks.119.mjs:353919
+ */
+function formatIncomingCalls(result: any, cwd?: string): string {
+  const calls = (result || []) as LspIncomingCall[];
+  if (calls.length === 0) return "No incoming calls found (nothing calls this function)";
+  
+  const lines = [`Found ${calls.length} incoming call${calls.length === 1 ? '' : 's'}:`];
+  const groups = new Map<string, LspIncomingCall[]>();
+  
+  for (const call of calls) {
+    if (!call.from) continue;
+    const file = uriToRelativePath(call.from.uri, cwd);
+    if (!groups.has(file)) groups.set(file, []);
+    groups.get(file)!.push(call);
+  }
+  
+  for (const [file, items] of groups) {
+    lines.push(`\n${file}:`);
+    for (const item of items) {
+      if (!item.from) continue;
+      const kind = symbolKindToName(item.from.kind);
+      const line = item.from.range.start.line + 1;
+      let text = `  ${item.from.name} (${kind}) - Line ${line}`;
+      
+      if (item.fromRanges && item.fromRanges.length > 0) {
+        const ranges = item.fromRanges.map(r => `${r.start.line + 1}:${r.start.character + 1}`).join(', ');
+        text += ` [calls at: ${ranges}]`;
+      }
+      lines.push(text);
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Formats outgoing calls.
+ * Original: Tg2 in chunks.119.mjs:353954
+ */
+function formatOutgoingCalls(result: any, cwd?: string): string {
+  const calls = (result || []) as LspOutgoingCall[];
+  if (calls.length === 0) return "No outgoing calls found (this function calls nothing)";
+  
+  const lines = [`Found ${calls.length} outgoing call${calls.length === 1 ? '' : 's'}:`];
+  const groups = new Map<string, LspOutgoingCall[]>();
+  
+  for (const call of calls) {
+    if (!call.to) continue;
+    const file = uriToRelativePath(call.to.uri, cwd);
+    if (!groups.has(file)) groups.set(file, []);
+    groups.get(file)!.push(call);
+  }
+  
+  for (const [file, items] of groups) {
+    lines.push(`\n${file}:`);
+    for (const item of items) {
+      if (!item.to) continue;
+      const kind = symbolKindToName(item.to.kind);
+      const line = item.to.range.start.line + 1;
+      let text = `  ${item.to.name} (${kind}) - Line ${line}`;
+      
+      if (item.fromRanges && item.fromRanges.length > 0) {
+        const ranges = item.fromRanges.map(r => `${r.start.line + 1}:${r.start.character + 1}`).join(', ');
+        text += ` [called from: ${ranges}]`;
+      }
+      lines.push(text);
+    }
+  }
+  return lines.join('\n');
+}
+
+// ============================================
+// Core Functions
+// ============================================
+
+/**
+ * Maps LspOperationInput to an LSP JSON-RPC request.
+ * Original: Rl5 in chunks.119.mjs:354191-354408
+ */
+export function mapToLspRequest(input: LspOperationInput, filePath: string): LspRequest {
+  const uri = `file://${filePath}`;
+  // Convert 1-based to 0-based for LSP
+  const position = {
+    line: input.line - 1,
+    character: input.character - 1
+  };
+
+  switch (input.operation) {
+    case 'goToDefinition':
+      return {
+        method: LSP_CONSTANTS.METHODS.TEXT_DOCUMENT_DEFINITION,
+        params: {
+          textDocument: { uri },
+          position
+        }
+      };
+    case 'findReferences':
+      return {
+        method: LSP_CONSTANTS.METHODS.TEXT_DOCUMENT_REFERENCES,
+        params: {
+          textDocument: { uri },
+          position,
+          context: { includeDeclaration: true }
+        }
+      };
+    case 'hover':
+      return {
+        method: LSP_CONSTANTS.METHODS.TEXT_DOCUMENT_HOVER,
+        params: {
+          textDocument: { uri },
+          position
+        }
+      };
+    case 'documentSymbol':
+      return {
+        method: LSP_CONSTANTS.METHODS.TEXT_DOCUMENT_DOCUMENT_SYMBOL,
+        params: {
+          textDocument: { uri }
+        }
+      };
+    case 'workspaceSymbol':
+      return {
+        method: 'workspace/symbol',
+        params: {
+          query: '' // Empty query to get all symbols? Or input should have it? The source passes empty string.
+        }
+      };
+    case 'goToImplementation':
+      return {
+        method: 'textDocument/implementation',
+        params: {
+          textDocument: { uri },
+          position
+        }
+      };
+    case 'prepareCallHierarchy':
+    case 'incomingCalls':
+    case 'outgoingCalls':
+      // All three initially map to prepareCallHierarchy to get the item
+      return {
+        method: 'textDocument/prepareCallHierarchy',
+        params: {
+          textDocument: { uri },
+          position
+        }
+      };
+    default:
+      throw new Error(`Unsupported operation: ${input.operation}`);
+  }
+}
+
+/**
+ * Formats the result of an LSP operation.
+ * Original: jl5 in chunks.119.mjs:354304-354518
  */
 export function formatLspResult(
   operation: LspOperation,
-  result: unknown,
-  workingDir: string
+  result: any,
+  cwd: string
 ): { formatted: string; resultCount: number; fileCount: number } {
+  
   switch (operation) {
-    case 'goToDefinition':
-    case 'goToImplementation': {
-      const normalizedResult = (Array.isArray(result) ? result : result ? [result] : []) as Array<LspLocation | LspLocationLink>;
-      const locations = normalizedResult.map((item) => (isLocationLink(item) ? locationLinkToLocation(item) : item));
-      
-      const invalid = locations.filter((l) => !l || !l.uri);
-      if (invalid.length > 0) {
-        console.error(`LSP server returned ${invalid.length} location(s) with undefined URI for ${operation} on ${workingDir}.`);
-      }
-      
-      const valid = locations.filter((l) => l && l.uri);
-      const formatted = operation === 'goToDefinition' 
-        ? formatGoToDefinitionResult(result as any, workingDir)
-        : formatGoToDefinitionResult(result as any, workingDir).replace('Defined in', 'Implementation at').replace('definitions', 'implementations');
-
+    case 'goToDefinition': {
+      const locations = (Array.isArray(result) ? result : result ? [result] : []).map(normalizeLocation);
+      const validLocations = locations.filter(x => x && x.uri);
       return {
-        formatted,
-        resultCount: valid.length,
-        fileCount: countUniqueFiles(valid),
+        formatted: formatDefinition(result, cwd),
+        resultCount: validLocations.length,
+        fileCount: countUniqueFiles(validLocations)
       };
     }
-
     case 'findReferences': {
-      const locations = (result || []) as LspLocation[];
-      const invalid = locations.filter((l) => !l || !l.uri);
-      if (invalid.length > 0) {
-        console.error(`LSP server returned ${invalid.length} location(s) with undefined URI for findReferences on ${workingDir}.`);
-      }
-      
-      const valid = locations.filter((l) => l && l.uri);
+      const validRefs = (result || []).filter((r: any) => r && r.uri);
       return {
-        formatted: formatFindReferencesResult(result as any, workingDir),
-        resultCount: valid.length,
-        fileCount: countUniqueFiles(valid),
+        formatted: formatReferences(result, cwd),
+        resultCount: validRefs.length,
+        fileCount: countUniqueFiles(validRefs)
       };
     }
-
-    case 'hover':
+    case 'hover': {
       return {
-        formatted: formatHoverResult(result as any, workingDir),
+        formatted: formatHover(result, cwd),
         resultCount: result ? 1 : 0,
-        fileCount: result ? 1 : 0,
+        fileCount: result ? 1 : 0
       };
-
+    }
     case 'documentSymbol': {
-      const symbols = (result || []) as LspDocumentSymbol[];
-      // Check if it's actually LspSymbolInformation (workspace symbols)
-      if (symbols.length > 0 && 'location' in (symbols[0] as any)) {
-        return formatLspResult('workspaceSymbol', result, workingDir);
-      }
+      const symbols = result || [];
+      const count = (symbols.length > 0 && symbols[0].range) 
+        ? countDocumentSymbols(symbols as LspDocumentSymbol[]) 
+        : symbols.length;
       return {
-        formatted: formatDocumentSymbolResult(symbols, workingDir),
-        resultCount: symbols.length > 0 ? countDocumentSymbols(symbols) : 0,
-        fileCount: symbols.length > 0 ? 1 : 0,
+        formatted: formatDocumentSymbols(result, cwd),
+        resultCount: count,
+        fileCount: symbols.length > 0 ? 1 : 0
       };
     }
-
     case 'workspaceSymbol': {
-      const symbols = (result || []) as LspSymbolInformation[];
-      const invalid = symbols.filter((s) => !s || !s.location || !s.location.uri);
-      if (invalid.length > 0) {
-        console.error(`LSP server returned ${invalid.length} symbol(s) with undefined location URI for workspaceSymbol on ${workingDir}.`);
-      }
-      
-      const valid = symbols.filter((s) => s && s.location && s.location.uri);
-      const validLocations = valid.map((s) => s.location);
+      const validSymbols = (result || []).filter((s: any) => s && s.location && s.location.uri);
+      const locations = validSymbols.map((s: any) => s.location);
       return {
-        formatted: formatWorkspaceSymbolResult(result as any, workingDir),
-        resultCount: valid.length,
-        fileCount: countUniqueFiles(validLocations),
+        formatted: formatWorkspaceSymbols(result, cwd),
+        resultCount: validSymbols.length,
+        fileCount: countUniqueFiles(locations)
       };
     }
-
+    case 'goToImplementation': {
+      const locations = (Array.isArray(result) ? result : result ? [result] : []).map(normalizeLocation);
+      const validLocations = locations.filter(x => x && x.uri);
+      return {
+        formatted: formatDefinition(result, cwd), // Uses same formatter as definition
+        resultCount: validLocations.length,
+        fileCount: countUniqueFiles(validLocations)
+      };
+    }
     case 'prepareCallHierarchy': {
-      const items = (result || []) as LspCallHierarchyItem[];
-      const validUris = items.map((i) => i.uri).filter((u) => !!u);
+      const items = result || [];
       return {
-        formatted: formatPrepareCallHierarchyResult(items, workingDir),
+        formatted: formatCallHierarchyPrepare(result, cwd),
         resultCount: items.length,
-        fileCount: new Set(validUris).size,
+        fileCount: items.length > 0 ? countUniqueFiles(items) : 0
       };
     }
-
     case 'incomingCalls': {
-      const calls = (result || []) as LspIncomingCall[];
-      const validUris = calls.map((c) => c.from?.uri).filter((u) => !!u);
+      const items = result || [];
+      const fromUris = items.map((i: any) => ({ uri: i.from?.uri })).filter((i: any) => i.uri);
       return {
-        formatted: formatIncomingCallsResult(calls, workingDir),
-        resultCount: calls.length,
-        fileCount: new Set(validUris).size,
+        formatted: formatIncomingCalls(result, cwd),
+        resultCount: items.length,
+        fileCount: items.length > 0 ? countUniqueFiles(fromUris) : 0
       };
     }
-
     case 'outgoingCalls': {
-      const calls = (result || []) as LspOutgoingCall[];
-      const validUris = calls.map((c) => c.to?.uri).filter((u) => !!u);
+      const items = result || [];
+      const toUris = items.map((i: any) => ({ uri: i.to?.uri })).filter((i: any) => i.uri);
       return {
-        formatted: formatOutgoingCallsResult(calls, workingDir),
-        resultCount: calls.length,
-        fileCount: new Set(validUris).size,
+        formatted: formatOutgoingCalls(result, cwd),
+        resultCount: items.length,
+        fileCount: items.length > 0 ? countUniqueFiles(toUris) : 0
       };
     }
-
     default:
       return {
         formatted: `Unknown operation: ${operation}`,
         resultCount: 0,
-        fileCount: 0,
+        fileCount: 0
       };
   }
 }
-
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

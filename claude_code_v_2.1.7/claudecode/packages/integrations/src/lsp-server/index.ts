@@ -1,76 +1,40 @@
 /**
- * @claudecode/integrations - LSP Server Module
+ * @claudecode/integrations - LSP Server
  *
- * Language Server Protocol integration for code intelligence.
- * Provides hover, definition, references, and document symbols.
- *
- * Architecture:
- * - client.ts: Low-level JSON-RPC communication over stdio
- * - instance.ts: Server instance wrapper with lifecycle management
- * - manager.ts: Singleton manager with extension-based routing
- * - operations.ts: High-level LSP operations and result formatters
- *
- * Reconstructed from chunks.114.mjs, chunks.119.mjs, chunks.120.mjs
+ * This module provides integration with Language Server Protocol (LSP) servers.
+ * It handles the lifecycle of LSP servers, routing requests to the appropriate server
+ * based on file extension, and formatting results for the LLM.
  */
 
-// ============================================
-// Types
-// ============================================
+import { lspServerManager } from './manager';
+import { mapToLspRequest } from './operations';
+import type { LspOperation } from './types';
 
-export * from './types.js';
+export * from './types';
+export * from './client';
+export * from './instance';
+export * from './manager';
+export * from './operations';
 
-// ============================================
-// Operations
-// ============================================
+// Wrapper functions for API surface
+export const getLspManager = () => lspServerManager;
+export const initializeLspServerManager = () => lspServerManager.initialize();
+export const shutdownLspServerManager = () => lspServerManager.shutdown();
+export const getLspManagerStatus = () => lspServerManager.getStatus();
+export const waitForLspManagerInit = () => lspServerManager.waitForInit();
 
-export {
-  // Constants
-  LSP_OPERATIONS,
-  // Request building
-  buildLspRequest,
-  // Result formatting
-  formatLspResult,
-  formatGoToDefinitionResult,
-  formatFindReferencesResult,
-  formatHoverResult,
-  formatDocumentSymbolResult,
-  formatWorkspaceSymbolResult,
-  formatPrepareCallHierarchyResult,
-  formatIncomingCallsResult,
-  formatOutgoingCallsResult,
-  // Utilities
-  symbolKindToName,
-  pathToFileUri,
-  uriToRelativePath,
-  isLocationLink,
-  locationLinkToLocation,
-  formatLocation,
-  groupLocationsByFile,
-  extractHoverContent,
-  extractSymbolAtPosition,
-} from './operations.js';
+// Aliases
+export const buildLspRequest = mapToLspRequest;
 
-// ============================================
-// Client
-// ============================================
-
-export { createLspClient } from './client.js';
-
-// ============================================
-// Instance
-// ============================================
-
-export { createLspServerInstance } from './instance.js';
-
-// ============================================
-// Manager
-// ============================================
-
-export {
-  createLspServerManager,
-  initializeLspServerManager,
-  shutdownLspServerManager,
-  getLspManager,
-  getLspManagerStatus,
-  waitForLspManagerInit,
-} from './manager.js';
+// Constants
+export const LSP_OPERATIONS: LspOperation[] = [
+  'goToDefinition',
+  'findReferences',
+  'hover',
+  'documentSymbol',
+  'workspaceSymbol',
+  'goToImplementation',
+  'prepareCallHierarchy',
+  'incomingCalls',
+  'outgoingCalls'
+];

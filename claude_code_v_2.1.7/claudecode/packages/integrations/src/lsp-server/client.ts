@@ -1,51 +1,60 @@
 /**
  * @claudecode/integrations - LSP Client
  *
- * Low-level LSP client for JSON-RPC communication.
- * Reconstructed from chunks.114.mjs:1580-1773
+ * Low-level LSP client implementation handling JSON-RPC communication over stdio.
+ * Reconstructed from chunks.114.mjs
  */
 
-import { spawn, type ChildProcess } from 'child_process';
-import * as rpc from 'vscode-jsonrpc/node.js';
+import * as cp from 'child_process';
+import {
+  createMessageConnection,
+  StreamMessageReader,
+  StreamMessageWriter,
+  type MessageConnection,
+  Trace,
+  type Disposable
+} from 'vscode-jsonrpc/node';
 import type {
   LspClient,
   LspClientStartOptions,
   LspInitializeParams,
   LspInitializeResult,
-  LspServerCapabilities,
-} from './types.js';
-import { LSP_CONSTANTS } from './types.js';
-
-// ============================================
-// LSP Client Implementation
-// ============================================
+  LspServerCapabilities
+} from './types';
 
 /**
- * Create a low-level LSP client.
- * Original: Dy2 (createLspClient) in chunks.114.mjs:1580-1773
- *
- * Uses JSON-RPC over stdio to communicate with LSP server.
- * Naming restored for readability.
+ * Creates a new LSP client instance.
+ * Original: Dy2 in chunks.114.mjs:1614-1774
  */
 export function createLspClient(serverName: string): LspClient {
-  let process: ChildProcess | undefined;
-  let connection: rpc.MessageConnection | undefined;
+  let process: cp.ChildProcess | undefined;
+  let connection: MessageConnection | undefined;
   let capabilities: LspServerCapabilities | undefined;
   let isInitialized = false;
   let hasError = false;
   let lastError: Error | undefined;
-  let isShuttingDown = false;
+  let isStopping = false;
 
-  // Queued handlers for when connection is not yet ready
-  // Original: I (notification) and D (request) arrays
-  const queuedNotificationHandlers: Array<{ method: string; handler: (params: any) => void }> = [];
-  const queuedRequestHandlers: Array<{ method: string; handler: (params: any) => any }> = [];
+  // Queue for handlers registered before connection is ready
+  // Original: I (notifications) and D (requests) in chunks.114.mjs:1618-1619
+  const notificationHandlers: Array<{ method: string; handler: (params: any) => void }> = [];
+  const requestHandlers: Array<{ method: string; handler: (params: any) => any }> = [];
 
-  function checkError(): void {
-    // Original: W
+  function checkState() {
     if (hasError) {
       throw lastError || new Error(`LSP server ${serverName} failed to start`);
     }
+  }
+
+  function log(message: string) {
+    // In original code: k(`[LSP SERVER ${A}] ${O}`)
+    // We'll use console.log for now, or a logger if available
+    // console.log(`[LSP Client - ${serverName}] ${message}`);
+  }
+
+  function error(err: Error) {
+    // In original code: e(Error(...))
+    console.error(`[LSP Client - ${serverName}] Error:`, err);
   }
 
   return {
@@ -57,22 +66,28 @@ export function createLspClient(serverName: string): LspClient {
       return isInitialized;
     },
 
-    async start(command: string, args: string[], options: LspClientStartOptions = {}) {
+    /**
+     * Starts the LSP server process.
+     * Original: start in chunks.114.mjs:1631
+     */
+    async start(command: string, args: string[], options?: LspClientStartOptions) {
       try {
-        // Original: chunks.114.mjs:1633
-        process = spawn(command, args, {
-          stdio: ['pipe', 'pipe', 'pipe'],
-          env: options.env ? { ...globalThis.process.env, ...options.env } as any : undefined,
-          cwd: options.cwd,
+        // Original: Mg5(K, V, { ... }) in chunks.114.mjs:1633
+        process = cp.spawn(command, args || [], {
+          stdio: ['pipe', 'pipe', 'pipe'], // stdin, stdout, stderr
+          env: options?.env ? { ...globalThis.process.env, ...options.env } : undefined,
+          cwd: options?.cwd,
+          shell: true // Often needed for command execution
         });
 
         if (!process.stdout || !process.stdin) {
           throw new Error('LSP server process stdio not available');
         }
 
-        const cp = process;
+        const proc = process;
 
-        // Wait for process to spawn or fail
+        // Wait for spawn or error
+        // Original: chunks.114.mjs:1642-1652
         await new Promise<void>((resolve, reject) => {
           const onSpawn = () => {
             cleanup();
@@ -83,215 +98,257 @@ export function createLspClient(serverName: string): LspClient {
             reject(err);
           };
           const cleanup = () => {
-            cp.removeListener('spawn', onSpawn);
-            cp.removeListener('error', onError);
+            proc.removeListener('spawn', onSpawn);
+            proc.removeListener('error', onError);
           };
-          cp.once('spawn', onSpawn);
-          cp.once('error', onError);
+          proc.once('spawn', onSpawn);
+          proc.once('error', onError);
         });
 
-        // Log stderr
+        // Handle stderr
+        // Original: chunks.114.mjs:1653
         if (process.stderr) {
           process.stderr.on('data', (data: Buffer) => {
-            const output = data.toString().trim();
-            if (output) {
-              console.log(`[LSP SERVER ${serverName}] ${output}`);
+            const msg = data.toString().trim();
+            if (msg) {
+              log(`stderr: ${msg}`);
             }
           });
         }
 
-        // Handle process events
+        // Process error handling
         process.on('error', (err) => {
-          if (!isShuttingDown) {
+          if (!isStopping) {
             hasError = true;
             lastError = err;
-            console.error(`LSP server ${serverName} failed to start: ${err.message}`);
+            error(new Error(`LSP server ${serverName} failed to start: ${err.message}`));
           }
         });
 
         process.on('exit', (code, signal) => {
-          if (code !== 0 && code !== null && !isShuttingDown) {
+          if (code !== 0 && code !== null && !isStopping) {
             isInitialized = false;
-            hasError = false;
+            hasError = false; // Reset error flag on exit? Original: Y = !1
             lastError = undefined;
-            console.error(`LSP server ${serverName} crashed with exit code ${code}`);
+            error(new Error(`LSP server ${serverName} crashed with exit code ${code}`));
           }
         });
 
         if (process.stdin) {
-          process.stdin.on('error', (err) => {
-            if (!isShuttingDown) {
-              console.log(`LSP server ${serverName} stdin error: ${err.message}`);
-            }
-          });
+            process.stdin.on('error', (err) => {
+                if (!isStopping) {
+                    log(`stdin error: ${err.message}`);
+                }
+            });
         }
 
         // Setup JSON-RPC connection
-        const reader = new rpc.StreamMessageReader(process.stdout);
-        const writer = new rpc.StreamMessageWriter(process.stdin);
-        connection = rpc.createMessageConnection(reader, writer);
+        // Original: chunks.114.mjs:1664
+        const reader = new StreamMessageReader(process.stdout);
+        const writer = new StreamMessageWriter(process.stdin);
+        
+        connection = createMessageConnection(reader, writer);
 
-        connection.onError(([error]) => {
-          if (!isShuttingDown) {
+        connection.onError(([err, msg, count]) => {
+          if (!isStopping) {
             hasError = true;
-            lastError = error instanceof Error ? error : new Error(String(error));
-            console.error(`LSP server ${serverName} connection error: ${lastError.message}`);
+            lastError = err;
+            error(new Error(`LSP server ${serverName} connection error: ${err.message}`));
           }
         });
 
         connection.onClose(() => {
-          if (!isShuttingDown) {
+          if (!isStopping) {
             isInitialized = false;
-            console.log(`LSP server ${serverName} connection closed`);
+            log(`LSP server ${serverName} connection closed`);
           }
         });
 
         connection.listen();
 
-        // Enable tracing (Original: Trace.Verbose)
-        connection.trace(rpc.Trace.Verbose, {
-          log: (msg) => {
-            console.log(`[LSP PROTOCOL ${serverName}] ${msg}`);
-          },
-        }).catch((err) => {
-          console.log(`Failed to enable tracing for ${serverName}: ${err.message}`);
-        });
+        // Trace logging
+        // Original: chunks.114.mjs:1670
+        // We catch trace errors to prevent crashes
+        try {
+            connection.trace(Trace.Verbose, {
+                log: (msg) => log(`[TRACE] ${msg}`)
+            });
+        } catch (err: any) {
+            log(`Failed to enable tracing: ${err.message}`);
+        }
 
         // Apply queued handlers
-        for (const { method, handler } of queuedNotificationHandlers) {
+        // Original: chunks.114.mjs:1677
+        for (const { method, handler } of notificationHandlers) {
           connection.onNotification(method, handler);
-          console.log(`Applied queued notification handler for ${serverName}.${method}`);
+          log(`Applied queued notification handler for ${serverName}.${method}`);
         }
-        queuedNotificationHandlers.length = 0;
+        notificationHandlers.length = 0;
 
-        for (const { method, handler } of queuedRequestHandlers) {
+        for (const { method, handler } of requestHandlers) {
           connection.onRequest(method, handler);
-          console.log(`Applied queued request handler for ${serverName}.${method}`);
+          log(`Applied queued request handler for ${serverName}.${method}`);
         }
-        queuedRequestHandlers.length = 0;
+        requestHandlers.length = 0;
 
-        console.log(`LSP client started for ${serverName}`);
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        console.error(`LSP server ${serverName} failed to start: ${error.message}`);
-        throw error;
+        log(`LSP client started for ${serverName}`);
+
+      } catch (err: any) {
+        error(new Error(`LSP server ${serverName} failed to start: ${err.message}`));
+        throw err;
       }
     },
 
+    /**
+     * Initializes the LSP session.
+     * Original: initialize in chunks.114.mjs:1693
+     */
     async initialize(params: LspInitializeParams): Promise<LspInitializeResult> {
       if (!connection) throw new Error('LSP client not started');
-      checkError();
+      checkState();
+
       try {
-        const result = (await connection.sendRequest('initialize', params)) as LspInitializeResult;
+        const result = await connection.sendRequest<LspInitializeResult>('initialize', params);
         capabilities = result.capabilities;
+        
         await connection.sendNotification('initialized', {});
         isInitialized = true;
-        console.log(`LSP server ${serverName} initialized`);
+        log(`LSP server ${serverName} initialized`);
+        
         return result;
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        console.error(`LSP server ${serverName} initialize failed: ${error.message}`);
-        throw error;
+      } catch (err: any) {
+        error(new Error(`LSP server ${serverName} initialize failed: ${err.message}`));
+        throw err;
       }
     },
 
+    /**
+     * Sends a request to the server.
+     * Original: sendRequest in chunks.114.mjs:1703
+     */
     async sendRequest<T>(method: string, params?: unknown): Promise<T> {
       if (!connection) throw new Error('LSP client not started');
-      checkError();
-      if (!isInitialized && method !== 'initialize') {
-        throw new Error('LSP server not initialized');
-      }
+      checkState();
+      
+      // Original: if (!Z) throw Error("LSP server not initialized");
+      // Note: Some requests might be allowed before initialization? 
+      // strict mode checks initialization unless it's the initialize request itself, 
+      // but sendRequest logic in original checks Z (isInitialized).
+      // However, initialize() calls sendRequest('initialize', ...) internally in original? 
+      // Wait, original initialize() calls B.sendRequest directly. 
+      // This wrapper is for public use.
+      if (!isInitialized) throw new Error('LSP server not initialized');
+
       try {
-        return (await connection.sendRequest(method, params)) as T;
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        console.error(`LSP server ${serverName} request ${method} failed: ${error.message}`);
-        throw error;
+        return await connection.sendRequest<T>(method, params);
+      } catch (err: any) {
+        // We rethrow but wrap logic if needed
+        // Original: throw e(Error(...)), F
+        throw err; 
       }
     },
 
+    /**
+     * Sends a notification to the server.
+     * Original: sendNotification in chunks.114.mjs:1712
+     */
     async sendNotification(method: string, params?: unknown): Promise<void> {
       if (!connection) throw new Error('LSP client not started');
-      checkError();
+      checkState();
+
       try {
         await connection.sendNotification(method, params);
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        console.error(`LSP server ${serverName} notification ${method} failed: ${error.message}`);
-        console.log(`Notification ${method} failed but continuing`);
+      } catch (err: any) {
+        error(new Error(`LSP server ${serverName} notification ${method} failed: ${err.message}`));
+        log(`Notification ${method} failed but continuing`);
       }
     },
 
-    onNotification(method: string, handler: (params: any) => void) {
+    /**
+     * Registers a notification handler.
+     * Original: onNotification in chunks.114.mjs:1721
+     */
+    onNotification(method: string, handler: (params: unknown) => void) {
       if (!connection) {
-        queuedNotificationHandlers.push({ method, handler });
-        console.log(`Queued notification handler for ${serverName}.${method} (connection not ready)`);
+        notificationHandlers.push({ method, handler });
+        log(`Queued notification handler for ${serverName}.${method} (connection not ready)`);
         return;
       }
-      checkError();
+      checkState();
       connection.onNotification(method, handler);
     },
 
-    onRequest(method: string, handler: (params: any) => any) {
+    /**
+     * Registers a request handler.
+     * Original: onRequest in chunks.114.mjs:1731
+     */
+    onRequest<T>(method: string, handler: (params: unknown) => T | Promise<T>) {
       if (!connection) {
-        queuedRequestHandlers.push({ method, handler });
-        console.log(`Queued request handler for ${serverName}.${method} (connection not ready)`);
+        requestHandlers.push({ method, handler });
+        log(`Queued request handler for ${serverName}.${method} (connection not ready)`);
         return;
       }
-      checkError();
+      checkState();
       connection.onRequest(method, handler);
     },
 
-    async stop(): Promise<void> {
+    /**
+     * Stops the server.
+     * Original: stop in chunks.114.mjs:1741
+     */
+    async stop() {
       let stopError: Error | undefined;
-      isShuttingDown = true;
+      isStopping = true;
+
       try {
         if (connection) {
+          // Try graceful shutdown
           await connection.sendRequest('shutdown', null);
           await connection.sendNotification('exit', null);
         }
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        console.error(`LSP server ${serverName} stop failed: ${error.message}`);
-        stopError = error;
+      } catch (err: any) {
+        stopError = err;
+        error(new Error(`LSP server ${serverName} stop failed: ${err.message}`));
       } finally {
+        // Dispose connection
         if (connection) {
           try {
             connection.dispose();
           } catch (err: any) {
-            console.log(`Connection disposal failed for ${serverName}: ${err.message}`);
+            log(`Connection disposal failed for ${serverName}: ${err.message}`);
           }
           connection = undefined;
         }
+
+        // Kill process
         if (process) {
           process.removeAllListeners('error');
           process.removeAllListeners('exit');
           if (process.stdin) process.stdin.removeAllListeners('error');
           if (process.stderr) process.stderr.removeAllListeners('data');
+          
           try {
             process.kill();
           } catch (err: any) {
-            console.log(`Process kill failed for ${serverName} (may already be dead): ${err.message}`);
+            log(`Process kill failed for ${serverName} (may already be dead): ${err.message}`);
           }
           process = undefined;
         }
+
         isInitialized = false;
         capabilities = undefined;
-        isShuttingDown = false;
+        isStopping = false;
+        
+        // Original: if (K) Y = !0, J = K; (sets hasError if shutdown failed)
         if (stopError) {
           hasError = true;
           lastError = stopError;
         }
-        console.log(`LSP client stopped for ${serverName}`);
+
+        log(`LSP client stopped for ${serverName}`);
       }
+
       if (stopError) throw stopError;
-    },
+    }
   };
 }
-
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: createLspClient 已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

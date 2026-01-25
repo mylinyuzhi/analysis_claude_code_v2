@@ -118,6 +118,8 @@ export interface LspServerManager {
   saveFile(filePath: string): Promise<void>;
   closeFile(filePath: string): Promise<void>;
   isFileOpen(filePath: string): boolean;
+  getStatus(): { status: LspManagerState };
+  waitForInit(): Promise<void>;
 }
 
 // ============================================
@@ -446,9 +448,3 @@ export const LSP_CONSTANTS = {
     WORKSPACE_CONFIGURATION: 'workspace/configuration',
   } as const,
 } as const;
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类型/常量已在声明处导出；移除重复聚合导出以避免 TS2484。

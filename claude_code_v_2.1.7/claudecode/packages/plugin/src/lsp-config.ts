@@ -1,58 +1,73 @@
 /**
- * @claudecode/plugin - LSP Configuration Loader
+ * @claudecode/plugin - LSP Configuration
  *
- * Logic for loading and expanding LSP server configurations from plugins.
- * Reconstructed from chunks.114.mjs and chunks.90.mjs.
+ * Handles loading and validation of LSP server configurations from plugins.
+ * Reconstructed from chunks.114.mjs (loading logic) and chunks.90.mjs (schema/expansion).
  */
 
+import * as fs from 'fs';
 import * as path from 'path';
 import { z } from 'zod';
-import { lspServerConfigSchema } from './schemas.js';
-import type { PluginDefinition, LspServerConfig, PluginError } from './types.js';
-import { discoverPluginsAndHooks } from './loader.js';
-import { getFileSystem } from '@claudecode/platform';
+import {
+  lspServerConfigSchema,
+  lspServersDefinitionSchema
+} from './schemas';
+import { discoverPluginsAndHooks } from './loader';
+import type { PluginDefinition } from './types';
+
+// ============================================
+// Types
+// ============================================
+
+export type LspServerConfig = z.infer<typeof lspServerConfigSchema>;
+
+// ============================================
+// Variable Expansion
+// ============================================
 
 /**
- * Replace ${CLAUDE_PLUGIN_ROOT} placeholder with actual plugin path.
- * Original: yg5 in chunks.114.mjs:2077-2080
+ * Expands environment variables in a string.
+ * Supports ${VAR} and ${VAR:-default}.
+ * Original: BVA in chunks.90.mjs:263379
  */
-function replacePluginRoot(value: string, pluginRoot: string): string {
-  if (typeof value !== 'string') return value;
-  return value.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, pluginRoot);
-}
-
-/**
- * Expand environment variables in string.
- * Original: BVA in chunks.90.mjs:1691-1699
- */
-function expandEnvVars(value: string): { expanded: string; missingVars: string[] } {
-  if (typeof value !== 'string') return { expanded: value, missingVars: [] };
+function expandVars(input: string): { expanded: string; missingVars: string[] } {
   const missingVars: string[] = [];
-  const expanded = value.replace(/\$\{([^}]+)\}/g, (match, varName) => {
-    const envValue = process.env[varName];
-    if (envValue === undefined) {
-      missingVars.push(varName);
-      return match;
-    }
-    return envValue;
+  const expanded = input.replace(/\$\{([^}]+)\}/g, (match, content) => {
+    const [varName, defaultValue] = content.split(':-', 2);
+    const value = process.env[varName];
+    
+    if (value !== undefined) return value;
+    if (defaultValue !== undefined) return defaultValue;
+    
+    missingVars.push(varName);
+    return match; // Keep original if missing and no default
   });
+  
   return { expanded, missingVars };
 }
 
 /**
- * Expand variables in LSP server configuration.
- * Original: vg5 in chunks.114.mjs:2082-2111
+ * Replaces ${CLAUDE_PLUGIN_ROOT} with the actual plugin path.
+ * Original: yg5 in chunks.114.mjs:333422
+ */
+function replacePluginRoot(input: string, pluginRoot: string): string {
+  return input.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, pluginRoot);
+}
+
+/**
+ * Expands variables in an LSP server configuration.
+ * Original: vg5 in chunks.114.mjs:333426
  */
 export function expandLspServerConfig(
   config: LspServerConfig,
   pluginRoot: string,
-  pluginName: string
+  errors: any[] = []
 ): LspServerConfig {
   const missingVars: string[] = [];
-
-  const expand = (val: string) => {
-    const withRoot = replacePluginRoot(val, pluginRoot);
-    const { expanded, missingVars: missing } = expandEnvVars(withRoot);
+  
+  const expand = (str: string): string => {
+    const withRoot = replacePluginRoot(str, pluginRoot);
+    const { expanded, missingVars: missing } = expandVars(withRoot);
     missingVars.push(...missing);
     return expanded;
   };
@@ -64,10 +79,14 @@ export function expandLspServerConfig(
   }
 
   if (expandedConfig.args) {
-    expandedConfig.args = expandedConfig.args.map((arg) => expand(arg));
+    expandedConfig.args = expandedConfig.args.map(arg => expand(arg));
   }
 
-  const env: Record<string, string> = { CLAUDE_PLUGIN_ROOT: pluginRoot, ...(expandedConfig.env || {}) };
+  const env: Record<string, string> = {
+    CLAUDE_PLUGIN_ROOT: pluginRoot,
+    ...(expandedConfig.env || {})
+  };
+
   for (const [key, value] of Object.entries(env)) {
     if (key !== 'CLAUDE_PLUGIN_ROOT') {
       env[key] = expand(value);
@@ -80,216 +99,196 @@ export function expandLspServerConfig(
   }
 
   if (missingVars.length > 0) {
-    console.warn(
-      `[LSP CONFIG] Missing environment variables in plugin LSP config for ${pluginName}: ${[
-        ...new Set(missingVars),
-      ].join(', ')}`
-    );
+    const uniqueMissing = [...new Set(missingVars)];
+    const msg = `Missing environment variables in plugin LSP config: ${uniqueMissing.join(', ')}`;
+    console.warn(msg);
+    // We log but don't strictly fail here in the original code, just warn
   }
 
   return expandedConfig;
 }
 
-/**
- * Validate security of plugin paths.
- * Original: Pg5 in chunks.114.mjs:1971-1977
- */
-function validatePluginPath(pluginRoot: string, relativePath: string): string | null {
-  const normalizedRoot = path.normalize(pluginRoot);
-  const fullPath = path.normalize(path.join(pluginRoot, relativePath));
-  const rel = path.relative(normalizedRoot, fullPath);
+// ============================================
+// Loading Logic
+// ============================================
 
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+/**
+ * Validates a path to ensure it's relative and safe.
+ * Original: Pg5 in chunks.114.mjs:333317
+ */
+function validateSafePath(basePath: string, relativePath: string): string | null {
+  const resolvedBase = path.resolve(basePath);
+  const resolvedPath = path.resolve(basePath, relativePath);
+  const relative = path.relative(resolvedBase, resolvedPath);
+  
+  if (relative.startsWith('..') || path.isAbsolute(relativePath)) {
     return null;
   }
-  return fullPath;
+  return resolvedPath;
 }
 
 /**
- * Load LSP servers from .lsp.json in plugin root.
- * Original: Sg5 in chunks.114.mjs:1979-2013
+ * Loads LSP servers from a plugin manifest or .lsp.json file.
+ * Original: Sg5 (load from .lsp.json) and xg5 (load from manifest) logic combined/refactored.
  */
-async function loadLspServersFromPluginDefault(
-  plugin: PluginDefinition,
-  errors: PluginError[] = []
-): Promise<Record<string, LspServerConfig> | undefined> {
-  const servers: Record<string, LspServerConfig> = {};
-  const fs = getFileSystem();
-  const lspJsonPath = path.join(plugin.path, '.lsp.json');
-
-  try {
-    if (fs.existsSync(lspJsonPath)) {
-      const content = fs.readFileSync(lspJsonPath, { encoding: 'utf-8' });
-      const parsed = JSON.parse(content);
-      const result = z.record(z.string(), lspServerConfigSchema).safeParse(parsed);
-
-      if (result.success) {
-        Object.assign(servers, result.data);
-      } else {
-        errors.push({
-          type: 'lsp-config-invalid',
-          plugin: plugin.name,
-          serverName: '.lsp.json',
-          validationError: result.error.message,
-        });
-      }
-    }
-  } catch (error: any) {
-    if (error.code !== 'ENOENT') {
-      errors.push({
-        type: 'lsp-config-invalid',
-        plugin: plugin.name,
-        serverName: '.lsp.json',
-        validationError: error.message,
-      });
-    }
-  }
-
-  if (plugin.manifest.lspServers) {
-    const manifestServers = await loadLspServersFromManifest(
-      plugin.manifest.lspServers as any,
-      plugin.path,
-      plugin.name,
-      errors
-    );
-    if (manifestServers) {
-      Object.assign(servers, manifestServers);
-    }
-  }
-
-  return Object.keys(servers).length > 0 ? servers : undefined;
-}
-
-/**
- * Load LSP servers defined in plugin manifest.
- * Original: xg5 in chunks.114.mjs:2016-2075
- */
-async function loadLspServersFromManifest(
-  lspServers: string | Record<string, LspServerConfig> | (string | Record<string, LspServerConfig>)[],
+async function loadLspConfigs(
+  configSource: string | Record<string, any> | Array<string | Record<string, any>>,
   pluginPath: string,
   pluginName: string,
-  errors: PluginError[]
+  errors: any[]
 ): Promise<Record<string, LspServerConfig> | undefined> {
-  const servers: Record<string, LspServerConfig> = {};
-  const fs = getFileSystem();
-  const items = Array.isArray(lspServers) ? lspServers : [lspServers];
+  const configs: Record<string, LspServerConfig> = {};
+  const sources = Array.isArray(configSource) ? configSource : [configSource];
 
-  for (const item of items) {
-    if (typeof item === 'string') {
-      const safePath = validatePluginPath(pluginPath, item);
-      if (!safePath) {
+  for (const source of sources) {
+    if (typeof source === 'string') {
+      // Load from file
+      const filePath = validateSafePath(pluginPath, source);
+      if (!filePath) {
+        const msg = `Security: Path traversal attempt blocked in plugin ${pluginName}: ${source}`;
+        console.warn(msg);
         errors.push({
           type: 'lsp-config-invalid',
           plugin: pluginName,
-          serverName: item,
+          serverName: source,
           validationError: 'Invalid path: must be relative and within plugin directory',
+          source: 'plugin'
         });
         continue;
       }
 
       try {
-        if (fs.existsSync(safePath)) {
-          const content = fs.readFileSync(safePath, { encoding: 'utf-8' });
-          const parsed = JSON.parse(content);
-          const result = z.record(z.string(), lspServerConfigSchema).safeParse(parsed);
-          if (result.success) {
-            Object.assign(servers, result.data);
-          } else {
-            errors.push({
-              type: 'lsp-config-invalid',
-              plugin: pluginName,
-              serverName: item,
-              validationError: result.error.message,
-            });
-          }
+        if (!fs.existsSync(filePath)) {
+            // If explicit file config is missing, it's an error
+             throw new Error(`File not found: ${filePath}`);
         }
-      } catch (error: any) {
+        const content = await fs.promises.readFile(filePath, 'utf-8');
+        const json = JSON.parse(content);
+        const result = z.record(z.string(), lspServerConfigSchema).safeParse(json);
+
+        if (result.success) {
+          Object.assign(configs, result.data);
+        } else {
+          const msg = `LSP config validation failed for ${source} in plugin ${pluginName}: ${result.error.message}`;
+          console.error(msg);
+          errors.push({
+            type: 'lsp-config-invalid',
+            plugin: pluginName,
+            serverName: source,
+            validationError: result.error.message,
+            source: 'plugin'
+          });
+        }
+      } catch (err: any) {
+        const msg = `Failed to read/parse LSP config from ${source} in plugin ${pluginName}: ${err.message}`;
+        console.error(msg);
         errors.push({
           type: 'lsp-config-invalid',
           plugin: pluginName,
-          serverName: item,
-          validationError: error.message,
+          serverName: source,
+          validationError: err.message,
+          source: 'plugin'
         });
       }
     } else {
-      for (const [name, config] of Object.entries(item)) {
-        const result = lspServerConfigSchema.safeParse(config);
+      // Inline config
+      for (const [name, serverConfig] of Object.entries(source)) {
+        const result = lspServerConfigSchema.safeParse(serverConfig);
         if (result.success) {
-          servers[name] = result.data as LspServerConfig;
+          configs[name] = result.data;
         } else {
+          const msg = `LSP config validation failed for inline server "${name}" in plugin ${pluginName}: ${result.error.message}`;
+          console.error(msg);
           errors.push({
             type: 'lsp-config-invalid',
             plugin: pluginName,
             serverName: name,
             validationError: result.error.message,
+            source: 'plugin'
           });
         }
       }
     }
   }
 
-  return Object.keys(servers).length > 0 ? servers : undefined;
+  return Object.keys(configs).length > 0 ? configs : undefined;
 }
 
 /**
- * Prefix server names to avoid conflicts between plugins.
- * Original: kg5 in chunks.114.mjs:2113-2124
+ * Loads LSP servers for a specific plugin.
+ * Original: Ey2 in chunks.114.mjs:333469
  */
-function prefixServerNames(
-  configs: Record<string, LspServerConfig>,
-  pluginName: string
-): Record<string, LspServerConfig> {
-  const result: Record<string, LspServerConfig> = {};
-  for (const [name, config] of Object.entries(configs)) {
-    const prefixedName = `plugin:${pluginName}:${name}`;
-    result[prefixedName] = {
-      ...config,
-      // @ts-ignore - Add internal metadata
+export async function loadLspServersFromPlugin(
+  plugin: PluginDefinition,
+  errors: any[] = []
+): Promise<Record<string, LspServerConfig & { scope: string; source: string }> | undefined> {
+  // Check if .lsp.json exists implicitly if not specified in manifest?
+  // Original Sg5 calls jg5(A.path, ".lsp.json") and tries to load it.
+  
+  const loadedConfigs: Record<string, LspServerConfig> = {};
+  
+  // Try loading default .lsp.json
+  const defaultLspJsonPath = path.join(plugin.path, '.lsp.json');
+  if (fs.existsSync(defaultLspJsonPath)) {
+      // In original Sg5, it tries to load .lsp.json.
+      // We reuse loadLspConfigs logic but passed as string
+      const defaultConfigs = await loadLspConfigs('.lsp.json', plugin.path, plugin.name, errors);
+      if (defaultConfigs) Object.assign(loadedConfigs, defaultConfigs);
+  }
+
+  // Load from manifest
+  if (plugin.manifest.lspServers) {
+    const manifestConfigs = await loadLspConfigs(plugin.manifest.lspServers, plugin.path, plugin.name, errors);
+    if (manifestConfigs) Object.assign(loadedConfigs, manifestConfigs);
+  }
+
+  if (Object.keys(loadedConfigs).length === 0) return undefined;
+
+  // Process and expand configs
+  const result: Record<string, LspServerConfig & { scope: string; source: string }> = {};
+  for (const [name, config] of Object.entries(loadedConfigs)) {
+    const expanded = expandLspServerConfig(config, plugin.path, errors);
+    // Add metadata (original: kg5)
+    const uniqueId = `plugin:${plugin.name}:${name}`;
+    result[uniqueId] = {
+      ...expanded,
       scope: 'dynamic',
-      source: pluginName,
+      source: plugin.name
     };
   }
+
   return result;
 }
 
 /**
- * Load LSP servers from a single plugin.
- * Original: Ey2 in chunks.114.mjs:2126-2133
- */
-export async function loadLspServersFromPlugin(
-  plugin: PluginDefinition,
-  errors: PluginError[] = []
-): Promise<Record<string, LspServerConfig> | undefined> {
-  if (!plugin.enabled) return;
-
-  const rawServers = await loadLspServersFromPluginDefault(plugin, errors);
-  if (!rawServers) return;
-
-  const expandedServers: Record<string, LspServerConfig> = {};
-  for (const [name, config] of Object.entries(rawServers)) {
-    expandedServers[name] = expandLspServerConfig(config, plugin.path, plugin.name);
-  }
-
-  return prefixServerNames(expandedServers, plugin.name);
-}
-
-/**
- * Load all LSP servers from all enabled plugins.
- * Original: $y2 in chunks.114.mjs:2143-2162
+ * Gets all LSP servers from all enabled plugins.
+ * Original: $y2 in chunks.114.mjs:333484
  */
 export async function getAllLspServers(): Promise<{ servers: Record<string, LspServerConfig> }> {
-  const result: Record<string, LspServerConfig> = {};
+  const servers: Record<string, LspServerConfig> = {};
+  
   try {
-    const discovery = await discoverPluginsAndHooks();
-    for (const plugin of discovery.enabled) {
-      const errors: PluginError[] = [];
+    const { enabled } = await discoverPluginsAndHooks();
+    
+    for (const plugin of enabled) {
+      const errors: any[] = [];
       const pluginServers = await loadLspServersFromPlugin(plugin, errors);
+      
       if (pluginServers && Object.keys(pluginServers).length > 0) {
-        Object.assign(result, pluginServers);
+        Object.assign(servers, pluginServers);
+        // console.log(`Loaded ${Object.keys(pluginServers).length} LSP server(s) from plugin: ${plugin.name}`);
+      }
+      
+      if (errors.length > 0) {
+        console.warn(`${errors.length} error(s) loading LSP servers from plugin: ${plugin.name}`);
       }
     }
-  } catch (error: any) {
-    console.error(`[LSP CONFIG] Error loading LSP servers: ${error.message}`);
+    
+    // console.log(`Total LSP servers loaded: ${Object.keys(servers).length}`);
+  } catch (err: any) {
+    console.error(`Error loading LSP servers: ${err.message}`);
+    // Original catches and logs, returns partial or empty
   }
-  return { servers: result };
+
+  return { servers };
 }

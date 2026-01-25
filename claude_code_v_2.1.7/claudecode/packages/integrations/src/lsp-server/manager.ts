@@ -1,636 +1,351 @@
 /**
  * @claudecode/integrations - LSP Server Manager
  *
- * Manager for routing requests to appropriate LSP servers.
- * Reconstructed from chunks.114.mjs:2171-2330, 2640-2676
+ * Manages multiple LSP server instances, routing requests based on file extensions,
+ * and handling file synchronization (open, change, save, close).
+ * Reconstructed from chunks.114.mjs
  */
 
-import { extname, resolve } from 'path';
-import type {
-  LspServerManager,
-  LspServerInstance,
-  LspServerConfig,
-  LspManagerState,
-  LspDiagnosticFile,
-} from './types.js';
-import { LSP_CONSTANTS } from './types.js';
-import { createLspServerInstance } from './instance.js';
+import * as path from 'path';
+import {
+  type LspServerManager,
+  type LspServerInstance,
+  type LspServerConfig,
+  LSP_CONSTANTS
+} from './types';
+import { createLspServerInstance } from './instance';
 
-// ============================================
-// Diagnostics Registry
-// ============================================
-
-interface PendingDiagnostics {
-  serverName: string;
-  files: LspDiagnosticFile[];
-  timestamp: number;
-  attachmentSent: boolean;
-}
-
-const pendingDiagnosticsRegistry = new Map<string, PendingDiagnostics>();
-const deliveredDiagnosticsCache = new Map<string, Set<string>>(); // uri -> set of hashed diagnostic fingerprints
-
-// Max diagnostics per file and total
-const MAX_DIAGNOSTICS_PER_FILE = 10;
-const MAX_DIAGNOSTICS_TOTAL = 30;
-const DELIVERED_CACHE_MAX_FILES = 500;
+// We assume this will be implemented in the plugin package and exported.
+// In the original bundle, this was $y2 in chunks.114.mjs.
+// Since we can't import from @claudecode/plugin yet (circular dep potential or not built),
+// we might need to inject this dependency or allow it to be set.
+// For now, we'll try to import it, assuming the build system handles it.
+// If not, we might need to restructure.
+import { getAllLspServers } from '@claudecode/plugin'; 
 
 /**
- * Hash a diagnostic for deduplication.
- * Original: Oy2 in chunks.114.mjs:2377-2385
+ * Creates the LSP server manager.
+ * Original: Uy2 in chunks.114.mjs:2171-2340
  */
-function hashDiagnostic(diagnostic: any): string {
-  return JSON.stringify({
-    message: diagnostic.message,
-    severity: diagnostic.severity,
-    range: diagnostic.range,
-    source: diagnostic.source || null,
-    code: diagnostic.code || null,
-  });
-}
-
-/**
- * Register diagnostics from a server.
- * Original: Ly2 in chunks.114.mjs:2349-2360
- */
-export function registerDiagnostics(serverName: string, files: LspDiagnosticFile[]): void {
-  const id = Math.random().toString(36).substring(7);
-  console.log(`LSP Diagnostics: Registering ${files.length} diagnostic file(s) from ${serverName} (ID: ${id})`);
-  pendingDiagnosticsRegistry.set(id, {
-    serverName,
-    files,
-    timestamp: Date.now(),
-    attachmentSent: false,
-  });
-}
-
-/**
- * Map LSP severity to numeric value for sorting.
- * Original: wy2 in chunks.114.mjs:2362-2375
- */
-function severityToNumber(severity: string | number): number {
-  if (typeof severity === 'number') return severity;
-  switch (severity) {
-    case 'Error': return 1;
-    case 'Warning': return 2;
-    case 'Info': return 3;
-    case 'Hint': return 4;
-    default: return 4;
-  }
-}
-
-/**
- * Map numeric severity to name.
- * Original: ug5 in chunks.114.mjs:2486-2499
- */
-function numberToSeverity(severity: number): string {
-  switch (severity) {
-    case 1: return 'Error';
-    case 2: return 'Warning';
-    case 3: return 'Info';
-    case 4: return 'Hint';
-    default: return 'Error';
-  }
-}
-
-/**
- * Deduplicate diagnostics.
- * Original: hg5 in chunks.114.mjs:2387-2409
- */
-function deduplicateDiagnostics(files: LspDiagnosticFile[]): LspDiagnosticFile[] {
-  const uriToFingerprints = new Map<string, Set<string>>();
-  const result: LspDiagnosticFile[] = [];
-
-  for (const file of files) {
-    if (!uriToFingerprints.has(file.uri)) {
-      uriToFingerprints.set(file.uri, new Set());
-      result.push({
-        uri: file.uri,
-        diagnostics: [],
-      });
-    }
-
-    const currentFileFingerprints = uriToFingerprints.get(file.uri)!;
-    const fileResult = result.find((f) => f.uri === file.uri)!;
-    const deliveredFingerprints = deliveredDiagnosticsCache.get(file.uri) || new Set<string>();
-
-    for (const diagnostic of file.diagnostics) {
-      try {
-        const fingerprint = hashDiagnostic(diagnostic);
-        if (currentFileFingerprints.has(fingerprint) || deliveredFingerprints.has(fingerprint)) {
-          continue;
-        }
-        currentFileFingerprints.add(fingerprint);
-        fileResult.diagnostics.push(diagnostic);
-      } catch (error) {
-        console.error(`Failed to deduplicate diagnostic in ${file.uri}: ${(error as Error).message}`);
-        fileResult.diagnostics.push(diagnostic);
-      }
-    }
-  }
-
-  return result.filter((f) => f.diagnostics.length > 0);
-}
-
-/**
- * Deliver pending diagnostics.
- * Original: My2 in chunks.114.mjs:2411-2456
- */
-export function deliverDiagnostics(): Array<{ serverName: string; files: LspDiagnosticFile[] }> {
-  console.log(`LSP Diagnostics: Checking registry - ${pendingDiagnosticsRegistry.size} pending`);
-  
-  const allFiles: LspDiagnosticFile[] = [];
-  const serverNames = new Set<string>();
-  const pendingItems: PendingDiagnostics[] = [];
-
-  for (const item of pendingDiagnosticsRegistry.values()) {
-    if (!item.attachmentSent) {
-      allFiles.push(...item.files);
-      serverNames.add(item.serverName);
-      pendingItems.push(item);
-    }
-  }
-
-  if (allFiles.length === 0) return [];
-
-  let processedFiles: LspDiagnosticFile[];
-  try {
-    processedFiles = deduplicateDiagnostics(allFiles);
-  } catch (error) {
-    console.error(`Failed to deduplicate LSP diagnostics: ${(error as Error).message}`);
-    processedFiles = allFiles;
-  }
-
-  // Mark as sent
-  for (const item of pendingItems) {
-    item.attachmentSent = true;
-  }
-
-  const initialCount = allFiles.reduce((sum, f) => sum + f.diagnostics.length, 0);
-  const deduplicatedCount = processedFiles.reduce((sum, f) => sum + f.diagnostics.length, 0);
-  
-  if (initialCount > deduplicatedCount) {
-    console.log(`LSP Diagnostics: Deduplication removed ${initialCount - deduplicatedCount} duplicate diagnostic(s)`);
-  }
-
-  let totalDelivered = 0;
-  let removedCount = 0;
-
-  for (const file of processedFiles) {
-    // Sort by severity (Error first)
-    file.diagnostics.sort((a, b) => severityToNumber(a.severity) - severityToNumber(b.severity));
-
-    // Limit per file
-    if (file.diagnostics.length > MAX_DIAGNOSTICS_PER_FILE) {
-      removedCount += file.diagnostics.length - MAX_DIAGNOSTICS_PER_FILE;
-      file.diagnostics = file.diagnostics.slice(0, MAX_DIAGNOSTICS_PER_FILE);
-    }
-
-    // Limit total volume
-    const remainingBudget = MAX_DIAGNOSTICS_TOTAL - totalDelivered;
-    if (file.diagnostics.length > remainingBudget) {
-      removedCount += file.diagnostics.length - remainingBudget;
-      file.diagnostics = file.diagnostics.slice(0, remainingBudget);
-    }
-
-    totalDelivered += file.diagnostics.length;
-  }
-
-  processedFiles = processedFiles.filter((f) => f.diagnostics.length > 0);
-
-  if (removedCount > 0) {
-    console.log(`LSP Diagnostics: Volume limiting removed ${removedCount} diagnostic(s) (max ${MAX_DIAGNOSTICS_PER_FILE}/file, ${MAX_DIAGNOSTICS_TOTAL} total)`);
-  }
-
-  // Track delivered in cache
-  for (const file of processedFiles) {
-    if (!deliveredDiagnosticsCache.has(file.uri)) {
-      if (deliveredDiagnosticsCache.size >= DELIVERED_CACHE_MAX_FILES) {
-        // Simple eviction
-        const firstKey = deliveredDiagnosticsCache.keys().next().value;
-        if (firstKey) deliveredDiagnosticsCache.delete(firstKey);
-      }
-      deliveredDiagnosticsCache.set(file.uri, new Set());
-    }
-    const set = deliveredDiagnosticsCache.get(file.uri)!;
-    for (const d of file.diagnostics) {
-      try {
-        set.add(hashDiagnostic(d));
-      } catch (error) {
-        console.error(`Failed to track delivered diagnostic in ${file.uri}: ${(error as Error).message}`);
-      }
-    }
-  }
-
-  if (totalDelivered === 0) {
-    console.log('LSP Diagnostics: No new diagnostics to deliver (all filtered by deduplication)');
-    return [];
-  }
-
-  console.log(`LSP Diagnostics: Delivering ${processedFiles.length} file(s) with ${totalDelivered} diagnostic(s) from ${serverNames.size} server(s)`);
-  
-  return [{
-    serverName: Array.from(serverNames).join(', '),
-    files: processedFiles,
-  }];
-}
-
-/**
- * Clear all pending diagnostics.
- * Original: Ry2 in chunks.114.mjs:2458-2460
- */
-export function clearPendingDiagnostics(): void {
-  console.log(`LSP Diagnostics: Clearing ${pendingDiagnosticsRegistry.size} pending diagnostic(s)`);
-  pendingDiagnosticsRegistry.clear();
-}
-
-/**
- * Clear delivered diagnostics for a file.
- * Original: XW1 in chunks.114.mjs:2462-2464
- */
-export function clearDeliveredDiagnostics(uri: string): void {
-  if (deliveredDiagnosticsCache.has(uri)) {
-    console.log(`LSP Diagnostics: Clearing delivered diagnostics for ${uri}`);
-    deliveredDiagnosticsCache.delete(uri);
-  }
-}
-
-/**
- * Format diagnostic from server for internal registry.
- * Original: mg5 in chunks.114.mjs:2501-2529
- */
-function formatDiagnosticForRegistry(params: any): LspDiagnosticFile[] {
-  let uri = params.uri;
-  // Note: gg5 (uriToPath) logic simplified here, assuming URI is mostly fine or handled by consumer
-  if (uri.startsWith('file://')) {
-    try {
-      uri = decodeURIComponent(uri.replace(/^file:\/\//, ''));
-    } catch (e) {
-      console.error(`Failed to convert URI to file path: ${uri}`);
-    }
-  }
-
-  const diagnostics = params.diagnostics.map((d: any) => ({
-    message: d.message,
-    severity: numberToSeverity(d.severity),
-    range: {
-      start: { line: d.range.start.line, character: d.range.start.character },
-      end: { line: d.range.end.line, character: d.range.end.character },
-    },
-    source: d.source,
-    code: d.code !== undefined && d.code !== null ? String(d.code) : undefined,
-  }));
-
-  return [{ uri, diagnostics }];
-}
-
-/**
- * Register diagnostics handlers for all servers.
- * Original: _y2 in chunks.114.mjs:2531-2605
- */
-function registerDiagnosticsHandlers(manager: LspServerManager): void {
-  const servers = manager.getAllServers();
-  const registrationErrors: Array<{ serverName: string; error: string }> = [];
-  let successCount = 0;
-  const failureTracker = new Map<string, { count: number; lastError: string }>();
-
-  for (const [serverName, instance] of servers.entries()) {
-    try {
-      if (!instance || typeof instance.onNotification !== 'function') {
-        const error = !instance ? 'Server instance is null/undefined' : 'Server instance has no onNotification method';
-        registrationErrors.push({ serverName, error });
-        console.error(`Skipping handler registration for ${serverName}: ${error}`);
-        continue;
-      }
-
-      instance.onNotification('textDocument/publishDiagnostics', async (params: any) => {
-        console.log(`[PASSIVE DIAGNOSTICS] Handler invoked for ${serverName}!`);
-        try {
-          if (!params || typeof params !== 'object' || !('uri' in params) || !('diagnostics' in params)) {
-            console.error(`LSP server ${serverName} sent invalid diagnostic params`);
-            return;
-          }
-
-          console.log(`Received diagnostics from ${serverName}: ${params.diagnostics.length} diagnostic(s) for ${params.uri}`);
-          const formatted = formatDiagnosticForRegistry(params);
-          const first = formatted[0];
-
-          if (!first || formatted.length === 0 || first.diagnostics.length === 0) {
-            console.log(`Skipping empty diagnostics from ${serverName} for ${params.uri}`);
-            return;
-          }
-
-          try {
-            registerDiagnostics(serverName, formatted);
-            console.log(`LSP Diagnostics: Registered ${formatted.length} diagnostic file(s) from ${serverName} for async delivery`);
-            failureTracker.delete(serverName);
-          } catch (error) {
-            console.error(`Error registering LSP diagnostics from ${serverName}: ${params.uri}, Error: ${(error as Error).message}`);
-            const stats = failureTracker.get(serverName) || { count: 0, lastError: '' };
-            stats.count++;
-            stats.lastError = (error as Error).message;
-            failureTracker.set(serverName, stats);
-            if (stats.count >= 3) {
-              console.log(`WARNING: LSP diagnostic handler for ${serverName} has failed ${stats.count} times consecutively.`);
-            }
-          }
-        } catch (error) {
-          console.error(`Unexpected error processing diagnostics from ${serverName}: ${(error as Error).message}`);
-        }
-      });
-
-      console.log(`Registered diagnostics handler for ${serverName}`);
-      successCount++;
-    } catch (error) {
-      registrationErrors.push({ serverName, error: (error as Error).message });
-      console.error(`Failed to register diagnostics handler for ${serverName}: ${(error as Error).message}`);
-    }
-  }
-
-  const totalServers = servers.size;
-  if (registrationErrors.length > 0) {
-    const errorDetails = registrationErrors.map((e) => `${e.serverName} (${e.error})`).join(', ');
-    console.error(`Failed to register diagnostics for ${registrationErrors.length} LSP server(s): ${errorDetails}`);
-  } else {
-    console.log(`LSP notification handlers registered successfully for all ${totalServers} server(s)`);
-  }
-}
-
-// ============================================
-// Manager Factory
-// ============================================
-
-/**
- * Create an LSP server manager.
- * Original: Uy2 (createLspServerManager) in chunks.114.mjs:2171-2330
- *
- * @param getCwd - Function to get current working directory
- * @param loadServerConfigs - Function to load server configurations
- * @returns LSP server manager
- */
-export function createLspServerManager(
-  getCwd: () => string,
-  loadServerConfigs: () => Promise<Record<string, LspServerConfig>>
-): LspServerManager {
+export function createLspServerManager(): LspServerManager {
+  // Map<serverName, LspServerInstance>
+  // Original: A
   const servers = new Map<string, LspServerInstance>();
-  const extensionToServers = new Map<string, string[]>();
-  const openFiles = new Map<string, string>(); // fileUri -> serverName
 
-  async function initialize(): Promise<void> {
-    let serverConfigs: Record<string, LspServerConfig>;
-    try {
-      serverConfigs = await loadServerConfigs();
-      console.log(
-        `[LSP SERVER MANAGER] getAllLspServers returned ${Object.keys(serverConfigs).length} server(s)`
-      );
-    } catch (error) {
-      throw new Error(
-        `Failed to load LSP server configuration: ${(error as Error).message}`
-      );
-    }
+  // Map<extension, serverNames[]>
+  // Original: Q
+  const extToServers = new Map<string, string[]>();
 
-    for (const [serverName, config] of Object.entries(serverConfigs)) {
-      try {
-        // Validate required fields
-        if (!config.command) {
-          throw new Error(`Server ${serverName} missing required 'command' field`);
-        }
-        if (
-          !config.extensionToLanguage ||
-          Object.keys(config.extensionToLanguage).length === 0
-        ) {
-          throw new Error(
-            `Server ${serverName} missing required 'extensionToLanguage' field`
-          );
-        }
+  // Map<fileUri, serverName>
+  // Original: B
+  const openFiles = new Map<string, string>();
 
-        // Build extension -> server mapping
-        const extensions = Object.keys(config.extensionToLanguage);
-        for (const ext of extensions) {
-          const lowerExt = ext.toLowerCase();
-          if (!extensionToServers.has(lowerExt)) {
-            extensionToServers.set(lowerExt, []);
-          }
-          extensionToServers.get(lowerExt)!.push(serverName);
-        }
+  let status: 'not-started' | 'pending' | 'success' | 'failed' = 'not-started';
+  let initPromise: Promise<void> | null = null;
 
-        // Create server instance
-        const serverInstance = createLspServerInstance(serverName, config, getCwd);
-        servers.set(serverName, serverInstance);
-
-        // Handle workspace/configuration requests (return null for all items)
-        serverInstance.onRequest(
-          LSP_CONSTANTS.METHODS.WORKSPACE_CONFIGURATION,
-          (params: any) => {
-            console.log(
-              `LSP: Received workspace/configuration request from ${serverName}`
-            );
-            return params.items.map(() => null);
-          }
-        );
-
-        // Start server asynchronously
-        serverInstance.start().catch((error) => {
-          console.error(
-            `Failed to start LSP server ${serverName}: ${(error as Error).message}`
-          );
-        });
-      } catch (error) {
-        console.error(
-          `Failed to initialize LSP server ${serverName}: ${(error as Error).message}`
-        );
-      }
-    }
-
-    console.log(`LSP manager initialized with ${servers.size} servers`);
+  function log(message: string) {
+    // console.log(`[LSP Manager] ${message}`);
   }
 
+  function error(err: Error) {
+    console.error(`[LSP Manager] Error:`, err);
+  }
+
+  /**
+   * Initializes the manager by loading servers from plugins.
+   * Original: G (initialize) in chunks.114.mjs:2175
+   */
+  async function initialize(): Promise<void> {
+    if (initPromise) return initPromise;
+    status = 'pending';
+
+    initPromise = (async () => {
+      let loadedServers: Record<string, LspServerConfig>;
+      
+      try {
+        // Original: H = (await $y2()).servers
+        const result = await getAllLspServers();
+        loadedServers = result.servers;
+        log(`getAllLspServers returned ${Object.keys(loadedServers).length} server(s)`);
+      } catch (err: any) {
+        status = 'failed';
+        const msg = new Error(`Failed to load LSP server configuration: ${err.message}`);
+        error(msg);
+        throw msg; // Original rethrows
+      }
+
+      for (const [name, config] of Object.entries(loadedServers)) {
+        try {
+          if (!config.command) {
+            throw new Error(`Server ${name} missing required 'command' field`);
+          }
+          if (!config.extensionToLanguage || Object.keys(config.extensionToLanguage).length === 0) {
+            throw new Error(`Server ${name} missing required 'extensionToLanguage' field`);
+          }
+
+          // Map extensions to server
+          const extensions = Object.keys(config.extensionToLanguage);
+          for (const ext of extensions) {
+            const lowerExt = ext.toLowerCase();
+            if (!extToServers.has(lowerExt)) {
+              extToServers.set(lowerExt, []);
+            }
+            extToServers.get(lowerExt)!.push(name);
+          }
+
+          // Create instance
+          // Original: O = Vy2(E, z)
+          const instance = createLspServerInstance(name, config);
+          servers.set(name, instance);
+
+          // Handle workspace/configuration request (mock implementation)
+          // Original: chunks.114.mjs:2193
+          instance.onRequest(LSP_CONSTANTS.METHODS.WORKSPACE_CONFIGURATION, (params: any) => {
+            log(`LSP: Received workspace/configuration request from ${name}`);
+            return params.items.map(() => null);
+          });
+
+          // Start server
+          // Original: chunks.114.mjs:2195
+          instance.start().catch(err => {
+            error(new Error(`Failed to start LSP server ${name}: ${err.message}`));
+          });
+
+        } catch (err: any) {
+          error(new Error(`Failed to initialize LSP server ${name}: ${err.message}`));
+        }
+      }
+
+      log(`LSP manager initialized with ${servers.size} servers`);
+      status = 'success';
+    })();
+
+    return initPromise;
+  }
+
+  /**
+   * Shuts down all servers.
+   * Original: Z (shutdown) in chunks.114.mjs:2203
+   */
   async function shutdown(): Promise<void> {
     const errors: Error[] = [];
 
-    // Stop all running servers
-    for (const [serverName, server] of servers.entries()) {
-      if (server.state === 'running') {
+    for (const [name, instance] of servers.entries()) {
+      if (instance.state === 'running') {
         try {
-          await server.stop();
-        } catch (error) {
-          console.error(
-            `Failed to stop LSP server ${serverName}: ${(error as Error).message}`
-          );
-          errors.push(error as Error);
+          await instance.stop();
+        } catch (err: any) {
+          error(new Error(`Failed to stop LSP server ${name}: ${err.message}`));
+          errors.push(err);
         }
       }
     }
 
-    // Clear all state maps
     servers.clear();
-    extensionToServers.clear();
+    extToServers.clear();
     openFiles.clear();
 
-    // Throw aggregated error if any servers failed to stop
     if (errors.length > 0) {
-      throw new Error(
-        `Failed to stop ${errors.length} LSP server(s): ${errors.map((e) => e.message).join('; ')}`
-      );
+      const msg = new Error(`Failed to stop ${errors.length} LSP server(s): ${errors.map(e => e.message).join('; ')}`);
+      error(msg);
+      throw msg;
     }
   }
 
+  /**
+   * Gets the server instance for a specific file.
+   * Original: Y (getServerForFile) in chunks.114.mjs:2218
+   */
   function getServerForFile(filePath: string): LspServerInstance | undefined {
-    const extension = extname(filePath).toLowerCase();
-    const serverNames = extensionToServers.get(extension);
-    if (!serverNames || serverNames.length === 0) {
-      return undefined;
-    }
-    const serverName = serverNames[0]; // Use first matching server
+    const ext = path.extname(filePath).toLowerCase();
+    const serverNames = extToServers.get(ext);
+
+    if (!serverNames || serverNames.length === 0) return undefined;
+    
+    // Original takes the first server (z[0])
+    const serverName = serverNames[0];
     if (!serverName) return undefined;
+
     return servers.get(serverName);
   }
 
-  async function ensureServerStarted(
-    filePath: string
-  ): Promise<LspServerInstance | undefined> {
+  /**
+   * Ensures the server for a file is started.
+   * Original: J (ensureServerStarted) in chunks.114.mjs:2226
+   */
+  async function ensureServerStarted(filePath: string): Promise<LspServerInstance | undefined> {
     const server = getServerForFile(filePath);
-    if (!server) {
-      return undefined;
-    }
+    if (!server) return undefined;
 
     if (server.state === 'stopped') {
       try {
         await server.start();
-      } catch (error) {
-        throw new Error(
-          `Failed to start LSP server for file ${filePath}: ${(error as Error).message}`
-        );
+      } catch (err: any) {
+        const msg = new Error(`Failed to start LSP server for file ${filePath}: ${err.message}`);
+        error(msg);
+        throw msg;
       }
     }
     return server;
   }
 
-  async function sendRequest<T>(
-    filePath: string,
-    method: string,
-    params?: unknown
-  ): Promise<T | undefined> {
+  /**
+   * Sends a request to the appropriate server for a file.
+   * Original: X (sendRequest) in chunks.114.mjs:2236
+   */
+  async function sendRequest<T>(filePath: string, method: string, params?: unknown): Promise<T | undefined> {
     const server = await ensureServerStarted(filePath);
-    if (!server) {
-      return undefined;
-    }
+    if (!server) return undefined;
 
     try {
       return await server.sendRequest<T>(method, params);
-    } catch (error) {
-      throw new Error(
-        `LSP request failed for file ${filePath}, method '${method}': ${(error as Error).message}`
-      );
+    } catch (err: any) {
+      const msg = new Error(`LSP request failed for file ${filePath}, method '${method}': ${err.message}`);
+      error(msg);
+      throw msg;
     }
   }
 
+  /**
+   * Returns all servers.
+   * Original: I (getAllServers) in chunks.114.mjs:2246
+   */
+  function getAllServers(): Map<string, LspServerInstance> {
+    return servers;
+  }
+
+  /**
+   * Opens a file in the LSP server.
+   * Original: D (openFile) in chunks.114.mjs:2249
+   */
   async function openFile(filePath: string, content: string): Promise<void> {
     const server = await ensureServerStarted(filePath);
-    if (!server) {
+    if (!server) return;
+
+    const uri = `file://${path.resolve(filePath)}`;
+    
+    if (openFiles.get(uri) === server.name) {
+      log(`LSP: File already open, skipping didOpen for ${filePath}`);
       return;
     }
 
-    const fileUri = `file://${resolve(filePath)}`;
-
-    // Skip if already open with same server
-    if (openFiles.get(fileUri) === server.name) {
-      console.log(`LSP: File already open, skipping didOpen for ${filePath}`);
-      return;
-    }
-
-    const extension = extname(filePath).toLowerCase();
-    const languageId = server.config.extensionToLanguage[extension] || 'plaintext';
+    const ext = path.extname(filePath).toLowerCase();
+    const languageId = server.config.extensionToLanguage[ext] || 'plaintext';
 
     try {
       await server.sendNotification(LSP_CONSTANTS.METHODS.TEXT_DOCUMENT_DID_OPEN, {
         textDocument: {
-          uri: fileUri,
+          uri,
           languageId,
           version: 1,
-          text: content,
-        },
+          text: content
+        }
       });
-      openFiles.set(fileUri, server.name);
-      console.log(`LSP: Sent didOpen for ${filePath} (languageId: ${languageId})`);
-    } catch (error) {
-      throw new Error(
-        `Failed to sync file open ${filePath}: ${(error as Error).message}`
-      );
+      openFiles.set(uri, server.name);
+      log(`LSP: Sent didOpen for ${filePath} (languageId: ${languageId})`);
+    } catch (err: any) {
+      const msg = new Error(`Failed to sync file open ${filePath}: ${err.message}`);
+      error(msg);
+      throw msg;
     }
   }
 
+  /**
+   * Notifies the server of a file change.
+   * Original: W (changeFile) in chunks.114.mjs:2273
+   */
   async function changeFile(filePath: string, content: string): Promise<void> {
     const server = getServerForFile(filePath);
-
-    // If server not running or file not tracked, fall back to openFile
     if (!server || server.state !== 'running') {
+      // If not running, treat as open
       return openFile(filePath, content);
     }
 
-    const fileUri = `file://${resolve(filePath)}`;
-    if (openFiles.get(fileUri) !== server.name) {
+    const uri = `file://${path.resolve(filePath)}`;
+    if (openFiles.get(uri) !== server.name) {
       return openFile(filePath, content);
     }
 
     try {
       await server.sendNotification(LSP_CONSTANTS.METHODS.TEXT_DOCUMENT_DID_CHANGE, {
-        textDocument: { uri: fileUri, version: 1 },
-        contentChanges: [{ text: content }], // Full document sync
+        textDocument: {
+          uri,
+          version: 1 // We might need to increment this in a real implementation, but source uses 1
+        },
+        contentChanges: [{
+          text: content
+        }]
       });
-      console.log(`LSP: Sent didChange for ${filePath}`);
-    } catch (error) {
-      throw new Error(
-        `Failed to sync file change ${filePath}: ${(error as Error).message}`
-      );
+      log(`LSP: Sent didChange for ${filePath}`);
+    } catch (err: any) {
+      const msg = new Error(`Failed to sync file change ${filePath}: ${err.message}`);
+      error(msg);
+      throw msg;
     }
   }
 
+  /**
+   * Notifies the server of a file save.
+   * Original: K (saveFile) in chunks.114.mjs:2293
+   */
   async function saveFile(filePath: string): Promise<void> {
     const server = getServerForFile(filePath);
-    if (!server || server.state !== 'running') {
-      return;
-    }
+    if (!server || server.state !== 'running') return;
 
     try {
       await server.sendNotification(LSP_CONSTANTS.METHODS.TEXT_DOCUMENT_DID_SAVE, {
-        textDocument: { uri: `file://${resolve(filePath)}` },
+        textDocument: {
+          uri: `file://${path.resolve(filePath)}`
+        }
       });
-      console.log(`LSP: Sent didSave for ${filePath}`);
-    } catch (error) {
-      throw new Error(
-        `Failed to sync file save ${filePath}: ${(error as Error).message}`
-      );
+      log(`LSP: Sent didSave for ${filePath}`);
+    } catch (err: any) {
+      const msg = new Error(`Failed to sync file save ${filePath}: ${err.message}`);
+      error(msg);
+      throw msg;
     }
   }
 
+  /**
+   * Notifies the server of a file close.
+   * Original: V (closeFile) in chunks.114.mjs:2307
+   */
   async function closeFile(filePath: string): Promise<void> {
     const server = getServerForFile(filePath);
-    if (!server || server.state !== 'running') {
-      return;
-    }
+    if (!server || server.state !== 'running') return;
 
-    const fileUri = `file://${resolve(filePath)}`;
-
+    const uri = `file://${path.resolve(filePath)}`;
+    
     try {
       await server.sendNotification(LSP_CONSTANTS.METHODS.TEXT_DOCUMENT_DID_CLOSE, {
-        textDocument: { uri: fileUri },
+        textDocument: {
+          uri
+        }
       });
-      openFiles.delete(fileUri);
-      console.log(`LSP: Sent didClose for ${filePath}`);
-    } catch (error) {
-      throw new Error(
-        `Failed to sync file close ${filePath}: ${(error as Error).message}`
-      );
+      openFiles.delete(uri);
+      log(`LSP: Sent didClose for ${filePath}`);
+    } catch (err: any) {
+      const msg = new Error(`Failed to sync file close ${filePath}: ${err.message}`);
+      error(msg);
+      throw msg;
     }
   }
 
+  /**
+   * Checks if a file is open.
+   * Original: F (isFileOpen) in chunks.114.mjs:2323
+   */
   function isFileOpen(filePath: string): boolean {
-    return openFiles.has(`file://${resolve(filePath)}`);
+    const uri = `file://${path.resolve(filePath)}`;
+    return openFiles.has(uri);
   }
 
-  function getAllServers(): Map<string, LspServerInstance> {
-    return servers;
+  function getStatus() {
+    return { status };
+  }
+
+  async function waitForInit() {
+    if (initPromise) await initPromise;
   }
 
   return {
@@ -638,139 +353,17 @@ export function createLspServerManager(
     shutdown,
     getServerForFile,
     ensureServerStarted,
-    getAllServers,
     sendRequest,
+    getAllServers,
     openFile,
     changeFile,
     saveFile,
     closeFile,
     isFileOpen,
+    getStatus,
+    waitForInit
   };
 }
 
-// ============================================
-// Singleton Manager
-// ============================================
-
-let lspManager: LspServerManager | undefined;
-let lspState: LspManagerState = 'not-started';
-let lastError: Error | undefined;
-let generationCounter = 0;
-let initPromise: Promise<void> | undefined;
-
-/**
- * Initialize the LSP server manager singleton.
- * Original: Py2 (initializeLspServerManager) in chunks.114.mjs:2640-2654
- */
-export function initializeLspServerManager(
-  getCwd: () => string,
-  loadServerConfigs: () => Promise<Record<string, LspServerConfig>>
-): void {
-  console.log('[LSP MANAGER] initializeLspServerManager() called');
-
-  // Singleton check: skip if already initialized or initializing
-  if (lspManager !== undefined && lspState !== 'failed') {
-    console.log('[LSP MANAGER] Already initialized or initializing, skipping');
-    return;
-  }
-
-  // Reset on failure to allow retry
-  if (lspState === 'failed') {
-    lspManager = undefined;
-    lastError = undefined;
-  }
-
-  lspManager = createLspServerManager(getCwd, loadServerConfigs);
-  lspState = 'pending';
-  console.log('[LSP MANAGER] Created manager instance, state=pending');
-
-  const currentGeneration = ++generationCounter;
-  console.log(`[LSP MANAGER] Starting async initialization (generation ${currentGeneration})`);
-  
-  initPromise = lspManager
-    .initialize()
-    .then(() => {
-      if (currentGeneration === generationCounter) {
-        lspState = 'success';
-        console.log('LSP server manager initialized successfully');
-        if (lspManager) {
-          registerDiagnosticsHandlers(lspManager);
-        }
-      }
-    })
-    .catch((error) => {
-      if (currentGeneration === generationCounter) {
-        lspState = 'failed';
-        lastError = error;
-        lspManager = undefined;
-        console.error(`Failed to initialize LSP server manager: ${error.message}`);
-      }
-    });
-}
-
-/**
- * Shutdown the LSP server manager singleton.
- * Original: Sy2 (shutdownLspServerManager) in chunks.114.mjs:2657-2665
- */
-export async function shutdownLspServerManager(): Promise<void> {
-  if (lspManager === undefined) {
-    return;
-  }
-
-  try {
-    await lspManager.shutdown();
-    console.log('LSP server manager shut down successfully');
-  } catch (error) {
-    console.error(
-      `Failed to shutdown LSP server manager: ${(error as Error).message}`
-    );
-  } finally {
-    // Reset all global state
-    lspManager = undefined;
-    lspState = 'not-started';
-    lastError = undefined;
-    initPromise = undefined;
-    generationCounter++; // Invalidate any pending async operations
-  }
-}
-
-/**
- * Get the LSP manager instance.
- * Original: Rc (getLspManager)
- */
-export function getLspManager(): LspServerManager | undefined {
-  if (lspState === 'failed') return undefined;
-  return lspManager;
-}
-
-/**
- * Get the LSP manager status.
- * Original: f6A (getLspManagerStatus)
- */
-export function getLspManagerStatus(): {
-  status: LspManagerState;
-  error?: Error;
-} {
-  return {
-    status: lspState,
-    error: lastError,
-  };
-}
-
-/**
- * Wait for LSP manager initialization.
- * Original: Ty2 (waitForLspManagerInit)
- */
-export async function waitForLspManagerInit(): Promise<void> {
-  if (lspState === 'success' || lspState === 'failed') return;
-  if (lspState === 'pending' && initPromise) {
-    await initPromise;
-  }
-}
-
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。
+// Global singleton instance
+export const lspServerManager = createLspServerManager();
