@@ -76,8 +76,10 @@ export {
 } from './execution.js';
 
 // ============================================
-// Auto-Search
+// SDK Server
 // ============================================
+
+export * from './sdk-server.js';
 
 export {
   shouldEnableAutoSearch,

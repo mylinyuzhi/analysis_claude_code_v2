@@ -6,278 +6,325 @@
  */
 
 import net from 'net';
-import type { SocketMessage, SocketClientOptions, SocketClientState } from './types.js';
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
 import { CHROME_CONSTANTS } from './types.js';
-
-// ============================================
-// Message Encoding/Decoding
-// ============================================
+import type { SocketMessage, SocketClientContext } from './types.js';
 
 /**
- * Encode message with 4-byte length prefix.
- * Format: [4 bytes little-endian length][JSON payload]
+ * Get socket path for Chrome communication.
+ * Original: sfA in chunks.145.mjs:1085
  */
-export function encodeMessage(message: SocketMessage): Buffer {
-  const jsonStr = JSON.stringify(message);
-  const jsonBuffer = Buffer.from(jsonStr, 'utf-8');
-  const lengthBuffer = Buffer.alloc(4);
-  lengthBuffer.writeUInt32LE(jsonBuffer.length, 0);
-  return Buffer.concat([lengthBuffer, jsonBuffer]);
+export function getSocketPath(): string {
+  const platform = process.platform;
+
+  if (platform === 'win32') {
+    // Windows uses named pipes
+    return `\\\\.\\pipe\\claude-in-chrome`;
+  }
+
+  // Unix uses domain sockets in temp directory
+  return path.join(os.tmpdir(), 'claude-in-chrome.sock');
 }
 
 /**
- * Decode message from buffer.
- * Returns [message, remainingBuffer] or [null, buffer] if incomplete.
+ * Socket connection error class.
+ * Original: z8A in chunks.145.mjs:979
  */
-export function decodeMessage(buffer: Buffer): [SocketMessage | null, Buffer] {
-  if (buffer.length < 4) {
-    return [null, buffer];
+export class SocketConnectionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SocketConnectionError';
   }
-
-  const length = buffer.readUInt32LE(0);
-
-  if (buffer.length < 4 + length) {
-    return [null, buffer];
-  }
-
-  const jsonStr = buffer.slice(4, 4 + length).toString('utf-8');
-  const message = JSON.parse(jsonStr) as SocketMessage;
-  const remaining = buffer.slice(4 + length);
-
-  return [message, remaining];
 }
-
-// ============================================
-// Socket Client
-// ============================================
 
 /**
  * Socket client for Chrome native host communication.
- * Original: AZ9 (SocketClient) in chunks.145.mjs
- *
- * Features:
- * - Automatic reconnection
- * - Request/response correlation via message ID
- * - 4-byte length-prefixed JSON messages
+ * Original: AZ9 (SocketClient) in chunks.145.mjs:787-970
  */
 export class ChromeSocketClient {
   private socket: net.Socket | null = null;
-  private state: SocketClientState = 'disconnected';
-  private buffer: Buffer = Buffer.alloc(0);
-  private pendingRequests: Map<string, {
-    resolve: (value: unknown) => void;
-    reject: (error: Error) => void;
-    timeout: ReturnType<typeof setTimeout>;
-  }> = new Map();
+  private connected = false;
+  private connecting = false;
+  private responseCallback: ((response: any) => void) | null = null;
+  private notificationHandler: ((notification: SocketMessage) => void) | null = null;
+  private responseBuffer = Buffer.alloc(0);
   private reconnectAttempts = 0;
-  private options: Required<SocketClientOptions>;
+  private maxReconnectAttempts = 10;
+  private reconnectDelay = 1000;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private context: SocketClientContext;
 
-  constructor(options: SocketClientOptions) {
-    this.options = {
-      socketPath: options.socketPath,
-      timeout: options.timeout ?? CHROME_CONSTANTS.SOCKET_TIMEOUT_MS,
-      reconnect: options.reconnect ?? true,
-      maxReconnectAttempts: options.maxReconnectAttempts ?? CHROME_CONSTANTS.MAX_RECONNECT_ATTEMPTS,
-    };
+  constructor(context: SocketClientContext) {
+    this.context = context;
   }
 
-  /**
-   * Get current state.
-   */
-  getState(): SocketClientState {
-    return this.state;
-  }
-
-  /**
-   * Check if connected.
-   */
-  isConnected(): boolean {
-    return this.state === 'connected';
-  }
-
-  /**
-   * Connect to socket.
-   */
   async connect(): Promise<void> {
-    if (this.state === 'connected' || this.state === 'connecting') {
+    const { serverName, logger } = this.context;
+    
+    if (this.connecting) {
+      logger.info(`[${serverName}] Already connecting, skipping duplicate attempt`);
       return;
     }
 
-    this.state = 'connecting';
+    this.closeSocket();
+    this.connecting = true;
+    const socketPath = this.context.socketPath;
+    logger.info(`[${serverName}] Attempting to connect to: ${socketPath}`);
 
-    return new Promise((resolve, reject) => {
-      this.socket = net.createConnection(this.options.socketPath);
+    try {
+      await this.validateSocketSecurity(socketPath);
+    } catch (error) {
+      this.connecting = false;
+      logger.info(`[${serverName}] Security validation failed:`, error);
+      return;
+    }
 
-      this.socket.on('connect', () => {
-        this.state = 'connected';
-        this.reconnectAttempts = 0;
-        this.buffer = Buffer.alloc(0);
-        resolve();
-      });
+    this.socket = net.createConnection(socketPath);
+    
+    this.socket.on('connect', () => {
+      this.connected = true;
+      this.connecting = false;
+      this.reconnectAttempts = 0;
+      logger.info(`[${serverName}] Successfully connected to bridge server`);
+    });
 
-      this.socket.on('data', (data) => {
-        this.handleData(data);
-      });
-
-      this.socket.on('error', (error) => {
-        this.state = 'error';
-        if (this.reconnectAttempts === 0) {
-          reject(error);
+    this.socket.on('data', (data) => {
+      this.responseBuffer = Buffer.concat([this.responseBuffer, data]);
+      
+      while (this.responseBuffer.length >= 4) {
+        const length = this.responseBuffer.readUInt32LE(0);
+        if (this.responseBuffer.length < 4 + length) break;
+        
+        const payload = this.responseBuffer.slice(4, 4 + length);
+        this.responseBuffer = this.responseBuffer.slice(4 + length);
+        
+        try {
+          const message = JSON.parse(payload.toString('utf-8'));
+          
+          // Check if it's a notification (has method)
+          if (message && typeof message.method === 'string') {
+            logger.info(`[${serverName}] Received notification: ${message.method}`);
+            if (this.notificationHandler) this.notificationHandler(message);
+          } 
+          // Check if it's a response (has result or error)
+          else if (message && ('result' in message || 'error' in message)) {
+            logger.info(`[${serverName}] Received tool response: ${JSON.stringify(message)}`);
+            this.handleResponse(message);
+          } 
+          else {
+            logger.info(`[${serverName}] Received unknown message: ${JSON.stringify(message)}`);
+          }
+        } catch (error) {
+          logger.info(`[${serverName}] Failed to parse message:`, error);
         }
-        this.handleDisconnect();
-      });
+      }
+    });
 
-      this.socket.on('close', () => {
-        this.state = 'disconnected';
-        this.handleDisconnect();
-      });
+    this.socket.on('error', (error: any) => {
+      logger.info(`[${serverName}] Socket error:`, error);
+      this.connected = false;
+      this.connecting = false;
+      if (error.code && ['ECONNREFUSED', 'ECONNRESET', 'EPIPE'].includes(error.code)) {
+        this.scheduleReconnect();
+      }
+    });
+
+    this.socket.on('close', () => {
+      this.connected = false;
+      this.connecting = false;
+      this.scheduleReconnect();
     });
   }
 
-  /**
-   * Disconnect from socket.
-   */
-  disconnect(): void {
-    if (this.socket) {
-      this.socket.destroy();
-      this.socket = null;
+  private scheduleReconnect(): void {
+    const { serverName, logger } = this.context;
+    
+    if (this.reconnectTimer) {
+      logger.info(`[${serverName}] Reconnect already scheduled, skipping`);
+      return;
     }
-    this.state = 'disconnected';
-    this.buffer = Buffer.alloc(0);
 
-    // Reject all pending requests
-    for (const [id, pending] of this.pendingRequests) {
-      clearTimeout(pending.timeout);
-      pending.reject(new Error('Socket disconnected'));
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      logger.info(`[${serverName}] Max reconnection attempts reached`);
+      this.cleanup();
+      return;
     }
-    this.pendingRequests.clear();
+
+    this.reconnectAttempts++;
+    // Exponential backoff: base * 1.5^(attempt-1), capped at 30s
+    const delay = Math.min(this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1), 30000);
+    
+    logger.info(`[${serverName}] Reconnecting in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts})`);
+    
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect();
+    }, delay);
   }
 
-  /**
-   * Send request and wait for response.
-   */
-  async request<T = unknown>(type: string, payload?: unknown): Promise<T> {
-    if (!this.isConnected()) {
-      await this.connect();
+  private handleResponse(response: any): void {
+    if (this.responseCallback) {
+      const callback = this.responseCallback;
+      this.responseCallback = null;
+      callback(response);
     }
+  }
 
-    const id = generateRequestId();
-    const message: SocketMessage = { type, id, payload };
+  setNotificationHandler(handler: (notification: SocketMessage) => void): void {
+    this.notificationHandler = handler;
+  }
+
+  async ensureConnected(): Promise<boolean> {
+    const { serverName } = this.context;
+    
+    if (this.connected && this.socket) return true;
+    if (!this.socket && !this.connecting) await this.connect();
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        this.pendingRequests.delete(id);
-        reject(new Error(`Request timeout: ${type}`));
-      }, this.options.timeout);
+        reject(new SocketConnectionError(`[${serverName}] Connection attempt timed out after 5000ms`));
+      }, 5000);
 
-      this.pendingRequests.set(id, {
-        resolve: resolve as (value: unknown) => void,
-        reject,
-        timeout,
-      });
-
-      const buffer = encodeMessage(message);
-      this.socket!.write(buffer);
+      const check = () => {
+        if (this.connected) {
+          clearTimeout(timeout);
+          resolve(true);
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
     });
   }
 
-  /**
-   * Send message without waiting for response.
-   */
-  send(type: string, payload?: unknown): void {
-    if (!this.isConnected()) {
-      throw new Error('Not connected');
+  private async sendRequest(request: any, timeoutMs = 30000): Promise<any> {
+    const { serverName } = this.context;
+    
+    if (!this.socket) {
+      throw new SocketConnectionError(`[${serverName}] Cannot send request: not connected`);
     }
 
-    const message: SocketMessage = { type, payload };
-    const buffer = encodeMessage(message);
-    this.socket!.write(buffer);
+    const socket = this.socket;
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.responseCallback = null;
+        reject(new SocketConnectionError(`[${serverName}] Tool request timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      this.responseCallback = (response) => {
+        clearTimeout(timeout);
+        resolve(response);
+      };
+
+      const jsonStr = JSON.stringify(request);
+      const jsonBuffer = Buffer.from(jsonStr, 'utf-8');
+      const lengthBuffer = Buffer.allocUnsafe(4);
+      lengthBuffer.writeUInt32LE(jsonBuffer.length, 0);
+      
+      const messageBuffer = Buffer.concat([lengthBuffer, jsonBuffer]);
+      socket.write(messageBuffer);
+    });
   }
 
-  /**
-   * Handle incoming data.
-   */
-  private handleData(data: Buffer): void {
-    this.buffer = Buffer.concat([this.buffer, data]);
-
-    // Process all complete messages in buffer
-    while (true) {
-      const [message, remaining] = decodeMessage(this.buffer);
-      if (!message) break;
-
-      this.buffer = remaining;
-      this.handleMessage(message);
-    }
-  }
-
-  /**
-   * Handle decoded message.
-   */
-  private handleMessage(message: SocketMessage): void {
-    // Check if this is a response to a pending request
-    if (message.id && this.pendingRequests.has(message.id)) {
-      const pending = this.pendingRequests.get(message.id)!;
-      this.pendingRequests.delete(message.id);
-      clearTimeout(pending.timeout);
-
-      if (message.type === 'error') {
-        pending.reject(new Error(String(message.payload)));
-      } else {
-        pending.resolve(message.payload);
+  async callTool(toolName: string, args: any): Promise<any> {
+    const request = {
+      method: 'execute_tool',
+      params: {
+        client_id: this.context.clientTypeId,
+        tool: toolName,
+        args: args
       }
+    };
+    return this.sendRequestWithRetry(request);
+  }
+
+  private async sendRequestWithRetry(request: any): Promise<any> {
+    const { serverName, logger } = this.context;
+    
+    try {
+      return await this.sendRequest(request);
+    } catch (error) {
+      if (!(error instanceof SocketConnectionError)) throw error;
+      
+      logger.info(`[${serverName}] Connection error, forcing reconnect and retrying: ${error.message}`);
+      this.closeSocket();
+      await this.ensureConnected();
+      return await this.sendRequest(request);
     }
   }
 
-  /**
-   * Handle disconnection (attempt reconnect if enabled).
-   */
-  private handleDisconnect(): void {
-    if (!this.options.reconnect) return;
-    if (this.reconnectAttempts >= this.options.maxReconnectAttempts) return;
+  isConnected(): boolean {
+    return this.connected;
+  }
 
-    this.reconnectAttempts++;
-    const delay = CHROME_CONSTANTS.RECONNECT_DELAY_MS * this.reconnectAttempts;
+  private closeSocket(): void {
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.end();
+      this.socket.destroy();
+      this.socket = null;
+    }
+    this.connected = false;
+    this.connecting = false;
+  }
 
-    setTimeout(() => {
-      this.connect().catch(() => {
-        // Reconnect failed, will retry
-      });
-    }, delay);
+  cleanup(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.closeSocket();
+    this.reconnectAttempts = 0;
+    this.responseBuffer = Buffer.alloc(0);
+    this.responseCallback = null;
+  }
+
+  disconnect(): void {
+    this.cleanup();
+  }
+
+  private async validateSocketSecurity(socketPath: string): Promise<void> {
+    const { serverName, logger } = this.context;
+    
+    // Windows named pipes handle security differently
+    if (process.platform === 'win32') return;
+
+    try {
+      const stats = await fs.stat(socketPath);
+      
+      if (!stats.isSocket()) {
+        throw new Error(`[${serverName}] Path exists but it's not a socket: ${socketPath}`);
+      }
+
+      // Check permissions: 0600 (owner read/write only)
+      const mode = stats.mode & 0o777;
+      if (mode !== 0o600) {
+        throw new Error(`[${serverName}] Insecure socket permissions: ${mode.toString(8)} (expected 0600). Socket may have been tampered with.`);
+      }
+
+      // Check ownership
+      const uid = process.getuid?.();
+      if (uid !== undefined && stats.uid !== uid) {
+        throw new Error(`Socket not owned by current user (uid: ${uid}, socket uid: ${stats.uid}). Potential security risk.`);
+      }
+
+      logger.info(`[${serverName}] Socket security validation passed`);
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        logger.info(`[${serverName}] Socket not found, will be created by server`);
+        return;
+      }
+      throw error;
+    }
   }
 }
 
-// ============================================
-// Utilities
-// ============================================
-
 /**
- * Generate unique request ID.
+ * Socket client factory.
+ * Original: QZ9 in chunks.145.mjs:972
  */
-function generateRequestId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+export function createSocketClient(context: SocketClientContext): ChromeSocketClient {
+  return new ChromeSocketClient(context);
 }
-
-/**
- * Get socket path for current platform.
- */
-export function getSocketPath(): string {
-  return process.platform === 'win32'
-    ? CHROME_CONSTANTS.SOCKET_PATH_WINDOWS
-    : CHROME_CONSTANTS.SOCKET_PATH_UNIX;
-}
-
-/**
- * Create socket client with default options.
- */
-export function createSocketClient(options?: Partial<SocketClientOptions>): ChromeSocketClient {
-  return new ChromeSocketClient({
-    socketPath: getSocketPath(),
-    ...options,
-  });
-}
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

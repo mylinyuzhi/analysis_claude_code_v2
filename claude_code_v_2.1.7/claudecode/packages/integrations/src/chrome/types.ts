@@ -2,8 +2,43 @@
  * @claudecode/integrations - Chrome Types
  *
  * Type definitions for Chrome browser integration.
- * Reconstructed from chunks.145.mjs, chunks.149.mjs
+ * Reconstructed from chunks.145.mjs, chunks.149.mjs, chunks.131.mjs
  */
+
+import type { McpTool } from '../mcp/types.js';
+
+// ============================================
+// Constants
+// ============================================
+
+/**
+ * Constants for Chrome integration.
+ * Original values from chunks.145.mjs, chunks.131.mjs
+ */
+export const CHROME_CONSTANTS = {
+  // Server/Host Names
+  SERVER_NAME: 'claude-in-chrome', // Original: Ej
+  NATIVE_HOST_NAME: 'com.anthropic.claude_code_browser_extension', // Original: nz1
+  
+  // URLs
+  RECONNECT_URL: 'https://clau.de/chrome/reconnect', // Original: DH7 / $H7
+  INSTALL_URL: 'https://claude.ai/chrome', // Original: EH7 / wU7
+  PERMISSIONS_URL: 'https://clau.de/chrome/permissions', // Original: zH7
+  BUG_REPORT_URL: 'https://github.com/anthropics/claude-code/issues/new?labels=bug,claude-in-chrome', // Original: LU7
+  TAB_DEEPLINK_URL: 'https://clau.de/chrome/tab/', // Original: dB7
+
+  // IPC
+  MAX_MESSAGE_SIZE: 1048576, // 1MB, Original: eP0
+  SOCKET_TIMEOUT_MS: 30000,
+  CONNECTION_TIMEOUT_MS: 5000,
+  
+  // Settings/Feature Flags
+  AUTO_ENABLE_FEATURE_FLAG: 'tengu_chrome_auto_enable',
+  DEFAULT_ENABLED_SETTING: 'claudeInChromeDefaultEnabled',
+  
+  // Extension ID
+  EXTENSION_ID: 'fcoeoabgfenejglbffodgkkbkcdhcgfn',
+} as const;
 
 // ============================================
 // Socket Communication
@@ -14,19 +49,11 @@
  * Uses 4-byte little-endian length prefix + JSON payload.
  */
 export interface SocketMessage {
-  type: string;
-  id?: string;
-  payload?: unknown;
-}
-
-/**
- * Socket client options.
- */
-export interface SocketClientOptions {
-  socketPath: string;
-  timeout?: number;
-  reconnect?: boolean;
-  maxReconnectAttempts?: number;
+  method?: string;
+  params?: any;
+  result?: any;
+  error?: any;
+  id?: number | string;
 }
 
 /**
@@ -34,26 +61,20 @@ export interface SocketClientOptions {
  */
 export type SocketClientState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
-// ============================================
-// Native Host
-// ============================================
-
 /**
- * Native messaging format.
- * Chrome native messaging uses 4-byte length prefix.
+ * Socket client context.
  */
-export interface NativeMessage {
-  type: string;
-  requestId?: string;
-  data?: unknown;
-}
-
-/**
- * Native host server options.
- */
-export interface NativeHostOptions {
+export interface SocketClientContext {
+  serverName: string;
   socketPath: string;
-  maxClients?: number;
+  clientTypeId: string;
+  logger: {
+    info: (...args: any[]) => void;
+    warn: (...args: any[]) => void;
+    error: (...args: any[]) => void;
+  };
+  onAuthenticationError: () => void;
+  onToolCallDisconnected: () => string;
 }
 
 // ============================================
@@ -62,238 +83,58 @@ export interface NativeHostOptions {
 
 /**
  * Chrome MCP tool names.
+ * Original names from Pe array in chunks.145.mjs
  */
 export type ChromeMcpToolName =
-  // Tab Management
+  | 'javascript_tool'
+  | 'read_page'
+  | 'find'
+  | 'form_input'
+  | 'computer'
+  | 'navigate'
+  | 'resize_window'
+  | 'gif_creator'
+  | 'upload_image'
+  | 'get_page_text'
   | 'tabs_context_mcp'
   | 'tabs_create_mcp'
-  | 'tabs_close_mcp'
-  | 'tabs_focus_mcp'
-  | 'tabs_navigate_mcp'
-  // Page Interaction
-  | 'page_click_mcp'
-  | 'page_fill_mcp'
-  | 'page_select_mcp'
-  | 'page_hover_mcp'
-  | 'page_scroll_mcp'
-  | 'page_keyboard_mcp'
-  // Content Capture
-  | 'screenshot_mcp'
-  | 'snapshot_mcp'
-  | 'console_logs_mcp'
-  | 'network_logs_mcp'
-  // Script Execution
-  | 'evaluate_mcp'
-  // Recording
-  | 'gif_record_mcp'
-  | 'gif_stop_mcp';
+  | 'update_plan'
+  | 'read_console_messages'
+  | 'read_network_requests'
+  | 'shortcuts_list'
+  | 'shortcuts_execute';
 
 /**
- * Chrome MCP tool definition.
- */
-export interface ChromeMcpTool {
-  name: ChromeMcpToolName;
-  title: string;
-  description: string;
-  inputSchema: {
-    type: 'object';
-    properties: Record<string, unknown>;
-    required?: string[];
-  };
-}
-
-/**
- * Tab information.
- */
-export interface TabInfo {
-  id: number;
-  url: string;
-  title: string;
-  active: boolean;
-  groupId?: number;
-}
-
-/**
- * Tab group information.
- */
-export interface TabGroupInfo {
-  id: number;
-  title: string;
-  tabs: TabInfo[];
-}
-
-// ============================================
-// Tool Input Types
-// ============================================
-
-/**
- * tabs_context_mcp input.
- */
-export interface TabsContextInput {
-  createIfEmpty?: boolean;
-}
-
-/**
- * tabs_create_mcp input.
- */
-export interface TabsCreateInput {
-  url: string;
-}
-
-/**
- * tabs_navigate_mcp input.
- */
-export interface TabsNavigateInput {
-  tabId: number;
-  url: string;
-}
-
-/**
- * page_click_mcp input.
- */
-export interface PageClickInput {
-  tabId: number;
-  selector: string;
-  button?: 'left' | 'right' | 'middle';
-  clickCount?: number;
-}
-
-/**
- * page_fill_mcp input.
- */
-export interface PageFillInput {
-  tabId: number;
-  selector: string;
-  value: string;
-}
-
-/**
- * screenshot_mcp input.
- */
-export interface ScreenshotInput {
-  tabId: number;
-  fullPage?: boolean;
-  selector?: string;
-}
-
-/**
- * evaluate_mcp input.
- */
-export interface EvaluateInput {
-  tabId: number;
-  expression: string;
-}
-
-// ============================================
-// Tool Result Types
-// ============================================
-
-/**
- * Generic tool result.
- */
-export interface ChromeToolResult<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
-/**
- * Screenshot result.
- */
-export interface ScreenshotResult {
-  dataUrl: string;
-  width: number;
-  height: number;
-}
-
-/**
- * Console log entry.
- */
-export interface ConsoleLogEntry {
-  level: 'log' | 'warn' | 'error' | 'info' | 'debug';
-  message: string;
-  timestamp: number;
-  source?: string;
-}
-
-/**
- * Network request entry.
- */
-export interface NetworkRequestEntry {
-  url: string;
-  method: string;
-  status: number;
-  type: string;
-  timestamp: number;
-  duration?: number;
-}
-
-// ============================================
-// Skill Configuration
-// ============================================
-
-/**
- * Chrome skill configuration.
- */
-export interface ChromeSkillConfig {
-  name: 'claude-in-chrome';
-  description: string;
-  whenToUse: string;
-  allowedTools: ChromeMcpToolName[];
-  userInvocable: boolean;
-}
-
-// ============================================
-// Constants
-// ============================================
-
-export const CHROME_CONSTANTS = {
-  // Socket paths
-  SOCKET_PATH_UNIX: '/tmp/claude-chrome.sock',
-  SOCKET_PATH_WINDOWS: '\\\\.\\pipe\\claude-chrome',
-
-  // Timeouts
-  SOCKET_TIMEOUT_MS: 30000,
-  RECONNECT_DELAY_MS: 1000,
-  MAX_RECONNECT_ATTEMPTS: 3,
-
-  // Native messaging
-  NATIVE_HOST_NAME: 'com.anthropic.claude_code',
-  MAX_MESSAGE_SIZE: 1024 * 1024, // 1MB
-
-  // Skill
-  SKILL_NAME: 'claude-in-chrome',
-
-  // Tool prefixes
-  MCP_TOOL_PREFIX: 'mcp__claude-in-chrome__',
-} as const;
-
-/**
- * All Chrome MCP tools.
+ * All Chrome MCP tool names array.
  */
 export const CHROME_MCP_TOOLS: ChromeMcpToolName[] = [
+  'javascript_tool',
+  'read_page',
+  'find',
+  'form_input',
+  'computer',
+  'navigate',
+  'resize_window',
+  'gif_creator',
+  'upload_image',
+  'get_page_text',
   'tabs_context_mcp',
   'tabs_create_mcp',
-  'tabs_close_mcp',
-  'tabs_focus_mcp',
-  'tabs_navigate_mcp',
-  'page_click_mcp',
-  'page_fill_mcp',
-  'page_select_mcp',
-  'page_hover_mcp',
-  'page_scroll_mcp',
-  'page_keyboard_mcp',
-  'screenshot_mcp',
-  'snapshot_mcp',
-  'console_logs_mcp',
-  'network_logs_mcp',
-  'evaluate_mcp',
-  'gif_record_mcp',
-  'gif_stop_mcp',
+  'update_plan',
+  'read_console_messages',
+  'read_network_requests',
+  'shortcuts_list',
+  'shortcuts_execute',
 ];
 
 // ============================================
-// Export
+// UI & Setup
 // ============================================
 
-// NOTE: 类型已在声明处导出；移除重复聚合导出以避免 TS2484。
+export interface ChromeIntegrationSetupProps {
+  onDone: () => void;
+  isExtensionInstalled: boolean;
+  configEnabled: boolean;
+  isClaudeAISubscriber: boolean;
+  isWSL: boolean;
+}

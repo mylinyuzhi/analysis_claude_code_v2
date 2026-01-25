@@ -5,7 +5,8 @@
  * Reconstructed from chunks.145.mjs (Pe array)
  */
 
-import type { ChromeMcpTool, ChromeMcpToolName } from './types.js';
+import type { ChromeMcpToolName, SocketClientContext } from './types.js';
+import type { ChromeSocketClient } from './socket-client.js';
 
 // ============================================
 // Tool Definitions
@@ -15,419 +16,576 @@ import type { ChromeMcpTool, ChromeMcpToolName } from './types.js';
  * All Chrome MCP tool definitions.
  * Original: Pe array in chunks.145.mjs:4-445
  */
-export const CHROME_TOOL_DEFINITIONS: ChromeMcpTool[] = [
-  // ---- Tab Management ----
+export const CHROME_TOOL_DEFINITIONS = [
   {
-    name: 'tabs_context_mcp',
-    title: 'Tabs Context',
-    description: 'Get context information about the current MCP tab group. Returns all tab IDs inside the group if it exists. CRITICAL: You must get the context at least once before using other browser automation tools so you know what tabs exist.',
+    name: "javascript_tool",
+    description: "Execute JavaScript code in the context of the current page. The code runs in the page's context and can interact with the DOM, window object, and page variables. Returns the result of the last expression or any thrown errors. If you don't have a valid tab ID, use tabs_context_mcp first to get available tabs.",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        createIfEmpty: {
-          type: 'boolean',
-          description: 'Creates a new MCP tab group if none exists',
+        action: {
+          type: "string",
+          description: "Must be set to 'javascript_exec'"
         },
-      },
-    },
-  },
-  {
-    name: 'tabs_create_mcp',
-    title: 'Create Tab',
-    description: 'Creates a new tab in the MCP tab group and navigates to the specified URL.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        url: {
-          type: 'string',
-          description: 'The URL to navigate to',
+        text: {
+          type: "string",
+          description: "The JavaScript code to execute. The code will be evaluated in the page context. The result of the last expression will be returned automatically. Do NOT use 'return' statements - just write the expression you want to evaluate (e.g., 'window.myData.value' not 'return window.myData.value'). You can access and modify the DOM, call page functions, and interact with page variables."
         },
-      },
-      required: ['url'],
-    },
-  },
-  {
-    name: 'tabs_close_mcp',
-    title: 'Close Tab',
-    description: 'Closes a tab by its ID.',
-    inputSchema: {
-      type: 'object',
-      properties: {
         tabId: {
-          type: 'number',
-          description: 'The ID of the tab to close',
-        },
+          type: "number",
+          description: "Tab ID to execute the code in. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
+        }
       },
-      required: ['tabId'],
-    },
-  },
-  {
-    name: 'tabs_focus_mcp',
-    title: 'Focus Tab',
-    description: 'Focuses (activates) a tab by its ID.',
+      required: ["action", "text", "tabId"]
+    }
+  }, {
+    name: "read_page",
+    description: "Get an accessibility tree representation of elements on the page. By default returns all elements including non-visible ones. Output is limited to 50000 characters. If the output exceeds this limit, you will receive an error asking you to specify a smaller depth or focus on a specific element using ref_id. Optionally filter for only interactive elements. If you don't have a valid tab ID, use tabs_context_mcp first to get available tabs.",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        tabId: {
-          type: 'number',
-          description: 'The ID of the tab to focus',
+        filter: {
+          type: "string",
+          enum: ["interactive", "all"],
+          description: 'Filter elements: "interactive" for buttons/links/inputs only, "all" for all elements including non-visible ones (default: all elements)'
         },
+        tabId: {
+          type: "number",
+          description: "Tab ID to read from. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
+        },
+        depth: {
+          type: "number",
+          description: "Maximum depth of the tree to traverse (default: 15). Use a smaller depth if output is too large."
+        },
+        ref_id: {
+          type: "string",
+          description: "Reference ID of a parent element to read. Will return the specified element and all its children. Use this to focus on a specific part of the page when output is too large."
+        }
       },
-      required: ['tabId'],
-    },
-  },
-  {
-    name: 'tabs_navigate_mcp',
-    title: 'Navigate Tab',
-    description: 'Navigates an existing tab to a new URL.',
+      required: ["tabId"]
+    }
+  }, {
+    name: "find",
+    description: `Find elements on the page using natural language. Can search for elements by their purpose (e.g., "search bar", "login button") or by text content (e.g., "organic mango product"). Returns up to 20 matching elements with references that can be used with other tools. If more than 20 matches exist, you'll be notified to use a more specific query. If you don't have a valid tab ID, use tabs_context_mcp first to get available tabs.`,
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
+        query: {
+          type: "string",
+          description: 'Natural language description of what to find (e.g., "search bar", "add to cart button", "product title containing organic")'
+        },
         tabId: {
-          type: 'number',
-          description: 'The ID of the tab to navigate',
-        },
-        url: {
-          type: 'string',
-          description: 'The URL to navigate to',
-        },
+          type: "number",
+          description: "Tab ID to search in. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
+        }
       },
-      required: ['tabId', 'url'],
-    },
-  },
-
-  // ---- Page Interaction ----
-  {
-    name: 'page_click_mcp',
-    title: 'Click Element',
-    description: 'Clicks an element on the page identified by a CSS selector.',
+      required: ["query", "tabId"]
+    }
+  }, {
+    name: "form_input",
+    description: "Set values in form elements using element reference ID from the read_page tool. If you don't have a valid tab ID, use tabs_context_mcp first to get available tabs.",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
-        },
-        selector: {
-          type: 'string',
-          description: 'CSS selector for the element to click',
-        },
-        button: {
-          type: 'string',
-          enum: ['left', 'right', 'middle'],
-          description: 'Mouse button to use',
-        },
-        clickCount: {
-          type: 'number',
-          description: 'Number of clicks (1 for single, 2 for double)',
-        },
-      },
-      required: ['tabId', 'selector'],
-    },
-  },
-  {
-    name: 'page_fill_mcp',
-    title: 'Fill Input',
-    description: 'Fills an input field with the specified value.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
-        },
-        selector: {
-          type: 'string',
-          description: 'CSS selector for the input element',
+        ref: {
+          type: "string",
+          description: 'Element reference ID from the read_page tool (e.g., "ref_1", "ref_2")'
         },
         value: {
-          type: 'string',
-          description: 'The value to fill',
+          type: ["string", "boolean", "number"],
+          description: "The value to set. For checkboxes use boolean, for selects use option value or text, for other inputs use appropriate string/number"
         },
-      },
-      required: ['tabId', 'selector', 'value'],
-    },
-  },
-  {
-    name: 'page_select_mcp',
-    title: 'Select Option',
-    description: 'Selects an option in a select element.',
-    inputSchema: {
-      type: 'object',
-      properties: {
         tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
-        },
-        selector: {
-          type: 'string',
-          description: 'CSS selector for the select element',
-        },
-        value: {
-          type: 'string',
-          description: 'The value of the option to select',
-        },
+          type: "number",
+          description: "Tab ID to set form value in. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
+        }
       },
-      required: ['tabId', 'selector', 'value'],
-    },
-  },
-  {
-    name: 'page_hover_mcp',
-    title: 'Hover Element',
-    description: 'Hovers over an element on the page.',
+      required: ["ref", "value", "tabId"]
+    }
+  }, {
+    name: "computer",
+    description: `Use a mouse and keyboard to interact with a web browser, and take screenshots. If you don't have a valid tab ID, use tabs_context_mcp first to get available tabs.
+* Whenever you intend to click on an element like an icon, you should consult a screenshot to determine the coordinates of the element before moving the cursor.
+* If you tried clicking on a program or link but it failed to load, even after waiting, try adjusting your click location so that the tip of the cursor visually falls on the element that you want to click.
+* Make sure to click any buttons, links, icons, etc with the cursor tip in the center of the element. Don't click boxes on their edges unless asked.`,
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
+        action: {
+          type: "string",
+          enum: ["left_click", "right_click", "type", "screenshot", "wait", "scroll", "key", "left_click_drag", "double_click", "triple_click", "zoom", "scroll_to", "hover"],
+          description: "The action to perform:\n* `left_click`: Click the left mouse button at the specified coordinates.\n* `right_click`: Click the right mouse button at the specified coordinates to open context menus.\n* `double_click`: Double-click the left mouse button at the specified coordinates.\n* `triple_click`: Triple-click the left mouse button at the specified coordinates.\n* `type`: Type a string of text.\n* `screenshot`: Take a screenshot of the screen.\n* `wait`: Wait for a specified number of seconds.\n* `scroll`: Scroll up, down, left, or right at the specified coordinates.\n* `key`: Press a specific keyboard key.\n* `left_click_drag`: Drag from start_coordinate to coordinate.\n* `zoom`: Take a screenshot of a specific region for closer inspection.\n* `scroll_to`: Scroll an element into view using its element reference ID from read_page or find tools.\n* `hover`: Move the mouse cursor to the specified coordinates or element without clicking. Useful for revealing tooltips, dropdown menus, or triggering hover states."
         },
-        selector: {
-          type: 'string',
-          description: 'CSS selector for the element to hover',
+        coordinate: {
+          type: "array",
+          items: {
+            type: "number"
+          },
+          minItems: 2,
+          maxItems: 2,
+          description: "(x, y): The x (pixels from the left edge) and y (pixels from the top edge) coordinates. Required for `left_click`, `right_click`, `double_click`, `triple_click`, and `scroll`. For `left_click_drag`, this is the end position."
         },
-      },
-      required: ['tabId', 'selector'],
-    },
-  },
-  {
-    name: 'page_scroll_mcp',
-    title: 'Scroll Page',
-    description: 'Scrolls the page or an element.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
+        text: {
+          type: "string",
+          description: 'The text to type (for `type` action) or the key(s) to press (for `key` action). For `key` action: Provide space-separated keys (e.g., "Backspace Backspace Delete"). Supports keyboard shortcuts using the platform\'s modifier key (use "cmd" on Mac, "ctrl" on Windows/Linux, e.g., "cmd+a" or "ctrl+a" for select all).'
         },
-        selector: {
-          type: 'string',
-          description: 'CSS selector for element to scroll (optional, defaults to page)',
+        duration: {
+          type: "number",
+          minimum: 0,
+          maximum: 30,
+          description: "The number of seconds to wait. Required for `wait`. Maximum 30 seconds."
         },
-        direction: {
-          type: 'string',
-          enum: ['up', 'down', 'left', 'right'],
-          description: 'Direction to scroll',
+        scroll_direction: {
+          type: "string",
+          enum: ["up", "down", "left", "right"],
+          description: "The direction to scroll. Required for `scroll`."
         },
-        amount: {
-          type: 'number',
-          description: 'Amount to scroll in pixels',
+        scroll_amount: {
+          type: "number",
+          minimum: 1,
+          maximum: 10,
+          description: "The number of scroll wheel ticks. Optional for `scroll`, defaults to 3."
         },
-      },
-      required: ['tabId'],
-    },
-  },
-  {
-    name: 'page_keyboard_mcp',
-    title: 'Keyboard Input',
-    description: 'Sends keyboard input to the page.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
+        start_coordinate: {
+          type: "array",
+          items: {
+            type: "number"
+          },
+          minItems: 2,
+          maxItems: 2,
+          description: "(x, y): The starting coordinates for `left_click_drag`."
         },
-        key: {
-          type: 'string',
-          description: 'Key to press (e.g., "Enter", "Tab", "a")',
+        region: {
+          type: "array",
+          items: {
+            type: "number"
+          },
+          minItems: 4,
+          maxItems: 4,
+          description: "(x0, y0, x1, y1): The rectangular region to capture for `zoom`. Coordinates define a rectangle from top-left (x0, y0) to bottom-right (x1, y1) in pixels from the viewport origin. Required for `zoom` action. Useful for inspecting small UI elements like icons, buttons, or text."
+        },
+        repeat: {
+          type: "number",
+          minimum: 1,
+          maximum: 100,
+          description: "Number of times to repeat the key sequence. Only applicable for `key` action. Must be a positive integer between 1 and 100. Default is 1. Useful for navigation tasks like pressing arrow keys multiple times."
+        },
+        ref: {
+          type: "string",
+          description: 'Element reference ID from read_page or find tools (e.g., "ref_1", "ref_2"). Required for `scroll_to` action. Can be used as alternative to `coordinate` for click actions.'
         },
         modifiers: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Modifier keys (e.g., ["ctrl", "shift"])',
+          type: "string",
+          description: 'Modifier keys for click actions. Supports: "ctrl", "shift", "alt", "cmd" (or "meta"), "win" (or "windows"). Can be combined with "+" (e.g., "ctrl+shift", "cmd+alt"). Optional.'
         },
+        tabId: {
+          type: "number",
+          description: "Tab ID to execute the action on. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
+        }
       },
-      required: ['tabId', 'key'],
-    },
-  },
-
-  // ---- Content Capture ----
-  {
-    name: 'screenshot_mcp',
-    title: 'Screenshot',
-    description: 'Captures a screenshot of the page or a specific element.',
+      required: ["action", "tabId"]
+    }
+  }, {
+    name: "navigate",
+    description: "Navigate to a URL, or go forward/back in browser history. If you don't have a valid tab ID, use tabs_context_mcp first to get available tabs.",
     inputSchema: {
-      type: 'object',
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: 'The URL to navigate to. Can be provided with or without protocol (defaults to https://). Use "forward" to go forward in history or "back" to go back in history.'
+        },
+        tabId: {
+          type: "number",
+          description: "Tab ID to navigate. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
+        }
+      },
+      required: ["url", "tabId"]
+    }
+  }, {
+    name: "resize_window",
+    description: "Resize the current browser window to specified dimensions. Useful for testing responsive designs or setting up specific screen sizes. If you don't have a valid tab ID, use tabs_context_mcp first to get available tabs.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        width: {
+          type: "number",
+          description: "Target window width in pixels"
+        },
+        height: {
+          type: "number",
+          description: "Target window height in pixels"
+        },
+        tabId: {
+          type: "number",
+          description: "Tab ID to get the window for. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
+        }
+      },
+      required: ["width", "height", "tabId"]
+    }
+  }, {
+    name: "gif_creator",
+    description: "Manage GIF recording and export for browser automation sessions. Control when to start/stop recording browser actions (clicks, scrolls, navigation), then export as an animated GIF with visual overlays (click indicators, action labels, progress bar, watermark). All operations are scoped to the tab's group. When starting recording, take a screenshot immediately after to capture the initial state as the first frame. When stopping recording, take a screenshot immediately before to capture the final state as the last frame. For export, either provide 'coordinate' to drag/drop upload to a page element, or set 'download: true' to download the GIF.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["start_recording", "stop_recording", "export", "clear"],
+          description: "Action to perform: 'start_recording' (begin capturing), 'stop_recording' (stop capturing but keep frames), 'export' (generate and export GIF), 'clear' (discard frames)"
+        },
+        tabId: {
+          type: "number",
+          description: "Tab ID to identify which tab group this operation applies to"
+        },
+        download: {
+          type: "boolean",
+          description: "Always set this to true for the 'export' action only. This causes the gif to be downloaded in the browser."
+        },
+        filename: {
+          type: "string",
+          description: "Optional filename for exported GIF (default: 'recording-[timestamp].gif'). For 'export' action only."
+        },
+        options: {
+          type: "object",
+          description: "Optional GIF enhancement options for 'export' action. Properties: showClickIndicators (bool), showDragPaths (bool), showActionLabels (bool), showProgressBar (bool), showWatermark (bool), quality (number 1-30). All default to true except quality (default: 10).",
+          properties: {
+            showClickIndicators: {
+              type: "boolean",
+              description: "Show orange circles at click locations (default: true)"
+            },
+            showDragPaths: {
+              type: "boolean",
+              description: "Show red arrows for drag actions (default: true)"
+            },
+            showActionLabels: {
+              type: "boolean",
+              description: "Show black labels describing actions (default: true)"
+            },
+            showProgressBar: {
+              type: "boolean",
+              description: "Show orange progress bar at bottom (default: true)"
+            },
+            showWatermark: {
+              type: "boolean",
+              description: "Show Claude logo watermark (default: true)"
+            },
+            quality: {
+              type: "number",
+              description: "GIF compression quality, 1-30 (lower = better quality, slower encoding). Default: 10"
+            }
+          }
+        }
+      },
+      required: ["action", "tabId"]
+    }
+  }, {
+    name: "upload_image",
+    description: "Upload a previously captured screenshot or user-uploaded image to a file input or drag & drop target. Supports two approaches: (1) ref - for targeting specific elements, especially hidden file inputs, (2) coordinate - for drag & drop to visible locations like Google Docs. Provide either ref or coordinate, not both.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        imageId: {
+          type: "string",
+          description: "ID of a previously captured screenshot (from the computer tool's screenshot action) or a user-uploaded image"
+        },
+        ref: {
+          type: "string",
+          description: 'Element reference ID from read_page or find tools (e.g., "ref_1", "ref_2"). Use this for file inputs (especially hidden ones) or specific elements. Provide either ref or coordinate, not both.'
+        },
+        coordinate: {
+          type: "array",
+          items: {
+            type: "number"
+          },
+          description: "Viewport coordinates [x, y] for drag & drop to a visible location. Use this for drag & drop targets like Google Docs. Provide either ref or coordinate, not both."
+        },
+        tabId: {
+          type: "number",
+          description: "Tab ID where the target element is located. This is where the image will be uploaded to."
+        },
+        filename: {
+          type: "string",
+          description: 'Optional filename for the uploaded file (default: "image.png")'
+        }
+      },
+      required: ["imageId", "tabId"]
+    }
+  }, {
+    name: "get_page_text",
+    description: "Extract raw text content from the page, prioritizing article content. Ideal for reading articles, blog posts, or other text-heavy pages. Returns plain text without HTML formatting. If you don't have a valid tab ID, use tabs_context_mcp first to get available tabs.",
+    inputSchema: {
+      type: "object",
       properties: {
         tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
-        },
-        fullPage: {
-          type: 'boolean',
-          description: 'Capture the full scrollable page',
-        },
-        selector: {
-          type: 'string',
-          description: 'CSS selector for element to capture (optional)',
-        },
+          type: "number",
+          description: "Tab ID to extract text from. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
+        }
       },
-      required: ['tabId'],
-    },
-  },
-  {
-    name: 'snapshot_mcp',
-    title: 'Page Snapshot',
-    description: 'Gets a snapshot of the page DOM structure for accessibility tree analysis.',
+      required: ["tabId"]
+    }
+  }, {
+    name: "tabs_context_mcp",
+    description: "Get context information about the current MCP tab group. Returns all tab IDs inside the group if it exists. CRITICAL: You must get the context at least once before using other browser automation tools so you know what tabs exist. Each new conversation should create its own new tab (using tabs_create_mcp) rather than reusing existing tabs, unless the user explicitly asks to use an existing tab.",
     inputSchema: {
-      type: 'object',
+      type: "object",
+      properties: {
+        createIfEmpty: {
+          type: "boolean",
+          description: "Creates a new MCP tab group if none exists, creates a new Window with a new tab group containing an empty tab (which can be used for this conversation). If a MCP tab group already exists, this parameter has no effect."
+        }
+      },
+      required: []
+    }
+  }, {
+    name: "tabs_create_mcp",
+    description: "Creates a new empty tab in the MCP tab group. CRITICAL: You must get the context using tabs_context_mcp at least once before using other browser automation tools so you know what tabs exist.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  }, {
+    name: "update_plan",
+    description: "Present a plan to the user for approval before taking actions. The user will see the domains you intend to visit and your approach. Once approved, you can proceed with actions on the approved domains without additional permission prompts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        domains: {
+          type: "array",
+          items: {
+            type: "string"
+          },
+          description: "List of domains you will visit (e.g., ['github.com', 'stackoverflow.com']). These domains will be approved for the session when the user accepts the plan."
+        },
+        approach: {
+          type: "array",
+          items: {
+            type: "string"
+          },
+          description: "High-level description of what you will do. Focus on outcomes and key actions, not implementation details. Be concise - aim for 3-7 items."
+        }
+      },
+      required: ["domains", "approach"]
+    }
+  }, {
+    name: "read_console_messages",
+    description: "Read browser console messages (console.log, console.error, console.warn, etc.) from a specific tab. Useful for debugging JavaScript errors, viewing application logs, or understanding what's happening in the browser console. Returns console messages from the current domain only. If you don't have a valid tab ID, use tabs_context_mcp first to get available tabs. IMPORTANT: Always provide a pattern to filter messages - without a pattern, you may get too many irrelevant messages.",
+    inputSchema: {
+      type: "object",
       properties: {
         tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
+          type: "number",
+          description: "Tab ID to read console messages from. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
         },
-      },
-      required: ['tabId'],
-    },
-  },
-  {
-    name: 'console_logs_mcp',
-    title: 'Console Logs',
-    description: 'Gets console log messages from the page.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
+        onlyErrors: {
+          type: "boolean",
+          description: "If true, only return error and exception messages. Default is false (return all message types)."
         },
-        level: {
-          type: 'string',
-          enum: ['all', 'log', 'warn', 'error', 'info', 'debug'],
-          description: 'Filter by log level',
+        clear: {
+          type: "boolean",
+          description: "If true, clear the console messages after reading to avoid duplicates on subsequent calls. Default is false."
+        },
+        pattern: {
+          type: "string",
+          description: "Regex pattern to filter console messages. Only messages matching this pattern will be returned (e.g., 'error|warning' to find errors and warnings, 'MyApp' to filter app-specific logs). You should always provide a pattern to avoid getting too many irrelevant messages."
         },
         limit: {
-          type: 'number',
-          description: 'Maximum number of entries to return',
-        },
+          type: "number",
+          description: "Maximum number of messages to return. Defaults to 100. Increase only if you need more results."
+        }
       },
-      required: ['tabId'],
-    },
-  },
-  {
-    name: 'network_logs_mcp',
-    title: 'Network Logs',
-    description: 'Gets network request logs from the page.',
+      required: ["tabId"]
+    }
+  }, {
+    name: "read_network_requests",
+    description: "Read HTTP network requests (XHR, Fetch, documents, images, etc.) from a specific tab. Useful for debugging API calls, monitoring network activity, or understanding what requests a page is making. Returns all network requests made by the current page, including cross-origin requests. Requests are automatically cleared when the page navigates to a different domain. If you don't have a valid tab ID, use tabs_context_mcp first to get available tabs.",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
         tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
+          type: "number",
+          description: "Tab ID to read network requests from. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
+        },
+        urlPattern: {
+          type: "string",
+          description: "Optional URL pattern to filter requests. Only requests whose URL contains this string will be returned (e.g., '/api/' to filter API calls, 'example.com' to filter by domain)."
+        },
+        clear: {
+          type: "boolean",
+          description: "If true, clear the network requests after reading to avoid duplicates on subsequent calls. Default is false."
         },
         limit: {
-          type: 'number',
-          description: 'Maximum number of entries to return',
-        },
+          type: "number",
+          description: "Maximum number of requests to return. Defaults to 100. Increase only if you need more results."
+        }
       },
-      required: ['tabId'],
-    },
-  },
-
-  // ---- Script Execution ----
-  {
-    name: 'evaluate_mcp',
-    title: 'Evaluate JavaScript',
-    description: 'Executes JavaScript code in the page context and returns the result.',
+      required: ["tabId"]
+    }
+  }, {
+    name: "shortcuts_list",
+    description: "List all available shortcuts and workflows (shortcuts and workflows are interchangeable). Returns shortcuts with their commands, descriptions, and whether they are workflows. Use shortcuts_execute to run a shortcut or workflow.",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
         tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
-        },
-        expression: {
-          type: 'string',
-          description: 'JavaScript expression to evaluate',
-        },
+          type: "number",
+          description: "Tab ID to list shortcuts from. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
+        }
       },
-      required: ['tabId', 'expression'],
-    },
-  },
-
-  // ---- Recording ----
-  {
-    name: 'gif_record_mcp',
-    title: 'Start GIF Recording',
-    description: 'Starts recording the page as a GIF animation.',
+      required: ["tabId"]
+    }
+  }, {
+    name: "shortcuts_execute",
+    description: "Execute a shortcut or workflow by running it in a new sidepanel window using the current tab (shortcuts and workflows are interchangeable). Use shortcuts_list first to see available shortcuts. This starts the execution and returns immediately - it does not wait for completion.",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
         tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
+          type: "number",
+          description: "Tab ID to execute the shortcut on. Must be a tab in the current group. Use tabs_context_mcp first if you don't have a valid tab ID."
         },
-        fps: {
-          type: 'number',
-          description: 'Frames per second (default: 10)',
+        shortcutId: {
+          type: "string",
+          description: "The ID of the shortcut to execute"
         },
+        command: {
+          type: "string",
+          description: "The command name of the shortcut to execute (e.g., 'debug', 'summarize'). Do not include the leading slash."
+        }
       },
-      required: ['tabId'],
-    },
-  },
-  {
-    name: 'gif_stop_mcp',
-    title: 'Stop GIF Recording',
-    description: 'Stops GIF recording and returns the animation.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        tabId: {
-          type: 'number',
-          description: 'The ID of the tab',
-        },
-      },
-      required: ['tabId'],
-    },
-  },
+      required: ["tabId"]
+    }
+  }
 ];
 
 // ============================================
-// Tool Lookup
+// Tool Execution Logic
 // ============================================
 
 /**
- * Get tool definition by name.
+ * Handle tool authentication errors.
+ * Original: YH7 in chunks.145.mjs
  */
-export function getChromeTool(name: ChromeMcpToolName): ChromeMcpTool | undefined {
-  return CHROME_TOOL_DEFINITIONS.find((tool) => tool.name === name);
+function isAuthenticationError(content: any): boolean {
+  const text = (Array.isArray(content) 
+    ? content.map((item) => {
+        if (typeof item === 'string') return item;
+        if (typeof item === 'object' && item !== null && 'text' in item && typeof item.text === 'string') return item.text;
+        return '';
+      }).join(' ') 
+    : String(content)).toLowerCase();
+  
+  return text.includes('re-authenticated');
 }
 
 /**
- * Get all tool names.
+ * Execute tool via socket bridge.
+ * Original: ZH7 in chunks.145.mjs:987-1053
  */
-export function getChromeToolNames(): ChromeMcpToolName[] {
-  return CHROME_TOOL_DEFINITIONS.map((tool) => tool.name);
+export async function executeToolViaSocket(
+  context: SocketClientContext,
+  client: ChromeSocketClient,
+  toolName: string,
+  args: any
+): Promise<any> {
+  const result = await client.callTool(toolName, args);
+  context.logger.info(`[${context.serverName}] Received result from socket bridge: ${JSON.stringify(result)}`);
+
+  if (result === null || result === undefined) {
+    return {
+      content: [{ type: 'text', text: 'Tool execution completed' }]
+    };
+  }
+
+  const { result: toolResult, error } = result;
+  const finalResult = error || toolResult;
+  const isError = !!error;
+
+  if (!finalResult) {
+    return {
+      content: [{ type: 'text', text: 'Tool execution completed' }]
+    };
+  }
+
+  if (isError && isAuthenticationError(finalResult.content)) {
+    context.onAuthenticationError();
+  }
+
+  const { content } = finalResult;
+  if (content && Array.isArray(content)) {
+    return {
+      content: content.map((item: any) => {
+        // Image support
+        if (typeof item === 'object' && item !== null && item.type === 'image' && typeof item.source === 'object' && item.source !== null && 'data' in item.source) {
+          return {
+            type: 'image',
+            data: item.source.data,
+            mimeType: 'media_type' in item.source ? item.source.media_type || 'image/png' : 'image/png'
+          };
+        }
+        
+        if (typeof item === 'object' && item !== null && 'type' in item) return item;
+        return {
+          type: 'text',
+          text: String(item)
+        };
+      }),
+      isError
+    };
+  }
+
+  if (typeof content === 'string') {
+    return {
+      content: [{ type: 'text', text: content }],
+      isError
+    };
+  }
+
+  context.logger.warn(`[${context.serverName}] Unexpected result format from socket bridge`, result);
+  return {
+    content: [{ type: 'text', text: JSON.stringify(result) }],
+    isError
+  };
 }
 
 /**
- * Check if tool name is valid.
+ * Handle tool call with connection check.
+ * Original: GZ9 in chunks.145.mjs:1072-1087
  */
-export function isValidChromeTool(name: string): name is ChromeMcpToolName {
-  return CHROME_TOOL_DEFINITIONS.some((tool) => tool.name === name);
+export async function handleChromeToolCall(
+  context: SocketClientContext,
+  client: ChromeSocketClient,
+  toolName: string,
+  args: any
+): Promise<any> {
+  try {
+    const isConnected = await client.ensureConnected();
+    context.logger.info(`[${context.serverName}] Server is connected: ${isConnected}. Received tool call: ${toolName} with args: ${JSON.stringify(args)}.`);
+    
+    if (isConnected) {
+      return await executeToolViaSocket(context, client, toolName, args);
+    }
+    
+    return {
+      content: [{ type: 'text', text: context.onToolCallDisconnected() }]
+    };
+  } catch (error) {
+    context.logger.info(`[${context.serverName}] Error calling tool:`, error);
+    
+    // Check for SocketConnectionError (assuming exported from socket-client or matched by name)
+    if (error instanceof Error && error.name === 'SocketConnectionError') {
+      return {
+        content: [{ type: 'text', text: context.onToolCallDisconnected() }]
+      };
+    }
+    
+    return {
+      content: [{
+        type: 'text',
+        text: `Error calling tool, please try again. : ${error instanceof Error ? error.message : String(error)}`
+      }],
+      isError: true
+    };
+  }
 }
-
-/**
- * Get MCP tool name with prefix.
- */
-export function getMcpToolName(name: ChromeMcpToolName): string {
-  return `mcp__claude-in-chrome__${name}`;
-}
-
-/**
- * Extract Chrome tool name from MCP tool name.
- */
-export function extractChromeToolName(mcpName: string): ChromeMcpToolName | null {
-  const prefix = 'mcp__claude-in-chrome__';
-  if (!mcpName.startsWith(prefix)) return null;
-  const name = mcpName.slice(prefix.length);
-  return isValidChromeTool(name) ? name : null;
-}
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 符号已在声明处导出；移除重复聚合导出以避免 TS2323/TS2484。

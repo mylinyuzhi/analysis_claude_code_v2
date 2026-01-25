@@ -2,69 +2,337 @@
  * @claudecode/integrations - Chrome Module
  *
  * Chrome browser automation integration.
- *
- * Key features:
- * - Socket-based communication with Chrome extension
- * - 18 MCP tools for browser automation
- * - Tab management, page interaction, content capture
- * - GIF recording support
- *
- * Reconstructed from chunks.145.mjs, chunks.149.mjs
+ * Reconstructed from chunks.145.mjs, chunks.149.mjs, chunks.131.mjs, chunks.157.mjs
  */
 
+import path from 'path';
+import os from 'os';
+import fs from 'fs/promises';
+import nodeFs from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { CHROME_CONSTANTS } from './types.js';
+import { CHROME_TOOL_DEFINITIONS } from './tools.js';
+
+const execAsync = promisify(exec);
+
 // ============================================
-// Types
+// Re-exports
 // ============================================
 
 export * from './types.js';
-
-// ============================================
-// Socket Client
-// ============================================
-
 export {
-  encodeMessage,
-  decodeMessage,
   ChromeSocketClient,
-  getSocketPath,
+  SocketConnectionError,
   createSocketClient,
+  getSocketPath
 } from './socket-client.js';
-
-// ============================================
-// Tools
-// ============================================
-
 export {
   CHROME_TOOL_DEFINITIONS,
-  getChromeTool,
-  getChromeToolNames,
-  isValidChromeTool,
-  getMcpToolName,
-  extractChromeToolName,
+  CHROME_TOOL_DEFINITIONS as CHROME_MCP_TOOLS,
+  executeToolViaSocket,
+  handleChromeToolCall
 } from './tools.js';
+export {
+  NativeHostServer,
+  StdinReader,
+  startNativeHostBridge,
+  startChromeMcpClient
+} from './bridge.js';
 
 // ============================================
-// Skill Registration
+// Platform Paths
 // ============================================
-
-import type { ChromeSkillConfig } from './types.js';
-import { CHROME_CONSTANTS, CHROME_MCP_TOOLS } from './types.js';
 
 /**
- * Chrome skill configuration.
- * Original: TI9 (registerClaudeInChromeSkill) in chunks.149.mjs
+ * Get platform-specific Chrome user data path.
+ * Original: HH7 in chunks.145.mjs:1411-1427
  */
-export const CHROME_SKILL_CONFIG: ChromeSkillConfig = {
-  name: 'claude-in-chrome',
-  description: 'Automates your Chrome browser to interact with web pages - clicking elements, filling forms, capturing screenshots, reading console logs, and navigating sites. Opens pages in new tabs within your existing Chrome session. Requires site-level permissions before executing (configured in the extension).',
-  whenToUse: 'When the user wants to interact with web pages, automate browser tasks, capture screenshots, read console logs, or perform any browser-based actions. Always invoke BEFORE attempting to use any mcp__claude-in-chrome__* tools.',
-  allowedTools: CHROME_MCP_TOOLS,
-  userInvocable: true,
-};
+export function getChromeUserDataPath(): string | null {
+  const homeDir = os.homedir();
+  const platform = process.platform;
+
+  switch (platform) {
+    case 'darwin': // macos
+      return path.join(homeDir, 'Library', 'Application Support', 'Google', 'Chrome');
+    case 'win32': // windows
+      return path.join(homeDir, 'AppData', 'Local', 'Google', 'Chrome', 'User Data');
+    case 'linux':
+      return path.join(homeDir, '.config', 'google-chrome');
+    default:
+      return null;
+  }
+}
+
+/**
+ * Get native host manifest directory.
+ * Original: KH7 in chunks.145.mjs:1311-1326
+ */
+export function getNativeHostDir(): string | null {
+  const homeDir = os.homedir();
+  const platform = process.platform;
+
+  switch (platform) {
+    case 'darwin':
+      return path.join(homeDir, 'Library', 'Application Support', 'Google', 'Chrome', 'NativeMessagingHosts');
+    case 'linux':
+      return path.join(homeDir, '.config', 'google-chrome', 'NativeMessagingHosts');
+    case 'win32': {
+      const appData = process.env.APPDATA || path.join(homeDir, 'AppData', 'Roaming');
+      return path.join(appData, 'Claude Code', 'ChromeNativeHost');
+    }
+    default:
+      return null;
+  }
+}
+
+// ============================================
+// Extension Detection
+// ============================================
+
+/**
+ * Detect if Chrome extension is installed by scanning profiles.
+ * Original: qp in chunks.145.mjs:1387-1409
+ */
+export async function detectChromeExtension(): Promise<boolean> {
+  const chromePath = getChromeUserDataPath();
+  if (!chromePath) return false;
+
+  try {
+    await fs.access(chromePath);
+    const entries = await fs.readdir(chromePath, { withFileTypes: true });
+    
+    // Find all Chrome profiles (Default or Profile X)
+    const profiles = entries
+      .filter((entry) => entry.isDirectory())
+      .filter((entry) => entry.name === 'Default' || entry.name.startsWith('Profile '))
+      .map((entry) => entry.name);
+
+    const extensionId = CHROME_CONSTANTS.EXTENSION_ID;
+    
+    for (const profile of profiles) {
+      const extensionPath = path.join(chromePath, profile, 'Extensions', extensionId);
+      try {
+        await fs.access(extensionPath);
+        // Found extension in this profile
+        return true;
+      } catch (err) {
+        // Continue to next profile
+      }
+    }
+  } catch (err) {
+    // Chrome base path does not exist or other error
+  }
+
+  return false;
+}
+
+/**
+ * Return cached extension status and trigger async detection.
+ * Original: FH7 in chunks.145.mjs:1378-1385
+ */
+export function getCachedExtensionStatus(
+  currentStatus: boolean | undefined,
+  updateStatus: (status: boolean) => void
+): boolean {
+  detectChromeExtension().then((isInstalled) => {
+    if (currentStatus !== isInstalled) {
+      updateStatus(isInstalled);
+    }
+  });
+  return currentStatus ?? false;
+}
+
+// ============================================
+// Native Host Installation
+// ============================================
+
+/**
+ * Create platform-specific wrapper script for native host.
+ * Original: KZ9 in chunks.145.mjs:1358-1376
+ */
+export async function createNativeHostWrapperScript(
+  command: string, 
+  configDir: string
+): Promise<string> {
+  const platform = process.platform;
+  const chromeDir = path.join(configDir, 'chrome');
+  const isWindows = platform === 'win32';
+  
+  const scriptPath = isWindows
+    ? path.join(chromeDir, 'chrome-native-host.bat')
+    : path.join(chromeDir, 'chrome-native-host');
+
+  const scriptContent = isWindows
+    ? `@echo off\r\nREM Chrome native host wrapper script\r\nREM Generated by Claude Code - do not edit manually\r\n${command}\r\n`
+    : `#!/bin/sh\n# Chrome native host wrapper script\n# Generated by Claude Code - do not edit manually\nexec ${command}\n`;
+
+  try {
+    const existing = await fs.readFile(scriptPath, 'utf-8').catch(() => null);
+    if (existing === scriptContent) return scriptPath;
+
+    await fs.mkdir(chromeDir, { recursive: true });
+    await fs.writeFile(scriptPath, scriptContent);
+    
+    if (!isWindows) {
+      await fs.chmod(scriptPath, 0o755);
+    }
+  } catch (err) {
+    throw new Error(`Failed to create native host wrapper script: ${err}`);
+  }
+
+  return scriptPath;
+}
+
+/**
+ * Register native host in Windows registry.
+ * Original: VH7 in chunks.145.mjs:1350-1360
+ */
+async function registerWindowsNativeHost(manifestPath: string): Promise<void> {
+  const regKey = `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${CHROME_CONSTANTS.NATIVE_HOST_NAME}`;
+  try {
+    await execAsync(`reg add "${regKey}" /ve /t REG_SZ /d "${manifestPath}" /f`);
+  } catch (err) {
+    // Log failure
+  }
+}
+
+/**
+ * Install native host manifest file.
+ * Original: WZ9 in chunks.145.mjs:1329-1349
+ */
+export async function installNativeHostManifest(scriptPath: string): Promise<void> {
+  const manifestDir = getNativeHostDir();
+  if (!manifestDir) throw new Error('Claude in Chrome Native Host not supported on this platform');
+
+  const manifestPath = path.join(manifestDir, `${CHROME_CONSTANTS.NATIVE_HOST_NAME}.json`);
+  const manifest = {
+    name: CHROME_CONSTANTS.NATIVE_HOST_NAME,
+    description: 'Claude Code Browser Extension Native Host',
+    path: scriptPath,
+    type: 'stdio',
+    allowed_origins: [`chrome-extension://${CHROME_CONSTANTS.EXTENSION_ID}/`]
+  };
+
+  const content = JSON.stringify(manifest, null, 2);
+  
+  try {
+    const existing = await fs.readFile(manifestPath, 'utf-8').catch(() => null);
+    if (existing === content) return;
+
+    await fs.mkdir(manifestDir, { recursive: true });
+    await fs.writeFile(manifestPath, content);
+    
+    if (process.platform === 'win32') {
+      await registerWindowsNativeHost(manifestPath);
+    }
+  } catch (err) {
+    throw new Error(`Failed to install native host manifest: ${err}`);
+  }
+}
+
+// ============================================
+// Configuration
+// ============================================
+
+/**
+ * Generate MCP configuration for Chrome integration.
+ * Original: oz1 in chunks.145.mjs:1275-1309
+ */
+export function getClaudeInChromeConfig(
+  isNative: boolean,
+  execPath: string,
+  cliJsPath: string,
+  getSystemPrompt: () => string
+) {
+  const allowedTools = CHROME_TOOL_DEFINITIONS.map((tool) => `mcp__claude-in-chrome__${tool.name}`);
+  const serverName = CHROME_CONSTANTS.SERVER_NAME;
+
+  if (isNative) {
+    const nativeHostCommand = `"${execPath}" --chrome-native-host`;
+    // Async registration
+    createNativeHostWrapperScript(nativeHostCommand, path.dirname(execPath))
+      .then((scriptPath) => installNativeHostManifest(scriptPath));
+
+    return {
+      mcpConfig: {
+        [serverName]: {
+          type: 'stdio',
+          command: execPath,
+          args: ['--claude-in-chrome-mcp'],
+          scope: 'dynamic'
+        }
+      },
+      allowedTools,
+      systemPrompt: getSystemPrompt()
+    };
+  } else {
+    const nativeHostCommand = `"${process.execPath}" "${cliJsPath}" --chrome-native-host`;
+    // Async registration
+    createNativeHostWrapperScript(nativeHostCommand, path.dirname(cliJsPath))
+      .then((scriptPath) => installNativeHostManifest(scriptPath));
+
+    return {
+      mcpConfig: {
+        [serverName]: {
+          type: 'stdio',
+          command: 'node',
+          args: [cliJsPath, '--claude-in-chrome-mcp'],
+          scope: 'dynamic'
+        }
+      },
+      allowedTools,
+      systemPrompt: getSystemPrompt()
+    };
+  }
+}
+
+/**
+ * Determine if Chrome integration should be enabled.
+ * Original: az1 in chunks.145.mjs:1259-1268
+ */
+export function shouldEnableChromeIntegration(
+  cliFlag: boolean | undefined,
+  isPrintMode: boolean,
+  envEnable: string | undefined,
+  defaultEnabledSetting: boolean | undefined
+): boolean {
+  if (isPrintMode && cliFlag !== true) return false;
+  if (cliFlag === true) return true;
+  if (cliFlag === false) return false;
+
+  if (envEnable === 'true' || envEnable === '1') return true;
+  if (envEnable === 'false' || envEnable === '0') return false;
+
+  if (defaultEnabledSetting !== undefined) return defaultEnabledSetting;
+  
+  return false;
+}
+
+/**
+ * Check if auto-enable conditions are met.
+ * Original: I$A in chunks.145.mjs:1270-1273
+ */
+let cachedAutoEnableResult: boolean | undefined = undefined;
+export async function isClaudeInChromeAutoEnabled(
+  isPlatformSupported: boolean,
+  featureFlagEnabled: boolean
+): Promise<boolean> {
+  if (cachedAutoEnableResult !== undefined) return cachedAutoEnableResult;
+  
+  const extensionInstalled = await detectChromeExtension();
+  cachedAutoEnableResult = isPlatformSupported && extensionInstalled && featureFlagEnabled;
+  
+  return cachedAutoEnableResult;
+}
+
+// ============================================
+// Skill Prompts
+// ============================================
 
 /**
  * Chrome skill prompt.
- * Original: Fq7 in chunks.149.mjs
+ * Original: Fq7 in chunks.149.mjs:2658-2662
  */
 export const CHROME_SKILL_PROMPT = `
 Now that this skill is invoked, you have access to Chrome browser automation tools. You can now use the mcp__claude-in-chrome__* tools to interact with web pages.
@@ -72,21 +340,80 @@ Now that this skill is invoked, you have access to Chrome browser automation too
 IMPORTANT: Start by calling mcp__claude-in-chrome__tabs_context_mcp to get information about the user's current browser tabs.
 `;
 
-import * as nodeFs from 'fs';
-
 /**
- * Check if Chrome integration is available.
- * Original: I$A (isClaudeInChromeEnabled)
+ * Browser automation guidelines.
+ * Original: ST0 in chunks.145.mjs:1140-1188
  */
-export function isChromeIntegrationAvailable(): boolean {
-  // Check if socket path exists
-  const socketPath = getSocketPath();
-  try {
-    return nodeFs.existsSync(socketPath);
-  } catch {
-    return false;
-  }
+export function getBrowserAutomationSystemPrompt(): string {
+  return `
+# Claude in Chrome browser automation
+
+You have access to browser automation tools (mcp__claude-in-chrome__*) for interacting with web pages in Chrome. Follow these guidelines for effective browser automation.
+
+## GIF recording
+
+When performing multi-step browser interactions that the user may want to review or share, use mcp__claude-in-chrome__gif_creator to record them.
+
+You must ALWAYS:
+* Capture extra frames before and after taking actions to ensure smooth playback
+* Name the file meaningfully to help the user identify it later (e.g., "login_process.gif")
+
+## Console log debugging
+
+You can use mcp__claude-in-chrome__read_console_messages to read console output. Console output may be verbose. If you are looking for specific log entries, use the 'pattern' parameter with a regex-compatible pattern. This filters results efficiently and avoids overwhelming output. For example, use pattern: "[MyApp]" to filter for application-specific logs rather than reading all console output.
+
+## Alerts and dialogs
+
+IMPORTANT: Do not trigger JavaScript alerts, confirms, prompts, or browser modal dialogs through your actions. These browser dialogs block all further browser events and will prevent the extension from receiving any subsequent commands. Instead, when possible, use console.log for debugging and then use the mcp__claude-in-chrome__read_console_messages tool to read those log messages. If a page has dialog-triggering elements:
+1. Avoid clicking buttons or links that may trigger alerts (e.g., "Delete" buttons with confirmation dialogs)
+2. If you must interact with such elements, warn the user first that this may interrupt the session
+3. Use mcp__claude-in-chrome__javascript_tool to check for and dismiss any existing dialogs before proceeding
+
+If you accidentally trigger a dialog and lose responsiveness, inform the user they need to manually dismiss it in the browser.
+
+## Avoid rabbit holes and loops
+
+When using browser automation tools, stay focused on the specific task. If you encounter any of the following, stop and ask the user for guidance:
+- Unexpected complexity or tangential browser exploration
+- Browser tool calls failing or returning errors after 2-3 attempts
+- No response from the browser extension
+- Page elements not responding to clicks or input
+- Pages not loading or timing out
+- Unable to complete the browser task despite multiple approaches
+
+Explain what you attempted, what went wrong, and ask how the user would like to proceed. Do not keep retrying the same failing browser action or explore unrelated pages without checking in first.
+
+## Tab context and session startup
+
+IMPORTANT: At the start of each browser automation session, call mcp__claude-in-chrome__tabs_context_mcp first to get information about the user's current browser tabs. Use this context to understand what the user might want to work with before creating new tabs.
+
+Never reuse tab IDs from a previous/other session. Follow these guidelines:
+1. Only reuse an existing tab if the user explicitly asks to work with it
+2. Otherwise, create a new tab with mcp__claude-in-chrome__tabs_create_mcp
+3. If a tool returns an error indicating the tab doesn't exist or is invalid, call tabs_context_mcp to get fresh tab IDs
+4. When a tab is closed by the user or a navigation error occurs, call tabs_context_mcp to see what tabs are available
+`;
 }
 
-// Re-export socket path function
-import { getSocketPath } from './socket-client.js';
+/**
+ * Chrome skill configuration.
+ * Original: TI9 in chunks.149.mjs:2633-2653
+ */
+export const CHROME_SKILL_CONFIG = {
+  name: "claude-in-chrome",
+  description: "Automates your Chrome browser to interact with web pages - clicking elements, filling forms, capturing screenshots, reading console logs, and navigating sites. Opens pages in new tabs within your existing Chrome session. Requires site-level permissions before executing (configured in the extension).",
+  whenToUse: "When the user wants to interact with web pages, automate browser tasks, capture screenshots, read console logs, or perform any browser-based actions. Always invoke BEFORE attempting to use any mcp__claude-in-chrome__* tools.",
+  allowedTools: CHROME_TOOL_DEFINITIONS.map((tool) => `mcp__claude-in-chrome__${tool.name}`),
+  userInvocable: true,
+  isEnabled: () => true, // Simplified
+  async getPromptForCommand(args?: string) {
+    let prompt = `${getBrowserAutomationSystemPrompt()}\n${CHROME_SKILL_PROMPT}`;
+    if (args) {
+      prompt += `\n## Task\n\n${args}`;
+    }
+    return [{
+      type: "text",
+      text: prompt
+    }];
+  }
+};
