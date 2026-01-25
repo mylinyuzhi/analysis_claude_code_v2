@@ -206,9 +206,11 @@ export {
   parseCommand,
   findCommandNode,
   extractEnvironmentVariables,
+  extractCommandArguments,
   extractPipePositions,
   extractRedirections,
   traverseTree,
+  unquoteString,
 
   // File index functions
   getFileSuggestions,

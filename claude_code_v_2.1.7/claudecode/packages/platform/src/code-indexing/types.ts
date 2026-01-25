@@ -63,10 +63,16 @@ export interface ParseCommandResult {
  * Output redirection info.
  */
 export interface RedirectionInfo {
-  /** Start position in source */
-  startIndex: number;
-  /** End position in source */
-  endIndex: number;
+  /**
+   * Start position in source (when extracted from tree-sitter AST).
+   * Tokenizer-based extraction (Original: Hx in chunks.147.mjs:909-957) does not provide indices.
+   */
+  startIndex?: number;
+  /**
+   * End position in source (when extracted from tree-sitter AST).
+   * Tokenizer-based extraction may omit indices.
+   */
+  endIndex?: number;
   /** Target filename */
   target: string;
   /** Operator type: ">" or ">>" */

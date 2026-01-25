@@ -18,12 +18,35 @@ import {
   type McpConnectedServer,
 } from '@claudecode/integrations';
 
+let hasWarnedConflictingToolSearchEnv = false;
+
+function parseBooleanTruthy(value: string | undefined): boolean {
+  return value === 'true' || value === '1';
+}
+
+/**
+ * Warn when mutually exclusive env flags are both enabled.
+ * Original: CC7 in chunks.148.mjs:3512-3515
+ */
+function warnIfConflictingToolSearchEnv(): void {
+  if (hasWarnedConflictingToolSearchEnv) return;
+  if (parseBooleanTruthy(process.env.ENABLE_TOOL_SEARCH) && parseBooleanTruthy(process.env.ENABLE_EXPERIMENTAL_MCP_CLI)) {
+    hasWarnedConflictingToolSearchEnv = true;
+    const msg =
+      'Warning: Both ENABLE_TOOL_SEARCH and ENABLE_EXPERIMENTAL_MCP_CLI are set to true.\n' +
+      'These are mutually exclusive. Using Tool Search mode.';
+    // 保持与 source 行为一致：使用 warning 并只提示一次。
+    console.warn(process.stderr.isTTY ? `\x1b[33m${msg}\x1b[0m` : msg);
+  }
+}
+
 // ...
 
 /**
  * Get tool search mode.
  */
 export function getToolSearchMode() {
+  warnIfConflictingToolSearchEnv();
   return getToolSearchModeFromIntegrations();
 }
 

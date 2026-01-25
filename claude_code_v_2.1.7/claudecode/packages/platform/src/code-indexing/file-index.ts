@@ -9,14 +9,17 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-// @ts-ignore
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 import ignore from 'ignore';
-// @ts-ignore
 import Fuse from 'fuse.js';
 
-import { recordTelemetry } from '../telemetry/index.js';
+import { getConfigFilePath, getSettingsFilePath } from '../auth/constants.js';
+import { logError, recordTelemetry } from '../telemetry/index.js';
+import { getOriginalCwd, getSessionId } from '@claudecode/shared';
 import type {
   FileIndex,
   FileSuggestion,
@@ -69,19 +72,115 @@ let ignorePatterns: any = null;
 /** Cache key for patterns (WR0) */
 let ignorePatternsKey: string | null = null;
 
-/**
- * Registered plugins for file discovery (simulating DQ9).
- * Original: DQ9
- */
-const registeredPlugins: unknown[] = [];
+// ============================================
+// Workspace File Providers (DQ9)
+// ============================================
+
+export interface WorkspaceFileProviderResult {
+  filePath: string;
+}
+
+export type WorkspaceFileProvider = (
+  cwd: string
+) => Promise<WorkspaceFileProviderResult[]>;
+
+/** Registered workspace file providers (Original: DQ9) */
+const workspaceFileProviders: WorkspaceFileProvider[] = [];
+
+export function registerWorkspaceFileProvider(provider: WorkspaceFileProvider): void {
+  workspaceFileProviders.push(provider);
+}
+
+// ============================================
+// Settings Access (r3 / L1)
+// ============================================
+
+type FileSuggestionSettings = {
+  type?: 'command' | 'default' | string;
+  command?: string;
+};
+
+type CodeIndexingSettings = {
+  respectGitignore?: boolean;
+  fileSuggestion?: FileSuggestionSettings;
+};
+
+let cachedUserSettings: { mtimeMs: number; value: CodeIndexingSettings } | null = null;
+let cachedConfigFile: { mtimeMs: number; value: CodeIndexingSettings } | null = null;
+
+function readJsonIfExists<T>(filePath: string): T | null {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const content = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(content) as T;
+  } catch (err) {
+    logError(err instanceof Error ? err : new Error(String(err)));
+    return null;
+  }
+}
+
+function readJsonWithMtime<T>(filePath: string): { mtimeMs: number; value: T } | null {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const stat = fs.statSync(filePath);
+    const parsed = readJsonIfExists<T>(filePath);
+    if (!parsed) return null;
+    return { mtimeMs: stat.mtimeMs, value: parsed };
+  } catch (err) {
+    logError(err instanceof Error ? err : new Error(String(err)));
+    return null;
+  }
+}
+
+/** Settings accessor (Original: r3) */
+function getUserSettings(): CodeIndexingSettings {
+  const settingsPath = getSettingsFilePath();
+  const current = readJsonWithMtime<CodeIndexingSettings>(settingsPath);
+  if (!current) {
+    cachedUserSettings = null;
+    return {};
+  }
+  if (cachedUserSettings?.mtimeMs === current.mtimeMs) {
+    return cachedUserSettings.value;
+  }
+  cachedUserSettings = current;
+  return current.value;
+}
+
+/** Main config accessor (Original: L1) */
+function getConfigFileSettings(): CodeIndexingSettings {
+  const configPath = getConfigFilePath();
+  const current = readJsonWithMtime<CodeIndexingSettings>(configPath);
+  if (!current) {
+    cachedConfigFile = null;
+    return {};
+  }
+  if (cachedConfigFile?.mtimeMs === current.mtimeMs) {
+    return cachedConfigFile.value;
+  }
+  cachedConfigFile = current;
+  return current.value;
+}
+
+function getRespectGitignoreSetting(): boolean {
+  const user = getUserSettings();
+  const cfg = getConfigFileSettings();
+  return user.respectGitignore ?? cfg.respectGitignore ?? true;
+}
+
+function getFileSuggestionSettings(): FileSuggestionSettings | undefined {
+  return getUserSettings().fileSuggestion;
+}
 
 // ============================================
 // Helper Functions
 // ============================================
 
 function log(message: string) {
-  // In real implementation this might go to a logger
-  // console.log(message);
+  // Mirrors source `k(...)` debug logging: only emit in debug mode.
+  if (process.env.DEBUG || process.env.CLAUDE_CODE_DEBUG) {
+    console.error(message);
+  }
 }
 
 /**
@@ -123,10 +222,7 @@ function getCwd(): string {
  * Original: EQ() in chunks.136.mjs
  */
 function getEffectiveWorkingDir(): string {
-  // In the original code, this seems to determine the "root" of the project context.
-  // For now, it defaults to process.cwd(), but in a full implementation,
-  // it might check for a CLAUDE_PROJECT_ROOT env var or closest marker file.
-  return getCwd();
+  return getOriginalCwd();
 }
 
 /**
@@ -149,24 +245,40 @@ async function getFileIndex(): Promise<FileIndex | null> {
   if (rustModuleFailed) return null;
   if (fileIndexInstance) return fileIndexInstance;
 
-  if (isBundledMode()) {
-    try {
-      // In real code: await import('./file-index.node') or similar via require logic JR0/YR0
-      // For reconstruction, we simulate failure if not found, or use a mock if we had one.
-      // Since we don't have the binary, we fail gracefully to fallback.
-      throw new Error('Rust module not found in reconstruction');
-    } catch (error: any) {
-      rustModuleFailed = true;
-      log(
-        `[FileIndex] Rust module unavailable, falling back to Fuse.js: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-      return null;
-    }
-  } else {
+  if (!isBundledMode()) {
     rustModuleFailed = true;
     log('[FileIndex] Not in bundled mode, using Fuse.js fallback');
+    return null;
+  }
+
+  try {
+    const require = createRequire(import.meta.url);
+    const addonUrl = new URL('../../file-index.node', import.meta.url);
+    const addonPath = fileURLToPath(addonUrl);
+
+    let mod: any = null;
+    try {
+      mod = require(addonPath);
+    } catch {
+      // Fall back to Node resolution in case the addon is placed elsewhere.
+      mod = require('../../file-index.node');
+    }
+
+    const FileIndexCtor = mod?.FileIndex;
+    if (!FileIndexCtor) {
+      throw new Error('file-index.node did not export FileIndex');
+    }
+
+    fileIndexInstance = new FileIndexCtor();
+    return fileIndexInstance;
+  } catch (error: any) {
+    rustModuleFailed = true;
+    log(
+      `[FileIndex] Rust module unavailable, falling back to Fuse.js: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    logError(error instanceof Error ? error : new Error(String(error)));
     return null;
   }
 }
@@ -331,7 +443,7 @@ export async function getFilesUsingGit(
 
     const files = result.stdout.trim().split('\n').filter(Boolean);
     const effectiveDir = getEffectiveWorkingDir();
-    let normalized = normalizePaths(files, cwd, effectiveDir);
+    let normalized = normalizePaths(files, gitRoot, effectiveDir);
 
     const ignoreFilter = loadIgnorePatterns(gitRoot, cwd);
     if (ignoreFilter) {
@@ -366,7 +478,7 @@ export async function getFilesUsingGit(
           if (res.code === 0) {
             const untracked = res.stdout.trim().split('\n').filter(Boolean);
             const effective = getEffectiveWorkingDir();
-            let normUntracked = normalizePaths(untracked, cwd, effective);
+            let normUntracked = normalizePaths(untracked, gitRoot, effective);
             const ig = loadIgnorePatterns(gitRoot, cwd);
             if (ig && normUntracked.length > 0) {
               const count = normUntracked.length;
@@ -402,39 +514,27 @@ export async function getFilesUsingRipgrep(
   abortSignal: AbortSignal,
   respectGitignore: boolean
 ): Promise<string[]> {
-  log(`[FileIndex] getProjectFiles called, respectGitignore=${respectGitignore}`);
-  const gitFiles = await getFilesUsingGit(abortSignal, respectGitignore);
-  if (gitFiles !== null) {
-    log(`[FileIndex] using git ls-files result (${gitFiles.length} files)`);
-    return gitFiles;
-  }
-
-  log('[FileIndex] git ls-files returned null, falling back to ripgrep');
-  const start = Date.now();
   const args = ['--files', '--follow', '--hidden', '--glob', '!.git/'];
-  if (!respectGitignore) {
-    args.push('--no-ignore-vcs');
-  }
+  if (!respectGitignore) args.push('--no-ignore-vcs');
 
-  // Assuming `rg` is available in path for fallback
-  const result = await execCommand('rg', args, {
+  const result = await execCommand('rg', [...args, '.'], {
     cwd: getCwd(),
     abortSignal,
   });
+  if (result.code !== 0) {
+    log(`[FileIndex] ripgrep failed (code=${result.code}, stderr=${result.stderr})`);
+    return [];
+  }
 
-  const files = result.stdout.trim().split('\n').filter(Boolean);
-  // Assuming rg outputs relative paths from cwd
+  const cwd = getCwd();
   const effective = getEffectiveWorkingDir();
-  const normalized = normalizePaths(files, getCwd(), effective);
+  const absoluteFiles = result.stdout
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((p) => path.resolve(cwd, p));
 
-  const duration = Date.now() - start;
-  log(`[FileIndex] ripgrep: ${normalized.length} files in ${duration}ms`);
-  recordTelemetry('tengu_file_suggestions_ripgrep', {
-    file_count: normalized.length,
-    duration_ms: duration,
-  });
-
-  return normalized;
+  return absoluteFiles.map((p) => path.relative(effective, p));
 }
 
 /**
@@ -459,29 +559,17 @@ export function extractDirectoryPrefixes(files: string[]): string[] {
  * Original: JY7 in chunks.136.mjs
  */
 async function getWorkspaceFiles(cwd: string): Promise<string[]> {
-  // Original logic:
-  // return (await Promise.all(DQ9.map((B) => bd(B, A)))).flatMap((B) => B.map((G) => G.filePath))
-  
-  // DQ9 appears to be a list of registered plugins or providers.
-  // In this reconstruction, we don't have the full plugin system initialized.
-  // So we simulate it by iterating over `registeredPlugins` (which is empty).
-  
-  // If we had plugins, we would call their `getFiles` method.
-  // Example mock implementation:
   const results = await Promise.all(
-    registeredPlugins.map(async (plugin: any) => {
+    workspaceFileProviders.map(async (provider) => {
       try {
-        if (typeof plugin.getWorkspaceFiles === 'function') {
-          return await plugin.getWorkspaceFiles(cwd);
-        }
-        return [];
-      } catch {
+        return await provider(cwd);
+      } catch (err) {
+        logError(err instanceof Error ? err : new Error(String(err)));
         return [];
       }
     })
   );
-
-  return results.flat();
+  return results.flatMap((items) => items.map((it) => it.filePath));
 }
 
 /**
@@ -492,7 +580,27 @@ export async function getProjectFiles(
   abortSignal: AbortSignal,
   respectGitignore: boolean
 ): Promise<string[]> {
-  return getFilesUsingRipgrep(abortSignal, respectGitignore);
+  // Original: XY7 (getProjectFiles) in chunks.136.mjs:1664-1678
+  log(`[FileIndex] getProjectFiles called, respectGitignore=${respectGitignore}`);
+
+  const gitFiles = await getFilesUsingGit(abortSignal, respectGitignore);
+  if (gitFiles !== null) {
+    log(`[FileIndex] using git ls-files result (${gitFiles.length} files)`);
+    return gitFiles;
+  }
+
+  log('[FileIndex] git ls-files returned null, falling back to ripgrep');
+  const start = Date.now();
+  const files = await getFilesUsingRipgrep(abortSignal, respectGitignore);
+  const duration = Date.now() - start;
+
+  log(`[FileIndex] ripgrep: ${files.length} files in ${duration}ms`);
+  recordTelemetry('tengu_file_suggestions_ripgrep', {
+    file_count: files.length,
+    duration_ms: duration,
+  });
+
+  return files;
 }
 
 // ============================================
@@ -510,8 +618,7 @@ export async function initializeFileIndex(): Promise<FileIndexCache> {
   }, 10000);
 
   try {
-    // Mock config retrieval
-    const respectGitignore = true; // r3().respectGitignore
+    const respectGitignore = getRespectGitignoreSetting();
     const cwd = getCwd();
 
     const [projectFiles, workspaceFiles] = await Promise.all([
@@ -533,6 +640,7 @@ export async function initializeFileIndex(): Promise<FileIndexCache> {
         log(
           `[FileIndex] Failed to load Rust index, using Fuse.js fallback: ${e.message}`
         );
+        logError(e instanceof Error ? e : new Error(String(e)));
         recordTelemetry('tengu_file_index_rust_load_error', { error: e.message });
         fileList = completeList;
       }
@@ -545,6 +653,7 @@ export async function initializeFileIndex(): Promise<FileIndexCache> {
       fileList,
     };
   } catch (error: any) {
+    logError(error instanceof Error ? error : new Error(String(error)));
     recordTelemetry('tengu_file_index_init_error', { error: error.message });
     return {
       fileIndex: null,
@@ -644,7 +753,7 @@ export async function performSearch(
         if (topLevelDirs.size >= MAX_SUGGESTIONS) break;
       }
     }
-    return [...topLevelDirs].sort().map((p) => createFileResult(p));
+    return [...topLevelDirs].sort().map(createFileResult);
   }
 
   const documents = uniqueFiles.map((f) => ({
@@ -683,18 +792,7 @@ export async function performSearch(
     return a.item.testPenalty - b.item.testPenalty;
   });
 
-  return results.map((r: any) => createFileResult(r.item.path, r.score));
-}
-
-/**
- * Mock config function (stub).
- */
-function getMockConfig(): any {
-  return {
-    fileSuggestion: {
-      type: 'default' // Change to 'command' to test custom command logic
-    }
-  };
+  return results.map((r: any) => r.item.path).slice(0, MAX_SUGGESTIONS).map(createFileResult);
 }
 
 /**
@@ -704,23 +802,18 @@ function getMockConfig(): any {
 export async function executeFileSuggestionCommand(
   context: FileSuggestionContext
 ): Promise<string[]> {
-  // Logic reconstructed from typical custom command patterns in Claude Code.
   // The command is expected to take the context as JSON on stdin and return JSON on stdout.
-  const config = getMockConfig();
-  const commandTemplate = config.fileSuggestion?.command;
+  const commandTemplate = getFileSuggestionSettings()?.command;
 
   if (!commandTemplate) {
     return [];
   }
 
   try {
-    // Basic substitution if commandTemplate has placeholders (simplified)
     const command = commandTemplate;
-    
-    // Create a child process
     const child = execFile('sh', ['-c', command], {
       timeout: 5000,
-      encoding: 'utf8'
+      encoding: 'utf8',
     });
 
     // Write context to stdin
@@ -748,7 +841,8 @@ export async function executeFileSuggestionCommand(
     return [];
 
   } catch (e: any) {
-    recordTelemetry('tengu_file_suggestion_command_error', { error: e.message });
+    logError(e instanceof Error ? e : new Error(String(e)));
+    recordTelemetry('tengu_file_suggestion_command_error', { error: e?.message ?? String(e) });
     return [];
   }
 }
@@ -765,12 +859,12 @@ export async function getFileSuggestions(
   if (!query && !forceRefresh) return [];
 
   // Check for custom command configuration
-  const config = getMockConfig();
-  if (config.fileSuggestion?.type === 'command') {
+  const fileSuggestion = getFileSuggestionSettings();
+  if (fileSuggestion?.type === 'command') {
     const context: FileSuggestionContext = {
       cwd: getCwd(),
       query,
-      // session_id and other context would go here
+      session_id: getSessionId(),
     };
     try {
       const results = await executeFileSuggestionCommand(context);
@@ -801,12 +895,14 @@ export async function getFileSuggestions(
     if (query.startsWith(dotSlash)) {
       normalizedQuery = query.substring(2);
     }
-    // Handle tilde expansion if needed, source does Z = Y4(Z)
-    // if (normalizedQuery.startsWith('~')) ...
+    if (normalizedQuery.startsWith('~')) {
+      normalizedQuery = path.join(os.homedir(), normalizedQuery.substring(1));
+    }
 
     return await performSearch(rustFileIndex, fallbackFileList, normalizedQuery);
   } catch (e: any) {
-    recordTelemetry('tengu_file_suggestions_error', { error: e.message });
+    logError(e instanceof Error ? e : new Error(String(e)));
+    recordTelemetry('tengu_file_suggestions_error', { error: e?.message ?? String(e) });
     return [];
   }
 }

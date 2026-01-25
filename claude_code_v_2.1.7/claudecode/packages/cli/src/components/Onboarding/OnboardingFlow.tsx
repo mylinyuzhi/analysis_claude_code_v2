@@ -10,7 +10,7 @@ import { Box, Text, useInput } from 'ink';
 import { Select, SpinnerComponent as Spinner } from '@claudecode/ui';
 import { analyticsEvent } from '@claudecode/platform/telemetry';
 import { LoginFlow } from './LoginFlow.js';
-import { shouldUseOAuth } from '@claudecode/platform';
+import { getGlobalDispatcher, getUserAgent, shouldUseOAuth } from '@claudecode/platform';
 
 interface OnboardingFlowProps {
   onDone: () => void;
@@ -19,6 +19,88 @@ interface OnboardingFlowProps {
 interface OnboardingStep {
   id: string;
   component: React.ReactNode;
+}
+
+type ConnectivityCheckResult =
+  | { success: true }
+  | { success: false; error: string };
+
+function useDelayTrue(ms: number): boolean {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    setReady(false);
+    const t = setTimeout(() => setReady(true), ms);
+    return () => clearTimeout(t);
+  }, [ms]);
+  return ready;
+}
+
+/**
+ * Preflight connectivity check.
+ * Original: GM7 in chunks.154.mjs:2604
+ */
+async function checkAnthropicConnectivity(): Promise<ConnectivityCheckResult> {
+  const urls = [
+    'https://api.anthropic.com/api/hello',
+    'https://platform.claude.com/v1/oauth/hello',
+  ];
+
+  try {
+    const tryUrl = async (url: string): Promise<ConnectivityCheckResult> => {
+      try {
+        const init: any = {
+          method: 'GET',
+          headers: {
+            'User-Agent': getUserAgent(),
+          },
+        };
+        const dispatcher = getGlobalDispatcher();
+        if (dispatcher) init.dispatcher = dispatcher;
+
+        const res = await fetch(url, init);
+        if (res.status !== 200) {
+          return {
+            success: false,
+            error: `Failed to connect to ${new URL(url).hostname}: Status ${res.status}`,
+          };
+        }
+        return { success: true };
+      } catch (err) {
+        const details =
+          err instanceof Error
+            ? ((err as any).code || err.message)
+            : String(err);
+        return {
+          success: false,
+          error: `Failed to connect to ${new URL(url).hostname}: ${details}`,
+        };
+      }
+    };
+
+    const results = await Promise.all(urls.map(tryUrl));
+    const firstFailure = results.find((r) => !r.success) as ConnectivityCheckResult | undefined;
+
+    if (firstFailure && !firstFailure.success) {
+      analyticsEvent('tengu_preflight_check_failed', {
+        isConnectivityError: false,
+        hasErrorMessage: Boolean(firstFailure.error),
+      });
+      return firstFailure;
+    }
+
+    return { success: true };
+  } catch (err) {
+    analyticsEvent('tengu_preflight_check_failed', {
+      isConnectivityError: true,
+    });
+
+    const details =
+      err instanceof Error ? ((err as any).code || err.message) : String(err);
+    return {
+      success: false,
+      error: `Connectivity check error: ${details}`,
+    };
+  }
 }
 
 export function OnboardingFlow({ onDone }: OnboardingFlowProps) {
@@ -137,38 +219,53 @@ function WelcomeScreen() {
 }
 
 function PreflightCheck({ onSuccess }: { onSuccess: () => void }) {
-  const [status, setStatus] = useState<'checking' | 'success' | 'error'>('checking');
-  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ConnectivityCheckResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const showSpinner = useDelayTrue(1000) && isLoading;
 
   useEffect(() => {
     async function check() {
-      try {
-        // Mock connectivity check for now
-        // In real it calls GM7
-        setStatus('success');
-        onSuccess();
-      } catch (err) {
-        setStatus('error');
-        setError(String(err));
-      }
+      const r = await checkAnthropicConnectivity();
+      setResult(r);
+      setIsLoading(false);
     }
     check();
-  }, [onSuccess]);
+  }, []);
 
-  if (status === 'error') {
+  useEffect(() => {
+    if (!result) return;
+    if (result.success) {
+      onSuccess();
+      return;
+    }
+
+    // 保持与 source 一致：展示错误后尽快退出（避免继续进入后续 onboarding）。
+    const t = setTimeout(() => process.exit(1), 100);
+    return () => clearTimeout(t);
+  }, [result, onSuccess]);
+
+  if (!result?.success && !isLoading) {
     return (
       <Box flexDirection="column" gap={1} paddingLeft={1}>
         <Text color="red">Unable to connect to Anthropic services</Text>
-        <Text color="red">{error}</Text>
+        <Text color="red">{result?.success === false ? result.error : ''}</Text>
         <Text>Please check your internet connection and network settings.</Text>
+        <Text>
+          Note: Claude Code might not be available in your country. Check supported countries at{' '}
+          <Text color="cyan">https://anthropic.com/supported-countries</Text>
+        </Text>
       </Box>
     );
   }
 
   return (
-    <Box paddingLeft={1}>
-      <Spinner />
-      <Text> Checking connectivity...</Text>
+    <Box flexDirection="column" gap={1} paddingLeft={1}>
+      {showSpinner ? (
+        <Box paddingLeft={1}>
+          <Spinner />
+          <Text> Checking connectivity...</Text>
+        </Box>
+      ) : null}
     </Box>
   );
 }

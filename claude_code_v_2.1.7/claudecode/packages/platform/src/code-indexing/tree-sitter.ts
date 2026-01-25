@@ -10,10 +10,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-// @ts-ignore
 import Parser from 'web-tree-sitter';
 
-import { recordTelemetry } from '../telemetry/index.js';
+import { logError, recordTelemetry } from '../telemetry/index.js';
+import { tokenizeCommand as tokenizeCommandFromTokenizer } from '../shell-parser/tokenizer.js';
+import { extractOutputRedirections as extractOutputRedirectionsFromTokenizer } from '../shell-parser/parser.js';
 import type {
   TreeSitterNode,
   TreeSitterTree,
@@ -31,6 +32,67 @@ import {
   DECLARATION_KEYWORDS,
 } from './types.js';
 
+type AstRedirectionInfo = RedirectionInfo & { startIndex: number; endIndex: number; operator: '>' | '>>' };
+
+// ============================================
+// Utility Helpers (ported from chunks.123.mjs)
+// ============================================
+
+/**
+ * Remove surrounding single/double quotes.
+ * Original: Tn5 in chunks.123.mjs:666-668
+ */
+export function unquoteString(text: string): string {
+  if (text.length < 2) return text;
+  const first = text[0];
+  const last = text.at(-1);
+  if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+    return text.slice(1, -1);
+  }
+  return text;
+}
+
+/**
+ * Extract command + arguments from the tree-sitter command node.
+ * Original: jn5 (extractCommandArguments) in chunks.123.mjs:647-664
+ */
+export function extractCommandArguments(commandNode: TreeSitterNode): string[] {
+  if (!commandNode) return [];
+
+  // Special case: declaration commands like `export`, `local`, ...
+  if (commandNode.type === 'declaration_command') {
+    const firstChild = commandNode.children[0];
+    return firstChild && DECLARATION_KEYWORDS.has(firstChild.text) ? [firstChild.text] : [];
+  }
+
+  const args: string[] = [];
+  let hasSeenCommandName = false;
+
+  for (const child of commandNode.children) {
+    if (!child || child.type === 'variable_assignment') continue;
+
+    // First token: command name (or implicit when node type is word)
+    if (child.type === 'command_name' || (!hasSeenCommandName && child.type === 'word')) {
+      hasSeenCommandName = true;
+      args.push(child.text);
+      continue;
+    }
+
+    // Regular arguments
+    if (ARGUMENT_TYPES.has(child.type)) {
+      args.push(unquoteString(child.text));
+      continue;
+    }
+
+    // Stop when encountering substitutions
+    if (SUBSTITUTION_TYPES.has(child.type)) {
+      break;
+    }
+  }
+
+  return args;
+}
+
 // ============================================
 // Global State
 // ============================================
@@ -43,6 +105,9 @@ let globalBashLanguage: Parser.Language | null = null;
 
 /** Initialization promise (wq0) */
 let initPromise: Promise<void> | null = null;
+
+/** Cached availability check (xn5) */
+let availabilityPromise: Promise<boolean> | null = null;
 
 // ============================================
 // Initialization
@@ -109,7 +174,7 @@ async function initializeTreeSitter(): Promise<void> {
       globalBashLanguage = await Parser.Language.load(bashWasm);
       globalParser.setLanguage(globalBashLanguage);
 
-      // log("tree-sitter: loaded from embedded");
+      // k("tree-sitter: loaded from embedded")
       recordTelemetry('tengu_tree_sitter_load', {
         success: true,
         from_embedded: true,
@@ -120,68 +185,24 @@ async function initializeTreeSitter(): Promise<void> {
 
   // Strategy 2: Load from disk
   const basePath = getModuleDir();
-  // Original code has G = !1, so it looks in basePath directly for .wasm files
-  // But in development/node_modules, they might be inside the packages.
-  // We'll try to find them.
-  
-  // Construct paths - assuming adjacent to this file or in node_modules
-  // In source: dK1(B, "tree-sitter.wasm")
-  const wasmPath = path.join(basePath, 'tree-sitter.wasm');
+  const treeSitterWasmPath = path.join(basePath, 'tree-sitter.wasm');
   const bashWasmPath = path.join(basePath, 'tree-sitter-bash.wasm');
 
-  // Fallback paths for node_modules resolution if not found
-  // (This handles the case where we are running from source/dist)
-  let finalWasmPath = wasmPath;
-  let finalBashWasmPath = bashWasmPath;
-
-  if (!fs.existsSync(finalWasmPath)) {
-    // Try to resolve via require/import or typical node_modules locations
-    // This part adapts the original logic to work in our reconstructed environment
-    try {
-        // Attempt to find where web-tree-sitter is
-        const webTreeSitterPath = require.resolve('web-tree-sitter');
-        finalWasmPath = path.join(path.dirname(webTreeSitterPath), 'tree-sitter.wasm');
-    } catch {
-        // ignore
-    }
-  }
-  
-  // Original logic checks existence:
-  if (!fs.existsSync(finalWasmPath) || !fs.existsSync(finalBashWasmPath)) {
-      // One last try: check if tree-sitter-bash is in node_modules
-      if (!fs.existsSync(finalBashWasmPath)) {
-          try {
-             // This file is usually inside tree-sitter-bash/tree-sitter-bash.wasm
-             // but we need to find it.
-             // For now we will assume it is placed correctly or we fail gracefully.
-          } catch {
-              // ignore
-          }
-      }
-  }
-
-  if (!fs.existsSync(finalWasmPath) || !fs.existsSync(finalBashWasmPath)) {
-    // console.log("tree-sitter: WASM files not found");
+  if (!fs.existsSync(treeSitterWasmPath) || !fs.existsSync(bashWasmPath)) {
     recordTelemetry('tengu_tree_sitter_load', { success: false });
     return;
   }
 
   await Parser.init({
-    locateFile: (file: string) => {
-        if (file.endsWith('tree-sitter.wasm')) return finalWasmPath;
-        return file;
-    }
+    locateFile: (file: string) => (file.endsWith('tree-sitter.wasm') ? treeSitterWasmPath : file),
   });
 
   globalParser = new Parser();
-  globalBashLanguage = await Parser.Language.load(fs.readFileSync(finalBashWasmPath));
+  globalBashLanguage = await Parser.Language.load(fs.readFileSync(bashWasmPath));
   globalParser.setLanguage(globalBashLanguage);
 
-  // console.log("tree-sitter: loaded from disk");
-  recordTelemetry('tengu_tree_sitter_load', {
-    success: true,
-    from_embedded: false,
-  });
+  // k("tree-sitter: loaded from disk")
+  recordTelemetry('tengu_tree_sitter_load', { success: true, from_embedded: false });
 }
 
 /**
@@ -200,8 +221,21 @@ export async function ensureTreeSitterLoaded(): Promise<void> {
  * Original: xn5 in chunks.123.mjs
  */
 export async function isTreeSitterAvailable(): Promise<boolean> {
-  await ensureTreeSitterLoaded();
-  return globalParser !== null && globalBashLanguage !== null;
+  if (!availabilityPromise) {
+    availabilityPromise = (async () => {
+      try {
+        await ensureTreeSitterLoaded();
+        const probe = await parseCommand('echo test');
+        if (!probe) return false;
+        probe.tree.delete();
+        return true;
+      } catch (err) {
+        logError(err instanceof Error ? err : new Error(String(err)));
+        return false;
+      }
+    })();
+  }
+  return availabilityPromise;
 }
 
 // ============================================
@@ -385,104 +419,11 @@ export async function parseCommand(commandString: string): Promise<ParseCommandR
 // ============================================
 
 /**
- * Simple tokenizer for fallback parsing.
- * Original: ZfA in chunks.147.mjs
+ * Tokenize command for fallback parsing.
+ * Delegates to shell-parser tokenizer to stay aligned with:
+ * - Original: ZfA (tokenizeCommand) in chunks.147.mjs:765-817
  */
-export function tokenizeCommand(command: string): string[] {
-  const tokens: string[] = [];
-  let current = '';
-  let inSingleQuote = false;
-  let inDoubleQuote = false;
-  let escape = false;
-
-  for (const char of command) {
-    if (escape) {
-      current += char;
-      escape = false;
-      continue;
-    }
-
-    if (char === '\\') {
-      escape = true;
-      current += char;
-      continue;
-    }
-
-    if (char === "'" && !inDoubleQuote) {
-      inSingleQuote = !inSingleQuote;
-      current += char;
-      continue;
-    }
-
-    if (char === '"' && !inSingleQuote) {
-      inDoubleQuote = !inDoubleQuote;
-      current += char;
-      continue;
-    }
-
-    if (!inSingleQuote && !inDoubleQuote) {
-      if (char === ' ' || char === '\t') {
-        if (current) {
-          tokens.push(current);
-          current = '';
-        }
-        continue;
-      }
-
-      if (char === '|' || char === '>' || char === '<' || char === ';' || char === '&') {
-        if (current) {
-          tokens.push(current);
-          current = '';
-        }
-        tokens.push(char);
-        continue;
-      }
-    }
-
-    current += char;
-  }
-
-  if (current) {
-    tokens.push(current);
-  }
-
-  return tokens;
-}
-
-/**
- * Extract output redirections from command string.
- * Original: Hx in chunks.147.mjs
- */
-function extractOutputRedirectionsFromString(command: string): {
-  commandWithoutRedirections: string;
-  redirections: RedirectionInfo[];
-} {
-  const redirections: RedirectionInfo[] = [];
-
-  // Simple regex-based extraction
-  const redirectPattern = /\s*(>>?)\s*(\S+)/g;
-  let match;
-  let lastIndex = 0;
-  let result = '';
-
-  while ((match = redirectPattern.exec(command)) !== null) {
-    result += command.slice(lastIndex, match.index);
-    redirections.push({
-      startIndex: match.index,
-      endIndex: match.index + match[0].length,
-      target: match[2]!,
-      operator: match[1] as '>' | '>>',
-    });
-    lastIndex = match.index + match[0].length;
-  }
-
-  result += command.slice(lastIndex);
-
-  return {
-    commandWithoutRedirections: result.trim(),
-    redirections,
-  };
-}
+export const tokenizeCommand = tokenizeCommandFromTokenizer;
 
 /**
  * SimpleCommand - Fallback command wrapper (string-based).
@@ -501,7 +442,7 @@ export class SimpleCommand implements Command {
 
   getPipeSegments(): string[] {
     try {
-      const tokens = tokenizeCommand(this.originalCommand);
+      const tokens = tokenizeCommandFromTokenizer(this.originalCommand);
       const segments: string[] = [];
       let current: string[] = [];
 
@@ -531,16 +472,19 @@ export class SimpleCommand implements Command {
       return this.originalCommand;
     }
 
-    const { commandWithoutRedirections, redirections } = extractOutputRedirectionsFromString(
-      this.originalCommand
-    );
-
-    return redirections.length > 0 ? commandWithoutRedirections : this.originalCommand;
+    // Tokenizer-based redirection extraction (Original: Hx in chunks.147.mjs:909-957)
+    const { commandWithoutRedirections } = extractOutputRedirectionsFromTokenizer(this.originalCommand);
+    return commandWithoutRedirections;
   }
 
   getOutputRedirections(): RedirectionInfo[] {
-    const { redirections } = extractOutputRedirectionsFromString(this.originalCommand);
-    return redirections;
+    // Note: tokenizer-based extraction does not provide indices.
+    const { redirections } = extractOutputRedirectionsFromTokenizer(this.originalCommand);
+    return redirections.map((r) => {
+      // Keep Code Indexing API aligned with source Hx(): it normalizes most redirects into `>` / `>>`.
+      const operator = r.operator === '>>' ? '>>' : '>';
+      return { target: r.target, operator };
+    });
   }
 }
 
@@ -551,12 +495,12 @@ export class SimpleCommand implements Command {
 export class RichCommand implements Command {
   readonly originalCommand: string;
   readonly pipePositions: number[];
-  readonly redirectionNodes: RedirectionInfo[];
+  readonly redirectionNodes: AstRedirectionInfo[];
 
   constructor(
     commandString: string,
     pipePositions: number[],
-    redirectionNodes: RedirectionInfo[]
+    redirectionNodes: AstRedirectionInfo[]
   ) {
     this.originalCommand = commandString;
     this.pipePositions = pipePositions;
@@ -609,12 +553,8 @@ export class RichCommand implements Command {
   }
 
   getOutputRedirections(): RedirectionInfo[] {
-    return this.redirectionNodes.map(({ target, operator }) => ({
-      startIndex: 0,
-      endIndex: 0,
-      target,
-      operator,
-    }));
+    // Tree-sitter extraction includes accurate source indices (Original: Sn5 in chunks.123.mjs:751-766)
+    return this.redirectionNodes;
   }
 }
 
@@ -636,7 +576,7 @@ export const shellCommandParser: ShellCommandParser = {
         const result = await parseCommand(command);
         if (result) {
           const pipes = extractPipePositions(result.rootNode);
-          const redirects = extractRedirections(result.rootNode);
+          const redirects = extractRedirections(result.rootNode) as AstRedirectionInfo[];
 
           // Free WASM memory
           result.tree.delete();

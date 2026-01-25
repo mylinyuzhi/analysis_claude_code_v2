@@ -23,9 +23,11 @@ export {
   parseCommand,
   findCommandNode,
   extractEnvironmentVariables,
+  extractCommandArguments,
   extractPipePositions,
   extractRedirections,
   traverseTree,
+  unquoteString,
   tokenizeCommand,
 
   // Command classes
