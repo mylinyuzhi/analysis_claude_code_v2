@@ -21,11 +21,16 @@ export {
   getEscapeMarkers,
   DANGEROUS_PATTERNS,
   SHELL_METACHARACTERS,
+  SHELL_METACHARACTERS_SET,
+  ALL_SHELL_OPERATORS,
   DANGEROUS_ENV_VARS,
   SENSITIVE_PATHS,
   JQ_SYSTEM_PATTERN,
   JQ_FILE_FLAGS,
   HEREDOC_SUBSTITUTION_PATTERN,
+  HEREDOC_EXTRACT_PATTERN,
+  HEREDOC_PREFIX,
+  HEREDOC_SUFFIX,
   SAFE_HEREDOC_PATTERN,
   ANSI_C_QUOTE_PATTERN,
   LOCALE_QUOTE_PATTERN,
@@ -46,6 +51,8 @@ export {
 // ============================================
 
 export {
+  isInsideQuotes,
+  isInsideComment,
   extractHeredocs,
   reconstructHeredocs,
   removeQuotes,
@@ -65,7 +72,9 @@ export {
   checkEmptyCommand,
   checkIncompleteCommand,
   checkHeredocInSubstitution,
+  checkHeredocPatterns,
   checkGitCommitMessage,
+  safeHeredocValidator,
 
   // Ask checkers
   checkJqDanger,
@@ -91,6 +100,7 @@ export {
   SimpleCommand,
   shellCommandParser,
   extractOutputRedirections,
+  pipePermissionChecker,
   extractCwdReset,
   hasShellOperators,
   stripOutputRedirections,

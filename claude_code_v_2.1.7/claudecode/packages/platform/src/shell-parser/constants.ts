@@ -2,9 +2,10 @@
  * @claudecode/platform - Shell Parser Constants
  *
  * Constants for shell command parsing and security analysis.
- * Reconstructed from chunks.121.mjs, chunks.123.mjs
+ * Reconstructed from chunks.112.mjs, chunks.121.mjs, chunks.147.mjs
  */
 
+import crypto from 'node:crypto';
 import type { EscapeMarkers } from './types.js';
 
 // ============================================
@@ -13,16 +14,16 @@ import type { EscapeMarkers } from './types.js';
 
 /**
  * Generate unique escape markers for tokenization.
- * Original: DJ9 in chunks.147.mjs
+ * Original: DJ9 in chunks.147.mjs:750-759
  */
 export function getEscapeMarkers(): EscapeMarkers {
-  const uid = Math.random().toString(36).slice(2, 10);
+  const uid = crypto.randomBytes(8).toString('hex');
   return {
-    DOUBLE_QUOTE: `__DQ_${uid}__`,
-    SINGLE_QUOTE: `__SQ_${uid}__`,
-    NEW_LINE: `__NL_${uid}__`,
-    ESCAPED_OPEN_PAREN: `__EOP_${uid}__`,
-    ESCAPED_CLOSE_PAREN: `__ECP_${uid}__`,
+    SINGLE_QUOTE: `__SINGLE_QUOTE_${uid}__`,
+    DOUBLE_QUOTE: `__DOUBLE_QUOTE_${uid}__`,
+    NEW_LINE: `__NEW_LINE_${uid}__`,
+    ESCAPED_OPEN_PAREN: `__ESCAPED_OPEN_PAREN_${uid}__`,
+    ESCAPED_CLOSE_PAREN: `__ESCAPED_CLOSE_PAREN_${uid}__`,
   };
 }
 
@@ -32,6 +33,7 @@ export function getEscapeMarkers(): EscapeMarkers {
 
 /**
  * Dangerous substitution patterns.
+ * Original: Mi5 in chunks.121.mjs:1487-1508
  */
 export const DANGEROUS_PATTERNS = [
   { pattern: /<\(/, message: 'process substitution <()' },
@@ -45,8 +47,16 @@ export const DANGEROUS_PATTERNS = [
 
 /**
  * Shell metacharacters that require special handling.
+ * Original: WJ9 in chunks.147.mjs:1349
  */
-export const SHELL_METACHARACTERS = ['&', '|', '&&', '||', ';'] as const;
+export const SHELL_METACHARACTERS = ['&&', '||', ';', ';;', '|'] as const;
+export const SHELL_METACHARACTERS_SET = new Set(SHELL_METACHARACTERS);
+
+/**
+ * Operators that include redirects and pipes.
+ * Original: bz7 in chunks.147.mjs:1349
+ */
+export const ALL_SHELL_OPERATORS = new Set([...SHELL_METACHARACTERS, '>&', '>', '>>']);
 
 /**
  * Dangerous environment variables.
@@ -84,8 +94,22 @@ export const JQ_FILE_FLAGS =
 
 /**
  * Heredoc detection pattern.
+ * Original: Dq0 in chunks.121.mjs:1487
  */
-export const HEREDOC_SUBSTITUTION_PATTERN = /\$\(.*<<-?/;
+export const HEREDOC_SUBSTITUTION_PATTERN = /\$\(.*<</;
+
+/**
+ * Heredoc pattern for extraction.
+ * Original: jz7 in chunks.147.mjs:747
+ */
+export const HEREDOC_EXTRACT_PATTERN = /(?<!<)<<(?!<)(-)?(['"])?\\?(\w+)\2?/;
+
+/**
+ * Heredoc placeholder markers.
+ * Original: Mz7, Rz7 in chunks.147.mjs:740-742
+ */
+export const HEREDOC_PREFIX = '__HEREDOC_';
+export const HEREDOC_SUFFIX = '__';
 
 /**
  * Safe heredoc pattern (quoted/escaped delimiter).
@@ -138,10 +162,10 @@ export const OPERATOR_START_PATTERN = /^\s*(&&|\|\||;|>>?|<)/;
 /**
  * Output redirection operators.
  */
-export const OUTPUT_REDIRECT_OPERATORS = ['>', '>>', '>&', '2>', '2>>'] as const;
+export const OUTPUT_REDIRECT_OPERATORS = ['>', '>>', '>&'] as const;
 
 /**
- * Safe redirections (can be stripped without affecting command).
+ * Safe redirections (can be stripped without affecting command analysis).
  */
 export const SAFE_REDIRECTIONS = [
   /\s+2\s*>&\s*1(?=\s|$)/g, // 2>&1
@@ -155,10 +179,9 @@ export const SAFE_REDIRECTIONS = [
 
 /**
  * CWD reset regex pattern.
- * Original: UT2 in chunks.112.mjs
+ * Original: UT2 in chunks.112.mjs:118
  */
-export const CWD_RESET_REGEX =
-  /\[claude-code-cwd-reset:\s*([^\]]*)\]/;
+export const CWD_RESET_REGEX = /(?:^|\n)(Shell cwd was reset to .+)$/;
 
 // ============================================
 // Valid File Descriptors
@@ -166,6 +189,7 @@ export const CWD_RESET_REGEX =
 
 /**
  * Valid file descriptor numbers.
+ * Original: LuA in chunks.147.mjs:1193
  */
 export const VALID_FILE_DESCRIPTORS = new Set(['0', '1', '2']);
 
@@ -208,9 +232,3 @@ export const READONLY_PACKAGE_COMMANDS = [
   'gem list',
   'gem info',
 ] as const;
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 常量/函数已在声明处导出；移除重复聚合导出。

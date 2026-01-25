@@ -36,7 +36,9 @@ export interface OutputRedirection {
  */
 export type ShellToken =
   | string
-  | { op: string; [key: string]: unknown };
+  | { op: string; [key: string]: unknown }
+  | { comment: string }
+  | { op: 'glob'; pattern: string };
 
 /**
  * Parse result from shell tokenization.
@@ -61,7 +63,7 @@ export type SecurityBehavior = 'passthrough' | 'allow' | 'ask' | 'deny';
  */
 export interface SecurityCheckResult {
   behavior: SecurityBehavior;
-  message: string;
+  message?: string;
   decisionReason?: DecisionReason;
   updatedInput?: { command: string };
 }
@@ -70,8 +72,9 @@ export interface SecurityCheckResult {
  * Decision reason for security checks.
  */
 export interface DecisionReason {
-  type: 'other' | 'risk' | 'pattern';
-  reason: string;
+  type: 'other' | 'risk' | 'pattern' | 'rule';
+  reason?: string;
+  rule?: string;
 }
 
 /**
@@ -86,6 +89,7 @@ export interface SecurityContext {
 
 /**
  * Security risk types.
+ * Original: eY in chunks.121.mjs:1508-1523
  */
 export enum SecurityRiskType {
   INCOMPLETE_COMMANDS = 1,
@@ -155,15 +159,19 @@ export interface CwdResetResult {
  */
 export interface HeredocExtractionResult {
   processedCommand: string;
-  heredocs: Map<string, string>;
+  heredocs: Map<string, HeredocInfo>;
 }
 
 /**
  * Heredoc information.
  */
 export interface HeredocInfo {
-  start: number;
+  operatorStartIndex: number;
+  operatorEndIndex: number;
+  contentStartIndex: number;
+  contentEndIndex: number;
   delimiter: string;
+  fullText: string;
 }
 
 // ============================================
@@ -174,8 +182,8 @@ export interface HeredocInfo {
  * Escape markers for tokenization.
  */
 export interface EscapeMarkers {
-  DOUBLE_QUOTE: string;
   SINGLE_QUOTE: string;
+  DOUBLE_QUOTE: string;
   NEW_LINE: string;
   ESCAPED_OPEN_PAREN: string;
   ESCAPED_CLOSE_PAREN: string;
@@ -201,9 +209,3 @@ export interface RedirectionExtractionResult {
  * Security checker function type.
  */
 export type SecurityChecker = (context: SecurityContext) => SecurityCheckResult;
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 类型/枚举已在声明处导出；移除重复聚合导出。

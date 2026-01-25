@@ -2,80 +2,209 @@
  * @claudecode/platform - Shell Tokenizer
  *
  * Shell command tokenization with quote and heredoc handling.
- * Reconstructed from chunks.147.mjs
+ * Reconstructed from chunks.121.mjs, chunks.147.mjs
  */
 
+import crypto from 'node:crypto';
 import type {
   ParseResult,
   ShellToken,
   HeredocExtractionResult,
   QuoteRemovalResult,
+  HeredocInfo,
+  EscapeMarkers,
 } from './types.js';
-import { getEscapeMarkers } from './constants.js';
+import {
+  HEREDOC_PREFIX,
+  HEREDOC_SUFFIX,
+  HEREDOC_EXTRACT_PATTERN,
+  getEscapeMarkers,
+} from './constants.js';
 
 // ============================================
 // Heredoc Handling
 // ============================================
 
 /**
- * Extract heredocs from command and replace with placeholders.
- * Original: IP0 in chunks.147.mjs
+ * Check if a position is inside quotes.
+ * Original: Tz7 in chunks.147.mjs:623-635
  */
-export function extractHeredocs(command: string): HeredocExtractionResult {
-  const heredocs = new Map<string, string>();
-  let processedCommand = command;
+export function isInsideQuotes(text: string, pos: number): boolean {
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
 
-  // Pattern to match heredoc: <<[-]'DELIM' or <<[-]DELIM
-  const heredocPattern = /<<-?\s*(?:'([A-Za-z_]\w*)'|"([A-Za-z_]\w*)"|\\([A-Za-z_]\w*)|([A-Za-z_]\w*))/g;
+  for (let i = 0; i < pos; i++) {
+    const char = text[i];
+    let escapeCount = 0;
+    for (let j = i - 1; j >= 0 && text[j] === '\\'; j--) {
+      escapeCount++;
+    }
 
-  let match;
-  let offset = 0;
+    if (escapeCount % 2 === 1) continue;
 
-  while ((match = heredocPattern.exec(command)) !== null) {
-    const delimiter = match[1] || match[2] || match[3] || match[4];
-    if (!delimiter) continue;
-
-    // Find the end of the heredoc
-    const afterHeredoc = command.slice(match.index + match[0].length);
-    const delimiterEndPattern = new RegExp(`\\n${delimiter}(?:\\s|$)`);
-    const endMatch = afterHeredoc.match(delimiterEndPattern);
-
-    if (endMatch && endMatch.index !== undefined) {
-      const heredocContent = afterHeredoc.slice(0, endMatch.index + 1 + delimiter.length);
-      const placeholder = `__HEREDOC_${heredocs.size}__`;
-      heredocs.set(placeholder, heredocContent);
-
-      // Replace in processed command
-      const fullHeredoc = match[0] + heredocContent;
-      const startIndex = match.index - offset;
-      processedCommand =
-        processedCommand.slice(0, startIndex) +
-        placeholder +
-        processedCommand.slice(startIndex + fullHeredoc.length);
-      offset += fullHeredoc.length - placeholder.length;
+    if (char === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote;
+    } else if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
     }
   }
+
+  return inSingleQuote || inDoubleQuote;
+}
+
+/**
+ * Check if a position is inside a comment on the same line.
+ * Original: Pz7 in chunks.147.mjs:637-652
+ */
+export function isInsideComment(text: string, pos: number): boolean {
+  const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+
+  for (let i = lineStart; i < pos; i++) {
+    const char = text[i];
+    let escapeCount = 0;
+    for (let j = i - 1; j >= lineStart && text[j] === '\\'; j--) {
+      escapeCount++;
+    }
+
+    if (escapeCount % 2 === 1) continue;
+
+    if (char === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote;
+    } else if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+    } else if (char === '#' && !inSingleQuote && !inDoubleQuote) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Extract heredocs from command and replace with placeholders.
+ * Original: IP0 in chunks.147.mjs:654-727
+ */
+export function extractHeredocs(command: string): HeredocExtractionResult {
+  const heredocs = new Map<string, HeredocInfo>();
+  if (!command.includes('<<')) {
+    return { processedCommand: command, heredocs };
+  }
+
+  const pattern = new RegExp(HEREDOC_EXTRACT_PATTERN.source, 'g');
+  const candidates: HeredocInfo[] = [];
+  let match;
+
+  while ((match = pattern.exec(command)) !== null) {
+    const startIndex = match.index;
+    if (isInsideQuotes(command, startIndex)) continue;
+    if (isInsideComment(command, startIndex)) continue;
+
+    const fullMatch = match[0];
+    const delimiter = match[3] || match[4] || match[1] || match[2]; // The word part of the delimiter
+    if (!delimiter) continue;
+    const operatorEndIndex = startIndex + fullMatch.length;
+
+    const nextNewLine = command.indexOf('\n', operatorEndIndex);
+    if (nextNewLine === -1) continue;
+
+    const contentStartIndex = operatorEndIndex + 1;
+    const lines = command.slice(contentStartIndex).split('\n');
+    let closingLineIndex = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i]?.trim() === delimiter) {
+        closingLineIndex = i;
+        break;
+      }
+    }
+
+    if (closingLineIndex === -1) continue;
+
+    const contentText = lines.slice(0, closingLineIndex + 1).join('\n');
+    const contentEndIndex = contentStartIndex + contentText.length;
+
+    candidates.push({
+      fullText: command.slice(startIndex, operatorEndIndex) + command.slice(nextNewLine, contentEndIndex),
+      delimiter,
+      operatorStartIndex: startIndex,
+      operatorEndIndex,
+      contentStartIndex: nextNewLine,
+      contentEndIndex,
+    });
+  }
+
+  if (candidates.length === 0) {
+    return { processedCommand: command, heredocs };
+  }
+
+  // Filter overlapping heredocs (nested heredocs)
+  const filtered = candidates.filter((c, i, all) => {
+    for (const other of all) {
+      if (c === other) continue;
+      if (
+        c.operatorStartIndex > other.contentStartIndex &&
+        c.operatorStartIndex < other.contentEndIndex
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    return { processedCommand: command, heredocs };
+  }
+
+  // Check for duplicate content start indices
+  if (new Set(filtered.map((c) => c.contentStartIndex)).size < filtered.length) {
+    return { processedCommand: command, heredocs };
+  }
+
+  // Sort by reverse position to replace from end to start
+  filtered.sort((a, b) => b.contentEndIndex - a.contentEndIndex);
+
+  const uid = crypto.randomBytes(8).toString('hex');
+  let processedCommand = command;
+
+  filtered.forEach((info, index) => {
+    const placeholderIdx = filtered.length - 1 - index;
+    const placeholder = `${HEREDOC_PREFIX}${placeholderIdx}_${uid}${HEREDOC_SUFFIX}`;
+    heredocs.set(placeholder, info);
+
+    processedCommand =
+      processedCommand.slice(0, info.operatorStartIndex) +
+      placeholder +
+      processedCommand.slice(info.operatorEndIndex, info.contentStartIndex) +
+      processedCommand.slice(info.contentEndIndex);
+  });
 
   return { processedCommand, heredocs };
 }
 
 /**
+ * Helper to replace placeholders in a string.
+ * Original: Sz7 in chunks.147.mjs:729-733
+ */
+function replaceHeredocPlaceholders(text: string, heredocs: Map<string, HeredocInfo>): string {
+  let result = text;
+  for (const [placeholder, info] of heredocs) {
+    result = result.replaceAll(placeholder, info.fullText);
+  }
+  return result;
+}
+
+/**
  * Reconstruct heredocs in token array.
- * Original: YJ9 in chunks.147.mjs
+ * Original: YJ9 in chunks.147.mjs:735-738
  */
 export function reconstructHeredocs(
   tokens: string[],
-  heredocs: Map<string, string>
+  heredocs: Map<string, HeredocInfo>
 ): string[] {
   if (heredocs.size === 0) return tokens;
-
-  return tokens.map((token) => {
-    let result = token;
-    for (const [placeholder, content] of heredocs) {
-      result = result.replace(placeholder, content);
-    }
-    return result;
-  });
+  return tokens.map((t) => replaceHeredocPlaceholders(t, heredocs));
 }
 
 // ============================================
@@ -99,7 +228,6 @@ export function removeQuotes(
   for (let i = 0; i < command.length; i++) {
     const char = command[i]!;
 
-    // Handle escaped characters
     if (isEscaped) {
       isEscaped = false;
       if (!inSingleQuotes) withDoubleQuotes += char;
@@ -107,7 +235,6 @@ export function removeQuotes(
       continue;
     }
 
-    // Mark escape
     if (char === '\\') {
       isEscaped = true;
       if (!inSingleQuotes) withDoubleQuotes += char;
@@ -115,17 +242,16 @@ export function removeQuotes(
       continue;
     }
 
-    // Toggle quote modes
     if (char === "'" && !inDoubleQuotes) {
       inSingleQuotes = !inSingleQuotes;
       continue;
     }
+
     if (char === '"' && !inSingleQuotes) {
       inDoubleQuotes = !inDoubleQuotes;
       if (!preserveDoubleQuotes) continue;
     }
 
-    // Add character respecting quote modes
     if (!inSingleQuotes) withDoubleQuotes += char;
     if (!inSingleQuotes && !inDoubleQuotes) fullyUnquoted += char;
   }
@@ -144,7 +270,6 @@ export function hasUnescapedChar(text: string, character: string): boolean {
 
   let pos = 0;
   while (pos < text.length) {
-    // Skip escaped pairs
     if (text[pos] === '\\' && pos + 1 < text.length) {
       pos += 2;
       continue;
@@ -160,17 +285,34 @@ export function hasUnescapedChar(text: string, character: string): boolean {
 // ============================================
 
 /**
- * Simple shell command tokenizer.
- * This is a simplified implementation; the original uses shell-parse library.
- * Original: bY in chunks.20.mjs:2044-2057
+ * Wrapper for shell parsing.
+ * Reconstructed from chunks.20.mjs:2044-2057
  */
-export function parseShellCommand(command: string): ParseResult {
+export function parseShellCommand(
+  command: string,
+  handler?: (v: string) => string
+): ParseResult {
   try {
+    // This is a manual implementation of shell-parse behavior
     const tokens: ShellToken[] = [];
     let current = '';
     let inSingleQuote = false;
     let inDoubleQuote = false;
     let isEscaped = false;
+
+    const flush = () => {
+      if (current.length > 0) {
+        let val = current;
+        if (handler) {
+          // Simplistic handler simulation for variable substitution
+          // Original: (I) => `$${I}`
+          // We won't fully replicate the library's expansion logic here,
+          // but we ensure strings are pushed.
+        }
+        tokens.push(val);
+        current = '';
+      }
+    };
 
     for (let i = 0; i < command.length; i++) {
       const char = command[i]!;
@@ -200,34 +342,36 @@ export function parseShellCommand(command: string): ParseResult {
       }
 
       if (!inSingleQuote && !inDoubleQuote) {
-        // Check for operators
+        if (/\s/.test(char)) {
+          flush();
+          continue;
+        }
+
+        // Operators
         const twoChar = command.slice(i, i + 2);
-        if (twoChar === '&&' || twoChar === '||' || twoChar === '>>' || twoChar === '>&') {
-          if (current.trim()) tokens.push(current.trim());
+        if (['&&', '||', '>>', '>&', ';;'].includes(twoChar)) {
+          flush();
           tokens.push({ op: twoChar });
-          current = '';
           i++;
           continue;
         }
 
-        if (char === '|' || char === ';' || char === '>' || char === '<' || char === '&') {
-          if (current.trim()) tokens.push(current.trim());
+        if (['|', ';', '>', '<', '&', '(', ')'].includes(char)) {
+          flush();
           tokens.push({ op: char });
-          current = '';
           continue;
         }
 
-        if (/\s/.test(char)) {
-          if (current.trim()) tokens.push(current.trim());
-          current = '';
-          continue;
+        // Glob detection (very basic)
+        if (['*', '?'].includes(char)) {
+          // In a real shell parser, globs are identified as such
+          // For our purposes, we'll keep them in the string or mark as glob if alone
         }
       }
 
       current += char;
     }
-
-    if (current.trim()) tokens.push(current.trim());
+    flush();
 
     return { success: true, tokens };
   } catch (error) {
@@ -243,33 +387,79 @@ export function parseShellCommand(command: string): ParseResult {
  * Original: ZfA in chunks.147.mjs:765-817
  */
 export function tokenizeCommand(command: string): string[] {
-  const escapeMarkers = getEscapeMarkers();
+  const markers = getEscapeMarkers();
   const { processedCommand, heredocs } = extractHeredocs(command);
 
-  // Normalize line continuations
-  const normalizedCommand = processedCommand.replace(/\\+\n/g, (seq) => {
-    const escapedCount = seq.length - 1;
-    return escapedCount % 2 === 1 ? '\\'.repeat(escapedCount - 1) : seq;
+  // Normalize line continuations: Original ZfA regex: /\\+\n/g
+  const normalized = processedCommand.replace(/\\+\n/g, (match) => {
+    const backslashCount = match.length - 1;
+    return backslashCount % 2 === 1 ? '\\'.repeat(backslashCount - 1) : match;
   });
 
-  // Parse the command
-  const parseResult = parseShellCommand(normalizedCommand);
+  // Prepare for parsing by masking special characters
+  const masked = normalized
+    .replaceAll('"', `"${markers.DOUBLE_QUOTE}`)
+    .replaceAll("'", `'${markers.SINGLE_QUOTE}`)
+    .replaceAll('\n', `\n${markers.NEW_LINE}\n`)
+    .replaceAll('\\(', markers.ESCAPED_OPEN_PAREN)
+    .replaceAll('\\)', markers.ESCAPED_CLOSE_PAREN);
 
+  const parseResult = parseShellCommand(masked, (v) => `$${v}`);
   if (!parseResult.success || !parseResult.tokens) {
-    // Fall back to single-token array
     return [command];
   }
 
-  // Filter out operators and flatten to string array
-  const tokens: string[] = [];
-  for (const token of parseResult.tokens) {
-    if (typeof token === 'string') {
-      tokens.push(token);
-    }
-  }
+  const rawTokens = parseResult.tokens;
+  if (rawTokens.length === 0) return [];
 
-  // Reconstruct heredocs
-  return reconstructHeredocs(tokens, heredocs);
+  try {
+    const intermediate: (ShellToken | null)[] = [];
+    for (const t of rawTokens) {
+      if (typeof t === 'string') {
+        const last = intermediate[intermediate.length - 1];
+        if (intermediate.length > 0 && typeof last === 'string') {
+          if (t === markers.NEW_LINE) {
+            intermediate.push(null);
+          } else {
+            intermediate[intermediate.length - 1] = last + ' ' + t;
+          }
+          continue;
+        }
+      } else if (typeof t === 'object' && t !== null && 'op' in t && t.op === 'glob') {
+        const last = intermediate[intermediate.length - 1];
+        if (intermediate.length > 0 && typeof last === 'string') {
+          intermediate[intermediate.length - 1] = last + ' ' + (t as any).pattern;
+          continue;
+        }
+      }
+      intermediate.push(t);
+    }
+
+    const finalTokens = intermediate
+      .map((t) => {
+        if (t === null) return null;
+        if (typeof t === 'string') return t;
+        if ('comment' in t) return '#' + t.comment;
+        if (typeof t === 'object' && t !== null && 'op' in t) {
+          if (t.op === 'glob') return (t as any).pattern;
+          return t.op as string;
+        }
+        return null;
+      })
+      .filter((t): t is string => t !== null)
+      .map((t) => {
+        return t
+          .replaceAll(markers.SINGLE_QUOTE, "'")
+          .replaceAll(markers.DOUBLE_QUOTE, '"')
+          .replaceAll(`\n${markers.NEW_LINE}\n`, '\n')
+          .replaceAll(markers.ESCAPED_OPEN_PAREN, '\\(')
+          .replaceAll(markers.ESCAPED_CLOSE_PAREN, '\\)');
+      });
+
+    return reconstructHeredocs(finalTokens, heredocs);
+  } catch {
+    return [command];
+  }
 }
 
 // ============================================
@@ -319,9 +509,3 @@ export function isMalformedTokens(tokens: ShellToken[]): boolean {
 
   return false;
 }
-
-// ============================================
-// Export
-// ============================================
-
-// NOTE: 函数已在声明处导出；移除重复聚合导出。
