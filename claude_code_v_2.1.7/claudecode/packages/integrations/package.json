@@ -38,13 +38,14 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@claudecode/shared": "workspace:*",
     "@claudecode/core": "workspace:*",
     "@claudecode/platform": "workspace:*",
-    "zod": "^3.22.4",
-    "semver": "^7.5.4",
+    "@claudecode/shared": "workspace:*",
     "ink": "^4.4.1",
-    "react": "^18.2.0"
+    "react": "^18.2.0",
+    "semver": "^7.5.4",
+    "vscode-jsonrpc": "^8.2.1",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

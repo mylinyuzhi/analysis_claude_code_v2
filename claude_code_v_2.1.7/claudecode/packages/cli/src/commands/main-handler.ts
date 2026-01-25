@@ -29,7 +29,12 @@ import {
   connectMcpServer,
   getToolSearchMode
 } from '../mcp/state.js';
-import type { McpServerConfig as StateMcpServerConfig } from '@claudecode/integrations';
+import {
+  initializeLspServerManager,
+  shutdownLspServerManager,
+  type McpServerConfig as StateMcpServerConfig,
+} from '@claudecode/integrations';
+import { getAllLspServers } from '@claudecode/plugin';
 import {
   getCommandRegistry,
   parseSlashCommandInput,
@@ -273,7 +278,10 @@ export async function initializeConfig(): Promise<void> {
     configureWindowsShell(); // F7Q()
     
     // Phase 12: Register shutdown hooks
-    registerShutdownHook(shutdownLspManager); // C6(Sy2)
+    registerShutdownHook(shutdownLspServerManager); // C6(Sy2)
+
+    // Phase 12.5: Initialize LSP Manager
+    initializeLspServerManager(() => process.cwd(), getAllLspServers);
 
     // Phase 13: MCP initialization
     if (isMcpCliMode()) { // jJ()
@@ -387,10 +395,6 @@ function configureWindowsShell(): void {
 const shutdownHooks = new Set<() => Promise<void> | void>();
 function registerShutdownHook(hook: () => Promise<void> | void): void {
   shutdownHooks.add(hook);
-}
-
-async function shutdownLspManager(): Promise<void> {
-  logDebug('Shutting down LSP manager');
 }
 
 function isMcpCliMode(): boolean {
@@ -522,6 +526,15 @@ function setupGracefulShutdown(): void {
 }
 
 async function cleanup(): Promise<void> {
+  // Execute all registered shutdown hooks
+  for (const hook of shutdownHooks) {
+    try {
+      await hook();
+    } catch (err) {
+      logDebug(`Shutdown hook failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  
   resetMcpState();
   cleanupCursor();
 }

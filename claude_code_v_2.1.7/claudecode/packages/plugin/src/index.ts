@@ -131,3 +131,13 @@ export {
   // Summary
   getPluginStateSummary,
 } from './settings.js';
+
+// ============================================
+// LSP Configuration
+// ============================================
+
+export {
+  expandLspServerConfig,
+  loadLspServersFromPlugin,
+  getAllLspServers,
+} from './lsp-config.js';

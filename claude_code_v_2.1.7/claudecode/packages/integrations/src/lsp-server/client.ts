@@ -5,7 +5,8 @@
  * Reconstructed from chunks.114.mjs:1580-1773
  */
 
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, type ChildProcess } from 'child_process';
+import * as rpc from 'vscode-jsonrpc/node.js';
 import type {
   LspClient,
   LspClientStartOptions,
@@ -24,277 +25,270 @@ import { LSP_CONSTANTS } from './types.js';
  * Original: Dy2 (createLspClient) in chunks.114.mjs:1580-1773
  *
  * Uses JSON-RPC over stdio to communicate with LSP server.
+ * Naming restored for readability.
  */
 export function createLspClient(serverName: string): LspClient {
-  let childProcess: ChildProcess | undefined;
+  let process: ChildProcess | undefined;
+  let connection: rpc.MessageConnection | undefined;
   let capabilities: LspServerCapabilities | undefined;
   let isInitialized = false;
   let hasError = false;
   let lastError: Error | undefined;
   let isShuttingDown = false;
 
-  // Message ID counter for JSON-RPC
-  let messageId = 0;
-
-  // Pending requests map
-  const pendingRequests = new Map<
-    number,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
-  >();
-
-  // Notification handlers
-  const notificationHandlers = new Map<string, (params: unknown) => void>();
-  const requestHandlers = new Map<
-    string,
-    (params: unknown) => unknown | Promise<unknown>
-  >();
-
-  // Buffer for incomplete messages
-  let buffer = '';
+  // Queued handlers for when connection is not yet ready
+  // Original: I (notification) and D (request) arrays
+  const queuedNotificationHandlers: Array<{ method: string; handler: (params: any) => void }> = [];
+  const queuedRequestHandlers: Array<{ method: string; handler: (params: any) => any }> = [];
 
   function checkError(): void {
-    if (hasError && lastError) {
-      throw lastError;
-    }
-  }
-
-  function sendMessage(message: object): void {
-    if (!childProcess?.stdin) {
-      throw new Error('LSP client not started');
-    }
-    const content = JSON.stringify(message);
-    const header = `Content-Length: ${Buffer.byteLength(content)}\r\n\r\n`;
-    childProcess.stdin.write(header + content);
-  }
-
-  function handleMessage(message: {
-    id?: number;
-    method?: string;
-    result?: unknown;
-    error?: { code: number; message: string };
-    params?: unknown;
-  }): void {
-    if (message.id !== undefined && pendingRequests.has(message.id)) {
-      // Response to a request
-      const pending = pendingRequests.get(message.id)!;
-      pendingRequests.delete(message.id);
-
-      if (message.error) {
-        const error = new Error(message.error.message);
-        (error as any).code = message.error.code;
-        pending.reject(error);
-      } else {
-        pending.resolve(message.result);
-      }
-    } else if (message.method) {
-      // Notification or request from server
-      if (message.id !== undefined) {
-        // Request from server
-        const handler = requestHandlers.get(message.method);
-        if (handler) {
-          Promise.resolve(handler(message.params)).then(
-            (result) => {
-              sendMessage({ jsonrpc: '2.0', id: message.id, result });
-            },
-            (error) => {
-              sendMessage({
-                jsonrpc: '2.0',
-                id: message.id,
-                error: { code: -32603, message: error.message },
-              });
-            }
-          );
-        } else {
-          sendMessage({
-            jsonrpc: '2.0',
-            id: message.id,
-            error: { code: -32601, message: `Method not found: ${message.method}` },
-          });
-        }
-      } else {
-        // Notification from server
-        const handler = notificationHandlers.get(message.method);
-        if (handler) {
-          handler(message.params);
-        }
-      }
-    }
-  }
-
-  function parseMessages(data: string): void {
-    buffer += data;
-
-    while (true) {
-      // Look for Content-Length header
-      const headerEnd = buffer.indexOf('\r\n\r\n');
-      if (headerEnd === -1) break;
-
-      const header = buffer.substring(0, headerEnd);
-      const contentLengthMatch = header.match(/Content-Length:\s*(\d+)/i);
-      if (!contentLengthMatch) {
-        // Invalid header, skip
-        buffer = buffer.substring(headerEnd + 4);
-        continue;
-      }
-
-      const captured = contentLengthMatch[1];
-      if (!captured) {
-        buffer = buffer.substring(headerEnd + 4);
-        continue;
-      }
-      const contentLength = parseInt(captured, 10);
-      const messageStart = headerEnd + 4;
-      const messageEnd = messageStart + contentLength;
-
-      if (buffer.length < messageEnd) {
-        // Incomplete message, wait for more data
-        break;
-      }
-
-      const messageContent = buffer.substring(messageStart, messageEnd);
-      buffer = buffer.substring(messageEnd);
-
-      try {
-        const message = JSON.parse(messageContent);
-        handleMessage(message);
-      } catch (e) {
-        console.error(`Failed to parse LSP message: ${e}`);
-      }
+    // Original: W
+    if (hasError) {
+      throw lastError || new Error(`LSP server ${serverName} failed to start`);
     }
   }
 
   return {
+    get capabilities() {
+      return capabilities;
+    },
+
+    get isInitialized() {
+      return isInitialized;
+    },
+
     async start(command: string, args: string[], options: LspClientStartOptions = {}) {
-      // Spawn LSP server process
-      childProcess = spawn(command, args, {
-        env: { ...process.env, ...options.env },
-        cwd: options.cwd,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+      try {
+        // Original: chunks.114.mjs:1633
+        process = spawn(command, args, {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: options.env ? { ...globalThis.process.env, ...options.env } as any : undefined,
+          cwd: options.cwd,
+        });
 
-      childProcess.on('error', (error) => {
-        if (!isShuttingDown) {
-          hasError = true;
-          lastError = error;
-          console.error(`LSP server ${serverName} spawn error: ${error.message}`);
+        if (!process.stdout || !process.stdin) {
+          throw new Error('LSP server process stdio not available');
         }
-      });
 
-      childProcess.on('exit', (code, signal) => {
-        if (!isShuttingDown) {
-          isInitialized = false;
-          console.log(
-            `LSP server ${serverName} exited with code ${code}, signal ${signal}`
-          );
+        const cp = process;
+
+        // Wait for process to spawn or fail
+        await new Promise<void>((resolve, reject) => {
+          const onSpawn = () => {
+            cleanup();
+            resolve();
+          };
+          const onError = (err: Error) => {
+            cleanup();
+            reject(err);
+          };
+          const cleanup = () => {
+            cp.removeListener('spawn', onSpawn);
+            cp.removeListener('error', onError);
+          };
+          cp.once('spawn', onSpawn);
+          cp.once('error', onError);
+        });
+
+        // Log stderr
+        if (process.stderr) {
+          process.stderr.on('data', (data: Buffer) => {
+            const output = data.toString().trim();
+            if (output) {
+              console.log(`[LSP SERVER ${serverName}] ${output}`);
+            }
+          });
         }
-      });
 
-      childProcess.stdout?.on('data', (data: Buffer) => {
-        parseMessages(data.toString());
-      });
+        // Handle process events
+        process.on('error', (err) => {
+          if (!isShuttingDown) {
+            hasError = true;
+            lastError = err;
+            console.error(`LSP server ${serverName} failed to start: ${err.message}`);
+          }
+        });
 
-      childProcess.stderr?.on('data', (data: Buffer) => {
-        console.error(`[LSP ${serverName} stderr]: ${data.toString()}`);
-      });
+        process.on('exit', (code, signal) => {
+          if (code !== 0 && code !== null && !isShuttingDown) {
+            isInitialized = false;
+            hasError = false;
+            lastError = undefined;
+            console.error(`LSP server ${serverName} crashed with exit code ${code}`);
+          }
+        });
 
-      console.log(`LSP client started for ${serverName}`);
+        if (process.stdin) {
+          process.stdin.on('error', (err) => {
+            if (!isShuttingDown) {
+              console.log(`LSP server ${serverName} stdin error: ${err.message}`);
+            }
+          });
+        }
+
+        // Setup JSON-RPC connection
+        const reader = new rpc.StreamMessageReader(process.stdout);
+        const writer = new rpc.StreamMessageWriter(process.stdin);
+        connection = rpc.createMessageConnection(reader, writer);
+
+        connection.onError(([error]) => {
+          if (!isShuttingDown) {
+            hasError = true;
+            lastError = error instanceof Error ? error : new Error(String(error));
+            console.error(`LSP server ${serverName} connection error: ${lastError.message}`);
+          }
+        });
+
+        connection.onClose(() => {
+          if (!isShuttingDown) {
+            isInitialized = false;
+            console.log(`LSP server ${serverName} connection closed`);
+          }
+        });
+
+        connection.listen();
+
+        // Enable tracing (Original: Trace.Verbose)
+        connection.trace(rpc.Trace.Verbose, {
+          log: (msg) => {
+            console.log(`[LSP PROTOCOL ${serverName}] ${msg}`);
+          },
+        }).catch((err) => {
+          console.log(`Failed to enable tracing for ${serverName}: ${err.message}`);
+        });
+
+        // Apply queued handlers
+        for (const { method, handler } of queuedNotificationHandlers) {
+          connection.onNotification(method, handler);
+          console.log(`Applied queued notification handler for ${serverName}.${method}`);
+        }
+        queuedNotificationHandlers.length = 0;
+
+        for (const { method, handler } of queuedRequestHandlers) {
+          connection.onRequest(method, handler);
+          console.log(`Applied queued request handler for ${serverName}.${method}`);
+        }
+        queuedRequestHandlers.length = 0;
+
+        console.log(`LSP client started for ${serverName}`);
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error(`LSP server ${serverName} failed to start: ${error.message}`);
+        throw error;
+      }
     },
 
     async initialize(params: LspInitializeParams): Promise<LspInitializeResult> {
-      if (!childProcess) {
-        throw new Error('LSP client not started');
-      }
+      if (!connection) throw new Error('LSP client not started');
       checkError();
-
       try {
-        const result = (await this.sendRequest(
-          LSP_CONSTANTS.METHODS.INITIALIZE,
-          params
-        )) as LspInitializeResult;
+        const result = (await connection.sendRequest('initialize', params)) as LspInitializeResult;
         capabilities = result.capabilities;
-        await this.sendNotification(LSP_CONSTANTS.METHODS.INITIALIZED, {});
+        await connection.sendNotification('initialized', {});
         isInitialized = true;
         console.log(`LSP server ${serverName} initialized`);
         return result;
-      } catch (error) {
-        throw new Error(
-          `LSP server ${serverName} initialize failed: ${(error as Error).message}`
-        );
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error(`LSP server ${serverName} initialize failed: ${error.message}`);
+        throw error;
       }
     },
 
     async sendRequest<T>(method: string, params?: unknown): Promise<T> {
-      if (!childProcess) {
-        throw new Error('LSP client not started');
-      }
+      if (!connection) throw new Error('LSP client not started');
       checkError();
-      if (!isInitialized && method !== LSP_CONSTANTS.METHODS.INITIALIZE) {
+      if (!isInitialized && method !== 'initialize') {
         throw new Error('LSP server not initialized');
       }
-
-      const id = ++messageId;
-      const message = { jsonrpc: '2.0', id, method, params };
-
-      return new Promise<T>((resolve, reject) => {
-        pendingRequests.set(id, {
-          resolve: resolve as (value: unknown) => void,
-          reject,
-        });
-        sendMessage(message);
-      });
+      try {
+        return (await connection.sendRequest(method, params)) as T;
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error(`LSP server ${serverName} request ${method} failed: ${error.message}`);
+        throw error;
+      }
     },
 
     async sendNotification(method: string, params?: unknown): Promise<void> {
-      if (!childProcess) {
-        throw new Error('LSP client not started');
+      if (!connection) throw new Error('LSP client not started');
+      checkError();
+      try {
+        await connection.sendNotification(method, params);
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error(`LSP server ${serverName} notification ${method} failed: ${error.message}`);
+        console.log(`Notification ${method} failed but continuing`);
+      }
+    },
+
+    onNotification(method: string, handler: (params: any) => void) {
+      if (!connection) {
+        queuedNotificationHandlers.push({ method, handler });
+        console.log(`Queued notification handler for ${serverName}.${method} (connection not ready)`);
+        return;
       }
       checkError();
-      sendMessage({ jsonrpc: '2.0', method, params });
+      connection.onNotification(method, handler);
     },
 
-    onNotification(method: string, handler: (params: unknown) => void): void {
-      notificationHandlers.set(method, handler);
-    },
-
-    onRequest<T>(
-      method: string,
-      handler: (params: unknown) => T | Promise<T>
-    ): void {
-      requestHandlers.set(method, handler);
+    onRequest(method: string, handler: (params: any) => any) {
+      if (!connection) {
+        queuedRequestHandlers.push({ method, handler });
+        console.log(`Queued request handler for ${serverName}.${method} (connection not ready)`);
+        return;
+      }
+      checkError();
+      connection.onRequest(method, handler);
     },
 
     async stop(): Promise<void> {
+      let stopError: Error | undefined;
       isShuttingDown = true;
       try {
-        if (childProcess && isInitialized) {
-          await this.sendRequest(LSP_CONSTANTS.METHODS.SHUTDOWN, null);
-          await this.sendNotification(LSP_CONSTANTS.METHODS.EXIT, null);
+        if (connection) {
+          await connection.sendRequest('shutdown', null);
+          await connection.sendNotification('exit', null);
         }
-      } catch (error) {
-        // Ignore errors during shutdown
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error(`LSP server ${serverName} stop failed: ${error.message}`);
+        stopError = error;
       } finally {
-        if (childProcess) {
-          childProcess.removeAllListeners();
-          childProcess.kill();
-          childProcess = undefined;
+        if (connection) {
+          try {
+            connection.dispose();
+          } catch (err: any) {
+            console.log(`Connection disposal failed for ${serverName}: ${err.message}`);
+          }
+          connection = undefined;
+        }
+        if (process) {
+          process.removeAllListeners('error');
+          process.removeAllListeners('exit');
+          if (process.stdin) process.stdin.removeAllListeners('error');
+          if (process.stderr) process.stderr.removeAllListeners('data');
+          try {
+            process.kill();
+          } catch (err: any) {
+            console.log(`Process kill failed for ${serverName} (may already be dead): ${err.message}`);
+          }
+          process = undefined;
         }
         isInitialized = false;
         capabilities = undefined;
         isShuttingDown = false;
-        pendingRequests.clear();
+        if (stopError) {
+          hasError = true;
+          lastError = stopError;
+        }
         console.log(`LSP client stopped for ${serverName}`);
       }
-    },
-
-    get isInitialized(): boolean {
-      return isInitialized;
-    },
-
-    get capabilities(): LspServerCapabilities | undefined {
-      return capabilities;
+      if (stopError) throw stopError;
     },
   };
 }
+
 
 // ============================================
 // Export

@@ -235,6 +235,171 @@ export interface LspServerCapabilities {
 }
 
 // ============================================
+// Protocol Types
+// ============================================
+
+/**
+ * LSP Position.
+ */
+export interface LspPosition {
+  line: number;
+  character: number;
+}
+
+/**
+ * LSP Range.
+ */
+export interface LspRange {
+  start: LspPosition;
+  end: LspPosition;
+}
+
+/**
+ * LSP Location.
+ */
+export interface LspLocation {
+  uri: string;
+  range: LspRange;
+}
+
+// ============================================
+// Diagnostics
+// ============================================
+
+/**
+ * LSP Diagnostic.
+ */
+export interface LspDiagnostic {
+  message: string;
+  severity: string;
+  range: LspRange;
+  source?: string;
+  code?: string;
+}
+
+/**
+ * LSP Diagnostic file.
+ */
+export interface LspDiagnosticFile {
+  uri: string;
+  diagnostics: LspDiagnostic[];
+}
+
+// ============================================
+// Operation Types
+// ============================================
+
+/**
+ * LSP operation type.
+ */
+export type LspOperation =
+  | 'goToDefinition'
+  | 'findReferences'
+  | 'hover'
+  | 'documentSymbol'
+  | 'workspaceSymbol'
+  | 'goToImplementation'
+  | 'prepareCallHierarchy'
+  | 'incomingCalls'
+  | 'outgoingCalls';
+
+/**
+ * LSP operation input.
+ */
+export interface LspOperationInput {
+  operation: LspOperation;
+  line: number;
+  character: number;
+  [key: string]: unknown;
+}
+
+/**
+ * LSP operation result.
+ */
+export interface LspOperationResult {
+  operation: LspOperation;
+  result: unknown;
+  [key: string]: unknown;
+}
+
+/**
+ * Generic LSP request.
+ */
+export interface LspRequest {
+  method: string;
+  params: unknown;
+}
+
+/**
+ * LSP LocationLink.
+ */
+export interface LspLocationLink {
+  targetUri: string;
+  targetRange: LspRange;
+  targetSelectionRange?: LspRange;
+  originSelectionRange?: LspRange;
+}
+
+/**
+ * LSP Hover Result.
+ */
+export interface LspHoverResult {
+  contents: string | { kind: string; value: string } | Array<string | { kind: string; value: string }>;
+  range?: LspRange;
+}
+
+/**
+ * LSP Document Symbol.
+ */
+export interface LspDocumentSymbol {
+  name: string;
+  kind: number;
+  range: LspRange;
+  selectionRange: LspRange;
+  detail?: string;
+  children?: LspDocumentSymbol[];
+}
+
+/**
+ * LSP Symbol Information.
+ */
+export interface LspSymbolInformation {
+  name: string;
+  kind: number;
+  location: LspLocation;
+  containerName?: string;
+}
+
+/**
+ * LSP Call Hierarchy Item.
+ */
+export interface LspCallHierarchyItem {
+  name: string;
+  kind: number;
+  uri: string;
+  range: LspRange;
+  selectionRange: LspRange;
+  detail?: string;
+  data?: unknown;
+}
+
+/**
+ * LSP Incoming Call.
+ */
+export interface LspIncomingCall {
+  from: LspCallHierarchyItem;
+  fromRanges: LspRange[];
+}
+
+/**
+ * LSP Outgoing Call.
+ */
+export interface LspOutgoingCall {
+  to: LspCallHierarchyItem;
+  fromRanges: LspRange[];
+}
+
+// ============================================
 // Error Types
 // ============================================
 
@@ -255,9 +420,10 @@ export interface LspConfigError {
 
 export const LSP_CONSTANTS = {
   // Retry configuration
+  // Original: P$0 = 3, Rg5 = -32801, _g5 = 500
   MAX_RETRIES: 3,
   CONTENT_MODIFIED_ERROR_CODE: -32801,
-  BASE_RETRY_DELAY: 100, // ms
+  BASE_RETRY_DELAY: 500, // ms
 
   // Default configuration
   DEFAULT_MAX_RESTARTS: 3,

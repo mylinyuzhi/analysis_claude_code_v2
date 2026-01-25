@@ -58,6 +58,12 @@ export { GrepTool } from './grep.js';
 export { BashTool } from './bash.js';
 
 // ============================================
+// LSP Integration Tools
+// ============================================
+
+export { LspTool } from './lsp.js';
+
+// ============================================
 // Web Tools
 // ============================================
 
@@ -113,6 +119,7 @@ import { EditTool } from './edit.js';
 import { GlobTool } from './glob.js';
 import { GrepTool } from './grep.js';
 import { BashTool } from './bash.js';
+import { LspTool } from './lsp.js';
 import { WebFetchTool } from './web-fetch.js';
 import { TaskTool } from './task.js';
 import { TodoWriteTool } from './todo-write.js';
@@ -134,6 +141,7 @@ export const builtinTools: Array<Tool<any, any>> = [
   GlobTool,
   GrepTool,
   BashTool,
+  LspTool,
   WebFetchTool,
   WebSearchTool,
   TaskTool,
@@ -166,6 +174,7 @@ export function getToolGroupings(): ToolGroupings {
         TaskTool.name,
         ReadTool.name,
         WebFetchTool.name,
+        LspTool.name,
       ]),
     },
     EDIT: {

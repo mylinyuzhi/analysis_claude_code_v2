@@ -647,6 +647,46 @@ export interface SkillOutput {
 }
 
 // ============================================
+// LSP Tool Types
+// ============================================
+
+/**
+ * LSP tool operations.
+ */
+export type LspOperation =
+  | 'goToDefinition'
+  | 'findReferences'
+  | 'hover'
+  | 'documentSymbol'
+  | 'workspaceSymbol'
+  | 'goToImplementation'
+  | 'prepareCallHierarchy'
+  | 'incomingCalls'
+  | 'outgoingCalls';
+
+/**
+ * LSP tool input.
+ */
+export interface LspInput {
+  operation: LspOperation;
+  filePath: string;
+  line: number;
+  character: number;
+  [key: string]: unknown;
+}
+
+/**
+ * LSP tool output.
+ */
+export interface LspOutput {
+  operation: LspOperation;
+  result: string;
+  filePath: string;
+  resultCount?: number;
+  fileCount?: number;
+}
+
+// ============================================
 // Tool Name Constants
 // ============================================
 

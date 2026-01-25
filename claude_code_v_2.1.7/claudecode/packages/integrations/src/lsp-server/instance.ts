@@ -22,6 +22,7 @@ import { createLspClient } from './client.js';
 
 /**
  * Default LSP client capabilities.
+ * Original: chunks.114.mjs:1809-1852
  */
 const DEFAULT_CAPABILITIES: LspClientCapabilities = {
   workspace: {
@@ -85,14 +86,15 @@ export function createLspServerInstance(
   getCwd: () => string
 ): LspServerInstance {
   // Validate unimplemented features
+  // Original: chunks.114.mjs:1785-1787
   if (config.restartOnCrash !== undefined) {
-    throw new Error(`LSP server '${serverName}': restartOnCrash is not yet implemented`);
+    throw new Error(`LSP server '${serverName}': restartOnCrash is not yet implemented. Remove this field from the configuration.`);
   }
   if (config.startupTimeout !== undefined) {
-    throw new Error(`LSP server '${serverName}': startupTimeout is not yet implemented`);
+    throw new Error(`LSP server '${serverName}': startupTimeout is not yet implemented. Remove this field from the configuration.`);
   }
   if (config.shutdownTimeout !== undefined) {
-    throw new Error(`LSP server '${serverName}': shutdownTimeout is not yet implemented`);
+    throw new Error(`LSP server '${serverName}': shutdownTimeout is not yet implemented. Remove this field from the configuration.`);
   }
 
   const client = createLspClient(serverName);
@@ -101,6 +103,10 @@ export function createLspServerInstance(
   let lastError: Error | undefined;
   let restartCount = 0;
 
+  /**
+   * Start the LSP server.
+   * Original: X in chunks.114.mjs:1791-1858
+   */
   async function start(): Promise<void> {
     if (state === 'running' || state === 'starting') {
       return;
@@ -133,10 +139,16 @@ export function createLspServerInstance(
     } catch (error) {
       state = 'error';
       lastError = error as Error;
+      // Original: e(E) (logError)
+      console.error(error);
       throw error;
     }
   }
 
+  /**
+   * Stop the LSP server.
+   * Original: I in chunks.114.mjs:1859-1866
+   */
   async function stop(): Promise<void> {
     if (state === 'stopped' || state === 'stopping') {
       return;
@@ -150,12 +162,16 @@ export function createLspServerInstance(
     } catch (error) {
       state = 'error';
       lastError = error as Error;
+      console.error(error);
       throw error;
     }
   }
 
+  /**
+   * Restart the LSP server.
+   * Original: D in chunks.114.mjs:1867-1886
+   */
   async function restart(): Promise<void> {
-    // Step 1: Stop the server
     try {
       await stop();
     } catch (error) {
@@ -164,18 +180,15 @@ export function createLspServerInstance(
       );
     }
 
-    // Step 2: Increment restart counter
     restartCount++;
     const maxRestarts = config.maxRestarts ?? LSP_CONSTANTS.DEFAULT_MAX_RESTARTS;
 
-    // Step 3: Check if max restarts exceeded
     if (restartCount > maxRestarts) {
       throw new Error(
         `Max restart attempts (${maxRestarts}) exceeded for server '${serverName}'`
       );
     }
 
-    // Step 4: Start the server again
     try {
       await start();
     } catch (error) {
@@ -185,16 +198,26 @@ export function createLspServerInstance(
     }
   }
 
+  /**
+   * Check if the server is healthy.
+   * Original: W in chunks.114.mjs:1888-1890
+   */
   function isHealthy(): boolean {
     return state === 'running' && client.isInitialized;
   }
 
+  /**
+   * Send a request to the LSP server with retry logic.
+   * Original: K in chunks.114.mjs:1891-1911
+   */
   async function sendRequest<T>(method: string, params?: unknown): Promise<T> {
     if (!isHealthy()) {
       const errorMsg = `Cannot send request to LSP server '${serverName}': server is ${state}${
         lastError ? `, last error: ${lastError.message}` : ''
       }`;
-      throw new Error(errorMsg);
+      const error = new Error(errorMsg);
+      console.error(error);
+      throw error;
     }
 
     let lastErr: Error | undefined;
@@ -206,6 +229,7 @@ export function createLspServerInstance(
         const errorCode = (error as any).code;
 
         // Retry on ContentModified error with exponential backoff
+        // Original: Rg5 = -32801, _g5 = 500
         if (
           typeof errorCode === 'number' &&
           errorCode === LSP_CONSTANTS.CONTENT_MODIFIED_ERROR_CODE &&
@@ -213,7 +237,7 @@ export function createLspServerInstance(
         ) {
           const delay = LSP_CONSTANTS.BASE_RETRY_DELAY * Math.pow(2, attempt);
           console.log(
-            `LSP request '${method}' to '${serverName}' got ContentModified error, retrying in ${delay}ms (attempt ${attempt + 1}/${LSP_CONSTANTS.MAX_RETRIES})...`
+            `LSP request '${method}' to '${serverName}' got ContentModified error, retrying in ${delay}ms (attempt ${attempt + 1}/${LSP_CONSTANTS.MAX_RETRIES})…`
           );
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
@@ -222,24 +246,44 @@ export function createLspServerInstance(
       }
     }
 
-    throw new Error(
+    const finalError = new Error(
       `LSP request '${method}' failed for server '${serverName}': ${lastErr?.message ?? 'unknown error'}`
     );
+    console.error(finalError);
+    throw finalError;
   }
 
+  /**
+   * Send a notification to the LSP server.
+   * Original: V in chunks.114.mjs:1912-1923
+   */
   async function sendNotification(method: string, params?: unknown): Promise<void> {
     if (!isHealthy()) {
-      throw new Error(
-        `Cannot send notification to LSP server '${serverName}': server is ${state}`
-      );
+      const error = new Error(`Cannot send notification to LSP server '${serverName}': server is ${state}`);
+      console.error(error);
+      throw error;
     }
-    await client.sendNotification(method, params);
+    try {
+      await client.sendNotification(method, params);
+    } catch (error) {
+      const wrappedError = new Error(`LSP notification '${method}' failed for server '${serverName}': ${(error as Error).message}`);
+      console.error(wrappedError);
+      throw wrappedError;
+    }
   }
 
+  /**
+   * Register a notification handler.
+   * Original: F in chunks.114.mjs:1925-1927
+   */
   function onNotification(method: string, handler: (params: unknown) => void): void {
     client.onNotification(method, handler);
   }
 
+  /**
+   * Register a request handler.
+   * Original: H in chunks.114.mjs:1929-1931
+   */
   function onRequest<T>(
     method: string,
     handler: (params: unknown) => T | Promise<T>
@@ -272,6 +316,7 @@ export function createLspServerInstance(
     onRequest,
   };
 }
+
 
 // ============================================
 // Export

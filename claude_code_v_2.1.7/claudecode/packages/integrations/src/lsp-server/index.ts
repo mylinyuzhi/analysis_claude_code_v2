@@ -26,21 +26,6 @@ export * from './types.js';
 export {
   // Constants
   LSP_OPERATIONS,
-  // Types
-  type LspOperation,
-  type LspOperationInput,
-  type LspOperationResult,
-  type LspRequest,
-  type LspPosition,
-  type LspRange,
-  type LspLocation,
-  type LspLocationLink,
-  type LspHoverResult,
-  type LspDocumentSymbol,
-  type LspSymbolInformation,
-  type LspCallHierarchyItem,
-  type LspIncomingCall,
-  type LspOutgoingCall,
   // Request building
   buildLspRequest,
   // Result formatting
@@ -50,7 +35,6 @@ export {
   formatHoverResult,
   formatDocumentSymbolResult,
   formatWorkspaceSymbolResult,
-  formatGoToImplementationResult,
   formatPrepareCallHierarchyResult,
   formatIncomingCallsResult,
   formatOutgoingCallsResult,
