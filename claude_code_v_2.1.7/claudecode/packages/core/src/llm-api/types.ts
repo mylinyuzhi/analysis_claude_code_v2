@@ -50,6 +50,16 @@ export interface BedrockOptions extends ClientOptions {
 export interface VertexOptions extends ClientOptions {
   region?: string;
   projectId?: string;
+
+  /**
+   * Google auth client (google-auth-library `GoogleAuth` compatible).
+   * Original: `new GoogleAuth({ scopes: [...] })` in chunks.82.mjs:2711-2716
+   */
+  googleAuth?: {
+    getClient: () =>
+      | Promise<{ getRequestHeaders: () => Promise<Record<string, string>> | Record<string, string> }>
+      | { getRequestHeaders: () => Promise<Record<string, string>> | Record<string, string> };
+  };
 }
 
 export interface FoundryOptions extends ClientOptions {
@@ -362,6 +372,8 @@ export interface ApiError {
  */
 export interface ContextOverflowError {
   inputTokens: number;
+  /** Original: `maxTokens` in chunks.85.mjs:100 (not always required by callers) */
+  maxTokens?: number;
   contextLimit: number;
 }
 
@@ -415,6 +427,22 @@ export interface AnthropicClientInterface {
       request: MessagesRequest,
       options?: { signal?: AbortSignal }
     ): AsyncIterable<StreamEvent>;
+  };
+
+  /**
+   * Beta namespace exposed by the official SDK.
+   * Used by token counting (Original: `client.beta.messages.countTokens` in chunks.85.mjs:713).
+   */
+  beta?: {
+    messages: {
+      countTokens(request: {
+        model: string;
+        messages: Message[];
+        tools?: ToolDefinition[];
+        betas?: string[];
+        thinking?: ThinkingConfig;
+      }): Promise<{ input_tokens: number }>;
+    };
   };
 }
 

@@ -14,6 +14,10 @@ import {
   getApiKey,
 } from '@claudecode/platform/auth';
 import { getModelBetas } from '@claudecode/platform';
+import * as AnthropicSdk from '@anthropic-ai/sdk';
+import * as GoogleAuthLib from 'google-auth-library';
+import * as AzureIdentity from '@azure/identity';
+import * as AwsCredentialProviders from '@aws-sdk/credential-providers';
 import { 
   isPromptCachingSupported, 
   applyMessageCacheBreakpoints, 
@@ -161,20 +165,56 @@ export function detectProvider(): ApiProvider {
 export class NativeAnthropicClient implements AnthropicClientInterface {
   private apiKey: string | null;
   private authToken?: string;
+  private authTokenProvider?: () => Promise<string>;
+  private requestHeadersProvider?: () => Promise<Record<string, string>>;
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
   private timeout: number;
   private maxRetries: number;
   private fetchFn: typeof fetch;
 
-  constructor(options: ClientOptions & { authToken?: string }) {
+  public beta: NonNullable<AnthropicClientInterface['beta']>;
+
+  constructor(
+    options: ClientOptions & {
+      authToken?: string;
+      authTokenProvider?: () => Promise<string>;
+      requestHeadersProvider?: () => Promise<Record<string, string>>;
+    }
+  ) {
     this.apiKey = options.apiKey || null;
     this.authToken = options.authToken;
+    this.authTokenProvider = options.authTokenProvider;
+    this.requestHeadersProvider = options.requestHeadersProvider;
     this.baseURL = options.baseURL || process.env.ANTHROPIC_BASE_URL || DEFAULT_BASE_URL;
     this.defaultHeaders = options.defaultHeaders || {};
     this.timeout = options.timeout || DEFAULT_API_TIMEOUT;
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.fetchFn = options.fetchOverride || globalThis.fetch;
+
+    // SDK-compatible surface: beta.messages.countTokens
+    // Original: `client.beta.messages.countTokens` in chunks.85.mjs:713
+    this.beta = {
+      messages: {
+        countTokens: async (request) => {
+          const body: any = {
+            model: request.model,
+            messages:
+              request.messages && request.messages.length > 0
+                ? request.messages
+                : [{ role: 'user', content: 'foo' }],
+            ...(request.tools && request.tools.length > 0 ? { tools: request.tools } : {}),
+            ...(request.thinking ? { thinking: request.thinking } : {}),
+          };
+
+          const betas = request.betas ?? [];
+          const response = await this.makeRequest('/v1/messages/count_tokens', body, {
+            betas,
+          });
+          return (await response.json()) as { input_tokens: number };
+        },
+      },
+    };
   }
 
   private async makeRequest(
@@ -190,12 +230,26 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
       ...this.defaultHeaders,
     };
 
+    if (this.requestHeadersProvider) {
+      const extra = await this.requestHeadersProvider();
+      for (const [k, v] of Object.entries(extra)) {
+        headers[k] = v;
+      }
+    }
+
     if (this.apiKey) {
       headers['x-api-key'] = this.apiKey;
     }
 
     if (this.authToken) {
       headers['Authorization'] = `Bearer ${this.authToken}`;
+    }
+
+    if (!headers['Authorization'] && this.authTokenProvider) {
+      const token = await this.authTokenProvider();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
     }
 
     if (options?.betas && options.betas.length > 0) {
@@ -378,6 +432,124 @@ export class NativeAnthropicClient implements AnthropicClientInterface {
 }
 
 // ============================================
+// Anthropic SDK Wrapper (source parity)
+// ============================================
+
+/**
+ * Create an Anthropic-SDK-style logger.
+ * Original: B51 in chunks.82.mjs:2625-2632
+ */
+function createSdkLogger(): {
+  error: (...args: any[]) => void;
+  warn: (...args: any[]) => void;
+  info: (...args: any[]) => void;
+  debug: (...args: any[]) => void;
+} {
+  return {
+    error: (...args) => console.error('[Anthropic SDK ERROR]', ...args),
+    warn: (...args) => console.error('[Anthropic SDK WARN]', ...args),
+    info: (...args) => console.error('[Anthropic SDK INFO]', ...args),
+    debug: (...args) => console.error('[Anthropic SDK DEBUG]', ...args),
+  };
+}
+
+function getSdkCtor(name: string): any {
+  const mod: any = AnthropicSdk as any;
+  return mod[name] ?? mod.default?.[name];
+}
+
+function wrapSdkClient(sdkClient: any): AnthropicClientInterface {
+  return {
+    messages: {
+      create: async (request: MessagesRequest): Promise<MessagesResponse> => {
+        let { messages, system, enablePromptCaching, model } = request;
+        const cachingEnabled = enablePromptCaching && isPromptCachingSupported(model);
+
+        if (cachingEnabled) {
+          messages = applyMessageCacheBreakpoints(messages, true);
+          if (Array.isArray(system)) {
+            system = formatSystemPromptWithCache(system.map((s) => s.text), true);
+          } else if (typeof system === 'string') {
+            system = formatSystemPromptWithCache([system], true);
+          }
+        }
+
+        const betas = getModelBetas(model);
+        if (cachingEnabled) {
+          betas.push('prompt-caching-2024-07-31');
+        }
+
+        const sdkRequest: any = {
+          model,
+          max_tokens: request.max_tokens,
+          messages,
+          system,
+          tools: request.tools,
+          tool_choice: request.tool_choice,
+          thinking: request.thinking,
+          metadata: request.metadata,
+          stop_sequences: request.stop_sequences,
+          temperature: request.temperature,
+          top_p: request.top_p,
+          top_k: request.top_k,
+          ...(betas.length > 0 ? { betas: Array.from(new Set(betas)) } : {}),
+        };
+
+        return (await sdkClient.messages.create(sdkRequest)) as MessagesResponse;
+      },
+
+      stream: async function* (
+        request: MessagesRequest,
+        options?: { signal?: AbortSignal }
+      ): AsyncGenerator<StreamEvent> {
+        let { messages, system, enablePromptCaching, model } = request;
+        const cachingEnabled = enablePromptCaching && isPromptCachingSupported(model);
+
+        if (cachingEnabled) {
+          messages = applyMessageCacheBreakpoints(messages, true);
+          if (Array.isArray(system)) {
+            system = formatSystemPromptWithCache(system.map((s) => s.text), true);
+          } else if (typeof system === 'string') {
+            system = formatSystemPromptWithCache([system], true);
+          }
+        }
+
+        const betas = getModelBetas(model);
+        if (cachingEnabled) {
+          betas.push('prompt-caching-2024-07-31');
+        }
+
+        const sdkRequest: any = {
+          model,
+          max_tokens: request.max_tokens,
+          messages,
+          system,
+          tools: request.tools,
+          tool_choice: request.tool_choice,
+          thinking: request.thinking,
+          metadata: request.metadata,
+          stop_sequences: request.stop_sequences,
+          temperature: request.temperature,
+          top_p: request.top_p,
+          top_k: request.top_k,
+          stream: true,
+          ...(betas.length > 0 ? { betas: Array.from(new Set(betas)) } : {}),
+        };
+
+        // The SDK already exposes an event stream compatible with our `StreamEvent` union.
+        for await (const evt of sdkClient.messages.stream(sdkRequest, {
+          signal: options?.signal,
+        })) {
+          yield evt as StreamEvent;
+        }
+      },
+    },
+
+    beta: sdkClient.beta,
+  };
+}
+
+// ============================================
 // Client Factory
 // ============================================
 
@@ -435,19 +607,57 @@ export async function createAnthropicClient(
  * Original: b41 (BedrockClient) in chunks.82.mjs
  */
 async function createBedrockClient(options: BedrockOptions): Promise<AnthropicClientInterface> {
+  // Original: chunks.82.mjs:2666-2687
   const awsRegion =
     process.env.ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION ||
     process.env.AWS_REGION ||
     process.env.AWS_DEFAULT_REGION ||
     'us-east-1';
 
-  const bedrockEndpoint = `https://bedrock-runtime.${awsRegion}.amazonaws.com`;
+  const AnthropicBedrock = getSdkCtor('AnthropicBedrock');
+  if (!AnthropicBedrock) {
+    throw new Error('Missing AnthropicBedrock SDK export; cannot create Bedrock client');
+  }
 
-  // Note: True Bedrock implementation would sign requests with AWS SigV4
-  return new NativeAnthropicClient({
-    ...options,
-    baseURL: bedrockEndpoint,
-  });
+  const skipAuth = parseBoolean(process.env.CLAUDE_CODE_SKIP_BEDROCK_AUTH) || options.skipAuth === true;
+  const sdkLogger = parseBoolean(process.env.DEBUG_ANTHROPIC_SDK) ? createSdkLogger() : undefined;
+
+  const bedrockOptions: any = {
+    defaultHeaders: options.defaultHeaders,
+    maxRetries: options.maxRetries,
+    timeout: options.timeout,
+    dangerouslyAllowBrowser: true,
+    fetch: (options.fetchOverride || globalThis.fetch) as any,
+    awsRegion,
+    ...(sdkLogger ? { logger: sdkLogger } : {}),
+    ...(skipAuth ? { skipAuth: true } : {}),
+  };
+
+  if (process.env.AWS_BEARER_TOKEN_BEDROCK) {
+    bedrockOptions.skipAuth = true;
+    bedrockOptions.defaultHeaders = {
+      ...(bedrockOptions.defaultHeaders ?? {}),
+      Authorization: `Bearer ${process.env.AWS_BEARER_TOKEN_BEDROCK}`,
+    };
+  } else if (!bedrockOptions.skipAuth) {
+    // Resolve AWS credentials using the Node provider chain.
+    const fromNodeProviderChain: any = (AwsCredentialProviders as any).fromNodeProviderChain;
+    if (!fromNodeProviderChain) {
+      throw new Error('Missing fromNodeProviderChain; cannot resolve AWS credentials for Bedrock');
+    }
+    const provider = fromNodeProviderChain();
+    const creds = await provider();
+    if (!creds?.accessKeyId || !creds?.secretAccessKey) {
+      const err: any = new Error('Failed to resolve AWS credentials for Bedrock');
+      err.name = 'CredentialsProviderError';
+      throw err;
+    }
+    bedrockOptions.awsAccessKey = creds.accessKeyId;
+    bedrockOptions.awsSecretKey = creds.secretAccessKey;
+    if (creds.sessionToken) bedrockOptions.awsSessionToken = creds.sessionToken;
+  }
+
+  return wrapSdkClient(new AnthropicBedrock(bedrockOptions));
 }
 
 /**
@@ -455,14 +665,47 @@ async function createBedrockClient(options: BedrockOptions): Promise<AnthropicCl
  * Original: u41 (FoundryClient) in chunks.82.mjs
  */
 async function createFoundryClient(options: FoundryOptions): Promise<AnthropicClientInterface> {
+  // Original: chunks.82.mjs:2688-2703
+  const AnthropicAzure = getSdkCtor('AnthropicAzure');
+  if (!AnthropicAzure) {
+    throw new Error('Missing AnthropicAzure SDK export; cannot create Foundry client');
+  }
+
   const foundryBaseUrl = process.env.ANTHROPIC_FOUNDRY_BASE_URL;
   const foundryApiKey = process.env.ANTHROPIC_FOUNDRY_API_KEY;
+  const skipAuth = parseBoolean(process.env.CLAUDE_CODE_SKIP_FOUNDRY_AUTH);
 
-  return new NativeAnthropicClient({
-    ...options,
-    baseURL: foundryBaseUrl || DEFAULT_BASE_URL,
-    apiKey: foundryApiKey || options.apiKey,
-  });
+  let azureADTokenProvider: (() => Promise<string>) | undefined;
+  if (!foundryApiKey) {
+    if (skipAuth) {
+      azureADTokenProvider = () => Promise.resolve('');
+    } else {
+      const DefaultAzureCredential: any = (AzureIdentity as any).DefaultAzureCredential;
+      const getBearerTokenProvider: any = (AzureIdentity as any).getBearerTokenProvider;
+      if (!DefaultAzureCredential || !getBearerTokenProvider) {
+        throw new Error('Missing @azure/identity exports; cannot create Foundry azureADTokenProvider');
+      }
+      azureADTokenProvider = getBearerTokenProvider(
+        new DefaultAzureCredential(),
+        'https://cognitiveservices.azure.com/.default'
+      );
+    }
+  }
+
+  const sdkLogger = parseBoolean(process.env.DEBUG_ANTHROPIC_SDK) ? createSdkLogger() : undefined;
+  const foundryOptions: any = {
+    defaultHeaders: options.defaultHeaders,
+    maxRetries: options.maxRetries,
+    timeout: options.timeout,
+    dangerouslyAllowBrowser: true,
+    fetch: (options.fetchOverride || globalThis.fetch) as any,
+    ...(foundryBaseUrl ? { baseURL: foundryBaseUrl } : {}),
+    ...(foundryApiKey ? { apiKey: foundryApiKey } : {}),
+    ...(azureADTokenProvider ? { azureADTokenProvider } : {}),
+    ...(sdkLogger ? { logger: sdkLogger } : {}),
+  };
+
+  return wrapSdkClient(new AnthropicAzure(foundryOptions));
 }
 
 /**
@@ -470,18 +713,54 @@ async function createFoundryClient(options: FoundryOptions): Promise<AnthropicCl
  * Original: v61 (VertexClient) in chunks.82.mjs
  */
 async function createVertexClient(options: VertexOptions): Promise<AnthropicClientInterface> {
-  const projectId =
-    process.env.GCLOUD_PROJECT ||
-    process.env.GOOGLE_CLOUD_PROJECT ||
-    process.env.ANTHROPIC_VERTEX_PROJECT_ID;
+  // Original: chunks.82.mjs:2704-2726
+  const AnthropicVertex = getSdkCtor('AnthropicVertex');
+  if (!AnthropicVertex) {
+    throw new Error('Missing AnthropicVertex SDK export; cannot create Vertex client');
+  }
 
-  const region = process.env.ANTHROPIC_VERTEX_REGION || 'us-central1';
-  const vertexEndpoint = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/anthropic/models`;
+  const hasProjectEnv =
+    Boolean(process.env.GCLOUD_PROJECT) ||
+    Boolean(process.env.GOOGLE_CLOUD_PROJECT) ||
+    Boolean(process.env.gcloud_project) ||
+    Boolean(process.env.google_cloud_project);
+  const hasCredsEnv =
+    Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS) ||
+    Boolean(process.env.google_application_credentials);
 
-  return new NativeAnthropicClient({
-    ...options,
-    baseURL: vertexEndpoint,
-  });
+  const skipAuth = parseBoolean(process.env.CLAUDE_CODE_SKIP_VERTEX_AUTH);
+  const GoogleAuth: any = (GoogleAuthLib as any).GoogleAuth;
+  if (!GoogleAuth) {
+    throw new Error('Missing google-auth-library GoogleAuth export; cannot create Vertex client');
+  }
+
+  const googleAuth = skipAuth
+    ? {
+        getClient: () => ({
+          getRequestHeaders: () => ({}),
+        }),
+      }
+    : new GoogleAuth({
+        scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+        ...(!hasProjectEnv && !hasCredsEnv
+          ? { projectId: process.env.ANTHROPIC_VERTEX_PROJECT_ID }
+          : {}),
+      });
+
+  const region = options.region || process.env.ANTHROPIC_VERTEX_REGION || 'us-central1';
+  const sdkLogger = parseBoolean(process.env.DEBUG_ANTHROPIC_SDK) ? createSdkLogger() : undefined;
+  const vertexOptions: any = {
+    defaultHeaders: options.defaultHeaders,
+    maxRetries: options.maxRetries,
+    timeout: options.timeout,
+    dangerouslyAllowBrowser: true,
+    fetch: (options.fetchOverride || globalThis.fetch) as any,
+    region,
+    googleAuth,
+    ...(sdkLogger ? { logger: sdkLogger } : {}),
+  };
+
+  return wrapSdkClient(new AnthropicVertex(vertexOptions));
 }
 
 /**
@@ -489,13 +768,27 @@ async function createVertexClient(options: VertexOptions): Promise<AnthropicClie
  * Original: hP (AnthropicClient) in chunks.82.mjs
  */
 async function createFirstPartyClient(options: ClientOptions): Promise<AnthropicClientInterface> {
+  // Original: chunks.82.mjs:2727-2737
+  const Anthropic = getSdkCtor('default') ?? getSdkCtor('Anthropic') ?? (AnthropicSdk as any);
+  if (!Anthropic) {
+    throw new Error('Missing Anthropic SDK export; cannot create first-party client');
+  }
+
   const oauthTokens = getClaudeAiOAuth();
   const apiKey = isClaudeAiOAuth() ? null : options.apiKey || getApiKey();
   const authToken = isClaudeAiOAuth() ? oauthTokens?.accessToken || undefined : undefined;
 
-  return new NativeAnthropicClient({
-    ...options,
-    apiKey: apiKey || undefined,
+  const sdkLogger = parseBoolean(process.env.DEBUG_ANTHROPIC_SDK) ? createSdkLogger() : undefined;
+  const sdkOptions: any = {
+    apiKey,
     authToken,
-  });
+    defaultHeaders: options.defaultHeaders,
+    maxRetries: options.maxRetries,
+    timeout: options.timeout,
+    dangerouslyAllowBrowser: true,
+    fetch: (options.fetchOverride || globalThis.fetch) as any,
+    ...(sdkLogger ? { logger: sdkLogger } : {}),
+  };
+
+  return wrapSdkClient(new (Anthropic as any)(sdkOptions));
 }

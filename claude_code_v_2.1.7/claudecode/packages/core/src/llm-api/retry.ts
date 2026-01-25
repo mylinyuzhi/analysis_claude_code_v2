@@ -8,6 +8,13 @@
  */
 
 import { sleep } from '@claudecode/shared';
+import { analyticsEvent } from '@claudecode/platform';
+import {
+  clearApiKeyHelperCache,
+  getClaudeAiOAuth,
+  isClaudeAiOAuth,
+  refreshOAuthTokenIfNeeded,
+} from '@claudecode/platform/auth';
 import type {
   RetryOptions,
   RetryContext,
@@ -43,12 +50,14 @@ export const MIN_OUTPUT_TOKENS = 3000;
 /**
  * Base delay for exponential backoff (ms)
  */
-export const BASE_RETRY_DELAY = 1000;
+// Original: cs8 = 500 in chunks.85.mjs:151
+export const BASE_RETRY_DELAY = 500;
 
 /**
  * Maximum retry delay (ms)
  */
-export const MAX_RETRY_DELAY = 60000;
+// Original caps backoff at 32000ms in chunks.85.mjs:79
+export const MAX_RETRY_DELAY = 32000;
 
 // ============================================
 // Error Classification
@@ -75,10 +84,10 @@ export function isOverloadError(error: unknown): boolean {
     return error.status === 529;
   }
 
-  // Check for "overloaded_error" type in error body
-  if (error != null && typeof error === 'object') {
-    const errorObj = error as { error?: { type?: string } };
-    return errorObj.error?.type === 'overloaded_error';
+  // Source also treats embedded overloaded_error bodies as overload signals.
+  // Original: ls8 in chunks.85.mjs:105-108
+  if (error instanceof Error) {
+    return error.message?.includes('"type":"overloaded_error"') ?? false;
   }
 
   return false;
@@ -89,21 +98,56 @@ export function isOverloadError(error: unknown): boolean {
  * Original: ns8 (isRetryableError) in chunks.85.mjs
  */
 export function isRetryableError(error: unknown): boolean {
+  // Original: ns8 in chunks.85.mjs:121-136
   if (!isApiError(error)) {
     return false;
   }
 
-  const status = error.status;
+  // Explicit overloaded_error body (even if status is not 529).
+  if (error.message?.includes('"type":"overloaded_error"')) {
+    return true;
+  }
 
-  // Retryable status codes
-  // 408: Request Timeout
-  // 429: Rate Limited
-  // 500: Internal Server Error
-  // 502: Bad Gateway
-  // 503: Service Unavailable
-  // 504: Gateway Timeout
-  // 529: Overloaded
-  return [408, 429, 500, 502, 503, 504, 529].includes(status);
+  // Context overflow recovery is treated as retryable.
+  if (parseContextLimitError(error)) {
+    return true;
+  }
+
+  // Server-side override header.
+  const headersAny = (error as ApiError & { headers?: any }).headers;
+  const shouldRetryHeader: string | undefined =
+    typeof headersAny?.get === 'function'
+      ? headersAny.get('x-should-retry')
+      : headersAny?.['x-should-retry'];
+
+  if (shouldRetryHeader === 'true' && !isClaudeAiOAuth()) {
+    return true;
+  }
+  if (shouldRetryHeader === 'false') {
+    return false;
+  }
+
+  const status = error.status;
+  if (!status) {
+    return false;
+  }
+
+  if (status === 408) return true;
+  if (status === 409) return true;
+
+  // Rate limiting: in source, OAuth sessions do not retry 429.
+  if (status === 429) return !isClaudeAiOAuth();
+
+  // 401: clear cached apiKeyHelper result and allow the outer loop to recreate the client.
+  if (status === 401) {
+    clearApiKeyHelperCache();
+    return true;
+  }
+
+  if (status >= 500) return true;
+  if (status === 529) return true;
+
+  return false;
 }
 
 /**
@@ -111,79 +155,89 @@ export function isRetryableError(error: unknown): boolean {
  * Original: PeB in chunks.85.mjs
  */
 export function isProviderAuthError(error: unknown): boolean {
-  if (!isApiError(error)) {
+  // Original: PeB in chunks.85.mjs:110-115
+  // Only Bedrock uses this provider-specific auth refresh path.
+  if (process.env.CLAUDE_CODE_USE_BEDROCK !== 'true') {
     return false;
   }
 
-  // Check for credential refresh needed
-  const message = (error as ApiError).message?.toLowerCase() || '';
-  return (
-    message.includes('credential') ||
-    message.includes('token expired') ||
-    message.includes('authentication')
-  );
+  // Credentials provider failures are surfaced as this error name upstream.
+  if (error != null && typeof error === 'object' && 'name' in error) {
+    if ((error as { name?: unknown }).name === 'CredentialsProviderError') {
+      return true;
+    }
+  }
+
+  // Bedrock can also surface auth failures as 403 API errors.
+  if (isApiError(error) && error.status === 403) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
  * Check if error indicates rate limiting with retry-after header
  * Original: ps8 in chunks.85.mjs
  */
-export function getRetryAfter(error: unknown): number | null {
+export function getRetryAfterHeader(error: unknown): string | null {
+  // Original: ps8 in chunks.85.mjs:70-72
   if (!isApiError(error)) {
     return null;
   }
 
-  const headers = (error as ApiError & { headers?: Record<string, string> }).headers;
-  if (!headers) {
-    return null;
-  }
-
-  const retryAfter = headers['retry-after'];
-  if (!retryAfter) {
-    return null;
-  }
-
-  // Parse as seconds
-  const seconds = parseInt(retryAfter, 10);
-  if (!isNaN(seconds)) {
-    return seconds * 1000; // Convert to ms
-  }
-
-  // Parse as date
-  const date = new Date(retryAfter);
-  if (!isNaN(date.getTime())) {
-    return Math.max(0, date.getTime() - Date.now());
-  }
-
-  return null;
+  const headersAny = (error as ApiError & { headers?: any }).headers;
+  const value: string | undefined =
+    typeof headersAny?.get === 'function'
+      ? headersAny.get('retry-after')
+      : headersAny?.['retry-after'];
+  return value ?? null;
 }
+
+// Backward-compat export name (internal semantics now match source: returns header value string).
+export const getRetryAfter = getRetryAfterHeader;
 
 /**
  * Parse context limit error to extract token counts
  * Original: TeB (parseContextLimitError) in chunks.85.mjs
  */
 export function parseContextLimitError(error: unknown): ContextOverflowError | null {
+  // Original: TeB in chunks.85.mjs:84-103
   if (!isApiError(error)) {
     return null;
   }
 
-  const message = (error as ApiError).message || '';
-
-  // Pattern: "prompt is too long: X tokens > Y maximum"
-  const match = message.match(/(\d+)\s*tokens?\s*>\s*(\d+)/i);
-  if (match) {
-    const inputTokensStr = match[1];
-    const contextLimitStr = match[2];
-    if (!inputTokensStr || !contextLimitStr) {
-      return null;
-    }
-    return {
-      inputTokens: parseInt(inputTokensStr, 10),
-      contextLimit: parseInt(contextLimitStr, 10),
-    };
+  if (error.status !== 400 || !error.message) {
+    return null;
   }
 
-  return null;
+  if (!error.message.includes('input length and `max_tokens` exceed context limit')) {
+    return null;
+  }
+
+  const pattern =
+    /input length and `max_tokens` exceed context limit: (\d+) \+ (\d+) > (\d+)/;
+  const match = error.message.match(pattern);
+  if (!match || match.length !== 4) {
+    return null;
+  }
+
+  const inputTokensStr = match[1];
+  const maxTokensStr = match[2];
+  const contextLimitStr = match[3];
+  if (!inputTokensStr || !maxTokensStr || !contextLimitStr) {
+    // Source logs but returns undefined; we return null.
+    return null;
+  }
+
+  const inputTokens = parseInt(inputTokensStr, 10);
+  const maxTokens = parseInt(maxTokensStr, 10);
+  const contextLimit = parseInt(contextLimitStr, 10);
+  if (Number.isNaN(inputTokens) || Number.isNaN(maxTokens) || Number.isNaN(contextLimit)) {
+    return null;
+  }
+
+  return { inputTokens, maxTokens, contextLimit };
 }
 
 // ============================================
@@ -196,23 +250,40 @@ export function parseContextLimitError(error: unknown): ContextOverflowError | n
  */
 export function calculateBackoffDelay(
   attempt: number,
-  retryAfterMs: number | null
+  retryAfterHeader: string | null
 ): number {
-  // Use retry-after if provided
-  if (retryAfterMs !== null) {
-    return retryAfterMs;
+  // Original: fSA in chunks.85.mjs:74-82
+  if (retryAfterHeader) {
+    const seconds = parseInt(retryAfterHeader, 10);
+    if (!Number.isNaN(seconds)) {
+      return seconds * 1000;
+    }
   }
 
-  // Exponential backoff with jitter
-  const exponentialDelay = Math.min(
-    BASE_RETRY_DELAY * Math.pow(2, attempt - 1),
-    MAX_RETRY_DELAY
-  );
+  const base = Math.min(BASE_RETRY_DELAY * Math.pow(2, attempt - 1), MAX_RETRY_DELAY);
+  const jitter = Math.random() * 0.25 * base;
+  return Math.floor(base + jitter);
+}
 
-  // Add random jitter (0-25% of delay)
-  const jitter = Math.random() * 0.25 * exponentialDelay;
+/**
+ * OAuth 401 recovery.
+ *
+ * Mirrors `mA1` in chunks.48.mjs:2076-2082:
+ * - If cached access token mismatches, treat as recovered.
+ * - Otherwise force-refresh via refreshOAuthTokenIfNeeded(..., true).
+ */
+async function recoverFromOAuth401(previousAccessToken: string | undefined): Promise<void> {
+  // Clear in-memory token cache, so `getClaudeAiOAuth()` reflects latest storage.
+  // In our reconstructed platform auth, this is implicitly handled by refresh; we keep
+  // it best-effort by re-reading.
+  const current = getClaudeAiOAuth();
+  if (!current?.refreshToken) return;
 
-  return Math.floor(exponentialDelay + jitter);
+  if (previousAccessToken && current.accessToken && current.accessToken !== previousAccessToken) {
+    return;
+  }
+
+  await refreshOAuthTokenIfNeeded(0, true);
 }
 
 // ============================================
@@ -250,7 +321,11 @@ export async function* retryGenerator<T>(
   T,
   undefined
 > {
-  const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
+  const maxRetries =
+    options.maxRetries ??
+    (process.env.CLAUDE_CODE_MAX_RETRIES
+      ? parseInt(process.env.CLAUDE_CODE_MAX_RETRIES, 10)
+      : DEFAULT_MAX_RETRIES);
   const retryContext: RetryContext = {
     model: options.model,
     maxThinkingTokens: options.maxThinkingTokens,
@@ -259,6 +334,7 @@ export async function* retryGenerator<T>(
   let client: AnthropicClientInterface | null = null;
   let overloadCount = 0;
   let lastError: unknown;
+  let lastOauthAccessToken: string | undefined;
 
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     // Check abort signal
@@ -273,7 +349,13 @@ export async function* retryGenerator<T>(
         (isApiError(lastError) && lastError.status === 401) ||
         isProviderAuthError(lastError)
       ) {
+        // OAuth 401 recovery before recreating the client.
+        // Original: chunks.85.mjs:15-20 + chunks.48.mjs:2076-2082
+        if (isApiError(lastError) && lastError.status === 401 && isClaudeAiOAuth()) {
+          await recoverFromOAuth401(lastOauthAccessToken);
+        }
         client = await createClient();
+        lastOauthAccessToken = isClaudeAiOAuth() ? getClaudeAiOAuth()?.accessToken ?? undefined : undefined;
       }
 
       // Execute the request
@@ -282,7 +364,13 @@ export async function* retryGenerator<T>(
       lastError = error;
 
       // OVERLOAD HANDLING (529 status)
-      if (isOverloadError(error)) {
+      // Original: ls8(D) && (FALLBACK_FOR_ALL_PRIMARY_MODELS || (!qB() && oJA(model)))
+      // We conservatively gate overload fallback for OAuth sessions unless explicitly opted in.
+      const overloadShouldCount =
+        isOverloadError(error) &&
+        (process.env.FALLBACK_FOR_ALL_PRIMARY_MODELS || !isClaudeAiOAuth());
+
+      if (overloadShouldCount) {
         overloadCount++;
 
         if (overloadCount >= MAX_FALLBACK_ATTEMPTS) {
@@ -306,43 +394,49 @@ export async function* retryGenerator<T>(
       }
 
       // Non-retryable errors (except known retryable ones)
-      if (!isRetryableError(error) && isApiError(error)) {
-        // Context limit overflow - adjust max_tokens
+      // Context limit overflow - adjust max_tokens (this path is considered retryable in source).
+      if (isApiError(error)) {
         const contextOverflow = parseContextLimitError(error);
         if (contextOverflow) {
           const { inputTokens, contextLimit } = contextOverflow;
-          const buffer = 1000;
-          const availableTokens = Math.max(0, contextLimit - inputTokens - buffer);
+          const availableTokens = Math.max(0, contextLimit - inputTokens - 1000);
 
           if (availableTokens < MIN_OUTPUT_TOKENS) {
-            // Can't reduce further, throw original error
             throw error;
           }
 
-          // Ensure we have room for thinking tokens
-          const thinkingBuffer = (retryContext.maxThinkingTokens || 0) + 1;
-          const newMaxTokens = Math.max(MIN_OUTPUT_TOKENS, availableTokens, thinkingBuffer);
-
+          const thinkingFloor = (retryContext.maxThinkingTokens || 0) + 1;
+          const newMaxTokens = Math.max(MIN_OUTPUT_TOKENS, availableTokens, thinkingFloor);
           retryContext.maxTokensOverride = newMaxTokens;
-          continue; // Retry with adjusted tokens
+          analyticsEvent('tengu_max_tokens_context_overflow_adjustment', {
+            inputTokens,
+            contextLimit,
+            adjustedMaxTokens: newMaxTokens,
+            attempt,
+          });
+          continue;
         }
+      }
 
-        // Non-retryable error
+      // Non-retryable ApiErrors are thrown immediately.
+      if (isApiError(error) && !isRetryableError(error) && !isProviderAuthError(error)) {
         throw error;
       }
 
       // Calculate delay
-      const retryAfterMs = getRetryAfter(error);
-      const delayMs = calculateBackoffDelay(attempt, retryAfterMs);
+      const retryAfterHeader = getRetryAfterHeader(error);
+      const delayMs = calculateBackoffDelay(attempt, retryAfterHeader);
 
-      // Yield retry info for UI
-      yield {
-        type: 'retry',
-        attempt,
-        maxAttempts: maxRetries,
-        delayMs,
-        error,
-      };
+      // Yield retry info for UI (source only yields structured retry info for API errors).
+      if (isApiError(error)) {
+        yield {
+          type: 'retry',
+          attempt,
+          maxAttempts: maxRetries,
+          delayMs,
+          error,
+        };
+      }
 
       // Wait before retry (with abort signal support)
       if (options.signal) {

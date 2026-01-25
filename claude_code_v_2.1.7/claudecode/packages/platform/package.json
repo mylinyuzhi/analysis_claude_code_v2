@@ -39,7 +39,12 @@
   },
   "dependencies": {
     "@claudecode/shared": "workspace:*",
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@aws-sdk/client-bedrock-runtime": "^3.758.0",
+    "@aws-sdk/credential-providers": "^3.758.0",
+    "@azure/identity": "^4.2.1",
     "fuse.js": "^7.0.0",
+    "google-auth-library": "^9.15.0",
     "https-proxy-agent": "^7.0.2",
     "ignore": "^5.3.0",
     "undici": "^6.0.0",
