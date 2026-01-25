@@ -19,8 +19,7 @@ import type {
   ToolContext,
 } from './types.js';
 import { TOOL_NAMES } from './types.js';
-// @ts-ignore
-import { getSessionId } from '../../shared/src/state/global-state.js';
+import { getSessionId } from '@claudecode/shared';
 
 // ============================================
 // Constants
@@ -353,11 +352,17 @@ export const TodoWriteTool = createTool<TodoWriteInput, TodoWriteOutput>({
   renderToolUseErrorMessage: () => null,
   renderToolResultMessage: () => null,
 
-  async validateInput(input, context) {
+  async validateInput(_input: TodoWriteInput, _context: ToolContext) {
     return validationSuccess();
   },
 
-  async call({ todos }, context) {
+  async call(
+    { todos }: TodoWriteInput,
+    context: ToolContext,
+    _toolUseId,
+    _metadata,
+    _progressCallback
+  ) {
     // Original: chunks.59.mjs:454-472
     const appState = await context.getAppState();
     // Original: G = Q.agentId ?? q0()
@@ -375,7 +380,7 @@ export const TodoWriteTool = createTool<TodoWriteInput, TodoWriteOutput>({
       todos: { ...state.todos, [agentId]: newTodos }
     }));
 
-    return toolSuccess({ oldTodos, newTodos: todos });
+    return toolSuccess({ oldTodos, newTodos });
   },
 
   mapToolResultToToolResultBlockParam(result, toolUseId) {

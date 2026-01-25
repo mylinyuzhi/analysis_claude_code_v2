@@ -517,13 +517,18 @@ export function setNeedsPlanModeExitAttachment(value: boolean): void {
  * Original: Ty (onToolPermissionModeChanged) in chunks.1.mjs:2246
  */
 export function onToolPermissionModeChanged(
-  newMode: string,
-  oldMode: string
+  oldMode: string,
+  newMode: string
 ): void {
-  if (oldMode === 'plan' && newMode !== 'plan') {
+  // Source behavior (chunks.1.mjs:2722-2725):
+  // - Entering plan mode clears the exit-attachment flag.
+  // - Exiting plan mode sets the exit-attachment flag, so the next turn can inject it.
+
+  if (newMode === 'plan' && oldMode !== 'plan') {
     globalState.needsPlanModeExitAttachment = false;
   }
-  if (newMode === 'plan' && oldMode !== 'plan') {
+
+  if (oldMode === 'plan' && newMode !== 'plan') {
     globalState.needsPlanModeExitAttachment = true;
   }
 }
@@ -704,4 +709,3 @@ export function resetGlobalState(): void {
 export function getGlobalState(): GlobalState {
   return globalState;
 }
-

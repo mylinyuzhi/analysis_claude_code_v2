@@ -247,8 +247,18 @@ export function formatSkillMetadata(
  * Original: LP2 in chunks.112.mjs:2760-2763
  */
 function formatUserInvocableMetadata(name: string, args: string): string {
-  return `<${COMMAND_CONSTANTS.COMMAND_NAME_TAG}>/${name}</${COMMAND_CONSTANTS.COMMAND_NAME_TAG}>
-<${COMMAND_CONSTANTS.COMMAND_ARGS_TAG}>${args}</${COMMAND_CONSTANTS.COMMAND_ARGS_TAG}>`;
+  // Source-aligned ordering and conditional args emission.
+  // Original: LP2 in chunks.112.mjs:2760-2763
+  // - command-message first (no slash)
+  // - command-name second (with leading slash)
+  // - command-args only when args is truthy
+  return [
+    `<${COMMAND_CONSTANTS.COMMAND_MESSAGE_TAG}>${name}</${COMMAND_CONSTANTS.COMMAND_MESSAGE_TAG}>`,
+    `<${COMMAND_CONSTANTS.COMMAND_NAME_TAG}>/${name}</${COMMAND_CONSTANTS.COMMAND_NAME_TAG}>`,
+    args ? `<${COMMAND_CONSTANTS.COMMAND_ARGS_TAG}>${args}</${COMMAND_CONSTANTS.COMMAND_ARGS_TAG}>` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 /**
@@ -256,9 +266,15 @@ function formatUserInvocableMetadata(name: string, args: string): string {
  * Original: xz0 in chunks.112.mjs:2755-2758
  */
 function formatSkillFormatMetadata(name: string, progressMessage: string = 'loading'): string {
-  return `<skill-format>true</skill-format>
-<skill-name>${name}</skill-name>
-${progressMessage ? `<skill-progress>${progressMessage}</skill-progress>` : ''}`;
+  // Source-aligned metadata used for non-user-invocable skills.
+  // Original: xz0 in chunks.112.mjs:2755-2758
+  // Note: progressMessage exists in the original signature but is not used.
+  void progressMessage;
+  return [
+    `<${COMMAND_CONSTANTS.COMMAND_MESSAGE_TAG}>${name}</${COMMAND_CONSTANTS.COMMAND_MESSAGE_TAG}>`,
+    `<${COMMAND_CONSTANTS.COMMAND_NAME_TAG}>${name}</${COMMAND_CONSTANTS.COMMAND_NAME_TAG}>`,
+    `<${COMMAND_CONSTANTS.SKILL_FORMAT_TAG}>true</${COMMAND_CONSTANTS.SKILL_FORMAT_TAG}>`,
+  ].join('\n');
 }
 
 // ============================================
