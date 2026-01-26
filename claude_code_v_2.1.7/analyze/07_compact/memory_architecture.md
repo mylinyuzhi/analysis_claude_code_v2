@@ -404,7 +404,46 @@ iF1 = []         // microCompactListeners (callbacks)
 
 ## 5. Session Memory Architecture (NEW in 2.1.x)
 
-Session Memory provides a fast, cache-based compaction alternative.
+> **IMPORTANT**: For detailed analysis of the Session Memory system, see [session_memory_extraction.md](./session_memory_extraction.md)
+
+Session Memory is a **two-phase system**, NOT just a simple cache:
+
+1. **Phase 1: Background Extraction** - A forked agent runs periodically during normal conversation to update the summary (USES LLM calls)
+2. **Phase 2: Session Memory Compact** - When compaction triggers, reads the pre-computed summary (NO LLM call)
+
+This design amortizes the cost of summarization across the conversation, making the critical compaction path instant.
+
+### Two-Phase Architecture Summary
+
+```
+╔════════════════════════════════════════════════════════════════════════════╗
+║  PHASE 1: Background Extraction (chunks.144.mjs:nF7)                       ║
+║  ────────────────────────────────────────────────────────────────────────  ║
+║  Trigger: 5000 tokens + 10 tool calls accumulated                          ║
+║  Action: Spawns forked agent with restricted permissions                   ║
+║  LLM: YES (but async, in background during conversation)                   ║
+║  Output: Updates ~/.claude/<session>/session-memory/summary.md             ║
+║  Tracking: Sets lastSummarizedId to mark progress                          ║
+╠════════════════════════════════════════════════════════════════════════════╣
+║  PHASE 2: Session Memory Compact (chunks.132.mjs:sF1)                      ║
+║  ────────────────────────────────────────────────────────────────────────  ║
+║  Trigger: Auto-compact threshold exceeded                                  ║
+║  Action: Read cached summary + keep messages after lastSummarizedId        ║
+║  LLM: NO (uses pre-computed summary from Phase 1)                          ║
+║  Output: [cached_summary] + [recent_messages not yet summarized]           ║
+╚════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Background Extraction Trigger Config
+
+```javascript
+// chunks.144.mjs:2488-2493
+const SESSION_MEMORY_EXTRACTION_CONFIG = {
+  minimumMessageTokensToInit: 5000,    // Tokens before first extraction
+  minimumTokensBetweenUpdate: 5000,    // Tokens between extractions
+  toolCallsBetweenUpdates: 10,         // Tool calls required between extractions
+};
+```
 
 ### Session Memory File Structure
 

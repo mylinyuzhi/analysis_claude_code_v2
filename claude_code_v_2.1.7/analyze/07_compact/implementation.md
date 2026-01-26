@@ -87,19 +87,68 @@ The Compact system in Claude Code manages conversation summarization and context
 
 ---
 
-## Three-Tier Compaction Architecture
+## Compact System Architecture Overview
 
-Claude Code v2.1.7 implements a **three-tier compaction system**:
+> **For detailed Session Memory analysis, see [session_memory_extraction.md](./session_memory_extraction.md)**
+
+Claude Code v2.1.7 implements **TWO SEPARATE SYSTEMS** for context management:
+
+### System 1: Micro-Compact (Pre-API Processing)
+
+Runs **BEFORE** each API call during message preparation:
+- Clears old tool results to reduce request size
+- Keeps last 3 tool results protected
+- NO LLM call required
+- Triggers: Above warning threshold AND can save 20k+ tokens
+
+### System 2: Auto-Compact (Post-Response)
+
+Runs **AFTER** response when threshold exceeded, with two-tier cascade:
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  AUTO-COMPACT DISPATCHER (ys2)                                                │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                               │
+│  TIER 1: Session Memory Compact (sF1)                                        │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │ ★ IMPORTANT: This uses a CACHED summary, NOT generated at compact time │  │
+│  │                                                                         │  │
+│  │ The cached summary comes from a BACKGROUND EXTRACTION AGENT (nF7)      │  │
+│  │ that runs periodically during normal conversation (see below)          │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+│                                                                               │
+│  TIER 2: Full Compact (cF1)                                                  │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │ Fallback when Session Memory unavailable                                │  │
+│  │ Generates new summary via LLM streaming                                 │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  BACKGROUND: Session Memory Extraction Agent (nF7) - chunks.144.mjs          │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                               │
+│  Runs: Periodically during normal conversation (NOT at compact time)         │
+│  Trigger: 5000 tokens + 10 tool calls accumulated since last extraction      │
+│  Action: Spawns FORKED AGENT to update ~/.claude/<session>/summary.md        │
+│  LLM: YES (but async, amortized across conversation)                         │
+│  Output: Cached summary that Session Memory Compact uses later               │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
 
 ### Tier Comparison
 
 | Aspect | Session Memory (sF1) | Full Compact (cF1) | Micro-Compact (lc) |
 |--------|---------------------|--------------------|--------------------|
-| **Priority** | 1st (preferred) | 2nd (fallback) | Separate trigger |
-| **API Call** | NO (uses cache) | YES (LLM streaming) | NO (local) |
+| **When** | Auto-compact triggered | Session Memory fails | Before API call |
+| **Priority** | 1st (preferred) | 2nd (fallback) | Separate system |
+| **LLM at compact time** | NO (uses pre-computed cache) | YES (streaming) | NO (local) |
+| **LLM cost** | Amortized during conversation | Paid at compact time | None |
 | **Scope** | Full conversation | Full conversation | Tool results only |
-| **Speed** | Fast | Slow (~seconds) | Fast |
-| **Creates Summary** | Uses cached | LLM-generated | No (truncates) |
+| **Speed** | Instant (file read) | Slow (~seconds) | Fast |
 | **Feature Flag** | Required | Always available | Can be disabled |
 
 ### Decision Flow
@@ -116,11 +165,17 @@ Claude Code v2.1.7 implements a **three-tier compaction system**:
            ┌─────────────────────┐
            │ Try Session Memory  │
            │ Compact (sF1)       │
+           │                     │
+           │ ★ Reads cached      │
+           │   summary.md        │
+           │ ★ Keeps msgs after  │
+           │   lastSummarizedId  │
+           │ ★ NO LLM CALL!      │
            └──────────┬──────────┘
                       │
                  Success?
                 │        │
-               YES       NO (feature disabled, empty template, etc.)
+               YES       NO (feature disabled, empty template, stale, etc.)
                 │        │
                 ▼        ▼
              Return   Full Compact (cF1)
@@ -133,6 +188,7 @@ Claude Code v2.1.7 implements a **three-tier compaction system**:
               ┌──────────────────────┐
               │ Stream summary from  │
               │ LLM (H97)            │
+              │ ★ LLM CALL HERE!     │
               └──────────┬───────────┘
                          ▼
               ┌──────────────────────┐
@@ -141,6 +197,56 @@ Claude Code v2.1.7 implements a **three-tier compaction system**:
               └──────────┬───────────┘
                          ▼
                       Return
+```
+
+### Execution Timeline
+
+```
+═══════════════════════════════════════════════════════════════════════════════════
+                              NORMAL CONVERSATION
+═══════════════════════════════════════════════════════════════════════════════════
+
+User Message → [Micro-Compact: clear old tool results] → API Call → Response
+                                                                      │
+                                                    Background check: enough tokens/tools?
+                                                                      │
+                                                                      ▼
+                                                    YES → nF7: Fork agent to update summary.md
+                                                          (LLM call in background)
+                                                          Sets lastSummarizedId
+
+═══════════════════════════════════════════════════════════════════════════════════
+                           WHEN AUTO-COMPACT THRESHOLD EXCEEDED
+═══════════════════════════════════════════════════════════════════════════════════
+
+User Message → [Micro-Compact] → API Call → Response
+                                               │
+                                    isAboveAutoCompactThreshold? YES
+                                               │
+                                               ▼
+                              ┌─────────────────────────────────────┐
+                              │ TIER 1: Session Memory Compact      │
+                              │ - Read cached summary.md            │
+                              │ - Find lastSummarizedId position    │
+                              │ - Keep messages after that point    │
+                              │ - NO LLM CALL (instant!)            │
+                              └─────────────────────────────────────┘
+                                               │
+                                          Success?
+                                         /        \
+                                       YES         NO
+                                        │           │
+                                        │           ▼
+                                        │  ┌─────────────────────────────────────┐
+                                        │  │ TIER 2: Full Compact               │
+                                        │  │ - Run PreCompact hooks             │
+                                        │  │ - Stream summary from LLM          │
+                                        │  │ - Restore context (files/todos)    │
+                                        │  │ - LLM CALL (slow, costs tokens)    │
+                                        │  └─────────────────────────────────────┘
+                                        │           │
+                                        ▼           ▼
+                              Conversation continues with compacted history
 ```
 
 ---
@@ -470,6 +576,135 @@ async function sessionMemoryCompact(messages, agentId, autoCompactThreshold) {
 - Template is empty (default state)
 - Last summarized ID not found in messages
 - Post-compact tokens still exceed threshold
+
+---
+
+## 3.5 Background Extraction Agent (Source of Cached Summary)
+
+> **CRITICAL**: Session Memory Compact reads a cached summary, but WHERE does that summary come from?
+
+It comes from a **background extraction agent** (`nF7`) that runs periodically during normal conversation - NOT at compact time!
+
+### Background Extraction Overview
+
+```javascript
+// ============================================
+// sessionMemoryExtractor - Background agent that maintains the cached summary
+// Location: chunks.144.mjs:2547-2586
+// ============================================
+
+// This is a DEBOUNCED function that runs during normal conversation
+// It is registered via: RH1(nF7) in uG9() (chunks.144.mjs:2494)
+
+nF7 = debounced(async function(params) {
+  const { messages, toolUseContext, querySource } = params;
+
+  // Only run for main REPL thread (not subagents)
+  if (querySource !== "repl_main_thread") return;
+
+  // Check trigger conditions (lF7)
+  if (!shouldTriggerExtraction(messages)) return;
+
+  markSessionMemoryUpdateStart();  // Is2() - prevents concurrent extractions
+
+  // Read current summary file
+  const { memoryPath, currentMemory } = await readOrInitializeMemoryFile(context);
+
+  // Build extraction prompt
+  const extractionPrompt = await buildExtractionPrompt(currentMemory, memoryPath);
+
+  // ★★★ HERE IS THE LLM CALL (via forked subagent) ★★★
+  await forkSubagent({
+    promptMessages: [createUserMessage({ content: extractionPrompt })],
+    querySource: "session_memory",
+    forkLabel: "session_memory",
+    canUseTool: createToolRestrictor(memoryPath),  // ONLY Edit on summary.md allowed!
+  });
+
+  // Update tracking
+  updateLastSummarizedId(messages);  // oF7() - sets lastSummarizedId
+  markSessionMemoryUpdateEnd();      // Ds2()
+});
+```
+
+### Extraction Trigger Conditions
+
+```javascript
+// ============================================
+// shouldTriggerExtraction - When does background extraction run?
+// Location: chunks.144.mjs:2434-2456
+// ============================================
+
+function shouldTriggerExtraction(messages) {
+  // Initial trigger: wait for minimumMessageTokensToInit (5000) tokens
+  if (!hasReachedInitThreshold()) {
+    if (!hasEnoughTokensToInit()) return false;
+    markInitialized();
+  }
+
+  // Subsequent triggers require BOTH:
+  const hasEnoughTokens = accumulatedTokens >= 5000;      // minimumTokensBetweenUpdate
+  const hasEnoughToolCalls = toolCallsSinceLastExtraction >= 10;  // toolCallsBetweenUpdates
+  const isNotCompacting = !isCurrentlyCompacting();
+
+  // Trigger if: (tokens + tool calls) OR (tokens + not compacting)
+  return (hasEnoughTokens && hasEnoughToolCalls) || (hasEnoughTokens && isNotCompacting);
+}
+
+// Configuration defaults:
+// - minimumMessageTokensToInit: 5000 (first extraction after 5k tokens)
+// - minimumTokensBetweenUpdate: 5000 (subsequent extractions every 5k tokens)
+// - toolCallsBetweenUpdates: 10 (must have 10 tool calls between extractions)
+```
+
+### The Tool Restrictor
+
+The forked agent can ONLY use the Edit tool on the summary.md file:
+
+```javascript
+// ============================================
+// createToolRestrictor - Restrict background agent permissions
+// Location: chunks.144.mjs:2498-2514
+// ============================================
+
+function createToolRestrictor(allowedFilePath) {
+  return async (toolCall, input) => {
+    // Only allow Edit tool on the specific summary file
+    if (toolCall.name === "Edit" && input.file_path === allowedFilePath) {
+      return { behavior: "allow", updatedInput: input };
+    }
+    return {
+      behavior: "deny",
+      message: `only Edit on ${allowedFilePath} is allowed`
+    };
+  };
+}
+```
+
+### Why This Design?
+
+| Aspect | Benefit |
+|--------|---------|
+| **Cost Amortization** | LLM calls for summarization spread across conversation, not all at compact time |
+| **Latency Reduction** | When compaction triggers, summary is pre-computed - just read a file |
+| **Graceful Degradation** | If extraction fails, Full Compact still works as fallback |
+| **Incremental Updates** | Each extraction builds on previous summary, maintaining context |
+
+### Key State Variables
+
+```javascript
+// chunks.144.mjs
+hG9 = undefined;  // lastTriggeredMessageId
+gG9 = undefined;  // lastProcessedAssistantId
+
+// chunks.132.mjs (via dispatcher)
+lastSummarizedId = undefined;                 // Tracks which message was last summarized
+pendingSessionMemoryUpdateStartedAt = undefined;  // Prevents concurrent extractions
+
+// Timeouts
+SESSION_MEMORY_WAIT_TIMEOUT_MS = 15000;  // Max wait for pending extraction
+SESSION_MEMORY_STALE_UPDATE_MS = 60000;  // Consider extraction stale after this
+```
 
 ---
 
