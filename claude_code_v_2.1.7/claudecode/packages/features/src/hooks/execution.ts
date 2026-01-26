@@ -45,41 +45,30 @@ function logDebug(message: string): void {
 }
 
 // ============================================
-// Workspace Trust Check (Placeholder)
+// Workspace Trust Gate
 // ============================================
 
 /**
  * Check if workspace trust is required.
- * Original: Ou2 in chunks.1.mjs
+ *
+ * Source alignment:
+ * - Gate hooks execution when session/workspace trust hasn't been accepted.
+ * - The trust flag is persisted in settings/state and loaded into the runtime
+ *   settings object (CLI sets `globalThis.__claudeSettings`).
  */
 function isWorkspaceTrustRequired(): boolean {
   const settings = (globalThis as any).__claudeSettings;
-  if (settings && typeof settings === 'object') {
-    const accepted = (settings as any).sessionTrustAccepted ?? (settings as any).workspaceTrustAccepted;
-    if (accepted === false) return true;
-    if (accepted === true) return false;
-  }
+  if (!settings || typeof settings !== 'object') return false;
 
-  // Optional runtime override (CLI/IDE integration can set this)
-  const globalAccepted = (globalThis as any).__claudeWorkspaceTrustAccepted;
-  if (globalAccepted === false) return true;
+  const accepted =
+    (settings as any).sessionTrustAccepted ?? (settings as any).workspaceTrustAccepted;
+
+  // If explicitly false, require trust; if explicitly true, allow.
+  if (accepted === false) return true;
+  if (accepted === true) return false;
+
+  // Default: don't block hooks (matches historical behavior where trust is optional).
   return false;
-}
-
-// ============================================
-// Settings Check (Placeholder)
-// ============================================
-
-/**
- * Get hook settings.
- * Original: jQ in chunks.1.mjs
- */
-function getSettings(): { disableAllHooks?: boolean } {
-  const settings = (globalThis as any).__claudeSettings;
-  const hookSettings = settings && typeof settings === 'object' && (settings as any).hooks && typeof (settings as any).hooks === 'object'
-    ? (settings as any).hooks
-    : settings;
-  return (hookSettings && typeof hookSettings === 'object') ? hookSettings : {};
 }
 
 // ============================================
@@ -677,9 +666,9 @@ export async function* executeHooksInREPL(
     messages,
   } = options;
 
-  // Check if hooks are disabled
-  // Original: jQ().disableAllHooks
-  if (getSettings().disableAllHooks) return;
+  // Check if hooks are disabled (includes policy interaction)
+  // Source mapping: `disableAllHooks` in settings + policySettings.
+  if (isHooksDisabled()) return;
 
   const eventType = hookInput.hook_event_name;
   const hookName = matchQuery ? `${eventType}:${matchQuery}` : eventType;
@@ -940,7 +929,7 @@ export async function executeHooksOutsideREPL(
   const eventType = hookInput.hook_event_name;
   const hookName = matchQuery ? `${eventType}:${matchQuery}` : eventType;
 
-  if (getSettings().disableAllHooks) {
+  if (isHooksDisabled()) {
     logDebug(`Skipping hooks for ${hookName} due to 'disableAllHooks' setting`);
     return [];
   }

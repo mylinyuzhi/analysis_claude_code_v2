@@ -77,10 +77,43 @@ export interface SDKKeepAliveMessage extends SDKMessage {
  */
 export interface SDKSystemMessage extends SDKMessage {
   type: 'system';
-  subtype: 'status' | 'error' | 'info';
+  /**
+   * SDK/system subtypes.
+   *
+   * NOTE: v2.1.7 SDK mode mirrors the CLI stream protocol.
+   * The obfuscated source (chunks.135.mjs:v19) emits additional subtypes
+   * beyond simple status/error/info.
+   */
+  subtype: 'status' | 'error' | 'info' | 'init' | 'compact_boundary' | 'hook_response';
   status?: string | null;
   error?: string;
   info?: string;
+
+  // init
+  cwd?: string;
+  session_id?: string;
+  tools?: string[];
+  mcp_servers?: Array<{ name: string; status: string }>; // status mirrors MCP connection state
+  model?: string;
+  permissionMode?: string;
+  slash_commands?: string[];
+  apiKeySource?: string;
+  betas?: string[];
+  claude_code_version?: string;
+  output_style?: unknown;
+  agents?: string[];
+  skills?: string[];
+  plugins?: Array<{ name: string; path: string }>
+
+  // compact boundary
+  compact_metadata?: { trigger?: string; pre_tokens?: number };
+
+  // hook_response
+  hook_name?: string;
+  hook_event?: string;
+  stdout?: string;
+  stderr?: string;
+  exit_code?: number;
 }
 
 /**
@@ -88,8 +121,39 @@ export interface SDKSystemMessage extends SDKMessage {
  */
 export interface SDKResultMessage extends SDKMessage {
   type: 'result';
-  subtype: 'success' | 'error' | 'interrupted';
+  /**
+   * Result subtypes from SDK loop (chunks.135.mjs:v19).
+   *
+   * - success: main successful completion
+   * - error_*: non-fatal termination reasons (max turns, max budget, etc.)
+   */
+  subtype:
+    | 'success'
+    | 'error'
+    | 'error_during_execution'
+    | 'error_max_turns'
+    | 'error_max_budget_usd'
+    | 'error_max_structured_output_retries'
+    | 'interrupted';
+
+  // Common summary fields
+  is_error?: boolean;
+  duration_ms?: number;
+  duration_api_ms?: number;
+  num_turns?: number;
   session_id?: string;
+  total_cost_usd?: number;
+
+  // success
+  result?: string;
+  structured_output?: unknown;
+
+  // error payloads
+  errors?: string[];
+
+  // usage / telemetry
+  usage?: unknown;
+  modelUsage?: Record<string, unknown>;
   permission_denials?: SDKPermissionDenial[];
   error?: string;
 }
@@ -108,6 +172,41 @@ export interface SDKAssistantMessage extends SDKMessage {
   };
   session_id?: string;
 }
+
+/**
+ * Tool progress message (SDK remote/container mode).
+ * Mirrors chunks.135.mjs:XG7 bash_progress mapping.
+ */
+export interface SDKToolProgressMessage extends SDKMessage {
+  type: 'tool_progress';
+  tool_use_id: string;
+  tool_name: string;
+  parent_tool_use_id: string | null;
+  elapsed_time_seconds: number;
+  session_id?: string;
+}
+
+/**
+ * Stream event passthrough (when includePartialMessages is enabled).
+ */
+export interface SDKStreamEventMessage extends SDKMessage {
+  type: 'stream_event';
+  event: unknown;
+  session_id?: string;
+  parent_tool_use_id: string | null;
+}
+
+/**
+ * Union of all outbound messages from Claude Code in SDK mode.
+ */
+export type SDKOutboundMessage =
+  | SDKSystemMessage
+  | SDKAssistantMessage
+  | SDKResultMessage
+  | SDKToolProgressMessage
+  | SDKStreamEventMessage
+  | SDKUserMessage
+  | SDKControlResponse;
 
 // ============================================
 // Control Request Types

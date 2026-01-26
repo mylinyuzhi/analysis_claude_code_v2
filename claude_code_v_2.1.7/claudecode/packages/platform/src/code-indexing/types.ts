@@ -75,8 +75,15 @@ export interface RedirectionInfo {
   endIndex?: number;
   /** Target filename */
   target: string;
-  /** Operator type: ">" or ">>" */
-  operator: '>' | '>>';
+  /**
+   * Operator type.
+   *
+   * Source alignment:
+   * - Tree-sitter AST extraction (`Sn5` in `source/chunks.123.mjs:751-766`) only yields `>` / `>>`.
+   * - Tokenizer extraction (`Hx` in `source/chunks.147.mjs:909-957`) can yield richer redirect forms
+   *   like `2>` / `2>>` / `>&`.
+   */
+  operator: '>' | '>>' | '>&' | '2>' | '2>>';
 }
 
 // ============================================

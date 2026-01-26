@@ -2,7 +2,9 @@
  * @claudecode/sdk - SDK Agent Loop
  *
  * Core agent loop for SDK mode.
- * Reconstructed from chunks.155.mjs (LR7)
+ *
+ * The SDK loop is a transport/orchestration layer. The core per-prompt execution
+ * is implemented as an async generator that mirrors `v19` in `chunks.135.mjs`.
  */
 
 import { AsyncMessageQueue } from './transport/queue.js';
@@ -11,6 +13,428 @@ import {
   hookCallbackResponseSchema 
 } from './protocol/messages.js';
 import { z } from 'zod';
+import { userInfo, homedir, hostname, platform as osPlatform, release as osRelease, type as osType } from 'os';
+
+import { coreMessageLoop } from '@claudecode/core/agent-loop';
+import { createUserMessage as createCoreUserMessage } from '@claudecode/core/message';
+import {
+  getSessionId,
+  setCwd,
+  isSessionPersistenceDisabled,
+  getTotalCostUSD,
+  getTotalAPIDuration,
+  getModelUsage,
+  mergeUsage,
+  aggregateUsage,
+} from '@claudecode/shared';
+
+type PermissionDenial = {
+  tool_name: string;
+  tool_use_id: string;
+  tool_input: Record<string, unknown>;
+};
+
+type PermissionResultLike = {
+  behavior: 'allow' | 'deny' | 'ask' | string;
+  message?: string;
+  updated_input?: Record<string, unknown>;
+};
+
+function normalizeContextRecord(value: unknown): Record<string, string> {
+  if (!value) return {};
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return Object.fromEntries(
+          Object.entries(parsed as Record<string, unknown>).map(([k, v]) => [k, String(v)])
+        );
+      }
+    } catch {
+      // ignore
+    }
+    return { UserContext: value };
+  }
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, String(v)])
+    );
+  }
+  return { UserContext: String(value) };
+}
+
+function addUserContextToMessagesLocal(messages: any[], userContext?: unknown): any[] {
+  const ctx = normalizeContextRecord(userContext);
+  if (Object.keys(ctx).length === 0) return messages;
+
+  const reminder = `<system-reminder>
+As you answer the user's questions, you can use the following context:
+${Object.entries(ctx)
+  .map(([k, v]) => `# ${k}\n${v}`)
+  .join('\n')}
+
+      IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.
+</system-reminder>
+`;
+
+  return [createCoreUserMessage({ content: reminder, isMeta: true }) as any, ...messages];
+}
+
+function mergeSystemPromptWithContextLocal(systemPrompt: string | string[], systemContext?: unknown): string[] {
+  const parts = Array.isArray(systemPrompt) ? systemPrompt : [systemPrompt].filter(Boolean);
+  const ctx = normalizeContextRecord(systemContext);
+  const ctxLines = Object.entries(ctx)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('\n');
+  return [...parts, ctxLines].filter(Boolean);
+}
+
+function toPermissionResultLike(value: unknown): PermissionResultLike {
+  if (value === true) return { behavior: 'allow' };
+  if (value === false) return { behavior: 'deny' };
+  if (value && typeof value === 'object') {
+    const v = value as any;
+    if (typeof v.behavior === 'string') return v as PermissionResultLike;
+  }
+  return { behavior: 'deny' };
+}
+
+function getLastAssistantText(messages: any[]): { text: string; isApiError: boolean } {
+  const last = [...messages].reverse().find((m) => m && typeof m === 'object' && m.type === 'assistant');
+  if (!last) return { text: '', isApiError: false };
+  const blocks = (last as any).message?.content;
+  const text = Array.isArray(blocks)
+    ? blocks
+        .filter((b: any) => b?.type === 'text')
+        .map((b: any) => String(b.text ?? ''))
+        .join('')
+    : '';
+  return { text, isApiError: Boolean((last as any).isApiErrorMessage) };
+}
+
+async function getUserContext(): Promise<string> {
+  try {
+    const u = userInfo();
+    return JSON.stringify({
+      Username: u.username || '',
+      HomeDirectory: homedir(),
+    });
+  } catch {
+    return '';
+  }
+}
+
+async function getSystemContext(): Promise<string> {
+  try {
+    return JSON.stringify({
+      Hostname: hostname(),
+      Platform: osPlatform(),
+      OS: `${osType()} ${osRelease()}`,
+      Node: process.version,
+      Cwd: process.cwd(),
+    });
+  } catch {
+    return '';
+  }
+}
+
+async function* runSdkPromptTurn(options: {
+  commands: any[];
+  prompt: string;
+  promptUuid: string;
+  cwd: string;
+  tools: any[];
+  mcpClients: any[];
+  verbose: boolean;
+  maxThinkingTokens?: number;
+  maxTurns?: number;
+  maxBudgetUsd?: number;
+  canUseTool: any;
+  mutableMessages: any[];
+  customSystemPrompt?: string;
+  appendSystemPrompt?: string;
+  userSpecifiedModel?: string;
+  fallbackModel?: string;
+  jsonSchema?: unknown;
+  getAppState: () => Promise<any>;
+  setAppState: (update: (state: any) => any) => void;
+  abortController: AbortController;
+  replayUserMessages: boolean;
+  includePartialMessages: boolean;
+  agents: any[];
+  setSDKStatus?: (status: string) => void;
+  orphanedPermission?: unknown;
+}): AsyncGenerator<any> {
+  // Mirror `DO(G)` + `_y/Ob0` in chunks.135: set runtime cwd and global cwd state.
+  if (options.cwd && typeof options.cwd === 'string') {
+    setCwd(options.cwd);
+    try {
+      process.chdir(options.cwd);
+    } catch {
+      // If cwd is invalid, keep process.cwd() but continue; source effectively assumes cwd is valid.
+    }
+  }
+
+  const persistEnabled = !isSessionPersistenceDisabled();
+  const startMs = Date.now();
+  const sessionId = getSessionId();
+
+  const permissionDenials: PermissionDenial[] = [];
+
+  const wrappedCanUseTool = async (
+    tool: any,
+    input: unknown,
+    assistantMessage: any
+  ): Promise<PermissionResultLike> => {
+    const res = toPermissionResultLike(await options.canUseTool(tool, input, assistantMessage));
+    if (res.behavior !== 'allow') {
+      permissionDenials.push({
+        tool_name: String(tool?.name ?? ''),
+        tool_use_id: String((assistantMessage as any)?.toolUseId ?? ''),
+        tool_input: (input && typeof input === 'object' ? (input as any) : {}) as Record<string, unknown>,
+      });
+    }
+    return res;
+  };
+
+  const appState = await options.getAppState();
+  const permissionMode = String(appState?.toolPermissionContext?.mode ?? 'default');
+
+  // System prompt assembly mirrors v19's `MA` composition.
+  const systemPromptParts: string[] = [];
+  if (typeof options.customSystemPrompt === 'string' && options.customSystemPrompt.length > 0) {
+    systemPromptParts.push(options.customSystemPrompt);
+  }
+  if (typeof options.appendSystemPrompt === 'string' && options.appendSystemPrompt.length > 0) {
+    systemPromptParts.push(options.appendSystemPrompt);
+  }
+
+  // Push user prompt message into mutableMessages (SDK keeps shared mutable history).
+  const userMsg = createCoreUserMessage({ content: options.prompt }) as any;
+  options.mutableMessages.push(userMsg);
+
+  // Core tool context used by coreMessageLoop.
+  const toolUseContext: any = {
+    messages: options.mutableMessages,
+    setMessages: () => {},
+    options: {
+      commands: options.commands,
+      tools: options.tools,
+      verbose: options.verbose,
+      debug: false,
+      isNonInteractiveSession: true,
+      mainLoopModel: options.userSpecifiedModel,
+      maxThinkingTokens: options.maxThinkingTokens ?? 0,
+      mcpClients: options.mcpClients,
+      mcpResources: {},
+      customSystemPrompt: options.customSystemPrompt,
+      appendSystemPrompt: options.appendSystemPrompt,
+      agentDefinitions: {
+        activeAgents: options.agents,
+        allAgents: [],
+      },
+      maxBudgetUsd: options.maxBudgetUsd,
+    },
+    getAppState: options.getAppState,
+    setAppState: options.setAppState,
+    abortController: options.abortController,
+    readFileState: new Map(),
+    setInProgressToolUseIDs: () => {},
+    setResponseLength: () => {},
+    setSDKStatus: options.setSDKStatus,
+  };
+
+  // Merge system prompt with system context and inject user context.
+  const [userContext, systemContext] = await Promise.all([getUserContext(), getSystemContext()]);
+  const mergedSystemPrompt = mergeSystemPromptWithContextLocal(systemPromptParts, systemContext);
+  const messagesWithUserContext = addUserContextToMessagesLocal(options.mutableMessages as any, userContext);
+  if (messagesWithUserContext !== options.mutableMessages) {
+    // Keep mutableMessages in sync for downstream processing.
+    options.mutableMessages.length = 0;
+    options.mutableMessages.push(...messagesWithUserContext);
+  }
+
+  // Emit init once per turn (SDK protocol).
+  yield {
+    type: 'system',
+    subtype: 'init',
+    cwd: options.cwd,
+    session_id: sessionId,
+    tools: options.tools.map((t) => t.name),
+    mcp_servers: options.mcpClients.map((c) => ({ name: c.name, status: c.type })),
+    model: options.userSpecifiedModel,
+    permissionMode,
+    slash_commands: options.commands.map((c) => c.name),
+    betas: appState?.sdkBetas,
+    uuid: crypto.randomUUID(),
+  };
+
+  // Usage aggregation mirrors v19's J1/SA merge.
+  let aggregated: any = {
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+    server_tool_use: { web_search_requests: 0, web_fetch_requests: 0 },
+  };
+  let currentStream: any = aggregated;
+
+  // Run core message loop (aN).
+  for await (const ev of coreMessageLoop({
+    messages: options.mutableMessages as any,
+    systemPrompt: mergedSystemPrompt,
+    userContext,
+    systemContext,
+    canUseTool: wrappedCanUseTool as any,
+    toolUseContext,
+    fallbackModel: options.fallbackModel,
+    querySource: 'sdk',
+    maxTurns: options.maxTurns,
+  })) {
+    const e = ev as any;
+
+    // Track usage from stream events.
+    if (e?.type === 'stream_event' && e.event) {
+      if (e.event.type === 'message_start') {
+        currentStream = mergeUsage(aggregated as any, e.event.message.usage as any);
+      }
+      if (e.event.type === 'message_delta') {
+        currentStream = mergeUsage(currentStream as any, e.event.usage as any);
+      }
+      if (e.event.type === 'message_stop') {
+        aggregated = aggregateUsage(aggregated as any, currentStream as any);
+      }
+      if (options.includePartialMessages) {
+        yield {
+          type: 'stream_event',
+          event: e.event,
+          session_id: sessionId,
+          parent_tool_use_id: null,
+          uuid: crypto.randomUUID(),
+        };
+      }
+      continue;
+    }
+
+    // Propagate core events as SDK messages.
+    if (e?.type === 'assistant' || e?.type === 'user') {
+      yield {
+        type: e.type,
+        message: e.message,
+        session_id: sessionId,
+        parent_tool_use_id: null,
+        uuid: e.uuid,
+        isReplay: Boolean(e.isReplay),
+        error: e.error,
+        tool_use_result: e.toolUseResult,
+      };
+      continue;
+    }
+
+    if (e?.type === 'system' && e.subtype === 'compact_boundary') {
+      yield {
+        type: 'system',
+        subtype: 'compact_boundary',
+        session_id: sessionId,
+        uuid: e.uuid,
+        compact_metadata: {
+          trigger: e.compactMetadata?.trigger,
+          pre_tokens: e.compactMetadata?.preTokens,
+        },
+      };
+      continue;
+    }
+
+    if (e?.type === 'attachment') {
+      // Surface hook responses via SDK protocol.
+      const att = e.attachment;
+      if (att?.type === 'hook_response') {
+        yield {
+          type: 'system',
+          subtype: 'hook_response',
+          session_id: sessionId,
+          uuid: e.uuid,
+          hook_name: att.hookName,
+          hook_event: att.hookEvent,
+          stdout: att.stdout ?? '',
+          stderr: att.stderr ?? '',
+          exit_code: att.exitCode,
+        };
+        continue;
+      }
+
+      if (att?.type === 'structured_output') {
+        // Preserve structured output in the final success result.
+        (toolUseContext as any).__structuredOutput = att.data;
+        continue;
+      }
+
+      if (att?.type === 'max_turns_reached') {
+        yield {
+          type: 'result',
+          subtype: 'error_max_turns',
+          duration_ms: Date.now() - startMs,
+          duration_api_ms: getTotalAPIDuration(),
+          is_error: false,
+          num_turns: att.turnCount,
+          session_id: sessionId,
+          total_cost_usd: getTotalCostUSD(),
+          usage: aggregated,
+          modelUsage: getModelUsage(),
+          permission_denials: permissionDenials,
+          uuid: crypto.randomUUID(),
+          errors: [],
+        };
+        return;
+      }
+    }
+
+    // Ignore other internal event types.
+  }
+
+  if (options.maxBudgetUsd !== undefined && getTotalCostUSD() >= options.maxBudgetUsd) {
+    yield {
+      type: 'result',
+      subtype: 'error_max_budget_usd',
+      duration_ms: Date.now() - startMs,
+      duration_api_ms: getTotalAPIDuration(),
+      is_error: false,
+      num_turns: options.mutableMessages.length,
+      session_id: sessionId,
+      total_cost_usd: getTotalCostUSD(),
+      usage: aggregated,
+      modelUsage: getModelUsage(),
+      permission_denials: permissionDenials,
+      uuid: crypto.randomUUID(),
+      errors: [],
+    };
+    return;
+  }
+
+  const { text: resultText, isApiError } = getLastAssistantText(options.mutableMessages);
+  yield {
+    type: 'result',
+    subtype: 'success',
+    is_error: isApiError,
+    duration_ms: Date.now() - startMs,
+    duration_api_ms: getTotalAPIDuration(),
+    num_turns: options.mutableMessages.length,
+    result: resultText,
+    session_id: sessionId,
+    total_cost_usd: getTotalCostUSD(),
+    usage: aggregated,
+    modelUsage: getModelUsage(),
+    permission_denials: permissionDenials,
+    structured_output: (toolUseContext as any).__structuredOutput,
+    uuid: crypto.randomUUID(),
+  };
+
+  // Persisting session transcripts is handled by shared session-persistence hooks.
+  // Keep this hook point to match v19's behavior gating on persistence.
+  if (persistEnabled) {
+    // No-op here: the upstream CLI/SDK runner is responsible for persistence wiring.
+  }
+}
 
 /**
  * Main loop for SDK agent mode.
@@ -142,54 +566,59 @@ export function runSDKAgentLoop(
     }
 
     try {
-      // $32 is getNextQueuedCommand
-      const getNextQueuedCommand = (global as any).getNextQueuedCommand;
-      let command;
-      while (command = await getNextQueuedCommand?.(getAppState, setAppState)) {
+      const dequeueNextQueuedCommand = async (): Promise<any | undefined> => {
+        let next: any | undefined;
+        setAppState((state: any) => {
+          const q = Array.isArray(state?.queuedCommands) ? state.queuedCommands : [];
+          next = q.length > 0 ? q[0] : undefined;
+          return { ...state, queuedCommands: q.slice(1) };
+        });
+        return next;
+      };
+
+      let command: any | undefined;
+      // Drain queued commands sequentially (matches SDK behavior).
+      while ((command = await dequeueNextQueuedCommand())) {
         if (command.mode !== "prompt" && command.mode !== "orphaned-permission" && command.mode !== "task-notification") {
           throw new Error("Only prompt commands are supported in streaming mode");
         }
 
         abortController = new AbortController();
-        
-        // v19 is coreMessageLoop (async generator)
-        const coreMessageLoop = (global as any).coreMessageLoop;
-        if (!coreMessageLoop) throw new Error("coreMessageLoop not found");
 
-        for await (const message of coreMessageLoop({
+        for await (const message of runSdkPromptTurn({
           commands,
-          prompt: command.value,
-          promptUuid: command.uuid,
+          prompt: String(command.value ?? ''),
+          promptUuid: String(command.uuid ?? crypto.randomUUID()),
           cwd: process.cwd(),
           tools: allTools,
-          verbose: options.verbose,
           mcpClients: allMcpClients,
+          verbose: Boolean(options.verbose),
           maxThinkingTokens: options.maxThinkingTokens,
           maxTurns: options.maxTurns,
           maxBudgetUsd: options.maxBudgetUsd,
           canUseTool,
-          userSpecifiedModel: userSpecifiedModel,
-          fallbackModel: options.fallbackModel,
-          jsonSchema: jsonSchema,
           mutableMessages: messageHistory,
           customSystemPrompt: options.systemPrompt,
           appendSystemPrompt: options.appendSystemPrompt,
+          userSpecifiedModel,
+          fallbackModel: options.fallbackModel,
+          jsonSchema,
           getAppState,
           setAppState,
           abortController,
-          replayUserMessages: options.replayUserMessages,
-          includePartialMessages: options.includePartialMessages,
+          replayUserMessages: Boolean(options.replayUserMessages),
+          includePartialMessages: Boolean(options.includePartialMessages),
           agents,
           orphanedPermission: command.orphanedPermission,
           setSDKStatus: (status: string) => {
             outputQueue.enqueue({
-              type: "system",
-              subtype: "status",
-              status: status,
+              type: 'system',
+              subtype: 'status',
+              status,
               session_id: (getAppState() as any).sessionId,
-              uuid: crypto.randomUUID()
+              uuid: crypto.randomUUID(),
             });
-          }
+          },
         })) {
           const isToolRelated = (message.type === "assistant" || message.type === "user") && message.parent_tool_use_id;
           const isReplay = message.type === "user" && (message as any).isReplay;
@@ -201,9 +630,7 @@ export function runSDKAgentLoop(
         }
         
         // Finalize turn
-        // AM0, eO0 are cleanup/finalize functions
-        (global as any).finalizeTurn?.();
-        (global as any).clearTransientState?.();
+        // The SDK runner (or embedding host) may reset transient state between turns.
       }
     } catch (error) {
       try {
@@ -216,13 +643,12 @@ export function runSDKAgentLoop(
           num_turns: 0,
           session_id: (getAppState() as any).sessionId,
           total_cost_usd: 0,
-          usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+          usage: { input_tokens: 0, output_tokens: 0 },
           modelUsage: {},
           permission_denials: [],
           uuid: crypto.randomUUID(),
           errors: [
             error instanceof Error ? error.message : String(error),
-            ...((global as any).getGlobalErrors?.() || []).map((e: any) => e.error)
           ]
         });
       } catch {}

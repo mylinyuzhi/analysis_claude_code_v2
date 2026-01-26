@@ -20,7 +20,7 @@
 import { z } from 'zod';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import { homedir } from 'os';
 import {
   getProjectDir,
@@ -377,8 +377,7 @@ function formatAgentResult(messages: any[], agentId: string, metadata: {
 function generateSessionId(): string {
   // Original: return "a" + hG5(3).toString("hex")
   // hG5(3) is 3 random bytes -> 6 hex chars
-  const randomHex = randomUUID().replace(/-/g, '').substring(0, 6);
-  return `a${randomHex}`;
+  return `a${randomBytes(3).toString('hex')}`;
 }
 
 // ============================================
@@ -831,6 +830,10 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
 
       const agentId = resume ? sanitizeId(resume) : generateSessionId();
       const resumeMessages = resume ? await loadResumeMessages(agentId) : undefined;
+      if (resume && (!resumeMessages || resumeMessages.length === 0)) {
+        // Mirror chunks.113.mjs:124
+        throw new Error(`No transcript found for agent ID: ${resume}`);
+      }
       
       // Original: forkContext in chunks.113.mjs:127
       const forkContextMessages = selectedAgent.forkContext ? (context as any).messages : undefined;
@@ -877,8 +880,10 @@ export const TaskTool = createTool<TaskInput, TaskOutput>({
         },
         forkContextMessages,
         querySource: (context.options as any)?.querySource ?? getQuerySource(selectedAgent.agentType, isBuiltInAgent(selectedAgent)),
-        model: resolvedModel,
-        maxTurns: max_turns ?? DEFAULT_MAX_TURNS,
+        // Align with chunks.113.mjs:155-156: pass model override (may be undefined)
+        // and allow maxTurns to be undefined (core loop default applies).
+        model,
+        maxTurns: max_turns,
         isAsync: run_in_background === true && !disableBackground,
         override: systemPrompt ? { systemPrompt } : undefined,
       };

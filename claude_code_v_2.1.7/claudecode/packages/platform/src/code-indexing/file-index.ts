@@ -10,7 +10,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
@@ -19,11 +19,10 @@ import Fuse from 'fuse.js';
 
 import { getConfigFilePath, getSettingsFilePath } from '../auth/constants.js';
 import { logError, recordTelemetry } from '../telemetry/index.js';
-import { getOriginalCwd, getSessionId } from '@claudecode/shared';
+import { getOriginalCwd, getProjectRoot, getSessionId, getSessionPath } from '@claudecode/shared';
 import type {
   FileIndex,
   FileSuggestion,
-  FileSuggestionContext,
   FileIndexCache,
   FileSearchResult,
 } from './types.js';
@@ -170,6 +169,45 @@ function getRespectGitignoreSetting(): boolean {
 
 function getFileSuggestionSettings(): FileSuggestionSettings | undefined {
   return getUserSettings().fileSuggestion;
+}
+
+function createFileSuggestionHookInput(query: string): Record<string, unknown> {
+  const sessionId = getSessionId();
+  return {
+    // Source alignment: `jE()` in `source/chunks.120.mjs:1169-1177`
+    // - permission_mode is optional; IQ9 calls `jE()` without args.
+    session_id: sessionId,
+    transcript_path: getSessionPath(sessionId, getProjectRoot()),
+    cwd: getCwd(),
+    permission_mode: undefined,
+    query,
+  };
+}
+
+// ============================================
+// Hook Settings (jQ)
+// ============================================
+
+type HookSettings = {
+  disableAllHooks?: boolean;
+  fileSuggestion?: FileSuggestionSettings;
+};
+
+/**
+ * Read global hook settings from runtime.
+ *
+ * Source alignment:
+ * - `jQ()` returns either `settings.hooks` or `settings` (fallback)
+ * - Used by `Qq0` in `source/chunks.120.mjs:2274-2295`
+ */
+function getGlobalHookSettings(): HookSettings {
+  const settings = (globalThis as any).__claudeSettings;
+  if (!settings || typeof settings !== 'object') return {};
+
+  const hooks = (settings as any).hooks;
+  if (hooks && typeof hooks === 'object') return hooks as HookSettings;
+
+  return settings as HookSettings;
 }
 
 // ============================================
@@ -800,51 +838,121 @@ export async function performSearch(
  * Original: Qq0
  */
 export async function executeFileSuggestionCommand(
-  context: FileSuggestionContext
+  hookInput: Record<string, unknown>,
+  signal?: AbortSignal,
+  timeoutMs: number = 5000
 ): Promise<string[]> {
-  // The command is expected to take the context as JSON on stdin and return JSON on stdout.
-  const commandTemplate = getFileSuggestionSettings()?.command;
+  // ============================================
+  // executeFileSuggestionCommand - Run helper command for file suggestions
+  // Location (source): chunks.120.mjs:2274-2295
+  // ============================================
+  // Source behavior (Qq0):
+  // - If hooks are disabled, return [].
+  // - Must be configured as { type: "command", command: "..." }.
+  // - stdin: JSON input
+  // - stdout: newline-separated suggestions
 
-  if (!commandTemplate) {
-    return [];
-  }
+  const hookSettings = getGlobalHookSettings();
+  if (hookSettings.disableAllHooks === true) return [];
 
-  try {
-    const command = commandTemplate;
-    const child = execFile('sh', ['-c', command], {
-      timeout: 5000,
-      encoding: 'utf8',
+  // Prefer hook settings; fall back to legacy code-indexing settings.
+  const cfg = hookSettings.fileSuggestion ?? getFileSuggestionSettings();
+  if (!cfg || cfg.type !== 'command' || !cfg.command) return [];
+
+  const inputJson = JSON.stringify(hookInput);
+  const command = cfg.command;
+
+  return await new Promise<string[]>((resolve) => {
+    let stdout = '';
+    let stderr = '';
+    let finished = false;
+
+    const child = spawn(command, [], {
+      cwd: getCwd(),
+      shell: true,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...(process.env as Record<string, string>),
+      },
     });
 
-    // Write context to stdin
-    if (child.stdin) {
-      child.stdin.write(JSON.stringify(context));
-      child.stdin.end();
+    const done = (result: string[] = []) => {
+      if (finished) return;
+      finished = true;
+      resolve(result);
+    };
+
+    const kill = () => {
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        // ignore
+      }
+    };
+
+    // Timeout (default 5000ms, same as source Qq0 default)
+    const timeoutId = setTimeout(() => {
+      kill();
+    }, timeoutMs);
+
+    const abortHandler = () => {
+      kill();
+    };
+    if (signal) {
+      if (signal.aborted) {
+        clearTimeout(timeoutId);
+        return done([]);
+      }
+      signal.addEventListener('abort', abortHandler);
     }
 
-    // Wait for output
-    const stdout = await new Promise<string>((resolve, reject) => {
-      let output = '';
-      child.stdout?.on('data', (chunk) => { output += chunk; });
-      child.on('close', (code) => {
-        if (code === 0) resolve(output);
-        else reject(new Error(`Command failed with code ${code}`));
+    child.stdout?.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8');
+    });
+    child.stderr?.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8');
+    });
+
+    child.on('error', (err) => {
+      clearTimeout(timeoutId);
+      if (signal) signal.removeEventListener('abort', abortHandler);
+      logError(err instanceof Error ? err : new Error(String(err)));
+      recordTelemetry('tengu_file_suggestion_command_error', {
+        error: err instanceof Error ? err.message : String(err),
       });
-      child.on('error', reject);
+      done([]);
     });
 
-    // Parse result
-    const result = JSON.parse(stdout);
-    if (Array.isArray(result)) {
-      return result.map(String);
-    }
-    return [];
+    child.on('close', (code) => {
+      clearTimeout(timeoutId);
+      if (signal) signal.removeEventListener('abort', abortHandler);
 
-  } catch (e: any) {
-    logError(e instanceof Error ? e : new Error(String(e)));
-    recordTelemetry('tengu_file_suggestion_command_error', { error: e?.message ?? String(e) });
-    return [];
-  }
+      // Source: `if (aborted || status !== 0) return []`
+      if (code !== 0) {
+        log(`[FileIndex] fileSuggestion command failed (code=${code}, stderr=${stderr.trim()})`);
+        done([]);
+        return;
+      }
+
+      const results = stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      done(results);
+    });
+
+    // Write hook input to stdin
+    try {
+      child.stdin?.write(inputJson);
+      child.stdin?.end();
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (signal) signal.removeEventListener('abort', abortHandler);
+      logError(err instanceof Error ? err : new Error(String(err)));
+      done([]);
+    }
+  });
 }
 
 /**
@@ -860,14 +968,13 @@ export async function getFileSuggestions(
 
   // Check for custom command configuration
   const fileSuggestion = getFileSuggestionSettings();
-  if (fileSuggestion?.type === 'command') {
-    const context: FileSuggestionContext = {
-      cwd: getCwd(),
-      query,
-      session_id: getSessionId(),
-    };
+  const hookFileSuggestion = getGlobalHookSettings().fileSuggestion;
+  const shouldUseCommandMode =
+    fileSuggestion?.type === 'command' || hookFileSuggestion?.type === 'command';
+  if (shouldUseCommandMode) {
     try {
-      const results = await executeFileSuggestionCommand(context);
+      const hookInput = createFileSuggestionHookInput(query);
+      const results = await executeFileSuggestionCommand(hookInput);
       return results.slice(0, MAX_SUGGESTIONS).map((p) => createFileResult(p));
     } catch {
       return [];

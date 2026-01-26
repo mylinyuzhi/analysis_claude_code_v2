@@ -473,18 +473,19 @@ export class SimpleCommand implements Command {
     }
 
     // Tokenizer-based redirection extraction (Original: Hx in chunks.147.mjs:909-957)
-    const { commandWithoutRedirections } = extractOutputRedirectionsFromTokenizer(this.originalCommand);
-    return commandWithoutRedirections;
+    const { commandWithoutRedirections, redirections } =
+      extractOutputRedirectionsFromTokenizer(this.originalCommand);
+
+    // Source alignment: `um2.withoutOutputRedirections()` returns the stripped command
+    // only when at least one output redirection was actually detected.
+    return redirections.length > 0 ? commandWithoutRedirections : this.originalCommand;
   }
 
   getOutputRedirections(): RedirectionInfo[] {
+    // Source alignment: `um2.getOutputRedirections()` returns tokenizer result as-is.
     // Note: tokenizer-based extraction does not provide indices.
     const { redirections } = extractOutputRedirectionsFromTokenizer(this.originalCommand);
-    return redirections.map((r) => {
-      // Keep Code Indexing API aligned with source Hx(): it normalizes most redirects into `>` / `>>`.
-      const operator = r.operator === '>>' ? '>>' : '>';
-      return { target: r.target, operator };
-    });
+    return redirections;
   }
 }
 
@@ -553,8 +554,9 @@ export class RichCommand implements Command {
   }
 
   getOutputRedirections(): RedirectionInfo[] {
-    // Tree-sitter extraction includes accurate source indices (Original: Sn5 in chunks.123.mjs:751-766)
-    return this.redirectionNodes;
+    // Source alignment: `mm2.getOutputRedirections()` drops indices and returns only
+    // `{ target, operator }` pairs.
+    return this.redirectionNodes.map(({ target, operator }) => ({ target, operator }));
   }
 }
 
