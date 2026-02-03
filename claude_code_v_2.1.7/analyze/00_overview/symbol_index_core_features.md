@@ -968,6 +968,17 @@ Tool hook execution timeout changed from **60 seconds → 10 minutes**.
 | mI0 | extractSystemReminder | chunks.91.mjs:3368-3371 | function |
 | SG5 | filterSystemReminderMessages | chunks.91.mjs:3373-3403 | function |
 
+### Input Queuing & Command Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wF | enqueueCommand | chunks.91.mjs:959-964 | function |
+| $32 | dequeueCommand | chunks.91.mjs:966-974 | function |
+| C32 | popAllQueuedCommands | chunks.91.mjs:976-986 | function |
+| U32 | removeQueuedCommands | chunks.91.mjs:988-995 | function |
+| SZ1 | flushEditableQueuedCommands | chunks.91.mjs:1025-1052 | function |
+| PZ1 | isEditableCommandMode | chunks.91.mjs:997-999 | function |
+
 ### System Reminder Wrappers
 
 | Obfuscated | Readable | File:Line | Type |
@@ -1014,10 +1025,24 @@ Tool hook execution timeout changed from **60 seconds → 10 minutes**.
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | O27 | generateAllAttachments | chunks.131.mjs:3121-3138 | function |
+| M27 | generateQueuedCommandsAttachment | chunks.131.mjs:3166-3174 | function |
 | q$7 | convertAttachmentToSystemMessage | chunks.148.mjs:3-371 | function |
 | fJ | wrapWithErrorHandling | chunks.131.mjs:3140-3163 | function |
 | MuA | createToolUseMessage | chunks.148.mjs:392-397 | function |
 | OuA | createToolResultMessage | chunks.148.mjs:373-390 | function |
+
+### TUI & Input Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| jK | handleUserQuery | chunks.154.mjs:1314-1367 | function |
+| g6 | onQuery | chunks.154.mjs:1201-1228 | function |
+| NQ.current | isProcessingRef | chunks.154.mjs:1202 | property |
+| NF9 | useQueuedCommandsProcessor | chunks.152.mjs:3789-3819 | function |
+| UF9 | processQueuedCommands | chunks.152.mjs:3761-3783 | function |
+| yV9 | QueuedCommandsList | chunks.152.mjs:1490-1522 | component |
+| SV9 | QueuedItemContext | chunks.152.mjs:1432-1446 | component |
+| vL2 | StatusIndicator | chunks.107.mjs:2248-2350 | component |
 
 ### Main Loop Integration
 

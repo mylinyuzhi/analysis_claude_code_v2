@@ -1921,11 +1921,200 @@ When multiple steering sources provide conflicting instructions, the following p
 
 ---
 
-## Cross-Reference Index
+## 11. Input Queuing and Real-Time Steering (v2.1.7)
 
-- **System Reminders:** [04_system_reminder/](../04_system_reminder/)
-- **Tools Integration:** [05_tools/](../05_tools/)
-- **Hook System:** [11_hook/](../11_hook/)
-- **Plan Mode:** [12_plan_mode/](../12_plan_mode/)
-- **Permissions & Sandbox:** [18_sandbox/](../18_sandbox/)
-- **Todo List:** [13_todo_list/](../13_todo_list/)
+Claude Code v2.1.7 implements a non-blocking input system that allows users to continue typing and sending commands while the agent is busy processing a task. These inputs are handled in two ways: **Real-Time Steering** (during execution) and **Normal Queuing** (sequential execution after current task).
+
+### 11.1 Non-Blocking Input Capture
+
+When a user submits a query, the TUI's query handler checks if the agent is currently busy using a thread-safe reference (`isProcessingRef`).
+
+```javascript
+// ============================================
+// onQuery - Input capture and queuing logic
+// Location: chunks.154.mjs:1201-1228
+// ============================================
+
+// ORIGINAL (for source lookup):
+g6 = UQ.useCallback(async (R0, JQ, WQ, S9, B4, G4, B9, a4) => {
+  if (NQ.current) {
+    l("tengu_concurrent_onquery_detected", {}), R0.filter((o8) => o8.type === "user").map((o8) => S6A(o8.message.content)).filter((o8) => o8 !== null).forEach((o8, $8) => {
+      if (wF({ value: o8, mode: "prompt" }, M), $8 === 0) l("tengu_concurrent_onquery_enqueued", {})
+    }), HQ(!1);
+    return
+  }
+  NQ.current = !0;
+  try {
+    // ... normal agent loop execution ...
+  } finally {
+    NQ.current = !1;
+  }
+}, [...])
+
+// READABLE (for understanding):
+const onQuery = useCallback(async (newMessages, abortController, ...) => {
+  // Check if agent is already busy (NQ.current is isProcessingRef)
+  if (isProcessingRef.current) {
+    // 1. Log concurrent query detection
+    logTelemetry("tengu_concurrent_onquery_detected");
+
+    // 2. Extract user text content and enqueue
+    newMessages
+      .filter(m => m.type === "user")
+      .map(m => extractText(m.message.content))
+      .filter(text => text !== null)
+      .forEach((text, index) => {
+        // Enqueue command into appState.queuedCommands
+        enqueueCommand({ value: text, mode: "prompt" }, setAppState);
+        if (index === 0) logTelemetry("tengu_concurrent_onquery_enqueued");
+      });
+
+    // 3. Reset loading state and exit (don't start new loop)
+    setIsLoading(false);
+    return;
+  }
+
+  // Set busy flag and start execution
+  isProcessingRef.current = true;
+  try {
+    setIsLoading(true);
+    // ... proceed to agent loop ...
+  } finally {
+    isProcessingRef.current = false;
+  }
+}, [...]);
+
+// Mapping: g6→onQuery, NQ.current→isProcessingRef, wF→enqueueCommand, M→setAppState, HQ→setIsLoading
+```
+
+**Key algorithm:**
+1.  **Busy Detection**: Uses `isProcessingRef.current` (obfuscated: `NQ.current`).
+2.  **State Management**: If busy, calls `enqueueCommand` (`wF`) which pushes the command to `appState.queuedCommands`.
+3.  **No Blocking**: The UI remains interactive; the user doesn't wait for the agent to finish before their input is acknowledged and queued.
+
+### 11.2 Real-Time Steering (Busy State)
+
+While the agent is still running (`isProcessingRef.current` is true), the next iteration of the `mainAgentLoop` will pick up the queued commands and inject them as **steering reminders**.
+
+```javascript
+// ============================================
+// generateQueuedCommandsAttachment - Convert queue to steering context
+// Location: chunks.131.mjs:3166-3174
+// ============================================
+
+// ORIGINAL (for source lookup):
+function M27(A) {
+  return A.length === 0 ? [] : A.map((Q) => ({
+    type: "queued_command",
+    message: typeof Q.value === "string" ? Q.value : eA(Q.value)
+  }))
+}
+
+// READABLE (for understanding):
+function generateQueuedCommandsAttachment(queuedCommands) {
+  if (queuedCommands.length === 0) return [];
+
+  return queuedCommands.map((command) => ({
+    type: "queued_command",
+    message: typeof command.value === "string"
+      ? command.value
+      : stringify(command.value)
+  }));
+}
+
+// Mapping: M27→generateQueuedCommandsAttachment, A→queuedCommands
+```
+
+These `queued_command` attachments are converted to `isMeta: true` messages by `q$7` in `chunks.148.mjs`:
+-   **Content**: `User sent: {message}`
+-   **Behavior**: The model sees this as a hidden system prompt *while it is still working on the previous task*, allowing it to pivot or adjust its behavior (steering).
+
+### 11.3 Normal Queuing (Idle State)
+
+If the agent becomes idle and there are still commands in the queue, a specialized hook handles sequential execution.
+
+```javascript
+// ============================================
+// useQueuedCommandsProcessor - Post-idle queue processor
+// Location: chunks.152.mjs:3789-3819
+// ============================================
+
+// READABLE (for understanding):
+function useQueuedCommandsProcessor({ isLoading, queuedCommandsLength, getAppState, setAppState, executeQueuedInput }) {
+  const isProcessingRef = useRef(false);
+
+  useEffect(() => {
+    // Only trigger when agent is NOT busy and queue is NOT empty
+    if (isLoading || queuedCommandsLength === 0 || isProcessingRef.current) return;
+
+    isProcessingRef.current = true;
+    async function processQueue() {
+      while (true) {
+        // Pop and execute all queued commands
+        const { processed } = await processQueuedCommands({ getAppState, setAppState, executeInput: executeQueuedInput });
+        if (!processed) break;
+
+        // Check if queue is finally empty
+        const state = await getAppState();
+        if (state.queuedCommands.length === 0) break;
+      }
+      isProcessingRef.current = false;
+    }
+    processQueue();
+  }, [isLoading, queuedCommandsLength, ...]);
+}
+
+// Mapping: NF9→useQueuedCommandsProcessor, UF9→processQueuedCommands
+```
+
+**Why this dual approach:**
+-   **Steering**: Allows the agent to react to new input *mid-task* (e.g., "Stop doing that and search for X instead").
+-   **Queuing**: Ensures that if the user queues multiple independent commands, they are executed one after another automatically once the agent is free.
+
+### 11.4 TUI Visual Feedback
+
+The TUI provides explicit visual feedback for both steering and queuing states.
+
+#### Queued Command List (`yV9`)
+Located above the input box, this component renders the list of "Waiting..." commands.
+-   **Dimmed State**: Uses `SV9` (QueuedItemContext) to set a context variable `isQueued: true`.
+-   **Rendering**: Messages in the queue are rendered with a dot prefix and dimmed colors to distinguish them from the active conversation.
+-   **Location**: `chunks.152.mjs:1490-1522`.
+
+#### Status Indicator (`vL2`)
+The spinner/status bar at the bottom changes based on the steering state.
+-   **"Thinking..."**: Triggered when `mode === "thinking"`.
+-   **"Running bash..."**: Triggered when tools are active.
+-   **Elapsed Time**: Shows how long the current steering/processing turn has taken.
+-   **Location**: `chunks.107.mjs:2248-2350`.
+
+---
+
+## 12. Full-Link Trace: User Input to Steering
+
+1.  **User Input**: User types "Actually, use tool X" and hits Enter while the agent is running `grep`.
+2.  **Capture**: `onQuery` (`g6` in `chunks.154.mjs`) detects `isProcessingRef.current === true`.
+3.  **Enqueue**: `enqueueCommand` (`wF` in `chunks.91.mjs`) adds the message to `appState.queuedCommands`.
+4.  **TUI Update**: `QueuedCommandsList` (`yV9`) renders "Actually, use tool X" in the "Waiting..." list.
+5.  **Agent Iteration**: The active `mainAgentLoop` finishes its current tool execution and starts the next iteration.
+6.  **Attachment Generation**: `generateAllAttachments` (`O27` in `chunks.131.mjs`) calls `generateQueuedCommandsAttachment` (`M27`).
+7.  **System Reminder**: `convertAttachmentToSystemMessage` (`q$7` in `chunks.148.mjs`) creates a message: `[isMeta: true] <system-reminder>User sent: Actually, use tool X</system-reminder>`.
+8.  **API Injection**: `buildFinalApiMessages` includes this hidden message in the next request to the Claude API.
+9.  **Model Steering**: Claude receives the reminder, realizes the user's intent has changed, and adjusts its plan in the next response.
+10. **Queue Cleanup**: Once the agent loop completes all turns and becomes idle, `useQueuedCommandsProcessor` (`NF9`) flushes any remaining commands.
+
+---
+
+## Key Functions Summary (Updated)
+
+| Function | Obfuscated | Location | Purpose |
+|----------|------------|----------|---------|
+| **Steering Core** | | | |
+| onQuery | g6 | chunks.154.mjs:1201-1228 | Input capture and queuing router |
+| enqueueCommand | wF | chunks.91.mjs:959-964 | Add command to `queuedCommands` state |
+| generateQueuedCommandsAttachment | M27 | chunks.131.mjs:3166-3174 | Fetch queue for steering pipeline |
+| useQueuedCommandsProcessor | NF9 | chunks.152.mjs:3789-3819 | Post-idle sequential queue flusher |
+| **UI Components** | | | |
+| QueuedCommandsList | yV9 | chunks.152.mjs:1490-1522 | Render "Waiting..." command list |
+| StatusIndicator | vL2 | chunks.107.mjs:2248-2350 | Show "Thinking/Running" status |
+| QueuedItemContext | SV9 | chunks.152.mjs:1432-1446 | Styling context for queued items |
