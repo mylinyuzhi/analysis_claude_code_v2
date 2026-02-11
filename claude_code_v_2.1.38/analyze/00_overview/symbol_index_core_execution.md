@@ -30,6 +30,16 @@
 
 ---
 
+## Module: LLM API
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| lOq | llmRequestGenerator | chunks.169.mjs:739 | function (generator) |
+| V26 | withApiRetry | chunks.169.mjs:120 | function |
+| US | createLlmClient | chunks.169.mjs:100 | function |
+
+---
+
 ## Module: Agent Loop
 
 > Full analysis: [03_llm_core/](../03_llm_core/)
@@ -60,3 +70,24 @@
 | run_in_background | run_in_background | chunks.132.mjs:43 | parameter |
 | background-task-output | BACKGROUND_TASK_OUTPUT_MARKER | chunks.129.mjs:2194 | constant |
 | backgroundTasks | backgroundTasks | chunks.151.mjs:2590 | state key |
+
+---
+
+## Module: State Management
+
+> Full analysis: [15_state_management/](../15_state_management/)
+
+### Store Logic
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| gG1 | initialAppState | chunks.151.mjs:419 | function |
+| Gf6 | createStore | chunks.151.mjs:398 | function |
+| u_ | AppStateProvider | chunks.151.mjs:522 | component |
+| v6 | useAppState | chunks.151.mjs:576 | hook |
+| L7 | useSetAppState | chunks.151.mjs:591 | hook |
+| jA | updateGlobalConfig | chunks.174.mjs:1460 | function |
+| f6 | getGlobalConfig | chunks.174.mjs:1539 | function |
+| bZ | registerTaskInState | chunks.142.mjs:1676 | function |
+| o6 | internalStateObject | chunks.1.mjs:3052 | object |
+| dcA | createInternalState | chunks.1.mjs:2351 | function |

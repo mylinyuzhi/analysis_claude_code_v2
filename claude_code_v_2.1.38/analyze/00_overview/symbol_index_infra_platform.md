@@ -34,8 +34,46 @@
 
 ---
 
+## Module: Prompt Building
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cq6 | getSystemPrompt | chunks.47.mjs:2470 | function |
+| lq6 | getAttributionHeader | chunks.47.mjs:2484 | function |
+| F9z | buildSystemPromptWithCache | chunks.169.mjs:150 | function |
+| A67 | calculatePromptHash | chunks.47.mjs:2528 | function |
+
+---
+
 ## Module: MCP Protocol
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ... | ... | ... | ... |
+| ce | parseMcpCliCommand | chunks.174.mjs:2627 | function |
+| CYz | processMcpCliResult | chunks.170.mjs:473 | function |
+| ECA | callMcpServer | chunks.170.mjs:480 (referenced) | function |
+| CJq | updateMcpSessionState | chunks.174.mjs:353 | function |
+| FOq | buildMcpCliInstructions | chunks.169.mjs:264 | function |
+| hc | getMcpCliCacheDir | chunks.174.mjs:282 | function |
+| ST6 | getMcpSessionFilePath | chunks.174.mjs:311 | function |
+| ln4 | McpMetaTool | chunks.144.mjs:309 | object |
+
+---
+
+## Module: Telemetry
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| c | logEvent | chunks.1.mjs:4278 | function |
+| ml | logEventAsync | chunks.1.mjs:4290 | function |
+| ziA | attachAnalyticsSink | chunks.1.mjs:4266 | function |
+| tp | getUserMetadata | chunks.174.mjs:2022 | function |
+| z_q | getSanitizedCommandType | chunks.170.mjs:260 | function |
+| WvA | logToSegment | chunks.176.mjs:338 (referenced) | function |
+| _GA | logToDatadog | chunks.176.mjs:339 (referenced) | function |
+| FX6 | logToInternalCollector | chunks.109.mjs:2513 | function |
+| _6Y | initInternalTelemetry | chunks.109.mjs:2550 | function |
+| EK | recordPerformanceMark | chunks.1.mjs:4317 | function |
+| HiA | getProfilingReport | chunks.1.mjs:4330 | function |
+
+
