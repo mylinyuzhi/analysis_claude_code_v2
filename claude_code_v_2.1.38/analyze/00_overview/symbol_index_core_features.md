@@ -248,6 +248,28 @@
 | I7z | ThemeCommand | chunks.162.mjs:419142 | object |
 | PuA | UsageCommand | chunks.162.mjs:419075 | object |
 
+### Built-in Prompt Skills (Registration & Prompts)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| __z | VERIFIER_SYSTEM_PROMPT | chunks.177.mjs:1933-2176 | constant |
+| Ejq | initVerifiersModuleInit | chunks.177.mjs:2178-2180 | function |
+| Njq | registerVerifySkill | chunks.177.mjs:1921-1923 | function (stub) |
+| Tjq | verifySkillModuleInit | chunks.177.mjs:1925-1927 | function |
+| vjq | registerInitVerifiersSkill | chunks.177.mjs:1929-1931 | function (stub) |
+| xjq | registerAllBuiltinSkills | chunks.177.mjs:2441-2443 | function |
+| bjq | builtinSkillsLazyInit | chunks.177.mjs:2445-2456 | function |
+| Xjq | registerRememberSkill | chunks.177.mjs:1142-1144 | function (stub) |
+| QOz | REMEMBER_SKILL_PROMPT | chunks.177.mjs:1146-1259 | constant |
+| Pjq | registerSettingsHelpSkill | chunks.177.mjs:1314-1316 | function (stub) |
+| dOz | SETTINGS_HELP_PROMPT | chunks.177.mjs:1318-1563 | constant |
+| fjq | registerKeybindingsSkill | chunks.177.mjs:1809-1838 | function |
+| kjq | registerDebugSkill | chunks.177.mjs:2188-2249 | function |
+| Cjq | registerBenchmarkSkill | chunks.177.mjs:2279-2281 | function (stub) |
+| hjq | registerSkillifySkill | chunks.177.mjs:2299-2301 | function (stub) |
+| j_z | SKILLIFY_PROMPT | chunks.177.mjs:2303-2434 | constant |
+| jjq | registerChromeSkill | chunks.177.mjs:1269-1290 | function |
+
 ---
 
 ## Module: Thinking Mode

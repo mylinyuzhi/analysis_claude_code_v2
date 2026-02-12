@@ -83,6 +83,28 @@
 | EK | recordPerformanceMark | chunks.1.mjs:4317 | function |
 | HiA | getProfilingReport | chunks.1.mjs:4330 | function |
 
+### Query Profiling
+
+> Full analysis: [17_telemetry/query_profiling.md](../17_telemetry/query_profiling.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| BU1 | profilingEnabled | chunks.149.mjs:1343 | variable |
+| c1q | queryCounter | chunks.149.mjs:1347 | variable |
+| d1q | formatMB | chunks.149.mjs:1233 | function |
+| EdY | generateProfilingReport | chunks.149.mjs:1247 | function |
+| HhA | getPerformanceInstance | chunks.149.mjs:1205 | function |
+| i1q | endProfiling | chunks.149.mjs:1224 | function |
+| kdY | generatePhaseBreakdown | chunks.149.mjs:1282 | function |
+| l1q | resetProfiling | chunks.149.mjs:1210 | function |
+| n1q | printProfilingReport | chunks.149.mjs:1338 | function |
+| st | formatMs | chunks.149.mjs:1229 | function |
+| vdY | getSlowWarning | chunks.149.mjs:1237 | function |
+| whA | memorySnapshots | chunks.149.mjs:1345 | variable |
+| y3 | recordMark | chunks.149.mjs:1215 | function |
+| YhA | performanceInstance | chunks.149.mjs:1351 | variable |
+| zhA | firstChunkTime | chunks.149.mjs:1349 | variable |
+
 ---
 
 ## Module: Sandbox

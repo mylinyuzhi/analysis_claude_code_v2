@@ -21,8 +21,8 @@
 | 04 | `04_system_reminder` | System reminder injection and formatting |
 | 07 | `07_compact` | Conversation compaction, "Summarize from here" |
 | 09 | `09_slash_command` | Slash command registry and execution |
-| 10 | `10_skill` | Skill system, skill definitions and invocation |
-| 11 | `11_hook` | Hook system, lifecycle events, setup hook |
+| 10 | `10_skill_system` | Skill system, skill definitions, invocation, verifier skills |
+| 11 | `11_hooks` | Hook system, lifecycle events, setup hook, event catalog |
 | 12 | `12_plan_mode` | Plan mode flow, EnterPlanMode/ExitPlanMode |
 | 13 | `13_task_system` | Task management: TaskCreate/TaskUpdate/TaskGet/TaskList with dependencies, ownership, status workflow (renamed from todo_list) |
 | 19 | `19_think_level` | Thinking mode configuration and levels |
@@ -38,7 +38,7 @@
 | 18 | `18_sandbox` | Sandbox execution, `.claude/skills` blocking |
 | 23 | `23_prompt_cache` | Prompt caching strategy and management |
 | 24 | `24_auth` | Authentication and authorization |
-| 25 | `25_plugin` | Plugin system, marketplace improvements |
+| 25 | `25_plugin_system` | Plugin system, marketplace improvements, hook extraction |
 
 ### Integration Infrastructure
 
