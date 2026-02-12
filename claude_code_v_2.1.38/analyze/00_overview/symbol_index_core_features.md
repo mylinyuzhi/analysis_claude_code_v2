@@ -45,6 +45,11 @@
 | eSY | handleShutdownRejection | chunks.141.mjs:1216 | function |
 | AhY | handlePlanApproval | chunks.141.mjs:1239 | function |
 | qhY | handlePlanRejection | chunks.141.mjs:1265 | function |
+| QSY | TeamCreateTool | chunks.141.mjs:571 | object |
+| USY | TeamDeleteTool | chunks.141.mjs:759 | object |
+| f9 | sendTeamMessage | chunks.141.mjs: (imported) | function |
+| mSY | writeTeamConfig | chunks.141.mjs:534 | function |
+| ul4 | getTeamConfigPath | chunks.141.mjs:530 | function |
 
 ---
 
@@ -195,6 +200,7 @@
 |------------|----------|-----------|------|
 | NI | executeHooksIterator | chunks.141.mjs:2311 | generator |
 | IM6 | executeHook | chunks.130.mjs:1361 | function |
+| Xi4 | executeAgentHook | chunks.141.mjs:1561 | function |
 | BW6 | executeCommandHook | chunks.141.mjs:1898 | function |
 | qyA | executePreToolHooks | chunks.141.mjs:2812 | generator |
 | KyA | executePostToolHooks | chunks.141.mjs:2831 | generator |
@@ -228,6 +234,19 @@
 | aQ1 | conditionalSkillsMap | chunks.134.mjs:2035 | Map |
 | BkA | activatedSkillsSet | chunks.134.mjs:2037 | Set |
 | mkA | skillChangeListeners | chunks.134.mjs:2039 | Array |
+| dF4 | createSkillObject | chunks.134.mjs:1682 | function |
+| pF4 | parseSkillHooks | chunks.134.mjs:1663 | function |
+
+### Built-in Skills/Plugins
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wzq | SecurityReviewPlugin | chunks.162.mjs:419022 | object |
+| E7z | TasksCommand | chunks.162.mjs:418749 | object |
+| R7z | TodosCommand | chunks.162.mjs:418817 | object |
+| b7z | VimModeCommand | chunks.162.mjs:419181 | object |
+| I7z | ThemeCommand | chunks.162.mjs:419142 | object |
+| PuA | UsageCommand | chunks.162.mjs:419075 | object |
 
 ---
 
@@ -240,3 +259,34 @@
 ## Module: Steering
 
 > Full analysis: [21_steering/](../21_steering/)
+
+---
+
+## Module: CLI
+
+> Full analysis: [01_cli/](../01_cli/)
+
+### Entry Points & Commands
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| nGz | mainEntry | chunks.190.mjs:931 | function |
+| aGz | commanderSetup | chunks.190.mjs:999 | function |
+| qZz | cliWrapper | chunks.189.mjs:16 | function |
+| gRq | showSetupScreens | chunks.190.mjs:758 | function |
+| PGz | pluginValidateCommand | chunks.189.mjs:3 | function |
+| VGz | installCommandRender | chunks.189.mjs:80 | function |
+| yGz | updateCheckCommand | chunks.189.mjs:371 | function |
+| vGz | setupTokenCommand | chunks.189.mjs:267 | function |
+| LGz | doctorCommand | chunks.189.mjs:313 | function |
+| RGz | installCommandAction | chunks.189.mjs:328 | function |
+
+### UI & Interaction
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| TUA | REPL | chunks.188.mjs:3 | function (Component) |
+| J0 | getToolUseContext | chunks.188.mjs:426 | function |
+| oc | handleQuery | chunks.188.mjs:550 | function |
+| ff | onQuery | chunks.188.mjs:589 | function |
+| Z$ | onSubmit | chunks.188.mjs:686 | function |

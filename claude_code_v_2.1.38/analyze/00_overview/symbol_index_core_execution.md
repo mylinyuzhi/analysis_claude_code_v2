@@ -21,6 +21,16 @@
 
 > Full analysis: [05_tools/](../05_tools/)
 
+### Core Tools
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| i5 | FileReadTool | chunks.146.mjs:1754 | tool object |
+| vj | FileWriteTool | chunks.146.mjs:436 | tool object |
+| tS | GrepTool | chunks.76.mjs:1129 | tool object |
+| WB | GlobTool | chunks.76.mjs:1495 | tool object |
+| BYq | BashOutputComponent | chunks.162.mjs:417249 | component |
+
 ### Team/Swarm Tools
 
 | Obfuscated | Readable | File:Line | Type |

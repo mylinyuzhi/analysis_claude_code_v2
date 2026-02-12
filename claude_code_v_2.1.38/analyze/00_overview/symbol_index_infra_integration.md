@@ -22,8 +22,11 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| um4 | createLspClient | chunks.133.mjs:1614 | function |
-| Fm4 | LspServerInstance | chunks.133.mjs:1785 | function |
+| um4 | createLspProcessWrapper | chunks.133.mjs:1614 | function |
+| Fm4 | createLspClient | chunks.133.mjs:1785 | function |
+| HvY | loadPluginLspConfig | chunks.133.mjs:1980 | function |
+| GP6 | vscode_languageserver_protocol | chunks.133.mjs:881 | library |
+| Zm4 | vscode_jsonrpc | chunks.133.mjs:3 | library |
 | lm4 | LspServerManager | chunks.133.mjs:2172 | function |
 | dm4 | loadLspConfigs | chunks.133.mjs:2144 | function |
 | om4 | registerDiagnostics | chunks.133.mjs:2350 | function |

@@ -57,6 +57,13 @@
 | hc | getMcpCliCacheDir | chunks.174.mjs:282 | function |
 | ST6 | getMcpSessionFilePath | chunks.174.mjs:311 | function |
 | ln4 | McpMetaTool | chunks.144.mjs:309 | object |
+| A11 | mcpCliProgram | chunks.175.mjs:452442 | object (Commander) |
+| yHz | executeMcpTool | chunks.175.mjs:452355 | function |
+| rH6 | McpClient | chunks.79.mjs:214313 | class |
+| SJA | StdioClientTransport | chunks.79.mjs:214693 | class |
+| zY1 | callRemoteMcpEndpoint | chunks.175.mjs:452318 | function |
+| mFA | parseToolIdentifier | chunks.175.mjs:452309 | function |
+| SHz | runMcpCliCommand | chunks.175.mjs:452397 | function |
 
 ---
 
@@ -75,5 +82,29 @@
 | _6Y | initInternalTelemetry | chunks.109.mjs:2550 | function |
 | EK | recordPerformanceMark | chunks.1.mjs:4317 | function |
 | HiA | getProfilingReport | chunks.1.mjs:4330 | function |
+
+---
+
+## Module: Sandbox
+
+> Full analysis: [05_tools/security_validation.md](../05_tools/security_validation.md)
+
+### Bash/Sed Security
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| lm | validateBashCommand | chunks.150.mjs:382652 | function |
+| edY | validateJqSecurity | chunks.150.mjs:382334 | function |
+| OcY | validateSedCommand | chunks.150.mjs:382743 | function |
+| J6q | validateSedSubstitution | chunks.150.mjs:382780 | function |
+| $cY | checkObfuscatedFlags | chunks.150.mjs:382534 | function |
+| AcY | checkShellMetacharacters | chunks.150.mjs:382364 | function |
+| qcY | checkDangerousVariables | chunks.150.mjs:382395 | function |
+| KcY | checkCommandSubstitution | chunks.150.mjs:382412 | function |
+| YcY | checkNewlineInjection | chunks.150.mjs:382453 | function |
+| zcY | checkIfsInjection | chunks.150.mjs:382474 | function |
+| wcY | checkProcEnvironAccess | chunks.150.mjs:382491 | function |
+| HcY | checkMalformedTokens | chunks.150.mjs:382508 | function |
+
 
 
