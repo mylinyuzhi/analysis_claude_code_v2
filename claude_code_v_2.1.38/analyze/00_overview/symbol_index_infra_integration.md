@@ -102,4 +102,18 @@
 
 ---
 
+## Module: IDE Integration
+
+> Full analysis: [22_ide_integration/overview.md](../22_ide_integration/overview.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| iV | findConnectedIdeClient | chunks.80.mjs:1868 (Ln 217207) | function |
+| mx7 | closeAllDiffTabs | chunks.80.mjs:1874 (Ln 217212) | function |
+| hx7 | sendIdeConnectedNotification | chunks.145.mjs:2183 | function |
+| fVq | useIdeSelection | chunks.186.mjs:410 (Ln 482303) | function (hook) |
+| oMz | selectionChangedSchema | chunks.186.mjs:463 (Ln 482347) | object (Zod) |
+
+---
+
 ## Module: UI Components (Ink)

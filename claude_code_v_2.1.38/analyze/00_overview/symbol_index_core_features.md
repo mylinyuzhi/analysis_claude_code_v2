@@ -153,9 +153,25 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| xm | isPlanModeEnabled | chunks.130.mjs:412 | function |
+| a2 | applyPermissionAction | chunks.140.mjs:1695 | function |
+| A2z | buildPlanModeSparseReminder | chunks.173.mjs:676 | function |
+| azz | buildPlanModeReminder | chunks.173.mjs:531 | function |
+| Dz | isTeammate | chunks.139.mjs:2690 | function |
+| ezz | buildPlanModeInterviewReminder | chunks.173.mjs:619 | function |
+| g5 | getAgentName | chunks.139.mjs:2695 | function |
+| kg1 | EnterPlanModeTool | chunks.140.mjs:1640 | tool object |
+| kx | setNeedsPlanModeExitAttachment | chunks.139.mjs:2700 | function |
+| MC1 | hasTeamConfig | chunks.139.mjs:2691 | function |
+| Nj | ExitPlanModeTool | chunks.139.mjs:2641 | tool object |
+| OT | setHasExitedPlanMode | chunks.139.mjs:2699 | function |
 | pD | getPlanContent | chunks.146.mjs:2700 | function |
+| q2z | buildPlanModeSubagentReminder | chunks.173.mjs:660 | function |
+| sO | isPlanModeInterviewPhase | chunks.140.mjs:1475 | function |
 | uW | getPlanFilePath | chunks.146.mjs:2702 | function |
+| vg1 | pushToRemote | chunks.139.mjs:2720 | function |
+| vP1 | generateRequestId | chunks.139.mjs:2710 | function |
+| Xc4 | getPlanDesignAgentCount | chunks.140.mjs:1455 | function |
+| xm | isPlanModeEnabled | chunks.130.mjs:412 | function |
 
 ---
 
