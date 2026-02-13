@@ -297,6 +297,32 @@
 ## Module: Steering
 
 > Full analysis: [21_steering/](../21_steering/)
+> Real-time course correction via interrupt signals
+
+### Steering Logic
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| N11 | onCancel | chunks.188.mjs:328-340 | function |
+| Aq | createAbortController | chunks.6.mjs:449-451 | function |
+| O3 | abortController | chunks.188.mjs:99 | state variable |
+| HY | setAbortController | chunks.188.mjs:99 | state setter |
+| XhA | createUserInterruptMessage | chunks.149.mjs | function |
+| FG1 | createCleanupMessage | chunks.149.mjs | function |
+| i4K | setupAbortTimeout | chunks.6.mjs | function |
+| n4K | DEFAULT_TIMEOUT | chunks.6.mjs | constant |
+
+### Remote Steering
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cancelSession | cancelSession | chunks.176.mjs:3060-3063 | method (RemoteSessionManager) |
+
+### Help Text
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| enter-to-steer-in-realtime | STEERING_HELP_TIP_ID | chunks.176.mjs:1341 | constant (help tip) |
 
 ---
 
