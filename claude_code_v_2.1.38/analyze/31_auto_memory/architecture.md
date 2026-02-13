@@ -440,6 +440,139 @@ if (isMemoryFile(filePath)) {
 
 ---
 
+## 7. Multi-Agent Considerations
+
+When multiple agents collaborate (via Agent Teams), memory sharing and isolation become critical. For complete details, see [multi_agent_memory.md](./multi_agent_memory.md).
+
+### 7.1 Memory Isolation Model
+
+**Default behavior**: All agents in the same project directory share the same memory.
+
+```
+Team lead (cwd: /Users/alice/my-app/)
+  → Memory: ~/.claude/projects/{hash}/memory/
+
+Teammate 1 (cwd: /Users/alice/my-app/)
+  → Memory: ~/.claude/projects/{hash}/memory/  ← SAME
+
+Teammate 2 (cwd: /Users/alice/my-app/)
+  → Memory: ~/.claude/projects/{hash}/memory/  ← SAME
+```
+
+**Why**: Memory directory is computed from `process.cwd()`, not agent ID. All agents with same working directory resolve to same hash.
+
+### 7.2 Shared Memory Benefits and Risks
+
+**Benefits**:
+- ✅ Knowledge accumulates across all agents (debugging notes, patterns)
+- ✅ Patterns discovered by any agent benefit the team
+- ✅ No synchronization overhead (file system handles it)
+
+**Risks**:
+- ❌ Write conflicts possible (last-write-wins)
+- ❌ No privacy (all agents see all memory)
+- ❌ Large teams may overwhelm single MEMORY.md
+
+### 7.3 Write Conflict Mitigation
+
+**Strategy 1: Topic file separation** (Recommended)
+```
+Agent 1 writes to: debugging.md
+Agent 2 writes to: architecture.md
+→ No conflict (different files)
+```
+
+**Strategy 2: MEMORY.md as index only**
+```
+MEMORY.md updated infrequently (just links)
+Topic files updated frequently (actual content)
+→ Reduced conflict probability
+```
+
+**Strategy 3: Isolated memory per agent** (Manual setup)
+```
+Agent 1: cwd = /app/agent1/ → memory hash1/
+Agent 2: cwd = /app/agent2/ → memory hash2/
+→ Complete isolation, no sharing
+```
+
+See [multi_agent_memory.md](./multi_agent_memory.md) for detailed isolation strategies and use cases.
+
+---
+
+## 8. Remote Memory Architecture
+
+Remote memory enables sharing memory across machines via network storage. For complete details, see [remote_memory_sync.md](./remote_memory_sync.md).
+
+### 8.1 Remote Override Mechanism
+
+**Environment variable**: `CLAUDE_CODE_REMOTE_MEMORY_DIR`
+
+```javascript
+function getHomeDirectory() {
+    if (process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) {
+        return process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR;  // Override
+    }
+    return os.homedir();  // Default ~/.
+}
+```
+
+**Effect**: All memory operations use remote path as base instead of `~/.claude/`
+
+### 8.2 Directory Resolution with Remote
+
+```bash
+# Without remote override
+CLAUDE_CODE_REMOTE_MEMORY_DIR=  # unset
+→ Memory: /Users/alice/.claude/projects/{hash}/memory/
+
+# With remote override
+export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/nfs-share
+→ Memory: /mnt/nfs-share/projects/{hash}/memory/
+```
+
+**Key insight**: Project hash still computed from **local** cwd, so all agents working on same project (even on different machines) resolve to same remote memory directory.
+
+### 8.3 Supported Storage Types
+
+| Storage | Latency | Use Case |
+|---------|---------|----------|
+| **NFS** | <10ms | Production teams, always-on servers |
+| **SMB/CIFS** | <20ms | Windows shares, cross-platform teams |
+| **SSHFS** | 10-50ms | Remote development, SSH workflows |
+| **Dropbox/Drive** | 1-60s | Personal multi-machine (sync lag OK) |
+
+### 8.4 Synchronization Behavior
+
+**Read**: Always from disk, no caching (agents see latest changes next turn)
+
+**Write**: Direct `fs.writeFileSync` (no locking)
+
+**Conflicts**: Last-write-wins (earlier writes lost)
+
+**Network failure**: Unhandled (agent crashes if remote unavailable)
+
+### 8.5 Distributed Team Example
+
+```
+Team Lead (Laptop, NFS server)
+  └─> Exports: /Users/alice/.claude/
+
+Teammate 1 (AWS VM)
+  └─> Mounts: /mnt/shared-memory
+  └─> export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/shared-memory
+
+Teammate 2 (AWS VM)
+  └─> Mounts: /mnt/shared-memory
+  └─> export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/shared-memory
+
+→ All three agents share same memory on NFS
+```
+
+See [remote_memory_sync.md](./remote_memory_sync.md) for setup guides, performance considerations, and error handling.
+
+---
+
 ## Summary
 
 The Auto Memory architecture provides **persistent cross-session knowledge** through:

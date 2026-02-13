@@ -17,6 +17,7 @@ Agent Teams enables multiple Claude Code agents to collaborate on complex tasks.
 ### Hooks
 - **TeammateIdle** - Fires when a teammate agent becomes idle (available for new work)
 - **TaskCompleted** - Fires when an agent completes its assigned task
+- **Hook Integration** - See [hooks_integration.md](./hooks_integration.md) for verification agent pattern, 5-level priority poll loop integration, and error handling
 
 ### UI
 - **Swarm View** - Terminal UI showing all active agents, their status, and message flow
@@ -27,9 +28,33 @@ Agent Teams enables multiple Claude Code agents to collaborate on complex tasks.
 - Agent spawning restrictions (max agents, resource limits)
 - Role definitions and capability constraints
 
+### Error Recovery
+- **Graceful Shutdown** - Request/approval protocol for coordinated agent termination
+- **Communication Errors** - Message delivery failures, orphaned messages, mailbox corruption
+- **Backend Errors** - tmux/iTerm failures, in-process crashes, state recovery
+- See [error_recovery.md](./error_recovery.md) for full recovery strategies matrix
+
+## Analysis Documents
+
+### Phase 1 & 2 (New - Complete Documentation Suite)
+- [hooks_integration.md](./hooks_integration.md) - Hook execution engine, verification agents, TeammateIdle/TaskCompleted flows (~17KB)
+- [error_recovery.md](./error_recovery.md) - Graceful shutdown protocol, communication errors, backend failures (~16KB)
+- [team_config_schema.md](./team_config_schema.md) - Config file structure, lifecycle management, validation rules (~11KB)
+- [resource_limits.md](./resource_limits.md) - Agent count, timeouts, turn limits, memory quotas, monitoring (~12KB)
+
+### Existing Analysis (Enhanced)
+- [agent_teams_architecture.md](./agent_teams_architecture.md) - Overall team architecture **[Updated: Error Recovery + Resource Management sections added]**
+- [inter_agent_communication.md](./inter_agent_communication.md) - Message delivery and mailbox system
+- [pane_backend_executor.md](./pane_backend_executor.md) - In-process vs pane-based backends, poll loop priority system
+- [delegate_mode.md](./delegate_mode.md) - Delegation patterns and trade-offs
+- [swarm_architecture.md](./swarm_architecture.md) - Swarm view and UI architecture
+- [swarms_implementation.md](./swarms_implementation.md) - Implementation details
+
 ## Key Source Files
 
-> To be populated during analysis. Estimated ~40+ source files across chunks.
+- `chunks.141.mjs` - Team tools (TeamCreate, SendMessage), hook execution, shutdown handling
+- `chunks.131.mjs` - Backend implementations (TmuxBackend, ITermBackend, InProcessBackend), poll loop
+- `chunks.129.mjs` - Additional backend utilities and coordination logic
 
 ## Related Symbols
 

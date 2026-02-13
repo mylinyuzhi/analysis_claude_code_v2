@@ -50,6 +50,13 @@
 | f9 | sendTeamMessage | chunks.141.mjs: (imported) | function |
 | mSY | writeTeamConfig | chunks.141.mjs:534 | function |
 | ul4 | getTeamConfigPath | chunks.141.mjs:530 | function |
+| M51 | readTeamConfig | chunks.141.mjs:TBD | function |
+| FSY | sanitizeTeamName | chunks.141.mjs:543 | function |
+| QP | getTeamsBaseDirectory | chunks.141.mjs:TBD | function |
+| cRA | getTeamSubdirectory | chunks.141.mjs:TBD | function |
+| WVY | inProcessPollLoop | chunks.131.mjs:260 | function |
+| GVY | inProcessAgentRunner | chunks.131.mjs:347 | function |
+| ib4 | claimNextTask | chunks.141.mjs:TBD | function |
 
 ---
 
@@ -67,6 +74,11 @@
 | Qu1 | MEMORY_MAX_LINES | chunks.87.mjs:2312 | constant (200) |
 | F0A | getMemoryContext | chunks.87.mjs:2299 | function |
 | m0A | buildMemoryPrompt | chunks.87.mjs:2257 | function |
+| y2 | isAutoMemoryEnabled | chunks.87.mjs:2194 | function |
+| ga | getHomeDirectory | chunks.87.mjs:2204 | function |
+| mu1 | getAutoMemoryDirectory | chunks.87.mjs:2213 | function |
+| LU7 | getCurrentContextPath | chunks.87.mjs:2209 | function |
+| dx | hashPath | chunks.87.mjs:TBD | function |
 
 ---
 
@@ -227,8 +239,25 @@
 | HyA | executeUserPromptSubmitHooks | chunks.141.mjs:2946 | generator |
 | $yA | executeSessionStartHooks | chunks.141.mjs:2961 | generator |
 | AEA | executeSubagentStartHooks | chunks.141.mjs:2995 | generator |
+| Wi4 | parseHookOutput | chunks.141.mjs:1780 | function |
 | tGY | HOOK_EVENT_NAMES | chunks.129.mjs:717 | constant (Array) |
+| Bj1 | HOOK_BLOCKED_TOOLS | chunks.141.mjs:TBD | constant (Set) |
+| cD | STRUCTURED_OUTPUT_TOOL_NAME | chunks.89.mjs:TBD | constant |
+| zJ6 | HookOutputSchema | chunks.141.mjs:TBD | schema |
+| GB1 | StructuredOutputSchema | chunks.141.mjs:TBD | schema |
 | registeredHooks | registeredHooks | chunks.1.mjs:2409 | state key |
+
+### Hook Utilities
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ji4 | generateHookId | chunks.141.mjs:TBD | function |
+| XJ6 | interpolatePrompt | chunks.141.mjs:1566 | function |
+| DJ6 | registerAgentInState | chunks.141.mjs:1624 | function |
+| iD1 | unregisterAgentFromState | chunks.141.mjs:1652 | function |
+| fR | combineAbortSignals | chunks.141.mjs:1577 | function |
+| jn7 | getStructuredOutputTool | chunks.141.mjs:1582 | function |
+| kq | formatMessage | chunks.141.mjs:1683 | function |
 
 ---
 

@@ -21,7 +21,7 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 
 ### Memory Scopes
 - **User scope** - Global preferences across all projects
-- **Project scope** - Project-specific patterns and conventions
+- **Project scope** - Project-specific patterns and conventions (default)
 - **Local scope** - Machine-specific settings
 
 ### Memory Frontmatter
@@ -31,10 +31,35 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 ### Remote Memory
 - `CLAUDE_CODE_REMOTE_MEMORY_DIR` environment variable
 - Enables shared memory across distributed setups
+- See [multi_agent_memory.md](./multi_agent_memory.md) for multi-agent scenarios and synchronization
+
+### Usage Best Practices
+- **MEMORY.md as index** - Keep concise (<200 lines), link to topic files
+- **Topic files for details** - Store deep content in separate files (debugging.md, patterns.md)
+- **When to write** - Confirmed patterns, user requests, recurring solutions
+- **When NOT to write** - Session-specific state, speculative conclusions, duplicates
+- See [usage_patterns.md](./usage_patterns.md) for comprehensive guidelines
+
+## Analysis Documents
+
+### Phase 1, 2 & 3 (New - Complete Documentation Suite)
+- [usage_patterns.md](./usage_patterns.md) - Best practices for MEMORY.md organization, topic files, when to write/skip (~19KB)
+- [multi_agent_memory.md](./multi_agent_memory.md) - Memory isolation vs sharing, directory resolution, team scenarios (~18KB)
+- [topic_file_templates.md](./topic_file_templates.md) - Reusable templates for debugging, patterns, architecture, testing (~23KB)
+- [memory_maintenance.md](./memory_maintenance.md) - Truncation response, deduplication, cleanup, refactoring workflows (~18KB)
+- [remote_memory_sync.md](./remote_memory_sync.md) - Remote directory setup, network storage, distributed teams, SSHFS/NFS (~20KB)
+
+### Existing Analysis (Enhanced)
+- [memory_architecture.md](./memory_architecture.md) - Overall memory system architecture
+- [memory_logic.md](./memory_logic.md) - Truncation logic and prompt injection
+- [architecture.md](./architecture.md) - Technical architecture details **[Updated: Multi-agent + Remote sections added]**
+- [loading_mechanism.md](./loading_mechanism.md) - How MEMORY.md is loaded into system prompt
 
 ## Key Source Files
 
-> To be populated during analysis.
+- `chunks.87.mjs` - Memory loading, buildMemoryPrompt, directory resolution (lines 2194-2312)
+- `chunks.169.mjs` - System prompt integration and dynamic variable registration
+- `chunks.174.mjs` - Write/Edit tool permissions for memory files
 
 ## Related Symbols
 

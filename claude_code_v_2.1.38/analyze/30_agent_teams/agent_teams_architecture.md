@@ -150,6 +150,95 @@ async function Xi4(A, q, K, Y, z, w, H, $) {
 // Mapping: Xi4→executeAgentHook, A→hookDefinition, q→hookName, ZR→runAgentLoop
 ```
 
+## Error Recovery
+
+The Agent Teams system implements multiple error recovery strategies to handle failures gracefully. For complete details, see [error_recovery.md](./error_recovery.md).
+
+### Graceful Shutdown Protocol
+
+Teams use a **request → approval → confirmation** pattern for coordinated shutdown:
+
+1. **Team lead sends shutdown_request** via SendMessage
+2. **Teammate receives request** (Priority 2 in poll loop - higher than regular messages)
+3. **User approves/rejects** via UI prompt
+4. **Teammate sends shutdown_response** (approval or rejection)
+5. **Termination**:
+   - **In-process**: AbortController signals poll loop to exit
+   - **Pane-based**: setImmediate schedules process.exit(0)
+
+**Key insight**: Shutdown requests bypass the normal message queue (Priority 2) to prevent deadlock from message floods. This ensures teams can always shut down even under heavy message traffic.
+
+### Communication Error Recovery
+
+| Error Type | Detection | Recovery | Data Loss |
+|------------|-----------|----------|-----------|
+| Message delivery failure | fs.appendFileSync throws | Return error to agent | No (error surfaced) |
+| Orphaned messages | Process crash with unread messages | TeamDelete cleanup | Yes (unread messages lost) |
+| Mailbox corruption | JSON.parse fails | Skip corrupted lines | Minimal (single message) |
+
+**Design philosophy**: Fail-fast for infrastructure errors (immediately visible), but graceful degradation for transient failures (skip corrupted messages, continue processing).
+
+### Backend-Specific Errors
+
+**tmux/iTerm backend**:
+- **Availability check**: `backend.isAvailable()` before TeamCreate
+- **Pane creation failure**: Cleanup partial state, return error
+- **Command send failure**: Log error, user intervention required
+
+**In-process backend**:
+- **Agent crash**: Mark task as crashed in AppState, allow reassignment
+- **Abort controller leak**: Cleanup on session restart
+
+See [error_recovery.md](./error_recovery.md) for full recovery strategies matrix.
+
+## Resource Management
+
+Agent Teams consume resources (processes, memory, disk). The system uses limits and monitoring to prevent exhaustion. For complete details, see [resource_limits.md](./resource_limits.md).
+
+### Resource Limits
+
+| Resource | Limit | Enforcement | Rationale |
+|----------|-------|-------------|-----------|
+| Agent count | None (system-dependent) | Backend availability | tmux: ~200 panes, in-process: 5-10 |
+| Hook timeout | 60 seconds | AbortSignal.timeout | Prevent infinite hangs |
+| Hook turns | 50 turns | Counter + abort | Prevent runaway loops |
+| Memory | Node.js default (~4GB) | OS enforcement | Typical: ~200MB per agent |
+| Disk | No quota | File system limit | Mailbox grows unbounded |
+
+### Hook Resource Enforcement
+
+Hooks (verification agents) have strict limits to prevent resource exhaustion:
+
+```javascript
+const MAX_HOOK_TURNS = 50;
+const DEFAULT_HOOK_TIMEOUT_MS = 60000;
+
+let turnCount = 0;
+for await (let event of runAgentLoop(...)) {
+    if (event.type === "assistant") {
+        turnCount++;
+        if (turnCount >= MAX_HOOK_TURNS) {
+            abortController.abort();
+            return { outcome: "cancelled" };
+        }
+    }
+}
+```
+
+**Why 50 turns**: Prevents infinite loops (agent keeps using tools) while allowing complex verifications (read files, run tests, parse output). Typical hooks complete in 2-5 turns.
+
+**Why 60 second timeout**: Enough time for multi-step checks, not long enough to block user indefinitely.
+
+### Monitoring
+
+**Telemetry events** track resource usage:
+- `tengu_agent_stop_hook_success` - Hook completed (track duration, turns)
+- `tengu_agent_stop_hook_max_turns` - Hit 50-turn limit
+- `tengu_agent_stop_hook_error` - Timeout or exception
+- `tengu_memdir_loaded` - Memory size and truncation status
+
+See [resource_limits.md](./resource_limits.md) for exceeding limits scenarios and mitigation strategies.
+
 ## Related Symbols
 
 > Symbol mappings:
