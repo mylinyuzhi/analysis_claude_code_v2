@@ -41,11 +41,75 @@ These reminders are **not system prompts** (which go in the `system` parameter o
 The system reminder pipeline has three layers:
 
 ```
-[Attachment Producers]     [Normalizer]          [Message Format]
-   (chunks.142.mjs)    --> K2z (switch)     --> c6() user messages
-   phY() assembles         (chunks.173.mjs)     wrapped by _9()
-   typed attachment         converts type+data   with <system-reminder>
-   objects in parallel      to formatted msgs    XML tags
+┌──────────────────────────────────────────────────────────────────────┐
+│                   LAYER 1: ATTACHMENT PRODUCTION                      │
+│                    (phY - assembleAttachments)                       │
+│                      chunks.142.mjs:1948-1965                        │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+               ├─> Group 1: User-Dependent (Sequential)
+               │     ├─> at_mentioned_files (KIY)
+               │     ├─> mcp_resources (zIY)
+               │     └─> agent_mentions (YIY)
+               │     [Await completion before Group 2/3]
+               │
+               ├─> Group 2: Always-Computed (Parallel with Group 3)
+               │     ├─> changed_files (wIY)
+               │     ├─> nested_memory (HIY)
+               │     ├─> plan_mode (ihY)
+               │     ├─> todo_reminders (fIY/NIY)
+               │     ├─> skill_listing (OIY)
+               │     ├─> team_context (LIY) [if team mode]
+               │     └─> ... (14+ producers total)
+               │
+               └─> Group 3: Main-Agent-Only (Parallel with Group 2)
+                     ├─> ide_selection (ehY)
+                     ├─> diagnostics (PIY/WIY)
+                     ├─> token_usage (RIY)
+                     ├─> queued_commands (dhY)
+                     └─> ... (11 producers total)
+                     [Skipped if subagent]
+               │
+               ↓ (Each producer wrapped in gw - timedAttachmentProducer)
+               ↓ (Returns array of typed attachment objects)
+               │
+┌──────────────┴───────────────────────────────────────────────────────┐
+│                   LAYER 2: ATTACHMENT NORMALIZATION                   │
+│                  (K2z - normalizeAttachmentForAPI)                    │
+│                     chunks.173.mjs:698-1131                          │
+│                                                                       │
+│   • 57-case switch statement                                         │
+│   • Converts typed attachment → formatted message(s)                 │
+│   • Applies <system-reminder> XML tags via _9() wrapper              │
+│   • Returns array of TenguMessage objects                            │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+               ↓ (Array of message objects with isMeta: true)
+               │
+┌──────────────┴───────────────────────────────────────────────────────┐
+│                    LAYER 3: MESSAGE STREAM INJECTION                  │
+│                   (bG1 - buildContextMessages)                       │
+│                      chunks.148.mjs:2414-2428                        │
+│                                                                       │
+│   • Inserts normalized attachments into message array                │
+│   • Positions before user message in API call                        │
+│   • Integrated with system prompt building                           │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+               ↓ (To Claude API: system prompt + messages including meta)
+               │
+┌──────────────┴───────────────────────────────────────────────────────┐
+│                          LLM PROCESSES CONTEXT                        │
+│   User sees: [User: "Fix the bug"] [Assistant: "..."]               │
+│   LLM sees: [User: "Fix the bug"] [Meta: "<system-reminder>         │
+│             Plan mode active...</system-reminder>"]                  │
+│             [Assistant: "..."]                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Data Flow Summary**:
+```
+Raw State/Events → Attachment Objects → Normalized Messages → API Messages → LLM Context
 ```
 
 ### Layer 1: Attachment Producers (chunks.142.mjs)
@@ -65,6 +129,233 @@ The `K2z` function (`normalizeAttachmentForAPI`) is the central dispatcher. It r
 ### Layer 3: Message Formatting (chunks.172.mjs:2876-2912)
 
 The `c6` function (`createUserMessage`) produces the final user-role message objects that get inserted into the conversation.
+
+---
+
+## Conditional Execution Logic
+
+The attachment production system employs several **conditional execution strategies** to minimize wasted computation and token consumption:
+
+### 1. Global Disable Check
+
+```javascript
+if (parseBoolean(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS)) {
+    return []; // Skip all attachment production
+}
+```
+
+**Purpose**: Allows complete disabling of system reminders via environment variable for debugging or special use cases.
+
+### 2. Subagent Filtering
+
+```javascript
+let isMainAgent = !sessionContext.agentId;
+
+// Main-agent-only producers only run when isMainAgent === true
+let mainAgentOnlyProducers = isMainAgent ? [
+    /* 11 producers */
+] : [];
+```
+
+**Rationale**: Subagents don't need IDE integration, token usage warnings, or queued commands. Filtering saves:
+- Computation time (~40ms per subagent turn)
+- Token budget (~500 tokens per turn)
+
+### 3. Mode-Based Execution
+
+```javascript
+// Plan mode attachment only when in plan mode
+if (toolPermissionContext.mode !== "plan") {
+    return []; // Skip plan mode reminder
+}
+
+// Team mode attachments only when in team mode
+if (!isTeamMode()) {
+    return []; // Skip team context and mailbox
+}
+```
+
+**Impact**: Avoids injecting irrelevant instructions when not in that mode.
+
+### 4. Feature Flag Checks
+
+```javascript
+// Task reminders only if tasks enabled
+if (!isTasksEnabled()) {
+    return getTodoReminderAttachment(); // Fall back to todos
+}
+
+// TodoWrite reminders only if tool available
+if (!sessionContext.options.tools.some((t) => t.name === TODO_WRITE_TOOL_NAME)) {
+    return []; // Tool not in toolset, skip reminder
+}
+```
+
+**Purpose**: Respects user configuration and tool availability.
+
+### 5. Frequency Throttling
+
+```javascript
+// Plan mode: only send reminder every N turns
+let { turnCount, foundPlanModeAttachment } = countTurnsSincePlanMode(messages);
+
+if (foundPlanModeAttachment && turnCount < TURNS_BETWEEN_ATTACHMENTS) {
+    return []; // Too soon, skip this turn
+}
+```
+
+**Token savings**: Prevents reminder spam, saves ~10,000 tokens per 10 turns.
+
+### 6. Permission Context Filtering
+
+```javascript
+// Sandbox check before including file
+if (isSandboxBlocked(filePath, toolPermissionContext)) {
+    return null; // Skip sandboxed files silently
+}
+```
+
+**Security**: Prevents leaking sandboxed file paths or contents in attachments.
+
+### Decision Tree: Producer Group Selection
+
+```
+┌─────────────────────────────────────────────┐
+│   Is userMessage provided?                  │
+└───────┬─────────────────────┬───────────────┘
+        │ YES                 │ NO
+        ↓                     ↓
+   Execute Group 1        Skip Group 1
+   (User-dependent)       (empty array)
+        │                     │
+        └──────┬──────────────┘
+               │
+               ↓
+┌──────────────┴──────────────────────────────┐
+│   Is tool mode === "plan"?                  │
+└───────┬─────────────────────┬───────────────┘
+        │ YES                 │ NO
+        ↓                     ↓
+   Include plan_mode      Skip plan_mode
+   attachment             (not in plan mode)
+        │                     │
+        └──────┬──────────────┘
+               │
+               ↓
+┌──────────────┴──────────────────────────────┐
+│   Is this main agent (not subagent)?        │
+└───────┬─────────────────────┬───────────────┘
+        │ YES                 │ NO
+        ↓                     ↓
+   Execute Group 3        Skip Group 3
+   (Main-agent-only)      (empty array)
+        │                     │
+        └──────┬──────────────┘
+               │
+               ↓
+        All groups complete
+```
+
+---
+
+## Error Handling Architecture
+
+The system reminder subsystem is designed with **defensive programming** to ensure failures never crash the agent loop.
+
+### Three-Layer Error Isolation
+
+**Layer 1: Producer Wrapper (`gw` - timedAttachmentProducer)**
+
+```javascript
+async function timedAttachmentProducer(producerLabel, producerFunction) {
+    let startTime = Date.now();
+
+    try {
+        let attachments = await producerFunction();
+        // ... telemetry ...
+        return attachments;
+    } catch (error) {
+        // Log error (always logged, not sampled)
+        logError(error);
+        logWarning(`Attachment error in ${producerLabel}`, error);
+
+        // Sample telemetry (5% rate)
+        if (Math.random() < 0.05) {
+            logTelemetry("tengu_attachment_compute_duration", {
+                label: producerLabel,
+                error: true
+            });
+        }
+
+        // CRITICAL: Return empty array, not null/undefined
+        // This ensures flat() in assembleAttachments works
+        return [];
+    }
+}
+```
+
+**Effect**: Any producer exception caught here → empty array returned → other producers continue normally.
+
+**Layer 2: Producer Implementation (Internal try-catch)**
+
+```javascript
+async function getChangedFilesAttachment(context) {
+    return (await Promise.all(files.map(async (file) => {
+        try {
+            // File I/O that may throw
+            let contents = await readFile(file);
+            return createAttachment(contents);
+        } catch (error) {
+            logTelemetry("file_read_error", {});
+            return null; // This file failed, others continue
+        }
+    }))).filter(Boolean); // Remove nulls
+}
+```
+
+**Effect**: Partial failures handled gracefully → successful results returned.
+
+**Layer 3: Normalizer Error Handling**
+
+```javascript
+function normalizeAttachmentForAPI(attachment) {
+    // ... switch cases ...
+
+    // Unknown type safety
+    if (["autocheckpointing", "background_task_status"].includes(attachment.type)) {
+        return []; // Silently ignore these types
+    }
+
+    // Fallback for truly unknown types
+    logWarning("normalizeAttachmentForAPI", Error(`Unknown attachment type: ${attachment.type}`));
+    return []; // Return empty, don't throw
+}
+```
+
+**Effect**: Unknown or experimental attachment types don't crash the normalizer.
+
+### Timeout Enforcement (AbortController)
+
+```javascript
+// 1-second global timeout for all producers
+let abortController = createAbortController();
+setTimeout(() => {
+    abortController.abort();
+}, 1000);
+
+// Pass to producers via context
+let enhancedContext = {
+    ...sessionContext,
+    abortController: abortController
+};
+```
+
+**Behavior**:
+- Operations that respect abort signal (file reads, network requests) get cancelled at 1 second
+- Operations that don't respect signal continue but results are discarded (wrapper already returned [])
+- Prevents any single producer from blocking agent loop >1 second
+
+**Philosophy**: "Fail safe, proceed with partial context" - missing attachments acceptable, frozen agent not.
 
 ---
 

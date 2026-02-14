@@ -630,6 +630,774 @@ These types are recognized by the switch statement but always return an empty ar
 
 ---
 
+## Implementation Details - K2z Switch Cases
+
+This section provides detailed implementation samples for complex reminder types, showing the complete flow from raw attachment object to final API-ready messages.
+
+### Pattern Overview: Three Format Approaches
+
+**Pattern A: Simulated Tool Call (file, directory)**
+```
+Attachment → K2z creates pd1 (tool call) + Ud1 (tool result) → _9 wraps → API messages
+```
+
+**Pattern B: User Message with _9 Wrapping (most types)**
+```
+Attachment → K2z creates c6 (user message) → _9 wraps → API messages
+```
+
+**Pattern C: User Message with Inline tI (status/notifications)**
+```
+Attachment → K2z creates c6 with tI-wrapped content → API messages
+```
+
+---
+
+### Implementation Sample 1: `file` Type (Multi-Modal Handler)
+
+```javascript
+// ============================================
+// K2z switch case: "file" - Handle file attachments
+// Location: chunks.173.mjs:750-773
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "file": {
+    let K = A.content;
+    switch (K.type) {
+        case "image":
+            return _9([pd1(i5.name, {
+                file_path: A.filename
+            }), Ud1(i5, K)]);
+        case "text":
+            return _9([pd1(i5.name, {
+                file_path: A.filename
+            }), Ud1(i5, K), ...A.truncated ? [c6({
+                content: `Note: The file ${A.filename} was too large and has been truncated to the first ${AC1} lines. Don't tell the user about this truncation. Use ${i5.name} to read more of the file if you need.`,
+                isMeta: !0
+            })] : []]);
+        case "notebook":
+            return _9([pd1(i5.name, {
+                file_path: A.filename
+            }), Ud1(i5, K)]);
+        case "pdf":
+            return _9([pd1(i5.name, {
+                file_path: A.filename
+            }), Ud1(i5, K)])
+    }
+    break
+}
+
+// READABLE (for understanding):
+case "file": {
+    let fileContent = attachment.content;
+
+    // Sub-switch on file content type
+    switch (fileContent.type) {
+        case "image":
+            // Image files: simulate Read tool call + image result
+            return wrapWithSystemReminderTags([
+                createToolCallMessage(ReadTool.name, {
+                    file_path: attachment.filename
+                }),
+                createToolResultMessage(ReadTool, fileContent)
+            ]);
+
+        case "text":
+            // Text files: tool call + text result + optional truncation notice
+            return wrapWithSystemReminderTags([
+                createToolCallMessage(ReadTool.name, {
+                    file_path: attachment.filename
+                }),
+                createToolResultMessage(ReadTool, fileContent),
+                // If truncated, add warning message
+                ...attachment.truncated ? [createUserMessage({
+                    content: `Note: The file ${attachment.filename} was too large and has been truncated to the first ${MAX_FILE_LINES} lines. Don't tell the user about this truncation. Use ${ReadTool.name} to read more of the file if you need.`,
+                    isMeta: true
+                })] : []
+            ]);
+
+        case "notebook":
+            // Jupyter notebooks: tool call + notebook result (with cells)
+            return wrapWithSystemReminderTags([
+                createToolCallMessage(ReadTool.name, {
+                    file_path: attachment.filename
+                }),
+                createToolResultMessage(ReadTool, fileContent)
+            ]);
+
+        case "pdf":
+            // PDF files: tool call + PDF result
+            return wrapWithSystemReminderTags([
+                createToolCallMessage(ReadTool.name, {
+                    file_path: attachment.filename
+                }),
+                createToolResultMessage(ReadTool, fileContent)
+            ]);
+    }
+    break;
+}
+
+// Mapping: A→attachment, K→fileContent, i5→ReadTool, AC1→MAX_FILE_LINES, pd1→createToolCallMessage, Ud1→createToolResultMessage, c6→createUserMessage, _9→wrapWithSystemReminderTags, !0→true
+```
+
+**Content Flow Example**:
+```
+Raw Attachment:
+{
+    type: "file",
+    filename: "/path/to/example.ts",
+    content: {
+        type: "text",
+        file: {
+            filePath: "/path/to/example.ts",
+            content: "function hello() {...}",
+            numLines: 10
+        }
+    },
+    truncated: false
+}
+
+↓ K2z normalizes ↓
+
+API Messages:
+[
+    {
+        type: "user",
+        message: {
+            role: "user",
+            content: "<system-reminder>\n[Tool Call: Read with {file_path: \"/path/to/example.ts\"}]\n</system-reminder>"
+        },
+        isMeta: true
+    },
+    {
+        type: "user",
+        message: {
+            role: "user",
+            content: "<system-reminder>\n[Tool Result: function hello() {...}]\n</system-reminder>"
+        },
+        isMeta: true
+    }
+]
+```
+
+---
+
+### Implementation Sample 2: `plan_mode` Type (Variant Dispatcher)
+
+```javascript
+// ============================================
+// K2z switch case: "plan_mode" - Dispatch to variant formatter
+// Location: chunks.173.mjs:937-938
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "plan_mode":
+    return azz(A);
+
+// READABLE (for understanding):
+case "plan_mode":
+    // Delegate to variant dispatcher
+    return planModeReminderDispatcher(attachment);
+
+// Mapping: A→attachment, azz→planModeReminderDispatcher
+```
+
+**Dispatcher Implementation**:
+
+```javascript
+// ============================================
+// planModeReminderDispatcher (azz) - Select variant based on context
+// Location: chunks.173.mjs:525-529
+// ============================================
+
+// ORIGINAL (for source lookup):
+function azz(A) {
+    if (A.isSubAgent) return q2z(A);
+    if (A.reminderType === "sparse") return A2z(A);
+    return szz(A)
+}
+
+// READABLE (for understanding):
+function planModeReminderDispatcher(planModeAttachment) {
+    // Subagents get simplified instructions (no plan file editing)
+    if (planModeAttachment.isSubAgent) {
+        return formatSubagentPlanReminder(planModeAttachment);
+    }
+
+    // Sparse reminders (most turns after initial)
+    if (planModeAttachment.reminderType === "sparse") {
+        return formatSparsePlanReminder(planModeAttachment);
+    }
+
+    // Full reminders (first + every Nth)
+    // Checks iterative mode flag internally
+    return formatFullPlanReminder(planModeAttachment);
+}
+
+// Mapping: A→planModeAttachment, q2z→formatSubagentPlanReminder, A2z→formatSparsePlanReminder, szz→formatFullPlanReminder
+```
+
+**Content Flow Example**:
+```
+Raw Attachment:
+{
+    type: "plan_mode",
+    reminderType: "full",  // or "sparse"
+    isSubAgent: false,
+    planFilePath: "/path/to/plan.md",
+    planExists: true
+}
+
+↓ azz dispatches based on reminderType ↓
+
+If "full" → szz returns:
+[
+    {
+        type: "user",
+        message: {
+            role: "user",
+            content: "<system-reminder>\nPlan mode is active. The user indicated...\n\n## Plan File Info:\nA plan file already exists at /path/to/plan.md...\n\n## Plan Workflow\n### Phase 1: Initial Understanding...\n</system-reminder>"
+        },
+        isMeta: true
+    }
+]
+
+If "sparse" → A2z returns:
+[
+    {
+        type: "user",
+        message: {
+            role: "user",
+            content: "<system-reminder>\nPlan mode still active (see full instructions earlier in conversation). Read-only except plan file (/path/to/plan.md). Follow 5-phase workflow. End turns with AskUserQuestion (for clarifications) or ExitPlanMode (for plan approval).</system-reminder>"
+        },
+        isMeta: true
+    }
+]
+```
+
+---
+
+### Implementation Sample 3: `todo_reminder` / `task_reminder` (Conditional Selection)
+
+```javascript
+// ============================================
+// K2z switch cases: "todo_reminder" and "task_reminder"
+// Location: chunks.173.mjs:840-869
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "todo_reminder": {
+    let K = A.content.map((z, w) => `${w+1}. [${z.status}] ${z.content}`).join(`\n`),
+        Y = `The TodoWrite tool hasn't been used recently. If you're working on tasks that would benefit from tracking progress, consider using the TodoWrite tool to track progress. Also consider cleaning up the todo list if has become stale and no longer matches what you are working on. Only use it if it's relevant to the current work. This is just a gentle reminder - ignore if not applicable. Make sure that you NEVER mention this reminder to the user\n`;
+    if (K.length > 0) Y += `\n\nHere are the existing contents of your todo list:\n\n[${K}]`;
+    return _9([c6({
+        content: Y,
+        isMeta: !0
+    })])
+}
+case "task_reminder": {
+    if (!jH()) return [];
+    let K = A.content.map((z) => `#${z.id}. [${z.status}] ${z.subject}`).join(`\n`),
+        Y = `The task tools haven't been used recently. If you're working on tasks that would benefit from tracking progress, consider using ${Nh} to add new tasks and ${DR} to update task status (set to in_progress when starting, completed when done). Also consider cleaning up the task list if it has become stale. Only use these if relevant to the current work. This is just a gentle reminder - ignore if not applicable. Make sure that you NEVER mention this reminder to the user\n`;
+    if (K.length > 0) Y += `\n\nHere are the existing tasks:\n\n${K}`;
+    return _9([c6({
+        content: Y,
+        isMeta: !0
+    })])
+}
+
+// READABLE (for understanding):
+case "todo_reminder": {
+    // Format todo items as numbered list
+    let formattedList = attachment.content.map((item, index) =>
+        `${index+1}. [${item.status}] ${item.content}`
+    ).join('\n');
+
+    // Base reminder message
+    let reminderContent = `The TodoWrite tool hasn't been used recently. If you're working on tasks that would benefit from tracking progress, consider using the TodoWrite tool to track progress. Also consider cleaning up the todo list if has become stale and no longer matches what you are working on. Only use it if it's relevant to the current work. This is just a gentle reminder - ignore if not applicable. Make sure that you NEVER mention this reminder to the user\n`;
+
+    // Append current todo list if non-empty
+    if (formattedList.length > 0) {
+        reminderContent += `\n\nHere are the existing contents of your todo list:\n\n[${formattedList}]`;
+    }
+
+    return wrapWithSystemReminderTags([createUserMessage({
+        content: reminderContent,
+        isMeta: true
+    })]);
+}
+
+case "task_reminder": {
+    // Check if task system is enabled
+    if (!isTaskSystemEnabled()) {
+        return []; // Skip if tasks disabled
+    }
+
+    // Format tasks as #id list
+    let formattedList = attachment.content.map((task) =>
+        `#${task.id}. [${task.status}] ${task.subject}`
+    ).join('\n');
+
+    // Base reminder message
+    let reminderContent = `The task tools haven't been used recently. If you're working on tasks that would benefit from tracking progress, consider using ${TaskCreateTool} to add new tasks and ${TaskUpdateTool} to update task status (set to in_progress when starting, completed when done). Also consider cleaning up the task list if it has become stale. Only use these if relevant to the current work. This is just a gentle reminder - ignore if not applicable. Make sure that you NEVER mention this reminder to the user\n`;
+
+    // Append current tasks if non-empty
+    if (formattedList.length > 0) {
+        reminderContent += `\n\nHere are the existing tasks:\n\n${formattedList}`;
+    }
+
+    return wrapWithSystemReminderTags([createUserMessage({
+        content: reminderContent,
+        isMeta: true
+    })]);
+}
+
+// Mapping: A→attachment, K→formattedList, Y→reminderContent, z→item or task, w→index, jH()→isTaskSystemEnabled, Nh→TaskCreateTool, DR→TaskUpdateTool, c6→createUserMessage, _9→wrapWithSystemReminderTags, !0→true
+```
+
+**Content Flow Example**:
+```
+Raw Attachment (todo_reminder):
+{
+    type: "todo_reminder",
+    content: [
+        { status: "pending", content: "Fix authentication bug" },
+        { status: "done", content: "Write tests for API" }
+    ],
+    itemCount: 2
+}
+
+↓ K2z normalizes ↓
+
+API Message:
+{
+    type: "user",
+    message: {
+        role: "user",
+        content: "<system-reminder>\nThe TodoWrite tool hasn't been used recently...\n\nHere are the existing contents of your todo list:\n\n[1. [pending] Fix authentication bug\n2. [done] Write tests for API]\n</system-reminder>"
+    },
+    isMeta: true
+}
+```
+
+---
+
+### Implementation Sample 4: `diagnostics` Type (Aggregated Display)
+
+```javascript
+// ============================================
+// K2z switch case: "diagnostics" - Format diagnostic errors
+// Location: chunks.173.mjs:927-936
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "diagnostics": {
+    if (A.files.length === 0) return [];
+    let K = KI.formatDiagnosticsSummary(A.files);
+    return _9([c6({
+        content: `<new-diagnostics>The following new diagnostic issues were detected:\n\n${K}</new-diagnostics>`,
+        isMeta: !0
+    })])
+}
+
+// READABLE (for understanding):
+case "diagnostics": {
+    // Skip if no diagnostics to show
+    if (attachment.files.length === 0) {
+        return [];
+    }
+
+    // Format diagnostics into human-readable summary
+    let diagnosticSummary = DiagnosticFormatter.formatDiagnosticsSummary(attachment.files);
+
+    return wrapWithSystemReminderTags([createUserMessage({
+        content: `<new-diagnostics>The following new diagnostic issues were detected:\n\n${diagnosticSummary}</new-diagnostics>`,
+        isMeta: true
+    })]);
+}
+
+// Mapping: A→attachment, K→diagnosticSummary, KI→DiagnosticFormatter, c6→createUserMessage, _9→wrapWithSystemReminderTags, !0→true
+```
+
+**Content Flow Example**:
+```
+Raw Attachment:
+{
+    type: "diagnostics",
+    files: [
+        {
+            path: "/path/to/app.ts",
+            diagnostics: [
+                {
+                    severity: "error",
+                    message: "Type 'string' not assignable to 'number'",
+                    line: 42,
+                    source: "typescript"
+                }
+            ]
+        }
+    ],
+    isNew: true
+}
+
+↓ DiagnosticFormatter.formatDiagnosticsSummary ↓
+
+Formatted Summary:
+"/path/to/app.ts:
+  • Line 42: [error] Type 'string' not assignable to 'number' (typescript)"
+
+↓ K2z wraps ↓
+
+API Message:
+{
+    type: "user",
+    message: {
+        role: "user",
+        content: "<system-reminder>\n<new-diagnostics>The following new diagnostic issues were detected:\n\n/path/to/app.ts:\n  • Line 42: [error] Type 'string' not assignable to 'number' (typescript)\n</new-diagnostics>\n</system-reminder>"
+    },
+    isMeta: true
+}
+```
+
+---
+
+### Implementation Sample 5: `queued_command` Type (Array vs String Handling)
+
+```javascript
+// ============================================
+// K2z switch case: "queued_command" - Handle user messages sent during execution
+// Location: chunks.173.mjs:889-913
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "queued_command": {
+    if (Array.isArray(A.prompt)) {
+        let K = A.prompt.filter((w) => w.type === "text").map((w) => w.text).join(`\n`),
+            Y = A.prompt.filter((w) => w.type === "image"),
+            z = [{
+                type: "text",
+                text: `The user sent a new message while you were working:\n${K}\n\nIMPORTANT: After completing your current task, you MUST address the user's message above. Do not ignore it.`
+            }, ...Y];
+        return _9([c6({
+            content: z,
+            isMeta: !0
+        })])
+    }
+    return _9([c6({
+        content: `The user sent a new message while you were working:\n${A.prompt}\n\nIMPORTANT: After completing your current task, you MUST address the user's message above. Do not ignore it.`,
+        isMeta: !0
+    })])
+}
+
+// READABLE (for understanding):
+case "queued_command": {
+    // Check if prompt is multi-modal (array of content blocks)
+    if (Array.isArray(attachment.prompt)) {
+        // Extract text blocks and join
+        let textContent = attachment.prompt
+            .filter((block) => block.type === "text")
+            .map((block) => block.text)
+            .join('\n');
+
+        // Extract image blocks
+        let imageBlocks = attachment.prompt.filter((block) => block.type === "image");
+
+        // Create content array with text + images
+        let contentBlocks = [
+            {
+                type: "text",
+                text: `The user sent a new message while you were working:\n${textContent}\n\nIMPORTANT: After completing your current task, you MUST address the user's message above. Do not ignore it.`
+            },
+            ...imageBlocks
+        ];
+
+        return wrapWithSystemReminderTags([createUserMessage({
+            content: contentBlocks,
+            isMeta: true
+        })]);
+    }
+
+    // Simple string prompt
+    return wrapWithSystemReminderTags([createUserMessage({
+        content: `The user sent a new message while you were working:\n${attachment.prompt}\n\nIMPORTANT: After completing your current task, you MUST address the user's message above. Do not ignore it.`,
+        isMeta: true
+    })]);
+}
+
+// Mapping: A→attachment, K→textContent, Y→imageBlocks, z→contentBlocks, w→block, c6→createUserMessage, _9→wrapWithSystemReminderTags, !0→true
+```
+
+**Content Flow Example (Multi-Modal)**:
+```
+Raw Attachment:
+{
+    type: "queued_command",
+    prompt: [
+        { type: "text", text: "Look at this screenshot" },
+        { type: "image", source: { type: "base64", data: "..." } }
+    ],
+    source_uuid: "cmd-123",
+    imagePasteIds: ["img-1"]
+}
+
+↓ K2z normalizes (multi-modal path) ↓
+
+API Message:
+{
+    type: "user",
+    message: {
+        role: "user",
+        content: [
+            {
+                type: "text",
+                text: "<system-reminder>\nThe user sent a new message while you were working:\nLook at this screenshot\n\nIMPORTANT: After completing your current task, you MUST address the user's message above. Do not ignore it.\n</system-reminder>"
+            },
+            {
+                type: "image",
+                source: { type: "base64", data: "..." }
+            }
+        ]
+    },
+    isMeta: true
+}
+```
+
+---
+
+### Implementation Sample 6: `selected_lines_in_ide` Type (Truncation Logic)
+
+```javascript
+// ============================================
+// K2z switch case: "selected_lines_in_ide" - Report IDE selection
+// Location: chunks.173.mjs:785-795
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "selected_lines_in_ide": {
+    let Y = A.content.length > 2000 ? A.content.substring(0, 2000) + `\n... (truncated)` : A.content;
+    return _9([c6({
+        content: `The user selected the lines ${A.lineStart} to ${A.lineEnd} from ${A.filename}:\n${Y}\n\nThis may or may not be related to the current task.`,
+        isMeta: !0
+    })])
+}
+
+// READABLE (for understanding):
+case "selected_lines_in_ide": {
+    // Truncate long selections to prevent token overflow
+    let displayContent = attachment.content.length > 2000
+        ? attachment.content.substring(0, 2000) + '\n... (truncated)'
+        : attachment.content;
+
+    return wrapWithSystemReminderTags([createUserMessage({
+        content: `The user selected the lines ${attachment.lineStart} to ${attachment.lineEnd} from ${attachment.filename}:\n${displayContent}\n\nThis may or may not be related to the current task.`,
+        isMeta: true
+    })]);
+}
+
+// Mapping: A→attachment, Y→displayContent, c6→createUserMessage, _9→wrapWithSystemReminderTags, !0→true
+```
+
+---
+
+### Implementation Sample 7: `mcp_resource` Type (Multi-Content Handling)
+
+```javascript
+// ============================================
+// K2z switch case: "mcp_resource" - Format MCP resource contents
+// Location: chunks.173.mjs:1000-1034
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "mcp_resource": {
+    let K = A.content;
+    if (!K || !K.contents || K.contents.length === 0) return _9([c6({
+        content: `<mcp-resource server="${A.server}" uri="${A.uri}">(No content)</mcp-resource>`,
+        isMeta: !0
+    })]);
+    let Y = [];
+    for (let z of K.contents)
+        if (z && typeof z === "object") {
+            if ("text" in z && typeof z.text === "string") Y.push({
+                type: "text",
+                text: "Full contents of resource:"
+            }, {
+                type: "text",
+                text: z.text
+            }, {
+                type: "text",
+                text: "Do NOT read this resource again unless you think it may have changed, since you already have the full contents."
+            });
+            else if ("blob" in z) {
+                let w = "mimeType" in z ? String(z.mimeType) : "application/octet-stream";
+                Y.push({
+                    type: "text",
+                    text: `[Binary content: ${w}]`
+                })
+            }
+        } if (Y.length > 0) return _9([c6({
+        content: Y,
+        isMeta: !0
+    })]);
+    else return SA(A.server, `No displayable content found in MCP resource ${A.uri}.`), _9([c6({
+        content: `<mcp-resource server="${A.server}" uri="${A.uri}">(No displayable content)</mcp-resource>`,
+        isMeta: !0
+    })])
+}
+
+// READABLE (for understanding):
+case "mcp_resource": {
+    let resourceContents = attachment.content;
+
+    // Handle empty contents
+    if (!resourceContents || !resourceContents.contents || resourceContents.contents.length === 0) {
+        return wrapWithSystemReminderTags([createUserMessage({
+            content: `<mcp-resource server="${attachment.server}" uri="${attachment.uri}">(No content)</mcp-resource>`,
+            isMeta: true
+        })]);
+    }
+
+    // Process each content item
+    let contentBlocks = [];
+    for (let item of resourceContents.contents) {
+        if (item && typeof item === "object") {
+            // Text content
+            if ("text" in item && typeof item.text === "string") {
+                contentBlocks.push(
+                    { type: "text", text: "Full contents of resource:" },
+                    { type: "text", text: item.text },
+                    { type: "text", text: "Do NOT read this resource again unless you think it may have changed, since you already have the full contents." }
+                );
+            }
+            // Binary content
+            else if ("blob" in item) {
+                let mimeType = "mimeType" in item ? String(item.mimeType) : "application/octet-stream";
+                contentBlocks.push({
+                    type: "text",
+                    text: `[Binary content: ${mimeType}]`
+                });
+            }
+        }
+    }
+
+    // Return formatted content or fallback
+    if (contentBlocks.length > 0) {
+        return wrapWithSystemReminderTags([createUserMessage({
+            content: contentBlocks,
+            isMeta: true
+        })]);
+    } else {
+        logMcpServerWarning(attachment.server, `No displayable content found in MCP resource ${attachment.uri}.`);
+        return wrapWithSystemReminderTags([createUserMessage({
+            content: `<mcp-resource server="${attachment.server}" uri="${attachment.uri}">(No displayable content)</mcp-resource>`,
+            isMeta: true
+        })]);
+    }
+}
+
+// Mapping: A→attachment, K→resourceContents, Y→contentBlocks, z→item, w→mimeType, SA→logMcpServerWarning, c6→createUserMessage, _9→wrapWithSystemReminderTags, !0→true
+```
+
+---
+
+### Implementation Sample 8: Status Types with Inline `tI` Wrapping
+
+```javascript
+// ============================================
+// K2z switch cases: Status notification types
+// Location: chunks.173.mjs:1040-1080
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "task_status": {
+    let K = A.status === "killed" ? "stopped" : A.status;
+    if (A.status === "killed") return [c6({
+        content: tI(`Task "${A.description}" (${A.taskId}) was stopped by the user.`),
+        isMeta: !0
+    })];
+    let Y = [`Task ${A.taskId}`, `(type: ${A.taskType})`, `(status: ${K})`, `(description: ${A.description})`];
+    if (A.deltaSummary) Y.push(`Delta: ${A.deltaSummary}`);
+    return Y.push("You can check its output using the TaskOutput tool."), [c6({
+        content: tI(Y.join(" ")),
+        isMeta: !0
+    })]
+}
+case "task_progress":
+    return [c6({
+        content: tI(A.message),
+        isMeta: !0
+    })];
+case "token_usage":
+    return [c6({
+        content: tI(`Token usage: ${A.used}/${A.total}; ${A.remaining} remaining`),
+        isMeta: !0
+    })];
+case "budget_usd":
+    return [c6({
+        content: tI(`USD budget: $${A.used}/$${A.total}; $${A.remaining} remaining`),
+        isMeta: !0
+    })];
+
+// READABLE (for understanding):
+case "task_status": {
+    // Normalize "killed" status to "stopped" for display
+    let displayStatus = attachment.status === "killed" ? "stopped" : attachment.status;
+
+    // Special handling for killed tasks
+    if (attachment.status === "killed") {
+        return [createUserMessage({
+            content: wrapInXmlTag(`Task "${attachment.description}" (${attachment.taskId}) was stopped by the user.`),
+            isMeta: true
+        })];
+    }
+
+    // Build status message parts
+    let messageParts = [
+        `Task ${attachment.taskId}`,
+        `(type: ${attachment.taskType})`,
+        `(status: ${displayStatus})`,
+        `(description: ${attachment.description})`
+    ];
+
+    // Add delta summary if present
+    if (attachment.deltaSummary) {
+        messageParts.push(`Delta: ${attachment.deltaSummary}`);
+    }
+
+    // Add usage instruction
+    messageParts.push("You can check its output using the TaskOutput tool.");
+
+    return [createUserMessage({
+        content: wrapInXmlTag(messageParts.join(" ")),
+        isMeta: true
+    })];
+}
+
+case "task_progress":
+    return [createUserMessage({
+        content: wrapInXmlTag(attachment.message),
+        isMeta: true
+    })];
+
+case "token_usage":
+    return [createUserMessage({
+        content: wrapInXmlTag(`Token usage: ${attachment.used}/${attachment.total}; ${attachment.remaining} remaining`),
+        isMeta: true
+    })];
+
+case "budget_usd":
+    return [createUserMessage({
+        content: wrapInXmlTag(`USD budget: $${attachment.used}/$${attachment.total}; $${attachment.remaining} remaining`),
+        isMeta: true
+    })];
+
+// Mapping: A→attachment, K→displayStatus, Y→messageParts, tI→wrapInXmlTag, c6→createUserMessage, !0→true
+```
+
+**Key Insight**: Status types use `tI` (inline wrapping) instead of `_9` (message-level wrapping) because they're simple notifications that don't need the multi-message structure. The XML tags are embedded directly into the content string.
+
+---
+
 ## Related Symbols
 
 > Symbol mappings:
