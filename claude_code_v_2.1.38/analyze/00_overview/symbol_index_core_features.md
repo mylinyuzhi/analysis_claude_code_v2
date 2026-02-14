@@ -379,6 +379,117 @@
 | omY | TOKEN_ERROR_THRESHOLD | chunks.147.mjs:811 | constant (20000) |
 | lCA | BLOCKING_LIMIT_OFFSET | chunks.147.mjs:813 | constant (3000) |
 
+### Standard Compaction (Full Lifecycle)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| AW1 | performFullCompaction | chunks.146.mjs:2325 | function |
+| Ev | countTokens | chunks.146.mjs:TBD | function |
+| Ia4 | getLastUserMessage | chunks.146.mjs:TBD | function |
+| xa4 | extractMetadataFromMessage | chunks.146.mjs:TBD | function |
+| DZ6 | grantPermission | chunks.146.mjs:TBD | function |
+| VOA | formatCustomInstructions | chunks.146.mjs:TBD | function |
+| B51 | extractTextFromMessage | chunks.146.mjs:TBD | function |
+| wjA | getRecentlyAccessedFiles | chunks.146.mjs:TBD | function |
+| rd | resetCodeIndexing | chunks.146.mjs:TBD | function |
+| PZ | countTokens | chunks.146.mjs:TBD | function |
+| Yp | extractUsageFromMessage | chunks.146.mjs:TBD | function |
+| JU1 | createBoundaryMarker | chunks.146.mjs:TBD | function |
+| a$ | generateSessionId | chunks.146.mjs:TBD | function |
+| ux1 | formatSummaryContent | chunks.146.mjs:TBD | function |
+| fOA | recordQuerySource | chunks.146.mjs:TBD | function |
+| Qa4 | handleCompactionError | chunks.146.mjs:TBD | function |
+| av | callLLMWithCache | chunks.146.mjs:TBD | function |
+| vmY | canUseSummarizeTool | chunks.146.mjs:TBD | function |
+| GN | getLastAssistantMessage | chunks.146.mjs:TBD | function |
+| XU1 | shouldAgentUseTools | chunks.146.mjs:TBD | function |
+| Sx | deduplicateTools | chunks.146.mjs:TBD | function |
+| UW1 | createMainLLMLoop | chunks.146.mjs:TBD | function |
+| WJ | normalizeMessages | chunks.146.mjs:TBD | function |
+| TmY | deduplicateMessages | chunks.146.mjs:TBD | function |
+| EN | filterMessages | chunks.146.mjs:TBD | function |
+| _U1 | ERROR_MESSAGES.EMPTY_MESSAGES | chunks.146.mjs:TBD | constant |
+| QO | API_ERROR_PREFIX | chunks.146.mjs:TBD | constant |
+| dU | PROMPT_TOO_LONG_PREFIX | chunks.146.mjs:TBD | constant |
+| ma4 | ERROR_MESSAGES.PROMPT_TOO_LONG | chunks.146.mjs:TBD | constant |
+| Ba4 | MAX_FILE_TOKENS | chunks.146.mjs:TBD | constant |
+| NmY | MAX_COMPACT_RETRIES | chunks.147.mjs:TBD | constant |
+| JL6 | MAX_SUMMARY_OUTPUT_TOKENS | chunks.146.mjs:TBD | constant |
+| i5 | SUMMARIZE_TOOL | chunks.146.mjs:TBD | constant |
+| IW6 | THINKING_SIMPLE_TOOL | chunks.146.mjs:TBD | constant |
+
+### Message Selection & Boundary Logic
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| lmY | selectHistoricalWindow | chunks.147.mjs:590 | function |
+| pCA | adjustBoundariesForTools | chunks.147.mjs:553 | function |
+| dmY | extractToolResultIds | chunks.147.mjs:536 | function |
+| cmY | hasToolUseWithId | chunks.147.mjs:546 | function |
+| Zs4 | isTextBlockMessage | chunks.147.mjs:526 | function |
+| UmY | getSmCompactConfig | chunks.147.mjs:508 | function |
+| pmY | loadSmCompactConfig | chunks.147.mjs:514 | function |
+| gmY | setSmCompactConfig | chunks.147.mjs:TBD | function |
+| Gs4 | configLoaded | chunks.147.mjs:TBD | variable |
+| dCA | smCompactConfig | chunks.147.mjs:712 | variable |
+
+### Configuration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| TZ6 | isSessionMemoryCompactEnabled | chunks.147.mjs:612 | function |
+| gmY | setSmCompactConfig | chunks.147.mjs:TBD | function |
+
+### State Preservation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| EmY | shouldExcludeFile | chunks.146.mjs:2743 | function |
+| kq | createAttachmentMessage | chunks.142.mjs:2615 | function |
+| TyA | readFileForAttachment | chunks.142.mjs:2524 | function |
+| uW | getPlanFilePath | chunks.88.mjs:120 | function |
+| pD | getPlanFileContent | chunks.88.mjs:126 | function |
+| UB | getTodoList | chunks.88.mjs:274 | function |
+| zR6 | getInvokedSkills | chunks.1.mjs:2972 | function |
+| wjA | getRecentlyAccessedFiles | chunks.146.mjs:TBD | function |
+| Ba4 | MAX_FILES_TO_KEEP | chunks.146.mjs:2760 | constant (5) |
+| fmY | MAX_FILE_RESTORE_TOKENS | chunks.146.mjs:2762 | constant (50000) |
+| VmY | MAX_TOKENS_PER_FILE | chunks.146.mjs:2764 | constant (5000) |
+
+### Microcompaction
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| gm | performMicrocompaction | chunks.147.mjs:310 | function |
+| Ps4 | calculateToolResultTokens | chunks.147.mjs:280 | function |
+| QmY | getOrCalculateToolResultTokens | chunks.147.mjs:290 | function |
+| uq1 | persistToolResult | chunks.80.mjs:2721 | function |
+| Ws4 | createMicrocompactBoundary | chunks.173.mjs:1236 | function |
+| QCA | isMicrocompactBoundary | chunks.173.mjs:1255 | function |
+| bmY | isPersistedContent | chunks.147.mjs:255 | function |
+| Bq1 | isErrorResult | chunks.80.mjs:2813 | function |
+| UCA | restoreMicrocompactState | chunks.147.mjs:263 | function |
+| Ms4 | resetMicrocompactState | chunks.147.mjs:259 | function |
+| NG1 | setMicrocompactInProgress | chunks.147.mjs:221 | function |
+| Ds4 | clearMicrocompactInProgress | chunks.147.mjs:225 | function |
+| js4 | resetMicrocompactStateAndFlag | chunks.147.mjs:229 | function |
+| FD9 | createPreview | chunks.80.mjs:2799 | function |
+| BD9 | formatPersistedOutputMessage | chunks.80.mjs:2760 | function |
+| umY | MIN_MICROCOMPACT_TOKENS | chunks.147.mjs:464 | constant (20000) |
+| BmY | MANUAL_MICROCOMPACT_THRESHOLD | chunks.147.mjs:466 | constant (40000) |
+| mmY | KEEP_RECENT_TOOL_RESULTS | chunks.147.mjs:468 | constant (3) |
+| gCA | IMAGE_TOKEN_ESTIMATE | chunks.147.mjs:470 | constant (2000) |
+| NXA | CLEARED_CONTENT_MESSAGE | chunks.80.mjs:2844 | constant |
+| C$6 | PERSISTED_OUTPUT_START | chunks.80.mjs:2840 | constant |
+| VXA | PERSISTED_OUTPUT_END | chunks.80.mjs:2842 | constant |
+| fXA | TOOL_RESULTS_DIR | chunks.80.mjs:2838 | constant ("tool-results") |
+| ex7 | PREVIEW_SIZE | chunks.80.mjs:2846 | constant (2000) |
+| FmY | COMPACTABLE_TOOLS | chunks.147.mjs:498 | variable (Set) |
+| TG1 | compactedToolIds | chunks.147.mjs:474 | variable (Set) |
+| fZ6 | clearedAttachmentUUIDs | chunks.147.mjs:476 | variable (Set) |
+| VZ6 | toolResultTokenCache | chunks.147.mjs:478 | variable (Map) |
+| MU1 | microcompactInProgress | chunks.147.mjs:247 | variable (boolean) |
+
 ---
 
 ## Module: Hooks
@@ -399,6 +510,19 @@
 | zyA | executeStopHooks | chunks.141.mjs:2889 | generator |
 | mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
 | UTA | executeNotificationHooks | chunks.141.mjs:2870 | function |
+
+### Compaction Hooks
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
+| PP | executeSessionStartHooks | chunks.142.mjs:248 | function |
+| $yA | executeSessionStartGenerator | chunks.141.mjs:2961 | function |
+| AyA | executeHooksOutsideREPL | chunks.141.mjs:2691 | function |
+| aX | createHookContext | chunks.141.mjs:1770 | function |
+| Wi4 | parseHookOutput | chunks.141.mjs:1780 | function |
+| MP | DEFAULT_HOOK_TIMEOUT | chunks.141.mjs:TBD | constant (5000) |
+
 | HyA | executeUserPromptSubmitHooks | chunks.141.mjs:2946 | generator |
 | $yA | executeSessionStartHooks | chunks.141.mjs:2961 | generator |
 | AEA | executeSubagentStartHooks | chunks.141.mjs:2995 | generator |
