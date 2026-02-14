@@ -50,6 +50,8 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 - [remote_memory_sync.md](./remote_memory_sync.md) - Remote directory setup, network storage, distributed teams, SSHFS/NFS (~20KB)
 
 ### Phase 4 (New - Comprehensive Reverse Engineering Enhancement)
+
+**Detailed Implementation Analysis:**
 - [15_write_edit_integration.md](./15_write_edit_integration.md) - Write/Edit tool permission flow, concurrent access analysis (~17KB)
 - [16_error_handling_recovery.md](./16_error_handling_recovery.md) - Dual file size limits, error paths and recovery mechanisms (~18KB)
 - [17_tui_integration.md](./17_tui_integration.md) - TUI modal, settings toggle, external editor integration (~16KB)
@@ -57,6 +59,10 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 - [19_telemetry_monitoring.md](./19_telemetry_monitoring.md) - Three telemetry events, metrics collection, analytics queries (~17KB)
 - [20_feature_flag_rollout.md](./20_feature_flag_rollout.md) - 5-level priority chain, gradual rollout strategy (~15KB)
 - [21_implementation_vs_official_docs.md](./21_implementation_vs_official_docs.md) - 6 key discrepancies, verification tests (~16KB)
+
+**Consolidated References:**
+- [22_complete_lifecycle_consolidated.md](./22_complete_lifecycle_consolidated.md) - End-to-end scenarios, all flows integrated (~19KB)
+- [23_quick_reference_guide.md](./23_quick_reference_guide.md) - Developer cheat sheet, troubleshooting, common scenarios (~13KB)
 
 ### Existing Analysis (Enhanced)
 - [memory_architecture.md](./memory_architecture.md) - Overall memory system architecture

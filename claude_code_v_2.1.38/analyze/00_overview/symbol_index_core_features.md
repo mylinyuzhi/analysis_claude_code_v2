@@ -176,15 +176,117 @@
 > Full analysis: [32_keybindings/](../32_keybindings/)
 > **NEW in 2.1.18** - Customizable keyboard shortcuts
 
-### Keybinding Logic
+### Configuration & Loading
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| dX | KeybindingSetup | chunks.110.mjs:931 | function/component |
-| x6Y | KeybindingHandler | chunks.110.mjs:988 | function |
-| YS1 | loadKeybindings | chunks.54.mjs:1700 | function |
+| Mk5 | loadKeybindingsAsync | chunks.54.mjs:1635 | function |
+| YS1 | loadKeybindingsSync | chunks.54.mjs:1700 | function |
+| kq7 | getCachedBindings | chunks.54.mjs:1695 | function |
+| R71 | getKeybindingsFilePath | chunks.54.mjs:1627 | function |
+| tqA | getDefaultKeybindings | chunks.54.mjs:1631 | function |
+| Hv | isKeybindingCustomizationEnabled | chunks.54.mjs:1601 | function |
+| kJ1 | DEFAULT_KEYBINDINGS | chunks.54.mjs:1127 | constant |
+| yq7 | getValidationWarnings | chunks.54.mjs:1812 | function |
+| Dk5 | isErrorLike | chunks.54.mjs:1613 | function |
+
+### File Watching
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
 | Lq7 | watchKeybindingsFile | chunks.54.mjs:1752 | function |
+| Pk5 | stopWatchingKeybindings | chunks.54.mjs:1782 | function |
+| Nq7 | handleKeybindingsFileChange | chunks.54.mjs:1793 | function |
+| Wk5 | handleKeybindingsFileDelete | chunks.54.mjs:1803 | function |
+| Rq7 | subscribeToKeybindingsChanges | chunks.54.mjs:1787 | function |
+| Jk5 | WATCH_STABILITY_THRESHOLD_MS | chunks.54.mjs:1816 | constant (500) |
+| Xk5 | WATCH_POLL_INTERVAL_MS | chunks.54.mjs:1818 | constant (200) |
+| L71 | fileWatcher | chunks.54.mjs:1820 | variable |
+| fq7 | isWatcherInitialized | chunks.54.mjs:1822 | variable |
+| Tq7 | isWatcherCleaned | chunks.54.mjs:1824 | variable |
+
+### State & Caching
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ZM | cachedBindings | chunks.54.mjs:1826 | variable |
+| GW | cachedWarnings | chunks.54.mjs:1828 | variable |
+| KS1 | changeListeners | chunks.54.mjs:1830 | variable |
+| Vq7 | lastTelemetryDate | chunks.54.mjs:1832 | variable |
+| Cq7 | seenFallbacks | chunks.54.mjs:1881 | variable |
+
+### Validation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| aE5 | isValidKeybindingBlock | chunks.54.mjs:1386 | function |
+| sE5 | isValidKeybindingBlockArray | chunks.54.mjs:1392 | function |
+| tE5 | isValidContext | chunks.54.mjs:1396 | function |
+| eE5 | parseAndValidateKeystroke | chunks.54.mjs:1400 | function |
+| Ak5 | validateKeybindingBlock | chunks.54.mjs:1420 | function |
+| qk5 | validateKeybindingsArray | chunks.54.mjs:1510 | function |
+| Kk5 | detectDuplicateBindings | chunks.54.mjs:1522 | function |
+| Yk5 | detectReservedKeyConflicts | chunks.54.mjs:1546 | function |
+| aqA | detectMalformedJSON | chunks.54.mjs:1482 | function |
+| zk5 | flattenKeybindingsForValidation | chunks.54.mjs:1565 | function |
+| sqA | validateKeybindingsComprehensive | chunks.54.mjs:1579 | function |
+| Gq7 | VALID_CONTEXTS | chunks.54.mjs:1598 | constant |
+| jk5 | isValidKeybindingStructure | chunks.54.mjs:1617 | function |
+| Eq7 | isValidKeybindingArray | chunks.54.mjs:1623 | function |
+
+### Reserved Shortcuts
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Wq7 | getReservedShortcuts | chunks.54.mjs:1304 | function |
+| k71 | normalizeKeystroke | chunks.54.mjs:1311 | function |
+| qS1 | RESERVED_UNIX_SHORTCUTS | chunks.54.mjs:1335 | constant |
+| rqA | RESERVED_UNIX_COMMON | chunks.54.mjs:1347 | constant |
+| oqA | RESERVED_MACOS_SHORTCUTS | chunks.54.mjs:1355 | constant |
+
+### Keystroke Parsing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| iC1 | parseKeystroke | chunks.53.mjs:2752 | function |
+| rN5 | parseChordString | chunks.53.mjs:2810 | function |
+| oN5 | stringifyKeystroke | chunks.53.mjs:2815 | function |
+| aN5 | getDisplayKeyName | chunks.53.mjs:2825 | function |
+| aK6 | flattenKeybindings | chunks.53.mjs:2864 | function |
+| oK6 | stringifyChord | chunks.53.mjs:2860 | function |
+| v77 | getKeyNameFromEvent | chunks.53.mjs:2875 | function |
+
+### Matching & Resolution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| sK6 | findKeybindingForAction | chunks.53.mjs:2893 | function |
+| sN5 | eventToKeystroke | chunks.53.mjs:2901 | function |
+| tN5 | isPrefixMatch | chunks.53.mjs:2914 | function |
+| eN5 | isExactMatch | chunks.53.mjs:2928 | function |
+| tK6 | resolveKeystroke | chunks.53.mjs:2942 | function |
 | C6Y | CHORD_TIMEOUT_MS | chunks.110.mjs:1045 | constant (1000) |
+
+### React Context & UI
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| dX | KeybindingSetup | chunks.110.mjs:931 | component |
+| x6Y | KeybindingHandler | chunks.110.mjs:988 | component |
+| A36 | KeybindingContext | chunks.53.mjs:2983 | component |
+| k77 | KeybindingContextObject | chunks.53.mjs:3081 | constant |
+| S6Y | logKeybindingWarnings | chunks.110.mjs:890 | function |
+| VL | useKeybindingContext | chunks.53.mjs:3058 | function |
+| q36 | useRegisterContext | chunks.53.mjs:3062 | function |
+
+### Telemetry & Utilities
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| RK | getDisplayTextWithFallback | chunks.54.mjs:1847 | function |
+| m0 | getKeybindingForActionSync | chunks.54.mjs:1863 | function |
+| vq7 | logCustomKeybindingsLoaded | chunks.54.mjs:1605 | function |
+| AT5 | noop | chunks.53.mjs:3056 | function |
 
 ---
 
