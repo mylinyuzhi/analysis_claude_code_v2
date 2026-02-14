@@ -27,17 +27,51 @@
 > Full analysis: [30_agent_teams/](../30_agent_teams/)
 > **NEW in 2.1.32** - Multi-agent collaboration via swarms
 
-### Teammate/Swarm Management
+### Team Management & Tools
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| QSY | TeamCreateTool | chunks.141.mjs:571 | object |
+| USY | TeamDeleteTool | chunks.141.mjs:759 | object |
+| YhY | SendMessageTool | chunks.141.mjs:1373 | object |
+| iB | SEND_MESSAGE_TOOL_NAME | chunks.89.mjs:592 | constant ("SendMessage") |
+| mSY | writeTeamConfig | chunks.141.mjs:534 | function |
+| ul4 | getTeamConfigPath | chunks.141.mjs:530 | function |
+| M51 | readTeamConfig | chunks.141.mjs:TBD | function |
+| FSY | sanitizeTeamName | chunks.141.mjs:543 | function |
+| QP | getTeamsBaseDirectory | chunks.141.mjs:TBD | function |
+| cRA | getTeamSubdirectory | chunks.141.mjs:TBD | function |
+
+### Spawn & Execution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| iVY | spawnTeammateDispatcher | chunks.131.mjs:2467 | function |
+| Rm | isInProcessEnabled | chunks.131.mjs:1586 | function |
+| LP1 | spawnInProcessTeammate | chunks.123.mjs:242 | function |
+| dVY | spawnSplitPaneTeammate | chunks.131.mjs:2077 | function |
+| cVY | spawnSeparateWindowTeammate | chunks.131.mjs:2202 | function |
+| WVY | inProcessPollLoop | chunks.131.mjs:260 | function |
+| GVY | inProcessAgentRunner | chunks.131.mjs:347 | function |
+
+### Backend Management
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | fEA | TmuxBackend | chunks.131.mjs:1144 | class |
 | EEA | ITermBackend | chunks.131.mjs:1381 | class |
 | zt | getBackend | chunks.131.mjs:1493 | function |
+| OI | isRunningInsideTmux | chunks.131.mjs:TBD | function |
+| j51 | isRunningInIterm2 | chunks.131.mjs:TBD | function |
+| Kt | isTmuxInstalled | chunks.131.mjs:TBD | function |
+| xQ1 | isIt2CliInstalled | chunks.131.mjs:TBD | function |
 | WN | SWARM_SESSION_NAME | chunks.131.mjs:1237 | constant ("claude-swarm") |
 | gP1 | SWARM_VIEW_WINDOW_NAME | chunks.131.mjs:1241 | constant ("swarm-view") |
-| iB | SEND_MESSAGE_TOOL_NAME | chunks.89.mjs:592 | constant ("SendMessage") |
-| YhY | SendMessageTool | chunks.141.mjs:1373 | object |
+
+### Message Handling
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
 | oSY | handleDirectMessage | chunks.141.mjs:1432 | function |
 | aSY | handleBroadcast | chunks.141.mjs:1434 | function |
 | sSY | handleShutdownRequest | chunks.141.mjs:1436 | function |
@@ -45,18 +79,26 @@
 | eSY | handleShutdownRejection | chunks.141.mjs:1216 | function |
 | AhY | handlePlanApproval | chunks.141.mjs:1239 | function |
 | qhY | handlePlanRejection | chunks.141.mjs:1265 | function |
-| QSY | TeamCreateTool | chunks.141.mjs:571 | object |
-| USY | TeamDeleteTool | chunks.141.mjs:759 | object |
-| f9 | sendTeamMessage | chunks.141.mjs: (imported) | function |
-| mSY | writeTeamConfig | chunks.141.mjs:534 | function |
-| ul4 | getTeamConfigPath | chunks.141.mjs:530 | function |
-| M51 | readTeamConfig | chunks.141.mjs:TBD | function |
-| FSY | sanitizeTeamName | chunks.141.mjs:543 | function |
-| QP | getTeamsBaseDirectory | chunks.141.mjs:TBD | function |
-| cRA | getTeamSubdirectory | chunks.141.mjs:TBD | function |
-| WVY | inProcessPollLoop | chunks.131.mjs:260 | function |
-| GVY | inProcessAgentRunner | chunks.131.mjs:347 | function |
+
+### Mailbox & Communication
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| f9 | writeToMailbox | chunks.129.mjs:1107 | function |
+| Ld | readMailbox | chunks.129.mjs:1089 | function |
+| JQ1 | markMessageAsReadByIndex | chunks.129.mjs:1130 | function |
+| as | getInboxPath | chunks.129.mjs:TBD | function |
+| eZY | ensureInboxDirectoryExists | chunks.129.mjs:TBD | function |
+| ss | parseShutdownRequest | chunks.141.mjs:TBD | function |
+
+### Task Auto-Claim
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
 | ib4 | claimNextTask | chunks.141.mjs:TBD | function |
+| MVY | findNextAvailableTask | chunks.131.mjs:222 | function |
+| PVY | generatePromptFromTask | chunks.131.mjs:231 | function |
+| o7A | attemptToClaimTask | chunks.131.mjs:TBD | function |
 
 ---
 

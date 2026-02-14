@@ -9,6 +9,157 @@ The system consists of three pillars:
 2.  **Task Ledger**: A centralized, persistent list of tasks (To-Do) that agents claim and update.
 3.  **Message Protocol**: A structured JSON-RPC-like protocol for Direct Messages, Broadcasts, and Control Signals (Shutdown/Plan Approval).
 
+## Key Design Decisions
+
+### Decision 1: Filesystem-Backed State vs In-Memory
+
+**What was chosen**: Use `~/.claude/teams/` and `~/.claude/tasks/` directories as the source of truth for all team coordination.
+
+**Why this approach**:
+
+| Requirement | How Filesystem Satisfies | Alternative (In-Memory) |
+|-------------|-------------------------|------------------------|
+| **Multi-process coordination** | Each process reads/writes shared files | Requires IPC (sockets, shared memory) |
+| **Crash resilience** | Team/task state survives process restart | Lost on crash |
+| **Debuggability** | `cat ~/.claude/teams/web-app/config.json` reveals exact state | Opaque process memory |
+| **Zero dependencies** | No Redis, PostgreSQL, or distributed system | Complex setup |
+
+**Trade-offs**:
+- ✅ **Pro**: Works on any filesystem, survives crashes, human-inspectable
+- ❌ **Con**: Slower than in-memory (~1-5ms vs ~10μs), requires file locking for race conditions
+- ❌ **Con**: Disk space usage grows unbounded (mailboxes accumulate messages)
+
+**When this breaks**: Network filesystems (NFS) with unreliable file locking can cause race conditions and duplicate task claims.
+
+**Design insight**: For typical team sizes (2-10 agents) and message volumes (<1000 messages per session), filesystem overhead is negligible. The durability and debuggability benefits outweigh the performance cost.
+
+### Decision 2: Three Spawn Modes vs Single Mode
+
+**What was chosen**: Support in-process, split-pane (tmux/iTerm2), and separate window modes with automatic selection.
+
+**Why this approach**:
+
+| Mode | Use Case | Why Needed |
+|------|----------|-----------|
+| **In-Process** | CI/CD pipelines, non-interactive sessions | No TTY available, can't spawn panes |
+| **Split-Pane** | Local development with tmux/iTerm2 | Visual monitoring, process isolation |
+| **Separate Window** | Large teams (>5 agents) | Dedicated screen space per agent |
+
+**Alternatives considered**:
+1. **Pane-only**: Simple but breaks in CI/CD (no TTY)
+2. **In-process only**: Works everywhere but no visual feedback, shared event loop
+
+**Trade-offs**:
+- ✅ **Pro**: Graceful degradation (works in all environments)
+- ✅ **Pro**: Users get best experience available (visual panes when possible)
+- ❌ **Con**: Three code paths to maintain, more complexity
+- ❌ **Con**: Behavior differs by environment (surprising to users)
+
+**Design insight**: The automatic mode selection (`isInProcessEnabled()`) prioritizes user experience. Non-interactive sessions automatically fall back to in-process, while interactive sessions leverage terminal multiplexers for rich UI.
+
+### Decision 3: File Locking vs Lock-Free Queues
+
+**What was chosen**: Use `proper-lockfile` library with read-modify-write critical sections.
+
+**Why this approach**:
+
+File locking prevents **lost update problem**:
+```
+Without locking:
+  Agent A reads mailbox: [msg1, msg2]
+  Agent B reads mailbox: [msg1, msg2]
+  Agent A writes: [msg1, msg2, msg3]
+  Agent B writes: [msg1, msg2, msg4]  ← msg3 lost!
+
+With locking:
+  Agent A: lock → read → append msg3 → write → unlock
+  Agent B: lock (blocks) → read [msg1, msg2, msg3] → append msg4 → write → unlock
+  Result: [msg1, msg2, msg3, msg4] ✓
+```
+
+**Alternatives considered**:
+1. **Lock-free append**: Use atomic file operations (create unique `.msg-uuid` files, reader scans directory)
+   - **Pro**: No lock contention
+   - **Con**: Complex (need directory scanning, sorting, cleanup)
+2. **Database with ACID**: Use SQLite for transactions
+   - **Pro**: Guaranteed consistency
+   - **Con**: External dependency, overkill for small teams
+
+**Trade-offs**:
+- ✅ **Pro**: Simple read-modify-write model, proven library handles edge cases
+- ❌ **Con**: Lock contention with 6+ concurrent writers (5 retries × 1s = 5s timeout)
+- ❌ **Con**: Stale lock detection (60s timeout) delays recovery from crashes
+
+**Design insight**: For typical teams (<5 agents), lock contention is rare (requires simultaneous writes to same mailbox within same 5ms window). The simplicity of locked read-modify-write outweighs the complexity of lock-free alternatives.
+
+### Decision 4: 5-Level Priority Queue vs FIFO
+
+**What was chosen**: In-process teammates use priority-based polling: AppState > Shutdown > Lead > Peer > Tasks.
+
+**Why this approach**:
+
+**Problem without priorities**:
+```
+Scenario: Teammate has 100 unread peer messages
+Lead sends shutdown request (message #101)
+FIFO: Process all 100 messages first (50+ minutes delay)
+Priority: Shutdown bypasses queue (<1 second)
+```
+
+**Priority rationale**:
+
+| Priority | Rationale | Bypass Behavior |
+|----------|-----------|-----------------|
+| **1 - AppState** | In-process fast path (0-1ms) | N/A (separate queue) |
+| **2 - Shutdown** | Control plane, must not starve | Scans ALL messages first |
+| **3 - Lead** | Orchestrator decisions override peer work | Higher than peers |
+| **4 - Peer** | Normal collaboration, FIFO fairness | None |
+| **5 - Tasks** | Self-directed work, lowest priority | Only if no messages |
+
+**Trade-offs**:
+- ✅ **Pro**: Critical signals (shutdown, lead corrections) never starve
+- ✅ **Pro**: Natural interrupt hierarchy matches user expectations
+- ❌ **Con**: Peer messages can be delayed by lead flood
+- ❌ **Con**: Tasks can starve if messages continuously arrive
+
+**Design insight**: The priority system treats coordination signals as **higher priority than data**. Shutdown is control plane (termination), lead messages are coordination plane (work assignment), peer messages are data plane (collaboration). This mirrors network protocol layering.
+
+### Decision 5: Mark-as-Read vs Delete Messages
+
+**What was chosen**: Set `read: true` flag, keep messages in mailbox file.
+
+**Why this approach**:
+
+| Approach | Debuggability | File Size | Idempotency |
+|----------|--------------|-----------|-------------|
+| **Mark-as-read** (chosen) | Can inspect full history | Grows unbounded | Safe to re-mark |
+| **Delete** | History lost | Stays small | Crash after delete loses message |
+
+**Use case for mark-as-read**:
+```
+Debugging scenario:
+User: "Why did backend-dev implement feature X?"
+Developer: cat ~/.claude/teams/my-team/inboxes/backend-dev.json
+Developer sees: Message from team-lead at T=10:30: "Implement feature X"
+```
+
+**Trade-offs**:
+- ✅ **Pro**: Full audit trail, crash-safe (message persists after read)
+- ❌ **Con**: Mailbox file grows to ~100KB-1MB for active teams
+- ❌ **Con**: Scan performance degrades with mailbox size (mitigated by Priority 2 full scan only for shutdown)
+
+**Future work**: Mailbox compaction (archive read messages to separate file) when size exceeds 1MB.
+
+**Design insight**: Debuggability trumps performance for coordination systems. The ability to inspect message history is invaluable for understanding agent behavior and debugging coordination issues.
+
+---
+
+For complete deep dives on specific aspects, see:
+- [01_complete_chain_analysis.md](./01_complete_chain_analysis.md) - End-to-end flow with decision rationale at each step
+- [02_spawn_mechanisms_deep_dive.md](./02_spawn_mechanisms_deep_dive.md) - Why 3 spawn modes and automatic selection
+- [03_mailbox_and_locking.md](./03_mailbox_and_locking.md) - File locking implementation and race condition analysis
+- [04_polling_priorities.md](./04_polling_priorities.md) - Complete priority queue design and starvation analysis
+
 ## Team Lifecycle
 
 ### Creation

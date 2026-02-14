@@ -112,17 +112,194 @@ async function handleShutdownApproval(input, context) {
 
 // Mapping: tSY→handleShutdownApproval, A→input, q→context, K→teamName, Y→agentId, z→agentName, w→requestId, $→backendType, nK→exitProcess
 
+## File Locking Deep Dive
+
+### The Lost Update Problem
+
+**Race condition scenario** (without locking):
+
+```
+Timeline:
+T0: team-lead reads backend-dev.json → sees [msg1, msg2]
+T1: frontend-dev reads backend-dev.json → sees [msg1, msg2]
+T2: team-lead appends msg3 → writes [msg1, msg2, msg3]
+T3: frontend-dev appends msg4 → writes [msg1, msg2, msg4]
+
+Result: backend-dev.json contains [msg1, msg2, msg4]
+        msg3 LOST!
+```
+
+**Why this happens**: Read-modify-write is not atomic. Between reading the file and writing back, another process can modify it.
+
+### File Locking Solution
+
+**Implementation** (obfuscated: `writeToMailbox` / f9):
+
+```javascript
+// ============================================
+// writeToMailbox - Atomic message append with file locking
+// Location: chunks.129.mjs:1107-1150
+// ============================================
+
+// READABLE (for understanding):
+async function writeToMailbox(recipientName, message, teamName) {
+    const mailboxPath = getInboxPath(recipientName, teamName);
+    // Path: ~/.claude/teams/{teamName}/inboxes/{recipientName}.json
+
+    const lockPath = mailboxPath + ".lock";
+
+    // Acquire exclusive lock (blocks if another process holds it)
+    await lockfile.lock(lockPath, {
+        retries: {
+            retries: 5,       // Retry up to 5 times if lock unavailable
+            minTimeout: 100,  // Initial wait: 100ms
+            maxTimeout: 1000  // Max wait per retry: 1s
+        },
+        stale: 60000  // Consider lock stale after 60 seconds (crash recovery)
+    });
+
+    try {
+        // CRITICAL SECTION - only one process here at a time
+        let messages = [];
+
+        if (await fileExists(mailboxPath)) {
+            const content = await readFile(mailboxPath, "utf-8");
+            messages = JSON.parse(content);
+        }
+
+        messages.push(message);
+
+        await writeFile(
+            mailboxPath,
+            JSON.stringify(messages, null, 2),
+            "utf-8"
+        );
+    } finally {
+        // Always release lock, even if error
+        await lockfile.unlock(lockPath);
+    }
+}
+```
+
+**With locking** (correct behavior):
+
+```
+Timeline:
+T0: team-lead acquires lock on backend-dev.json.lock
+T1: frontend-dev attempts lock → BLOCKS (waits for team-lead to release)
+T2: team-lead reads [msg1, msg2]
+T3: team-lead appends msg3, writes [msg1, msg2, msg3]
+T4: team-lead releases lock
+T5: frontend-dev acquires lock (now available)
+T6: frontend-dev reads [msg1, msg2, msg3]  ← sees msg3!
+T7: frontend-dev appends msg4, writes [msg1, msg2, msg3, msg4]
+T8: frontend-dev releases lock
+
+Result: [msg1, msg2, msg3, msg4] - both messages preserved!
+```
+
+### Stale Lock Detection
+
+**Problem**: Process crashes while holding lock, leaving `.lock` file orphaned.
+
+**Solution**: `proper-lockfile` library detects stale locks via:
+
+1. **Age check**: Lock file older than 60 seconds (stale timeout)
+2. **PID check**: Read PID from lock file, check if process still running
+3. **Auto-removal**: If process dead, remove stale lock file
+
+**Lock file format**:
+```
+PID: 12345
+Host: my-laptop.local
+Timestamp: 2024-02-14T08:15:00.000Z
+```
+
+**Stale lock recovery**:
+```
+T0: Process with PID 12345 crashes while holding lock
+T0+61s: Next writer attempts lock
+  → Lock file age = 61s (> 60s threshold)
+  → Check if PID 12345 running: No (process crashed)
+  → Remove stale lock file
+  → Acquire new lock
+  → Write proceeds normally
+```
+
+### Lock Contention Scenarios
+
+**Scenario 1**: 2 agents write simultaneously
+
+```
+Agent A: Acquire lock → write → release (5ms total)
+Agent B: Attempt lock → blocks 5ms → acquire → write → release
+Total delay: 5ms (negligible)
+```
+
+**Scenario 2**: 6 agents write simultaneously (exceeds retry limit)
+
+```
+Agent A: Acquires lock
+Agent B-F: All block, retry 5 times over ~2.5 seconds
+Agent A: Still writing (slow disk)
+Agent B-F: All 5 retries exhausted → throw error "Could not acquire lock"
+
+Recovery: Agents receive error, can retry SendMessage
+```
+
+**Why 5 retries**: Most contention resolves in 1-2 retries (lock held <5ms). After 5 retries (~2.5s total wait), likely indicates genuine deadlock or slow disk.
+
+### Message Priority Handling
+
+**In-process teammates** use dual-path delivery:
+
+**Fast path** (Priority 1):
+```javascript
+// Direct injection to AppState (bypasses filesystem)
+await context.updateAppState(state => {
+    const task = state.tasks.find(t => t.agentName === recipientName);
+    task.pendingUserMessages.push({
+        from: senderName,
+        content: messageContent
+    });
+});
+// Delivery latency: 0-1ms (synchronous memory access)
+```
+
+**Slow path** (Priority 2-5):
+```javascript
+// Write to mailbox file
+await writeToMailbox(recipientName, message, teamName);
+// Delivery latency: 0-500ms (polling interval)
+```
+
+**Why dual-write**: Fast path provides instant delivery for in-process teammates. Slow path (mailbox) serves as:
+1. **Persistence layer**: Survives process restart
+2. **Fallback**: Works if in-process teammate offline
+3. **Audit trail**: Debugging and inspection
+
+For complete race condition analysis and edge cases, see [03_mailbox_and_locking.md](./03_mailbox_and_locking.md).
+
 ## Related Symbols
 
-- `SendMessageTool` (`iB`) - The main tool implementation.
-- `deliverMessage` (`f9`) - Low-level delivery logic.
-- `getTeamName` (`i3`) - Context helper.
-- `handleShutdownApproval` (`tSY`) - Shutdown logic.
+> Symbol mappings:
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+
+Key functions in this document:
+
+- `SendMessageTool` (YhY) - Main tool implementation
+- `writeToMailbox` (f9) - Low-level delivery with locking
+- `readMailbox` (Ld) - Read all messages from mailbox
+- `markMessageAsReadByIndex` (JQ1) - Update read flag
+- `handleShutdownApproval` (tSY) - Shutdown logic
 
 ## Location References
 
-- `chunks.141.mjs:843` - `SendMessageTool` prompt and documentation.
-- `chunks.141.mjs:1429` - Tool call dispatcher.
-- `chunks.141.mjs:1059` - `oSY` (handle type: "message").
-- `chunks.141.mjs:1089` - `aSY` (handle type: "broadcast").
-- `chunks.141.mjs:1159` - `tSY` (handle type: "shutdown_response").
+- `chunks.141.mjs:843` - SendMessageTool prompt and documentation
+- `chunks.141.mjs:1429` - Tool call dispatcher
+- `chunks.141.mjs:1432` - handleDirectMessage (type: "message")
+- `chunks.141.mjs:1434` - handleBroadcast (type: "broadcast")
+- `chunks.141.mjs:1160` - handleShutdownApproval (type: "shutdown_response")
+- `chunks.129.mjs:1107` - writeToMailbox (with file locking)
+- `chunks.129.mjs:1089` - readMailbox
+- `chunks.129.mjs:1130` - markMessageAsReadByIndex
