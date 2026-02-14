@@ -14,6 +14,13 @@ Key functions:
 - `MEMORY_MAX_LINES` (Qu1) - 200-line limit constant
 - `MEMORY_MD_FILENAME` (Ua, pN9) - "MEMORY.md" constant
 
+## Related Documentation (Phase 4)
+
+> For in-depth technical analysis:
+> - [18_system_reminder_generation.md](./18_system_reminder_generation.md) - Dynamic variable registration, complete prompt building flow
+> - [16_error_handling_recovery.md](./16_error_handling_recovery.md) - Error scenarios, dual limits, recovery mechanisms
+> - [19_telemetry_monitoring.md](./19_telemetry_monitoring.md) - `tengu_memdir_loaded` event (tracked during loading)
+
 ---
 
 ## 1. MEMORY.md Loading Algorithm

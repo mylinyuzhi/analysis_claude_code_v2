@@ -31,16 +31,17 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| cRA | getTeamSubdirectory | chunks.141.mjs:TBD | function |
+| F$1 | cleanupTeam | chunks.123.mjs:187 | function |
+| FSY | sanitizeTeamName | chunks.141.mjs:543 | function |
+| iB | SEND_MESSAGE_TOOL_NAME | chunks.89.mjs:592 | constant ("SendMessage") |
+| M51 | readTeamConfig | chunks.141.mjs:TBD | function |
+| mSY | writeTeamConfig | chunks.141.mjs:534 | function |
+| QP | getTeamsBaseDirectory | chunks.141.mjs:TBD | function |
 | QSY | TeamCreateTool | chunks.141.mjs:571 | object |
+| ul4 | getTeamConfigPath | chunks.141.mjs:530 | function |
 | USY | TeamDeleteTool | chunks.141.mjs:759 | object |
 | YhY | SendMessageTool | chunks.141.mjs:1373 | object |
-| iB | SEND_MESSAGE_TOOL_NAME | chunks.89.mjs:592 | constant ("SendMessage") |
-| mSY | writeTeamConfig | chunks.141.mjs:534 | function |
-| ul4 | getTeamConfigPath | chunks.141.mjs:530 | function |
-| M51 | readTeamConfig | chunks.141.mjs:TBD | function |
-| FSY | sanitizeTeamName | chunks.141.mjs:543 | function |
-| QP | getTeamsBaseDirectory | chunks.141.mjs:TBD | function |
-| cRA | getTeamSubdirectory | chunks.141.mjs:TBD | function |
 
 ### Spawn & Execution
 
@@ -72,33 +73,39 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| oSY | handleDirectMessage | chunks.141.mjs:1432 | function |
+| AhY | handlePlanApproval | chunks.141.mjs:1239 | function |
 | aSY | handleBroadcast | chunks.141.mjs:1434 | function |
+| eSY | handleShutdownRejection | chunks.141.mjs:1216 | function |
+| iP1 | parsePlanApprovalResponse | chunks.129.mjs:1428 | function |
+| Nx4 | PlanApprovalResponseMessageSchema | chunks.129.mjs:1553 | schema |
+| oSY | handleDirectMessage | chunks.141.mjs:1432 | function |
+| qhY | handlePlanRejection | chunks.141.mjs:1265 | function |
 | sSY | handleShutdownRequest | chunks.141.mjs:1436 | function |
 | tSY | handleShutdownApproval | chunks.141.mjs:1160 | function |
-| eSY | handleShutdownRejection | chunks.141.mjs:1216 | function |
-| AhY | handlePlanApproval | chunks.141.mjs:1239 | function |
-| qhY | handlePlanRejection | chunks.141.mjs:1265 | function |
+| Vx4 | PlanApprovalRequestMessageSchema | chunks.129.mjs:1546 | schema |
 
 ### Mailbox & Communication
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| f9 | writeToMailbox | chunks.129.mjs:1107 | function |
-| Ld | readMailbox | chunks.129.mjs:1089 | function |
-| JQ1 | markMessageAsReadByIndex | chunks.129.mjs:1130 | function |
 | as | getInboxPath | chunks.129.mjs:TBD | function |
 | eZY | ensureInboxDirectoryExists | chunks.129.mjs:TBD | function |
+| f9 | writeToMailbox | chunks.129.mjs:1107 | function |
+| JQ1 | markMessageAsReadByIndex | chunks.129.mjs:1130 | function |
+| Ld | readMailbox | chunks.129.mjs:1089 | function |
 | ss | parseShutdownRequest | chunks.141.mjs:TBD | function |
 
-### Task Auto-Claim
+### Task Auto-Claim & Dependencies
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ib4 | claimNextTask | chunks.141.mjs:TBD | function |
+| ib4 | claimNextTask | chunks.131.mjs:241 | function |
 | MVY | findNextAvailableTask | chunks.131.mjs:222 | function |
+| o7A | attemptToClaimTask | chunks.48.mjs:593 | function |
 | PVY | generatePromptFromTask | chunks.131.mjs:231 | function |
-| o7A | attemptToClaimTask | chunks.131.mjs:TBD | function |
+| r7A | addDependency | chunks.48.mjs:569 | function |
+| sq6 | deleteTask | chunks.48.mjs:530 | function |
+| WX | getAllTasks | chunks.48.mjs:555 | function |
 
 ---
 
@@ -114,6 +121,7 @@
 | pN9 | MEMORY_MD_FILENAME | chunks.87.mjs:2229 | constant ("MEMORY.md") |
 | Ua | MEMORY_MD_FILENAME_ALT | chunks.87.mjs:2310 | constant ("MEMORY.md") |
 | Qu1 | MEMORY_MAX_LINES | chunks.87.mjs:2312 | constant (200) |
+| Cp | MEMORY_FILE_SIZE_WARNING_THRESHOLD | chunks.88.mjs:2530 | constant (40000) |
 | F0A | getMemoryContext | chunks.87.mjs:2299 | function |
 | m0A | buildMemoryPrompt | chunks.87.mjs:2257 | function |
 | y2 | isAutoMemoryEnabled | chunks.87.mjs:2194 | function |
@@ -121,6 +129,17 @@
 | mu1 | getAutoMemoryDirectory | chunks.87.mjs:2213 | function |
 | LU7 | getCurrentContextPath | chunks.87.mjs:2209 | function |
 | dx | hashPath | chunks.87.mjs:TBD | function |
+| Fu1 | isAutoMemoryPath | chunks.87.mjs:2223 | function |
+| gN9 | normalizedPath | chunks.87.mjs:TBD | function |
+| cN9 | recordMemoryDirLoadMetrics | chunks.87.mjs:2240 | function |
+| DK1 | getLargeMemoryFiles | chunks.88.mjs:2439 | function |
+
+### TUI Components
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| toY | memoryEditorModal | chunks.155.mjs:714 | function |
+| Z7 | updateUserSettings | chunks.155.mjs:TBD | function |
 
 ---
 

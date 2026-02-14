@@ -15,6 +15,17 @@ Key functions:
 - `isAutoMemoryEnabled` (y2) - Feature toggle check
 - `getAutoMemoryDirectory` (mu1) - Resolves memory directory path
 
+## Related Documentation (Phase 4 - Detailed Implementation)
+
+> For in-depth technical analysis of specific subsystems:
+> - [15_write_edit_integration.md](./15_write_edit_integration.md) - Permission flow, concurrent access
+> - [16_error_handling_recovery.md](./16_error_handling_recovery.md) - Dual limits, error paths
+> - [17_tui_integration.md](./17_tui_integration.md) - TUI modal, settings toggle
+> - [18_system_reminder_generation.md](./18_system_reminder_generation.md) - Prompt injection mechanism
+> - [19_telemetry_monitoring.md](./19_telemetry_monitoring.md) - Analytics events
+> - [20_feature_flag_rollout.md](./20_feature_flag_rollout.md) - 5-level priority chain
+> - [21_implementation_vs_official_docs.md](./21_implementation_vs_official_docs.md) - Discrepancies catalog
+
 ---
 
 ## 1. System Architecture Overview
@@ -394,6 +405,8 @@ if (isMemoryFile(filePath)) {
 
 **Effect**: Agent can freely update MEMORY.md and topic files without permission prompts.
 
+> **For detailed analysis**, see [15_write_edit_integration.md](./15_write_edit_integration.md) - Complete permission flow, concurrent access analysis, and verification tests.
+
 ---
 
 ## 6. Design Trade-offs
@@ -410,6 +423,8 @@ if (isMemoryFile(filePath)) {
 
 **Alternative considered**: Dynamic limit based on available context
 - **Rejected**: Adds complexity, unpredictable behavior, harder to debug
+
+> **For detailed analysis**, see [16_error_handling_recovery.md](./16_error_handling_recovery.md) - Dual file size limits (200 lines + 40000 chars), truncation logic, and error scenarios.
 
 ---
 
@@ -434,6 +449,8 @@ if (isMemoryFile(filePath)) {
 **Rationale**:
 - **Always fresh**: Captures latest changes immediately
 - **Multi-agent safe**: Different agents can update same memory
+
+> **For detailed analysis**, see [18_system_reminder_generation.md](./18_system_reminder_generation.md) - Dynamic variable registration and prompt building flow.
 - **Simple**: No cache invalidation complexity
 
 **Trade-off**: Disk I/O overhead (~1-5ms per turn)
