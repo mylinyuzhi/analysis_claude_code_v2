@@ -624,11 +624,131 @@
 |------------|----------|-----------|------|
 | IM6 | registerSkillHooks | chunks.130.mjs:1361 | function |
 
+### Autocomplete UI (chunks.182.mjs / chunks.183.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| PgA | filterCommandSuggestions | chunks.182.mjs:1971 | function (fuzzy filter for "/" suggestions) |
+| NF | isSlashInput | chunks.182.mjs:1930 | function (`A.startsWith("/")`) |
+| QDz | isInArgsMode | chunks.182.mjs:1932 | function (non-trailing space = suppress picker) |
+| pv6 | findInlineSlashToken | chunks.182.mjs:1896 | function (detects `/cmd` mid-sentence) |
+| MgA | getInlineGhostSuffix | chunks.182.mjs:1913 | function (ghost text completion suffix) |
+| WgA | acceptCommandSuggestion | chunks.182.mjs:2057 | function (writes `/{name} ` on Tab) |
+| sWq | toSuggestionItem | chunks.182.mjs:1957 | function (command → suggestion display object) |
+| WGq | useCommandSuggestions | chunks.183.mjs:1 | function (React hook: orchestrates all autocomplete) |
+| PE6 | handleSubmitCommand | chunks.185.mjs:3067 | function (REPL submit: immediate vs deferred slash) |
+
+### Skill Tool (chunks.132.mjs / chunks.89.mjs / chunks.88.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| NJ | SKILL_TOOL_NAME | chunks.89.mjs:586 | constant ("Skill") |
+| wt | skillToolDefinition | chunks.132.mjs:820 | object (full Skill tool with call/permissions/schema) |
+| d0A | getSkillToolPrompt | chunks.88.mjs:10 | function (memoized Skill tool description text) |
+
+### Skill System Reminder Injection (chunks.142.mjs / chunks.87.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| OIY | buildSkillListingAttachment | chunks.142.mjs:2381 | function (delta-skill-listing attachment) |
+| xg1 | sentSkillNames | chunks.142.mjs (module scope) | variable (Set — session-level dedup for skill listing) |
+| BU7 | formatSkillListing | chunks.87.mjs:2757 | function (budget-aware skill list text) |
+| uU7 | getSkillDescription | chunks.87.mjs:2748 | function (`description - whenToUse` string) |
+| zT9 | formatOneSkillLine | chunks.87.mjs:2762 | function (`- name: desc` line) |
+| YT9 | computeCharBudget | chunks.87.mjs:2452 | function (budget = contextTokens × 4 × 0.02 or 16000) |
+
+### Invoked Skills Tracking (chunks.1.mjs / chunks.146.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| MN1 | registerInvokedSkill | chunks.1.mjs:2963 | function (records skill invocation in session state) |
+| zR6 | getInvokedSkills | chunks.1.mjs:2622 | function (returns session invokedSkills Map) |
+| da4 | buildInvokedSkillsAttachment | chunks.146.mjs:2711 | function (builds invoked_skills reminder) |
+
+### XML Tag Constants (chunks.9.mjs)
+
+> Full analysis: [09_slash_command/output_style.md](../09_slash_command/output_style.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SG | COMMAND_NAME_TAG | chunks.9.mjs:1239 | constant ("command-name") |
+| pP | COMMAND_MESSAGE_TAG | chunks.9.mjs:1241 | constant ("command-message") |
+| Pw1 | LOCAL_COMMAND_STDOUT_TAG | chunks.9.mjs:1247 | constant ("local-command-stdout") |
+| ao1 | LOCAL_COMMAND_STDERR_TAG | chunks.9.mjs:1249 | constant ("local-command-stderr") |
+
+### Output Style Rendering (chunks.127.mjs / chunks.129.mjs / chunks.132.mjs)
+
+> Full analysis: [09_slash_command/output_style.md](../09_slash_command/output_style.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| iI4 | commandMessageRenderer | chunks.127.mjs:422 | function (`<command-message>` invocation bubble renderer) |
+| _x4 | localCommandResultRenderer | chunks.129.mjs:274 | function (`<local-command-stdout/stderr>` block renderer) |
+| Ox4 | CommandOutputLine | chunks.129.mjs:308 | component (single output line with `  ⎿  ` prefix) |
+| C4 | extractXmlTag | chunks.129.mjs | function (extracts content from `<tag>...</tag>` in text) |
+| TJ | AnsiText | chunks.129.mjs | component (ANSI escape code renderer) |
+| bu4 | skillRenderToolResultMessage | chunks.132.mjs:574 | function (Skill tool result: "Successfully loaded skill") |
+| uu4 | skillRenderToolUseMessage | chunks.132.mjs:589 | function (Skill tool-use header label with/without `/`) |
+| HP6 | skillRenderToolUseProgressMessage | chunks.132.mjs:598 | function (scrollable progress list, last 3 items) |
+| Bu4 | skillRenderToolUseRejectedMessage | chunks.132.mjs:634 | function (progress list + ✘ rejection indicator) |
+| mu4 | skillRenderToolUseErrorMessage | chunks.132.mjs:640 | function (progress list + error detail block) |
+| YNY | MAX_SKILL_PROGRESS_VISIBLE | chunks.132.mjs:661 | constant (3 — max visible progress lines) |
+| zNY | SKILL_INITIALIZING_TEXT | chunks.132.mjs | constant ("Initializing…" — initial progress placeholder) |
+| oA | DimText | chunks.132.mjs | component (dimmed/gray text for secondary info) |
+| Y9 | RejectedResult | chunks.132.mjs | component (✘ rejection indicator row) |
+| z5 | ErrorResult | chunks.132.mjs | component (error detail block) |
+
 ---
 
 ## Module: UI Components (Ink)
 
-> Full analysis: [03_llm_core/ui_linkage.md](../03_llm_core/ui_linkage.md) - LLM streaming → UI render pipeline
+> Full analysis:
+> - [02_ui/user_interaction_loop.md](../02_ui/user_interaction_loop.md) - REPL state machine and query pipeline
+> - [02_ui/rendering_pipeline.md](../02_ui/rendering_pipeline.md) - Message rendering pipeline (7 stages)
+> - [02_ui/dialog_system.md](../02_ui/dialog_system.md) - Priority dialog system
+> - [02_ui/elicitation_system.md](../02_ui/elicitation_system.md) - MCP elicitation forms
+> - [04_system_reminder/ui_linkage.md](../04_system_reminder/ui_linkage.md) - System reminder UI visibility
+
+### REPL Core (chunks.188.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| TUA | REPL | chunks.188.mjs:3 | component (main session orchestrator) |
+| lgA | Header | chunks.188.mjs:1063 | component (status bar: version, model, directory) |
+| igA | InputBox | chunks.188.mjs:1065 | component (user text input field) |
+| ngA | DialogsOverlay | chunks.188.mjs:1068 | component (keyboard shortcut overlay dialogs) |
+| Z$ | handleSubmit | chunks.188.mjs:686 | function (user input entry + slash command router) |
+| ff | executeQuery | chunks.188.mjs:589 | function (concurrency guard + query dispatch) |
+| oc | handleQuery | chunks.188.mjs:550 | function (agent loop bridge + streaming) |
+| T11 | handleToolUseStreamCallback | chunks.188.mjs:542 | function (streaming event adapter for React state) |
+| f11 | getInputDialogType | chunks.188.mjs:304 | function (priority dialog dispatcher) |
+| N11 | handleCancel | chunks.188.mjs:328 | function (escape/cancel with per-dialog behavior) |
+| TA | setToolJSX | chunks.188.mjs:111 | function (animation/local JSX command state manager) |
+| YK | resetLoadingState | chunks.188.mjs:218 | function (post-query cleanup: loading/streaming/spinner) |
+| rc | rejectAndRestoreInput | chunks.188.mjs:341 | function (reject tool + restore input box) |
+
+### REPL State Variables (chunks.188.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| O7 / tK | streamMode / setStreamMode | chunks.188.mjs:87 | state ("responding"\|"thinking"\|"tool-input"\|"tool-use") |
+| gq / xq | streamingToolUses / setStreamingToolUses | chunks.188.mjs:87 | state (in-flight tool use entries) |
+| U8 / R4 | streamingThinking / setStreamingThinking | chunks.188.mjs:87 | state (active thinking block + 30s timer) |
+| _4 / C3 | isLoading / setIsLoading | chunks.188.mjs:99 | state (agent responding flag) |
+| W4 / F1 | messages / setMessagesRaw | chunks.188.mjs:145 | state (full conversation history) |
+| T6 | deferredMessages | chunks.188.mjs:151 | derived (useDeferredValue of messages for perf) |
+| K8 / $8 | inputValue / setInputValue | chunks.188.mjs:153 | state (current text input) |
+| e4 / Rq | inputMode / setInputMode | chunks.188.mjs:167 | state ("prompt"\|"bash") |
+| vK / l9 | toolJSX / setToolJSXState | chunks.188.mjs:111 | state (local JSX animation/command rendering) |
+| F7 / f8 | toolUseConfirmQueue / setToolUseConfirmQueue | chunks.188.mjs:135 | state (pending tool approvals) |
+| oq / j5 | sandboxPermissionQueue / setSandboxPermissionQueue | chunks.188.mjs:135 | state (pending network approvals) |
+| O3 / HY | abortController / setAbortController | chunks.188.mjs:99 | state (in-flight API request controller) |
+| XO | focusedInputDialog | chunks.188.mjs:318 | derived (result of f11() - active dialog type) |
+| PG | showSpinner | chunks.188.mjs:231 | derived (controls spinner vs input display) |
+| Gw | hasActiveDialogs | chunks.188.mjs:232 | derived (any queue has items) |
+| I6 | isQueryInProgress | chunks.188.mjs:196 | ref (concurrency guard) |
+| $Y | queryStartTime | chunks.188.mjs:99 | ref (for elapsed time calculation) |
+| OY | totalPausedMs | chunks.188.mjs:99 | ref (tool permission wait time excluded) |
 
 ### Message Rendering Components (chunks.161.mjs)
 
@@ -636,18 +756,44 @@
 |------------|----------|-----------|------|
 | KYq | SessionLogRenderer | chunks.161.mjs:917 | component (transcript display) |
 | Yd1 | AssistantMessageRenderer | chunks.161.mjs:874 | component (single message text) |
-| g91 | MessageTranscript | chunks.161.mjs:600 | component (full conversation list) |
+| g91 | MessageListDefinition | chunks.161.mjs:587 | component (full conversation list, wrapped by P8z) |
+| P8z | MessageList | chunks.161.mjs:587 | component (memoized wrapper around g91) |
+| n9q | MessageComponent | chunks.161.mjs | component (single message renderer) |
+| f8z | isNotProgress | chunks.161.mjs:571 | function (filters out progress-type messages) |
 
-### Tool Output Components (chunks.162.mjs)
+### Message Pipeline Functions (chunks.172.mjs, chunks.173.mjs, chunks.160.mjs, chunks.174.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| iW1 | handleToolUseStream | chunks.173.mjs:390 | function (routes stream events to React state) |
+| DJq | createAssistantMessage | chunks.172.mjs:2860 | function (constructs assistant message object) |
+| t9q | normalizeDisplayMessages | chunks.172.mjs:3072 | function (groups tool uses with hooks+results) |
+| q9q | groupToolResults | chunks.160.mjs:1849 | function (collapses repeated tool executions) |
+| WJ | normalizeMessages | chunks.173.mjs:89 | function (raw messages → render-ready format) |
+| dzz | reorderAttachments | chunks.172.mjs:3244 | function (positions attachments near their turns) |
+| QbA | extractToolInfo | chunks.160.mjs | function (extracts toolName/messageId from message) |
+| XJq | isToolUseMessage | chunks.160.mjs | function (detects assistant tool_use messages) |
+| dd1 | isHookAttachment | chunks.160.mjs | function (detects hook event attachments) |
+| I2z | extractChatTitle | chunks.174.mjs:60 | function (extracts conversation title, skips command output via fJq) |
+| fJq | SKIP_TITLE_REGEX | chunks.174.mjs:273 | constant (regex: tag patterns excluded from title extraction) |
+
+### Dialog Components (chunks.188.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _Wq | ToolPermissionDialog | chunks.188.mjs:1197 | component (tool use approval) |
+| wUA | SandboxPermissionDialog | chunks.188.mjs:1168 | component (network/sandbox approval) |
+| dMq | CostWarningDialog | chunks.188.mjs:1261 | component (API cost threshold warning) |
+| Nx7 | IDEOnboardingDialog | chunks.188.mjs:1268 | component (IDE extension setup wizard) |
+| kLq | LSPRecommendationDialog | chunks.188.mjs:1271 | component (LSP plugin suggestion) |
+| fMq | MessageSelectorDialog | chunks.188.mjs:1337 | component (conversation history browser) |
+| nQA | WorkerRequestDisplay | chunks.188.mjs:1205 | component (passive worker request banner) |
+| GR4 | SpinnerComponent | chunks.188.mjs:1142 | component (loading indicator with mode text) |
+
+### Tool Output Components (chunks.162.mjs, chunks.76.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | BYq | BashOutputRenderer | chunks.162.mjs:3 | component (shell output detail panel) |
-
-### Stream Event Processing (chunks.173.mjs)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| iW1 | processStreamEvent | chunks.173.mjs:390 | function (routes stream events to React state) |
-| DJq | createAssistantMessage | chunks.172.mjs:2860 | function (constructs assistant message object) |
+| mx1 | ScrollContainer | chunks.76.mjs:524 | component (scroll context provider; used by skill progress list) |
 

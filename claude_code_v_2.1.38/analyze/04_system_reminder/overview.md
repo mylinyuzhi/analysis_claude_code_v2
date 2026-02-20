@@ -18,6 +18,8 @@
 - [Plan Mode Reminder Variants](#plan-mode-reminder-variants)
 - [Related Symbols](#related-symbols)
 
+> **UI Linkage deep-dive**: See [ui_linkage.md](./ui_linkage.md) for complete analysis of how `isMeta` messages are filtered from the UI, the API message preparation pipeline, and all non-UI uses of the `isMeta` flag.
+
 ---
 
 ## Overview

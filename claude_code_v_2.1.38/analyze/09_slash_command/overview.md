@@ -10,7 +10,9 @@ The registry merges three sources of commands into a single list: built-in comma
 
 > Symbol mappings:
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Skills, CLI)
-> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations (Slash Commands)
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations (Slash Commands, UI Components)
+
+> Deep unified analysis: [../10_skill_system/overview.md](../10_skill_system/overview.md) — Slash commands and the skill system are the same unified abstraction.
 
 Key functions in this document:
 - `parseSlashCommand` (Db4) - Parses `/command args` syntax from raw input string
@@ -37,6 +39,14 @@ Key functions in this document:
 - `formatCommandDescription` (jZ1) - Formats command description with source annotation
 - `setupForkedCommandContext` (mM6) - Prepares agent/state for forked skill execution
 - `extractForkedCommandResult` (FM6) - Extracts final text from forked agent output
+- `filterCommandSuggestions` (PgA) - Fuzzy-match filter for "/" autocomplete picker (chunks.182.mjs)
+- `useCommandSuggestions` (WGq) - React hook orchestrating all autocomplete suggestion types (chunks.183.mjs)
+- `handleSubmitCommand` (PE6) - REPL submit handler: immediate slash vs. deferred pipeline (chunks.185.mjs)
+- `findInlineSlashToken` (pv6) - Detects `/cmd` typed mid-sentence for ghost text (chunks.182.mjs)
+- `getInlineGhostSuffix` (MgA) - Returns ghost text completion for inline slash tokens (chunks.182.mjs)
+- `acceptCommandSuggestion` (WgA) - Writes `/{name} ` into input on Tab press (chunks.182.mjs)
+- `isSlashInput` (NF) - `A.startsWith("/")` gate (chunks.182.mjs)
+- `isInArgsMode` (QDz) - Detects non-trailing space = in args mode, suppresses picker (chunks.182.mjs)
 
 ---
 
@@ -1165,6 +1175,83 @@ function findCommand(commandName, commands) {
 3. By any entry in `aliases` array
 
 The `findCommand` error message includes an alphabetically sorted list of all available command names with their aliases. This provides good developer feedback when a user mistypes a command name.
+
+---
+
+## UI Linkage: The Slash Command Picker
+
+### How "/" Triggers the Autocomplete Picker
+
+When a user types `/` in the REPL input, a two-layer system handles autocomplete suggestions:
+
+**Layer 1: Input Gate** — `isSlashInput` (NF, chunks.182.mjs:1930) checks `input.startsWith("/")`. `isInArgsMode` (QDz) detects a non-trailing space (meaning the user is now typing arguments, not the command name) and suppresses the picker.
+
+**Layer 2: Suggestion Engine** — `filterCommandSuggestions` (PgA, chunks.182.mjs:1971) generates ranked suggestions:
+
+```
+Input "/" (empty query):
+  1. Top 5 recently-used skills by decayed score (bM6)  ← frecency
+  2. User settings skills (alphabetical)
+  3. Project settings skills (alphabetical)
+  4. Policy/managed skills (alphabetical)
+  5. Built-in commands (alphabetical)
+
+Input "/com" (partial query):
+  Fuse.js fuzzy search with weighted keys:
+    - commandName (weight: 3) — exact name match
+    - partKey (weight: 2)     — hyphen-split name parts
+    - aliasKey (weight: 2)    — aliases
+    - descriptionKey (weight: 0.5) — description text
+  Then re-sorted: exact > alias > prefix > fuzzy > frecency tiebreak
+```
+
+**The `disableSlashCommands` gate** (prop on `TUA` REPL component, chunks.188.mjs:22) sets `enabledCommands = []` when true, completely disabling both autocomplete and command resolution. Used in embedded/SDK contexts.
+
+### Immediate vs. Deferred Execution
+
+The REPL submit handler (PE6, chunks.185.mjs:3105) has two paths for slash commands:
+
+```
+User submits "/help"
+         │
+         ▼
+PE6: Check if command.immediate === true AND type === "local-jsx"
+         │
+   ┌─────┴─────┐
+  YES          NO
+   │            │
+   ▼            ▼
+Execute JSX   handleSlashInput(Mb4)
+immediately   (normal message pipeline:
+(no chat      adds conversation turn,
+ history)     goes to handlePromptCommand)
+```
+
+**Why this matters:** `/help`, `/config`, `/fast`, `/permissions` are `immediate: true`. They render JSX panels without creating a conversation turn. Non-immediate commands like `/init`, `/review`, and user skills produce visible conversation history entries.
+
+### Inline Ghost Text (Mid-Sentence `/cmd`)
+
+For `/command` typed **inside** a longer prompt, `findInlineSlashToken` (pv6, chunks.182.mjs:1896) detects the pattern with a lookbehind regex:
+
+```javascript
+/(?<=\s)\/([a-zA-Z0-9_:-]*)$/  // matches /command preceded by whitespace, at cursor
+```
+
+`getInlineGhostSuffix` (MgA) returns the completion suffix as ghost text (e.g., "please run /com**mit**"). Tab accepts via `acceptCommandSuggestion` (WgA) which replaces the partial token with `/${fullName} `.
+
+### Remote Session: slash_commands in system:init
+
+For remote sessions (SSH/server contexts), the available slash command names are transmitted in the `system:init` event (chunks.179.mjs:189):
+
+```javascript
+let skills = await getSlashCommandSkills(getCwd());   // aO6()
+emit({ type: "system", subtype: "init",
+       slash_commands: skills.map(cmd => cmd.name),   // array of skill names
+       // ...
+})
+```
+
+The remote client receives this and can display the command list in its own UI. The receiving side (chunks.185.mjs:1457) logs: `Init received with ${slash_commands.length} slash commands`.
 
 ---
 

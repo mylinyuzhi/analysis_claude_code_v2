@@ -19,6 +19,7 @@
 - [Skill System](#module-skill-system)
 - [Thinking Mode](#module-thinking-mode)
 - [Steering](#module-steering)
+- [System Reminder](#module-system-reminder)
 
 ---
 
@@ -453,9 +454,9 @@
 | XU1 | shouldAgentUseTools | chunks.146.mjs:TBD | function |
 | Sx | deduplicateTools | chunks.146.mjs:TBD | function |
 | UW1 | createMainLLMLoop | chunks.146.mjs:TBD | function |
-| WJ | normalizeMessages | chunks.146.mjs:TBD | function |
+| WJ | normalizeMessages | chunks.173.mjs:89 | function |
 | TmY | deduplicateMessages | chunks.146.mjs:TBD | function |
-| EN | filterMessages | chunks.146.mjs:TBD | function |
+| EN | getVisibleMessagesAfterCompact | chunks.173.mjs:1286 | function |
 | _U1 | ERROR_MESSAGES.EMPTY_MESSAGES | chunks.146.mjs:TBD | constant |
 | QO | API_ERROR_PREFIX | chunks.146.mjs:TBD | constant |
 | dU | PROMPT_TOO_LONG_PREFIX | chunks.146.mjs:TBD | constant |
@@ -718,6 +719,14 @@
 | mM6 | setupForkedCommandContext | chunks.149.mjs:2562 | function |
 | FM6 | extractForkedCommandResult | chunks.149.mjs:2582 | function |
 
+### Plugin Skill Loading
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| B0A | loadPluginSkills | chunks.87.mjs:2157 | function (memoized, loads skills from all plugins) |
+| vU7 | loadPluginSkillDir | chunks.87.mjs (referenced) | function (loads skills from one plugin skillsPath) |
+| uu1 | buildCommandFromFrontmatter | chunks.87.mjs (referenced) | function (plugin-aware variant of skill construction) |
+
 ### Bundled Skill Registry
 
 | Obfuscated | Readable | File:Line | Type |
@@ -848,6 +857,54 @@
 |------------|----------|-----------|------|
 | enter-to-steer-in-relatime | STEERING_HELP_TIP_ID | chunks.176.mjs:1341 | constant (help tip; NOTE: typo "relatime" not "realtime" in source) |
 | prompt-queue | PROMPT_QUEUE_HELP_TIP_ID | chunks.176.mjs:1333 | constant (help tip) |
+
+---
+
+## Module: System Reminder
+
+> Full analysis: [04_system_reminder/](../04_system_reminder/)
+
+### UI Visibility & Filtering
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qYq | shouldShowMessageInChat | chunks.173.mjs:1292 | function |
+| EN | getVisibleMessagesAfterCompact | chunks.173.mjs:1286 | function |
+| Y2z | findLastCompactBoundary | chunks.173.mjs:1278 | function |
+| cR | isCompactBoundary | chunks.173.mjs:1274 | function |
+| f8z | isNotProgress | chunks.161.mjs:571 | function |
+
+### Attachment Injection Pipeline
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| oP1 | attachmentMessageGenerator | chunks.142.mjs:2494 | function (async generator) |
+| kq | convertAttachmentToMessage | chunks.142.mjs:2615 | function |
+| dzz | reorderAttachments | chunks.172.mjs:3244 | function |
+| bG1 | buildContextMessages | chunks.148.mjs:2414 | function |
+
+### Message Normalization
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| WJ | normalizeMessages | chunks.173.mjs:89 | function |
+| hMA | extractSystemReminderContent | chunks.90.mjs:517 | function |
+| EL9 | SYSTEM_REMINDER_REGEX | chunks.90.mjs:730 | constant (regex) |
+
+### API Preparation (isMeta Stripping)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| m9z | formatMessagesForAPI | chunks.169.mjs:1385 | function |
+| b9z | formatUserMessageForAPI | chunks.169.mjs:618 | function |
+| u9z | formatAssistantMessageForAPI | chunks.169.mjs:645 | function |
+
+### Message Classification Helpers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| V2z | isValidUserMessage | chunks.173.mjs:2164 | function |
+| GN6 | getFirstMeaningfulUserMessage | chunks.173.mjs:2054 | function |
 
 ---
 
