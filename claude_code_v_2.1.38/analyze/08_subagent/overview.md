@@ -470,3 +470,31 @@ async function inProcessAgentRunner(config) {
 | Poll-based teammate messaging | Simple, reliable, avoids complex event system; 500ms interval balances responsiveness with CPU usage |
 | Mid-run backgrounding via Promise.race | Zero-loss transition from sync to async without restarting the agent |
 | Fork context as opt-in | Balances token cost against context awareness per agent definition |
+
+---
+
+## 10. See Also - Deep Technical Analysis
+
+For comprehensive deep-dive analysis of specific subsystems, see:
+
+### Core Execution & State
+
+- **[execution_flow_deep_dive.md](./execution_flow_deep_dive.md)** - Agent loop integration, task state machine, abort signal propagation, identity propagation (AsyncLocalStorage), progress reporting pipeline with 15+ code examples
+
+- **[task_lifecycle_and_state.md](./task_lifecycle_and_state.md)** - Task creation patterns (foreground/background), background signal mechanism (Promise.race), task completion flow (success/fail/kill), state transition diagrams, cleanup mechanisms (three-layer cleanup system)
+
+### Communication & Coordination
+
+- **[communication_and_coordination.md](./communication_and_coordination.md)** - Mailbox system architecture (file-based message queue), poll loop mechanism (5-level priority queue), in-process communication optimization, message flow diagrams, error handling (lock timeouts, corruption recovery)
+
+- **[transcript_and_resume_system.md](./transcript_and_resume_system.md)** - Transcript recording pipeline (write queue pattern, JSONL format), three-stage cleanup pipeline (orphaned tools, thinking blocks, whitespace), conversation chain walking (UUID-based parent links), output file polling, complete resume flow
+
+### Execution Modes & Error Handling
+
+- **[execution_modes_comparison.md](./execution_modes_comparison.md)** - Comprehensive comparison of synchronous vs asynchronous vs teammate execution modes, performance metrics tables, decision matrix for choosing execution mode, resource usage breakdown
+
+- **[error_handling_and_recovery.md](./error_handling_and_recovery.md)** - Error categories (tool, LLM API, state, communication, timeout), recovery strategies (graceful degradation, partial preservation), error propagation (try-catch boundaries, logging, telemetry), cleanup mechanisms (three-layer system)
+
+### Architecture Summary
+
+- **[architecture_summary.md](./architecture_summary.md)** - High-level component overview diagrams, complete data flow diagrams for all execution modes, file structure map, key design patterns (generator-based iteration, AsyncLocalStorage, Promise.race, write queue, priority queue), critical code paths with hotspot analysis, performance bottlenecks identification, future enhancement opportunities

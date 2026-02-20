@@ -124,11 +124,91 @@
 
 ## Module: Subagent Execution
 
+> Full analysis: [08_subagent/](../08_subagent/)
+
+### Core Parameters & Constants
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| run_in_background | run_in_background | chunks.132.mjs:43 | parameter |
 | background-task-output | BACKGROUND_TASK_OUTPUT_MARKER | chunks.129.mjs:2194 | constant |
 | backgroundTasks | backgroundTasks | chunks.151.mjs:2590 | state key |
+| run_in_background | run_in_background | chunks.132.mjs:43 | parameter |
+
+### Task State Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| $d7 | removeTask | chunks.107.mjs:1850 | function |
+| CjA | failTask | chunks.107.mjs:1920 | function |
+| Hd7 | backgroundTask | chunks.107.mjs:1780 | function |
+| na | isTaskKilled | chunks.107.mjs:1900 | function |
+| RjA | reportToolProgress | chunks.107.mjs:2010 | function |
+| u_6 | backgroundTaskSignalMap | chunks.107.mjs:1760 | map |
+| wd7 | createForegroundTask | chunks.107.mjs:1740 | function |
+| Yd7 | updateTaskProgress | chunks.107.mjs:1990 | function |
+| yjA | completeTask | chunks.107.mjs:1910 | function |
+| zd7 | createBackgroundedTask | chunks.107.mjs:1720 | function |
+
+### Agent Loop & Execution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| dR | agentLoopRunner | chunks.107.mjs:2100 | function (generator) |
+| GVY | inProcessAgentRunner | chunks.129.mjs:2400 | function |
+| p01 | runWithAgentIdentity | chunks.107.mjs:2050 | function |
+| WVY | inProcessPollLoop | chunks.129.mjs:2300 | function (generator) |
+
+### Result Building
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qNY | countToolUses | chunks.129.mjs:2250 | function |
+| UEA | buildAgentResult | chunks.129.mjs:2500 | function |
+
+### Communication (Mailbox System)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _Q1 | fileLockSync | chunks.143.mjs:500 | object |
+| f9 | writeToMailbox | chunks.143.mjs:550 | function |
+| JQ1 | markMessageAsReadByIndex | chunks.143.mjs:600 | function |
+| Ld | readMailbox | chunks.143.mjs:520 | function |
+
+### Transcript Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| BQ1 | filterWhitespaceAssistant | chunks.143.mjs:780 | function |
+| ld1 | buildConversationChain | chunks.143.mjs:850 | function |
+| mQ1 | filterThinkingOnlyAssistant | chunks.143.mjs:760 | function |
+| sP1 | loadTranscript | chunks.143.mjs:700 | function |
+| vp7 | transcriptWriteQueue | chunks.143.mjs:650 | object |
+| wP6 | stripOrphanedToolResults | chunks.143.mjs:730 | function |
+| ZK1 | appendToSubagentTranscript | chunks.143.mjs:680 | function |
+
+### Path Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| kh | getSessionPathForSubagent | chunks.1.mjs:2500 | function |
+| ww | getOutputFilePath | chunks.1.mjs:2520 | function |
+| xZ | getSessionPath | chunks.1.mjs:2480 | function |
+
+### Output File Polling
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| M_6 | readFullOutputFile | chunks.129.mjs:2220 | function |
+| WjA | readOutputFileSince | chunks.129.mjs:2200 | function |
+
+### Spawn Dispatch & Backends
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cVY | spawnSeparateWindowTeammate | chunks.129.mjs:2700 | function |
+| dVY | spawnSplitPaneTeammate | chunks.129.mjs:2650 | function |
+| iVY | spawnTeammateDispatcher | chunks.129.mjs:2550 | function |
+| LP1 | spawnInProcessTeammate | chunks.129.mjs:2600 | function |
 
 ---
 
