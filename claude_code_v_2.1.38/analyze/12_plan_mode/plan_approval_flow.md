@@ -1,358 +1,800 @@
 # Plan Mode Approval Flow (Claude Code 2.1.38)
 
-> Plan mode lifecycle: enter plan mode, explore/design, write plan to file, exit for approval, swarm-specific plan messaging, tool restrictions, and plan file management.
+> Complete analysis of the plan approval lifecycle: user-facing dialog, swarm inter-agent protocol, UI rendering, and state transitions.
 
 ---
 
 ## Related Symbols
 
 > Symbol mappings:
-> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Plan Mode, Agent Teams)
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `EnterPlanModeTool` (kg1) - Tool object for entering plan mode
-- `ExitPlanModeTool` (Nj) - Tool object for exiting plan mode with plan approval
-- `getPlanContent` (pD) - Reads plan file content from disk
-- `getPlanFilePath` (uW) - Computes the plan file path for the current session/agent
-- `isPlanModeEnabled` (xm) - Checks if plan mode is currently active
-- `isPlanModeInterviewPhase` (sO) - Feature flag for iterative plan workflow
-- `buildPlanModeReminder` (azz) - Builds system reminder messages for plan mode
-- `buildPlanModeSubagentReminder` (q2z) - Plan mode reminder for subagents
-- `buildPlanModeSparseReminder` (A2z) - Abbreviated plan mode reminder for later turns
-- `handlePlanApproval` (AhY) - Handles plan approval from team leader
-- `handlePlanRejection` (qhY) - Handles plan rejection from team leader
+- `ExitPlanModeTool` (Nj) - Tool object, chunks.139.mjs:2641
+- `handlePlanApproval` (AhY) - Leader approves plan, chunks.141.mjs:1239
+- `handlePlanRejection` (qhY) - Leader rejects plan, chunks.141.mjs:1265
+- `parsePlanApprovalResponse` (iP1) - Parse approval/rejection from mailbox, chunks.129.mjs:1428
+- `InboxPoller plan_approval_response handler` - chunks.186.mjs:513
+- `$fY` - Plan approval request UI, chunks.129.mjs:1756
+- `OfY` - Plan approval response UI, chunks.129.mjs:1799
+- `Kd4` - ExitPlanMode result renderer, chunks.139.mjs:2491
+- `Yd4` - ExitPlanMode rejection renderer, chunks.139.mjs:2550
+- `HX6` - Rejected plan viewer, chunks.107.mjs:1153
+- `PlanApprovalRequestMessageSchema` (Vx4) - chunks.129.mjs:1546
+- `PlanApprovalResponseMessageSchema` (Nx4) - chunks.129.mjs:1553
 
 ---
 
-## Architecture Overview
+## Two Approval Paths
 
 ```
-User request
-  │
-  ▼
-LLM decides task is non-trivial
-  │
-  ▼
-EnterPlanMode tool call
-  ├── Auto-approved (no user prompt)
-  ├── Sets permission mode to "plan"
-  └── Saves previous mode as prePlanMode
-  │
-  ▼
-Plan Mode Active (read-only)
-  ├── System reminder injected every turn
-  ├── File writes blocked EXCEPT plan file
-  ├── Available tools: Read, Glob, Grep, Task, AskUserQuestion, Write (plan file only)
-  ├── Phase 1: Explore codebase (subagents)
-  ├── Phase 2: Design implementation (plan agents)
-  ├── Phase 3: Review & iterate
-  └── Phase 4: Write final plan to plan file
-  │
-  ▼
-ExitPlanMode tool call
-  ├── Reads plan from plan file
-  ├── Requires user interaction (permission prompt)
-  ├── Shows plan content to user
-  └── User approves or rejects
-  │
-  ├── Approved: Restores prePlanMode, returns plan content
-  └── Rejected: Stays in plan mode, shows rejection feedback
-  │
-  ▼
-Implementation Phase (normal mode)
+ExitPlanMode called
+        │
+        ├─── PATH A: Main Session (user-facing)
+        │         Dz() = false (not a teammate)
+        │         checkPermissions() → { behavior: "ask" }
+        │         → Permission dialog: "Exit plan mode?"
+        │         → User clicks Yes/No in terminal
+        │
+        └─── PATH B: Swarm Teammate
+                  Dz() = true AND MC1() = true
+                  checkPermissions() → { behavior: "allow" }
+                  → Sends plan_approval_request to team-lead mailbox
+                  → Waits for plan_approval_response in inbox
 ```
 
 ---
 
-## EnterPlanMode Tool
+## PATH A: User-Facing Approval Dialog
 
-### How Plan Mode is Entered
+### Permission Prompt Mechanics
 
-**What it does:** Transitions the agent into plan mode, changing the permission mode to "plan" which restricts tool usage to read-only operations (plus plan file editing).
+When `ExitPlanMode` is called in a main session:
 
-**How it works:**
-
-1. **Agent context check**: Throws an error if called from a subagent context (`q.agentId` is truthy). Plan mode is only available in the main agent loop.
-
-2. **Permission mode transition**: Saves the current mode as `prePlanMode` and sets mode to `"plan"`.
-
-3. **State update**: Uses `a2` (applyPermissionAction) with `{ type: "setMode", mode: "plan", destination: "session" }`.
-
-4. **Tool result mapping**: The `mapToolResultToToolResultBlockParam` method appends plan mode instructions to the tool result, telling the model what it can and cannot do.
+1. `requiresUserInteraction()` returns `true`
+2. `checkPermissions()` returns `{ behavior: "ask", message: "Exit plan mode?" }`
+3. The tool execution engine suspends and surfaces a **permission request** to the UI
+4. The UI renders the request as an interactive prompt
 
 ```javascript
 // ============================================
-// EnterPlanModeTool.call - Enters plan mode
-// Location: chunks.140.mjs:1687-1727
+// ExitPlanModeTool.checkPermissions - Permission gating
+// Location: chunks.139.mjs:2672
 // ============================================
 
 // ORIGINAL (for source lookup):
-async call(A, q) {
-    if (q.agentId) throw Error("EnterPlanMode tool cannot be used in agent contexts");
-    let K = await q.getAppState();
-    return ey(K.toolPermissionContext.mode, "plan"), q.setAppState((Y) => ({
-        ...Y,
-        toolPermissionContext: {
-            ...a2(Y.toolPermissionContext, { type: "setMode", mode: "plan", destination: "session" }),
-            prePlanMode: Y.toolPermissionContext.mode
-        }
-    })), { data: { message: "Entered plan mode. You should now focus on exploring the codebase and designing an implementation approach." } }
+async checkPermissions(A) {
+    if (Dz()) return {
+        behavior: "allow",
+        updatedInput: A
+    };
+    return {
+        behavior: "ask",
+        message: "Exit plan mode?",
+        updatedInput: A
+    }
 }
 
 // READABLE (for understanding):
-async call(input, toolUseContext) {
-    if (toolUseContext.agentId) throw Error("EnterPlanMode tool cannot be used in agent contexts");
+async function checkPermissions(input) {
+    // Swarm teammates bypass user approval (team-lead approves instead)
+    if (isTeammate()) return { behavior: "allow", updatedInput: input };
+    // Main session: always ask user
+    return { behavior: "ask", message: "Exit plan mode?", updatedInput: input };
+}
+
+// Mapping: Dz→isTeammate
+```
+
+### What the User Sees
+
+The permission dialog shows:
+- The message: **"Exit plan mode?"**
+- The plan content (from the tool input, injected via `normalizeToolInput` from disk)
+- Yes/No options
+
+When the user selects **Yes (Approve)**:
+1. Tool `call()` executes
+2. Permission mode restored to `prePlanMode`
+3. UI renders approval result card (`Kd4`, state 4)
+4. LLM receives: "User has approved your plan. You can now start coding..."
+
+When the user selects **No (Reject)**:
+1. Tool `call()` is NOT executed (skipped)
+2. Permission mode stays `"plan"`
+3. UI renders rejection card (`Yd4`) with plan content in planMode-colored border
+4. `renderToolUseRejectedMessage` is called → shows `HX6` component
+
+### Rejection Display
+
+```javascript
+// ============================================
+// HX6 - Plan rejection viewer
+// Location: chunks.107.mjs:1153
+// ============================================
+
+// ORIGINAL (for source lookup):
+function HX6(A) {
+    let q = e(3), { plan: K } = A, Y;
+    if (q[0] === Symbol.for("react.memo_cache_sentinel"))
+        Y = Bh.createElement(V, { color: "subtle" }, "User rejected Claude's plan:"), q[0] = Y;
+    else Y = q[0];
+    let z;
+    if (q[1] !== K) z = Bh.createElement(HA, null, Bh.createElement(I, {
+        flexDirection: "column"
+    }, Y, Bh.createElement(I, {
+        borderStyle: "round",
+        borderColor: "planMode",    // ← planMode-themed border
+        borderDimColor: !0,
+        paddingX: 1,
+        overflow: "hidden"
+    }, Bh.createElement(TJ, null, K)))), q[1] = K, q[2] = z;
+    else z = q[2];
+    return z
+}
+
+// READABLE (for understanding):
+function RejectedPlanViewer({ plan }) {
+    return (
+        <Indent>
+            <Box flexDirection="column">
+                <Text color="subtle">User rejected Claude's plan:</Text>
+                <Box borderStyle="round" borderColor="planMode" borderDimColor paddingX={1}>
+                    <Markdown>{plan}</Markdown>
+                </Box>
+            </Box>
+        </Indent>
+    );
+}
+```
+
+Terminal render:
+```
+User rejected Claude's plan:
+╭──────────────────────────────────────────────────────╮
+│ ## Implementation Plan                                │  ← planMode color border
+│                                                       │  ← dimmed
+│ ### Step 1: Update the auth module                   │
+│ Modify `src/auth/handler.js` to add JWT validation... │
+│                                                       │
+│ ### Step 2: ...                                       │
+╰──────────────────────────────────────────────────────╯
+```
+
+Also, `H74` (tool result renderer in `chunks.107.mjs:1209`) checks for the special prefix `OWA` to detect plan rejection content in the message list:
+
+```javascript
+// OWA constant (chunks.173.mjs:1579):
+OWA = `The agent proposed a plan that was rejected by the user. The user chose to stay in plan mode rather than proceed with implementation.`
+
+// If tool result starts with OWA:
+if (typeof w.content === "string" && w.content.startsWith(OWA)) {
+    let planText = w.content.substring(OWA.length);
+    return createElement(HX6, { plan: planText });
+}
+```
+
+---
+
+## PATH B: Swarm Teammate Approval Protocol
+
+### Overview
+
+In a multi-agent swarm where a teammate has `plan_mode_required: true`, approval is delegated from the user to the team leader.
+
+```
+Teammate           Team Leader           User
+    │                    │                 │
+    │ ExitPlanMode        │                 │
+    │ called              │                 │
+    │                     │                 │
+    ├── plan_approval_request ──────────►   │
+    │   (via filesystem mailbox)            │
+    │                     │                 │
+    │         [Leader sees request in UI]   │
+    │                     │                 │
+    │                     │◄── Leader calls SendMessage
+    │                     │    with type="plan_approval_response"
+    │                     │
+    ├◄── plan_approval_response ─────────   │
+    │    (via teammate's inbox)             │
+    │                     │                 │
+    │  InboxPoller detects response         │
+    │  → updates permission mode            │
+    └─ Proceeds with implementation         │
+```
+
+### Step 1: Teammate Sends Approval Request
+
+```javascript
+// ============================================
+// ExitPlanMode swarm flow
+// Location: chunks.139.mjs:2692
+// ============================================
+
+// READABLE (for understanding):
+if (isTeammate() && hasTeamConfig()) {
+    if (!planContent) throw Error(`No plan file found at ${planFilePath}`);
+
+    let agentName = getAgentName();    // g5()
+    let teamName = getTeamName();      // i3()
+    let requestId = generateRequestId("plan_approval", hash(agentName, teamName));  // vP1()
+
+    // Construct structured request
+    let approvalRequest = {
+        type: "plan_approval_request",
+        from: agentName,
+        timestamp: new Date().toISOString(),
+        planFilePath: planFilePath,
+        planContent: planContent,    // Full plan text
+        requestId: requestId         // UUID for matching response
+    };
+
+    // Write to team-lead mailbox
+    writeToMailbox("team-lead", {
+        from: agentName,
+        text: JSON.stringify(approvalRequest),
+        timestamp: new Date().toISOString()
+    }, teamName);
+
+    // Mark task as awaiting plan approval in TaskManager
+    // so the swarm UI shows correct status
+    let taskId = findTaskByAgentName(agentName, appState);   // Hd4()
+    if (taskId) setTaskAwaitingPlanApproval(taskId, true);   // $d4()
+
+    return {
+        data: {
+            plan: planContent,
+            isAgent: true,
+            filePath: planFilePath,
+            awaitingLeaderApproval: true,
+            requestId: requestId
+        }
+    };
+}
+```
+
+### Message Schema
+
+```javascript
+// ============================================
+// PlanApprovalRequestMessageSchema (Vx4)
+// Location: chunks.129.mjs:1546
+// ============================================
+
+Vx4 = z.object({
+    type: z.literal("plan_approval_request"),
+    from: z.string(),
+    timestamp: z.string(),
+    planFilePath: z.string(),
+    planContent: z.string(),
+    requestId: z.string()
+})
+
+// ============================================
+// PlanApprovalResponseMessageSchema (Nx4)
+// Location: chunks.129.mjs:1553
+// ============================================
+
+Nx4 = z.object({
+    type: z.literal("plan_approval_response"),
+    requestId: z.string(),
+    approved: z.boolean(),
+    feedback: z.string().optional(),   // Only on rejection
+    timestamp: z.string(),
+    permissionMode: permissionModeEnum.optional()  // Mode to grant on approval
+})
+```
+
+### Step 2: Team Leader's UI
+
+When the team leader receives a `plan_approval_request` in their mailbox, the teammate's message in the swarm UI shows:
+
+**In swarm view status**: `"awaiting approval"` (chunks.162.mjs:785)
+```javascript
+// Status text based on awaitingPlanApproval flag
+status = awaitingPlanApproval ? "awaiting approval"
+       : isIdle ? "idle"
+       : (progress?.recentActivities || lastActivity?.activityDescription || "working")
+```
+
+**In messages list**: `$fY` component (chunks.129.mjs:1756):
+
+```javascript
+// ============================================
+// $fY - PlanApprovalRequest UI component
+// Location: chunks.129.mjs:1756
+// ============================================
+
+// READABLE (for understanding):
+function PlanApprovalRequestMessage({ request }) {
+    return (
+        <Box flexDirection="column" marginY={1}>
+            <Box
+                borderStyle="round"
+                borderColor="planMode"   // planMode-colored border
+                flexDirection="column"
+                paddingX={1}
+            >
+                <Box marginBottom={1}>
+                    <Text color="planMode" bold>
+                        Plan Approval Request from {request.from}
+                    </Text>
+                </Box>
+                <Box
+                    borderStyle="dashed"
+                    borderColor="subtle"
+                    borderLeft={false}
+                    borderRight={false}
+                    flexDirection="column"
+                    paddingX={1}
+                    marginBottom={1}
+                >
+                    <Markdown>{request.planContent}</Markdown>
+                </Box>
+                <Text dimColor>Plan file: {request.planFilePath}</Text>
+            </Box>
+        </Box>
+    );
+}
+```
+
+Terminal render:
+```
+╭─────────────────────────────────────────────────────────╮
+│ Plan Approval Request from backend-agent               │  ← planMode color header
+├ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤  ← dashed separator
+│ ## Implementation Plan                                   │
+│ Modify UserService.js to add rate limiting...            │
+│ 1. Add Redis dependency                                  │
+│ 2. Wrap login endpoint                                   │
+├ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤  ← dashed separator
+│ Plan file: .claude/sessions/.../plan.md                 │  ← dimmed
+╰─────────────────────────────────────────────────────────╯
+```
+
+### Step 3: Team Leader Responds
+
+The leader uses `SendMessage` tool with `type: "plan_approval_response"`:
+
+**Approval:**
+```javascript
+// ============================================
+// AhY - handlePlanApproval
+// Location: chunks.141.mjs:1239
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function AhY(A, q) {
+    let K = await q.getAppState(),
+        Y = K.teamContext?.teamName;
+    if (!PM(K.teamContext)) throw Error("Only the team lead can approve plans...");
+
+    let z = K.toolPermissionContext.mode,
+        // Grant "default" mode (or current mode if not plan/delegate)
+        w = z === "plan" || z === "delegate" ? "default" : z,
+        H = {
+            type: "plan_approval_response",
+            requestId: A.request_id,
+            approved: !0,
+            timestamp: new Date().toISOString(),
+            permissionMode: w
+        };
+
+    return f9(A.recipient, {
+        from: K2,  // "team-lead" constant
+        text: Q1(H),
+        timestamp: new Date().toISOString()
+    }, Y), {
+        data: {
+            success: !0,
+            message: `Plan approved for ${A.recipient}. They will receive the approval and can proceed with implementation.`,
+            request_id: A.request_id
+        }
+    }
+}
+
+// READABLE (for understanding):
+async function handlePlanApproval(input, toolUseContext) {
     let appState = await toolUseContext.getAppState();
-    telemetry(appState.toolPermissionContext.mode, "plan");
-    toolUseContext.setAppState((state) => ({
-        ...state,
-        toolPermissionContext: {
-            ...applyPermissionAction(state.toolPermissionContext, { type: "setMode", mode: "plan", destination: "session" }),
-            prePlanMode: state.toolPermissionContext.mode  // Save current mode for later restoration
+    let teamName = appState.teamContext?.teamName;
+
+    // Only team leader can approve
+    if (!isTeamLeader(appState.teamContext))
+        throw Error("Only the team lead can approve plans.");
+
+    // Determine what permission mode to grant to teammate
+    let currentMode = appState.toolPermissionContext.mode;
+    let grantMode = (currentMode === "plan" || currentMode === "delegate") ? "default" : currentMode;
+
+    let response = {
+        type: "plan_approval_response",
+        requestId: input.request_id,
+        approved: true,
+        timestamp: new Date().toISOString(),
+        permissionMode: grantMode    // "default" typically
+    };
+
+    // Write response to teammate's mailbox
+    writeToMailbox(input.recipient, {
+        from: "team-lead",
+        text: JSON.stringify(response),
+        timestamp: new Date().toISOString()
+    }, teamName);
+
+    return { data: { success: true, message: `Plan approved for ${input.recipient}...` } };
+}
+
+// Mapping: AhY→handlePlanApproval, K2→"team-lead", PM→isTeamLeader, f9→writeToMailbox
+```
+
+**Rejection:**
+```javascript
+// ============================================
+// qhY - handlePlanRejection
+// Location: chunks.141.mjs:1265
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function qhY(A, q) {
+    let K = await q.getAppState(),
+        Y = K.teamContext?.teamName;
+    if (!PM(K.teamContext)) throw Error("Only the team lead can reject plans...");
+
+    let z = A.content || "Plan needs revision",
+        w = {
+            type: "plan_approval_response",
+            requestId: A.request_id,
+            approved: !1,
+            feedback: z,    // ← includes textual feedback
+            timestamp: new Date().toISOString()
+            // Note: no permissionMode on rejection (stays in plan mode)
+        };
+
+    return f9(A.recipient, { from: K2, text: Q1(w), timestamp: new Date().toISOString() }, Y), {
+        data: { success: !0, message: `Plan rejected for ${A.recipient} with feedback: "${z}"` }
+    }
+}
+
+// Key difference from approval:
+// - approved: false
+// - feedback field included with rejection reason
+// - NO permissionMode field → teammate stays in plan mode
+```
+
+### Step 4: Teammate Receives Response (InboxPoller)
+
+The teammate's `InboxPoller` in `chunks.186.mjs` polls the mailbox and processes `plan_approval_response`:
+
+```javascript
+// ============================================
+// InboxPoller plan_approval_response handler
+// Location: chunks.186.mjs:511
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (Dz() && MC1())
+    for (let b of P) {
+        let g = iP1(b.text);
+        if (g && b.from === "team-lead")
+            if (g.approved) {
+                let U = g.permissionMode ?? "default";
+                H((x) => ({
+                    ...x,
+                    toolPermissionContext: a2(x.toolPermissionContext, {
+                        type: "setMode",
+                        mode: KA1(U),
+                        destination: "session"
+                    })
+                })), h(`[InboxPoller] Plan approved by team lead, exited plan mode to ${U}`)
+            } else h(`[InboxPoller] Plan rejected by team lead: ${g.feedback || "No feedback provided"}`);
+        else if (g) h(`[InboxPoller] Ignoring plan approval response from non-team-lead: ${b.from}`)
+    }
+
+// READABLE (for understanding):
+if (isTeammate() && hasTeamConfig()) {
+    for (let message of unreadMessages) {
+        let response = parsePlanApprovalResponse(message.text);  // iP1()
+
+        if (response && message.from === "team-lead") {
+            if (response.approved) {
+                // Transition out of plan mode to granted permission mode
+                let grantedMode = response.permissionMode ?? "default";
+                setAppState((state) => ({
+                    ...state,
+                    toolPermissionContext: applyPermissionAction(state.toolPermissionContext, {
+                        type: "setMode",
+                        mode: normalizePermissionMode(grantedMode),   // KA1()
+                        destination: "session"
+                    })
+                }));
+                log(`[InboxPoller] Plan approved, exited plan mode to ${grantedMode}`);
+            } else {
+                // Rejection: stay in plan mode
+                // The feedback message will be delivered to the LLM via normal mailbox message display
+                log(`[InboxPoller] Plan rejected: ${response.feedback}`);
+            }
         }
-    }));
-    return { data: { message: "Entered plan mode..." } };
+    }
 }
-
-// Mapping: A→input, q→toolUseContext, K→appState, Y→state, a2→applyPermissionAction, ey→telemetry
 ```
 
-**Why this approach:**
-- Saving `prePlanMode` enables restoring the exact previous mode (default, acceptEdits, etc.) when exiting plan mode, rather than always resetting to "default"
-- The `destination: "session"` parameter ensures the mode change is session-scoped and does not persist to settings
-- Auto-approval (`checkPermissions` returns `{ behavior: "allow" }`) means entering plan mode does not require user confirmation -- the LLM decides when planning is appropriate
+**Key design decisions:**
+- Only messages `from === "team-lead"` are processed as plan approval responses (security: teammates can't approve each other's plans)
+- On approval: `applyPermissionAction()` (`a2()`) updates the permission context, transitioning teammate out of plan mode
+- On rejection: the teammate stays in plan mode. The mailbox message is displayed as a regular message in the next conversation turn, which the LLM reads and uses to revise the plan
 
-**Key insight:** The `mapToolResultToToolResultBlockParam` method is called when converting the tool result to API format. It appends the full plan mode instructions (5-phase workflow or iterative workflow depending on feature flags) as part of the tool result content. This means the instructions are injected into the conversation at the exact point the model enters plan mode, ensuring they are in context for all subsequent planning turns.
+### Step 5: Response UI (`OfY`)
 
----
-
-## Plan Mode Workflow (Two Variants)
-
-### Standard 5-Phase Workflow
-
-When `sO()` (isPlanModeInterviewPhase) returns `false`, the standard workflow is used:
-
-1. **Phase 1: Initial Understanding** - Launch up to N `explore` subagents in parallel to understand the codebase
-2. **Phase 2: Design** - Launch `plan` subagents to design implementation based on Phase 1 results
-3. **Phase 3: Review** - Read critical files, ensure alignment with user intent, ask clarifying questions
-4. **Phase 4: Final Plan** - Write plan to plan file with Context, approach, file paths, verification steps
-5. **Phase 5: Call ExitPlanMode** - Signal completion and request user approval
-
-### Iterative Interview Workflow
-
-When `sO()` returns `true` (feature-flagged), a more interactive workflow is used:
-
-1. **Explore** - Use Glob, Grep, Read to scan code
-2. **Update plan file** - Write findings incrementally
-3. **Ask the user** - Use AskUserQuestion for ambiguities
-4. Repeat until plan is complete, then call ExitPlanMode
-
-**Why two variants:**
-- The 5-phase workflow is more structured and works well for complex tasks that benefit from systematic exploration
-- The iterative workflow is more natural for pair-programming style interactions where the user wants to be involved throughout the planning process
-- The choice is controlled via the `tengu_plan_mode_interview_phase` feature flag, allowing A/B testing of both approaches
-
----
-
-## Plan File Management
-
-### getPlanFilePath - Computing the plan file location
-
-**What it does:** Returns the path where the plan file should be written, based on the session ID and optionally the agent ID.
-
-The plan file lives in the session memory directory:
-```
-<claude-data-dir>/<session-id>/session-memory/<slug>.md
-```
-
-### getPlanContent - Reading the plan file
-
-**What it does:** Reads the plan file from disk. Returns `null` if the file does not exist. Used by ExitPlanMode to include the plan content in the approval dialog.
-
-### Tool Restrictions in Plan Mode
-
-When plan mode is active, the system reminder (injected via `azz`/buildPlanModeReminder) explicitly states:
-
-> "you MUST NOT make any edits (with the exception of the plan file mentioned below), run any non-readonly tools (including changing configs or making commits), or otherwise make any changes to the system."
-
-The only writable operations allowed are:
-- Writing to the plan file via `Write` tool (path must match the plan file path)
-- Editing the plan file via `Edit` tool
-
-All other write operations (Bash commands that modify state, file writes to other paths, git operations) are blocked by the permission system when mode is `"plan"`.
-
----
-
-## ExitPlanMode Tool
-
-### How Plan Mode is Exited
-
-**What it does:** Reads the plan from the plan file, presents it for user approval, and restores the previous permission mode on approval.
-
-**How it works:**
-
-1. **Agent context detection**: Checks if running in agent context (`q.agentId`), which affects the flow.
-
-2. **Swarm teammate flow** (if `Dz()` is true and `MC1()` is true):
-   - Reads plan from plan file
-   - Creates a `plan_approval_request` message
-   - Sends the request to the team leader via `f9` (sendTeamMessage)
-   - Sets `awaitingPlanApproval: true` on the task
-   - Returns without changing permission mode (waits for leader approval)
-
-3. **Standard flow**:
-   - Reads plan from plan file via `pD(agentId)`
-   - Requires user interaction (`requiresUserInteraction()` returns `true`)
-   - `checkPermissions` returns `{ behavior: "ask", message: "Exit plan mode?" }`
-   - User sees the plan content and approves or rejects
-   - On approval: Restores `prePlanMode` (the mode before plan mode was entered)
-   - Sets internal flags `OT(true)` (hasExitedPlanMode) and `kx(true)` (needsPlanModeExitAttachment)
-
-4. **Remote push flow**: If `pushToRemote` is specified in input, the plan is sent to a remote Claude.ai session via `vg1` (pushToRemote).
+The `OfY` component renders the leader's approval/rejection response in the message list:
 
 ```javascript
 // ============================================
-// ExitPlanModeTool.call - Exits plan mode with plan approval
-// Location: chunks.139.mjs:2688-2750
+// OfY - PlanApprovalResponse UI component
+// Location: chunks.129.mjs:1799
 // ============================================
 
-// ORIGINAL (for source lookup):
-async call(A, q) {
-    let K = !!q.agentId, Y = uW(q.agentId), z = pD(q.agentId);
-    if (Dz() && MC1()) {
-        if (!z) throw Error(`No plan file found at ${Y}. Please write your plan to this file before calling ExitPlanMode.`);
-        let _ = { type: "plan_approval_request", from: g5(), planFilePath: Y, planContent: z, requestId: vP1("plan_approval", ...) };
-        f9("team-lead", { from: g5(), text: Q1(_), timestamp: new Date().toISOString() }, i3());
-        return { data: { plan: z, isAgent: !0, awaitingLeaderApproval: !0, requestId: _.requestId } }
-    }
-    q.setAppState((H) => {
-        if (H.toolPermissionContext.mode !== "plan") return H;
-        OT(!0), kx(!0);
-        let $ = H.toolPermissionContext.prePlanMode ?? "default";
-        return { ...H, toolPermissionContext: { ...H.toolPermissionContext, mode: $, prePlanMode: void 0 } }
-    });
-    return { data: { plan: z, isAgent: K, filePath: Y } }
-}
-
 // READABLE (for understanding):
-async call(input, toolUseContext) {
-    let isAgent = !!toolUseContext.agentId;
-    let planFilePath = getPlanFilePath(toolUseContext.agentId);
-    let planContent = getPlanContent(toolUseContext.agentId);
-
-    // Swarm teammate flow: send plan to leader for approval
-    if (isTeammate() && hasTeamConfig()) {
-        if (!planContent) throw Error(`No plan file found at ${planFilePath}`);
-        let request = { type: "plan_approval_request", from: getAgentName(), planFilePath, planContent, requestId: generateRequestId() };
-        sendTeamMessage("team-lead", { from: getAgentName(), text: JSON.stringify(request) });
-        return { data: { plan: planContent, isAgent: true, awaitingLeaderApproval: true, requestId: request.requestId } };
+function PlanApprovalResponseMessage({ response, senderName }) {
+    if (response.approved) {
+        return (
+            <Box flexDirection="column" marginY={1}>
+                <Box borderStyle="round" borderColor="success" flexDirection="column" paddingX={1} paddingY={1}>
+                    <Text color="success" bold>✓ Plan Approved by {senderName}</Text>
+                    <Box marginTop={1}>
+                        <Text>You can now proceed with implementation. Your plan mode restrictions have been lifted.</Text>
+                    </Box>
+                </Box>
+            </Box>
+        );
     }
 
-    // Standard flow: restore previous permission mode
-    toolUseContext.setAppState((state) => {
-        if (state.toolPermissionContext.mode !== "plan") return state;
-        setHasExitedPlanMode(true);
-        setNeedsPlanModeExitAttachment(true);
-        let previousMode = state.toolPermissionContext.prePlanMode ?? "default";
-        return { ...state, toolPermissionContext: { ...state.toolPermissionContext, mode: previousMode, prePlanMode: undefined } };
-    });
-    return { data: { plan: planContent, isAgent, filePath: planFilePath } };
+    // Rejection UI
+    return (
+        <Box flexDirection="column" marginY={1}>
+            <Box borderStyle="round" borderColor="error" flexDirection="column" paddingX={1} paddingY={1}>
+                <Text color="error" bold>✗ Plan Rejected by {senderName}</Text>
+                {response.feedback && (
+                    <Box marginTop={1} borderStyle="dashed" borderColor="subtle" paddingX={1}>
+                        <Text>Feedback: {response.feedback}</Text>
+                    </Box>
+                )}
+                <Box marginTop={1}>
+                    <Text dimColor>Please revise your plan based on the feedback and call ExitPlanMode again.</Text>
+                </Box>
+            </Box>
+        </Box>
+    );
 }
-
-// Mapping: A→input, q→toolUseContext, K→isAgent, Y→planFilePath, z→planContent, Dz→isTeammate, MC1→hasTeamConfig
 ```
 
-**Key insight:** The ExitPlanMode tool does NOT take plan content as a parameter. It reads the plan from the file the model wrote to. This design ensures the user sees exactly what was written to the plan file, preventing discrepancies between the plan shown for approval and the actual plan file content.
+**Approval renders:**
+```
+╭──────────────────────────────────────────────────────────────╮
+│ ✓ Plan Approved by team-lead                                 │  ← green
+│                                                              │
+│ You can now proceed with implementation. Your plan mode      │
+│ restrictions have been lifted.                               │
+╰──────────────────────────────────────────────────────────────╯
+```
 
----
+**Rejection renders:**
+```
+╭──────────────────────────────────────────────────────────────╮
+│ ✗ Plan Rejected by team-lead                                 │  ← red
+│                                                              │
+│ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│  ← dashed
+│ Feedback: The plan doesn't handle error cases. Please add   │
+│ error handling for network failures.                         │
+│ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│
+│ Please revise your plan based on the feedback and call      │  ← dimmed
+│ ExitPlanMode again.                                          │
+╰──────────────────────────────────────────────────────────────╯
+```
 
-## Swarm-Specific Plan Messaging
+### Message Routing (`kM6` and `_fY`)
 
-### Plan Approval in Agent Teams
-
-When plan mode is used by a swarm teammate (a sub-agent in a multi-agent team), the flow changes significantly:
-
-1. **Teammate exits plan mode**: Instead of showing a user dialog, sends a `plan_approval_request` JSON message to the team leader via `SendMessage` tool.
-
-2. **Leader receives request**: The request contains `type: "plan_approval_request"`, the plan content, and a unique request ID.
-
-3. **Leader approves**: Calls `handlePlanApproval` (AhY) which:
-   - Sends a `plan_approval_response` with `approved: true` back to the teammate
-   - The teammate receives this and proceeds with implementation
-
-4. **Leader rejects**: Calls `handlePlanRejection` (qhY) which:
-   - Sends a `plan_approval_response` with `approved: false` and feedback
-   - The teammate receives this, re-enters plan mode, and revises the plan
-
-The system prompt for teammates with `plan_mode_required: true` includes specific instructions:
-
-> "When a teammate with `plan_mode_required` calls ExitPlanMode, they send you a plan approval request as a JSON message with `type: "plan_approval_request"`. Use this to approve their plan."
-
-**Why this approach:**
-- In multi-agent scenarios, the team leader acts as the human proxy for plan approval
-- This enables hierarchical planning where the leader can coordinate multiple teammates' plans
-- The request/response pattern with unique IDs prevents race conditions when multiple teammates submit plans simultaneously
-
----
-
-## Plan Mode System Reminders
-
-### Reminder Injection Strategy
-
-Plan mode instructions are injected as system reminders into the conversation at specific points:
-
-1. **Full reminder** (first turn in plan mode): Complete workflow instructions with phases, tool restrictions, and plan file info. Uses `azz` (buildPlanModeReminder) or `ezz` (buildPlanModeInterviewReminder).
-
-2. **Sparse reminder** (subsequent turns): Abbreviated reminder that references the full instructions "earlier in conversation". Uses `A2z` (buildPlanModeSparseReminder):
-   > "Plan mode still active (see full instructions earlier in conversation). Read-only except plan file (`<path>`). Follow 5-phase workflow. End turns with AskUserQuestion (for clarifications) or ExitPlanMode (for plan approval)."
-
-3. **Subagent reminder**: Simplified version for subagents that omits the multi-phase workflow since subagents have a single focused task. Uses `q2z` (buildPlanModeSubagentReminder).
-
-**Why sparse reminders:**
-- The full plan mode instructions are ~1000 tokens. Injecting them every turn would waste context window space.
-- The sparse reminder (~100 tokens) is sufficient to keep the model in plan mode behavior while referencing the detailed instructions from earlier in the conversation.
-- The decision between full and sparse is based on `reminderType` parameter, controlled by the system reminder scheduling logic.
-
----
-
-## Plan Agent Configuration
-
-### Plan Mode Agent Counts
-
-The number of subagents used in plan mode phases is configurable:
+The `kM6()` and `_fY()` functions (chunks.129.mjs) auto-route messages to correct renderers based on message content:
 
 ```javascript
 // ============================================
-// Plan Agent Count Configuration
-// Location: chunks.140.mjs:1455-1473
+// kM6 - Message component router
+// Location: chunks.129.mjs:1869
+// ============================================
+
+function renderTeamMessage(messageText, senderName) {
+    let request = parsePlanApprovalRequest(messageText);   // ZM6()
+    if (request) return createElement(PlanApprovalRequestMessage, { request });
+
+    let response = parsePlanApprovalResponse(messageText); // iP1()
+    if (response) return createElement(PlanApprovalResponseMessage, { response, senderName });
+
+    return null;  // Regular message (falls through to normal rendering)
+}
+
+// ============================================
+// _fY - Message text summary
+// Location: chunks.129.mjs:1882
+// ============================================
+
+function getTeamMessageSummary(messageText) {
+    let request = parsePlanApprovalRequest(messageText);
+    if (request) return `[Plan Approval Request from ${request.from}]`;
+
+    let response = parsePlanApprovalResponse(messageText);
+    if (response)
+        return response.approved
+            ? "[Plan Approved] You can now proceed with implementation"
+            : `[Plan Rejected] ${response.feedback || "Please revise your plan"}`;
+
+    return null;
+}
+```
+
+---
+
+## Awaiting Plan Approval State
+
+### TaskManager State
+
+When a teammate submits a plan for approval, their task is marked:
+
+```javascript
+// ============================================
+// $d4 - setTaskAwaitingPlanApproval
+// Location: chunks.139.mjs:2587
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Xc4() {
-    if (process.env.CLAUDE_CODE_PLAN_V2_AGENT_COUNT) {
-        let K = parseInt(process.env.CLAUDE_CODE_PLAN_V2_AGENT_COUNT, 10);
-        if (!isNaN(K) && K > 0 && K <= 10) return K
-    }
-    let A = dK(), q = Sn();
-    if (A === "max" && q === "default_claude_max_20x") return 3;
-    if (A === "enterprise" || A === "team") return 3;
-    return 1
+function $d4(A, q, K) {
+    c5(A, q, (Y) => ({
+        ...Y,
+        awaitingPlanApproval: K
+    }))
 }
 
-// READABLE (for understanding):
-function getPlanDesignAgentCount() {
-    if (process.env.CLAUDE_CODE_PLAN_V2_AGENT_COUNT) {
-        let count = parseInt(process.env.CLAUDE_CODE_PLAN_V2_AGENT_COUNT, 10);
-        if (!isNaN(count) && count > 0 && count <= 10) return count;
-    }
-    let plan = getPlan(), tier = getSubscriptionTier();
-    if (plan === "max" && tier === "default_claude_max_20x") return 3;
-    if (plan === "enterprise" || plan === "team") return 3;
-    return 1;  // Free/Pro users get 1 design agent
-}
-
-// Mapping: Xc4→getPlanDesignAgentCount, A→plan, q→tier
+// Updates task in TaskManager:
+// task.awaitingPlanApproval = true (when plan submitted)
+// task.awaitingPlanApproval = false (after response received, chunks.123.mjs:435)
 ```
 
-**Key insight:** Max and Enterprise/Team users get 3 design agents in Phase 2, enabling the system to explore multiple design approaches in parallel. Free/Pro users get 1 agent. The explore agent count (Phase 1) is separately controlled and defaults to 3 for all tiers.
+### Swarm UI Status
+
+Teammate card in the swarm view shows status based on `awaitingPlanApproval` (chunks.162.mjs:785):
+
+```javascript
+status = teammate.shutdownRequested ? "stopping"
+       : teammate.awaitingPlanApproval ? "awaiting approval"   // ← plan approval state
+       : teammate.isIdle ? "idle"
+       : getRecentActivity(teammate.progress) ?? "working"
+```
+
+The `"awaiting approval"` status makes it immediately visible in the swarm UI that this teammate is blocked pending plan review.
+
+---
+
+## `normalizeToolInput` - Plan Content Injection
+
+Before `ExitPlanMode.call()` executes, the tool input is normalized via `normalizeToolInput`. This injects the plan file content into the input:
+
+```javascript
+// Schema declaration (chunks.139.mjs:2629):
+zHH = z7(() => _d4().extend({
+    plan: z.string().optional().describe("The plan content (injected by normalizeToolInput from disk)")
+}))
+```
+
+The plan file is read from disk and injected as `input.plan` before the tool runs. This is used by:
+- The **permission dialog** to display the plan content to the user
+- The **result renderer** `Kd4` to show the plan after approval
+
+---
+
+## Complete Swarm Approval Sequence
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     Swarm Plan Approval Sequence                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Teammate LLM              Teammate InboxPoller       Team Leader LLM
+     │                          │                          │
+     │ calls ExitPlanMode        │                          │
+     │                          │                          │
+     ├──[write plan_approval_request]──────────────────►   │
+     │   to filesystem mailbox                              │
+     │   {type, from, planFilePath, planContent,            │
+     │    requestId, timestamp}                             │
+     │                          │                          │
+     │ returns {isAgent:true,   │                          │
+     │   awaitingLeaderApproval │                          │
+     │   :true, requestId}      │                          │
+     │                          │                          │
+     │ TaskManager.awaitingPlanApproval = true             │
+     │                          │                          │
+     │ (LLM waits, mailbox prompt                          │
+     │  tells it NOT to proceed)│                          │
+     │                          │                          │
+     │                          │   [Leader's mailbox]     │
+     │                          │   receives plan_approval │
+     │                          │   _request message       │
+     │                          │                          │
+     │                          │                          ├── Leader reads plan
+     │                          │                          │   in $fY component
+     │                          │                          │
+     │                          │                          ├── calls SendMessage tool
+     │                          │                          │   {type:"plan_approval_response",
+     │                          │                          │    request_id, approved:true,
+     │                          │                          │    recipient:agentName}
+     │                          │                          │
+     │                          │   [AhY writes response]  │
+     │                          │   to teammate mailbox    │
+     │                          │                          │
+     │                     [polls mailbox]                  │
+     │                          │                          │
+     │                     iP1(message.text)               │
+     │                     → plan_approval_response        │
+     │                          │                          │
+     │                     approved=true:                  │
+     │◄──[setAppState]──────────┤                          │
+     │   mode = grantedMode     │                          │
+     │   ("default")            │                          │
+     │                          │                          │
+     │ LLM continues with       │                          │
+     │ implementation!           │                          │
+     │                          │                          │
+```
+
+---
+
+## Edge Cases
+
+### Rejection Loop
+
+When a teammate's plan is rejected:
+1. `approved: false` → InboxPoller logs rejection but does NOT change permission mode
+2. The rejection message appears as a regular mailbox message in the next LLM turn
+3. The `"Please revise your plan based on the feedback and call ExitPlanMode again."` message guides the LLM
+4. LLM revises plan file, calls `ExitPlanMode` again → generates new `requestId`
+5. Process repeats
+
+### Race Conditions
+
+Multiple teammates can submit plans simultaneously. Each has a unique `requestId` generated from:
+```javascript
+vP1("plan_approval", pv(agentName, teamName || "default"))
+```
+
+The `pv()` hash function ensures different request IDs per agent/team combination.
+
+However, the team leader must manually match `request_id` when calling the approval response. The schema requires:
+```javascript
+{ request_id: "...", approved: true/false, recipient: "agent-name" }
+```
+
+### Re-entry After Approval
+
+After a teammate's plan is approved and they complete work, if they enter plan mode again:
+1. `hasExitedPlanMode` may already be `true` (set during the process)
+2. The `ihY()` attachment generator handles this via `plan_mode_reentry` injection
+3. The LLM is reminded to evaluate if the previous plan is still relevant
+
+### Teammate not in plan_mode_required
+
+If a teammate does NOT have `plan_mode_required: true` in their config, they do not use the swarm approval flow. `MC1()` (hasTeamConfig) returns `false`, so `ExitPlanMode` takes the standard user-approval path instead.
+
+---
+
+## Summary: Approval Dialog Comparison
+
+| Property | Main Session | Swarm Teammate |
+|----------|-------------|----------------|
+| Who approves | User via terminal dialog | Team leader via SendMessage tool |
+| Trigger | `checkPermissions() → ask` | `Dz() && MC1()` check |
+| Channel | Permission request UI | Filesystem mailbox |
+| Approval action | `call()` executes, mode restores | InboxPoller applies mode change |
+| Rejection action | Tool call skipped, stays in plan | LLM gets rejection feedback message |
+| UI component | Built-in permission prompt | `$fY` (request) + `OfY` (response) |
+| Permission mode granted | `prePlanMode ?? "default"` | `response.permissionMode ?? "default"` |
+| Request ID | N/A | UUID via `vP1("plan_approval", hash(agent, team))` |

@@ -330,23 +330,71 @@
 |------------|----------|-----------|------|
 | a2 | applyPermissionAction | chunks.140.mjs:1695 | function |
 | A2z | buildPlanModeSparseReminder | chunks.173.mjs:676 | function |
+| aL6 | hasExitedPlanModeGetter | chunks.1.mjs:2859 | function |
+| Au4 | buildPermissionCliArgs | chunks.131.mjs:847 | function |
 | azz | buildPlanModeReminder | chunks.173.mjs:531 | function |
+| Dc4 | getPlanExploreAgentCount | chunks.140.mjs:1467 | function |
 | Dz | isTeammate | chunks.139.mjs:2690 | function |
+| EhA | getPromptSuggestionBlocker | chunks.151.mjs:149 | function |
+| ey | onModeTransition | chunks.1.mjs:2875 | function |
 | ezz | buildPlanModeInterviewReminder | chunks.173.mjs:619 | function |
+| FGq | getNextModeWithContext | chunks.183.mjs:1799 | function |
 | g5 | getAgentName | chunks.139.mjs:2695 | function |
+| Gc4 | renderEnterPlanModeResult | chunks.140.mjs:1597 | function (React) |
+| hf1 | getNextMode | chunks.183.mjs:1778 | function |
+| hu4 | initializeInProcessTeammate | chunks.131.mjs:2305 | function |
+| HX6 | RejectedPlanViewer | chunks.107.mjs:1153 | function (React) |
+| ihY | generatePlanModeAttachments | chunks.142.mjs:2034 | function (async) |
+| ii4 | PLAN_MODE_REMINDER_CONSTANTS | chunks.142.mjs:2921 | constant (object) |
+| Kd4 | renderExitPlanModeResult | chunks.139.mjs:2491 | function (React) |
 | kg1 | EnterPlanModeTool | chunks.140.mjs:1640 | tool object |
-| kx | setNeedsPlanModeExitAttachment | chunks.139.mjs:2700 | function |
-| MC1 | hasTeamConfig | chunks.139.mjs:2691 | function |
+| kx | setNeedsPlanModeExitAttachment | chunks.1.mjs:2871 | function |
+| MC1 | isPlanModeRequired | chunks.48.mjs:301 | function |
+| nhY | generatePlanModeExitAttachment | chunks.142.mjs:2060 | function (async) |
 | Nj | ExitPlanModeTool | chunks.139.mjs:2641 | tool object |
-| OT | setHasExitedPlanMode | chunks.139.mjs:2699 | function |
+| OT | setHasExitedPlanMode | chunks.1.mjs:2863 | function |
 | pD | getPlanContent | chunks.146.mjs:2700 | function |
-| q2z | buildPlanModeSubagentReminder | chunks.173.mjs:660 | function |
+| pCY | buildEnterPlanModePrompt | chunks.140.mjs:1488 | function |
+| q2z | buildPlanModeSubagentReminder | chunks.173.mjs:685 | function |
+| sL6 | needsPlanModeExitAttachmentGetter | chunks.1.mjs:2867 | function |
 | sO | isPlanModeInterviewPhase | chunks.140.mjs:1475 | function |
+| szz | buildFullPlanModeReminder | chunks.173.mjs:531 | function |
+| tzz | buildAllowedToolsList | chunks.173.mjs:611 | function |
 | uW | getPlanFilePath | chunks.146.mjs:2702 | function |
 | vg1 | pushToRemote | chunks.139.mjs:2720 | function |
 | vP1 | generateRequestId | chunks.139.mjs:2710 | function |
 | Xc4 | getPlanDesignAgentCount | chunks.140.mjs:1455 | function |
 | xm | isPlanModeEnabled | chunks.130.mjs:412 | function |
+| Yd4 | renderExitPlanModeRejected | chunks.139.mjs:2550 | function (React) |
+| Zc4 | renderEnterPlanModeRejected | chunks.140.mjs:1612 | function (React) |
+
+### Plan Mode Display (Mode Cycle)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| CQ | getModeDisplayName | chunks.14.mjs:3260 | function |
+| cP | getModeThemeColor | chunks.14.mjs:3298 | function |
+| Lw8 | isDefaultMode | chunks.14.mjs:3277 | function |
+| Rv1 | getModeIcon | chunks.14.mjs:3281 | function |
+
+### Plan Mode State Flags (Global)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| o6 | globalSessionState | chunks.1.mjs:2400 | object |
+| hasExitedPlanMode | hasExitedPlanMode | chunks.1.mjs:2403 | state key (bool) |
+| needsPlanModeExitAttachment | needsPlanModeExitAttachment | chunks.1.mjs:2404 | state key (bool) |
+
+### Plan Mode Swarm UI
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| $d4 | setTaskAwaitingPlanApproval | chunks.139.mjs:2587 | function |
+| $fY | PlanApprovalRequestMessage | chunks.129.mjs:1756 | function (React) |
+| Hd4 | findTaskByAgentName | chunks.139.mjs:2581 | function |
+| kM6 | renderTeamMessageContent | chunks.129.mjs:1869 | function |
+| OfY | PlanApprovalResponseMessage | chunks.129.mjs:1799 | function (React) |
+| _fY | getTeamMessageSummary | chunks.129.mjs:1882 | function |
 
 ---
 
