@@ -25,8 +25,18 @@ Key functions in this document:
 - `getSkillToolCommands` (hv) - Filters commands eligible for the Skill tool (model-invocable)
 - `getSlashCommandSkills` (aO6) - Filters commands eligible for the slash command picker UI
 - `formatCommandName` (VQ1) - Formats a command into XML metadata for the conversation
+- `buildSkillMetadata` (nfY) - Selects the correct metadata format based on skill type
+- `buildUserFacingMetadata` (jb4) - Metadata format for user-invocable commands
+- `buildForkedSkillMetadata` (evA) - Metadata format for model-invocable forked skills
 - `handlePromptCommand` (Wb4) - Executes prompt-type commands by building LLM messages
 - `handleForkedCommand` (cfY) - Executes fork-context prompt commands with streaming progress
+- `handlePromptCommandFromTool` (Pb4) - Internal entry point for model-initiated skill invocations
+- `trackSkillUsage` (xM6) - Records skill invocation in app state for usage scoring
+- `getDecayedSkillScore` (bM6) - Time-decayed popularity score for skill ranking
+- `isValidCommandName` (lfY) - Validates that a command name uses only safe characters
+- `formatCommandDescription` (jZ1) - Formats command description with source annotation
+- `setupForkedCommandContext` (mM6) - Prepares agent/state for forked skill execution
+- `extractForkedCommandResult` (FM6) - Extracts final text from forked agent output
 
 ---
 
@@ -97,9 +107,9 @@ function parseSlashCommand(input) {
 
 **How it works:**
 1. Call `getSkills(toolUseContext)` to load skill-dir, plugin, and bundled skills in parallel
-2. Call `YK1()` and `O9z()` concurrently to load MCP and other external commands
-3. Call `iF4()` to get user-defined commands (from settings/config)
-4. Merge all sources: `[...bundledSkills, ...skillDirCommands, ...mcpCommands, ...pluginSkills, ...externalCommands, ...builtinCommands]`
+2. Call `loadMcpCommands()` and `loadExternalCommands()` concurrently
+3. Call `getUserDefinedCommands()` to get user-defined commands (from settings/config)
+4. Merge all sources: `[...bundledSkills, ...skillDirCommands, ...mcpCommands, ...pluginSkills, ...externalCommands, ...getBuiltinCommands()]`
 5. Filter to only enabled commands (`D.isEnabled()`)
 6. If user-defined commands exist, splice them before the first built-in command in the list (giving them higher display priority without overriding built-ins)
 
@@ -158,11 +168,53 @@ getAllCommands = memoized(async (toolUseContext) => {
 **What it does:** Loads the three categories of skill-based commands concurrently with graceful error isolation.
 
 **How it works:**
-1. Call `ukA(toolUseContext)` to scan `.claude/skills/` directories for SKILL.md files
-2. Call `B0A()` to load plugin-based skills from installed marketplace plugins
-3. Call `nHq()` to get the hardcoded bundled skills (shipped with the binary)
-4. Each call is wrapped in `.catch()` so failure in one source does not block others
-5. Return all three arrays as a named object
+1. Call `loadSkills(toolUseContext)` (`ukA`) to scan `.claude/skills/` directories for SKILL.md files
+2. Call `loadPluginSkills()` (`B0A`) to load plugin-based skills from installed marketplace plugins
+3. Call `getBundledSkills()` (`nHq`) to get the hardcoded bundled skills (shipped with the binary)
+4. Each skill source is wrapped in `.catch()` so failure in one source does not block others
+5. Return all three arrays as a named object: `{ skillDirCommands, pluginSkills, bundledSkills }`
+
+```javascript
+// ============================================
+// getSkills - Parallel skill loading with error isolation
+// Location: chunks.168.mjs:2118-2136
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function _9z(A) {
+    try {
+        let [q, K] = await Promise.all([ukA(A).catch((z) => {
+            return K1(z instanceof Error ? z : Error("Failed to load skill directory commands")), h("Skill directory commands failed to load, continuing without them"), []
+        }), B0A().catch((z) => {
+            return K1(z instanceof Error ? z : Error("Failed to load plugin skills")), h("Plugin skills failed to load, continuing without them"), []
+        })]), Y = nHq();
+        return h(`getSkills returning: ${q.length} skill dir commands, ${K.length} plugin skills, ${Y.length} bundled skills`), {
+            skillDirCommands: q, pluginSkills: K, bundledSkills: Y
+        }
+    } catch (q) {
+        return K1(q instanceof Error ? q : Error("Unexpected error loading skills")), {
+            skillDirCommands: [], pluginSkills: [], bundledSkills: []
+        }
+    }
+}
+
+// READABLE (for understanding):
+async function getSkills(toolUseContext) {
+    try {
+        let [skillDirCommands, pluginSkills] = await Promise.all([
+            loadSkills(toolUseContext).catch(err => { logError(err); return []; }),
+            loadPluginSkills().catch(err => { logError(err); return []; })
+        ]);
+        let bundledSkills = getBundledSkills();
+        return { skillDirCommands, pluginSkills, bundledSkills }
+    } catch (err) {
+        logError(err);
+        return { skillDirCommands: [], pluginSkills: [], bundledSkills: [] }
+    }
+}
+
+// Mapping: _9z->getSkills, ukA->loadSkills, B0A->loadPluginSkills, nHq->getBundledSkills, K1->logError
+```
 
 **Why this approach:** Each skill source has different failure modes (filesystem errors, network issues for plugins, etc.). The `.catch()` isolation pattern ensures that a corrupt skills directory does not prevent plugin skills from loading. This is critical for a CLI tool where the user's filesystem state is unpredictable.
 
@@ -220,7 +272,7 @@ Additional built-in commands (in QBA but not in the essential pBA set) include:
 
 **`local` type:**
 - Executes synchronously in the CLI process
-- Returns a simple text result or a compaction result
+- Returns one of four result types: `"skip"`, `"compact"`, `"microcompact"`, or `"text"` (default)
 - Does not render JSX UI components
 - Examples: `/clear`, `/compact`, `/cost`, `/vim`
 
@@ -237,122 +289,811 @@ Additional built-in commands (in QBA but not in the essential pBA set) include:
 - Can optionally fork a new agent context (`context: "fork"`)
 - Examples: `/init`, `/review`
 
+### formatCommandDescription (jZ1)
+
+**What it does:** Adds a source-identifying suffix/prefix to a command's description for display in the command picker.
+
+```javascript
+// ============================================
+// formatCommandDescription - Annotate description with source
+// Location: chunks.168.mjs:2161-2170
+// ============================================
+
+// ORIGINAL (for source lookup):
+function jZ1(A) {
+    if (A.type !== "prompt") return A.description;
+    if (A.source === "plugin") {
+        let q = A.pluginInfo?.pluginManifest.name;
+        if (q) return `(${q}) ${A.description}`;
+        return `${A.description} (plugin)`
+    }
+    if (A.source === "builtin" || A.source === "mcp") return A.description;
+    if (A.source === "bundled") return `${A.description} (bundled)`;
+    return `${A.description} (${vi(A.source)})`
+}
+
+// READABLE (for understanding):
+function formatCommandDescription(command) {
+    if (command.type !== "prompt") return command.description;
+    if (command.source === "plugin") {
+        let pluginName = command.pluginInfo?.pluginManifest.name;
+        if (pluginName) return `(${pluginName}) ${command.description}`;
+        return `${command.description} (plugin)`;
+    }
+    if (command.source === "builtin" || command.source === "mcp") return command.description;
+    if (command.source === "bundled") return `${command.description} (bundled)`;
+    return `${command.description} (${toTitleCase(command.source)})`;
+}
+
+// Mapping: jZ1->formatCommandDescription, A->command, vi->toTitleCase
+```
+
+**Key insight:** The source annotation system lets users understand in the command picker where each command comes from. Plugin commands get priority treatment (shown as "(PluginName) description"), while bundled skills get a "(bundled)" suffix. Built-in and MCP commands show raw descriptions with no suffix because their source is implicit from context.
+
 ---
 
 ## Dispatch Flow
 
-### User Input to Execution: Step by Step
+### handleSlashInput (Mb4) - Top-Level Dispatcher
 
+**What it does:** The main entry point that processes user slash command input, resolving it to either an error message, a regular prompt, or a command execution.
+
+**How it works (complete flow):**
+
+```javascript
+// ============================================
+// handleSlashInput - Main slash command dispatch
+// Location: chunks.130.mjs:1506-1624
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Mb4(A, q, K, Y, z, w, H, $, O, _) {
+    let J = Db4(A);
+    if (!J) {
+        c("tengu_input_slash_missing", {});
+        let m = "Commands are in the form `/command [args]`";
+        return { messages: [wP(), ...Y, c6({ content: pZ({ inputString: m, precedingInputBlocks: q }) })], shouldQuery: !1, resultText: m }
+    }
+    let { commandName: X, args: D, isMcp: j } = J,
+        M = j ? "mcp" : !Cd().has(X) ? "custom" : X;
+    if (!Sd(X, z.options.commands)) {
+        let m = b1().existsSync(`/${X}`);
+        if (lfY(X) && !m) {
+            c("tengu_input_slash_invalid", { input: X });
+            let b = `Unknown skill: ${X}`;
+            return { messages: [wP(), ...Y, c6({ content: pZ({ inputString: b, precedingInputBlocks: q }) })], shouldQuery: !1, resultText: b }
+        }
+        return c("tengu_input_prompt", {}), ...{ messages: [c6({ content: pZ({ inputString: A, precedingInputBlocks: q }), uuid: $ }), ...Y], shouldQuery: !0 }
+    }
+    w(!0), u8("slash-commands");
+    let { messages: P, shouldQuery: W, ... } = await ifY(X, D, H, z, q, K, O, _);
+    // ... telemetry & return
+}
+
+// READABLE (for understanding):
+async function handleSlashInput(
+    rawInput, precedingBlocks, setJSX, existingMessages, toolUseContext,
+    setLoading, commandOptions, inputUUID, canUseTool, thinkingConfig
+) {
+    // 1. Parse the slash command
+    let parsed = parseSlashCommand(rawInput);
+    if (!parsed) {
+        telemetry("tengu_input_slash_missing", {});
+        let errorMsg = "Commands are in the form `/command [args]`";
+        return { messages: [systemMessage(), ...existingMessages, userMessage(errorMsg)], shouldQuery: false, resultText: errorMsg };
+    }
+
+    let { commandName, args, isMcp } = parsed;
+    // Track command category for telemetry
+    let telemetryInput = isMcp ? "mcp" : !builtinCommandNames().has(commandName) ? "custom" : commandName;
+
+    // 2. Check if command exists
+    if (!isCommandAvailable(commandName, toolUseContext.options.commands)) {
+        // Check if the "command name" is actually a filesystem path (e.g., /usr/bin/foo)
+        let isActualFilePath = fs.existsSync(`/${commandName}`);
+
+        if (isValidCommandName(commandName) && !isActualFilePath) {
+            // Looks like a command name but isn't registered → error
+            telemetry("tengu_input_slash_invalid", { input: commandName });
+            let errorMsg = `Unknown skill: ${commandName}`;
+            return { messages: [...], shouldQuery: false, resultText: errorMsg };
+        }
+
+        // Looks like a file path or has invalid chars → treat as regular prompt
+        telemetry("tengu_input_prompt", {});
+        return { messages: [userMessage(rawInput, inputUUID), ...existingMessages], shouldQuery: true };
+    }
+
+    // 3. Execute the command
+    setLoading(true);
+    trackUISection("slash-commands");
+    let result = await executeCommand(commandName, args, setJSX, toolUseContext, ...);
+
+    // 4. Emit telemetry with plugin info if applicable
+    if (result.command.type === "prompt" && result.command.pluginInfo) {
+        let { pluginManifest, repository } = result.command.pluginInfo;
+        // Only record official repository data, third-party repos get "third-party" label
+        telemetry("tengu_input_command", { input: telemetryInput, plugin_repository: ..., plugin_name: ... });
+    }
+
+    return { messages: result.messages, shouldQuery: result.shouldQuery, ... };
+}
+
+// Mapping: Mb4->handleSlashInput, Db4->parseSlashCommand, Sd->isCommandAvailable, lfY->isValidCommandName, ifY->executeCommand, b1->fs, c->telemetry, u8->trackUISection
 ```
-User types "/compact some instructions" and presses Enter
-  |
-  v
-[1] onSubmit callback (chunks.188.mjs:686-724)
-  - Check: input starts with "/" AND not in autocompletion mode
-  - Parse: split into commandName="compact", args="some instructions"
-  - Lookup: find command in registered commands list (RA)
-  - Check: is command "immediate" (local/local-jsx) AND from keybinding?
-    - YES: execute immediately without going through message pipeline
-    - NO: continue to standard pipeline
-  |
-  v
-[2] processEvent / handleSlashInput (Mb4) (chunks.130.mjs:1506-1624)
-  - Call parseSlashCommand(Db4) to extract commandName, args, isMcp
-  - If parsing fails: return error message "Commands are in the form /command [args]"
-  - Check if commandName is in the available commands list (Sd)
-  - If not found AND looks like a valid name: return "Unknown skill: {name}"
-  - If not found AND looks like a file path: treat as regular prompt
-  - If found: call executeCommand(ifY)
-  |
-  v
-[3] executeCommand (ifY) (chunks.130.mjs:1627-1795)
-  - Resolve command object via findCommand(zI)
-  - Check userInvocable flag: some skills are model-only
-  - Switch on command.type:
-    |
-    +-- "local-jsx": call command.load(), render JSX component
-    |   - Component gets onDone callback to signal completion
-    |   - Result messages formatted as <local-command-stdout>
-    |
-    +-- "local": call command.load(), execute function
-    |   - Handle special return types: "compact", "microcompact", "skip", "text"
-    |   - Wrap output in <local-command-stdout> message
-    |
-    +-- "prompt": either fork or inline
-        - If context === "fork": call handleForkedCommand(cfY)
-          - Spawns a separate agent loop with streaming progress
-        - Else: call handlePromptCommand(Wb4)
-          - Builds metadata + prompt messages for LLM
-          - Returns messages array with shouldQuery: true
+
+**Key decisions:**
+
+1. **File path detection:** The check `b1().existsSync('/' + commandName)` handles the case where a user types something like `/usr/bin/python` -- this starts with `/` and looks like a slash command, but is actually a file path. Without this check, it would be incorrectly classified as an "unknown skill" error.
+
+2. **`isValidCommandName` filter:** The `lfY(X)` check (`/[^a-zA-Z0-9:\-_]/.test(A)` inverted) ensures that inputs with special characters (like spaces, dots, slashes) are treated as regular prompts. This allows partial URL paths like `/api/v1/users` to fall through as prompts.
+
+3. **Telemetry privacy:** Plugin repository tracking only emits the full repository URL for official/known repositories (tracked in `NT` Set). Third-party plugins are anonymized as `"third-party"`.
+
+### isValidCommandName (lfY)
+
+**What it does:** Tests whether a string is a valid slash command name (vs. a file path or arbitrary text).
+
+```javascript
+// ============================================
+// isValidCommandName - Test for safe command name characters
+// Location: chunks.130.mjs:1502-1504
+// ============================================
+
+// ORIGINAL (for source lookup):
+function lfY(A) {
+    return !/[^a-zA-Z0-9:\-_]/.test(A)
+}
+
+// READABLE (for understanding):
+function isValidCommandName(name) {
+    return !/[^a-zA-Z0-9:\-_]/.test(name)
+    // Equivalent: only letters, digits, colon, hyphen, underscore are allowed
+}
+
+// Mapping: lfY->isValidCommandName, A->name
 ```
 
-### Immediate vs Deferred Execution
+**Why this approach:** The colon `:` in the allowed set is intentional -- it supports namespaced skill names (e.g., `namespace:skill-name`) for plugin-scoped skills that live in subdirectories. The hyphen `-` and underscore `_` support conventional kebab-case and snake_case naming.
 
-**What it does:** The REPL has two paths for slash command execution -- "immediate" execution for simple commands, and "deferred" execution that goes through the full message pipeline.
-
-**How it works:**
-1. In the `onSubmit` handler, after parsing the slash command, the system checks `command.immediate || options.fromKeybinding`
-2. If immediate AND the command type is `local-jsx`:
-   - Execute the command directly from the REPL without adding messages to the conversation
-   - The command's JSX is rendered immediately
-   - The result is shown as a toast notification if the display mode is not "skip"
-3. Otherwise:
-   - The input goes through the normal message pipeline
-   - Messages are created via `handleSlashInput` (Mb4)
-   - The conversation history records the command invocation
-
-**Why this approach:** Immediate execution avoids polluting the conversation history with commands that are purely interactive (like `/help` or `/config`). When a user presses a keybinding that triggers `/fast`, they don't want that to appear as a conversation turn -- they want instant feedback. The deferred path is used for commands like `/init` or `/review` that need the LLM to process their results.
-
-**Key insight:** The `immediate` flag on command definitions and the `fromKeybinding` flag on invocation options work together to determine the execution path. This dual-check ensures that even non-immediate commands can be executed immediately when triggered by a keybinding, providing a seamless UX for keyboard-driven workflows.
+**Key insight:** This function is the gateway between "unknown slash command" errors and "treat as regular prompt" fallback. If a user types `/hello world` (space in name) or `/usr/local/bin` (slashes in name), the invalid characters cause the input to be treated as a regular prompt, not a command error. Only clean identifiers like `/foo` or `/my-skill` produce error messages.
 
 ---
 
-## Skill-Based Slash Commands
+## Command Execution
 
-### How Skills Become Slash Commands
+### executeCommand (ifY) - The Core Switch
 
-Skills are markdown files (SKILL.md) placed in `.claude/skills/` directories (project-local or user-global). When the command registry is built:
+**What it does:** Resolves a command by name, checks invocability, and dispatches to the correct handler based on command type.
 
-1. `ukA(toolUseContext)` scans `{cwd}/.claude/skills/` and `~/.claude/skills/` for SKILL.md files
-2. Each SKILL.md is parsed into a command definition of type `"prompt"`
-3. The skill's directory name becomes the command name (e.g., `.claude/skills/commit/SKILL.md` becomes `/commit`)
-4. Skills can specify `whenToUse`, `description`, `disableModelInvocation`, and other metadata
+```javascript
+// ============================================
+// executeCommand - Type-based command dispatcher
+// Location: chunks.130.mjs:1627-1795
+// ============================================
 
-### Skill Commands vs Built-in Commands
+// ORIGINAL (for source lookup):
+async function ifY(A, q, K, Y, z, w, H, $) {
+    let O = zI(A, Y.options.commands);
+    if (O.type === "prompt" && O.userInvocable !== !1) xM6(A);
+    if (O.userInvocable === !1) return {
+        messages: [c6({ content: pZ({ inputString: `/${A}`, precedingInputBlocks: z }) }),
+                   c6({ content: `This skill can only be invoked by Claude, not directly by users. Ask Claude to use the "${A}" skill for you.` })],
+        shouldQuery: !1, command: O
+    };
+    try {
+        switch (O.type) {
+            case "local-jsx": return new Promise(...);
+            case "local": { ... }
+            case "prompt":
+                try {
+                    if (O.context === "fork") return await cfY(O, q, Y, z, K, $ ?? uX);
+                    return await Wb4(O, q, Y, z, w)
+                } catch (_) { ... }
+        }
+    } catch (_) { ... }
+}
 
-| Aspect | Built-in Commands | Skill Commands |
-|--------|------------------|----------------|
-| Source | Hardcoded in binary | `.claude/skills/` directories, plugins |
-| Type | local, local-jsx, or prompt | Always prompt (generates LLM messages) |
-| Priority | Always available | Can shadow non-essential built-ins |
-| Removal | Cannot be removed | Removed by deleting the SKILL.md |
-| Model access | Varies by type | Always has model access (unless `disableModelInvocation`) |
-| Lazy loading | `load()` returns module | `getPromptForCommand()` returns messages |
+// READABLE (for understanding):
+async function executeCommand(commandName, args, setJSX, toolUseContext, precedingBlocks, messageHistory, inputUUID, canUseTool) {
+    let command = findCommand(commandName, toolUseContext.options.commands);
 
-### The Skill Tool Connection
+    // Track usage only for user-invocable prompt commands
+    if (command.type === "prompt" && command.userInvocable !== false) {
+        trackSkillUsage(commandName);  // xM6: increments usage count + timestamp
+    }
 
-The Skill tool (`d0A` description in chunks.88.mjs) is the mechanism by which the LLM can invoke slash commands. When the model recognizes that a user's request matches a skill, it calls the Skill tool with `skill: "name"` and optional `args`. This triggers the same `executeCommand` (ifY) flow as a user typing `/name`.
+    // Block user from invoking model-only skills
+    if (command.userInvocable === false) {
+        return {
+            messages: [userMessage(`/${commandName}`), assistantMessage(`This skill can only be invoked by Claude...`)],
+            shouldQuery: false,
+            command
+        };
+    }
 
-The connection works through two filtered views of the command registry:
+    switch (command.type) {
+        case "local-jsx":
+            // JSX commands return a Promise that resolves when onDone() is called
+            return new Promise(resolve => {
+                let onDone = (text, options) => {
+                    if (options?.display === "skip") {
+                        resolve({ messages: [], shouldQuery: false, command, nextInput: options.nextInput });
+                        return;
+                    }
+                    let metaMessages = (options?.metaMessages ?? []).map(m => systemMessage(m, { isMeta: true }));
+                    resolve({
+                        messages: options?.display === "system"
+                            ? [systemMessage(formatCommandName(command, args)), systemMessage(`<local-command-stdout>${text}</local-command-stdout>`), ...metaMessages]
+                            : [userMessage(formatCommandName(command, args)), text ? userMessage(`<local-command-stdout>${text}</local-command-stdout>`) : userMessage(`<local-command-stdout>[Done]</local-command-stdout>`), ...metaMessages],
+                        shouldQuery: options?.shouldQuery ?? false,
+                        command,
+                        nextInput: options?.nextInput,
+                        submitNextInput: options?.submitNextInput
+                    });
+                };
+                // Load and render the JSX component
+                command.load().then(impl => impl.call(onDone, toolUseContext, args)).then(jsx => {
+                    if (toolUseContext.options.isNonInteractiveSession) {
+                        resolve({ messages: [], shouldQuery: false, command });
+                        return;
+                    }
+                    setJSX({ jsx, shouldHidePromptInput: true, showSpinner: false, isLocalJSXCommand: true });
+                });
+            });
 
-1. **`getSkillToolCommands` (hv)**: Returns commands eligible for the Skill tool. Filters to: `type === "prompt"`, not `disableModelInvocation`, `source !== "builtin"`, and loaded from `bundled`, `commands_DEPRECATED`, or has `whenToUse`/`hasUserSpecifiedDescription`.
+        case "local": {
+            let inputMsg = userMessage(formatCommandName(command, args));
+            try {
+                let systemMsg = systemMessage();
+                let result = await (await command.load()).call(args, toolUseContext);
+                if (result.type === "skip") return { messages: [], shouldQuery: false, command };
+                if (result.type === "compact") {
+                    // Compact: replace message history
+                    let displayMsgs = [systemMsg, inputMsg, ...result.displayText
+                        ? [userMessage(`<local-command-stdout>${result.displayText}</local-command-stdout>`)] : []];
+                    let compactionResult = { ...result.compactionResult, messagesToKeep: [...result.compactionResult.messagesToKeep ?? [], ...displayMsgs] };
+                    return { messages: buildCompactedMessages(compactionResult), shouldQuery: false, command };
+                }
+                if (result.type === "microcompact") {
+                    let msgs = [systemMsg, inputMsg];
+                    if (result.microcompactResult.compactionInfo?.boundaryMessage) msgs.push(result.microcompactResult.compactionInfo.boundaryMessage);
+                    return { messages: msgs, shouldQuery: false, command };
+                }
+                // Default "text" result
+                return { messages: [inputMsg, userMessage(`<local-command-stdout>${result.value}</local-command-stdout>`)], shouldQuery: false, command };
+            } catch (err) {
+                logError(err);
+                return { messages: [inputMsg, userMessage(`<local-command-stderr>${String(err)}</local-command-stderr>`)], shouldQuery: false, command };
+            }
+        }
 
-2. **`getSlashCommandSkills` (aO6)**: Returns commands eligible for the slash command picker UI. Filters to: `type === "prompt"`, `source !== "builtin"`, has description, and loaded from `skills`, `plugin`, `bundled`, or `disableModelInvocation`.
+        case "prompt":
+            try {
+                if (command.context === "fork") return await handleForkedCommand(command, args, toolUseContext, precedingBlocks, setJSX, canUseTool ?? defaultCanUseTool);
+                return await handlePromptCommand(command, args, toolUseContext, precedingBlocks, messageHistory);
+            } catch (err) {
+                if (err instanceof UserAbortError) return { messages: [userMessage(formatCommandName(command, args)), userMessage(ABORT_MESSAGE)], shouldQuery: false, command };
+                return { messages: [userMessage(formatCommandName(command, args)), userMessage(`<local-command-stderr>${String(err)}</local-command-stderr>`)], shouldQuery: false, command };
+            }
+    }
 
-The important distinction: built-in CLI commands (`/help`, `/clear`, etc.) are explicitly excluded from the Skill tool. The Skill tool description even states: "Do not use this tool for built-in CLI commands (like /help, /clear, etc.)". This prevents the model from trying to invoke commands that require interactive UI rendering.
+    // ReferenceError from findCommand propagates if command.type is unrecognized
+    if (err instanceof ReferenceError) return { messages: [userMessage(err.message)], shouldQuery: false, command };
+    throw err;
+}
 
-### The handleForkedCommand Flow
+// Mapping: ifY->executeCommand, zI->findCommand, xM6->trackSkillUsage, cfY->handleForkedCommand, Wb4->handlePromptCommand, VQ1->formatCommandName, dz->UserAbortError, cx->ReferenceError, qt->buildCompactedMessages
+```
+
+**Return type semantics for `local` commands:**
+
+| Return Type | Meaning | Side Effect |
+|-------------|---------|-------------|
+| `{ type: "skip" }` | Command ran but no output to show | Returns empty messages array |
+| `{ type: "text", value: "..." }` | Standard text output | Wraps in `<local-command-stdout>` |
+| `{ type: "compact", compactionResult, displayText }` | Command triggered compaction | Replaces entire message history via `qt()` |
+| `{ type: "microcompact", microcompactResult }` | Command triggered micro-compaction | Inserts boundary marker |
+
+**Exception hierarchy:**
+- `dz` (UserAbortError): User pressed Ctrl+C → return abort message
+- `cx` (ReferenceError from `findCommand`): Unknown command → return error message
+- Other errors: Re-thrown to propagate to outer error boundary
+
+**Non-interactive session handling:** For `local-jsx` commands in headless/non-interactive sessions (`isNonInteractiveSession === true`), the JSX component is skipped entirely and empty messages are returned. This allows slash commands to be called programmatically without requiring a TTY.
+
+---
+
+## Prompt Command Execution
+
+### handlePromptCommand (Wb4)
+
+**What it does:** Executes a `prompt`-type slash command by building the message array that will be sent to the LLM, including hook registration, metadata injection, and permission configuration.
+
+**How it works:**
+1. Call `command.getPromptForCommand(args, toolUseContext)` to get the skill prompt text
+2. If the command has hooks, register them in the current session via `registerSkillHooks`
+3. Build the metadata string using `buildSkillMetadata(command, args)` (nfY)
+4. Compute thinking token estimate via `JJ6()` (analyzed from skill content)
+5. Build the message array:
+   - Message 1: The metadata message (command name + args as XML)
+   - Message 2: The skill prompt content (marked `isMeta: true` so it's hidden in compaction)
+   - Messages 3+: Any thinking token allocation attachments
+   - Message N: A `command_permissions` attachment with allowed tools and model override
+6. Return `{ messages, shouldQuery: true, allowedTools, maxThinkingTokens, model, command }`
+
+```javascript
+// ============================================
+// handlePromptCommand - Build LLM message array for prompt-type commands
+// Location: chunks.130.mjs:1826-1865
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Wb4(A, q, K, Y = [], z = []) {
+    let w = await A.getPromptForCommand(q, K);
+    if (A.hooks) {
+        let j = U6();
+        IM6(K.setAppState, j, A.hooks, A.name, A.type === "prompt" ? A.skillRoot : void 0)
+    }
+    let H = nfY(A, q);
+    let $ = (H.match(/<command-message>/g) || []).length;
+    let O = hd(A.allowedTools ?? []),
+        _ = z.length > 0 || Y.length > 0 ? [...z, ...Y, ...w] : w,
+        J = void 0,
+        X = await JJ6(oP1(w.filter((j) => j.type === "text").map((j) => j.text).join(" "), K, null, [], K.messages, "repl_main_thread")),
+        D = [c6({ content: H }), c6({ content: _, isMeta: !0 }), ...X, kq({ type: "command_permissions", allowedTools: O, model: A.model })];
+    return { messages: D, shouldQuery: !0, allowedTools: O, maxThinkingTokens: J, model: A.model, command: A }
+}
+
+// READABLE (for understanding):
+async function handlePromptCommand(command, args, toolUseContext, precedingBlocks = [], existingMessages = []) {
+    // 1. Get the skill prompt content (with arg substitution already applied)
+    let promptContent = await command.getPromptForCommand(args, toolUseContext);
+
+    // 2. Register any hooks defined in the skill's frontmatter
+    if (command.hooks) {
+        let sessionId = getSessionId();  // U6()
+        registerSkillHooks(toolUseContext.setAppState, sessionId, command.hooks, command.name, command.skillRoot);
+    }
+
+    // 3. Build XML metadata string (command name, args, source metadata)
+    let metadataString = buildSkillMetadata(command, args);  // nfY
+
+    // 4. Compute tool-whitelist from skill's allowed-tools
+    let allowedTools = expandToolList(command.allowedTools ?? []);  // hd()
+
+    // 5. Combine prompt with any preceding context
+    let fullPromptContent = (existingMessages.length > 0 || precedingBlocks.length > 0)
+        ? [...precedingBlocks, ...existingMessages, ...promptContent]
+        : promptContent;
+
+    // 6. Compute thinking token allocation based on prompt content
+    let thinkingTokenAttachments = await computeThinkingAllocation(
+        buildPromptString(promptContent.filter(p => p.type === "text").map(p => p.text).join(" "), toolUseContext, ...)
+    );
+
+    // 7. Build final message array
+    let messages = [
+        userMessage({ content: metadataString }),                    // Command identity
+        userMessage({ content: fullPromptContent, isMeta: true }),   // Skill prompt (hidden from compaction)
+        ...thinkingTokenAttachments,                                  // Thinking budget
+        attachmentMessage({ type: "command_permissions", allowedTools, model: command.model })  // Permissions
+    ];
+
+    return { messages, shouldQuery: true, allowedTools, maxThinkingTokens: undefined, model: command.model, command };
+}
+
+// Mapping: Wb4->handlePromptCommand, nfY->buildSkillMetadata, U6->getSessionId, IM6->registerSkillHooks, hd->expandToolList, JJ6->computeThinkingAllocation, oP1->buildPromptString, kq->attachmentMessage
+```
+
+**Key insights:**
+
+1. **`isMeta: true` flag**: The skill prompt content is tagged as metadata so that the compaction system does not include it in the summary. This prevents skill prompts from cluttering the summarized history. Only the command invocation metadata (name + args) is preserved across compaction boundaries.
+
+2. **Hook registration at execution time**: Hooks defined in a skill's frontmatter are registered when the skill executes, not when it loads. This means hook behavior is scoped to a single invocation -- running `/commit` twice registers the hooks twice (or replaces them if they conflict).
+
+3. **`command_permissions` attachment**: The allowed-tools list from the skill's frontmatter is injected as an attachment message. This restricts the LLM's tool access during skill execution to only the tools listed in `allowed-tools:` -- the main agent loop checks this attachment before allowing tool use.
+
+4. **Thinking token computation**: `JJ6` analyzes the combined prompt text to compute an appropriate thinking budget allocation. This is important for complex skills that may generate long reasoning chains.
+
+### buildSkillMetadata (nfY) - Three Metadata Variants
+
+**What it does:** Selects between three different metadata string formats depending on whether the command is user-invocable and where it was loaded from.
+
+```javascript
+// ============================================
+// buildSkillMetadata - Select correct metadata format for command
+// Location: chunks.130.mjs:1813-1816
+// ============================================
+
+// ORIGINAL (for source lookup):
+function nfY(A, q) {
+    if (A.userInvocable !== !1) return jb4(A.userFacingName(), q);
+    if (A.loadedFrom === "skills" || A.loadedFrom === "plugin") return evA(A.userFacingName(), A.progressMessage);
+    return jb4(A.userFacingName(), q)
+}
+
+// READABLE (for understanding):
+function buildSkillMetadata(command, args) {
+    if (command.userInvocable !== false) {
+        // User-invocable commands: show command name and args
+        return buildUserFacingMetadata(command.userFacingName(), args);
+    }
+    if (command.loadedFrom === "skills" || command.loadedFrom === "plugin") {
+        // Model-only skills from disk/plugins: use forked skill format (no args visible)
+        return buildForkedSkillMetadata(command.userFacingName(), command.progressMessage);
+    }
+    // Fallback: use user-facing format
+    return buildUserFacingMetadata(command.userFacingName(), args);
+}
+
+// Mapping: nfY->buildSkillMetadata, jb4->buildUserFacingMetadata, evA->buildForkedSkillMetadata
+```
+
+**The two metadata format functions:**
+
+```javascript
+// ============================================
+// buildUserFacingMetadata - Standard command metadata
+// Location: chunks.130.mjs:1808-1811
+// ============================================
+
+// ORIGINAL (for source lookup):
+function jb4(A, q) {
+    return [`<${pP}>${A}</${pP}>`, `<${SG}>/${A}</${SG}>`, q ? `<command-args>${q}</command-args>` : null].filter(Boolean).join("\n")
+}
+// Produces: <command-message>commit</command-message>\n<command-name>/commit</command-name>\n<command-args>fix auth bug</command-args>
+
+// READABLE:
+function buildUserFacingMetadata(name, args) {
+    return [`<command-message>${name}</command-message>`,
+            `<command-name>/${name}</command-name>`,
+            args ? `<command-args>${args}</command-args>` : null].filter(Boolean).join("\n")
+}
+
+// ============================================
+// buildForkedSkillMetadata - Model-only skill metadata
+// Location: chunks.130.mjs:1803-1806
+// ============================================
+
+// ORIGINAL (for source lookup):
+function evA(A, q = "loading") {
+    return [`<${pP}>${A}</${pP}>`, `<${SG}>${A}</${SG}>`, "<skill-format>true</skill-format>"].join("\n")
+}
+// Produces: <command-message>verify</command-message>\n<command-name>verify</command-name>\n<skill-format>true</skill-format>
+
+// READABLE:
+function buildForkedSkillMetadata(name, progressMessage = "loading") {
+    return [`<command-message>${name}</command-message>`,
+            `<command-name>${name}</command-name>`,   // Note: no leading slash!
+            `<skill-format>true</skill-format>`].join("\n")
+}
+```
+
+**Why two formats?**
+- User-invocable commands get a `/name` prefix in `<command-name>` (e.g., `<command-name>/commit</command-name>`) to signal this was user-initiated
+- Model-only skills (e.g., invoked via the Skill tool) get no `/` prefix and include `<skill-format>true</skill-format>` to distinguish them in conversation history
+- The `<command-message>` tag is parsed by the compaction system to preserve command invocations in summaries
+
+### formatCommandName (VQ1)
+
+**What it does:** Generates the XML metadata string specifically for the conversation user message when a command is invoked.
+
+```javascript
+// ============================================
+// formatCommandName - Build full XML command header
+// Location: chunks.130.mjs:1797-1801
+// ============================================
+
+// ORIGINAL (for source lookup):
+function VQ1(A, q) {
+    return `<${SG}>/${A.userFacingName()}</${SG}>
+            <${pP}>${A.userFacingName()}</${pP}>
+            <command-args>${q}</command-args>`
+}
+
+// READABLE (for understanding):
+function formatCommandName(command, args) {
+    return `<command-name>/${command.userFacingName()}</command-name>
+            <command-message>${command.userFacingName()}</command-message>
+            <command-args>${args}</command-args>`
+}
+
+// Mapping: VQ1->formatCommandName, SG->COMMAND_NAME_TAG, pP->COMMAND_MESSAGE_TAG
+```
+
+**Key insight:** `VQ1` is used in the `executeCommand` (ifY) flow specifically for the user-visible message in conversation history (the first message shown to the user when they invoke a command). This is distinct from `nfY` (which is used in `handlePromptCommand` for the LLM-internal metadata). Both produce similar XML but serve different roles in the message pipeline.
+
+---
+
+## Skill Usage Scoring
+
+### trackSkillUsage (xM6) and getDecayedSkillScore (bM6)
+
+**What they do:** Track how often each skill is used and compute a time-decayed popularity score for ranking skills in the command picker.
+
+```javascript
+// ============================================
+// trackSkillUsage - Record skill invocation in app state
+// Location: chunks.130.mjs:1383-1397
+// ============================================
+
+// ORIGINAL (for source lookup):
+function xM6(A) {
+    let K = f6().skillUsage?.[A],
+        Y = Date.now(),
+        z = (K?.usageCount ?? 0) + 1;
+    if (!K || K.usageCount !== z || K.lastUsedAt !== Y) jA((w) => ({
+        ...w, skillUsage: { ...w.skillUsage, [A]: { usageCount: z, lastUsedAt: Y } }
+    }))
+}
+
+// READABLE (for understanding):
+function trackSkillUsage(skillName) {
+    let existing = getAppState().skillUsage?.[skillName];
+    let now = Date.now();
+    let newCount = (existing?.usageCount ?? 0) + 1;
+    // Only update state if something changed (avoid unnecessary re-renders)
+    if (!existing || existing.usageCount !== newCount || existing.lastUsedAt !== now) {
+        setAppState(state => ({
+            ...state,
+            skillUsage: { ...state.skillUsage, [skillName]: { usageCount: newCount, lastUsedAt: now } }
+        }));
+    }
+}
+
+// Mapping: xM6->trackSkillUsage, f6->getAppState, jA->setAppState
+```
+
+```javascript
+// ============================================
+// getDecayedSkillScore - Time-decayed usage score for ranking
+// Location: chunks.130.mjs:1399-1405
+// ============================================
+
+// ORIGINAL (for source lookup):
+function bM6(A) {
+    let K = f6().skillUsage?.[A];
+    if (!K) return 0;
+    let Y = (Date.now() - K.lastUsedAt) / 86400000,
+        z = Math.pow(0.5, Y / 7);
+    return K.usageCount * Math.max(z, 0.1)
+}
+
+// READABLE (for understanding):
+function getDecayedSkillScore(skillName) {
+    let usage = getAppState().skillUsage?.[skillName];
+    if (!usage) return 0;
+    let daysSinceLastUse = (Date.now() - usage.lastUsedAt) / 86400000;  // ms → days
+    let decayFactor = Math.pow(0.5, daysSinceLastUse / 7);              // Half-life: 7 days
+    return usage.usageCount * Math.max(decayFactor, 0.1);               // Floor at 10%
+}
+
+// Mapping: bM6->getDecayedSkillScore, f6->getAppState
+```
+
+**How the decay algorithm works:**
+
+```
+Score = usageCount × max(0.5^(daysSinceLastUse / 7), 0.1)
+
+Example timeline:
+  Day 0  (just used):   Score = usageCount × 1.0   (100%)
+  Day 7  (1 week ago):  Score = usageCount × 0.5   (50%)
+  Day 14 (2 weeks ago): Score = usageCount × 0.25  (25%)
+  Day 30 (1 month ago): Score = usageCount × ~0.1  (10%)
+  Day 60 (2 months ago):Score = usageCount × 0.1   (10%, floored)
+```
+
+**Why this design:**
+- **Half-life of 7 days**: Skill relevance decays weekly. A skill used daily for a month still matters more than one used once. A skill used 6 months ago has minimal weight.
+- **Floor at 0.1 (10%)**: Skills never completely disappear from ranking -- they just fade to a low baseline. This prevents the ranking from becoming completely recency-biased.
+- **`usageCount` as multiplier**: Frequently-used skills maintain high scores even after some time gap. This rewards habits (e.g., if you use `/commit` every day, it stays at the top even after a few days without use).
+- **Persisted in `appState.skillUsage`**: Usage data persists across sessions (written to app state which is serialized to disk), allowing long-term usage patterns to influence ranking.
+
+---
+
+## Model-Invoked Skill API
+
+### handlePromptCommandFromTool (Pb4)
+
+**What it does:** An internal entry point for when the LLM invokes a skill via the Skill tool. Validates that the command exists, is a prompt type, and delegates to `handlePromptCommand`.
+
+```javascript
+// ============================================
+// handlePromptCommandFromTool - Internal API for model-initiated skills
+// Location: chunks.130.mjs:1819-1824
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Pb4(A, q, K, Y, z = []) {
+    if (!Sd(A, K)) throw new cx(`Unknown command: ${A}`);
+    let w = zI(A, K);
+    if (w.type !== "prompt") throw Error(`Unexpected ${w.type} command. Expected 'prompt' command. Use /${A} directly in the main conversation.`);
+    return Wb4(w, q, Y, [], z)
+}
+
+// READABLE (for understanding):
+async function handlePromptCommandFromTool(commandName, args, commands, toolUseContext, existingMessages = []) {
+    if (!isCommandAvailable(commandName, commands)) {
+        throw new ReferenceError(`Unknown command: ${commandName}`);
+    }
+    let command = findCommand(commandName, commands);
+    if (command.type !== "prompt") {
+        throw Error(`Unexpected ${command.type} command. Expected 'prompt' command. Use /${commandName} directly in the main conversation.`);
+    }
+    return handlePromptCommand(command, args, toolUseContext, [], existingMessages);
+}
+
+// Mapping: Pb4->handlePromptCommandFromTool, Sd->isCommandAvailable, zI->findCommand, Wb4->handlePromptCommand, cx->ReferenceError
+```
+
+**Why this exists:** The Skill tool invocation path needs a different entry point than the user REPL path because:
+1. The Skill tool only supports `prompt`-type commands (not `local` or `local-jsx`)
+2. The Skill tool gets its commands list from `getSkillToolCommands(hv)`, which is a filtered subset
+3. Error messages need to surface as tool errors, not as user-visible REPL messages
+
+---
+
+## Filtered Command Views
+
+### getSkillToolCommands (hv) and getSlashCommandSkills (aO6)
+
+**What they do:** Provide two filtered views of the command registry for different consumers: the Skill tool (LLM invocation) and the slash command picker UI.
+
+```javascript
+// ============================================
+// getSkillToolCommands - Commands eligible for model invocation via Skill tool
+// Location: chunks.168.mjs:2307-2309
+// ============================================
+
+// ORIGINAL (for source lookup):
+hv = KA(async (A) => {
+    return (await cZ(A)).filter((K) =>
+        K.type === "prompt" &&
+        !K.disableModelInvocation &&
+        K.source !== "builtin" &&
+        (K.loadedFrom === "bundled" || K.loadedFrom === "commands_DEPRECATED" ||
+         K.hasUserSpecifiedDescription || K.whenToUse))
+})
+
+// READABLE (for understanding):
+getSkillToolCommands = memoized(async (toolUseContext) => {
+    return (await getAllCommands(toolUseContext)).filter(cmd =>
+        cmd.type === "prompt" &&                    // Only prompt-type (not local/local-jsx)
+        !cmd.disableModelInvocation &&              // Not explicitly blocked from model use
+        cmd.source !== "builtin" &&                 // Not a built-in CLI command
+        (cmd.loadedFrom === "bundled" ||            // Built-in bundled skills always eligible
+         cmd.loadedFrom === "commands_DEPRECATED" || // Legacy .claude/commands/ skills
+         cmd.hasUserSpecifiedDescription ||          // Skills with explicit description
+         cmd.whenToUse)                             // Skills with whenToUse guidance
+    );
+});
+
+// ============================================
+// getSlashCommandSkills - Commands shown in the slash command picker UI
+// Location: chunks.168.mjs:2309-2315
+// ============================================
+
+// ORIGINAL (for source lookup):
+aO6 = KA(async (A) => {
+    try {
+        return (await cZ(A)).filter((K) =>
+            K.type === "prompt" &&
+            K.source !== "builtin" &&
+            (K.hasUserSpecifiedDescription || K.whenToUse) &&
+            (K.loadedFrom === "skills" || K.loadedFrom === "plugin" ||
+             K.loadedFrom === "bundled" || K.disableModelInvocation))
+    } catch (q) { return [] }
+})
+
+// READABLE (for understanding):
+getSlashCommandSkills = memoized(async (toolUseContext) => {
+    try {
+        return (await getAllCommands(toolUseContext)).filter(cmd =>
+            cmd.type === "prompt" &&                // Only prompt-type
+            cmd.source !== "builtin" &&             // Not built-in CLI commands
+            (cmd.hasUserSpecifiedDescription || cmd.whenToUse) &&  // Has description for display
+            (cmd.loadedFrom === "skills" ||         // User-created skills
+             cmd.loadedFrom === "plugin" ||         // Plugin skills
+             cmd.loadedFrom === "bundled" ||        // Bundled skills
+             cmd.disableModelInvocation)            // Model-blocked skills (user-only)
+        );
+    } catch (err) { return []; }
+});
+```
+
+**Filter comparison:**
+
+| Condition | getSkillToolCommands (hv) | getSlashCommandSkills (aO6) |
+|-----------|--------------------------|------------------------------|
+| type === "prompt" | ✓ | ✓ |
+| source !== "builtin" | ✓ | ✓ |
+| !disableModelInvocation | ✓ Required | ✗ Not required |
+| hasUserSpecifiedDescription OR whenToUse | Optional | ✓ Required |
+| loadedFrom filter | bundled, commands_DEPRECATED, or has description | skills, plugin, bundled, or disableModelInvocation |
+
+**Key insights:**
+- `getSkillToolCommands` is more permissive: it includes legacy commands and bundled skills regardless of whether they have descriptions. This ensures backward compatibility -- old `.claude/commands/` skills can still be invoked by the model.
+- `getSlashCommandSkills` requires a description or `whenToUse` field for display in the UI picker. This prevents skills without descriptions from cluttering the autocomplete list.
+- Both exclude `source === "builtin"` -- the LLM's Skill tool description explicitly says "Do not use this tool for built-in CLI commands".
+- `disableModelInvocation: true` skills appear in the UI picker but NOT in the Skill tool list -- they're user-only, visible to humans in autocomplete, but blocked from LLM invocation.
+
+---
+
+## Forked Command Execution
+
+### handleForkedCommand (cfY)
 
 **What it does:** For commands with `context: "fork"`, a separate agent loop is spawned to handle the command. This allows long-running skill commands (like code review) to show streaming progress.
 
 **How it works:**
-1. Load the skill content and build prompt messages via `mM6`
-2. Create a progress rendering function that updates the JSX display
-3. Iterate over the agent loop's output stream (`dR` generator)
-4. For each stream event, update the progress display
-5. When complete, return the final messages
+1. Call `setupForkedCommandContext(mM6)` to get skill content, agent definition, and modified app state
+2. Create a progress rendering function that updates the JSX display as messages arrive
+3. Iterate over the agent loop's output stream (`dR` generator), collecting messages
+4. For each assistant/user message, update the progress display with current streaming state
+5. When complete, call `extractForkedCommandResult(FM6)` to get the final text
+6. Return messages wrapped in `<local-command-stdout>` tags
+
+```javascript
+// ============================================
+// setupForkedCommandContext - Prepare agent for forked skill execution
+// Location: chunks.149.mjs:2562-2580
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function mM6(A, q, K) {
+    let z = (await A.getPromptForCommand(q, K)).map((X) => X.type === "text" ? X.text : "").join("\n"),
+        w = hd(A.allowedTools ?? []),
+        H = gdY(K.getAppState, w),
+        $ = A.agent ?? "general-purpose",
+        O = K.options.agentDefinitions.activeAgents,
+        _ = O.find((X) => X.agentType === $) ?? O.find((X) => X.agentType === "general-purpose") ?? O[0];
+    if (!_) throw Error("No agent available for forked execution");
+    let J = [c6({ content: z })];
+    return { skillContent: z, modifiedGetAppState: H, baseAgent: _, promptMessages: J }
+}
+
+// READABLE (for understanding):
+async function setupForkedCommandContext(command, args, toolUseContext) {
+    // 1. Get fully-processed skill prompt text
+    let skillText = (await command.getPromptForCommand(args, toolUseContext))
+        .map(p => p.type === "text" ? p.text : "").join("\n");
+
+    // 2. Expand tool whitelist and create a modified getAppState that enforces it
+    let allowedTools = expandToolList(command.allowedTools ?? []);
+    let restrictedGetAppState = createRestrictedAppState(toolUseContext.getAppState, allowedTools);
+
+    // 3. Find the agent definition for this skill (default: "general-purpose")
+    let agentType = command.agent ?? "general-purpose";
+    let agents = toolUseContext.options.agentDefinitions.activeAgents;
+    let baseAgent = agents.find(a => a.agentType === agentType)
+                 ?? agents.find(a => a.agentType === "general-purpose")
+                 ?? agents[0];
+    if (!baseAgent) throw Error("No agent available for forked execution");
+
+    return {
+        skillContent: skillText,
+        modifiedGetAppState: restrictedGetAppState,
+        baseAgent,
+        promptMessages: [userMessage({ content: skillText })]
+    };
+}
+
+// Mapping: mM6->setupForkedCommandContext, hd->expandToolList, gdY->createRestrictedAppState, A.agent->agentType
+```
 
 **Why this approach:** Forked execution prevents long-running skills from blocking the main conversation. The streaming progress display keeps the user informed about what's happening. This is particularly important for commands like `/review` that may take several seconds to complete.
+
+**Key difference from inline execution:**
+
+| Aspect | Inline (`Wb4`) | Forked (`cfY`) |
+|--------|----------------|----------------|
+| Agent loop | Reuses main loop | Spawns dedicated sub-agent |
+| Progress display | None (blocks until done) | Streaming JSX progress |
+| Message history | Injected into main history | Isolated, result returned as `local-command-stdout` |
+| Tool access | Restricted via attachment | Restricted via `modifiedGetAppState` |
+| Telemetry | `tengu_input_command` | `tengu_slash_command_forked` |
 
 ---
 
@@ -385,6 +1126,147 @@ function isCommandAvailable(commandName, commands) {
 // Mapping: Sd->isCommandAvailable, A->commandName, q->commands, K->cmd
 ```
 
-**Key insight:** There are three ways a command can match: by its internal `name` property, by its `userFacingName()` method (which may differ from `name`), or by any of its `aliases`. This three-way matching allows commands like `/clear` to also be invoked as `/reset` or `/new` (its aliases), and for commands whose internal name differs from their display name.
+```javascript
+// ============================================
+// findCommand - Resolve command name to definition (throws if not found)
+// Location: chunks.168.mjs:2155-2158
+// ============================================
 
-The `findCommand` (zI) function uses the same matching logic but throws a `ReferenceError` with a helpful message listing all available commands if no match is found. This provides good error feedback when a user mistypes a command name.
+// ORIGINAL (for source lookup):
+function zI(A, q) {
+    let K = q.find((Y) => Y.name === A || Y.userFacingName() === A || Y.aliases?.includes(A));
+    if (!K) throw ReferenceError(`Command ${A} not found. Available commands: ${q.map((Y) => { let z = Y.userFacingName(); return Y.aliases ? `${z} (aliases: ${Y.aliases.join(", ")})` : z }).sort((Y, z) => Y.localeCompare(z)).join(", ")}`);
+    return K
+}
+
+// READABLE (for understanding):
+function findCommand(commandName, commands) {
+    let command = commands.find(cmd =>
+        cmd.name === commandName ||
+        cmd.userFacingName() === commandName ||
+        cmd.aliases?.includes(commandName)
+    );
+    if (!command) {
+        let availableNames = commands.map(cmd => {
+            let name = cmd.userFacingName();
+            return cmd.aliases ? `${name} (aliases: ${cmd.aliases.join(", ")})` : name;
+        }).sort((a, b) => a.localeCompare(b)).join(", ");
+        throw new ReferenceError(`Command ${commandName} not found. Available commands: ${availableNames}`);
+    }
+    return command;
+}
+
+// Mapping: zI->findCommand, A->commandName, q->commands
+```
+
+**Key insight:** There are three ways a command can match:
+1. By `name` property (canonical internal name)
+2. By `userFacingName()` (display name, which can differ)
+3. By any entry in `aliases` array
+
+The `findCommand` error message includes an alphabetically sorted list of all available command names with their aliases. This provides good developer feedback when a user mistypes a command name.
+
+---
+
+## User Input to Execution: Complete Flow
+
+```
+User types "/compact some instructions" and presses Enter
+  │
+  ▼
+[1] onSubmit callback (chunks.188.mjs:686-724)
+  - Check: input starts with "/" AND not in autocompletion mode
+  - Parse: split into commandName="compact", args="some instructions"
+  - Lookup: find command in registered commands list (RA)
+  - Check: is command "immediate" (local/local-jsx) AND from keybinding?
+    - YES: execute immediately without going through message pipeline
+    - NO: continue to standard pipeline
+  │
+  ▼
+[2] handleSlashInput (Mb4) (chunks.130.mjs:1506-1624)
+  - Call parseSlashCommand(Db4) to extract commandName, args, isMcp
+  - If parsing fails: return error message "Commands are in the form /command [args]"
+  - Check if commandName is in the available commands list (Sd)
+  - If not found AND looks like a valid name: return "Unknown skill: {name}"
+  - If not found AND looks like a file path: treat as regular prompt
+  - If found: call executeCommand(ifY)
+  │
+  ▼
+[3] executeCommand (ifY) (chunks.130.mjs:1627-1795)
+  - Resolve command object via findCommand(zI)
+  - Track usage via trackSkillUsage(xM6) if user-invocable prompt
+  - Check userInvocable flag: block model-only skills
+  - Switch on command.type:
+    │
+    +-- "local-jsx": call command.load(), render JSX component
+    │   - Component gets onDone callback to signal completion
+    │   - Result messages formatted as <local-command-stdout>
+    │   - Skip entirely in non-interactive sessions
+    │
+    +-- "local": call command.load(), execute function
+    │   - Handle special return types: "compact", "microcompact", "skip", "text"
+    │   - Wrap output in <local-command-stdout> or <local-command-stderr>
+    │
+    +-- "prompt": either fork or inline
+        - If context === "fork": call handleForkedCommand(cfY)
+          - Spawns a separate agent loop with streaming progress
+        - Else: call handlePromptCommand(Wb4)
+          - Registers hooks (if any)
+          - Builds metadata + prompt messages for LLM
+          - Returns messages array with shouldQuery: true
+```
+
+### Immediate vs Deferred Execution
+
+**What it does:** The REPL has two paths for slash command execution -- "immediate" execution for simple commands, and "deferred" execution that goes through the full message pipeline.
+
+**How it works:**
+1. In the `onSubmit` handler, after parsing the slash command, the system checks `command.immediate || options.fromKeybinding`
+2. If immediate AND the command type is `local-jsx`:
+   - Execute the command directly from the REPL without adding messages to the conversation
+   - The command's JSX is rendered immediately
+   - The result is shown as a toast notification if the display mode is not "skip"
+3. Otherwise:
+   - The input goes through the normal message pipeline
+   - Messages are created via `handleSlashInput` (Mb4)
+   - The conversation history records the command invocation
+
+**Why this approach:** Immediate execution avoids polluting the conversation history with commands that are purely interactive (like `/help` or `/config`). When a user presses a keybinding that triggers `/fast`, they don't want that to appear as a conversation turn -- they want instant feedback. The deferred path is used for commands like `/init` or `/review` that need the LLM to process their results.
+
+**Key insight:** The `immediate` flag on command definitions and the `fromKeybinding` flag on invocation options work together to determine the execution path. This dual-check ensures that even non-immediate commands can be executed immediately when triggered by a keybinding, providing a seamless UX for keyboard-driven workflows.
+
+---
+
+## Skill-Based Slash Commands
+
+### How Skills Become Slash Commands
+
+Skills are markdown files (SKILL.md) placed in `.claude/skills/` directories (project-local or user-global). When the command registry is built:
+
+1. `loadSkills(toolUseContext)` (`ukA`) scans multiple skill directories for SKILL.md files
+2. Each SKILL.md is parsed into a command definition of type `"prompt"`
+3. The skill's directory name becomes the command name (e.g., `.claude/skills/commit/SKILL.md` becomes `/commit`)
+4. Skills can specify `whenToUse`, `description`, `disableModelInvocation`, and other metadata
+
+### Skill Commands vs Built-in Commands
+
+| Aspect | Built-in Commands | Skill Commands |
+|--------|------------------|----------------|
+| Source | Hardcoded in binary | `.claude/skills/` directories, plugins |
+| Type | local, local-jsx, or prompt | Always prompt (generates LLM messages) |
+| Priority | Always available | Can shadow non-essential built-ins |
+| Removal | Cannot be removed | Removed by deleting the SKILL.md |
+| Model access | Varies by type | Always has model access (unless `disableModelInvocation`) |
+| Lazy loading | `load()` returns module | `getPromptForCommand()` returns messages |
+
+### The Skill Tool Connection
+
+The Skill tool description is what enables the LLM to invoke slash commands. When the model recognizes that a user's request matches a skill, it calls the Skill tool with `skill: "name"` and optional `args`. This triggers the same `handlePromptCommandFromTool` (Pb4) flow.
+
+The connection works through two filtered views of the command registry:
+
+1. **`getSkillToolCommands` (hv)**: Returns commands eligible for the Skill tool. Filters to: `type === "prompt"`, not `disableModelInvocation`, `source !== "builtin"`, and loaded from `bundled`, `commands_DEPRECATED`, or has `whenToUse`/`hasUserSpecifiedDescription`.
+
+2. **`getSlashCommandSkills` (aO6)**: Returns commands eligible for the slash command picker UI. Filters to: `type === "prompt"`, `source !== "builtin"`, has description, and loaded from `skills`, `plugin`, `bundled`, or `disableModelInvocation`.
+
+The important distinction: built-in CLI commands (`/help`, `/clear`, etc.) are explicitly excluded from the Skill tool. The Skill tool description even states: "Do not use this tool for built-in CLI commands (like /help, /clear, etc.)". This prevents the model from trying to invoke commands that require interactive UI rendering.

@@ -27,8 +27,11 @@ Key functions in this document:
 - `checkHeredocInSubstitution` (adY) - Validates `$( cat <<DELIM ... )` patterns
 - `checkQuotedHeredoc` (tdY) - Allows heredocs with quoted/escaped delimiters
 - `checkGitCommitMessage` (sdY) - Special handling for git commit -m with substitution detection
-- `checkDangerousPatterns` (edY) - Detects `$()`, `${}`, `<()`, `>()` and similar substitution patterns
+- `checkJqCommand` (edY) - Detects jq `system()` and dangerous file-reading flags (**NOT** checkDangerousPatterns)
+- `checkDangerousPatterns` (KcY) - Detects backticks, `$()`, `${}`, `<()`, `>()` and redirections
 - `checkObfuscatedFlags` ($cY) - Detects ANSI-C quoting, locale quoting, and quoted flag names
+- `checkShellMetacharacters` (AcY) - Detects `;`, `|`, `&` in quoted arguments
+- `checkDangerousVariables` (qcY) - Detects variables in redirection/pipe contexts
 - `checkNewlines` (YcY) - Detects newlines that could separate multiple commands
 - `checkIFSInjection` (zcY) - Detects `$IFS` or `${...IFS` variable manipulation
 - `checkProcEnviron` (wcY) - Detects `/proc/*/environ` access
@@ -39,6 +42,10 @@ Key functions in this document:
 - `DANGEROUS_PATTERNS` (ddY) - Array of regex patterns for dangerous shell constructs
 - `HEREDOC_IN_SUBSTITUTION_PATTERN` (PhA) - Regex: `/\$\(.*<</`
 - `shellTokenize` (pz) - External shell tokenizer (bash-parser)
+
+> **Correction notice:** The original document incorrectly labeled `edY` as `checkDangerousPatterns`.
+> The actual `edY` function is `checkJqCommand` (jq system() and file flag detection).
+> The dangerous pattern check is `KcY`. See [implementation.md](./implementation.md) for full details.
 
 ---
 
@@ -331,9 +338,10 @@ function runSecurityChecks(command) {
     }
 
     // Phase 2: Deny-list checks (can require user approval)
-    let denyChecks = [checkDangerousPatterns, checkObfuscatedFlags, checkJqSystem, checkJqFiles,
-                      checkNewlines, checkIFSInjection, checkProcEnviron, checkShellMetachars,
-                      checkMalformedTokens];
+    // NOTE: edY=checkJqCommand (NOT checkDangerousPatterns), KcY=checkDangerousPatterns
+    let denyChecks = [checkJqCommand, checkObfuscatedFlags, checkShellMetacharacters,
+                      checkDangerousVariables, checkNewlines, checkIFSInjection,
+                      checkProcEnviron, checkDangerousPatterns, checkMalformedTokenInjection];
     for (let check of denyChecks) {
         let result = check(context);
         if (result.behavior === "ask") return result;
@@ -343,10 +351,12 @@ function runSecurityChecks(command) {
 }
 
 // Mapping: lm→runSecurityChecks, CY8→hasSingleQuotedBackslashBypass, cdY→stripQuotes,
-//   ldY→stripRedirections, ndY→checkEmpty, rdY→checkIncomplete, adY→checkHeredocInSubst,
-//   tdY→checkQuotedHeredoc, sdY→checkGitCommit, edY→checkDangerousPatterns,
-//   $cY→checkObfuscatedFlags, YcY→checkNewlines, zcY→checkIFSInjection,
-//   wcY→checkProcEnviron, HcY→checkMalformedTokens
+//   ldY→stripRedirections, ndY→checkEmptyCommand, rdY→checkIncompleteCommand,
+//   adY→checkHeredocInSubstitution, tdY→checkQuotedHeredoc, sdY→checkGitCommitMessage,
+//   edY→checkJqCommand (NOT checkDangerousPatterns!),
+//   $cY→checkObfuscatedFlags, AcY→checkShellMetacharacters, qcY→checkDangerousVariables,
+//   YcY→checkNewlines, zcY→checkIFSInjection, wcY→checkProcEnviron,
+//   KcY→checkDangerousPatterns, HcY→checkMalformedTokenInjection
 ```
 
 **Why two phases (allow then deny)?**
@@ -383,7 +393,10 @@ If an allow check approves the command, the deny checks are skipped entirely. Th
 2. Check for `<<'DELIM'` or `<<\DELIM` patterns
 3. If found, allow -- quoted/escaped delimiters mean no variable expansion in content
 
-### checkDangerousPatterns (edY)
+### checkDangerousPatterns (KcY)
+
+> **Correction:** Previously labeled as `edY`, but the actual `edY` function is `checkJqCommand`.
+> The dangerous pattern check is `KcY`.
 
 **What it does:** Detects shell metacharacters that enable command substitution, process substitution, or parameter expansion.
 

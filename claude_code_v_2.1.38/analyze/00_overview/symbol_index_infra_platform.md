@@ -38,10 +38,20 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| cq6 | getSystemPrompt | chunks.47.mjs:2470 | function |
-| lq6 | getAttributionHeader | chunks.47.mjs:2484 | function |
-| F9z | buildSystemPromptWithCache | chunks.169.mjs:150 | function |
 | A67 | calculatePromptHash | chunks.47.mjs:2528 | function |
+| cq6 | getSystemPrompt | chunks.47.mjs:2470 | function |
+| dZ | buildSystemPrompt | chunks.169.mjs:236 | function (main entry, selects full vs simplified) |
+| F9z | buildSystemPromptWithCache | chunks.169.mjs:1394 | function |
+| FOq | buildMcpCliInstructions | chunks.169.mjs:264 | function |
+| G9z | buildBasePersonaSection | chunks.169.mjs:436267 | function ("You are an interactive CLI tool...") |
+| hOq | buildSimplifiedSystemPrompt | chunks.169.mjs:225 | function (proactive/simplified variant) |
+| IOq | buildSimplifiedEnvInfo | chunks.169.mjs:402 | function (compact env for simplified prompt) |
+| lq6 | getAttributionHeader | chunks.47.mjs:2484 | function |
+| nBA | buildFullEnvInfo | chunks.169.mjs:378 | function (XML-format env for standard prompt) |
+| ot | buildFinalSystemPrompt | chunks.188.mjs:537 | function (combines custom + default prompts) |
+| Pf5 | isAttributionHeaderEnabled | chunks.47.mjs:2484 | function |
+| xG1 | GLOBAL_CACHE_MARKER | chunks.169.mjs:216 | constant (cache boundary delimiter) |
+| Zf5 | getFirstUserMessageText | chunks.47.mjs:2528 | function (extracts text for hash) |
 
 ---
 
@@ -51,7 +61,7 @@
 |------------|----------|-----------|------|
 | ce | parseMcpCliCommand | chunks.174.mjs:2627 | function |
 | CYz | processMcpCliResult | chunks.170.mjs:473 | function |
-| ECA | callMcpServer | chunks.170.mjs:480 (referenced) | function |
+| ECA | callMcpServer | chunks.145.mjs:1627 | function |
 | CJq | updateMcpSessionState | chunks.174.mjs:353 | function |
 | FOq | buildMcpCliInstructions | chunks.169.mjs:264 | function |
 | hc | getMcpCliCacheDir | chunks.174.mjs:282 | function |
@@ -60,10 +70,47 @@
 | A11 | mcpCliProgram | chunks.175.mjs:452442 | object (Commander) |
 | yHz | executeMcpTool | chunks.175.mjs:452355 | function |
 | rH6 | McpClient | chunks.79.mjs:214313 | class |
-| SJA | StdioClientTransport | chunks.79.mjs:214693 | class |
+| SJA | StdioClientTransport | chunks.79.mjs:1922 | class |
 | zY1 | callRemoteMcpEndpoint | chunks.175.mjs:452318 | function |
 | mFA | parseToolIdentifier | chunks.175.mjs:452309 | function |
 | SHz | runMcpCliCommand | chunks.175.mjs:452397 | function |
+
+### MCP Transport Layer
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| hb1 | LineBuffer | chunks.79.mjs:1881 | class |
+| sH6 | createEventSourceParser | chunks.79.mjs:2028 | function |
+| D$6 | SSEClientTransport | chunks.80.mjs:458 | class |
+| j$6 | StreamableHTTPClientTransport | chunks.80.mjs:650 | class |
+
+### MCP Hub & Context
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| nXq | McpHub | chunks.175.mjs:1897 | class |
+| ZQA | MCPContext | chunks.176.mjs:2333 | class |
+| K11 | onChangeAppStateHandler | chunks.176.mjs:581 | function |
+| Jf1 | findMcpClientByServerName | chunks.175.mjs:1211 | function |
+
+### MCP CLI Subcommands
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| pT6 | listMcpServers | chunks.175.mjs:962 | function |
+| dT6 | filterMcpTools | chunks.175.mjs:975 | function |
+| cT6 | getToolInfo | chunks.175.mjs:994 | function |
+| lT6 | grepTools | chunks.175.mjs:1020 | function |
+| iT6 | filterMcpResources | chunks.175.mjs:1051 | function |
+| VD | parseToolName | chunks.175.mjs:? | function |
+
+### MCP UI & State Sync
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| XVq | mergeMcpClients | chunks.186.mjs:163 | function |
+| sgA | mergeCommands | chunks.186.mjs:177 | function |
+| WWq | ElicitationDialog | chunks.188.mjs:1247 | function |
 
 ---
 

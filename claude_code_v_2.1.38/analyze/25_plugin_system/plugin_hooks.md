@@ -20,7 +20,12 @@ Key functions in this document:
 - `mergeHooks` (Dn4) - Merges multiple hook configurations into one combined config
 - `readManifestFile` (XG6) - Reads and validates a plugin.json manifest from disk
 - `loadEnabledPlugins` (HxY) - Loads all enabled plugins from user settings and marketplaces
-- `loadPluginHooksAtStartup` (pa) - Top-level function that triggers plugin hook loading (referenced as `loadPluginHooks` in cli.chunks.mjs)
+- `loadAllPluginHooks` (pa) - Memoized function that registers hooks from all enabled plugins into the global registry
+- `extractPluginHooksForEvent` (oN9) - Converts a plugin's hooksConfig into the event-indexed format
+- `registerPluginHooks` (O61) - Registers the extracted hooks into the global hook registry
+- `setupPluginHookHotReload` (sN9) - Subscribes to policySettings changes to auto-reload hooks
+- `clearPluginHookCache` (rO6) - Clears `pa` memoization and deregisters hooks
+- `resetHotReloadState` (aN9) - Resets the hot-reload subscription guard
 - `executeSessionStartHooks` ($yA) - Fires SessionStart hooks including plugin hooks
 - `executePluginHooksForSession` (PP) - Loads plugin hooks then runs SessionStart hook event
 - `executePluginHooksForSetup` (FW6) - Loads plugin hooks then runs Setup hook event
@@ -385,22 +390,159 @@ Priority ordering (from `chunks.75.mjs`):
 
 ---
 
-## Hot Reload: Plugin Hook File Watching
+## Phase 3b: Global Hook Registration (`pa`, `oN9`, `O61`)
 
-The system supports hot-reloading plugin hooks when files change:
+The `pa` (loadAllPluginHooks) function is the bridge between plugin-level hooks and the global hook registry:
 
+```javascript
+// ============================================
+// loadAllPluginHooks (pa) - Memoized hook registration from all enabled plugins
+// Location: chunks.87.mjs:2606-2635 (pu1 module initialization)
+// ============================================
+
+// ORIGINAL:
+pa = KA(async () => {  // KA = memoize
+    let { enabled: A } = await iY(),  // Get all enabled plugins
+        q = {
+            PreToolUse: [], PostToolUse: [], PostToolUseFailure: [],
+            Notification: [], UserPromptSubmit: [], SessionStart: [],
+            SessionEnd: [], Stop: [], SubagentStart: [], SubagentStop: [],
+            PreCompact: [], PermissionRequest: [], Setup: [],
+            TeammateIdle: [], TaskCompleted: []
+        };
+    for (let Y of A) {
+        if (!Y.hooksConfig) continue;
+        let z = oN9(Y);    // Extract hooks indexed by event type
+        for (let w of Object.keys(z)) q[w].push(...z[w])
+    }
+    O61(q);  // Register into global hook registry
+    let K = Object.values(q).reduce((Y, z) => Y + z.reduce((w, H) => w + H.hooks.length, 0), 0);
+    h(`Registered ${K} hooks from ${A.length} plugins`)
+});
+
+// READABLE:
+loadAllPluginHooks = memoize(async () => {
+    let { enabled: enabledPlugins } = await getLoadedPlugins();
+
+    // Initialize empty event queues for all 15 hook events
+    let eventQueues = {
+        PreToolUse: [], PostToolUse: [], PostToolUseFailure: [],
+        Notification: [], UserPromptSubmit: [], SessionStart: [],
+        SessionEnd: [], Stop: [], SubagentStart: [], SubagentStop: [],
+        PreCompact: [], PermissionRequest: [], Setup: [],
+        TeammateIdle: [], TaskCompleted: []
+    };
+
+    // For each enabled plugin with hooks configured:
+    for (let plugin of enabledPlugins) {
+        if (!plugin.hooksConfig) continue;
+        let pluginHooks = extractPluginHooksForEvent(plugin);  // oN9
+        for (let eventName of Object.keys(pluginHooks))
+            eventQueues[eventName].push(...pluginHooks[eventName]);
+    }
+
+    // Register all collected hooks into the global registry
+    registerPluginHooks(eventQueues);  // O61
+
+    let totalCount = Object.values(eventQueues)
+        .reduce((sum, matchers) => sum + matchers.reduce((s, m) => s + m.hooks.length, 0), 0);
+    log(`Registered ${totalCount} hooks from ${enabledPlugins.length} plugins`);
+});
+
+// Mapping: pa→loadAllPluginHooks, iY→getLoadedPlugins, oN9→extractPluginHooksForEvent,
+//   O61→registerPluginHooks, KA→memoize
 ```
-D.loadPluginHooks(), D.setupPluginHookHotReload()
+
+**Key design: 15-event initialization**
+The function initializes ALL 15 event types even before knowing which plugins have hooks. This ensures the registry always has arrays (not undefined) for all events, preventing null-check overhead in the event dispatch path.
+
+**Memoization semantics:** `pa` is memoized with `KA` (likely a simple cache). Once called, subsequent calls return immediately. The cache is invalidated by `rO6` (clearPluginHookCache).
+
+---
+
+## Hot Reload: Policy-Driven Refresh (`sN9`, `aN9`, `rO6`)
+
+The system supports hot-reloading plugin hooks when enterprise policy settings change:
+
+```javascript
+// ============================================
+// setupPluginHookHotReload (sN9) - Subscribe to policy changes for hook reload
+// Location: chunks.87.mjs:2589-2593
+// ============================================
+
+// ORIGINAL:
+function sN9() {
+    if (g0A) return;  // Guard: only subscribe once
+    g0A = true;
+    zX.subscribe((A) => {  // zX = settings change observable
+        if (A === "policySettings") {
+            h("Plugin hooks: reloading due to policySettings change");
+            Sv();    // clearPluginsCache() - invalidate plugin list
+            rO6();   // clearPluginHookCache() - invalidate hook registration
+            pa();    // Reload plugins + re-register hooks
+        }
+    });
+}
+
+// READABLE:
+function setupPluginHookHotReload() {
+    if (hotReloadAlreadySetup) return;  // g0A = hot reload guard
+    hotReloadAlreadySetup = true;
+    settingsChangeObservable.subscribe((changedSettingName) => {
+        if (changedSettingName === "policySettings") {
+            log("Plugin hooks: reloading due to policySettings change");
+            clearPluginsCache();       // Invalidate plugin list memoization
+            clearPluginHookCache();    // Invalidate hook registration memoization
+            loadAllPluginHooks();      // Re-load and re-register
+        }
+    });
+}
+
+// ============================================
+// clearPluginHookCache (rO6) - Invalidate hook registration
+// Location: chunks.87.mjs:2581-2583
+// ============================================
+
+// ORIGINAL:
+function rO6() {
+    pa.cache?.clear?.();  // Clear memoization cache
+    YR6();                // Deregister all plugin hooks from global registry
+}
 ```
-(from chunks.177.mjs:2536)
 
-When a plugin's hooks.json file is modified, the watcher:
-1. Re-reads the hooks file
-2. Re-validates against the schema
-3. Replaces the in-memory hook configuration
-4. Subsequent hook events use the new configuration
+**Why trigger on `policySettings` specifically:**
+- `allowManagedHooksOnly` lives in `policySettings`
+- When an MDM profile changes this flag, hooks need to reload immediately
+- Other settings changes (userSettings, projectSettings) don't affect which hooks can execute
+- This is a live policy enforcement mechanism, not just developer iteration
 
-This enables plugin developers to iterate on hooks without restarting Claude Code.
+**The `g0A` guard (`hotReloadAlreadySetup`):**
+Prevents double-subscription if `setupPluginHookHotReload` is called multiple times during initialization. Without this, each call would add another subscriber, causing hooks to reload multiple times per policy change.
+
+**The reload sequence (all 3 steps required):**
+```
+1. Sv()  = clearPluginsCache    → Force plugin list to be reloaded next time
+2. rO6() = clearPluginHookCache → Deregister current hooks + clear pa memo
+3. pa()  = loadAllPluginHooks   → Re-load plugin list, re-extract hooks, re-register
+```
+
+---
+
+## Startup Integration (chunks.177.mjs:2536)
+
+The `loadPluginHooks` and `setupPluginHookHotReload` calls happen during UI setup in the REPL:
+
+```javascript
+// After session setup jobs launch, before prefetch:
+Promise.resolve().then(() => (pu1(), IU7))  // Lazy-load the pu1 module (contains pa, sN9)
+    .then((D) => {
+        D.loadPluginHooks();          // pa() - start hook registration
+        D.setupPluginHookHotReload(); // sN9() - start watching for policy changes
+    });
+```
+
+**Why deferred with Promise.resolve():**
+Plugin hook loading involves disk I/O and potentially git operations (if marketplaces need refresh). Deferring it avoids blocking the main UI initialization path. The session becomes interactive immediately; hook registration completes asynchronously. If hooks aren't registered before the first tool use, they simply won't run for that invocation (hooks fire asynchronously anyway).
 
 ---
 

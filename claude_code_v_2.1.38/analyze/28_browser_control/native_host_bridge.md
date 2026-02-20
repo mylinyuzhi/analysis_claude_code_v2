@@ -1,272 +1,573 @@
 # Native Host Bridge - Chrome Browser Control (Claude Code 2.1.38)
 
-> Analysis of the Chrome/browser control architecture, native host bridge protocol (stdio/native-messaging),
-> message format, browser automation capabilities, and security model.
+> Deep analysis of the Chrome/browser control bridge architecture:
+> three transport implementations (WebSocket cloud bridge, Unix socket, socket pool),
+> native host installation, message protocol, security model, extension discovery.
 
 ---
 
 ## Related Symbols
 
 > Symbol mappings:
-> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
-> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
-> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `getChromeMcpConfig` (HBA) - Builds the MCP server config for the Claude-in-Chrome bridge
-- `installNativeHostManifest` (bHq) - Installs the native messaging host manifest to browser-specific directories
-- `createNativeHostWrapper` (uHq) - Creates the wrapper shell script that Chrome launches via native messaging
-- `detectChromeExtension` (Ec) - Checks if the Claude Code Chrome extension is installed
-- `isExtensionInstalled` (WKz) - Cached check for extension presence
-- `ChromeOnboarding` (VKz) - React UI component for the Chrome extension setup flow
-- `registerWindowsNativeHost` (PKz) - Registers the native host in the Windows registry
-- `getNativeHostPaths` (MKz / fn4) - Returns platform-specific paths for native host manifest
-- `NATIVE_HOST_NAME` (wBA) - Constant: `"com.anthropic.claude_code_browser_extension"`
-- `CHROME_EXTENSION_ID` - The hardcoded Chrome extension ID: `fcoeoabgfenejglbffodgkkbkcdhcgfn`
-
-Bridge client functions (chunks.165.mjs):
-- `connect` - Establishes WebSocket connection to the cloud bridge
-- `handleMessage` - Routes incoming bridge messages by type
-- `callTool` - Sends a tool_call to the Chrome extension and awaits the result
-- `handleToolResult` - Resolves pending tool call promises on response
-- `handlePermissionRequest` - Forwards extension permission prompts to the MCP permission handler
-- `discoverAndSelectExtension` - Auto-selects a Chrome extension when multiple are available
-- `switchBrowser` - Switches to a different connected Chrome extension
-- `broadcastPairingRequest` - Sends a pairing request to discover extensions
-
----
-
-## Overview
-
-Claude Code's "Claude in Chrome" feature enables the LLM to control a real web browser through a
-multi-layered bridge architecture:
-
-```
-┌──────────────┐     stdio/MCP      ┌──────────────┐    WebSocket     ┌──────────────┐
-│ Claude Code   │◀──────────────────▶│ MCP Server    │◀────────────────▶│ Cloud Bridge  │
-│ (main process)│                    │ (child proc)  │                  │ (relay)       │
-└──────────────┘                    └──────────────┘                  └──────┬───────┘
-                                                                            │ WebSocket
-                                                                     ┌──────▼───────┐
-                                                                     │ Chrome Ext.   │
-                                                                     │ (browser)     │
-                                                                     └──────────────┘
-```
-
-The system uses Chrome's **Native Messaging** protocol to bootstrap the connection, then switches
-to a **WebSocket-based cloud bridge** for actual tool communication.
+- `WebSocketBridgeClient` (ouA) - Cloud bridge WebSocket client class
+- `createWebSocketBridgeClient` (auA) - Factory for `ouA`
+- `UnixSocketClient` (ZHq) - Direct Unix socket client class
+- `createUnixSocketClient` (FN6) - Factory for `ZHq`
+- `SocketPoolClient` (VHq) - Multi-socket pool manager class
+- `createSocketPoolClient` (NHq) - Factory for `VHq`
+- `SocketConnectionError` (Hf) - Error class for connection failures
+- `getChromeMcpConfig` (HBA) - Entry point that installs manifest as side effect
+- `installNativeHostManifest` (bHq) - Writes manifest JSON + Windows registry
+- `createNativeHostWrapper` (uHq) - Creates platform wrapper script
+- `detectChromeExtension` (Ec) - Async check for installed extension
+- `isExtensionInstalledCached` (WKz) - Sync cached extension check (updates state)
+- `getBrowserDataPaths` (Zn4) - Gets per-browser user data dirs for extension detection
+- `getNativeHostPaths` (fn4) - Gets NativeMessagingHosts dirs per browser
+- `getWindowsRegistryPaths` (Vn4) - Gets Windows registry paths per browser
+- `getChromeMcpSocketPath` (MG6) - Gets the Unix socket path for current user
+- `getChromeMcpSocketPaths` (Tn4) - Gets all possible socket paths to scan
+- `CHROME_MCP_SERVER_NAME` (qy) - `"claude-in-chrome"`
+- `NATIVE_HOST_NAME` (wBA) - `"com.anthropic.claude_code_browser_extension"`
+- `CHROME_EXTENSION_ID` (OKz) - `"fcoeoabgfenejglbffodgkkbkcdhcgfn"`
+- `MANIFEST_FILENAME` (xHq) - `"com.anthropic.claude_code_browser_extension.json"`
+- `RECONNECT_URL` (jKz) - `"https://clau.de/chrome/reconnect"`
+- `EXTENSIONS_LIST_TIMEOUT` (KKz) - 5000ms
+- `PEER_CONNECTED_WAIT_TIMEOUT` (fHq) - 10000ms (10s)
 
 ---
 
-## Architecture: Three-Layer Communication
+## Overview: Three Transport Implementations
 
-### Layer 1: Claude Code to MCP Server (stdio)
+The `selectBridgeClient` (kHq) function selects between three client implementations based on the context:
 
-Claude Code spawns the Chrome MCP server as a child process using the standard MCP stdio transport:
-
-```javascript
-// ============================================
-// getChromeMcpConfig - Build MCP config for Chrome bridge
-// Location: chunks.166.mjs:1351-1394
-// ============================================
-
-// ORIGINAL (for source lookup):
-function HBA() {
-    let A = D9(), q = Qe.map((z) => `mcp__claude-in-chrome__${z.name}`), K = {};
-    if (HQ()) K.CLAUDE_CHROME_PERMISSION_MODE = "skip_all_permission_checks";
-    let Y = Object.keys(K).length > 0;
-    if (A) {
-        let z = `"${process.execPath}" --chrome-native-host`;
-        return uHq(z).then((w) => bHq(w)), {
-            mcpConfig: {
-                [qy]: {
-                    type: "stdio",
-                    command: process.execPath,
-                    args: ["--claude-in-chrome-mcp"],
-                    scope: "dynamic",
-                    ...Y && { env: K }
-                }
-            },
-            allowedTools: q,
-            systemPrompt: YBA()
-        }
-    } else {
-        // Fallback: use cli.js path instead of process.execPath
-        let z = DKz(import.meta.url), w = vc(z, ".."), H = vc(w, "cli.js");
-        return uHq(`"${process.execPath}" "${H}" --chrome-native-host`).then((O) => bHq(O)), {
-            mcpConfig: { [qy]: { type: "stdio", command: process.execPath,
-                                   args: [`${H}`, "--claude-in-chrome-mcp"], scope: "dynamic", ...Y && { env: K } } },
-            allowedTools: q, systemPrompt: YBA()
-        }
-    }
-}
-
-// READABLE (for understanding):
-function getChromeMcpConfig() {
-    let isBundled = isBundledBinary();
-    let allowedTools = CHROME_TOOLS.map(t => `mcp__claude-in-chrome__${t.name}`);
-    let env = {};
-    if (isChromePermissionSkipEnabled()) env.CLAUDE_CHROME_PERMISSION_MODE = "skip_all_permission_checks";
-
-    // Side effect: install native host manifest in background
-    let nativeHostCommand = `"${process.execPath}" --chrome-native-host`;
-    createNativeHostWrapper(nativeHostCommand).then(wrapperPath => installNativeHostManifest(wrapperPath));
-
-    return {
-        mcpConfig: {
-            "claude-in-chrome": {
-                type: "stdio",
-                command: process.execPath,
-                args: ["--claude-in-chrome-mcp"],
-                scope: "dynamic",
-                ...(Object.keys(env).length > 0 && { env })
-            }
-        },
-        allowedTools,
-        systemPrompt: getChromeSystemPrompt()
-    };
-}
-
-// Mapping: HBA→getChromeMcpConfig, D9→isBundledBinary, Qe→CHROME_TOOLS,
-//   HQ→isChromePermissionSkipEnabled, uHq→createNativeHostWrapper, bHq→installNativeHostManifest,
-//   qy→"claude-in-chrome" server name, YBA→getChromeSystemPrompt
+```
+selectBridgeClient(context):
+  context.bridgeConfig?   → WebSocketBridgeClient (ouA)  — cloud relay, multi-browser
+  context.getSocketPaths? → SocketPoolClient      (VHq)  — pool of local Unix sockets
+  else                    → UnixSocketClient      (ZHq)  — single local Unix socket
 ```
 
-**How it works:**
-1. The MCP config tells Claude Code to spawn itself with `--claude-in-chrome-mcp` flag
-2. This starts an MCP server that connects to the cloud bridge via WebSocket
-3. The server exposes Chrome automation tools via the standard MCP tool protocol
-4. As a side effect, the native host manifest is installed for Chrome's native messaging
+```
+┌─────────────────────┬──────────────────────────────────────────┬──────────────┐
+│ Client              │ Use Case                                  │ Transport    │
+├─────────────────────┼──────────────────────────────────────────┼──────────────┤
+│ ouA (WebSocket)     │ Production: cloud bridge relay            │ WebSocket    │
+│ ZHq (Unix Socket)   │ Development: direct to native host        │ Unix IPC     │
+│ VHq (Socket Pool)   │ Multi-extension: pool of sockets          │ Unix IPC ×N  │
+└─────────────────────┴──────────────────────────────────────────┴──────────────┘
+```
 
-**Why spawn itself?** Using `process.execPath` with a special flag means:
-- No separate binary needs to be installed
-- The MCP server shares the same codebase and dependencies
-- Updates are automatic when Claude Code updates
+---
 
-### Layer 2: MCP Server to Cloud Bridge (WebSocket)
+## Implementation 1: WebSocket Bridge Client (ouA)
 
-The bridge client connects to Anthropic's cloud relay service:
+### Class Overview
+
+`ouA` in `chunks.165.mjs:2050-2604` is the primary production transport.
+It connects to Anthropic's cloud relay via WebSocket.
+
+```javascript
+class WebSocketBridgeClient {
+    // Connection state
+    ws = null;
+    connected = false;
+    authenticated = false;
+    connecting = false;
+    reconnectAttempts = 0;
+    reconnectTimer = null;
+    connectionStartTime = null;
+    connectionEstablishedTime = null;
+
+    // Extension management
+    selectedDeviceId;          // Currently selected extension device ID
+    discoveryComplete = false;
+    discoveryPromise = null;   // Singleton discovery in-progress
+    pendingDiscovery = null;   // Waiting for extensions_list response
+    peerConnectedWaiters = []; // Callbacks awaiting peer_connected event
+    pendingPairingRequestId;   // Pending pairing handshake
+    pairingInProgress = false;
+    persistedDeviceId;         // Last-known device ID from storage
+    pendingSwitchResolve;      // Resolve fn for switchBrowser()
+
+    // Call management
+    pendingCalls = new Map();  // tool_use_id → { resolve, reject, timer, ... }
+
+    // Configuration
+    permissionMode = "ask";
+    allowedDomains;
+    tabsContextCollectionTimeoutMs = 2000;  // 2s for tabs_context_mcp
+    toolCallTimeoutMs = 120000;             // 120s for all other tools
+}
+```
+
+### Connection Flow
 
 ```javascript
 // ============================================
-// connect - Establish WebSocket connection to cloud bridge
-// Location: chunks.165.mjs:2274-2340
+// WebSocketBridgeClient.connect - Full auth + WS connection
+// Location: chunks.165.mjs:2274-2357
 // ============================================
 
-// ORIGINAL (for source lookup):
+// READABLE:
 async connect() {
-    let { logger: A, serverName: q, bridgeConfig: K, trackEvent: Y } = this.context;
-    if (!K) { A.error(`[${q}] No bridge config provided`); return }
-    if (this.connecting) return;
-    this.connecting = !0; this.authenticated = !1; this.connectionStartTime = Date.now();
-    let z, w;
-    if (K.devUserId) z = K.devUserId;
-    else {
-        let $ = await K.getUserId();
-        if (!$) { /* handle no user ID */ return }
-        z = $;
-        w = await K.getOAuthToken();
-        if (!w) { /* handle no token */ return }
-    }
-    let H = `${K.url}/chrome/${z}`;
-    this.ws = new mt(H);
-    this.ws.on("open", () => {
-        let $ = { type: "connect", client_type: this.context.clientTypeId };
-        if (K.devUserId) $.dev_user_id = K.devUserId;
-        else $.oauth_token = w;
-        this.ws?.send(JSON.stringify($))
-    });
-    // ... message, close, error handlers ...
-}
-
-// READABLE (for understanding):
-async connect() {
-    let { bridgeConfig } = this.context;
     if (this.connecting) return;
     this.connecting = true;
+    this.authenticated = false;
+    this.connectionStartTime = Date.now();
+    this.closeSocket();
 
-    // Authenticate: get user ID and OAuth token
-    let userId = bridgeConfig.devUserId ?? await bridgeConfig.getUserId();
-    let oauthToken = bridgeConfig.devUserId ? null : await bridgeConfig.getOAuthToken();
+    // Step 1: Get user identity
+    let userId = context.bridgeConfig.devUserId ?? await context.bridgeConfig.getUserId();
+    if (!userId) {
+        trackEvent("chrome_bridge_connection_failed", { error_type: "no_user_id" });
+        context.onAuthenticationError?.();
+        return;
+    }
 
-    // Connect WebSocket to bridge URL
-    let bridgeUrl = `${bridgeConfig.url}/chrome/${userId}`;
+    // Step 2: Get OAuth token (skipped for dev mode)
+    let oauthToken = context.bridgeConfig.devUserId ? null : await context.bridgeConfig.getOAuthToken();
+    if (!oauthToken && !context.bridgeConfig.devUserId) {
+        trackEvent("chrome_bridge_connection_failed", { error_type: "no_oauth_token" });
+        context.onAuthenticationError?.();
+        return;
+    }
+
+    // Step 3: Open WebSocket to bridge URL
+    let bridgeUrl = `${context.bridgeConfig.url}/chrome/${userId}`;
     this.ws = new WebSocket(bridgeUrl);
 
+    // Step 4: On open, send auth message
     this.ws.on("open", () => {
-        // Send authentication message
         this.ws.send(JSON.stringify({
             type: "connect",
-            client_type: "claude-code",
-            oauth_token: oauthToken  // or dev_user_id for dev mode
+            client_type: this.context.clientTypeId,
+            oauth_token: oauthToken  // or dev_user_id for dev
         }));
+    });
+
+    // Step 5: Bridge responds with "paired" or "waiting" → authenticated = true
+    this.ws.on("message", (data) => this.handleMessage(JSON.parse(data)));
+    this.ws.on("close", () => this.scheduleReconnect());
+    this.ws.on("error", () => { this.connected = false; this.authenticated = false; });
+}
+```
+
+### Message Routing (`handleMessage`)
+
+```javascript
+// ============================================
+// WebSocketBridgeClient.handleMessage - Route all bridge messages
+// Location: chunks.165.mjs:2358-2434
+// ============================================
+
+// READABLE:
+handleMessage(msg) {
+    switch (msg.type) {
+        case "paired":
+            // Connected AND extension attached to bridge
+            this.connected = this.authenticated = true;
+            this.connecting = false;
+            this.reconnectAttempts = 0;
+            trackEvent("chrome_bridge_connection_succeeded", { status: "paired" });
+            break;
+
+        case "waiting":
+            // Connected but no extension yet attached
+            this.connected = this.authenticated = true;  // still authenticated!
+            this.connecting = false;
+            trackEvent("chrome_bridge_connection_succeeded", { status: "waiting" });
+            break;
+
+        case "peer_connected":
+            // An extension joined the bridge
+            if (!this.selectedDeviceId) this.discoveryComplete = false;
+            // If previously selected extension reconnects, auto-reselect
+            if (this.previousSelectedDeviceId === msg.deviceId && !this.pendingSwitchResolve)
+                this.selectExtension(this.previousSelectedDeviceId);
+            // Unblock any waiters
+            this.peerConnectedWaiters.forEach(w => w(true));
+            this.peerConnectedWaiters = [];
+            break;
+
+        case "peer_disconnected":
+            // Extension left - clear selection
+            if (msg.deviceId === this.selectedDeviceId) {
+                this.previousSelectedDeviceId = this.selectedDeviceId;
+                this.selectedDeviceId = undefined;
+                this.discoveryComplete = false;
+            }
+            break;
+
+        case "extensions_list":
+            // Response to list_extensions query
+            if (this.pendingDiscovery) {
+                clearTimeout(this.pendingDiscovery.timeout);
+                this.pendingDiscovery.resolve(msg.extensions ?? []);
+                this.pendingDiscovery = null;
+            }
+            break;
+
+        case "pairing_response":
+            // User clicked "Connect" in extension
+            if (this.pendingPairingRequestId === msg.request_id && msg.device_id) {
+                this.selectExtension(msg.device_id);
+                context.onExtensionPaired?.(msg.device_id, msg.name);
+                if (this.pendingSwitchResolve)
+                    this.pendingSwitchResolve({ deviceId: msg.device_id, name: msg.name });
+            }
+            break;
+
+        case "tool_result":     this.handleToolResult(msg);      break;
+        case "permission_request": this.handlePermissionRequest(msg); break;
+        case "notification":    this.notificationHandler?.({ method: msg.method, params: msg.params }); break;
+        case "ping":            this.ws.send(JSON.stringify({ type: "pong" }));    break;
+        case "error":
+            if (this.selectedDeviceId) { this.selectedDeviceId = undefined; this.discoveryComplete = false; }
+            break;
+    }
+}
+```
+
+### Tool Call Protocol
+
+```javascript
+// ============================================
+// WebSocketBridgeClient.callTool - Send tool_call and await result
+// Location: chunks.165.mjs:2099-2161
+// ============================================
+
+// READABLE:
+async callTool(toolName, args, options) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN)
+        throw new SocketConnectionError("Bridge not connected");
+
+    // Trigger extension discovery if not done
+    if (!this.selectedDeviceId && !this.discoveryComplete) {
+        this.discoveryPromise ??= this.discoverAndSelectExtension().finally(() => {
+            this.discoveryPromise = null;
+        });
+        await this.discoveryPromise;
+    }
+
+    let toolUseId = crypto.randomUUID();
+    let isTabsContext = toolName === "tabs_context_mcp";
+    let timeout = isTabsContext ? this.tabsContextCollectionTimeoutMs  // 2s
+                                : this.toolCallTimeoutMs;              // 120s
+
+    return new Promise((resolve, reject) => {
+        // Set timeout timer
+        let timer = setTimeout(() => {
+            let pending = this.pendingCalls.get(toolUseId);
+            if (!pending) return;
+            this.pendingCalls.delete(toolUseId);
+
+            if (isTabsContext && pending.results.length > 0) {
+                // tabs_context: resolve with partial results on timeout
+                resolve(this.mergeTabsResults(pending.results));
+            } else {
+                reject(new SocketConnectionError(`Tool call timed out: ${toolName}`));
+            }
+        }, timeout);
+
+        // Register pending call
+        this.pendingCalls.set(toolUseId, {
+            resolve, reject, timer,
+            results: [],          // for tabs_context multi-extension accumulation
+            isTabsContext,
+            onPermissionRequest: options?.onPermissionRequest,
+            startTime: Date.now(),
+            toolName
+        });
+
+        // Send tool_call message
+        let msg = {
+            type: "tool_call",
+            tool_use_id: toolUseId,
+            client_type: this.context.clientTypeId,
+            tool: toolName,
+            args,
+        };
+        if (this.selectedDeviceId)        msg.target_device_id = this.selectedDeviceId;
+        if (options?.permissionMode)       msg.permission_mode = options.permissionMode;
+        if (options?.allowedDomains?.length) msg.allowed_domains = options.allowedDomains;
+        if (options?.onPermissionRequest)  msg.handle_permission_prompts = true;
+
+        this.ws.send(JSON.stringify(msg));
     });
 }
 ```
 
-**Authentication flow:**
-1. Get user ID from Anthropic account
-2. Get OAuth token for bridge authentication
-3. Connect WebSocket to `{bridgeUrl}/chrome/{userId}`
-4. Send `connect` message with OAuth token on open
-5. Bridge responds with `paired` or `waiting` status
-
-### Layer 3: Cloud Bridge to Chrome Extension (WebSocket)
-
-The cloud bridge acts as a relay between the MCP server and the Chrome extension. Both connect to the same bridge URL using their respective credentials. The bridge routes messages between them based on device IDs.
-
----
-
-## Native Messaging Host Installation
-
-### How Chrome Native Messaging Works
-
-Chrome's native messaging protocol allows extensions to communicate with local applications via stdio:
-
-1. Extension sends a message to a registered native host
-2. Chrome looks up the host by name in its native messaging manifest directory
-3. Chrome launches the executable specified in the manifest
-4. Communication happens over stdin/stdout with length-prefixed JSON messages
-
-### installNativeHostManifest (bHq)
+### Extension Discovery Algorithm
 
 ```javascript
 // ============================================
-// installNativeHostManifest - Install manifest for Chrome native messaging
+// WebSocketBridgeClient.discoverAndSelectExtension
+// Location: chunks.165.mjs:2174-2202
+// ============================================
+
+// READABLE:
+async discoverAndSelectExtension() {
+    // Load persisted device ID (from previous session)
+    this.persistedDeviceId ??= this.context.getPersistedDeviceId?.();
+
+    // Step 1: Query connected extensions
+    let extensions = await this.queryBridgeExtensions();
+
+    // Step 2: If none found, wait up to 10s for one to connect
+    if (extensions.length === 0) {
+        if (await this.waitForPeerConnected(PEER_CONNECTED_WAIT_TIMEOUT)) {
+            extensions = await this.queryBridgeExtensions();  // re-query after peer_connected
+        }
+    }
+
+    this.discoveryComplete = true;
+
+    if (extensions.length === 0) return;  // No extensions available
+
+    if (extensions.length === 1) {
+        // Warn if extension is on different OS (cross-machine control)
+        if (!this.isLocalExtension(extensions[0]))
+            this.context.onRemoteExtensionWarning?.(extensions[0]);
+        this.selectExtension(extensions[0].deviceId);
+        return;
+    }
+
+    // Multiple extensions: try persisted selection first
+    if (this.persistedDeviceId) {
+        let match = extensions.find(e => e.deviceId === this.persistedDeviceId);
+        if (match) {
+            this.selectExtension(match.deviceId);
+            return;
+        }
+    }
+
+    // No match: broadcast pairing request — user clicks "Connect" in Chrome
+    this.broadcastPairingRequest();
+    this.pairingInProgress = true;
+}
+```
+
+**Why `tabs_context_mcp` uses `mergeTabsResults`:**
+The `tabs_context_mcp` tool is special: when multiple extensions are connected, it collects results from all of them. The 2-second timeout lets all extensions respond, then the results are merged into a unified tab list.
+
+### Reconnection Strategy
+
+- Uses exponential backoff: `2000 * 1.5^(attempt - 1)`, capped at 30s
+- Max 100 attempts; logs warning every 10 attempts after attempt 10
+- On `closeSocket()`, all pending calls are rejected with `SocketConnectionError`
+- On `peer_connected`, if previously selected extension reconnects → auto-reselect
+
+---
+
+## Implementation 2: Unix Socket Client (ZHq)
+
+`ZHq` in `chunks.165.mjs:1822-2029` connects directly to the Claude native host via Unix socket.
+
+### Wire Protocol (Length-Prefixed JSON)
+
+```
+Outbound (to native host):
+  ┌───────────────────────────────────────────┐
+  │ 4 bytes: message length (UInt32LE)         │
+  │ N bytes: JSON payload (UTF-8)              │
+  └───────────────────────────────────────────┘
+
+Payload format:
+  {
+    "method": "execute_tool",
+    "params": {
+      "client_id": "<clientTypeId>",
+      "tool": "<toolName>",
+      "args": { ... }
+    }
+  }
+
+Inbound (from native host):
+  Same length-prefix format.
+  Response types:
+  - Tool result:    { "result": ..., "error": ... } → AKz(A)
+  - Notification:   { "method": ..., "params": ... } → qKz(A)
+```
+
+### Security Validation (`validateSocketSecurity`)
+
+```javascript
+// ============================================
+// UnixSocketClient.validateSocketSecurity
+// Location: chunks.165.mjs:1995-2028
+// ============================================
+
+// READABLE:
+async validateSocketSecurity(socketPath) {
+    if (platform() === "win32") return;  // No Unix permissions on Windows
+
+    // Check directory permissions (if path is in claude-mcp-browser-bridge-* dir)
+    if (socketPath.split("/").pop().startsWith("claude-mcp-browser-bridge-")) {
+        let dirStat = await fs.stat(socketPath);
+        if (dirStat.isDirectory()) {
+            if ((dirStat.mode & 0o777) !== 0o700)  // Must be rwx------
+                throw Error("Insecure socket directory permissions (expected 0700)");
+            if (process.getuid?.() !== dirStat.uid)
+                throw Error("Socket directory not owned by current user");
+        }
+    }
+
+    // Check socket file permissions
+    let socketStat = await fs.stat(socketPath);
+    if (!socketStat.isSocket())
+        throw Error("Path exists but it's not a socket");
+    if ((socketStat.mode & 0o777) !== 0o600)   // Must be rw-------
+        throw Error("Insecure socket permissions (expected 0600)");
+    if (process.getuid?.() !== socketStat.uid)
+        throw Error("Socket not owned by current user");
+}
+```
+
+**Why these checks?** The socket is a critical IPC channel. If an attacker created a world-writable socket at the same path, they could intercept or inject tool calls. The ownership + permission checks prevent TOCTOU attacks.
+
+### Reconnection Strategy
+
+- Exponential backoff: `reconnectDelay * 1.5^(attempt - 1)`, capped at 30s
+- Base delay: 1000ms, max 100 attempts
+- After 100 attempts: resets count, logs "Will retry on next tool call"
+- Error codes that trigger reconnect: `ECONNREFUSED`, `ECONNRESET`, `EPIPE`, `ENOENT`, `EOPNOTSUPP`, `ECONNABORTED`
+
+---
+
+## Implementation 3: Socket Pool Client (VHq)
+
+`VHq` in `chunks.166.mjs:791-960` manages a dynamic pool of `ZHq` instances,
+one per discovered socket path. Used when `context.getSocketPaths` is provided.
+
+### Tab Routing Algorithm
+
+```javascript
+// ============================================
+// SocketPoolClient.callTool - Route to correct socket by tab ID
+// Location: chunks.166.mjs:817-829
+// ============================================
+
+// READABLE:
+async callTool(toolName, args) {
+    if (toolName === "tabs_context_mcp") return this.callTabsContext(args);
+
+    // Route by tab ID if known
+    let tabId = args.tabId;
+    if (tabId !== undefined) {
+        let socketPath = this.tabRoutes.get(tabId);
+        if (socketPath) {
+            let client = this.clients.get(socketPath);
+            if (client?.isConnected()) return client.callTool(toolName, args);
+        }
+    }
+
+    // Fall back to first connected client
+    let clients = this.getConnectedClients();
+    if (clients.length === 0) throw new SocketConnectionError("No connected sockets");
+    return clients[0].callTool(toolName, args);
+}
+```
+
+### `callTabsContext` — Multi-Extension Aggregation
+
+When multiple extensions are connected via sockets, `callTabsContext` calls all of them in parallel:
+
+```javascript
+// ============================================
+// SocketPoolClient.callTabsContext - Collect tabs from all sockets
+// Location: chunks.166.mjs:845-904
+// ============================================
+
+// READABLE:
+async callTabsContext(args) {
+    let clients = this.getConnectedClients();
+    if (clients.length === 1) {
+        let result = await clients[0].callTool("tabs_context_mcp", args);
+        this.updateTabRoutes(result, socketPathFor(clients[0]));
+        return result;
+    }
+
+    // Multiple: call all in parallel
+    let results = await Promise.allSettled(clients.map(async client => {
+        let result = await client.callTool("tabs_context_mcp", args);
+        return { result, socketPath: socketPathFor(client) };
+    }));
+
+    // Merge and build tab routing table
+    this.tabRoutes.clear();
+    let allTabs = [];
+    for (let r of results) {
+        if (r.status !== "fulfilled") continue;
+        this.updateTabRoutes(r.value.result, r.value.socketPath);
+        let tabs = this.extractTabs(r.value.result);
+        if (tabs) allTabs.push(...tabs);
+    }
+
+    if (allTabs.length > 0) return buildTabContextResponse(allTabs);
+    // Return first successful result as fallback
+    return results.find(r => r.status === "fulfilled")?.value.result;
+}
+```
+
+**`tabRoutes` Map:** Stores `tabId → socketPath` mapping built from `tabs_context_mcp` results.
+This enables subsequent tool calls to be routed to the correct extension that "owns" that tab.
+
+---
+
+## Native Host Installation
+
+### `createNativeHostWrapper` (uHq)
+
+```javascript
+// ============================================
+// createNativeHostWrapper - Create platform wrapper script
+// Location: chunks.166.mjs:1455-1473
+// ============================================
+
+// READABLE:
+async function createNativeHostWrapper(nativeHostCommand) {
+    let platform = getPlatform();
+    let wrapperDir = join(getConfigDir(), "chrome");
+    let wrapperPath = platform === "windows"
+        ? join(wrapperDir, "chrome-native-host.bat")
+        : join(wrapperDir, "chrome-native-host");
+
+    let scriptContent = platform === "windows"
+        ? `@echo off\nREM Chrome native host wrapper\nexec ${nativeHostCommand}\n`
+        : `#!/bin/sh\n# Chrome native host wrapper\nexec ${nativeHostCommand}\n`;
+
+    if (await readFile(wrapperPath).catch(() => null) === scriptContent) return wrapperPath;
+
+    await mkdir(wrapperDir, { recursive: true });
+    await writeFile(wrapperPath, scriptContent);
+    if (platform !== "windows") await chmod(wrapperPath, 0o755); // make executable
+
+    return wrapperPath;
+}
+// Mapping: uHq→createNativeHostWrapper, O8→getConfigDir
+```
+
+**Why a wrapper script?** The native host manifest must point to an executable path. Using a wrapper script:
+1. Decouples the Chrome registration from the actual binary location
+2. Allows the binary path to change (update) without re-registering
+3. Ensures the correct arguments (`--chrome-native-host`) are always passed
+
+### `installNativeHostManifest` (bHq)
+
+```javascript
+// ============================================
+// installNativeHostManifest - Write manifest + Windows registry
 // Location: chunks.166.mjs:1407-1438
 // ============================================
 
-// ORIGINAL (for source lookup):
-async function bHq(A) {
-    let q = MKz();
-    if (q.length === 0) throw Error("Claude in Chrome Native Host not supported on this platform");
-    let K = {
-        name: wBA,
-        description: "Claude Code Browser Extension Native Host",
-        path: A,
-        type: "stdio",
-        allowed_origins: ["chrome-extension://fcoeoabgfenejglbffodgkkbkcdhcgfn/", ...[]]
-    }, Y = Q1(K, null, 2), z = !1;
-    for (let w of q) {
-        let H = vc(w, xHq);
-        if (await mHq(H, "utf-8").catch(() => null) === Y) continue;
-        try {
-            await BHq(w, { recursive: !0 }), await FHq(H, Y);
-            h(`[Claude in Chrome] Installed native host manifest at: ${H}`);
-            z = !0;
-        } catch (O) { h(`[Claude in Chrome] Failed to install manifest at ${H}: ${O}`) }
-    }
-    if (eA() === "windows") { let w = vc(q[0], xHq); PKz(w) }
-    if (z) Ec().then((w) => {
-        if (w) h("[Claude in Chrome] First-time install detected, opening reconnect page");
-        else h("[Claude in Chrome] First-time install detected, but extension not installed");
-    })
-}
-
-// READABLE (for understanding):
+// READABLE:
 async function installNativeHostManifest(wrapperScriptPath) {
-    let manifestDirs = getNativeHostPaths();
+    let manifestDirs = getNativeHostPaths(); // fn4() for non-windows, APPDATA for windows
+    if (manifestDirs.length === 0) throw Error("Not supported on this platform");
+
     let manifest = {
         name: "com.anthropic.claude_code_browser_extension",
         description: "Claude Code Browser Extension Native Host",
@@ -279,7 +580,8 @@ async function installNativeHostManifest(wrapperScriptPath) {
 
     for (let dir of manifestDirs) {
         let manifestFile = join(dir, MANIFEST_FILENAME);
-        if (await readFile(manifestFile).catch(() => null) === manifestJson) continue;  // Already up to date
+        if (await readFile(manifestFile).catch(() => null) === manifestJson) continue;  // Already current
+
         try {
             await mkdir(dir, { recursive: true });
             await writeFile(manifestFile, manifestJson);
@@ -287,245 +589,303 @@ async function installNativeHostManifest(wrapperScriptPath) {
         } catch (err) { /* log and continue */ }
     }
 
-    if (platform() === "windows") registerWindowsNativeHost(join(manifestDirs[0], MANIFEST_FILENAME));
+    // Windows: also write to registry
+    if (getPlatform() === "windows") {
+        registerWindowsNativeHost(join(manifestDirs[0], MANIFEST_FILENAME));
+    }
+
+    // First install: open reconnect page in browser
     if (installed) {
-        // Trigger reconnect if extension is already installed
-        detectChromeExtension().then(extensionExists => {
-            if (extensionExists) openBrowser("https://clau.de/chrome/reconnect");
+        detectChromeExtension().then(isInstalled => {
+            if (isInstalled) openBrowser(RECONNECT_URL);  // "https://clau.de/chrome/reconnect"
         });
     }
 }
-
-// Mapping: bHq→installNativeHostManifest, wBA→NATIVE_HOST_NAME, xHq→MANIFEST_FILENAME,
-//   MKz→getNativeHostPaths, PKz→registerWindowsNativeHost, Ec→detectChromeExtension
+// Mapping: bHq→installNativeHostManifest, MKz→getNativeHostPaths, fn4→getNativeHostPathsPerBrowser,
+//   PKz→registerWindowsNativeHost, Ec→detectChromeExtension, jG6→openBrowser
 ```
 
-**Platform-specific manifest paths:**
-- **macOS**: `~/Library/Application Support/Claude Code/ChromeNativeHost/`
-- **Linux**: Standard XDG paths for native messaging hosts
-- **Windows**: `%APPDATA%/Claude Code/ChromeNativeHost/` + Windows Registry registration
-
-**Why the wrapper script?** The native host manifest `path` must point to an executable. Instead of pointing directly to the Node.js binary, a wrapper script is created:
-
-```bash
-#!/bin/sh
-# Chrome native host wrapper script
-# Generated by Claude Code - do not edit manually
-exec "/path/to/claude" --chrome-native-host
-```
-
-This wrapper ensures the correct arguments are passed and allows the path to be updated without re-registering with Chrome.
-
----
-
-## Bridge Message Protocol
-
-### Message Types (Client to Bridge)
-
-| Type | Purpose | Key Fields |
-|------|---------|------------|
-| `connect` | Authenticate with bridge | `oauth_token`, `client_type` |
-| `tool_call` | Execute a tool on the extension | `tool_use_id`, `tool`, `args`, `target_device_id` |
-| `permission_response` | Reply to extension permission request | `request_id`, `allowed` |
-| `list_extensions` | Query connected extensions | - |
-| `pairing_request` | Request to pair with an extension | `request_id`, `client_type` |
-| `pong` | Heartbeat response | - |
-
-### Message Types (Bridge to Client)
-
-| Type | Purpose | Key Fields |
-|------|---------|------------|
-| `paired` | Authentication succeeded, extension connected | - |
-| `waiting` | Authenticated but no extension connected yet | - |
-| `peer_connected` | An extension connected to the bridge | `deviceId` |
-| `peer_disconnected` | An extension disconnected | `deviceId` |
-| `tool_result` | Result of a tool call | `tool_use_id`, `result` or `error`, `content` |
-| `permission_request` | Extension requesting user permission | `tool_use_id`, `request_id`, `tool_type`, `url` |
-| `extensions_list` | Response to list_extensions | `extensions[]` |
-| `pairing_response` | Result of pairing request | `request_id`, `device_id`, `name` |
-| `ping` | Heartbeat | - |
-| `error` | Bridge-level error | `error` |
-| `notification` | Extension notification (e.g., page events) | `method`, `params` |
-
-### Tool Call Flow
-
-```
-Claude Code          MCP Server           Bridge              Chrome Ext.
-    │                    │                   │                     │
-    │  tool_use          │                   │                     │
-    │───────────────────▶│                   │                     │
-    │                    │  tool_call         │                     │
-    │                    │──────────────────▶│                     │
-    │                    │                   │  tool_call           │
-    │                    │                   │────────────────────▶│
-    │                    │                   │                     │ execute
-    │                    │                   │  tool_result         │
-    │                    │                   │◀────────────────────│
-    │                    │  tool_result       │                     │
-    │                    │◀──────────────────│                     │
-    │  tool_result       │                   │                     │
-    │◀───────────────────│                   │                     │
-```
-
-**Timeout handling:**
-- `tabs_context_mcp` calls have a special (longer) timeout for collecting tab data from multiple extensions
-- All other tool calls have a standard timeout (configured on the bridge client)
-- On timeout, pending calls are cleaned up and an error is returned
-
----
-
-## Browser Automation Capabilities
-
-The Chrome MCP server exposes these tools (defined in `Qe`, chunks.166.mjs):
-
-### javascript_tool
-Execute arbitrary JavaScript in the page context. Runs in the page's DOM environment.
-
-### read_page
-Get an accessibility tree representation of the page. Supports filtering (interactive-only vs. all), depth limits, and focusing on specific elements by reference ID.
-
-### find
-Natural language element search. Returns up to 20 matching elements with reference IDs.
-
-### form_input
-Set values in form elements using reference IDs from read_page.
-
-### computer
-Mouse and keyboard automation: click, type, screenshot, scroll, drag, zoom, hover. This is the primary tool for visual interaction.
-
-### navigate
-URL navigation, forward/back history.
-
-### resize_window
-Set browser window dimensions for responsive testing.
-
-### gif_creator
-Record browser actions and export as animated GIF with visual overlays.
-
-### tabs_context_mcp
-Get information about all open tabs. This is the entry point for any tab-based operation.
-
----
-
-## Security Model
-
-### Permission Modes
-
-The Chrome bridge supports configurable permission modes:
-
-1. **Default**: All tool calls require permission via the MCP permission system
-2. **`skip_all_permission_checks`**: Set via `CLAUDE_CHROME_PERMISSION_MODE` env var, bypasses all permission prompts
-
-### Allowed Origins
-
-The native messaging manifest restricts which Chrome extensions can use the native host:
-
-```json
-{
-    "allowed_origins": ["chrome-extension://fcoeoabgfenejglbffodgkkbkcdhcgfn/"]
-}
-```
-
-Only the official Claude Code Chrome extension (hardcoded ID) is allowed.
-
-### Domain Restrictions
-
-Tool calls can include `allowed_domains` to restrict which domains the extension operates on:
-```javascript
-if (X?.length) P.allowed_domains = X;
-```
-
-### In-Extension Permission Prompts
-
-The extension can forward permission requests back to Claude Code:
-
-```javascript
-// Extension asks: "Can I navigate to evil.com?"
-// Bridge forwards: { type: "permission_request", url: "evil.com", ... }
-// MCP server decides and responds: { type: "permission_response", allowed: true/false }
-```
-
-**Why this bidirectional permission model?** The Chrome extension operates in a sensitive context (user's browser with cookies, session data). Rather than trusting the LLM completely, the extension can require explicit permission for sensitive operations like navigating to new domains. The permission decision is routed back through the MCP permission system, which can consult the user or apply policy rules.
-
-### OAuth Authentication
-
-The bridge connection requires:
-1. A valid Anthropic user ID
-2. A valid OAuth token from the Anthropic authentication system
-
-This prevents unauthorized access to the bridge relay. Each user connects to their own channel (`/chrome/{userId}`).
-
----
-
-## Extension Discovery and Pairing
-
-### Auto-Discovery Algorithm
-
-When the bridge client needs to select a Chrome extension:
-
-1. Query bridge for connected extensions via `list_extensions`
-2. If no extensions found, wait up to `fHq` ms (configurable) for `peer_connected`
-3. After waiting, re-query if a peer connected
-4. **Single extension**: Auto-select (with remote extension warning if not local)
-5. **Multiple extensions**: Check for persisted device ID from previous session
-6. **No persisted match**: Broadcast pairing request and wait for user selection in extension
+### `registerWindowsNativeHost` (PKz)
 
 ```javascript
 // ============================================
-// discoverAndSelectExtension - Auto-select Chrome extension
-// Location: chunks.165.mjs:2174-2201
+// registerWindowsNativeHost - Write to Windows registry
+// Location: chunks.166.mjs:1440-1453
 // ============================================
 
-// ORIGINAL (for source lookup):
-async discoverAndSelectExtension() {
-    this.persistedDeviceId ??= this.context.getPersistedDeviceId?.();
-    let K = await this.queryBridgeExtensions();
-    if (K.length === 0) {
-        if (await this.waitForPeerConnected(fHq)) K = await this.queryBridgeExtensions()
-    }
-    this.discoveryComplete = !0;
-    if (K.length === 0) return;
-    if (K.length === 1) {
-        let Y = K[0];
-        if (!this.isLocalExtension(Y)) this.context.onRemoteExtensionWarning?.(Y);
-        this.selectExtension(Y.deviceId); return
-    }
-    if (this.persistedDeviceId) {
-        let Y = K.find((z) => z.deviceId === this.persistedDeviceId);
-        if (Y) { this.selectExtension(Y.deviceId); return }
+// READABLE:
+function registerWindowsNativeHost(manifestFilePath) {
+    let registryPaths = getWindowsRegistryPaths();  // Vn4()
+    for (let { browser, key } of registryPaths) {
+        let regKey = `${key}\\com.anthropic.claude_code_browser_extension`;
+        exec("reg", ["add", regKey, "/ve", "/t", "REG_SZ", "/d", manifestFilePath, "/f"])
+            .then(result => {
+                if (result.code === 0) log(`Registered native host for ${browser}: ${regKey}`);
+            });
     }
 }
+// Mapping: PKz→registerWindowsNativeHost, Vn4→getWindowsRegistryPaths, d4→exec
+```
 
-// READABLE (for understanding):
-async discoverAndSelectExtension() {
-    this.persistedDeviceId ??= this.context.getPersistedDeviceId?.();
-    let extensions = await this.queryBridgeExtensions();
-    if (extensions.length === 0) {
-        // Wait for an extension to connect
-        if (await this.waitForPeerConnected(WAIT_TIMEOUT)) {
-            extensions = await this.queryBridgeExtensions();
+### Platform Manifest Directories
+
+| Platform | Directory |
+|----------|-----------|
+| macOS / Chrome | `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/` |
+| macOS / Brave | `~/Library/Application Support/BraveSoftware/Brave-Browser/NativeMessagingHosts/` |
+| macOS / Arc | `~/Library/Application Support/Arc/User Data/NativeMessagingHosts/` |
+| macOS / Edge | `~/Library/Application Support/Microsoft Edge/NativeMessagingHosts/` |
+| macOS / Chromium | `~/Library/Application Support/Chromium/NativeMessagingHosts/` |
+| macOS / Vivaldi | `~/Library/Application Support/Vivaldi/NativeMessagingHosts/` |
+| macOS / Opera | `~/Library/Application Support/com.operasoftware.Opera/NativeMessagingHosts/` |
+| Linux / Chrome | `~/.config/google-chrome/NativeMessagingHosts/` |
+| Linux / Brave | `~/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/` |
+| Windows | `%APPDATA%\Claude Code\ChromeNativeHost\` + registry |
+
+---
+
+## Extension Detection
+
+### `detectChromeExtension` (Ec) → `SHq`
+
+```javascript
+// ============================================
+// detectChromeExtension - Scan all browser profiles
+// Location: chunks.166.mjs:1484-1488 → 1287-1325
+// ============================================
+
+// READABLE:
+async function detectChromeExtension() {
+    let browserPaths = getBrowserDataPaths();  // Zn4()
+    if (browserPaths.length === 0) return false;
+    return detectExtensionInPaths(browserPaths, logFn);  // SHq
+}
+
+async function detectExtensionInPaths(browserPaths, logger) {
+    const EXTENSION_IDS = ["fcoeoabgfenejglbffodgkkbkcdhcgfn"];  // _Kz()
+    for (let { browser, path } of browserPaths) {
+        let entries;
+        try {
+            entries = await readdir(path, { withFileTypes: true });
+        } catch (err) {
+            if (["ENOENT", "EACCES", "EPERM"].includes(err.code)) continue;
+            throw err;
+        }
+        let profiles = entries
+            .filter(e => e.isDirectory())
+            .filter(e => e.name === "Default" || e.name.startsWith("Profile "))
+            .map(e => e.name);
+
+        for (let profile of profiles) {
+            for (let extId of EXTENSION_IDS) {
+                let extPath = join(path, profile, "Extensions", extId);
+                try {
+                    await readdir(extPath);  // throws if not found
+                    return { isInstalled: true, browser };
+                } catch {}
+            }
         }
     }
-    this.discoveryComplete = true;
-    if (extensions.length === 0) return;  // No extensions available
+    return { isInstalled: false, browser: null };
+}
+// Mapping: Ec→detectChromeExtension, Zn4→getBrowserDataPaths, SHq→detectExtensionInPaths,
+//   _Kz→getExtensionIds, CHq→readdir, $Kz→path.join
+```
 
-    if (extensions.length === 1) {
-        if (!this.isLocalExtension(extensions[0]))
-            this.context.onRemoteExtensionWarning?.(extensions[0]);
-        this.selectExtension(extensions[0].deviceId);
-        return;
-    }
+### `isExtensionInstalledCached` (WKz)
 
-    // Multiple extensions: try persisted selection
-    if (this.persistedDeviceId) {
-        let match = extensions.find(e => e.deviceId === this.persistedDeviceId);
-        if (match) { this.selectExtension(match.deviceId); return; }
+```javascript
+// ============================================
+// isExtensionInstalledCached - Sync cached check + state update
+// Location: chunks.166.mjs:1475-1482
+// ============================================
+
+// READABLE:
+function isExtensionInstalledCached() {
+    // Trigger async refresh (fire-and-forget)
+    detectChromeExtension().then(isInstalled => {
+        if (getLocalSettings().cachedChromeExtensionInstalled !== isInstalled) {
+            updateLocalSettings(prev => ({
+                ...prev,
+                cachedChromeExtensionInstalled: isInstalled
+            }));
+        }
+    });
+    // Return immediately from cache
+    return getLocalSettings().cachedChromeExtensionInstalled ?? false;
+}
+// Mapping: WKz→isExtensionInstalledCached, Ec→detectChromeExtension,
+//   f6→getLocalSettings, jA→updateLocalSettings
+```
+
+**Design:** Uses stale-while-revalidate. Returns the cached value synchronously, then triggers an async refresh in the background. This prevents blocking on disk I/O in fast paths.
+
+---
+
+## Unix Socket Path Generation
+
+### `getChromeMcpSocketPath` (MG6) and `getChromeMcpSocketPaths` (Tn4)
+
+```javascript
+// ============================================
+// getChromeMcpSocketPath / getChromeMcpSocketPaths
+// Location: chunks.143.mjs:1696-1716
+// ============================================
+
+// READABLE:
+function getChromeMcpSocketPath() {
+    if (platform() === "win32") return `\\\\.\\pipe\\claude-mcp-browser-bridge-${getUsername()}`;
+    return join(getTempSocketDir(), `${process.pid}.sock`);
+}
+
+function getChromeMcpSocketPaths() {
+    if (platform() === "win32") return [`\\\\.\\pipe\\claude-mcp-browser-bridge-${getUsername()}`];
+
+    let socketDir = getTempSocketDir();  // /tmp/claude-mcp-browser-bridge-{username}
+    let paths = [];
+
+    // Scan the directory for .sock files
+    try {
+        let files = readdirSync(socketDir);
+        for (let f of files) if (f.endsWith(".sock")) paths.push(join(socketDir, f));
+    } catch {}
+
+    // Add both XDG tempdir and /tmp paths as fallbacks
+    let dirName = `claude-mcp-browser-bridge-${getUsername()}`;
+    let xdgPath = join(os.tmpdir(), dirName);
+    let tmpPath = `/tmp/${dirName}`;
+    if (!paths.includes(xdgPath)) paths.push(xdgPath);
+    if (xdgPath !== tmpPath && !paths.includes(tmpPath)) paths.push(tmpPath);
+
+    return paths;
+}
+// Mapping: MG6→getChromeMcpSocketPath, Tn4→getChromeMcpSocketPaths, Fg1→getTempSocketDir,
+//   byA→getUsername, vn4→getPipeName
+```
+
+**Path format:** `/tmp/claude-mcp-browser-bridge-{username}/{pid}.sock`
+
+This per-PID socket means each running Claude Code process has its own socket, enabling the SocketPoolClient (`VHq`) to connect to multiple simultaneously running Claude instances.
+
+---
+
+## Permission Request Handling (Bidirectional)
+
+```javascript
+// ============================================
+// WebSocketBridgeClient.handlePermissionRequest
+// Location: chunks.165.mjs:2436-2463
+// ============================================
+
+// READABLE:
+async handlePermissionRequest(msg) {
+    let toolUseId = msg.tool_use_id;
+    let requestId = msg.request_id;
+    if (!toolUseId || !requestId) return;
+
+    let pending = this.pendingCalls.get(toolUseId);
+    if (!pending?.onPermissionRequest) return;  // Ignore if not our call or no handler
+
+    let request = {
+        toolUseId,
+        requestId,
+        toolType: msg.tool_type ?? "unknown",
+        url: msg.url ?? "",
+        actionData: msg.action_data
+    };
+
+    try {
+        let allowed = await pending.onPermissionRequest(request);
+        this.sendPermissionResponse(requestId, allowed);
+    } catch {
+        this.sendPermissionResponse(requestId, false);  // Deny on error
     }
-    // Otherwise: broadcast pairing request for user selection
+}
+
+sendPermissionResponse(requestId, allowed) {
+    let msg = { type: "permission_response", request_id: requestId, allowed };
+    if (this.selectedDeviceId) msg.target_device_id = this.selectedDeviceId;
+    this.ws.send(JSON.stringify(msg));
 }
 ```
 
-**Remote extension warning:** If the auto-selected extension is on a different platform (`osPlatform` mismatch), the user is warned. This detects cases where a remote machine's Claude Code accidentally connects to a local browser.
+**Flow:** Extension → Bridge → MCP Server → `onPermissionRequest` callback → user/policy decision → Bridge → Extension
+
+Only tool calls that explicitly set `handle_permission_prompts: true` will receive permission requests. This is set by the MCP server when the tool is configured with a permission handler.
+
+---
+
+## Complete Bridge Message Protocol
+
+### Client → Bridge
+
+| Message Type | Purpose | Key Fields |
+|-------------|---------|------------|
+| `connect` | Authenticate | `oauth_token`, `client_type`, optional `dev_user_id` |
+| `tool_call` | Execute tool | `tool_use_id`, `tool`, `args`, `target_device_id`, `permission_mode`, `allowed_domains`, `handle_permission_prompts` |
+| `permission_response` | Reply to permission prompt | `request_id`, `allowed`, `target_device_id` |
+| `list_extensions` | Query connected extensions | - |
+| `pairing_request` | Broadcast pairing to all extensions | `request_id`, `client_type` |
+| `pong` | Heartbeat response | - |
+
+### Bridge → Client
+
+| Message Type | Purpose | Key Fields |
+|-------------|---------|------------|
+| `paired` | Auth + extension connected | - |
+| `waiting` | Auth but no extension yet | - |
+| `peer_connected` | Extension joined bridge | `deviceId`, `osPlatform`, `name` |
+| `peer_disconnected` | Extension left | `deviceId` |
+| `extensions_list` | List of connected extensions | `extensions[]` |
+| `pairing_response` | Extension accepted pairing | `request_id`, `device_id`, `name` |
+| `tool_result` | Tool execution result | `tool_use_id`, `result` OR `error`, `content`, `is_error` |
+| `permission_request` | Extension needs permission | `tool_use_id`, `request_id`, `tool_type`, `url`, `action_data` |
+| `notification` | Extension notification | `method`, `params` |
+| `ping` | Heartbeat | - |
+| `error` | Bridge error | `error` |
+
+---
+
+## `executeToolResult` Response Normalization
+
+```javascript
+// ============================================
+// executeBridgeTool - Execute tool + normalize result
+// Location: chunks.166.mjs:970-1035
+// ============================================
+
+// READABLE:
+async function executeBridgeTool(context, bridgeClient, toolName, args, meta) {
+    let response = await bridgeClient.callTool(toolName, args, meta);
+    if (!response) return { content: [{ type: "text", text: "Tool execution completed" }] };
+
+    let { result, error } = response;
+    let payload = error || result;
+    let isError = !!error;
+
+    // Authentication error: trigger re-auth flow
+    if (isError && isAuthenticationError(payload.content)) context.onAuthenticationError();
+
+    let { content } = payload;
+    if (!content) return { content: [{ type: "text", text: "Tool execution completed" }] };
+
+    // Normalize content items
+    if (Array.isArray(content)) {
+        return {
+            content: content.map(item => {
+                // Convert {type:"image", source:{data, media_type}} to MCP image format
+                if (item.type === "image" && item.source?.data)
+                    return { type: "image", data: item.source.data, mimeType: item.source.media_type || "image/png" };
+                return item;
+            }),
+            isError
+        };
+    }
+    if (typeof content === "string") return { content: [{ type: "text", text: content }], isError };
+    return { content: [{ type: "text", text: JSON.stringify(response) }], isError };
+}
+// Mapping: YKz→executeBridgeTool, HKz→isAuthenticationError
+```
 
 ---
 
@@ -533,12 +893,13 @@ async discoverAndSelectExtension() {
 
 | Decision | Rationale |
 |----------|-----------|
-| Cloud bridge relay (not direct) | Works across network boundaries; Chrome extensions cannot listen on sockets |
-| Self-spawning MCP server | No separate installation; automatic updates |
-| Native messaging as bootstrap | Reliable cross-platform mechanism for extension-to-host discovery |
-| OAuth-authenticated bridge | Prevents unauthorized access to user's browser |
-| Bidirectional permission prompts | Extension can request permission for sensitive operations |
-| Wrapper script for native host | Decouples binary path from Chrome registration |
-| Persisted device ID | Seamless reconnection to previously used extension |
-| Platform-based remote detection | Warns about cross-machine browser control |
-| Tabs context collection timeout | Allows time for multiple extensions to respond |
+| Three separate transport classes | Allows same MCP server code to work with cloud, dev, and multi-socket scenarios |
+| `tabs_context_mcp` 2s timeout vs 120s for others | Enables quick multi-extension collection without blocking agent |
+| UInt32LE length-prefix for Unix socket | Simple, efficient framing without delimiter scanning |
+| Socket security validation (0600, owner check) | Prevents socket injection attacks in shared temp dirs |
+| Per-PID socket path | Isolates multiple running Claude instances; SocketPool connects to all |
+| `tabRoutes` Map in SocketPoolClient | Routes subsequent tool calls to correct extension that owns the tab |
+| Stale-while-revalidate for extension detection | Fast sync path for hot path, background refresh for accuracy |
+| Reconnect URL opened on first manifest install | Automates the "reconnect" step after initial native host setup |
+| `allow_origins` restricts to official extension ID | Security: only the official Chrome extension can use the native host |
+| `pairing_request` broadcast on multi-extension | User-initiated selection via browser UI when auto-selection fails |

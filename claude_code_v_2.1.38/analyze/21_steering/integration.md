@@ -2,23 +2,117 @@
 
 ## Module Overview
 
-This document analyzes how the steering mechanism integrates with other Claude Code modules, examining cross-module dependencies, data flow patterns, and integration points.
+This document analyzes how the steering mechanism integrates with other Claude Code modules, examining cross-module dependencies, data flow patterns, and UI-linkage points.
 
 ## Related Symbols
 
 > Symbol mappings:
-> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Steering section)
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Agent loop integration
 
 ---
 
-## 1. Integration with Agent Loop (Module 02)
+## 1. UI Integration - Keybinding System (Module 32)
 
-### 1.1 Query Generator Interrupt Points
+### 1.1 How Steering Keybindings are Registered
 
-The steering mechanism is tightly integrated with the agent loop's query generator. Abort signals are checked at strategic points during the query lifecycle.
+The cancel/interrupt actions are not hardcoded event listeners — they flow through the full keybinding resolution system.
 
-**Integration Points**:
+**Default bindings** (chunks.54.mjs:1127-1155):
+```
+Context: Global  →  ctrl+c: "app:interrupt"    (hardcoded, cannot be rebound)
+Context: Chat    →  escape: "chat:cancel"        (user-rebindable)
+                    enter:  "chat:submit"         (drives PE6 via Z$)
+```
+
+**Registration flow**:
+```
+cancelHandlerComponent (ngA)
+    │
+    ├── DA("chat:cancel",   handleCancelPress, { context: "Chat",   isActive: showCancelText })
+    │       ↓
+    │   KeybindingHandler reads DEFAULT_KEYBINDINGS → escape → "chat:cancel"
+    │   When user presses Escape in Chat context → handleCancelPress() fires
+    │
+    └── DA("app:interrupt", handleCancelPress, { context: "Global", isActive: isGloballyActive })
+            ↓
+        ctrl+c (hardcoded) → "app:interrupt"
+        When user presses Ctrl+C anywhere → handleCancelPress() fires
+```
+
+**Why `app:interrupt` is hardcoded**: Ctrl+C has a POSIX standard meaning (interrupt process). Allowing it to be rebound could prevent users from exiting the process, creating a "trap" scenario. The system explicitly marks it in `getReservedShortcuts()` with reason: `"Cannot be rebound - used for interrupt/exit (hardcoded)"`.
+
+### 1.2 Cancel Button Visibility State Machine
+
+The cancel button (or "Esc to cancel" indicator) appears based on:
+
+```
+cancelHandlerComponent (ngA) evaluates:
+┌──────────────────────────────────────────────────────────────┐
+│  isActive = NOT (transcript | historySearch | msgSelector |  │
+│             localJSX | helpOpen | vimInsert | viewingAgent)  │
+│             AND (isStreaming | hasQueue | hasRunningAgents)   │
+├──────────────────────────────────────────────────────────────┤
+│  showCancelText = isActive                                    │
+│    AND NOT (inputMode is non-prompt with no input value)     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**What each condition prevents**:
+- `screen !== "transcript"`: Don't show cancel in read-only transcript view
+- `!isSearchingHistory`: Escape is used for history dismiss, not cancel
+- `!isMessageSelectorVisible`: Escape is used to close selector
+- `!isLocalJSXCommand`: Escape may be captured by local JSX component
+- `!isHelpOpen`: Help overlay uses Escape to close
+- `!isVimInsertMode()`: Escape in Vim INSERT = switch to NORMAL mode, not cancel
+
+### 1.3 Spinner Component Integration (GR4)
+
+The spinner/loading indicator component `GR4` renders differently based on `streamMode` (O7):
+
+```javascript
+V7.createElement(GR4, {
+    mode: O7,           // streamMode: "requesting"|"thinking"|"responding"|"tool-input"|"tool-use"
+    spinnerTip: N1,     // spinnerTip from appState
+    responseLengthRef: Qj,
+    overrideMessage: gj,
+    spinnerSuffix: Hx,
+    verbose: S,
+    loadingStartTimeRef: $Y,
+    totalPausedMsRef: OY,
+    pauseStartTimeRef: fY,
+    todos: xy,
+    overrideColor: eK,
+    overrideShimmerColor: HD,
+    hasActiveTools: ow.size > 0
+})
+```
+
+The spinner is shown when:
+```javascript
+PG = (!vK || vK.showSpinner === true)
+  && F7.length === 0           // no tool permission dialogs
+  && (_4 || Wz || L9 || xp7() > 0)  // loading OR userInput OR running tasks OR legacy queue
+  && !q1                       // no worker request pending
+  && !MG                       // not all tools are MCP-only
+```
+
+**streamMode → spinner message mapping**:
+| streamMode | Spinner displays |
+|------------|-----------------|
+| `"requesting"` | "Waiting for Claude..." or initial state |
+| `"thinking"` | Extended thinking indicator with thinking text |
+| `"responding"` | "Claude is responding..." with token counter |
+| `"tool-input"` | Tool name being generated |
+| `"tool-use"` | "Running [tool name]..." |
+
+---
+
+## 2. Integration with Agent Loop (Module 03)
+
+### 2.1 Query Generator Interrupt Points
+
+The abort signal is checked at strategic points during the query lifecycle:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -26,26 +120,26 @@ The steering mechanism is tightly integrated with the agent loop's query generat
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌─────────────────┐                                        │
-│  │ START QUERY     │                                        │
+│  │ START QUERY     │ ← New AbortController created          │
 │  └────────┬────────┘                                        │
 │           │                                                  │
 │           ▼                                                  │
 │  ┌─────────────────────────────────┐                        │
-│  │ CHECKPOINT 1: Before LLM Call   │ ◄─── Signal check     │
-│  │ if (signal.aborted) return      │                        │
+│  │ CHECKPOINT 1: Before LLM Call   │ ◄─── signal.aborted?   │
+│  │ if (signal.aborted) return      │      Early exit before  │
+│  └────────┬────────────────────────┘      even hitting API  │
+│           │                                                  │
+│           ▼                                                  │
+│  ┌─────────────────────────────────┐                        │
+│  │ Stream LLM Response              │ ◄─── AbortSignal in   │
+│  │ (signal passed to fetch API)     │      fetch() call     │
 │  └────────┬────────────────────────┘                        │
 │           │                                                  │
 │           ▼                                                  │
 │  ┌─────────────────────────────────┐                        │
-│  │ Stream LLM Response              │ ◄─── AbortSignal      │
-│  │ (signal passed to fetch API)     │      in fetch()       │
-│  └────────┬────────────────────────┘                        │
-│           │                                                  │
-│           ▼                                                  │
-│  ┌─────────────────────────────────┐                        │
-│  │ CHECKPOINT 2: After LLM Chunk   │ ◄─── Signal check     │
-│  │ if (signal.aborted) cleanup()   │                        │
-│  └────────┬────────────────────────┘                        │
+│  │ CHECKPOINT 2: After LLM Stream  │ ◄─── signal.aborted?   │
+│  │ if (signal.aborted) cleanup()   │      Drain tools,      │
+│  └────────┬────────────────────────┘      add interrupt msg │
 │           │                                                  │
 │           ▼                                                  │
 │  ┌─────────────────────────────────┐                        │
@@ -54,9 +148,9 @@ The steering mechanism is tightly integrated with the agent loop's query generat
 │           │                                                  │
 │           ▼                                                  │
 │  ┌─────────────────────────────────┐                        │
-│  │ CHECKPOINT 3: After Tool Batch  │ ◄─── Signal check     │
-│  │ if (signal.aborted) drain tools │                        │
-│  └────────┬────────────────────────┘                        │
+│  │ CHECKPOINT 3: After Tool Batch  │ ◄─── signal.aborted?   │
+│  │ if (signal.aborted) drain tools │      May catch abort   │
+│  └────────┬────────────────────────┘      during tool exec  │
 │           │                                                  │
 │           ▼                                                  │
 │  ┌─────────────────┐                                        │
@@ -68,650 +162,492 @@ The steering mechanism is tightly integrated with the agent loop's query generat
 └──────────────────────────────────────────────────────────────┘
 ```
 
-// ============================================
-// Agent Loop Checkpoint - Abort Detection
-// Location: chunks.149.mjs:1960-1967
-// ============================================
+### 2.2 `ff` (onQuery) - Concurrent Query Guard
 
-// ORIGINAL (for source lookup):
-if (w.abortController.signal.aborted) {
-    if (S) {
-        for await (let Z1 of S.getRemainingResults()) if (Z1.message) yield Z1.message
-    } else yield* XhA(k, "Interrupted by user");
-    if (w.abortController.signal.reason !== "interrupt") yield FG1({
-        toolUse: !1
-    });
-    return
-}
+When `onQuery` (ff) is called while a query is already running (`I6.current === true`), it also uses the queue:
 
-// READABLE (for understanding):
-// CHECKPOINT: Check if user triggered steering or timeout abort
-if (toolUseContext.abortController.signal.aborted) {
-    // Phase 1: Gracefully drain any in-flight tool executions
-    if (streamingToolExecutor) {
-        for await (let result of streamingToolExecutor.getRemainingResults()) {
-            if (result.message) yield result.message;
-        }
-    } else {
-        // No tools running, add interrupt marker to conversation
-        yield* createUserInterruptMessage(assistantMessages, "Interrupted by user");
-    }
-
-    // Phase 2: Add cleanup message only for non-user aborts (timeouts, errors)
-    if (toolUseContext.abortController.signal.reason !== "interrupt") {
-        yield createCleanupMessage({ toolUse: false });
-    }
-
-    // Exit query generator early
+```javascript
+// chunks.188.mjs:590-598
+if (I6.current) {
+    // A concurrent query was detected - queue incoming messages instead
+    telemetry("tengu_concurrent_onquery_detected", {});
+    k6.filter((sq) => sq.type === "user")
+      .map((sq) => extractTextContent(sq.message.content))
+      .filter((sq) => sq !== null)
+      .forEach((sq, idx) => {
+          if (enqueueCommand({ value: sq, mode: "prompt" }, setAppState), idx === 0)
+              telemetry("tengu_concurrent_onquery_enqueued", {});
+      });
+    setIsLoading(false);
     return;
 }
+```
 
-**Key Integration Point**: The agent loop must check `signal.aborted` at EVERY major phase boundary:
-- Before calling LLM API
-- After receiving LLM response
-- After executing tools
+This is a **safety net** — if somehow `onQuery` fires while `isQueryRunning` is true (race condition or external trigger), it queues rather than drops the message. Note that `setIsLoading(false)` is called because the concurrent query is not actually executing.
 
-**Why**: This ensures steering can interrupt at any point, not just during network I/O.
+### 2.3 Message Injection After Steering
+
+When steering aborts the LLM, the conversation history gets modified:
+
+```
+BEFORE steering abort:
+Message history:
+  [user]      "Implement login feature"
+  [assistant] "I'll implement login using JWT authentication...
+               First, let me create..." [INCOMPLETE]
+
+AFTER steering abort:
+Message history:
+  [user]      "Implement login feature"
+  [assistant] "I'll implement login using JWT authentication...
+               First, let me create..." [INCOMPLETE]
+  [system]    "Interrupted by user"         ← XhA injects this
+
+AFTER steering query submission:
+  [user]      "Use OAuth instead"           ← queued message submitted
+  [assistant] "I understand. Let me implement OAuth 2.0..." ← new response
+```
+
+**Why the interruption message matters**: Claude's next response sees:
+1. Original user request
+2. Partial assistant response
+3. Explicit "Interrupted by user" marker
+4. New steering message
+
+This context allows Claude to understand that its previous approach was incomplete AND deliberately stopped, not just truncated.
 
 ---
 
-### 1.2 Message Injection After Steering
+## 3. Integration with Tool Execution (Module 05)
 
-When steering occurs, the conversation history is modified to include the interrupt context:
+### 3.1 Tool Drainage on Abort
 
-// ============================================
-// createUserInterruptMessage - Add steering context to conversation
-// Location: chunks.149.mjs (XhA function, inferred from exploration)
-// ============================================
-
-// READABLE (for understanding):
-function* createUserInterruptMessage(assistantMessages, interruptText) {
-    // Create a system-level message indicating the user interrupted
-    const interruptMessage = {
-        type: "system",
-        content: interruptText,  // "Interrupted by user"
-        timestamp: new Date().toISOString(),
-        metadata: {
-            trigger: "user-abort",
-            assistantMessageCount: assistantMessages.length
-        }
-    };
-
-    yield interruptMessage;
-}
-
-**Purpose**:
-1. Preserve conversation causality (Claude knows the response was incomplete)
-2. Provide debugging trace (users can see when they interrupted)
-3. Enable Claude to reference the interruption in subsequent responses
-
-**Example conversation flow**:
-```
-User: "Implement login feature"
-Assistant: "I'll implement login using JWT authentication..." [INTERRUPTED]
-System: "Interrupted by user"
-User: "Actually, use OAuth 2.0 instead"
-Assistant: "I understand. Let me revise the approach to use OAuth 2.0..." [CONTINUES]
-```
-
----
-
-## 2. Integration with Tool Execution (Module 05)
-
-### 2.1 Streaming Tool Drainage
-
-When steering interrupts during tool execution, the system must handle tools gracefully to prevent data corruption.
-
-**Integration Pattern**:
+When steering interrupts during tool execution:
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│           TOOL EXECUTION DRAINAGE ON STEERING              │
-├────────────────────────────────────────────────────────────┤
-│                                                            │
-│  Tool Execution State:                                    │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
-│  │ Tool A       │  │ Tool B       │  │ Tool C       │   │
-│  │ (Completed)  │  │ (Running)    │  │ (Queued)     │   │
-│  └──────────────┘  └──────────────┘  └──────────────┘   │
-│                                                            │
-│  User presses Enter (abort triggered)                     │
-│                    │                                       │
-│                    ▼                                       │
-│  ┌────────────────────────────────────────────┐          │
-│  │ streamingToolExecutor.getRemainingResults()│          │
-│  └────────────────────┬───────────────────────┘          │
-│                       │                                    │
-│                       ▼                                    │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
-│  │ Tool A       │  │ Tool B       │  │ Tool C       │   │
-│  │ ✓ Yielded    │  │ ⏳ Wait for  │  │ ✗ Cancelled  │   │
-│  │              │  │   completion │  │              │   │
-│  └──────────────┘  └──────────────┘  └──────────────┘   │
-│                                                            │
-│  Result: Tool B completes, Tool C never starts            │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
+Tools before abort:
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│ Tool A: Write│  │ Tool B: Bash │  │ Tool C: Read │
+│  (Complete)  │  │  (Running)   │  │  (Queued)    │
+└──────────────┘  └──────────────┘  └──────────────┘
+
+After abort signal fires:
+│ Tool A: Write│  → Output already yielded to conversation
+│ Tool B: Bash │  → getRemainingResults() waits for completion
+│ Tool C: Read │  → Never starts (query generator returns)
 ```
 
-// ============================================
-// Tool Drainage Logic - Integration Point
-// Location: chunks.149.mjs:1960-1963 (S.getRemainingResults())
-// ============================================
-
-// READABLE (for understanding):
-if (streamingToolExecutor) {
-    // CRITICAL: Allow currently executing tools to finish
-    // This prevents:
-    // - File writes from being truncated
-    // - Git operations from leaving repo in dirty state
-    // - Database transactions from being incomplete
-
-    for await (let result of streamingToolExecutor.getRemainingResults()) {
-        if (result.message) {
-            yield result.message;  // Add tool output to conversation
-        }
-    }
-}
-
-**Why Tool Drainage Matters**:
+The `getRemainingResults()` call ensures Tool B completes its current atomic operation:
 
 | Tool Type | Without Drainage | With Drainage |
 |-----------|------------------|---------------|
 | `Write` file | File partially written, corrupted | File write completes atomically |
-| `Bash` git commit | Commit aborted mid-operation, dirty state | Commit finishes, clean state |
-| `Read` large file | Partial read, incomplete data | Read completes, full data available |
-| `Grep` search | Search stops mid-results | All matching results returned |
+| `Bash` git commit | Commit aborted mid-op, dirty state | Commit finishes, clean state |
+| `Read` large file | Partial read, incomplete context | Read completes, full data returned |
+| `Grep` search | Stops mid-results | All matching results returned |
 
-**Trade-off**: Drainage adds 100-500ms to abort latency (waiting for tools to finish), but prevents data corruption.
+**Trade-off**: Drainage adds 50-500ms to abort latency (waiting for tool atomicity), but prevents data corruption.
 
----
+### 3.2 Tool Permission Interaction
 
-### 2.2 Tool Permission Interaction
-
-Special case: If user is mid-approval of a dangerous tool, steering should NOT interrupt the permission request.
-
-// ============================================
-// Tool Permission Protection in onCancel
-// Location: chunks.188.mjs:328-340 (N11 function)
-// ============================================
-
-// READABLE (for understanding):
+```javascript
+// onCancel branch for tool-permission mode:
 if (currentInputMode === "tool-permission") {
-    // User is being asked to approve/deny a tool
-    // Pressing Enter should DENY the tool, not steer the conversation
-    toolUseConfirmQueue[0]?.onAbort();
-    setToolUseConfirmQueue([]);
-    // Early return: don't propagate to LLM abort
-    return;
+    toolUseConfirmQueue[0]?.onAbort();  // Call the tool's onAbort callback
+    setToolUseConfirmQueue([]);          // Clear the permission queue
+    return;                             // DON'T abort the LLM stream
 }
+```
 
-**Rationale**: Tool permissions are synchronous, blocking decisions. Confusing "Cancel tool" with "Steer conversation" would be dangerous (user might accidentally approve risky tools).
+**Subtle behavior**: When `onCancel` runs in `"tool-permission"` mode:
+- The tool permission dialog is dismissed (tool denied)
+- `return` exits without calling `abortController?.abort()`
+- The LLM stream is NOT aborted by this path
+
+This means if the user presses Escape to cancel a tool permission:
+1. The tool permission is denied
+2. Claude's next response will address the denied tool
+3. If the user wanted to fully stop Claude, they need to press Escape again
+
+This is intentional — the first Escape cancels the "inner" dialog, second Escape cancels the "outer" stream. The `cancelHandlerComponent` logic handles this because after clearing the tool permission, `abortSignal` is still active, so the next Escape press takes Branch 1 (abort the stream).
 
 ---
 
-## 3. Integration with Prompt Queueing (Module 14)
+## 4. Integration with Input System (Module 02 - REPL)
 
-### 3.1 Steering vs. Queued Messages
+### 4.1 `executeQueuedInput` (iA) - Queue-to-Submission Bridge
 
-When prompt queueing is enabled, users can queue multiple messages while Claude is working. Steering must respect this queue.
-
-**Integration Logic**:
-
-```
-┌──────────────────────────────────────────────────────────┐
-│        PROMPT QUEUEING + STEERING INTERACTION            │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│  Scenario 1: User queues message, then steers           │
-│  ┌─────────────────────────────────────────────┐        │
-│  │ T0: Claude is working                       │        │
-│  │ T1: User types "Also add logging" → QUEUED │        │
-│  │ T2: User types "Wait, use OAuth" → STEERING│        │
-│  │                                             │        │
-│  │ Result:                                     │        │
-│  │ - Abort triggered immediately               │        │
-│  │ - Queue cleared (both messages removed)     │        │
-│  │ - Only steering message submitted           │        │
-│  └─────────────────────────────────────────────┘        │
-│                                                          │
-│  Scenario 2: No queueing, direct steering               │
-│  ┌─────────────────────────────────────────────┐        │
-│  │ T0: Claude is working                       │        │
-│  │ T1: User types "Use OAuth" → STEERING       │        │
-│  │                                             │        │
-│  │ Result:                                     │        │
-│  │ - Abort triggered                           │        │
-│  │ - Steering message submitted                │        │
-│  └─────────────────────────────────────────────┘        │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
-```
-
-// ============================================
-// Queue Clearing on Steering
-// Location: chunks.188.mjs:328-340 (N11 function)
-// ============================================
-
-// READABLE (for understanding):
-if (isPromptQueueingEnabled()) {
-    // Clear all queued commands when steering occurs
-    // Rationale: Queued messages were based on OLD context
-    // After steering, context has changed, so old queue is stale
-
-    clearQueuedCommands(tasks, setAppState);
-    resetQueuedCommandsState();
-    setAppState((state) => ({
-        ...state,
-        queuedCommands: []
-    }));
-}
-
-**Why Clear Queue on Steering**:
-- Queued messages were created under assumption Claude's current approach was correct
-- After steering, Claude's direction has changed, making old queue irrelevant
-- Prevents confusion from executing stale commands
-
-**Alternative Considered**: Keep queue and append steering message
-- **Rejected**: Would create contradictory instructions (queue says "do X", steering says "don't do X")
-
----
-
-## 4. Integration with Compact (Module 07)
-
-### 4.1 Steering During Auto-Compaction
-
-If auto-compaction is triggered mid-query and user steers, the system must handle both events gracefully.
-
-**Conflict Scenario**:
-```
-T0: User submits query
-T1: LLM starts streaming response
-T2: Token count exceeds threshold → compact triggered
-T3: User presses Enter → steering triggered
-```
-
-**Resolution**:
 ```javascript
-// Hypothetical conflict handling (inferred from architecture)
-if (abortController.signal.aborted) {
-    // Steering takes priority over compaction
-    // Abort compaction in progress
-    cancelCompaction();
-
-    // Proceed with steering cleanup
-    return;
-}
-```
-
-**Rationale**: User steering is a real-time, intentional action. Auto-compaction is a background optimization. User intent wins.
-
----
-
-### 4.2 Steering Message Inclusion in Compaction
-
-After steering occurs, the "Interrupted by user" message becomes part of conversation history. When compaction happens later, should this message be preserved?
-
-**Decision**: YES, preserve interrupt messages
-- **Reason**: They provide critical context about conversation flow
-- **Implementation**: Interrupt messages are tagged as `type: "system"` and are kept during compaction (same as tool outputs)
-
----
-
-## 5. Integration with Remote Sessions (Module 33)
-
-### 5.1 WebSocket Control Channel
-
-Remote steering uses a separate WebSocket control channel to avoid queueing delays.
-
-**Architecture**:
-
-```
-┌────────────────────────────────────────────────────────────┐
-│         REMOTE SESSION DUAL-CHANNEL ARCHITECTURE            │
-├────────────────────────────────────────────────────────────┤
-│                                                            │
-│  ┌───────────────────┐                                    │
-│  │  Web Browser UI   │                                    │
-│  └─────────┬─────────┘                                    │
-│            │                                               │
-│            │                                               │
-│      ┌─────┴─────┐                                        │
-│      │           │                                         │
-│      ▼           ▼                                         │
-│  ┌────────┐  ┌────────────┐                              │
-│  │ Data   │  │ Control    │                              │
-│  │ Channel│  │ Channel    │                              │
-│  │ (WS)   │  │ (WS)       │                              │
-│  └────┬───┘  └────┬───────┘                              │
-│       │           │                                        │
-│       │ Messages  │ {subtype: "interrupt"}               │
-│       │ Tool      │ {subtype: "permission-request"}      │
-│       │ outputs   │                                       │
-│       │           │                                        │
-│       ▼           ▼                                         │
-│  ┌──────────────────────────────┐                        │
-│  │  Remote Agent Process        │                        │
-│  │  (Running on SSH server)     │                        │
-│  └──────────────────────────────┘                        │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
-```
-
-**Why Separate Channels**:
-- **Data channel**: Can be backlogged with large tool outputs (file reads, long grep results)
-- **Control channel**: Always low-latency, ensures interrupt signals arrive immediately
-
-// ============================================
-// Remote Steering Control Message
-// Location: chunks.176.mjs:3060-3063
-// ============================================
-
-// ORIGINAL (for source lookup):
-cancelSession() {
-    h("[RemoteSessionManager] Sending interrupt signal"), this.websocket?.sendControlRequest({
-        subtype: "interrupt"
+// chunks.188.mjs:894-926
+iA = useCallback(async (text, pastedContents) => {
+    await processUserInput({
+        input: text,
+        helpers: { setCursorOffset: () => {}, clearBuffer: () => {}, resetHistory: () => {} },
+        isLoading: _4,      // IMPORTANT: current isLoading state
+        mode: "prompt",
+        commands: RA,
+        onInputChange: () => {},
+        setPastedContents: () => {},
+        setIsLoading: C3,
+        setToolJSX: TA,
+        getToolUseContext: J0,
+        messages: W4,
+        mainLoopModel: Y1,
+        pastedContents: pastedContents,
+        ideSelection: K6,
+        setUserInputOnProcessing: ZY,
+        setAbortController: HY,
+        onQuery: ff,
+        resetLoadingState: YK,
+        thinkingEnabled: p,
+        setAppState: A1,
+        querySource: EQ1(),
+        onBeforeQuery: M,
+        canUseTool: Zf,
+        addNotification: q6
     })
-}
+}, [_4, RA, ...]);
+```
 
-// READABLE (for understanding):
-cancelSession() {
-    debug("[RemoteSessionManager] Sending interrupt signal");
+**Design note**: `executeQueuedInput` (iA) calls `processUserInput` (PE6) with the CURRENT `isLoading` value. When HVq calls it, `isLoading` has just become `false` (that's the trigger). But there's a subtle race: HVq sets `isLoading=true` *before* calling `iA`:
 
-    // Send via CONTROL channel (not data channel)
-    // This ensures interrupt is not delayed by queued data messages
-    this.websocket?.sendControlRequest({
-        subtype: "interrupt"
-    });
-}
-
-**Protocol Design**:
 ```javascript
-// Control message schema
-interface ControlMessage {
-    type: "control";
-    subtype: "interrupt" | "permission-response" | "heartbeat";
-    timestamp: string;
-    payload?: any;
-}
+O.current = !0, $(!0),  // isExecuting=true, setIsLoading(true) ← sets _4=true
+zVq({ executeInput: w })  // w=iA → called with _4 might still be false from closure!
 ```
 
----
+The `isLoading: _4` passed to `iA` captures the state at closure creation time. Since `iA` is a `useCallback` with `_4` in deps, it re-creates when `_4` changes. The actual `_4` value passed to `PE6` inside `iA` when it executes will be the most recent value from the closure — which at execution time may be `true` (set by HVq's `$(!0)` just before calling `iA`).
 
-### 5.2 State Synchronization After Steering
+This means `PE6` inside `iA` might see `isLoading=true` when called from HVq, causing it to RE-QUEUE the command instead of submitting it! The guard `O.current` (isExecuting ref) prevents infinite loops: once HVq sets `isExecuting=true`, subsequent effect invocations bail out immediately.
 
-After remote steering, the browser UI and remote agent must re-sync their state.
+**The race is safe because**: `PE6` with `isLoading=true` calls `lB` which adds to `queuedCommands`. Then `HVq` sees `queuedCommandsLength > 0` again, but `O.current` is still `true` (from the first call), so the second effect invocation returns early. The `finally` block resets `O.current=false` only after `iA` completes.
 
-**Sync Steps**:
-1. Browser sends interrupt control message
-2. Remote agent aborts local LLM call
-3. Remote agent sends "abort-acknowledged" control response
-4. Browser UI updates state: `isLoading = false`
-5. User submits steering message
-6. Steering message sent via data channel
-7. Remote agent processes as normal query
+### 4.2 `popCommandFromQueue` (rc) - Manual Queue Editing
 
-**Latency**: Remote steering has ~100-300ms additional delay vs. local (network RTT for control message).
-
----
-
-## 6. Integration with Task System (Module 13)
-
-### 6.1 Steering During Task Execution
-
-If Claude is working on a task and user steers, the task state should reflect the interruption.
-
-**Integration Point**:
 ```javascript
-// Hypothetical task update after steering
-if (currentTaskId && abortTriggered) {
-    updateTaskState(currentTaskId, {
-        status: "in_progress",  // Still in progress, but approach changed
-        metadata: {
-            lastSteeredAt: Date.now(),
-            steeringMessage: userSteeringInput
-        }
-    });
-}
-```
-
-**Use Case**: If user is tracking progress via `/tasks`, they can see when they steered the agent during a task.
-
----
-
-## 7. Integration with Thinking Mode (Module 19)
-
-### 7.1 Aborting Extended Thinking
-
-Extended thinking can consume thousands of tokens. If user steers during thinking phase, the abort must handle this gracefully.
-
-**Scenario**:
-```
-T0: User asks complex question
-T1: Claude enters extended thinking (streaming <thinking> tokens)
-T2: User realizes question was unclear, steers with clarification
-```
-
-**Integration**:
-```javascript
-// During thinking phase streaming
-for await (let thinkingChunk of streamThinkingTokens()) {
-    // Check abort signal between thinking chunks
-    if (abortController.signal.aborted) {
-        yield {
-            type: "thinking",
-            content: thinkingChunk,
-            truncated: true  // Indicate thinking was cut short
-        };
-        return;
+// chunks.188.mjs:343-355 (reconstructed)
+rc = useCallback(async () => {
+    const result = await popAndMergeQueuedCommands(
+        currentInputValue,           // K8: merge with whatever user typed
+        cursorOffset,                // 0: cursor position
+        async () => new Promise(resolve => setAppState(s => { resolve(s); return s; })),
+        setAppState
+    );
+    if (!result) return;
+    setInputValue(result.text);        // $8: put merged text in input box
+    setInputMode("prompt");            // Rq: switch to prompt mode
+    if (result.images.length > 0) {
+        setPastedContents(prev => {
+            const next = { ...prev };
+            for (const img of result.images) next[img.id] = img;
+            return next;
+        });
     }
-    yield thinkingChunk;
-}
+}, [setAppState, setInputValue, setInputMode, currentInputValue, setPastedContents]);
 ```
 
-**Effect**: Thinking is truncated, and Claude immediately processes the steering message without completing the full thinking phase.
+This is called by `cancelHandlerComponent` Branch 3 (when Escape is pressed with queue but no active stream). It pops all editable items from the queue and merges them into the input box, allowing the user to review and edit before submitting.
+
+**User experience**:
+```
+State: Stream done, queuedCommands = ["Use OAuth", "Also add tests"]
+User presses Escape
+→ rc() called
+→ input box shows: "Use OAuth\nAlso add tests"
+→ cursor positioned after merged text
+→ User can edit and press Enter to submit
+```
 
 ---
 
-## 8. Integration with Hooks (Module 11)
+## 5. Integration with State Management (Module 15)
 
-### 8.1 Pre-Compact Hooks and Steering
+### 5.1 `resetLoadingState` (YK) - What Gets Reset
 
-If user steers during a hook execution (e.g., a pre-compact hook running a linter), the hook should be aborted.
-
-**Integration**:
 ```javascript
-// Hook execution with abort signal
-async function executePreCompactHooks(signal) {
-    for (let hook of registeredHooks["pre-compact"]) {
-        // Pass abort signal to hook execution
-        try {
-            await runHook(hook, { signal });
-        } catch (err) {
-            if (signal.aborted) {
-                debug("Hook aborted due to steering");
-                return;  // Exit hook execution
-            }
-            throw err;
-        }
-    }
-}
+// chunks.188.mjs:218-221
+YK = useCallback(() => {
+    C3(!1),        // setIsLoading(false)
+    ZY(void 0),    // setUserInputOnProcessing(undefined)
+    Qj.current = 0, // responseLengthRef = 0
+    xq([]),        // setStreamingToolUses([])
+    S3(null),      // setSpinnerOverrideMessage(null)
+    OO(null),      // setSpinnerOverrideColor(null)
+    xH(null),      // setSpinnerOverrideShimmerColor(null)
+    l7(),          // reset some internal state
+    PB1()          // reset some other state
+}, [C3, l7])
 ```
 
-**Why**: Hooks can be long-running (e.g., running `prettier` on entire codebase). User steering should interrupt them.
+Called at:
+1. `onCancel()` → always on cancel
+2. `handleQuery()` → end of successful query
+3. `ff (onQuery)` → finally block (ensures cleanup even on error)
+4. `W6 (handleSessionResume)` → when resuming a session
+
+**Key insight**: `resetLoadingState` is idempotent and comprehensive. It doesn't just clear `isLoading` — it resets ALL streaming-related UI state in one call, preventing orphaned spinners or stale tool indicators.
+
+### 5.2 `lastQueryCompletionTime` (wD) - Completion Timestamp
+
+```javascript
+// chunks.188.mjs: (within ff's finally block)
+LP(Date.now())  // setLastQueryCompletionTime(Date.now())
+```
+
+`wD` (lastQueryCompletionTime) is used as a dependency in HVq's Effect 2:
+```javascript
+useEffect(() => {
+    ...
+}, [isLoading, queuedCommandsLength, lastQueryCompletionTime, ...])
+```
+
+**Why needed**: If a query completes (`isLoading: true → false`) but `queuedCommandsLength` doesn't change between renders (e.g., stays at 0), React's shallow comparison would prevent the effect from re-firing. By including `lastQueryCompletionTime` (which always changes on completion), the effect reliably re-fires on every query completion.
 
 ---
 
-## 9. Integration with Fast Mode (Module 34)
+## 6. Integration with Remote Sessions (Module 33)
 
-### 9.1 Steering in Fast Mode
+### 6.1 Dual Session Manager Architecture
 
-Fast mode uses quota tracking. If user steers during a fast mode query, does the aborted query count against quota?
-
-**Integration Decision**:
 ```javascript
-// Hypothetical quota handling
-if (abortController.signal.aborted && signal.reason === "interrupt") {
-    // User-initiated steering: DON'T count against quota
-    // Rationale: User didn't get value from the aborted query
-    fastModeQuota.refundTokens(tokensUsedBeforeAbort);
-} else {
-    // Timeout or error: DO count against quota
-    fastModeQuota.consumeTokens(tokensUsedBeforeAbort);
+// chunks.188.mjs:192
+$O = pJ.isRemoteMode ? pJ : hH
+```
+
+The `$O` (remoteSessionManager) reference points to either:
+- `pJ` (Tfq result): Remote session manager (Web/SSH mode)
+- `hH` (ffq result): Local session handler (CLI mode)
+
+Both implement the same interface: `{ isRemoteMode, cancelRequest, sendMessage, ... }`.
+
+When `onCancel` checks `$O.isRemoteMode`:
+- `true` → calls `$O.cancelRequest()` → sends WebSocket `{subtype: "interrupt"}`
+- `false` → calls `O3?.abort()` → triggers AbortController
+
+**Interface symmetry**: The remote path sends a control message that causes the remote agent to call its own `abortController.abort()`, creating symmetric behavior on both sides of the connection.
+
+### 6.2 Remote Mode Enter-Key Handling
+
+Remote mode has a special guard in `Z$` (onSubmit):
+
+```javascript
+// chunks.188.mjs:726
+if ($O.isRemoteMode && !k6.trim()) return;  // Skip empty messages in remote mode
+```
+
+And the remote submission path bypasses `PE6` entirely:
+
+```javascript
+if ($O.isRemoteMode) {
+    // Build message content (text + images)
+    const message = buildMessageContent(input, pastedContents);
+    // Add to local message history immediately
+    addToMessages([createUserMessage({ content: message })]);
+    // Send directly via WebSocket data channel
+    await remoteSessionManager.sendMessage(messageContent);
+    return;  // ← bypasses PE6 completely
+}
+// Local mode: use PE6
+await processUserInput({ input, isLoading, ... })
+```
+
+**Implication**: Remote mode does NOT use the `queuedCommands` system. There is no message queue for remote sessions — each Enter press either sends immediately (not loading) or is silently dropped if the input is empty. The steering for remote sessions relies entirely on the WebSocket interrupt signal path.
+
+---
+
+## 7. Integration with Compact (Module 07)
+
+### 7.1 Abort During Auto-Compaction
+
+If auto-compaction is triggered mid-query and abort happens:
+
+```
+Query running:
+  T0: LLM streaming response
+  T1: Token count hits threshold → auto-compact triggered
+  T2: User presses Escape → abort() called
+```
+
+**Resolution**: The abort signal is checked after each LLM response. The compact operation (which runs as part of the query generator) will check the signal before starting. Since `autoCompactDispatcher` (fs4) is called inside the query generator, and the abort check happens before each LLM API call:
+
+```javascript
+// In query generator (pseudocode):
+if (toolUseContext.abortController.signal.aborted) { return; }  // Checkpoint
+// Auto-compact happens here
+if (shouldAutoCompact(messages)) await autoCompactDispatcher(...);
+// Another checkpoint
+if (toolUseContext.abortController.signal.aborted) { return; }
+```
+
+**User intent wins**: If the user aborts during auto-compaction, the compaction is abandoned (doesn't complete). The conversation history is NOT compacted, and the steering message is submitted with the original (uncompacted) history.
+
+### 7.2 Interrupt Messages Preserved During Compaction
+
+The "Interrupted by user" system message is tagged with `type: "system"`. During compaction, system messages are preserved (same as tool output messages) to maintain conversation causality.
+
+---
+
+## 8. Integration with Background Agents (Module 26)
+
+### 8.1 `cancelRunningAgentTasks` (Kd7) - Dead Code in v2.1.38
+
+```javascript
+// chunks.89.mjs:1388-1393
+function Kd7(A, q) {  // Kd7(tasks, setAppState)
+    for (let [K, Y] of Object.entries(A))
+        if (Y.type === "local_agent" && Y.status === "running")
+            na(K, q)  // na = killLocalAgent(taskId, setAppState)
 }
 ```
 
-**Trade-off**: Refunding aborted queries prevents penalizing users for steering, but could be gamed (user could abuse steering to "reset" bad queries without quota cost).
+**Callable only when** `KY()` (isPromptQueueingEnabled) returns true, which **never happens** in v2.1.38.
+
+**Intended behavior**: When prompt queueing was planned to be fully enabled, cancelling via Escape would also kill all running local_agent background tasks. This would provide a "hard reset" capability — interrupt everything, clean slate, start fresh with the steering message.
+
+**Current state**: `Kd7` is compiled into the bundle but unreachable from normal operation. Background agents continue running even after steering in v2.1.38.
+
+---
+
+## 9. Integration with Hooks (Module 11)
+
+### 9.1 Hook Abort Signal Propagation
+
+Hooks that receive the abort signal respect it:
+
+```javascript
+// In hook execution (pseudocode from combineAbortSignals usage):
+const combinedSignal = combineAbortSignals(hookTimeoutSignal, toolUseContext.abortController.signal);
+await runHook(hook, { signal: combinedSignal });
+```
+
+`combineAbortSignals` (fR, chunks.90.mjs:1691) creates an AbortController that aborts when EITHER the hook timeout OR the steering abort fires. This means:
+- If user steers while a hook is executing, the hook's subprocess receives SIGTERM
+- The hook is killed, and the abort chain propagates up
+
+### 9.2 `executeSessionStartHooks` and Steering
+
+Session-start hooks run before the first query. Steering cannot interrupt session-start hooks because `abortController` is not yet created at that point. The `O3` state variable is `null` until `cMz` or `Z$` creates it.
 
 ---
 
 ## 10. Cross-Module Data Flow Diagram
-
-### 10.1 End-to-End Steering Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                   STEERING CROSS-MODULE FLOW                            │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│  ┌──────────┐         ┌──────────┐         ┌──────────┐              │
-│  │  REPL    │────1───>│ Agent    │────2───>│ LLM API  │              │
-│  │ (UI)     │<───6────│ Loop     │<───5────│ (Fetch)  │              │
-│  └────┬─────┘         └────┬─────┘         └────┬─────┘              │
-│       │                    │                     │                     │
-│       │ 3. onCancel()      │ 4. Yield           │ abort signal       │
-│       │    triggers        │    "Interrupted"    │ terminates fetch   │
-│       ▼                    ▼                     ▼                     │
-│  ┌──────────┐         ┌──────────┐         ┌──────────┐              │
-│  │ Prompt   │         │ Tools    │         │ Compact  │              │
-│  │ Queue    │         │ (Drain)  │         │ (Pause)  │              │
-│  └──────────┘         └──────────┘         └──────────┘              │
-│       │                    │                     │                     │
-│       │ 7. Clear queue     │ 8. Complete tools  │ 9. Defer compact   │
-│       ▼                    ▼                     ▼                     │
-│  ┌──────────────────────────────────────────────────────┐            │
-│  │  New Query Submission (with steering context)        │            │
-│  │  Messages: [original, partial response, interrupt,   │            │
-│  │             steering message]                         │            │
-│  └──────────────────────────────────────────────────────┘            │
+│  USER PRESSES ENTER (while loading)                                     │
+│  ┌────────────────┐                                                     │
+│  │  Z$ (onSubmit) │─→ PE6(isLoading=true) ─→ lB() ─→ queuedCommands   │
+│  └────────────────┘                                                     │
+│                                                                         │
+│  USER PRESSES ESCAPE                                                    │
+│  ┌────────────────┐                                                     │
+│  │ ngA (Cancel    │─→ handleCancelPress()                               │
+│  │  Handler)      │      ├─ if streaming: onCancel() ─→ abort()         │
+│  └────────────────┘      │      ├─ AbortController signals fetch()       │
+│                           │      └─ LLM stream terminates               │
+│                           └─ if queue: popAndMerge() → input box        │
+│                                                                         │
+│  LLM STREAM TERMINATES                                                  │
+│  ┌────────────────┐                                                     │
+│  │ Query Generator│─→ signal.aborted?                                   │
+│  │ (chunks.149)   │      ├─ YES: drain tools + "Interrupted by user"    │
+│  └────────────────┘      └─ NO:  normal completion                      │
+│         │                                                               │
+│         ▼                                                               │
+│  isLoading = false                                                      │
+│         │                                                               │
+│         ▼                                                               │
+│  ┌────────────────┐                                                     │
+│  │ HVq hook fires │─→ queuedCommandsLength > 0?                         │
+│  │ (Effect 2)     │      ├─ YES: zVq() → dequeue → iA → PE6 → ff      │
+│  └────────────────┘      └─ NO:  idle, wait for next user input         │
+│                                                                         │
+│  NEW QUERY STARTS                                                       │
+│  ┌────────────────┐                                                     │
+│  │ ff (onQuery)   │─→ Creates new AbortController                       │
+│  │                │─→ Calls LLM API with full context:                  │
+│  └────────────────┘      [original_user_msg, partial_assistant,         │
+│                            "Interrupted by user", steering_message]     │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
-
-Legend:
-1. User presses Enter → REPL captures input
-2. REPL calls agent loop query generator
-3. onCancel() triggered, abort signal set
-4. Agent loop yields "Interrupted by user" message
-5. Abort signal propagates to LLM API fetch()
-6. Agent loop returns to REPL
-7. Prompt queue cleared (stale messages removed)
-8. Tools complete their current operation
-9. Auto-compact deferred until after steering query
 ```
 
 ---
 
 ## 11. Integration Testing Scenarios
 
-### 11.1 Test Case: Steering During Multi-Tool Execution
+### 11.1 Scenario: Steering During Multi-Tool Execution
 
-**Setup**:
-1. User asks Claude to "Analyze all Python files"
-2. Claude uses `Glob` to find 50 Python files
-3. Claude starts `Read` tool on each file (streaming batch execution)
-4. After 10 files read, user steers: "Only analyze files in src/ folder"
+**Setup**: Claude uses Glob to find 50 Python files, starts Reading each one (streaming batch)
 
-**Expected Behavior**:
-- Abort signal triggered
-- Currently executing `Read` tools (files 11-15) complete
-- Queued `Read` tools (files 16-50) are cancelled
-- "Interrupted by user" message added to conversation
-- Claude receives steering message and adjusts to only analyze `src/` files
+**At tool 10, user presses Enter then Escape**:
 
-**Verification**:
-```javascript
-// Check that exactly 15 file reads completed (10 + 5 in-flight)
-assert(readToolOutputs.length === 15);
+| Event | System Response |
+|-------|-----------------|
+| Enter pressed | `lB({value: "Only check src/"})` → queued |
+| Escape pressed | `abort()` → signal fires |
+| Tool 10 Read in-flight | `getRemainingResults()` drains it → complete |
+| Tools 11-50 | Never execute (abort prevents loop continuation) |
+| Interrupt message | "Interrupted by user" added to conversation |
+| `isLoading=false` | HVq Effect 2 fires |
+| Queue dequeue | "Only check src/" executed as new query |
+| Claude responds | Adjusts to analyze only src/ folder |
 
-// Check that steering message is in conversation
-assert(messages.some(m => m.content === "Interrupted by user"));
+### 11.2 Scenario: Rapid Enter Presses During Streaming
 
-// Check that new query only targets src/ folder
-assert(newGlobPattern === "src/**/*.py");
-```
+**Setup**: Claude is streaming, user presses Enter 3 times with 3 different messages
 
----
+| Event | State after |
+|-------|-------------|
+| Enter 1: "Focus on auth" | `queuedCommands: ["Focus on auth"]` |
+| Enter 2: "Use JWT" | `queuedCommands: ["Focus on auth", "Use JWT"]` |
+| Enter 3: "Add tests too" | `queuedCommands: ["Focus on auth", "Use JWT", "Add tests too"]` |
+| Escape pressed | `abort()` → stream ends |
+| HVq fires | Dequeues "Focus on auth" (first item only) |
+| New query runs | Claude gets "Focus on auth" steering |
+| HVq fires again | Dequeues "Use JWT" |
+| Another query runs | Claude gets "Use JWT" steering |
+| HVq fires again | Dequeues "Add tests too" |
 
-### 11.2 Test Case: Rapid Steering (Double Enter Press)
+**Insight**: Multiple Enter presses create a message queue that executes sequentially. Claude processes each steering message in order, building up context step by step.
 
-**Setup**:
-1. User submits query
-2. Claude starts responding
-3. User presses Enter (steering #1)
-4. User immediately presses Enter again (steering #2) before first abort completes
+### 11.3 Scenario: Escape While No Stream (Pop Queue to Input)
 
-**Expected Behavior**:
-- First Enter triggers abort
-- Second Enter is ignored (because `isQueryRunning.current === false` after first abort)
-- Only one "Interrupted by user" message added
-- Only one steering message submitted
+**Setup**: Claude finished responding, queuedCommands has 2 items, user presses Escape
 
-**Verification**:
-```javascript
-// Check that only one interrupt message exists
-const interruptMessages = messages.filter(m => m.content === "Interrupted by user");
-assert(interruptMessages.length === 1);
-```
+| Condition | handleCancelPress branch |
+|-----------|-------------------------|
+| `abortSignal` = undefined | Branch 1 fails |
+| `KY()` = false | Branch 2 fails |
+| `queuedCommands.length > 0` = true | **Branch 3 fires** |
+| `popCommandFromQueue()` | `V_6()` merges all editable items into input |
+
+Result: Input box shows "item1\nitem2", cursor positioned at end. User can edit and press Enter.
 
 ---
 
-## 12. Performance Optimization Opportunities
+## 12. Summary
 
-### 12.1 Predictive Abort
+Steering integration touches **8 major modules**:
 
-**Concept**: Detect when user is typing while Claude is working, and proactively prepare for steering (pre-create AbortController, pre-queue message).
+| Module | Integration Point | Mechanism |
+|--------|------------------|-----------|
+| Keybindings (32) | Cancel keybinding registration | `ngA` registers `chat:cancel` and `app:interrupt` |
+| Agent Loop (03) | Abort checkpoints in query generator | `signal.aborted` checked at 3+ points |
+| Tool Execution (05) | Graceful tool drainage | `getRemainingResults()` before exit |
+| REPL/Input (02) | Queue processing after load | `HVq` hook + `executeQueuedInput` |
+| State Management (15) | isLoading + queuedCommands state | React state drives all transitions |
+| Remote Sessions (33) | WebSocket control channel | `{subtype: "interrupt"}` message |
+| Compact (07) | Abort during compaction | Abort takes priority, compaction abandoned |
+| Hooks (11) | Signal forwarded to hook subprocess | `combineAbortSignals` terminates hook |
 
-**Benefit**: Reduces steering latency by 10-20ms (avoiding state updates during critical path).
+**The architectural principle**: Steering is implemented as a *unidirectional interrupt* that flows upstream (User → UI → Signal → Network), while steering messages flow downstream through the normal submission path. The `HVq` hook is the "reunification point" — it waits for the upstream interrupt to complete, then triggers the downstream steering message submission.
 
-**Implementation Sketch**:
-```javascript
-// On input change while isLoading
-useEffect(() => {
-    if (isLoading && inputValue.length > 0) {
-        // User is typing while Claude works → likely steering
-        prepareSteering();  // Pre-allocate resources
-    }
-}, [isLoading, inputValue]);
-```
-
----
-
-### 12.2 Abort Signal Caching
-
-**Concept**: Reuse AbortController instances instead of creating new ones per query.
-
-**Benefit**: Reduces garbage collection pressure (~100 allocations/deallocations per session).
-
-**Trade-off**: More complex lifecycle management (must ensure controller is reset between queries).
-
----
-
-## Summary
-
-Steering integration touches **9 major modules**:
-1. Agent Loop - Interrupt checkpoints in query generator
-2. Tool Execution - Graceful drainage of in-flight tools
-3. Prompt Queueing - Queue clearing on steering
-4. Compact - Deferred compaction during steering
-5. Remote Sessions - WebSocket control channel
-6. Task System - Task metadata updates
-7. Thinking Mode - Truncated thinking on abort
-8. Hooks - Hook abortion
-9. Fast Mode - Quota refund policy
-
-The key architectural principle: **Steering signals flow UPSTREAM (from UI to LLM), while steering messages flow DOWNSTREAM (through normal query path)**. This separation ensures:
-- Low latency (abort signal takes fast path)
-- Data integrity (steering message processed with full context)
-- Module decoupling (each module handles steering independently)
-
-The integration is **compositional**: steering works by triggering existing module capabilities (abort signals, message injection, queue clearing) rather than requiring steering-specific code in each module.
+**Key v2.1.38 behavioral notes**:
+1. `KY()` always returns `false` — prompt queueing cleanup code in `onCancel` is dead code
+2. Background agents continue running during steering (Kd7 never called)
+3. Remote mode has NO queue system — each Enter either sends or is dropped
+4. The help tip ID has a typo: `"enter-to-steer-in-relatime"` (missing 'l' in realtime)

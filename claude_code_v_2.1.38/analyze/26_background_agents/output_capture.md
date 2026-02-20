@@ -15,27 +15,31 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `getOutputFilePath` (ww) - Constructs the `.output` file path for a given task ID
-- `appendToOutputFile` (ZK1) - Appends text to a task's output file (async, serialized)
-- `readOutputFile` (M_6) - Reads full content of a task's output file
-- `readOutputFileDelta` (WjA) - Reads only new content since a given byte offset
-- `createOutputFile` (hj1) - Creates an empty output file and returns its path
-- `symlinkOutputFile` (Ij1) - Creates a symlink from an existing file to the task output path
-- `cleanupOutputFiles` (Rp7) - Removes all `.output` files from the tasks directory
-- `notifyTaskCompletion` (vK1) - Sends a task-notification message to the main conversation queue
-- `updateTaskProgress` (RjA) - Updates a running task's progress in app state
-- `setTaskError` (CjA) - Records an error on a task in app state
-- `setTaskResult` (yjA) - Records final result data on a task
-- `createAsyncAgent` (zd7) - Creates a background agent task entry with abort controller
-- `createSyncTaskEntry` (wd7) - Creates a task entry for a sync agent (may be backgrounded later)
-- `killTask` (na) - Aborts a running task's controller and marks it "killed"
-- `killAllRunningAgents` (Kd7) - Kills all local_agent tasks with "running" status
-- `createTaskId` (hp) - Generates a unique task ID from a type prefix and random hex
-- `createTaskRecord` (IZ) - Builds the initial task state object
+- `getOutputFilePath` (ww) - Constructs the `.output` file path for a given task ID — `chunks.89.mjs:249`
+- `writeOutputChunk` (ZK1) - Appends text to a task's output file (async, serialized) — `chunks.89.mjs:253`
+- `readFullOutput` (M_6) - Reads full content of a task's output file — `chunks.89.mjs:300`
+- `readOutputFileDelta` (WjA) - Reads only new content since a given byte offset — `chunks.89.mjs:276`
+- `initOutputFile` (hj1) - Creates an empty output file and returns its path — `chunks.89.mjs:310`
+- `symlinkOutputFile` (Ij1) - Creates a symlink from an existing file to the task output path — `chunks.89.mjs:317`
+- `cleanupOutputFiles` (Rp7) - Removes all `.output` files from the tasks directory — `chunks.89.mjs:328`
+- `notifyTaskCompletion` (vK1) - Sends a task-notification message to the main conversation queue — `chunks.89.mjs:1346`
+- `updateTaskProgress` (RjA) - Updates a running task's progress in app state — `chunks.89.mjs:~1453`
+- `markTaskFailed` (CjA) - Records an error on a task in app state — `chunks.89.mjs:~1495`
+- `markTaskCompleted` (yjA) - Records final result data on a task — `chunks.89.mjs:~1482`
+- `createAsyncTask` (zd7) - Creates a background agent task entry with abort controller — `chunks.89.mjs:~1447`
+- `createForegroundTask` (wd7) - Creates a task entry for a sync agent (may be backgrounded later) — `chunks.89.mjs:~1477`
+- `killTask` (na) - Aborts a running task's controller and marks it "killed" — `chunks.89.mjs:~1375`
+- `killAllRunningAgents` (Kd7) - Kills all local_agent tasks with "running" status — `chunks.89.mjs:~1448`
+- `createTaskId` (hp) - Generates a unique task ID from a type prefix and random hex — `chunks.89.mjs:522`
+- `createTaskRecord` (IZ) - Builds the initial task state object — `chunks.89.mjs:528`
 - `BackgroundTaskInputView` (K51) - React component for rendering the `&` background task input UI
 - `BackgroundTaskOutputView` (Xx4) - React component for rendering `<background-task-output>` blocks
 - `BashOutputView` (q51) - React component for rendering bash tool output including background indicators
-- `AgentTool` (rj1) - The Agent/Task tool definition with run_in_background support
+- `AgentTool` (rj1) - The Agent/Task tool definition with run_in_background support — `chunks.132.mjs:85`
+- `TaskOutputTool` (kW6) - Polls/retrieves background task output — `chunks.139.mjs:~1922`
+- `TaskStopTool` (vW6) - Kills a running background task — `chunks.139.mjs:~1537`
+- `trackProgressFromMessage` (Qj1) - Accumulates progress metrics from agent messages — `chunks.89.mjs:1307`
+- `getProgressSnapshot` (zB1) - Serializes progress state to a snapshot object — `chunks.89.mjs:1327`
 
 ---
 

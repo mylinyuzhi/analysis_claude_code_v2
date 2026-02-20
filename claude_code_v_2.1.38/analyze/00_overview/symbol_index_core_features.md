@@ -166,7 +166,7 @@
 | JS | updateTaskState | chunks.141.mjs:151 | function |
 | n_1 | createTask | chunks.140.mjs:2850 | function |
 | r7A | addDependency | chunks.141.mjs:172 | function |
-| Cg1 | verifyTaskCompletion | chunks.141.mjs:136 | function |
+| Cg1 | executeTaskCompletedHooks | chunks.141.mjs:2927 | generator (also in Hooks module) |
 | J71 | taskStatusSchema | chunks.140.mjs:2949 | schema (pending, in_progress, completed) |
 
 ---
@@ -496,55 +496,134 @@
 
 > Full analysis: [11_hooks/](../11_hooks/)
 
-### Hook Execution
+### Hook Event Dispatchers
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| NI | executeHooksIterator | chunks.141.mjs:2311 | generator |
-| IM6 | executeHook | chunks.130.mjs:1361 | function |
-| Xi4 | executeAgentHook | chunks.141.mjs:1561 | function |
-| BW6 | executeCommandHook | chunks.141.mjs:1898 | function |
+| NI | executeHooksIterator | chunks.141.mjs:2226 | generator |
 | qyA | executePreToolHooks | chunks.141.mjs:2812 | generator |
 | KyA | executePostToolHooks | chunks.141.mjs:2831 | generator |
 | YyA | executePostToolUseFailureHooks | chunks.141.mjs:2850 | generator |
-| zyA | executeStopHooks | chunks.141.mjs:2889 | generator |
-| mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
 | UTA | executeNotificationHooks | chunks.141.mjs:2870 | function |
+| zyA | executeStopHooks | chunks.141.mjs:2889 | generator |
+| wyA | executeTeammateIdleHooks | chunks.141.mjs:2912 | generator |
+| Cg1 | executeTaskCompletedHooks | chunks.141.mjs:2927 | generator |
+| HyA | executeUserPromptSubmitHooks | chunks.141.mjs:2946 | generator |
+| $yA | executeSessionStartHooks | chunks.141.mjs:2961 | generator |
+| OyA | executeSetupHooks | chunks.141.mjs:2979 | generator |
+| AEA | executeSubagentStartHooks | chunks.141.mjs:2995 | generator |
+| mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
+| PP | executePluginHooksForSession | chunks.142.mjs:248 | function |
+| FW6 | executePluginHooksForSetup | chunks.142.mjs:291 | function |
+| pa | loadAllPluginHooks | chunks.87.mjs:2606 | variable (memoized async fn, exported as loadPluginHooks) |
+| Ap | allowManagedHooksOnly | chunks.142.mjs:256 | function |
+| oN9 | extractPluginHooksForEvent | chunks.87.mjs:2547 | function |
+| O61 | registerPluginHooks | chunks.1.mjs:2912 | function |
+| YR6 | deregisterPluginHooks | chunks.1.mjs:2929 | function |
+| sN9 | setupPluginHookHotReload | chunks.87.mjs:2589 | function |
+| aN9 | resetHotReloadState | chunks.87.mjs:2585 | function |
+| rO6 | clearPluginHookCache | chunks.87.mjs:2581 | function |
+| g0A | hotReloadAlreadySetup | chunks.87.mjs:2596 | variable (bool guard) |
 
-### Compaction Hooks
+### Hook Resolution & Loading
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
-| PP | executeSessionStartHooks | chunks.142.mjs:248 | function |
-| $yA | executeSessionStartGenerator | chunks.141.mjs:2961 | function |
-| AyA | executeHooksOutsideREPL | chunks.141.mjs:2691 | function |
-| aX | createHookContext | chunks.141.mjs:1770 | function |
-| Wi4 | parseHookOutput | chunks.141.mjs:1780 | function |
-| MP | DEFAULT_HOOK_TIMEOUT | chunks.141.mjs:TBD | constant (5000) |
+| oRA | resolveHooksForEvent | chunks.141.mjs:2140 | function |
+| JhY | mergeHookSources | chunks.141.mjs:2104 | function |
+| _hY | matchesHookMatcher | chunks.141.mjs:2079 | function |
+| Uk7 | getPolicySettingsHooks | chunks.75.mjs:1533 | function |
+| DN1 | getRegisteredHooks | chunks.1.mjs:2921 | function |
+| Ww6 | getSessionHooks | chunks.75.mjs:1184 | function |
+| Ik7 | getSessionFunctionHooks | chunks.75.mjs:1200 | function |
+| xk7 | findHookCallbackForEvent | chunks.75.mjs:1228 | function |
 
-| HyA | executeUserPromptSubmitHooks | chunks.141.mjs:2946 | generator |
-| $yA | executeSessionStartHooks | chunks.141.mjs:2961 | generator |
-| AEA | executeSubagentStartHooks | chunks.141.mjs:2995 | generator |
+### Hook Executors
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| BW6 | executeCommandHook | chunks.141.mjs:1924 | function |
+| Xi4 | executeAgentHook | chunks.141.mjs:1561 | function |
+| Pn7 | executePromptHook | chunks.90.mjs:2050 | function |
+| DhY | executeCallbackHook | chunks.142.mjs:154 | function |
+| XhY | executeFunctionHook | chunks.142.mjs:96 | function |
+| AyA | executeHooksOutsideREPL | chunks.141.mjs:2691 | function |
+
+### Hook Output Processing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
 | Wi4 | parseHookOutput | chunks.141.mjs:1780 | function |
-| tGY | HOOK_EVENT_NAMES | chunks.129.mjs:717 | constant (Array) |
-| Bj1 | HOOK_BLOCKED_TOOLS | chunks.141.mjs:TBD | constant (Set) |
-| cD | STRUCTURED_OUTPUT_TOOL_NAME | chunks.89.mjs:TBD | constant |
-| zJ6 | HookOutputSchema | chunks.141.mjs:TBD | schema |
-| GB1 | StructuredOutputSchema | chunks.141.mjs:TBD | schema |
-| registeredHooks | registeredHooks | chunks.1.mjs:2409 | state key |
+| Gi4 | processHookJsonOutput | chunks.141.mjs:1810 | function |
+| SK1 | isAsyncHookResponse | chunks.90.mjs:1624 | function |
+| zn7 | isSyncHookResponse | chunks.90.mjs:1620 | function |
+| aRA | buildPreToolUseBlockingMessage | chunks.141.mjs:2202 | function |
+| sRA | buildStopHookFeedbackMessage | chunks.141.mjs:2206 | function |
+| tRA | buildTeammateIdleFeedbackMessage | chunks.141.mjs:2211 | function |
+| yg1 | buildTaskCompletedFeedbackMessage | chunks.141.mjs:2216 | function |
+| eRA | buildUserPromptSubmitBlockingMessage | chunks.141.mjs:2221 | function |
+
+### Async Hook Background Registry
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| $n7 | registerAsyncHook | chunks.90.mjs:1793 | function |
+| On7 | appendAsyncHookStdout | chunks.90.mjs:1840 | function |
+| _n7 | appendAsyncHookStderr | chunks.90.mjs:1846 | function |
+| cMA | finalizeAsyncHook | chunks.90.mjs:1852 | function |
+| Jn7 | checkAsyncHookResponses | chunks.90.mjs:1865 | function |
+| Xn7 | removeDeliveredAsyncHooks | chunks.90.mjs:1916 | function |
+| lMA | cleanupAllAsyncHooks | chunks.90.mjs:1923 | function |
+| VR | asyncHookRegistry | chunks.90.mjs:1934 | variable (Map) |
+| ji4 | backgroundHookProcess | chunks.141.mjs:1739 | function |
+
+### Hook Telemetry & Streaming
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qn7 | startHookOtelSpan | chunks.90.mjs:1512 | function |
+| Kn7 | finalizeHookOtelSpan | chunks.90.mjs:1534 | function |
+| Hn7 | notifyHookStart | chunks.90.mjs:1728 | function |
+| Ch | logHookCompletion | chunks.90.mjs:1770 | function |
+| HJ6 | hookProgressPoller | chunks.90.mjs:1747 | function |
+| xL9 | emitHookProgress | chunks.90.mjs:1738 | function |
+| dMA | dispatchHookEvent | chunks.90.mjs:1719 | function |
+| wn7 | setHookEventHandler | chunks.90.mjs:1714 | function |
+| wJ6 | isRemoteStreamingEvent | chunks.90.mjs:1724 | function |
+| IL9 | REMOTE_STREAMING_HOOK_EVENTS | chunks.90.mjs:1790 | constant (["SessionStart","Setup"]) |
+| Mi4 | buildHookDefinitionsList | chunks.142.mjs:189 | function |
+| Zi4 | buildPluginHookCounts | chunks.141.mjs:2092 | function |
 
 ### Hook Utilities
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Ji4 | generateHookId | chunks.141.mjs:TBD | function |
-| XJ6 | interpolatePrompt | chunks.141.mjs:1566 | function |
-| DJ6 | registerAgentInState | chunks.141.mjs:1624 | function |
-| iD1 | unregisterAgentFromState | chunks.141.mjs:1652 | function |
-| fR | combineAbortSignals | chunks.141.mjs:1577 | function |
-| jn7 | getStructuredOutputTool | chunks.141.mjs:1582 | function |
-| kq | formatMessage | chunks.141.mjs:1683 | function |
+| aX | buildBasePayload | chunks.141.mjs:1770 | function |
+| XJ6 | interpolateHookPrompt | chunks.90.mjs:2001 | function |
+| fR | combineAbortSignals | chunks.90.mjs:1691 | function |
+| jn7 | getStructuredOutputTool | chunks.90.mjs:2005 | function |
+| DJ6 | registerAgentInState | chunks.90.mjs:2030 | function |
+| iD1 | unregisterAgentFromState | chunks.75.mjs:1240 | function |
+| MZ | getHookDisplayName | chunks.75.mjs:1272 | function |
+| _J6 | mergeAsyncGenerators | chunks.90.mjs:1950 | generator |
+| Pi4 | isWorkspaceTrustRequired | chunks.141.mjs:1765 | function |
+
+### Hook Schemas & Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| tGY | HOOK_EVENT_NAMES | chunks.129.mjs:717 | constant (15-item Array) |
+| MP | DEFAULT_HOOK_TIMEOUT | chunks.142.mjs:215 | constant (600000ms = 10 min) |
+| Bj1 | HOOK_BLOCKED_TOOLS | chunks.89.mjs:876 | constant (Set) |
+| zJ6 | HookOutputSchema | chunks.129.mjs:834 (LZY) | schema |
+| GB1 | StructuredOutputSchema | chunks.90.mjs:2044 | schema |
+| gZ | HookBasePayloadSchema | chunks.129.mjs:717 | schema |
+| eGY | PreToolUsePayloadSchema | chunks.129.mjs:722 | schema |
+| qZY | PostToolUsePayloadSchema | chunks.129.mjs:732 | schema |
+| KZY | PostToolUseFailurePayloadSchema | chunks.129.mjs:738 | schema |
+| WZY | AsyncHookResponseSchema | chunks.129.mjs:792 | schema |
+| cow | AllHookInputUnionSchema | chunks.129.mjs:792 | schema |
+| registeredHooks | registeredHooks | chunks.1.mjs:2409 | state key |
 
 ---
 
@@ -562,12 +641,43 @@
 | vW1 | discoverProjectSkills | chunks.134.mjs:1964 | function |
 | iF4 | getLoadedSkills | chunks.134.mjs:1992 | function |
 | bkA | isSkillFile | chunks.134.mjs:1823 | function |
+| fEY | deduplicateSkillFiles | chunks.134.mjs:1827 | function |
+| VEY | getSkillName_fromSkillMd | chunks.134.mjs:1853 | function |
+| NEY | getSkillName_fromMdFile | chunks.134.mjs:1861 | function |
+| cF4 | getRelativePath | chunks.134.mjs:1846 | function |
+| TEY | deriveCommandName | chunks.134.mjs:1869 | function |
+| TW1 | findSkillDirectories | chunks.134.mjs:1945 | function |
+| vEY | loadLegacyCommands | chunks.134.mjs:1873 | function |
+| ZEY | parsePathPatterns | chunks.134.mjs:1673 | function |
+| GEY | getInodeId | chunks.134.mjs:1651 | function |
+| BP6 | clearSkillsCache | chunks.134.mjs:1937 | function |
+| lF4 | registerSkillChangeListener | chunks.134.mjs:1941 | function |
+| gF4 | checkedSkillsDirs | chunks.134.mjs:2031 | Set |
 | Pt | activeSkillsMap | chunks.134.mjs:2033 | Map |
 | aQ1 | conditionalSkillsMap | chunks.134.mjs:2035 | Map |
 | BkA | activatedSkillsSet | chunks.134.mjs:2037 | Set |
 | mkA | skillChangeListeners | chunks.134.mjs:2039 | Array |
 | dF4 | createSkillObject | chunks.134.mjs:1682 | function |
 | pF4 | parseSkillHooks | chunks.134.mjs:1663 | function |
+| bP6 | parseBoolean | chunks.134.mjs:1659 | function |
+
+### Skill Execution Helpers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ej1 | interpolateArguments | chunks.87.mjs:1735 | function |
+| Ma | executeShellExpansion | chunks.81.mjs:601 | function |
+| mM6 | setupForkedCommandContext | chunks.149.mjs:2562 | function |
+| FM6 | extractForkedCommandResult | chunks.149.mjs:2582 | function |
+
+### Bundled Skill Registry
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Sj | registerPromptSkill | chunks.166.mjs:1795 | function |
+| nHq | getBundledSkills | chunks.166.mjs:1822 | function |
+| iHq | bundledSkillRegistry | chunks.166.mjs:1826 | Array |
+| nI | initSkillRegistry | chunks.166.mjs:1828 | function |
 
 ### Built-in Skills/Plugins
 
@@ -615,7 +725,7 @@
 > Full analysis: [21_steering/](../21_steering/)
 > Real-time course correction via interrupt signals
 
-### Steering Logic
+### Core Steering Logic
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
@@ -623,10 +733,60 @@
 | Aq | createAbortController | chunks.6.mjs:449-451 | function |
 | O3 | abortController | chunks.188.mjs:99 | state variable |
 | HY | setAbortController | chunks.188.mjs:99 | state setter |
+| O7 | streamMode | chunks.188.mjs:87 | state variable ("requesting"\|"thinking"\|"responding"\|"tool-input"\|"tool-use") |
+| tK | setStreamMode | chunks.188.mjs:87 | state setter |
 | XhA | createUserInterruptMessage | chunks.149.mjs | function |
 | FG1 | createCleanupMessage | chunks.149.mjs | function |
 | i4K | setupAbortTimeout | chunks.6.mjs | function |
 | n4K | DEFAULT_TIMEOUT | chunks.6.mjs | constant |
+| YK | resetLoadingState | chunks.188.mjs:218-221 | function |
+
+### UI Layer - Cancel Handler Component
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ngA | cancelHandlerComponent | chunks.185.mjs:2137-2172 | function (React component) |
+| Z | handleCancelPress | chunks.185.mjs:2152-2167 | function (closure inside ngA) |
+
+### Prompt Queue System
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| lB | enqueueCommand | chunks.89.mjs:415-422 | function |
+| KY | isPromptQueueingEnabled | chunks.89.mjs:879 | function (always returns false) |
+| Kd7 | cancelRunningAgentTasks | chunks.89.mjs:1388-1393 | function (dead code via KY) |
+| GjA | clearLegacyQueue | chunks.89.mjs:407-409 | function |
+| WR | enqueueToLegacyQueue | chunks.89.mjs:417-419 | function |
+| up7 | dequeueFromLegacyArray | chunks.89.mjs:401-406 | function |
+| G_6 | notifyQueueSubscribers | chunks.89.mjs:384-387 | function |
+| Sp7 | subscribeToQueueChanges | chunks.89.mjs:374-378 | function |
+| hp7 | getQueueRevision | chunks.89.mjs:380-382 | function |
+| Ip7 | isLegacyQueueNonEmpty | chunks.89.mjs:389-391 | function |
+| xp7 | getLegacyQueueLength | chunks.89.mjs:393-395 | function |
+| bp7 | notifyLegacyQueueProgress | chunks.89.mjs:397-399 | function |
+| xj1 | legacyQueueArray | chunks.89.mjs:503 | variable (array) |
+| Cp7 | queueRevisionCounter | chunks.89.mjs:506 | variable (number) |
+| W_6 | legacyQueueSubscribers | chunks.89.mjs:507 | variable (Set) |
+| AB1 | logQueueEvent | chunks.89.mjs | function (telemetry) |
+| Z_6 | dequeueNextCommand | chunks.89.mjs:422-437 | function |
+| V_6 | popAndMergeQueuedCommands | chunks.89.mjs:473-500 | function |
+
+### Queue Processor Hook
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| HVq | useQueuedCommandProcessor | chunks.186.mjs:87-135 | function (React hook) |
+| zVq | processNextQueuedCommand | chunks.186.mjs:63-84 | function |
+| iA | executeQueuedInput | chunks.188.mjs:894-926 | function (useCallback) |
+| rc | popCommandFromQueue | chunks.188.mjs:343-355 | function (useCallback) |
+| wD | lastQueryCompletionTime | chunks.188.mjs | state variable |
+| LP | setLastQueryCompletionTime | chunks.188.mjs | state setter |
+
+### Stream Event Processing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| iW1 | processStreamEvent | chunks.173.mjs:390-450 | function |
 
 ### Remote Steering
 
@@ -634,11 +794,12 @@
 |------------|----------|-----------|------|
 | cancelSession | cancelSession | chunks.176.mjs:3060-3063 | method (RemoteSessionManager) |
 
-### Help Text
+### Help Text & Tips
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| enter-to-steer-in-realtime | STEERING_HELP_TIP_ID | chunks.176.mjs:1341 | constant (help tip) |
+| enter-to-steer-in-relatime | STEERING_HELP_TIP_ID | chunks.176.mjs:1341 | constant (help tip; NOTE: typo "relatime" not "realtime" in source) |
+| prompt-queue | PROMPT_QUEUE_HELP_TIP_ID | chunks.176.mjs:1333 | constant (help tip) |
 
 ---
 
@@ -650,16 +811,42 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| nGz | mainEntry | chunks.190.mjs:931 | function |
+| nGz | mainEntry | chunks.189.mjs:931 | function |
 | aGz | commanderSetup | chunks.190.mjs:999 | function |
-| qZz | cliWrapper | chunks.189.mjs:16 | function |
-| gRq | showSetupScreens | chunks.190.mjs:758 | function |
+| qZz | cliEntry | chunks.190.mjs:167 | function |
+| iGz | determineEntrypoint | chunks.189.mjs:916 | function |
+| gRq | showSetupScreens | chunks.189.mjs:758 | function |
 | PGz | pluginValidateCommand | chunks.189.mjs:3 | function |
 | VGz | installCommandRender | chunks.189.mjs:80 | function |
 | yGz | updateCheckCommand | chunks.189.mjs:371 | function |
 | vGz | setupTokenCommand | chunks.189.mjs:267 | function |
 | LGz | doctorCommand | chunks.189.mjs:313 | function |
 | RGz | installCommandAction | chunks.189.mjs:328 | function |
+| tGz | cleanupOnExit | chunks.189.mjs:2144 | function |
+| LUA | noopCliOptionsPostProcess | chunks.189.mjs:2142 | function |
+
+### Rendering Primitives
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| mGz | renderWithCallback | chunks.189.mjs:741 | function |
+| LF | renderFullscreenComponent | chunks.189.mjs:748 | function |
+| $l1 | renderAndWait | chunks.189.mjs:754 | function |
+| rGz | createRenderOptions | chunks.189.mjs:958 | function |
+| oGz | handleStdinInput | chunks.189.mjs:984 | function |
+| _QA | FpsMetricsTracker | chunks.189.mjs:TBD | class |
+| js | resolveInkOptions | chunks.189.mjs:TBD | function |
+| RUA | flushRenderQueue | chunks.189.mjs:TBD | function |
+
+### State Store Architecture
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Gf6 | createStateStore | chunks.151.mjs:398 | function |
+| u_ | AppStateProvider | chunks.151.mjs:522 | function (Component) |
+| Pf1 | AppStateRoot | chunks.176.mjs:643 | function (Component) |
+| K11 | onChangeAppStateHandler | chunks.176.mjs:581 | function |
+| BDq | FpsMetricsWrapper | chunks.176.mjs:657 | function (Component) |
 
 ### UI & Interaction
 
@@ -670,3 +857,52 @@
 | oc | handleQuery | chunks.188.mjs:550 | function |
 | ff | onQuery | chunks.188.mjs:589 | function |
 | Z$ | onSubmit | chunks.188.mjs:686 | function |
+| B_ | useFullStore | chunks.151.mjs:TBD | hook |
+| sgA | mergeCommandArrays | chunks.188.mjs:TBD | function |
+| tD | loadTools | chunks.188.mjs:TBD | function |
+| PVq | subscribePluginCommands | chunks.186.mjs:TBD | function |
+| hH | localConnectionHandler | chunks.188.mjs:TBD | object |
+| pJ | remoteConnectionHandler | chunks.188.mjs:TBD | object |
+
+### Permission Mode & Tool Context (chunks.172.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qJq | setupPermissionMode | chunks.172.mjs:2175 | function |
+| KJq | buildToolPermissionContext | chunks.172.mjs:2252 | function |
+| hd | parseToolList | chunks.172.mjs:2219 | function |
+| Szz | expandToolNames | chunks.172.mjs:TBD | function |
+| rRA | getAllToolNames | chunks.172.mjs:TBD | function |
+| hzz | isSymlinkedPath | chunks.172.mjs:2168 | function |
+| AJq | buildPermissionContextObject | chunks.172.mjs:TBD | function |
+| cG1 | validateDirectory | chunks.172.mjs:TBD | function |
+| lG1 | formatDirectoryWarning | chunks.172.mjs:TBD | function |
+| QmA | checkBypassGateAsync | chunks.172.mjs:2313 | function |
+| rD1 | isBypassPermissionsDisabled | chunks.172.mjs:2317 | function |
+| oD1 | downgradeBypassContext | chunks.172.mjs:2323 | function |
+| YJq | enforceBypassGateAsync | chunks.172.mjs:2336 | function |
+
+### preAction Hook Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| KDq | appInitializer | chunks.175.mjs:2316 | variable (lazy thunk) |
+| Rp7 | runMigrations | chunks.89.mjs:328 | function |
+| UGz | syncSettings | chunks.189.mjs:851 | function |
+| M_4 | fetchRemoteSettings | chunks.110.mjs:1299 | function |
+| Dv7 | postRemoteSettings | chunks.72.mjs:2328 | function |
+| EK | profileCheckpoint | chunks.189.mjs (import) | function |
+
+### Argument Validation Helpers (chunks.189.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| UT6 | Commander | chunks.189.mjs (import) | library |
+| kXq | CommanderInvalidArgumentError | chunks.189.mjs (import) | class |
+| xv | parseUuid | chunks.189.mjs:1101 | function |
+| zm1 | isSessionInUse | chunks.189.mjs:1101 | function |
+| i8 | isClaudeAiSubscriber | chunks.189.mjs:1130 | function |
+| pg1 | hasEnterpriseMcpConfig | chunks.189.mjs:1269 | function |
+| hn4 | isMcpConfigAllowedByEnterprise | chunks.189.mjs:1271 | function |
+| yl | exitWithError | chunks.189.mjs:1302 | function |
+| H6 | chalk | chunks.189.mjs (import) | library |

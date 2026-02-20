@@ -38,7 +38,7 @@ Key functions in this document:
 - `executeCommandHook` (BW6) - Low-level shell command execution for hooks
 - `executeAgentHook` (Xi4) - Executes agent-type hooks
 - `HOOK_EVENT_NAMES` (tGY / ax) - Canonical list of all event names
-- `DEFAULT_HOOK_TIMEOUT` (MP) - Default timeout for hook execution
+- `DEFAULT_HOOK_TIMEOUT` (MP) - Default timeout: **600,000ms (10 minutes)** — set in `chunks.142.mjs:215`
 
 ---
 
@@ -66,10 +66,10 @@ Hooks can be of several types, each with different execution semantics:
 | Type | Execution | Can Block? | Description |
 |------|-----------|------------|-------------|
 | `command` | Shell command via `BW6` | Yes (exit code 2) | Runs a shell command, passes hook input as JSON via stdin |
-| `prompt` | LLM prompt via `Pn7` | No | Sends a prompt to the LLM with hook context |
-| `agent` | Agent invocation via `Xi4` | No | Runs a full agent turn with hook context |
-| `callback` | In-process async function | No | Direct JS callback (used by plugins) |
-| `function` | Special REPL-integrated hook | No | Executes within the REPL context with message access |
+| `prompt` | LLM prompt via `Pn7` | No (yes/no only) | Sends a prompt to the LLM; returns `{"ok": true/false}`. Requires ToolUseContext. |
+| `agent` | Agent invocation via `Xi4` | Yes (`ok: false`) | Runs a full agent loop with tools to verify a condition. Can block if condition not met. |
+| `callback` | In-process function via `DhY` | Via JSON return | Direct JS async callback (used by plugins). Can return structured JSON like command hooks. |
+| `function` | REPL-only function via `XhY` | Yes (false return) | Executes within the REPL context with access to conversation messages. Stop hooks only. |
 
 ### Exit Code Semantics (for `command` type)
 
@@ -81,21 +81,43 @@ Hooks can be of several types, each with different execution semantics:
 
 ### JSON Response Schema
 
-Command hooks can return structured JSON on stdout. The `LZY` schema defines:
+Command hooks can return structured JSON on stdout. The `LZY` schema (`HookOutputSchema` / `zJ6`) in `chunks.129.mjs:834` defines:
 
 ```json
 {
-  "continue": true,         // Optional: whether to continue processing
-  "suppressOutput": false,  // Optional: suppress hook output in UI
-  "stopReason": "...",      // Optional: reason for stopping
-  "decision": "approve",    // Optional: "approve" or "block"
-  "systemMessage": "...",   // Optional: message injected into conversation
-  "reason": "...",          // Optional: human-readable reason
-  "hookSpecificOutput": {}  // Optional: event-specific structured response
+  "continue": false,        // Optional: if false, set preventContinuation=true with optional stopReason
+  "suppressOutput": false,  // Optional: suppress hook output in UI (only applies when JSON response)
+  "stopReason": "...",      // Optional: reason string when continue=false
+  "decision": "approve",    // Optional: legacy field. "approve"→allow, "block"→deny with reason
+  "systemMessage": "...",   // Optional: text injected as system message into conversation
+  "reason": "...",          // Optional: human-readable reason for blocking decisions
+  "hookSpecificOutput": {}  // Optional: event-specific structured response (see below)
 }
 ```
 
-The `hookSpecificOutput` varies per event and can control permission decisions, inject context, modify tool inputs, and more.
+The `hookSpecificOutput` varies per event and can control permission decisions, inject context, modify tool inputs, and more. The `hookEventName` field within `hookSpecificOutput` must match the current event.
+
+#### `hookSpecificOutput` by Event
+
+| Event | Schema Name | Available Fields |
+|-------|------------|-----------------|
+| `PreToolUse` | `GZY` | `permissionDecision` (allow/deny/ask), `permissionDecisionReason`, `updatedInput`, `additionalContext` |
+| `PostToolUse` | `TZY` | `additionalContext`, `updatedMCPToolOutput` |
+| `PostToolUseFailure` | `vZY` | `additionalContext` |
+| `UserPromptSubmit` | `ZZY` | `additionalContext` |
+| `SessionStart` | `fZY` | `additionalContext` |
+| `Setup` | `VZY` | `additionalContext` |
+| `SubagentStart` | `NZY` | `additionalContext` |
+| `Notification` | `EZY` | `additionalContext` |
+| `PermissionRequest` | `kZY` | `decision` (behavior: "allow"/"deny", updatedInput?, updatedPermissions?, message?, interrupt?) |
+
+#### Async Response Schema
+
+Hooks can opt into async execution by returning `WZY`:
+```json
+{ "async": true, "asyncTimeout": 15000 }
+```
+This is detected by `SK1(isAsyncHookResponse)` in `chunks.90.mjs:1624`.
 
 ---
 
@@ -571,12 +593,39 @@ The function `oRA` (not shown in full) resolves which hooks apply for a given ev
 3. **Filter by match query:** If the hook specifies a tool name pattern (e.g., `PreToolUse:Bash`), only match when the query matches
 4. **Merge sources:** Hooks from different sources (settings, plugins, managed policies) are merged, with managed-only mode filtering when active
 
-### Execution Order
+### Execution Order and Concurrency
 
-Hooks for a single event execute in the order they are defined. Results are yielded as they complete via the async generator pattern. The aggregation of permission decisions follows a priority hierarchy:
-- `deny` overrides everything
-- `ask` overrides `allow` and `passthrough`
-- `allow` overrides `passthrough`
-- `passthrough` is the default (no effect)
+**All hooks for a single event run concurrently**, not sequentially. The `_J6(mergeAsyncGenerators)` function in `chunks.90.mjs:1950` starts all hook generators simultaneously and yields results in completion order (first-completed, first-yielded).
 
-This ensures the most restrictive permission always wins when multiple hooks provide conflicting decisions.
+The permission aggregation follows a "most restrictive wins" hierarchy, accumulated as results arrive:
+
+```
+deny > ask > allow > passthrough(undefined)
+
+- "deny"  → always overrides (immutable once set)
+- "ask"   → overrides "allow" and undefined
+- "allow" → set only if currently undefined
+- undefined → passthrough (no change to permission flow)
+```
+
+**Hook type ordering within resolved list:** `command → prompt → agent → callback → function`
+
+All hooks start at the same time regardless of type ordering.
+
+### Two Execution Paths
+
+Events use one of two execution strategies:
+
+| Path | Function | Used By | Returns |
+|------|---------|---------|---------|
+| **Streaming (REPL)** | `NI` (executeHooksIterator) | PreToolUse, PostToolUse, PostToolUseFailure, Stop, SubagentStop, UserPromptSubmit, SessionStart, SubagentStart, TeammateIdle, TaskCompleted, Setup | `AsyncGenerator` (yields messages live) |
+| **Parallel (non-REPL)** | `AyA` (executeHooksOutsideREPL) | Notification, PreCompact, SessionEnd, PermissionRequest | `Promise<Array>` (all results at once) |
+
+The parallel path only supports `command` and `callback` hook types — `prompt`, `agent`, and `function` hooks are not supported outside the REPL context.
+
+### Guards Applied Before Execution
+
+Both `NI` and `AyA` check the same two guards before doing anything:
+
+1. **`disableAllHooks` setting** (`C8().disableAllHooks`): Global kill switch in settings. If set, silently skip all hooks.
+2. **Workspace trust** (`Pi4()`): If the workspace trust has not been accepted (`$H(!1)` returns false), skip all hooks. This prevents malicious project-level hooks from running in untrusted directories.

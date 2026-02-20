@@ -176,3 +176,162 @@ async function updateMcpSessionState(servers, tools, resources) {
 ```
 
 // Mapping: CJq→updateMcpSessionState, A→servers, q→tools, K→resources, Q2z→extractToolInfo, hc→getMcpCliCacheDir, ST6→getMcpSessionFilePath
+
+---
+
+## Command Parse Regex: Full Breakdown
+
+The `parseMcpCliCommand` (ce) regex deserves deep analysis because it defines the boundary between MCP and regular bash:
+
+```
+/^mcp-cli\s+(call|read)\s+([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)(?:\s+([\s\S]+))?$/
+```
+
+| Segment | Meaning |
+|---|---|
+| `^mcp-cli` | Must be at start of string (no prefix commands allowed) |
+| `\s+` | One or more spaces between tokens |
+| `(call\|read)` | Capture group 1: only these two subcommands trigger interception |
+| `([a-zA-Z0-9_-]+)` | Capture group 2: server name (alphanumeric, underscores, hyphens) |
+| `\/` | Literal `/` separator between server and tool |
+| `([a-zA-Z0-9_-]+)` | Capture group 3: tool name (same charset as server name) |
+| `(?:\s+([\s\S]+))?` | Optional: capture group 4 = JSON args (any chars including newlines) |
+| `$` | Must be end of string |
+
+**What this intentionally excludes:**
+- `mcp-cli info` — NOT intercepted; handled by the session state file lookup, not live execution
+- `mcp-cli servers`, `mcp-cli tools`, etc. — these are passthrough subcommands to the real `mcp-cli` binary
+- Piped commands (`mcp-cli call server/tool | jq`) — the `$` anchor prevents matching if the command continues
+
+**Why `[\s\S]+` for args:** The args section must match JSON objects which may contain embedded newlines (pretty-printed JSON). `[\s\S]` matches any character including `\n`, unlike `.` which excludes newlines in default JavaScript regex mode.
+
+---
+
+## Safety Instruction Enforcement
+
+The `buildMcpCliInstructions` (FOq) function generates a mandatory two-step protocol injected into the system prompt:
+
+```
+MANDATORY WORKFLOW:
+1. ALWAYS call: mcp-cli info <server>/<tool>
+   BEFORE calling: mcp-cli call <server>/<tool> {...}
+
+This is a BLOCKING REQUIREMENT. Skipping info causes incorrect parameters.
+```
+
+**Why this matters:**
+- MCP tool schemas are not included in the main system prompt (context efficiency)
+- Without the schema, the model would guess parameter names and types → frequent tool call failures
+- The two-step mirrors the `Read` → `Edit` pattern for files: always inspect before acting
+- The word "BLOCKING" in the instruction exploits the model's training to treat such emphatic language as hard constraints
+
+**What happens if the model skips info:**
+- `callMcpServer` (ECA) receives unvalidated args
+- The MCP server may reject with a JSON Schema validation error
+- The error is returned to the model as tool output
+- The model then calls `info` (now knowing it should have done this first) and retries
+- This graceful degradation path exists but is far slower than compliance
+
+---
+
+## Large Output File Reference
+
+When a tool call returns a very large response, `processMcpCliResult` (CYz) saves it to a temp file instead of including it inline:
+
+```javascript
+// ============================================
+// processMcpCliResult - Handle large MCP tool output via file reference
+// Location: chunks.170.mjs:473-510
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function CYz(A, q) {
+  let K = await ECA(A);
+  if (!K) return null;
+  let Y = formatMcpResult(K);
+  if (Y.length > MAX_INLINE_OUTPUT) {
+    let z = path.join(os.tmpdir(), `mcp-output-${Date.now()}.txt`);
+    await fs.writeFile(z, Y);
+    return { stdout: `Output saved to: ${z}\nUse Bash to read it.`, rawOutputPath: z };
+  }
+  return { stdout: Y };
+}
+
+// READABLE (for understanding):
+async function processMcpCliResult(parsedCommand, context) {
+  const result = await callMcpServer(parsedCommand);  // [ECA]
+  if (!result) return null;
+
+  const formattedOutput = formatMcpResult(result);
+
+  // If output exceeds threshold, save to file to avoid polluting context window
+  if (formattedOutput.length > MAX_INLINE_OUTPUT) {
+    const outputFile = path.join(os.tmpdir(), `mcp-output-${Date.now()}.txt`);
+    await fs.writeFile(outputFile, formattedOutput);
+    return {
+      stdout: `Output saved to: ${outputFile}\nUse Bash to read it.`,
+      rawOutputPath: outputFile  // caller can access full content if needed
+    };
+  }
+
+  return { stdout: formattedOutput };
+}
+
+// Mapping: CYz→processMcpCliResult, A→parsedCommand, q→context, K→result, Y→formattedOutput, z→outputFile
+```
+
+**Design rationale for file reference approach:**
+- Large tool outputs (e.g., database query results with thousands of rows) could consume enormous context
+- Saving to a file lets the model selectively read portions using `head`, `grep`, or line ranges
+- The `rawOutputPath` field in the return value lets the caller programmatically access the full content if needed for further processing
+
+---
+
+## callMcpServer (ECA) Response Normalization
+
+`callMcpServer` (ECA, chunks.145.mjs:1627) normalizes three different MCP response formats into a single structure:
+
+**Format 1: Text content array**
+```json
+{ "content": [{ "type": "text", "text": "result string" }] }
+```
+→ Extracted as: `result.content[0].text`
+
+**Format 2: Mixed content array**
+```json
+{ "content": [
+  { "type": "text", "text": "description" },
+  { "type": "image", "data": "base64...", "mimeType": "image/png" }
+]}
+```
+→ Text parts joined with `\n`, image parts saved as temp files with references
+
+**Format 3: isError response**
+```json
+{ "content": [{ "type": "text", "text": "error message" }], "isError": true }
+```
+→ Returned as error string prefixed with `[MCP Error] ` so the model knows to handle it as a tool failure
+
+**Normalization rationale:** MCP servers from different vendors format their responses inconsistently. The normalization layer at `callMcpServer` means the rest of Claude Code always gets a predictable string output, regardless of which MCP server produced it.
+
+---
+
+## State Persistence Flow
+
+```
+App state change (setState())
+    ↓
+onChangeAppStateHandler (K11) — reference equality guard
+    ↓ (only if mcp reference changed)
+updateMcpSessionState (CJq)
+    ↓
+getMcpSessionFilePath (ST6) → ~/.claude/claude-code-mcp-cli/{sessionId}.json
+    ↓
+writeAtomic (u2z) — atomic file write prevents partial reads
+    ↓
+Session file available for mcp-cli child process reads
+```
+
+**Atomic write importance:** The session file is read by `mcp-cli info` commands. A non-atomic write could result in the child process reading a partially written file (e.g., truncated JSON). The `writeAtomic` function writes to a temp file in the same directory, then renames it — renames are atomic on POSIX filesystems within the same partition.
+
+See also: [ui_linkage.md](./ui_linkage.md) for the K11 observer details, [mcp_hub.md](./mcp_hub.md) for MCPContext endpoint mode.
