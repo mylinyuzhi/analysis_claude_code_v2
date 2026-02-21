@@ -1163,8 +1163,10 @@
 | Xt | trackFileEdit | chunks.133.mjs:2760-2793 | function (record file pre-edit backup into current snapshot; first-edit-only) |
 | MF4 | normalizeFilePath | chunks.133.mjs (utility) | function (normalize file path for use as snapshot key) |
 | X61 | copySnapshot | chunks.1.mjs:3762-3765 | function (DEEP clone of snapshot via Myers clone; needed before mutation in trackFileEdit) |
-| PF4 | persistFileHistoryState | chunks.133.mjs (utility) | function (persist file history state to disk) |
-| kvY | checkForHistoryChanges | chunks.134.mjs:288-314 | function (diagnostic: compare old vs new backup content, call reportDifference) |
+| PF4 | debugLogFileHistoryState | chunks.133.mjs:334653 | function (conditional stderr debug logger; ALWAYS no-op in prod: LvY guard = false) |
+| LvY | isDebugLoggingEnabled | chunks.133.mjs:334656 | constant (= false; debug flag for PF4; never set to true in production) |
+| kvY | checkForHistoryChanges | chunks.134.mjs:288-314 | function (vestigial: computes backup diff between old/new snapshots, calls _t which is a no-op stub) |
+| _t | reportFileDiffToIDE | chunks.133.mjs:334190 | function (NO-OP STUB: empty body; was IDE diff notification hook, removed/never shipped) |
 | iQ1 | recordFileHistorySnapshot | chunks.173.mjs:1992-1994 | function (writes file-history-snapshot entry to session .jsonl via NJq write queue) |
 | EkA | resolveTrackedFilePath | chunks.134.mjs:209-212 | function (resolve normalized/relative path to absolute via cwd; used before fs ops) |
 | cjq | cleanupOldBackups | chunks.178.mjs:328-346 | function (delete backup files older than cleanupPeriodDays cutoff) |
@@ -1175,9 +1177,12 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | mMq | checkRewindCapability | chunks.179.mjs:1747-1779 | function (validate rewind feasibility; dry-run or execute) |
-| LP6 | snapshotExistsForMessage | chunks.179.mjs (utility) | function (check if file history has snapshot for messageId) |
-| RP6 | getDryRunDiffStats | chunks.179.mjs (utility) | function (run DF4 with dryRun=true, return diff stats) |
-| z2 | isFileHistoryEnabled | chunks.134.mjs (utility) | function (check fileCheckpointingEnabled setting) |
+| LP6 | snapshotExistsForMessage | chunks.134.mjs:334368 | function (check if file history has snapshot for messageId) |
+| RP6 | getDryRunDiffStats | chunks.134.mjs:334373 | function (run DF4 with dryRun=true, return diff stats) |
+| z2 | isFileCheckpointingEnabled | chunks.133.mjs:334248 | function (master guard: interactive=opt-out via setting+env; SDK=opt-in via CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING) |
+| NvY | isSDKCheckpointingEnabled | chunks.133.mjs:334253 | function (SDK mode checkpointing: only ON if CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true AND disable env not set) |
+| CP6 | migrateFileHistoryToNewSession | chunks.134.mjs:334572 | function (on --resume: hard-link/copy backup files from old session dir to new session dir) |
+| yP6 | hydrateFileHistoryFromSnapshots | chunks.134.mjs:334552 | function (reconstruct FileHistory React state from persisted JSONL snapshots on session load) |
 | fileCheckpointingEnabled | fileCheckpointingEnabled | chunks.140.mjs:2613 | constant (global boolean setting: "Enable file checkpointing for code rewind") |
 
 ### UI Component (chunks.178.mjs)
@@ -1220,7 +1225,7 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | f11 | dialogArbiter | chunks.188.mjs:304-317 | function (10-level priority arbiter: returns active dialog name; "message-selector" is priority #2) |
-| N11 | preRestoreCallback | chunks.188.mjs | function (abort in-flight LLM stream + clear tool permission queue before restore) |
+| N11 | onCancelAndPreRestore | chunks.188.mjs:328 | function (dual-purpose: app cancel handler AND pre-restore hook; aborts LLM stream + clears tool permission queue + clears queued commands) |
 | onRestoreCode | onRestoreCode | chunks.188.mjs | function (callback: wires setFileHistory state updater into rewindHandler kP6) |
 | onRestoreMessage | onRestoreMessage | chunks.188.mjs | function (callback: slice messages at checkpoint, restore todos, reset permission, re-inject prompt text) |
 | onSummarize | onSummarize | chunks.188.mjs | function (callback: invoke Fa4 summarizationEngineFunction for targeted summarization) |

@@ -22,6 +22,15 @@ Key functions in this document:
 - `onRestoreMessage` - Conversation slice-and-restore callback
 - `onSummarize` - Targeted summarization callback
 
+**New symbols (added in this analysis):**
+- `isFileCheckpointingEnabled` (z2) - Master guard; interactive=opt-out, SDK=opt-in
+- `isSDKCheckpointingEnabled` (NvY) - SDK mode: only ON if CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING is set
+- `migrateFileHistoryToNewSession` (CP6) - On `--resume`: migrate backup files to new session dir via hard-link/copy
+- `hydrateFileHistoryFromSnapshots` (yP6) - Reconstruct FileHistory React state from JSONL snapshots at session load
+- `debugLogFileHistoryState` (PF4) - **Correction**: NOT a state persister; conditional stderr logger, always silent (LvY=false)
+- `reportFileDiffToIDE` (_t) - **Correction**: NO-OP STUB; vestigial IDE diff notification hook
+- `isDebugLoggingEnabled` (LvY) - Always false; debug flag for PF4
+
 ---
 
 ## 0. Storage Architecture: NOT Git — Custom File Backup System
@@ -211,7 +220,8 @@ async function trackFileEdit(updateFileHistoryState, filePath, messageId) {
             let newState = { ...fileHistoryState,
                 snapshots: [...fileHistoryState.snapshots.slice(0, -1), copiedSnapshot],
                 trackedFiles: updatedTrackedFiles };
-            return persistFileHistoryState(newState), recordFileHistorySnapshot(messageId, copiedSnapshot, true)
+            return debugLogFileHistoryState(newState),  // PF4: no-op in prod (LvY=false)
+                recordFileHistorySnapshot(messageId, copiedSnapshot, true)
                 .catch((e) => logError(Error(`FileHistory: Failed to record snapshot: ${e}`))),
                 telemetry("tengu_file_history_track_edit_success", { isNewFile, version: backupRecord.version }), newState
         } catch (error) {
@@ -222,7 +232,7 @@ async function trackFileEdit(updateFileHistoryState, filePath, messageId) {
 
 // Mapping: Xt→trackFileEdit, A→updateFileHistoryState, q→filePath, K→messageId, Y→fileHistoryState,
 //          z→mostRecentSnapshot, w→normalizedPath, H→updatedTrackedFiles, O→isNewFile, _→backupRecord,
-//          J→copiedSnapshot, X→newState, MF4→normalizeFilePath, X61→copySnapshot, PF4→persistFileHistoryState
+//          J→copiedSnapshot, X→newState, MF4→normalizeFilePath, X61→copySnapshot, PF4→debugLogFileHistoryState
 ```
 
 ### Algorithm: First-Edit-Only Backup
@@ -316,7 +326,8 @@ async function createSnapshotForMessage(stateUpdater, messageId) {
             }
             let newSnapshot = { messageId, trackedFileBackups: backups, timestamp: now },
                 newHistory = { ...currentHistory, snapshots: [...currentHistory.snapshots, newSnapshot] };
-            return persistFileHistory(newHistory), checkForHistoryChanges(currentHistory, newHistory),
+            return debugLogFileHistoryState(newHistory),  // PF4: no-op in prod
+                checkForHistoryChanges(currentHistory, newHistory),  // kvY→_t: also no-op in prod
                 recordRemoteSnapshot(messageId, newSnapshot, false).catch(e => logError(Error(`FileHistory: Failed: ${e}`))),
                 telemetry("tengu_file_history_snapshot_success", {
                     trackedFilesCount: currentHistory.trackedFiles.size,
@@ -1610,7 +1621,303 @@ function checkForHistoryChanges(oldHistory, newHistory) {
 // Mapping: kvY→checkForHistoryChanges, _t→reportDifference, A→oldHistory, q→newHistory
 ```
 
-**Purpose:** This is a **diagnostic/debug function**, not part of the restore logic. It's called immediately after `createSnapshotForMessage` creates the new history state, and reports any files whose backup content actually changed between the old and new snapshots. The `_t` / `reportDifference` likely emits debug logs or internal telemetry (not user-visible).
+**Purpose:** This is a **diagnostic comparison function** called immediately after `createSnapshotForMessage` finishes. It computes whether backup content actually changed between old and new snapshots, and calls `_t` to report differences.
+
+**Critical finding: `_t` is a no-op stub.**
+
+```javascript
+// @from(Ln 334190, Col 0)
+function _t(A, q, K) {
+    return   // ← empty body, does nothing
+}
+```
+
+`_t` has an empty body. `kvY` therefore does all the work (reading both backup files from disk, comparing their content) but throws the results away. This is a **vestigial IDE notification path**: the function was designed to broadcast file diff events to an IDE integration (likely VS Code), but the broadcaster was removed or never shipped. The call chain `createSnapshotForMessage → kvY → _t` is now a dead-end computation that wastes I/O. The function remains in the codebase because its caller chain was not cleaned up.
+
+**`PF4` is also a debug logger, not a state persister.**
+
+The mapping comments in existing docs call `PF4` → `persistFileHistoryState`, but the source reveals it is a conditional debug logger:
+
+```javascript
+// @from(Ln 334653, Col 0)
+function PF4(A) {
+    if (LvY) console.error(VvY(A, false, 5))  // VvY = state serializer/formatter
+}
+// @from(Ln 334656, Col 4)
+LvY = false  // ← always false at runtime (debug flag disabled)
+```
+
+`LvY` is initialized to `false` and has no setter in the codebase, so `PF4` is effectively a no-op in production. It was likely used during development to print the full `FileHistory` state to stderr for debugging. It is called at every snapshot update (`trackFileEdit`, `createSnapshotForMessage`) but does nothing.
+
+**Corrected mappings:**
+- `PF4` → `debugLogFileHistoryState` (conditional debug logger, always silent in production)
+- `_t` → `reportFileDiffToIDE` (no-op stub, vestigial IDE notification hook)
+- `LvY` → `isDebugLoggingEnabled` (always `false`)
+
+---
+
+## 17. Session Resume — `migrateFileHistoryToNewSession` (CP6)
+
+When the user resumes a previous conversation with `--resume`, the session gets a new session ID. Since backup files are stored under `~/.claude/file-history/{sessionId}/`, all existing backups become inaccessible. `CP6` migrates them.
+
+```javascript
+// ============================================
+// migrateFileHistoryToNewSession - Copy/hard-link backup files to new session dir
+// Location: chunks.134.mjs:334572-334622
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function CP6(A) {
+    if (!z2()) return;
+    let q = A.fileHistorySnapshots;
+    if (!q || A.messages.length === 0) return;
+    let Y = A.messages[A.messages.length - 1]?.sessionId;
+    if (!Y) { K1(Error("FileHistory: Failed to copy backups on restore (no previous session id)")); return }
+    let z = U6();
+    if (Y === z) { h(`FileHistory: No need to copy file history for resuming with same session id: ${z}`); return }
+    try {
+        for (let w of q) {
+            let H = false;
+            for (let [$, O] of Object.entries(w.trackedFileBackups)) {
+                if (!O.backupFileName) continue;
+                let _ = b1(), J = Jt(O.backupFileName, Y), X = Jt(O.backupFileName, z);
+                if (_.existsSync(X)) continue;
+                if (!_.existsSync(J)) { K1(Error(`FileHistory: Failed to copy backup...`)), H = true; break }
+                let D = vkA(X);
+                if (!_.existsSync(D)) _.mkdirSync(D);
+                try { _.linkSync(J, X) }
+                catch { K1(Error("FileHistory: Error hard linking")); try { _.copyFileSync(J, X) } catch { H = true } }
+                h(`FileHistory: Copied backup ${O.backupFileName} from session ${Y} to ${z}`)
+            }
+            if (!H) iQ1(w.messageId, w, false).catch(($) => K1(Error("Failed to record copy backup snapshot")));
+            else c("tengu_file_history_resume_copy_failed", { numSnapshots: q.length })
+        }
+    } catch (w) { K1(w) }
+}
+
+// READABLE (for understanding):
+async function migrateFileHistoryToNewSession(loadedSessionContext) {
+    if (!isFileCheckpointingEnabled()) return;
+    let snapshots = loadedSessionContext.fileHistorySnapshots;
+    if (!snapshots || loadedSessionContext.messages.length === 0) return;
+
+    // Determine old session ID (from the last message's metadata)
+    let oldSessionId = loadedSessionContext.messages.at(-1)?.sessionId;
+    if (!oldSessionId) { logError(Error("No previous session id")); return }
+
+    let newSessionId = getCurrentSessionId();
+    // Skip if this is a re-open of the same session (no migration needed)
+    if (oldSessionId === newSessionId) {
+        debugLog(`No need to copy file history for resuming with same session id: ${newSessionId}`);
+        return
+    }
+
+    // For each snapshot, copy backup files from old → new session dir
+    for (let snapshot of snapshots) {
+        let migrationFailed = false;
+        for (let [normalizedPath, backupRecord] of Object.entries(snapshot.trackedFileBackups)) {
+            if (!backupRecord.backupFileName) continue;  // null = deleted file, no backup to migrate
+            let fs = getFileSystem();
+            let oldPath = resolveBackupPath(backupRecord.backupFileName, oldSessionId);
+            let newPath = resolveBackupPath(backupRecord.backupFileName, newSessionId);
+            if (fs.existsSync(newPath)) continue;  // already migrated
+            if (!fs.existsSync(oldPath)) { logError(...); migrationFailed = true; break }
+
+            // Prefer hard-link (zero cost, same inode), fall back to full copy
+            let newDir = getDirname(newPath);
+            if (!fs.existsSync(newDir)) fs.mkdirSync(newDir);
+            try { fs.linkSync(oldPath, newPath) }
+            catch {
+                try { fs.copyFileSync(oldPath, newPath) }
+                catch { migrationFailed = true }
+            }
+        }
+        if (!migrationFailed) {
+            recordFileHistorySnapshot(snapshot.messageId, snapshot, false);
+        } else {
+            telemetry("tengu_file_history_resume_copy_failed", { numSnapshots: snapshots.length });
+        }
+    }
+}
+
+// Mapping: CP6→migrateFileHistoryToNewSession, A→loadedSessionContext, q→snapshots,
+//          Y→oldSessionId, z→newSessionId, U6→getCurrentSessionId, w→snapshot,
+//          H→migrationFailed, $→normalizedPath, O→backupRecord, J→oldPath, X→newPath
+```
+
+**What it does:** Migrates all checkpoint backup files from a previous session directory to the current session directory, enabling the rewind feature to continue working across `--resume` session boundaries.
+
+**How it works:**
+1. **Guard checks**: If checkpointing is disabled, no snapshots exist, or no messages are loaded, exits early
+2. **Session ID detection**: The old session ID is extracted from the last message's `sessionId` field (set when the message was originally created)
+3. **Same-session short-circuit**: If `oldSessionId === newSessionId` (e.g. straight re-open without `--resume`), skip migration entirely
+4. **Per-backup migration**: For each backup record across all snapshots:
+   - Skip `null` backup records (represent deleted files, no file to copy)
+   - Skip already-migrated files (idempotent)
+   - Try `fs.linkSync` first (hard link — zero I/O, instant, shares inode)
+   - Fall back to `fs.copyFileSync` if hard-linking fails (cross-device or permission issue)
+5. **Snapshot re-registration**: After successful migration, re-inserts the snapshot into the new session's JSONL database
+
+**Why hard-link first?** Backup files are read-only artifacts (never modified after creation). Hard linking is free (no data copy) and correct. It only fails if old and new paths are on different filesystems (rare, but possible on unusual setups).
+
+**Trigger point:** Called in `chunks.188.mjs:261` when a resumed session has `fileHistorySnapshots`:
+```javascript
+if (q8.fileHistorySnapshots) CP6(q8);
+```
+This fires once during session load, before any user interaction.
+
+**New symbol:** `CP6` → `migrateFileHistoryToNewSession` | `chunks.134.mjs:334572` | function
+
+---
+
+## 20. Checkpointing Enable Logic — `isFileCheckpointingEnabled` (z2) + `isSDKCheckpointingEnabled` (NvY)
+
+```javascript
+// ============================================
+// isFileCheckpointingEnabled - Master guard for all checkpoint operations
+// Location: chunks.133.mjs:334248-334256
+// ============================================
+
+// ORIGINAL (for source lookup):
+function z2() {
+    if (w4()) return NvY();
+    return f6().fileCheckpointingEnabled !== false && !J6(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
+}
+function NvY() {
+    return J6(process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING) && !J6(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
+}
+
+// READABLE (for understanding):
+function isFileCheckpointingEnabled() {
+    // SDK mode uses a different flag (opt-in, not opt-out)
+    if (isSDKMode()) return isSDKCheckpointingEnabled();
+    // Interactive mode: on by default unless globally disabled in settings or env
+    return getGlobalSettings().fileCheckpointingEnabled !== false
+        && !parseBoolean(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
+}
+function isSDKCheckpointingEnabled() {
+    // SDK mode: OFF by default (must explicitly opt in)
+    return parseBoolean(process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING)
+        && !parseBoolean(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
+}
+
+// Mapping: z2→isFileCheckpointingEnabled, NvY→isSDKCheckpointingEnabled,
+//          w4→isSDKMode, f6→getGlobalSettings, J6→parseBoolean
+```
+
+**Decision matrix:**
+
+| Mode | `CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING` | `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` | `fileCheckpointingEnabled` setting | Result |
+|------|------------------------------------------|---------------------------------------------|-----------------------------------|--------|
+| Interactive | unset | - | `true` (default) | **ON** |
+| Interactive | `true` | - | any | **OFF** |
+| Interactive | unset | - | `false` | **OFF** |
+| SDK | unset | `true` | - | **ON** |
+| SDK | unset | unset/`false` | - | **OFF** |
+| SDK | `true` | `true` | - | **OFF** (disable wins) |
+
+**Key design insight:** Interactive mode is **opt-out** (on by default), SDK mode is **opt-in** (off by default). This is because SDK mode is used for automated pipelines where unexpected file writes to `~/.claude/file-history/` could be surprising. Interactive users get the safety net automatically.
+
+**New symbols:**
+- `z2` → `isFileCheckpointingEnabled` | `chunks.133.mjs:334248` | function
+- `NvY` → `isSDKCheckpointingEnabled` | `chunks.133.mjs:334253` | function
+
+---
+
+## 21. Session Resume Hydration — `hydrateFileHistoryFromSnapshots` (yP6)
+
+```javascript
+// ============================================
+// hydrateFileHistoryFromSnapshots - Reconstruct FileHistory state from persisted snapshots
+// Location: chunks.134.mjs:334552-334571
+// ============================================
+
+// ORIGINAL (for source lookup):
+function yP6(A, q) {
+    if (!z2()) return;
+    let K = [], Y = new Set;
+    for (let z of A) {
+        let w = {};
+        for (let [H, $] of Object.entries(z.trackedFileBackups)) {
+            let O = MF4(H);
+            Y.add(O), w[O] = $
+        }
+        K.push({ ...z, trackedFileBackups: w })
+    }
+    q({ snapshots: K, trackedFiles: Y })
+}
+
+// READABLE (for understanding):
+function hydrateFileHistoryFromSnapshots(persistedSnapshots, setFileHistoryState) {
+    if (!isFileCheckpointingEnabled()) return;
+    let normalizedSnapshots = [];
+    let allTrackedFiles = new Set;
+    for (let snapshot of persistedSnapshots) {
+        // Re-normalize all file paths (in case working dir changed since last session)
+        let normalizedBackups = {};
+        for (let [rawPath, backupRecord] of Object.entries(snapshot.trackedFileBackups)) {
+            let normalizedPath = normalizeFilePath(rawPath);
+            allTrackedFiles.add(normalizedPath);
+            normalizedBackups[normalizedPath] = backupRecord;
+        }
+        normalizedSnapshots.push({ ...snapshot, trackedFileBackups: normalizedBackups });
+    }
+    setFileHistoryState({ snapshots: normalizedSnapshots, trackedFiles: allTrackedFiles })
+}
+
+// Mapping: yP6→hydrateFileHistoryFromSnapshots, A→persistedSnapshots, q→setFileHistoryState,
+//          K→normalizedSnapshots, Y→allTrackedFiles, z→snapshot, w→normalizedBackups,
+//          H→rawPath, $→backupRecord, O→normalizedPath, MF4→normalizeFilePath
+```
+
+**What it does:** Converts raw snapshot data loaded from the JSONL session file into the live `FileHistory` React state. This is the bridge between persistent storage and the in-memory checkpoint system.
+
+**How it works:**
+1. Guard: exits early if checkpointing is disabled
+2. Rebuilds the `trackedFiles` Set by collecting all file paths across all snapshots
+3. Re-normalizes every file path via `MF4` (makes paths relative to the current working directory) — this handles the case where a project was moved since the last session
+4. Calls `setFileHistoryState` to update the React state atom in one atomic operation
+
+**When called:** `chunks.176.mjs:1534` — during session load, after snapshots are fetched from the JSONL:
+```javascript
+if (A.fileHistorySnapshots && A.fileHistorySnapshots.length > 0) {
+    yP6(A.fileHistorySnapshots, (K) => { fileHistory: K })
+}
+```
+
+**New symbol:** `yP6` → `hydrateFileHistoryFromSnapshots` | `chunks.134.mjs:334552` | function
+
+---
+
+## 22. `autocheckpointing` Attachment Type — Rewind Has No LLM Awareness
+
+The rewind/checkpoint system has a **registered but silent** attachment type in the system reminder pipeline:
+
+```javascript
+// chunks.173.mjs:1129
+if (["autocheckpointing", "background_task_status"].includes(A.type)) return [];
+```
+
+This is a post-switch guard in `normalizeAttachmentForAPI` (`K2z`). Any attachment with `type: "autocheckpointing"` is silently consumed — it generates **no messages** to the LLM.
+
+**Critical insight: The LLM is never informed about rewinds.**
+
+After a rewind:
+- Messages are **truncated** from the conversation array — the LLM's context simply doesn't contain those messages anymore
+- No system reminder says "the conversation was rewound"
+- No meta-message injects "file state was restored"
+- The model continues as if the discarded messages never happened
+
+**Why intentional?** If the LLM received a "you were just rewound to message X" notification, it would:
+1. Have to reconcile this with the truncated context (confusing)
+2. Change its behavior based on "knowing" it was rewound (undesirable for clean-slate retries)
+3. Waste tokens on meta-commentary about the rewind
+
+The truncation IS the notification — the model simply no longer sees the previous turns.
+
+**Why does `autocheckpointing` exist in the switch at all?** This type appears to be a **legacy remnant** or **forward-compatibility guard**. No code in v2.1.38 creates an attachment of type `autocheckpointing`. The guard prevents a crash (`Unknown attachment type` error) if such an attachment were somehow loaded from an older session file or introduced by a future version.
+
+> Cross-reference: `04_system_reminder/reminder_types.md` — Silent/No-Op Types section
 
 ---
 

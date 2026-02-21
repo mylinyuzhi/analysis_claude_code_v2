@@ -1331,10 +1331,223 @@ This is consistent with the broader behavior when `fileCheckpointingEnabled = fa
 
 ---
 
+## 26. Image Restoration During `onRestoreMessage`
+
+When the conversation is restored and the target message (`k6`) contains images (inline base64), those images are re-injected into the paste state so the user can resubmit them.
+
+```javascript
+// ============================================
+// Image restoration in onRestoreMessage
+// Location: chunks.188.mjs:1419-1436
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (Array.isArray(k6.message.content) && k6.message.content.some((k7) => k7.type === "image")) {
+    let k7 = k6.message.content.filter((X4) => X4.type === "image");
+    if (k7.length > 0) {
+        let X4 = {};
+        k7.forEach((p7, V3) => {
+            if (p7.source.type === "base64") {
+                let sq = k6.imagePasteIds?.[V3] ?? V3 + 1;
+                X4[sq] = { id: sq, type: "image", content: p7.source.data, mediaType: p7.source.media_type }
+            }
+        }), aw(X4)
+    }
+}
+
+// READABLE (for understanding):
+// If the restored message contained pasted images, reload them into the paste buffer
+if (Array.isArray(restoredMessage.message.content)
+    && restoredMessage.message.content.some((c) => c.type === "image")) {
+    let images = restoredMessage.message.content.filter((c) => c.type === "image");
+    if (images.length > 0) {
+        let pasteBuffer = {};
+        images.forEach((imageBlock, index) => {
+            if (imageBlock.source.type === "base64") {
+                // Preserve original paste IDs if stored in message metadata
+                let pasteId = restoredMessage.imagePasteIds?.[index] ?? index + 1;
+                pasteBuffer[pasteId] = {
+                    id: pasteId,
+                    type: "image",
+                    content: imageBlock.source.data,  // raw base64 string
+                    mediaType: imageBlock.source.media_type
+                }
+            }
+        });
+        setPasteImages(pasteBuffer)  // aw(X4)
+    }
+}
+// Mapping: k6→restoredMessage, k7→images, X4→pasteBuffer, p7→imageBlock,
+//          V3→index, sq→pasteId, aw→setPasteImages
+```
+
+**What it does:** After slicing the message array, if the selected restore point was a message that contained pasted images (type `"base64"`), those images are re-populated into the paste/attachment state — so when the user presses Enter to re-run the original prompt, the images are already attached.
+
+**Why `imagePasteIds`?** Messages store the original paste IDs (assigned sequentially when the user pasted) in a `imagePasteIds` array alongside the message content. This preserves stable paste IDs across the restore, preventing ID collisions with any images the user might paste next.
+
+**Data flow:**
+```
+Restore point message has images
+         │
+         ▼
+Filter content[] for type === "image"
+         │
+         ▼
+For each base64 image:
+  pasteId = imagePasteIds[index] ?? index+1
+  pasteBuffer[pasteId] = { id, type, content, mediaType }
+         │
+         ▼
+setPasteImages(pasteBuffer)  → updates paste attachment state
+         │
+         ▼
+User's input bar shows image attachment thumbnails
+User presses Enter → message submitted with images
+```
+
+---
+
+## 27. `--rewind-files` CLI Flag — Non-Interactive File Rewind
+
+The rewind feature is also accessible via the CLI in non-interactive (`--print`) mode using `--rewind-files`:
+
+```javascript
+// ============================================
+// --rewind-files CLI processing
+// Location: chunks.179.mjs:940-958
+// ============================================
+
+// ORIGINAL (for source lookup):
+if ($.rewindFiles) {
+    let T = J.find((B) => B.uuid === $.rewindFiles);
+    if (!T || T.type !== "user") {
+        process.stderr.write(`Error: --rewind-files requires a user message UUID, but ${$.rewindFiles} is not a user message in this session\n`);
+        w3(1); return
+    }
+    let k = await q(),
+        y = await mMq($.rewindFiles, k, K, false);
+    if (!y.canRewind) {
+        process.stderr.write(`Error: ${y.error || "Unexpected error"}\n`); w3(1); return
+    }
+    process.stdout.write(`Files rewound to state at message ${$.rewindFiles}\n`);
+    w3(0); return
+}
+
+// READABLE (for understanding):
+if (cliArgs.rewindFiles) {
+    // Validate: the UUID must be a user message in the loaded session
+    let targetMessage = sessionMessages.find((m) => m.uuid === cliArgs.rewindFiles);
+    if (!targetMessage || targetMessage.type !== "user") {
+        process.stderr.write(`Error: --rewind-files requires a user message UUID, but ${cliArgs.rewindFiles} is not a user message in this session\n`);
+        exitProcess(1); return
+    }
+    // Dry-run: check if rewind is feasible (snapshot exists, files accessible)
+    let fileHistoryState = await getFileHistoryState();
+    let capability = await checkRewindCapability(cliArgs.rewindFiles, fileHistoryState, sessionId, false);
+    if (!capability.canRewind) {
+        process.stderr.write(`Error: ${capability.error || "Unexpected error"}\n`);
+        exitProcess(1); return
+    }
+    // Execute and exit
+    process.stdout.write(`Files rewound to state at message ${cliArgs.rewindFiles}\n`);
+    exitProcess(0); return
+}
+// Mapping: $.rewindFiles→cliArgs.rewindFiles, J→sessionMessages, q→getFileHistoryState,
+//          mMq→checkRewindCapability, K→sessionId, w3→exitProcess
+```
+
+**What it does:** Provides a non-interactive file-only rewind via CLI. The user specifies a message UUID and Claude Code restores the file system to the state at that checkpoint, then exits.
+
+**How it works:**
+1. **UUID validation**: The provided UUID must correspond to a `type: "user"` message in the session. Tool results, assistant messages, etc. are rejected.
+2. **Capability check**: Calls `checkRewindCapability` (`mMq`) with `isDryRun=false` to simultaneously validate AND execute the rewind. The "check" in the name is misleading — when `isDryRun=false`, this actually performs the restore.
+3. **Success exit**: Prints confirmation to stdout and exits with code 0.
+4. **Error exit**: Prints error to stderr and exits with code 1.
+
+**Usage pattern:**
+```bash
+# List session messages to find a UUID
+claude --print --resume session-id --output-format json "show messages"
+
+# Rewind files to the state before a specific message
+claude --resume session-id --rewind-files "uuid-of-target-message"
+```
+
+**Limitation**: This only restores **files** — not the conversation. Conversation history is not modified in `--print` mode. This is intentional: CLI rewind is a one-shot file recovery tool, not a session manager.
+
+---
+
+## 28. System Reminder / LLM Awareness — Rewind is Invisible to the Model
+
+**The LLM is never told that a rewind happened.** This is a deliberate design decision with deep implications.
+
+### The `autocheckpointing` Silent Type
+
+The system reminder pipeline (`normalizeAttachmentForAPI`, `K2z`) contains a post-switch guard:
+
+```javascript
+// chunks.173.mjs:1129
+if (["autocheckpointing", "background_task_status"].includes(A.type)) return [];
+```
+
+Any attachment with `type: "autocheckpointing"` returns an empty array — **no messages generated**. Additionally, **no code in v2.1.38 creates an attachment of this type** — it exists only as a no-op guard to prevent `Unknown attachment type` errors if such records exist in older session files.
+
+### Why the LLM Doesn't Need to Know
+
+After a rewind, the conversation is truncated at the checkpoint. From the model's perspective:
+
+```
+BEFORE REWIND (model's context):
+  [User msg A] → [Assistant response A] → [User msg B] → [Assistant response B]
+
+AFTER REWIND TO msg A:
+  [User msg A] (cursor reset, user is about to re-type)
+```
+
+The model's context simply **no longer contains** the discarded messages. There is no gap to fill with an explanation. The model acts as if messages B and response B never happened — because from its context window, they didn't.
+
+### What Would Break If We Notified the Model
+
+If a system reminder were injected after rewind ("You were just rewound to message A"):
+1. **Context mismatch**: The model would see a notification about messages that no longer exist in its context
+2. **Behavioral contamination**: The model might reference the "failed" attempt, adding noise to the retry
+3. **Token waste**: Meta-commentary consumes tokens without adding value
+
+### The Summarize Exception
+
+"Summarize from here" is the only rewind operation that generates a visible artifact — but it's not a system reminder. It produces:
+- A `boundaryMarker` (UI-only compact divider)
+- LLM-generated `summaryMessages` (visible in transcript view)
+- A status hint toast: `"Conversation summarized (ctrl+o for history)"`
+
+The summary messages ARE sent to the LLM (they replace the summarized context), but they describe **what happened before**, not the fact that a rewind/summarize operation occurred.
+
+### The `fileCheckpointingEnabled` Settings Gate
+
+One final UI integration: the "Rewind code (checkpoints)" toggle in the settings panel is only displayed when `CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING` env var is absent:
+
+```javascript
+// chunks.154.mjs
+let A1 = !J6(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
+// ...
+...A1 ? [{
+    id: "fileCheckpointingEnabled",
+    label: "Rewind code (checkpoints)",
+    value: O.fileCheckpointingEnabled,
+    type: "boolean",
+    onChange(f1) { ... }
+}] : []
+```
+
+**Why hide the toggle when env var is set?** If an admin/organization disables file checkpointing via env var (e.g., in a CI environment, or due to storage policy), they would not want users to be able to re-enable it through the Settings UI. The env var takes precedence and the entire toggle disappears from the UI, preventing user confusion ("why does this toggle do nothing?").
+
+---
+
 ## See Also
 
 - [35_rewind/overview.md](./overview.md) - Architecture and design rationale
 - [35_rewind/implementation.md](./implementation.md) - Core algorithms and code analysis
+- [04_system_reminder/reminder_types.md](../04_system_reminder/reminder_types.md) - `autocheckpointing` silent type
 - [07_compact/](../07_compact/) - The Fa4 function shared between /compact and Summarize
 - [02_ui/](../02_ui/) - Ink/React terminal rendering pipeline
 - [09_slash_command/](../09_slash_command/) - Slash command registration

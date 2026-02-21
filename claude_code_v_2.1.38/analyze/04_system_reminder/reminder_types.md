@@ -559,10 +559,44 @@ These types are recognized by the switch statement but always return an empty ar
 
 ### Post-switch silent types (line 1129):
 
-| Type | Probable Purpose |
-|------|-----------------|
-| `autocheckpointing` | Internal: checkpoint creation tracked separately |
-| `background_task_status` | Internal: background task UI updates handled by UI layer |
+```javascript
+// chunks.173.mjs:1129
+if (["autocheckpointing", "background_task_status"].includes(A.type)) return [];
+```
+
+| Type | Status | Probable Purpose |
+|------|--------|-----------------|
+| `autocheckpointing` | **Never produced in v2.1.38** | Legacy/forward-compat guard: was or will be used to track checkpoint events, but currently no code creates this attachment type |
+| `background_task_status` | **Never produced in v2.1.38** | Background task status notifications are handled via UI state, not LLM messages |
+
+#### `autocheckpointing` — Deep Analysis
+
+**Why it exists:** This is a **forward-compatibility guard**, not an active type. No code in v2.1.38 creates an attachment of type `autocheckpointing`. The guard in `normalizeAttachmentForAPI` ensures that if an older session file contains such records (or a future version introduces them), they are silently consumed rather than triggering an `Unknown attachment type` error.
+
+**Why rewinds don't notify the LLM (the design intent):**
+
+The entire Rewind / Checkpointing feature (Module 35) operates as a **UI-only operation**. After a rewind:
+- The conversation is truncated — messages after the checkpoint are removed from the array
+- No system reminder is injected to tell the model "you were just rewound"
+- The model's context simply no longer contains the discarded turns
+
+This is intentional. Injecting a rewind notification would:
+1. Create context mismatch (notification references turns the model can no longer see)
+2. Contaminate retries (model references the "failed" previous attempt)
+3. Waste tokens on meta-commentary
+
+The design principle: **the truncation IS the notification** — the model's context IS the ground truth.
+
+**The `autocheckpointing` type was likely planned** for a notification like:
+```
+<system-reminder>
+Auto-checkpointing saved a snapshot at message {uuid}. You can restore to this point via /rewind.
+</system-reminder>
+```
+...but this was removed or never implemented, leaving only the silent guard.
+
+**Cross-reference:** Full rewind/checkpoint analysis including post-restore state, `--rewind-files` CLI, and the `fileCheckpointingEnabled` settings gate:
+> See [35_rewind/implementation.md — Section 22](../35_rewind/implementation.md) and [35_rewind/ui_linkage.md — Section 28](../35_rewind/ui_linkage.md)
 
 ### Always-empty active type:
 
