@@ -509,3 +509,621 @@ Additionally, the `KI` class (chunks.146.mjs:3, a diagnostics manager) captures 
 ## 8. Skill Directory Triggers
 
 Both Read and Write tools check if the accessed file is within a "skill trigger directory" via `TW1([path], cwd)`. If so, the path is added to `dynamicSkillDirTriggers` and `vW1()` is called to potentially reload skills. This enables the system to dynamically discover new skills when files are created in or read from skill directories.
+
+---
+
+## 9. EditTool — String Replacement Tool
+
+### Architecture
+
+The `EditTool` (`sW`, chunks.134.mjs:2124) performs surgical string replacements within existing files, unlike `FileWriteTool` which overwrites entire file content.
+
+> Full analysis: [../05_tools/edit_tool.md](../05_tools/edit_tool.md)
+
+### Key Differences from FileWriteTool
+
+| Property | FileWriteTool | EditTool |
+|----------|--------------|----------|
+| Operation | Overwrite entire file | Replace specific substring |
+| New files | Can create new files | Cannot create (unless old_string="") |
+| Input required | file_path + content | file_path + old_string + new_string |
+| Notebook support | Cannot write .ipynb | Redirects to NotebookEdit |
+| replace_all | N/A | Optional: replace all occurrences |
+
+### Input Schema
+
+```typescript
+{
+    file_path: string,     // Absolute path to file
+    old_string: string,    // Text to find and replace (empty = create new file)
+    new_string: string,    // Replacement text
+    replace_all?: boolean  // Replace all occurrences (default: false)
+}
+```
+
+### Output Schema
+
+```typescript
+{
+    data: {
+        filePath: string,
+        oldString: string,        // Actual match found (may differ from old_string due to fuzzy matching)
+        newString: string,
+        originalFile: string,     // Full original content (for diff display)
+        structuredPatch: UnifiedDiff[], // Array of diff hunks
+        userModified: boolean,    // Whether user modified input during approval
+        replaceAll: boolean,
+        gitDiff?: string          // Only in remote mode with tengu_quartz_lantern feature
+    }
+}
+```
+
+### 9-Step Validation (in order)
+
+| Step | Error Code | Condition | Message |
+|------|-----------|-----------|---------|
+| 1 | errorCode 1 | `old_string === new_string` | "No changes to make" |
+| 2 | errorCode 2 | Permission deny rule matched | "File is in a denied directory" |
+| 3 | - | UNC/network path | Pass through |
+| 4 | errorCode 4 | File doesn't exist | "File does not exist. Did you mean X?" |
+| 5 | errorCode 5 | `.ipynb` extension | "Use NotebookEdit tool" |
+| 6 | errorCode 6 | `readFileState` has no entry | "File has not been read yet" |
+| 7 | errorCode 7 | mtime > readFileState.timestamp | "File modified since read" |
+| 8 | errorCode 8 | `old_string` not found in file | "String to replace not found" |
+| 9 | errorCode 9 | Multiple matches + `replace_all=false` | "Found N matches, set replace_all=true" |
+
+### Fuzzy String Matching (PK1)
+
+The `findExactString` function (`PK1`) performs whitespace-normalized matching:
+- Normalizes tabs/spaces in both file content and `old_string`
+- Returns the exact match from the file (not the LLM's version)
+- The returned match is used for replacement, preserving file formatting
+
+**Why critical:** LLMs often introduce subtle whitespace differences when generating `old_string`. Without fuzzy matching, edit operations would fail frequently.
+
+### Encoding and Line Ending Preservation
+
+```javascript
+// Detect existing encoding and line endings before writing
+let lineEnding = fs.existsSync(absolutePath) ? detectLineEnding(absolutePath) : "LF";
+// Qd: analyzes first 8KB of file for \r\n vs \n
+let encoding = fs.existsSync(absolutePath) ? detectEncoding(absolutePath) : "utf8";
+// AX: reads BOM bytes and heuristics for UTF-8, UTF-16LE, UTF-16BE, Latin-1
+
+// Write with preserved format
+writeFileWithEncoding(absolutePath, updatedFile, encoding, lineEnding);
+```
+
+**Effect:** A Windows file (CRLF) edited on Linux remains CRLF. UTF-16 files stay UTF-16. This prevents spurious diffs in version control caused by format conversion.
+
+### UI Rendering
+
+```
+✓ Edit (src/app.ts)           ← renderToolUseMessage (IF4)
+- const x = 1                 ← renderToolResultMessage (bF4 → DiffViewer SP6)
++ const x = 2
+```
+
+For plan files (CLAUDE.md), message shows "" (hidden) and result shows "/plan to preview" hint.
+
+---
+
+## 10. GrepTool — Content Search
+
+### Architecture
+
+The `GrepTool` (`tS`, chunks.76.mjs:1129) wraps the `ripgrep` (`rg`) binary to provide fast, `.gitignore`-aware content search across files.
+
+### Input Schema
+
+```typescript
+{
+    pattern: string,          // Regex pattern to search
+    path?: string,            // Search root directory (default: cwd)
+    glob?: string,            // File filter glob (e.g., "*.ts", "**/*.tsx")
+    output_mode?: "content" | "files_with_matches" | "count",  // Default: "files_with_matches"
+    "-B"?: number,            // Context lines before match
+    "-A"?: number,            // Context lines after match
+    "-C"?: number,            // Context lines before and after
+    context?: number,         // Alias for -C
+    "-n"?: boolean,           // Show line numbers
+    "-i"?: boolean,           // Case insensitive
+    type?: string,            // ripgrep file type (js, py, rust, etc.)
+    head_limit?: number,      // Limit output to first N entries
+    offset?: number,          // Skip first N entries
+    multiline?: boolean       // Enable multiline pattern matching
+}
+```
+
+### Output Schema
+
+```typescript
+{
+    mode: "content" | "files_with_matches" | "count",
+    numFiles: number,        // Number of files matched
+    filenames: string[],     // List of matching file paths
+    content?: string,        // Match content (when mode="content")
+    numLines?: number,       // Number of matching lines
+    numMatches?: number,     // Total match count
+    appliedLimit?: number,   // Effective head_limit applied
+    appliedOffset?: number   // Effective offset applied
+}
+```
+
+### Execution Flow
+
+```javascript
+// ============================================
+// GrepTool.call - ripgrep execution
+// Location: chunks.76.mjs:1200-1350
+// ============================================
+
+// READABLE (for understanding):
+async call({ pattern, path, glob, output_mode, ...flags }, context) {
+    let searchRoot = path ? resolvePath(path) : getCwd();
+
+    // Build ripgrep command with flags
+    let args = ["--json"];  // JSON output for reliable parsing
+
+    if (flags["-i"]) args.push("--ignore-case");
+    if (flags["-n"]) args.push("--line-number");
+    if (glob) args.push("--glob", glob);
+    if (flags.type) args.push("--type", flags.type);
+    if (flags["-B"]) args.push("--before-context", String(flags["-B"]));
+    if (flags["-A"]) args.push("--after-context", String(flags["-A"]));
+    if (flags["-C"] || flags.context) args.push("--context", String(flags["-C"] ?? flags.context));
+    if (flags.multiline) args.push("--multiline", "--multiline-dotall");
+
+    switch (output_mode) {
+        case "count": args.push("--count"); break;
+        case "files_with_matches": args.push("--files-with-matches"); break;
+        // "content" is default ripgrep behavior
+    }
+
+    args.push(pattern, searchRoot);
+
+    // Execute ripgrep subprocess
+    let result = await spawnRipgrep(args);
+
+    // Apply pagination
+    let lines = result.split("\n");
+    if (flags.offset) lines = lines.slice(flags.offset);
+    if (flags.head_limit) lines = lines.slice(0, flags.head_limit);
+
+    return formatGrepResult(lines, output_mode);
+}
+```
+
+### Permission Checking
+
+Uses `checkReadPermissions` (ro) — same cascade as FileReadTool:
+1. UNC path check
+2. Deny rules
+3. Ask rules
+4. Working directory auto-allow
+5. Explicit allow rules
+
+### Why ripgrep Backend
+
+- **Performance**: Parallel search using all CPU cores
+- **gitignore awareness**: Automatically respects `.gitignore` patterns
+- **Encoding**: Handles binary files gracefully (skips them)
+- **Regex engine**: Rust regex engine is faster than PCRE for most patterns
+- **Safety**: Does not follow symlinks by default
+
+### Output Mode Selection
+
+| Mode | Use Case | LLM Use |
+|------|----------|---------|
+| `files_with_matches` (default) | Find which files contain pattern | Quick codebase mapping |
+| `content` | See exact match context | Understanding code usage |
+| `count` | Count occurrences | Statistics and metrics |
+
+### UI Rendering
+
+```
+✓ Grep (pattern: "useEffect", path: src/)   ← renderToolUseMessage
+src/App.tsx                                   ← renderToolResultMessage
+src/components/Header.tsx
+src/hooks/useData.ts
+```
+
+In `content` mode:
+```
+✓ Grep (useEffect)
+src/App.tsx:12:  useEffect(() => {
+src/App.tsx:15:  }, [data]);
+```
+
+---
+
+## 11. GlobTool — File Pattern Matching
+
+### Architecture
+
+The `GlobTool` (`WB`, chunks.76.mjs:1495) finds files matching glob patterns, returning results sorted by modification time (most recently modified first).
+
+### Input Schema
+
+```typescript
+{
+    pattern: string,  // Glob pattern (e.g., "**/*.ts", "src/**/*.{js,jsx}")
+    path?: string     // Search root (default: cwd)
+}
+```
+
+### Output Schema
+
+```typescript
+{
+    durationMs: number,  // Search duration
+    numFiles: number,    // Number of files found
+    filenames: string[], // Matching file paths
+    truncated: boolean   // Whether results were truncated at 100
+}
+```
+
+### Key Implementation Details
+
+```javascript
+// ============================================
+// GlobTool.call - File pattern matching
+// Location: chunks.76.mjs:1560-1606
+// ============================================
+
+// READABLE (for understanding):
+async call({ pattern, path }, context) {
+    let searchRoot = path ? resolvePath(path) : getCwd();
+
+    let start = Date.now();
+
+    // Check directory exists
+    if (!fs.existsSync(searchRoot) || !fs.statSync(searchRoot).isDirectory()) {
+        throw new Error(`Path is not a directory: ${searchRoot}`);
+    }
+
+    // Execute glob with modification time sorting
+    let files = await globWithStats(pattern, {
+        cwd: searchRoot,
+        dot: false,       // Exclude hidden files by default
+        absolute: true,   // Return absolute paths
+        nodir: true       // Files only, not directories
+    });
+
+    // Sort by modification time (newest first)
+    files.sort((a, b) => b.mtime - a.mtime);
+
+    // Truncate to prevent overwhelming results
+    let FILE_LIMIT = 100;
+    let truncated = files.length > FILE_LIMIT;
+    if (truncated) files = files.slice(0, FILE_LIMIT);
+
+    return {
+        durationMs: Date.now() - start,
+        numFiles: files.length,
+        filenames: files.map(f => f.path),
+        truncated
+    }
+}
+```
+
+### Sort Strategy — Modification Time
+
+**Why sort by mtime descending:** Most recently modified files are most relevant to the current task. When searching for recently edited files or finding the "latest version" of something, mtime ordering surfaces the right results first.
+
+**Trade-off:** Alphabetical ordering (which users might expect) is sacrificed for relevance. The `truncated: true` flag warns when more results exist.
+
+### Result Limit (100 files)
+
+**Why 100:** Large glob patterns (like `**/*.ts`) in big repositories can match thousands of files. Returning all of them would:
+1. Overflow the context window
+2. Slow down the LLM parsing the result
+3. Usually not be necessary (the agent can refine its pattern)
+
+### UI Rendering
+
+```
+✓ Glob (**/*.ts, src/)          ← renderToolUseMessage
+src/app.ts (modified 2min ago)  ← renderToolResultMessage
+src/server.ts (modified 1hr ago)
+src/types.ts (modified 2hr ago)
+[... 97 more files matching pattern]
+```
+
+---
+
+## 12. NotebookEdit Tool — Jupyter Cell Editor
+
+### Architecture
+
+The `NotebookEditTool` (`gd`, chunks.134.mjs:2615) provides Jupyter notebook-aware cell editing, handling the JSON structure of `.ipynb` files correctly.
+
+> See also: [../05_tools/edit_tool.md](../05_tools/edit_tool.md) for why EditTool redirects to NotebookEdit
+
+### Why a Separate Notebook Tool
+
+Jupyter notebooks are JSON files with a specific structure:
+```json
+{
+    "nbformat": 4,
+    "nbformat_minor": 5,
+    "metadata": { "language_info": { "name": "python" } },
+    "cells": [
+        {
+            "cell_type": "code",
+            "id": "abc123",
+            "source": "print('hello')",
+            "outputs": [],
+            "execution_count": null
+        }
+    ]
+}
+```
+
+Using `EditTool` to edit notebooks would:
+1. Risk corrupting the JSON structure
+2. Miss cell metadata updates (cell type, outputs clearing)
+3. Generate incorrect cell IDs for nbformat >= 4.5
+
+### Input Schema
+
+```typescript
+{
+    notebook_path: string,              // Absolute path to .ipynb file
+    cell_id?: string,                   // Cell ID to target
+    new_source: string,                 // New cell content
+    cell_type?: "code" | "markdown",    // Required for insert mode
+    edit_mode?: "replace" | "insert" | "delete"  // Default: "replace"
+}
+```
+
+### Edit Modes
+
+```
+replace:  Update existing cell's source (preserves type, outputs cleared)
+insert:   Insert new cell after cell_id (or at beginning if no cell_id)
+delete:   Remove cell from notebook
+```
+
+### Validation (6 checks)
+
+| Check | Condition | Error |
+|-------|-----------|-------|
+| 1 | File doesn't exist | "Notebook file does not exist" |
+| 2 | Not a `.ipynb` file | "File must be a Jupyter notebook" |
+| 4 | Invalid edit_mode | "Edit mode must be replace, insert, or delete" |
+| 5 | insert mode + no cell_type | "Cell type required for insert" |
+| 6 | Not valid JSON | "Notebook is not valid JSON" |
+| 7/8 | Cell ID not found | "Cell with ID X not found" |
+
+### Cell ID Handling
+
+```javascript
+// ============================================
+// NotebookEdit call - Cell ID management
+// Location: chunks.134.mjs:2756-2800
+// ============================================
+
+// READABLE (for understanding):
+// For nbformat >= 4.5: generate random cell IDs
+if (notebook.nbformat > 4 || (notebook.nbformat === 4 && notebook.nbformat_minor >= 5)) {
+    if (editMode === "insert") {
+        cellId = Math.random().toString(36).substring(2, 15);  // Random base-36 ID
+    } else if (cellId !== null) {
+        cellId = targetCellId;  // Preserve existing ID
+    }
+}
+
+// Edge case: replace at end of notebook → convert to insert
+if (editMode === "replace" && cellIndex === notebook.cells.length) {
+    editMode = "insert";
+    if (!cellType) cellType = "code";  // Default new cells to code
+}
+```
+
+**Why random IDs:** nbformat 4.5+ requires unique cell IDs. Random base-36 strings (13 chars) provide sufficient uniqueness without needing a UUID library.
+
+### Numeric Cell Index Fallback
+
+The LLM may specify a cell by index instead of ID (e.g., `cell_id: "0"` for first cell). The tool handles this:
+```javascript
+let cellIndex = notebook.cells.findIndex(cell => cell.id === cell_id);
+if (cellIndex === -1) {
+    // Try parsing as numeric index
+    let asNumber = parseInt(cell_id, 10);
+    if (!isNaN(asNumber)) cellIndex = asNumber;
+}
+```
+
+### UI Rendering
+
+```
+✓ NotebookEdit (data_analysis.ipynb)    ← renderToolUseMessage
+Cell 3: def analyze_data(df):            ← renderToolResultMessage
+    return df.describe()
+```
+
+---
+
+## 13. FileReadTool — Multi-format Reading
+
+### Image File Reading Path
+
+```javascript
+// ============================================
+// FileReadTool.call - Image reading path
+// Location: chunks.146.mjs:1800-1850
+// ============================================
+
+// READABLE (for understanding):
+async call({ file_path, offset, limit, pages }, context) {
+    let absolutePath = resolvePath(file_path);
+    let ext = getExtension(absolutePath).toLowerCase();
+
+    // === IMAGE PATH ===
+    if (IMAGE_EXTENSIONS.includes(ext)) {
+        let imageBuffer = fs.readFileSync(absolutePath);
+
+        // Resize if too large for context
+        let resized = await resizeImageIfNeeded(imageBuffer, ext, {
+            maxWidth: 1568,    // Anthropic's image size limit
+            maxHeight: 1568,
+            quality: 0.85      // JPEG quality for resized images
+        });
+
+        return {
+            type: "image",
+            data: resized.toString("base64"),
+            mediaType: getMediaType(ext),   // "image/png", "image/jpeg", etc.
+            width: resized.width,
+            height: resized.height,
+            wasResized: resized.wasResized
+        }
+    }
+
+    // === PDF PATH ===
+    if (ext === ".pdf") {
+        if (!pages) {
+            // Return metadata first
+            return { type: "pdf_metadata", pageCount: getPdfPageCount(absolutePath) }
+        }
+        // Parse page range: "1-5" → [1, 2, 3, 4, 5]
+        let pageNumbers = parsePageRange(pages);
+        let pdfImages = await renderPdfPages(absolutePath, pageNumbers);
+        return {
+            type: "pdf",
+            pages: pdfImages.map((img, i) => ({
+                pageNumber: pageNumbers[i],
+                data: img.toString("base64"),
+                mediaType: "image/png"
+            }))
+        }
+    }
+
+    // === NOTEBOOK PATH ===
+    if (ext === ".ipynb") {
+        let content = fs.readFileSync(absolutePath, { encoding: "utf8" });
+        let notebook = JSON.parse(content);
+        return {
+            type: "notebook",
+            cells: notebook.cells.map((cell, i) => ({
+                cellNumber: i + 1,
+                cellId: cell.id,
+                cellType: cell.cell_type,
+                source: Array.isArray(cell.source) ? cell.source.join("") : cell.source,
+                outputs: formatCellOutputs(cell.outputs ?? []),
+                executionCount: cell.execution_count
+            }))
+        }
+    }
+
+    // === TEXT PATH ===
+    // ... pagination with offset/limit
+}
+```
+
+### Image Size Limits
+
+Images are resized to fit within Anthropic API constraints:
+- Maximum dimensions: 1568×1568 pixels
+- Resizing preserves aspect ratio
+- JPEG compression at 85% quality for PNG→JPEG conversion
+- GIF/WebP → PNG conversion for compatibility
+
+### PDF Rendering
+
+PDF files are rendered page-by-page as PNG images via a native PDF renderer:
+- Maximum 20 pages per request (`wD1`)
+- Page range format: `"1-5"`, `"3"`, `"10-20"`
+- Each page is base64-encoded PNG
+- Used for multimodal vision analysis of PDF documents
+
+### Notebook Formatting
+
+Notebooks are parsed and returned as structured cell data:
+- Source is joined from array form (`["line1\n", "line2"]` → `"line1\nline2"`)
+- Outputs include stdout, stderr, display_data, execute_result
+- Execution count preserved for context
+
+### Binary File Detection
+
+Before reading text files, the tool checks for binary extensions:
+```javascript
+let BINARY_EXTENSIONS = [
+    ".exe", ".dll", ".so", ".dylib",  // Executables
+    ".zip", ".tar", ".gz", ".7z",     // Archives
+    ".mp3", ".mp4", ".wav", ".avi",   // Media
+    ".db", ".sqlite", ".mdb",         // Databases
+    // ... and many more
+];
+
+if (BINARY_EXTENSIONS.includes(ext)) {
+    return { result: false, message: `Cannot read binary file ${ext}. Use appropriate binary tools.` }
+}
+```
+
+### File Size Limits
+
+For text files without offset/limit:
+- Max size: `OU1` bytes (configurable, defaults to ~100KB)
+- Exceeded → error with suggestion to use `offset`/`limit` or GrepTool
+- Images: No size limit (resize handles large images)
+- Notebooks: No size limit (cell-by-cell structure)
+- PDFs: Limited by page count (20 pages max)
+
+### UI Rendering per File Type
+
+```
+Text file:
+✓ Read (src/app.ts)
+     1  import React from 'react'
+     2
+     3  function App() {
+
+Image file:
+✓ Read (screenshot.png)
+[image rendered inline in terminal - 1024×768]
+
+PDF file:
+✓ Read (document.pdf, pages 1-3)
+[Page 1 image]
+[Page 2 image]
+[Page 3 image]
+
+Notebook file:
+✓ Read (analysis.ipynb)
+Cell 1 [code]: import pandas as pd
+Cell 2 [markdown]: ## Data Analysis
+Cell 3 [code]: df = pd.read_csv('data.csv')
+  Output: DataFrame with 1000 rows
+```
+
+---
+
+## 14. UI Rendering Summary — All File System Tools
+
+| Tool | Use Header | Result Display | Error Display |
+|------|-----------|----------------|---------------|
+| **Read** | `File path breadcrumb` | Line-numbered text / inline image / PDF pages / notebook cells | "File not found", binary rejection |
+| **Write** | `File path breadcrumb` | Unified diff or full content | "File not read", permission denied |
+| **Edit** | `File path breadcrumb` | Unified diff (DiffViewer SP6) | "File must be read first" (dimmed) |
+| **Glob** | `Pattern + path` | File list with mtime | "Directory not found" |
+| **Grep** | `Pattern + path` | Match list or content | "Path not found" |
+| **NotebookEdit** | `Notebook path` | Cell content | "Cell not found", "Invalid .ipynb" |
+
+### Common Rendering Patterns
+
+**File path breadcrumb** (AE component):
+- Non-verbose: just filename (`app.ts`)
+- Verbose: full absolute path (`/Users/user/project/src/app.ts`)
+- Plan files: hidden (empty string for CLAUDE.md)
+
+**Diff display** (SP6 DiffViewer):
+- Shows unified diff with `- removed` / `+ added` color coding
+- Includes file header with path
+- Shows context lines around changes
+
+**Error handling in renders:**
+- Non-verbose: brief user-friendly message
+- Verbose: full error details with JSON
+- Most errors are categorized to show actionable guidance (e.g., "read the file first")

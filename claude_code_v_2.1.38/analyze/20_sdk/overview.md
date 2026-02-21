@@ -4,6 +4,14 @@
 
 Claude Code exposes an Agent SDK that allows external developers to build custom agents on top of the Claude Code runtime. The SDK operates through a **non-interactive print mode** where the Claude Code binary is invoked programmatically via `--print` flags and communicates over JSON-streaming stdio. SDK clients exist for TypeScript, Python, and raw CLI invocation. The system detects which SDK is being used through the `CLAUDE_CODE_ENTRYPOINT` environment variable and adapts its behavior accordingly -- changing system prompts, restricting certain built-in agents, adjusting error messages, and selecting the appropriate I/O transport.
 
+## Sub-Documents
+
+| Document | Contents |
+|---|---|
+| [streaming_protocol.md](./streaming_protocol.md) | Complete NDJSON message protocol — all message types, schemas, output format comparison |
+| [transport_layer.md](./transport_layer.md) | StdioStreamIO, WebSocketTransport, SdkUrlStreamIO internals, reconnection, permission tool |
+| [ui_linkage.md](./ui_linkage.md) | How SDK stream events drive UI state machine, thinking/text/tool streaming |
+
 ## Related Symbols
 
 > Symbol mappings:
@@ -20,7 +28,12 @@ Key functions in this document:
 - `determineClientType` (inline in nGz) - Maps entrypoint to client type
 - `StdioStreamIO` (Mc1) - Base stdio JSON streaming transport
 - `SdkUrlStreamIO` (FQA) - WebSocket-based transport for SDK URL connections
+- `WebSocketTransport` (Pc1) - WebSocket connection with reconnection/buffering
 - `createStreamIO` (IJz) - Factory that selects StdioStreamIO or SdkUrlStreamIO
+- `handleStreamEvent` (iW1) - Central dispatcher: stream events → UI state
+- `initializeSession` (CJz) - Processes initialize control request
+- `streamJsonInputHandler` (oGz) - Routes stdin → stream for different input formats
+- `handlePermissionPromptToolResult` (jc1) - MCP-based permission prompt result handler
 - `getExternalUserAgent` (Jr) - Builds user-agent string for SDK requests
 - `getBuiltinAgents` (APA) - Returns list of built-in agents (filters "guide" for SDK)
 - `SDK_SYSTEM_PROMPT_CLI` (t17) - System prompt for CLI-embedded SDK
@@ -512,3 +525,157 @@ SDK sessions include additional telemetry metadata:
 - `surface` -- Set to the entrypoint value via `getEntrypoint()` (L59)
 
 This data flows through `c01()` (chunks.80.mjs:2480) into the telemetry event payload, enabling Anthropic to track SDK adoption and usage patterns separately from interactive CLI sessions.
+
+---
+
+## SDK Auto-Configuration When --sdk-url Is Set
+
+When `--sdk-url` is provided, the CLI automatically configures several settings that would otherwise need to be specified manually:
+
+```javascript
+// ============================================
+// sdkUrlAutoConfig - Auto-configures settings for --sdk-url mode
+// Location: chunks.189.mjs:1089-1096
+// ============================================
+
+// ORIGINAL (for source lookup):
+let D1 = H.sdkUrl ?? void 0;
+if (D1) {
+    if (!b) b = "stream-json";     // auto input format
+    if (!m) m = "stream-json";     // auto output format
+    if (H.verbose === void 0) g = !0; // auto verbose
+    if (!H.print) U = !0           // auto print mode
+}
+
+// READABLE (for understanding):
+let sdkUrl = argv.sdkUrl ?? undefined;
+if (sdkUrl) {
+    if (!inputFormat) inputFormat = "stream-json";   // Require bidirectional streaming
+    if (!outputFormat) outputFormat = "stream-json"; // Require streaming output
+    if (argv.verbose === undefined) verbose = true;  // Auto-enable verbose mode
+    if (!argv.print) print = true;                   // Auto-enable print mode
+}
+
+// Mapping: D1→sdkUrl, H→argv, b→inputFormat, m→outputFormat, g→verbose, U→print
+```
+
+**Why auto-configure:** The `--sdk-url` flag is an internal flag used when Claude Code connects to a hosted session. The remote server always requires bidirectional streaming, so these are forced defaults. Manual users invoking `--sdk-url` don't need to also specify four other flags.
+
+---
+
+## JSON Schema Structured Output
+
+The `--json-schema` flag enables validated structured output. When set, the final result is guaranteed to match the specified JSON schema.
+
+**How it works:**
+1. Schema is registered via `setJsonSchema(schema)` (called from `initializeSession` if in SDK mode, or from CLI args)
+2. The agent is instructed to produce JSON-formatted output
+3. On completion, the output is validated against the schema
+4. If valid, returned in `result.result` as a JSON string
+5. The parsed data is also available via the `attachment` message with `type: "structured_output"`
+
+**Typical SDK usage:**
+
+```javascript
+// TypeScript SDK example:
+const result = await client.run("Extract the name and age", {
+    jsonSchema: {
+        type: "object",
+        properties: {
+            name: { type: "string" },
+            age: { type: "integer" }
+        },
+        required: ["name", "age"],
+        additionalProperties: false
+    }
+});
+// result.result is guaranteed to be { name: "...", age: ... }
+```
+
+**Where the schema is applied internally:**
+- Set in `KR6(jsonSchema)` during session initialization
+- Used to build a structured output tool or prompt injection
+- For Bedrock: applied to `bedrockConfig.format = outputFormat`
+
+---
+
+## Error Message Adaptation for SDK Mode
+
+The `isNonInteractive` check (w4) is the most-used guard in the codebase — over 30 call sites. Here's the complete taxonomy of how error messages differ:
+
+| Scenario | Interactive mode | SDK mode |
+|---|---|---|
+| Authentication failure | `"Run /login to authenticate"` | `"Failed to authenticate"` |
+| PDF file read failure | `"Double press esc to go back"` | `"Try reading the file a different way"` |
+| Fast mode unavailable | Shows toggle option | `"Fast mode is not available in the Agent SDK"` |
+| Permission denied | Shows interactive prompt | Returns deny result immediately |
+| Beta tracing | Not available | Enabled when `CLAUDE_CODE_ENABLE_BETA_TRACING=1` |
+| Escape key hint | Shows escape key shortcut | Not shown |
+| Login prompt | `/login` command hint | API key environment variable hint |
+
+**Why machine-optimized errors:** SDK callers parse output programmatically. Human-readable "you should run /login" instructions would be noise in machine-parseable output. The SDK mode uses terse, actionable error strings that map cleanly to SDK exception types.
+
+---
+
+## Control Request Flow — Complete State Machine
+
+The control request/response protocol forms a state machine that governs SDK session lifecycle:
+
+```
+SDK Client                              Claude Code Binary
+    │                                        │
+    │ ──── control_request (initialize) ────► │
+    │                                        ├── Register hooks, agents, schema
+    │ ◄─── control_response (session info) ── │
+    │                                        │
+    │ ──── user message ─────────────────────► │
+    │                                        ├── Process message
+    │ ◄─── assistant message ──────────────── │
+    │ ◄─── stream_event × N ──────────────── │ (if stream-json)
+    │                                        │
+    │ ◄─── control_request (can_use_tool) ── │ Claude wants to use Bash
+    │                                        ├── Awaiting permission...
+    │ ──── control_response (allow) ────────► │
+    │                                        ├── Execute tool
+    │ ◄─── tool_result ──────────────────────── │
+    │                                        │
+    │ ──── control_request (interrupt) ─────► │  [optional: user aborts]
+    │                                        ├── abortController.abort()
+    │ ◄─── control_response (success) ─────── │
+    │                                        │
+    │ ◄─── result (success/error) ──────────── │  Final message
+```
+
+**Key insight about concurrency:** Multiple user messages can be queued in the stream. The agent loop processes them sequentially, but the SDK can pipeline messages. The `control_request` (permission prompt) blocks the agent loop until the client responds — if the client is slow to respond, the entire agent turn is paused. This is why the `abortSignal` in `sendRequest` is critical for unblocking stuck sessions.
+
+---
+
+## SDK Hook Integration
+
+SDK sessions support hooks injected via the `initialize` control request. These hooks are special — instead of running shell commands, they call back into the SDK via `hookCallbackIds`:
+
+```javascript
+// initialize request with hooks:
+{
+  "type": "control_request",
+  "request": {
+    "subtype": "initialize",
+    "hooks": {
+      "PreToolUse": [{
+        "matcher": "Bash",
+        "hookCallbackIds": ["callback-uuid-1"],
+        "timeout": 30000
+      }]
+    }
+  }
+}
+```
+
+**How SDK hook callbacks work:**
+1. SDK client registers a callback ID
+2. When a matched tool is about to run, Claude Code sends a `control_request` with the callback ID
+3. SDK client's registered handler is called
+4. Response is returned via `control_response`
+5. Agent proceeds based on the hook's decision (allow/deny/modify)
+
+This enables the TypeScript/Python SDK to implement hooks as regular functions rather than external shell scripts, with full access to the SDK's context.

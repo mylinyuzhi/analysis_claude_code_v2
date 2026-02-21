@@ -166,13 +166,37 @@
 | eP5 | wrapWithSandbox | chunks.45.mjs:136 (Ln 119677) | function |
 | FP5 | buildSeatbeltProfile | chunks.44.mjs:3122 (Ln 119238) | function |
 | hO | sandboxModule | chunks.45.mjs:347 (Ln 119860) | object |
-| iP5 | isSandboxingEnabled | chunks.45.mjs:350 | function |
+| iP5 | isSandboxingEnabled (low-level) | chunks.45.mjs:350 (Ln 119542) | function |
+| Je8 | isSupportedPlatform | chunks.45.mjs:~118 (Ln 119536) | function |
+| Xe8 | checkDependencies | chunks.45.mjs:~125 (Ln 119546) | function |
 | L8 | sandboxDebugLog | chunks.44.mjs:64 (Ln 118569) | function |
 | lP5 | sandboxInitialize | chunks.44.mjs:3388 (Ln 119501) | function |
-| Nq6 | isSandboxingEnabled (public) | chunks.47.mjs:111 | function |
+| Nq6 | isSandboxingEnabled (public) | chunks.46.mjs:2818 (Ln 123689) | function |
+| le8 | isSandboxEnabledInSettings | chunks.46.mjs:2790 (Ln 123661) | function |
+| oe8 | isPlatformInEnabledList | chunks.46.mjs:2809 (Ln 123680) | function |
+| GG5 | isAutoAllowBashIfSandboxedEnabled | chunks.46.mjs:2799 (Ln 123670) | function |
+| ZG5 | areUnsandboxedCommandsAllowed | chunks.46.mjs:2804 (Ln 123675) | function |
+| VG5 | areSandboxSettingsLockedByPolicy | chunks.46.mjs:2847 (Ln 123718) | function |
+| NG5 | setSandboxSettings | chunks.46.mjs:2874 (Ln 123726) | function |
+| TG5 | getExcludedCommands | chunks.46.mjs:2874 (Ln 123744) | function |
+| fG5 | getLinuxGlobPatternWarnings | chunks.46.mjs:2825 (Ln 123696) | function |
+| vG5 | wrapWithSandboxFromSettings | chunks.46.mjs:2880 (Ln 123747) | function |
+| WG5 | extractCommandPrefix | chunks.46.mjs:2680 (Ln 123555) | function |
+| KC1 | isManagedDomainsOnlyPolicy | chunks.46.mjs:2693 (Ln 123564) | function |
+| n8A | buildSandboxConfigFromSettings | chunks.46.mjs:2697 (Ln 123568) | function |
+| EG5 | initializeSandboxFromSettings | chunks.47.mjs:3 (Ln 123753) | function |
+| kG5 | refreshSandboxConfig | chunks.47.mjs:21 (Ln 123771) | function |
+| LG5 | resetSandboxAndSettings | chunks.47.mjs:28 (Ln 123777) | function |
+| ae8 | addExcludedCommand | chunks.47.mjs:32 (Ln 123781) | function |
+| Or | sandboxInitializationPromise | chunks.47.mjs:~800 (Ln 123800) | variable |
+| r8A | settingsChangeUnsubscribe | chunks.47.mjs:~800 (Ln 123800) | variable |
 | st8 | wrapWithLinuxSandbox | chunks.44.mjs:2830 (Ln 118852) | function |
 | Ye8 | wrapWithMacOSSandbox | chunks.44.mjs:3166 (Ln 119283) | function |
-| ze8 | startMacOSLogMonitor | chunks.44.mjs:3207 (Ln 119324) | function |
+| ze8 | startMacOSLogMonitor | chunks.44.mjs:3208 (Ln 119324) | function |
+| Oq6 | encodeCommandForViolation | chunks.44.mjs:2569 (Ln 118673) | function |
+| uP5 | buildCommandLogTag | chunks.44.mjs:3045 (Ln 119045) | function |
+| gt8 | decodeBase64Command | chunks.44.mjs:2573 (Ln 118678) | function |
+| qe8 | sandboxSessionId | chunks.44.mjs:3258 (Ln 119371) | variable |
 | dy1 | SandboxViolationStore | chunks.44.mjs:3266 (Ln 119377) | class |
 | $q6 | buildProxyEnvVars | chunks.44.mjs:2556 (Ln 118660) | function |
 | Uy1 | getDefaultWriteAllowPaths | chunks.44.mjs:2551 (Ln 118655) | function |
@@ -181,9 +205,26 @@
 | dt8 | getBpfFilterPath | chunks.44.mjs:2677 (Ln 118791) | function |
 | py1 | getApplySeccompPath | chunks.44.mjs:2653 (Ln 118767) | function |
 | _e8 | isNetworkPermissionAllowed | chunks.44.mjs:3324 (Ln 119440) | function |
+| b8A | domainMatchesPattern | chunks.44.mjs:3270 (Ln 119433) | function |
+| pP5 | getMitmSocketPath | chunks.44.mjs:3290 (Ln 119461) | function |
+| dP5 | startHttpProxyServer | chunks.44.mjs:3300 (Ln 119471) | function |
+| cP5 | startSocksProxyServer | chunks.44.mjs:3315 (Ln 119488) | function |
+| UP5 | registerCleanup | chunks.44.mjs:3250 (Ln 119423) | function |
 | u8A | sandboxReset | chunks.45.mjs:200 (Ln 119740) | function |
-| GG5 | isAutoAllowBashIfSandboxedEnabled | chunks.47.mjs:114 | function |
-| ZG5 | areUnsandboxedCommandsAllowed | chunks.47.mjs:115 | function |
+| KW5 | getSandboxViolationStore | chunks.45.mjs:270 (Ln 119834) | function |
+| YW5 | annotateStderrWithSandboxFailures | chunks.45.mjs:275 (Ln 119838) | function |
+| nP5 | getFsReadConfig | chunks.45.mjs:~155 (Ln 119570) | function |
+| rP5 | getFsWriteConfig | chunks.45.mjs:~165 (Ln 119582) | function |
+| oP5 | getNetworkRestrictionConfig | chunks.45.mjs:~178 (Ln 119601) | function |
+| We8 | getHttpProxyPort | chunks.45.mjs:~108 (Ln 119653) | function |
+| Ge8 | getSocksProxyPort | chunks.45.mjs:~112 (Ln 119657) | function |
+| Ze8 | getLinuxHttpSocketPath | chunks.45.mjs:~116 (Ln 119661) | function |
+| fe8 | getLinuxSocksSocketPath | chunks.45.mjs:~120 (Ln 119665) | function |
+| Ve8 | waitForNetworkInitialization | chunks.45.mjs:~124 (Ln 119668) | function |
+| Sc | isCommandSandboxed | chunks.172.mjs:1763 (Ln 443570) | function |
+| Lzz | isCommandInExcludedList | chunks.172.mjs:1741 (Ln 443548) | function |
+| Ezz | checkBashPermissionWithSandbox | chunks.172.mjs:1363 (Ln ~443181) | function |
+| nBY | getSandboxSystemPromptBlock | chunks.146.mjs:883 (Ln 372152) | function |
 
 ### Sandbox Permission Sync (Swarm)
 

@@ -24,6 +24,11 @@ Key components in this document:
 - `HX6` (chunks.107.mjs:1153) - Rejected plan viewer
 - `$fY` (chunks.129.mjs:1756) - Swarm plan approval request UI
 - `OfY` (chunks.129.mjs:1799) - Swarm plan approval response UI
+- `aPq` (chunks.181.mjs:405) - ExitPlanMode "Ready to code?" dialog
+- `mcA` (chunks.1.mjs:2291) - Context usage percentage (for status bar "57% used")
+- `GIA` (chunks.152.mjs:1438) - clearConversation (triggered by "clear context" options)
+- `Rj1` (chunks.88.mjs:78) - getPlanFileSlug (captured before context clear)
+- `n0A` (chunks.88.mjs:94) - registerPlanFileSlug (re-registered after context clear)
 
 ---
 
@@ -453,6 +458,205 @@ Plan mode is checked 4th in the priority chain (after fundamental blockers but b
 
 ---
 
+## 11. ExitPlanMode "Ready to code?" Dialog (`aPq`, chunks.181.mjs:405)
+
+The ExitPlanMode permission dialog is a custom multi-option selector rendered in the TUI. It has two visual variants depending on whether a plan file exists.
+
+### Related Symbols
+
+Key components in this section:
+- `aPq` (chunks.181.mjs:405) - ExitPlanMode dialog component
+- `GIA` (chunks.152.mjs:1438) - `clearConversation` implementation
+- `PIA` (chunks.152.mjs:1421) - `clearSessionCaches`
+- `DL6` (chunks.1.mjs:2429) - `createNewSessionId`
+- `Rj1` (chunks.88.mjs:78) - `getPlanFileSlug`
+- `n0A` (chunks.88.mjs:94) - `registerPlanFileSlug`
+- `mcA` (chunks.1.mjs:2291) - `getContextUsagePercentage`
+
+### Variant 1: Empty Plan Dialog
+
+When `getPlanContent()` returns null, a simplified dialog appears (rendered at `chunks.181.mjs:721-761`):
+
+```
+╭─────────────────────────────────────────────╮  ← planMode border color
+│ Exit plan mode?                             │
+╰─────────────────────────────────────────────╯
+  Claude wants to exit plan mode
+
+  ► Yes
+    No
+```
+
+- **Yes** → `onAllow()` with `{type: "setMode", mode: "default"}` — always exits to "default" mode
+- **No** / Esc → `onReject()`
+
+### Variant 2: Full Plan Dialog — "Ready to code?"
+
+When a plan file exists (rendered at `chunks.181.mjs:763-848`):
+
+```
+╭──────────────────────────────────────────────────────────╮  ← planMode border
+│ Ready to code?                                           │
+╰──────────────────────────────────────────────────────────╯
+  Here is Claude's plan:
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌   ← dashed border (top/bottom only)
+  ## Implementation Plan                        ← plan content rendered as Markdown
+  1. Modify auth/handler.js at line 45...
+  2. Add JWT validation middleware...
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+
+  [Requested permissions:] ← only shown when allowedPrompts non-empty AND ne() returns true
+  · BashTool (run tests, install dependencies)
+  · EditTool (modify source files)
+
+  Claude has written up a plan and is ready to execute. Would you like to proceed?
+
+  ► Yes, clear context and auto-accept edits (shift+tab)   [value: "yes-accept-edits"]
+    Yes, auto-accept edits                                  [value: "yes-accept-edits-keep-context"]
+    Yes, manually approve edits                             [value: "yes-default-keep-context"]
+    No, keep planning [__________________________________________]
+                       Type here to tell Claude what to change
+
+  ctrl-g to edit in vim                                    ← dimmed, only if $VISUAL/$EDITOR set
+  · .claude/sessions/plan-abc123.md                        ← dimmed, plan file path
+  ✓ Plan saved!                                            ← success indicator after ctrl-g edit
+```
+
+**If `isBypassPermissionsModeAvailable`** (bypass permissions feature enabled):
+
+```
+  ► Yes, clear context and bypass permissions               [value: "yes-bypass-permissions"]
+    Yes, and bypass permissions                             [value: "yes-accept-edits-keep-context" → bypassPermissions]
+    Yes, manually approve edits                             [value: "yes-default-keep-context"]
+    No, keep planning [__________________________________________]
+```
+
+Note: "yes-accept-edits-keep-context" maps to `"bypassPermissions"` mode (not `"acceptEdits"`) when bypass is available.
+
+### Option Behavior Map
+
+| Option Label | Value | Tool Call Outcome | Mode After | Context |
+|-------------|-------|-------------------|------------|---------|
+| Yes, clear context and auto-accept edits (shift+tab) | `yes-accept-edits` | **REJECTED** (onReject) | `acceptEdits` | **Cleared** |
+| Yes, clear context and bypass permissions | `yes-bypass-permissions` | **REJECTED** (onReject) | `bypassPermissions` | **Cleared** |
+| Yes, auto-accept edits | `yes-accept-edits-keep-context` | **APPROVED** (onAllow) | `acceptEdits` ¹ | Kept |
+| Yes, and bypass permissions | `yes-accept-edits-keep-context` (bypass mode) | **APPROVED** (onAllow) | `bypassPermissions` ¹ | Kept |
+| Yes, manually approve edits | `yes-default-keep-context` | **APPROVED** (onAllow) | `default` | Kept |
+| No, keep planning | `no` | `onReject(feedbackText)` | `plan` | Unchanged |
+| *(empty plan)* Yes | `yes` (empty-plan variant) | **APPROVED** (onAllow) | `default` | Kept |
+
+¹ `yes-accept-edits-keep-context` maps to `acceptEdits` normally, or `bypassPermissions` when `isBypassPermissionsModeAvailable`.
+
+**Note on "No, keep planning"**: Unlike ESC/cancel (which calls `onReject()` with no arguments), typing text and pressing Enter calls `onReject(feedbackText, images)` — the feedback text is sent as a new user message to the LLM, which continues refining the plan in plan mode.
+
+**Key insight**: "Clear context" options call `onReject()` — they dismiss the ExitPlanMode tool call entirely and instead use `appState.initialMessage` to trigger a fresh conversation.
+
+### Keyboard Interactions
+
+| Key | Effect |
+|-----|--------|
+| `↑` / `↓` | Navigate options |
+| `Enter` | Select focused option |
+| `Shift+Tab` | **Fast-select** "yes-accept-edits" directly (skips navigation) |
+| `Ctrl+G` | Open plan file in system editor (via `$VISUAL` or `$EDITOR`) |
+| `Esc` | Cancel dialog (stays in plan mode) |
+
+**Shift+Tab fast-path**: `chunks.181.mjs:496-498`:
+```javascript
+if (keyEvent.shift && keyEvent.tab) {
+    handleOptionSelected("yes-accept-edits");  // q1("yes-accept-edits")
+    return;
+}
+```
+
+This is intentional UX design — the option label includes `(shift+tab)` as a hint, matching the global mode cycle keybinding. Experienced users can quickly exit plan mode and start implementing in one keypress.
+
+### "No, keep planning" — Inline Feedback
+
+The last option is a text input, not a simple toggle:
+
+```
+  No, keep planning [Type here to tell Claude what to change_______]
+                                                                ↑ cursor
+```
+
+When user types in this field and presses Enter:
+- The dialog closes
+- The typed text is submitted as a new user message to the LLM
+- Claude remains in plan mode and revises the plan based on the feedback
+
+This allows plan iteration without separate message steps — the user can type "make step 3 more detailed" directly in the dialog.
+
+### Visual Rendering Architecture
+
+```javascript
+// ============================================
+// aPq - ExitPlanMode dialog component (simplified)
+// Location: chunks.181.mjs:405
+// ============================================
+
+// READABLE (for understanding):
+function ExitPlanModeDialog({ plan, isBypassPermissionsModeAvailable, onAllow, onReject, keyEvent }) {
+    let [selectedValue, setSelectedValue] = useState(null);
+
+    // Shift+Tab direct shortcut
+    useKeypress((key) => {
+        if (key.shift && key.tab) {
+            handleOptionSelected("yes-accept-edits");
+            return;
+        }
+    });
+
+    // Plan exists → "Ready to code?" with options
+    if (plan) return (
+        <Box flexDirection="column">
+            <Box borderStyle="round">
+                <Text bold>Ready to code?</Text>
+            </Box>
+            <Markdown>{planPreview}</Markdown>
+            <SelectInput
+                items={buildOptionList(isBypassPermissionsModeAvailable)}
+                onSelect={(item) => handleOptionSelected(item.value)}
+            />
+        </Box>
+    );
+
+    // No plan → simple "Exit plan mode?"
+    return (
+        <Box>
+            <Text bold>Exit plan mode?</Text>
+            <SelectInput items={[{ label: "Yes", value: "yes" }, ...]} />
+        </Box>
+    );
+}
+```
+
+### Status Bar Context: The "57% Used" Label
+
+Users often see the status bar alongside the ExitPlanMode dialog. The status bar shows the current context window usage:
+
+```
+⏸ plan mode on (shift+tab)         ←── status bar
+[57% context used]                  ←── context meter
+```
+
+The percentage is computed by `getContextUsagePercentage` (`mcA`, `chunks.1.mjs:2291`):
+
+```javascript
+function getContextUsagePercentage(usage, contextWindowSize) {
+    // Sum: input tokens + cache creation tokens + cache read tokens
+    let totalUsed = usage.input_tokens + usage.cache_creation_input_tokens + usage.cache_read_input_tokens;
+    return {
+        used: Math.min(100, Math.max(0, Math.round(totalUsed / contextWindowSize * 100))),
+        remaining: 100 - used
+    };
+}
+```
+
+**Important**: The "57% used" appears in the **status bar/footer**, not in the option label. The option label is always static: `"Yes, clear context and auto-accept edits (shift+tab)"`. Users mentally associate the percentage with the "clear context" option because both are visible simultaneously.
+
+---
+
 ## 10. Complete UI Event Map
 
 | User Action | UI Response |
@@ -460,9 +664,16 @@ Plan mode is checked 4th in the priority chain (after fundamental blockers but b
 | Press Shift+Tab (entering plan mode) | Status bar gains `⏸ plan mode on` indicator |
 | LLM calls EnterPlanMode | Result card: "✓ Entered plan mode" |
 | User declines EnterPlanMode | Result card: "✓ User declined to enter plan mode" |
-| LLM calls ExitPlanMode | Permission dialog: "Exit plan mode?" with plan content |
-| User approves ExitPlanMode | Result card: "✓ User approved Claude's plan" + plan + path |
-| User rejects ExitPlanMode | HX6 box: "User rejected Claude's plan:" + plan in planMode border |
+| LLM calls ExitPlanMode (no plan) | Dialog: "Exit plan mode?" simple Yes/No |
+| LLM calls ExitPlanMode (plan exists) | Dialog: "Ready to code?" with plan preview + 5 options |
+| User presses Shift+Tab in dialog | Fast-selects "Yes, clear context and auto-accept edits" |
+| User selects "clear context + accept edits" | Context cleared, mode→acceptEdits, plan sent to LLM |
+| User selects "clear context + bypass permissions" | Context cleared, mode→bypassPermissions, plan sent to LLM |
+| User selects "Yes, auto-accept edits" | ExitPlanMode approves, mode→acceptEdits, context kept |
+| User selects "Yes, manually approve edits" | ExitPlanMode approves, mode→default, context kept |
+| User types in "No, keep planning" field | Stays in plan mode, typed text sent as new user message |
+| User approves ExitPlanMode (keep-context path) | Result card: "✓ User approved Claude's plan" + plan + path |
+| User clicks No / Esc on dialog | HX6 box: "User rejected Claude's plan:" + plan in planMode border |
 | Press Shift+Tab (leaving plan mode) | Status bar mode indicator disappears |
 | Teammate in swarm submits plan | Swarm UI: status → "awaiting approval"; leader sees $fY component |
 | Team leader approves | OfY: green "✓ Plan Approved" box |

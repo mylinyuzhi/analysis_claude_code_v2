@@ -12,11 +12,17 @@ The sandbox system is a critical security boundary that restricts what commands 
 
 Key functions in this document:
 - `wrapWithSandbox` (eP5) - Main dispatch: wraps a command string with platform-specific sandbox
+- `wrapWithSandboxFromSettings` (vG5) - Public wrapper: ensures init then delegates to eP5
 - `wrapWithMacOSSandbox` (Ye8) - macOS seatbelt wrapper using sandbox-exec
 - `wrapWithLinuxSandbox` (st8) - Linux bwrap wrapper using bubblewrap + seccomp
 - `buildSeatbeltProfile` (FP5) - Generates macOS sandbox-exec SBPL policy string
 - `sandboxInitialize` (lP5) - Bootstraps sandbox: starts proxy servers, log monitor
-- `isSandboxingEnabled` (Nq6) - Checks if sandbox is active (settings + platform support)
+- `initializeSandboxFromSettings` (EG5) - Settings-aware init + settings-change subscription
+- `isSandboxingEnabled` (Nq6) - Full gate: platform + deps + settings
+- `isSandboxEnabledInSettings` (le8) - Only checks settings.sandbox.enabled
+- `isCommandSandboxed` (Sc) - Per-command gate: enabled + not excluded + not override
+- `isCommandInExcludedList` (Lzz) - Checks command against excludedCommands patterns
+- `checkBashPermissionWithSandbox` (Ezz) - Permission check for auto-allowed sandboxed commands
 - `sandboxDebugLog` (L8) - Debug logger gated by SRT_DEBUG env var
 - `SandboxViolationStore` (dy1) - Stores violations detected by the macOS log monitor
 - `resolvePath` (tC) - Resolves relative/glob/tilde paths to absolute for sandbox rules
@@ -24,10 +30,15 @@ Key functions in this document:
 - `getBpfFilterPath` (dt8) - Finds pre-generated seccomp BPF filter for unix socket blocking
 - `getApplySeccompPath` (py1) - Finds the `apply-seccomp` binary
 - `startMacOSLogMonitor` (ze8) - Streams macOS sandbox deny events in real time
+- `buildCommandLogTag` (uP5) - Embeds base64-encoded command in seatbelt profile for correlation
+- `encodeCommandForViolation` (Oq6) - base64(command.slice(0, 100)) for violation matching
+- `annotateStderrWithSandboxFailures` (YW5) - Appends `<sandbox_violations>` block to stderr
 - `isNetworkPermissionAllowed` (_e8) - Domain-level allow/deny decision for network proxying
+- `buildSandboxConfigFromSettings` (n8A) - Builds low-level config from user settings
 - `sandboxConfigObject` (b8) - Public API object exposing all sandbox methods
 - `buildProxyEnvVars` ($q6) - Constructs HTTP_PROXY/SOCKS_PROXY/NO_PROXY env vars
 - `getDefaultWriteAllowPaths` (Uy1) - Returns safe write paths (/dev/null, /tmp/claude, etc.)
+- `getSandboxSystemPromptBlock` (nBY) - Injects sandbox instructions into Bash tool system prompt
 
 ---
 
@@ -463,3 +474,294 @@ The sandbox has careful cleanup logic in `reset` (u8A):
 5. Clears all internal state
 
 This cleanup is registered on `exit`, `SIGINT`, and `SIGTERM` via `registerCleanup` (UP5) to prevent orphaned processes and socket files.
+
+---
+
+## Settings Management Layer
+
+### Three-Layer Settings Architecture
+
+The sandbox has three layers of settings management on top of the low-level `hO` module:
+
+| Layer | Location | Purpose |
+|-------|----------|---------|
+| Low-level config | `c3` in chunks.44/45 | Runtime-effective sandbox config (filesystem, network, seccomp) |
+| Settings API | `chunks.46.mjs` | Reads from unified settings, builds `c3`; provides `setSandboxSettings()` |
+| Public object | `b8` in chunks.47.mjs | Single facade used by all callers; adds initialization promise, settings reactivity |
+
+### buildSandboxConfigFromSettings
+
+**What it does:** Transforms the user-facing settings (which mix permissions, network rules, etc.) into the internal sandbox config format understood by `hO.initialize()`.
+
+**How it works:**
+1. Reads `network.allowedDomains` from settings, but if `isManagedDomainsPolicy()` (KC1) is true, ignores local settings and reads only from `policySettings` instead
+2. Scans all permission allow/deny rules for `domain:` prefixed rules and extracts the domains
+3. Collects filesystem allow/deny paths from:
+   - Settings files paths themselves (settings files must always be writable)
+   - `.claude/skills` directory (skill definitions)
+   - Git worktree paths (detected by reading `.git` file content)
+   - `additionalDirectories` from permissions
+   - All permission `allow` rules for Write tool → added to `allowWrite`
+   - All permission `deny` rules for Write tool → added to `denyWrite`
+   - All permission `deny` rules for Read tool → added to `denyRead`
+4. Always adds project directory `.` and home directory to `allowWrite`
+5. Returns structured config with `filesystem`, `network`, `ignoreViolations`, `ripgrep`
+
+```javascript
+// ============================================
+// buildSandboxConfigFromSettings - Translates user settings to sandbox config
+// Location: chunks.46.mjs:2697-2790 (Ln 123568)
+// ============================================
+
+// ORIGINAL (for source lookup):
+function n8A(A) {
+    let q = A.permissions || {}, K = [], Y = [];
+    if (KC1()) { /* read only from policySettings for allowedDomains */ }
+    else { /* read from A.sandbox.network.allowedDomains and permission allow rules */ }
+    for (let j of q.deny || []) { /* extract domain: deniedDomains */ }
+    let z = [".", YC1()], w = [], H = [];  // z=allowWrite, w=denyWrite, H=denyRead
+    // ... collect settings file paths, skills paths, git worktree paths
+    // ... scan all permission rules for file path rules
+    return { network: {...}, filesystem: { denyRead: H, allowWrite: z, denyWrite: w }, ... }
+}
+
+// READABLE (for understanding):
+function buildSandboxConfigFromSettings(settings) {
+    let permissions = settings.permissions || {};
+    let allowedDomains = [], deniedDomains = [];
+
+    // If managed domains policy: only use policy-level domains
+    if (isManagedDomainsPolicy()) {
+        let policySettings = getSettingsLayer("policySettings");
+        allowedDomains = policySettings?.sandbox?.network?.allowedDomains || [];
+        // Also extract from policySettings permission allow rules
+    } else {
+        allowedDomains = settings.sandbox?.network?.allowedDomains || [];
+        // Also extract domain: prefix from permission allow rules
+    }
+    // Extract domain: prefix from permission deny rules
+    for (let rule of permissions.deny || []) {
+        let parsed = parsePermissionRule(rule);
+        if (parsed.toolName === "WebFetch" && parsed.ruleContent?.startsWith("domain:"))
+            deniedDomains.push(parsed.ruleContent.substring(7));
+    }
+
+    let allowWrite = [".", getHomeDirectory()];  // Always allow cwd and home
+    let denyWrite = [];
+    let denyRead = [];
+
+    // Add settings file paths (must be writable for settings changes to work)
+    let settingsFiles = SETTINGS_FILES.map(f => getSettingsPath(f)).filter(Boolean);
+    allowWrite.push(...settingsFiles);
+    allowWrite.push(joinPath(getRootDir(), ".claude", "skills"));  // skills dir
+
+    // Detect git worktree: read .git file to find actual git dir
+    // ... (adds additional working directories to allowWrite)
+
+    // Scan permission rules for file path rules
+    for (let settingsSource of SETTINGS_SOURCES) {
+        let layerSettings = getSettingsLayer(settingsSource);
+        if (!layerSettings?.permissions) continue;
+        for (let rule of layerSettings.permissions.allow || []) {
+            let parsed = parsePermissionRule(rule);
+            if (parsed.toolName === "Write" && parsed.ruleContent)
+                allowWrite.push(resolvePathFromSettings(parsed.ruleContent, settingsSource));
+        }
+        for (let rule of layerSettings.permissions.deny || []) {
+            let parsed = parsePermissionRule(rule);
+            if (parsed.toolName === "Write" && parsed.ruleContent)
+                denyWrite.push(resolvePathFromSettings(parsed.ruleContent, settingsSource));
+            if (parsed.toolName === "Read" && parsed.ruleContent)
+                denyRead.push(resolvePathFromSettings(parsed.ruleContent, settingsSource));
+        }
+    }
+
+    return {
+        network: {
+            allowedDomains, deniedDomains,
+            allowUnixSockets: settings.sandbox?.network?.allowUnixSockets,
+            allowAllUnixSockets: settings.sandbox?.network?.allowAllUnixSockets,
+            allowLocalBinding: settings.sandbox?.network?.allowLocalBinding,
+            httpProxyPort: settings.sandbox?.network?.httpProxyPort,
+            socksProxyPort: settings.sandbox?.network?.socksProxyPort
+        },
+        filesystem: { denyRead, allowWrite, denyWrite },
+        ignoreViolations: settings.sandbox?.ignoreViolations,
+        ripgrep: settings.sandbox?.ripgrep || getRipgrepConfig()
+    };
+}
+
+// Mapping: n8A->buildSandboxConfigFromSettings, A->settings, KC1->isManagedDomainsPolicy
+```
+
+**Key insight:** Permission rules for the `Write` and `Read` tools are automatically mirrored into the sandbox filesystem config. This means when a user adds `*.write: /some/path` to their permissions, the sandbox also allows writing there. The two systems stay in sync without requiring separate sandbox configuration.
+
+---
+
+## isCommandSandboxed Decision Logic
+
+### Per-Command Gate (Sc)
+
+**What it does:** Determines whether a specific bash command invocation should be wrapped in the sandbox. Called just before `wrapWithSandbox()` and also by the permission check system.
+
+**How it works:**
+
+```javascript
+// ============================================
+// isCommandSandboxed - Per-command sandbox gate
+// Location: chunks.172.mjs:1763-1767 (Ln 443570)
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Sc(A) {
+    if (!b8.isSandboxingEnabled()) return !1;
+    if (A.dangerouslyDisableSandbox && b8.areUnsandboxedCommandsAllowed()) return !1;
+    if (!A.command) return !1;
+    if (Lzz(A.command)) return !1;
+    return !0
+}
+
+// READABLE (for understanding):
+function isCommandSandboxed(toolInput) {
+    if (!b8.isSandboxingEnabled()) return false;           // Gate 1: global sandbox off
+    if (toolInput.dangerouslyDisableSandbox && b8.areUnsandboxedCommandsAllowed()) return false; // Gate 2: model override
+    if (!toolInput.command) return false;                  // Gate 3: no command string
+    if (isCommandInExcludedList(toolInput.command)) return false;  // Gate 4: excluded pattern
+    return true;
+}
+
+// Mapping: Sc->isCommandSandboxed, A->toolInput, Lzz->isCommandInExcludedList
+```
+
+**The 4 gates (in order):**
+1. **Global switch**: `isSandboxingEnabled()` → false means sandbox is off entirely (disabled in settings, unsupported platform, or deps missing)
+2. **Model override**: `dangerouslyDisableSandbox: true` in the tool input + `areUnsandboxedCommandsAllowed()` = true (open mode). In closed mode, this gate is skipped -- the model cannot bypass.
+3. **Empty command**: Defensive check to avoid wrapping empty strings
+4. **Excluded list**: `isCommandInExcludedList()` (Lzz) -- command matches a user-defined exclusion pattern
+
+### excludedCommands Pattern Matching (Lzz)
+
+**What it does:** Checks if a command matches any pattern in `settings.sandbox.excludedCommands`.
+
+**How it works:**
+
+```javascript
+// ============================================
+// isCommandInExcludedList - Checks command against excludedCommands patterns
+// Location: chunks.172.mjs:1741-1761 (Ln 443548)
+// ============================================
+
+// READABLE (for understanding):
+function isCommandInExcludedList(command) {
+    let excludedCommands = getSettings().sandbox?.excludedCommands ?? [];
+    if (excludedCommands.length === 0) return false;
+
+    for (let pattern of excludedCommands) {
+        let parsed = parseCommandPattern(pattern);  // ymA()
+        switch (parsed.type) {
+            case "exact":
+                if (command.trim() === parsed.command) return true;
+                break;
+            case "prefix": {
+                let trimmed = command.trim();
+                // Match exact prefix OR prefix followed by space
+                if (trimmed === parsed.prefix || trimmed.startsWith(parsed.prefix + " ")) return true;
+                break;
+            }
+            case "wildcard":
+                if (wildcardMatch(parsed.pattern, command.trim())) return true;  // RmA()
+                break;
+        }
+    }
+    return false;
+}
+
+// Pattern parsing: ymA()
+// Input: "npm run test:*"
+// → type: "wildcard", pattern: "npm run test:*"
+//
+// Input: "my-exact-command"
+// → type: "exact", command: "my-exact-command"
+//
+// Input: "git push:"   (via extractCommandPrefix WG5 - the ":*" suffix syntax)
+// → type: "prefix", prefix: "git push"
+```
+
+**Three pattern types:**
+- **exact**: String equality after trim. E.g., `"git status"` only matches `git status` exactly.
+- **prefix**: Via the `command:*` syntax (`WG5` extracts the prefix). E.g., `"git push:*"` → prefix `"git push"` matches `git push`, `git push origin`, etc.
+- **wildcard**: Shell-style glob matching via `RmA()`. E.g., `"npm run test:*"` matches any `npm run test:` followed by anything.
+
+**Key insight:** The `extractCommandPrefix` function (WG5) handles the `:*` suffix syntax used by the `/sandbox exclude` command: `ae8("npm run test:*")` calls `WG5("npm run test:*")` which returns `"npm run test"` for prefix matching. This allows users to exclude entire families of commands with a single pattern.
+
+---
+
+## macOS Violation Correlation System
+
+### Command Encoding
+
+The macOS log monitor needs to correlate deny events (which come asynchronously from the kernel) back to specific commands. This is done via a two-part identifier:
+
+```javascript
+// ============================================
+// buildCommandLogTag - Embeds command identifier in seatbelt profile
+// Location: chunks.44.mjs:3045-3047 (Ln ~119045)
+// ============================================
+
+// ORIGINAL:
+function uP5(A) { return `CMD64_${Oq6(A)}_END_${qe8}` }
+function Oq6(A) { let q = A.slice(0, 100); return Buffer.from(q).toString("base64") }
+
+// READABLE:
+function buildCommandLogTag(command) {
+    return `CMD64_${encodeCommandForViolation(command)}_END_${sandboxSessionId}`;
+}
+function encodeCommandForViolation(command) {
+    return Buffer.from(command.slice(0, 100)).toString("base64");
+}
+```
+
+**How the correlation works:**
+1. `buildCommandLogTag(command)` creates a string like `CMD64_bHMgLWxh_END__abc12_SBX`
+2. This tag is embedded in the seatbelt profile as a comment: `; LogTag: CMD64_..._END_...`
+3. macOS sandbox-exec includes the tag in the log message when any deny occurs
+4. `startMacOSLogMonitor` (ze8) streams `log stream --predicate '(eventMessage ENDSWITH "_SBX")'`
+5. The monitor parses both:
+   - The violation line: `Sandbox: file-write* deny /etc/passwd`
+   - The tag line: `CMD64_bHMgLWxh_END__abc12_SBX`
+6. Decodes `bHMgLWxh` → `ls -la` → associates this deny with the `ls -la` command
+
+**The `sandboxSessionId` (qe8):**
+- Generated once at module load: `_${Math.random().toString(36).slice(2,11)}_SBX`
+- Used as a suffix so the `--predicate` filter only captures violations from THIS Claude instance
+- Prevents picking up violations from other processes running `sandbox-exec` concurrently
+
+**Violation filtering:**
+Three types of violations are silently filtered out:
+- `mDNSResponder` - routine DNS lookup denies (every process tries this)
+- `mach-lookup com.apple.diagnosticd` - diagnostics daemon
+- `mach-lookup com.apple.analyticsd` - analytics daemon
+
+These are expected denies for any sandboxed process and are not actionable by users.
+
+**`ignoreViolations` config:**
+The `ignoreViolations` setting allows fine-grained suppression:
+- `ignoreViolations["*"]` - array of violation substrings to always ignore
+- `ignoreViolations["/path/to/command"]` - per-command ignore list (matched against decoded command)
+
+---
+
+## UI Linkage Summary
+
+> Full UI documentation: [ui_linkage.md](ui_linkage.md)
+
+The sandbox system integrates with UI at 6 points:
+
+| UI Point | Component | Trigger |
+|----------|-----------|---------|
+| `/sandbox` command | `sandboxSlashCommandHandler` (oqz) | User types `/sandbox` |
+| Status bar flash | `SandboxViolationStatusLine` (lWq) | New violations detected; auto-dismisses in 5s |
+| Violation log | `SandboxViolationListPanel` (HLq) | Any violations exist; macOS only |
+| Permission prompt title | Bash permission component (chunks.180) | `dangerouslyDisableSandbox: true` in input |
+| Doctor check | `SandboxDoctorCheck` (Q7q) | `/doctor` command; shows dep errors/warnings |
+| System prompt | `getSandboxSystemPromptBlock` (nBY) | Every LLM call when sandbox is enabled |

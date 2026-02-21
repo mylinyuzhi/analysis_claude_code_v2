@@ -2,6 +2,13 @@
 
 This document analyzes the tool registration, validation, and execution flow in version 2.1.38.
 
+> **Deep dive documents:**
+> - [edit_tool.md](edit_tool.md) — EditTool + NotebookEditTool full analysis with UI linkage
+> - [bash_tool.md](bash_tool.md) — BashTool security model, progress streaming, whitelist
+> - [ui_rendering.md](ui_rendering.md) — UI rendering infrastructure for all tools
+> - [tool_execution_pipeline.md](tool_execution_pipeline.md) — Complete dispatch lifecycle
+> - [security_validation.md](security_validation.md) — Bash security checks reference
+
 ## Tool Definition Files
 
 The core tool definitions are primarily found in `chunks.146.mjs` and `chunks.76.mjs`.

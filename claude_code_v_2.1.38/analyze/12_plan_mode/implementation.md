@@ -15,6 +15,7 @@ Plan Mode is a specialized session state in Claude Code that restricts the agent
 Key functions in this document:
 - `EnterPlanModeTool` (kg1) - Tool object (chunks.140.mjs:1649)
 - `ExitPlanModeTool` (Nj) - Tool object (chunks.139.mjs:2641)
+- `aPq` (chunks.181.mjs:405) - ExitPlanMode dialog ("Ready to code?")
 - `hf1` (chunks.183.mjs:1778) - Mode cycle function
 - `CQ` (chunks.14.mjs:3260) - Mode display name ("Plan Mode")
 - `Rv1` (chunks.14.mjs:3281) - Mode icon ("⏸")
@@ -26,6 +27,13 @@ Key functions in this document:
 - `sL6` (chunks.1.mjs:2867) - `needsPlanModeExitAttachment` getter
 - `OT` (chunks.1.mjs:2863) - `setHasExitedPlanMode`
 - `kx` (chunks.1.mjs:2871) - `setNeedsPlanModeExitAttachment`
+- `GIA` (chunks.152.mjs:1438) - `clearConversation` (full 11-step session reset)
+- `PIA` (chunks.152.mjs:1421) - `clearSessionCaches`
+- `DL6` (chunks.1.mjs:2429) - `createNewSessionId` (with parent tracking)
+- `Rj1` (chunks.88.mjs:78) - `getPlanFileSlug`
+- `n0A` (chunks.88.mjs:94) - `registerPlanFileSlug`
+- `dU7` (chunks.88.mjs:98) - `clearPlanFileSlug`
+- `mcA` (chunks.1.mjs:2291) - `getContextUsagePercentage`
 
 ---
 
@@ -1313,6 +1321,784 @@ From `chunks.176.mjs`, the help tip system teaches users about plan mode:
     }
 }
 ```
+
+---
+
+## 18. ExitPlanMode Dialog — Full Option Set (`aPq`, chunks.181.mjs:405)
+
+The ExitPlanMode permission dialog (`aPq`) is a multi-option selection UI with two fundamentally different execution paths depending on whether "clear context" is chosen.
+
+### Two Dialog Variants
+
+**Variant 1: Empty Plan (no plan file)**
+
+When `getPlanContent()` returns null (`T = !N || N.trim() === ""`), a simplified Yes/No dialog appears:
+
+```
+╭──────────────────────────────────────╮  ← planMode border color
+│ Exit plan mode?                      │
+╰──────────────────────────────────────╯
+  Claude wants to exit plan mode
+
+  ► Yes
+    No
+```
+
+- "Yes" → `A.onAllow({}, [{type: "setMode", mode: "default", destination: "session"}])` with `OT(!0)`, `kx(!0)` (telemetry: `outcome: "yes-default"`)
+- "No" / Esc → `A.onReject()`
+
+Rendered at `chunks.181.mjs:721-761`. Mode always resets to `"default"` (not prePlanMode) when there's no plan.
+
+**Variant 2: Full Plan (plan exists) — "Ready to code?"**
+
+```
+╭──────────────────────────────────────╮  ← planMode border color
+│ Ready to code?                       │
+╰──────────────────────────────────────╯
+  Here is Claude's plan:
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌   ← dashed border top/bottom, no left/right
+  ## Implementation Plan
+  1. Modify auth/handler.js at line 45...
+  2. Add JWT validation middleware...
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+
+  [Requested permissions: (if allowedPrompts non-empty)]
+  · BashTool (run tests, install dependencies)
+  · EditTool (modify source files)
+
+  Claude has written up a plan and is ready to execute. Would you like to proceed?
+
+  ► Yes, clear context and auto-accept edits (shift+tab)   [value: "yes-accept-edits"]
+    Yes, auto-accept edits                                  [value: "yes-accept-edits-keep-context"]
+    Yes, manually approve edits                             [value: "yes-default-keep-context"]
+    No, keep planning [____________________________________][value: "no"]
+                       Type here to tell Claude what to change
+
+  ctrl-g to edit in vim · .claude/sessions/plan-abc123.md  ← dimmed footer hint (if editor set)
+  ✓ Plan saved!                                             ← success indicator (after ctrl-g edit)
+```
+
+If `isBypassPermissionsModeAvailable` (user has bypass-permissions access), the option list changes:
+
+```
+  ► Yes, clear context and bypass permissions               [value: "yes-bypass-permissions"]
+    Yes, and bypass permissions                             [value: "yes-accept-edits-keep-context" → bypassPermissions mode]
+    Yes, manually approve edits                             [value: "yes-default-keep-context"]
+    No, keep planning [____________________________________]
+```
+
+**Important**: When `isBypassPermissionsModeAvailable`, "yes-accept-edits-keep-context" maps to `"bypassPermissions"` mode (not `"acceptEdits"`):
+```javascript
+// chunks.181.mjs:617-619
+let A1 = {
+    "yes-accept-edits-keep-context": z.isBypassPermissionsModeAvailable ? "bypassPermissions" : "acceptEdits",
+    "yes-default-keep-context": "default"
+}[D1];
+```
+
+Rendered at `chunks.181.mjs:763-848`.
+
+### Option Value Table
+
+```javascript
+// ============================================
+// aPq - ExitPlanMode dialog option list
+// Location: chunks.181.mjs:802-819
+// ============================================
+
+// ORIGINAL (for source lookup):
+options: [...z.isBypassPermissionsModeAvailable ? [{
+    label: "Yes, clear context and bypass permissions",
+    value: "yes-bypass-permissions"
+}] : [{
+    label: "Yes, clear context and auto-accept edits (shift+tab)",
+    value: "yes-accept-edits"
+}], ...[], {
+    label: z.isBypassPermissionsModeAvailable ? "Yes, and bypass permissions" : "Yes, auto-accept edits",
+    value: "yes-accept-edits-keep-context"
+}, {
+    label: "Yes, manually approve edits",
+    value: "yes-default-keep-context"
+}, {
+    type: "input",
+    label: "No, keep planning",
+    value: "no",
+    placeholder: "Type here to tell Claude what to change"
+}]
+
+// READABLE (for understanding):
+[
+    // Slot 1: "clear context" variant (depends on bypass-permissions availability)
+    isBypassPermissionsModeAvailable
+        ? { label: "Yes, clear context and bypass permissions", value: "yes-bypass-permissions" }
+        : { label: "Yes, clear context and auto-accept edits (shift+tab)", value: "yes-accept-edits" },
+
+    // Slot 2: "keep context, elevated mode"
+    {
+        label: isBypassPermissionsModeAvailable ? "Yes, and bypass permissions" : "Yes, auto-accept edits",
+        value: "yes-accept-edits-keep-context"
+    },
+
+    // Slot 3: "keep context, default mode"
+    { label: "Yes, manually approve edits", value: "yes-default-keep-context" },
+
+    // Slot 4: "stay in plan mode" (text input)
+    { type: "input", label: "No, keep planning", value: "no",
+      placeholder: "Type here to tell Claude what to change" }
+]
+
+// Mapping: z→dialogProps
+```
+
+### Shift+Tab Shortcut in Dialog
+
+While the ExitPlanMode dialog is focused, pressing Shift+Tab **directly selects** the first option without navigating the list:
+
+```javascript
+// ============================================
+// aPq keyboard handler — Shift+Tab shortcut
+// Location: chunks.181.mjs:496-498
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (Z1.shift && Z1.tab) { q1("yes-accept-edits"); return }
+
+// READABLE (for understanding):
+if (keyEvent.shift && keyEvent.tab) {
+    handleOptionSelected("yes-accept-edits");
+    return;  // Stop further key handling
+}
+
+// Mapping: Z1→keyEvent, q1→handleOptionSelected
+```
+
+**Why this design**: The option label explicitly mentions `(shift+tab)` — "Yes, clear context and auto-accept edits (shift+tab)". This creates a fast-path for experienced users: one Shift+Tab press exits plan mode and immediately switches to auto-accept edits mode with a fresh context. The keyboard shortcut is consistent with the mode cycle binding used everywhere else (status bar hint, help tips).
+
+### Handler: `q1(D1)` — option selection dispatcher (chunks.181.mjs:574)
+
+```javascript
+// ============================================
+// handleOptionSelected - ExitPlanMode dialog option selection handler
+// Location: chunks.181.mjs:574
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function q1(D1) {
+    // [0] "push to remote" path (currently dead code — not in option list)
+    if (D1 === "yes-push-to-remote") { N1(); return }
+
+    let Z1 = W ? {} : { plan: k };  // W = (A.tool.name === "ExitPlanMode")
+
+    // [PATH A] "Clear context" branch — catches anything EXCEPT "no", "yes-accept-edits-keep-context", "yes-default-keep-context"
+    if (D1 !== "no" && !(D1 === "yes-accept-edits-keep-context" || D1 === "yes-default-keep-context")) {
+        let Y1 = "default";
+        if (D1 === "yes-bypass-permissions") Y1 = "bypassPermissions";
+        else if (D1 === "yes-accept-edits") Y1 = "acceptEdits";
+        let _1 = "",
+            G1 = `\n\nIf you need specific details from before exiting plan mode... read the full transcript at: ${a$(U6())}`,
+            L1 = l8() ? `\n\nIf this plan can be broken down into multiple independent tasks, consider using the ${vh} tool...` : "";
+        w((x1) => ({
+            ...x1,
+            initialMessage: {
+                message: { ...c6({ content: `Implement the following plan:\n\n${k}${_1}${G1}${L1}` }), planContent: k },
+                clearContext: !0, mode: Y1, allowedPrompts: Z
+            }
+        }));
+        OT(!0), q(), K(), A.onReject();  // REJECTS the ExitPlanMode tool call
+        return
+    }
+
+    // [PATH B] "Keep context" branch — handles "yes-accept-edits-keep-context", "yes-default-keep-context"
+    let A1 = {
+        "yes-accept-edits-keep-context": z.isBypassPermissionsModeAvailable ? "bypassPermissions" : "acceptEdits",
+        "yes-default-keep-context": "default"
+    }[D1];
+    if (A1) {
+        OT(!0), kx(!0), q(), A.onAllow(Z1, Rc1(A1, Z));  // APPROVES the ExitPlanMode tool call
+        return
+    }
+
+    // [PATH C] Dead code — "yes-bypass-permissions"/"yes-accept-edits" with onAllow
+    // UNREACHABLE: caught by PATH A first. Leftover from pre-refactor flow.
+    let z1 = { "yes-bypass-permissions": "bypassPermissions", "yes-accept-edits": "acceptEdits" }[D1];
+    if (z1) { OT(!0), kx(!0), q(), A.onAllow(Z1, Rc1(z1, Z)); return }
+
+    // [PATH D] "no" — send feedback text/image
+    if (D1 === "no") {
+        let Y1 = $.trim();
+        if (!Y1 && !P) return;
+        // ...collect images, then:
+        q(), K(), A.onReject(Y1 || "(See attached image)", images)
+    }
+}
+
+// READABLE (for understanding):
+async function handleOptionSelected(selectedValue) {
+    // [0] Push-to-remote path — NOT in dialog option list (dead UI code, handler exists)
+    if (selectedValue === "yes-push-to-remote") {
+        checkRemoteEligibilityAndPush();  // N1()
+        return;
+    }
+
+    let planSnapshot = isExitPlanModeTool ? {} : { plan: planContent };  // W = (tool === "ExitPlanMode")
+
+    // [PATH A] "Clear context" — for "yes-accept-edits" and "yes-bypass-permissions"
+    // Condition: any value that is NOT "no", "yes-accept-edits-keep-context", "yes-default-keep-context"
+    if (selectedValue !== "no"
+        && selectedValue !== "yes-accept-edits-keep-context"
+        && selectedValue !== "yes-default-keep-context") {
+
+        let targetMode = selectedValue === "yes-bypass-permissions" ? "bypassPermissions"
+                       : selectedValue === "yes-accept-edits"       ? "acceptEdits"
+                       : "default";  // fallback
+
+        // Compose message text:
+        // _1 = "" (reserved/empty)
+        // G1 = transcript hint (obfuscated: G1): "If you need specific details... read transcript at: {path}"
+        // L1 = team hint (obfuscated: L1): "If this can be parallelized, use the Task tool..." (only if l8() = isTeamLeader)
+        let transcriptPathHint = `\n\nIf you need specific details from before exiting plan mode... read the full transcript at: ${getTranscriptPath(getSessionId())}`;
+        let teamHint = isTeamLeader() ? `\n\nIf this plan can be broken down into multiple independent tasks, consider using the Task tool...` : "";
+
+        setAppState((state) => ({
+            ...state,
+            initialMessage: {
+                message: {
+                    ...buildUserMessage({ content: `Implement the following plan:\n\n${planContent}${transcriptPathHint}${teamHint}` }),
+                    planContent: planContent  // k = plan TEXT (used as truthy check in REPL for slug preservation)
+                },
+                clearContext: true,
+                mode: targetMode,
+                allowedPrompts: allowedPrompts  // Z = A.input.allowedPrompts
+            }
+        }));
+        setHasExitedPlanMode(true);     // OT(true)
+        closeDialog();                  // q()
+        clearPendingPermission();       // K()
+        permissionCallbacks.onReject(); // A.onReject() ← REJECTS the ExitPlanMode tool call
+        return;
+    }
+
+    // [PATH B] "Keep context" — for "yes-accept-edits-keep-context" / "yes-default-keep-context"
+    let keepContextTargetMode = {
+        "yes-accept-edits-keep-context": isBypassPermissionsModeAvailable ? "bypassPermissions" : "acceptEdits",
+        "yes-default-keep-context": "default"
+    }[selectedValue];
+
+    if (keepContextTargetMode) {
+        setHasExitedPlanMode(true);                // OT(true)
+        setNeedsPlanModeExitAttachment(true);       // kx(true)
+        closeDialog();                             // q()
+        permissionCallbacks.onAllow(             // A.onAllow() ← APPROVES the ExitPlanMode tool call
+            keyEvent,
+            buildPermissionContext(keepContextTargetMode, allowedPrompts)
+        );
+        return;
+    }
+
+    // [PATH C] *** DEAD CODE — unreachable ***
+    // "yes-bypass-permissions" and "yes-accept-edits" are caught by PATH A first.
+    // Leftover from original onAllow() flow before clear-context refactor.
+    let deadCodeMode = { "yes-bypass-permissions": "bypassPermissions", "yes-accept-edits": "acceptEdits" }[selectedValue];
+    if (deadCodeMode) {
+        setHasExitedPlanMode(true); setNeedsPlanModeExitAttachment(true);
+        closeDialog();
+        permissionCallbacks.onAllow(keyEvent, buildPermissionContext(deadCodeMode, allowedPrompts));
+        return;
+    }
+
+    // [PATH D] "no" — feedback text + optional image paste
+    if (selectedValue === "no") {
+        let feedbackText = feedbackInputValue.trim();
+        if (!feedbackText && !hasPastedImages) return;  // Nothing to send
+        closeDialog(); clearPendingPermission();
+        permissionCallbacks.onReject(feedbackText || "(See attached image)", uploadedImages);
+    }
+}
+
+// Mapping: q1→handleOptionSelected, D1→selectedValue, w→setAppState, Y1→targetMode
+//          W→isExitPlanModeTool, k→planContent (TEXT), Z→allowedPrompts
+//          G1→transcriptPathHint, L1→teamHint, _1→"" (empty reserved)
+//          OT→setHasExitedPlanMode, kx→setNeedsPlanModeExitAttachment
+//          q→closeDialog, K→clearPendingPermission, A→permissionCallbacks
+//          c6→buildUserMessage, Z1→keyEvent/planSnapshot, Rc1→buildPermissionContext
+//          A1→keepContextTargetMode, z1→deadCodeMode, N1→checkRemoteEligibilityAndPush
+//          a$→getTranscriptPath, U6→getSessionId, l8→isTeamLeader, vh→TaskToolName
+//          $→feedbackInputValue, P→hasPastedImages
+```
+
+### Critical Architectural Split: Reject vs Allow
+
+**This is the key insight**: The two "clear context" options **REJECT** the ExitPlanMode tool call rather than approving it. The flow diverges at the permission dialog:
+
+```
+Option selected                    ExitPlanMode tool call
+─────────────────────────────────────────────────────────
+yes-accept-edits           →  onReject() + set initialMessage{clearContext:true}
+yes-bypass-permissions     →  onReject() + set initialMessage{clearContext:true}
+yes-accept-edits-keep-context →  onAllow() → call() executes → normal ExitPlanMode result
+yes-default-keep-context   →  onAllow() → call() executes → normal ExitPlanMode result
+no                         →  dialog closes, stays in plan mode
+```
+
+**Why reject?** The "clear context" path needs to completely clear the conversation history, which means the LLM's current session (including the ExitPlanMode tool result) will be wiped. Approving `onAllow()` would execute `ExitPlanMode.call()` which saves state to the conversation. Instead:
+1. `onReject()` is called to dismiss the tool call without executing it
+2. `initialMessage` is set in app state with `clearContext: true`
+3. The REPL component detects `initialMessage` and runs `clearConversation()` + fires the plan as a new user message
+
+---
+
+## 19. Clear Context Flow — Complete Implementation
+
+When user selects "Yes, clear context and auto-accept edits", the following sequence executes:
+
+### Phase 1: Dialog → REPL (initialMessage handoff)
+
+```
+User selects "yes-accept-edits"
+    │
+    ├─ setAppState({ initialMessage: {
+    │       message: { content: "Implement the following plan:\n\n{plan}", planContent: {slug} },
+    │       clearContext: true,
+    │       mode: "acceptEdits",
+    │       allowedPrompts: [...]
+    │   }})
+    │
+    ├─ setHasExitedPlanMode(true)         [OT(true)]
+    ├─ closeDialog()                      [q()]
+    ├─ clearPendingPermission()           [K()]
+    └─ permissionCallbacks.onReject()     [A.onReject()]
+         └─ ExitPlanMode UI: renders Yd4 (rejection card with plan in planMode border)
+            (this UI will be wiped in the next step anyway)
+```
+
+### Phase 2: REPL detects initialMessage (chunks.188.mjs:627)
+
+```javascript
+// ============================================
+// REPL initialMessage useEffect handler
+// Location: chunks.188.mjs:627-684
+// ============================================
+
+// ORIGINAL (for source lookup):
+// useEffect(() => {
+//   if (!FA || X4) return;  // FA=initialMessage, X4=isLoading
+//   (async () => {
+//     let X4;
+//     if (FA.clearContext) {
+//       let X4 = FA.message.planContent ? Rj1() : void 0,
+//           { clearConversation: p7 } = await Promise.resolve().then(...)
+//       if (await p7({...}), X4) n0A(U6(), X4)
+//     }
+//     A1(X4 => ({...X4, initialMessage: null,
+//         toolPermissionContext: FA.mode ? WV(...) : X4.toolPermissionContext}))
+//     ff([FA.message], X4, !0, [], Y1, void 0)
+//   })()
+// }, [FA, X4])
+
+// READABLE (for understanding):
+useEffect(() => {
+    if (!initialMessage || isAgentLoading) return;  // Wait for agent to be idle
+
+    (async () => {
+        let planSlugToPreserve;
+
+        if (initialMessage.clearContext) {
+            // Step 1: Capture plan slug BEFORE clearing (so new session can find the plan file)
+            // initialMessage.message.planContent = plan TEXT (truthy check only — actual slug comes from Rj1())
+            planSlugToPreserve = initialMessage.message.planContent
+                ? getPlanFileSlug()  // Rj1() — captures current session's plan slug
+                : undefined;
+
+            // Step 2: Run the full session clear
+            const { clearConversation } = await import("./clearConversation");
+            await clearConversation({
+                setMessages,
+                readFileState: readFileStateRef.current,
+                getAppState,
+                setAppState,
+                setConversationId
+            });
+
+            // Step 3: Re-register slug in NEW session (so /plan and getPlanContent still work)
+            if (planSlugToPreserve) {
+                registerPlanFileSlug(getSessionId(), planSlugToPreserve);  // n0A(U6(), planSlugToPreserve)
+            }
+        }
+
+        // Step 4: Clear initialMessage from state + set the new mode
+        setAppState((state) => ({
+            ...state,
+            initialMessage: null,
+            toolPermissionContext: initialMessage.mode
+                ? applyPermissionAction(state.toolPermissionContext, buildPermissionContext(initialMessage.mode, initialMessage.allowedPrompts))
+                : state.toolPermissionContext
+        }));
+
+        // Step 5: Fire the LLM with the plan as user message
+        submitToLLM([initialMessage.message], planSlugToPreserve, true, [], subscriptionTier, undefined);
+    })();
+}, [initialMessage, isAgentLoading]);
+
+// Mapping: FA→initialMessage, X4→isAgentLoading/planSlugToPreserve
+//          Rj1→getPlanFileSlug, p7→clearConversation, n0A→registerPlanFileSlug
+//          U6→getSessionId, A1→setAppState, WV→applyPermissionAction
+//          Rc1→buildPermissionContext, ff→submitToLLM, Y1→subscriptionTier
+```
+
+### Phase 3: `clearConversation()` — Full 11-Step Implementation (`GIA`, chunks.152.mjs:1438)
+
+This is the core of "clear context". It completely resets the session:
+
+```javascript
+// ============================================
+// clearConversation - Complete session reset
+// Location: chunks.152.mjs:1438
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function GIA({ setMessages: A, readFileState: q, getAppState: K, setAppState: Y, setConversationId: z }) {
+    await _yA("clear", { getAppState: K, setAppState: Y });  // [1] SessionEnd hooks
+    A(() => []);                                               // [2] Clear message history
+    if (z) z(miY());                                           // [3] New UUID
+    PIA();                                                     // [4] clearSessionCaches
+    lZ(y8());                                                  // [5] Reset session path
+    q.clear();                                                 // [6] Clear file read state
+    Y((H) => ({                                                // [7] Reset appState fields
+        ...H,
+        fileHistory: { snapshots: [], trackedFiles: new Set() },
+        mcp: { clients: [], tools: [], commands: [], resources: {} }
+    }));
+    dU7();                                                     // [8] Delete OLD plan slug
+    DL6({ setCurrentAsParent: true });                         // [9] New session ID
+    await Hy();                                                // [10] Re-init session
+    let w = await PP("clear");                                 // [11] SessionStart hooks
+    if (w.length > 0) A(() => w)
+}
+
+// READABLE (for understanding):
+async function clearConversation({ setMessages, readFileState, getAppState, setAppState, setConversationId }) {
+    // [1] Run "clear" SessionEnd hooks (e.g., notify plugins the session is ending)
+    await runSessionHooks("clear", { getAppState, setAppState });
+
+    // [2] Clear all message history (conversation turns, tool results, etc.)
+    setMessages(() => []);
+
+    // [3] Generate a new conversation UUID for the UI
+    if (setConversationId) setConversationId(generateUUID());
+
+    // [4] Clear all session-level caches:
+    //     - i$.cache (model response cache)
+    //     - l$.cache (file content cache)
+    //     - rMA.cache (tool use cache)
+    //     - I_.cache (misc cache)
+    //     - Code indexing, telemetry session data, etc.
+    clearSessionCaches();  // PIA()
+
+    // [5] Reset session working directory to project root
+    //     y8() = getProjectDirectory()
+    //     lZ() = setSessionPath()
+    setSessionPath(getProjectDirectory());
+
+    // [6] Clear the read file state (tracks which files have been opened)
+    readFileState.clear();
+
+    // [7] Reset file history and MCP client state in React appState
+    setAppState((state) => ({
+        ...state,
+        fileHistory: { snapshots: [], trackedFiles: new Set() },
+        mcp: { clients: [], tools: [], commands: [], resources: {} }
+    }));
+
+    // [8] Delete the plan file slug for the OLD session
+    //     (IMPORTANT: done BEFORE DL6 creates new session ID)
+    clearPlanFileSlug();  // dU7()
+
+    // [9] Create new session ID; save old session ID as parentSessionId
+    //     This establishes the parent-child relationship for session tracking
+    createNewSessionId({ setCurrentAsParent: true });  // DL6({setCurrentAsParent: true})
+
+    // [10] Re-initialize session: reload settings, project config, CLAUDE.md
+    await reinitializeSession();  // Hy()
+
+    // [11] Run "clear" SessionStart plugin hooks
+    //      (e.g., greeting plugins, initial context injection)
+    let startHookMessages = await runPluginHooks("clear");  // PP("clear")
+    if (startHookMessages.length > 0) setMessages(() => startHookMessages);
+}
+
+// Mapping: GIA→clearConversation, _yA→runSessionHooks, miY→generateUUID, PIA→clearSessionCaches
+//          lZ→setSessionPath, y8→getProjectDirectory, dU7→clearPlanFileSlug
+//          DL6→createNewSessionId, Hy→reinitializeSession, PP→runPluginHooks
+```
+
+### Step-by-Step Explanation
+
+**[1] SessionEnd hooks** (`_yA("clear", ...)`): Runs all registered `SessionEnd` hooks with event type `"clear"`. This lets plugins/hooks perform cleanup before the session state is wiped. The `"clear"` event type distinguishes this from a normal app exit.
+
+**[2] Clear message history** (`setMessages(() => [])`): Immediately empties the React state for all conversation messages. The UI updates to show a blank conversation.
+
+**[3] New conversation UUID** (`setConversationId(generateUUID())`): Generates a fresh UUID for the UI conversation ID. This is different from the session ID — it's used by the UI layer for React key tracking.
+
+**[4] `clearSessionCaches()` (`PIA`, chunks.152.mjs:1421)**: Clears all session-scoped caches:
+
+```javascript
+// ============================================
+// clearSessionCaches - Wipe all session-level caches
+// Location: chunks.152.mjs:1421
+// ============================================
+
+// ORIGINAL (for source lookup):
+function PIA() {
+    i$.cache.clear?.(), l$.cache.clear?.(), rMA.cache.clear?.(), I_.cache.clear?.(),
+    FAq(), bm(), rd(), uL7(), HR6(), fn7(null), bf6()
+}
+
+// READABLE (for understanding):
+function clearSessionCaches() {
+    // 4 explicit cache clears (using .clear() method):
+    cache_i$.clear?.();    // i$ — likely model/LLM response cache
+    cache_l$.clear?.();    // l$ — likely file content cache
+    cache_rMA.clear?.();   // rMA — likely tool result / permission cache
+    cache_I_.clear?.();    // I_ — likely miscellaneous cache
+
+    // 7 subsystem reset functions:
+    FAq();           // (e.g., code indexing session reset)
+    bm();            // (e.g., telemetry session counters reset)
+    rd();            // (e.g., LSP or language server state reset)
+    uL7();           // (e.g., shell parser / command history reset)
+    HR6();           // (e.g., file watching state reset)
+    fn7(null);       // (e.g., some context handle reset, passed null)
+    bf6();           // (e.g., background job/task state reset)
+}
+// Note: The ?.() pattern means .clear() is called only if the method exists (optional chaining)
+```
+
+**[5] Reset session path**: Resets the working directory to the project root. During a long session, tools like `cd` or `Bash` may change the working directory. This ensures the new session starts from a clean cwd.
+
+**[6] Clear file read state**: The `readFileState` ref tracks which files the agent has read (for the `Read` tool's "you must read before edit" guards). Clearing it means the new session starts as if no files have been opened.
+
+**[7] Reset fileHistory + MCP state**:
+- `fileHistory.snapshots` + `trackedFiles`: Used by the Rewind system to track file changes. Reset prevents old snapshots from leaking into the new session.
+- `mcp.clients/tools/commands/resources`: MCP (Model Context Protocol) connections are reset. New session re-establishes MCP connections from scratch during `reinitializeSession()`.
+
+**[8] `clearPlanFileSlug()` (`dU7`, chunks.88.mjs:98)**: Deletes the plan file slug mapping for the **current** (old) session. The plan slug maps `sessionId → slug` (e.g., `"abc123" → "plan-2024-01"`), used to find the plan file path. This is deleted BEFORE step [9] creates a new session ID.
+
+```javascript
+// dU7 - Delete plan file slug for session
+function clearPlanFileSlug(sessionId?) {
+    let sid = sessionId ?? getSessionId();
+    getPlanSlugMap().delete(sid);
+}
+```
+
+**[9] `createNewSessionId({ setCurrentAsParent: true })` (`DL6`, chunks.1.mjs:2429)**:
+
+```javascript
+// ============================================
+// createNewSessionId - Create new session UUID, optionally save old as parent
+// Location: chunks.1.mjs:2429
+// ============================================
+
+// ORIGINAL (for source lookup):
+function DL6(A = {}) {
+    if (A.setCurrentAsParent) o6.parentSessionId = o6.sessionId;
+    return o6.sessionId = pcA(), o6.resumedTranscriptPath = null, o6.sessionId
+}
+
+// READABLE (for understanding):
+function createNewSessionId({ setCurrentAsParent } = {}) {
+    if (setCurrentAsParent) {
+        globalSessionState.parentSessionId = globalSessionState.sessionId;  // Save old as parent
+    }
+    globalSessionState.sessionId = generateUUID();         // pcA() = uuid v4
+    globalSessionState.resumedTranscriptPath = null;       // ← also clears resumed transcript path
+    return globalSessionState.sessionId;
+}
+
+// Mapping: DL6→createNewSessionId, o6→globalSessionState, pcA→generateUUID
+```
+
+**Why `setCurrentAsParent: true`?** The old session ID is preserved as `parentSessionId`. This establishes a parent→child session relationship that:
+- Allows remote sessions to track conversation lineage
+- Enables the `/tasks` command to link related sessions
+- Preserves telemetry continuity (the new session knows its origin)
+
+**Why reset `resumedTranscriptPath = null`?** If the current session was resumed from a transcript file (`--resume` flag), `resumedTranscriptPath` points to that file. After clearing, the new session starts fresh — it has no transcript to resume from, so this path is nulled out.
+
+**[10] `reinitializeSession()` (`Hy`)**: Reloads all session-level configuration:
+- `settings.json` (user preferences)
+- `CLAUDE.md` (project instructions)
+- `mcp.json` (MCP server config)
+- Project context (git status, directory listing)
+
+**[11] SessionStart plugin hooks** (`PP("clear")`): Runs registered `SessionStart` hooks with event type `"clear"`. Hooks that inject initial context (e.g., greeting messages, project summaries) execute here. Their output messages replace the empty message list if non-empty.
+
+### Phase 4: Plan Slug Preservation
+
+After `clearConversation()`, the new session needs to find the same plan file:
+
+```javascript
+// After clearConversation() returns:
+if (planSlugToPreserve) {
+    registerPlanFileSlug(getSessionId(), planSlugToPreserve);
+    // n0A(U6(), X4)
+    // getSessionId() = NEW session ID (created in step [9])
+    // planSlugToPreserve = OLD session's slug (captured before clear)
+    // Result: newSessionId → same slug → same plan file path
+}
+```
+
+**Why this is necessary:**
+
+```
+Before clear:
+  Session:  "abc123"
+  Plan slug: "abc123" → "plan-2024-01-15-a7f3"
+  Plan file: .claude/sessions/plan-2024-01-15-a7f3.md
+
+After clear (without preservation):
+  Session:  "xyz789"   (new ID from DL6)
+  Plan slug: "xyz789" → undefined   ← dU7() deleted "abc123"'s mapping, "xyz789" has none
+  Plan file: NOT FOUND
+
+After clear (with preservation):
+  Session:  "xyz789"
+  Plan slug: "xyz789" → "plan-2024-01-15-a7f3"   ← n0A() re-registers same slug
+  Plan file: .claude/sessions/plan-2024-01-15-a7f3.md   ← FOUND
+```
+
+The REPL checks `initialMessage.message.planContent` (the plan file slug) to decide whether to capture+preserve. If the plan content was `null` (no plan file exists), no slug preservation is needed.
+
+### Phase 5: Mode Transition + LLM Submit
+
+```javascript
+// After clearConversation + slug re-registration:
+setAppState((state) => ({
+    ...state,
+    initialMessage: null,                 // Clear the trigger
+    toolPermissionContext: applyPermissionAction(
+        state.toolPermissionContext,
+        buildPermissionContext("acceptEdits", allowedPrompts)
+    )
+    // toolPermissionContext.mode is now "acceptEdits"
+    // Status bar: ⏵⏵ accept edits on
+}));
+
+// Fire the LLM with the plan as the first user message
+submitToLLM(
+    [{ content: "Implement the following plan:\n\n{plan}", planContent: slug }],
+    planSlugToPreserve,   // context hint
+    true,                 // isNewConversation
+    [],                   // no existing messages
+    subscriptionTier,
+    undefined
+);
+```
+
+The LLM receives:
+```
+User: Implement the following plan:
+
+## Plan Title
+1. Step one...
+2. Step two...
+...
+```
+
+With `mode: "acceptEdits"`, all subsequent file edits are auto-accepted without user confirmation.
+
+### Complete Clear Context Flow Diagram
+
+```
+User selects "Yes, clear context and auto-accept edits" (or Shift+Tab)
+    │
+    ├─ [Dialog] Capture plan slug: Rj1() → "plan-2024-01-15-a7f3"
+    ├─ [Dialog] setAppState({ initialMessage: { clearContext: true, mode: "acceptEdits", ... } })
+    ├─ [Dialog] onReject() → ExitPlanMode tool call dismissed
+    │
+    ↓ React re-render
+    │
+    ├─ [REPL] useEffect detects initialMessage + isAgentLoading=false
+    │
+    ├─ [REPL] clearConversation():
+    │   ├─ [1] SessionEnd hooks ("clear")
+    │   ├─ [2] setMessages([])          → UI: blank conversation
+    │   ├─ [3] setConversationId(uuid)  → new UI conversation ID
+    │   ├─ [4] clearSessionCaches()     → all caches wiped
+    │   ├─ [5] setSessionPath(projectRoot)
+    │   ├─ [6] readFileState.clear()
+    │   ├─ [7] fileHistory reset, MCP reset
+    │   ├─ [8] clearPlanFileSlug("abc123")  → old slug removed
+    │   ├─ [9] createNewSessionId({setCurrentAsParent: true})
+    │   │       → parentSessionId = "abc123"
+    │   │       → sessionId = "xyz789" (new)
+    │   ├─ [10] reinitializeSession()   → reload settings, CLAUDE.md, etc.
+    │   └─ [11] SessionStart hooks ("clear")
+    │
+    ├─ [REPL] registerPlanFileSlug("xyz789", "plan-2024-01-15-a7f3")
+    │         → new session can still find plan file
+    │
+    ├─ [REPL] setAppState({ mode: "acceptEdits", initialMessage: null })
+    │         → Status bar: ⏵⏵ accept edits on
+    │
+    └─ [REPL] submitToLLM(["Implement the following plan:\n\n{plan}"])
+              → LLM starts implementing in acceptEdits mode
+              → All file edits auto-accepted
+```
+
+### Context Usage Percentage (`mcA`, chunks.1.mjs:2291)
+
+The "57% used" text the user sees in the status bar is computed by `getContextUsagePercentage`:
+
+```javascript
+// ============================================
+// getContextUsagePercentage - Compute context window utilization
+// Location: chunks.1.mjs:2291
+// ============================================
+
+// ORIGINAL (for source lookup):
+function mcA(A, q) {
+    if (!A) return { used: null, remaining: null };
+    let K = A.input_tokens + A.cache_creation_input_tokens + A.cache_read_input_tokens,
+        Y = Math.round(K / q * 100),
+        z = Math.min(100, Math.max(0, Y));
+    return { used: z, remaining: 100 - z }
+}
+
+// READABLE (for understanding):
+function getContextUsagePercentage(usage, contextWindowSize) {
+    if (!usage) return { used: null, remaining: null };
+
+    // Sum all token types that consume context window space:
+    // - input_tokens: plain user/assistant tokens
+    // - cache_creation_input_tokens: tokens written to cache (still consume space)
+    // - cache_read_input_tokens: tokens read from cache (re-using cached content)
+    let totalTokensUsed = usage.input_tokens
+        + usage.cache_creation_input_tokens
+        + usage.cache_read_input_tokens;
+
+    let rawPercentage = Math.round(totalTokensUsed / contextWindowSize * 100);
+    let clampedPercentage = Math.min(100, Math.max(0, rawPercentage));
+
+    return {
+        used: clampedPercentage,        // e.g., 57 (for "57% used")
+        remaining: 100 - clampedPercentage
+    };
+}
+
+// Mapping: mcA→getContextUsagePercentage, A→usage, q→contextWindowSize
+//          K→totalTokensUsed, Y→rawPercentage, z→clampedPercentage
+```
+
+This value is assembled into the status line by `Zjz` (`chunks.183.mjs:2910`):
+
+```javascript
+statusLineData.context_window = {
+    used_percentage: getContextUsagePercentage(lastApiUsage, modelContextWindowSize).used
+}
+```
+
+**Note**: The percentage shown in the status bar is **not in the option label itself**. The option label is static text: `"Yes, clear context and auto-accept edits (shift+tab)"`. The "57% used" is displayed separately in the footer/status bar and users mentally associate it with the option because the dialog appears on top of the status bar.
 
 ---
 

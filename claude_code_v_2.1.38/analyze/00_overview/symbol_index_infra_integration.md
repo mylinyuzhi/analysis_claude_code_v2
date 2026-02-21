@@ -7,6 +7,8 @@
 
 ## Quick Navigation
 
+- [Agent SDK Transport](#module-agent-sdk-transport) - **DEEP ANALYSIS**
+- [Tool UI Rendering](#module-tool-ui-rendering) - **NEW (full analysis)**
 - [LSP Integration](#module-lsp-integration) - **NEW in 2.1.20**
 - [Browser Control](#module-browser-control) - **NEW in 2.1.25**
 - [IDE Integration](#module-ide-integration)
@@ -15,6 +17,93 @@
 - [Code Indexing](#module-code-indexing)
 - [Shell Parser](#module-shell-parser)
 - [Slash Commands](#module-slash-commands)
+
+---
+
+## Module: Agent SDK Transport
+
+> Full analysis: [20_sdk/](../20_sdk/)
+> Deep reverse engineering of the NDJSON streaming protocol, WebSocket transport, and UI linkage.
+
+### SDK I/O Transport Classes (chunks.178.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Mc1 | StdioStreamIO | chunks.178.mjs:1060-1210 | class (base NDJSON transport over stdio) |
+| FQA | SdkUrlStreamIO | chunks.178.mjs:1630-1663 | class (extends StdioStreamIO; bridges WebSocket → PassThrough stream) |
+| Pc1 | WebSocketTransport | chunks.178.mjs:1294-1490 | class (WebSocket connection with reconnect, message buffer, ping/pong) |
+| jc1 | handlePermissionPromptToolResult | chunks.178.mjs:989-1010 | function (processes MCP tool permission result; handles allow/deny/interrupt) |
+| IJz | createStreamIO | chunks.179.mjs:1887-1901 | function (factory: selects StdioStreamIO or SdkUrlStreamIO based on sdkUrl option) |
+| oGz | streamJsonInputHandler | chunks.189.mjs:984-997 | function (routes stdin → stream; text mode buffers, stream-json mode returns raw stream) |
+
+### WebSocket Transport Constants (chunks.178.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| OJz | WS_MESSAGE_BUFFER_SIZE | chunks.178.mjs:TBD | constant (1000: circular buffer capacity for message replay) |
+| _Jz | WS_BASE_BACKOFF_MS | chunks.178.mjs:TBD | constant (1000: initial reconnection backoff in ms) |
+| JJz | WS_MAX_BACKOFF_MS | chunks.178.mjs:TBD | constant (30000: max reconnection backoff cap in ms) |
+| XJz | WS_MAX_RECONNECT_DURATION_MS | chunks.178.mjs:TBD | constant (600000: total reconnection time budget, 10 minutes) |
+| dz | AbortError | chunks.178.mjs:TBD | class (thrown when sendRequest is cancelled via AbortSignal) |
+| wJz | generateRequestId | chunks.178.mjs:TBD | function (generates UUID for control request correlation) |
+
+### Stream Event Processing (chunks.173.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| iW1 | handleStreamEvent | chunks.173.mjs:390-488 | function (central dispatcher: stream_event → UI state transitions, text/tool/thinking callbacks) |
+
+---
+
+## Module: Tool UI Rendering
+
+> Full analysis: [05_tools/ui_rendering.md](../05_tools/ui_rendering.md)
+
+### Tool Result Rendering Infrastructure (chunks.130.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| SfY | renderToolUseResult | chunks.130.mjs:3 | function (React component) |
+| tx4 | renderToolUseSummary | chunks.130.mjs:91 | function (React component) |
+| rK1 | StatusIndicator | chunks.130.mjs | component |
+| z5 | ToolResultDisplay | chunks.130.mjs | component |
+
+### Edit Tool UI Renderers (chunks.134.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| IF4 | renderEditToolUseMessage | chunks.134.mjs:1234 | function |
+| xF4 | renderEditToolProgress | chunks.134.mjs:1246 | function |
+| bF4 | renderEditToolResult | chunks.134.mjs:1250 | function |
+| uF4 | renderEditToolRejected | chunks.134.mjs:1271 | function |
+| BF4 | renderEditToolError | chunks.134.mjs:1320 | function |
+| SP6 | DiffViewer | chunks.134.mjs | component |
+| ZW1 | EditPreview | chunks.134.mjs | component |
+| AE | FilePathBreadcrumb | chunks.134.mjs | component |
+
+### NotebookEdit Tool UI Renderers (chunks.134.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| sF4 | renderNotebookEditUseMessage | chunks.134.mjs | function |
+| tF4 | renderNotebookEditRejected | chunks.134.mjs | function |
+| eF4 | renderNotebookEditError | chunks.134.mjs | function |
+| AQ4 | renderNotebookEditProgress | chunks.134.mjs | function |
+| qQ4 | renderNotebookEditResult | chunks.134.mjs | function |
+
+### Grep Tool UI Renderers (chunks.76.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| OR7 | renderGrepToolUseMessage | chunks.76.mjs | function |
+| DR7 | renderGrepToolResultMessage | chunks.76.mjs | function |
+
+### Bash Tool UI Renderers (chunks.150.mjs / chunks.162.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| BYq | BashOutputComponent | chunks.162.mjs:417249 | component |
+| ZhA | bashProgressHandler | chunks.150.mjs:2332 | function (generator) |
 
 ---
 
@@ -399,21 +488,68 @@
 ## Module: Code Indexing
 
 > Full analysis: [14_code_indexing/](../14_code_indexing/)
+> UI linkage: [14_code_indexing/ui_linkage.md](../14_code_indexing/ui_linkage.md)
 
-### Indexing Logic
+### Indexing Core (chunks.152.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| LiY | getFileIndex | chunks.152.mjs:1007 | function |
-| xiY | rebuildIndex | chunks.152.mjs:1164 | function |
-| SiY | getFilesUsingGit | chunks.152.mjs:1077 | function |
-| uiY | searchFileIndex | chunks.152.mjs:1226 | function |
-| OIA | refreshIndexCache | chunks.152.mjs:1275 | function |
-| IiY | getProjectFiles | chunks.152.mjs:1148 | function |
-| BAq | loadIgnorePatterns | chunks.152.mjs:1055 | function |
-| sG1 | nativeFileIndex | chunks.152.mjs:1342 | variable |
-| tG1 | jsFileListCache | chunks.152.mjs:1344 | variable |
-| RiY | CACHE_TTL_MS | chunks.152.mjs:1350 | constant (60000) |
+| LiY | getFileIndex | chunks.152.mjs:1007 | function (lazy singleton Rust FileIndex loader) |
+| xiY | rebuildIndex | chunks.152.mjs:1164 | function (master rebuild: scan + load Rust/Fuse index) |
+| SiY | getFilesUsingGit | chunks.152.mjs:1077 | function (git ls-files + background untracked fetch) |
+| uiY | searchFileIndex | chunks.152.mjs:1226 | function (dual-mode: Rust then Fuse.js fallback) |
+| OIA | refreshIndexCache | chunks.152.mjs:1275 | function (TTL guard + async rebuild trigger) |
+| IiY | getProjectFiles | chunks.152.mjs:1148 | function (dispatcher: git → ripgrep fallback) |
+| hiY | getNonProjectFiles | chunks.152.mjs:1144 | function (fetch files from workspace folder sources) |
+| BAq | loadIgnorePatterns | chunks.152.mjs:1055 | function (.ignore/.rgignore loader with key cache) |
+| gAq | getFileSuggestions | chunks.152.mjs:1300 | function (main @-mention entry point with cache management) |
+| tU1 | formatFileSuggestion | chunks.152.mjs:1216 | function (path → {id:"file-${path}", displayText, metadata}) |
+| CiY | mergeUntrackedIntoIndex | chunks.152.mjs:~1120 | function (hot-merges background untracked files into live index) |
+| uAq | makeRelativePaths | chunks.152.mjs:~1090 | function (normalizes git absolute paths to project-relative) |
+| yiY | isGitRepository | chunks.152.mjs:~1050 | function (cached git repo check) |
+| BiY | listCurrentDirectory | chunks.152.mjs:~1295 | function (fs.readdir for empty query branch) |
+| DIA | getDirectoriesFromFiles | chunks.152.mjs:~1170 | function (extracts unique parent dirs from file list) |
+
+### Indexing State (chunks.152.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| aU1 | rustFileIndexSingleton | chunks.152.mjs:~1338 | variable (singleton Rust FileIndex instance) |
+| Sf6 | fallbackMode | chunks.152.mjs:~1339 | variable (permanent flag: Rust unavailable) |
+| sG1 | rustIndex | chunks.152.mjs:1342 | variable (current active Rust index) |
+| tG1 | jsFileListCache | chunks.152.mjs:1344 | variable (JS fallback file list) |
+| O91 | cacheRefreshPromise | chunks.152.mjs:~1346 | variable (in-flight rebuild promise, dedup guard) |
+| jIA | lastCacheTime | chunks.152.mjs:~1348 | variable (epoch ms of last successful rebuild) |
+| RiY | CACHE_TTL_MS | chunks.152.mjs:1350 | constant (60000 = 60 seconds) |
+| aG1 | MAX_RESULTS | chunks.152.mjs:~1352 | constant (15 = max file suggestions) |
+| oG1 | globalTrackedFiles | chunks.152.mjs:~1354 | variable (raw tracked files from last git ls-files) |
+| hf6 | untrackedFetchPromise | chunks.152.mjs:~1356 | variable (promise for background untracked file fetch) |
+| JIA | lastIgnorePatterns | chunks.152.mjs:~1358 | variable (cached ignore filter object) |
+| XIA | lastIgnoreCacheKey | chunks.152.mjs:~1360 | variable ("gitRoot:projectCwd" cache key string) |
+
+### Suggestion Aggregation UI (chunks.182.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| NgA | fileSuggestionsWrapper | chunks.182.mjs:2316 | function (merges file + MCP + agent suggestions with Fuse.js scoring) |
+| A0z | getAgentSuggestions | chunks.182.mjs:~2290 | function (builds agent-type suggestion items from agents map) |
+| $Gq | formatSuggestion | chunks.182.mjs:~2370 | function (final normalization: ensures id + consistent shape) |
+| _Gq | truncateDescription | chunks.182.mjs:~2310 | function (truncates MCP resource description text) |
+| VgA | MAX_SUGGESTIONS | chunks.182.mjs:~2316 | constant (max suggestions after cross-source merge) |
+
+### Suggestion List Rendering (chunks.151.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| rU1 | renderSuggestionList | chunks.151.mjs:1758 | function (scrolling list container; viewport 1-6 items) |
+| vlY | suggestionItemComponent | chunks.151.mjs:1819 | function (React.memo item renderer with file/MCP/generic branches) |
+| ElY | getSuggestionWidth | chunks.151.mjs:~1810 | function (calculates terminal display width of a suggestion) |
+
+### Autocomplete Input Hook (chunks.183.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| WGq | useAutocompleteInput | chunks.183.mjs:1 | function (React hook: @-mention autocomplete state manager) |
 
 ---
 
@@ -551,15 +687,94 @@
 ## Module: IDE Integration
 
 > Full analysis: [22_ide_integration/overview.md](../22_ide_integration/overview.md)
+> UI linkage: [22_ide_integration/ui_linkage.md](../22_ide_integration/ui_linkage.md)
+
+### Core Detection & Connection (chunks.80.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| iV | findConnectedIdeClient | chunks.80.mjs:1868 (Ln 217207) | function |
-| mx7 | closeAllDiffTabs | chunks.80.mjs:1874 (Ln 217212) | function |
-| hx7 | sendIdeConnectedNotification | chunks.145.mjs:2183 | function |
-| fVq | useIdeSelection / trackMcpIdeStatus | chunks.186.mjs:410 (Ln 482303) | function (hook) |
-| oMz | selectionChangedSchema | chunks.186.mjs:463 (Ln 482347) | object (Zod) |
-| VG6 | WebSocketClientTransport | chunks.144.mjs:? | class |
+| iV | findConnectedIdeClient | chunks.80.mjs:1868 | function |
+| N$6 | hasConnectedIde | chunks.80.mjs:1648 | function |
+| T$6 | getIdeName | chunks.80.mjs:1842 | function |
+| DXA | getIdeDisplayName | chunks.80.mjs:1847 | function |
+| Q01 | getDefaultIdeType | chunks.80.mjs:1392 | function |
+| f$6 | isVsCodeIde | chunks.80.mjs:1380 | function |
+| Oh | isJetBrainsIde | chunks.80.mjs:1386 | function |
+| Qb1 | isVsCodeRunning | chunks.80.mjs:2081 | function (memoized) |
+| gb1 | isJetBrainsRunning | chunks.80.mjs:2083 | function (memoized) |
+| bX | isIdeEnvironment | chunks.80.mjs:2085 | function (memoized) |
+| U01 | IDE_CONFIG_MAP | chunks.80.mjs:1953 | object (18-IDE registry: 3 VSCode + 15 JetBrains) |
+| wD9 | VSCODE_EXTENSION_ID | chunks.80.mjs:1922 | constant (`"anthropic.claude-code"`) |
+| OD9 | findVsCodeBinaryFromParentProcess | chunks.80.mjs:1718 | function (macOS: walks ppid tree) |
+
+### IDE Discovery & Installation (chunks.80.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ub1 | detectAvailableIDEs | chunks.80.mjs:1578 | function (async: scans ~/.claude/ide/*.json port files) |
+| Ex7 | waitForIdeConnection | chunks.80.mjs:1563 | function (async: polls 1s/30s for IDE appearance) |
+| Fx7 | handleIdeAutoInstallation | chunks.80.mjs:1880 | function (async: install + wait + onboarding orchestrator) |
+| HD9 | installIdeExtension | chunks.80.mjs:1664 | function (async: runs `code --install-extension`) |
+| kx7 | checkExtensionInstalled | chunks.80.mjs:1652 | function (async: checks extension list or JetBrains plugin) |
+| zD9 | installAndReturnStatus | chunks.80.mjs:1538 | function (async: wraps HD9, returns {installed, error, version}) |
+| $D9 | getInstalledExtensionVersion | chunks.80.mjs:1704 | function (async: parses `--list-extensions --show-versions`) |
+
+### Onboarding State (chunks.80.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| P$6 | hasIdeOnboardingBeenShown | chunks.80.mjs:1292 | function |
+| aX9 | markIdeOnboardingAsShown | chunks.80.mjs:1298 | function |
+| W$6 | ideConnectionAbortController | chunks.80.mjs:1920 | variable (AbortController for waitForIdeConnection) |
+
+### MCP Notifications & Connection (chunks.80.mjs / chunks.145.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| hx7 | sendIdeConnectedNotification | chunks.80.mjs:1639 | function (sends `ide_connected` with pid) |
+| mx7 | closeAllDiffTabs | chunks.80.mjs:1874 | function |
+| VG6 | WebSocketClientTransport | chunks.144.mjs:1 | class (ws-ide transport, handles Bun+Node.js) |
+
+### Tool Invocation Layer (chunks.145.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _h | callMcpTool | chunks.145.mjs:~1430 | function (thin wrapper: toolName+args+client → content) |
+| lo4 | executeMcpTool | chunks.145.mjs:1676 | function (async: timeout race, 30s progress log, auth error) |
+
+### Diff Review Tools (chunks.180.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| MPq | IDEDiffHandler | chunks.180.mjs:3 | function (hook: routes diff to IDE vs terminal) |
+| aJz | openDiffInIde | chunks.180.mjs:78 | function (async: blocking openDiff call + response handling) |
+| aQA | closeDiffTab | chunks.180.mjs:132 | function (async: `close_tab` MCP tool call) |
+| eJz | isFileSaved | chunks.180.mjs:151 | function (checks FILE_SAVED response code) |
+| sJz | isTabClosed | chunks.180.mjs:143 | function (checks TAB_CLOSED response code) |
+| tJz | isDiffRejected | chunks.180.mjs:147 | function (checks DIFF_REJECTED response code) |
+
+### Diagnostics Bridge (chunks.146.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| KI | DiagnosticsManager | chunks.146.mjs:3 | class (singleton: baseline+delta IDE diagnostics) |
+
+### Selection Tracking (chunks.186.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| fVq | useIdeSelection | chunks.186.mjs:410 | function (hook: subscribes to selection_changed) |
+| oMz | selectionChangedSchema | chunks.186.mjs:463 | object (Zod schema for selection_changed notification) |
+| aVq | syncPermissionModeToIde | chunks.186.mjs:1736 | function (hook: sends set_permission_mode to Chrome MCP) |
+
+### UI Components (chunks.182.mjs / chunks.187.mjs / chunks.188.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| FWq | IdeSelectionIndicator | chunks.182.mjs:1514 | component (status bar: "⧉ 3 lines selected" / "⧉ In file.ts") |
+| Rf1 | getIdeConnectionStatus | chunks.182.mjs:1500 | function (hook: "connected"\|"disconnected"\|null) |
+| dLq | useIdeStatusMonitoring | chunks.187.mjs:2265 | function (hook: 4 notification effects for IDE state) |
+| Nx7 | IDEOnboardingDialog | chunks.188.mjs:1268 | component (first-run onboarding dialog) |
 
 ---
 
@@ -765,7 +980,7 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| iW1 | handleToolUseStream | chunks.173.mjs:390 | function (routes stream events to React state) |
+| iW1 | handleStreamEvent | chunks.173.mjs:390-488 | function (central dispatcher: stream_event → UI state transitions, text/tool/thinking callbacks) |
 | DJq | createAssistantMessage | chunks.172.mjs:2860 | function (constructs assistant message object) |
 | t9q | normalizeDisplayMessages | chunks.172.mjs:3072 | function (groups tool uses with hooks+results) |
 | q9q | groupToolResults | chunks.160.mjs:1849 | function (collapses repeated tool executions) |
@@ -796,4 +1011,24 @@
 |------------|----------|-----------|------|
 | BYq | BashOutputRenderer | chunks.162.mjs:3 | component (shell output detail panel) |
 | mx1 | ScrollContainer | chunks.76.mjs:524 | component (scroll context provider; used by skill progress list) |
+
+### Sandbox UI Components (chunks.165.mjs, chunks.182.mjs, chunks.187.mjs, chunks.154.mjs)
+
+> Full analysis: [18_sandbox/ui_linkage.md](../18_sandbox/ui_linkage.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| oqz | sandboxSlashCommandHandler | chunks.165.mjs:1723 (Ln 427401) | function (dispatches /sandbox subcommands) |
+| aqz | sandboxSlashCommandDefinition | chunks.165.mjs:1781 (Ln 427456) | object (slash command descriptor) |
+| _Hq | SandboxModeSelector | chunks.165.mjs:1517 (Ln 427195) | component (3-way mode picker: auto-allow/regular/disabled) |
+| zHq | SandboxStatusDisplay | chunks.165.mjs:1179 (Ln 426863) | component (configuration summary panel) |
+| HHq | SandboxOverridesSettings | chunks.165.mjs:967 (Ln 426967) | component (open/closed override policy selector) |
+| nuA | SandboxDependenciesPanel | chunks.165.mjs:1421 (Ln 427101) | component (bwrap/socat/seccomp status) |
+| iqz | renderWarningEntry | chunks.165.mjs:1269 (Ln 426953) | function (single warning line renderer) |
+| lWq | SandboxViolationStatusLine | chunks.182.mjs:1592 (Ln 472208) | component (status bar flash, auto-dismiss 5s) |
+| HLq | SandboxViolationListPanel | chunks.187.mjs:~1294 (Ln 485694) | component (last-10 violations detail, macOS only) |
+| qWz | renderViolationEntry | chunks.187.mjs:~1330 (Ln 485737) | function (single violation row with timestamp) |
+| Q7q | SandboxDoctorCheck | chunks.154.mjs:2979 (Ln 396902) | component (dependency warnings in /doctor) |
+| ToY | renderWarningRow | chunks.154.mjs:3030 (Ln 396933) | function (warning row in doctor check) |
+| voY | renderErrorRow | chunks.154.mjs:3038 (Ln 396940) | function (error row in doctor check) |
 

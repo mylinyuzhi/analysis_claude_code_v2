@@ -1,5 +1,7 @@
 # Bash and Sed Security Validation
 
+> Full Bash tool analysis: [bash_tool.md](bash_tool.md)
+
 The `Bash` tool includes a comprehensive security validation layer to prevent malicious command execution, specifically targeting injection attacks and unauthorized file access. The validation logic is primarily located in `chunks.150.mjs`.
 
 ## Main Validation Logic

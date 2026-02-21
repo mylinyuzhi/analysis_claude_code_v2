@@ -1,5 +1,7 @@
 # Tools Execution Pipeline
 
+> **See [tool_execution_pipeline.md](tool_execution_pipeline.md) for the complete pipeline analysis with code snippets and deep dive.**
+
 ## Overview
 
 Deep analysis of the tool execution pipeline in Claude Code v2.1.38, covering validation, permission checking, execution, and result handling.

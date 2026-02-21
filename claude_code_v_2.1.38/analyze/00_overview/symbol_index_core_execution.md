@@ -27,9 +27,125 @@
 |---|---|---|---|
 | i5 | FileReadTool | chunks.146.mjs:1754 | tool object |
 | vj | FileWriteTool | chunks.146.mjs:436 | tool object |
+| sW | EditTool | chunks.134.mjs:2124 | tool object |
+| gd | NotebookEditTool | chunks.134.mjs:2615 | tool object |
 | tS | GrepTool | chunks.76.mjs:1129 | tool object |
 | WB | GlobTool | chunks.76.mjs:1495 | tool object |
+| wt | SkillTool | chunks.132.mjs:820 | tool object |
+| avA | AgentTool (Task) | chunks.132.mjs | tool object |
 | BYq | BashOutputComponent | chunks.162.mjs:417249 | component |
+
+### Edit Tool Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| bq | TOOL_NAME_EDIT | chunks.134.mjs | constant |
+| jM | TOOL_NAME_NOTEBOOK_EDIT | chunks.134.mjs | constant |
+| Qw6 | getEditToolInputSchema | chunks.134.mjs | function |
+| TR7 | getEditToolOutputSchema | chunks.134.mjs | function |
+| IF4 | renderEditToolUseMessage | chunks.134.mjs:1234 | function |
+| xF4 | renderEditToolProgress | chunks.134.mjs:1246 | function |
+| bF4 | renderEditToolResult | chunks.134.mjs:1250 | function |
+| uF4 | renderEditToolRejected | chunks.134.mjs:1271 | function |
+| BF4 | renderEditToolError | chunks.134.mjs:1320 | function |
+| sF4 | renderNotebookEditUseMessage | chunks.134.mjs | function |
+| tF4 | renderNotebookEditRejected | chunks.134.mjs | function |
+| eF4 | renderNotebookEditError | chunks.134.mjs | function |
+| AQ4 | renderNotebookEditProgress | chunks.134.mjs | function |
+| qQ4 | renderNotebookEditResult | chunks.134.mjs | function |
+| SP6 | DiffViewer | chunks.134.mjs | component |
+| ZW1 | EditPreview | chunks.134.mjs | component |
+| hP6 | getEditToolUserFacingName | chunks.134.mjs | function |
+| SkA | getEditToolSummary | chunks.134.mjs | function |
+| gkA | getNotebookEditSummary | chunks.134.mjs | function |
+| pu4 | getEditToolPrompt | chunks.134.mjs | function |
+| j_6 | generateUnifiedPatch | chunks.134.mjs | function |
+| PK1 | findExactString | chunks.134.mjs | function |
+| zF4 | performLintValidation | chunks.134.mjs | function |
+| yEY | getNotebookInputSchema | chunks.134.mjs:2595 | function |
+| CEY | getNotebookOutputSchema | chunks.134.mjs | function |
+| N51 | checkEditPermissions | chunks.146.mjs | function |
+| ix1 | recordPatch | chunks.134.mjs | function |
+| xP6 | computeGitDiff | chunks.134.mjs | function |
+| sQ1 | tryParseAsIndex | chunks.134.mjs | function |
+| _A | parseNotebook | chunks.134.mjs | function |
+
+### Bash Tool Security Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| lm | bashSecurityValidation | chunks.150.mjs:321 | function |
+| Of6 | speculativeReadonlyValidator | chunks.150.mjs:881 | function |
+| fcY | completeReadonlyWhitelist | chunks.150.mjs:2314 | constant (Set) |
+| PcY | simpleReadonlyCommands | chunks.150.mjs | constant (array) |
+| ZcY | expandedReadonlyCommands | chunks.150.mjs | constant (array) |
+| GcY | commandToRegex | chunks.150.mjs | function |
+| NcY | isCommandInReadonlyWhitelist | chunks.150.mjs | function |
+| ZhA | bashProgressHandler | chunks.150.mjs:2332 | function (generator) |
+| dU1 | progressTimeCache | chunks.150.mjs | variable (Map) |
+| RcY | PROGRESS_THROTTLE_INTERVAL_MS | chunks.150.mjs | constant |
+| LcY | MAX_PROGRESS_CACHE_SIZE | chunks.150.mjs | constant |
+| edY | jqSystemFunctionCheck | chunks.150.mjs | function |
+| $cY | obfuscatedFlagsCheck | chunks.150.mjs | function |
+| AcY | shellMetacharactersCheck | chunks.150.mjs | function |
+| qcY | dangerousVariablesCheck | chunks.150.mjs | function |
+| KcY | commandSubstitutionCheck | chunks.150.mjs | function |
+| YcY | newlineInjectionCheck | chunks.150.mjs | function |
+| zcY | ifsInjectionCheck | chunks.150.mjs | function |
+| wcY | procEnvironCheck | chunks.150.mjs | function |
+| HcY | malformedTokenCheck | chunks.150.mjs | function |
+| ndY | jqAllowlistCheck | chunks.150.mjs | function |
+| rdY | sedPrintlineAllowlistCheck | chunks.150.mjs | function |
+| adY | sedEditAllowlistCheck | chunks.150.mjs | function |
+| tdY | gitCdAllowlistCheck | chunks.150.mjs | function |
+| sdY | xargsAllowlistCheck | chunks.150.mjs | function |
+| OcY | sedFlagValidator | chunks.150.mjs | function |
+| J6q | sedSubstitutionValidator | chunks.150.mjs | function |
+| CY8 | hasSingleQuotedBackslashBypass | chunks.150.mjs | function |
+| cdY | parseCommandQuoting | chunks.150.mjs | function |
+| ldY | normalizeQuoting | chunks.150.mjs | function |
+| $f6 | containsWindowsUNCPath | chunks.150.mjs | function |
+| vcY | commandContainsGit | chunks.150.mjs | function |
+| EcY | isInBareGitRepository | chunks.150.mjs | function |
+| AD | splitCommandByOperators | chunks.150.mjs | function |
+| pz | shellTokenizer | chunks.150.mjs | function |
+
+### File System Tool Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| g4 | resolvePath | chunks.10.mjs:1159 | function |
+| p61 | hasParentTraversal | chunks.10.mjs:1187 | function |
+| Gj | checkPathDenyRule | chunks.174.mjs:692 | function |
+| ro | checkReadPermissions | chunks.146.mjs | function |
+| Ia4 | analyzeConversationMemoryUsage | chunks.146.mjs:2147 | function |
+| OmY | fileReadInputSchema | chunks.146.mjs:1706 | variable |
+| dBY | fileWriteInputSchema | chunks.146.mjs:419 | variable |
+| Z99 | grepInputSchema | chunks.76.mjs:1104 | variable |
+| N99 | globInputSchema | chunks.76.mjs:1487 | variable |
+| mP6 | findSimilarFile | chunks.146.mjs | function |
+| OU1 | MAX_FILE_SIZE_BYTES | chunks.146.mjs | constant |
+| wD1 | MAX_PDF_PAGES_PER_REQUEST | chunks.146.mjs | constant |
+| Qd | detectLineEnding | chunks.134.mjs | function |
+| AX | detectEncoding | chunks.134.mjs | function |
+| ft | writeFileWithEncoding | chunks.134.mjs | function |
+| aW | getModificationTime | chunks.134.mjs | function |
+| TW1 | findSkillDirTriggers | chunks.134.mjs | function |
+| vW1 | refreshSkillDirs | chunks.134.mjs | function |
+| EW1 | clearFileWatcherCache | chunks.134.mjs | function |
+| Fd | diagnosticsManager | chunks.134.mjs | object |
+| $J | readFileSyncWithEncoding | chunks.134.mjs | function |
+| ty1 | CONCURRENT_EDIT_ERROR_MESSAGE | chunks.134.mjs | constant |
+| z2 | isFileHistoryEnabled | chunks.134.mjs | function |
+| Xt | saveFileHistoryEntry | chunks.134.mjs | function |
+| EEY | getParentDirectory | chunks.134.mjs | function |
+| _t | updateGitWatcherCache | chunks.134.mjs | function |
+| kEY | PATH_SEP | chunks.134.mjs | constant |
+| eS | recordFileOperation | chunks.134.mjs | function |
+| BJq | getPermissionRules | chunks.174.mjs | function |
+| SJq | ignore (library) | chunks.174.mjs | library |
+| hJq | getRelativePath | chunks.174.mjs | function |
+| Jf | PATH_SEP (permission) | chunks.174.mjs | constant |
 
 ### Tool Execution Pipeline
 
