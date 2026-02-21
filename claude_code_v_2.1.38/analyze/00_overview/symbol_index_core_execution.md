@@ -431,5 +431,5 @@
 | v6 | useAppState | chunks.151.mjs:576 | hook |
 | Wf6 | getInitialPromptSuggestionEnabled | chunks.151.mjs:415 | function |
 | yhA | useStoreContext | chunks.151.mjs:574 | hook |
-| yt | resumeSession | chunks.151.mjs:530 | function |
+| yt | resumeSession | chunks.142.mjs:379 | function |
 | Zw6 | initialAttributionState | chunks.151.mjs:412 | function |

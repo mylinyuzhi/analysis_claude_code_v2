@@ -21,6 +21,7 @@
 - [Thinking Mode](#module-thinking-mode)
 - [Steering](#module-steering)
 - [System Reminder](#module-system-reminder)
+- [Status Line](#status-line)
 - [CLI — Agent SDK Entrypoint](#agent-sdk--entrypoint--mode-detection)
 
 ---
@@ -732,7 +733,10 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | Ej1 | interpolateArguments | chunks.87.mjs:1735 | function |
-| Ma | executeShellExpansion | chunks.81.mjs:601 | function |
+| Ma | processTemplateExpressions | chunks.81.mjs:601 | function (executes !`cmd` and ```!\ncmd\n``` patterns in skill text) |
+| q09 | TEMPLATE_CODE_BLOCK_REGEX | chunks.81.mjs:659 | constant (/```!\s*\n?...\n?```/g) |
+| K09 | TEMPLATE_INLINE_REGEX | chunks.81.mjs:659 | constant (/(?<!\w|\$)!`([^`]+)`/g) |
+| Jb7 | formatShellOutput | chunks.81.mjs:625 | function |
 | mM6 | setupForkedCommandContext | chunks.149.mjs:2562 | function |
 | FM6 | extractForkedCommandResult | chunks.149.mjs:2582 | function |
 
@@ -753,11 +757,26 @@
 | iHq | bundledSkillRegistry | chunks.166.mjs:1826 | Array |
 | nI | initSkillRegistry | chunks.166.mjs:1828 | function |
 
+### Builtin Prompt Command Factory (`bZ1`)
+
+> Deep analysis: [09_slash_command/review.md](../09_slash_command/review.md)
+> Used by `/review`, `/pr-comments`, `/security-review` — "marketplace placeholder" pattern
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bZ1 | builtinPromptCommandFactory | chunks.160.mjs:1289 | function |
+| NN6 | reviewCommandDefinition | chunks.161.mjs:2580 | object |
+| HuA | registerReviewCommand | chunks.161.mjs:2577 | function |
+| m5q | prCommentsCommandDefinition | chunks.160.mjs:1319 | object |
+| F5q | registerPrCommentsCommand | chunks.160.mjs:1317 | function |
+| wzq | securityReviewCommandDefinition | chunks.162.mjs:1819 | object |
+| Hzq | registerSecurityReviewCommand | chunks.162.mjs:1814 | function |
+| y7z | SECURITY_REVIEW_SKILL_TEXT | chunks.162.mjs:1620 | constant |
+
 ### Built-in Skills/Plugins
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| wzq | SecurityReviewPlugin | chunks.162.mjs:419022 | object |
 | E7z | TasksCommand | chunks.162.mjs:418749 | object |
 | R7z | TodosCommand | chunks.162.mjs:418817 | object |
 | b7z | VimModeCommand | chunks.162.mjs:419181 | object |
@@ -1044,6 +1063,77 @@
 | CJz | initializeSession | chunks.179.mjs:1654-1734 | function (processes initialize control_request) |
 | t17 | SDK_SYSTEM_PROMPT_CLI | chunks.TBD | constant (system prompt for CLI-embedded SDK) |
 | e17 | SDK_SYSTEM_PROMPT_AGENT | chunks.TBD | constant (system prompt for custom SDK agents) |
+
+### Session Management (/resume, /rename)
+
+> Full analysis: [09_slash_command/resume_and_rename.md](../09_slash_command/resume_and_rename.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| i8z | resumeCommandDefinition | chunks.161.mjs:2560 | object |
+| l8z | resumeHandler | chunks.161.mjs:2466 | function |
+| c8z | ResumeInteractiveUI | chunks.161.mjs:2388 | component |
+| WN6 | SessionPickerUI | chunks.161.mjs:1227 | component |
+| KYq | SessionPreviewComponent | chunks.161.mjs:930 | component |
+| _Yq | SessionTagTabBar | chunks.161.mjs:1057 | component |
+| ZN6 | checkCrossProjectResume | chunks.161.mjs:2178 | function |
+| fN6 | agenticSearch | chunks.161.mjs:2244 | function |
+| p8z | AGENTIC_SEARCH_SYSTEM_PROMPT | chunks.161.mjs:2303 | constant |
+| GYq | formatResumeError | chunks.161.mjs:2349 | function |
+| zuA | ResumeErrorUI | chunks.161.mjs:2358 | component |
+| CAz | renameCommandDefinition | chunks.160.mjs:1613 | object |
+| yAz | renameHandler | chunks.160.mjs:1570 | function |
+| Q91 | saveCustomTitle | chunks.173.mjs:2264 | function |
+| nL7 | setTerminalTitle | chunks.76.mjs:583 | function |
+| B8z | isWorthShowing | chunks.161.mjs:2077 | function |
+| Q8z | buildSearchableText | chunks.161.mjs:2104 | function |
+| g8z | buildForkGroups | chunks.161.mjs:2110 | function |
+| U8z | extractUniqueTags | chunks.161.mjs:2123 | function |
+| h8z | extractSearchSnippet | chunks.161.mjs:1194 | function |
+| abA | formatSnippetWithHighlight | chunks.161.mjs:1186 | function |
+| sbA | buildSessionLabel | chunks.161.mjs:1210 | function |
+| tbA | buildSessionDescription | chunks.161.mjs:1219 | function |
+| $F | searchByTitle | chunks.173.mjs:2433 | function |
+| wuA | loadAllProjectSessions | chunks.173.mjs:2609 | function |
+| VN6 | loadSessionsForCwds | chunks.173.mjs:2663 | function |
+| TI | loadFullSession | chunks.173.mjs:2380 | function |
+| sR | isLazySession | chunks.173.mjs:2376 | function |
+| Xw | getSessionId | chunks.173.mjs:2371 | function |
+| Gi | getSessionDisplayTitle | chunks.9.mjs:1289 | function |
+| xv | parseSessionUUID | chunks.90.mjs:2338 | function |
+| pN6 | saveSessionTag | chunks.173.mjs:2274 | function |
+| FbA | setAgentName | chunks.173.mjs:2312 | function |
+| id1 | setCurrentSessionTitle | chunks.173.mjs:2308 | function |
+| wm1 | getCurrentSessionTitle | chunks.173.mjs:2303 | function |
+| re | appendToLog | chunks.173.mjs:2257 | function |
+| PYq | matchesSessionLocally | chunks.161.mjs:2231 | function |
+| WYq | extractTranscriptText | chunks.161.mjs:2225 | function |
+| d8z | extractMessageText | chunks.161.mjs:2212 | function |
+
+### Status Line
+
+> Full analysis: [09_slash_command/statusline.md](../09_slash_command/statusline.md)
+> Slash command + subagent + runtime UI component for the bottom status bar
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| E3z / GBA | statuslineCommandDefinition | chunks.167.mjs:760 | object (prompt-type slash command) |
+| En7 / kn7 | statuslineSetupAgentDefinition | chunks.90.mjs:2650 | object (built-in subagent definition) |
+| APA | getBuiltinAgents | chunks.90.mjs:3049 | function (returns all built-in agent defs including En7) |
+| JyA | executeStatusLineHook | chunks.142.mjs:48 | function (async) |
+| Zjz | buildStatusLinePayload | chunks.183.mjs:2910 | function |
+| YZq | StatusLineComponent | chunks.183.mjs:2981 | function (React component) |
+| nWq | NotificationStatusBar | chunks.182.mjs:1642 | function (React component — system status bar) |
+| ugA | isStatusLineConfigured | chunks.183.mjs:2906 | function |
+| KZq | getLastAssistantMessageId | chunks.183.mjs:2976 | function |
+| kw6 | checkExceeds200kTokens | chunks.75.mjs:2261 | function |
+| Ew6 | getLastApiUsage | chunks.75.mjs:2247 | function |
+| $71 | selectModelForStatusLine | chunks.47.mjs:2003 | function (opus/haiku/default model selection) |
+| _e | isVimModeEnabled | chunks.155.mjs:843 | function (f6().editorMode === "vim") |
+| Nq | isRemoteMode | chunks.1.mjs:3014 | function (o6.isRemoteMode) |
+| PN1 | getMainThreadAgentType | chunks.1.mjs:3006 | function (o6.mainThreadAgentType) |
+| U6 | getSessionId | chunks.1.mjs:2425 | function (o6.sessionId) |
+| m$q | statuslineCommandModuleInit | chunks.167.mjs:758 | function (lazy init) |
 
 ---
 

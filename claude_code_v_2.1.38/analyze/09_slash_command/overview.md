@@ -275,6 +275,7 @@ Additional built-in commands (in QBA but not in the essential pBA set) include:
 - `/model` - Switch models
 - `/plan` - Manage plans
 - `/pr-comments` - View PR comments
+- `/statusline` - Set up custom status line UI (prompt type; launches `statusline-setup` subagent) — see [statusline.md](./statusline.md)
 - `/theme` - Change UI theme
 - `/upgrade` - Upgrade Claude Code
 
@@ -297,7 +298,7 @@ Additional built-in commands (in QBA but not in the essential pBA set) include:
 - The LLM then processes these messages and produces a response
 - Supports `progressMessage` for loading indicators
 - Can optionally fork a new agent context (`context: "fork"`)
-- Examples: `/init`, `/review`
+- Examples: `/init`, `/review`, `/statusline` (delegates to `statusline-setup` subagent via Task tool)
 
 ### formatCommandDescription (jZ1)
 
@@ -1357,3 +1358,39 @@ The connection works through two filtered views of the command registry:
 2. **`getSlashCommandSkills` (aO6)**: Returns commands eligible for the slash command picker UI. Filters to: `type === "prompt"`, `source !== "builtin"`, has description, and loaded from `skills`, `plugin`, `bundled`, or `disableModelInvocation`.
 
 The important distinction: built-in CLI commands (`/help`, `/clear`, etc.) are explicitly excluded from the Skill tool. The Skill tool description even states: "Do not use this tool for built-in CLI commands (like /help, /clear, etc.)". This prevents the model from trying to invoke commands that require interactive UI rendering.
+
+---
+
+## Deep Dives
+
+### `/review` — PR Code Review via Inline LLM + Bash Tool
+
+> Full analysis: [review.md](./review.md)
+
+`/review` is the canonical example of the **marketplace placeholder** pattern. It uses the `bZ1()` factory that creates `prompt`-type builtin commands that:
+- Run **inline in the main agent loop** (no forked context, no subagent)
+- Contain a `getPromptWhileMarketplaceIsPrivate` fallback to ship functionality before the marketplace plugin is ready
+- Use `${qq.name}` (= `"Bash"`) in the prompt text to tell the LLM which tool to invoke
+- Have **no `allowedTools` restriction** — all tool uses go through normal permission checking
+
+Key symbols: `NN6` (command definition), `bZ1` (factory), `HuA` (lazy init), `qq` (Bash tool)
+
+Three commands use this pattern: `/review` (code-review plugin), `/pr-comments` (pr-comments plugin), `/security-review` (security-review plugin). The `/security-review` command is significantly more advanced: it uses YAML frontmatter with `allowed-tools:`, executes shell commands at prompt-generation time via `Ma()` (processTemplateExpressions), and instructs the LLM to spawn parallel sub-tasks via the Task tool.
+
+---
+
+### `/resume` and `/rename` — Session Lifecycle Management
+
+> Full analysis: [resume_and_rename.md](./resume_and_rename.md)
+
+`/resume` is the most complex built-in slash command. It provides:
+- **Direct lookup** by session UUID or exact title (via args)
+- **Interactive picker** with multi-mode state machine (list/search/rename/preview)
+- **Tag-based tab navigation**, branch/worktree filter toggles, all-projects view
+- **Agentic AI search** (sends session metadata to Claude LLM for semantic ranking)
+- **Cross-project resume** detection (copies `cd && claude --resume` to clipboard)
+- **Inline rename** via Ctrl+R inside the picker (same `saveCustomTitle` as `/rename`)
+
+`/rename` is a `local`-type command that persists a custom title to the JSONL log via an event-sourced `{ type: "custom-title" }` append, optionally updating the terminal window title.
+
+Key symbols: `l8z` (handler), `c8z` (interactive UI), `WN6` (picker), `Q91` (saveCustomTitle), `yAz` (rename handler)
