@@ -15,6 +15,10 @@ Plan Mode is a specialized session state in Claude Code that restricts the agent
 Key functions in this document:
 - `EnterPlanModeTool` (kg1) - Tool object (chunks.140.mjs:1649)
 - `ExitPlanModeTool` (Nj) - Tool object (chunks.139.mjs:2641)
+
+> See also:
+> - [ask_user_question.md](./ask_user_question.md) — Deep analysis of AskUserQuestion tool (multi-round interactions, elicitation queue, UI components, schema)
+> - [interview_phase.md](./interview_phase.md) — Complete Interview Phase analysis (feature flag, iterative loop, "Chat about this" / "Skip interview" callbacks, "Ready to code?" dialog options, context-clearing mechanism)
 - `aPq` (chunks.181.mjs:405) - ExitPlanMode dialog ("Ready to code?")
 - `hf1` (chunks.183.mjs:1778) - Mode cycle function
 - `CQ` (chunks.14.mjs:3260) - Mode display name ("Plan Mode")
@@ -722,7 +726,9 @@ This is critical - your turn should only end with either AskUserQuestion OR Exit
 
 ### Full Reminder - Interview Phase (`ezz`, chunks.173.mjs:619)
 
-Called when `isPlanModeInterviewPhase() === true`. More conversational:
+> Deep analysis: [interview_phase.md §3](./interview_phase.md) — full reminder text, `tzz()` tool list computation, comparison with standard mode
+
+Called when `isPlanModeInterviewPhase() === true` (`sO()` = feature flag / env var `CLAUDE_CODE_PLAN_MODE_INTERVIEW_PHASE`). More conversational:
 
 ```
 Plan mode is active...

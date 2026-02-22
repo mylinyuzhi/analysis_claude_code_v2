@@ -373,6 +373,40 @@
 | Zc4 | renderEnterPlanModeRejected | chunks.140.mjs:1612 | function (React) |
 | aPq | ExitPlanModeDialog | chunks.181.mjs:405 | function (React) |
 
+### Plan Mode — AskUserQuestion Tool
+
+> Full analysis: [12_plan_mode/ask_user_question.md](../12_plan_mode/ask_user_question.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| dW1 | AskUserQuestionTool | chunks.139.mjs:2903 | tool object |
+| TH | TOOL_NAME_AskUserQuestion | chunks.89.mjs:566 | constant ("AskUserQuestion") |
+| Qp7 | AskUserQuestion_shortDescription | chunks.89.mjs:570 | constant (string) |
+| gp7 | AskUserQuestion_fullPrompt | chunks.89.mjs:572 | constant (string) |
+| Fp7 | AskUserQuestion_maxHeaderLength | chunks.89.mjs | constant (= 12) |
+| zCY | optionSchema | chunks.139.mjs:2875 | schema (label, description) |
+| Xd4 | questionSchema | chunks.139.mjs:2878 | schema (question, header, options, multiSelect) |
+| wCY | askUserQuestionInputSchema | chunks.139.mjs:2883 | schema (questions, answers, metadata) |
+| HCY | askUserQuestionOutputSchema | chunks.139.mjs:2902 | schema (questions, answers) |
+| $CY | AnswerDisplayCard | chunks.139.mjs:2825 | function (React) |
+| OCY | renderAnswerLine | chunks.139.mjs:2840 | function (React) |
+| ep4 | exitPlanModeToolPrompt | chunks.139.mjs:2458 | constant (string - ExitPlanMode instructions with AskUserQuestion guidance) |
+| $Wq | QuestionForm | chunks.181.mjs:1920 | function (React - outer permission dialog, plan mode detection) |
+| YWq | SingleQuestionComponent | chunks.181.mjs:1503 | function (React - one question with extra options) |
+| wWq | ReviewAnswersScreen | chunks.181.mjs:1800 | function (React - summary before submit) |
+| Sv6 | QuestionProgressTabs | chunks.181.mjs:1367 | function (React - horizontal tab bar) |
+| WDz | transformOptionToUIFormat | chunks.181.mjs:1769 | function ({type:"text", value, label, description}) |
+| PDz | isNotOtherOption | chunks.181.mjs:1765 | function (value !== "__other__") |
+| VDz | selectToolPermissionContextMode | chunks.181.mjs:2164 | function (state→mode selector for $Wq) |
+| GDz | selectToolPermissionContextMode | chunks.181.mjs:1778 | function (state→mode selector for YWq) |
+| HgA | collectPastedImages | chunks.181.mjs:2176 | function (async - converts pasted images to API blocks) |
+| KWq | initQuestionNavState | chunks.181.mjs:1357 | lazy initializer (question navigation state) |
+| qWq | useQuestionNavigation | chunks.181.mjs:1368 | function (hook - question nav state machine) |
+| XDz | initialQuestionNavState | chunks.181.mjs:1359 | constant (initial nav state object) |
+| RV6 | setupElicitationRequestHandler | chunks.156.mjs:1540 | function (MCP elicitation handler) |
+| UCY | standardPlanModeWorkflowText | chunks.140.mjs:1576 | constant (string - "What Happens in Plan Mode" section, omitted in interview mode) |
+| Mc4 | initStandardPlanModeWorkflowText | chunks.140.mjs:1574 | lazy initializer (for UCY) |
+
 ### Plan Mode — Clear Context & Session Management
 
 | Obfuscated | Readable | File:Line | Type |

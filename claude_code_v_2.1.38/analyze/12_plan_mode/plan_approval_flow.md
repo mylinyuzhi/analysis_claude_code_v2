@@ -87,24 +87,99 @@ async function checkPermissions(input) {
 // Mapping: Dz→isTeammate
 ```
 
-### What the User Sees
+### The `aPq` Permission Component — "Ready to Code?" Dialog
 
-The permission dialog shows:
-- The message: **"Exit plan mode?"**
-- The plan content (from the tool input, injected via `normalizeToolInput` from disk)
-- Yes/No options
+The `checkPermissions()` returning `{ behavior: "ask" }` causes the permission system to render `aPq` (`ExitPlanModeDialog`, chunks.181.mjs:405) — a **custom permission component** that replaces the standard Yes/No dialog.
 
-When the user selects **Yes (Approve)**:
-1. Tool `call()` executes
-2. Permission mode restored to `prePlanMode`
-3. UI renders approval result card (`Kd4`, state 4)
-4. LLM receives: "User has approved your plan. You can now start coding..."
+`aPq` has 5 UI states:
 
-When the user selects **No (Reject)**:
+| State | Trigger | UI |
+|-------|---------|-----|
+| `default` | No plan content | "Exit plan mode?" + simple Yes/No |
+| `default` | Has plan content | "Ready to code?" + plan + 4-5 options |
+| `checking` | Push-to-remote clicked | "Checking prerequisites…" spinner |
+| `creating` | Prerequisites passed | "Creating remote session…" spinner |
+| `git-dialog` | Uncommitted changes | Git commit/push decision dialog |
+| `eligibility-error` | Push prerequisites failed | Error list with fix instructions |
+
+### Full Option Set (when plan exists)
+
+```
+► Yes, clear context and auto-accept edits (shift+tab)   ← clearContext=true, mode=acceptEdits
+                                                           ← Enterprise: "Yes, clear context and bypass permissions"
+  Yes, auto-accept edits                                  ← clearContext=false, mode=acceptEdits
+  Yes, manually approve edits                             ← clearContext=false, mode=default
+  No, keep planning  [text input + image paste support]  ← rejection with typed feedback
+```
+
+**Context-clearing options (recommended path):**
+- Injects "Implement the following plan:\n\n{plan}" as the `initialMessage` for the next session
+- Sets `clearContext: true` which triggers `clearConversation()` (GIA) — full session reset
+- Also appends: transcript URL reminder + TeamCreate suggestion (if teams enabled)
+- New session starts fresh with only the plan as user message, in the target mode
+
+**Keep-context options:**
+- Calls `toolUseConfirm.onAllow(planContent, permissionsList)` directly
+- ExitPlanMode `call()` executes, LLM receives: "User has approved your plan..."
+- Planning conversation history remains in context
+
+**"No, keep planning":**
+- User types feedback (required) and optionally pastes images
+- Calls `toolUseConfirm.onReject(feedback, images)` — plan stays in plan mode
+- LLM receives feedback as user message and continues refining the plan
+
+### External Editor (Ctrl+G)
+
+While the dialog is open, `Ctrl+G` opens the plan in the configured external editor:
+- If `ExitPlanMode` tool (no plan file yet): edits plan content string
+- If tool is triggered from existing plan file: edits the file on disk
+- After save: "✓ Plan saved!" notification appears for 5 seconds
+
+### What the User Sees (plan exists)
+
+```
+╭────────────────────────────────────────────────────────╮
+│ Ready to code?                                          │
+│                                                         │
+│ Here is Claude's plan:                                  │
+│ ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄  │
+│ # Implementation Plan                                   │
+│ ## Context: Add Redis caching...                        │
+│ ...                                                     │
+│ ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄  │
+│ Claude has written up a plan and is ready to execute.   │
+│ Would you like to proceed?                              │
+│                                                         │
+│ ► Yes, clear context and auto-accept edits (shift+tab)  │
+│   Yes, auto-accept edits                                │
+│   Yes, manually approve edits                           │
+│   No, keep planning  [Type here to tell Claude...]      │
+│                                                         │
+│ ctrl-g to edit in vim                                   │
+╰────────────────────────────────────────────────────────╯
+```
+
+> Complete dialog analysis with code: [interview_phase.md §10](./interview_phase.md)
+
+When the user selects **"Yes, clear context and auto-accept edits"** (recommended):
+1. App state updated: `initialMessage = { clearContext: true, mode: "acceptEdits", content: "Implement the following plan:..." }`
+2. `setHasExitedPlanMode(true)`, `onDoneClosingDialog()`, `onCancel()`, `onReject()`
+3. Session manager detects `clearContext: true` → clears conversation
+4. New session starts with plan as first message, mode = acceptEdits
+
+When the user selects **"Yes, auto-accept edits"** (keep context):
+1. `setHasExitedPlanMode(true)`, `setNeedsPlanModeExitAttachment(true)`
+2. `toolUseConfirm.onAllow(planContent, permissionsList)` — tool executes
+3. Permission mode restored to `prePlanMode`
+4. UI renders approval result card (`Kd4`, state 4)
+5. LLM receives: "User has approved your plan. You can now start coding..."
+
+When the user selects **"No, keep planning"** (types feedback):
 1. Tool `call()` is NOT executed (skipped)
 2. Permission mode stays `"plan"`
 3. UI renders rejection card (`Yd4`) with plan content in planMode-colored border
 4. `renderToolUseRejectedMessage` is called → shows `HX6` component
+5. LLM receives the typed feedback as a user message and refines the plan
 
 ### Rejection Display
 
