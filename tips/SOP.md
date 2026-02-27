@@ -14,3 +14,6 @@ Software Reverse Engineering Deobfuscation
 3. 关键的逻辑需要comment 注释
 4. 已有的代码要充分理解逻辑，比对source，再修改，确保修改是可以帮助提升对齐
 5. 对齐 `claude_code_v_2.1.7/claudecode`， Build 通过
+
+
+@claude_code_v_2.1.38/analzye   @claude_code_v_2.1.38/source， 你是 Software Reverse Engineering 专家，参考 claude_code_v_2.1.7/analyze 的分析目录组织和结构 ， 完善 2.1.38 的逆向报告，例如 agent teams feature 是1个大的功能（可能还有其他大功能），在 claude_code_v_2.1.38/analyze 对应的目录完善分析，越详细越好

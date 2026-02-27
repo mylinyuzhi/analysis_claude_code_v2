@@ -338,6 +338,7 @@
 | tI | wrapInXmlTag | chunks.173.mjs:490-494 | function |
 | c6 | createUserMessage | chunks.172.mjs:2876-2912 | function |
 | kq | createAttachmentMessage | chunks.142.mjs:2615-2622 | function |
+| EL9 | SYSTEM_REMINDER_REGEX | chunks.90.mjs:730 | constant (regex) |
 
 ### Plan Mode Functions
 
@@ -411,6 +412,17 @@
 | kIY | getTeammateMailboxAttachment | chunks.142.mjs:2791-2794 | function |
 | LIY | getTeamContextAttachment | chunks.142.mjs:2796-2813 | function |
 
+### Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| AC1 | MAX_FILE_LINES | chunks.142.mjs:? | constant (2000) |
+| eW6 | TODO_REMINDER_CONSTANTS | chunks.142.mjs:2918-2921 | object ({TURNS_SINCE_WRITE: 10, TURNS_BETWEEN_REMINDERS: 10}) |
+| ii4 | PLAN_MODE_CONSTANTS | chunks.142.mjs:2921-2924 | object ({TURNS_BETWEEN_ATTACHMENTS: 5, FULL_REMINDER_EVERY_N_ATTACHMENTS: 5}) |
+| QhY | ULTRAMEMORY_CONSTANTS | chunks.142.mjs:2924-2926 | object ({TOKEN_COOLDOWN: 5000}) |
+| UhY | TASK_REMINDER_CONSTANTS | chunks.142.mjs:2926-2928 | object ({TURNS_BETWEEN_REMINDERS: 10}) |
+| ghY | TASK_PROGRESS_TURNS_THRESHOLD | chunks.142.mjs:2863 | constant (3) |
+
 ### Helper Functions
 
 | Obfuscated | Readable | File:Line | Type |
@@ -422,6 +434,13 @@
 | GIY | createPdfReferenceAttachment | chunks.142.mjs:2503-2522 | function |
 | pd1 | createToolCallMessage | chunks.173.mjs:1152-1157 | function |
 | Ud1 | createToolResultMessage | chunks.173.mjs:1133-1150 | function |
+| jIY | countTokensSinceUltramemory | chunks.142.mjs:2442-2454 | function |
+| MIY | shouldSendUltramemoryAttachment | chunks.142.mjs:2456-2461 | function |
+| CIY | countUserTurnsSincePlanModeExit | chunks.142.mjs:2839-2847 | function |
+| SIY | getVerifyPlanReminderAttachment | chunks.142.mjs:2849-2851 | function |
+| sW1 | isPathDisallowed | chunks.142.mjs:2853-2855 | function |
+| rd | clearSkillCache | chunks.142.mjs:2377-2379 | function |
+| xg1 | sentSkillsSet | chunks.142.mjs:~2377 | variable (Set) |
 
 ### Constants
 
