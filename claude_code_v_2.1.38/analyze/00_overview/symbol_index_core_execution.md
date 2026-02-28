@@ -26,8 +26,11 @@
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
 | i5 | FileReadTool | chunks.146.mjs:1754 | tool object |
+| Jq | TOOL_NAME_READ | chunks.46.mjs:2634 | constant ("Read") |
 | vj | FileWriteTool | chunks.146.mjs:436 | tool object |
+| f5 | TOOL_NAME_WRITE | chunks.134.mjs | constant ("Write") |
 | sW | EditTool | chunks.134.mjs:2124 | tool object |
+| bq | TOOL_NAME_EDIT | chunks.134.mjs | constant ("Edit") |
 | gd | NotebookEditTool | chunks.134.mjs:2615 | tool object |
 | tS | GrepTool | chunks.76.mjs:1129 | tool object |
 | WB | GlobTool | chunks.76.mjs:1495 | tool object |
@@ -39,7 +42,6 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
-| bq | TOOL_NAME_EDIT | chunks.134.mjs | constant |
 | jM | TOOL_NAME_NOTEBOOK_EDIT | chunks.134.mjs | constant |
 | Qw6 | getEditToolInputSchema | chunks.134.mjs | function |
 | TR7 | getEditToolOutputSchema | chunks.134.mjs | function |

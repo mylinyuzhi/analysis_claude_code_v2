@@ -491,7 +491,6 @@
 | DZ6 | grantPermission | chunks.146.mjs:TBD | function |
 | VOA | formatCustomInstructions | chunks.146.mjs:TBD | function |
 | B51 | extractTextFromMessage | chunks.146.mjs:TBD | function |
-| wjA | getRecentlyAccessedFiles | chunks.146.mjs:TBD | function |
 | rd | resetCodeIndexing | chunks.146.mjs:TBD | function |
 | PZ | countTokens | chunks.146.mjs:TBD | function |
 | Yp | extractUsageFromMessage | chunks.146.mjs:TBD | function |
@@ -552,10 +551,23 @@
 | pD | getPlanFileContent | chunks.88.mjs:126 | function |
 | UB | getTodoList | chunks.88.mjs:274 | function |
 | zR6 | getInvokedSkills | chunks.1.mjs:2972 | function |
-| wjA | getRecentlyAccessedFiles | chunks.146.mjs:TBD | function |
 | Ba4 | MAX_FILES_TO_KEEP | chunks.146.mjs:2760 | constant (5) |
 | fmY | MAX_FILE_RESTORE_TOKENS | chunks.146.mjs:2762 | constant (50000) |
 | VmY | MAX_TOKENS_PER_FILE | chunks.146.mjs:2764 | constant (5000) |
+
+### File Read Tracking
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| A91 | buildFileReadState | chunks.150.mjs:2459 | function |
+| yj1 | mergeFileReadState | chunks.88.mjs:2267 | function |
+| Rp | createLruCache | chunks.88.mjs:2250 | function |
+| yp | cloneLruCache | chunks.88.mjs:2262 | function |
+| wjA | mapEntriesToObject | chunks.88.mjs:2254 | function |
+| Th | getWatchedFilePaths | chunks.88.mjs:2258 | function |
+| JK1 | LRU_MAX_ENTRIES | chunks.88.mjs:2276 | constant (100) |
+| eT9 | LRU_MAX_SIZE | chunks.88.mjs:2278 | constant (26214400) |
+| kcY | BUILD_STATE_DEFAULT_MAX | chunks.150.mjs:2518 | constant (10) |
 
 ### Microcompaction
 
@@ -1283,4 +1295,3 @@
 | JU1 | createBoundaryMarker | chunks.173.mjs:1215 | function (create compact_boundary system message: stores trigger, preTokens, userContext, messageCount) |
 | ux1 | formatSummaryText | chunks.76.mjs:323 | function (build context-restoration text block with transcript link and continuation directives) |
 | a$ | getTranscriptFilePath | chunks.173.mjs:1658 | function (construct session transcript file path for summary footer link) |
-| wjA | mapEntriesToObject | chunks.88.mjs:2254 | function (Object.fromEntries wrapper; used in attachment collection) |
