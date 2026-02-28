@@ -365,6 +365,9 @@
 | JIY | parseMcpResourceMentions | chunks.142.mjs:2411-2415 | function |
 | XIY | parseAgentMentions | chunks.142.mjs:2417-2427 | function |
 | DIY | parseFilePathWithLineRange | chunks.142.mjs:2429-2440 | function |
+| KIY | extractAtMentionedFiles | chunks.142.mjs:2199-2236 | function |
+| TyA | readFileForAttachment | chunks.142.mjs:2524-2613 | function |
+| GIY | createPdfReferenceAttachment | chunks.142.mjs:2503-2522 | function |
 
 ### Always-Computed Attachment Producers
 

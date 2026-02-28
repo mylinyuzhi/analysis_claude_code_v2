@@ -1233,6 +1233,613 @@ attachments.push(...changedFiles);
 
 ---
 
+## @-Mention File State Handling
+
+### Overview
+
+When a user @-mentions a file, the system checks `readFileState` to determine whether to re-read the file or use cached content. This section details the logic for handling already-read files and state replacement.
+
+### Function: readFileForAttachment (TyA)
+
+**Location:** chunks.142.mjs:2524-2613
+
+This is the central function for loading file attachments, handling both @-mentions and compact mode file restoration.
+
+```javascript
+// ============================================
+// readFileForAttachment - Load file with state check
+// Location: chunks.142.mjs:2524-2613
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function TyA(A, q, K, Y, z, w) {
+    let {
+        offset: H,
+        limit: $
+    } = w ?? {}, O = await q.getAppState();
+    if (sW1(A, O.toolPermissionContext)) return null;
+    if (z === "at-mention" && !KG6(A)) {
+        let J = tW6(A).ext.toLowerCase();
+        if (!s81(J)) try {
+            let X = b1().statSync(A);
+            return c("tengu_attachment_file_too_large", {
+                size_bytes: X.size,
+                mode: z
+            }), null
+        } catch {}
+    }
+    if (z === "at-mention") {
+        let J = await GIY(A);
+        if (J) return J
+    }
+    let _ = q.readFileState.get(A);
+    if (_ && z === "at-mention") try {
+        let J = aW(A);
+        if (_.timestamp <= J && J === _.timestamp) return c(K, {}), {
+            type: "already_read_file",
+            filename: A,
+            content: {
+                type: "text",
+                file: {
+                    filePath: A,
+                    content: _.content,
+                    numLines: _.content.split(`\n`).length,
+                    startLine: H ?? 1,
+                    totalLines: _.content.split(`\n`).length
+                }
+            }
+        }
+    } catch {}
+    try {
+        let J = {
+            file_path: A,
+            offset: H,
+            limit: $
+        };
+        async function X() {
+            if (z === "compact") return {
+                type: "compact_file_reference",
+                filename: A
+            };
+            // ... fallback read with truncation ...
+        }
+        let D = await i5.validateInput(J, q);
+        if (!D.result) {
+            if (D.meta?.fileSize) return await X();
+            return null
+        }
+        try {
+            let j = await i5.call(J, q);
+            return c(K, {}), {
+                type: "file",
+                filename: A,
+                content: j.data
+            }
+        } catch (j) {
+            if (j instanceof qG6) return await X();
+            throw j
+        }
+    } catch {
+        return c(Y, {}), null
+    }
+}
+
+// READABLE (for understanding):
+async function readFileForAttachment(filePath, context, successEvent, errorEvent, mode, options) {
+    let { offset, limit } = options ?? {};
+    let appState = await context.getAppState();
+
+    // Step 1: Check sandbox permissions
+    if (isSandboxBlocked(filePath, appState.toolPermissionContext)) {
+        return null;
+    }
+
+    // Step 2: For at-mention mode, check if file is too large without offset/limit
+    if (mode === "at-mention" && !isSmallFile(filePath)) {
+        // Return null - file should be read explicitly with Read tool
+        return null;
+    }
+
+    // Step 3: Check for PDF reference (large PDF handling)
+    if (mode === "at-mention") {
+        let pdfRef = await createPdfReferenceAttachment(filePath);
+        if (pdfRef) return pdfRef;
+    }
+
+    // Step 4: Check readFileState cache
+    let cachedState = context.readFileState.get(filePath);
+
+    // Step 5: If file was read before AND mode is at-mention
+    if (cachedState && mode === "at-mention") {
+        try {
+            let currentMtime = getMtime(filePath);
+
+            // CRITICAL: Check if file is unchanged
+            // Condition: cached timestamp <= current mtime AND they are exactly equal
+            // This is a STRICT equality check - even 1ms difference means file changed
+            if (cachedState.timestamp <= currentMtime && currentMtime === cachedState.timestamp) {
+                // File is unchanged - return already_read_file type
+                recordTelemetry(successEvent, {});
+                return {
+                    type: "already_read_file",
+                    filename: filePath,
+                    content: {
+                        type: "text",
+                        file: {
+                            filePath: filePath,
+                            content: cachedState.content,
+                            numLines: cachedState.content.split('\n').length,
+                            startLine: offset ?? 1,
+                            totalLines: cachedState.content.split('\n').length
+                        }
+                    }
+                };
+            }
+        } catch {}
+    }
+
+    // Step 6: File not in cache or changed - read from disk
+    try {
+        let readInput = {
+            file_path: filePath,
+            offset: offset,
+            limit: limit
+        };
+
+        // Inner function for fallback handling
+        async function handleFallback() {
+            // For compact mode, return reference instead of reading
+            if (mode === "compact") {
+                return {
+                    type: "compact_file_reference",
+                    filename: filePath
+                };
+            }
+
+            // For at-mention, try truncated read
+            let truncatedInput = {
+                file_path: filePath,
+                offset: offset ?? 1,
+                limit: MAX_FILE_LINES  // 2000 lines max
+            };
+            let result = await ReadTool.call(truncatedInput, context);
+            return {
+                type: "file",
+                filename: filePath,
+                content: result.data,
+                truncated: true
+            };
+        }
+
+        // Validate the read request
+        let validationResult = await ReadTool.validateInput(readInput, context);
+        if (!validationResult.result) {
+            // If file is too large, use fallback
+            if (validationResult.meta?.fileSize) {
+                return await handleFallback();
+            }
+            return null;
+        }
+
+        // Perform the read
+        try {
+            let readResult = await ReadTool.call(readInput, context);
+            recordTelemetry(successEvent, {});
+            return {
+                type: "file",
+                filename: filePath,
+                content: readResult.data
+            };
+        } catch (error) {
+            // Handle token limit exceeded
+            if (error instanceof TokenLimitExceeded) {
+                return await handleFallback();
+            }
+            throw error;
+        }
+    } catch {
+        recordTelemetry(errorEvent, {});
+        return null;
+    }
+}
+
+// Mapping: TyA→readFileForAttachment, A→filePath, q→context, K→successEvent, Y→errorEvent, z→mode, w→options, H→offset, $→limit, _→cachedState, J→currentMtime/readInput, aW→getMtime, i5→ReadTool, GIY→createPdfReferenceAttachment, sW1→isSandboxBlocked
+```
+
+---
+
+## already_read_file Type
+
+### What It Does
+
+The `already_read_file` type is returned when a user @-mentions a file that has already been read and hasn't been modified. Instead of re-reading the file from disk, the system returns the cached content from `readFileState`.
+
+### Trigger Conditions
+
+| Condition | Requirement |
+|-----------|-------------|
+| Mode | `mode === "at-mention"` |
+| In cache | `readFileState.has(filePath) === true` |
+| Unchanged | `cachedTimestamp === currentMtime` (exact equality) |
+| Permission | File is not sandbox-blocked |
+
+### Critical Timestamp Check
+
+**Location:** chunks.142.mjs:2547
+
+```javascript
+// CRITICAL: The timestamp comparison is EXACT equality
+if (cachedState.timestamp <= currentMtime && currentMtime === cachedState.timestamp)
+```
+
+**Why exact equality?**
+
+The `timestamp` stored in `readFileState` is the file's mtime at the moment of read. If the file hasn't been modified, the current mtime will be **exactly equal** to the cached timestamp.
+
+- `cachedState.timestamp <= currentMtime` is always true (time flows forward)
+- `currentMtime === cachedState.timestamp` ensures file wasn't touched
+
+**Edge case:** If a file is touched (e.g., `touch file.txt`) without modifying content, the mtime changes and the file will be re-read even though content is identical.
+
+### Normalization
+
+**Location:** chunks.173.mjs:1118
+
+```javascript
+case "already_read_file":
+    return [];  // Returns empty - content already in context
+```
+
+The `already_read_file` type returns an empty array during normalization because the file content is already in the conversation context. No additional system reminder is needed.
+
+### Example Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                 already_read_file Flow                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. User: "Check @src/main.ts for bugs"                            │
+│     ┌────────────────────────────────────────────┐                  │
+│     │ extractAtMentionedFiles()                  │                  │
+│     │   → readFileForAttachment(                 │                  │
+│     │       "src/main.ts",                       │                  │
+│     │       context,                             │                  │
+│     │       mode="at-mention"                    │                  │
+│     │     )                                      │                  │
+│     └────────────────────────────────────────────┘                  │
+│                          │                                          │
+│                          ▼                                          │
+│  2. Check readFileState                                             │
+│     ┌────────────────────────────────────────────┐                  │
+│     │ cachedState = readFileState.get(path)     │                  │
+│     │                                            │                  │
+│     │ if (cachedState exists):                   │                  │
+│     │   currentMtime = getMtime(path)            │                  │
+│     │   if (currentMtime === cachedTimestamp):   │                  │
+│     │     → Return already_read_file             │                  │
+│     └────────────────────────────────────────────┘                  │
+│                          │                                          │
+│                          ▼                                          │
+│  3. Return cached content                                           │
+│     ┌────────────────────────────────────────────┐                  │
+│     │ {                                          │                  │
+│     │   type: "already_read_file",               │                  │
+│     │   filename: "src/main.ts",                 │                  │
+│     │   content: {                               │                  │
+│     │     type: "text",                          │                  │
+│     │     file: {                                │                  │
+│     │       filePath: "src/main.ts",             │                  │
+│     │       content: "...cached content...",     │                  │
+│     │       numLines: 150,                       │                  │
+│     │       startLine: 1,                        │                  │
+│     │       totalLines: 150                      │                  │
+│     │     }                                      │                  │
+│     │   }                                        │                  │
+│     │ }                                          │                  │
+│     └────────────────────────────────────────────┘                  │
+│                          │                                          │
+│                          ▼                                          │
+│  4. Normalization returns [] (content already in context)           │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## compact_file_reference Type
+
+### What It Does
+
+The `compact_file_reference` type is returned during compaction when a file needs to be restored but the read fails (typically due to size limits). It tells the LLM that the file was read before but is too large to re-include.
+
+### Trigger Conditions
+
+| Condition | Requirement |
+|-----------|-------------|
+| Mode | `mode === "compact"` |
+| Read fails | File too large, token limit exceeded, or validation failure |
+| Permission | File is not sandbox-blocked |
+
+### Code Path
+
+**Location:** chunks.142.mjs:2570-2574
+
+```javascript
+async function handleFallback() {
+    if (mode === "compact") {
+        return {
+            type: "compact_file_reference",
+            filename: filePath
+        };
+    }
+    // ... at-mention fallback ...
+}
+```
+
+### Normalization
+
+**Location:** chunks.173.mjs:775-778
+
+```javascript
+case "compact_file_reference":
+    return wrapWithSystemReminderTags([
+        createUserMessage({
+            content: `Note: ${attachment.filename} was read before the last conversation was summarized, but the contents are too large to include. Use ${ReadTool.name} tool if you need to access it.`,
+            isMeta: true
+        })
+    ]);
+```
+
+### Output Format
+
+```markdown
+<system-reminder>
+Note: /path/to/large-file.js was read before the last conversation was summarized, but the contents are too large to include. Use Read tool if you need to access it.
+</system-reminder>
+```
+
+### Example Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│              compact_file_reference Flow                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. Compaction starts                                               │
+│     ┌────────────────────────────────────────────┐                  │
+│     │ collectFilesToKeep(recentFiles, context)   │                  │
+│     │   → readFileForAttachment(                 │                  │
+│     │       "src/large-file.ts",                 │                  │
+│     │       context,                             │                  │
+│     │       mode="compact"                       │                  │
+│     │     )                                      │                  │
+│     └────────────────────────────────────────────┘                  │
+│                          │                                          │
+│                          ▼                                          │
+│  2. Try to read file                                                │
+│     ┌────────────────────────────────────────────┐                  │
+│     │ validationResult = ReadTool.validateInput  │                  │
+│     │                                            │                  │
+│     │ if (!validationResult.result):             │                  │
+│     │   if (fileSize > limit):                   │                  │
+│     │     → handleFallback()                     │                  │
+│     └────────────────────────────────────────────┘                  │
+│                          │                                          │
+│                          ▼                                          │
+│  3. Compact mode fallback                                           │
+│     ┌────────────────────────────────────────────┐                  │
+│     │ if (mode === "compact") {                  │                  │
+│     │   return {                                 │                  │
+│     │     type: "compact_file_reference",        │                  │
+│     │     filename: "src/large-file.ts"          │                  │
+│     │   }                                        │                  │
+│     │ }                                          │                  │
+│     └────────────────────────────────────────────┘                  │
+│                          │                                          │
+│                          ▼                                          │
+│  4. Normalization creates reminder                                  │
+│     ┌────────────────────────────────────────────┐                  │
+│     │ "Note: src/large-file.ts was read before   │                  │
+│     │  the last conversation was summarized, but │                  │
+│     │  the contents are too large to include.    │                  │
+│     │  Use Read tool if you need to access it."  │                  │
+│     └────────────────────────────────────────────┘                  │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## File State Replacement Logic
+
+### When File is Mentioned Again
+
+When a user @-mentions a file that already exists in `readFileState`, the system must decide whether to use cached content or re-read the file.
+
+### Decision Matrix
+
+| Scenario | Cached State | Current mtime | Action |
+|----------|--------------|---------------|--------|
+| File unchanged | Full read (offset=undefined) | mtime === cachedTimestamp | Return `already_read_file` |
+| File changed | Full read | mtime > cachedTimestamp | Re-read, update cache |
+| Partial read | offset/limit set | Any | Check if full read needed |
+| Not in cache | N/A | N/A | Read fresh, add to cache |
+
+### Partial Read State Replacement
+
+**Critical detail:** When a file is read with `offset` and `limit`, the cached state includes these values. Subsequent @-mentions may trigger different behavior.
+
+```javascript
+// Scenario 1: Full read, then @-mention
+// First read:
+readFileState.set(path, {
+    content: "full content",
+    timestamp: 1234567890,
+    offset: undefined,  // Full read
+    limit: undefined
+});
+
+// @-mention later: Returns already_read_file if mtime unchanged
+
+
+// Scenario 2: Partial read, then @-mention
+// First read (lines 50-100):
+readFileState.set(path, {
+    content: "lines 50-100 content",
+    timestamp: 1234567890,
+    offset: 50,        // Partial read
+    limit: 51          // 51 lines (50-100)
+});
+
+// @-mention later (no offset/limit):
+// The check at chunks.142.mjs:2547 still applies
+// But returned content is ONLY the partial content!
+// This is because _.content contains only lines 50-100
+
+
+// Scenario 3: @-mention with different offset/limit
+// After partial read, @-mention with offset=1, limit=50:
+// The system will call ReadTool.call() with new offset/limit
+// readFileState is UPDATED with new content:
+readFileState.set(path, {
+    content: "lines 1-50 content",   // NEW content
+    timestamp: 1234567891,            // NEW timestamp
+    offset: 1,                        // NEW offset
+    limit: 50                         // NEW limit
+});
+```
+
+### State Replacement by Read Tool
+
+**Location:** chunks.146.mjs:2045-2050
+
+Every successful read via `ReadTool.call()` updates `readFileState`:
+
+```javascript
+// After reading text file:
+w.set(J, {
+    content: P,           // The actual content read (may be partial)
+    timestamp: aW(X),     // File's current mtime
+    offset: q,            // offset parameter (undefined for full read)
+    limit: K              // limit parameter (undefined for full read)
+});
+```
+
+**Key insight:** The cache is **overwritten** on each read, not merged. If you read lines 1-50 then lines 100-150, only the second read is cached.
+
+### Full Read After Partial
+
+When a partial read exists and a full read is requested:
+
+```javascript
+// Before: Partial read in cache
+readFileState.get(path) === {
+    content: "partial content...",
+    timestamp: 1234567890,
+    offset: 50,
+    limit: 100
+}
+
+// User does: @filename (no offset/limit)
+// OR Read tool with offset=1, limit=undefined
+
+// After: Full read replaces partial
+readFileState.get(path) === {
+    content: "full file content...",
+    timestamp: 1234567891,  // New timestamp
+    offset: undefined,      // Now a full read
+    limit: undefined
+}
+```
+
+---
+
+## @-Mention with Line Range
+
+### Extracting Line Ranges from @-Mention
+
+**Location:** chunks.142.mjs:2205-2231
+
+Users can @-mention files with line ranges: `@src/main.ts:50-100`
+
+```javascript
+// ============================================
+// extractAtMentionedFiles - Parse @-mentions with line ranges
+// Location: chunks.142.mjs:2199-2236
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function KIY(A, q) {
+    let K = _IY(A);  // Parse @-mentions
+    // ...
+    return (await Promise.all(K.map(async (w) => {
+        try {
+            let {
+                filename: H,
+                lineStart: $,
+                lineEnd: O
+            } = DIY(w), _ = g4(H);  // Parse filename and line range
+            // ...
+            return await TyA(_, q, "tengu_at_mention_extracting_filename_success",
+                "tengu_at_mention_extracting_filename_error", "at-mention", {
+                offset: $,
+                limit: O && $ ? O - $ + 1 : void 0
+            })
+        } catch { /* ... */ }
+    }))).filter(Boolean)
+}
+
+// READABLE (for understanding):
+async function extractAtMentionedFiles(userMessage, context) {
+    let mentions = parseAtMentions(userMessage);
+
+    return (await Promise.all(mentions.map(async (mention) => {
+        // Parse mention into filename and optional line range
+        let { filename, lineStart, lineEnd } = parseFilePathWithLineRange(mention);
+        let absolutePath = resolvePath(filename);
+
+        // Skip if sandbox blocked
+        if (isSandboxBlocked(absolutePath)) return null;
+
+        // Load file attachment with optional offset/limit
+        return await readFileForAttachment(
+            absolutePath,
+            context,
+            "tengu_at_mention_extracting_filename_success",
+            "tengu_at_mention_extracting_filename_error",
+            "at-mention",
+            {
+                offset: lineStart,
+                limit: lineEnd && lineStart ? lineEnd - lineStart + 1 : undefined
+            }
+        );
+    }))).filter(Boolean);
+}
+
+// Mapping: KIY→extractAtMentionedFiles, A→userMessage, q→context, w→mention, H→filename, $→lineStart, O→lineEnd, DIY→parseFilePathWithLineRange, g4→resolvePath, TyA→readFileForAttachment
+```
+
+### Line Range Parsing
+
+**Location:** chunks.142.mjs:2429-2440
+
+```javascript
+// Format: @filename:50-100  or  @filename:50
+
+function parseFilePathWithLineRange(mention) {
+    // Parse the mention string
+    // Returns: { filename, lineStart, lineEnd }
+    //
+    // Examples:
+    //   "@src/main.ts"       → { filename: "src/main.ts", lineStart: undefined, lineEnd: undefined }
+    //   "@src/main.ts:50"    → { filename: "src/main.ts", lineStart: 50, lineEnd: undefined }
+    //   "@src/main.ts:50-100" → { filename: "src/main.ts", lineStart: 50, lineEnd: 100 }
+}
+```
+
+---
+
 ## Performance Considerations
 
 ### Memory Usage
