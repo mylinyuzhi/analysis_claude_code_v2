@@ -32,6 +32,51 @@ These types use the `_9` wrapper to wrap tool call/result message pairs in `<sys
 
 ---
 
+## Trigger Source Summary
+
+Each file context type has a specific producer function with distinct trigger conditions:
+
+| Type | Producer Function | Location | Key Trigger Logic |
+|------|-------------------|----------|-------------------|
+| `directory` | `KIY` (extractAtMentionedFiles) | chunks.142.mjs:2199-2236 | @-mention + `statSync().isDirectory()` |
+| `file` | `TyA` (loadFileAttachment) | chunks.142.mjs:2524-2613 | @-mention or internal + validation |
+| `edited_text_file` | `wIY` (getChangedFilesAttachment) | chunks.142.mjs:2285-2335 | File watch: `modTime > cachedTimestamp` |
+| `pdf_reference` | `GIY` (getPdfReferenceAttachment) | chunks.142.mjs:2503-2522 | `pageCount > PDF_MAX_PAGES` |
+| `already_read_file` | `TyA` (loadFileAttachment) | chunks.142.mjs:2544-2563 | File in cache + timestamp match |
+
+### File Validation Pipeline
+
+The `file` type goes through a validation pipeline:
+
+```javascript
+// Location: chunks.142.mjs:2594-2605
+let validation = await ReadTool.validateInput(input, sessionContext);
+if (!validation.result) {
+    if (validation.meta?.fileSize) {
+        // File too large - return truncated version
+        return await createTruncatedFileReference(filePath, sessionContext);
+    }
+    return null;
+}
+let result = await ReadTool.call(input, sessionContext);
+```
+
+### Diff Computation for edited_text_file
+
+```javascript
+// Location: chunks.142.mjs:2312
+if (computeDiff(oldContent, newContent) === "") return null;
+return {
+    type: "edited_text_file",
+    filename: absolutePath,
+    snippet: computeDiff(oldContent, newContent)
+};
+```
+
+The `DjA` function computes a unified diff snippet showing the changes between old and new content.
+
+---
+
 ## directory
 
 ### What It Does

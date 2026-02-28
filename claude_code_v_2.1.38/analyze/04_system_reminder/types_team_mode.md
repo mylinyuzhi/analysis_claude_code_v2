@@ -43,6 +43,49 @@ Team mode types are **checked before the main switch statement** in `normalizeAt
 
 ---
 
+## Trigger Source Summary
+
+Each team mode type has a specific producer function with distinct trigger conditions:
+
+| Type | Producer Function | Location | Key Trigger Logic |
+|------|-------------------|----------|-------------------|
+| `teammate_mailbox` | `kIY` (getTeammateMailboxAttachment) | chunks.142.mjs:2791-2794 | `l8()` (isTeamMode) returns true |
+| `team_context` | `LIY` (getTeamContextAttachment) | chunks.142.mjs:2796-2813 | `i3()` (teamName) && `ID()` (agentId) |
+
+### Team Mode Detection
+
+```javascript
+// Location: chunks.142.mjs:2797-2800
+let teamName = getTeamName();      // i3()
+let agentId = getAgentId();        // ID()
+let agentName = getAgentName();    // g5()
+
+if (!teamName || !agentId) return [];
+```
+
+### Skip Condition for team_context
+
+The `team_context` type has a skip condition to avoid redundant attachments:
+
+```javascript
+// Location: chunks.142.mjs:2801
+// Skip if conversation already has assistant messages
+if (messages.some(msg => msg.type === "assistant")) return [];
+```
+
+This ensures team context is only attached at the beginning of a conversation.
+
+### Team Resource Paths
+
+```javascript
+// Location: chunks.142.mjs:2802-2804
+let teamsBaseDir = getTeamsBaseDirectory();  // O8()
+let teamConfigPath = `${teamsBaseDir}/teams/${teamName}/config.json`;
+let taskListPath = `${teamsBaseDir}/tasks/${teamName}/`;
+```
+
+---
+
 ## teammate_mailbox
 
 ### What It Does

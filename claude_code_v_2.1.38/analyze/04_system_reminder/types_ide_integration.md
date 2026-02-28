@@ -29,6 +29,40 @@ These types are **main-agent-only**, meaning they're only produced when `session
 
 ---
 
+## Trigger Source Summary
+
+Each IDE integration type has a specific producer function with distinct trigger conditions:
+
+| Type | Producer Function | Location | Key Trigger Logic |
+|------|-------------------|----------|-------------------|
+| `selected_lines_in_ide` | `ehY` (getIdeSelectionAttachment) | chunks.142.mjs:2114-2127 | `T$6(mcpClients)` + `lineStart !== undefined` |
+| `opened_file_in_ide` | `qIY` (getIdeOpenedFileAttachment) | chunks.142.mjs:2189-2197 | `filePath` exists + `text` is null (no selection) |
+| `diagnostics` | `PIY` (getDiagnosticsAttachment) | chunks.142.mjs:2463-2471 | `Fd.getNewDiagnostics()` returns non-empty |
+| `lsp_diagnostics` | `WIY` (getLspDiagnosticsAttachment) | chunks.142.mjs:2473-2492 | LSP server has new diagnostics |
+
+### IDE Connection Detection
+
+The `T$6` function checks for connected IDE:
+
+```javascript
+// Location: chunks.142.mjs:2115
+let ideName = getConnectedIdeName(sessionContext.options.mcpClients);
+// Returns: "VSCode" | "Cursor" | "Neovim" | etc., or undefined if no IDE connected
+```
+
+### Permission Check
+
+All IDE integration types perform a permission check:
+
+```javascript
+// Location: chunks.142.mjs:2118
+if (isPathDisallowed(filePath, appState.toolPermissionContext)) {
+    return [];
+}
+```
+
+---
+
 ## selected_lines_in_ide
 
 ### What It Does

@@ -36,6 +36,54 @@ Each entry follows this format:
 
 ---
 
+## Trigger Source Quick Reference
+
+All reminder types are produced by functions in `chunks.142.mjs` (attachment assembly). Below is a quick reference table for trigger conditions:
+
+### Primary Attachment Producers
+
+| Category | Types | Main Producer | Location |
+|----------|-------|---------------|----------|
+| Team Mode | `teammate_mailbox`, `team_context` | `kIY`, `LIY` | chunks.142.mjs:2791-2813 |
+| File Context | `file`, `directory`, `edited_text_file` | `KIY`, `TyA`, `wIY` | chunks.142.mjs:2199-2613 |
+| IDE Integration | `selected_lines_in_ide`, `opened_file_in_ide`, `diagnostics` | `ehY`, `qIY`, `PIY` | chunks.142.mjs:2114-2492 |
+| Task Management | `todo`, `todo_reminder`, `task_reminder`, `task_status`, `task_progress` | `fIY`, `NIY`, `vIY` | chunks.142.mjs:2624-2756 |
+| Mode Control | `plan_mode`, `plan_mode_exit`, `delegate_mode` | `ihY`, `nhY`, `rhY` | chunks.142.mjs:2034-2090 |
+| Skills & Memory | `skill_listing`, `nested_memory`, `mcp_resource` | `OIY`, `HIY`, `zIY` | chunks.142.mjs:2252-2395 |
+| Hooks | `async_hook_response` | `EIY` | chunks.142.mjs:2758-2789 |
+| Status & Budget | `token_usage`, `budget_usd`, `queued_command` | `RIY`, `yIY`, `dhY` | chunks.142.mjs:1993-2837 |
+
+### Timing Constants
+
+```javascript
+// Location: chunks.142.mjs:2918-2928
+eW6 = { TURNS_SINCE_WRITE: 10, TURNS_BETWEEN_REMINDERS: 10 }  // Todo/Task reminders
+ii4 = { TURNS_BETWEEN_ATTACHMENTS: 5, FULL_REMINDER_EVERY_N_ATTACHMENTS: 5 }  // Plan mode
+QhY = { TOKEN_COOLDOWN: 5000 }  // Ultramemory cooldown
+UhY = { TURNS_BETWEEN_REMINDERS: 10 }  // Unused (future)
+
+// Location: chunks.142.mjs:2863
+ghY = 3  // Task progress turns threshold
+```
+
+### Main Assembly Pipeline
+
+```javascript
+// Location: chunks.142.mjs:1948-1965
+async function assembleAttachments(atMentions, sessionContext, ideSelection, queuedCommands, history, sessionMemoryType) {
+    if (parseBoolean(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS)) return [];
+
+    // Parallel groups:
+    // Group 1: At-mention related (conditional)
+    // Group 2: Always-attached (changed_files, nested_memory, skills, modes, todos)
+    // Group 3: Main-agent-only (ide_selection, diagnostics, tasks, hooks, tokens, budget)
+
+    return [...atMentionGroup, ...alwaysAttachedGroup, ...mainAgentOnlyGroup].flat();
+}
+```
+
+---
+
 ## Pre-Switch Types (Team Mode)
 
 These types are checked **before** the main switch statement, and only when `l8()` (`isTeamMode`) returns true.

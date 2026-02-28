@@ -36,6 +36,50 @@ These types use the `tI` (wrapInXmlTag) function for inline XML wrapping.
 
 ---
 
+## Trigger Source Summary
+
+Each status/budget type has a specific producer function with distinct trigger conditions:
+
+| Type | Producer Function | Location | Key Trigger Logic |
+|------|-------------------|----------|-------------------|
+| `token_usage` | `RIY` (getTokenUsageAttachment) | chunks.142.mjs:2815-2825 | `CLAUDE_CODE_ENABLE_TOKEN_USAGE_ATTACHMENT` env var |
+| `budget_usd` | `yIY` (getBudgetUsdAttachment) | chunks.142.mjs:2827-2837 | `maxBudgetUsd !== undefined` |
+| `queued_command` | `dhY` (getQueuedCommandsAttachment) | chunks.142.mjs:1993-2001 | `commands.filter(c => c.mode === "prompt")` |
+| `output_style` | `shY` (getOutputStyleAttachment) | chunks.142.mjs:2101-2108 | `outputStyle !== "default"` |
+| `critical_system_reminder` | `ahY` (getCriticalSystemReminder) | chunks.142.mjs:2092-2099 | `criticalSystemReminder_EXPERIMENTAL` option set |
+
+### Token Calculation
+
+```javascript
+// Location: chunks.142.mjs:2817-2818
+let totalTokens = getModelContextLimit(mainLoopModel);  // m51()
+let usedTokens = countMessagesTokens(messages);         // PZ()
+```
+
+### Budget Tracking
+
+```javascript
+// Location: chunks.142.mjs:2829-2830
+let currentSpend = getCurrentUsdSpend();  // W0()
+let remaining = maxBudgetUsd - currentSpend;
+```
+
+### Queued Command Filter
+
+```javascript
+// Location: chunks.142.mjs:1995-2000
+return queuedCommands
+    .filter(cmd => cmd.mode === "prompt")
+    .map(cmd => ({
+        type: "queued_command",
+        prompt: cmd.value,
+        source_uuid: cmd.uuid,
+        imagePasteIds: cmd.imagePasteIds
+    }));
+```
+
+---
+
 ## token_usage
 
 ### What It Does

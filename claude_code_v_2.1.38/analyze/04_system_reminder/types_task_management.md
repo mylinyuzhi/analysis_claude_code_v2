@@ -33,6 +33,43 @@ These types use frequency throttling to avoid spamming the conversation.
 
 ---
 
+## Trigger Source Summary
+
+Each reminder type has a specific producer function that determines when it triggers:
+
+| Type | Producer Function | Location | Key Trigger Logic |
+|------|-------------------|----------|-------------------|
+| `todo` | `wIY` (getChangedFilesAttachment) | chunks.142.mjs:2285-2335 | File watch detects modification of todo file |
+| `todo_reminder` | `fIY` (getTodoReminderAttachment) | chunks.142.mjs:2645-2661 | `turnsSinceLastTodoWrite >= 10 && turnsSinceLastReminder >= 10` |
+| `task_reminder` | `NIY` (getTaskReminderAttachment) | chunks.142.mjs:2684-2701 | Same thresholds + `jH()` (isTaskSystemEnabled) |
+| `task_status` | `vIY` (getUnifiedTasksAttachment) | chunks.142.mjs:2719-2756 | State change in `di4(appState)` |
+| `task_progress` | `vIY` (getUnifiedTasksAttachment) | chunks.142.mjs:2719-2756 | Progress message + `turnsSinceProgress >= 3` |
+
+### Timing Constants
+
+```javascript
+// ============================================
+// Task reminder timing constants
+// Location: chunks.142.mjs:2918-2928
+// ============================================
+
+// Todo/Task reminder throttle thresholds
+eW6 = {
+    TURNS_SINCE_WRITE: 10,       // Turns since last TodoWrite/TaskUpdate
+    TURNS_BETWEEN_REMINDERS: 10  // Turns since last reminder sent
+}
+
+// Task progress delivery threshold
+ghY = 3  // TASK_PROGRESS_TURNS_THRESHOLD (chunks.142.mjs:2863)
+
+// Unused constant (for future)
+UhY = {
+    TURNS_BETWEEN_REMINDERS: 10
+}
+```
+
+---
+
 ## todo
 
 ### What It Does

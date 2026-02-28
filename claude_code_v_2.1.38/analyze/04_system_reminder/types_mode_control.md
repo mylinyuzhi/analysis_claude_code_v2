@@ -84,6 +84,52 @@ Plan mode has the most complex reminder system with **four variants** optimized 
 
 ---
 
+## Trigger Source Summary
+
+Each mode control type has a specific producer function with distinct trigger conditions:
+
+| Type | Producer Function | Location | Key Trigger Logic |
+|------|-------------------|----------|-------------------|
+| `plan_mode` | `ihY` (getPlanModeAttachment) | chunks.142.mjs:2034-2058 | `mode === "plan"` && turn throttling |
+| `plan_mode_reentry` | `ihY` (getPlanModeAttachment) | chunks.142.mjs:2046-2049 | `aL6()` flag && plan file exists |
+| `plan_mode_exit` | `nhY` (getPlanModeExitAttachment) | chunks.142.mjs:2060-2071 | `sL6()` flag && mode !== "plan" |
+| `delegate_mode` | `rhY` (getDelegateModeAttachment) | chunks.142.mjs:2073-2083 | `mode === "delegate"` && teamContext |
+| `delegate_mode_exit` | `ohY` (getDelegateModeExitAttachment) | chunks.142.mjs:2085-2090 | `eL6()` flag |
+
+### Timing Constants
+
+```javascript
+// ============================================
+// Plan mode timing constants
+// Location: chunks.142.mjs:2921-2924
+// ============================================
+
+ii4 = {
+    TURNS_BETWEEN_ATTACHMENTS: 5,          // Minimum turns between plan_mode attachments
+    FULL_REMINDER_EVERY_N_ATTACHMENTS: 5   // Every 5th reminder is "full" variant
+}
+```
+
+### Variant Selection Logic
+
+The `plan_mode` reminderType is determined by:
+
+```javascript
+// Location: chunks.142.mjs:2050
+let reminderType = (countPlanModeReminders(messages) + 1) % FULL_REMINDER_EVERY_N_ATTACHMENTS === 1
+    ? "full"
+    : "sparse";
+```
+
+**Selection pattern:**
+- 1st reminder: full
+- 2nd-5th: sparse
+- 6th: full
+- 7th-10th: sparse
+- And so on...
+
+---
+
 ## plan_mode
 
 ### What It Does

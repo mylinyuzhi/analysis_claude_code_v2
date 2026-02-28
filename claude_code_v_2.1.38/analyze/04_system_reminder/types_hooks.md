@@ -33,6 +33,51 @@ Plus several silent types for internal state tracking.
 
 ---
 
+## Trigger Source Summary
+
+Each hook type has a specific producer function with distinct trigger conditions:
+
+| Type | Producer Function | Location | Key Trigger Logic |
+|------|-------------------|----------|-------------------|
+| `async_hook_response` | `EIY` (getAsyncHookResponsesAttachment) | chunks.142.mjs:2758-2789 | `Jn7()` returns pending responses |
+| `hook_blocking_error` | Created in hook execution pipeline | chunks.149.mjs | Hook returns `block: true` |
+| `hook_success` | Created in hook execution pipeline | chunks.149.mjs | Hook returns `status: "success"` |
+| `hook_additional_context` | Created in hook execution pipeline | chunks.149.mjs | Hook returns `context: string` |
+
+### Hook Response Registry
+
+The `async_hook_response` type pulls from a registry:
+
+```javascript
+// Location: chunks.142.mjs:2759
+let pendingResponses = await getPendingHookResponses();  // Jn7()
+
+// After delivery, clean up registry
+if (pendingResponses.length > 0) {
+    let processIds = pendingResponses.map(r => r.processId);
+    removeDeliveredHooks(processIds);  // Xn7()
+}
+```
+
+### Hook Response Structure
+
+```javascript
+// Location: chunks.142.mjs:2762-2782
+{
+    type: "async_hook_response",
+    processId: string,       // Process ID of hook execution
+    hookName: string,        // Name of the hook that ran
+    hookEvent: string,       // Event that triggered hook
+    toolName: string,        // Tool that triggered the hook
+    response: object,        // Hook response object
+    stdout: string,          // stdout from hook process
+    stderr: string,          // stderr from hook process
+    exitCode: number         // Exit code of hook process
+}
+```
+
+---
+
 ## async_hook_response
 
 ### What It Does

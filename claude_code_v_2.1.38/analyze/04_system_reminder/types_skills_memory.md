@@ -34,6 +34,51 @@ Skills and memory types inject additional context and instructions:
 
 ---
 
+## Trigger Source Summary
+
+Each skill/memory type has a specific producer function with distinct trigger conditions:
+
+| Type | Producer Function | Location | Key Trigger Logic |
+|------|-------------------|----------|-------------------|
+| `skill_listing` | `OIY` (getSkillListingAttachment) | chunks.142.mjs:2381-2395 | `ZO()` returns skills + dedup via `xg1` Set |
+| `nested_memory` | `HIY` (getNestedMemoryAttachment) | chunks.142.mjs:2337-2348 | `nestedMemoryAttachmentTriggers.size > 0` |
+| `mcp_resource` | `zIY` (getMcpResourceAttachment) | chunks.142.mjs:2252-2283 | `@server:uri` pattern in user message |
+| `dynamic_skill` | `$IY` (getDynamicSkillAttachment) | chunks.142.mjs:2350-2375 | `dynamicSkillDirTriggers.size > 0` |
+| `agent_mention` | `YIY` (getAgentMentionAttachment) | chunks.142.mjs:2238-2250 | `@agent-type` pattern in user message |
+
+### Skill Deduplication
+
+The `skill_listing` type uses a Set to track sent skills:
+
+```javascript
+// Location: chunks.142.mjs:2383-2386
+let newSkills = (await getSkillDefinitions(skills))
+    .filter(skill => !sentSkillsSet.has(skill.name));
+
+for (let skill of newSkills) {
+    sentSkillsSet.add(skill.name);
+}
+```
+
+### Ultramemory Cooldown
+
+The ultramemory type uses a token-based cooldown:
+
+```javascript
+// Location: chunks.142.mjs:2924-2925
+QhY = {
+    TOKEN_COOLDOWN: 5000  // Minimum tokens between ultramemory attachments
+}
+
+// Location: chunks.142.mjs:2460
+function shouldSendUltramemory(messages) {
+    let tokensSinceLastUltramemory = countTokensSinceLastUltramemory(messages);
+    return tokensSinceLastUltramemory >= TOKEN_COOLDOWN;
+}
+```
+
+---
+
 ## invoked_skills
 
 ### What It Does
