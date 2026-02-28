@@ -16,6 +16,8 @@ This module provides comprehensive documentation of the system reminder architec
 
 ## Documentation Index
 
+### Core Documentation
+
 | Document | Purpose | Key Topics |
 |----------|---------|------------|
 | [**overview.md**](./overview.md) | Architecture overview | Three-layer pipeline, core functions, design decisions |
@@ -27,6 +29,26 @@ This module provides comprehensive documentation of the system reminder architec
 | [**edge_cases_and_failures.md**](./edge_cases_and_failures.md) | Error handling | Three-layer fault isolation, timeout behavior, recovery |
 | [**performance_and_telemetry.md**](./performance_and_telemetry.md) | Performance analysis | Parallel execution, telemetry, optimization |
 | [**already_read_file_report.md**](./already_read_file_report.md) | Specific type analysis | already_read_file implementation details |
+
+### Per-Type Analysis Documents
+
+| Document | Types Covered | Key Content |
+|----------|--------------|-------------|
+| [**types_team_mode.md**](./types_team_mode.md) | `teammate_mailbox`, `team_context` | Team/swarm integration, trigger conditions |
+| [**types_file_context.md**](./types_file_context.md) | `directory`, `file`, `edited_text_file`, `compact_file_reference`, `pdf_reference`, `already_read_file` | File loading, @-mention handling, truncation |
+| [**types_ide_integration.md**](./types_ide_integration.md) | `selected_lines_in_ide`, `opened_file_in_ide`, `diagnostics` | IDE context, LSP integration |
+| [**types_task_management.md**](./types_task_management.md) | `todo`, `todo_reminder`, `task_reminder`, `task_status`, `task_progress` | Frequency throttling, turn counting |
+| [**types_mode_control.md**](./types_mode_control.md) | `plan_mode`, `plan_mode_reentry`, `plan_mode_exit`, `plan_file_reference`, `delegate_mode`, `delegate_mode_exit` | Variant selection, full/sparse/subagent |
+| [**types_skills_memory.md**](./types_skills_memory.md) | `invoked_skills`, `skill_listing`, `nested_memory`, `mcp_resource`, `ultramemory`, `dynamic_skill`, `agent_mention` | Memory loading, MCP resources, cooldown |
+| [**types_hooks.md**](./types_hooks.md) | `async_hook_response`, `hook_blocking_error`, `hook_success`, `hook_additional_context`, `hook_stopped_continuation` | Hook response delivery, blocking behavior |
+| [**types_status_budget.md**](./types_status_budget.md) | `token_usage`, `budget_usd`, `compaction_reminder`, `critical_system_reminder`, `queued_command`, `output_style` | Resource tracking, queued messages |
+| [**types_silent.md**](./types_silent.md) | All silent types | Why silent types exist, internal state tracking |
+
+### Quick Reference
+
+| Document | Purpose |
+|----------|---------|
+| [**quick_reference.md**](./quick_reference.md) | Summary tables of all types, triggers, configuration, source locations |
 
 ---
 
@@ -98,6 +120,7 @@ Examples of what system reminders convey:
 - `plan_mode` - Full plan mode instructions
 - `plan_mode_reentry` - Re-entering plan mode
 - `plan_mode_exit` - Exited plan mode
+- `plan_file_reference` - Existing plan file content (post-compact)
 - `delegate_mode` - Team delegate mode
 - `delegate_mode_exit` - Exited delegate mode
 
@@ -107,6 +130,7 @@ Examples of what system reminders convey:
 - `nested_memory` - Memory content
 - `mcp_resource` - MCP resource content
 - `ultramemory` - Ultramemory content
+- `agent_mention` - Agent @-mention invocation
 
 ### Hooks & Async Responses
 - `async_hook_response` - Hook response
@@ -245,6 +269,8 @@ Key functions in this module:
 
 ## Document Status
 
+### Core Documentation
+
 | Document | Status | Completeness |
 |----------|--------|--------------|
 | overview.md | ✅ Complete | Full architecture analysis |
@@ -257,7 +283,22 @@ Key functions in this module:
 | performance_and_telemetry.md | ✅ Complete | Performance analysis |
 | already_read_file_report.md | ✅ Complete | Specific type analysis |
 
+### Per-Type Analysis
+
+| Document | Status | Completeness |
+|----------|--------|--------------|
+| types_team_mode.md | ✅ Complete | Team/Swarm types |
+| types_file_context.md | ✅ Complete | File/Directory types |
+| types_ide_integration.md | ✅ Complete | IDE integration types |
+| types_task_management.md | ✅ Complete | Todo/Task types |
+| types_mode_control.md | ✅ Complete | Plan/Delegate mode types |
+| types_skills_memory.md | ✅ Complete | Skills/Memory types |
+| types_hooks.md | ✅ Complete | Hook types |
+| types_status_budget.md | ✅ Complete | Status/Budget types |
+| types_silent.md | ✅ Complete | Silent types |
+| quick_reference.md | ✅ Complete | Quick lookup index |
+
 ---
 
-**Last Updated**: 2026-02-27
+**Last Updated**: 2026-02-28
 **Version**: Claude Code 2.1.38

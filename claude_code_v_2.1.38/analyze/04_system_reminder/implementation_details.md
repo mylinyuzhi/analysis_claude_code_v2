@@ -178,43 +178,11 @@ normalizeAttachmentForAPI(attachment)
 
 ## Plan Mode Reminder Variants
 
-Plan mode has the most sophisticated reminder system with multiple variants:
+Plan mode has the most sophisticated reminder system with multiple variants (full, iterative, sparse, subagent).
 
-### planModeReminderDispatcher (azz) - Variant Router
+> **详细分析见**: [types_mode_control.md](./types_mode_control.md) - 包含所有变体的完整代码、输出格式和触发条件
 
-**What it does:** Routes to appropriate plan mode variant based on context.
-
-```javascript
-// ============================================
-// planModeReminderDispatcher - Select plan mode instruction variant
-// Location: chunks.173.mjs:525-529
-// ============================================
-
-// ORIGINAL (for source lookup):
-function azz(A) {
-    if (A.isSubAgent) return q2z(A);
-    if (A.reminderType === "sparse") return A2z(A);
-    return szz(A)
-}
-
-// READABLE (for understanding):
-function planModeReminderDispatcher(attachment) {
-    // Subagents get simplified instructions (no plan file editing)
-    if (attachment.isSubAgent) {
-        return formatSubagentPlanReminder(attachment);
-    }
-    // Sparse reminders (sent most turns after initial full)
-    if (attachment.reminderType === "sparse") {
-        return formatSparsePlanReminder(attachment);
-    }
-    // Full reminders (first reminder + every Nth thereafter)
-    return formatFullPlanReminder(attachment);
-}
-
-// Mapping: azz→planModeReminderDispatcher, A→attachment, q2z→formatSubagentPlanReminder, A2z→formatSparsePlanReminder, szz→formatFullPlanReminder
-```
-
-### Variant Selection Logic
+### Variant Selection Flow
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -224,62 +192,18 @@ function planModeReminderDispatcher(attachment) {
                             │
                             ↓
                 ┌───────────────────────┐
-                │  Is this a subagent?   │
-                │  (attachment.isSubAgent)│
-                └───────────┬───────────┘
-                    │ YES       │ NO
-                    ↓           ↓
-            ┌───────────┐  ┌───────────────────────┐
-            │   q2z()   │  │  Is reminder sparse?  │
-            │ (subagent)│  │  (reminderType==="sparse")│
-            └───────────┘  └───────────┬───────────┘
-                                  │ YES       │ NO
-                                  ↓           ↓
-                          ┌───────────┐  ┌───────────┐
-                          │   A2z()   │  │   szz()   │
-                          │  (sparse) │  │   (full)  │
-                          └───────────┘  └───────────┘
+                │  planModeReminderDispatcher│
+                │          (azz)              │
+                └─────────────┬───────────────┘
+                              │
+           ┌──────────────────┼──────────────────┐
+           │ isSubAgent?      │ reminderType?    │
+           │                  │ = "sparse"?      │
+           ↓                  ↓                  ↓
+      [subagent (q2z)]   [sparse (A2z)]    [full (szz)]
 ```
 
-### fullPlanReminder (szz) - Complete Instructions
-
-**Location:** `chunks.173.mjs:531-609`
-
-**What it does:** Generates full 5-phase plan mode instructions with plan file path.
-
-**Content structure:**
-1. **Phase 1: Initial Understanding** - Read existing code, understand context
-2. **Phase 2: Design** - Outline approach, identify key decisions
-3. **Phase 3: Review** - Verify plan completeness
-4. **Phase 4: Final Plan** - Write plan to file
-5. **Phase 5: ExitPlanMode** - Submit for approval
-
-**Key insight:** The full reminder includes guidance to use Explore and Plan agents for complex codebases.
-
-### sparsePlanReminder (A2z) - Abbreviated Version
-
-**Location:** `chunks.173.mjs:676-683`
-
-**What it does:** Generates brief reminder referencing earlier full instructions.
-
-**Content structure:**
-- States plan mode is active
-- References plan file path
-- Reminds of tool restrictions (no Write/Edit)
-- Says "See earlier full instructions for details"
-
-**Token savings:** ~1,200 tokens saved per sparse reminder vs. full.
-
-### subAgentPlanReminder (q2z) - Minimal Subagent Instructions
-
-**Location:** `chunks.173.mjs:685-696`
-
-**What it does:** Generates minimal plan mode instructions for subagents.
-
-**Why different:** Subagents cannot edit the plan file directly. They should:
-1. Explore and understand
-2. Report findings to parent agent
-3. Wait for further instructions
+**Token efficiency**: Sparse reminders (~150 tokens) save ~1300 tokens vs. full (~1500 tokens).
 
 ---
 
@@ -427,59 +351,15 @@ You are a teammate in team "${attachment.teamName}".
 
 ## Helper Functions
 
+> **注意**: 类型相关的 helper functions 在对应的 per-type 文档中详细分析
+
 ### countTokensSinceUltramemory (jIY) - Token Cooldown Tracking
+
+> **详细分析**: [types_skills_memory.md](./types_skills_memory.md#ultramemory)
 
 **What it does:** Counts assistant tokens since the last ultramemory attachment.
 
 **Location:** `chunks.142.mjs:2442-2454`
-
-```javascript
-// ============================================
-// countTokensSinceUltramemory - Count tokens since last ultramemory attachment
-// Location: chunks.142.mjs:2442-2454
-// ============================================
-
-// ORIGINAL (for source lookup):
-function jIY(A) {
-    let q = 0, K = !1;
-    for (let Y = A.length - 1; Y >= 0; Y--) {
-        let z = A[Y];
-        if (z?.type === "attachment" && z.attachment.type === "ultramemory") {
-            K = !0;
-            break
-        }
-        if (z?.type === "assistant") q += XOA(z)
-    }
-    return K ? q : null
-}
-
-// READABLE (for understanding):
-function countTokensSinceUltramemory(messages) {
-    let tokenCount = 0;
-    let foundUltramemory = false;
-
-    // Iterate backward through message history
-    for (let i = messages.length - 1; i >= 0; i--) {
-        let msg = messages[i];
-
-        // Stop counting when we find ultramemory attachment
-        if (msg?.type === "attachment" && msg.attachment.type === "ultramemory") {
-            foundUltramemory = true;
-            break;
-        }
-
-        // Count tokens in assistant messages
-        if (msg?.type === "assistant") {
-            tokenCount += countTokensInMessage(msg);
-        }
-    }
-
-    // Return count if ultramemory found, null otherwise
-    return foundUltramemory ? tokenCount : null;
-}
-
-// Mapping: jIY→countTokensSinceUltramemory, A→messages, q→tokenCount, K→foundUltramemory, Y→i, z→msg, XOA→countTokensInMessage
-```
 
 **Key insight:** Returns `null` if no previous ultramemory attachment exists, allowing the caller to determine first-time behavior.
 
@@ -487,124 +367,33 @@ function countTokensSinceUltramemory(messages) {
 
 ### shouldSendUltramemoryAttachment (MIY) - Cooldown Check
 
+> **详细分析**: [types_skills_memory.md](./types_skills_memory.md#ultramemory)
+
 **What it does:** Determines if ultramemory attachment should be sent based on token cooldown.
 
 **Location:** `chunks.142.mjs:2456-2461`
 
-```javascript
-// ============================================
-// shouldSendUltramemoryAttachment - Check ultramemory cooldown
-// Location: chunks.142.mjs:2456-2461
-// ============================================
-
-// ORIGINAL (for source lookup):
-function MIY(A) {
-    if (!A || A.length === 0) return !0;
-    let q = jIY(A);
-    if (q === null) return !0;
-    return q >= QhY.TOKEN_COOLDOWN
-}
-
-// READABLE (for understanding):
-function shouldSendUltramemoryAttachment(messages) {
-    // Empty history = send ultramemory
-    if (!messages || messages.length === 0) return true;
-
-    // Get token count since last ultramemory
-    let tokenCount = countTokensSinceUltramemory(messages);
-
-    // No previous ultramemory = send ultramemory
-    if (tokenCount === null) return true;
-
-    // Send if token count exceeds cooldown threshold
-    return tokenCount >= ULTRAMEMORY_TOKEN_COOLDOWN;
-}
-
-// Mapping: MIY→shouldSendUltramemoryAttachment, A→messages, q→tokenCount, jIY→countTokensSinceUltramemory, QhY.TOKEN_COOLDOWN→ULTRAMEMORY_TOKEN_COOLDOWN
-```
-
-**Key insight:** The cooldown is token-based, not turn-based, ensuring ultramemory is sent when enough context has accumulated.
+**Key insight:** The cooldown is token-based (5000 tokens), not turn-based.
 
 ---
 
 ### countUserTurnsSincePlanModeExit (CIY) - Plan Mode Tracking
 
+> **详细分析**: [types_mode_control.md](./types_mode_control.md#plan_mode_exit)
+
 **What it does:** Counts non-meta user messages since exiting plan mode.
 
 **Location:** `chunks.142.mjs:2839-2847`
-
-```javascript
-// ============================================
-// countUserTurnsSincePlanModeExit - Count user turns after plan mode
-// Location: chunks.142.mjs:2839-2847
-// ============================================
-
-// ORIGINAL (for source lookup):
-function CIY(A) {
-    let q = 0;
-    for (let K = A.length - 1; K >= 0; K--) {
-        let Y = A[K];
-        if (Y?.type === "user" && !(("isMeta" in Y) && Y.isMeta)) q++;
-        if (Y?.type === "attachment" && Y.attachment.type === "plan_mode_exit") return q
-    }
-    return 0
-}
-
-// READABLE (for understanding):
-function countUserTurnsSincePlanModeExit(messages) {
-    let userTurnCount = 0;
-
-    // Iterate backward through message history
-    for (let i = messages.length - 1; i >= 0; i--) {
-        let msg = messages[i];
-
-        // Count non-meta user messages
-        if (msg?.type === "user" && !(("isMeta" in msg) && msg.isMeta)) {
-            userTurnCount++;
-        }
-
-        // Stop when reaching plan_mode_exit attachment
-        if (msg?.type === "attachment" && msg.attachment.type === "plan_mode_exit") {
-            return userTurnCount;
-        }
-    }
-
-    // No plan_mode_exit found
-    return 0;
-}
-
-// Mapping: CIY→countUserTurnsSincePlanModeExit, A→messages, q→userTurnCount, K→i, Y→msg
-```
-
-**Key insight:** Used for tracking whether the user has had sufficient turns after exiting plan mode before re-entry prompts are needed.
 
 ---
 
 ### isPathDisallowed (sW1) - Permission Check
 
+> **详细分析**: [types_file_context.md](./types_file_context.md#trigger-conditions-summary)
+
 **What it does:** Checks if a path is denied read access based on permission rules.
 
 **Location:** `chunks.142.mjs:2853-2855`
-
-```javascript
-// ============================================
-// isPathDisallowed - Check if path is denied read access
-// Location: chunks.142.mjs:2853-2855
-// ============================================
-
-// ORIGINAL (for source lookup):
-function sW1(A, q) {
-    return Gj(A, q, "read", "deny") !== null
-}
-
-// READABLE (for understanding):
-function isPathDisallowed(path, permissionContext) {
-    // Check if any deny rule matches this path for read operation
-    return checkPathDenyRule(path, permissionContext, "read", "deny") !== null;
-}
-
-// Mapping: sW1→isPathDisallowed, A→path, q→permissionContext, Gj→checkPathDenyRule
-```
 
 **Key insight:** Used by file attachment producers to silently skip sandboxed/denied files without logging errors.
 
@@ -647,6 +436,7 @@ Key implementation functions in this document:
 
 ## Related Documents
 
+### Core Documentation
 - [overview.md](./overview.md) - System reminder architecture overview
 - [reminder_types.md](./reminder_types.md) - Complete catalog of reminder types
 - [attachment_producers.md](./attachment_producers.md) - Producer function analysis
@@ -654,3 +444,15 @@ Key implementation functions in this document:
 - [ui_linkage.md](./ui_linkage.md) - UI visibility and API pipeline
 - [edge_cases_and_failures.md](./edge_cases_and_failures.md) - Error handling
 - [performance_and_telemetry.md](./performance_and_telemetry.md) - Performance analysis
+
+### Per-Type Analysis Documents
+- [types_team_mode.md](./types_team_mode.md) - Team/Swarm types
+- [types_file_context.md](./types_file_context.md) - File/Directory types
+- [types_ide_integration.md](./types_ide_integration.md) - IDE integration types
+- [types_task_management.md](./types_task_management.md) - Todo/Task types
+- [types_mode_control.md](./types_mode_control.md) - Plan/Delegate mode types
+- [types_skills_memory.md](./types_skills_memory.md) - Skills/Memory types
+- [types_hooks.md](./types_hooks.md) - Hook types
+- [types_status_budget.md](./types_status_budget.md) - Status/Budget types
+- [types_silent.md](./types_silent.md) - Silent types
+- [quick_reference.md](./quick_reference.md) - Quick lookup index
