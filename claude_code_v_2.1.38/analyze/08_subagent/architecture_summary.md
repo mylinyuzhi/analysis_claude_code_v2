@@ -343,6 +343,50 @@ let nextMessage = messages[0];
 - Predictable ordering
 - Fair scheduling within priority
 
+### 6. Context Isolation (Cloned State)
+
+**Purpose:** Prevent subagent state from polluting parent context
+
+**Related:** [07_compact/file_read_tracking.md](../07_compact/file_read_tracking.md#subagent-file-tracking)
+
+```javascript
+// Subagent context creation (chunks.149.mjs:2589)
+function deriveToolUseContext(parentContext, options) {
+    return {
+        // ALWAYS clone - never share reference
+        readFileState: cloneLruCache(
+            options?.readFileState ?? parentContext.readFileState
+        ),
+        // Other cloned fields...
+    };
+}
+```
+
+**What is cloned:**
+| Field | Clone Method | Behavior |
+|-------|-------------|----------|
+| `readFileState` | `cloneLruCache()` | Independent LRU cache |
+| `abortController` | `createChildAbortController()` | Child controller (cascading abort) |
+| `messages` | Array spread | Independent message list |
+
+**What is shared (reference):**
+| Field | Sharing Mode | Behavior |
+|-------|-------------|----------|
+| `getAppState` | Function reference | Shared state getter |
+| `setAppState` | Optional sharing | `shareSetAppState: true` for sync |
+| `options.tools` | Reference | Same tool definitions |
+
+**Key insight:** "Shared state" in architecture diagram means:
+- ✅ Shared `appState` (via `getAppState/setAppState`)
+- ✅ Shared abort propagation (parent abort cascades)
+- ❌ NOT shared `readFileState` (always cloned)
+- ❌ NOT shared `messages` (each context has own list)
+
+**Why this matters:**
+1. Subagent file reads don't pollute parent's change detection
+2. Subagent can modify its own `readFileState` without affecting parent
+3. Compaction in subagent doesn't clear parent's file tracking
+
 ---
 
 ## 5. Critical Code Paths
@@ -585,3 +629,8 @@ For detailed analysis of specific subsystems, see:
 - [transcript_and_resume_system.md](./transcript_and_resume_system.md) - Transcript recording, cleanup, resume
 - [execution_modes_comparison.md](./execution_modes_comparison.md) - Sync vs async vs teammate
 - [error_handling_and_recovery.md](./error_handling_and_recovery.md) - Error categories, recovery strategies
+
+### Related Modules
+
+- [07_compact/file_read_tracking.md](../07_compact/file_read_tracking.md#subagent-file-tracking) - File tracking behavior in subagents (cloned, NOT propagated to parent)
+- [26_background_agents/](../26_background_agents/) - Background agent implementation details

@@ -43,9 +43,154 @@ Constants:
 
 ### LRU Cache for File Read State
 
-**Location:** chunks.88.mjs:2240-2252
+**Location:** chunks.88.mjs:2200-2252
 
-The `readFileState` is an LRU Map that stores metadata about files read during the session.
+The `readFileState` is an LRU Map that stores metadata about files read during the session. The implementation uses a custom wrapper class (`_p7`) around the `quick-lru` library.
+
+#### LRU Wrapper Class (_p7)
+
+**Class:** `_p7` (LruMapWrapper)
+**Location:** chunks.88.mjs:2200-2248
+**Purpose:** Wraps `quick-lru` with path normalization and size calculation
+
+**What it does:**
+
+Provides an LRU (Least Recently Used) cache implementation that automatically evicts entries when:
+1. **Entry count limit exceeded** - More than `max` entries
+2. **Total size limit exceeded** - Cumulative size exceeds `maxSize` bytes
+
+**Internal Structure:**
+- Uses `ZT` (QuickLRU) as the underlying cache implementation
+- Size calculation: `Math.max(1, Buffer.byteLength(entry.content))` - measures content only
+- Path normalization: All get/set/has operations normalize paths via `J_6()`
+
+**Key Methods:**
+
+| Method | Behavior | Path Normalization |
+|--------|----------|-------------------|
+| `get(path)` | Returns cached entry or undefined | Yes (`J_6()`) |
+| `set(path, value)` | Stores entry, returns `this` for chaining | Yes (`J_6()`) |
+| `has(path)` | Returns boolean | Yes (`J_6()`) |
+| `delete(path)` | Removes entry | Yes (`J_6()`) |
+| `clear()` | Removes all entries | N/A |
+| `keys()` | Returns iterator of all paths | No (raw keys) |
+| `entries()` | Returns iterator of `[path, value]` pairs | No (raw keys) |
+| `dump()` | Serializes cache for persistence | No (raw keys) |
+| `load(data)` | Restores from serialized data | N/A |
+
+**Why this approach:**
+
+1. **Path normalization in wrapper**: All get/set/has operations normalize paths
+   - **Consistency**: `./file.txt` and `/absolute/path/file.txt` map to same entry
+   - **Deduplication**: Prevents duplicate entries for same file
+   - **Transparency**: Consumers don't need to normalize paths themselves
+
+2. **Size-based eviction**: Content-aware memory management
+   - **Memory safety**: Prevents cache from consuming all available memory
+   - **Fairness**: Large files use more "space" in the cache
+   - **Predictability**: 25MB limit is intuitive for operators
+
+3. **Entry + size dual limits**: Two-tier eviction strategy
+   - **Entry count (100)**: Prevents tracking too many small files
+   - **Total size (25MB)**: Prevents few large files from dominating cache
+
+```javascript
+// ============================================
+// LruMapWrapper - LRU cache wrapper with path normalization
+// Location: chunks.88.mjs:2200-2248
+// ============================================
+
+// ORIGINAL (for source lookup):
+class _p7 {
+    cache;
+    constructor(A, q) {
+        this.cache = new ZT({
+            max: A,
+            maxSize: q,
+            sizeCalculation: (K) => Math.max(1, Buffer.byteLength(K.content))
+        })
+    }
+    get(A) {
+        return this.cache.get(J_6(A))
+    }
+    set(A, q) {
+        return this.cache.set(J_6(A), q), this
+    }
+    has(A) {
+        return this.cache.has(J_6(A))
+    }
+    delete(A) {
+        return this.cache.delete(J_6(A))
+    }
+    clear() {
+        this.cache.clear()
+    }
+    get size() {
+        return this.cache.size
+    }
+    get max() {
+        return this.cache.max
+    }
+    get maxSize() {
+        return this.cache.maxSize
+    }
+    keys() {
+        return this.cache.keys()
+    }
+    entries() {
+        return this.cache.entries()
+    }
+    dump() {
+        return this.cache.dump()
+    }
+    load(A) {
+        this.cache.load(A)
+    }
+}
+
+// READABLE (for understanding):
+class LruMapWrapper {
+    cache;  // Internal quick-lru instance
+
+    constructor(maxEntries, maxSizeBytes) {
+        this.cache = new QuickLRU({
+            max: maxEntries,           // Maximum number of entries
+            maxSize: maxSizeBytes,     // Maximum total size in bytes
+            // Size calculation: byte length of content field
+            sizeCalculation: (entry) => Math.max(1, Buffer.byteLength(entry.content))
+        });
+    }
+
+    // === Path-normalized accessors ===
+    get(filePath) {
+        return this.cache.get(normalizePath(filePath));
+    }
+    set(filePath, value) {
+        this.cache.set(normalizePath(filePath), value);
+        return this;  // Enable chaining
+    }
+    has(filePath) {
+        return this.cache.has(normalizePath(filePath));
+    }
+    delete(filePath) {
+        return this.cache.delete(normalizePath(filePath));
+    }
+
+    // === Pass-through methods ===
+    clear() { this.cache.clear(); }
+    get size() { return this.cache.size; }
+    get max() { return this.cache.max; }
+    get maxSize() { return this.cache.maxSize; }
+    keys() { return this.cache.keys(); }
+    entries() { return this.cache.entries(); }
+    dump() { return this.cache.dump(); }
+    load(data) { this.cache.load(data); }
+}
+
+// Mapping: _p7→LruMapWrapper, ZT→QuickLRU, J_6→normalizePath, A→maxEntries/filePath, q→maxSizeBytes/value, K→entry
+```
+
+#### Factory Function
 
 ```javascript
 // ============================================
@@ -60,10 +205,10 @@ function Rp(A, q = eT9) {
 
 // READABLE (for understanding):
 function createLruCache(maxEntries, maxSizeBytes = LRU_MAX_SIZE) {
-    return new LruMap(maxEntries, maxSizeBytes);
+    return new LruMapWrapper(maxEntries, maxSizeBytes);
 }
 
-// Mapping: Rp→createLruCache, A→maxEntries, q→maxSizeBytes, eT9→LRU_MAX_SIZE, _p7→LruMap
+// Mapping: Rp→createLruCache, A→maxEntries, q→maxSizeBytes, eT9→LRU_MAX_SIZE, _p7→LruMapWrapper
 ```
 
 ### File State Entry Schema
@@ -1892,6 +2037,244 @@ function parseFilePathWithLineRange(mention) {
 **Detection:** Read tool returns `type: "image"` or similar
 **Handling:** Special attachment type for images; other binaries skipped
 **Impact:** Only text and image files produce change notifications
+
+---
+
+## Subagent File Tracking
+
+### Overview
+
+File tracking operates differently across agent contexts. Understanding these differences is crucial for analyzing multi-agent scenarios.
+
+### Key Question: Does Subagent File Tracking Propagate to Parent?
+
+**Answer: NO - File tracking is per-context, NOT propagated to parent.**
+
+### Subagent Context Creation
+
+**Location:** chunks.130.mjs:1988, chunks.149.mjs:2603
+
+When a subagent is spawned, it receives a **cloned copy** of the parent's `readFileState`:
+
+```javascript
+// ============================================
+// Subagent readFileState initialization
+// Location: chunks.130.mjs:1988
+// ============================================
+
+// ORIGINAL (for source lookup):
+let T = H !== void 0 ? yp(K.readFileState) : Rp(JK1);
+
+// READABLE (for understanding):
+// If forkContextMessages provided: clone parent's readFileState
+// Otherwise: create fresh empty LRU cache
+let subagentReadFileState = forkContextMessages !== undefined
+    ? cloneLruCache(parentContext.readFileState)  // Inherit from parent
+    : createLruCache(LRU_MAX_ENTRIES);            // Start fresh
+
+// Mapping: T→subagentReadFileState, H→forkContextMessages, K→parentContext, yp→cloneLruCache, Rp→createLruCache, JK1→LRU_MAX_ENTRIES
+```
+
+### Subagent Context Isolation
+
+**Location:** chunks.149.mjs:2589-2631 (vQ1 function)
+
+```javascript
+// ============================================
+// deriveToolUseContext - Create subagent context
+// Location: chunks.149.mjs:2589-2631
+// ============================================
+
+// ORIGINAL (for source lookup):
+function vQ1(A, q) {
+    let K = q?.abortController ?? (q?.shareAbortController ? A.abortController : R61(A.abortController)),
+        // ...
+    return {
+        readFileState: yp(q?.readFileState ?? A.readFileState),
+        // ... other context fields ...
+    }
+}
+
+// READABLE (for understanding):
+function deriveToolUseContext(parentContext, options) {
+    return {
+        // ALWAYS clone - never share reference
+        readFileState: cloneLruCache(
+            options?.readFileState ?? parentContext.readFileState
+        ),
+        // Other context fields...
+    };
+}
+
+// Mapping: vQ1→deriveToolUseContext, A→parentContext, q→options, yp→cloneLruCache
+```
+
+### Why Clone Instead of Share?
+
+**Design rationale:**
+
+1. **Isolation**: Subagent file reads shouldn't pollute parent's tracking
+   - **Prevents false positives**: Subagent's experimental reads don't trigger parent change detection
+   - **Clean separation**: Each agent has its own view of file state
+
+2. **Memory safety**: Cloning prevents unbounded growth
+   - **LRU eviction**: Each context has its own 100-entry limit
+   - **No shared references**: Can't accidentally corrupt parent state
+
+3. **Compaction independence**: Each context handles compaction separately
+   - **Clear operation**: `readFileState.clear()` in subagent doesn't affect parent
+   - **State preservation**: Different agents preserve different files
+
+### Implications by Agent Type
+
+#### Main Agent
+
+```
+┌─────────────────────────────────────────┐
+│ Main Agent Context                      │
+├─────────────────────────────────────────┤
+│ readFileState: LRU (100 entries, 25MB)  │
+│ ├─ File A (read at T1)                  │
+│ ├─ File B (read at T2)                  │
+│ └─ File C (read at T3)                  │
+│                                         │
+│ Change detection: YES                   │
+│ @-mention optimization: YES             │
+│ Compaction preservation: YES            │
+└─────────────────────────────────────────┘
+```
+
+#### Synchronous Subagent
+
+```
+┌─────────────────────────────────────────┐
+│ Subagent Context (cloned from parent)   │
+├─────────────────────────────────────────┤
+│ readFileState: CLONE of parent's state  │
+│ ├─ File A (inherited from parent)       │
+│ └─ File D (read by subagent)            │
+│                                         │
+│ Change detection: YES (local only)      │
+│ @-mention optimization: YES (local)     │
+│ Changes NOT propagated to parent        │
+└─────────────────────────────────────────┘
+         │
+         ▼ After subagent completes
+┌─────────────────────────────────────────┐
+│ Parent Context (UNCHANGED)              │
+├─────────────────────────────────────────┤
+│ readFileState: Original state           │
+│ ├─ File A (read at T1)                  │
+│ ├─ File B (read at T2)                  │
+│ └─ File C (read at T3)                  │
+│                                         │
+│ File D NOT added to parent's state      │
+└─────────────────────────────────────────┘
+```
+
+#### Asynchronous (Background) Subagent
+
+```
+┌─────────────────────────────────────────┐
+│ Background Subagent Context             │
+├─────────────────────────────────────────┤
+│ readFileState: Fresh or cloned copy     │
+│ └─ Independent tracking                 │
+│                                         │
+│ Runs in isolation                       │
+│ File changes not visible to parent      │
+└─────────────────────────────────────────┘
+```
+
+#### Teammate (Separate Process)
+
+```
+┌─────────────────────────────────────────┐
+│ Teammate Process (full isolation)       │
+├─────────────────────────────────────────┤
+│ readFileState: Fresh empty cache        │
+│ └─ No inheritance from leader           │
+│                                         │
+│ Completely separate process             │
+│ No shared state with leader             │
+└─────────────────────────────────────────┘
+```
+
+### State Restoration After Compaction
+
+**Location:** chunks.179.mjs:136-138
+
+After compaction, the system rebuilds `readFileState` from message history and merges with existing state:
+
+```javascript
+// ============================================
+// Rebuild readFileState after compaction
+// Location: chunks.179.mjs:136-138
+// ============================================
+
+// ORIGINAL (for source lookup):
+let A1 = A91(D1, K),
+    M1 = yj1(A1, s.readFileState);
+
+// READABLE (for understanding):
+// 1. Extract file reads from compacted messages
+let extractedState = buildFileReadState(messages, workingDirectory);
+
+// 2. Merge with existing state (keep newer entries)
+let mergedState = mergeFileReadState(extractedState, context.readFileState);
+
+// Mapping: A1→extractedState, D1→messages, K→workingDirectory, M1→mergedState, yj1→mergeFileReadState, s→context, A91→buildFileReadState
+```
+
+### When File State IS Propagated
+
+File state is propagated in specific scenarios:
+
+| Scenario | Propagation | How |
+|----------|-------------|-----|
+| Subagent reads file | ❌ No | Clone is independent |
+| Main agent compaction | ✅ Yes | `buildFileReadState` extracts from messages |
+| Session restore | ✅ Yes | `mergeFileReadState` merges restored state |
+| Microcompaction | ✅ Yes | State extracted from preserved messages |
+
+### Code Evidence: No Propagation Path
+
+Search for `readFileState` propagation patterns:
+
+```javascript
+// NO CODE EXISTS that does:
+parentContext.readFileState = subagentContext.readFileState;
+
+// OR:
+parentContext.readFileState.merge(subagentContext.readFileState);
+
+// Instead, only CLONE operations exist:
+let cloned = cloneLruCache(parentContext.readFileState);
+```
+
+### Design Trade-offs
+
+**Why NOT propagate subagent file reads to parent?**
+
+1. **Noise reduction**: Subagents often read files for exploration, not modification
+   - Subagent reads `test.js` to understand code → parent shouldn't track this
+
+2. **Avoid false change detection**: If subagent reads a file, then external process modifies it
+   - Parent would get "file changed" notification for file it never read
+
+3. **Clear ownership**: Each agent owns its file tracking
+   - Parent knows what IT read, not what its children read
+
+4. **Compaction complexity**: Propagation would require explicit merge after subagent completes
+   - Added complexity for minimal benefit
+
+### Alternative: Message-Based Inheritance
+
+If subagent file reads need to be "known" by parent, the parent can:
+
+1. **Read the file itself** after subagent completes
+2. **Use message extraction** (`buildFileReadState`) if subagent messages are preserved
+3. **Explicit state transfer** via subagent result payload (custom implementation)
 
 ---
 

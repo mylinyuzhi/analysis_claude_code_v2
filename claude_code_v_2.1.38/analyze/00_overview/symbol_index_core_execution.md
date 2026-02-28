@@ -131,7 +131,7 @@
 | Qd | detectLineEnding | chunks.134.mjs | function |
 | AX | detectEncoding | chunks.134.mjs | function |
 | ft | writeFileWithEncoding | chunks.134.mjs | function |
-| aW | getModificationTime | chunks.134.mjs | function |
+| aW | getMtime | chunks.174.mjs:1163 | function |
 | TW1 | findSkillDirTriggers | chunks.134.mjs | function |
 | vW1 | refreshSkillDirs | chunks.134.mjs | function |
 | EW1 | clearFileWatcherCache | chunks.134.mjs | function |
@@ -295,6 +295,14 @@
 | Yd7 | updateProgressSummary | chunks.89.mjs:~1467 | function |
 | yjA | markTaskCompleted | chunks.89.mjs:~1482 | function |
 | zd7 | createAsyncTask | chunks.89.mjs:~1447 | function |
+
+### Subagent Context Creation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| vQ1 | deriveToolUseContext | chunks.149.mjs:2589 | function |
+| av | runForkedAgent | chunks.149.mjs:2634 | function |
+| NR | generateAgentId | chunks.149.mjs:TBD | function |
 
 ### Progress Tracking
 
