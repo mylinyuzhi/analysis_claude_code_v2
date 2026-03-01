@@ -168,12 +168,115 @@
 | W74 | markAsLongRunning | chunks.149.mjs:470 | function |
 | x1q | formatValidationError | chunks.149.mjs:500 | function |
 
+### Task Management Tools
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| vW6 | TaskStopTool | chunks.139.mjs:1537 | tool object |
+| bj1 | TOOL_NAME_TASK_STOP | chunks.89.mjs:553 | constant ("TaskStop") |
+| kW6 | TaskOutputTool | chunks.139.mjs:1922 | tool object |
+| uj1 | TOOL_NAME_TASK_OUTPUT | chunks.89.mjs:562 | constant ("TaskOutput") |
+| EW6 | buildTaskSnapshot | chunks.139.mjs:1687 | function |
+| Ng1 | truncateTaskOutput | chunks.139.mjs:1664 | function |
+| nyY | pollUntilDone | chunks.139.mjs:1716 | function |
+| Vg1 | getKillHandlerForType | chunks.142.mjs:1652 | function |
+| IhY | getAllKillHandlers | chunks.142.mjs:1648 | function |
+| gj1 | LocalBashTaskHandler | chunks.89.mjs:2012 | object (kill handler) |
+| B_6 | LocalAgentTaskHandler | chunks.89.mjs:1574 | object (kill handler) |
+| Qi4 | RemoteAgentTaskHandler | chunks.142.mjs:1586 | object (kill handler) |
+| hjA | killBashTask | chunks.89.mjs:1846 | function |
+| na | killAgentTask | chunks.89.mjs:1376 | function |
+| c5 | atomicUpdateTask | chunks.142.mjs:1662 | function |
+| bZ | registerTaskInState | chunks.142.mjs:1676 | function |
+| dyY | taskStopInputSchema | chunks.139.mjs:1528 | variable |
+| cyY | taskStopOutputSchema | chunks.139.mjs:1531 | variable |
+| iyY | taskOutputInputSchema | chunks.139.mjs:1916 | variable |
+
+### Structured Task Tools
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| NK1 | TOOL_NAME_TASK_GET | chunks.89.mjs:594 | constant ("TaskGet") |
+| TK1 | TOOL_NAME_TASK_LIST | chunks.89.mjs:596 | constant ("TaskList") |
+| Nh | TOOL_NAME_TASK_CREATE | chunks.88.mjs:371 | constant ("TaskCreate") |
+| DR | TOOL_NAME_TASK_UPDATE | chunks.88.mjs:373 | constant ("TaskUpdate") |
+| WM | getTaskList | chunks.140.mjs | function |
+| lg | findTaskById | chunks.140.mjs | function |
+| n_1 | createTask | chunks.140.mjs | function |
+| sq6 | deleteTask | chunks.141.mjs | function |
+
 ### Team/Swarm Tools
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| tc4 | TeamCreateTool | chunks.141.mjs:377 | tool |
-| YhY | SendMessageTool | chunks.141.mjs:1373 | tool |
+| vh | TOOL_NAME_TEAM_CREATE | chunks.89.mjs:588 | constant ("TeamCreate") |
+| VK1 | TOOL_NAME_TEAM_DELETE | chunks.89.mjs:590 | constant ("TeamDelete") |
+| iB | TOOL_NAME_SEND_MESSAGE | chunks.89.mjs:592 | constant ("SendMessage") |
+| l8 | isAgentTeamsEnabled | chunks.141.mjs | function |
+
+### Plan Mode Tools
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| N_6 | TOOL_NAME_ENTER_PLAN_MODE | chunks.89.mjs:564 | constant ("EnterPlanMode") |
+| bW | TOOL_NAME_EXIT_PLAN_MODE | chunks.88.mjs:76 | constant ("ExitPlanMode") |
+| TH | TOOL_NAME_ASK_USER_QUESTION | chunks.89.mjs:566 | constant ("AskUserQuestion") |
+| Qp7 | ASK_QUESTION_DESCRIPTION | chunks.89.mjs:570 | constant |
+| gp7 | ASK_QUESTION_PROMPT | chunks.89.mjs:572 | constant |
+| Fp7 | MAX_QUESTIONS | chunks.89.mjs:568 | constant (12) |
+
+### Skill & ToolSearch Tools
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wt | SkillTool | chunks.132.mjs:820 | tool object |
+| NJ | TOOL_NAME_SKILL | chunks.89.mjs:586 | constant ("Skill") |
+| dM | TOOL_NAME_TOOL_SEARCH | chunks.89.mjs:652 | constant ("ToolSearch") |
+| E_6 | generateDeferredToolsPrompt | chunks.89.mjs:618 | function |
+| BW | isMcpTool | chunks.89.mjs:607 | function |
+
+### Agent/Task Tool Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| rj1 | AgentTool | chunks.132.mjs:85 | tool object |
+| fK | TOOL_NAME_AGENT | chunks.132.mjs | constant ("Task") |
+| oVY | agentInputSchema | chunks.132.mjs:37 | variable |
+| ANY | agentOutputSchema | chunks.132.mjs:84 | variable |
+| aVY | teamSpawnSchema | chunks.132.mjs:45 | variable |
+| sVY | agentResultBaseSchema | chunks.132.mjs:52 | variable |
+| tVY | completedResultSchema | chunks.132.mjs:75 | variable |
+| eVY | asyncLaunchedResultSchema | chunks.132.mjs:78 | variable |
+| NR | generateAgentId | chunks.89.mjs | function |
+| zd7 | createAsyncTask | chunks.132.mjs | function |
+| wd7 | createForegroundTask | chunks.132.mjs | function |
+| dR | agentLoopRunner | chunks.107.mjs | function (generator) |
+| sP1 | loadTranscript | chunks.89.mjs | function |
+| BQ1 | filterWhitespaceAssistant | chunks.89.mjs | function |
+| mQ1 | filterThinkingOnlyAssistant | chunks.89.mjs | function |
+| wP6 | stripOrphanedToolResults | chunks.89.mjs | function |
+| UEA | buildAgentResult | chunks.132.mjs | function |
+| yjA | markTaskCompleted | chunks.89.mjs | function |
+| CjA | markTaskFailed | chunks.89.mjs | function |
+| vK1 | notifyTaskCompletion | chunks.89.mjs | function |
+| ww | getOutputFilePath | chunks.89.mjs | function |
+| eu1 | getTasksDir | chunks.89.mjs | function |
+| xZ | prefixAgentId | chunks.89.mjs | function |
+| hp | createTaskId | chunks.89.mjs:522 | function |
+| IZ | createTaskRecord | chunks.89.mjs:528 | function |
+| iVY | spawnTeammateDispatcher | chunks.129.mjs:2550 | function |
+| dVY | spawnSplitPaneTeammate | chunks.129.mjs | function |
+| nVY | BACKGROUND_HINT_THRESHOLD | chunks.132.mjs | constant |
+
+### Web Tool Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| - | WebFetchTool | chunks.47.mjs | tool object |
+| - | WebSearchTool | chunks.46.mjs, chunks.14-15.mjs | tool object |
+| - | htmlToMarkdown | chunks.47.mjs | function |
+| - | extractWithPrompt | chunks.47.mjs | function |
+| - | executeSearch | chunks.46.mjs | function |
 
 ---
 

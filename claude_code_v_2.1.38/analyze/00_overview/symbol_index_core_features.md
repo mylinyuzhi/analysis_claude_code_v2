@@ -149,7 +149,7 @@
 
 ## Module: Task System
 
-> Full analysis: [13_task_system/](../13_task_system/)
+> Full analysis: [13_task_system/](../13_task_system/), [05_tools/task_management_tools.md](../05_tools/task_management_tools.md)
 > **REFACTORED** - Replaces Todo List (v2.1.7)
 
 ### Task Tools (Names)
@@ -172,6 +172,23 @@
 | r7A | addDependency | chunks.141.mjs:172 | function |
 | Cg1 | executeTaskCompletedHooks | chunks.141.mjs:2927 | generator (also in Hooks module) |
 | J71 | taskStatusSchema | chunks.140.mjs:2949 | schema (pending, in_progress, completed) |
+
+### TodoWrite Tool (Simple Todo List)
+
+> Mutually exclusive with structured Task tools. Enabled when `jH()` returns false.
+> Full analysis: [05_tools/task_management_tools.md](../05_tools/task_management_tools.md#7-todowrite-tool)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bO | TodoWriteTool | chunks.48.mjs:772 | object |
+| cg | TODO_WRITE_TOOL_NAME | chunks.48.mjs:224 | constant ("TodoWrite") |
+| Sf5 | todoWriteInputSchema | chunks.48.mjs:767 | schema |
+| hf5 | todoWriteOutputSchema | chunks.48.mjs:769 | schema |
+| d_1 | todoArraySchema | chunks.48.mjs:201 | schema |
+| Vf5 | todoItemSchema | chunks.48.mjs:197 | schema |
+| ff5 | todoStatusSchema | chunks.48.mjs:197 | schema |
+| jH | isStructuredTasksEnabled | chunks.48.mjs:405 | function |
+| U6 | getCurrentAgentId | chunks.48.mjs | function |
 
 ---
 
