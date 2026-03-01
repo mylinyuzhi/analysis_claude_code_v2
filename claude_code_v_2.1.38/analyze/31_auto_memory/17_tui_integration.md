@@ -537,7 +537,7 @@ Focus: Toggle switch
 ```javascript
 // ============================================
 // updateUserSettings - Persists settings to disk
-// Location: chunks.155.mjs (exact line TBD)
+// Location: chunks.40.mjs:849
 // ============================================
 
 // ORIGINAL (for source lookup):

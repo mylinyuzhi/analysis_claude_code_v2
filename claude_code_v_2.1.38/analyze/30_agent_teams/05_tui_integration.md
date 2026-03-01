@@ -350,7 +350,7 @@ Key functions in this document:
 
 - `chunks.131.mjs:1144` - TmuxBackend class
 - `chunks.110.mjs:931` - Keybinding registration
-- `chunks.131.mjs:TBD` - Layout algorithms
+- `chunks.131.mjs:1201` - Layout algorithms (select-layout main-vertical)
 
 ---
 

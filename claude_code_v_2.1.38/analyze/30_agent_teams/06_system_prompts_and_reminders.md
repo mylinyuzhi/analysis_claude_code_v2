@@ -384,8 +384,8 @@ Key functions in this document:
 ## Source Locations
 
 - `chunks.131.mjs:347` - inProcessAgentRunner (system prompt construction)
-- `chunks.141.mjs:TBD` - Plan mode prompt templates
-- `chunks.131.mjs:TBD` - Idle state reminders
+- `chunks.173.mjs:531` - Plan mode prompt templates (buildPlanModeReminder)
+- `chunks.141.mjs:2912` - Idle state reminders (executeTeammateIdleHooks)
 
 ---
 

@@ -24,7 +24,7 @@ Key symbols referenced throughout this document:
 - `renderFullscreenComponent` (LF) - Full-screen dialog with AppStateProvider (chunks.189.mjs:748)
 - `renderAndWait` ($l1) - Renders Ink app and blocks until exit (chunks.189.mjs:754)
 - `createRenderOptions` (rGz) - Builds Ink render options with FPS/flicker tracking (chunks.189.mjs:958)
-- `FpsMetricsTracker` (_QA) - Tracks per-frame render duration (chunks.189.mjs:TBD)
+- `FpsMetricsTracker` (_QA) - Tracks per-frame render duration (chunks.176.mjs:1020)
 - `FpsMetricsWrapper` (BDq) - React component providing FPS context (chunks.176.mjs:657)
 - `showSetupScreens` (gRq) - Sequential onboarding/trust dialog orchestrator (chunks.189.mjs:758)
 

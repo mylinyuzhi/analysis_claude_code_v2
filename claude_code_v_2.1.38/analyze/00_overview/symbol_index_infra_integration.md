@@ -40,12 +40,12 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| OJz | WS_MESSAGE_BUFFER_SIZE | chunks.178.mjs:TBD | constant (1000: circular buffer capacity for message replay) |
-| _Jz | WS_BASE_BACKOFF_MS | chunks.178.mjs:TBD | constant (1000: initial reconnection backoff in ms) |
-| JJz | WS_MAX_BACKOFF_MS | chunks.178.mjs:TBD | constant (30000: max reconnection backoff cap in ms) |
-| XJz | WS_MAX_RECONNECT_DURATION_MS | chunks.178.mjs:TBD | constant (600000: total reconnection time budget, 10 minutes) |
-| dz | AbortError | chunks.178.mjs:TBD | class (thrown when sendRequest is cancelled via AbortSignal) |
-| wJz | generateRequestId | chunks.178.mjs:TBD | function (generates UUID for control request correlation) |
+| OJz | WS_MESSAGE_BUFFER_SIZE | chunks.178.mjs:1517 | constant (1000: circular buffer capacity for message replay) |
+| _Jz | WS_BASE_BACKOFF_MS | chunks.178.mjs:1519 | constant (1000: initial reconnection backoff in ms) |
+| JJz | WS_MAX_BACKOFF_MS | chunks.178.mjs:1521 | constant (30000: max reconnection backoff cap in ms) |
+| XJz | WS_MAX_RECONNECT_DURATION_MS | chunks.178.mjs:1523 | constant (600000: total reconnection time budget, 10 minutes) |
+| dz | AbortError | chunks.10.mjs:1232 | class (thrown when sendRequest is cancelled via AbortSignal) |
+| wJz | generateRequestId | cli.chunks.mjs:6315 | function (randomUUID, generates UUID for control request correlation) |
 
 ### Stream Event Processing (chunks.173.mjs)
 

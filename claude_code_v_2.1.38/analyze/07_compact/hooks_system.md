@@ -526,7 +526,7 @@ The following symbols should be added to `symbol_index_core_features.md` under *
 | AyA | executeHooksOutsideREPL | chunks.141.mjs:2691 | function |
 | aX | createHookContext | chunks.141.mjs:1770 | function |
 | Wi4 | parseHookOutput | chunks.141.mjs:1780 | function |
-| MP | DEFAULT_HOOK_TIMEOUT | chunks.141.mjs:TBD | constant (5000) |
+| MP | DEFAULT_HOOK_TIMEOUT | chunks.142.mjs:215 | constant (600000 = 10 minutes) |
 
 ---
 

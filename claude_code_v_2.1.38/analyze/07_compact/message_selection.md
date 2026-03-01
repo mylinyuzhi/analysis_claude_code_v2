@@ -994,8 +994,8 @@ The following symbols should be added to `symbol_index_core_features.md` under *
 | Zs4 | isTextBlockMessage | chunks.147.mjs:526 | function |
 | UmY | getSmCompactConfig | chunks.147.mjs:508 | function |
 | pmY | loadSmCompactConfig | chunks.147.mjs:514 | function |
-| gmY | setSmCompactConfig | chunks.147.mjs:TBD | function |
-| Gs4 | configLoaded | chunks.147.mjs:TBD | variable |
+| gmY | setSmCompactConfig | chunks.147.mjs:501 | function |
+| Gs4 | configLoaded | chunks.147.mjs:689 | variable |
 | dCA | smCompactConfig | chunks.147.mjs:712 | variable |
 | NZ6 | SM_COMPACT_CONFIG_DEFAULTS | chunks.147.mjs:708 | constant |
 

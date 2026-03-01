@@ -30,7 +30,7 @@ This document details the feature flag system and gradual rollout strategy for a
 ```javascript
 // ============================================
 // getFeatureFlag - Retrieves feature flag value
-// Location: (feature flag service client, exact location TBD)
+// Location: chunks.87.mjs:2201 (calls x8 for feature flag service)
 // ============================================
 
 // READABLE (for understanding):

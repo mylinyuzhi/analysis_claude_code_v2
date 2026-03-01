@@ -35,13 +35,13 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| cRA | getTeamSubdirectory | chunks.141.mjs:TBD | function |
+| cRA | getTeamSubdirectory | chunks.141.mjs:526 | function |
 | F$1 | cleanupTeam | chunks.123.mjs:187 | function |
 | FSY | sanitizeTeamName | chunks.141.mjs:543 | function |
 | iB | SEND_MESSAGE_TOOL_NAME | chunks.89.mjs:592 | constant ("SendMessage") |
-| M51 | readTeamConfig | chunks.141.mjs:TBD | function |
+| M51 | readTeamConfig | chunks.131.mjs:2046 | function |
 | mSY | writeTeamConfig | chunks.141.mjs:534 | function |
-| QP | getTeamsBaseDirectory | chunks.141.mjs:TBD | function |
+| QP | getTeamsBaseDirectory | chunks.1.mjs:4047 | function |
 | QSY | TeamCreateTool | chunks.141.mjs:571 | object |
 | ul4 | getTeamConfigPath | chunks.141.mjs:530 | function |
 | USY | TeamDeleteTool | chunks.141.mjs:759 | object |
@@ -66,10 +66,10 @@
 | fEA | TmuxBackend | chunks.131.mjs:1144 | class |
 | EEA | ITermBackend | chunks.131.mjs:1381 | class |
 | zt | getBackend | chunks.131.mjs:1493 | function |
-| OI | isRunningInsideTmux | chunks.131.mjs:TBD | function |
-| j51 | isRunningInIterm2 | chunks.131.mjs:TBD | function |
-| Kt | isTmuxInstalled | chunks.131.mjs:TBD | function |
-| xQ1 | isIt2CliInstalled | chunks.131.mjs:TBD | function |
+| OI | isRunningInsideTmux | chunks.131.mjs:759 | function |
+| j51 | isRunningInIterm2 | chunks.131.mjs:772 | function |
+| Kt | isTmuxInstalled | chunks.131.mjs:768 | function |
+| xQ1 | isIt2CliInstalled | chunks.131.mjs:780 | function |
 | WN | SWARM_SESSION_NAME | chunks.131.mjs:1237 | constant ("claude-swarm") |
 | gP1 | SWARM_VIEW_WINDOW_NAME | chunks.131.mjs:1241 | constant ("swarm-view") |
 
@@ -92,12 +92,12 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| as | getInboxPath | chunks.129.mjs:TBD | function |
-| eZY | ensureInboxDirectoryExists | chunks.129.mjs:TBD | function |
+| as | getInboxPath | chunks.129.mjs:1067 | function |
+| eZY | ensureInboxDirectoryExists | chunks.129.mjs:1080 | function |
 | f9 | writeToMailbox | chunks.129.mjs:1107 | function |
 | JQ1 | markMessageAsReadByIndex | chunks.129.mjs:1130 | function |
 | Ld | readMailbox | chunks.129.mjs:1089 | function |
-| ss | parseShutdownRequest | chunks.141.mjs:TBD | function |
+| ss | parseShutdownRequest | chunks.129.mjs:1396 | function |
 
 ### Task Auto-Claim & Dependencies
 
@@ -132,9 +132,9 @@
 | ga | getHomeDirectory | chunks.87.mjs:2204 | function |
 | mu1 | getAutoMemoryDirectory | chunks.87.mjs:2213 | function |
 | LU7 | getCurrentContextPath | chunks.87.mjs:2209 | function |
-| dx | hashPath | chunks.87.mjs:TBD | function |
+| dx | hashPath | chunks.10.mjs:1191 | function |
 | Fu1 | isAutoMemoryPath | chunks.87.mjs:2223 | function |
-| gN9 | normalizedPath | chunks.87.mjs:TBD | function |
+| gN9 | normalizedPath | chunks.87.mjs:2209 | function |
 | cN9 | recordMemoryDirLoadMetrics | chunks.87.mjs:2240 | function |
 | DK1 | getLargeMemoryFiles | chunks.88.mjs:2439 | function |
 
@@ -143,7 +143,7 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | toY | memoryEditorModal | chunks.155.mjs:714 | function |
-| Z7 | updateUserSettings | chunks.155.mjs:TBD | function |
+| Z7 | updateUserSettings | chunks.40.mjs:849 | function |
 
 ---
 
@@ -489,7 +489,7 @@
 | iCA | getMaxOutputTokens | chunks.169.mjs:1496 | function |
 | yG | getMaxContextTokens | chunks.1.mjs:2286 | function |
 | nz1 | getDefaultMaxOutputTokens | chunks.1.mjs:2305 | function |
-| FP | getCurrentProvider | chunks.1.mjs:TBD | function |
+| FP | getCurrentProvider | chunks.1.mjs:2597 | function |
 | Obq | DEFAULT_MAX_CONTEXT | chunks.1.mjs:2323 | constant (200000) |
 | JL6 | DEFAULT_MAX_OUTPUT | chunks.1.mjs:2325 | constant (20000) |
 
@@ -498,38 +498,38 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | AW1 | performFullCompaction | chunks.146.mjs:2325 | function |
-| Ev | countTokens | chunks.146.mjs:TBD | function |
-| Ia4 | getLastUserMessage | chunks.146.mjs:TBD | function |
-| xa4 | extractMetadataFromMessage | chunks.146.mjs:TBD | function |
-| DZ6 | grantPermission | chunks.146.mjs:TBD | function |
-| VOA | formatCustomInstructions | chunks.146.mjs:TBD | function |
-| B51 | extractTextFromMessage | chunks.146.mjs:TBD | function |
-| rd | resetCodeIndexing | chunks.146.mjs:TBD | function |
-| PZ | countTokens | chunks.146.mjs:TBD | function |
-| Yp | extractUsageFromMessage | chunks.146.mjs:TBD | function |
-| JU1 | createBoundaryMarker | chunks.146.mjs:TBD | function |
-| a$ | generateSessionId | chunks.146.mjs:TBD | function |
-| ux1 | formatSummaryContent | chunks.146.mjs:TBD | function |
-| fOA | recordQuerySource | chunks.146.mjs:TBD | function |
-| Qa4 | handleCompactionError | chunks.146.mjs:TBD | function |
-| av | callLLMWithCache | chunks.146.mjs:TBD | function |
-| vmY | canUseSummarizeTool | chunks.146.mjs:TBD | function |
-| GN | getLastAssistantMessage | chunks.146.mjs:TBD | function |
-| XU1 | shouldAgentUseTools | chunks.146.mjs:TBD | function |
-| Sx | deduplicateTools | chunks.146.mjs:TBD | function |
-| UW1 | createMainLLMLoop | chunks.146.mjs:TBD | function |
+| Ev | countTokens | chunks.75.mjs:2288 | function |
+| Ia4 | getLastUserMessage | chunks.146.mjs:2147 | function |
+| xa4 | extractMetadataFromMessage | chunks.146.mjs:2248 | function |
+| DZ6 | grantPermission | chunks.146.mjs:2115 | function |
+| VOA | formatCustomInstructions | chunks.76.mjs:198 | function |
+| B51 | extractTextFromMessage | chunks.173.mjs:370 | function |
+| rd | resetCodeIndexing | chunks.142.mjs:2377 | function |
+| PZ | countTokens | chunks.75.mjs:2236 | function |
+| Yp | extractUsageFromMessage | chunks.75.mjs:2227 | function |
+| JU1 | createBoundaryMarker | chunks.173.mjs:1215 | function |
+| a$ | generateSessionId | chunks.173.mjs:1658 | function |
+| ux1 | formatSummaryContent | chunks.76.mjs:323 | function |
+| fOA | recordQuerySource | chunks.76.mjs:72 | function |
+| Qa4 | handleCompactionError | chunks.146.mjs:2546 | function |
+| av | callLLMWithCache | chunks.149.mjs:2634 | function |
+| vmY | canUseSummarizeTool | chunks.146.mjs:2555 | function |
+| GN | getLastAssistantMessage | chunks.172.mjs:2785 | function |
+| XU1 | shouldAgentUseTools | chunks.174.mjs:2473 | function |
+| Sx | deduplicateTools | chunks.2.mjs:1164 | function |
+| UW1 | createMainLLMLoop | chunks.169.mjs:691 | function (generator) |
 | WJ | normalizeMessages | chunks.173.mjs:89 | function |
-| TmY | deduplicateMessages | chunks.146.mjs:TBD | function |
+| TmY | deduplicateMessages | chunks.146.mjs:2283 | function |
 | EN | getVisibleMessagesAfterCompact | chunks.173.mjs:1286 | function |
 | _U1 | ERROR_MESSAGES.EMPTY_MESSAGES | chunks.146.mjs:2768 | constant |
-| QO | API_ERROR_PREFIX | chunks.146.mjs:TBD | constant |
-| dU | PROMPT_TOO_LONG_PREFIX | chunks.146.mjs:TBD | constant |
+| QO | API_ERROR_PREFIX | chunks.72.mjs:1824 | constant ("API Error") |
+| dU | PROMPT_TOO_LONG_PREFIX | chunks.72.mjs:1826 | constant ("Prompt is too long") |
 | ma4 | ERROR_MESSAGES.PROMPT_TOO_LONG | chunks.146.mjs:2770 | constant |
 | Ba4 | MAX_FILES_TO_KEEP | chunks.146.mjs:2760 | constant (5) |
 | NmY | MAX_COMPACT_RETRIES | chunks.146.mjs:2766 | constant (2) |
 | JL6 | MAX_SUMMARY_OUTPUT_TOKENS | chunks.1.mjs:2325 | constant (20000) |
-| i5 | SUMMARIZE_TOOL | chunks.146.mjs:TBD | constant |
-| IW6 | THINKING_SIMPLE_TOOL | chunks.146.mjs:TBD | constant |
+| i5 | SUMMARIZE_TOOL | chunks.146.mjs:1754 | constant (FileReadTool object) |
+| IW6 | THINKING_SIMPLE_TOOL | chunks.140.mjs:1355 | constant (object) |
 
 ### Message Selection & Boundary Logic
 
@@ -1041,9 +1041,9 @@
 | $l1 | renderAndWait | chunks.189.mjs:754 | function |
 | rGz | createRenderOptions | chunks.189.mjs:958 | function |
 | oGz | streamJsonInputHandler | chunks.189.mjs:984 | function (routes stdin → stream based on input format) |
-| _QA | FpsMetricsTracker | chunks.189.mjs:TBD | class |
-| js | resolveInkOptions | chunks.189.mjs:TBD | function |
-| RUA | flushRenderQueue | chunks.189.mjs:TBD | function |
+| _QA | FpsMetricsTracker | chunks.176.mjs:1020 | class |
+| js | resolveInkOptions | chunks.110.mjs:874 | function |
+| RUA | flushRenderQueue | chunks.189.mjs:864 | function |
 
 ### State Store Architecture
 
@@ -1064,12 +1064,12 @@
 | oc | handleQuery | chunks.188.mjs:550 | function |
 | ff | onQuery | chunks.188.mjs:589 | function |
 | Z$ | onSubmit | chunks.188.mjs:686 | function |
-| B_ | useFullStore | chunks.151.mjs:TBD | hook |
-| sgA | mergeCommandArrays | chunks.188.mjs:TBD | function |
-| tD | loadTools | chunks.188.mjs:TBD | function |
-| PVq | subscribePluginCommands | chunks.186.mjs:TBD | function |
-| hH | localConnectionHandler | chunks.188.mjs:TBD | object |
-| pJ | remoteConnectionHandler | chunks.188.mjs:TBD | object |
+| B_ | useFullStore | chunks.151.mjs:595 | hook |
+| sgA | mergeCommandArrays | chunks.186.mjs:177 | function |
+| tD | loadTools | chunks.141.mjs:1505 | function |
+| PVq | subscribePluginCommands | chunks.186.mjs:191 | function |
+| hH | localConnectionHandler | chunks.185.mjs:1433 | function |
+| pJ | remoteConnectionHandler | chunks.185.mjs:1684 | function |
 
 ### Permission Mode & Tool Context (chunks.172.mjs)
 
@@ -1078,12 +1078,12 @@
 | qJq | setupPermissionMode | chunks.172.mjs:2175 | function |
 | KJq | buildToolPermissionContext | chunks.172.mjs:2252 | function |
 | hd | parseToolList | chunks.172.mjs:2219 | function |
-| Szz | expandToolNames | chunks.172.mjs:TBD | function |
-| rRA | getAllToolNames | chunks.172.mjs:TBD | function |
+| Szz | expandToolNames | chunks.172.mjs:2158 | function |
+| rRA | getAllToolNames | chunks.141.mjs:1459 | function |
 | hzz | isSymlinkedPath | chunks.172.mjs:2168 | function |
-| AJq | buildPermissionContextObject | chunks.172.mjs:TBD | function |
-| cG1 | validateDirectory | chunks.172.mjs:TBD | function |
-| lG1 | formatDirectoryWarning | chunks.172.mjs:TBD | function |
+| AJq | buildPermissionContextObject | chunks.172.mjs:2074 | function |
+| cG1 | validateDirectory | chunks.151.mjs:2206 | function |
+| lG1 | formatDirectoryWarning | chunks.151.mjs:2235 | function |
 | QmA | checkBypassGateAsync | chunks.172.mjs:2313 | function |
 | rD1 | isBypassPermissionsDisabled | chunks.172.mjs:2317 | function |
 | oD1 | downgradeBypassContext | chunks.172.mjs:2323 | function |
@@ -1122,13 +1122,13 @@
 |------------|----------|-----------|------|
 | iGz | setEntrypoint | chunks.189.mjs:916-928 | function (detects CLAUDE_CODE_ENTRYPOINT; sets cli/sdk-cli/mcp/github-action) |
 | w4 | isNonInteractive | chunks.1.mjs:2730-2732 | function (returns !globalState.isInteractive; used in 30+ locations) |
-| bL6 | setInteractive | chunks.1.mjs:TBD | function (sets globalState.isInteractive flag) |
-| L59 | getEntrypoint | chunks.1.mjs:TBD | function (returns CLAUDE_CODE_ENTRYPOINT env var) |
+| bL6 | setInteractive | chunks.1.mjs:2738 | function (sets globalState.isInteractive flag) |
+| L59 | getEntrypoint | chunks.75.mjs:1578 | function (returns CLAUDE_CODE_ENTRYPOINT env var) |
 | APA | getBuiltinAgents | chunks.90.mjs:3049-3054 | function (filters guide agent in SDK mode) |
 | Jr | getExternalUserAgent | chunks.47.mjs:1725-1728 | function (builds SDK user-agent string) |
 | CJz | initializeSession | chunks.179.mjs:1654-1734 | function (processes initialize control_request) |
-| t17 | SDK_SYSTEM_PROMPT_CLI | chunks.TBD | constant (system prompt for CLI-embedded SDK) |
-| e17 | SDK_SYSTEM_PROMPT_AGENT | chunks.TBD | constant (system prompt for custom SDK agents) |
+| t17 | SDK_SYSTEM_PROMPT_CLI | chunks.47.mjs:2494 | constant (system prompt for CLI-embedded SDK) |
+| e17 | SDK_SYSTEM_PROMPT_AGENT | chunks.47.mjs:2496 | constant (system prompt for custom SDK agents) |
 
 ### Session Management (/resume, /rename)
 
@@ -1284,7 +1284,7 @@
 | twq | defineRewindCommand | chunks.165.mjs:1152-1165 | function (lazy init: register /rewind slash command with alias "checkpoint") |
 | cqz | handleRewindCommand | chunks.165.mjs:1137-1141 | function (slash command handler: calls openMessageSelector, returns {type:"skip"}) |
 | lqz | rewindCommandDefinition | chunks.165.mjs:1152-1165 | object (slash command definition object for /rewind) |
-| B7A | BASE_SYSTEM_PROMPT | chunks.TBD | constant (default interactive CLI system prompt) |
+| B7A | BASE_SYSTEM_PROMPT | chunks.47.mjs:2492 | constant (default interactive CLI system prompt) |
 
 ### Callbacks & Dialog Arbitration (chunks.188.mjs)
 

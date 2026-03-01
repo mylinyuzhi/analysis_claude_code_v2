@@ -874,10 +874,10 @@ Key functions in this document:
 - `TeamDeleteTool` (USY) - Team deletion tool (chunks.141.mjs:759)
 - `markMessageAsReadByIndex` (JQ1) - Mark mailbox message as read (chunks.129.mjs:1130)
 - `deleteTask` (sq6) - Delete task and cleanup dependencies (chunks.48.mjs:530)
-- `readTeamConfig` (M51) - Read team config from disk (chunks.141.mjs, line TBD)
-- `deleteDirectory` (AR4) - Recursive directory deletion (chunks, line TBD)
-- `getTeamDirectory` (Ej6) - Get team directory path (chunks, line TBD)
-- `getTasksDirectory` (WL) - Get tasks directory path (chunks.48.mjs, line TBD)
+- `readTeamConfig` (M51) - Read team config from disk (chunks.131.mjs:2046)
+- `deleteDirectory` (AR4) - Recursive directory deletion (utility function, location varies)
+- `getTeamDirectory` (Ej6) - Get team directory path (chunks.123.mjs:21)
+- `getTasksDirectory` (WL) - Get tasks directory path (chunks.48.mjs:452)
 
 ---
 

@@ -409,7 +409,7 @@ git commit -m "Initial memory"
 | `recordMemoryDirLoadMetrics` | cN9 | chunks.87.mjs:2240 | Telemetry collector |
 | `getLargeMemoryFiles` | DK1 | chunks.88.mjs:2439 | TUI warning detector |
 | `memoryEditorModal` | toY | chunks.155.mjs:714 | TUI modal component |
-| `updateUserSettings` | Z7 | chunks.155.mjs:TBD | Settings persistence |
+| `updateUserSettings` | Z7 | chunks.40.mjs:849 | Settings persistence |
 
 ### Permission Validators
 

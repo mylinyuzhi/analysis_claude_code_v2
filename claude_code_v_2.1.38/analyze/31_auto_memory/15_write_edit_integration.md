@@ -334,7 +334,7 @@ function validateReadPermission(toolCall) {
 ```javascript
 // ============================================
 // normalizedPath - Resolves and normalizes file paths
-// Location: chunks.87.mjs (exact line TBD)
+// Location: chunks.87.mjs:2209
 // ============================================
 
 // READABLE (for understanding):

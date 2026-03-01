@@ -371,7 +371,7 @@ After resize (30% exact):
 ```javascript
 // ============================================
 // rebalanceLayout - Redistribute panes after teammate count change
-// Location: chunks.131.mjs:TBD (inferred from layout management)
+// Location: chunks.131.mjs:1319 (inferred from layout management)
 // ============================================
 
 // READABLE (for understanding):

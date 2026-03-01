@@ -281,15 +281,15 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | bZ | registerTask | chunks.142.mjs:1676 | function |
-| c5 | atomicUpdateTask | chunks.89.mjs:TBD | function |
+| c5 | atomicUpdateTask | chunks.142.mjs:1662 | function |
 | CjA | markTaskFailed | chunks.89.mjs:~1495 | function |
 | Hd7 | backgroundForegroundTask | chunks.89.mjs:~1515 | function |
 | ia | isLocalAgentTask | chunks.89.mjs:~1402 | function |
 | Kd7 | killAllRunningAgents | chunks.89.mjs:~1448 | function |
 | na | killTask | chunks.89.mjs:~1375 | function |
-| R61 | createChildAbortController | chunks.89.mjs:TBD | function |
+| R61 | createChildAbortController | chunks.6.mjs:465 | function |
 | RjA | updateTaskProgress | chunks.89.mjs:~1453 | function |
-| Tq | registerProcessExitCleanup | chunks.89.mjs:TBD | function |
+| Tq | registerProcessExitCleanup | chunks.1.mjs:4149 | function |
 | u_6 | foregroundResolveMap | chunks.89.mjs:~1477 | variable (Map) |
 | wd7 | createForegroundTask | chunks.89.mjs:~1477 | function |
 | Yd7 | updateProgressSummary | chunks.89.mjs:~1467 | function |
@@ -302,18 +302,18 @@
 |------------|----------|-----------|------|
 | vQ1 | deriveToolUseContext | chunks.149.mjs:2589 | function |
 | av | runForkedAgent | chunks.149.mjs:2634 | function |
-| NR | generateAgentId | chunks.149.mjs:TBD | function |
+| NR | generateAgentId | chunks.90.mjs:2343 | function |
 
 ### Progress Tracking
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| cD | THINKING_TOOL_NAME | chunks.89.mjs:TBD | constant |
-| cv9 | MAX_RECENT_ACTIVITIES | chunks.89.mjs:TBD | constant |
+| cD | THINKING_TOOL_NAME | chunks.89.mjs:779 | constant ("StructuredOutput") |
+| cv9 | MAX_RECENT_ACTIVITIES | chunks.89.mjs:1554 | constant (5) |
 | LjA | computeTotalTokens | chunks.89.mjs:~1307 | function |
 | Qj1 | trackProgressFromMessage | chunks.89.mjs:1307 | function |
 | wB1 | createActivityDescriptionResolver | chunks.89.mjs:~1396 | function |
-| x_6 | classifyToolActivity | chunks.89.mjs:TBD | function |
+| x_6 | classifyToolActivity | chunks.89.mjs:989 | function |
 | zB1 | getProgressSnapshot | chunks.89.mjs:1327 | function |
 
 ### Task Notification & Command Queue
@@ -321,20 +321,20 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | bp7 | drainQueue | chunks.89.mjs:~503 | function |
-| Cp7 | queueEpochCounter | chunks.89.mjs:TBD | variable (number) |
-| dP | AGENT_ID_TAG | chunks.89.mjs:TBD | constant |
+| Cp7 | queueEpochCounter | chunks.89.mjs:505 | variable (number) |
+| dP | AGENT_ID_TAG | chunks.9.mjs:1257 | constant ("task-id") |
 | G_6 | notifyQueueSubscribers | chunks.89.mjs:~381 | function |
 | hp7 | getPendingTaskCount | chunks.89.mjs:~380 | function |
 | Ip7 | hasQueuedTasks | chunks.89.mjs:~495 | function |
-| KY | isHeadlessSession | chunks.89.mjs:TBD | function |
+| KY | isHeadlessSession | chunks.89.mjs:879 | function (always returns false) |
 | lB | enqueueOrBuffer | chunks.89.mjs:~407 | function |
-| ND | STATUS_TAG | chunks.89.mjs:TBD | constant |
-| NO | TASK_NOTIFICATION_TAG | chunks.89.mjs:TBD | constant |
-| TD | MESSAGE_TAG | chunks.89.mjs:TBD | constant |
+| ND | STATUS_TAG | chunks.9.mjs:1263 | constant ("status") |
+| NO | TASK_NOTIFICATION_TAG | chunks.9.mjs:1255 | constant ("task-notification") |
+| TD | MESSAGE_TAG | chunks.9.mjs:1265 | constant ("summary") |
 | vK1 | notifyTaskCompletion | chunks.89.mjs:1346 | function |
 | W_6 | commandSubscribers | chunks.89.mjs:~415 | variable (Set) |
 | WR | enqueueCommand | chunks.89.mjs:~402 | function |
-| xj1 | commandQueue | chunks.89.mjs:TBD | variable (Array) |
+| xj1 | commandQueue | chunks.89.mjs:514 | variable (Array) |
 | xp7 | getQueueLength | chunks.89.mjs:~499 | function |
 
 ### Output File I/O
@@ -357,11 +357,11 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| EW6 | buildTaskSnapshot | chunks.139.mjs:TBD | function |
+| EW6 | buildTaskSnapshot | chunks.139.mjs:1687 | function |
 | kW6 | TaskOutputTool | chunks.139.mjs:~1922 | object |
-| Ng1 | truncateTaskOutput | chunks.139.mjs:TBD | function |
-| nyY | pollUntilDone | chunks.139.mjs:TBD | function |
-| Vg1 | getKillHandlerForType | chunks.139.mjs:TBD | function |
+| Ng1 | truncateTaskOutput | chunks.139.mjs:1664 | function |
+| nyY | pollUntilDone | chunks.139.mjs:1716 | function |
+| Vg1 | getKillHandlerForType | chunks.142.mjs:1652 | function |
 | vW6 | TaskStopTool | chunks.139.mjs:~1537 | object |
 
 ### Agent Loop & Execution
@@ -404,7 +404,7 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | kh | getSessionPathForSubagent | chunks.1.mjs:2500 | function |
-| xZ | prefixAgentId | chunks.132.mjs:TBD | function |
+| xZ | prefixAgentId | chunks.89.mjs:894 | function |
 
 ### Spawn Dispatch & Backends
 

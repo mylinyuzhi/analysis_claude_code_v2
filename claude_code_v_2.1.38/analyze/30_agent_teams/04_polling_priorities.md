@@ -467,7 +467,7 @@ if (taskPrompt) {
 ```javascript
 // ============================================
 // claimNextTask - Claim next available task with dependency resolution
-// Location: chunks.141.mjs:TBD
+// Location: chunks.131.mjs:241
 // ============================================
 
 async function claimNextTask(agentName, teamName, context) {
@@ -623,9 +623,9 @@ Key functions in this document:
 ## Source Locations
 
 - `chunks.131.mjs:260` - inProcessPollLoop
-- `chunks.141.mjs:TBD` - claimNextTask
+- `chunks.131.mjs:241` - claimNextTask
 - `chunks.131.mjs:222` - findNextAvailableTask
-- `chunks.141.mjs:TBD` - parseShutdownRequest
+- `chunks.129.mjs:1396` - parseShutdownRequest
 - `chunks.129.mjs:1130` - markMessageAsReadByIndex
 
 ---

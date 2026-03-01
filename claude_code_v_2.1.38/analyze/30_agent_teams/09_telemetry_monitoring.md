@@ -807,7 +807,7 @@ Key functions in this document:
 - `debugLog` (h) - Debug logging function (chunks.1.mjs:4187)
 - `trackEvent` (c) - Structured telemetry event tracking (chunks.1.mjs:4278)
 - `trackEventAsync` (ml) - Async telemetry event tracking (chunks.1.mjs:4290)
-- `logError` (K1) - Error logging to Sentry (chunks, line TBD)
+- `logError` (K1) - Error logging to Sentry (chunks.9.mjs:1324)
 
 Telemetry events:
 - `tengu_agent_stop_hook_max_turns` - Agent hook exceeded max turns (chunks.141.mjs:1653)

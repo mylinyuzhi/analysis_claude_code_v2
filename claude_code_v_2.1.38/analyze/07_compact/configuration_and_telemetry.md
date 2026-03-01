@@ -529,8 +529,8 @@ The following symbols should be added to `symbol_index_core_features.md` under *
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | TZ6 | isSessionMemoryCompactEnabled | chunks.147.mjs:612 | function |
-| gmY | setSmCompactConfig | chunks.147.mjs:TBD | function |
-| Gs4 | configLoaded | chunks.147.mjs:TBD | variable (boolean) |
+| gmY | setSmCompactConfig | chunks.147.mjs:501 | function |
+| Gs4 | configLoaded | chunks.147.mjs:689 | variable (boolean) |
 
 ---
 

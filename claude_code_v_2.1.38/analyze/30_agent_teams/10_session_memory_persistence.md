@@ -723,11 +723,11 @@ rm ~/.claude/teams/*/mailboxes/*/inbox.lock
 
 Key functions in this document:
 - `getSessionMemoryDirectory` (hT6) - Compute session memory path (chunks.174.mjs:436)
-- `getSessionId` (U6) - Get current session ID (chunks, line TBD)
+- `getSessionId` (U6) - Get current session ID (chunks.1.mjs:2425)
 - `writeTeamConfig` (mSY) - Write team config to disk (chunks.141.mjs:534)
-- `readTeamConfig` (M51) - Read team config from disk (chunks.141.mjs, line TBD)
+- `readTeamConfig` (M51) - Read team config from disk (chunks.131.mjs:2046)
 - `getTeamConfigPath` (ul4) - Compute team config path (chunks.141.mjs:530)
-- `getTeamsBaseDirectory` (QP) - Get teams base directory (chunks.141.mjs, line TBD)
+- `getTeamsBaseDirectory` (QP) - Get teams base directory (chunks.1.mjs:4047)
 
 ---
 

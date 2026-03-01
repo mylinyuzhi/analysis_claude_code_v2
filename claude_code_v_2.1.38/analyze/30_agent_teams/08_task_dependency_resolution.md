@@ -1403,9 +1403,9 @@ Key functions in this document:
 - `claimNextTask` (ib4) - Auto-claim wrapper for teammates (chunks.131.mjs:241)
 - `deleteTask` (sq6) - Cleanup dependencies on deletion (chunks.48.mjs:530)
 - `getAllTasks` (WX) - Load all tasks from directory (chunks.48.mjs:555)
-- `readTaskById` (lg) - Load single task by ID (chunks.48.mjs, line TBD)
+- `readTaskById` (lg) - Load single task by ID (chunks.48.mjs:504)
 - `updateTaskState` (JS) - Update task fields and save (chunks.141.mjs:151)
-- `getTaskFilePath` (WC1) - Compute task file path (chunks.48.mjs, line TBD)
+- `getTaskFilePath` (WC1) - Compute task file path (chunks.48.mjs:452)
 - `generatePromptFromTask` (PVY) - Create task assignment message (chunks.131.mjs:231)
 
 Constants:

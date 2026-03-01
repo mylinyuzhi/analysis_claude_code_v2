@@ -867,7 +867,7 @@ Team lead: TaskCreate({
 **Flow:**
 
 ```
-inProcessPollLoop → Priority 5 → claimNextTask(context)  [chunks.141.mjs:TBD]
+inProcessPollLoop → Priority 5 → claimNextTask(context)  [chunks.131.mjs:241]
   |
   ├─→ Read all task files
   |     └─→ fs.readdirSync(~/.claude/tasks/{teamName}/)

@@ -134,7 +134,7 @@ summary: "Implement POST /users"  // Shown in UI without full details
 ```javascript
 // ============================================
 // parseShutdownRequest - Extract shutdown request from message text
-// Location: chunks.141.mjs:TBD
+// Location: chunks.129.mjs:1396
 // ============================================
 
 // READABLE (for understanding):
@@ -827,9 +827,9 @@ Key functions in this document:
 - `chunks.129.mjs:1107` - writeToMailbox
 - `chunks.129.mjs:1089` - readMailbox
 - `chunks.129.mjs:1130` - markMessageAsReadByIndex
-- `chunks.129.mjs:TBD` - getInboxPath
-- `chunks.129.mjs:TBD` - ensureInboxDirectoryExists
-- `chunks.141.mjs:TBD` - parseShutdownRequest
+- `chunks.129.mjs:1067` - getInboxPath
+- `chunks.129.mjs:1080` - ensureInboxDirectoryExists
+- `chunks.129.mjs:1396` - parseShutdownRequest
 
 ---
 

@@ -1296,39 +1296,39 @@ The following symbols should be added to `symbol_index_core_features.md` under *
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | AW1 | performFullCompaction | chunks.146.mjs:2325 | function |
-| Ev | countTokens | chunks.146.mjs:TBD | function |
-| Ia4 | getLastUserMessage | chunks.146.mjs:TBD | function |
-| xa4 | extractMetadataFromMessage | chunks.146.mjs:TBD | function |
-| DZ6 | grantPermission | chunks.146.mjs:TBD | function |
-| VOA | formatCustomInstructions | chunks.146.mjs:TBD | function |
-| B51 | extractTextFromMessage | chunks.146.mjs:TBD | function |
-| wjA | getRecentlyAccessedFiles | chunks.146.mjs:TBD | function |
-| rd | resetCodeIndexing | chunks.146.mjs:TBD | function |
-| PZ | countTokens | chunks.146.mjs:TBD | function |
-| Yp | extractUsageFromMessage | chunks.146.mjs:TBD | function |
-| JU1 | createBoundaryMarker | chunks.146.mjs:TBD | function |
-| a$ | generateSessionId | chunks.146.mjs:TBD | function |
-| ux1 | formatSummaryContent | chunks.146.mjs:TBD | function |
-| fOA | recordQuerySource | chunks.146.mjs:TBD | function |
-| Qa4 | handleCompactionError | chunks.146.mjs:TBD | function |
-| av | callLLMWithCache | chunks.146.mjs:TBD | function |
-| vmY | canUseSummarizeTool | chunks.146.mjs:TBD | function |
-| GN | getLastAssistantMessage | chunks.146.mjs:TBD | function |
-| XU1 | shouldAgentUseTools | chunks.146.mjs:TBD | function |
-| Sx | deduplicateTools | chunks.146.mjs:TBD | function |
-| UW1 | createMainLLMLoop | chunks.146.mjs:TBD | function |
-| WJ | normalizeMessages | chunks.146.mjs:TBD | function |
-| TmY | deduplicateMessages | chunks.146.mjs:TBD | function |
-| EN | filterMessages | chunks.146.mjs:TBD | function |
-| _U1 | ERROR_MESSAGES.EMPTY_MESSAGES | chunks.146.mjs:TBD | constant |
-| QO | API_ERROR_PREFIX | chunks.146.mjs:TBD | constant |
-| dU | PROMPT_TOO_LONG_PREFIX | chunks.146.mjs:TBD | constant |
-| ma4 | ERROR_MESSAGES.PROMPT_TOO_LONG | chunks.146.mjs:TBD | constant |
-| Ba4 | MAX_FILE_TOKENS | chunks.146.mjs:TBD | constant |
-| NmY | MAX_COMPACT_RETRIES | chunks.147.mjs:TBD | constant |
-| JL6 | MAX_SUMMARY_OUTPUT_TOKENS | chunks.146.mjs:TBD | constant |
-| i5 | SUMMARIZE_TOOL | chunks.146.mjs:TBD | constant |
-| IW6 | THINKING_SIMPLE_TOOL | chunks.146.mjs:TBD | constant |
+| Ev | countTokens | chunks.75.mjs:2288 | function |
+| Ia4 | getLastUserMessage | chunks.146.mjs:2147 | function |
+| xa4 | extractMetadataFromMessage | chunks.146.mjs:2248 | function |
+| DZ6 | grantPermission | chunks.146.mjs:2115 | function |
+| VOA | formatCustomInstructions | chunks.76.mjs:198 | function |
+| B51 | extractTextFromMessage | chunks.173.mjs:370 | function |
+| wjA | getRecentlyAccessedFiles | chunks.88.mjs:2254 | function |
+| rd | resetCodeIndexing | chunks.142.mjs:2377 | function |
+| PZ | countTokens | chunks.75.mjs:2236 | function |
+| Yp | extractUsageFromMessage | chunks.75.mjs:2227 | function |
+| JU1 | createBoundaryMarker | chunks.173.mjs:1215 | function |
+| a$ | generateSessionId | chunks.173.mjs:1658 | function |
+| ux1 | formatSummaryContent | chunks.76.mjs:323 | function |
+| fOA | recordQuerySource | chunks.76.mjs:72 | function |
+| Qa4 | handleCompactionError | chunks.146.mjs:2546 | function |
+| av | callLLMWithCache | chunks.149.mjs:2634 | function |
+| vmY | canUseSummarizeTool | chunks.146.mjs:2555 | function |
+| GN | getLastAssistantMessage | chunks.172.mjs:2785 | function |
+| XU1 | shouldAgentUseTools | chunks.174.mjs:2473 | function |
+| Sx | deduplicateTools | chunks.2.mjs:1164 | function |
+| UW1 | createMainLLMLoop | chunks.169.mjs:691 | function (generator) |
+| WJ | normalizeMessages | chunks.173.mjs:89 | function |
+| TmY | deduplicateMessages | chunks.146.mjs:2283 | function |
+| EN | filterMessages | chunks.173.mjs:1286 | function |
+| _U1 | ERROR_MESSAGES.EMPTY_MESSAGES | chunks.146.mjs:2768 | constant |
+| QO | API_ERROR_PREFIX | chunks.72.mjs:1824 | constant ("API Error") |
+| dU | PROMPT_TOO_LONG_PREFIX | chunks.72.mjs:1826 | constant ("Prompt is too long") |
+| ma4 | ERROR_MESSAGES.PROMPT_TOO_LONG | chunks.146.mjs:2770 | constant |
+| Ba4 | MAX_FILE_TOKENS | chunks.146.mjs:2760 | constant (5) |
+| NmY | MAX_COMPACT_RETRIES | chunks.146.mjs:2766 | constant (2) |
+| JL6 | MAX_SUMMARY_OUTPUT_TOKENS | chunks.1.mjs:2325 | constant (20000) |
+| i5 | SUMMARIZE_TOOL | chunks.146.mjs:1754 | constant (FileReadTool object) |
+| IW6 | THINKING_SIMPLE_TOOL | chunks.140.mjs:1355 | constant (object) |
 
 ---
 
