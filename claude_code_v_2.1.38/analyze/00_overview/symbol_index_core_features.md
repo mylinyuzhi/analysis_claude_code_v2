@@ -464,6 +464,7 @@
 | Ac | getCompactionStatus | chunks.147.mjs:736 | function |
 | SQ1 | getAutoCompactThreshold | chunks.147.mjs:722 | function |
 | m51 | getEffectiveContextWindow | chunks.147.mjs:717 | function |
+| xm | isAutoCompactEnabled | chunks.147.mjs:759 | function |
 | ga4 | generateConversationSummary | chunks.146.mjs:2566 | function |
 | vZ6 | performSessionMemoryCompaction | chunks.147.mjs:651 | function |
 | Fa4 | performPartialCompaction | chunks.146.mjs:2437 | function |
@@ -474,11 +475,23 @@
 | jZ6 | collectPlanToKeep | chunks.146.mjs:2699 | function |
 | da4 | collectSkillsToKeep | chunks.146.mjs:2710 | function |
 | pa4 | collectTodosToKeep | chunks.146.mjs:2688 | function |
+| PU1 | calculateMessageTokens | chunks.147.mjs:296 | function |
 | nmY | MAX_COMPACT_BUFFER | chunks.147.mjs:805 | constant (20000) |
 | cCA | AUTO_COMPACT_BUFFER_OFFSET | chunks.147.mjs:807 | constant (13000) |
 | rmY | TOKEN_WARNING_THRESHOLD | chunks.147.mjs:809 | constant (20000) |
 | omY | TOKEN_ERROR_THRESHOLD | chunks.147.mjs:811 | constant (20000) |
 | lCA | BLOCKING_LIMIT_OFFSET | chunks.147.mjs:813 | constant (3000) |
+
+### Model Context Utilities
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| iCA | getMaxOutputTokens | chunks.169.mjs:1496 | function |
+| yG | getMaxContextTokens | chunks.1.mjs:2286 | function |
+| nz1 | getDefaultMaxOutputTokens | chunks.1.mjs:2305 | function |
+| FP | getCurrentProvider | chunks.1.mjs:TBD | function |
+| Obq | DEFAULT_MAX_CONTEXT | chunks.1.mjs:2323 | constant (200000) |
+| JL6 | DEFAULT_MAX_OUTPUT | chunks.1.mjs:2325 | constant (20000) |
 
 ### Standard Compaction (Full Lifecycle)
 
@@ -508,13 +521,13 @@
 | WJ | normalizeMessages | chunks.173.mjs:89 | function |
 | TmY | deduplicateMessages | chunks.146.mjs:TBD | function |
 | EN | getVisibleMessagesAfterCompact | chunks.173.mjs:1286 | function |
-| _U1 | ERROR_MESSAGES.EMPTY_MESSAGES | chunks.146.mjs:TBD | constant |
+| _U1 | ERROR_MESSAGES.EMPTY_MESSAGES | chunks.146.mjs:2768 | constant |
 | QO | API_ERROR_PREFIX | chunks.146.mjs:TBD | constant |
 | dU | PROMPT_TOO_LONG_PREFIX | chunks.146.mjs:TBD | constant |
-| ma4 | ERROR_MESSAGES.PROMPT_TOO_LONG | chunks.146.mjs:TBD | constant |
-| Ba4 | MAX_FILE_TOKENS | chunks.146.mjs:TBD | constant |
-| NmY | MAX_COMPACT_RETRIES | chunks.147.mjs:TBD | constant |
-| JL6 | MAX_SUMMARY_OUTPUT_TOKENS | chunks.146.mjs:TBD | constant |
+| ma4 | ERROR_MESSAGES.PROMPT_TOO_LONG | chunks.146.mjs:2770 | constant |
+| Ba4 | MAX_FILES_TO_KEEP | chunks.146.mjs:2760 | constant (5) |
+| NmY | MAX_COMPACT_RETRIES | chunks.146.mjs:2766 | constant (2) |
+| JL6 | MAX_SUMMARY_OUTPUT_TOKENS | chunks.1.mjs:2325 | constant (20000) |
 | i5 | SUMMARIZE_TOOL | chunks.146.mjs:TBD | constant |
 | IW6 | THINKING_SIMPLE_TOOL | chunks.146.mjs:TBD | constant |
 
@@ -529,16 +542,20 @@
 | Zs4 | isTextBlockMessage | chunks.147.mjs:526 | function |
 | UmY | getSmCompactConfig | chunks.147.mjs:508 | function |
 | pmY | loadSmCompactConfig | chunks.147.mjs:514 | function |
-| gmY | setSmCompactConfig | chunks.147.mjs:TBD | function |
-| Gs4 | configLoaded | chunks.147.mjs:TBD | variable |
-| dCA | smCompactConfig | chunks.147.mjs:712 | variable |
+| gmY | setSmCompactConfig | chunks.147.mjs:501 | function |
+| Gs4 | configLoaded | chunks.147.mjs:689 | variable |
 
 ### Configuration
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | TZ6 | isSessionMemoryCompactEnabled | chunks.147.mjs:612 | function |
-| gmY | setSmCompactConfig | chunks.147.mjs:TBD | function |
+| gmY | setSmCompactConfig | chunks.147.mjs:501 | function |
+| WZ6 | SECTION_TOKEN_LIMIT | chunks.147.mjs:174 | constant (2000) |
+| Hs4 | TOTAL_SESSION_NOTES_LIMIT | chunks.147.mjs:176 | constant (12000) |
+| RmY | SESSION_NOTES_TEMPLATE | chunks.147.mjs:178 | constant (string) |
+| NZ6 | SM_COMPACT_CONFIG_DEFAULTS | chunks.147.mjs:708 | constant ({ minTokens: 10000, minTextBlockMessages: 5, maxTokens: 40000 }) |
+| dCA | smCompactConfig | chunks.147.mjs:712 | variable |
 
 ### State Preservation
 

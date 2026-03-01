@@ -18,6 +18,15 @@ Key functions in this document:
 - `collectFilesToKeep` (Ua4) - Identifies and restores recently accessed files after compaction
 - `collectTasksToKeep` (ca4) - Preserves the state of active/recent tasks
 
+## Sub-Documents
+
+- [Trigger Mechanism](./trigger_mechanism.md) - Detailed analysis of compaction thresholds and triggers
+- [Session Memory Compaction](./session_memory_compaction.md) - SM-based compaction path
+- [File Tracker](./file_tracker.md) - File preservation during compaction
+- [Microcompaction](./microcompaction.md) - Lightweight pre-compaction optimization
+
+---
+
 ## Core Algorithms
 
 ### 1. Compaction Threshold Logic
