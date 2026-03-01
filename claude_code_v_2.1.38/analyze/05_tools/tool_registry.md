@@ -86,6 +86,10 @@
 | Document | Description |
 |----------|-------------|
 | [tool_execution_pipeline.md](tool_execution_pipeline.md) | Complete dispatch lifecycle |
+| [tool_discovery.md](tool_discovery.md) | Tool lookup and registration |
+| [tool_reminder_integration.md](tool_reminder_integration.md) | Tool-to-reminder connections |
+| [tool_coordination.md](tool_coordination.md) | Cross-tool coordination patterns |
+| [dynamic_tools.md](dynamic_tools.md) | MCP and deferred tools |
 | [security_validation.md](security_validation.md) | Bash security checks reference |
 | [ui_rendering.md](ui_rendering.md) | UI rendering infrastructure |
 

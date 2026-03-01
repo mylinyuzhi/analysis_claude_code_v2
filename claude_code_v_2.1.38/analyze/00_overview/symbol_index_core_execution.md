@@ -153,20 +153,37 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| $E | isMcpTool | chunks.149.mjs:420 | function |
+| $E | isMcpToolByFlag | chunks.149.mjs:420 | function |
 | b1q | executePostToolHooksIterator | chunks.149.mjs:3 | function (generator) |
 | B1q | executePreToolHooksIterator | chunks.149.mjs:161 | function (generator) |
 | bU1 | toolDispatcher | chunks.149.mjs:343 | function (generator) |
 | c6 | createUserMessage | chunks.149.mjs:340 | function |
 | g1q | bashPreFlightCheck | chunks.149.mjs:460 | function |
-| kq | createHookMessage | chunks.149.mjs:80 | function |
-| kt | getDynamicToolSet | chunks.149.mjs:350 | function |
+| kq | createHookMessage | chunks.142.mjs:2615 | function |
+| kt | getDynamicToolSet | chunks.141.mjs:1465 | function |
 | NdY | toolExecutionPipeline | chunks.149.mjs:490 | function |
-| Tv | findTool | chunks.149.mjs:345 | function |
+| Tv | findTool | chunks.74.mjs:1392 | function |
+| d39 | toolMatchesName | chunks.74.mjs:1388 | function |
 | u1q | executePostToolFailureHooksIterator | chunks.149.mjs:90 | function (generator) |
+| U1q | createToolProgressMessage | chunks.172.mjs:2943 | function |
 | VdY | toolExecutionOrchestrator | chunks.149.mjs:448 | function |
+| vQ1 | deriveToolUseContext | chunks.149.mjs:2589 | function |
 | W74 | markAsLongRunning | chunks.149.mjs:470 | function |
 | x1q | formatValidationError | chunks.149.mjs:500 | function |
+| YP6 | assembleSessionToolSet | chunks.141.mjs:1476 | function |
+
+### Tool Coordination Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| readFileState | readFileState | chunks.149.mjs:2603 | Map (file cache) |
+| R_6 | DELEGATE_ALLOWED_TOOLS | chunks.89.mjs:876 | Set (tool whitelist) |
+| Bj1 | BACKGROUND_AGENT_ALLOWED_TOOLS | chunks.89.mjs:876 | Set (tool whitelist) |
+| L_6 | ALL_SAFE_TOOLS | chunks.89.mjs:876 | Set |
+| np7 | STRUCTURED_TASK_TOOLS | chunks.89.mjs:876 | Set |
+| yp | cloneMap | chunks.149.mjs | function |
+| Jh | parseMcpToolName | chunks.149.mjs | function |
+| VD | parseMcpToolNameVariant | chunks.149.mjs | function |
 
 ### Task Management Tools
 
@@ -233,7 +250,11 @@
 | NJ | TOOL_NAME_SKILL | chunks.89.mjs:586 | constant ("Skill") |
 | dM | TOOL_NAME_TOOL_SEARCH | chunks.89.mjs:652 | constant ("ToolSearch") |
 | E_6 | generateDeferredToolsPrompt | chunks.89.mjs:618 | function |
-| BW | isMcpTool | chunks.89.mjs:607 | function |
+| BW | isMcpToolByName | chunks.89.mjs:607 | function |
+| pp7 | DEFERRED_TOOLS_HEADER | chunks.89.mjs:654 | constant |
+| dp7 | TOOL_SEARCH_DESCRIPTION | chunks.89.mjs:654 | constant |
+| ca | cachedDeferredPrompt | chunks.89.mjs:650 | variable |
+| v_6 | isTestMode | chunks.89.mjs:612 | function |
 
 ### Agent/Task Tool Symbols
 
