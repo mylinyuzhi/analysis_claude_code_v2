@@ -997,6 +997,7 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| phY | assembleAttachments | chunks.142.mjs:1948 | function |
 | oP1 | attachmentMessageGenerator | chunks.142.mjs:2494 | function (async generator) |
 | kq | convertAttachmentToMessage | chunks.142.mjs:2615 | function |
 | dzz | reorderAttachments | chunks.172.mjs:3244 | function |
@@ -1006,6 +1007,7 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| K2z | normalizeAttachmentForAPI | chunks.173.mjs:698 | function |
 | WJ | normalizeMessages | chunks.173.mjs:89 | function |
 | hMA | extractSystemReminderContent | chunks.90.mjs:517 | function |
 | EL9 | SYSTEM_REMINDER_REGEX | chunks.90.mjs:730 | constant (regex) |

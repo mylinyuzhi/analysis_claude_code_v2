@@ -422,48 +422,48 @@ async function shouldAutoCompact(messages, model, sessionMemoryType) {
 ---
 
 ## Complete Trigger Flow
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         Agent Main Loop                                  │
-│   (After each assistant response, before accepting new user input)      │
-└─────────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │ Microcompaction │  ← First, try lightweight optimization
-                    │      (gm)       │
-                    └─────────────────┘
-                              │
-                              ▼
-              ┌───────────────────────────────┐
-              │   shouldAutoCompact (amY)     │
-              │   - Skip if special session?  │
-              │   - Auto-compact enabled?     │
-              │   - tokens >= threshold?      │
-              └───────────────────────────────┘
-                              │
-                    ┌─────────┴─────────┐
-                    │                   │
-                 No Trigger          Trigger
-                    │                   │
-                    ▼                   ▼
-            Continue Loop    ┌─────────────────────────┐
-                             │ autoCompactDispatcher   │
-                             │        (fs4)            │
-                             └─────────────────────────┘
-                                        │
-                              ┌─────────┴─────────┐
-                              │                   │
-                    Session Memory Path    Standard Path
-                    (vZ6 if enabled)       (AW1)
-                              │                   │
-                              └─────────┬─────────┘
-                                        │
-                                        ▼
-                             Return to main loop
-                             with compacted context
-```
+ 
+ ```
+ ┌─────────────────────────────────────────────────────────────────────────┐
+ │                         Agent Main Loop                                  │
+ │   (After each assistant response, before accepting new user input)      │
+ └─────────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+                     ┌─────────────────┐
+                     │ Microcompaction │  ← First, try lightweight optimization
+                     │      (gm)       │
+                     └─────────────────┘
+                               │
+                               ▼
+               ┌───────────────────────────────┐
+               │   shouldAutoCompact (amY)     │
+               │   - Skip if special session?  │
+               │   - Auto-compact enabled?     │
+               │   - tokens >= threshold?      │
+               └───────────────────────────────┘
+                               │
+                     ┌─────────┴─────────┐
+                     │                   │
+                  No Trigger          Trigger
+                     │                   │
+                     ▼                   ▼
+             Continue Loop    ┌─────────────────────────┐
+                              │ autoCompactDispatcher   │
+                              │        (fs4)            │
+                              └─────────────────────────┘
+                                         │
+                               ┌─────────┴─────────┐
+                               │                   │
+                     Session Memory Path    Standard Path
+                     (vZ6 if enabled)       (AW1 fallback)
+                               │                   │
+                               └─────────┬─────────┘
+                                         │
+                                         ▼
+                              Return to main loop
+                              with compacted context
+ ```
 
 ---
 

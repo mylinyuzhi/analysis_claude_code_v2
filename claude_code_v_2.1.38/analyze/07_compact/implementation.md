@@ -48,7 +48,18 @@ Where:
 
 ### 2. The Compaction Lifecycle (`fs4` / `autoCompactDispatcher`)
 
-When compaction is triggered, the following sequence occurs:
+When compaction is triggered, the `autoCompactDispatcher` (fs4) orchestrates the process with a failover strategy:
+
+1.  **Check Triggers**: First verifies `shouldAutoCompact` (amY).
+2.  **Attempt Session Memory Compaction**:
+    - Calls `vZ6` (performSessionMemoryCompaction).
+    - This method uses structured templates to summarize the session if `tengu_sm_compact` is enabled.
+    - If successful, returns the result immediately.
+3.  **Fallback to Standard Compaction**:
+    - If Session Memory compaction is disabled or fails (returns null), it falls back to `AW1` (performFullCompaction).
+    - This is the standard LLM-based summarization of message history.
+
+**Standard Compaction Steps (`AW1`):**
 
 1.  **Pre-Compact Hooks**: Fires `PreCompact` event for any registered hooks.
 2.  **State Snapshot**:

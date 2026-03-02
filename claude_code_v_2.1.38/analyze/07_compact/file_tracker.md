@@ -179,10 +179,18 @@ async function collectFilesToKeep(readFileState, context, maxFilesToKeep) {
 2. Avoids memory bloat from storing all file contents
 3. Token counting is consistent with current state
 
+**The "Truncation vs. Reference" Behavior:**
+When `readFileContent` (`TyA`) is called with the `"compact"` query source:
+- If the file is smaller than `FILE_RESTORE_TOKEN_LIMIT` (5k), it returns the full content.
+- If the file is larger than 5k tokens:
+  - It catches the `MaxFileReadTokenExceededError`.
+  - Instead of returning partial content, it returns a **`compact_file_reference`** (a lightweight reference with just the filename).
+  - This prevents large files from consuming the entire restoration budget, while still reminding the model that the file is relevant.
+
 **Why filter after reading:**
 1. Can't know exact token count until file is read
-2. Truncation happens during read (5k limit)
-3. Final filter ensures total budget is respected
+2. Handling of large files (conversion to reference) happens during read
+3. Final filter ensures total budget is respected even with references
 
 ---
 
