@@ -171,6 +171,9 @@
 | W74 | markAsLongRunning | chunks.149.mjs:470 | function |
 | x1q | formatValidationError | chunks.149.mjs:500 | function |
 | YP6 | assembleSessionToolSet | chunks.141.mjs:1476 | function |
+| KyA | executePostToolHooks | chunks.141.mjs:2831 | function (generator) |
+| YyA | executePostToolFailureHooks | chunks.141.mjs:2850 | function (generator) |
+| qyA | executePreToolHooks | chunks.141.mjs:2812 | function (generator) |
 
 ### Tool Coordination Symbols
 
@@ -198,6 +201,63 @@
 | nyY | pollUntilDone | chunks.139.mjs:1716 | function |
 | Vg1 | getKillHandlerForType | chunks.142.mjs:1652 | function |
 | IhY | getAllKillHandlers | chunks.142.mjs:1648 | function |
+
+### Tool Interface Patterns
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| h4 | TOOL_NAME_BASH | chunks.89.mjs | constant ("Bash") |
+| AK | sanitizeToolName | chunks.149.mjs | function |
+| KhA | createCancelledToolResult | chunks.149.mjs | function |
+| _M1 | CANCELLED_MESSAGE | chunks.149.mjs | constant |
+| si7 | recordToolOperation | chunks.149.mjs | function |
+| An7 | recordToolOutput | chunks.149.mjs | function |
+| ti7 | startToolOperationTimer | chunks.149.mjs | function |
+| ei7 | endToolOperationTimer | chunks.149.mjs | function |
+| mMA | reportPermissionDecision | chunks.149.mjs | function |
+| qJ6 | updateFileAttribution | chunks.149.mjs | function |
+| FMA | trackToolSuccess | chunks.149.mjs | function |
+| Jn1 | recordToolDuration | chunks.149.mjs | function |
+| cb1 | getFileExtension | chunks.149.mjs | function |
+| ax7 | getBashFileExtension | chunks.149.mjs | function |
+| rx7 | isMcpTelemetryEnabled | chunks.149.mjs | function |
+| ox7 | getSkillName | chunks.149.mjs | function |
+| vB | shouldIncludeMcpMetadata | chunks.149.mjs | function |
+| P5 | extractServerName | chunks.149.mjs | function |
+
+### Tool Discovery Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| tD | getDefaultTools | chunks.141.mjs:1505 | function |
+| hg1 | filterToolsByRules | chunks.141.mjs:1469 | function |
+| tU | getPermissionRules | chunks.174.mjs | function |
+| O$ | isFilteringDisabled | chunks.141.mjs | function |
+| Sx | uniqueBy | chunks.141.mjs | function |
+| BW | isMcpToolByName | chunks.89.mjs:607 | function |
+| dM | TOOL_SEARCH_NAME | chunks.89.mjs:652 | constant ("ToolSearch") |
+| dp7 | TOOL_SEARCH_PROMPT | chunks.89.mjs:654 | constant |
+| pp7 | DEFERRED_TOOLS_HEADER | chunks.89.mjs:728 | constant |
+| yv9 | TEST_MODE_DEFERRED_TOOLS | chunks.89.mjs:734 | constant |
+| ca | cachedDeferredPrompt | chunks.89.mjs | variable |
+| E_6 | generateDeferredToolsPrompt | chunks.89.mjs:618 | function |
+| v_6 | shouldShowToolNamesInMessages | chunks.89.mjs:612 | function |
+| x8 | getFeatureFlag | chunks.89.mjs | function |
+
+### Rendering Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SfY | renderToolUseResult | chunks.130.mjs:3 | function |
+| tx4 | renderToolUseSummary | chunks.130.mjs:91 | function |
+| rK1 | StatusIndicator | chunks.130.mjs | component |
+| z5 | ToolResultDisplay | chunks.130.mjs | component |
+| AE | FilePathBreadcrumb | chunks.134.mjs | component |
+| HA | Box | chunks.134.mjs | component |
+| I | Box | chunks.134.mjs | component |
+| V | Text | chunks.134.mjs | component |
+| VN | CodeBlock | chunks.134.mjs | component |
+| aS | LineCounter | chunks.134.mjs | component |
 | gj1 | LocalBashTaskHandler | chunks.89.mjs:2012 | object (kill handler) |
 | B_6 | LocalAgentTaskHandler | chunks.89.mjs:1574 | object (kill handler) |
 | Qi4 | RemoteAgentTaskHandler | chunks.142.mjs:1586 | object (kill handler) |
@@ -293,6 +353,8 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| JL | TOOL_NAME_WEB_SEARCH | chunks.47.mjs:621 | constant ("WebSearch") |
+| xO | TOOL_NAME_WEB_FETCH | chunks.46.mjs:2559 | constant ("WebFetch") |
 | - | WebFetchTool | chunks.47.mjs | tool object |
 | - | WebSearchTool | chunks.46.mjs, chunks.14-15.mjs | tool object |
 | - | htmlToMarkdown | chunks.47.mjs | function |
@@ -432,7 +494,7 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| cD | THINKING_TOOL_NAME | chunks.89.mjs:779 | constant ("StructuredOutput") |
+| cD | STRUCTURED_OUTPUT_NAME | chunks.89.mjs:779 | constant ("StructuredOutput") |
 | cv9 | MAX_RECENT_ACTIVITIES | chunks.89.mjs:1554 | constant (5) |
 | LjA | computeTotalTokens | chunks.89.mjs:~1307 | function |
 | Qj1 | trackProgressFromMessage | chunks.89.mjs:1307 | function |

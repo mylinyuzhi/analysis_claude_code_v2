@@ -546,3 +546,258 @@ This document focuses on **tool-generated attachments**. For complete attachment
 - [tool_execution_pipeline.md](./tool_execution_pipeline.md) - Complete tool execution flow
 - [tool_discovery.md](./tool_discovery.md) - How tools are discovered
 - [bash_tool.md](./bash_tool.md) - Bash tool specifics including progress
+
+---
+
+## Additional Integration Patterns
+
+### readFileState Integration
+
+**What it does:** The Edit tool uses `readFileState` to track which files have been read, which is exposed as context for the LLM.
+
+```javascript
+// ============================================
+// readFileState - File read tracking
+// Location: chunks.149.mjs:2603 (global Map)
+// ============================================
+
+// ORIGINAL (for source lookup):
+let readFileState = new Map();  // filePath → { content, timestamp, offset, limit }
+
+// READABLE (for understanding):
+// This Map tracks files that have been read in the current session
+// Used by Edit tool validateInput to enforce "read before edit" rule
+
+interface FileReadState {
+    content: string;      // Full file content at time of read
+    timestamp: number;    // Modification time when read
+    offset?: number;      // If partial read, the starting offset
+    limit?: number;       // If partial read, the number of lines
+}
+
+// Integration point:
+// - Read tool updates readFileState after successful read
+// - Edit tool checks readFileState in validateInput (errorCode 6)
+// - Edit tool updates readFileState after successful edit
+
+// From Edit tool validateInput (chunks.134.mjs:2167):
+let fileState = sessionContext.readFileState.get(absolutePath);
+if (!fileState) {
+    return {
+        result: false,
+        behavior: "ask",
+        message: "File has not been read yet. Read it first before writing to it.",
+        errorCode: 6
+    };
+}
+```
+
+**Key insight:** The `readFileState` is passed through the tool execution context, enabling cross-tool state sharing without global variables.
+
+---
+
+### Tool Decision Tracking
+
+**What it does:** Permission decisions are tracked in a map for reporting and attribution.
+
+```javascript
+// ============================================
+// toolDecisions - Permission decision tracking
+// Location: chunks.149.mjs (used in pipeline)
+// ============================================
+
+// ORIGINAL (for source lookup):
+let decision = Y.toolDecisions?.get(q);
+
+// READABLE (for understanding):
+// Tool decisions map tracks: toolUseId → { decision, source }
+
+interface ToolDecision {
+    decision: "allow" | "deny";
+    source: "user" | "rule" | "hook" | "auto";
+    userModified?: boolean;  // Did user edit the input?
+    timestamp: number;
+}
+
+// Integration in pipeline:
+// 1. Permission check stores decision in toolDecisions
+// 2. Telemetry reports decision source
+// 3. Attribution tracking for file operations
+
+// From chunks.149.mjs:636-637:
+let decision = toolUseContext.toolDecisions?.get(toolUseId);
+reportPermissionDecision("reject", decision?.source || "unknown");
+```
+
+**Why this matters:**
+- Enables audit logging of permission decisions
+- Provides data for permission UX improvements
+- Supports telemetry on approval rates by source
+
+---
+
+### Background Task Notification Flow
+
+**What it does:** Complete flow showing how background task status reaches the LLM.
+
+```javascript
+// ============================================
+// Background Task Notification Flow
+// ============================================
+
+// Step 1: Task tool spawns background agent
+async function createAsyncTask(prompt, context, agentId, outputFile) {
+    // Register in state
+    registerTaskInState({
+        taskId: agentId,
+        type: "local_agent",
+        status: "running",
+        outputFile: outputFile
+    });
+
+    // Return immediately with async status
+    return {
+        status: "async_launched",
+        agentId: agentId,
+        outputFile: outputFile
+    };
+}
+
+// Step 2: Agent runs in background, writes to outputFile
+// (handled by agentLoopRunner)
+
+// Step 3: On completion, update state
+function markTaskCompleted(agentId, result) {
+    atomicUpdateTask(agentId, (task) => ({
+        ...task,
+        status: "completed",
+        result: result,
+        completedAt: Date.now()
+    }));
+
+    // Emit completion event
+    notifyTaskCompletion(agentId);
+}
+
+// Step 4: Next agent turn - attachment producer picks up change
+async function getUnifiedTasksAttachment(sessionContext, messages) {
+    let tasks = sessionContext.backgroundTasks;
+    let pendingNotifications = tasks.filter(t => t.hasUnreadStatusChange);
+
+    if (pendingNotifications.length === 0) return [];
+
+    // Create attachments
+    return pendingNotifications.map(task => ({
+        type: "attachment",
+        attachment: {
+            type: "task_status",
+            taskId: task.taskId,
+            status: task.status,
+            message: task.status === "completed"
+                ? `Background task ${task.taskId} completed successfully`
+                : `Background task ${task.taskId} failed: ${task.error}`
+        }
+    }));
+}
+
+// Step 5: LLM sees notification and can call TaskOutput
+// "Background task agent-123 completed successfully"
+// → LLM calls TaskOutput({ task_id: "agent-123" })
+```
+
+---
+
+### Structured Output from Tools
+
+**What it does:** Some tools can return structured output (like Thinking/StructuredOutput tool) that gets special handling.
+
+```javascript
+// ============================================
+// Structured Output Handling
+// Location: chunks.149.mjs:763-767
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (typeof y === "object" && "structured_output" in y) j.push({
+    message: kq({
+        type: "structured_output",
+        data: y.structured_output
+    })
+});
+
+// READABLE (for understanding):
+// Tools can optionally return structured output alongside regular result
+// This gets converted to a special attachment type
+
+if (typeof result === "object" && "structured_output" in result) {
+    hookMessages.push({
+        message: createHookMessage({
+            type: "structured_output",
+            data: result.structured_output
+        })
+    });
+}
+
+// This is used by the Thinking/StructuredOutput tool for structured reasoning
+```
+
+---
+
+### File Operation Attribution
+
+**What it does:** File operations are tracked for attribution and telemetry.
+
+```javascript
+// ============================================
+// File Operation Attribution
+// Location: chunks.149.mjs:606-613, 747-761
+// ============================================
+
+// ORIGINAL (for source lookup):
+let f = {};
+if (M && typeof M === "object") {
+    if (A.name === Jq && "file_path" in M) f.file_path = String(M.file_path);
+    else if ((A.name === bq || A.name === f5) && "file_path" in M) f.file_path = String(M.file_path);
+    else if (A.name === h4 && "command" in M) {
+        f.full_command = M.command
+    }
+}
+si7(A.name, f);  // recordToolOperation
+
+// READABLE (for understanding):
+// Extract file-related metadata for attribution tracking
+let attributionData = {};
+if (input && typeof input === "object") {
+    if (tool.name === "Read" && "file_path" in input) {
+        attributionData.file_path = String(input.file_path);
+    }
+    else if ((tool.name === "Edit" || tool.name === "Write") && "file_path" in input) {
+        attributionData.file_path = String(input.file_path);
+    }
+    else if (tool.name === "Bash" && "command" in input) {
+        attributionData.full_command = input.command;
+    }
+}
+
+// Record operation for attribution
+recordToolOperation(tool.name, attributionData);
+
+// After execution, record result for file tools:
+if (result.data && typeof result.data === "object") {
+    let outputAttribution = {};
+    if (tool.name === "Read" && "content" in result.data) {
+        outputAttribution.content = String(result.data.content);
+    }
+    if (tool.name === "Edit" && "diff" in result.data) {
+        outputAttribution.diff = String(result.data.diff);
+    }
+    recordToolOutput("tool.output", outputAttribution);
+}
+
+// Mapping: si7→recordToolOperation, An7→recordToolOutput
+```
+
+**Why this matters:**
+- Enables tracking which files the LLM has touched
+- Supports undo/redo functionality
+- Provides data for usage analytics

@@ -516,3 +516,405 @@ The UI renderer uses React Compiler's memo cache (`e(N)`) to avoid redundant re-
 **Slot count guidelines:**
 - `e(23)` — 23 slots in renderToolUseResult: ~4 slots per dependency (current, deps, result, early-return)
 - `e(70)` — 70 slots in renderToolUseSummary: more counters = more individual cache slots
+
+---
+
+## 9. Bash Output Rendering
+
+### BashOutputComponent (BYq)
+
+**What it does:** Renders Bash command output with exit code, duration, and truncated display.
+
+```javascript
+// ============================================
+// BashOutputComponent - Bash result renderer
+// Location: chunks.162.mjs:417249
+// ============================================
+
+// READABLE (for understanding):
+function BashOutputComponent({ output, exitCode, command, style }) {
+    let { columns } = useTerminalInfo();
+
+    // Truncate output if too long
+    let maxLines = Math.floor(columns * 0.5);  // Max half screen
+    let lines = output.split("\n");
+
+    let displayOutput = lines.length > maxLines
+        ? lines.slice(0, maxLines).join("\n") + `\n... (${lines.length - maxLines} more lines)`
+        : output;
+
+    return React.createElement(Box, { flexDirection: "column" },
+        // Exit code indicator
+        exitCode !== 0 && React.createElement(Text, { color: "red" },
+            "Exit code: ", exitCode
+        ),
+
+        // Output content
+        React.createElement(Box, { marginTop: 1 },
+            React.createElement(CodeBlock, {
+                code: displayOutput,
+                language: "bash"
+            })
+        )
+    );
+}
+
+// Mapping: BYq→BashOutputComponent
+```
+
+---
+
+### Bash Progress Rendering
+
+**What it does:** Shows elapsed time for long-running Bash commands.
+
+```javascript
+// ============================================
+// Bash Progress Rendering
+// Location: chunks.162.mjs
+// ============================================
+
+// READABLE (for understanding):
+function BashProgressIndicator({ startTime, command }) {
+    let [elapsed, setElapsed] = useState(0);
+
+    useEffect(() => {
+        let interval = setInterval(() => {
+            setElapsed(Math.floor((Date.now() - startTime) / 1000));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [startTime]);
+
+    let elapsedStr = elapsed >= 60
+        ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
+        : `${elapsed}s`;
+
+    return React.createElement(Box, { flexDirection: "row" },
+        React.createElement(StatusIndicator, { shouldAnimate: true }),
+        React.createElement(Text, null, "Bash: "),
+        React.createElement(Text, { dimColor: true }, command.slice(0, 50)),
+        React.createElement(Text, { dimColor: true }, ` (${elapsedStr})`)
+    );
+}
+```
+
+---
+
+## 10. Diff Viewer Implementation
+
+### DiffViewer (SP6)
+
+**What it does:** Renders unified diff with syntax highlighting and line numbers.
+
+```javascript
+// ============================================
+// DiffViewer - Unified diff renderer
+// Location: chunks.134.mjs
+// ============================================
+
+// READABLE (for understanding):
+function DiffViewer({ filePath, structuredPatch, firstLine, fileContent, style, verbose }) {
+    let { columns } = useTerminalInfo();
+    let theme = useTheme();
+
+    // Parse the structured patch
+    let hunks = parseUnifiedDiff(structuredPatch);
+
+    return React.createElement(Box, { flexDirection: "column" },
+        // File header (only in verbose mode)
+        verbose && React.createElement(Text, { bold: true }, filePath),
+
+        // Each hunk
+        hunks.map((hunk, idx) =>
+            React.createElement(Box, { key: idx, flexDirection: "column" },
+                // Hunk header: @@ -l,s +l,s @@ optional heading
+                React.createElement(Text, { dimColor: true }, hunk.header),
+
+                // Diff lines
+                hunk.lines.map((line, lineIdx) => {
+                    let prefix = line[0];
+                    let content = line.slice(1);
+
+                    // Color based on change type
+                    let color = prefix === '+' ? theme.added :
+                               prefix === '-' ? theme.removed :
+                               undefined;
+
+                    return React.createElement(Box, { key: lineIdx },
+                        React.createElement(Text, {
+                            dimColor: prefix === ' ',
+                            color: color
+                        }, prefix, content)
+                    );
+                })
+            )
+        )
+    );
+}
+
+// Mapping: SP6→DiffViewer
+```
+
+---
+
+### EditPreview (ZW1)
+
+**What it does:** Shows what an edit would do before user approves/rejects.
+
+```javascript
+// ============================================
+// EditPreview - Pre-rejection edit preview
+// Location: chunks.134.mjs
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ZW1({ file_path: A, operation: q, patch: K, firstLine: Y, fileContent: z, style: w, verbose: H }) {
+    let $ = b1(), O = H ? A : L3(A), _ = z?.split(`
+`).slice(0, qF4).join(`
+`);
+    return React.createElement(HA, null,
+        React.createElement(I, { flexDirection: "column" },
+            // ... header and diff preview
+        )
+    )
+}
+
+// READABLE (for understanding):
+function EditPreview({ file_path, operation, patch, firstLine, fileContent, style, verbose }) {
+    let fs = getFileSystem();
+    let displayPath = verbose ? file_path : getFilename(file_path);
+
+    // Truncate preview to first 5 lines of file
+    let previewContent = fileContent?.split("\n").slice(0, 5).join("\n");
+
+    return React.createElement(Box, { flexDirection: "column" },
+        // Operation header: "Would edit src/app.ts"
+        React.createElement(Text, null,
+            operation === "update" ? "Would edit " : "Would create ",
+            React.createElement(Text, { bold: true }, displayPath)
+        ),
+
+        // Diff preview
+        patch && React.createElement(DiffViewer, {
+            filePath: file_path,
+            structuredPatch: patch,
+            fileContent: fileContent,
+            style,
+            verbose
+        }),
+
+        // First line hint
+        !patch && firstLine && React.createElement(Text, { dimColor: true },
+            "Current first line: ", firstLine
+        )
+    );
+}
+
+// Mapping: ZW1→EditPreview, L3→getFilename, b1→getFileSystem, qF4→MAX_PREVIEW_LINES
+```
+
+---
+
+## 11. File Path Rendering
+
+### FilePathBreadcrumb (AE)
+
+**What it does:** Renders file paths as clickable breadcrumbs for navigation.
+
+```javascript
+// ============================================
+// FilePathBreadcrumb - File path display
+// Location: chunks.134.mjs
+// ============================================
+
+// ORIGINAL (for source lookup):
+function AE({ filePath: A, children: q }) {
+    return React.createElement(Text, { dimColor: !0 },
+        React.createElement(Text, { bold: !0 }, q)
+    )
+}
+
+// READABLE (for understanding):
+function FilePathBreadcrumb({ filePath, children }) {
+    // In terminal UI, just show the filename/children bolded
+    // In IDE integrations, this would be a clickable breadcrumb
+
+    return React.createElement(Text, { dimColor: true },
+        React.createElement(Text, { bold: true }, children)
+    );
+}
+
+// Usage in Edit tool:
+renderToolUseMessage(input, { verbose }) {
+    if (!input.file_path) return null;
+    return React.createElement(FilePathBreadcrumb, {
+        filePath: input.file_path
+    }, verbose ? input.file_path : getFilename(input.file_path));
+}
+
+// Mapping: AE→FilePathBreadcrumb
+```
+
+---
+
+## 12. Tool Use Tag Rendering
+
+### renderToolUseTag - Additional Labels
+
+**What it does:** Some tools show extra tags in the tool header.
+
+```javascript
+// ============================================
+// renderToolUseTag - Extra header labels
+// ============================================
+
+// Examples:
+
+// Bash tool shows "(read-only)" for safe commands
+BashTool.renderToolUseTag(input) {
+    if (isReadOnlyCommand(input.command)) {
+        return React.createElement(Text, { dimColor: true }, " (read-only)");
+    }
+    return null;
+}
+
+// Task tool shows "(background)" for background agents
+TaskTool.renderToolUseTag(input) {
+    if (input.run_in_background) {
+        return React.createElement(Text, { dimColor: true }, " (background)");
+    }
+    return null;
+}
+
+// Plan file writes show "(plan)"
+WriteTool.renderToolUseTag(input) {
+    if (input.file_path?.startsWith(getPlanFilePrefix())) {
+        return React.createElement(Text, { dimColor: true }, " (plan)");
+    }
+    return null;
+}
+```
+
+---
+
+## 13. Error Message Rendering
+
+### Tool Error Display
+
+**What it does:** Shows user-friendly error messages for failed tool calls.
+
+```javascript
+// ============================================
+// renderToolUseErrorMessage - Error display
+// ============================================
+
+// READABLE (for understanding):
+function renderToolUseErrorMessage(errorResult, context) {
+    let errorMessage = typeof errorResult === "string"
+        ? errorResult
+        : errorResult.content || "Unknown error";
+
+    // Parse common error types for better display
+    if (errorMessage.includes("File has not been read yet")) {
+        return React.createElement(Box, { flexDirection: "column" },
+            React.createElement(Text, { color: "red" }, "Error: File must be read first"),
+            React.createElement(Text, { dimColor: true },
+                "Use the Read tool on this file before editing it."
+            )
+        );
+    }
+
+    if (errorMessage.includes("InputValidationError")) {
+        return React.createElement(Box, null,
+            React.createElement(Text, { color: "red" }, "Invalid input: "),
+            React.createElement(Text, null, errorMessage.replace("InputValidationError: ", ""))
+        );
+    }
+
+    // Generic error display
+    return React.createElement(Text, { color: "red" }, "Error: ", errorMessage);
+}
+```
+
+---
+
+## 14. MCP Tool Result Rendering
+
+### Generic MCP Tool Result Display
+
+**What it does:** MCP tools use a generic JSON renderer since their output format varies.
+
+```javascript
+// ============================================
+// MCP Tool Result Rendering
+// ============================================
+
+// READABLE (for understanding):
+function renderMcpToolResult(result, input, { verbose }) {
+    // MCP tools don't have custom renderers, use generic JSON display
+
+    if (typeof result === "string") {
+        // Plain text result
+        return React.createElement(CodeBlock, {
+            code: result,
+            width: getTerminalWidth() - 4
+        });
+    }
+
+    if (result.images && result.images.length > 0) {
+        // Image results (e.g., screenshot tools)
+        return React.createElement(Box, { flexDirection: "column" },
+            result.images.map((img, idx) =>
+                React.createElement(ImageDisplay, { key: idx, data: img })
+            )
+        );
+    }
+
+    // JSON result
+    let jsonStr = JSON.stringify(result, null, 2);
+    if (jsonStr.length > MAX_MCP_RESULT_LENGTH) {
+        jsonStr = jsonStr.slice(0, MAX_MCP_RESULT_LENGTH) + "\n... (truncated)";
+    }
+
+    return React.createElement(CodeBlock, {
+        code: jsonStr,
+        language: "json",
+        width: getTerminalWidth() - 4
+    });
+}
+```
+
+---
+
+## 15. Complete Tool Use Message Example
+
+### Edit Tool Full Rendering Flow
+
+```javascript
+// Complete example: Edit tool renders as:
+
+// 1. Header (renderToolUseMessage):
+//    "src/app.ts"
+//
+// 2. Status indicator:
+//    "✓" (success) or "✗" (error) or "⠋" (spinner)
+//
+// 3. User-facing name:
+//    "Edit"
+//
+// 4. Combined header row:
+//    "✓ Edit (src/app.ts)"
+//
+// 5. Result (renderToolResultMessage):
+//    DiffViewer showing:
+//    ```diff
+//    - const old = 'value';
+//    + const new = 'value';
+//    ```
+//
+// 6. Full output:
+//    ✓ Edit (src/app.ts)
+//    @@ -1,3 +1,3 @@
+//    - const old = 'value';
+//    + const new = 'value';
+```

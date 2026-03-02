@@ -92,6 +92,8 @@
 | [dynamic_tools.md](dynamic_tools.md) | MCP and deferred tools |
 | [security_validation.md](security_validation.md) | Bash security checks reference |
 | [ui_rendering.md](ui_rendering.md) | UI rendering infrastructure |
+| [tool_interface_patterns.md](tool_interface_patterns.md) | Tool interface patterns |
+| [tool_schemas.md](tool_schemas.md) | Input/output schema patterns and validation |
 
 ---
 
@@ -615,8 +617,11 @@ TaskOutput.call({ task_id: "xxx" })
 | `Jq` | TOOL_NAME_READ | "Read" |
 | `f5` | TOOL_NAME_WRITE | "Write" |
 | `bq` | TOOL_NAME_EDIT | "Edit" |
+| `jM` | TOOL_NAME_NOTEBOOK_EDIT | "NotebookEdit" |
 | `s9` | TOOL_NAME_GREP | "Grep" |
 | `Jz` | TOOL_NAME_GLOB | "Glob" |
+| `JL` | TOOL_NAME_WEB_SEARCH | "WebSearch" |
+| `xO` | TOOL_NAME_WEB_FETCH | "WebFetch" |
 | `fK` | TOOL_NAME_AGENT | "Task" |
 | `h4` | TOOL_NAME_BASH | "Bash" |
 | `bj1` | TOOL_NAME_TASK_STOP | "TaskStop" |
@@ -632,8 +637,19 @@ TaskOutput.call({ task_id: "xxx" })
 | `N_6` | TOOL_NAME_ENTER_PLAN_MODE | "EnterPlanMode" |
 | `bW` | TOOL_NAME_EXIT_PLAN_MODE | "ExitPlanMode" |
 | `TH` | TOOL_NAME_ASK_USER_QUESTION | "AskUserQuestion" |
-| `wt` | TOOL_NAME_SKILL | "Skill" |
+| `NJ` | TOOL_NAME_SKILL | "Skill" |
 | `dM` | TOOL_NAME_TOOL_SEARCH | "ToolSearch" |
+| `cD` | STRUCTURED_OUTPUT_NAME | "StructuredOutput" |
+
+### Tool Whitelist Constants
+
+| Obfuscated | Readable | Contents |
+|------------|----------|----------|
+| `Bj1` | BACKGROUND_AGENT_ALLOWED_TOOLS | TaskOutput, ExitPlanMode, EnterPlanMode, Task, AskUserQuestion, TaskStop |
+| `VjA` | DELEGATE_ALLOWED_TOOLS_BASIC | Same as BACKGROUND_AGENT_ALLOWED_TOOLS |
+| `L_6` | ALL_SAFE_TOOLS | Read, WebSearch, TodoWrite, Grep, WebFetch, Glob, Bash, Edit, Write, NotebookEdit, Skill, StructuredOutput, ToolSearch, SendMessage |
+| `np7` | STRUCTURED_TASK_TOOLS | TaskCreate, TaskGet, TaskList, TaskUpdate |
+| `R_6` | DELEGATE_ALLOWED_TOOLS | TeamCreate, TeamDelete, SendMessage, TaskCreate, TaskGet, TaskList, TaskUpdate, Task |
 
 ### Input Schemas
 

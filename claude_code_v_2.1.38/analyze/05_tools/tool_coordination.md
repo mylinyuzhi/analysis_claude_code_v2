@@ -511,3 +511,395 @@ Timer: 2000ms timeout
 - [tool_execution_pipeline.md](./tool_execution_pipeline.md) - How tools are executed
 - [task_management_tools.md](./task_management_tools.md) - Task control tools
 - [agent_tool.md](./agent_tool.md) - Subagent spawning
+
+---
+
+## Additional Coordination Patterns
+
+### Task→TaskOutput/TaskStop Detailed Flow
+
+**What it does:** Complete coordination flow between Task, TaskOutput, and TaskStop tools.
+
+```javascript
+// ============================================
+// Task Registry Implementation
+// Location: chunks.139.mjs, chunks.141.mjs
+// ============================================
+
+// Task registration (when Task tool spawns agent/bash)
+function registerTask(taskId, taskRecord, setAppState) {
+    setAppState((state) => ({
+        ...state,
+        backgroundTasks: new Map(state.backgroundTasks).set(taskId, taskRecord)
+    }));
+}
+
+// TaskOutput retrieval (gets output from completed task)
+async function TaskOutput_call({ task_id, block, timeout }, context) {
+    let appState = await context.getAppState();
+    let task = appState.backgroundTasks.get(task_id);
+
+    if (!task) {
+        throw Error(`Task ${task_id} not found`);
+    }
+
+    // If blocking and task still running, wait for completion
+    if (block && task.status === "running") {
+        await waitForTaskCompletion(task_id, timeout);
+        task = (await context.getAppState()).backgroundTasks.get(task_id);
+    }
+
+    // Build snapshot for response
+    return {
+        data: {
+            status: task.status,
+            output: await readTaskOutput(task.outputFile),
+            exitCode: task.exitCode,
+            error: task.error
+        }
+    };
+}
+
+// TaskStop termination
+async function TaskStop_call({ task_id }, context) {
+    let appState = await context.getAppState();
+    let task = appState.backgroundTasks.get(task_id);
+
+    if (!task) {
+        return { data: { success: false, message: `Task ${task_id} not found` } };
+    }
+
+    // Get kill handler for task type
+    let killHandler = getKillHandlerForType(task.type);
+    await killHandler.kill(task);
+
+    // Update task status
+    context.setAppState((state) => {
+        let tasks = new Map(state.backgroundTasks);
+        tasks.set(task_id, { ...tasks.get(task_id), status: "cancelled" });
+        return { ...state, backgroundTasks: tasks };
+    });
+
+    return { data: { success: true, message: `Task ${task_id} cancelled` } };
+}
+
+// Mapping: TaskOutput_call→TaskOutputHandler, TaskStop_call→TaskStopHandler
+```
+
+**Task Record Structure:**
+
+```javascript
+interface TaskRecord {
+    taskId: string;
+    type: "local_agent" | "local_bash" | "remote_agent";
+    status: "running" | "completed" | "failed" | "cancelled";
+
+    // For local tasks
+    abortController?: AbortController;
+    process?: ChildProcess;  // For bash tasks
+    agentPromise?: Promise;  // For agent tasks
+
+    // Output storage
+    outputFile: string;      // File path for output
+
+    // Completion data
+    exitCode?: number;
+    error?: string;
+
+    // Timestamps
+    startedAt: number;
+    completedAt?: number;
+}
+```
+
+---
+
+### Todo→Task Coordination
+
+**What it does:** Tasks can be linked to Todo items for progress tracking.
+
+```javascript
+// ============================================
+// Todo-Task Coordination
+// Location: chunks.141.mjs (TodoWrite tool)
+// ============================================
+
+// TodoWrite can reference active tasks
+interface TodoItem {
+    id: string;
+    subject: string;
+    status: "pending" | "in_progress" | "completed";
+    activeForm?: string;  // Spinner text when in_progress
+
+    // Task linkage
+    metadata?: {
+        taskId?: string;  // Links todo to background task
+        source?: string;  // Who created this todo
+    };
+}
+
+// When task completes, related todos can be updated
+function onTaskCompletion(taskId, result, setAppState) {
+    setAppState((state) => {
+        let todos = state.todos.map((todo) => {
+            if (todo.metadata?.taskId === taskId) {
+                return {
+                    ...todo,
+                    status: result.success ? "completed" : "in_progress"
+                    // Keep in_progress if failed so agent can retry
+                };
+            }
+            return todo;
+        });
+        return { ...state, todos };
+    });
+}
+```
+
+---
+
+### File Write→Read Cache Invalidation
+
+**What it does:** When Write or Edit modifies a file, the readFileState cache must be updated.
+
+```javascript
+// ============================================
+// Cache Update After Write/Edit
+// Location: chunks.134.mjs (Edit tool), chunks.146.mjs (Write tool)
+// ============================================
+
+// After Edit tool applies change:
+function updateReadFileStateAfterEdit(filePath, newContent, context) {
+    context.readFileState.set(filePath, {
+        content: newContent,
+        timestamp: Date.now(),  // Current mtime
+        offset: undefined,
+        limit: undefined
+    });
+}
+
+// After Write tool creates/overwrites file:
+function updateReadFileStateAfterWrite(filePath, content, context) {
+    context.readFileState.set(filePath, {
+        content: content,
+        timestamp: getFileMtime(filePath),
+        offset: undefined,
+        limit: undefined
+    });
+}
+
+// Key insight: The cache is UPDATED, not invalidated
+// This allows subsequent edits without re-reading
+```
+
+---
+
+### Agent→Subagent Tool Restriction
+
+**What it does:** When Agent tool spawns a subagent, tool availability is restricted based on agent type.
+
+```javascript
+// ============================================
+// Subagent Tool Restriction Matrix
+// Location: chunks.132.mjs (Agent tool), chunks.141.mjs (tool assembly)
+// ============================================
+
+const AGENT_TYPE_TOOL_RESTRICTIONS = {
+    // General-purpose agent: all tools available
+    "general-purpose": {
+        filter: (tools) => tools  // No filtering
+    },
+
+    // Explore agent: read-only tools
+    "Explore": {
+        filter: (tools) => tools.filter(t =>
+            ["Read", "Grep", "Glob", "TaskOutput", "TaskList"].includes(t.name)
+        )
+    },
+
+    // Plan agent: planning tools only
+    "Plan": {
+        filter: (tools) => tools.filter(t =>
+            ["Read", "EnterPlanMode", "ExitPlanMode", "AskUserQuestion"].includes(t.name)
+        )
+    }
+};
+
+// When spawning subagent:
+let filteredTools = AGENT_TYPE_TOOL_RESTRICTIONS[agentType]
+    ? AGENT_TYPE_TOOL_RESTRICTIONS[agentType].filter(allTools)
+    : allTools;
+
+// Create derived context with filtered tools
+let subagentContext = deriveToolUseContext(
+    parentContext,
+    null,  // New readFileState
+    childAbortController,
+    getAppState,
+    toolDefinitions,
+    filteredTools
+);
+```
+
+---
+
+### Concurrent Tool Execution Coordination
+
+**What it does:** When multiple tools execute concurrently (isConcurrencySafe=true), coordination ensures no conflicts.
+
+```javascript
+// ============================================
+// Concurrent Execution Queue
+// Location: chunks.149.mjs (tool execution orchestrator)
+// ============================================
+
+// Tools with isConcurrencySafe()=true can run in parallel
+// Tools with isConcurrencySafe()=false are serialized
+
+class ToolExecutionQueue {
+    constructor() {
+        this.runningUnsafeTools = new Set();  // Track unsafe tools
+        this.pendingQueue = [];                // Waiting executions
+    }
+
+    async execute(tool, input, context) {
+        // Safe tools can run immediately
+        if (tool.isConcurrencySafe(input)) {
+            return this.runTool(tool, input, context);
+        }
+
+        // Unsafe tools must wait for other unsafe tools to complete
+        while (this.runningUnsafeTools.size > 0) {
+            await this.waitForUnsafeToolCompletion();
+        }
+
+        this.runningUnsafeTools.add(tool.name);
+        try {
+            return await this.runTool(tool, input, context);
+        } finally {
+            this.runningUnsafeTools.delete(tool.name);
+            // Notify waiting tools
+            this.notifyCompletion();
+        }
+    }
+}
+
+// This ensures:
+// - Read, Grep, Glob can all run in parallel with each other
+// - Write, Edit, Bash run sequentially (one at a time)
+// - Safe tools can run during unsafe tool execution
+```
+
+---
+
+### Bash→Edit Integration (Simulated Sed)
+
+**What it does:** Bash can trigger Edit-like behavior through simulated sed commands.
+
+```javascript
+// ============================================
+// Simulated Sed Integration
+// Location: chunks.150.mjs (Bash tool)
+// ============================================
+
+// Bash tool detects sed-like commands and tracks file modifications
+function detectSimulatedSed(command) {
+    // Pattern: sed -i 's/old/new/g' file.txt
+    let sedMatch = command.match(/sed\s+(-i|--in-place).*?\s+(\S+)$/);
+    if (sedMatch) {
+        return {
+            isSimulatedSed: true,
+            filePath: sedMatch[2]
+        };
+    }
+    return null;
+}
+
+// If detected, update readFileState after command completes
+async function bashCall(input, context, ...) {
+    let sedInfo = detectSimulatedSed(input.command);
+
+    // Execute command...
+
+    if (sedInfo && result.exitCode === 0) {
+        // File was modified - invalidate cache for this file
+        context.readFileState.delete(sedInfo.filePath);
+
+        // Emit telemetry for file modification tracking
+        emitTelemetry("bash_file_modified", {
+            filePath: sedInfo.filePath,
+            command: input.command
+        });
+    }
+}
+
+// This enables:
+// - Proper cache invalidation for sed commands
+// - Attribution tracking for file changes via Bash
+// - Warnings if subsequent Edit tries to modify same file
+```
+
+---
+
+### Plan Mode Tool Restrictions
+
+**What it does:** Plan mode has specific tool restrictions to prevent unintended modifications.
+
+```javascript
+// ============================================
+// Plan Mode Tool Access
+// ============================================
+
+// In plan mode, only these tools are available:
+const PLAN_MODE_TOOLS = new Set([
+    "Read",           // Read files to understand context
+    "Grep",           // Search for patterns
+    "Glob",           // Find files
+    "EnterPlanMode",  // Already in plan mode, but can confirm
+    "ExitPlanMode",   // Exit plan mode
+    "AskUserQuestion" // Ask for clarification
+]);
+
+// Tools BLOCKED in plan mode:
+// - Write, Edit, NotebookEdit (file modifications)
+// - Bash (command execution)
+// - Task (agent spawning)
+// - TeamCreate, TeamDelete (team operations)
+
+// This ensures plan mode is truly "plan-only" - no side effects
+```
+
+---
+
+### Git State Coordination
+
+**What it does:** Tools that modify files coordinate with git state tracking.
+
+```javascript
+// ============================================
+// Git State Coordination
+// Location: chunks.146.mjs (file operations)
+// ============================================
+
+// After Write/Edit, git state must be updated
+async function writeFileWithGitUpdate(filePath, content, context) {
+    // Write file
+    await fs.writeFile(filePath, content);
+
+    // Update git index if in git repo
+    if (await isGitRepo()) {
+        // Stage change (implicit)
+        // Git watcher will detect and update state
+    }
+
+    // Notify git watcher cache
+    if (context.gitWatcher) {
+        context.gitWatcher.invalidateCache(filePath);
+    }
+}
+
+// Git state is used by:
+// - Bash (for commit commands)
+// - UI (for showing uncommitted changes)
+// - Prompt (for showing current branch/changes)
+```
