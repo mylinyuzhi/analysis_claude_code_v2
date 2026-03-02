@@ -15,7 +15,7 @@
 
 | Category | Tools | Primary Location |
 |----------|-------|------------------|
-| **File System** | Read, Write, Edit, NotebookEdit | chunks.146.mjs |
+| **File System** | Read, Write, Edit, NotebookEdit | chunks.146.mjs (Read/Write), chunks.134.mjs (Edit/NotebookEdit) |
 | **Search** | Grep, Glob | chunks.76.mjs |
 | **Execution** | Bash | chunks.150.mjs |
 | **Web** | WebFetch, WebSearch | chunks.46-47.mjs, chunks.14-15.mjs |
@@ -23,7 +23,7 @@
 | **Task Management** | TaskStop, TaskOutput, TaskGet, TaskList, TaskCreate, TaskUpdate, TodoWrite | chunks.139-141.mjs, chunks.48.mjs |
 | **Team** | TeamCreate, TeamDelete, SendMessage | chunks.141.mjs |
 | **Plan Mode** | EnterPlanMode, ExitPlanMode, AskUserQuestion | chunks.88.mjs, chunks.139-140.mjs |
-| **Skills & MCP** | Skill, ToolSearch | chunks.89.mjs, chunks.132.mjs |
+| **Skills & MCP** | Skill, ToolSearch | chunks.132.mjs, chunks.140.mjs |
 | **MCP** | Dynamic (mcp__*) | Various |
 
 ---
@@ -601,14 +601,18 @@ TaskOutput.call({ task_id: "xxx" })
 
 | Obfuscated | Readable | File | Type |
 |------------|----------|------|------|
-| `i5` | FileReadTool | chunks.146.mjs | object |
-| `vj` | FileWriteTool | chunks.146.mjs:436 | object |
+| `i5` | FileReadTool | chunks.146.mjs (Read/Write), chunks.134.mjs (Edit) | object |
+| `sW` | EditTool | chunks.134.mjs:2124 | object |
+| `vj` | FileWriteTool | chunks.146.mjs (Read/Write), chunks.134.mjs (Edit):436 | object |
 | `tS` | GrepTool | chunks.76.mjs:1129 | object |
 | `WB` | GlobTool | chunks.76.mjs:1495 | object |
 | `rj1` | AgentTool | chunks.132.mjs:85 | object |
 | `vW6` | TaskStopTool | chunks.139.mjs:1537 | object |
 | `kW6` | TaskOutputTool | chunks.139.mjs:1922 | object |
 | `bO` | TodoWriteTool | chunks.48.mjs:773 | object |
+| `gd` | NotebookEditTool | chunks.134.mjs | object |
+| `wt` | SkillTool | chunks.132.mjs | object |
+| `dM` | ToolSearchTool | chunks.140.mjs | object |
 
 ### Tool Names (Constants)
 

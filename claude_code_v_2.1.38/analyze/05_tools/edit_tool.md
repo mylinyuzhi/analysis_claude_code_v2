@@ -230,6 +230,19 @@ async validateInput({ file_path, old_string, new_string, replace_all = false }, 
 
     // [Check 4] File existence
     if (!fs.existsSync(absolutePath) && old_string === "") return { result: true }; // new file
+    
+    // [Check 4b] New file creation but file already exists (implicit check in source)
+    // Error Code 3: Cannot create new file - file already exists
+    if (fs.existsSync(absolutePath) && old_string === "") {
+        let existingContent = fs.readFileSync(absolutePath, { encoding: getEncoding(absolutePath) }).replaceAll("\r\n", "\n").trim();
+        if (existingContent !== "") {
+             return { result: false, behavior: "ask",
+                      message: "Cannot create new file - file already exists.",
+                      errorCode: 3 };
+        }
+        return { result: true }; // Allow if existing file is empty
+    }
+
     if (!fs.existsSync(absolutePath)) {
         let suggestion = findSimilarFile(absolutePath);
         return { result: false, behavior: "ask",
