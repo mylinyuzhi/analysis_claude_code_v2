@@ -19,6 +19,15 @@ Key functions in this document:
 > See also:
 > - [ask_user_question.md](./ask_user_question.md) — Deep analysis of AskUserQuestion tool (multi-round interactions, elicitation queue, UI components, schema)
 > - [interview_phase.md](./interview_phase.md) — Complete Interview Phase analysis (feature flag, iterative loop, "Chat about this" / "Skip interview" callbacks, "Ready to code?" dialog options, context-clearing mechanism)
+> - [tools_filtering.md](./tools_filtering.md) — Tools restriction analysis (isReadOnly(), allowedTools, Bash filtering, permission flow)
+> - [reminder_system.md](./reminder_system.md) — Reminder/attachment injection (ihY, nhY, ezz, A2z, turn counting, throttling)
+> - [state_management.md](./state_management.md) — State variables and transitions (hasExitedPlanMode, needsPlanModeExitAttachment, prePlanMode)
+> - [mode_cycling.md](./mode_cycling.md) — Shift+Tab integration (hf1, FGq, mode sequences)
+> - [plan_approval_flow.md](./plan_approval_flow.md) — Plan approval lifecycle (user-facing + swarm teammate)
+> - [ui_linkage.md](./ui_linkage.md) — UI components and rendering
+> - [compact_integration.md](./compact_integration.md) — Plan preservation during compaction (jZ6, pD, uW, kq)
+> - [hooks_integration.md](./hooks_integration.md) — Hooks in plan mode (mW6, JZY, PreCompact)
+> - [task_integration.md](./task_integration.md) — Task system integration (ca4, TaskCreate, TaskUpdate)
 - `aPq` (chunks.181.mjs:405) - ExitPlanMode dialog ("Ready to code?")
 - `hf1` (chunks.183.mjs:1778) - Mode cycle function
 - `CQ` (chunks.14.mjs:3260) - Mode display name ("Plan Mode")

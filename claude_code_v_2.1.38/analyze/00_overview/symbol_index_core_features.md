@@ -349,35 +349,42 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| a2 | applyPermissionAction | chunks.140.mjs:1695 | function |
+| a2 | applyPermissionAction | chunks.42.mjs:1637 | function |
 | A2z | buildPlanModeSparseReminder | chunks.173.mjs:676 | function |
-| aL6 | hasExitedPlanModeGetter | chunks.1.mjs:2859 | function |
+| aL6 | hasExitedPlanMode | chunks.1.mjs:2859 | function (getter) |
 | Au4 | buildPermissionCliArgs | chunks.131.mjs:847 | function |
 | azz | buildPlanModeReminder | chunks.173.mjs:531 | function |
+| chY | countTurnsSinceLastAttachment | chunks.142.mjs:2003 | function |
 | Dc4 | getPlanExploreAgentCount | chunks.140.mjs:1467 | function |
 | Dz | isTeammate | chunks.139.mjs:2690 | function |
 | EhA | getPromptSuggestionBlocker | chunks.151.mjs:149 | function |
-| ey | onModeTransition | chunks.1.mjs:2875 | function |
+| ey | handlePlanModeTransition | chunks.1.mjs:2875 | function |
 | ezz | buildPlanModeInterviewReminder | chunks.173.mjs:619 | function |
-| FGq | getNextModeWithContext | chunks.183.mjs:1799 | function |
+| FGq | cycleModeWithContext | chunks.183.mjs:1799 | function |
 | g5 | getAgentName | chunks.139.mjs:2695 | function |
 | Gc4 | renderEnterPlanModeResult | chunks.140.mjs:1597 | function (React) |
-| hf1 | getNextMode | chunks.183.mjs:1778 | function |
+| hf1 | cycleMode | chunks.183.mjs:1778 | function |
+| hmA | matchesAlwaysAllowRule | chunks.172.mjs:1884 | function |
 | hu4 | initializeInProcessTeammate | chunks.131.mjs:2305 | function |
 | HX6 | RejectedPlanViewer | chunks.107.mjs:1153 | function (React) |
-| ihY | generatePlanModeAttachments | chunks.142.mjs:2034 | function (async) |
+| ihY | buildPlanModeAttachments | chunks.142.mjs:2034 | function (async) |
 | ii4 | PLAN_MODE_REMINDER_CONSTANTS | chunks.142.mjs:2921 | constant (object) |
 | Kd4 | renderExitPlanModeResult | chunks.139.mjs:2491 | function (React) |
 | kg1 | EnterPlanModeTool | chunks.140.mjs:1640 | tool object |
 | kx | setNeedsPlanModeExitAttachment | chunks.1.mjs:2871 | function |
+| l8 | hasTeamContext | chunks.1.mjs | function |
+| lhY | countPlanModeAttachments | chunks.142.mjs:2022 | function |
 | MC1 | isPlanModeRequired | chunks.48.mjs:301 | function |
-| nhY | generatePlanModeExitAttachment | chunks.142.mjs:2060 | function (async) |
+| nhY | buildPlanModeExitAttachment | chunks.142.mjs:2060 | function (async) |
 | Nj | ExitPlanModeTool | chunks.139.mjs:2641 | tool object |
+| Of6 | evaluateBashCommandReadiness | chunks.150.mjs:881 | function |
 | OT | setHasExitedPlanMode | chunks.1.mjs:2863 | function |
 | pD | getPlanContent | chunks.146.mjs:2700 | function |
 | pCY | buildEnterPlanModePrompt | chunks.140.mjs:1488 | function |
+| Pf6 | containsGitCommand | chunks.169.mjs:2014 | function |
+| PM | isTeamLeader | chunks.1.mjs | function |
 | q2z | buildPlanModeSubagentReminder | chunks.173.mjs:685 | function |
-| sL6 | needsPlanModeExitAttachmentGetter | chunks.1.mjs:2867 | function |
+| sL6 | needsPlanModeExitAttachment | chunks.1.mjs:2867 | function (getter) |
 | sO | isPlanModeInterviewPhase | chunks.140.mjs:1475 | function |
 | szz | buildFullPlanModeReminder | chunks.173.mjs:531 | function |
 | tzz | buildAllowedToolsList | chunks.173.mjs:611 | function |
@@ -771,6 +778,7 @@
 | eGY | PreToolUsePayloadSchema | chunks.129.mjs:722 | schema |
 | qZY | PostToolUsePayloadSchema | chunks.129.mjs:732 | schema |
 | KZY | PostToolUseFailurePayloadSchema | chunks.129.mjs:738 | schema |
+| JZY | PreCompactPayloadSchema | chunks.129.mjs:774 | schema |
 | WZY | AsyncHookResponseSchema | chunks.129.mjs:792 | schema |
 | cow | AllHookInputUnionSchema | chunks.129.mjs:792 | schema |
 | registeredHooks | registeredHooks | chunks.1.mjs:2409 | state key |
