@@ -498,3 +498,13 @@ For comprehensive deep-dive analysis of specific subsystems, see:
 ### Architecture Summary
 
 - **[architecture_summary.md](./architecture_summary.md)** - High-level component overview diagrams, complete data flow diagrams for all execution modes, file structure map, key design patterns (generator-based iteration, AsyncLocalStorage, Promise.race, write queue, priority queue), critical code paths with hotspot analysis, performance bottlenecks identification, future enhancement opportunities
+
+### Integration with Other Modules
+
+- **[tools_integration.md](./tools_integration.md)** - Tool set assembly pipeline (`assembleSessionToolSet`), context derivation (`deriveToolUseContext`), tool whitelists (`BACKGROUND_AGENT_ALLOWED_TOOLS`, `DELEGATE_ALLOWED_TOOLS`), permission filtering flow, `readFileState` isolation
+
+- **[system_reminder_integration.md](./system_reminder_integration.md)** - System reminder propagation to subagents, fork context integration (`buildForkContextMessages`), progress reporting functions (`reportToolProgress`, `updateTaskProgress`), `agent_progress` event flow
+
+- **[compact_integration.md](./compact_integration.md)** - Token counting in subagent loop, compaction trigger in `agentLoopRunner`, `sessionMemoryType` parameter behavior, in-process teammate compaction, file read tracking isolation during compaction
+
+- **[hooks_integration.md](./hooks_integration.md)** - `SubagentStart` hook execution timing, hook cleanup in subagent context, Pre/Post tool hooks within subagent execution, hook context isolation between parent and subagent via AsyncLocalStorage

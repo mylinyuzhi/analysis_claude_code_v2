@@ -370,7 +370,7 @@
 | ihY | buildPlanModeAttachments | chunks.142.mjs:2034 | function (async) |
 | ii4 | PLAN_MODE_REMINDER_CONSTANTS | chunks.142.mjs:2921 | constant (object) |
 | Kd4 | renderExitPlanModeResult | chunks.139.mjs:2491 | function (React) |
-| kg1 | EnterPlanModeTool | chunks.140.mjs:1640 | tool object |
+| kg1 | EnterPlanModeTool | chunks.140.mjs:1649 | tool object |
 | kx | setNeedsPlanModeExitAttachment | chunks.1.mjs:2871 | function |
 | l8 | hasTeamContext | chunks.1.mjs | function |
 | lhY | countPlanModeAttachments | chunks.142.mjs:2022 | function |
@@ -379,7 +379,7 @@
 | Nj | ExitPlanModeTool | chunks.139.mjs:2641 | tool object |
 | Of6 | evaluateBashCommandReadiness | chunks.150.mjs:881 | function |
 | OT | setHasExitedPlanMode | chunks.1.mjs:2863 | function |
-| pD | getPlanContent | chunks.146.mjs:2700 | function |
+| pD | getPlanFileContent | chunks.88.mjs:126 | function |
 | pCY | buildEnterPlanModePrompt | chunks.140.mjs:1488 | function |
 | Pf6 | containsGitCommand | chunks.169.mjs:2014 | function |
 | PM | isTeamLeader | chunks.1.mjs | function |
@@ -388,7 +388,7 @@
 | sO | isPlanModeInterviewPhase | chunks.140.mjs:1475 | function |
 | szz | buildFullPlanModeReminder | chunks.173.mjs:531 | function |
 | tzz | buildAllowedToolsList | chunks.173.mjs:611 | function |
-| uW | getPlanFilePath | chunks.146.mjs:2702 | function |
+| uW | getPlanFilePath | chunks.88.mjs:120 | function |
 | vg1 | pushToRemote | chunks.139.mjs:2720 | function |
 | vP1 | generateRequestId | chunks.139.mjs:2710 | function |
 | Xc4 | getPlanDesignAgentCount | chunks.140.mjs:1455 | function |

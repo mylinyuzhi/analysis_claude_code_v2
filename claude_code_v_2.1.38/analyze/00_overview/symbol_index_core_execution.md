@@ -184,6 +184,7 @@
 | Bj1 | BACKGROUND_AGENT_ALLOWED_TOOLS | chunks.89.mjs:876 | Set (tool whitelist) |
 | L_6 | ALL_SAFE_TOOLS | chunks.89.mjs:876 | Set |
 | np7 | STRUCTURED_TASK_TOOLS | chunks.89.mjs:876 | Set |
+| VjA | ASYNC_BATCH_TOOLS | chunks.89.mjs:876 | Set (copy of Bj1) |
 | yp | cloneMap | chunks.149.mjs | function |
 | Jh | parseMcpToolName | chunks.149.mjs | function |
 | VD | parseMcpToolNameVariant | chunks.149.mjs | function |
@@ -331,14 +332,17 @@
 | NR | generateAgentId | chunks.89.mjs | function |
 | zd7 | createAsyncTask | chunks.132.mjs | function |
 | wd7 | createForegroundTask | chunks.132.mjs | function |
-| dR | agentLoopRunner | chunks.107.mjs | function (generator) |
-| sP1 | loadTranscript | chunks.89.mjs | function |
-| BQ1 | filterWhitespaceAssistant | chunks.89.mjs | function |
-| mQ1 | filterThinkingOnlyAssistant | chunks.89.mjs | function |
-| wP6 | stripOrphanedToolResults | chunks.89.mjs | function |
-| UEA | buildAgentResult | chunks.132.mjs | function |
-| yjA | markTaskCompleted | chunks.89.mjs | function |
-| CjA | markTaskFailed | chunks.89.mjs | function |
+| dR | agentLoopRunner | chunks.130.mjs:1961 | function (generator) |
+| sP1 | loadTranscript | chunks.173.mjs:2722 | function |
+| BQ1 | filterWhitespaceAssistant | chunks.173.mjs:1388 | function |
+| mQ1 | filterThinkingOnlyAssistant | chunks.173.mjs:1435 | function |
+| wP6 | stripOrphanedToolResults | chunks.173.mjs:344 | function |
+| UEA | buildAgentResult | chunks.131.mjs:2514 | function |
+| Nn7 | buildForkContextMessages | chunks.90.mjs:2529 | function |
+| KNY | resolveTeamName | chunks.131.mjs:2546 | function |
+| MM | isInProcessTeammate | chunks.48.mjs:234 | function |
+| yjA | markTaskCompleted | chunks.89.mjs:1422 | function |
+| CjA | markTaskFailed | chunks.89.mjs:1435 | function |
 | vK1 | notifyTaskCompletion | chunks.89.mjs | function |
 | ww | getOutputFilePath | chunks.89.mjs | function |
 | eu1 | getTasksDir | chunks.89.mjs | function |
@@ -468,19 +472,19 @@
 |------------|----------|-----------|------|
 | bZ | registerTask | chunks.142.mjs:1676 | function |
 | c5 | atomicUpdateTask | chunks.142.mjs:1662 | function |
-| CjA | markTaskFailed | chunks.89.mjs:~1495 | function |
+| CjA | markTaskFailed | chunks.89.mjs:1435 | function |
 | Hd7 | backgroundForegroundTask | chunks.89.mjs:~1515 | function |
 | ia | isLocalAgentTask | chunks.89.mjs:~1402 | function |
 | Kd7 | killAllRunningAgents | chunks.89.mjs:~1448 | function |
 | na | killTask | chunks.89.mjs:~1375 | function |
 | R61 | createChildAbortController | chunks.6.mjs:465 | function |
-| RjA | updateTaskProgress | chunks.89.mjs:~1453 | function |
+| RjA | reportToolProgress | chunks.89.mjs:1393 | function |
 | Tq | registerProcessExitCleanup | chunks.1.mjs:4149 | function |
 | u_6 | foregroundResolveMap | chunks.89.mjs:~1477 | variable (Map) |
-| wd7 | createForegroundTask | chunks.89.mjs:~1477 | function |
-| Yd7 | updateProgressSummary | chunks.89.mjs:~1467 | function |
-| yjA | markTaskCompleted | chunks.89.mjs:~1482 | function |
-| zd7 | createAsyncTask | chunks.89.mjs:~1447 | function |
+| wd7 | createForegroundTask | chunks.89.mjs:1477 | function |
+| Yd7 | updateTaskProgress | chunks.89.mjs:1407 | function |
+| yjA | markTaskCompleted | chunks.89.mjs:1422 | function |
+| zd7 | createAsyncTask | chunks.89.mjs:1447 | function |
 
 ### Subagent Context Creation
 
@@ -554,36 +558,36 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| dR | agentLoopRunner | chunks.107.mjs:2100 | function (generator) |
-| GVY | inProcessAgentRunner | chunks.129.mjs:2400 | function |
-| p01 | withTelemetrySpan | chunks.132.mjs:268 | function |
-| WVY | inProcessPollLoop | chunks.129.mjs:2300 | function (generator) |
+| dR | agentLoopRunner | chunks.130.mjs:1961 | function (generator) |
+| GVY | inProcessAgentRunner | chunks.131.mjs:348 | function |
+| p01 | runWithAgentIdentity | chunks.80.mjs:2353 | function |
+| WVY | inProcessPollLoop | chunks.131.mjs:260 | function (generator) |
 
 ### Result Building
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| qNY | countToolUses | chunks.129.mjs:2250 | function |
-| UEA | buildAgentResult | chunks.129.mjs:2500 | function |
+| qNY | countToolUses | chunks.131.mjs:2250 | function |
+| UEA | buildAgentResult | chunks.131.mjs:2514 | function |
 
 ### Communication (Mailbox System)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | _Q1 | fileLockSync | chunks.143.mjs:500 | object |
-| f9 | writeToMailbox | chunks.143.mjs:550 | function |
+| f9 | writeToMailbox | chunks.129.mjs:1107 | function |
 | JQ1 | markMessageAsReadByIndex | chunks.143.mjs:600 | function |
-| Ld | readMailbox | chunks.143.mjs:520 | function |
+| Ld | readMailbox | chunks.129.mjs:1089 | function |
 
 ### Transcript Management
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| BQ1 | filterWhitespaceAssistant | chunks.143.mjs:780 | function |
+| BQ1 | filterWhitespaceAssistant | chunks.173.mjs:1388 | function |
 | ld1 | buildConversationChain | chunks.143.mjs:850 | function |
-| mQ1 | filterThinkingOnlyAssistant | chunks.143.mjs:760 | function |
-| sP1 | loadTranscript | chunks.143.mjs:700 | function |
-| wP6 | stripOrphanedToolResults | chunks.143.mjs:730 | function |
+| mQ1 | filterThinkingOnlyAssistant | chunks.173.mjs:1435 | function |
+| sP1 | loadTranscript | chunks.173.mjs:2722 | function |
+| wP6 | stripOrphanedToolResults | chunks.173.mjs:344 | function |
 
 ### Path Management
 
