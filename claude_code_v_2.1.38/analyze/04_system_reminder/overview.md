@@ -13,6 +13,7 @@
 - [Core Functions](#core-functions)
 - [Injection Points - Content Assembly](#injection-points---content-assembly)
 - [Message Format Pipeline](#message-format-pipeline)
+- [Silent Types: Zero Token Notifications](#silent-types-zero-token-notifications)
 - [Key Design Decision: Why User Messages?](#key-design-decision-why-user-messages)
 - [The System-Reminder XML Tag Wrapper](#the-system-reminder-xml-tag-wrapper)
 - [Plan Mode Reminder Variants](#plan-mode-reminder-variants)
@@ -663,6 +664,90 @@ Producer -> K2z -> c6({content: tI("..."), isMeta: true})
 Used for: task_status, task_progress, token_usage, budget_usd, hook_blocking_error, hook_success, etc.
 
 The distinction is subtle: Pattern A creates the message first and then wraps the entire message array, which is useful when multiple messages (e.g., tool call + tool result) need consistent wrapping. Pattern B embeds the XML tags directly into the content string, which is simpler for single-message notifications.
+
+---
+
+## Silent Types: Zero Token Notifications
+
+Not all attachment types produce API messages. The normalizer (`K2z`) includes a category of **silent types** that return an empty array `[]`, resulting in zero token cost while still providing UI visibility.
+
+### Silent Type Mechanism
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    Visible Attachment Flow                            │
+│                                                                       │
+│  Producer → Attachment → K2z → [Messages] → API → LLM (tokens used) │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                    Silent Attachment Flow                             │
+│                                                                       │
+│  Producer → Attachment → K2z → [] → (No API message)                 │
+│                              │                                        │
+│                              └─> UI renders indicator                 │
+│                              └─> Internal state updated               │
+│                                                                       │
+│                          Zero token cost                              │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Comparison: `file` vs `already_read_file`
+
+The clearest example of the silent mechanism is the difference between `file` and `already_read_file`:
+
+| Aspect | `file` Type | `already_read_file` Type |
+|--------|-------------|--------------------------|
+| **Trigger** | New file read needed | Cache hit, file unchanged |
+| **API Messages** | Synthetic `tool_use` + `tool_result` | None (`return []`) |
+| **Token Cost** | ~100-1000+ tokens | 0 tokens |
+| **UI Display** | "Read \<filename\>" | "Read \<filename\>" (identical) |
+| **Code Path** | `pd1`/`Ud1` create messages | Falls through to `return []` |
+| **Location** | chunks.173.mjs:750-763 | chunks.173.mjs:1118 |
+
+#### Code Contrast
+
+**`file` type (visible):**
+```javascript
+case "file": {
+    // Creates synthetic tool_use and tool_result messages
+    return _9([pd1(i5.name, { file_path: A.filename }), Ud1(i5, K)]);
+}
+```
+
+**`already_read_file` type (silent):**
+```javascript
+case "already_read_file":
+case "command_permissions":
+case "edited_image_file":
+    return [];  // Empty array - zero tokens
+```
+
+### Why Silent Types Exist
+
+1. **Token efficiency** - Don't waste context on information already known to the model
+2. **UI-only visibility** - Users see the operation happened without LLM notification
+3. **Internal bookkeeping** - Track state changes without polluting conversation
+4. **Deduplication** - Prevent redundant operations (e.g., re-reading unchanged files)
+
+### All Silent Types
+
+| Type | Purpose |
+|------|---------|
+| `already_read_file` | Cache hit for unchanged file @-mention |
+| `command_permissions` | Internal permission state tracking |
+| `edited_image_file` | Binary image modification (cannot wrap in XML) |
+| `hook_cancelled` | Hook process cancelled |
+| `hook_error_during_execution` | Non-blocking hook error |
+| `hook_non_blocking_error` | Hook error that doesn't block operation |
+| `hook_system_message` | System message from hook (delivered elsewhere) |
+| `structured_output` | Structured data from hook |
+| `hook_permission_decision` | Permission decision from hook |
+| `autocheckpointing` | Checkpoint state tracking |
+| `background_task_status` | Internal task status |
+
+For full details, see [types_silent.md](./types_silent.md).
 
 ---
 

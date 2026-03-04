@@ -493,6 +493,23 @@
 | vQ1 | deriveToolUseContext | chunks.149.mjs:2589 | function |
 | av | runForkedAgent | chunks.149.mjs:2634 | function |
 | NR | generateAgentId | chunks.90.mjs:2343 | function |
+| Nn7 | buildForkContextMessages | chunks.90.mjs:2529 | function |
+| c6 | createUserMessage | chunks.149.mjs:340 | function |
+| gL9 | generateUUID | chunks.90.mjs | function |
+
+### Agent Definitions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| hh | mergeAgentDefinitions | chunks.91.mjs:3 | function |
+| KPA | validateMcpServers | chunks.91.mjs:17 | function |
+| un7 | filterByMcpServers | chunks.91.mjs:22 | function |
+| ZB1 | GENERAL_PURPOSE_AGENT | chunks.90.mjs:2622 | object (agent def) |
+| bv | EXPLORE_AGENT | chunks.90.mjs:2808 | object (agent def) |
+| PJ6 | PLAN_AGENT | chunks.90.mjs:2878 | object (agent def) |
+| Tn7 | BASH_AGENT | chunks.90.mjs:2608 | object (agent def) |
+| Rn7 | CLAUDE_CODE_GUIDE_AGENT | chunks.90.mjs:2904 | object (agent def) |
+| En7 | STATUSLINE_SETUP_AGENT | chunks.90.mjs:2650 | object (agent def) |
 
 ### Progress Tracking
 

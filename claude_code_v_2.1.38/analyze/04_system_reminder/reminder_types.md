@@ -186,10 +186,22 @@ You are a teammate in team "{teamName}".
 
 | Field | Value |
 |-------|-------|
-| **Purpose** | Marker for files that have already been read in this context |
-| **Triggered when** | Internal tracking of previously-read files |
+| **Purpose** | Marker for files already in context (unchanged since last read) |
+| **Triggered when** | @-mention of file with matching timestamp in `readFileState` cache |
 | **Wrapping** | N/A -- returns empty array |
 | **Content format** | None. This is a **silent/no-op type**. |
+
+**Comparison with `file` type:**
+
+| Aspect | `file` | `already_read_file` |
+|--------|--------|---------------------|
+| API Messages | Synthetic `tool_use` + `tool_result` via `pd1`/`Ud1` | None (empty array) |
+| Token Cost | ~100-1000+ tokens | 0 tokens |
+| UI Display | "Read \<filename\>" | "Read \<filename\>" (same) |
+| Trigger | New file read needed | Cache hit, file unchanged |
+| Use Case | Initial file read | Cached/unchanged file |
+
+**Key insight:** The `file` type creates synthetic tool messages (chunks.173.mjs:750-763) while `already_read_file` falls through to `return []` (chunks.173.mjs:1118). This means `already_read_file` has zero token cost -- the file content is already in context from the prior read.
 
 ---
 

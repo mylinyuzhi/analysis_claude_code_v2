@@ -48,6 +48,47 @@
 - Merge before LLM call: system reminder + systemPrompt are merged prior to the model request.
   - Reference: `claude_code_v_2.1.38/source/chunks.149.mjs:1865`
 
+## Why No Synthetic Messages?
+
+A common misconception is that `already_read_file` generates synthetic tool_use/tool_result pairs like the `file` type. This is **incorrect**.
+
+### Contrast with `file` Type
+
+| Aspect | `file` Type | `already_read_file` Type |
+|--------|-------------|--------------------------|
+| API Messages | Synthetic `tool_use` + `tool_result` via `pd1`/`Ud1` | **None** (returns `[]`) |
+| Token Cost | ~100-1000+ tokens (file content sent) | **0 tokens** (silent) |
+| UI Display | “Read \<filename\>” | “Read \<filename\>” (identical) |
+| Trigger | New file read needed | Cache hit, file unchanged |
+| Functions Used | `pd1` (createToolCallMessage), `Ud1` (createToolResultMessage) | None (falls through to `return []`) |
+
+### Code Evidence
+
+The `file` type (chunks.173.mjs:750-763) generates synthetic messages:
+```javascript
+case “file”: {
+    return _9([pd1(i5.name, { file_path: A.filename }), Ud1(i5, K)]);
+}
+```
+
+The `already_read_file` type (chunks.173.mjs:1118) returns empty:
+```javascript
+case “already_read_file”:
+case “command_permissions”:
+case “edited_image_file”:
+// ... falls through to:
+    return []  // Empty array, NOT synthetic messages
+```
+
+### Design Rationale
+
+1. **Token efficiency**: File content is already in context from the prior read - re-sending would be wasteful
+2. **No LLM action needed**: The model already has the file content; no notification required
+3. **UI-only visibility**: Users see “Read \<filename\>” in the UI, but LLM receives nothing new
+4. **Deduplication**: Prevents redundant Read tool calls for unchanged files
+
+---
+
 ## Normalization and Visibility (Silent / No-Op)
 - Normalizer switch: `already_read_file` is categorized as a silent/no-op type → returns an empty array for API messages (zero token cost).
   - Reference: `claude_code_v_2.1.38/source/chunks.173.mjs:1118` (see Note below)

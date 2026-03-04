@@ -508,3 +508,9 @@ For comprehensive deep-dive analysis of specific subsystems, see:
 - **[compact_integration.md](./compact_integration.md)** - Token counting in subagent loop, compaction trigger in `agentLoopRunner`, `sessionMemoryType` parameter behavior, in-process teammate compaction, file read tracking isolation during compaction
 
 - **[hooks_integration.md](./hooks_integration.md)** - `SubagentStart` hook execution timing, hook cleanup in subagent context, Pre/Post tool hooks within subagent execution, hook context isolation between parent and subagent via AsyncLocalStorage
+
+### Context & Agent Configuration
+
+- **[context_building.md](./context_building.md)** - Fork context building (`buildForkContextMessages`), critical system reminders (`criticalSystemReminder_EXPERIMENTAL`), context derivation for subagents, `readFileState` isolation, three-message context sequence
+
+- **[agent_definitions.md](./agent_definitions.md)** - Built-in agent types (general-purpose, Explore, Plan, Bash, claude-code-guide, statusline-setup), `mergeAgentDefinitions` priority-based merging, MCP server requirements validation, agent definition schema
