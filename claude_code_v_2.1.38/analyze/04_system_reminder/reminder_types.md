@@ -191,17 +191,25 @@ You are a teammate in team "{teamName}".
 | **Wrapping** | N/A -- returns empty array |
 | **Content format** | None. This is a **silent/no-op type**. |
 
+> **See also**: [file_vs_already_read_comparison.md](./file_vs_already_read_comparison.md) - Complete flow comparison with code evidence.
+
 **Comparison with `file` type:**
 
 | Aspect | `file` | `already_read_file` |
 |--------|--------|---------------------|
-| API Messages | Synthetic `tool_use` + `tool_result` via `pd1`/`Ud1` | None (empty array) |
-| Token Cost | ~100-1000+ tokens | 0 tokens |
+| API Messages | Synthetic USER-role messages via `pd1`/`Ud1` | **None** (empty array) |
+| Message Format | `{ role: "user", content: "Called the Read tool..." }` | N/A |
+| Token Cost | ~100-1000+ tokens | **0 tokens** |
 | UI Display | "Read \<filename\>" | "Read \<filename\>" (same) |
 | Trigger | New file read needed | Cache hit, file unchanged |
+| Code Location | `chunks.173.mjs:750-772` | `chunks.173.mjs:1118` |
 | Use Case | Initial file read | Cached/unchanged file |
 
-**Key insight:** The `file` type creates synthetic tool messages (chunks.173.mjs:750-763) while `already_read_file` falls through to `return []` (chunks.173.mjs:1118). This means `already_read_file` has zero token cost -- the file content is already in context from the prior read.
+**Key insight:** The `file` type creates synthetic USER-role text messages (NOT actual `tool_use` blocks) describing tool usage, while `already_read_file` falls through to `return []` (chunks.173.mjs:1118). This means `already_read_file` has zero token cost -- the file content is already in context from the prior read.
+
+**Both types are triggered by @mention!** The difference is:
+- `file`: File NOT in cache OR file has changed
+- `already_read_file`: File in cache AND unchanged (timestamp match)
 
 ---
 

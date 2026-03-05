@@ -331,6 +331,95 @@ function createUserMessage({
 
 ---
 
+### Integration 3.5: readFileState Cache (File Context Optimization)
+
+> **Related**: [file_vs_already_read_comparison.md](./file_vs_already_read_comparison.md) - Complete analysis of `file` vs `already_read_file` types.
+
+**Files**:
+- Cache implementation: `chunks.88.mjs:2200-2252` (LRU cache for file contents)
+- Cache consumer: `chunks.142.mjs:2544-2562` (TyA - buildFileAttachmentForMention)
+
+**Integration points**:
+1. **Cache population**: When files are read via Read tool, contents stored in `readFileState` cache
+2. **Timestamp tracking**: Cache entries include `timestamp` (file mtime) and `content`
+3. **Change detection**: `aW(path)` retrieves current mtime for comparison
+4. **Silent attachment generation**: If cached timestamp matches current mtime, produces `already_read_file`
+
+**Cache interaction with attachment types**:
+
+| File State | Attachment Type | API Messages |
+|------------|-----------------|--------------|
+| Not in cache | `file` | Synthetic messages via pd1/Ud1 |
+| In cache, changed (mtime differs) | `file` | Synthetic messages via pd1/Ud1 |
+| In cache, unchanged (mtime matches) | `already_read_file` | None (returns `[]`) |
+
+**Data flow**:
+```
+User @mentions file
+    ↓
+TyA (buildFileAttachmentForMention) checks readFileState
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ readFileState.get(path)                                      │
+│                                                              │
+│  ┌─────────────────┐                                        │
+│  │ Not in cache    │ → Read file → type: "file"            │
+│  └─────────────────┘                                        │
+│  ┌─────────────────┐                                        │
+│  │ In cache        │                                        │
+│  │  └─ mtime       │                                        │
+│  │     differs?    │                                        │
+│  │      ├─ YES     │ → Read file → type: "file"            │
+│  │      └─ NO      │ → type: "already_read_file"           │
+│  └─────────────────┘                                        │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+K2z (normalizeAttachmentForAPI)
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ type: "file"           → pd1() + Ud1() → API messages      │
+│ type: "already_read_file" → return [] → No API messages    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Cache and compact interaction**:
+
+When compaction occurs, the system may need to reference files that were read before compaction:
+
+1. **Compact file references**: Creates `compact_file_reference` type for large files
+2. **Cache preservation**: `readFileState` cache is NOT cleared by compaction
+3. **Re-read capability**: If file is @mentioned after compaction, cache determines behavior:
+   - If unchanged → `already_read_file` (silent)
+   - If changed or not in cache → `file` (with synthetic messages)
+
+**Why file change detection produces `edited_text_file`, not `already_read_file`**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    File Change Detection                     │
+│                                                              │
+│  File watcher detects external modification                  │
+│      ↓                                                       │
+│  wIY (getChangedFilesAttachment) runs                       │
+│      ↓                                                       │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ Is the file being watched?                           │    │
+│  │  └─ YES → Is it an image?                           │    │
+│  │           ├─ YES → edited_image_file (silent)       │    │
+│  │           └─ NO  → edited_text_file (visible)       │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                              │
+│  This is DIFFERENT from @mention path:                      │
+│  - File change detection → edited_text_file                  │
+│  - @mention with unchanged cache → already_read_file         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key insight**: The `readFileState` cache provides **token efficiency** through `already_read_file` optimization while enabling **change detection** through timestamp comparison. This dual purpose means the cache serves both @mention optimization and file watching functionality.
+
+---
+
 ### Integration 4: Hooks System (Module 21)
 
 **Files**:

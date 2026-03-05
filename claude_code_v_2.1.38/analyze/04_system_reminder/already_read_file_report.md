@@ -50,17 +50,22 @@
 
 ## Why No Synthetic Messages?
 
+> **See also**: [file_vs_already_read_comparison.md](./file_vs_already_read_comparison.md) - Complete flow comparison between `file` and `already_read_file` types with code evidence.
+
 A common misconception is that `already_read_file` generates synthetic tool_use/tool_result pairs like the `file` type. This is **incorrect**.
 
 ### Contrast with `file` Type
 
 | Aspect | `file` Type | `already_read_file` Type |
 |--------|-------------|--------------------------|
-| API Messages | Synthetic `tool_use` + `tool_result` via `pd1`/`Ud1` | **None** (returns `[]`) |
+| API Messages | Synthetic USER-role messages via `pd1`/`Ud1` | **None** (returns `[]`) |
+| Message Format | `{ role: “user”, content: “Called the Read tool...” }` | N/A (no messages) |
 | Token Cost | ~100-1000+ tokens (file content sent) | **0 tokens** (silent) |
 | UI Display | “Read \<filename\>” | “Read \<filename\>” (identical) |
 | Trigger | New file read needed | Cache hit, file unchanged |
 | Functions Used | `pd1` (createToolCallMessage), `Ud1` (createToolResultMessage) | None (falls through to `return []`) |
+
+**Important**: The “synthetic tool messages” created by `pd1`/`Ud1` are **USER-role text messages**, NOT actual API `tool_use` blocks. They describe tool usage but don't execute tools. See [file_vs_already_read_comparison.md](./file_vs_already_read_comparison.md#synthetic-message-mechanism-deep-dive) for details.
 
 ### Code Evidence
 

@@ -88,9 +88,11 @@ Silent types are attachment types that **produce no API messages**. They return 
 
 ## already_read_file
 
+> **See also**: [file_vs_already_read_comparison.md](./file_vs_already_read_comparison.md) - Complete flow comparison with `file` type.
+
 ### What It Does
 
-Signals that a file @-mentioned by the user has already been read and hasn't changed. Prevents redundant file reads.
+Signals that a file @-mentioned by the user has already been read and hasn't changed. Prevents redundant file reads and saves tokens by avoiding re-sending file content.
 
 ### Triggered When
 
@@ -184,6 +186,142 @@ case "already_read_file":
 1. **Token efficiency** - Don't re-send unchanged content
 2. **State tracking** - UI can show file is "known"
 3. **Deduplication** - Prevent redundant Read tool calls
+
+### Contrast with `file` Type
+
+Both `file` and `already_read_file` are triggered by @mention, but differ fundamentally:
+
+| Aspect | `file` Type | `already_read_file` Type |
+|--------|-------------|--------------------------|
+| Trigger condition | NOT in cache OR changed | In cache AND unchanged |
+| Normalizer result | `return _9([pd1(...), Ud1(...)])` | `return []` |
+| API messages | 2 synthetic USER-role messages | **0 messages** |
+| Message format | `{ role: "user", content: "Called the Read tool..." }` | N/A |
+| Token cost | ~100-1000+ tokens | **0 tokens** |
+| Code location | `chunks.173.mjs:750-772` | `chunks.173.mjs:1118` |
+
+**Key insight**: The `file` type creates synthetic USER-role text messages (via `pd1`/`Ud1`) that *describe* tool usage, while `already_read_file` returns an empty array. These are NOT actual `tool_use` blocks - they're plain text messages with `isMeta: true` flag.
+
+#### Code Comparison
+
+```javascript
+// ============================================
+// file type - Creates synthetic messages
+// Location: chunks.173.mjs:750-772
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "file": {
+    let K = A.content;
+    switch (K.type) {
+        case "text":
+            return _9([pd1(i5.name, { file_path: A.filename }), Ud1(i5, K)]);
+    }
+}
+
+// READABLE (for understanding):
+case "file": {
+    const content = attachment.content;
+    switch (content.type) {
+        case "text":
+            // Creates TWO USER-role messages:
+            // 1. "Called the Read tool with the following input: ..."
+            // 2. "Result of calling the Read tool: ..."
+            return wrapWithSystemReminder([
+                createToolCallMessage("Read", { file_path: attachment.filename }),
+                createToolResultMessage(ReadTool, content)
+            ]);
+    }
+}
+```
+
+```javascript
+// ============================================
+// already_read_file type - Returns empty array
+// Location: chunks.173.mjs:1118
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "already_read_file":
+case "command_permissions":
+case "edited_image_file":
+// ... falls through to:
+    return []
+
+// READABLE (for understanding):
+case "already_read_file":
+    // Silent - no API messages produced
+    // The file content is already in context from prior read
+    return [];
+```
+
+### Contrast with `file` Type
+
+Both `file` and `already_read_file` are triggered by @mention, but differ fundamentally:
+
+| Aspect | `file` Type | `already_read_file` Type |
+|--------|-------------|--------------------------|
+| Trigger condition | NOT in cache OR changed | In cache AND unchanged |
+| Normalizer result | `return _9([pd1(...), Ud1(...)])` | `return []` |
+| API messages | 2 synthetic USER-role messages | **0 messages** |
+| Message format | `{ role: "user", content: "Called the Read tool..." }` | N/A |
+| Token cost | ~100-1000+ tokens | **0 tokens** |
+| Code location | `chunks.173.mjs:750-772` | `chunks.173.mjs:1118` |
+
+**Key insight**: The `file` type creates synthetic USER-role text messages (via `pd1`/`Ud1`) that *describe* tool usage, while `already_read_file` returns an empty array. These are NOT actual `tool_use` blocks - they're plain text messages with `isMeta: true` flag.
+
+#### Code Comparison
+
+```javascript
+// ============================================
+// file type - Creates synthetic messages
+// Location: chunks.173.mjs:750-772
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "file": {
+    let K = A.content;
+    switch (K.type) {
+        case "text":
+            return _9([pd1(i5.name, { file_path: A.filename }), Ud1(i5, K)]);
+    }
+}
+
+// READABLE (for understanding):
+case "file": {
+    const content = attachment.content;
+    switch (content.type) {
+        case "text":
+            // Creates TWO USER-role messages:
+            // 1. "Called the Read tool with the following input: ..."
+            // 2. "Result of calling the Read tool: ..."
+            return wrapWithSystemReminder([
+                createToolCallMessage("Read", { file_path: attachment.filename }),
+                createToolResultMessage(ReadTool, content)
+            ]);
+    }
+}
+```
+
+```javascript
+// ============================================
+// already_read_file type - Returns empty array
+// Location: chunks.173.mjs:1118
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "already_read_file":
+case "command_permissions":
+case "edited_image_file":
+// ... falls through to:
+    return []
+
+// READABLE (for understanding):
+case "already_read_file":
+    // Silent - no API messages produced
+    // The file content is already in context from prior read
+    return [];
+```
 
 ---
 
