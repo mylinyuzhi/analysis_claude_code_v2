@@ -1020,6 +1020,24 @@
 | hMA | extractSystemReminderContent | chunks.90.mjs:517 | function |
 | EL9 | SYSTEM_REMINDER_REGEX | chunks.90.mjs:730 | constant (regex) |
 
+### Synthetic Message Creation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| pd1 | createToolCallMessage | chunks.173.mjs:1152 | function |
+| Ud1 | createToolResultMessage | chunks.173.mjs:1133 | function |
+| _9 | wrapWithSystemReminder | chunks.173.mjs:496 | function |
+| c6 | createUserMessage | chunks.172.mjs:2876 | function |
+
+### File Attachment Producers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| TyA | buildFileAttachmentForMention | chunks.142.mjs:2524 | function |
+| KIY | extractAtMentionedFiles | chunks.142.mjs:2199 | function |
+| wIY | getChangedFilesAttachment | chunks.142.mjs:2285 | function |
+| i5 | FileReadTool | chunks.88.mjs:2200 | object (tool definition) |
+
 ### API Preparation (isMeta Stripping)
 
 | Obfuscated | Readable | File:Line | Type |
