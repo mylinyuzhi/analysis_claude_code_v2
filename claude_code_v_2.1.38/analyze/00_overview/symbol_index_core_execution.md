@@ -578,7 +578,9 @@
 | dR | agentLoopRunner | chunks.130.mjs:1961 | function (generator) |
 | GVY | inProcessAgentRunner | chunks.131.mjs:348 | function |
 | p01 | runWithAgentIdentity | chunks.80.mjs:2353 | function |
-| WVY | inProcessPollLoop | chunks.131.mjs:260 | function (generator) |
+| WVY | pollForNextMessage | chunks.131.mjs:260 | function |
+| ss | parseShutdownRequest | chunks.131.mjs | function |
+| ib4 | getUnclaimedTaskPrompt | chunks.131.mjs:336 | function |
 
 ### Result Building
 
@@ -591,10 +593,11 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| _Q1 | fileLockSync | chunks.143.mjs:500 | object |
+| _Q1 | fileLockSync | chunks.129.mjs:1114 | object |
 | f9 | writeToMailbox | chunks.129.mjs:1107 | function |
-| JQ1 | markMessageAsReadByIndex | chunks.143.mjs:600 | function |
+| JQ1 | markMessageAsReadByIndex | chunks.129.mjs:1130 | function |
 | Ld | readMailbox | chunks.129.mjs:1089 | function |
+| z51 | readUnreadMessages | chunks.129.mjs:1101 | function |
 
 ### Transcript Management
 
@@ -620,7 +623,20 @@
 | cVY | spawnSeparateWindowTeammate | chunks.129.mjs:2700 | function |
 | dVY | spawnSplitPaneTeammate | chunks.129.mjs:2650 | function |
 | iVY | spawnTeammateDispatcher | chunks.129.mjs:2550 | function |
-| LP1 | spawnInProcessTeammate | chunks.129.mjs:2600 | function |
+| LP1 | spawnInProcessTeammate | chunks.123.mjs:242 | function |
+| Rj6 | killInProcessTeammate | chunks.123.mjs:326 | function |
+
+### In-Process Teammate Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Id | updateInProcessTeammate | chunks.131.mjs:190 | function |
+| DVY | sendTeammateMessage | chunks.131.mjs:204 | function |
+| lb4 | sendTeamBroadcast | chunks.131.mjs:213 | function |
+| jVY | sleepAsync | chunks.131.mjs:218 | function |
+| MVY | findUnclaimedTask | chunks.131.mjs:222 | function |
+| PVY | buildTaskPrompt | chunks.131.mjs:231 | function |
+| XVY | createPermissionHandler | chunks.131.mjs:3 | function |
 
 ---
 

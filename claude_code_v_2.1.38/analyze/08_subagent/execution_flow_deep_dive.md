@@ -19,6 +19,7 @@
 
 > Symbol mappings:
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution symbols
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features symbols
 
 Key functions in this document:
 - `dR` (agentLoopRunner) - Core async generator for agent execution
@@ -29,6 +30,9 @@ Key functions in this document:
 - `ix7` (agentIdentityStore) - AsyncLocalStorage instance
 - `db1` (getCurrentAgentIdentity) - Retrieve current identity
 - `ZR` (llmLoop) - Main LLM request/response loop
+- `GVY` (inProcessAgentRunner) - Runner for in-process teammate agents
+- `WVY` (pollForNextMessage) - Poll loop for teammate messages
+- `Id` (updateInProcessTeammate) - Update in-process teammate state
 
 ---
 

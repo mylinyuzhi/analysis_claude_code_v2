@@ -18,14 +18,18 @@
 
 > Symbol mappings:
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution symbols
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features symbols
 
 Key functions in this document:
 - `Ld` (readMailbox) - Read messages from mailbox file
 - `f9` (writeToMailbox) - Write message to mailbox file
 - `JQ1` (markMessageAsReadByIndex) - Mark message as read
-- `WVY` (inProcessPollLoop) - Poll loop for in-process teammates
+- `z51` (readUnreadMessages) - Read only unread messages from mailbox
+- `WVY` (pollForNextMessage) - Poll loop for in-process teammates
 - `GVY` (inProcessAgentRunner) - Runner for in-process agents
 - `_Q1` (fileLockSync) - File locking mechanism
+- `as` (getInboxPath) - Get path to agent's inbox file
+- `eZY` (ensureInboxDirectoryExists) - Ensure inbox directory exists
 
 ---
 
@@ -72,210 +76,195 @@ The mailbox system enables asynchronous communication between agents using file-
 ```javascript
 // ============================================
 // readMailbox - Read messages from mailbox file
-// Location: chunks.143.mjs:520-545
+// Location: chunks.129.mjs:1089-1099
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Ld(A) {
-    let q = getMailboxPath(A);
-    if (!fs.existsSync(q)) return [];
-
-    let K = _Q1.lockSync(q);
+function Ld(A, q) {
+    let K = as(A, q);
+    if (h(`[TeammateMailbox] readMailbox: path=${K}`), !Y51(K)) return h("[TeammateMailbox] readMailbox: file does not exist"), [];
     try {
-        let Y = fs.readFileSync(q, "utf-8");
-        let z = JSON.parse(Y);
-        return z.messages || [];
-    } catch (w) {
-        logError("Failed to read mailbox", w);
-        return [];
-    } finally {
-        K.unlock();
+        let Y = fx4(K, "utf-8"),
+            z = _A(Y);
+        return h(`[TeammateMailbox] readMailbox: read ${z.length} message(s)`), z
+    } catch (Y) {
+        return h(`Failed to read inbox for ${A}: ${Y}`), K1(Y instanceof Error ? Y : Error(String(Y))), []
     }
 }
 
 // READABLE (for understanding):
-function readMailbox(agentId) {
-    let mailboxPath = getMailboxPath(agentId);
+function readMailbox(agentName, teamName) {
+    let mailboxPath = getInboxPath(agentName, teamName);
 
     // If mailbox doesn't exist, no messages
     if (!fs.existsSync(mailboxPath)) return [];
 
-    // Acquire file lock
-    let lock = fileLockSync.lockSync(mailboxPath);
-
+    // Read and parse mailbox file
     try {
-        // Read and parse mailbox file
         let content = fs.readFileSync(mailboxPath, "utf-8");
-        let data = JSON.parse(content);
-        return data.messages || [];
+        let messages = JSON.parse(content);
+        return messages;
     } catch (error) {
-        logError("Failed to read mailbox", error);
+        logError(`Failed to read inbox for ${agentName}: ${error}`);
         return [];
-    } finally {
-        // Always release lock
-        lock.unlock();
     }
 }
 
-// Mapping: Ld→readMailbox, A→agentId, q→mailboxPath, K→lock, Y→content,
-//          z→data, w→error, _Q1→fileLockSync
+// Mapping: Ld→readMailbox, A→agentName, q→teamName, K→mailboxPath,
+//          as→getInboxPath, Y→content, z→messages, Y51→fs.existsSync,
+//          fx4→fs.readFileSync, _A→JSON.parse, K1→logError
 ```
 
-**What it does:** Reads all messages from an agent's mailbox file with file locking.
+**What it does:** Reads all messages from an agent's mailbox file.
 
 **How it works:**
-1. Get mailbox file path for agent
+1. Get mailbox file path using `getInboxPath` (as)
 2. Return empty array if file doesn't exist
-3. Acquire file lock using `_Q1.lockSync()`
-4. Read file content and parse JSON
-5. Extract messages array
-6. Release lock in finally block (guaranteed)
+3. Read file content and parse JSON
+4. Extract messages array
+5. Return empty array on error (graceful degradation)
 
 **Why this approach:**
-- **File locking:** Prevents race conditions when multiple processes access mailbox
 - **Fail-safe:** Returns empty array on error rather than throwing
-- **Guaranteed unlock:** finally block ensures lock released even on error
+- **Logging:** Comprehensive debug logging for troubleshooting
+- **Simple JSON:** Direct JSON array format, no wrapper object
 
 ### Write to Mailbox
 
 ```javascript
 // ============================================
 // writeToMailbox - Write message to mailbox file
-// Location: chunks.143.mjs:550-585
+// Location: chunks.129.mjs:1107-1128
 // ============================================
 
 // ORIGINAL (for source lookup):
-function f9(A, Q) {
-    let K = getMailboxPath(A);
-    ensureDirectoryExists(path.dirname(K));
-
-    let Y = _Q1.lockSync(K);
+function f9(A, q, K) {
+    eZY(K);
+    let Y = as(A, K),
+        z = `${Y}.lock`;
+    if (h(`[TeammateMailbox] writeToMailbox: recipient=${A}, from=${q.from}, path=${Y}`), !Y51(Y)) c8(Y, "[]", "utf-8"), h("[TeammateMailbox] writeToMailbox: created new inbox file");
+    let w;
     try {
-        let z = [];
-        if (fs.existsSync(K)) {
-            let w = fs.readFileSync(K, "utf-8");
-            let H = JSON.parse(w);
-            z = H.messages || [];
-        }
-
-        z.push({
-            ...Q,
-            id: Q.id || generateId(),
-            timestamp: Date.now(),
-            read: false
+        w = _Q1.lockSync(Y, {
+            lockfilePath: z
         });
-
-        fs.writeFileSync(K, JSON.stringify({ messages: z }, null, 2));
+        let H = Ld(A, K),
+            $ = {
+                ...q,
+                read: !1
+            };
+        H.push($), c8(Y, Q1(H, null, 2), "utf-8"), h(`[TeammateMailbox] Wrote message to ${A}'s inbox from ${q.from}`)
+    } catch (H) {
+        h(`Failed to write to inbox for ${A}: ${H}`), K1(H instanceof Error ? H : Error(String(H)))
     } finally {
-        Y.unlock();
+        if (w) w()
     }
 }
 
 // READABLE (for understanding):
-function writeToMailbox(agentId, message) {
-    let mailboxPath = getMailboxPath(agentId);
-
+function writeToMailbox(recipientName, message, teamName) {
     // Ensure inbox directory exists
-    ensureDirectoryExists(path.dirname(mailboxPath));
+    ensureInboxDirectoryExists(teamName);
+
+    let mailboxPath = getInboxPath(recipientName, teamName);
+    let lockFilePath = `${mailboxPath}.lock`;
+
+    // Create mailbox file if it doesn't exist
+    if (!fs.existsSync(mailboxPath)) {
+        fs.writeFileSync(mailboxPath, "[]", "utf-8");
+    }
 
     // Acquire file lock
-    let lock = fileLockSync.lockSync(mailboxPath);
-
+    let releaseLock;
     try {
-        let messages = [];
+        releaseLock = fileLockSync.lockSync(mailboxPath, { lockfilePath: lockFilePath });
 
-        // Read existing messages if mailbox exists
-        if (fs.existsSync(mailboxPath)) {
-            let content = fs.readFileSync(mailboxPath, "utf-8");
-            let data = JSON.parse(content);
-            messages = data.messages || [];
-        }
+        // Read existing messages
+        let messages = readMailbox(recipientName, teamName);
 
-        // Append new message
-        messages.push({
-            ...message,
-            id: message.id || generateId(),
-            timestamp: Date.now(),
-            read: false
-        });
+        // Append new message with read: false
+        let newMessage = { ...message, read: false };
+        messages.push(newMessage);
 
         // Write back to file
-        fs.writeFileSync(
-            mailboxPath,
-            JSON.stringify({ messages }, null, 2)
-        );
+        fs.writeFileSync(mailboxPath, JSON.stringify(messages, null, 2), "utf-8");
+    } catch (error) {
+        logError(`Failed to write to inbox for ${recipientName}: ${error}`);
     } finally {
-        lock.unlock();
+        if (releaseLock) releaseLock();
     }
 }
 
-// Mapping: f9→writeToMailbox, A→agentId, Q→message, K→mailboxPath, Y→lock,
-//          z→messages, w→content, H→data, _Q1→fileLockSync
+// Mapping: f9→writeToMailbox, A→recipientName, q→message, K→teamName,
+//          Y→mailboxPath, z→lockFilePath, w→releaseLock, H→error/$→newMessage,
+//          eZY→ensureInboxDirectoryExists, as→getInboxPath, _Q1→fileLockSync,
+//          Y51→fs.existsSync, c8→fs.writeFileSync, Q1→JSON.stringify
 ```
 
 **What it does:** Appends a message to an agent's mailbox file with file locking.
 
 **How it works:**
-1. Get mailbox path and ensure directory exists
-2. Acquire file lock
-3. Read existing messages (if file exists)
-4. Append new message with:
-   - Auto-generated ID if not provided
-   - Current timestamp
-   - `read: false` flag
-5. Write updated messages array to file
-6. Release lock in finally block
+1. Ensure inbox directory exists via `ensureInboxDirectoryExists` (eZY)
+2. Get mailbox path and lock file path
+3. Create empty mailbox file if it doesn't exist
+4. Acquire file lock using `fileLockSync.lockSync` (_Q1)
+5. Read existing messages, append new message with `read: false`
+6. Write updated messages array to file
+7. Release lock in finally block (guaranteed)
 
 **Why this approach:**
+- **File locking:** Prevents race conditions when multiple processes access mailbox
+- **Auto-create:** Creates mailbox file on first write
 - **Append-only:** Preserves existing messages
-- **Auto-ID generation:** Ensures every message has unique ID
-- **Atomic write:** File lock prevents concurrent writes from corrupting file
-- **Pretty JSON:** Formatted output (2-space indent) for debugging
+- **Guaranteed unlock:** finally block ensures lock released even on error
 
 ### Mark Message as Read
 
 ```javascript
 // ============================================
 // markMessageAsReadByIndex - Mark message as read
-// Location: chunks.143.mjs:600-625
+// Location: chunks.129.mjs:1130-1150
 // ============================================
 
 // ORIGINAL (for source lookup):
-function JQ1(A, q) {
-    let K = getMailboxPath(A);
-    if (!fs.existsSync(K)) return;
-
-    let Y = _Q1.lockSync(K);
+function JQ1(A, q, K) {
+    let Y = as(A, q);
+    if (h(`[TeammateMailbox] markMessageAsReadByIndex called: agentName=${A}, teamName=${q}, index=${K}, path=${Y}`), !Y51(Y)) {
+        h(`[TeammateMailbox] markMessageAsReadByIndex: file does not exist at ${Y}`);
+        return
+    }
+    let z = `${Y}.lock`,
+        w;
     try {
-        let z = fs.readFileSync(K, "utf-8");
-        let w = JSON.parse(z);
-        let H = w.messages || [];
-
-        if (q >= 0 && q < H.length) {
-            H[q].read = true;
+        w = _Q1.lockSync(Y, {
+            lockfilePath: z
+        });
+        let H = Ld(A, q);
+        if (K >= 0 && K < H.length) {
+            H[K].read = !0;
         }
-
-        fs.writeFileSync(K, JSON.stringify({ messages: H }, null, 2));
+        c8(Y, Q1(H, null, 2), "utf-8")
     } finally {
-        Y.unlock();
+        if (w) w()
     }
 }
 
 // READABLE (for understanding):
-function markMessageAsReadByIndex(agentId, messageIndex) {
-    let mailboxPath = getMailboxPath(agentId);
+function markMessageAsReadByIndex(agentName, teamName, messageIndex) {
+    let mailboxPath = getInboxPath(agentName, teamName);
 
     // Nothing to do if mailbox doesn't exist
     if (!fs.existsSync(mailboxPath)) return;
 
-    // Acquire file lock
-    let lock = fileLockSync.lockSync(mailboxPath);
+    let lockFilePath = `${mailboxPath}.lock`;
+    let releaseLock;
 
     try {
-        // Read mailbox
-        let content = fs.readFileSync(mailboxPath, "utf-8");
-        let data = JSON.parse(content);
-        let messages = data.messages || [];
+        // Acquire file lock
+        releaseLock = fileLockSync.lockSync(mailboxPath, { lockfilePath: lockFilePath });
+
+        // Read all messages
+        let messages = readMailbox(agentName, teamName);
 
         // Mark message as read if index is valid
         if (messageIndex >= 0 && messageIndex < messages.length) {
@@ -283,18 +272,16 @@ function markMessageAsReadByIndex(agentId, messageIndex) {
         }
 
         // Write back
-        fs.writeFileSync(
-            mailboxPath,
-            JSON.stringify({ messages }, null, 2)
-        );
+        fs.writeFileSync(mailboxPath, JSON.stringify(messages, null, 2), "utf-8");
     } finally {
-        lock.unlock();
+        if (releaseLock) releaseLock();
     }
 }
 
-// Mapping: JQ1→markMessageAsReadByIndex, A→agentId, q→messageIndex,
-//          K→mailboxPath, Y→lock, z→content, w→data, H→messages,
-//          _Q1→fileLockSync
+// Mapping: JQ1→markMessageAsReadByIndex, A→agentName, q→teamName, K→messageIndex,
+//          Y→mailboxPath, z→lockFilePath, w→releaseLock, H→messages,
+//          as→getInboxPath, Y51→fs.existsSync, _Q1→fileLockSync,
+//          Ld→readMailbox, c8→fs.writeFileSync, Q1→JSON.stringify
 ```
 
 **What it does:** Marks a specific message as read by index.

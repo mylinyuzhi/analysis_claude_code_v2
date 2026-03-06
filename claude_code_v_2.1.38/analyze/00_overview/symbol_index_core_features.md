@@ -11,6 +11,7 @@
 - [Agent Teams](#module-agent-teams) - **NEW in 2.1.32**
 - [Auto Memory](#module-auto-memory) - **NEW in 2.1.32**
 - [Task System](#module-task-system) - **REFACTORED from Todo List**
+- [Background Agents](#module-background-agents) - Foreground, background, and teammate execution
 - [Keybindings](#module-keybindings) - **NEW in 2.1.18**
 - [Remote Sessions](#module-remote-sessions) - **NEW in 2.1.27**
 - [Fast Mode](#module-fast-mode) - **NEW in 2.1.36**
@@ -189,6 +190,57 @@
 | ff5 | todoStatusSchema | chunks.48.mjs:197 | schema |
 | jH | isStructuredTasksEnabled | chunks.48.mjs:405 | function |
 | U6 | getCurrentAgentId | chunks.48.mjs | function |
+
+---
+
+## Module: Background Agents
+
+> Full analysis: [26_background_agents/](../26_background_agents/), [08_subagent/](../08_subagent/)
+> **Multi-mode execution** - Foreground, background, and teammate agents
+
+### Background Task Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Bj1 | BACKGROUND_AGENT_ALLOWED_TOOLS | chunks.89.mjs:876 | constant (Set) |
+| VjA | ASYNC_BATCH_TOOLS | chunks.89.mjs:876 | constant (Set, copy of Bj1) |
+| KP6 | BACKGROUND_TASKS_DISABLED | chunks.132.mjs:37 | constant (boolean) |
+| nVY | BACKGROUND_HINT_THRESHOLD | chunks.132.mjs | constant (ms) |
+| Id1 | BASH_BACKGROUND_DISABLED | chunks.170.mjs:528 | constant (boolean) |
+| q_q | BASH_BACKGROUND_TIMEOUT_MS | chunks.170.mjs:514 | constant (2000) |
+
+### Background Task Creation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| zd7 | createAsyncTask | chunks.89.mjs:1447 | function |
+| wd7 | createForegroundTask | chunks.89.mjs:1477 | function |
+| u_6 | foregroundResolveMap | chunks.89.mjs:1477 | variable (Map) |
+| Hp7 | backgroundTaskSignalMap | chunks.89.mjs | variable (Map) |
+
+### Task State Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bZ | registerTaskInState | chunks.142.mjs:1676 | function |
+| c5 | atomicUpdateTask | chunks.142.mjs:1662 | function |
+| yjA | markTaskCompleted | chunks.89.mjs:1422 | function |
+| CjA | markTaskFailed | chunks.89.mjs:1435 | function |
+| Hd7 | backgroundForegroundTask | chunks.89.mjs:1515 | function |
+| na | killTask | chunks.89.mjs:1376 | function |
+| Kd7 | killAllRunningAgents | chunks.89.mjs:1448 | function |
+
+### Progress & Output
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| RjA | reportToolProgress | chunks.89.mjs:1393 | function |
+| Yd7 | updateTaskProgress | chunks.89.mjs:1407 | function |
+| ww | getOutputFilePath | chunks.89.mjs:249 | function |
+| eu1 | getTasksDir | chunks.89.mjs:238 | function |
+| ZK1 | writeOutputChunk | chunks.89.mjs:253 | function |
+| WjA | readOutputFileDelta | chunks.89.mjs:276 | function |
+| M_6 | readFullOutput | chunks.89.mjs:300 | function |
 
 ---
 

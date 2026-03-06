@@ -375,6 +375,37 @@ STRUCTURED_TASK_TOOLS = new Set([
 // Mapping: np7->STRUCTURED_TASK_TOOLS
 ```
 
+### ASYNC_BATCH_TOOLS (VjA)
+
+**What it is:** A copy of `BACKGROUND_AGENT_ALLOWED_TOOLS` - tools restricted when `canUseTaskTools` is false.
+
+```javascript
+// ============================================
+// ASYNC_BATCH_TOOLS - Copy of background agent tools
+// Location: chunks.89.mjs:876
+// ============================================
+
+// ORIGINAL (for source lookup):
+VjA = new Set([...Bj1])
+
+// READABLE (for understanding):
+ASYNC_BATCH_TOOLS = new Set([...BACKGROUND_AGENT_ALLOWED_TOOLS])
+// Contains: TaskOutput, ExitPlanMode, EnterPlanMode, Task, AskUserQuestion, TaskStop
+
+// Mapping: VjA->ASYNC_BATCH_TOOLS, Bj1->BACKGROUND_AGENT_ALLOWED_TOOLS
+```
+
+**Why this duplication exists:**
+- `BACKGROUND_AGENT_ALLOWED_TOOLS` (Bj1) is used to define what background agents CAN use
+- `ASYNC_BATCH_TOOLS` (VjA) is used to restrict tools when `canUseTaskTools: false`
+- Semantically different purposes, but same tool list
+- Separation allows future divergence if needed
+
+**Usage context:**
+- When `canUseTaskTools` is false (e.g., certain restricted subagent contexts)
+- Tools in this set are **blocked** for the subagent
+- This prevents spawning background tasks from restricted contexts
+
 ### Tool Whitelist Application
 
 ```javascript
