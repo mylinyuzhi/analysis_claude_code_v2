@@ -926,6 +926,25 @@
 | I7z | ThemeCommand | chunks.162.mjs:419142 | object |
 | PuA | UsageCommand | chunks.162.mjs:419075 | object |
 
+### Skill Usage Tracking
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| xM6 | recordSkillUsage | chunks.130.mjs:1383-1397 | function |
+| bM6 | getSkillUsageScore | chunks.130.mjs:1399-1405 | function |
+| skillUsage | skillUsage | chunks.130.mjs | state key |
+
+### Skill Tool Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wt | SkillTool | chunks.132.mjs:820-1073 | object |
+| NJ | SKILL_TOOL_NAME | chunks.132.mjs:821 | constant ("Skill") |
+| JNY | SKILL_PROPERTY_KEYS | chunks.132.mjs:1073 | constant (Set) |
+| HNY | skillInputSchema | chunks.132.mjs:805-807 | schema |
+| XNY | validateSkillProperties | chunks.132.mjs:752-761 | function |
+| wNY | executeForkedSkill | chunks.132.mjs:693-750 | function |
+
 ### Built-in Prompt Skills (Registration & Prompts)
 
 | Obfuscated | Readable | File:Line | Type |
