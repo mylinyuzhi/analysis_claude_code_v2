@@ -202,12 +202,14 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Bj1 | BACKGROUND_AGENT_ALLOWED_TOOLS | chunks.89.mjs:876 | constant (Set) |
+| Bj1 | BACKGROUND_AGENT_BLOCKED_TOOLS | chunks.89.mjs:876 | constant (Set) |
 | VjA | ASYNC_BATCH_TOOLS | chunks.89.mjs:876 | constant (Set, copy of Bj1) |
+| L_6 | ASYNC_COMPATIBLE_TOOLS | chunks.89.mjs:876 | constant (Set, allowlist for async) |
 | KP6 | BACKGROUND_TASKS_DISABLED | chunks.132.mjs:37 | constant (boolean) |
 | nVY | BACKGROUND_HINT_THRESHOLD | chunks.132.mjs | constant (ms) |
 | Id1 | BASH_BACKGROUND_DISABLED | chunks.170.mjs:528 | constant (boolean) |
 | q_q | BASH_BACKGROUND_TIMEOUT_MS | chunks.170.mjs:514 | constant (2000) |
+| ghY | TURNS_BETWEEN_PROGRESS | chunks.142.mjs:2863 | constant (3) |
 
 ### Background Task Creation
 
@@ -217,6 +219,8 @@
 | wd7 | createForegroundTask | chunks.89.mjs:1477 | function |
 | u_6 | foregroundResolveMap | chunks.89.mjs:1477 | variable (Map) |
 | Hp7 | backgroundTaskSignalMap | chunks.89.mjs | variable (Map) |
+| hp | createTaskId | chunks.89.mjs:522 | function |
+| IZ | createTaskRecord | chunks.89.mjs:528 | function |
 
 ### Task State Management
 
@@ -241,6 +245,56 @@
 | ZK1 | writeOutputChunk | chunks.89.mjs:253 | function |
 | WjA | readOutputFileDelta | chunks.89.mjs:276 | function |
 | M_6 | readFullOutput | chunks.89.mjs:300 | function |
+| hj1 | initOutputFile | chunks.89.mjs:310 | function |
+| Ij1 | symlinkOutputFile | chunks.89.mjs:317 | function |
+| Rp7 | cleanupOutputFiles | chunks.89.mjs:328 | function |
+
+### Kill Handlers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| gj1 | LocalBashTaskHandler | chunks.89.mjs:2012 | object |
+| B_6 | LocalAgentTaskHandler | chunks.89.mjs:1574 | object |
+| Qi4 | RemoteAgentTaskHandler | chunks.142.mjs:1586 | object |
+| hjA | killBashTask | chunks.89.mjs:1846 | function |
+| Vg1 | getKillHandlerForType | chunks.142.mjs:1652 | function |
+| IhY | getAllKillHandlers | chunks.142.mjs:1648 | function |
+
+### System Reminder Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| vIY | getUnifiedTasksAttachment | chunks.142.mjs:2719 | function |
+| di4 | buildTaskAttachments | chunks.142.mjs:1711 | function |
+| TIY | countTurnsSinceLastProgress | chunks.142.mjs:2703 | function |
+| pi4 | resetProgressState | chunks.142.mjs | function |
+| Ng1 | truncateTaskOutput | chunks.139.mjs:1664 | function |
+
+### Notification & Queue
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| vK1 | notifyTaskCompletion | chunks.89.mjs:1346 | function |
+| WR | enqueueCommand | chunks.89.mjs:402 | function |
+| G_6 | notifyQueueSubscribers | chunks.89.mjs:381 | function |
+| lB | enqueueOrBuffer | chunks.89.mjs:407 | function |
+| W_6 | commandSubscribers | chunks.89.mjs:415 | variable (Set) |
+| xj1 | commandQueue | chunks.89.mjs:514 | variable (Array) |
+| Cp7 | queueEpochCounter | chunks.89.mjs:505 | variable |
+
+### Transcript & Compaction
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| sP1 | loadTranscript | chunks.173.mjs:2722 | function |
+| ld1 | buildConversationChain | chunks.173.mjs:2092 | function |
+| BQ1 | filterWhitespaceAssistant | chunks.173.mjs:1388 | function |
+| mQ1 | filterThinkingOnlyAssistant | chunks.173.mjs:1435 | function |
+| wP6 | stripOrphanedToolResults | chunks.173.mjs:344 | function |
+| kh | getSessionPathForSubagent | chunks.1.mjs:2500 | function |
+| xZ | prefixAgentId | chunks.89.mjs:894 | function |
+| nhA | loadAgentTranscripts | chunks.173.mjs:2766 | function |
+| ihA | extractTeammateMessages | chunks.173.mjs:2759 | function |
 
 ---
 

@@ -10,7 +10,7 @@ Hooks are implemented as **callback functions** or **shell commands** registered
 - **Two hook points**: PreCompact (before summarization) and SessionStart (after compaction)
 - **Custom instructions injection**: PreCompact hooks can add instructions to summary request
 - **User feedback**: Hooks can return display messages shown to user
-- **Timeout protection**: Default 5-second timeout prevents hanging
+- **Timeout protection**: Default 10-minute timeout prevents hanging
 - **Async execution**: Hooks run concurrently via `Promise.all()`
 - **Graceful failure**: Hook errors don't crash compaction
 
@@ -32,7 +32,7 @@ Key functions in this document:
 - `executeHooksIterator` (NI) - Generator that yields hook results one by one
 
 Constants:
-- `DEFAULT_HOOK_TIMEOUT` (MP) - 5,000 ms (5 seconds)
+- `DEFAULT_HOOK_TIMEOUT` (MP) - 600,000 ms (10 minutes)
 
 ---
 
@@ -99,7 +99,7 @@ Calls all registered PreCompact hooks with trigger type and custom instructions,
    - `hookInput`: Input object from step 1
    - `matchQuery`: `trigger` value (allows hooks to match on "auto" vs "manual")
    - `signal`: Abort signal for cancellation
-   - `timeoutMs`: Default 5000ms
+   - `timeoutMs`: Default 600000ms (10 minutes)
 
 3. **Process results**:
    - `results` = array of `{ command, succeeded, output }` objects
@@ -271,7 +271,7 @@ Executes all registered hooks matching the event name and query, handling differ
 4. **Execute hooks concurrently**:
    - Map each hook to async execution function
    - For **callback hooks**:
-     - Create timeout signal (hook.timeout or default 5s)
+     - Create timeout signal (hook.timeout or default 10 minutes)
      - Call `hook.callback(hookInput, toolUseID, signal, index)`
      - Return `{ command: "callback", succeeded: true/false, output: systemMessage }`
    - For **prompt/agent/function hooks**:
@@ -433,7 +433,7 @@ Custom instructions text here
 
 ### Hook Timeout
 
-**Scenario:** Hook execution exceeds timeout (default 5s)
+**Scenario:** Hook execution exceeds timeout (default 10 minutes)
 **Detection:** Abort signal triggers after timeout
 **Handling:** Exception caught, returns `{ succeeded: false, output: timeoutError }`
 **Impact:** Other hooks continue executing, compaction proceeds
@@ -476,8 +476,8 @@ Custom instructions text here
 ### Timeout Protection
 
 **Problem:** Hanging hook could block compaction indefinitely
-**Solution:** Default 5-second timeout with abort signal
-**Impact:** Maximum 5-second delay per hook batch
+**Solution:** Default 10-minute timeout with abort signal
+**Impact:** Maximum 10-minute delay per hook batch
 
 ### PreCompact Latency
 
@@ -505,12 +505,12 @@ Custom instructions text here
 
 **Trade-off:** More complex API, but worth it for streaming
 
-### Why Default 5s Timeout?
+### Why Default 10 Minute Timeout?
 
 **Rationale:**
-- Long enough for network requests (API calls, git operations)
-- Short enough to not frustrate users
-- Can be overridden per-hook
+- Long enough for complex operations (build processes, large file operations, network requests)
+- Allows hooks to perform significant work without premature timeout
+- Can be overridden per-hook for shorter or longer durations
 
 ---
 
@@ -538,7 +538,7 @@ The Hooks System provides **lifecycle integration points** for compaction, enabl
 1. **Two hook points**: PreCompact (modify) and SessionStart (observe)
 2. **Custom instructions injection**: PreCompact hooks can augment summary prompt
 3. **Parallel execution**: All hooks run concurrently for performance
-4. **Timeout protection**: Default 5s prevents hanging
+4. **Timeout protection**: Default 10 minutes prevents hanging
 5. **Graceful failure**: Hook errors don't crash compaction
 
 This architecture enables **extensible compaction** - users can customize behavior without modifying core Claude Code source.
