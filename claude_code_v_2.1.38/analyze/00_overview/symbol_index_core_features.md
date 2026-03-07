@@ -780,10 +780,10 @@
 | On7 | appendAsyncHookStdout | chunks.90.mjs:1840 | function |
 | _n7 | appendAsyncHookStderr | chunks.90.mjs:1846 | function |
 | cMA | finalizeAsyncHook | chunks.90.mjs:1852 | function |
-| Jn7 | checkAsyncHookResponses | chunks.90.mjs:1865 | function |
+| Jn7 | getPendingHookResponses | chunks.90.mjs:1865 | function |
 | Xn7 | removeDeliveredAsyncHooks | chunks.90.mjs:1916 | function |
 | lMA | cleanupAllAsyncHooks | chunks.90.mjs:1923 | function |
-| VR | asyncHookRegistry | chunks.90.mjs:1934 | variable (Map) |
+| VR | asyncHookRegistry | chunks.90.mjs:1941 | variable (Map) |
 | ji4 | backgroundHookProcess | chunks.141.mjs:1739 | function |
 
 ### Hook Telemetry & Streaming
@@ -821,7 +821,8 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| tGY | HOOK_EVENT_NAMES | chunks.129.mjs:717 | constant (15-item Array) |
+| tGY | HOOK_EVENT_NAMES_SCHEMA | chunks.129.mjs:717 | constant (15-item Array, Zod enum source) |
+| ax | HOOK_EVENT_NAMES | chunks.14.mjs:3572 | constant (15-item Array, runtime) |
 | MP | DEFAULT_HOOK_TIMEOUT | chunks.142.mjs:215 | constant (600000ms = 10 min) |
 | Bj1 | HOOK_BLOCKED_TOOLS | chunks.89.mjs:876 | constant (Set) |
 | zJ6 | HookOutputSchema | chunks.129.mjs:834 (LZY) | schema |

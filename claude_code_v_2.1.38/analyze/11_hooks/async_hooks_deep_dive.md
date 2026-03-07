@@ -16,7 +16,7 @@ Key functions:
 - `registerAsyncHook` ($n7) - Adds a background hook to `VR` (asyncHookRegistry)
 - `appendAsyncHookStdout` (On7) - Accumulates stdout from background process
 - `appendAsyncHookStderr` (_n7) - Accumulates stderr from background process
-- `checkAsyncHookResponses` (Jn7) - Polls registry for completed hooks
+- `getPendingHookResponses` (Jn7) - Polls registry for completed hooks
 - `cleanupAllAsyncHooks` (lMA) - Session-end cleanup
 - `hookProgressPoller` (HJ6) - Streams live progress to remote clients
 - `isAsyncHookResponse` (SK1) - Detects `{"async": true}` in JSON output
@@ -146,7 +146,7 @@ Process spawn
 │     ├─ Reads current output from VR[pid]
 │     └─ If changed → emits xL9(emitHookProgress) to remote clients
 │
-└─ Next session turn → Jn7(checkAsyncHookResponses) called:
+└─ Next session turn → Jn7(getPendingHookResponses) called:
    For each entry in VR:
    ├─ If shellCommand.status === "killed" → remove, skip
    ├─ If shellCommand.status !== "completed" → skip (still running)

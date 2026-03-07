@@ -26,7 +26,7 @@ Key functions in this document:
 - `parseHookOutput` (Wi4) - Parses hook stdout as JSON or plain text
 - `processHookJsonOutput` (Gi4) - Maps JSON output fields to permission decisions, context injections, etc.
 - `registerAsyncHook` ($n7) - Registers a backgrounded hook process in the async registry
-- `checkAsyncHookResponses` (Jn7) - Polls background hook registry for completed hooks
+- `getPendingHookResponses` (Jn7) - Polls background hook registry for completed hooks
 - `mergeAsyncGenerators` (_J6) - Concurrent iterator merger for parallel hook execution
 - `combineAbortSignals` (fR) - Merges timeout + parent abort signals into one
 - `matchesHookMatcher` (_hY) - Tests if a query string matches a hook's matcher pattern
@@ -37,7 +37,7 @@ Key functions in this document:
 - `getStructuredOutputTool` (jn7) - Returns the structured-output tool used by agent hooks
 - `interpolateHookPrompt` (XJ6) - Interpolates `${VAR}` in hook prompt strings
 - `buildBasePayload` (aX) - Constructs the common base payload for every hook event
-- `HOOK_EVENT_NAMES` (tGY) - Canonical list of all 15 event names
+- `HOOK_EVENT_NAMES` (ax/tGY) - Canonical list of all 15 event names (runtime/schema)
 - `DEFAULT_HOOK_TIMEOUT` (MP) - Default timeout: **600,000ms (10 minutes)**
 - `HOOK_BLOCKED_TOOLS` (Bj1) - Set of tool names blocked from agent hooks
 
@@ -746,7 +746,7 @@ function registerAsyncHook({ processId, hookId, asyncResponse, hookName, hookEve
 1. Hook starts → registerAsyncHook($n7) adds to VR (asyncHookRegistry: Map)
 2. Process streams stdout → On7 appends to VR[processId].stdout
 3. Process streams stderr → _n7 appends to VR[processId].stderr
-4. Next session turn → checkAsyncHookResponses(Jn7) polls all VR entries:
+4. Next session turn → getPendingHookResponses(Jn7) polls all VR entries:
    - If shellCommand.status === "killed" → remove from registry
    - If shellCommand.status === "completed" AND stdout non-empty AND not yet delivered:
      → Parse stdout lines for non-async JSON response
