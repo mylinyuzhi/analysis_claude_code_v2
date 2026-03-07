@@ -1,5 +1,11 @@
 # Verifier Skills System - Deep Analysis (Claude Code 2.1.38)
 
+> **Note:** This document covers the verifier skill subsystem specifically. For the general skill system architecture, see:
+> - [README.md](./README.md) - Skill system overview
+> - [core_architecture.md](./core_architecture.md) - Skill loading and registration
+> - [skill_tool.md](./skill_tool.md) - Skill tool implementation
+> - [integrations.md](./integrations.md) - System reminder, compact, hooks integration
+
 ## Overview
 
 Verifier skills provide automated verification of code changes using project-specific testing strategies. The system follows an **orchestrator-executor architecture**: a central `/verify` skill acts as the coordinator that discovers available verifier skills, analyzes git changes, routes files to the appropriate verifiers, generates a structured verification plan, delegates execution to individual verifier skills, and aggregates results into a unified report.
