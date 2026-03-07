@@ -1334,6 +1334,348 @@ The skill system maintains six module-level state variables:
 
 ---
 
+## Skill Registry Internals
+
+### getSkillRegistry (cZ) - The Unified Registry Getter
+
+**What it does:** Aggregates skills from all sources into a unified registry, with memoization for performance.
+
+**How it works:**
+1. Loads from three main sources in parallel:
+   - Skill directory commands (user/project skills)
+   - Plugin commands (from installed plugins)
+   - Bundled skills (first-party built-in skills)
+2. Merges with additional skill sources:
+   - User commands (non-skill commands)
+   - Dynamic skills (from `@` mentions)
+   - Built-in commands (hardcoded)
+3. Filters by `isEnabled()`
+4. Handles duplicate name resolution
+
+```javascript
+// ============================================
+// getSkillRegistry - Unified skill aggregation
+// Location: chunks.168.mjs:2292-2306
+// ============================================
+
+// ORIGINAL (for source lookup):
+cZ = KA(async (A) => {
+    let [{
+        skillDirCommands: q,
+        pluginSkills: K,
+        bundledSkills: Y
+    }, z, w] = await Promise.all([_9z(A), YK1(), O9z()]), H = iF4(), $ = [...Y, ...q, ...z, ...K, ...w, ...QBA()].filter((D) => D.isEnabled());
+    if (H.length === 0) return $;
+    let O = new Set($.map((D) => D.name)),
+        _ = H.filter((D) => !O.has(D.name) && D.isEnabled());
+    if (_.length === 0) return $;
+    let J = new Set(QBA().map((D) => D.name)),
+        X = $.findIndex((D) => J.has(D.name));
+    if (X === -1) return [...$, ..._];
+    return [...$.slice(0, X), ..._, ...$.slice(X)]
+});
+
+// READABLE (for understanding):
+const getSkillRegistry = memoize(async (registryContext) => {
+    // 1. Load from three main sources in parallel
+    let [{
+        skillDirCommands,    // Skills from .claude/skills/
+        pluginSkills,        // Skills from plugins
+        bundledSkills        // Built-in bundled skills
+    }, userCommands, dynamicSkills] = await Promise.all([
+        getSkillsFromDirs(registryContext),    // _9z
+        loadPluginCommands(),                   // YK1
+        getBundledDynamicSkills()               // O9z
+    ]);
+
+    // 2. Get additional skills from state
+    let additionalSkills = getAdditionalSkillsFromState();  // iF4
+
+    // 3. Merge all sources with priority order
+    // Priority: bundled → skillDir → userCommands → plugin → dynamic → built-in
+    let allSkills = [
+        ...bundledSkills,
+        ...skillDirCommands,
+        ...userCommands,
+        ...pluginSkills,
+        ...dynamicSkills,
+        ...getBuiltInCommands()  // QBA
+    ].filter(skill => skill.isEnabled());
+
+    // 4. Add additional skills (avoiding duplicates)
+    if (additionalSkills.length === 0) return allSkills;
+
+    let existingNames = new Set(allSkills.map(s => s.name));
+    let uniqueAdditional = additionalSkills.filter(
+        s => !existingNames.has(s.name) && s.isEnabled()
+    );
+
+    if (uniqueAdditional.length === 0) return allSkills;
+
+    // 5. Insert additional skills before built-in commands
+    let builtInNames = new Set(getBuiltInCommands().map(s => s.name));
+    let insertIndex = allSkills.findIndex(s => builtInNames.has(s.name));
+
+    if (insertIndex === -1) {
+        return [...allSkills, ...uniqueAdditional];
+    }
+
+    return [
+        ...allSkills.slice(0, insertIndex),
+        ...uniqueAdditional,
+        ...allSkills.slice(insertIndex)
+    ];
+});
+
+// Mapping: cZ→getSkillRegistry, KA→memoize, _9z→getSkillsFromDirs,
+// YK1→loadPluginCommands, O9z→getBundledDynamicSkills, iF4→getAdditionalSkillsFromState,
+// QBA→getBuiltInCommands
+```
+
+**Why this approach:**
+- **Parallel loading:** All sources load concurrently for performance
+- **Priority ordering:** Earlier sources take precedence for duplicate names
+- **Memoization:** `KA()` caches the result to avoid repeated filesystem access
+- **Dynamic insertion:** Additional skills are inserted at the right position
+
+### Loading Source Functions
+
+The registry pulls from multiple sources, each with its own loader:
+
+#### getSkillsFromDirs (_9z)
+
+**What it does:** Loads skills from skill directories and plugin skills.
+
+```javascript
+// ============================================
+// getSkillsFromDirs - Load from directories and plugins
+// Location: chunks.168.mjs:2118-2137
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function _9z(A) {
+    try {
+        let [q, K] = await Promise.all([ukA(A).catch((z) => {
+            return K1(z instanceof Error ? z : Error("Failed to load skill directory commands")), h("Skill directory commands failed to load, continuing without them"), []
+        }), B0A().catch((z) => {
+            return K1(z instanceof Error ? z : Error("Failed to load plugin skills")), h("Plugin skills failed to load, continuing without them"), []
+        })]), Y = nHq();
+        return h(`getSkills returning: ${q.length} skill dir commands, ${K.length} plugin skills, ${Y.length} bundled skills`), {
+            skillDirCommands: q,
+            pluginSkills: K,
+            bundledSkills: Y
+        }
+    } catch (q) {
+        return K1(q instanceof Error ? q : Error("Unexpected error loading skills")), h("Unexpected error in getSkills, returning empty"), {
+            skillDirCommands: [],
+            pluginSkills: [],
+            bundledSkills: []
+        }
+    }
+}
+
+// READABLE (for understanding):
+async function getSkillsFromDirs(registryContext) {
+    try {
+        // Load in parallel with error recovery
+        let [skillDirCommands, pluginSkills] = await Promise.all([
+            loadSkills(registryContext).catch(err => {
+                logError(err);
+                debug("Skill directory commands failed to load, continuing without them");
+                return [];
+            }),
+            loadPluginSkills().catch(err => {
+                logError(err);
+                debug("Plugin skills failed to load, continuing without them");
+                return [];
+            })
+        ]);
+
+        // Get bundled skills (always available)
+        let bundledSkills = getBundledSkills();  // nHq
+
+        debug(`getSkills returning: ${skillDirCommands.length} skill dir commands, ${pluginSkills.length} plugin skills, ${bundledSkills.length} bundled skills`);
+
+        return {
+            skillDirCommands,
+            pluginSkills,
+            bundledSkills
+        };
+    } catch (err) {
+        logError(err);
+        debug("Unexpected error in getSkills, returning empty");
+        return {
+            skillDirCommands: [],
+            pluginSkills: [],
+            bundledSkills: []
+        };
+    }
+}
+
+// Mapping: _9z→getSkillsFromDirs, ukA→loadSkills, B0A→loadPluginSkills, nHq→getBundledSkills
+```
+
+**Key insight:** Each loader has its own error boundary. If one fails, others continue. This ensures partial functionality even when some skill sources are broken.
+
+#### loadPluginCommands (YK1)
+
+**What it does:** Loads commands from installed plugins.
+
+```javascript
+// ============================================
+// loadPluginCommands - Load from plugins
+// Location: chunks.87.mjs:2039
+// ============================================
+
+// READABLE (for understanding):
+loadPluginCommands = memoize(async () => {
+    let { enabled: plugins, errors } = await getEnabledPlugins();
+    let commands = [];
+
+    if (errors.length > 0) {
+        debug(`Plugin loading errors: ${errors.map(e => e.message).join(", ")}`);
+    }
+
+    for (let plugin of plugins) {
+        let seenFiles = new Set();
+
+        // Load from default commands directory
+        if (plugin.commandsPath) {
+            try {
+                let cmds = await loadCommandsFromDir(
+                    plugin.commandsPath,
+                    plugin.name,
+                    plugin.source,
+                    plugin.manifest,
+                    plugin.path,
+                    { isSkillMode: false },
+                    seenFiles
+                );
+                commands.push(...cmds);
+                if (cmds.length > 0) {
+                    debug(`Loaded ${cmds.length} commands from plugin ${plugin.name} default directory`);
+                }
+            } catch (err) {
+                debug(`Failed to load commands from plugin ${plugin.name}: ${err}`);
+            }
+        }
+
+        // Load from custom command paths
+        if (plugin.commandsPaths) {
+            for (let cmdPath of plugin.commandsPaths) {
+                // Similar loading logic...
+            }
+        }
+    }
+
+    return commands;
+});
+```
+
+#### getBundledDynamicSkills (O9z)
+
+**What it does:** Returns dynamically bundled skills based on eligibility.
+
+```javascript
+// ============================================
+// getBundledDynamicSkills - Dynamic bundled skills
+// Location: chunks.168.mjs:2110-2116
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function O9z() {
+    try {
+        return (await op1())?.eligible ? [ezq] : []
+    } catch (A) {
+        return []
+    }
+}
+
+// READABLE (for understanding):
+async function getBundledDynamicSkills() {
+    try {
+        let eligibility = await checkFeatureEligibility();
+        return eligibility?.eligible ? [FEATURE_SKILL] : [];
+    } catch (err) {
+        return [];
+    }
+}
+```
+
+### Cache Invalidation
+
+The registry uses memoization (`KA`) for performance. Caches are cleared when:
+
+1. **Skills are reloaded** - `clearSkillsCache` (BP6) is called
+2. **Registry refresh** - `bm()` clears all caches
+3. **File changes detected** - Watcher triggers reload
+
+```javascript
+// ============================================
+// Cache invalidation functions
+// Location: chunks.168.mjs:2139-2145
+// ============================================
+
+// ORIGINAL (for source lookup):
+function UBA() {
+    cZ.cache?.clear?.(), hv.cache?.clear?.(), aO6.cache?.clear?.()
+}
+
+function bm() {
+    UBA(), dO6(), EU7(), BP6()
+}
+
+// READABLE (for understanding):
+function clearRegistryCaches() {
+    getSkillRegistry.cache?.clear?.();
+    getSkillsForLLMInvocation.cache?.clear?.();
+    getSlashCommandSkills.cache?.clear?.();
+}
+
+function refreshAllSkills() {
+    clearRegistryCaches();
+    clearDynamicSkills();
+    clearConditionalSkills();
+    clearSkillsCache();
+}
+
+// Mapping: UBA→clearRegistryCaches, bm→refreshAllSkills
+```
+
+### Registry Context
+
+The `ZO()` function provides context for registry operations:
+
+```javascript
+// ZO() returns a registry context object used by cZ and related functions
+// The context includes:
+// - Current working directory
+// - Project roots
+// - Permission settings
+// - Tool use context (if available)
+```
+
+### Multi-Source Loading Priority
+
+When skills from different sources have the same name, the priority is:
+
+```
+Priority (highest → lowest):
+1. Bundled skills (built-in, first-party)
+2. Skill directory commands (user/project .claude/skills/)
+3. User commands (non-skill commands)
+4. Plugin skills
+5. Dynamic skills
+6. Built-in commands (hardcoded)
+```
+
+**Why this order:**
+- **Bundled first:** First-party skills are trusted and well-tested
+- **User skills override plugins:** User customization takes precedence
+- **Dynamic skills last:** These are discovered at runtime, not predefined
+
+---
+
 ## Key Architectural Insights
 
 ### The Three-Map Architecture

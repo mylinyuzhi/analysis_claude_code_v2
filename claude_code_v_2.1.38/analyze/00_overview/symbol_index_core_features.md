@@ -934,6 +934,47 @@
 | bM6 | getSkillUsageScore | chunks.130.mjs:1399-1405 | function |
 | skillUsage | skillUsage | chunks.130.mjs | state key |
 
+### Skill Registry & Loading
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cZ | getSkillRegistry | chunks.168.mjs:2292-2306 | function |
+| hv | getSkillsForLLMInvocation | chunks.168.mjs:2307-2308 | function |
+| aO6 | getSlashCommandSkills | chunks.168.mjs:2309-2315 | function |
+| _9z | getSkillsFromDirs | chunks.168.mjs:2118-2137 | function |
+| YK1 | loadPluginCommands | chunks.87.mjs:2039 | function |
+| O9z | getBundledDynamicSkills | chunks.168.mjs:2110-2116 | function |
+| UBA | clearRegistryCaches | chunks.168.mjs:2139-2141 | function |
+| bm | refreshAllSkills | chunks.168.mjs:2143-2145 | function |
+| Sd | skillExists | chunks.168.mjs:2151-2153 | function |
+| zI | lookupSkill | chunks.168.mjs:2155-2159 | function |
+
+### Skill-Reminder Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| OIY | generateSkillListingAttachment | chunks.142.mjs:2381-2395 | function |
+| BU7 | formatSkillListing | chunks.87.mjs:2757-2777 | function |
+| uU7 | getSkillDescription | chunks.87.mjs:2752-2755 | function |
+| zT9 | formatSkillFull | chunks.87.mjs:2752-2755 | function |
+| xg1 | sentSkillNames | chunks.142.mjs | Set (global) |
+
+### Plugin Skills
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Uu4 | isPluginFirstParty | chunks.132.mjs:764-770 | function |
+| NT | FIRST_PARTY_REPOSITORIES | chunks.15.mjs:227 | constant (Set) |
+| TU7 | loadCommandsFromDir | chunks.87.mjs:1856-1868 | function |
+| uu1 | createPluginCommandObject | chunks.87.mjs:1870-1931 | function |
+
+### Skill-Compact Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| da4 | collectSkillsToKeep | chunks.146.mjs:2710-2722 | function |
+| zR6 | getInvokedSkills | chunks.1.mjs:2964-2973 | function |
+
 ### Skill Tool Integration
 
 | Obfuscated | Readable | File:Line | Type |
