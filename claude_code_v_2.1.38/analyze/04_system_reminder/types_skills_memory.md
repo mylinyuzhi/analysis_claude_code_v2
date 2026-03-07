@@ -18,6 +18,8 @@
 - [agent_mention](#agent_mention)
 - [Configuration](#configuration)
 
+> **For detailed skill discovery and LLM invocation**, see [10_skill_system/skill_reminder_integration.md](../10_skill_system/skill_reminder_integration.md).
+
 ---
 
 ## Overview

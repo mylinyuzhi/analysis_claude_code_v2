@@ -10,6 +10,9 @@ The Hook System is Claude Code's event-driven extension framework. It intercepts
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Hooks section)
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
+**Cross-references:**
+- [10_skill_system/skill_context_modifier.md](../10_skill_system/skill_context_modifier.md#hook-registration) - Skill hook registration via `registerSkillHooks` (IM6)
+
 Key functions in this document:
 - `executeHooksIterator` (NI) - Central async generator that executes all matched hooks for an event
 - `resolveHooksForEvent` (oRA) - Filters and deduplicates hooks from all sources for a given event

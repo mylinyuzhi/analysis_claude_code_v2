@@ -21,6 +21,9 @@ This system implements the **State Anchoring** architectural pattern, where diff
 > - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
+**Cross-references:**
+- [10_skill_system/skill_compact_interaction.md](../10_skill_system/skill_compact_interaction.md) - Skill preservation during compaction
+
 Key functions in this document:
 - `collectFilesToKeep` (Ua4) - Preserves recently accessed files (up to 5 files, 50k tokens total)
 - `collectTasksToKeep` (ca4) - Preserves completed/failed/killed local agent tasks

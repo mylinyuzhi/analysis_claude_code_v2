@@ -26,6 +26,28 @@ Bundled skills (registered at init)    handlePromptCommand (Wb4)
      (user + LLM)                      LLM executes with full prompt context
 ```
 
+---
+
+## Documentation Guide
+
+This module contains multiple specialized documents. Use this guide to navigate:
+
+| Document | Content | When to Use |
+|----------|---------|-------------|
+| **overview.md** (this file) | Architecture, unified abstraction, command types | Understanding high-level concepts |
+| [implementation.md](implementation.md) | Code analysis, algorithms, data structures | Deep code understanding |
+| [skill_discovery_loading.md](skill_discovery_loading.md) | Discovery pipeline, loading tiers | Understanding how skills are found |
+| [skill_context_modifier.md](skill_context_modifier.md) | allowedTools, model override, hooks injection | Understanding context modification |
+| [skill_tool_integration.md](skill_tool_integration.md) | Skill tool details, permissions, forked execution | Understanding LLM skill invocation |
+| [skill_reminder_integration.md](skill_reminder_integration.md) | System reminder injection, skill discovery for LLM | Understanding skill visibility |
+| [skill_compact_interaction.md](skill_compact_interaction.md) | State preservation across compaction | Understanding skill persistence |
+| [cross_component_integration.md](cross_component_integration.md) | All integration points summary | Big picture view |
+| [plugin_skills.md](plugin_skills.md) | Plugin skill loading, first-party detection | Plugin integration |
+| [builtin_skills_reference.md](builtin_skills_reference.md) | Built-in skill catalog | Reference for available skills |
+| [11_hooks/implementation.md](../11_hooks/implementation.md) | Complete hooks system | Hook events and execution |
+
+---
+
 ## Related Symbols
 
 > Symbol mappings:
@@ -122,177 +144,27 @@ The `source` and `loadedFrom` fields together describe where a command came from
 
 ## Part 2: The Unified Command Object Factory
 
+> **For detailed code analysis**, see [implementation.md](implementation.md#creating-the-skill-object).
+
 ### createSkillObject (dF4)
 
 **What it does:** Creates the runtime command object from a parsed SKILL.md file. This is the factory function that bridges static markdown files and the runtime command interface.
 
-**How it works:**
+**Key responsibilities:**
+1. Builds the command object with all metadata (name, description, allowedTools, etc.)
+2. Provides `getPromptForCommand()` that processes the skill prompt at invocation time:
+   - Base directory injection
+   - Argument substitution (`$1`, `${args.foo}`)
+   - Session ID injection
+   - Shell expansion (`!`cmd``, ```!\ncmd\n```)
 
-```javascript
-// ============================================
-// createSkillObject - Build command object from parsed SKILL.md
-// Location: chunks.134.mjs:1682-1759
-// ============================================
-
-// ORIGINAL (for source lookup):
-function dF4({ skillName: A, displayName: q, description: K, hasUserSpecifiedDescription: Y, markdownContent: z, allowedTools: w, argumentHint: H, argumentNames: $, whenToUse: O, version: _, model: J, disableModelInvocation: X, userInvocable: D, source: j, baseDir: M, loadedFrom: P, hooks: W, executionContext: G, agent: f, paths: Z }) {
-    return {
-        type: "prompt", name: A, description: K, hasUserSpecifiedDescription: Y,
-        allowedTools: w, argumentHint: H, argNames: $.length > 0 ? $ : void 0,
-        whenToUse: O, version: _, model: J, disableModelInvocation: X,
-        userInvocable: D, context: G, agent: f, paths: Z,
-        contentLength: z.length, isEnabled: () => !0, isHidden: !D,
-        progressMessage: "running",
-        userFacingName() { return q || A },
-        source: j, loadedFrom: P, hooks: W, skillRoot: M,
-        async getPromptForCommand(N, T) {
-            let k = M ? `Base directory for this skill: ${M}\n\n${z}` : z;
-            k = Ej1(k, N, !0, $);                        // arg substitution
-            k = k.replace(/\$\{CLAUDE_SESSION_ID\}/g, U6()); // session ID injection
-            k = await Ma(k, { ...T, async getAppState() {
-                let y = await T.getAppState();
-                return { ...y, toolPermissionContext: {
-                    ...y.toolPermissionContext,
-                    alwaysAllowRules: { ...y.toolPermissionContext.alwaysAllowRules, command: w }
-                }}
-            }}, `/${A}`);
-            return [{ type: "text", text: k }]
-        }
-    }
-}
-
-// READABLE (for understanding):
-function createSkillObject({ skillName, displayName, description, hasUserSpecifiedDescription,
-    markdownContent, allowedTools, argumentHint, argumentNames, whenToUse, version, model,
-    disableModelInvocation, userInvocable, source, baseDir, loadedFrom, hooks,
-    executionContext, agent, paths }) {
-    return {
-        type: "prompt",
-        name: skillName,
-        description,
-        hasUserSpecifiedDescription,
-        allowedTools,
-        argumentHint,
-        argNames: argumentNames.length > 0 ? argumentNames : undefined,
-        whenToUse, version, model,
-        disableModelInvocation, userInvocable,
-        context: executionContext, agent, paths,
-        contentLength: markdownContent.length,
-        isEnabled: () => true,
-        isHidden: !userInvocable,   // hidden from user-facing lists if model-only
-        progressMessage: "running",
-        userFacingName() { return displayName || skillName },
-        source, loadedFrom, hooks, skillRoot: baseDir,
-
-        async getPromptForCommand(args, toolUseContext) {
-            // 1. Prepend baseDir header if applicable (for skill-dir skills)
-            let content = baseDir
-                ? `Base directory for this skill: ${baseDir}\n\n${markdownContent}`
-                : markdownContent;
-
-            // 2. Substitute $1, $2 or named ${args.foo} placeholders
-            content = interpolateArguments(content, args, true, argumentNames);
-
-            // 3. Inject the current session ID
-            content = content.replace(/\$\{CLAUDE_SESSION_ID\}/g, getSessionId());
-
-            // 4. Execute embedded shell expressions ($(command) blocks in content)
-            //    Note: overwrites toolPermissionContext.alwaysAllowRules to enforce
-            //    the skill's allowedTools during shell execution
-            content = await executeShellExpansion(content, {
-                ...toolUseContext,
-                async getAppState() {
-                    let state = await toolUseContext.getAppState();
-                    return {
-                        ...state,
-                        toolPermissionContext: {
-                            ...state.toolPermissionContext,
-                            alwaysAllowRules: {
-                                ...state.toolPermissionContext.alwaysAllowRules,
-                                command: allowedTools  // enforce skill's tool whitelist
-                            }
-                        }
-                    }
-                }
-            }, `/${skillName}`);
-
-            return [{ type: "text", text: content }]
-        }
-    }
-}
-
-// Mapping: dF4→createSkillObject, Ej1→interpolateArguments, U6→getSessionId, Ma→executeShellExpansion
-```
-
-**Key insights:**
-
-1. **`getPromptForCommand` is where all the magic happens:** The prompt is not static — it is dynamically assembled at invocation time, with argument substitution, session ID injection, and shell expansion all applied to the raw markdown content. This means a skill's prompt can contain `$(git log --oneline -10)` and it will be substituted with actual git output when the skill runs.
-
-2. **`allowedTools` double-enforcement:** The skill's `allowed-tools` list is enforced in two places: once when building the `command_permissions` attachment (restricting what tools the LLM can use during skill execution), and again here in `executeShellExpansion` (restricting what tools any embedded shell expressions in the skill content can use).
-
-3. **`baseDir` injection:** When a skill from `.claude/skills/commit/` runs, the prompt is prefixed with `Base directory for this skill: /path/to/project/.claude/skills/commit/`. This helps the LLM understand the skill's filesystem context.
+**Key insight:** The prompt is dynamically assembled at invocation time, not stored statically. This allows skills to contain `!`git log --oneline -10`` that executes when the skill runs.
 
 ### registerPromptSkill (Sj) - The Bundled Skill Variant
 
-**What it does:** An alternate factory for bundled (code-defined) skills that are registered at application startup, not loaded from files.
+**What it does:** An alternate factory for bundled (code-defined) skills registered at application startup.
 
-```javascript
-// ============================================
-// registerPromptSkill - Register a bundled skill into the in-memory registry
-// Location: chunks.166.mjs:1795-1820
-// ============================================
-
-// ORIGINAL (for source lookup):
-function Sj(A) {
-    let q = {
-        type: "prompt", name: A.name, description: A.description,
-        hasUserSpecifiedDescription: !0, allowedTools: A.allowedTools ?? [],
-        argumentHint: A.argumentHint, whenToUse: A.whenToUse, model: A.model,
-        disableModelInvocation: A.disableModelInvocation ?? !1,
-        userInvocable: A.userInvocable ?? !0,
-        contentLength: 0, source: "bundled", loadedFrom: "bundled",
-        hooks: A.hooks, context: A.context, agent: A.agent,
-        isEnabled: A.isEnabled ?? (() => !0),
-        isHidden: !(A.userInvocable ?? !0),
-        progressMessage: "running",
-        userFacingName: () => A.name,
-        getPromptForCommand: A.getPromptForCommand
-    };
-    iHq.push(q)
-}
-
-// READABLE (for understanding):
-function registerPromptSkill(skillDef) {
-    let commandObject = {
-        type: "prompt",
-        name: skillDef.name,
-        description: skillDef.description,
-        hasUserSpecifiedDescription: true,     // always true for bundled (defined in code)
-        allowedTools: skillDef.allowedTools ?? [],
-        argumentHint: skillDef.argumentHint,
-        whenToUse: skillDef.whenToUse,
-        model: skillDef.model,
-        disableModelInvocation: skillDef.disableModelInvocation ?? false,
-        userInvocable: skillDef.userInvocable ?? true,
-        contentLength: 0,                      // no file content - getPromptForCommand is in code
-        source: "bundled",
-        loadedFrom: "bundled",
-        hooks: skillDef.hooks,
-        context: skillDef.context,
-        agent: skillDef.agent,
-        isEnabled: skillDef.isEnabled ?? (() => true),
-        isHidden: !(skillDef.userInvocable ?? true),
-        progressMessage: "running",
-        userFacingName: () => skillDef.name,
-        getPromptForCommand: skillDef.getPromptForCommand  // provided by caller
-    };
-    bundledSkillRegistry.push(commandObject);  // added to iHq[]
-}
-
-// Mapping: Sj→registerPromptSkill, iHq→bundledSkillRegistry, A→skillDef
-```
-
-**Why this approach:** Bundled skills like `keybindings-help` and `debug` need the same runtime interface as user-defined skills to flow through `handlePromptCommand` without special-casing. `registerPromptSkill` creates the identical interface shape but with `getPromptForCommand` provided as a function in code instead of read from a file.
+**Why this approach:** Bundled skills need the same runtime interface as user-defined skills to flow through `handlePromptCommand` without special-casing. The key difference is `getPromptForCommand` is provided as a function in code instead of read from a file.
 
 ---
 
@@ -360,126 +232,42 @@ loadSkills (ukA) in chunks.134.mjs:2059
 
 ## Part 4: The Skill Tool — Model-Side Invocation
 
+> **For detailed code analysis**, see [skill_tool_integration.md](skill_tool_integration.md).
+
 ### Overview of the Skill Tool (wt)
 
 The `Skill` tool is the mechanism by which the LLM can autonomously invoke skills. It bridges the LLM's reasoning ("the user wants to commit code") to the skill execution pipeline. Critically, it feeds into the **same `handlePromptCommand(Wb4)` function** that handles user-typed `/commit`.
 
-### The Skill Tool Object (wt)
+### Key Tool Properties
 
-```javascript
-// ============================================
-// skillToolDefinition - The complete Skill tool object
-// Location: chunks.132.mjs:820-1017
-// ============================================
+| Property | Value | Purpose |
+|----------|-------|---------|
+| `name` | `"Skill"` | Tool identifier for LLM API calls |
+| `inputSchema` | `{ skill: string, args?: string }` | Skill name and optional arguments |
+| `isConcurrencySafe` | `false` | Cannot run in parallel |
+| `isReadOnly` | `false` | Can modify state |
 
-// ORIGINAL (for source lookup):
-wt = {
-    name: NJ,  // "Skill"
-    maxResultSizeChars: 1e5,
-    get inputSchema() { return HNY() },
-    get outputSchema() { return _NY() },
-    description: async ({ skill: A }) => `Execute skill: ${A}`,
-    prompt: async () => d0A(ZO()),
-    userFacingName: () => NJ,
-    isConcurrencySafe: () => !1,
-    isEnabled: () => !0,
-    isReadOnly: () => !1,
-    async validateInput({ skill: A }, q) { /* ... */ },
-    async checkPermissions({ skill: A, args: q }, K) { /* ... */ },
-    async call({ skill: A, args: q }, K, Y, z, w) { /* ... */ }
-}
+### Tool Lifecycle Methods
 
-// READABLE (for understanding):
-const skillTool = {
-    name: "Skill",   // NJ = "Skill" (chunks.89.mjs:586)
-    maxResultSizeChars: 100_000,
-    get inputSchema() { return getSkillInputSchema() },   // Zod: { skill: string, args?: string }
-    get outputSchema() { return getSkillOutputSchema() },
-    description: async ({ skill: skillName }) => `Execute skill: ${skillName}`,
-    prompt: async () => getSkillToolPrompt(getCwd()),    // d0A: memoized full description text
-    userFacingName: () => "Skill",
-    isConcurrencySafe: () => false,
-    isEnabled: () => true,
-    isReadOnly: () => false,
+1. **`validateInput`** - Checks skill name format and existence in registry
+2. **`checkPermissions`** - Auto-approves safe skills, prompts user for skills with `allowedTools` or `hooks`
+3. **`call`** - Delegates to `handlePromptCommandFromTool(Pb4)` → `handlePromptCommand(Wb4)`
 
-    async validateInput({ skill: skillName }, context) {
-        // Validates skill name format and checks it exists in getSkillToolCommands(hv)
-    },
-    async checkPermissions({ skill: skillName, args }, context) {
-        // Checks permission context for skill execution (always auto-approved for skills)
-    },
-    async call({ skill: skillName, args }, context, getOutput, setState, sessionState) {
-        // Delegates to handlePromptCommandFromTool(Pb4) → handlePromptCommand(Wb4)
-        // Returns the skill's output messages back into the agent loop
-    }
-}
+### The Skill Tool Prompt (d0A)
 
-// Mapping: wt→skillTool, NJ→"Skill", HNY→getSkillInputSchema, _NY→getSkillOutputSchema,
-//          d0A→getSkillToolPrompt, ZO→getCwd
-```
+The prompt instructs the LLM with a **"BLOCKING REQUIREMENT"** — it MUST invoke the Skill tool before generating any other response when a matching skill exists. This prevents the LLM from answering "commit my changes" with text instead of triggering the skill.
 
-### The Skill Tool Prompt (d0A) - LLM Instruction
-
-**What it does:** Generates the static description text that appears in the LLM's tool use context. This text tells the LLM exactly when and how to invoke the Skill tool.
-
-```javascript
-// ============================================
-// getSkillToolPrompt - Memoized prompt text for the Skill tool
-// Location: chunks.88.mjs:10-38
-// ============================================
-
-// ORIGINAL (for source lookup):
-d0A = KA(async (A) => {
-    return `Execute a skill within the main conversation
-
-When users ask you to perform tasks, check if any of the available skills match. Skills provide specialized capabilities and domain knowledge.
-
-When users reference a "slash command" or "/<something>" (e.g., "/commit", "/review-pr"), they are referring to a skill. Use this tool to invoke it.
-
-How to invoke:
-- Use this tool with the skill name and optional arguments
-- Examples:
-  - \`skill: "pdf"\` - invoke the pdf skill
-  - \`skill: "commit", args: "-m 'Fix bug'"\` - invoke with arguments
-  - \`skill: "review-pr", args: "123"\` - invoke with arguments
-  - \`skill: "ms-office-suite:pdf"\` - invoke using fully qualified name
-
-Important:
-- Available skills are listed in system-reminder messages in the conversation
-- When a skill matches the user's request, this is a BLOCKING REQUIREMENT: invoke the relevant Skill tool BEFORE generating any other response about the task
-- NEVER mention a skill without actually calling this tool
-- Do not invoke a skill that is already running
-- Do not use this tool for built-in CLI commands (like /help, /clear, etc.)
-- If you see a <${SG}> tag in the current conversation turn, the skill has ALREADY been loaded - follow the instructions directly instead of calling this tool again
-`
-})
-
-// READABLE (for understanding):
-const getSkillToolPrompt = memoized(async (cwd) => {
-    return `Execute a skill within the main conversation
-...
-- Available skills are listed in system-reminder messages in the conversation
-- When a skill matches the user's request, this is a BLOCKING REQUIREMENT: invoke the relevant Skill tool BEFORE generating any other response about the task
-- NEVER mention a skill without actually calling this tool
-...
-- If you see a <command-name> tag in the current conversation turn, the skill has ALREADY been loaded - follow the instructions directly instead of calling this tool again
-`
-})
-
-// Mapping: d0A→getSkillToolPrompt, KA→memoized, SG→COMMAND_NAME_TAG, ZO→getCwd
-```
-
-**Key insights:**
-
-1. **"BLOCKING REQUIREMENT"**: The prompt instructs the LLM with a strong obligation — it MUST invoke the Skill tool before generating any other response when a matching skill exists. This prevents the LLM from trying to answer "commit my changes" with a text response instead of triggering the skill.
-
-2. **`<command-name>` idempotency guard**: The final instruction checks for the `<command-name>` XML tag in the current turn. When a skill runs, its metadata is injected as `<command-name>/commit</command-name>`. If this tag is already present, the skill is already loaded and the LLM should follow the injected instructions directly rather than calling the Skill tool again. This prevents double-invocation.
-
-3. **Explicit exclusion of built-ins**: The tool description explicitly states "Do not use this tool for built-in CLI commands (like /help, /clear, etc.)". This is enforced both by the text instruction and by the `source !== "builtin"` filter in `getSkillToolCommands(hv)`.
+**Key prompt instructions:**
+- Available skills are listed in system-reminder messages
+- Never mention a skill without calling this tool
+- Do not use for built-in CLI commands (`/help`, `/clear`, etc.)
+- If `<command-name>` tag is present, skill is already loaded
 
 ---
 
 ## Part 5: The System Reminder Injection Pipeline
+
+> **For detailed code analysis**, see [skill_reminder_integration.md](skill_reminder_integration.md).
 
 The LLM needs to know which skills exist before it can decide to invoke them. Claude Code injects skill availability into the conversation as a `system-reminder` attachment on every turn. This is a four-stage pipeline:
 
@@ -488,129 +276,50 @@ Turn N starts
      │
      ▼
 [Stage 1] loadSkillsForLLM (hv)
-     Load all "prompt"-type commands, filter out:
-     - disableModelInvocation=true (user-only)
-     - source="builtin" (hardcoded CLI commands)
-     - no description AND no whenToUse (undiscoverable)
+     Filter: type==="prompt", !disableModelInvocation, source!=="builtin"
      Result: Array of visible-to-LLM skills
      │
      ▼
 [Stage 2] buildSkillListingAttachment (OIY)
-     Filter to NEW skills (not yet sent in this session via xg1 Set)
-     If no new skills: return [] (no-op for this turn)
-     Set isInitial = (sentSkillNames.size === 0 before this)
-     Add all new skill names to sentSkillNames (xg1)
+     Filter to NEW skills (not yet sent via xg1 Set)
+     Track isInitial flag for first turn
      │
      ▼
 [Stage 3] formatSkillListing (BU7)
-     Format skills as budget-aware text listing:
+     Budget-aware text formatting:
      charBudget = min(16000, contextWindowTokens * 4 * 0.02)
-     Tier 1: Full  → "- name: description - whenToUse"
-     Tier 2: Trunc → "- name: desc…" (proportionally truncated)
-     Tier 3: Names → "- name" (when even truncated won't fit)
+     Tier 1: Full | Tier 2: Truncated | Tier 3: Names only
      │
      ▼
-[Stage 4] System Reminder Message (chunks.173.mjs)
-     Attachment → Message:
+[Stage 4] System Reminder Message
      "The following skills are available for use with the Skill tool:\n\n{listing}"
-     (tagged isMeta: true so it's excluded from compaction)
 ```
 
-### Stage 1: loadSkillsForLLM (hv)
+### Key Design Decisions
 
-**What it does:** The primary filter for what the LLM can see and invoke.
+**Delta Updates (Stage 2):** The skill list can be large. The `xg1` set tracks which skills have been sent, so new skills discovered mid-session are sent incrementally without re-sending known skills.
 
-**Key filter criteria** (all must pass):
-- `type === "prompt"` — only skills, not interactive `local`/`local-jsx` commands
-- `!disableModelInvocation` — user has not explicitly blocked model access
-- `source !== "builtin"` — not a hardcoded CLI command
-- At least one of: `loadedFrom === "bundled"` OR `loadedFrom === "commands_DEPRECATED"` OR `hasUserSpecifiedDescription` OR `whenToUse`
+**Budget-Aware Formatting (Stage 3):** The budget is ~2% of the context window (~16K chars for 200K token models). This caps skill listings at ~1.6K tokens regardless of skill count.
 
-**Why the last condition:** This prevents skills without documentation from being exposed to the LLM. If a user creates `.claude/skills/experiment/SKILL.md` with no `description:` or `when-to-use:` field, the LLM will not see it. This forces skill authors to write documentation.
+**Documentation Requirement:** Skills without `description:` or `when-to-use:` are not exposed to the LLM. This forces skill authors to write documentation for discoverability.
 
-### Stage 2: buildSkillListingAttachment (OIY) - Delta Updates
+### Invoked Skills Tracking (da4 / MN1)
 
-**What it does:** Implements delta-only skill delivery to avoid repeating the full skill list every turn.
+> **For detailed analysis**, see [skill_compact_interaction.md](skill_compact_interaction.md).
 
-```javascript
-// ============================================
-// buildSkillListingAttachment - Delta skill injection
-// Location: chunks.142.mjs:2381-2410
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function OIY(A) {
-    let q = ZO(),
-        Y = (await hv(q)).filter(($) => !xg1.has($.name));
-    if (Y.length === 0) return [];
-    let z = xg1.size === 0;
-    for (let $ of Y) xg1.add($.name);
-    let w = yG(A.options.mainLoopModel, FP());
-    return [{ type: "skill_listing", content: BU7(Y, w), skillCount: Y.length, isInitial: z }]
-}
-
-// READABLE (for understanding):
-async function buildSkillListingAttachment(sessionContext) {
-    let cwd = getCwd();
-    let allSkills = await loadSkillsForLLM(cwd);      // hv(cwd)
-    let newSkills = allSkills.filter(s => !sentSkillNames.has(s.name));  // xg1 = session-level set
-    if (newSkills.length === 0) return [];             // nothing new this turn
-
-    let isInitial = sentSkillNames.size === 0;         // true on the very first turn
-    for (let skill of newSkills) sentSkillNames.add(skill.name);
-
-    let contextWindowSize = getContextWindowForModel(sessionContext.options.mainLoopModel, getDefaultParams());
-    return [{ type: "skill_listing", content: formatSkillListing(newSkills, contextWindowSize),
-              skillCount: newSkills.length, isInitial }]
-}
-
-// Mapping: OIY→buildSkillListingAttachment, xg1→sentSkillNames, z→isInitial,
-//          hv→loadSkillsForLLM, BU7→formatSkillListing, yG→getContextWindowForModel
-```
-
-**Why delta updates:** The skill list can be large (dozens of skills with descriptions). Sending it every turn would waste tokens. The `xg1` set tracks which skills have been sent in the current session, so new skills discovered mid-session (from `discoverProjectSkills` dynamic reloading) are sent incrementally without re-sending known skills.
-
-### Stage 3: formatSkillListing (BU7) - Budget-Aware Formatting
-
-**What it does:** Converts the skill array to text, fitting within a character budget derived from the model's context window size.
-
-**The three rendering tiers:**
+When skills are invoked, they're tracked for state preservation across compaction:
 
 ```
-charBudget = min(
-    env.SLASH_COMMAND_TOOL_CHAR_BUDGET,    // manual override
-    contextWindowTokens * 4 * 0.02,        // 2% of context window in chars
-    16000                                   // absolute default
-)
-
-Tier 1 (everything fits):
-  "- commit: Create a git commit with a conventional commit message - use when staging"
-  "- review: Review pull request and suggest improvements - use for PR review requests"
-
-Tier 2 (descriptions truncated):
-  "- commit: Create a git commit with a conven…"
-  "- review: Review pull request and suggest…"
-
-Tier 3 (names only, when descBudgetPerSkill < 20 chars):
-  "- commit"
-  "- review"
+Skill invoked → recordSkillUsage(xM6) → skillsInSession Map
+                                          │
+Compaction triggered ←─────────────────────┘
+       │
+       ▼
+collectSkillsToKeep(da4) → invoked_skills attachment
+       │
+       ▼
+Skills restored in post-compaction context
 ```
-
-**Key insight:** The `2% * 4 = 8%` factor converts context window tokens to characters (approx 4 chars/token), then takes 2% of that. For a 200K token model: `200,000 × 4 × 0.02 = 16,000 chars`. This caps the skill listing at about 1.6K tokens regardless of how many skills exist.
-
-### Stage 4: System Reminder Message Construction (chunks.173.mjs)
-
-The `skill_listing` attachment type is converted to a system reminder message:
-
-```javascript
-// Attachment dispatch in chunks.173.mjs:880
-case "skill_listing": {
-    if (!A.content) return [];
-    return wrapAsSystemReminder([createMetaMessage({
-        content: `The following skills are available for use with the Skill tool:\n\n${A.content}`,
-        isMeta: true   // excluded from compaction summaries
-    })])
-}
 ```
 
 **The LLM sees:**
@@ -666,189 +375,40 @@ case "invoked_skills": {
 
 ## Part 6: Slash Command Autocomplete UI
 
-The user-visible part of the unified system is the slash command picker that appears when a user types `/` in the REPL input.
+> **For detailed code analysis**, see [slash_command_mapping.md](slash_command_mapping.md).
 
-### Layer 1: Input Detection (PE6)
+The user-visible part of the unified system is the slash command picker that appears when a user types `/` in the REPL input. This is a four-layer autocomplete system:
 
-The REPL submit handler (`handleSubmitCommand`, PE6, chunks.185.mjs:3067) has an early-exit path for `local-jsx` slash commands that are marked `immediate`:
+### Layer Architecture
 
-```javascript
-// ORIGINAL (from chunks.185.mjs:3105):
-if (q.trim().startsWith("/")) {
-    let x = q.trim(), p = x.indexOf(" ");
-    let l = p === -1 ? x.slice(1) : x.slice(1, p);   // command name
-    let r = p === -1 ? "" : x.slice(p + 1).trim();    // args
-    let s = commands.find((cmd) =>
-        cmd.immediate && cmd.isEnabled() &&
-        (cmd.name === l || cmd.aliases?.includes(l) || cmd.userFacingName() === l)
-    );
-    if (s && s.type === "local-jsx") {
-        // Execute immediately: render JSX without going through the message pipeline
-        // This prevents commands like /help, /config from appearing in conversation history
-        executeImmediateCommand(s, r);
-        return;
-    }
-}
-// Otherwise: fall through to handleSlashInput(Mb4) via normal message pipeline
+```
+Layer 1: Input Detection (PE6)
+    └── Immediate execution for local-jsx commands (/help, /config)
+    └── Otherwise: route through message pipeline
+
+Layer 2: Fuzzy Suggestion Filter (PgA)
+    └── "/" alone: Show frecency-sorted list (top 5 recent + source tier groups)
+    └── "/partial": Fuse.js fuzzy search with weighted keys
+
+Layer 3: Ghost Text Inline Completion (pv6 + MgA)
+    └── Detects /command mid-sentence
+    └── Shows completion as ghost text
+
+Layer 4: useCommandSuggestions Hook (WGq)
+    └── React hook orchestrating all autocomplete behavior
 ```
 
-**Why two paths:** Commands like `/help`, `/config` are purely interactive UI. Running them through the message pipeline would add chat history entries that the user never requested. "Immediate" execution renders them inline without creating conversation turns.
+### Ranking Algorithm for "/" (Empty Query)
 
-### Layer 2: Fuzzy Suggestion Filter (PgA)
-
-`filterCommandSuggestions` (PgA) in `chunks.182.mjs:1971` is the core autocomplete engine:
-
-```javascript
-// ============================================
-// filterCommandSuggestions - Fuzzy slash command picker
-// Location: chunks.182.mjs:1971-2057
-// ============================================
-
-// ORIGINAL (for source lookup):
-function PgA(A, q) {
-    if (!NF(A)) return [];       // NF(A) = A.startsWith("/")
-    if (QDz(A)) return [];       // QDz = isAfterCommandSpace: has non-trailing space = in args mode
-    let K = A.slice(1).toLowerCase().trim();
-    if (K === "") {
-        // "/" alone: show frecency-sorted list
-        let $= q.filter((W) => !W.isHidden);
-        let O = $.filter(W => W.type === "prompt")
-            .map(W => ({ cmd: W, score: bM6(W.userFacingName()) }))  // bM6 = getDecayedSkillScore
-            .filter(entry => entry.score > 0)
-            .sort((a, b) => b.score - a.score).slice(0, 5).map(e => e.cmd);
-        // ... group remaining by source priority (userSettings > projectSettings > policySettings > builtin)
-        return [...frecencyTop, ...userSettings, ...projectSettings, ...policy, ...builtins]
-            .map(cmd => toSuggestionItem(cmd))
-    }
-    // partial query: Fuse.js fuzzy search
-    return fuseSearch(partialQuery, commandsWithKeys, {
-        threshold: 0.3,
-        keys: [
-            { name: "commandName", weight: 3 },
-            { name: "partKey",     weight: 2 },  // hyphen-split name parts
-            { name: "aliasKey",    weight: 2 },
-            { name: "descriptionKey", weight: 0.5 }
-        ]
-    }).sort(customSorter).map(result => toSuggestionItem(result.item.command, matchedAlias))
-}
-
-// READABLE (for understanding):
-function filterCommandSuggestions(inputText, commands) {
-    if (!isSlashInput(inputText)) return [];          // not starting with "/"
-    if (isInArgsMode(inputText)) return [];           // has space = typing args
-
-    let partialQuery = inputText.slice(1).toLowerCase().trim();
-
-    if (partialQuery === "") {
-        // "/" alone: show ALL commands ranked by frecency + source priority
-        let visible = commands.filter(cmd => !cmd.isHidden);
-        // Top 5 recently-used skills (time-decayed score from bM6)
-        let frecencyTop = visible
-            .filter(cmd => cmd.type === "prompt")
-            .map(cmd => ({ cmd, score: getDecayedSkillScore(cmd.userFacingName()) }))
-            .filter(e => e.score > 0)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 5).map(e => e.cmd);
-        // Remaining grouped by source tier then alphabetically
-        return [...frecencyTop, ...userSkills, ...projectSkills, ...managedSkills, ...builtins]
-            .map(cmd => toSuggestionItem(cmd));
-    }
-
-    // Partial query: Fuse.js with weighted multi-key matching
-    let fuseResults = new Fuse(commandsWithKeys, {
-        includeScore: true,
-        threshold: 0.3,
-        keys: [
-            { name: "commandName",    weight: 3 },
-            { name: "partKey",        weight: 2 },  // e.g., "commit" matches "my-commit-skill"
-            { name: "aliasKey",       weight: 2 },
-            { name: "descriptionKey", weight: 0.5 }
-        ]
-    }).search(partialQuery);
-
-    return fuseResults
-        .sort(rankByExactnessAndScore)  // exact > alias > prefix > fuzzy > frecency tiebreak
-        .map(result => toSuggestionItem(result.item.command, result.matchedAlias));
-}
-
-// Mapping: PgA→filterCommandSuggestions, NF→isSlashInput, QDz→isInArgsMode,
-//          bM6→getDecayedSkillScore, sWq→toSuggestionItem
-```
-
-**Ranking algorithm for "/" (empty query):**
-1. Top 5 most recently/frequently used prompt skills (bM6 score > 0)
+1. Top 5 most recently/frequently used prompt skills (frecency score)
 2. User settings skills (alphabetical)
 3. Project settings skills (alphabetical)
 4. Policy settings skills (alphabetical)
 5. Built-in commands (alphabetical)
 
-**Ranking algorithm for "/partial":**
-1. Exact name match (e.g., "/com" → command named "com")
-2. Exact alias match
-3. Name prefix match
-4. Alias prefix match
-5. Fuzzy score (Fuse.js)
-6. Frecency tiebreaker (bM6 score)
+### disableSlashCommands Gate
 
-### Layer 3: Ghost Text Inline Completion (pv6 + MgA)
-
-For `/command` typed **inside** a longer prompt (not at the start of input), `findInlineSlashToken` (pv6) detects the pattern:
-
-```javascript
-// ============================================
-// findInlineSlashToken - Detect /cmd mid-sentence
-// Location: chunks.182.mjs:1896-1911
-// ============================================
-
-// ORIGINAL:
-function pv6(A, q) {
-    if (A.startsWith("/")) return null;   // handled by PgA, not inline
-    let Y = A.slice(0, q).match(/(?<=\s)\/([a-zA-Z0-9_:-]*)$/);
-    if (!Y) return null;
-    return { token: Y[0], startPos: Y.index, partialCommand: Y[1] }
-}
-
-// READABLE:
-function findInlineSlashToken(inputText, cursorPosition) {
-    if (inputText.startsWith("/")) return null;  // whole-line slash: PgA handles it
-    let match = inputText.slice(0, cursorPosition).match(/(?<=\s)\/([a-zA-Z0-9_:-]*)$/);
-    // matches /command at cursor, preceded by whitespace
-    if (!match) return null;
-    return { token: match[0], startPos: match.index, partialCommand: match[1] }
-}
-```
-
-When a mid-sentence slash is detected, `getInlineGhostSuffix` (MgA) returns the completion suffix (e.g., typing "please run /com" in "commit" context shows "mit" as ghost text). Tab-pressing calls `acceptCommandSuggestion` (WgA) to replace the partial token with the full command name.
-
-### Layer 4: useCommandSuggestions Hook (WGq)
-
-The React hook `useCommandSuggestions` in `chunks.183.mjs` orchestrates all autocomplete behavior:
-
-```
-useEffect(effect, [inputText]):
-  IF inputText starts with "/" AND cursor at end AND NOT in args-mode:
-    ghost = getInlineGhostSuffix(MgA)
-    IF ghost exists: setInlineGhost(ghost), clearDropdown
-    ELSE: suggestions = filterCommandSuggestions(PgA), setDropdownSuggestions
-  IF inputText starts with "!" (bash mode): check bash history (wGq)
-  IF inputText contains "@": check teammate/file mentions (NgA)
-  IF inputText === "/add-dir ": show directory completions (Tf6)
-  IF inputText === "/resume ": show previous session titles ($F)
-```
-
-### The `disableSlashCommands` Gate
-
-The entire autocomplete and slash command system can be disabled via the `disableSlashCommands` prop on the REPL component (`TUA`, chunks.188.mjs:22):
-
-```javascript
-// From chunks.188.mjs - REPL setup
-let mergedCommands = buildCommandList(sessionOptions.commands);
-let enabledCommands = useMemo(() => disableSlashCommands ? [] : mergedCommands, [disableSlashCommands, mergedCommands]);
-// enabledCommands is passed to WGq, PgA, and handleSubmit
-// When disableSlashCommands=true: no suggestions, no command resolution, "/" treated as plain text
-```
-
-This is used in embedded/SDK contexts where the REPL is rendered inside another application that provides its own command system.
+The entire autocomplete system can be disabled via `disableSlashCommands` prop for embedded/SDK contexts where the REPL renders inside another application.
 
 ---
 
