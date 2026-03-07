@@ -38,7 +38,7 @@ This module contains multiple specialized documents. Use this guide to navigate:
 | [implementation.md](implementation.md) | Code analysis, algorithms, data structures | Deep code understanding |
 | [skill_discovery_loading.md](skill_discovery_loading.md) | Discovery pipeline, loading tiers | Understanding how skills are found |
 | [skill_context_modifier.md](skill_context_modifier.md) | allowedTools, model override, hooks injection | Understanding context modification |
-| [skill_tool_integration.md](skill_tool_integration.md) | Skill tool details, permissions, forked execution | Understanding LLM skill invocation |
+| [skill_tool.md](skill_tool.md) | Skill tool details, permissions, forked execution | Understanding LLM skill invocation |
 | [skill_reminder_integration.md](skill_reminder_integration.md) | System reminder injection, skill discovery for LLM | Understanding skill visibility |
 | [skill_compact_interaction.md](skill_compact_interaction.md) | State preservation across compaction | Understanding skill persistence |
 | [cross_component_integration.md](cross_component_integration.md) | All integration points summary | Big picture view |
@@ -232,7 +232,7 @@ loadSkills (ukA) in chunks.134.mjs:2059
 
 ## Part 4: The Skill Tool — Model-Side Invocation
 
-> **For detailed code analysis**, see [skill_tool_integration.md](skill_tool_integration.md).
+> **For detailed code analysis**, see [skill_tool.md](skill_tool.md).
 
 ### Overview of the Skill Tool (wt)
 

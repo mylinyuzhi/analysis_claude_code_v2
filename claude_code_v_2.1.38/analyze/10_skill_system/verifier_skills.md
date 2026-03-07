@@ -1,5 +1,9 @@
 # Verifier Skills System - Deep Analysis (Claude Code 2.1.38)
 
+> **Status:** Stub in v2.1.38 - Future feature
+>
+> The verifier skill subsystem is prepared but not yet active in this version. The system prompt and lazy initializers are present, but the skill registration functions are stub implementations (empty returns). This document describes the intended architecture and behavior for when the feature is fully activated.
+
 > **Note:** This document covers the verifier skill subsystem specifically. For the general skill system architecture, see:
 > - [README.md](./README.md) - Skill system overview
 > - [core_architecture.md](./core_architecture.md) - Skill loading and registration

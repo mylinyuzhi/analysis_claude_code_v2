@@ -48,7 +48,7 @@ The Skill System integrates with multiple Claude Code subsystems, creating a coh
 ### Entry Point: SkillTool (wt)
 
 **File:** chunks.132.mjs:820-1073
-**Full Analysis:** [skill_tool_integration.md](skill_tool_integration.md)
+**Full Analysis:** [skill_tool.md](skill_tool.md)
 
 The Skill tool bridges LLM tool-calling with the skill execution system.
 
@@ -450,7 +450,7 @@ Skills with `context: "fork"` run in isolated subagents, preventing context poll
 - [implementation.md](implementation.md) - Detailed code analysis
 - [skill_discovery_loading.md](skill_discovery_loading.md) - Loading pipeline
 - [skill_context_modifier.md](skill_context_modifier.md) - Context modification and hook registration
-- [skill_tool_integration.md](skill_tool_integration.md) - Skill tool details
+- [skill_tool.md](skill_tool.md) - Skill tool details
 - [skill_reminder_integration.md](skill_reminder_integration.md) - Reminder system
 - [skill_compact_interaction.md](skill_compact_interaction.md) - Compaction
 - [plugin_skills.md](plugin_skills.md) - Plugin integration
