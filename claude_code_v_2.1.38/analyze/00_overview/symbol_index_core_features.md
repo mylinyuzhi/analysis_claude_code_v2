@@ -210,6 +210,7 @@
 | Id1 | BASH_BACKGROUND_DISABLED | chunks.170.mjs:528 | constant (boolean) |
 | q_q | BASH_BACKGROUND_TIMEOUT_MS | chunks.170.mjs:514 | constant (2000) |
 | ghY | TURNS_BETWEEN_PROGRESS | chunks.142.mjs:2863 | constant (3) |
+| Lv9 | TASK_TYPE_PREFIXES | chunks.89.mjs:545 | constant (object) |
 
 ### Background Task Creation
 
@@ -233,6 +234,8 @@
 | Hd7 | backgroundForegroundTask | chunks.89.mjs:1515 | function |
 | na | killTask | chunks.89.mjs:1376 | function |
 | Kd7 | killAllRunningAgents | chunks.89.mjs:1448 | function |
+| Ui4 | getRunningTasks | chunks.142.mjs:1686 | function |
+| ia | isLocalAgentTask | chunks.89.mjs:1342 | function |
 
 ### Progress & Output
 
@@ -248,6 +251,7 @@
 | hj1 | initOutputFile | chunks.89.mjs:310 | function |
 | Ij1 | symlinkOutputFile | chunks.89.mjs:317 | function |
 | Rp7 | cleanupOutputFiles | chunks.89.mjs:328 | function |
+| vp7 | pendingWrites | chunks.89.mjs:346 | variable (Map) |
 
 ### Kill Handlers
 
