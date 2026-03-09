@@ -1090,28 +1090,29 @@
 | HY | setAbortController | chunks.188.mjs:99 | state setter |
 | O7 | streamMode | chunks.188.mjs:87 | state variable ("requesting"\|"thinking"\|"responding"\|"tool-input"\|"tool-use") |
 | tK | setStreamMode | chunks.188.mjs:87 | state setter |
-| XhA | createUserInterruptMessage | chunks.149.mjs | function |
+| XhA | createUserInterruptMessage | chunks.149.mjs:1737-1751 | function |
 | FG1 | createCleanupMessage | chunks.149.mjs | function |
 | i4K | setupAbortTimeout | chunks.6.mjs | function |
 | n4K | DEFAULT_TIMEOUT | chunks.6.mjs | constant |
 | YK | resetLoadingState | chunks.188.mjs:218-221 | function |
+| I6 | isQueryRunningRef | chunks.188.mjs:196 | ref (useRef<boolean>) |
 
 ### UI Layer - Cancel Handler Component
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ngA | cancelHandlerComponent | chunks.185.mjs:2137-2172 | function (React component) |
-| Z | handleCancelPress | chunks.185.mjs:2152-2167 | function (closure inside ngA) |
+| ngA | cancelHandlerComponent | chunks.185.mjs:2137-2175 | function (React component) |
+| Z | handleCancelPress | chunks.185.mjs:2151-2167 | function (closure inside ngA) |
 
 ### Prompt Queue System
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| lB | enqueueCommand | chunks.89.mjs:415-422 | function |
-| KY | isPromptQueueingEnabled | chunks.89.mjs:879 | function (always returns false) |
-| Kd7 | cancelRunningAgentTasks | chunks.89.mjs:1388-1393 | function (dead code via KY) |
+| lB | enqueueCommand | chunks.89.mjs:415-420 | function |
+| KY | isPromptQueueingEnabled | chunks.89.mjs:879-881 | function (always returns false) |
+| Kd7 | cancelRunningAgentTasks | chunks.89.mjs:1388-1391 | function (dead code via KY) |
 | GjA | clearLegacyQueue | chunks.89.mjs:407-409 | function |
-| WR | enqueueToLegacyQueue | chunks.89.mjs:417-419 | function |
+| WR | enqueueToLegacyQueue | chunks.89.mjs:411-413 | function |
 | up7 | dequeueFromLegacyArray | chunks.89.mjs:401-406 | function |
 | G_6 | notifyQueueSubscribers | chunks.89.mjs:384-387 | function |
 | Sp7 | subscribeToQueueChanges | chunks.89.mjs:374-378 | function |
@@ -1132,10 +1133,10 @@
 |------------|----------|-----------|------|
 | HVq | useQueuedCommandProcessor | chunks.186.mjs:87-135 | function (React hook) |
 | zVq | processNextQueuedCommand | chunks.186.mjs:63-84 | function |
-| iA | executeQueuedInput | chunks.188.mjs:894-926 | function (useCallback) |
-| rc | popCommandFromQueue | chunks.188.mjs:343-355 | function (useCallback) |
-| wD | lastQueryCompletionTime | chunks.188.mjs | state variable |
-| LP | setLastQueryCompletionTime | chunks.188.mjs | state setter |
+| iA | executeQueuedInput | chunks.188.mjs:894-925 | function (useCallback) |
+| rc | popCommandFromQueue | chunks.188.mjs:341-353 | function (useCallback) |
+| wD | lastQueryCompletionTime | chunks.188.mjs:194 | state variable |
+| LP | setLastQueryCompletionTime | chunks.188.mjs:194 | state setter |
 
 ### Stream Event Processing
 
