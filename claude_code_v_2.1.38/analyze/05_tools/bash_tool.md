@@ -12,22 +12,24 @@
 
 Key functions in this document:
 - `BashTool` (qS or referenced) - Bash tool definition object - chunks.150.mjs
-- `bashSecurityValidation` (lm) - Main security entry point - chunks.150.mjs:321
-- `speculativeReadonlyValidator` (Of6) - Readonly command fast-path - chunks.150.mjs:881
-- `completeReadonlyWhitelist` (fcY) - Readonly command patterns - chunks.150.mjs:2314
-- `jqSecurityCheck` (edY) - JQ-specific security - chunks.150.mjs
-- `obfuscatedFlagsCheck` ($cY) - ANSI-C quoting detection - chunks.150.mjs
-- `shellMetacharactersCheck` (AcY) - Metacharacter injection - chunks.150.mjs
-- `dangerousVariablesCheck` (qcY) - Variable injection - chunks.150.mjs
-- `commandSubstitutionCheck` (KcY) - Command substitution injection - chunks.150.mjs
-- `newlineInjectionCheck` (YcY) - Newline injection - chunks.150.mjs
-- `ifsInjectionCheck` (zcY) - IFS variable manipulation - chunks.150.mjs
-- `procEnvironCheck` (wcY) - /proc/environ access prevention - chunks.150.mjs
-- `malformedTokenCheck` (HcY) - Shell tokenizer-based detection - chunks.150.mjs
+- `runSecurityChecks` (lm) - Main security entry point - chunks.150.mjs:321
+- `checkReadOnlyBehavior` (Of6) - Readonly command fast-path - chunks.150.mjs:881
+- `SAFE_COMMAND_PATTERNS` (fcY) - Readonly command patterns - chunks.150.mjs:2314
+- `checkJqCommand` (edY) - JQ-specific security - chunks.150.mjs:3
+- `checkObfuscatedFlags` ($cY) - ANSI-C quoting detection - chunks.150.mjs:203
+- `checkShellMetacharacters` (AcY) - Metacharacter injection - chunks.150.mjs:33
+- `checkDangerousVariables` (qcY) - Variable injection - chunks.150.mjs:64
+- `checkDangerousPatterns` (KcY) - Command substitution injection - chunks.150.mjs:81
+- `checkNewlines` (YcY) - Newline injection - chunks.150.mjs:122
+- `checkIFSInjection` (zcY) - IFS variable manipulation - chunks.150.mjs:143
+- `checkProcEnviron` (wcY) - /proc/environ access prevention - chunks.150.mjs:160
+- `checkMalformedTokenInjection` (HcY) - Shell tokenizer-based detection - chunks.150.mjs:177
 - `bashProgressHandler` (ZhA) - Progress streaming handler - chunks.150.mjs:2332
 - `BashOutputComponent` (BYq) - Terminal output UI - chunks.162.mjs:417249
-- `bashPreFlightCheck` (g1q) - Long-running command detection - chunks.149.mjs:460
+- `bashPreFlightCheck` (AYz) - LLM-based prefix extraction - chunks.169.mjs:1838
 - `markAsLongRunning` (W74) - Marks command for progress UI - chunks.149.mjs:470
+
+> **Note:** Symbol mappings are authoritative in [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md).
 
 ---
 
@@ -37,33 +39,33 @@ Key functions in this document:
 LLM generates Bash tool_use { command }
          │
          ▼
- bashPreFlightCheck (g1q) ─── Marks as "long running" if needed
-         │                    (enables progress timer UI)
+ bashPreFlightCheck (AYz) ─── LLM-based prefix extraction
+         │                    (for permission matching)
          ▼
  validateInput()
- ├── bashSecurityValidation (lm) ─── Two-tier security check
+ ├── runSecurityChecks (lm) ─── Two-tier security check
  │   ├── Allowlist checks (5 checks) ─── Early permit for safe commands
- │   │   ├── jqAllowlistCheck (ndY)
- │   │   ├── sedPrintlineAllowlistCheck (rdY)
- │   │   ├── sedEditAllowlistCheck (adY)
- │   │   ├── gitCdAllowlistCheck (tdY)
- │   │   └── xargsAllowlistCheck (sdY)
+ │   │   ├── checkEmptyCommand (ndY)
+ │   │   ├── checkIncompleteCommand (rdY)
+ │   │   ├── checkHeredocInSubstitution (adY)
+ │   │   ├── checkQuotedHeredoc (tdY)
+ │   │   └── checkGitCommitMessage (sdY)
  │   └── Blocklist checks (9 checks) ─── Pattern-based rejection
- │       ├── jqSystemFunctionCheck (edY)
- │       ├── obfuscatedFlagsCheck ($cY)
- │       ├── shellMetacharactersCheck (AcY)
- │       ├── dangerousVariablesCheck (qcY)
- │       ├── newlineInjectionCheck (YcY)
- │       ├── ifsInjectionCheck (zcY)
- │       ├── procEnvironCheck (wcY)
- │       ├── commandSubstitutionCheck (KcY)
- │       └── malformedTokenCheck (HcY)
+ │       ├── checkJqCommand (edY)
+ │       ├── checkObfuscatedFlags ($cY)
+ │       ├── checkShellMetacharacters (AcY)
+ │       ├── checkDangerousVariables (qcY)
+ │       ├── checkNewlines (YcY)
+ │       ├── checkIFSInjection (zcY)
+ │       ├── checkProcEnviron (wcY)
+ │       ├── checkDangerousPatterns (KcY)
+ │       └── checkMalformedTokenInjection (HcY)
          │
          ▼
  Pre-tool hooks (B1q) ─── Permission override possible
          │
          ▼
- speculativeReadonlyValidator (Of6) ─── Fast-path allow for readonly
+ checkReadOnlyBehavior (Of6) ─── Fast-path allow for readonly
          │
          ▼
  Permission check (canUseTool) ─── User may need to approve
@@ -82,7 +84,7 @@ LLM generates Bash tool_use { command }
 
 ## 1. Two-Tier Security Model
 
-### bashSecurityValidation (lm) - Main Security Gate
+### runSecurityChecks (lm) - Main Security Gate
 
 **What it does:** The primary security validator for all bash commands. Implements a two-tier model: allowlist checks first (early permit), then blocklist checks (pattern-based deny).
 

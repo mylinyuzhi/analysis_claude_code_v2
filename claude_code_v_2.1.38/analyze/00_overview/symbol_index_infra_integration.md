@@ -760,9 +760,9 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | pa | loadAllPluginHooks | chunks.87.mjs:2606 | variable (memoized) |
-| oN9 | extractPluginHooksForEvent | chunks.87.mjs:2559 | function |
-| O61 | registerPluginHooks | chunks.87.mjs:2573 | function |
-| YR6 | deregisterPluginHooks | chunks.87.mjs:2577 | function |
+| oN9 | extractPluginHooksForEvent | chunks.87.mjs:2547 | function |
+| O61 | registerPluginHooks | chunks.1.mjs:2912 | function |
+| YR6 | deregisterPluginHooks | chunks.1.mjs:2929 | function |
 | sN9 | setupPluginHookHotReload | chunks.87.mjs:2589 | function |
 | rO6 | clearPluginHookCache | chunks.87.mjs:2581 | function |
 | aN9 | resetHotReloadState | chunks.87.mjs:2585 | function |

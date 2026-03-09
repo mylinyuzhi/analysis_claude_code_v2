@@ -110,6 +110,18 @@ Plugin agents appear in the Agent tool:
 getPluginAgents (wK1) → Agent Definitions → Agent Tool Picker
 ```
 
+### 7. LSP Servers (via .lsp.json)
+
+Plugins can provide LSP server configurations:
+
+```
+Plugin → .lsp.json → loadPluginLspConfig (HvY) → namespacePluginServers (JvY) → LSP Server Manager
+```
+
+Server naming: `plugin:{pluginName}:{serverName}` with `scope: "dynamic"`
+
+See: [27_lsp_integration/configuration.md](../27_lsp_integration/configuration.md) for full analysis.
+
 ---
 
 ## Loading Sequence

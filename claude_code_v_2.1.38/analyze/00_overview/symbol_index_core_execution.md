@@ -158,7 +158,6 @@
 | B1q | executePreToolHooksIterator | chunks.149.mjs:161 | function (generator) |
 | bU1 | toolDispatcher | chunks.149.mjs:343 | function (generator) |
 | c6 | createUserMessage | chunks.149.mjs:340 | function |
-| g1q | bashPreFlightCheck | chunks.149.mjs:460 | function |
 | kq | createHookMessage | chunks.142.mjs:2615 | function |
 | kt | getDynamicToolSet | chunks.141.mjs:1465 | function |
 | NdY | toolExecutionPipeline | chunks.149.mjs:490 | function |
