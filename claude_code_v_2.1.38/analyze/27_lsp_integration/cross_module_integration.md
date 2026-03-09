@@ -740,3 +740,86 @@ function registerNotificationHandlers(manager) {
 | Config validation error | Error array, logged | Server skipped, others continue |
 | Request timeout | Tool result error | Agent sees error message |
 | Diagnostic processing | Empty array returned | No diagnostics in system prompt |
+
+---
+
+## 6. Non-Integration Boundaries
+
+### LSP and Compact
+
+LSP diagnostics do **NOT** integrate with the Compact system. These are separate subsystems with distinct purposes:
+
+| System | Purpose | Scope |
+|--------|---------|-------|
+| **LSP Diagnostics** | Real-time code analysis from language servers | Per-file errors, warnings from `publishDiagnostics` |
+| **Compact** | Message history compaction for token limits | Conversation history compression |
+
+**Why they don't integrate:**
+- LSP diagnostics flow: `publishDiagnostics` → `om4` (register) → `WIY` (System Reminder attachment) → LLM context
+- Compact flow: Token counting → History compaction → Summarization of old messages
+- They operate on different data types (diagnostics vs. conversation messages)
+- No shared state or coordination between these systems
+
+### LSP and Slash Commands
+
+LSP is a **Tool**, not a Slash Command. These are different invocation mechanisms:
+
+| Mechanism | Invocation | Examples |
+|-----------|------------|----------|
+| **Tools** | Agent-initiated via tool use blocks | `LSP`, `Read`, `Edit`, `Bash` |
+| **Slash Commands** | User-invoked shortcuts | `/commit`, `/clear`, `/help` |
+
+**Architectural distinction:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      INVOCATION MECHANISMS                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  User Input                    Agent Decision                        │
+│      │                              │                                │
+│      ▼                              ▼                                │
+│  "/commit" ──► Slash Command    "need definition" ──► Tool (LSP)   │
+│  "/clear"   ──► Slash Command    "read file"       ──► Tool (Read) │
+│  "/help"    ──► Slash Command    "edit code"       ──► Tool (Edit) │
+│                                                                      │
+│  • User-initiated               • Agent-initiated                   │
+│  • Direct execution             • Via tool_use block                │
+│  • No agent decision            • Agent chooses operation           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**LSP Tool access pattern:**
+- The agent must explicitly invoke the `LSP` tool with an operation parameter
+- LSP operations (`goToDefinition`, `findReferences`, etc.) are only available through tool use
+- No `/lsp` or similar slash command exists
+
+### LSP and Hooks
+
+LSP operations do **NOT** trigger the Hooks system. Hooks are triggered by:
+
+| Hook Type | Trigger Event | Example |
+|-----------|---------------|---------|
+| `PreToolUse` | Before tool execution | Validate parameters |
+| `PostToolUse` | After tool completion | Log results |
+| `Notification` | System events | Progress updates |
+| `Stop` | Session end | Cleanup |
+
+**Why LSP doesn't have dedicated hooks:**
+- LSP diagnostic delivery is async via `publishDiagnostics`
+- Diagnostics are batched and delivered as System Reminders
+- File notifications (`didChange`, `didSave`) are internal LSP protocol, not hook events
+- Tool hooks (`PreToolUse`, `PostToolUse`) apply to `LspTool` but don't expose internal LSP state
+
+### Summary: Integration Boundaries
+
+| System | Integrates with LSP? | Reason |
+|--------|---------------------|--------|
+| **Tools System** | ✅ Yes | LSP is exposed as a Tool object |
+| **System Reminder** | ✅ Yes | Diagnostics injected as attachments |
+| **File Tools** | ✅ Yes | Sync file state via `didChange`/`didSave` |
+| **Plugin System** | ✅ Yes | Configs loaded from plugin `.lsp.json` |
+| **Compact** | ❌ No | Operates on conversation history, not diagnostics |
+| **Slash Commands** | ❌ No | LSP is a Tool, not a user shortcut |
+| **Hooks** | ⚠️ Partial | Tool hooks apply, but no LSP-specific hooks |
+| **MCP** | ❌ No | Separate protocol; LSP is not exposed via MCP |

@@ -682,6 +682,94 @@
 | uN9 | expandUserConfigVars | chunks.87.mjs:1623 | function |
 | zG1 | getAllMcpServersWithPlugins | chunks.143.mjs:2380 | function |
 
+### Plugin Skills & Commands Loading
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| YK1 | getPluginCommands | chunks.87.mjs:2039 | variable (memoized) |
+| B0A | getPluginSkills | chunks.87.mjs:2157 | variable (memoized) |
+| TU7 | loadCommandsFromDir | chunks.87.mjs:1856 | function |
+| vU7 | loadSkillsFromDir | chunks.87.mjs:1943 | function |
+| uu1 | createCommandObject | chunks.87.mjs:1870 | function |
+| FN9 | findMarkdownFiles | chunks.87.mjs:1802 | function |
+| QN9 | groupFilesByDirectory | chunks.87.mjs:1838 | function |
+| mN9 | deriveCommandName | chunks.87.mjs:1825 | function |
+| yD | parseMarkdownWithFrontmatter | chunks.87.mjs:1731 | function |
+| Rx | isAlreadySeen | chunks.87.mjs:1798 | function |
+| pO6 | isSkillFile | chunks.87.mjs:1848 | function |
+| dO6 | clearCommandsCache | chunks.87.mjs:1939 | function |
+| EU7 | clearSkillsCache | chunks.87.mjs:2018 | function |
+| kj1 | pathJoin | chunks.87.mjs:1748 | function (alias) |
+| Lj1 | pathBasename | chunks.87.mjs:1750 | function (alias) |
+| Qa | pathDirname | chunks.87.mjs:1752 | function (alias) |
+
+### Plugin Agents Loading
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wK1 | getPluginAgents | chunks.87.mjs:2509 | variable (memoized) |
+| CU7 | loadAgentsFromDir | chunks.87.mjs:2470 | function |
+| yU7 | VALID_SCOPES | chunks.87.mjs:2508 | constant (["user", "project", "local"]) |
+
+### Plugin CLI Commands
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| HGz | handlePluginList | chunks.188.mjs:2596 | function |
+| XGz | handlePluginInstall | chunks.188.mjs:2800 | function |
+| DGz | handlePluginUninstall | chunks.188.mjs:2811 | function |
+| KGz | handlePluginDisable | chunks.188.mjs:2837 | function |
+| PGz | handlePluginUpdate | chunks.189.mjs:3 | function |
+| $Gz | handleMarketplaceAdd | chunks.188.mjs:2693 | function |
+| OGz | handleMarketplaceList | chunks.188.mjs:2717 | function |
+| _Gz | handleMarketplaceRemove | chunks.188.mjs:2768 | function |
+| JGz | handleMarketplaceUpdate | chunks.188.mjs:2779 | function |
+| fDq | installPlugin | chunks.176.mjs:210 | function |
+| VDq | uninstallPlugin | chunks.176.mjs:231 | function |
+| NDq | enablePlugin | chunks.176.mjs:244 | function |
+| TDq | disablePlugin | chunks.176.mjs:257 | function |
+| vDq | disableAllPlugins | chunks.176.mjs:270 | function |
+| EZ1 | updatePlugin | chunks.176.mjs:280 | function |
+| uV6 | parseMarketplaceSource | chunks.188.mjs:2697 | function |
+| ZP | VALID_PLUGIN_SCOPES | chunks.188.mjs:2804 | constant |
+
+### Plugin Telemetry Events
+
+| Event Name | When Fired |
+|------------|-----------|
+| tengu_plugin_installed | Plugin installation completes |
+| tengu_plugin_installed_cli | CLI install command completes |
+| tengu_plugin_uninstalled_cli | CLI uninstall command completes |
+| tengu_plugin_enabled_cli | CLI enable command completes |
+| tengu_plugin_disabled_cli | CLI disable command completes |
+| tengu_plugin_disabled_all_cli | All plugins disabled |
+| tengu_plugin_updated_cli | Update command completes |
+| tengu_plugin_list_command | List command executed |
+| tengu_plugin_install_command | Install command started |
+| tengu_plugin_uninstall_command | Uninstall command started |
+| tengu_plugin_enable_command | Enable command started |
+| tengu_plugin_disable_command | Disable command started |
+| tengu_plugin_update_command | Update command started |
+| tengu_plugins_loaded | Plugins loaded in session |
+| tengu_marketplace_added | Marketplace added |
+| tengu_marketplace_removed | Marketplace removed |
+| tengu_marketplace_updated | Marketplace updated |
+
+### Plugin Hook Registration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| pa | loadAllPluginHooks | chunks.87.mjs:2606 | variable (memoized) |
+| oN9 | extractPluginHooksForEvent | chunks.87.mjs:2559 | function |
+| O61 | registerPluginHooks | chunks.87.mjs:2573 | function |
+| YR6 | deregisterPluginHooks | chunks.87.mjs:2577 | function |
+| sN9 | setupPluginHookHotReload | chunks.87.mjs:2589 | function |
+| rO6 | clearPluginHookCache | chunks.87.mjs:2581 | function |
+| aN9 | resetHotReloadState | chunks.87.mjs:2585 | function |
+| PP | executePluginHooksForSession | chunks.142.mjs:248 | function |
+| FW6 | executePluginHooksForSetup | chunks.142.mjs:290 | function |
+| Ap | allowManagedHooksOnly | chunks.80.mjs:2821 | function |
+
 ---
 
 ## Module: IDE Integration
