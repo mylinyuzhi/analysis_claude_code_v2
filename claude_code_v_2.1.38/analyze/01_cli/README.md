@@ -19,6 +19,12 @@ The CLI module handles all command-line interface functionality, from initial pr
 | [tools_integration.md](./tools_integration.md) | CLI-Tools integration, permission context building | `buildToolPermissionContext` (KJq), `assembleSessionToolSet` (YP6) |
 | [compact_integration.md](./compact_integration.md) | CLI-Compact integration, auto-compact triggers | `autoCompactDispatcher` (fs4), `shouldAutoCompact` (amY) |
 | [slash_command_integration.md](./slash_command_integration.md) | CLI-Slash Command integration, skill loading | `--disable-slash-commands`, `getSkills` |
+| [hooks_cli_integration.md](./hooks_cli_integration.md) | CLI-Hooks integration, init/maintenance triggers | `--init`, `--init-only`, `--maintenance` |
+| [session_management.md](./session_management.md) | CLI-Session management, resume/fork/persistence | `--resume`, `--continue`, `--fork-session` |
+| [model_selection.md](./model_selection.md) | CLI-Model selection, effort, agents | `--model`, `--effort`, `--agent`, `--betas` |
+| [io_formats.md](./io_formats.md) | CLI-I/O formats, SDK mode, structured output | `--output-format`, `--json-schema` |
+| [debug_telemetry.md](./debug_telemetry.md) | CLI-Debug/telemetry, verbose mode | `--debug`, `--verbose`, `--debug-file` |
+| [mcp_config_cli.md](./mcp_config_cli.md) | CLI-MCP configuration, strict mode | `--mcp-config`, `--strict-mcp-config` |
 
 ---
 
@@ -60,9 +66,20 @@ cliEntry (qZz)                     chunks.190.mjs:167
 | `--dangerously-skip-permissions` | Bypass permissions | [cli_modes.md](./cli_modes.md) |
 | `--disable-slash-commands` | Disable skills | [slash_command_integration.md](./slash_command_integration.md) |
 | `--plugin-dir` | Load plugins | [slash_command_integration.md](./slash_command_integration.md) |
-| `--resume` | Resume session | [entry_points.md](./entry_points.md) |
-| `--continue` | Continue last session | [entry_points.md](./entry_points.md) |
-| `-c, --continue` | Continue conversation | [entry_points.md](./entry_points.md) |
+| `--resume` | Resume session | [session_management.md](./session_management.md) |
+| `--continue` | Continue last session | [session_management.md](./session_management.md) |
+| `--fork-session` | New session on resume | [session_management.md](./session_management.md) |
+| `--model` | Session model | [model_selection.md](./model_selection.md) |
+| `--effort` | Effort level | [model_selection.md](./model_selection.md) |
+| `--agent` | Agent override | [model_selection.md](./model_selection.md) |
+| `--output-format` | Output format | [io_formats.md](./io_formats.md) |
+| `--json-schema` | Structured output | [io_formats.md](./io_formats.md) |
+| `--debug` | Debug mode | [debug_telemetry.md](./debug_telemetry.md) |
+| `--verbose` | Verbose mode | [debug_telemetry.md](./debug_telemetry.md) |
+| `--mcp-config` | MCP servers | [mcp_config_cli.md](./mcp_config_cli.md) |
+| `--init` | Run Setup hooks | [hooks_cli_integration.md](./hooks_cli_integration.md) |
+| `--init-only` | Run hooks and exit | [hooks_cli_integration.md](./hooks_cli_integration.md) |
+| `--maintenance` | Maintenance hooks | [hooks_cli_integration.md](./hooks_cli_integration.md) |
 
 ---
 
@@ -110,6 +127,54 @@ See: [compact_integration.md](./compact_integration.md)
 
 See: [slash_command_integration.md](./slash_command_integration.md)
 
+### With Hooks Module (11_hooks/)
+
+- **Init Triggers** - `--init` runs Setup hooks with "init" trigger
+- **Init-Only Mode** - `--init-only` runs hooks and exits
+- **Maintenance Mode** - `--maintenance` runs maintenance hooks
+
+See: [hooks_cli_integration.md](./hooks_cli_integration.md)
+
+### With Session Management
+
+- **Resume/Continue** - Session persistence and resumption
+- **Fork Session** - Create new session from existing
+- **PR Integration** - Resume from PR-linked sessions
+
+See: [session_management.md](./session_management.md)
+
+### With Model Selection
+
+- **Model Override** - `--model` sets session model
+- **Effort Control** - `--effort` controls thinking budget
+- **Agent Selection** - `--agent` overrides agent type
+
+See: [model_selection.md](./model_selection.md)
+
+### With I/O Formats (SDK Mode)
+
+- **Output Format** - text, json, stream-json
+- **Structured Output** - JSON Schema validation
+- **Partial Messages** - Real-time streaming chunks
+
+See: [io_formats.md](./io_formats.md)
+
+### With MCP Configuration
+
+- **MCP Servers** - Load servers from JSON
+- **Strict Mode** - Ignore other MCP configs
+- **Permission Prompts** - MCP-based permission handling
+
+See: [mcp_config_cli.md](./mcp_config_cli.md)
+
+### With Debug/Telemetry
+
+- **Debug Mode** - Category-based filtering
+- **Verbose Mode** - Override config settings
+- **File Logging** - Write debug to file
+
+See: [debug_telemetry.md](./debug_telemetry.md)
+
 ### With System Reminder (04_system_reminder/)
 
 - **Attachment Producers** - CLI flags affect context building
@@ -154,8 +219,25 @@ See: [slash_command_integration.md](./slash_command_integration.md)
 │  │ tools_          │    │ compact_        │    │ slash_command_  │         │
 │  │ integration.md  │    │ integration.md  │    │ integration.md  │         │
 │  └─────────────────┘    └─────────────────┘    └─────────────────┘         │
+│                                    │                                         │
+│          ┌─────────────────────────┼─────────────────────────┐              │
 │          │                         │                         │              │
-│          └─────────────────────────┼─────────────────────────┘              │
+│          ▼                         ▼                         ▼              │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
+│  │ Hooks CLI       │    │ Session         │    │ Model           │         │
+│  │ Integration     │    │ Management      │    │ Selection       │         │
+│  │ hooks_cli_      │    │ session_        │    │ model_          │         │
+│  │ integration.md  │    │ management.md   │    │ selection.md    │         │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘         │
+│                                    │                                         │
+│          ┌─────────────────────────┼─────────────────────────┐              │
+│          │                         │                         │              │
+│          ▼                         ▼                         ▼              │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
+│  │ I/O Formats     │    │ Debug/Telemetry │    │ MCP Config      │         │
+│  │ io_formats.md   │    │ debug_          │    │ mcp_config_     │         │
+│  │                 │    │ telemetry.md    │    │ cli.md          │         │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘         │
 │                                    │                                         │
 │                                    ▼                                         │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
