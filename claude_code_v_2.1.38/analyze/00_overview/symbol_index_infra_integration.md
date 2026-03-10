@@ -1010,6 +1010,10 @@
 > - [02_ui/rendering_pipeline.md](../02_ui/rendering_pipeline.md) - Message rendering pipeline (7 stages)
 > - [02_ui/dialog_system.md](../02_ui/dialog_system.md) - Priority dialog system
 > - [02_ui/elicitation_system.md](../02_ui/elicitation_system.md) - MCP elicitation forms
+> - [02_ui/input_handling.md](../02_ui/input_handling.md) - PromptInput, history, vim mode
+> - [02_ui/spinner_status.md](../02_ui/spinner_status.md) - Spinner visibility, loading states
+> - [02_ui/streaming_ui.md](../02_ui/streaming_ui.md) - Streaming tool uses, thinking blocks
+> - [02_ui/integration_summary.md](../02_ui/integration_summary.md) - Cross-module integration
 > - [04_system_reminder/ui_linkage.md](../04_system_reminder/ui_linkage.md) - System reminder UI visibility
 
 ### REPL Core (chunks.188.mjs)
@@ -1042,6 +1046,9 @@
 | T6 | deferredMessages | chunks.188.mjs:151 | derived (useDeferredValue of messages for perf) |
 | K8 / $8 | inputValue / setInputValue | chunks.188.mjs:153 | state (current text input) |
 | e4 / Rq | inputMode / setInputMode | chunks.188.mjs:167 | state ("prompt"\|"bash") |
+| cJ / lJ | vimMode / setVimMode | chunks.188.mjs:194 | state ("INSERT"\|"NORMAL") |
+| IH / aw | pastedContents / setPastedContents | chunks.188.mjs:192 | state (image/file attachments by id) |
+| nA / V8 | messageHistory / setMessageHistory | chunks.188.mjs:153 | state (historical inputs for navigation) |
 | vK / l9 | toolJSX / setToolJSXState | chunks.188.mjs:111 | state (local JSX animation/command rendering) |
 | F7 / f8 | toolUseConfirmQueue / setToolUseConfirmQueue | chunks.188.mjs:135 | state (pending tool approvals) |
 | oq / j5 | sandboxPermissionQueue / setSandboxPermissionQueue | chunks.188.mjs:135 | state (pending network approvals) |
@@ -1052,6 +1059,16 @@
 | I6 | isQueryInProgress | chunks.188.mjs:196 | ref (concurrency guard) |
 | $Y | queryStartTime | chunks.188.mjs:99 | ref (for elapsed time calculation) |
 | OY | totalPausedMs | chunks.188.mjs:99 | ref (tool permission wait time excluded) |
+| Qj | responseLength | chunks.188.mjs:192 | ref (accumulated streaming text length) |
+| gj / S3 | spinnerText / setSpinnerText | chunks.188.mjs:176 | state (compact progress, hook status) |
+| eK / OO | spinnerColor / setSpinnerColor | chunks.188.mjs:176 | state (spinner foreground color) |
+| HD / xH | spinnerShimmer / setSpinnerShimmer | chunks.188.mjs:176 | state (spinner animation shimmer color) |
+| W$ / c9 | isPaused / setIsPaused | chunks.188.mjs:99 | state (input typing indicator with 1500ms timeout) |
+| V11 | blockedItemsWhenPaused | chunks.188.mjs:319 | derived (dialogs waiting while paused) |
+| s_ | isSearchingInputHistory | chunks.188.mjs:302 | state (history search overlay active) |
+| ow / r_ | inProgressToolUseIDs / setInProgressToolUseIDs | chunks.188.mjs:176 | state (Set of tool use IDs still executing) |
+| T4 | isSearchingHistory | chunks.188.mjs:194 | state (search overlay active) |
+| D2 | isHelpOpen | chunks.188.mjs:194 | state (help overlay active) |
 
 ### Message Rendering Components (chunks.161.mjs)
 
@@ -1077,8 +1094,22 @@
 | QbA | extractToolInfo | chunks.160.mjs | function (extracts toolName/messageId from message) |
 | XJq | isToolUseMessage | chunks.160.mjs | function (detects assistant tool_use messages) |
 | dd1 | isHookAttachment | chunks.160.mjs | function (detects hook event attachments) |
+| EN | getVisibleMessagesAfterCompact | chunks.173.mjs:1286 | function (slices messages to show only post-compact) |
+| Y2z | findLastCompactBoundary | chunks.173.mjs | function (finds last compact_boundary index) |
+| qYq | shouldShowMessageInChat | chunks.173.mjs:1292 | function (filters isMeta and visibility tier) |
+| pmA | isApiErrorMessage | chunks.173.mjs | function (detects API error messages) |
+| K2z | normalizeAttachmentForAPI | chunks.173.mjs | function (converts attachment to user message) |
+| lzz | mergeUserMessages | chunks.173.mjs:209 | function (combines consecutive user messages) |
+| izz | mergeAssistantMessages | chunks.173.mjs:221 | function (combines split assistant messages) |
+| gP | getLastMessage | chunks.173.mjs | function (returns last element of array) |
+| V8z | extractStreamingToolId | chunks.161.mjs:577 | function (extracts contentBlock.id for filtering) |
+| Z8z | createStreamingToolMessage | chunks.161.mjs:566 | function (wraps streaming tool as message) |
+| O8z | hasNextAssistantContent | chunks.161.mjs:336 | function (checks if more content follows this message) |
+| ep7 | isToolInInProgressSet | chunks.161.mjs | function (checks tool use ID membership) |
 | I2z | extractChatTitle | chunks.174.mjs:60 | function (extracts conversation title, skips command output via fJq) |
 | fJq | SKIP_TITLE_REGEX | chunks.174.mjs:273 | constant (regex: tag patterns excluded from title extraction) |
+| PE6 | processInput | chunks | function (routes input to query/command handlers) |
+| V_6 | getPreviousQueuedMessage | chunks | function (history navigation with image restore) |
 
 ### Dialog Components (chunks.188.mjs)
 

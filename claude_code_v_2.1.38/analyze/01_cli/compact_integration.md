@@ -368,33 +368,109 @@ const MIN_REMAINING_TOKENS = 3000;                // Keep this many tokens after
 
 ### 5.1 Feature Flag Gating
 
+**Source location:** `chunks.147.mjs:612-617`
+
 ```javascript
 // ============================================
-// Session Memory feature flags
-// Location: Various config files
+// isSessionMemoryCompactEnabled - Feature flag check
+// Location: chunks.147.mjs:612-617
 // ============================================
 
-// Feature flags required for session memory compaction:
-// - tengu_session_memory: Enables session memory storage
-// - tengu_sm_compact: Enables session memory-based compaction
-
-// Environment override:
-// ENABLE_CLAUDE_CODE_SM_COMPACT=1
+// ORIGINAL (for source lookup):
+function TZ6() {
+    if (J6(process.env.ENABLE_CLAUDE_CODE_SM_COMPACT)) return !0;
+    if (J6(process.env.DISABLE_CLAUDE_CODE_SM_COMPACT)) return !1;
+    let A = x8("tengu_session_memory", !1),
+        q = x8("tengu_sm_compact", !1);
+    return A && q
+}
 
 // READABLE (for understanding):
-function isSessionMemoryCompactionEnabled() {
-    // Check environment override first
+function isSessionMemoryCompactEnabled() {
+    // Environment override: force enable
     if (parseBoolean(process.env.ENABLE_CLAUDE_CODE_SM_COMPACT)) {
         return true;
     }
 
-    // Check feature flags
-    return isFeatureEnabled("tengu_session_memory")
-        && isFeatureEnabled("tengu_sm_compact");
+    // Environment override: force disable
+    if (parseBoolean(process.env.DISABLE_CLAUDE_CODE_SM_COMPACT)) {
+        return false;
+    }
+
+    // Check both feature flags must be enabled
+    let sessionMemoryEnabled = getFeatureFlag("tengu_session_memory", false);
+    let smCompactEnabled = getFeatureFlag("tengu_sm_compact", false);
+
+    return sessionMemoryEnabled && smCompactEnabled;
 }
+
+// Mapping: TZ6→isSessionMemoryCompactEnabled, J6→parseBoolean,
+//          x8→getFeatureFlag
 ```
 
-### 5.2 Session Memory vs Standard Compaction
+**Why dual feature flags:**
+
+The session memory compaction requires TWO feature flags to be enabled:
+1. `tengu_session_memory` - Enables the session memory storage system
+2. `tengu_sm_compact` - Enables compaction using session memory
+
+This separation allows:
+- Enabling session memory without changing compaction behavior
+- Testing compaction in isolation
+- Gradual rollout of the new compaction system
+
+### 5.2 performSessionMemoryCompaction (vZ6)
+
+**Source location:** `chunks.147.mjs:651-683`
+
+```javascript
+// ============================================
+// performSessionMemoryCompaction - Session memory compaction path
+// Location: chunks.147.mjs:651-683
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function vZ6(A, q, K) {
+    await pmY(), await sa4();
+    let Y = ra4(),
+        z = PZ6();
+    if (!z) return c("tengu_sm_compact_no_session_memory", {}), null;
+    if (await _s4(z)) return c("tengu_sm_compact_empty_template", {}), null;
+    // ... compaction logic ...
+}
+
+// READABLE (for understanding):
+async function performSessionMemoryCompaction(messages, agentId, threshold) {
+    // Step 1: Load SM compact config
+    await loadSmCompactConfig();
+    await loadSessionMemoryTemplate();
+
+    // Step 2: Get session context
+    let sessionId = getSessionId();
+    let sessionMemoryTemplate = getSessionMemoryTemplate();
+
+    // Step 3: Validate session memory exists
+    if (!sessionMemoryTemplate) {
+        telemetry("tengu_sm_compact_no_session_memory", {});
+        return null;
+    }
+
+    // Step 4: Check if template is empty
+    if (await isTemplateEmpty(sessionMemoryTemplate)) {
+        telemetry("tengu_sm_compact_empty_template", {});
+        return null;
+    }
+
+    // Step 5: Perform compaction using session memory
+    // ... rest of compaction logic ...
+}
+
+// Mapping: vZ6→performSessionMemoryCompaction, A→messages, q→agentId, K→threshold,
+//          pmY→loadSmCompactConfig, sa4→loadSessionMemoryTemplate,
+//          ra4→getSessionId, PZ6→getSessionMemoryTemplate, _s4→isTemplateEmpty
+```
+
+### 5.3 Session Memory vs Standard Compaction
 
 | Aspect | Session Memory | Standard Compaction |
 |--------|---------------|---------------------|

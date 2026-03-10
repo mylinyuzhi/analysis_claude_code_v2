@@ -25,6 +25,7 @@ The CLI module handles all command-line interface functionality, from initial pr
 | [io_formats.md](./io_formats.md) | CLI-I/O formats, SDK mode, structured output | `--output-format`, `--json-schema` |
 | [debug_telemetry.md](./debug_telemetry.md) | CLI-Debug/telemetry, verbose mode | `--debug`, `--verbose`, `--debug-file` |
 | [mcp_config_cli.md](./mcp_config_cli.md) | CLI-MCP configuration, strict mode | `--mcp-config`, `--strict-mcp-config` |
+| [system_reminder_integration.md](./system_reminder_integration.md) | CLI-System Reminder integration, mode-based attachments | `assembleAttachments` (phY), `normalizeAttachmentForAPI` (K2z) |
 
 ---
 
@@ -180,6 +181,9 @@ See: [debug_telemetry.md](./debug_telemetry.md)
 - **Attachment Producers** - CLI flags affect context building
 - **Plan Mode** - CLI activates plan mode features
 - **Team Mode** - CLI enables team context injection
+- **Token Usage** - Session state drives token tracking
+
+See: [system_reminder_integration.md](./system_reminder_integration.md)
 
 ---
 
@@ -237,6 +241,18 @@ See: [debug_telemetry.md](./debug_telemetry.md)
 │  │ I/O Formats     │    │ Debug/Telemetry │    │ MCP Config      │         │
 │  │ io_formats.md   │    │ debug_          │    │ mcp_config_     │         │
 │  │                 │    │ telemetry.md    │    │ cli.md          │         │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘         │
+│                                    │                                         │
+│          ┌─────────────────────────┼─────────────────────────┐              │
+│          │                         │                         │              │
+│          ▼                         ▼                         ▼              │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
+│  │ System          │    │                 │    │                 │         │
+│  │ Reminder        │    │                 │    │                 │         │
+│  │ Integration     │    │                 │    │                 │         │
+│  │ system_         │    │                 │    │                 │         │
+│  │ reminder_       │    │                 │    │                 │         │
+│  │ integration.md  │    │                 │    │                 │         │
 │  └─────────────────┘    └─────────────────┘    └─────────────────┘         │
 │                                    │                                         │
 │                                    ▼                                         │

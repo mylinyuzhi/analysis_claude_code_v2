@@ -462,6 +462,49 @@ if (pluginDirs.length > 0) {
 // Mapping: k→pluginDirs, lL6→setPluginDirectories, Sv→refreshPlugins
 ```
 
+### 5.3 Plugin Loading Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PLUGIN LOADING FLOW                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  CLI Entry                                                                   │
+│  │                                                                          │
+│  ├─► Parse --plugin-dir flag                                                │
+│  │                                                                          │
+│  ├─► setPluginDirectories(pluginDirs)                                       │
+│  │   │                                                                      │
+│  │   └─► Store paths in global plugin registry                              │
+│  │                                                                          │
+│  ├─► refreshPlugins()                                                       │
+│  │   │                                                                      │
+│  │   └─► Trigger plugin discovery                                           │
+│  │                                                                          │
+│  ├─► getSkills() called during session setup                                │
+│  │   │                                                                      │
+│  │   ├─► loadProjectSkills()                                                │
+│  │   │   │                                                                  │
+│  │   │   ├─► Load from ~/.claude/skills/ (user skills)                      │
+│  │   │   ├─► Load from .claude/skills/ (project skills)                     │
+│  │   │   └─► Load from --plugin-dir paths (plugin skills)                   │
+│  │   │                                                                      │
+│  │   └─► Return { skillDirCommands, pluginSkills, bundledSkills }           │
+│  │                                                                          │
+│  └─► Merge all command sources                                              │
+│       │                                                                      │
+│       └─► Pass to REPL component                                             │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key design decision: Session-only plugin loading**
+
+The `--plugin-dir` flag loads plugins for the current session only:
+- Plugins are NOT persisted across sessions
+- Allows testing plugins without modifying config
+- Useful for CI/CD pipelines with custom skills
+
 ---
 
 ## 6. Session Context Flow

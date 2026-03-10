@@ -690,6 +690,10 @@
 | RmY | SESSION_NOTES_TEMPLATE | chunks.147.mjs:178 | constant (string) |
 | NZ6 | SM_COMPACT_CONFIG_DEFAULTS | chunks.147.mjs:708 | constant ({ minTokens: 10000, minTextBlockMessages: 5, maxTokens: 40000 }) |
 | dCA | smCompactConfig | chunks.147.mjs:712 | variable |
+| - | ENABLE_CLAUDE_CODE_SM_COMPACT | process.env | environment variable |
+| - | DISABLE_CLAUDE_CODE_SM_COMPACT | process.env | environment variable |
+| - | tengu_session_memory | Statsig | feature flag |
+| - | tengu_sm_compact | Statsig | feature flag |
 
 ### State Preservation
 
@@ -1191,6 +1195,11 @@
 | WJ | normalizeMessages | chunks.173.mjs:89 | function |
 | hMA | extractSystemReminderContent | chunks.90.mjs:517 | function |
 | EL9 | SYSTEM_REMINDER_REGEX | chunks.90.mjs:730 | constant (regex) |
+| azz | planModeReminderDispatcher | chunks.173.mjs:525 | function |
+| _zz | produceSubagentPlanModeReminder | chunks.173.mjs | function |
+| Gzz | produceSparsePlanModeReminder | chunks.173.mjs | function |
+| Vzz | produceFullPlanModeReminder | chunks.173.mjs | function |
+| tI | wrapInXmlTag | chunks.173.mjs:490 | function |
 
 ### Synthetic Message Creation
 

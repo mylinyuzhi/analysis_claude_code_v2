@@ -1,0 +1,645 @@
+# Streaming UI State
+
+> Related Symbols:
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI Components
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - LLM API
+
+Key functions in this document:
+- `handleToolUseStream` (iW1) - Core streaming event processor, chunks.173.mjs:390
+- `handleToolUseStreamCallback` (T11) - React state adapter for streaming, chunks.188.mjs:542
+- `setStreamingToolUses` (xq) - Update streaming tool state, chunks.188.mjs:87
+- `setStreamMode` (tK) - Update stream mode state, chunks.188.mjs:87
+- `setStreamingThinking` (R4) - Update thinking state, chunks.188.mjs:87
+
+---
+
+## Table of Contents
+
+- [1. Architecture Overview](#1-architecture-overview)
+- [2. Streaming State Variables](#2-streaming-state-variables)
+- [3. Stream Mode States](#3-stream-mode-states)
+- [4. Streaming Tool Uses (gq)](#4-streaming-tool-uses-gq)
+- [5. Thinking Block Lifecycle](#5-thinking-block-lifecycle)
+- [6. Event Processing Flow](#6-event-processing-flow)
+- [7. Partial Input Display](#7-partial-input-display)
+- [8. Message Commit Flow](#8-message-commit-flow)
+- [9. In-Progress Tool Tracking](#9-in-progress-tool-tracking)
+
+---
+
+## 1. Architecture Overview
+
+The streaming UI system handles real-time display of LLM responses as they arrive.
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                      STREAMING UI SYSTEM                              │
+│                                                                       │
+│  LLM Stream Events                                                    │
+│       │                                                               │
+│       ▼                                                               │
+│  handleToolUseStream (iW1)                                           │
+│       │                                                               │
+│       ├── content_block_start → setStreamMode, setStreamingToolUses │
+│       ├── content_block_delta → update response length              │
+│       ├── thinking_delta → setStreamingThinking                     │
+│       ├── message_delta → setStreamMode("responding")               │
+│       └── complete message → setMessages                             │
+│                                                                       │
+│  State Slices:                                                        │
+│  ├── O7 (streamMode) - "responding" | "tool_use" | "reasoning"      │
+│  ├── gq (streamingToolUses) - Array of partial tool inputs          │
+│  ├── U8 (streamingThinking) - Thinking block state                  │
+│  └── ow (inProgressToolUseIDs) - Set of active tool use IDs         │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Design Decisions:**
+
+1. **Streaming state is separate from messages** - Partial content is not added to messages
+2. **Filtering prevents duplicates** - Streaming tools are filtered if already committed
+3. **30-second thinking fade** - Thinking blocks disappear after display period
+4. **Deferred value for messages** - Message updates are deferred for input responsiveness
+
+---
+
+## 2. Streaming State Variables
+
+### Core State
+
+```javascript
+// From REPL state (chunks.188.mjs:87):
+let [O7, tK] = dA.useState("responding");     // streamMode, setStreamMode
+let [gq, xq] = dA.useState([]);               // streamingToolUses, setStreamingToolUses
+let [U8, R4] = dA.useState(null);             // streamingThinking, setStreamingThinking
+let [ow, r_] = dA.useState(new Set());        // inProgressToolUseIDs, setInProgressToolUseIDs
+```
+
+### Derived State
+
+```javascript
+// Streaming tool use IDs (for filtering):
+let Y1 = dA.useMemo(() => new Set(gq.map(V8z)), [gq]);
+// V8z extracts contentBlock.id from streaming tool entry
+```
+
+### State Relationships
+
+| State | Contains | When Cleared |
+|-------|----------|--------------|
+| `streamMode` | Current mode string | Reset after query |
+| `streamingToolUses` | Partial tool use objects | Reset after query |
+| `streamingThinking` | Thinking block + metadata | 30s after streaming ends |
+| `inProgressToolUseIDs` | Set of tool use IDs | Updated during execution |
+
+---
+
+## 3. Stream Mode States
+
+The `streamMode` tracks what the LLM is currently outputting.
+
+### Mode Values
+
+| Mode | Meaning | Trigger |
+|------|---------|---------|
+| `"responding"` | Text content | `message_delta` event |
+| `"tool_use"` | Tool call | `content_block_start` with type tool_use |
+| `"reasoning"` | Thinking block | `content_block_start` with type thinking |
+
+### Mode Transitions
+
+```
+"responding" ←→ "tool_use" ←→ "responding"
+       ↑              ↑
+       └── "reasoning" ──┘
+```
+
+### Mode Setting
+
+```javascript
+// In handleToolUseStream (iW1):
+// From chunks.173.mjs:390
+
+case "content_block_start":
+    if (event.content_block.type === "tool_use") {
+        setStreamMode("tool_use");
+        // Add to streamingToolUses
+    }
+    if (event.content_block.type === "thinking") {
+        setStreamMode("reasoning");
+    }
+    break;
+
+case "message_delta":
+    setStreamMode("responding");
+    break;
+```
+
+---
+
+## 4. Streaming Tool Uses (gq)
+
+The `streamingToolUses` array holds tool uses that are still being streamed.
+
+### Entry Structure
+
+```typescript
+interface StreamingToolUse {
+    index: number;              // Position in current LLM response
+    contentBlock: {
+        type: "tool_use";
+        id: string;             // Tool use ID
+        name: string;           // Tool name (e.g., "Bash")
+        input: object;          // Empty initially, filled as streaming progresses
+    };
+    unparsedToolInput: string;  // Partial JSON being accumulated
+}
+```
+
+### Adding Entries
+
+```javascript
+// In handleToolUseStream (iW1):
+// When content_block_start with tool_use:
+
+setStreamingToolUses(prev => [...prev, {
+    index: event.index,
+    contentBlock: event.content_block,  // Contains id, name, empty input
+    unparsedToolInput: ""
+}]);
+```
+
+### Updating Partial Input
+
+```javascript
+// When content_block_delta with input_delta:
+setStreamingToolUses(prev => prev.map(entry => {
+    if (entry.index === event.index) {
+        return {
+            ...entry,
+            unparsedToolInput: entry.unparsedToolInput + event.delta
+        };
+    }
+    return entry;
+}));
+```
+
+### Removing Entries
+
+```javascript
+// When tool use completes (input_done or message complete):
+// Entries are removed when the full assistant message appears in messages
+```
+
+### Filtering in MessageList
+
+```javascript
+// ============================================
+// Filter streaming tools that are already committed
+// Location: chunks.161.mjs:693-706
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (q[5] !== _ || q[6] !== g || q[7] !== M) {
+    let j6;
+    if (q[9] !== _ || q[10] !== g) j6 = (M6) => {
+        if (_.has(M6.contentBlock.id)) return !1;
+        if (g.some((N6) => N6.type === "assistant" &&
+            N6.message.content[0].type === "tool_use" &&
+            N6.message.content[0].id === M6.contentBlock.id)) return !1;
+        return !0
+    }, q[9] = _, q[10] = g, q[11] = j6;
+    else j6 = q[11];
+    O1 = M.filter(j6), q[5] = _, q[6] = g, q[7] = M, q[8] = O1
+} else O1 = q[8];
+
+// READABLE (for understanding):
+const activeStreamingTools = streamingToolUses.filter(tool => {
+    // Remove if already in inProgressToolUseIDs (completed streaming)
+    if (inProgressToolUseIDs.has(tool.contentBlock.id)) return false;
+
+    // Remove if already in committed messages
+    if (messages.some(msg =>
+        msg.type === "assistant" &&
+        msg.message.content[0]?.type === "tool_use" &&
+        msg.message.content[0].id === tool.contentBlock.id
+    )) return false;
+
+    return true;
+});
+```
+
+---
+
+## 5. Thinking Block Lifecycle
+
+Thinking blocks have special lifecycle management with a 30-second display timer.
+
+### State Structure
+
+```typescript
+interface StreamingThinking {
+    thinking: string;           // Accumulated thinking text
+    isStreaming: boolean;       // Still receiving data
+    streamingEndedAt?: number;  // Timestamp when streaming ended
+}
+```
+
+### Streaming Phase
+
+```javascript
+// When thinking_delta events arrive:
+setStreamingThinking(prev => ({
+    ...prev,
+    thinking: prev.thinking + event.thinking,
+    isStreaming: true
+}));
+```
+
+### End Phase
+
+```javascript
+// When assistant message with thinking arrives:
+// From chunks.173.mjs:397-400
+if (A.type === "assistant") {
+    let $ = A.message.content.find((O) => O.type === "thinking");
+    if ($ && $.type === "thinking") {
+        H?.(() => ({
+            thinking: $.thinking,
+            isStreaming: false,
+            streamingEndedAt: Date.now()
+        }));
+    }
+}
+```
+
+### 30-Second Timer
+
+```javascript
+// ============================================
+// Thinking block 30-second display timer
+// Location: chunks.188.mjs:88-98
+// ============================================
+
+// ORIGINAL (for source lookup):
+dA.useEffect(() => {
+    if (U8 && !U8.isStreaming && U8.streamingEndedAt) {
+        let q8 = 30000 - (Date.now() - U8.streamingEndedAt);
+        if (q8 > 0) {
+            let FA = setTimeout(() => {
+                R4(null)
+            }, q8);
+            return () => clearTimeout(FA)
+        } else R4(null)
+    }
+}, [U8]);
+
+// READABLE (for understanding):
+useEffect(() => {
+    if (!streamingThinking || streamingThinking.isStreaming || !streamingThinking.streamingEndedAt) {
+        return;
+    }
+
+    // Calculate remaining display time
+    const elapsed = Date.now() - streamingThinking.streamingEndedAt;
+    const remainingMs = 30000 - elapsed;
+
+    if (remainingMs > 0) {
+        // Set timer to clear after remaining time
+        const timer = setTimeout(() => {
+            setStreamingThinking(null);
+        }, remainingMs);
+        return () => clearTimeout(timer);
+    } else {
+        // Already expired, clear immediately
+        setStreamingThinking(null);
+    }
+}, [streamingThinking]);
+```
+
+**Why 30 seconds?** This gives users time to read the thinking content without it permanently cluttering the conversation. In transcript mode, thinking is preserved.
+
+### MessageList Thinking Detection
+
+```javascript
+// ============================================
+// Check if thinking should display
+// Location: chunks.161.mjs:624-637
+// ============================================
+
+// Determine if streaming thinking is visible:
+let x;  // showThinking
+A: {
+    if (!T) { x = !1; break A; }
+    if (T.isStreaming) { x = !0; break A; }
+    if (T.streamingEndedAt) {
+        x = Date.now() - T.streamingEndedAt < 30000;
+        break A;
+    }
+    x = !1;
+}
+```
+
+---
+
+## 6. Event Processing Flow
+
+### handleToolUseStreamCallback (T11)
+
+```javascript
+// ============================================
+// React state adapter for streaming events
+// Location: chunks.188.mjs:542-548
+// ============================================
+
+// ORIGINAL (for source lookup):
+let T11 = dA.useCallback((k6) => {
+    iW1(k6, (q8) => {
+        if (cR(q8)) X6(() => [q8]);
+        else X6((FA) => [...FA, q8])
+    }, (q8) => p2((FA) => FA + q8.length), tK, xq, (q8) => {
+        X6((FA) => FA.filter((Yq) => Yq !== q8)), rmA(q8.uuid)
+    }, R4)
+}, [X6, p2, tK, xq, R4]);
+
+// READABLE (for understanding):
+const handleToolUseStreamCallback = useCallback((event) => {
+    handleToolUseStream(
+        event,
+        // onMessage: Add to messages
+        (msg) => {
+            if (isTombstone(msg)) {
+                setMessages(() => [msg]);  // Replace all for tombstone
+            } else {
+                setMessages(prev => [...prev, msg]);
+            }
+        },
+        // onResponseLength: Accumulate character count
+        (delta) => updateResponseLength(len => len + delta.length),
+        // setStreamMode
+        setStreamMode,
+        // setStreamingToolUses
+        setStreamingToolUses,
+        // onRemoveMessage: Filter out removed message
+        (msg) => {
+            setMessages(prev => prev.filter(m => m !== msg));
+            removeMessageFromHistory(msg.uuid);
+        },
+        // setStreamingThinking
+        setStreamingThinking
+    );
+}, [setMessages, updateResponseLength, setStreamMode, setStreamingToolUses, setStreamingThinking]);
+```
+
+### handleToolUseStream (iW1) Core Logic
+
+```javascript
+// ============================================
+// Core streaming event processor
+// Location: chunks.173.mjs:390
+// ============================================
+
+function handleToolUseStream(event, onMessage, onResponseLength, setStreamMode, setStreamingToolUses, onRemoveMessage, setStreamingThinking) {
+    // Event type routing
+    if (event.type !== "stream_event" && event.type !== "stream_request_start") {
+        // Handle non-streaming events
+
+        if (event.type === "tombstone") {
+            onRemoveMessage?.(event.message);
+            return;
+        }
+
+        if (event.type === "tool_use_summary") return;
+
+        if (event.type === "assistant") {
+            // Complete assistant message
+            let thinking = event.message.content.find(block => block.type === "thinking");
+            if (thinking && thinking.type === "thinking") {
+                setStreamingThinking?.(() => ({
+                    thinking: thinking.thinking,
+                    isStreaming: false,
+                    streamingEndedAt: Date.now()
+                }));
+            }
+            // ... handle other assistant message processing
+            return;
+        }
+    }
+
+    // Handle stream_event types...
+    switch (event.event_type) {
+        case "content_block_start":
+            if (event.content_block.type === "tool_use") {
+                setStreamMode("tool_use");
+                setStreamingToolUses(prev => [...prev, {
+                    index: event.index,
+                    contentBlock: event.content_block,
+                    unparsedToolInput: ""
+                }]);
+            }
+            if (event.content_block.type === "thinking") {
+                setStreamMode("reasoning");
+                setStreamingThinking({ thinking: "", isStreaming: true });
+            }
+            break;
+
+        case "content_block_delta":
+            if (event.delta.type === "input_json_delta") {
+                // Accumulate tool input
+                setStreamingToolUses(prev => prev.map(entry =>
+                    entry.index === event.index
+                        ? { ...entry, unparsedToolInput: entry.unparsedToolInput + event.delta.partial_json }
+                        : entry
+                ));
+            }
+            if (event.delta.type === "thinking_delta") {
+                setStreamingThinking(prev => ({
+                    ...prev,
+                    thinking: prev.thinking + event.delta.thinking
+                }));
+            }
+            if (event.delta.type === "text_delta") {
+                onResponseLength(event.delta.text);
+            }
+            break;
+
+        case "message_delta":
+            setStreamMode("responding");
+            break;
+    }
+}
+```
+
+---
+
+## 7. Partial Input Display
+
+### Rendering Streaming Tool Uses
+
+```javascript
+// In MessageList (P8z):
+// Streaming tool uses are appended to the renderable messages
+
+// From chunks.161.mjs:705-706:
+let j1 = T1.flatMap(Z8z);  // Convert streaming tools to message format
+
+// Z8z creates a synthetic message for display:
+function Z8z(toolUse) {
+    return createMessage({
+        content: [toolUse.contentBlock]
+    });
+}
+```
+
+### Partial JSON Display
+
+When tool input is being streamed, the `unparsedToolInput` string shows partial JSON:
+
+```
+Tool: Bash
+Input: {"command": "ls -la", "timeout": 30...
+```
+
+The partial JSON is displayed as-is until the complete input arrives.
+
+### Input Completion
+
+When `input_done` event arrives:
+
+```javascript
+// Parse accumulated JSON
+try {
+    const parsedInput = JSON.parse(entry.unparsedToolInput);
+    // Update entry with parsed input
+} catch {
+    // Handle parse error
+}
+```
+
+---
+
+## 8. Message Commit Flow
+
+### Streaming → Committed Transition
+
+```
+[Streaming State]              [Committed Messages]
+streamingToolUses[0]    ──►    messages[...].content[tool_use]
+streamingThinking       ──►    messages[...].content[thinking]
+streamMode              ──►    (cleared)
+```
+
+### Commit Timing
+
+Messages are committed when:
+
+1. **Assistant message event** - Complete `type: "assistant"` event arrives
+2. **Message done** - `message_stop` event signals end of stream
+3. **Error/abort** - Stream interrupted
+
+### Post-Commit Cleanup
+
+```javascript
+// In resetLoadingState (YK):
+const resetLoadingState = useCallback(() => {
+    setIsLoading(false);
+    setUserInputOnProcessing(undefined);
+    responseLength.current = 0;
+    setStreamingToolUses([]);      // Clear streaming tools
+    setSpinnerText(null);
+    // ... other cleanup
+}, [setIsLoading, refreshSpinnerTip]);
+```
+
+### Filtering Duplicate Display
+
+The MessageList ensures streaming tools don't appear alongside committed messages:
+
+```javascript
+// Filter out streaming tools that are already in messages
+const activeStreamingTools = streamingToolUses.filter(tool => {
+    // Check if tool use ID exists in committed messages
+    const existsInMessages = messages.some(msg =>
+        msg.type === "assistant" &&
+        msg.message.content.some(block =>
+            block.type === "tool_use" && block.id === tool.contentBlock.id
+        )
+    );
+    return !existsInMessages;
+});
+```
+
+---
+
+## 9. In-Progress Tool Tracking
+
+### inProgressToolUseIDs (ow)
+
+This Set tracks tool uses that have completed streaming but are still executing.
+
+```javascript
+// From REPL state:
+let [ow, r_] = dA.useState(new Set());  // inProgressToolUseIDs
+
+// Set by agent loop when tool execution starts:
+setInProgressToolUseIDs: r_
+```
+
+### Usage in Filtering
+
+```javascript
+// In MessageList filtering:
+// Check if tool use is in progress (completed streaming, still executing)
+if (inProgressToolUseIDs.has(tool.contentBlock.id)) {
+    return false;  // Don't show in streaming display
+}
+```
+
+### Animation Control
+
+```javascript
+// In MessageComponent:
+// Tools that are in progress get different animation behavior
+
+const isInProgress = inProgressToolUseIDs.has(toolUseId);
+const shouldAnimate = !isInProgress || /* other conditions */;
+```
+
+### Relationship to Dialog Queue
+
+```javascript
+// When tool requires permission:
+// 1. Tool use ID is added to inProgressToolUseIDs
+// 2. Permission request is added to F7 (toolUseConfirmQueue)
+// 3. Tool execution waits for permission response
+```
+
+---
+
+## State Variables Reference
+
+| Variable | Setter | Purpose |
+|----------|--------|---------|
+| `O7` | `tK` | Stream mode (responding/tool_use/reasoning) |
+| `gq` | `xq` | Streaming tool uses array |
+| `U8` | `R4` | Streaming thinking state |
+| `ow` | `r_` | In-progress tool use IDs (Set) |
+| `Qj` | `p2` | Response length (ref) |
+
+### StreamingToolUse Entry Fields
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `index` | number | Position in current response |
+| `contentBlock.id` | string | Tool use ID |
+| `contentBlock.name` | string | Tool name |
+| `contentBlock.input` | object | Parsed input (when complete) |
+| `unparsedToolInput` | string | Accumulated JSON string |
+
+### StreamingThinking Fields
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `thinking` | string | Accumulated thinking text |
+| `isStreaming` | boolean | Still receiving data |
+| `streamingEndedAt` | number | Timestamp when streaming ended |
