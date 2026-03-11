@@ -29,12 +29,14 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Mc1 | StdioStreamIO | chunks.178.mjs:1060-1210 | class (base NDJSON transport over stdio) |
+| Mc1 | StdioStreamIO | chunks.178.mjs:1060-1236 | class (base NDJSON transport over stdio) |
 | FQA | SdkUrlStreamIO | chunks.178.mjs:1630-1663 | class (extends StdioStreamIO; bridges WebSocket → PassThrough stream) |
 | Pc1 | WebSocketTransport | chunks.178.mjs:1294-1490 | class (WebSocket connection with reconnect, message buffer, ping/pong) |
 | jc1 | handlePermissionPromptToolResult | chunks.178.mjs:989-1010 | function (processes MCP tool permission result; handles allow/deny/interrupt) |
 | IJz | createStreamIO | chunks.179.mjs:1887-1901 | function (factory: selects StdioStreamIO or SdkUrlStreamIO based on sdkUrl option) |
 | oGz | streamJsonInputHandler | chunks.189.mjs:984-997 | function (routes stdin → stream; text mode buffers, stream-json mode returns raw stream) |
+| createHookCallback | createHookCallback | chunks.178.mjs:1209-1226 | method (on StdioStreamIO: creates callback wrapper for SDK hook execution via control_request) |
+| sendMcpMessage | sendMcpMessage | chunks.178.mjs:1227-1235 | method (on StdioStreamIO: sends MCP message through SDK control channel) |
 
 ### WebSocket Transport Constants (chunks.178.mjs)
 

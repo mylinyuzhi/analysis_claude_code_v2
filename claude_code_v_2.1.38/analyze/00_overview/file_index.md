@@ -40,3 +40,25 @@
 | `chunks.172.mjs` | UI / Display Normalization | `t9q` (normalizeDisplayMessages): Groups tool uses with hooks/results; `dzz` (reorderAttachments); `DJq` (createAssistantMessage); permission mode setup |
 | `chunks.173.mjs` | UI / Message Normalization | `WJ` (normalizeMessages): Transforms raw messages for display; `EN` (getVisibleMessagesAfterCompact); `qYq` (shouldShowMessageInChat); `iW1` (handleToolUseStream) |
 | `chunks.188.mjs` | UI / REPL Core | `TUA` (REPL): Main session orchestrator; `Z$` (handleSubmit); `f11` (getInputDialogType); `N11` (handleCancel); 9 dialog types; spinner logic (`PG`, `Gw`) |
+| `chunks.90.mjs` | SDK / Agent Definitions | Built-in agents: `Tn7` (BASH_AGENT), `ZB1` (GENERAL_PURPOSE_AGENT), `bv` (EXPLORE_AGENT), `PJ6` (PLAN_AGENT), `En7` (STATUSLINE_SETUP_AGENT), `Rn7` (CLAUDE_CODE_GUIDE_AGENT); `APA` (getBuiltinAgents) |
+| `chunks.91.mjs` | SDK / Agent Loading | `hh` (mergeAgentDefinitions), `KPA` (validateMcpServers), `un7` (filterByMcpServers), `TB1` (loadAgentDefinitions), `tL9` (parseAgentFromJson) |
+| `chunks.178.mjs` | SDK / Transport | `Mc1` (StdioStreamIO): Base NDJSON transport; `FQA` (SdkUrlStreamIO): WebSocket bridge; `Pc1` (WebSocketTransport): Connection management with reconnection |
+| `chunks.179.mjs` | SDK / Print Mode | `CJz` (initializeSession): Processes initialize control request; Print mode agent loop; output format routing |
+| `chunks.47.mjs` | SDK / User Agent | `Jr` (getExternalUserAgent): Builds user-agent header with SDK version; `A67` (calculatePromptHash); `cq6` (getSystemPrompt) |
+
+---
+
+## Documentation Directories
+
+### 20_sdk/ - Agent SDK Documentation
+
+| File | Contents |
+|------|----------|
+| `overview.md` | SDK architecture overview, entry point detection, I/O transport, system prompts, error message adaptation |
+| `streaming_protocol.md` | Complete NDJSON message protocol, all message types, schemas, output format comparison |
+| `transport_layer.md` | StdioStreamIO, WebSocketTransport, SdkUrlStreamIO internals, reconnection, permission prompt tool |
+| `ui_linkage.md` | How SDK stream events drive UI state machine, thinking/text/tool streaming |
+| `agent_definitions.md` | Built-in agent definitions, custom agent schema, agent loading pipeline, SDK-specific filtering |
+| `sdk_tools_integration.md` | Tool execution in SDK mode, permission prompt tool, MCP tool integration, control_request flow |
+| `sdk_hooks.md` | SDK hook callback mechanism, hookCallbackIds, createHookCallback method, hook execution flow |
+| `sdk_session_management.md` | Session persistence, max turns, budget limits, auto-compact integration, JSON schema structured output |

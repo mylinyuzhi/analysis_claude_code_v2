@@ -457,6 +457,32 @@ Emitted when the permission mode changes dynamically.
 
 ---
 
+### 1g. `auth_status` — Authentication State
+
+**Only emitted when `--enable-auth-status` flag is set.** Provides authentication status updates during the session.
+
+```javascript
+{
+  "type": "auth_status",
+  "status": "authenticated" | "unauthenticated" | "expired",
+  "account": {
+    "email": "user@example.com",
+    "organization": "My Org",
+    "subscriptionType": "pro"
+  },
+  "session_id": "<uuid>",
+  "uuid": "<uuid>"
+}
+```
+
+**When auth_status is sent:**
+- After `initialize` control response (if enabled)
+- When authentication state changes
+- Before API calls if token refresh is needed
+- On authentication errors
+
+---
+
 ### 2. `assistant` — Complete Assistant Turn
 
 A complete, non-streaming assistant response (turn boundary).

@@ -11,6 +11,10 @@ Claude Code exposes an Agent SDK that allows external developers to build custom
 | [streaming_protocol.md](./streaming_protocol.md) | Complete NDJSON message protocol — all message types, schemas, output format comparison |
 | [transport_layer.md](./transport_layer.md) | StdioStreamIO, WebSocketTransport, SdkUrlStreamIO internals, reconnection, permission tool |
 | [ui_linkage.md](./ui_linkage.md) | How SDK stream events drive UI state machine, thinking/text/tool streaming |
+| [agent_definitions.md](./agent_definitions.md) | Built-in agent definitions, custom agent schema, agent loading pipeline, SDK-specific filtering |
+| [sdk_tools_integration.md](./sdk_tools_integration.md) | Tool execution in SDK mode, permission prompt tool, MCP tool integration |
+| [sdk_hooks.md](./sdk_hooks.md) | SDK hook callback mechanism, hookCallbackIds, createHookCallback method |
+| [sdk_session_management.md](./sdk_session_management.md) | Session persistence, max turns, budget limits, auto-compact integration |
 
 ## Related Symbols
 
@@ -679,3 +683,291 @@ SDK sessions support hooks injected via the `initialize` control request. These 
 5. Agent proceeds based on the hook's decision (allow/deny/modify)
 
 This enables the TypeScript/Python SDK to implement hooks as regular functions rather than external shell scripts, with full access to the SDK's context.
+
+---
+
+## Tools Integration in SDK Mode
+
+### Tool Execution Differences
+
+The `isNonInteractive` flag affects tool behavior in several key ways:
+
+| Aspect | Interactive Mode | SDK Mode |
+|---|---|---|
+| Permission prompts | Shown interactively to user | Sent via `control_request` or MCP tool |
+| Error messages | User-friendly with suggestions | Machine-parseable terse strings |
+| Fast mode | Available (toggle with /fast) | Disabled (`"Fast mode is not available in the Agent SDK"`) |
+| PDF reading failures | `"Double press esc to go back"` | `"Try reading the file a different way"` |
+| Tool timeouts | User can cancel with Ctrl+C | Controlled via `abortSignal` |
+
+### isNonInteractiveSession Flag Propagation
+
+The `isNonInteractive` flag (accessed via `w4()`) propagates through the tool execution pipeline:
+
+```javascript
+// ============================================
+// Tool execution checks isNonInteractive for behavior branching
+// Location: Multiple tool implementations
+// ============================================
+
+// Example from PDF reading:
+if (isNonInteractive()) {
+    // SDK mode: machine-readable error
+    throw new Error("Try reading the file a different way");
+} else {
+    // Interactive mode: user-friendly message with hint
+    throw new Error("Failed to read PDF. Double press esc to go back.");
+}
+
+// Mapping: w4→isNonInteractive
+```
+
+### Permission Prompt Tool Flow
+
+When `--permission-prompt-tool <tool-name>` is specified, Claude Code routes permission prompts to an MCP tool instead of the standard `control_request` mechanism:
+
+```javascript
+// ============================================
+// Permission Prompt Tool - MCP-based permission handling
+// Location: chunks.178.mjs:989-1010, chunks.179.mjs:1600-1630
+// ============================================
+
+// Permission request with MCP tool:
+async function permissionRequestWithMcpTool(toolName, toolInput, sessionContext) {
+    // Call the MCP tool with permission request payload
+    let mcpToolCall = {
+        type: "tool_use",
+        name: toolName,
+        input: {
+            tool_name: toolInput.tool_name,
+            input: toolInput.input,
+            tool_use_id: toolInput.tool_use_id
+        }
+    };
+
+    // Race between tool response and abort signal
+    let response = await Promise.race([
+        callMcpTool(mcpToolCall),
+        abortSignalPromise
+    ]);
+
+    // Process response via handlePermissionPromptToolResult
+    return handlePermissionPromptToolResult(
+        parsePermissionResponse(response),
+        permissionTool,
+        toolInput,
+        sessionContext
+    );
+}
+
+// Mapping: jc1→handlePermissionPromptToolResult
+```
+
+**Permission tool response handling (`handlePermissionPromptToolResult` / jc1):**
+
+```javascript
+// ============================================
+// handlePermissionPromptToolResult - Processes MCP tool permission result
+// Location: chunks.178.mjs:989-1010
+// ============================================
+
+// ORIGINAL (for source lookup):
+function jc1(A, q, K, Y) {
+    let z = { type: "permissionPromptTool", permissionPromptToolName: q.name, toolResult: A };
+    if (A.behavior === "allow") {
+        let w = A.updatedPermissions;
+        if (w) Y.setAppState((H) => ({ ...H, toolPermissionContext: WV(H.toolPermissionContext, w) })), nC(w);
+        return { ...A, decisionReason: z }
+    } else if (A.behavior === "deny" && A.interrupt) {
+        h(`SDK permission prompt deny+interrupt: tool=${q.name} message=${A.message}`), Y.abortController.abort()
+    }
+    return { ...A, decisionReason: z }
+}
+
+// READABLE (for understanding):
+function handlePermissionPromptToolResult(toolResult, permissionTool, toolInput, sessionContext) {
+    let decisionReason = {
+        type: "permissionPromptTool",
+        permissionPromptToolName: permissionTool.name,
+        toolResult: toolResult
+    };
+
+    if (toolResult.behavior === "allow") {
+        // Apply updated permissions if provided
+        if (toolResult.updatedPermissions) {
+            sessionContext.setAppState((state) => ({
+                ...state,
+                toolPermissionContext: mergePermissions(state.toolPermissionContext, toolResult.updatedPermissions)
+            }));
+            persistPermissions(toolResult.updatedPermissions);
+        }
+        return { ...toolResult, decisionReason };
+    } else if (toolResult.behavior === "deny" && toolResult.interrupt) {
+        // deny+interrupt: abort the entire session
+        logDebug(`SDK permission prompt deny+interrupt: tool=${permissionTool.name}`);
+        sessionContext.abortController.abort();
+    }
+    return { ...toolResult, decisionReason };
+}
+
+// Mapping: jc1→handlePermissionPromptToolResult, A→toolResult, q→permissionTool, K→toolInput, Y→sessionContext, z→decisionReason, WV→mergePermissions, nC→persistPermissions
+```
+
+**Permission tool response schema:**
+```javascript
+{
+    behavior: "allow" | "deny" | "ask",
+    message?: string,           // Optional message for deny/ask
+    updatedPermissions?: [...], // Optional permission updates
+    interrupt?: boolean,        // If true + deny, abort entire session
+    updatedInput?: {...}        // Optional modified tool input
+}
+```
+
+---
+
+## Auto-Compact in SDK Mode
+
+### Compaction Behavior in SDK Sessions
+
+The auto-compaction feature behaves differently in SDK mode:
+
+**Environment Variable Control:**
+- `DISABLE_COMPACT=1` — Completely disables auto-compaction
+- In SDK mode, compaction messages are streamed as `stream_event` messages
+
+```javascript
+// ============================================
+// Auto-compact integration in SDK sessions
+// Location: chunks.107.mjs:1707-1731
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function sI2(A, Q, B) {
+    if (Y0(process.env.DISABLE_COMPACT)) return { wasCompacted: !1 };
+    // ... compaction logic
+}
+
+// READABLE (for understanding):
+async function autoCompactDispatcher(messages, sessionContext, sessionMemoryType) {
+    // SDK can disable compact entirely via environment variable
+    if (parseBoolean(process.env.DISABLE_COMPACT)) {
+        return { wasCompacted: false };
+    }
+    // ... rest of compaction logic
+}
+
+// Mapping: sI2→autoCompactDispatcher, Y0→parseBoolean
+```
+
+**Key differences in SDK mode:**
+1. No interactive prompts for compaction confirmation
+2. Compaction events are emitted as `stream_event` messages (if `--include-partial-messages`)
+3. The `autoCompactEnabled` setting from settings.json still applies
+4. Token thresholds are the same as interactive mode
+
+**Compaction message in stream:**
+```javascript
+{
+    "type": "stream_event",
+    "event": {
+        "type": "content_block_start",
+        "index": 0,
+        "content_block": {
+            "type": "compaction",
+            // ... compaction details
+        }
+    },
+    "session_id": "<uuid>",
+    "uuid": "<uuid>"
+}
+```
+
+---
+
+## Skills and Slash Commands in SDK Mode
+
+### SkillTool Behavior
+
+The SkillTool (`wt`) works in SDK mode but with some differences:
+
+**Skills availability:**
+- Custom skills defined in `.claude/skills/` are available
+- Built-in skills are available (unless disabled via `--disallowed-tools`)
+- The `isNonInteractive` check affects skill prompt suggestions
+
+```javascript
+// ============================================
+// SkillTool - Skills work in SDK mode
+// Location: chunks.132.mjs:820
+// ============================================
+
+// Skills are registered as tools and invoked normally
+// The skill expansion happens before the tool is executed
+const SkillTool = {
+    name: "Skill",
+    inputSchema: skillInputSchema,
+    handler: async (input, context) => {
+        // Skill expansion and execution
+        // Works identically in SDK and interactive mode
+    }
+};
+```
+
+### Slash Command Expansion
+
+Slash commands (`/help`, `/clear`, `/compact`, etc.) are handled differently in SDK mode:
+
+**Expansion mechanism:**
+1. User message contains `/command` text
+2. `queued_command` attachment is created
+3. Attachment is processed and command is expanded
+
+```javascript
+// ============================================
+// Queued command attachment handling
+// Location: chunks.142.mjs:1993-2001, chunks.179.mjs:315-353
+// ============================================
+
+// In attachment processing:
+if (event.attachment.type === "queued_command") {
+    // Expand the command into a user message
+    yield {
+        type: "user",
+        message: { role: "user", content: event.attachment.prompt },
+        session_id: getSessionId(),
+        isReplay: true
+    };
+}
+```
+
+**Commands available in SDK mode:**
+- Most slash commands work (unless they require interactive UI)
+- `/clear` — Clears conversation
+- `/compact` — Triggers manual compaction
+- `/model` — Changes model
+- `/permissions` — Updates permission mode
+
+**Commands NOT available in SDK mode:**
+- `/doctor` — Requires interactive terminal UI
+- `/review-pr` — Requires interactive prompts
+- `/config` — Some features require interactive editing
+
+### queued_command Attachment Type
+
+When a slash command is queued, it appears as an attachment:
+
+```javascript
+{
+    "type": "attachment",
+    "attachment": {
+        "type": "queued_command",
+        "prompt": "Expanded command content...",
+        "source_uuid": "<original-message-uuid>"
+    },
+    "session_id": "<uuid>",
+    "uuid": "<uuid>"
+}
+```
+
+This is then expanded into a user message in the stream, allowing the agent to process it as if the user had typed the expanded content directly.

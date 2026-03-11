@@ -456,4 +456,63 @@
 
 ---
 
+## Module: SDK Configuration
+
+> Full analysis: [20_sdk/](../20_sdk/)
+> Environment variables and functions for SDK mode detection and configuration
+
+### Environment Variables
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| CLAUDE_CODE_ENTRYPOINT | ENTRYPOINT_ENV | chunks.80.mjs:2666, chunks.189.mjs:917 | environment variable (cli, sdk-ts, sdk-py, sdk-cli, remote, local-agent, mcp, claude-vscode) |
+| CLAUDE_AGENT_SDK_VERSION | SDK_VERSION_ENV | chunks.47.mjs:1725 | environment variable (SDK version for user-agent header) |
+| CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS | DISABLE_BUILTIN_AGENTS_ENV | chunks.90.mjs:3049 | environment variable (disable built-in agents in SDK mode) |
+| CLAUDE_CODE_REMOTE_SESSION_ID | REMOTE_SESSION_ID_ENV | chunks.80.mjs:2666 | environment variable |
+
+### SDK Mode Detection Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| w4 | isNonInteractive | chunks.1.mjs:2730-2732 | function (returns true when in SDK/print mode) |
+| bL6 | setInteractive | chunks.1.mjs | function (sets global isInteractive flag) |
+| L59 | getEntrypoint | chunks.75.mjs:1578-1580 | function (returns CLAUDE_CODE_ENTRYPOINT value) |
+| iGz | setEntrypoint | chunks.189.mjs:916-928 | function (detects and sets CLAUDE_CODE_ENTRYPOINT) |
+| Jr | getExternalUserAgent | chunks.47.mjs:1725-1728 | function (builds user-agent for SDK API requests) |
+
+### SDK System Prompts
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| t17 | SDK_SYSTEM_PROMPT_CLI | chunks.169.mjs | constant ("You are Claude Code... running within the Claude Agent SDK") |
+| e17 | SDK_SYSTEM_PROMPT_AGENT | chunks.169.mjs | constant ("You are a Claude agent, built on Anthropic's Claude Agent SDK") |
+| B7A | BASE_SYSTEM_PROMPT | chunks.169.mjs | constant ("You are Claude Code, Anthropic's official CLI for Claude") |
+
+### SDK Session Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| CJz | initializeSession | chunks.179.mjs:1654-1734 | function (processes initialize control request; applies system prompt, agents, hooks, jsonSchema) |
+| oGz | streamJsonInputHandler | chunks.189.mjs:984-997 | function (routes stdin → stream based on input format) |
+| yJz | buildPermissionHandlerSource | chunks.179.mjs:1635 | function (builds permission handler source identifier) |
+| KR6 | setJsonSchema | chunks.179.mjs | function (sets JSON schema for structured output validation) |
+| Gv6 | PermissionToolResponseSchema | chunks.178.mjs | Zod schema (validates MCP tool permission response) |
+| zJ6 | HookCallbackResponseSchema | chunks.178.mjs | Zod schema (validates hook callback response) |
+
+### SDK Permission Handling
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| jc1 | handlePermissionPromptToolResult | chunks.178.mjs:989-1010 | function (processes MCP tool permission result; handles allow/deny/interrupt) |
+| $Jz | processPermissionRequestIterator | chunks.178.mjs:1242-1280 | function (generator: processes permission request with MCP tool fallback) |
+| I51 | permissionRequestHandler | chunks.178.mjs | function (generator: core permission request handling logic) |
+
+### SDK Hook Callbacks
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| createHookCallback | createHookCallback | chunks.178.mjs:1209-1226 | method (creates callback wrapper for SDK hook execution) |
+
+---
+
 
