@@ -10,6 +10,7 @@
 - [State Management](#module-state-management)
 - [Agent Loop](#module-agent-loop)
 - [LLM API](#module-llm-api)
+- [Attachments & Reminders](#module-attachments--reminders)
 - [Tools](#module-tools)
 - [Agents](#module-agents)
 - [Subagent Execution](#module-subagent-execution)
@@ -385,12 +386,17 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | $OA | contextCompactor | chunks.169.mjs:672 | function (generator, wraps lOq with compact check) |
+| $71 | selectModelForMode | chunks.47.mjs:2003 | function |
 | Af6 | accumulateUsage | chunks.169.mjs:1365 | function |
 | b9z | wrapUserMessageWithCache | chunks.169.mjs:1385 | function |
 | bq6 | calculateCost | chunks.47.mjs:1605 | function |
+| COq | getClientDataPromptVariant | chunks.168.mjs:2386 | function |
 | dOq | nonStreamingFallback | chunks.169.mjs:710 | function (generator) |
+| dZ | buildSystemPrompt | chunks.169.mjs:236 | function |
 | e51 | mergeUsage | chunks.169.mjs:1343 | function |
 | g9z | capMaxTokens | chunks.169.mjs:1481 | function |
+| hOq | buildSimplifiedSystemPrompt | chunks.169.mjs:225 | function |
+| IOq | buildSimplifiedEnvInfo | chunks.169.mjs:402 | function |
 | JT6 | processContentBlocks | chunks.173.mjs:278 | function |
 | lOq | llmRequestGenerator | chunks.169.mjs:739 | function (generator) |
 | LN | initialUsageObject | chunks.169.mjs:1340 | constant |
@@ -411,6 +417,61 @@
 | WJ | normalizeMessages | chunks.169.mjs:600 | function |
 | x9z | applyEffortToRequest | chunks.169.mjs:566 | function |
 | yd1 | abortStream | chunks.169.mjs:1336 | function |
+
+---
+
+## Module: Attachments & Reminders
+
+> Full analysis: [03_llm_core/reminder_integration.md](../03_llm_core/reminder_integration.md), [04_system_reminder/](../04_system_reminder/)
+
+### Core Attachment Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| phY | assembleAttachments | chunks.142.mjs:1948 | function |
+| oP1 | attachmentGenerator | chunks.142.mjs:2494 | function (generator) |
+| gw | timedAttachmentProducer | chunks.142.mjs:1967 | function |
+| kq | createHookMessage | chunks.142.mjs:2615 | function |
+| dhY | buildQueuedCommandsAttachment | chunks.142.mjs:1993 | function |
+| chY | countAssistantTurns | chunks.142.mjs:2003 | function |
+
+### Attachment Producers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| KIY | extractAtMentionedFiles | chunks.142.mjs | function |
+| zIY | extractMcpResources | chunks.142.mjs | function |
+| YIY | extractAgentMentions | chunks.142.mjs | function |
+| wIY | getChangedFilesAttachment | chunks.142.mjs:2285 | function |
+| HIY | getNestedMemoryAttachments | chunks.142.mjs | function |
+| $IY | getDynamicSkillAttachments | chunks.142.mjs | function |
+| OIY | getSkillListingAttachment | chunks.142.mjs | function |
+| thY | getUltraClaudeMdAttachment | chunks.142.mjs | function |
+| ihY | getPlanModeAttachment | chunks.142.mjs:2034 | function |
+| nhY | getPlanModeExitAttachment | chunks.142.mjs | function |
+| rhY | getDelegateModeAttachment | chunks.142.mjs | function |
+| ohY | getDelegateModeExitAttachment | chunks.142.mjs | function |
+| NIY | getTaskReminderAttachment | chunks.142.mjs | function |
+| fIY | getTodoReminderAttachment | chunks.142.mjs:2645 | function |
+| kIY | getTeammateMailboxAttachment | chunks.142.mjs | function |
+| LIY | getTeamContextAttachment | chunks.142.mjs | function |
+| ahY | getCriticalSystemReminder | chunks.142.mjs | function |
+| ehY | getIdeSelectionAttachment | chunks.142.mjs | function |
+| qIY | getIdeOpenedFileAttachment | chunks.142.mjs | function |
+| PIY | getDiagnosticsAttachment | chunks.142.mjs | function |
+| WIY | getLspDiagnosticsAttachment | chunks.142.mjs | function |
+| vIY | getUnifiedTasksAttachment | chunks.142.mjs:2719 | function |
+| EIY | getAsyncHookResponsesAttachment | chunks.142.mjs | function |
+| RIY | getTokenUsageAttachment | chunks.142.mjs:2815 | function |
+| yIY | getBudgetUsdAttachment | chunks.142.mjs | function |
+| SIY | getVerifyPlanReminderAttachment | chunks.142.mjs | function |
+
+### Reminder Formatting
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _9 | wrapWithSystemReminderTags | chunks.173.mjs:496 | function |
+| tI | wrapInXmlTag | chunks.173.mjs:490 | function |
 
 ---
 

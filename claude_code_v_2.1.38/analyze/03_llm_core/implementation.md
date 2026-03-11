@@ -17,6 +17,11 @@ Key functions in this document:
 - `buildSystemPromptWithCache` (F9z) - Assembles system prompts and injects cache control markers.
 - `withApiRetry` (V26) - Wrapper for API calls with automatic retry and model fallback logic.
 
+**Cross-References:**
+- Model selection and resolution: [01_cli/model_selection.md](../01_cli/model_selection.md)
+- Effort levels and thinking mode: [19_think_level/effort_control.md](../19_think_level/effort_control.md)
+- Proactive mode simplified prompts: [03_llm_core/proactive_mode.md](proactive_mode.md)
+
 ---
 
 ## Core Algorithms

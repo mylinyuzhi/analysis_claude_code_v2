@@ -11,12 +11,13 @@
 > - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
 
 Key functions in this document:
-- `assembleAttachments` (phY) - Main orchestrator for attachment production
-- `attachmentGenerator` (oP1) - Async generator that yields attachment messages
-- `wrapWithSystemReminderTags` (_9) - Wraps content in `<system-reminder>` tags
-- `createAttachmentMessage` (kq) - Creates the attachment message structure
-- `buildContextMessages` (bG1) - Injects user context into message history
-- `timedAttachmentProducer` (gw) - Wraps producers with timing and error handling
+- `assembleAttachments` (phY) - Main orchestrator for attachment production, chunks.142.mjs:1948
+- `attachmentGenerator` (oP1) - Async generator that yields attachment messages, chunks.142.mjs:2494
+- `wrapWithSystemReminderTags` (_9) - Wraps content in `<system-reminder>` tags, chunks.173.mjs:496
+- `createAttachmentMessage` (kq) - Creates the attachment message structure, chunks.142.mjs:2615
+- `timedAttachmentProducer` (gw) - Wraps producers with timing and error handling, chunks.142.mjs:1967
+- `buildQueuedCommandsAttachment` (dhY) - Builds queued commands attachment, chunks.142.mjs:1993
+- `countAssistantTurns` (chY) - Counts assistant turns for throttling, chunks.142.mjs:2003
 
 ---
 

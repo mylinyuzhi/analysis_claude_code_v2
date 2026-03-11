@@ -15,6 +15,7 @@
 - [Keybindings](#module-keybindings) - **NEW in 2.1.18**
 - [Remote Sessions](#module-remote-sessions) - **NEW in 2.1.27**
 - [Fast Mode](#module-fast-mode) - **NEW in 2.1.36**
+- [Proactive Mode](#module-proactive-mode) - **NEW in 2.1.38**
 - [Plan Mode](#module-plan-mode)
 - [Compact](#module-compact)
 - [Hooks](#module-hooks)
@@ -448,6 +449,33 @@
 | fast_mode_state | fast_mode_state | chunks.179.mjs | variable |
 | $S | FAST_MODEL_NAME | chunks.153.mjs:1591 | constant |
 | i4 | isFastModeAvailable | chunks.153.mjs:1585 | function |
+
+---
+
+## Module: Proactive Mode
+
+> Full analysis: [03_llm_core/proactive_mode.md](../03_llm_core/proactive_mode.md)
+> **NEW in 2.1.38** - Experimental autonomous agent behavior
+
+### Proactive Controller References
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| uE6 | proactiveController | chunks.188.mjs:32 | variable |
+| P9z | proactiveController | chunks.169.mjs | variable |
+| M8z | proactiveController | chunks.161.mjs | variable |
+| ajz | proactiveController | chunks.184.mjs | variable |
+| sGq | proactiveController | chunks.183.mjs | variable |
+| Ajz | noopSubscribe | chunks.183.mjs:2876 | function |
+| tGq | returnsNull | chunks.183.mjs:2878 | function |
+
+### Proactive Mode Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| x8 | getFeatureFlag | chunks.174.mjs:2137 | function |
+| COq | getClientDataPromptVariant | chunks.168.mjs:2386 | function |
+| M9z | extractPromptVariant | chunks.168.mjs:2380 | function |
 
 ---
 
