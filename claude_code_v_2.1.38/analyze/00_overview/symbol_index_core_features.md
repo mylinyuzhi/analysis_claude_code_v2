@@ -594,6 +594,10 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | fs4 | autoCompactDispatcher | chunks.147.mjs:778 | function |
+| gm | microCompact | chunks.148.mjs:2430 | function |
+| $OA | contextCompactor | chunks.75.mjs:1938 | function (generator wrapper) |
+| HOA | isAutoCompactEnabled | chunks.75.mjs:1939 | function |
+| Tw6 | checkAndCompactIfNeeded | chunks.75.mjs:1941 | function |
 | amY | shouldAutoCompact | chunks.147.mjs:765 | function |
 | Ac | getCompactionStatus | chunks.147.mjs:736 | function |
 | SQ1 | getAutoCompactThreshold | chunks.147.mjs:722 | function |

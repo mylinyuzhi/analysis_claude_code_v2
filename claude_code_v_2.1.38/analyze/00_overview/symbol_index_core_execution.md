@@ -149,7 +149,21 @@
 | hJq | getRelativePath | chunks.174.mjs | function |
 | Jf | PATH_SEP (permission) | chunks.174.mjs | constant |
 
-### Tool Execution Pipeline
+## Module: Agent Loop
+
+> Full analysis: [03_llm_core/agent_loop.md](../03_llm_core/agent_loop.md)
+
+### Main Loop Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ZR | mainAgentLoop | chunks.149.mjs:1753 | function (generator) |
+| uU1 | StreamingToolExecutor | chunks.149.mjs:1835 | class |
+| tZ6 | executeToolsSequentially | chunks.149.mjs:2035 | function (generator) |
+| w6q | generateChainId | chunks.149.mjs:1776 | function |
+| udY | MAX_OUTPUT_TOKENS_RECOVERY | chunks.149.mjs:2143 | constant (3) |
+
+### Tool Execution Symbols
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|

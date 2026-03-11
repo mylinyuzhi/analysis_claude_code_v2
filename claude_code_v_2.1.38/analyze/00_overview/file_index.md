@@ -35,3 +35,8 @@
 | `chunks.151.mjs` | UI / Suggestions | `EhA` (getPromptSuggestionBlocker): suppresses inline prompt suggestions when `mode === "plan"` |
 | `chunks.189.mjs` | CLI / Teams | Swarm CLI arguments (`--teammate-mode`); applies `--plan-mode-required` to dynamic team context |
 | `cli.chunks.mjs` | CLI Entry | Root entry point, tool wiring, `bootstrapTelemetry` |
+| `chunks.160.mjs` | UI / Message Grouping | `q9q` (groupToolResults): Collapses repeated tool executions; `QbA` (extractToolInfo); `XJq` (isToolUseMessage); `dd1` (isHookAttachment) |
+| `chunks.161.mjs` | UI / MessageList | `P8z` (MessageList), `g91` (MessageListImpl), `n9q` (MessageComponent), `f8z` (isNotProgress); full conversation rendering with memoization |
+| `chunks.172.mjs` | UI / Display Normalization | `t9q` (normalizeDisplayMessages): Groups tool uses with hooks/results; `dzz` (reorderAttachments); `DJq` (createAssistantMessage); permission mode setup |
+| `chunks.173.mjs` | UI / Message Normalization | `WJ` (normalizeMessages): Transforms raw messages for display; `EN` (getVisibleMessagesAfterCompact); `qYq` (shouldShowMessageInChat); `iW1` (handleToolUseStream) |
+| `chunks.188.mjs` | UI / REPL Core | `TUA` (REPL): Main session orchestrator; `Z$` (handleSubmit); `f11` (getInputDialogType); `N11` (handleCancel); 9 dialog types; spinner logic (`PG`, `Gw`) |
