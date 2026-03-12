@@ -37,6 +37,20 @@
 | oGz | streamJsonInputHandler | chunks.189.mjs:984-997 | function (routes stdin → stream; text mode buffers, stream-json mode returns raw stream) |
 | createHookCallback | createHookCallback | chunks.178.mjs:1209-1226 | method (on StdioStreamIO: creates callback wrapper for SDK hook execution via control_request) |
 | sendMcpMessage | sendMcpMessage | chunks.178.mjs:1227-1235 | method (on StdioStreamIO: sends MCP message through SDK control channel) |
+| CJz | initializeSession | chunks.179.mjs:1654-1734 | function (processes initialize control request, registers hooks/agents/schema) |
+| hJz | handleSessionResume | chunks.179.mjs:1829-1884 | function (handles --continue/--resume/--teleport for print mode) |
+| Ev6 | outputError | chunks.179.mjs:1805-1827 | function (formats error output for SDK mode; stream-json vs text) |
+| SJz | setPermissionMode | chunks.179.mjs:1781-1802 | function (sets permission mode from SDK request) |
+| $Jz | tryPermissionHookFirst | chunks.178.mjs:1242-1280 | function (attempts hook-based permission before prompt) |
+
+### SDK MCP Transport (chunks.144.mjs, chunks.145.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wCA | SdkMcpTransport | chunks.144.mjs:1747-1768 | class (MCP transport for SDK mode; routes through sendMcpMessage) |
+| io4 | initializeSdkMcpClients | chunks.145.mjs:1769-1832 | function (initializes MCP clients from SDK configuration) |
+| rH6 | McpClient | chunks.145.mjs | class (MCP client for tool discovery and execution) |
+| wI | discoverMcpTools | chunks.145.mjs | function (discovers tools from connected MCP servers) |
 
 ### WebSocket Transport Constants (chunks.178.mjs)
 

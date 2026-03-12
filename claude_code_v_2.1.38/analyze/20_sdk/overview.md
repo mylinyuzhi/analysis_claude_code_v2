@@ -15,6 +15,8 @@ Claude Code exposes an Agent SDK that allows external developers to build custom
 | [sdk_tools_integration.md](./sdk_tools_integration.md) | Tool execution in SDK mode, permission prompt tool, MCP tool integration |
 | [sdk_hooks.md](./sdk_hooks.md) | SDK hook callback mechanism, hookCallbackIds, createHookCallback method |
 | [sdk_session_management.md](./sdk_session_management.md) | Session persistence, max turns, budget limits, auto-compact integration |
+| [sdk_mcp_integration.md](./sdk_mcp_integration.md) | MCP server integration in SDK mode, sdkMcpServers, sendMcpMessage, SdkMcpTransport |
+| [sdk_error_recovery.md](./sdk_error_recovery.md) | WebSocket reconnection, abort handling, timeout management, error output formatting |
 
 ## Related Symbols
 

@@ -415,6 +415,205 @@ The `initialize` control response includes available tools:
 
 ---
 
+## Tool Filtering in SDK Mode
+
+### Allowed Tools Configuration
+
+SDK clients can restrict which tools are available through CLI flags:
+
+```bash
+# Only allow specific tools
+--allowed-tools Bash Read Write
+
+# Allow all except specific tools
+--disallowed-tools WebSearch WebFetch
+
+# Specify exact tool set (JSON format)
+--tools '["Bash", "Read", "Write"]'
+```
+
+### Tool Filtering Logic
+
+The `tools` and `disallowedTools` fields in agent configuration control tool availability:
+
+```javascript
+// ============================================
+// Agent tool filtering configuration
+// Location: chunks.91.mjs:48-104
+// ============================================
+
+// Agent configuration with tool restrictions
+{
+    agentType: "my_agent",
+    whenToUse: "Use this agent for...",
+    tools: ["Bash", "Read", "Write"],        // Only these tools
+    disallowedTools: ["WebSearch"],          // Plus deny these
+    // ... other fields
+}
+
+// Parsing function extracts tools/disallowedTools
+function parseAgentConfig(agentType, jsonString, source = "flagSettings") {
+    let parsed = AgentConfigSchema.parse(jsonString);
+
+    // Get allowed tools list
+    let tools = parseToolList(parsed.tools);
+
+    // Get disallowed tools list
+    let disallowedTools = parsed.disallowedTools !== undefined
+        ? parseToolList(parsed.disallowedTools)
+        : undefined;
+
+    return {
+        agentType,
+        tools,
+        disallowedTools,
+        // ...
+    };
+}
+```
+
+### Tool Discovery in Initialize Response
+
+The `initialize` control response includes available tools for SDK client reference:
+
+```javascript
+{
+    "type": "control_response",
+    "response": {
+        "subtype": "success",
+        "request_id": "<uuid>",
+        "response": {
+            "tools": [
+                "Bash", "Read", "Write", "Edit", "Glob", "Grep",
+                "TaskOutput", "WebFetch", "WebSearch", "TaskCreate",
+                "TaskList", "TaskGet", "TaskUpdate", "TaskStop",
+                "NotebookEdit", "ExitPlanMode", "EnterPlanMode",
+                "AskUserQuestion", "Skill", "Agent"
+            ],
+            "mcp_tools": [
+                "mcp_server1.tool1",
+                "mcp_server1.tool2",
+                "mcp_server2.tool1"
+            ],
+            "commands": [
+                { "name": "help", "description": "Show help" },
+                { "name": "clear", "description": "Clear conversation" }
+            ],
+            "models": ["claude-opus-4-6", "claude-sonnet-4-6"],
+            // ...
+        }
+    }
+}
+```
+
+---
+
+## MCP Tool Integration for SDK Sessions
+
+### MCP Tools in SDK Mode
+
+SDK sessions can connect MCP servers through two mechanisms:
+
+1. **SDK MCP Servers** (`sdkMcpServers` in initialize request)
+   - MCP servers managed by the SDK client
+   - Communication routed through `sendMcpMessage` control channel
+   - See [sdk_mcp_integration.md](./sdk_mcp_integration.md) for details
+
+2. **Permission Prompt Tool** (`--permission-prompt-tool`)
+   - Special MCP tool for handling permissions programmatically
+   - Routes permission requests through MCP instead of control_request
+
+### MCP Tool Discovery Response
+
+When MCP servers are connected, discovered tools are included in the session:
+
+```javascript
+// MCP tools are prefixed with server name
+"mcp_tools": [
+    "mcp_filesystem.read_file",
+    "mcp_filesystem.write_file",
+    "mcp_github.search_repos",
+    "mcp_permission_handler.check_permission"
+]
+```
+
+### Permission Tool vs Standard Permission Flow
+
+```
+Tool requires permission
+    │
+    ├── permissionPromptToolName set?
+    │   │
+    │   ├── YES: Call MCP tool via sendMcpMessage
+    │   │   └── { tool_name, input, tool_use_id }
+    │   │       └── Response: { behavior, message, updatedPermissions }
+    │   │           └── handlePermissionPromptToolResult()
+    │   │
+    │   └── NO: Standard control_request flow
+    │       └── sendRequest({ subtype: "can_use_tool", ... })
+    │           └── Wait for control_response
+    │
+    └── Permission result determines tool execution
+```
+
+### Setting Up Permission Prompt Tool
+
+```bash
+# CLI usage with permission prompt tool
+claude --print --output-format=stream-json \
+       --permission-prompt-tool my_permission_handler \
+       --mcp-config mcp_config.json
+```
+
+```javascript
+// MCP server configuration
+{
+    "mcpServers": {
+        "permission_server": {
+            "command": "node",
+            "args": ["permission-server.js"]
+        }
+    }
+}
+
+// Permission tool implementation
+server.tool(
+    "my_permission_handler",
+    {
+        type: "object",
+        properties: {
+            tool_name: { type: "string" },
+            input: { type: "object" },
+            tool_use_id: { type: "string" }
+        }
+    },
+    async (params) => {
+        if (isAllowed(params.tool_name, params.input)) {
+            return {
+                content: [{
+                    type: "text",
+                    text: JSON.stringify({
+                        behavior: "allow",
+                        updatedPermissions: []
+                    })
+                }]
+            };
+        }
+        return {
+            content: [{
+                type: "text",
+                text: JSON.stringify({
+                    behavior: "deny",
+                    message: "Not allowed by policy"
+                })
+            }]
+        };
+    }
+);
+```
+
+---
+
 ## Summary: Tool Execution Decision Tree
 
 ```
@@ -445,3 +644,12 @@ Tool execution requested
     │
     └── Execute tool → Return result
 ```
+
+---
+
+## Cross-References
+
+- **MCP Integration**: See [sdk_mcp_integration.md](./sdk_mcp_integration.md) for MCP server setup in SDK mode
+- **Error Recovery**: See [sdk_error_recovery.md](./sdk_error_recovery.md) for tool execution error handling
+- **Session Management**: See [sdk_session_management.md](./sdk_session_management.md) for tool permission persistence
+- **Tool Execution Details**: See [05_tools/](../05_tools/) for tool implementation details

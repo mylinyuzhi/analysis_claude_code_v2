@@ -285,6 +285,60 @@ if (maxBudgetUsd && totalCostUsd >= maxBudgetUsd) {
 
 ## Auto-Compact Integration
 
+### setSDKStatus Mechanism
+
+**What it does:** The `setSDKStatus` callback allows the compaction system to signal its status to the SDK client. When set to `"compacting"`, the SDK client knows the session is performing compaction and can adjust its behavior accordingly.
+
+**How it works:**
+1. Before compaction starts: `setSDKStatus("compacting")`
+2. Compaction progress events: `onCompactProgress({ type: "..." })`
+3. After compaction ends: `setSDKStatus(null)`
+
+```javascript
+// ============================================
+// setSDKStatus - SDK status signaling during compaction
+// Location: chunks.146.mjs:2447-2456, chunks.185.mjs:1251-1260
+// ============================================
+
+// In performFullCompaction:
+try {
+    // Signal compaction start to SDK
+    context.onCompactProgress?.({
+        type: "hooks_start",
+        hookType: "pre_compact"
+    });
+    context.setSDKStatus?.("compacting");
+
+    // ... perform compaction ...
+
+} finally {
+    // Cleanup: reset status
+    context.setStreamMode?.("requesting");
+    context.setResponseLength?.(() => 0);
+    context.onCompactProgress?.({
+        type: "compact_end"
+    });
+    context.setSDKStatus?.(null);
+}
+
+// Status to system message conversion
+function statusToSystemMessage(sessionState) {
+    if (!sessionState.status) return null;
+    return {
+        type: "system",
+        subtype: "informational",
+        content: sessionState.status === "compacting"
+            ? "Compacting conversation…"
+            : `Status: ${sessionState.status}`,
+        level: "info",
+        uuid: sessionState.uuid,
+        timestamp: new Date().toISOString()
+    };
+}
+
+// Mapping: setSDKStatus→setSDKStatus, onCompactProgress→onCompactProgress
+```
+
 ### Compact in SDK Mode
 
 ```javascript
@@ -328,6 +382,24 @@ async function autoCompactDispatcher(messages, sessionContext, sessionMemoryType
 // Mapping: sI2→autoCompactDispatcher, Y0→parseBoolean
 ```
 
+### DISABLE_COMPACT Environment Variable
+
+The `DISABLE_COMPACT` environment variable provides a hard-disable for all compaction:
+
+| Variable | Scope | Effect |
+|----------|-------|--------|
+| `DISABLE_COMPACT=1` | All compaction | Disables standard, session memory, and microcompaction |
+| `DISABLE_AUTO_COMPACT=1` | Auto-compaction only | Manual `/compact` still works |
+
+```bash
+# Disable all compaction for SDK sessions
+CLAUDE_CODE_ENTRYPOINT=sdk-ts DISABLE_COMPACT=1 claude --print
+
+# Use in CI/CD where compaction is not desired
+export DISABLE_COMPACT=1
+claude --print --max-turns 100 "..."
+```
+
 ### Compact Behavior Differences
 
 | Aspect | Interactive Mode | SDK Mode |
@@ -335,12 +407,21 @@ async function autoCompactDispatcher(messages, sessionContext, sessionMemoryType
 | Trigger | Token threshold | Token threshold (same) |
 | Confirmation | User prompted | Automatic |
 | Notification | UI message | `stream_event` message |
+| Status | UI spinner | `setSDKStatus("compacting")` |
 | Disable | Settings | `DISABLE_COMPACT=1` env var |
 
 ### Compact Stream Event
 
+When compaction occurs in SDK mode, progress events are emitted:
+
 ```javascript
-// When compaction occurs in SDK mode:
+// Compact progress events
+{ type: "hooks_start", hookType: "pre_compact" }
+{ type: "compact_start" }
+{ type: "compact_progress", phase: "summarizing", progress: 0.5 }
+{ type: "compact_end" }
+
+// Full event in stream-json format:
 {
     "type": "stream_event",
     "event": {
@@ -582,3 +663,12 @@ Session Start
             ├── Error → result subtype: "error_during_execution"
             └── User abort → result subtype: "error_during_execution"
 ```
+
+---
+
+## Cross-References
+
+- **MCP Integration**: See [sdk_mcp_integration.md](./sdk_mcp_integration.md) for MCP server setup
+- **Error Recovery**: See [sdk_error_recovery.md](./sdk_error_recovery.md) for session error handling
+- **Compact Feature**: See [07_compact/](../07_compact/) for compaction details
+- **Streaming Protocol**: See [streaming_protocol.md](./streaming_protocol.md) for message formats
