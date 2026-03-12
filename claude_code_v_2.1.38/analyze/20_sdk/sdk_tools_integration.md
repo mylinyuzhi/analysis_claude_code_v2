@@ -96,6 +96,98 @@ The `isNonInteractive` flag is checked in 30+ locations throughout the codebase.
 
 When `--permission-prompt-tool <tool-name>` is specified, Claude Code routes all permission requests through an MCP tool. This enables fully automated permission handling for CI/CD and programmatic use cases.
 
+### createCanUseTool Method
+
+**What it does:** Creates a permission checker callback that wraps the `checkToolPermission` function. This method is called during SDK initialization to set up the permission handling flow for tool execution.
+
+**How it works:**
+1. Receives a callback function to trigger after permission processing
+2. Returns an async function that checks tool permissions
+3. If permission is already decided (allow/deny), returns immediately
+4. Otherwise, delegates to `processPermissionRequestIterator` for interactive handling
+
+```javascript
+// ============================================
+// createCanUseTool - Creates permission checker callback
+// Location: chunks.178.mjs:1181-1200
+// ============================================
+
+// ORIGINAL (for source lookup):
+createCanUseTool(A) {
+    return async (q, K, Y, z, w) => {
+        let H = await uX(q, K, Y, z, w);
+        if (H.behavior === "allow" || H.behavior === "deny") return H;
+        let $ = await $Jz(q.name, w, K, Y, H.suggestions);
+        if ($) return $;
+        try {
+            A?.();
+        } catch (O) {
+            // Handle callback error
+        }
+        // Continue with permission request...
+    };
+}
+
+// READABLE (for understanding):
+createCanUseTool(onPermissionPromptCallback) {
+    return async (tool, input, sessionContext, toolUseId, permissionContext) => {
+        // First check if permission is already determined
+        let permissionResult = await checkToolPermission(
+            tool,
+            input,
+            sessionContext,
+            toolUseId,
+            permissionContext
+        );
+
+        // If allow/deny already decided, return immediately
+        if (permissionResult.behavior === "allow" ||
+            permissionResult.behavior === "deny") {
+            return permissionResult;
+        }
+
+        // Process interactive permission request
+        let interactiveResult = await processPermissionRequestIterator(
+            tool.name,
+            permissionContext,
+            sessionContext,
+            permissionResult.suggestions
+        );
+
+        if (interactiveResult) return interactiveResult;
+
+        // Trigger callback for UI notification
+        try {
+            onPermissionPromptCallback?.();
+        } catch (error) {
+            // Handle callback error silently
+        }
+
+        // Continue with permission request flow...
+    };
+}
+
+// Mapping: A→onPermissionPromptCallback, q→tool, K→input, Y→sessionContext,
+//   z→toolUseId, w→permissionContext, H→permissionResult, uX→checkToolPermission,
+//   $Jz→processPermissionRequestIterator
+```
+
+### checkToolPermission (uX)
+
+**What it does:** Checks tool permission before execution. Returns a permission result with behavior and suggestions.
+
+**Return structure:**
+```javascript
+{
+    behavior: "allow" | "deny" | "ask",
+    suggestions: [
+        { rule: "allow", type: "tool", value: "Bash", scope: "session" }
+    ],
+    blockedPath: "/path/to/blocked/file",  // Optional
+    decisionReason: { type: "...", ... }    // Optional
+}
+```
+
 ### Permission Tool Flow
 
 ```javascript
@@ -238,10 +330,61 @@ When no `permissionPromptToolName` is set, permissions use the bidirectional `co
         "subtype": "can_use_tool",
         "tool_name": "Bash",
         "input": {"command": "rm -rf /tmp/test"},
-        "tool_use_id": "tu_xxx"
+        "tool_use_id": "tu_xxx",
+        "permission_suggestions": [          // NEW: Suggested permission rules
+            {
+                "rule": "allow",
+                "type": "tool",
+                "value": "Bash",
+                "scope": "session"
+            }
+        ],
+        "blocked_path": "/path/to/file",     // Optional: path that triggered the permission check
+        "decision_reason": {                  // Optional: why permission was triggered
+            "type": "hook" | "default" | "permission_mode",
+            "hookName": "PreToolUse:...",
+            "reason": "..."
+        }
     }
 }
 ```
+
+### permission_suggestions Field
+
+**What it does:** Provides pre-computed permission rule suggestions that the SDK client can present to the user for quick selection. These suggestions are generated based on the tool type, input analysis, and current permission context.
+
+**How suggestions are generated:**
+1. Tool analysis: `checkToolPermission` analyzes the tool and input
+2. Pattern matching: Matches against known permission patterns
+3. Scope determination: Suggests appropriate scope (session vs permanent)
+4. Rule generation: Creates suggested permission rules
+
+**Suggestion structure:**
+```javascript
+{
+    suggestions: [
+        {
+            rule: "allow" | "deny",
+            type: "tool" | "domain" | "path",
+            value: string,              // Tool name, domain, or path pattern
+            scope: "session" | "permanent"
+        }
+    ]
+}
+```
+
+### decision_reason Field
+
+**What it does:** Explains why the permission request was triggered. Useful for debugging and auditing permission flows.
+
+**Decision reason types:**
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `hook` | PreToolUse hook requested permission | `{ type: "hook", hookName: "PreToolUse:Bash", reason: "..." }` |
+| `default` | Default permission mode requires confirmation | `{ type: "default", mode: "default" }` |
+| `permission_mode` | Current permission mode setting | `{ type: "permission_mode", mode: "ask" }` |
+| `permissionPromptTool` | MCP tool processed permission | `{ type: "permissionPromptTool", toolResult: {...} }` |
 
 ### Permission Response Message (Client → Server)
 

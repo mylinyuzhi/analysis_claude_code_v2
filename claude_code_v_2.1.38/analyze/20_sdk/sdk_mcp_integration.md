@@ -482,6 +482,101 @@ Claude Code's role is limited to:
 
 ---
 
+## mcp_status Control Request
+
+### Overview
+
+**What it does:** Queries the status of connected MCP servers. This control request allows the SDK client to check which MCP servers are connected, their capabilities, and their current health status.
+
+**How it works:**
+1. SDK client sends `mcp_status` control request
+2. Claude Code queries all MCP clients for their status
+3. Response includes status of each server and any issues
+
+```javascript
+// ============================================
+// mcp_status - Query MCP server status
+// Location: chunks.179.mjs (control request handler)
+// ============================================
+
+// Control request to query MCP status
+{
+    "type": "control_request",
+    "request": {
+        "subtype": "mcp_status"
+    }
+}
+
+// Response
+{
+    "type": "control_response",
+    "response": {
+        "subtype": "success",
+        "request_id": "<uuid>",
+        "response": {
+            "servers": [
+                {
+                    "name": "filesystem",
+                    "status": "connected",
+                    "capabilities": {
+                        "tools": true,
+                        "resources": true,
+                        "prompts": false
+                    },
+                    "tool_count": 5,
+                    "connected_at": "2024-01-15T10:30:00Z"
+                },
+                {
+                    "name": "github",
+                    "status": "failed",
+                    "error": "Connection timeout after 30s",
+                    "retry_count": 3
+                }
+            ],
+            "total_tools": 8,
+            "connected_count": 1,
+            "failed_count": 1
+        }
+    }
+}
+```
+
+### Server Status Values
+
+| Status | Description |
+|--------|-------------|
+| `connected` | Server is connected and operational |
+| `connecting` | Connection in progress |
+| `failed` | Connection failed, see `error` field |
+| `disconnected` | Server was connected but is now disconnected |
+
+### Use Cases
+
+1. **Health monitoring:** Periodically check MCP server health
+2. **Debugging:** Identify connection issues
+3. **Feature detection:** Check which servers support specific capabilities
+4. **Capacity planning:** Monitor tool counts across servers
+
+### Example: Monitoring MCP Health
+
+```javascript
+// SDK client can poll MCP status
+async function monitorMcpHealth(streamIO) {
+    let status = await streamIO.sendRequest({ subtype: "mcp_status" });
+
+    for (let server of status.servers) {
+        if (server.status === "failed") {
+            console.error(`MCP server ${server.name} failed: ${server.error}`);
+            // Optionally restart or reconnect
+        }
+    }
+
+    return status;
+}
+```
+
+---
+
 ## Error Handling for SDK MCP
 
 ### Connection Errors

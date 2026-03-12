@@ -587,6 +587,165 @@ SDK Client                          Claude Code Binary
 
 ---
 
+## Dynamic Session Control
+
+### Control Request Subtypes for Session Modification
+
+SDK clients can dynamically modify session parameters during an active session using control requests with specific subtypes.
+
+### set_permission_mode
+
+**What it does:** Dynamically changes the permission mode during an active session. This allows the SDK client to adjust permission behavior without restarting the session.
+
+**How it works:**
+1. SDK client sends `set_permission_mode` control request
+2. Permission context is updated in real-time
+3. Subsequent tool executions use the new mode
+
+```javascript
+// Control request to change permission mode
+{
+    "type": "control_request",
+    "request": {
+        "subtype": "set_permission_mode",
+        "mode": "default" | "acceptEdits" | "bypassPermissions"
+    }
+}
+
+// Response
+{
+    "type": "control_response",
+    "response": {
+        "subtype": "success",
+        "request_id": "<uuid>",
+        "response": {
+            "previous_mode": "default",
+            "current_mode": "acceptEdits"
+        }
+    }
+}
+```
+
+**Permission modes:**
+
+| Mode | Description |
+|------|-------------|
+| `default` | Standard permission prompts for each tool |
+| `acceptEdits` | Auto-accept edit tools (Read, Write, Edit) |
+| `bypassPermissions` | Skip all permission checks (dangerous) |
+
+### set_model
+
+**What it does:** Changes the model being used for the current session mid-conversation. Useful for optimizing cost or capability.
+
+```javascript
+// Control request to change model
+{
+    "type": "control_request",
+    "request": {
+        "subtype": "set_model",
+        "model": "claude-sonnet-4-6" | "claude-opus-4-6" | "claude-haiku-4-5"
+    }
+}
+
+// Response
+{
+    "type": "control_response",
+    "response": {
+        "subtype": "success",
+        "request_id": "<uuid>",
+        "response": {
+            "previous_model": "claude-opus-4-6",
+            "current_model": "claude-sonnet-4-6"
+        }
+    }
+}
+```
+
+**Model change behavior:**
+- Takes effect on the next API call
+- Does not affect messages already in conversation
+- Preserves conversation context
+
+### set_max_thinking_tokens
+
+**What it does:** Adjusts the thinking token budget for extended thinking mode. This allows dynamic control over reasoning depth.
+
+```javascript
+// Control request to set thinking budget
+{
+    "type": "control_request",
+    "request": {
+        "subtype": "set_max_thinking_tokens",
+        "max_thinking_tokens": 16000  // New token budget
+    }
+}
+
+// Response
+{
+    "type": "control_response",
+    "response": {
+        "subtype": "success",
+        "request_id": "<uuid>",
+        "response": {
+            "previous_max_thinking_tokens": 8000,
+            "current_max_thinking_tokens": 16000
+        }
+    }
+}
+```
+
+**Use cases:**
+- Increase budget for complex reasoning tasks
+- Decrease budget for simple tasks to reduce latency
+- Disable extended thinking with `max_thinking_tokens: 0`
+
+---
+
+## unexpectedResponseCallback
+
+### Overview
+
+The `unexpectedResponseCallback` on `StdioStreamIO` handles protocol violations and unexpected message types during SDK communication.
+
+**What it does:** Provides a hook for the SDK client to handle unexpected or malformed responses that don't match the expected protocol.
+
+```javascript
+// ============================================
+// unexpectedResponseCallback - Handle protocol violations
+// Location: chunks.178.mjs (StdioStreamIO class)
+// ============================================
+
+// Set during initialization:
+let streamIO = new StdioStreamIO({
+    unexpectedResponseCallback: (message) => {
+        console.error("Unexpected response:", message);
+        // Handle protocol violation
+    }
+});
+
+// Triggered when:
+// - Response type is not recognized
+// - Response doesn't match expected schema
+// - Protocol version mismatch
+// - Malformed JSON received
+```
+
+**Callback signature:**
+```javascript
+type UnexpectedResponseCallback = (message: unknown) => void;
+```
+
+**Common triggers:**
+| Trigger | Description |
+|---------|-------------|
+| Unknown type | Message type is not a recognized SDK event |
+| Schema mismatch | Message doesn't validate against expected schema |
+| Parse error | Malformed JSON in NDJSON stream |
+| Version mismatch | Protocol version incompatibility |
+
+---
+
 ## Session Persistence Options
 
 ### Persistence Control

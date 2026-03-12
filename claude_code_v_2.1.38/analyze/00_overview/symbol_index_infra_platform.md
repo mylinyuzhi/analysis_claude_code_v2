@@ -505,7 +505,23 @@
 |------------|----------|-----------|------|
 | jc1 | handlePermissionPromptToolResult | chunks.178.mjs:989-1010 | function (processes MCP tool permission result; handles allow/deny/interrupt) |
 | $Jz | processPermissionRequestIterator | chunks.178.mjs:1242-1280 | function (generator: processes permission request with MCP tool fallback) |
-| I51 | permissionRequestHandler | chunks.178.mjs | function (generator: core permission request handling logic) |
+| I51 | permissionRequestHandler | chunks.178.mjs:1250 | function (generator: core permission request handling logic) |
+| uX | checkToolPermission | chunks.178.mjs | function (checks tool permission before execution; returns behavior + suggestions) |
+| createCanUseTool | createCanUseTool | chunks.178.mjs:1181-1200 | method (creates permission checker callback; wraps checkToolPermission) |
+
+### SDK Error Handling
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bQA | outputErrorAndExit | chunks.178.mjs:1238-1240 | function (outputs error to stderr and exits process with code 1) |
+| Ev6 | outputError | chunks.179.mjs:1805-1820 | function (outputs error message in specified output format) |
+
+### SDK Session Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| hJz | handleSessionResume | chunks.179.mjs:1829-1885 | function (handles --resume flag; loads previous session state) |
+| IJz | createStreamIO | chunks.179.mjs:1887-1900 | function (creates StdioStreamIO instance based on configuration) |
 
 ### SDK Hook Callbacks
 
