@@ -10,9 +10,10 @@ Context Compaction is a critical subsystem in Claude Code that manages the LLM's
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `autoCompactDispatcher` (fs4) - Main entry point for automatic compaction logic
-- `shouldAutoCompact` (amY) - Logic to determine if token limits require compaction
-- `getCompactionStatus` (Ac) - Calculates usage percentages and threshold status
+- `autocompactDispatcher` (sqq) - Inner dispatcher for automatic compaction (chunks.147.mjs:2633)
+- `shouldTriggerAutoCompaction` (CmY) - Threshold + enable check combined (chunks.147.mjs:2620)
+- `isAutoCompactGloballyEnabled` (Xh) - Env var + setting check (chunks.147.mjs:2614)
+- `getCompactionStatus` (mz6) - Calculates usage percentages and threshold status (chunks.147.mjs:2591)
 - `generateConversationSummary` (ga4) - LLM-powered summarization of history
 - `performSessionMemoryCompaction` (vZ6) - Advanced compaction using session memory templates
 - `collectFilesToKeep` (Ua4) - Identifies and restores recently accessed files after compaction
@@ -24,6 +25,9 @@ Key functions in this document:
 - [Session Memory Compaction](./session_memory_compaction.md) - SM-based compaction path
 - [File Tracker](./file_tracker.md) - File preservation during compaction
 - [Microcompaction](./microcompaction.md) - Lightweight pre-compaction optimization
+- [Slash Command](./slash_command.md) - `/compact` command handler and reactive mode path
+- [Reminder & Boundary](./reminder_and_boundary.md) - Compaction reminder injection and boundary marker system
+- [Query Pipeline Integration](./query_pipeline_integration.md) - How compact hooks into the agent query loop
 
 ---
 
@@ -40,24 +44,27 @@ Where:
 - `EffectiveWindow` is roughly `TotalContext - 20000` (buffer for response)
 - `Offset` is `13000` tokens by default.
 
-**Status Levels (`Ac` / `getCompactionStatus`):**
+**Status Levels (`mz6` / `getCompactionStatus`):**
 - **Warning**: Triggered when tokens reach `Threshold - 20000`.
 - **Error**: Triggered when tokens reach `Threshold - 20000` (identical in current config).
 - **Auto-Compact**: Triggered when `currentTokens >= Threshold`.
 - **Blocking**: Triggered when tokens reach `EffectiveWindow - 3000`.
 
-### 2. The Compaction Lifecycle (`fs4` / `autoCompactDispatcher`)
+### 2. The Compaction Lifecycle (`sqq` / `autocompactDispatcher`)
 
-When compaction is triggered, the `autoCompactDispatcher` (fs4) orchestrates the process with a failover strategy:
+When compaction is triggered, the `autocompactDispatcher` (sqq, chunks.147.mjs:2633) orchestrates the process with a failover strategy:
 
-1.  **Check Triggers**: First verifies `shouldAutoCompact` (amY).
-2.  **Attempt Session Memory Compaction**:
-    - Calls `vZ6` (performSessionMemoryCompaction).
-    - This method uses structured templates to summarize the session if `tengu_sm_compact` is enabled.
-    - If successful, returns the result immediately.
-3.  **Fallback to Standard Compaction**:
-    - If Session Memory compaction is disabled or fails (returns null), it falls back to `AW1` (performFullCompaction).
-    - This is the standard LLM-based summarization of message history.
+1.  **Circuit Breaker Check**: Returns early if `consecutiveFailures >= 3` (aqq).
+2.  **Check Triggers**: Calls `shouldTriggerAutoCompaction` (CmY), which checks both `isAutoCompactGloballyEnabled` (Xh) and token threshold.
+3.  **Attempt Session Memory Quick Path**:
+    - Calls `lE1` (trySessionMemoryQuickPath).
+    - Uses pre-built templates if available; no LLM call needed.
+    - If successful, clears caches and returns immediately.
+4.  **Fallback to Standard Compaction**:
+    - Calls `mf6` (performFullCompactionFlow) — full LLM-based summarization.
+    - On failure, increments `consecutiveFailures` counter.
+
+**Reactive compact mode:** The `/compact` command also supports a reactive-only path via `WpY` (`manualCompactWithReactiveMode`) when `Z9q.isReactiveOnlyMode()` is true. See [slash_command.md](./slash_command.md) for details.
 
 **Standard Compaction Steps (`AW1`):**
 

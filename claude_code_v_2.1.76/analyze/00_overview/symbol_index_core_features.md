@@ -622,20 +622,22 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| fs4 | autoCompactDispatcher | chunks.147.mjs:778 | function |
-| gm | microCompact | chunks.148.mjs:2430 | function |
+| sqq | autocompactDispatcher | chunks.147.mjs:2633 | function |
+| CmY | shouldTriggerAutoCompaction | chunks.147.mjs:2620 | function |
+| Xh | isAutoCompactGloballyEnabled | chunks.147.mjs:2614 | function |
+| mz6 | getCompactionStatus | chunks.147.mjs:2591 | function |
+| oc6 | getAutoCompactThreshold | chunks.147.mjs:2577 | function |
+| OF | getEffectiveContextWindow | chunks.147.mjs:2566 | function |
+| pg | microCompact | chunks.133.mjs:991 | function |
 | $OA | contextCompactor | chunks.75.mjs:1938 | function (generator wrapper) |
 | HOA | isAutoCompactEnabled | chunks.75.mjs:1939 | function |
 | Tw6 | checkAndCompactIfNeeded | chunks.75.mjs:1941 | function |
-| amY | shouldAutoCompact | chunks.147.mjs:765 | function |
-| Ac | getCompactionStatus | chunks.147.mjs:736 | function |
-| SQ1 | getAutoCompactThreshold | chunks.147.mjs:722 | function |
-| m51 | getEffectiveContextWindow | chunks.147.mjs:717 | function |
-| xm | isAutoCompactEnabled | chunks.147.mjs:759 | function |
 | ga4 | generateConversationSummary | chunks.146.mjs:2566 | function |
 | vZ6 | performSessionMemoryCompaction | chunks.147.mjs:651 | function |
 | Fa4 | performPartialCompaction | chunks.146.mjs:2437 | function |
 | imY | createCompactionSummaryMessage | chunks.147.mjs:620 | function |
+| lE1 | trySessionMemoryQuickPath | chunks.147.mjs:2482 | function |
+| mf6 | performFullCompactionFlow | chunks.147.mjs | function |
 | Ts4 | generateToolUseSummary | chunks.147.mjs:832 | function |
 | Ua4 | collectFilesToKeep | chunks.146.mjs:2665 | function |
 | ca4 | collectTasksToKeep | chunks.146.mjs:2724 | function |
@@ -643,13 +645,47 @@
 | da4 | collectSkillsToKeep | chunks.146.mjs:2710 | function |
 | pa4 | collectTodosToKeep | chunks.146.mjs:2688 | function |
 | PU1 | calculateMessageTokens | chunks.147.mjs:296 | function |
-| nmY | MAX_COMPACT_BUFFER | chunks.147.mjs:805 | constant (20000) |
-| cCA | AUTO_COMPACT_BUFFER_OFFSET | chunks.147.mjs:807 | constant (13000) |
-| rmY | TOKEN_WARNING_THRESHOLD | chunks.147.mjs:809 | constant (20000) |
-| omY | TOKEN_ERROR_THRESHOLD | chunks.147.mjs:811 | constant (20000) |
-| lCA | BLOCKING_LIMIT_OFFSET | chunks.147.mjs:813 | constant (3000) |
-| autoCompactCircuitBreaker | autoCompactCircuitBreaker | chunks.184.mjs | variable (counter: fails before disabling auto-compact) |
-| MAX_AUTO_COMPACT_FAILURES | MAX_AUTO_COMPACT_FAILURES | chunks.184.mjs | constant (3) |
+| RmY | MAX_COMPACT_BUFFER | chunks.147.mjs:2676 | constant (20000) |
+| Jp8 | AUTO_COMPACT_BUFFER_OFFSET | chunks.147.mjs:2678 | constant (13000) |
+| hmY | TOKEN_WARNING_THRESHOLD | chunks.147.mjs:2680 | constant (20000) |
+| SmY | TOKEN_ERROR_THRESHOLD | chunks.147.mjs:2682 | constant (20000) |
+| Mp8 | BLOCKING_LIMIT_OFFSET | chunks.147.mjs:2684 | constant (3000) |
+| aqq | MAX_AUTO_COMPACT_FAILURES | chunks.147.mjs:2686 | constant (3) |
+
+### Slash Command Compact
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| PpY | compactCommandHandler | chunks.151.mjs:131 | function |
+| WpY | manualCompactWithReactiveMode | chunks.151.mjs:57 | function |
+| N9q | initializeCompactCommand | chunks.151.mjs:186 | function |
+| G9q | buildCompactionContext | chunks.151.mjs:109 | function |
+| Z9q | reactiveCompactRef | chunks.151.mjs:129 | variable |
+
+### Compact Boundary Markers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ri6 | createCompactBoundaryMessage | chunks.174.mjs:580 | function |
+| RZ | isCompactBoundaryMessage | chunks.174.mjs:616 | function |
+| Szz | findLastCompactBoundaryIndex | chunks.174.mjs:620 | function |
+| fN | getMessagesFromLastBoundary | chunks.174.mjs:628 | function |
+
+### Compact State Cleanup
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| K16 | clearMessageCache | chunks.147.mjs | function |
+| gl | clearTokenEstimate | chunks.147.mjs | function |
+| bc6 | clearCompactBoundaries | chunks.147.mjs | function |
+
+### Query Pipeline Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SKq | createCompactionToolsContext | chunks.148.mjs:834 | function |
+| omY | queryLoopMainFunction | chunks.148.mjs:882 | function |
+| Yh | queryEntryPoint | chunks.148.mjs:875 | function |
 
 ### Model Context Utilities
 
@@ -1382,7 +1418,6 @@
 | qJq | setupPermissionMode | chunks.172.mjs:2175 | function |
 | KJq | buildToolPermissionContext | chunks.172.mjs:2252 | function |
 | hd | parseToolList | chunks.172.mjs:2219 | function |
-| Szz | expandToolNames | chunks.172.mjs:2158 | function |
 | rRA | getAllToolNames | chunks.141.mjs:1459 | function |
 | hzz | isSymlinkedPath | chunks.172.mjs:2168 | function |
 | AJq | buildPermissionContextObject | chunks.172.mjs:2074 | function |
