@@ -11,12 +11,12 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `toolDispatcher` (bU1) - Top-level async generator that dispatches a single tool_use block
-- `toolExecutionOrchestrator` (VdY) - Creates queued async iterator wrapping the full execution pipeline
-- `toolExecutionPipeline` (NdY) - Core pipeline: validate, pre-hooks, permission, execute, post-hooks
-- `executePreToolHooksIterator` (B1q) - Pre-tool hook execution with permission override support
-- `executePostToolHooksIterator` (b1q) - Post-tool hook execution with MCP output modification
-- `executePostToolFailureHooksIterator` (u1q) - Post-failure hook execution
+- `toolDispatcher` (Wi6) - Top-level async generator that dispatches a single tool_use block
+- `toolExecutionOrchestrator` (ZxY) - Creates queued async iterator wrapping the full execution pipeline
+- `toolExecutionPipeline` (fxY) - Core pipeline: validate, pre-hooks, permission, execute, post-hooks
+- `executePreToolHooksIterator` (y4q) - Pre-tool hook execution with permission override support
+- `executePostToolHooksIterator` (k4q) - Post-tool hook execution with MCP output modification
+- `executePostToolFailureHooksIterator` (E4q) - Post-failure hook execution
 
 ---
 
@@ -26,16 +26,16 @@ Key functions in this document:
 Assistant message with tool_use block
   │
   ▼
-bU1 (toolDispatcher) ─── Tool lookup in registry
+Wi6 (toolDispatcher) ─── Tool lookup in registry
   │
   ▼
-VdY (toolExecutionOrchestrator) ─── Queued async iterator
+ZxY (toolExecutionOrchestrator) ─── Queued async iterator
   │
   ▼
-NdY (toolExecutionPipeline)
+fxY (toolExecutionPipeline)
   ├── 1. Input schema validation (Zod safeParse)
   ├── 2. Custom input validation (tool.validateInput)
-  ├── 3. Pre-tool hooks (B1q)
+  ├── 3. Pre-tool hooks (y4q)
   │     ├── Hook can: allow, deny, ask, update input
   │     ├── Hook can: prevent continuation
   │     └── Hook can: provide additional context
@@ -44,7 +44,7 @@ NdY (toolExecutionPipeline)
   │     ├── User prompted for decision
   │     └── Hook-overridden (skip user prompt)
   ├── 5. Tool execution (tool.call)
-  ├── 6. Post-tool hooks (b1q)
+  ├── 6. Post-tool hooks (k4q)
   │     ├── Hook can: modify MCP tool output
   │     ├── Hook can: prevent continuation
   │     └── Hook can: provide additional context
@@ -61,36 +61,36 @@ NdY (toolExecutionPipeline)
 
 **How it works:**
 
-1. **Tool lookup**: Searches `Y.options.tools` (the current tool set) for a tool matching the tool_use name. If not found, also checks `kt()` (dynamically loaded tools) for alias matches.
+1. **Tool lookup**: Searches `Y.options.tools` (the current tool set) for a tool matching the tool_use name. If not found, also checks `ng()` (dynamically loaded tools) for alias matches.
 
 2. **Abort check**: If the abort controller is already signaled, emits a cancelled tool result immediately without executing.
 
 3. **MCP metadata extraction**: For MCP tools (names starting with `mcp__`), extracts the server type and base URL for telemetry.
 
-4. **Delegation**: Calls `VdY` (toolExecutionOrchestrator) which wraps the full pipeline in a queued async iterator.
+4. **Delegation**: Calls `ZxY` (toolExecutionOrchestrator) which wraps the full pipeline in a queued async iterator.
 
 5. **Error wrapping**: Any uncaught errors are wrapped in a `<tool_use_error>` content block.
 
 ```javascript
 // ============================================
 // toolDispatcher - Routes tool_use blocks to the correct tool
-// Location: chunks.149.mjs:343-447
+// Location: chunks.146.mjs:285-389
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* bU1(A, q, K, Y) {
-    let z = A.name, w = Tv(Y.options.tools, z);
-    if (!w) { let X = Tv(kt(), z); if (X && X.aliases?.includes(z)) w = X }
-    if (!w) { yield { message: c6({ content: [{ type: "tool_result", content: `<tool_use_error>Error: No such tool: ${z}</tool_use_error>`, is_error: !0, tool_use_id: A.id }] }) }; return }
-    // ... abort check, then delegate to VdY ...
-    for await (let X of VdY(w, A.id, J, Y, K, q, H, $, O, _)) yield X
+async function* Wi6(A, q, K, Y) {
+    let z = A.name, _ = dK(Y.options.tools, z);
+    if (!_) { let J = dK(ng(), z); if (J && J.aliases?.includes(z)) _ = J }
+    if (!_) { yield { message: p1({ content: [{ type: "tool_result", content: `<tool_use_error>Error: No such tool available: ${z}</tool_use_error>`, is_error: !0, tool_use_id: A.id }] }) }; return }
+    // ... abort check, then delegate to ZxY ...
+    for await (let J of ZxY(_, A.id, j, Y, K, q, w, O, $, H)) yield J
 }
 
 // READABLE (for understanding):
 async function* toolDispatcher(toolUseBlock, assistantMessage, canUseTool, toolUseContext) {
     let toolName = toolUseBlock.name;
     let tool = findTool(toolUseContext.options.tools, toolName);
-    if (!tool) { /* check alias registry */ }
+    if (!tool) { /* check alias registry via ng() dynamic tools */ }
     if (!tool) { yield errorResult(`No such tool available: ${toolName}`); return; }
     if (toolUseContext.abortController.signal.aborted) { yield cancelledResult(); return; }
     for await (let result of toolExecutionOrchestrator(tool, toolUseBlock.id, toolUseBlock.input, toolUseContext, canUseTool, assistantMessage, ...)) {
@@ -98,10 +98,10 @@ async function* toolDispatcher(toolUseBlock, assistantMessage, canUseTool, toolU
     }
 }
 
-// Mapping: bU1→toolDispatcher, A→toolUseBlock, q→assistantMessage, K→canUseTool, Y→toolUseContext, z→toolName, w→tool
+// Mapping: Wi6→toolDispatcher, A→toolUseBlock, q→assistantMessage, K→canUseTool, Y→toolUseContext, z→toolName, _→tool, ng→getDynamicToolSet, ZxY→toolExecutionOrchestrator
 ```
 
-**Key insight:** The tool registry lookup supports two paths: direct name match and alias match. Aliases are used when MCP tools or skill-provided tools have alternative names. The alias check happens against `kt()` (a lazy-loaded global tool set) rather than the session-scoped tools, enabling cross-session tool discovery.
+**Key insight:** The tool registry lookup supports two paths: direct name match and alias match. Aliases are used when MCP tools or skill-provided tools have alternative names. The alias check happens against `ng()` (a lazy-loaded global tool set) rather than the session-scoped tools, enabling cross-session tool discovery.
 
 ---
 
@@ -120,17 +120,17 @@ async function* toolDispatcher(toolUseBlock, assistantMessage, canUseTool, toolU
 ```javascript
 // ============================================
 // Input Validation - Two-stage validation before execution
-// Location: chunks.149.mjs:490-571
+// Location: chunks.146.mjs:442-570 (fxY)
 // ============================================
 
 // ORIGINAL (for source lookup):
-let X = A.inputSchema.safeParse(K);
-if (!X.success) {
-    let y = x1q(A.name, X.error);
-    return [{ message: c6({ content: [{ type: "tool_result", content: `<tool_use_error>InputValidationError: ${y}</tool_use_error>`, is_error: !0, tool_use_id: q }] }) }]
+let J = A.inputSchema.safeParse(K);
+if (!J.success) {
+    let y = V4q(A.name, J.error);
+    return [{ message: p1({ content: [{ type: "tool_result", content: `<tool_use_error>InputValidationError: ${y}</tool_use_error>`, is_error: !0, tool_use_id: q }] }) }]
 }
-let D = await A.validateInput?.(X.data, Y);
-if (D?.result === !1) return [{ message: c6({ content: [{ type: "tool_result", content: `<tool_use_error>${D.message}</tool_use_error>` }] }) }];
+let D = await A.validateInput?.(J.data, Y);
+if (D?.result === !1) return [{ message: p1({ content: [{ type: "tool_result", content: `<tool_use_error>${D.message}</tool_use_error>` }] }) }];
 
 // READABLE (for understanding):
 let parseResult = tool.inputSchema.safeParse(input);
@@ -143,7 +143,7 @@ if (customValidation?.result === false) {
     return [{ message: createUserMessage({ content: [{ type: "tool_result", content: customValidation.message, is_error: true }] }) }];
 }
 
-// Mapping: A→tool, K→input, X→parseResult, D→customValidation, q→toolUseId, Y→toolUseContext
+// Mapping: A→tool, K→input, J→parseResult (safeParse), D→customValidation, q→toolUseId, Y→toolUseContext, V4q→formatValidationError
 ```
 
 **Why this approach:**
@@ -152,6 +152,21 @@ if (customValidation?.result === false) {
 - Validation errors are returned as `is_error: true` tool results, which the LLM sees as "the tool failed" and can adjust its approach
 
 **Key insight:** The Bash tool has an additional special check after validation: `g1q` (bashPreFlightCheck) which marks certain commands as "potentially long-running" via `W74` (markAsLongRunning). This happens between validation and pre-hooks, enabling the UI to show a progress indicator for slow commands.
+
+### Validation Failures and Hook Triggering
+
+**Critical distinction:** Not all tool failures trigger `PostToolUseFailure` hooks. Only Stage 5 (`tool.call()`) failures do.
+
+| Failure point | Returns `is_error: true`? | Triggers PostToolUseFailure hooks? |
+|---------------|--------------------------|-------------------------------------|
+| Stage 1: Schema validation fails | Yes | **No** — early return before hooks |
+| Stage 2: `validateInput` returns false | Yes | **No** — early return before hooks |
+| Stage 3-4: Pre-hooks or permission denied | Yes | **No** — execution never reaches tool.call |
+| Stage 5: `tool.call()` throws exception | Yes | **Yes** — `E4q` runs via `fxY` error handler |
+
+**Why validation errors skip hooks:** The `fxY` pipeline returns early on validation failure before the hook stages are even reached. `E4q` (executePostToolFailureHooksIterator) is only invoked in the exception handler that wraps `tool.call()`.
+
+**Hooks receive pre-modified input:** When a PreToolUse hook updates the input (`updatedInput`), the modified input is used for execution — but the hook-modified input is **not** re-validated by the schema. Hooks receive already-validated data and are trusted to maintain type correctness.
 
 ---
 
@@ -163,7 +178,7 @@ if (customValidation?.result === false) {
 
 **How it works:**
 
-1. Calls `qyA` (executePreToolHooks generator) with the tool name, input, and context
+1. Calls `LF8` (executePreToolHooks generator) with the tool name, input, and context
 2. Processes each hook result, which can contain:
    - **`blockingError`**: Creates a deny permission result, blocking execution
    - **`preventContinuation`**: Stops the entire tool execution pipeline
@@ -175,22 +190,20 @@ if (customValidation?.result === false) {
 ```javascript
 // ============================================
 // executePreToolHooksIterator - Pre-tool hook execution
-// Location: chunks.149.mjs:161-300
+// Location: chunks.146.mjs:74-216
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* B1q(A, q, K, Y, z, w, H, $) {
-    let O = Date.now();
-    let _ = await A.getAppState();
-    for await (let J of qyA(q.name, Y, K, A, _.toolPermissionContext.mode, A.abortController.signal)) try {
-        if (J.blockingError) { yield { type: "hookPermissionResult", hookPermissionResult: { behavior: "deny", message: formatBlockError(...) } } }
-        if (J.preventContinuation) { yield { type: "preventContinuation", shouldPreventContinuation: !0 }; if (J.stopReason) yield { type: "stopReason", stopReason: J.stopReason } }
-        if (J.permissionBehavior !== void 0) {
-            if (J.permissionBehavior === "allow") yield { type: "hookPermissionResult", hookPermissionResult: { behavior: "allow", updatedInput: J.updatedInput } };
-            else if (J.permissionBehavior === "ask") yield { type: "hookPermissionResult", hookPermissionResult: { behavior: "ask", ... } };
-            else yield { type: "hookPermissionResult", hookPermissionResult: { behavior: J.permissionBehavior, ... } }
+async function* y4q(A, q, K, Y, z, _, w, O) {
+    let $ = Date.now();
+    let H = A.getAppState();
+    for await (let j of LF8(q.name, Y, K, A, H.toolPermissionContext.mode, A.abortController.signal, void 0, A.requestPrompt, q.getToolUseSummary?.(K))) try {
+        if (j.blockingError) { let J = yF8(`PreToolUse:${q.name}`, j.blockingError); yield { type: "hookPermissionResult", hookPermissionResult: { behavior: "deny", message: J, decisionReason: { type: "hook", hookName: `PreToolUse:${q.name}`, reason: J } } } }
+        if (j.preventContinuation) { yield { type: "preventContinuation", shouldPreventContinuation: !0 }; if (j.stopReason) yield { type: "stopReason", stopReason: j.stopReason } }
+        if (j.permissionBehavior !== void 0) {
+            if (j.permissionBehavior === "allow") yield { type: "hookPermissionResult", hookPermissionResult: { behavior: "allow", updatedInput: j.updatedInput } };
         }
-        if (J.updatedInput && J.permissionBehavior === void 0) yield { type: "hookUpdatedInput", updatedInput: J.updatedInput };
+        if (j.updatedInput && j.permissionBehavior === void 0) yield { type: "hookUpdatedInput", updatedInput: j.updatedInput };
     } catch (X) { /* log error, yield stop */ }
 }
 
@@ -206,7 +219,7 @@ async function* executePreToolHooksIterator(toolUseContext, tool, input, toolUse
     }
 }
 
-// Mapping: B1q→executePreToolHooksIterator, A→toolUseContext, q→tool, K→input, Y→toolUseId
+// Mapping: y4q→executePreToolHooksIterator, A→toolUseContext, q→tool, K→input, Y→toolUseId, LF8→executePreToolHooks
 ```
 
 **Why this approach:**
@@ -226,7 +239,7 @@ async function* executePreToolHooksIterator(toolUseContext, tool, input, toolUse
 
 **How it works:**
 
-The decision tree in `NdY` is:
+The decision tree in `fxY` is:
 
 1. **Hook allowed + no user interaction required**: Tool executes immediately, no user prompt
 2. **Hook allowed + user interaction required**: Falls through to `canUseTool` despite hook approval
@@ -265,31 +278,33 @@ The tool itself handles sandboxing internally -- the Bash tool uses its own sand
 
 **How it works:**
 
-1. Calls `KyA` (executePostToolHooks generator) with tool name, tool result, and context
+1. Calls `RF8` (executePostToolHooks generator) with tool name, tool result, and context
 2. Processes each hook result:
    - **`hook_cancelled`**: The hook was cancelled (e.g., by abort signal)
    - **`message`**: Additional messages to inject into conversation
    - **`blockingError`**: Error from the hook itself
    - **`preventContinuation`**: Stops the agent loop after this tool
    - **`additionalContexts`**: Extra context to inject
-   - **`updatedMCPToolOutput`**: Modified output for MCP tools only (checked via `$E(tool)`)
+   - **`updatedMCPToolOutput`**: Modified output for MCP tools only (checked via `rk(tool)`)
 
 3. For MCP tools specifically, hooks can transform the tool output before it reaches the LLM. This enables post-processing of external tool results.
 
 ```javascript
 // ============================================
 // executePostToolHooksIterator - Post-tool hook execution
-// Location: chunks.149.mjs:3-88
+// Location: chunks.145.mjs:3107-3192
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* b1q(A, q, K, Y, z, w, H, $, O) {
-    for await (let j of KyA(q.name, K, z, D, A, X, A.abortController.signal)) try {
-        if (j.message) yield { message: j.message };
-        if (j.blockingError) yield { message: kq({ type: "hook_blocking_error", ... }) };
-        if (j.preventContinuation) { yield { message: kq({ type: "hook_stopped_continuation", ... }) }; return }
-        if (j.updatedMCPToolOutput && $E(q)) D = j.updatedMCPToolOutput, yield { updatedMCPToolOutput: D }
-    } catch (M) { /* telemetry + yield error */ }
+async function* k4q(A, q, K, Y, z, _, w, O, $) {
+    let H = Date.now();
+    let J = A.getAppState().toolPermissionContext.mode, M = _;
+    for await (let D of RF8(q.name, K, M, A, J, A.abortController.signal)) try {
+        if (D.message) yield { message: D.message };
+        if (D.blockingError) yield { message: f4({ type: "hook_blocking_error", ... }) };
+        if (D.preventContinuation) { yield { message: f4({ type: "hook_stopped_continuation", ... }) }; return }
+        if (D.updatedMCPToolOutput && rk(q)) M = D.updatedMCPToolOutput, yield { updatedMCPToolOutput: M }
+    } catch (X) { /* telemetry + yield error */ }
 }
 
 // READABLE (for understanding):
@@ -303,7 +318,7 @@ async function* executePostToolHooksIterator(toolUseContext, tool, toolUseId, me
     }
 }
 
-// Mapping: b1q→executePostToolHooksIterator, A→toolUseContext, q→tool, K→toolUseId, D→toolResult
+// Mapping: k4q→executePostToolHooksIterator, A→toolUseContext, q→tool, K→toolUseId, M→toolResult, RF8→executePostToolHooks, rk→isMcpTool
 ```
 
 **Why this approach:**
@@ -367,32 +382,32 @@ Each event includes `queryChainId` and `queryDepth` for tracing tool calls throu
 
 ## Complete Execution Flow with Source
 
-### Full Pipeline Source (NdY)
+### Full Pipeline Source (fxY)
 
 **What it does:** The complete tool execution pipeline with all stages in sequence.
 
 ```javascript
 // ============================================
 // toolExecutionPipeline - Complete implementation
-// Location: chunks.149.mjs:490-870
+// Location: chunks.146.mjs:442-987
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function NdY(A, q, K, Y, z, w, H, $, O, _, J) {
-    let X = A.inputSchema.safeParse(K);
-    if (!X.success) {
-        let y = x1q(A.name, X.error);
-        return h(`${A.name} tool input error: ${y.slice(0,200)}`), c("tengu_tool_use_error", {
+async function fxY(A, q, K, Y, z, _, w, O, $, H, j) {
+    let J = A.inputSchema.safeParse(K);
+    if (!J.success) {
+        let y = V4q(A.name, J.error);
+        return k(`${A.name} tool input error: ${y.slice(0,200)}`), d("tengu_tool_use_error", {
             error: "InputValidationError",
             errorDetails: y.slice(0, 2000),
             // ... telemetry fields
-        }), [{ message: c6({ content: [{ type: "tool_result", content: `<tool_use_error>InputValidationError: ${y}</tool_use_error>`, is_error: !0, tool_use_id: q }] }) }]
+        }), [{ message: p1({ content: [{ type: "tool_result", content: `<tool_use_error>InputValidationError: ${y}</tool_use_error>`, is_error: !0, tool_use_id: q }] }) }]
     }
-    let D = await A.validateInput?.(X.data, Y);
-    if (D?.result === !1) return h(`${A.name} tool validation error: ${D.message?.slice(0,200)}`), c("tengu_tool_use_error", {
-        messageID: H, toolName: AK(A.name), error: D.message, errorCode: D.errorCode,
+    let D = await A.validateInput?.(J.data, Y);
+    if (D?.result === !1) return k(`${A.name} tool validation error: ${D.message?.slice(0,200)}`), d("tengu_tool_use_error", {
+        messageID: w, toolName: hq(A.name), error: D.message, errorCode: D.errorCode,
         // ... telemetry fields
-    }), [{ message: c6({ content: [{ type: "tool_result", content: `<tool_use_error>${D.message}</tool_use_error>`, is_error: !0, tool_use_id: q }] }) }];
+    }), [{ message: p1({ content: [{ type: "tool_result", content: `<tool_use_error>${D.message}</tool_use_error>`, is_error: !0, tool_use_id: q }] }) }];
     // ... pre-hooks, permission check, execution, post-hooks
 }
 
@@ -500,12 +515,12 @@ async function toolExecutionPipeline(tool, toolUseId, input, toolUseContext, can
     ];
 }
 
-// Mapping: NdY→toolExecutionPipeline, A→tool, q→toolUseId, K→input, Y→toolUseContext,
-//          z→canUseTool, w→assistantMessage, H→messageId, $→requestId,
-//          O→mcpServerType, _→mcpServerBaseUrl, J→progressCallback,
-//          X→parseResult, D→customValidation, x1q→formatValidationError,
-//          c→emitTelemetry, c6→createUserMessage, B1q→executePreToolHooksIterator,
-//          b1q→executePostToolHooksIterator, $E→isMcpToolByFlag
+// Mapping: fxY→toolExecutionPipeline, A→tool, q→toolUseId, K→input, Y→toolUseContext,
+//          z→canUseTool, _→assistantMessage, w→messageId, O→requestId,
+//          $→mcpServerType, H→mcpServerBaseUrl, j→progressCallback,
+//          J→parseResult, D→customValidation, V4q→formatValidationError,
+//          d→emitTelemetry, p1→createUserMessage, y4q→executePreToolHooksIterator,
+//          k4q→executePostToolHooksIterator, rk→isMcpToolByFlag
 ```
 
 **Why this approach:**
@@ -525,16 +540,16 @@ async function toolExecutionPipeline(tool, toolUseId, input, toolUseContext, can
 ```javascript
 // ============================================
 // Progress Streaming - Tool progress updates
-// Location: chunks.149.mjs:449-488 (VdY orchestrator)
+// Location: chunks.146.mjs:391-429 (ZxY orchestrator)
 // ============================================
 
 // ORIGINAL (for source lookup):
-function VdY(A, q, K, Y, z, w, H, $, O, _) {
-    let J = new xU1;  // Queue for async iteration
-    return NdY(A, q, K, Y, z, w, H, $, O, _, (X) => {
-        c("tengu_tool_use_progress", { messageID: H, toolName: AK(A.name), ... });
-        J.enqueue({ message: U1q({ toolUseID: X.toolUseID, parentToolUseID: q, data: X.data }) })
-    }).then((X) => { for (let D of X) J.enqueue(D) }).catch((X) => { J.error(X) }).finally(() => { J.done() }), J
+function ZxY(A, q, K, Y, z, _, w, O, $, H) {
+    let j = new Pi6;  // Queue for async iteration
+    return fxY(A, q, K, Y, z, _, w, O, $, H, (J) => {
+        d("tengu_tool_use_progress", { messageID: w, toolName: hq(A.name), ... });
+        j.enqueue({ message: C4q({ toolUseID: J.toolUseID, parentToolUseID: q, data: J.data }) })
+    }).then((J) => { for (let M of J) j.enqueue(M) }).catch((J) => { j.error(J) }).finally(() => { j.done() }), j
 }
 
 // READABLE (for understanding):
@@ -570,8 +585,8 @@ function toolExecutionOrchestrator(tool, toolUseId, input, toolUseContext, canUs
     return queue;  // Async iterable
 }
 
-// Mapping: VdY→toolExecutionOrchestrator, xU1→AsyncQueue, NdY→toolExecutionPipeline,
-//          U1q→createToolProgressMessage, J→queue, X→progress/results
+// Mapping: ZxY→toolExecutionOrchestrator, Pi6→AsyncQueue, fxY→toolExecutionPipeline,
+//          C4q→createToolProgressMessage, j→queue, J→progress/results
 ```
 
 **Key insight:** The orchestrator returns an async queue (iterable), allowing the caller to receive progress updates **before** the tool completes. This enables the UI to show real-time progress for long-running tools like Bash.
@@ -586,13 +601,13 @@ Hook execution in Claude Code uses async generators (`function*`) to allow multi
 
 | Generator | Event | Purpose |
 |-----------|-------|---------|
-| `qyA` | PreToolUse | Run before tool execution; can allow/deny/modify input |
-| `KyA` | PostToolUse | Run after successful execution; can modify MCP output |
-| `YyA` | PostToolUseFailure | Run after failed execution; error recovery |
+| `LF8` | PreToolUse | Run before tool execution; can allow/deny/modify input |
+| `RF8` | PostToolUse | Run after successful execution; can modify MCP output |
+| `hF8` | PostToolUseFailure | Run after failed execution; error recovery |
 
 ---
 
-### executePreToolHooks (qyA) - Pre-execution hook generator
+### executePreToolHooks (LF8) - Pre-execution hook generator
 
 **What it does:** Runs all registered `PreToolUse` hooks for a tool before execution begins. Hooks can block execution, override permissions, or modify the tool input.
 
@@ -601,37 +616,44 @@ Hook execution in Claude Code uses async generators (`function*`) to allow multi
 ```javascript
 // ============================================
 // executePreToolHooks - Pre-tool hook execution generator
-// Location: chunks.141.mjs:2812-2829
+// Location: chunks.175.mjs:2462-2484
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* qyA(A, q, K, Y, z, w, H = MP) {
-    h(`executePreToolHooks called for tool: ${A}`);
-    let $ = {
-        ...aX(z),
+async function* LF8(A, q, K, Y, z, _, w = T$, O, $) {
+    let H = Y.getAppState(),
+        j = Y.agentId ?? R1();
+    if (!NS1("PreToolUse", H, j)) return;
+    k(`executePreToolHooks called for tool: ${A}`);
+    let J = {
+        ...$w(z, void 0, Y),
         hook_event_name: "PreToolUse",
         tool_name: A,
         tool_input: K,
         tool_use_id: q
     };
-    yield* NI({
-        event: "PreToolUse",
-        input: $,
-        appState: Y,
-        agentId: Y.agentId,
-        abortSignal: w,
-        timeoutMs: H,
-        toolUseContext: Y
+    yield* Ax({
+        hookInput: J,
+        toolUseID: q,
+        matchQuery: A,
+        signal: _,
+        timeoutMs: w,
+        toolUseContext: Y,
+        requestPrompt: O,
+        toolInputSummary: $
     })
 }
 
 // READABLE (for understanding):
-async function* executePreToolHooks(toolName, toolUseId, toolInput, toolUseContext, permissionMode, abortSignal, timeoutMs = DEFAULT_HOOK_TIMEOUT) {
+async function* executePreToolHooks(toolName, toolUseId, toolInput, toolUseContext, permissionMode, abortSignal, timeoutMs = DEFAULT_HOOK_TIMEOUT, requestPrompt, toolInputSummary) {
+    let appState = toolUseContext.getAppState(),
+        agentId = toolUseContext.agentId ?? getDefaultAgentId();
+    if (!hasHooksForEvent("PreToolUse", appState, agentId)) return;
     logHookExecution(`executePreToolHooks called for tool: ${toolName}`);
 
     // Build hook input payload with base context
     let hookInput = {
-        ...buildBasePayload(permissionMode),
+        ...buildContextPayload(permissionMode, undefined, toolUseContext),
         hook_event_name: "PreToolUse",
         tool_name: toolName,
         tool_input: toolInput,
@@ -640,19 +662,21 @@ async function* executePreToolHooks(toolName, toolUseId, toolInput, toolUseConte
 
     // Delegate to the central hook executor
     yield* executeHooksIterator({
-        event: "PreToolUse",
-        input: hookInput,
-        appState: toolUseContext,
-        agentId: toolUseContext.agentId,
-        abortSignal: abortSignal,
+        hookInput: hookInput,
+        toolUseID: toolUseId,
+        matchQuery: toolName,
+        signal: abortSignal,
         timeoutMs: timeoutMs,
-        toolUseContext: toolUseContext
+        toolUseContext: toolUseContext,
+        requestPrompt: requestPrompt,
+        toolInputSummary: toolInputSummary
     });
 }
 
-// Mapping: qyA→executePreToolHooks, A→toolName, q→toolUseId, K→toolInput,
-//          Y→toolUseContext, z→permissionMode, w→abortSignal, H→timeoutMs,
-//          aX→buildBasePayload, NI→executeHooksIterator, MP→DEFAULT_HOOK_TIMEOUT
+// Mapping: LF8→executePreToolHooks, A→toolName, q→toolUseId, K→toolInput,
+//          Y→toolUseContext, z→permissionMode, _→abortSignal, w→timeoutMs,
+//          $w→buildContextPayload, Ax→executeHooksIterator, T$→DEFAULT_HOOK_TIMEOUT,
+//          NS1→hasHooksForEvent, O→requestPrompt, $→toolInputSummary
 ```
 
 **Hook output fields for PreToolUse:**
@@ -675,7 +699,7 @@ async function* executePreToolHooks(toolName, toolUseId, toolInput, toolUseConte
 
 ---
 
-### executePostToolHooks (KyA) - Post-execution hook generator
+### executePostToolHooks (RF8) - Post-execution hook generator
 
 **What it does:** Runs all registered `PostToolUse` hooks after a tool successfully executes. Hooks can modify MCP tool output, inject context, or stop continuation.
 
@@ -684,59 +708,55 @@ async function* executePreToolHooks(toolName, toolUseId, toolInput, toolUseConte
 ```javascript
 // ============================================
 // executePostToolHooks - Post-tool hook execution generator
-// Location: chunks.141.mjs:2831-2848
+// Location: chunks.175.mjs:2486-2503
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* KyA(A, q, K, Y, z, w, H, $ = MP) {
-    let O = {
-        ...aX(w),
+async function* RF8(A, q, K, Y, z, _, w, O = T$) {
+    let $ = {
+        ...$w(_, void 0, z),
         hook_event_name: "PostToolUse",
         tool_name: A,
         tool_input: K,
-        tool_use_id: q,
-        tool_result: Y,
-        tool_result_is_error: !1
+        tool_response: Y,
+        tool_use_id: q
     };
-    yield* NI({
-        event: "PostToolUse",
-        input: O,
-        appState: z,
-        agentId: z.agentId,
-        abortSignal: H,
-        timeoutMs: $,
+    yield* Ax({
+        hookInput: $,
+        toolUseID: q,
+        matchQuery: A,
+        signal: w,
+        timeoutMs: O,
         toolUseContext: z
     })
 }
 
 // READABLE (for understanding):
-async function* executePostToolHooks(toolName, toolUseId, toolInput, toolResult, toolUseContext, permissionMode, abortSignal, timeoutMs = DEFAULT_HOOK_TIMEOUT) {
-    // Build hook input payload including tool result
+async function* executePostToolHooks(toolName, toolUseId, toolInput, toolResponse, toolUseContext, permissionMode, abortSignal, timeoutMs = DEFAULT_HOOK_TIMEOUT) {
+    // Build hook input payload including tool response
     let hookInput = {
-        ...buildBasePayload(permissionMode),
+        ...buildContextPayload(permissionMode, undefined, toolUseContext),
         hook_event_name: "PostToolUse",
         tool_name: toolName,
         tool_input: toolInput,
-        tool_use_id: toolUseId,
-        tool_result: toolResult,
-        tool_result_is_error: false  // Success path
+        tool_response: toolResponse,  // v2.1.76: uses tool_response instead of tool_result
+        tool_use_id: toolUseId
     };
 
     // Delegate to central hook executor
     yield* executeHooksIterator({
-        event: "PostToolUse",
-        input: hookInput,
-        appState: toolUseContext,
-        agentId: toolUseContext.agentId,
-        abortSignal: abortSignal,
+        hookInput: hookInput,
+        toolUseID: toolUseId,
+        matchQuery: toolName,
+        signal: abortSignal,
         timeoutMs: timeoutMs,
         toolUseContext: toolUseContext
     });
 }
 
-// Mapping: KyA→executePostToolHooks, A→toolName, q→toolUseId, K→toolInput,
-//          Y→toolResult, z→toolUseContext, w→permissionMode, H→abortSignal,
-//          $→timeoutMs, aX→buildBasePayload, NI→executeHooksIterator
+// Mapping: RF8→executePostToolHooks, A→toolName, q→toolUseId, K→toolInput,
+//          Y→toolResponse, z→toolUseContext, _→permissionMode, w→abortSignal,
+//          O→timeoutMs, $w→buildContextPayload, Ax→executeHooksIterator
 ```
 
 **Hook output fields for PostToolUse:**
@@ -752,10 +772,10 @@ async function* executePostToolHooks(toolName, toolUseId, toolInput, toolResult,
 **MCP output modification:**
 
 ```javascript
-// From b1q (executePostToolHooksIterator) in chunks.149.mjs
-if (j.updatedMCPToolOutput && $E(q)) {
-    D = j.updatedMCPToolOutput;  // Replace output
-    yield { updatedMCPToolOutput: D };
+// From k4q (executePostToolHooksIterator) in chunks.145.mjs:3107
+if (D.updatedMCPToolOutput && rk(q)) {
+    M = D.updatedMCPToolOutput;  // Replace output
+    yield { updatedMCPToolOutput: M };
 }
 ```
 
@@ -768,7 +788,7 @@ if (j.updatedMCPToolOutput && $E(q)) {
 
 ---
 
-### executePostToolFailureHooks (YyA) - Failure hook generator
+### executePostToolFailureHooks (hF8) - Failure hook generator
 
 **What it does:** Runs `PostToolUseFailure` hooks when a tool execution fails (permission denied, validation error, runtime error). Hooks can provide recovery context but cannot modify output.
 
@@ -777,63 +797,64 @@ if (j.updatedMCPToolOutput && $E(q)) {
 ```javascript
 // ============================================
 // executePostToolFailureHooks - Post-failure hook execution generator
-// Location: chunks.141.mjs:2850-2868
+// Location: chunks.175.mjs:2505-2526
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* YyA(A, q, K, Y, z, w, H, $, O = MP) {
-    let _ = {
-        ...aX(H),
+async function* hF8(A, q, K, Y, z, _, w, O, $ = T$) {
+    let H = z.getAppState(),
+        j = z.agentId ?? R1();
+    if (!NS1("PostToolUseFailure", H, j)) return;
+    let J = {
+        ...$w(w, void 0, z),
         hook_event_name: "PostToolUseFailure",
         tool_name: A,
         tool_input: K,
         tool_use_id: q,
-        tool_result: Y,
-        tool_result_is_error: !0,
-        error_message: Y,
-        tool_error_code: z
+        error: Y,
+        is_interrupt: _
     };
-    yield* NI({
-        event: "PostToolUseFailure",
-        input: _,
-        appState: w,
-        agentId: w.agentId,
-        abortSignal: $,
-        timeoutMs: O,
-        toolUseContext: w
+    yield* Ax({
+        hookInput: J,
+        toolUseID: q,
+        matchQuery: A,
+        signal: O,
+        timeoutMs: $,
+        toolUseContext: z
     })
 }
 
 // READABLE (for understanding):
-async function* executePostToolFailureHooks(toolName, toolUseId, toolInput, errorMessage, errorCode, toolUseContext, permissionMode, abortSignal, timeoutMs = DEFAULT_HOOK_TIMEOUT) {
+async function* executePostToolFailureHooks(toolName, toolUseId, toolInput, errorMessage, isInterrupt, toolUseContext, permissionMode, abortSignal, timeoutMs = DEFAULT_HOOK_TIMEOUT) {
+    let appState = toolUseContext.getAppState(),
+        agentId = toolUseContext.agentId ?? getDefaultAgentId();
+    if (!hasHooksForEvent("PostToolUseFailure", appState, agentId)) return;
     // Build hook input with error information
+    // v2.1.76: uses error + is_interrupt instead of tool_result/error_message/tool_error_code
     let hookInput = {
-        ...buildBasePayload(permissionMode),
+        ...buildContextPayload(permissionMode, undefined, toolUseContext),
         hook_event_name: "PostToolUseFailure",
         tool_name: toolName,
         tool_input: toolInput,
         tool_use_id: toolUseId,
-        tool_result: errorMessage,
-        tool_result_is_error: true,  // Failure path
-        error_message: errorMessage,
-        tool_error_code: errorCode
+        error: errorMessage,
+        is_interrupt: isInterrupt
     };
 
     // Delegate to central hook executor
     yield* executeHooksIterator({
-        event: "PostToolUseFailure",
-        input: hookInput,
-        appState: toolUseContext,
-        agentId: toolUseContext.agentId,
-        abortSignal: abortSignal,
+        hookInput: hookInput,
+        toolUseID: toolUseId,
+        matchQuery: toolName,
+        signal: abortSignal,
         timeoutMs: timeoutMs,
         toolUseContext: toolUseContext
     });
 }
 
-// Mapping: YyA→executePostToolFailureHooks, A→toolName, q→toolUseId, K→toolInput,
-//          Y→errorMessage, z→errorCode, w→toolUseContext, H→permissionMode,
-//          $→abortSignal, O→timeoutMs, aX→buildBasePayload, NI→executeHooksIterator
+// Mapping: hF8→executePostToolFailureHooks, A→toolName, q→toolUseId, K→toolInput,
+//          Y→errorMessage, _→isInterrupt, z→toolUseContext, w→permissionMode,
+//          $w→buildContextPayload, Ax→executeHooksIterator, NS1→hasHooksForEvent
 ```
 
 **Hook output fields for PostToolUseFailure:**
@@ -859,20 +880,20 @@ async function* executePostToolFailureHooks(toolName, toolUseId, toolInput, erro
 
 ### Iterator Wrapper Pattern
 
-The `B1q`, `b1q`, and `u1q` functions wrap the core generators with additional processing:
+The `y4q`, `k4q`, and `E4q` functions wrap the core generators with additional processing:
 
 ```javascript
 // ============================================
 // executePreToolHooksIterator - Iterator wrapper with result processing
-// Location: chunks.149.mjs:161-260
+// Location: chunks.146.mjs:74-216
 // ============================================
 
 // ORIGINAL (partial):
-async function* B1q(A, q, K, Y, z, w, H, $) {
-    let O = Date.now();
+async function* y4q(A, q, K, Y, z, _, w, O) {
+    let $ = Date.now();
     try {
-        let _ = await A.getAppState();
-        for await (let J of qyA(q.name, Y, K, A, _.toolPermissionContext.mode, A.abortController.signal)) {
+        let H = A.getAppState();
+        for await (let j of LF8(q.name, Y, K, A, H.toolPermissionContext.mode, A.abortController.signal)) {
             if (J.message) yield { type: "message", message: { message: J.message } };
             if (J.blockingError) yield { type: "hookPermissionResult", hookPermissionResult: { behavior: "deny", message: formatBlockError(...) } };
             if (J.preventContinuation) yield { type: "preventContinuation", shouldPreventContinuation: true };
@@ -902,24 +923,24 @@ async function* B1q(A, q, K, Y, z, w, H, $) {
 ```javascript
 // ============================================
 // Abort Handling - Cancellation flow
-// Location: chunks.149.mjs:395-428 (toolDispatcher)
+// Location: chunks.146.mjs:285-389 (Wi6 toolDispatcher)
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* bU1(A, q, K, Y) {
+async function* Wi6(A, q, K, Y) {
     // ... tool lookup ...
     if (Y.abortController.signal.aborted) {
-        c("tengu_tool_use_cancelled", {
-            toolName: AK(w.name),
+        d("tengu_tool_use_cancelled", {
+            toolName: hq(_.name),
             toolUseID: A.id,
-            isMcp: w.isMcp ?? !1,
+            isMcp: _.isMcp ?? !1,
             // ... telemetry fields
         });
-        let X = KhA(A.id);  // Cancelled tool result
+        let J = CF8(A.id);  // Cancelled tool result
         yield {
-            message: c6({
-                content: [X],
-                toolUseResult: _M1,  // "cancelled" message
+            message: p1({
+                content: [J],
+                toolUseResult: R96,  // "cancelled" message
                 sourceToolAssistantUUID: q.uuid
             })
         };
@@ -948,8 +969,8 @@ async function* toolDispatcher(toolUseBlock, assistantMessage, canUseTool, toolU
     // ... execute tool ...
 }
 
-// Mapping: bU1→toolDispatcher, Y.abortController.signal→abortSignal, KhA→createCancelledToolResult,
-//          _M1→CANCELLED_MESSAGE, c6→createUserMessage
+// Mapping: Wi6→toolDispatcher, Y.abortController.signal→abortSignal, CF8→createCancelledToolResult,
+//          R96→CANCELLED_MESSAGE, p1→createUserMessage
 ```
 
 **Key insight:** The abort check happens at the dispatcher level, before execution starts. Once execution begins, the tool itself must handle abort signals (e.g., Bash terminates the subprocess).

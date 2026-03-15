@@ -168,26 +168,37 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| $E | isMcpToolByFlag | chunks.149.mjs:420 | function |
-| b1q | executePostToolHooksIterator | chunks.149.mjs:3 | function (generator) |
-| B1q | executePreToolHooksIterator | chunks.149.mjs:161 | function (generator) |
-| bU1 | toolDispatcher | chunks.149.mjs:343 | function (generator) |
-| c6 | createUserMessage | chunks.149.mjs:340 | function |
 | kq | createHookMessage | chunks.142.mjs:2615 | function |
-| kt | getDynamicToolSet | chunks.141.mjs:1465 | function |
-| NdY | toolExecutionPipeline | chunks.149.mjs:490 | function |
+| ng | getDynamicToolSet | chunks.141.mjs | function |
 | Tv | findTool | chunks.74.mjs:1392 | function |
 | d39 | toolMatchesName | chunks.74.mjs:1388 | function |
-| u1q | executePostToolFailureHooksIterator | chunks.149.mjs:90 | function (generator) |
 | U1q | createToolProgressMessage | chunks.172.mjs:2943 | function |
-| VdY | toolExecutionOrchestrator | chunks.149.mjs:448 | function |
-| vQ1 | deriveToolUseContext | chunks.149.mjs:2589 | function |
-| W74 | markAsLongRunning | chunks.149.mjs:470 | function |
-| x1q | formatValidationError | chunks.149.mjs:500 | function |
 | YP6 | assembleSessionToolSet | chunks.141.mjs:1476 | function |
-| KyA | executePostToolHooks | chunks.141.mjs:2831 | function (generator) |
-| YyA | executePostToolFailureHooks | chunks.141.mjs:2850 | function (generator) |
-| qyA | executePreToolHooks | chunks.141.mjs:2812 | function (generator) |
+| dK | findToolInSet | chunks.146.mjs | function |
+| p1 | createUserMessage | chunks.146.mjs | function |
+| f4 | createAttachmentMessage | chunks.145.mjs | function |
+| rk | isMcpTool | chunks.145.mjs | function |
+| V4q | formatValidationError | chunks.146.mjs | function |
+
+### Tool Execution Lifecycle
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ui6 | ToolExecutorClass | chunks.148.mjs:3 | class |
+| Wi6 | toolDispatcher | chunks.146.mjs:285 | generator |
+| ZxY | toolExecutionOrchestrator | chunks.146.mjs:391 | function |
+| fxY | toolExecutionPipeline | chunks.146.mjs:442 | function |
+| y4q | executePreToolHooksIterator | chunks.146.mjs:74 | generator |
+| k4q | executePostToolHooksIterator | chunks.145.mjs:3107 | generator |
+| E4q | executePostToolFailureHooksIterator | chunks.146.mjs:3 | generator |
+| GE1 | batchToolExecutor | chunks.146.mjs:1024 | generator |
+| LF8 | executePreToolHooks | chunks.175.mjs:2462 | generator |
+| RF8 | executePostToolHooks | chunks.175.mjs:2486 | generator |
+| hF8 | executePostToolFailureHooks | chunks.175.mjs:2505 | generator |
+| Ax | executeHooksIterator | chunks.175.mjs | generator |
+| Pi6 | AsyncQueue | chunks.146.mjs | class |
+| NS1 | hasHooksForEvent | chunks.175.mjs | function |
+| yF8 | formatHookBlockingError | chunks.175.mjs | function |
 
 ### Tool Coordination Symbols
 

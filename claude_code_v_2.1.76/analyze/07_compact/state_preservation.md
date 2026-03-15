@@ -1018,3 +1018,9 @@ The State Preservation system implements the **State Anchoring** pattern to ensu
 6. **State anchoring**: Critical context "anchored" to post-compaction conversation
 
 This architecture ensures Claude Code maintains **session continuity** - remembering file contents, task outcomes, plans, skills, and todos across compactions - while staying within token limits.
+
+---
+
+## See Also
+
+- [05_tools/compaction_tool_state.md](../05_tools/compaction_tool_state.md) - Edit tool validation behavior after compaction; why file attachments don't substitute for explicit Read calls; the two-layer context model (LLM context vs. tool runtime state)

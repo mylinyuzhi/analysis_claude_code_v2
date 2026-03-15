@@ -437,7 +437,7 @@ if (Z.decisionReason?.type === "hook" &&
 │                                                                  │
 │   toolDispatcher(toolUseBlock, ...)                             │
 │       │                                                          │
-│       ├──▶ Pre-tool hooks (B1q)                                 │
+│       ├──▶ Pre-tool hooks (y4q/LF8)                             │
 │       │       │                                                  │
 │       │       ├──▶ Hook allows → createHookMessage("allow")    │
 │       │       ├──▶ Hook denies → createHookMessage("deny")     │
@@ -453,7 +453,7 @@ if (Z.decisionReason?.type === "hook" &&
 │       │       │                                                  │
 │       │       └──▶ Result → Tool result message                 │
 │       │                                                          │
-│       └──▶ Post-tool hooks (b1q)                                │
+│       └──▶ Post-tool hooks (k4q/RF8)                            │
 │               │                                                  │
 │               ├──▶ Hook modifies MCP output                     │
 │               ├──▶ Hook stops continuation                      │
@@ -490,6 +490,92 @@ if (Z.decisionReason?.type === "hook" &&
 │   </system-reminder>                                             │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Message Array Ordering
+
+### Precise Message Sequence from fxY
+
+The tool execution pipeline (`fxY`) returns messages in a specific order. The order matters for how the LLM interprets the tool interaction:
+
+```
+Return array order from fxY (toolExecutionPipeline):
+
+[tool_result message]           ← Primary result first
+[...pre-hook messages]          ← Messages from y4q (PreToolUse hooks)
+[...post-hook messages]         ← Messages from k4q (PostToolUse hooks)
+```
+
+**Pre-hook messages** (from `y4q`) collected before execution include:
+- `hook_additional_context` attachments (from `additionalContexts`)
+- `hook_blocking_error` attachments (from `blockingError`)
+
+**Post-hook messages** (from `k4q`) appended after execution include:
+- `hook_additional_context` attachments
+- `hook_blocking_error` attachments
+- `hook_stopped_continuation` attachment (if `preventContinuation` set)
+
+**`updatedMCPToolOutput`:** Does not generate a new message — instead, the existing `tool_result` content is replaced in-place by `k4q`. The `yield { updatedMCPToolOutput }` event causes the caller to update the tool_result message rather than append a new one.
+
+---
+
+## Hook Result Types and Attachment Mapping
+
+### What Each Hook Result Produces
+
+| Hook result field | Produces attachment | Attachment type |
+|------------------|--------------------|------------------------------------|
+| `blockingError` | Yes | `hook_blocking_error` |
+| `preventContinuation` | Yes | `hook_stopped_continuation` |
+| `additionalContexts` | Yes | `hook_additional_context` |
+| `permissionBehavior: "allow"` | Yes (if permission dialog shown) | Permission decision record |
+| `updatedInput` (no permissionBehavior) | No | Silently modifies input only |
+| `updatedMCPToolOutput` | No | Replaces tool_result content |
+| Hook internal exception | Yes | `hook_error_during_execution` |
+| Hook cancelled (abort signal) | Yes | `hook_cancelled` |
+
+**Key distinctions:**
+- `updatedInput` without `permissionBehavior`: the input change is invisible to the LLM (no attachment generated)
+- `updatedMCPToolOutput`: the modified output appears as the tool result itself, not as a separate attachment
+- `hook_cancelled`: generated when the abort signal fires during hook execution
+
+---
+
+## v2.1.76 Hook System Updates
+
+### New Hook Events (Not Tool-Triggered)
+
+v2.1.76 added several new hook event types. These are **not triggered during tool execution** — they fire at other lifecycle points:
+
+| New Event | When it fires | Tool execution involvement |
+|-----------|--------------|---------------------------|
+| `PostCompact` | After compaction completes | None |
+| `Elicitation` | When LLM requests user input | None |
+| `WorktreeCreate` | When a git worktree is created | None |
+| `WorktreeRemove` | When a worktree is removed | None |
+
+These events go through the same `Ax` (executeHooksIterator) engine but with different payloads and are not processed by `y4q`/`k4q`/`E4q`.
+
+### agent_id and agent_type in Hook Payloads
+
+All `PreToolUse`, `PostToolUse`, and `PostToolUseFailure` hook payloads in v2.1.76 include:
+- `agent_id` — the ID of the agent making the tool call
+- `agent_type` — whether this is the primary agent or a subagent
+
+This allows hooks to differentiate between tool calls from the main agent vs. tool calls from background/forked agents. This is critical for multi-agent scenarios where a hook should behave differently depending on the agent hierarchy level.
+
+```javascript
+// From LF8 (executePreToolHooks) - hook input payload
+let hookInput = {
+    ...$w(permissionMode, void 0, toolUseContext),  // includes agent_id, agent_type
+    hook_event_name: "PreToolUse",
+    tool_name: toolName,
+    tool_input: toolInput,
+    tool_use_id: toolUseId
+};
+// $w builds the base context with agent metadata from toolUseContext
 ```
 
 ---

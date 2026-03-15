@@ -143,6 +143,23 @@ if (!fileState) {
 
 ---
 
+### readFileState After Compaction
+
+When compaction occurs, the session context is rebuilt with an **empty `readFileState`**. The file cache is a runtime structure that is not serialized into message history.
+
+**What this means for Edit:**
+- Files read before compaction are no longer in `readFileState`
+- Edit calls on those files will fail with "File has not been read yet. Read it first before writing to it."
+- The LLM must re-issue Read calls for files it wants to edit after compaction
+
+**State preservation doesn't fix this:** The state preservation system creates file attachment messages (system reminders) that give the LLM the file content as context — but these attachments don't populate `readFileState`. Only an actual Read tool call + tool_result does that.
+
+This is intentional: it forces the LLM to confirm the current file state rather than editing based on potentially stale pre-compaction content.
+
+> For full analysis, see [compaction_tool_state.md](compaction_tool_state.md)
+
+---
+
 ### Coordination Flow
 
 ```

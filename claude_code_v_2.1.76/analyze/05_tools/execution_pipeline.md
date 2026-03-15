@@ -1,140 +1,120 @@
-# Tools Execution Pipeline
+# 05_tools Module Index (Claude Code 2.1.76)
 
-> **See [tool_execution_pipeline.md](tool_execution_pipeline.md) for the complete pipeline analysis with code snippets and deep dive.**
-
-## Overview
-
-Deep analysis of the tool execution pipeline in Claude Code v2.1.76, covering validation, permission checking, execution, and result handling.
+> Module guide and reading order for the tool system analysis documents. For the complete pipeline deep-dive, start with [tool_execution_pipeline.md](tool_execution_pipeline.md).
 
 ---
 
-## 1. Execution Flow
+## Module Overview
+
+The tool system handles everything from tool registration through execution, permission checking, and result formatting. Tools are the primary mechanism through which the LLM interacts with the user's environment.
 
 ```
-┌──────────────────────────────────────────────────┐
-│         TOOL EXECUTION PIPELINE                  │
-├──────────────────────────────────────────────────┤
-│                                                  │
-│  LLM Response (tool_use)                         │
-│     │                                            │
-│     ▼                                            │
-│  [1] Parse Tool Use                              │
-│     ├─> Extract: name, id, input                │
-│     └─> Validate JSON schema                    │
-│     │                                            │
-│     ▼                                            │
-│  [2] Lookup Tool Definition                     │
-│     ├─> Built-in tools registry                 │
-│     ├─> MCP tools                               │
-│     └─> Custom tools                            │
-│     │                                            │
-│     ▼                                            │
-│  [3] Permission Check                           │
-│     ├─> Auto-allow (safe tools)                 │
-│     ├─> User prompt (risky tools)               │
-│     └─> Auto-deny (blocked tools)               │
-│     │                                            │
-│     ▼                                            │
-│  [4] Execute Tool                                │
-│     ├─> Call tool handler                       │
-│     ├─> Capture stdout/stderr                   │
-│     └─> Handle errors                           │
-│     │                                            │
-│     ▼                                            │
-│  [5] Format Result                               │
-│     ├─> Success: { data: {...} }                │
-│     └─> Error: { error: "..." }                 │
-│     │                                            │
-│     ▼                                            │
-│  Return to LLM (tool_result)                    │
-│                                                  │
-└──────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                      TOOL EXECUTION PIPELINE                      │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  LLM Response (tool_use)                                          │
+│     │                                                              │
+│     ▼                                                              │
+│  [1] Wi6 (toolDispatcher) → Tool registry lookup                  │
+│     │                                                              │
+│     ▼                                                              │
+│  [2] ZxY (toolExecutionOrchestrator) → Async queue wrapper        │
+│     │                                                              │
+│     ▼                                                              │
+│  [3] fxY (toolExecutionPipeline)                                  │
+│     ├── Schema validation (Zod safeParse)                         │
+│     ├── Custom validateInput                                       │
+│     ├── Pre-tool hooks (y4q → LF8)                                │
+│     ├── Permission check (canUseTool)                             │
+│     ├── tool.call() execution                                     │
+│     ├── Post-tool hooks (k4q → RF8)                               │
+│     └── Result formatting + telemetry                             │
+│     │                                                              │
+│     ▼                                                              │
+│  Return to agent loop as tool_result message                      │
+│                                                                    │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Permission Checking
+## Files in This Module
 
-### 2.1 Permission Modes
+### Pipeline & Architecture
 
-1. **Auto-Allow**: Read-only tools (Read, Glob, Grep)
-2. **User Prompt**: Destructive tools (Write, Edit, Bash)
-3. **Auto-Deny**: Blocked paths (e.g., `/etc`, `~/.ssh`)
+| File | Description |
+|------|-------------|
+| [tool_execution_pipeline.md](tool_execution_pipeline.md) | **Primary reference.** Complete 8-stage pipeline: dispatch, validation, pre-hooks, permission, execution, post-hooks, result formatting, telemetry. Deep analysis with source code. |
+| [tool_reminder_integration.md](tool_reminder_integration.md) | How tools produce attachment messages (system-reminder hooks, progress, structured output). Message ordering and hook result types. |
+| [tool_coordination.md](tool_coordination.md) | Cross-tool state sharing: `readFileState` cache, mode restrictions, subagent context inheritance. |
+| [compaction_tool_state.md](compaction_tool_state.md) | How compaction affects tool state; `readFileState` reset after compaction; Edit validation failures and self-correction. |
+| [skill_tool_pipeline_bridge.md](skill_tool_pipeline_bridge.md) | Skill tool's place in the pipeline; inline vs. forked execution paths; permission auto-allow logic. |
 
-### 2.2 Decision Logic
+### Tool Registry & Discovery
 
-```javascript
-function checkToolPermission(toolName, input) {
-    // Whitelist check
-    if (SAFE_TOOLS.includes(toolName)) {
-        return { behavior: "allow" };
-    }
+| File | Description |
+|------|-------------|
+| [tool_registry.md](tool_registry.md) | Tool registration system, how tools are assembled into session tool sets. |
+| [tool_discovery.md](tool_discovery.md) | Dynamic tool loading, MCP tool discovery, skill-provided tools. |
+| [dynamic_tools.md](dynamic_tools.md) | Deferred/dynamic tool sets and the `ToolSearch` tool for lazy loading. |
+| [tool_schemas.md](tool_schemas.md) | Zod schema patterns, input/output schema conventions. |
+| [tool_interface_patterns.md](tool_interface_patterns.md) | Common patterns in tool object definitions (call, validateInput, checkPermissions, etc.). |
 
-    // Blocklist check
-    if (input.path && isBlockedPath(input.path)) {
-        return { behavior: "deny", reason: "Blocked path" };
-    }
+### Individual Tool Analysis
 
-    // Default: ask user
-    return { behavior: "ask", tool: toolName, input };
-}
-```
+| File | Description |
+|------|-------------|
+| [read_tool.md](read_tool.md) | File reading, PDF support, image handling, `readFileState` population. |
+| [edit_tool.md](edit_tool.md) | String replacement editing, diff generation, concurrent edit protection. |
+| [write_tool.md](write_tool.md) | File writing, encoding detection, line ending preservation. |
+| [bash_tool.md](bash_tool.md) | Command execution, security validation, progress streaming, sandbox integration. |
+| [grep_glob_tools.md](grep_glob_tools.md) | Grep and Glob tools, regex patterns, file system traversal. |
+| [web_tools.md](web_tools.md) | WebFetch and WebSearch tools, URL handling. |
+| [agent_tool.md](agent_tool.md) | Task/Agent tool for spawning subagents. |
+| [task_management_tools.md](task_management_tools.md) | TaskCreate, TaskGet, TaskList, TaskUpdate, TaskOutput, TaskStop. |
+| [plan_mode_tools.md](plan_mode_tools.md) | EnterPlanMode, ExitPlanMode tools. |
+| [worktree_tools.md](worktree_tools.md) | Git worktree tools (v2.1.76). |
+| [cron_tools.md](cron_tools.md) | CronCreate, CronDelete, CronList tools (v2.1.76). |
+| [team_tools.md](team_tools.md) | TeamCreate, TeamDelete, SendMessage for agent teams. |
+| [skill_toolsearch_tools.md](skill_toolsearch_tools.md) | Skill tool and ToolSearch tool. |
 
----
+### Security & Permissions
 
-## 3. Error Handling
-
-### 3.1 Tool Errors
-
-**Categories**:
-1. **Validation Error**: Invalid input schema
-2. **Permission Error**: User denied or blocked path
-3. **Execution Error**: Tool threw exception
-4. **Timeout Error**: Tool exceeded time limit
-
-**Error Format**:
-```javascript
-{
-    error: "Tool execution failed: permission denied",
-    metadata: {
-        tool: "Bash",
-        input: { command: "rm -rf /" },
-        reason: "blocked_command"
-    }
-}
-```
+| File | Description |
+|------|-------------|
+| [security_validation.md](security_validation.md) | Tool-level security checks, Bash security validation chain. |
+| [ui_rendering.md](ui_rendering.md) | How tool use/result messages are rendered in the terminal UI. |
 
 ---
 
-## 4. Streaming Tools
+## Reading Order by Use Case
 
-**Streaming-Capable Tools**:
-- `Bash` (stdout streaming)
-- `Task` (subagent output streaming)
+### "I want to understand how tool execution works end-to-end"
+1. This file (overview)
+2. [tool_execution_pipeline.md](tool_execution_pipeline.md) — full pipeline with code
+3. [tool_reminder_integration.md](tool_reminder_integration.md) — attachments and progress
+4. [tool_coordination.md](tool_coordination.md) — cross-tool state
 
-**Streaming Protocol**:
-```javascript
-async function* executeBashStreaming(command) {
-    const process = spawn("bash", ["-c", command]);
+### "I'm debugging a tool permission issue"
+1. [tool_execution_pipeline.md](tool_execution_pipeline.md) — Permission Check section
+2. [tool_coordination.md](tool_coordination.md) — Mode-Based Tool Restrictions
+3. [security_validation.md](security_validation.md) — security-layer rejections
 
-    for await (const chunk of process.stdout) {
-        yield { type: "stdout", data: chunk.toString() };
-    }
+### "I want to understand how hooks interact with tools"
+1. [tool_execution_pipeline.md](tool_execution_pipeline.md) — Hook Execution Generators section
+2. [tool_reminder_integration.md](tool_reminder_integration.md) — Hook Result Types table
+3. Cross-reference: [11_hooks/](../11_hooks/)
 
-    const exitCode = await process.exit;
-    yield { type: "exit", code: exitCode };
-}
-```
+### "Edit is failing after compaction"
+1. [compaction_tool_state.md](compaction_tool_state.md) — readFileState lifecycle
+2. [tool_coordination.md](tool_coordination.md) — Read→Edit/Write Coordination
+3. Cross-reference: [07_compact/state_preservation.md](../07_compact/state_preservation.md)
 
----
+### "I want to understand the Skill tool"
+1. [skill_tool_pipeline_bridge.md](skill_tool_pipeline_bridge.md) — pipeline integration
+2. [skill_toolsearch_tools.md](skill_toolsearch_tools.md) — skill tool surface
+3. Cross-reference: [10_skill_system/](../10_skill_system/)
 
-## Summary
-
-The tool execution pipeline provides **safe, controlled execution** with:
-
-1. **Schema Validation**: Ensures well-formed inputs
-2. **Permission Gating**: Protects user from destructive operations
-3. **Error Handling**: Graceful degradation on failures
-4. **Streaming Support**: Real-time output for long-running tools
-
-**Key insight**: Permission checking happens AFTER tool lookup but BEFORE execution, allowing context-aware decisions based on both tool type and input parameters.
+### "I need to understand a specific tool (Read/Edit/Bash/etc.)"
+Go directly to the relevant individual tool file listed in the table above.
