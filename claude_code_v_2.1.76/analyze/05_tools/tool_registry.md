@@ -740,37 +740,37 @@ TaskOutput.call({ task_id: "xxx" })
 
 | Obfuscated | Readable | Value |
 |------------|----------|-------|
-| `Jq` | TOOL_NAME_READ | "Read" |
-| `f5` | TOOL_NAME_WRITE | "Write" |
-| `bq` | TOOL_NAME_EDIT | "Edit" |
-| `jM` | TOOL_NAME_NOTEBOOK_EDIT | "NotebookEdit" |
-| `s9` | TOOL_NAME_GREP | "Grep" |
-| `Jz` | TOOL_NAME_GLOB | "Glob" |
+| `s7` | TOOL_NAME_READ | "Read" |
+| `_K` | TOOL_NAME_WRITE | "Write" |
+| `R4` | TOOL_NAME_EDIT | "Edit" |
+| `bJ` | TOOL_NAME_NOTEBOOK_EDIT | "NotebookEdit" |
+| `N9` | TOOL_NAME_GREP | "Grep" |
+| `qz` | TOOL_NAME_GLOB | "Glob" |
 | `JL` | TOOL_NAME_WEB_SEARCH | "WebSearch" |
 | `xO` | TOOL_NAME_WEB_FETCH | "WebFetch" |
-| `fK` | TOOL_NAME_AGENT | "Task" |
-| `h4` | TOOL_NAME_BASH | "Bash" |
-| `bj1` | TOOL_NAME_TASK_STOP | "TaskStop" |
-| `uj1` | TOOL_NAME_TASK_OUTPUT | "TaskOutput" |
-| `NK1` | TOOL_NAME_TASK_GET | "TaskGet" |
-| `TK1` | TOOL_NAME_TASK_LIST | "TaskList" |
+| `I46` | TOOL_NAME_TASK | "Task" |
+| `Q7` | TOOL_NAME_BASH | "Bash" |
+| `OC` | TOOL_NAME_TASK_STOP | "TaskStop" |
+| `$C` | TOOL_NAME_TASK_OUTPUT | "TaskOutput" |
+| `lt` | TOOL_NAME_TASK_GET | "TaskGet" |
+| `it` | TOOL_NAME_TASK_LIST | "TaskList" |
 | `Nh` | TOOL_NAME_TASK_CREATE | "TaskCreate" |
-| `DR` | TOOL_NAME_TASK_UPDATE | "TaskUpdate" |
-| `cg` | TOOL_NAME_TODO_WRITE | "TodoWrite" |
+| `ck` | TOOL_NAME_TASK_UPDATE | "TaskUpdate" |
+| `MB` | TOOL_NAME_TODO_WRITE | "TodoWrite" |
 | `vh` | TOOL_NAME_TEAM_CREATE | "TeamCreate" |
 | `VK1` | TOOL_NAME_TEAM_DELETE | "TeamDelete" |
-| `iB` | TOOL_NAME_SEND_MESSAGE | "SendMessage" |
+| `hI` | TOOL_NAME_SEND_MESSAGE | "SendMessage" |
 | `N_6` | TOOL_NAME_ENTER_PLAN_MODE | "EnterPlanMode" |
 | `bW` | TOOL_NAME_EXIT_PLAN_MODE | "ExitPlanMode" |
 | `TH` | TOOL_NAME_ASK_USER_QUESTION | "AskUserQuestion" |
-| `NJ` | TOOL_NAME_SKILL | "Skill" |
+| `oH` | TOOL_NAME_SKILL | "Skill" |
 | `dM` | TOOL_NAME_TOOL_SEARCH | "ToolSearch" |
 | `cD` | STRUCTURED_OUTPUT_NAME | "StructuredOutput" |
 | — | TOOL_NAME_ENTER_WORKTREE | "EnterWorktree" (v2.1.72+) |
 | — | TOOL_NAME_EXIT_WORKTREE | "ExitWorktree" (v2.1.72+) |
-| — | TOOL_NAME_CRON_CREATE | "CronCreate" (v2.1.76) |
-| — | TOOL_NAME_CRON_DELETE | "CronDelete" (v2.1.76) |
-| — | TOOL_NAME_CRON_LIST | "CronList" (v2.1.76) |
+| `ER` | TOOL_NAME_CRON_CREATE | "CronCreate" (v2.1.76) |
+| `ed` | TOOL_NAME_CRON_DELETE | "CronDelete" (v2.1.76) |
+| `SW6` | TOOL_NAME_CRON_LIST | "CronList" (v2.1.76) |
 
 ### Tool Whitelist Constants
 

@@ -12,7 +12,7 @@
 
 Key functions in this document:
 - `EditTool` (sW) - Edit tool definition object - chunks.134.mjs:2124
-- `TOOL_NAME_EDIT` (bq) - Tool name constant - chunks.134.mjs
+- `TOOL_NAME_EDIT` (R4) - Tool name constant - chunks.56.mjs:102
 - `validateEditInput` (sW.validateInput) - 9-step validation pipeline - chunks.134.mjs:2167
 - `callEditTool` (sW.call) - Execution method - chunks.134.mjs:2316
 - `renderEditToolUseMessage` (IF4) - Header UI - chunks.134.mjs:1234
@@ -153,7 +153,7 @@ const EditTool = {
     renderToolUseErrorMessage: renderEditToolError,       // Error message display
 }
 
-// Mapping: sW→EditTool, bq→TOOL_NAME_EDIT, pu4→getEditToolPrompt, hP6→getEditToolUserFacingName,
+// Mapping: sW→EditTool, R4→TOOL_NAME_EDIT, pu4→getEditToolPrompt, hP6→getEditToolUserFacingName,
 //          SkA→getEditToolSummary, Qw6→getEditToolInputSchema, TR7→getEditToolOutputSchema,
 //          N51→checkEditPermissions
 ```

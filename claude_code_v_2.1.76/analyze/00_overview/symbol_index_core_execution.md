@@ -27,23 +27,28 @@
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
 | i5 | FileReadTool | chunks.146.mjs:1754 | tool object |
-| Jq | TOOL_NAME_READ | chunks.46.mjs:2634 | constant ("Read") |
+| s7 | TOOL_NAME_READ | chunks.56.mjs:173 | constant ("Read") |
 | vj | FileWriteTool | chunks.146.mjs:436 | tool object |
-| f5 | TOOL_NAME_WRITE | chunks.134.mjs | constant ("Write") |
+| _K | TOOL_NAME_WRITE | chunks.56.mjs:1234 | constant ("Write") |
 | sW | EditTool | chunks.134.mjs:2124 | tool object |
-| bq | TOOL_NAME_EDIT | chunks.134.mjs | constant ("Edit") |
+| R4 | TOOL_NAME_EDIT | chunks.56.mjs:102 | constant ("Edit") |
 | gd | NotebookEditTool | chunks.134.mjs:2615 | tool object |
+| bJ | TOOL_NAME_NOTEBOOK_EDIT | chunks.56.mjs:1240 | constant ("NotebookEdit") |
 | tS | GrepTool | chunks.76.mjs:1129 | tool object |
+| N9 | TOOL_NAME_GREP | chunks.56.mjs:1215 | constant ("Grep") |
 | WB | GlobTool | chunks.76.mjs:1495 | tool object |
+| qz | TOOL_NAME_GLOB | chunks.56.mjs:1192 | constant ("Glob") |
 | wt | SkillTool | chunks.132.mjs:820 | tool object |
+| oH | TOOL_NAME_SKILL | chunks.90.mjs:2596 | constant ("Skill") |
 | avA | AgentTool (Task) | chunks.132.mjs | tool object |
+| I46 | TOOL_NAME_TASK | chunks.40.mjs:408 | constant ("Task") |
+| Q7 | TOOL_NAME_BASH | chunks.54.mjs:2264 | constant ("Bash") |
 | BYq | BashOutputComponent | chunks.162.mjs:417249 | component |
 
 ### Edit Tool Symbols
 
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
-| jM | TOOL_NAME_NOTEBOOK_EDIT | chunks.134.mjs | constant |
 | Qw6 | getEditToolInputSchema | chunks.134.mjs | function |
 | TR7 | getEditToolOutputSchema | chunks.134.mjs | function |
 | IF4 | renderEditToolUseMessage | chunks.134.mjs:1234 | function |
@@ -219,9 +224,9 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | vW6 | TaskStopTool | chunks.139.mjs:1537 | tool object |
-| bj1 | TOOL_NAME_TASK_STOP | chunks.89.mjs:553 | constant ("TaskStop") |
+| OC | TOOL_NAME_TASK_STOP | chunks.40.mjs:412 | constant ("TaskStop") |
 | kW6 | TaskOutputTool | chunks.139.mjs:1922 | tool object |
-| uj1 | TOOL_NAME_TASK_OUTPUT | chunks.89.mjs:562 | constant ("TaskOutput") |
+| $C | TOOL_NAME_TASK_OUTPUT | chunks.40.mjs:421 | constant ("TaskOutput") |
 | EW6 | buildTaskSnapshot | chunks.139.mjs:1687 | function |
 | Ng1 | truncateTaskOutput | chunks.139.mjs:1664 | function |
 | nyY | pollUntilDone | chunks.139.mjs:1716 | function |
@@ -232,7 +237,6 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| h4 | TOOL_NAME_BASH | chunks.89.mjs | constant ("Bash") |
 | AK | sanitizeToolName | chunks.149.mjs | function |
 | KhA | createCancelledToolResult | chunks.149.mjs | function |
 | _M1 | CANCELLED_MESSAGE | chunks.149.mjs | constant |
@@ -303,10 +307,11 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| NK1 | TOOL_NAME_TASK_GET | chunks.89.mjs:594 | constant ("TaskGet") |
-| TK1 | TOOL_NAME_TASK_LIST | chunks.89.mjs:596 | constant ("TaskList") |
+| lt | TOOL_NAME_TASK_GET | chunks.91.mjs:41 | constant ("TaskGet") |
+| it | TOOL_NAME_TASK_LIST | chunks.91.mjs:43 | constant ("TaskList") |
 | Nh | TOOL_NAME_TASK_CREATE | chunks.88.mjs:371 | constant ("TaskCreate") |
-| DR | TOOL_NAME_TASK_UPDATE | chunks.88.mjs:373 | constant ("TaskUpdate") |
+| ck | TOOL_NAME_TASK_UPDATE | chunks.90.mjs:2594 | constant ("TaskUpdate") |
+| MB | TOOL_NAME_TODO_WRITE | chunks.84.mjs:1401 | constant ("TodoWrite") |
 | WM | getTaskList | chunks.140.mjs | function |
 | lg | findTaskById | chunks.140.mjs | function |
 | n_1 | createTask | chunks.140.mjs | function |
@@ -318,8 +323,16 @@
 |------------|----------|-----------|------|
 | vh | TOOL_NAME_TEAM_CREATE | chunks.89.mjs:588 | constant ("TeamCreate") |
 | VK1 | TOOL_NAME_TEAM_DELETE | chunks.89.mjs:590 | constant ("TeamDelete") |
-| iB | TOOL_NAME_SEND_MESSAGE | chunks.89.mjs:592 | constant ("SendMessage") |
+| hI | TOOL_NAME_SEND_MESSAGE | chunks.91.mjs:39 | constant ("SendMessage") |
 | l8 | isAgentTeamsEnabled | chunks.141.mjs | function |
+
+### Cron Tools (v2.1.76)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ER | TOOL_NAME_CRON_CREATE | chunks.91.mjs:192 | constant ("CronCreate") |
+| ed | TOOL_NAME_CRON_DELETE | chunks.91.mjs:194 | constant ("CronDelete") |
+| SW6 | TOOL_NAME_CRON_LIST | chunks.91.mjs:196 | constant ("CronList") |
 
 ### Plan Mode Tools
 
@@ -339,7 +352,7 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | wt | SkillTool | chunks.132.mjs:820 | tool object |
-| NJ | TOOL_NAME_SKILL | chunks.89.mjs:586 | constant ("Skill") |
+| oH | TOOL_NAME_SKILL | chunks.90.mjs:2596 | constant ("Skill") |
 | dM | TOOL_NAME_TOOL_SEARCH | chunks.89.mjs:652 | constant ("ToolSearch") |
 | pp7 | DEFERRED_TOOLS_HEADER | chunks.89.mjs:654 | constant |
 | dp7 | TOOL_SEARCH_DESCRIPTION | chunks.89.mjs:654 | constant |
@@ -351,7 +364,7 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | rj1 | AgentTool | chunks.132.mjs:85 | tool object |
-| fK | TOOL_NAME_AGENT | chunks.132.mjs | constant ("Task") |
+| I46 | TOOL_NAME_TASK | chunks.40.mjs:408 | constant ("Task") |
 | oVY | agentInputSchema | chunks.132.mjs:37 | variable |
 | ANY | agentOutputSchema | chunks.132.mjs:84 | variable |
 | aVY | teamSpawnSchema | chunks.132.mjs:45 | variable |
@@ -638,13 +651,13 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| bj1 | TASK_STOP_TOOL_NAME | chunks.89.mjs:~550 | constant ("TaskStop") |
+| OC | TOOL_NAME_TASK_STOP | chunks.40.mjs:412 | constant ("TaskStop") |
 | eu1 | getTasksDir | chunks.89.mjs:238 | function |
 | hj1 | initOutputFile | chunks.89.mjs:310 | function |
 | Ij1 | symlinkOutputFile | chunks.89.mjs:317 | function |
 | M_6 | readFullOutput | chunks.89.mjs:300 | function |
 | Rp7 | cleanupOutputFiles | chunks.89.mjs:328 | function |
-| uj1 | TASK_OUTPUT_TOOL_NAME | chunks.89.mjs:~551 | constant ("TaskOutput") |
+| $C | TOOL_NAME_TASK_OUTPUT | chunks.40.mjs:421 | constant ("TaskOutput") |
 | vp7 | outputWriteQueue | chunks.89.mjs:340 | variable (Map) |
 | WjA | readOutputFileDelta | chunks.89.mjs:276 | function |
 | ww | getOutputFilePath | chunks.89.mjs:249 | function |

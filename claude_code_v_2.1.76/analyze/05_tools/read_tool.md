@@ -11,7 +11,7 @@
 
 Key functions in this document:
 - `FileReadTool` (i5) - Read tool definition object - chunks.146.mjs
-- `TOOL_NAME_READ` (Jq) - Tool name constant "Read" - chunks.46.mjs:2634
+- `TOOL_NAME_READ` (s7) - Tool name constant "Read" - chunks.56.mjs:173
 - `fileReadInputSchema` (OmY) - Input schema definition - chunks.146.mjs:1706
 - `resolvePath` (g4) - Path resolution function - chunks.10.mjs:1159
 - `checkReadPermissions` (ro) - Permission checking - chunks.146.mjs
@@ -152,7 +152,7 @@ const FileReadTool = {
     }
 }
 
-// Mapping: i5→FileReadTool, Jq→TOOL_NAME_READ, OmY→fileReadInputSchema,
+// Mapping: i5→FileReadTool, s7→TOOL_NAME_READ, OmY→fileReadInputSchema,
 //          g4→resolvePath, ro→checkReadPermissions
 ```
 

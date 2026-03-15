@@ -142,7 +142,7 @@ Guidelines:
 Complete the requested operations efficiently.`
 };
 
-// Mapping: Tn7→BASH_AGENT, h4→TOOL_NAME_BASH, UL9→BASH_SYSTEM_PROMPT
+// Mapping: Tn7→BASH_AGENT, Q7→TOOL_NAME_BASH, UL9→BASH_SYSTEM_PROMPT
 ```
 
 **Key characteristics:**
@@ -242,7 +242,7 @@ const EXPLORE_AGENT = {
     criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
 };
 
-// Mapping: bv→EXPLORE_AGENT, fK→TOOL_NAME_TASK, eO6→TOOL_NAME_WEB_SEARCH, bq→TOOL_NAME_EDIT, f5→TOOL_NAME_WRITE, jM→TOOL_NAME_NOTEBOOK_EDIT
+// Mapping: bv→EXPLORE_AGENT, I46→TOOL_NAME_TASK, eO6→TOOL_NAME_WEB_SEARCH, R4→TOOL_NAME_EDIT, _K→TOOL_NAME_WRITE, bJ→TOOL_NAME_NOTEBOOK_EDIT
 ```
 
 **Key characteristics:**
@@ -388,7 +388,7 @@ const CLAUDE_CODE_GUIDE_AGENT = {
     }
 };
 
-// Mapping: Rn7→CLAUDE_CODE_GUIDE_AGENT, Jz→TOOL_NAME_GLOB, s9→TOOL_NAME_GREP, Jq→TOOL_NAME_READ, xO→TOOL_NAME_WEB_FETCH, JL→TOOL_NAME_WEB_SEARCH
+// Mapping: Rn7→CLAUDE_CODE_GUIDE_AGENT, qz→TOOL_NAME_GLOB, N9→TOOL_NAME_GREP, s7→TOOL_NAME_READ, xO→TOOL_NAME_WEB_FETCH, JL→TOOL_NAME_WEB_SEARCH
 ```
 
 **Key characteristics:**

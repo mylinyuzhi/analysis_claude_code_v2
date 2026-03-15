@@ -11,7 +11,7 @@
 
 Key functions in this document:
 - `FileWriteTool` (vj) - Write tool definition object - chunks.146.mjs:436
-- `TOOL_NAME_WRITE` (f5) - Tool name constant "Write" - chunks.134.mjs
+- `TOOL_NAME_WRITE` (_K) - Tool name constant "Write" - chunks.56.mjs:1234
 - `fileWriteInputSchema` (dBY) - Input schema definition - chunks.146.mjs:419
 - `writeFileWithEncoding` (ft) - Encoding-aware file write - chunks.134.mjs
 - `detectLineEnding` (Qd) - Line ending detection - chunks.134.mjs
@@ -127,7 +127,7 @@ const FileWriteTool = {
     // ... other methods
 }
 
-// Mapping: vj→FileWriteTool, f5→TOOL_NAME_WRITE, dBY→fileWriteInputSchema,
+// Mapping: vj→FileWriteTool, _K→TOOL_NAME_WRITE, dBY→fileWriteInputSchema,
 //          N51→checkEditPermissions, eo4→getWriteUserFacingName, kCA→getWriteSummary
 ```
 

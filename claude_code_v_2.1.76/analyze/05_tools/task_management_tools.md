@@ -12,17 +12,17 @@
 
 Key functions in this document:
 - `TaskStopTool` (vW6) - Tool object for stopping background tasks - chunks.139.mjs:1537
-- `TASK_STOP_TOOL_NAME` (bj1) - Tool name constant "TaskStop" - chunks.89.mjs:553
+- `TOOL_NAME_TASK_STOP` (OC) - Tool name constant "TaskStop" - chunks.40.mjs:412
 - `TaskOutputTool` (kW6) - Tool object for retrieving task output - chunks.139.mjs:1922
-- `TASK_OUTPUT_TOOL_NAME` (uj1) - Tool name constant "TaskOutput" - chunks.89.mjs:562
+- `TOOL_NAME_TASK_OUTPUT` ($C) - Tool name constant "TaskOutput" - chunks.40.mjs:421
 - `TaskGetTool` ($l4) - Tool object for getting task by ID - chunks.140.mjs:2954
-- `TASK_GET_TOOL_NAME` (NK1) - Tool name constant "TaskGet" - chunks.89.mjs:594
+- `TOOL_NAME_TASK_GET` (lt) - Tool name constant "TaskGet" - chunks.91.mjs:41
 - `TaskListTool` (Ll4) - Tool object for listing all tasks - chunks.141.mjs:300
-- `TASK_LIST_TOOL_NAME` (TK1) - Tool name constant "TaskList" - chunks.89.mjs:596
-- `TASK_CREATE_TOOL_NAME` (Nh) - Tool name constant "TaskCreate" - chunks.88.mjs:371
-- `TASK_UPDATE_TOOL_NAME` (DR) - Tool name constant "TaskUpdate" - chunks.88.mjs:373
+- `TOOL_NAME_TASK_LIST` (it) - Tool name constant "TaskList" - chunks.91.mjs:43
+- `TOOL_NAME_TASK_CREATE` (Nh) - Tool name constant "TaskCreate" - chunks.88.mjs:371
+- `TOOL_NAME_TASK_UPDATE` (ck) - Tool name constant "TaskUpdate" - chunks.90.mjs:2594
 - `TodoWriteTool` (bO) - Tool object for simple todo list - chunks.48.mjs:773
-- `TODO_WRITE_TOOL_NAME` (cg) - Tool name constant "TodoWrite" - chunks.48.mjs:224
+- `TOOL_NAME_TODO_WRITE` (MB) - Tool name constant "TodoWrite" - chunks.84.mjs:1401
 
 ---
 
@@ -177,7 +177,7 @@ const TaskStopTool = {
     }
 };
 
-// Mapping: vW6→TaskStopTool, bj1→TASK_STOP_TOOL_NAME, dyY→taskStopInputSchema,
+// Mapping: vW6→TaskStopTool, OC→TOOL_NAME_TASK_STOP, dyY→taskStopInputSchema,
 //          Vg1→getKillHandlerForType, oB→isBashTask
 ```
 
@@ -353,7 +353,7 @@ const TaskGetTool = {
     }
 };
 
-// Mapping: $l4→TaskGetTool, NK1→TASK_GET_TOOL_NAME, WM→getTaskList, lg→findTaskById
+// Mapping: $l4→TaskGetTool, lt→TOOL_NAME_TASK_GET, WM→getTaskList, lg→findTaskById
 ```
 
 ---
@@ -407,7 +407,7 @@ const TaskListTool = {
     }
 };
 
-// Mapping: Ll4→TaskListTool, TK1→TASK_LIST_TOOL_NAME
+// Mapping: Ll4→TaskListTool, it→TOOL_NAME_TASK_LIST
 ```
 
 ---
@@ -596,7 +596,7 @@ const TodoWriteTool = {
     }
 };
 
-// Mapping: bO→TodoWriteTool, cg→TODO_WRITE_TOOL_NAME, Sf5→todoWriteInputSchema
+// Mapping: bO→TodoWriteTool, MB→TOOL_NAME_TODO_WRITE, Sf5→todoWriteInputSchema
 ```
 
 **Key design: Replacement, not incremental update**

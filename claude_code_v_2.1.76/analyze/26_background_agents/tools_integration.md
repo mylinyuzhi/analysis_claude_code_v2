@@ -409,7 +409,7 @@ const TaskStopTool = {
     }
 };
 
-// Mapping: vW6→TaskStopTool, bj1→TOOL_NAME_TASK_STOP, Vg1→getKillHandlerForType
+// Mapping: vW6→TaskStopTool, OC→TOOL_NAME_TASK_STOP, Vg1→getKillHandlerForType
 ```
 
 **Key insight:** `getKillHandlerForType` dispatches to the type-specific kill strategy:

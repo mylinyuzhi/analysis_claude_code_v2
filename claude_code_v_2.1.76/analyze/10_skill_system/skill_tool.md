@@ -317,7 +317,7 @@ async function validateInput({ skill }, toolUseContext) {
 
 // Mapping: validateInput remains same, A→skill, q→toolUseContext, K→trimmedName, Y→hasSlashPrefix,
 // z→skillName, w→registry, H→skillDef, cZ→getSkillRegistry, ZO→getSessionContext, Sd→skillExists,
-// zI→findSkill, NJ→TOOL_NAME_SKILL, c→telemetry
+// zI→findSkill, oH→TOOL_NAME_SKILL, c→telemetry
 ```
 
 ---
@@ -477,7 +477,7 @@ async function checkPermissions({ skill, args }, toolUseContext) {
 
 // Mapping: A→skill, q→args, K→toolUseContext, Y→trimmedName, z→skillName, H→permissionContext,
 // $→registry, O→skillDef, _→matchesRule, J→denyRules, X→allowRules, XI→getRulesForTool,
-// wt→SkillTool, NJ→TOOL_NAME_SKILL, XNY→validateSkillProperties
+// wt→SkillTool, oH→TOOL_NAME_SKILL, XNY→validateSkillProperties
 ```
 
 ### Safe Properties Check (XNY)

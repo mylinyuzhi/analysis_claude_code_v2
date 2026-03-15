@@ -159,10 +159,10 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Nh | TASK_CREATE_TOOL_NAME | chunks.140.mjs:2806 | constant ("TaskCreate") |
-| NK1 | TASK_GET_TOOL_NAME | chunks.140.mjs:2953 | constant ("TaskGet") |
-| DR | TASK_UPDATE_TOOL_NAME | chunks.141.mjs:32 | constant ("TaskUpdate") |
-| TK1 | TASK_LIST_TOOL_NAME | chunks.141.mjs:299 | constant ("TaskList") |
+| Nh | TOOL_NAME_TASK_CREATE | chunks.88.mjs:371 | constant ("TaskCreate") |
+| lt | TOOL_NAME_TASK_GET | chunks.91.mjs:41 | constant ("TaskGet") |
+| ck | TOOL_NAME_TASK_UPDATE | chunks.90.mjs:2594 | constant ("TaskUpdate") |
+| it | TOOL_NAME_TASK_LIST | chunks.91.mjs:43 | constant ("TaskList") |
 
 ### Task State & Logic
 
@@ -184,7 +184,7 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | bO | TodoWriteTool | chunks.48.mjs:772 | object |
-| cg | TODO_WRITE_TOOL_NAME | chunks.48.mjs:224 | constant ("TodoWrite") |
+| MB | TOOL_NAME_TODO_WRITE | chunks.84.mjs:1401 | constant ("TodoWrite") |
 | Sf5 | todoWriteInputSchema | chunks.48.mjs:767 | schema |
 | hf5 | todoWriteOutputSchema | chunks.48.mjs:769 | schema |
 | d_1 | todoArraySchema | chunks.48.mjs:201 | schema |
