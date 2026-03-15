@@ -2,7 +2,7 @@
 
 ## Overview
 
-Claude Code (`v2.1.38`) acts as a **polyglot Language Server Protocol (LSP) Client**. It does not implement its own static analysis engines but instead leverages existing LSP servers (like `tsserver`, `gopls`, `pyright`, etc.) to provide "IDE-like" intelligence to the model. This allows Claude to "jump to definition," "find references," and "hover" over symbols during its investigation.
+Claude Code (`v2.1.76`) acts as a **polyglot Language Server Protocol (LSP) Client**. It does not implement its own static analysis engines but instead leverages existing LSP servers (like `tsserver`, `gopls`, `pyright`, etc.) to provide "IDE-like" intelligence to the model. This allows Claude to "jump to definition," "find references," and "hover" over symbols during its investigation.
 
 ## Core Architecture
 

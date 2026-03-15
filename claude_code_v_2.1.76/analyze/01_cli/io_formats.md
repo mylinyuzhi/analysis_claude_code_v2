@@ -65,12 +65,12 @@ The CLI provides comprehensive I/O format control for SDK integration and struct
 
 ### 1.1 I/O Format Flags
 
-**Source location:** `chunks.189.mjs:1017-1019`
+**Source location:** `chunks.197.mjs:1017-1019`
 
 ```javascript
 // ============================================
 // I/O format CLI flag definitions
-// Location: chunks.189.mjs:1017-1019
+// Location: chunks.197.mjs:1017-1019
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -100,12 +100,12 @@ The CLI provides comprehensive I/O format control for SDK integration and struct
 
 ### 1.2 Flag Extraction
 
-**Source location:** `chunks.189.mjs:1051-1054`
+**Source location:** `chunks.197.mjs:1051-1054`
 
 ```javascript
 // ============================================
 // I/O format flag extraction
-// Location: chunks.189.mjs:1051-1054
+// Location: chunks.197.mjs:1051-1054
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -217,12 +217,12 @@ echo "What is 2+2?" | claude -p
 
 **Validation:**
 
-**Source location:** `chunks.189.mjs:1294-1298`
+**Source location:** `chunks.197.mjs:1294-1298`
 
 ```javascript
 // ============================================
 // Input format validation
-// Location: chunks.189.mjs:1294-1298
+// Location: chunks.197.mjs:1294-1298
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -267,12 +267,12 @@ if (inputFormat === "stream-json" && outputFormat !== "stream-json") {
 
 ### 4.2 Schema Integration
 
-**Source location:** `chunks.189.mjs:1311-1323`
+**Source location:** `chunks.197.mjs:1311-1323`
 
 ```javascript
 // ============================================
 // JSON Schema integration
-// Location: chunks.189.mjs:1311-1323
+// Location: chunks.197.mjs:1311-1323
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -356,12 +356,12 @@ if (parsedSchema) {
 
 **What it does:** Emits partial message chunks as they arrive, enabling real-time UI updates.
 
-**Source location:** `chunks.189.mjs:1090`
+**Source location:** `chunks.197.mjs:1090`
 
 ```javascript
 // ============================================
 // Include partial messages resolution
-// Location: chunks.189.mjs:1090
+// Location: chunks.197.mjs:1090
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -377,12 +377,12 @@ let includePartialMessages =
 
 ### 5.2 Validation
 
-**Source location:** `chunks.189.mjs:1302-1304`
+**Source location:** `chunks.197.mjs:1302-1304`
 
 ```javascript
 // ============================================
 // Partial messages validation
-// Location: chunks.189.mjs:1302-1304
+// Location: chunks.197.mjs:1302-1304
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -407,12 +407,12 @@ if (includePartialMessages) {
 
 ### 6.1 SDK URL Detection
 
-**Source location:** `chunks.189.mjs:1089-1096`
+**Source location:** `chunks.197.mjs:1089-1096`
 
 ```javascript
 // ============================================
 // SDK URL mode detection
-// Location: chunks.189.mjs:1089-1096
+// Location: chunks.197.mjs:1089-1096
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -445,12 +445,12 @@ if (sdkUrl) {
 
 ### 6.2 SDK Mode Validation
 
-**Source location:** `chunks.189.mjs:1296-1298`
+**Source location:** `chunks.197.mjs:1296-1298`
 
 ```javascript
 // ============================================
 // SDK mode validation
-// Location: chunks.189.mjs:1296-1298
+// Location: chunks.197.mjs:1296-1298
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -477,12 +477,12 @@ if (sdkUrl) {
 
 **What it does:** Echoes user messages from stdin back to stdout, enabling acknowledgment in SDK mode.
 
-**Source location:** `chunks.189.mjs:1019`
+**Source location:** `chunks.197.mjs:1019`
 
 ```javascript
 // ============================================
 // --replay-user-messages flag
-// Location: chunks.189.mjs:1019
+// Location: chunks.197.mjs:1019
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -496,12 +496,12 @@ if (sdkUrl) {
 
 ### 7.2 Validation
 
-**Source location:** `chunks.189.mjs:1299-1301`
+**Source location:** `chunks.197.mjs:1299-1301`
 
 ```javascript
 // ============================================
 // Replay user messages validation
-// Location: chunks.189.mjs:1299-1301
+// Location: chunks.197.mjs:1299-1301
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -588,9 +588,9 @@ claude --sdk-url "ws://localhost:3000" --input-format stream-json --output-forma
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
-| Flag definitions | `chunks.189.mjs:1017` | Commander options |
-| Input validation | `chunks.189.mjs:1294` | Format compatibility |
-| Schema parsing | `chunks.189.mjs:1311` | JSON Schema integration |
-| SDK detection | `chunks.189.mjs:1089` | Auto-format enabling |
-| Partial messages | `chunks.189.mjs:1302` | Streaming chunks |
-| Replay messages | `chunks.189.mjs:1299` | Echo validation |
+| Flag definitions | `chunks.197.mjs:1017` | Commander options |
+| Input validation | `chunks.197.mjs:1294` | Format compatibility |
+| Schema parsing | `chunks.197.mjs:1311` | JSON Schema integration |
+| SDK detection | `chunks.197.mjs:1089` | Auto-format enabling |
+| Partial messages | `chunks.197.mjs:1302` | Streaming chunks |
+| Replay messages | `chunks.197.mjs:1299` | Echo validation |

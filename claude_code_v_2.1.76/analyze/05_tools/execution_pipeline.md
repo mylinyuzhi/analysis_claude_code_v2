@@ -4,7 +4,7 @@
 
 ## Overview
 
-Deep analysis of the tool execution pipeline in Claude Code v2.1.38, covering validation, permission checking, execution, and result handling.
+Deep analysis of the tool execution pipeline in Claude Code v2.1.76, covering validation, permission checking, execution, and result handling.
 
 ---
 

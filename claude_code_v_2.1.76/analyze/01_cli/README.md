@@ -1,6 +1,6 @@
 # CLI Module (01_cli)
 
-> Claude Code v2.1.38 - Command Line Interface documentation hub
+> Claude Code v2.1.76 - Command Line Interface documentation hub
 
 ## Module Overview
 
@@ -20,7 +20,7 @@ The CLI module handles all command-line interface functionality, from initial pr
 | [compact_integration.md](./compact_integration.md) | CLI-Compact integration, auto-compact triggers | `autoCompactDispatcher` (fs4), `shouldAutoCompact` (amY) |
 | [slash_command_integration.md](./slash_command_integration.md) | CLI-Slash Command integration, skill loading | `--disable-slash-commands`, `getSkills` |
 | [hooks_cli_integration.md](./hooks_cli_integration.md) | CLI-Hooks integration, init/maintenance triggers | `--init`, `--init-only`, `--maintenance` |
-| [session_management.md](./session_management.md) | CLI-Session management, resume/fork/persistence | `--resume`, `--continue`, `--fork-session` |
+| [session_management.md](./session_management.md) | CLI-Session management, resume/fork/persistence | `--resume`, `--continue`, `--fork-session`, `--name` |
 | [model_selection.md](./model_selection.md) | CLI-Model selection, effort, agents | `--model`, `--effort`, `--agent`, `--betas` |
 | [io_formats.md](./io_formats.md) | CLI-I/O formats, SDK mode, structured output | `--output-format`, `--json-schema` |
 | [debug_telemetry.md](./debug_telemetry.md) | CLI-Debug/telemetry, verbose mode | `--debug`, `--verbose`, `--debug-file` |
@@ -34,19 +34,19 @@ The CLI module handles all command-line interface functionality, from initial pr
 ### Entry Point Flow
 
 ```
-cliEntry (qZz)                     chunks.190.mjs:167
+cliEntry (qZz)                     chunks.198.mjs:167
     │
     ├─► Version check
     │
     ├─► determineEntrypoint (iGz)  sets CLAUDE_CODE_ENTRYPOINT env var
     │
-    └─► mainEntry (nGz)            chunks.189.mjs:931
+    └─► mainEntry (nGz)            chunks.197.mjs:931
             │
             ├─► Client type detection
             │
             ├─► Settings loading
             │
-            └─► run (aGz)          chunks.189.mjs:999
+            └─► run (aGz)          chunks.197.mjs:999
                     │
                     ├─► Commander setup
                     │
@@ -62,6 +62,7 @@ cliEntry (qZz)                     chunks.190.mjs:167
 | Flag | Purpose | Documentation |
 |------|---------|---------------|
 | `-p, --print` | Non-interactive mode | [cli_modes.md](./cli_modes.md) |
+| `-n, --name <name>` | Name the session | [session_management.md](./session_management.md) |
 | `--allowed-tools` | Tool whitelist | [tools_integration.md](./tools_integration.md) |
 | `--disallowed-tools` | Tool blacklist | [tools_integration.md](./tools_integration.md) |
 | `--dangerously-skip-permissions` | Bypass permissions | [cli_modes.md](./cli_modes.md) |
@@ -70,8 +71,9 @@ cliEntry (qZz)                     chunks.190.mjs:167
 | `--resume` | Resume session | [session_management.md](./session_management.md) |
 | `--continue` | Continue last session | [session_management.md](./session_management.md) |
 | `--fork-session` | New session on resume | [session_management.md](./session_management.md) |
+| `--worktree` | Activate git worktree isolation | [argument_parsing.md](./argument_parsing.md) |
 | `--model` | Session model | [model_selection.md](./model_selection.md) |
-| `--effort` | Effort level | [model_selection.md](./model_selection.md) |
+| `--effort` | Effort level (low/medium/high) | [model_selection.md](./model_selection.md) |
 | `--agent` | Agent override | [model_selection.md](./model_selection.md) |
 | `--output-format` | Output format | [io_formats.md](./io_formats.md) |
 | `--json-schema` | Structured output | [io_formats.md](./io_formats.md) |
@@ -81,6 +83,17 @@ cliEntry (qZz)                     chunks.190.mjs:167
 | `--init` | Run Setup hooks | [hooks_cli_integration.md](./hooks_cli_integration.md) |
 | `--init-only` | Run hooks and exit | [hooks_cli_integration.md](./hooks_cli_integration.md) |
 | `--maintenance` | Maintenance hooks | [hooks_cli_integration.md](./hooks_cli_integration.md) |
+
+### New in v2.1.76
+
+| Feature | Flags / Commands | Documentation |
+|---------|-----------------|---------------|
+| Session naming | `-n, --name <name>` | [session_management.md](./session_management.md) |
+| Git worktree support | `--worktree` with `sparsePaths` | [argument_parsing.md](./argument_parsing.md) |
+| ExitWorktree tool | Paired with EnterWorktree | [argument_parsing.md](./argument_parsing.md) |
+| Auth subcommands | `claude auth login/status/logout` | [entry_points.md](./entry_points.md) |
+| Effort simplified | low/medium/high (max removed) | [cli_modes.md](./cli_modes.md) |
+| `/effort auto` | Reset effort to auto | [cli_modes.md](./cli_modes.md) |
 
 ---
 
@@ -141,13 +154,14 @@ See: [hooks_cli_integration.md](./hooks_cli_integration.md)
 - **Resume/Continue** - Session persistence and resumption
 - **Fork Session** - Create new session from existing
 - **PR Integration** - Resume from PR-linked sessions
+- **Session Naming** - `-n, --name` flag for named sessions (v2.1.76)
 
 See: [session_management.md](./session_management.md)
 
 ### With Model Selection
 
 - **Model Override** - `--model` sets session model
-- **Effort Control** - `--effort` controls thinking budget
+- **Effort Control** - `--effort` controls thinking budget (low/medium/high)
 - **Agent Selection** - `--agent` overrides agent type
 
 See: [model_selection.md](./model_selection.md)
@@ -271,13 +285,13 @@ See: [system_reminder_integration.md](./system_reminder_integration.md)
 
 | Component | Source File | Key Functions |
 |-----------|-------------|---------------|
-| Entry points | `chunks.190.mjs` | `cliEntry`, `determineEntrypoint` |
-| Main function | `chunks.189.mjs` | `mainEntry`, `run`, `commanderSetup` |
+| Entry points | `chunks.198.mjs` | `cliEntry`, `determineEntrypoint` |
+| Main function | `chunks.197.mjs` | `mainEntry`, `run`, `commanderSetup` |
 | Permission context | `chunks.172.mjs` | `buildToolPermissionContext` |
 | Tool assembly | `chunks.141.mjs` | `assembleSessionToolSet`, `getDefaultTools` |
 | Auto-compact | `chunks.147.mjs` | `autoCompactDispatcher`, `shouldAutoCompact` |
 | Skill loading | `chunks.168.mjs` | `getSkills`, skill directory discovery |
-| REPL component | `chunks.188.mjs` | `REPL`, command filtering |
+| REPL component | `chunks.196.mjs` | `REPL`, command filtering |
 
 ---
 

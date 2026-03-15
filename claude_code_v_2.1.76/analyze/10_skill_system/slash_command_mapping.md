@@ -1,4 +1,4 @@
-# Slash Command Mapping - Deep Analysis (Claude Code 2.1.38)
+# Slash Command Mapping - Deep Analysis (Claude Code 2.1.76)
 
 ## Overview
 

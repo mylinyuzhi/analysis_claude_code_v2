@@ -7,6 +7,7 @@ The keybindings system allows users to customize keyboard shortcuts in Claude Co
 **Introduced**: v2.1.18
 **Analysis Completeness**: 10/10 (comprehensive reverse engineering)
 **Analysis Depth**: 9/10 (production-quality documentation)
+**Version**: Claude Code v2.1.76
 
 ---
 
@@ -18,6 +19,7 @@ The keybindings system allows users to customize keyboard shortcuts in Claude Co
 - 14 distinct validation error/warning types
 - Platform-specific reserved shortcut detection
 - `/keybindings` slash command for viewing/editing bindings
+- Hot-reload via chokidar file watcher (500ms stability threshold, 200ms poll interval)
 
 ### 18 Context System
 - **Global** - Active everywhere in the application
@@ -48,10 +50,10 @@ The keybindings system allows users to customize keyboard shortcuts in Claude Co
 
 ### Hot Reload
 - Chokidar-based file watcher on `~/.claude/keybindings.json`
-- 500ms stability threshold, 200ms poll interval
+- 500ms stability threshold (`Jk5`), 200ms poll interval (`Xk5`)
 - Automatic reload when configuration changes
 - No restart required for binding updates
-- Pending chord state preserved during reload
+- Pending chord state preserved during reload (validated against new bindings)
 
 ### Terminal Integration
 - 7-stage keystroke lifecycle (input → ANSI parsing → conversion → dispatch → focus → match → execute)
@@ -68,7 +70,7 @@ The keybindings system allows users to customize keyboard shortcuts in Claude Co
 
 ### Platform Compatibility
 - macOS reserved shortcuts (cmd+c/v/x/q/w/tab/space)
-- Unix/Linux reserved shortcuts (ctrl+c/d/z/\\)
+- Unix/Linux reserved shortcuts (ctrl+z/ctrl+\\)
 - Terminal emulator compatibility (iTerm2, Alacritty, Kitty, WezTerm, Ghostty)
 - Modifier key alias normalization (cmd/meta, option/alt, control/ctrl)
 
@@ -78,18 +80,18 @@ The keybindings system allows users to customize keyboard shortcuts in Claude Co
 
 | File | Purpose | Code Snippets | Status |
 |------|---------|---------------|--------|
-| [configuration.md](configuration.md) | Config loading, validation, hot-reload mechanism | 20 | ✅ Enhanced |
-| [chord_mechanism.md](chord_mechanism.md) | Chord state machine, timeout, prefix matching | 8 | ✅ Enhanced |
-| [event_flow.md](event_flow.md) | Complete keystroke lifecycle (7 stages) | 15 | ✅ New |
-| [focus_and_panes.md](focus_and_panes.md) | Focus system, 18 contexts, multi-pane coordination | 10 | ✅ New |
-| [action_system.md](action_system.md) | Action registry, dispatch mechanism | 8 | ✅ New |
-| [platform_specific.md](platform_specific.md) | Cross-platform behavior, terminal compatibility | 7 | ✅ New |
-| [error_handling.md](error_handling.md) | Validation errors, runtime errors, user feedback | 6 | ✅ New |
-| [integrations.md](integrations.md) | Ink/React, Vim mode, Help system, Plugin integration | 5 | ✅ New |
-| [quick_reference.md](quick_reference.md) | Function lookup, event flow diagram, context reference | - | ✅ New |
-| [complete_lifecycle.md](complete_lifecycle.md) | End-to-end walkthrough: Ctrl+K Ctrl+C example | - | ✅ New |
-
-**Total**: 11 documentation files with **79 code snippets** (all following 4-part format: header + ORIGINAL + READABLE + mapping)
+| [configuration.md](configuration.md) | Config loading, validation, hot-reload mechanism | 20 | Enhanced |
+| [chord_mechanism.md](chord_mechanism.md) | Chord state machine, timeout, prefix matching | 8 | Enhanced |
+| [event_flow.md](event_flow.md) | Complete keystroke lifecycle (7 stages) | 15 | Complete |
+| [focus_and_panes.md](focus_and_panes.md) | Focus system, 18 contexts, multi-pane coordination | 10 | Complete |
+| [action_system.md](action_system.md) | Action registry, dispatch mechanism | 8 | Complete |
+| [platform_specific.md](platform_specific.md) | Cross-platform behavior, terminal compatibility | 7 | Complete |
+| [error_handling.md](error_handling.md) | Validation errors, runtime errors, user feedback | 6 | Complete |
+| [integrations.md](integrations.md) | Ink/React, Help system, Agent Teams, Plugin integration | 5 | Complete |
+| [quick_reference.md](quick_reference.md) | Function lookup, event flow diagram, context reference | - | Complete |
+| [complete_lifecycle.md](complete_lifecycle.md) | End-to-end walkthrough: Ctrl+K Ctrl+C example | - | Complete |
+| [implementation.md](implementation.md) | Implementation overview and key decisions | - | Complete |
+| [conflict_resolution.md](conflict_resolution.md) | Priority rules for conflicting bindings | - | Complete |
 
 ---
 
@@ -128,7 +130,6 @@ All keybinding symbols have been mapped in [symbol_index_core_features.md](../00
 
 ## Cross-References
 
-- **Related modules**: [06_focus_system](../06_focus_system/), [03_ink_tui](../03_ink_tui/), [07_system_prompts](../07_system_prompts/)
 - **Symbol indices**: [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md), [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md)
 - **Changelog**: [changelog_analysis.md](../00_overview/changelog_analysis.md)
 
@@ -160,3 +161,4 @@ All keybinding symbols have been mapped in [symbol_index_core_features.md](../00
 ## Changelog References
 
 - **v2.1.18**: Full keybindings system with contexts, chords, hot-reload, validation
+- **v2.1.76**: Agent Teams integration; numeric keypad support in plan mode; Ctrl+F agent filter integration; new chord sequences for agent pane management

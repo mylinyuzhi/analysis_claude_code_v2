@@ -1,7 +1,7 @@
 # Complete TUI Interactions & Terminal User Experience
 
 > **Module**: Agent Teams - Comprehensive Terminal UI & Multi-Pane Management
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: Exhaustive documentation of user interface interactions across all display modes
 
 ---

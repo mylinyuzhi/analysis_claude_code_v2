@@ -82,12 +82,12 @@ The slash command system integrates with CLI through:
 
 ### 1.1 Flag Definition
 
-**Source location:** `chunks.189.mjs:1027`
+**Source location:** `chunks.197.mjs:1027`
 
 ```javascript
 // ============================================
 // --disable-slash-commands flag definition
-// Location: chunks.189.mjs:1027
+// Location: chunks.197.mjs:1027
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -103,12 +103,12 @@ The slash command system integrates with CLI through:
 
 ### 1.2 Flag Extraction
 
-**Source location:** `chunks.189.mjs:1054`
+**Source location:** `chunks.197.mjs:1054`
 
 ```javascript
 // ============================================
 // disableSlashCommands flag extraction
-// Location: chunks.189.mjs:1054
+// Location: chunks.197.mjs:1054
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -122,12 +122,12 @@ let disableSlashCommands = options.disableSlashCommands || false;
 
 ### 1.3 Propagation to REPL
 
-**Source location:** `chunks.189.mjs:1702`
+**Source location:** `chunks.197.mjs:1702`
 
 ```javascript
 // ============================================
 // disableSlashCommands passed to REPL component
-// Location: chunks.189.mjs:1702
+// Location: chunks.197.mjs:1702
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -315,14 +315,16 @@ const BUILTIN_COMMANDS = [
     { name: "login",    description: "Login to Claude",  handler: doLogin },
     { name: "logout",   description: "Logout",           handler: doLogout },
     { name: "memory",   description: "Manage memory",    handler: manageMemory },
-    { name: "permissions", "Manage permissions",         handler: managePerms },
-    { name: "pr-comments", "View PR comments",           handler: viewPrComments },
+    { name: "permissions", description: "Manage permissions", handler: managePerms },
+    { name: "pr-comments", description: "View PR comments", handler: viewPrComments },
     { name: "review",   description: "Review PR",        handler: reviewPr },
     { name: "status",   description: "Show status",      handler: showStatus },
-    { name: "terminal-setup", "Setup terminal",          handler: terminalSetup },
+    { name: "terminal-setup", description: "Setup terminal", handler: terminalSetup },
     { name: "theme",    description: "Set theme",        handler: setTheme },
-    { name: "vim",      description: "Toggle vim mode",   handler: toggleVim },
+    { name: "vim",      description: "Toggle vim mode",  handler: toggleVim },
     { name: "bug",      description: "Report bug",       handler: reportBug },
+    { name: "color",    description: "Toggle color output", handler: toggleColor },
+    { name: "effort",   description: "Set effort level", handler: setEffort },
 ];
 ```
 
@@ -362,12 +364,12 @@ const BUNDLED_SKILLS = [
 
 ### 4.1 Command Props to REPL
 
-**Source location:** `chunks.188.mjs:22`
+**Source location:** `chunks.196.mjs:22`
 
 ```javascript
 // ============================================
 // REPL component props for slash commands
-// Location: chunks.188.mjs:22
+// Location: chunks.196.mjs:22
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -387,12 +389,12 @@ function REPL({
 
 ### 4.2 Command Filtering in REPL
 
-**Source location:** `chunks.188.mjs:1644`
+**Source location:** `chunks.196.mjs:1644`
 
 ```javascript
 // ============================================
 // Command filtering in REPL
-// Location: chunks.188.mjs:1644
+// Location: chunks.196.mjs:1644
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -424,12 +426,12 @@ When `disableSlashCommands` is true:
 
 ### 5.1 --plugin-dir Flag
 
-**Source location:** `chunks.189.mjs:1019`
+**Source location:** `chunks.197.mjs:1019`
 
 ```javascript
 // ============================================
 // --plugin-dir flag definition
-// Location: chunks.189.mjs:1019
+// Location: chunks.197.mjs:1019
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -442,12 +444,12 @@ When `disableSlashCommands` is true:
 
 ### 5.2 Plugin Directory Processing
 
-**Source location:** `chunks.189.mjs:1050`
+**Source location:** `chunks.197.mjs:1050`
 
 ```javascript
 // ============================================
 // Plugin directory processing
-// Location: chunks.189.mjs:1050
+// Location: chunks.197.mjs:1050
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -516,7 +518,7 @@ The `--plugin-dir` flag loads plugins for the current session only:
 │                    COMMAND LOADING TIMELINE                                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  CLI Entry (chunks.189.mjs)                                                 │
+│  CLI Entry (chunks.197.mjs)                                                 │
 │  │                                                                          │
 │  ├─► Parse --disable-slash-commands                                        │
 │  │                                                                          │
@@ -638,12 +640,12 @@ claude --plugin-dir ./my-skills --disable-slash-commands
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
-| Flag definition | `chunks.189.mjs:1027` | `--disable-slash-commands` |
-| Flag extraction | `chunks.189.mjs:1054` | `disableSlashCommands` variable |
-| Plugin dir flag | `chunks.189.mjs:1019` | `--plugin-dir` |
-| Plugin processing | `chunks.189.mjs:1050` | Set and refresh plugins |
+| Flag definition | `chunks.197.mjs:1027` | `--disable-slash-commands` |
+| Flag extraction | `chunks.197.mjs:1054` | `disableSlashCommands` variable |
+| Plugin dir flag | `chunks.197.mjs:1019` | `--plugin-dir` |
+| Plugin processing | `chunks.197.mjs:1050` | Set and refresh plugins |
 | Skill loading | `chunks.168.mjs:2126` | `getSkills()` |
 | Command merge | `chunks.168.mjs` | Merge all sources |
-| REPL prop | `chunks.189.mjs:1702` | Pass to component |
-| REPL filter | `chunks.188.mjs:1644` | Apply disable gate |
-| Component prop | `chunks.188.mjs:22` | `disableSlashCommands` prop |
+| REPL prop | `chunks.197.mjs:1702` | Pass to component |
+| REPL filter | `chunks.196.mjs:1644` | Apply disable gate |
+| Component prop | `chunks.196.mjs:22` | `disableSlashCommands` prop |

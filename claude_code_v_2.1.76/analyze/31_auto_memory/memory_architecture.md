@@ -19,6 +19,7 @@ Memory is stored in three distinct scopes:
 - **Filename**: `MEMORY.md` (`pN9` / `Ua`)
 - **Limit**: 200 lines (`Qu1`). Content beyond this is truncated.
 - **Role**: Serves as a concise index and "active" memory. Detailed notes should be moved to "topic files" (e.g., `debugging.md`, `patterns.md`).
+- **Freshness**: Last-modified timestamp tracked and surfaced in system prompt (v2.1.76).
 
 ### Integration Flow
 
@@ -29,6 +30,13 @@ The system registers `auto_memory` as a dynamic instruction provider. Each turn,
 3. **Truncation**: If the file exceeds 200 lines, it is truncated with a warning message (`m0A`).
 4. **Injection**: The content is wrapped in XML-like instructions and added to the system prompt.
 
+### Custom Memory Directory (v2.1.59)
+
+Users can specify `autoMemoryDirectory` in settings to override the default project-hash path. This enables:
+- Shared team memory at a fixed path
+- Cross-project memory consolidation
+- Integration with custom directory structures
+
 ## Implementation Details
 
 ### [Algorithm] Memory Truncation & Loading
@@ -37,12 +45,14 @@ The system registers `auto_memory` as a dynamic instruction provider. Each turn,
 
 **How it works**:
 1. Locates the correct memory directory based on scope (`mu1`).
-2. Reads the full content of `MEMORY.md`.
-3. Splits by line breaks.
-4. If lines > 200:
+2. Checks `autoMemoryDirectory` setting for custom override (v2.1.59).
+3. Reads the full content of `MEMORY.md`.
+4. Reads file stat for last-modified timestamp (v2.1.76).
+5. Splits by line breaks.
+6. If lines > 200:
    - Takes only the first 200 lines.
    - Appends a warning: "> WARNING: MEMORY.md is [N] lines... Move detailed content into separate topic files."
-5. If file is empty:
+7. If file is empty:
    - Appends a hint: "Your MEMORY.md is currently empty... save a pattern here."
 
 **Why this approach**:
@@ -100,7 +110,7 @@ function buildMemoryPrompt(params) {
         let displayedContent = content.trim();
 
         if (isTooLong) {
-            displayedContent = lines.slice(0, MEMORY_MAX_LINES).join("\n") + 
+            displayedContent = lines.slice(0, MEMORY_MAX_LINES).join("\n") +
                 `\n\n> WARNING: MEMORY.md is too long (${lines.length} lines). Truncated to ${MEMORY_MAX_LINES}.`;
         }
         promptLines.push(`## ${MEMORY_MD_FILENAME}`, "", displayedContent);
@@ -112,6 +122,10 @@ function buildMemoryPrompt(params) {
 
 ## Related Symbols
 
+> Symbol mappings:
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+
+Key functions:
 - `getMemoryContext` (`F0A`) - Entry point for the memory system.
 - `buildMemoryPrompt` (`m0A`) - Core logic for file reading and truncation.
 - `MEMORY_MD_FILENAME` (`pN9` / `Ua`) - "MEMORY.md".
@@ -122,3 +136,10 @@ function buildMemoryPrompt(params) {
 - `chunks.87.mjs:2229` - Constant definitions.
 - `chunks.87.mjs:2257` - `m0A` implementation.
 - `chunks.169.mjs:231` - Registration in the dynamic prompt list.
+
+## Changelog References
+
+- **v2.1.32**: Initial implementation
+- **v2.1.33**: Topic files, remote memory, frontmatter support
+- **v2.1.59**: `autoMemoryDirectory` setting for custom paths
+- **v2.1.76**: Last-modified timestamp tracking in prompt header

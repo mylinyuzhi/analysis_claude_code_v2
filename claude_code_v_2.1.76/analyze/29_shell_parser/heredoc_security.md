@@ -1,4 +1,4 @@
-# Heredoc Injection Prevention & Shell Security (Claude Code 2.1.38)
+# Heredoc Injection Prevention & Shell Security (Claude Code 2.1.76)
 
 > Analysis of heredoc injection prevention, shell command parsing for security,
 > injection detection, command sanitization pipeline, Bash tool security model integration,

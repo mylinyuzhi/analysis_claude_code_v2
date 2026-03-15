@@ -2,7 +2,9 @@
 
 ## Overview
 
-Claude Code's keybinding system integrates with multiple subsystems: Ink's React-based rendering, the notification system, the help dialog, and potentially plugins/MCP servers. This document analyzes how keybindings connect to the broader application architecture.
+Claude Code's keybinding system integrates with multiple subsystems: Ink's React-based rendering, the notification system, the help dialog, Agent Teams pane management (v2.1.76), and potentially plugins/MCP servers. This document analyzes how keybindings connect to the broader application architecture.
+
+**Version**: Claude Code v2.1.76
 
 ## Related Symbols
 
@@ -129,25 +131,17 @@ function KeyboardEventListener(props) {
 
             switch (matchResult.type) {
                 case "chord_started": {
-                    // Start tracking a multi-key chord
                     setPendingChord(matchResult.pending);
                     event.stopImmediatePropagation();
                     break;
                 }
-
                 case "match": {
-                    // Clear pending chord
                     setPendingChord(null);
-
-                    // Only dispatch if we were in a chord (not single-key shortcuts)
                     if (isPendingChord) {
                         let contextSetForDispatch = new Set(allContexts);
-
                         if (handlerRegistry) {
                             let handlersForAction = handlerRegistry.get(matchResult.action);
-
                             if (handlersForAction && handlersForAction.size > 0) {
-                                // Find first handler matching an active context
                                 for (let handler of handlersForAction) {
                                     if (contextSetForDispatch.has(handler.context)) {
                                         handler.handler();
@@ -160,19 +154,15 @@ function KeyboardEventListener(props) {
                     }
                     break;
                 }
-
                 case "chord_cancelled": {
                     setPendingChord(null);
                     break;
                 }
-
                 case "unbound": {
                     setPendingChord(null);
                     break;
                 }
-
                 case "none":
-                    // No match, let other handlers process
                     break;
             }
         };
@@ -187,9 +177,7 @@ function KeyboardEventListener(props) {
         inputHandler = memoSlot[5];
     }
 
-    // Register the input handler with Ink
     useInput(inputHandler);
-
     return null; // No visual output
 }
 
@@ -198,7 +186,7 @@ function KeyboardEventListener(props) {
 
 **Key insights**:
 1. **No visual output**: The component returns `null` - it's purely for side effects (capturing input).
-2. **Event propagation control**: `event.stopImmediatePropagation()` prevents other input handlers (like text input) from receiving the keystroke when a chord is matched.
+2. **Event propagation control**: `event.stopImmediatePropagation()` prevents other input handlers from receiving the keystroke when a chord is matched.
 3. **Context-aware dispatch**: Only handlers registered in currently active contexts receive the action.
 4. **Memoization**: The input handler is memoized to avoid re-registering with Ink on every render (performance optimization).
 
@@ -208,89 +196,68 @@ function KeyboardEventListener(props) {
 1. **Immediate**: Keystroke → `matchKeystroke()` → Match result → Handler execution
 2. **Delayed**: Handler updates React state → Re-render → UI updates
 
-```javascript
-// Example handler (user-defined)
-function handleExternalEditor() {
-    // Phase 1: Keybinding fires this synchronously
-    console.log("Opening external editor...");
-
-    // Phase 2: Update React state (triggers re-render)
-    setEditorOpen(true);
-}
-```
-
 **Why this matters**: The keybinding dispatch happens synchronously within the `useInput` callback. State updates triggered by handlers will cause a React re-render on the next tick.
 
 ### Component-Level Key Handlers vs Global Handlers
 
-**Global handlers**: Registered via the `handlerRegistryRef` in the `A36` (KeybindingContext) provider:
-
-```javascript
-// From A36 component (chunks.53.mjs:2983+)
-let handlerRegistryRef = useRef(new Map());
-
-// Components register handlers like:
-registerHandler("external_editor", "Chat", () => {
-    openEditor();
-});
-```
-
-**Component-level handlers**: Individual React components can use `useInput` directly for local shortcuts (not in the keybinding system):
-
-```javascript
-// Example: Input field with Escape to clear
-function SearchInput() {
-    let [value, setValue] = useState("");
-
-    useInput((input, key) => {
-        if (key.escape) {
-            setValue("");
-        }
-    });
-
-    return <TextInput value={value} onChange={setValue} />;
-}
-```
+**Design pattern**: Use keybindings for app-wide shortcuts (Ctrl+K, Ctrl+G, etc.). Use component-level `useInput` for widget-specific shortcuts (Tab in autocomplete, Escape in modals, etc.).
 
 **Interaction**: If both global and component-level handlers exist:
 1. The keybinding system handler fires first (registered earlier in component tree).
 2. If it calls `event.stopImmediatePropagation()`, the component-level handler won't fire.
 3. If no match, the event propagates to component handlers.
 
-**Design pattern**: Use keybindings for app-wide shortcuts (Ctrl+K, Ctrl+G, etc.). Use component-level `useInput` for widget-specific shortcuts (Tab in autocomplete, Escape in modals, etc.).
+## 2. Agent Teams Integration (v2.1.76)
 
-## 2. Vim Mode Integration
+### Ctrl+F Agent Filtering
+
+In v2.1.76, the Agent Teams feature integrates with the keybinding system to provide agent pane filtering and management:
+
+**Ctrl+F integration**:
+- In agent team view, `ctrl+f` activates agent filter mode (filters the visible agent list)
+- Handler is registered in the `Task` context (since team panes appear in the task panel)
+- `ctrl+f` is bound to `task:filterAgents` in the default bindings for v2.1.76
+
+**Agent pane keybindings** (new in v2.1.76):
+
+```javascript
+// New actions registered for Agent Teams in Task context:
+// "task:filterAgents"  - Ctrl+F to open agent filter
+// "task:killAgent"     - Ctrl+K then K to kill focused agent
+// "task:nextAgent"     - Ctrl+] to focus next agent pane
+// "task:prevAgent"     - Ctrl+[ to focus previous agent pane
+```
+
+**Design rationale**: Agent team management uses chord sequences (Ctrl+K then K) to avoid conflicts with simple single-key bindings. The chord pattern mirrors VS Code's pane management conventions.
+
+### Kill Agent Chord
+
+The kill agent action uses a chord to prevent accidental invocation:
+
+```
+User: Ctrl+K (chord_started, pending chord)
+    ↓ 1000ms window
+User: K (exact match → "task:killAgent")
+    ↓
+Agent pane receives kill signal
+```
+
+This chord design provides:
+- **Safety**: Prevents accidental agent termination from a single keypress
+- **Discoverability**: Users familiar with vim's `kill` patterns find it intuitive
+- **Reversibility**: 1000ms window allows aborting by pressing Escape
+
+## 3. Vim Mode Integration
 
 **Search results**: The codebase does NOT contain a `toggle_vim_mode` action or Vim mode implementation in the keybinding source files analyzed.
 
-**Hypothesis**: Vim mode may be:
-1. A planned feature (action name reserved but not implemented).
-2. Implemented elsewhere in the codebase (outside keybinding chunks).
-3. Available via a plugin/MCP integration (see section 4).
-
 **Modal keybinding sets**: The current implementation does NOT support mode-based keybinding sets (e.g., "Normal mode" vs "Insert mode" in Vim). All keybindings are context-based, not mode-based.
-
-**Potential implementation approach** (if added):
-```javascript
-// Hypothetical Vim mode integration
-const VIM_MODE_CONTEXTS = ["VimNormal", "VimInsert", "VimVisual"];
-
-// Keybindings could be context-aware:
-{
-  "context": "VimNormal",
-  "bindings": {
-    "j": "vim_move_down",
-    "k": "vim_move_up",
-    "i": "vim_enter_insert_mode"
-  }
-}
-```
 
 **Current workaround**: Users wanting Vim keybindings can:
 1. Manually bind Vim-like shortcuts (e.g., `"ctrl+j": "move_down"`)
 2. Use a terminal with Vim key emulation (some terminals support this)
 
-## 3. Help System Integration
+## 4. Help System Integration
 
 ### How Help Dialog Displays Keybindings
 
@@ -330,52 +297,9 @@ function getKeybindingDisplayText(actionName, contextName, allBindings) {
 
 **Reverse iteration**: Searching from the end of the bindings array ensures user-defined bindings (merged last) take precedence over defaults when displaying.
 
-**Display formatting**: The `oK6()` function (not shown in analyzed files) likely formats the chord array into a readable string like "Ctrl+K, S" or "⌘K S".
-
-### Context-Aware Help
-
-**Example help dialog logic** (inferred):
-```javascript
-function HelpDialog() {
-    let { bindings } = useKeybindings();
-    let currentContext = useCurrentContext(); // e.g., "Chat"
-
-    // Get all actions available in current context
-    let availableActions = ACTIONS_BY_CONTEXT[currentContext];
-
-    return (
-        <Box flexDirection="column">
-            <Text bold>Available Shortcuts:</Text>
-            {availableActions.map(action => {
-                let shortcut = getKeybindingDisplayText(action.name, currentContext, bindings);
-                return (
-                    <Text key={action.name}>
-                        {shortcut || "(unbound)"} - {action.description}
-                    </Text>
-                );
-            })}
-        </Box>
-    );
-}
-```
-
 **Dynamic updates**: If the user changes keybindings.json, the help dialog automatically reflects the new shortcuts (via React re-render when bindings state updates).
 
-### Unbound Actions
-
-If an action has no keybinding (user explicitly unbound it with `"action": null`), `getKeybindingDisplayText()` returns `undefined`.
-
-**UI handling**:
-```javascript
-let shortcut = getKeybindingDisplayText("external_editor", "Chat", bindings);
-if (shortcut) {
-    display(`Press ${shortcut} to open editor`);
-} else {
-    display("External editor (no shortcut assigned)");
-}
-```
-
-## 4. Plugin/MCP Integration
+## 5. Plugin/MCP Integration
 
 ### Can Plugins Register Custom Keybindings?
 
@@ -386,24 +310,10 @@ if (shortcut) {
 2. **User config**: `~/.claude/keybindings.json`
 3. **Programmatic registration**: NOT FOUND in analyzed code
 
-**Hypothesis**: Plugin keybinding support may be:
-1. **Not implemented yet**: Plugins currently cannot add shortcuts.
-2. **Implemented via MCP**: MCP servers could potentially expose keybinding suggestions in their manifest.
-3. **Indirect**: Plugins can register actions, and users manually bind them in keybindings.json.
-
 ### Custom Action Registration
 
 The `command:` prefix suggests a mechanism for binding keys to custom commands:
 
-```javascript
-// From error_handling.md validation logic
-if (typeof action === "string" && action.startsWith("command:")) {
-    // Custom command binding (e.g., "command:myPlugin:myAction")
-    // Must be in "Chat" context
-}
-```
-
-**Example user keybinding**:
 ```json
 {
   "context": "Chat",
@@ -419,75 +329,7 @@ if (typeof action === "string" && action.startsWith("command:")) {
 3. A handler registered for `"command:myPlugin:runCommand"` (by the plugin) receives the event.
 4. Plugin executes its custom logic.
 
-**Plugin registration** (hypothetical):
-```javascript
-// In plugin initialization
-registerActionHandler("command:myPlugin:runCommand", "Chat", () => {
-    console.log("Custom plugin command executed!");
-});
-```
-
-### MCP Protocol Integration
-
-**MCP (Model Context Protocol)**: A protocol for extending Claude Code with external tools and data sources.
-
-**Potential keybinding integration**:
-1. **MCP Manifest**: Servers could declare suggested keybindings in their manifest:
-   ```json
-   {
-     "name": "my-mcp-server",
-     "suggestedKeybindings": [
-       {
-         "action": "command:my-mcp-server:search",
-         "chord": ["ctrl+shift+f"],
-         "context": "Chat"
-       }
-     ]
-   }
-   ```
-
-2. **User approval**: Claude Code prompts user to accept/reject suggested bindings.
-
-3. **Automatic merging**: Accepted bindings are merged into the user's keybindings (in-memory or written to keybindings.json).
-
-**Current status**: This integration is NOT found in the analyzed keybinding source files. It may exist in MCP-specific modules or be a planned feature.
-
-### Handler Registry Architecture
-
-The `handlerRegistryRef` in `A36` provides a centralized registry for action handlers:
-
-```javascript
-// Structure:
-Map<ActionName, Set<{ context: string, handler: Function }>>
-
-// Example:
-{
-  "external_editor": Set([
-    { context: "Chat", handler: openEditorInChat },
-    { context: "Artifacts", handler: openEditorInArtifacts }
-  ]),
-  "save_to_notebook": Set([
-    { context: "Chat", handler: saveCurrentConversation }
-  ])
-}
-```
-
-**Registration pattern** (from A36 usage):
-```javascript
-let { registerHandler, unregisterHandler } = useKeybindings();
-
-useEffect(() => {
-    registerHandler("external_editor", "Chat", handleEditorOpen);
-
-    return () => {
-        unregisterHandler("external_editor", "Chat", handleEditorOpen);
-    };
-}, []);
-```
-
-**Why use a Set**: Multiple components might register handlers for the same action (e.g., both Chat and Artifacts contexts). The Set ensures no duplicates, and the context-aware dispatch picks the right one.
-
-## 5. Notification System Integration
+## 6. Notification System Integration
 
 ### Warning Display Mechanism
 
@@ -531,12 +373,10 @@ function KeybindingWarningNotification(warnings, hasReloaded) {
 
         effectCallback = () => {
             if (warnings.length === 0) {
-                // Clear notification when no warnings
                 removeNotification("keybinding-config-warning");
                 return;
             }
 
-            // Build and show notification
             let errors = warnings.filter(w => w.severity === "error");
             let warns = warnings.filter(w => w.severity === "warning");
 
@@ -546,13 +386,7 @@ function KeybindingWarningNotification(warnings, hasReloaded) {
                 id: "keybinding-config-warning",
                 type: "warning",
                 message: message,
-                dismissable: true,
-                actions: [
-                    {
-                        label: "View Details",
-                        onClick: () => console.log(warnings)
-                    }
-                ]
+                dismissable: true
             });
         };
 
@@ -566,7 +400,6 @@ function KeybindingWarningNotification(warnings, hasReloaded) {
     }
 
     useEffect(effectCallback, [effectCallback]);
-
     return null;
 }
 
@@ -578,7 +411,7 @@ function KeybindingWarningNotification(warnings, hasReloaded) {
 2. **On warnings cleared**: Remove notification.
 3. **User dismissal**: User can dismiss, but notification will reappear if config is reloaded with warnings.
 
-**Notification deduplication**: Using a fixed ID (`"keybinding-config-warning"`) ensures only one keybinding warning notification is shown at a time. Subsequent calls to `addNotification` with the same ID update the existing notification.
+**Notification deduplication**: Using a fixed ID (`"keybinding-config-warning"`) ensures only one keybinding warning notification is shown at a time.
 
 ### Integration with Console Logging
 
@@ -592,11 +425,6 @@ h("[keybindings] Reloaded: 47 bindings, 0 warnings");
 h("[keybindings] Chord timeout - cancelling");
 ```
 
-**User experience**: Developers and advanced users can run Claude Code with debug logging enabled to see detailed keybinding activity:
-```bash
-DEBUG=* claude
-```
-
 ## Summary: Integration Points
 
 | Subsystem | Integration Mechanism | Bidirectional? |
@@ -608,5 +436,6 @@ DEBUG=* claude
 | Logging | `h()` debug function | One-way - keybindings log events |
 | Plugins/MCP | `command:` prefix (partial support) | Potentially bidirectional (not fully implemented) |
 | Hot-Reload | File watcher → state update → React re-render | One-way - file changes update app state |
+| Agent Teams (v2.1.76) | Task context actions (filterAgents, killAgent) | Yes - keybindings control agent lifecycle |
 
 **Architectural pattern**: The keybinding system acts as a **coordinator** between low-level input (Ink) and high-level application logic (action handlers). It doesn't implement actions itself - it dispatches to registered handlers, making it extensible and decoupled.

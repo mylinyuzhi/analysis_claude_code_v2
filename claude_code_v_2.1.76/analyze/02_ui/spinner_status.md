@@ -57,6 +57,8 @@ The spinner/status system provides visual feedback during LLM operations and too
 3. **Deferred updates** - Response length updates are batched
 4. **Tip rotation** - Feature system provides contextual tips
 
+> **v2.1.76 change:** The spinner animation is now isolated to a dedicated 50ms animation loop rather than being rendered inline with the main message pipeline. This prevents unnecessary re-renders of the entire message list on each spinner frame tick.
+
 ---
 
 ## 2. Spinner Visibility Logic (PG)

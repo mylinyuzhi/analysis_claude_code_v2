@@ -1,4 +1,4 @@
-# Plan Mode - Complete Implementation Analysis (Claude Code 2.1.38)
+# Plan Mode - Complete Implementation Analysis (Claude Code 2.1.76)
 
 ## Overview
 
@@ -47,6 +47,54 @@ Key functions in this document:
 - `n0A` (chunks.88.mjs:94) - `registerPlanFileSlug`
 - `dU7` (chunks.88.mjs:98) - `clearPlanFileSlug`
 - `mcA` (chunks.1.mjs:2291) - `getContextUsagePercentage`
+
+---
+
+## /plan Command Syntax
+
+The `/plan` command supports an optional description argument (added in v2.1.72):
+
+**Basic usage (no description):**
+```
+/plan
+```
+Enters plan mode, user can then describe their task.
+
+**With description (v2.1.72+):**
+```
+/plan fix the authentication bug in the login flow
+/plan implement dark mode support
+/plan refactor database schema to support multi-tenancy
+```
+
+**How description works:**
+
+When a description is provided:
+1. Enter plan mode immediately
+2. Description is injected as initial context/task framing
+3. Equivalent to entering plan mode manually, then immediately typing the description
+4. User is placed in the interview phase with the description already primed
+
+**Example flow:**
+
+```
+User: /plan optimize the API response time for large datasets
+     │
+     ├─ Command parsed → extract description
+     ├─ Enter plan mode
+     ├─ Inject description into context
+     └─ Begin interview phase with task framing
+
+System: [Enters Plan Mode]
+        "I'll help you plan optimizing the API response time
+         for large datasets. Let me start by asking some questions..."
+```
+
+**Benefits:**
+
+- **Streamlined workflow**: No need to enter plan mode, then retype the task
+- **Single-command entry**: `/plan <description>` is faster than two steps
+- **Clear task framing**: Description is visible in the plan file from the start
 
 ---
 

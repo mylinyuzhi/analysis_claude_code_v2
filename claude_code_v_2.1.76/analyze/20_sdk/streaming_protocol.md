@@ -4,6 +4,8 @@
 
 The SDK communication protocol is **newline-delimited JSON (NDJSON)** — each message is a single JSON object followed by `\n`. All messages flow over either stdio (local SDK) or WebSocket (remote SDK). The protocol is fully bidirectional with request/response correlation via `request_id`.
 
+**Version note (v2.1.76):** A new `rate_limit` event type has been added to the server→client message set, allowing SDK clients to react to API rate-limit state without polling.
+
 ## Related Symbols
 
 > Symbol mappings:
@@ -37,6 +39,7 @@ CLAUDE CODE → CLIENT (stdout / WebSocket outgoing):
   {"type":"tool_use",...}⏎
   {"type":"tool_result",...}⏎
   {"type":"system","subtype":"hook_started",...}⏎
+  {"type":"rate_limit","info":{...},...}⏎            ← NEW v2.1.76
   {"type":"control_request","request_id":"uuid","request":{...}}⏎  ← Permission
   {"type":"result","subtype":"success",...}⏎         ← Final message
 ```
@@ -113,7 +116,6 @@ async function CJz(A, q, K, Y, z, w, H, $, O, _, J) {
     if (A.systemPrompt !== void 0) O.systemPrompt = A.systemPrompt;
     if (A.appendSystemPrompt !== void 0) O.appendSystemPrompt = A.appendSystemPrompt;
     if (A.agents) { let W = fJ6(A.agents, "flagSettings"); _.push(...W) }
-    // ... agent model/prompt loading, hooks registration, jsonSchema ...
     let P = { commands: z.map(...), output_style: D, available_output_styles: ..., models: w, account: { email, organization, subscriptionType, tokenSource, apiKeySource } };
     Y.enqueue({ type: "control_response", response: { subtype: "success", request_id: q, response: P } })
 }
@@ -124,28 +126,12 @@ async function initializeSession(request, requestId, isAlreadyInitialized, outpu
         outputQueue.enqueue({ type: "control_response", response: { subtype: "error", error: "Already initialized", request_id: requestId, pending_permission_requests: streamIO.getPendingPermissionRequests() } });
         return
     }
-    // Apply session configuration from request
     if (request.systemPrompt !== undefined) sessionOptions.systemPrompt = request.systemPrompt;
     if (request.appendSystemPrompt !== undefined) sessionOptions.appendSystemPrompt = request.appendSystemPrompt;
     if (request.agents) {
         let customAgents = parseAgentsFromJson(request.agents, "flagSettings");
         agentList.push(...customAgents);
     }
-    // Apply agent-specific settings
-    if (sessionOptions.agent) {
-        let agentDef = agentList.find((a) => a.agentType === sessionOptions.agent);
-        if (agentDef) {
-            activateAgent(agentDef.agentType);
-            if (!sessionOptions.systemPrompt && !hasCustomSystemPrompt(agentDef)) {
-                let prompt = agentDef.getSystemPrompt();
-                if (prompt) sessionOptions.systemPrompt = prompt
-            }
-            if (!sessionOptions.userSpecifiedModel && agentDef.model && agentDef.model !== "inherit") {
-                setModelOverride(resolveModel(agentDef.model));
-            }
-        }
-    }
-    // Register hooks from request
     if (request.hooks) {
         let hookMap = {};
         for (let [hookEvent, hookConfigs] of Object.entries(request.hooks)) {
@@ -156,10 +142,8 @@ async function initializeSession(request, requestId, isAlreadyInitialized, outpu
         }
         setHooks(hookMap);
     }
-    // Register JSON schema for structured output
     if (request.jsonSchema) setJsonSchema(request.jsonSchema);
 
-    // Build session info for response
     let sessionMetadata = {
         commands: commands.map((cmd) => ({ name: cmd.userFacingName(), description: getCommandDescription(cmd), argumentHint: cmd.argumentHint || "" })),
         output_style: getOutputStyle(),
@@ -170,7 +154,7 @@ async function initializeSession(request, requestId, isAlreadyInitialized, outpu
     outputQueue.enqueue({ type: "control_response", response: { subtype: "success", request_id: requestId, response: sessionMetadata } });
 }
 
-// Mapping: CJz→initializeSession, A→request, q→requestId, K→isAlreadyInitialized, Y→outputQueue, z→commands, w→models, H→streamIO, O→sessionOptions, _→agentList, J→getSettings
+// Mapping: CJz→initializeSession, A→request, q→requestId, K→isAlreadyInitialized, Y→outputQueue, z→commands, w→models, H→streamIO, O→sessionOptions, _→agentList
 ```
 
 **Initialize response payload:**
@@ -366,7 +350,7 @@ The first message always sent after initialization. Multiple subtypes:
   "slash_commands": ["/help", "/clear", ...],
   "apiKeySource": "ANTHROPIC_API_KEY",
   "betas": ["interleaved-thinking-2025-05-14"],
-  "claude_code_version": {"VERSION": "2.1.38"},
+  "claude_code_version": {"VERSION": "2.1.76"},
   "output_style": "default",
   "agents": ["bash", "general-purpose", ...],
   "skills": ["skill-name"],
@@ -455,9 +439,7 @@ Emitted when the permission mode changes dynamically.
 }
 ```
 
----
-
-### 1g. `auth_status` — Authentication State
+#### 1g. `auth_status` — Authentication State
 
 **Only emitted when `--enable-auth-status` flag is set.** Provides authentication status updates during the session.
 
@@ -475,15 +457,58 @@ Emitted when the permission mode changes dynamically.
 }
 ```
 
-**When auth_status is sent:**
-- After `initialize` control response (if enabled)
-- When authentication state changes
-- Before API calls if token refresh is needed
-- On authentication errors
+---
+
+### 2. `rate_limit` — API Rate Limit Information (NEW v2.1.76)
+
+**What it does:** Emitted when the Claude API returns rate-limit headers. Allows SDK clients to implement backoff logic or surface capacity information to end users without polling.
+
+**When emitted:** After each API response that includes `x-ratelimit-*` headers. Emitted once per turn, before the `assistant` message for that turn.
+
+```javascript
+{
+  "type": "rate_limit",
+  "info": {
+    "requests_remaining": 42,
+    "requests_reset_at": "2025-03-15T12:00:00Z",
+    "tokens_remaining": 100000,
+    "tokens_reset_at": "2025-03-15T12:00:00Z"
+  },
+  "session_id": "<uuid>",
+  "uuid": "<uuid>"
+}
+```
+
+**`SDKRateLimitInfo` type:**
+
+```typescript
+interface SDKRateLimitInfo {
+  requests_remaining: number;       // Remaining requests in current window
+  requests_reset_at: string;        // ISO 8601 timestamp when requests reset
+  tokens_remaining?: number;        // Remaining tokens (may be omitted)
+  tokens_reset_at?: string;         // ISO 8601 timestamp when tokens reset
+}
+```
+
+**`SDKRateLimitEvent` type:**
+
+```typescript
+interface SDKRateLimitEvent {
+  type: "rate_limit";
+  info: SDKRateLimitInfo;
+  session_id: string;
+  uuid: string;
+}
+```
+
+**Why this approach:**
+- SDK clients previously had no visibility into rate-limit state without inspecting raw HTTP headers
+- The `rate_limit` event decouples the SDK abstraction from transport-level details
+- `tokens_remaining` is optional because some API tiers report only request-level limits
 
 ---
 
-### 2. `assistant` — Complete Assistant Turn
+### 3. `assistant` — Complete Assistant Turn
 
 A complete, non-streaming assistant response (turn boundary).
 
@@ -511,7 +536,7 @@ A complete, non-streaming assistant response (turn boundary).
 
 ---
 
-### 3. `stream_event` — Raw Claude API Streaming Events
+### 4. `stream_event` — Raw Claude API Streaming Events
 
 Only emitted when `--output-format=stream-json` AND `--include-partial-messages` (or verbose) is set. Carries the raw Anthropic API streaming events.
 
@@ -547,14 +572,12 @@ case "stream_event":
 
 // READABLE (for understanding):
 case "stream_event":
-    // Accumulate token usage per message
     if (event.event.type === "message_start") {
         turnUsage = defaultUsage;
         turnUsage = mergeUsage(turnUsage, event.event.message.usage);
     }
     if (event.event.type === "message_delta") turnUsage = mergeUsage(turnUsage, event.event.usage);
     if (event.event.type === "message_stop") this.totalUsage = sumUsage(this.totalUsage, turnUsage);
-    // Forward event to SDK client if streaming is enabled
     if (shouldStreamEvents) yield { type: "stream_event", event: event.event, session_id: getSessionId(), parent_tool_use_id: null, uuid: generateId() };
     break;
 
@@ -572,7 +595,7 @@ case "stream_event":
 
 ---
 
-### 4. `user` — User Message Echo (Replay Mode)
+### 5. `user` — User Message Echo (Replay Mode)
 
 Only emitted when `--replay-user-messages` is active. Echoes back user messages and control responses for acknowledgment.
 
@@ -589,7 +612,7 @@ Only emitted when `--replay-user-messages` is active. Echoes back user messages 
 
 ---
 
-### 5. `tool_use` — Tool Invocation
+### 6. `tool_use` — Tool Invocation
 
 ```javascript
 {
@@ -604,7 +627,7 @@ Only emitted when `--replay-user-messages` is active. Echoes back user messages 
 
 ---
 
-### 6. `tool_result` — Tool Execution Result
+### 7. `tool_result` — Tool Execution Result
 
 ```javascript
 {
@@ -619,7 +642,7 @@ Only emitted when `--replay-user-messages` is active. Echoes back user messages 
 
 ---
 
-### 7. `attachment` — Structured Metadata
+### 8. `attachment` — Structured Metadata
 
 Carries structured metadata attached to the conversation stream.
 
@@ -657,10 +680,10 @@ case "attachment":
 case "attachment":
     collectedMessages.push(event);
     if (event.attachment.type === "structured_output") {
-        finalStructuredOutput = event.attachment.data;  // Save for result message
+        finalStructuredOutput = event.attachment.data;
     } else if (event.attachment.type === "max_turns_reached") {
         yield { type: "result", subtype: "error_max_turns", ... };
-        return;  // End the session immediately
+        return;
     } else if (replayEnabled && event.attachment.type === "queued_command") {
         yield { type: "user", message: { role: "user", content: event.attachment.prompt }, isReplay: true, ... };
     }
@@ -671,7 +694,7 @@ case "attachment":
 
 ---
 
-### 8. `control_request` — Permission Prompt (Server → Client)
+### 9. `control_request` — Permission Prompt (Server → Client)
 
 The server sends this when a tool requires permission. The client must respond with a `control_response`.
 
@@ -698,11 +721,11 @@ The server sends this when a tool requires permission. The client must respond w
 
 ---
 
-### 9. `result` — Final Session Outcome
+### 10. `result` — Final Session Outcome
 
 Always the last message. `subtype` indicates success or failure mode.
 
-#### 9a. `success`
+#### 10a. `success`
 
 ```javascript
 {
@@ -728,7 +751,7 @@ Always the last message. `subtype` indicates success or failure mode.
 }
 ```
 
-#### 9b. `error_max_turns`
+#### 10b. `error_max_turns`
 
 ```javascript
 {
@@ -749,7 +772,7 @@ Always the last message. `subtype` indicates success or failure mode.
 }
 ```
 
-#### 9c. `error_max_budget_usd`
+#### 10c. `error_max_budget_usd`
 
 ```javascript
 {
@@ -761,7 +784,7 @@ Always the last message. `subtype` indicates success or failure mode.
 }
 ```
 
-#### 9d. `error_during_execution`
+#### 10d. `error_during_execution`
 
 ```javascript
 {
@@ -814,13 +837,12 @@ switch ($.outputFormat) {
 // READABLE (for understanding):
 switch (outputFormat) {
     case "json":
-        // Requires --verbose for full message array
         if (isVerbose) { print(stringify(allMessages) + `\n`); break; }
         print(stringify(finalResult) + `\n`);
         break;
     case "stream-json":
-        break;  // Messages already written during loop
-    default:  // "text"
+        break;
+    default:
         switch (finalResult.subtype) {
             case "success": print(addNewlineIfNeeded(finalResult.result)); break;
             case "error_max_turns": print(`Error: Reached max turns (${config.maxTurns})`); break;
@@ -884,21 +906,20 @@ async function oGz(A, q) {
 // READABLE (for understanding):
 async function streamJsonInputHandler(userPrompt, inputFormat) {
     if (!process.stdin.isTTY && !process.argv.includes("mcp")) {
-        debugLog("piping");  // Log that we're in piped mode
+        debugLog("piping");
         if (inputFormat === "stream-json") {
-            return process.stdin;  // Return raw stream object for line-by-line parsing
+            return process.stdin;  // Return raw stream for line-by-line parsing
         }
-        // Buffer all input for text mode
         process.stdin.setEncoding("utf8");
         let inputBuffer = "";
         process.stdin.on("data", (chunk) => { inputBuffer += chunk });
         await new Promise((resolve) => { process.stdin.on("end", resolve) });
         return [userPrompt, inputBuffer].filter(Boolean).join(`\n`);
     }
-    return userPrompt;  // Interactive TTY: return prompt as-is
+    return userPrompt;
 }
 
 // Mapping: oGz→streamJsonInputHandler, A→userPrompt, q→inputFormat, K→inputBuffer, u8→debugLog
 ```
 
-**Key insight:** For `stream-json` input, the function returns the raw Node.js `ReadStream` object. For `text` input, it buffers the entire stdin and concatenates it with the command-line prompt. This dual behavior is why `--input-format=stream-json` and `--input-format=text` have fundamentally different I/O semantics.
+**Key insight:** For `stream-json` input, the function returns the raw Node.js `ReadStream` object. For `text` input, it buffers the entire stdin and concatenates it with the command-line prompt.

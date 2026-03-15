@@ -1,4 +1,4 @@
-# Tool UI Rendering Infrastructure (Claude Code 2.1.38)
+# Tool UI Rendering Infrastructure (Claude Code 2.1.76)
 
 > Complete analysis of how tool invocations are rendered in the terminal UI — from tool use headers to result diffs to summary statistics.
 

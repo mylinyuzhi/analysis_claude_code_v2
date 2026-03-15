@@ -1915,7 +1915,7 @@ After a rewind:
 
 The truncation IS the notification — the model simply no longer sees the previous turns.
 
-**Why does `autocheckpointing` exist in the switch at all?** This type appears to be a **legacy remnant** or **forward-compatibility guard**. No code in v2.1.38 creates an attachment of type `autocheckpointing`. The guard prevents a crash (`Unknown attachment type` error) if such an attachment were somehow loaded from an older session file or introduced by a future version.
+**Why does `autocheckpointing` exist in the switch at all?** This type appears to be a **legacy remnant** or **forward-compatibility guard**. No code in v2.1.76 creates an attachment of type `autocheckpointing`. The guard prevents a crash (`Unknown attachment type` error) if such an attachment were somehow loaded from an older session file or introduced by a future version.
 
 > Cross-reference: `04_system_reminder/reminder_types.md` — Silent/No-Op Types section
 

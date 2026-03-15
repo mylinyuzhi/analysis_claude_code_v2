@@ -2,12 +2,6 @@
 
 > Symbol mapping table Part 4: External integrations and UI components
 > Lookup: Browse by module, or Ctrl+F search for obfuscated/readable name.
->
-> **VERIFICATION STATUS**:
-> - ✓ = Verified correct in v2.1.76 source
-> - ⚠️ = Location changed, needs update
-> - ❌ = Symbol changed or mapping incorrect
-> - ? = Not yet verified
 
 ---
 
@@ -168,6 +162,7 @@
 | DvY | LSP_DIAGNOSTICS_LRU_SIZE | chunks.133.mjs:2471 | constant (500) |
 | cQ1 | pendingDiagnosticsMap | chunks.133.mjs:2473 | variable (Map) |
 | MW1 | deliveredDiagnosticsLru | chunks.133.mjs:2475 | variable (LRU Map) |
+| startupTimeout | startupTimeout | chunks.133.mjs | config key (LSP server startup timeout) |
 
 ### Singleton Manager (chunks.133.mjs)
 
@@ -1172,4 +1167,14 @@
 | Q7q | SandboxDoctorCheck | chunks.154.mjs:2979 (Ln 396902) | component (dependency warnings in /doctor) |
 | ToY | renderWarningRow | chunks.154.mjs:3030 (Ln 396933) | function (warning row in doctor check) |
 | voY | renderErrorRow | chunks.154.mjs:3038 (Ln 396940) | function (error row in doctor check) |
+
+### New UI Components (v2.1.76)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| KIq | PlanInterviewQuestionComponent | chunks.190.mjs:3 | component (plan mode interview form UI) |
+| dIq | IdeSelectionIndicator | chunks.191.mjs:3 | component (IDE selection line count/path display) |
+| qGz | AgentTabComponent | chunks.192.mjs:3 | component (agent team tab with selected/viewed/idle state) |
+| Efz | MainReplComponent | chunks.193.mjs:3 | component (main REPL orchestrator with all session state) |
+| evz | WrongDirectoryDialog | chunks.197.mjs:3 | component (wrong directory resume dialog) |
 

@@ -1,7 +1,7 @@
 # System Reminder Types: Todo & Task Management
 
 > **Module**: System Reminders - Todo/Task Types
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:801-869`, `chunks.142.mjs:2624-2756`
 
 ---
@@ -9,6 +9,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [v2.1.76 Changes](#v2176-changes)
 - [todo](#todo)
 - [todo_reminder](#todo_reminder)
 - [task_reminder](#task_reminder)
@@ -33,6 +34,31 @@ These types use frequency throttling to avoid spamming the conversation.
 
 ---
 
+## v2.1.76 Changes
+
+### Task Tools No Longer Require activeForm
+
+In v2.1.38, the task tools (`TaskCreate`, `TaskUpdate`, `TaskGet`, `TaskList`) were only available when an `activeForm` was present in the session context. The `getTaskReminderAttachment` producer and the `task_reminder` normalization both checked for an active form before producing any task-related output.
+
+In v2.1.76, this restriction has been removed. The task tools are now always available when the task system is enabled (`jH()` / `isTaskSystemEnabled()` returns true), regardless of whether a form is active. The `getTaskReminderAttachment` producer no longer checks for `activeForm`, and the `task_reminder` normalizer no longer gates on `activeForm`.
+
+**v2.1.38 producer (excerpt):**
+```javascript
+// Old: required activeForm check
+if (!sessionContext.activeForm) return [];
+if (!isTaskSystemEnabled()) return [];
+```
+
+**v2.1.76 producer (excerpt):**
+```javascript
+// New: no activeForm check
+if (!isTaskSystemEnabled()) return [];
+```
+
+**Impact:** Task tool reminders now appear in any session where the task system is enabled, not just when a task creation form was previously opened. This makes the task tracking feature more accessible for casual use.
+
+---
+
 ## Trigger Source Summary
 
 Each reminder type has a specific producer function that determines when it triggers:
@@ -41,7 +67,7 @@ Each reminder type has a specific producer function that determines when it trig
 |------|-------------------|----------|-------------------|
 | `todo` | `wIY` (getChangedFilesAttachment) | chunks.142.mjs:2285-2335 | File watch detects modification of todo file |
 | `todo_reminder` | `fIY` (getTodoReminderAttachment) | chunks.142.mjs:2645-2661 | `turnsSinceLastTodoWrite >= 10 && turnsSinceLastReminder >= 10` |
-| `task_reminder` | `NIY` (getTaskReminderAttachment) | chunks.142.mjs:2684-2701 | Same thresholds + `jH()` (isTaskSystemEnabled) |
+| `task_reminder` | `NIY` (getTaskReminderAttachment) | chunks.142.mjs:2684-2701 | Same thresholds + `jH()` (isTaskSystemEnabled); no activeForm required (v2.1.76) |
 | `task_status` | `vIY` (getUnifiedTasksAttachment) | chunks.142.mjs:2719-2756 | State change in `di4(appState)` |
 | `task_progress` | `vIY` (getUnifiedTasksAttachment) | chunks.142.mjs:2719-2756 | Progress message + `turnsSinceProgress >= 3` |
 
@@ -110,7 +136,6 @@ if (w === Lp(_)) {
 
 // READABLE (for understanding):
 if (absolutePath === getTodoFilePath(agentId)) {
-    // Check if TodoWrite tool is available
     if (!sessionContext.options.tools.some(t => t.name === TodoWriteTool.name)) {
         return null;
     }
@@ -248,15 +273,12 @@ function analyzeToDoUsageHistory(messages) {
     let turnsSinceLastTodoWrite = 0;
     let turnsSinceLastReminder = 0;
 
-    // Iterate backward through message history
     for (let i = messages.length - 1; i >= 0; i--) {
         let msg = messages[i];
 
         if (msg?.type === "assistant") {
-            // Skip empty/thinking messages
             if (isEmptyAssistantMessage(msg)) continue;
 
-            // Check if this message contains TodoWrite tool use
             if (lastTodoWriteIndex === -1 &&
                 "message" in msg &&
                 Array.isArray(msg.message?.content) &&
@@ -266,7 +288,6 @@ function analyzeToDoUsageHistory(messages) {
                 lastTodoWriteIndex = i;
             }
 
-            // Count turns
             if (lastTodoWriteIndex === -1) turnsSinceLastTodoWrite++;
             if (lastReminderIndex === -1) turnsSinceLastReminder++;
 
@@ -276,7 +297,6 @@ function analyzeToDoUsageHistory(messages) {
             lastReminderIndex = i;
         }
 
-        // Early exit if both found
         if (lastTodoWriteIndex !== -1 && lastReminderIndex !== -1) break;
     }
 
@@ -318,19 +338,15 @@ async function fIY(A, q) {
 
 // READABLE (for understanding):
 async function getTodoReminderAttachment(messages, sessionContext) {
-    // Check if TodoWrite tool is available
     if (!sessionContext.options.tools.some(t => t.name === TodoWriteTool.name)) {
         return [];
     }
 
-    // Need message history
     if (!messages || messages.length === 0) return [];
 
-    // Analyze usage history
     let { turnsSinceLastTodoWrite, turnsSinceLastReminder } =
         analyzeToDoUsageHistory(messages);
 
-    // Check throttle conditions
     if (turnsSinceLastTodoWrite >= TODO_REMINDER_CONSTANTS.TURNS_SINCE_WRITE &&
         turnsSinceLastReminder >= TODO_REMINDER_CONSTANTS.TURNS_BETWEEN_REMINDERS) {
 
@@ -362,42 +378,19 @@ case "todo_reminder": {
     let K = A.content.map((z, w) => `${w+1}. [${z.status}] ${z.content}`).join(`
 `),
         Y = `The TodoWrite tool hasn't been used recently. If you're working on tasks that would benefit from tracking progress, consider consider using the TodoWrite tool to track progress, organize complex tasks, and demonstrate thoroughness to the user.
-
-It also helps the user understand the progress of the task and overall progress of their requests.
-
-**Use this tool proactively in these scenarios:**
-
-- Complex multi-step tasks - When a task requires 3 or more distinct steps or actions
-- Non-trivial and complex tasks - Tasks that require careful planning or multiple operations
-- Plan mode - When using plan mode, create a task list to track the work
-- User explicitly requests todo list - When users directly ask you to use the todo list
-- User provides multiple tasks - When users provide a list of things to be done (numbered or comma-separated)
-
-When you start working on a task, mark it as in_progress BEFORE beginning work. When you complete a task, mark it as completed and add any new follow-up tasks discovered during implementation.
-
-If you decide a task is no longer needed, you can delete it by setting status to 'deleted'.
-
-NOTE: Don't use this tool for conversational or informational tasks where no actual work is being done.
-
-${K.length > 0 ? `
-
-Here are the existing contents of your todo list:
-
-[${K}]` : ''}`;
+...`;
     return _9([c6({
         content: Y,
         isMeta: !0
     })])
 }
-
-// Mapping: A→attachment, K→formattedList, Y→reminderContent, _9→wrapWithSystemReminderTags, c6→createUserMessage
 ```
 
 ### Output Format
 
 ```markdown
 <system-reminder>
-The TodoWrite tool hasn't been used recently. If you're working on tasks that would benefit from tracking progress, consider consider using the TodoWrite tool to track progress, organize complex tasks, and demonstrate thoroughness to the user.
+The TodoWrite tool hasn't been used recently. If you're working on tasks that would benefit from tracking progress, consider using the TodoWrite tool to track progress, organize complex tasks, and demonstrate thoroughness to the user.
 
 It also helps the user understand the progress of the task and overall progress of their requests.
 
@@ -431,6 +424,8 @@ Here are the existing contents of your todo list:
 
 Periodically reminds the LLM to use the Task tools (TaskCreate, TaskGet, TaskUpdate, TaskList) for tracking progress when using the new task system.
 
+**v2.1.76 change:** The `activeForm` guard has been removed. The reminder now fires whenever the task system is enabled and the turn/reminder thresholds are met, regardless of whether a task form was previously opened.
+
 ### Triggered When
 
 | Condition | Requirement |
@@ -439,6 +434,7 @@ Periodically reminds the LLM to use the Task tools (TaskCreate, TaskGet, TaskUpd
 | Turns since management | >= `TURNS_SINCE_WRITE` (10) |
 | Turns since reminder | >= `TURNS_BETWEEN_REMINDERS` (10) |
 | Tool available | TaskUpdate tool in available tools |
+| (v2.1.76) No activeForm required | Previously required `activeForm` check removed |
 
 ### Source Code
 
@@ -485,7 +481,6 @@ function analyzeTaskUsageHistory(messages) {
         if (msg?.type === "assistant") {
             if (isEmptyAssistantMessage(msg)) continue;
 
-            // Check for TaskCreate or TaskUpdate tool use
             if (lastTaskManagementIndex === -1 &&
                 "message" in msg &&
                 Array.isArray(msg.message?.content) &&
@@ -517,7 +512,7 @@ function analyzeTaskUsageHistory(messages) {
 // Mapping: VIY→analyzeTaskUsageHistory, A→messages, q→lastTaskManagementIndex, K→lastReminderIndex, Y→turnsSinceLastTaskManagement, z→turnsSinceLastReminder, Nh→TaskCreate, DR→TaskUpdate
 ```
 
-#### Producer Function
+#### Producer Function (v2.1.76)
 
 ```javascript
 // ============================================
@@ -546,6 +541,7 @@ async function NIY(A, q) {
 }
 
 // READABLE (for understanding):
+// v2.1.76: No longer checks for activeForm before proceeding
 async function getTaskReminderAttachment(messages, sessionContext) {
     // Check if new task system is enabled
     if (!isTaskSystemEnabled()) return [];
@@ -658,41 +654,6 @@ async function vIY(A, q) {
         // ...
     return [...O, ..._]
 }
-
-// READABLE (for understanding):
-async function getUnifiedTasksAttachment(sessionContext, messages) {
-    let appState = await sessionContext.getAppState();
-
-    let {
-        attachments: statusAttachments,
-        progressAttachments,
-        updatedTasks
-    } = extractTaskStateChanges(appState);
-
-    // Get turn counts since last progress messages
-    let turnsSinceProgress = getTaskProgressTurns(messages);
-
-    // Filter progress attachments that need delivery
-    let deliverableProgress = progressAttachments.filter(prog => {
-        return (turnsSinceProgress.get(prog.taskId) ?? Infinity) >= TASK_PROGRESS_TURNS_THRESHOLD;
-    });
-
-    // Create task_status attachments
-    let statusMessages = statusAttachments.map(att => ({
-        type: "task_status",
-        taskId: att.taskId,
-        taskType: att.taskType,
-        status: att.status,
-        description: att.description,
-        deltaSummary: att.deltaSummary
-    }));
-
-    // ... create task_progress attachments ...
-
-    return [...statusMessages, ...progressMessages];
-}
-
-// Mapping: vIY→getUnifiedTasksAttachment, A→sessionContext, q→messages, K→appState, Y→statusAttachments, z→progressAttachments, w→updatedTasks, di4→extractTaskStateChanges, TIY→getTaskProgressTurns, ghY→TASK_PROGRESS_TURNS_THRESHOLD
 ```
 
 #### Normalization Function
@@ -720,12 +681,10 @@ case "task_status": {
 
 // READABLE (for understanding):
 case "task_status": {
-    // Map "killed" to "stopped" for display
     let displayStatus = attachment.status === "killed"
         ? "stopped"
         : attachment.status;
 
-    // Special message for killed tasks
     if (attachment.status === "killed") {
         return [createUserMessage({
             content: wrapInXmlTag(`Task "${attachment.description}" (${attachment.taskId}) was stopped by the user.`),
@@ -733,7 +692,6 @@ case "task_status": {
         })];
     }
 
-    // Build status message
     let parts = [
         `Task ${attachment.taskId}`,
         `(type: ${attachment.taskType})`,

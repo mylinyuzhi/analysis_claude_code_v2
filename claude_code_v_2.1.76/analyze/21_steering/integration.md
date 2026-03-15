@@ -269,7 +269,7 @@ This means if the user presses Escape to cancel a tool permission:
 2. Claude's next response will address the denied tool
 3. If the user wanted to fully stop Claude, they need to press Escape again
 
-This is intentional — the first Escape cancels the "inner" dialog, second Escape cancels the "outer" stream. The `cancelHandlerComponent` logic handles this because after clearing the tool permission, `abortSignal` is still active, so the next Escape press takes Branch 1 (abort the stream).
+This is intentional — the first Escape cancels the "inner" dialog, second Escape cancels the "outer" stream.
 
 ---
 
@@ -277,76 +277,13 @@ This is intentional — the first Escape cancels the "inner" dialog, second Esca
 
 ### 4.1 `executeQueuedInput` (iA) - Queue-to-Submission Bridge
 
-```javascript
-// chunks.188.mjs:894-926
-iA = useCallback(async (text, pastedContents) => {
-    await processUserInput({
-        input: text,
-        helpers: { setCursorOffset: () => {}, clearBuffer: () => {}, resetHistory: () => {} },
-        isLoading: _4,      // IMPORTANT: current isLoading state
-        mode: "prompt",
-        commands: RA,
-        onInputChange: () => {},
-        setPastedContents: () => {},
-        setIsLoading: C3,
-        setToolJSX: TA,
-        getToolUseContext: J0,
-        messages: W4,
-        mainLoopModel: Y1,
-        pastedContents: pastedContents,
-        ideSelection: K6,
-        setUserInputOnProcessing: ZY,
-        setAbortController: HY,
-        onQuery: ff,
-        resetLoadingState: YK,
-        thinkingEnabled: p,
-        setAppState: A1,
-        querySource: EQ1(),
-        onBeforeQuery: M,
-        canUseTool: Zf,
-        addNotification: q6
-    })
-}, [_4, RA, ...]);
-```
+The `executeQueuedInput` (iA) callback calls `processUserInput` (PE6) with the CURRENT `isLoading` value. When HVq calls it, `isLoading` has just become `false` (that's the trigger). But there's a subtle race: HVq sets `isLoading=true` *before* calling `iA`.
 
-**Design note**: `executeQueuedInput` (iA) calls `processUserInput` (PE6) with the CURRENT `isLoading` value. When HVq calls it, `isLoading` has just become `false` (that's the trigger). But there's a subtle race: HVq sets `isLoading=true` *before* calling `iA`:
-
-```javascript
-O.current = !0, $(!0),  // isExecuting=true, setIsLoading(true) ← sets _4=true
-zVq({ executeInput: w })  // w=iA → called with _4 might still be false from closure!
-```
-
-The `isLoading: _4` passed to `iA` captures the state at closure creation time. Since `iA` is a `useCallback` with `_4` in deps, it re-creates when `_4` changes. The actual `_4` value passed to `PE6` inside `iA` when it executes will be the most recent value from the closure — which at execution time may be `true` (set by HVq's `$(!0)` just before calling `iA`).
-
-This means `PE6` inside `iA` might see `isLoading=true` when called from HVq, causing it to RE-QUEUE the command instead of submitting it! The guard `O.current` (isExecuting ref) prevents infinite loops: once HVq sets `isExecuting=true`, subsequent effect invocations bail out immediately.
-
-**The race is safe because**: `PE6` with `isLoading=true` calls `lB` which adds to `queuedCommands`. Then `HVq` sees `queuedCommandsLength > 0` again, but `O.current` is still `true` (from the first call), so the second effect invocation returns early. The `finally` block resets `O.current=false` only after `iA` completes.
+The race is safe because `PE6` with `isLoading=true` calls `lB` which adds to `queuedCommands`. Then `HVq` sees `queuedCommandsLength > 0` again, but `O.current` is still `true` (from the first call), so the second effect invocation returns early. The `finally` block resets `O.current=false` only after `iA` completes.
 
 ### 4.2 `popCommandFromQueue` (rc) - Manual Queue Editing
 
-```javascript
-// chunks.188.mjs:343-355 (reconstructed)
-rc = useCallback(async () => {
-    const result = await popAndMergeQueuedCommands(
-        currentInputValue,           // K8: merge with whatever user typed
-        cursorOffset,                // 0: cursor position
-        async () => new Promise(resolve => setAppState(s => { resolve(s); return s; })),
-        setAppState
-    );
-    if (!result) return;
-    setInputValue(result.text);        // $8: put merged text in input box
-    setInputMode("prompt");            // Rq: switch to prompt mode
-    if (result.images.length > 0) {
-        setPastedContents(prev => {
-            const next = { ...prev };
-            for (const img of result.images) next[img.id] = img;
-            return next;
-        });
-    }
-}, [setAppState, setInputValue, setInputMode, currentInputValue, setPastedContents]);
-```
-
-This is called by `cancelHandlerComponent` Branch 3 (when Escape is pressed with queue but no active stream). It pops all editable items from the queue and merges them into the input box, allowing the user to review and edit before submitting.
+Called by `cancelHandlerComponent` Branch 3 (when Escape is pressed with queue but no active stream). It pops all editable items from the queue and merges them into the input box, allowing the user to review and edit before submitting.
 
 **User experience**:
 ```
@@ -364,20 +301,7 @@ User presses Escape
 
 ### 5.1 `resetLoadingState` (YK) - What Gets Reset
 
-```javascript
-// chunks.188.mjs:218-221
-YK = useCallback(() => {
-    C3(!1),        // setIsLoading(false)
-    ZY(void 0),    // setUserInputOnProcessing(undefined)
-    Qj.current = 0, // responseLengthRef = 0
-    xq([]),        // setStreamingToolUses([])
-    S3(null),      // setSpinnerOverrideMessage(null)
-    OO(null),      // setSpinnerOverrideColor(null)
-    xH(null),      // setSpinnerOverrideShimmerColor(null)
-    l7(),          // reset some internal state
-    PB1()          // reset some other state
-}, [C3, l7])
-```
+`resetLoadingState` clears `isLoading`, `userInputOnProcessing`, `responseLengthRef`, `streamingToolUses`, `spinnerOverrideMessage`, `spinnerOverrideColor`, and `spinnerOverrideShimmerColor`.
 
 Called at:
 1. `onCancel()` → always on cancel
@@ -389,19 +313,7 @@ Called at:
 
 ### 5.2 `lastQueryCompletionTime` (wD) - Completion Timestamp
 
-```javascript
-// chunks.188.mjs: (within ff's finally block)
-LP(Date.now())  // setLastQueryCompletionTime(Date.now())
-```
-
-`wD` (lastQueryCompletionTime) is used as a dependency in HVq's Effect 2:
-```javascript
-useEffect(() => {
-    ...
-}, [isLoading, queuedCommandsLength, lastQueryCompletionTime, ...])
-```
-
-**Why needed**: If a query completes (`isLoading: true → false`) but `queuedCommandsLength` doesn't change between renders (e.g., stays at 0), React's shallow comparison would prevent the effect from re-firing. By including `lastQueryCompletionTime` (which always changes on completion), the effect reliably re-fires on every query completion.
+`wD` (lastQueryCompletionTime) is used as a dependency in HVq's Effect 2. If a query completes (`isLoading: true → false`) but `queuedCommandsLength` doesn't change between renders (e.g., stays at 0), React's shallow comparison would prevent the effect from re-firing. By including `lastQueryCompletionTime` (which always changes on completion), the effect reliably re-fires on every query completion.
 
 ---
 
@@ -428,56 +340,13 @@ When `onCancel` checks `$O.isRemoteMode`:
 
 ### 6.2 Remote Mode Enter-Key Handling
 
-Remote mode has a special guard in `Z$` (onSubmit):
-
-```javascript
-// chunks.188.mjs:726
-if ($O.isRemoteMode && !k6.trim()) return;  // Skip empty messages in remote mode
-```
-
-And the remote submission path bypasses `PE6` entirely:
-
-```javascript
-if ($O.isRemoteMode) {
-    // Build message content (text + images)
-    const message = buildMessageContent(input, pastedContents);
-    // Add to local message history immediately
-    addToMessages([createUserMessage({ content: message })]);
-    // Send directly via WebSocket data channel
-    await remoteSessionManager.sendMessage(messageContent);
-    return;  // ← bypasses PE6 completely
-}
-// Local mode: use PE6
-await processUserInput({ input, isLoading, ... })
-```
-
-**Implication**: Remote mode does NOT use the `queuedCommands` system. There is no message queue for remote sessions — each Enter press either sends immediately (not loading) or is silently dropped if the input is empty. The steering for remote sessions relies entirely on the WebSocket interrupt signal path.
+Remote mode does NOT use the `queuedCommands` system. There is no message queue for remote sessions — each Enter press either sends immediately (not loading) or is silently dropped if the input is empty. The steering for remote sessions relies entirely on the WebSocket interrupt signal path.
 
 ---
 
 ## 7. Integration with Compact (Module 07)
 
 ### 7.1 Abort During Auto-Compaction
-
-If auto-compaction is triggered mid-query and abort happens:
-
-```
-Query running:
-  T0: LLM streaming response
-  T1: Token count hits threshold → auto-compact triggered
-  T2: User presses Escape → abort() called
-```
-
-**Resolution**: The abort signal is checked after each LLM response. The compact operation (which runs as part of the query generator) will check the signal before starting. Since `autoCompactDispatcher` (fs4) is called inside the query generator, and the abort check happens before each LLM API call:
-
-```javascript
-// In query generator (pseudocode):
-if (toolUseContext.abortController.signal.aborted) { return; }  // Checkpoint
-// Auto-compact happens here
-if (shouldAutoCompact(messages)) await autoCompactDispatcher(...);
-// Another checkpoint
-if (toolUseContext.abortController.signal.aborted) { return; }
-```
 
 **User intent wins**: If the user aborts during auto-compaction, the compaction is abandoned (doesn't complete). The conversation history is NOT compacted, and the steering message is submitted with the original (uncompacted) history.
 
@@ -489,7 +358,7 @@ The "Interrupted by user" system message is tagged with `type: "system"`. During
 
 ## 8. Integration with Background Agents (Module 26)
 
-### 8.1 `cancelRunningAgentTasks` (Kd7) - Dead Code in v2.1.38
+### 8.1 `cancelRunningAgentTasks` (Kd7) - Dead Code in v2.1.76
 
 ```javascript
 // chunks.89.mjs:1388-1393
@@ -500,11 +369,11 @@ function Kd7(A, q) {  // Kd7(tasks, setAppState)
 }
 ```
 
-**Callable only when** `KY()` (isPromptQueueingEnabled) returns true, which **never happens** in v2.1.38.
+**Callable only when** `KY()` (isPromptQueueingEnabled) returns true, which **never happens** in this version.
 
 **Intended behavior**: When prompt queueing was planned to be fully enabled, cancelling via Escape would also kill all running local_agent background tasks. This would provide a "hard reset" capability — interrupt everything, clean slate, start fresh with the steering message.
 
-**Current state**: `Kd7` is compiled into the bundle but unreachable from normal operation. Background agents continue running even after steering in v2.1.38.
+**Current state**: `Kd7` is compiled into the bundle but unreachable from normal operation. Background agents continue running even after steering.
 
 ---
 
@@ -512,21 +381,13 @@ function Kd7(A, q) {  // Kd7(tasks, setAppState)
 
 ### 9.1 Hook Abort Signal Propagation
 
-Hooks that receive the abort signal respect it:
-
-```javascript
-// In hook execution (pseudocode from combineAbortSignals usage):
-const combinedSignal = combineAbortSignals(hookTimeoutSignal, toolUseContext.abortController.signal);
-await runHook(hook, { signal: combinedSignal });
-```
-
-`combineAbortSignals` (fR, chunks.90.mjs:1691) creates an AbortController that aborts when EITHER the hook timeout OR the steering abort fires. This means:
+Hooks that receive the abort signal respect it via `combineAbortSignals` (fR, chunks.90.mjs:1691) which creates an AbortController that aborts when EITHER the hook timeout OR the steering abort fires. This means:
 - If user steers while a hook is executing, the hook's subprocess receives SIGTERM
 - The hook is killed, and the abort chain propagates up
 
 ### 9.2 `executeSessionStartHooks` and Steering
 
-Session-start hooks run before the first query. Steering cannot interrupt session-start hooks because `abortController` is not yet created at that point. The `O3` state variable is `null` until `cMz` or `Z$` creates it.
+Session-start hooks run before the first query. Steering cannot interrupt session-start hooks because `abortController` is not yet created at that point.
 
 ---
 
@@ -577,59 +438,7 @@ Session-start hooks run before the first query. Steering cannot interrupt sessio
 
 ---
 
-## 11. Integration Testing Scenarios
-
-### 11.1 Scenario: Steering During Multi-Tool Execution
-
-**Setup**: Claude uses Glob to find 50 Python files, starts Reading each one (streaming batch)
-
-**At tool 10, user presses Enter then Escape**:
-
-| Event | System Response |
-|-------|-----------------|
-| Enter pressed | `lB({value: "Only check src/"})` → queued |
-| Escape pressed | `abort()` → signal fires |
-| Tool 10 Read in-flight | `getRemainingResults()` drains it → complete |
-| Tools 11-50 | Never execute (abort prevents loop continuation) |
-| Interrupt message | "Interrupted by user" added to conversation |
-| `isLoading=false` | HVq Effect 2 fires |
-| Queue dequeue | "Only check src/" executed as new query |
-| Claude responds | Adjusts to analyze only src/ folder |
-
-### 11.2 Scenario: Rapid Enter Presses During Streaming
-
-**Setup**: Claude is streaming, user presses Enter 3 times with 3 different messages
-
-| Event | State after |
-|-------|-------------|
-| Enter 1: "Focus on auth" | `queuedCommands: ["Focus on auth"]` |
-| Enter 2: "Use JWT" | `queuedCommands: ["Focus on auth", "Use JWT"]` |
-| Enter 3: "Add tests too" | `queuedCommands: ["Focus on auth", "Use JWT", "Add tests too"]` |
-| Escape pressed | `abort()` → stream ends |
-| HVq fires | Dequeues "Focus on auth" (first item only) |
-| New query runs | Claude gets "Focus on auth" steering |
-| HVq fires again | Dequeues "Use JWT" |
-| Another query runs | Claude gets "Use JWT" steering |
-| HVq fires again | Dequeues "Add tests too" |
-
-**Insight**: Multiple Enter presses create a message queue that executes sequentially. Claude processes each steering message in order, building up context step by step.
-
-### 11.3 Scenario: Escape While No Stream (Pop Queue to Input)
-
-**Setup**: Claude finished responding, queuedCommands has 2 items, user presses Escape
-
-| Condition | handleCancelPress branch |
-|-----------|-------------------------|
-| `abortSignal` = undefined | Branch 1 fails |
-| `KY()` = false | Branch 2 fails |
-| `queuedCommands.length > 0` = true | **Branch 3 fires** |
-| `popCommandFromQueue()` | `V_6()` merges all editable items into input |
-
-Result: Input box shows "item1\nitem2", cursor positioned at end. User can edit and press Enter.
-
----
-
-## 12. Summary
+## 11. Summary
 
 Steering integration touches **8 major modules**:
 
@@ -646,8 +455,7 @@ Steering integration touches **8 major modules**:
 
 **The architectural principle**: Steering is implemented as a *unidirectional interrupt* that flows upstream (User → UI → Signal → Network), while steering messages flow downstream through the normal submission path. The `HVq` hook is the "reunification point" — it waits for the upstream interrupt to complete, then triggers the downstream steering message submission.
 
-**Key v2.1.38 behavioral notes**:
+**Key v2.1.76 behavioral notes**:
 1. `KY()` always returns `false` — prompt queueing cleanup code in `onCancel` is dead code
 2. Background agents continue running during steering (Kd7 never called)
 3. Remote mode has NO queue system — each Enter either sends or is dropped
-4. The help tip ID has a typo: `"enter-to-steer-in-relatime"` (missing 'l' in realtime)

@@ -90,6 +90,15 @@ Memory System File Structure:
       └── topic files...
 ```
 
+**Custom Directory Support** (v2.1.59):
+When `autoMemoryDirectory` is set in user settings, it overrides the default project-hash path:
+
+```
+Custom path set: ~/team-memory/
+  → Memory: ~/team-memory/MEMORY.md
+  (instead of ~/.claude/projects/{hash}/memory/MEMORY.md)
+```
+
 ---
 
 ## 2. Memory Lifecycle
@@ -118,6 +127,7 @@ Memory System File Structure:
 │     │                                                  │
 │     ├──> Create memory directory if missing           │
 │     ├──> Read MEMORY.md from disk                    │
+│     ├──> Check last-modified timestamp (v2.1.74)     │
 │     ├──> Split into lines                             │
 │     ├──> Check if > 200 lines                         │
 │     │    - YES → Truncate + warning                   │
@@ -299,6 +309,12 @@ function mu1() {
 
 // READABLE (for understanding):
 function getAutoMemoryDirectory() {
+    // Check for custom directory setting (v2.1.59)
+    let settings = getUserSettings();
+    if (settings.autoMemoryDirectory) {
+        return settings.autoMemoryDirectory;
+    }
+
     let homeDir = joinPath(getHomeDirectory(), "projects");
     return (joinPath(homeDir,
                      sanitizeProjectName(getProjectIdentifier()),
@@ -316,7 +332,8 @@ function getAutoMemoryDirectory() {
 
 **Path construction**:
 ```
-{home}/projects/{projectId}/memory/
+Default: {home}/projects/{projectId}/memory/
+Custom:  {autoMemoryDirectory setting value}
 ```
 
 **Components**:
@@ -328,6 +345,7 @@ function getAutoMemoryDirectory() {
 ```
 ~/.claude/projects/myproject/memory/
 /remote/claude/projects/myproject/memory/
+~/team-memory/  (with autoMemoryDirectory setting)
 ```
 
 ---
@@ -409,9 +427,34 @@ if (isMemoryFile(filePath)) {
 
 ---
 
-## 6. Design Trade-offs
+## 6. Freshness Tracking (v2.1.74)
 
-### 6.1 200-Line Limit
+### 6.1 Last-Modified Timestamps
+
+In v2.1.74, the memory system gained timestamp tracking for freshness detection:
+
+**Purpose**: Allow agents to know how recently memory files were updated, enabling smarter decisions about when memory may be stale vs. current.
+
+**How it works**:
+```javascript
+// When reading MEMORY.md, stat the file for modification time
+let memoryStats = fs.statSync(memoryFilePath);
+let lastModified = memoryStats.mtime;
+
+// Include timestamp in prompt header
+promptLines.push(
+    `# auto memory (last updated: ${lastModified.toISOString()})`,
+    ...
+);
+```
+
+**Agent benefit**: If last-modified is very recent (same session), memory is likely fresh. If old (weeks ago), the agent may prompt the user to review or update memory.
+
+---
+
+## 7. Design Trade-offs
+
+### 7.1 200-Line Limit
 
 **Decision**: Hard limit MEMORY.md to 200 lines in system prompt
 
@@ -428,7 +471,7 @@ if (isMemoryFile(filePath)) {
 
 ---
 
-### 6.2 Topic Files On-Demand
+### 7.2 Topic Files On-Demand
 
 **Decision**: Only load topic files when agent explicitly reads them
 
@@ -442,7 +485,7 @@ if (isMemoryFile(filePath)) {
 
 ---
 
-### 6.3 Disk Read Every Turn
+### 7.3 Disk Read Every Turn
 
 **Decision**: Read MEMORY.md from disk on every turn (no caching)
 
@@ -457,11 +500,11 @@ if (isMemoryFile(filePath)) {
 
 ---
 
-## 7. Multi-Agent Considerations
+## 8. Multi-Agent Considerations
 
 When multiple agents collaborate (via Agent Teams), memory sharing and isolation become critical. For complete details, see [multi_agent_memory.md](./multi_agent_memory.md).
 
-### 7.1 Memory Isolation Model
+### 8.1 Memory Isolation Model
 
 **Default behavior**: All agents in the same project directory share the same memory.
 
@@ -478,19 +521,19 @@ Teammate 2 (cwd: /Users/alice/my-app/)
 
 **Why**: Memory directory is computed from `process.cwd()`, not agent ID. All agents with same working directory resolve to same hash.
 
-### 7.2 Shared Memory Benefits and Risks
+### 8.2 Shared Memory Benefits and Risks
 
 **Benefits**:
-- ✅ Knowledge accumulates across all agents (debugging notes, patterns)
-- ✅ Patterns discovered by any agent benefit the team
-- ✅ No synchronization overhead (file system handles it)
+- Knowledge accumulates across all agents (debugging notes, patterns)
+- Patterns discovered by any agent benefit the team
+- No synchronization overhead (file system handles it)
 
 **Risks**:
-- ❌ Write conflicts possible (last-write-wins)
-- ❌ No privacy (all agents see all memory)
-- ❌ Large teams may overwhelm single MEMORY.md
+- Write conflicts possible (last-write-wins)
+- No privacy (all agents see all memory)
+- Large teams may overwhelm single MEMORY.md
 
-### 7.3 Write Conflict Mitigation
+### 8.3 Write Conflict Mitigation
 
 **Strategy 1: Topic file separation** (Recommended)
 ```
@@ -517,11 +560,11 @@ See [multi_agent_memory.md](./multi_agent_memory.md) for detailed isolation stra
 
 ---
 
-## 8. Remote Memory Architecture
+## 9. Remote Memory Architecture
 
 Remote memory enables sharing memory across machines via network storage. For complete details, see [remote_memory_sync.md](./remote_memory_sync.md).
 
-### 8.1 Remote Override Mechanism
+### 9.1 Remote Override Mechanism
 
 **Environment variable**: `CLAUDE_CODE_REMOTE_MEMORY_DIR`
 
@@ -536,21 +579,7 @@ function getHomeDirectory() {
 
 **Effect**: All memory operations use remote path as base instead of `~/.claude/`
 
-### 8.2 Directory Resolution with Remote
-
-```bash
-# Without remote override
-CLAUDE_CODE_REMOTE_MEMORY_DIR=  # unset
-→ Memory: /Users/alice/.claude/projects/{hash}/memory/
-
-# With remote override
-export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/nfs-share
-→ Memory: /mnt/nfs-share/projects/{hash}/memory/
-```
-
-**Key insight**: Project hash still computed from **local** cwd, so all agents working on same project (even on different machines) resolve to same remote memory directory.
-
-### 8.3 Supported Storage Types
+### 9.2 Supported Storage Types
 
 | Storage | Latency | Use Case |
 |---------|---------|----------|
@@ -558,33 +587,6 @@ export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/nfs-share
 | **SMB/CIFS** | <20ms | Windows shares, cross-platform teams |
 | **SSHFS** | 10-50ms | Remote development, SSH workflows |
 | **Dropbox/Drive** | 1-60s | Personal multi-machine (sync lag OK) |
-
-### 8.4 Synchronization Behavior
-
-**Read**: Always from disk, no caching (agents see latest changes next turn)
-
-**Write**: Direct `fs.writeFileSync` (no locking)
-
-**Conflicts**: Last-write-wins (earlier writes lost)
-
-**Network failure**: Unhandled (agent crashes if remote unavailable)
-
-### 8.5 Distributed Team Example
-
-```
-Team Lead (Laptop, NFS server)
-  └─> Exports: /Users/alice/.claude/
-
-Teammate 1 (AWS VM)
-  └─> Mounts: /mnt/shared-memory
-  └─> export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/shared-memory
-
-Teammate 2 (AWS VM)
-  └─> Mounts: /mnt/shared-memory
-  └─> export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/shared-memory
-
-→ All three agents share same memory on NFS
-```
 
 See [remote_memory_sync.md](./remote_memory_sync.md) for setup guides, performance considerations, and error handling.
 
@@ -600,5 +602,7 @@ The Auto Memory architecture provides **persistent cross-session knowledge** thr
 4. **Scope Flexibility**: User/Project/Local isolation
 5. **Whitelisted Writes**: Agent can freely update memory files
 6. **Telemetry Aware**: Tracks enable/disable reasons
+7. **Custom Directory**: `autoMemoryDirectory` setting for team/custom workflows (v2.1.59)
+8. **Freshness Tracking**: Last-modified timestamps for staleness detection (v2.1.74)
 
 **Key architectural insight**: The system balances **persistent knowledge** with **context window efficiency** by using MEMORY.md as a lightweight index and delegating detailed content to searchable topic files.

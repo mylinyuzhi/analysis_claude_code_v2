@@ -2,7 +2,7 @@
 
 > **Module**: Agent Teams - Hooks System
 > **Source**: `chunks.141.mjs` (lines 1561-1711), `chunks.131.mjs` (lines 260-346)
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 
 ---
 

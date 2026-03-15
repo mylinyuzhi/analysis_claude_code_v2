@@ -2,7 +2,7 @@
 
 > **Module**: Agent Teams - Resource Management
 > **Source**: `chunks.141.mjs` (lines 1572, 1594, 1639), `chunks.131.mjs`, hook configurations
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 
 ---
 

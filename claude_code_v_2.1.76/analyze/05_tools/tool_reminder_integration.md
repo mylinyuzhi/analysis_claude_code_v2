@@ -1,4 +1,4 @@
-# Tool-Reminder Integration (Claude Code 2.1.38)
+# Tool-Reminder Integration (Claude Code 2.1.76)
 
 > Analysis of how tools interact with the system-reminder/attachment system to inject context into conversations.
 

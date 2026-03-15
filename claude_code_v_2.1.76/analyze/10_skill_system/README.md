@@ -1,10 +1,17 @@
-# Skill System - Overview (Claude Code 2.1.38)
+# Skill System - Overview (Claude Code 2.1.76)
 
 ## Introduction
 
 Skills are reusable, user-defined workflows that extend Claude Code's capabilities. They allow users to capture repeatable processes as structured prompts that can be invoked via the Skill tool or slash commands (e.g., `/my-skill`).
 
 The skill system follows a **multi-source loading architecture** where skills are discovered from multiple locations (bundled, user, project, plugin) and merged into a unified registry. Skills are primarily **prompt-based** - they inject context into the conversation rather than executing code directly.
+
+**v2.1.76 additions:**
+- `/claude-api` built-in skill added
+- `/simplify` and `/batch` bundled commands added
+- `${CLAUDE_SKILL_DIR}` environment variable for custom skill directory location
+- Fix for skills not discovered from git worktrees
+- `InstructionsLoaded` hook event fires when skill instructions are injected
 
 ## Architecture Summary
 
@@ -17,6 +24,7 @@ The skill system follows a **multi-source loading architecture** where skills ar
 │       ├─── Managed Skills: ~/.claude/skills/                    │
 │       ├─── User Skills: ~/.claude/skills/                       │
 │       ├─── Project Skills: .claude/skills/                      │
+│       ├─── ${CLAUDE_SKILL_DIR} (v2.1.76)                       │
 │       ├─── Plugin Skills: loaded via loadPluginSkills (B0A)     │
 │       └─── Legacy Commands: .claude/commands/ (DEPRECATED)      │
 │       │                                                         │
@@ -37,6 +45,8 @@ The skill system follows a **multi-source loading architecture** where skills ar
 │       ├─── validateInput: Check skill exists and is invocable   │
 │       ├─── checkPermissions: Apply deny/allow rules             │
 │       └─── call: Execute inline or forked                       │
+│                 │                                               │
+│                 └── InstructionsLoaded hook fires (v2.1.76)    │
 │                                                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                   Execution Modes                               │
@@ -50,10 +60,11 @@ The skill system follows a **multi-source loading architecture** where skills ar
 
 | Type | Source | Directory | Use Case |
 |------|--------|-----------|----------|
-| **Bundled** | Built-in | Registration via `registerPromptSkill` (Sj) | System skills (debug, keybindings-help) |
+| **Bundled** | Built-in | Registration via `registerPromptSkill` (Sj) | System skills (debug, keybindings-help, claude-api) |
 | **Managed** | Policy | `~/.claude/skills/` | Organization/team skills |
 | **User** | User config | `~/.claude/skills/` | Personal skills |
 | **Project** | Project config | `.claude/skills/` | Project-specific workflows |
+| **Custom Dir** | `${CLAUDE_SKILL_DIR}` | Env-var specified path (v2.1.76) | Flexible skill directory |
 | **Plugin** | Marketplace | Loaded via plugin system | Third-party extensions |
 
 ## SKILL.md Format
@@ -147,4 +158,7 @@ Key functions in this document:
 - [core_architecture.md](./core_architecture.md) - Skill loading and registration details
 - [skill_tool.md](./skill_tool.md) - Skill tool implementation
 - [integrations.md](./integrations.md) - System reminder, compact, hooks integration
-- [verifier_skills.md](./verifier_skills.md) - Verifier skill subsystem (stub in 2.1.38)
+- [verifier_skills.md](./verifier_skills.md) - Verifier skill subsystem
+- [builtin_skills_reference.md](./builtin_skills_reference.md) - Built-in skills catalog
+- [skill_discovery_loading.md](./skill_discovery_loading.md) - Discovery and loading pipeline
+- [skill_reminder_integration.md](./skill_reminder_integration.md) - System reminder integration

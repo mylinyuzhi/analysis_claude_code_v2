@@ -11,6 +11,8 @@ The action system bridges keybinding matches to executable handlers. When a keys
 - **Fire-and-forget**: Handlers execute synchronously without return values
 - **Separation of concerns**: Keybinding resolution is separate from handler execution
 
+**Version**: Claude Code v2.1.76
+
 ---
 
 ## Related Symbols
@@ -181,7 +183,7 @@ Actions follow a `namespace:verb` pattern derived from the default keybindings:
 
 ```javascript
 // ============================================
-// DEFAULT_KEYBINDINGS - Built-in action mappings
+// DEFAULT_KEYBINDINGS - Built-in action mappings (excerpt)
 // Location: chunks.54.mjs:1127-1240
 // ============================================
 
@@ -212,16 +214,6 @@ Actions follow a `namespace:verb` pattern derived from the default keybindings:
         escape: "autocomplete:dismiss",
         up: "autocomplete:previous",
         down: "autocomplete:next"
-    }
-}, {
-    context: "Settings",
-    bindings: {
-        escape: "confirm:no",
-        up: "select:previous",
-        down: "select:next",
-        enter: "select:accept",
-        "/": "settings:search",
-        "r": "settings:retry"
     }
 }
 
@@ -255,7 +247,7 @@ Actions follow a `namespace:verb` pattern derived from the default keybindings:
 {
     "context": "Chat",
     "bindings": {
-        "ctrl+c": null  // Disables this keybinding in Chat context
+        "ctrl+c": null
     }
 }
 ```
@@ -267,7 +259,7 @@ When `action === null`, the resolution returns `{type: "unbound"}`, and the keys
 {
     "context": "Chat",
     "bindings": {
-        "/commit": "command:commit",    // Triggers slash command
+        "/commit": "command:commit",
         "/tasks": "command:tasks"
     }
 }
@@ -422,29 +414,7 @@ if (dependenciesChanged) {
    - Call `event.stopImmediatePropagation()` to prevent default browser behavior
 5. **Clear state**: Reset pending chord on completion, cancellation, or unbinding
 
-**Key design decisions:**
-
-**Why collect registered contexts?**
-- Prevents handlers from being unreachable if their context isn't explicitly activated
-- Handlers automatically participate in context resolution
-
-**Why first-match-wins?**
-- Predictable behavior (no ambiguity when multiple handlers exist)
-- Allows context layering: more specific contexts registered first take precedence
-- Matches browser event model (stopImmediatePropagation)
-
-**Why only dispatch on chord completion (`isChordInProgress`)?**
-- Single-key bindings complete immediately (no chord), so dispatch happens
-- Multi-key chords wait until last keystroke, then dispatch
-- This prevents partial chord matches from executing handlers
-
-**Why stop event propagation?**
-- Prevents browser default behavior (e.g., Ctrl+C copying text instead of interrupting)
-- Ensures keybinding system has exclusive control
-
 ### 3.2 Context Priority Resolution
-
-The context priority list determines which handler wins when multiple handlers exist for the same action:
 
 ```javascript
 // ============================================
@@ -486,38 +456,6 @@ if (activeContextsChanged || handlerRegistryRefChanged) {
 
 // Mapping: P→invokeAction, k→actionName, y→registry, B→handlers, S→handler, H→activeContexts, _→handlerRegistryRef
 ```
-
-**Priority logic:**
-1. **Iterate handlers in Set order** (registration order)
-2. **Check if handler's context is active** (`activeContexts.has(context)`)
-3. **Execute first match**, return true
-4. **No match** → return false (action not handled)
-
-**Example: Overlapping handlers**
-
-```javascript
-// Component A registers first:
-registerHandler({
-    action: "chat:submit",
-    context: "Chat",
-    handler: () => console.log("Handler A")
-});
-
-// Component B registers later:
-registerHandler({
-    action: "chat:submit",
-    context: "Chat",
-    handler: () => console.log("Handler B")
-});
-
-// Both contexts active → Handler A executes (first-match-wins)
-// Context "Chat" → Output: "Handler A"
-```
-
-**Why this matters:**
-- **Registration order matters**: First component to register wins
-- **Context specificity**: More specific contexts should register first
-- **Predictable behavior**: No race conditions or ambiguity
 
 ---
 
@@ -562,16 +500,6 @@ const ChatInput = () => {
 };
 ```
 
-**Why no parameters?**
-- **Separation of concerns**: Keystroke resolution is separate from handler execution
-- **Simplicity**: Handlers don't need to parse event objects
-- **Flexibility**: Handlers can access any state via closures
-
-**Why no return values?**
-- **Fire-and-forget**: Handlers execute asynchronously from keybinding resolution
-- **No error propagation**: Errors in handlers don't affect keybinding system
-- **Independent execution**: Multiple handlers could execute (future extension)
-
 ### 4.2 Async Handlers
 
 Async handlers are **not awaited**:
@@ -590,14 +518,8 @@ registerHandler({
 handler(); // Returns Promise, but not awaited
 ```
 
-**Implications:**
-- **No backpressure**: Handlers cannot block subsequent keystrokes
-- **No error handling**: Async errors must be caught within handler
-- **Race conditions possible**: Multiple rapid keypresses can trigger overlapping handlers
-
 **Best practice: Use state management**
 ```javascript
-// Better: Track state to prevent overlapping submissions
 const [isSubmitting, setIsSubmitting] = useState(false);
 
 registerHandler({
@@ -615,18 +537,11 @@ registerHandler({
 });
 ```
 
-**Design trade-off:**
-- **Pro**: Simple dispatch logic (no async complexity)
-- **Con**: Handlers must manage async state themselves
-- **Alternative**: Could use a Promise queue, but adds complexity
-
 ---
 
 ## 5. Registry Lifecycle and Cleanup
 
 ### 5.1 Component Mounting/Unmounting
-
-Handlers are automatically cleaned up when components unmount:
 
 ```javascript
 // ============================================
@@ -681,77 +596,10 @@ function useRegisterContext(contextName, isActive = true) {
 // Mapping: q36→useRegisterContext, A→contextName, q→isActive, K→cache, Y→isActive, z→keybindingContext, w→effect, H→deps, VL→useKeybindingContext, TJ1→React
 ```
 
-**Lifecycle flow:**
-
-1. **Component mounts** → `useLayoutEffect` runs
-2. **Register context** → `registerActiveContext(contextName)`
-3. **Register handlers** → `registerHandler({action, context, handler})`
-4. **Component unmounts** → Cleanup functions run
-5. **Unregister context** → `unregisterActiveContext(contextName)`
-6. **Cleanup handlers** → `handlerSet.delete(handler)` (from registration cleanup)
-
 **Why useLayoutEffect?**
 - **Synchronous registration**: Context is active before browser paint
 - **Prevents race conditions**: Handlers are registered before keystrokes can occur
 - **Consistent behavior**: Context state is stable during first render
-
-### 5.2 Dynamic Registration
-
-Handlers can be re-registered when dependencies change:
-
-```javascript
-const ChatInput = () => {
-    const [isEditing, setIsEditing] = useState(false);
-    const { registerHandler } = useKeybindingContext();
-
-    useEffect(() => {
-        if (!isEditing) return; // Conditionally register
-
-        return registerHandler({
-            action: "chat:submit",
-            context: "Chat",
-            handler: () => {
-                submitMessage();
-            }
-        });
-    }, [registerHandler, isEditing]); // Re-register when isEditing changes
-};
-```
-
-**When dependencies change:**
-1. **Old cleanup runs** → Previous handler removed from registry
-2. **New effect runs** → New handler registered with updated closure
-3. **Registry stays clean** → No stale handlers accumulate
-
-**Common dependency patterns:**
-- **State variables**: Handler behavior depends on component state
-- **Props**: Handler behavior depends on parent props
-- **Context values**: Handler uses context (e.g., user settings, session state)
-
-**Anti-pattern: Missing dependencies**
-```javascript
-// BAD: Handler has stale closure
-useEffect(() => {
-    return registerHandler({
-        action: "chat:submit",
-        context: "Chat",
-        handler: () => {
-            submitMessage(message); // 'message' is stale!
-        }
-    });
-}, [registerHandler]); // Missing 'message' dependency
-
-// GOOD: Re-register when message changes
-useEffect(() => {
-    return registerHandler({
-        action: "chat:submit",
-        context: "Chat",
-        handler: () => {
-            submitMessage(message); // Always current
-        }
-    });
-}, [registerHandler, message]); // Include 'message' dependency
-```
 
 ---
 
@@ -771,20 +619,6 @@ let contextPriority = [...registeredContexts, ...activeContexts, "Global"];
 - **Lowest priority**: Checked last after all specific contexts
 - **Fallback behavior**: Handles actions when no specific context matches
 - **Application-wide**: Keybindings work regardless of active component
-
-**Example: Global keybindings**
-```json
-{
-    "context": "Global",
-    "bindings": {
-        "ctrl+c": "app:interrupt",
-        "ctrl+d": "app:exit",
-        "ctrl+t": "app:toggleTodos"
-    }
-}
-```
-
-These bindings work everywhere unless overridden by a more specific context.
 
 ### 6.2 Context Shadowing
 
@@ -811,53 +645,11 @@ More specific contexts **shadow** Global bindings:
 - **In Transcript context**: `ctrl+c` → `"transcript:exit"` (specific context wins)
 - **In other contexts**: `ctrl+c` → `"app:interrupt"` (Global fallback)
 
-**Why shadowing is useful:**
-- **Context-specific overrides**: Customize behavior per component
-- **Graceful fallback**: Global bindings work when no override exists
-- **Predictable layering**: Explicit priority (specific > Global)
-
-### 6.3 Multi-Context Registration
-
-A component can register multiple contexts:
-
-```javascript
-const ComplexComponent = () => {
-    const { registerActiveContext, unregisterActiveContext } = useKeybindingContext();
-
-    useLayoutEffect(() => {
-        registerActiveContext("Settings");
-        registerActiveContext("Tabs");
-
-        return () => {
-            unregisterActiveContext("Settings");
-            unregisterActiveContext("Tabs");
-        };
-    }, []);
-
-    // Now both "Settings" and "Tabs" keybindings are active
-};
-```
-
-**Use cases:**
-- **Nested components**: Inner component adds context without removing parent context
-- **Composite widgets**: Widget combines multiple behavioral contexts
-- **Feature flags**: Conditionally enable context sets
-
-**Priority rule: Set iteration order**
-- Contexts are stored in a `Set`, so iteration order matches insertion order
-- Earlier-registered contexts have higher priority (first-match-wins in dispatch)
-
 ---
 
 ## 7. Design Rationale and Trade-offs
 
 ### 7.1 Why Map of Sets?
-
-**Alternative: Array of handlers**
-```javascript
-// Not chosen:
-Map<actionName: string, Array<{context, handler}>>
-```
 
 **Chosen: Map of Sets**
 ```javascript
@@ -875,16 +667,6 @@ Map<actionName: string, Set<{context, handler}>>
 
 ### 7.2 Why First-Match-Wins?
 
-**Alternative: Execute all matching handlers**
-```javascript
-// Not chosen:
-for (let handler of handlers) {
-    if (contextSet.has(handler.context)) {
-        handler.handler(); // Execute all
-    }
-}
-```
-
 **Chosen: First-match-wins**
 ```javascript
 for (let handler of handlers) {
@@ -900,17 +682,7 @@ for (let handler of handlers) {
 - **Performance**: Only one handler executes per keystroke
 - **Browser event model**: Matches `stopImmediatePropagation()` semantics
 
-**Trade-off:**
-- **Pro**: Simple mental model (one action = one handler)
-- **Con**: Can't easily broadcast actions to multiple handlers
-
 ### 7.3 Why No Handler Parameters?
-
-**Alternative: Pass event object**
-```javascript
-// Not chosen:
-handler(event, keyInfo, context);
-```
 
 **Chosen: No parameters**
 ```javascript
@@ -922,17 +694,7 @@ handler(); // Pure side-effect
 - **Closure-based state**: Handlers use React hooks or closures for state
 - **Flexibility**: Handlers can access any state, not just event data
 
-**Trade-off:**
-- **Pro**: Simple signature, easy to test
-- **Con**: Handlers must manage dependencies via React hook deps
-
 ### 7.4 Why Fire-and-Forget Async?
-
-**Alternative: Await async handlers**
-```javascript
-// Not chosen:
-await handler();
-```
 
 **Chosen: Fire-and-forget**
 ```javascript
@@ -947,141 +709,3 @@ handler(); // Don't await
 **Trade-off:**
 - **Pro**: Fast, non-blocking dispatch
 - **Con**: Handlers must manage async state themselves (loading flags, etc.)
-
----
-
-## 8. Error Handling and Edge Cases
-
-### 8.1 Missing Registry
-
-If `handlerRegistryRef.current` is null (shouldn't happen, but defensively handled):
-
-```javascript
-let registry = handlerRegistryRef.current;
-if (!registry) return false; // No-op
-```
-
-**When this could occur:**
-- Component unmounted while keystroke is processing
-- Race condition between unmount and dispatch
-
-**Mitigation:**
-- Early return prevents crashes
-- No handlers execute (safe fallback)
-
-### 8.2 No Matching Handlers
-
-If no handlers match the action or context:
-
-```javascript
-let handlers = registry.get(actionName);
-if (!handlers || handlers.size === 0) return false;
-
-for (let handler of handlers) {
-    if (activeContexts.has(handler.context)) {
-        // ... execute
-        return true;
-    }
-}
-
-return false; // No active handler found
-```
-
-**Behavior:**
-- `invokeAction()` returns `false`
-- Keystroke is not consumed
-- Event propagates to browser (default behavior)
-
-**When this happens:**
-- Action exists in keybindings but no component registered handler
-- Handler's context is not currently active
-- Handler was unregistered (component unmounted)
-
-### 8.3 Handler Throws Exception
-
-Handlers are called directly without try/catch:
-
-```javascript
-handler.handler(); // No error handling
-```
-
-**If handler throws:**
-- Exception propagates to caller (dispatch function)
-- May crash keybinding system
-- Subsequent keystrokes may fail
-
-**Best practice: Wrap handler in try/catch**
-```javascript
-registerHandler({
-    action: "chat:submit",
-    context: "Chat",
-    handler: () => {
-        try {
-            riskyOperation();
-        } catch (error) {
-            console.error("Handler error:", error);
-            showErrorToUser(error);
-        }
-    }
-});
-```
-
-**Design trade-off:**
-- **Pro**: Handlers are simple, no framework overhead
-- **Con**: No automatic error boundary (handlers must be defensive)
-
-### 8.4 Rapid Re-registration
-
-If a handler is rapidly registered/unregistered (e.g., prop changes):
-
-```javascript
-// Component re-renders frequently:
-useEffect(() => {
-    return registerHandler({...});
-}, [someProp]); // Re-registers on every change
-```
-
-**Behavior:**
-- Old handler removed from Set
-- New handler added to Set
-- Registry stays consistent (no duplicates)
-
-**Performance implications:**
-- Set operations are O(1), so minimal overhead
-- Re-registration is safe and efficient
-
----
-
-## 9. Summary
-
-### Key Takeaways
-
-1. **Registry architecture**: Two-level Map (action → Set of {context, handler})
-2. **Registration lifecycle**: React hooks manage add/remove automatically
-3. **Dispatch flow**: Resolve keystroke → Lookup action → Filter by context → Execute first match
-4. **Handler signature**: `() => void` (no parameters, no return values)
-5. **Context priority**: Specific contexts shadow Global fallback
-6. **First-match-wins**: Set iteration order determines which handler executes
-7. **Fire-and-forget**: Async handlers are not awaited
-
-### Action System Boundaries
-
-**What it does:**
-- Maps action names to executable handlers
-- Filters handlers by active context
-- Executes first matching handler
-- Manages handler lifecycle (registration/cleanup)
-
-**What it doesn't do:**
-- Parse keystrokes (handled by `resolveKeystroke`)
-- Manage chord state (handled by `KeybindingHandler`)
-- Validate keybinding configuration (handled by validation module)
-- Handle errors from handlers (handlers must be defensive)
-
-### Integration Points
-
-- **Input**: Action names from `resolveKeystroke()` (e.g., `"chat:submit"`)
-- **Output**: Handler execution (side effects in components)
-- **State**: Active contexts (Set), handler registry (Map of Sets), pending chord (Array)
-- **Lifecycle**: React hooks (`useEffect`, `useLayoutEffect`, Context API)
-

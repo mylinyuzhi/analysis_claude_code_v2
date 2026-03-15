@@ -2,7 +2,7 @@
 
 > **Module**: Agent Teams - Team Configuration
 > **Source**: `chunks.141.mjs` (lines 530-687, 759-850)
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 
 ---
 
@@ -32,10 +32,17 @@ The team configuration file (`config.json`) is the single source of truth for ag
 - Which tmux/iTerm panes are they running in?
 - What models are they using?
 - When did they join the team?
+- Are they background agents? (v2.1.76)
 
 **Persistence**: Survives session restarts. If the team lead process crashes, the config file can be used to reconstruct team state (though this isn't currently implemented).
 
 **File-based coordination**: In a distributed system where agents run in separate processes (or even separate machines), the file system provides a simple coordination mechanism without requiring a database or service.
+
+### v2.1.76 Schema Changes
+
+- `background` field added to `TeamMember` - marks an agent as a background worker
+- `activeForm` field is **no longer required** for task creation - the schema is more permissive
+- Improved handling of optional/missing fields to be more robust during partial state scenarios
 
 ---
 
@@ -108,6 +115,7 @@ interface TeamMember {
   tmuxPaneId: string;          // Tmux pane ID (e.g., "%42") or "" for in-process
   cwd: string;                 // Working directory path
   subscriptions: string[];     // Event subscriptions (currently unused)
+  background?: boolean;        // NEW in v2.1.76: marks as background worker
 }
 ```
 
@@ -129,7 +137,8 @@ interface TeamMember {
       "joinedAt": 1709596800000,
       "tmuxPaneId": "",
       "cwd": "/Users/alice/my-project",
-      "subscriptions": []
+      "subscriptions": [],
+      "background": false
     },
     {
       "agentId": "agent-mate-def456",
@@ -139,7 +148,8 @@ interface TeamMember {
       "joinedAt": 1709596850000,
       "tmuxPaneId": "%42",
       "cwd": "/Users/alice/my-project",
-      "subscriptions": []
+      "subscriptions": [],
+      "background": false
     },
     {
       "agentId": "agent-mate-ghi789",
@@ -149,11 +159,14 @@ interface TeamMember {
       "joinedAt": 1709596900000,
       "tmuxPaneId": "%43",
       "cwd": "/Users/alice/my-project",
-      "subscriptions": []
+      "subscriptions": [],
+      "background": true
     }
   ]
 }
 ```
+
+**Note**: The `test-runner` above is a background agent (`background: true`), meaning it runs as a non-interactive background worker and appears differently in the agent tab UI.
 
 ---
 
@@ -194,7 +207,8 @@ interface TeamMember {
        joinedAt: Date.now(),
        tmuxPaneId: "",  // Team lead doesn't have pane (runs in main session)
        cwd: process.cwd(),
-       subscriptions: []
+       subscriptions: [],
+       background: false
      }]
    };
    ```
@@ -234,7 +248,8 @@ interface TeamMember {
      joinedAt: Date.now(),
      tmuxPaneId: paneId,  // Populated by backend
      cwd: process.cwd(),
-     subscriptions: []
+     subscriptions: [],
+     background: params.background || false  // v2.1.76: honor background flag
    });
    ```
 
@@ -287,10 +302,10 @@ interface TeamMember {
 ### Team Name Validation
 
 **Rules**:
-- ✅ Non-empty string
-- ✅ Alphanumeric + hyphens + underscores
-- ❌ No spaces or special characters
-- ❌ No directory traversal characters (`.`, `/`, `\`)
+- Non-empty string
+- Alphanumeric + hyphens + underscores
+- No spaces or special characters
+- No directory traversal characters (`.`, `/`, `\`)
 
 **Implementation**:
 ```javascript
@@ -334,6 +349,8 @@ function sanitizeTeamName(name) {
 - `agentId` must be unique within members array
 - `tmuxPaneId` can be empty string (for in-process) or pane ID
 - `cwd` must be valid path (not validated currently)
+- `background` is optional boolean (v2.1.76), defaults to `false`
+- `activeForm` is no longer required (v2.1.76 - removed from required fields)
 
 ### Constraint: One Team Per Lead
 
@@ -375,7 +392,7 @@ function getTeamConfigPath(teamName) {
     return path.join(teamsBaseDir, teamSubdir);
 }
 
-// Mapping: ul4→getTeamConfigPath, A→teamName, lRA→path.join, QP→getTeamsBaseDirectory, cRA→getTeamSubdirectory
+// Mapping: ul4->getTeamConfigPath, A->teamName, lRA->path.join, QP->getTeamsBaseDirectory, cRA->getTeamSubdirectory
 ```
 
 ### writeTeamConfig (mSY)
@@ -411,7 +428,7 @@ function writeTeamConfig(teamName, configObject) {
     fs.writeFileSync(configFilePath, JSON.stringify(configObject, null, 2));
 }
 
-// Mapping: mSY→writeTeamConfig, A→teamName, q→configObject, K→teamDir, Y→configFilePath, ul4→getTeamConfigPath, uSY→fs.mkdirSync, lRA→path.join, c8→fs.writeFileSync, Q1→JSON.stringify
+// Mapping: mSY->writeTeamConfig, A->teamName, q->configObject, K->teamDir, Y->configFilePath, ul4->getTeamConfigPath, uSY->fs.mkdirSync, lRA->path.join, c8->fs.writeFileSync, Q1->JSON.stringify
 ```
 
 **Why JSON.stringify with indent**: Makes config human-readable for debugging. Users can inspect `~/.claude/teams/{name}/config.json` directly.
@@ -521,15 +538,15 @@ if (activeMembers.length > 0) {
 - **In-memory only**: No persistence, reconstruct on restart
 
 **Why file-based**:
-- ✅ Simple implementation (no database library needed)
-- ✅ Human-readable (users can inspect/edit config.json)
-- ✅ No locking complexity (file system provides atomicity for small writes)
-- ✅ Easy to back up (copy entire ~/.claude/teams/ directory)
+- Simple implementation (no database library needed)
+- Human-readable (users can inspect/edit config.json)
+- No locking complexity (file system provides atomicity for small writes)
+- Easy to back up (copy entire ~/.claude/teams/ directory)
 
 **Trade-offs**:
-- ❌ No transactions (multi-file updates not atomic)
-- ❌ No indexes (must read entire file to find member)
-- ❌ Race conditions possible (simultaneous writes from separate processes)
+- No transactions (multi-file updates not atomic)
+- No indexes (must read entire file to find member)
+- Race conditions possible (simultaneous writes from separate processes)
 
 ### JSON vs Binary Format
 
@@ -541,14 +558,14 @@ if (activeMembers.length > 0) {
 - **TOML** (simpler syntax)
 
 **Why JSON**:
-- ✅ Built-in JavaScript support (no extra dependencies)
-- ✅ Widely understood format
-- ✅ Easy to parse and edit manually
-- ✅ 2-space indent makes diffs readable
+- Built-in JavaScript support (no extra dependencies)
+- Widely understood format
+- Easy to parse and edit manually
+- 2-space indent makes diffs readable
 
 **Trade-offs**:
-- ❌ Larger file size than binary (not significant for config files)
-- ❌ No comments support (can't add inline documentation)
+- Larger file size than binary (not significant for config files)
+- No comments support (can't add inline documentation)
 
 ### Directory per Team vs Single Config File
 
@@ -559,23 +576,23 @@ if (activeMembers.length > 0) {
 - **Flat files**: `~/.claude/team-{name}.json` in teams dir
 
 **Why directory per team**:
-- ✅ Scales to many teams (no single-file size limit)
-- ✅ Natural grouping (config + mailbox in same directory)
-- ✅ Easy to delete team (remove directory recursively)
-- ✅ Supports per-team resources (logs, state files)
+- Scales to many teams (no single-file size limit)
+- Natural grouping (config + mailbox in same directory)
+- Easy to delete team (remove directory recursively)
+- Supports per-team resources (logs, state files)
 
 **Trade-offs**:
-- ❌ More filesystem operations (list directories to find teams)
-- ❌ No easy way to atomically update multiple teams
+- More filesystem operations (list directories to find teams)
+- No easy way to atomically update multiple teams
 
 ### Recursive: true for mkdirSync
 
 **Chosen approach**: Always use `{ recursive: true }`
 
 **Why**:
-- ✅ Creates parent directories automatically (`~/.claude/` if needed)
-- ✅ Idempotent (doesn't fail if directory exists)
-- ✅ Simplifies code (no need to check existence first)
+- Creates parent directories automatically (`~/.claude/` if needed)
+- Idempotent (doesn't fail if directory exists)
+- Simplifies code (no need to check existence first)
 
 **Trade-off**: Slightly slower than non-recursive (checks all parents), but negligible for small depth.
 

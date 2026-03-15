@@ -2,7 +2,7 @@
 
 ## Module Overview
 
-This document provides deep analysis of the task system's state machine, status transitions, validation logic, and lifecycle management in Claude Code v2.1.38.
+This document provides deep analysis of the task system's state machine, status transitions, validation logic, and lifecycle management in Claude Code v2.1.76.
 
 ## Related Symbols
 

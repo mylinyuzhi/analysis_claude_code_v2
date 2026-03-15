@@ -2,12 +2,6 @@
 
 > Symbol mapping table Part 3: Platform, protocols, and infrastructure
 > Lookup: Browse by module, or Ctrl+F search for obfuscated/readable name.
->
-> **VERIFICATION STATUS**:
-> - ✓ = Verified correct in v2.1.76 source
-> - ⚠️ = Location changed, needs update
-> - ❌ = Symbol changed or mapping incorrect
-> - ? = Not yet verified
 
 ---
 
@@ -58,28 +52,31 @@
 | Pf5 | isAttributionHeaderEnabled | chunks.47.mjs:2484 | function |
 | xG1 | GLOBAL_CACHE_MARKER | chunks.169.mjs:216 | constant (cache boundary delimiter) |
 | Zf5 | getFirstUserMessageText | chunks.47.mjs:2528 | function (extracts text for hash) |
+| - | modelOverrides | settings | config key (per-model configuration overrides map) |
+| - | includeGitInstructions | settings | config key (include git-specific instructions in system prompt) |
+| CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS | DISABLE_GIT_INSTRUCTIONS_ENV | process.env | environment variable |
 
 ---
 
 ## Module: MCP Protocol
 
-| Obfuscated | Readable | File:Line | Type | Status |
-|------------|----------|-----------|------|--------|
-| ce | parseMcpCliCommand | chunks.174.mjs:2627 | function | ? UNVERIFIED |
-| CYz | processMcpCliResult | chunks.170.mjs:473 | function | ? UNVERIFIED |
-| ECA | callMcpServer | chunks.145.mjs:1627 | function | ? UNVERIFIED |
-| CJq | updateMcpSessionState | chunks.174.mjs:353 | function | ? UNVERIFIED |
-| FOq | buildMcpCliInstructions | chunks.169.mjs:264 | function | ? UNVERIFIED |
-| hc | getMcpCliCacheDir | chunks.174.mjs:282 | function | ? UNVERIFIED |
-| ST6 | getMcpSessionFilePath | chunks.174.mjs:311 | function | ? UNVERIFIED |
-| ln4 | McpMetaTool | chunks.144.mjs:309 | object | ? UNVERIFIED |
-| A11 | mcpCliProgram | chunks.175.mjs:452442 | object (Commander) | ? UNVERIFIED |
-| yHz | executeMcpTool | chunks.175.mjs:452355 | function | ? UNVERIFIED |
-| rH6 | McpClient | chunks.25.mjs:1086 | class | ⚠️ LOCATION CHANGED (was chunks.79.mjs) |
-| SJA | StdioClientTransport | chunks.79.mjs:1922 | class | ? UNVERIFIED |
-| zY1 | callRemoteMcpEndpoint | chunks.175.mjs:452318 | function | ? UNVERIFIED |
-| mFA | parseToolIdentifier | chunks.175.mjs:452309 | function | ? UNVERIFIED |
-| SHz | runMcpCliCommand | chunks.175.mjs:452397 | function | ? UNVERIFIED |
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ce | parseMcpCliCommand | chunks.174.mjs:2627 | function |
+| CYz | processMcpCliResult | chunks.170.mjs:473 | function |
+| ECA | callMcpServer | chunks.145.mjs:1627 | function |
+| CJq | updateMcpSessionState | chunks.174.mjs:353 | function |
+| FOq | buildMcpCliInstructions | chunks.169.mjs:264 | function |
+| hc | getMcpCliCacheDir | chunks.174.mjs:282 | function |
+| ST6 | getMcpSessionFilePath | chunks.174.mjs:311 | function |
+| ln4 | McpMetaTool | chunks.144.mjs:309 | object |
+| A11 | mcpCliProgram | chunks.175.mjs:452442 | object (Commander) |
+| yHz | executeMcpTool | chunks.175.mjs:452355 | function |
+| rH6 | McpClient | chunks.79.mjs:214313 | class |
+| SJA | StdioClientTransport | chunks.79.mjs:1922 | class |
+| zY1 | callRemoteMcpEndpoint | chunks.175.mjs:452318 | function |
+| mFA | parseToolIdentifier | chunks.175.mjs:452309 | function |
+| SHz | runMcpCliCommand | chunks.175.mjs:452397 | function |
 
 ### MCP Transport Layer
 
@@ -92,12 +89,12 @@
 
 ### MCP Hub & Context
 
-| Obfuscated | Readable | File:Line | Type | Status |
-|------------|----------|-----------|------|--------|
-| nXq | McpHub | chunks.165.mjs:864 | class | ⚠️ LOCATION CHANGED (was chunks.175.mjs) |
-| ZQA | MCPContext | chunks.28.mjs:1716 | class | ❌ INCORRECT - is serializer middleware |
-| K11 | onChangeAppStateHandler | chunks.176.mjs:581 | function | ? UNVERIFIED |
-| Jf1 | findMcpClientByServerName | chunks.175.mjs:1211 | function | ? UNVERIFIED |
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| nXq | McpHub | chunks.175.mjs:1897 | class |
+| ZQA | MCPContext | chunks.176.mjs:2333 | class |
+| K11 | onChangeAppStateHandler | chunks.176.mjs:581 | function |
+| Jf1 | findMcpClientByServerName | chunks.175.mjs:1211 | function |
 
 ### MCP CLI Subcommands
 
@@ -117,27 +114,10 @@
 | XVq | mergeMcpClients | chunks.186.mjs:163 | function |
 | sgA | mergeCommands | chunks.186.mjs:177 | function |
 | WWq | ElicitationDialog | chunks.188.mjs:1247 | function |
-
-### MCP Elicitation (NEW in v2.1.76)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| Fq | UrlElicitationRequired | chunks.5.mjs:2131 | constant (error code -32042) |
-| Aq | McpError | chunks.5.mjs:2649 | class |
-| handleElicitation | handleElicitation | chunks.184.mjs:2185 | method |
-| tx6 | processElicitationResponse | chunks.58.mjs:50 | function |
-| iaY | detectElicitationMode | chunks.58.mjs | function |
-| xq1 | isElicitationEnabled | chunks.58.mjs | function |
-| n1 | logElicitationDebug | chunks.58.mjs | function |
-
-### MCP Elicitation Hook Schemas
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| EfY | ElicitationHookInputSchema | chunks.131.mjs:2426 | schema |
-| _fY | ElicitationResultHookInputSchema | chunks.131.mjs:2434 | schema |
-| NfY | ElicitationHookOutputSchema | chunks.131.mjs:2512 | schema |
-| RfY | ElicitationResultHookOutputSchema | chunks.131.mjs:2516 | schema |
+| RV6 | setupElicitationRequestHandler | chunks.156.mjs:1540 | function (MCP elicitation handler; handles server elicitation requests) |
+| - | ElicitationRequestSchema | chunks.156.mjs | schema (MCP elicitation request Zod schema) |
+| - | ElicitationResponseSchema | chunks.156.mjs | schema (MCP elicitation response Zod schema) |
+| - | oauth.authServerMetadataUrl | settings | config key (OAuth metadata URL for MCP servers) |
 
 ---
 
@@ -156,6 +136,9 @@
 | _6Y | initInternalTelemetry | chunks.109.mjs:2550 | function |
 | EK | recordPerformanceMark | chunks.1.mjs:4317 | function |
 | HiA | getProfilingReport | chunks.1.mjs:4330 | function |
+| - | feedbackSurveyRate | settings | config key (session quality survey trigger rate 0-1) |
+| - | speed | telemetry | OTel attribute (marks fast mode events) |
+| - | tool_decision | telemetry | OTel event (tool permission decision in headless mode) |
 
 ### Query Profiling
 
@@ -252,6 +235,7 @@
 | Lzz | isCommandInExcludedList | chunks.172.mjs:1741 (Ln 443548) | function |
 | Ezz | checkBashPermissionWithSandbox | chunks.172.mjs:1363 (Ln ~443181) | function |
 | nBY | getSandboxSystemPromptBlock | chunks.146.mjs:883 (Ln 372152) | function |
+| - | enableWeakerNetworkIsolation | settings | config key (macOS: allow Go TLS with custom proxy) |
 
 ### Sandbox Permission Sync (Swarm)
 
@@ -326,6 +310,9 @@
 | DH1 | fetchOAuthProfileRaw | chunks.16.mjs:1235 (Ln 50733) | function |
 | uQ | isOAuthTokenExpiring | chunks.16.mjs:1398 (Ln 50891) | function |
 | QF6 | storeOAuthAccountInfo | chunks.16.mjs:1467 (Ln 50957) | function |
+| - | authLoginCommand | chunks.189.mjs | function (claude auth login CLI subcommand) |
+| - | authStatusCommand | chunks.189.mjs | function (claude auth status CLI subcommand) |
+| - | authLogoutCommand | chunks.189.mjs | function (claude auth logout CLI subcommand) |
 
 ### Credential Storage
 
@@ -525,6 +512,10 @@
 | KR6 | setJsonSchema | chunks.179.mjs | function (sets JSON schema for structured output validation) |
 | Gv6 | PermissionToolResponseSchema | chunks.178.mjs | Zod schema (validates MCP tool permission response) |
 | zJ6 | HookCallbackResponseSchema | chunks.178.mjs | Zod schema (validates hook callback response) |
+| - | SDKRateLimitInfo | chunks.178.mjs | type (rate limit info object) |
+| - | SDKRateLimitEvent | chunks.178.mjs | type (rate limit event type) |
+| - | supportsEffort | chunks.178.mjs | field (capability: model supports effort levels) |
+| - | supportsAdaptiveThinking | chunks.178.mjs | field (capability: model supports adaptive thinking) |
 
 ### SDK Permission Handling
 
@@ -557,5 +548,4 @@
 | createHookCallback | createHookCallback | chunks.178.mjs:1209-1226 | method (creates callback wrapper for SDK hook execution) |
 
 ---
-
 

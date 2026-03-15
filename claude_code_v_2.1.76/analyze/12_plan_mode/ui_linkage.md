@@ -1,4 +1,4 @@
-# Plan Mode - UI Linkage Analysis (Claude Code 2.1.38)
+# Plan Mode - UI Linkage Analysis (Claude Code 2.1.76)
 
 > Complete reverse engineering of every UI component that renders, updates, or responds to Plan Mode state.
 
@@ -395,7 +395,7 @@ This allows `ExitPlanMode` to restore exactly the mode the user was in before pl
 
 ## 7. Keyboard Shortcut
 
-Plan mode can be activated via `/plan` slash command (in addition to Shift+Tab cycling).
+Plan mode can be activated via `/plan` slash command (in addition to Shift+Tab cycling). As of v2.1.72, `/plan` accepts an optional description argument: `/plan [description]`. When a description is provided, it is used as the initial task description injected into the planning context.
 
 From the status bar footer hint: the `cycleMode` keybinding is displayed as a cycle hint next to the mode name. The keybinding is looked up via `RK("chat:cycleMode", "Chat", "shift+tab")`.
 
@@ -499,7 +499,7 @@ When a plan file exists (rendered at `chunks.181.mjs:763-848`):
 │ Ready to code?                                           │
 ╰──────────────────────────────────────────────────────────╯
   Here is Claude's plan:
-  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌   ← dashed border (top/bottom only)
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌   ← dashed border (top/bottom only)
   ## Implementation Plan                        ← plan content rendered as Markdown
   1. Modify auth/handler.js at line 45...
   2. Add JWT validation middleware...

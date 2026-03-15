@@ -1,4 +1,4 @@
-# Background Agents — Kill Handlers (Claude Code 2.1.38)
+# Background Agents — Kill Handlers (Claude Code 2.1.76)
 
 > Analysis of the kill handler system for background tasks: different termination strategies
 > for bash commands, local agents, and remote sessions.

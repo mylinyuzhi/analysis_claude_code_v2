@@ -331,7 +331,7 @@ When no `permissionPromptToolName` is set, permissions use the bidirectional `co
         "tool_name": "Bash",
         "input": {"command": "rm -rf /tmp/test"},
         "tool_use_id": "tu_xxx",
-        "permission_suggestions": [          // NEW: Suggested permission rules
+        "permission_suggestions": [          // Suggested permission rules
             {
                 "rule": "allow",
                 "type": "tool",
@@ -548,31 +548,27 @@ The `initialize` control response includes available tools:
         "subtype": "success",
         "request_id": "<uuid>",
         "response": {
-            "tools": ["Bash", "Read", "Write", "Edit", "Glob", "Grep", ...],
-            "mcp_tools": ["mcp_server_name.tool_name", ...],
-            ...
+            "tools": [
+                "Bash", "Read", "Write", "Edit", "Glob", "Grep",
+                "TaskOutput", "WebFetch", "WebSearch", "TaskCreate",
+                "TaskList", "TaskGet", "TaskUpdate", "TaskStop",
+                "NotebookEdit", "ExitPlanMode", "EnterPlanMode",
+                "AskUserQuestion", "Skill", "Agent"
+            ],
+            "mcp_tools": [
+                "mcp_server1.tool1",
+                "mcp_server1.tool2",
+                "mcp_server2.tool1"
+            ],
+            "commands": [
+                { "name": "help", "description": "Show help" },
+                { "name": "clear", "description": "Clear conversation" }
+            ],
+            "models": ["claude-opus-4-6", "claude-sonnet-4-6"],
+            // ...
         }
     }
 }
-```
-
----
-
-## Tool Filtering in SDK Mode
-
-### Allowed Tools Configuration
-
-SDK clients can restrict which tools are available through CLI flags:
-
-```bash
-# Only allow specific tools
---allowed-tools Bash Read Write
-
-# Allow all except specific tools
---disallowed-tools WebSearch WebFetch
-
-# Specify exact tool set (JSON format)
---tools '["Bash", "Read", "Write"]'
 ```
 
 ### Tool Filtering Logic
@@ -615,40 +611,6 @@ function parseAgentConfig(agentType, jsonString, source = "flagSettings") {
 }
 ```
 
-### Tool Discovery in Initialize Response
-
-The `initialize` control response includes available tools for SDK client reference:
-
-```javascript
-{
-    "type": "control_response",
-    "response": {
-        "subtype": "success",
-        "request_id": "<uuid>",
-        "response": {
-            "tools": [
-                "Bash", "Read", "Write", "Edit", "Glob", "Grep",
-                "TaskOutput", "WebFetch", "WebSearch", "TaskCreate",
-                "TaskList", "TaskGet", "TaskUpdate", "TaskStop",
-                "NotebookEdit", "ExitPlanMode", "EnterPlanMode",
-                "AskUserQuestion", "Skill", "Agent"
-            ],
-            "mcp_tools": [
-                "mcp_server1.tool1",
-                "mcp_server1.tool2",
-                "mcp_server2.tool1"
-            ],
-            "commands": [
-                { "name": "help", "description": "Show help" },
-                { "name": "clear", "description": "Clear conversation" }
-            ],
-            "models": ["claude-opus-4-6", "claude-sonnet-4-6"],
-            // ...
-        }
-    }
-}
-```
-
 ---
 
 ## MCP Tool Integration for SDK Sessions
@@ -665,20 +627,6 @@ SDK sessions can connect MCP servers through two mechanisms:
 2. **Permission Prompt Tool** (`--permission-prompt-tool`)
    - Special MCP tool for handling permissions programmatically
    - Routes permission requests through MCP instead of control_request
-
-### MCP Tool Discovery Response
-
-When MCP servers are connected, discovered tools are included in the session:
-
-```javascript
-// MCP tools are prefixed with server name
-"mcp_tools": [
-    "mcp_filesystem.read_file",
-    "mcp_filesystem.write_file",
-    "mcp_github.search_repos",
-    "mcp_permission_handler.check_permission"
-]
-```
 
 ### Permission Tool vs Standard Permission Flow
 
@@ -697,62 +645,6 @@ Tool requires permission
     │           └── Wait for control_response
     │
     └── Permission result determines tool execution
-```
-
-### Setting Up Permission Prompt Tool
-
-```bash
-# CLI usage with permission prompt tool
-claude --print --output-format=stream-json \
-       --permission-prompt-tool my_permission_handler \
-       --mcp-config mcp_config.json
-```
-
-```javascript
-// MCP server configuration
-{
-    "mcpServers": {
-        "permission_server": {
-            "command": "node",
-            "args": ["permission-server.js"]
-        }
-    }
-}
-
-// Permission tool implementation
-server.tool(
-    "my_permission_handler",
-    {
-        type: "object",
-        properties: {
-            tool_name: { type: "string" },
-            input: { type: "object" },
-            tool_use_id: { type: "string" }
-        }
-    },
-    async (params) => {
-        if (isAllowed(params.tool_name, params.input)) {
-            return {
-                content: [{
-                    type: "text",
-                    text: JSON.stringify({
-                        behavior: "allow",
-                        updatedPermissions: []
-                    })
-                }]
-            };
-        }
-        return {
-            content: [{
-                type: "text",
-                text: JSON.stringify({
-                    behavior: "deny",
-                    message: "Not allowed by policy"
-                })
-            }]
-        };
-    }
-);
 ```
 
 ---

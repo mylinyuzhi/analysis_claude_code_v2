@@ -2,7 +2,7 @@
 
 > Module: System Reminders (Attachments-to-API normalization)
 > Source: `chunks.173.mjs:490-1131`, `chunks.172.mjs:2876-2912`, `chunks.142.mjs:1948-1965`
-> Version: Claude Code 2.1.38
+> Version: Claude Code 2.1.76
 
 ---
 
@@ -17,6 +17,7 @@
 - [Key Design Decision: Why User Messages?](#key-design-decision-why-user-messages)
 - [The System-Reminder XML Tag Wrapper](#the-system-reminder-xml-tag-wrapper)
 - [Plan Mode Reminder Variants](#plan-mode-reminder-variants)
+- [v2.1.76 Changes](#v2176-changes)
 - [Related Symbols](#related-symbols)
 
 > **UI Linkage deep-dive**: See [ui_linkage.md](./ui_linkage.md) for complete analysis of how `isMeta` messages are filtered from the UI, the API message preparation pipeline, and all non-UI uses of the `isMeta` flag.
@@ -63,6 +64,8 @@ The system reminder pipeline has three layers:
                │     ├─> todo_reminders (fIY/NIY)
                │     ├─> skill_listing (OIY)
                │     ├─> team_context (LIY) [if team mode]
+               │     ├─> post_compact responses (v2.1.76)
+               │     ├─> session_name (v2.1.76)
                │     └─> ... (14+ producers total)
                │
                └─> Group 3: Main-Agent-Only (Parallel with Group 2)
@@ -70,6 +73,7 @@ The system reminder pipeline has three layers:
                      ├─> diagnostics (PIY/WIY)
                      ├─> token_usage (RIY)
                      ├─> queued_commands (dhY)
+                     ├─> cron_job reminders (v2.1.76)
                      └─> ... (11 producers total)
                      [Skipped if subagent]
                │
@@ -81,7 +85,7 @@ The system reminder pipeline has three layers:
 │                  (K2z - normalizeAttachmentForAPI)                    │
 │                     chunks.173.mjs:698-1131                          │
 │                                                                       │
-│   • 57-case switch statement                                         │
+│   • 57+ case switch statement                                        │
 │   • Converts typed attachment → formatted message(s)                 │
 │   • Applies <system-reminder> XML tags via _9() wrapper              │
 │   • Returns array of TenguMessage objects                            │
@@ -120,14 +124,14 @@ Raw State/Events → Attachment Objects → Normalized Messages → API Messages
 The `phY` function (`assembleAttachments`) orchestrates **parallel computation** of all attachment types. It groups producers into three categories:
 
 1. **User-message-dependent** (`_` array): `at_mentioned_files`, `mcp_resources`, `agent_mentions` -- only computed when a user message (`A`) is present
-2. **Always-computed** (`X` array): `changed_files`, `nested_memory`, `dynamic_skill`, `skill_listing`, `plan_mode`, `plan_mode_exit`, `delegate_mode`, `todo_reminders`, `teammate_mailbox`, `team_context`, `critical_system_reminder`
-3. **Main-agent-only** (`D` array): `ide_selection`, `ide_opened_file`, `output_style`, `diagnostics`, `lsp_diagnostics`, `unified_tasks`, `async_hook_responses`, `token_usage`, `budget_usd`, `verify_plan_reminder`, `queued_commands` -- skipped for sub-agents (`O = !q.agentId`)
+2. **Always-computed** (`X` array): `changed_files`, `nested_memory`, `dynamic_skill`, `skill_listing`, `plan_mode`, `plan_mode_exit`, `delegate_mode`, `todo_reminders`, `teammate_mailbox`, `team_context`, `critical_system_reminder`, `session_name` (v2.1.76), `post_compact` (v2.1.76)
+3. **Main-agent-only** (`D` array): `ide_selection`, `ide_opened_file`, `output_style`, `diagnostics`, `lsp_diagnostics`, `unified_tasks`, `async_hook_responses`, `token_usage`, `budget_usd`, `verify_plan_reminder`, `queued_commands`, `cron_job` (v2.1.76) -- skipped for sub-agents (`O = !q.agentId`)
 
 Each producer is wrapped in `gw()` (`timedAttachmentProducer`), which measures execution time and reports telemetry at a 5% sampling rate. If any producer throws, it logs the error and returns an empty array, preventing one failure from blocking all reminders.
 
 ### Layer 2: Normalizer - K2z (chunks.173.mjs:698-1131)
 
-The `K2z` function (`normalizeAttachmentForAPI`) is the central dispatcher. It receives a typed attachment object and returns an array of formatted message objects ready for the API. It is a giant **switch statement** with 40+ cases covering every reminder type.
+The `K2z` function (`normalizeAttachmentForAPI`) is the central dispatcher. It receives a typed attachment object and returns an array of formatted message objects ready for the API. It is a giant **switch statement** with 57+ cases covering every reminder type.
 
 ### Layer 3: Message Formatting (chunks.172.mjs:2876-2912)
 
@@ -381,7 +385,7 @@ function K2z(A) {
     switch (A.type) {
         case "directory": return _9([pd1(qq.name, { command: `ls ${R7([A.path])}`, ... }), Ud1(qq, { stdout: A.content, ... })]);
         case "edited_text_file": return _9([c6({ content: `Note: ${A.filename} was modified...`, isMeta: !0 })]);
-        // ... 40+ more cases
+        // ... 55+ more cases
     }
     if (["autocheckpointing", "background_task_status"].includes(A.type)) return [];
     return Yk("normalizeAttachmentForAPI", Error(`Unknown attachment type: ${A.type}`)), []
@@ -396,7 +400,7 @@ function normalizeAttachmentForAPI(attachment) {
         if (attachment.type === "team_context")
             return [createUserMessage({ content: `<system-reminder>...team coordination...`, isMeta: true })];
     }
-    // Main switch: 40+ attachment types
+    // Main switch: 57+ attachment types
     switch (attachment.type) {
         case "directory":
             return wrapWithSystemReminderTags([
@@ -609,8 +613,8 @@ The `phY` function (`assembleAttachments`) in `chunks.142.mjs:1948-1965` is the 
 
 2. **Three parallel groups** are computed:
    - `_` (user-message-dependent): at-mentioned files, MCP resources, agent mentions -- only when processing a user message
-   - `X` (always-computed): changed files, nested memory, skills, plan mode, delegate mode, todos, team context, critical reminders
-   - `D` (main-agent-only): IDE selection, IDE opened file, output style, diagnostics, LSP diagnostics, unified tasks, async hooks, token/budget usage, verify plan, queued commands
+   - `X` (always-computed): changed files, nested memory, skills, plan mode, delegate mode, todos, team context, critical reminders, session name (v2.1.76), post_compact responses (v2.1.76)
+   - `D` (main-agent-only): IDE selection, IDE opened file, output style, diagnostics, LSP diagnostics, unified tasks, async hooks, token/budget usage, verify plan, queued commands, cron_job reminders (v2.1.76)
 
 3. **Parallel execution**: All three groups run via `Promise.all` concurrently, and results are flattened into a single array.
 
@@ -827,6 +831,39 @@ This prevents the full plan mode instructions (which can be very long) from bein
 
 **Plan mode reentry detection:**
 When a plan file exists and a `plan_mode_reentry` flag is set, the system injects additional guidance telling the model to evaluate whether the existing plan is still relevant to the current request.
+
+**v2.1.76 change:** The `/plan` command now supports an optional description argument, which is passed into the plan mode attachment to provide initial task context.
+
+---
+
+## v2.1.76 Changes
+
+### New Hook Types
+
+Seven new hook event types were added to the system reminder pipeline. These correspond to new lifecycle events in the hooks system:
+
+- **PostCompact** - Fires after auto-compaction completes; allows hooks to inject context into the freshly compacted session
+- **Elicitation** - Fires when an MCP server initiates an elicitation request; delivers the elicitation UI/prompt to the model
+- **ElicitationResult** - Fires when the user responds to an elicitation; provides the result back to the hook
+- **InstructionsLoaded** - Fires when skill instructions are loaded; allows hooks to intercept and modify instruction content
+- **ConfigChange** - Fires when Claude Code configuration changes at runtime; notifies model of new settings
+- **WorktreeCreate** - Fires when a git worktree is created; provides worktree context for multi-worktree workflows
+- **WorktreeRemove** - Fires when a git worktree is removed; cleans up worktree-specific state
+
+### New Reminder Types
+
+- **session_name** - Injects the current session name as a reminder; helps with session continuity and identification
+- **cron_job** - Reminds the model when running inside a `/loop` cron job context; provides scheduling information
+
+### Skill System Updates
+
+- **CLAUDE_SKILL_DIR environment variable** - Skills can now be discovered from a directory specified via `${CLAUDE_SKILL_DIR}`. The skill listing attachment now queries this path in addition to the standard locations.
+- **InstructionsLoaded hook** - When skill instructions are loaded via the `invoked_skills` type, an `InstructionsLoaded` hook event fires, enabling hook scripts to react to or modify which instructions are active.
+- **Last-modified timestamps** - Memory file headers (for `nested_memory` type from CLAUDE.md files) now include the file's last-modified timestamp, helping the model detect when memory files have been updated.
+
+### Task Tool Updates
+
+- **TaskCreate/TaskUpdate/TaskGet/TaskList** - These tools no longer require an `activeForm` context. In v2.1.38, task tools were only available when a specific form/workflow was active. In v2.1.76, they are always available when the task system is enabled, making task management more accessible throughout the session.
 
 ---
 

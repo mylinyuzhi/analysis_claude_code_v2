@@ -37,21 +37,22 @@ Claude Code's startup is divided into four distinct phases, each loaded lazily t
 Phase 1: Bootstrap (cli.chunks.mjs)
   └─ calls qZz (cliEntry)
 
-Phase 2: qZz - Early routing (chunks.190.mjs:167)
+Phase 2: qZz - Early routing (chunks.198.mjs:167)
   ├─ --version          → print & exit
   ├─ --mcp-cli          → mcpCliMain() & exit
   ├─ --ripgrep          → ripgrepMain() & exit
   ├─ --claude-in-chrome-mcp → runClaudeInChromeMcpServer() & return
   ├─ --chrome-native-host   → runChromeNativeHost() & return
+  ├─ auth login|status|logout → authSubcommand() & return  [New in v2.1.76]
   └─ (default)          → startCapturingEarlyInput(), then lazy-import main
 
-Phase 3: nGz - Environment setup (chunks.189.mjs:931)
+Phase 3: nGz - Environment setup (chunks.197.mjs:931)
   ├─ Telemetry markers (EK calls)
   ├─ determineEntrypoint (iGz) → sets CLAUDE_CODE_ENTRYPOINT
   ├─ Determine client type (H variable)
   └─ calls aGz() (Commander setup)
 
-Phase 4: aGz - Commander + REPL (chunks.190.mjs / chunks.188.mjs)
+Phase 4: aGz - Commander + REPL (chunks.198.mjs / chunks.196.mjs)
   ├─ preAction: migrations, remote settings
   ├─ action handler: builds initialState (~35 fields), routes to render path
   └─ Renders TUA (REPL component) via renderFullscreenComponent
@@ -59,7 +60,7 @@ Phase 4: aGz - Commander + REPL (chunks.190.mjs / chunks.188.mjs)
 
 ### Why Lazy Loading?
 
-The `Promise.resolve().then(() => (...))` pattern used throughout `qZz` is the bundler's code-split syntax. Instead of loading all 190 chunks at startup, each subcommand path loads only what it needs. This means:
+The `Promise.resolve().then(() => (...))` pattern used throughout `qZz` is the bundler's code-split syntax. Instead of loading all 198 chunks at startup, each subcommand path loads only what it needs. This means:
 
 - `--ripgrep` never loads React, Ink, MCP, or any tool definitions
 - `--mcp-cli` never loads the REPL or UI components
@@ -80,7 +81,7 @@ This reduces cold-start latency for single-purpose invocations (e.g., ripgrep pa
 ```javascript
 // ============================================
 // cliEntry - Top-level CLI entry point with subcommand routing
-// Location: chunks.190.mjs:167-222
+// Location: chunks.198.mjs:167-222
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -114,6 +115,12 @@ async function qZz() {
         q("cli_chrome_native_host_path");
         let { runChromeNativeHost: w } = await Promise.resolve().then(() => (aXq(), oXq));
         await w();
+        return
+    }
+    // [New in v2.1.76] auth subcommand dispatch
+    if (A[0] === "auth" && ["login", "status", "logout"].includes(A[1])) {
+        let { authSubcommand: w } = await Promise.resolve().then(() => (authChunk(), authExports));
+        await w(A[1]);
         return
     }
     let K = A.includes("--tmux") || A.includes("--tmux=classic");
@@ -171,6 +178,14 @@ async function cliEntry() {
         return;
     }
 
+    // [New in v2.1.76] Auth subcommand: claude auth login|status|logout
+    // Routes to auth subsystem before loading Commander or the main REPL
+    if (args[0] === "auth" && ["login", "status", "logout"].includes(args[1])) {
+        let { authSubcommand } = await import(authChunk);
+        await authSubcommand(args[1]);
+        return;
+    }
+
     // Normalize --update/--upgrade to the "update" subcommand
     if (args.length === 1 && (args[0] === "--update" || args[0] === "--upgrade"))
         process.argv = [process.argv[0], process.argv[1], "update"];
@@ -180,7 +195,7 @@ async function cliEntry() {
     startCapturingEarlyInput();
 
     profileCheckpoint("cli_before_main_import");
-    let { main } = await import(mainChunk);  // Heavy load: all ~190 chunks
+    let { main } = await import(mainChunk);  // Heavy load: all ~198 chunks
     profileCheckpoint("cli_after_main_import");
     await main();
     profileCheckpoint("cli_after_main_complete");
@@ -204,11 +219,13 @@ async function cliEntry() {
    - `--claude-in-chrome-mcp`: Runs Claude Code as an MCP server that controls Chrome via the Chrome DevTools Protocol. This is how the "Claude in Chrome" browser extension communicates.
    - `--chrome-native-host`: Runs the Chrome Native Messaging host protocol, which is the IPC bridge between Chrome extensions and native applications.
 
-6. **Update normalization:** Rewrites `process.argv` in-place before the Commander parser sees it. This is a quirky but necessary transformation: older versions used `--update` as a flag, but current versions have an `update` subcommand. The in-place rewrite is transparent to Commander.
+6. **Auth subcommand routing (New in v2.1.76):** `claude auth login`, `claude auth status`, and `claude auth logout` are intercepted in the early dispatch table before the heavy main module loads. This keeps auth operations lightweight and avoids loading the REPL for common credential management tasks.
 
-7. **Early input capture:** `startCapturingEarlyInput()` begins buffering stdin keystrokes before the 100-400ms it takes to load the main module. Without this, fast typists would lose characters typed while the module loads.
+7. **Update normalization:** Rewrites `process.argv` in-place before the Commander parser sees it. This is a quirky but necessary transformation: older versions used `--update` as a flag, but current versions have an `update` subcommand. The in-place rewrite is transparent to Commander.
 
-8. **Main module lazy import:** The actual REPL/Commander setup lives in the lazily imported `main` chunk. This deferred import is the key architectural choice: the bootstrap can perform all routing decisions while keeping the initial bundle small.
+8. **Early input capture:** `startCapturingEarlyInput()` begins buffering stdin keystrokes before the 100-400ms it takes to load the main module. Without this, fast typists would lose characters typed while the module loads.
+
+9. **Main module lazy import:** The actual REPL/Commander setup lives in the lazily imported `main` chunk. This deferred import is the key architectural choice: the bootstrap can perform all routing decisions while keeping the initial bundle small.
 
 ### Why this approach
 
@@ -233,7 +250,7 @@ Sets the `CLAUDE_CODE_ENTRYPOINT` environment variable to one of several string 
 ```javascript
 // ============================================
 // determineEntrypoint - Classify launch context via env var
-// Location: chunks.189.mjs:916-930
+// Location: chunks.197.mjs:916-930
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -316,7 +333,7 @@ function determineEntrypoint(isNonInteractive) {
 ```javascript
 // ============================================
 // mainEntry - Full startup orchestrator
-// Location: chunks.189.mjs:931-957
+// Location: chunks.197.mjs:931-957
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -447,7 +464,7 @@ Constructs the configuration object passed to Ink's `render()` function. Critica
 ```javascript
 // ============================================
 // createRenderOptions - Ink render config with FPS and flicker tracking
-// Location: chunks.189.mjs:958-983
+// Location: chunks.197.mjs:958-983
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -543,7 +560,7 @@ Determines how to handle stdin: if it is a TTY (interactive terminal), pass the 
 ```javascript
 // ============================================
 // handleStdinInput - Stdin pipe reading and stream-json routing
-// Location: chunks.189.mjs:984-1000
+// Location: chunks.197.mjs:984-1000
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -617,7 +634,7 @@ The three rendering primitives (`mGz`, `LF`, `$l1`) form a layered abstraction o
 ```javascript
 // ============================================
 // renderWithCallback - Render a component and resolve when it calls done()
-// Location: chunks.189.mjs:741-752
+// Location: chunks.197.mjs:741-752
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -650,7 +667,7 @@ function renderWithCallback(inkInstance, componentFactory) {
 ```javascript
 // ============================================
 // renderFullscreenComponent - Fullscreen dialog with AppStateProvider
-// Location: chunks.189.mjs:748-753
+// Location: chunks.197.mjs:748-753
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -691,7 +708,7 @@ The `options?.onChangeAppState` is only passed during REPL rendering (where `K11
 ```javascript
 // ============================================
 // renderAndWait - Render a full Ink app and await its exit
-// Location: chunks.189.mjs:754-757
+// Location: chunks.197.mjs:754-757
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -730,7 +747,7 @@ Orchestrates a sequential series of modal dialogs that must be completed before 
 ```javascript
 // ============================================
 // showSetupScreens - Sequential onboarding/trust dialog orchestrator
-// Location: chunks.189.mjs:758-851
+// Location: chunks.197.mjs:758-851
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -1500,7 +1517,7 @@ The markers allow the profiling system (loaded as the very first dynamic import 
 ```javascript
 // ============================================
 // cleanupOnExit - Restore terminal cursor on process exit
-// Location: chunks.189.mjs:2144-2147
+// Location: chunks.197.mjs:2144-2147
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -1533,7 +1550,7 @@ function cleanupOnExit() {
 ```javascript
 // ============================================
 // noopCliOptionsPostProcess - Placeholder hook (intentional no-op)
-// Location: chunks.189.mjs:2142
+// Location: chunks.197.mjs:2142
 // ============================================
 
 // ORIGINAL (for source lookup):

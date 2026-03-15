@@ -1,4 +1,4 @@
-# Sandbox Architecture (Claude Code 2.1.38)
+# Sandbox Architecture (Claude Code 2.1.76)
 
 ## Overview
 

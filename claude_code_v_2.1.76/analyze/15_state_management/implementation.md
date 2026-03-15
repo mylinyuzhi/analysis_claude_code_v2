@@ -2,7 +2,7 @@
 
 ## Overview
 
-State Management in Claude Code v2.1.38 is built on a custom Reactive Store architecture designed to handle highly dynamic, multi-agent environments. It provides a single source of truth for UI state, agent tasks, security contexts, and extension registries. The system integrates with the Ink terminal UI framework using modern React patterns like `useSyncExternalStore`.
+State Management in Claude Code v2.1.76 is built on a custom Reactive Store architecture designed to handle highly dynamic, multi-agent environments. It provides a single source of truth for UI state, agent tasks, security contexts, and extension registries. The system integrates with the Ink terminal UI framework using modern React patterns like `useSyncExternalStore`.
 
 ## Related Symbols
 
@@ -28,7 +28,41 @@ The state is organized into logical domains:
 | **Context** | `fileHistory`, `mcp` | Preserves read files and MCP resources for Prompt Building. |
 | **Extensions** | `plugins`, `sessionHooks` | Registry for loaded plugins and lifecycle interceptors. |
 | **LLM Config**| `thinkingEnabled`, `effortValue` | Controls reasoning depth and token budgets. |
+| **Feedback** | `feedbackSurveyRate` | Enterprise-configurable session quality survey probability (0.0–1.0). |
 | **UI** | `notifications`, `expandedView` | Manages the terminal display and status line. |
+
+## Feedback Survey Configuration (v2.1.76)
+
+### feedbackSurveyRate Setting
+
+**Purpose:** Controls the probability of showing a post-session quality survey to collect user feedback on Claude Code sessions.
+
+**Configuration:**
+- **Type:** Float (0.0–1.0)
+- **Default:** 0.1 (10% of sessions)
+- **Scope:** Enterprise-admin configurable via managed settings
+- **Applied at:** Session end
+
+**How it works:**
+
+1. **Probability calculation**: At session end, system generates random value `r ∈ [0, 1)`
+2. **Survey trigger**: If `r < feedbackSurveyRate`, post-session quality survey is shown
+3. **Survey content**: Multi-question feedback form on session helpfulness, clarity, and suggestions
+4. **Storage**: Responses aggregated for product analytics and quality insights
+
+**Examples:**
+- `feedbackSurveyRate: 0.0` - Never show survey
+- `feedbackSurveyRate: 0.5` - Show survey ~50% of the time
+- `feedbackSurveyRate: 1.0` - Always show survey
+
+**Enterprise admin usage:**
+
+Admins can configure `feedbackSurveyRate` in the managed settings section to:
+- Increase feedback collection by raising rate (0.3–0.5 for active feedback programs)
+- Disable feedback collection entirely by setting to 0.0
+- Fine-tune rate based on session volume and feedback goals
+
+---
 
 ## Core Algorithms
 
@@ -94,7 +128,7 @@ function createStore(initialState, onStateChange) {
 
 ### 2. Multi-Agent Task Tracking (`bZ`)
 
-In v2.1.38, Agent Swarms are managed as "Tasks" within the global state. This allows the main UI to monitor all teammates simultaneously.
+In v2.1.76, Agent Swarms are managed as "Tasks" within the global state. This allows the main UI to monitor all teammates simultaneously.
 
 ```javascript
 function registerTaskInState(task, setAppState) {
@@ -163,4 +197,4 @@ function updateGlobalConfig(updater) {
 
 ## Key Insight
 
-Claude Code v2.1.38 implements a **Distributed State Pattern**. While the "App State" is in-memory and highly reactive for UI updates, the "Global Config" serves as an atomic, persistent backend. This dual-layer approach allows for high-frequency UI updates (like spinners and token counters) while ensuring that user preferences and project history are safely synchronized across multiple agent processes.
+Claude Code v2.1.76 implements a **Distributed State Pattern**. While the "App State" is in-memory and highly reactive for UI updates, the "Global Config" serves as an atomic, persistent backend. This dual-layer approach allows for high-frequency UI updates (like spinners and token counters) while ensuring that user preferences and project history are safely synchronized across multiple agent processes.

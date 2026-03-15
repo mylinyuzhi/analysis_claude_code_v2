@@ -1490,7 +1490,7 @@ The system reminder pipeline (`normalizeAttachmentForAPI`, `K2z`) contains a pos
 if (["autocheckpointing", "background_task_status"].includes(A.type)) return [];
 ```
 
-Any attachment with `type: "autocheckpointing"` returns an empty array — **no messages generated**. Additionally, **no code in v2.1.38 creates an attachment of this type** — it exists only as a no-op guard to prevent `Unknown attachment type` errors if such records exist in older session files.
+Any attachment with `type: "autocheckpointing"` returns an empty array — **no messages generated**. Additionally, **no code in v2.1.76 creates an attachment of this type** — it exists only as a no-op guard to prevent `Unknown attachment type` errors if such records exist in older session files.
 
 ### Why the LLM Doesn't Need to Know
 

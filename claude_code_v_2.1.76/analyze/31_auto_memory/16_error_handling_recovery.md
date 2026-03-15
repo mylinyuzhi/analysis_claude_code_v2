@@ -6,6 +6,8 @@ This document provides comprehensive documentation of all error paths, edge case
 
 **Key insight**: The dual file size limit system (200-line hard limit + 40000-character soft limit) serves different purposes: line limit protects LLM context window, character limit protects TUI performance.
 
+**Version**: Claude Code v2.1.76
+
 ---
 
 ## Dual File Size Limits
@@ -36,13 +38,13 @@ Auto memory enforces **two independent size limits** with different enforcement 
 ### Limit Interactions
 
 ```
-File size: 150 lines, 5000 chars   → ✅ No warnings, full content loaded
-File size: 250 lines, 30000 chars  → ⚠️ Line warning, truncated to 200 lines
-File size: 180 lines, 50000 chars  → ⚠️ Character warning, full content loaded
-File size: 300 lines, 60000 chars  → ⚠️ Both warnings, truncated + TUI banner
+File size: 150 lines, 5000 chars   → No warnings, full content loaded
+File size: 250 lines, 30000 chars  → Line warning, truncated to 200 lines
+File size: 180 lines, 50000 chars  → Character warning, full content loaded
+File size: 300 lines, 60000 chars  → Both warnings, truncated + TUI banner
 ```
 
-**Key insight**: The limits are independent - you can trigger one, both, or neither depending on content structure.
+**Key insight**: The limits are independent — you can trigger one, both, or neither depending on content structure.
 
 ---
 
@@ -171,7 +173,7 @@ You have a persistent auto memory directory at `/Users/username/.claude/projects
 - Use TypeScript for all files
 - Follow React functional component patterns
 ...
-[197 more lines]
+[200 lines total]
 ...
 
 > WARNING: MEMORY.md is 250 lines (limit: 200).
@@ -184,13 +186,6 @@ You have a persistent auto memory directory at `/Users/username/.claude/projects
 2. Use Write tool to create topic files (e.g., `typescript.md`, `react.md`)
 3. Use Edit tool to update MEMORY.md to link to topic files
 4. Reduce MEMORY.md to < 200 lines
-
-**Example agent response**:
-> "I notice your MEMORY.md has exceeded the 200-line limit. I'll refactor it by:
-> 1. Creating separate topic files for detailed content
-> 2. Updating MEMORY.md to be a concise index with links
->
-> This will ensure all content is preserved while staying within limits."
 
 ---
 
@@ -235,40 +230,11 @@ function getLargeMemoryFiles() {
 
 **Warning banner format**:
 ```
-⚠️  Large memory files detected:
+Large memory files detected:
    - MEMORY.md (50000 characters, recommended: < 40000)
 
    Large files may impact TUI rendering performance.
    Consider splitting into smaller topic files.
-```
-
-### Code Analysis
-
-```javascript
-// ============================================
-// TUI Warning Banner Renderer
-// Location: chunks.160.mjs:1988-2008
-// ============================================
-
-// READABLE (for understanding):
-function renderMemoryWarnings() {
-  const largeFiles = getLargeMemoryFiles();
-
-  if (largeFiles.length === 0) {
-    return null; // No warning needed
-  }
-
-  // Build warning message
-  const fileList = largeFiles.map(file =>
-    `   - ${file.name} (${file.content.length} characters, recommended: < ${MEMORY_FILE_SIZE_WARNING_THRESHOLD})`
-  ).join("\n");
-
-  return `⚠️  Large memory files detected:
-${fileList}
-
-Large files may impact TUI rendering performance.
-Consider splitting into smaller topic files.`;
-}
 ```
 
 ### User Impact
@@ -277,15 +243,6 @@ Consider splitting into smaller topic files.`;
 - Warning banner appears at top of memory editor modal
 - User can still edit files (no blocking)
 - Warning persists until files are reduced below threshold
-
-**User actions**:
-1. Press `/memory` to open editor
-2. See warning banner
-3. Manually split large file into smaller topic files
-4. Save changes
-5. Warning disappears on next TUI load
-
-**No automatic recovery**: User must take manual action (by design)
 
 **Why no auto-fix?**
 - Character limit is **soft warning** (informational)
@@ -334,45 +291,16 @@ try {
 
 | Error Type | POSIX Code | Behavior | Impact |
 |------------|------------|----------|--------|
-| Directory exists | EEXIST | Silent ignore | ✅ Normal - continue |
-| Permission denied | EACCES | Silent ignore | ⚠️ File read will fail later |
-| Disk full | ENOSPC | Silent ignore | ⚠️ File write will fail later |
-| Path is a file | ENOTDIR | Silent ignore | ⚠️ File read will fail later |
+| Directory exists | EEXIST | Silent ignore | Normal - continue |
+| Permission denied | EACCES | Silent ignore | File read will fail later |
+| Disk full | ENOSPC | Silent ignore | File write will fail later |
+| Path is a file | ENOTDIR | Silent ignore | File read will fail later |
 
 **Why silent failure?**
 - **Idempotent operation**: `mkdir -p` semantics (create if not exists)
 - **Common case**: Directory usually exists after first run
 - **Deferred error handling**: Actual problems surface during file I/O
 - **Simplicity**: Avoids branching logic for edge cases
-
-**Risk assessment**:
-- 🟢 Low risk: Most errors (EEXIST) are harmless
-- 🟡 Medium risk: Permission errors surface as empty state (see Scenario 4)
-- 🔴 No risk of crash: catch block prevents exception propagation
-
-### User Impact
-
-**Normal case** (directory exists):
-- No user-visible impact
-- System prompt loads normally
-
-**Error case** (permission denied):
-- Directory creation fails silently
-- File read attempt fails (caught in Scenario 4)
-- Empty state message shown
-- User sees: "Your MEMORY.md is currently empty..."
-
-**Diagnostic approach**:
-```bash
-# Check if memory directory exists
-ls -la ~/.claude/projects/*/memory/
-
-# Check directory permissions
-ls -lad ~/.claude/projects/*/memory/
-
-# Attempt manual creation
-mkdir -p ~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/
-```
 
 ---
 
@@ -438,29 +366,6 @@ Your MEMORY.md is currently empty. When you notice a pattern worth preserving ac
 - **No data loss risk**: Original file (if exists) is not modified
 - **Idempotent**: Repeated failures don't accumulate errors
 
-### User Impact
-
-**First run** (file doesn't exist):
-- Empty state message guides user on how to populate MEMORY.md
-- Agent learns when to write to memory
-
-**Permission error**:
-- User sees empty state message
-- Agent doesn't have context from previous sessions
-- User must fix file permissions manually
-
-**Diagnostic approach**:
-```bash
-# Check if file exists
-ls -la ~/.claude/projects/*/memory/MEMORY.md
-
-# Check file permissions
-stat ~/.claude/projects/*/memory/MEMORY.md
-
-# Fix permissions if needed
-chmod 644 ~/.claude/projects/*/memory/MEMORY.md
-```
-
 ---
 
 ## Error Scenario 5: Unicode Normalization
@@ -485,12 +390,10 @@ const content = fs.readFileSync(memoryFilePath, "utf8").normalize("NFC");
 
 **Unicode normalization forms**:
 
-| Form | Name | Description | Example |
-|------|------|-------------|---------|
-| NFC | Canonical Composition | Characters composed into single codepoints | `é` = U+00E9 |
-| NFD | Canonical Decomposition | Characters decomposed into base + combining | `é` = U+0065 U+0301 |
-| NFKC | Compatibility Composition | Compatible characters composed | `ﬁ` → `fi` |
-| NFKD | Compatibility Decomposition | Compatible characters decomposed | `ﬁ` → `f` + `i` |
+| Form | Name | Description |
+|------|------|-------------|
+| NFC | Canonical Composition | Characters composed into single codepoints (`é` = U+00E9) |
+| NFD | Canonical Decomposition | Characters decomposed into base + combining (`é` = U+0065 U+0301) |
 
 **Why NFC is chosen**:
 - **Canonical composition** preserves visual appearance
@@ -525,73 +428,49 @@ const content = fs.readFileSync(memoryFilePath, "utf8").normalize("NFC");
 ### Complete Error Handling Sequence
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ Turn Start: System Prompt Builder Invokes getMemoryContext()│
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Step 1: Check if Auto Memory Enabled                        │
-│   if (!isAutoMemoryEnabled()) {                             │
-│     return null; // No memory content in prompt             │
-│   }                                                          │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Step 2: Get Memory Directory Path                           │
-│   memoryDir = getAutoMemoryDirectory();                     │
-│   // e.g., ~/.claude/projects/abc123/memory/                │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Step 3: Attempt Directory Creation                          │
-│   try {                                                      │
-│     fs.mkdirSync(memoryDir, { recursive: true });           │
-│   } catch {                                                  │
-│     // Silent failure - optimistic approach                 │
-│   }                                                          │
-│   ↓ Continue regardless of result                           │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Step 4: Attempt File Read                                   │
-│   try {                                                      │
-│     content = fs.readFileSync(memoryPath, "utf8");          │
-│   } catch (error) {                                          │
-│     // File not found, permission denied, etc.              │
-│     return emptyStateMessage; ───────────────────┐          │
-│   }                                              │          │
-└──────────────────────────────────────────────────┼──────────┘
-                            ↓                      ↓
-                         Success            ┌──────────────────┐
-                            ↓               │ Empty State Path │
-┌─────────────────────────────────────────┐│                  │
-│ Step 5: Normalize Unicode               ││ Agent sees:      │
-│   content = content.normalize("NFC");   ││ "Your MEMORY.md  │
-└─────────────────────────────────────────┘│  is currently    │
-                            ↓               │  empty..."       │
-┌─────────────────────────────────────────┐│                  │
-│ Step 6: Check Line Count                ││ → Continues      │
-│   lines = content.split("\n");          ││   normally       │
-│   if (lines.length > 200) {             │└──────────────────┘
-│     content = truncate(lines);          │
-│     content += warningMessage; ─────────┼──────┐
-│   }                                     │      │
-└─────────────────────────────────────────┘      │
-                            ↓                    ↓
-                        Success          ┌───────────────────┐
-                            ↓            │ Truncation Path   │
-┌─────────────────────────────────────┐ │                   │
-│ Step 7: Build Full Prompt Section  │ │ Agent sees:       │
-│   return header + content;          │ │ - First 200 lines │
-└─────────────────────────────────────┘ │ - Warning message │
-                            ↓            │                   │
-┌─────────────────────────────────────┐ │ → Agent should    │
-│ Step 8: Inject into System Prompt  │ │   refactor file   │
-└─────────────────────────────────────┘ └───────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Turn Proceeds: Agent Receives Memory Context                 │
-└─────────────────────────────────────────────────────────────┘
+Turn Start: System Prompt Builder Invokes getMemoryContext()
+                            |
+Step 1: Check if Auto Memory Enabled
+   if (!isAutoMemoryEnabled()) {
+     return null; // No memory content in prompt
+   }
+                            |
+Step 2: Get Memory Directory Path
+   memoryDir = getAutoMemoryDirectory();
+   // e.g., ~/.claude/projects/abc123/memory/
+                            |
+Step 3: Attempt Directory Creation
+   try {
+     fs.mkdirSync(memoryDir, { recursive: true });
+   } catch {
+     // Silent failure - optimistic approach
+   }
+   Continue regardless of result
+                            |
+Step 4: Attempt File Read
+   try {
+     content = fs.readFileSync(memoryPath, "utf8");
+   } catch (error) {
+     // File not found, permission denied, etc.
+     return emptyStateMessage; --> [Empty State Path]
+   }
+                            |
+Step 5: Normalize Unicode
+   content = content.normalize("NFC");
+                            |
+Step 6: Check Line Count
+   lines = content.split("\n");
+   if (lines.length > 200) {
+     content = truncate(lines);
+     content += warningMessage; --> [Truncation Path]
+   }
+                            |
+Step 7: Build Full Prompt Section
+   return header + content;
+                            |
+Step 8: Inject into System Prompt
+                            |
+Turn Proceeds: Agent Receives Memory Context
 ```
 
 ---
@@ -600,30 +479,14 @@ const content = fs.readFileSync(memoryFilePath, "utf8").normalize("NFC");
 
 ### Test 1: Exceed 200 Lines
 
-**Objective**: Verify automatic truncation and warning message
-
-**Setup**:
 ```bash
 # Generate 250-line file
 MEMORY_PATH=~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/MEMORY.md
 printf '# Line %d\n' {1..250} > "$MEMORY_PATH"
 ```
 
-**Execute**:
-1. Start conversation
-2. Ask agent: "What's in your MEMORY.md?"
-3. Agent should see truncation warning in system prompt
+Start conversation and ask agent about MEMORY.md. Expected: agent quotes truncation warning.
 
-**Expected output**:
-```
-I see my MEMORY.md has 250 lines, but only the first 200 were loaded. There's a warning:
-
-> WARNING: MEMORY.md is 250 lines (limit: 200).
-  Only the first 200 lines were loaded.
-  Move detailed content into separate topic files...
-```
-
-**Verify**:
 ```bash
 # Original file still has 250 lines (not modified)
 wc -l "$MEMORY_PATH"
@@ -634,193 +497,27 @@ wc -l "$MEMORY_PATH"
 
 ### Test 2: Exceed 40000 Characters
 
-**Objective**: Verify TUI warning banner appears
-
-**Setup**:
 ```bash
 # Generate ~50KB file (50000 characters)
 MEMORY_PATH=~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/MEMORY.md
 yes "This is a long line with lots of text that repeats many times to inflate file size." | head -500 > "$MEMORY_PATH"
 ```
 
-**Execute**:
-1. Launch Claude Code TUI
-2. Press `/memory` to open memory editor
-3. Check for warning banner at top
-
-**Expected display**:
-```
-⚠️  Large memory files detected:
-   - MEMORY.md (50000 characters, recommended: < 40000)
-
-   Large files may impact TUI rendering performance.
-   Consider splitting into smaller topic files.
-
-[... file selector ...]
-```
-
-**Verify**:
-```bash
-# Check file size
-wc -c "$MEMORY_PATH"
-# Output: ~50000
-```
+Launch Claude Code TUI, press `/memory`. Expected: warning banner at top of editor.
 
 ---
 
-### Test 3: Directory Permission Denied
+### Test 3: Both Limits Exceeded
 
-**Objective**: Verify graceful degradation when directory can't be created
-
-**Setup**:
 ```bash
-# Make projects directory read-only
-chmod 555 ~/.claude/projects/
-```
-
-**Execute**:
-1. Start new conversation
-2. Agent attempts to load memory
-3. Directory creation fails silently
-4. File read fails (directory doesn't exist)
-5. Empty state message returned
-
-**Expected output**:
-```
-Your MEMORY.md is currently empty. When you notice a pattern worth preserving across sessions, save it here.
-```
-
-**Verify**:
-```bash
-# Directory not created
-ls ~/.claude/projects/*/memory/
-# Output: No such file or directory
-
-# Restore permissions
-chmod 755 ~/.claude/projects/
-```
-
----
-
-### Test 4: MEMORY.md is a Directory
-
-**Objective**: Verify error handling when file is actually a directory
-
-**Setup**:
-```bash
-# Create directory instead of file
-MEMORY_PATH=~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/MEMORY.md
-mkdir -p "$MEMORY_PATH"
-```
-
-**Execute**:
-1. Start conversation
-2. Agent attempts to read "file"
-3. fs.readFileSync() throws EISDIR error
-4. Catch block returns empty state message
-
-**Expected output**:
-```
-Your MEMORY.md is currently empty...
-```
-
-**Verify**:
-```bash
-# Confirm it's a directory
-file "$MEMORY_PATH"
-# Output: directory
-
-# Cleanup
-rm -rf "$MEMORY_PATH"
-```
-
----
-
-### Test 5: Unicode Normalization
-
-**Objective**: Verify NFC normalization prevents string matching bugs
-
-**Setup**:
-```bash
-MEMORY_PATH=~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/MEMORY.md
-
-# Create file with NFD-normalized content (decomposed)
-printf '# Café\n\nThis file uses decomposed Unicode (NFD).' > "$MEMORY_PATH"
-
-# macOS file system stores "é" as "e" + combining acute accent
-```
-
-**Execute**:
-1. Start conversation
-2. Content is read and normalized to NFC
-3. Agent searches for "Café" (NFC form)
-4. String match succeeds (both normalized to NFC)
-
-**Expected**: No errors, consistent string matching
-
-**Verify**:
-```bash
-# Check Unicode form in file (may vary by OS)
-xxd "$MEMORY_PATH" | grep -A1 "Caf"
-```
-
----
-
-### Test 6: Empty File (0 bytes)
-
-**Objective**: Verify empty file is handled gracefully
-
-**Setup**:
-```bash
-MEMORY_PATH=~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/MEMORY.md
-touch "$MEMORY_PATH"  # Create empty file
-```
-
-**Execute**:
-1. Start conversation
-2. File reads successfully (0 bytes)
-3. Content is empty string
-4. Lines array is [""] (single empty line)
-5. Lines count is 1 (within 200 limit)
-6. No truncation, no warning
-
-**Expected**: Agent sees empty content, no error messages
-
-**Verify**:
-```bash
-wc -l "$MEMORY_PATH"
-# Output: 0
-```
-
----
-
-### Test 7: Both Limits Exceeded
-
-**Objective**: Verify behavior when both limits are exceeded simultaneously
-
-**Setup**:
-```bash
-MEMORY_PATH=~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/MEMORY.md
-
 # Generate 300 lines, each 200 characters (60KB total)
+MEMORY_PATH=~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/MEMORY.md
 for i in {1..300}; do
   printf "# Line %d: %s\n" "$i" "$(yes "x" | head -180 | tr -d '\n')"
 done > "$MEMORY_PATH"
 ```
 
-**Execute**:
-1. Start conversation → Line warning appears in system prompt
-2. Press `/memory` → Character warning appears in TUI
-
-**Expected**:
-- System prompt: Truncation warning (200 lines)
-- TUI: Large file warning (60000 chars)
-
-**Verify**:
-```bash
-wc -l "$MEMORY_PATH"  # 300 lines
-wc -c "$MEMORY_PATH"  # ~60000 characters
-```
+Expected: System prompt shows truncation warning (200 lines), TUI shows large file warning (60000 chars).
 
 ---
 
@@ -846,11 +543,11 @@ Key functions in this document:
 5. **Unicode normalization is always applied**: Prevents cross-platform string matching bugs
 
 **Design rationale**:
-- ✅ **Robust**: No crashes, always returns valid prompt content
-- ✅ **User-friendly**: Clear warnings guide user to fix issues
-- ✅ **Simple**: Minimal error handling code, no complex recovery logic
-- ⚠️ **Limited diagnostics**: Silent failures may hide underlying problems
-- ⚠️ **No auto-fix**: User must manually resolve large file warnings
+- Robust: No crashes, always returns valid prompt content
+- User-friendly: Clear warnings guide user to fix issues
+- Simple: Minimal error handling code, no complex recovery logic
+- Limited diagnostics: Silent failures may hide underlying problems
+- No auto-fix: User must manually resolve large file warnings
 
 **Trade-offs**:
 - **Simplicity vs Diagnostics**: Silent failures simplify code but hide root causes

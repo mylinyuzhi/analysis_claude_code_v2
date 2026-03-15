@@ -2,13 +2,17 @@
 
 ## 1. Overview
 
-The **Model Context Protocol (MCP)** implementation in Claude Code acts as a bridge between the LLM and external tools/resources. It employs a **Meta-Tooling Architecture** where the model interacts with MCP servers via a virtual CLI command (`mcp-cli`) rather than native tool bindings for every single tool. This allows scaling to hundreds of tools without consuming excessive context window space.
+The **Model Context Protocol (MCP)** implementation in Claude Code v2.1.76 acts as a bridge between the LLM and external tools/resources. It employs a **Meta-Tooling Architecture** where the model interacts with MCP servers via a virtual CLI command (`mcp-cli`) rather than native tool bindings for every single tool. This allows scaling to hundreds of tools without consuming excessive context window space.
 
 ### Key Components
 -   **Meta-Tool (`mcp-cli`)**: A virtual command-line interface intercepted by the system.
 -   **Client (`McpClient` / `rH6`)**: Manages JSON-RPC connections to servers.
 -   **Transports**: Supports `StdioClientTransport` (`SJA`) and remote/HTTP transports.
 -   **State Management**: Persists connection state and tool definitions to `~/.claude/claude-code-mcp-cli/`.
+
+### v2.1.76 Changes
+- **`oauth.authServerMetadataUrl` config option**: A new field in MCP server configuration that specifies an OAuth authorization server metadata URL (RFC 8414). When set, the MCP client uses this URL to discover OAuth endpoints (authorization, token, revocation) rather than relying on server-advertised discovery. Useful for organizations with centralized OAuth infrastructure.
+- **Binary content saved to disk**: MCP responses containing binary content (PDFs, audio files) are now saved to temporary disk files rather than embedded inline as base64. The model receives a file path reference instead, preventing large binary payloads from consuming context window space.
 
 ## 2. Meta-Tool Architecture
 
@@ -22,7 +26,7 @@ Instead of registering every MCP tool as a native Anthropic API tool, Claude Cod
     -   Resolves the server and tool name (`mFA`).
     -   Connects to the server if not already connected.
     -   Sends a `tools/call` JSON-RPC request.
-5.  **Output**: The result is formatted as JSON (or text) and returned as "stdout" to the model.
+5.  **Output**: The result is formatted as JSON (or text) and returned as "stdout" to the model. Binary blobs are written to disk with path references returned.
 
 ## 3. Client Implementation (`chunks.79.mjs`)
 
@@ -61,6 +65,37 @@ If the environment detects it is running in a remote context (e.g., via `RE()` c
 
 -   **Session State**: Stored in `~/.claude/claude-code-mcp-cli/<sessionId>.json`. Contains active server configs and cached tool definitions.
 -   **Config Discovery**: Looks for `.mcp.json` or project-specific settings to auto-connect servers on startup.
+
+### oauth.authServerMetadataUrl (v2.1.76)
+
+**What it does:** A new configuration field on MCP server entries that overrides the OAuth authorization server metadata discovery URL.
+
+**How it works:**
+1. When connecting to an HTTP/SSE MCP server, the client checks for `oauth.authServerMetadataUrl` in the server config.
+2. If set, the client fetches the RFC 8414 metadata document from that URL instead of the server's well-known discovery endpoint.
+3. The metadata document provides `authorization_endpoint`, `token_endpoint`, and other OAuth URLs.
+4. The client uses these endpoints for the OAuth flow (requesting tokens, refreshing, revoking).
+
+**Why this approach:**
+- Enterprises often run a centralized identity provider (IdP) separate from the MCP server's own domain.
+- The MCP server may not have a `/.well-known/oauth-authorization-server` endpoint pointing at the correct IdP.
+- Explicitly configuring `authServerMetadataUrl` bypasses discovery and routes directly to the correct IdP.
+- Avoids requiring the MCP server administrator to configure DNS-based discovery correctly.
+
+**Configuration example:**
+```json
+{
+  "mcpServers": {
+    "myEnterpriseTool": {
+      "type": "sse",
+      "url": "https://mcp.example.com/sse",
+      "oauth": {
+        "authServerMetadataUrl": "https://idp.example.com/.well-known/oauth-authorization-server"
+      }
+    }
+  }
+}
+```
 
 ## 6. McpClient (rH6) Deep Dive
 
@@ -299,3 +334,4 @@ Key functions in this document:
 > - React UI integration: [ui_linkage.md](./ui_linkage.md)
 > - Meta-tooling architecture: [implementation.md](./implementation.md)
 > - Elicitation protocol: [elicitation_handler.md](./elicitation_handler.md)
+> - Elicitation feature overview: [elicitation.md](./elicitation.md)

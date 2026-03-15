@@ -61,6 +61,11 @@ The streaming UI system handles real-time display of LLM responses as they arriv
 3. **30-second thinking fade** - Thinking blocks disappear after display period
 4. **Deferred value for messages** - Message updates are deferred for input responsiveness
 
+**v2.1.76 changes:**
+- **Transcript auto-scroll fix after selecting text**: Previously, auto-scroll would not resume properly after the user selected text in the transcript view. This is now fixed — auto-scroll re-engages when text selection is released.
+- **CJK wide character layout fix**: CJK (Chinese/Japanese/Korean) characters are double-width in monospace terminals. The layout engine now correctly accounts for the 2-column width of CJK characters when calculating line wrapping and column alignment in streamed output.
+- **Memory leak fix in streaming buffers**: When a generator (streaming response) is terminated early (e.g., via abort), intermediate streaming buffers are now explicitly released rather than retained until GC. This was a memory leak in high-frequency streaming scenarios.
+
 ---
 
 ## 2. Streaming State Variables
@@ -182,13 +187,6 @@ setStreamingToolUses(prev => prev.map(entry => {
     }
     return entry;
 }));
-```
-
-### Removing Entries
-
-```javascript
-// When tool use completes (input_done or message complete):
-// Entries are removed when the full assistant message appears in messages
 ```
 
 ### Filtering in MessageList
@@ -402,17 +400,12 @@ const handleToolUseStreamCallback = useCallback((event) => {
 function handleToolUseStream(event, onMessage, onResponseLength, setStreamMode, setStreamingToolUses, onRemoveMessage, setStreamingThinking) {
     // Event type routing
     if (event.type !== "stream_event" && event.type !== "stream_request_start") {
-        // Handle non-streaming events
-
         if (event.type === "tombstone") {
             onRemoveMessage?.(event.message);
             return;
         }
-
         if (event.type === "tool_use_summary") return;
-
         if (event.type === "assistant") {
-            // Complete assistant message
             let thinking = event.message.content.find(block => block.type === "thinking");
             if (thinking && thinking.type === "thinking") {
                 setStreamingThinking?.(() => ({
@@ -421,7 +414,6 @@ function handleToolUseStream(event, onMessage, onResponseLength, setStreamMode, 
                     streamingEndedAt: Date.now()
                 }));
             }
-            // ... handle other assistant message processing
             return;
         }
     }
@@ -455,7 +447,8 @@ function handleToolUseStream(event, onMessage, onResponseLength, setStreamMode, 
             if (event.delta.type === "thinking_delta") {
                 setStreamingThinking(prev => ({
                     ...prev,
-                    thinking: prev.thinking + event.delta.thinking
+                    thinking: prev.thinking + event.delta.thinking,
+                    isStreaming: true
                 }));
             }
             if (event.delta.type === "text_delta") {
@@ -474,172 +467,77 @@ function handleToolUseStream(event, onMessage, onResponseLength, setStreamMode, 
 
 ## 7. Partial Input Display
 
-### Rendering Streaming Tool Uses
+When a tool use is still streaming (input JSON is incomplete), the UI renders a "partial" indicator showing the accumulated JSON so far:
 
 ```javascript
-// In MessageList (P8z):
-// Streaming tool uses are appended to the renderable messages
-
-// From chunks.161.mjs:705-706:
-let j1 = T1.flatMap(Z8z);  // Convert streaming tools to message format
-
-// Z8z creates a synthetic message for display:
-function Z8z(toolUse) {
-    return createMessage({
-        content: [toolUse.contentBlock]
-    });
+// StreamingToolUseCard rendering:
+{
+    type: "tool_use",
+    id: streamingTool.contentBlock.id,
+    name: streamingTool.contentBlock.name,
+    input: tryParsePartialJSON(streamingTool.unparsedToolInput) ?? {}
 }
 ```
 
-### Partial JSON Display
+**Why show partial input?** Users can see what arguments Claude is building before execution begins. For long `Bash` commands or file writes, this gives early feedback and allows the user to understand what's about to happen.
 
-When tool input is being streamed, the `unparsedToolInput` string shows partial JSON:
-
-```
-Tool: Bash
-Input: {"command": "ls -la", "timeout": 30...
-```
-
-The partial JSON is displayed as-is until the complete input arrives.
-
-### Input Completion
-
-When `input_done` event arrives:
-
-```javascript
-// Parse accumulated JSON
-try {
-    const parsedInput = JSON.parse(entry.unparsedToolInput);
-    // Update entry with parsed input
-} catch {
-    // Handle parse error
-}
-```
+**CJK character width (v2.1.76 fix):** When streaming text contains CJK characters, the layout calculation now uses `getStringWidth()` (from the `string-width` library) rather than `.length`. This correctly reports CJK characters as width 2, preventing the streamed text from overflowing its allocated column width in the terminal.
 
 ---
 
 ## 8. Message Commit Flow
 
-### Streaming → Committed Transition
+When a streaming response completes, the sequence is:
 
 ```
-[Streaming State]              [Committed Messages]
-streamingToolUses[0]    ──►    messages[...].content[tool_use]
-streamingThinking       ──►    messages[...].content[thinking]
-streamMode              ──►    (cleared)
+1. message_stop event arrives
+   → setStreamMode("responding")
+
+2. Complete assistant message emitted from agent loop
+   → handleToolUseStream dispatches to onMessage
+   → setMessages(prev => [...prev, assistantMsg])
+
+3. Tool use input is now in the committed message
+   → streamingToolUses entries become stale (already in messages)
+   → MessageList filter removes them
+
+4. resetLoadingState() called on query completion
+   → setStreamingToolUses([])   (cleanup)
+   → setStreamMode("responding") (reset)
 ```
 
-### Commit Timing
-
-Messages are committed when:
-
-1. **Assistant message event** - Complete `type: "assistant"` event arrives
-2. **Message done** - `message_stop` event signals end of stream
-3. **Error/abort** - Stream interrupted
-
-### Post-Commit Cleanup
-
-```javascript
-// In resetLoadingState (YK):
-const resetLoadingState = useCallback(() => {
-    setIsLoading(false);
-    setUserInputOnProcessing(undefined);
-    responseLength.current = 0;
-    setStreamingToolUses([]);      // Clear streaming tools
-    setSpinnerText(null);
-    // ... other cleanup
-}, [setIsLoading, refreshSpinnerTip]);
-```
-
-### Filtering Duplicate Display
-
-The MessageList ensures streaming tools don't appear alongside committed messages:
-
-```javascript
-// Filter out streaming tools that are already in messages
-const activeStreamingTools = streamingToolUses.filter(tool => {
-    // Check if tool use ID exists in committed messages
-    const existsInMessages = messages.some(msg =>
-        msg.type === "assistant" &&
-        msg.message.content.some(block =>
-            block.type === "tool_use" && block.id === tool.contentBlock.id
-        )
-    );
-    return !existsInMessages;
-});
-```
+**Auto-scroll behavior (v2.1.76 fix):** After the user selects text in the transcript, the transcript's auto-scroll was previously disabled permanently. The fix detects when selection is released (`selectionchange` event with empty selection range) and re-enables auto-scroll. This ensures new streaming content continues to scroll into view after the user finishes reading.
 
 ---
 
 ## 9. In-Progress Tool Tracking
 
-### inProgressToolUseIDs (ow)
-
-This Set tracks tool uses that have completed streaming but are still executing.
+The `inProgressToolUseIDs` set tracks which tool uses are currently executing (after streaming input is complete, before result arrives):
 
 ```javascript
-// From REPL state:
-let [ow, r_] = dA.useState(new Set());  // inProgressToolUseIDs
+// When tool execution starts:
+setInProgressToolUseIDs(prev => new Set([...prev, toolUseId]));
 
-// Set by agent loop when tool execution starts:
-setInProgressToolUseIDs: r_
+// When tool execution completes:
+setInProgressToolUseIDs(prev => {
+    const next = new Set(prev);
+    next.delete(toolUseId);
+    return next;
+});
 ```
 
-### Usage in Filtering
+### Purpose of In-Progress Tracking
 
-```javascript
-// In MessageList filtering:
-// Check if tool use is in progress (completed streaming, still executing)
-if (inProgressToolUseIDs.has(tool.contentBlock.id)) {
-    return false;  // Don't show in streaming display
-}
+1. **Filter streaming display**: If `toolUseId` is in `inProgressToolUseIDs`, it was already committed from streaming (input complete) and should NOT appear in `streamingToolUses` anymore
+2. **Spinner calculation**: `ow` (inProgressToolUseIDs) contributes to the loading indicator
+3. **Tool-only mode detection**: When ALL pending tools are in `inProgressToolUseIDs`, the "tool-only mode" spinner logic applies
+
+### Relationship to streamingToolUses
+
+```
+streamingToolUses → input still arriving via SSE
+inProgressToolUseIDs → input complete, tool executing, result not yet received
+committed messages → result received, tool use fully resolved
 ```
 
-### Animation Control
-
-```javascript
-// In MessageComponent:
-// Tools that are in progress get different animation behavior
-
-const isInProgress = inProgressToolUseIDs.has(toolUseId);
-const shouldAnimate = !isInProgress || /* other conditions */;
-```
-
-### Relationship to Dialog Queue
-
-```javascript
-// When tool requires permission:
-// 1. Tool use ID is added to inProgressToolUseIDs
-// 2. Permission request is added to F7 (toolUseConfirmQueue)
-// 3. Tool execution waits for permission response
-```
-
----
-
-## State Variables Reference
-
-| Variable | Setter | Purpose |
-|----------|--------|---------|
-| `O7` | `tK` | Stream mode (responding/tool_use/reasoning) |
-| `gq` | `xq` | Streaming tool uses array |
-| `U8` | `R4` | Streaming thinking state |
-| `ow` | `r_` | In-progress tool use IDs (Set) |
-| `Qj` | `p2` | Response length (ref) |
-
-### StreamingToolUse Entry Fields
-
-| Field | Type | Purpose |
-|-------|------|---------|
-| `index` | number | Position in current response |
-| `contentBlock.id` | string | Tool use ID |
-| `contentBlock.name` | string | Tool name |
-| `contentBlock.input` | object | Parsed input (when complete) |
-| `unparsedToolInput` | string | Accumulated JSON string |
-
-### StreamingThinking Fields
-
-| Field | Type | Purpose |
-|-------|------|---------|
-| `thinking` | string | Accumulated thinking text |
-| `isStreaming` | boolean | Still receiving data |
-| `streamingEndedAt` | number | Timestamp when streaming ended |
+The three states are mutually exclusive for any given tool use ID.

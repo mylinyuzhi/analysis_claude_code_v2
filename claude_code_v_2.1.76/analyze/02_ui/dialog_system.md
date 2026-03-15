@@ -616,18 +616,6 @@ Each queue type (tool permission, sandbox, elicitation) is FIFO. The head (`queu
 **Invariant 3: No cross-queue starvation**
 Higher-priority queues (sandbox) can preempt lower-priority queues (elicitation). When a sandbox request arrives while elicitation is showing, the elicitation remains visible until the user responds, THEN the sandbox dialog appears. The system does NOT interrupt mid-dialog.
 
-**How invariant 3 works:**
-```javascript
-// f11() is called on every render
-// If elicitation[0] is showing AND sandbox[0] appears:
-//   → f11() returns "sandbox-permission" (higher priority)
-//   → BUT the REPL renders: focusedInputDialog === "elicitation"
-//   → Because XO was "elicitation" last render and elicitation[0] still exists
-//   → Wait, this is NOT true - f11() would immediately return "sandbox-permission"
-```
-
-Actually, invariant 3 is NOT enforced - a higher-priority dialog will immediately preempt a lower-priority one when the condition becomes true. The system optimizes for security over UX continuity.
-
 **Invariant 4: Tool permission timing**
 ```javascript
 // fY.current = when current tool permission dialog opened

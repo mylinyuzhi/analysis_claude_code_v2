@@ -1,7 +1,7 @@
 # `file` vs `already_read_file` Attachment Types - Deep Comparison
 
 > **Module**: System Reminders - Attachment Type Comparison
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: Clarify the critical difference between `file` and `already_read_file` attachment types
 
 ---

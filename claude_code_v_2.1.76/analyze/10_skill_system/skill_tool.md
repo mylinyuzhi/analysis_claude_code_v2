@@ -1,4 +1,4 @@
-# Skill System - Skill Tool Implementation (Claude Code 2.1.38)
+# Skill System - Skill Tool Implementation (Claude Code 2.1.76)
 
 ## Overview
 

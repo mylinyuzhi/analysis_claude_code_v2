@@ -1,7 +1,7 @@
 # Mailbox and File Locking Deep Dive
 
 > **Module**: Agent Teams - File-Based Communication
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: Complete analysis of message delivery, file locking, and race condition handling
 
 ---

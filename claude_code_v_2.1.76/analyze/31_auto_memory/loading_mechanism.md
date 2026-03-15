@@ -212,9 +212,31 @@ Your MEMORY.md is currently empty. When you notice a pattern worth preserving ac
 
 ---
 
-## 3. Topic File Loading
+## 3. Freshness Tracking (v2.1.76)
 
-### 3.1 Discovery Mechanism
+### 3.1 Last-Modified Timestamp
+
+In v2.1.76, the loading mechanism includes a stat call to get the file's modification time:
+
+```javascript
+// After successfully reading the file, stat for timestamp
+let stat = fs.statSync(memoryFilePath);
+let lastModified = stat.mtime;
+
+// Include in the header section
+promptLines.splice(1, 0, `> Last updated: ${lastModified.toISOString()}`);
+```
+
+**Effect on agent behavior**: The agent can reason about memory freshness. For example:
+- If last-modified is today → memory is current, proceed confidently
+- If last-modified is 3 months ago → suggest review to ensure nothing is outdated
+- If MEMORY.md doesn't exist → show empty message, encourage first entry
+
+---
+
+## 4. Topic File Loading
+
+### 4.1 Discovery Mechanism
 
 **Topic files are NOT auto-loaded**. Discovery happens via:
 
@@ -239,7 +261,22 @@ await Read({ file_path: "~/.claude/agent-memory/myagent/debugging.md" });
 
 ---
 
-### 3.2 Topic File Guidelines (Injected in System Prompt)
+### 4.2 Topic File Variable Expansion (v2.1.76)
+
+Topic files now support `${CLAUDE_SKILL_DIR}` variable substitution. This allows skills to reference their own installed directory in memory content:
+
+```markdown
+# Skill Memory
+
+## Available Skill Commands
+See ${CLAUDE_SKILL_DIR}/README.md for full command reference.
+```
+
+When loaded, `${CLAUDE_SKILL_DIR}` is expanded to the actual skill installation path, making memory templates portable across different installations.
+
+---
+
+### 4.3 Topic File Guidelines (Injected in System Prompt)
 
 **From chunks.87.mjs:2272-2275**:
 
@@ -268,12 +305,14 @@ patterns.md (topic file):
 
 ---
 
-## 4. System Prompt Format
+## 5. System Prompt Format
 
-### 4.1 Final Injected Format
+### 5.1 Final Injected Format
 
 ```markdown
 # auto memory
+
+> Last updated: 2026-03-14T10:30:00.000Z
 
 You have a persistent auto memory directory at `~/.claude/projects/myproject/memory/`. Its contents persist across conversations.
 
@@ -309,9 +348,9 @@ Explicit user requests:
 
 ---
 
-## 5. Telemetry Tracking
+## 6. Telemetry Tracking
 
-### 5.1 Memory Statistics
+### 6.1 Memory Statistics
 
 **Function**: `recordMemoryStats()` (cN9, chunks.87.mjs:2282-2287)
 
@@ -333,13 +372,14 @@ Explicit user requests:
 
 ---
 
-## 6. Performance Characteristics
+## 7. Performance Characteristics
 
-### 6.1 Loading Latency
+### 7.1 Loading Latency
 
 | Operation | Complexity | Time (Estimate) |
 |-----------|------------|-----------------|
 | Directory check | O(1) | <1ms |
+| File stat (v2.1.76) | O(1) | <1ms |
 | File read (200 lines) | O(N) | 1-5ms |
 | Line split | O(N) | <1ms |
 | Truncation check | O(1) | <1ms |
@@ -353,7 +393,7 @@ Explicit user requests:
 
 ---
 
-### 6.2 Disk I/O Optimization
+### 7.2 Disk I/O Optimization
 
 **Synchronous read** (chunks.87.mjs:2267):
 ```javascript
@@ -370,9 +410,9 @@ content = fs.readFileSync(memoryFilePath, { encoding: "utf-8" });
 
 ---
 
-## 7. Error Handling
+## 8. Error Handling
 
-### 7.1 File Not Found
+### 8.1 File Not Found
 
 ```javascript
 try {
@@ -389,7 +429,7 @@ try {
 
 ---
 
-### 7.2 Permission Errors
+### 8.2 Permission Errors
 
 **Same silent catch** - treats as empty file
 
@@ -410,5 +450,7 @@ The memory loading mechanism is **simple, robust, and predictable**:
 4. **Clear warnings**: Users notified when truncation occurs
 5. **Telemetry aware**: Tracks usage patterns for optimization
 6. **Dynamic every turn**: Always fresh from disk
+7. **Freshness timestamps**: Last-modified surfaced in prompt (v2.1.76)
+8. **Variable expansion**: `${CLAUDE_SKILL_DIR}` resolved in topic files (v2.1.76)
 
 **Key trade-off**: Sacrifices caching optimization for simplicity and freshness, betting that sub-10ms disk read is acceptable overhead.

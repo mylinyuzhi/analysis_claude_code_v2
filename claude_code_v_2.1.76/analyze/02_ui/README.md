@@ -1,4 +1,4 @@
-# UI Module - Claude Code v2.1.38
+# UI Module - Claude Code v2.1.76
 
 > Terminal UI architecture for Claude Code CLI using Ink (React for CLI)
 

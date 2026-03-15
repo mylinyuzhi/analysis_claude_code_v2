@@ -1,4 +1,4 @@
-# Background Agents — Compact Integration (Claude Code 2.1.38)
+# Background Agents — Compact Integration (Claude Code 2.1.76)
 
 > Analysis of how background agents interact with context compaction: transcript preservation,
 > message filtering, and session memory handling.

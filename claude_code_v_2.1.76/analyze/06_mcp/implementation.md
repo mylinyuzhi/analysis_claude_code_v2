@@ -2,7 +2,7 @@
 
 ## Overview
 
-Claude Code v2.1.38 implements a "Meta-Tooling" architecture for MCP. Instead of exposing every MCP tool as a top-level model tool, it provides a virtual `mcp-cli` command accessible via the `Bash` tool. This allows for dynamic discovery and execution of thousands of potential tools without exceeding context limits or confusing the model with too many schemas.
+Claude Code v2.1.76 implements a "Meta-Tooling" architecture for MCP. Instead of exposing every MCP tool as a top-level model tool, it provides a virtual `mcp-cli` command accessible via the `Bash` tool. This allows for dynamic discovery and execution of thousands of potential tools without exceeding context limits or confusing the model with too many schemas.
 
 ## Related Symbols
 
@@ -30,7 +30,7 @@ When the model executes a bash command, the system checks if it is an `mcp-cli` 
 1.  **Instruction Injection**: At the start of the session, `buildMcpCliInstructions` (FOq) adds a section to the system prompt explaining that `mcp-cli info <server>/<tool>` must be called before `mcp-cli call <server>/<tool>`.
 2.  **Detection**: The `Bash` tool's `call` method invokes `parseMcpCliCommand` (ce). It uses a regex to match commands like `mcp-cli call <server>/<tool> [args]`.
 3.  **Execution Bridge**: If matched, `processMcpCliResult` (CYz) is triggered. It uses `callMcpServer` (ECA) to communicate with the target MCP server via JSON-RPC.
-4.  **Result Formatting**: The JSON results from the MCP server are formatted back into "stdout" for the model to read. For large outputs, it can save the result to a temporary file and return the path (`rawOutputPath`).
+4.  **Result Formatting**: The JSON results from the MCP server are formatted back into "stdout" for the model to read. For large outputs, it can save the result to a temporary file and return the path (`rawOutputPath`). In v2.1.76, binary content such as PDFs and audio returned by MCP servers is also saved to disk rather than included inline in the result.
 5.  **State Persistence**: `updateMcpSessionState` (CJq) continuously updates a file in `~/.claude/claude-code-mcp-cli/<sessionId>.json` with the current list of servers and tools. This file acts as the source of truth for the `mcp-cli info` command.
 
 **Why this approach:**
@@ -76,13 +76,13 @@ function parseMcpCliCommand(command) {
     // Matches: mcp-cli <call|read> <server>/<tool> [arguments]
     const mcpRegex = /^mcp-cli\s+(call|read)\s+([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)(?:\s+([\s\S]+))?$/;
     const match = command.match(mcpRegex);
-    
+
     if (!match) return null;
-    
+
     const [, action, serverName, toolName, rawArgs = ""] = match;
-    
+
     if (!action || !serverName || !toolName) return null;
-    
+
     return {
         command: action,      // "call" or "read"
         server: serverName,   // e.g. "sqlite"
@@ -137,25 +137,25 @@ async function CJq(A, q, K) {
  */
 async function updateMcpSessionState(servers, tools, resources) {
     if (!isMcpCliEnabled()) return;
-    
+
     try {
         const cacheDir = getMcpCliCacheDir();
         await ensureDir(cacheDir, { recursive: true });
-        
+
         // 1. Prepare tool metadata (names, descriptions, schemas)
         const mcpToolMetadata = await Promise.all(
             tools.filter(t => t.isMcp).map(extractToolInfo)
         );
-        
+
         const serverConfigs = {};
         const normalizedToOriginalMap = {};
-        
+
         for (const server of servers) {
             serverConfigs[server.name] = server.config;
             const normalizedName = normalizeServerName(server.name);
             normalizedToOriginalMap[normalizedName] = server.name;
         }
-        
+
         // 2. Build session state object
         const sessionState = {
             clients: servers.map(s => serializeClient(s)),
@@ -164,11 +164,11 @@ async function updateMcpSessionState(servers, tools, resources) {
             resources: resources,
             normalizedNames: normalizedToOriginalMap
         };
-        
+
         // 3. Write to ~/.claude/claude-code-mcp-cli/<sessionId>.json
         const sessionFile = getMcpSessionFilePath();
         await writeAtomic(sessionFile, JSON.stringify(sessionState, null, 2));
-        
+
     } catch (err) {
         // Silently fail, MCP discovery might be degraded
     }
@@ -236,7 +236,7 @@ This is a BLOCKING REQUIREMENT. Skipping info causes incorrect parameters.
 
 ## Large Output File Reference
 
-When a tool call returns a very large response, `processMcpCliResult` (CYz) saves it to a temp file instead of including it inline:
+When a tool call returns a very large response, `processMcpCliResult` (CYz) saves it to a temp file instead of including it inline. In v2.1.76, this extends to binary content: PDFs and audio returned by MCP servers are saved to disk rather than transmitted inline as base64.
 
 ```javascript
 // ============================================
@@ -280,6 +280,8 @@ async function processMcpCliResult(parsedCommand, context) {
 // Mapping: CYz→processMcpCliResult, A→parsedCommand, q→context, K→result, Y→formattedOutput, z→outputFile
 ```
 
+**Binary content handling (v2.1.76):** When the MCP result contains a content block with `type: "blob"` (PDFs, audio files, images above size threshold), the system writes the binary to a temp file and substitutes a file path reference. This avoids embedding large base64 payloads in the terminal context window, which would rapidly consume token budget.
+
 **Design rationale for file reference approach:**
 - Large tool outputs (e.g., database query results with thousands of rows) could consume enormous context
 - Saving to a file lets the model selectively read portions using `head`, `grep`, or line ranges
@@ -311,6 +313,12 @@ async function processMcpCliResult(parsedCommand, context) {
 { "content": [{ "type": "text", "text": "error message" }], "isError": true }
 ```
 → Returned as error string prefixed with `[MCP Error] ` so the model knows to handle it as a tool failure
+
+**Format 4: Binary blob (v2.1.76)**
+```json
+{ "content": [{ "type": "blob", "data": "base64...", "mimeType": "application/pdf" }] }
+```
+→ Decoded and saved to temp file; path reference returned to model
 
 **Normalization rationale:** MCP servers from different vendors format their responses inconsistently. The normalization layer at `callMcpServer` means the rest of Claude Code always gets a predictable string output, regardless of which MCP server produced it.
 

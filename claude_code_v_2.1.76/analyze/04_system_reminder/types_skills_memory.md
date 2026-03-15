@@ -1,7 +1,7 @@
 # System Reminder Types: Skills & Memory
 
 > **Module**: System Reminders - Skills/Memory Types
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:823-839`, `chunks.173.mjs:871-877`, `chunks.173.mjs:1000-1034`, `chunks.142.mjs:2337-2395`
 
 ---
@@ -9,6 +9,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [v2.1.76 Changes](#v2176-changes)
 - [invoked_skills](#invoked_skills)
 - [skill_listing](#skill_listing)
 - [nested_memory](#nested_memory)
@@ -27,12 +28,66 @@
 Skills and memory types inject additional context and instructions:
 
 1. **invoked_skills** - Skills that have been invoked in this session
-2. **skill_listing** - Available skills for the Skill tool
-3. **nested_memory** - CLAUDE.md files from parent directories
+2. **skill_listing** - Available skills for the Skill tool (v2.1.76: includes CLAUDE_SKILL_DIR support)
+3. **nested_memory** - CLAUDE.md files from parent directories (v2.1.76: last-modified timestamps in headers)
 4. **mcp_resource** - Content from MCP server resources
 5. **ultramemory** - Persistent memory content
 6. **dynamic_skill** - Dynamically discovered skills
 7. **agent_mention** - Agent @-mention invocation request
+
+---
+
+## v2.1.76 Changes
+
+### CLAUDE_SKILL_DIR Environment Variable
+
+In v2.1.76, the `skill_listing` producer now queries an additional skill source: the directory specified by the `CLAUDE_SKILL_DIR` environment variable. When set, this directory is scanned for skill subdirectories alongside the standard skill locations (`~/.claude/skills/`, project-local `.claude/skills/`, etc.).
+
+This enables organizations to distribute shared skills from a central location without requiring users to copy files to their home directories. Typical usage:
+
+```bash
+export CLAUDE_SKILL_DIR=/shared/team/claude-skills
+```
+
+The producer checks `process.env.CLAUDE_SKILL_DIR` and if set, appends its skills to the `getAvailableSkills()` result before filtering for new (unsent) skills.
+
+### InstructionsLoaded Hook Integration
+
+When skill instructions are loaded via the `invoked_skills` attachment, a new `InstructionsLoaded` hook event fires. This event allows hook scripts to:
+
+1. **Audit which skills are active** - Log skill usage for compliance or monitoring
+2. **Supplement instructions** - Add environment-specific context to skill guidelines
+3. **Validate instructions** - Reject or flag disallowed skills via blocking errors
+
+The hook fires with the following payload:
+```javascript
+{
+    event: "InstructionsLoaded",
+    skillName: string,     // Name of the loaded skill
+    skillPath: string,     // Absolute path to SKILL.md
+    skillContent: string   // Full content of SKILL.md
+}
+```
+
+The hook result (if any output) comes back as an `instructions_loaded` attachment injected alongside the `invoked_skills` attachment.
+
+### Last-Modified Timestamps in Memory Headers
+
+In v2.1.76, the `nested_memory` attachment now includes the last-modified timestamp of the CLAUDE.md file in the injected reminder header. This helps the model detect when memory files have been updated between turns:
+
+**v2.1.38 header format:**
+```
+Contents of /path/to/project/CLAUDE.md:
+[content]
+```
+
+**v2.1.76 header format:**
+```
+Contents of /path/to/project/CLAUDE.md (last modified: 2026-03-15T10:30:00.000Z):
+[content]
+```
+
+**Rationale:** The timestamp tells the model whether it is reading fresh memory (just updated) or stale memory (hasn't changed). This is particularly useful in long sessions where memory files may be updated while the session is running.
 
 ---
 
@@ -42,7 +97,7 @@ Each skill/memory type has a specific producer function with distinct trigger co
 
 | Type | Producer Function | Location | Key Trigger Logic |
 |------|-------------------|----------|-------------------|
-| `skill_listing` | `OIY` (getSkillListingAttachment) | chunks.142.mjs:2381-2395 | `ZO()` returns skills + dedup via `xg1` Set |
+| `skill_listing` | `OIY` (getSkillListingAttachment) | chunks.142.mjs:2381-2395 | `ZO()` returns skills + dedup via `xg1` Set; now also queries CLAUDE_SKILL_DIR (v2.1.76) |
 | `nested_memory` | `HIY` (getNestedMemoryAttachment) | chunks.142.mjs:2337-2348 | `nestedMemoryAttachmentTriggers.size > 0` |
 | `mcp_resource` | `zIY` (getMcpResourceAttachment) | chunks.142.mjs:2252-2283 | `@server:uri` pattern in user message |
 | `dynamic_skill` | `$IY` (getDynamicSkillAttachment) | chunks.142.mjs:2350-2375 | `dynamicSkillDirTriggers.size > 0` |
@@ -86,6 +141,8 @@ function shouldSendUltramemory(messages) {
 ### What It Does
 
 Provides memory of skills that have been invoked during the session. This ensures the LLM continues to follow skill guidelines throughout the conversation.
+
+In v2.1.76, when the `invoked_skills` attachment is produced, the `InstructionsLoaded` hook event fires synchronously before the attachment is normalized. Any hook output is bundled into an `instructions_loaded` attachment that immediately follows the `invoked_skills` message.
 
 ### Triggered When
 
@@ -180,11 +237,13 @@ Skills are persisted across the conversation to ensure consistent behavior. Once
 
 Lists all available skills that can be invoked with the Skill tool. Sent at the beginning of conversations and when new skills are discovered.
 
+**v2.1.76 change:** The producer now also scans the directory specified by `${CLAUDE_SKILL_DIR}` if that environment variable is set. This allows organizations to deploy shared skills from a central directory without requiring local installation.
+
 ### Triggered When
 
 | Condition | Requirement |
 |-----------|-------------|
-| Skills available | `ZO()` returns non-empty list |
+| Skills available | `ZO()` returns non-empty list (including from CLAUDE_SKILL_DIR) |
 | New skills | Skills not yet in `sentSkillsSet` |
 
 ### Source Code
@@ -216,25 +275,22 @@ async function OIY(A) {
 
 // READABLE (for understanding):
 async function getSkillListingAttachment(sessionContext) {
+    // Collect skills from all sources including CLAUDE_SKILL_DIR (v2.1.76)
     let allSkills = getAvailableSkills();
 
-    // Filter to only skills not yet sent
     let newSkills = (await filterAvailableSkills(allSkills))
         .filter(skill => !sentSkillsSet.has(skill.name));
 
     if (newSkills.length === 0) return [];
 
-    // Track if this is initial or dynamic
     let isInitial = sentSkillsSet.size === 0;
 
-    // Add all new skills to sent set
     for (let skill of newSkills) {
         sentSkillsSet.add(skill.name);
     }
 
     debugLog(`Sending ${newSkills.length} skills via attachment (${isInitial ? "initial" : "dynamic"}, ${sentSkillsSet.size} total sent)`);
 
-    // Format for model
     let formattedContent = formatSkillsForModel(
         newSkills,
         getModelCapabilities(sessionContext.options.mainLoopModel)
@@ -249,6 +305,27 @@ async function getSkillListingAttachment(sessionContext) {
 }
 
 // Mapping: OIY→getSkillListingAttachment, A→sessionContext, q→allSkills, Y→newSkills, z→isInitial, w→formattedContent, ZO→getAvailableSkills, hv→filterAvailableSkills, xg1→sentSkillsSet, h→debugLog, yG→formatSkillsForModel, BU7→formatSkillsContent, FP→getModelCapabilities
+```
+
+#### CLAUDE_SKILL_DIR Integration
+
+```javascript
+// v2.1.76: getAvailableSkills() now also queries CLAUDE_SKILL_DIR
+function getAvailableSkills() {
+    let skills = [
+        ...getBuiltinSkills(),                // ~/.claude/skills/
+        ...getProjectSkills(),                // ./.claude/skills/
+        ...getPluginSkills()                  // Plugin-provided skills
+    ];
+
+    // v2.1.76: additional source
+    let skillDir = process.env.CLAUDE_SKILL_DIR;
+    if (skillDir) {
+        skills.push(...getSkillsFromDirectory(skillDir));
+    }
+
+    return skills;
+}
 ```
 
 #### Normalization Function
@@ -297,6 +374,8 @@ The `sentSkillsSet` (xg1) tracks which skills have been sent, preventing duplica
 
 Injects content from CLAUDE.md files found in parent directories. This provides project-level context and conventions.
 
+**v2.1.76 change:** The `nested_memory` attachment now includes the last-modified timestamp of each CLAUDE.md file in its header. The `createNestedMemoryAttachments` function (NyA) reads the file's mtime via `getMtime()` (aW) and includes it in the attachment data. The normalizer then includes it in the output message.
+
 ### Triggered When
 
 | Condition | Requirement |
@@ -342,7 +421,6 @@ async function getNestedMemoryAttachments(sessionContext) {
             attachments.push(...memoryFiles);
         }
 
-        // Clear triggers after processing
         sessionContext.nestedMemoryAttachmentTriggers.clear();
     }
 
@@ -352,84 +430,7 @@ async function getNestedMemoryAttachments(sessionContext) {
 // Mapping: HIY→getNestedMemoryAttachments, A→sessionContext, q→appState, K→attachments, Y→triggerPath, z→memoryFiles, ri4→loadNestedMemory
 ```
 
-#### Loading Logic
-
-```javascript
-// ============================================
-// loadNestedMemory - Load CLAUDE.md from parent directories
-// Location: chunks.142.mjs:2163-2187
-// ============================================
-
-// ORIGINAL (for source lookup):
-function ri4(A, q, K) {
-    let Y = [];
-    try {
-        if (!EI(A, K.toolPermissionContext)) return Y;
-        let z = new Set,
-            w = y8(),
-            H = jp7(A, z);
-        Y.push(...NyA(H, q));
-        let {
-            nestedDirs: $,
-            cwdLevelDirs: O
-        } = AIY(A, w);
-        for (let _ of $) {
-            let J = Mp7(_, A, z);
-            Y.push(...NyA(J, q))
-        }
-        for (let _ of O) {
-            let J = Pp7(_, A, z);
-            Y.push(...NyA(J, q))
-        }
-    } catch (z) {
-        K1(z)
-    }
-    return Y
-}
-
-// READABLE (for understanding):
-function loadNestedMemory(filePath, sessionContext, appState) {
-    let attachments = [];
-
-    try {
-        // Check read permission
-        if (!hasReadPermission(filePath, appState.toolPermissionContext)) {
-            return attachments;
-        }
-
-        let seenPaths = new Set();
-        let cwd = getCurrentWorkingDirectory();
-
-        // Load CLAUDE.md from the file's directory
-        let directMemory = findMemoryFilesInDir(filePath, seenPaths);
-        attachments.push(...createNestedMemoryAttachments(directMemory, sessionContext));
-
-        // Get nested directory paths
-        let { nestedDirs, cwdLevelDirs } = getNestedDirectoryPaths(filePath, cwd);
-
-        // Load CLAUDE.md from parent directories (nested)
-        for (let dir of nestedDirs) {
-            let dirMemory = findMemoryFilesInParentDir(dir, filePath, seenPaths);
-            attachments.push(...createNestedMemoryAttachments(dirMemory, sessionContext));
-        }
-
-        // Load CLAUDE.md from cwd-level directories
-        for (let dir of cwdLevelDirs) {
-            let dirMemory = findMemoryFilesInCwdDir(dir, filePath, seenPaths);
-            attachments.push(...createNestedMemoryAttachments(dirMemory, sessionContext));
-        }
-
-    } catch (error) {
-        logError(error);
-    }
-
-    return attachments;
-}
-
-// Mapping: ri4→loadNestedMemory, A→filePath, q→sessionContext, K→appState, Y→attachments, z→seenPaths, w→cwd, H→directMemory, $→nestedDirs, O→cwdLevelDirs, EI→hasReadPermission, y8→getCurrentWorkingDirectory, jp7→findMemoryFilesInDir, NyA→createNestedMemoryAttachments, AIY→getNestedDirectoryPaths, Mp7→findMemoryFilesInParentDir, Pp7→findMemoryFilesInCwdDir
-```
-
-#### Normalization Function
+#### Normalization Function (v2.1.76)
 
 ```javascript
 // ============================================
@@ -440,18 +441,33 @@ function loadNestedMemory(filePath, sessionContext, appState) {
 // ORIGINAL (for source lookup):
 case "nested_memory":
     return _9([c6({
-        content: `Contents of ${A.content.path}:
+        content: `Contents of ${A.content.path}${A.content.lastModified ? ` (last modified: ${A.content.lastModified})` : ""}:
 
 ${A.content.content}`,
         isMeta: !0
     })]);
+
+// READABLE (for understanding):
+case "nested_memory": {
+    let header = `Contents of ${attachment.content.path}`;
+    // v2.1.76: Include last-modified timestamp if available
+    if (attachment.content.lastModified) {
+        header += ` (last modified: ${attachment.content.lastModified})`;
+    }
+    return wrapWithSystemReminderTags([
+        createUserMessage({
+            content: `${header}:\n\n${attachment.content.content}`,
+            isMeta: true
+        })
+    ]);
+}
 ```
 
-### Output Format
+### Output Format (v2.1.76)
 
 ```markdown
 <system-reminder>
-Contents of /path/to/project/CLAUDE.md:
+Contents of /path/to/project/CLAUDE.md (last modified: 2026-03-15T10:30:00.000Z):
 
 # Project Guidelines
 
@@ -501,9 +517,7 @@ async function zIY(A, q) {
             let X = (q.options.mcpResources?.[H] || []).find((D) => D.uri === O);
             if (!X) return c("tengu_at_mention_mcp_resource_error", {}), null;
             try {
-                let D = await _.client.readResource({
-                    uri: O
-                });
+                let D = await _.client.readResource({ uri: O });
                 return c("tengu_at_mention_mcp_resource_success", {}), {
                     type: "mcp_resource",
                     server: H,
@@ -530,7 +544,6 @@ async function extractMcpResources(userMessage, sessionContext) {
 
     return (await Promise.all(resourceUris.map(async (uriString) => {
         try {
-            // Parse "server:resource-uri" format
             let [serverName, ...uriParts] = uriString.split(":");
             let resourceUri = uriParts.join(":");
 
@@ -539,14 +552,12 @@ async function extractMcpResources(userMessage, sessionContext) {
                 return null;
             }
 
-            // Find the MCP client
             let client = mcpClients.find(c => c.name === serverName);
             if (!client || client.type !== "connected") {
                 logTelemetry("tengu_at_mention_mcp_resource_error", {});
                 return null;
             }
 
-            // Find resource metadata
             let resourceMeta = (sessionContext.options.mcpResources?.[serverName] || [])
                 .find(r => r.uri === resourceUri);
             if (!resourceMeta) {
@@ -555,11 +566,7 @@ async function extractMcpResources(userMessage, sessionContext) {
             }
 
             try {
-                // Fetch resource content
-                let content = await client.client.readResource({
-                    uri: resourceUri
-                });
-
+                let content = await client.client.readResource({ uri: resourceUri });
                 logTelemetry("tengu_at_mention_mcp_resource_success", {});
 
                 return {
@@ -615,15 +622,10 @@ case "mcp_resource": {
             });
             else if ("blob" in z) {
                 let w = "mimeType" in z ? String(z.mimeType) : "application/octet-stream";
-                Y.push({
-                    type: "text",
-                    text: `[Binary content: ${w}]`
-                })
+                Y.push({ type: "text", text: `[Binary content: ${w}]` })
             }
-        } if (Y.length > 0) return _9([c6({
-        content: Y,
-        isMeta: !0
-    })]);
+        }
+    if (Y.length > 0) return _9([c6({ content: Y, isMeta: !0 })]);
     else return SA(A.server, `No displayable content found in MCP resource ${A.uri}.`), _9([c6({
         content: `<mcp-resource server="${A.server}" uri="${A.uri}">(No displayable content)</mcp-resource>`,
         isMeta: !0
@@ -686,16 +688,12 @@ function MIY(A) {
 
 // READABLE (for understanding):
 function shouldSendUltramemoryAttachment(messages) {
-    // Empty history = send ultramemory
     if (!messages || messages.length === 0) return true;
 
-    // Get token count since last ultramemory
     let tokenCount = countTokensSinceUltramemory(messages);
 
-    // No previous ultramemory = send ultramemory
     if (tokenCount === null) return true;
 
-    // Send if token count exceeds cooldown threshold
     return tokenCount >= ULTRAMEMORY_CONSTANTS.TOKEN_COOLDOWN;
 }
 
@@ -839,7 +837,7 @@ case "dynamic_skill":
 
 ### Key Insight
 
-`dynamic_skill` is a **silent type** - it doesn't produce API messages. Instead, it triggers the skill discovery mechanism to refresh the skill listing.
+`dynamic_skill` is a **silent type** - it doesn't produce API messages. Instead, it triggers the skill discovery mechanism to refresh the skill listing. In v2.1.76, this includes the `CLAUDE_SKILL_DIR` source when set.
 
 ---
 
@@ -884,15 +882,12 @@ function YIY(A, q) {
 
 // READABLE (for understanding):
 function getAgentMentionAttachment(userMessage, availableAgents) {
-    // Parse @agent-{type} mentions from message
     let agentMentions = parseAgentMentions(userMessage);
     if (agentMentions.length === 0) return [];
 
     return agentMentions.map(mention => {
-        // Extract agent type from "agent-{type}"
         let agentType = mention.replace("agent-", "");
 
-        // Find matching agent
         let agent = availableAgents.find(a => a.agentType === agentType);
         if (!agent) {
             logTelemetry("tengu_at_mention_agent_not_found", {});
@@ -976,6 +971,7 @@ QhY = {
 | Variable | Purpose |
 |----------|---------|
 | `CLAUDE_CODE_DISABLE_ATTACHMENTS` | Disables all attachment production |
+| `CLAUDE_SKILL_DIR` | Additional skill directory to scan (v2.1.76 new) |
 
 ---
 

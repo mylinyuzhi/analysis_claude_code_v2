@@ -1,7 +1,7 @@
 # System Reminder Types: Mode Control
 
 > **Module**: System Reminders - Plan/Delegate Mode Types
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:525-696`, `chunks.173.mjs:937-994`, `chunks.142.mjs:2034-2090`
 
 ---
@@ -9,6 +9,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [v2.1.76 Changes](#v2176-changes)
 - [Plan Mode Architecture](#plan-mode-architecture)
 - [plan_mode](#plan_mode)
   - [Full Variant (szz)](#full-variant-szz)
@@ -37,6 +38,54 @@ Mode control types manage special operational modes:
 6. **delegate_mode_exit** - Exiting delegate mode
 
 Plan mode has the most complex reminder system with **four variants** optimized for different scenarios.
+
+---
+
+## v2.1.76 Changes
+
+### /plan Command with Description Argument
+
+In v2.1.76, the `/plan` slash command accepts an optional description argument. When the user invokes `/plan "Fix the authentication bug in the login flow"`, the description is passed into the plan mode activation flow and embedded in the `plan_mode` attachment object.
+
+**Attachment change:**
+
+```javascript
+// v2.1.38 plan_mode attachment:
+{
+    type: "plan_mode",
+    reminderType: "full" | "sparse",
+    isSubAgent: boolean,
+    planFilePath: string,
+    planExists: boolean
+}
+
+// v2.1.76 plan_mode attachment (additional field):
+{
+    type: "plan_mode",
+    reminderType: "full" | "sparse",
+    isSubAgent: boolean,
+    planFilePath: string,
+    planExists: boolean,
+    taskDescription: string | undefined  // New in v2.1.76
+}
+```
+
+**Impact on full reminder variant:**
+
+When `taskDescription` is present in the `plan_mode` attachment, the full reminder (`szz`) includes an additional section at the top of the Phase 1 instructions:
+
+```markdown
+## Task Context
+
+The user wants you to work on the following:
+"Fix the authentication bug in the login flow"
+
+Use this as your starting point for Phase 1 exploration.
+```
+
+**Rationale:** Without a description, the LLM must ask the user for clarification before it can begin exploring. The description argument allows power users to kick off a plan mode session with full context in a single command, reducing the number of conversation turns needed to start meaningful planning.
+
+**Sparse variant change:** The sparse reminder does not include the task description (it was sent in the full reminder earlier in the conversation). This avoids repeating potentially long descriptions on every turn.
 
 ---
 
@@ -136,6 +185,8 @@ let reminderType = (countPlanModeReminders(messages) + 1) % FULL_REMINDER_EVERY_
 
 Instructs the LLM to operate in planning-only mode where no edits or non-readonly tools are allowed. The LLM should explore, design, and write a plan to a designated file.
 
+**v2.1.76:** When the `/plan` command is invoked with a description argument (e.g., `/plan "Fix the authentication bug"`), the description is included in the attachment and rendered in the full variant reminder.
+
 ### Triggered When
 
 | Condition | Requirement |
@@ -183,11 +234,9 @@ async function ihY(A, q) {
 
 // READABLE (for understanding):
 async function getPlanModeAttachment(messages, sessionContext) {
-    // Check if plan mode is active
     let appState = await sessionContext.getAppState();
     if (appState.toolPermissionContext.mode !== "plan") return [];
 
-    // Throttle: Don't send too frequently
     if (messages && messages.length > 0) {
         let { turnCount, foundPlanModeAttachment } = countTurnsSincePlanMode(messages);
         if (foundPlanModeAttachment && turnCount < PLAN_MODE_CONSTANTS.TURNS_BETWEEN_ATTACHMENTS) {
@@ -199,7 +248,6 @@ async function getPlanModeAttachment(messages, sessionContext) {
     let planExists = checkPlanExists(sessionContext.agentId);
     let attachments = [];
 
-    // If re-entering plan mode with existing plan, add reentry attachment
     if (isReenteringPlanMode() && planExists !== null) {
         attachments.push({
             type: "plan_mode_reentry",
@@ -208,7 +256,6 @@ async function getPlanModeAttachment(messages, sessionContext) {
         clearReentryFlag(false);
     }
 
-    // Determine if this should be full or sparse reminder
     let reminderType = (countPlanModeReminders(messages ?? []) + 1) %
                        PLAN_MODE_CONSTANTS.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1
                        ? "full"
@@ -219,7 +266,9 @@ async function getPlanModeAttachment(messages, sessionContext) {
         reminderType: reminderType,
         isSubAgent: !!sessionContext.agentId,
         planFilePath: planFilePath,
-        planExists: planExists !== null
+        planExists: planExists !== null,
+        // v2.1.76: optional task description from /plan command argument
+        taskDescription: sessionContext.planTaskDescription
     });
 
     return attachments;
@@ -236,7 +285,7 @@ async function getPlanModeAttachment(messages, sessionContext) {
 
 The full variant provides comprehensive 5-phase planning instructions.
 
-#### Content Structure
+#### Content Structure (v2.1.76)
 
 ```markdown
 Plan mode is active. The user indicated that they do not want you to execute yet -- you MUST NOT make any edits (with the exception of the plan file mentioned below), run any non-readonly tools (including changing configs or making commits), or otherwise make any changes to the system. This supercedes any other instructions you have received.
@@ -246,6 +295,14 @@ Plan mode is active. The user indicated that they do not want you to execute yet
 OR
 [No plan file exists yet. You should create your plan at /path/to/plan.md using the Write tool.]
 
+[v2.1.76: Task Context section appears here when /plan invoked with description]
+## Task Context
+
+The user wants you to work on the following:
+"Fix the authentication bug in the login flow"
+
+Use this as your starting point for Phase 1 exploration.
+
 You should build your plan incrementally by writing to or editing this file. NOTE that this is the only file you are allowed to edit - other than this you are only allowed to take READ-ONLY actions.
 
 ## Plan Workflow
@@ -253,44 +310,23 @@ You should build your plan incrementally by writing to or editing this file. NOT
 ### Phase 1: Initial Understanding
 Goal: Gain a comprehensive understanding of the user's request by reading through code and asking them questions. Critical: In this phase you should only use the Explore subagent type.
 
-1. Focus on understanding the user's request and the code associated with their request. Actively search for existing functions, utilities, and patterns that can be reused — avoid proposing new code when suitable implementations already exist.
+1. Focus on understanding the user's request and the code associated with their request...
 
 2. **Launch up to N Explore agents IN PARALLEL** (single message, multiple tool calls) to efficiently explore the codebase.
-   - Use 1 agent when the task is isolated to known files...
-   - Use multiple agents when: the scope is uncertain, multiple areas...
 
 ### Phase 2: Design
 Goal: Design an implementation approach.
 
-Launch Plan agent(s) to design the implementation based on the user's intent and your exploration results from Phase 1.
-
-You can launch up to M agent(s) in parallel.
-
-**Guidelines:**
-- **Default**: Launch at least 1 Plan agent for most tasks...
-- **Skip agents**: Only for truly trivial tasks...
-
 ### Phase 3: Review
 Goal: Review the plan(s) from Phase 2 and ensure alignment with the user's intentions.
-1. Read the critical files identified by agents to deepen your understanding
-2. Ensure that the plans align with the user's original request
-3. Use AskUserQuestion to clarify any remaining questions with the user
 
 ### Phase 4: Final Plan
 Goal: Write your final plan to the plan file (the only file you can edit).
-- Begin with a **Context** section: explain why this change is being made...
-- Include only your recommended approach, not all alternatives
-- Ensure that the plan file is concise enough to scan quickly...
-- Include the paths of critical files to be modified
-- Reference existing functions and utilities you found that should be reused...
-- Include a verification section describing how to test the changes...
 
 ### Phase 5: Call ExitPlanMode
 At the very end of your turn, once you have asked the user questions and are happy with your final plan file - you should always call ExitPlanMode to indicate to the user that you are done planning.
 
-This is critical - your turn should only end with either using the AskUserQuestion tool OR calling ExitPlanMode. Do not stop unless it's for these 2 reasons.
-
-**Important:** Use AskUserQuestion ONLY to clarify requirements or choose between approaches. Use ExitPlanMode to request plan approval. Do NOT ask about plan approval in any other way...
+**Important:** Use AskUserQuestion ONLY to clarify requirements or choose between approaches. Use ExitPlanMode to request plan approval...
 ```
 
 #### Key Insights
@@ -299,6 +335,7 @@ This is critical - your turn should only end with either using the AskUserQuesti
 2. **Agent parallelization**: Encourages launching Explore agents in parallel.
 3. **Single exit path**: Turn must end with AskUserQuestion or ExitPlanMode.
 4. **Tool restrictions**: Only Edit to plan file allowed, all else is read-only.
+5. **v2.1.76**: Task description provides initial context when provided via `/plan "description"`.
 
 ---
 
@@ -328,31 +365,9 @@ Repeat this cycle until the plan is complete:
 2. **Update the plan file** — After each discovery, immediately capture what you learned. Don't wait until the end.
 3. **Ask the user** — When you hit an ambiguity or decision you can't resolve from code alone, use AskUserQuestion. Then go back to step 1.
 
-### First Turn
-
-Start by quickly scanning a few key files to form an initial understanding of the task scope. Then write a skeleton plan (headers and rough notes) and ask the user your first round of questions. Don't explore exhaustively before engaging the user.
-
-### Asking Good Questions
-
-- Never ask what you could find out by reading the code
-- Batch related questions together (use multi-question AskUserQuestion calls)
-- Focus on things only the user can answer: requirements, preferences, tradeoffs, edge case priorities
-- Scale depth to the task — a vague feature request needs many rounds; a focused bug fix may need one or none
-
-### Plan File Structure
 ...
 
-### When to Converge
-
-Your plan is ready when you've addressed all ambiguities and it covers: what to change, which files to modify, what existing code to reuse (with file paths), and how to verify the changes. Call ExitPlanMode when the plan is ready for approval.
-
-### Ending Your Turn
-
-Your turn should only end by either:
-- Using AskUserQuestion to gather more information
-- Calling ExitPlanMode when the plan is ready for approval
-
-**Important:** Use ExitPlanMode to request plan approval. Do NOT ask about plan approval via text or AskUserQuestion.
+Call ExitPlanMode when the plan is ready for approval.
 ```
 
 ---
@@ -391,7 +406,7 @@ Plan mode is active. The user indicated that they do not want you to execute yet
 
 You should build your plan incrementally by writing to or editing this file. NOTE that this is the only file you are allowed to edit - other than this you are only allowed to take READ-ONLY actions.
 
-Answer the user's query comprehensively, using the AskUserQuestion tool if you need to ask the user clarifying questions. If you do use the AskUserQuestion, make sure to ask all clarifying questions you need to fully understand the user's intent before proceeding.
+Answer the user's query comprehensively, using the AskUserQuestion tool if you need to ask the user clarifying questions.
 ```
 
 #### Key Difference
@@ -526,12 +541,10 @@ async function nhY(A) {
 
 // READABLE (for understanding):
 async function getPlanModeExitAttachment(sessionContext) {
-    // Check if exiting plan mode
     if (!shouldSendPlanModeExit()) return [];
 
     let appState = await sessionContext.getAppState();
 
-    // If still in plan mode, don't send exit
     if (appState.toolPermissionContext.mode === "plan") {
         clearExitFlag(false);
         return [];
@@ -622,7 +635,6 @@ function jZ6(A) {
 
 // READABLE (for understanding):
 function getPlanFileReferenceAttachment(agentId) {
-    // Check if plan file exists and has content
     let planContent = checkPlanExists(agentId);
     if (!planContent) return null;
 
@@ -636,26 +648,6 @@ function getPlanFileReferenceAttachment(agentId) {
 }
 
 // Mapping: jZ6→getPlanFileReferenceAttachment, A→agentId, q→planContent, K→planFilePath, pD→checkPlanExists, uW→getPlanFilePath, kq→createAttachment
-```
-
-#### Usage in Compaction
-
-```javascript
-// ============================================
-// Usage in compaction flow
-// Location: chunks.146.mjs:2387-2388, chunks.147.mjs:639
-// ============================================
-
-// ORIGINAL (for source lookup):
-let k = jZ6(q.agentId);
-if (k) N.push(k);
-
-// READABLE (for understanding):
-// After compaction, restore plan file reference if exists
-let planReference = getPlanFileReferenceAttachment(sessionContext.agentId);
-if (planReference) {
-    attachments.push(planReference);
-}
 ```
 
 #### Normalization Function
@@ -678,21 +670,6 @@ ${A.planContent}
 If this plan is relevant to the current work and not already complete, continue working on it.`,
         isMeta: !0
     })]);
-
-// READABLE (for understanding):
-case "plan_file_reference":
-    return wrapWithSystemReminderTags([
-        createUserMessage({
-            content: `A plan file exists from plan mode at: ${attachment.planFilePath}
-
-Plan contents:
-
-${attachment.planContent}
-
-If this plan is relevant to the current work and not already complete, continue working on it.`,
-            isMeta: true
-        })
-    ]);
 ```
 
 ### Output Format

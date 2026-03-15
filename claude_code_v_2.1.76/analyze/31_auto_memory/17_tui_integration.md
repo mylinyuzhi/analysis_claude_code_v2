@@ -4,7 +4,9 @@
 
 This document details how the Terminal User Interface (TUI) integrates with the auto memory system through the memory editor modal, settings toggle, and file management interface. The TUI provides a user-friendly way to enable/disable auto memory, navigate memory files, and open them in external editors.
 
-**Key insight**: The memory editor modal is a multi-pane interface that adapts based on context - showing different options for user memory, project memory, and auto memory.
+**Key insight**: The memory editor modal is a multi-pane interface that adapts based on context — showing different options for user memory, project memory, and auto memory.
+
+**Version**: Claude Code v2.1.76
 
 ---
 
@@ -21,13 +23,6 @@ This document details how the Terminal User Interface (TUI) integrates with the 
 // ORIGINAL (for source lookup):
 function toY() {
   // React component rendering logic
-  return (
-    <Modal>
-      <AutoMemoryToggle />
-      <FileSelector />
-      <ActionButtons />
-    </Modal>
-  );
 }
 
 // READABLE (for understanding):
@@ -105,19 +100,19 @@ memoryEditorModal (toY)
 
 **Visual representation**:
 ```
-┌────────────────────────────────────────────────────┐
-│ Memory Editor                                      │
-├────────────────────────────────────────────────────┤
-│                                                    │
-│ Auto-memory (research preview): [x] on  [ ] off   │
-│                                                    │
-│ Select file or folder:                             │
-│ ┌──────────────────────────────────────────────┐  │
-│ │ auto memory entrypoint                    ▼ │  │
-│ └──────────────────────────────────────────────┘  │
-│                                                    │
-│                        [Open]     [Cancel]         │
-└────────────────────────────────────────────────────┘
++----------------------------------------------------+
+| Memory Editor                                      |
++----------------------------------------------------+
+|                                                    |
+| Auto-memory (research preview): [x] on  [ ] off   |
+|                                                    |
+| Select file or folder:                             |
+| +------------------------------------------------+ |
+| | auto memory entrypoint                       v | |
+| +------------------------------------------------+ |
+|                                                    |
+|                        [Open]     [Cancel]         |
++----------------------------------------------------+
 ```
 
 ### Toggle Code Analysis
@@ -170,71 +165,6 @@ const handleAutoMemoryToggle = () => {
 - **User experience**: Instant visual feedback confirms action
 - **State synchronization**: React state matches persisted settings
 - **No stale state**: Next toggle operation sees correct current value
-
----
-
-## User Interaction Flow Diagram
-
-### Complete User Journey
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ User presses /memory command in TUI                         │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ TUI invokes memoryEditorModal() component                   │
-│   - Loads current userSettings.autoMemoryEnabled            │
-│   - Renders modal with current state                        │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Modal displays:                                              │
-│   ┌─────────────────────────────────────────────────┐       │
-│   │ Auto-memory (research preview): [x] on          │       │
-│   │                                                  │       │
-│   │ Select file or folder:                           │       │
-│   │ ┌────────────────────────────────────────────┐  │       │
-│   │ │ auto memory entrypoint                  ▼ │  │       │
-│   │ └────────────────────────────────────────────┘  │       │
-│   │                                                  │       │
-│   │                   [Open]     [Cancel]            │       │
-│   └─────────────────────────────────────────────────┘       │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-                    ┌───────┴────────┐
-                    │                │
-             User Action 1      User Action 2
-        ┌─────────────────┐  ┌──────────────────┐
-        │ Toggle Off      │  │ Select File      │
-        └─────────────────┘  └──────────────────┘
-                ↓                      ↓
-┌───────────────────────────┐  ┌──────────────────────────┐
-│ handleAutoMemoryToggle()  │  │ setSelectedOption()      │
-│   ↓                       │  │   ↓                      │
-│ updateUserSettings({      │  │ Dropdown updates to      │
-│   autoMemoryEnabled: false│  │   "User memory"          │
-│ })                        │  │   ↓                      │
-│   ↓                       │  │ User clicks [Open]       │
-│ recordTelemetry({         │  │   ↓                      │
-│   enabled: false          │  │ handleOpenSelection()    │
-│ })                        │  │   ↓                      │
-│   ↓                       │  │ openInEditor(            │
-│ setAutoMemoryEnabled(     │  │   path: "~/.claude/      │
-│   false                   │  │     CLAUDE.md"           │
-│ )                         │  │ )                        │
-│   ↓                       │  │   ↓                      │
-│ UI updates:               │  │ External editor opens    │
-│   [ ] on  [x] off         │  │   $VISUAL or $EDITOR     │
-│   ↓                       │  │   ↓                      │
-│ Next turn:                │  │ User edits file          │
-│   isAutoMemoryEnabled()   │  │   ↓                      │
-│   → returns false         │  │ Saves and closes         │
-│   ↓                       │  │   ↓                      │
-│ No memory loaded in       │  │ Modal closes             │
-│   system prompt           │  └──────────────────────────┘
-└───────────────────────────┘
-```
 
 ---
 
@@ -382,22 +312,6 @@ spawn(editor, [filePath], {
 - **Modal context**: Modal blocks other TUI interactions anyway
 - **File watching**: No need to watch file changes (editor closes = done)
 
-**Alternative approach** (not implemented):
-```javascript
-// Asynchronous launch (user can continue using TUI)
-spawn(editor, [filePath], {
-  detached: true,      // Run independently
-  stdio: "ignore"      // Don't inherit I/O
-});
-
-// TUI continues immediately, modal closes
-```
-
-**Why not async?**
-- **Complexity**: Would need file watching to detect changes
-- **User confusion**: Modal closes but file edit is still in progress
-- **Limited benefit**: User typically wants to edit and return to TUI
-
 ---
 
 ## File Manager Integration
@@ -427,87 +341,10 @@ function getPlatformFileManagerCommand() {
 }
 ```
 
-### File Manager Launch
-
-```javascript
-// ============================================
-// File Manager Launch (Asynchronous)
-// ============================================
-
-// Detached launch (user can continue using TUI while browsing files)
-spawn(fileManagerCommand, [directoryPath], {
-  detached: true,  // Run independently of TUI process
-  stdio: "ignore"  // Don't inherit I/O
-});
-
-// TUI continues immediately, modal closes
-// User browses files in separate window
-```
-
 **Why detached?**
 - **Parallel workflows**: User can browse files AND use TUI simultaneously
 - **Non-blocking**: TUI remains responsive
 - **User expectation**: File manager is typically a separate application
-
----
-
-## Pane State Management
-
-### State Variables
-
-```javascript
-// ============================================
-// Modal State Management
-// ============================================
-
-const [autoMemoryEnabled, setAutoMemoryEnabled] = useState(
-  userSettings.autoMemoryEnabled
-);
-
-const [selectedOption, setSelectedOption] = useState(null);
-
-const [isOpen, setIsOpen] = useState(false);
-
-// Keyboard navigation state
-const [focusedElement, setFocusedElement] = useState("toggle");
-// Possible values: "toggle", "dropdown", "open-button", "cancel-button"
-```
-
-### Focus Navigation Flow
-
-```
-Modal opens
-  ↓
-Focus: Toggle switch (default)
-  ↓
-User presses Tab
-  ↓
-Focus: Dropdown menu
-  ↓
-User presses Tab
-  ↓
-Focus: Open button
-  ↓
-User presses Tab
-  ↓
-Focus: Cancel button
-  ↓
-User presses Tab (cycles back)
-  ↓
-Focus: Toggle switch
-```
-
-### Keyboard Shortcuts
-
-| Key | Action | Context |
-|-----|--------|---------|
-| **Tab** | Next element | Any focused element |
-| **Shift+Tab** | Previous element | Any focused element |
-| **Space** | Toggle switch | Toggle focused |
-| **Enter** | Open selection | Open button focused |
-| **Esc** | Close modal | Any context |
-| **↑/↓** | Navigate dropdown | Dropdown focused |
-| **Enter** | Select option | Dropdown focused |
 
 ---
 
@@ -525,12 +362,14 @@ Focus: Toggle switch
 {
   "userSettings": {
     "autoMemoryEnabled": true,
+    "autoMemoryDirectory": "/custom/path/",
     "theme": "dark",
-    "editor": "code",
     ...
   }
 }
 ```
+
+**New in v2.1.59**: The `autoMemoryDirectory` field allows specifying a custom memory directory that bypasses the project-hash path computation. When set, `getAutoMemoryDirectory()` returns this path directly.
 
 ### Update Function
 
@@ -576,113 +415,17 @@ function updateUserSettings(settingsKey, updates) {
 
 ---
 
-## Verification Steps
+## Keyboard Shortcuts
 
-### Test 1: Toggle Auto-Memory On → Off → On
-
-**Objective**: Verify toggle persistence across TUI restarts
-
-**Steps**:
-1. Launch TUI, press `/memory`
-2. Verify current state: `[x] on`
-3. Click toggle → State changes to `[ ] off`
-4. Close modal, exit TUI
-5. Restart TUI, press `/memory`
-6. **Expected**: State persisted as `[ ] off`
-7. Click toggle → State changes to `[x] on`
-8. Close modal, exit TUI
-9. Restart TUI, press `/memory`
-10. **Expected**: State persisted as `[x] on`
-
-**Verify settings file**:
-```bash
-cat ~/.claude/settings.json | grep autoMemoryEnabled
-# Output: "autoMemoryEnabled": true
-```
-
----
-
-### Test 2: Open MEMORY.md in External Editor
-
-**Objective**: Verify file opens in correct editor
-
-**Steps**:
-1. Set editor: `export VISUAL=code`
-2. Launch TUI, press `/memory`
-3. Select "auto memory entrypoint" from dropdown
-4. Click [Open]
-5. **Expected**: VS Code opens with MEMORY.md
-6. Edit file, save, close VS Code
-7. **Expected**: Modal closes, TUI resumes
-
-**Verify editor used**:
-```bash
-echo $VISUAL
-# Output: code
-```
-
----
-
-### Test 3: Open Auto-Memory Folder in Finder/Explorer
-
-**Objective**: Verify directory opens in file manager
-
-**Steps**:
-1. Launch TUI, press `/memory`
-2. Select "Open auto-memory folder" from dropdown
-3. Click [Open]
-4. **Expected** (macOS): Finder opens to `~/.claude/projects/{hash}/memory/`
-5. **Expected** (Linux): File manager opens (Nautilus, Dolphin, etc.)
-6. **Expected** (Windows): Explorer opens
-7. **Expected** (TUI): Modal closes immediately, TUI remains responsive
-
-**Verify command executed**:
-```bash
-# macOS
-ps aux | grep "open.*memory"
-
-# Linux
-ps aux | grep "xdg-open.*memory"
-```
-
----
-
-### Test 4: Keyboard Navigation
-
-**Objective**: Verify all elements are keyboard-accessible
-
-**Steps**:
-1. Launch TUI, press `/memory`
-2. **Expected**: Toggle has focus (visual indicator)
-3. Press `Tab` → **Expected**: Dropdown has focus
-4. Press `Tab` → **Expected**: Open button has focus
-5. Press `Tab` → **Expected**: Cancel button has focus
-6. Press `Tab` → **Expected**: Toggle has focus (cycled)
-7. Press `Shift+Tab` → **Expected**: Cancel button has focus (reverse)
-8. Navigate to toggle, press `Space` → **Expected**: Toggle switches state
-9. Press `Esc` → **Expected**: Modal closes
-
----
-
-### Test 5: Multi-Agent Memory Directories
-
-**Objective**: Verify agent memory directories appear when multiple agents exist
-
-**Setup**:
-```bash
-# Simulate multi-agent scenario
-mkdir -p ~/.claude/projects/test123/memory/agent_explore/
-mkdir -p ~/.claude/projects/test123/memory/agent_plan/
-```
-
-**Steps**:
-1. Launch TUI, press `/memory`
-2. **Expected**: Dropdown shows additional options:
-   - "Open agent_explore agent memory"
-   - "Open agent_plan agent memory"
-3. Select "Open agent_explore agent memory"
-4. Click [Open]
-5. **Expected**: File manager opens to `~/.claude/projects/test123/memory/agent_explore/`
+| Key | Action | Context |
+|-----|--------|---------|
+| **Tab** | Next element | Any focused element |
+| **Shift+Tab** | Previous element | Any focused element |
+| **Space** | Toggle switch | Toggle focused |
+| **Enter** | Open selection | Open button focused |
+| **Esc** | Close modal | Any context |
+| **↑/↓** | Navigate dropdown | Dropdown focused |
+| **Enter** | Select option | Dropdown focused |
 
 ---
 
@@ -697,18 +440,18 @@ mkdir -p ~/.claude/projects/test123/memory/agent_plan/
 ### Warning Display
 
 ```
-┌────────────────────────────────────────────────────┐
-│ ⚠️  Large memory files detected:                   │
-│    - MEMORY.md (50000 characters, recommended:     │
-│      < 40000)                                      │
-│                                                    │
-│    Large files may impact TUI rendering           │
-│    performance. Consider splitting into smaller   │
-│    topic files.                                    │
-├────────────────────────────────────────────────────┤
-│ Auto-memory (research preview): [x] on             │
-│ ...                                                │
-└────────────────────────────────────────────────────┘
++----------------------------------------------------+
+| Large memory files detected:                       |
+|    - MEMORY.md (50000 characters, recommended:     |
+|      < 40000)                                      |
+|                                                    |
+|    Large files may impact TUI rendering           |
+|    performance. Consider splitting into smaller   |
+|    topic files.                                    |
++----------------------------------------------------+
+| Auto-memory (research preview): [x] on             |
+| ...                                                |
++----------------------------------------------------+
 ```
 
 **Location**: chunks.160.mjs:1988-2008
@@ -717,6 +460,43 @@ mkdir -p ~/.claude/projects/test123/memory/agent_plan/
 - **Performance**: Scanning files on every turn would slow down conversations
 - **User action**: User opening `/memory` signals intent to manage files
 - **Relevance**: Warning is actionable in this context (user can edit files)
+
+---
+
+## Verification Steps
+
+### Test 1: Toggle Auto-Memory On → Off → On
+
+1. Launch TUI, press `/memory`
+2. Verify current state: `[x] on`
+3. Click toggle → State changes to `[ ] off`
+4. Close modal, exit TUI
+5. Restart TUI, press `/memory`
+6. **Expected**: State persisted as `[ ] off`
+
+```bash
+cat ~/.claude/settings.json | grep autoMemoryEnabled
+# Output: "autoMemoryEnabled": false
+```
+
+### Test 2: Open MEMORY.md in External Editor
+
+```bash
+export VISUAL=code
+```
+
+1. Launch TUI, press `/memory`
+2. Select "auto memory entrypoint" from dropdown
+3. Click [Open]
+4. **Expected**: VS Code opens with MEMORY.md
+
+### Test 3: Open Auto-Memory Folder in Finder/Explorer
+
+1. Launch TUI, press `/memory`
+2. Select "Open auto-memory folder" from dropdown
+3. Click [Open]
+4. **Expected** (macOS): Finder opens to `~/.claude/projects/{hash}/memory/`
+5. **Expected** (TUI): Modal closes immediately, TUI remains responsive
 
 ---
 
@@ -740,13 +520,14 @@ Key functions in this document:
 4. **Settings persistence**: Immediate save on toggle, survives TUI restarts
 5. **Keyboard accessible**: Full navigation without mouse
 6. **Large file warnings**: Proactive alerts for performance issues
+7. **Custom directory support** (v2.1.59): `autoMemoryDirectory` setting visible in settings.json
 
 **Design rationale**:
-- ✅ **User-friendly**: Visual toggle, dropdown, and action buttons
-- ✅ **Flexible**: Supports any external editor via environment variables
-- ✅ **Cross-platform**: Adapts to different OS conventions
-- ✅ **Persistent**: Settings survive restarts
-- ⚠️ **Synchronous editor blocking**: User must close editor to continue (simplicity trade-off)
+- User-friendly: Visual toggle, dropdown, and action buttons
+- Flexible: Supports any external editor via environment variables
+- Cross-platform: Adapts to different OS conventions
+- Persistent: Settings survive restarts
+- Synchronous editor blocking: User must close editor to continue (simplicity trade-off)
 
 **Trade-offs**:
 - **Blocking vs Async**: Synchronous editor launch simplifies implementation but blocks TUI

@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Hook System is Claude Code's event-driven extension framework. It intercepts 15 distinct lifecycle moments, dispatches user-configured handlers (shell commands, LLM prompts, sub-agents, in-process callbacks, or function hooks), and feeds the results back into the main agent loop to control behavior: blocking tool calls, modifying inputs, injecting context, or forcing the model to continue working.
+The Hook System is Claude Code's event-driven extension framework. It intercepts 22 distinct lifecycle moments, dispatches user-configured handlers (shell commands, LLM prompts, sub-agents, in-process callbacks, or function hooks), and feeds the results back into the main agent loop to control behavior: blocking tool calls, modifying inputs, injecting context, or forcing the model to continue working.
+
+**Changes in v2.1.76**: Async hook completion messages are now suppressed by default; use `--verbose` flag to see them. New hook events added: PostCompact, Elicitation, ElicitationResult, InstructionsLoaded, ConfigChange, WorktreeCreate, WorktreeRemove.
 
 ## Related Symbols
 
@@ -37,7 +39,7 @@ Key functions in this document:
 - `getStructuredOutputTool` (jn7) - Returns the structured-output tool used by agent hooks
 - `interpolateHookPrompt` (XJ6) - Interpolates `${VAR}` in hook prompt strings
 - `buildBasePayload` (aX) - Constructs the common base payload for every hook event
-- `HOOK_EVENT_NAMES` (ax/tGY) - Canonical list of all 15 event names (runtime/schema)
+- `HOOK_EVENT_NAMES` (ax/tGY) - Canonical list of all 22 event names (runtime/schema)
 - `DEFAULT_HOOK_TIMEOUT` (MP) - Default timeout: **600,000ms (10 minutes)**
 - `HOOK_BLOCKED_TOOLS` (Bj1) - Set of tool names blocked from agent hooks
 
@@ -50,7 +52,7 @@ Key functions in this document:
 │                     Hook System Architecture                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
-│  Event Triggers (15 events)                                      │
+│  Event Triggers (22 events)                                      │
 │  ─────────────────────────                                       │
 │  PreToolUse → executePreToolHooks (qyA) ──────┐                  │
 │  PostToolUse → executePostToolHooks (KyA) ────┤                  │
@@ -1102,7 +1104,7 @@ All events are defined as Zod schemas in `chunks.129.mjs`. The base payload (`gZ
 }
 ```
 
-Individual event schemas (from chunks.129.mjs:722-791):
+Individual event schemas (from chunks.129.mjs:722-791), covering all 22 events in v2.1.76:
 
 | Event | Extra Fields | Match Query Source |
 |-------|-------------|-------------------|
@@ -1118,9 +1120,16 @@ Individual event schemas (from chunks.129.mjs:722-791):
 | `SubagentStart` | `agent_id`, `agent_type` | `agent_type` |
 | `SubagentStop` | `stop_hook_active`, `agent_id`, `agent_transcript_path`, `agent_type` | `agent_type` |
 | `PreCompact` | `trigger` (manual/auto), `custom_instructions?` | `trigger` |
+| `PostCompact` | `summary`, `original_token_count`, `new_token_count` | none |
 | `Setup` | `trigger` (init/maintenance) | `trigger` |
 | `TeammateIdle` | `teammate_name`, `team_name` | none |
 | `TaskCompleted` | `task_id`, `task_subject`, `task_description?`, `teammate_name?`, `team_name?` | none |
+| `Elicitation` | `elicitation_id`, `prompt`, `request_type` | none |
+| `ElicitationResult` | `elicitation_id`, `result`, `status` | none |
+| `InstructionsLoaded` | `instructions_source`, `instructions_content` | none |
+| `ConfigChange` | `config_key`, `old_value`, `new_value` | none |
+| `WorktreeCreate` | `worktree_path`, `branch` | none |
+| `WorktreeRemove` | `worktree_path`, `branch` | none |
 
 ---
 
@@ -1157,7 +1166,7 @@ The `HJ6` (hookProgressPoller) function creates a 1-second polling interval that
 | `MP` | `600000` | Default hook timeout: **10 minutes** |
 | `Bj1` (HOOK_BLOCKED_TOOLS) | Set of tool names | Tools blocked from agent hooks |
 | `IL9` | `["SessionStart", "Setup"]` | Events that stream progress to remote |
-| `tGY` (HOOK_EVENT_NAMES) | Array of 15 strings | All valid event names |
+| `tGY` (HOOK_EVENT_NAMES) | Array of 22 strings | All valid event names |
 | `VR` | `Map<string, HookProcessEntry>` | Async hook background registry |
 
 ---

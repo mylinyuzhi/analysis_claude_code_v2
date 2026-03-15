@@ -1,4 +1,4 @@
-# Browser Control - UI Linkage Analysis (Claude Code 2.1.38)
+# Browser Control - UI Linkage Analysis (Claude Code 2.1.76)
 
 > Analysis of all UI entry points, state management, React components,
 > and settings integration for the "Claude in Chrome" feature.

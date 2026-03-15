@@ -1,8 +1,12 @@
-# Plugin Hooks System (Claude Code 2.1.38)
+# Plugin Hooks System (Claude Code 2.1.76)
 
 > Analysis of plugin hook extraction, how plugins register hooks during loading,
 > LSP server loading from plugins, the plugin lifecycle (discovery, loading, hooks, execution),
 > and the plugin permission model.
+
+**v2.1.76 Changes:**
+- `WorktreeCreate` and `WorktreeRemove` events added to the hook event initialization list (previously silently ignored)
+- LSP plugin registration race condition fixed: plugins now properly register when LSP Manager is initialized before marketplaces are reconciled
 
 ---
 
@@ -80,9 +84,10 @@ Discovery                Loading                  Hooks                Execution
 - Each `pluginName@marketplaceName` is resolved against installed marketplace sources
 - Marketplace sources themselves are stored in `~/.claude/plugins/marketplaces.json`
 
-**Marketplace source types:**
+**Marketplace source types (v2.1.76):**
 - `github` - GitHub repository (cloned via SSH or HTTPS)
 - `git` - Generic git repository
+- `git-subdir` - Clone only a specific subdirectory of a git repository [NEW in v2.1.76]
 - `url` - Direct URL to a marketplace JSON file
 - `npm` - NPM package (not yet implemented)
 - `file` - Local filesystem JSON file
@@ -315,7 +320,7 @@ Before installing a marketplace, the system validates against enterprise policy:
 
 ```javascript
 // ============================================
-// installMarketplaceSource - Install with enterprise policy check
+// installMarketplaceSource - Install with enterprise policy gate
 // Location: chunks.143.mjs:448-510
 // ============================================
 
@@ -408,7 +413,8 @@ pa = KA(async () => {  // KA = memoize
             Notification: [], UserPromptSubmit: [], SessionStart: [],
             SessionEnd: [], Stop: [], SubagentStart: [], SubagentStop: [],
             PreCompact: [], PermissionRequest: [], Setup: [],
-            TeammateIdle: [], TaskCompleted: []
+            TeammateIdle: [], TaskCompleted: [],
+            WorktreeCreate: [], WorktreeRemove: []   // [NEW in v2.1.76]
         };
     for (let Y of A) {
         if (!Y.hooksConfig) continue;
@@ -424,13 +430,14 @@ pa = KA(async () => {  // KA = memoize
 loadAllPluginHooks = memoize(async () => {
     let { enabled: enabledPlugins } = await getLoadedPlugins();
 
-    // Initialize empty event queues for all 15 hook events
+    // Initialize empty event queues for all 17 hook events (v2.1.76: +WorktreeCreate/Remove)
     let eventQueues = {
         PreToolUse: [], PostToolUse: [], PostToolUseFailure: [],
         Notification: [], UserPromptSubmit: [], SessionStart: [],
         SessionEnd: [], Stop: [], SubagentStart: [], SubagentStop: [],
         PreCompact: [], PermissionRequest: [], Setup: [],
-        TeammateIdle: [], TaskCompleted: []
+        TeammateIdle: [], TaskCompleted: [],
+        WorktreeCreate: [], WorktreeRemove: []   // [NEW in v2.1.76]
     };
 
     // For each enabled plugin with hooks configured:
@@ -453,8 +460,8 @@ loadAllPluginHooks = memoize(async () => {
 //   O61→registerPluginHooks, KA→memoize
 ```
 
-**Key design: 15-event initialization**
-The function initializes ALL 15 event types even before knowing which plugins have hooks. This ensures the registry always has arrays (not undefined) for all events, preventing null-check overhead in the event dispatch path.
+**Key design: 17-event initialization (v2.1.76)**
+The function initializes ALL event types including `WorktreeCreate` and `WorktreeRemove` even before knowing which plugins have hooks. In v2.1.38, these two worktree events were not included, meaning plugin hooks registered for these events were silently ignored. In v2.1.76, they are properly initialized so plugins can register handlers for worktree lifecycle events.
 
 **Memoization semantics:** `pa` is memoized with `KA` (likely a simple cache). Once called, subsequent calls return immediately. The cache is invalidated by `rO6` (clearPluginHookCache).
 
@@ -528,6 +535,14 @@ Prevents double-subscription if `setupPluginHookHotReload` is called multiple ti
 
 ---
 
+## LSP Plugin Registration Fix (v2.1.76)
+
+In v2.1.38, there was a race condition: if the LSP Manager was initialized before the marketplace reconciliation completed, plugins that provide LSP server configurations would fail to register. In v2.1.76, this is fixed by ensuring LSP plugin registration occurs after the LSP Manager is ready, regardless of initialization order.
+
+**Practical impact:** Plugins providing language server configurations (via `.lsp.json`) now reliably register in all startup sequences, including fast restarts where the LSP Manager may be initialized before marketplace data is available.
+
+---
+
 ## Startup Integration (chunks.177.mjs:2536)
 
 The `loadPluginHooks` and `setupPluginHookHotReload` calls happen during UI setup in the REPL:
@@ -561,11 +576,13 @@ Plugin hook loading involves disk I/O and potentially git operations (if marketp
 
 2. **Git**: Clone and read from specified path
 
-3. **URL**: Direct HTTP GET, validates response against marketplace schema
+3. **Git-subdir** (v2.1.76): Clone a specific subdirectory of a git repository — avoids cloning the full repo when the marketplace data is in a subdirectory of a larger monorepo
 
-4. **File**: Reads directly from local path
+4. **URL**: Direct HTTP GET, validates response against marketplace schema
 
-5. **Directory**: Reads from `{dir}/.claude-plugin/marketplace.json`
+5. **File**: Reads directly from local path
+
+6. **Directory**: Reads from `{dir}/.claude-plugin/marketplace.json`
 
 **Cache management:**
 - Downloaded marketplaces are cached in `~/.claude/plugins/{marketplaceName}/`
@@ -617,3 +634,5 @@ These errors are surfaced in diagnostic commands but do not prevent the plugin f
 | Schema validation (Zod) | Catches malformed configs early with clear error messages |
 | Hot reload support | Developer experience; iterate on hooks without restart |
 | Categorized error messages | Actionable diagnostics (network vs. permissions vs. config) |
+| WorktreeCreate/Remove events (v2.1.76) | Plugins can now respond to worktree lifecycle events |
+| LSP registration race fix (v2.1.76) | LSP plugins register reliably regardless of init order |

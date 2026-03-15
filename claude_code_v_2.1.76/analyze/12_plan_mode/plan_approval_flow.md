@@ -1,4 +1,4 @@
-# Plan Mode Approval Flow (Claude Code 2.1.38)
+# Plan Mode Approval Flow (Claude Code 2.1.76)
 
 > Complete analysis of the plan approval lifecycle: user-facing dialog, swarm inter-agent protocol, UI rendering, and state transitions.
 
@@ -180,6 +180,10 @@ When the user selects **"No, keep planning"** (types feedback):
 3. UI renders rejection card (`Yd4`) with plan content in planMode-colored border
 4. `renderToolUseRejectedMessage` is called → shows `HX6` component
 5. LLM receives the typed feedback as a user message and refines the plan
+
+### v2.1.76: Plan Re-Approval Fix
+
+In v2.1.76, a fix was applied to the plan re-approval flow. Previously, if a user approved a plan (which caused the dialog to accept) but then the plan needed to be re-approved (e.g., after edits), the dialog could be in a stale state. The fix ensures the plan approval dialog correctly resets its state and re-fetches the latest plan content when `ExitPlanMode` is called again after the previous call completed approval. This prevents showing the user an outdated plan when they call `ExitPlanMode` a second time.
 
 ### Rejection Display
 

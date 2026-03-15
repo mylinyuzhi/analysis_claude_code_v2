@@ -1,4 +1,4 @@
-# Shell Parser: Complete Implementation Reference (Claude Code v2.1.38)
+# Shell Parser: Complete Implementation Reference (Claude Code v2.1.76)
 
 > Deep-dive reverse engineering of the shell parser, security pipeline, sed validation,
 > safe command registry, and read-only permission system.

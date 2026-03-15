@@ -4,6 +4,12 @@
 
 Agents in a team communicate exclusively through the `SendMessage` tool. This ensures that all interactions are tracked, throttled, and properly delivered to the correct agent's context. Direct text output from a teammate is *not* visible to others unless sent via this tool.
 
+## v2.1.76 Improvements
+
+- **No `activeForm` required**: Task creation and message routing no longer require the `activeForm` field; the schema is more permissive
+- **Improved mailbox delivery**: More reliable delivery mechanisms with better error handling for edge cases
+- **Cleaner message payloads**: Simplified required fields in message schema
+
 ## Message Types
 
 The protocol supports several message types to handle different coordination needs:
@@ -50,6 +56,7 @@ Agents may take several minutes to complete a tool-intensive turn. If messages w
 
 ## Code Snippets
 
+```javascript
 // ============================================
 // handleShutdownApproval - Processes a teammate's approval to exit
 // Location: chunks.141.mjs:1159-1214
@@ -110,7 +117,8 @@ async function handleShutdownApproval(input, context) {
     return { data: { success: true, ... } };
 }
 
-// Mapping: tSY→handleShutdownApproval, A→input, q→context, K→teamName, Y→agentId, z→agentName, w→requestId, $→backendType, nK→exitProcess
+// Mapping: tSY->handleShutdownApproval, A->input, q->context, K->teamName, Y->agentId, z->agentName, w->requestId, $->backendType, nK->exitProcess
+```
 
 ## File Locking Deep Dive
 
@@ -120,10 +128,10 @@ async function handleShutdownApproval(input, context) {
 
 ```
 Timeline:
-T0: team-lead reads backend-dev.json → sees [msg1, msg2]
-T1: frontend-dev reads backend-dev.json → sees [msg1, msg2]
-T2: team-lead appends msg3 → writes [msg1, msg2, msg3]
-T3: frontend-dev appends msg4 → writes [msg1, msg2, msg4]
+T0: team-lead reads backend-dev.json -> sees [msg1, msg2]
+T1: frontend-dev reads backend-dev.json -> sees [msg1, msg2]
+T2: team-lead appends msg3 -> writes [msg1, msg2, msg3]
+T3: frontend-dev appends msg4 -> writes [msg1, msg2, msg4]
 
 Result: backend-dev.json contains [msg1, msg2, msg4]
         msg3 LOST!
@@ -186,12 +194,12 @@ async function writeToMailbox(recipientName, message, teamName) {
 ```
 Timeline:
 T0: team-lead acquires lock on backend-dev.json.lock
-T1: frontend-dev attempts lock → BLOCKS (waits for team-lead to release)
+T1: frontend-dev attempts lock -> BLOCKS (waits for team-lead to release)
 T2: team-lead reads [msg1, msg2]
 T3: team-lead appends msg3, writes [msg1, msg2, msg3]
 T4: team-lead releases lock
 T5: frontend-dev acquires lock (now available)
-T6: frontend-dev reads [msg1, msg2, msg3]  ← sees msg3!
+T6: frontend-dev reads [msg1, msg2, msg3]  <- sees msg3!
 T7: frontend-dev appends msg4, writes [msg1, msg2, msg3, msg4]
 T8: frontend-dev releases lock
 
@@ -219,11 +227,11 @@ Timestamp: 2024-02-14T08:15:00.000Z
 ```
 T0: Process with PID 12345 crashes while holding lock
 T0+61s: Next writer attempts lock
-  → Lock file age = 61s (> 60s threshold)
-  → Check if PID 12345 running: No (process crashed)
-  → Remove stale lock file
-  → Acquire new lock
-  → Write proceeds normally
+  -> Lock file age = 61s (> 60s threshold)
+  -> Check if PID 12345 running: No (process crashed)
+  -> Remove stale lock file
+  -> Acquire new lock
+  -> Write proceeds normally
 ```
 
 ### Lock Contention Scenarios
@@ -231,8 +239,8 @@ T0+61s: Next writer attempts lock
 **Scenario 1**: 2 agents write simultaneously
 
 ```
-Agent A: Acquire lock → write → release (5ms total)
-Agent B: Attempt lock → blocks 5ms → acquire → write → release
+Agent A: Acquire lock -> write -> release (5ms total)
+Agent B: Attempt lock -> blocks 5ms -> acquire -> write -> release
 Total delay: 5ms (negligible)
 ```
 
@@ -242,7 +250,7 @@ Total delay: 5ms (negligible)
 Agent A: Acquires lock
 Agent B-F: All block, retry 5 times over ~2.5 seconds
 Agent A: Still writing (slow disk)
-Agent B-F: All 5 retries exhausted → throw error "Could not acquire lock"
+Agent B-F: All 5 retries exhausted -> throw error "Could not acquire lock"
 
 Recovery: Agents receive error, can retry SendMessage
 ```

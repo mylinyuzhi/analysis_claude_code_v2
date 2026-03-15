@@ -2,7 +2,7 @@
 
 ## Module Overview
 
-The Todo List from v2.1.7 has been replaced in v2.1.38 with a more robust **Graph-based Task System**. This system is designed for multi-agent coordination, supporting task ownership, complex dependency trees (`blocks`/`blockedBy`), and persistent metadata.
+The Todo List from v2.1.7 has been replaced in v2.1.76 with a more robust **Graph-based Task System**. This system is designed for multi-agent coordination, supporting task ownership, complex dependency trees (`blocks`/`blockedBy`), and persistent metadata.
 
 ## Related Symbols
 

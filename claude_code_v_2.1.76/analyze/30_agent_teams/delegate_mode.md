@@ -177,27 +177,17 @@ function getDelegateModeExitAttachment() {
 // Mapping: ohY->getDelegateModeExitAttachment, eL6->needsDelegateModeExitAttachment, XN1->setNeedsDelegateModeExitAttachment
 ```
 
-**Key insight:** The exit attachment is a **one-shot** mechanism. The flag `needsDelegateModeExitAttachment` is set to true when exiting delegate mode, consumed (set to false) when the attachment is generated, and never fires again unless delegate mode is re-entered and re-exited. This prevents redundant exit notifications.
+**Key insight:** The exit attachment is a **one-shot** mechanism. The flag `needsDelegateModeExitAttachment` is set to true when exiting delegate mode, consumed (set to false) when the attachment is generated, and never fires again unless delegate mode is re-entered and re-exited.
 
 ### CLI Initial Mode Resolution
 
-Delegate mode can also be requested at CLI startup via settings or CLI arguments. The mode resolution function validates it:
+Delegate mode can also be requested at CLI startup via settings or CLI arguments:
 
 ```javascript
 // ============================================
 // resolvePermissionMode - Validates and resolves the initial permission mode
 // Location: chunks.172.mjs:2175-2217
 // ============================================
-
-// ORIGINAL (for source lookup):
-function qJq({ permissionModeCli: A, dangerouslySkipPermissions: q, ...K }) {
-    // ... (bypassPermissions validation) ...
-    if (J === "delegate" && !l8()) {
-        h("delegate mode requested but agent swarms not enabled, falling back", { level: "warn" });
-        continue
-    }
-    // ... (sets mode or falls back to "default") ...
-}
 
 // READABLE (for understanding):
 function resolvePermissionMode({ permissionModeCli, dangerouslySkipPermissions, ...rest }) {
@@ -212,7 +202,7 @@ function resolvePermissionMode({ permissionModeCli, dangerouslySkipPermissions, 
 // Mapping: qJq->resolvePermissionMode, A->permissionModeCli, q->dangerouslySkipPermissions, l8->isAgentTeamsEnabled, J->candidateMode
 ```
 
-**Why this approach:** The resolution iterates through candidate modes in priority order (CLI arg > settings > default). If delegate mode is requested but agent teams are not enabled, it is silently skipped and the next candidate is tried. This provides graceful degradation rather than an error.
+**Why this approach:** The resolution iterates through candidate modes in priority order (CLI arg > settings > default). If delegate mode is requested but agent teams are not enabled, it is silently skipped and the next candidate is tried.
 
 ---
 
@@ -254,7 +244,7 @@ DELEGATE_MODE_ALLOWED_TOOLS = new Set([
 - **TaskCreate / TaskGet / TaskList / TaskUpdate** -- Task tracking infrastructure. The lead creates tasks, assigns them to teammates, monitors progress, and marks completion.
 - **Task** -- The general subagent tool (`fK = "Task"`). This is included to allow the lead to still spawn one-off subagents for quick queries even in delegate mode.
 
-**What is blocked:** All direct-action tools are excluded: `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebSearch`, `WebFetch`, `NotebookEdit`, MCP tools, and any other tools not in the set. This is a strong enforcement that the lead cannot "cheat" and do work directly.
+**What is blocked:** All direct-action tools are excluded: `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebSearch`, `WebFetch`, `NotebookEdit`, MCP tools, and any other tools not in the set.
 
 **Key insight:** The allowlist includes `"Task"` (the subagent tool), which means the lead can still dispatch ephemeral subagents even in delegate mode. This is intentional -- the lead may need quick research queries without formally creating teammates. The distinction is that teammates are persistent (they have state, mailboxes, and can receive follow-up messages) while subagents spawned via `Task` are one-shot.
 
@@ -262,7 +252,7 @@ DELEGATE_MODE_ALLOWED_TOOLS = new Set([
 
 The tool filtering is enforced at two levels, both in the same file (`chunks.141.mjs`):
 
-**Level 1: `getPermissionFilteredTools` (`YP6`)** -- Filters tools for permission-based contexts (e.g., what tools to present to the LLM):
+**Level 1: `getPermissionFilteredTools` (`YP6`)** -- Filters tools for permission-based contexts:
 
 ```javascript
 // ============================================
@@ -297,56 +287,7 @@ function getPermissionFilteredTools(toolPermissionContext, allTools) {
 //   Sx->deduplicateByName, z->deduped, R_6->DELEGATE_MODE_ALLOWED_TOOLS
 ```
 
-**Level 2: `getBaseTools` (`tD`)** -- The internal tool list builder also applies delegate filtering:
-
-```javascript
-// ============================================
-// getBaseTools - Builds the base tool set, applying delegate mode filter
-// Location: chunks.141.mjs:1505-1516
-// ============================================
-
-// ORIGINAL (for source lookup):
-tD = (A) => {
-    if (J6(void 0)) return [qq];
-    let q = new Set([cd.name, ld.name, cD]),
-        K = kt().filter((w) => !q.has(w.name)),
-        Y = hg1(K, A);
-    if (A.mode === "delegate") Y = Y.filter((w) => R_6.has(w.name));
-    if (J6(process.env.CLAUDE_REPL_MODE)) {
-        if (Y.some((H) => H.name === y_6)) Y = Y.filter((H) => !rp7.has(H.name))
-    }
-    let z = Y.map((w) => w.isEnabled());
-    return Y.filter((w, H) => z[H])
-}
-
-// READABLE (for understanding):
-getBaseTools = (toolPermissionContext) => {
-    if (parseBoolean(undefined)) return [messageOnlyTool];
-    let excludedTools = new Set([slashCommandTool.name, agentSelectorTool.name, skillToolName]),
-        allTools = getAllTools().filter((t) => !excludedTools.has(t.name)),
-        hookFiltered = filterByHookRules(allTools, toolPermissionContext);
-    if (toolPermissionContext.mode === "delegate") {
-        hookFiltered = hookFiltered.filter((t) => DELEGATE_MODE_ALLOWED_TOOLS.has(t.name));
-    }
-    if (parseBoolean(process.env.CLAUDE_REPL_MODE)) {
-        if (hookFiltered.some((t) => t.name === replToolName)) {
-            hookFiltered = hookFiltered.filter((t) => !replExcludedTools.has(t.name));
-        }
-    }
-    let enabledFlags = hookFiltered.map((t) => t.isEnabled());
-    return hookFiltered.filter((t, i) => enabledFlags[i]);
-}
-
-// Mapping: tD->getBaseTools, A->toolPermissionContext, J6->parseBoolean, qq->messageOnlyTool,
-//   cd->slashCommandTool, ld->agentSelectorTool, cD->skillToolName, kt->getAllTools,
-//   hg1->filterByHookRules, R_6->DELEGATE_MODE_ALLOWED_TOOLS
-```
-
-**How it works (dual-layer filtering):**
-1. `getBaseTools` is called first. It builds the full tool list, removes slash/agent/skill tools, applies hook-based filtering rules, and then if delegate mode is active, filters down to only `DELEGATE_MODE_ALLOWED_TOOLS`.
-2. `getPermissionFilteredTools` is called at a higher level. It calls `getBaseTools`, merges hook-provided additional tools, deduplicates, and applies the delegate filter **again**.
-
-**Why dual filtering?** This is a defense-in-depth approach. The delegate mode filter at both levels ensures that even if a hook or plugin injects additional tools, they are still blocked in delegate mode. The inner filter in `getBaseTools` catches tools from the standard list; the outer filter in `getPermissionFilteredTools` catches tools from hooks.
+**Why dual filtering?** This is a defense-in-depth approach. The delegate mode filter at both levels ensures that even if a hook or plugin injects additional tools, they are still blocked in delegate mode.
 
 ### Plan Approval Context
 
@@ -369,7 +310,7 @@ let currentMode = appState.toolPermissionContext.mode,
 // Mapping: z->currentMode, w->approvedMode, K->appState
 ```
 
-**Key insight:** When the lead is in delegate or plan mode, approved plans run with "default" permissions (full tool access). This is crucial -- teammates need full tool access to actually do the work the lead delegated. The lead restricts *itself*, not its teammates.
+**Key insight:** When the lead is in delegate or plan mode, approved plans run with "default" permissions (full tool access). The lead restricts *itself*, not its teammates.
 
 ---
 
@@ -377,36 +318,13 @@ let currentMode = appState.toolPermissionContext.mode,
 
 ### Delegate Mode Reminder
 
-When delegate mode is active, a system reminder is injected into the conversation on every turn. This reminder is generated as an attachment and rendered by the system reminder handler:
+When delegate mode is active, a system reminder is injected into the conversation on every turn:
 
 ```javascript
 // ============================================
 // renderDelegateModeReminder - Injects delegate mode system prompt
 // Location: chunks.173.mjs:967-987
 // ============================================
-
-// ORIGINAL (for source lookup):
-case "delegate_mode": {
-    if (!l8()) return [];
-    let K = `## Delegate Mode
-
-You are in delegate mode for team "${A.teamName}". In this mode, you can ONLY use the following tools:
-- TeammateTool: For spawning teammates, sending messages, and team coordination
-- TaskCreate: For creating new tasks
-- TaskGet: For retrieving task details
-- TaskUpdate: For updating task status and adding comments
-- TaskList: For listing all tasks
-
-You CANNOT use any other tools (Bash, Read, Write, Edit, etc.) until you exit delegate mode.
-
-**Task list location:** ${A.taskListPath}
-
-Focus on coordinating work by creating tasks, assigning them to teammates, and monitoring progress. Use the Teammate tool to communicate with your team.`;
-    return _9([c6({
-        content: K,
-        isMeta: !0
-    })])
-}
 
 // READABLE (for understanding):
 case "delegate_mode": {
@@ -435,8 +353,8 @@ Focus on coordinating work by creating tasks, assigning them to teammates, and m
 ```
 
 **Why this is important:**
-- Even though the tool list is filtered at the API level (the LLM only sees allowed tools), the system prompt **reinforces the restriction in natural language**. This is a belt-and-suspenders approach: the LLM is told it cannot use certain tools AND those tools are actually not provided in the API call.
-- The reminder includes the **task list path**, giving the LLM the concrete filesystem location for task management files. This is team-specific (e.g., `~/.claude/tasks/{teamName}/`).
+- Even though the tool list is filtered at the API level, the system prompt **reinforces the restriction in natural language**. This is a belt-and-suspenders approach.
+- The reminder includes the **task list path**, giving the LLM the concrete filesystem location for task management files.
 - The reminder is marked as `isMeta: true`, meaning it is a system-level injection not shown to the user in the conversation UI.
 
 ### Delegate Mode Exit Reminder
@@ -444,20 +362,6 @@ Focus on coordinating work by creating tasks, assigning them to teammates, and m
 When the user exits delegate mode, the LLM receives a one-time exit notification:
 
 ```javascript
-// ============================================
-// renderDelegateModeExitReminder - Injects delegate mode exit notification
-// Location: chunks.173.mjs:988-994
-// ============================================
-
-// ORIGINAL (for source lookup):
-case "delegate_mode_exit":
-    return _9([c6({
-        content: `## Exited Delegate Mode
-
-You have exited delegate mode. You can now use all tools (Bash, Read, Write, Edit, etc.) and take actions directly. Continue with your tasks.`,
-        isMeta: !0
-    })]);
-
 // READABLE (for understanding):
 case "delegate_mode_exit":
     return wrapAsMessages([createSystemReminderBlock({
@@ -466,34 +370,17 @@ case "delegate_mode_exit":
 You have exited delegate mode. You can now use all tools (Bash, Read, Write, Edit, etc.) and take actions directly. Continue with your tasks.`,
         isMeta: true
     })]);
-
-// Mapping: _9->wrapAsMessages, c6->createSystemReminderBlock
 ```
 
-**Key insight:** The exit notification explicitly tells the LLM that all tools are now available again. Without this, the LLM might continue to self-restrict based on the earlier delegate mode prompt that was present in its context window.
+**Key insight:** The exit notification explicitly tells the LLM that all tools are now available again. Without this, the LLM might continue to self-restrict based on the earlier delegate mode prompt.
 
 ### Attachment Generation
-
-The delegate mode attachment is generated during the system reminder building phase:
 
 ```javascript
 // ============================================
 // getDelegateModeAttachment - Generates delegate mode system reminder attachment
 // Location: chunks.142.mjs:2073-2083
 // ============================================
-
-// ORIGINAL (for source lookup):
-async function rhY(A) {
-    let q = await A.getAppState();
-    if (q.toolPermissionContext.mode !== "delegate") return [];
-    if (!q.teamContext) return [];
-    let Y = `${O8()}/tasks/${q.teamContext.teamName}/`;
-    return [{
-        type: "delegate_mode",
-        teamName: q.teamContext.teamName,
-        taskListPath: Y
-    }]
-}
 
 // READABLE (for understanding):
 async function getDelegateModeAttachment(sessionContext) {
@@ -511,13 +398,11 @@ async function getDelegateModeAttachment(sessionContext) {
 // Mapping: rhY->getDelegateModeAttachment, A->sessionContext, q->appState, O8->getGlobalConfigDir, Y->taskListPath
 ```
 
-Both `getDelegateModeAttachment` and `getDelegateModeExitAttachment` are registered in the system reminder builder pipeline alongside other attachments like plan_mode, todo_reminders, and team_context.
-
 ---
 
 ## Session State Management
 
-Delegate mode uses two session-level boolean flags, mirroring the pattern used by plan mode:
+Delegate mode uses two session-level boolean flags:
 
 | Flag | Getter | Setter | Purpose |
 |------|--------|--------|---------|
@@ -525,11 +410,6 @@ Delegate mode uses two session-level boolean flags, mirroring the pattern used b
 | `needsDelegateModeExitAttachment` | `eL6` | `XN1` | One-shot flag to inject exit reminder on next turn |
 
 ```javascript
-// ============================================
-// Session state accessors for delegate mode
-// Location: chunks.1.mjs:2880-2894
-// ============================================
-
 // ORIGINAL (for source lookup):
 function fbq() { return o6.hasExitedDelegateMode }
 function tL6(A) { o6.hasExitedDelegateMode = A }
@@ -575,7 +455,7 @@ function isAgentTeamsEnabled() {
 // Mapping: l8->isAgentTeamsEnabled, J6->parseBoolean, x8->checkFeatureGate
 ```
 
-**Dual gate:** Both the environment variable AND the Statsig feature gate must be truthy. This allows Anthropic to disable the feature remotely even if users have set the env var.
+**Dual gate:** Both the environment variable AND the Statsig feature gate must be truthy.
 
 ### Is Team Lead (`PM` / `isTeamLead`)
 
@@ -606,8 +486,6 @@ function isTeamLead(teamContext) {
 // Mapping: PM->isTeamLead, A->teamContext, ID->getAgentId, q->currentAgentId, K->leadId
 ```
 
-**Key insight:** If there is no `agentId` (i.e., running as the main CLI process), it defaults to being the team lead. This handles the case where the main Claude Code process hasn't been assigned a formal agent ID yet.
-
 ---
 
 ## UI Representation
@@ -622,69 +500,61 @@ Delegate mode has its own visual identity in the CLI:
 ## Summary: Delegate Mode Lifecycle
 
 ```
-                    +-----------------------+
-                    |  User presses mode    |
-                    |  cycle hotkey         |
-                    +-----------+-----------+
-                                |
-                    +-----------v-----------+
-                    |  getNextMode()        |
-                    |  plan -> delegate     |
-                    |  (if teams enabled +  |
-                    |   is team lead)       |
-                    +-----------+-----------+
-                                |
-            +-------------------v-------------------+
-            |                                       |
-            |  setAppState({ mode: "delegate" })    |
-            |  syncTeamMemberMode("delegate")       |
-            |                                       |
-            +-------------------+-------------------+
-                                |
-                    +-----------v-----------+
-                    |  On next LLM turn:    |
-                    |                       |
-                    |  1. Tool list filtered |
-                    |     to R_6 allowlist   |
-                    |                       |
-                    |  2. delegate_mode      |
-                    |     system reminder    |
-                    |     injected          |
-                    +-----------+-----------+
-                                |
-                    +-----------v-----------+
-                    |  LLM operates with    |
-                    |  coordination tools   |
-                    |  only:                |
-                    |  - TeamCreate/Delete  |
-                    |  - SendMessage        |
-                    |  - TaskCreate/Get/    |
-                    |    Update/List        |
-                    |  - Task (subagent)    |
-                    +-----------+-----------+
-                                |
-                    +-----------v-----------+
-                    |  User exits delegate  |
-                    |  mode (cycle hotkey)  |
-                    +-----------+-----------+
-                                |
-            +-------------------v-------------------+
-            |  setHasExitedDelegateMode(true)       |
-            |  setNeedsDelegateModeExitAttachment(   |
-            |    true)                               |
-            +-------------------+-------------------+
-                                |
-                    +-----------v-----------+
-                    |  On next LLM turn:    |
-                    |  delegate_mode_exit   |
-                    |  reminder injected    |
-                    |  (one-shot, clears    |
-                    |   the flag)           |
-                    +-----------+-----------+
-                                |
-                    +-----------v-----------+
-                    |  Full tools restored  |
-                    +-----------------------+
++----------------------------+
+|  User presses mode         |
+|  cycle hotkey              |
++-----------+----------------+
+            |
++-----------v----------------+
+|  getNextMode()             |
+|  plan -> delegate          |
+|  (if teams enabled +       |
+|   is team lead)            |
++-----------+----------------+
+            |
++-----------v----------------+
+|  setAppState({ mode: "delegate" })    |
+|  syncTeamMemberMode("delegate")       |
++-----------+----------------+
+            |
++-----------v----------------+
+|  On next LLM turn:         |
+|  1. Tool list filtered     |
+|     to R_6 allowlist       |
+|  2. delegate_mode          |
+|     system reminder        |
+|     injected               |
++-----------+----------------+
+            |
++-----------v----------------+
+|  LLM operates with         |
+|  coordination tools only:  |
+|  TeamCreate/Delete,        |
+|  SendMessage,              |
+|  TaskCreate/Get/Update/List|
+|  Task (subagent)           |
++-----------+----------------+
+            |
++-----------v----------------+
+|  User exits delegate mode  |
++-----------+----------------+
+            |
++-----------v----------------+
+|  setHasExitedDelegateMode(true)       |
+|  setNeedsDelegateModeExitAttachment(  |
+|    true)                              |
++-----------+----------------+
+            |
++-----------v----------------+
+|  On next LLM turn:         |
+|  delegate_mode_exit        |
+|  reminder injected         |
+|  (one-shot, clears flag)   |
++-----------+----------------+
+            |
++-----------v----------------+
+|  Full tools restored       |
++----------------------------+
 ```
 
 ---
@@ -705,14 +575,11 @@ Key functions in this document:
 - `DELEGATE_MODE_ALLOWED_TOOLS` (R_6) - Set of 8 tool names allowed in delegate mode
 - `getDelegateModeAttachment` (rhY) - Generates delegate_mode system reminder attachment
 - `getDelegateModeExitAttachment` (ohY) - Generates one-shot delegate_mode_exit attachment
-- `renderDelegateModeReminder` (case "delegate_mode" in chunks.173.mjs) - Renders delegate mode system prompt content
-- `renderDelegateModeExitReminder` (case "delegate_mode_exit" in chunks.173.mjs) - Renders exit notification
 - `resolvePermissionMode` (qJq) - CLI startup mode resolution with delegate fallback
 - `hasExitedDelegateModeInSession` (fbq) - Session state getter
 - `setHasExitedDelegateMode` (tL6) - Session state setter
 - `needsDelegateModeExitAttachment` (eL6) - One-shot flag getter
 - `setNeedsDelegateModeExitAttachment` (XN1) - One-shot flag setter
-- `handlePlanModeTransition` (ey) - Plan mode transition handler (also called during delegate transitions)
 - `syncTeamMemberMode` (HR4) - Notifies team shared state of mode change
 - `getModeLabelText` (CQ) - Returns "Delegate Mode" label for UI
 - `handlePlanApproval` (AhY) - Approves teammate plans, resolves delegate -> default for permissions

@@ -1,7 +1,7 @@
 # System Reminder Quick Reference
 
 > **Module**: System Reminders - Quick Reference Index
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:698-1131`, `chunks.142.mjs:1948-2930`
 
 ---

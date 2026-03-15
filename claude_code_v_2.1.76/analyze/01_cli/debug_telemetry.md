@@ -64,12 +64,12 @@ The CLI provides several flags for debugging and verbose output:
 
 ### 1.1 Debug Flags
 
-**Source location:** `chunks.189.mjs:1017-1019`
+**Source location:** `chunks.197.mjs:1017-1019`
 
 ```javascript
 // ============================================
 // Debug CLI flag definitions
-// Location: chunks.189.mjs:1017-1019
+// Location: chunks.197.mjs:1017-1019
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -103,12 +103,12 @@ The CLI provides several flags for debugging and verbose output:
 
 ### 1.2 Flag Extraction
 
-**Source location:** `chunks.189.mjs:1032-1035`
+**Source location:** `chunks.197.mjs:1032-1035`
 
 ```javascript
 // ============================================
 // Debug flag extraction
-// Location: chunks.189.mjs:1032-1035
+// Location: chunks.197.mjs:1032-1035
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -218,12 +218,12 @@ claude --debug-file /tmp/claude-debug.log "Analyze code"
 
 **What it does:** Overrides the `verbose` setting from user configuration, enabling more detailed output.
 
-**Source location:** `chunks.189.mjs:1054`
+**Source location:** `chunks.197.mjs:1054`
 
 ```javascript
 // ============================================
 // Verbose mode resolution
-// Location: chunks.189.mjs:1054
+// Location: chunks.197.mjs:1054
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -254,12 +254,12 @@ let verbose = options.verbose ?? getUserSettings().verbose;
 
 **What it does:** Legacy flag for MCP-specific debug output. Now deprecated in favor of `--debug mcp`.
 
-**Source location:** `chunks.189.mjs:1019`
+**Source location:** `chunks.197.mjs:1019`
 
 ```javascript
 // ============================================
 // --mcp-debug flag (deprecated)
-// Location: chunks.189.mjs:1019
+// Location: chunks.197.mjs:1019
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -408,8 +408,8 @@ debug (root)
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
-| Flag definitions | `chunks.189.mjs:1017` | Commander options |
-| Flag extraction | `chunks.189.mjs:1032` | Action handler |
-| Verbose resolution | `chunks.189.mjs:1054` | Settings override |
+| Flag definitions | `chunks.197.mjs:1017` | Commander options |
+| Flag extraction | `chunks.197.mjs:1032` | Action handler |
+| Verbose resolution | `chunks.197.mjs:1054` | Settings override |
 | Category filtering | Various | Debug function calls |
 | File logging | Various | Debug file output |

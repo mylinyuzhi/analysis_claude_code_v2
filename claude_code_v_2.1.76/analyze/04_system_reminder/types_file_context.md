@@ -1,7 +1,7 @@
 # System Reminder Types: File & Directory Context
 
 > **Module**: System Reminders - File/Directory Types
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:735-784`, `chunks.142.mjs:2199-2613`
 
 ---

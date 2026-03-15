@@ -482,6 +482,8 @@ The function takes 7 callbacks instead of a single state updater object. This al
 - `assistant` message (non-stream) → set `isStreaming: false, streamingEndedAt: now`
 - Effect in REPL: after 30 seconds from `streamingEndedAt`, clear the thinking state
 
+> **v2.1.76 change:** Streaming buffers are now released on early generator termination to fix a memory leak. When the `for await` loop exits before the generator is fully exhausted (e.g., due to abort), accumulated streaming buffers are explicitly freed rather than waiting for garbage collection.
+
 ### 4.3 handleToolUseStreamCallback (T11)
 
 The adapter between `handleToolUseStream` and the REPL's actual state:
@@ -587,10 +589,6 @@ const handleSubmit = useCallback(async (inputText, helpers, restoreState, option
 
         if (command && isImmediate && command.type === "local-jsx") {
             // Load and render local JSX command (e.g., /help)
-            const onDone = (text, displayOptions) => {
-                clearToolJSX();
-                if (text && displayOptions?.display !== "skip") addNotification(text);
-            };
             const toolContext = buildToolUseContext(messages, [], newAbortController(), [], undefined, model);
             const jsx = await (await command.load()).call(onDone, toolContext, commandArg);
             if (jsx) setToolJSX({ jsx, shouldHidePromptInput: true, isLocalJSXCommand: true });
@@ -615,13 +613,6 @@ const handleSubmit = useCallback(async (inputText, helpers, restoreState, option
     } else if (!isLoading || restoreState) {
         if (!options?.fromKeybinding) { setInputValue(""); helpers.setCursorOffset(0); }
         setPastedContents({});
-    }
-
-    if (!isLoading || restoreState) {
-        setInputMode("prompt");
-        clearIdeSelection();
-        incrementSubmitCounter();
-        helpers.clearBuffer();
     }
 
     // === Path 2: Message restore ===
@@ -883,7 +874,7 @@ const handleQuery = useCallback(async (
     }
 
     // Build tool use context (permissions, tools, abort signal)
-    const toolUseContext = buildToolUseContext(allMessages, newMessages, abortController, model, inProgressToolUseIDs, ...);
+    const toolUseContext = buildToolUseContext(allMessages, newMessages, abortController, model, inProgressToolUseIDs);
 
     // Load tool definitions and context in parallel
     markMetric("query_context_loading_start");
@@ -923,7 +914,7 @@ const handleQuery = useCallback(async (
     resetLoadingState();  // YK
     notifyQueryComplete();
     onTurnComplete?.();
-}, [sessionId, resetLoadingState, buildToolUseContext, tools, toolPermissionContext, setAppState, ...]);
+}, [sessionId, resetLoadingState, buildToolUseContext, tools, toolPermissionContext, setAppState]);
 
 // Mapping: oc→handleQuery, k6→allMessages, q8→newMessages, FA→abortController,
 // Yq→shouldRunQuery, k7→model, X4→model or inProgressToolUseIDs,

@@ -1,7 +1,7 @@
 # System Reminder Types: Status & Budget Notifications
 
 > **Module**: System Reminders - Status/Budget Types
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:889-926`, `chunks.173.mjs:1071-1117`, `chunks.142.mjs:2815-2850`
 
 ---

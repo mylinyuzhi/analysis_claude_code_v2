@@ -1,6 +1,6 @@
 # Shell Parser Module (29_shell_parser)
 
-> Shell command parsing, security validation, heredoc handling, and read-only command detection for Claude Code v2.1.38
+> Shell command parsing, security validation, heredoc handling, and read-only command detection for Claude Code v2.1.76
 
 ---
 

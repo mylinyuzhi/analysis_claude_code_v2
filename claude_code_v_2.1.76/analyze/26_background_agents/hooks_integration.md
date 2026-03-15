@@ -1,4 +1,4 @@
-# Background Agents — Hooks Integration (Claude Code 2.1.38)
+# Background Agents — Hooks Integration (Claude Code 2.1.76)
 
 > Analysis of how hooks integrate with background agents: PreToolUse/PostToolUse hook execution,
 > hook context passing, and async hook handling.

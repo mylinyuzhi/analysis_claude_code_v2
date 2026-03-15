@@ -1,9 +1,11 @@
 # Browser Control (Claude in Chrome) - Full Integration Analysis
 
+> Note: No functional changes from v2.1.38. Version number updated only.
+
 ## Module Overview
 
-Claude Code v2.1.38 introduces "Claude in Chrome", a deep integration with Chromium-family browsers.
-It enables the agent to perform real web automation via a Chrome extension + native messaging bridge.
+Claude Code v2.1.76 "Claude in Chrome" integrates with Chromium-family browsers via a Chrome extension
+and native messaging bridge, enabling the agent to perform real web automation.
 This document covers the **full architecture**, **tool catalog**, **permission system**, **feature flags**,
 **browser registry**, and **transport selection logic**.
 

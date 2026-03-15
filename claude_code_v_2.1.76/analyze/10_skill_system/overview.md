@@ -1,4 +1,4 @@
-# Skill System & Slash Command: Unified Abstraction (Claude Code 2.1.38)
+# Skill System & Slash Command: Unified Abstraction (Claude Code 2.1.76)
 
 ## Overview
 

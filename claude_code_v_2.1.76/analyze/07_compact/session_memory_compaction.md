@@ -2,7 +2,7 @@
 
 ## Overview
 
-Session Memory Compaction is a specialized compaction path in Claude Code v2.1.38 that differs fundamentally from the standard "conversation summary" compaction. Rather than using the LLM to generate a new summary of the conversation, session memory compaction leverages an existing **session notes file** (a structured Markdown document maintained throughout the session) as the post-compaction context. This approach is faster, cheaper (no LLM call for summarization), and preserves a richer, human-curated representation of what happened.
+Session Memory Compaction is a specialized compaction path in Claude Code v2.1.76 that differs fundamentally from the standard "conversation summary" compaction. Rather than using the LLM to generate a new summary of the conversation, session memory compaction leverages an existing **session notes file** (a structured Markdown document maintained throughout the session) as the post-compaction context. This approach is faster, cheaper (no LLM call for summarization), and preserves a richer, human-curated representation of what happened.
 
 The session memory system is gated behind feature flags (`tengu_session_memory` and `tengu_sm_compact`) and an environment variable override (`ENABLE_CLAUDE_CODE_SM_COMPACT`). When enabled, it takes priority over the standard compaction path in `autoCompactDispatcher`.
 

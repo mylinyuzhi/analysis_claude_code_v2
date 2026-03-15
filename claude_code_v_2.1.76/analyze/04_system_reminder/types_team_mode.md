@@ -1,7 +1,7 @@
 # System Reminder Types: Team Mode
 
 > **Module**: System Reminders - Team/Swarm Types
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:699-733`, `chunks.142.mjs:2791-2813`
 
 ---

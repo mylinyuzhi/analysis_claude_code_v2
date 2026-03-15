@@ -1,7 +1,7 @@
 # System Reminder Types: Hooks & Async Responses
 
 > **Module**: System Reminders - Hook Types
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:1058-1105`, `chunks.142.mjs:2758-2789`
 
 ---
@@ -14,6 +14,14 @@
 - [hook_success](#hook_success)
 - [hook_additional_context](#hook_additional_context)
 - [hook_stopped_continuation](#hook_stopped_continuation)
+- [New Hook Types (v2.1.76)](#new-hook-types-v2176)
+  - [post_compact](#post_compact)
+  - [elicitation](#elicitation)
+  - [elicitation_result](#elicitation_result)
+  - [instructions_loaded](#instructions_loaded)
+  - [config_change](#config_change)
+  - [worktree_create](#worktree_create)
+  - [worktree_remove](#worktree_remove)
 - [Silent Hook Types](#silent-hook-types)
 - [Hook Response Flow](#hook-response-flow)
 
@@ -29,6 +37,16 @@ Hook types deliver results from the hooks system back to the LLM:
 4. **hook_additional_context** - Hook provided extra context
 5. **hook_stopped_continuation** - Hook stopped continuation
 
+**v2.1.76 additions:**
+
+6. **post_compact** - PostCompact hook event fired after auto-compaction
+7. **elicitation** - Elicitation hook event from MCP server
+8. **elicitation_result** - Elicitation result returned by user
+9. **instructions_loaded** - InstructionsLoaded hook fires when skill instructions load
+10. **config_change** - ConfigChange hook fires when configuration changes at runtime
+11. **worktree_create** - WorktreeCreate hook fires when a git worktree is created
+12. **worktree_remove** - WorktreeRemove hook fires when a git worktree is removed
+
 Plus several silent types for internal state tracking.
 
 ---
@@ -43,6 +61,13 @@ Each hook type has a specific producer function with distinct trigger conditions
 | `hook_blocking_error` | Created in hook execution pipeline | chunks.149.mjs | Hook returns `block: true` |
 | `hook_success` | Created in hook execution pipeline | chunks.149.mjs | Hook returns `status: "success"` |
 | `hook_additional_context` | Created in hook execution pipeline | chunks.149.mjs | Hook returns `context: string` |
+| `post_compact` | Created after compaction completes | chunks.146.mjs | Compaction finished, PostCompact hooks pending |
+| `elicitation` | Created when MCP elicitation starts | chunks.149.mjs | MCP server sends elicitation request |
+| `elicitation_result` | Created when user responds | chunks.149.mjs | User completes elicitation |
+| `instructions_loaded` | Created on skill load | chunks.142.mjs | Skill instructions loaded via invoked_skills |
+| `config_change` | Created on config change | chunks.149.mjs | Runtime configuration update detected |
+| `worktree_create` | Created on worktree creation | chunks.149.mjs | `git worktree add` called |
+| `worktree_remove` | Created on worktree removal | chunks.149.mjs | `git worktree remove` called |
 
 ### Hook Response Registry
 
@@ -138,7 +163,6 @@ async function EIY() {
 
 // READABLE (for understanding):
 async function getAsyncHookResponsesAttachment() {
-    // Get pending hook responses from registry
     let pendingResponses = await getPendingHookResponses();
     if (pendingResponses.length === 0) return [];
 
@@ -169,7 +193,6 @@ async function getAsyncHookResponsesAttachment() {
         };
     });
 
-    // Remove delivered responses from registry
     if (pendingResponses.length > 0) {
         let processIds = pendingResponses.map(r => r.processId);
         removeDeliveredResponses(processIds);
@@ -211,7 +234,6 @@ case "async_hook_response": {
     let response = attachment.response;
     let messages = [];
 
-    // Add system message if present
     if (response.systemMessage) {
         messages.push(createUserMessage({
             content: response.systemMessage,
@@ -219,7 +241,6 @@ case "async_hook_response": {
         }));
     }
 
-    // Add additional context from hook output
     if (response.hookSpecificOutput &&
         "additionalContext" in response.hookSpecificOutput &&
         response.hookSpecificOutput.additionalContext) {
@@ -340,13 +361,11 @@ case "hook_success":
 
 // READABLE (for understanding):
 case "hook_success":
-    // Only show for specific hook events
     if (attachment.hookEvent !== "SessionStart" &&
         attachment.hookEvent !== "UserPromptSubmit") {
         return [];
     }
 
-    // Skip empty content
     if (attachment.content === "") return [];
 
     return [createUserMessage({
@@ -473,6 +492,215 @@ case "hook_stopped_continuation":
 ```markdown
 <system-reminder>
 safety-check hook stopped continuation: Sensitive file access detected
+</system-reminder>
+```
+
+---
+
+## New Hook Types (v2.1.76)
+
+Seven new hook event types were introduced in v2.1.76, corresponding to new lifecycle points in the Claude Code session.
+
+---
+
+### post_compact
+
+**What It Does:**
+
+Fires after auto-compaction completes. Allows hooks and the system to inject relevant context into the freshly compacted session. The attachment carries information about what was compacted, enabling the model to understand that context was summarized.
+
+**How it works:**
+
+When `autoCompactDispatcher` (sI2) completes a compaction cycle, it fires the `PostCompact` hook event. Any registered PostCompact hooks run and their results are collected as `post_compact` attachments that get normalized and injected at the start of the new compacted context.
+
+**Triggered When:**
+
+| Condition | Requirement |
+|-----------|-------------|
+| Compaction completed | Auto-compact or manual compact ran |
+| PostCompact hooks registered | User has configured PostCompact hook scripts |
+
+**Output Format:**
+
+```markdown
+<system-reminder>
+[PostCompact hook output content]
+</system-reminder>
+```
+
+**Key Insight:** PostCompact hooks provide an extension point for workflows that need to do cleanup or re-initialization after context is summarized. For example, a hook might re-inject key project context that was in the compacted portion.
+
+---
+
+### elicitation
+
+**What It Does:**
+
+Delivers an elicitation prompt from an MCP server to the model. Elicitation is the MCP protocol mechanism for a server to interactively request information from the user.
+
+**How it works:**
+
+When an MCP server sends an elicitation request (via the `elicitation/create` MCP method), the system creates an `elicitation` attachment. The model reads this and understands that it must present the elicitation UI to the user and collect a response.
+
+**Triggered When:**
+
+| Condition | Requirement |
+|-----------|-------------|
+| MCP elicitation request | Server calls elicitation/create |
+| Connected MCP server | The requesting server must be connected |
+
+**Output Format:**
+
+```markdown
+<system-reminder>
+MCP server "[server-name]" is requesting information via elicitation:
+[Elicitation title/prompt content]
+[Schema/form definition]
+</system-reminder>
+```
+
+**Key Insight:** The elicitation mechanism bridges MCP server-side workflows with user interaction. The model acts as an intermediary, presenting the elicitation UI and routing the result back to the MCP server as an `elicitation_result`.
+
+---
+
+### elicitation_result
+
+**What It Does:**
+
+Delivers the user's response to an elicitation request. After the user fills in the elicitation form/prompt, the result is injected back into the conversation for the model to process and forward to the originating MCP server.
+
+**Triggered When:**
+
+| Condition | Requirement |
+|-----------|-------------|
+| User responded | User completed the elicitation UI |
+| Pending elicitation | An active elicitation was awaiting response |
+
+**Output Format:**
+
+```markdown
+<system-reminder>
+Elicitation result from user for "[elicitation-title]":
+[User response data as structured output]
+</system-reminder>
+```
+
+---
+
+### instructions_loaded
+
+**What It Does:**
+
+Fires when skill instructions are loaded into the conversation (via the `invoked_skills` attachment mechanism). This hook event allows hook scripts to react to skill loading -- for example, logging which skills are active, validating skill content, or supplementing the instructions with additional context.
+
+**Triggered When:**
+
+| Condition | Requirement |
+|-----------|-------------|
+| Skill invoked | User invoked a skill via `/skill-name` |
+| Instructions loaded | The skill's SKILL.md content was loaded |
+
+**Integration with `invoked_skills`:**
+
+When the `skill_listing` or `invoked_skills` attachment is produced and includes skill content, the `InstructionsLoaded` hook fires with the skill name and content. Any hook script registered for `InstructionsLoaded` can inspect or react to this event. The hook result comes back as an `instructions_loaded` attachment.
+
+**Output Format:**
+
+```markdown
+<system-reminder>
+[InstructionsLoaded hook output]
+</system-reminder>
+```
+
+**Key Insight:** The `InstructionsLoaded` hook was designed to support enterprise scenarios where organizations want to audit or extend the instructions loaded into the model's context. It fires for both built-in skills and custom plugin skills.
+
+**v2.1.76 significance:** Combined with the `CLAUDE_SKILL_DIR` environment variable support in `skill_listing`, this enables a full lifecycle for custom skill management: discover skills from custom directories, load them, and hook into the loading event.
+
+---
+
+### config_change
+
+**What It Does:**
+
+Notifies the model when Claude Code's configuration changes at runtime. This allows the model to be aware of changes such as permission mode switches, MCP server connections/disconnections, or settings updates without requiring a full session restart.
+
+**Triggered When:**
+
+| Condition | Requirement |
+|-----------|-------------|
+| Config updated | Runtime configuration change detected |
+| ConfigChange hook registered | User has configured ConfigChange hook scripts |
+
+**Output Format:**
+
+```markdown
+<system-reminder>
+Configuration changed: [description of what changed]
+[New configuration details relevant to the model]
+</system-reminder>
+```
+
+**Key Insight:** Config changes in v2.1.76 include MCP server hot-reload, permission mode changes via API, and settings file updates. The `config_change` attachment ensures the model's understanding of available tools and permissions stays current.
+
+---
+
+### worktree_create
+
+**What It Does:**
+
+Fires when a new git worktree is created within the session. Provides the model with context about the new worktree so it can properly navigate and work within multi-worktree repository layouts.
+
+**Triggered When:**
+
+| Condition | Requirement |
+|-----------|-------------|
+| Worktree created | `git worktree add` was called (via Bash tool or externally) |
+| WorktreeCreate hook registered | User has configured WorktreeCreate hook scripts |
+
+**Structure:**
+
+```javascript
+{
+    type: "worktree_create",
+    worktreePath: string,   // Absolute path to new worktree
+    branch: string,         // Branch checked out in worktree
+    mainWorktreePath: string // Absolute path to main worktree
+}
+```
+
+**Output Format:**
+
+```markdown
+<system-reminder>
+A new git worktree was created at: /path/to/new-worktree (branch: feature/new-branch)
+Main worktree is at: /path/to/main-worktree
+[WorktreeCreate hook output if any]
+</system-reminder>
+```
+
+**Key Insight:** Multi-worktree workflows in Claude Code allow the agent to work on multiple branches simultaneously without switching branches. The `worktree_create` and `worktree_remove` hooks are key to keeping the model informed about the active worktree topology.
+
+---
+
+### worktree_remove
+
+**What It Does:**
+
+Fires when a git worktree is removed. Notifies the model that a worktree is no longer accessible, preventing it from trying to use paths that no longer exist.
+
+**Triggered When:**
+
+| Condition | Requirement |
+|-----------|-------------|
+| Worktree removed | `git worktree remove` was called |
+| WorktreeRemove hook registered | User has configured WorktreeRemove hook scripts |
+
+**Output Format:**
+
+```markdown
+<system-reminder>
+The git worktree at /path/to/removed-worktree has been removed.
+[WorktreeRemove hook output if any]
 </system-reminder>
 ```
 
@@ -616,6 +844,13 @@ case "structured_output":
 | Cancelled | `hook_cancelled` | Silent |
 | Non-blocking Error | `hook_non_blocking_error` | Silent |
 | Permission Decision | `hook_permission_decision` | Silent |
+| PostCompact result | `post_compact` | Visible |
+| Elicitation request | `elicitation` | Visible |
+| Elicitation response | `elicitation_result` | Visible |
+| Instructions loaded | `instructions_loaded` | Visible |
+| Config change | `config_change` | Visible |
+| Worktree created | `worktree_create` | Visible |
+| Worktree removed | `worktree_remove` | Visible |
 
 ---
 

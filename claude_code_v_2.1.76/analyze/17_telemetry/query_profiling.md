@@ -1,4 +1,4 @@
-# Query Profiling System (Claude Code 2.1.38)
+# Query Profiling System (Claude Code 2.1.76)
 
 > Deep analysis of the internal query profiling/performance measurement infrastructure
 > Source: `chunks.149.mjs:1195-1360`, `chunks.169.mjs:740-1000`, `chunks.188.mjs:555-590`
@@ -276,148 +276,11 @@ function getSlowWarning(deltaMs, checkpointName) {
 // Mapping: vdY→getSlowWarning, A→deltaMs, q→checkpointName
 ```
 
-**What it does:** Evaluates each checkpoint's delta time (time since previous checkpoint) and appends a warning flag if it exceeds specific thresholds.
-
-**How it works:**
-1. The baseline checkpoint (`query_user_input_received`) is always exempt from warnings
-2. Universal thresholds: >1000ms = "VERY SLOW", >100ms = "SLOW"
-3. Operation-specific thresholds: git status, tool schema building, and client creation each trigger at >50ms
-4. These operation-specific thresholds are lower because these operations are expected to be fast -- if they take >50ms, something is likely wrong
-
-**Why this approach:**
-- Different operations have different expected durations. Network latency might legitimately take 500ms, but git status should complete in under 50ms
-- The tiered warning system (50ms/100ms/1000ms) helps developers quickly scan a report and spot the bottleneck
-- The `includes()` check on checkpoint name rather than exact match allows flexibility if checkpoint naming evolves
-
-**Key insight:** The 50ms specific thresholds for git status, tool schemas, and client creation reveal that these are known historical bottleneck areas where performance regressions have been observed. The system was designed to catch specific known failure modes, not just generic slowness.
+**Key insight:** The 50ms specific thresholds for git status, tool schemas, and client creation reveal that these are **known historical problem areas** where regressions have previously occurred. The profiling system serves as both a diagnostic tool and a regression detection mechanism.
 
 ---
 
 ## Report Generation
-
-### Main Report Builder
-
-```javascript
-// ============================================
-// generateProfilingReport - Build the full profiling report string
-// Location: chunks.149.mjs:1247-1280
-// ============================================
-
-// ORIGINAL (for source lookup):
-function EdY() {
-    if (!BU1) return "Query profiling not enabled (set CLAUDE_CODE_PROFILE_QUERY=1)";
-    let q = HhA().getEntriesByType("mark");
-    if (q.length === 0) return "No query profiling checkpoints recorded";
-    let K = [];
-    K.push("=".repeat(80)), K.push(`QUERY PROFILING REPORT - Query #${c1q}`), K.push("=".repeat(80)), K.push("");
-    let Y = q[0]?.startTime ?? 0,
-        z = Y,
-        w = 0,
-        H = 0;
-    for (let _ of q) {
-        let J = _.startTime - Y,
-            X = st(J),
-            D = _.startTime - z,
-            j = st(D),
-            M = whA.get(_.name),
-            P = vdY(D, _.name),
-            W = M ? ` | RSS: ${d1q(M.rss)}MB, Heap: ${d1q(M.heapUsed)}MB` : "";
-        if (K.push(`[+${X.padStart(10)}ms] (+${j.padStart(9)}ms) ${_.name}${P}${W}`), _.name === "query_api_request_sent") w = J;
-        if (_.name === "query_first_chunk_received") H = J;
-        z = _.startTime
-    }
-    let $ = q[q.length - 1],
-        O = $ ? $.startTime - Y : 0;
-    if (K.push(""), K.push("-".repeat(80)), H > 0) {
-        let _ = w,
-            J = H - w,
-            X = (_ / H * 100).toFixed(1),
-            D = (J / H * 100).toFixed(1);
-        K.push(`Total TTFT: ${st(H)}ms`), K.push(`  - Pre-request overhead: ${st(_)}ms (${X}%)`), K.push(`  - Network latency: ${st(J)}ms (${D}%)`)
-    } else K.push(`Total time: ${st(O)}ms`);
-    return K.push(kdY(q, Y)), K.push("=".repeat(80)), K.join("\n")
-}
-
-// READABLE (for understanding):
-function generateProfilingReport() {
-    if (!profilingEnabled) return "Query profiling not enabled (set CLAUDE_CODE_PROFILE_QUERY=1)";
-    let marks = getPerformanceInstance().getEntriesByType("mark");
-    if (marks.length === 0) return "No query profiling checkpoints recorded";
-
-    let lines = [];
-    lines.push("=".repeat(80));
-    lines.push(`QUERY PROFILING REPORT - Query #${queryCounter}`);
-    lines.push("=".repeat(80));
-    lines.push("");
-
-    let baseTime = marks[0]?.startTime ?? 0;
-    let prevTime = baseTime;
-    let apiRequestSentTime = 0;
-    let firstChunkReceivedTime = 0;
-
-    for (let mark of marks) {
-        let absoluteMs = mark.startTime - baseTime;       // time since query start
-        let deltaMs = mark.startTime - prevTime;           // time since previous mark
-        let memSnapshot = memorySnapshots.get(mark.name);
-        let slowWarning = getSlowWarning(deltaMs, mark.name);
-        let memInfo = memSnapshot
-            ? ` | RSS: ${formatMB(memSnapshot.rss)}MB, Heap: ${formatMB(memSnapshot.heapUsed)}MB`
-            : "";
-
-        lines.push(`[+${formatMs(absoluteMs).padStart(10)}ms] (+${formatMs(deltaMs).padStart(9)}ms) ${mark.name}${slowWarning}${memInfo}`);
-
-        if (mark.name === "query_api_request_sent") apiRequestSentTime = absoluteMs;
-        if (mark.name === "query_first_chunk_received") firstChunkReceivedTime = absoluteMs;
-        prevTime = mark.startTime;
-    }
-
-    // TTFT breakdown
-    let lastMark = marks[marks.length - 1];
-    let totalTime = lastMark ? lastMark.startTime - baseTime : 0;
-    lines.push("");
-    lines.push("-".repeat(80));
-
-    if (firstChunkReceivedTime > 0) {
-        let preRequestOverhead = apiRequestSentTime;
-        let networkLatency = firstChunkReceivedTime - apiRequestSentTime;
-        let overheadPct = (preRequestOverhead / firstChunkReceivedTime * 100).toFixed(1);
-        let networkPct = (networkLatency / firstChunkReceivedTime * 100).toFixed(1);
-        lines.push(`Total TTFT: ${formatMs(firstChunkReceivedTime)}ms`);
-        lines.push(`  - Pre-request overhead: ${formatMs(preRequestOverhead)}ms (${overheadPct}%)`);
-        lines.push(`  - Network latency: ${formatMs(networkLatency)}ms (${networkPct}%)`);
-    } else {
-        lines.push(`Total time: ${formatMs(totalTime)}ms`);
-    }
-
-    lines.push(generatePhaseBreakdown(marks, baseTime));
-    lines.push("=".repeat(80));
-    return lines.join("\n");
-}
-
-// Mapping: EdY→generateProfilingReport, BU1→profilingEnabled, HhA→getPerformanceInstance,
-//          c1q→queryCounter, whA→memorySnapshots, vdY→getSlowWarning, d1q→formatMB,
-//          st→formatMs, kdY→generatePhaseBreakdown, w→apiRequestSentTime, H→firstChunkReceivedTime
-```
-
-**What it does:** Generates a complete human-readable profiling report for the most recent query.
-
-**How it works:**
-1. Retrieves all performance marks from `perf_hooks` in chronological order
-2. For each mark, computes:
-   - **Absolute time**: milliseconds since the first mark (query start)
-   - **Delta time**: milliseconds since the previous mark
-   - **Memory snapshot**: RSS and heap used at that checkpoint
-   - **Slow warning**: flag if delta exceeds threshold
-3. After the per-checkpoint listing, computes the **TTFT (Time To First Token) breakdown**:
-   - **Pre-request overhead**: everything before `query_api_request_sent` (context loading, compaction, schema building, normalization, etc.)
-   - **Network latency**: time between request sent and first chunk received
-   - Expresses both as absolute ms and percentage of total TTFT
-4. Appends the phase breakdown (see next section)
-
-**Why this approach:**
-- Two timing columns (absolute + delta) give developers both the "big picture" timeline and the ability to spot individual slow steps
-- TTFT is the most important user-perceived metric -- the split between client overhead and network latency immediately tells developers where to focus optimization efforts
-- Memory snapshots help correlate memory growth with specific operations, which is critical for debugging memory leaks during long conversations
 
 ### Example Report Output
 
@@ -473,125 +336,21 @@ PHASE BREAKDOWN:
 
 ### Named Phase Aggregation
 
-```javascript
-// ============================================
-// generatePhaseBreakdown - Build phase breakdown with bar chart
-// Location: chunks.149.mjs:1282-1336
-// ============================================
+The 9 defined phases cover the complete critical path of a query:
 
-// ORIGINAL (for source lookup):
-function kdY(A, q) {
-    let K = [{
-            name: "Context loading",
-            start: "query_context_loading_start",
-            end: "query_context_loading_end"
-        }, {
-            name: "Microcompact",
-            start: "query_microcompact_start",
-            end: "query_microcompact_end"
-        }, {
-            name: "Autocompact",
-            start: "query_autocompact_start",
-            end: "query_autocompact_end"
-        }, {
-            name: "Query setup",
-            start: "query_setup_start",
-            end: "query_setup_end"
-        }, {
-            name: "Tool schemas",
-            start: "query_tool_schema_build_start",
-            end: "query_tool_schema_build_end"
-        }, {
-            name: "Message normalization",
-            start: "query_message_normalization_start",
-            end: "query_message_normalization_end"
-        }, {
-            name: "Client creation",
-            start: "query_client_creation_start",
-            end: "query_client_creation_end"
-        }, {
-            name: "Network TTFB",
-            start: "query_api_request_sent",
-            end: "query_first_chunk_received"
-        }, {
-            name: "Tool execution",
-            start: "query_tool_execution_start",
-            end: "query_tool_execution_end"
-        }],
-        Y = new Map(A.map((H) => [H.name, H.startTime - q])),
-        z = [];
-    z.push(""), z.push("PHASE BREAKDOWN:");
-    for (let H of K) {
-        let $ = Y.get(H.start),
-            O = Y.get(H.end);
-        if ($ !== void 0 && O !== void 0) {
-            let _ = O - $,
-                J = "█".repeat(Math.min(Math.ceil(_ / 10), 50));
-            z.push(`  ${H.name.padEnd(22)} ${st(_).padStart(10)}ms ${J}`)
-        }
-    }
-    let w = Y.get("query_api_request_sent");
-    if (w !== void 0) z.push(""), z.push(`  ${"Total pre-API overhead".padEnd(22)} ${st(w).padStart(10)}ms`);
-    return z.join("\n")
-}
+| Phase Name | Start Checkpoint | End Checkpoint |
+|-----------|-----------------|---------------|
+| Context loading | `query_context_loading_start` | `query_context_loading_end` |
+| Microcompact | `query_microcompact_start` | `query_microcompact_end` |
+| Autocompact | `query_autocompact_start` | `query_autocompact_end` |
+| Query setup | `query_setup_start` | `query_setup_end` |
+| Tool schemas | `query_tool_schema_build_start` | `query_tool_schema_build_end` |
+| Message normalization | `query_message_normalization_start` | `query_message_normalization_end` |
+| Client creation | `query_client_creation_start` | `query_client_creation_end` |
+| Network TTFB | `query_api_request_sent` | `query_first_chunk_received` |
+| Tool execution | `query_tool_execution_start` | `query_tool_execution_end` |
 
-// READABLE (for understanding):
-function generatePhaseBreakdown(marks, baseTime) {
-    let phases = [
-        { name: "Context loading",        start: "query_context_loading_start",        end: "query_context_loading_end" },
-        { name: "Microcompact",            start: "query_microcompact_start",            end: "query_microcompact_end" },
-        { name: "Autocompact",             start: "query_autocompact_start",             end: "query_autocompact_end" },
-        { name: "Query setup",             start: "query_setup_start",                   end: "query_setup_end" },
-        { name: "Tool schemas",            start: "query_tool_schema_build_start",       end: "query_tool_schema_build_end" },
-        { name: "Message normalization",   start: "query_message_normalization_start",   end: "query_message_normalization_end" },
-        { name: "Client creation",         start: "query_client_creation_start",         end: "query_client_creation_end" },
-        { name: "Network TTFB",            start: "query_api_request_sent",              end: "query_first_chunk_received" },
-        { name: "Tool execution",          start: "query_tool_execution_start",          end: "query_tool_execution_end" },
-    ];
-
-    let markTimeMap = new Map(marks.map(m => [m.name, m.startTime - baseTime]));
-    let lines = [];
-    lines.push("");
-    lines.push("PHASE BREAKDOWN:");
-
-    for (let phase of phases) {
-        let startMs = markTimeMap.get(phase.start);
-        let endMs = markTimeMap.get(phase.end);
-        if (startMs !== undefined && endMs !== undefined) {
-            let durationMs = endMs - startMs;
-            let bar = "█".repeat(Math.min(Math.ceil(durationMs / 10), 50));  // 1 block = 10ms, max 50 blocks
-            lines.push(`  ${phase.name.padEnd(22)} ${formatMs(durationMs).padStart(10)}ms ${bar}`);
-        }
-    }
-
-    let preApiTime = markTimeMap.get("query_api_request_sent");
-    if (preApiTime !== undefined) {
-        lines.push("");
-        lines.push(`  ${"Total pre-API overhead".padEnd(22)} ${formatMs(preApiTime).padStart(10)}ms`);
-    }
-    return lines.join("\n");
-}
-
-// Mapping: kdY→generatePhaseBreakdown, A→marks, q→baseTime, K→phases,
-//          Y→markTimeMap, st→formatMs
-```
-
-**What it does:** Generates a visual bar chart of named execution phases by computing the delta between paired start/end checkpoints.
-
-**How it works:**
-1. Defines 9 named phases, each with a start and end checkpoint name
-2. Builds a lookup map from checkpoint name to absolute time (ms since query start)
-3. For each phase where both start and end marks exist, computes duration and renders an ASCII bar chart
-4. Bar chart scale: 1 block character = 10ms, capped at 50 blocks (500ms)
-5. Appends the total pre-API overhead as a summary line
-
-**Why this approach:**
-- Paired start/end marks allow precise measurement of each phase, even when phases are not contiguous (there may be gaps between one phase ending and the next starting)
-- Only phases where both marks exist are shown -- this gracefully handles queries that were aborted early or took unusual paths (e.g., no compaction was needed)
-- The bar chart provides instant visual comparison: network TTFB will typically dominate, making it immediately obvious what fraction of total time is client overhead vs. server time
-- The 50-block cap prevents excessively long network waits from breaking terminal formatting
-
-**Key insight:** The 9 defined phases cover the complete critical path of a query. By explicitly separating "Context loading", "Microcompact", "Autocompact", "Query setup", "Tool schemas", "Message normalization", "Client creation", "Network TTFB", and "Tool execution", the report makes it possible to identify exactly which stage is causing slowness. This is particularly valuable because different environments experience different bottlenecks: slow git repos cause context loading issues, large conversations cause compaction overhead, and complex tool sets cause schema building delays.
+**Bar chart scale:** 1 block character = 10ms, capped at 50 blocks (500ms max width).
 
 ---
 
@@ -627,56 +386,6 @@ The profiling marks are placed at strategic points across three source files:
 - `y3("query_first_chunk_received")` at line 994 when the first streaming chunk arrives
 - `i1q()` (endProfiling) at line 995 to mark the profiling end point
 
-### End Profiling Timing
-
-```javascript
-// ============================================
-// endProfiling - Mark the end of the profiling window
-// Location: chunks.149.mjs:1224-1227
-// ============================================
-
-// ORIGINAL (for source lookup):
-function i1q() {
-    if (!BU1) return;
-    y3("query_profile_end")
-}
-
-// READABLE (for understanding):
-function endProfiling() {
-    if (!profilingEnabled) return;
-    recordMark("query_profile_end");
-}
-
-// Mapping: i1q→endProfiling, BU1→profilingEnabled, y3→recordMark
-```
-
-**Key insight:** `endProfiling` is called when the **first chunk** is received from the API (line 995 in chunks.169.mjs), not when the full response completes. This is deliberate -- the primary metric this system optimizes for is **TTFT (Time To First Token)**, which is the most important user-perceived latency metric. The time from first chunk to complete response is dominated by model generation speed, which is not something the client can optimize.
-
-### Print Report
-
-```javascript
-// ============================================
-// printProfilingReport - Output the profiling report to debug log
-// Location: chunks.149.mjs:1338-1341
-// ============================================
-
-// ORIGINAL (for source lookup):
-function n1q() {
-    if (!BU1) return;
-    h(EdY())
-}
-
-// READABLE (for understanding):
-function printProfilingReport() {
-    if (!profilingEnabled) return;
-    debugLog(generateProfilingReport());
-}
-
-// Mapping: n1q→printProfilingReport, BU1→profilingEnabled, EdY→generateProfilingReport, h→debugLog
-```
-
-**What it does:** Calls `generateProfilingReport` and passes the result to the debug logging system. This is invoked at the very end of a query (line 587 in chunks.188.mjs), after `query_end` is recorded, so the report includes all checkpoints including the final one.
-
 ---
 
 ## Key Insight
@@ -685,65 +394,11 @@ function printProfilingReport() {
 
 The query profiling system exists to solve a specific engineering challenge: **diagnosing where time is spent before the user sees the first token of a response**.
 
-In a typical Claude Code query, the time between the user pressing Enter and seeing the first streamed character involves:
-1. Loading contextual information (git status, file listings, environment)
-2. Running micro-compaction on the message history
-3. Checking if auto-compaction should trigger (and running it if so)
-4. Building tool schemas for the API request
-5. Normalizing messages into API format
-6. Creating the API client
-7. Sending the request over the network
-8. Waiting for the model to produce the first token
+The TTFT breakdown explicitly separates **client-side overhead** (steps the Claude Code engineering team can directly optimize) from **network + server latency** (which they cannot control). The profiling system's TTFT breakdown gives the team a clear signal about whether a regression is in their code or on the API side.
 
-Steps 1-6 are **client-side overhead** that the Claude Code engineering team can directly optimize. Step 7-8 are **network + server latency** that they cannot control. The profiling system's TTFT breakdown explicitly separates these two categories, giving the team a clear signal about whether a regression is in their code or on the API side.
+The operation-specific slow warnings (git status >50ms, tool schemas >50ms, client creation >50ms) reveal that these are **known historical problem areas** where regressions have previously occurred.
 
-The operation-specific slow warnings (git status >50ms, tool schemas >50ms, client creation >50ms) reveal that these are **known historical problem areas** where regressions have previously occurred. The profiling system serves as both a diagnostic tool and a regression detection mechanism.
-
-The memory tracking at each checkpoint adds another dimension: if RSS grows by 50MB during context loading, that indicates the context itself is too large. If heap usage spikes during compaction, the compaction algorithm may be creating excessive intermediate objects. This correlation between timing and memory makes the system useful not just for latency debugging but also for memory optimization.
-
----
-
-## Utility Functions
-
-### Formatting Helpers
-
-```javascript
-// ============================================
-// formatMs - Format milliseconds to 3 decimal places
-// Location: chunks.149.mjs:1229-1231
-// ============================================
-
-// ORIGINAL (for source lookup):
-function st(A) {
-    return A.toFixed(3)
-}
-
-// READABLE (for understanding):
-function formatMs(milliseconds) {
-    return milliseconds.toFixed(3);
-}
-
-// Mapping: st→formatMs, A→milliseconds
-```
-
-```javascript
-// ============================================
-// formatMB - Convert bytes to megabytes with 2 decimal places
-// Location: chunks.149.mjs:1233-1235
-// ============================================
-
-// ORIGINAL (for source lookup):
-function d1q(A) {
-    return (A / 1024 / 1024).toFixed(2)
-}
-
-// READABLE (for understanding):
-function formatMB(bytes) {
-    return (bytes / 1024 / 1024).toFixed(2);
-}
-
-// Mapping: d1q→formatMB, A→bytes
-```
+The memory tracking at each checkpoint adds another dimension: if RSS grows by 50MB during context loading, that indicates the context itself is too large. If heap usage spikes during compaction, the compaction algorithm may be creating excessive intermediate objects.
 
 ---
 

@@ -92,6 +92,11 @@ The rendering pipeline transforms raw LLM output into terminal display through 7
 
 Separating these concerns makes the system easier to reason about and test independently.
 
+**v2.1.76 changes:**
+- **React Compiler performance improvements**: The memoization cache (`e(N)` pattern) is more aggressively applied, reducing unnecessary re-computations at every stage.
+- **Blockquote italics with left bar**: Blockquote text in assistant messages now renders with an italic font and a left-border visual indicator in dark themes, improving readability of quoted content.
+- **Spinner isolated to 50ms animation loop**: The spinner animation runs in a separate React subtree on a 50ms timer, decoupled from the main message list render cycle.
+
 ---
 
 ## 2. Stage 0: Streaming Input (iW1)
@@ -448,7 +453,6 @@ function normalizeDisplayMessages(messages, streamingToolUses) {
                 processedToolUseIds.add(toolUseId);
                 const group = toolUseGroups.get(toolUseId);
                 if (group?.toolUse) {
-                    // Emit in execution order: tool → preHooks → result → postHooks
                     output.push(group.toolUse);
                     output.push(...group.preHooks);
                     if (group.toolResult) output.push(group.toolResult);
@@ -457,15 +461,12 @@ function normalizeDisplayMessages(messages, streamingToolUses) {
             }
             continue;
         }
-        // Skip hook attachments (already emitted above)
         if (isHookAttachment(msg)) continue;
-        // Skip tool results (already emitted above)
         if (msg.type === "user" && msg.message.content[0]?.type === "tool_result") continue;
-        // API errors: keep only the latest one
         if (msg.type === "system" && msg.subtype === "api_error") {
             const lastOutput = output[output.length - 1];
             if (lastOutput?.type === "system" && lastOutput.subtype === "api_error") {
-                output[output.length - 1] = msg; // Replace previous API error
+                output[output.length - 1] = msg;
             } else {
                 output.push(msg);
             }
@@ -474,12 +475,10 @@ function normalizeDisplayMessages(messages, streamingToolUses) {
         output.push(msg);
     }
 
-    // Append currently streaming tool uses at the end
     for (const streamingTool of streamingToolUses) {
         output.push(streamingTool);
     }
 
-    // Final pass: keep only last API error
     const lastMsg = output[output.length - 1];
     return output.filter(msg =>
         msg.type !== "system" || msg.subtype !== "api_error" || msg === lastMsg
@@ -521,30 +520,6 @@ API errors (type: `"system"`, subtype: `"api_error"`) are deduplicated: only the
 // groupToolResults - Collapse repeated tool executions
 // Location: chunks.160.mjs:1849-1920
 // ============================================
-
-// ORIGINAL (for source lookup - condensed):
-function q9q(A, q, K = !1) {
-    if (K) return { messages: A }; // verbose mode: no grouping
-    let Y = new Set(q.filter((J) => J.renderGroupedToolUse).map((J) => J.name)),
-        z = new Map;
-    for (let J of A) {
-        let X = QbA(J); // extractToolInfo
-        if (X && Y.has(X.toolName)) {
-            let D = `${X.messageId}:${X.toolName}`, j = z.get(D) ?? [];
-            j.push(J), z.set(D, j)
-        }
-    }
-    // Keep only groups with 2+ items
-    let w = new Map, H = new Set;
-    for (let [J, X] of z)
-        if (X.length >= 2) {
-            w.set(J, X);
-            for (let D of X) { let j = QbA(D); if (j) H.add(j.toolUseId) }
-        }
-    // Build result messages map and output array
-    // ...
-    return { messages: O }
-}
 
 // READABLE (for understanding):
 function groupToolResults(messages, tools, verboseMode = false) {
@@ -611,18 +586,17 @@ function groupToolResults(messages, tools, verboseMode = false) {
                     output.push({
                         type: "grouped_tool_use",
                         toolName: toolInfo.toolName,
-                        messages: group,        // All tool use messages
-                        results,                // All result messages
+                        messages: group,
+                        results,
                         displayMessage: displayMsg,
                         uuid: `grouped-${displayMsg.uuid}`,
                         timestamp: displayMsg.timestamp,
                         messageId: toolInfo.messageId
                     });
                 }
-                continue; // Skip individual messages in a group
+                continue;
             }
         }
-        // Skip tool results that are part of a group
         if (msg.type === "user") {
             const toolResults = msg.message.content.filter(b => b.type === "tool_result");
             if (toolResults.length > 0 &&
@@ -723,6 +697,8 @@ if (tools1[0]?.name !== tools2[0]?.name) return false;
 let T6 = dA.useDeferredValue(W4);
 ```
 This means the `MessageList` receives a potentially-stale snapshot of messages during rapid updates, allowing React to prioritize keeping the input box responsive. The deferred value catches up between frames.
+
+**React Compiler memo cache (v2.1.76):** The `e(N)` pattern used throughout MessageList and its descendants uses flat arrays allocated by the React Compiler. In v2.1.76, the compiler applies this pattern more aggressively to intermediate computations within the rendering pipeline stages, reducing allocation overhead compared to `useMemo` with closure capture.
 
 ### 9.2 Streaming Tool Uses Integration
 
@@ -830,6 +806,8 @@ if (cache[0] !== props.messages) {
 ```
 The React Compiler transforms function components to use flat arrays instead of `useMemo`. Slot 0 stores the dependency, slot 1 stores the cached result. This is faster than `useMemo` because it avoids closure allocation.
 
+**v2.1.76 improvement:** The React Compiler's application scope was expanded to cover more intermediate functions in the rendering pipeline, reducing memoization boundary crossings for complex message lists.
+
 **3. Replay state truncation:**
 ```javascript
 // When replaying a message restore:
@@ -851,3 +829,6 @@ let X6 = useCallback((updater) => {
 }, []);
 ```
 `c1.current` always has the latest messages even in stale closures, without needing to add `messages` to every callback's dependency array.
+
+**5. Spinner isolation (v2.1.76):**
+The spinner component runs in its own React subtree with a 50ms `setInterval`. Previously, spinner frame updates caused the parent `MessageList` to evaluate its memoization guards on every tick. The isolation prevents this cascade, reducing per-frame render work during streaming by eliminating spinner-driven re-renders from the message list.

@@ -1,4 +1,4 @@
-# Tool Execution Pipeline (Claude Code 2.1.38)
+# Tool Execution Pipeline (Claude Code 2.1.76)
 
 > Complete tool dispatch lifecycle: lookup, input validation, pre-hook execution, permission check, sandbox integration, tool call, post-hook execution, and result formatting.
 

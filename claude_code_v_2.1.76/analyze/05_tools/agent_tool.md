@@ -1,877 +1,548 @@
-# Agent/Task Tool - Deep Analysis (Claude Code 2.1.38)
+# Agent Tool - Deep Analysis (Claude Code 2.1.76)
 
-> Complete analysis of the Agent tool for spawning sub-agents: execution modes, background tasks, team spawning, and result handling.
+> Complete analysis of the Agent tool: subagent spawning, background execution, worktree isolation, resume capability, and model selection.
 
 ---
 
 ## Related Symbols
 
 > Symbol mappings:
-> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Tools section)
-> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Background Agents)
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Agents, Subagent sections)
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Background Agents section)
 
 Key functions in this document:
-- `AgentTool` (rj1) - Agent tool definition object - chunks.132.mjs:85
-- `TOOL_NAME_AGENT` (fK) - Tool name constant "Task" - chunks.132.mjs
-- `agentInputSchema` (oVY) - Input schema definition - chunks.132.mjs:37
-- `agentOutputSchema` (ANY) - Output schema definition - chunks.132.mjs:84
-- `generateAgentId` (NR) - Task ID generation - chunks.89.mjs
-- `createAsyncTask` (zd7) - Background task creation - chunks.132.mjs
-- `agentLoopRunner` (dR) - Agent loop execution - chunks.107.mjs
-- `loadTranscript` (sP1) - Resume transcript loading - chunks.89.mjs
-- `buildAgentResult` (UEA) - Result builder - chunks.132.mjs
-- `getOutputFilePath` (ww) - Output file path - chunks.89.mjs
+- `AgentTool` (rj1) - Agent tool definition object - chunks.149.mjs
+- `agentToolCall` - Core execution logic for running subagents
+- `DELEGATE_ALLOWED_TOOLS` (R_6) - Tool allowlist for delegate agents
+- `BACKGROUND_AGENT_ALLOWED_TOOLS` (Bj1) - Tool allowlist for background agents
+- `resolveAgentModel` - Model resolution logic for per-invocation model selection
 
 ---
 
 ## Architecture Overview
 
 ```
-LLM generates Task tool_use { prompt, subagent_type, run_in_background?, model?, resume? }
+LLM generates Agent tool_use
+    { description, prompt, subagent_type, model?, run_in_background?, isolation? }
          │
          ▼
- validateInput()
- ├── Agent type validation
- ├── MCP server requirements check
- └── Background task availability check
+ AgentTool.validateInput()
+ ├── subagent_type validation
+ ├── model parameter validation (v2.1.72+)
+ └── isolation: worktree validation
          │
          ▼
- Branch decision
- ├── run_in_background=true → Background execution
- │   ├── Create task record (zd7)
- │   ├── Create abort controller
- │   └── Launch async agentLoopRunner (dR)
+ AgentTool.checkPermissions()
+ └── auto-approved (no user prompt)
+         │
+         ▼
+ AgentTool.call()
+ ├── [run_in_background=false] → foreground subagent
+ │     ├── Build system prompt
+ │     ├── Run agent loop inline
+ │     └── Return result synchronously
  │
- ├── team_name provided → Teammate spawn
- │   └── spawnSplitPaneTeammate
- │
- └── run_in_background=false → Foreground execution
-     ├── Create foreground task
-     ├── Run agentLoopRunner (dR)
-     └── Return completed result
-         │
-         ▼
- Return { data: { status, ... } }
+ └── [run_in_background=true] → background subagent
+       ├── Allocate output file
+       ├── Spawn background process
+       └── Return { taskId, outputFile } immediately
 ```
 
 ---
 
 ## 1. Tool Definition Object
 
-### AgentTool (rj1) - Sub-agent spawning tool
+### AgentTool (rj1) - Main entry point for subagent execution
 
-**What it does:** Provides the primary interface for spawning specialized sub-agents to perform complex tasks, with support for background execution, teammate spawning, and resume capabilities.
+**What it does:** Provides the Agent tool interface that allows the LLM to spawn subagents — child Claude instances that run with their own conversation history, system prompt, and (optionally) their own isolated worktree.
+
+**How it works:**
 
 ```javascript
 // ============================================
-// AgentTool - Main sub-agent spawning tool definition
-// Location: chunks.132.mjs:85-315
+// AgentTool - Agent spawning tool definition
+// Location: chunks.149.mjs
 // ============================================
 
 // ORIGINAL (for source lookup):
 rj1 = {
-    name: fK,  // "Task"
-    maxResultSizeChars: 1e5,
-    async prompt({ agents: A, tools: q, getToolPermissionContext: K, allowedAgentTypes: Y }) {
-        let z = await K(),
-            w = [];
-        for (let _ of q)
-            if (_.name?.startsWith("mcp__")) {
-                let X = _.name.split("__")[1];
-                if (X && !w.includes(X)) w.push(X)
-            }
-        let H = un7(A, w),
-            $ = pEA(H, z, fK);
-        return await Gn7($, !1, Y)
-    },
-    async description() { return "Launch a new task" },
-    get inputSchema() { return avA() },
-    get outputSchema() { return ANY() },
-    async call({
-        prompt: A,
-        subagent_type: q,
-        description: K,
-        model: Y,
-        resume: z,
-        run_in_background: w,
-        max_turns: H,
-        name: $,
-        team_name: O,
-        mode: _
-    }, J, X, D, j) { ... }
+    name: "Agent",
+    isConcurrencySafe: true,
+    isReadOnly: false,
+    async description() { return getAgentToolDescription(); },
+    get inputSchema() { return agentInputSchema(); },
+    async validateInput(A, q) { ... },
+    async checkPermissions() { return { allowed: true }; },
+    async call(A, q, K) { return agentToolCall(A, q, K); },
+    renderToolUseMessage: gj1,
+    renderToolResultMessage: Oj1,
+    userFacingName() { return "Agent"; },
+    getToolUseSummary(A) { return A.description ?? A.subagent_type ?? null; }
 }
 
 // READABLE (for understanding):
 const AgentTool = {
-    name: "Task",
-    maxResultSizeChars: 100000,
+    name: "Agent",
+    isConcurrencySafe: true,  // Multiple agents can run concurrently
+    isReadOnly: false,         // Agents may write files
 
-    async prompt({ agents, tools, getToolPermissionContext, allowedAgentTypes }) {
-        // Get permission context
-        let permissionContext = await getToolPermissionContext();
-
-        // Collect MCP server names from tools
-        let mcpServerNames = [];
-        for (let tool of tools) {
-            if (tool.name?.startsWith("mcp__")) {
-                let serverName = tool.name.split("__")[1];
-                if (serverName && !mcpServerNames.includes(serverName)) {
-                    mcpServerNames.push(serverName);
-                }
-            }
-        }
-
-        // Build agent list with MCP requirements
-        let availableAgents = buildAgentList(agents, mcpServerNames);
-
-        // Filter by permissions
-        let filteredAgents = filterAgentsByPermission(availableAgents, permissionContext, "Task");
-
-        // Generate prompt with agent descriptions
-        return await generateAgentSelectionPrompt(filteredAgents, false, allowedAgentTypes);
+    async description() {
+        return getAgentToolDescription();
     },
 
-    isConcurrencySafe() { return false; },  // Sub-agent state affects parent
-    isReadOnly() { return false; },          // Can modify filesystem
+    get inputSchema() {
+        return agentInputSchema();
+    },
 
-    async call(input, toolUseContext, canUseTool, invocationContext, onProgress) {
-        let { prompt, subagent_type, description, model, resume, run_in_background, max_turns, name, team_name, mode } = input;
+    async validateInput(input, context) {
+        // Validate subagent_type, model, isolation, etc.
+    },
 
-        let startTime = Date.now();
-        let appState = await toolUseContext.getAppState();
-        let permissionMode = appState.toolPermissionContext.mode;
+    async checkPermissions() {
+        // Agent tool is always auto-approved (trust model)
+        return { allowed: true };
+    },
 
-        // Check if agent teams is available
-        if (team_name && !isAgentTeamsEnabled()) {
-            throw Error("Agent Teams is not yet available on your plan.");
-        }
+    async call(input, context, invocationContext) {
+        return agentToolCall(input, context, invocationContext);
+    },
 
-        // Resolve team name
-        let resolvedTeamName = resolveTeamName({ team_name }, appState);
+    userFacingName() { return "Agent"; },
 
-        // Handle in-process teammate spawning
-        if (isInProcessTeammate() && resolvedTeamName) {
-            if (name) {
-                throw Error("In-process teammates cannot spawn other teammates.");
-            }
-            if (run_in_background === true) {
-                throw Error("In-process teammates cannot spawn background agents.");
-            }
-        }
-
-        // Handle teammate spawning
-        if (resolvedTeamName && name) {
-            let result = await spawnTeammate({
-                name,
-                prompt,
-                description,
-                team_name: resolvedTeamName,
-                use_splitpane: true,
-                plan_mode_required: mode === "plan",
-                model,
-                agent_type: subagent_type
-            }, toolUseContext);
-
-            return {
-                data: {
-                    status: "teammate_spawned",
-                    prompt,
-                    ...result.data
-                }
-            };
-        }
-
-        // Get available agents
-        let activeAgents = toolUseContext.options.agentDefinitions.activeAgents;
-        let allowedAgentTypes = toolUseContext.options.agentDefinitions.allowedAgentTypes;
-        let availableAgents = filterAgentsByPermission(
-            allowedAgentTypes ? activeAgents.filter(a => allowedAgentTypes.includes(a.agentType)) : activeAgents,
-            appState.toolPermissionContext,
-            "Task"
-        );
-
-        // Find the requested agent
-        let selectedAgent = availableAgents.find(a => a.agentType === subagent_type);
-        if (!selectedAgent) {
-            if (activeAgents.find(a => a.agentType === subagent_type)) {
-                let denyRule = findDenyRule(appState.toolPermissionContext, "Task", subagent_type);
-                throw Error(`Agent type '${subagent_type}' has been denied by permission rule 'Task(${subagent_type})' from ${denyRule?.source ?? "settings"}.`);
-            }
-            throw Error(`Agent type '${subagent_type}' not found. Available agents: ${availableAgents.map(a => a.agentType).join(", ")}`);
-        }
-
-        // Check MCP requirements
-        if (selectedAgent.requiredMcpServers?.length) {
-            checkMcpRequirements(selectedAgent, appState.mcp.tools);
-        }
-
-        // Resolve model
-        let resolvedModel = resolveAgentModel(selectedAgent.model, toolUseContext.options.mainLoopModel, model, permissionMode, selectedAgent.agentType);
-
-        // Track agent selection
-        telemetry("tengu_agent_tool_selected", {
-            agent_type: selectedAgent.agentType,
-            model: resolvedModel,
-            source: selectedAgent.source,
-            color: selectedAgent.color,
-            is_built_in_agent: isBuiltInAgent(selectedAgent)
-        });
-
-        // Handle resume
-        let promptMessages;
-        if (resume) {
-            let task = appState.tasks[resume];
-            if (task && task.status === "running") {
-                throw Error(`Cannot resume agent ${resume}: it is still running. Use TaskStop to stop it first.`);
-            }
-            let transcript = await loadTranscript(prefixAgentId(resume));
-            if (!transcript) {
-                throw Error(`No transcript found for agent ID: ${resume}`);
-            }
-            promptMessages = prepareResumeMessages(transcript);
-        }
-
-        // Build system prompt override
-        let systemPromptOverride;
-        if (selectedAgent.forkContext) {
-            // Include parent context
-            systemPromptOverride = await buildForkedSystemPrompt(selectedAgent, toolUseContext);
-        }
-
-        // Prepare execution context
-        let executionContext = {
-            agentDefinition: selectedAgent,
-            promptMessages: promptMessages ?? [createUserMessage({ content: prompt })],
-            toolUseContext: toolUseContext,
-            canUseTool: canUseTool,
-            forkContextMessages: selectedAgent.forkContext ? toolUseContext.messages : undefined,
-            isAsync: run_in_background === true,
-            querySource: toolUseContext.options.querySource ?? getQuerySource(selectedAgent),
-            model: model,
-            maxTurns: max_turns,
-            override: systemPromptOverride ? { systemPrompt: systemPromptOverride } : undefined,
-            availableTools: filterToolsForPermission(appState.toolPermissionContext, appState.mcp.tools)
-        };
-
-        // Execute agent
-        if (executionContext.isAsync) {
-            return executeBackgroundAgent(executionContext, {
-                resumeId: resume,
-                description,
-                prompt,
-                selectedAgent,
-                startTime,
-                toolUseContext
-            });
-        } else {
-            return executeForegroundAgent(executionContext, {
-                resumeId: resume,
-                description,
-                prompt,
-                selectedAgent,
-                startTime,
-                toolUseContext,
-                onProgress
-            });
-        }
+    getToolUseSummary(input) {
+        return input.description ?? input.subagent_type ?? null;
     }
-};
+}
 
-// Mapping: rj1→AgentTool, fK→TOOL_NAME_AGENT, oVY→agentInputSchema, ANY→agentOutputSchema,
-//          A→prompt, q→subagent_type, K→description, Y→model, z→resume, w→run_in_background,
-//          H→max_turns, $→name, O→team_name, _→mode, J→toolUseContext, NR→generateAgentId,
-//          dR→agentLoopRunner, zd7→createAsyncTask, sP1→loadTranscript, UEA→buildAgentResult
+// Mapping: rj1→AgentTool, gj1→renderAgentUseMessage, Oj1→renderAgentResultMessage
 ```
-
-**Why multiple execution modes:**
-- **Foreground:** For short tasks that need immediate results
-- **Background:** For long-running tasks that shouldn't block the conversation
-- **Teammate:** For parallel work in team-based workflows
 
 ---
 
-## 2. Input Schema Definition
+## 2. Input Schema
 
-### agentInputSchema (oVY) - Complete parameter set
+### Agent Tool Input Schema (v2.1.76)
+
+**What it does:** Defines the parameters the LLM can pass to the Agent tool, including the new `model`, `run_in_background`, and `isolation` parameters added in recent versions.
 
 ```javascript
 // ============================================
-// agentInputSchema - Zod input schema for Agent tool
-// Location: chunks.132.mjs:37-45
+// agentInputSchema - Agent tool input validation
+// Location: chunks.149.mjs
 // ============================================
 
-// ORIGINAL (for source lookup):
-oVY = u.object({
-    description: u.string().describe("A short (3-5 word) description of the task"),
-    prompt: u.string().describe("The task for the agent to perform"),
-    subagent_type: u.string().describe("The type of specialized agent to use for this task"),
-    model: u.enum(["sonnet", "opus", "haiku"]).optional().describe(rVY),
-    resume: u.string().optional().describe("Optional agent ID to resume from. If provided, the agent will continue from the previous execution transcript."),
-    run_in_background: u.boolean().optional().describe(`Set to true to run this agent in the background. The tool result will include an output_file path - use Read tool or Bash tail to check on output.`),
-    max_turns: u.number().int().positive().optional().describe("Maximum number of agentic turns (API round-trips) before stopping. Used internally for warmup.")
-})
-
 // READABLE (for understanding):
-const agentInputSchema = z.object({
+const agentInputSchema = z.strictObject({
     description: z.string()
-        .describe("A short (3-5 word) description of the task"),
+        .describe("A brief description of what this agent will do. Used for display in the UI."),
 
     prompt: z.string()
-        .describe("The task for the agent to perform"),
+        .describe("The task or instructions to send to the subagent."),
 
-    subagent_type: z.string()
-        .describe("The type of specialized agent to use for this task"),
+    subagent_type: z.enum(["general", "code", "research", "data"])
+        .optional()
+        .describe("The type of subagent to spawn. Controls the system prompt template."),
 
-    model: z.enum(["sonnet", "opus", "haiku"]).optional()
-        .describe("Optional model to use for this agent. If not specified, inherits from parent."),
+    // v2.1.72+: Per-invocation model selection (restored after being removed)
+    model: z.string()
+        .optional()
+        .describe("The model ID to use for this agent invocation. If not specified, inherits from parent session."),
 
-    resume: z.string().optional()
-        .describe("Optional agent ID to resume from. If provided, the agent will continue from the previous execution transcript."),
+    resume: z.string()
+        .optional()
+        .describe("Session ID to resume. If provided, the agent continues from a previous session."),
 
-    run_in_background: z.boolean().optional()
-        .describe("Set to true to run this agent in the background. The tool result will include an output_file path - use Read tool or Bash tail to check on output."),
+    // v2.1.76: Explicit background execution mode
+    run_in_background: z.boolean()
+        .optional()
+        .default(false)
+        .describe("If true, the agent runs asynchronously in the background. Returns immediately with a taskId."),
 
-    max_turns: z.number().int().positive().optional()
-        .describe("Maximum number of agentic turns (API round-trips) before stopping. Used internally for warmup.")
+    max_turns: z.number()
+        .optional()
+        .describe("Maximum number of agent turns before forcing completion."),
+
+    name: z.string()
+        .optional()
+        .describe("Optional display name for this agent in the UI."),
+
+    team_name: z.string()
+        .optional()
+        .describe("If set, assigns this agent to a named team for coordination."),
+
+    mode: z.enum(["normal", "plan", "auto"])
+        .optional()
+        .describe("Execution mode: normal (default), plan (plan-first), or auto."),
+
+    // v2.1.76: Declarative worktree isolation
+    isolation: z.enum(["none", "worktree"])
+        .optional()
+        .default("none")
+        .describe("Isolation mode. 'worktree' creates a dedicated git worktree for this agent.")
 });
-
-// Team spawning extension (aVY)
-const teamSpawnSchema = z.object({
-    name: z.string().optional()
-        .describe("Name for the spawned agent"),
-
-    team_name: z.string().optional()
-        .describe("Team name for spawning. Uses current team context if omitted."),
-
-    mode: z.enum(["plan", "acceptEdits", ...]).optional()
-        .describe('Permission mode for spawned teammate (e.g., "plan" to require plan approval).')
-});
-
-// Full input: oVY.merge(aVY) = avA
-
-// Mapping: oVY→agentInputSchema, aVY→teamSpawnSchema, avA→fullAgentInputSchema
 ```
+
+**Key changes in v2.1.76:**
+1. `model` parameter: Restored in v2.1.72. Allows per-invocation model selection, overriding the parent session's model
+2. `run_in_background: true`: Explicit flag for background execution instead of a separate tool
+3. `isolation: "worktree"`: New declarative support — the Agent tool creates the worktree automatically rather than requiring manual `EnterWorktree` calls
 
 ---
 
-## 3. Output Schema Definition
+## 3. Execution Modes
 
-### agentOutputSchema (ANY) - Union of result types
+### Mode 1: Foreground Execution (run_in_background=false)
 
-```javascript
-// ============================================
-// agentOutputSchema - Zod output schema for Agent tool
-// Location: chunks.132.mjs:75-84
-// ============================================
+**What it does:** Runs the subagent inline within the current session. The parent agent waits for the subagent to complete before continuing.
 
-// ORIGINAL (for source lookup):
-sVY = u.object({
-    agentId: u.string(),
-    content: u.array(u.object({
-        type: u.literal("text"),
-        text: u.string()
-    })),
-    totalToolUseCount: u.number(),
-    totalDurationMs: u.number(),
-    totalTokens: u.number(),
-    usage: u.object({
-        input_tokens: u.number(),
-        output_tokens: u.number(),
-        cache_creation_input_tokens: u.number().nullable(),
-        cache_read_input_tokens: u.number().nullable(),
-        server_tool_use: u.object({
-            web_search_requests: u.number(),
-            web_fetch_requests: u.number()
-        }).nullable(),
-        service_tier: u.enum(["standard", "priority", "batch"]).nullable(),
-        cache_creation: u.object({
-            ephemeral_1h_input_tokens: u.number(),
-            ephemeral_5m_input_tokens: u.number()
-        }).nullable()
-    })
-})
-tVY = sVY.extend({
-    status: u.literal("completed"),
-    prompt: u.string()
-})
-eVY = u.object({
-    status: u.literal("async_launched"),
-    agentId: u.string().describe("The ID of the async agent"),
-    description: u.string().describe("The description of the task"),
-    prompt: u.string().describe("The prompt for the agent"),
-    outputFile: u.string().describe("Path to the output file for checking agent progress")
-})
-ANY = z7(() => u.union([tVY, eVY, Vn7]))  // Vn7 = error type
-
-// READABLE (for understanding):
-// Base result schema
-const agentResultBase = z.object({
-    agentId: z.string(),
-    content: z.array(z.object({
-        type: z.literal("text"),
-        text: z.string()
-    })),
-    totalToolUseCount: z.number(),
-    totalDurationMs: z.number(),
-    totalTokens: z.number(),
-    usage: z.object({
-        input_tokens: z.number(),
-        output_tokens: z.number(),
-        cache_creation_input_tokens: z.number().nullable(),
-        cache_read_input_tokens: z.number().nullable(),
-        server_tool_use: z.object({
-            web_search_requests: z.number(),
-            web_fetch_requests: u.number()
-        }).nullable(),
-        service_tier: z.enum(["standard", "priority", "batch"]).nullable(),
-        cache_creation: z.object({
-            ephemeral_1h_input_tokens: z.number(),
-            ephemeral_5m_input_tokens: z.number()
-        }).nullable()
-    })
-});
-
-// Completed result
-const completedResult = agentResultBase.extend({
-    status: z.literal("completed"),
-    prompt: z.string()
-});
-
-// Background launched result
-const asyncLaunchedResult = z.object({
-    status: z.literal("async_launched"),
-    agentId: z.string().describe("The ID of the async agent"),
-    description: z.string().describe("The description of the task"),
-    prompt: z.string().describe("The prompt for the agent"),
-    outputFile: z.string().describe("Path to the output file for checking agent progress")
-});
-
-// Full output schema is union
-const agentOutputSchema = z.union([
-    completedResult,
-    asyncLaunchedResult,
-    errorResult
-]);
-
-// Mapping: sVY→agentResultBase, tVY→completedResult, eVY→asyncLaunchedResult, ANY→agentOutputSchema
-```
-
----
-
-## 4. Background Execution Flow
-
-### executeBackgroundAgent - Non-blocking agent launch
-
-**What it does:** Creates a background task record, launches the agent loop asynchronously, and returns immediately with a task ID.
+**How it works:**
 
 ```javascript
 // ============================================
-// executeBackgroundAgent - Background task launch
-// Location: chunks.132.mjs:251-314
+// Foreground Subagent Execution
+// Location: chunks.149.mjs
 // ============================================
 
 // READABLE (for understanding):
-async function executeBackgroundAgent(executionContext, meta) {
-    let { resumeId, description, prompt, selectedAgent, startTime, toolUseContext } = meta;
+async function foregroundAgentExecution(input, context) {
+    // Build subagent context
+    let systemPrompt = await buildSubagentSystemPrompt(input.subagent_type);
+    let toolSet = getToolSetForAgent(input.subagent_type);
 
-    // Generate or reuse agent ID
-    let agentId = resumeId || generateAgentId();
+    // Resolve model: use input.model if specified, else inherit from parent
+    let model = input.model
+        ? resolveModelById(input.model)
+        : context.sessionConfig.model;
 
-    // Create async task record with abort controller
-    let taskRecord = createAsyncTask({
-        agentId: agentId,
-        description: description,
-        prompt: prompt,
-        selectedAgent: selectedAgent,
-        setAppState: toolUseContext.setAppState,
-        parentAbortController: toolUseContext.abortController
+    // Apply worktree isolation if requested
+    let executionCwd = context.cwd;
+    if (input.isolation === "worktree") {
+        executionCwd = await createAgentWorktree(context.cwd);
+    }
+
+    // Run agent loop synchronously
+    let result = await runAgentLoop({
+        messages: [{ role: "user", content: input.prompt }],
+        systemPrompt,
+        tools: toolSet,
+        model,
+        maxTurns: input.max_turns ?? DEFAULT_MAX_TURNS,
+        cwd: executionCwd,
+        sessionId: input.resume,
+        mode: input.mode ?? "normal"
     });
 
-    // Telemetry context
-    let telemetryContext = {
-        agentId: agentId,
-        parentSessionId: getSessionId(),
-        agentType: "subagent",
-        subagentName: selectedAgent.agentType,
-        isBuiltIn: isBuiltInAgent(selectedAgent)
-    };
+    // Cleanup worktree if created
+    if (input.isolation === "worktree") {
+        await cleanupAgentWorktree(executionCwd);
+    }
 
-    // Launch in telemetry span (non-blocking)
-    withTelemetrySpan(telemetryContext, async () => {
-        let progressTracker = createProgressTracker();
-        let activityResolver = createActivityDescriptionResolver(toolUseContext.options.tools);
-        let cleanupFn;
-
-        try {
-            let results = [];
-
-            // Run agent loop
-            for await (let message of agentLoopRunner({
-                ...executionContext,
-                override: {
-                    ...executionContext.override,
-                    agentId: prefixAgentId(agentId),
-                    abortController: taskRecord.abortController
-                },
-                onCacheSafeParams: executionContext.isAsync ? (params) => {
-                    let { stop } = setupBackgroundAbort(agentId, prefixAgentId(agentId), params, toolUseContext.setAppState);
-                    cleanupFn = stop;
-                } : undefined
-            })) {
-                results.push(message);
-                trackProgress(progressTracker, message, activityResolver, toolUseContext.options.tools);
-                updateTaskProgress(agentId, getProgressSnapshot(progressTracker), toolUseContext.setAppState);
-            }
-
-            // Cleanup
-            cleanupFn?.();
-
-            // Build final result
-            let result = buildAgentResult(results, agentId, {
-                prompt,
-                resolvedAgentModel: executionContext.model,
-                isBuiltInAgent: isBuiltInAgent(selectedAgent),
-                startTime,
-                agentType: selectedAgent.agentType
-            });
-
-            // Extract text content for summary
-            let textContent = result.content
-                .filter(c => c.type === "text")
-                .map(c => c.text)
-                .join("\n");
-
-            // Mark completed
-            markTaskCompleted(result, toolUseContext.setAppState);
-            notifyTaskCompletion(agentId, description, "completed", undefined, toolUseContext.setAppState, textContent, {
-                totalTokens: result.totalTokens,
-                toolUses: result.totalToolUseCount,
-                durationMs: result.totalDurationMs
-            });
-
-        } catch (error) {
-            cleanupFn?.();
-
-            if (error instanceof AbortError) {
-                // User killed the task
-                if (killTask(agentId, toolUseContext.setAppState)) {
-                    notifyTaskCompletion(agentId, description, "killed", undefined, toolUseContext.setAppState);
-                }
-                return;
-            }
-
-            // Mark failed
-            let errorMessage = error instanceof Error ? error.message : String(error);
-            markTaskFailed(agentId, errorMessage, toolUseContext.setAppState);
-            notifyTaskCompletion(agentId, description, "failed", errorMessage, toolUseContext.setAppState);
-        }
-    });
-
-    // Return immediately with async status
     return {
         data: {
-            isAsync: true,
-            status: "async_launched",
-            agentId: taskRecord.agentId,
-            description: description,
-            prompt: prompt,
-            outputFile: getOutputFilePath(agentId)
+            result: result.finalMessage,
+            sessionId: result.sessionId,
+            turns: result.turnsUsed
         }
     };
 }
-
-// Mapping: zd7→createAsyncTask, NR→generateAgentId, dR→agentLoopRunner,
-//          xZ→prefixAgentId, yjA→markTaskCompleted, CjA→markTaskFailed,
-//          vK1→notifyTaskCompletion, ww→getOutputFilePath, UEA→buildAgentResult
 ```
+
+**Why foreground:**
+- Simpler execution model — result is directly available
+- Enables parent agent to use subagent results immediately
+- Works naturally with the agent loop's sequential message handling
 
 ---
 
-## 5. Foreground Execution Flow
+### Mode 2: Background Execution (run_in_background=true)
 
-### executeForegroundAgent - Blocking agent run
+**What it does:** Spawns the subagent asynchronously. Returns a `taskId` and `outputFile` path immediately, allowing the parent agent to continue while the subagent works independently.
 
-**What it does:** Runs the agent loop synchronously, blocking until completion.
+**How it works:**
 
 ```javascript
 // ============================================
-// executeForegroundAgent - Foreground execution
-// Location: chunks.132.mjs:315-450
+// Background Subagent Execution
+// Location: chunks.149.mjs
 // ============================================
 
 // READABLE (for understanding):
-async function executeForegroundAgent(executionContext, meta) {
-    let { resumeId, description, prompt, selectedAgent, startTime, toolUseContext, onProgress } = meta;
+async function backgroundAgentExecution(input, context) {
+    // Generate unique task ID
+    let taskId = generateUUID();
 
-    let agentId = resumeId ? prefixAgentId(resumeId) : generateAgentId();
+    // Allocate output file path
+    let outputDir = getTaskOutputDir();
+    let outputFile = path.join(outputDir, `${taskId}.json`);
 
-    let telemetryContext = {
-        agentId: agentId,
-        parentSessionId: getSessionId(),
-        agentType: "subagent",
-        subagentName: selectedAgent.agentType,
-        isBuiltIn: isBuiltInAgent(selectedAgent)
-    };
-
-    return withTelemetrySpan(telemetryContext, async () => {
-        let results = [];
-        let foregroundTask;
-        let backgroundSignal;
-
-        // Create foreground task record if not disabled
-        if (!BACKGROUND_TASKS_DISABLED) {
-            let taskInfo = createForegroundTask({
-                agentId: agentId,
-                description: description,
-                prompt: prompt,
-                selectedAgent: selectedAgent,
-                setAppState: toolUseContext.setAppState
-            });
-            foregroundTask = taskInfo.taskId;
-            backgroundSignal = taskInfo.backgroundSignal;
-        }
-
-        let showBackgroundHint = false;
-        let iterator = agentLoopRunner({
-            ...executionContext,
-            override: {
-                ...executionContext.override,
-                agentId: agentId
-            }
-        })[Symbol.asyncIterator]();
-
-        try {
-            while (true) {
-                let elapsed = Date.now() - startTime;
-
-                // Show "running in background" hint after threshold
-                if (!BACKGROUND_TASKS_DISABLED && !showBackgroundHint && elapsed >= BACKGROUND_HINT_THRESHOLD) {
-                    showBackgroundHint = true;
-                    if (toolUseContext.setToolJSX) {
-                        toolUseContext.setToolJSX({
-                            jsx: createBackgroundHintComponent(),
-                            shouldHidePromptInput: false,
-                            shouldContinueAnimation: true,
-                            showSpinner: true
-                        });
-                    }
-                }
-
-                // Race between next result and background signal
-                let nextPromise = iterator.next();
-                let result = backgroundSignal
-                    ? await Promise.race([
-                        nextPromise.then(r => ({ type: "message", result: r })),
-                        backgroundSignal.then(() => ({ type: "background" }))
-                    ])
-                    : await nextPromise.then(r => ({ type: "message", result: r }));
-
-                // Handle background promotion
-                if (result.type === "background" && foregroundTask) {
-                    // Promote to background
-                    return handleBackgroundPromotion(foregroundTask, results, executionContext, meta);
-                }
-
-                if (result.result.done) break;
-
-                results.push(result.result.value);
-
-                // Send progress update
-                if (onProgress && results[0]?.type === "user") {
-                    onProgress({
-                        toolUseID: `agent_${invocationId}`,
-                        data: {
-                            message: results[0],
-                            normalizedMessages: results,
-                            type: "agent_progress",
-                            prompt,
-                            resume: resumeId,
-                            agentId
-                        }
-                    });
-                }
-            }
-
-            // Build final result
-            let agentResult = buildAgentResult(results, agentId, {
-                prompt,
-                resolvedAgentModel: executionContext.model,
-                isBuiltInAgent: isBuiltInAgent(selectedAgent),
-                startTime,
-                agentType: selectedAgent.agentType
-            });
-
-            return {
-                data: {
-                    status: "completed",
-                    prompt,
-                    ...agentResult
-                }
-            };
-
-        } catch (error) {
-            throw error;
-        }
+    // Spawn background process with restricted tool set
+    let backgroundProcess = spawnBackgroundAgent({
+        taskId,
+        prompt: input.prompt,
+        subagent_type: input.subagent_type,
+        model: input.model,
+        outputFile,
+        allowedTools: BACKGROUND_AGENT_ALLOWED_TOOLS,  // Bj1
+        cwd: context.cwd,
+        isolation: input.isolation  // Passed through for worktree isolation
     });
-}
 
-// Mapping: wd7→createForegroundTask, nVY→BACKGROUND_HINT_THRESHOLD
+    // Register task in task registry
+    registerBackgroundTask(taskId, backgroundProcess, outputFile);
+
+    // Return immediately — parent continues
+    return {
+        data: {
+            taskId,
+            outputFile,
+            status: "running"
+        }
+    };
+}
+```
+
+**Background agent tool restrictions:**
+Background agents use `BACKGROUND_AGENT_ALLOWED_TOOLS` (Bj1) — a more restricted set than foreground agents — to prevent runaway background agents from taking dangerous actions without supervision.
+
+**Pattern:**
+```
+Parent agent:
+  1. Calls Agent(prompt="...", run_in_background=true)
+  2. Receives { taskId: "abc-123", outputFile: "/tmp/tasks/abc-123.json" }
+  3. Continues other work
+  4. Later: checks TaskGet("abc-123") or reads outputFile to get result
 ```
 
 ---
 
-## 6. Resume Capability
+## 4. Model Parameter (v2.1.72+)
 
-### loadTranscript - Load previous execution
+### Per-Invocation Model Selection
 
-**What it does:** Loads and prepares a transcript from a previous agent execution for resumption.
+**What it does:** Allows the LLM to select a specific model for a subagent, independent of the parent session's model.
+
+**Why this matters:**
+- Use a faster/cheaper model for simple research tasks: `model: "claude-haiku-3-5"`
+- Use the most capable model for complex coding tasks: `model: "claude-opus-4-5"`
+- The parent agent (possibly running claude-sonnet) can spawn specialized subagents
+
+**How model resolution works:**
 
 ```javascript
 // ============================================
-// loadTranscript - Resume transcript loading
-// Location: chunks.89.mjs
+// resolveAgentModel - Per-invocation model resolution
+// Location: chunks.149.mjs
 // ============================================
 
 // READABLE (for understanding):
-async function loadTranscript(prefixedAgentId) {
-    let transcriptPath = getTranscriptPath(prefixedAgentId);
-
-    if (!await fs.exists(transcriptPath)) {
-        return null;
+function resolveAgentModel(inputModel, parentSessionModel) {
+    if (!inputModel) {
+        // No model specified → inherit parent
+        return parentSessionModel;
     }
 
-    let rawTranscript = await fs.readFile(transcriptPath, 'utf-8');
-    let transcript = JSON.parse(rawTranscript);
-
-    return transcript;
-}
-
-function prepareResumeMessages(transcript) {
-    // Filter out whitespace-only assistant messages
-    let filtered = filterWhitespaceAssistant(
-        // Filter out thinking-only assistant messages
-        filterThinkingOnlyAssistant(
-            // Remove orphaned tool results
-            stripOrphanedToolResults(transcript)
-        )
+    // Validate model ID exists in available models
+    let availableModels = getAvailableModels();
+    let matchedModel = availableModels.find(m =>
+        m.id === inputModel ||
+        m.aliases?.includes(inputModel)
     );
 
-    return filtered;
-}
+    if (!matchedModel) {
+        throw new Error(`Unknown model: ${inputModel}. Available: ${availableModels.map(m => m.id).join(", ")}`);
+    }
 
-// Mapping: sP1→loadTranscript, BQ1→filterWhitespaceAssistant,
-//          mQ1→filterThinkingOnlyAssistant, wP6→stripOrphanedToolResults
+    return matchedModel;
+}
 ```
+
+**History note:** The `model` parameter was in an earlier version, removed in an intermediate release, then restored in v2.1.72. This restoration enables the hierarchical multi-model patterns common in agent swarms.
 
 ---
 
-## 7. Output File Management
+## 5. Worktree Isolation (isolation: "worktree")
 
-### Background Task Output
+### Declarative Worktree Support
 
-**What it does:** Manages the output file for background task progress and results.
+**What it does:** When `isolation: "worktree"` is specified, the Agent tool automatically creates a new git worktree for the subagent, isolating its file modifications from the parent workspace. Previously this required manual `EnterWorktree` calls.
+
+**How it works:**
 
 ```javascript
 // ============================================
-// Output File Management
-// Location: chunks.89.mjs
+// createAgentWorktree - Worktree creation for isolated agents
+// Location: chunks.149.mjs
 // ============================================
 
 // READABLE (for understanding):
-function getOutputFilePath(agentId) {
-    let tasksDir = getTasksDir();
-    return path.join(tasksDir, `${agentId}.output`);
+async function createAgentWorktree(parentCwd) {
+    // Generate unique branch name for this agent
+    let branchName = `agent/task-${Date.now()}`;
+
+    // Create worktree in temp directory
+    let worktreePath = path.join(os.tmpdir(), `claude-worktree-${generateShortId()}`);
+
+    // Create worktree from current HEAD
+    await execGit(['worktree', 'add', '-b', branchName, worktreePath, 'HEAD'], {
+        cwd: parentCwd
+    });
+
+    return worktreePath;
 }
 
-async function initOutputFile(agentId) {
-    let filePath = getOutputFilePath(agentId);
-    await fs.writeFile(filePath, '');
-    return filePath;
+async function cleanupAgentWorktree(worktreePath) {
+    // Remove worktree when agent completes
+    await execGit(['worktree', 'remove', '--force', worktreePath]);
 }
+```
 
-async function appendToOutputFile(agentId, content) {
-    let filePath = getOutputFilePath(agentId);
-    await fs.appendFile(filePath, content);
+**Use cases:**
+1. **Parallel file modification**: Multiple agents can edit the same files concurrently without conflicts (each in their own worktree)
+2. **Experimental changes**: Subagent can try an approach; parent decides whether to merge results
+3. **Safe code generation**: Generated code runs in isolation, preventing accidental overwrites
+
+**vs. Manual EnterWorktree:**
+- `isolation: "worktree"` is fully automatic — worktree is created before the agent starts and cleaned up after
+- Manual `EnterWorktree` gives more control but requires explicit management
+- For most cases, `isolation: "worktree"` is preferred
+
+---
+
+## 6. Tool Sets for Agents
+
+### DELEGATE_ALLOWED_TOOLS (R_6) — Foreground agents
+
+**What it does:** Defines which tools foreground subagents can use.
+
+```javascript
+// READABLE (for understanding):
+const DELEGATE_ALLOWED_TOOLS = new Set([
+    "Read",
+    "Write",
+    "Edit",
+    "Bash",
+    "Grep",
+    "Glob",
+    "Agent",           // Can spawn sub-subagents
+    "WebFetch",
+    "WebSearch",
+    "NotebookEdit",
+    "TodoWrite",
+    "TodoRead",
+    "LS",
+    // ... LSP tools, MCP tools (dynamic)
+]);
+```
+
+### BACKGROUND_AGENT_ALLOWED_TOOLS (Bj1) — Background agents
+
+**What it does:** More restricted tool set for background agents.
+
+```javascript
+// READABLE (for understanding):
+const BACKGROUND_AGENT_ALLOWED_TOOLS = new Set([
+    "Read",
+    "Write",
+    "Edit",
+    "Bash",
+    "Grep",
+    "Glob",
+    "WebFetch",
+    "WebSearch",
+    "TodoWrite",
+    "TaskOutput",  // Required: report results
+    // Note: No "Agent" — background agents cannot spawn sub-agents
+    // Note: No team coordination tools
+]);
+```
+
+**Why background agents are more restricted:**
+1. They run unattended — no user to approve dangerous actions
+2. Preventing agent proliferation — background agents spawning their own background agents would be uncontrollable
+3. TaskOutput is required — background agents must write results somewhere the parent can read
+
+---
+
+## 7. Resume Capability
+
+### Continuing Previous Sessions
+
+**What it does:** The `resume` parameter allows spawning an agent that continues from a previous session, preserving conversation history and file state.
+
+```javascript
+// ============================================
+// Session Resume Logic
+// Location: chunks.149.mjs
+// ============================================
+
+// READABLE (for understanding):
+async function resumeAgentSession(sessionId, newPrompt) {
+    // Load previous session messages
+    let previousMessages = await loadSessionTranscript(sessionId);
+
+    // Append new user message
+    let messages = [
+        ...previousMessages,
+        { role: "user", content: newPrompt }
+    ];
+
+    // Continue with same context
+    return runAgentLoop({
+        messages,
+        // ... other config from saved session
+    });
 }
+```
 
-async function readOutputFile(agentId) {
-    let filePath = getOutputFilePath(agentId);
-    if (await fs.exists(filePath)) {
-        return await fs.readFile(filePath, 'utf-8');
-    }
-    return null;
-}
+**Use cases:**
+- Multi-turn agent workflows where each turn is a separate invocation
+- Retry a failed agent task from its last known good state
+- Human-in-the-loop patterns: agent pauses, human reviews, agent continues
 
-// Mapping: ww→getOutputFilePath, eu1→getTasksDir, hj1→initOutputFile
+---
+
+## 8. UI Rendering
+
+### renderToolUseMessage — Compact header
+
+```javascript
+// Display while agent is running:
+// ⠋ Agent (Researching codebase architecture)
+//     ↑ description field used as display text
+```
+
+### renderToolResultMessage — Completed result
+
+```javascript
+// Display after agent completes:
+// ✓ Agent (Researching codebase architecture)
+//   Agent completed in 12 turns.
+//   Result: Found 3 key architectural patterns...
 ```
 
 ---
 
-## 8. Complete Execution Timeline
+## 9. Key Design Decisions
 
-### Background Agent Timeline
+### Why Agent tool is auto-approved (no permission prompt)
 
-```
-T+0ms    LLM produces tool_use { type: "Task", prompt: "...", subagent_type: "explore", run_in_background: true }
-T+0ms    validateInput() begins
-T+1ms    Agent type validation (find in activeAgents)
-T+1ms    MCP requirements check
-T+2ms    Permission check (user approval or auto-allow)
-T+?ms    [User approves if needed]
-T+?ms    call() begins
-T+?ms    generateAgentId() - creates unique ID
-T+?ms    createAsyncTask() - creates task record with abort controller
-T+?ms    Return immediately: { status: "async_launched", agentId, outputFile }
-         (Parent conversation continues)
-T+?ms    [Background] agentLoopRunner starts
-T+?ms    [Background] LLM calls, tool uses, progress updates
-T+?ms    [Background] Output written to file
-T+?ms    [Background] Completion: markTaskCompleted()
-T+?ms    [Background] notifyTaskCompletion() sent
-```
+**Rationale:** The Agent tool spawns a child process that runs with the same permission level as the parent. The child uses its own tool permission checks for any destructive operations. Showing a permission prompt for `Agent` would be confusing and redundant — the user already approved the parent session's permissions.
 
-### Foreground Agent Timeline
+**Key insight:** Security comes from the child's tool permissions, not from blocking agent spawning itself.
 
-```
-T+0ms    LLM produces tool_use { type: "Task", prompt: "...", subagent_type: "explore" }
-T+0ms    validateInput() begins
-T+1ms    Agent type validation
-T+1ms    Permission check
-T+?ms    [User approves if needed]
-T+?ms    call() begins
-T+?ms    createForegroundTask() - creates task record
-T+?ms    agentLoopRunner starts (blocking)
-T+?ms    LLM calls, tool uses
-T+?ms    Progress updates sent to UI
-T+?ms    (User waiting for completion)
-T+?ms    Completion: buildAgentResult()
-T+?ms    Return: { status: "completed", content, ... }
-```
+### Why run_in_background is a parameter (not a separate tool)
+
+**Rationale:** In earlier versions, foreground and background agent spawning were separate code paths. Consolidating into one tool with a `run_in_background` boolean:
+1. Simplifies the LLM's decision — same tool, same schema
+2. Allows the same `description`, `prompt`, `model`, `isolation` parameters to work for both modes
+3. Makes migration between modes trivial (just change one flag)
 
 ---
 
-## 9. Key Properties
+## 10. Related Documents
 
-| Property | Foreground | Background |
-|----------|------------|------------|
-| Blocking | Yes | No |
-| Result timing | Immediate return | Poll via TaskOutput |
-| Output file | No | Yes |
-| Progress tracking | Real-time UI | State-based |
-| Abort support | Via parent abort | Via TaskStop |
-| Resume support | Yes | Yes |
-| Max turns | Configurable | Configurable |
-
----
-
-## 10. Available Agent Types
-
-Built-in agent types (from system prompt):
-
-| Type | Purpose |
-|------|---------|
-| `general-purpose` | Default for complex, multi-step tasks |
-| `explore` | Fast codebase exploration agent |
-| `plan` | Software architect for implementation planning |
-| `code-simplifier` | Code cleanup and refinement |
-| `claude-code-guide` | Help with Claude Code usage |
+- [worktree_tools.md](./worktree_tools.md) - EnterWorktree/ExitWorktree manual worktree management
+- [cron_tools.md](./cron_tools.md) - CronCreate/CronDelete/CronList for scheduled background agents
+- [task_management_tools.md](./task_management_tools.md) - TaskGet/TaskList for monitoring background agents
+- [tool_registry.md](./tool_registry.md) - Complete tool registry
+- [tool_execution_pipeline.md](./tool_execution_pipeline.md) - Execution pipeline

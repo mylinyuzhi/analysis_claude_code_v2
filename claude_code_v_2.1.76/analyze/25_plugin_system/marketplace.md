@@ -1,4 +1,4 @@
-# Plugin Marketplace System (Claude Code 2.1.38)
+# Plugin Marketplace System (Claude Code 2.1.76)
 
 > Deep dive into marketplace management: installation, refresh, removal, auto-update,
 > enterprise policy enforcement, and the two-level caching strategy.
@@ -61,11 +61,26 @@ The marketplace system provides a distribution layer for Claude Code plugins. Ra
 type MarketplaceSource =
   | { source: "github"; repo: string; ref?: string; path?: string }
   | { source: "git"; url: string; ref?: string; path?: string }
+  | { source: "git-subdir"; url: string; subdir: string; ref?: string }  // NEW in v2.1.76
   | { source: "url"; url: string; headers?: Record<string,string> }
   | { source: "npm"; package: string }    // NOT YET IMPLEMENTED
   | { source: "file"; path: string }
   | { source: "directory"; path: string }
 ```
+
+**New in v2.1.76 - `git-subdir` source type:**
+Allows loading a marketplace from a subdirectory of a git repository. This is useful when marketplace metadata is stored alongside other files in a monorepo:
+
+```json
+{
+  "source": "git-subdir",
+  "url": "https://github.com/myorg/company-repo",
+  "subdir": "tools/claude-plugins",
+  "ref": "main"
+}
+```
+
+The system clones the repository and reads marketplace.json from the specified subdirectory, without requiring the entire repository to be a dedicated plugin marketplace.
 
 ---
 
@@ -79,533 +94,128 @@ type MarketplaceSource =
 // Location: chunks.143.mjs:180-210
 // ============================================
 
-// ORIGINAL:
-async function wE(A, q) {
-    if (!Fq1(A)) {
-        if (nb1(A)) throw Error(`Marketplace source '${o01(A)}' is blocked by enterprise policy.`);
-        let H = mq1() || [], $ = Kb7(), O = vXA(A),
-            _ = `Marketplace source '${o01(A)}'`;
-        if (O) _ += ` (${O})`;
-        _ += " is blocked by enterprise policy.";
-        if (H.length > 0) _ += ` Allowed sources: ${H.map((J) => o01(J)).join(", ")}`;
-        else _ += " No external marketplaces are allowed.";
-        if (A.source === "github" && $.length > 0) _ += `
-Tip: The shorthand "${A.repo}" assumes github.com. For internal GitHub Enterprise, use the full URL: git@your-github-host.com:${A.repo}.git`;
-        throw Error(_)
+// READABLE (for understanding):
+async function installMarketplaceSource(sourceConfig, options) {
+    // 1. Enterprise policy check FIRST (before any network activity)
+    if (isExplicitlyBlocked(sourceConfig)) {
+        throw { type: "marketplace-blocked-by-policy", source: sourceConfig };
     }
-    let { marketplace: K, cachePath: Y } = await RyA(A, q), z = pw8(K.name, A);
-    if (z) throw Error(z);  // Name uniqueness validation
-    let w = await n5();
-    if (w[K.name]) throw Error(`Marketplace '${K.name}' is already installed.`);
-    return w[K.name] = { source: A, installLocation: Y, lastUpdated: new Date().toISOString() },
-           await qG1(w), { name: K.name }
-}
-
-// READABLE:
-async function installMarketplaceSource(source, progressCallback) {
-    // Gate 1: Enterprise policy enforcement
-    if (!isMarketplaceAllowed(source)) {
-        let errorMsg = buildPolicyErrorMessage(source);
-        throw Error(errorMsg);
+    if (!isMarketplaceAllowed(sourceConfig)) {
+        throw { type: "marketplace-not-in-allowlist", source: sourceConfig };
     }
 
-    // Gate 2: Download and validate
-    let { marketplace, cachePath } = await fetchAndCacheMarketplace(source, progressCallback);
+    // 2. Fetch and cache the marketplace data
+    let cachedPath = await fetchAndCacheMarketplace(sourceConfig);
 
-    // Gate 3: Name uniqueness
-    let nameError = validateMarketplaceName(marketplace.name, source);
-    if (nameError) throw Error(nameError);
-
-    // Gate 4: Deduplication
-    let config = await getMarketplaceConfig();
-    if (config[marketplace.name])
-        throw Error(`Marketplace '${marketplace.name}' is already installed.`);
-
-    // Persist
-    config[marketplace.name] = {
-        source,
-        installLocation: cachePath,
-        lastUpdated: new Date().toISOString()
+    // 3. Register in known_marketplaces.json
+    let config = getMarketplaceConfig();
+    config.marketplaces[sourceConfig.name] = {
+        source: sourceConfig,
+        cachedPath,
+        installedAt: new Date().toISOString(),
+        autoUpdate: options?.autoUpdate ?? true
     };
-    await saveMarketplaceConfig(config);
-    return { name: marketplace.name };
-}
+    saveMarketplaceConfig(config);
 
-// Mapping: wE→installMarketplaceSource, Fq1→isMarketplaceAllowed, nb1→isExplicitlyBlocked,
-//   mq1→getAllowedMarketplaceSources, RyA→fetchAndCacheMarketplace, pw8→validateMarketplaceName,
-//   n5→getMarketplaceConfig, qG1→saveMarketplaceConfig
+    return cachedPath;
+}
 ```
 
----
-
-## Download and Cache (`RyA`)
-
-This is the core download function, handling all 6 source types:
+### Fetch and Cache (`RyA`)
 
 ```javascript
 // ============================================
-// fetchAndCacheMarketplace - Download/clone marketplace and cache it
-// Location: chunks.143.mjs:60-178
+// fetchAndCacheMarketplace - Download/clone and cache marketplace data
+// Location: chunks.143.mjs:312-380
 // ============================================
 
-// ORIGINAL (key sections):
-async function RyA(A, q) {
-    let K = b1(), Y = ei4();  // ~/.claude/marketplaces/
-    K.mkdirSync(Y);
-    let z, w, H = false, $ = lIY(A);  // Generate temp name
-
-    try {
-        switch (A.source) {
-            case "url":
-                z = iZ(Y, `${$}.json`), H = true;
-                await qn4(A.url, z, A.headers, q);  // HTTP GET
-                w = z;
-                break;
-            case "github": {
-                let X = `git@github.com:${A.repo}.git`,
-                    D = `https://github.com/${A.repo}.git`;
-                z = iZ(Y, $), H = true;
-                let j = null;
-                // SSH-first (or HTTPS-first based on remote detection)
-                if (await UIY()) {  // hasSSHConfigured()
-                    try { await eW1(X, z, A.ref, q); }
-                    catch (P) {
-                        j = P;
-                        // Clean up failed SSH clone, retry with HTTPS
-                        K.rmSync(z, { recursive: true });
-                        try { await eW1(D, z, A.ref, q); j = null; }
-                        catch (W) { j = W; }
-                    }
-                } else {
-                    // HTTPS-first, fallback to SSH
-                    try { await eW1(D, z, A.ref, q); }
-                    catch (P) { /* ... HTTPS-then-SSH fallback ... */ }
-                }
-                if (j) throw j;
-                w = iZ(z, A.path || ".claude-plugin/marketplace.json");
-                break;
+// READABLE (for understanding):
+async function fetchAndCacheMarketplace(sourceConfig) {
+    switch (sourceConfig.source) {
+        case "github":
+        case "git":
+        case "git-subdir": {
+            // Clone the repository to ~/.claude/marketplaces/{name}/
+            let clonePath = join(getMarketplacesDir(), generateName(sourceConfig));
+            await gitClone(sourceConfig.url, clonePath, sourceConfig.ref);
+            if (sourceConfig.source === "git-subdir") {
+                // Navigate to subdirectory for git-subdir type
+                clonePath = join(clonePath, sourceConfig.subdir);
             }
-            // "git": similar to github but arbitrary URL
-            // "npm": throws "not yet implemented"
-            // "file": reads directly from local path
-            // "directory": reads from {dir}/.claude-plugin/marketplace.json
+            return clonePath;
         }
-
-        let O = Kn4(w, AH1),  // readAndValidateJsonFile against marketplace schema
-            _ = iZ(Y, O.name);  // Final path = marketplaces/{marketplaceName}
-
-        // Rename temp dir to final name (atomic-ish move)
-        if (z !== _ && !isLocalSource) {
-            if (K.existsSync(_)) K.rmSync(_, { recursive: true });
-            K.renameSync(z, _);
+        case "url": {
+            // HTTP GET the JSON file
+            let json = await downloadMarketplaceFromUrl(sourceConfig.url, sourceConfig.headers);
+            let cachePath = join(getMarketplacesDir(), `${generateName(sourceConfig)}.json`);
+            writeFileSync(cachePath, JSON.stringify(json));
+            return cachePath;
         }
-        return { marketplace: O, cachePath: z };
-    } catch (O) {
-        // Cleanup temp dir on failure
-        if (H && z) K.rmSync(z, { recursive: true, force: true });
-        throw O;
+        case "file":
+            return sourceConfig.path;  // No caching needed, use directly
+        case "directory":
+            return join(sourceConfig.path, ".claude-plugin", "marketplace.json");
     }
 }
 ```
 
-### Clone Strategy: Bidirectional SSH/HTTPS Fallback
+---
 
-**Algorithm:**
+## Auto-Update System
+
+### Refresh Flow
+
 ```
-if hasSshConfigured():
-    try:  ssh_clone(repo)
-    if fail:
-        cleanup
-        try: https_clone(repo)
-        if fail: throw last error
-else:
-    try: https_clone(repo)
-    if fail:
-        cleanup
-        try: ssh_clone(repo)
-        if fail: throw last error
-```
-
-**Why bidirectional (not just SSH→HTTPS):**
-- Users with SSH configured but expired keys → HTTPS works
-- Users behind corporate proxies blocking SSH port 22 → HTTPS works
-- Users with HTTPS rate limits or auth issues → SSH may work
-- Remote environments (`CLAUDE_CODE_REMOTE` env var) → always use HTTPS first
-
-### Git Clone Options
-
-```javascript
-// KxY - git clone with shallow clone options
-z = ["clone", "--depth", "1", "--recurse-submodules", "--shallow-submodules"];
-// --depth 1: Only latest commit (fast, small)
-// --recurse-submodules: Include submodules (marketplace may reference plugin subdirectories)
-// --shallow-submodules: Shallow clone for submodules too
-
-// For specific SHA/ref checkout:
-// 1. Try: git fetch --depth 1 origin {sha}
-// 2. If fail: git fetch --unshallow (full history)
-// 3. git checkout {sha}
+Session start OR explicit refresh
+    │
+    ├─ refreshAllMarketplaces (Yn4)
+    │       │
+    │       └─ For each marketplace with autoUpdate=true:
+    │              └─ refreshMarketplace (St)
+    │                     │
+    │                     ├─ If source=git/github: git pull
+    │                     ├─ If source=url: re-download
+    │                     └─ Update cachedPath + metadata
+    │
+    └─ clearPluginHookCache (rO6) - invalidate loaded plugin hooks
 ```
 
-### HTTP Download (URL Source)
+**Why auto-update at session start:** Marketplace catalogs are updated by their owners to add new plugins, fix versions, or deprecate old ones. Auto-refreshing at session start ensures users have the latest plugin availability without manual intervention.
 
-```javascript
-// ============================================
-// downloadMarketplaceFromUrl - HTTP GET with error categorization
-// Location: chunks.143.mjs:3-39
-// ============================================
-
-// ORIGINAL:
-async function qn4(A, q, K, Y) {
-    let w = { ...K, "User-Agent": "Claude-Code-Plugin-Manager" };
-    let H = await sA.get(A, { timeout: 10000, headers: w });  // 10s timeout
-    let $ = AH1.safeParse(H.data);  // Validate against marketplace schema
-    if (!$.success) throw new hG(`Invalid marketplace schema...`);
-    // Write to cache file
-}
-
-// Error categorization for user-facing messages:
-// ECONNREFUSED / ENOTFOUND  → "Could not connect to {url}. Check your internet connection."
-// ETIMEDOUT                  → "Request timed out. The server may be slow."
-// HTTP 4xx/5xx               → "HTTP {status} error. The file may not exist at this URL."
-// Other                      → Generic failure message
-```
+**Opt-out:** `setMarketplaceAutoUpdate(zn4)` allows disabling auto-update for stability-sensitive environments.
 
 ---
 
-## Removal Flow (`OG6`)
+## Plugin Entry Lookup
 
-Marketplace removal is a multi-step cleanup that touches multiple files:
+### `lookupPluginEntry` (a0) - Async Lookup
 
-```javascript
-// ============================================
-// removeMarketplaceSource - Full marketplace removal
-// Location: chunks.143.mjs:212-258
-// ============================================
+**What it does:** Given a `pluginName@marketplaceName` identifier, finds the corresponding plugin entry in the marketplace catalog.
 
-// READABLE:
-async function removeMarketplaceSource(marketplaceName) {
-    // 1. Remove from known_marketplaces.json
-    let config = await getMarketplaceConfig();
-    if (!config[marketplaceName]) throw Error(`Marketplace '${marketplaceName}' not found`);
-    delete config[marketplaceName];
-    await saveMarketplaceConfig(config);
+**How it works:**
+1. Parse the `pluginName@marketplaceName` format
+2. Load the named marketplace's catalog via `getMarketplaceCached(NZ)`
+3. Find the plugin by name in the catalog
+4. Return the entry (version, download URL, description, etc.)
 
-    // 2. Delete cached data from filesystem
-    let marketplacesDir = getMarketplacesDir();   // ~/.claude/marketplaces/
-    let dirPath = path.join(marketplacesDir, marketplaceName);
-    let filePath = path.join(marketplacesDir, `${marketplaceName}.json`);
-    if (fs.existsSync(dirPath)) fs.rmSync(dirPath, { recursive: true, force: true });
-    if (fs.existsSync(filePath)) fs.rmSync(filePath, { force: true });
+### `lookupPluginEntryFromCache` (yyA) - Synchronous Fast-path
 
-    // 3. Clean up enabled plugins from ALL settings files (user/project/local)
-    for (let settingsScope of ["userSettings", "projectSettings", "localSettings"]) {
-        let settings = readSettings(settingsScope);
-        if (!settings) continue;
-        let changed = false, updates = {};
+**What it does:** Same as `lookupPluginEntry` but uses only the in-memory cache. Returns `null` if the marketplace hasn't been loaded yet.
 
-        // Remove from extraKnownMarketplaces
-        if (settings.extraKnownMarketplaces?.[marketplaceName]) {
-            updates.extraKnownMarketplaces = { ...settings.extraKnownMarketplaces };
-            updates.extraKnownMarketplaces[marketplaceName] = undefined;
-            changed = true;
-        }
-
-        // Disable all plugins from this marketplace
-        if (settings.enabledPlugins) {
-            let newPlugins = { ...settings.enabledPlugins };
-            for (let key in newPlugins)
-                if (key.endsWith(`@${marketplaceName}`)) {
-                    newPlugins[key] = undefined;  // Set to undefined = remove
-                    changed = true;
-                }
-            if (changed) updates.enabledPlugins = newPlugins;
-        }
-
-        if (changed) updateSettings(settingsScope, updates);
-    }
-
-    // 4. Clean up installation records from installed_plugins.json
-    let orphanedPaths = removePluginsByMarketplace(marketplaceName);  // _b7
-    for (let installPath of orphanedPaths) markForDeletion(installPath);  // tW1
-}
-
-// Mapping: OG6→removeMarketplaceSource, n5→getMarketplaceConfig,
-//   qG1→saveMarketplaceConfig, ei4→getMarketplacesDir, _b7→removePluginsByMarketplace
-```
-
-**Why clean up settings across all scopes:**
-If a user installs marketplace A in user settings and enables plugins P1, P2, and a project also enables P3 from marketplace A, removing marketplace A must clean all three references. Otherwise the next session would log errors for missing plugins.
+**Why two variants:** During session startup, everything is async. But during tool execution (e.g., when a plugin-contributed tool is invoked), a synchronous lookup is needed for performance. The memoized cache (`NZ`) makes this safe.
 
 ---
 
-## Refresh Flow (`St`)
+## Error Categories
 
-```javascript
-// ============================================
-// refreshMarketplace - Re-fetch one marketplace from source
-// Location: chunks.143.mjs:357-391
-// ============================================
+Marketplace operations produce categorized errors for diagnostics:
 
-// READABLE:
-async function refreshMarketplace(marketplaceName, progressCallback, gitRef) {
-    let config = await getMarketplaceConfig();
-    let { installLocation, source } = config[marketplaceName];
-
-    // Invalidate memoized cache for this marketplace
-    getMarketplaceCached.cache?.delete?.(marketplaceName);
-
-    if (source.source === "github" || source.source === "git") {
-        let url = source.source === "github"
-            ? (isRemote ? `https://github.com/${source.repo}.git` : `git@github.com:${source.repo}.git`)
-            : source.url;
-        // git pull (with optional branch switch via ref)
-        await gitPullMarketplace(url, installLocation, source.ref, progressCallback, gitRef);
-
-        // Post-refresh validation: ensure marketplace.json still exists and is valid
-        try { readMarketplaceFromCache(installLocation); }
-        catch {
-            // Special case: deprecated marketplace message
-            if (marketplaceName === "claude-code-plugins")
-                throw Error(`We've deprecated "claude-code-plugins" in favor of "claude-plugins-official".`);
-            throw Error(`The marketplace.json file is no longer present. The marketplace may have been deprecated.`);
-        }
-    } else if (source.source === "url") {
-        await downloadMarketplaceFromUrl(source.url, installLocation, source.headers, progressCallback);
-    } else if (source.source === "file" || source.source === "directory") {
-        // Local sources: just re-validate (the file is already there)
-        readMarketplaceFromCache(installLocation);
-    }
-
-    config[marketplaceName].lastUpdated = new Date().toISOString();
-    await saveMarketplaceConfig(config);
-}
-
-// SSH authentication error enhancement in gIY:
-// "Permission denied (publickey)" → enhanced message with SSH key setup instructions
-// This is the git pull wrapper (not the initial clone)
-```
-
-**Special case: deprecated marketplace name**
-The code contains special handling for `"claude-code-plugins"` → `"claude-plugins-official"` migration. When a user's old marketplace is refreshed and the `marketplace.json` is missing (marketplace moved), a helpful deprecation message is shown instead of a generic error.
-
----
-
-## Memoized Marketplace Data (`NZ`)
-
-```javascript
-// ============================================
-// getMarketplaceCached - Memoized marketplace data with auto-repair
-// Location: chunks.143.mjs:430-445 (NZ initialization in p$ module)
-// ============================================
-
-// ORIGINAL:
-NZ = KA(async (A) => {  // KA = memoize
-    let q = await n5(), K = q[A];  // getMarketplaceConfig()
-    if (!K) throw Error(`Marketplace '${A}' not found...`);
-    try { return HG6(K.installLocation) }  // readMarketplaceFromCache()
-    catch (z) {
-        // Cache corrupted/missing → auto-repair by re-fetching
-        h(`Cache corrupted for marketplace ${A}, re-fetching...`);
-    }
-    let { marketplace: Y } = await RyA(K.source);  // Re-download
-    q[A].lastUpdated = new Date().toISOString();
-    await qG1(q);
-    return Y;
-});
-
-// READABLE:
-getMarketplaceCached = memoize(async (marketplaceName) => {
-    let config = await getMarketplaceConfig();
-    let marketplaceConfig = config[marketplaceName];
-    if (!marketplaceConfig) throw Error(`Marketplace '${marketplaceName}' not found`);
-
-    try {
-        return readMarketplaceFromCache(marketplaceConfig.installLocation);
-    } catch (err) {
-        // Self-healing: cache corrupted → auto re-download
-        log.warn(`Cache corrupted for marketplace ${marketplaceName}, re-fetching from source`);
-    }
-    let { marketplace } = await fetchAndCacheMarketplace(marketplaceConfig.source);
-    config[marketplaceName].lastUpdated = new Date().toISOString();
-    await saveMarketplaceConfig(config);
-    return marketplace;
-});
-
-// Mapping: NZ→getMarketplaceCached, KA→memoize, HG6→readMarketplaceFromCache,
-//   RyA→fetchAndCacheMarketplace
-```
-
-**Why memoize with auto-repair:**
-- Marketplace data is loaded per-session, not per-request (memoized prevents repeated disk reads)
-- Auto-repair handles the case where the cache directory was manually deleted or corrupted
-- The memoization cache is keyed by marketplace name, so `NZ.cache?.delete?.(name)` can invalidate a specific marketplace after refresh
-
----
-
-## Auto-Update Configuration (`zn4`)
-
-```javascript
-// ============================================
-// setMarketplaceAutoUpdate - Enable/disable auto-update for a marketplace
-// Location: chunks.143.mjs:393-402
-// ============================================
-
-// ORIGINAL:
-async function zn4(A, q) {
-    let K = await n5(), Y = K[A];
-    if (!Y) throw Error(`Marketplace '${A}' not found.`);
-    if (Y.autoUpdate === q) return;  // No-op if already set
-    K[A] = { ...Y, autoUpdate: q }, await qG1(K);
-}
-```
-
-The `autoUpdate` flag in `known_marketplaces.json` enables/disables automatic refresh at session start. When enabled, the system refreshes the marketplace before loading plugins (similar to `apt update` before installing packages).
-
----
-
-## Marketplace Schema (`AH1`)
-
-The marketplace JSON file must conform to this structure:
-
-```typescript
-// Inferred from validation code (AH1 is the Zod schema)
-interface MarketplaceJSON {
-    name: string;           // Unique marketplace identifier
-    description?: string;
-    plugins: Array<{
-        name: string;       // Plugin identifier
-        description?: string;
-        version?: string;   // Optional explicit version
-        source: string | PluginSource;  // Relative path or remote source
-        commands?: string[] | Record<string, {source?: string; content?: string}>;
-        agents?: string[];
-        skills?: string[];
-        hooks?: string | string[] | HookConfig;
-        outputStyles?: string[];
-        mcpServers?: string | string[] | Record<string, McpServerConfig>;
-        strict?: boolean;   // Whether plugin.json conflicts are fatal
-    }>;
-}
-```
-
----
-
-## Enterprise Policy Deep Dive
-
-### Policy Configuration in `policySettings`
-
-Enterprise administrators deploy a `policySettings` file (usually managed by MDM/configuration management):
-
-```json
-{
-  "strictKnownMarketplaces": [
-    { "source": "github", "repo": "myorg/internal-plugins" },
-    { "source": "url", "url": "https://internal.myorg.com/marketplace.json" }
-  ],
-  "blockedMarketplaces": [
-    { "source": "github", "repo": "suspicious-org/plugins" }
-  ]
-}
-```
-
-### Decision Logic
-
-```javascript
-// isMarketplaceAllowed (Fq1) - Full logic:
-function isMarketplaceAllowed(source) {
-    // Explicit block list takes priority over allow list
-    if (isExplicitlyBlocked(source)) return false;
-
-    let allowList = getAllowedMarketplaceSources();
-
-    // null = no policy configured = allow everything
-    if (allowList === null) return true;
-
-    // Empty array = block everything (whitelist mode with no entries)
-    // Non-empty = check if source matches any allowed entry
-    return allowList.some(allowed => {
-        if (allowed.source === "hostPattern")
-            return matchesHostPattern(source, allowed);  // rD9
-        return marketplaceSourceEquals(source, allowed); // nD9
-    });
-}
-```
-
-### `hostPattern` Source Type
-
-The `hostPattern` type allows matching by hostname rather than exact source:
-
-```json
-{ "source": "hostPattern", "hostPattern": "*.myorg.com" }
-```
-
-This allows all GitHub Enterprise repos under `myorg.com` without listing each one. The `vXA` function extracts the hostname from a source for comparison:
-- `github` source → `"github.com"`
-- `git` SSH URL → extracted from `git@host:` prefix
-- `git` HTTPS URL → extracted from URL hostname
-- `url` → extracted from URL hostname
-
-### GitHub Enterprise Hint
-
-When a `github` source is blocked (because the enterprise uses GitHub Enterprise at a custom domain), the error message includes:
-
-```
-Tip: The shorthand "org/repo" assumes github.com.
-For internal GitHub Enterprise, use the full URL:
-  git@your-github-host.com:org/repo.git
-```
-
-This hint appears when `getBlockedHosts()` (`Kb7`) returns a non-empty array, indicating the enterprise has configured GitHub Enterprise hosts.
-
----
-
-## Plugin Entry Lookup: Fast Path vs. Slow Path
-
-### Fast Path: `yyA` (lookupPluginEntryFromCache)
-
-```javascript
-// ============================================
-// lookupPluginEntryFromCache - Synchronous lookup from known_marketplaces.json
-// Location: chunks.143.mjs:295-320
-// ============================================
-
-// ORIGINAL:
-function yyA(A) {
-    let q = A.split("@");
-    if (q.length !== 2) return null;
-    let K = q[0], Y = q[1];         // pluginName, marketplaceName
-    let z = b1(), w = $G6();        // known_marketplaces.json path
-    if (!z.existsSync(w)) return null;
-    try {
-        let H = z.readFileSync(w, { encoding: "utf-8" }),
-            O = _A(H)[Y];           // Get marketplace config entry
-        if (!O) return null;
-        let _ = iIY(Y);             // getCachedMarketplace(marketplaceName)
-        if (!_) return null;
-        let J = _.plugins.find((X) => X.name === K);
-        if (!J) return null;
-        return { entry: J, marketplaceInstallLocation: O.installLocation }
-    } catch { return null }
-}
-```
-
-This function is synchronous (no `await`) because:
-1. It reads the small `known_marketplaces.json` file (just config metadata)
-2. It calls `iIY` which reads the cached marketplace.json from disk synchronously
-3. Used in the hot path during session init where async overhead matters
-
-### Slow Path: `a0` (lookupPluginEntry)
-
-The `a0` function calls `yyA` first. If that fails (cache miss or corrupted), it falls back to loading the full marketplace config asynchronously via `n5()` and `NZ()` (which may trigger a re-download if the cache is corrupted).
-
----
-
-## Summary: Marketplace Lifecycle
-
-```
-INSTALL:   policy check → download/clone → validate schema → check uniqueness → persist config
-LOAD:      fast lookup (yyA) → slow load (NZ) → auto-repair if corrupted
-REFRESH:   invalidate memo cache → git pull / HTTP GET → validate → update timestamp
-REMOVE:    delete cache → remove from config → clean settings across all scopes → mark installs orphaned
-```
+| Error Type | Trigger | Recovery |
+|-----------|---------|---------|
+| `marketplace-blocked-by-policy` | `blockedMarketplaces` policy matches | Contact admin |
+| `marketplace-not-in-allowlist` | `strictKnownMarketplaces` doesn't include source | Contact admin |
+| `marketplace-fetch-failed` | Network error downloading catalog | Retry or check URL |
+| `marketplace-invalid-json` | Catalog JSON malformed | Fix marketplace |
+| `marketplace-git-clone-failed` | Git not installed or auth error | Fix git config |
+| `plugin-not-found` | Plugin name not in catalog | Check name spelling |
+| `plugin-version-mismatch` | Requested version not available | Check marketplace |

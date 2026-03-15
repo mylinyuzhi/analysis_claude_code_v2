@@ -2,7 +2,7 @@
 
 > **Module**: Agent Teams - Error Recovery and Resilience
 > **Source**: `chunks.141.mjs` (lines 1160-1237, 530-758), `chunks.131.mjs` (lines 1144-1500)
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 
 ---
 

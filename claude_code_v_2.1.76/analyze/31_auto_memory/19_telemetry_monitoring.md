@@ -6,6 +6,8 @@ This document provides comprehensive documentation of all telemetry events, metr
 
 **Key insight**: Three distinct telemetry events track the complete lifecycle: memory loading (every turn), toggle actions (user settings), and disable reasons (when feature is off).
 
+**Version**: Claude Code v2.1.76
+
 ---
 
 ## Telemetry Event 1: `tengu_memdir_loaded`
@@ -65,8 +67,8 @@ This document provides comprehensive documentation of all telemetry events, metr
 **Example 3: Empty file (file exists but is empty)**
 ```javascript
 {
-  content_length: 0,            // 0 characters
-  line_count: 0,                // 0 lines (empty string splits to [""])
+  content_length: 0,
+  line_count: 0,
   was_truncated: false,
   memory_type: "auto",
   total_file_count: 1,          // Only MEMORY.md
@@ -78,22 +80,10 @@ This document provides comprehensive documentation of all telemetry events, metr
 ```javascript
 {
   content_length: 0,            // Default to 0 on error
-  line_count: 0,                // Default to 0 on error
-  was_truncated: false,         // Default to false on error
+  line_count: 0,
+  was_truncated: false,
   memory_type: "auto",
   total_file_count: 0,          // Directory might not exist
-  total_subdir_count: 0         // Directory might not exist
-}
-```
-
-**Example 5: Agent memory (multi-agent scenario)**
-```javascript
-{
-  content_length: 512,
-  line_count: 20,
-  was_truncated: false,
-  memory_type: "agent",         // Agent-specific memory directory
-  total_file_count: 2,
   total_subdir_count: 0
 }
 ```
@@ -145,9 +135,9 @@ async function recordMemoryDirLoadMetrics(basePayload, memoryDirectoryPath) {
 
     // Log event with directory metrics
     recordTelemetryEvent("tengu_memdir_loaded", {
-      ...basePayload,                     // Spread base payload (content_length, line_count, etc.)
-      total_file_count: fileCount,        // Add file count
-      total_subdir_count: subdirectoryCount // Add subdirectory count
+      ...basePayload,
+      total_file_count: fileCount,
+      total_subdir_count: subdirectoryCount
     });
 
   } catch (error) {
@@ -177,33 +167,14 @@ async function recordMemoryDirLoadMetrics(basePayload, memoryDirectoryPath) {
 
 **Use Case 1: Truncation Rate Analysis**
 ```sql
--- Calculate percentage of loads that were truncated
 SELECT
   COUNT(*) FILTER (WHERE was_truncated = true) * 100.0 / COUNT(*) AS truncation_rate_pct
 FROM tengu_memdir_loaded_events
 WHERE memory_type = 'auto';
 ```
 
-**Use Case 2: Average File Size Distribution**
+**Use Case 2: Topic File Adoption**
 ```sql
--- Bucket file sizes to identify common size ranges
-SELECT
-  CASE
-    WHEN content_length < 1000 THEN '<1KB'
-    WHEN content_length < 5000 THEN '1-5KB'
-    WHEN content_length < 10000 THEN '5-10KB'
-    WHEN content_length < 20000 THEN '10-20KB'
-    ELSE '>20KB'
-  END AS size_bucket,
-  COUNT(*) AS occurrences
-FROM tengu_memdir_loaded_events
-GROUP BY size_bucket
-ORDER BY size_bucket;
-```
-
-**Use Case 3: Topic File Adoption**
-```sql
--- Calculate average number of topic files per project
 SELECT
   AVG(total_file_count - 1) AS avg_topic_files  -- Subtract 1 for MEMORY.md
 FROM (
@@ -233,22 +204,6 @@ FROM (
 }
 ```
 
-### Payload Examples
-
-**Example 1: User enables auto memory**
-```javascript
-{
-  enabled: true
-}
-```
-
-**Example 2: User disables auto memory**
-```javascript
-{
-  enabled: false
-}
-```
-
 ### Code Analysis
 
 ```javascript
@@ -267,10 +222,8 @@ const handleToggle = () => {
 
 // READABLE (for understanding):
 const handleAutoMemoryToggle = () => {
-  // Calculate new state
   const newEnabledState = !autoMemoryEnabled;
 
-  // Persist to settings file
   updateUserSettings("userSettings", {
     autoMemoryEnabled: newEnabledState
   });
@@ -280,7 +233,6 @@ const handleAutoMemoryToggle = () => {
     enabled: newEnabledState
   });
 
-  // Update UI state
   setAutoMemoryEnabled(newEnabledState);
 };
 
@@ -296,7 +248,6 @@ const handleAutoMemoryToggle = () => {
 
 **Use Case 1: Adoption Rate**
 ```sql
--- Calculate percentage of users who enable auto memory
 SELECT
   COUNT(DISTINCT user_id) FILTER (WHERE enabled = true) * 100.0 / COUNT(DISTINCT user_id) AS adoption_rate_pct
 FROM tengu_auto_memory_toggled_events;
@@ -304,28 +255,17 @@ FROM tengu_auto_memory_toggled_events;
 
 **Use Case 2: Churn Analysis**
 ```sql
--- Identify users who disabled after initially enabling
-SELECT user_id, timestamp
-FROM tengu_auto_memory_toggled_events
-WHERE enabled = false
-  AND user_id IN (
-    SELECT user_id
-    FROM tengu_auto_memory_toggled_events
-    WHERE enabled = true
-  )
-ORDER BY timestamp DESC;
-```
-
-**Use Case 3: Toggle Frequency**
-```sql
--- Count how many times each user toggles (measure experimentation)
-SELECT
-  user_id,
-  COUNT(*) AS toggle_count
-FROM tengu_auto_memory_toggled_events
-GROUP BY user_id
-HAVING COUNT(*) > 5  -- Users who toggle frequently
-ORDER BY toggle_count DESC;
+WITH enable_events AS (
+  SELECT DISTINCT user_id, MIN(timestamp) AS first_enable
+  FROM tengu_auto_memory_toggled_events WHERE enabled = true GROUP BY user_id
+),
+disable_events AS (
+  SELECT DISTINCT user_id, MIN(timestamp) AS first_disable
+  FROM tengu_auto_memory_toggled_events WHERE enabled = false GROUP BY user_id
+)
+SELECT e.user_id, (d.first_disable - e.first_enable) AS time_to_churn
+FROM enable_events e JOIN disable_events d ON e.user_id = d.user_id
+WHERE d.first_disable > e.first_enable;
 ```
 
 ---
@@ -353,35 +293,20 @@ ORDER BY toggle_count DESC;
 
 **Example 1: Disabled by environment variable**
 ```javascript
-{
-  disabled_by_env_var: true,
-  disabled_by_setting: false
-}
+{ disabled_by_env_var: true, disabled_by_setting: false }
 ```
 
 **Example 2: Disabled by user setting**
 ```javascript
-{
-  disabled_by_env_var: false,
-  disabled_by_setting: true
-}
+{ disabled_by_env_var: false, disabled_by_setting: true }
 ```
 
-**Example 3: Disabled by both (env var takes precedence)**
-```javascript
-{
-  disabled_by_env_var: true,
-  disabled_by_setting: true  // Setting is true but overridden by env var
-}
-```
-
-**Example 4: Disabled by feature flag default (research preview)**
+**Example 3: Disabled by feature flag default (research preview)**
 ```javascript
 {
   disabled_by_env_var: false,
   disabled_by_setting: false  // User never explicitly enabled
 }
-// Note: This case is inferred from absence of enable path
 ```
 
 ### Code Analysis
@@ -398,17 +323,14 @@ function getMemoryContext() {
   const disabledBySetting = userSettings.autoMemoryEnabled === false;
 
   if (!isAutoMemoryEnabled()) {
-    // Auto memory is disabled, log the reason
     recordTelemetryEvent("tengu_memdir_disabled", {
       disabled_by_env_var: disabledByEnvVar,
       disabled_by_setting: disabledBySetting
     });
 
-    // Return null (no memory section in system prompt)
     return null;
   }
 
-  // Auto memory is enabled, proceed normally
   return buildMemoryPrompt();
 }
 ```
@@ -423,7 +345,6 @@ function getMemoryContext() {
 
 **Use Case 1: Disable Reason Distribution**
 ```sql
--- Calculate percentage of disabled states by reason
 SELECT
   disabled_by_env_var,
   disabled_by_setting,
@@ -433,7 +354,7 @@ GROUP BY disabled_by_env_var, disabled_by_setting
 ORDER BY percentage DESC;
 ```
 
-**Example output**:
+Example output:
 | disabled_by_env_var | disabled_by_setting | percentage |
 |---------------------|---------------------|------------|
 | false | false | 60% | (Feature flag default) |
@@ -441,104 +362,11 @@ ORDER BY percentage DESC;
 | true | false | 8% | (Env var override) |
 | true | true | 2% | (Both) |
 
-**Use Case 2: Corporate Environment Detection**
-```sql
--- Identify organizations with high env var disable rate
-SELECT
-  organization_id,
-  COUNT(*) FILTER (WHERE disabled_by_env_var = true) * 100.0 / COUNT(*) AS env_var_disable_rate_pct
-FROM tengu_memdir_disabled_events
-GROUP BY organization_id
-HAVING env_var_disable_rate_pct > 50  -- More than half disabled by env var
-ORDER BY env_var_disable_rate_pct DESC;
-```
-
-**Use Case 3: Opt-out After Trial**
-```sql
--- Find users who loaded memory previously, then disabled via setting
-SELECT user_id, COUNT(*) AS disabled_turns
-FROM tengu_memdir_disabled_events
-WHERE disabled_by_setting = true
-  AND user_id IN (
-    SELECT DISTINCT user_id
-    FROM tengu_memdir_loaded_events  -- Previously had memory enabled
-  )
-GROUP BY user_id
-ORDER BY disabled_turns DESC;
-```
-
----
-
-## Metrics Collection Function
-
-### Directory Metrics Collection
-
-```javascript
-// ============================================
-// recordMemoryDirLoadMetrics - Full implementation
-// Location: chunks.87.mjs:2240-2254
-// ============================================
-
-// READABLE (for understanding):
-async function recordMemoryDirLoadMetrics(basePayload, memoryDirectoryPath) {
-  try {
-    // Step 1: Read directory contents
-    const fileNames = await fs.promises.readdir(memoryDirectoryPath);
-
-    // Step 2: Get stats for each entry (parallel)
-    const fileStats = await Promise.all(
-      fileNames.map(async (name) => {
-        const fullPath = path.join(memoryDirectoryPath, name);
-        return await fs.promises.stat(fullPath);
-      })
-    );
-
-    // Step 3: Count files vs directories
-    let fileCount = 0;
-    let subdirectoryCount = 0;
-
-    fileStats.forEach((stat) => {
-      if (stat.isFile()) {
-        fileCount++;
-      } else if (stat.isDirectory()) {
-        subdirectoryCount++;
-      }
-      // Ignore symbolic links, sockets, etc.
-    });
-
-    // Step 4: Log event with full metrics
-    recordTelemetryEvent("tengu_memdir_loaded", {
-      ...basePayload,                       // content_length, line_count, was_truncated, memory_type
-      total_file_count: fileCount,          // Files in directory
-      total_subdir_count: subdirectoryCount // Subdirectories in directory
-    });
-
-  } catch (error) {
-    // Directory doesn't exist, permission denied, or I/O error
-    // Log event with base payload only
-    recordTelemetryEvent("tengu_memdir_loaded", basePayload);
-  }
-}
-```
-
-**Performance characteristics**:
-- **Async non-blocking**: Doesn't delay turn processing
-- **Parallel stat calls**: Uses `Promise.all` for concurrent I/O
-- **Best-effort**: If directory scan fails, still logs basic metrics
-- **Graceful degradation**: Missing directory metrics don't block event
-
-**Alternative implementations** (not used):
-- **Synchronous**: `fs.readdirSync()` would block turn processing
-- **Recursive scan**: Would count nested files (more expensive)
-- **Cached counts**: Would need invalidation on file changes (complex)
-
 ---
 
 ## Monitoring Queries
 
 ### Query 1: Truncation Alert
-
-**Purpose**: Alert when truncation rate spikes (indicates users hitting limits)
 
 ```sql
 -- Daily truncation rate (for alerting)
@@ -556,110 +384,19 @@ ORDER BY date DESC;
 
 ---
 
-### Query 2: Oversized File Monitoring
-
-**Purpose**: Detect files approaching character limit (40000 chars)
-
-```sql
--- Files within 20% of character limit
-SELECT
-  project_id,
-  content_length,
-  line_count
-FROM tengu_memdir_loaded_events
-WHERE content_length > 32000  -- 80% of 40000
-  AND memory_type = 'auto'
-ORDER BY content_length DESC
-LIMIT 100;
-```
-
-**Action**: Proactively notify users via TUI warning banner
-
----
-
-### Query 3: Topic File Adoption Trend
-
-**Purpose**: Track growth of topic file usage over time
+### Query 2: Topic File Adoption Trend
 
 ```sql
 -- Monthly average topic files per project
 SELECT
   DATE_TRUNC('month', timestamp) AS month,
-  AVG(total_file_count - 1) AS avg_topic_files  -- Subtract MEMORY.md
+  AVG(total_file_count - 1) AS avg_topic_files
 FROM (
   SELECT DISTINCT project_id, total_file_count, timestamp
-  FROM tengu_memdir_loaded_events
-  WHERE memory_type = 'auto'
+  FROM tengu_memdir_loaded_events WHERE memory_type = 'auto'
 ) AS unique_projects
-GROUP BY month
-ORDER BY month DESC;
+GROUP BY month ORDER BY month DESC;
 ```
-
-**Insight**: Increasing trend indicates users adopting best practice (topic files vs monolithic MEMORY.md)
-
----
-
-### Query 4: Enable → Disable Funnel
-
-**Purpose**: Understand feature churn
-
-```sql
--- Users who enabled, then later disabled
-WITH enable_events AS (
-  SELECT DISTINCT user_id, MIN(timestamp) AS first_enable
-  FROM tengu_auto_memory_toggled_events
-  WHERE enabled = true
-  GROUP BY user_id
-),
-disable_events AS (
-  SELECT DISTINCT user_id, MIN(timestamp) AS first_disable
-  FROM tengu_auto_memory_toggled_events
-  WHERE enabled = false
-  GROUP BY user_id
-)
-SELECT
-  e.user_id,
-  e.first_enable,
-  d.first_disable,
-  (d.first_disable - e.first_enable) AS time_to_churn
-FROM enable_events e
-JOIN disable_events d ON e.user_id = d.user_id
-WHERE d.first_disable > e.first_enable
-ORDER BY time_to_churn ASC;
-```
-
-**Insight**: Short `time_to_churn` indicates users tried feature and quickly abandoned
-
----
-
-### Query 5: Directory Structure Patterns
-
-**Purpose**: Identify common organization patterns
-
-```sql
--- Distribution of directory structures
-SELECT
-  total_file_count,
-  total_subdir_count,
-  COUNT(*) AS project_count
-FROM (
-  SELECT DISTINCT project_id, total_file_count, total_subdir_count
-  FROM tengu_memdir_loaded_events
-  WHERE memory_type = 'auto'
-) AS unique_projects
-GROUP BY total_file_count, total_subdir_count
-ORDER BY project_count DESC
-LIMIT 20;
-```
-
-**Example output**:
-| total_file_count | total_subdir_count | project_count |
-|------------------|---------------------|---------------|
-| 1 | 0 | 5000 | (Just MEMORY.md, no topic files) |
-| 3 | 0 | 1200 | (MEMORY.md + 2 topic files) |
-| 5 | 1 | 800 | (MEMORY.md + 4 topic files + subdirectory) |
-
-**Insight**: Most common pattern is single MEMORY.md file (low topic file adoption)
 
 ---
 
@@ -667,25 +404,20 @@ LIMIT 20;
 
 ### Test 1: Trigger `tengu_memdir_loaded` Event
 
-**Objective**: Verify event is logged on every turn
-
-**Setup**:
 ```bash
-# Enable telemetry logging
 export CLAUDE_CODE_TELEMETRY_LOG=1
 export CLAUDE_CODE_TELEMETRY_LOG_FILE=/tmp/telemetry.log
 ```
 
-**Steps**:
-1. Start conversation
-2. Send message: "Hello"
-3. Check telemetry log
+Start conversation, send message, then check:
+```bash
+grep "tengu_memdir_loaded" /tmp/telemetry.log | jq .
+```
 
 **Expected log entry**:
 ```json
 {
   "event": "tengu_memdir_loaded",
-  "timestamp": "2024-02-14T12:00:00Z",
   "payload": {
     "content_length": 0,
     "line_count": 0,
@@ -697,135 +429,21 @@ export CLAUDE_CODE_TELEMETRY_LOG_FILE=/tmp/telemetry.log
 }
 ```
 
-**Verify**:
-```bash
-grep "tengu_memdir_loaded" /tmp/telemetry.log | jq .
-```
-
----
-
 ### Test 2: Trigger `tengu_auto_memory_toggled` Event
 
-**Objective**: Verify event is logged on toggle action
-
-**Steps**:
 1. Launch TUI, press `/memory`
 2. Toggle auto memory OFF
-3. Check telemetry log
+3. Check: `grep "tengu_auto_memory_toggled" /tmp/telemetry.log | tail -1 | jq .`
 
-**Expected log entry**:
-```json
-{
-  "event": "tengu_auto_memory_toggled",
-  "timestamp": "2024-02-14T12:01:00Z",
-  "payload": {
-    "enabled": false
-  }
-}
-```
+### Test 3: Verify Directory Metrics Collection
 
-**Verify**:
-```bash
-grep "tengu_auto_memory_toggled" /tmp/telemetry.log | tail -1 | jq .
-```
-
----
-
-### Test 3: Trigger `tengu_memdir_disabled` Event
-
-**Objective**: Verify event is logged when feature is disabled
-
-**Setup**:
-```bash
-export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
-```
-
-**Steps**:
-1. Start conversation
-2. Send message: "Hello"
-3. Check telemetry log
-
-**Expected log entry**:
-```json
-{
-  "event": "tengu_memdir_disabled",
-  "timestamp": "2024-02-14T12:02:00Z",
-  "payload": {
-    "disabled_by_env_var": true,
-    "disabled_by_setting": false
-  }
-}
-```
-
-**Verify**:
-```bash
-grep "tengu_memdir_disabled" /tmp/telemetry.log | jq .
-```
-
----
-
-### Test 4: Verify Directory Metrics Collection
-
-**Objective**: Confirm `total_file_count` and `total_subdir_count` are accurate
-
-**Setup**:
 ```bash
 MEMORY_DIR=~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/
 mkdir -p "$MEMORY_DIR/archive"
-touch "$MEMORY_DIR/MEMORY.md"
-touch "$MEMORY_DIR/debugging.md"
-touch "$MEMORY_DIR/patterns.md"
+touch "$MEMORY_DIR/MEMORY.md" "$MEMORY_DIR/debugging.md" "$MEMORY_DIR/patterns.md"
 ```
 
-**Steps**:
-1. Start conversation
-2. Send message: "Hello"
-3. Check telemetry log
-
-**Expected payload**:
-```json
-{
-  "total_file_count": 3,       // MEMORY.md + debugging.md + patterns.md
-  "total_subdir_count": 1      // archive/
-}
-```
-
-**Verify**:
-```bash
-grep "tengu_memdir_loaded" /tmp/telemetry.log | tail -1 | jq '.payload.total_file_count, .payload.total_subdir_count'
-# Output: 3 1
-```
-
----
-
-### Test 5: Verify Truncation Metric
-
-**Objective**: Confirm `was_truncated` is true when file > 200 lines
-
-**Setup**:
-```bash
-MEMORY_PATH=~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/MEMORY.md
-printf '# Line %d\n' {1..250} > "$MEMORY_PATH"
-```
-
-**Steps**:
-1. Start conversation
-2. Send message: "Hello"
-3. Check telemetry log
-
-**Expected payload**:
-```json
-{
-  "line_count": 250,
-  "was_truncated": true
-}
-```
-
-**Verify**:
-```bash
-grep "tengu_memdir_loaded" /tmp/telemetry.log | tail -1 | jq '.payload.line_count, .payload.was_truncated'
-# Output: 250 true
-```
+Expected payload after next turn: `total_file_count: 3, total_subdir_count: 1`
 
 ---
 
@@ -836,7 +454,7 @@ grep "tengu_memdir_loaded" /tmp/telemetry.log | tail -1 | jq '.payload.line_coun
 
 Key functions in this document:
 - `recordMemoryDirLoadMetrics` (cN9) - Collects directory metrics and logs `tengu_memdir_loaded` event
-- `recordTelemetryEvent` (recordTelemetry / recordEvent) - Sends telemetry event to analytics backend
+- `recordTelemetryEvent` (recordEvent) - Sends telemetry event to analytics backend
 
 ---
 
@@ -849,11 +467,10 @@ Key functions in this document:
 5. **Privacy-conscious**: No file content logged, only metadata
 
 **Design rationale**:
-- ✅ **Comprehensive tracking**: Covers all user interactions and state changes
-- ✅ **Actionable metrics**: Enables data-driven UX improvements
-- ✅ **Non-blocking**: Async directory scanning doesn't delay turns
-- ✅ **Privacy-safe**: Only logs counts and sizes, not content
-- ⚠️ **Metric overhead**: Directory scan adds I/O cost (minimal impact)
+- Comprehensive tracking: Covers all user interactions and state changes
+- Actionable metrics: Enables data-driven UX improvements
+- Non-blocking: Async directory scanning doesn't delay turns
+- Privacy-safe: Only logs counts and sizes, not content
 
 **Trade-offs**:
 - **Granularity vs Privacy**: Log detailed metrics but not file content

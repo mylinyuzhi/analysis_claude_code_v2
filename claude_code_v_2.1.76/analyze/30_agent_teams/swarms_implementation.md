@@ -2,7 +2,13 @@
 
 ## Module Overview
 
-Claude Code v2.1.38 introduces "Agent Teams" (also referred to as Swarms), allowing a "Team Lead" agent to coordinate with multiple "Teammate" agents. This system leverages terminal multiplexing (tmux or iTerm2) to provide a parallel execution environment with a synchronized UI.
+Claude Code v2.1.76 implements "Agent Teams" (also referred to as Swarms), allowing a "Team Lead" agent to coordinate with multiple "Teammate" agents. This system leverages terminal multiplexing (tmux or iTerm2) to provide a parallel execution environment with a synchronized UI.
+
+**v2.1.76 additions**:
+- New agent tab component `qGz` in `chunks.192.mjs` providing a dedicated per-agent UI tab
+- Ctrl+F shortcut within the agent tab to filter or kill specific agents
+- CJK (Chinese/Japanese/Korean) layout fix in agent tab text rendering
+- Agent tab shows three distinct states per agent: **selected**, **viewed**, **idle**
 
 ## Related Symbols
 
@@ -14,6 +20,7 @@ Key functions in this document:
 - `ITermBackend` (EEA) - Manages teammate panes in iTerm2
 - `getBackend` (zt) - Detects and initializes the appropriate terminal backend
 - `SendMessageTool` (YhY) - The primary communication channel between agents
+- `AgentTabComponent` (qGz) - NEW in v2.1.76: Agent tab UI component (chunks.192.mjs)
 
 ## Core Architecture
 
@@ -22,6 +29,7 @@ The Swarm architecture consists of:
 2. **Teammates**: Auxiliary agent processes spawned in separate terminal panes or as background tasks.
 3. **Backend Registry**: Handles detection of terminal capabilities to choose between `tmux`, `iterm2`, or `in-process` execution.
 4. **Message Bus**: An event-driven system for inter-agent communication via the `SendMessage` tool.
+5. **Agent Tab** (v2.1.76): A dedicated TUI component for monitoring and managing all agents.
 
 ### Terminal Backend Selection (Algorithm)
 
@@ -66,7 +74,7 @@ async function createTeammatePaneWithLeader(agentName, color) {
     const leaderPaneId = await this.getCurrentPaneId();
     const windowTarget = await this.getCurrentWindowTarget();
     const paneCount = await this.getCurrentWindowPaneCount(windowTarget);
-    
+
     let teammatePaneId;
     if (paneCount === 1) {
         // First teammate: Split leader pane 30/70 (Leader gets 30%)
@@ -81,16 +89,45 @@ async function createTeammatePaneWithLeader(agentName, color) {
         const result = await runTmux(["split-window", "-t", targetPane, direction, "-P", "-F", "#{pane_id}"]);
         teammatePaneId = result.stdout.trim();
     }
-    
+
     await this.setPaneTitle(teammatePaneId, agentName, color);
     await this.rebalancePanesWithLeader(windowTarget);
     return { paneId: teammatePaneId, isFirstTeammate: paneCount === 1 };
 }
 
-// Mapping: A→agentName, q→color, K→leaderPaneId, Y→windowTarget, z→paneCount, w→isFirstTeammate, H→result
+// Mapping: A->agentName, q->color, K->leaderPaneId, Y->windowTarget, z->paneCount, w->isFirstTeammate, H->result
 ```
 
 **Key insight:** The leader pane is always kept at 30% width (`-x 30%`) on the left, while teammates occupy the remaining 70% in a tiled layout.
+
+### v2.1.76 Agent Tab Component (qGz)
+
+**What it does**: Provides a dedicated tab in the TUI for monitoring all active agents.
+
+**Location**: `chunks.192.mjs` - new component `qGz`
+
+**Features**:
+
+**Three agent states displayed**:
+- **Selected**: Agent currently selected/active in user focus
+- **Viewed**: Agent whose output was recently viewed by the user
+- **Idle**: Agent waiting for work or messages
+
+**Ctrl+F to filter/kill agents**:
+- User presses Ctrl+F while in the agent tab
+- A filter input appears allowing text-based filtering of agent list
+- Filtered agents can be selected for kill/shutdown operation
+- This is a significant UX improvement over the v2.1.38 approach where killing agents required navigating to each pane individually
+
+**CJK layout fix**:
+- Previous versions had layout misalignment when agent names or status messages contained CJK characters (Chinese, Japanese, Korean)
+- v2.1.76 applies proper character width accounting for CJK characters (double-width)
+- Prevents text truncation and display corruption in CJK locales
+
+**Agent tab design rationale**:
+- Provides a single unified view of all agents instead of requiring users to navigate between panes
+- State visualization (selected/viewed/idle) helps users understand which agents are active and which need attention
+- Ctrl+F filtering enables efficient management of large agent teams (10+ agents)
 
 ## Inter-Agent Communication
 
@@ -128,7 +165,7 @@ async function tSY(A, q) {
 // READABLE (for understanding):
 async function handleShutdownApproval(input, context) {
     const { teamName, agentId, backendType, requestId } = input;
-    
+
     // Notify team lead of the approval via the message bus (f9)
     await deliverMessage(TEAM_LEAD_ID, {
         from: currentAgentName,
@@ -154,7 +191,7 @@ async function handleShutdownApproval(input, context) {
     return { data: { success: true, message: "Shutdown approved..." } };
 }
 
-// Mapping: tSY→handleShutdownApproval, A→input, q→context, backendType→$, agentId→Y, nK→exitProcess
+// Mapping: tSY->handleShutdownApproval, A->input, q->context, backendType->$, agentId->Y, nK->exitProcess
 ```
 
 ## Team Persistence
@@ -162,3 +199,11 @@ async function handleShutdownApproval(input, context) {
 Teams are tightly coupled with the **Task System**. A team is essentially a view over a task list. Task states (including `owner`) are persisted at `~/.claude/tasks/`, allowing teams to resume work even if the session is interrupted.
 
 **Critical Rule**: Teammates must always check `TaskList` after completing a task to find new available work, as the leader may have added tasks asynchronously.
+
+## Source Location References
+
+- `chunks.131.mjs:1144` - TmuxBackend class
+- `chunks.131.mjs:1381` - ITermBackend class
+- `chunks.131.mjs:1493` - getBackend logic
+- `chunks.141.mjs:1429` - SendMessageTool dispatcher
+- `chunks.192.mjs` - AgentTabComponent (qGz) - NEW in v2.1.76

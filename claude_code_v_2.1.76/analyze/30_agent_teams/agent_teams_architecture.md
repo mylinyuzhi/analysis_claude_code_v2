@@ -2,12 +2,20 @@
 
 ## Overview
 
-The Agent Teams system in Claude Code (`v2.1.38`) implements a **filesystem-backed swarm architecture**. Unlike memory-only multi-agent systems, Claude Code uses the local filesystem (`~/.claude/teams/` and `~/.claude/tasks/`) as the shared state ledger. This allows persistent coordination between the "Team Lead" (the main user session) and "Teammates" (background processes).
+The Agent Teams system in Claude Code (`v2.1.76`) implements a **filesystem-backed swarm architecture**. Unlike memory-only multi-agent systems, Claude Code uses the local filesystem (`~/.claude/teams/` and `~/.claude/tasks/`) as the shared state ledger. This allows persistent coordination between the "Team Lead" (the main user session) and "Teammates" (background processes).
 
 The system consists of three pillars:
 1.  **Team State**: Shared configuration and member registry.
 2.  **Task Ledger**: A centralized, persistent list of tasks (To-Do) that agents claim and update.
 3.  **Message Protocol**: A structured JSON-RPC-like protocol for Direct Messages, Broadcasts, and Control Signals (Shutdown/Plan Approval).
+
+**v2.1.76 improvements**:
+- `background: true` flag support in team definitions allows marking agents as background workers
+- Agent tab UI component (`qGz` in `chunks.192.mjs`) provides dedicated per-agent view with selected/viewed/idle states
+- Ctrl+F shortcut in agent tab to filter or kill agents
+- CJK (Chinese/Japanese/Korean) layout fix for agent tab text rendering
+- Improved mailbox delivery - task creation no longer requires `activeForm` field
+- Task dependency graph improvements for more reliable blocking resolution
 
 ## Key Design Decisions
 
@@ -25,9 +33,9 @@ The system consists of three pillars:
 | **Zero dependencies** | No Redis, PostgreSQL, or distributed system | Complex setup |
 
 **Trade-offs**:
-- ✅ **Pro**: Works on any filesystem, survives crashes, human-inspectable
-- ❌ **Con**: Slower than in-memory (~1-5ms vs ~10μs), requires file locking for race conditions
-- ❌ **Con**: Disk space usage grows unbounded (mailboxes accumulate messages)
+- Pro: Works on any filesystem, survives crashes, human-inspectable
+- Con: Slower than in-memory (~1-5ms vs ~10μs), requires file locking for race conditions
+- Con: Disk space usage grows unbounded (mailboxes accumulate messages)
 
 **When this breaks**: Network filesystems (NFS) with unreliable file locking can cause race conditions and duplicate task claims.
 
@@ -50,10 +58,10 @@ The system consists of three pillars:
 2. **In-process only**: Works everywhere but no visual feedback, shared event loop
 
 **Trade-offs**:
-- ✅ **Pro**: Graceful degradation (works in all environments)
-- ✅ **Pro**: Users get best experience available (visual panes when possible)
-- ❌ **Con**: Three code paths to maintain, more complexity
-- ❌ **Con**: Behavior differs by environment (surprising to users)
+- Pro: Graceful degradation (works in all environments)
+- Pro: Users get best experience available (visual panes when possible)
+- Con: Three code paths to maintain, more complexity
+- Con: Behavior differs by environment (surprising to users)
 
 **Design insight**: The automatic mode selection (`isInProcessEnabled()`) prioritizes user experience. Non-interactive sessions automatically fall back to in-process, while interactive sessions leverage terminal multiplexers for rich UI.
 
@@ -69,26 +77,26 @@ Without locking:
   Agent A reads mailbox: [msg1, msg2]
   Agent B reads mailbox: [msg1, msg2]
   Agent A writes: [msg1, msg2, msg3]
-  Agent B writes: [msg1, msg2, msg4]  ← msg3 lost!
+  Agent B writes: [msg1, msg2, msg4]  <- msg3 lost!
 
 With locking:
-  Agent A: lock → read → append msg3 → write → unlock
-  Agent B: lock (blocks) → read [msg1, msg2, msg3] → append msg4 → write → unlock
-  Result: [msg1, msg2, msg3, msg4] ✓
+  Agent A: lock -> read -> append msg3 -> write -> unlock
+  Agent B: lock (blocks) -> read [msg1, msg2, msg3] -> append msg4 -> write -> unlock
+  Result: [msg1, msg2, msg3, msg4]
 ```
 
 **Alternatives considered**:
 1. **Lock-free append**: Use atomic file operations (create unique `.msg-uuid` files, reader scans directory)
-   - **Pro**: No lock contention
-   - **Con**: Complex (need directory scanning, sorting, cleanup)
+   - Pro: No lock contention
+   - Con: Complex (need directory scanning, sorting, cleanup)
 2. **Database with ACID**: Use SQLite for transactions
-   - **Pro**: Guaranteed consistency
-   - **Con**: External dependency, overkill for small teams
+   - Pro: Guaranteed consistency
+   - Con: External dependency, overkill for small teams
 
 **Trade-offs**:
-- ✅ **Pro**: Simple read-modify-write model, proven library handles edge cases
-- ❌ **Con**: Lock contention with 6+ concurrent writers (5 retries × 1s = 5s timeout)
-- ❌ **Con**: Stale lock detection (60s timeout) delays recovery from crashes
+- Pro: Simple read-modify-write model, proven library handles edge cases
+- Con: Lock contention with 6+ concurrent writers (5 retries × 1s = 5s timeout)
+- Con: Stale lock detection (60s timeout) delays recovery from crashes
 
 **Design insight**: For typical teams (<5 agents), lock contention is rare (requires simultaneous writes to same mailbox within same 5ms window). The simplicity of locked read-modify-write outweighs the complexity of lock-free alternatives.
 
@@ -117,10 +125,10 @@ Priority: Shutdown bypasses queue (<1 second)
 | **5 - Tasks** | Self-directed work, lowest priority | Only if no messages |
 
 **Trade-offs**:
-- ✅ **Pro**: Critical signals (shutdown, lead corrections) never starve
-- ✅ **Pro**: Natural interrupt hierarchy matches user expectations
-- ❌ **Con**: Peer messages can be delayed by lead flood
-- ❌ **Con**: Tasks can starve if messages continuously arrive
+- Pro: Critical signals (shutdown, lead corrections) never starve
+- Pro: Natural interrupt hierarchy matches user expectations
+- Con: Peer messages can be delayed by lead flood
+- Con: Tasks can starve if messages continuously arrive
 
 **Design insight**: The priority system treats coordination signals as **higher priority than data**. Shutdown is control plane (termination), lead messages are coordination plane (work assignment), peer messages are data plane (collaboration). This mirrors network protocol layering.
 
@@ -144,13 +152,24 @@ Developer sees: Message from team-lead at T=10:30: "Implement feature X"
 ```
 
 **Trade-offs**:
-- ✅ **Pro**: Full audit trail, crash-safe (message persists after read)
-- ❌ **Con**: Mailbox file grows to ~100KB-1MB for active teams
-- ❌ **Con**: Scan performance degrades with mailbox size (mitigated by Priority 2 full scan only for shutdown)
+- Pro: Full audit trail, crash-safe (message persists after read)
+- Con: Mailbox file grows to ~100KB-1MB for active teams
+- Con: Scan performance degrades with mailbox size (mitigated by Priority 2 full scan only for shutdown)
 
 **Future work**: Mailbox compaction (archive read messages to separate file) when size exceeds 1MB.
 
 **Design insight**: Debuggability trumps performance for coordination systems. The ability to inspect message history is invaluable for understanding agent behavior and debugging coordination issues.
+
+### Decision 6 (v2.1.76): Background Flag Support
+
+**What was chosen**: Team definitions support a `background: true` flag to mark agents as background workers.
+
+**Why this approach**:
+- Allows cleaner semantic distinction between interactive (foreground) and non-interactive (background) agents
+- Background agents can be deprioritized in UI display
+- Enables future optimization of scheduling and resource allocation for background-only workloads
+
+**Design insight**: The `background: true` flag makes the agent's intended lifecycle explicit in the configuration, rather than inferring it from the execution mode. This improves team design clarity and enables UI differentiation.
 
 ---
 
@@ -185,6 +204,8 @@ Tasks are not simple strings but structured objects with:
 - `status`: `pending`, `in_progress`, `completed`, `deleted`.
 - `owner`: The agent currently working on the task (locking mechanism).
 - `blocks` / `blockedBy`: Dependency graph support.
+
+In v2.1.76, task creation no longer requires the `activeForm` field. The dependency graph resolution has also been improved to handle blocked task transitions more reliably.
 
 ### Synchronization
 Changes to tasks are written to disk, serving as the synchronization point. Agents are instructed to "poll" this list (conceptually, likely via tool usage) to find work.
@@ -249,7 +270,7 @@ async function sendMessageTool_Call(input, context) {
     }
 }
 
-// Mapping: A→input, q→context, oSY→sendDirectMessage, aSY→sendBroadcastMessage
+// Mapping: A->input, q->context, oSY->sendDirectMessage, aSY->sendBroadcastMessage
 ```
 
 ## Agent Hooks (Verification)
@@ -277,28 +298,25 @@ async function Xi4(A, q, K, Y, z, w, H, $) {
         J = Date.now();
     try {
         let X = XJ6(A.prompt($), Y); // Interpolate prompt
-        // ... (logging)
         let j = [c6({ content: X })]; // Initial message
-        // ... (setup abort controller)
-        
+
         // System Prompt Construction
         let y = [`You are verifying a stop condition in Claude Code...`];
-        
-        // ... (Agent Loop)
+
+        // Agent Loop
         for await (let p of ZR({
             messages: j,
             systemPrompt: y,
             // ... restricted context
             querySource: "hook_agent"
         })) {
-            // ... (Handle events, look for structured output)
+            // Handle events, look for structured output
         }
-        // ...
     }
     // ...
 }
 
-// Mapping: Xi4→executeAgentHook, A→hookDefinition, q→hookName, ZR→runAgentLoop
+// Mapping: Xi4->executeAgentHook, A->hookDefinition, q->hookName, ZR->runAgentLoop
 ```
 
 ## Error Recovery
@@ -307,7 +325,7 @@ The Agent Teams system implements multiple error recovery strategies to handle f
 
 ### Graceful Shutdown Protocol
 
-Teams use a **request → approval → confirmation** pattern for coordinated shutdown:
+Teams use a **request -> approval -> confirmation** pattern for coordinated shutdown:
 
 1. **Team lead sends shutdown_request** via SendMessage
 2. **Teammate receives request** (Priority 2 in poll loop - higher than regular messages)

@@ -4,20 +4,22 @@
 
 Auto Memory provides persistent, cross-session memory for Claude Code agents. A `MEMORY.md` file is automatically loaded into the system prompt, allowing agents to accumulate knowledge about projects, patterns, and user preferences over time.
 
-**Introduced**: v2.1.32, with enhancements in v2.1.33
+**Introduced**: v2.1.32, with enhancements in v2.1.33, v2.1.59, and v2.1.74
 
 ## Key Components
 
 ### MEMORY.md
 - Auto-loaded into system prompt at conversation start
 - Maximum 200 lines (truncated beyond that)
-- Located at `~/.claude/projects/{project-hash}/memory/MEMORY.md`
+- Located at `~/.claude/projects/{project-hash}/memory/MEMORY.md` (default location)
 - Acts as an index linking to topic-specific files
+- Last-modified timestamps tracked for freshness (v2.1.74)
 
 ### Topic Files
 - Separate markdown files for detailed notes (e.g., `debugging.md`, `patterns.md`)
 - Stored alongside MEMORY.md in the memory directory
 - Linked from MEMORY.md for organization
+- Support `${CLAUDE_SKILL_DIR}` variable substitution (v2.1.74)
 
 ### Memory Scopes
 - **User scope** - Global preferences across all projects
@@ -32,6 +34,11 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 - `CLAUDE_CODE_REMOTE_MEMORY_DIR` environment variable
 - Enables shared memory across distributed setups
 - See [multi_agent_memory.md](./multi_agent_memory.md) for multi-agent scenarios and synchronization
+
+### Custom Memory Directory (v2.1.59)
+- `autoMemoryDirectory` setting allows specifying a custom directory for memory files
+- Overrides the default project-hash-based path
+- Useful for shared team memories or fixed-path workflows
 
 ### Usage Best Practices
 - **MEMORY.md as index** - Keep concise (<200 lines), link to topic files
@@ -67,7 +74,7 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 ### Existing Analysis (Enhanced)
 - [memory_architecture.md](./memory_architecture.md) - Overall memory system architecture
 - [memory_logic.md](./memory_logic.md) - Truncation logic and prompt injection
-- [architecture.md](./architecture.md) - Technical architecture details **[Updated: Multi-agent + Remote sections added]**
+- [architecture.md](./architecture.md) - Technical architecture details **[Updated: Multi-agent + Remote + Custom Directory sections added]**
 - [loading_mechanism.md](./loading_mechanism.md) - How MEMORY.md is loaded into system prompt
 
 ## Documentation Coverage
@@ -75,24 +82,27 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 **Current coverage: 95%+** (from initial 75-80%)
 
 ### Fully Documented (Phase 4 Complete)
-- ✅ Core loading mechanism and 200-line truncation logic
-- ✅ System architecture and lifecycle
-- ✅ Best practices, usage patterns, and topic file templates
-- ✅ Multi-agent memory isolation and remote sync capabilities
-- ✅ Memory maintenance workflows
-- ✅ **Write/Edit tool integration and permission flow**
-- ✅ **Error handling and dual file size limits (200 lines + 40000 chars)**
-- ✅ **TUI multi-pane integration and settings persistence**
-- ✅ **System prompt injection via dynamic variables**
-- ✅ **Telemetry tracking (3 events)**
-- ✅ **Feature flag system (5-level priority chain)**
-- ✅ **Implementation vs official docs discrepancies**
+- Core loading mechanism and 200-line truncation logic
+- System architecture and lifecycle
+- Best practices, usage patterns, and topic file templates
+- Multi-agent memory isolation and remote sync capabilities
+- Memory maintenance workflows
+- **Write/Edit tool integration and permission flow**
+- **Error handling and dual file size limits (200 lines + 40000 chars)**
+- **TUI multi-pane integration and settings persistence**
+- **System prompt injection via dynamic variables**
+- **Telemetry tracking (3 events)**
+- **Feature flag system (5-level priority chain)**
+- **Implementation vs official docs discrepancies**
+- **Custom `autoMemoryDirectory` setting (v2.1.59)**
+- **Last-modified timestamps for freshness tracking (v2.1.74)**
+- **`${CLAUDE_SKILL_DIR}` variable support in memory (v2.1.74)**
 
 ### Remaining Gaps (~5%)
-- ⚠️ Agent memory directory naming conventions (edge cases)
-- ⚠️ Cross-platform path normalization details (Windows vs Unix)
-- ⚠️ Feature flag service API details (external service)
-- ⚠️ Telemetry backend integration (analytics infrastructure)
+- Agent memory directory naming conventions (edge cases)
+- Cross-platform path normalization details (Windows vs Unix)
+- Feature flag service API details (external service)
+- Telemetry backend integration (analytics infrastructure)
 
 ## Key Source Files
 
@@ -109,3 +119,5 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 
 - **v2.1.32**: Initial auto memory system, MEMORY.md loading
 - **v2.1.33**: Memory frontmatter, remote memory support, topic files
+- **v2.1.59**: `autoMemoryDirectory` setting for custom memory file location
+- **v2.1.74**: Last-modified timestamps for freshness; `${CLAUDE_SKILL_DIR}` variable in memory templates

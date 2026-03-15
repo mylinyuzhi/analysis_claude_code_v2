@@ -1,4 +1,4 @@
-# Skill Context Modifier (Claude Code 2.1.38)
+# Skill Context Modifier (Claude Code 2.1.76)
 
 ## Overview
 

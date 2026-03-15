@@ -1,4 +1,4 @@
-# Background Agents — Slash Commands Integration (Claude Code 2.1.38)
+# Background Agents — Slash Commands Integration (Claude Code 2.1.76)
 
 > Analysis of how background tasks integrate with slash commands: `/tasks` command implementation,
 > task list display, and CLI flags for task management.

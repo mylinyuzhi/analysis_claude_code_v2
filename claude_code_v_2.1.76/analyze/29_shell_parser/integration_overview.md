@@ -1,4 +1,4 @@
-# Shell Parser Integration Overview (Claude Code 2.1.38)
+# Shell Parser Integration Overview (Claude Code 2.1.76)
 
 > Analysis of how the shell parser module integrates with Tools, System Reminder, Compact, and Slash Commands.
 

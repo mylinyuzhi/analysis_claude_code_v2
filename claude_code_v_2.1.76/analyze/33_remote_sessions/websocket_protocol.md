@@ -2,7 +2,7 @@
 
 ## Module Overview
 
-Analysis of the WebSocket protocol used for remote agent execution in Claude Code v2.1.38.
+Analysis of the WebSocket protocol used for remote agent execution in Claude Code v2.1.76.
 
 ## Related Symbols
 

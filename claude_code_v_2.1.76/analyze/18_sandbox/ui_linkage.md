@@ -1,4 +1,4 @@
-# Sandbox UI Linkage (Claude Code 2.1.38)
+# Sandbox UI Linkage (Claude Code 2.1.76)
 
 ## Overview
 

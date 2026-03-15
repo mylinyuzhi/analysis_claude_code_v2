@@ -1,7 +1,7 @@
 # Plan Mode Integration with Agent Teams
 
 > **Module**: Agent Teams - Plan Mode Integration
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: Document the complete plan approval workflow for teammates requiring plan mode
 
 ---

@@ -1,4 +1,4 @@
-# IDE Integration UI Linkage (Claude Code 2.1.38)
+# IDE Integration UI Linkage (Claude Code 2.1.76)
 
 ## Overview
 
@@ -152,8 +152,6 @@ function getIdeConnectionStatus(mcpClients) {
 // Mapping: Rf1→getIdeConnectionStatus, mWq→React
 ```
 
-Used by `IdeSelectionIndicator` and `useIdeStatusMonitoring` to drive display logic.
-
 ---
 
 ## 2. Edit Tool: IDE Diff Routing
@@ -169,43 +167,6 @@ This hook is called by the edit tool UI component whenever the model proposes a 
 // IDEDiffHandler - Routes diff display to IDE or terminal
 // Location: chunks.180.mjs:3-63
 // ============================================
-
-// ORIGINAL (for source lookup):
-function MPq({ onChange: A, toolUseContext: q, filePath: K, edits: Y, editMode: z }) {
-    let w = Qc.useRef(!1), [H, $] = Qc.useState(!1),
-        O = Qc.useMemo(() => nJz().slice(0, 6), []),
-        _ = Qc.useMemo(() => `✻ [Claude Code] ${rJz(K)} (${O}) ⧉`, [K, O]),
-        J = N$6(q.options.mcpClients) && f6().diffTool === "auto" && !K.endsWith(".ipynb"),
-        X = T$6(q.options.mcpClients) ?? "IDE";
-    async function D() {
-        if (!J) return;
-        try {
-            c("tengu_ext_will_show_diff", {});
-            let { oldContent: j, newContent: M } = await aJz(K, Y, q, _);
-            if (w.current) return;
-            c("tengu_ext_diff_accepted", {});
-            let P = oJz(K, j, M, z);
-            if (P.length === 0) {
-                c("tengu_ext_diff_rejected", {});
-                let W = iV(q.options.mcpClients);
-                if (W) await aQA(_, W);
-                A({ type: "reject" }, { file_path: K, edits: Y });
-                return
-            }
-            A({ type: "accept-once" }, { file_path: K, edits: P })
-        } catch (j) { K1(j), $(!0) }
-    }
-    return Qc.useEffect(() => { return D(), () => { w.current = !0 } }, []), {
-        closeTabInIDE() {
-            let j = iV(q.options.mcpClients);
-            if (!j) return Promise.resolve();
-            return aQA(_, j)
-        },
-        showingDiffInIDE: J && !H,
-        ideName: X,
-        hasError: H
-    }
-}
 
 // READABLE (for understanding):
 function IDEDiffHandler({ onChange, toolUseContext, filePath, edits, editMode }) {
@@ -227,14 +188,12 @@ function IDEDiffHandler({ onChange, toolUseContext, filePath, edits, editMode })
         if (!useIdeDiff) return; // IDE diff not available → terminal handles it
         try {
             logEvent("tengu_ext_will_show_diff");
-            // BLOCKING: waits for user to accept/reject in IDE
             let { oldContent, newContent } = await openDiffInIde(filePath, edits, toolUseContext, tabName);
-            if (cleanupRef.current) return; // component unmounted
+            if (cleanupRef.current) return;
 
             logEvent("tengu_ext_diff_accepted");
             let finalEdits = computeDiffEdits(filePath, oldContent, newContent, editMode);
             if (finalEdits.length === 0) {
-                // User didn't actually change anything → treat as rejection
                 logEvent("tengu_ext_diff_rejected");
                 let ideClient = findConnectedIdeClient(toolUseContext.options.mcpClients);
                 if (ideClient) await closeDiffTab(tabName, ideClient);
@@ -250,7 +209,7 @@ function IDEDiffHandler({ onChange, toolUseContext, filePath, edits, editMode })
 
     useEffect(() => {
         showDiffAndHandleResponse();
-        return () => { cleanupRef.current = true; }; // cleanup flag for unmount
+        return () => { cleanupRef.current = true; };
     }, []);
 
     return {
@@ -288,77 +247,15 @@ useIdeDiff = hasConnectedIde AND diffTool="auto" AND not .ipynb
 
 ---
 
-## 3. Main REPL: IDE Hook Wiring
-
-**Location:** `chunks.188.mjs` (REPL component)
-
-The REPL component initializes all IDE integration hooks and passes data down to child components:
-
-### State Variables
-
-```javascript
-// K6 = ideSelection state (updated by fVq hook)
-// F6 = ideInstallationStatus state (updated by handleIdeAutoInstallation)
-// p1 = mcpClients (from session state)
-// o1 = setShowIdeOnboarding (boolean toggle)
-```
-
-### Hook Initialization Order
-
-```javascript
-// Location: chunks.188.mjs initialization sequence
-fVq(p1, setK6)      // Step 1: Subscribe to IDE selection notifications
-dLq({ ideSelection: K6, mcpClients: p1, ideInstallationStatus: F6 })  // Step 2: Monitor status
-// ... (handleIdeAutoInstallation runs inside IDE auto-connect setup hook)
-```
-
-### Dialog Priority System
-
-The `getInputDialogType` function (`f11`, chunks.188.mjs:304) determines which dialog is shown. IDE onboarding is triggered via `XO === "ide-onboarding"`:
-
-```javascript
-// Location: chunks.188.mjs:1268
-XO === "ide-onboarding" && createElement(Nx7, {
-    onDone: () => o1(false),
-    installationStatus: F6
-})
-```
-
-The `setShowIdeOnboarding(true)` call sets `o1(true)` which causes `getInputDialogType` to return `"ide-onboarding"`, activating the `IDEOnboardingDialog`.
-
----
-
-## 4. Onboarding Dialog: `IDEOnboardingDialog` (Nx7)
+## 3. Onboarding Dialog: `IDEOnboardingDialog` (Nx7)
 
 **Location:** `chunks.188.mjs:1268` (render), `chunks.80.mjs` (component definition area)
-
-### Component Structure
 
 ```javascript
 // ============================================
 // IDEOnboardingDialog (Nx7) - First-run IDE setup wizard
 // Location: chunks.80.mjs:1196-1276 (approx)
 // ============================================
-
-// ORIGINAL (for source lookup):
-function Nx7(A) {
-    let q = e(23), { onDone: K, installationStatus: Y } = A;
-    aX9();  // Mark onboarding as shown immediately
-    let z; // keyboard handler: both yes/no → K (onDone)
-    if (q[0] !== K) z = { "confirm:yes": K, "confirm:no": K }, q[0] = K, q[1] = z;
-    else z = q[1];
-    c7(z, w);  // Register keyboard handler
-    let H;
-    if (q[3] !== Y?.ideType) H = Y?.ideType ?? Q01(), q[3] = Y?.ideType, q[4] = H;
-    else H = q[4];
-    let $ = H,
-        O = Oh($),          // isJetBrainsIde
-        _ = S_($),          // getIdeDisplayName (e.g. "VS Code", "Cursor")
-        J = _, X = Y?.installedVersion,
-        D = O ? "plugin" : "extension",   // terminology
-        j = xA.platform === "darwin" ? "Cmd+Option+K" : "Ctrl+Alt+K";
-    // ... renders welcome + feature list + confirm dialog
-}
 
 // READABLE (for understanding):
 function IDEOnboardingDialog({ onDone, installationStatus }) {
@@ -374,15 +271,11 @@ function IDEOnboardingDialog({ onDone, installationStatus }) {
     let installedVersion = installationStatus?.installedVersion;
     let pluginOrExtension = isJetBrains ? "plugin" : "extension";
     let shortcut = process.platform === "darwin" ? "Cmd+Option+K" : "Ctrl+Alt+K";
-
-    // Renders:
-    // "Claude Code is now connected to VS Code (extension v2.1.38)"
-    // "You can now:"
-    // "  • Open files and navigate to specific lines"
-    // "  • Share selected code context with Claude"
-    // "  • Review proposed changes in VS Code diff viewer"
-    // "  • Use Cmd+Option+K to open Claude Code from VS Code"
+    // ...renders welcome + feature list + confirm dialog
 }
+
+// Mapping: Nx7→IDEOnboardingDialog, aX9→markIdeOnboardingAsShown, Oh→isJetBrainsIde
+//   S_→getIdeDisplayName, Q01→getDefaultIdeType
 ```
 
 **Behavior details:**
@@ -392,7 +285,7 @@ function IDEOnboardingDialog({ onDone, installationStatus }) {
 
 ---
 
-## 5. Status Notifications: `useIdeStatusMonitoring` (dLq)
+## 4. Status Notifications: `useIdeStatusMonitoring` (dLq)
 
 **Location:** `chunks.187.mjs:2265-2337`
 
@@ -406,55 +299,12 @@ This hook produces non-blocking status bar notifications. It does NOT use the di
 // Location: chunks.187.mjs:2265-2337
 // ============================================
 
-// ORIGINAL (for source lookup) - Effect 1:
-if (q[2] !== w || q[3] !== H || q[4] !== j) M = () => {
-    if (Nq()) return;  // Skip in dev mode
-    if (bX() || H !== null || j) return;  // Skip: IDE env detected, or status known, or JetBrains error
-    Ub1(!0).then((k) => {
-        let y = k[0]?.name;
-        if (y) w({
-            key: "ide-status-hint",
-            text: `${l1.circle} /ide for ${y}`,
-            priority: "low"
-        })
-    })
-}, P = [w, H, j];
-
-// ORIGINAL - Effect 2 (disconnect):
-W = () => {
-    if (Nq()) return;
-    if (D || j || H !== "disconnected") return;
-    w({ key: "ide-status-disconnected", text: `${l1.circle} IDE disconnected`,
-        color: "error", priority: "medium" })
-};
-
-// ORIGINAL - Effect 3 (JetBrains plugin):
-f = () => {
-    if (Nq()) return;
-    if (!j) return;
-    w({ key: "ide-status-jetbrains-disconnected",
-        text: "IDE plugin not connected · /status for info", priority: "medium" })
-};
-
-// ORIGINAL - Effect 4 (install error):
-N = () => {
-    if (Nq()) return;
-    if (!D) return;
-    w({ key: "ide-status-install-error",
-        text: "IDE extension install failed (see /status for info)",
-        color: "error", priority: "medium" })
-};
-
 // READABLE (for understanding):
 function useIdeStatusMonitoring({ ideSelection, mcpClients, ideInstallationStatus }) {
     let { addNotification } = useNotifications();
-    let ideStatus = getIdeConnectionStatus(mcpClients);  // "connected"/"disconnected"/null
+    let ideStatus = getIdeConnectionStatus(mcpClients);
     let isJetBrains = ideInstallationStatus ? isJetBrainsIde(ideInstallationStatus?.ideType) : false;
     let installError = ideInstallationStatus?.error || isJetBrains;
-    let hasSelection = ideStatus === "connected" && (ideSelection?.filePath || ideSelection?.text);
-    let emptyConnection = ideStatus === "connected" && !hasSelection;
-    let vsCodeInstallError = installError && !isJetBrains && !emptyConnection && !hasSelection;
-    let jetBrainsPluginError = installError && isJetBrains && !emptyConnection && !hasSelection;
 
     // Effect 1: Hint that IDE integration is available but not connected
     useEffect(() => {
@@ -497,23 +347,12 @@ function useIdeStatusMonitoring({ ideSelection, mcpClients, ideInstallationStatu
 }
 
 // Mapping: dLq→useIdeStatusMonitoring, Nq→isDev, bX→isIdeEnv, Ub1→detectAvailableIDEs
-//          Rf1→getIdeConnectionStatus, Oh→isJetBrainsIde, w→addNotification, l1.circle→"⊙"
+//          Rf1→getIdeConnectionStatus, Oh→isJetBrainsIde, w→addNotification
 ```
-
-**Notification priority logic:**
-- `"low"` priority: hint only, shown in dimmer color, easily dismissed
-- `"medium"` with `color: "error"`: prominent error state, persistent until acknowledged
-
-**Effect 1 trigger conditions (hint):**
-- NOT in dev mode
-- NOT already detected as IDE environment (`TERM_PROGRAM=vscode` etc.)
-- `ideStatus === null` (no "ide" MCP server in config at all)
-- NOT a JetBrains plugin error (already handled by Effect 3)
-- An IDE is actually discoverable via port file scanning
 
 ---
 
-## 6. Selection Hook Data Flow
+## 5. Selection Hook Data Flow
 
 ```
 IDE Extension
@@ -545,11 +384,9 @@ type IdeSelection = {
 };
 ```
 
-Initial/reset state: `{ lineCount: 0, lineStart: undefined, text: undefined, filePath: undefined }`
-
 ---
 
-## 7. Diff Display State Machine
+## 6. Diff Display State Machine
 
 ```
 EditTool renders
@@ -567,69 +404,8 @@ EditTool renders
                    │
                    └─ useEffect fires → aJz("openDiff", ...) [BLOCKING]
                           │
-                          ├─ FILE_SAVED → newContent = user's saved version
-                          │       → onChange({ type: "accept-once" }, { edits: computedEdits })
-                          │
-                          ├─ TAB_CLOSED → newContent = proposed version
-                          │       → onChange({ type: "accept-once" }, { edits: proposedEdits })
-                          │
-                          ├─ DIFF_REJECTED → newContent = originalContent
-                          │       → onChange({ type: "reject" })
-                          │
-                          └─ error → setHasError(true)
-                                  → returns { showingDiffInIDE: false, hasError: true }
-                                  → EditTool falls back to terminal diff
+                          ├─ FILE_SAVED → onChange({ type: "accept-once" })
+                          ├─ TAB_CLOSED → onChange({ type: "accept-once" })
+                          ├─ DIFF_REJECTED → onChange({ type: "reject" })
+                          └─ error → setHasError(true) → terminal diff fallback
 ```
-
-**Fallback behavior:** If `openDiff` throws (IDE disconnected, timeout, etc.), `hasError` is set to `true` and `showingDiffInIDE` becomes `false`. The EditTool component then renders the terminal diff view — the user always gets _some_ way to review the proposed change.
-
----
-
-## 8. IDE Context in System Prompt
-
-The selection data from `useIdeSelection` flows into the system prompt via the attachment system. When `ideSelection.text` and `ideSelection.lineCount > 0`, a system reminder attachment is built containing the selected code snippet tagged with file path and line range. This allows Claude to reference the exact code the user is looking at.
-
-(Deep analysis of system prompt attachment building is in `04_system_reminder/`)
-
----
-
-## Symbol Reference
-
-New symbols discovered in this analysis — added to `symbol_index_infra_integration.md`:
-
-- `FWq` (IdeSelectionIndicator) - chunks.182.mjs:1514 - component
-- `Rf1` (getIdeConnectionStatus) - chunks.182.mjs:1500 - function (hook)
-- `MPq` (IDEDiffHandler) - chunks.180.mjs:3 - function (hook)
-- `Nx7` (IDEOnboardingDialog) - chunks.188.mjs:1268 / chunks.80.mjs - component
-- `dLq` (useIdeStatusMonitoring) - chunks.187.mjs:2265 - function (hook)
-- `aVq` (syncPermissionModeToIde) - chunks.186.mjs:1736 - function (hook)
-- `aJz` (openDiffInIde) - chunks.180.mjs:78 - function (async)
-- `aQA` (closeDiffTab) - chunks.180.mjs:132 - function (async)
-- `lo4` (executeMcpTool) - chunks.145.mjs:1676 - function (async)
-- `KI` (DiagnosticsManager) - chunks.146.mjs:3 - class
-- `eJz` (isFileSaved) - chunks.180.mjs:151 - function
-- `sJz` (isTabClosed) - chunks.180.mjs:143 - function
-- `tJz` (isDiffRejected) - chunks.180.mjs:147 - function
-- `Fx7` (handleIdeAutoInstallation) - chunks.80.mjs:1880 - function (async)
-- `HD9` (installIdeExtension) - chunks.80.mjs:1664 - function (async)
-- `Ex7` (waitForIdeConnection) - chunks.80.mjs:1563 - function (async)
-- `kx7` (checkExtensionInstalled) - chunks.80.mjs:1652 - function (async)
-- `Ub1` (detectAvailableIDEs) - chunks.80.mjs:1578 - function (async)
-- `zD9` (installAndReturnStatus) - chunks.80.mjs:1538 - function (async)
-- `T$6` (getIdeName) - chunks.80.mjs:1842 - function
-- `DXA` (getIdeDisplayName) - chunks.80.mjs:1847 - function
-- `N$6` (hasConnectedIde) - chunks.80.mjs:1648 - function
-- `U01` (IDE_CONFIG_MAP) - chunks.80.mjs:1953 - object (18 IDEs)
-- `Qb1` (isVsCodeRunning) - chunks.80.mjs:2081 - function (memoized)
-- `gb1` (isJetBrainsRunning) - chunks.80.mjs:2083 - function (memoized)
-- `bX` (isIdeEnvironment) - chunks.80.mjs:2085 - function (memoized)
-- `OD9` (findVsCodeBinaryFromParentProcess) - chunks.80.mjs:1718 - function
-- `P$6` (hasIdeOnboardingBeenShown) - chunks.80.mjs:1292 - function
-- `aX9` (markIdeOnboardingAsShown) - chunks.80.mjs:1298 - function
-- `f$6` (isVsCodeIde) - chunks.80.mjs:1380 - function
-- `Oh` (isJetBrainsIde) - chunks.80.mjs:1386 - function
-- `Q01` (getDefaultIdeType) - chunks.80.mjs:1392 - function
-- `wD9` (VSCODE_EXTENSION_ID) - chunks.80.mjs:1922 - constant (`"anthropic.claude-code"`)
-- `oJz` (computeDiffEdits) - chunks.180.mjs:65 - function
-- `nJz` (generateRandomId) - chunks.180.mjs (used in tabId generation) - function
-- `rJz` (getFileBasename for tab) - chunks.180.mjs (used in tabName) - function

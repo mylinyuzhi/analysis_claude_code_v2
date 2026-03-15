@@ -1,4 +1,4 @@
-# Background Agent Output Capture (Claude Code 2.1.38)
+# Background Agent Output Capture (Claude Code 2.1.76)
 
 > Analysis of background agent output capture mechanism, output file creation and management,
 > how results inject back into the main conversation, UI progress display, and the full
@@ -29,7 +29,7 @@ Key functions in this document:
 - `createAsyncTask` (zd7) - Creates a background agent task entry with abort controller — `chunks.89.mjs:~1447`
 - `createForegroundTask` (wd7) - Creates a task entry for a sync agent (may be backgrounded later) — `chunks.89.mjs:~1477`
 - `killTask` (na) - Aborts a running task's controller and marks it "killed" — `chunks.89.mjs:~1375`
-- `killAllRunningAgents` (Kd7) - Kills all local_agent tasks with "running" status — `chunks.89.mjs:~1448`
+- `killAllRunningAgents` (Kd7) - Kills all local_agent tasks with "running" status — `chunks.89.mjs`
 - `createTaskId` (hp) - Generates a unique task ID from a type prefix and random hex — `chunks.89.mjs:522`
 - `createTaskRecord` (IZ) - Builds the initial task state object — `chunks.89.mjs:528`
 - `BackgroundTaskInputView` (K51) - React component for rendering the `&` background task input UI
@@ -149,11 +149,11 @@ function getOutputFilePath(taskId) {
 **What it does:** Appends a text chunk to a task's output file in a serialized (non-concurrent) manner.
 
 **How it works:**
-1. Ensures the tasks directory exists (`PjA()`)
-2. Computes the output file path via `ww(taskId)`
+1. Ensures the tasks directory exists
+2. Computes the output file path
 3. Ensures the parent directory of the output file exists
 4. Chains the write operation onto a per-task promise stored in `vp7` (a Map)
-5. Each write appends via `appendFileAsync` (Vv9)
+5. Each write appends via `appendFileAsync`
 
 ```javascript
 // ============================================
@@ -165,8 +165,7 @@ function getOutputFilePath(taskId) {
 function ZK1(A, q) {
     try {
         PjA();
-        let w = ww(A),
-            H = Nv9(w);
+        let w = ww(A), H = Nv9(w);
         if (!GK1(H)) Lp7(H, { recursive: !0 })
     } catch (w) { K1(w instanceof Error ? w : Error(String(w))); return }
     let K = ww(A),
@@ -200,7 +199,7 @@ function appendToOutputFile(taskId, content) {
 
 **Why this approach:**
 - **Serialization via promise chaining** prevents concurrent writes from interleaving output
-- The `pendingWrites` Map stores a per-task promise chain so multiple tasks do not block each other, only writes to the SAME task are serialized
+- The `pendingWrites` Map stores a per-task promise chain so multiple tasks do not block each other
 - Error handling is lenient (logs and continues) so a single failed write does not break the background task
 
 **Key insight:** The promise-chaining pattern `(map.get(key) ?? Promise.resolve()).then(newWrite)` is a lightweight alternative to a write queue or mutex. It guarantees FIFO ordering per task while allowing different tasks to write concurrently.
@@ -270,71 +269,16 @@ function readOutputFileDelta(taskId, offset) {
 **How it works:**
 1. Atomically sets `notified: true` on the task entry (prevents duplicate notifications)
 2. If the task was already notified, returns immediately (no-op)
-3. Constructs a human-readable summary like `Agent "description" completed`
+3. Constructs a human-readable summary
 4. Builds an XML-structured notification including: taskId, status, summary, result text, usage stats, output file path
 5. Pushes the notification into the command queue via `WR()` with `mode: "task-notification"`
 
-```javascript
-// ============================================
-// notifyTaskCompletion - Injects task completion into conversation
-// Location: chunks.89.mjs:1346-1374
-// ============================================
-
-// ORIGINAL (for source lookup):
-function vK1(A, q, K, Y, z, w, H) {
-    let $ = !1;
-    if (c5(A, z, (M) => {
-        if (M.notified) return M;
-        return $ = !0, { ...M, notified: !0 }
-    }), !$) return;
-    let O = K === "completed" ? `Agent "${q}" completed`
-          : K === "failed" ? `Agent "${q}" failed: ${Y||"Unknown error"}`
-          : `Agent "${q}" was stopped`,
-        _ = ww(A),
-        J = w ? `\n<result>${w}</result>` : "",
-        X = H ? `\n<usage>total_tokens: ${H.totalTokens}\ntool_uses: ${H.toolUses}\nduration_ms: ${H.durationMs}</usage>` : "",
-        D = KY() ? "" : `\nFull transcript available at: ${_}`,
-        j = `<${NO}>\n<${dP}>${A}</${dP}>\n<${ND}>${K}</${ND}>\n<${TD}>${O}</${TD}>${J}${X}\n</${NO}>${D}`;
-    WR({ value: j, mode: "task-notification" })
-}
-
-// READABLE (for understanding):
-function notifyTaskCompletion(taskId, description, status, errorMsg, setAppState, resultText, usage) {
-    let wasNotified = false;
-    if (updateTaskState(taskId, setAppState, (task) => {
-        if (task.notified) return task;  // Already notified
-        return wasNotified = true, { ...task, notified: true };
-    }), !wasNotified) return;  // Skip duplicate
-
-    let summary = status === "completed" ? `Agent "${description}" completed`
-                : status === "failed" ? `Agent "${description}" failed: ${errorMsg||"Unknown error"}`
-                : `Agent "${description}" was stopped`;
-    let outputFile = getOutputFilePath(taskId);
-    let resultBlock = resultText ? `\n<result>${resultText}</result>` : "";
-    let usageBlock = usage ? `\n<usage>...</usage>` : "";
-    let transcriptRef = isRemoteSession() ? "" : `\nFull transcript available at: ${outputFile}`;
-
-    let notification = `<task_notification>
-<task_id>${taskId}</task_id>
-<status>${status}</status>
-<summary>${summary}</summary>${resultBlock}${usageBlock}
-</task_notification>${transcriptRef}`;
-
-    enqueueCommand({ value: notification, mode: "task-notification" });
-}
-
-// Mapping: vK1→notifyTaskCompletion, A→taskId, q→description, K→status, Y→errorMsg,
-//   z→setAppState, w→resultText, H→usage, c5→updateTaskState, ww→getOutputFilePath,
-//   WR→enqueueCommand, NO→TASK_NOTIFICATION_TAG, dP→TASK_ID_TAG, ND→STATUS_TAG, TD→SUMMARY_TAG
-```
-
 **Why this approach:**
-- **Atomic notification guard** (`notified: true`) prevents duplicate notifications when both completion and cleanup paths try to notify
+- **Atomic notification guard** (`notified: true`) prevents duplicate notifications
 - **XML-structured output** allows the LLM to parse task results programmatically
-- **Queue injection** (`mode: "task-notification"`) ensures the notification reaches the main conversation even if the user is mid-input; the queue system will deliver it at the next processing opportunity
-- **Result text inclusion** means the LLM gets the agent's final output inline, without needing to read the output file for simple results
+- **Queue injection** (`mode: "task-notification"`) ensures the notification reaches the main conversation even if the user is mid-input
 
-**Key insight:** The `mode: "task-notification"` on the queue entry causes special handling -- if there are active listeners (via `W_6`), the notification is pushed directly to the command queue and the listeners are poked. This ensures timely delivery even when the main loop is idle waiting for user input.
+**Key insight:** The `mode: "task-notification"` on the queue entry causes special handling — if there are active listeners (via `W_6`), the notification is pushed directly to the command queue and the listeners are poked. This ensures timely delivery even when the main loop is idle waiting for user input.
 
 ---
 
@@ -352,14 +296,10 @@ function notifyTaskCompletion(taskId, description, status, errorMsg, setAppState
    - Generates a unique agent ID (or uses the provided `resume` ID)
    - Creates a new AbortController for the task
    - Registers the task in `appState.tasks` with status "running"
+   - Sets `background: true` on the task record (v2.1.76)
    - Returns `{ agentId, abortController }`
 4. **Detached execution**: Wraps the agent loop (`dR()`) in `p01()` (session context wrapper) and starts it WITHOUT awaiting
 5. **Immediate return**: Returns `{ status: "async_launched", agentId, outputFile }` to the caller
-
-**During background execution:**
-- Each message from the agent loop is pushed to `O1` (messages array)
-- Progress is tracked via `Qj1()` (progress tracker) and `RjA()` (updateTaskProgress)
-- Output is written to the output file via the progress tracker
 
 **On completion:**
 - Success: `vK1(agentId, description, "completed", ...)` with result text and usage stats
@@ -367,64 +307,17 @@ function notifyTaskCompletion(taskId, description, status, errorMsg, setAppState
 - Abort: If the task was killed, `na()` returns true and `vK1(..., "killed", ...)` fires
 - The `yjA()` function records the final result data on the task entry
 
-### Sync-to-Background Conversion
-
-**What it does:** Even synchronous agents can be "backgrounded" mid-execution if the user requests it.
-
-**How it works:**
-1. A sync agent starts with `wd7()` which creates a task entry with a `backgroundSignal` promise
-2. During execution, the code races each agent message against the `backgroundSignal`
-3. If the signal fires (user pressed background hotkey), the current agent state is checked:
-   - If `isBackgrounded` is true on the task, execution transitions to async mode
-   - A new `p01()` wrapper is started with `isAsync: true`
-   - The function returns `{ status: "async_launched", ... }` just like the explicit background case
-4. The previously accumulated messages (`O1`) are replayed into the new async context
-
-**Key insight:** This dual-mode design (explicit background vs. user-initiated background) shares the same completion/notification infrastructure. The transition point is seamless because the agent loop (`dR()`) is an async iterator -- it can be consumed by either the sync or async handler.
-
 ---
 
 ## Deep Analysis: Bash Tool Background Mode
 
 ### Shell Command Backgrounding
 
-The Bash tool (`qq` / `h4`) also supports `run_in_background`:
-
-```javascript
-// ============================================
-// runShellCommand - Bash tool execution with background support
-// Location: chunks.170.mjs:362-470
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function* yYz({ input: A, abortController: q, setAppState: K, ... }) {
-    let { command: w, run_in_background: _ } = A;
-    // ...
-    if (_ === !0 && !Id1) {
-        let B = await Z();
-        return c("tengu_bash_command_explicitly_backgrounded", { command_type: z_q(w) }),
-            { stdout: "", stderr: "", code: 0, interrupted: !1, backgroundTaskId: B }
-    }
-    // ... polling loop with yield for progress ...
-}
-
-// READABLE (for understanding):
-async function* runShellCommand({ input, abortController, setAppState, ... }) {
-    let { command, run_in_background } = input;
-    if (run_in_background === true && !BACKGROUND_TASKS_DISABLED) {
-        let taskId = await spawnBackgroundShellTask();
-        trackEvent("bash_command_explicitly_backgrounded");
-        return { stdout: "", stderr: "", code: 0, interrupted: false, backgroundTaskId: taskId };
-    }
-    // Normal execution with periodic progress yields...
-}
-
-// Mapping: yYz→runShellCommand, Id1→BACKGROUND_TASKS_DISABLED, Z→spawnBackgroundShellTask
-```
+The Bash tool also supports `run_in_background`:
 
 **Three ways a bash command becomes backgrounded:**
-1. **Explicit**: `run_in_background=true` -- immediate background, no output captured
-2. **Timeout**: After `q_q` ms (2000ms) of no completion, a task entry is created and a UI prompt appears
+1. **Explicit**: `run_in_background=true` — immediate background, no output captured
+2. **Timeout**: After 2000ms of no completion, a task entry is created and a UI prompt appears
 3. **User interrupt**: User sends Ctrl+C while a command runs; the command is backgrounded rather than killed
 
 ---
@@ -443,7 +336,7 @@ Looks for `<background-task-input>` tags in message text.
 
 ### Background Task Output View (Xx4)
 
-Renders the dimmed output from `<background-task-output>` tags -- typically the task completion message:
+Renders the dimmed output from `<background-task-output>` tags — typically the task completion message:
 
 ```
 This task is now running in the background.
@@ -463,29 +356,6 @@ Instead of the normal stdout/stderr display. The `↓` shortcut lets the user ac
 ---
 
 ## Task ID Format
-
-```javascript
-// ============================================
-// createTaskId - Generates unique task identifiers
-// Location: chunks.89.mjs:522-526
-// ============================================
-
-// ORIGINAL (for source lookup):
-function hp(A) {
-    let q = Rv9(A),
-        K = kv9().replace(/-/g, "").substring(0, 6);
-    return `${q}${K}`
-}
-
-// READABLE (for understanding):
-function createTaskId(typePrefix) {
-    let prefix = TYPE_PREFIXES[typePrefix];  // e.g. "b", "a", "r", "t"
-    let randomHex = uuid().replace(/-/g, "").substring(0, 6);
-    return `${prefix}${randomHex}`;
-}
-
-// Mapping: hp→createTaskId, A→typePrefix, Rv9→TYPE_PREFIXES lookup, kv9→uuid
-```
 
 Type prefixes (from `Lv9`):
 - `b` = `local_bash` (shell commands)
@@ -520,18 +390,6 @@ Example: `a3f4b2` = a local agent task with random suffix `3f4b2`.
               notifyTaskCompletion()
               (injects into queue)
 ```
-
-Each task record contains:
-- `id` - Unique task identifier
-- `type` - One of `local_bash`, `local_agent`, `remote_agent`, `in_process_teammate`
-- `status` - Current state in the machine above
-- `description` - Human-readable description
-- `startTime` / `endTime` - Timestamps
-- `outputFile` - Path to the `.output` file
-- `outputOffset` - Current read position for delta reads
-- `notified` - Boolean guard against duplicate notifications
-- `abortController` - For killing the task
-- `progress` - Optional progress summary object
 
 ---
 

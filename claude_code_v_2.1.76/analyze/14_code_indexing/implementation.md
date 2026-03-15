@@ -2,7 +2,7 @@
 
 ## Overview
 
-Code Indexing in Claude Code v2.1.38 provides high-performance file discovery and fuzzy search for the `@` mention autocomplete system. The system uses a **hybrid dual-engine architecture**: a native Rust-based `FileIndex` for production performance, with a JavaScript `Fuse.js` fallback for environments where the native module is unavailable. It integrates deeply with Git and Ripgrep for project file enumeration, and exposes a complete pipeline from file scanning → indexing → fuzzy search → UI rendering.
+Code Indexing in Claude Code v2.1.76 provides high-performance file discovery and fuzzy search for the `@` mention autocomplete system. The system uses a **hybrid dual-engine architecture**: a native Rust-based `FileIndex` for production performance, with a JavaScript `Fuse.js` fallback for environments where the native module is unavailable. It integrates deeply with Git and Ripgrep for project file enumeration, and exposes a complete pipeline from file scanning → indexing → fuzzy search → UI rendering.
 
 ## Related Symbols
 
@@ -411,115 +411,6 @@ async function rebuildIndex() {
 
 **What it does:** Uses `git ls-files` to get tracked files. Triggers a non-blocking background fetch for untracked files. Falls back to ripgrep if not a git repo.
 
-```javascript
-// ============================================
-// getFilesUsingGit - Tracked files + background untracked fetch
-// Location: chunks.152.mjs:1077-1133
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function SiY(A, q) {
-    let K = Date.now();
-    if (h("[FileIndex] getFilesUsingGit called"), !await yiY()) return h("[FileIndex] not a git repo, returning null"), null;
-    try {
-        let Y = YX(h6());
-        if (!Y) return h("[FileIndex] git rev-parse --show-toplevel failed, falling back to ripgrep"), null;
-        let z = h6(), w = Date.now(),
-            H = await d4(pq(), ["-c", "core.quotepath=false", "ls-files", "--recurse-submodules"], {
-                timeout: 5000, abortSignal: A, cwd: Y
-            });
-        if (h(`[FileIndex] git ls-files (tracked) took ${Date.now()-w}ms`), H.code !== 0)
-            return h(`[FileIndex] git ls-files failed (code=${H.code}, stderr=${H.stderr}), falling back to ripgrep`), null;
-        let $ = H.stdout.trim().split(`\n`).filter(Boolean),
-            O = uAq($, Y, z),
-            _ = BAq(Y, z);
-        if (_) { let X = O.length; O = _.filter(O); h(`[FileIndex] applied ignore patterns: ${X} -> ${O.length} files`) }
-        oG1 = O;
-        let J = Date.now() - K;
-        h(`[FileIndex] git ls-files: ${O.length} tracked files in ${J}ms`);
-        c("tengu_file_suggestions_git_ls_files", { file_count: O.length, tracked_count: O.length, untracked_count: 0, duration_ms: J });
-        if (!hf6) {
-            let X = q ? ["-c", "core.quotepath=false", "ls-files", "--others", "--exclude-standard"]
-                      : ["-c", "core.quotepath=false", "ls-files", "--others"];
-            hf6 = d4(pq(), X, { timeout: 1e4, cwd: Y })
-                .then((D) => {
-                    if (D.code === 0) {
-                        let j = D.stdout.trim().split(`\n`).filter(Boolean),
-                            M = uAq(j, Y, z), P = BAq(Y, z);
-                        if (P && M.length > 0) { let W = M.length; M = P.filter(M); }
-                        h(`[FileIndex] background untracked fetch: ${M.length} files`);
-                        CiY(M)  // Merge untracked into live index
-                    }
-                })
-                .catch((D) => { h(`[FileIndex] background untracked fetch failed: ${D}`) })
-                .finally(() => { hf6 = null })
-        }
-        return O
-    } catch (Y) {
-        return h(`[FileIndex] git ls-files error: ${Y instanceof Error?Y.message:String(Y)}`), null
-    }
-}
-
-// READABLE (for understanding):
-async function getFilesUsingGit(abortSignal, respectGitignore) {
-    if (!await isGitRepository()) return null;  // Not a git repo: fall through to ripgrep
-
-    try {
-        let gitRoot = getGitRoot(getCwd());
-        if (!gitRoot) return null;  // Detached state: fall through to ripgrep
-
-        // Step 1: Fetch tracked files (5s timeout to prevent blocking)
-        let result = await execCommand(getGitPath(), [
-            "-c", "core.quotepath=false",  // Prevent unicode quoting
-            "ls-files",
-            "--recurse-submodules"          // Include submodule files
-        ], { timeout: 5000, abortSignal, cwd: gitRoot });
-
-        if (result.code !== 0) return null;
-
-        // Step 2: Parse, normalize paths, apply .ignore patterns
-        let tracked = parseLines(result.stdout);
-        tracked = makeRelativePaths(tracked, gitRoot, getCwd());
-        let ignoreFilter = loadIgnorePatterns(gitRoot, getCwd());
-        if (ignoreFilter) tracked = ignoreFilter.filter(tracked);
-
-        globalTrackedFiles = tracked;  // Cache for merge with untracked
-
-        // Step 3: Background fetch for untracked files (10s timeout, non-blocking)
-        if (!untrackedFetchPromise) {
-            let untrackedArgs = respectGitignore
-                ? ["ls-files", "--others", "--exclude-standard"]  // Respect .gitignore
-                : ["ls-files", "--others"];                        // Show all untracked
-
-            untrackedFetchPromise = execCommand(getGitPath(), ["-c", "core.quotepath=false", ...untrackedArgs], {
-                timeout: 10000,
-                cwd: gitRoot
-            })
-            .then((r) => {
-                if (r.code === 0) {
-                    let untracked = makeRelativePaths(parseLines(r.stdout), gitRoot, getCwd());
-                    if (ignoreFilter && untracked.length > 0) untracked = ignoreFilter.filter(untracked);
-                    mergeUntrackedIntoIndex(untracked);  // Hot-merge into live Rust/JS index
-                }
-            })
-            .finally(() => { untrackedFetchPromise = null; });
-        }
-
-        return tracked;
-    } catch (error) {
-        return null;
-    }
-}
-
-// Mapping: SiY→getFilesUsingGit, A→abortSignal, q→respectGitignore, K→startTime,
-//          yiY→isGitRepository, YX→getGitRoot, h6→getCwd, d4→execCommand, pq→getGitPath,
-//          H→result, $→trackedRaw, O→tracked, _→ignoreFilter, oG1→globalTrackedFiles,
-//          hf6→untrackedFetchPromise, CiY→mergeUntrackedIntoIndex, uAq→makeRelativePaths,
-//          BAq→loadIgnorePatterns, c→telemetry
-```
-
-**Key design decisions:**
-
 **Split-phase fetching:**
 - **Tracked files (blocking, 5s timeout):** `git ls-files --recurse-submodules` is the primary source. It completes synchronously in the rebuild flow.
 - **Untracked files (background, 10s timeout):** `git ls-files --others` runs as a fire-and-forget promise. Results are merged via `CiY` (mergeUntrackedIntoIndex) once ready.
@@ -532,62 +423,12 @@ async function getFilesUsingGit(abortSignal, respectGitignore) {
 
 **Telemetry integration:**
 - Emits `tengu_file_suggestions_git_ls_files` with `{ file_count, tracked_count, untracked_count, duration_ms }`.
-- Allows Anthropic to monitor the performance of file discovery in production.
 
 ---
 
 ### 6. Ripgrep Fallback (`IiY` / `getProjectFiles`)
 
 **What it does:** When `getFilesUsingGit` returns `null`, falls back to `rg --files` to enumerate all non-gitignored files.
-
-```javascript
-// ============================================
-// getProjectFiles - Git or ripgrep dispatcher
-// Location: chunks.152.mjs:1148-1162
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function IiY(A, q) {
-    h(`[FileIndex] getProjectFiles called, respectGitignore=${q}`);
-    let K = await SiY(A, q);
-    if (K !== null) return h(`[FileIndex] using git ls-files result (${K.length} files)`), K;
-    h("[FileIndex] git ls-files returned null, falling back to ripgrep");
-    let Y = Date.now(),
-        z = ["--files", "--follow", "--hidden", "--glob", "!.git/"];
-    if (!q) z.push("--no-ignore-vcs");
-    let H = (await lx(z, ".", A)).map((O) => bJ.relative(h6(), O)),
-        $ = Date.now() - Y;
-    h(`[FileIndex] ripgrep: ${H.length} files in ${$}ms`);
-    c("tengu_file_suggestions_ripgrep", { file_count: H.length, duration_ms: $ });
-    return H
-}
-
-// READABLE (for understanding):
-async function getProjectFiles(abortSignal, respectGitignore) {
-    // Try git first
-    let gitFiles = await getFilesUsingGit(abortSignal, respectGitignore);
-    if (gitFiles !== null) return gitFiles;
-
-    // Ripgrep fallback
-    let startTime = Date.now();
-    let args = ["--files", "--follow", "--hidden", "--glob", "!.git/"];
-    if (!respectGitignore) args.push("--no-ignore-vcs");
-
-    let files = (await runRipgrep(args, ".", abortSignal))
-        .map((f) => path.relative(getCwd(), f));
-
-    telemetry("tengu_file_suggestions_ripgrep", {
-        file_count: files.length,
-        duration_ms: Date.now() - startTime
-    });
-
-    return files;
-}
-
-// Mapping: IiY→getProjectFiles, A→abortSignal, q→respectGitignore, K→gitFiles,
-//          SiY→getFilesUsingGit, Y→startTime, z→args, H→files, lx→runRipgrep,
-//          bJ→path, h6→getCwd, c→telemetry
-```
 
 **Ripgrep flags used:**
 | Flag | Purpose |
@@ -604,62 +445,6 @@ async function getProjectFiles(abortSignal, respectGitignore) {
 
 **What it does:** Loads `.ignore` and `.rgignore` files from the git root and project CWD. Caches the filter object per directory pair.
 
-```javascript
-// ============================================
-// loadIgnorePatterns - .ignore/.rgignore filter builder
-// Location: chunks.152.mjs:1055-1075
-// ============================================
-
-// ORIGINAL (for source lookup):
-function BAq(A, q) {
-    let K = `${A}:${q}`;
-    if (XIA === K) return JIA;
-    let Y = b1(), z = [".ignore", ".rgignore"],
-        w = [...new Set([A, q])], H = mAq.default(), $ = !1;
-    for (let _ of w) for (let J of z) {
-        let X = bJ.join(_, J);
-        if (Y.existsSync(X)) try {
-            let D = Y.readFileSync(X, { encoding: "utf8" });
-            H.add(D), $ = !0, h(`[FileIndex] loaded ignore patterns from ${X}`)
-        } catch {}
-    }
-    let O = $ ? H : null;
-    return JIA = O, XIA = K, O
-}
-
-// READABLE (for understanding):
-function loadIgnorePatterns(gitRoot, projectCwd) {
-    let cacheKey = `${gitRoot}:${projectCwd}`;
-    if (lastIgnoreCacheKey === cacheKey) return lastIgnorePatterns;  // Cache hit
-
-    let fs = getFileSystem();
-    let fileNames = [".ignore", ".rgignore"];
-    let searchDirs = [...new Set([gitRoot, projectCwd])];  // Deduplicate if same dir
-    let filter = ignoreLibrary.default();
-    let found = false;
-
-    for (let dir of searchDirs) {
-        for (let name of fileNames) {
-            let filePath = path.join(dir, name);
-            if (fs.existsSync(filePath)) {
-                try {
-                    filter.add(fs.readFileSync(filePath, "utf8"));
-                    found = true;
-                    log(`[FileIndex] loaded ignore patterns from ${filePath}`);
-                } catch { /* Silent failure: broken file = no patterns */ }
-            }
-        }
-    }
-
-    lastIgnorePatterns = found ? filter : null;
-    lastIgnoreCacheKey = cacheKey;
-    return lastIgnorePatterns;
-}
-
-// Mapping: BAq→loadIgnorePatterns, A→gitRoot, q→projectCwd, XIA→lastIgnoreCacheKey,
-//          JIA→lastIgnorePatterns, b1→getFileSystem, mAq→ignoreLibrary, bJ→path
-```
-
 **Cache key design:** `"${gitRoot}:${projectCwd}"` handles monorepo scenarios where git root ≠ working directory. If the user `cd`s to a subdirectory, both the key and the patterns update.
 
 ---
@@ -667,111 +452,6 @@ function loadIgnorePatterns(gitRoot, projectCwd) {
 ### 8. Dual-Mode Fuzzy Search (`uiY` / `searchFileIndex`)
 
 **What it does:** Executes the file search query against either the Rust native index or Fuse.js, with directory-prefix pre-filtering and test-file penalization.
-
-```javascript
-// ============================================
-// searchFileIndex - Rust or Fuse.js search with scoring
-// Location: chunks.152.mjs:1226-1273
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function uiY(A, q, K) {
-    if (A) try {
-        return A.search(K, aG1).map((_) => tU1(_.path, _.score))
-    } catch (O) {
-        h(`[FileIndex] Rust search failed, falling back to Fuse.js: ${O instanceof Error?O.message:String(O)}`), K1(O)
-    }
-    h("[FileIndex] Using Fuse.js fallback for search");
-    let Y = [...new Set(q)];
-    if (!K) {
-        let O = new Set;
-        for (let _ of Y) {
-            let J = _.split(bJ.sep)[0];
-            if (J) { if (O.add(J), O.size >= aG1) break }
-        }
-        return [...O].sort().map(tU1)
-    }
-    let z = Y.map((O) => ({ path: O, filename: bJ.basename(O), testPenalty: O.includes("test") ? 1 : 0 })),
-        w = K.lastIndexOf(bJ.sep);
-    if (w > 2) z = z.filter((O) => { return O.path.substring(0, w).startsWith(K.substring(0, w)) });
-    let $ = new wy(z, {
-        includeScore: !0, threshold: 0.5,
-        keys: [{ name: "path", weight: 1 }, { name: "filename", weight: 2 }]
-    }).search(K, { limit: aG1 });
-    return $ = $.sort((O, _) => {
-        if (O.score === void 0 || _.score === void 0) return 0;
-        if (Math.abs(O.score - _.score) > 0.05) return O.score - _.score;
-        return O.item.testPenalty - _.item.testPenalty
-    }), $.map((O) => O.item.path).slice(0, aG1).map(tU1)
-}
-
-// READABLE (for understanding):
-async function searchFileIndex(rustIndex, jsFileList, query) {
-    // Path 1: Rust index (O(log n) or better)
-    if (rustIndex) {
-        try {
-            return rustIndex.search(query, MAX_RESULTS)
-                .map((r) => formatFileSuggestion(r.path, r.score));
-        } catch (error) {
-            log(`[FileIndex] Rust search failed, falling back to Fuse.js: ${error.message}`);
-            // Fall through to Fuse.js
-        }
-    }
-
-    // Path 2: Fuse.js fallback
-    let uniqueFiles = [...new Set(jsFileList)];
-
-    // Special case: empty query → show root directories only
-    if (!query) {
-        let rootDirs = new Set();
-        for (let file of uniqueFiles) {
-            let rootDir = file.split(path.sep)[0];
-            if (rootDir) {
-                rootDirs.add(rootDir);
-                if (rootDirs.size >= MAX_RESULTS) break;
-            }
-        }
-        return [...rootDirs].sort().map(formatFileSuggestion);
-    }
-
-    // Prepare search candidates with test penalty
-    let candidates = uniqueFiles.map((file) => ({
-        path: file,
-        filename: path.basename(file),
-        testPenalty: file.includes("test") ? 1 : 0  // Derank test files
-    }));
-
-    // Directory prefix filter: if query has a sep > 2 chars, filter by matching prefix
-    let lastSep = query.lastIndexOf(path.sep);
-    if (lastSep > 2) {
-        candidates = candidates.filter((c) =>
-            c.path.substring(0, lastSep).startsWith(query.substring(0, lastSep))
-        );
-    }
-
-    // Fuse.js fuzzy search
-    let results = new Fuse(candidates, {
-        includeScore: true,
-        threshold: 0.5,
-        keys: [
-            { name: "path", weight: 1 },
-            { name: "filename", weight: 2 }  // Filename match is 2x more important
-        ]
-    }).search(query, { limit: MAX_RESULTS });
-
-    // Sort: primary = score (ascending), secondary = testPenalty (penalize tests)
-    results.sort((a, b) => {
-        if (Math.abs(a.score - b.score) > 0.05) return a.score - b.score;
-        return a.item.testPenalty - b.item.testPenalty;
-    });
-
-    return results.map((r) => r.item.path).slice(0, MAX_RESULTS).map(formatFileSuggestion);
-}
-
-// Mapping: uiY→searchFileIndex, A→rustIndex, q→jsFileList, K→query, aG1→MAX_RESULTS,
-//          tU1→formatFileSuggestion, wy→Fuse, bJ→path, Y→uniqueFiles, z→candidates,
-//          w→lastSep, $→results
-```
 
 **Search algorithm — Fuse.js path:**
 
@@ -784,7 +464,7 @@ async function searchFileIndex(rustIndex, jsFileList, query) {
 | 5 | Fuse.js with filename:path 2:1 weight | Filename match > path match |
 | 6 | Stable sort: score then testPenalty | Preserve score order, tests sink |
 
-**Score threshold `0.05`:** Scores within 5% are considered "ties". In ties, test files are pushed to the bottom. This prevents a test file with a slightly better fuzzy score from displacing a production file.
+**Score threshold `0.05`:** Scores within 5% are considered "ties". In ties, test files are pushed to the bottom.
 
 ---
 
@@ -814,61 +494,7 @@ function formatFileSuggestion(filePath, score) {
 ```
 
 **Why `id: "file-${filePath}"`?**
-The `file-` prefix is checked in the UI rendering layer (`vlY` / `suggestionItemComponent`) to select the correct rendering branch. Items with `id.startsWith("file-")` get file-specific icon and description truncation treatment.
-
----
-
-## Data Flow: Complete Pipeline
-
-```
-[User types "@src"]
-        │
-        ▼
-useAutocompleteInput (WGq)    chunks.183.mjs
-  ├── await NgA("src", mcpResources, agents)
-  │       │
-  │       ├── gAq("src")          chunks.152.mjs:1300
-  │       │     ├── [cache check] is sG1 null && tG1 empty?
-  │       │     │     YES → refreshIndexCache() → await O91
-  │       │     │           ↓ rebuildIndex() (xiY)
-  │       │     │               ├── getProjectFiles(signal, true)   [IiY]
-  │       │     │               │     ├── getFilesUsingGit(signal, true)   [SiY]
-  │       │     │               │     │     ├── git ls-files (5s timeout)
-  │       │     │               │     │     ├── apply .ignore patterns
-  │       │     │               │     │     └── kick off background untracked fetch
-  │       │     │               │     └── OR: runRipgrep() if not git repo
-  │       │     │               ├── getNonProjectFiles(cwd)         [hiY]
-  │       │     │               └── getFileIndex()                  [LiY]
-  │       │     │                     ├── Rust: FileIndex.loadFromFileList()
-  │       │     │                     └── OR: jsFileList = allFiles
-  │       │     │
-  │       │     └── [cache ready] → searchFileIndex(sG1, tG1, "src")   [uiY]
-  │       │           ├── Rust: sG1.search("src", 15) → [{path, score}]
-  │       │           └── OR: Fuse.js with filename:2, path:1 weights
-  │       │           → returns [{id:"file-src/...", displayText:"src/..."}] x15
-  │       │
-  │       ├── MCP resource list → Fuse.js search of {displayText, name, uri}
-  │       │
-  │       └── Agent suggestions  → A0z(agents, "src")
-  │
-  └── Merge + score all results → slice(0, MAX_SUGGESTIONS) → return
-
-        │
-        ▼
-renderSuggestionList (rU1)    chunks.151.mjs:1758
-  ├── rows = terminalRows - 3 (max 6 visible)
-  ├── scroll window calculation
-  └── visibleItems.map(vlY)
-
-        │
-        ▼
-suggestionItemComponent (vlY)  chunks.151.mjs:1819
-  ├── item.id.startsWith("file-") → file branch
-  │     └── icon + filename + description (truncated to 20 chars)
-  ├── item.id.startsWith("mcp-resource-") → MCP branch
-  │     └── truncate displayText to 30 chars
-  └── fallback → generic displayText with color
-```
+The `file-` prefix is checked in the UI rendering layer (`vlY` / `suggestionItemComponent`) to select the correct rendering branch.
 
 ---
 

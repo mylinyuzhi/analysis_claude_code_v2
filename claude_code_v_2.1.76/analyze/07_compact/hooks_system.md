@@ -7,8 +7,9 @@ The **Hooks System** provides lifecycle integration points for compaction, allow
 Hooks are implemented as **callback functions** or **shell commands** registered in `~/.claude/hooks.json`. During compaction, the system executes matching hooks synchronously, collects their outputs, and integrates results back into the compaction process.
 
 **Key characteristics:**
-- **Two hook points**: PreCompact (before summarization) and SessionStart (after compaction)
+- **Three hook points**: PreCompact (before summarization), PostCompact (after compaction), and SessionStart (after compaction)
 - **Custom instructions injection**: PreCompact hooks can add instructions to summary request
+- **Post-compaction notifications**: PostCompact hooks receive compaction results and can perform cleanup/logging
 - **User feedback**: Hooks can return display messages shown to user
 - **Timeout protection**: Default 10-minute timeout prevents hanging
 - **Async execution**: Hooks run concurrently via `Promise.all()`
@@ -55,7 +56,15 @@ performFullCompaction()
 ├─[Phase 3-4] LLM Summary Generation + State Collection
 │   └─ (hooks don't run here)
 │
-└─[Phase 5] Post-Compact Hooks (Session Start)
+├─[Phase 5] Post-Compact Hooks
+│   ├─ executePostCompactHooks({ trigger: "auto"|"manual", success: true|false, summary: string })
+│   ├─ Hook execution:
+│   │   ├─ Find matching "PostCompact" hooks in registry
+│   │   ├─ Execute all hooks concurrently (fire-and-forget, no required output)
+│   │   └─ Hooks can perform cleanup, logging, or post-compaction tasks
+│   └─ Continue regardless of hook results (errors don't block)
+│
+└─[Phase 6] Session Start Hooks
     ├─ executeSessionStartHooks("compact", { model })
     ├─ Hook execution:
     │   ├─ Find matching "SessionStart" hooks in registry
@@ -535,10 +544,11 @@ The following symbols should be added to `symbol_index_core_features.md` under *
 The Hooks System provides **lifecycle integration points** for compaction, enabling users to customize behavior (PreCompact) and perform initialization tasks (SessionStart). By supporting multiple hook types (callback, command), timeouts, parallel execution, and graceful error handling, the system balances flexibility with safety.
 
 **Key takeaways:**
-1. **Two hook points**: PreCompact (modify) and SessionStart (observe)
+1. **Three hook points**: PreCompact (modify), PostCompact (notify), and SessionStart (observe)
 2. **Custom instructions injection**: PreCompact hooks can augment summary prompt
-3. **Parallel execution**: All hooks run concurrently for performance
-4. **Timeout protection**: Default 10 minutes prevents hanging
-5. **Graceful failure**: Hook errors don't crash compaction
+3. **Post-compaction notifications**: PostCompact hooks receive compaction results for logging/cleanup
+4. **Parallel execution**: All hooks run concurrently for performance
+5. **Timeout protection**: Default 10 minutes prevents hanging
+6. **Graceful failure**: Hook errors don't crash compaction
 
 This architecture enables **extensible compaction** - users can customize behavior without modifying core Claude Code source.

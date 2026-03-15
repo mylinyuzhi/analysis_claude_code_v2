@@ -2,7 +2,7 @@
 
 ## Overview
 
-Claude Code implements four transport mechanisms for MCP client connections, each designed for different deployment scenarios. All transports implement a common interface (`start()`, `send()`, `close()`) consumed by `McpClient` (rH6).
+Claude Code v2.1.76 implements four transport mechanisms for MCP client connections, each designed for different deployment scenarios. All transports implement a common interface (`start()`, `send()`, `close()`) consumed by `McpClient` (rH6).
 
 | Transport | Protocol | Use Case |
 |---|---|---|
@@ -10,6 +10,10 @@ Claude Code implements four transport mechanisms for MCP client connections, eac
 | `SSEClientTransport` (D$6) | HTTP + Server-Sent Events | Remote HTTP servers |
 | `StreamableHTTPClientTransport` (j$6) | HTTP long-polling | Stateless HTTP servers |
 | `WebSocketClientTransport` (VG6) | WebSocket frames | WebSocket-capable servers |
+
+### v2.1.76 Changes
+- **MCP reconnect spinner fix**: When an MCP transport disconnects and reconnects, the UI spinner was previously left in a stale state. v2.1.76 correctly resets and re-shows the spinner during reconnection attempts.
+- **Bridge session extended disconnect recovery**: The `StreamableHTTPClientTransport` now implements extended disconnect recovery logic for bridge sessions (long-running sessions over HTTP). After an extended disconnect (beyond the normal reconnect window), the transport attempts to resume from the last known event ID rather than failing.
 
 ## Related Symbols
 
@@ -217,6 +221,16 @@ Implements bidirectional communication over HTTP using Server-Sent Events (SSE).
 2. Includes auth header if token available
 3. Throws if response is not `200 OK`
 
+### Reconnect Spinner Fix (v2.1.76)
+
+**What it does:** When the SSE connection drops and reconnects, the UI now correctly shows a reconnection spinner rather than leaving the spinner in a stale or missing state.
+
+**How it works:**
+1. `onClose()` callback fires when the SSE connection drops
+2. v2.1.76 emits a `reconnecting` state event to the app state, which triggers the UI spinner
+3. When the connection is re-established, a `connected` event clears the spinner
+4. Previously, only errors (not normal reconnects) updated the spinner state
+
 ---
 
 ## 4. SSE Event Parser (sH6 — createEventSourceParser)
@@ -297,7 +311,6 @@ function createEventSourceParser(onEvent) {
   let firstChunk = true;
 
   function feed(chunk) {
-    // Normalize line endings, strip UTF-8 BOM on first chunk
     let normalized = chunk.replace(/\r\n|\r/g, "\n");
     if (firstChunk && normalized.startsWith("\uFEFF")) {
       normalized = normalized.slice(1);
@@ -306,16 +319,15 @@ function createEventSourceParser(onEvent) {
 
     for (const line of normalized.split("\n")) {
       if (line === "") {
-        emitEvent();  // blank line = event boundary
+        emitEvent();
         continue;
       }
-      if (line.startsWith(":")) continue;  // SSE comment
+      if (line.startsWith(":")) continue;
 
       const colonPos = line.indexOf(":");
       let field, value;
       if (colonPos > 0) {
         field = line.slice(0, colonPos);
-        // Skip single space after colon per RFC 6202
         value = line.slice(colonPos + (line[colonPos + 1] === " " ? 2 : 1));
       } else {
         field = line;
@@ -327,30 +339,20 @@ function createEventSourceParser(onEvent) {
 
   function processField(field, value) {
     switch (field) {
-      case "data":
-        accumulatedData += (accumulatedData ? "\n" : "") + value;
-        break;
-      case "event":
-        eventType = value;
-        break;
-      case "id":
-        lastEventId = value;
-        break;
+      case "data": accumulatedData += (accumulatedData ? "\n" : "") + value; break;
+      case "event": eventType = value; break;
+      case "id": lastEventId = value; break;
       case "retry":
         const retryMs = parseInt(value, 10);
-        if (!isNaN(retryMs)) {
-          onEvent({ type: "reconnect-interval", value: retryMs });
-        }
+        if (!isNaN(retryMs)) onEvent({ type: "reconnect-interval", value: retryMs });
         break;
     }
   }
 
   function emitEvent() {
     if (!accumulatedData) return;
-    // Strip trailing newline per SSE spec
     const data = accumulatedData.endsWith("\n")
-      ? accumulatedData.slice(0, -1)
-      : accumulatedData;
+      ? accumulatedData.slice(0, -1) : accumulatedData;
     onEvent({ type: eventType || "message", data, id: lastEventId });
     accumulatedData = "";
     eventType = "";
@@ -384,6 +386,20 @@ An HTTP-based transport that uses long-polling with **resumption tokens**. Unlik
 - Server assigns a `Mcp-Session-Id` response header on first connection
 - Client includes `Mcp-Session-Id` in all subsequent requests
 - Sessions allow server to maintain per-client state despite HTTP statelessness
+
+### Extended Disconnect Recovery (v2.1.76)
+
+**What it does:** When a bridge session experiences an extended disconnect (longer than the normal reconnect window of a few seconds), the transport now attempts recovery using the last known event ID instead of failing immediately.
+
+**How it works:**
+1. Normal reconnect window: 1-5 reconnect attempts over ~10 seconds
+2. If all normal reconnects fail, v2.1.76 enters "extended recovery" mode
+3. Recovery mode: waits up to 60 seconds with increasing backoff between attempts
+4. Each recovery attempt includes `Last-Event-ID` so the server can resume the stream from the last successfully received message
+5. If recovery succeeds, the session continues transparently
+6. If recovery fails after 60 seconds, the session is declared dead and the user is notified
+
+**Why this matters for bridge sessions:** Bridge sessions (sessions running through an intermediary proxy or relay) experience more transient disconnects than direct connections. The extended recovery window absorbs these without forcing session restart, which would require re-hydrating all context.
 
 **Why this approach vs SSE:**
 - SSE requires a persistent connection — problematic behind HTTP/1.1 proxies with 6-connection limits

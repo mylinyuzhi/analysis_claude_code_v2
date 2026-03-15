@@ -2,7 +2,7 @@
 
 ## Module Overview
 
-Claude Code v2.1.38 natively supports "Thinking Mode" (Extended Thinking). This allows the model to output its internal reasoning process in a dedicated block before producing tool calls or text responses. The system manages a "Thinking Budget" and introduces "Adaptive Thinking" and "Effort Levels" to control the depth of reasoning.
+Claude Code v2.1.76 natively supports "Thinking Mode" (Extended Thinking). This allows the model to output its internal reasoning process in a dedicated block before producing tool calls or text responses. The system manages a "Thinking Budget" and introduces "Adaptive Thinking" and "Effort Levels" to control the depth of reasoning.
 
 ## Related Symbols
 
@@ -20,7 +20,7 @@ Key state keys and headers:
 ## Thinking Lifecycle
 
 1.  **Activation**: Thinking is enabled if the model supports it and `thinkingEnabled` is true.
-2.  **Adaptive Mode**: v2.1.38 prefers `thinking: { type: "adaptive" }` which allows the model to dynamically scale its reasoning.
+2.  **Adaptive Mode**: v2.1.76 prefers `thinking: { type: "adaptive" }` which allows the model to dynamically scale its reasoning.
 3.  **Effort Injection**: If an `effortValue` is set, it is passed via the `effort` beta header.
 4.  **Budgeting**: The `maxThinkingTokens` parameter is set. If the session is non-interactive or in `fast_mode`, this budget is often set to `0`.
 5.  **Streaming**: The API returns blocks of type `thinking`. These are captured and displayed in the UI with a "Thinking..." spinner.
@@ -55,7 +55,7 @@ function getThinkingConfig(appState, modelLimit) {
     let effort = appState.effortValue || "high";
     
     return {
-        type: "adaptive", // Preferred in v2.1.38
+        type: "adaptive", // Preferred in v2.1.76
         budget_tokens: Math.min(appState.maxThinkingTokens, modelLimit - 1),
         effort: effort
     };
@@ -90,4 +90,4 @@ Thinking mode is particularly powerful for complex tool use. The model can reaso
 - **Error Interpretation**: Analyzing stack traces before attempting a fix.
 - **Refactoring**: Mapping dependencies before editing multiple files.
 
-**Key insight:** v2.1.38 moves away from static reasoning limits to **Adaptive Thinking**. By combining `thinking: adaptive` with `effort` levels, Claude Code allows the model to "try harder" on difficult tasks without wasting tokens on simple ones.
+**Key insight:** v2.1.76 moves away from static reasoning limits to **Adaptive Thinking**. By combining `thinking: adaptive` with `effort` levels, Claude Code allows the model to "try harder" on difficult tasks without wasting tokens on simple ones.

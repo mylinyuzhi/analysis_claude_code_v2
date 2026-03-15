@@ -1,7 +1,7 @@
 # System Prompts & Context Injection
 
 > **Module**: Agent Teams - Teammate Prompt Engineering
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: How teammates receive identity, role, and team context
 
 ---

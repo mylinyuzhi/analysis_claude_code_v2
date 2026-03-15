@@ -2,7 +2,9 @@
 
 ## Module Overview
 
-Claude Code v2.1.38 features a sophisticated keybinding system that supports "Chords" (multi-key sequences like `Ctrl+K, S`). This allows for a much larger set of shortcuts without conflicting with standard terminal or OS keys.
+Claude Code v2.1.76 features a sophisticated keybinding system that supports "Chords" (multi-key sequences like `Ctrl+K, S`). This allows for a much larger set of shortcuts without conflicting with standard terminal or OS keys.
+
+**Version**: Claude Code v2.1.76
 
 ## Related Symbols
 
@@ -14,6 +16,10 @@ Key functions and constants in this document:
 - `CHORD_TIMEOUT_MS` (C6Y) - The 1000ms window to complete a chord
 - `loadKeybindings` (YS1) - Function that parses the JSON configuration
 - `watchKeybindingsFile` (Lq7) - Enables hot-reloading of the config
+- `isPrefixMatch` (tN5) - Checks if keystroke sequence is a prefix of a registered chord
+- `isExactMatch` (eN5) - Checks if keystroke sequence exactly matches a registered chord
+- `matchKeystroke` (tK6) - Main keystroke matching orchestrator
+- `setPendingChord` (P) - Manages chord timeout lifecycle
 
 ## Chord State Machine (Algorithm)
 
@@ -52,29 +58,29 @@ function x6Y(A) {
 // READABLE (for understanding):
 function handleKeyEvent(key, state, keybindings) {
     const sequence = [...state.currentSequence, key];
-    
+
     // Check for exact match
     const action = keybindings.find(kb => isDeepEqual(kb.chord, sequence));
     if (action) {
         executeAction(action.name);
         return { currentSequence: [], state: 'idle' };
     }
-    
+
     // Check if this is a prefix of a longer chord
-    const isPrefix = keybindings.some(kb => 
-        kb.chord.length > sequence.length && 
+    const isPrefix = keybindings.some(kb =>
+        kb.chord.length > sequence.length &&
         isPrefixOf(sequence, kb.chord)
     );
-    
+
     if (isPrefix) {
         // Start/Continue chord sequence
-        return { 
-            currentSequence: sequence, 
+        return {
+            currentSequence: sequence,
             state: 'chord_started',
             timer: startTimeout(1000, () => cancelChord())
         };
     }
-    
+
     // No match and not a prefix
     return { currentSequence: [], state: 'idle' };
 }
@@ -84,7 +90,7 @@ function handleKeyEvent(key, state, keybindings) {
 
 ## Hot-Reloading Configuration
 
-The system monitors `~/.claude/keybindings.json` using `fs.watch` (abstracted as `Lq7`). When the file is saved:
+The system monitors `~/.claude/keybindings.json` using chokidar (wrapped as `Lq7`). When the file is saved:
 1. `watchKeybindingsFile` triggers.
 2. `loadKeybindings` re-reads the JSON.
 3. The new bindings are injected into the React context.
@@ -92,16 +98,20 @@ The system monitors `~/.claude/keybindings.json` using `fs.watch` (abstracted as
 
 ## Configuration Format
 
-Keybindings are stored as an array of objects:
+Keybindings are stored as an array of context objects:
 ```json
 [
   {
-    "name": "external_editor",
-    "chord": ["ctrl+g"]
+    "context": "Chat",
+    "bindings": {
+      "ctrl+g": "chat:externalEditor"
+    }
   },
   {
-    "name": "save_to_notebook",
-    "chord": ["ctrl+k", "n"]
+    "context": "Global",
+    "bindings": {
+      "ctrl+k ctrl+c": "app:clearHistory"
+    }
   }
 ]
 ```
@@ -280,7 +290,7 @@ function isExactMatch(currentSequence, keybinding) {
 // Mapping: eN5→isExactMatch, A→currentSequence, q→keybinding, K→i, Y→currentKey, z→targetKey
 ```
 
-### Building the Pending Chord Array
+### Main Matching Orchestrator (tK6)
 
 When a key event arrives, the main matching function `tK6()` builds the pending chord array and checks for matches:
 
@@ -473,46 +483,7 @@ function extractKeyName(inputStr, keyEvent) {
 - The `useEffect` cleanup in `dX` (chunks.110.mjs:967-969) clears the timer when the component unmounts.
 - However, focus changes within the app (e.g., switching from Chat to Artifacts pane) do not unmount the keybinding provider.
 
-```javascript
-// ============================================
-// dX - KeybindingSetup component with cleanup
-// Location: chunks.110.mjs:962-969
-// ============================================
-
-// ORIGINAL (for source lookup):
-return pX.useEffect(() => {
-    Lq7();
-    let W = Rq7((G) => {
-        w(!0), Y(G), h(`[keybindings] Reloaded: ${G.bindings.length} bindings, ${G.warnings.length} warnings`)
-    });
-    return () => {
-        W(), M()
-    }
-}, [M])
-
-// READABLE (for understanding):
-return useEffect(() => {
-    // Start watching keybindings file for changes
-    startFileWatcher();
-
-    // Subscribe to reload events
-    let unsubscribe = subscribeToReload((newConfig) => {
-        setReloaded(true);
-        updateBindings(newConfig);
-        debug(`[keybindings] Reloaded: ${newConfig.bindings.length} bindings, ${newConfig.warnings.length} warnings`);
-    });
-
-    // Cleanup on unmount
-    return () => {
-        unsubscribe();
-        clearChordTimer(); // This clears pending chord state
-    };
-}, [clearChordTimer]);
-
-// Mapping: Lq7→startFileWatcher, W→unsubscribe, Rq7→subscribeToReload, G→newConfig, w→setReloaded, Y→updateBindings, M→clearChordTimer
-```
-
-**Trade-off**: This means a chord can persist across pane switches. While potentially surprising, it allows advanced workflows like "press Ctrl+K, switch to Artifacts pane, press S" (if such a cross-pane chord existed). In practice, most chords are completed within a single pane.
+**Trade-off**: This means a chord can persist across pane switches. While potentially surprising, it allows advanced workflows like "press Ctrl+K, switch to a pane, press S" (if such a cross-pane chord existed). In practice, most chords are completed within a single pane.
 
 ### Chord State During Hot-Reload
 

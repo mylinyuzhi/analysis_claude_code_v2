@@ -2,7 +2,7 @@
 
 > **Module**: Agent Teams - Backend Execution
 > **Source**: `chunks.131.mjs` (lines 3-1000), `chunks.129.mjs` (lines 1073-1420), `chunks.123.mjs` (lines 242-460)
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 
 ---
 

@@ -1,50 +1,106 @@
-# File Index (Claude Code 2.1.38)
+# File Index (Claude Code 2.1.76)
 
 > Mapping of chunk files to their primary functional content.
-> Total Chunks: 190
+> Total Chunks: 198
 
 | File | Primary Module(s) | Key Symbols / Functionality |
 |------|-------------------|-----------------------------|
 | `chunks.1.mjs` | Global State | `globalState` (`o6`): `hasExitedPlanMode`, `needsPlanModeExitAttachment`, plan mode flags |
 | `chunks.14.mjs` | Mode Display | `CQ` (mode name), `Rv1` (mode icon), `cP` (mode color), `Lw8` (isDefaultMode) |
-| `chunks.54.mjs` | Keybindings | `loadKeybindings`, `watchKeybindingsFile` |
-| `chunks.87.mjs` | Auto Memory | `MEMORY.md` logic and instructions |
-| `chunks.107.mjs` | UI / Plan | `HX6` RejectedPlanViewer component; tool result routing |
-| `chunks.110.mjs` | Keybindings UI | `KeybindingSetup`, `handleKeyEvent` (chord processing) |
-| `chunks.123.mjs` | Agent Teams | `awaitingPlanApproval` task state management |
-| `chunks.126.mjs` | Remote Sessions | `sendEventToRemoteSession`, `updateSessionTitle` |
-| `chunks.129.mjs` | Agent Teams / Plan | `PlanApprovalRequestMessageSchema` (Vx4), `PlanApprovalResponseMessageSchema` (Nx4), `$fY`, `OfY` |
-| `chunks.131.mjs` | Agent Teams / Plan | `TmuxBackend`, `swarm-view` orchestration; `Au4` (buildPermissionCliArgs); `Ku4.spawn()` (PaneBackendExecutor); `hu4` (initializeInProcessTeammate with planModeRequired); `lVY`/`dVY`/`cVY` (spawn handlers) |
-| `chunks.139.mjs` | Plan Mode / ExitPlanMode | `ExitPlanModeTool` (Nj), `Kd4`, `Yd4`, plan approval request send |
-| `chunks.140.mjs` | Plan Mode / EnterPlanMode | `EnterPlanModeTool` (kg1), `getPlanDesignAgentCount`, `getPlanExploreAgentCount`, `isPlanModeInterviewPhase` |
-| `chunks.141.mjs` | Task System / Teams | `TaskUpdate`, `TaskList`, `TeamCreateTool`, `SendMessageTool`, `AhY` (handlePlanApproval), `qhY` (handlePlanRejection) |
-| `chunks.142.mjs` | Main Loop / Attachments | `ihY` (plan_mode attachment generator), `nhY` (plan_mode_exit generator), `SIY` (verify_plan stub), `ii4` constants |
-| `chunks.144.mjs` | Remote / MCP | WebSocket Transport (Lower level) |
-| `chunks.145.mjs` | Remote / MCP | WebSocket Transport (Higher level) |
-| `chunks.149.mjs` | Fast Mode | `ANTHROPIC_SMALL_FAST_MODEL` configuration |
-| `chunks.153.mjs` | Fast Mode / UI | Fast mode status display and toggle hints |
-| `chunks.169.mjs` | Auto Memory | `auto_memory` feature registration |
-| `chunks.173.mjs` | Attachments / Plan | `azz`/`szz`/`ezz`/`A2z`/`q2z` plan reminder builders; `plan_mode`, `plan_mode_reentry`, `plan_mode_exit` attachment processing |
-| `chunks.179.mjs` | Fast Mode | Main loop mode switching logic |
-| `chunks.183.mjs` | Mode Cycle / UI | `hf1` (getNextMode), `FGq` (mode cycle wrapper), footer mode indicator rendering |
-| `chunks.185.mjs` | REPL / UI | Mode cycle handler (Shift+Tab), `lastPlanModeUse` tracking, permission dialog handling |
-| `chunks.186.mjs` | InboxPoller | Plan approval response processing from mailbox (teammate inbox poller) |
-| `chunks.48.mjs` | Agent Teams / Plan | `MC1` (isPlanModeRequired): reads `planModeRequired` from dynamic context → static context → env var |
+| `chunks.44.mjs` | Sandbox Core | `buildSeatbeltProfile`, `wrapWithMacOSSandbox`, `wrapWithLinuxSandbox`, `SandboxViolationStore` |
+| `chunks.45.mjs` | Sandbox Module | `wrapWithSandbox`, `isSandboxingEnabled`, sandbox initialization and cleanup |
+| `chunks.46.mjs` | Sandbox Settings | `isSandboxingEnabled` (public), `isManagedDomainsOnlyPolicy`, sandbox config builders |
+| `chunks.47.mjs` | Sandbox Init / Model | `initializeSandboxFromSettings`, `selectModelForMode`, `getSystemPrompt`, `calculatePromptHash` |
+| `chunks.48.mjs` | Plan Mode Context | `isPlanModeRequired` (`MC1`), `isStructuredTasksEnabled` (`jH`), `TodoWriteTool`, task dependency funcs |
 | `chunks.52.mjs` | UI / Theme | TUI color palette definitions; `planMode` color key mapped to 6 teal/cyan values per theme |
-| `chunks.132.mjs` | Task Tool / Plan | Task tool `call()` handler; `mode="plan"` converts to `plan_mode_required: true` for spawn |
-| `chunks.151.mjs` | UI / Suggestions | `EhA` (getPromptSuggestionBlocker): suppresses inline prompt suggestions when `mode === "plan"` |
-| `chunks.189.mjs` | CLI / Teams | Swarm CLI arguments (`--teammate-mode`); applies `--plan-mode-required` to dynamic team context |
+| `chunks.53.mjs` | Keybindings Core | `parseKeystroke`, `parseChordString`, `resolveKeystroke`, `KeybindingContext` |
+| `chunks.54.mjs` | Keybindings Config | `loadKeybindingsAsync`, `watchKeybindingsFile`, `validateKeybindingsComprehensive` |
+| `chunks.72.mjs` | API Retry | `withApiRetry` (`V26`): retry logic with exponential backoff for LLM API calls |
+| `chunks.74.mjs` | Tool Registry | `findTool` (`Tv`), `toolMatchesName` (`d39`): tool lookup and matching |
+| `chunks.75.mjs` | Model / Thinking | `modelSupportsThinking`, `getInitialThinkingEnabled`, `getSettingsState`, `isOpus46Model` |
+| `chunks.76.mjs` | Grep/Glob Tools | `GrepTool` (`tS`), `GlobTool` (`WB`), grep/glob input schemas |
+| `chunks.79.mjs` | MCP Core | `McpClient`, `StdioClientTransport`, `LineBuffer`, `createEventSourceParser` |
+| `chunks.80.mjs` | MCP Advanced | `SSEClientTransport`, `StreamableHTTPClientTransport`, `RemoteSessionManager` |
+| `chunks.87.mjs` | Auto Memory | `MEMORY.md` logic, `getAutoMemoryDirectory`, `buildMemoryPrompt`, `isAutoMemoryEnabled` |
+| `chunks.88.mjs` | Plan File / Tasks | Plan file I/O (`pD`, `uW`), task schemas, `getLargeMemoryFiles` |
+| `chunks.89.mjs` | Task/Agent Core | Tool name constants, task creation/management, background task execution, tool sets |
+| `chunks.90.mjs` | Agent Definitions | Built-in agents: `GENERAL_PURPOSE_AGENT`, `EXPLORE_AGENT`, `PLAN_AGENT`, `BASH_AGENT`, `CLAUDE_CODE_GUIDE_AGENT`; effort funcs |
+| `chunks.91.mjs` | Agent Loading | `mergeAgentDefinitions`, `loadAgentDefinitions`, `parseAgentFromJson` |
+| `chunks.107.mjs` | UI / Plan | `HX6` RejectedPlanViewer component; tool result routing |
+| `chunks.109.mjs` | Telemetry Internal | `logToInternalCollector`, `initInternalTelemetry` |
+| `chunks.110.mjs` | Keybindings UI | `KeybindingSetup`, `handleKeyEvent` (chord processing) |
+| `chunks.123.mjs` | Agent Teams | `awaitingPlanApproval` task state management; in-process teammate lifecycle |
+| `chunks.126.mjs` | Remote Sessions | `sendEventToRemoteSession`, `updateSessionTitle`, `hydrateSessionState` |
+| `chunks.129.mjs` | Agent Teams / Plan | `PlanApprovalRequestMessageSchema` (Vx4), `PlanApprovalResponseMessageSchema` (Nx4); mailbox system |
+| `chunks.130.mjs` | Subagent Runner | `agentLoopRunner` (`dR`), `renderToolUseResult`, sandbox permission sync |
+| `chunks.131.mjs` | Teams Backend | `TmuxBackend`, `ITermBackend`, spawn handlers, in-process teammate management |
+| `chunks.132.mjs` | Agent/Skill Tool | `AgentTool` (`rj1`), `SkillTool` (`wt`), task creation dispatch |
+| `chunks.133.mjs` | LSP Integration | `LspServerManager`, `createLspClient`, diagnostic handlers, LSP singleton |
+| `chunks.134.mjs` | Edit/Write Tools | `EditTool` (`sW`), `FileWriteTool` (`vj`), `NotebookEditTool` (`gd`), diff rendering |
+| `chunks.139.mjs` | Plan Mode / ExitPlanMode | `ExitPlanModeTool` (Nj), `AskUserQuestionTool` (`dW1`), plan approval request send |
+| `chunks.140.mjs` | Plan Mode / EnterPlanMode | `EnterPlanModeTool` (`kg1`), `LspTool`, task management tools |
+| `chunks.141.mjs` | Task System / Teams | `TaskUpdate`, `TaskList`, `TeamCreateTool`, `SendMessageTool`, plan approval handlers |
+| `chunks.142.mjs` | Main Loop / Attachments | Attachment producers, plan mode attachments, task reminder attachments, kill handlers |
+| `chunks.143.mjs` | Conversation Chain | `buildConversationChain` (`ld1`): assembles messages for LLM API calls |
+| `chunks.144.mjs` | Remote / MCP | SDK MCP transport, WebSocket transport (lower level) |
+| `chunks.145.mjs` | Remote / MCP | `initializeSdkMcpClients`, MCP transport (higher level) |
+| `chunks.146.mjs` | File Read Tool | `FileReadTool` (`i5`), PDF support, `analyzeConversationMemoryUsage`, read permissions |
+| `chunks.149.mjs` | Agent Loop Core | `mainAgentLoop` (`ZR`), `StreamingToolExecutor`, tool execution pipeline, `FAST_MODEL_NAME` |
+| `chunks.150.mjs` | Bash Tool Security | `bashSecurityValidation`, `completeReadonlyWhitelist`, all security validators |
+| `chunks.151.mjs` | App State | `createStore`, `AppStateProvider`, `useAppState`, initial app state |
+| `chunks.152.mjs` | Clear/Compact UI | `clearCommandHandler`, `clearConversation`, `clearSessionCaches` |
+| `chunks.153.mjs` | Fast Mode | `ANTHROPIC_SMALL_FAST_MODEL`, `isFastModeAvailable`, fast mode configuration |
+| `chunks.154.mjs` | Thinking State | `thinkingEnabled`, `maxThinkingTokens` state keys |
+| `chunks.155.mjs` | Memory UI | `memoryEditorModal`, memory management UI components |
+| `chunks.156.mjs` | MCP Elicitation | `setupElicitationRequestHandler` (`RV6`), elicitation request/response schemas |
+| `chunks.160.mjs` | UI / Message Grouping | `groupToolResults` (`q9q`), `extractToolInfo` (`QbA`), `isToolUseMessage` (`XJq`) |
+| `chunks.161.mjs` | UI / MessageList | `MessageList` (`P8z`), `MessageListImpl` (`g91`), full conversation rendering |
+| `chunks.162.mjs` | Bash UI | `BashOutputComponent` (`BYq`), bash tool output rendering |
+| `chunks.168.mjs` | Client Data | `getClientDataPromptVariant` (`COq`), `extractPromptVariant` |
+| `chunks.169.mjs` | LLM Core | `llmRequestGenerator` (`lOq`), `buildSystemPrompt`, `streamingQuery`, `contextCompactor` |
+| `chunks.170.mjs` | Bash Tool | Bash tool execution, background bash, `processMcpCliResult` |
+| `chunks.172.mjs` | UI Normalization | `normalizeDisplayMessages` (`t9q`), `reorderAttachments` (`dzz`), permission mode setup |
+| `chunks.173.mjs` | Message Processing | `normalizeMessages` (`WJ`), `handleStreamEvent`, `loadTranscript`, plan reminder builders |
+| `chunks.174.mjs` | File System / Config | `getGlobalConfig`, `updateGlobalConfig`, `getPermissionRules`, `checkPathDenyRule` |
+| `chunks.175.mjs` | MCP Hub | `McpHub` (`nXq`), MCP CLI subcommands, tool/resource listing |
+| `chunks.176.mjs` | MCP Context | `MCPContext` (`ZQA`), `onChangeAppStateHandler`, `ElicitationDialog`, RemoteSessionManager |
+| `chunks.178.mjs` | SDK Transport | `StdioStreamIO` (`Mc1`), `WebSocketTransport` (`Pc1`), `SdkUrlStreamIO` (`FQA`), permission handler |
+| `chunks.179.mjs` | SDK / Print Mode | `initializeSession` (`CJz`): processes initialize control request; Print mode agent loop |
+| `chunks.181.mjs` | Plan Mode UI | `QuestionForm` (`$Wq`), `SingleQuestionComponent` (`YWq`), `ReviewAnswersScreen` (`wWq`) |
+| `chunks.183.mjs` | Mode Cycle / UI | `cycleMode` (`hf1`), `cycleModeWithContext` (`FGq`), footer mode indicator rendering |
+| `chunks.184.mjs` | Auto-compact Logic | Auto-compact dispatcher, compaction trigger, circuit breaker (3 attempts) |
+| `chunks.185.mjs` | REPL / UI | Mode cycle handler (Shift+Tab), `lastPlanModeUse` tracking, permission dialog handling |
+| `chunks.186.mjs` | InboxPoller | Plan approval response processing from mailbox; `mergeMcpClients`, `mergeCommands` |
+| `chunks.188.mjs` | REPL Core | `REPL` (`TUA`), `handleSubmit` (`Z$`), `handleStreamedEvent` (`T11`); 9 dialog types |
+| `chunks.189.mjs` | CLI / Teams | Swarm CLI args; `streamJsonInputHandler` (`oGz`), `setEntrypoint` (`iGz`) |
+| `chunks.190.mjs` | Plan Mode Interview UI | `KIq` — main interview question component with tab/form navigation |
+| `chunks.191.mjs` | IDE / Selection UI | `dIq` — IDE selection indicator (lines selected, file path) |
+| `chunks.192.mjs` | Agent Teams UI | `qGz` — agent tab component (selected/viewed/idle state display) |
+| `chunks.193.mjs` | REPL Main Component | `Efz` — main REPL component orchestrating all session UI and state |
+| `chunks.194.mjs` | Tool Permission | `tuq` — async tool permission request handler (worker thread) |
+| `chunks.195.mjs` | MCP Notifications | `ZBq` — MCP notification handler (failed/disconnected server UI) |
+| `chunks.196.mjs` | Session Orchestrator | `ot8` — main session orchestrator (initializes agent loop, tools, MCP, remote) |
+| `chunks.197.mjs` | Wrong Directory UI | `evz` — dialog shown when resuming a session from wrong directory |
+| `chunks.198.mjs` | CLI Entry Point | `OVz` — main CLI entry function (Commander setup, all flags, subcommands) |
 | `cli.chunks.mjs` | CLI Entry | Root entry point, tool wiring, `bootstrapTelemetry` |
-| `chunks.160.mjs` | UI / Message Grouping | `q9q` (groupToolResults): Collapses repeated tool executions; `QbA` (extractToolInfo); `XJq` (isToolUseMessage); `dd1` (isHookAttachment) |
-| `chunks.161.mjs` | UI / MessageList | `P8z` (MessageList), `g91` (MessageListImpl), `n9q` (MessageComponent), `f8z` (isNotProgress); full conversation rendering with memoization |
-| `chunks.172.mjs` | UI / Display Normalization | `t9q` (normalizeDisplayMessages): Groups tool uses with hooks/results; `dzz` (reorderAttachments); `DJq` (createAssistantMessage); permission mode setup |
-| `chunks.173.mjs` | UI / Message Normalization | `WJ` (normalizeMessages): Transforms raw messages for display; `EN` (getVisibleMessagesAfterCompact); `qYq` (shouldShowMessageInChat); `iW1` (handleToolUseStream) |
-| `chunks.188.mjs` | UI / REPL Core | `TUA` (REPL): Main session orchestrator; `Z$` (handleSubmit); `f11` (getInputDialogType); `N11` (handleCancel); 9 dialog types; spinner logic (`PG`, `Gw`) |
-| `chunks.90.mjs` | SDK / Agent Definitions | Built-in agents: `Tn7` (BASH_AGENT), `ZB1` (GENERAL_PURPOSE_AGENT), `bv` (EXPLORE_AGENT), `PJ6` (PLAN_AGENT), `En7` (STATUSLINE_SETUP_AGENT), `Rn7` (CLAUDE_CODE_GUIDE_AGENT); `APA` (getBuiltinAgents) |
-| `chunks.91.mjs` | SDK / Agent Loading | `hh` (mergeAgentDefinitions), `KPA` (validateMcpServers), `un7` (filterByMcpServers), `TB1` (loadAgentDefinitions), `tL9` (parseAgentFromJson) |
-| `chunks.178.mjs` | SDK / Transport | `Mc1` (StdioStreamIO): Base NDJSON transport; `FQA` (SdkUrlStreamIO): WebSocket bridge; `Pc1` (WebSocketTransport): Connection management with reconnection |
-| `chunks.179.mjs` | SDK / Print Mode | `CJz` (initializeSession): Processes initialize control request; Print mode agent loop; output format routing |
-| `chunks.47.mjs` | SDK / User Agent | `Jr` (getExternalUserAgent): Builds user-agent header with SDK version; `A67` (calculatePromptHash); `cq6` (getSystemPrompt) |
+
+---
+
+## New Chunks (v2.1.76 vs v2.1.38)
+
+The following 8 chunks are new in v2.1.76 (vs 190 in v2.1.38):
+
+| Chunk | Primary Content |
+|-------|----------------|
+| `chunks.190.mjs` | Plan mode interview question UI component (`KIq`) |
+| `chunks.191.mjs` | IDE selection indicator UI (`dIq`) |
+| `chunks.192.mjs` | Agent team tab UI (`qGz`) |
+| `chunks.193.mjs` | Main REPL component (`Efz`) — expanded with cron, color, loop support |
+| `chunks.194.mjs` | Async tool permission request handler (`tuq`) |
+| `chunks.195.mjs` | MCP server notification UI (`ZBq`) |
+| `chunks.196.mjs` | Session orchestrator (`ot8`) — new entry for expanded session config |
+| `chunks.197.mjs` | Wrong-directory resume dialog (`evz`) |
+| `chunks.198.mjs` | CLI entry point (`OVz`) — new main function with all v2.1.76 flags |
 
 ---
 
@@ -54,11 +110,20 @@
 
 | File | Contents |
 |------|----------|
-| `overview.md` | SDK architecture overview, entry point detection, I/O transport, system prompts, error message adaptation |
-| `streaming_protocol.md` | Complete NDJSON message protocol, all message types, schemas, output format comparison |
-| `transport_layer.md` | StdioStreamIO, WebSocketTransport, SdkUrlStreamIO internals, reconnection, permission prompt tool |
-| `ui_linkage.md` | How SDK stream events drive UI state machine, thinking/text/tool streaming |
-| `agent_definitions.md` | Built-in agent definitions, custom agent schema, agent loading pipeline, SDK-specific filtering |
-| `sdk_tools_integration.md` | Tool execution in SDK mode, permission prompt tool, MCP tool integration, control_request flow |
-| `sdk_hooks.md` | SDK hook callback mechanism, hookCallbackIds, createHookCallback method, hook execution flow |
-| `sdk_session_management.md` | Session persistence, max turns, budget limits, auto-compact integration, JSON schema structured output |
+| `overview.md` | SDK architecture overview, SDKRateLimitInfo types, `supportsEffort` field |
+| `streaming_protocol.md` | Complete NDJSON message protocol, all message types, schemas |
+| `transport_layer.md` | StdioStreamIO, WebSocketTransport, SdkUrlStreamIO internals |
+| `ui_linkage.md` | How SDK stream events drive UI state machine |
+| `agent_definitions.md` | Built-in agent definitions, `background: true` flag, `model` per-invocation |
+| `sdk_tools_integration.md` | Tool execution in SDK mode, permission prompt tool, MCP tool integration |
+| `sdk_hooks.md` | SDK hook callback mechanism, hookCallbackIds, createHookCallback method |
+| `sdk_session_management.md` | Session persistence, max turns, budget limits, `activeForm` no longer required |
+
+### 36_loop_cron/ - Loop/Cron Documentation
+
+| File | Contents |
+|------|----------|
+| `README.md` | Module overview: /loop command + CronCreate/Delete/List tools |
+| `implementation.md` | /loop command architecture: interval parsing, state management, error handling |
+| `cron_tools.md` | CronCreate/CronDelete/CronList tool definitions and schemas |
+| `integration.md` | How loop/cron integrates with agent loop, tools, and background agents |

@@ -1,4 +1,4 @@
-# Swarm Sandbox Permission Sync (Claude Code 2.1.38)
+# Swarm Sandbox Permission Sync (Claude Code 2.1.76)
 
 ## Overview
 

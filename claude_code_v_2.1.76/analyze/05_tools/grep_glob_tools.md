@@ -1,4 +1,4 @@
-# Grep and Glob Tools - Deep Analysis (Claude Code 2.1.38)
+# Grep and Glob Tools - Deep Analysis (Claude Code 2.1.76)
 
 > Complete analysis of file search tools: pattern matching, content search, output modes, and ripgrep integration.
 
@@ -106,19 +106,10 @@ const GrepTool = {
     isReadOnly: true,           // Never modifies files
 
     async call({ pattern, path, glob, output_mode, "-i": caseInsensitive, "-n": lineNumbers, "-C": context, "-B": beforeContext, "-A": afterContext }, context) {
-        // Build ripgrep arguments
         let args = buildRipgrepArgs(pattern, path, glob, output_mode, {
-            caseInsensitive,
-            lineNumbers,
-            context,
-            beforeContext,
-            afterContext
+            caseInsensitive, lineNumbers, context, beforeContext, afterContext
         });
-
-        // Execute ripgrep
         let result = await executeRipgrep(args);
-
-        // Parse and format output
         return formatGrepResult(result, output_mode);
     }
 }
@@ -214,11 +205,7 @@ const grepInputSchema = z.strictObject({
 // Input: { pattern: "TODO", output_mode: "files_with_matches" }
 // Output:
 {
-    files: [
-        "src/api.ts",
-        "src/utils.ts",
-        "test/api.test.ts"
-    ],
+    files: ["src/api.ts", "src/utils.ts", "test/api.test.ts"],
     totalFiles: 3
 }
 
@@ -226,11 +213,7 @@ const grepInputSchema = z.strictObject({
 // Input: { pattern: "console\\.log", output_mode: "count" }
 // Output:
 {
-    counts: {
-        "src/debug.ts": 15,
-        "src/logger.ts": 8,
-        "src/main.ts": 3
-    },
+    counts: { "src/debug.ts": 15, "src/logger.ts": 8, "src/main.ts": 3 },
     totalCount: 26
 }
 ```
@@ -256,26 +239,18 @@ const grepInputSchema = z.strictObject({
 
 // READABLE (for understanding):
 async function executeRipgrep(args) {
-    // Find ripgrep binary (may be bundled)
     let rgPath = getRipgrepPath();
 
-    // Spawn process
     let process = spawn(rgPath, args, {
         cwd: args.path || process.cwd(),
         maxBuffer: 10 * 1024 * 1024  // 10MB buffer
     });
 
-    // Collect output
     let stdout = '';
     let stderr = '';
 
-    for await (let chunk of process.stdout) {
-        stdout += chunk;
-    }
-
-    for await (let chunk of process.stderr) {
-        stderr += chunk;
-    }
+    for await (let chunk of process.stdout) stdout += chunk;
+    for await (let chunk of process.stderr) stderr += chunk;
 
     let exitCode = await process.exit;
 
@@ -286,53 +261,20 @@ async function executeRipgrep(args) {
         throw new Error(`ripgrep error: ${stderr}`);
     }
 
-    return {
-        output: stdout,
-        exitCode: exitCode,
-        hasMatches: exitCode === 0
-    };
+    return { output: stdout, exitCode, hasMatches: exitCode === 0 };
 }
 
 function buildRipgrepArgs(pattern, path, glob, outputMode, flags) {
-    let args = [
-        "--json",  // Machine-readable output
-        "--no-heading",  // Don't show file headers
-    ];
-
-    // Pattern
+    let args = ["--json", "--no-heading"];
     args.push(pattern);
-
-    // Path
     if (path) args.push(path);
-
-    // Glob filter
-    if (glob) {
-        args.push("--glob", glob);
-    }
-
-    // Case insensitive
-    if (flags.caseInsensitive) {
-        args.push("-i");
-    }
-
-    // Context lines
-    if (flags.context) {
-        args.push("-C", String(flags.context));
-    }
-    if (flags.beforeContext) {
-        args.push("-B", String(flags.beforeContext));
-    }
-    if (flags.afterContext) {
-        args.push("-A", String(flags.afterContext));
-    }
-
-    // Output mode
-    if (outputMode === "files_with_matches") {
-        args.push("--files-with-matches");
-    } else if (outputMode === "count") {
-        args.push("--count");
-    }
-
+    if (glob) args.push("--glob", glob);
+    if (flags.caseInsensitive) args.push("-i");
+    if (flags.context) args.push("-C", String(flags.context));
+    if (flags.beforeContext) args.push("-B", String(flags.beforeContext));
+    if (flags.afterContext) args.push("-A", String(flags.afterContext));
+    if (outputMode === "files_with_matches") args.push("--files-with-matches");
+    else if (outputMode === "count") args.push("--count");
     return args;
 }
 ```
@@ -365,15 +307,6 @@ WB = {
     strict: !0,
     async description() { return "Find files matching a pattern" },
     async prompt() { return getGlobToolPrompt() },
-    userFacingName: getGlobUserFacingName,
-    getToolUseSummary: getGlobSummary,
-    getActivityDescription(A) {
-        let q = getGlobSummary(A);
-        return q ? `Finding ${q}` : "Finding files"
-    },
-    isEnabled() { return !0 },
-    get inputSchema() { return N99() },  // globInputSchema
-    get outputSchema() { return getGlobOutputSchema() },
     isConcurrencySafe() { return !0 },
     isReadOnly() { return !0 },
     // ... other methods
@@ -390,15 +323,13 @@ const GlobTool = {
     async call({ pattern, path }, context) {
         let searchPath = path || process.cwd();
 
-        // Use fast-glob library
         let entries = await fastGlob(pattern, {
             cwd: searchPath,
-            dot: true,          // Include hidden files
-            onlyFiles: true,    // Only files, not directories
+            dot: true,
+            onlyFiles: true,
             absolute: true
         });
 
-        // Sort by modification time (most recent first)
         let filesWithMtime = await Promise.all(
             entries.map(async (file) => ({
                 path: file,
@@ -479,17 +410,12 @@ fast-glob "*.ts"                 → 0.1s for 100k files
 // READABLE (for understanding):
 const fastGlobOptions = {
     cwd: searchPath,
-    dot: true,              // Include dotfiles
-    dotfiles: true,         // Include hidden files
-    onlyFiles: true,        // Exclude directories
+    dot: true,
+    dotfiles: true,
+    onlyFiles: true,
     onlyDirectories: false,
     followSymbolicLinks: true,
-    ignore: [
-        '**/node_modules/**',
-        '**/.git/**',
-        '**/dist/**',
-        '**/build/**'
-    ],
+    ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'],
     absolute: true,
     suppressErrors: true,
     unique: true
@@ -505,38 +431,16 @@ const fastGlobOptions = {
 ```javascript
 // Grep output (content mode)
 {
-    matches: [
-        {
-            file: "src/index.ts",
-            line: 42,
-            column: 10,
-            content: "export function processData(",
-            match: "function"
-        }
-    ],
+    matches: [{ file: "src/index.ts", line: 42, column: 10, content: "export function processData(" }],
     totalMatches: 15,
     filesWithMatches: 8
 }
 
 // Grep output (files_with_matches mode)
-{
-    files: [
-        "src/index.ts",
-        "src/utils.ts",
-        "src/api.ts"
-    ],
-    totalFiles: 3
-}
+{ files: ["src/index.ts", "src/utils.ts"], totalFiles: 2 }
 
 // Glob output
-{
-    files: [
-        "/abs/path/src/index.ts",
-        "/abs/path/src/utils.ts",
-        "/abs/path/src/api.ts"
-    ],
-    totalFiles: 3
-}
+{ files: ["/abs/path/src/index.ts", "/abs/path/src/utils.ts"], totalFiles: 2 }
 ```
 
 **Key difference:**
@@ -581,42 +485,7 @@ Glob({ pattern: "src/components/**/*.tsx" })
 
 ---
 
-## 10. Complete Execution Timeline
-
-### Grep Timeline
-
-```
-T+0ms  LLM produces tool_use { type: "Grep", pattern: "function", output_mode: "content" }
-T+0ms  validateInput() - pattern validation
-T+1ms  Permission check (auto-allowed for read-only)
-T+1ms  call() begins
-T+2ms  Build ripgrep arguments
-T+2ms  Spawn ripgrep process
-T+50ms Ripgrep completes (depends on file count)
-T+51ms Parse JSON output
-T+52ms Format result based on output_mode
-T+53ms Return { data: { matches, ... } }
-T+53ms UI renders matches with file paths
-```
-
-### Glob Timeline
-
-```
-T+0ms  LLM produces tool_use { type: "Glob", pattern: "**/*.ts" }
-T+0ms  validateInput() - pattern validation
-T+1ms  Permission check (auto-allowed)
-T+1ms  call() begins
-T+2ms  Start fast-glob async iteration
-T+10ms fast-glob completes (depends on directory depth)
-T+11ms Get mtime for each file (parallel stat calls)
-T+30ms Sort by modification time
-T+31ms Return { data: { files, ... } }
-T+31ms UI renders file list
-```
-
----
-
-## 11. Key Properties
+## 10. Key Properties
 
 | Property | Grep | Glob |
 |----------|------|------|

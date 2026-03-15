@@ -2,7 +2,7 @@
 
 > Module: System Reminders - UI Visibility & API Pipeline
 > Source: `chunks.173.mjs`, `chunks.161.mjs`, `chunks.148.mjs`, `chunks.169.mjs`, `chunks.172.mjs`, `chunks.142.mjs`, `chunks.90.mjs`
-> Version: Claude Code 2.1.38
+> Version: Claude Code 2.1.76
 
 ---
 

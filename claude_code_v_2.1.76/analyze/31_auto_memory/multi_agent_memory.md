@@ -2,7 +2,7 @@
 
 > **Module**: Auto Memory - Multi-Agent Scenarios
 > **Source**: `chunks.87.mjs` (lines 2194-2221), Team context integration
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code v2.1.76
 
 ---
 
@@ -50,13 +50,13 @@ Project directory: /Users/alice/my-app/
   → Memory dir: ~/.claude/projects/abc123def456/memory/
 
 Team lead (working dir: /Users/alice/my-app/)
-  → Memory: ~/.claude/projects/abc123def456/memory/  ✅ SAME
+  → Memory: ~/.claude/projects/abc123def456/memory/  SAME
 
 Teammate 1 (working dir: /Users/alice/my-app/)
-  → Memory: ~/.claude/projects/abc123def456/memory/  ✅ SAME
+  → Memory: ~/.claude/projects/abc123def456/memory/  SAME
 
 Teammate 2 (working dir: /Users/alice/my-app/)
-  → Memory: ~/.claude/projects/abc123def456/memory/  ✅ SAME
+  → Memory: ~/.claude/projects/abc123def456/memory/  SAME
 ```
 
 **Key insight**: Memory is tied to the **working directory path**, not the agent identity. All agents with the same `cwd` share memory.
@@ -100,6 +100,12 @@ function mu1() {
 
 // READABLE (for understanding):
 function getAutoMemoryDirectory() {
+    // Check for custom directory override first (v2.1.59)
+    const settings = getUserSettings();
+    if (settings.autoMemoryDirectory) {
+        return settings.autoMemoryDirectory;
+    }
+
     // Step 1: Get base home directory (with remote override support)
     let homeDir = getHomeDirectory();  // ga()
 
@@ -115,63 +121,20 @@ function getAutoMemoryDirectory() {
     // Step 5: Build full memory directory path
     let memoryDir = path.join(projectsDir, projectHash, "memory");
 
-    // Step 6: Normalize Unicode (handles special characters consistently)
-    return memoryDir.normalize("NFC");
+    // Step 6: Normalize Unicode
+    return (memoryDir + "/").normalize("NFC");
 }
 
-// Mapping: mu1→getAutoMemoryDirectory, ga→getHomeDirectory, cO6→path.join, dx→hashPath, LU7→getCurrentContextPath, kU7→"memory", UN9→"/", A→homeDir
+// Mapping: mu1→getAutoMemoryDirectory, ga→getHomeDirectory, cO6→path.join,
+// dx→hashPath, LU7→getCurrentContextPath, kU7→"memory", UN9→"/"
 ```
-
-### Key Components
-
-**1. getHomeDirectory (ga)**
-```javascript
-function getHomeDirectory() {
-    // Check for remote memory override
-    if (process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) {
-        return process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR;
-    }
-
-    // Default: User's home directory (~)
-    return os.homedir();
-}
-```
-
-**Why important**: `CLAUDE_CODE_REMOTE_MEMORY_DIR` allows pointing all agents to a shared network location.
-
-**2. getCurrentContextPath (LU7)**
-```javascript
-function getCurrentContextPath() {
-    // Try to get session-specific context (for subagents)
-    let sessionContext = getSessionContext();
-    if (sessionContext?.contextPath) {
-        return sessionContext.contextPath;
-    }
-
-    // Fall back to current working directory
-    return process.cwd();
-}
-```
-
-**Why important**: This is where agent identity *could* affect memory (via session context), but currently it just uses `cwd`.
-
-**3. hashPath (dx)**
-```javascript
-function hashPath(path) {
-    // Create stable hash of path string
-    // Ensures same path always maps to same directory
-    return crypto.createHash('sha256').update(path).digest('hex').substring(0, 16);
-}
-```
-
-**Why important**: Hashing prevents special characters in path from breaking file system operations.
 
 ### Resolution Examples
 
 **Example 1: Standard setup**
 ```
 cwd: /Users/alice/projects/my-app
-homeDir: /Users/alice
+homeDir: /Users/alice/.claude
 contextPath: /Users/alice/projects/my-app
 projectHash: a1b2c3d4e5f6g7h8
 memoryDir: /Users/alice/.claude/projects/a1b2c3d4e5f6g7h8/memory
@@ -186,15 +149,10 @@ projectHash: a1b2c3d4e5f6g7h8
 memoryDir: /mnt/shared-memory/projects/a1b2c3d4e5f6g7h8/memory
 ```
 
-**Example 3: Different working directories (isolated memory)**
+**Example 3: Custom directory (v2.1.59)**
 ```
-Team lead:
-  cwd: /Users/alice/my-app
-  memoryDir: ~/.claude/projects/{hash-of-/Users/alice/my-app}/memory
-
-Teammate:
-  cwd: /Users/alice/my-app-teammate1
-  memoryDir: ~/.claude/projects/{hash-of-/Users/alice/my-app-teammate1}/memory
+autoMemoryDirectory: ~/team-memory/
+memoryDir: ~/team-memory/  (no project hash, fixed path)
 ```
 
 ---
@@ -210,22 +168,13 @@ Configuration:
 - All share: same cwd
 
 Memory behavior:
-✅ All agents read same MEMORY.md on session start
-✅ Writes from any agent update shared MEMORY.md
-⚠️  Race condition: simultaneous writes may conflict
-✅ Next turn: all agents see updated content
+- All agents read same MEMORY.md on session start
+- Writes from any agent update shared MEMORY.md
+- Race condition: simultaneous writes may conflict
+- Next turn: all agents see updated content
 ```
 
 **Use case**: Collaborative troubleshooting where all agents benefit from shared learnings.
-
-**Example workflow**:
-```
-1. Team lead reads MEMORY.md, sees: "API uses GraphQL"
-2. Teammate 1 discovers new pattern: "GraphQL errors use { code, message } format"
-3. Teammate 1 writes to memory/api_patterns.md
-4. Team lead's next turn: reads updated api_patterns.md
-5. Both agents now have same knowledge
-```
 
 ### Scenario 2: Team Lead + Pane-Based Teammates
 
@@ -236,15 +185,10 @@ Configuration:
 - All share: same cwd
 
 Memory behavior:
-✅ Same as Scenario 1 - memory directory is identical
-✅ File system handles synchronization
-⚠️  Write conflicts possible if two agents write simultaneously
+- Same as Scenario 1 - memory directory is identical
+- File system handles synchronization
+- Write conflicts possible if two agents write simultaneously
 ```
-
-**File locking behavior**:
-- Node.js `fs.writeFileSync` is atomic for small files (<4KB on most systems)
-- Large files may have partial writes if interrupted
-- No built-in locking mechanism in current implementation
 
 ### Scenario 3: Distributed Team (Remote Workers)
 
@@ -255,17 +199,14 @@ Configuration:
 - Different machines → different memory directories by default
 
 Memory behavior:
-❌ No shared memory - completely isolated
-✅ Can enable sharing via CLAUDE_CODE_REMOTE_MEMORY_DIR on network storage
+- No shared memory - completely isolated
+- Can enable sharing via CLAUDE_CODE_REMOTE_MEMORY_DIR on network storage
 ```
 
 **To enable sharing**:
 ```bash
 # On both machines, point to network share
 export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/nfs-share/.claude
-
-# Now both resolve to:
-# /mnt/nfs-share/projects/{same-project-hash}/memory/
 ```
 
 ---
@@ -305,33 +246,15 @@ Instead of both writing to MEMORY.md:
 - Team lead writes to: architecture.md
 - Teammate writes to: debugging.md
 - MEMORY.md just links to both (updated less frequently)
-
-→ Reduces conflict probability
 ```
 
 **Strategy 2: Read-before-write pattern**
 ```javascript
 async function safeAppendMemory(newContent) {
-    // Read current content
     let current = fs.readFileSync(memoryPath, 'utf-8');
-
-    // Merge with new content (detect conflicts)
     let merged = mergeContent(current, newContent);
-
-    // Write merged result
     fs.writeFileSync(memoryPath, merged);
 }
-```
-
-**Strategy 3: Git-based synchronization (future enhancement)**
-```
-After each memory write:
-1. git add memory/
-2. git commit -m "Memory update: {summary}"
-3. git pull --rebase
-4. git push
-
-→ Git handles conflict resolution
 ```
 
 ### Read Synchronization
@@ -341,13 +264,10 @@ After each memory write:
 ```javascript
 // buildMemoryPrompt is called at start of each turn
 function buildMemoryPrompt() {
-    // Reads file from disk (always latest version)
-    let content = fs.readFileSync(memoryPath, 'utf-8');
+    let content = fs.readFileSync(memoryPath, 'utf-8');  // Always latest
     return formatPrompt(content);
 }
 ```
-
-**Implication**: Agents always see the latest memory state at turn start, even if another agent modified it mid-session.
 
 ---
 
@@ -361,10 +281,8 @@ Memory directory resolution does **not** currently factor in team context:
 // Hypothetical agent-aware resolution (NOT implemented):
 function getMemoryDirectoryForAgent(agentId, teamName) {
     if (teamName && agentId !== TEAM_LEAD_ID) {
-        // Teammate-specific memory
         return `${baseDir}/teams/${teamName}/agents/${agentId}/memory/`;
     }
-    // Team lead or solo agent - project-scoped memory
     return `${baseDir}/projects/${projectHash}/memory/`;
 }
 ```
@@ -373,28 +291,6 @@ function getMemoryDirectoryForAgent(agentId, teamName) {
 - Shared memory is the common case (collaborative work)
 - Isolated memory can be achieved via different working directories
 - Complexity of synchronizing shared + isolated memory
-
-### Potential Future Enhancement
-
-**Hybrid model**: Shared project memory + private agent memory
-
-```
-Project memory (shared):
-  ~/.claude/projects/{hash}/memory/MEMORY.md
-  ~/.claude/projects/{hash}/memory/architecture.md
-
-Agent memory (private):
-  ~/.claude/projects/{hash}/agents/{agentId}/private-notes.md
-
-System prompt:
-## Shared Memory
-[MEMORY.md content]
-
-## Private Notes (visible only to you)
-[private-notes.md content]
-```
-
-**Use case**: Team lead has private strategy notes not visible to teammates.
 
 ---
 
@@ -405,95 +301,52 @@ System prompt:
 **Setup**: All agents share same memory directory (default behavior)
 
 **Pros**:
-- ✅ Knowledge accumulates across all agents
-- ✅ Patterns discovered by any agent benefit the team
-- ✅ No synchronization overhead (file system handles it)
+- Knowledge accumulates across all agents
+- Patterns discovered by any agent benefit the team
+- No synchronization overhead (file system handles it)
 
 **Cons**:
-- ❌ Write conflicts possible (last-write-wins)
-- ❌ No privacy (all agents see all memory)
-- ❌ Large teams may overwhelm single MEMORY.md
+- Write conflicts possible (last-write-wins)
+- No privacy (all agents see all memory)
+- Large teams may overwhelm single MEMORY.md
 
-**Best for**:
-- Small teams (2-3 agents)
-- Collaborative debugging
-- Shared project knowledge
-
-**Example**:
-```
-Team lead discovers: "Database migrations use Prisma"
-Teammate reads this, adds: "Migration rollback: `bun run prisma migrate rollback`"
-Both agents now have complete migration knowledge
-```
+**Best for**: Small teams (2-3 agents), collaborative debugging, shared project knowledge
 
 ### Use Case 2: Isolated Agent Memory
 
 **Setup**: Each agent has different working directory → different memory
 
 **Pros**:
-- ✅ No write conflicts (separate files)
-- ✅ Privacy (agents don't see each other's notes)
-- ✅ Specialized memory per agent role
+- No write conflicts (separate files)
+- Privacy (agents don't see each other's notes)
+- Specialized memory per agent role
 
 **Cons**:
-- ❌ No knowledge sharing (duplicated learnings)
-- ❌ Manual setup required (symlinks or multiple clones)
-- ❌ Sync overhead if sharing is needed
+- No knowledge sharing (duplicated learnings)
+- Manual setup required
+- Sync overhead if sharing is needed
 
-**Best for**:
-- Large teams (5+ agents)
-- Role-specific agents (frontend specialist, backend specialist)
-- Competitive scenarios (e.g., multiple agents proposing different solutions)
+**Best for**: Large teams (5+ agents), role-specific agents (frontend/backend specialists)
 
-**Example**:
-```
-Frontend agent (cwd: /app/frontend/)
-  → Memory: ~/.claude/projects/{hash-frontend}/memory/
-  → Contains: React patterns, CSS conventions
+### Use Case 3: Custom Directory for Shared Team Memory (v2.1.59)
 
-Backend agent (cwd: /app/backend/)
-  → Memory: ~/.claude/projects/{hash-backend}/memory/
-  → Contains: API patterns, database schemas
+**Setup**: All team members configure same `autoMemoryDirectory` in settings
 
-No overlap, no conflicts
-```
-
-### Use Case 3: Hybrid (Shared + Isolated)
-
-**Setup**: Use remote memory for shared, local for private
-
-```bash
-# Shared memory on network storage
-export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/shared/.claude
-
-# Each agent also has local ~/.claude/... for private notes
+```json
+// ~/.claude/settings.json on all team machines
+{
+  "autoMemoryDirectory": "/mnt/team-share/claude-memory/"
+}
 ```
 
 **Pros**:
-- ✅ Share common knowledge
-- ✅ Keep private notes isolated
-- ✅ Flexible per-file control
+- Predictable, fixed path (no project hash required)
+- Easy to audit and manage
+- Works for custom team workflows
 
 **Cons**:
-- ❌ Complex setup
-- ❌ Must manually decide shared vs private
-- ❌ Synchronization complexity
-
-**Implementation** (requires code changes):
-```javascript
-// Load both shared and local memory
-let sharedMemory = loadMemory(REMOTE_MEMORY_DIR);
-let privateMemory = loadMemory(LOCAL_MEMORY_DIR);
-
-// Inject both into system prompt
-return `
-## Shared Team Memory
-${sharedMemory}
-
-## Private Agent Notes
-${privateMemory}
-`;
-```
+- Requires manual directory configuration per developer
+- All agents share same memory (may conflict for different projects)
 
 ---
 
@@ -510,45 +363,20 @@ export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/nfs-share/.claude
 
 # Agent 2 (Bob's machine):
 # Resolves to: /mnt/nfs-share/projects/{projectHash}/memory/
-#              ^^^^^^^^^^^^^^^^^^^^^ SAME DIRECTORY
+#              SAME DIRECTORY
 ```
 
 ### Network Storage Requirements
 
-**Supported**:
-- ✅ NFS (Network File System)
-- ✅ SMB/CIFS (Windows shares)
-- ✅ SSHFS (SSH filesystem)
-- ✅ Distributed filesystems (GlusterFS, Ceph)
+| Storage Type | Supported | Latency | Recommended Use |
+|--------------|-----------|---------|-----------------|
+| **NFS** | Yes | <10ms | Production teams, always-on servers |
+| **SMB/CIFS** | Yes | <20ms | Windows shares, cross-platform teams |
+| **SSHFS** | Yes | 10-50ms | Remote development, SSH-based workflows |
+| **Dropbox/Google Drive** | Limited | 1-60s | Personal multi-machine |
+| **S3/GCS (direct)** | No | 100-500ms | Not POSIX-compliant, too slow |
 
-**Requirements**:
-- Sub-10ms read latency (memory loaded at every turn)
-- Atomic small file writes (<4KB)
-- POSIX-compliant file locking (for future enhancements)
-
-**Not recommended**:
-- ❌ Object storage (S3, GCS) without FUSE mount
-- ❌ High-latency network (>100ms) - slows down turn start
-- ❌ Unreliable connections (frequent disconnects)
-
-### Synchronization Behavior
-
-```
-Agent 1 writes to: /mnt/shared/projects/{hash}/memory/MEMORY.md
-  → NFS flushes to server
-  → Server updates file timestamp
-
-Agent 2 starts new turn:
-  → buildMemoryPrompt() reads from /mnt/shared/projects/{hash}/memory/MEMORY.md
-  → NFS fetches latest from server
-  → Agent 2 sees Agent 1's changes
-
-Latency: ~10-50ms depending on network
-```
-
-**Cache coherency**: NFS/SSHFS handle cache invalidation automatically. Agents always read latest content.
-
-### Example: Distributed Team Setup
+### Distributed Team Example
 
 ```bash
 # Shared NFS mount at /mnt/team-memory
@@ -558,25 +386,13 @@ cd /Users/alice/my-app
 export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/team-memory
 claude
 
-# Teammate 1 (Bob's laptop):
+# Teammate (Bob's laptop):
 cd /Users/bob/my-app  # Same project, different clone
 export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/team-memory
-claude --agent-id teammate-1 --agent-name bob
+claude
 
-# Teammate 2 (Charlie's server):
-cd /home/charlie/my-app
-export CLAUDE_CODE_REMOTE_MEMORY_DIR=/mnt/team-memory
-claude --agent-id teammate-2 --agent-name charlie
-
-# All three agents share:
+# Both agents share:
 # /mnt/team-memory/projects/{same-project-hash}/memory/
-```
-
-**Verification**:
-```bash
-# On any machine:
-ls -la /mnt/team-memory/projects/*/memory/
-# Should show same directory and files visible to all agents
 ```
 
 ---
@@ -601,5 +417,5 @@ Cross-references:
 
 - [architecture.md](./architecture.md) - Auto memory system architecture
 - [usage_patterns.md](./usage_patterns.md) - Best practices for organizing memory
-- [remote_memory_sync.md](./remote_memory_sync.md) - Detailed remote memory setup (Phase 3)
+- [remote_memory_sync.md](./remote_memory_sync.md) - Detailed remote memory setup
 - [30_agent_teams/agent_teams_architecture.md](../30_agent_teams/agent_teams_architecture.md) - Agent team context

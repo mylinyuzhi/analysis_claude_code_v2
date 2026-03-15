@@ -2,18 +2,12 @@
 
 > Symbol mapping table Part 2: Core features and capabilities
 > Lookup: Browse by module, or Ctrl+F search for obfuscated/readable name.
->
-> **VERIFICATION STATUS**:
-> - ✓ = Verified correct in v2.1.76 source
-> - ⚠️ = Location changed, needs update
-> - ❌ = Symbol changed or mapping incorrect
-> - ? = Not yet verified
 
 ---
 
 ## Quick Navigation
 
-- [Rewind / Checkpointing](#module-rewind--checkpointing) - **NEW in 2.1.41**
+- [Rewind / Checkpointing](#module-rewind--checkpointing) - **NEW in 2.1.x**
 - [Agent Teams](#module-agent-teams) - **NEW in 2.1.32**
 - [Auto Memory](#module-auto-memory) - **NEW in 2.1.32**
 - [Task System](#module-task-system) - **REFACTORED from Todo List**
@@ -25,8 +19,8 @@
 - [Plan Mode](#module-plan-mode)
 - [Compact](#module-compact)
 - [Hooks](#module-hooks)
-- [Effort Level](#module-effort-level) - **NEW in 2.1.76**
 - [Skill System](#module-skill-system)
+- [Loop/Cron System](#module-loopcron-system) - **NEW in 2.1.71**
 - [Thinking Mode](#module-thinking-mode)
 - [Steering](#module-steering)
 - [System Reminder](#module-system-reminder)
@@ -626,36 +620,36 @@
 
 ### Compaction Logic
 
-| Obfuscated | Readable | File:Line | Type | Status |
-|------------|----------|-----------|------|--------|
-| fs4 | autoCompactDispatcher | chunks.147.mjs:778 | function | ? UNVERIFIED |
-| gm | microCompact | chunks.148.mjs:2430 | function | ? UNVERIFIED |
-| $OA | contextCompactor | chunks.75.mjs:1938 | function (generator wrapper) | ? UNVERIFIED |
-| HOA | isAutoCompactEnabled | chunks.75.mjs:1939 | function | ? UNVERIFIED |
-| Tw6 | checkAndCompactIfNeeded | chunks.75.mjs:1941 | function | ? UNVERIFIED |
-| amY | shouldAutoCompact | chunks.147.mjs:765 | function | ? UNVERIFIED |
-| Ac | getCompactionStatus | chunks.147.mjs:736 | function | ? UNVERIFIED |
-| SQ1 | getAutoCompactThreshold | chunks.147.mjs:722 | function | ? UNVERIFIED |
-| m51 | getEffectiveContextWindow | chunks.147.mjs:717 | function | ? UNVERIFIED |
-| xm | isAutoCompactEnabled | chunks.147.mjs:759 | function | ? UNVERIFIED |
-| ga4 | generateConversationSummary | chunks.146.mjs:2566 | function | ? UNVERIFIED |
-| vZ6 | performSessionMemoryCompaction | chunks.147.mjs:651 | function | ? UNVERIFIED |
-| Fa4 | performPartialCompaction | chunks.146.mjs:2437 | function | ? UNVERIFIED |
-| imY | createCompactionSummaryMessage | chunks.147.mjs:620 | function | ? UNVERIFIED |
-| Ts4 | generateToolUseSummary | chunks.147.mjs:832 | function | ? UNVERIFIED |
-| Ua4 | collectFilesToKeep | chunks.146.mjs:2665 | function | ? UNVERIFIED |
-| ca4 | collectTasksToKeep | chunks.146.mjs:2724 | function | ? UNVERIFIED |
-| jZ6 | collectPlanToKeep | chunks.146.mjs:2699 | function | ? UNVERIFIED |
-| da4 | collectSkillsToKeep | chunks.146.mjs:2710 | function | ? UNVERIFIED |
-| pa4 | collectTodosToKeep | chunks.146.mjs:2688 | function | ? UNVERIFIED |
-| PU1 | calculateMessageTokens | chunks.147.mjs:296 | function | ? UNVERIFIED |
-| nmY | MAX_COMPACT_BUFFER | chunks.147.mjs:805 | constant (20000) | ? UNVERIFIED |
-| cCA | AUTO_COMPACT_BUFFER_OFFSET | chunks.147.mjs:807 | constant (13000) | ? UNVERIFIED |
-| rmY | TOKEN_WARNING_THRESHOLD | chunks.147.mjs:809 | constant (20000) | ? UNVERIFIED |
-| omY | TOKEN_ERROR_THRESHOLD | chunks.147.mjs:811 | constant (20000) | ? UNVERIFIED |
-| lCA | BLOCKING_LIMIT_OFFSET | chunks.147.mjs:813 | constant (3000) | ? UNVERIFIED |
-| aqq | MAX_CONSECUTIVE_COMPACT_FAILURES | chunks.147.mjs:2686 | constant (3) - circuit breaker | ✓ VERIFIED |
-| sqq | autoCompactWithCircuitBreaker | chunks.147.mjs:2633 | function - circuit breaker logic | ✓ VERIFIED |
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| fs4 | autoCompactDispatcher | chunks.147.mjs:778 | function |
+| gm | microCompact | chunks.148.mjs:2430 | function |
+| $OA | contextCompactor | chunks.75.mjs:1938 | function (generator wrapper) |
+| HOA | isAutoCompactEnabled | chunks.75.mjs:1939 | function |
+| Tw6 | checkAndCompactIfNeeded | chunks.75.mjs:1941 | function |
+| amY | shouldAutoCompact | chunks.147.mjs:765 | function |
+| Ac | getCompactionStatus | chunks.147.mjs:736 | function |
+| SQ1 | getAutoCompactThreshold | chunks.147.mjs:722 | function |
+| m51 | getEffectiveContextWindow | chunks.147.mjs:717 | function |
+| xm | isAutoCompactEnabled | chunks.147.mjs:759 | function |
+| ga4 | generateConversationSummary | chunks.146.mjs:2566 | function |
+| vZ6 | performSessionMemoryCompaction | chunks.147.mjs:651 | function |
+| Fa4 | performPartialCompaction | chunks.146.mjs:2437 | function |
+| imY | createCompactionSummaryMessage | chunks.147.mjs:620 | function |
+| Ts4 | generateToolUseSummary | chunks.147.mjs:832 | function |
+| Ua4 | collectFilesToKeep | chunks.146.mjs:2665 | function |
+| ca4 | collectTasksToKeep | chunks.146.mjs:2724 | function |
+| jZ6 | collectPlanToKeep | chunks.146.mjs:2699 | function |
+| da4 | collectSkillsToKeep | chunks.146.mjs:2710 | function |
+| pa4 | collectTodosToKeep | chunks.146.mjs:2688 | function |
+| PU1 | calculateMessageTokens | chunks.147.mjs:296 | function |
+| nmY | MAX_COMPACT_BUFFER | chunks.147.mjs:805 | constant (20000) |
+| cCA | AUTO_COMPACT_BUFFER_OFFSET | chunks.147.mjs:807 | constant (13000) |
+| rmY | TOKEN_WARNING_THRESHOLD | chunks.147.mjs:809 | constant (20000) |
+| omY | TOKEN_ERROR_THRESHOLD | chunks.147.mjs:811 | constant (20000) |
+| lCA | BLOCKING_LIMIT_OFFSET | chunks.147.mjs:813 | constant (3000) |
+| autoCompactCircuitBreaker | autoCompactCircuitBreaker | chunks.184.mjs | variable (counter: fails before disabling auto-compact) |
+| MAX_AUTO_COMPACT_FAILURES | MAX_AUTO_COMPACT_FAILURES | chunks.184.mjs | constant (3) |
 
 ### Model Context Utilities
 
@@ -804,79 +798,42 @@
 
 ---
 
-## Module: Effort Level
-
-> **NEW in v2.1.76** - Model reasoning depth control via `/effort` command
-> Full analysis: [09_slash_command/effort_command.md](../09_slash_command/effort_command.md)
-
-### Effort Command Symbols
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| Q0q | EFFORT_SLASH_COMMAND | chunks.166.mjs:1436 | command object |
-| w4z | EFFORT_LEVELS | chunks.166.mjs | constant (["low", "medium", "high", "max", "auto"]) |
-| X4z | handleEffortCommand | chunks.166.mjs:1399 | function |
-| O4z | setEffortLevel | chunks.166.mjs:1319 | function |
-| p7z | getEffortValue | chunks.166.mjs:464 | function (state selector) |
-| KO8 | getEffortDescription | chunks.166.mjs | function |
-
-### Effort State Management
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| effortValue | effortValue | state | state key (low/medium/high/max/auto) |
-| effortLevel | effortLevel | settings | settings key |
-| TA | updateUserSettings | chunks.166.mjs | function (for persistence) |
-
-### Effort Levels Description
-
-| Level | Description | Model Support |
-|-------|-------------|---------------|
-| low | Quick, straightforward implementation | All models |
-| medium | Balanced approach with standard testing | All models |
-| high | Comprehensive implementation with extensive testing | All models |
-| max | Maximum capability with deepest reasoning | Opus 4.6 only |
-| auto | Use the default effort level for your model | All models |
-
----
-
 ## Module: Hooks
 
 > Full analysis: [11_hooks/](../11_hooks/)
 
 ### Hook Event Dispatchers
 
-| Obfuscated | Readable | File:Line | Type | Status |
-|------------|----------|-----------|------|--------|
-| NI | executeHooksIterator | chunks.141.mjs:2226 | generator | ? UNVERIFIED |
-| qyA | executePreToolHooks | chunks.141.mjs:2812 | generator | ? UNVERIFIED |
-| KyA | executePostToolHooks | chunks.141.mjs:2831 | generator | ? UNVERIFIED |
-| YyA | executePostToolUseFailureHooks | chunks.141.mjs:2850 | generator | ? UNVERIFIED |
-| UTA | executeNotificationHooks | chunks.141.mjs:2870 | function | ? UNVERIFIED |
-| zyA | executeStopHooks | chunks.141.mjs:2889 | generator | ? UNVERIFIED |
-| wyA | executeTeammateIdleHooks | chunks.141.mjs:2912 | generator | ? UNVERIFIED |
-| Cg1 | executeTaskCompletedHooks | chunks.141.mjs:2927 | generator | ? UNVERIFIED |
-| HyA | executeUserPromptSubmitHooks | chunks.141.mjs:2946 | generator | ? UNVERIFIED |
-| $yA | executeSessionStartHooks | chunks.141.mjs:2961 | generator | ? UNVERIFIED |
-| OyA | executeSetupHooks | chunks.141.mjs:2979 | generator | ? UNVERIFIED |
-| AEA | executeSubagentStartHooks | chunks.141.mjs:2995 | generator | ? UNVERIFIED |
-| mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function | ? UNVERIFIED |
-| FE1 | executePostCompactHooks | chunks.175.mjs:2713 | function | ✓ VERIFIED |
-| A$8 | executeElicitationHooks | chunks.175.mjs:2876 | function | ✓ VERIFIED |
-| q$8 | executeElicitationResultHooks | chunks.175.mjs:2915 | function | ✓ VERIFIED |
-| nN1 | executeWorktreeCreateHook | chunks.176.mjs:105 | function | ✓ VERIFIED |
-| rN1 | executeWorktreeRemoveHook | chunks.176.mjs:125 | function | ✓ VERIFIED |
-| PP | executePluginHooksForSession | chunks.142.mjs:248 | function | ? UNVERIFIED |
-| FW6 | executePluginHooksForSetup | chunks.142.mjs:291 | function | ? UNVERIFIED |
-| pa | loadAllPluginHooks | chunks.87.mjs:2606 | variable (memoized async fn, exported as loadPluginHooks) | ? UNVERIFIED |
-| Ap | allowManagedHooksOnly | chunks.142.mjs:256 | function | ? UNVERIFIED |
-| oN9 | extractPluginHooksForEvent | chunks.87.mjs:2547 | function | ? UNVERIFIED |
-| O61 | registerPluginHooks | chunks.1.mjs:2912 | function | ? UNVERIFIED |
-| YR6 | deregisterPluginHooks | chunks.1.mjs:2929 | function | ? UNVERIFIED |
-| sN9 | setupPluginHookHotReload | chunks.87.mjs:2589 | function | ? UNVERIFIED |
-| aN9 | resetHotReloadState | chunks.87.mjs:2585 | function | ? UNVERIFIED |
-| rO6 | clearPluginHookCache | chunks.87.mjs:2581 | function | ? UNVERIFIED |
-| g0A | hotReloadAlreadySetup | chunks.87.mjs:2596 | variable (bool guard) | ? UNVERIFIED |
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| NI | executeHooksIterator | chunks.141.mjs:2226 | generator |
+| qyA | executePreToolHooks | chunks.141.mjs:2812 | generator |
+| KyA | executePostToolHooks | chunks.141.mjs:2831 | generator |
+| YyA | executePostToolUseFailureHooks | chunks.141.mjs:2850 | generator |
+| UTA | executeNotificationHooks | chunks.141.mjs:2870 | function |
+| zyA | executeStopHooks | chunks.141.mjs:2889 | generator |
+| wyA | executeTeammateIdleHooks | chunks.141.mjs:2912 | generator |
+| Cg1 | executeTaskCompletedHooks | chunks.141.mjs:2927 | generator |
+| HyA | executeUserPromptSubmitHooks | chunks.141.mjs:2946 | generator |
+| $yA | executeSessionStartHooks | chunks.141.mjs:2961 | generator |
+| OyA | executeSetupHooks | chunks.141.mjs:2979 | generator |
+| AEA | executeSubagentStartHooks | chunks.141.mjs:2995 | generator |
+| mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
+| PP | executePluginHooksForSession | chunks.142.mjs:248 | function |
+| FW6 | executePluginHooksForSetup | chunks.142.mjs:291 | function |
+| pa | loadAllPluginHooks | chunks.87.mjs:2606 | variable (memoized async fn, exported as loadPluginHooks) |
+| Ap | allowManagedHooksOnly | chunks.142.mjs:256 | function |
+| oN9 | extractPluginHooksForEvent | chunks.87.mjs:2547 | function |
+| O61 | registerPluginHooks | chunks.1.mjs:2912 | function |
+| YR6 | deregisterPluginHooks | chunks.1.mjs:2929 | function |
+| sN9 | setupPluginHookHotReload | chunks.87.mjs:2589 | function |
+| aN9 | resetHotReloadState | chunks.87.mjs:2585 | function |
+| rO6 | clearPluginHookCache | chunks.87.mjs:2581 | function |
+| g0A | hotReloadAlreadySetup | chunks.87.mjs:2596 | variable (bool guard) |
+| - | executePostCompactHooks | chunks.141.mjs | generator (PostCompact hook event) |
+| - | executeElicitationHooks | chunks.141.mjs | generator (Elicitation hook event) |
+| - | executeConfigChangeHooks | chunks.141.mjs | generator (ConfigChange hook event) |
+| - | executeInstructionsLoadedHooks | chunks.141.mjs | generator (InstructionsLoaded hook event) |
 
 ### Hook Resolution & Loading
 
@@ -979,6 +936,9 @@
 | WZY | AsyncHookResponseSchema | chunks.129.mjs:792 | schema |
 | cow | AllHookInputUnionSchema | chunks.129.mjs:792 | schema |
 | registeredHooks | registeredHooks | chunks.1.mjs:2409 | state key |
+| - | PostCompactPayloadSchema | chunks.129.mjs | schema |
+| - | ElicitationPayloadSchema | chunks.129.mjs | schema |
+| - | ConfigChangePayloadSchema | chunks.129.mjs | schema |
 
 ---
 
@@ -1155,6 +1115,42 @@
 
 ---
 
+## Module: Loop/Cron System
+
+> Full analysis: [36_loop_cron/](../36_loop_cron/)
+> **NEW in 2.1.71** - Recurring task scheduling via /loop command and Cron tools
+
+### Cron Tool Names & Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| - | TOOL_NAME_CRON_CREATE | chunks.89.mjs | constant ("CronCreate") |
+| - | TOOL_NAME_CRON_DELETE | chunks.89.mjs | constant ("CronDelete") |
+| - | TOOL_NAME_CRON_LIST | chunks.89.mjs | constant ("CronList") |
+| - | CLAUDE_CODE_DISABLE_CRON | process.env | environment variable |
+
+### Cron Tools
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| - | CronCreateTool | chunks.139.mjs | tool object |
+| - | CronDeleteTool | chunks.139.mjs | tool object |
+| - | CronListTool | chunks.139.mjs | tool object |
+| - | cronJobRegistry | chunks.89.mjs | variable (Map: id → cronJob) |
+| - | createCronJob | chunks.89.mjs | function |
+| - | deleteCronJob | chunks.89.mjs | function |
+| - | listCronJobs | chunks.89.mjs | function |
+
+### Loop Command
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| - | loopCommandDefinition | chunks.163.mjs | object (slash command definition) |
+| - | parseLoopInterval | chunks.163.mjs | function (parses "5m", "1h" → ms) |
+| - | loopCommandHandler | chunks.163.mjs | function |
+
+---
+
 ## Module: Thinking Mode
 
 > Full analysis: [19_think_level/](../19_think_level/)
@@ -1327,7 +1323,7 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | nGz | mainEntry | chunks.189.mjs:931 | function |
-| aGz | commanderSetup | chunks.190.mjs:999 | function |
+| aGz | commanderSetup | chunks.198.mjs:999 | function |
 | qZz | cliEntry | chunks.190.mjs:167 | function |
 | iGz | determineEntrypoint | chunks.189.mjs:916 | function |
 | gRq | showSetupScreens | chunks.189.mjs:758 | function |

@@ -1,4 +1,4 @@
-# Compact Integration (Claude Code 2.1.38)
+# Compact Integration (Claude Code 2.1.76)
 
 > Complete analysis of the auto-compact system: trigger conditions, context overflow recovery, integration with the retry system, and message replacement strategies.
 
@@ -70,68 +70,6 @@ The compact system has two integration points with the LLM core:
 
 ## Core Algorithms
 
-### contextCompactor - Wrapper with compaction check
-
-**What it does:**
-The `contextCompactor` ($OA) function wraps the LLM request generator and checks if context compaction should be performed before making the API call. This is the primary integration point for proactive compaction.
-
-**How it works:**
-
-1. **Feature Check**: Checks if compaction is enabled via `HOA()` (isAutoCompactEnabled).
-
-2. **If Disabled**: Passes through directly to the wrapped generator.
-
-3. **If Enabled**:
-   - Collects all events from the wrapped generator into an array
-   - Checks token count against threshold
-   - If over threshold, triggers compaction and retries
-
-```javascript
-// ============================================
-// contextCompactor - Wraps LLM requests with compaction check
-// Location: chunks.75.mjs:1938-1950
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function* $OA(A, q) {
-    if (!HOA()) return yield* q();
-    let K = [],
-        Y = await Tw6(A, async () => {
-            for await (let z of q()) K.push(z);
-            return K
-        });
-    // ... compaction logic if needed ...
-}
-
-// READABLE (for understanding):
-async function* contextCompactor(messages, requestGenerator) {
-    // If auto-compact disabled, pass through
-    if (!isAutoCompactEnabled()) {
-        return yield* requestGenerator();
-    }
-
-    let collectedEvents = [];
-
-    // Execute the request and collect events
-    let result = await checkAndCompactIfNeeded(messages, async () => {
-        for await (let event of requestGenerator()) {
-            collectedEvents.push(event);
-        }
-        return collectedEvents;
-    });
-
-    // Yield all collected events
-    for (let event of collectedEvents) {
-        yield event;
-    }
-}
-
-// Mapping: $OA→contextCompactor, A→messages, q→requestGenerator,
-//   HOA→isAutoCompactEnabled, Tw6→checkAndCompactIfNeeded, K→collectedEvents
-```
-
----
-
 ### Pre-Query Auto-Compact in mainAgentLoop
 
 **What it does:**
@@ -148,113 +86,9 @@ Before each LLM request, the mainAgentLoop checks if the conversation is approac
    - Replaces the message history with summary + recent context
    - Preserves certain attachments (plan files, todos)
 
-```javascript
-// ============================================
-// Pre-Query Auto-Compact in mainAgentLoop
-// Location: chunks.149.mjs:1786-1827
-// ============================================
-
-// ORIGINAL (for source lookup):
-let G = [...EN(A)];
-y3("query_microcompact_start");
-let Z = await gm(G, void 0, w);
-if (G = Z.messages, Z.compactionInfo?.boundaryMessage) yield Z.compactionInfo.boundaryMessage;
-y3("query_microcompact_end");
-// ...
-y3("query_autocompact_start");
-let { compactionResult: T } = await fs4(G, w, {
-    systemPrompt: q,
-    userContext: K,
-    systemContext: Y,
-    toolUseContext: w,
-    forkContextMessages: G
-}, $);
-if (y3("query_autocompact_end"), T) {
-    let { preCompactTokenCount: Z1, postCompactTokenCount: E1, compactionUsage: a } = T;
-    if (c("tengu_auto_compact_succeeded", {...}), !f?.compacted) f = {
-        compacted: !0,
-        turnId: w6q(),
-        turnCounter: 0
-    };
-    let A1 = qt(T);
-    for (let M1 of A1) yield M1;
-    G = A1, Ms4()
-}
-
-// READABLE (for understanding):
-let messagesForQuery = [...getVisibleMessages(messages)];
-
-// 1. Micro-compact: Remove consecutive duplicates
-recordMark("query_microcompact_start");
-let microCompactResult = await microCompact(messagesForQuery, undefined, toolUseContext);
-messagesForQuery = microCompactResult.messages;
-if (microCompactResult.compactionInfo?.boundaryMessage) {
-    yield microCompactResult.compactionInfo.boundaryMessage;
-}
-recordMark("query_microcompact_end");
-
-// 2. Auto-compact: Check threshold and compact if needed
-recordMark("query_autocompact_start");
-let { compactionResult } = await checkAndTriggerAutoCompact(
-    messagesForQuery,
-    toolUseContext,
-    {
-        systemPrompt,
-        userContext,
-        systemContext,
-        toolUseContext,
-        forkContextMessages: messagesForQuery
-    },
-    querySource
-);
-recordMark("query_autocompact_end");
-
-if (compactionResult) {
-    let { preCompactTokenCount, postCompactTokenCount, compactionUsage } = compactionResult;
-
-    // Log telemetry
-    logEvent("tengu_auto_compact_succeeded", {
-        originalMessageCount: messages.length,
-        compactedMessageCount: compactionResult.summaryMessages.length + compactionResult.attachments.length + compactionResult.hookResults.length,
-        preCompactTokenCount,
-        postCompactTokenCount,
-        compactionInputTokens: compactionUsage?.input_tokens,
-        compactionOutputTokens: compactionUsage?.output_tokens,
-        compactionCacheReadTokens: compactionUsage?.cache_read_input_tokens ?? 0,
-        compactionCacheCreationTokens: compactionUsage?.cache_creation_input_tokens ?? 0,
-        compactionTotalTokens: compactionUsage ? compactionUsage.input_tokens + (compactionUsage.cache_creation_input_tokens ?? 0) + (compactionUsage.cache_read_input_tokens ?? 0) + compactionUsage.output_tokens : 0,
-        queryChainId,
-        queryDepth
-    });
-
-    // Initialize tracking if first compaction
-    if (!autoCompactTracking?.compacted) {
-        autoCompactTracking = {
-            compacted: true,
-            turnId: generateTurnId(),
-            turnCounter: 0
-        };
-    }
-
-    // Yield compaction messages (summary + attachments)
-    let compactionMessages = buildCompactionMessages(compactionResult);
-    for (let message of compactionMessages) {
-        yield message;
-    }
-
-    // Replace message history with compacted version
-    messagesForQuery = compactionMessages;
-    clearFileState();  // Ms4 - clear readFileState
-}
-
-// Mapping: EN→getVisibleMessages, gm→microCompact, fs4→checkAndTriggerAutoCompact,
-//   qt→buildCompactionMessages, Ms4→clearFileState, w6q→generateTurnId,
-//   y3→recordMark, c→logEvent
-```
-
 ---
 
-### Context Overflow Recovery in withApiRetry
+## Context Overflow Recovery in withApiRetry
 
 **What it does:**
 When the API returns a `context_length_exceeded` error, the retry wrapper automatically calculates a reduced `max_tokens` value that fits within the remaining context and retries the request.
@@ -276,49 +110,6 @@ When the API returns a `context_length_exceeded` error, the retry wrapper automa
 5. **Override Setting**: Sets `retryContext.maxTokensOverride` to `max(FLOOR, available, maxThinkingTokens + 1)`.
 
 6. **Retry**: The request is retried with the reduced `max_tokens`.
-
-```javascript
-// ============================================
-// Context Overflow Recovery in withApiRetry
-// Location: chunks.72.mjs:1861-1951 (extracted from implementation.md)
-// ============================================
-
-// Context overflow handling (from withApiRetry):
-if (error instanceof ApiError) {
-    let contextInfo = parseContextOverflowError(error);
-    if (contextInfo) {
-        let { inputTokens, contextLimit } = contextInfo;
-
-        // Calculate available space with buffer
-        let buffer = 1000;
-        let available = Math.max(0, contextLimit - inputTokens - buffer);
-
-        // Check if enough room for minimal response
-        if (available < FLOOR_OUTPUT_TOKENS) {
-            // No room - this is a fatal error
-            recordError(Error(`availableContext ${available} < FLOOR_OUTPUT_TOKENS`));
-            throw error;
-        }
-
-        // Ensure thinking tokens fit if present
-        let thinkingBuffer = (retryContext.maxThinkingTokens || 0) + 1;
-        let adjustedMaxTokens = Math.max(FLOOR_OUTPUT_TOKENS, available, thinkingBuffer);
-
-        // Set override for retry
-        retryContext.maxTokensOverride = adjustedMaxTokens;
-
-        logEvent("tengu_max_tokens_context_overflow_adjustment", {
-            inputTokens,
-            contextLimit,
-            maxTokensOverride: retryContext.maxTokensOverride
-        });
-
-        continue;  // Retry with reduced max_tokens
-    }
-}
-
-// Mapping: parseContextOverflowError→zv7, FLOOR_OUTPUT_TOKENS→K$A
-```
 
 **Why this approach:**
 - **Automatic recovery**: The user doesn't need to manually reduce their context - the system handles it automatically.
@@ -343,28 +134,6 @@ The threshold percentage is determined by:
 1. **Model-specific thresholds**: Different models have different context limits and optimal thresholds.
 2. **User settings**: Can be adjusted via `autoCompactThreshold` setting.
 3. **Feature flags**: `tengu_auto_compact` feature flag controls the feature.
-
-### Threshold Calculation
-
-```javascript
-// ============================================
-// Threshold Calculation (inferred)
-// ============================================
-
-function shouldTriggerCompact(messages, model) {
-    let tokenCount = estimateTokenCount(messages);
-    let contextLimit = getModelContextLimit(model);
-    let thresholdPercentage = getAutoCompactThreshold() ?? getDefaultThreshold(model);
-
-    // Default thresholds (inferred):
-    // - Claude Opus/Sonnet: 80% (0.8)
-    // - Models with 200k context: 85%
-
-    let thresholdTokens = Math.floor(contextLimit * thresholdPercentage);
-
-    return tokenCount > thresholdTokens;
-}
-```
 
 ### Micro-Compact Conditions
 
@@ -416,10 +185,7 @@ When compaction is triggered:
 ### State Preservation
 
 ```javascript
-// ============================================
 // Messages preserved during compaction
-// ============================================
-
 const PRESERVED_MESSAGE_TYPES = [
     "plan_mode",           // Plan file path
     "plan_mode_reentry",   // Plan mode context
@@ -570,7 +336,7 @@ const DEFAULT_THRESHOLDS = {
 
 ## Summary
 
-The compact integration in Claude Code 2.1.38 operates at two levels:
+The compact integration in Claude Code 2.1.76 operates at two levels:
 
 1. **Proactive (Pre-Query)**: Before each LLM request, the system:
    - Runs micro-compact to remove duplicates

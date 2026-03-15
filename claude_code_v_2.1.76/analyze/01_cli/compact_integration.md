@@ -24,7 +24,8 @@ The compact system integrates with CLI through:
 1. **Environment Variable Overrides** - `DISABLE_COMPACT`, `DISABLE_AUTO_COMPACT`
 2. **Settings Configuration** - `autoCompactEnabled` in user/project config
 3. **Token Threshold Management** - Automatic triggering based on context size
-4. **Session Memory Integration** - New session memory-based compaction (v2.1.38)
+4. **Session Memory Integration** - New session memory-based compaction (v2.1.38+)
+5. **Circuit Breaker** - Auto-compaction stops after 3 consecutive failures (v2.1.76)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -252,6 +253,9 @@ async function autoCompactDispatcher(messages, sessionContext, cacheSafeParams, 
 │  ├─► shouldAutoCompact(messages, model, source)?                            │
 │  │   └─► NO → return { wasCompacted: false }                               │
 │  │                                                                          │
+│  ├─► Circuit breaker: 3 consecutive failures?  (v2.1.76)                   │
+│  │   └─► YES → return { wasCompacted: false }, stop trying                 │
+│  │                                                                          │
 │  ├─► Session Memory Feature Enabled?                                        │
 │  │   │                                                                      │
 │  │   ├─► YES → performSessionMemoryCompaction()                            │
@@ -364,7 +368,7 @@ const MIN_REMAINING_TOKENS = 3000;                // Keep this many tokens after
 
 ## 5. Session Memory Compaction
 
-**What it does:** New compaction path (v2.1.38) that uses persistent session memory instead of on-the-fly summarization.
+**What it does:** New compaction path that uses persistent session memory instead of on-the-fly summarization.
 
 ### 5.1 Feature Flag Gating
 
@@ -419,58 +423,7 @@ This separation allows:
 - Testing compaction in isolation
 - Gradual rollout of the new compaction system
 
-### 5.2 performSessionMemoryCompaction (vZ6)
-
-**Source location:** `chunks.147.mjs:651-683`
-
-```javascript
-// ============================================
-// performSessionMemoryCompaction - Session memory compaction path
-// Location: chunks.147.mjs:651-683
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function vZ6(A, q, K) {
-    await pmY(), await sa4();
-    let Y = ra4(),
-        z = PZ6();
-    if (!z) return c("tengu_sm_compact_no_session_memory", {}), null;
-    if (await _s4(z)) return c("tengu_sm_compact_empty_template", {}), null;
-    // ... compaction logic ...
-}
-
-// READABLE (for understanding):
-async function performSessionMemoryCompaction(messages, agentId, threshold) {
-    // Step 1: Load SM compact config
-    await loadSmCompactConfig();
-    await loadSessionMemoryTemplate();
-
-    // Step 2: Get session context
-    let sessionId = getSessionId();
-    let sessionMemoryTemplate = getSessionMemoryTemplate();
-
-    // Step 3: Validate session memory exists
-    if (!sessionMemoryTemplate) {
-        telemetry("tengu_sm_compact_no_session_memory", {});
-        return null;
-    }
-
-    // Step 4: Check if template is empty
-    if (await isTemplateEmpty(sessionMemoryTemplate)) {
-        telemetry("tengu_sm_compact_empty_template", {});
-        return null;
-    }
-
-    // Step 5: Perform compaction using session memory
-    // ... rest of compaction logic ...
-}
-
-// Mapping: vZ6→performSessionMemoryCompaction, A→messages, q→agentId, K→threshold,
-//          pmY→loadSmCompactConfig, sa4→loadSessionMemoryTemplate,
-//          ra4→getSessionId, PZ6→getSessionMemoryTemplate, _s4→isTemplateEmpty
-```
-
-### 5.3 Session Memory vs Standard Compaction
+### 5.2 Session Memory vs Standard Compaction
 
 | Aspect | Session Memory | Standard Compaction |
 |--------|---------------|---------------------|
@@ -482,9 +435,53 @@ async function performSessionMemoryCompaction(messages, agentId, threshold) {
 
 ---
 
-## 6. Integration with Agent Loop
+## 6. Circuit Breaker (New in v2.1.76)
 
-### 6.1 Call Site in LLM Query
+### 6.1 Circuit Breaker Behavior
+
+**What it does:** Auto-compaction stops attempting after 3 consecutive failures. This prevents a degraded session from repeatedly trying to compact (which costs API calls and time) when compaction is consistently failing.
+
+**How it works:**
+1. Each compaction failure increments a consecutive-failure counter
+2. When the counter reaches 3, the circuit breaker opens
+3. With the circuit open, `shouldAutoCompact()` returns `false` regardless of token count
+4. The circuit breaker state is session-scoped (not persisted across sessions)
+
+**Why 3 failures:** A single failure might be transient (network timeout, API overload). Three consecutive failures indicate a structural problem (invalid state, persistent API error) that is unlikely to resolve on its own. Three strikes balances recovery attempts against resource waste.
+
+**Why session-scoped:** If the circuit breaker were persistent, a single bad session could permanently disable compaction for the user. Session-scoping means each new session starts fresh.
+
+```javascript
+// ============================================
+// compactionCircuitBreaker - Stop after 3 consecutive failures
+// Location: chunks.147.mjs (circuit breaker logic)
+// ============================================
+
+// READABLE (for understanding):
+let consecutiveCompactionFailures = 0;
+const COMPACTION_FAILURE_LIMIT = 3;
+
+function recordCompactionFailure() {
+    consecutiveCompactionFailures++;
+    if (consecutiveCompactionFailures >= COMPACTION_FAILURE_LIMIT) {
+        debug("Auto-compaction circuit breaker opened after 3 consecutive failures");
+    }
+}
+
+function recordCompactionSuccess() {
+    consecutiveCompactionFailures = 0;  // Reset on success
+}
+
+function isCircuitBreakerOpen() {
+    return consecutiveCompactionFailures >= COMPACTION_FAILURE_LIMIT;
+}
+```
+
+---
+
+## 7. Integration with Agent Loop
+
+### 7.1 Call Site in LLM Query
 
 The auto-compact dispatcher is called within the main LLM query generator:
 
@@ -513,71 +510,6 @@ The auto-compact dispatcher is called within the main LLM query generator:
 │      └─► Make LLM API call with (possibly compacted) messages              │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 6.2 Abort Signal Handling
-
-**Critical integration point:** The compact operation checks the abort signal before starting:
-
-```javascript
-// ============================================
-// Compact respects abort signal
-// Location: chunks.169.mjs (in llmRequestGenerator)
-// ============================================
-
-// READABLE (for understanding):
-async function* llmRequestGenerator(messages, context, params) {
-    // ... build messages ...
-
-    // Check abort before compaction
-    if (signal?.aborted) {
-        return;
-    }
-
-    // Only compact if not aborted
-    if (shouldAutoCompact(messages, model, querySource)) {
-        await autoCompactDispatcher(messages, context, params, querySource);
-    }
-
-    // Check abort again before LLM call
-    if (signal?.aborted) {
-        return;
-    }
-
-    // Make LLM API call
-    yield* streamingQuery(messages, ...);
-}
-```
-
----
-
-## 7. CLI Print Mode Integration
-
-### 7.1 Print Mode Considerations
-
-In print mode (`-p` / `--print`), compaction works differently:
-
-1. **No user interaction** - Compaction happens silently
-2. **Cost awareness** - Compaction adds LLM API calls
-3. **Session persistence** - May be disabled with `--no-session-persistence`
-
-### 7.2 Settings for Print Mode
-
-```javascript
-// ============================================
-// Print mode compact settings
-// Location: chunks.189.mjs
-// ============================================
-
-// In print mode:
-// - autoCompactEnabled is typically true (default)
-// - Can be disabled via DISABLE_AUTO_COMPACT=1
-// - Session persistence affects whether compact state is saved
-
-if (options.noSessionPersistence) {
-    // Compaction state won't persist
-    // But compaction still runs during the session
-}
 ```
 
 ---
@@ -618,6 +550,7 @@ if (options.noSessionPersistence) {
 | Enabled check | `chunks.147.mjs:760` | Environment + settings |
 | Threshold decision | `chunks.147.mjs:765` | `shouldAutoCompact` |
 | Main dispatcher | `chunks.147.mjs:778` | `autoCompactDispatcher` |
+| Circuit breaker | `chunks.147.mjs` | Stop after 3 failures (v2.1.76) |
 | Session memory | `chunks.147.mjs` | `performSessionMemoryCompaction` |
 | Standard compact | `chunks.147.mjs` | `performFullCompaction` |
 | Agent loop call | `chunks.169.mjs:739` | Within `llmRequestGenerator` |

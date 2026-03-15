@@ -4,7 +4,9 @@
 
 This document details the feature flag system and gradual rollout strategy for auto memory. The implementation uses a **5-level priority chain** to determine whether the feature is enabled, allowing for precise control over rollout, A/B testing, and emergency kill switches.
 
-**Key insight**: The priority chain enables flexible rollout strategies - from full disable (env var) to user opt-in (setting) to gradual expansion (feature flag cohorts).
+**Key insight**: The priority chain enables flexible rollout strategies — from full disable (env var) to user opt-in (setting) to gradual expansion (feature flag cohorts).
+
+**Version**: Claude Code v2.1.76
 
 ---
 
@@ -25,39 +27,6 @@ This document details the feature flag system and gradual rollout strategy for a
 **Local cache**: `~/.claude/feature_flags.json` (expires after TTL)
 **Fallback**: `false` (if service unreachable)
 
-### Flag Evaluation
-
-```javascript
-// ============================================
-// getFeatureFlag - Retrieves feature flag value
-// Location: chunks.87.mjs:2201 (calls x8 for feature flag service)
-// ============================================
-
-// READABLE (for understanding):
-function getFeatureFlag(flagName) {
-  // Check local cache first
-  const cachedValue = getCachedFeatureFlag(flagName);
-  if (cachedValue !== null && !isCacheExpired(flagName)) {
-    return cachedValue;
-  }
-
-  // Fetch from remote service
-  try {
-    const flagValue = fetchFeatureFlagFromService(flagName);
-    cacheFeatureFlag(flagName, flagValue);
-    return flagValue;
-  } catch (error) {
-    // Service unreachable, use fallback
-    return false; // Default to disabled
-  }
-}
-```
-
-**Why cache?**
-- **Performance**: Avoid network call on every turn
-- **Reliability**: Continue working if service is down
-- **Consistency**: Flag value stable within TTL window
-
 ---
 
 ## Enable Priority Chain (5 Levels)
@@ -66,17 +35,17 @@ function getFeatureFlag(flagName) {
 
 ```
 Priority 1 (Highest): Explicit env var disable
-  ↓
+  |
 Priority 2: Explicit env var enable (override)
-  ↓
+  |
 Priority 3: Remote mode requires explicit directory
-  ↓
+  |
 Priority 4: User setting preference
-  ↓
+  |
 Priority 5 (Lowest): Feature flag default
 ```
 
-**Rule**: Higher priority overrides all lower priorities
+**Rule**: Higher priority overrides all lower priorities.
 
 ### Code Analysis: isAutoMemoryEnabled
 
@@ -116,42 +85,42 @@ function y2() {
 function isAutoMemoryEnabled() {
   // ========================================
   // Priority 1: Explicit env var disable
-  // ========================================
   // Hard disable via environment variable (overrides everything)
+  // ========================================
   if (process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY === "1") {
     return false;
   }
 
   // ========================================
   // Priority 2: Explicit env var enable
-  // ========================================
   // Hard enable via environment variable (overrides setting and flag)
+  // ========================================
   if (process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY === "0") {
     return true;
   }
 
   // ========================================
   // Priority 3: Remote mode directory requirement
-  // ========================================
   // Remote mode requires explicit memory directory
   // If remote mode is active but no directory specified, disable
+  // ========================================
   if (isRemoteMode() && !process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) {
     return false;
   }
 
   // ========================================
   // Priority 4: User setting preference
-  // ========================================
   // User explicitly enabled/disabled via TUI toggle
+  // ========================================
   if (userSettings.autoMemoryEnabled !== undefined) {
     return userSettings.autoMemoryEnabled;
   }
 
   // ========================================
   // Priority 5: Feature flag default
-  // ========================================
   // No explicit override, use feature flag value
   // Default: false (research preview, opt-in only)
+  // ========================================
   return getFeatureFlag("tengu_oboe");
 }
 
@@ -166,13 +135,11 @@ function isAutoMemoryEnabled() {
 
 **Use case**: Emergency kill switch, corporate policy enforcement
 
-**Behavior**: **Overrides all other settings** - feature is completely disabled
+**Behavior**: Overrides all other settings — feature is completely disabled
 
-**Example**:
 ```bash
 # Corporate IT sets env var globally
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
-
 # Even if user toggles ON in TUI, feature remains disabled
 # Even if feature flag is true, feature remains disabled
 ```
@@ -190,20 +157,12 @@ export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
 
 **Use case**: Developer testing, force-enable for specific users
 
-**Behavior**: **Overrides setting and feature flag** - feature is always enabled
+**Behavior**: Overrides setting and feature flag — feature is always enabled
 
-**Example**:
 ```bash
-# Developer wants to test auto memory without enabling flag
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=0
-
 # Feature is enabled regardless of flag or setting
 ```
-
-**Rationale**:
-- **Testing**: Enable feature in pre-production environments
-- **Beta access**: Grant early access to specific users
-- **Override**: Bypass feature flag rollout for internal tools
 
 **Why "DISABLE" env var with "0" for enable?**
 - Historical: Env var was originally boolean disable-only
@@ -220,11 +179,7 @@ export CLAUDE_CODE_DISABLE_AUTO_MEMORY=0
 
 **Behavior**: Disable auto memory if remote mode but no directory specified
 
-**Example**:
 ```bash
-# Remote session started without memory directory
-# Auto memory is disabled (even if flag or setting is true)
-
 # To enable in remote mode:
 export CLAUDE_CODE_REMOTE_MEMORY_DIR=/shared/memory/path
 ```
@@ -234,11 +189,6 @@ export CLAUDE_CODE_REMOTE_MEMORY_DIR=/shared/memory/path
 - **Intentionality**: User must explicitly opt-in for remote memory
 - **Isolation**: Avoid conflicts between local and remote memory
 
-**Why this check?**
-- Remote mode default behavior: Use server-side storage
-- Local memory paths don't make sense in remote context
-- Explicit directory ensures user understands where memory is stored
-
 ---
 
 #### Priority 4: User Setting Preference
@@ -247,30 +197,19 @@ export CLAUDE_CODE_REMOTE_MEMORY_DIR=/shared/memory/path
 
 **Use case**: User explicitly toggled feature via TUI `/memory` command
 
-**Behavior**: Respect user's explicit preference
+**Behavior**: Respect user's explicit preference (overrides feature flag)
 
-**Example**:
-```javascript
-// User opens /memory modal and toggles ON
-// userSettings.autoMemoryEnabled = true
-
-// Feature is enabled (overrides feature flag)
-```
-
-**Rationale**:
-- **User control**: Explicit user action takes precedence
-- **Opt-in/opt-out**: User can override default flag behavior
-- **Persistence**: Setting survives across sessions
-
-**Storage**:
 ```json
 // ~/.claude/settings.json
 {
   "userSettings": {
-    "autoMemoryEnabled": true
+    "autoMemoryEnabled": true,
+    "autoMemoryDirectory": "/custom/path/"
   }
 }
 ```
+
+**New in v2.1.59**: The `autoMemoryDirectory` field in `userSettings` is also read here as part of directory resolution, not enable/disable control. When `autoMemoryEnabled` is true, the directory path comes from `autoMemoryDirectory` if set.
 
 ---
 
@@ -280,13 +219,9 @@ export CLAUDE_CODE_REMOTE_MEMORY_DIR=/shared/memory/path
 
 **Use case**: Default behavior, gradual rollout, A/B testing
 
-**Behavior**: Use feature flag value from service
+**Behavior**: Use feature flag value from service (`tengu_oboe`)
 
-**Example**:
 ```javascript
-// No env var, no remote mode, no user setting
-// Feature flag value determines enabled state
-
 getFeatureFlag("tengu_oboe") // Returns true or false
 ```
 
@@ -308,13 +243,9 @@ getFeatureFlag("tengu_oboe") // Returns true or false
 
 **Behavior**: Feature disabled for all users
 
-**How users enable**:
-1. Open `/memory` modal
-2. Toggle auto memory ON
-3. `userSettings.autoMemoryEnabled = true`
-4. Feature now enabled (Priority 4 overrides Priority 5)
+**How users enable**: Open `/memory` modal → Toggle auto memory ON
 
-**Outcome**: **Opt-in only** - users must discover and enable manually
+**Outcome**: **Opt-in only** — users must discover and enable manually
 
 ---
 
@@ -323,7 +254,6 @@ getFeatureFlag("tengu_oboe") // Returns true or false
 **Configuration**:
 - Feature flag: `tengu_oboe = true` for 10% of users (cohort A)
 - Feature flag: `tengu_oboe = false` for 90% of users (cohort B)
-- User setting: undefined for most users
 
 **Behavior**:
 - **Cohort A** (10%): Feature enabled by default (Priority 5)
@@ -336,9 +266,7 @@ getFeatureFlag("tengu_oboe") // Returns true or false
 
 ### Scenario 3: Full Rollout (100% Enabled)
 
-**Configuration**:
-- Feature flag: `tengu_oboe = true` for all users
-- User setting: varies by user
+**Configuration**: Feature flag: `tengu_oboe = true` for all users
 
 **Behavior**:
 - **Users who never toggled**: Feature enabled (Priority 5)
@@ -351,17 +279,11 @@ getFeatureFlag("tengu_oboe") // Returns true or false
 
 ### Scenario 4: Emergency Disable (Kill Switch)
 
-**Configuration**:
-- Feature flag: Flip `tengu_oboe = false` (all users)
-- OR: Set `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` globally
+**Option A**: Flip `tengu_oboe = false` (all users, ~5 minutes via cache TTL)
 
-**Behavior**: Feature disabled for all users immediately
+**Option B**: Set `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` globally (instant, requires server config)
 
 **Outcome**: **Emergency rollback** in case of critical bug
-
-**Why two mechanisms?**
-- **Feature flag**: Server-side control, takes ~5 minutes to propagate (cache TTL)
-- **Environment var**: Instant disable, requires server configuration update
 
 ---
 
@@ -370,16 +292,11 @@ getFeatureFlag("tengu_oboe") // Returns true or false
 **Configuration**:
 - Environment var: `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` (set by IT)
 - Feature flag: `tengu_oboe = true` (enabled for general public)
-- User setting: user tries to toggle ON
+- User tries to toggle ON
 
 **Behavior**: Feature remains disabled (Priority 1 overrides all)
 
 **Outcome**: **Corporate override** prevents feature usage
-
-**User experience**:
-- User opens `/memory` modal
-- Toggle appears but is grayed out / disabled
-- Tooltip: "Auto memory disabled by organization policy"
 
 ---
 
@@ -399,192 +316,53 @@ getFeatureFlag("tengu_oboe") // Returns true or false
 
 **TUI toggle label**: "Auto-memory (research preview)"
 
-**System prompt section**: Includes disclaimer:
-```markdown
-# auto memory
-
-You have a persistent auto memory directory at `~/.claude/projects/.../memory/`.
-
-Its contents persist across conversations.
-```
-
-**No explicit "research preview" warning in system prompt** (keeps prompt concise)
-
-### Graduation Criteria (Hypothetical)
-
-**To exit research preview**:
-1. **Usage threshold**: > 20% of active users opt-in
-2. **Stability**: No breaking changes for 3+ months
-3. **Positive feedback**: User surveys show >4.0/5.0 rating
-4. **Complete documentation**: User guide, API reference, migration guide
-
-**Post-graduation**:
-- Default to enabled (`tengu_oboe = true` for all users)
-- Remove "research preview" label from UI
-- Guarantee backward compatibility for memory format
-
 ---
 
 ## Verification Steps
 
 ### Test 1: Priority 1 - Env Var Disable
 
-**Objective**: Verify env var disable overrides all other settings
-
-**Setup**:
 ```bash
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
 ```
 
-**Steps**:
-1. Start Claude Code
-2. Open `/memory` modal
-3. Attempt to toggle ON
-4. **Expected**: Toggle appears disabled OR toggle succeeds but feature remains off
-
-**Verify**:
-```bash
-# Check that memory is not loaded
-# (Ask agent if it has an "auto memory" section in system prompt)
-# Expected response: "No, auto memory is disabled"
-```
-
----
+Start Claude Code. Ask agent: "Is auto memory enabled?" Expected: No.
 
 ### Test 2: Priority 2 - Env Var Enable
 
-**Objective**: Verify env var enable overrides flag and setting
-
-**Setup**:
 ```bash
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=0
 # Assume feature flag is false and user setting is undefined
 ```
 
-**Steps**:
-1. Start Claude Code
-2. Ask agent: "Do you have auto memory enabled?"
-3. **Expected**: Agent confirms memory is enabled
-
-**Verify**:
+Start Claude Code. Memory directory should be created:
 ```bash
-# Memory directory should be created
 ls -la ~/.claude/projects/*/memory/
-# Expected: Directory exists
 ```
 
----
+### Test 3: Priority 4 - User Setting Overrides Flag
 
-### Test 3: Priority 3 - Remote Mode Requires Directory
+1. (Assume feature flag is false)
+2. Open `/memory` modal → Toggle auto memory ON
+3. Close modal, restart Claude Code
+4. **Expected**: Feature remains enabled (setting persisted)
 
-**Objective**: Verify remote mode disables without explicit directory
-
-**Setup**:
-```bash
-# Start remote session without CLAUDE_CODE_REMOTE_MEMORY_DIR
-# (Exact command depends on remote session mechanism)
-```
-
-**Steps**:
-1. Start remote session
-2. Verify `isRemoteMode() === true`
-3. Ask agent: "Is auto memory enabled?"
-4. **Expected**: Agent confirms memory is disabled
-
-**Verify**:
-```bash
-# Check for telemetry event
-grep "tengu_memdir_disabled" /tmp/telemetry.log | jq '.payload'
-# Expected: { "disabled_by_env_var": false, "disabled_by_setting": false }
-# (Disabled by Priority 3 remote mode check)
-```
-
----
-
-### Test 4: Priority 4 - User Setting Overrides Flag
-
-**Objective**: Verify user toggle overrides feature flag default
-
-**Setup**:
-```bash
-# Assume feature flag is false (disabled by default)
-# No env vars set
-```
-
-**Steps**:
-1. Start Claude Code
-2. Open `/memory` modal
-3. Toggle auto memory ON
-4. Close modal, restart Claude Code
-5. **Expected**: Feature remains enabled (setting persisted)
-
-**Verify**:
 ```bash
 cat ~/.claude/settings.json | grep autoMemoryEnabled
 # Expected: "autoMemoryEnabled": true
 ```
 
----
+### Test 4: Priority Precedence Conflicts
 
-### Test 5: Priority 5 - Feature Flag Default
-
-**Objective**: Verify feature flag controls default behavior when no overrides
-
-**Setup**:
-```bash
-# No env vars
-# User has never toggled (no setting)
-# Feature flag value varies
-```
-
-**Steps**:
-1. **Scenario A**: Feature flag returns `true`
-   - Start Claude Code
-   - Ask agent: "Is auto memory enabled?"
-   - **Expected**: Enabled
-
-2. **Scenario B**: Feature flag returns `false`
-   - Start Claude Code
-   - Ask agent: "Is auto memory enabled?"
-   - **Expected**: Disabled
-
-**Verify**:
-```bash
-# Check feature flag cache
-cat ~/.claude/feature_flags.json | grep tengu_oboe
-# Expected: "tengu_oboe": true (or false)
-```
-
----
-
-### Test 6: Priority Precedence Conflicts
-
-**Objective**: Verify higher priority always wins
-
-**Setup**:
 ```bash
 # Priority 1: DISABLE=1
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
 
-# Priority 4: User setting = true
-# (Manually edit settings.json or toggle in TUI)
+# Priority 4: User setting = true (manually set)
 echo '{"userSettings":{"autoMemoryEnabled":true}}' > ~/.claude/settings.json
-
-# Priority 5: Feature flag = true
-# (Assume flag is enabled)
 ```
 
-**Steps**:
-1. Start Claude Code
-2. Ask agent: "Is auto memory enabled?"
-3. **Expected**: Disabled (Priority 1 overrides Priority 4 and 5)
-
-**Verify**:
-```bash
-# Check telemetry
-grep "tengu_memdir_disabled" /tmp/telemetry.log | jq '.payload.disabled_by_env_var'
-# Expected: true
-```
+Start Claude Code. Expected: Disabled (Priority 1 overrides Priority 4).
 
 ---
 
@@ -602,18 +380,18 @@ Key functions in this document:
 
 ## Key Takeaways
 
-1. **5-level priority chain**: Env var → Remote mode → User setting → Feature flag
+1. **5-level priority chain**: Env var > Remote mode > User setting > Feature flag
 2. **Research preview**: Opt-in only, disabled by default via feature flag
 3. **Flexible rollout**: Supports gradual expansion, A/B testing, emergency disable
 4. **User control**: Users can always override feature flag via TUI toggle
 5. **Corporate override**: Environment variable enables policy enforcement
+6. **Custom directory** (v2.1.59): `autoMemoryDirectory` in settings is separate from enable/disable but consulted during directory resolution at Priority 4
 
 **Design rationale**:
-- ✅ **Flexible control**: Multiple rollout strategies supported
-- ✅ **User agency**: Explicit user preference overrides flag
-- ✅ **Safety**: Emergency kill switch via env var
-- ✅ **Gradual adoption**: Feature flag enables cohort-based rollout
-- ⚠️ **Complexity**: 5-level priority chain requires careful testing
+- Flexible control: Multiple rollout strategies supported
+- User agency: Explicit user preference overrides flag
+- Safety: Emergency kill switch via env var
+- Gradual adoption: Feature flag enables cohort-based rollout
 
 **Trade-offs**:
 - **Complexity vs Control**: More priorities = more flexibility but harder to reason about

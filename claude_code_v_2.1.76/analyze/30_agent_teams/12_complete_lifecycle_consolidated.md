@@ -1,7 +1,7 @@
 # Complete Agent Team Lifecycle - Consolidated Analysis
 
 > **Module**: Agent Teams - Complete Lifecycle Flow
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: Comprehensive end-to-end tracing of team lifecycle from creation to cleanup, synthesizing all analysis documents
 
 ---

@@ -1,7 +1,7 @@
 # Storage Cleanup & Disk Management for Agent Teams
 
 > **Module**: Agent Teams - Storage Cleanup & Management
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: Document mailbox cleanup, retention policies, and disk management strategies
 
 ---
@@ -20,7 +20,7 @@
 
 ## 1. Executive Summary
 
-Agent teams storage cleanup is **minimal and manual** in Claude Code 2.1.38. The cleanup model prioritizes **data preservation** over automatic garbage collection:
+Agent teams storage cleanup is **minimal and manual** in Claude Code 2.1.76. The cleanup model prioritizes **data preservation** over automatic garbage collection:
 
 **Current cleanup strategy**:
 1. **Team deletion**: Removes team directory + tasks directory (complete cleanup)

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Context Compaction is a critical subsystem in Claude Code that manages the LLM's finite context window. It ensures that the conversation can continue indefinitely by summarizing older parts of the conversation while preserving essential state (files, tasks, plans). In v2.1.38, this system is tightly integrated with the new **Agent Teams** and **Task System**.
+Context Compaction is a critical subsystem in Claude Code that manages the LLM's finite context window. It ensures that the conversation can continue indefinitely by summarizing older parts of the conversation while preserving essential state (files, tasks, plans). In v2.1.76, this system is tightly integrated with the new **Agent Teams** and **Task System**.
 
 ## Related Symbols
 
@@ -134,6 +134,98 @@ async function collectFilesToKeep(readFileState, context, maxFilesToKeep) {
 }
 
 // Mapping: Ua4→collectFilesToKeep, A→readFileState, q→context, K→maxFilesToKeep, VmY→FILE_RESTORE_TOKEN_LIMIT (5000), fmY→TOTAL_RESTORE_TOKEN_LIMIT (50000)
+
+## Auto-Compact Circuit Breaker (v2.1.76)
+
+### Overview
+
+To prevent cascading failures during compaction, Claude Code v2.1.76 implements a **circuit breaker** mechanism that disables auto-compaction after 3 consecutive failures.
+
+### What it does
+
+The circuit breaker tracks consecutive compaction failures and temporarily disables auto-compaction to prevent repeated error cycles.
+
+### How it works
+
+**Failure tracking:**
+1. Each failed compaction increments a counter in session state
+2. Counter is persistent across turns within a session
+3. After 3 consecutive failures, auto-compaction is disabled
+4. Counter resets to 0 on successful compaction
+
+**Disabled state behavior:**
+- `autoCompactDispatcher()` returns early without attempting compaction
+- UI displays "Auto-compaction disabled" status message
+- Error message guides user to manually trigger compaction or start a new session
+- Logs detailed error information for diagnostics
+
+**Circuit breaker reset:**
+- Successful compaction: Counter → 0, auto-compaction re-enabled
+- New session: Counter starts at 0
+- Manual compaction: Does NOT reset counter (manual still allowed when disabled)
+
+### State persistence
+
+**Location:** `sessionContext.autoCompactFailureCount`
+
+```javascript
+// Failure counter lifecycle
+{
+    autoCompactFailureCount: 0  // Resets on success or new session
+}
+```
+
+**When failure count increments:**
+- `performFullCompaction()` throws error
+- `performSessionMemoryCompaction()` throws error
+- Exception caught in `autoCompactDispatcher()` → increment counter
+
+**When disabled state is triggered:**
+- Failure count reaches 3
+- UI alerts user
+- Session continues (not fatally aborted)
+
+### User experience
+
+**Scenario 1: Single failure**
+- User sees error message with suggestion to retry
+- Auto-compaction retries normally on next trigger
+
+**Scenario 2: Three consecutive failures**
+- Auto-compaction disabled status shown
+- User guided to either:
+  - Trigger manual compaction if safe
+  - Start new session
+- Error logs include compaction error details
+
+### Why this approach
+
+**Design rationale:**
+
+1. **Prevents infinite retry loops**
+   - Without circuit breaker, repeated failures could hang the session
+   - 3-failure threshold balances "temporary glitch" vs "systemic problem"
+
+2. **Graceful degradation**
+   - Session continues despite compaction failure
+   - Manual compaction still available if user knows it's safe
+   - New session always works (clean state)
+
+3. **Debugging support**
+   - Failure count signals severity to user
+   - Distinguishes transient vs persistent failures
+   - Error logs retained for post-mortem
+
+**Trade-offs:**
+
+- **Automatic doesn't retry after 3 failures** - User must decide to try manual or restart
+- **Silent after disabling** - No automatic retries, explicit user action required
+
+### Key insight
+
+The circuit breaker implements **fail-fast safety** for a critical subsystem. Rather than cascade failures trying to recover from a broken state, the system transparently signals the problem and gives users explicit control.
+
+---
 
 ## Key Insight
 

@@ -1,617 +1,322 @@
-# Agent Definitions - Built-in Agents and Merging (Claude Code 2.1.38)
+# Agent Definitions - Subagent System (Claude Code 2.1.76)
 
-> Deep analysis of built-in agent types, their configurations, and the priority-based merging system
+## Overview
 
----
+Agent definitions specify the configuration and behavior of subagent instances. Each definition includes the system prompt, allowed tools, model selection, and lifecycle hooks. In v2.1.76, two new fields were added: `background: true` flag for background-optimized agents, and per-invocation `model` override via the AgentTool call.
 
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Agent Definition Schema](#agent-definition-schema)
-3. [mergeAgentDefinitions](#mergeagentdefinitions)
-4. [Built-in Agent Types](#built-in-agent-types)
-5. [MCP Server Requirements](#mcp-server-requirements)
-6. [Cross-References](#cross-references)
-
----
+**v2.1.76 additions:**
+- `background: true` agent definition flag for background-optimized agent behavior
+- Per-invocation `model` parameter in AgentTool allows overriding the agent's default model at call time
 
 ## Related Symbols
 
 > Symbol mappings:
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
-> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `mergeAgentDefinitions` (hh) - Priority-based merging of agent definitions from multiple sources
-- `validateMcpServers` (KPA) - Validates MCP server requirements for an agent
-- `filterByMcpServers` (un7) - Filters agents by MCP server availability
-- `ZB1` - General-purpose agent definition
-- `bv` - Explore agent definition
-- `PJ6` - Plan agent definition
-- `Tn7` - Bash agent definition
-- `Rn7` - claude-code-guide agent definition
-- `En7` - statusline-setup agent definition
+- `BUILT_IN_AGENT_DEFINITIONS` (ZB1) - Array of built-in agent definitions - chunks.89.mjs
+- `mergeAgentDefinitions` (hh) - Priority merging of agent definitions - chunks.89.mjs
+- `resolveAgentDefinition` (PJ6) - Resolve agent name to definition - chunks.89.mjs
+- `validateRequiredMcpServers` (KPA) - Validate MCP server requirements - chunks.89.mjs
+- `buildAgentSystemPrompt` (bv) - Build system prompt for agent - chunks.89.mjs
 
 ---
 
-## 1. Overview
+## Built-In Agent Types
 
-Agent definitions define the capabilities, constraints, and behavior of subagent types. Each agent type is configured with:
+### General-Purpose Agent
 
-- **Tool availability** - Which tools the agent can use
-- **Model selection** - Which LLM model to use (or inherit from parent)
-- **System prompt** - Instructions for the agent's behavior
-- **MCP requirements** - Required MCP servers for the agent to function
-- **Critical reminders** - Safety reminders injected into the context
+The default agent used for most subagent invocations. Has access to the full tool set and uses the session's configured model.
 
-The agent definition system supports multiple sources (built-in, plugin, user settings, project settings, policy settings, flag settings) with a priority-based merging mechanism.
+```javascript
+{
+    agentType: "general-purpose",
+    getSystemPrompt: (ctx) => buildDefaultSystemPrompt(ctx),
+    tools: [],  // Uses full tool set
+    disallowedTools: [],
+    model: undefined,  // Uses session model
+    maxTurns: undefined,  // No limit
+    color: "blue"
+}
+```
+
+### Explore Agent
+
+Optimized for read-only exploration. Limited to reading tools to prevent accidental modifications.
+
+```javascript
+{
+    agentType: "Explore",
+    getSystemPrompt: (ctx) => buildExploreSystemPrompt(ctx),
+    tools: ["Read", "Glob", "Grep", "Bash"],
+    disallowedTools: ["Write", "Edit", "MultiEdit"],
+    model: undefined,
+    maxTurns: 20
+}
+```
+
+### Plan Agent
+
+Used for generating structured plans. Focuses on analysis and planning rather than execution.
+
+```javascript
+{
+    agentType: "Plan",
+    getSystemPrompt: (ctx) => buildPlanSystemPrompt(ctx),
+    tools: ["Read", "Glob", "Grep"],
+    disallowedTools: ["Bash", "Write", "Edit"],
+    model: undefined,
+    maxTurns: 15
+}
+```
+
+### Bash Agent
+
+Optimized for shell scripting and command execution.
+
+```javascript
+{
+    agentType: "Bash",
+    getSystemPrompt: (ctx) => buildBashSystemPrompt(ctx),
+    tools: ["Bash", "Read"],
+    disallowedTools: [],
+    model: undefined,
+    maxTurns: 30
+}
+```
+
+### claude-code-guide Agent
+
+A meta-agent that provides guidance on using Claude Code itself.
+
+```javascript
+{
+    agentType: "claude-code-guide",
+    getSystemPrompt: (ctx) => buildGuideSystemPrompt(ctx),
+    tools: ["Read"],
+    disallowedTools: [],
+    model: undefined,
+    maxTurns: 5
+}
+```
+
+### statusline-setup Agent
+
+Used during initial setup for terminal status line configuration.
+
+```javascript
+{
+    agentType: "statusline-setup",
+    getSystemPrompt: (ctx) => buildStatuslineSystemPrompt(ctx),
+    tools: ["Bash", "Read", "Write"],
+    disallowedTools: [],
+    model: undefined,
+    maxTurns: 10
+}
+```
 
 ---
 
-## 2. Agent Definition Schema
+## New v2.1.76 Fields
 
-### Full Schema
+### background: true Flag
+
+The `background: true` flag marks an agent definition as optimized for background execution. Background-flagged agents:
+
+1. Skip interactive confirmation prompts where possible
+2. Use more conservative tool permissions (prefer read-only by default)
+3. Emit structured output suitable for programmatic consumption
+4. Set `isAsync: true` in the agent loop runner call
+
+**Why this approach:**
+- Background agents are not watched by users in real-time; their behavior should be conservative and predictable
+- Marking agents as `background` explicitly allows the runner to apply appropriate policies without the caller needing to configure each individually
+
+```javascript
+// ============================================
+// background flag in agent definition (v2.1.76)
+// Location: chunks.89.mjs
+// ============================================
+
+// READABLE (for understanding):
+const backgroundWorkerAgentDef = {
+    agentType: "background-worker",
+    background: true,  // NEW in v2.1.76
+    getSystemPrompt: (ctx) => buildBackgroundWorkerPrompt(ctx),
+    tools: ["Read", "Glob", "Grep", "Bash"],
+    disallowedTools: ["Write", "Edit"],
+    maxTurns: 50
+};
+```
+
+### Per-Invocation model Override
+
+In v2.1.76, the `model` parameter can be specified in each AgentTool invocation, overriding both the session default and the agent definition's configured model.
+
+**Resolution priority (highest to lowest):**
+1. Per-invocation `model` parameter in the Task tool call
+2. Agent definition `model` field
+3. Session-level model configuration
+4. System default model
+
+```javascript
+// ============================================
+// model resolution hierarchy (v2.1.76)
+// Location: chunks.132.mjs (AgentTool.call)
+// ============================================
+
+// READABLE (for understanding):
+function resolveModelForSubagent(taskInput, agentDef, sessionContext) {
+    // Per-invocation model has highest priority (NEW in v2.1.76)
+    if (taskInput.model) {
+        return resolveModelConfig(taskInput.model);
+    }
+
+    // Agent definition model next
+    if (agentDef.model) {
+        return resolveModelConfig(agentDef.model);
+    }
+
+    // Fall back to session model
+    return sessionContext.options.mainLoopModel;
+}
+```
+
+**Why this approach:**
+- Callers can switch models for specific delegated tasks (e.g., use a cheaper model for simple file analysis, a more capable model for complex reasoning)
+- Per-invocation override avoids needing to define a separate agent definition for each model variant
+- The priority order follows the principle of least surprise: more specific overrides more general
+
+---
+
+## mergeAgentDefinitions (hh)
+
+### What it does
+
+Merges multiple agent definition objects into a single definition, with later definitions taking priority over earlier ones for non-array fields, and array fields being unioned.
+
+### How it works
+
+1. Start with the base definition
+2. For each subsequent definition:
+   - Scalar fields (model, maxTurns, color): later overrides earlier
+   - Array fields (tools, disallowedTools): later is appended/merged
+   - Function fields (getSystemPrompt): later replaces earlier
+3. Return merged definition
+
+```javascript
+// ============================================
+// mergeAgentDefinitions - Priority merge of agent definitions
+// Location: chunks.89.mjs
+// ============================================
+
+// READABLE (for understanding):
+function mergeAgentDefinitions(base, ...overrides) {
+    let result = { ...base };
+
+    for (let override of overrides) {
+        // Scalar fields: override replaces base
+        if (override.model !== undefined) result.model = override.model;
+        if (override.maxTurns !== undefined) result.maxTurns = override.maxTurns;
+        if (override.color !== undefined) result.color = override.color;
+        if (override.background !== undefined) result.background = override.background;
+
+        // Function fields: override replaces base
+        if (override.getSystemPrompt) result.getSystemPrompt = override.getSystemPrompt;
+
+        // Array fields: union
+        if (override.tools) result.tools = [...(result.tools || []), ...override.tools];
+        if (override.disallowedTools) {
+            result.disallowedTools = [...(result.disallowedTools || []), ...override.disallowedTools];
+        }
+
+        // Hook merging: union of hook arrays
+        if (override.hooks) result.hooks = mergeHooks(result.hooks, override.hooks);
+    }
+
+    return result;
+}
+
+// Mapping: hh→mergeAgentDefinitions
+```
+
+---
+
+## Agent Definition Schema
+
+The complete schema for agent definitions in v2.1.76:
 
 ```typescript
 interface AgentDefinition {
     // Required
-    agentType: string;           // Unique identifier (e.g., "general-purpose", "Explore")
-    whenToUse: string;           // Description shown in Task tool description
-    source: "built-in" | "plugin" | "userSettings" | "projectSettings" | "policySettings" | "flagSettings";
-    baseDir: string;             // Base directory for the agent definition
+    agentType: string;
+    getSystemPrompt: (ctx: ToolUseContext) => Promise<string>;
 
     // Tool configuration
-    tools: string[] | ["*"];     // ["*"] means all tools, otherwise list of tool names
-    disallowedTools?: string[];  // Tools explicitly NOT allowed (overrides tools: ["*"])
+    tools?: string[];              // Allowed tool names (whitelist)
+    disallowedTools?: string[];    // Disallowed tool names (blacklist)
 
-    // Model selection
-    model: "inherit" | "sonnet" | "opus" | "haiku";  // Model to use
+    // Model configuration
+    model?: string;                // Default model override
 
-    // System prompt
-    getSystemPrompt: () => string;  // Function returning the system prompt
+    // Execution configuration
+    maxTurns?: number;             // Maximum LLM turns
+    background?: boolean;          // NEW in v2.1.76: background mode flag
+    isolation?: "worktree";        // NEW in v2.1.76: isolation strategy
 
-    // Optional features
-    criticalSystemReminder_EXPERIMENTAL?: string;  // High-priority reminder
-    requiredMcpServers?: string[];                 // Required MCP servers
-    hooks?: HookConfig;                            // Agent-specific hooks
-    skills?: string[];                             // Skills to preload
-    maxTurns?: number;                             // Maximum agentic turns
-    color?: string;                                // UI color for the agent
+    // System prompt additions
+    criticalSystemReminder_EXPERIMENTAL?: string;  // Injected into system prompt
 
-    // Teammate mode
-    permissionMode?: PermissionMode;  // Permission mode for teammates
+    // MCP requirements
+    requiredMcpServers?: string[]; // MCP servers that must be available
+
+    // Hook configuration
+    hooks?: SkillHooks;            // Lifecycle hooks
+
+    // Skill configuration
+    skills?: string[];             // Required skill names
+
+    // UI configuration
+    color?: string;                // Color for UI display
+    permissionMode?: string;       // Permission mode override
 }
 ```
 
-### Tool Configuration Patterns
-
-| Pattern | Meaning | Example |
-|---------|---------|---------|
-| `tools: ["*"]` | All tools available | general-purpose agent |
-| `tools: ["Bash"]` | Only Bash tool | Bash agent |
-| `tools: ["*"], disallowedTools: ["Task", "Edit"]` | All except disallowed | Explore/Plan agents |
-
-### Model Selection Values
-
-| Value | Behavior |
-|-------|----------|
-| `"inherit"` | Use parent's model resolution logic (default for most agents) |
-| `"sonnet"` | Always use Claude Sonnet |
-| `"opus"` | Always use Claude Opus |
-| `"haiku"` | Always use Claude Haiku (faster, cheaper) |
-
 ---
 
-## 3. mergeAgentDefinitions
+## MCP Server Validation (KPA)
 
-### `mergeAgentDefinitions` (hh)
+### validateRequiredMcpServers (KPA)
 
-**What it does:** Merges agent definitions from multiple sources with priority ordering. Later sources override earlier ones for the same `agentType`.
+**What it does:** Verifies that all MCP servers required by the agent definition are available and connected before the subagent starts.
 
 **How it works:**
+1. Check `agentDefinition.requiredMcpServers` array
+2. For each required server, check if it appears in the active MCP connections
+3. If any required server is missing, return an error with details
+4. If all present, return success
 
-```javascript
-// ============================================
-// mergeAgentDefinitions - Priority-based agent merging
-// Location: chunks.91.mjs:3-15
-// ============================================
-
-// ORIGINAL (for source lookup):
-function hh(A) {
-    let q = A.filter((_) => _.source === "built-in"),
-        K = A.filter((_) => _.source === "plugin"),
-        Y = A.filter((_) => _.source === "userSettings"),
-        z = A.filter((_) => _.source === "projectSettings"),
-        w = A.filter((_) => _.source === "policySettings"),
-        H = A.filter((_) => _.source === "flagSettings"),
-        $ = [q, K, Y, z, H, w],
-        O = new Map;
-    for (let _ of $)
-        for (let J of _) O.set(J.agentType, J);
-    return Array.from(O.values())
-}
-
-// READABLE (for understanding):
-function mergeAgentDefinitions(allDefinitions) {
-    // Step 1: Separate definitions by source
-    let builtIn = allDefinitions.filter((def) => def.source === "built-in");
-    let plugin = allDefinitions.filter((def) => def.source === "plugin");
-    let userSettings = allDefinitions.filter((def) => def.source === "userSettings");
-    let projectSettings = allDefinitions.filter((def) => def.source === "projectSettings");
-    let policySettings = allDefinitions.filter((def) => def.source === "policySettings");
-    let flagSettings = allDefinitions.filter((def) => def.source === "flagSettings");
-
-    // Step 2: Create priority order array
-    // Order matters: later entries override earlier ones
-    let priorityOrder = [builtIn, plugin, userSettings, projectSettings, flagSettings, policySettings];
-
-    // Step 3: Build merged map
-    let mergedMap = new Map();
-    for (let sourceList of priorityOrder) {
-        for (let def of sourceList) {
-            // Map.set() overwrites existing entries
-            // So later sources override earlier ones
-            mergedMap.set(def.agentType, def);
-        }
-    }
-
-    // Step 4: Return merged array
-    return Array.from(mergedMap.values());
-}
-
-// Mapping: hh→mergeAgentDefinitions, A→allDefinitions,
-//          q→builtIn, K→plugin, Y→userSettings, z→projectSettings,
-//          w→policySettings, H→flagSettings, $→priorityOrder,
-//          O→mergedMap, _→def, J→sourceList
-```
-
-### Priority Order
-
-```
-Lowest Priority                          Highest Priority
-─────────────────────────────────────────────────────────────→
-built-in → plugin → userSettings → projectSettings → flagSettings → policySettings
-```
-
-**Why this order:**
-
-1. **built-in** - Default definitions shipped with Claude Code
-2. **plugin** - Extensions can add or override built-in agents
-3. **userSettings** - User's personal configuration (`~/.claude/settings.json`)
-4. **projectSettings** - Project-specific configuration (`.claude/settings.json`)
-5. **flagSettings** - CLI flag overrides (`--agent-config`)
-6. **policySettings** - Enterprise policy enforcement (cannot be overridden)
-
-**Key insight:** `policySettings` has the highest priority, ensuring enterprise policies cannot be circumvented by user or project settings.
-
-### Example Merge Scenario
-
-```javascript
-// Scenario: User has customized the "Explore" agent in userSettings
-
-// built-in Explore agent
-let builtInExplore = {
-    agentType: "Explore",
-    model: "haiku",
-    source: "built-in",
-    // ...
-};
-
-// userSettings Explore agent
-let userExplore = {
-    agentType: "Explore",
-    model: "sonnet",  // Override to use sonnet instead
-    source: "userSettings",
-    // ...
-};
-
-// After merging:
-// Result: userExplore (sonnet model) wins because userSettings > built-in
-```
+**Why this approach:**
+- Fail-fast validation prevents the subagent from starting and then failing mid-execution when a required tool is unavailable
+- Error message names the missing server, making diagnosis straightforward
 
 ---
 
-## 4. Built-in Agent Types
+## Design Rationale
 
-### general-purpose (ZB1)
+### Why Separate Agent Definitions from Tool Sets?
 
-**Purpose:** Default agent for complex multi-step tasks and code searches.
+**Agent definitions** describe the intent and policy (what the agent should do, which model to use, maximum turns). **Tool sets** describe the capability (which concrete tool implementations are available).
 
-```javascript
-// ============================================
-// general-purpose agent definition
-// Location: chunks.90.mjs:2622-2644
-// ============================================
+Keeping these separate allows:
+1. **Reuse** - The same tool set can serve multiple agent types
+2. **Override** - Per-invocation model override (v2.1.76) works without redefining the entire agent
+3. **Validation** - Tool whitelists are applied at assembly time, not definition time
 
-// ORIGINAL (for source lookup):
-ZB1 = {
-    agentType: "general-purpose",
-    whenToUse: "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you.",
-    tools: ["*"],
-    source: "built-in",
-    baseDir: "built-in",
-    getSystemPrompt: () => `You are an agent for Claude Code, Anthropic's official CLI for Claude. Given the user's message, you should use the tools available to complete the task. Do what has been asked; nothing more, nothing less. When you complete the task simply respond with a detailed writeup.
+### Why background: true as a Separate Flag?
 
-Your strengths:
-- Searching for code, configurations, and patterns across large codebases
-- Analyzing multiple files to understand system architecture
-- Investigating complex questions that require exploring many files
-- Performing multi-step research tasks
+**Alternative:** Detect background mode from the task creation context.
 
-Guidelines:
-- For file searches: Use Grep or Glob when you need to search broadly. Use Read when you know the specific file path.
-- For analysis: Start broad and narrow down. Use multiple search strategies if the first doesn't yield results.
-- Be thorough: Check multiple locations, consider different naming conventions, look for related files.
-- NEVER create files unless they're absolutely necessary for achieving your goal. ALWAYS prefer editing an existing file to creating a new one.
-- NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested.
-- In your final response always share relevant file names and code snippets. Any file paths you return in your response MUST be absolute. Do NOT use relative paths.
-- For clear communication, avoid using emojis.`
-}
+**Chosen approach:** Explicit flag in agent definition.
 
-// READABLE (for understanding):
-GENERAL_PURPOSE_AGENT = {
-    agentType: "general-purpose",
-    whenToUse: "General-purpose agent for researching complex questions...",
-    tools: ["*"],  // All tools available
-    source: "built-in",
-    baseDir: "built-in",
-    model: "inherit",  // Uses parent's model selection
-    getSystemPrompt: () => `...system prompt...`
-};
-```
-
-**Key characteristics:**
-- **Full tool access** - `tools: ["*"]` means all tools
-- **No disallowed tools** - Can use any tool including Task, Edit, Write
-- **Inherits model** - Uses parent's model selection logic
-- **Comprehensive guidelines** - Detailed instructions for file searches and analysis
-
-### Explore (bv)
-
-**Purpose:** Fast agent for codebase exploration and searching. Uses Haiku for speed.
-
-```javascript
-// ============================================
-// Explore agent definition
-// Location: chunks.90.mjs:2808-2817
-// ============================================
-
-// ORIGINAL (for source lookup):
-bv = {
-    agentType: "Explore",
-    whenToUse: 'Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.',
-    disallowedTools: [fK, eO6, bq, f5, jM],  // Task, NotebookEdit, Edit, Write
-    source: "built-in",
-    baseDir: "built-in",
-    model: "haiku",
-    getSystemPrompt: () => EXPLORE_SYSTEM_PROMPT,
-    criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
-}
-
-// READABLE (for understanding):
-EXPLORE_AGENT = {
-    agentType: "Explore",
-    whenToUse: "Fast agent specialized for exploring codebases...",
-    disallowedTools: ["Task", "NotebookEdit", "Edit", "Write"],  // Cannot modify files
-    source: "built-in",
-    baseDir: "built-in",
-    model: "haiku",  // Always use Haiku for speed
-    getSystemPrompt: () => `...system prompt for exploration...`,
-    criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
-};
-```
-
-**Key characteristics:**
-- **Read-only** - Cannot use Edit, Write, NotebookEdit, or spawn Task subagents
-- **Haiku model** - Always uses Haiku for faster, cheaper exploration
-- **Critical reminder** - Injects "READ-ONLY task" reminder into context
-- **Thoroughness levels** - Supports "quick", "medium", "very thorough" modes
-
-### Plan (PJ6)
-
-**Purpose:** Software architect agent for designing implementation plans.
-
-```javascript
-// ============================================
-// Plan agent definition
-// Location: chunks.90.mjs:2878-2888
-// ============================================
-
-// ORIGINAL (for source lookup):
-PJ6 = {
-    agentType: "Plan",
-    whenToUse: "Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs.",
-    disallowedTools: [fK, eO6, bq, f5, jM],  // Task, NotebookEdit, Edit, Write
-    source: "built-in",
-    tools: bv.tools,  // Same tools as Explore
-    baseDir: "built-in",
-    model: "inherit",
-    getSystemPrompt: () => PLAN_SYSTEM_PROMPT,
-    criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
-}
-
-// READABLE (for understanding):
-PLAN_AGENT = {
-    agentType: "Plan",
-    whenToUse: "Software architect agent for designing implementation plans...",
-    disallowedTools: ["Task", "NotebookEdit", "Edit", "Write"],
-    source: "built-in",
-    tools: EXPLORE_AGENT.tools,  // Same tools as Explore
-    baseDir: "built-in",
-    model: "inherit",  // Uses parent's model selection
-    getSystemPrompt: () => `...architect system prompt...`,
-    criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
-};
-```
-
-**Key characteristics:**
-- **Read-only** - Same disallowed tools as Explore
-- **Inherits model** - Can use parent's model (may be Opus for complex planning)
-- **Architecture focused** - System prompt emphasizes:
-  - Understanding requirements
-  - Exploring thoroughly
-  - Designing solutions
-  - Detailing plans
-- **Critical files output** - Must list 3-5 critical files for implementation
-
-### Bash (Tn7)
-
-**Purpose:** Command execution specialist for running bash commands.
-
-```javascript
-// ============================================
-// Bash agent definition
-// Location: chunks.90.mjs:2608-2616
-// ============================================
-
-// ORIGINAL (for source lookup):
-Tn7 = {
-    agentType: "Bash",
-    whenToUse: "Command execution specialist for running bash commands. Use this for git operations, command execution, and other terminal tasks.",
-    tools: [h4],  // Only Bash tool
-    source: "built-in",
-    baseDir: "built-in",
-    model: "inherit",
-    getSystemPrompt: () => `You are a command execution specialist for Claude Code. Your role is to execute bash commands efficiently and safely.
-
-Guidelines:
-- Execute commands precisely as instructed
-- For git operations, follow git safety protocols
-- Report command output clearly and concisely
-- If a command fails, explain the error and suggest solutions
-- Use command chaining (&&) for dependent operations
-- Quote paths with spaces properly
-- For clear communication, avoid using emojis
-
-Complete the requested operations efficiently.`
-}
-
-// READABLE (for understanding):
-BASH_AGENT = {
-    agentType: "Bash",
-    whenToUse: "Command execution specialist...",
-    tools: ["Bash"],  // ONLY the Bash tool
-    source: "built-in",
-    baseDir: "built-in",
-    model: "inherit",
-    getSystemPrompt: () => `...command execution system prompt...`
-};
-```
-
-**Key characteristics:**
-- **Single tool** - Only has access to the Bash tool
-- **Command focused** - System prompt emphasizes safe, efficient execution
-- **Git safety** - Special handling for git operations
-- **No emojis** - Clear communication preference
-
-### claude-code-guide (Rn7)
-
-**Purpose:** Help agent for Claude Code documentation and API questions.
-
-```javascript
-// ============================================
-// claude-code-guide agent definition
-// Location: chunks.90.mjs:2904-2972
-// ============================================
-
-// READABLE (for understanding):
-CLAUDE_CODE_GUIDE_AGENT = {
-    agentType: "claude-code-guide",
-    whenToUse: `Use this agent when the user asks questions about:
-1. Claude Code (the CLI tool) - features, hooks, skills, MCP servers, settings, IDE integrations
-2. Claude Agent SDK - building custom agents
-3. Claude API (formerly Anthropic API) - API usage, tool use, integrations`,
-    source: "built-in",
-    baseDir: "built-in",
-    model: "inherit",
-    // Uses WebFetch to fetch documentation
-    getSystemPrompt: () => `...documentation fetching system prompt...`,
-    // Has access to web tools for fetching docs
-};
-```
-
-**Key characteristics:**
-- **Documentation fetching** - Can fetch from docs URLs
-- **Multi-domain expertise** - Claude Code CLI, Agent SDK, and API
-- **WebFetch capability** - Can fetch documentation from URLs
-- **Resume support** - Can resume previous guide sessions
-
-### statusline-setup (En7)
-
-**Purpose:** Agent for configuring Claude Code status line settings.
-
-```javascript
-// ============================================
-// statusline-setup agent definition
-// Location: chunks.90.mjs:2650-2670
-// ============================================
-
-// READABLE (for understanding):
-STATUSLINE_SETUP_AGENT = {
-    agentType: "statusline-setup",
-    whenToUse: "Use this agent to configure the user's Claude Code status line setting.",
-    tools: ["Read", "Edit"],  // Only file reading and editing
-    source: "built-in",
-    baseDir: "built-in",
-    model: "sonnet",  // Fixed to Sonnet
-    color: "orange",
-    getSystemPrompt: () => `...status line conversion system prompt...`
-};
-```
-
-**Key characteristics:**
-- **Limited tools** - Only Read and Edit
-- **Fixed model** - Always uses Sonnet
-- **Shell config parsing** - Can parse PS1 from shell config files
-- **PS1 conversion** - Converts shell prompts to status line format
-
----
-
-## 5. MCP Server Requirements
-
-### `validateMcpServers` (KPA)
-
-**What it does:** Checks whether all MCP servers required by an agent definition are available.
-
-```javascript
-// ============================================
-// validateMcpServers - Check MCP server availability
-// Location: chunks.91.mjs:17-20
-// ============================================
-
-// ORIGINAL (for source lookup):
-function KPA(A, q) {
-    if (!A.requiredMcpServers || A.requiredMcpServers.length === 0) return !0;
-    return A.requiredMcpServers.every((K) => q.some((Y) => Y.toLowerCase().includes(K.toLowerCase())))
-}
-
-// READABLE (for understanding):
-function validateMcpServers(agentDefinition, availableMcpServers) {
-    // No requirements = always valid
-    if (!agentDefinition.requiredMcpServers || agentDefinition.requiredMcpServers.length === 0)
-        return true;
-
-    // Every required server must have a case-insensitive partial match in available servers
-    return agentDefinition.requiredMcpServers.every(
-        (required) => availableMcpServers.some(
-            (available) => available.toLowerCase().includes(required.toLowerCase())
-        )
-    );
-}
-
-// Mapping: KPA→validateMcpServers, A→agentDefinition, q→availableMcpServers
-```
-
-### `filterByMcpServers` (un7)
-
-**What it does:** Filters agent definitions to only those whose MCP requirements are satisfied.
-
-```javascript
-// ============================================
-// filterByMcpServers - Remove agents with unmet MCP requirements
-// Location: chunks.91.mjs:22-24
-// ============================================
-
-// ORIGINAL (for source lookup):
-function un7(A, q) {
-    return A.filter((K) => KPA(K, q))
-}
-
-// READABLE (for understanding):
-function filterByMcpServers(agentDefinitions, availableMcpServers) {
-    return agentDefinitions.filter(
-        (agentDef) => validateMcpServers(agentDef, availableMcpServers)
-    );
-}
-
-// Mapping: un7→filterByMcpServers, A→agentDefinitions, q→availableMcpServers, K→agentDef
-```
-
-### Case-Insensitive Partial Matching
-
-**Why `.includes()` with case-insensitive matching:**
-
-MCP server names in tool identifiers may differ in casing or include prefixes/suffixes:
-
-```javascript
-// Example: github MCP server
-// Tool names might be: "mcp__github__list_repos", "mcp__github-enterprise__list_repos"
-// Requirement: "github"
-// Both match because "github-enterprise".toLowerCase().includes("github".toLowerCase())
-```
-
-### MCP Validation Flow
-
-```
-1. AgentTool.prompt() called
-   ↓
-2. Extract available MCP servers from tools
-   ↓
-3. filterByMcpServers(agents, availableMcpServers)
-   ↓
-4. Return filtered list for tool description
-```
-
-```
-1. AgentTool.call() with subagent_type
-   ↓
-2. Resolve agent definition
-   ↓
-3. validateMcpServers(agent, availableMcpServers)
-   ↓
-4. If fails: throw error with missing servers
-```
-
-**Key insight:** MCP validation happens at two stages:
-1. **In `prompt()`** - Agents with unmet requirements are filtered from the description
-2. **In `call()`** - Second check catches race conditions where MCP state changed
-
----
-
-## 6. Cross-References
-
-### Related Documentation
-
-- **[agent_tool.md](./agent_tool.md)** - How agent definitions are resolved in the Task tool
-- **[tools_integration.md](./tools_integration.md)** - Tool availability per agent type
-- **[context_building.md](./context_building.md)** - Critical system reminders in context
-
-### Symbol References
-
-| Symbol | Location | Description |
-|--------|----------|-------------|
-| `hh` | chunks.91.mjs:3 | mergeAgentDefinitions |
-| `KPA` | chunks.91.mjs:17 | validateMcpServers |
-| `un7` | chunks.91.mjs:22 | filterByMcpServers |
-| `ZB1` | chunks.90.mjs:2622 | general-purpose agent |
-| `bv` | chunks.90.mjs:2808 | Explore agent |
-| `PJ6` | chunks.90.mjs:2878 | Plan agent |
-| `Tn7` | chunks.90.mjs:2608 | Bash agent |
-| `Rn7` | chunks.90.mjs:2904 | claude-code-guide agent |
-| `En7` | chunks.90.mjs:2650 | statusline-setup agent |
-
----
-
-## Summary
-
-Agent definitions in Claude Code 2.1.38 provide:
-
-1. **Flexible configuration** - Each agent type has specific tools, model, and behavior
-2. **Priority-based merging** - Multiple sources can define agents with clear override rules
-3. **MCP requirements** - Agents can require specific MCP servers
-4. **Safety constraints** - Read-only agents have disallowed tools and critical reminders
-5. **Model selection** - Each agent can inherit parent model or specify a fixed model
-
-**Built-in agents cover the main use cases:**
-- **general-purpose** - Full-featured agent for complex tasks
-- **Explore** - Fast, read-only codebase exploration
-- **Plan** - Architecture planning without file modification
-- **Bash** - Specialized command execution
-- **claude-code-guide** - Documentation and API help
-- **statusline-setup** - Status line configuration
-
-**Key design decisions:**
-- `policySettings` has highest priority for enterprise control
-- Explore uses Haiku for speed; Plan inherits model for quality
-- MCP validation happens twice (prompt + call) for robustness
-- Critical reminders enforce read-only modes for safety-critical agents
+The explicit flag is more transparent - it documents that the agent is designed for background use. This matters because background agents may behave differently (fewer interactive prompts, more conservative permissions), and users reading the agent definition should be able to see this immediately.

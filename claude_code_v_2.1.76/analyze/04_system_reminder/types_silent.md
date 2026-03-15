@@ -1,7 +1,7 @@
 # System Reminder Types: Silent / No-Op Types
 
 > **Module**: System Reminders - Silent Types
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:1118-1131`
 
 ---

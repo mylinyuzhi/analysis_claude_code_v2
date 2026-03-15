@@ -1,7 +1,7 @@
 # System Reminder Module - Complete Documentation
 
 > **Module**: System Reminders (Attachments-to-API Normalization)
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:490-1131`, `chunks.142.mjs:1948-2835`, `chunks.148.mjs:2414-2428`
 
 ---
@@ -38,10 +38,10 @@ This module provides comprehensive documentation of the system reminder architec
 | [**types_file_context.md**](./types_file_context.md) | `directory`, `file`, `edited_text_file`, `compact_file_reference`, `pdf_reference`, `already_read_file` | File loading, @-mention handling, truncation |
 | [**types_ide_integration.md**](./types_ide_integration.md) | `selected_lines_in_ide`, `opened_file_in_ide`, `diagnostics` | IDE context, LSP integration |
 | [**types_task_management.md**](./types_task_management.md) | `todo`, `todo_reminder`, `task_reminder`, `task_status`, `task_progress` | Frequency throttling, turn counting |
-| [**types_mode_control.md**](./types_mode_control.md) | `plan_mode`, `plan_mode_reentry`, `plan_mode_exit`, `plan_file_reference`, `delegate_mode`, `delegate_mode_exit` | Variant selection, full/sparse/subagent |
-| [**types_skills_memory.md**](./types_skills_memory.md) | `invoked_skills`, `skill_listing`, `nested_memory`, `mcp_resource`, `ultramemory`, `dynamic_skill`, `agent_mention` | Memory loading, MCP resources, cooldown |
-| [**types_hooks.md**](./types_hooks.md) | `async_hook_response`, `hook_blocking_error`, `hook_success`, `hook_additional_context`, `hook_stopped_continuation` | Hook response delivery, blocking behavior |
-| [**types_status_budget.md**](./types_status_budget.md) | `token_usage`, `budget_usd`, `compaction_reminder`, `critical_system_reminder`, `queued_command`, `output_style` | Resource tracking, queued messages |
+| [**types_mode_control.md**](./types_mode_control.md) | `plan_mode`, `plan_mode_reentry`, `plan_mode_exit`, `plan_file_reference`, `delegate_mode`, `delegate_mode_exit` | Variant selection, full/sparse/subagent; /plan with description argument (v2.1.76) |
+| [**types_skills_memory.md**](./types_skills_memory.md) | `invoked_skills`, `skill_listing`, `nested_memory`, `mcp_resource`, `ultramemory`, `dynamic_skill`, `agent_mention` | Memory loading, MCP resources, cooldown; CLAUDE_SKILL_DIR, InstructionsLoaded, last-modified headers (v2.1.76) |
+| [**types_hooks.md**](./types_hooks.md) | `async_hook_response`, `hook_blocking_error`, `hook_success`, `hook_additional_context`, `hook_stopped_continuation`, `post_compact`, `elicitation`, `elicitation_result`, `instructions_loaded`, `config_change`, `worktree_create`, `worktree_remove` | Hook response delivery, blocking behavior; new hook types (v2.1.76) |
+| [**types_status_budget.md**](./types_status_budget.md) | `token_usage`, `budget_usd`, `compaction_reminder`, `critical_system_reminder`, `queued_command`, `output_style`, `verify_plan_reminder`, `session_name`, `cron_job` | Resource tracking, queued messages; session_name and cron_job (v2.1.76) |
 | [**types_silent.md**](./types_silent.md) | All silent types | Why silent types exist, internal state tracking |
 
 ### Quick Reference
@@ -117,7 +117,7 @@ Examples of what system reminders convey:
 - `task_progress` - Task progress messages
 
 ### Mode Control
-- `plan_mode` - Full plan mode instructions
+- `plan_mode` - Full plan mode instructions (v2.1.76: /plan supports description argument)
 - `plan_mode_reentry` - Re-entering plan mode
 - `plan_mode_exit` - Exited plan mode
 - `plan_file_reference` - Existing plan file content (post-compact)
@@ -126,10 +126,11 @@ Examples of what system reminders convey:
 
 ### Skills & Memory
 - `invoked_skills` - Skill invocation memory
-- `skill_listing` - Available skills
-- `nested_memory` - Memory content
+- `skill_listing` - Available skills (v2.1.76: includes CLAUDE_SKILL_DIR env var support)
+- `nested_memory` - Memory content (v2.1.76: last-modified timestamps in headers)
 - `mcp_resource` - MCP resource content
 - `ultramemory` - Ultramemory content
+- `dynamic_skill` - Dynamically discovered skills
 - `agent_mention` - Agent @-mention invocation
 
 ### Hooks & Async Responses
@@ -138,6 +139,13 @@ Examples of what system reminders convey:
 - `hook_success` - Hook success
 - `hook_additional_context` - Hook context
 - `hook_stopped_continuation` - Hook stopped
+- `post_compact` - PostCompact hook event (v2.1.76 new)
+- `elicitation` - Elicitation hook event (v2.1.76 new)
+- `elicitation_result` - Elicitation result hook event (v2.1.76 new)
+- `instructions_loaded` - InstructionsLoaded hook event (v2.1.76 new)
+- `config_change` - ConfigChange hook event (v2.1.76 new)
+- `worktree_create` - WorktreeCreate hook event (v2.1.76 new)
+- `worktree_remove` - WorktreeRemove hook event (v2.1.76 new)
 
 ### Status & Budget Notifications
 - `token_usage` - Token count
@@ -145,6 +153,8 @@ Examples of what system reminders convey:
 - `compaction_reminder` - Auto-compact notification
 - `critical_system_reminder` - Critical alerts
 - `queued_command` - Queued user message
+- `session_name` - Current session name (v2.1.76 new)
+- `cron_job` - /loop cron job reminder (v2.1.76 new)
 
 ### Silent / No-Op Types
 - `already_read_file`, `command_permissions`, `edited_image_file`
@@ -209,10 +219,12 @@ The system never crashes due to attachment failures:
 ### Auto-Compaction (Module 07)
 - Meta message detection via `isMeta` flag
 - Special retention rules during compaction
+- v2.1.76: PostCompact hook fires after compaction completes
 
 ### Hooks System (Module 21)
 - Async message passing via registry
 - Hook response delivery as attachments
+- v2.1.76: New hook types: PostCompact, Elicitation, ElicitationResult, InstructionsLoaded, ConfigChange, WorktreeCreate, WorktreeRemove
 
 ### MCP Protocol (Module 23)
 - Resource fetching via @-mentions
@@ -273,32 +285,32 @@ Key functions in this module:
 
 | Document | Status | Completeness |
 |----------|--------|--------------|
-| overview.md | ✅ Complete | Full architecture analysis |
-| implementation_details.md | ✅ Complete | Core function analysis |
-| reminder_types.md | ✅ Complete | All 57+ types documented |
-| attachment_producers.md | ✅ Complete | All 40+ producers analyzed |
-| integration_points.md | ✅ Complete | 10 integrations documented |
-| ui_linkage.md | ✅ Complete | Full visibility analysis |
-| edge_cases_and_failures.md | ✅ Complete | Error handling documented |
-| performance_and_telemetry.md | ✅ Complete | Performance analysis |
-| already_read_file_report.md | ✅ Complete | Specific type analysis |
+| overview.md | Complete | Full architecture analysis |
+| implementation_details.md | Complete | Core function analysis |
+| reminder_types.md | Complete | All 57+ types documented |
+| attachment_producers.md | Complete | All 40+ producers analyzed |
+| integration_points.md | Complete | 10 integrations documented |
+| ui_linkage.md | Complete | Full visibility analysis |
+| edge_cases_and_failures.md | Complete | Error handling documented |
+| performance_and_telemetry.md | Complete | Performance analysis |
+| already_read_file_report.md | Complete | Specific type analysis |
 
 ### Per-Type Analysis
 
 | Document | Status | Completeness |
 |----------|--------|--------------|
-| types_team_mode.md | ✅ Complete | Team/Swarm types |
-| types_file_context.md | ✅ Complete | File/Directory types |
-| types_ide_integration.md | ✅ Complete | IDE integration types |
-| types_task_management.md | ✅ Complete | Todo/Task types |
-| types_mode_control.md | ✅ Complete | Plan/Delegate mode types |
-| types_skills_memory.md | ✅ Complete | Skills/Memory types |
-| types_hooks.md | ✅ Complete | Hook types |
-| types_status_budget.md | ✅ Complete | Status/Budget types |
-| types_silent.md | ✅ Complete | Silent types |
-| quick_reference.md | ✅ Complete | Quick lookup index |
+| types_team_mode.md | Complete | Team/Swarm types |
+| types_file_context.md | Complete | File/Directory types |
+| types_ide_integration.md | Complete | IDE integration types |
+| types_task_management.md | Complete | Todo/Task types |
+| types_mode_control.md | Complete | Plan/Delegate mode types |
+| types_skills_memory.md | Complete | Skills/Memory types |
+| types_hooks.md | Complete | Hook types (including v2.1.76 additions) |
+| types_status_budget.md | Complete | Status/Budget types (including v2.1.76 additions) |
+| types_silent.md | Complete | Silent types |
+| quick_reference.md | Complete | Quick lookup index |
 
 ---
 
-**Last Updated**: 2026-02-28
-**Version**: Claude Code 2.1.38
+**Last Updated**: 2026-03-15
+**Version**: Claude Code 2.1.76

@@ -63,6 +63,12 @@ The input handling system manages all user text input to Claude Code, providing:
 3. **Queue on concurrent**: If user submits while loading, input is queued
 4. **Vim mode opt-in**: Disabled by default, enabled via settings
 
+**v2.1.76 changes:**
+- Voice mode improvements: microphone access now gracefully falls back when permissions are denied
+- Escape key fixes: double-Escape reliably opens message selector even after certain dialog states
+- `/color` command: sets the prompt-bar accent color for the current session
+- Ctrl+F: opens agent filter panel to show/filter active background agents
+
 ---
 
 ## 2. PromptInput Component (YUA)
@@ -118,6 +124,18 @@ Input handling responds to these key events:
 | Escape | Cancel autocomplete / clear input |
 | Ctrl+R | Open message selector (transcript) |
 | Ctrl+_ | Undo input |
+| Ctrl+F | Open agent filter panel (v2.1.76) |
+
+### /color Command (v2.1.76)
+
+The `/color` slash command sets the prompt-bar accent color for the current session:
+
+```javascript
+// /color <colorName> sets session-scoped prompt bar color
+// Valid values: "default", "blue", "green", "red", "purple", "orange"
+// Stored in session state, not persisted to settings
+// Used for visual differentiation between multiple Claude Code windows
+```
 
 ---
 
@@ -596,19 +614,3 @@ async function executeQuery(messages, abortController, shouldExecute, tools, mod
     }
 }
 ```
-
----
-
-## State Variables Reference
-
-| Variable | Setter | Purpose |
-|----------|--------|---------|
-| `K8` | `$8` | Current input value |
-| `e4` | `Rq` | Input mode (prompt/shift-enter) |
-| `cJ` | `lJ` | Vim mode state |
-| `IH` | `aw` | Pasted contents (images) |
-| `F5` | `k9` | History suggestion restore |
-| `I6` | - | Concurrency guard (ref) |
-| `nA` | `V8` | Message history |
-| `O3` | `HY` | Abort controller |
-| `_4` | `C3` | Is loading flag |

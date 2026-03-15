@@ -1,7 +1,7 @@
 # Telemetry & Monitoring for Agent Teams
 
 > **Module**: Agent Teams - Telemetry & Monitoring
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: Document metrics collection, emission, and monitoring infrastructure for agent teams
 
 ---
@@ -21,7 +21,7 @@
 
 ## 1. Executive Summary
 
-Agent teams telemetry in Claude Code 2.1.38 is **primarily debug logging** with minimal structured metrics. The observability strategy focuses on:
+Agent teams telemetry in Claude Code 2.1.76 is **primarily debug logging** with minimal structured metrics. The observability strategy focuses on:
 
 1. **Debug logging**: Extensive console logging via `h()` function for development/troubleshooting
 2. **Minimal structured events**: Only 4 telemetry events specific to agent teams

@@ -1,6 +1,6 @@
-# Verifier Skills System - Deep Analysis (Claude Code 2.1.38)
+# Verifier Skills System - Deep Analysis (Claude Code 2.1.76)
 
-> **Status:** Stub in v2.1.38 - Future feature
+> **Status:** Stub in v2.1.76 - Future feature
 >
 > The verifier skill subsystem is prepared but not yet active in this version. The system prompt and lazy initializers are present, but the skill registration functions are stub implementations (empty returns). This document describes the intended architecture and behavior for when the feature is fully activated.
 
@@ -478,7 +478,7 @@ This structure is designed for **immediate issue resolution** -- a developer rea
 
 ## Implementation Status Analysis
 
-### What Exists (v2.1.38)
+### What Exists (v2.1.76)
 
 | Component | Status | Location |
 |-----------|--------|----------|
@@ -526,7 +526,7 @@ function registerVerifySkill() {
 | benchmark | `Cjq` | No (stub) | Inactive |
 | skillify | `hjq` | No (stub) | Inactive |
 
-This shows that the verifier skills are part of a larger set of 6 stub skills that are prepared but not activated in v2.1.38. Only 3 of the 9 built-in prompt skills are fully registered.
+This shows that the verifier skills are part of a larger set of 6 stub skills that are prepared but not activated in v2.1.76. Only 3 of the 9 built-in prompt skills are fully registered.
 
 ---
 

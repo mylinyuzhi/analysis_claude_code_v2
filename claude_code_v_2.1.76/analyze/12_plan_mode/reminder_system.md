@@ -1,4 +1,4 @@
-# Plan Mode - Reminder System Analysis (Claude Code 2.1.38)
+# Plan Mode - Reminder System Analysis (Claude Code 2.1.76)
 
 > Complete reverse engineering of the reminder/attachment injection system for plan mode, including turn counting, throttling, and content variations.
 
@@ -334,53 +334,7 @@ function ezz(A) {
     let q = A.planExists ? `A plan file already exists at ${A.planFilePath}. You can read it and make incremental edits using the ${sW.name} tool.` : `No plan file exists yet. You should create your plan at ${A.planFilePath} using the ${vj.name} tool.`,
         K = `You can use the ${bv.agentType} agent type to parallelize complex searches without filling your context, though for straightforward queries direct tools are simpler.`,
         Y = `Plan mode is active. The user indicated that they do not want you to execute yet -- you MUST NOT make any edits (with the exception of the plan file mentioned below), run any non-readonly tools (including changing configs or making commits), or otherwise make any changes to the system. This supercedes any other instructions you have received.
-
-## Plan File Info:
-${q}
-
-## Iterative Planning Workflow
-
-You are pair-planning with the user. Explore the code to build context, ask the user questions when you hit decisions you can't make alone, and write your findings into the plan file as you go. The plan file (above) is the ONLY file you may edit — it starts as a rough skeleton and gradually becomes the final plan.
-
-### The Loop
-
-Repeat this cycle until the plan is complete:
-
-1. **Explore** — Use ${tzz()} to read code. Look for existing functions, utilities, and patterns to reuse. ${K}
-2. **Update the plan file** — After each discovery, immediately capture what you learned. Don't wait until the end.
-3. **Ask the user** — When you hit an ambiguity or decision you can't resolve from code alone, use ${TH}. Then go back to step 1.
-
-### First Turn
-
-Start by quickly scanning a few key files to form an initial understanding of the task scope. Then write a skeleton plan (headers and rough notes) and ask the user your first round of questions. Don't explore exhaustively before engaging the user.
-
-### Asking Good Questions
-
-- Never ask what you could find out by reading the code
-- Batch related questions together (use multi-question ${TH} calls)
-- Focus on things only the user can answer: requirements, preferences, tradeoffs, edge case priorities
-- Scale depth to the task — a vague feature request needs many rounds; a focused bug fix may need one or none
-
-### Plan File Structure
-Your plan file should be divided into clear sections using markdown headers, based on the request. Fill out these sections as you go.
-- Begin with a **Context** section: explain why this change is being made — the problem or need it addresses, what prompted it, and the intended outcome
-- Include only your recommended approach, not all alternatives
-- Ensure that the plan file is concise enough to scan quickly, but detailed enough to execute effectively
-- Include the paths of critical files to be modified
-- Reference existing functions and utilities you found that should be reused, with their file paths
-- Include a verification section describing how to test the changes end-to-end (run the code, use MCP tools, run tests)
-
-### When to Converge
-
-Your plan is ready when you've addressed all ambiguities and it covers: what to change, which files to modify, what existing code to reuse (with file paths), and how to verify the changes. Call ${Nj.name} when the plan is ready for approval.
-
-### Ending Your Turn
-
-Your turn should only end by either:
-- Using ${TH} to gather more information
-- Calling ${Nj.name} when the plan is ready for approval
-
-**Important:** Use ${Nj.name} to request plan approval. Do NOT ask about plan approval via text or AskUserQuestion.`;
+...`
     return _9([c6({
         content: Y,
         isMeta: !0

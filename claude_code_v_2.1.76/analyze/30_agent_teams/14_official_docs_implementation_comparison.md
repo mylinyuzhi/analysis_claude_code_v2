@@ -1,7 +1,7 @@
 # Official Documentation vs. Implementation Comparison
 
 > **Module**: Agent Teams - Feature Parity & Implementation Validation
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: Comprehensive comparison of documented features vs. actual implementation
 
 ---

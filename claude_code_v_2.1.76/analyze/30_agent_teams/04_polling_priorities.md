@@ -1,7 +1,7 @@
 # Polling Priority System - Deep Dive
 
 > **Module**: Agent Teams - In-Process Message Priority Queue
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: Complete analysis of 5-level priority polling system
 
 ---

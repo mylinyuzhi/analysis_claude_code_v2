@@ -4,6 +4,8 @@
 
 Claude Code includes a set of built-in agents that can be dispatched as subagents via the Task tool. These agents are specialized for different tasks and can be extended with custom agent definitions. In SDK mode, certain built-in agents are filtered out to provide a cleaner programmatic experience.
 
+**Version note (v2.1.76):** The `AgentDefinition` interface adds a `background` flag for background execution, and the `model` parameter can now be overridden per-invocation via the Task tool's `model` parameter.
+
 ## Related Symbols
 
 > Symbol mappings:
@@ -35,6 +37,7 @@ interface AgentDefinition {
   source: "built-in" | "userSettings" | "projectSettings" | "plugin" | "flagSettings";
   baseDir: string;             // Base directory for relative paths
   model?: string;              // Model override ("inherit", "haiku", "sonnet", "opus")
+  background?: boolean;        // NEW v2.1.76: If true, agent runs in background by default
   getSystemPrompt: () => string;  // System prompt generator
   color?: string;              // UI color for agent indicator
   permissionMode?: string;     // Permission mode override
@@ -59,6 +62,7 @@ interface AgentDefinition {
 | `source` | enum | Where agent was defined (determines override priority) |
 | `baseDir` | string | Base directory for relative paths in hooks, prompts |
 | `model` | enum | Model override: `"inherit"` (parent), `"haiku"`, `"sonnet"`, `"opus"` |
+| `background` | boolean | **NEW v2.1.76**: If true, agent runs in background by default when dispatched |
 | `getSystemPrompt` | function | Returns system prompt string for this agent |
 | `color` | string | UI indicator color (e.g., "orange", "blue") |
 | `permissionMode` | enum | Permission mode: `"default"`, `"acceptEdits"`, `"bypassPermissions"` |
@@ -69,6 +73,29 @@ interface AgentDefinition {
 | `memory` | enum | Memory scope: `"user"`, `"project"`, `"local"` |
 | `forkContext` | boolean | Whether to fork conversation context |
 | `criticalSystemReminder_EXPERIMENTAL` | string | Extra reminder text injected as a `<criticalSystemReminder>` tag. Used for read-only enforcement, safety constraints, etc. |
+
+### New in v2.1.76: `background` Flag
+
+**What it does:** When `background: true` is set on an agent definition, invocations of that agent via the Task tool will default to background execution — equivalent to passing `run_in_background: true` in each call.
+
+**Why this approach:** Certain agent types (e.g., long-running analysis agents) are almost always intended to run asynchronously. Rather than requiring callers to specify `run_in_background: true` every time, the flag bakes this default into the agent definition itself.
+
+**Per-invocation override:** The Task tool's `run_in_background` parameter still overrides the definition-level default. Explicitly passing `run_in_background: false` forces foreground execution even for agents with `background: true`.
+
+### New in v2.1.76: Per-Invocation Model Override
+
+In v2.1.76, the Task tool accepts a `model` parameter that overrides the agent definition's model for a single invocation. This allows calling the same agent definition with different models without creating separate agent definitions.
+
+```javascript
+// Task tool call with per-invocation model override
+Task.call({
+    prompt: "Explore the codebase...",
+    subagent_type: "general-purpose",
+    model: "claude-haiku-4-6"   // Overrides agent definition's model for this call only
+})
+```
+
+**Priority:** Per-invocation `model` parameter > Agent definition `model` field > Parent session model.
 
 ---
 
@@ -206,7 +233,7 @@ bv = {
 // READABLE (for understanding):
 const EXPLORE_AGENT = {
     agentType: "Explore",
-    whenToUse: 'Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.',
+    whenToUse: 'Fast agent specialized for exploring codebases...',
     disallowedTools: ["Task", "WebSearch", "Edit", "Write", "NotebookEdit"],  // READ-ONLY
     source: "built-in",
     baseDir: "built-in",
@@ -254,7 +281,7 @@ PJ6 = {
 // READABLE (for understanding):
 const PLAN_AGENT = {
     agentType: "Plan",
-    whenToUse: "Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs.",
+    whenToUse: "Software architect agent for designing implementation plans...",
     disallowedTools: ["Task", "WebSearch", "Edit", "Write", "NotebookEdit"],  // READ-ONLY
     source: "built-in",
     tools: EXPLORE_AGENT.tools,  // Same tools as Explore
@@ -337,7 +364,7 @@ const STATUSLINE_SETUP_AGENT = {
 // ORIGINAL (for source lookup):
 Rn7 = {
     agentType: "claude-code-guide",
-    whenToUse: 'Use this agent when the user asks questions ("Can Claude...", "Does Claude...", "How do I...") about: (1) Claude Code (the CLI tool) - features, hooks, slash commands, MCP servers, settings, IDE integrations, keyboard shortcuts; (2) Claude Agent SDK - building custom agents; (3) Claude API (formerly Anthropic API) - API usage, tool use, Anthropic SDK usage. **IMPORTANT:** Before spawning a new agent, check if there is already a running or recently completed claude-code-guide agent that you can resume using the "resume" parameter.',
+    whenToUse: 'Use this agent when the user asks questions about Claude Code, Claude Agent SDK, Claude API...',
     tools: [Jz, s9, Jq, xO, JL],  // Glob, Grep, Read, WebFetch, WebSearch
     source: "built-in",
     baseDir: "built-in",
@@ -349,7 +376,7 @@ Rn7 = {
 // READABLE (for understanding):
 const CLAUDE_CODE_GUIDE_AGENT = {
     agentType: "claude-code-guide",
-    whenToUse: 'Use this agent when the user asks questions ("Can Claude...", "Does Claude...", "How do I...") about: (1) Claude Code (the CLI tool) - features, hooks, slash commands, MCP servers, settings, IDE integrations, keyboard shortcuts; (2) Claude Agent SDK - building custom agents; (3) Claude API (formerly Anthropic API) - API usage, tool use, Anthropic SDK usage. **IMPORTANT:** Before spawning a new agent, check if there is already a running or recently completed claude-code-guide agent that you can resume using the "resume" parameter.',
+    whenToUse: 'Use this agent when the user asks questions ("Can Claude...", "Does Claude...", "How do I...") about: (1) Claude Code (the CLI tool); (2) Claude Agent SDK; (3) Claude API.',
     tools: ["Glob", "Grep", "Read", "WebFetch", "WebSearch"],
     source: "built-in",
     baseDir: "built-in",
@@ -357,7 +384,6 @@ const CLAUDE_CODE_GUIDE_AGENT = {
     permissionMode: "dontAsk",  // No permission prompts
     getSystemPrompt: ({ toolUseContext }) => {
         // Dynamic prompt that includes user's current configuration
-        // Lists custom skills, agents, MCP servers, plugins, settings
         return GUIDE_SYSTEM_PROMPT + userConfigSection;
     }
 };
@@ -377,14 +403,14 @@ const CLAUDE_CODE_GUIDE_AGENT = {
 
 ## Built-in Agents Summary Table
 
-| Agent | Model | Permission Mode | Tools | criticalSystemReminder | SDK Available |
-|---|---|---|---|---|---|
-| **Bash** | inherit | default | Bash only | - | ✅ |
-| **general-purpose** | inherit | default | All (`["*"]`) | - | ✅ |
-| **statusline-setup** | sonnet | default | Read, Edit | - | ✅ |
-| **Explore** | haiku | default | Read-only (no Edit/Write/Task/WebSearch) | `"CRITICAL: This is a READ-ONLY task."` | ✅ |
-| **Plan** | inherit | default | Read-only (same as Explore) | `"CRITICAL: This is a READ-ONLY task."` | ✅ |
-| **claude-code-guide** | haiku | dontAsk | Glob, Grep, Read, WebFetch, WebSearch | - | ❌ Excluded |
+| Agent | Model | Permission Mode | Tools | criticalSystemReminder | background | SDK Available |
+|---|---|---|---|---|---|---|
+| **Bash** | inherit | default | Bash only | - | - | Yes |
+| **general-purpose** | inherit | default | All (`["*"]`) | - | - | Yes |
+| **statusline-setup** | sonnet | default | Read, Edit | - | - | Yes |
+| **Explore** | haiku | default | Read-only (no Edit/Write/Task/WebSearch) | "CRITICAL: This is a READ-ONLY task." | - | Yes |
+| **Plan** | inherit | default | Read-only (same as Explore) | "CRITICAL: This is a READ-ONLY task." | - | Yes |
+| **claude-code-guide** | haiku | dontAsk | Glob, Grep, Read, WebFetch, WebSearch | - | - | No (excluded) |
 
 ### Model Selection Rationale
 
@@ -539,11 +565,9 @@ function KPA(A, q) {
 
 // READABLE (for understanding):
 function validateMcpServers(agent, availableMcpServerNames) {
-    // No requirements = always valid
     if (!agent.requiredMcpServers || agent.requiredMcpServers.length === 0) {
         return true;
     }
-    // All required servers must be in available list (case-insensitive match)
     return agent.requiredMcpServers.every((required) =>
         availableMcpServerNames.some((available) =>
             available.toLowerCase().includes(required.toLowerCase())
@@ -551,7 +575,7 @@ function validateMcpServers(agent, availableMcpServerNames) {
     );
 }
 
-// Mapping: KPA→validateMcpServers, A→agent, q→availableMcpServerNames, K→required
+// Mapping: KPA→validateMcpServers, A→agent, q→availableMcpServerNames
 ```
 
 ```javascript
@@ -570,7 +594,7 @@ function filterByMcpServers(agents, availableMcpServerNames) {
     return agents.filter((agent) => validateMcpServers(agent, availableMcpServerNames));
 }
 
-// Mapping: un7→filterByMcpServers, A→agents, q→availableMcpServerNames, KPA→validateMcpServers
+// Mapping: un7→filterByMcpServers, KPA→validateMcpServers
 ```
 
 **Why MCP filtering:** An agent that requires specific MCP tools (e.g., a "slack-messenger" agent that needs the Slack MCP server) should not be offered if those servers aren't configured.
@@ -596,6 +620,7 @@ disallowedTools:
   - WebSearch
 color: blue
 permissionMode: acceptEdits
+background: true   # NEW v2.1.76: run in background by default
 mcpServers:
   - name: my-mcp-server
 memory: project
@@ -630,23 +655,11 @@ TB1 = KA(async (A) => {
     try {
         let q = await Qp("agents", A),
             K = [],
-            Y = q.map(({
-                filePath: O,
-                baseDir: _,
-                frontmatter: J,
-                content: X,
-                source: D
-            }) => {
+            Y = q.map(({ filePath: O, baseDir: _, frontmatter: J, content: X, source: D }) => {
                 let j = eL9(O, _, J, X, D);
                 if (!j) {
                     let M = aL9(J);
-                    return K.push({
-                        path: O,
-                        error: M
-                    }), h(`Failed to parse agent from ${O}: ${M}`), c("tengu_agent_parse_error", {
-                        error: M,
-                        location: D
-                    }), null
+                    return K.push({ path: O, error: M }), null
                 }
                 return j
             }).filter((O) => O !== null),
@@ -655,61 +668,35 @@ TB1 = KA(async (A) => {
             $ = hh(H);
         for (let O of $)
             if (O.color) xK1(O.agentType, O.color);
-        return {
-            activeAgents: $,
-            allAgents: H,
-            failedFiles: K.length > 0 ? K : void 0
-        }
+        return { activeAgents: $, allAgents: H, failedFiles: K.length > 0 ? K : void 0 }
     } catch (q) { ... }
 })
 
 // READABLE (for understanding):
 const loadAgentDefinitions = memoize(async (options) => {
     try {
-        // Load agent files from all config directories
         let agentFiles = await loadConfigFiles("agents", options);
         let failedFiles = [];
 
-        // Parse each agent file
-        let customAgents = agentFiles.map(({
-            filePath,
-            baseDir,
-            frontmatter,
-            content,
-            source
-        }) => {
+        let customAgents = agentFiles.map(({ filePath, baseDir, frontmatter, content, source }) => {
             let agent = parseAgentFromFrontmatter(filePath, baseDir, frontmatter, content, source);
             if (!agent) {
                 let error = getFrontmatterError(frontmatter);
                 failedFiles.push({ path: filePath, error });
-                logError(`Failed to parse agent from ${filePath}: ${error}`);
-                telemetry("tengu_agent_parse_error", { error, location: source });
                 return null;
             }
             return agent;
         }).filter((a) => a !== null);
 
-        // Load plugin agents
         let pluginAgents = await loadPluginAgents();
-
-        // Combine: built-in + plugin + custom
         let allAgents = [...getBuiltinAgents(), ...pluginAgents, ...customAgents];
-
-        // Merge by priority
         let activeAgents = mergeAgentDefinitions(allAgents);
 
-        // Register agent colors
         for (let agent of activeAgents) {
-            if (agent.color) {
-                registerAgentColor(agent.agentType, agent.color);
-            }
+            if (agent.color) registerAgentColor(agent.agentType, agent.color);
         }
 
-        return {
-            activeAgents,
-            allAgents,
-            failedFiles: failedFiles.length > 0 ? failedFiles : undefined
-        };
+        return { activeAgents, allAgents, failedFiles: failedFiles.length > 0 ? failedFiles : undefined };
     } catch (error) { ... }
 });
 
@@ -740,14 +727,15 @@ bn7 = u.object({
     hooks: u.lazy(() => Xk).optional(),
     maxTurns: u.number().int().positive().optional(),
     skills: u.array(u.string()).optional(),
-    memory: u.enum(["user", "project", "local"]).optional()
+    memory: u.enum(["user", "project", "local"]).optional(),
+    background: u.boolean().optional()  // NEW v2.1.76
 }),
 oL9 = u.record(u.string(), bn7);
 
 // READABLE (for understanding):
 const McpServerConfigSchema = z.union([
-    z.string(),  // Just server name
-    z.record(z.string(), z.any())  // Full config object
+    z.string(),
+    z.record(z.string(), z.any())
 ]);
 
 const AgentDefinitionSchema = z.object({
@@ -756,21 +744,19 @@ const AgentDefinitionSchema = z.object({
     disallowedTools: z.array(z.string()).optional(),
     prompt: z.string().min(1, "Prompt cannot be empty"),
     model: z.enum(["inherit", "haiku", "sonnet", "opus"]).optional(),
-    effort: z.union([
-        z.enum(["low", "medium", "high"]),
-        z.number().int()
-    ]).optional(),
+    effort: z.union([z.enum(["low", "medium", "high"]), z.number().int()]).optional(),
     permissionMode: z.enum(["default", "acceptEdits", "bypassPermissions", "plan"]).optional(),
     mcpServers: z.array(McpServerConfigSchema).optional(),
     hooks: z.lazy(() => HooksSchema).optional(),
     maxTurns: z.number().int().positive().optional(),
     skills: z.array(z.string()).optional(),
-    memory: z.enum(["user", "project", "local"]).optional()
+    memory: z.enum(["user", "project", "local"]).optional(),
+    background: z.boolean().optional()  // NEW v2.1.76: background execution default
 });
 
 const AgentsMapSchema = z.record(z.string(), AgentDefinitionSchema);
 
-// Mapping: xn7→McpServerConfigSchema, bn7→AgentDefinitionSchema, oL9→AgentsMapSchema, u→z, U_1→MODEL_OPTIONS, WJ6→EFFORT_LEVELS, ox→PERMISSION_MODES, Xk→HooksSchema
+// Mapping: xn7→McpServerConfigSchema, bn7→AgentDefinitionSchema, oL9→AgentsMapSchema
 ```
 
 ---
@@ -806,6 +792,12 @@ User invokes Task tool with subagent_type
            │
            ▼
     Find agent by agentType
+           │
+           ▼
+    Check agent.background flag (v2.1.76)
+           │
+           ├── background: true → default run_in_background=true
+           └── per-invocation model parameter overrides agent.model
            │
            ▼
     Spawn subagent with agent's configuration

@@ -1,4 +1,4 @@
-# Tool Schemas - Validation Patterns (Claude Code 2.1.38)
+# Tool Schemas - Validation Patterns (Claude Code 2.1.76)
 
 > Analysis of Zod schema patterns, validation flow, and error handling for tool inputs/outputs.
 

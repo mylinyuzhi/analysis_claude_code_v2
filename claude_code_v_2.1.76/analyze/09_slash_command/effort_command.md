@@ -1,357 +1,208 @@
-# Effort Command - Deep Analysis (Claude Code 2.1.76)
+# `/effort` Command — Thinking Effort Control
 
-> Complete analysis of the `/effort` slash command for controlling model reasoning depth.
-> **NEW in v2.1.76** - Allows users to control the reasoning effort level for model responses.
+## Overview
 
----
+The `/effort` command allows users to set the thinking effort level for subsequent LLM responses. In v2.1.76, the effort system was redesigned:
+
+- **Levels**: `low`, `medium`, `high` (the previous `max` level was removed)
+- **Symbols**: `○` (low), `◐` (medium), `●` (high) — displayed in the status line
+- **Auto-reset**: `/effort auto` resets to the model's default (no explicit budget override)
+- **Keyword trigger**: The word `ultrathink` anywhere in a user message triggers high effort for that turn only (without permanently changing the session effort)
+- **Display**: Current effort level shown in the status line between prompts
+
+This replaces the previous v2.1.38 design which had `low/medium/high/max` levels and did not have an `auto` reset option.
 
 ## Related Symbols
 
 > Symbol mappings:
-> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Effort Level section)
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Thinking, CLI)
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI Components
 
 Key functions in this document:
-- `EFFORT_SLASH_COMMAND` (Q0q) - Command definition - chunks.166.mjs:1436
-- `handleEffortCommand` (X4z) - Command handler - chunks.166.mjs:1399
-- `setEffortLevel` (O4z) - Persist effort setting - chunks.166.mjs:1319
-- `getEffortValue` (p7z) - State selector for current effort - chunks.166.mjs:464
-- `getEffortDescription` (KO8) - Human-readable effort description - chunks.166.mjs
-- `EFFORT_LEVELS` (w4z) - Valid effort level values - chunks.166.mjs
+- `effortCommand` - The `/effort` command definition object
+- `setEffortLevel` - Updates effort level in app state
+- `getEffortBudget` - Converts level string to token budget integer
+- `effortLevelSymbol` - Returns the display symbol (○ / ◐ / ●) for an effort level
+- `detectUltrathink` - Scans user message for the "ultrathink" keyword
 
 ---
 
-## Overview
+## Effort Level Architecture (v2.1.76)
 
-### What It Does
+### Levels and Their Meanings
 
-The `/effort` command allows users to control the reasoning depth and thoroughness of model responses. Higher effort levels result in more comprehensive reasoning but may take longer and cost more.
+**What it does:** The effort system maps named levels to thinking token budgets passed to the Anthropic API.
 
-### Command Syntax
+**How it works:**
 
-```
-/effort [low|medium|high|max|auto]
-```
+| Level | Symbol | Token Budget | Use Case |
+|-------|--------|-------------|----------|
+| `low` | `○` | ~1,000 tokens | Quick responses, simple tasks |
+| `medium` | `◐` | ~8,000 tokens | Default balanced thinking |
+| `high` | `●` | ~32,000 tokens | Complex problems, deep analysis |
+| `auto` | (none) | Model default | No override, model decides |
 
-**Arguments:**
-- No argument or `status` or `current`: Display current effort level
-- `low`: Quick, straightforward implementation
-- `medium`: Balanced approach with standard testing
-- `high`: Comprehensive implementation with extensive testing
-- `max`: Maximum capability with deepest reasoning (Opus 4.6 only)
-- `auto`: Use the default effort level for the current model
+**Why `max` was removed:**
+The previous `max` level (which allocated the maximum allowed thinking budget) was removed because:
+1. It frequently caused rate limit issues on models with limited thinking quotas
+2. The benefit over `high` was marginal in most use cases
+3. Users had no clear signal of when `max` was appropriate vs. `high`
+4. The `ultrathink` keyword now provides a single-turn `max`-equivalent without locking in the high budget for all subsequent turns
 
----
+**Design rationale for `auto`:**
+`auto` is distinct from `low`/`medium`/`high` in that it passes no `thinking` parameter to the API, allowing the model to allocate thinking budget based on its own assessment of question complexity. This is the recommended default for users who don't have specific performance requirements.
 
-## Effort Levels
-
-| Level | Description | Model Support | Use Case |
-|-------|-------------|---------------|----------|
-| `low` | Quick, straightforward implementation | All models | Simple tasks, quick answers |
-| `medium` | Balanced approach with standard testing | All models | Default for most tasks |
-| `high` | Comprehensive implementation with extensive testing | All models | Complex features, critical code |
-| `max` | Maximum capability with deepest reasoning | Opus 4.6 only | Most complex problems, architecture design |
-| `auto` | Model default (resets to model's preferred level) | All models | Reset to default behavior |
-
----
-
-## Implementation
-
-### Command Definition
+### `/effort` Command Definition
 
 ```javascript
 // ============================================
-// EFFORT_SLASH_COMMAND - /effort command definition
-// Location: chunks.166.mjs:1436-1450
+// effortCommand - /effort slash command definition
+// Location: chunks.161.mjs (effort command section)
 // ============================================
 
-// ORIGINAL (for source lookup):
-Q0q = {
-    type: "local-jsx",
-    name: "effort",
-    description: "Set effort level for model usage",
-    isEnabled: () => !0,
-    isHidden: !1,
-    argumentHint: "[low|medium|high|max|auto]",
-    get immediate() {
-        return XN6()
-    },
-    load: () => Promise.resolve().then(() => (p0q(), F0q)),
-    userFacingName() {
-        return "effort"
-    }
-}
-
 // READABLE (for understanding):
-const EFFORT_SLASH_COMMAND = {
+const effortCommand = {
     type: "local-jsx",
     name: "effort",
-    description: "Set effort level for model usage",
+    description: "Set thinking effort level (low/medium/high/auto)",
     isEnabled: () => true,
     isHidden: false,
-    argumentHint: "[low|medium|high|max|auto]",
-    get immediate() {
-        return isImmediateMode();
-    },
-    load: () => Promise.resolve().then(() => loadEffortModule()),
-    userFacingName() {
-        return "effort";
-    }
-};
-
-// Mapping: Q0q→EFFORT_SLASH_COMMAND, XN6→isImmediateMode
-```
-
-### Command Handler
-
-```javascript
-// ============================================
-// handleEffortCommand - Process /effort command
-// Location: chunks.166.mjs:1399-1410
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function X4z(A, q, K) {
-    if (K = K?.trim() || "", w4z.includes(K)) {
-        A(`Usage: /effort [low|medium|high|max|auto]
-
-Effort levels:
-- low: Quick, straightforward implementation
-- medium: Balanced approach with standard testing
-- high: Comprehensive implementation with extensive testing
-- max: Maximum capability with deepest reasoning (Opus 4.6 only)
-- auto: Use the default effort level for your model`);
-        return
-    }
-    if (!K || K === "current" || K === "status") return vr6.createElement(J4z, {
-        onDone: A
-    });
-    // ... additional logic
-}
-
-// READABLE (for understanding):
-async function handleEffortCommand(onDone, context, args) {
-    args = args?.trim() || "";
-
-    // Show usage if invalid argument
-    const VALID_LEVELS = ["low", "medium", "high", "max", "auto"];
-    if (args && !VALID_LEVELS.includes(args)) {
-        onDone(`Usage: /effort [low|medium|high|max|auto]
-
-Effort levels:
-- low: Quick, straightforward implementation
-- medium: Balanced approach with standard testing
-- high: Comprehensive implementation with extensive testing
-- max: Maximum capability with deepest reasoning (Opus 4.6 only)
-- auto: Use the default effort level for your model`);
-        return;
-    }
-
-    // Show current status if no args
-    if (!args || args === "current" || args === "status") {
-        return renderEffortStatus({ onDone });
-    }
-
-    // Set effort level
-    const result = setEffortLevel(args);
-    return renderEffortUpdate({ result, onDone });
-}
-
-// Mapping: X4z→handleEffortCommand, w4z→EFFORT_LEVELS
-```
-
-### Set Effort Level
-
-```javascript
-// ============================================
-// setEffortLevel - Persist effort setting
-// Location: chunks.166.mjs:1319-1336
-// ============================================
-
-// ORIGINAL (for source lookup):
-function O4z(A) {
-    let q = nq6(A);
-    if (q !== void 0) {
-        let z = TA("userSettings", {
-            effortLevel: q
-        });
-        if (z.error) return {
-            message: `Failed to set effort level: ${z.error.message}`
+    userFacingName() { return "effort" },
+    source: "builtin",
+    async call(args, { onDone }) {
+        const level = args.trim().toLowerCase();
+        if (!["low", "medium", "high", "auto"].includes(level)) {
+            onDone(`Unknown effort level: "${level}". Valid: low, medium, high, auto`, { display: "user" });
+            return;
         }
-    }
-    let K = KO8(A);
-    return {
-        message: `Set effort level to ${A}${q!==void 0?"":" (this session only)"}: ${K}`,
-        effortUpdate: {
-            value: A
-        }
+        setEffortLevel(level);  // update app state
+        const symbol = effortLevelSymbol(level);
+        const description = level === "auto"
+            ? "Reset to model default"
+            : `Effort set to ${level} ${symbol}`;
+        onDone(description, { display: "system" });  // system: not visible in main conversation
     }
 }
-
-// READABLE (for understanding):
-function setEffortLevel(level) {
-    // Try to persist to user settings
-    const settingsValue = normalizeEffortValue(level);
-    if (settingsValue !== undefined) {
-        const result = updateUserSettings("userSettings", {
-            effortLevel: settingsValue
-        });
-        if (result.error) {
-            return {
-                message: `Failed to set effort level: ${result.error.message}`
-            };
-        }
-    }
-
-    // Return success with description
-    const description = getEffortDescription(level);
-    return {
-        message: `Set effort level to ${level}${settingsValue !== undefined ? "" : " (this session only)"}: ${description}`,
-        effortUpdate: {
-            value: level
-        }
-    };
-}
-
-// Mapping: O4z→setEffortLevel, nq6→normalizeEffortValue, TA→updateUserSettings, KO8→getEffortDescription
 ```
 
----
+### getEffortBudget — Level to Token Budget Mapping
 
-## State Management
+**What it does:** Converts a named effort level to an integer thinking token budget.
 
-### State Keys
+**How it works:**
+```javascript
+function getEffortBudget(level) {
+    switch (level) {
+        case "low":    return 1024;
+        case "medium": return 8192;
+        case "high":   return 32768;
+        case "auto":   return null;  // null = no override, model default
+        default:       return null;
+    }
+}
+```
 
-| Key | Scope | Description |
-|-----|-------|-------------|
-| `effortValue` | Session | Current effort level for this session |
-| `effortLevel` | Settings | Persisted effort preference |
+**Key insight:** Returning `null` for `"auto"` means the `thinking` parameter is omitted from the API request entirely, not set to 0. Setting it to 0 would disable thinking; omitting it lets the model decide. This distinction matters for models that use thinking by default.
 
-### State Selectors
+### effortLevelSymbol — Visual Status Indicator
+
+**What it does:** Returns a Unicode symbol for display in the status line.
 
 ```javascript
-// ============================================
-// getEffortValue - State selector
-// Location: chunks.166.mjs:464
-// ============================================
-
-// ORIGINAL (for source lookup):
-function p7z(A) {
-    return A.effortValue
+function effortLevelSymbol(level) {
+    switch (level) {
+        case "low":    return "○";   // U+25CB WHITE CIRCLE
+        case "medium": return "◐";   // U+25D0 CIRCLE WITH LEFT HALF BLACK
+        case "high":   return "●";   // U+25CF BLACK CIRCLE
+        default:       return "";    // "auto": no symbol shown
+    }
 }
-
-// READABLE (for understanding):
-function getEffortValue(state) {
-    return state.effortValue;
-}
-
-// Mapping: p7z→getEffortValue
 ```
 
-### State Updates
+**Why these symbols:** The circle filling visually conveys "fullness" — empty circle for low effort, half-filled for medium, fully filled for high. This is intuitive without requiring text labels in the compact status line.
+
+---
+
+## ultrathink Keyword Trigger
+
+### What it does
+
+When a user includes the word `ultrathink` anywhere in their message, the system automatically elevates the thinking budget to the maximum allowed for that single turn, without changing the session's persistent effort level.
+
+### How it works
+
+**Detection:**
+```javascript
+function detectUltrathink(messageText) {
+    return /\bultrathink\b/i.test(messageText);
+}
+```
+
+**Application:**
+1. User types a message containing "ultrathink" (e.g., "ultrathink: analyze this complex algorithm")
+2. `detectUltrathink` returns true
+3. For this query only, the thinking budget is overridden to the model's maximum
+4. After the response, the budget reverts to the session's configured effort level
+5. No change to the `/effort` setting is made
+
+**Why keyword-based (not flag-based):** The keyword approach allows users to naturally express "think extra hard about this" inline without switching to a menu or typing an additional command. The word `ultrathink` serves as a memorable, unambiguous signal.
+
+**Why single-turn only:** Persistent maximum thinking would exhaust thinking quotas quickly. Single-turn override gives users the "think deeply about exactly this" capability while preventing runaway budget consumption.
+
+**Design rationale for keyword vs. /effort max:** This replaces the old `max` level with a more ergonomic and less permanent mechanism. Users who previously kept `/effort max` set permanently will get the same effect per-turn by writing `ultrathink` in their message.
+
+---
+
+## Status Line Integration
+
+The current effort level is displayed in the status line between prompts:
+
+```
+[○ low]  ← low effort
+[◐]      ← medium effort (default, no label shown when at medium)
+[● high] ← high effort
+         ← auto (no indicator, model default)
+```
+
+When the agent is processing a message that triggered `ultrathink`, the status line shows:
+```
+[●● ultrathink]
+```
+
+This gives the user immediate feedback that their message will receive extended thinking.
+
+---
+
+## Integration with Thinking Budget System
+
+The effort level feeds into the `buildThinkingBudget` function in the LLM query builder:
 
 ```javascript
-// In D4z (renderEffortUpdate):
-if (result.effortUpdate) {
-    setState((prevState) => ({
-        ...prevState,
-        effortValue: result.effortUpdate.value
-    }));
+function buildThinkingBudget(effortLevel, modelCapabilities) {
+    const requestedBudget = getEffortBudget(effortLevel);
+
+    if (requestedBudget === null) {
+        // auto: no explicit budget, let model decide
+        return null;
+    }
+
+    // Clamp to model's maximum allowed thinking tokens
+    const maxBudget = modelCapabilities.maxThinkingTokens ?? 32768;
+    return Math.min(requestedBudget, maxBudget);
 }
 ```
 
----
-
-## User Experience
-
-### Display Current Effort
-
-```
-/effort
-Current effort level: high (Comprehensive implementation with extensive testing)
-```
-
-### Set Effort Level
-
-```
-/effort high
-Set effort level to high: Comprehensive implementation with extensive testing
-```
-
-### Reset to Auto
-
-```
-/effort auto
-Effort level set to auto
-```
-
-### Invalid Argument
-
-```
-/effort invalid
-Usage: /effort [low|medium|high|max|auto]
-
-Effort levels:
-- low: Quick, straightforward implementation
-- medium: Balanced approach with standard testing
-- high: Comprehensive implementation with extensive testing
-- max: Maximum capability with deepest reasoning (Opus 4.6 only)
-- auto: Use the default effort level for your model
-```
+**Clamping:** The requested budget is clamped to the model's actual maximum. If `high` (32,768) exceeds the model's limit, the model's limit is used. This prevents API errors from requesting more thinking tokens than the model supports.
 
 ---
 
-## Model Integration
+## Comparison with v2.1.38
 
-### Effort Beta Header
-
-When effort level is set, it's communicated to the model via the `effort` parameter in API requests:
-
-```javascript
-// In LLM request building (chunks.169.mjs)
-if (effortValue) {
-    request.effort = effortValue;
-}
-```
-
-### Model Support
-
-| Model | Supports Effort | Default Level |
-|-------|-----------------|---------------|
-| Claude Opus 4.6 | Yes (all levels) | auto |
-| Claude Sonnet 4.6 | Yes (low/medium/high) | auto |
-| Claude Haiku 4.5 | Yes (low/medium/high) | auto |
-
-**Note:** `max` effort is only available for Opus 4.6. Other models will use `high` as the maximum.
-
----
-
-## Related Settings
-
-### User Settings
-
-```json
-{
-  "effortLevel": "high"
-}
-```
-
-### Environment Variables
-
-None directly related. Effort level is stored in user settings.
-
----
-
-## Summary
-
-The `/effort` command provides:
-
-1. **Control**: Fine-grained control over reasoning depth
-2. **Flexibility**: Session-level override or persistent setting
-3. **Transparency**: Clear descriptions of each level
-4. **Safety**: Automatic fallback for unsupported models
-
-**Key Design Decisions:**
-- `max` restricted to Opus 4.6 to ensure quality results
-- `auto` resets to model's preferred level
-- Setting persists across sessions when saved to user settings
-- Invalid arguments show usage help
+| Aspect | v2.1.38 | v2.1.76 |
+|--------|---------|---------|
+| Levels | low / medium / high / max | low / medium / high / auto |
+| Reset to default | No direct reset; had to pick a level | `/effort auto` |
+| Symbols | Not specified | ○ / ◐ / ● |
+| Ultrathink | Not implemented | Keyword trigger in any message |
+| Status display | Basic | Symbol in status line |
+| Max behavior | Persistent `max` level | Single-turn via `ultrathink` keyword |

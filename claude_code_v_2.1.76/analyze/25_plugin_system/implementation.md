@@ -2,7 +2,13 @@
 
 ## Overview
 
-The Plugin System is the primary extensibility mechanism for Claude Code v2.1.38. It allows third-party developers to package tools, agents, skills, lifecycle hooks, MCP servers, and custom commands into a single distributable module. The system manages marketplace-based distribution, versioned caching, installation registry, and safe integration into the agent's core execution loop.
+The Plugin System is the primary extensibility mechanism for Claude Code v2.1.76. It allows third-party developers to package tools, agents, skills, lifecycle hooks, MCP servers, and custom commands into a single distributable module. The system manages marketplace-based distribution, versioned caching, installation registry, and safe integration into the agent's core execution loop.
+
+**v2.1.76 Changes:**
+- `git-subdir` source type added: clone only a subdirectory of a git repository
+- `pathPattern` field added to `strictKnownMarketplaces` entries for URL-based pattern matching
+- Plugins can now ship a `settings.json` file to provide default settings
+- `pluginTrustMessage` managed setting added for enterprise trust display customization
 
 ## Related Symbols
 
@@ -76,6 +82,7 @@ Key functions in this document:
                                           │  ├─ skills (prompt skills)        │
                                           │  ├─ hooks (lifecycle hooks)       │
                                           │  ├─ outputStyles                   │
+                                          │  ├─ settings.json (defaults) [NEW]│
                                           │  └─ MCP servers (.mcp.json)       │
                                           └───────────────────────────────────┘
 ```
@@ -391,6 +398,7 @@ This is the most complex function in the plugin system. It discovers all compone
 // 3. skills:   manifest.skills   || {pluginDir}/skills/ directory
 // 4. outputStyles: manifest.outputStyles || {pluginDir}/output-styles/ directory
 // 5. hooks:    {pluginDir}/hooks/hooks.json (auto) + manifest.hooks (additional)
+// 6. settings.json: {pluginDir}/settings.json → plugin-provided default settings [v2.1.76]
 
 // For commands, two manifest formats are supported:
 // Format A: Object with source/content per command:
@@ -407,6 +415,22 @@ When a plugin has BOTH a `plugin.json` AND marketplace entry component declarati
 - No `plugin.json`: Marketplace entry serves as the manifest entirely
 
 This is critical for marketplace-curated plugins where the marketplace may add commands not in the plugin's own manifest.
+
+### Plugin-Shipped Default Settings (v2.1.76)
+
+In v2.1.76, plugins can include a `settings.json` file in their plugin root to provide default settings. These defaults are loaded during manifest discovery and merged with the user's settings (with user settings taking priority):
+
+```
+plugin-root/
+├── .claude-plugin/
+│   └── plugin.json        # Manifest
+├── settings.json          # [NEW] Default settings provided by plugin
+├── commands/
+├── hooks/
+└── ...
+```
+
+**Key design:** Plugin-provided defaults are the lowest priority — they are overridden by user, project, and local settings. This allows plugins to set sensible defaults without imposing restrictions on users.
 
 ---
 
@@ -720,6 +744,28 @@ function isMarketplaceAllowed(source) {  // Fq1
 }
 ```
 
+**v2.1.76: `pathPattern` in `strictKnownMarketplaces`**
+
+In addition to the existing `hostPattern` type, v2.1.76 adds a `pathPattern` field to `strictKnownMarketplaces` entries. This allows matching marketplace URLs by URL path substring or regex, not just by hostname:
+
+```json
+{
+  "strictKnownMarketplaces": [
+    {
+      "source": "github",
+      "repo": "myorg/internal-plugins"
+    },
+    {
+      "source": "hostPattern",
+      "hostPattern": "*.myorg.com",
+      "pathPattern": "/plugins/"
+    }
+  ]
+}
+```
+
+The `pathPattern` field is checked against the URL path portion of the marketplace source. This allows more granular whitelisting: for example, allowing only URLs under a specific path prefix on an internal server.
+
 **Policy decision matrix:**
 
 | `blockedMarketplaces` | `strictKnownMarketplaces` | Source in block list | Source in allow list | Result |
@@ -729,6 +775,20 @@ function isMarketplaceAllowed(source) {  // Fq1
 | null | [] | - | - | **BLOCK ALL** (empty allow list) |
 | null | [...] | - | Yes | **ALLOW** |
 | null | [...] | - | No | **BLOCK** |
+
+### `pluginTrustMessage` Managed Setting (v2.1.76)
+
+Enterprises can customize the trust message shown to users when a plugin is installed from an external source. This is controlled via `pluginTrustMessage` in `managedSettings`:
+
+```json
+{
+  "managedSettings": {
+    "pluginTrustMessage": "This plugin has been approved by your IT department."
+  }
+}
+```
+
+When set, this message replaces the default trust warning, allowing enterprises to signal that a plugin is pre-approved.
 
 ### `allowManagedHooksOnly` Mode (`Ap`)
 
@@ -772,6 +832,7 @@ Claude Code acts as a host runtime. Plugins are "capability packages" that dynam
 - **What tools run before/after LLM calls** (hooks)
 - **What MCP servers are available** (tool providers)
 - **How output is rendered** (output styles)
+- **What default settings apply** (settings.json, v2.1.76)
 
 ### 2. Immutable Versioned Cache = Session Stability
 

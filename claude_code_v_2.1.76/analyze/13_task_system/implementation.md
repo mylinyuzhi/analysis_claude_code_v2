@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Task System in Claude Code v2.1.38 is a robust replacement for the earlier `TodoList`. It is designed to support both single-agent and multi-agent workflows, introducing task ownership, dependencies (blocking/blockedBy), and persistent team-based storage.
+The Task System in Claude Code v2.1.76 is a robust replacement for the earlier `TodoList`. It is designed to support both single-agent and multi-agent workflows, introducing task ownership, dependencies (blocking/blockedBy), and persistent team-based storage.
 
 ## Key Tools
 

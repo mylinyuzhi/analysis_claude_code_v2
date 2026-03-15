@@ -1,4 +1,4 @@
-# Plan Mode - Task System Integration (Claude Code 2.1.38)
+# Plan Mode - Task System Integration (Claude Code 2.1.76)
 
 > Analysis of how the Task system integrates with plan mode, including task creation during planning and task preservation across compaction.
 

@@ -1,4 +1,4 @@
-# 08_subagent - Subagent System Module (Claude Code 2.1.38)
+# 08_subagent - Subagent System Module (Claude Code 2.1.76)
 
 > Reverse engineering documentation for the subagent spawning, execution, and coordination system
 
@@ -15,6 +15,8 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 - **AsyncLocalStorage identity**: Transparent context propagation without parameter threading
 - **Mid-run backgrounding**: Seamless sync→async transition via `Promise.race`
 - **Mailbox communication**: File-based message queues for teammate coordination
+- **Worktree isolation**: Declarative `isolation: worktree` support for git worktree-based isolation (v2.1.76)
+- **Per-invocation model override**: `model` parameter can be specified per AgentTool call (v2.1.76)
 
 ---
 
@@ -190,6 +192,21 @@ if (raceResult.type === "background") {
 ```
 
 **Benefits:** Zero-loss transition, no restart required
+
+### Worktree Isolation (v2.1.76)
+
+Subagents can declare `isolation: worktree` in their agent definition to run within an isolated git worktree. This prevents file conflicts between parallel agents working on the same repository.
+
+```javascript
+// Agent definition with worktree isolation
+{
+    agentType: "general-purpose",
+    isolation: "worktree",  // New in v2.1.76
+    // ...
+}
+```
+
+**Benefits:** True filesystem isolation for parallel file editing agents.
 
 ---
 

@@ -1,7 +1,7 @@
 # System Reminder Types: IDE Integration
 
 > **Module**: System Reminders - IDE Integration Types
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:785-800`, `chunks.142.mjs:2114-2197`, `chunks.142.mjs:2463-2492`
 
 ---

@@ -1,4 +1,4 @@
-# Bash Tool - Deep Analysis (Claude Code 2.1.38)
+# Bash Tool - Deep Analysis (Claude Code 2.1.76)
 
 > Complete analysis of the Bash execution tool: security model, progress streaming, whitelist system, and UI rendering.
 
@@ -212,7 +212,9 @@ ZcY = ["cal", "uptime", "cat", "head", "tail", "wc", "stat", "strings", "hexdump
        "nl", "id", "uname", "free", "df", "du", "locale", "groups", "nproc", "docker ps",
        "docker images", "basename", "dirname", "realpath", "cut", "paste", "tr", "column",
        "tac", "rev", "fold", "expand", "unexpand", "readlink", "diff", "true", "false",
-       "sleep", "which", "type"];
+       "sleep", "which", "type",
+       // v2.1.76 additions:
+       "lsof", "pgrep", "fmt", "comm", "seq"];
 fcY = new Set([
     ...ZcY.map(GcY),
     /^echo(?:\s+(?:'[^']*'|"[^"$<>\n\r]*"|[^|;&`$(){}><#\\!"'\s]+))*(?:\s+2>&1)?\s*$/,
@@ -245,6 +247,12 @@ let expandedReadonlyCommands = [
     "cut", "paste", "tr", "column", "tac", "rev", "fold", "expand", "unexpand",
     // Misc utilities
     "diff", "true", "false", "sleep", "which", "type",
+    // v2.1.76 additions: additional safe inspection utilities
+    "lsof",    // List open files — safe read-only inspection
+    "pgrep",   // Process grep — read-only process lookup
+    "fmt",     // Text formatter — safe text transform
+    "comm",    // Compare sorted files — read-only
+    "seq",     // Generate sequences — purely computational
 ];
 
 let completeReadonlyWhitelist = new Set([
@@ -285,6 +293,16 @@ let completeReadonlyWhitelist = new Set([
 ]);
 ```
 
+**v2.1.76 additions to the readonly whitelist:**
+
+| Command | Why added | What's safe |
+|---------|-----------|-------------|
+| `lsof` | Lists open files/network connections — pure inspection | Any arguments except `-c` write modes |
+| `pgrep` | Process name lookup — pure read | Process pattern matching |
+| `fmt` | Text formatting (word wrap, line reflow) — no side effects | Any text transformation arguments |
+| `comm` | Compare two sorted files line by line — read-only | `-1`, `-2`, `-3` column flags |
+| `seq` | Generate integer/float sequences — purely computational | Range and format arguments |
+
 **Security design principles in the whitelist:**
 
 | Command | What's Allowed | What's Blocked |
@@ -295,6 +313,9 @@ let completeReadonlyWhitelist = new Set([
 | `find` | Path traversal + `-name`, `-type`, `-size` | `-exec`, `-delete`, `-fprint`, process substitution |
 | `jq` | JSON queries with `.` and `[]` | `-f` (file input), `env`, `$ENV` |
 | `cat/head/tail` | File reading | None (command regex handles safety) |
+| `lsof` | Open file/socket inspection | Write operations |
+| `pgrep` | Process name matching | Signal operations |
+| `seq` | Sequence generation | None (purely computational) |
 
 ---
 

@@ -1,4 +1,6 @@
-# Native Host Bridge - Chrome Browser Control (Claude Code 2.1.38)
+# Native Host Bridge - Chrome Browser Control (Claude Code 2.1.76)
+
+> Note: No functional changes from v2.1.38. Version number updated only.
 
 > Deep analysis of the Chrome/browser control bridge architecture:
 > three transport implementations (WebSocket cloud bridge, Unix socket, socket pool),
@@ -258,31 +260,27 @@ async callTool(toolName, args, options) {
                                 : this.toolCallTimeoutMs;              // 120s
 
     return new Promise((resolve, reject) => {
-        // Set timeout timer
         let timer = setTimeout(() => {
             let pending = this.pendingCalls.get(toolUseId);
             if (!pending) return;
             this.pendingCalls.delete(toolUseId);
 
             if (isTabsContext && pending.results.length > 0) {
-                // tabs_context: resolve with partial results on timeout
                 resolve(this.mergeTabsResults(pending.results));
             } else {
                 reject(new SocketConnectionError(`Tool call timed out: ${toolName}`));
             }
         }, timeout);
 
-        // Register pending call
         this.pendingCalls.set(toolUseId, {
             resolve, reject, timer,
-            results: [],          // for tabs_context multi-extension accumulation
+            results: [],
             isTabsContext,
             onPermissionRequest: options?.onPermissionRequest,
             startTime: Date.now(),
             toolName
         });
 
-        // Send tool_call message
         let msg = {
             type: "tool_call",
             tool_use_id: toolUseId,
@@ -310,25 +308,21 @@ async callTool(toolName, args, options) {
 
 // READABLE:
 async discoverAndSelectExtension() {
-    // Load persisted device ID (from previous session)
     this.persistedDeviceId ??= this.context.getPersistedDeviceId?.();
 
-    // Step 1: Query connected extensions
     let extensions = await this.queryBridgeExtensions();
 
-    // Step 2: If none found, wait up to 10s for one to connect
     if (extensions.length === 0) {
         if (await this.waitForPeerConnected(PEER_CONNECTED_WAIT_TIMEOUT)) {
-            extensions = await this.queryBridgeExtensions();  // re-query after peer_connected
+            extensions = await this.queryBridgeExtensions();
         }
     }
 
     this.discoveryComplete = true;
 
-    if (extensions.length === 0) return;  // No extensions available
+    if (extensions.length === 0) return;
 
     if (extensions.length === 1) {
-        // Warn if extension is on different OS (cross-machine control)
         if (!this.isLocalExtension(extensions[0]))
             this.context.onRemoteExtensionWarning?.(extensions[0]);
         this.selectExtension(extensions[0].deviceId);
@@ -344,7 +338,7 @@ async discoverAndSelectExtension() {
         }
     }
 
-    // No match: broadcast pairing request — user clicks "Connect" in Chrome
+    // No match: broadcast pairing request
     this.broadcastPairingRequest();
     this.pairingInProgress = true;
 }
@@ -388,8 +382,8 @@ Payload format:
 Inbound (from native host):
   Same length-prefix format.
   Response types:
-  - Tool result:    { "result": ..., "error": ... } → AKz(A)
-  - Notification:   { "method": ..., "params": ... } → qKz(A)
+  - Tool result:    { "result": ..., "error": ... }
+  - Notification:   { "method": ..., "params": ... }
 ```
 
 ### Security Validation (`validateSocketSecurity`)
@@ -404,22 +398,20 @@ Inbound (from native host):
 async validateSocketSecurity(socketPath) {
     if (platform() === "win32") return;  // No Unix permissions on Windows
 
-    // Check directory permissions (if path is in claude-mcp-browser-bridge-* dir)
     if (socketPath.split("/").pop().startsWith("claude-mcp-browser-bridge-")) {
         let dirStat = await fs.stat(socketPath);
         if (dirStat.isDirectory()) {
-            if ((dirStat.mode & 0o777) !== 0o700)  // Must be rwx------
+            if ((dirStat.mode & 0o777) !== 0o700)
                 throw Error("Insecure socket directory permissions (expected 0700)");
             if (process.getuid?.() !== dirStat.uid)
                 throw Error("Socket directory not owned by current user");
         }
     }
 
-    // Check socket file permissions
     let socketStat = await fs.stat(socketPath);
     if (!socketStat.isSocket())
         throw Error("Path exists but it's not a socket");
-    if ((socketStat.mode & 0o777) !== 0o600)   // Must be rw-------
+    if ((socketStat.mode & 0o777) !== 0o600)
         throw Error("Insecure socket permissions (expected 0600)");
     if (process.getuid?.() !== socketStat.uid)
         throw Error("Socket not owned by current user");
@@ -454,7 +446,6 @@ one per discovered socket path. Used when `context.getSocketPaths` is provided.
 async callTool(toolName, args) {
     if (toolName === "tabs_context_mcp") return this.callTabsContext(args);
 
-    // Route by tab ID if known
     let tabId = args.tabId;
     if (tabId !== undefined) {
         let socketPath = this.tabRoutes.get(tabId);
@@ -464,7 +455,6 @@ async callTool(toolName, args) {
         }
     }
 
-    // Fall back to first connected client
     let clients = this.getConnectedClients();
     if (clients.length === 0) throw new SocketConnectionError("No connected sockets");
     return clients[0].callTool(toolName, args);
@@ -472,8 +462,6 @@ async callTool(toolName, args) {
 ```
 
 ### `callTabsContext` — Multi-Extension Aggregation
-
-When multiple extensions are connected via sockets, `callTabsContext` calls all of them in parallel:
 
 ```javascript
 // ============================================
@@ -490,13 +478,11 @@ async callTabsContext(args) {
         return result;
     }
 
-    // Multiple: call all in parallel
     let results = await Promise.allSettled(clients.map(async client => {
         let result = await client.callTool("tabs_context_mcp", args);
         return { result, socketPath: socketPathFor(client) };
     }));
 
-    // Merge and build tab routing table
     this.tabRoutes.clear();
     let allTabs = [];
     for (let r of results) {
@@ -507,7 +493,6 @@ async callTabsContext(args) {
     }
 
     if (allTabs.length > 0) return buildTabContextResponse(allTabs);
-    // Return first successful result as fallback
     return results.find(r => r.status === "fulfilled")?.value.result;
 }
 ```
@@ -543,7 +528,7 @@ async function createNativeHostWrapper(nativeHostCommand) {
 
     await mkdir(wrapperDir, { recursive: true });
     await writeFile(wrapperPath, scriptContent);
-    if (platform !== "windows") await chmod(wrapperPath, 0o755); // make executable
+    if (platform !== "windows") await chmod(wrapperPath, 0o755);
 
     return wrapperPath;
 }
@@ -565,7 +550,7 @@ async function createNativeHostWrapper(nativeHostCommand) {
 
 // READABLE:
 async function installNativeHostManifest(wrapperScriptPath) {
-    let manifestDirs = getNativeHostPaths(); // fn4() for non-windows, APPDATA for windows
+    let manifestDirs = getNativeHostPaths();
     if (manifestDirs.length === 0) throw Error("Not supported on this platform");
 
     let manifest = {
@@ -580,7 +565,7 @@ async function installNativeHostManifest(wrapperScriptPath) {
 
     for (let dir of manifestDirs) {
         let manifestFile = join(dir, MANIFEST_FILENAME);
-        if (await readFile(manifestFile).catch(() => null) === manifestJson) continue;  // Already current
+        if (await readFile(manifestFile).catch(() => null) === manifestJson) continue;
 
         try {
             await mkdir(dir, { recursive: true });
@@ -589,42 +574,18 @@ async function installNativeHostManifest(wrapperScriptPath) {
         } catch (err) { /* log and continue */ }
     }
 
-    // Windows: also write to registry
     if (getPlatform() === "windows") {
         registerWindowsNativeHost(join(manifestDirs[0], MANIFEST_FILENAME));
     }
 
-    // First install: open reconnect page in browser
     if (installed) {
         detectChromeExtension().then(isInstalled => {
-            if (isInstalled) openBrowser(RECONNECT_URL);  // "https://clau.de/chrome/reconnect"
+            if (isInstalled) openBrowser(RECONNECT_URL);
         });
     }
 }
-// Mapping: bHq→installNativeHostManifest, MKz→getNativeHostPaths, fn4→getNativeHostPathsPerBrowser,
+// Mapping: bHq→installNativeHostManifest, fn4→getNativeHostPaths,
 //   PKz→registerWindowsNativeHost, Ec→detectChromeExtension, jG6→openBrowser
-```
-
-### `registerWindowsNativeHost` (PKz)
-
-```javascript
-// ============================================
-// registerWindowsNativeHost - Write to Windows registry
-// Location: chunks.166.mjs:1440-1453
-// ============================================
-
-// READABLE:
-function registerWindowsNativeHost(manifestFilePath) {
-    let registryPaths = getWindowsRegistryPaths();  // Vn4()
-    for (let { browser, key } of registryPaths) {
-        let regKey = `${key}\\com.anthropic.claude_code_browser_extension`;
-        exec("reg", ["add", regKey, "/ve", "/t", "REG_SZ", "/d", manifestFilePath, "/f"])
-            .then(result => {
-                if (result.code === 0) log(`Registered native host for ${browser}: ${regKey}`);
-            });
-    }
-}
-// Mapping: PKz→registerWindowsNativeHost, Vn4→getWindowsRegistryPaths, d4→exec
 ```
 
 ### Platform Manifest Directories
@@ -646,7 +607,7 @@ function registerWindowsNativeHost(manifestFilePath) {
 
 ## Extension Detection
 
-### `detectChromeExtension` (Ec) → `SHq`
+### `detectChromeExtension` (Ec)
 
 ```javascript
 // ============================================
@@ -656,13 +617,13 @@ function registerWindowsNativeHost(manifestFilePath) {
 
 // READABLE:
 async function detectChromeExtension() {
-    let browserPaths = getBrowserDataPaths();  // Zn4()
+    let browserPaths = getBrowserDataPaths();
     if (browserPaths.length === 0) return false;
-    return detectExtensionInPaths(browserPaths, logFn);  // SHq
+    return detectExtensionInPaths(browserPaths, logFn);
 }
 
 async function detectExtensionInPaths(browserPaths, logger) {
-    const EXTENSION_IDS = ["fcoeoabgfenejglbffodgkkbkcdhcgfn"];  // _Kz()
+    const EXTENSION_IDS = ["fcoeoabgfenejglbffodgkkbkcdhcgfn"];
     for (let { browser, path } of browserPaths) {
         let entries;
         try {
@@ -680,7 +641,7 @@ async function detectExtensionInPaths(browserPaths, logger) {
             for (let extId of EXTENSION_IDS) {
                 let extPath = join(path, profile, "Extensions", extId);
                 try {
-                    await readdir(extPath);  // throws if not found
+                    await readdir(extPath);
                     return { isInstalled: true, browser };
                 } catch {}
             }
@@ -688,8 +649,7 @@ async function detectExtensionInPaths(browserPaths, logger) {
     }
     return { isInstalled: false, browser: null };
 }
-// Mapping: Ec→detectChromeExtension, Zn4→getBrowserDataPaths, SHq→detectExtensionInPaths,
-//   _Kz→getExtensionIds, CHq→readdir, $Kz→path.join
+// Mapping: Ec→detectChromeExtension, Zn4→getBrowserDataPaths, SHq→detectExtensionInPaths
 ```
 
 ### `isExtensionInstalledCached` (WKz)
@@ -718,7 +678,7 @@ function isExtensionInstalledCached() {
 //   f6→getLocalSettings, jA→updateLocalSettings
 ```
 
-**Design:** Uses stale-while-revalidate. Returns the cached value synchronously, then triggers an async refresh in the background. This prevents blocking on disk I/O in fast paths.
+**Design:** Uses stale-while-revalidate. Returns the cached value synchronously, then triggers an async refresh in the background.
 
 ---
 
@@ -741,16 +701,14 @@ function getChromeMcpSocketPath() {
 function getChromeMcpSocketPaths() {
     if (platform() === "win32") return [`\\\\.\\pipe\\claude-mcp-browser-bridge-${getUsername()}`];
 
-    let socketDir = getTempSocketDir();  // /tmp/claude-mcp-browser-bridge-{username}
+    let socketDir = getTempSocketDir();
     let paths = [];
 
-    // Scan the directory for .sock files
     try {
         let files = readdirSync(socketDir);
         for (let f of files) if (f.endsWith(".sock")) paths.push(join(socketDir, f));
     } catch {}
 
-    // Add both XDG tempdir and /tmp paths as fallbacks
     let dirName = `claude-mcp-browser-bridge-${getUsername()}`;
     let xdgPath = join(os.tmpdir(), dirName);
     let tmpPath = `/tmp/${dirName}`;
@@ -759,59 +717,12 @@ function getChromeMcpSocketPaths() {
 
     return paths;
 }
-// Mapping: MG6→getChromeMcpSocketPath, Tn4→getChromeMcpSocketPaths, Fg1→getTempSocketDir,
-//   byA→getUsername, vn4→getPipeName
+// Mapping: MG6→getChromeMcpSocketPath, Tn4→getChromeMcpSocketPaths, Fg1→getTempSocketDir
 ```
 
 **Path format:** `/tmp/claude-mcp-browser-bridge-{username}/{pid}.sock`
 
 This per-PID socket means each running Claude Code process has its own socket, enabling the SocketPoolClient (`VHq`) to connect to multiple simultaneously running Claude instances.
-
----
-
-## Permission Request Handling (Bidirectional)
-
-```javascript
-// ============================================
-// WebSocketBridgeClient.handlePermissionRequest
-// Location: chunks.165.mjs:2436-2463
-// ============================================
-
-// READABLE:
-async handlePermissionRequest(msg) {
-    let toolUseId = msg.tool_use_id;
-    let requestId = msg.request_id;
-    if (!toolUseId || !requestId) return;
-
-    let pending = this.pendingCalls.get(toolUseId);
-    if (!pending?.onPermissionRequest) return;  // Ignore if not our call or no handler
-
-    let request = {
-        toolUseId,
-        requestId,
-        toolType: msg.tool_type ?? "unknown",
-        url: msg.url ?? "",
-        actionData: msg.action_data
-    };
-
-    try {
-        let allowed = await pending.onPermissionRequest(request);
-        this.sendPermissionResponse(requestId, allowed);
-    } catch {
-        this.sendPermissionResponse(requestId, false);  // Deny on error
-    }
-}
-
-sendPermissionResponse(requestId, allowed) {
-    let msg = { type: "permission_response", request_id: requestId, allowed };
-    if (this.selectedDeviceId) msg.target_device_id = this.selectedDeviceId;
-    this.ws.send(JSON.stringify(msg));
-}
-```
-
-**Flow:** Extension → Bridge → MCP Server → `onPermissionRequest` callback → user/policy decision → Bridge → Extension
-
-Only tool calls that explicitly set `handle_permission_prompts: true` will receive permission requests. This is set by the MCP server when the tool is configured with a permission handler.
 
 ---
 
@@ -843,49 +754,6 @@ Only tool calls that explicitly set `handle_permission_prompts: true` will recei
 | `notification` | Extension notification | `method`, `params` |
 | `ping` | Heartbeat | - |
 | `error` | Bridge error | `error` |
-
----
-
-## `executeToolResult` Response Normalization
-
-```javascript
-// ============================================
-// executeBridgeTool - Execute tool + normalize result
-// Location: chunks.166.mjs:970-1035
-// ============================================
-
-// READABLE:
-async function executeBridgeTool(context, bridgeClient, toolName, args, meta) {
-    let response = await bridgeClient.callTool(toolName, args, meta);
-    if (!response) return { content: [{ type: "text", text: "Tool execution completed" }] };
-
-    let { result, error } = response;
-    let payload = error || result;
-    let isError = !!error;
-
-    // Authentication error: trigger re-auth flow
-    if (isError && isAuthenticationError(payload.content)) context.onAuthenticationError();
-
-    let { content } = payload;
-    if (!content) return { content: [{ type: "text", text: "Tool execution completed" }] };
-
-    // Normalize content items
-    if (Array.isArray(content)) {
-        return {
-            content: content.map(item => {
-                // Convert {type:"image", source:{data, media_type}} to MCP image format
-                if (item.type === "image" && item.source?.data)
-                    return { type: "image", data: item.source.data, mimeType: item.source.media_type || "image/png" };
-                return item;
-            }),
-            isError
-        };
-    }
-    if (typeof content === "string") return { content: [{ type: "text", text: content }], isError };
-    return { content: [{ type: "text", text: JSON.stringify(response) }], isError };
-}
-// Mapping: YKz→executeBridgeTool, HKz→isAuthenticationError
-```
 
 ---
 

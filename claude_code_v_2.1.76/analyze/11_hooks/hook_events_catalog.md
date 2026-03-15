@@ -2,29 +2,13 @@
 
 ## Overview
 
-Claude Code v2.1.76 supports 22 distinct hook events that allow users to execute custom shell commands, prompts, agent-based hooks, callback functions, or "function" hooks in response to specific lifecycle moments. Hooks are configured in the user's settings file and are executed by the central `executeHooksIterator` (`NI`) generator function.
+Claude Code v2.1.76 supports 21 distinct hook events that allow users to execute custom shell commands, HTTP endpoints, prompts, agent-based hooks, callback functions, or "function" hooks in response to specific lifecycle moments. Hooks are configured in the user's settings file and are executed by the central `executeHooksIterator` (`NI`) generator function.
 
 Each hook event has a well-defined schema for its input payload, specific trigger conditions, and expected return value semantics (blocking, non-blocking, passthrough, etc.). This document catalogs every event with deep detail on when it fires, what data it provides, and what outcomes are possible.
 
-The canonical list of hook event names is defined as the constant `Fu` in `chunks.40.mjs:771`:
+New events added in v2.1.76 vs v2.1.38: **PostCompact**, **Elicitation**, **ElicitationResult**, **InstructionsLoaded**, **ConfigChange**, **WorktreeCreate**, **WorktreeRemove**.
 
-```javascript
-Fu = ["PreToolUse", "PostToolUse", "PostToolUseFailure", "Notification",
-      "UserPromptSubmit", "SessionStart", "SessionEnd", "Stop",
-      "SubagentStart", "SubagentStop", "PreCompact", "PostCompact",
-      "PermissionRequest", "Setup", "TeammateIdle", "TaskCompleted",
-      "Elicitation", "ElicitationResult", "ConfigChange",
-      "WorktreeCreate", "WorktreeRemove", "InstructionsLoaded"]
-```
-
-**NEW in v2.1.76:**
-- `PostCompact` - After conversation compaction
-- `Elicitation` - When MCP server requests user input
-- `ElicitationResult` - After user responds to MCP elicitation
-- `WorktreeCreate` - Create VCS-agnostic worktree
-- `WorktreeRemove` - Remove worktree
-- `InstructionsLoaded` - When CLAUDE.md or rule file is loaded
-- `ConfigChange` - When config files change during session
+All hook events now include `agent_id` and `agent_type` fields in their base payload when fired from within an agent context.
 
 ## Related Symbols
 
@@ -44,7 +28,7 @@ Key functions in this document:
 - `executeSubagentStartHooks` (AEA) - Wrapper for SubagentStart event
 - `executePreCompactHooks` (mW6) - Wrapper for PreCompact event
 - `executeTeammateIdleHooks` (wyA) - Wrapper for TeammateIdle event
-- `executeTaskCompletedHooks` (Cg1) - Wrapper for TaskCompleted event (note: same obfuscated name as `verifyTaskCompletion` in task system, different function)
+- `executeTaskCompletedHooks` (Cg1) - Wrapper for TaskCompleted event
 - `executeSetupHooks` (OyA) - Wrapper for Setup event
 - `executeCommandHook` (BW6) - Low-level shell command execution for hooks
 - `executeAgentHook` (Xi4) - Executes agent-type hooks
@@ -64,9 +48,13 @@ Every hook event receives a base payload defined by the `gZ` schema:
   "session_id": "<current session UUID>",
   "transcript_path": "<path to session transcript>",
   "cwd": "<current working directory>",
-  "permission_mode": "<current permission mode (optional)>"
+  "permission_mode": "<current permission mode (optional)>",
+  "agent_id": "<agent UUID if fired from agent context (optional)>",
+  "agent_type": "<agent type string if fired from agent context (optional)>"
 }
 ```
+
+The `agent_id` and `agent_type` fields were added in v2.1.76. They are present when a hook fires from within a subagent or agent-team context, enabling hooks to distinguish which agent triggered the event.
 
 This base is constructed by `aX()` and merged with event-specific fields.
 
@@ -77,10 +65,20 @@ Hooks can be of several types, each with different execution semantics:
 | Type | Execution | Can Block? | Description |
 |------|-----------|------------|-------------|
 | `command` | Shell command via `BW6` | Yes (exit code 2) | Runs a shell command, passes hook input as JSON via stdin |
+| `http` | HTTP POST via `executeHttpHook` | Yes (via response fields) | POSTs JSON payload to a URL, receives JSON response (v2.1.63+) |
 | `prompt` | LLM prompt via `Pn7` | No (yes/no only) | Sends a prompt to the LLM; returns `{"ok": true/false}`. Requires ToolUseContext. |
 | `agent` | Agent invocation via `Xi4` | Yes (`ok: false`) | Runs a full agent loop with tools to verify a condition. Can block if condition not met. |
 | `callback` | In-process function via `DhY` | Via JSON return | Direct JS async callback (used by plugins). Can return structured JSON like command hooks. |
 | `function` | REPL-only function via `XhY` | Yes (false return) | Executes within the REPL context with access to conversation messages. Stop hooks only. |
+
+### Hook Source Display
+
+In v2.1.76, when verbose mode is active (`--verbose` flag or verbose setting), the UI displays the source of each hook alongside its output:
+- `settings` - Hook defined in user/project/local settings.json
+- `plugin` - Hook registered by a plugin
+- `skill` - Hook registered by a skill
+
+This helps users diagnose which hook configuration triggered a given behavior.
 
 ### Exit Code Semantics (for `command` type)
 
@@ -121,8 +119,6 @@ The `hookSpecificOutput` varies per event and can control permission decisions, 
 | `SubagentStart` | `NZY` | `additionalContext` |
 | `Notification` | `EZY` | `additionalContext` |
 | `PermissionRequest` | `kZY` | `decision` (behavior: "allow"/"deny", updatedInput?, updatedPermissions?, message?, interrupt?) |
-| `Elicitation` | `NfY` | `action` (accept/decline/cancel), `content` (optional JSON matching schema) |
-| `ElicitationResult` | `RfY` | `action` (optional: override), `content` (optional: override content) |
 
 #### Async Response Schema
 
@@ -487,7 +483,32 @@ async function executePreCompactHooks(hookConfig, signal, timeoutMs = DEFAULT_HO
 
 ---
 
-### 12. PermissionRequest
+### 12. PostCompact (NEW in v2.1.76)
+
+**When it triggers:** After compaction has completed successfully. This fires after the new context window is built but before the SessionStart(compact) hook runs.
+
+**Match query:** The trigger type: `PostCompact:manual` or `PostCompact:auto`.
+
+**Payload:**
+```json
+{
+  ...basePayload,
+  "hook_event_name": "PostCompact",
+  "trigger": "manual|auto",
+  "summary": "<compaction summary text>"
+}
+```
+
+**Return value effects:**
+- `additionalContext: "..."` - Inject context to be available after compaction
+
+**Example use cases:**
+- Post-compact state restoration: Restore state that may have been lost during compaction
+- Audit logging: Record that compaction occurred and when
+
+---
+
+### 13. PermissionRequest
 
 **When it triggers:** When a tool execution requires a permission decision (the tool's `checkPermissions` returns `"ask"`).
 
@@ -514,7 +535,7 @@ async function executePreCompactHooks(hookConfig, signal, timeoutMs = DEFAULT_HO
 
 ---
 
-### 13. Setup
+### 14. Setup
 
 **When it triggers:** During initial setup or maintenance cycles.
 
@@ -539,7 +560,7 @@ async function executePreCompactHooks(hookConfig, signal, timeoutMs = DEFAULT_HO
 
 ---
 
-### 14. TeammateIdle
+### 15. TeammateIdle
 
 **When it triggers:** When a teammate in a swarm/team becomes idle (finishes its current task and has nothing queued).
 
@@ -564,7 +585,7 @@ async function executePreCompactHooks(hookConfig, signal, timeoutMs = DEFAULT_HO
 
 ---
 
-### 15. TaskCompleted
+### 16. TaskCompleted
 
 **When it triggers:** When a task's status is changed to `"completed"` via `TaskUpdate`. This fires before the status change is persisted.
 
@@ -595,223 +616,113 @@ async function executePreCompactHooks(hookConfig, signal, timeoutMs = DEFAULT_HO
 
 ---
 
-### 16. PostCompact (NEW in v2.1.76)
-
-**When it triggers:** After a conversation compaction has completed, regardless of whether it was manual or automatic.
-
-**Match query:** The trigger type: `manual` or `auto`.
-
-**Payload:**
-```json
-{
-  ...basePayload,
-  "hook_event_name": "PostCompact",
-  "trigger": "manual" | "auto",
-  "summary": "<compaction summary text>",
-  "truePostCompactTokenCount": <token count after compaction>
-}
-```
-
-**Return value effects:**
-- Non-blocking: Hook output shown to user
-- Cannot prevent compaction (already completed)
-
-**Example use cases:**
-- Logging: Record compaction events for analysis
-- Notifications: Alert when context was compacted
-- Telemetry: Track compaction frequency and effectiveness
-
----
-
 ### 17. Elicitation (NEW in v2.1.76)
 
-**When it triggers:** When an MCP server requests user input via the elicitation protocol. This allows hooks to automatically respond to elicitation requests instead of showing a dialog.
+**When it triggers:** When an MCP server sends an elicitation request (requesting structured user input).
 
-**Match query:** The MCP server name (`mcp_server_name`).
+**Match query:** None.
 
 **Payload:**
 ```json
 {
   ...basePayload,
   "hook_event_name": "Elicitation",
-  "mcp_server_name": "<server name>",
-  "message": "<elicitation message from server>",
-  "requested_schema": { /* JSON schema for expected response */ }
+  "server_name": "<MCP server name>",
+  "request_id": "<elicitation request ID>",
+  "message": "<elicitation message>",
+  "requested_schema": { /* JSON schema for expected input */ }
 }
 ```
 
-**Return value effects (hookSpecificOutput):**
-```json
-{
-  "hookEventName": "Elicitation",
-  "action": "accept" | "decline" | "cancel",
-  "content": { /* optional: content matching requested_schema */ }
-}
-```
-- `accept`: Automatically accept the elicitation with optional content
-- `decline`: Decline the elicitation request
-- `cancel`: Cancel the elicitation (treated as decline)
-
-**Exit code 2:** Denies the elicitation without hook-specific output.
+**Return value effects:**
+- Can provide a pre-filled response to the elicitation, bypassing user interaction
 
 **Example use cases:**
-- Auto-approval: Automatically accept certain elicitation requests
-- Policy enforcement: Decline elicitation from untrusted servers
-- Custom UI: Handle elicitation through external systems
+- Auto-fill: Automatically respond to known elicitation patterns
+- Policy enforcement: Ensure certain fields are always filled with approved values
 
 ---
 
 ### 18. ElicitationResult (NEW in v2.1.76)
 
-**When it triggers:** After the user responds to an MCP elicitation (or a hook auto-responds via the Elicitation hook). This allows hooks to observe or modify the response before it's sent to the server.
+**When it triggers:** After an elicitation request has been answered (either by user or hook).
 
-**Match query:** The MCP server name (`mcp_server_name`).
+**Match query:** None.
 
 **Payload:**
 ```json
 {
   ...basePayload,
   "hook_event_name": "ElicitationResult",
-  "mcp_server_name": "<server name>",
-  "action": "accept" | "decline" | "cancel",
-  "content": { /* user's response content (if accept) */ },
-  "mode": "<elicitation mode>",
-  "elicitation_id": "<optional elicitation ID>"
+  "server_name": "<MCP server name>",
+  "request_id": "<elicitation request ID>",
+  "result": { /* the submitted elicitation data */ }
 }
 ```
 
-**Return value effects (hookSpecificOutput):**
-```json
-{
-  "hookEventName": "ElicitationResult",
-  "action": "accept" | "decline" | "cancel",  // optional: override
-  "content": { /* optional: override content */ }
-}
-```
-- Can override the action (e.g., change `accept` to `decline`)
-- Can modify the content before it's sent
-
-**Exit code 2:** Blocks the response, effectively declining the elicitation.
-
-**Example use cases:**
-- Response validation: Ensure elicitation responses meet policy requirements
-- Content filtering: Sanitize or transform response content
-- Audit logging: Record all elicitation interactions
+**Return value effects:** Primarily for side effects (logging, auditing).
 
 ---
 
-### 19. ConfigChange (NEW in v2.1.49)
+### 19. InstructionsLoaded (NEW in v2.1.76)
 
-**When it triggers:** When configuration files change during a session (user_settings, project_settings, local_settings, policy_settings, or skills).
-
-**Match query:** The source of the change: `user_settings`, `project_settings`, `local_settings`, `policy_settings`, or `skills`.
-
-**Payload:**
-```json
-{
-  ...basePayload,
-  "hook_event_name": "ConfigChange",
-  "source": "user_settings" | "project_settings" | "local_settings" | "policy_settings" | "skills",
-  "file_path": "<path to changed file>"
-}
-```
-
-**Return value effects:**
-- Exit code 0: Allow the change to be applied to the session
-- Exit code 2: Block the change from being applied
-
-**Example use cases:**
-- Config validation: Ensure new settings meet policy requirements
-- Audit logging: Track configuration changes
-- Hot-reload coordination: Trigger actions when config changes
-
----
-
-### 20. WorktreeCreate (NEW in v2.1.50)
-
-**When it triggers:** When creating an isolated worktree for VCS-agnostic isolation. Used when `EnterWorktree` tool is called outside a git repository.
+**When it triggers:** When CLAUDE.md or other instruction files are loaded or reloaded.
 
 **Match query:** None.
-
-**Payload:**
-```json
-{
-  ...basePayload,
-  "hook_event_name": "WorktreeCreate",
-  "name": "<suggested worktree slug>"
-}
-```
-
-**Return value effects:**
-- Exit code 0: Worktree created successfully. Stdout should contain the absolute path to the created worktree directory.
-- Other exit codes: Worktree creation failed.
-
-**Key insight:** This hook enables VCS-agnostic worktree isolation. Configure `WorktreeCreate` and `WorktreeRemove` hooks in `settings.json` to use worktree isolation with non-git VCS systems.
-
-**Example use cases:**
-- Perforce workspaces: Create isolated Perforce client workspaces
-- SVN branches: Create SVN working copies
-- Custom VCS: Implement custom isolation strategies
-
----
-
-### 21. WorktreeRemove (NEW in v2.1.50)
-
-**When it triggers:** When removing a previously created worktree. Used when `ExitWorktree` tool is called with `action: "remove"`.
-
-**Match query:** None.
-
-**Payload:**
-```json
-{
-  ...basePayload,
-  "hook_event_name": "WorktreeRemove",
-  "worktree_path": "<absolute path to worktree>"
-}
-```
-
-**Return value effects:**
-- Exit code 0: Worktree removed successfully
-- Other exit codes: Worktree removal failed (logged as warning, session continues)
-
-**Example use cases:**
-- Cleanup: Remove VCS-specific workspace files
-- Resource release: Release licenses or locks
-- Telemetry: Track worktree lifecycle
-
----
-
-### 22. InstructionsLoaded (NEW in v2.1.69)
-
-**When it triggers:** When an instruction file (CLAUDE.md or rule file) is loaded into the system prompt.
-
-**Match query:** The load reason: `session_start`, `nested_traversal`, `path_glob_match`, or `include`.
 
 **Payload:**
 ```json
 {
   ...basePayload,
   "hook_event_name": "InstructionsLoaded",
-  "file_path": "<path to loaded instruction file>",
-  "memory_type": "User" | "Project" | "Local" | "Managed",
-  "load_reason": "session_start" | "nested_traversal" | "path_glob_match" | "include",
-  "globs": ["<optional: paths frontmatter patterns that matched>"],
-  "trigger_file_path": "<optional: file Claude touched that caused the load>",
-  "parent_file_path": "<optional: file that @-included this one>"
+  "file_path": "<path to instruction file>",
+  "content": "<instruction file content>"
 }
 ```
 
 **Return value effects:**
-- Observability-only hook, does not support blocking
-- Exit code 0: Command completes successfully
-- Other exit codes: Show stderr to user only
+- `additionalContext: "..."` - Inject additional context alongside the loaded instructions
 
-**Key insight:** This hook is for observability and debugging. It cannot prevent files from being loaded.
+---
 
-**Example use cases:**
-- Audit logging: Track which instructions are loaded
-- Debugging: Understand the instruction loading chain
-- Telemetry: Measure instruction file coverage
+### 20. ConfigChange (NEW in v2.1.76)
+
+**When it triggers:** When settings or configuration files are changed (e.g., settings.json updated).
+
+**Match query:** The configuration key that changed (e.g., `ConfigChange:model`).
+
+**Payload:**
+```json
+{
+  ...basePayload,
+  "hook_event_name": "ConfigChange",
+  "key": "<configuration key>",
+  "old_value": "<previous value>",
+  "new_value": "<new value>"
+}
+```
+
+**Return value effects:** Primarily for side effects (logging, notifications).
+
+---
+
+### 21. WorktreeCreate / WorktreeRemove (NEW in v2.1.76)
+
+**When it triggers:** When a git worktree is created (`WorktreeCreate`) or removed (`WorktreeRemove`).
+
+**Match query:** None.
+
+**Payload:**
+```json
+{
+  ...basePayload,
+  "hook_event_name": "WorktreeCreate|WorktreeRemove",
+  "worktree_path": "<absolute path to worktree>",
+  "branch": "<branch name>"
+}
+```
+
+**Return value effects:** Primarily for side effects (environment setup, cleanup).
 
 ---
 
@@ -841,7 +752,7 @@ deny > ask > allow > passthrough(undefined)
 - undefined → passthrough (no change to permission flow)
 ```
 
-**Hook type ordering within resolved list:** `command → prompt → agent → callback → function`
+**Hook type ordering within resolved list:** `command → http → prompt → agent → callback → function`
 
 All hooks start at the same time regardless of type ordering.
 
@@ -852,9 +763,9 @@ Events use one of two execution strategies:
 | Path | Function | Used By | Returns |
 |------|---------|---------|---------|
 | **Streaming (REPL)** | `NI` (executeHooksIterator) | PreToolUse, PostToolUse, PostToolUseFailure, Stop, SubagentStop, UserPromptSubmit, SessionStart, SubagentStart, TeammateIdle, TaskCompleted, Setup | `AsyncGenerator` (yields messages live) |
-| **Parallel (non-REPL)** | `AyA` (executeHooksOutsideREPL) | Notification, PreCompact, SessionEnd, PermissionRequest | `Promise<Array>` (all results at once) |
+| **Parallel (non-REPL)** | `AyA` (executeHooksOutsideREPL) | Notification, PreCompact, PostCompact, SessionEnd, PermissionRequest | `Promise<Array>` (all results at once) |
 
-The parallel path only supports `command` and `callback` hook types — `prompt`, `agent`, and `function` hooks are not supported outside the REPL context.
+The parallel path only supports `command`, `http`, and `callback` hook types — `prompt`, `agent`, and `function` hooks are not supported outside the REPL context.
 
 ### Guards Applied Before Execution
 

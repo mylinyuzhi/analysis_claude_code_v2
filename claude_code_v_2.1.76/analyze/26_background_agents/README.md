@@ -1,4 +1,4 @@
-# Background Agents — Module Overview (Claude Code 2.1.38)
+# Background Agents — Module Overview (Claude Code 2.1.76)
 
 > Reverse-engineered analysis of the background agent system: asynchronous task execution,
 > output capture, kill handlers, and integration with tools, hooks, and system reminders.
@@ -15,6 +15,22 @@ Background agents are one of the most architecturally sophisticated systems in C
 - **Progress tracking** - Automatic progress updates injected into system reminders
 - **Kill handling** - Graceful termination with task-type-specific strategies
 - **Tool access control** - Blocklist/allowlist to prevent blocking operations
+
+---
+
+## What's New in v2.1.76
+
+### `background: true` Flag
+
+In v2.1.76, the `background: true` flag is explicitly present in the task record type definition and the AgentTool schema. Previously only `run_in_background` appeared in the tool input schema; v2.1.76 also propagates a `background` field into the task state to allow downstream code to distinguish explicitly-backgrounded tasks from foreground-then-backgrounded tasks.
+
+### Ctrl+F Kill All
+
+v2.1.76 adds a new keyboard shortcut: **Ctrl+F kills all running background agents** at once. This is implemented via `killAllRunningAgents` (`Kd7`) which is now bound to the Ctrl+F key event. Previously, users had to stop individual tasks one at a time.
+
+### Partial Results Preserved on Kill
+
+When a background agent is killed (either via Ctrl+F or TaskStop), any partial results that were written to the output file are preserved and surfaced in the `task_status` attachment. v2.1.76 ensures `readOutputFileDelta` is called before updating the task status to "killed", so results from completed tool calls within the agent are not lost.
 
 ---
 
@@ -112,59 +128,31 @@ Background agents are one of the most architecturally sophisticated systems in C
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
-### Task Creation & Management
-
-| Symbol | Readable | File:Line | Description |
-|--------|----------|-----------|-------------|
-| `hp` | createTaskId | chunks.89.mjs:522 | Generate unique task ID |
-| `IZ` | createTaskRecord | chunks.89.mjs:528 | Create task state object |
-| `zd7` | createAsyncTask | chunks.89.mjs:1447 | Create background task with AbortController |
-| `wd7` | createForegroundTask | chunks.89.mjs:1477 | Create task that may be backgrounded later |
-| `Hd7` | backgroundForegroundTask | chunks.89.mjs:1515 | Convert running task to background |
-| `na` | killTask | chunks.89.mjs:1375 | Kill a running task |
-
-### Output Capture
-
-| Symbol | Readable | File:Line | Description |
-|--------|----------|-----------|-------------|
-| `ww` | getOutputFilePath | chunks.89.mjs:249 | Get output file path for task |
-| `ZK1` | appendToOutputFile | chunks.89.mjs:253 | Append content to output file |
-| `WjA` | readOutputFileDelta | chunks.89.mjs:276 | Read incremental output |
-| `M_6` | readFullOutput | chunks.89.mjs:300 | Read complete output file |
-| `hj1` | initOutputFile | chunks.89.mjs:310 | Initialize output file |
-
-### Kill Handlers
-
-| Symbol | Readable | File:Line | Description |
-|--------|----------|-----------|-------------|
-| `B_6` | LocalAgentTaskHandler | chunks.89.mjs:1574 | Kill handler for local agents |
-| `gj1` | LocalBashTaskHandler | chunks.89.mjs:2012 | Kill handler for shell commands |
-| `Qi4` | RemoteAgentTaskHandler | chunks.142.mjs:1586 | Kill handler for remote sessions |
-| `Vg1` | getKillHandlerForType | chunks.142.mjs:1652 | Handler lookup by task type |
-
-### Tool Access Control
-
-| Symbol | Readable | File:Line | Description |
-|--------|----------|-----------|-------------|
-| `Bj1` | BACKGROUND_AGENT_BLOCKED_TOOLS | chunks.89.mjs:876 | Tools blocked for background agents |
-| `VjA` | ASYNC_BATCH_TOOLS | chunks.89.mjs:876 | Copy of blocked tools for async batch |
-| `L_6` | ASYNC_COMPATIBLE_TOOLS | chunks.89.mjs:876 | Allowlist for async contexts |
-
-### System Reminders & Progress
-
-| Symbol | Readable | File:Line | Description |
-|--------|----------|-----------|-------------|
-| `vK1` | notifyTaskCompletion | chunks.89.mjs:1346 | Inject completion notification |
-| `TIY` | countTurnsSinceLastProgress | chunks.142.mjs:2703 | Turn counting for throttle |
-| `vIY` | getUnifiedTasksAttachment | chunks.142.mjs:2719 | Main attachment producer |
-| `di4` | buildTaskAttachments | chunks.142.mjs:1711 | Build task attachments |
-
-### Management Tools
-
-| Symbol | Readable | File:Line | Description |
-|--------|----------|-----------|-------------|
-| `kW6` | TaskOutputTool | chunks.139.mjs:1922 | Poll/retrieve background task output |
-| `vW6` | TaskStopTool | chunks.139.mjs:1537 | Kill a running background task |
+Key functions in this document:
+- `createTaskId` (hp) - Generate unique task ID — `chunks.89.mjs:522`
+- `createTaskRecord` (IZ) - Create task state object — `chunks.89.mjs:528`
+- `createAsyncTask` (zd7) - Create background task with AbortController — `chunks.89.mjs:1447`
+- `createForegroundTask` (wd7) - Create task that may be backgrounded later — `chunks.89.mjs:1477`
+- `backgroundForegroundTask` (Hd7) - Convert running task to background — `chunks.89.mjs:1515`
+- `killTask` (na) - Kill a running task — `chunks.89.mjs:1375`
+- `killAllRunningAgents` (Kd7) - Kill all local_agent tasks (Ctrl+F) — `chunks.89.mjs`
+- `getOutputFilePath` (ww) - Get output file path for task — `chunks.89.mjs:249`
+- `appendToOutputFile` (ZK1) - Append content to output file — `chunks.89.mjs:253`
+- `readOutputFileDelta` (WjA) - Read incremental output — `chunks.89.mjs:276`
+- `readFullOutput` (M_6) - Read complete output file — `chunks.89.mjs:300`
+- `initOutputFile` (hj1) - Initialize output file — `chunks.89.mjs:310`
+- `LocalAgentTaskHandler` (B_6) - Kill handler for local agents — `chunks.89.mjs:1574`
+- `LocalBashTaskHandler` (gj1) - Kill handler for shell commands — `chunks.89.mjs:2012`
+- `RemoteAgentTaskHandler` (Qi4) - Kill handler for remote sessions — `chunks.142.mjs:1586`
+- `getKillHandlerForType` (Vg1) - Handler lookup by task type — `chunks.142.mjs:1652`
+- `BACKGROUND_AGENT_BLOCKED_TOOLS` (Bj1) - Tools blocked for background agents — `chunks.89.mjs:876`
+- `ASYNC_COMPATIBLE_TOOLS` (L_6) - Allowlist for async contexts — `chunks.89.mjs:876`
+- `notifyTaskCompletion` (vK1) - Inject completion notification — `chunks.89.mjs:1346`
+- `countTurnsSinceLastProgress` (TIY) - Turn counting for throttle — `chunks.142.mjs:2703`
+- `getUnifiedTasksAttachment` (vIY) - Main attachment producer — `chunks.142.mjs:2719`
+- `buildTaskAttachments` (di4) - Build task attachments — `chunks.142.mjs:1711`
+- `TaskOutputTool` (kW6) - Poll/retrieve background task output — `chunks.139.mjs:1922`
+- `TaskStopTool` (vW6) - Kill a running background task — `chunks.139.mjs:1537`
 
 ---
 
@@ -230,6 +218,7 @@ Background agents use a **blocklist + allowlist** mechanism to prevent interacti
 ### With CLI
 - **/tasks command** - List and manage background tasks
 - **Task notifications** - Completion notifications in terminal
+- **Ctrl+F shortcut** - Kill all running agents (new in v2.1.76)
 
 ---
 
@@ -299,9 +288,12 @@ TaskOutputTool.call({
 // Returns: { output: "...current output...", status: "running" }
 ```
 
-### Killing a Background Task
+### Killing All Background Agents (v2.1.76)
 
 ```
-TaskStopTool.call({ task_id: "abc123" })
-// Returns: { success: true, taskId: "abc123" }
+// User presses Ctrl+F in the TUI
+// → Calls killAllRunningAgents (Kd7)
+// → Iterates all tasks with status "running" and type "local_agent"
+// → Calls killTask (na) for each
+// → Partial results preserved in output files
 ```

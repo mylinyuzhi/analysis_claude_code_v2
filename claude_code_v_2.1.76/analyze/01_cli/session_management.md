@@ -22,11 +22,17 @@ The CLI provides comprehensive session management through multiple flags:
 
 1. **`-c, --continue`** - Continue the most recent conversation
 2. **`-r, --resume [value]`** - Resume by session ID or interactive picker
-3. **`--fork-session`** - Create new session ID when resuming
-4. **`--session-id <uuid>`** - Use a specific session ID
-5. **`--from-pr [value]`** - Resume session linked to a PR
-6. **`--rewind-files <message-id>`** - Restore files at message state
-7. **`--no-session-persistence`** - Disable session saving
+3. **`-n, --name <name>`** - Name the session (v2.1.76)
+4. **`--fork-session`** - Create new session ID when resuming
+5. **`--session-id <uuid>`** - Use a specific session ID
+6. **`--from-pr [value]`** - Resume session linked to a PR
+7. **`--rewind-files <message-id>`** - Restore files at message state
+8. **`--no-session-persistence`** - Disable session saving
+
+**Changes in v2.1.76:**
+- Session name display on prompt bar (shows `--name` value)
+- Session name preserved through compaction (name survives context compaction)
+- `-n, --name <name>` flag added for explicit session naming at startup
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -60,6 +66,7 @@ The CLI provides comprehensive session management through multiple flags:
 │                    ┌───────────────────────────────┐                       │
 │                    │   Load session transcript     │                       │
 │                    │   Restore conversation state  │                       │
+│                    │   Restore session name (v2.1.76) │                  │
 │                    └───────────────┬───────────────┘                       │
 │                                    │                                       │
 │                                    ▼                                       │
@@ -77,17 +84,18 @@ The CLI provides comprehensive session management through multiple flags:
 
 ### 1.1 Session Flags
 
-**Source location:** `chunks.189.mjs:1023-1027`
+**Source location:** `chunks.197.mjs:1023-1027`
 
 ```javascript
 // ============================================
 // Session management CLI flag definitions
-// Location: chunks.189.mjs:1023-1027
+// Location: chunks.197.mjs:1023-1027
 // ============================================
 
 // ORIGINAL (for source lookup):
 .option("-c, --continue", "Continue the most recent conversation in the current directory", () => !0)
 .option("-r, --resume [value]", "Resume a conversation by session ID, or open interactive picker with optional search term", (w) => w || !0)
+.option("-n, --name <name>", "Name this session", (w) => w)
 .option("--fork-session", "When resuming, create a new session ID instead of reusing the original (use with --resume or --continue)", () => !0)
 .option("--from-pr [value]", "Resume a session linked to a PR by PR number/URL, or open interactive picker with optional search term", (w) => w || !0)
 .option("--no-session-persistence", "Disable session persistence - sessions will not be saved to disk and cannot be resumed (only works with --print)")
@@ -98,6 +106,7 @@ The CLI provides comprehensive session management through multiple flags:
 // READABLE (for understanding):
 .option("-c, --continue", "Continue most recent conversation", () => true)
 .option("-r, --resume [value]", "Resume by session ID or picker", (value) => value || true)
+.option("-n, --name <name>", "Name this session", (value) => value)
 .option("--fork-session", "Create new session ID on resume", () => true)
 .option("--from-pr [value]", "Resume session linked to PR", (value) => value || true)
 .option("--no-session-persistence", "Disable session saving (print mode only)", () => true)
@@ -110,51 +119,96 @@ The CLI provides comprehensive session management through multiple flags:
 
 ### 1.2 Flag Extraction
 
-**Source location:** `chunks.189.mjs:1046-1054`
+**Source location:** `chunks.197.mjs:1046-1054`
 
 ```javascript
 // ============================================
 // Session flag extraction - Action handler
-// Location: chunks.189.mjs:1046-1054
+// Location: chunks.197.mjs:1046-1054
 // ============================================
 
 // ORIGINAL (for source lookup):
 let {
     ...
     sessionId: N,
+    name: e1,
     ...
 } = H
 ...
-let s = !1,  // continueSession
-    O1 = s ? typeof s === "string" ? s : a7A : void 0,  // resumeSessionId
-    ...
 let r = H.continue,
     s = H.resume,
     ...
-let q1;  // PR number from --from-pr
 
 // READABLE (for understanding):
 let sessionId = options.sessionId;
+let sessionName = options.name;
 let continueSession = options.continue;
 let resumeSession = options.resume;
 let forkSession = options.forkSession;
 let prNumber = undefined;  // Extracted from --from-pr
 
-// Mapping: N→sessionId, r→continueSession, s→resumeSession
+// Mapping: N→sessionId, e1→sessionName, r→continueSession, s→resumeSession
 ```
 
 ---
 
-## 2. Session ID Generation and Validation
+## 2. Session Naming (New in v2.1.76)
 
-### 2.1 UUID Validation
+### 2.1 Name Flag Behavior
 
-**Source location:** `chunks.189.mjs:1100-1109`
+**What it does:** The `-n`/`--name` flag assigns a human-readable label to the session. Unlike the session ID (a UUID), the name is a free-form string intended for human identification.
+
+**How it works:**
+1. User provides `--name "my-feature-work"` at startup
+2. The name is stored in session metadata alongside the session ID
+3. The prompt bar displays the session name (e.g., `[my-feature-work]`)
+4. The name persists through compaction — when context is compacted, the name is preserved in the session metadata and restored in the new message state
+
+**Key design decisions:**
+
+**Why display in prompt bar:** In multi-session environments (e.g., multiple Claude Code windows), the name provides immediate visual identification without opening a session picker.
+
+**Why preserve through compaction:** Compaction replaces message history with a summary. If the session name were stored only in message content, it would be lost. By storing it in session metadata separately, it survives the compaction operation.
+
+### 2.2 Name Persistence Through Compaction
+
+**What it does:** When auto-compaction runs, the session name is extracted from state before compaction and re-injected after the new message history is created.
+
+```javascript
+// ============================================
+// Session name preservation during compaction
+// Location: chunks.147.mjs (compaction handler)
+// ============================================
+
+// READABLE (for understanding):
+async function performCompaction(messages, sessionContext) {
+    // Extract session name before compaction
+    let sessionName = sessionContext.sessionName;
+
+    // ... perform compaction ...
+
+    // Re-inject session name into new session context
+    return {
+        ...compactionResult,
+        sessionName: sessionName  // Name survives compaction
+    };
+}
+```
+
+**Why this matters:** Without explicit preservation, a named session that exceeded the context window would become "unnamed" after compaction, breaking the user's organizational workflow.
+
+---
+
+## 3. Session ID Generation and Validation
+
+### 3.1 UUID Validation
+
+**Source location:** `chunks.197.mjs:1100-1109`
 
 ```javascript
 // ============================================
 // Session ID validation
-// Location: chunks.189.mjs:1100-1109
+// Location: chunks.197.mjs:1100-1109
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -198,7 +252,7 @@ if (sessionId) {
 // Mapping: N→sessionId, xv→validateUuid, zm1→isSessionIdInUse, D1→isSdkMode
 ```
 
-### 2.2 Session ID Generation
+### 3.2 Session ID Generation
 
 **Source location:** `chunks.1.mjs:2340`
 
@@ -223,16 +277,16 @@ function generateSessionId() {
 
 ---
 
-## 3. PR Session Resolution
+## 4. PR Session Resolution
 
-### 3.1 PR Number Extraction
+### 4.1 PR Number Extraction
 
-**Source location:** `chunks.189.mjs:1055-1059`
+**Source location:** `chunks.197.mjs:1055-1059`
 
 ```javascript
 // ============================================
 // PR number extraction from --from-pr
-// Location: chunks.189.mjs:1055-1059
+// Location: chunks.197.mjs:1055-1059
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -264,9 +318,9 @@ if (fromPrValue) {
 
 ---
 
-## 4. Fork Session Logic
+## 5. Fork Session Logic
 
-### 4.1 Fork Session Behavior
+### 5.1 Fork Session Behavior
 
 **What it does:** When `--fork-session` is specified with `--resume` or `--continue`, a new session ID is generated while preserving the transcript link to the original session.
 
@@ -305,18 +359,18 @@ if (fromPrValue) {
 
 ---
 
-## 5. Rewind Files Feature
+## 6. Rewind Files Feature
 
-### 5.1 Rewind Files Flag
+### 6.1 Rewind Files Flag
 
 **What it does:** Restores files to their state at a specific user message, then exits. Useful for reverting changes made during a conversation.
 
-**Source location:** `chunks.189.mjs:1027` (hidden flag)
+**Source location:** `chunks.197.mjs:1027` (hidden flag)
 
 ```javascript
 // ============================================
 // --rewind-files flag definition
-// Location: chunks.189.mjs:1027
+// Location: chunks.197.mjs:1027
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -330,7 +384,7 @@ if (fromPrValue) {
 // Mapping: J5→Option
 ```
 
-### 5.2 Rewind Files Flow
+### 6.2 Rewind Files Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -356,16 +410,16 @@ if (fromPrValue) {
 
 ---
 
-## 6. Session Persistence Control
+## 7. Session Persistence Control
 
-### 6.1 No Session Persistence Flag
+### 7.1 No Session Persistence Flag
 
-**Source location:** `chunks.189.mjs:1023`
+**Source location:** `chunks.197.mjs:1023`
 
 ```javascript
 // ============================================
 // --no-session-persistence flag
-// Location: chunks.189.mjs:1023
+// Location: chunks.197.mjs:1023
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -379,14 +433,14 @@ if (fromPrValue) {
 // Mapping: Direct boolean flag
 ```
 
-### 6.2 Validation
+### 7.2 Validation
 
-**Source location:** `chunks.189.mjs:1305`
+**Source location:** `chunks.197.mjs:1305`
 
 ```javascript
 // ============================================
 // No session persistence validation
-// Location: chunks.189.mjs:1305
+// Location: chunks.197.mjs:1305
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -403,37 +457,40 @@ if (options.sessionPersistence === false && !isPrintMode) {
 
 ---
 
-## 7. Session Storage
+## 8. Session Storage
 
-### 7.1 Session Directory Structure
+### 8.1 Session Directory Structure
 
 ```
 ~/.claude/projects/
 └── <project-hash>/
     └── sessions/
         ├── abc-123.jsonl      # Session transcript
-        ├── abc-123.meta.json  # Session metadata
+        ├── abc-123.meta.json  # Session metadata (includes name)
         └── def-456.jsonl      # Another session
 ```
 
-### 7.2 Session Metadata
+### 8.2 Session Metadata
 
 ```json
 {
   "sessionId": "abc-123-def-456",
+  "name": "my-feature-work",
   "createdAt": "2025-01-15T10:30:00Z",
   "updatedAt": "2025-01-15T11:45:00Z",
   "forkedFrom": "parent-session-id",
-  "model": "claude-sonnet-4-5-20250929",
+  "model": "claude-sonnet-4-6-20250514",
   "messageCount": 42
 }
 ```
 
+The `name` field is stored in metadata so it persists independently of the conversation transcript and survives compaction.
+
 ---
 
-## 8. Use Cases
+## 9. Use Cases
 
-### 8.1 Continue Most Recent Session
+### 9.1 Continue Most Recent Session
 
 ```bash
 # Continue where you left off
@@ -443,7 +500,7 @@ claude -c
 claude --continue
 ```
 
-### 8.2 Resume Specific Session
+### 9.2 Resume Specific Session
 
 ```bash
 # Resume by session ID
@@ -456,7 +513,20 @@ claude -r "bug fix"
 claude -r abc-123 --fork-session
 ```
 
-### 8.3 Resume from PR
+### 9.3 Named Sessions (New in v2.1.76)
+
+```bash
+# Start a named session
+claude -n "auth-refactor"
+
+# Continue a named session (name shows in prompt bar)
+claude -c  # name is restored from metadata
+
+# Name + specific model
+claude -n "opus-analysis" --model opus
+```
+
+### 9.4 Resume from PR
 
 ```bash
 # Resume session linked to PR #42
@@ -466,7 +536,7 @@ claude --from-pr 42
 claude --from-pr https://github.com/owner/repo/pull/42
 ```
 
-### 8.4 Use Specific Session ID
+### 9.5 Use Specific Session ID
 
 ```bash
 # Start with specific session ID (must be UUID)
@@ -476,14 +546,14 @@ claude --session-id 550e8400-e29b-41d4-a716-446655440000
 claude -c --fork-session --session-id 550e8400-e29b-41d4-a716-446655440000
 ```
 
-### 8.5 Rewind Files
+### 9.6 Rewind Files
 
 ```bash
 # Restore files at specific message, then exit
 claude --resume abc-123 --rewind-files msg_42_user
 ```
 
-### 8.6 Non-Persistent Session
+### 9.7 Non-Persistent Session
 
 ```bash
 # Run without saving session (print mode only)
@@ -492,9 +562,9 @@ claude -p --no-session-persistence "Quick analysis"
 
 ---
 
-## 9. Flag Combination Rules
+## 10. Flag Combination Rules
 
-### 9.1 Valid Combinations
+### 10.1 Valid Combinations
 
 | Combination | Valid | Behavior |
 |-------------|-------|----------|
@@ -502,12 +572,14 @@ claude -p --no-session-persistence "Quick analysis"
 | `--resume <id>` | Yes | Resume specific |
 | `--continue --fork-session` | Yes | New ID from recent |
 | `--resume <id> --fork-session` | Yes | New ID from specific |
+| `--name <name>` | Yes | Start named session |
+| `--continue --name <name>` | Yes | Resume with new name override |
 | `--session-id <uuid>` | Yes | Start with UUID |
 | `--session-id <uuid> --fork-session` | Yes | Requires --continue or --resume |
 | `--continue --session-id <uuid>` | No | Requires --fork-session |
 | `--no-session-persistence` | Yes | Print mode only |
 
-### 9.2 Error Messages
+### 10.2 Error Messages
 
 | Error | Cause |
 |-------|-------|
@@ -518,14 +590,15 @@ claude -p --no-session-persistence "Quick analysis"
 
 ---
 
-## 10. Key Integration Points Summary
+## 11. Key Integration Points Summary
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
-| Flag definitions | `chunks.189.mjs:1023` | Commander options |
-| UUID validation | `chunks.189.mjs:1100` | Session ID check |
-| PR resolution | `chunks.189.mjs:1055` | Extract PR number |
+| Flag definitions | `chunks.197.mjs:1023` | Commander options |
+| UUID validation | `chunks.197.mjs:1100` | Session ID check |
+| PR resolution | `chunks.197.mjs:1055` | Extract PR number |
 | Session ID generation | `chunks.1.mjs:2340` | `generateSessionId` |
 | Resume handling | `chunks.142.mjs:379` | `resumeSession` |
 | Rewind files | Various | File history module |
-| Persistence check | `chunks.189.mjs:1305` | Print mode validation |
+| Persistence check | `chunks.197.mjs:1305` | Print mode validation |
+| Session name storage | Session metadata | Survives compaction |

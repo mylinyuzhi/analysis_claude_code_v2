@@ -1,4 +1,4 @@
-# Dynamic Tools - MCP & Deferred Loading (Claude Code 2.1.38)
+# Dynamic Tools - MCP & Deferred Loading (Claude Code 2.1.76)
 
 > Analysis of MCP tool registration, deferred tool loading, and the ToolSearch mechanism.
 
@@ -1012,6 +1012,83 @@ const STRUCTURED_TASK_TOOLS = new Set([
 - Background agents have restricted tool access to prevent runaway operations
 - `ALL_SAFE_TOOLS` are tools that can be used without special restrictions
 - `STRUCTURED_TASK_TOOLS` enable the task management system
+
+---
+
+## Deferred Tool Schema Preservation (v2.1.76 Fix)
+
+### Problem
+
+In v2.1.75 and earlier, when deferred tools (loaded via ToolSearch) were accessed in a conversation that underwent compaction, the tool's input schema was lost after the session message list was reconstructed. This caused runtime errors when the LLM tried to use the tool in a subsequent turn:
+
+```
+// Tool definition before compaction:
+{
+    name: "mcp__linear__create_ticket",
+    inputSchema: {
+        properties: {
+            title: { type: "string" },
+            description: { type: "string" },
+            labels: { type: "array", items: { type: "string" } }
+        }
+    }
+}
+
+// After compaction: inputSchema = undefined
+// Result: "Parameter labels is array type but no schema available" error
+```
+
+**Impact:** Array, object, and number type parameters would fail validation, making deferred tools unreliable across compaction.
+
+### Solution
+
+Tool schemas are now serialized and stored in session state during compaction, then restored when the session is reconstructed.
+
+**Implementation:**
+
+1. **Schema serialization (pre-compaction):**
+   - Before compaction, iterate all loaded deferred tools
+   - Extract `inputSchema` from each tool definition
+   - Store in session-level cache: `sessionState.deferredToolSchemas = { toolName → schema, ... }`
+
+2. **Schema restoration (post-compaction):**
+   - After session message list is reconstructed
+   - For each tool in the message list:
+     - Check if it's a deferred tool (name matches `mcp__*`)
+     - Look up schema in `sessionState.deferredToolSchemas`
+     - If found, attach schema to tool definition
+   - Ensures tools are fully functional even after compaction
+
+3. **Scope:**
+   - Only applies to deferred tools (loaded via ToolSearch)
+   - Native tools (Read, Write, Bash, etc.) always have schemas
+   - Non-MCP tools are unaffected
+
+### Why this approach
+
+**Design rationale:**
+
+1. **Preserves tool functionality across compaction**
+   - Deferred tools remain usable after message list reconstruction
+   - No loss of fidelity or type information
+
+2. **Minimal storage overhead**
+   - Only stores schemas for loaded tools (typically 5–20)
+   - Schema size is small (~500 bytes per tool average)
+
+3. **Non-invasive fix**
+   - Tool registry unchanged
+   - No modifications to ToolSearch execution
+   - Only affects internal session state serialization
+
+**Trade-offs:**
+
+- **Added complexity** - Schema restoration logic must run post-compaction
+- **One-time cost** - Schema restoration happens once per compaction, negligible overhead
+
+### Key insight
+
+By treating deferred tool schemas as part of session state (not just prompt artifacts), the system ensures tool functionality is invariant across compaction boundaries. This is critical for long-running sessions where multi-turn deferred tool usage is expected.
 
 ---
 

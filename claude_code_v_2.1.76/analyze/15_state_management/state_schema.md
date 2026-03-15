@@ -1,4 +1,4 @@
-# AppState Schema (Claude Code 2.1.38)
+# AppState Schema (Claude Code 2.1.76)
 
 > Complete AppState structure, session vs app state, store implementation, state update mechanisms, and access patterns.
 

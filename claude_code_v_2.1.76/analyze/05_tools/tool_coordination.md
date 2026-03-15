@@ -1,4 +1,4 @@
-# Tool Coordination Patterns (Claude Code 2.1.38)
+# Tool Coordination Patterns (Claude Code 2.1.76)
 
 > Analysis of how tools interact with each other through shared state, caching, and mode-based restrictions.
 

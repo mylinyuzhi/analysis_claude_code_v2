@@ -1,671 +1,190 @@
-# Error Handling and Recovery - Deep Technical Analysis
+# Error Handling and Recovery - Subagent System (Claude Code 2.1.76)
 
-> Comprehensive analysis of error categories, recovery strategies, and cleanup mechanisms in Claude Code 2.1.38
+## Overview
+
+This document covers the five error categories in the subagent system, recovery strategies, error propagation, and the three-layer cleanup mechanism.
+
+## Related Symbols
+
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+
+Key functions in this document:
+- `markTaskFailed` (CjA) - Mark task as failed - chunks.89.mjs:1435
+- `killTask` (na) - Kill and clean up a task - chunks.89.mjs:1376
+- Three-layer cleanup: global vR6 set, task-level functions, map removal
 
 ---
 
-## Table of Contents
+## Five Error Categories
 
-1. [Error Categories](#error-categories)
-2. [Recovery Strategies](#recovery-strategies)
-3. [Error Propagation](#error-propagation)
-4. [Cleanup Mechanisms](#cleanup-mechanisms)
-5. [Error Handling Flow](#error-handling-flow)
+### Category 1: Validation Errors
 
----
-
-## 1. Error Categories
-
-### Tool Execution Errors
+Errors detected before the subagent starts.
 
 **Examples:**
-- File not found (Read tool)
-- Permission denied (Bash tool)
-- Invalid input (schema validation)
-- Command timeout (Bash tool)
+- Unknown agent definition name
+- Required MCP server not available
+- Per-invocation model name not recognized
 
-**Handling:**
-```javascript
-try {
-    let result = await executeTool(tool, input);
-} catch (error) {
-    if (error.code === "ENOENT") {
-        return createToolErrorResult({
-            error: `File not found: ${input.file_path}`,
-            is_error: true
-        });
-    }
-    throw error;  // Propagate unexpected errors
-}
-```
+**Recovery:** Return error immediately to parent. No subagent state to clean up.
 
-**Recovery:** Return error result to LLM, continue agent loop
+### Category 2: LLM API Errors
 
-### LLM API Errors
+Errors from the LLM API during the agent loop.
 
 **Examples:**
 - Rate limiting (429)
-- Invalid request (400)
-- Authentication failure (401)
-- Model overload (529)
+- Service unavailable (503)
+- Context length exceeded (400)
 
-**Handling with Retry:**
-```javascript
-async function withApiRetry(apiCall, maxRetries = 3) {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            return await apiCall();
-        } catch (error) {
-            if (error.status === 429 || error.status === 529) {
-                // Rate limit or overload - exponential backoff
-                let delayMs = Math.pow(2, attempt) * 1000;
-                await sleep(delayMs);
-                continue;
-            }
+**Recovery:**
+- **Transient errors** (429, 503): Retry with exponential backoff (up to 3 retries)
+- **Permanent errors** (400 context exceeded): Trigger compaction if possible, otherwise fail task
+- **Auth errors** (401, 403): Fail immediately with clear error message
 
-            if (error.status === 400) {
-                // Bad request - don't retry
-                throw new Error(`Invalid request: ${error.message}`);
-            }
+### Category 3: Tool Execution Errors
 
-            // Other errors - retry
-            if (attempt === maxRetries - 1) throw error;
-        }
-    }
-}
-```
-
-**Recovery:** Exponential backoff for transient errors, fail fast for permanent errors
-
-### State Corruption Errors
+Errors from tool handlers during execution.
 
 **Examples:**
-- Invalid task state (status inconsistency)
-- Missing required fields
-- Circular references
-- Race conditions
+- File not found during Read
+- Permission denied during Write
+- Bash command non-zero exit code
 
-**Detection:**
-```javascript
-function validateTaskState(task) {
-    if (!task.agentId) {
-        throw new Error("Task missing agentId");
-    }
+**Recovery:**
+- Tool errors are returned to the LLM as `tool_result` with `is_error: true`
+- The LLM decides how to proceed (retry, alternative approach, give up)
+- Subagent continues running after tool errors unless the task limit is exceeded
 
-    if (!["running", "completed", "failed", "killed"].includes(task.status)) {
-        throw new Error(`Invalid task status: ${task.status}`);
-    }
+### Category 4: Resource Errors
 
-    if (task.status === "completed" && !task.completedAt) {
-        logWarning("Completed task missing completedAt - auto-fixing");
-        task.completedAt = Date.now();
-    }
-
-    return task;
-}
-```
-
-**Recovery:** Auto-fix when possible, fail task if unrecoverable
-
-### Communication Errors
+Errors from resource allocation/deallocation.
 
 **Examples:**
-- Mailbox file locked (timeout)
-- Mailbox corrupted (invalid JSON)
-- Message delivery failure
-- Network errors (MCP)
+- Worktree allocation failure (v2.1.76, if `isolation: worktree`)
+- Mailbox file creation failure
+- Transcript file write failure
 
-**Handling:**
-```javascript
-async function readMailboxWithRetry(agentId, maxRetries = 3) {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            return readMailbox(agentId);
-        } catch (error) {
-            if (error.code === "ELOCK") {
-                // File locked - retry
-                await sleep(100);
-                continue;
-            }
+**Recovery:**
+- Worktree failure: Fall back to non-isolated execution with a warning
+- Mailbox failure: Fail the teammate spawn with clear error
+- Transcript failure: Log warning, continue (transcripts are not critical path)
 
-            if (error instanceof SyntaxError) {
-                // Corrupted JSON - backup and recreate
-                backupCorruptedMailbox(agentId);
-                return [];  // Lose messages (graceful degradation)
-            }
+### Category 5: Abort/Kill
 
-            throw error;
-        }
-    }
-
-    logError(`Failed to read mailbox after ${maxRetries} retries`);
-    return [];  // Graceful degradation
-}
-```
-
-**Recovery:** Retry with backoff, graceful degradation on corruption
-
-### Timeout Errors
+Intentional termination by user or parent agent.
 
 **Examples:**
-- Agent loop timeout (max turns reached)
-- Tool execution timeout
-- File operation timeout
-- Mailbox lock timeout
+- User presses Ctrl+C
+- Parent agent calls killTask
+- Session timeout
 
-**Handling:**
-```javascript
-async function withTimeout(promise, timeoutMs, label) {
-    let timeoutHandle;
-    let timeoutPromise = new Promise((_, reject) => {
-        timeoutHandle = setTimeout(() => {
-            reject(new Error(`Timeout after ${timeoutMs}ms: ${label}`));
-        }, timeoutMs);
-    });
-
-    try {
-        return await Promise.race([promise, timeoutPromise]);
-    } finally {
-        clearTimeout(timeoutHandle);
-    }
-}
-
-// Usage
-try {
-    let result = await withTimeout(
-        executeTool(tool, input),
-        120000,  // 2 minutes
-        `Tool execution: ${tool.name}`
-    );
-} catch (error) {
-    if (error.message.includes("Timeout")) {
-        // Handle timeout specifically
-        failTask(agentId, setAppState, error);
-        return createTimeoutError(error);
-    }
-    throw error;
-}
-```
-
-**Recovery:** Fail task gracefully, notify user, cleanup resources
+**Recovery:**
+- Signal abort to the agent loop's AbortController
+- Let the current tool execution complete or timeout
+- Run three-layer cleanup
+- Report status as "killed"
 
 ---
 
-## 2. Recovery Strategies
+## Error Propagation
 
-### Graceful Degradation
+### From Subagent to Parent
 
-**Strategy:** When error occurs, degrade to simpler functionality rather than failing completely.
+Errors in the subagent propagate to the parent based on execution mode:
 
-**Examples:**
-- Mailbox corrupted → Return empty messages (lose data but continue)
-- Tool execution fails → Return error result to LLM (LLM can retry or adjust)
-- Progress update fails → Log error but don't fail task
-
-```javascript
-function updateTaskProgressSafe(agentId, summary, setAppState) {
-    try {
-        updateTaskProgress(agentId, summary, setAppState);
-    } catch (error) {
-        // Don't fail task if progress update fails
-        logError("Failed to update task progress", error);
-        // Task continues without progress update
-    }
-}
+**Synchronous mode:**
+```
+Subagent error → markTaskFailed(taskId, error)
+              → createForegroundTask's await rejects
+              → AgentTool.call returns { status: "failed", error: error.message }
+              → Parent LLM receives tool result with error content
 ```
 
-### Partial Transcript Preservation
-
-**Strategy:** Save what we can, even if full transcript is corrupted.
-
-```javascript
-async function loadTranscriptWithRecovery(agentId) {
-    let messages = [];
-    let corruptedLines = [];
-
-    try {
-        let content = await fs.readFile(getTranscriptPath(agentId), "utf-8");
-        let lines = content.split("\n").filter(line => line.trim());
-
-        for (let i = 0; i < lines.length; i++) {
-            try {
-                let message = JSON.parse(lines[i]);
-                messages.push(message);
-            } catch (error) {
-                // Skip corrupted line, continue with rest
-                corruptedLines.push({ line: i + 1, content: lines[i] });
-                logWarning(`Skipping corrupted transcript line ${i + 1}`);
-            }
-        }
-
-        if (corruptedLines.length > 0) {
-            logWarning(`Recovered ${messages.length} messages, skipped ${corruptedLines.length} corrupted`);
-        }
-
-        return messages;
-    } catch (error) {
-        logError("Failed to load transcript", error);
-        return [];  // Empty transcript if file unreadable
-    }
-}
+**Asynchronous mode:**
+```
+Subagent error → markTaskFailed(taskId, error)
+              → Error written to outputFile
+              → Parent reads outputFile, sees "status: failed"
+              → Parent LLM decides how to handle
 ```
 
-### Task State Cleanup
-
-**Strategy:** Ensure task state is cleaned up even on error.
-
-```javascript
-async function executeAgentWithCleanup(agentId, agentFn) {
-    try {
-        let result = await agentFn();
-        completeTask(agentId, setAppState);
-        return result;
-    } catch (error) {
-        failTask(agentId, setAppState, error);
-        throw error;
-    } finally {
-        // Always cleanup, even if failTask throws
-        removeTask(agentId, setAppState);
-    }
-}
+**Teammate mode:**
 ```
-
-### Resource Deallocation
-
-**Strategy:** Release resources (file handles, MCP clients, etc.) on error.
-
-```javascript
-async function agentLoopWithResourceCleanup({...}) {
-    let mcpClients = [];
-
-    try {
-        // Initialize MCP clients
-        mcpClients = await initializeMcpClients(agentDefinition);
-
-        // Execute agent loop
-        for await (let message of llmLoop({...})) {
-            yield message;
-        }
-    } catch (error) {
-        logError("Agent loop failed", error);
-        throw error;
-    } finally {
-        // ALWAYS cleanup MCP clients
-        for (let client of mcpClients) {
-            try {
-                await client.close();
-            } catch (closeError) {
-                logError("Failed to close MCP client", closeError);
-            }
-        }
-    }
-}
+Teammate error → writeToMailbox(parentAgentId, { type: "error", ... })
+              → Parent's poll loop receives error message
+              → Parent LLM decides how to handle
 ```
 
 ---
 
-## 3. Error Propagation
+## Three-Layer Cleanup
 
-### Try-Catch Boundaries
+Cleanup runs in `finally` blocks to ensure it always executes, even on errors.
 
-**Pattern:** Catch errors at appropriate boundaries, log + handle or propagate.
+### Layer 1: Global Active Task Set (vR6)
 
 ```javascript
-// Boundary 1: Tool execution (catch and return error result)
-async function executeToolSafe(tool, input) {
-    try {
-        return await tool.execute(input);
-    } catch (error) {
-        logError(`Tool ${tool.name} failed`, error);
-        return { is_error: true, error: error.message };
-    }
-}
+// Global set tracks all active tasks for session teardown
+globalActiveTaskSet.delete(taskId);
+```
 
-// Boundary 2: Agent loop (catch and fail task)
-async function agentLoopRunner({...}) {
-    try {
-        for await (let message of llmLoop({...})) {
-            yield message;
-        }
-    } catch (error) {
-        logError("Agent loop failed", error);
-        failTask(agentId, setAppState, error);
-        throw error;  // Propagate to parent
-    }
-}
+**Purpose:** When the session ends (Ctrl+C, timeout), iterate `vR6` to kill all remaining tasks. Without this, orphaned tasks would continue running after the session ends.
 
-// Boundary 3: Top-level (catch and display to user)
-async function handleUserRequest(request) {
-    try {
-        let result = await processRequest(request);
-        displayResult(result);
-    } catch (error) {
-        displayError(`Request failed: ${error.message}`);
-        telemetry.recordError(error);
-    }
+### Layer 2: Task-Level Cleanup Functions
+
+```javascript
+// Run each registered cleanup function
+for (let cleanupFn of task.cleanupFns) {
+    try { await cleanupFn(); } catch (err) { logError(err); }
 }
 ```
 
-### Error Logging (K1)
+**What's registered:**
+- Worktree cleanup (if `isolation: worktree` - v2.1.76)
+- Mailbox file deletion
+- Transcript finalization
+- Hook deregistration (SubagentStop hook firing)
+
+**Why best-effort:** Cleanup failures should not prevent the task from being marked as completed/failed. Each cleanup function is wrapped in its own try/catch.
+
+### Layer 3: Task Map Removal
 
 ```javascript
-// K1 - Error logging function
-function K1(message, error) {
-    console.error(`[ERROR] ${message}`, {
-        error: error?.message,
-        stack: error?.stack,
-        timestamp: new Date().toISOString()
-    });
-
-    // Also log to file
-    fs.appendFileSync(
-        getLogFilePath(),
-        `${new Date().toISOString()} ERROR: ${message}\n${error?.stack}\n\n`
-    );
-}
+// Remove from registry to prevent memory leak
+globalTaskMap.delete(taskId);
 ```
 
-### Telemetry Events
-
-```javascript
-// c - Telemetry function
-function c(eventName, metadata) {
-    telemetryClient.recordEvent({
-        name: eventName,
-        timestamp: Date.now(),
-        metadata: {
-            ...metadata,
-            session_id: getSessionId(),
-            agent_id: getCurrentAgentId()
-        }
-    });
-}
-
-// Usage
-try {
-    let result = await executeTool(tool, input);
-    c("tool_execution_success", { tool: tool.name });
-} catch (error) {
-    c("tool_execution_error", {
-        tool: tool.name,
-        error: error.message
-    });
-    throw error;
-}
-```
-
-### User-Facing Error Messages
-
-**Pattern:** Convert technical errors to user-friendly messages.
-
-```javascript
-function formatErrorForUser(error) {
-    // Map technical errors to user-friendly messages
-    const errorMessages = {
-        "ENOENT": "File not found. Please check the path and try again.",
-        "EACCES": "Permission denied. You don't have access to this file.",
-        "ETIMEDOUT": "Operation timed out. Please try again.",
-        "ECONNREFUSED": "Connection refused. Check network and MCP server.",
-        "RATE_LIMIT": "API rate limit exceeded. Please wait a moment."
-    };
-
-    let userMessage = errorMessages[error.code] || error.message;
-
-    return {
-        type: "error",
-        message: userMessage,
-        details: process.env.DEBUG ? error.stack : undefined
-    };
-}
-```
+**Purpose:** The global task Map holds references to task state, including the AbortController and cleanup functions. Removing the entry allows garbage collection.
 
 ---
 
-## 4. Cleanup Mechanisms
+## Partial Transcript Preservation
 
-### Three-Layer Cleanup (Detailed)
+If the agent loop fails mid-execution, the transcript file contains the messages written up to the point of failure. The `finalizeTranscript` (mQ1) function:
 
-**Layer 1: Global Cleanup Set (vR6)**
-```javascript
-// Registration
-function registerGlobalCleanup(cleanupFn) {
-    vR6.add(cleanupFn);
-    return () => vR6.delete(cleanupFn);
-}
+1. Writes a special "error" record to the transcript
+2. Closes the write queue (no more writes accepted)
+3. Returns the number of messages successfully written
 
-// Execution (session end)
-async function cleanupSession() {
-    for (let cleanupFn of vR6) {
-        try {
-            await cleanupFn();
-        } catch (error) {
-            logError("Cleanup function failed", error);
-            // Continue with other cleanups
-        }
-    }
-    vR6.clear();
-}
-```
-
-**Layer 2: Task-Level Cleanup**
-```javascript
-// Stored in task.cleanup array or task.unregisterCleanup
-function completeTask(agentId, setAppState) {
-    updateTaskInState(agentId, setAppState, (task) => {
-        // Execute all cleanup callbacks
-        task.cleanup?.forEach(fn => {
-            try {
-                fn();
-            } catch (error) {
-                logError("Task cleanup failed", error);
-            }
-        });
-
-        return {
-            ...task,
-            status: "completed",
-            cleanup: []  // Clear after execution
-        };
-    });
-}
-```
-
-**Layer 3: Map-Level Cleanup**
-```javascript
-// Background signal resolver cleanup
-function backgroundTask(taskId, getAppState, setAppState) {
-    // ... background logic ...
-
-    // Delete resolver from map
-    let resolver = backgroundTaskSignalMap.get(taskId);
-    if (resolver) {
-        resolver();
-        backgroundTaskSignalMap.delete(taskId);  // Prevent memory leak
-    }
-}
-```
-
-### Timeout-Based Cleanup
-
-```javascript
-// Cleanup after timeout if task stalled
-function scheduleTimeoutCleanup(agentId, timeoutMs) {
-    let timeoutHandle = setTimeout(() => {
-        let task = getAppState().tasks[agentId];
-
-        if (task && task.status === "running") {
-            logWarning(`Task ${agentId} timeout - forcing cleanup`);
-            killTask(agentId, setAppState);
-            removeTask(agentId, setAppState);
-        }
-    }, timeoutMs);
-
-    // Cancel timeout if task completes normally
-    return () => clearTimeout(timeoutHandle);
-}
-```
-
-### AbortController Cascading
-
-```javascript
-// Parent abort cascades to all children
-function createChildAbortController(parentController) {
-    let childController = new AbortController();
-
-    // Link child to parent
-    if (parentController.signal.aborted) {
-        childController.abort();  // Already aborted
-    } else {
-        parentController.signal.addEventListener("abort", () => {
-            childController.abort();  // Cascade abort
-        });
-    }
-
-    return childController;
-}
-```
-
-### File Lock Release
-
-```javascript
-// Guaranteed lock release via try/finally
-function withFileLock(filePath, operation) {
-    let lock = fileLockSync.lockSync(filePath);
-
-    try {
-        return operation();
-    } finally {
-        lock.unlock();  // ALWAYS unlocks
-    }
-}
-```
+This ensures the partial transcript is usable for debugging even when the subagent fails.
 
 ---
 
-## 5. Error Handling Flow
+## Design Rationale
 
-### Complete Error Handling Flow Diagram
+### Why Best-Effort Cleanup?
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Error Thrown During Agent Execution                         │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Catch Boundary                                              │
-│  ├─ Tool execution → Return error result to LLM            │
-│  ├─ Agent loop → Fail task and propagate                   │
-│  └─ Top-level → Display to user                             │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Logging & Telemetry                                         │
-│  ├─ K1(message, error) → Log to console + file             │
-│  └─ c(eventName, metadata) → Record telemetry event        │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Update Task State                                           │
-│  ├─ failTask(agentId, setAppState, error)                  │
-│  │   ├─ Set status = "failed"                               │
-│  │   ├─ Record error message                                │
-│  │   └─ Set completedAt timestamp                           │
-│  └─ OR killTask(agentId, setAppState) if user abort        │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Execute Cleanup Callbacks                                   │
-│  ├─ Layer 1: Global cleanup (vR6 set)                      │
-│  ├─ Layer 2: Task cleanup (task.cleanup array)             │
-│  └─ Layer 3: Map cleanup (backgroundTaskSignalMap)         │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Notify Parent/User                                          │
-│  ├─ Parent agent receives error result                      │
-│  ├─ User sees error message in UI                           │
-│  └─ Telemetry recorded for debugging                        │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Return Error Result or Propagate                            │
-│  ├─ Tool error → LLM can retry or adjust                   │
-│  ├─ Agent error → Parent decides recovery                   │
-│  └─ Top-level error → User notified, session may continue   │
-└─────────────────────────────────────────────────────────────┘
-```
+Cleanup errors should not mask the original error. If the worktree cleanup fails, the important information is still the original task error. Best-effort cleanup with individual error logging gives operators visibility into cleanup failures without propagating them to callers.
 
-### Example Error Scenarios
+### Why Per-Category Recovery Strategies?
 
-**Scenario 1: File Read Fails**
-```
-User: "Read /nonexistent.txt"
-  → Tool execution: Read tool
-    → throws ENOENT error
-      → Catch boundary: executeToolSafe()
-        → Return error result to LLM
-          → LLM: "The file doesn't exist. Would you like me to create it?"
-            → Graceful recovery, agent continues
-```
+Different error categories have different optimal responses:
+- Validation errors → fail fast (no point in retrying invalid input)
+- LLM API errors → retry (usually transient)
+- Tool errors → delegate to LLM (LLM can reason about the failure)
+- Resource errors → degrade gracefully (proceed without the resource if possible)
+- Abort → clean up quickly (user is waiting)
 
-**Scenario 2: LLM API Rate Limited**
-```
-Agent loop iteration
-  → LLM API call
-    → 429 Rate Limit error
-      → withApiRetry() catches
-        → Wait 1 second (exponential backoff)
-          → Retry LLM API call
-            → Success
-              → Agent continues normally
-```
-
-**Scenario 3: Agent Timeout**
-```
-Long-running agent (15 minutes)
-  → Max turns reached (J turns)
-    → Throw MaxTurnsError
-      → Agent loop catch boundary
-        → failTask(agentId, error)
-          → Cleanup callbacks execute
-            → User notified: "Agent reached maximum turns"
-              → Task marked failed, resources released
-```
-
-**Scenario 4: Mailbox Corruption**
-```
-Teammate poll loop
-  → readMailbox(teammateId)
-    → JSON.parse() throws SyntaxError
-      → Catch: mailbox corrupted
-        → backupCorruptedMailbox()
-          → Return empty messages []
-            → Log warning, continue polling
-              → Graceful degradation: lost messages but system continues
-```
-
----
-
-## Summary
-
-Error handling in Claude Code 2.1.38 follows a comprehensive strategy:
-
-1. **Error Categories** - Tool, LLM API, state, communication, timeout errors
-2. **Recovery Strategies** - Graceful degradation, partial preservation, cleanup guarantees
-3. **Error Propagation** - Try-catch boundaries, logging (K1), telemetry (c), user messages
-4. **Cleanup Mechanisms** - Three-layer cleanup, timeout-based, AbortController cascading
-5. **Error Handling Flow** - Catch → Log → Update State → Cleanup → Notify → Return/Propagate
-
-**Design principles:**
-- **Fail gracefully:** Degrade functionality rather than crash
-- **Cleanup always:** try/finally ensures resource release
-- **User-friendly:** Convert technical errors to actionable messages
-- **Observability:** Log + telemetry for debugging
-
-**Key patterns:**
-- **Retry with backoff:** Transient errors (rate limits, network)
-- **Fail fast:** Permanent errors (bad input, auth failure)
-- **Partial recovery:** Save what we can (corrupted transcripts)
-- **Layered cleanup:** Multiple safety nets prevent resource leaks
-
-**Next steps:** See [architecture_summary.md](./architecture_summary.md) for overall system architecture and design patterns.
+A single catch-all error handler cannot apply these different strategies appropriately.

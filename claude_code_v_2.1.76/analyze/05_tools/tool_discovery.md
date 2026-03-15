@@ -1,4 +1,4 @@
-# Tool Discovery & Registration (Claude Code 2.1.38)
+# Tool Discovery & Registration (Claude Code 2.1.76)
 
 > Deep dive into how tools are discovered, registered, and made available for execution.
 

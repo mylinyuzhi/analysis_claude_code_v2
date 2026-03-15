@@ -2,7 +2,7 @@
 
 ## Overview
 
-Fast Mode is a feature in Claude Code v2.1.38 that allows users to switch to a more optimized, lower-latency model path for simpler tasks. It is typically tied to smaller Claude models like `claude-3-5-haiku`. The feature is accessible via the `/fast` slash command.
+Fast Mode is a feature in Claude Code v2.1.76 that allows users to switch to a more optimized, lower-latency model path for simpler tasks. It is typically tied to smaller Claude models like `claude-3-5-haiku`. The feature is accessible via the `/fast` slash command.
 
 ## Key Components
 

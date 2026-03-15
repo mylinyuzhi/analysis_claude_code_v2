@@ -95,12 +95,12 @@ The following flags control tool availability:
 | `--tools` | string[] | Specify exact tool set (disables others) |
 | `--dangerously-skip-permissions` | boolean | Bypass all permission checks |
 
-**Source location:** `chunks.189.mjs:1017-1027`
+**Source location:** `chunks.197.mjs:1017-1027`
 
 ```javascript
 // ============================================
 // Tool-related CLI flag definitions - Commander setup
-// Location: chunks.189.mjs:1017-1027
+// Location: chunks.197.mjs:1017-1027
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -124,12 +124,12 @@ The following flags control tool availability:
 
 ### 1.2 Flag Extraction in Action Handler
 
-**Source location:** `chunks.189.mjs:1032-1039`
+**Source location:** `chunks.197.mjs:1032-1039`
 
 ```javascript
 // ============================================
 // CLI flag extraction - Action handler destructuring
-// Location: chunks.189.mjs:1032-1039
+// Location: chunks.197.mjs:1032-1039
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -353,12 +353,12 @@ This layered approach ensures enterprise security while allowing gradual feature
 
 ### 2.3 Invocation Point
 
-**Source location:** `chunks.189.mjs:1274-1286`
+**Source location:** `chunks.197.mjs:1274-1286`
 
 ```javascript
 // ============================================
 // buildToolPermissionContext invocation in main entry
-// Location: chunks.189.mjs:1274-1286
+// Location: chunks.197.mjs:1274-1286
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -741,7 +741,7 @@ const STRUCTURED_TASK_TOOLS = new Set([
 │   │                                                                         │
 │   │ Extract: allowedTools=["Bash(git:*)"], disallowedTools=["WebFetch"]    │
 │   ▼                                                                         │
-│  mainEntry() [chunks.189.mjs:931]                                          │
+│  mainEntry() [chunks.197.mjs:931]                                          │
 │   │                                                                         │
 │   │ Resolve permission mode from flags/config                              │
 │   ▼                                                                         │
@@ -837,8 +837,8 @@ When a tool is invoked, the permission system checks:
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
-| Flag parsing | `chunks.189.mjs:1017` | Commander definitions |
-| Flag extraction | `chunks.189.mjs:1032` | Destructuring in action handler |
+| Flag parsing | `chunks.197.mjs:1017` | Commander definitions |
+| Flag extraction | `chunks.197.mjs:1032` | Destructuring in action handler |
 | Context building | `chunks.172.mjs:2252` | `buildToolPermissionContext` |
 | Tool discovery | `chunks.141.mjs:1505` | `getDefaultTools` |
 | Tool assembly | `chunks.141.mjs:1476` | `assembleSessionToolSet` |

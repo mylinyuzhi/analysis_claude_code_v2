@@ -2,7 +2,7 @@
 
 ## Module Overview
 
-Claude Code v2.1.38 implements a **polyglot LSP client** that delegates language intelligence to external Language Server Protocol servers. Rather than bundling its own static analysis engines, the system spawns standard LSP servers (TypeScript, Go, Python, Rust, etc.) and acts as their client — giving Claude IDE-level intelligence about the codebase it is working in.
+Claude Code v2.1.76 implements a **polyglot LSP client** that delegates language intelligence to external Language Server Protocol servers. Rather than bundling its own static analysis engines, the system spawns standard LSP servers (TypeScript, Go, Python, Rust, etc.) and acts as their client — giving Claude IDE-level intelligence about the codebase it is working in.
 
 All LSP logic is bundled in `chunks.133.mjs`, which includes vendored copies of:
 - `vscode-jsonrpc` (Zm4) — JSON-RPC 2.0 transport over streams

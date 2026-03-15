@@ -77,7 +77,6 @@ When global caching is enabled and the `__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__` mark
 function nSA(A, q) {
     let K = E4() === "firstParty" && (J6(process.env.CLAUDE_CODE_FORCE_GLOBAL_CACHE) || x8("tengu_system_prompt_global_cache", !1));
     if (K && q?.skipGlobalCacheForSystemPrompt) {
-        // Mode 1: Tool-based global caching
         let O, _, J = [];
         for (let j of A) {
             if (!j) continue;
@@ -94,14 +93,10 @@ function nSA(A, q) {
         return X
     }
     if (K) {
-        // Mode 2: Boundary-based global caching
         let O = A.findIndex((_) => _ === xG1);
-        if (O !== -1) {
-            // ... splits at boundary, pre=global, post=null
-        }
+        if (O !== -1) { /* Mode 2: split at boundary, pre=global, post=null */ }
     }
-    // Mode 3: Default - org scope
-    // ... billing=null, identity=org, rest=org
+    /* Mode 3: default - billing=null, identity=org, rest=org */
 }
 
 // READABLE (for understanding):
@@ -134,9 +129,9 @@ function splitSystemPromptForCache(promptStrings, options) {
 
 **Why this approach:**
 
-The boundary marker design solves a fundamental tension: the system prompt contains both stable content (coding instructions, tool usage rules, safety guidelines) and dynamic content (CLAUDE.md memory, MCP instructions, environment info). By inserting `__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__` into the prompt array at the right position during prompt construction (`hOq` / `dZ` functions), the splitting algorithm can reliably separate stable from dynamic content without fragile string parsing.
+The boundary marker design solves a fundamental tension: the system prompt contains both stable content (coding instructions, tool usage rules, safety guidelines) and dynamic content (CLAUDE.md memory, MCP instructions, environment info). By inserting `__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__` into the prompt array at the right position during prompt construction, the splitting algorithm can reliably separate stable from dynamic content without fragile string parsing.
 
-**Key insight:** The three-mode hierarchy reflects an evolution of the caching strategy. Mode 3 (org scope) is the baseline. Mode 2 (boundary-based global) improves on it by distinguishing stable vs dynamic system prompt content. Mode 1 (tool-based global) further improves by moving the global cache anchor to the tool schema, where it can cover both the system prompt AND tool definitions in a single cache prefix, while avoiding issues when the system prompt has no clear boundary.
+**Key insight:** The three-mode hierarchy reflects an evolution of the caching strategy. Mode 3 (org scope) is the baseline. Mode 2 (boundary-based global) improves on it by distinguishing stable vs dynamic system prompt content. Mode 1 (tool-based global) further improves by moving the global cache anchor to the tool schema, where it can cover both the system prompt AND tool definitions in a single cache prefix.
 
 ---
 
@@ -144,7 +139,7 @@ The boundary marker design solves a fundamental tension: the system prompt conta
 
 ### How the boundary is injected
 
-The system prompt building functions (`hOq` for simple prompts, `dZ` for full prompts) conditionally inject the `xG1` boundary marker:
+The system prompt building functions conditionally inject the `xG1` boundary marker:
 
 ```javascript
 // In the system prompt builder (chunks.169.mjs:233 and :248):
@@ -201,231 +196,39 @@ function m9z(A, q) {
 
 // READABLE (for understanding):
 function applyCacheBreakpointsToMessages(messages, cachingEnabled) {
-    logEvent("tengu_api_cache_breakpoints", {
+    telemetry("tengu_api_cache_breakpoints", {
         totalMessageCount: messages.length,
         cachingEnabled: cachingEnabled
     });
     return messages.map((message, index) => {
-        let isRecentMessage = index > messages.length - 3;
+        let shouldCache = index > messages.length - 3;  // Last 2 messages
         if (message.type === "user") {
-            return formatUserMessageForCache(message, isRecentMessage, cachingEnabled);
+            return formatUserMessageForCache(message, shouldCache, cachingEnabled);
         } else {
-            return formatAssistantMessageForCache(message, isRecentMessage, cachingEnabled);
+            return formatAssistantMessageForCache(message, shouldCache, cachingEnabled);
         }
     });
 }
 
-// Mapping: m9z->applyCacheBreakpointsToMessages, A->messages, q->cachingEnabled, K->message,
-//   Y->index, b9z->formatUserMessageForCache, u9z->formatAssistantMessageForCache
+// Mapping: m9z->applyCacheBreakpointsToMessages, A->messages, q->cachingEnabled,
+//   b9z->formatUserMessageForCache, u9z->formatAssistantMessageForCache
 ```
 
-**Why the last 3 messages?**
-
-The `Y > A.length - 3` threshold means only the last 2 messages (indices `length-2` and `length-1`) get cache breakpoints. This is a deliberate design:
-
-1. **Earlier messages are already cached** -- They were in the "recent" window during previous turns, so their cache entries already exist.
-2. **The newest messages are the ones most likely to be the cache miss boundary** -- The API tries to match the longest cached prefix. By marking the last 2 messages, we give the API breakpoints to cache up to the second-to-last message, so the next turn only needs to process the truly new content.
-3. **Two breakpoints, not one** -- Using 2 cache breakpoints provides a fallback. If the very last message changes (which it always does as new turns are added), the second-to-last breakpoint still provides a cache hit for everything up to that point.
-
-### Message Formatting Details
-
-```javascript
-// ============================================
-// formatUserMessageForCache - Format user message with optional cache control
-// Location: chunks.169.mjs:618-643
-// ============================================
-
-// ORIGINAL (for source lookup):
-function b9z(A, q = !1, K) {
-    if (q)
-        if (typeof A.message.content === "string") return {
-            role: "user",
-            content: [{ type: "text", text: A.message.content,
-                ...K ? { cache_control: s91() } : {} }]
-        };
-        else return {
-            role: "user",
-            content: A.message.content.map((Y, z) => ({
-                ...Y,
-                ...z === A.message.content.length - 1 ? K ? { cache_control: s91() } : {} : {}
-            }))
-        };
-    return { role: "user", content: A.message.content }
-}
-
-// READABLE (for understanding):
-function formatUserMessageForCache(message, isRecentMessage, cachingEnabled) {
-    if (isRecentMessage) {
-        if (typeof message.message.content === "string") {
-            // String content: wrap in array with cache_control on the single block
-            return {
-                role: "user",
-                content: [{
-                    type: "text",
-                    text: message.message.content,
-                    ...cachingEnabled ? { cache_control: createCacheControl() } : {}
-                }]
-            };
-        } else {
-            // Array content: add cache_control to the LAST content block only
-            return {
-                role: "user",
-                content: message.message.content.map((block, idx) => ({
-                    ...block,
-                    ...idx === message.message.content.length - 1
-                        ? (cachingEnabled ? { cache_control: createCacheControl() } : {})
-                        : {}
-                }))
-            };
-        }
-    }
-    // Non-recent messages: no modification
-    return { role: "user", content: message.message.content };
-}
-
-// Mapping: b9z->formatUserMessageForCache, A->message, q->isRecentMessage, K->cachingEnabled,
-//   s91->createCacheControl
-```
-
-**Key detail for assistant messages:** The assistant formatter (`u9z`) has an additional check: it skips adding `cache_control` to `thinking` and `redacted_thinking` content blocks. This is because thinking blocks contain model reasoning that should not serve as cache breakpoints (they are volatile and model-specific).
+**Why last 2 messages (index > length - 3):**
+- The most recent user message and most recent assistant message are the "frontier"
+- Earlier messages are stable and already cached from previous turns
+- Placing breakpoints at positions -2 and -1 (relative to end) ensures the new messages get cached for the NEXT turn
+- This creates a rolling cache window: each turn, the frontier messages get cached, and older turns already have their cache markers
 
 ---
 
-## Tool-Based Global Cache Strategy
+## Tool Schema Cache Marking
 
-### How the cache marker tool is selected
+When MCP tools or deferred tools are present, the system selects the most "stable" tool (typically the first alphabetically stable tool that won't change across requests) and adds `cache_control` to its definition. This designates it as the global cache anchor point.
 
-In the main query function (`lOq`, `chunks.169.mjs:739-792`), when global caching is enabled and MCP tools are present:
+The tool-based approach is used when:
+1. Global caching is enabled (feature flag or env var)
+2. At least one stable tool exists in the active tool list
+3. The `skipGlobalCacheForSystemPrompt` option is set to `true`
 
-```
-1. Check if global cache is supported:
-   - ts1() returns true for firstParty/foundry providers without experimental betas disabled
-   - Feature flag "tengu_system_prompt_global_cache" or env CLAUDE_CODE_FORCE_GLOBAL_CACHE
-
-2. Determine if MCP or deferred tools exist (creates instability in tool list)
-
-3. Find the last NON-MCP, NON-deferred tool in the filtered tool list:
-   - Scan filtered tools for the last tool where isMcp !== true AND name !== deferredToolSearchName
-   - This tool becomes the "cache marker" tool (P)
-
-4. Apply cache_control to the marker tool's schema:
-   - cacheControl: createCacheControl("global")
-   - This is passed through to nZ6() (tool schema builder) which adds it to the JSON
-
-5. Set cache strategy mode:
-   - "tool_based" if a stable tool was found
-   - "system_prompt" if no stable tool (falls back to system prompt caching)
-   - "none" if global caching not applicable
-```
-
-**Why tool-based caching?** MCP tools can connect/disconnect dynamically, changing the tool list between requests. If the cache breakpoint were on a system prompt block, the entire prefix up to that point (including all tool schemas serialized before it) would be invalidated when the tool list changes. By placing the breakpoint on the last STABLE tool, the cache covers all stable tools AND the system prompt, while allowing MCP tools (listed after the marker) to change freely.
-
----
-
-## Cache Invalidation Triggers
-
-Cache entries are invalidated when any content in the cached prefix changes. In practice, the following events cause cache misses:
-
-1. **System prompt changes:**
-   - User edits CLAUDE.md (affects dynamic section only; stable prefix stays cached if boundary splitting is used)
-   - MCP server connects/disconnects (changes MCP instructions in dynamic section)
-   - Feature flag changes
-
-2. **Tool list changes:**
-   - MCP tool added/removed (but only affects content AFTER the cache marker tool)
-   - Tool permission changes
-
-3. **Model changes:**
-   - Different models may have different system prompts
-   - Cache is not shared across different model identifiers
-
-4. **Conversation prefix changes:**
-   - Compaction removes earlier messages (changes the entire message prefix)
-   - Message editing/deletion
-
-5. **Version update:**
-   - The billing attribution header includes the version string, so version changes invalidate system prompt caches
-
----
-
-## buildSystemPromptWithCache (F9z)
-
-**What it does:** Converts the split system prompt blocks (from `nSA`) into the API-ready format with actual `cache_control` directives.
-
-```javascript
-// ============================================
-// buildSystemPromptWithCache - Convert split prompt to API format
-// Location: chunks.169.mjs:1394-1406
-// ============================================
-
-// ORIGINAL (for source lookup):
-function F9z(A, q, K) {
-    return nSA(A, {
-        skipGlobalCacheForSystemPrompt: K?.skipGlobalCacheForSystemPrompt
-    }).map((Y) => {
-        return {
-            type: "text",
-            text: Y.text,
-            ...q && Y.cacheScope !== null ? {
-                cache_control: s91(Y.cacheScope)
-            } : {}
-        }
-    })
-}
-
-// READABLE (for understanding):
-function buildSystemPromptWithCache(promptStrings, cachingEnabled, options) {
-    return splitSystemPromptForCache(promptStrings, {
-        skipGlobalCacheForSystemPrompt: options?.skipGlobalCacheForSystemPrompt
-    }).map((block) => {
-        return {
-            type: "text",
-            text: block.text,
-            // Only add cache_control if caching is enabled AND scope is not null
-            ...cachingEnabled && block.cacheScope !== null ? {
-                cache_control: createCacheControl(block.cacheScope)
-            } : {}
-        };
-    });
-}
-
-// Mapping: F9z->buildSystemPromptWithCache, A->promptStrings, q->cachingEnabled, K->options,
-//   Y->block, nSA->splitSystemPromptForCache, s91->createCacheControl
-```
-
-**Key detail:** Blocks with `cacheScope: null` never get `cache_control` added, even when caching is enabled. This is intentional -- the billing header block changes frequently (includes a hash), so caching it would just waste cache creation tokens without yielding hits.
-
----
-
-## Token Usage Tracking for Cache
-
-The API response includes detailed cache token metrics that are tracked across streaming chunks:
-
-```javascript
-// ============================================
-// mergeUsage - Merge streaming usage updates (take latest non-zero values)
-// Location: chunks.169.mjs:1343-1362
-// ============================================
-
-// READABLE (for understanding):
-function mergeUsage(accumulated, update) {
-    return {
-        input_tokens: update.input_tokens > 0 ? update.input_tokens : accumulated.input_tokens,
-        cache_creation_input_tokens: update.cache_creation_input_tokens > 0
-            ? update.cache_creation_input_tokens
-            : accumulated.cache_creation_input_tokens,
-        cache_read_input_tokens: update.cache_read_input_tokens > 0
-            ? update.cache_read_input_tokens
-            : accumulated.cache_read_input_tokens,
-        cache_creation: {
-            ephemeral_1h_input_tokens: update.cache_creation?.ephemeral_1h_input_tokens
-                ?? accumulated.cache_creation.ephemeral_1h_input_tokens,
-            ephemeral_5m_input_tokens: update.cache_creation?.ephemeral_5m_input_tokens
-                ?? accumulated.cache_creation.ephemeral_5m_input_tokens
-        },
-        // ... other fields
-    };
-}
-```
-
-The distinction between `ephemeral_1h_input_tokens` and `ephemeral_5m_input_tokens` allows operators to monitor the effectiveness of the TTL-based caching strategy separately for OAuth users (1h) vs API key users (5m).
+**Trade-off:** If the designated "stable" tool changes (e.g., a tool is removed), the global cache is invalidated for all content after the cache marker point. This is acceptable because tool list changes are infrequent compared to message additions.

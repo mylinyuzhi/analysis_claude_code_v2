@@ -1,4 +1,4 @@
-# Plan Mode - Hooks Integration (Claude Code 2.1.38)
+# Plan Mode - Hooks Integration (Claude Code 2.1.76)
 
 > Analysis of how hooks interact with plan mode, including PreCompact hook execution and hook filtering during planning.
 
@@ -34,6 +34,7 @@ Hooks can fire during plan mode, but some have special behavior. The most signif
 │  │ • PostToolUseFailure - After tool fails                     ││
 │  │ • UserPromptSubmit - When user sends message                ││
 │  │ • PreCompact - Before conversation compaction               ││
+│  │ • PostCompact - After compaction completes                  ││
 │  │ • SessionEnd - When session ends                            ││
 │  │ • Notification - For notification events                    ││
 │  └─────────────────────────────────────────────────────────────┘│
@@ -84,50 +85,38 @@ async function mW6(A, q, K = MP) {
     else if ($.output.trim()) H.push(`PreCompact [${$.command}] failed: ${$.output.trim()}`);
     else H.push(`PreCompact [${$.command}] failed`);
     return {
-        newCustomInstructions: w.length > 0 ? w.join(`
-
-`) : void 0,
-        userDisplayMessage: H.length > 0 ? H.join(`
-`) : void 0
+        newCustomInstructions: w.length > 0 ? w.join(`\n\n`) : void 0,
+        userDisplayMessage: H.length > 0 ? H.join(`\n`) : void 0
     }
 }
 
 // READABLE (for understanding):
 async function executePreCompactHooks(hookInput, signal, timeoutMs = DEFAULT_TIMEOUT) {
-    // Step 1: Build the hook payload
     let payload = {
-        ...buildBaseHookPayload(undefined),  // Base fields (session_id, etc.)
+        ...buildBaseHookPayload(undefined),
         hook_event_name: "PreCompact",
-        trigger: hookInput.trigger,          // "manual" or "auto"
+        trigger: hookInput.trigger,
         custom_instructions: hookInput.customInstructions
     };
 
-    // Step 2: Execute all matching PreCompact hooks
     let hookResults = await executeHooks({
         hookInput: payload,
-        matchQuery: hookInput.trigger,  // Match hooks on trigger type
+        matchQuery: hookInput.trigger,
         signal: signal,
         timeoutMs: timeoutMs
     });
 
-    // Step 3: If no hooks configured, return empty
-    if (hookResults.length === 0) {
-        return {};
-    }
+    if (hookResults.length === 0) return {};
 
-    // Step 4: Collect successful outputs for custom instructions
     let newCustomInstructions = hookResults
         .filter((result) => result.succeeded && result.output.trim().length > 0)
         .map((result) => result.output.trim());
 
-    // Step 5: Build user display messages
     let userMessages = [];
     for (let result of hookResults) {
         if (result.succeeded) {
             if (result.output.trim()) {
-                userMessages.push(
-                    `PreCompact [${result.command}] completed successfully: ${result.output.trim()}`
-                );
+                userMessages.push(`PreCompact [${result.command}] completed successfully: ${result.output.trim()}`);
             } else {
                 userMessages.push(`PreCompact [${result.command}] completed successfully`);
             }
@@ -140,14 +129,9 @@ async function executePreCompactHooks(hookInput, signal, timeoutMs = DEFAULT_TIM
         }
     }
 
-    // Step 6: Return combined results
     return {
-        newCustomInstructions: newCustomInstructions.length > 0
-            ? newCustomInstructions.join("\n\n")
-            : undefined,
-        userDisplayMessage: userMessages.length > 0
-            ? userMessages.join("\n")
-            : undefined
+        newCustomInstructions: newCustomInstructions.length > 0 ? newCustomInstructions.join("\n\n") : undefined,
+        userDisplayMessage: userMessages.length > 0 ? userMessages.join("\n") : undefined
     };
 }
 
@@ -211,149 +195,18 @@ const PreCompactPayloadSchema = baseSchema.and(z.object({
 
 ---
 
-## 4. PreCompact Hook Execution in Compaction Flow
-
-```javascript
-// ============================================
-// Compaction flow with PreCompact hooks
-// Location: chunks.146.mjs:2447-2456
-// ============================================
-
-// ORIGINAL (for source lookup):
-K.onCompactProgress?.({
-    type: "hooks_start",
-    hookType: "pre_compact"
-}), K.setSDKStatus?.("compacting");
-let O = await mW6({
-        trigger: "manual",
-        customInstructions: null
-    }, K.abortController.signal),
-    _;
-if (O.newCustomInstructions && z) _ = `${O.newCustomInstructions}
-
-User context: ${z}`;
-else if (O.newCustomInstructions) _ = O.newCustomInstructions;
-else if (z) _ = `User context: ${z}`;
-
-// READABLE (for understanding):
-async function performPartialCompaction(context, customInstructions) {
-    // Step 1: Notify UI that hooks are starting
-    context.onCompactProgress?.({
-        type: "hooks_start",
-        hookType: "pre_compact"
-    });
-
-    // Step 2: Update SDK status
-    context.setSDKStatus?.("compacting");
-
-    // Step 3: Execute PreCompact hooks
-    let hookResults = await executePreCompactHooks({
-        trigger: "manual",
-        customInstructions: null
-    }, context.abortController.signal);
-
-    // Step 4: Merge custom instructions
-    let mergedInstructions;
-    if (hookResults.newCustomInstructions && customInstructions) {
-        mergedInstructions = `${hookResults.newCustomInstructions}\n\nUser context: ${customInstructions}`;
-    } else if (hookResults.newCustomInstructions) {
-        mergedInstructions = hookResults.newCustomInstructions;
-    } else if (customInstructions) {
-        mergedInstructions = `User context: ${customInstructions}`;
-    }
-
-    // Step 5: Continue with compaction using merged instructions...
-}
-
-// Mapping: mW6→executePreCompactHooks, O→hookResults, _→mergedInstructions, z→customInstructions
-```
-
----
-
-## 5. PreCompact Hook in Plan Mode
-
-### When PreCompact Fires During Plan Mode
-
-```
-Plan Mode Active
-    │
-    ├─ Context limit reached
-    │   │
-    │   └─ Auto-compact triggered
-    │       │
-    │       ├─ mW6() called with trigger: "auto"
-    │       │
-    │       ├─ Hooks execute
-    │       │   └─ Hook output can include plan-specific instructions
-    │       │
-    │       └─ Compaction proceeds
-    │           └─ jZ6() preserves plan file
-    │
-    └─ User runs /compact
-        │
-        └─ Manual compact triggered
-            │
-            ├─ mW6() called with trigger: "manual"
-            │
-            └─ Compaction proceeds
-```
-
-### Hook Output Impact on Plan Mode
-
-Hook output can affect compaction behavior:
-
-| Hook Output | Impact |
-|-------------|--------|
-| `newCustomInstructions` | Added to compaction prompt |
-| `userDisplayMessage` | Shown to user in UI |
-
-**Example hook output for plan mode:**
-
-```javascript
-// Hook script could output:
-console.log("Preserve the planning context and emphasize any uncommitted decisions.");
-
-// This becomes newCustomInstructions, which influences the summary generation
-```
-
----
-
-## 6. Other Hooks in Plan Mode
+## 4. Other Hooks in Plan Mode
 
 ### PreToolUse Hooks
 
-PreToolUse hooks fire before each tool call in plan mode:
+PreToolUse hooks fire before each tool call in plan mode. Plan mode's read-only restriction applies before the hook's permission decision, so hooks cannot override the read-only restriction to allow writes.
 
-```javascript
-// ============================================
-// PreToolUse hook flow in plan mode
-// ============================================
+### PostCompact Hook (v2.1.76)
 
-// Pseudocode of the flow:
-async function handleToolCall(tool, input, context) {
-    // Step 1: Check if tool is allowed in plan mode
-    if (context.mode === "plan" && !tool.isReadOnly(input)) {
-        // Tool blocked by plan mode
-        return { blocked: true, reason: "plan_mode_read_only" };
-    }
-
-    // Step 2: Execute PreToolUse hooks
-    let hookResult = await executePreToolUseHooks(tool.name, input);
-
-    // Step 3: Handle hook decisions
-    if (hookResult.permissionDecision === "deny") {
-        return { blocked: true, reason: hookResult.message };
-    }
-
-    // Step 4: Execute tool
-    let result = await tool.call(input, context);
-
-    // Step 5: Execute PostToolUse hooks
-    await executePostToolUseHooks(tool.name, input, result);
-
-    return result;
-}
-```
+The new PostCompact hook fires after compaction completes. This is useful for:
+- Restoring state that was lost during compaction
+- Logging that compaction occurred
+- Injecting context into the new context window
 
 ### SessionStart and Setup Hooks
 
@@ -365,51 +218,9 @@ These hooks fire when entering plan mode via `EnterPlanMode`:
 | `Setup` | Agent initialization | Before mode is set |
 | `UserPromptSubmit` | User sends message | With current mode context |
 
-### Notification Hooks
-
-Can be triggered during plan mode for status updates:
-
-```javascript
-// ============================================
-// Notification hook in plan mode
-// Location: chunks.141.mjs:2877-2886
-// ============================================
-
-// ORIGINAL (for source lookup):
-let w = {
-    ...aX(void 0),
-    hook_event_name: "Notification",
-    message: K,
-    title: Y,
-    notification_type: z
-};
-await AyA({
-    hookInput: w,
-    timeoutMs: q,
-    matchQuery: z
-})
-
-// READABLE (for understanding):
-async function triggerNotificationHook(message, title, notificationType) {
-    let payload = {
-        ...buildBaseHookPayload(undefined),
-        hook_event_name: "Notification",
-        message: message,
-        title: title,
-        notification_type: notificationType
-    };
-
-    await executeHooks({
-        hookInput: payload,
-        timeoutMs: DEFAULT_TIMEOUT,
-        matchQuery: notificationType
-    });
-}
-```
-
 ---
 
-## 7. Hook Filtering in Plan Mode
+## 5. Hook Filtering in Plan Mode
 
 ### Read-Only Enforcement for Hooks
 
@@ -444,117 +255,7 @@ Hooks that attempt to modify state during plan mode may be blocked:
 
 ---
 
-## 8. PreCompact Hook Response Schema
-
-The hook can return specific outputs that affect behavior:
-
-```javascript
-// ============================================
-// PreCompact hook response types
-// Location: chunks.129.mjs:791-841
-// ============================================
-
-// READABLE (for understanding):
-const HookResponseSchema = z.object({
-    // Continue or stop the operation
-    continue: z.boolean().optional(),
-    // Suppress output from display
-    suppressOutput: z.boolean().optional(),
-    // Custom stop reason
-    stopReason: z.string().optional(),
-    // Decision (for approval hooks)
-    decision: z.enum(["approve", "block"]).optional(),
-    // System message to inject
-    systemMessage: z.string().optional(),
-    // Reason for the decision
-    reason: z.string().optional(),
-    // Hook-specific output
-    hookSpecificOutput: z.union([
-        PreToolUseOutput,
-        UserPromptSubmitOutput,
-        SessionStartOutput,
-        SetupOutput,
-        SubagentStartOutput,
-        PostToolUseOutput,
-        PostToolUseFailureOutput,
-        NotificationOutput,
-        PermissionRequestOutput
-    ]).optional()
-});
-```
-
-### PreCompact-Specific Behavior
-
-PreCompact hooks don't have a specific `hookSpecificOutput` type. Instead, they use the standard output:
-
-```
-Hook stdout → newCustomInstructions (if non-empty)
-Hook exit code → success/failure status
-Hook stderr → error message
-```
-
----
-
-## 9. Hook Execution During Plan Mode Exit
-
-When `ExitPlanMode` is called, hooks fire in this order:
-
-```
-ExitPlanMode called
-    │
-    ├─ PreToolUse hook (if hook configuration exists)
-    │
-    ├─ Permission check
-    │   └─ May require user/swarm approval
-    │
-    ├─ If approved:
-    │   ├─ Mode changes from "plan" to target mode
-    │   ├─ PostToolUse hook fires
-    │   └─ Plan mode exit attachment generated
-    │
-    └─ If rejected:
-        ├─ PostToolUseFailure hook fires
-        └─ Mode stays as "plan"
-```
-
----
-
-## 10. Interaction with Other Plan Mode Systems
-
-### Plan Mode Reminder System
-
-Hooks can interact with the reminder system:
-
-```javascript
-// During ihY() - buildPlanModeAttachments
-// Hooks are NOT directly involved, but hook output from
-// earlier turns may have added context that affects
-// what the reminder contains
-```
-
-### Task System Integration
-
-When tasks are created during plan mode:
-
-```javascript
-// TaskCompleted hook fires when a background agent finishes
-// This happens even in plan mode, as background agents
-// may have been spawned before entering plan mode
-
-// From chunks.129.mjs:782-789
-DZY = gZ.and(u.object({
-    hook_event_name: u.literal("TaskCompleted"),
-    task_id: z.string(),
-    task_subject: z.string(),
-    task_description: z.string().optional(),
-    teammate_name: z.string().optional(),
-    team_name: z.string().optional()
-}));
-```
-
----
-
-## Summary: Hooks in Plan Mode
+## 6. Summary: Hooks in Plan Mode
 
 | Hook Event | Fires in Plan Mode? | Special Behavior |
 |------------|---------------------|------------------|
@@ -563,6 +264,7 @@ DZY = gZ.and(u.object({
 | `PostToolUseFailure` | Yes | Normal behavior |
 | `UserPromptSubmit` | Yes | Normal behavior |
 | `PreCompact` | Yes | Can provide custom instructions |
+| `PostCompact` | Yes | Post-compaction restoration (v2.1.76) |
 | `SessionEnd` | Yes | Normal behavior |
 | `Notification` | Yes | Normal behavior |
 | `TaskCompleted` | Yes | Normal behavior |
@@ -574,6 +276,7 @@ DZY = gZ.and(u.object({
 ### Key Integration Points
 
 1. **PreCompact**: Most significant hook for plan mode - allows injecting context before compaction
-2. **Tool Filtering**: PreToolUse hooks still fire but read-only enforcement applies
-3. **Mode Transitions**: Hooks fire before and after mode changes
-4. **Background Tasks**: TaskCompleted hooks fire even during plan mode
+2. **PostCompact** (v2.1.76): New hook for post-compaction restoration in plan mode
+3. **Tool Filtering**: PreToolUse hooks still fire but read-only enforcement applies
+4. **Mode Transitions**: Hooks fire before and after mode changes
+5. **Background Tasks**: TaskCompleted hooks fire even during plan mode

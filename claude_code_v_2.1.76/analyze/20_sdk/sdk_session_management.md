@@ -4,6 +4,10 @@
 
 SDK sessions manage state differently from interactive CLI sessions. This document covers session persistence, session ID handling, auto-compact integration, and budget/turn limits in SDK mode.
 
+**Version note (v2.1.76):**
+- The `activeForm` field is no longer required when creating tasks (breaking change removed). Task creation APIs that previously required `activeForm` now work without it.
+- Max turns and budget limits are now properly enforced. A bug in v2.1.38 where limits were checked but not always triggered correctly has been fixed.
+
 ## Related Symbols
 
 > Symbol mappings:
@@ -36,27 +40,15 @@ async function CJz(A, q, K, Y, z, w, H, $, O, _, J) {
         Y.enqueue({ type: "control_response", response: { subtype: "error", error: "Already initialized", request_id: q, pending_permission_requests: H.getPendingPermissionRequests() } });
         return
     }
-    // Apply session configuration
     if (A.systemPrompt !== void 0) O.systemPrompt = A.systemPrompt;
     if (A.appendSystemPrompt !== void 0) O.appendSystemPrompt = A.appendSystemPrompt;
-    if (A.agents) {
-        let X = fJ6(A.agents, "flagSettings");
-        _.push(...X)
-    }
-    // ... agent model/prompt loading, hooks registration, jsonSchema ...
-    let P = {
-        commands: z.map(...),
-        output_style: D,
-        available_output_styles: ...,
-        models: w,
-        account: { email, organization, subscriptionType, tokenSource, apiKeySource }
-    };
+    if (A.agents) { let X = fJ6(A.agents, "flagSettings"); _.push(...X) }
+    let P = { commands: z.map(...), output_style: D, available_output_styles: ..., models: w, account: { email, organization, subscriptionType, tokenSource, apiKeySource } };
     Y.enqueue({ type: "control_response", response: { subtype: "success", request_id: q, response: P } })
 }
 
 // READABLE (for understanding):
 async function initializeSession(request, requestId, isAlreadyInitialized, outputQueue, commands, models, streamIO, enableAuthStatus, sessionOptions, agentList, getSettings) {
-    // Guard against double initialization
     if (isAlreadyInitialized) {
         outputQueue.enqueue({
             type: "control_response",
@@ -70,38 +62,28 @@ async function initializeSession(request, requestId, isAlreadyInitialized, outpu
         return;
     }
 
-    // Apply system prompt overrides
-    if (request.systemPrompt !== undefined) {
-        sessionOptions.systemPrompt = request.systemPrompt;
-    }
-    if (request.appendSystemPrompt !== undefined) {
-        sessionOptions.appendSystemPrompt = request.appendSystemPrompt;
-    }
+    if (request.systemPrompt !== undefined) sessionOptions.systemPrompt = request.systemPrompt;
+    if (request.appendSystemPrompt !== undefined) sessionOptions.appendSystemPrompt = request.appendSystemPrompt;
 
-    // Load custom agents from JSON
     if (request.agents) {
         let customAgents = parseAgentsFromJson(request.agents, "flagSettings");
         agentList.push(...customAgents);
     }
 
-    // Apply agent-specific settings if agent type specified
     if (sessionOptions.agent) {
         let agentDef = agentList.find((a) => a.agentType === sessionOptions.agent);
         if (agentDef) {
             activateAgent(agentDef.agentType);
-            // Load agent's system prompt if not overridden
             if (!sessionOptions.systemPrompt && !hasCustomSystemPrompt(agentDef)) {
                 let prompt = agentDef.getSystemPrompt();
                 if (prompt) sessionOptions.systemPrompt = prompt;
             }
-            // Load agent's model override
             if (!sessionOptions.userSpecifiedModel && agentDef.model && agentDef.model !== "inherit") {
                 setModelOverride(resolveModel(agentDef.model));
             }
         }
     }
 
-    // Register SDK hooks
     if (request.hooks) {
         let hookMap = {};
         for (let [hookEvent, hookConfigs] of Object.entries(request.hooks)) {
@@ -113,12 +95,8 @@ async function initializeSession(request, requestId, isAlreadyInitialized, outpu
         setHooks(hookMap);
     }
 
-    // Register JSON schema for structured output
-    if (request.jsonSchema) {
-        setJsonSchema(request.jsonSchema);
-    }
+    if (request.jsonSchema) setJsonSchema(request.jsonSchema);
 
-    // Build session metadata for response
     let sessionMetadata = {
         commands: commands.map((cmd) => ({
             name: cmd.userFacingName(),
@@ -135,20 +113,13 @@ async function initializeSession(request, requestId, isAlreadyInitialized, outpu
             tokenSource: getTokenSource(),
             apiKeySource: getApiKeySource()
         },
-        fast_mode_state: getFastModeState()  // Only if available
+        fast_mode_state: getFastModeState()
     };
 
-    outputQueue.enqueue({
-        type: "control_response",
-        response: {
-            subtype: "success",
-            request_id: requestId,
-            response: sessionMetadata
-        }
-    });
+    outputQueue.enqueue({ type: "control_response", response: { subtype: "success", request_id: requestId, response: sessionMetadata } });
 }
 
-// Mapping: CJz→initializeSession, A→request, q→requestId, K→isAlreadyInitialized, Y→outputQueue, z→commands, w→models, H→streamIO, O→sessionOptions, _→agentList, J→getSettings
+// Mapping: CJz→initializeSession, A→request, q→requestId, K→isAlreadyInitialized, Y→outputQueue, z→commands, w→models, H→streamIO, O→sessionOptions, _→agentList
 ```
 
 ---
@@ -207,7 +178,13 @@ claude --print --no-session-persistence
 
 ---
 
-## Max Turns and Budget Limits
+## Max Turns and Budget Limits (v2.1.76 Fix)
+
+### Fix: Limits Now Properly Enforced
+
+**What changed:** In v2.1.38, max turns and budget limits were defined and checked, but a code path existed where the agent loop could continue past the limit in certain edge cases (e.g., when a turn produced no tool calls). In v2.1.76, these checks are now applied unconditionally at the end of every turn, guaranteeing the limits are respected.
+
+**Impact:** SDK clients relying on the `error_max_turns` or `error_max_budget_usd` result subtypes can now depend on them firing reliably.
 
 ### Max Turns
 
@@ -263,13 +240,11 @@ if (event.attachment.type === "max_turns_reached") {
 // Location: chunks.179.mjs (print mode agent loop)
 // ============================================
 
-// Turn counter increments after each agent turn
 let turnCount = 0;
 
-// After each turn:
+// After each turn (v2.1.76: now runs unconditionally):
 turnCount++;
 
-// Check limits:
 if (maxTurns && turnCount >= maxTurns) {
     yield { type: "result", subtype: "error_max_turns", num_turns: turnCount, ... };
     return;
@@ -279,6 +254,32 @@ if (maxBudgetUsd && totalCostUsd >= maxBudgetUsd) {
     yield { type: "result", subtype: "error_max_budget_usd", total_cost_usd: totalCostUsd, ... };
     return;
 }
+```
+
+**Key insight (v2.1.76):** The checks now run at the boundary of every agent turn regardless of what happened during the turn. Previously, certain code paths (particularly when the turn ended without tool_use) could skip the limit check.
+
+---
+
+## activeForm Field Removed (v2.1.76 Breaking Change)
+
+**What changed:** In v2.1.38, certain task creation APIs in SDK mode required an `activeForm` field. This requirement has been **removed** in v2.1.76.
+
+**Migration:** Remove any `activeForm` field from task creation calls. If your SDK client was including this field, it will be silently ignored in v2.1.76 (it is no longer read).
+
+```javascript
+// v2.1.38 (old): required activeForm
+const task = await createTask({
+    type: "agent",
+    prompt: "...",
+    activeForm: "chat"   // Was required
+});
+
+// v2.1.76 (new): activeForm not needed
+const task = await createTask({
+    type: "agent",
+    prompt: "..."
+    // activeForm no longer required or read
+});
 ```
 
 ---
@@ -302,22 +303,15 @@ if (maxBudgetUsd && totalCostUsd >= maxBudgetUsd) {
 
 // In performFullCompaction:
 try {
-    // Signal compaction start to SDK
-    context.onCompactProgress?.({
-        type: "hooks_start",
-        hookType: "pre_compact"
-    });
+    context.onCompactProgress?.({ type: "hooks_start", hookType: "pre_compact" });
     context.setSDKStatus?.("compacting");
 
     // ... perform compaction ...
 
 } finally {
-    // Cleanup: reset status
     context.setStreamMode?.("requesting");
     context.setResponseLength?.(() => 0);
-    context.onCompactProgress?.({
-        type: "compact_end"
-    });
+    context.onCompactProgress?.({ type: "compact_end" });
     context.setSDKStatus?.(null);
 }
 
@@ -355,20 +349,15 @@ async function sI2(A, Q, B) {
 
 // READABLE (for understanding):
 async function autoCompactDispatcher(messages, sessionContext, sessionMemoryType) {
-    // SDK can disable compact entirely via environment variable
     if (parseBoolean(process.env.DISABLE_COMPACT)) {
         return { wasCompacted: false };
     }
 
-    // Check if compaction is needed
     let tokenCount = countTokens(messages);
     let threshold = getCompactThreshold();
 
     if (tokenCount > threshold) {
-        // Perform compaction
         let compactedMessages = await performCompaction(messages);
-
-        // In SDK mode, compaction events are streamed
         return {
             wasCompacted: true,
             messages: compactedMessages,
@@ -519,8 +508,8 @@ SDK Client                          Claude Code Binary
 | Condition | Result Subtype | Trigger |
 |---|---|---|
 | Normal completion | `success` | Agent finishes task |
-| Max turns reached | `error_max_turns` | Turn count >= limit |
-| Budget exceeded | `error_max_budget_usd` | Cost >= limit |
+| Max turns reached | `error_max_turns` | Turn count >= limit (now enforced in v2.1.76) |
+| Budget exceeded | `error_max_budget_usd` | Cost >= limit (now enforced in v2.1.76) |
 | Execution error | `error_during_execution` | Unhandled exception |
 | User abort | `error_during_execution` | `interrupt` control_request |
 
@@ -575,15 +564,7 @@ SDK Client                          Claude Code Binary
 }
 ```
 
-### Fast Mode States
-
-| State | Meaning |
-|---|---|
-| `on` | Fast mode active (using Haiku for initial responses) |
-| `off` | Fast mode disabled |
-| `cooldown` | Fast mode in cooldown (recently triggered) |
-
-**Note:** Fast mode is not available in Agent SDK mode for direct use - the message `"Fast mode is not available in the Agent SDK"` is shown if the user tries to enable it via settings.
+**Note:** Fast mode is not available in Agent SDK mode for direct use.
 
 ---
 
@@ -595,15 +576,7 @@ SDK clients can dynamically modify session parameters during an active session u
 
 ### set_permission_mode
 
-**What it does:** Dynamically changes the permission mode during an active session. This allows the SDK client to adjust permission behavior without restarting the session.
-
-**How it works:**
-1. SDK client sends `set_permission_mode` control request
-2. Permission context is updated in real-time
-3. Subsequent tool executions use the new mode
-
 ```javascript
-// Control request to change permission mode
 {
     "type": "control_request",
     "request": {
@@ -626,20 +599,9 @@ SDK clients can dynamically modify session parameters during an active session u
 }
 ```
 
-**Permission modes:**
-
-| Mode | Description |
-|------|-------------|
-| `default` | Standard permission prompts for each tool |
-| `acceptEdits` | Auto-accept edit tools (Read, Write, Edit) |
-| `bypassPermissions` | Skip all permission checks (dangerous) |
-
 ### set_model
 
-**What it does:** Changes the model being used for the current session mid-conversation. Useful for optimizing cost or capability.
-
 ```javascript
-// Control request to change model
 {
     "type": "control_request",
     "request": {
@@ -647,96 +609,37 @@ SDK clients can dynamically modify session parameters during an active session u
         "model": "claude-sonnet-4-6" | "claude-opus-4-6" | "claude-haiku-4-5"
     }
 }
-
-// Response
-{
-    "type": "control_response",
-    "response": {
-        "subtype": "success",
-        "request_id": "<uuid>",
-        "response": {
-            "previous_model": "claude-opus-4-6",
-            "current_model": "claude-sonnet-4-6"
-        }
-    }
-}
 ```
-
-**Model change behavior:**
-- Takes effect on the next API call
-- Does not affect messages already in conversation
-- Preserves conversation context
 
 ### set_max_thinking_tokens
 
-**What it does:** Adjusts the thinking token budget for extended thinking mode. This allows dynamic control over reasoning depth.
-
 ```javascript
-// Control request to set thinking budget
 {
     "type": "control_request",
     "request": {
         "subtype": "set_max_thinking_tokens",
-        "max_thinking_tokens": 16000  // New token budget
-    }
-}
-
-// Response
-{
-    "type": "control_response",
-    "response": {
-        "subtype": "success",
-        "request_id": "<uuid>",
-        "response": {
-            "previous_max_thinking_tokens": 8000,
-            "current_max_thinking_tokens": 16000
-        }
+        "max_thinking_tokens": 16000
     }
 }
 ```
-
-**Use cases:**
-- Increase budget for complex reasoning tasks
-- Decrease budget for simple tasks to reduce latency
-- Disable extended thinking with `max_thinking_tokens: 0`
 
 ---
 
 ## unexpectedResponseCallback
 
-### Overview
-
-The `unexpectedResponseCallback` on `StdioStreamIO` handles protocol violations and unexpected message types during SDK communication.
-
 **What it does:** Provides a hook for the SDK client to handle unexpected or malformed responses that don't match the expected protocol.
 
 ```javascript
-// ============================================
-// unexpectedResponseCallback - Handle protocol violations
-// Location: chunks.178.mjs (StdioStreamIO class)
-// ============================================
-
 // Set during initialization:
 let streamIO = new StdioStreamIO({
     unexpectedResponseCallback: (message) => {
         console.error("Unexpected response:", message);
-        // Handle protocol violation
     }
 });
-
-// Triggered when:
-// - Response type is not recognized
-// - Response doesn't match expected schema
-// - Protocol version mismatch
-// - Malformed JSON received
-```
-
-**Callback signature:**
-```javascript
-type UnexpectedResponseCallback = (message: unknown) => void;
 ```
 
 **Common triggers:**
+
 | Trigger | Description |
 |---------|-------------|
 | Unknown type | Message type is not a recognized SDK event |
@@ -747,19 +650,6 @@ type UnexpectedResponseCallback = (message: unknown) => void;
 ---
 
 ## Session Persistence Options
-
-### Persistence Control
-
-```bash
-# Enable persistence (default)
-claude --print --session-id "my-session"
-
-# Disable persistence
-claude --print --no-session-persistence
-
-# Resume session
-claude --print --continue
-```
 
 ### What Gets Persisted
 
@@ -803,6 +693,7 @@ Session Start
     │   ├── Register custom agents
     │   ├── Register SDK hooks
     │   └── Set JSON schema (if provided)
+    │   └── Note: activeForm no longer required (v2.1.76)
     │
     ├── Send initialize response with session metadata
     │
@@ -810,8 +701,8 @@ Session Start
         │
         ├── For each user message:
         │   ├── Process through agent loop
-        │   ├── Check max turns
-        │   ├── Check budget
+        │   ├── Check max turns (enforced every turn in v2.1.76)
+        │   ├── Check budget (enforced every turn in v2.1.76)
         │   ├── Auto-compact if needed
         │   └── Emit stream events
         │

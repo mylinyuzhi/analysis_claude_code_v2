@@ -1,4 +1,4 @@
-# Skill System - Core Architecture (Claude Code 2.1.38)
+# Skill System - Core Architecture (Claude Code 2.1.76)
 
 ## Overview
 
@@ -586,7 +586,7 @@ function registerAllBuiltinSkills() {
 // cZ1→isChromeExtensionAvailable, jjq→registerChromeSkill
 ```
 
-**Implementation Status (v2.1.38):**
+**Implementation Status (v2.1.76):**
 | Skill | Function | Status |
 |-------|----------|--------|
 | keybindings-help | `fjq` | Active |

@@ -74,12 +74,12 @@ The `toolPermissionContext.mode` determines which attachment variants are produc
 | `delegate` | Subagent spawning | `delegate_mode`, `delegate_mode_exit` |
 | `bypassPermissions` | `--dangerously-skip-permissions` | All tools allowed, no permission prompts |
 
-**Source location:** `chunks.189.mjs` (mode resolution)
+**Source location:** `chunks.197.mjs` (mode resolution)
 
 ```javascript
 // ============================================
 // Permission mode resolution from CLI flags
-// Location: chunks.189.mjs
+// Location: chunks.197.mjs
 // ============================================
 
 // READABLE (for understanding):
@@ -173,12 +173,12 @@ function isAgentTeamsEnabled() {
 
 ### 2.2 Teammate Mode from CLI
 
-**Source location:** `chunks.189.mjs:1084-1087`
+**Source location:** `chunks.197.mjs:1084-1087`
 
 ```javascript
 // ============================================
 // Teammate mode setup from CLI options
-// Location: chunks.189.mjs:1084-1087
+// Location: chunks.197.mjs:1084-1087
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -432,7 +432,7 @@ When `--resume` is used:
 ```javascript
 // ============================================
 // Session resume attachment handling
-// Location: chunks.189.mjs
+// Location: chunks.197.mjs
 // ============================================
 
 // READABLE (for understanding):
@@ -571,8 +571,8 @@ function wrapWithSystemReminderTags(content, reminderType, metadata) {
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
-| Mode resolution | `chunks.189.mjs` | CLI flags → permission mode |
-| Team context setup | `chunks.189.mjs:1084` | Team flags → team context |
+| Mode resolution | `chunks.197.mjs` | CLI flags → permission mode |
+| Team context setup | `chunks.197.mjs:1084` | Team flags → team context |
 | Attachment orchestration | `chunks.142.mjs:1948` | `assembleAttachments` |
 | Plan mode routing | `chunks.173.mjs:525` | `planModeReminderDispatcher` |
 | Normalization | `chunks.173.mjs:698` | `normalizeAttachmentForAPI` |

@@ -65,12 +65,12 @@ These flags are hidden from `--help` output but provide essential CI/CD and auto
 
 ### 1.1 Hidden Hook Flags
 
-**Source location:** `chunks.189.mjs:1017-1019`
+**Source location:** `chunks.197.mjs:1017-1019`
 
 ```javascript
 // ============================================
 // Hook-related CLI flag definitions - Hidden from --help
-// Location: chunks.189.mjs:1017-1019
+// Location: chunks.197.mjs:1017-1019
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -88,12 +88,12 @@ These flags are hidden from `--help` output but provide essential CI/CD and auto
 
 ### 1.2 Flag Extraction in Action Handler
 
-**Source location:** `chunks.189.mjs:1054`
+**Source location:** `chunks.197.mjs:1054`
 
 ```javascript
 // ============================================
 // Hook flag extraction - Action handler
-// Location: chunks.189.mjs:1054
+// Location: chunks.197.mjs:1054
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -289,8 +289,8 @@ The CLI does not explicitly validate these combinations. If both are specified, 
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
-| Flag definitions | `chunks.189.mjs:1017` | Commander hidden options |
-| Flag extraction | `chunks.189.mjs:1054` | Action handler destructuring |
+| Flag definitions | `chunks.197.mjs:1017` | Commander hidden options |
+| Flag extraction | `chunks.197.mjs:1054` | Action handler destructuring |
 | Setup hooks execution | `chunks.142.mjs` | `executeSetupHooks` |
 | Session start hooks | `chunks.142.mjs` | `executeSessionStartHooks` |
 | Hook trigger types | `chunks.142.mjs` | init, maintenance, startup |

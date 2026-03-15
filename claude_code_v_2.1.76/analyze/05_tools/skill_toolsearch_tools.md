@@ -1,4 +1,4 @@
-# Skill & ToolSearch Tools - Deep Analysis (Claude Code 2.1.38)
+# Skill & ToolSearch Tools - Deep Analysis (Claude Code 2.1.76)
 
 > Complete analysis of skill execution and deferred tool loading: Skill, ToolSearch.
 

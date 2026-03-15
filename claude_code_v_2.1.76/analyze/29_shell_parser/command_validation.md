@@ -2,7 +2,7 @@
 
 ## Module Overview
 
-The Shell Parser module in Claude Code v2.1.38 is a critical security component. It intercepts
+The Shell Parser module in Claude Code v2.1.76 is a critical security component. It intercepts
 all `Bash` tool calls to perform multi-layer security analysis before any command executes on the
 host system.
 

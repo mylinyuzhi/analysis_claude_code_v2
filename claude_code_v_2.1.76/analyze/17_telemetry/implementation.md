@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Telemetry system in Claude Code v2.1.38 is designed for "Privacy-First" event reporting. It uses a tiered approach where events are buffered locally, sanitized at the call site, and then dispatched to multiple sinks (Segment, Datadog, and an internal OpenTelemetry collector) using configurable sampling rates.
+The Telemetry system in Claude Code v2.1.76 is designed for "Privacy-First" event reporting. It uses a tiered approach where events are buffered locally, sanitized at the call site, and then dispatched to multiple sinks (Segment, Datadog, and an internal OpenTelemetry collector) using configurable sampling rates.
 
 ## Related Symbols
 
@@ -59,6 +59,30 @@ Manages the flow of telemetry data from the agent to various cloud providers wit
 
 ---
 
+## New in v2.1.76
+
+### Session Quality Survey (`feedbackSurveyRate`)
+
+v2.1.76 introduces a configurable session quality survey. The `feedbackSurveyRate` setting in `settings.json` controls the probability (0.0–1.0) that a quality survey prompt is shown at the end of a session.
+
+**How it works:**
+- `feedbackSurveyRate` defaults to a low value (e.g., 0.1 = 10% of sessions).
+- At session end, a random float is compared against `feedbackSurveyRate`. If below the threshold, a brief survey is shown asking the user to rate the session quality.
+- The survey result is captured in the `feedbackSurvey` AppState field (`{ timeLastShown, submitCountAtLastAppearance }`) and emitted as a telemetry event.
+- Survey responses are logged via the standard `logEvent` / OTEL pipeline rather than a separate system.
+
+### `speed` Attribute in OTel Events (Fast Mode)
+
+When fast mode is active, the internal OpenTelemetry event for each API call is now annotated with a `speed` attribute (e.g., `speed: "fast"` vs `speed: "standard"`). This allows Anthropic engineering to correlate latency distributions with the fast-mode routing path in dashboards.
+
+**Integration point:** `logToInternalCollector` (FX6) reads the current `isFastMode` state from the session context and appends `speed: isFastMode ? "fast" : "standard"` to the OTel span attributes before flushing.
+
+### `tool_decision` OTel Event Fix (Headless Mode)
+
+In v2.1.38, the `tool_decision` OTel event was silently dropped in headless (non-interactive) mode because the permission context was not available in that code path. v2.1.76 fixes this by always emitting `tool_decision` regardless of interactive mode, using a fallback permission context when the UI-bound context is unavailable.
+
+---
+
 ## Code Implementation (Deobfuscated)
 
 ### getSanitizedCommandType - Privacy filter for terminal commands
@@ -87,19 +111,19 @@ function z_q(A) {
 function getSanitizedCommandType(command) {
     // AD splits the command into individual statements (handling pipes/semicolons)
     const statements = splitCommandStatements(command);
-    
+
     if (statements.length === 0) return "other";
-    
+
     // Check each statement in the command
     for (const statement of statements) {
         const binaryName = statement.trim().split(" ")[0] || "";
-        
+
         // SAFE_COMMAND_WHITELIST includes "git", "npm", "ls", "grep", etc.
         if (SAFE_COMMAND_WHITELIST.includes(binaryName)) {
             return binaryName;
         }
     }
-    
+
     return "other";
 }
 ```
@@ -126,7 +150,7 @@ tp = KA((A) => {
         deviceId: q,
         sessionId: U6(),
         email: Jwz(),
-        appVersion: "2.1.38",
+        appVersion: "2.1.76",
         platform: xA.platform,
         organizationUuid: $,
         accountUuid: O,
@@ -147,26 +171,26 @@ tp = KA((A) => {
 const getUserMetadata = memoize((includeExtendedInfo) => {
     const deviceId = getDeviceId();
     const config = getGlobalConfig();
-    
+
     let subType, rateLimitTier, firstUseTimestamp;
-    
+
     if (includeExtendedInfo) {
         subType = getSubscriptionType() || undefined;
         rateLimitTier = getRateLimitTier() || undefined;
-        
+
         if (subType && config.claudeCodeFirstTokenDate) {
             const date = new Date(config.claudeCodeFirstTokenDate).getTime();
             if (!isNaN(date)) firstUseTimestamp = date;
         }
     }
-    
+
     const auth = getAuthInfo();
-    
+
     return {
         deviceId: deviceId,
         sessionId: getSessionId(),
         email: getMaskedEmail(),
-        appVersion: "2.1.38",
+        appVersion: "2.1.76",
         platform: process.platform,
         organizationUuid: auth?.organizationUuid,
         accountUuid: auth?.accountUuid,

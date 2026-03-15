@@ -1,7 +1,7 @@
 # Spawn Mechanisms Deep Dive - Agent Teams
 
 > **Module**: Agent Teams - Backend Execution Modes
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: Comprehensive analysis of all 3 teammate spawning modes with algorithmic detail
 
 ---

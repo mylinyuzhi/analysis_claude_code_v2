@@ -1,4 +1,4 @@
-# Browser Control Tool Catalog (Claude Code 2.1.38)
+# Browser Control Tool Catalog (Claude Code 2.1.76)
 
 > Complete reference of all 17 MCP tools exposed by the `claude-in-chrome` server.
 > Source: `CHROME_TOOLS` (Qe) in `chunks.166.mjs:3-457`

@@ -1,4 +1,4 @@
-# Plugin System Integration Overview (Claude Code 2.1.38)
+# Plugin System Integration Overview (Claude Code 2.1.76)
 
 > Quick reference for understanding how plugins integrate with Claude Code's core systems.
 
@@ -11,9 +11,9 @@
 | `implementation.md` | Core plugin loading, caching, marketplace, security |
 | `marketplace.md` | Marketplace sources, installation, enterprise policy |
 | `plugin_hooks.md` | Hook registration, hot-reload, lifecycle |
-| `skills_and_commands.md` | Skills and Commands integration (NEW) |
-| `agents_and_output_styles.md` | Agents and Output Styles (NEW) |
-| `cli_and_telemetry.md` | CLI commands and telemetry events (NEW) |
+| `skills_and_commands.md` | Skills and Commands integration |
+| `agents_and_output_styles.md` | Agents and Output Styles |
+| `cli_and_telemetry.md` | CLI commands and telemetry events |
 
 ---
 
@@ -183,6 +183,7 @@ Priority: `local` > `project` > `user`
   "name": "my-plugin",
   "version": "1.0.0",
   "description": "Plugin description",
+  "pathPattern": "**/*.py",
   "commands": {
     "my-cmd": { "source": "commands/my-cmd.md", "description": "..." }
   },

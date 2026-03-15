@@ -1,7 +1,7 @@
 # System Reminder Implementation Details
 
 > **Module**: System Reminders - Core Implementation
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Source**: `chunks.173.mjs:490-1131`, `chunks.142.mjs:1948-2865`
 
 ---
@@ -145,14 +145,17 @@ normalizeAttachmentForAPI(attachment)
     ├─> Pre-switch check (team mode types)
     │     └─> teammate_mailbox, team_context
     │
-    ├─> Main switch (40+ cases)
+    ├─> Main switch (57+ cases)
     │     ├─> File types: directory, file, edited_text_file, compact_file_reference, pdf_reference
     │     ├─> IDE types: selected_lines_in_ide, opened_file_in_ide
     │     ├─> Todo/Task types: todo, todo_reminder, task_reminder, task_status, task_progress
     │     ├─> Memory types: nested_memory, invoked_skills, skill_listing
     │     ├─> Mode types: plan_mode, plan_mode_reentry, plan_mode_exit, delegate_mode, delegate_mode_exit
     │     ├─> Hook types: async_hook_response, hook_blocking_error, hook_success, hook_additional_context
+    │     ├─> New hook types (v2.1.76): post_compact, elicitation, elicitation_result,
+    │     │                             instructions_loaded, config_change, worktree_create, worktree_remove
     │     ├─> Budget types: token_usage, budget_usd
+    │     ├─> New status types (v2.1.76): session_name, cron_job
     │     ├─> Other types: mcp_resource, agent_mention, diagnostics, queued_command, ultramemory
     │     └─> Silent types: already_read_file, command_permissions, edited_image_file, etc.
     │
@@ -180,7 +183,7 @@ normalizeAttachmentForAPI(attachment)
 
 Plan mode has the most sophisticated reminder system with multiple variants (full, iterative, sparse, subagent).
 
-> **详细分析见**: [types_mode_control.md](./types_mode_control.md) - 包含所有变体的完整代码、输出格式和触发条件
+> **Detailed analysis**: [types_mode_control.md](./types_mode_control.md) - Contains full code, output format, and trigger conditions for all variants
 
 ### Variant Selection Flow
 
@@ -192,7 +195,7 @@ Plan mode has the most sophisticated reminder system with multiple variants (ful
                             │
                             ↓
                 ┌───────────────────────┐
-                │  planModeReminderDispatcher│
+                │   planModeReminderDispatcher│
                 │          (azz)              │
                 └─────────────┬───────────────┘
                               │
@@ -204,6 +207,8 @@ Plan mode has the most sophisticated reminder system with multiple variants (ful
 ```
 
 **Token efficiency**: Sparse reminders (~150 tokens) save ~1300 tokens vs. full (~1500 tokens).
+
+**v2.1.76 change**: The `/plan` command now accepts an optional description argument. When provided, the plan attachment includes the description in the `plan_mode` object which is then rendered in the full reminder variant to give the LLM initial task context before exploration begins.
 
 ---
 
@@ -351,11 +356,11 @@ You are a teammate in team "${attachment.teamName}".
 
 ## Helper Functions
 
-> **注意**: 类型相关的 helper functions 在对应的 per-type 文档中详细分析
+> Note: Type-related helper functions are analyzed in detail in the corresponding per-type documents.
 
 ### countTokensSinceUltramemory (jIY) - Token Cooldown Tracking
 
-> **详细分析**: [types_skills_memory.md](./types_skills_memory.md#ultramemory)
+> **Detailed analysis**: [types_skills_memory.md](./types_skills_memory.md#ultramemory)
 
 **What it does:** Counts assistant tokens since the last ultramemory attachment.
 
@@ -367,7 +372,7 @@ You are a teammate in team "${attachment.teamName}".
 
 ### shouldSendUltramemoryAttachment (MIY) - Cooldown Check
 
-> **详细分析**: [types_skills_memory.md](./types_skills_memory.md#ultramemory)
+> **Detailed analysis**: [types_skills_memory.md](./types_skills_memory.md#ultramemory)
 
 **What it does:** Determines if ultramemory attachment should be sent based on token cooldown.
 
@@ -379,7 +384,7 @@ You are a teammate in team "${attachment.teamName}".
 
 ### countUserTurnsSincePlanModeExit (CIY) - Plan Mode Tracking
 
-> **详细分析**: [types_mode_control.md](./types_mode_control.md#plan_mode_exit)
+> **Detailed analysis**: [types_mode_control.md](./types_mode_control.md#plan_mode_exit)
 
 **What it does:** Counts non-meta user messages since exiting plan mode.
 
@@ -389,7 +394,7 @@ You are a teammate in team "${attachment.teamName}".
 
 ### isPathDisallowed (sW1) - Permission Check
 
-> **详细分析**: [types_file_context.md](./types_file_context.md#trigger-conditions-summary)
+> **Detailed analysis**: [types_file_context.md](./types_file_context.md#trigger-conditions-summary)
 
 **What it does:** Checks if a path is denied read access based on permission rules.
 

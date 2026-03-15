@@ -1,7 +1,7 @@
 # Session Memory Persistence & Recovery for Agent Teams
 
 > **Module**: Agent Teams - Session Memory & Persistence
-> **Version**: Claude Code 2.1.38
+> **Version**: Claude Code 2.1.76
 > **Purpose**: Document session memory file format, recovery mechanisms, and limitations for team contexts
 
 ---
@@ -32,13 +32,16 @@ Session memory in Claude Code provides **per-session persistent storage** for co
 - **No teammate conversation history**: Teammate interactions NOT saved to session memory
 - **Manual recovery only**: User must recreate team after session restart
 
+**v2.1.76 improvement**:
+- **Session name preserved through compaction**: The session name (displayed in UI and used for `/resume`) is now preserved correctly when a compaction occurs. Previously, compaction could reset or lose the session name label. This improves the user experience for long-running sessions involving agent teams where compaction is more likely to trigger.
+
 **Architecture**:
 - Session memory: `~/.claude/{sessionId}/session-memory/*.md` - General conversation context
 - Team state: `~/.claude/teams/{teamName}/` - Team config and member metadata
 - Task state: `~/.claude/tasks/` - Task ledger (shared across teams)
 - Mailboxes: `~/.claude/teams/{teamName}/mailboxes/{agentName}/` - Message queues
 
-**Recovery model**: **Partial recovery only**—filesystem state (teams, tasks, mailboxes) persists, but active teammates must be manually respawned.
+**Recovery model**: **Partial recovery only** — filesystem state (teams, tasks, mailboxes) persists, but active teammates must be manually respawned.
 
 **Key insight**: Agent teams prioritize **stateless teammates** (can be spawned/killed without data loss) over **stateful teammates** (would require complex checkpoint/restore). This simplifies implementation but requires manual team recreation after restart.
 
@@ -83,13 +86,13 @@ function getSessionMemoryDirectory() {
     return joinPath(getProjectRoot(), getSessionId(), "session-memory") + pathSeparator;
 }
 
-// Mapping: hT6→getSessionMemoryDirectory, kE→joinPath, fJ→getProjectRoot,
-// h6→getClaudeDirectory, U6→getSessionId, DG→pathSeparator
+// Mapping: hT6->getSessionMemoryDirectory, kE->joinPath, fJ->getProjectRoot,
+// h6->getClaudeDirectory, U6->getSessionId, DG->pathSeparator
 ```
 
 **Path resolution**:
-- `getProjectRoot()` → `~/.claude/` (user home directory)
-- `getSessionId()` → Unique session identifier (e.g., `session-abc123`)
+- `getProjectRoot()` -> `~/.claude/` (user home directory)
+- `getSessionId()` -> Unique session identifier (e.g., `session-abc123`)
 - Result: `~/.claude/session-abc123/session-memory/`
 
 **Why this structure**:
@@ -110,6 +113,16 @@ function getSessionMemoryDirectory() {
 | `context_{topic}.md` | Topic-specific context | `context_api_design.md` |
 | `scratch/temp_*.txt` | Temporary working files | Intermediate calculation results |
 
+**v2.1.76 session name preservation**:
+
+In v2.1.76, when compaction triggers, the session name is explicitly preserved:
+- The session name (visible in UI and referenced by `/resume`) is saved before compaction begins
+- After compaction writes the new summary, the session name is restored to the session metadata
+- Previously, some compaction paths could reset the name to a default or empty string
+- This matters especially for agent team sessions, which tend to run longer and are more likely to trigger compaction
+
+**Why session name matters for teams**: Users often name sessions descriptively ("web-app team session") to find them later with `/resume`. Losing the name after compaction made it harder to resume long-running team sessions.
+
 **File operations**:
 
 ```javascript
@@ -128,25 +141,26 @@ let summaryContent = readFileSync(summaryPath, "utf-8");
 - **Compact support**: Summaries reduce token usage after compaction
 - **User control**: User can manually edit session memory files
 
-**Limitation for teams**: Session memory is **per-session**, not **per-teammate**. Teammates don't have separate session memory directories—they share the team lead's session.
+**Limitation for teams**: Session memory is **per-session**, not **per-teammate**. Teammates don't have separate session memory directories — they share the team lead's session.
 
 ### 2.3 Session Memory Integration with Teams
 
 **Problem**: How does session memory interact with agent teams?
 
-**Current integration**: **Minimal**—session memory used only for team lead, not teammates.
+**Current integration**: **Minimal** — session memory used only for team lead, not teammates.
 
 **What's NOT in session memory**:
-- ❌ Team config (stored in `~/.claude/teams/{teamName}/team.json`)
-- ❌ Active teammate list (in-memory only, lost on exit)
-- ❌ Teammate conversation history (ephemeral, not saved)
-- ❌ Mailbox messages (stored in filesystem, not session memory)
-- ❌ Task state (stored in `~/.claude/tasks/`, not session memory)
+- Team config (stored in `~/.claude/teams/{teamName}/team.json`)
+- Active teammate list (in-memory only, lost on exit)
+- Teammate conversation history (ephemeral, not saved)
+- Mailbox messages (stored in filesystem, not session memory)
+- Task state (stored in `~/.claude/tasks/`, not session memory)
 
 **What IS in session memory**:
-- ✅ Team lead's conversation history (normal session memory behavior)
-- ✅ Auto memory for team lead (if enabled)
-- ✅ Plan files (in `plans/{agentId}/plan.md`, but separate from session-memory/)
+- Team lead's conversation history (normal session memory behavior)
+- Auto memory for team lead (if enabled)
+- Plan files (in `plans/{agentId}/plan.md`, but separate from session-memory/)
+- Session name (now preserved through compaction - v2.1.76)
 
 **Why minimal integration**:
 - **Stateless teammates**: Teammates designed to be ephemeral (spawn/kill without persistence)
@@ -187,11 +201,6 @@ let summaryContent = readFileSync(summaryPath, "utf-8");
 **Team config schema** (`team.json`):
 
 ```javascript
-// ============================================
-// Team config file structure
-// Location: Persisted to ~/.claude/teams/{teamName}/team.json
-// ============================================
-
 {
   "name": "web-app-team",
   "description": "Team for building web application",
@@ -202,7 +211,8 @@ let summaryContent = readFileSync(summaryPath, "utf-8");
       "type": "lead",
       "mode": "delegate",
       "active": true,
-      "color": "#6366f1"
+      "color": "#6366f1",
+      "background": false
     },
     {
       "name": "researcher",
@@ -212,7 +222,8 @@ let summaryContent = readFileSync(summaryPath, "utf-8");
       "taskId": "3",
       "plan_mode_required": false,
       "color": "#8b5cf6",
-      "awaitingPlanApproval": false
+      "awaitingPlanApproval": false,
+      "background": false
     },
     {
       "name": "backend-dev",
@@ -221,7 +232,8 @@ let summaryContent = readFileSync(summaryPath, "utf-8");
       "active": true,
       "paneId": "pane-abc123",
       "backendType": "tmux",
-      "color": "#10b981"
+      "color": "#10b981",
+      "background": true
     }
   ]
 }
@@ -231,27 +243,29 @@ let summaryContent = readFileSync(summaryPath, "utf-8");
 
 | Field | Type | Meaning | Persistent? |
 |-------|------|---------|-------------|
-| `name` | string | Agent name (unique within team) | ✅ Yes |
-| `type` | string | `"lead"`, `"in_process_teammate"`, `"pane_teammate"` | ✅ Yes |
-| `mode` | string | Permission mode (`"default"`, `"plan"`, `"delegate"`) | ✅ Yes |
-| `active` | boolean | Is agent currently working (or idle)? | ✅ Yes |
-| `taskId` | string | Claimed task ID (if any) | ✅ Yes |
-| `plan_mode_required` | boolean | Must submit plan for approval | ✅ Yes |
-| `paneId` | string | Terminal pane ID (pane teammates only) | ✅ Yes |
-| `awaitingPlanApproval` | boolean | Waiting for lead to approve plan | ✅ Yes |
+| `name` | string | Agent name (unique within team) | Yes |
+| `type` | string | `"lead"`, `"in_process_teammate"`, `"pane_teammate"` | Yes |
+| `mode` | string | Permission mode (`"default"`, `"plan"`, `"delegate"`) | Yes |
+| `active` | boolean | Is agent currently working (or idle)? | Yes |
+| `taskId` | string | Claimed task ID (if any) | Yes |
+| `plan_mode_required` | boolean | Must submit plan for approval | Yes |
+| `paneId` | string | Terminal pane ID (pane teammates only) | Yes |
+| `awaitingPlanApproval` | boolean | Waiting for lead to approve plan | Yes |
+| `background` | boolean | Background worker (v2.1.76) | Yes |
 
 **What persists across sessions**:
-- ✅ Team membership roster
-- ✅ Agent permissions (mode)
-- ✅ Task assignments
-- ✅ Mailbox messages
-- ✅ Team configuration (name, description)
+- Team membership roster
+- Agent permissions (mode)
+- Task assignments
+- Mailbox messages
+- Team configuration (name, description)
+- Background agent flags (v2.1.76)
 
 **What does NOT persist**:
-- ❌ Active in-process teammates (process state lost)
-- ❌ Agent conversation history (ephemeral)
-- ❌ Current agent loop position (must restart from beginning)
-- ❌ Pending tool executions (aborted on exit)
+- Active in-process teammates (process state lost)
+- Agent conversation history (ephemeral)
+- Current agent loop position (must restart from beginning)
+- Pending tool executions (aborted on exit)
 
 **Why filesystem persistence**:
 - **Crash resilience**: Team state survives process crashes
@@ -265,8 +279,8 @@ let summaryContent = readFileSync(summaryPath, "utf-8");
 **In-process teammate lifecycle**:
 
 ```
-Session Start → Spawn teammate → Agent loop runs in-memory → Session End → Process exits
-                                                                              ↓
+Session Start -> Spawn teammate -> Agent loop runs in-memory -> Session End -> Process exits
+                                                                              |
                                                                     Teammate LOST (no checkpoint)
 ```
 
@@ -279,8 +293,8 @@ Session Start → Spawn teammate → Agent loop runs in-memory → Session End �
 **Pane-based teammate lifecycle**:
 
 ```
-Session Start → Spawn pane → New Claude process → Agent loop → Session End → Pane exits
-                               (separate process)                              ↓
+Session Start -> Spawn pane -> New Claude process -> Agent loop -> Session End -> Pane exits
+                               (separate process)                              |
                                                                     Pane LOST (process killed)
                                                                     BUT pane ID + config persisted
 ```
@@ -300,7 +314,7 @@ Session Start → Spawn pane → New Claude process → Agent loop → Session E
 
 ### 3.3 Mailbox vs. Session Memory
 
-**Problem**: Where should messages be stored—mailbox or session memory?
+**Problem**: Where should messages be stored — mailbox or session memory?
 
 **Solution**: Mailboxes (separate from session memory).
 
@@ -310,10 +324,10 @@ Session Start → Spawn pane → New Claude process → Agent loop → Session E
 |---------|---------|----------------|
 | Location | `~/.claude/teams/{teamName}/mailboxes/{agentName}/` | `~/.claude/{sessionId}/session-memory/` |
 | Purpose | Inter-agent message delivery | Conversation context storage |
-| Persistence | ✅ Across sessions | ✅ Across sessions |
+| Persistence | Across sessions | Across sessions |
 | Format | JSON (structured messages) | Markdown (human-readable) |
 | Access pattern | Polling (read + delete) | Direct file I/O |
-| Multi-process | ✅ Yes (file locking) | ❌ No (single session) |
+| Multi-process | Yes (file locking) | No (single session) |
 
 **Why separate mailboxes**:
 - **Multi-process coordination**: Pane teammates need shared message queue
@@ -346,16 +360,17 @@ claude code --resume session-abc123  # Loads transcript, continues conversation
 ```
 
 **What's restored on resume**:
-- ✅ Conversation history (from `transcript.jsonl`)
-- ✅ Session memory files (`session-memory/*.md`)
-- ✅ Auto memory state
-- ✅ Plan mode state (if in plan mode when exited)
+- Conversation history (from `transcript.jsonl`)
+- Session memory files (`session-memory/*.md`)
+- Auto memory state
+- Plan mode state (if in plan mode when exited)
+- Session name (preserved through compaction in v2.1.76)
 
 **What's NOT restored on resume**:
-- ❌ Active agent teams
-- ❌ In-process teammates
-- ❌ Background tasks
-- ❌ Pending tool executions
+- Active agent teams
+- In-process teammates
+- Background tasks
+- Pending tool executions
 
 ### 4.2 Team Resume Limitation
 
@@ -375,13 +390,13 @@ Resume Session 1:
   claude code --resume session-abc123
 
   Result:
-  - Conversation history restored ✅
-  - Team directory still exists (~/.claude/teams/web-app-team/) ✅
-  - Team config file persists ✅
-  - Mailbox messages persist ✅
-  - Tasks persist ✅
-  - Active teammates LOST ❌ (not respawned)
-  - User must manually recreate team ❌
+  - Conversation history restored (session name preserved - v2.1.76)
+  - Team directory still exists (~/.claude/teams/web-app-team/)
+  - Team config file persists
+  - Mailbox messages persist
+  - Tasks persist
+  - Active teammates LOST (not respawned)
+  - User must manually recreate team
 ```
 
 **Why teams not restored**:
@@ -405,20 +420,20 @@ Resume Session 1:
 ```
 Filesystem state:
 ~/.claude/teams/web-app-team/
-  ├── team.json               ✅ Persists (member roster, config)
+  ├── team.json               - Persists (member roster, config)
   └── mailboxes/
       ├── researcher/
-      │   └── message-001.json ✅ Persists (unread messages)
+      │   └── message-001.json - Persists (unread messages)
       └── backend-dev/
-          └── message-001.json ✅ Persists
+          └── message-001.json - Persists
 
 ~/.claude/tasks/
-  ├── 1.json                   ✅ Persists (task status, owner, blockedBy)
-  ├── 2.json                   ✅ Persists
+  ├── 1.json                   - Persists (task status, owner, blockedBy)
+  ├── 2.json                   - Persists
   └── tasks.lock
 
 Project files:
-src/api/users.js               ✅ Persists (code written by teammates)
+src/api/users.js               - Persists (code written by teammates)
 ```
 
 **Recovery process** (manual):
@@ -475,19 +490,19 @@ Session 2 (new session, no resume):
 
 | System | Location | Purpose | Persistence | Multi-Process |
 |--------|----------|---------|-------------|---------------|
-| **Session Memory** | `~/.claude/{sessionId}/session-memory/` | Conversation context | ✅ Across sessions | ❌ Single session |
-| **Team State** | `~/.claude/teams/{teamName}/` | Team config + mailboxes | ✅ Across sessions | ✅ Multi-process |
-| **Task Ledger** | `~/.claude/tasks/` | Global task list | ✅ Across sessions | ✅ Multi-process |
+| **Session Memory** | `~/.claude/{sessionId}/session-memory/` | Conversation context | Across sessions | Single session |
+| **Team State** | `~/.claude/teams/{teamName}/` | Team config + mailboxes | Across sessions | Multi-process |
+| **Task Ledger** | `~/.claude/tasks/` | Global task list | Across sessions | Multi-process |
 
 **Use case mapping**:
 
 ```
-Conversation summary         → Session Memory (summary.md)
-Team member roster           → Team State (team.json)
-Inter-agent messages         → Team State (mailboxes/)
-Task assignments             → Task Ledger (tasks/*.json)
-Plan files                   → Session directory (plans/{agentId}/plan.md)
-Auto memory                  → Session Memory (auto-memory/)
+Conversation summary         -> Session Memory (summary.md)
+Team member roster           -> Team State (team.json)
+Inter-agent messages         -> Team State (mailboxes/)
+Task assignments             -> Task Ledger (tasks/*.json)
+Plan files                   -> Session directory (plans/{agentId}/plan.md)
+Auto memory                  -> Session Memory (auto-memory/)
 ```
 
 **Why three systems**:
@@ -501,25 +516,25 @@ Auto memory                  → Session Memory (auto-memory/)
 
 ```
 User input
-  ↓
+  |
 Team Lead Session Memory (conversation history)
-  ↓
+  |
 TeamCreate tool
-  ↓
+  |
 Team State (team.json created)
-  ↓
+  |
 Spawn teammates
-  ↓
+  |
 Task Ledger (teammate claims task)
-  ↓
+  |
 SendMessage tool
-  ↓
+  |
 Mailbox (message written to ~/.claude/teams/{teamName}/mailboxes/{receiver}/)
-  ↓
+  |
 Teammate polls mailbox
-  ↓
+  |
 TaskUpdate tool
-  ↓
+  |
 Task Ledger (task marked completed)
 ```
 
@@ -551,15 +566,15 @@ Scenario: Crash during agent loop
   Teammate 1 (in-process): Running
   Teammate 2 (pane): Running
 
-  → System crashes (e.g., segfault, power loss)
+  -> System crashes (e.g., segfault, power loss)
 
   Result:
-  - Team config: ✅ Persists (last saved state)
-  - Task ledger: ✅ Persists (last committed task updates)
-  - Mailboxes: ✅ Persist (messages written to disk)
-  - In-process teammates: ❌ Lost (no checkpoint)
-  - Pane teammates: ❌ Lost (process killed)
-  - Pending tool executions: ❌ Lost (in-memory state)
+  - Team config: Persists (last saved state)
+  - Task ledger: Persists (last committed task updates)
+  - Mailboxes: Persist (messages written to disk)
+  - In-process teammates: Lost (no checkpoint)
+  - Pane teammates: Lost (process killed)
+  - Pending tool executions: Lost (in-memory state)
 ```
 
 **Recovery steps**:
@@ -675,7 +690,7 @@ rm ~/.claude/teams/*/mailboxes/*/inbox.lock
 
 **Problem**: Should team state be part of session memory?
 
-**Solution**: No—separate directories.
+**Solution**: No — separate directories.
 
 **Rationale**:
 1. **Lifetime mismatch**: Teams may outlive sessions (if user wants to resume team later)
@@ -695,7 +710,7 @@ rm ~/.claude/teams/*/mailboxes/*/inbox.lock
 
 **Problem**: Should teams be automatically restored when resuming a session?
 
-**Solution**: No—manual recreation required.
+**Solution**: No — manual recreation required.
 
 **Rationale**:
 1. **Complexity**: Restoring in-process teammates requires complex state serialization
@@ -749,6 +764,6 @@ Key functions in this document:
 | **Content** | Markdown files (conversation context) | JSON files (config) + mailboxes |
 | **Lifetime** | Session duration (or until manual cleanup) | Until team deleted |
 | **Access** | Single session (team lead only) | Multi-process (all teammates) |
-| **Resume** | ✅ Restored on `--resume` | ❌ NOT restored (manual recreation) |
+| **Resume** | Restored on `--resume` (name preserved v2.1.76) | NOT restored (manual recreation) |
 | **Cleanup** | Manual (delete session directory) | Automatic on TeamDelete |
 | **Purpose** | Preserve conversation context | Coordinate multi-agent work |

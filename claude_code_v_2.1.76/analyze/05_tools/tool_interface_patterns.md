@@ -1,4 +1,4 @@
-# Tool Interface Patterns - Deep Analysis (Claude Code 2.1.38)
+# Tool Interface Patterns - Deep Analysis (Claude Code 2.1.76)
 
 > Complete analysis of common tool interface patterns: object structure, validation, permissions, concurrency, and rendering.
 

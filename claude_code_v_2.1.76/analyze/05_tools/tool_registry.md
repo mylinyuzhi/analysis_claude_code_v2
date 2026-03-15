@@ -1,4 +1,4 @@
-# Tool Registry - Complete Overview (Claude Code 2.1.38)
+# Tool Registry - Complete Overview (Claude Code 2.1.76)
 
 > Master index of all built-in tools with links to detailed analysis documents.
 
@@ -24,6 +24,8 @@
 | **Team** | TeamCreate, TeamDelete, SendMessage | chunks.141.mjs |
 | **Plan Mode** | EnterPlanMode, ExitPlanMode, AskUserQuestion | chunks.88.mjs, chunks.139-140.mjs |
 | **Skills & MCP** | Skill, ToolSearch | chunks.132.mjs, chunks.140.mjs |
+| **Worktree** | EnterWorktree, ExitWorktree (v2.1.72+) | chunks.149.mjs |
+| **Cron** | CronCreate, CronDelete, CronList (v2.1.76) | chunks.89.mjs, chunks.193.mjs |
 | **MCP** | Dynamic (mcp__*) | Various |
 
 ---
@@ -55,7 +57,7 @@
 
 | Document | Tool | Description |
 |----------|------|-------------|
-| [agent_tool.md](agent_tool.md) | Task | Sub-agent spawning with background support |
+| [agent_tool.md](agent_tool.md) | Task | Sub-agent spawning with background support, per-invocation model selection (v2.1.72+), and worktree isolation (v2.1.76) |
 
 ### Task Management Tools
 
@@ -80,6 +82,18 @@
 | Document | Tool | Description |
 |----------|------|-------------|
 | [skill_toolsearch_tools.md](skill_toolsearch_tools.md) | Skill, ToolSearch | Slash command execution and deferred MCP tool loading |
+
+### Worktree Tools (v2.1.72+)
+
+| Document | Tool | Description |
+|----------|------|-------------|
+| [worktree_tools.md](worktree_tools.md) | EnterWorktree, ExitWorktree | Git worktree creation/cleanup for isolated agent workspaces |
+
+### Cron Tools (v2.1.76)
+
+| Document | Tool | Description |
+|----------|------|-------------|
+| [cron_tools.md](cron_tools.md) | CronCreate, CronDelete, CronList | Session-scoped recurring task scheduling, survives compaction, integrates with /loop |
 
 ### Infrastructure
 
@@ -107,11 +121,6 @@ Both `TaskStop` and `TaskOutput` use a **Handler Registry Pattern** to handle al
 |------|---------|---------------------|----------------|
 | `TaskStop` | `KillShell` | `local_bash`, `local_agent`, `remote_agent` | Handler Registry (`Vg1`) |
 | `TaskOutput` | `AgentOutputTool`, `BashOutputTool` | `local_bash`, `local_agent`, `remote_agent` | `buildTaskSnapshot` (`EW6`) |
-
-**Why unified tools?**
-1. **Simplicity** - Users only need to remember one tool name per operation
-2. **Backwards Compatibility** - Old names work as aliases
-3. **Extensibility** - New task types can be added without creating new tools
 
 **TaskStop Kill Chain:**
 ```
@@ -299,9 +308,16 @@ TaskOutput.call({ task_id: "xxx" })
     prompt: string,             // Task description (required)
     subagent_type: string,      // Agent type (required)
     description?: string,       // Short description (3-5 words)
-    model?: "sonnet" | "opus" | "haiku",
+
+    // v2.1.72+: Per-invocation model selection (restored)
+    model?: string,             // Model ID override (e.g., "claude-haiku-3-5")
+
     resume?: string,            // Agent ID to resume
     run_in_background?: boolean,
+
+    // v2.1.76: Declarative worktree isolation
+    isolation?: "none" | "worktree",
+
     max_turns?: number,
     name?: string,              // Teammate name
     team_name?: string,         // Team name
@@ -323,6 +339,107 @@ TaskOutput.call({ task_id: "xxx" })
     status: "async_launched",
     agentId: string,
     outputFile: string
+}
+```
+
+### EnterWorktree Tool (v2.1.72+)
+
+```javascript
+// Input
+{
+    branch?: string,            // Branch name (auto-generated if omitted)
+    path?: string,              // Worktree path (temp dir if omitted)
+    sparsePaths?: string[],     // Sparse checkout paths (v2.1.76)
+    base?: string               // Base ref (defaults to HEAD)
+}
+
+// Output
+{
+    worktreePath: string,       // Path to created worktree
+    branch: string,             // Branch name in worktree
+    previousCwd: string,        // Previous CWD (pass to ExitWorktree)
+    sparseCheckout: boolean      // Whether sparse checkout was enabled
+}
+```
+
+### ExitWorktree Tool (v2.1.72+)
+
+```javascript
+// Input
+{
+    worktreePath: string,       // The worktreePath from EnterWorktree (required)
+    previousCwd?: string,       // The previousCwd from EnterWorktree
+    delete_branch?: boolean     // Delete the branch after exiting (default: false)
+}
+
+// Output
+{
+    success: boolean,
+    previousCwd: string,        // Directory restored to
+    branchDeleted: boolean,
+    message: string
+}
+```
+
+### CronCreate Tool (v2.1.76)
+
+```javascript
+// Input
+{
+    schedule: string,           // "5m", "30s", "1h" or cron expression (required)
+    prompt: string,             // Prompt/command to run (required)
+    type?: "agent" | "bash",    // Execution type (default: "agent")
+    name?: string,              // Display name
+    max_runs?: number,          // Max runs (default: unlimited)
+    start_at?: string           // ISO 8601 start time
+}
+
+// Output
+{
+    jobId: string,              // Use with CronDelete
+    nextRun: string,            // ISO 8601 next run time
+    schedule: string            // Human-readable schedule
+}
+```
+
+### CronDelete Tool (v2.1.76)
+
+```javascript
+// Input
+{
+    jobId: string               // Job ID from CronCreate (required)
+}
+
+// Output
+{
+    success: boolean,
+    jobId: string,
+    message: string
+}
+```
+
+### CronList Tool (v2.1.76)
+
+```javascript
+// Input
+{
+    include_completed?: boolean  // Include completed jobs (default: false)
+}
+
+// Output
+{
+    jobs: Array<{
+        jobId: string,
+        name: string,
+        schedule: string,
+        type: "agent" | "bash",
+        status: "active" | "completed" | "cancelled" | "error",
+        runsCompleted: number,
+        maxRuns: number | null,
+        nextRun: string | null,
+        lastRun: string | null,
+        lastResult: string | null
+    }>
 }
 ```
 
@@ -351,8 +468,6 @@ TaskOutput.call({ task_id: "xxx" })
 ### TaskOutput Tool (`kW6`)
 
 **Also known as:** `AgentOutputTool`, `BashOutputTool` (aliases for backwards compatibility)
-
-**Can retrieve output from:** `local_bash`, `local_agent`, `remote_agent` tasks
 
 ```javascript
 // Input
@@ -398,11 +513,11 @@ TaskOutput.call({ task_id: "xxx" })
 ### TaskCreate Tool (`Nh`)
 
 ```javascript
-// Input
+// Input (v2.1.76: activeForm is now optional)
 {
     subject: string,            // Brief title for the task (required)
     description: string,        // Detailed description (required)
-    activeForm?: string,        // Present continuous form for spinner
+    activeForm?: string,        // Present continuous form for spinner (optional in v2.1.76)
     metadata?: object           // Arbitrary metadata for tracking
 }
 
@@ -568,30 +683,35 @@ TaskOutput.call({ task_id: "xxx" })
 
 | Tool | Concurrency Safe | Read-Only | Streaming |
 |------|-----------------|-----------|-----------|
-| Read | ✅ | ✅ | ❌ |
-| Write | ❌ | ❌ | ❌ |
-| Edit | ❌ | ❌ | ❌ |
-| Grep | ✅ | ✅ | ❌ |
-| Glob | ✅ | ✅ | ❌ |
-| Bash | ❌ | ❌ | ✅ |
-| WebFetch | ✅ | ✅ | ❌ |
-| WebSearch | ✅ | ✅ | ❌ |
-| Task | ❌ | ❌ | ✅ |
-| TaskStop | ✅ | ❌ | ❌ |
-| TaskOutput | ✅ | ✅ | ❌ |
-| TaskList | ✅ | ✅ | ❌ |
-| TaskGet | ✅ | ✅ | ❌ |
-| TaskCreate | ✅ | ❌ | ❌ |
-| TaskUpdate | ✅ | ❌ | ❌ |
-| TodoWrite | ✅ | ❌ | ❌ |
-| TeamCreate | ❌ | ❌ | ❌ |
-| TeamDelete | ❌ | ❌ | ❌ |
-| SendMessage | ✅ | ❌ | ❌ |
-| EnterPlanMode | ✅ | ✅ | ❌ |
-| ExitPlanMode | ✅ | ✅ | ❌ |
-| AskUserQuestion | ✅ | ✅ | ❌ |
-| Skill | ❌ | ❌ | ❌ |
-| ToolSearch | ✅ | ✅ | ❌ |
+| Read | Yes | Yes | No |
+| Write | No | No | No |
+| Edit | No | No | No |
+| Grep | Yes | Yes | No |
+| Glob | Yes | Yes | No |
+| Bash | No | No | Yes |
+| WebFetch | Yes | Yes | No |
+| WebSearch | Yes | Yes | No |
+| Task | No | No | Yes |
+| TaskStop | Yes | No | No |
+| TaskOutput | Yes | Yes | No |
+| TaskList | Yes | Yes | No |
+| TaskGet | Yes | Yes | No |
+| TaskCreate | Yes | No | No |
+| TaskUpdate | Yes | No | No |
+| TodoWrite | Yes | No | No |
+| TeamCreate | No | No | No |
+| TeamDelete | No | No | No |
+| SendMessage | Yes | No | No |
+| EnterPlanMode | Yes | Yes | No |
+| ExitPlanMode | Yes | Yes | No |
+| AskUserQuestion | Yes | Yes | No |
+| Skill | No | No | No |
+| ToolSearch | Yes | Yes | No |
+| EnterWorktree | No | No | No |
+| ExitWorktree | No | No | No |
+| CronCreate | Yes | No | No |
+| CronDelete | Yes | No | No |
+| CronList | Yes | Yes | No |
 
 ---
 
@@ -601,14 +721,16 @@ TaskOutput.call({ task_id: "xxx" })
 
 | Obfuscated | Readable | File | Type |
 |------------|----------|------|------|
-| `i5` | FileReadTool | chunks.146.mjs (Read/Write), chunks.134.mjs (Edit) | object |
+| `i5` | FileReadTool | chunks.146.mjs | object |
 | `sW` | EditTool | chunks.134.mjs:2124 | object |
-| `vj` | FileWriteTool | chunks.146.mjs (Read/Write), chunks.134.mjs (Edit):436 | object |
+| `vj` | FileWriteTool | chunks.146.mjs:436 | object |
 | `tS` | GrepTool | chunks.76.mjs:1129 | object |
 | `WB` | GlobTool | chunks.76.mjs:1495 | object |
 | `rj1` | AgentTool | chunks.132.mjs:85 | object |
 | `vW6` | TaskStopTool | chunks.139.mjs:1537 | object |
 | `kW6` | TaskOutputTool | chunks.139.mjs:1922 | object |
+| `$l4` | TaskGetTool | chunks.140.mjs:2954 | object |
+| `Ll4` | TaskListTool | chunks.141.mjs:300 | object |
 | `bO` | TodoWriteTool | chunks.48.mjs:773 | object |
 | `gd` | NotebookEditTool | chunks.134.mjs | object |
 | `wt` | SkillTool | chunks.132.mjs | object |
@@ -644,6 +766,11 @@ TaskOutput.call({ task_id: "xxx" })
 | `NJ` | TOOL_NAME_SKILL | "Skill" |
 | `dM` | TOOL_NAME_TOOL_SEARCH | "ToolSearch" |
 | `cD` | STRUCTURED_OUTPUT_NAME | "StructuredOutput" |
+| — | TOOL_NAME_ENTER_WORKTREE | "EnterWorktree" (v2.1.72+) |
+| — | TOOL_NAME_EXIT_WORKTREE | "ExitWorktree" (v2.1.72+) |
+| — | TOOL_NAME_CRON_CREATE | "CronCreate" (v2.1.76) |
+| — | TOOL_NAME_CRON_DELETE | "CronDelete" (v2.1.76) |
+| — | TOOL_NAME_CRON_LIST | "CronList" (v2.1.76) |
 
 ### Tool Whitelist Constants
 
@@ -698,3 +825,19 @@ TaskOutput.call({ task_id: "xxx" })
 | `gj1` | LocalBashTask | `local_bash` | `hjA` (kills shell process) |
 | `B_6` | LocalAgentTask | `local_agent` | `na` (aborts agent) |
 | `Qi4` | RemoteAgentTask | `remote_agent` | Handler method |
+
+---
+
+## v2.1.76 Notable Changes
+
+### New tools
+- `EnterWorktree` (added in v2.1.72, documented here): Manual git worktree creation
+- `ExitWorktree` (added in v2.1.72): Manual git worktree cleanup — pairs with EnterWorktree
+- `CronCreate` (new in v2.1.76): Schedule recurring tasks
+- `CronDelete` (new in v2.1.76): Cancel scheduled tasks
+- `CronList` (new in v2.1.76): List active cron jobs
+
+### Modified tools
+- **Agent/Task tool** (`rj1`): `model` parameter restored in v2.1.72; `isolation: "worktree"` added in v2.1.76
+- **TaskCreate**: `activeForm` field is now optional (was required in v2.1.38)
+- **Bash**: Readonly whitelist expanded with `lsof`, `pgrep`, `fmt`, `comm`, `seq`

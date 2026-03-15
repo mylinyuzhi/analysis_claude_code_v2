@@ -4,6 +4,8 @@
 
 Agent Teams (also known as Swarms) allows multiple Claude agents to work in parallel. The system utilizes terminal multiplexers (tmux or iTerm2) to provide a "Swarm View" where users can monitor all active agents simultaneously.
 
+**v2.1.76 addition**: A new in-process agent tab component (`qGz` in `chunks.192.mjs`) provides a unified agent overview within the main TUI, complementing the terminal-multiplexer-based swarm view.
+
 ## Key Components
 
 ### Terminal Backends
@@ -28,7 +30,7 @@ When a team is created or a teammate is spawned, the backend manages the layout:
 
 1. **Leader Pane**: The first agent (Team Lead) occupies a dedicated pane.
 2. **Teammate Panes**: As teammates are added, the window is split.
-3. **Rebalancing**: 
+3. **Rebalancing**:
    - The Leader pane is typically resized to 30% of the width (`rebalancePanesWithLeader`).
    - Teammate panes share the remaining 70% using a `tiled` or `main-vertical` layout.
 
@@ -58,6 +60,17 @@ Agents can run in three modes (`--teammate-mode`):
 
 **Key insight**: The use of `select-layout main-vertical` followed by a manual resize of the first pane is a reliable way to enforce the 30/70 split in tmux.
 
+### [v2.1.76] Agent Tab Component
+
+The new `qGz` component in `chunks.192.mjs` provides an in-TUI alternative to the swarm view:
+
+- Lists all active agents with their current state (selected/viewed/idle)
+- Ctrl+F to filter and kill agents without navigating to individual panes
+- CJK-safe text layout for agent names and status messages
+- Works for both in-process and pane-based agents
+
+This does not replace the tmux/iTerm2 swarm view but provides a complementary management interface accessible without leaving the main TUI.
+
 ## Related Symbols
 
 > Symbol mappings:
@@ -70,6 +83,7 @@ Key functions in this document:
 - `getBackend` (`zt`) - Detects terminal environment.
 - `createTeammatePaneInSwarmView` - Spawns a new UI pane.
 - `rebalancePanesWithLeader` - Enforces the 30/70 UI split.
+- `AgentTabComponent` (`qGz`) - NEW in v2.1.76: In-TUI agent management tab.
 
 ## Location References
 
@@ -77,3 +91,4 @@ Key functions in this document:
 - `chunks.131.mjs:1381` - `ITermBackend` class definition.
 - `chunks.131.mjs:1493` - `getBackend` logic.
 - `chunks.129.mjs` - Swarm constants.
+- `chunks.192.mjs` - `AgentTabComponent` (qGz) - NEW in v2.1.76.

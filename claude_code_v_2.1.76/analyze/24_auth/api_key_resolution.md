@@ -1,4 +1,4 @@
-# API Key Resolution Chain (Claude Code 2.1.38)
+# API Key Resolution Chain (Claude Code 2.1.76)
 
 ## Overview
 
@@ -73,15 +73,12 @@ function yO(A = {}) {
 
 // READABLE (for understanding):
 function resolveApiKeyAndSource(options = {}) {
-    // ===== BRANCH 1: SDK/headless mode =====
-    // In SDK mode, ANTHROPIC_API_KEY env var takes absolute priority
+    // BRANCH 1: SDK/headless mode - env var takes absolute priority
     if (isSdkMode() && process.env.ANTHROPIC_API_KEY) {
         return { key: process.env.ANTHROPIC_API_KEY, source: "ANTHROPIC_API_KEY" };
     }
 
-    // ===== BRANCH 2: Non-interactive/headless mode =====
-    // (parseBoolean(false) is always false, so this branch is dead code in production)
-    // When headless, try: FD key > env var > throw error
+    // BRANCH 2: Non-interactive mode (dead code in production - parseBoolean(false) is always false)
     if (parseBoolean(false)) {
         let fdKey = getApiKeyFromFd();
         if (fdKey) return { key: fdKey, source: "ANTHROPIC_API_KEY" };
@@ -95,37 +92,37 @@ function resolveApiKeyAndSource(options = {}) {
         return { key: null, source: "none" };
     }
 
-    // ===== BRANCH 3: Interactive mode (normal CLI usage) =====
+    // BRANCH 3: Interactive mode (normal CLI usage)
 
-    // Step 1: Check ANTHROPIC_API_KEY env var (only if user approved this key)
+    // Step 1: ANTHROPIC_API_KEY env var (only if user previously approved)
     if (process.env.ANTHROPIC_API_KEY
         && getConfig().customApiKeyResponses?.approved?.includes(hashKey(process.env.ANTHROPIC_API_KEY))) {
         return { key: process.env.ANTHROPIC_API_KEY, source: "ANTHROPIC_API_KEY" };
     }
 
-    // Step 2: Check API key from file descriptor
+    // Step 2: API key from file descriptor
     let fdKey = getApiKeyFromFd();
     if (fdKey) return { key: fdKey, source: "ANTHROPIC_API_KEY" };
 
-    // Step 3: Check apiKeyHelper (external command)
+    // Step 3: apiKeyHelper command
     if (options.skipRetrievingKeyFromApiKeyHelper) {
-        // Just check if helper is configured (don't execute it)
         if (getApiKeyHelperConfig()) return { key: null, source: "apiKeyHelper" };
     } else {
-        // Execute the helper command
         let helperKey = getApiKeyHelper(isWorkspaceTrusted());
         if (helperKey) return { key: helperKey, source: "apiKeyHelper" };
     }
 
-    // Step 4: Check /login managed key (Keychain or config)
+    // Step 4: /login managed key (Keychain or config)
     let loginKey = getOAuthLoginKey();
-    if (loginKey) return loginKey;  // { key, source: "/login managed key" }
+    if (loginKey) return loginKey;
 
     // Step 5: No key found
     return { key: null, source: "none" };
 }
 
-// Mapping: yO->resolveApiKeyAndSource, A->options, _N1->isSdkMode, J6->parseBoolean, BF6->getApiKeyFromFd, f6->getConfig, cT->hashKey, _R1->getApiKeyHelperConfig, JR1->getApiKeyHelper, w4->isWorkspaceTrusted, XR1->getOAuthLoginKey
+// Mapping: yO->resolveApiKeyAndSource, _N1->isSdkMode, J6->parseBoolean, BF6->getApiKeyFromFd,
+//   f6->getConfig, cT->hashKey, _R1->getApiKeyHelperConfig, JR1->getApiKeyHelper,
+//   w4->isWorkspaceTrusted, XR1->getOAuthLoginKey
 ```
 
 ### Priority Order Explained
@@ -179,7 +176,7 @@ The `apiKeyHelper` is a command string configured in settings (user, project, or
 ```javascript
 // ============================================
 // getApiKeyHelper - Executes apiKeyHelper command with caching
-// Location: chunks.40.mjs:~580-613 (partial, memoized)
+// Location: chunks.40.mjs:~580-613 (memoized)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -193,7 +190,6 @@ JR1 = aI6((A) => {
         return K
     } catch (K) {
         let Y = H6.red("Error getting API key from apiKeyHelper ...");
-        // ... error handling ...
         return " "
     }
 }, B95());
@@ -216,24 +212,23 @@ getApiKeyHelper = memoizeWithTtl((isWorkspaceTrusted) => {
         console.error(chalk.red("Error getting API key from apiKeyHelper ..."));
         return " ";  // Return space (truthy but invalid) to prevent re-execution
     }
-}, getApiKeyHelperTtl());  // Cache for TTL (default from CLAUDE_CODE_API_KEY_HELPER_TTL_MS)
+}, getApiKeyHelperTtl());
 
-// Mapping: JR1->getApiKeyHelper, aI6->memoizeWithTtl, _R1->getApiKeyHelperConfig, al8->isApiKeyHelperFromProjectSettings, $H->checkWorkspaceTrust, B95->getApiKeyHelperTtl, Qf->execSync
+// Mapping: JR1->getApiKeyHelper, aI6->memoizeWithTtl, _R1->getApiKeyHelperConfig,
+//   al8->isApiKeyHelperFromProjectSettings, $H->checkWorkspaceTrust, B95->getApiKeyHelperTtl, Qf->execSync
 ```
 
-**Key insight:** The helper result is cached with a configurable TTL via `CLAUDE_CODE_API_KEY_HELPER_TTL_MS`. This means the external command (which might call a slow vault API) is not executed on every API request. The default TTL (`u95`) prevents excessive command executions while ensuring key rotation is respected.
+**Key insight:** The helper result is cached with a configurable TTL via `CLAUDE_CODE_API_KEY_HELPER_TTL_MS`. This means the external command (which might call a slow vault API) is not executed on every API request. The default TTL prevents excessive command executions while ensuring key rotation is respected.
 
 ### Return Value: Space Character
 
-When the helper command fails, the function returns a single space `" "`. This is intentional: a space is truthy (so the `if (Y)` check in the resolution chain passes), but it will fail API authentication. This prevents the resolution chain from falling through to other sources (like OAuth) when the helper is configured but broken -- forcing the user to fix their helper configuration.
+When the helper command fails, the function returns a single space `" "`. This is intentional: a space is truthy (so the `if (Y)` check in the resolution chain passes), but it will fail API authentication. This prevents the resolution chain from falling through to other sources (like OAuth) when the helper is configured but broken — forcing the user to fix their helper configuration.
 
 ---
 
 ## OAuth Token Resolution
 
 ### Token Data Retrieval
-
-Separate from the API key resolution, OAuth tokens are resolved through `getOAuthTokenData` (a4):
 
 ```javascript
 // ============================================
@@ -266,8 +261,8 @@ getOAuthTokenData = memoize(() => {
     if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
         return {
             accessToken: process.env.CLAUDE_CODE_OAUTH_TOKEN,
-            refreshToken: null,      // No refresh possible for env var tokens
-            expiresAt: null,          // Assumed non-expiring
+            refreshToken: null,       // No refresh possible for env var tokens
+            expiresAt: null,           // Assumed non-expiring
             scopes: ["user:inference"],
             subscriptionType: null,
             rateLimitTier: null
@@ -298,213 +293,44 @@ getOAuthTokenData = memoize(() => {
     }
 });
 
-// Mapping: a4->getOAuthTokenData, KA->memoize, rs1->getOAuthTokenFromFd, T0->getCredentialStore
+// Mapping: a4->getOAuthTokenData, KA->memoize, rs1->getOAuthTokenFromFd,
+//   T0->getCredentialStore, K1->reportError
 ```
 
-**Key insight:** The `CLAUDE_CODE_OAUTH_TOKEN` env var path sets `refreshToken: null` and `expiresAt: null`. This means tokens provided via env var cannot be refreshed and are assumed to be valid for the session's lifetime. This is appropriate for CI/CD scenarios where tokens are short-lived and injected fresh each time.
+### Token Refresh Lifecycle
+
+```
+Request starts
+    │
+    ├─ getOAuthTokenData() - Get current token
+    │
+    ├─ isOAuthTokenExpiring(token) - Check if expires within 5 minutes
+    │      │
+    │      └─ YES: refreshOAuthToken(j$8) called
+    │                 │
+    │                 ├─ POST /oauth/token with grant_type=refresh_token
+    │                 ├─ Store new token in Keychain
+    │                 └─ Update in-memory memoized token
+    │
+    └─ Make API request with current (refreshed) access token
+```
+
+**Why 5-minute window:** Network calls take ~0.1-2 seconds. A 5-minute buffer ensures the token is valid throughout the API call even if the network is slow or there's clock skew between the client and server.
 
 ---
 
-## File Descriptor Key Passing
+## Bedrock and Vertex Authentication
 
-### API Key from FD
+### AWS Bedrock (SigV4)
 
-```javascript
-// ============================================
-// getApiKeyFromFd - Reads API key from file descriptor
-// Location: chunks.16.mjs:1183-1207 (Ln 50684)
-// ============================================
-
-// ORIGINAL (for source lookup):
-function BF6() {
-    let A = QL6();
-    if (A !== void 0) return A;
-    let q = process.env.CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR;
-    if (!q) return H61(null), null;
-    let K = parseInt(q, 10);
-    if (Number.isNaN(K)) return h(`CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR must be a valid file descriptor number, got: ${q}`), H61(null), null;
-    try {
-        let Y = b1(),
-            z = process.platform === "darwin" || process.platform === "freebsd"
-                ? `/dev/fd/${K}` : `/proc/self/fd/${K}`,
-            w = Y.readFileSync(z, { encoding: "utf8" }).trim();
-        if (!w) return h("File descriptor contained empty API key"), H61(null), null;
-        return h(`Successfully read API key from file descriptor ${K}`), H61(w), w
-    } catch (Y) {
-        return h(`Failed to read API key from file descriptor ${K}: ${Y instanceof Error?Y.message:String(Y)}`), H61(null), null
-    }
-}
-
-// READABLE (for understanding):
-function getApiKeyFromFd() {
-    // Return cached value if already read
-    let cached = getCachedApiKeyFromFd();
-    if (cached !== undefined) return cached;
-
-    let fdEnvVar = process.env.CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR;
-    if (!fdEnvVar) {
-        setCachedApiKeyFromFd(null);
-        return null;
-    }
-
-    let fd = parseInt(fdEnvVar, 10);
-    if (Number.isNaN(fd)) {
-        log(`CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR must be a valid file descriptor number, got: ${fdEnvVar}`);
-        setCachedApiKeyFromFd(null);
-        return null;
-    }
-
-    try {
-        let fs = getFs();
-        // Platform-specific path to read from file descriptor:
-        //   macOS/FreeBSD: /dev/fd/<n>
-        //   Linux: /proc/self/fd/<n>
-        let fdPath = (process.platform === "darwin" || process.platform === "freebsd")
-            ? `/dev/fd/${fd}`
-            : `/proc/self/fd/${fd}`;
-
-        let key = fs.readFileSync(fdPath, { encoding: "utf8" }).trim();
-        if (!key) {
-            log("File descriptor contained empty API key");
-            setCachedApiKeyFromFd(null);
-            return null;
-        }
-
-        log(`Successfully read API key from file descriptor ${fd}`);
-        setCachedApiKeyFromFd(key);
-        return key;
-    } catch (error) {
-        log(`Failed to read API key from file descriptor ${fd}: ${error.message}`);
-        setCachedApiKeyFromFd(null);
-        return null;
-    }
-}
-
-// Mapping: BF6->getApiKeyFromFd, QL6->getCachedApiKeyFromFd, H61->setCachedApiKeyFromFd
-```
-
-**What it does:** Reads an API key from a file descriptor number provided via the `CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR` environment variable.
-
-**Why this approach:**
-- File descriptors are process-local and cannot be read by other processes
-- The key never appears in the process environment (which can be read via `/proc/<pid>/environ`)
-- The key never exists as a file on disk
-- This is the most secure way for a parent process to pass a secret to a child process
-
-**Key insight:** The platform-specific paths (`/dev/fd/N` vs `/proc/self/fd/N`) are necessary because macOS and Linux handle file descriptor filesystem paths differently. Both resolve to the same kernel file descriptor, but through different filesystem abstractions.
-
----
-
-## Provider-Specific Authentication
-
-### AWS Bedrock
-
-When `CLAUDE_CODE_USE_BEDROCK` is set, the key resolution still runs, but the resulting key is used differently. Bedrock uses AWS SigV4 signing, which requires AWS credentials (access key, secret key, session token). The `awsAuthRefresh` and `awsCredentialExport` settings allow custom authentication flows:
-
-```javascript
-// ============================================
-// runAwsAuthRefresh - Executes configured AWS auth refresh command
-// Location: chunks.40.mjs:175-198 (Ln 105820)
-// ============================================
-
-// ORIGINAL (for source lookup):
-function Q95(A) {
-    h("Running AWS auth refresh command");
-    let q = lT.getInstance();
-    return q.startAuthentication(), new Promise((K) => {
-        let Y = b95(A);
-        Y.stdout.on("data", (z) => { /* log output */ });
-        Y.stderr.on("data", (z) => { /* log errors */ });
-        Y.on("close", (z) => {
-            if (z === 0) h("AWS auth refresh completed successfully"), q.endAuthentication(!0), K(!0);
-            else console.error(chalk.red("Error running awsAuthRefresh ...")), q.endAuthentication(!1), K(!1)
-        })
-    })
-}
-
-// READABLE (for understanding):
-function runAwsAuthRefresh(command) {
-    log("Running AWS auth refresh command");
-    let authTracker = AuthenticationTracker.getInstance();
-    authTracker.startAuthentication();
-
-    return new Promise((resolve) => {
-        let childProcess = spawnCommand(command);
-        childProcess.stdout.on("data", (data) => {
-            let output = data.toString().trim();
-            if (output) authTracker.addOutput(output);
-        });
-        childProcess.stderr.on("data", (data) => {
-            let error = data.toString().trim();
-            if (error) authTracker.setError(error);
-        });
-        childProcess.on("close", (exitCode) => {
-            if (exitCode === 0) {
-                log("AWS auth refresh completed successfully");
-                authTracker.endAuthentication(true);
-                resolve(true);
-            } else {
-                console.error(chalk.red("Error running awsAuthRefresh ..."));
-                authTracker.endAuthentication(false);
-                resolve(false);
-            }
-        });
-    });
-}
-
-// Mapping: Q95->runAwsAuthRefresh, A->command, lT->AuthenticationTracker, b95->spawnCommand
-```
-
-**What it does:** Executes a user-configured command (like `aws sso login` or a custom script) to refresh AWS credentials before making Bedrock API calls.
-
-**How it works:**
-1. First tries to call `aws sts get-caller-identity` to check if credentials are already valid
-2. If that fails (credentials expired), runs the configured `awsAuthRefresh` command
-3. The command's output is streamed to an `AuthenticationTracker` for UI display
-4. After refresh, the `awsCredentialExport` command (if configured) can export credentials to environment variables
-
-**Security check:** Both `awsAuthRefresh` and `awsCredentialExport` have the same project settings security gate as `apiKeyHelper` -- they require workspace trust if configured in project-level settings.
+When `CLAUDE_CODE_USE_BEDROCK=1`, the standard API key resolution is bypassed. Instead:
+1. AWS credentials are resolved via the standard AWS SDK chain (`~/.aws/credentials`, env vars, EC2 instance role, etc.)
+2. Optionally, `awsAuthRefresh` command in settings can be executed to refresh short-lived credentials
+3. Requests are signed using AWS SigV4 signature algorithm
 
 ### Google Vertex AI
 
-When `CLAUDE_CODE_USE_VERTEX` is set, authentication uses Google Cloud's default credential mechanisms (application default credentials, service account keys, etc.). The Vertex integration uses Google's standard SDK authentication rather than custom key resolution.
-
-### Anthropic Foundry
-
-When `CLAUDE_CODE_USE_FOUNDRY` is set, authentication uses the standard API key mechanism but may target a different endpoint. Foundry supports all the same model features as first-party but may have different model availability.
-
----
-
-## Summary: Complete Resolution Flow
-
-```
-resolveApiKeyAndSource()
-  |
-  +-- SDK mode? --> ANTHROPIC_API_KEY env var (direct, no checks)
-  |
-  +-- Interactive mode:
-       |
-       +-- ANTHROPIC_API_KEY env var (if user-approved hash in config)
-       |
-       +-- CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR (file descriptor)
-       |
-       +-- apiKeyHelper command (if configured, with trust gate)
-       |
-       +-- /login managed key:
-       |     +-- macOS Keychain (primary)
-       |     +-- ~/.config/claude/.credentials.json (fallback)
-       |
-       +-- null (no key found)
-
-getOAuthTokenData()  [separate path for OAuth]
-  |
-  +-- CLAUDE_CODE_OAUTH_TOKEN env var
-  |
-  +-- CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR
-  |
-  +-- Stored claudeAiOauth in credential store
-  |
-  +-- null (no token)
-```
-
-The LLM API layer then decides whether to use the API key (from resolveApiKeyAndSource) or the OAuth token (from getOAuthTokenData) based on which is available and the provider type.
+When `CLAUDE_CODE_USE_VERTEX=1`:
+1. Google Application Default Credentials are used
+2. `CLAUDE_CODE_VERTEX_PROJECT` and `CLAUDE_CODE_VERTEX_REGION` env vars configure the endpoint
+3. Requests go to the Vertex AI API endpoint rather than `api.anthropic.com`

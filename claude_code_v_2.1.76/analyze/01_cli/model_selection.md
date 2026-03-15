@@ -22,7 +22,7 @@ The CLI provides several flags for controlling model selection and behavior:
 
 1. **`--model <model>`** - Override default model for session
 2. **`--fallback-model <model>`** - Auto-fallback when overloaded
-3. **`--effort <level>`** - Set effort level (low/medium/high/max)
+3. **`--effort <level>`** - Set effort level (low/medium/high)
 4. **`--agent <agent>`** - Override agent setting
 5. **`--betas <betas...>`** - Beta headers for API
 
@@ -67,18 +67,18 @@ The CLI provides several flags for controlling model selection and behavior:
 
 ### 1.1 Model Selection Flags
 
-**Source location:** `chunks.189.mjs:1023-1027`
+**Source location:** `chunks.197.mjs:1023-1027`
 
 ```javascript
 // ============================================
 // Model selection CLI flag definitions
-// Location: chunks.189.mjs:1023-1027
+// Location: chunks.197.mjs:1023-1027
 // ============================================
 
 // ORIGINAL (for source lookup):
 .option("--model <model>", "Model for the current session. Provide an alias for the latest model (e.g. 'sonnet' or 'opus') or a model's full name (e.g. 'claude-sonnet-4-5-20250929').")
 .addOption(new J5("--effort <level>", "Effort level for the current session (low, medium, high)").argParser((w) => {
-    let H = ["low", "medium", "high", "max"];
+    let H = ["low", "medium", "high"];
     if (!H.includes(w)) throw new kXq(`It must be one of: ${H.join(", ")}`);
     return w
 }))
@@ -88,9 +88,9 @@ The CLI provides several flags for controlling model selection and behavior:
 
 // READABLE (for understanding):
 .option("--model <model>", "Model for the session (alias like 'sonnet' or full name)")
-.addOption(new Option("--effort <level>", "Effort level (low, medium, high, max)")
+.addOption(new Option("--effort <level>", "Effort level (low, medium, high)")
     .argParser((value) => {
-        let validLevels = ["low", "medium", "high", "max"];
+        let validLevels = ["low", "medium", "high"];
         if (!validLevels.includes(value)) {
             throw new InvalidArgumentError(`It must be one of: ${validLevels.join(", ")}`);
         }
@@ -103,14 +103,16 @@ The CLI provides several flags for controlling model selection and behavior:
 // Mapping: J5→Option, kXq→InvalidArgumentError, w→value, H→validLevels
 ```
 
+> **New in v2.1.76:** The `max` effort level has been removed. Valid levels are now only `low`, `medium`, and `high`. Use `/effort auto` in the REPL to reset effort to automatic selection.
+
 ### 1.2 Flag Extraction
 
-**Source location:** `chunks.189.mjs:1042-1049`
+**Source location:** `chunks.197.mjs:1042-1049`
 
 ```javascript
 // ============================================
 // Model flag extraction - Action handler
-// Location: chunks.189.mjs:1042-1049
+// Location: chunks.197.mjs:1042-1049
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -182,17 +184,16 @@ let fallbackModelResolved = fallbackModel === "default" ? getDefaultModel() : fa
 
 ### 2.3 Model Validation
 
-**Source location:** `chunks.189.mjs:1128-1129`
+**Source location:** `chunks.197.mjs:1128-1129`
 
 ```javascript
 // ============================================
 // Fallback model validation
-// Location: chunks.189.mjs:1128-1129
+// Location: chunks.197.mjs:1128-1129
 // ============================================
 
 // ORIGINAL (for source lookup):
-if (G && H.model && G === H.model) process.stderr.write(H6.red(`Error: Fallback model cannot be the same as the main model. Please specify a different model for --fallback-model.
-`)), process.exit(1);
+if (G && H.model && G === H.model) process.stderr.write(H6.red(`Error: Fallback model cannot be the same as the main model. Please specify a different model for --fallback-model.\n`)), process.exit(1);
 
 // READABLE (for understanding):
 if (fallbackModel && options.model && fallbackModel === options.model) {
@@ -211,40 +212,35 @@ if (fallbackModel && options.model && fallbackModel === options.model) {
 
 **What it does:** The effort level controls thinking token budget and model behavior.
 
+> **New in v2.1.76:** The `max` level has been removed. The three remaining levels span a simpler low/medium/high spectrum. Use `/effort auto` in the REPL to reset effort to the model's default automatic selection.
+
 | Level | Thinking Budget | Use Case |
 |-------|-----------------|----------|
 | `low` | Minimal (4K) | Quick tasks, simple queries |
 | `medium` | Standard (16K) | Balanced performance |
 | `high` | Extended (32K) | Complex reasoning |
-| `max` | Maximum (64K+) | Print mode only, deepest analysis |
 
 ### 3.2 Effort Level Validation
 
-**Source location:** `chunks.189.mjs:1130-1134`
+**Source location:** `chunks.197.mjs:1130-1134`
 
 ```javascript
 // ============================================
-// Effort level "max" validation
-// Location: chunks.189.mjs:1130-1134
+// Effort level validation (v2.1.76 - max removed)
+// Location: chunks.197.mjs:1130-1134
 // ============================================
 
 // ORIGINAL (for source lookup):
-if (H.effort === "max" && (!z1 || i8())) {
-    let TA = !z1 ? 'Effort level "max" is not available in interactive mode.' : 'Effort level "max" is not available for Claude.ai subscribers.';
-    process.stderr.write(H6.red(`Error: ${TA} Please use "low", "medium", or "high".
-`)), process.exit(1)
-}
+// Note: In v2.1.76, the "max" level is no longer in the validator list.
+// Valid effort levels: ["low", "medium", "high"]
+// The argParser throws InvalidArgumentError for any other value.
 
 // READABLE (for understanding):
-if (options.effort === "max" && (!isPrintMode || isClaudeAiSubscriber())) {
-    let errorMessage = !isPrintMode
-        ? 'Effort level "max" is not available in interactive mode.'
-        : 'Effort level "max" is not available for Claude.ai subscribers.';
-    console.error(`Error: ${errorMessage} Please use "low", "medium", or "high".`);
-    process.exit(1);
+// Validation happens at parse time via .argParser() callback:
+let validLevels = ["low", "medium", "high"];
+if (!validLevels.includes(value)) {
+    throw new InvalidArgumentError(`It must be one of: ${validLevels.join(", ")}`);
 }
-
-// Mapping: z1→isPrintMode, i8→isClaudeAiSubscriber, H→options
 ```
 
 ### 3.3 Effort Level Constants
@@ -253,17 +249,29 @@ if (options.effort === "max" && (!isPrintMode || isClaudeAiSubscriber())) {
 
 ```javascript
 // ============================================
-// EFFORT_LEVELS - Valid effort values
+// EFFORT_LEVELS - Valid effort values (v2.1.76)
 // Location: chunks.90.mjs:3070
 // ============================================
 
 // ORIGINAL (for source lookup):
-WJ6 = ["low", "medium", "high", "max"]
+WJ6 = ["low", "medium", "high"]
 
 // READABLE (for understanding):
-const EFFORT_LEVELS = ["low", "medium", "high", "max"];
+const EFFORT_LEVELS = ["low", "medium", "high"];
 
 // Mapping: WJ6→EFFORT_LEVELS
+// Note: "max" was removed in v2.1.76
+```
+
+### 3.4 /effort auto (New in v2.1.76)
+
+The `/effort auto` slash command resets the session effort level back to automatic selection, removing any previously set `--effort` value. This is accessible via the REPL at any point during a session.
+
+```
+/effort auto    → Reset to automatic effort selection
+/effort low     → Switch to low effort (minimal thinking budget)
+/effort medium  → Switch to medium effort (standard thinking budget)
+/effort high    → Switch to high effort (extended thinking budget)
 ```
 
 ---
@@ -274,12 +282,12 @@ const EFFORT_LEVELS = ["low", "medium", "high", "max"];
 
 **What it does:** The `--agent` flag overrides the agent setting from configuration, allowing users to switch between agent types for the session.
 
-**Source location:** `chunks.189.mjs:1350-1361`
+**Source location:** `chunks.197.mjs:1350-1361`
 
 ```javascript
 // ============================================
 // Agent override resolution
-// Location: chunks.189.mjs:1350-1361
+// Location: chunks.197.mjs:1350-1361
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -338,12 +346,12 @@ if (agentDefinition) {
 
 **What it does:** Allows API key users to opt into beta features by passing beta headers.
 
-**Source location:** `chunks.189.mjs:1023`
+**Source location:** `chunks.197.mjs:1023`
 
 ```javascript
 // ============================================
 // --betas flag definition
-// Location: chunks.189.mjs:1023
+// Location: chunks.197.mjs:1023
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -442,7 +450,7 @@ When an agent is specified, it may have a default model:
 ```javascript
 // ============================================
 // Agent model inheritance
-// Location: chunks.189.mjs:1366-1367
+// Location: chunks.197.mjs:1366-1367
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -471,14 +479,14 @@ if (!resolvedModel && agentDefinition?.model && agentDefinition.model !== "inher
 claude -p --effort low "Summarize this file"
 ```
 
-### 8.2 Deep Analysis (High/Max Effort)
+### 8.2 Deep Analysis (High Effort)
 
 ```bash
-# Deep analysis in print mode
-claude -p --effort max "Analyze architecture and suggest improvements"
+# High effort for complex reasoning
+claude --effort high "Analyze architecture and suggest improvements"
 
-# High effort in interactive mode
-claude --effort high
+# Note: 'max' effort level has been removed in v2.1.76
+# Use 'high' for the most thorough analysis
 ```
 
 ### 8.3 Model Switching
@@ -518,15 +526,23 @@ claude --agent plan "Design API architecture"
 claude --betas "interleaved-thinking-2025-05-14" "effort-2025-11-24"
 ```
 
+### 8.7 Reset Effort via REPL (New in v2.1.76)
+
+```
+# Inside an interactive session:
+/effort auto    ← Reset to model's default
+/effort high    ← Switch to high effort mid-session
+```
+
 ---
 
 ## 9. Key Integration Points Summary
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
-| Flag definitions | `chunks.189.mjs:1023` | Commander options |
-| Effort validation | `chunks.189.mjs:1130` | Max effort check |
-| Model validation | `chunks.189.mjs:1128` | Fallback != primary |
-| Agent resolution | `chunks.189.mjs:1350` | Agent override |
+| Flag definitions | `chunks.197.mjs:1023` | Commander options |
+| Effort validation | `chunks.197.mjs:1023` | low/medium/high only (max removed) |
+| Model validation | `chunks.197.mjs:1128` | Fallback != primary |
+| Agent resolution | `chunks.197.mjs:1350` | Agent override |
 | Beta constants | `chunks.1.mjs:2245` | Beta header strings |
 | Effort constants | `chunks.90.mjs:3070` | Valid effort levels |

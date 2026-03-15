@@ -17,7 +17,7 @@ Key functions and constants in this document:
 
 ## Memory Lifecycle
 
-1. **Storage**: Memory files are stored in a persistent directory (e.g., `~/.claude/memory/`).
+1. **Storage**: Memory files are stored in a persistent directory (e.g., `~/.claude/memory/` or custom `autoMemoryDirectory`).
 2. **Reading**: At the start of every turn, the system calls `getMemoryContext`.
 3. **Truncation**: If `MEMORY.md` exceeds 200 lines, only the first 200 are kept.
 4. **Injection**: The content is wrapped in a `<memory>` tag and added to the system prompt.
@@ -53,7 +53,7 @@ if (_) {
 async function buildMemoryPrompt(memoryDir, memoryTitle) {
     const memoryFilePath = "MEMORY.md";
     const MAX_LINES = 200;
-    
+
     let instructions = [
         `# ${memoryTitle}`,
         `You have a persistent memory directory at \`${memoryDir}\`...`,
@@ -87,3 +87,40 @@ The system explicitly instructs the agent:
 - This ensures that the core context window is used efficiently while still allowing the agent to "Read" deeper context when needed via the `Read` tool on specific topic files.
 
 **Key insight:** The 200-line limit is a deliberate design choice to prevent "memory bloat" and force the model to organize its long-term knowledge hierarchically.
+
+## Custom Directory Logic (v2.1.59)
+
+When `autoMemoryDirectory` is set in user settings, the memory path resolution short-circuits:
+
+```javascript
+function getAutoMemoryDirectory() {
+    // v2.1.59: Custom directory override
+    const settings = getUserSettings();
+    if (settings.autoMemoryDirectory) {
+        return settings.autoMemoryDirectory;
+    }
+
+    // Default: project-hash based path
+    const homeDir = getHomeDirectory();
+    const projectsDir = path.join(homeDir, "projects");
+    const projectHash = hashPath(getCurrentContextPath());
+    return path.join(projectsDir, projectHash, "memory") + "/";
+}
+```
+
+**Use case**: Teams that want a shared, stable memory path without relying on project hashes.
+
+## Freshness Timestamps (v2.1.76)
+
+The system now tracks and surfaces file modification times:
+
+```javascript
+// When building memory prompt, stat the file
+let fileStat = fs.statSync(memoryFilePath);
+let lastModified = fileStat.mtime.toISOString();
+
+// Include in prompt header
+promptLines.unshift(`> Last updated: ${lastModified}`);
+```
+
+**Value**: Agents can detect stale memory (e.g., months-old entries) and decide to refresh or flag for user review.

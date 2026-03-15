@@ -1,4 +1,4 @@
-# Background Agents — System Reminder Integration (Claude Code 2.1.38)
+# Background Agents — System Reminder Integration (Claude Code 2.1.76)
 
 > Analysis of how background tasks integrate with the system reminder system: `task_status` and
 > `task_progress` reminder types, frequency throttling, and attachment generation.

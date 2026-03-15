@@ -2,7 +2,7 @@
 
 > Module: System Reminders - All reminder types in K2z switch
 > Source: `chunks.173.mjs:698-1131` (normalizeAttachmentForAPI)
-> Version: Claude Code 2.1.38
+> Version: Claude Code 2.1.76
 
 ---
 
@@ -634,12 +634,12 @@ if (["autocheckpointing", "background_task_status"].includes(A.type)) return [];
 
 | Type | Status | Probable Purpose |
 |------|--------|-----------------|
-| `autocheckpointing` | **Never produced in v2.1.38** | Legacy/forward-compat guard: was or will be used to track checkpoint events, but currently no code creates this attachment type |
-| `background_task_status` | **Never produced in v2.1.38** | Background task status notifications are handled via UI state, not LLM messages |
+| `autocheckpointing` | **Never produced in v2.1.76** | Legacy/forward-compat guard: was or will be used to track checkpoint events, but currently no code creates this attachment type |
+| `background_task_status` | **Never produced in v2.1.76** | Background task status notifications are handled via UI state, not LLM messages |
 
 #### `autocheckpointing` — Deep Analysis
 
-**Why it exists:** This is a **forward-compatibility guard**, not an active type. No code in v2.1.38 creates an attachment of type `autocheckpointing`. The guard in `normalizeAttachmentForAPI` ensures that if an older session file contains such records (or a future version introduces them), they are silently consumed rather than triggering an `Unknown attachment type` error.
+**Why it exists:** This is a **forward-compatibility guard**, not an active type. No code in v2.1.76 creates an attachment of type `autocheckpointing`. The guard in `normalizeAttachmentForAPI` ensures that if an older session file contains such records (or a future version introduces them), they are silently consumed rather than triggering an `Unknown attachment type` error.
 
 **Why rewinds don't notify the LLM (the design intent):**
 

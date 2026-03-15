@@ -1,4 +1,4 @@
-# Read Tool - Deep Analysis (Claude Code 2.1.38)
+# Read Tool - Deep Analysis (Claude Code 2.1.76)
 
 > Complete analysis of the Read file system tool: file reading, PDF support, image handling, notebook parsing, and encoding detection.
 

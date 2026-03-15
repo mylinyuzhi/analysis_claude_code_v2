@@ -4,7 +4,7 @@
 
 Agent Teams enables multiple Claude Code agents to collaborate on complex tasks. Agents can be organized into teams, communicate via inter-agent messaging, and coordinate work through shared task ownership.
 
-**Introduced**: v2.1.32, with enhancements in v2.1.33, v2.1.34
+**Introduced**: v2.1.32, with enhancements in v2.1.33, v2.1.34, v2.1.76
 
 **Feature flag**: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`
 
@@ -36,12 +36,14 @@ Agent Teams enables multiple Claude Code agents to collaborate on complex tasks.
 
 ### UI
 - **Swarm View** - Terminal UI showing all active agents, their status, and message flow
+- **Agent Tab Component** (v2.1.76) - New `qGz` component in `chunks.192.mjs` adds dedicated agent tab with selected/viewed/idle state visualization; supports Ctrl+F to filter/kill agents; includes CJK layout fix
 - **Terminal pane management** - Each agent gets its own terminal context
 
 ### Configuration
 - Team config stored at `~/.claude/teams/`
 - Agent spawning restrictions (max agents, resource limits)
 - Role definitions and capability constraints
+- `background: true` flag support in team definitions (v2.1.76)
 
 ### Error Recovery
 - **Graceful Shutdown** - Request/approval protocol for coordinated agent termination
@@ -56,7 +58,7 @@ Agent Teams enables multiple Claude Code agents to collaborate on complex tasks.
 - [02_spawn_mechanisms_deep_dive.md](./02_spawn_mechanisms_deep_dive.md) - **All 3 spawn modes**: In-process, split-pane, separate window with algorithmic detail (~25KB)
 - [03_mailbox_and_locking.md](./03_mailbox_and_locking.md) - **File-based communication**: Race conditions, file locking, message consumption (~15KB)
 - [04_polling_priorities.md](./04_polling_priorities.md) - **5-level priority system**: Priority queue analysis, shutdown bypass, task auto-claim (~12KB)
-- [05_tui_integration.md](./05_tui_integration.md) - **UI patterns**: In-process vs pane-based UI, tmux layouts, visual styling (~10KB)
+- [05_tui_integration.md](./05_tui_integration.md) - **UI patterns**: In-process vs pane-based UI, agent tab (qGz), tmux layouts, visual styling (~10KB)
 - [06_system_prompts_and_reminders.md](./06_system_prompts_and_reminders.md) - **Teammate context injection**: Identity, team context, plan mode reminders (~10KB)
 
 ### Phase 1 & 2 (Complete Documentation Suite)
@@ -66,7 +68,7 @@ Agent Teams enables multiple Claude Code agents to collaborate on complex tasks.
 - [resource_limits.md](./resource_limits.md) - Agent count, timeouts, turn limits, memory quotas, monitoring (~12KB)
 
 ### Existing Analysis (Foundation Documents)
-- [agent_teams_architecture.md](./agent_teams_architecture.md) - Overall team architecture **[Enhanced with Error Recovery + Resource Management]**
+- [agent_teams_architecture.md](./agent_teams_architecture.md) - Overall team architecture **[Enhanced with Error Recovery + Resource Management + v2.1.76 improvements]**
 - [inter_agent_communication.md](./inter_agent_communication.md) - Message delivery and mailbox system
 - [pane_backend_executor.md](./pane_backend_executor.md) - In-process vs pane-based backends, poll loop priority system
 - [delegate_mode.md](./delegate_mode.md) - Delegation patterns and trade-offs
@@ -78,6 +80,7 @@ Agent Teams enables multiple Claude Code agents to collaborate on complex tasks.
 - `chunks.141.mjs` - Team tools (TeamCreate, SendMessage), hook execution, shutdown handling
 - `chunks.131.mjs` - Backend implementations (TmuxBackend, ITermBackend, InProcessBackend), poll loop
 - `chunks.129.mjs` - Additional backend utilities and coordination logic
+- `chunks.192.mjs` - Agent tab UI component (`qGz`) - NEW in v2.1.76
 
 ## Related Symbols
 
@@ -90,3 +93,4 @@ Agent Teams enables multiple Claude Code agents to collaborate on complex tasks.
 - **v2.1.32**: Initial agent teams support
 - **v2.1.33**: TeammateIdle/TaskCompleted hooks, messaging improvements
 - **v2.1.34**: Swarm view UI, terminal pane management
+- **v2.1.76**: Agent tab component (`qGz`), Ctrl+F filter/kill, CJK layout fix, `background: true` flag, improved mailbox delivery, task dependency graph improvements

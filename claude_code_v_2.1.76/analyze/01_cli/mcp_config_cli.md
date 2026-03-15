@@ -78,12 +78,12 @@ Additionally, MCP subcommands are available:
 
 ### 1.1 MCP Configuration Flags
 
-**Source location:** `chunks.189.mjs:1019-1023`
+**Source location:** `chunks.197.mjs:1019-1023`
 
 ```javascript
 // ============================================
 // MCP configuration CLI flag definitions
-// Location: chunks.189.mjs:1019-1023
+// Location: chunks.197.mjs:1019-1023
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -107,12 +107,12 @@ Additionally, MCP subcommands are available:
 
 ### 1.2 Flag Extraction
 
-**Source location:** `chunks.189.mjs:1039-1040`
+**Source location:** `chunks.197.mjs:1039-1040`
 
 ```javascript
 // ============================================
 // MCP flag extraction
-// Location: chunks.189.mjs:1039-1040
+// Location: chunks.197.mjs:1039-1040
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -141,12 +141,12 @@ let strictMcpConfig = options.strictMcpConfig || false;
 
 ### 2.1 Config Loading Flow
 
-**Source location:** `chunks.189.mjs:1179-1229`
+**Source location:** `chunks.197.mjs:1179-1229`
 
 ```javascript
 // ============================================
 // MCP config loading and parsing
-// Location: chunks.189.mjs:1179-1229
+// Location: chunks.197.mjs:1179-1229
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -185,10 +185,8 @@ if (M && M.length > 0) {
         }
     }
     if (f8.length > 0) {
-        let oq = f8.map((j5) => `${j5.path?j5.path+": ":""}${j5.message}`).join(`
-`);
-        throw Error(`Invalid MCP configuration:
-${oq}`)
+        let oq = f8.map((j5) => `${j5.path?j5.path+": ":""}${j5.message}`).join(`\n`);
+        throw Error(`Invalid MCP configuration:\n${oq}`)
     }
     if (Object.keys(F7).length > 0) {
         if (Object.keys(F7).some(KG1)) throw Error(`Invalid MCP configuration: "${qy}" is a reserved MCP name.`);
@@ -290,12 +288,12 @@ if (mcpConfigs && mcpConfigs.length > 0) {
 
 **What it does:** When `--strict-mcp-config` is set, only MCP servers from `--mcp-config` are used, ignoring all other configuration sources.
 
-**Source location:** `chunks.189.mjs:1268-1272`
+**Source location:** `chunks.197.mjs:1268-1272`
 
 ```javascript
 // ============================================
 // Strict MCP config validation
-// Location: chunks.189.mjs:1268-1272
+// Location: chunks.197.mjs:1268-1272
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -360,12 +358,12 @@ if (hasEnterpriseMcpConfig()) {
 
 **What it does:** Specifies an MCP tool to use for permission prompts, enabling external permission handling in SDK mode.
 
-**Source location:** `chunks.189.mjs:1019`
+**Source location:** `chunks.197.mjs:1019`
 
 ```javascript
 // ============================================
 // --permission-prompt-tool flag
-// Location: chunks.189.mjs:1019
+// Location: chunks.197.mjs:1019
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -414,7 +412,7 @@ if (hasEnterpriseMcpConfig()) {
 
 The CLI provides MCP-specific subcommands under `claude mcp`:
 
-**Source location:** `chunks.189.mjs:1957-1990` (approximate)
+**Source location:** `chunks.197.mjs:1957-1990` (approximate)
 
 | Subcommand | Description |
 |------------|-------------|
@@ -552,8 +550,8 @@ claude mcp remove my-server
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
-| Flag definitions | `chunks.189.mjs:1019` | Commander options |
-| Config parsing | `chunks.189.mjs:1179` | JSON/file loading |
-| Strict mode | `chunks.189.mjs:1268` | Enterprise checks |
-| Permission tool | `chunks.189.mjs:1019` | MCP permission handling |
-| MCP subcommands | `chunks.189.mjs:1957` | MCP management commands |
+| Flag definitions | `chunks.197.mjs:1019` | Commander options |
+| Config parsing | `chunks.197.mjs:1179` | JSON/file loading |
+| Strict mode | `chunks.197.mjs:1268` | Enterprise checks |
+| Permission tool | `chunks.197.mjs:1019` | MCP permission handling |
+| MCP subcommands | `chunks.197.mjs:1957` | MCP management commands |

@@ -2,9 +2,11 @@
 
 ## Overview
 
-The MCP elicitation system allows MCP servers to request structured user input during tool execution. When an MCP server needs additional information from the user -- such as OAuth credentials, configuration values, or decision confirmations -- it sends an `elicitation/create` request through the MCP protocol. Claude Code then renders a form or URL-based dialog to the user and returns their response to the server. This bridges the gap between headless MCP server operations and interactive user workflows.
+The MCP elicitation system allows MCP servers to request structured user input during tool execution. When an MCP server needs additional information from the user — such as OAuth credentials, configuration values, or decision confirmations — it sends an `elicitation/create` request through the MCP protocol. Claude Code then renders a form or URL-based dialog to the user and returns their response to the server. This bridges the gap between headless MCP server operations and interactive user workflows.
 
 The system supports two modes: **form-based elicitation** (structured JSON Schema forms rendered in the terminal) and **URL-based elicitation** (redirecting the user to an external URL, such as an OAuth authorization page). Both modes are gated behind the `tengu_mcp_elicitation` feature flag.
+
+In v2.1.76, the elicitation architecture was significantly expanded: hook integration was added for both request interception (`Elicitation` hook) and response observation (`ElicitationResult` hook), and the UI dialog was revised to support a wider range of JSON Schema field types.
 
 ## Related Symbols
 
@@ -13,7 +15,7 @@ The system supports two modes: **form-based elicitation** (structured JSON Schem
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `registerElicitationHandler` (RV6) - Registers the elicitation request handler on the MCP client
+- `setupElicitationRequestHandler` (RV6) - Registers the elicitation request handler on the MCP client (chunks.156.mjs)
 - `detectElicitationMode` (iaY) - Determines if elicitation is "url" or "form" mode
 - `isElicitationEnabled` (xq1) - Checks the feature flag for MCP elicitation
 - `parseElicitationCapabilities` ($X9) - Determines which elicitation modes the client supports
@@ -36,7 +38,7 @@ Key functions in this document:
 **Why this approach:**
 - Form mode handles simple data collection without leaving the terminal
 - URL mode handles complex external flows (OAuth, web-based configuration) that cannot be replicated in a CLI
-- The separation keeps the protocol clean -- simple requests stay in-terminal, complex ones delegate to the browser
+- The separation keeps the protocol clean — simple requests stay in-terminal, complex ones delegate to the browser
 
 **Key insight:** The default mode when none is specified is `"form"`, not `"url"`. This is a conscious backward-compatibility decision, as form mode was the original implementation and URL mode was added later.
 
@@ -81,11 +83,11 @@ This ensures that older clients that advertise elicitation capability without sp
 
 ## Client-Side Handler Registration
 
-### registerElicitationHandler
+### setupElicitationRequestHandler (RV6)
 
 ```javascript
 // ============================================
-// registerElicitationHandler - Register the handler that queues elicitation requests for UI rendering
+// setupElicitationRequestHandler - Register the handler that queues elicitation requests for UI rendering
 // Location: chunks.156.mjs:1544-1586
 // ============================================
 
@@ -124,7 +126,7 @@ function RV6(A, q, K) {
 }
 
 // READABLE (for understanding):
-function registerElicitationHandler(mcpClient, serverName, updateState) {
+function setupElicitationRequestHandler(mcpClient, serverName, updateState) {
     mcpClient.setRequestHandler(ElicitationCreateSchema, async (request, context) => {
         logMcp(serverName, `Received elicitation request: ${JSON.stringify(request)}`);
         let mode = detectElicitationMode(request.params);
@@ -161,7 +163,7 @@ function registerElicitationHandler(mcpClient, serverName, updateState) {
     });
 }
 
-// Mapping: RV6→registerElicitationHandler, A→mcpClient, q→serverName, K→updateState,
+// Mapping: RV6→setupElicitationRequestHandler, A→mcpClient, q→serverName, K→updateState,
 //          Y→request, z→context, w→mode, H→responsePromise, $→resolve, O→onAbort
 ```
 
@@ -180,9 +182,21 @@ function registerElicitationHandler(mcpClient, serverName, updateState) {
 **Why this approach:**
 - **Non-blocking**: The MCP transport can continue processing other notifications while waiting for user input
 - **Abort-safe**: If the MCP connection is cancelled (signal aborted), the handler automatically returns `{ action: "cancel" }` rather than leaving the Promise hanging
-- **Queue ordering**: Multiple concurrent elicitation requests are serialized -- the user sees them one at a time in FIFO order
+- **Queue ordering**: Multiple concurrent elicitation requests are serialized — the user sees them one at a time in FIFO order
 
 **Key insight:** The abort handler is registered as a listener on `context.signal` and cleaned up when the user responds. This prevents a subtle memory leak where old abort listeners could accumulate. The error fallback always returns `{ action: "cancel" }` rather than throwing, ensuring the MCP server always gets a response even if the UI crashes.
+
+## Hook Integration (v2.1.76)
+
+### Elicitation Hook
+
+In v2.1.76, two new hook events are fired around elicitation:
+
+- **`Elicitation` hook**: Fires when the MCP server sends an elicitation request, before the dialog is shown to the user. Hook scripts can intercept and modify the request parameters (e.g., pre-populate fields, log the request).
+
+- **`ElicitationResult` hook**: Fires after the user submits their response (or cancels). Hook scripts receive the action and content, enabling audit logging or post-processing.
+
+**Design rationale:** These hooks maintain the same "before/after" pattern used by the tool execution hooks (`PreToolUse`/`PostToolUse`), making the hook system orthogonal and consistent across all user-facing interactions.
 
 ## Server-Side Elicitation API
 
@@ -239,7 +253,6 @@ async elicitInput(params, options) {
                 { method: "elicitation/create", params: normalizedParams },
                 ElicitationResultSchema, options
             );
-            // Validate response against requested schema
             if (result.action === "accept" && result.content && normalizedParams.requestedSchema) {
                 try {
                     let validation = this._jsonSchemaValidator
@@ -276,7 +289,7 @@ async elicitInput(params, options) {
 **Why this approach:**
 - Validates at the SDK level rather than requiring every MCP server to implement its own validation
 - Uses the same JSON Schema that was sent to the client, ensuring consistency
-- Only validates on `action: "accept"` -- cancellation bypasses validation entirely
+- Only validates on `action: "accept"` — cancellation bypasses validation entirely
 
 **Key insight:** The `applyDefaults` feature (controlled by `elicitation.form.applyDefaults` capability) fills in default values from the schema before validation. This means a user who leaves optional fields blank still gets valid data if the schema provides defaults.
 
@@ -418,10 +431,12 @@ MCP Server                    Claude Code Client              User
     |-- elicitation/create ------->|                            |
     |   { mode, schema, message }  |                            |
     |                              |-- Queue elicitation ------->|
+    |                              |   (Elicitation hook fires)  |
     |                              |   (render form/open URL)    |
     |                              |                            |
     |                              |<-- User response ----------|
     |                              |   { action, content }      |
+    |                              |   (ElicitationResult hook) |
     |<-- ElicitationResult --------|                            |
     |   { action, content }        |                            |
     |                              |                            |

@@ -1,4 +1,4 @@
-# Plan Mode - Tools Filtering Analysis (Claude Code 2.1.38)
+# Plan Mode - Tools Filtering Analysis (Claude Code 2.1.76)
 
 > Complete reverse engineering of how plan mode restricts tool usage to read-only operations.
 
