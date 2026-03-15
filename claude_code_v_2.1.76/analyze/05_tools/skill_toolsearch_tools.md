@@ -10,7 +10,7 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Tools section)
 
 Key functions in this document:
-- `SkillTool` (wt) - Execute slash commands/skills - chunks.132.mjs:820
+- `SkillTool` (m66) - Execute slash commands/skills - chunks.137.mjs:46-250
 - `ToolSearchTool` (dM) - Load deferred MCP tools - chunks.89.mjs:652
 
 ---
@@ -53,48 +53,46 @@ Skill & ToolSearch System
 ```javascript
 // ============================================
 // SkillTool - Slash command execution
-// Location: chunks.132.mjs:820
+// Location: chunks.137.mjs:46-250
 // ============================================
 
 // ORIGINAL (for source lookup):
-wt = "Skill"
-NJ = "Skill"
+m66 = {
+    name: oH,
+    searchHint: "invoke a slash-command skill",
+    maxResultSizeChars: 1e5,
+    get inputSchema() { return _kY() },
+    get outputSchema() { return wkY() },
+    ...
+}
 
 // READABLE (for understanding):
 const SkillTool = {
     name: "Skill",
+    searchHint: "invoke a slash-command skill",
     maxResultSizeChars: 100000,
 
-    inputSchema: z.strictObject({
-        skill: z.string().describe("The skill name to invoke"),
-        args: z.string().optional().describe("Optional arguments for the skill")
-    }),
+    get inputSchema() {
+        return z.object({
+            skill: z.string().describe("The skill name to invoke"),
+            args: z.string().optional().describe("Optional arguments for the skill")
+        });
+    },
 
-    outputSchema: z.any(),  // Varies by skill
+    get outputSchema() {
+        return z.union([inlineResultSchema, forkedResultSchema]);
+    },
 
     isEnabled() { return true; },
     isConcurrencySafe() { return false; },
     isReadOnly() { return false; },
 
-    async call({ skill, args }, toolUseContext) {
-        // Look up skill definition
-        let skillDefinition = await lookupSkill(skill);
-
-        if (!skillDefinition) {
-            throw Error(`Skill "${skill}" not found. Available skills can be discovered via /help.`);
-        }
-
-        // Execute skill with arguments
-        let result = await executeSkill(skillDefinition, {
-            args: args,
-            toolUseContext: toolUseContext
-        });
-
-        return { data: result };
-    }
+    async validateInput({ skill }, toolUseContext) { ... },
+    async checkPermissions({ skill, args }, toolUseContext) { ... },
+    async call({ skill, args }, toolUseContext, ...) { ... }
 };
 
-// Mapping: wt→SkillTool, NJ→SKILL_TOOL_NAME
+// Mapping: m66→SkillTool, oH→SKILL_TOOL_NAME, _kY→skillInputSchema, wkY→skillOutputSchema
 ```
 
 ### Skill Types
@@ -385,7 +383,7 @@ ${toolList}`;
 
 | Tool | Obfuscated | Purpose | Location |
 |------|------------|---------|----------|
-| Skill | `wt`, `NJ` | Execute slash commands/skills | chunks.132.mjs:820 |
+| Skill | `m66`, `oH` | Execute slash commands/skills | chunks.137.mjs:46 |
 | ToolSearch | `dM` | Load deferred MCP tools | chunks.89.mjs:652 |
 
 ---

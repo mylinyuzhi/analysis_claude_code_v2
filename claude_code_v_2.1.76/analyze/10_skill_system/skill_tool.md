@@ -11,12 +11,13 @@ The Skill tool (`wt`) is the primary interface for invoking skills programmatica
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Tools section)
 
 Key functions in this document:
-- `SkillTool` (wt) - Tool definition object, chunks.132.mjs:820-1073
-- `SKILL_TOOL_NAME` (NJ) - Constant "Skill", chunks.132.mjs:821
-- `SKILL_PROPERTY_KEYS` (JNY) - Set of allowed skill properties, chunks.132.mjs:1073
-- `validateSkillProperties` (XNY) - Validate skill has only allowed properties, chunks.132.mjs:752-761
-- `executeForkedSkill` (wNY) - Execute skill in forked context, chunks.132.mjs:693-750
-- `trackSkillUsage` (xM6) - Track skill usage for ranking, chunks.130.mjs:1383-1397
+- `SkillTool` (m66) - Tool definition object, chunks.137.mjs:46-250
+- `SKILL_TOOL_NAME` (oH) - Constant "Skill", chunks.137.mjs
+- `skillInputSchema` (_kY) - Input schema, chunks.137.mjs:27-30
+- `skillOutputSchema` (wkY) - Output schema, chunks.137.mjs:30-45
+- `getSkillRegistry` (I0) - Get skill registry, chunks.137.mjs
+- `lookupSkill` (G66) - Find skill by name, chunks.137.mjs
+- `getRulesForTool` (Sb) - Get permission rules, chunks.137.mjs
 
 ---
 

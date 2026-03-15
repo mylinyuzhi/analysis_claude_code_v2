@@ -70,9 +70,10 @@ function registerAllBuiltinSkills() {
 | `keybindings-help` | `fjq` | ACTIVE | Help with keybinding configuration |
 | `debug` | `kjq` | ACTIVE | Debug information and diagnostics |
 | `claude-in-chrome` | `jjq` | ACTIVE (conditional) | Chrome extension integration |
-| `claude-api` | `Ajq` | ACTIVE (NEW v2.1.76) | Claude API usage assistance |
-| `simplify` | `Gjq` | ACTIVE (NEW v2.1.76) | Simplify code or text |
-| `batch` | `Fjq` | ACTIVE (NEW v2.1.76) | Batch operations on multiple items |
+| `claude-api` | `PMz` | ACTIVE (NEW v2.1.76) | Claude API usage assistance |
+| `simplify` | `eyq` | ACTIVE (NEW v2.1.76) | Simplify code or text |
+| `batch` | `YLq` | ACTIVE (NEW v2.1.76) | Batch operations on multiple items |
+| `loop` | `gJz` | ACTIVE (NEW v2.1.71) | Recurring prompt scheduling |
 | `verify` | `Njq` | Stub | Verifier orchestrator (not yet active) |
 | `init-verifiers` | `vjq` | Stub | Verifier initialization (not yet active) |
 | `remember` | `Xjq` | Stub | Memory capture (not yet active) |
@@ -114,7 +115,7 @@ registerPromptSkill({
 });
 ```
 
-### claude-api (Ajq) - NEW in v2.1.76
+### claude-api (PMz) - NEW in v2.1.76
 
 **Purpose:** Assists users with Claude API usage, including making API calls, understanding response formats, and working with the SDK.
 
@@ -123,59 +124,93 @@ registerPromptSkill({
 - Helps construct API requests
 - Interprets API responses and errors
 - Provides code examples for common patterns
+- Supports multiple languages: Python, TypeScript, Go, Java, Ruby, C#, PHP, curl
 
 **Registration:**
 ```javascript
 registerPromptSkill({
     name: "claude-api",
-    description: "Get help with Claude API usage and implementation",
+    description: "Build apps with the Claude API or Anthropic SDK...",
     userInvocable: true,
-    allowedTools: ["Read", "Bash"],
+    allowedTools: ["Read", "Grep", "Glob", "WebFetch"],
     getPromptForCommand: async (args) => [{ type: "text", text: CLAUDE_API_PROMPT + args }]
 });
 ```
 
-### simplify (Gjq) - NEW in v2.1.76
+**Source Location:** chunks.184.mjs:674-688
 
-**Purpose:** Simplifies code, documentation, or text by removing unnecessary complexity, verbose patterns, or redundant structures.
+### simplify (eyq) - NEW in v2.1.76
+
+**Purpose:** Simplifies code by reviewing for reuse, quality, and efficiency, then fixing issues found.
 
 **Key behaviors:**
-- Simplifies complex code to cleaner equivalents
-- Reduces boilerplate
-- Improves readability
-- Maintains functional equivalence
+- Launches three parallel review agents (Code Reuse, Code Quality, Efficiency)
+- Searches for existing utilities that could replace newly written code
+- Identifies redundant state, parameter sprawl, copy-paste patterns
+- Fixes issues directly after review
 
 **Registration:**
 ```javascript
 registerPromptSkill({
     name: "simplify",
-    description: "Simplify code, text, or documentation",
+    description: "Review changed code for reuse, quality, and efficiency...",
     userInvocable: true,
-    allowedTools: ["Read", "Edit", "Write"],
     getPromptForCommand: async (args) => [{ type: "text", text: SIMPLIFY_PROMPT + args }]
 });
 ```
 
-### batch (Fjq) - NEW in v2.1.76
+**Source Location:** chunks.181.mjs:1379-1397
 
-**Purpose:** Performs the same operation on multiple items simultaneously, enabling efficient bulk processing.
+### batch (YLq) - NEW in v2.1.76
+
+**Purpose:** Research and plan a large-scale change, then execute it in parallel across 5–30 isolated worktree agents.
 
 **Key behaviors:**
-- Applies a transformation to each item in a collection
-- Reports results per-item
-- Handles errors gracefully (continues processing remaining items after individual failures)
-- Supports file lists, code blocks, or arbitrary item sets
+- Decomposes work into independent units
+- Spawns agents in isolated git worktrees
+- Each agent opens a PR
+- disableModelInvocation: true (user-initiated only)
 
 **Registration:**
 ```javascript
 registerPromptSkill({
     name: "batch",
-    description: "Apply an operation to multiple items",
+    description: "Research and plan a large-scale change...",
+    whenToUse: "Use when the user wants to make a sweeping change...",
+    argumentHint: "<instruction>",
     userInvocable: true,
-    allowedTools: ["Read", "Write", "Edit", "Bash", "Glob"],
+    disableModelInvocation: true,
     getPromptForCommand: async (args) => [{ type: "text", text: BATCH_PROMPT + args }]
 });
 ```
+
+**Source Location:** chunks.181.mjs:1526-1550
+```
+
+### loop (gJz) - NEW in v2.1.71
+
+**Purpose:** Schedule recurring prompts or slash commands to run at specified intervals.
+
+**Key behaviors:**
+- Parses interval from input (e.g., `5m`, `2h`, `1d`)
+- Default interval is 10 minutes if not specified
+- Uses CronCreate tool for scheduling
+- Supports trailing "every" clause parsing
+
+**Registration:**
+```javascript
+registerPromptSkill({
+    name: "loop",
+    description: "Run a prompt or slash command on a recurring interval",
+    whenToUse: 'When the user wants to set up a recurring task, poll for status...',
+    argumentHint: "[interval] <prompt>",
+    userInvocable: true,
+    isEnabled: !process.env.CLAUDE_CODE_DISABLE_CRON,
+    getPromptForCommand: async (args) => [{ type: "text", text: LOOP_PROMPT + args }]
+});
+```
+
+**Related:** See [36_loop_cron/](../36_loop_cron/) for complete cron system documentation.
 
 ### claude-in-chrome (jjq) - Conditional
 

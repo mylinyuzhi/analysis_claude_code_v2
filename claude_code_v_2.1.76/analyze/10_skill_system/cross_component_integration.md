@@ -378,6 +378,89 @@ handleSlashInput (Mb4)                 SkillTool.call (wt)
 
 ---
 
+## Integration 7: Loop/Cron System
+
+### Recurring Skill Execution
+
+**File:** chunks.181.mjs:1640-1660
+**Full Analysis:** [36_loop_cron/](../36_loop_cron/)
+
+The `/loop` skill enables recurring execution of prompts or slash commands via the Cron tool system.
+
+```
+Loop Skill Flow
+───────────────
+
+User: /loop 5m /check-deploy
+       │
+       ▼
+gJz (registerLoopSkill) parses input
+       │
+       ├── Extract interval (5m)
+       └── Extract prompt (/check-deploy)
+       │
+       ▼
+Generate loop prompt with CronCreate instructions
+       │
+       ▼
+LLM calls CronCreate tool
+       │
+       ├── Create cron job with interval
+       └── Store in session cronJobRegistry
+       │
+       ▼
+Cron job fires every 5 minutes
+       │
+       └── Execute prompt via agent loop
+```
+
+### Loop Skill Registration
+
+```javascript
+// ============================================
+// registerLoopSkill - Recurring prompt scheduling
+// Location: chunks.181.mjs:1640-1660
+// ============================================
+
+// ORIGINAL (for source lookup):
+function gJz() {
+    rw({
+        name: "loop",
+        description: "Run a prompt or slash command on a recurring interval...",
+        whenToUse: 'When the user wants to set up a recurring task...',
+        argumentHint: "[interval] <prompt>",
+        userInvocable: !0,
+        isEnabled: kR,  // Disabled if CLAUDE_CODE_DISABLE_CRON
+        async getPromptForCommand(A) { ... }
+    })
+}
+
+// READABLE (for understanding):
+function registerLoopSkill() {
+    registerPromptSkill({
+        name: "loop",
+        description: "Run a prompt or slash command on a recurring interval",
+        whenToUse: 'When the user wants to set up a recurring task, poll for status...',
+        argumentHint: "[interval] <prompt>",
+        userInvocable: true,
+        isEnabled: !process.env.CLAUDE_CODE_DISABLE_CRON,
+        async getPromptForCommand(args) {
+            // Parse interval and prompt
+            // Return CronCreate instructions
+        }
+    });
+}
+
+// Mapping: gJz→registerLoopSkill, rw→registerPromptSkill, kR→isCronEnabled
+```
+
+### Related Documentation
+
+- [36_loop_cron/README.md](../36_loop_cron/README.md) - Loop/Cron system overview
+- [36_loop_cron/overview.md](../36_loop_cron/overview.md) - Detailed implementation
+
+---
+
 ## Data Flow Summary
 
 ### Session Lifecycle
