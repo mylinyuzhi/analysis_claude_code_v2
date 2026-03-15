@@ -2,6 +2,8 @@
 
 > How CLI state triggers auto-compaction and manages session memory
 
+> **Main Documentation:** [07_compact/](../07_compact/) - Complete compaction module documentation
+
 ## Related Symbols
 
 > Symbol mappings:

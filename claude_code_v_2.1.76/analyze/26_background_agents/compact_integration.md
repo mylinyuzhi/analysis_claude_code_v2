@@ -3,6 +3,8 @@
 > Analysis of how background agents interact with context compaction: transcript preservation,
 > message filtering, and session memory handling.
 
+> **Main Documentation:** [07_compact/](../07_compact/) - Complete compaction module documentation
+
 ---
 
 ## Related Symbols

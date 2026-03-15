@@ -2,6 +2,8 @@
 
 > Complete analysis of the auto-compact system: trigger conditions, context overflow recovery, integration with the retry system, and message replacement strategies.
 
+> **Main Documentation:** [07_compact/](../07_compact/) - Complete compaction module documentation
+
 ---
 
 ## Related Symbols

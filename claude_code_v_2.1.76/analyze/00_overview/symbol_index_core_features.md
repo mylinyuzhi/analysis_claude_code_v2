@@ -639,6 +639,7 @@
 | lE1 | trySessionMemoryQuickPath | chunks.147.mjs:2482 | function |
 | mf6 | performFullCompactionFlow | chunks.147.mjs | function |
 | Ts4 | generateToolUseSummary | chunks.147.mjs:832 | function |
+| eW | countConversationTokens | chunks.84.mjs:1146 | function |
 | Ua4 | collectFilesToKeep | chunks.146.mjs:2665 | function |
 | ca4 | collectTasksToKeep | chunks.146.mjs:2724 | function |
 | jZ6 | collectPlanToKeep | chunks.146.mjs:2699 | function |

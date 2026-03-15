@@ -88,10 +88,11 @@ When compaction is triggered, the `autocompactDispatcher` (sqq, chunks.147.mjs:2
 
 Unlike simple "sliding window" approaches, Claude Code uses a **Semantic Reconstitution** strategy.
 
-====
+```javascript
+// ============================================
 // collectFilesToKeep - Restores recently read files after compaction
 // Location: chunks.146.mjs:2665-2686
-====
+// ============================================
 
 // ORIGINAL (for source lookup):
 async function Ua4(A, q, K) {

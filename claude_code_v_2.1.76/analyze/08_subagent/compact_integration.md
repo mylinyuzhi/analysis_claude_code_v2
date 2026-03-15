@@ -4,6 +4,8 @@
 
 This document covers how subagents interact with the context compaction system, including token counting, auto-compact triggering, and isolation of compaction state.
 
+> **Main Documentation:** [07_compact/](../07_compact/) - Complete compaction module documentation
+
 ## Related Symbols
 
 > Symbol mappings:

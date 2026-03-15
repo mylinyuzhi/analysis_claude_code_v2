@@ -2,6 +2,8 @@
 
 > Analysis of how plan mode state survives conversation compaction, ensuring planning context is preserved across context window management.
 
+> **Main Documentation:** [07_compact/](../07_compact/) - Complete compaction module documentation
+
 ---
 
 ## Related Symbols
