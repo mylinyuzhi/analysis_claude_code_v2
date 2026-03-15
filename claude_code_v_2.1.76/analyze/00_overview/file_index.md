@@ -45,11 +45,11 @@
 | `chunks.144.mjs` | Remote / MCP | SDK MCP transport, WebSocket transport (lower level) |
 | `chunks.145.mjs` | Remote / MCP | `initializeSdkMcpClients`, MCP transport (higher level) |
 | `chunks.146.mjs` | File Read Tool | `FileReadTool` (`i5`), PDF support, `analyzeConversationMemoryUsage`, read permissions |
-| `chunks.149.mjs` | Agent Loop Core | `mainAgentLoop` (`ZR`), `StreamingToolExecutor`, tool execution pipeline, `FAST_MODEL_NAME` |
-| `chunks.150.mjs` | Bash Tool Security | `bashSecurityValidation`, `completeReadonlyWhitelist`, all security validators |
-| `chunks.151.mjs` | App State | `createStore`, `AppStateProvider`, `useAppState`, initial app state |
-| `chunks.152.mjs` | Clear/Compact UI | `clearCommandHandler`, `clearConversation`, `clearSessionCaches` |
-| `chunks.153.mjs` | Fast Mode | `ANTHROPIC_SMALL_FAST_MODEL`, `isFastModeAvailable`, fast mode configuration |
+| `chunks.149.mjs` | Agent Loop Core | `mainAgentLoop` (`ZR`), `StreamingToolExecutor`, tool execution pipeline, `FAST_MODEL_NAME`, `addDirCommand`, `feedbackCommand` |
+| `chunks.150.mjs` | Slash Commands | `clearCommand`, `colorCommand`, `copyCommand` |
+| `chunks.151.mjs` | Compact Command | `compactCommand`, `compactCommandHandler`, `buildCompactionContext` |
+| `chunks.152.mjs` | Clear/Context UI | `clearCommandHandler`, `clearConversation`, `clearSessionCaches`, `contextCommand` |
+| `chunks.153.mjs` | Session Commands | `helpCommand`, `initCommand`, `loginCommand`, `logoutCommand`, Fast Mode config |
 | `chunks.154.mjs` | Thinking State | `thinkingEnabled`, `maxThinkingTokens` state keys |
 | `chunks.155.mjs` | Memory UI | `memoryEditorModal`, memory management UI components |
 | `chunks.156.mjs` | MCP Elicitation | `setupElicitationRequestHandler` (`RV6`), elicitation request/response schemas |

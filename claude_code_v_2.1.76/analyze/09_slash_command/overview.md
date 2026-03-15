@@ -56,67 +56,77 @@ The following commands are registered as built-in commands in v2.1.76, via `getB
 
 ### New Commands in v2.1.76
 
-| Command | Type | Description |
-|---------|------|-------------|
-| `/color` | `local-jsx` | Toggle ANSI color output on/off |
-| `/effort` | `local-jsx` | Set thinking effort level (low/medium/high) |
-| `/loop` | `local-jsx` | Create a recurring scheduled execution (see [loop_command.md](./loop_command.md)) |
-| `/copy` | `local` | Copy last assistant response to clipboard |
-| `/context` | `local-jsx` | Show context window usage with actionable suggestions |
-| `/reload-plugins` | `local` | Reload all installed plugins without restarting |
+| Command | Type | Description | Documentation |
+|---------|------|-------------|---------------|
+| `/color` | `local-jsx` | Set session prompt bar color | [mode_commands.md](./mode_commands.md) |
+| `/effort` | `local-jsx` | Set thinking effort level | [effort_command.md](./effort_command.md) |
+| `/loop` | `local-jsx` | Create a recurring scheduled execution | [loop_command.md](./loop_command.md) |
+| `/copy` | `local-jsx` | Copy last assistant response to clipboard | [utility_commands.md](./utility_commands.md) |
+| `/context` | `local-jsx` | Show context window usage visualization | [utility_commands.md](./utility_commands.md) |
+| `/reload-plugins` | `local` | Reload all installed plugins | [utility_commands.md](./utility_commands.md) |
 
 ### Complete Built-In Command Reference
 
-The full set of built-in commands in v2.1.76:
+The full set of built-in commands in v2.1.76, organized by category:
 
-| Command | Type | Purpose |
-|---------|------|---------|
-| `/help` | `local-jsx` | Show command help and keybindings |
-| `/clear` | `local` | Clear conversation history |
-| `/compact` | `local-jsx` | Compact conversation with summary |
-| `/resume` | `local-jsx` | Resume a previous session |
-| `/rename` | `local` | Rename the current session |
-| `/review` | `prompt` | Code review via gh CLI |
-| `/pr-comments` | `prompt` | Fetch and analyze PR comments |
-| `/security-review` | `prompt` | Security-focused code review |
-| `/statusline` | `prompt` | Configure custom status line |
-| `/vim` | `local-jsx` | Toggle vim keybinding mode |
-| `/fast` | `local-jsx` | Toggle fast mode (lower effort) |
-| `/effort` | `local-jsx` | Set effort level (low/medium/high) — **v2.1.76** |
-| `/color` | `local-jsx` | Toggle color output — **v2.1.76** |
-| `/loop` | `local-jsx` | Create recurring task — **v2.1.76** |
-| `/copy` | `local` | Copy last response to clipboard — **v2.1.76** |
-| `/context` | `local-jsx` | Context usage with suggestions — **v2.1.76** |
-| `/reload-plugins` | `local` | Reload plugins without restart — **v2.1.76** |
-| `/add-dir` | `local` | Add a directory to context |
-| `/bug` | `prompt` | Open a bug report |
-| `/init` | `local-jsx` | Initialize CLAUDE.md for a project |
-| `/logout` | `local-jsx` | Log out of current account |
-| `/login` | `local-jsx` | Log in or switch accounts |
+#### Session Management Commands
 
-### /context Command — Actionable Suggestions (v2.1.76)
+| Command | Type | Purpose | Documentation |
+|---------|------|---------|---------------|
+| `/help` | `local-jsx` | Show command help and keybindings | [help_command.md](./help_command.md) |
+| `/clear` | `local` | Clear conversation history | [clear_command.md](./clear_command.md) |
+| `/compact` | `local` | Compact conversation with summary | [clear_command.md](./clear_command.md) |
+| `/resume` | `local-jsx` | Resume a previous session | [resume_and_rename.md](./resume_and_rename.md) |
+| `/rename` | `local` | Rename the current session | [resume_and_rename.md](./resume_and_rename.md) |
+| `/login` | `local-jsx` | Log in or switch accounts | [session_commands.md](./session_commands.md) |
+| `/logout` | `local-jsx` | Log out of current account | [session_commands.md](./session_commands.md) |
+| `/init` | `prompt` | Initialize CLAUDE.md for a project | [session_commands.md](./session_commands.md) |
 
-The `/context` command in v2.1.76 shows not just raw token counts but actionable suggestions based on usage patterns:
+#### Mode & Settings Commands
 
-- If conversation is >80% full: suggests running `/compact`
-- If many large files have been read: suggests using line-range read
-- If tool outputs are large: suggests enabling output truncation
-- Shows breakdown: system prompt tokens, conversation tokens, tool result tokens
+| Command | Type | Purpose | Documentation |
+|---------|------|---------|---------------|
+| `/vim` | `local` | Toggle vim keybinding mode | [mode_commands.md](./mode_commands.md) |
+| `/fast` | `local-jsx` | Toggle fast mode (lower effort) | [mode_commands.md](./mode_commands.md) |
+| `/effort` | `local-jsx` | Set effort level (low/medium/high/auto) | [effort_command.md](./effort_command.md) |
+| `/color` | `local-jsx` | Set session prompt bar color | [mode_commands.md](./mode_commands.md) |
 
-This replaces the static display from earlier versions with an interactive panel that guides the user toward context management actions.
+#### Code Review Commands
 
-### /reload-plugins Command (v2.1.76)
+| Command | Type | Purpose | Documentation |
+|---------|------|---------|---------------|
+| `/review` | `prompt` | Code review via gh CLI | [review.md](./review.md) |
+| `/pr-comments` | `prompt` | Fetch and analyze PR comments | [review.md](./review.md) |
+| `/security-review` | `prompt` | Security-focused code review | [review.md](./review.md) |
 
-**What it does:** Re-scans and re-loads all marketplace plugins and skill directories without requiring a Claude Code restart.
+#### Utility Commands
 
-**How it works:**
-1. Invalidates the memoized `getAllCommands` (cZ) cache
-2. Re-runs `getSkills` (_9z) to pick up new/changed skills
-3. Re-runs `loadPluginSkills` (B0A) to pick up new/changed plugins
-4. Updates the REPL command registry
-5. Shows confirmation with count of loaded commands
+| Command | Type | Purpose | Documentation |
+|---------|------|---------|---------------|
+| `/copy` | `local-jsx` | Copy last response to clipboard | [utility_commands.md](./utility_commands.md) |
+| `/context` | `local-jsx` | Context usage visualization | [utility_commands.md](./utility_commands.md) |
+| `/add-dir` | `local-jsx` | Add a working directory | [utility_commands.md](./utility_commands.md) |
+| `/reload-plugins` | `local` | Reload plugins without restart | [utility_commands.md](./utility_commands.md) |
+| `/feedback` | `local-jsx` | Submit feedback (alias: `/bug`) | [utility_commands.md](./utility_commands.md) |
+| `/statusline` | `prompt` | Configure custom status line | [statusline.md](./statusline.md) |
+| `/loop` | `local-jsx` | Create recurring task | [loop_command.md](./loop_command.md) |
 
-**Why this is useful:** During plugin development, users can install a new plugin and immediately test it without restarting. In v2.1.38, this required a full restart.
+---
+
+## Command Documentation Index
+
+For detailed analysis of specific commands, see:
+
+- [clear_command.md](./clear_command.md) — `/clear` and `/compact` commands
+- [help_command.md](./help_command.md) — `/help` command
+- [loop_command.md](./loop_command.md) — `/loop` command for recurring tasks
+- [effort_command.md](./effort_command.md) — `/effort` command for thinking control
+- [mode_commands.md](./mode_commands.md) — `/vim`, `/fast`, `/color` mode toggles
+- [session_commands.md](./session_commands.md) — `/login`, `/logout`, `/init` session commands
+- [utility_commands.md](./utility_commands.md) — `/copy`, `/context`, `/add-dir`, `/reload-plugins`, `/feedback`
+- [resume_and_rename.md](./resume_and_rename.md) — `/resume` and `/rename` commands
+- [review.md](./review.md) — `/review`, `/pr-comments`, `/security-review` commands
+- [statusline.md](./statusline.md) — `/statusline` command
 
 ---
 

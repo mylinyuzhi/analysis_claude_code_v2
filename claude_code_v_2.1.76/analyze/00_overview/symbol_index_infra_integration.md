@@ -960,6 +960,27 @@
 | xM6 | trackSkillUsage | chunks.130.mjs:1383 | function |
 | bM6 | getDecayedSkillScore | chunks.130.mjs:1399 | function |
 
+### Built-in Command Definitions
+
+> Detailed analysis: [../09_slash_command/](../09_slash_command/)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| NdY | helpCommand | chunks.153.mjs:1458 | constant (object) |
+| _FY | clearCommand | chunks.150.mjs:1309 | constant (object) |
+| ZpY | compactCommand | chunks.151.mjs:188 | constant (object) |
+| lzq | loginCommand | chunks.153.mjs:2468 | function (returns object) |
+| nzq | logoutCommand | chunks.153.mjs:2487 | constant (object) |
+| gdY | initCommand | chunks.153.mjs:2077 | constant (object) |
+| F6z | vimCommand | chunks.162.mjs:1614 | constant (object) |
+| k1z | fastCommand | chunks.163.mjs:866 | constant (object) |
+| $FY | colorCommand | chunks.150.mjs:1386 | constant (object) |
+| qpY | copyCommand | chunks.150.mjs:2965 | constant (object) |
+| XYq | contextCommand | chunks.152.mjs:1301 | constant (object) |
+| cBY | addDirCommand | chunks.149.mjs:1819 | constant (object) |
+| YAz | reloadPluginsCommand | chunks.165.mjs:671 | constant (object) |
+| YgY | feedbackCommand | chunks.149.mjs:2466 | constant (object) |
+
 ### Hook Registration
 
 | Obfuscated | Readable | File:Line | Type |
