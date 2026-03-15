@@ -35,7 +35,7 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 |------|-------------|-------------|
 | [execution_flow_deep_dive.md](./execution_flow_deep_dive.md) | Agent loop execution, task state, abort signals | `dR`, `p01`, `RjA`, `Yd7`, `c5` |
 | [communication_and_coordination.md](./communication_and_coordination.md) | Mailbox system, poll loops, inter-agent messaging | `Ld`, `f9`, `JQ1`, `WVY`, `GVY` |
-| [tools_integration.md](./tools_integration.md) | Tool set assembly, whitelists, context derivation | `YP6`, `vQ1`, `Bj1`, `R_6` |
+| [tools_integration.md](./tools_integration.md) | Tool set assembly, whitelists, context derivation | `YP6`, `vQ1`, `CW6`, `eP1`, `WY4` |
 
 ### Lifecycle & State
 
@@ -53,6 +53,7 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 | [system_reminder_integration.md](./system_reminder_integration.md) | Context propagation, progress reporting | System Prompts |
 | [hooks_integration.md](./hooks_integration.md) | Hook execution in subagent context | `17_hooks/` |
 | [context_building.md](./context_building.md) | Fork context building, isolation | Message Assembly |
+| [slash_command_integration.md](./slash_command_integration.md) | /loop, /compact, skills integration | Slash Commands, CronCreate, SkillTool |
 
 ### Configuration & Execution Modes
 
@@ -109,8 +110,9 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 |------------|----------|-------------|----------|
 | `YP6` | `assembleSessionToolSet` | Main tool set assembly | chunks.141.mjs:1476 |
 | `vQ1` | `deriveToolUseContext` | Create isolated context for subagent | chunks.149.mjs:2589 |
-| `Bj1` | `BACKGROUND_AGENT_ALLOWED_TOOLS` | Tools for background agents | chunks.89.mjs:876 |
-| `R_6` | `DELEGATE_ALLOWED_TOOLS` | Tools for delegate mode | chunks.89.mjs:876 |
+| `CW6` | `BACKGROUND_AGENT_EXCLUDED_TOOLS` | Tools excluded from background agents | chunks.91.mjs:269 |
+| `eP1` | `ASYNC_AGENT_ALLOWED_TOOLS` | Tools allowed for async agents | chunks.91.mjs:269 |
+| `WY4` | `TEAM_DELEGATE_TOOLS` | Team/cron tools for delegates | chunks.91.mjs:269 |
 
 ---
 
@@ -212,21 +214,41 @@ Subagents can declare `isolation: worktree` in their agent definition to run wit
 
 ## Tool Whitelists
 
-### Background Agent Tools
+### Background Agent Excluded Tools (CW6)
+
+Tools **excluded** from background/async agents:
 
 ```javascript
-BACKGROUND_AGENT_ALLOWED_TOOLS = new Set([
-    "TaskOutput", "ExitPlanMode", "EnterPlanMode",
-    "Task", "AskUserQuestion", "TaskStop"
+BACKGROUND_AGENT_EXCLUDED_TOOLS = new Set([
+    "TaskOutput",      // Write to background task output
+    "ExitPlanMode",    // Exit plan mode
+    "EnterPlanMode",   // Enter plan mode
+    "Agent",           // Spawn subagents (Task tool)
+    "AskUserQuestion", // Request user input
+    "TaskStop"         // Stop running task
 ])
 ```
 
-### Delegate Mode Tools
+### Async Agent Allowed Tools (eP1)
+
+Tools **allowed** for async/background agents:
 
 ```javascript
-DELEGATE_ALLOWED_TOOLS = new Set([
-    "TeamCreate", "TeamDelete", "SendMessage",
-    "TaskCreate", "TaskGet", "TaskList", "TaskUpdate", "Task"
+ASYNC_AGENT_ALLOWED_TOOLS = new Set([
+    "Read", "WebSearch", "TodoWrite", "Grep", "WebFetch", "Glob",
+    "Bash", "Edit", "Write", "NotebookEdit", "Skill",
+    "StructuredOutput", "ToolSearch", "EnterWorktree", "ExitWorktree"
+])
+```
+
+### Team/Delegate Tools (WY4)
+
+Tools available to delegate mode agents:
+
+```javascript
+TEAM_DELEGATE_TOOLS = new Set([
+    "TaskCreate", "TaskGet", "TaskList", "TaskUpdate",
+    "SendMessage", "CronCreate", "CronDelete", "CronList"
 ])
 ```
 

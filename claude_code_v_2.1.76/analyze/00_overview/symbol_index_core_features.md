@@ -1154,16 +1154,16 @@
 
 ## Module: Loop/Cron System
 
-> Full analysis: [36_loop_cron/](../36_loop_cron/)
+> Full analysis: [36_loop_cron/](../36_loop_cron/), [08_subagent/slash_command_integration.md](../08_subagent/slash_command_integration.md)
 > **NEW in 2.1.71** - Recurring task scheduling via /loop command and Cron tools
 
 ### Cron Tool Names & Constants
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| - | TOOL_NAME_CRON_CREATE | chunks.89.mjs | constant ("CronCreate") |
-| - | TOOL_NAME_CRON_DELETE | chunks.89.mjs | constant ("CronDelete") |
-| - | TOOL_NAME_CRON_LIST | chunks.89.mjs | constant ("CronList") |
+| ER | TOOL_NAME_CRON_CREATE | chunks.91.mjs:192 | constant ("CronCreate") |
+| ed | TOOL_NAME_CRON_DELETE | chunks.91.mjs:194 | constant ("CronDelete") |
+| SW6 | TOOL_NAME_CRON_LIST | chunks.91.mjs:196 | constant ("CronList") |
 | - | CLAUDE_CODE_DISABLE_CRON | process.env | environment variable |
 
 ### Cron Tools
@@ -1185,6 +1185,12 @@
 | - | loopCommandDefinition | chunks.163.mjs | object (slash command definition) |
 | - | parseLoopInterval | chunks.163.mjs | function (parses "5m", "1h" → ms) |
 | - | loopCommandHandler | chunks.163.mjs | function |
+
+### Integration with Team Tools
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| WY4 | TEAM_DELEGATE_TOOLS | chunks.91.mjs:269 | Set (includes CronCreate/Delete/List) |
 
 ---
 

@@ -210,11 +210,15 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | readFileState | readFileState | chunks.149.mjs:2603 | Map (file cache) |
-| R_6 | DELEGATE_ALLOWED_TOOLS | chunks.89.mjs:876 | Set (tool whitelist) |
-| Bj1 | BACKGROUND_AGENT_ALLOWED_TOOLS | chunks.89.mjs:876 | Set (tool whitelist) |
-| L_6 | ALL_SAFE_TOOLS | chunks.89.mjs:876 | Set |
-| np7 | STRUCTURED_TASK_TOOLS | chunks.89.mjs:876 | Set |
-| VjA | ASYNC_BATCH_TOOLS | chunks.89.mjs:876 | Set (copy of Bj1) |
+| CW6 | BACKGROUND_AGENT_EXCLUDED_TOOLS | chunks.91.mjs:269 | Set (tools excluded from background agents) |
+| xV8 | ASYNC_AGENT_EXCLUDED_TOOLS | chunks.91.mjs:269 | Set (copy of CW6) |
+| eP1 | ASYNC_AGENT_ALLOWED_TOOLS | chunks.91.mjs:269 | Set (tools allowed for async agents) |
+| WY4 | TEAM_DELEGATE_TOOLS | chunks.91.mjs:269 | Set (team/cron tools for delegates) |
+| Ufq | SAFE_TOOLS | chunks.172.mjs:2502 | Set (safe tools for plan mode) |
+| LYz | FILE_MODIFICATION_TOOLS | chunks.172.mjs:2502 | Set (Write, Edit, NotebookEdit) |
+| D$$ | ALL_TOOLS_COMBINED | chunks.172.mjs:2502 | Set (Ufq + LYz) |
+| GY4 | ALL_SAFE_TOOLS | chunks.91.mjs:305 | Set (Read, Write, Edit, Glob, Grep, Bash, NotebookEdit) |
+| Xk8 | filterToolsForSubagent | chunks.93.mjs:1568 | function |
 | yp | cloneMap | chunks.149.mjs | function |
 | Jh | parseMcpToolName | chunks.149.mjs | function |
 | VD | parseMcpToolNameVariant | chunks.149.mjs | function |
@@ -554,7 +558,9 @@
 | background-task-output | BACKGROUND_TASK_OUTPUT_MARKER | chunks.129.mjs:2194 | constant |
 | backgroundTasks | backgroundTasks | chunks.151.mjs:2590 | state key |
 | run_in_background | run_in_background | chunks.132.mjs:43 | parameter |
-| Bj1 | BACKGROUND_AGENT_ALLOWED_TOOLS | chunks.89.mjs:~540 | constant (Set) |
+| CW6 | BACKGROUND_AGENT_EXCLUDED_TOOLS | chunks.91.mjs:269 | constant (Set) |
+| eP1 | ASYNC_AGENT_ALLOWED_TOOLS | chunks.91.mjs:269 | constant (Set) |
+| WY4 | TEAM_DELEGATE_TOOLS | chunks.91.mjs:269 | constant (Set) |
 | KP6 | BACKGROUND_TASKS_DISABLED (AgentTool) | chunks.132.mjs:37 | constant (boolean) |
 | Id1 | BACKGROUND_TASKS_DISABLED (BashTool) | chunks.170.mjs:528 | constant (boolean) |
 | q_q | BASH_BACKGROUND_TIMEOUT_MS | chunks.170.mjs:514 | constant (2000) |
