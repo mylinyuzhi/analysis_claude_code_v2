@@ -13,10 +13,11 @@ The SDK communication protocol is **newline-delimited JSON (NDJSON)** — each m
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - SDK transport symbols
 
 Key functions in this document:
-- `StdioStreamIO` (Mc1) - Protocol processor (processLine, sendRequest, write)
+- `StdioStreamIO` (so6) - Protocol processor (processLine, sendRequest, write)
 - `initializeSession` (CJz) - Handles initialize control request
 - `streamJsonInputHandler` (oGz) - Routes stdin → stream
-- `runHeadless` (j5 import) - Drives non-interactive execution loop
+- `runHeadless` (BXz) - Drives non-interactive execution loop
+- `createStreamIO` (UXz) - Transport factory
 - `getLastResultMessage` (gP) - Extracts final result from messages
 
 ---
@@ -30,6 +31,7 @@ CLIENT → CLAUDE CODE (stdin / WebSocket incoming):
   {"type":"control_response","response":{"request_id":"uuid",...}}⏎
   {"type":"keep_alive"}⏎
   {"type":"update_environment_variables","variables":{...}}⏎
+  {"type":"control_cancel_request","request_id":"uuid"}⏎
 
 CLAUDE CODE → CLIENT (stdout / WebSocket outgoing):
   {"type":"system","subtype":"init",...}⏎          ← First message
@@ -87,7 +89,8 @@ The first `control_request` sent by SDK wrappers. Must arrive before any user me
       "HookEvent": [{ "matcher": "...", "hookCallbackIds": ["id1"], "timeout": 30000 }]
     },
     "jsonSchema": { /* output schema */ },
-    "sdkMcpServers": ["server-name-1"]
+    "sdkMcpServers": ["server-name-1"],
+    "promptSuggestions": true  // Enable prompt_suggestion events after each turn
   }
 }
 ```
@@ -329,6 +332,23 @@ Allows the SDK to update environment variables in the Claude Code process withou
 
 ---
 
+### 6. `control_cancel_request` — Cancel Pending Control Request
+
+Cancels a pending `control_request` that was sent by the server (e.g., a `can_use_tool` permission prompt). Sent when the agent aborts before the client responds.
+
+```javascript
+{
+  "type": "control_cancel_request",
+  "request_id": "<uuid>"  // The request_id of the control_request to cancel
+}
+```
+
+**When emitted:** Automatically sent by `StdioStreamIO.sendRequest()` (so6) when the AbortSignal fires. Also sent by `injectControlResponse()` when a tool response is forcefully injected.
+
+**Effect:** Removes the corresponding entry from `pendingRequests`. The client should discard any pending response for this `request_id`.
+
+---
+
 ## Server → Client Messages
 
 ### 1. `system` — Lifecycle and Status Events
@@ -446,16 +466,36 @@ Emitted when the permission mode changes dynamically.
 ```javascript
 {
   "type": "auth_status",
-  "status": "authenticated" | "unauthenticated" | "expired",
-  "account": {
-    "email": "user@example.com",
-    "organization": "My Org",
-    "subscriptionType": "pro"
-  },
-  "session_id": "<uuid>",
-  "uuid": "<uuid>"
+  "isAuthenticating": true | false,  // true if auth request is in-flight
+  "output": "...",                    // auth progress output text
+  "error": "...",                     // error message if failed
+  "uuid": "<uuid>",
+  "session_id": "<uuid>"
 }
 ```
+
+**Source:** chunks.187.mjs:26-35
+
+---
+
+#### 1h. `elicitation_complete` — MCP Elicitation Confirmed Complete
+
+Emitted when an MCP server sends an `elicitation_complete` notification, confirming that a URL-mode elicitation has been handled.
+
+```javascript
+{
+  "type": "system",
+  "subtype": "elicitation_complete",
+  "mcp_server_name": "my-server",
+  "elicitation_id": "<uuid>",
+  "uuid": "<uuid>",
+  "session_id": "<uuid>"
+}
+```
+
+**Source:** chunks.187.mjs:119-126 — `setNotificationHandler(My6, ...)` fires when MCP server sends completion notification.
+
+**Note:** Only emitted for non-SDK MCP servers (type ≠ "sdk"). SDK-type MCP servers communicate via `mcp_message` control channel.
 
 ---
 
@@ -505,6 +545,28 @@ interface SDKRateLimitEvent {
 - SDK clients previously had no visibility into rate-limit state without inspecting raw HTTP headers
 - The `rate_limit` event decouples the SDK abstraction from transport-level details
 - `tokens_remaining` is optional because some API tiers report only request-level limits
+
+---
+
+### 2a. `prompt_suggestion` — Predicted Next User Prompt
+
+Emitted after each completed agent turn when `promptSuggestions: true` was set in the `initialize` request. Provides a predicted next user message to surface as a suggestion in SDK clients.
+
+```javascript
+{
+  "type": "prompt_suggestion",
+  "suggestion": "What else would you like me to do?",
+  "uuid": "<uuid>",
+  "session_id": "<uuid>"
+}
+```
+
+**When emitted:**
+- After each turn completes, when `sessionOptions.promptSuggestions` is true
+- AND `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION !== "false"`
+- Generated asynchronously via `mp8()` with its own AbortController (cancelled on next turn start)
+
+**Note:** `prompt_suggestion` messages are excluded from collection in the json output format (line 1728 in chunks.186.mjs: `h.type !== "prompt_suggestion"`), so they don't appear in the final message array.
 
 ---
 
@@ -698,6 +760,16 @@ case "attachment":
 
 The server sends this when a tool requires permission. The client must respond with a `control_response`.
 
+**All `control_request` subtypes sent server→client:**
+- `can_use_tool` — Permission prompt for a tool invocation
+- `initialize` — (client→server only; server echoes response)
+- `interrupt` — (client→server only)
+- `set_permission_mode` (pXz) — Dynamic permission mode update
+- `set_model` — Model override
+- `set_max_thinking_tokens` — Thinking budget adjustment
+- `mcp_status` — MCP server status query
+- `rewind` (thq) — Rewind conversation to a prior state
+
 ```javascript
 {
   "type": "control_request",
@@ -706,12 +778,13 @@ The server sends this when a tool requires permission. The client must respond w
     "subtype": "can_use_tool",
     "tool_name": "Bash",
     "input": {"command": "rm -rf /tmp/test"},
-    "tool_use_id": "tu_xxx"
+    "tool_use_id": "tu_xxx",
+    "agent_id": "<agent-uuid>"  // ID of the agent making the permission request
   }
 }
 ```
 
-**Cancellation:** If aborted before response, server sends:
+**Cancellation:** If aborted before response, server sends a `control_cancel_request` (see section 6):
 ```javascript
 {
   "type": "control_cancel_request",
@@ -869,6 +942,7 @@ During the agent loop, messages are classified for two purposes simultaneously:
 - `control_cancel_request` — cancellations
 - `stream_event` — raw streaming events
 - `keep_alive` — heartbeats
+- `prompt_suggestion` — next-prompt predictions (chunks.186.mjs:1728)
 - `streamlined_text` — internal text optimization
 - `streamlined_tool_use_summary` — internal tool summary
 

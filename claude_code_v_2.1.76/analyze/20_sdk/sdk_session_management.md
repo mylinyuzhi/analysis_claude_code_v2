@@ -16,26 +16,28 @@ SDK sessions manage state differently from interactive CLI sessions. This docume
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Compact feature
 
 Key functions in this document:
-- `initializeSession` (CJz) - Processes initialize control request
+- `initializeHandler` (FXz) - Processes initialize control request
 - `generateSessionId` (pcA) - Creates new session ID
 - `resumeSession` (yt) - Resumes previous session
 - `autoCompactDispatcher` (sI2) - Handles auto-compaction
 - `setJsonSchema` (KR6) - Sets structured output schema
+- `handleRewindRequest` (thq) - File history rewind control handler
+- `handleSetPermissionMode` (pXz) - Permission mode transition handler
 
 ---
 
 ## Session Initialization
 
-### initializeSession (CJz)
+### initializeHandler (FXz)
 
 ```javascript
 // ============================================
-// initializeSession - Process initialize control request
-// Location: chunks.179.mjs:1654-1734
+// initializeHandler - Process initialize control request
+// Location: chunks.187.mjs:1174-1269
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function CJz(A, q, K, Y, z, w, H, $, O, _, J) {
+async function FXz(A, q, K, Y, z, w, H, $, O, _, J) {
     if (K) {
         Y.enqueue({ type: "control_response", response: { subtype: "error", error: "Already initialized", request_id: q, pending_permission_requests: H.getPendingPermissionRequests() } });
         return
@@ -95,6 +97,8 @@ async function initializeSession(request, requestId, isAlreadyInitialized, outpu
         setHooks(hookMap);
     }
 
+    if (request.promptSuggestions) sessionOptions.promptSuggestions = true;  // chunks.187.mjs:1189 — enables prompt suggestion feature (642)
+
     if (request.jsonSchema) setJsonSchema(request.jsonSchema);
 
     let sessionMetadata = {
@@ -119,7 +123,7 @@ async function initializeSession(request, requestId, isAlreadyInitialized, outpu
     outputQueue.enqueue({ type: "control_response", response: { subtype: "success", request_id: requestId, response: sessionMetadata } });
 }
 
-// Mapping: CJz→initializeSession, A→request, q→requestId, K→isAlreadyInitialized, Y→outputQueue, z→commands, w→models, H→streamIO, O→sessionOptions, _→agentList
+// Mapping: FXz→initializeHandler, A→request, q→requestId, K→isAlreadyInitialized, Y→outputQueue, z→commands, w→models, H→streamIO, O→sessionOptions, _→agentList
 ```
 
 ---
@@ -558,7 +562,8 @@ SDK Client                          Claude Code Binary
         "request_id": "<uuid>",
         "response": {
             // ... other fields ...
-            "fast_mode_state": "on" | "off" | "cooldown"
+            "fast_mode_state": "on" | "off" | "cooldown",
+            "pid": 12345  // process.pid of the Claude Code binary (chunks.187.mjs:1245)
         }
     }
 }
@@ -622,6 +627,163 @@ SDK clients can dynamically modify session parameters during an active session u
     }
 }
 ```
+
+---
+
+### handleRewindRequest (thq)
+
+**What it does:** Handles the `rewind` control request, which rolls back file changes to a previous checkpoint in the session's file history. Supports both "dry run" (check mode) and "execute" modes.
+
+**Source:** chunks.187.mjs:1271
+
+**How it works:**
+1. Checks if rewind is enabled via `iz()` (feature flag check)
+2. Checks if a file checkpoint exists for the target message UUID via `tN1(q.fileHistory, A)`
+3. If `Y` (dryRun) is true: returns stats only (filesChanged, insertions, deletions)
+4. If dryRun is false: calls `sN1()` to actually apply the rewind
+
+**Control request format:**
+```javascript
+{
+  "type": "control_request",
+  "request": {
+    "subtype": "rewind",
+    "message_uuid": "<uuid>",  // A - the message to rewind to
+    "dry_run": true | false    // Y - check or execute
+  }
+}
+```
+
+**Response (success, dryRun=true):**
+```javascript
+{
+  "canRewind": true,
+  "filesChanged": 3,
+  "insertions": 45,
+  "deletions": 12
+}
+```
+
+**Response (success, dryRun=false):**
+```javascript
+{ "canRewind": true }
+```
+
+**Response (failure):**
+```javascript
+{
+  "canRewind": false,
+  "error": "File rewinding is not enabled." | "No file checkpoint found for this message."
+}
+```
+
+**Guard conditions:**
+- `iz()` must return true (rewind feature enabled) — otherwise returns `canRewind: false`
+- `tN1()` must find the checkpoint — otherwise returns `canRewind: false`
+
+```javascript
+// ============================================
+// handleRewindRequest - File history rewind control handler
+// Location: chunks.187.mjs:1271-1303
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function thq(A, q, K, Y) {
+    if (!iz()) return { canRewind: !1, error: "File rewinding is not enabled." };
+    if (!tN1(q.fileHistory, A)) return { canRewind: !1, error: "No file checkpoint found for this message." };
+    if (Y) {
+        let z = eN1(q.fileHistory, A);
+        return { canRewind: !0, filesChanged: z?.filesChanged, insertions: z?.insertions, deletions: z?.deletions }
+    }
+    try {
+        await sN1((z) => K((_) => ({ ..._, fileHistory: z(_.fileHistory) })), A)
+    } catch (z) {
+        return { canRewind: !1, error: `Failed to rewind: ${z.message}` }
+    }
+    return { canRewind: !0 }
+}
+
+// READABLE (for understanding):
+async function handleRewindRequest(messageUuid, sessionState, setAppState, dryRun) {
+    if (!isRewindEnabled()) return { canRewind: false, error: "File rewinding is not enabled." };
+    if (!hasFileCheckpoint(sessionState.fileHistory, messageUuid)) {
+        return { canRewind: false, error: "No file checkpoint found for this message." };
+    }
+    if (dryRun) {
+        let stats = getFileCheckpointStats(sessionState.fileHistory, messageUuid);
+        return { canRewind: true, filesChanged: stats?.filesChanged, insertions: stats?.insertions, deletions: stats?.deletions };
+    }
+    try {
+        await applyFileRewind((updater) => setAppState((state) => ({ ...state, fileHistory: updater(state.fileHistory) })), messageUuid);
+    } catch (error) {
+        return { canRewind: false, error: `Failed to rewind: ${error.message}` };
+    }
+    return { canRewind: true };
+}
+
+// Mapping: thq→handleRewindRequest, A→messageUuid, q→sessionState, K→setAppState, Y→dryRun, iz→isRewindEnabled, tN1→hasFileCheckpoint, eN1→getFileCheckpointStats, sN1→applyFileRewind
+```
+
+---
+
+### handleSetPermissionMode (pXz)
+
+**What it does:** Handles the `set_permission_mode` control request. Validates the requested mode transition and updates the session's permission mode. Enforces policy restrictions for `bypassPermissions` and `auto` modes.
+
+**Source:** chunks.187.mjs:1305-1345
+
+**How it works:**
+1. If mode is `bypassPermissions`:
+   - Checks `bd()` (isDangerousPermissionsDisabled) — fails if permissions bypass is policy-blocked
+   - Checks `isBypassPermissionsModeAvailable` flag — fails if session wasn't launched with `--dangerously-skip-permissions`
+2. If mode is `auto`:
+   - Checks `IN()` (isDangerousActionClassifierEnabled) — fails if auto mode is not available
+3. On success: calls `ki()` to update permission context, sets `mode` to new value, returns success
+
+**Guard conditions:**
+- `bypassPermissions`: requires `!bd()` AND `isBypassPermissionsModeAvailable`
+- `auto`: requires `IN()` (dangerous action classifier must be enabled)
+
+```javascript
+// ============================================
+// handleSetPermissionMode - Permission mode transition handler
+// Location: chunks.187.mjs:1305-1345
+// ============================================
+
+// ORIGINAL (for source lookup):
+function pXz(A, q, K, Y) {
+    if (A.mode === "bypassPermissions") {
+        if (bd()) return Y.enqueue({type:"control_response",response:{subtype:"error",request_id:q,error:"Cannot set permission mode to bypassPermissions because it is disabled by settings or configuration"}}), K;
+        if (!K.isBypassPermissionsModeAvailable) return Y.enqueue({type:"control_response",response:{subtype:"error",request_id:q,error:"Cannot set permission mode to bypassPermissions because the session was not launched with --dangerously-skip-permissions"}}), K
+    }
+    if (A.mode === "auto" && !IN()) return Y.enqueue({type:"control_response",response:{subtype:"error",request_id:q,error:"Cannot set permission mode to auto because the dangerous action classifier is not enabled"}}), K;
+    return Y.enqueue({type:"control_response",response:{subtype:"success",request_id:q,response:{mode:A.mode}}}), {...ki(K.mode, A.mode, K), mode: A.mode}
+}
+
+// READABLE (for understanding):
+function handleSetPermissionMode(request, requestId, currentState, outputQueue) {
+    if (request.mode === "bypassPermissions") {
+        if (isDangerousPermissionsDisabled()) {
+            outputQueue.enqueue({ type: "control_response", response: { subtype: "error", request_id: requestId, error: "Cannot set permission mode to bypassPermissions because it is disabled by settings or configuration" } });
+            return currentState;
+        }
+        if (!currentState.isBypassPermissionsModeAvailable) {
+            outputQueue.enqueue({ type: "control_response", response: { subtype: "error", request_id: requestId, error: "Cannot set permission mode to bypassPermissions because the session was not launched with --dangerously-skip-permissions" } });
+            return currentState;
+        }
+    }
+    if (request.mode === "auto" && !isDangerousActionClassifierEnabled()) {
+        outputQueue.enqueue({ type: "control_response", response: { subtype: "error", request_id: requestId, error: "Cannot set permission mode to auto because the dangerous action classifier is not enabled" } });
+        return currentState;
+    }
+    outputQueue.enqueue({ type: "control_response", response: { subtype: "success", request_id: requestId, response: { mode: request.mode } } });
+    return { ...updatePermissionContext(currentState.mode, request.mode, currentState), mode: request.mode };
+}
+
+// Mapping: pXz→handleSetPermissionMode, A→request, q→requestId, K→currentState, Y→outputQueue, bd→isDangerousPermissionsDisabled, IN→isDangerousActionClassifierEnabled, ki→updatePermissionContext
+```
+
+**Key insight:** This function returns the updated state object (not just a response). The caller replaces the session state with the returned value. This is a pure function pattern — it takes state in and returns new state out, making it easy to test.
 
 ---
 
@@ -722,3 +884,4 @@ Session Start
 - **Error Recovery**: See [sdk_error_recovery.md](./sdk_error_recovery.md) for session error handling
 - **Compact Feature**: See [07_compact/](../07_compact/) for compaction details
 - **Streaming Protocol**: See [streaming_protocol.md](./streaming_protocol.md) for message formats
+- **Outbound Queue**: See [sdk_outbound_queue.md](./sdk_outbound_queue.md) for Pi6/Y26 queue architecture

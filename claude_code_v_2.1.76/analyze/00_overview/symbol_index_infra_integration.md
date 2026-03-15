@@ -25,23 +25,28 @@
 > Full analysis: [20_sdk/](../20_sdk/)
 > Deep reverse engineering of the NDJSON streaming protocol, WebSocket transport, and UI linkage.
 
-### SDK I/O Transport Classes (chunks.178.mjs)
+### SDK I/O Transport Classes (chunks.184.mjs, chunks.185.mjs, chunks.187.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Mc1 | StdioStreamIO | chunks.178.mjs:1060-1236 | class (base NDJSON transport over stdio) |
-| FQA | SdkUrlStreamIO | chunks.178.mjs:1630-1663 | class (extends StdioStreamIO; bridges WebSocket → PassThrough stream) |
-| Pc1 | WebSocketTransport | chunks.178.mjs:1294-1490 | class (WebSocket connection with reconnect, message buffer, ping/pong) |
-| jc1 | handlePermissionPromptToolResult | chunks.178.mjs:989-1010 | function (processes MCP tool permission result; handles allow/deny/interrupt) |
-| IJz | createStreamIO | chunks.179.mjs:1887-1901 | function (factory: selects StdioStreamIO or SdkUrlStreamIO based on sdkUrl option) |
+| so6 | StdioStreamIO | chunks.184.mjs:1942-2220 | class (base NDJSON transport over stdio; owns Pi6 outbound queue) |
+| AI1 | RemoteStreamIO | chunks.185.mjs:672-780 | class (extends so6; bridges selected transport → PassThrough stream; uses URq to select WebSocket/Hybrid/SSE) |
+| to6 | WebSocketTransport | chunks.184.mjs:2298-2762 | class (WebSocket connection with reconnect, message buffer, ping/pong) |
+| eo6 | HybridTransport | chunks.184.mjs:2762-2870 | class (extends to6; reads via WS, writes stream_event via HTTP POST batch; owns Y26 BatchQueue) |
+| z26 | SSETransport | chunks.184.mjs | class (SSE-based transport for CCR v2 protocol) |
+| URq | getTransportForUrl | chunks.185.mjs:296 | function (selects to6/eo6/z26 based on URL and env vars for RemoteStreamIO) |
+| UXz | createStreamIO | chunks.187.mjs:1467-1481 | function (factory: selects StdioStreamIO or RemoteStreamIO based on sdkUrl option) |
+| jc1 | handlePermissionPromptToolResult | chunks.184.mjs:989-1010 | function (processes MCP tool permission result; handles allow/deny/interrupt) |
 | oGz | streamJsonInputHandler | chunks.189.mjs:984-997 | function (routes stdin → stream; text mode buffers, stream-json mode returns raw stream) |
-| createHookCallback | createHookCallback | chunks.178.mjs:1209-1226 | method (on StdioStreamIO: creates callback wrapper for SDK hook execution via control_request) |
-| sendMcpMessage | sendMcpMessage | chunks.178.mjs:1227-1235 | method (on StdioStreamIO: sends MCP message through SDK control channel) |
-| CJz | initializeSession | chunks.179.mjs:1654-1734 | function (processes initialize control request, registers hooks/agents/schema) |
-| hJz | handleSessionResume | chunks.179.mjs:1829-1884 | function (handles --continue/--resume/--teleport for print mode) |
-| Ev6 | outputError | chunks.179.mjs:1805-1827 | function (formats error output for SDK mode; stream-json vs text) |
-| SJz | setPermissionMode | chunks.179.mjs:1781-1802 | function (sets permission mode from SDK request) |
-| $Jz | tryPermissionHookFirst | chunks.178.mjs:1242-1280 | function (attempts hook-based permission before prompt) |
+| createHookCallback | createHookCallback | chunks.184.mjs:2167-2184 | method (on StdioStreamIO: creates callback wrapper for SDK hook execution via control_request) |
+| handleElicitation | handleElicitation | chunks.184.mjs:2185-2201 | method (on StdioStreamIO: sends structured elicitation control_request; awaits user input response) |
+| createSandboxAskCallback | createSandboxAskCallback | chunks.184.mjs:2202-2220 | method (on StdioStreamIO: creates callback for sandbox permission decisions via control_request) |
+| sendMcpMessage | sendMcpMessage | chunks.184.mjs | method (on StdioStreamIO: sends MCP message through SDK control channel) |
+| CJz | initializeSession | chunks.187.mjs | function (processes initialize control request, registers hooks/agents/schema) |
+| hJz | handleSessionResume | chunks.187.mjs | function (handles --continue/--resume/--teleport for print mode) |
+| Ev6 | outputError | chunks.187.mjs | function (formats error output for SDK mode; stream-json vs text) |
+| SJz | setPermissionMode | chunks.187.mjs | function (sets permission mode from SDK request) |
+| $Jz | tryPermissionHookFirst | chunks.184.mjs | function (attempts hook-based permission before prompt) |
 
 ### SDK MCP Transport (chunks.144.mjs, chunks.145.mjs)
 
@@ -52,14 +57,17 @@
 | rH6 | McpClient | chunks.145.mjs | class (MCP client for tool discovery and execution) |
 | wI | discoverMcpTools | chunks.145.mjs | function (discovers tools from connected MCP servers) |
 
-### WebSocket Transport Constants (chunks.178.mjs)
+### WebSocket Transport Constants (chunks.184.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| OJz | WS_MESSAGE_BUFFER_SIZE | chunks.178.mjs:1517 | constant (1000: circular buffer capacity for message replay) |
-| _Jz | WS_BASE_BACKOFF_MS | chunks.178.mjs:1519 | constant (1000: initial reconnection backoff in ms) |
-| JJz | WS_MAX_BACKOFF_MS | chunks.178.mjs:1521 | constant (30000: max reconnection backoff cap in ms) |
-| XJz | WS_MAX_RECONNECT_DURATION_MS | chunks.178.mjs:1523 | constant (600000: total reconnection time budget, 10 minutes) |
+| OJz | WS_MESSAGE_BUFFER_SIZE | chunks.184.mjs:2517 | constant (1000: circular buffer capacity for message replay) |
+| _Jz | WS_BASE_BACKOFF_MS | chunks.184.mjs:2519 | constant (1000: initial reconnection backoff in ms) |
+| JJz | WS_MAX_BACKOFF_MS | chunks.184.mjs:2521 | constant (30000: max reconnection backoff cap in ms) |
+| XJz | WS_MAX_RECONNECT_DURATION_MS | chunks.184.mjs:2523 | constant (600000: total reconnection time budget, 10 minutes) |
+| IDz | STREAM_EVENT_BUFFER_TIMEOUT_MS | chunks.184.mjs | constant (100: ms to buffer stream_event before HTTP POST flush in HybridTransport) |
+| bDz | HYBRID_FLUSH_TIMEOUT_MS | chunks.184.mjs | constant (15000: per-batch HTTP POST timeout for HybridTransport) |
+| xDz | HYBRID_CLOSE_FLUSH_TIMEOUT_MS | chunks.184.mjs | constant (3000: close flush timeout for graceful HybridTransport shutdown) |
 | dz | AbortError | chunks.10.mjs:1232 | class (thrown when sendRequest is cancelled via AbortSignal) |
 | wJz | generateRequestId | cli.chunks.mjs:6315 | function (randomUUID, generates UUID for control request correlation) |
 
@@ -68,6 +76,20 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | iW1 | handleStreamEvent | chunks.173.mjs:390-488 | function (central dispatcher: stream_event → UI state transitions, text/tool/thinking callbacks) |
+
+### Outbound Queue Classes (chunks.145.mjs, chunks.184.mjs)
+
+> Full analysis: [20_sdk/sdk_outbound_queue.md](../20_sdk/sdk_outbound_queue.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Pi6 | AsyncQueue | chunks.145.mjs:2959 | class (async-iterable FIFO queue; StdioStreamIO outbound buffer and runHeadless output collector) |
+| so6 | StdioStreamIO | chunks.184.mjs:1942 | class (owner of AsyncQueue outbound; primary definition in chunks.184.mjs) |
+| BXz | runHeadless | chunks.145.mjs | function (non-interactive execution loop; uses AsyncQueue to collect all output messages) |
+| Y26 | BatchQueue | chunks.184.mjs:2642 | class (HTTP POST batch uploader with backpressure, retry, and exponential backoff) |
+| eo6 | HybridTransport | chunks.184.mjs | class (owns BatchQueue uploader for telemetry/event delivery) |
+| MV6 | RetryAfterError | chunks.184.mjs:2731 | class (Error subclass with retryAfterMs field; signals server-directed retry delay) |
+| uDz | computePostUrl | chunks.184.mjs:2740 | function (converts wss://host/ws/<id> → https://host/session/<id>/events) |
 
 ---
 

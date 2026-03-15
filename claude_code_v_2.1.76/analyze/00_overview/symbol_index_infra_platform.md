@@ -502,16 +502,34 @@
 | e17 | SDK_SYSTEM_PROMPT_AGENT | chunks.169.mjs | constant ("You are a Claude agent, built on Anthropic's Claude Agent SDK") |
 | B7A | BASE_SYSTEM_PROMPT | chunks.169.mjs | constant ("You are Claude Code, Anthropic's official CLI for Claude") |
 
+### SDK Transport
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| so6 | StdioStreamIO | chunks.184.mjs:1942 | class |
+| to6 | WebSocketTransport | chunks.184.mjs:2298 | class |
+| eo6 | HybridTransport | chunks.184.mjs:2762 | class |
+| AI1 | RemoteStreamIO | chunks.185.mjs:672 | class |
+| URq | getTransportForUrl | chunks.185.mjs:296 | function |
+| Y26 | BatchQueue | chunks.184.mjs:2642 | class |
+| Pi6 | AsyncQueue | chunks.145.mjs:2959 | class |
+| MV6 | RetryAfterError | chunks.184.mjs:2731 | class |
+| uDz | computePostUrl | chunks.184.mjs:2740 | function |
+
 ### SDK Session Functions
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| CJz | initializeSession | chunks.179.mjs:1654-1734 | function (processes initialize control request; applies system prompt, agents, hooks, jsonSchema) |
+| FXz | initializeHandler | chunks.187.mjs:1174 | function (processes initialize control request; applies system prompt, agents, hooks, jsonSchema) |
 | oGz | streamJsonInputHandler | chunks.189.mjs:984-997 | function (routes stdin → stream based on input format) |
 | yJz | buildPermissionHandlerSource | chunks.179.mjs:1635 | function (builds permission handler source identifier) |
 | KR6 | setJsonSchema | chunks.179.mjs | function (sets JSON schema for structured output validation) |
 | Gv6 | PermissionToolResponseSchema | chunks.178.mjs | Zod schema (validates MCP tool permission response) |
 | zJ6 | HookCallbackResponseSchema | chunks.178.mjs | Zod schema (validates hook callback response) |
+| hJz | handleSessionResume | chunks.187.mjs | function (handles --resume flag; loads previous session state) |
+| UXz | createStreamIO | chunks.187.mjs:1467 | function (creates StdioStreamIO instance based on configuration) |
+| thq | handleRewindRequest | chunks.187.mjs:1271 | function |
+| pXz | handleSetPermissionMode | chunks.187.mjs:1305 | function |
 | - | SDKRateLimitInfo | chunks.178.mjs | type (rate limit info object) |
 | - | SDKRateLimitEvent | chunks.178.mjs | type (rate limit event type) |
 | - | supportsEffort | chunks.178.mjs | field (capability: model supports effort levels) |
@@ -521,11 +539,15 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| jc1 | handlePermissionPromptToolResult | chunks.178.mjs:989-1010 | function (processes MCP tool permission result; handles allow/deny/interrupt) |
+| JV6 | handlePermissionPromptToolResult | chunks.184.mjs:1621 | function (processes MCP tool permission result; handles allow/deny/interrupt) |
 | $Jz | processPermissionRequestIterator | chunks.178.mjs:1242-1280 | function (generator: processes permission request with MCP tool fallback) |
 | I51 | permissionRequestHandler | chunks.178.mjs:1250 | function (generator: core permission request handling logic) |
 | uX | checkToolPermission | chunks.178.mjs | function (checks tool permission before execution; returns behavior + suggestions) |
-| createCanUseTool | createCanUseTool | chunks.178.mjs:1181-1200 | method (creates permission checker callback; wraps checkToolPermission) |
+| createCanUseTool | createCanUseTool | chunks.184.mjs:2119 | method (creates permission checker callback; wraps checkToolPermission) |
+| createHookCallback | createHookCallback | chunks.184.mjs:2167 | method (creates callback wrapper for SDK hook execution) |
+| handleElicitation | handleElicitation | chunks.184.mjs:2185 | method |
+| createSandboxAskCallback | createSandboxAskCallback | chunks.184.mjs:2202 | method |
+| sendMcpMessage | sendMcpMessage | chunks.184.mjs:2219 | method |
 
 ### SDK Error Handling
 
@@ -534,18 +556,13 @@
 | bQA | outputErrorAndExit | chunks.178.mjs:1238-1240 | function (outputs error to stderr and exits process with code 1) |
 | Ev6 | outputError | chunks.179.mjs:1805-1820 | function (outputs error message in specified output format) |
 
-### SDK Session Functions
+### SDK MCP Integration
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| hJz | handleSessionResume | chunks.179.mjs:1829-1885 | function (handles --resume flag; loads previous session state) |
-| IJz | createStreamIO | chunks.179.mjs:1887-1900 | function (creates StdioStreamIO instance based on configuration) |
-
-### SDK Hook Callbacks
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| createHookCallback | createHookCallback | chunks.178.mjs:1209-1226 | method (creates callback wrapper for SDK hook execution) |
+| oi8 | SdkMcpTransport | chunks.169.mjs:1506 | class |
+| WGq | initializeSdkMcpClients | chunks.169.mjs:2437 | function |
+| qSq | updateSdkServerState | chunks.187.mjs:1518 | function |
 
 ---
 

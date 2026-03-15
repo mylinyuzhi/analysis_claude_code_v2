@@ -4,18 +4,23 @@
 
 Claude Code exposes an Agent SDK that allows external developers to build custom agents on top of the Claude Code runtime. The SDK operates through a **non-interactive print mode** where the Claude Code binary is invoked programmatically via `--print` flags and communicates over JSON-streaming stdio. SDK clients exist for TypeScript, Python, and raw CLI invocation. The system detects which SDK is being used through the `CLAUDE_CODE_ENTRYPOINT` environment variable and adapts its behavior accordingly -- changing system prompts, restricting certain built-in agents, adjusting error messages, and selecting the appropriate I/O transport.
 
+When `--sdk-url` points to a WebSocket endpoint, the transport layer uses a **dual-channel architecture** (`HybridTransport` / `eo6`): inbound messages are received over a persistent WebSocket connection (inherited from `WebSocketTransport` / `to6`), while outbound `stream_event` messages are batched for 100 ms and uploaded via HTTP POST through `BatchQueue` (`Y26`). Non-streaming outbound messages flush the batch buffer and HTTP POST synchronously. An `AsyncQueue` (`Pi6`) sits between the application logic and the I/O loop for all stdio-based transports.
+
+The message protocol includes two notable server→client event types introduced in recent versions: `auth_status` (fields: `isAuthenticating`, `output`, `error`) signals authentication state changes, and `prompt_suggestion` carries a follow-up prompt hint emitted after each turn when `promptSuggestions: true` was set in the `initialize` control request.
+
 ## Sub-Documents
 
 | Document | Contents |
 |---|---|
 | [streaming_protocol.md](./streaming_protocol.md) | Complete NDJSON message protocol — all message types, schemas, output format comparison |
-| [transport_layer.md](./transport_layer.md) | StdioStreamIO, WebSocketTransport, SdkUrlStreamIO internals, reconnection, permission tool |
+| [transport_layer.md](./transport_layer.md) | StdioStreamIO (so6), WebSocketTransport (to6), HybridTransport (eo6) dual-channel architecture, Pi6/Y26 queue integration |
+| [sdk_outbound_queue.md](./sdk_outbound_queue.md) | Pi6 AsyncQueue + Y26 BatchQueue dual-queue outbound architecture, backpressure, retry with exponential backoff |
 | [ui_linkage.md](./ui_linkage.md) | How SDK stream events drive UI state machine, thinking/text/tool streaming |
 | [agent_definitions.md](./agent_definitions.md) | Built-in agent definitions, custom agent schema, agent loading pipeline, SDK-specific filtering |
 | [sdk_tools_integration.md](./sdk_tools_integration.md) | Tool execution in SDK mode, permission prompt tool, MCP tool integration |
 | [sdk_hooks.md](./sdk_hooks.md) | SDK hook callback mechanism, hookCallbackIds, createHookCallback method |
-| [sdk_session_management.md](./sdk_session_management.md) | Session persistence, max turns, budget limits, auto-compact integration |
-| [sdk_mcp_integration.md](./sdk_mcp_integration.md) | MCP server integration in SDK mode, sdkMcpServers, sendMcpMessage, SdkMcpTransport |
+| [sdk_session_management.md](./sdk_session_management.md) | Session persistence, max turns, budget limits, auto-compact integration; handleRewindRequest, handleSetPermissionMode |
+| [sdk_mcp_integration.md](./sdk_mcp_integration.md) | MCP server integration in SDK mode, sdkMcpServers, sendMcpMessage, SdkMcpTransport (oi8), type="sdk" routing |
 | [sdk_error_recovery.md](./sdk_error_recovery.md) | WebSocket reconnection, abort handling, timeout management, error output formatting |
 
 ## Related Symbols
@@ -32,14 +37,17 @@ Key functions in this document:
 - `getEntrypoint` (L59) - Returns the current entrypoint string
 - `setEntrypoint` (iGz) - Detects and sets CLAUDE_CODE_ENTRYPOINT
 - `determineClientType` (inline in nGz) - Maps entrypoint to client type
-- `StdioStreamIO` (Mc1) - Base stdio JSON streaming transport
-- `SdkUrlStreamIO` (FQA) - WebSocket-based transport for SDK URL connections
-- `WebSocketTransport` (Pc1) - WebSocket connection with reconnection/buffering
-- `createStreamIO` (IJz) - Factory that selects StdioStreamIO or SdkUrlStreamIO
+- `StdioStreamIO` (so6) - Base stdio JSON streaming transport (chunks.184.mjs:1942); `outbound = new Pi6` queue
+- `RemoteStreamIO` (AI1) - Extends so6; delegates to `URq` to select WebSocket/HybridTransport (chunks.185.mjs:660)
+- `WebSocketTransport` (to6) - WebSocket connection with reconnection/buffering (chunks.184.mjs:2298)
+- `HybridTransport` (eo6) - Reads inbound via WebSocket; writes `stream_event` via Y26 BatchQueue HTTP POST (chunks.184.mjs:2762)
+- `createStreamIO` (UXz) - Factory that selects StdioStreamIO or RemoteStreamIO (chunks.187.mjs:1467)
 - `handleStreamEvent` (iW1) - Central dispatcher: stream events → UI state
-- `initializeSession` (CJz) - Processes initialize control request
+- `initializeHandler` (FXz) - Processes initialize control request (chunks.187.mjs:1174)
+- `handleRewindRequest` (thq) - Rolls back file changes to checkpoint (chunks.187.mjs:1271)
+- `handleSetPermissionMode` (pXz) - Validates and applies permission mode transitions (chunks.187.mjs:1305)
 - `streamJsonInputHandler` (oGz) - Routes stdin → stream for different input formats
-- `handlePermissionPromptToolResult` (jc1) - MCP-based permission prompt result handler
+- `handlePermissionPromptToolResult` (JV6) - MCP-based permission prompt result handler (chunks.184.mjs:1621)
 - `getExternalUserAgent` (Jr) - Builds user-agent string for SDK requests
 - `getBuiltinAgents` (APA) - Returns list of built-in agents (filters "guide" for SDK)
 - `SDK_SYSTEM_PROMPT_CLI` (t17) - System prompt for CLI-embedded SDK

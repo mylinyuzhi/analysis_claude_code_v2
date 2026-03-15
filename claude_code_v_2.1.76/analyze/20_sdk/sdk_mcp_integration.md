@@ -12,9 +12,9 @@ MCP (Model Context Protocol) integration in SDK mode enables external MCP server
 > - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - MCP platform
 
 Key functions in this document:
-- `SdkMcpTransport` (wCA) - Transport class for SDK-based MCP connections
-- `initializeSdkMcpClients` (io4) - Initializes MCP clients from SDK configuration
-- `sendMcpMessage` - Method on StdioStreamIO for bidirectional MCP communication
+- `SdkMcpTransport` (oi8) - Transport class for SDK-based MCP connections
+- `initializeSdkMcpClients` (WGq) - Initializes MCP clients from SDK configuration
+- `sendMcpMessage` - Method on StdioStreamIO (so6) for bidirectional MCP communication
 - `rH6` - MCP Client class (from MCP SDK)
 
 ---
@@ -37,12 +37,12 @@ Key functions in this document:
 ┌───────────────────────────────────────────────┼─────────────────┐
 │              Claude Code Binary               │                 │
 │  ┌──────────────────────┐                     │                 │
-│  │ StdioStreamIO (Mc1)  │                     │                 │
+│  │ StdioStreamIO (so6)  │                     │                 │
 │  │  - sendMcpMessage()  │◄────────────────────┘                 │
 │  └──────────┬───────────┘                                       │
 │             │                                                   │
 │  ┌──────────▼───────────┐                                       │
-│  │ SdkMcpTransport (wCA)│                                       │
+│  │ SdkMcpTransport (oi8)│                                       │
 │  │  - send()            │                                       │
 │  │  - onmessage         │                                       │
 │  └──────────┬───────────┘                                       │
@@ -60,7 +60,7 @@ Key functions in this document:
 
 ---
 
-## SdkMcpTransport (wCA) — Transport for SDK MCP
+## SdkMcpTransport (oi8) — Transport for SDK MCP
 
 ### Class Definition
 
@@ -75,11 +75,11 @@ Key functions in this document:
 ```javascript
 // ============================================
 // SdkMcpTransport - Transport for SDK-based MCP connections
-// Location: chunks.144.mjs:1747-1768
+// Location: chunks.169.mjs:1506-1527
 // ============================================
 
 // ORIGINAL (for source lookup):
-class wCA {
+class oi8 {
     serverName;
     sendMcpMessage;
     isClosed = !1;
@@ -139,7 +139,7 @@ class SdkMcpTransport {
     }
 }
 
-// Mapping: wCA→SdkMcpTransport, A→serverName/message, q→sendMcpMessageCallback/response
+// Mapping: oi8→SdkMcpTransport, A→serverName/message, q→sendMcpMessageCallback/response
 ```
 
 **Why this design:**
@@ -158,7 +158,7 @@ class SdkMcpTransport {
 ```javascript
 // ============================================
 // sendMcpMessage - Send MCP message through SDK control channel
-// Location: chunks.178.mjs:1227-1235
+// Location: chunks.184.mjs:2219-2227
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -222,7 +222,36 @@ Claude Code Binary                 SDK Client
 
 ---
 
-## initializeSdkMcpClients (io4) — SDK MCP Initialization
+## SDK MCP Server Routing: How `type: "sdk"` Servers Work
+
+### Two-Phase Architecture
+
+SDK MCP servers (those with `type: "sdk"` in their config) follow a different initialization path from regular (stdio/sse) MCP servers:
+
+**Phase 1: Elicitation handler setup is skipped**
+
+During MCP elicitation handler registration (chunks.187.mjs:87-130), servers with `config.type === "sdk"` are explicitly skipped:
+```javascript
+if (D6.config.type === "sdk") continue;  // line 89
+```
+
+This is because SDK MCP servers communicate via the `mcp_message` control channel (not direct WebSocket/stdio), so MCP-level elicitation requests are routed through `handleElicitation()` on the StreamIO instead.
+
+**Phase 2: Initialization via `WGq` (initializeSdkMcpClients)**
+
+All servers with `type: "sdk"` ARE initialized in `async function b()` (chunks.187.mjs:131-152):
+```javascript
+let C6 = await WGq(w, (V6, b6) => A.sendMcpMessage(V6, b6));
+```
+Where `A` is the `so6` (StdioStreamIO) instance. Each SDK server gets a `SdkMcpTransport (oi8)` that routes MCP messages back through the control channel.
+
+**Phase 3: State management via `qSq` (updateSdkServerState)**
+
+When the initialize request specifies `sdkMcpServers`, the server names are stored with `type: "sdk"` config. On each update, `qSq` (chunks.187.mjs:1518) separately processes sdk-type and non-sdk-type servers, ensuring SDK server state is tracked independently.
+
+---
+
+## initializeSdkMcpClients (WGq) — SDK MCP Initialization
 
 ### Function Definition
 
@@ -240,15 +269,15 @@ Claude Code Binary                 SDK Client
 ```javascript
 // ============================================
 // initializeSdkMcpClients - Initialize MCP clients for SDK mode
-// Location: chunks.145.mjs:1769-1832
+// Location: chunks.169.mjs:2437-2500
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function io4(A, q) {
+async function WGq(A, q) {
     let K = [],
         Y = [],
         z = await Promise.allSettled(Object.entries(A).map(async ([w, H]) => {
-            let $ = new wCA(w, q),
+            let $ = new oi8(w, q),
                 O = new rH6({
                     name: "claude-code",
                     version: VERSION
@@ -268,7 +297,7 @@ async function io4(A, q) {
                     },
                     X = [];
                 if (_?.tools) {
-                    let D = await wI(J);
+                    let D = await JE(J);
                     X.push(...D)
                 }
                 return { client: J, tools: X }
@@ -352,8 +381,8 @@ async function initializeSdkMcpClients(mcpServerConfig, sendMcpMessageCallback) 
     return { clients, tools };
 }
 
-// Mapping: io4→initializeSdkMcpClients, A→mcpServerConfig, q→sendMcpMessageCallback,
-//   wCA→SdkMcpTransport, rH6→McpClient, wI→discoverMcpTools, Kz→logError
+// Mapping: WGq→initializeSdkMcpClients, A→mcpServerConfig, q→sendMcpMessageCallback,
+//   oi8→SdkMcpTransport, rH6→McpClient, JE→discoverMcpTools, Kz→logError
 ```
 
 ---
@@ -624,7 +653,7 @@ MCP messages use the same timeout mechanism as other control requests:
 | Aspect | CLI Mode | SDK Mode |
 |--------|----------|----------|
 | Server Location | Local child process | Remote (managed by SDK client) |
-| Transport Type | Stdio transport | SdkMcpTransport (routes through control channel) |
+| Transport Type | Stdio transport | SdkMcpTransport (oi8) (routes through control channel) |
 | Process Management | Claude Code spawns/monitors | SDK client manages |
 | Configuration Source | `.claude/settings.json`, `--mcp-config` | `sdkMcpServers` in initialize request |
 | Tool Discovery | Same (via `listTools`) | Same (via `listTools`) |
@@ -643,7 +672,7 @@ Agent requests MCP tool execution
     ├── Get MCP client for server
     │
     ├── MCP Client calls transport.send()
-    │   └── SdkMcpTransport.sendMcpMessage()
+    │   └── SdkMcpTransport (oi8).sendMcpMessage()
     │       └── StdioStreamIO.sendRequest({ subtype: "mcp_message" })
     │           └── Write control_request to stdout
     │               └── SDK client routes to MCP server
