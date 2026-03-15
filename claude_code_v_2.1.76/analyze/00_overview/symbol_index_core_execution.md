@@ -260,15 +260,19 @@
 | tU | getPermissionRules | chunks.174.mjs | function |
 | O$ | isFilteringDisabled | chunks.141.mjs | function |
 | Sx | uniqueBy | chunks.141.mjs | function |
-| BW | isMcpToolByName | chunks.89.mjs:607 | function |
+| BW | isMcpToolByName ⚠ | chunks.89.mjs:607 | function |
 | dM | TOOL_SEARCH_NAME | chunks.89.mjs:652 | constant ("ToolSearch") |
 | dp7 | TOOL_SEARCH_PROMPT | chunks.89.mjs:654 | constant |
+| E_6 | generateDeferredToolsPrompt ⚠ | chunks.89.mjs:618 | function |
+| GX | isDeferredOrMcpTool | chunks.90.mjs:2260 | function |
+| p94 | parseMcpToolName | chunks.90.mjs:2355 | function |
 | pp7 | DEFERRED_TOOLS_HEADER | chunks.89.mjs:728 | constant |
-| yv9 | TEST_MODE_DEFERRED_TOOLS | chunks.89.mjs:734 | constant |
-| ca | cachedDeferredPrompt | chunks.89.mjs | variable |
-| E_6 | generateDeferredToolsPrompt | chunks.89.mjs:618 | function |
 | v_6 | shouldShowToolNamesInMessages | chunks.89.mjs:612 | function |
 | x8 | getFeatureFlag | chunks.89.mjs | function |
+| yv9 | TEST_MODE_DEFERRED_TOOLS | chunks.89.mjs:734 | constant |
+| ca | cachedDeferredPrompt | chunks.89.mjs | variable |
+
+> ⚠ BW (isMcpToolByName) and E_6 (generateDeferredToolsPrompt): claimed locations (chunks.89.mjs:607-618) show template literal strings in source, not function definitions. Actual MCP detection uses p94 and GX at chunks.90.mjs.
 
 ### Rendering Symbols
 
@@ -337,8 +341,6 @@
 | wt | SkillTool | chunks.132.mjs:820 | tool object |
 | NJ | TOOL_NAME_SKILL | chunks.89.mjs:586 | constant ("Skill") |
 | dM | TOOL_NAME_TOOL_SEARCH | chunks.89.mjs:652 | constant ("ToolSearch") |
-| E_6 | generateDeferredToolsPrompt | chunks.89.mjs:618 | function |
-| BW | isMcpToolByName | chunks.89.mjs:607 | function |
 | pp7 | DEFERRED_TOOLS_HEADER | chunks.89.mjs:654 | constant |
 | dp7 | TOOL_SEARCH_DESCRIPTION | chunks.89.mjs:654 | constant |
 | ca | cachedDeferredPrompt | chunks.89.mjs:650 | variable |

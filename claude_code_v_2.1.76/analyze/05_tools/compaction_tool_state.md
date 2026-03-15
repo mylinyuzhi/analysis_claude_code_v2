@@ -149,8 +149,42 @@ if (!fileState) {
 | Plan file content | **Yes** | Plan attachment in state_preservation |
 | Todo list | **Yes** | Todo attachment in state_preservation |
 | Recently invoked skills | **Yes** | Skills attachment in state_preservation |
+| Deferred MCP tool schemas (v2.1.76) | **Yes** — `sessionState.deferredToolSchemas` | `toolName → schema` map serialized pre-compact, restored post-compact |
 | Tool execution concurrency state | **N/A** | Compaction only triggers between turns |
 | Cron jobs (v2.1.76) | **Yes** | Independent scheduling system |
+
+---
+
+## Deferred Tool Schema Preservation (v2.1.76)
+
+### What it does
+
+Before v2.1.76, MCP tool schemas loaded via `ToolSearch` were lost when compaction rebuilt the message history. The fix serializes loaded schemas into session state before compaction and restores them after.
+
+### How it works
+
+1. **Pre-compact:** The compaction routine iterates loaded deferred tools, extracts each tool's `inputSchema`, and stores them in `sessionState.deferredToolSchemas` as a `toolName → schema` map.
+2. **Compaction:** Message history is summarized and rebuilt. Schemas embedded in message content are not preserved by the summarizer.
+3. **Post-compact:** For each tool in reconstructed messages matching the `mcp__` naming convention (detected via `p94` parseMcpToolName), the schema is looked up in `sessionState.deferredToolSchemas` and reattached to the tool definition object.
+
+### The key asymmetry — why one restores and the other doesn't
+
+| State | Post-Compaction | Reason |
+|-------|----------------|--------|
+| `readFileState` (file cache) | **EMPTY** — intentional | Freshness guarantee: files may change between turns; stale cache leads to blind overwrites |
+| Deferred tool schemas | **RESTORED** | Static definition guarantee: tool schemas never change between turns; restoring is safe and necessary |
+
+The asymmetry reflects the nature of the data:
+- **File content** is mutable state in the real world. Restoring a stale cache would let Edit overwrite a file based on outdated content.
+- **Tool schemas** are immutable definitions registered by MCP servers. The schema for `mcp__server__tool` will be the same after compaction as before — restoring it carries no staleness risk.
+
+### Impact on user experience
+
+Without this fix, any tool invocation for a previously-loaded MCP tool after compaction would fail with schema validation errors, forcing the user to re-invoke `ToolSearch`. With the fix, ToolSearch-loaded tools remain fully functional through compaction boundaries transparently.
+
+**Cross-references:**
+- [dynamic_tools.md](dynamic_tools.md) — Full deferred tool loading analysis
+- [../07_compact/state_preservation.md](../07_compact/state_preservation.md) — Complete state preservation
 
 ---
 
