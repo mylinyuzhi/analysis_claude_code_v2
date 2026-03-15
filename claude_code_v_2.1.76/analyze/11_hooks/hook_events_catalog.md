@@ -2,18 +2,29 @@
 
 ## Overview
 
-Claude Code v2.1.38 supports 15 distinct hook events that allow users to execute custom shell commands, prompts, agent-based hooks, callback functions, or "function" hooks in response to specific lifecycle moments. Hooks are configured in the user's settings file and are executed by the central `executeHooksIterator` (`NI`) generator function.
+Claude Code v2.1.76 supports 22 distinct hook events that allow users to execute custom shell commands, prompts, agent-based hooks, callback functions, or "function" hooks in response to specific lifecycle moments. Hooks are configured in the user's settings file and are executed by the central `executeHooksIterator` (`NI`) generator function.
 
 Each hook event has a well-defined schema for its input payload, specific trigger conditions, and expected return value semantics (blocking, non-blocking, passthrough, etc.). This document catalogs every event with deep detail on when it fires, what data it provides, and what outcomes are possible.
 
-The canonical list of hook event names is defined as the constant `ax` in `chunks.14.mjs:3569`:
+The canonical list of hook event names is defined as the constant `Fu` in `chunks.40.mjs:771`:
 
 ```javascript
-ax = ["PreToolUse", "PostToolUse", "PostToolUseFailure", "Notification",
+Fu = ["PreToolUse", "PostToolUse", "PostToolUseFailure", "Notification",
       "UserPromptSubmit", "SessionStart", "SessionEnd", "Stop",
-      "SubagentStart", "SubagentStop", "PreCompact", "PermissionRequest",
-      "Setup", "TeammateIdle", "TaskCompleted"]
+      "SubagentStart", "SubagentStop", "PreCompact", "PostCompact",
+      "PermissionRequest", "Setup", "TeammateIdle", "TaskCompleted",
+      "Elicitation", "ElicitationResult", "ConfigChange",
+      "WorktreeCreate", "WorktreeRemove", "InstructionsLoaded"]
 ```
+
+**NEW in v2.1.76:**
+- `PostCompact` - After conversation compaction
+- `Elicitation` - When MCP server requests user input
+- `ElicitationResult` - After user responds to MCP elicitation
+- `WorktreeCreate` - Create VCS-agnostic worktree
+- `WorktreeRemove` - Remove worktree
+- `InstructionsLoaded` - When CLAUDE.md or rule file is loaded
+- `ConfigChange` - When config files change during session
 
 ## Related Symbols
 
@@ -110,6 +121,8 @@ The `hookSpecificOutput` varies per event and can control permission decisions, 
 | `SubagentStart` | `NZY` | `additionalContext` |
 | `Notification` | `EZY` | `additionalContext` |
 | `PermissionRequest` | `kZY` | `decision` (behavior: "allow"/"deny", updatedInput?, updatedPermissions?, message?, interrupt?) |
+| `Elicitation` | `NfY` | `action` (accept/decline/cancel), `content` (optional JSON matching schema) |
+| `ElicitationResult` | `RfY` | `action` (optional: override), `content` (optional: override content) |
 
 #### Async Response Schema
 
@@ -579,6 +592,226 @@ async function executePreCompactHooks(hookConfig, signal, timeoutMs = DEFAULT_HO
 - Auto-merge: Trigger CI/CD pipelines upon task completion
 
 **Key insight:** This is the only hook that can prevent a state transition. By returning a blocking error, the hook effectively vetoes the completion, keeping the task in its current state.
+
+---
+
+### 16. PostCompact (NEW in v2.1.76)
+
+**When it triggers:** After a conversation compaction has completed, regardless of whether it was manual or automatic.
+
+**Match query:** The trigger type: `manual` or `auto`.
+
+**Payload:**
+```json
+{
+  ...basePayload,
+  "hook_event_name": "PostCompact",
+  "trigger": "manual" | "auto",
+  "summary": "<compaction summary text>",
+  "truePostCompactTokenCount": <token count after compaction>
+}
+```
+
+**Return value effects:**
+- Non-blocking: Hook output shown to user
+- Cannot prevent compaction (already completed)
+
+**Example use cases:**
+- Logging: Record compaction events for analysis
+- Notifications: Alert when context was compacted
+- Telemetry: Track compaction frequency and effectiveness
+
+---
+
+### 17. Elicitation (NEW in v2.1.76)
+
+**When it triggers:** When an MCP server requests user input via the elicitation protocol. This allows hooks to automatically respond to elicitation requests instead of showing a dialog.
+
+**Match query:** The MCP server name (`mcp_server_name`).
+
+**Payload:**
+```json
+{
+  ...basePayload,
+  "hook_event_name": "Elicitation",
+  "mcp_server_name": "<server name>",
+  "message": "<elicitation message from server>",
+  "requested_schema": { /* JSON schema for expected response */ }
+}
+```
+
+**Return value effects (hookSpecificOutput):**
+```json
+{
+  "hookEventName": "Elicitation",
+  "action": "accept" | "decline" | "cancel",
+  "content": { /* optional: content matching requested_schema */ }
+}
+```
+- `accept`: Automatically accept the elicitation with optional content
+- `decline`: Decline the elicitation request
+- `cancel`: Cancel the elicitation (treated as decline)
+
+**Exit code 2:** Denies the elicitation without hook-specific output.
+
+**Example use cases:**
+- Auto-approval: Automatically accept certain elicitation requests
+- Policy enforcement: Decline elicitation from untrusted servers
+- Custom UI: Handle elicitation through external systems
+
+---
+
+### 18. ElicitationResult (NEW in v2.1.76)
+
+**When it triggers:** After the user responds to an MCP elicitation (or a hook auto-responds via the Elicitation hook). This allows hooks to observe or modify the response before it's sent to the server.
+
+**Match query:** The MCP server name (`mcp_server_name`).
+
+**Payload:**
+```json
+{
+  ...basePayload,
+  "hook_event_name": "ElicitationResult",
+  "mcp_server_name": "<server name>",
+  "action": "accept" | "decline" | "cancel",
+  "content": { /* user's response content (if accept) */ },
+  "mode": "<elicitation mode>",
+  "elicitation_id": "<optional elicitation ID>"
+}
+```
+
+**Return value effects (hookSpecificOutput):**
+```json
+{
+  "hookEventName": "ElicitationResult",
+  "action": "accept" | "decline" | "cancel",  // optional: override
+  "content": { /* optional: override content */ }
+}
+```
+- Can override the action (e.g., change `accept` to `decline`)
+- Can modify the content before it's sent
+
+**Exit code 2:** Blocks the response, effectively declining the elicitation.
+
+**Example use cases:**
+- Response validation: Ensure elicitation responses meet policy requirements
+- Content filtering: Sanitize or transform response content
+- Audit logging: Record all elicitation interactions
+
+---
+
+### 19. ConfigChange (NEW in v2.1.49)
+
+**When it triggers:** When configuration files change during a session (user_settings, project_settings, local_settings, policy_settings, or skills).
+
+**Match query:** The source of the change: `user_settings`, `project_settings`, `local_settings`, `policy_settings`, or `skills`.
+
+**Payload:**
+```json
+{
+  ...basePayload,
+  "hook_event_name": "ConfigChange",
+  "source": "user_settings" | "project_settings" | "local_settings" | "policy_settings" | "skills",
+  "file_path": "<path to changed file>"
+}
+```
+
+**Return value effects:**
+- Exit code 0: Allow the change to be applied to the session
+- Exit code 2: Block the change from being applied
+
+**Example use cases:**
+- Config validation: Ensure new settings meet policy requirements
+- Audit logging: Track configuration changes
+- Hot-reload coordination: Trigger actions when config changes
+
+---
+
+### 20. WorktreeCreate (NEW in v2.1.50)
+
+**When it triggers:** When creating an isolated worktree for VCS-agnostic isolation. Used when `EnterWorktree` tool is called outside a git repository.
+
+**Match query:** None.
+
+**Payload:**
+```json
+{
+  ...basePayload,
+  "hook_event_name": "WorktreeCreate",
+  "name": "<suggested worktree slug>"
+}
+```
+
+**Return value effects:**
+- Exit code 0: Worktree created successfully. Stdout should contain the absolute path to the created worktree directory.
+- Other exit codes: Worktree creation failed.
+
+**Key insight:** This hook enables VCS-agnostic worktree isolation. Configure `WorktreeCreate` and `WorktreeRemove` hooks in `settings.json` to use worktree isolation with non-git VCS systems.
+
+**Example use cases:**
+- Perforce workspaces: Create isolated Perforce client workspaces
+- SVN branches: Create SVN working copies
+- Custom VCS: Implement custom isolation strategies
+
+---
+
+### 21. WorktreeRemove (NEW in v2.1.50)
+
+**When it triggers:** When removing a previously created worktree. Used when `ExitWorktree` tool is called with `action: "remove"`.
+
+**Match query:** None.
+
+**Payload:**
+```json
+{
+  ...basePayload,
+  "hook_event_name": "WorktreeRemove",
+  "worktree_path": "<absolute path to worktree>"
+}
+```
+
+**Return value effects:**
+- Exit code 0: Worktree removed successfully
+- Other exit codes: Worktree removal failed (logged as warning, session continues)
+
+**Example use cases:**
+- Cleanup: Remove VCS-specific workspace files
+- Resource release: Release licenses or locks
+- Telemetry: Track worktree lifecycle
+
+---
+
+### 22. InstructionsLoaded (NEW in v2.1.69)
+
+**When it triggers:** When an instruction file (CLAUDE.md or rule file) is loaded into the system prompt.
+
+**Match query:** The load reason: `session_start`, `nested_traversal`, `path_glob_match`, or `include`.
+
+**Payload:**
+```json
+{
+  ...basePayload,
+  "hook_event_name": "InstructionsLoaded",
+  "file_path": "<path to loaded instruction file>",
+  "memory_type": "User" | "Project" | "Local" | "Managed",
+  "load_reason": "session_start" | "nested_traversal" | "path_glob_match" | "include",
+  "globs": ["<optional: paths frontmatter patterns that matched>"],
+  "trigger_file_path": "<optional: file Claude touched that caused the load>",
+  "parent_file_path": "<optional: file that @-included this one>"
+}
+```
+
+**Return value effects:**
+- Observability-only hook, does not support blocking
+- Exit code 0: Command completes successfully
+- Other exit codes: Show stderr to user only
+
+**Key insight:** This hook is for observability and debugging. It cannot prevent files from being loaded.
+
+**Example use cases:**
+- Audit logging: Track which instructions are loaded
+- Debugging: Understand the instruction loading chain
+- Telemetry: Measure instruction file coverage
 
 ---
 

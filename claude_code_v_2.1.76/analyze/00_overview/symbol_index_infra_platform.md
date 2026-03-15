@@ -1,7 +1,13 @@
-# Symbol Index - Platform Infrastructure (Claude Code 2.1.38)
+# Symbol Index - Platform Infrastructure (Claude Code 2.1.76)
 
 > Symbol mapping table Part 3: Platform, protocols, and infrastructure
 > Lookup: Browse by module, or Ctrl+F search for obfuscated/readable name.
+>
+> **VERIFICATION STATUS**:
+> - ✓ = Verified correct in v2.1.76 source
+> - ⚠️ = Location changed, needs update
+> - ❌ = Symbol changed or mapping incorrect
+> - ? = Not yet verified
 
 ---
 
@@ -57,23 +63,23 @@
 
 ## Module: MCP Protocol
 
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| ce | parseMcpCliCommand | chunks.174.mjs:2627 | function |
-| CYz | processMcpCliResult | chunks.170.mjs:473 | function |
-| ECA | callMcpServer | chunks.145.mjs:1627 | function |
-| CJq | updateMcpSessionState | chunks.174.mjs:353 | function |
-| FOq | buildMcpCliInstructions | chunks.169.mjs:264 | function |
-| hc | getMcpCliCacheDir | chunks.174.mjs:282 | function |
-| ST6 | getMcpSessionFilePath | chunks.174.mjs:311 | function |
-| ln4 | McpMetaTool | chunks.144.mjs:309 | object |
-| A11 | mcpCliProgram | chunks.175.mjs:452442 | object (Commander) |
-| yHz | executeMcpTool | chunks.175.mjs:452355 | function |
-| rH6 | McpClient | chunks.79.mjs:214313 | class |
-| SJA | StdioClientTransport | chunks.79.mjs:1922 | class |
-| zY1 | callRemoteMcpEndpoint | chunks.175.mjs:452318 | function |
-| mFA | parseToolIdentifier | chunks.175.mjs:452309 | function |
-| SHz | runMcpCliCommand | chunks.175.mjs:452397 | function |
+| Obfuscated | Readable | File:Line | Type | Status |
+|------------|----------|-----------|------|--------|
+| ce | parseMcpCliCommand | chunks.174.mjs:2627 | function | ? UNVERIFIED |
+| CYz | processMcpCliResult | chunks.170.mjs:473 | function | ? UNVERIFIED |
+| ECA | callMcpServer | chunks.145.mjs:1627 | function | ? UNVERIFIED |
+| CJq | updateMcpSessionState | chunks.174.mjs:353 | function | ? UNVERIFIED |
+| FOq | buildMcpCliInstructions | chunks.169.mjs:264 | function | ? UNVERIFIED |
+| hc | getMcpCliCacheDir | chunks.174.mjs:282 | function | ? UNVERIFIED |
+| ST6 | getMcpSessionFilePath | chunks.174.mjs:311 | function | ? UNVERIFIED |
+| ln4 | McpMetaTool | chunks.144.mjs:309 | object | ? UNVERIFIED |
+| A11 | mcpCliProgram | chunks.175.mjs:452442 | object (Commander) | ? UNVERIFIED |
+| yHz | executeMcpTool | chunks.175.mjs:452355 | function | ? UNVERIFIED |
+| rH6 | McpClient | chunks.25.mjs:1086 | class | ⚠️ LOCATION CHANGED (was chunks.79.mjs) |
+| SJA | StdioClientTransport | chunks.79.mjs:1922 | class | ? UNVERIFIED |
+| zY1 | callRemoteMcpEndpoint | chunks.175.mjs:452318 | function | ? UNVERIFIED |
+| mFA | parseToolIdentifier | chunks.175.mjs:452309 | function | ? UNVERIFIED |
+| SHz | runMcpCliCommand | chunks.175.mjs:452397 | function | ? UNVERIFIED |
 
 ### MCP Transport Layer
 
@@ -86,12 +92,12 @@
 
 ### MCP Hub & Context
 
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| nXq | McpHub | chunks.175.mjs:1897 | class |
-| ZQA | MCPContext | chunks.176.mjs:2333 | class |
-| K11 | onChangeAppStateHandler | chunks.176.mjs:581 | function |
-| Jf1 | findMcpClientByServerName | chunks.175.mjs:1211 | function |
+| Obfuscated | Readable | File:Line | Type | Status |
+|------------|----------|-----------|------|--------|
+| nXq | McpHub | chunks.165.mjs:864 | class | ⚠️ LOCATION CHANGED (was chunks.175.mjs) |
+| ZQA | MCPContext | chunks.28.mjs:1716 | class | ❌ INCORRECT - is serializer middleware |
+| K11 | onChangeAppStateHandler | chunks.176.mjs:581 | function | ? UNVERIFIED |
+| Jf1 | findMcpClientByServerName | chunks.175.mjs:1211 | function | ? UNVERIFIED |
 
 ### MCP CLI Subcommands
 
@@ -111,6 +117,27 @@
 | XVq | mergeMcpClients | chunks.186.mjs:163 | function |
 | sgA | mergeCommands | chunks.186.mjs:177 | function |
 | WWq | ElicitationDialog | chunks.188.mjs:1247 | function |
+
+### MCP Elicitation (NEW in v2.1.76)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Fq | UrlElicitationRequired | chunks.5.mjs:2131 | constant (error code -32042) |
+| Aq | McpError | chunks.5.mjs:2649 | class |
+| handleElicitation | handleElicitation | chunks.184.mjs:2185 | method |
+| tx6 | processElicitationResponse | chunks.58.mjs:50 | function |
+| iaY | detectElicitationMode | chunks.58.mjs | function |
+| xq1 | isElicitationEnabled | chunks.58.mjs | function |
+| n1 | logElicitationDebug | chunks.58.mjs | function |
+
+### MCP Elicitation Hook Schemas
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| EfY | ElicitationHookInputSchema | chunks.131.mjs:2426 | schema |
+| _fY | ElicitationResultHookInputSchema | chunks.131.mjs:2434 | schema |
+| NfY | ElicitationHookOutputSchema | chunks.131.mjs:2512 | schema |
+| RfY | ElicitationResultHookOutputSchema | chunks.131.mjs:2516 | schema |
 
 ---
 

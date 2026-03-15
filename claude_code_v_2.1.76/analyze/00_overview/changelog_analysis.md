@@ -1,8 +1,85 @@
-# Changelog Analysis: v2.1.7 → v2.1.38
+# Changelog Analysis: v2.1.7 → v2.1.76
 
 ## Overview
 
-This document analyzes the major changes between Claude Code v2.1.7 and v2.1.38, covering new features, architectural changes, and breaking changes.
+This document analyzes the major changes between Claude Code v2.1.7 and v2.1.76, covering new features, architectural changes, and breaking changes.
+
+---
+
+## 0. Version Delta: v2.1.38 → v2.1.76
+
+### New Modules
+
+| Module | Version | Description |
+|--------|---------|-------------|
+| `35_rewind` | v2.1.41 | Checkpoint/rewind system with session snapshots |
+
+### New Hook Types
+
+| Hook | Version | Purpose |
+|------|---------|---------|
+| PostCompact | v2.1.76 | After conversation compaction completes |
+| Elicitation | v2.1.76 | When MCP server requests user input |
+| ElicitationResult | v2.1.76 | After user responds to MCP elicitation |
+| WorktreeCreate | v2.1.50 | Create VCS-agnostic worktree isolation |
+| WorktreeRemove | v2.1.50 | Remove worktree |
+| InstructionsLoaded | v2.1.69 | When CLAUDE.md or rule file is loaded |
+| ConfigChange | v2.1.49 | When config files change during session |
+| SubagentStart | v2.1.x | When subagent is started |
+
+### New Tools
+
+| Tool | Version | Constant | Purpose |
+|------|---------|----------|---------|
+| EnterWorktree | v2.1.72 | `sP1` | Create isolated git worktree |
+| ExitWorktree | v2.1.72 | `tP1` | Exit worktree session |
+| CronCreate | v2.1.76 | `ER` | Schedule prompt to run at future time |
+| CronDelete | v2.1.76 | `ed` | Cancel scheduled cron job |
+| CronList | v2.1.76 | `SW6` | List scheduled cron jobs |
+
+### New Slash Commands
+
+| Command | Version | Purpose |
+|---------|---------|---------|
+| `/effort` | v2.1.76 | Set model reasoning depth (low/medium/high/max/auto) |
+
+### Key Improvements
+
+1. **Circuit Breaker for Auto-Compaction** (v2.1.76)
+   - Constant: `aqq = 3`
+   - Prevents infinite retry loops after 3 consecutive failures
+   - Location: chunks.147.mjs:2666
+
+2. **MCP Elicitation Protocol** (v2.1.76)
+   - Error code: `UrlElicitationRequired` (-32042)
+   - Hooks for automated elicitation responses
+   - UI dialog component: `ElicitationDialog`
+
+3. **Session Naming** (v2.1.76)
+   - New CLI flag: `-n`/`--name`
+   - Custom session names for easier identification
+
+4. **sparsePaths Setting** (v2.1.76)
+   - Worktree optimization configuration
+   - Location: chunks.40.mjs:1403
+
+5. **feedbackSurveyRate Setting** (v2.1.76)
+   - Session quality survey configuration
+   - Location: chunks.40.mjs:1427
+
+### Symbol Count Growth
+
+| Version | Estimated Symbols | Change |
+|---------|-------------------|--------|
+| v2.1.38 | ~1200 | - |
+| v2.1.76 | ~1500 | +300 (25% increase) |
+
+### Chunk File Count
+
+| Version | Chunk Files | Change |
+|---------|-------------|--------|
+| v2.1.38 | 190 | - |
+| v2.1.76 | 199 | +9 files |
 
 ---
 

@@ -1,6 +1,6 @@
-# Claude Code v2.1.38 - Analysis Overview
+# Claude Code v2.1.76 - Analysis Overview
 
-## Directory Index (35 modules)
+## Directory Index (36 modules)
 
 ### Core Execution
 
@@ -62,10 +62,43 @@
 | 33 | `33_remote_sessions` | Remote session support: WebSocket comms, session hydration | v2.1.27 |
 | 34 | `34_fast_mode` | Fast output mode: same model, faster streaming, `/fast` toggle | v2.1.36 |
 
+### New in v2.1.76 (since v2.1.38)
+
+| # | Directory | Description | Introduced |
+|---|-----------|-------------|------------|
+| 35 | `35_rewind` | Checkpoint/rewind system: session snapshots, state restoration | v2.1.41 |
+
 ## Version Delta Summary
 
 - **Base version**: v2.1.7 (30 directories)
-- **Current version**: v2.1.38 (+33 chunk files, +2,589 symbols)
+- **Previous version**: v2.1.38 (+33 chunk files, +2,589 symbols)
+- **Current version**: v2.1.76 (+9 chunk files, ~199 total, new hooks, new tools)
 - **Renamed**: `13_todo_list` → `13_task_system` (TodoWrite replaced by TaskCreate/TaskUpdate/TaskGet/TaskList)
-- **New directories**: 5 (30-34)
-- **Total directories**: 35
+- **New directories**: 6 (30-35)
+- **Total directories**: 36
+
+## New Features Summary (v2.1.38 → v2.1.76)
+
+### New Tools
+| Tool | Constant | File | Description |
+|------|----------|------|-------------|
+| EnterWorktree | `sP1` | chunks.91.mjs:180 | Create isolated git worktree for session |
+| ExitWorktree | `tP1` | chunks.91.mjs:182 | Exit worktree session (keep or remove) |
+
+### New Hook Types
+| Hook | File | Description |
+|------|------|-------------|
+| PostCompact | chunks.163.mjs:2088 | After conversation compaction |
+| Elicitation | chunks.163.mjs:2144 | When MCP server requests user input |
+| ElicitationResult | chunks.163.mjs:2156 | After user responds to MCP elicitation |
+| WorktreeCreate | chunks.163.mjs:2190 | Create VCS-agnostic worktree |
+| WorktreeRemove | chunks.163.mjs:2197 | Remove worktree |
+| InstructionsLoaded | chunks.163.mjs:2179 | When CLAUDE.md or rule is loaded |
+| ConfigChange | chunks.163.mjs:2168 | When config files change during session |
+| SubagentStart | chunks.163.mjs:2055 | When subagent is started |
+
+### Key Improvements
+- **Circuit breaker for auto-compaction**: 3-attempt limit (`aqq = 3`) to prevent infinite retry loops
+- **Effort level control**: `/effort` slash command for model reasoning depth (low/medium/high/max/auto)
+- **Session naming**: `-n`/`--name` CLI flag for custom session names
+- **MCP Elicitation support**: Full elicitation protocol with hooks for automated responses

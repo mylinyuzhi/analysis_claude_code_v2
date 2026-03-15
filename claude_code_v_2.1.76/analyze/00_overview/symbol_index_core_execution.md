@@ -1,7 +1,13 @@
-# Symbol Index - Core Execution (Claude Code 2.1.38)
+# Symbol Index - Core Execution (Claude Code 2.1.76)
 
 > Symbol mapping table Part 1: Core execution flow modules
 > Lookup: Browse by module, or Ctrl+F search for obfuscated/readable name.
+>
+> **VERIFICATION STATUS**:
+> - ✓ = Verified correct in v2.1.76 source
+> - ⚠️ = Location changed, needs update
+> - ❌ = Symbol changed or mapping incorrect
+> - ? = Not yet verified
 
 ---
 
@@ -22,22 +28,55 @@
 
 > Full analysis: [05_tools/](../05_tools/)
 
-### Core Tools
+### Core Tool Name Constants
 
-| Obfuscated | Readable | File:Line | Type |
-|---|---|---|---|
-| i5 | FileReadTool | chunks.146.mjs:1754 | tool object |
-| Jq | TOOL_NAME_READ | chunks.46.mjs:2634 | constant ("Read") |
-| vj | FileWriteTool | chunks.146.mjs:436 | tool object |
-| f5 | TOOL_NAME_WRITE | chunks.134.mjs | constant ("Write") |
-| sW | EditTool | chunks.134.mjs:2124 | tool object |
-| bq | TOOL_NAME_EDIT | chunks.134.mjs | constant ("Edit") |
-| gd | NotebookEditTool | chunks.134.mjs:2615 | tool object |
-| tS | GrepTool | chunks.76.mjs:1129 | tool object |
-| WB | GlobTool | chunks.76.mjs:1495 | tool object |
-| wt | SkillTool | chunks.132.mjs:820 | tool object |
-| avA | AgentTool (Task) | chunks.132.mjs | tool object |
-| BYq | BashOutputComponent | chunks.162.mjs:417249 | component |
+| Obfuscated | Readable | File:Line | Type | Status |
+|---|---|---|---|---|
+| s7 | TOOL_NAME_READ | chunks.56.mjs:173 | constant ("Read") | ✓ VERIFIED |
+| _K | TOOL_NAME_WRITE | chunks.56.mjs:1234 | constant ("Write") | ✓ VERIFIED |
+| R4 | TOOL_NAME_EDIT | chunks.56.mjs:102 | constant ("Edit") | ✓ VERIFIED |
+| Q7 | TOOL_NAME_BASH | chunks.54.mjs:2264 | constant ("Bash") | ✓ VERIFIED |
+| I46 | TOOL_NAME_TASK | chunks.40.mjs:408 | constant ("Task") | ✓ VERIFIED |
+| oH | TOOL_NAME_SKILL | chunks.90.mjs:2596 | constant ("Skill") | ✓ VERIFIED |
+| jv | TOOL_NAME_WEB_SEARCH | chunks.56.mjs:1287 | constant ("WebSearch") | ✓ VERIFIED |
+| sO | TOOL_NAME_WEB_FETCH | chunks.56.mjs:80 | constant ("WebFetch") | ✓ VERIFIED |
+
+### Tool Objects
+
+| Obfuscated | Readable | File:Line | Type | Status |
+|---|---|---|---|---|
+| i5 | FileReadTool | chunks.146.mjs:1754 | tool object | ? UNVERIFIED |
+| vj | FileWriteTool | chunks.146.mjs:436 | tool object | ? UNVERIFIED |
+| sW | EditTool | chunks.134.mjs:2124 | tool object | ? UNVERIFIED |
+| gd | NotebookEditTool | chunks.134.mjs:2615 | tool object | ? UNVERIFIED |
+| tS | GrepTool | chunks.76.mjs:1129 | tool object | ? UNVERIFIED |
+| WB | GlobTool | chunks.76.mjs:1495 | tool object | ? UNVERIFIED |
+| wt | SkillTool | chunks.132.mjs:820 | tool object | ? UNVERIFIED |
+| avA | AgentTool (Task) | chunks.132.mjs | tool object | ? UNVERIFIED |
+| BYq | BashOutputComponent | chunks.162.mjs:417249 | component | ? UNVERIFIED |
+
+### Worktree Tools (NEW in v2.1.72)
+
+| Obfuscated | Readable | File:Line | Type | Status |
+|---|---|---|---|---|
+| sP1 | TOOL_NAME_ENTER_WORKTREE | chunks.91.mjs:180 | constant ("EnterWorktree") | ✓ VERIFIED |
+| tP1 | TOOL_NAME_EXIT_WORKTREE | chunks.91.mjs:182 | constant ("ExitWorktree") | ✓ VERIFIED |
+| g8q | EnterWorktreeTool | chunks.144.mjs:1783 | tool object | ? UNVERIFIED |
+| - | ExitWorktreeTool | chunks.144.mjs | tool object | ? UNVERIFIED |
+| h8q | getEnterWorktreePrompt | chunks.144.mjs:1662 | function | ? UNVERIFIED |
+| CIY | enterWorktreeInputSchema | chunks.144.mjs:1777 | schema | ? UNVERIFIED |
+| IIY | enterWorktreeOutputSchema | chunks.144.mjs:1779 | schema | ? UNVERIFIED |
+| S8q | renderEnterWorktreeProgress | chunks.144.mjs:1693 | function | ? UNVERIFIED |
+| I8q | renderEnterWorktreeResult | chunks.144.mjs:1701 | function | ? UNVERIFIED |
+
+### Cron Tools (NEW in v2.1.76)
+
+| Obfuscated | Readable | File:Line | Type | Status |
+|---|---|---|---|---|
+| ER | TOOL_NAME_CRON_CREATE | chunks.91.mjs:192 | constant ("CronCreate") | ✓ VERIFIED |
+| ed | TOOL_NAME_CRON_DELETE | chunks.91.mjs:194 | constant ("CronDelete") | ✓ VERIFIED |
+| SW6 | TOOL_NAME_CRON_LIST | chunks.91.mjs:196 | constant ("CronList") | ✓ VERIFIED |
+| LB9 | CRON_DEFAULT_INTERVAL_MS | chunks.91.mjs:190 | constant (300000) | ? UNVERIFIED |
 
 ### Edit Tool Symbols
 
@@ -153,41 +192,46 @@
 ## Module: Agent Loop
 
 > Full analysis: [03_llm_core/agent_loop.md](../03_llm_core/agent_loop.md)
+>
+> **VERIFICATION NOTE**: Many agent loop symbols have changed or are incorrect in v2.1.76.
+> The `ZR` symbol at chunks.89.mjs:2252 is NOT mainAgentLoop - it's an initialization function.
+> The `uU1` symbol at chunks.10.mjs:300 is NOT StreamingToolExecutor - it's a validation class.
+> These mappings need to be re-verified and corrected.
 
 ### Main Loop Functions
 
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| ZR | mainAgentLoop | chunks.149.mjs:1753 | function (generator) |
-| uU1 | StreamingToolExecutor | chunks.149.mjs:1835 | class |
-| tZ6 | executeToolsSequentially | chunks.149.mjs:2035 | function (generator) |
-| w6q | generateChainId | chunks.149.mjs:1776 | function |
-| udY | MAX_OUTPUT_TOKENS_RECOVERY | chunks.149.mjs:2143 | constant (3) |
+| Obfuscated | Readable | File:Line | Type | Status |
+|------------|----------|-----------|------|--------|
+| ZR | mainAgentLoop | chunks.89.mjs:2252 | function (generator) | ❌ INCORRECT - is init function |
+| uU1 | StreamingToolExecutor | chunks.10.mjs:300 | class | ❌ INCORRECT - is validation class |
+| tZ6 | executeToolsSequentially | chunks.149.mjs:2035 | function (generator) | ? UNVERIFIED |
+| w6q | generateChainId | chunks.149.mjs:1776 | function | ? UNVERIFIED |
+| udY | MAX_OUTPUT_TOKENS_RECOVERY | chunks.149.mjs:2143 | constant (3) | ? UNVERIFIED |
 
 ### Tool Execution Symbols
 
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| $E | isMcpToolByFlag | chunks.149.mjs:420 | function |
-| b1q | executePostToolHooksIterator | chunks.149.mjs:3 | function (generator) |
-| B1q | executePreToolHooksIterator | chunks.149.mjs:161 | function (generator) |
-| bU1 | toolDispatcher | chunks.149.mjs:343 | function (generator) |
-| c6 | createUserMessage | chunks.149.mjs:340 | function |
-| kq | createHookMessage | chunks.142.mjs:2615 | function |
-| kt | getDynamicToolSet | chunks.141.mjs:1465 | function |
-| NdY | toolExecutionPipeline | chunks.149.mjs:490 | function |
-| Tv | findTool | chunks.74.mjs:1392 | function |
-| d39 | toolMatchesName | chunks.74.mjs:1388 | function |
-| u1q | executePostToolFailureHooksIterator | chunks.149.mjs:90 | function (generator) |
-| U1q | createToolProgressMessage | chunks.172.mjs:2943 | function |
-| VdY | toolExecutionOrchestrator | chunks.149.mjs:448 | function |
-| vQ1 | deriveToolUseContext | chunks.149.mjs:2589 | function |
-| W74 | markAsLongRunning | chunks.149.mjs:470 | function |
-| x1q | formatValidationError | chunks.149.mjs:500 | function |
-| YP6 | assembleSessionToolSet | chunks.141.mjs:1476 | function |
-| KyA | executePostToolHooks | chunks.141.mjs:2831 | function (generator) |
-| YyA | executePostToolFailureHooks | chunks.141.mjs:2850 | function (generator) |
-| qyA | executePreToolHooks | chunks.141.mjs:2812 | function (generator) |
+| Obfuscated | Readable | File:Line | Type | Status |
+|------------|----------|-----------|------|--------|
+| $E | isMcpToolByFlag | chunks.149.mjs:420 | function | ? UNVERIFIED |
+| b1q | executePostToolHooksIterator | chunks.149.mjs:3 | function (generator) | ? UNVERIFIED |
+| B1q | executePreToolHooksIterator | chunks.149.mjs:161 | function (generator) | ? UNVERIFIED |
+| bU1 | toolDispatcher | chunks.10.mjs:10 | function (generator) | ❌ INCORRECT - is validation module |
+| c6 | createUserMessage | chunks.149.mjs:340 | function | ? UNVERIFIED |
+| kq | createHookMessage | chunks.142.mjs:2615 | function | ? UNVERIFIED |
+| kt | getDynamicToolSet | chunks.85.mjs:2497 | function | ❌ INCORRECT - is file extension fn |
+| NdY | toolExecutionPipeline | chunks.149.mjs:490 | function | ? UNVERIFIED |
+| Tv | findTool | chunks.74.mjs:1392 | function | ? UNVERIFIED |
+| d39 | toolMatchesName | chunks.74.mjs:1388 | function | ? UNVERIFIED |
+| u1q | executePostToolFailureHooksIterator | chunks.149.mjs:90 | function (generator) | ? UNVERIFIED |
+| U1q | createToolProgressMessage | chunks.172.mjs:2943 | function | ? UNVERIFIED |
+| VdY | toolExecutionOrchestrator | chunks.149.mjs:448 | function | ? UNVERIFIED |
+| vQ1 | deriveToolUseContext | chunks.149.mjs:2589 | function | ? UNVERIFIED |
+| W74 | markAsLongRunning | chunks.149.mjs:470 | function | ? UNVERIFIED |
+| x1q | formatValidationError | chunks.149.mjs:500 | function | ? UNVERIFIED |
+| YP6 | assembleSessionToolSet | chunks.141.mjs:1476 | function | ? UNVERIFIED |
+| KyA | executePostToolHooks | chunks.141.mjs:2831 | function (generator) | ? UNVERIFIED |
+| YyA | executePostToolFailureHooks | chunks.141.mjs:2850 | function (generator) | ? UNVERIFIED |
+| qyA | executePreToolHooks | chunks.141.mjs:2812 | function (generator) | ? UNVERIFIED |
 
 ### Tool Coordination Symbols
 
@@ -242,22 +286,22 @@
 
 ### Tool Discovery Symbols
 
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| tD | getDefaultTools | chunks.141.mjs:1505 | function |
-| hg1 | filterToolsByRules | chunks.141.mjs:1469 | function |
-| tU | getPermissionRules | chunks.174.mjs | function |
-| O$ | isFilteringDisabled | chunks.141.mjs | function |
-| Sx | uniqueBy | chunks.141.mjs | function |
-| BW | isMcpToolByName | chunks.89.mjs:607 | function |
-| dM | TOOL_SEARCH_NAME | chunks.89.mjs:652 | constant ("ToolSearch") |
-| dp7 | TOOL_SEARCH_PROMPT | chunks.89.mjs:654 | constant |
-| pp7 | DEFERRED_TOOLS_HEADER | chunks.89.mjs:728 | constant |
-| yv9 | TEST_MODE_DEFERRED_TOOLS | chunks.89.mjs:734 | constant |
-| ca | cachedDeferredPrompt | chunks.89.mjs | variable |
-| E_6 | generateDeferredToolsPrompt | chunks.89.mjs:618 | function |
-| v_6 | shouldShowToolNamesInMessages | chunks.89.mjs:612 | function |
-| x8 | getFeatureFlag | chunks.89.mjs | function |
+| Obfuscated | Readable | File:Line | Type | Status |
+|------------|----------|-----------|------|--------|
+| tD | getDefaultTools | chunks.45.mjs:874 | function | ❌ INCORRECT - is crypto cipher module |
+| hg1 | filterToolsByRules | chunks.141.mjs:1469 | function | ? UNVERIFIED |
+| tU | getPermissionRules | chunks.174.mjs | function | ? UNVERIFIED |
+| O$ | isFilteringDisabled | chunks.141.mjs | function | ? UNVERIFIED |
+| Sx | uniqueBy | chunks.141.mjs | function | ? UNVERIFIED |
+| BW | isMcpToolByName | chunks.89.mjs:607 | function | ? UNVERIFIED |
+| dM | TOOL_SEARCH_NAME | chunks.89.mjs:652 | constant ("ToolSearch") | ? UNVERIFIED |
+| dp7 | TOOL_SEARCH_PROMPT | chunks.89.mjs:654 | constant | ? UNVERIFIED |
+| pp7 | DEFERRED_TOOLS_HEADER | chunks.89.mjs:728 | constant | ? UNVERIFIED |
+| yv9 | TEST_MODE_DEFERRED_TOOLS | chunks.89.mjs:734 | constant | ? UNVERIFIED |
+| ca | cachedDeferredPrompt | chunks.89.mjs | variable | ? UNVERIFIED |
+| E_6 | generateDeferredToolsPrompt | chunks.89.mjs:618 | function | ? UNVERIFIED |
+| v_6 | shouldShowToolNamesInMessages | chunks.89.mjs:612 | function | ? UNVERIFIED |
+| x8 | getFeatureFlag | chunks.89.mjs | function | ? UNVERIFIED |
 
 ### Rendering Symbols
 
@@ -369,15 +413,15 @@
 
 ### Web Tool Symbols
 
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| JL | TOOL_NAME_WEB_SEARCH | chunks.47.mjs:621 | constant ("WebSearch") |
-| xO | TOOL_NAME_WEB_FETCH | chunks.46.mjs:2559 | constant ("WebFetch") |
-| - | WebFetchTool | chunks.47.mjs | tool object |
-| - | WebSearchTool | chunks.46.mjs, chunks.14-15.mjs | tool object |
-| - | htmlToMarkdown | chunks.47.mjs | function |
-| - | extractWithPrompt | chunks.47.mjs | function |
-| - | executeSearch | chunks.46.mjs | function |
+| Obfuscated | Readable | File:Line | Type | Status |
+|------------|----------|-----------|------|--------|
+| jv | TOOL_NAME_WEB_SEARCH | chunks.56.mjs:1287 | constant ("WebSearch") | ✓ VERIFIED |
+| sO | TOOL_NAME_WEB_FETCH | chunks.56.mjs:80 | constant ("WebFetch") | ✓ VERIFIED |
+| - | WebFetchTool | chunks.47.mjs | tool object | ? UNVERIFIED |
+| - | WebSearchTool | chunks.46.mjs, chunks.14-15.mjs | tool object | ? UNVERIFIED |
+| - | htmlToMarkdown | chunks.47.mjs | function | ? UNVERIFIED |
+| - | extractWithPrompt | chunks.47.mjs | function | ? UNVERIFIED |
+| - | executeSearch | chunks.46.mjs | function | ? UNVERIFIED |
 
 ---
 
@@ -717,26 +761,34 @@
 ## Module: State Management
 
 > Full analysis: [15_state_management/](../15_state_management/)
+>
+> **VERIFICATION NOTE**: State management symbols have changed in v2.1.76.
+> - `M1` at chunks.148.mjs:2598 is useAppState (not `v6`)
+> - `xA` at chunks.148.mjs:2613 is useSetAppState (not `L7`)
+> - `Gf6` moved to chunks.133.mjs:100 (was chunks.151.mjs:398)
+> - `gG1` moved to chunks.117.mjs:2087 (was chunks.151.mjs:419)
 
 ### Store Logic
 
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| bZ | registerTaskInState | chunks.142.mjs:1676 | function |
-| dcA | createInternalState | chunks.1.mjs:2351 | function |
-| E81 | getSettingsState | chunks.75.mjs:1757 | function |
-| f6 | getGlobalConfig | chunks.174.mjs:1539 | function |
-| Gf6 | createStore | chunks.151.mjs:398 | function |
-| gG1 | initialAppState | chunks.151.mjs:419 | function |
-| jA | updateGlobalConfig | chunks.174.mjs:1460 | function |
-| l4 | getUserSettings | chunks.151.mjs:410 | function |
-| L7 | useSetAppState | chunks.151.mjs:591 | hook |
-| o6 | internalStateObject | chunks.1.mjs:3052 | object |
-| pcA | generateSessionId | chunks.1.mjs:2340 | function |
-| QD | getDefaultPermissionContext | chunks.151.mjs:400 | function |
-| u_ | AppStateProvider | chunks.151.mjs:522 | component |
-| v6 | useAppState | chunks.151.mjs:576 | hook |
-| Wf6 | getInitialPromptSuggestionEnabled | chunks.151.mjs:415 | function |
-| yhA | useStoreContext | chunks.151.mjs:574 | hook |
-| yt | resumeSession | chunks.142.mjs:379 | function |
-| Zw6 | initialAttributionState | chunks.151.mjs:412 | function |
+| Obfuscated | Readable | File:Line | Type | Status |
+|------------|----------|-----------|------|--------|
+| bZ | registerTaskInState | chunks.142.mjs:1676 | function | ? UNVERIFIED |
+| dcA | createInternalState | chunks.1.mjs:2351 | function | ? UNVERIFIED |
+| E81 | getSettingsState | chunks.75.mjs:1757 | function | ? UNVERIFIED |
+| f6 | getGlobalConfig | chunks.174.mjs:1539 | function | ? UNVERIFIED |
+| Gf6 | createStore | chunks.133.mjs:100 | function | ⚠️ LOCATION CHANGED |
+| gG1 | initialAppState | chunks.117.mjs:2087 | function | ⚠️ LOCATION CHANGED |
+| jA | updateGlobalConfig | chunks.174.mjs:1460 | function | ? UNVERIFIED |
+| l4 | getUserSettings | chunks.151.mjs:410 | function | ? UNVERIFIED |
+| M1 | useAppState | chunks.148.mjs:2598 | hook | ✓ VERIFIED (new symbol) |
+| xA | useSetAppState | chunks.148.mjs:2613 | hook | ✓ VERIFIED (new symbol) |
+| o6 | internalStateObject | chunks.1.mjs:3052 | object | ? UNVERIFIED |
+| pcA | generateSessionId | chunks.1.mjs:2340 | function | ? UNVERIFIED |
+| QD | getDefaultPermissionContext | chunks.151.mjs:400 | function | ? UNVERIFIED |
+| u_ | AppStateProvider | chunks.151.mjs:522 | component | ? UNVERIFIED |
+| v6 | useAppState | chunks.151.mjs:576 | hook | ❌ INCORRECT - use M1 instead |
+| L7 | useSetAppState | chunks.151.mjs:591 | hook | ❌ INCORRECT - use xA instead |
+| Wf6 | getInitialPromptSuggestionEnabled | chunks.151.mjs:415 | function | ? UNVERIFIED |
+| yhA | useStoreContext | chunks.151.mjs:574 | hook | ? UNVERIFIED |
+| yt | resumeSession | chunks.142.mjs:379 | function | ? UNVERIFIED |
+| Zw6 | initialAttributionState | chunks.151.mjs:412 | function | ? UNVERIFIED |

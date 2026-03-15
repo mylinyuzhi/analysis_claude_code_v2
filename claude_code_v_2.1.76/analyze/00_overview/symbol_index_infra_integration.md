@@ -1,7 +1,13 @@
-# Symbol Index - Integration Infrastructure (Claude Code 2.1.38)
+# Symbol Index - Integration Infrastructure (Claude Code 2.1.76)
 
 > Symbol mapping table Part 4: External integrations and UI components
 > Lookup: Browse by module, or Ctrl+F search for obfuscated/readable name.
+>
+> **VERIFICATION STATUS**:
+> - ✓ = Verified correct in v2.1.76 source
+> - ⚠️ = Location changed, needs update
+> - ❌ = Symbol changed or mapping incorrect
+> - ? = Not yet verified
 
 ---
 
