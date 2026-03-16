@@ -26,21 +26,21 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
-| i5 | FileReadTool | chunks.146.mjs:1754 | tool object |
+| L9 | FileReadTool | chunks.90.mjs:2052 | tool object |
 | s7 | TOOL_NAME_READ | chunks.56.mjs:173 | constant ("Read") |
-| vj | FileWriteTool | chunks.146.mjs:436 | tool object |
+| xX | FileWriteTool | chunks.138.mjs:45 | tool object |
 | _K | TOOL_NAME_WRITE | chunks.56.mjs:1234 | constant ("Write") |
 | pX | EditTool | chunks.170.mjs:1116 | tool object |
 | R4 | TOOL_NAME_EDIT | chunks.56.mjs:102 | constant ("Edit") |
 | gd | NotebookEditTool | chunks.134.mjs:2615 | tool object |
 | bJ | TOOL_NAME_NOTEBOOK_EDIT | chunks.56.mjs:1240 | constant ("NotebookEdit") |
-| tS | GrepTool | chunks.76.mjs:1129 | tool object |
+| bb | GrepTool | chunks.139.mjs:483 | tool object |
 | N9 | TOOL_NAME_GREP | chunks.56.mjs:1215 | constant ("Grep") |
-| WB | GlobTool | chunks.76.mjs:1495 | tool object |
+| rg | GlobTool | chunks.139.mjs:881 | tool object |
 | qz | TOOL_NAME_GLOB | chunks.56.mjs:1192 | constant ("Glob") |
 | wt | SkillTool | chunks.132.mjs:820 | tool object |
 | oH | TOOL_NAME_SKILL | chunks.90.mjs:2596 | constant ("Skill") |
-| avA | AgentTool (Task) | chunks.132.mjs | tool object |
+| rj1 | AgentTool (Task) | chunks.132.mjs:85 | tool object |
 | I46 | TOOL_NAME_TASK | chunks.40.mjs:408 | constant ("Task") |
 | Q7 | TOOL_NAME_BASH | chunks.54.mjs:2264 | constant ("Bash") |
 | BYq | BashOutputComponent | chunks.162.mjs:417249 | component |
@@ -67,9 +67,13 @@
 | SkA | getEditToolSummary | chunks.134.mjs | function |
 | gkA | getNotebookEditSummary | chunks.134.mjs | function |
 | pu4 | getEditToolPrompt | chunks.134.mjs | function |
-| j_6 | generateUnifiedPatch | chunks.134.mjs | function |
-| PK1 | findExactString | chunks.134.mjs | function |
-| zF4 | performLintValidation | chunks.134.mjs | function |
+| qw1 | generateUnifiedPatch | chunks.57.mjs:249 | function |
+| Qx6 | applyEditsAndGeneratePatch | chunks.57.mjs:267 | function |
+| sq6 | findExactString | chunks.57.mjs:190 | function |
+| uf7 | normalizeQuotes | chunks.57.mjs:174 | function |
+| hD6 | adjustNewStringQuotes | chunks.57.mjs:198 | function |
+| Em3 | applyStringReplacement | chunks.57.mjs:240 | function |
+| zF4 | performLintValidation | chunks.170.mjs | function |
 | yEY | getNotebookInputSchema | chunks.134.mjs:2595 | function |
 | CEY | getNotebookOutputSchema | chunks.134.mjs | function |
 | N51 | checkEditPermissions | chunks.146.mjs | function |
@@ -84,24 +88,15 @@
 |---|---|---|---|
 | lm | bashSecurityValidation | chunks.150.mjs:321 | function |
 | Of6 | speculativeReadonlyValidator | chunks.150.mjs:881 | function |
-| fcY | completeReadonlyWhitelist | chunks.150.mjs:2314 | constant (Set) |
-| PcY | simpleReadonlyCommands | chunks.150.mjs | constant (array) |
-| ZcY | expandedReadonlyCommands | chunks.150.mjs | constant (array) |
-| GcY | commandToRegex | chunks.150.mjs | function |
-| NcY | isCommandInReadonlyWhitelist | chunks.150.mjs | function |
 | ZhA | bashProgressHandler | chunks.150.mjs:2332 | function (generator) |
 | dU1 | progressTimeCache | chunks.150.mjs | variable (Map) |
 | RcY | PROGRESS_THROTTLE_INTERVAL_MS | chunks.150.mjs | constant |
 | LcY | MAX_PROGRESS_CACHE_SIZE | chunks.150.mjs | constant |
-| edY | jqSystemFunctionCheck | chunks.150.mjs | function |
-| $cY | obfuscatedFlagsCheck | chunks.150.mjs | function |
-| AcY | shellMetacharactersCheck | chunks.150.mjs | function |
-| qcY | dangerousVariablesCheck | chunks.150.mjs | function |
-| KcY | commandSubstitutionCheck | chunks.150.mjs | function |
-| YcY | newlineInjectionCheck | chunks.150.mjs | function |
-| zcY | ifsInjectionCheck | chunks.150.mjs | function |
-| wcY | procEnvironCheck | chunks.150.mjs | function |
-| HcY | malformedTokenCheck | chunks.150.mjs | function |
+| B9z | SEARCH_COMMANDS | chunks.172.mjs:40 | constant (Set) |
+| g9z | FILE_READ_COMMANDS | chunks.172.mjs:40 | constant (Set) |
+| wfq | SAFE_BUILTIN_COMMANDS | chunks.172.mjs:40 | constant (Set) |
+| F9z | FILE_MODIFY_COMMANDS | chunks.172.mjs:40 | constant (Set) |
+| U9z | SAFE_UTILITY_COMMANDS | chunks.172.mjs:40 | constant (array) |
 | ndY | focusNextOptionReducer | chunks.154.mjs:577 | function (UI reducer) |
 | rdY | renderOptionsList | chunks.154.mjs:494 | function (UI component) |
 | adY | focusNextOptionReducer | chunks.154.mjs:577 | function (UI reducer) |
@@ -131,8 +126,8 @@
 | Ia4 | analyzeConversationMemoryUsage | chunks.146.mjs:2147 | function |
 | OmY | fileReadInputSchema | chunks.146.mjs:1706 | variable |
 | dBY | fileWriteInputSchema | chunks.146.mjs:419 | variable |
-| Z99 | grepInputSchema | chunks.76.mjs:1104 | variable |
-| N99 | globInputSchema | chunks.76.mjs:1487 | variable |
+| $LY | grepInputSchema | chunks.139.mjs:524 | getter function |
+| JLY | globInputSchema | chunks.139.mjs:897 | getter function |
 | mP6 | findSimilarFile | chunks.146.mjs | function |
 | OU1 | MAX_FILE_SIZE_BYTES | chunks.146.mjs | constant |
 | wD1 | MAX_PDF_PAGES_PER_REQUEST | chunks.146.mjs | constant |

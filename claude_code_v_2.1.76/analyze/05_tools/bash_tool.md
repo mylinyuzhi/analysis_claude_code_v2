@@ -11,17 +11,17 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI components
 
 Key functions in this document:
-- `BashTool` (J4) - Bash tool definition object - chunks.172.mjs:84
+- `BashTool` - Bash tool definition object - chunks.172.mjs:84
 - `checkBashPermissions` (Tn8) - Main permission check function - chunks.172.mjs:1930
 - `shouldUseSandbox` (Ti) - Sandbox determination - chunks.172.mjs:2454
 - `isExcludedCommand` (yYz) - Excluded commands check - chunks.172.mjs:2412
-- `checkReadOnlyBehavior` (Z01) - Readonly command fast-path - chunks.172.mjs
-- `parseBashCommand` (Dfq) - Tree-sitter based command parsing
+- `SEARCH_COMMANDS` (B9z) - Search tool set - chunks.172.mjs:40
+- `FILE_READ_COMMANDS` (g9z) - File read command set - chunks.172.mjs:40
+- `SAFE_BUILTIN_COMMANDS` (wfq) - Safe builtin set - chunks.172.mjs:40
+- `FILE_MODIFY_COMMANDS` (F9z) - File modify command set - chunks.172.mjs:40
 - `bashProgressHandler` (ZhA) - Progress streaming handler - chunks.150.mjs:2332
 - `BashOutputComponent` (BYq) - Terminal output UI - chunks.162.mjs:417249
 - `dangerouslyDisableSandbox` - Schema parameter for sandbox override - chunks.172.mjs:56
-
-> **Note:** The previous version incorrectly mapped `ndY`, `rdY`, `adY`, `tdY`, `sdY` as Bash security functions. These are actually React UI components in chunks.154.mjs. The correct security functions are `Ti` and `yYz` from chunks.172.mjs.
 
 ---
 
@@ -357,114 +357,63 @@ function isExcludedCommand(command) {
 
 ## 2. Readonly Command Whitelist
 
-### completeReadonlyWhitelist (fcY) - Safe Command Patterns
+### Command Category Sets - Classification by Safety Level
 
-**What it does:** Defines the complete set of commands that can execute without any user permission prompt.
+**What they do:** Define sets of commands organized by their safety profile for readonly/fast-path processing.
 
 **How it works:**
 
 ```javascript
 // ============================================
-// completeReadonlyWhitelist (fcY) - Readonly command regex set
-// Location: chunks.150.mjs:2314-2315
+// Command Category Sets - Safety classification
+// Location: chunks.172.mjs:40
 // ============================================
 
 // ORIGINAL (for source lookup):
-PcY = ["echo", "printf", "wc", "grep", "head", "tail"];
-ZcY = ["cal", "uptime", "cat", "head", "tail", "wc", "stat", "strings", "hexdump", "od",
-       "nl", "id", "uname", "free", "df", "du", "locale", "groups", "nproc", "docker ps",
-       "docker images", "basename", "dirname", "realpath", "cut", "paste", "tr", "column",
-       "tac", "rev", "fold", "expand", "unexpand", "readlink", "diff", "true", "false",
-       "sleep", "which", "type",
-       // v2.1.76 additions:
-       "lsof", "pgrep", "fmt", "comm", "seq"];
-fcY = new Set([
-    ...ZcY.map(GcY),
-    /^echo(?:\s+(?:'[^']*'|"[^"$<>\n\r]*"|[^|;&`$(){}><#\\!"'\s]+))*(?:\s+2>&1)?\s*$/,
-    /^uniq(?:\s+(?:-[a-zA-Z]+|--[a-zA-Z-]+(?:=\S+)?|-[fsw]\s+\d+))*(?:\s|$)\s*$/,
-    /^pwd$/,
-    /^whoami$/,
-    /^node -v$/,   /^npm -v$/,   /^python --version$/,   /^python3 --version$/,
-    /^history(?:\s+\d+)?\s*$/,
-    /^alias$/,
-    /^arch(?:\s+(?:--help|-h))?\s*$/,
-    /^ip addr$/,
-    /^ifconfig(?:\s+[a-zA-Z][a-zA-Z0-9_-]*)?\s*$/,
-    /^jq(?!\s+.*(?:-f\b|--from-file|--rawfile|--slurpfile|--run-tests|-L\b|--library-path|\benv\b|\$ENV\b))...$/,
-    /^cd(?:\s+(?:'[^']*'|"[^"]*"|[^\s;|&`$(){}><#\\]+))?$/,
-    /^ls(?:\s+[^<>()$`|{}&;\n\r]*)?$/,
-    /^find(?:\s+(?:\\[()]|(?!-delete\b|-exec\b|-execdir\b|...)...)+)?$/
-]);
+B9z = new Set(["find", "grep", "rg", "ag", "ack", "locate", "which", "whereis"]),
+g9z = new Set(["cat", "head", "tail", "less", "more", "wc", "stat", "file", "strings", "ls", "tree", "du", "jq", "awk", "cut", "sort", "uniq", "tr"]),
+wfq = new Set(["echo", "printf", "true", "false", ":"]),
+F9z = new Set(["mv", "cp", "rm", "mkdir", "rmdir", "chmod", "chown", "chgrp", "touch", "ln", "cd", "export", "unset", "wait"]),
+U9z = ["sleep"],
 
 // READABLE (for understanding):
-let expandedReadonlyCommands = [
-    // System info (read-only)
-    "cal", "uptime", "id", "uname", "free", "df", "du", "locale", "groups", "nproc",
-    // File inspection
-    "cat", "head", "tail", "wc", "stat", "strings", "hexdump", "od", "nl",
-    // Docker (read-only queries)
-    "docker ps", "docker images",
-    // Path utilities
-    "basename", "dirname", "realpath", "readlink",
-    // Text processing
-    "cut", "paste", "tr", "column", "tac", "rev", "fold", "expand", "unexpand",
-    // Misc utilities
-    "diff", "true", "false", "sleep", "which", "type",
-    // v2.1.76 additions: additional safe inspection utilities
-    "lsof",    // List open files — safe read-only inspection
-    "pgrep",   // Process grep — read-only process lookup
-    "fmt",     // Text formatter — safe text transform
-    "comm",    // Compare sorted files — read-only
-    "seq",     // Generate sequences — purely computational
-];
-
-let completeReadonlyWhitelist = new Set([
-    // Convert each command to a regex allowing safe argument patterns
-    ...expandedReadonlyCommands.map(buildCommandRegex),
-
-    // Version queries — extremely restricted to exact patterns
-    /^pwd$/,
-    /^whoami$/,
-    /^node -v$/,
-    /^npm -v$/,
-    /^python --version$/,
-    /^python3 --version$/,
-    /^history(?:\s+\d+)?\s*$/,
-    /^alias$/,
-    /^arch(?:\s+(?:--help|-h))?\s*$/,
-    /^ip addr$/,
-
-    // echo: allow safe arguments (no variables, no redirections, no subshells)
-    /^echo(?:\s+(?:'[^']*'|"[^"$<>\n\r]*"|[^|;&`$(){}><#\\!"'\s]+))*(?:\s+2>&1)?\s*$/,
-
-    // Network info (read-only)
-    /^ifconfig(?:\s+[a-zA-Z][a-zA-Z0-9_-]*)?\s*$/,
-
-    // jq: allow safe JSON queries, block file reading flags and env access
-    // Blocked flags: -f --from-file --rawfile --slurpfile --run-tests -L --library-path
-    // Blocked variables: env $ENV
-    /^jq(?!\s+.*(?:-f\b|--from-file|--rawfile|--slurpfile|--run-tests|-L\b|--library-path|\benv\b|\$ENV\b))...$/,
-
-    // cd: allow basic navigation, block shell injection in path
-    /^cd(?:\s+(?:'[^']*'|"[^"]*"|[^\s;|&`$(){}><#\\]+))?$/,
-
-    // ls: block all dangerous shell syntax in arguments
-    /^ls(?:\s+[^<>()$`|{}&;\n\r]*)?$/,
-
-    // find: block dangerous actions (-delete, -exec, -execdir, -ok, -okdir, -fprint variants)
-    /^find(?:\s+(?:\\[()]|(?!-delete\b|-exec\b|-execdir\b|-ok\b|-okdir\b|-fprint0?\b|-fls\b|-fprintf\b)[^<>()$`|{}&;\n\r\s]|\s)+)?$/,
+const SEARCH_COMMANDS = new Set([
+    "find", "grep", "rg", "ag", "ack", "locate", "which", "whereis"
 ]);
+
+const FILE_READ_COMMANDS = new Set([
+    "cat", "head", "tail", "less", "more", "wc", "stat", "file", "strings",
+    "ls", "tree", "du", "jq", "awk", "cut", "sort", "uniq", "tr"
+]);
+
+const SAFE_BUILTIN_COMMANDS = new Set([
+    "echo", "printf", "true", "false", ":"
+]);
+
+const FILE_MODIFY_COMMANDS = new Set([
+    "mv", "cp", "rm", "mkdir", "rmdir", "chmod", "chown", "chgrp",
+    "touch", "ln", "cd", "export", "unset", "wait"
+]);
+
+const SAFE_UTILITY_COMMANDS = ["sleep"];
+
+// Mapping: B9z→SEARCH_COMMANDS, g9z→FILE_READ_COMMANDS, wfq→SAFE_BUILTIN_COMMANDS,
+//          F9z→FILE_MODIFY_COMMANDS, U9z→SAFE_UTILITY_COMMANDS
 ```
 
-**v2.1.76 additions to the readonly whitelist:**
+**Category purposes:**
 
-| Command | Why added | What's safe |
-|---------|-----------|-------------|
-| `lsof` | Lists open files/network connections — pure inspection | Any arguments except `-c` write modes |
-| `pgrep` | Process name lookup — pure read | Process pattern matching |
-| `fmt` | Text formatting (word wrap, line reflow) — no side effects | Any text transformation arguments |
-| `comm` | Compare two sorted files line by line — read-only | `-1`, `-2`, `-3` column flags |
-| `seq` | Generate integer/float sequences — purely computational | Range and format arguments |
+| Set | Purpose | Auto-Allow? |
+|-----|---------|-------------|
+| `SEARCH_COMMANDS` (B9z) | File/content search tools | Conditional — read-only if no `-exec` |
+| `FILE_READ_COMMANDS` (g9z) | File inspection commands | Yes — pure read operations |
+| `SAFE_BUILTIN_COMMANDS` (wfq) | Shell builtins with no side effects | Yes — no filesystem access |
+| `FILE_MODIFY_COMMANDS` (F9z) | Commands that mutate filesystem | No — always needs permission |
+| `SAFE_UTILITY_COMMANDS` (U9z) | Pure computational utilities | Yes — no I/O |
+
+### completeReadonlyWhitelist - Safe Command Patterns
+
+**What it does:** Defines the complete set of commands that can execute without any user permission prompt via regex patterns.
 
 **Security design principles in the whitelist:**
 

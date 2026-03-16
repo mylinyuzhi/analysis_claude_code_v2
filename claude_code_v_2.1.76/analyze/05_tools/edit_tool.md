@@ -13,16 +13,21 @@
 Key functions in this document:
 - `EditTool` (pX) - Edit tool definition object - chunks.170.mjs:1116
 - `TOOL_NAME_EDIT` (R4) - Tool name constant - chunks.56.mjs:102
-- `validateEditInput` (pX.validateInput) - 9-step validation pipeline - chunks.170.mjs:1172
-- `callEditTool` (pX.call) - Execution method - chunks.170.mjs
-- `renderEditToolUseMessage` (NGq) - Header UI - chunks.170.mjs
+- `validateEditInput` (pX.validateInput) - 10-step validation pipeline - chunks.170.mjs:1172
+- `callEditTool` (pX.call) - Execution method - chunks.170.mjs:1318
+- `renderEditToolUseMessage` (NGq) - Header UI - chunks.170.mjs:939
 - `renderEditToolProgress` (VGq) - Progress UI (null)
-- `renderEditToolResult` (kGq) - Result diff UI - chunks.170.mjs
-- `renderEditToolRejected` (EGq) - Rejection preview - chunks.170.mjs
+- `renderEditToolResult` (kGq) - Result diff UI - chunks.170.mjs:959
+- `renderEditToolRejected` (EGq) - Rejection preview - chunks.170.mjs:976
 - `renderEditToolError` (yGq) - Error display - chunks.170.mjs
 - `getEditToolInputSchema` (lV1) - Input schema accessor - chunks.170.mjs:1137
 - `getEditToolOutputSchema` (Pa4) - Output schema accessor - chunks.170.mjs:1149
 - `checkEditPermissions` (Xz6) - Permission check - chunks.170.mjs:1165
+- `findExactString` (sq6) - Fuzzy string matching - chunks.57.mjs:190
+- `generateUnifiedPatch` (qw1) - Diff generation - chunks.57.mjs:249
+- `applyEditsAndGeneratePatch` (Qx6) - Core patch logic - chunks.57.mjs:267
+- `normalizeQuotes` (uf7) - Quote normalization - chunks.57.mjs:174
+- `adjustNewStringQuotes` (hD6) - Quote preservation - chunks.57.mjs:198
 
 ---
 
@@ -792,17 +797,240 @@ function renderEditToolError(errorResult, context) {
 
 ## 5. Key Algorithms
 
-### findExactString (PK1) - Fuzzy Whitespace Matching
+### findExactString (sq6) - Fuzzy Whitespace Matching
 
-**What it does:** Searches for `old_string` in file content with whitespace normalization to handle LLM imprecision.
+**What it does:** Searches for `old_string` in file content with whitespace/quote normalization to handle LLM imprecision.
 
-**Why needed:** LLMs often generate `old_string` values with slightly different whitespace than what's actually in the file (trailing spaces, indent inconsistencies). `PK1` normalizes both the content and the search string before matching, increasing the success rate.
+**How it works:**
 
-**Key insight:** If `PK1` returns a match, the match is used instead of the raw `old_string`. This means the actual replacement uses the exact whitespace from the file, not the LLM's approximation.
+```javascript
+// ============================================
+// findExactString - Fuzzy search with quote normalization
+// Location: chunks.57.mjs:190-196
+// ============================================
 
-### generateUnifiedPatch (j_6) - Diff Generation
+// ORIGINAL (for source lookup):
+function sq6(A, q) {
+    if (A.includes(q)) return q;
+    let K = uf7(q),
+        z = uf7(A).indexOf(K);
+    if (z !== -1) return A.substring(z, z + q.length);
+    return null
+}
+
+// READABLE (for understanding):
+function findExactString(fileContent, searchString) {
+    // [Step 1] Try exact match first
+    if (fileContent.includes(searchString)) return searchString;
+
+    // [Step 2] Normalize quotes and try fuzzy match
+    // uf7 normalizes various quote types: smart quotes, curly quotes, etc.
+    let normalizedSearch = normalizeQuotes(searchString);
+    let normalizedContent = normalizeQuotes(fileContent);
+    let index = normalizedContent.indexOf(normalizedSearch);
+
+    // [Step 3] Return the original text from file (preserving actual whitespace)
+    if (index !== -1) return fileContent.substring(index, index + searchString.length);
+
+    return null;
+}
+
+// Mapping: sq6→findExactString, A→fileContent, q→searchString, uf7→normalizeQuotes
+```
+
+**Why this approach:**
+- LLMs often generate `old_string` with different quote characters (curly vs straight quotes, smart quotes)
+- The `uf7` helper normalizes all quote variants before matching
+- Returns the actual text from the file (not the LLM's approximation) to ensure the replacement uses exact whitespace
+
+**Key insight:** If `sq6` returns a match, the match is used instead of the raw `old_string`. This means the actual replacement uses the exact whitespace from the file, not the LLM's approximation.
+
+### normalizeQuotes (uf7) - Quote Normalization Helper
+
+**What it does:** Normalizes various quote character types for fuzzy matching.
+
+```javascript
+// ============================================
+// normalizeQuotes - Convert all quote types to standard quotes
+// Location: chunks.57.mjs:174-176
+// ============================================
+
+// ORIGINAL (for source lookup):
+function uf7(A) {
+    return A.replaceAll(VO8, "'").replaceAll(Aw1, "'")
+            .replaceAll(kO8, '"').replaceAll(EO8, '"')
+}
+
+// READABLE (for understanding):
+function normalizeQuotes(text) {
+    return text
+        .replaceAll(SMART_SINGLE_QUOTE_OPEN, "'")   // ' → '
+        .replaceAll(SMART_SINGLE_QUOTE_CLOSE, "'")  // ' → '
+        .replaceAll(SMART_DOUBLE_QUOTE_OPEN, '"')   // " → "
+        .replaceAll(SMART_DOUBLE_QUOTE_CLOSE, '"'); // " → "
+}
+
+// Mapping: uf7→normalizeQuotes, VO8→SMART_SINGLE_QUOTE_OPEN, Aw1→SMART_SINGLE_QUOTE_CLOSE,
+//          kO8→SMART_DOUBLE_QUOTE_OPEN, EO8→SMART_DOUBLE_QUOTE_CLOSE
+```
+
+### generateUnifiedPatch (qw1) - Diff Generation
 
 **What it does:** Takes old/new content and produces a structured patch object containing hunk-by-hunk changes.
+
+**How it works:**
+
+```javascript
+// ============================================
+// generateUnifiedPatch - Generate unified diff from edits
+// Location: chunks.57.mjs:249-264
+// ============================================
+
+// ORIGINAL (for source lookup):
+function qw1({
+    filePath: A,
+    fileContents: q,
+    oldString: K,
+    newString: Y,
+    replaceAll: z = !1
+}) {
+    return Qx6({
+        filePath: A,
+        fileContents: q,
+        edits: [{
+            old_string: K,
+            new_string: Y,
+            replace_all: z
+        }]
+    })
+}
+
+// READABLE (for understanding):
+function generateUnifiedPatch({ filePath, fileContents, oldString, newString, replaceAll = false }) {
+    // Delegates to the multi-edit handler with a single edit
+    return applyEditsAndGeneratePatch({
+        filePath,
+        fileContents,
+        edits: [{
+            old_string: oldString,
+            new_string: newString,
+            replace_all: replaceAll
+        }]
+    });
+}
+
+// Mapping: qw1→generateUnifiedPatch, Qx6→applyEditsAndGeneratePatch,
+//          A→filePath, q→fileContents, K→oldString, Y→newString, z→replaceAll
+```
+
+### applyEditsAndGeneratePatch (Qx6) - Core Patch Logic
+
+**What it does:** Applies multiple edits to a file and generates the unified diff output.
+
+```javascript
+// ============================================
+// applyEditsAndGeneratePatch - Apply edits and generate diff
+// Location: chunks.57.mjs:267-303
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Qx6({
+    filePath: A,
+    fileContents: q,
+    edits: K
+}) {
+    let Y = q,
+        z = [];
+    if (!q && K.length === 1 && K[0] && K[0].old_string === "" && K[0].new_string === "") return {
+        patch: SL({
+            filePath: A,
+            fileContents: q,
+            edits: [{ old_string: q, new_string: Y, replace_all: !1 }]
+        }),
+        updatedFile: ""
+    };
+    for (let w of K) {
+        let O = w.old_string.replace(/\n+$/, "");
+        for (let H of z)
+            if (O !== "" && H.includes(O)) throw Error("Cannot edit file: old_string is substring of previous new_string");
+        let $ = Y;
+        if (Y = w.old_string === "" ? w.new_string : Em3(Y, w.old_string, w.new_string, w.replace_all), Y === $)
+            throw Error("String not found in file. Failed to apply edit.");
+        z.push(w.new_string)
+    }
+    if (Y === q) throw Error("Original and edited file match exactly. Failed to apply edit.");
+    return {
+        patch: t21({
+            filePath: A,
+            oldContent: vU(q),
+            newContent: vU(Y)
+        }),
+        updatedFile: Y
+    }
+}
+
+// READABLE (for understanding):
+function applyEditsAndGeneratePatch({ filePath, fileContents, edits }) {
+    let updatedContent = fileContents;
+    let newStrings = [];
+
+    // Edge case: Empty file with empty edit
+    if (!fileContents && edits.length === 1 && edits[0]?.old_string === "" && edits[0].new_string === "") {
+        return {
+            patch: generateEmptyPatch({ filePath, fileContents, edits }),
+            updatedFile: ""
+        };
+    }
+
+    // Apply each edit in sequence
+    for (let edit of edits) {
+        let normalizedOldString = edit.old_string.replace(/\n+$/, "");
+
+        // Safety: Check for overlapping edits
+        for (let prevNewString of newStrings) {
+            if (normalizedOldString !== "" && prevNewString.includes(normalizedOldString)) {
+                throw Error("Cannot edit file: old_string is substring of previous new_string");
+            }
+        }
+
+        let previousContent = updatedContent;
+
+        // Apply the edit
+        if (edit.old_string === "") {
+            updatedContent = edit.new_string;  // New file creation
+        } else {
+            updatedContent = applyStringReplacement(
+                updatedContent, edit.old_string, edit.new_string, edit.replace_all
+            );
+        }
+
+        // Verify edit was applied
+        if (updatedContent === previousContent) {
+            throw Error("String not found in file. Failed to apply edit.");
+        }
+
+        newStrings.push(edit.new_string);
+    }
+
+    // Verify something changed
+    if (updatedContent === fileContents) {
+        throw Error("Original and edited file match exactly. Failed to apply edit.");
+    }
+
+    return {
+        patch: computeUnifiedDiff({
+            filePath,
+            oldContent: splitLines(fileContents),  // vU
+            newContent: splitLines(updatedContent) // vU
+        }),
+        updatedFile: updatedContent
+    };
+}
+
+// Mapping: Qx6→applyEditsAndGeneratePatch, A→filePath, q→fileContents, K→edits,
+//          Y→updatedContent, z→newStrings, w→edit, O→normalizedOldString,
+//          Em3→applyStringReplacement, t21→computeUnifiedDiff, vU→splitLines
+```
 
 **Output format:**
 ```typescript
@@ -813,6 +1041,55 @@ function renderEditToolError(errorResult, context) {
 ```
 
 **Key insight:** Two outputs allow the patch to drive the diff view while the updatedFile is written atomically. The UI renders the patch hunks as `- removed` / `+ added` lines.
+
+### adjustNewStringQuotes (hD6) - Quote Preservation
+
+**What it does:** Adjusts quote characters in the new_string to match the quote style used in the old_string.
+
+```javascript
+// ============================================
+// adjustNewStringQuotes - Preserve quote style in replacements
+// Location: chunks.57.mjs:198-207
+// ============================================
+
+// ORIGINAL (for source lookup):
+function hD6(A, q, K) {
+    if (A === q) return K;
+    let Y = q.includes(kO8) || q.includes(EO8),
+        z = q.includes(VO8) || q.includes(Aw1);
+    if (!Y && !z) return K;
+    let _ = K;
+    if (Y) _ = Vm3(_);
+    if (z) _ = km3(_);
+    return _
+}
+
+// READABLE (for understanding):
+function adjustNewStringQuotes(originalOldString, matchedOldString, newString) {
+    // If the strings are identical, no adjustment needed
+    if (originalOldString === matchedOldString) return newString;
+
+    // Detect quote types in the matched old string
+    let hasSmartDoubleQuotes = matchedOldString.includes(SMART_DOUBLE_QUOTE_OPEN) ||
+                               matchedOldString.includes(SMART_DOUBLE_QUOTE_CLOSE);
+    let hasSmartSingleQuotes = matchedOldString.includes(SMART_SINGLE_QUOTE_OPEN) ||
+                               matchedOldString.includes(SMART_SINGLE_QUOTE_CLOSE);
+
+    // If no smart quotes, return unchanged
+    if (!hasSmartDoubleQuotes && !hasSmartSingleQuotes) return newString;
+
+    let adjustedNewString = newString;
+
+    // Convert new_string to use matching smart quotes
+    if (hasSmartDoubleQuotes) adjustedNewString = convertToSmartDoubleQuotes(adjustedNewString);
+    if (hasSmartSingleQuotes) adjustedNewString = convertToSmartSingleQuotes(adjustedNewString);
+
+    return adjustedNewString;
+}
+
+// Mapping: hD6→adjustNewStringQuotes, A→originalOldString, q→matchedOldString,
+//          K→newString, Vm3→convertToSmartDoubleQuotes, km3→convertToSmartSingleQuotes
+```
 
 ### detectLineEnding (Qd) + detectEncoding (AX)
 
