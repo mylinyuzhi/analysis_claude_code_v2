@@ -4,54 +4,51 @@
 
 This document provides a comprehensive reverse engineering analysis of the **40+ attachment producer functions** that generate system reminders in Claude Code. Each producer is responsible for detecting specific conditions and creating attachment objects that get normalized into meta-messages and injected into the conversation stream.
 
-The attachment production system is orchestrated by the `phY` (assembleAttachments) function, which executes producers in parallel using a sophisticated 3-group strategy for optimal performance while maintaining strict isolation and error handling through the `gw` (timedAttachmentProducer) wrapper.
+The attachment production system is orchestrated by the `_uY` (assembleAllAttachments) function, which executes producers in parallel using a sophisticated 3-group strategy for optimal performance while maintaining strict isolation and error handling through the `Hz` (timedAttachmentProducer) wrapper.
 
 ---
 
-## Architecture: The assembleAttachments Orchestrator
+## Architecture: The assembleAllAttachments Orchestrator
 
-### Main Entry Point: phY (assembleAttachments)
+### Main Entry Point: _uY (assembleAllAttachments)
 
-The `phY` function is the central orchestrator that manages all attachment production. It implements a sophisticated parallel execution strategy that balances performance with proper dependency management.
+The `_uY` function is the central orchestrator that manages all attachment production. It implements a sophisticated parallel execution strategy that balances performance with proper dependency management.
 
 ```javascript
 // ============================================
-// assembleAttachments - Main attachment production orchestrator
-// Location: chunks.142.mjs:1948-1965
+// assembleAllAttachments - Main attachment production orchestrator
+// Location: chunks.147.mjs:3-18
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function phY(A, q, K, Y, z, w) {
-    if (J6(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS)) return [];
-    let H = Aq();
-    setTimeout(() => {
-        H.abort()
-    }, 1000);
-    let $ = {
+async function _uY(A, q, K, Y, z, _) {
+    if (t6(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) || t6(process.env.CLAUDE_CODE_SIMPLE)) return [];
+    let w = sK(),
+        O = setTimeout((W) => W.abort(), 1000, w),
+        $ = {
             ...q,
-            abortController: H
+            abortController: w
         },
-        O = !q.agentId,
-        _ = A ? [gw("at_mentioned_files", () => KIY(A, $)), gw("mcp_resources", () => zIY(A, $)), gw("agent_mentions", () => Promise.resolve(YIY(A, q.options.agentDefinitions.activeAgents)))] : [],
-        J = await Promise.all(_),
-        X = [gw("changed_files", () => wIY($)), gw("nested_memory", () => HIY($)), gw("dynamic_skill", () => $IY($)), gw("skill_listing", () => OIY($)), gw("ultra_claude_md", async () => thY(z)), gw("plan_mode", () => ihY(z, q)), gw("plan_mode_exit", () => nhY(q)), gw("delegate_mode", () => rhY(q)), gw("delegate_mode_exit", () => Promise.resolve(ohY())), gw("todo_reminders", () => jH() ? NIY(z, q) : fIY(z, q)), ...l8() ? [...w === "session_memory" ? [] : [gw("teammate_mailbox", async () => kIY(q))], gw("team_context", async () => LIY(z ?? []))] : [], gw("critical_system_reminder", () => Promise.resolve(ahY(q))), ...[]],
-        D = O ? [gw("ide_selection", async () => ehY(K, q)), gw("ide_opened_file", async () => qIY(K, q)), gw("output_style", async () => Promise.resolve(shY())), gw("diagnostics", async () => PIY(q)), gw("lsp_diagnostics", async () => WIY(q)), gw("unified_tasks", async () => vIY(q, z)), gw("async_hook_responses", async () => EIY()), gw("token_usage", async () => Promise.resolve(RIY(z ?? [], q.options.mainLoopModel))), gw("budget_usd", async () => Promise.resolve(yIY(q.options.maxBudgetUsd))), gw("verify_plan_reminder", async () => SIY(z, q)), gw("queued_commands", async () => Promise.resolve(dhY(Y)))] : [],
-        [j, M] = await Promise.all([Promise.all(X), Promise.all(D)]);
-    return [...J.flat(), ...j.flat(), ...M.flat()]
+        H = !q.agentId,
+        j = A ? [Hz("at_mentioned_files", () => RuY(A, $)), Hz("mcp_resources", () => SuY(A, $)), Hz("agent_mentions", () => Promise.resolve(huY(A, q.options.agentDefinitions.activeAgents))), ...[]] : [],
+        J = await Promise.all(j),
+        M = [Hz("date_change", () => Promise.resolve(fuY())), Hz("ultrathink_effort", () => Promise.resolve(TuY(A))), Hz("deferred_tools_delta", () => Promise.resolve(xE1(q.options.tools, q.options.mainLoopModel, z))), Hz("mcp_instructions_delta", () => Promise.resolve(uE1(q.options.mcpClients, q.options.tools, q.options.mainLoopModel, z))), Hz("changed_files", () => CuY($)), Hz("nested_memory", () => IuY($)), Hz("dynamic_skill", () => BuY($)), Hz("skill_listing", () => guY($)), Hz("ultra_claude_md", async () => VuY(z)), Hz("plan_mode", () => DuY(z, q)), Hz("plan_mode_exit", () => XuY(q)), Hz("auto_mode", () => ZuY(z, q)), Hz("auto_mode_exit", () => GuY(q)), Hz("todo_reminders", () => r$() ? auY(z, q) : ruY(z, q)), ...E7() ? [..._ === "session_memory" ? [] : [Hz("teammate_mailbox", async () => euY(q))], Hz("team_context", async () => AmY(z ?? []))] : [], Hz("agent_pending_messages", async () => $uY(q)), Hz("critical_system_reminder", () => Promise.resolve(vuY(q)))],
+        D = H ? [Hz("ide_selection", async () => kuY(K, q)), Hz("ide_opened_file", async () => LuY(K, q)), Hz("output_style", async () => Promise.resolve(NuY())), Hz("diagnostics", async () => cuY(q)), Hz("lsp_diagnostics", async () => luY(q)), Hz("unified_tasks", async () => suY(q)), Hz("async_hook_responses", async () => tuY()), Hz("token_usage", async () => Promise.resolve(qmY(z ?? [], q.options.mainLoopModel))), Hz("budget_usd", async () => Promise.resolve(YmY(q.options.maxBudgetUsd))), Hz("output_token_usage", async () => Promise.resolve(KmY())), Hz("verify_plan_reminder", async () => _mY(z, q)), Hz("queued_commands", () => OuY(Y))] : [],
+        [X, P] = await Promise.all([Promise.all(M), Promise.all(D)]);
+    return clearTimeout(O), [...J.flat(), ...X.flat(), ...P.flat()].filter((W) => W !== void 0 && W !== null)
 }
 
 // READABLE (for understanding):
-async function assembleAttachments(userMessage, sessionContext, ideContext, queuedCommands, messages, sessionMemoryType) {
-    // Early exit if attachments are globally disabled
-    if (parseBoolean(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS)) {
+async function assembleAllAttachments(userMessage, sessionContext, ideContext, queuedCommands, messages, sessionMemoryType) {
+    // Early exit if attachments are globally disabled or in simple mode
+    if (parseBoolean(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) ||
+        parseBoolean(process.env.CLAUDE_CODE_SIMPLE)) {
         return [];
     }
 
     // Create AbortController with 1-second global timeout
     let abortController = createAbortController();
-    setTimeout(() => {
-        abortController.abort();
-    }, 1000);
+    let timeoutId = setTimeout((ctrl) => ctrl.abort(), 1000, abortController);
 
     // Enhanced context with abort capability
     let enhancedContext = {
@@ -65,9 +62,11 @@ async function assembleAttachments(userMessage, sessionContext, ideContext, queu
     // GROUP 1: User-dependent producers (only run if user provided message)
     // These parse user input for @-mentions, MCP resources, and agent references
     let userDependentProducers = userMessage ? [
-        timedProducer("at_mentioned_files", () => extractAtMentionedFiles(userMessage, enhancedContext)),
-        timedProducer("mcp_resources", () => extractMcpResources(userMessage, enhancedContext)),
-        timedProducer("agent_mentions", () => Promise.resolve(extractAgentMentions(userMessage, sessionContext.options.agentDefinitions.activeAgents)))
+        timedAttachmentProducer("at_mentioned_files", () => getAtMentionedFilesAttachment(userMessage, enhancedContext)),
+        timedAttachmentProducer("mcp_resources", () => getMcpResourcesAttachment(userMessage, enhancedContext)),
+        timedAttachmentProducer("agent_mentions", () => Promise.resolve(getAgentMentionsAttachment(userMessage, sessionContext.options.agentDefinitions.activeAgents))),
+        // Placeholder for future expansion
+        ...[]
     ] : [];
 
     // Execute group 1 and wait for completion
@@ -76,43 +75,57 @@ async function assembleAttachments(userMessage, sessionContext, ideContext, queu
     // GROUP 2: Always-computed producers (run for all agents, main and subagents)
     // These check system state and provide context attachments
     let alwaysComputedProducers = [
-        timedProducer("changed_files", () => getChangedFilesAttachment(enhancedContext)),
-        timedProducer("nested_memory", () => getNestedMemoryAttachments(enhancedContext)),
-        timedProducer("dynamic_skill", () => getDynamicSkillAttachments(enhancedContext)),
-        timedProducer("skill_listing", () => getSkillListingAttachment(enhancedContext)),
-        timedProducer("ultra_claude_md", async () => getUltraClaudeMdAttachment(messages)),
-        timedProducer("plan_mode", () => getPlanModeAttachment(messages, sessionContext)),
-        timedProducer("plan_mode_exit", () => getPlanModeExitAttachment(sessionContext)),
-        timedProducer("delegate_mode", () => getDelegateModeAttachment(sessionContext)),
-        timedProducer("delegate_mode_exit", () => Promise.resolve(getDelegateModeExitAttachment())),
-        timedProducer("todo_reminders", () => isTasksEnabled() ? getTaskReminderAttachment(messages, sessionContext) : getTodoReminderAttachment(messages, sessionContext)),
+        // Status/State producers
+        timedAttachmentProducer("date_change", () => Promise.resolve(getDateChangeAttachment())),
+        timedAttachmentProducer("ultrathink_effort", () => Promise.resolve(getUltrathinkEffortAttachment(userMessage))),
+        timedAttachmentProducer("deferred_tools_delta", () => Promise.resolve(getDeferredToolsDeltaAttachment(sessionContext.options.tools, sessionContext.options.mainLoopModel, messages))),
+        timedAttachmentProducer("mcp_instructions_delta", () => Promise.resolve(getMcpInstructionsDeltaAttachment(sessionContext.options.mcpClients, sessionContext.options.tools, sessionContext.options.mainLoopModel, messages))),
+
+        // File/Context producers
+        timedAttachmentProducer("changed_files", () => getChangedFilesAttachment(enhancedContext)),
+        timedAttachmentProducer("nested_memory", () => getNestedMemoryAttachments(enhancedContext)),
+        timedAttachmentProducer("dynamic_skill", () => getDynamicSkillAttachments(enhancedContext)),
+        timedAttachmentProducer("skill_listing", () => getSkillListingAttachment(enhancedContext)),
+        timedAttachmentProducer("ultra_claude_md", async () => getUltraClaudeMdAttachment(messages)),
+
+        // Mode control producers
+        timedAttachmentProducer("plan_mode", () => getPlanModeAttachment(messages, sessionContext)),
+        timedAttachmentProducer("plan_mode_exit", () => getPlanModeExitAttachment(sessionContext)),
+        timedAttachmentProducer("auto_mode", () => getAutoModeAttachment(messages, sessionContext)),
+        timedAttachmentProducer("auto_mode_exit", () => getAutoModeExitAttachment(sessionContext)),
+
+        // Task management
+        timedAttachmentProducer("todo_reminders", () => isTasksEnabled() ? getTaskReminderAttachment(messages, sessionContext) : getTodoReminderAttachment(messages, sessionContext)),
+
         // Team mode attachments (only if in team/swarm mode)
         ...isTeamMode() ? [
             // Skip teammate_mailbox in session_memory context to avoid duplication
             ...sessionMemoryType === "session_memory" ? [] : [
-                timedProducer("teammate_mailbox", async () => getTeammateMailboxAttachment(sessionContext))
+                timedAttachmentProducer("teammate_mailbox", async () => getTeammateMailboxAttachment(sessionContext))
             ],
-            timedProducer("team_context", async () => getTeamContextAttachment(messages ?? []))
+            timedAttachmentProducer("team_context", async () => getTeamContextAttachment(messages ?? []))
         ] : [],
-        timedProducer("critical_system_reminder", () => Promise.resolve(getCriticalSystemReminder(sessionContext))),
-        // Placeholder for future producers
-        ...[]
+
+        // Agent messaging
+        timedAttachmentProducer("agent_pending_messages", async () => getAgentPendingMessagesAttachment(sessionContext)),
+        timedAttachmentProducer("critical_system_reminder", () => Promise.resolve(getCriticalSystemReminderAttachment(sessionContext)))
     ];
 
     // GROUP 3: Main-agent-only producers (only run for primary agent, not subagents)
     // These provide IDE integration, diagnostics, and user-facing state
     let mainAgentOnlyProducers = isMainAgent ? [
-        timedProducer("ide_selection", async () => getIdeSelectionAttachment(ideContext, sessionContext)),
-        timedProducer("ide_opened_file", async () => getIdeOpenedFileAttachment(ideContext, sessionContext)),
-        timedProducer("output_style", async () => Promise.resolve(getOutputStyleAttachment())),
-        timedProducer("diagnostics", async () => getDiagnosticsAttachment(sessionContext)),
-        timedProducer("lsp_diagnostics", async () => getLspDiagnosticsAttachment(sessionContext)),
-        timedProducer("unified_tasks", async () => getUnifiedTasksAttachment(sessionContext, messages)),
-        timedProducer("async_hook_responses", async () => getAsyncHookResponsesAttachment()),
-        timedProducer("token_usage", async () => Promise.resolve(getTokenUsageAttachment(messages ?? [], sessionContext.options.mainLoopModel))),
-        timedProducer("budget_usd", async () => Promise.resolve(getBudgetUsdAttachment(sessionContext.options.maxBudgetUsd))),
-        timedProducer("verify_plan_reminder", async () => getVerifyPlanReminderAttachment(messages, sessionContext)),
-        timedProducer("queued_commands", async () => Promise.resolve(getQueuedCommandsAttachment(queuedCommands)))
+        timedAttachmentProducer("ide_selection", async () => getIdeSelectionAttachment(ideContext, sessionContext)),
+        timedAttachmentProducer("ide_opened_file", async () => getIdeOpenedFileAttachment(ideContext, sessionContext)),
+        timedAttachmentProducer("output_style", async () => Promise.resolve(getOutputStyleAttachment())),
+        timedAttachmentProducer("diagnostics", async () => getDiagnosticsAttachment(sessionContext)),
+        timedAttachmentProducer("lsp_diagnostics", async () => getLspDiagnosticsAttachment(sessionContext)),
+        timedAttachmentProducer("unified_tasks", async () => getUnifiedTasksAttachment(sessionContext)),
+        timedAttachmentProducer("async_hook_responses", async () => getAsyncHookResponsesAttachment()),
+        timedAttachmentProducer("token_usage", async () => Promise.resolve(getTokenUsageAttachment(messages ?? [], sessionContext.options.mainLoopModel))),
+        timedAttachmentProducer("budget_usd", async () => Promise.resolve(getBudgetUsdAttachment(sessionContext.options.maxBudgetUsd))),
+        timedAttachmentProducer("output_token_usage", async () => Promise.resolve(getOutputTokenUsageAttachment())),
+        timedAttachmentProducer("verify_plan_reminder", async () => getVerifyPlanReminderAttachment(messages, sessionContext)),
+        timedAttachmentProducer("queued_commands", () => getQueuedCommandsAttachment(queuedCommands))
     ] : [];
 
     // Execute groups 2 and 3 in parallel, wait for both to complete
@@ -121,26 +134,36 @@ async function assembleAttachments(userMessage, sessionContext, ideContext, queu
         Promise.all(mainAgentOnlyProducers)
     ]);
 
-    // Flatten all results (each producer returns an array of attachments)
-    return [...userDependentResults.flat(), ...alwaysComputedResults.flat(), ...mainAgentResults.flat()];
+    // Clear timeout and flatten all results
+    clearTimeout(timeoutId);
+
+    // Filter out undefined/null values and flatten
+    return [...userDependentResults.flat(), ...alwaysComputedResults.flat(), ...mainAgentResults.flat()]
+        .filter((attachment) => attachment !== undefined && attachment !== null);
 }
 
-// Mapping: phY→assembleAttachments, A→userMessage, q→sessionContext, K→ideContext, Y→queuedCommands, z→messages, w→sessionMemoryType, H→abortController, $→enhancedContext, O→isMainAgent, _→userDependentProducers, J→userDependentResults, X→alwaysComputedProducers, D→mainAgentOnlyProducers, j→alwaysComputedResults, M→mainAgentResults
+// Mapping: _uY→assembleAllAttachments, A→userMessage, q→sessionContext, K→ideContext, Y→queuedCommands, z→messages, _→sessionMemoryType
+//          Hz→timedAttachmentProducer, sK→createAbortController, t6→parseBoolean, E7→isTeamMode
+//          RuY→getAtMentionedFilesAttachment, SuY→getMcpResourcesAttachment, huY→getAgentMentionsAttachment
+//          DuY→getPlanModeAttachment, XuY→getPlanModeExitAttachment, ZuY→getAutoModeAttachment, GuY→getAutoModeExitAttachment
+//          ruY→getTodoReminderAttachment, auY→getTaskReminderAttachment, suY→getUnifiedTasksAttachment
+//          tuY→getAsyncHookResponsesAttachment, euY→getTeammateMailboxAttachment, AmY→getTeamContextAttachment
+//          qmY→getTokenUsageAttachment, YmY→getBudgetUsdAttachment, OuY→getQueuedCommandsAttachment
 ```
 
 ### What it does
 
-The `assembleAttachments` function orchestrates the parallel execution of 40+ attachment producers to generate system reminders based on the current session state, user input, and IDE context.
+The `assembleAllAttachments` function orchestrates the parallel execution of 40+ attachment producers to generate system reminders based on the current session state, user input, and IDE context.
 
 ### How it works
 
-1. **Global disable check**: First checks if `CLAUDE_CODE_DISABLE_ATTACHMENTS` environment variable is set, returning empty array if true
+1. **Global disable check**: First checks if `CLAUDE_CODE_DISABLE_ATTACHMENTS` or `CLAUDE_CODE_SIMPLE` environment variable is set, returning empty array if true
 2. **Timeout setup**: Creates an AbortController with a 1-second global timeout to prevent any single producer from blocking the system
 3. **Context enhancement**: Wraps the session context with the abort controller so all producers have cancellation capability
 4. **Three-phase parallel execution**:
    - **Phase 1 (User-dependent)**: Executes 3 producers that parse user input for @-mentions, MCP resources, and agent references. These MUST complete before subsequent phases because they may trigger file reads that other producers need.
    - **Phase 2 (Always-computed)** & **Phase 3 (Main-agent-only)**: These two groups execute in parallel since they have no dependencies on each other
-5. **Result flattening**: Each producer returns an array of attachments (may be empty), so results are flattened into a single array
+5. **Result flattening**: Each producer returns an array of attachments (may be empty), so results are flattened into a single array and filtered for null/undefined
 
 ### Why this approach
 

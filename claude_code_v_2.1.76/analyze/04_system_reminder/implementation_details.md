@@ -2,7 +2,11 @@
 
 > **Module**: System Reminders - Core Implementation
 > **Version**: Claude Code 2.1.76
-> **Source**: `chunks.174.mjs:1-469` (normalizeAttachmentForAPI), `chunks.173.mjs:1378+` (createUserMessage), `chunks.142.mjs:1948-2865`
+> **Source**:
+> - `chunks.174.mjs:1-469` (normalizeAttachmentForAPI)
+> - `chunks.173.mjs:1378-1412` (createUserMessage)
+> - `chunks.173.mjs:2490-2740` (XML wrappers, plan/auto mode reminders)
+> - `chunks.147.mjs:1-1262` (attachment producers)
 
 ---
 
@@ -166,7 +170,205 @@ normalizeAttachmentForAPI(attachment)
     └─> Unknown type fallback → log warning, return []
 ```
 
-**Source Location:** `chunks.174.mjs:1-469`
+**Source Location:** `chunks.174.mjs:3-469`
+
+**Complete Implementation:**
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - Main dispatcher converting attachments to messages
+// Location: chunks.174.mjs:3-469
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Ui8(A) {
+    if (E7()) {
+        if (A.type === "teammate_mailbox") return [p1({ content: Kzz().formatTeammateMessages(A.messages), isMeta: !0 })];
+        if (A.type === "team_context") return [p1({ content: `<system-reminder>...team coordination...</system-reminder>`, isMeta: !0 })]
+    }
+    switch (A.type) {
+        case "directory": return b5([nr6(J4.name, { command: `ls ${j4([A.path])}`, description: `Lists files in ${A.path}` }), ir6(J4, { stdout: A.content, stderr: "", interrupted: !1 })]);
+        case "edited_text_file": return b5([p1({ content: `Note: ${A.filename} was modified...`, isMeta: !0 })]);
+        case "file": {
+            let K = A.content;
+            switch (K.type) {
+                case "image": return b5([nr6(L9.name, { file_path: A.filename }), ir6(L9, K)]);
+                case "text": return b5([nr6(L9.name, { file_path: A.filename }), ir6(L9, K), ...A.truncated ? [p1({ content: `Note: The file ${A.filename} was too large...`, isMeta: !0 })] : []]);
+                case "notebook": return b5([nr6(L9.name, { file_path: A.filename }), ir6(L9, K)]);
+                case "pdf": return b5([nr6(L9.name, { file_path: A.filename }), ir6(L9, K)])
+            }
+            break
+        }
+        case "compact_file_reference": return b5([p1({ content: `Note: ${A.filename} was read before...`, isMeta: !0 })]);
+        case "pdf_reference": return b5([p1({ content: `PDF file: ${A.filename} (${A.pageCount} pages, ${xq(A.fileSize)})...`, isMeta: !0 })]);
+        case "selected_lines_in_ide": {
+            let Y = A.content.length > 2000 ? A.content.substring(0, 2000) + `\n... (truncated)` : A.content;
+            return b5([p1({ content: `The user selected the lines ${A.lineStart} to ${A.lineEnd} from ${A.filename}:\n${Y}\n\nThis may or may not be related to the current task.`, isMeta: !0 })])
+        }
+        case "opened_file_in_ide": return b5([p1({ content: `The user opened the file ${A.filename} in the IDE...`, isMeta: !0 })]);
+        case "plan_file_reference": return b5([p1({ content: `A plan file exists from plan mode at: ${A.planFilePath}\n\nPlan contents:\n\n${A.planContent}\n\nIf this plan is relevant...`, isMeta: !0 })]);
+        case "invoked_skills": {
+            if (A.skills.length === 0) return [];
+            let K = A.skills.map((Y) => `### Skill: ${Y.name}\nPath: ${Y.path}\n\n${Y.content}`).join(`\n\n---\n\n`);
+            return b5([p1({ content: `The following skills were invoked in this session...\n\n${K}`, isMeta: !0 })])
+        }
+        case "todo_reminder": { /* ... produces todo reminder message ... */ }
+        case "task_reminder": { if (!r$()) return []; /* ... produces task reminder message ... */ }
+        case "nested_memory": return b5([p1({ content: `Contents of ${A.content.path}:\n\n${A.content.content}`, isMeta: !0 })]);
+        case "relevant_memories": return b5(A.memories.map((K) => { /* ... memory with timestamp ... */ }));
+        case "dynamic_skill": return [];
+        case "skill_listing": { if (!A.content) return []; return b5([p1({ content: `The following skills are available...\n\n${A.content}`, isMeta: !0 })]) }
+        case "queued_command": { /* ... handles queued prompts ... */ }
+        case "ultramemory": return b5([p1({ content: A.content, isMeta: !0 })]);
+        case "output_style": { let K = aY6[A.style]; if (!K) return []; return b5([p1({ content: `${K.name} output style is active...`, isMeta: !0 })]) }
+        case "diagnostics": { if (A.files.length === 0) return []; let K = Gb.formatDiagnosticsSummary(A.files); return b5([p1({ content: `<new-diagnostics>...\n\n${K}</new-diagnostics>`, isMeta: !0 })]) }
+        case "plan_mode": return Wzz(A);
+        case "plan_mode_reentry": { /* ... plan re-entry message ... */ }
+        case "plan_mode_exit": { /* ... plan exit message ... */ }
+        case "auto_mode": return Lzz(A);
+        case "auto_mode_exit": return b5([p1({ content: `## Exited Auto Mode\n\nYou have exited auto mode...`, isMeta: !0 })]);
+        case "critical_system_reminder": return b5([p1({ content: A.content, isMeta: !0 })]);
+        case "mcp_resource": { /* ... handles MCP resource content ... */ }
+        case "agent_mention": return b5([p1({ content: `The user has expressed a desire to invoke the agent "${A.agentType}"...`, isMeta: !0 })]);
+        case "task_status": { /* ... produces task status message ... */ }
+        case "async_hook_response": { /* ... handles hook response ... */ }
+        case "token_usage": return [p1({ content: af(`Token usage: ${A.used}/${A.total}; ${A.remaining} remaining`), isMeta: !0 })];
+        case "budget_usd": return [p1({ content: af(`USD budget: $${A.used}/$${A.total}; $${A.remaining} remaining`), isMeta: !0 })];
+        case "output_token_usage": { let K = A.budget !== null ? `${fq(A.turn)} / ${fq(A.budget)}` : fq(A.turn); return [p1({ content: af(`Output tokens — turn: ${K} · session: ${fq(A.session)}`), isMeta: !0 })] }
+        case "hook_blocking_error": return [p1({ content: af(`${A.hookName} hook blocking error...`), isMeta: !0 })];
+        case "hook_success": { if (A.hookEvent !== "SessionStart" && A.hookEvent !== "UserPromptSubmit") return []; if (A.content === "") return []; return [p1({ content: af(`${A.hookName} hook success: ${A.content}`), isMeta: !0 })] }
+        case "hook_additional_context": { if (A.content.length === 0) return []; return [p1({ content: af(`${A.hookName} hook additional context: ${A.content.join(`\n`)}`), isMeta: !0 })] }
+        case "hook_stopped_continuation": return [p1({ content: af(`${A.hookName} hook stopped continuation: ${A.message}`), isMeta: !0 })];
+        case "compaction_reminder": return b5([p1({ content: "Auto-compact is enabled. When the context window is nearly full...", isMeta: !0 })]);
+        case "context_efficiency": return [];
+        case "date_change": return b5([p1({ content: `The date has changed. Today's date is now ${A.newDate}...`, isMeta: !0 })]);
+        case "ultrathink_effort": return b5([p1({ content: `The user has requested reasoning effort level: ${A.level}...`, isMeta: !0 })]);
+        case "deferred_tools_delta": { /* ... handles deferred tools changes ... */ }
+        case "mcp_instructions_delta": { /* ... handles MCP instruction changes ... */ }
+        case "verify_plan_reminder": { /* ... verify plan message ... */ }
+        case "already_read_file":
+        case "command_permissions":
+        case "edited_image_file":
+        case "hook_cancelled":
+        case "hook_error_during_execution":
+        case "hook_non_blocking_error":
+        case "hook_system_message":
+        case "structured_output":
+        case "hook_permission_decision":
+            return []
+    }
+    if (["autocheckpointing", "background_task_status", "todo", "task_progress"].includes(A.type)) return [];
+    return jV("normalizeAttachmentForAPI", Error(`Unknown attachment type: ${A.type}`)), []
+}
+
+// READABLE (for understanding):
+function normalizeAttachmentForAPI(attachment) {
+    // Pre-switch: Team mode types only when in team mode
+    if (isTeamMode()) {
+        if (attachment.type === "teammate_mailbox") {
+            return [createUserMessage({
+                content: getMailboxFormatter().formatTeammateMessages(attachment.messages),
+                isMeta: true
+            })];
+        }
+        if (attachment.type === "team_context") {
+            return [createUserMessage({
+                content: `<system-reminder>
+# Team Coordination
+You are a teammate in team "${attachment.teamName}".
+**Your Identity:** Name: ${attachment.agentName}
+**Team Resources:** Team config: ${attachment.teamConfigPath}, Task list: ${attachment.taskListPath}
+...
+</system-reminder>`,
+                isMeta: true
+            })];
+        }
+    }
+
+    switch (attachment.type) {
+        // File/Directory types (cases 1-6)
+        case "directory": return wrapWithSystemReminderTags([/* synthetic ls tool call + result */]);
+        case "edited_text_file": return wrapWithSystemReminderTags([/* modification notification */]);
+        case "file": return wrapWithSystemReminderTags([/* synthetic Read tool call + result + truncation notice */]);
+        case "compact_file_reference": return wrapWithSystemReminderTags([/* compacted file notice */]);
+        case "pdf_reference": return wrapWithSystemReminderTags([/* large PDF instructions */]);
+        case "selected_lines_in_ide": return wrapWithSystemReminderTags([/* IDE selection context */]);
+        case "opened_file_in_ide": return wrapWithSystemReminderTags([/* file opened notification */]);
+
+        // Memory types
+        case "invoked_skills": return wrapWithSystemReminderTags([/* previously invoked skills content */]);
+        case "nested_memory": return wrapWithSystemReminderTags([/* memory file content */]);
+        case "relevant_memories": return wrapWithSystemReminderTags([/* memory files with timestamps */]);
+        case "skill_listing": return wrapWithSystemReminderTags([/* available skills list */]);
+        case "ultramemory": return wrapWithSystemReminderTags([/* ultramemory content */]);
+
+        // Task management
+        case "todo_reminder": return wrapWithSystemReminderTags([/* todo list status */]);
+        case "task_reminder": return wrapWithSystemReminderTags([/* task list status */]);
+        case "task_status": return [/* task status notification with inline XML */];
+
+        // Mode control
+        case "plan_mode": return planModeReminderDispatcher(attachment);
+        case "plan_mode_reentry": return wrapWithSystemReminderTags([/* re-entry instructions */]);
+        case "plan_mode_exit": return wrapWithSystemReminderTags([/* exit confirmation */]);
+        case "auto_mode": return autoModeReminder(attachment);
+        case "auto_mode_exit": return wrapWithSystemReminderTags([/* auto mode exit */]);
+
+        // Hook responses
+        case "async_hook_response": return wrapWithSystemReminderTags([/* hook response content */]);
+        case "hook_blocking_error": return [/* blocking error with inline XML */];
+        case "hook_success": return [/* success message with inline XML */];
+        case "hook_additional_context": return [/* additional context with inline XML */];
+        case "hook_stopped_continuation": return [/* stopped continuation with inline XML */];
+
+        // Status types
+        case "token_usage": return [createUserMessage({ content: wrapInXmlTag(`Token usage: ${attachment.used}/${attachment.total}...`), isMeta: true })];
+        case "budget_usd": return [createUserMessage({ content: wrapInXmlTag(`USD budget: $${attachment.used}/$${attachment.total}...`), isMeta: true })];
+        case "compaction_reminder": return wrapWithSystemReminderTags([/* auto-compact notification */]);
+        case "date_change": return wrapWithSystemReminderTags([/* date change notification */]);
+        case "ultrathink_effort": return wrapWithSystemReminderTags([/* reasoning effort level */]);
+
+        // MCP integration
+        case "mcp_resource": return wrapWithSystemReminderTags([/* MCP resource content */]);
+        case "deferred_tools_delta": return wrapWithSystemReminderTags([/* deferred tools availability */]);
+        case "mcp_instructions_delta": return wrapWithSystemReminderTags([/* MCP instruction changes */]);
+
+        // Other types
+        case "diagnostics": return wrapWithSystemReminderTags([/* LSP diagnostics */]);
+        case "queued_command": return wrapWithSystemReminderTags([/* queued user message */]);
+        case "agent_mention": return wrapWithSystemReminderTags([/* agent invocation request */]);
+        case "critical_system_reminder": return wrapWithSystemReminderTags([/* critical alert */]);
+        case "output_style": return wrapWithSystemReminderTags([/* output style notification */]);
+
+        // Silent types - return empty array
+        case "already_read_file":
+        case "command_permissions":
+        case "edited_image_file":
+        case "hook_cancelled":
+        case "hook_error_during_execution":
+        case "hook_non_blocking_error":
+        case "hook_system_message":
+        case "structured_output":
+        case "hook_permission_decision":
+        case "context_efficiency":
+        case "dynamic_skill":
+            return [];
+    }
+
+    // Additional silent types
+    if (["autocheckpointing", "background_task_status", "todo", "task_progress"].includes(attachment.type)) {
+        return [];
+    }
+
+    // Unknown type - log warning and return empty array (forward compatibility)
+    logWarning("normalizeAttachmentForAPI", Error(`Unknown attachment type: ${attachment.type}`));
+    return [];
+}
+
+// Mapping: Ui8→normalizeAttachmentForAPI, A→attachment, E7→isTeamMode, p1→createUserMessage,
+//          b5→wrapWithSystemReminderTags, af→wrapInXmlTag, nr6→createToolCallMessage,
+//          ir6→createToolResultMessage, Wzz→planModeReminderDispatcher, Lzz→autoModeReminder,
+//          Kzz→getMailboxFormatter, j4→shellEscape, J4→BashTool, L9→ReadTool, xq→formatBytes
+```
 
 **Key Design Decisions:**
 
@@ -467,10 +669,9 @@ Key implementation functions in this document:
 ## Source Locations
 
 - `chunks.174.mjs:1-469` - Core normalization functions (normalizeAttachmentForAPI)
-- `chunks.173.mjs:1378+` - User message construction (createUserMessage)
+- `chunks.173.mjs:1378-1412` - User message construction (createUserMessage)
 - `chunks.173.mjs:2490-2740` - XML wrappers, plan/auto mode reminders
-- `chunks.142.mjs:1948-2865` - Attachment producer functions
-- `chunks.148.mjs:2414-2428` - Message injection functions
+- `chunks.147.mjs:1-1262` - Attachment producer functions (assembleAllAttachments, get*Attachment functions)
 - `chunks.90.mjs:730` - Regex patterns
 
 ---

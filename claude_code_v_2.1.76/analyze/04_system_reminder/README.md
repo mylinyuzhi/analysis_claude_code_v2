@@ -2,7 +2,11 @@
 
 > **Module**: System Reminders (Attachments-to-API Normalization)
 > **Version**: Claude Code 2.1.76
-> **Source**: `chunks.174.mjs:1-469` (normalizeAttachmentForAPI), `chunks.173.mjs:1378+` (createUserMessage), `chunks.142.mjs:1948-2835`, `chunks.148.mjs:2414-2428`
+> **Source**:
+> - `chunks.174.mjs:1-469` (normalizeAttachmentForAPI)
+> - `chunks.173.mjs:1378-1412` (createUserMessage)
+> - `chunks.173.mjs:2490-2740` (XML wrappers, plan/auto mode reminders)
+> - `chunks.147.mjs:1-1262` (attachment producers)
 
 ---
 
@@ -24,6 +28,7 @@ This module provides comprehensive documentation of the system reminder architec
 | [**implementation_details.md**](./implementation_details.md) | Code-level implementation | Core functions, plan mode variants, XML processing |
 | [**reminder_types.md**](./reminder_types.md) | Complete type catalog | All 57+ attachment types with format and triggers |
 | [**attachment_producers.md**](./attachment_producers.md) | Producer deep dive | 40+ producer functions, orchestration, execution strategy |
+| [**normalization_flow_diagram.md**](./normalization_flow_diagram.md) | Visual flow documentation | Decision trees, message patterns, token analysis |
 | [**integration_points.md**](./integration_points.md) | Cross-module integration | Agent loop, plan mode, hooks, MCP, LSP, IDE |
 | [**ui_linkage.md**](./ui_linkage.md) | UI visibility | isMeta flag, message filtering, API preparation |
 | [**edge_cases_and_failures.md**](./edge_cases_and_failures.md) | Error handling | Three-layer fault isolation, timeout behavior, recovery |
@@ -69,22 +74,22 @@ Examples of what system reminders convey:
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                   LAYER 1: ATTACHMENT PRODUCTION                      │
-│                    (phY - assembleAttachments)                       │
-│                      chunks.142.mjs:1948-1965                        │
+│                    (_uY - assembleAllAttachments)                     │
+│                      chunks.147.mjs:3-18                              │
 └──────────────┬───────────────────────────────────────────────────────┘
                │
                ↓
 ┌──────────────┴───────────────────────────────────────────────────────┐
 │                   LAYER 2: ATTACHMENT NORMALIZATION                   │
 │                  (Ui8 - normalizeAttachmentForAPI)                    │
-│                     chunks.174.mjs:1-469                             │
+│                     chunks.174.mjs:3-469                              │
 └──────────────┬───────────────────────────────────────────────────────┘
                │
                ↓
 ┌──────────────┴───────────────────────────────────────────────────────┐
 │                    LAYER 3: MESSAGE STREAM INJECTION                  │
-│                   (bG1 - buildContextMessages)                       │
-│                      chunks.148.mjs:2414-2428                        │
+│                   (Vf6 - attachmentGenerator)                         │
+│                      chunks.147.mjs:822-829                           │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -176,14 +181,14 @@ Examples of what system reminders convey:
 
 | Function | Obfuscated | Location | Purpose |
 |----------|------------|----------|---------|
-| `normalizeAttachmentForAPI` | Ui8 | chunks.174.mjs:1-469 | Main dispatcher converting attachments to messages |
+| `normalizeAttachmentForAPI` | Ui8 | chunks.174.mjs:3-469 | Main dispatcher converting attachments to messages |
 | `wrapWithSystemReminderTags` | b5 | chunks.173.mjs:2496-2523 | Wraps messages in XML tags |
 | `wrapInXmlTag` | af | chunks.173.mjs:2490-2494 | Creates XML wrapper string |
-| `createUserMessage` | p1 | chunks.173.mjs:1378+ | Message factory with isMeta flag |
+| `createUserMessage` | p1 | chunks.173.mjs:1378-1412 | Message factory with isMeta flag |
 | `createToolCallMessage` | nr6 | chunks.174.mjs:490-495 | Synthetic tool call message |
 | `createToolResultMessage` | ir6 | chunks.174.mjs:471-488 | Synthetic tool result message |
-| `assembleAttachments` | phY | chunks.142.mjs:1948-1965 | Main orchestrator for attachment production |
-| `timedAttachmentProducer` | gw | chunks.142.mjs:1967-1991 | Telemetry wrapper for producers |
+| `assembleAllAttachments` | _uY | chunks.147.mjs:3-18 | Main orchestrator for attachment production |
+| `timedAttachmentProducer` | Hz | chunks.147.mjs:20-46 | Telemetry wrapper for producers |
 | `planModeReminderDispatcher` | Wzz | chunks.173.mjs:2525-2530 | Routes to plan mode variant |
 
 ---
@@ -270,15 +275,15 @@ Key functions in this module:
 - `createUserMessage` (p1) - Message factory
 - `createToolCallMessage` (nr6) - Tool call display
 - `createToolResultMessage` (ir6) - Tool result display
-- `assembleAttachments` (phY) - Orchestrator
-- `timedAttachmentProducer` (gw) - Telemetry wrapper
+- `assembleAllAttachments` (_uY) - Orchestrator
+- `timedAttachmentProducer` (Hz) - Telemetry wrapper
 - `planModeReminderDispatcher` (Wzz) - Plan mode router
 - `fullPlanReminder` (Nzz) - Full plan instructions
 - `sparsePlanReminder` (Ezz) - Sparse plan reminder
 - `subAgentPlanReminder` (yzz) - Subagent plan reminder
 - `ultraplanCompleteReminder` (Zzz) - Ultraplan complete
 - `autoModeReminder` (Lzz) - Auto mode dispatcher
-- `isTeamMode` (l8) - Team mode check
+- `isTeamMode` (E7) - Team mode check
 
 ---
 
@@ -287,10 +292,9 @@ Key functions in this module:
 | File | Lines | Content |
 |------|-------|---------|
 | `chunks.174.mjs` | 1-469 | Core normalization functions (normalizeAttachmentForAPI) |
-| `chunks.173.mjs` | 1378+ | User message construction (createUserMessage) |
+| `chunks.173.mjs` | 1378-1412 | User message construction (createUserMessage) |
 | `chunks.173.mjs` | 2490-2740 | XML wrappers, plan/auto mode reminders |
-| `chunks.142.mjs` | 1948-2835 | Attachment producer functions |
-| `chunks.148.mjs` | 2414-2428 | Message injection functions |
+| `chunks.147.mjs` | 1-1262 | Attachment producer functions |
 | `chunks.90.mjs` | 730 | Regex patterns |
 
 ---
