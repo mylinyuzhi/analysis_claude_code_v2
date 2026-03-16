@@ -128,36 +128,54 @@
 
 ### Bash Tool Security Symbols
 
+> Full analysis: [security_validation.md](../05_tools/security_validation.md)
+
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
-| lm | bashSecurityValidation | chunks.150.mjs:321 | function |
-| Of6 | speculativeReadonlyValidator | chunks.150.mjs:881 | function |
-| ZhA | bashProgressHandler | chunks.150.mjs:2332 | function (generator) |
-| dU1 | progressTimeCache | chunks.150.mjs | variable (Map) |
-| RcY | PROGRESS_THROTTLE_INTERVAL_MS | chunks.150.mjs | constant |
-| LcY | MAX_PROGRESS_CACHE_SIZE | chunks.150.mjs | constant |
-| B9z | SEARCH_COMMANDS | chunks.172.mjs:40 | constant (Set) |
-| g9z | FILE_READ_COMMANDS | chunks.172.mjs:40 | constant (Set) |
-| wfq | SAFE_BUILTIN_COMMANDS | chunks.172.mjs:40 | constant (Set) |
-| F9z | FILE_MODIFY_COMMANDS | chunks.172.mjs:40 | constant (Set) |
-| U9z | SAFE_UTILITY_COMMANDS | chunks.172.mjs:40 | constant (array) |
-| ndY | focusNextOptionReducer | chunks.154.mjs:577 | function (UI reducer) |
-| rdY | renderOptionsList | chunks.154.mjs:494 | function (UI component) |
-| adY | focusNextOptionReducer | chunks.154.mjs:577 | function (UI reducer) |
-| tdY | exitConfirmPrompt | chunks.154.mjs:824 | function (UI component) |
-| sdY | not found in chunks.154.mjs | - | - |
-| Ti | shouldUseSandbox | chunks.172.mjs:2454 | function (main sandbox check) |
-| yYz | isExcludedCommand | chunks.172.mjs:2412 | function (excluded commands check) |
-| OcY | sedFlagValidator | chunks.150.mjs | function |
-| J6q | sedSubstitutionValidator | chunks.150.mjs | function |
-| CY8 | hasSingleQuotedBackslashBypass | chunks.150.mjs | function |
-| cdY | parseCommandQuoting | chunks.150.mjs | function |
-| ldY | normalizeQuoting | chunks.150.mjs | function |
-| $f6 | containsWindowsUNCPath | chunks.150.mjs | function |
-| vcY | commandContainsGit | chunks.150.mjs | function |
-| EcY | isInBareGitRepository | chunks.150.mjs | function |
-| AD | splitCommandByOperators | chunks.150.mjs | function |
-| pz | shellTokenizer | chunks.150.mjs | function |
+| Rp6 | validateBashCommandSync | chunks.91.mjs:2209 | function (main sync entry point) |
+| O01 | validateBashCommandAsync | chunks.91.mjs:2272 | function (async with tree-sitter) |
+| pY4 | validateJqSecurity | chunks.91.mjs:1507 | function |
+| rY4 | validateObfuscatedFlags | chunks.91.mjs:1759 | function |
+| QY4 | validateShellMetacharacters | chunks.91.mjs:1537 | function |
+| UY4 | validateDangerousVariables | chunks.91.mjs:1568 | function |
+| dY4 | validateCommandSubstitution | chunks.91.mjs:1585 | function |
+| w01 | validateNewlineInjection | chunks.91.mjs:1635 | function |
+| lY4 | validateIfsInjection | chunks.91.mjs:1699 | function |
+| iY4 | validateProcEnvironAccess | chunks.91.mjs:1716 | function |
+| nY4 | validateMalformedTokens | chunks.91.mjs:1733 | function |
+| cY4 | validateCarriageReturn | chunks.91.mjs:1656 | function |
+| _01 | validateRedirection | chunks.91.mjs:1611 | function |
+| tY4 | validateUnicodeWhitespace | chunks.91.mjs:2040 | function |
+| sY4 | validateBraceExpansion | chunks.91.mjs:1978 | function |
+| Kz4 | validateZshCommands | chunks.91.mjs:2179 | function |
+| oY4 | validateBackslashWhitespace | chunks.91.mjs:1916 | function |
+| aY4 | validateBackslashOperators | chunks.91.mjs:1954 | function |
+| eY4 | validateMidWordHash | chunks.91.mjs:2056 | function |
+| Az4 | validateCommentQuoteDesync | chunks.91.mjs:2075 | function |
+| qz4 | validateQuotedNewline | chunks.91.mjs:2129 | function |
+| Xg9 | validateSedReadOnly | chunks.91.mjs:2434 | function |
+| zz4 | validateSedSubstitution | chunks.91.mjs:2471 | function |
+| xW6 | validateSedCommand | chunks.91.mjs:2509 | function |
+| w3 | CHECK_IDS | chunks.91.mjs:2394 | object (security check identifiers) |
+| wg9 | DANGEROUS_PATTERNS | chunks.91.mjs:2361 | array (command substitution patterns) |
+| Og9 | ZSH_DANGEROUS_COMMANDS | chunks.91.mjs:2346 | Set |
+| Yz4 | CONTROL_CHARACTERS_REGEX | chunks.91.mjs:2421 | RegExp |
+| Dg9 | UNICODE_WHITESPACE_REGEX | chunks.91.mjs:2420 | RegExp |
+| Jg9 | SHELL_OPERATORS | chunks.91.mjs:2419 | Set |
+| Fz | tokenizeCommand | chunks.91.mjs | function |
+| ca | preprocessCommand | chunks.91.mjs | function |
+| bY4 | extractQuoteContext | chunks.91.mjs | function |
+| X38 | hasSingleQuotedBackslashPattern | chunks.91.mjs | function |
+| $g9 | containsCharacter | chunks.91.mjs | function |
+| _g9 | hasMalformedTokenPattern | chunks.91.mjs | function |
+| jg9 | hasBackslashEscapedWhitespace | chunks.91.mjs | function |
+| Mg9 | hasBackslashEscapedOperator | chunks.91.mjs | function |
+| n36 | isEscapedBackslash | chunks.91.mjs | function |
+| Gg9 | hasDangerousSedPattern | chunks.91.mjs | function |
+| Wg9 | hasMultipleInputFiles | chunks.91.mjs | function |
+| Zg9 | extractSedExpressions | chunks.91.mjs | function |
+| _z4 | validateAllFlagsAllowed | chunks.91.mjs | function |
+| Pg9 | isValidPrintCommand | chunks.91.mjs | function |
 
 ### File System Tool Symbols
 
