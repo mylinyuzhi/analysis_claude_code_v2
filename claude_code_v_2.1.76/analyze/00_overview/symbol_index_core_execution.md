@@ -504,6 +504,16 @@
 | AmY | getTeamContextAttachment | chunks.147.mjs | function |
 | vuY | getCriticalSystemReminder | chunks.147.mjs:284-291 | function |
 
+### Memory Loading Helpers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| EuY | parentDirTraversal | chunks.147.mjs:322-338 | function |
+| Yqq | loadMemoryFromTriggerPath | chunks.147.mjs:371-395 | function |
+| sF8 | createNestedMemoryAttachments | chunks.147.mjs:344-369 | function |
+| HuY | extractTextFromContent | chunks.147.mjs:83 | function |
+| juY | processPastedImages | chunks.147.mjs:88 | function |
+
 ### Attachment Producers - Main-Agent-Only (Group 3)
 
 | Obfuscated | Readable | File:Line | Type |

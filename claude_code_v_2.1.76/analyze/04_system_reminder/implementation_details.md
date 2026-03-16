@@ -1228,6 +1228,348 @@ content: `PDF file: ${A.filename} (${A.pageCount} pages, ${xq(A.fileSize)}). Thi
 
 ---
 
+## Turn Counting Algorithms
+
+Turn counting is a critical mechanism that determines when to send throttled reminders (plan mode, auto mode, todo reminders). These algorithms traverse the message history backwards to count assistant turns and detect previous attachments.
+
+### countTurnsSincePlanMode (JuY) - Plan Mode Turn Counter
+
+**What it does:** Counts assistant turns since the last plan_mode attachment, traversing message history backwards.
+
+**How it works:**
+```javascript
+// ============================================
+// countTurnsSincePlanMode - Counts turns since last plan mode attachment
+// Location: chunks.147.mjs:105-122
+// ============================================
+
+// ORIGINAL (for source lookup):
+function JuY(A) {
+    let q = 0,
+        K = !1;
+    for (let Y = A.length - 1; Y >= 0; Y--) {
+        let z = A[Y];
+        if (z?.type === "assistant") {
+            if (Ei6(z)) continue;
+            q++
+        } else if (z?.type === "attachment" && (z.attachment.type === "plan_mode" || z.attachment.type === "plan_mode_reentry")) {
+            K = !0;
+            break
+        }
+    }
+    return {
+        turnCount: q,
+        foundPlanModeAttachment: K
+    }
+}
+
+// READABLE (for understanding):
+function countTurnsSincePlanMode(messages) {
+    let turnCount = 0;
+    let foundPlanModeAttachment = false;
+
+    // Traverse backwards through message history
+    for (let i = messages.length - 1; i >= 0; i--) {
+        let message = messages[i];
+
+        if (message?.type === "assistant") {
+            // Skip thinking-only assistant messages (no actual content)
+            if (isThinkingOnlyMessage(message)) continue;
+            turnCount++;
+        } else if (message?.type === "attachment" &&
+                   (message.attachment.type === "plan_mode" ||
+                    message.attachment.type === "plan_mode_reentry")) {
+            // Found the last plan mode attachment - stop counting
+            foundPlanModeAttachment = true;
+            break;
+        }
+    }
+
+    return {
+        turnCount,
+        foundPlanModeAttachment
+    };
+}
+
+// Mapping: JuY→countTurnsSincePlanMode, A→messages, q→turnCount, K→foundPlanModeAttachment
+//          Y→i, z→message, Ei6→isThinkingOnlyMessage
+```
+
+**Why this approach:**
+
+1. **Backward traversal**: Starts from the most recent message and works backwards, stopping at the first plan_mode attachment found.
+
+2. **Thinking-only skip**: Uses `Ei6` (isThinkingOnlyMessage) to skip assistant messages that only contain thinking blocks without actual content.
+
+3. **Dual return value**: Returns both the count AND whether a plan_mode attachment was found. This allows callers to:
+   - Skip throttling if no previous attachment exists (first time in plan mode)
+   - Apply throttling only when there was a previous attachment
+
+**Key insight:** The algorithm distinguishes between "no previous attachment" and "attachment found with 0 turns since". The former triggers immediate reminder; the latter respects throttling.
+
+---
+
+### countPlanModeReminders (MuY) - Reminder Counter
+
+**What it does:** Counts how many plan_mode attachments exist since the last plan_mode_exit, used to determine full vs sparse reminder variant.
+
+**How it works:**
+```javascript
+// ============================================
+// countPlanModeReminders - Counts plan mode reminders since last exit
+// Location: chunks.147.mjs:124-134
+// ============================================
+
+// ORIGINAL (for source lookup):
+function MuY(A) {
+    let q = 0;
+    for (let K = A.length - 1; K >= 0; K--) {
+        let Y = A[K];
+        if (Y?.type === "attachment") {
+            if (Y.attachment.type === "plan_mode_exit") break;
+            if (Y.attachment.type === "plan_mode") q++
+        }
+    }
+    return q
+}
+
+// READABLE (for understanding):
+function countPlanModeReminders(messages) {
+    let count = 0;
+
+    // Traverse backwards through message history
+    for (let i = messages.length - 1; i >= 0; i--) {
+        let message = messages[i];
+
+        if (message?.type === "attachment") {
+            // Stop at plan_mode_exit - previous session's reminders don't count
+            if (message.attachment.type === "plan_mode_exit") break;
+            if (message.attachment.type === "plan_mode") count++;
+        }
+    }
+
+    return count;
+}
+
+// Mapping: MuY→countPlanModeReminders, A→messages, q→count, K→i, Y→message
+```
+
+**Why this approach:**
+
+1. **Exit boundary**: Stops at `plan_mode_exit` to avoid counting reminders from previous plan mode sessions.
+
+2. **Simple counter**: Only counts, doesn't track turn count. Used for the `(count + 1) % 5 === 1` full/sparse determination.
+
+**Usage in getPlanModeAttachment:**
+```javascript
+// Location: chunks.147.mjs:160
+let reminderType = (countPlanModeReminders(messages) + 1) % 5 === 1 ? "full" : "sparse";
+```
+
+**Key insight:** The `+ 1` in the formula accounts for the attachment being created now. This ensures the first reminder is "full", then every 5th thereafter.
+
+---
+
+### countTurnsSinceAutoMode (PuY) - Auto Mode Turn Counter
+
+**What it does:** Counts assistant turns since the last auto_mode attachment, with special handling for auto_mode_exit.
+
+**How it works:**
+```javascript
+// ============================================
+// countTurnsSinceAutoMode - Counts turns since last auto mode attachment
+// Location: chunks.147.mjs:183-199
+// ============================================
+
+// ORIGINAL (for source lookup):
+function PuY(A) {
+    let q = 0,
+        K = !1;
+    for (let Y = A.length - 1; Y >= 0; Y--) {
+        let z = A[Y];
+        if (z?.type === "assistant") {
+            if (Ei6(z)) continue;
+            q++
+        } else if (z?.type === "attachment" && z.attachment.type === "auto_mode") {
+            K = !0;
+            break
+        } else if (z?.type === "attachment" && z.attachment.type === "auto_mode_exit") break
+    }
+    return {
+        turnCount: q,
+        foundAutoModeAttachment: K
+    }
+}
+
+// READABLE (for understanding):
+function countTurnsSinceAutoMode(messages) {
+    let turnCount = 0;
+    let foundAutoModeAttachment = false;
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+        let message = messages[i];
+
+        if (message?.type === "assistant") {
+            if (isThinkingOnlyMessage(message)) continue;
+            turnCount++;
+        } else if (message?.type === "attachment" && message.attachment.type === "auto_mode") {
+            foundAutoModeAttachment = true;
+            break;
+        } else if (message?.type === "attachment" && message.attachment.type === "auto_mode_exit") {
+            // Stop at exit - no previous attachment to count from
+            break;
+        }
+    }
+
+    return {
+        turnCount,
+        foundAutoModeAttachment
+    };
+}
+
+// Mapping: PuY→countTurnsSinceAutoMode, A→messages, q→turnCount, K→foundAutoModeAttachment
+```
+
+**Key difference from plan mode:** The additional check for `auto_mode_exit` that stops traversal immediately. This handles the case where the user exited and re-entered auto mode - we don't want to count turns from the previous session.
+
+---
+
+### countAutoModeReminders (WuY) - Auto Mode Reminder Counter
+
+**What it does:** Counts auto_mode attachments since last exit, identical pattern to `countPlanModeReminders`.
+
+**Location:** `chunks.147.mjs:202-212`
+
+**Key insight:** These four functions (`JuY`, `MuY`, `PuY`, `WuY`) form a reusable pattern for any throttled reminder type:
+
+| Function | Purpose | Throttling Config |
+|----------|---------|-------------------|
+| `countTurnsSinceX` | Check `TURNS_BETWEEN_ATTACHMENTS` | `PLAN_MODE_CONFIG` or `AUTO_MODE_CONFIG` |
+| `countXReminders` | Check `FULL_REMINDER_EVERY_N_ATTACHMENTS` | Same config |
+
+---
+
+## Parallel Execution Strategy
+
+The `assembleAllAttachments` function (`_uY`) uses a three-group parallel execution strategy to maximize efficiency while respecting dependencies.
+
+### Three-Group Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    assembleAllAttachments (_uY)                       │
+│                     chunks.147.mjs:3-18                               │
+└────────────────────────────────┬─────────────────────────────────────┘
+                                 │
+                                 ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  PRE-CHECK: CLAUDE_CODE_DISABLE_ATTACHMENTS or CLAUDE_CODE_SIMPLE?   │
+│                              ↓ No                                     │
+│                  Create AbortController (1s timeout)                  │
+└────────────────────────────────┬─────────────────────────────────────┘
+                                 │
+         ┌───────────────────────┼───────────────────────┐
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│     GROUP 1     │    │     GROUP 2     │    │     GROUP 3     │
+│ User-Dependent  │    │ Always-Computed │    │ Main-Agent-Only │
+│                 │    │                 │    │                 │
+│ Only if         │    │ Runs every turn │    │ Only if         │
+│ @mentions exist │    │                 │    │ !agentId        │
+│                 │    │                 │    │                 │
+│ • at_mentioned  │    │ • date_change   │    │ • ide_selection │
+│   _files        │    │ • ultrathink    │    │ • ide_opened    │
+│ • mcp_resources │    │ • deferred_     │    │ • output_style  │
+│ • agent_        │    │   tools_delta   │    │ • diagnostics   │
+│   mentions      │    │ • mcp_          │    │ • token_usage   │
+│                 │    │   instructions  │    │ • budget_usd    │
+│ Promise.all()   │    │ • changed_files │    │ • queued_cmd    │
+│     ↓           │    │ • plan_mode     │    │ • verify_plan   │
+│  results1       │    │ • auto_mode     │    │ Promise.all()   │
+└─────────────────┘    │ • todo_remind   │    │     ↓           │
+                       │ • team_context* │    │  results3       │
+                       │ Promise.all()   │    └─────────────────┘
+                       │     ↓           │
+                       │  results2       │
+                       └─────────────────┘
+                                 │
+                                 ▼
+              Combine: [...results1, ...results2, ...results3]
+              Filter: Remove undefined/null values
+                                 │
+                                 ▼
+                         Attachment[]
+```
+
+### Group 1: User-Dependent Producers
+
+**Condition:** Only runs when `atMentions` is not null/undefined (user used @-mention syntax).
+
+**Producers:**
+- `extractAtMentionedFiles` (RuY) - Files/directories mentioned with @
+- `extractMcpResources` (SuY) - MCP resources mentioned with @
+- `extractAgentMentions` (huY) - Agents mentioned with @
+
+**Why conditional:** @-mentions are relatively rare. Skipping these producers when unnecessary saves I/O and computation.
+
+### Group 2: Always-Computed Producers
+
+**Condition:** Always runs, regardless of context.
+
+**Producers (25+ functions):**
+- Date/time: `getDateChangeAttachment`, `getUltrathinkEffortAttachment`
+- MCP integration: `getDeferredToolsDeltaAttachment`, `getMcpInstructionsDeltaAttachment`
+- File tracking: `getChangedFilesAttachment`, `getNestedMemoryAttachments`
+- Mode control: `getPlanModeAttachment`, `getAutoModeAttachment`
+- Team mode: `getTeammateMailboxAttachment`, `getTeamContextAttachment` (conditional on `isTeamMode()`)
+- Reminders: `getTodoReminders`, `getCriticalSystemReminder`
+
+**Why always:** These provide essential context that should be available every turn.
+
+### Group 3: Main-Agent-Only Producers
+
+**Condition:** Only runs when `!sessionContext.agentId` (main agent, not subagent).
+
+**Producers:**
+- IDE integration: `getIdeSelectionAttachment`, `getIdeOpenedFileAttachment`
+- Output configuration: `getOutputStyleAttachment`
+- Diagnostics: `getDiagnosticsAttachment`, `getLspDiagnosticsAttachment`
+- Budget tracking: `getTokenUsageAttachment`, `getBudgetUsdAttachment`, `getOutputTokenUsageAttachment`
+- Queue handling: `getQueuedCommandsAttachment`
+- Task management: `getUnifiedTasksAttachment`, `getVerifyPlanReminderAttachment`
+
+**Why main-agent-only:** Subagents shouldn't see IDE state, budget info, or queued commands from the main session. This prevents context pollution and ensures subagents focus on their specific tasks.
+
+### AbortController Timeout Mechanism
+
+```javascript
+// Location: chunks.147.mjs:447-449
+const abortController = createAbortController();
+const timeoutId = setTimeout((ctrl) => ctrl.abort(), 1000, abortController);
+const contextWithAbort = { ...sessionContext, abortController };
+```
+
+**Purpose:** Prevents attachment production from blocking the conversation. If producers take longer than 1 second, the AbortController signals cancellation.
+
+**Producer compliance:** Well-behaved producers should check `abortController.signal.aborted` before expensive operations.
+
+### Error Handling Pattern
+
+```javascript
+// timedAttachmentProducer wraps each producer
+try {
+    const result = await producerFn();
+    return result;
+} catch (error) {
+    logWarning(`Attachment error in ${label}`, error);
+    return [];  // Graceful degradation
+}
+```
+
+**Key insight:** Each producer is wrapped with error handling. A failing producer returns `[]` rather than crashing the entire attachment pipeline. This ensures the conversation continues even if one attachment type fails.
+
+---
+
 ## Helper Functions
 
 > Note: Type-related helper functions are analyzed in detail in the corresponding per-type documents.

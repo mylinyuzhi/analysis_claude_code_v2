@@ -12,6 +12,7 @@
 - [token_usage](#token_usage)
 - [budget_usd](#budget_usd)
 - [output_token_usage](#output_token_usage) - **NEW in v2.1.76**
+- [context_efficiency](#context_efficiency) - **NEW in v2.1.76**
 - [date_change](#date_change) - **NEW in v2.1.76**
 - [ultrathink_effort](#ultrathink_effort) - **NEW in v2.1.76**
 - [deferred_tools_delta](#deferred_tools_delta) - **NEW in v2.1.76**
@@ -32,15 +33,16 @@ Status and budget types inform the LLM about resource usage and system state:
 1. **token_usage** - Token consumption tracking
 2. **budget_usd** - USD budget tracking
 3. **output_token_usage** - Output token tracking (v2.1.76 NEW)
-4. **date_change** - Date change notification (v2.1.76 NEW)
-5. **ultrathink_effort** - Reasoning effort level (v2.1.76 NEW)
-6. **deferred_tools_delta** - Deferred tools availability changes (v2.1.76 NEW)
-7. **mcp_instructions_delta** - MCP server instruction changes (v2.1.76 NEW)
-8. **compaction_reminder** - Auto-compact notification
-9. **critical_system_reminder** - Critical system alerts
-10. **queued_command** - Queued user messages
-11. **output_style** - Output style reminders
-12. **verify_plan_reminder** - Plan verification reminders
+4. **context_efficiency** - Context efficiency tracking (v2.1.76 NEW, silent type)
+5. **date_change** - Date change notification (v2.1.76 NEW)
+6. **ultrathink_effort** - Reasoning effort level (v2.1.76 NEW)
+7. **deferred_tools_delta** - Deferred tools availability changes (v2.1.76 NEW)
+8. **mcp_instructions_delta** - MCP server instruction changes (v2.1.76 NEW)
+9. **compaction_reminder** - Auto-compact notification
+10. **critical_system_reminder** - Critical system alerts
+11. **queued_command** - Queued user messages
+12. **output_style** - Output style reminders
+13. **verify_plan_reminder** - Plan verification reminders
 
 These types use the `tI` (wrapInXmlTag) function for inline XML wrapping.
 
@@ -332,6 +334,57 @@ Output tokens — turn: 1,234 / 10,000 · session: 45,678
 ### Key Insight
 
 When a budget is set, the reminder shows `turn / budget` format, helping the LLM understand output token limits. Without a budget, only absolute counts are shown.
+
+---
+
+## context_efficiency
+
+### What It Does
+
+A silent type that returns an empty array, used internally for context efficiency tracking without producing any visible messages to the LLM.
+
+### Triggered When
+
+| Condition | Requirement |
+|-----------|-------------|
+| Internal tracking | System needs to track context efficiency state |
+| Silent operation | No message should be produced |
+
+### Source Code
+
+#### Normalization Function
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - context_efficiency case
+// Location: chunks.174.mjs:403-404
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "context_efficiency":
+    return [];
+
+// READABLE (for understanding):
+case "context_efficiency":
+    // Silent type - no message produced
+    return [];
+
+// Mapping: N/A - returns empty array
+```
+
+### Output Format
+
+None (silent type - returns empty array).
+
+### Key Insight
+
+The `context_efficiency` type is a **silent type** that exists in the type system but produces no output. This pattern is used for:
+
+1. **State tracking**: The attachment can carry internal state between the production layer and other parts of the system
+2. **Future extensibility**: Placeholder for future context efficiency notifications
+3. **Type system consistency**: Maintains a consistent type signature even when no action is needed
+
+The type appears in the dispatcher switch at `chunks.132.mjs:1748` where it also returns `null`, confirming its silent nature across multiple processing stages.
 
 ---
 
