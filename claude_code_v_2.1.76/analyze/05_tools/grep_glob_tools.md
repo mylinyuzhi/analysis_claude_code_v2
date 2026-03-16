@@ -141,29 +141,47 @@ const GrepTool = {
 ```javascript
 // ============================================
 // grepInputSchema - Zod input schema for Grep
-// Location: chunks.139.mjs:524
+// Location: chunks.139.mjs:457-471
 // ============================================
+
+// ORIGINAL (for source lookup):
+$LY = F6(() => C.strictObject({
+    pattern: C.string().describe("The regular expression pattern to search for in file contents"),
+    path: C.string().optional().describe("File or directory to search in (rg PATH). Defaults to current working directory."),
+    glob: C.string().optional().describe('Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob'),
+    output_mode: C.enum(["content", "files_with_matches", "count"]).optional().describe('Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows file paths (supports head_limit), "count" shows match counts (supports head_limit). Defaults to "files_with_matches".'),
+    "-B": C.number().optional().describe('Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.'),
+    "-A": C.number().optional().describe('Number of lines to show after each match (rg -A). Requires output_mode: "content", ignored otherwise.'),
+    "-C": C.number().optional().describe("Alias for context."),
+    context: C.number().optional().describe('Number of lines to show before and after each match (rg -C). Requires output_mode: "content", ignored otherwise.'),
+    "-n": YX(C.boolean().optional()).describe('Show line numbers in output (rg -n). Requires output_mode: "content", ignored otherwise. Defaults to true.'),
+    "-i": YX(C.boolean().optional()).describe("Case insensitive search (rg -i)"),
+    type: C.string().optional().describe("File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types."),
+    head_limit: C.number().optional().describe('Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Defaults to 0 (unlimited).'),
+    offset: C.number().optional().describe('Skip first N lines/entries before applying head_limit, equivalent to "| tail -n +N | head -N". Works across all output modes. Defaults to 0.'),
+    multiline: YX(C.boolean().optional()).describe("Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false.")
+}))
 
 // READABLE (for understanding):
 const grepInputSchema = z.strictObject({
     pattern: z.string()
-        .describe("The regular expression pattern to search for"),
+        .describe("The regular expression pattern to search for in file contents"),
 
     path: z.string().optional()
-        .describe("File or directory to search in. Defaults to current working directory."),
+        .describe("File or directory to search in (rg PATH). Defaults to current working directory."),
 
     glob: z.string().optional()
-        .describe("Glob pattern to filter files (e.g., \"*.ts\", \"**/*.js\")"),
+        .describe('Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob'),
 
-    output_mode: z.enum(["content", "files_with_matches", "count"]).default("content")
-        .describe("Output format: content (show matches), files_with_matches (file list), count (match counts)"),
+    output_mode: z.enum(["content", "files_with_matches", "count"]).optional()
+        .describe('Output mode: "content" shows matching lines, "files_with_matches" shows file paths, "count" shows match counts. Defaults to "files_with_matches".'),
 
     // ripgrep-style flags
     "-i": z.boolean().optional()
         .describe("Case insensitive search"),
 
     "-n": z.boolean().optional()
-        .describe("Show line numbers (default true for content mode)"),
+        .describe("Show line numbers in output (default true for content mode)"),
 
     "-C": z.number().int().positive().optional()
         .describe("Number of context lines to show before and after matches"),
@@ -172,16 +190,37 @@ const grepInputSchema = z.strictObject({
         .describe("Number of lines to show before matches"),
 
     "-A": z.number().int().positive().optional()
-        .describe("Number of lines to show after matches")
+        .describe("Number of lines to show after matches"),
+
+    context: z.number().optional()
+        .describe("Alias for -C"),
+
+    type: z.string().optional()
+        .describe("File type to search (rg --type). Common types: js, py, rust, go, java"),
+
+    // Pagination parameters
+    head_limit: z.number().optional()
+        .describe('Limit output to first N lines/entries, equivalent to "| head -N"'),
+
+    offset: z.number().optional()
+        .describe('Skip first N lines/entries before applying head_limit, equivalent to "| tail -n +N | head -N"'),
+
+    multiline: z.boolean().optional()
+        .describe("Enable multiline mode where . matches newlines (rg -U --multiline-dotall)")
 });
 
-// Mapping: $LY→grepInputSchema
+// Mapping: $LY→grepInputSchema, F6→lazySchema, C→z, YX→stripDefault
 ```
 
 **Why ripgrep-style flags:**
 - Familiar to developers who use `grep` or `rg`
 - Clear and concise parameter names
 - Direct mapping to ripgrep command-line arguments
+
+**Pagination parameters:**
+- `head_limit`: Limits output to first N results (like `| head -N`)
+- `offset`: Skips first N results before applying head_limit (like `| tail -n +N | head -N`)
+- Both work across all output modes (content, files_with_matches, count)
 
 ---
 
@@ -300,6 +339,37 @@ function buildRipgrepArgs(pattern, path, glob, outputMode, flags) {
 - Unicode support
 - JSON output mode for structured parsing
 - Memory-efficient streaming
+
+---
+
+## 5. VCS Directory Exclusions
+
+### HLY - Version Control System Directories
+
+**What it does:** Defines the list of version control system directories to exclude from search results.
+
+```javascript
+// ============================================
+// HLY - VCS directory exclusions
+// Location: chunks.139.mjs:472
+// ============================================
+
+// ORIGINAL (for source lookup):
+HLY = [".git", ".svn", ".hg", ".bzr"];
+
+// READABLE (for understanding):
+const VCS_DIR_EXCLUSIONS = [".git", ".svn", ".hg", ".bzr"];
+
+// Mapping: HLY→VCS_DIR_EXCLUSIONS
+```
+
+**Why these exclusions:**
+- `.git` - Git repository metadata (objects, refs, logs)
+- `.svn` - Subversion working copy metadata
+- `.hg` - Mercurial repository metadata
+- `.bzr` - Bazaar repository metadata
+
+These directories contain version control internals that are typically not relevant to code searches and would clutter results.
 
 ---
 

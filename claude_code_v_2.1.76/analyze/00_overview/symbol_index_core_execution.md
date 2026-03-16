@@ -46,6 +46,44 @@
 | Q7 | TOOL_NAME_BASH | chunks.54.mjs:2264 | constant ("Bash") |
 | BYq | BashOutputComponent | chunks.162.mjs:417249 | component |
 
+### Tool Schema Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| tm9 | readInputSchema | chunks.90.mjs:2000 | function (Zod schema getter) |
+| em9 | readOutputSchema | chunks.90.mjs:2005 | function (Zod discriminated union) |
+| _LY | writeInputSchema | chunks.139.mjs:27 | function (Zod schema getter) |
+| wLY | writeOutputSchema | chunks.139.mjs:30 | function (Zod schema) |
+| lV1 | editInputSchema | chunks.138.mjs:1536 | function (Zod schema getter) |
+| Pa4 | editOutputSchema | chunks.138.mjs:1547 | function (Zod schema) |
+| $LY | grepInputSchema | chunks.139.mjs:457 | function (Zod schema getter) |
+| jLY | grepOutputSchema | chunks.139.mjs:473 | function (Zod schema) |
+| JLY | globInputSchema | chunks.139.mjs:872 | function (Zod schema getter) |
+| MLY | globOutputSchema | chunks.139.mjs:875 | function (Zod schema) |
+| nm8 | patchHunkSchema | chunks.138.mjs:1541 | function (Zod schema) |
+| Wa4 | editAlternativeSchema | chunks.138.mjs:1564 | function (Zod schema for line-ref edits) |
+
+### File System Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| y21 | CONCURRENT_EDIT_ERROR_MESSAGE | chunks.56.mjs:108 | constant |
+| HLY | VCS_DIR_EXCLUSIONS | chunks.139.mjs:472 | constant ([".git", ".svn", ".hg", ".bzr"]) |
+| P36 | MAX_PDF_PAGES_PER_REQUEST | chunks.85.mjs:2470 | constant (20) |
+| TX1 | MIN_PAGES_FOR_PDF_PROMPT | chunks.85.mjs:2472 | constant (10) |
+| XA4 | MAX_SIZE_FOR_PDF_EXTRACTION | chunks.85.mjs:2466 | constant (3145728) |
+| Lx6 | DEFAULT_READ_LINES | chunks.56.mjs:175 | constant (2000) |
+| R94 | IMAGE_EXTENSIONS_SET | chunks.90.mjs:1999 | Set (["png", "jpg", "jpeg", "gif", "webp"]) |
+| Yx3 | PDF_EXTENSIONS_SET | chunks.56.mjs:148 | Set (["pdf"]) |
+
+### File System Helper Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| gw8 | parsePageRange | chunks.56.mjs:110 | function |
+| yx6 | isAnthropicApi | chunks.56.mjs:139 | function |
+| JD6 | isPdfExtension | chunks.56.mjs:143 | function |
+
 ### Edit Tool Symbols
 
 | Obfuscated | Readable | File:Line | Type |

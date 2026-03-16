@@ -10,13 +10,188 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Tools section)
 
 Key functions in this document:
-- `inputSchema` - Zod schema for tool input validation
-- `outputSchema` - Optional Zod schema for tool output validation
-- `validateInput` - Custom runtime validation method
+- `readInputSchema` (tm9) - Read tool input schema - chunks.90.mjs:2000
+- `readOutputSchema` (em9) - Read tool discriminated union output - chunks.90.mjs:2005
+- `writeInputSchema` (_LY) - Write tool input schema - chunks.139.mjs:27
+- `writeOutputSchema` (wLY) - Write tool output schema - chunks.139.mjs:30
+- `editInputSchema` (lV1) - Edit tool input schema - chunks.138.mjs:1536
+- `editOutputSchema` (Pa4) - Edit tool output schema - chunks.138.mjs:1547
+- `grepInputSchema` ($LY) - Grep tool input schema - chunks.139.mjs:457
+- `grepOutputSchema` (jLY) - Grep tool output schema - chunks.139.mjs:473
+- `globInputSchema` (JLY) - Glob tool input schema - chunks.139.mjs:872
+- `globOutputSchema` (MLY) - Glob tool output schema - chunks.139.mjs:875
+- `patchHunkSchema` (nm8) - Unified diff hunk schema - chunks.138.mjs:1541
 - `formatValidationError` (V4q) - Converts Zod errors to user-friendly messages
-- `safeParse` - Schema validation method used in pipeline
 
 ---
+
+## Complete Schema Definitions
+
+### Read Tool Input Schema (tm9)
+
+```javascript
+// ============================================
+// readInputSchema - Read tool input
+// Location: chunks.90.mjs:2000-2004
+// ============================================
+
+// ORIGINAL (for source lookup):
+tm9 = F6(() => C.strictObject({
+    file_path: C.string().describe("The absolute path to the file to read"),
+    offset: C.number().optional().describe("The line number to start reading from..."),
+    limit: C.number().optional().describe("The number of lines to read..."),
+    pages: C.string().optional().describe(`Page range for PDF files... Maximum ${P36} pages...`)
+}))
+
+// READABLE:
+const readInputSchema = z.strictObject({
+    file_path: z.string().describe("The absolute path to the file to read"),
+    offset: z.number().optional().describe("The line number to start reading from"),
+    limit: z.number().optional().describe("The number of lines to read"),
+    pages: z.string().optional().describe('Page range for PDF files (e.g., "1-5")')
+});
+```
+
+### Write Tool Input Schema (_LY)
+
+```javascript
+// ============================================
+// writeInputSchema - Write tool input
+// Location: chunks.139.mjs:27-29
+// ============================================
+
+// ORIGINAL (for source lookup):
+_LY = F6(() => C.strictObject({
+    file_path: C.string().describe("The absolute path to the file to write..."),
+    content: C.string().describe("The content to write to the file")
+}))
+
+// READABLE:
+const writeInputSchema = z.strictObject({
+    file_path: z.string().describe("The absolute path to the file to write"),
+    content: z.string().describe("The content to write to the file")
+});
+```
+
+### Edit Tool Input Schema (lV1)
+
+```javascript
+// ============================================
+// editInputSchema - Edit tool input
+// Location: chunks.138.mjs:1536-1540
+// ============================================
+
+// ORIGINAL (for source lookup):
+lV1 = F6(() => C.strictObject({
+    file_path: C.string().describe("The absolute path to the file to modify"),
+    old_string: C.string().describe("The text to replace"),
+    new_string: C.string().describe("The text to replace it with (must be different from old_string)"),
+    replace_all: YX(C.boolean().default(!1).optional()).describe("Replace all occurrences...")
+}))
+
+// READABLE:
+const editInputSchema = z.strictObject({
+    file_path: z.string().describe("The absolute path to the file to modify"),
+    old_string: z.string().describe("The text to replace"),
+    new_string: z.string().describe("The text to replace it with (must be different from old_string)"),
+    replace_all: z.boolean().default(false).optional()
+        .describe("Replace all occurrences of old_string (default false)")
+});
+```
+
+### Grep Tool Input Schema ($LY)
+
+```javascript
+// ============================================
+// grepInputSchema - Grep tool input
+// Location: chunks.139.mjs:457-471
+// ============================================
+
+// ORIGINAL (for source lookup):
+$LY = F6(() => C.strictObject({
+    pattern: C.string().describe("The regular expression pattern to search for..."),
+    path: C.string().optional().describe("File or directory to search in..."),
+    glob: C.string().optional().describe('Glob pattern to filter files...'),
+    output_mode: C.enum(["content", "files_with_matches", "count"]).optional()
+        .describe('Output mode... Defaults to "files_with_matches".'),
+    "-B": C.number().optional().describe('Number of lines to show before each match...'),
+    "-A": C.number().optional().describe('Number of lines to show after each match...'),
+    "-C": C.number().optional().describe("Alias for context."),
+    context: C.number().optional().describe('Number of lines to show before and after...'),
+    "-n": YX(C.boolean().optional()).describe('Show line numbers in output...'),
+    "-i": YX(C.boolean().optional()).describe("Case insensitive search..."),
+    type: C.string().optional().describe("File type to search..."),
+    head_limit: C.number().optional().describe('Limit output to first N lines/entries...'),
+    offset: C.number().optional().describe('Skip first N lines/entries...'),
+    multiline: YX(C.boolean().optional()).describe("Enable multiline mode...")
+}))
+
+// READABLE:
+const grepInputSchema = z.strictObject({
+    pattern: z.string().describe("The regular expression pattern to search for"),
+    path: z.string().optional().describe("File or directory to search in"),
+    glob: z.string().optional().describe('Glob pattern to filter files'),
+    output_mode: z.enum(["content", "files_with_matches", "count"]).optional(),
+    "-B": z.number().optional().describe("Lines before match"),
+    "-A": z.number().optional().describe("Lines after match"),
+    "-C": z.number().optional().describe("Context lines"),
+    context: z.number().optional().describe("Alias for -C"),
+    "-n": z.boolean().optional().describe("Show line numbers"),
+    "-i": z.boolean().optional().describe("Case insensitive"),
+    type: z.string().optional().describe("File type (js, py, rust, etc.)"),
+    head_limit: z.number().optional().describe("Limit to first N results"),
+    offset: z.number().optional().describe("Skip first N results"),
+    multiline: z.boolean().optional().describe("Multiline mode")
+});
+```
+
+### Glob Tool Input Schema (JLY)
+
+```javascript
+// ============================================
+// globInputSchema - Glob tool input
+// Location: chunks.139.mjs:872-874
+// ============================================
+
+// ORIGINAL (for source lookup):
+JLY = F6(() => C.strictObject({
+    pattern: C.string().describe("The glob pattern to match files against"),
+    path: C.string().optional().describe('The directory to search in...')
+}))
+
+// READABLE:
+const globInputSchema = z.strictObject({
+    pattern: z.string().describe("The glob pattern to match files against"),
+    path: z.string().optional().describe("The directory to search in")
+});
+```
+
+### Patch Hunk Schema (nm8)
+
+```javascript
+// ============================================
+// patchHunkSchema - Unified diff hunk
+// Location: chunks.138.mjs:1541-1546
+// ============================================
+
+// ORIGINAL (for source lookup):
+nm8 = F6(() => C.object({
+    oldStart: C.number(),
+    oldLines: C.number(),
+    newStart: C.number(),
+    newLines: C.number(),
+    lines: C.array(C.string())
+}))
+
+// READABLE:
+const patchHunkSchema = z.object({
+    oldStart: z.number(),      // Starting line in old file
+    oldLines: z.number(),      // Number of lines in old file
+    newStart: z.number(),      // Starting line in new file
+    newLines: z.number(),      // Number of lines in new file
+    lines: z.array(z.string()) // Diff lines with +/- prefixes
+});
+```
 
 ## Schema Architecture Overview
 

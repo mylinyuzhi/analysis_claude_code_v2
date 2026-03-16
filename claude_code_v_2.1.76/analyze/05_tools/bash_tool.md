@@ -413,14 +413,14 @@ function isExcludedCommand(command) {
 ```javascript
 // ============================================
 // Command Category Sets - Safety classification
-// Location: chunks.172.mjs:40
+// Location: chunks.172.mjs:40-41
 // ============================================
 
 // ORIGINAL (for source lookup):
 B9z = new Set(["find", "grep", "rg", "ag", "ack", "locate", "which", "whereis"]),
 g9z = new Set(["cat", "head", "tail", "less", "more", "wc", "stat", "file", "strings", "ls", "tree", "du", "jq", "awk", "cut", "sort", "uniq", "tr"]),
 wfq = new Set(["echo", "printf", "true", "false", ":"]),
-F9z = new Set(["mv", "cp", "rm", "mkdir", "rmdir", "chmod", "chown", "chgrp", "touch", "ln", "cd", "export", "unset", "wait"]),
+F9z = new Set(["mv", "cp", "rm", "mkdir", "rmdir", "chmod", "chown", "chgrp", "touch", "ln", "cd", "export", "unset", "wait"]);
 U9z = ["sleep"],
 
 // READABLE (for understanding):

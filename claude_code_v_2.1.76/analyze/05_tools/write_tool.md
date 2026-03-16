@@ -240,39 +240,70 @@ const fileWriteOutputSchema = z.object({
 ```javascript
 // ============================================
 // validateInput - 4-step validation for Write
-// Location: chunks.146.mjs:483-515
+// Location: chunks.139.mjs:101-144
 // ============================================
 
 // ORIGINAL (for source lookup):
-async validateInput({ file_path: A }, q) {
-    let K = g4(A),  // resolvePath
-        Y = await q.getAppState();
-    if (Gj(K, Y.toolPermissionContext, "edit", "deny") !== null) return {
+async validateInput({
+    file_path: A,
+    content: q
+}, K) {
+    let Y = L4(A),  // resolvePath
+        z = cV1(Y, q);  // content validation
+    if (z) return {
+        result: !1,
+        message: z,
+        errorCode: 0
+    };
+    let _ = K.getAppState();
+    if (ZX(Y, _.toolPermissionContext, "edit", "deny") !== null) return {
         result: !1,
         message: "File is in a directory that is denied by your permission settings.",
         errorCode: 1
     };
-    if (K.startsWith("\\\\") || K.startsWith("//")) return { result: !0 };
-    if (!b1().existsSync(K)) return { result: !0 };  // New file creation
-    let H = q.readFileState.get(K);
-    if (!H) return {
+    if (Y.startsWith("\\\\") || Y.startsWith("//")) return {
+        result: !0
+    };
+    let O = $1(),  // getFileSystem
+        $;
+    try {
+        $ = (await O.stat(Y)).mtimeMs
+    } catch (J) {
+        if (J.code === "ENOENT") return {
+            result: !0
+        };  // New file creation allowed
+        throw J
+    }
+    let H = K.readFileState.get(Y);
+    if (!H || H.isPartialView) return {
         result: !1,
         message: "File has not been read yet. Read it first before writing to it.",
         errorCode: 2
     };
-    if (H) {
-        if (aW(K) > H.timestamp) return {
-            result: !1,
-            message: "File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.",
-            errorCode: 3
-        }
+    if (Math.floor($) > H.timestamp) return {
+        result: !1,
+        message: "File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.",
+        errorCode: 3
+    };
+    return {
+        result: !0
     }
-    return { result: !0 }
 }
 
 // READABLE (for understanding):
-async function validateInput({ file_path }, context) {
+async function validateInput({ file_path, content }, context) {
     let absolutePath = resolvePath(file_path);
+
+    // [Check 0] Content validation (e.g., CLAUDE.md format)
+    let contentError = validateFileContent(absolutePath, content);
+    if (contentError) {
+        return {
+            result: false,
+            message: contentError,
+            errorCode: 0
+        };
+    }
+
     let appState = await context.getAppState();
 
     // [Check 1] Permission deny rule
@@ -290,13 +321,20 @@ async function validateInput({ file_path }, context) {
     }
 
     // [Check 3] New file creation - allow without readFileState check
-    if (!fs.existsSync(absolutePath)) {
-        return { result: true };
+    let fs = getFileSystem();
+    let mtime;
+    try {
+        mtime = (await fs.stat(absolutePath)).mtimeMs;
+    } catch (err) {
+        if (err.code === "ENOENT") {
+            return { result: true };  // New file - no read required
+        }
+        throw err;
     }
 
     // [Check 4] Existing file - must have been read first
     let fileState = context.readFileState.get(absolutePath);
-    if (!fileState) {
+    if (!fileState || fileState.isPartialView) {
         return {
             result: false,
             message: "File has not been read yet. Read it first before writing to it.",
@@ -305,7 +343,7 @@ async function validateInput({ file_path }, context) {
     }
 
     // [Check 5] External modification detection
-    if (getModificationTime(absolutePath) > fileState.timestamp) {
+    if (Math.floor(mtime) > fileState.timestamp) {
         return {
             result: false,
             message: "File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.",
@@ -316,9 +354,9 @@ async function validateInput({ file_path }, context) {
     return { result: true };
 }
 
-// Mapping: A→file_path, q→context, K→absolutePath, Y→appState,
-//          g4→resolvePath, Gj→checkPathDenyRule, b1→getFileSystem,
-//          aW→getModificationTime, H→fileState
+// Mapping: A→file_path, q→content, K→context, Y→absolutePath, z→contentError,
+//          L4→resolvePath, cV1→validateFileContent, ZX→checkPathDenyRule,
+//          $1→getFileSystem, H→fileState
 ```
 
 ---

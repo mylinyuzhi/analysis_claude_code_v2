@@ -169,35 +169,184 @@ const FileReadTool = {
 
 ## 2. Input Schema Definition
 
-### fileReadInputSchema (OmY) - Zod schema for Read tool
+### readInputSchema (tm9) - Zod schema for Read tool
 
 **What it does:** Defines the complete input interface for the Read tool, including optional line range and PDF page parameters.
 
 ```javascript
 // ============================================
-// fileReadInputSchema - Zod input schema definition
-// Location: chunks.146.mjs:1706
+// readInputSchema - Zod input schema definition
+// Location: chunks.90.mjs:2000-2004
 // ============================================
 
+// ORIGINAL (for source lookup):
+tm9 = F6(() => C.strictObject({
+    file_path: C.string().describe("The absolute path to the file to read"),
+    offset: C.number().optional().describe("The line number to start reading from. Only provide if the file is too large to read at once"),
+    limit: C.number().optional().describe("The number of lines to read. Only provide if the file is too large to read at once."),
+    pages: C.string().optional().describe(`Page range for PDF files (e.g., "1-5", "3", "10-20"). Only applicable to PDF files. Maximum ${P36} pages per request.`)
+}))
+
 // READABLE (for understanding):
-const fileReadInputSchema = z.strictObject({
+const readInputSchema = z.strictObject({
     file_path: z.string()
-        .describe("The absolute path to the file to read (must be absolute, not relative)"),
+        .describe("The absolute path to the file to read"),
 
-    offset: z.number().int().positive().optional()
-        .describe("For text files: the line number to start reading from (1-indexed). Only provide if the file is too large to read at once."),
+    offset: z.number().optional()
+        .describe("The line number to start reading from. Only provide if the file is too large to read at once"),
 
-    limit: z.number().int().positive().optional()
-        .describe("For text files: the number of lines to read. Only provide if the file is too large to read at once."),
+    limit: z.number().optional()
+        .describe("The number of lines to read. Only provide if the file is too large to read at once"),
 
     pages: z.string().optional()
-        .describe("For PDF files: the page range to read (e.g., '1-5' for pages 1 through 5). Maximum 20 pages per request.")
+        .describe(`Page range for PDF files (e.g., "1-5", "3", "10-20"). Only applicable to PDF files. Maximum 20 pages per request.`)
 });
 
-// Mapping: OmY→fileReadInputSchema
+// Mapping: tm9→readInputSchema, F6→lazySchema, C→z, P36→MAX_PDF_PAGES_PER_REQUEST
 ```
 
 **Why strictObject:** Prevents typos in parameter names from being silently ignored. The LLM must use exact parameter names.
+
+---
+
+## 3. Output Schema - Discriminated Union
+
+### readOutputSchema (em9) - Multiple output types
+
+**What it does:** Defines a discriminated union of output types based on file content type, enabling type-safe handling of different file formats.
+
+```javascript
+// ============================================
+// readOutputSchema - Zod discriminated union
+// Location: chunks.90.mjs:2005-2051
+// ============================================
+
+// ORIGINAL (for source lookup):
+em9 = F6(() => {
+    let A = C.enum(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+    return C.discriminatedUnion("type", [
+        C.object({
+            type: C.literal("text"),
+            file: C.object({
+                filePath: C.string(),
+                content: C.string(),
+                numLines: C.number(),
+                startLine: C.number(),
+                totalLines: C.number(),
+                resultWasTruncated: C.boolean().optional()
+            })
+        }),
+        C.object({
+            type: C.literal("image"),
+            file: C.object({
+                base64: C.string(),
+                type: A,  // MIME type
+                originalSize: C.number(),
+                dimensions: C.object({
+                    originalWidth: C.number().optional(),
+                    originalHeight: C.number().optional(),
+                    displayWidth: C.number().optional(),
+                    displayHeight: C.number().optional()
+                }).optional()
+            })
+        }),
+        C.object({
+            type: C.literal("notebook"),
+            file: C.object({
+                filePath: C.string(),
+                cells: C.array(C.any())
+            })
+        }),
+        C.object({
+            type: C.literal("pdf"),
+            file: C.object({
+                filePath: C.string(),
+                base64: C.string(),
+                originalSize: C.number()
+            })
+        }),
+        C.object({
+            type: C.literal("parts"),
+            file: C.object({
+                filePath: C.string(),
+                originalSize: C.number(),
+                count: C.number(),
+                outputDir: C.string()
+            })
+        })
+    ])
+})
+
+// READABLE (for understanding):
+const readOutputSchema = z.discriminatedUnion("type", [
+    // Type 1: Text file output
+    z.object({
+        type: z.literal("text"),
+        file: z.object({
+            filePath: z.string(),
+            content: z.string(),
+            numLines: z.number(),
+            startLine: z.number(),
+            totalLines: z.number(),
+            resultWasTruncated: z.boolean().optional()
+        })
+    }),
+
+    // Type 2: Image file output
+    z.object({
+        type: z.literal("image"),
+        file: z.object({
+            base64: z.string(),
+            type: z.enum(["image/jpeg", "image/png", "image/gif", "image/webp"]),
+            originalSize: z.number(),
+            dimensions: z.object({
+                originalWidth: z.number().optional(),
+                originalHeight: z.number().optional(),
+                displayWidth: z.number().optional(),
+                displayHeight: z.number().optional()
+            }).optional()
+        })
+    }),
+
+    // Type 3: Jupyter notebook output
+    z.object({
+        type: z.literal("notebook"),
+        file: z.object({
+            filePath: z.string(),
+            cells: z.array(z.any())
+        })
+    }),
+
+    // Type 4: PDF file output (full)
+    z.object({
+        type: z.literal("pdf"),
+        file: z.object({
+            filePath: z.string(),
+            base64: z.string(),
+            originalSize: z.number()
+        })
+    }),
+
+    // Type 5: PDF page extraction output (parts)
+    z.object({
+        type: z.literal("parts"),
+        file: z.object({
+            filePath: z.string(),
+            originalSize: z.number(),
+            count: z.number(),          // Number of pages extracted
+            outputDir: z.string()       // Directory containing page images
+        })
+    })
+]);
+
+// Mapping: em9→readOutputSchema, A→IMAGE_MIME_TYPES
+```
+
+**Why discriminated union:**
+- Type-safe handling of different file formats
+- Each type has its own specific fields
+- The `type` field acts as discriminator for type narrowing
+- Enables proper TypeScript inference when processing results
 
 ---
 
@@ -663,3 +812,67 @@ T+6ms  UI renders line-numbered content
 | PDF page limits | `MAX_PDF_PAGES_PER_REQUEST` (20) | Prevents reading entire large PDFs |
 | Encoding safety | BOM detection + statistical analysis | Prevents decoding errors from misidentified encoding |
 | Concurrency safety | Read operations don't conflict | Multiple parallel reads are safe |
+
+---
+
+## 11. Validation Error Codes
+
+### Read Tool Error Codes (from validateInput)
+
+| Code | Condition | Message |
+|------|-----------|---------|
+| 1 | Path denied by permission rules | "File is in a directory that is denied by your permission settings." |
+| 4 | Binary file detection | "This tool cannot read binary files. The file appears to be a binary ${ext} file." |
+| 7 | Invalid pages parameter format | "Invalid pages parameter: Use formats like '1-5', '3', or '10-20'." |
+| 8 | Pages exceed maximum | "Page range exceeds maximum of 20 pages per request." |
+| 9 | Device file blocked | "Cannot read '${path}': this device file would block or produce infinite output." |
+
+**Binary file detection:**
+```javascript
+// ============================================
+// Binary file detection logic
+// Location: chunks.90.mjs:2150-2155
+// ============================================
+
+// p31(Y) - isBinaryFile check
+// JD6(O) - isPdfExtension check (PDFs handled specially)
+// R94 - IMAGE_EXTENSIONS_SET (images handled specially)
+
+if (isBinaryFile(absolutePath) && !isPdfExtension(extension) && !IMAGE_EXTENSIONS.has(extension)) {
+    return {
+        result: false,
+        message: `This tool cannot read binary files. The file appears to be a binary ${extension} file.`,
+        errorCode: 4
+    };
+}
+```
+
+**Device file protection:**
+```javascript
+// ============================================
+// Device file check (nm9)
+// Location: chunks.90.mjs:2156-2159
+// ============================================
+
+// Blocks reading from /dev/null, /dev/zero, /dev/random, etc.
+// These would block or produce infinite output
+if (isDeviceFile(absolutePath)) {
+    return {
+        result: false,
+        message: `Cannot read '${file_path}': this device file would block or produce infinite output.`,
+        errorCode: 9
+    };
+}
+```
+
+---
+
+## 12. Related Constants
+
+| Symbol | Value | Purpose |
+|--------|-------|---------|
+| P36 (MAX_PDF_PAGES_PER_REQUEST) | 20 | Maximum pages per PDF read |
+| TX1 (MIN_PAGES_FOR_PDF_PROMPT) | 10 | Threshold to prompt for page range |
+| XA4 (MAX_SIZE_FOR_PDF_EXTRACTION) | 3145728 (3MB) | Max size for poppler extraction |
+| Lx6 (DEFAULT_READ_LINES) | 2000 | Default lines returned without offset/limit |
+| R94 (IMAGE_EXTENSIONS_SET) | ["png", "jpg", "jpeg", "gif", "webp"] | Supported image formats |
