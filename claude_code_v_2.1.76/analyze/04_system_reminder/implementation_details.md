@@ -990,29 +990,241 @@ You are a teammate in team "${attachment.teamName}".
 
 ## Constants and Configuration
 
-### MAX_FILE_LINES (AC1)
+This section documents all configuration constants used by the system reminder attachment system. These constants control timing, throttling, and behavior thresholds.
 
-**Location:** `chunks.142.mjs` (referenced in K2z at line 761)
+### Constants Source Location
 
-**Value:** `2000`
+All constants are defined in a single initialization block at `chunks.147.mjs:1231-1247`:
 
-**Purpose:** Limits file content attachments to first 2000 lines to prevent token overflow.
+```javascript
+// ============================================
+// Constants Initialization Block
+// Location: chunks.147.mjs:1231-1247
+// ============================================
 
-**Behavior:** When exceeded, attachment includes `truncated: true` flag and additional message instructing LLM to use Read tool for more content.
+// ORIGINAL (for source lookup):
+CE1 = (gu(), k4(UQ)).BRIEF_TOOL_NAME, IE1 = {
+    TURNS_SINCE_WRITE: 10,
+    TURNS_BETWEEN_REMINDERS: 10
+}, t4q = {
+    TURNS_BETWEEN_ATTACHMENTS: 5,
+    FULL_REMINDER_EVERY_N_ATTACHMENTS: 5
+}, e4q = {
+    TURNS_BETWEEN_ATTACHMENTS: 5,
+    FULL_REMINDER_EVERY_N_ATTACHMENTS: 5
+}, YuY = {
+    TOKEN_COOLDOWN: 5000
+}, zuY = {
+    TURNS_BETWEEN_REMINDERS: 10
+};
+wuY = new Set(["prompt", "task-notification"]);
+nT6 = new Set;
+bE1 = !1;
+hE1 = 200;
 
-### TURNS_BETWEEN_PLAN_MODE_REMINDERS
+// READABLE (for understanding):
+BRIEF_TOOL_NAME = getBriefToolName();  // Tool name for brief mode reminders
 
-**Purpose:** Frequency throttling for plan mode reminders.
+TODO_REMINDER_CONFIG = {
+    TURNS_SINCE_WRITE: 10,         // Min turns since last TodoWrite to trigger reminder
+    TURNS_BETWEEN_REMINDERS: 10    // Min turns between reminder attachments
+};
 
-**Behavior:** Full reminder sent every N turns, sparse reminders in between.
+PLAN_MODE_CONFIG = {
+    TURNS_BETWEEN_ATTACHMENTS: 5,               // Min turns between plan mode attachments
+    FULL_REMINDER_EVERY_N_ATTACHMENTS: 5        // Every 5th attachment is full (vs sparse)
+};
+
+AUTO_MODE_CONFIG = {
+    TURNS_BETWEEN_ATTACHMENTS: 5,               // Min turns between auto mode attachments
+    FULL_REMINDER_EVERY_N_ATTACHMENTS: 5        // Every 5th attachment is full (vs sparse)
+};
+
+ULTRAMEMORY_CONFIG = {
+    TOKEN_COOLDOWN: 5000            // Min tokens between ultramemory attachments
+};
+
+RELEVANT_MEMORIES_CONFIG = {
+    TURNS_BETWEEN_REMINDERS: 10    // Min turns between relevant memory reminders
+};
+
+QUEUED_COMMAND_MODES = new Set(["prompt", "task-notification"]);
+SENT_SKILLS_SET = new Set();        // Tracks which skills have been sent
+SKILL_REFRESH_FLAG = false;         // Triggers skill listing refresh
+MEMORY_TRUNCATION_LINES = 200;      // Max lines for memory file truncation
+
+// Mapping: CE1→BRIEF_TOOL_NAME, IE1→TODO_REMINDER_CONFIG, t4q→PLAN_MODE_CONFIG, e4q→AUTO_MODE_CONFIG
+//          YuY→ULTRAMEMORY_CONFIG, zuY→RELEVANT_MEMORIES_CONFIG, wuY→QUEUED_COMMAND_MODES
+//          nT6→SENT_SKILLS_SET, bE1→SKILL_REFRESH_FLAG, hE1→MEMORY_TRUNCATION_LINES
+```
+
+---
+
+### Plan Mode Configuration (t4q)
+
+**Symbol:** `t4q` → `PLAN_MODE_CONFIG`
+
+| Property | Value | Purpose |
+|----------|-------|---------|
+| `TURNS_BETWEEN_ATTACHMENTS` | 5 | Minimum assistant turns between plan mode reminders |
+| `FULL_REMINDER_EVERY_N_ATTACHMENTS` | 5 | Frequency of full reminder (vs sparse) |
+
+**How it works:**
+1. After a plan_mode attachment, skip reminders for `TURNS_BETWEEN_ATTACHMENTS` turns
+2. On each attachment, increment counter and check `(count % FULL_REMINDER_EVERY_N_ATTACHMENTS) === 1`
+3. If true, send "full" reminder; otherwise send "sparse" reminder
+
+**Token savings:** Sparse reminders (~150 tokens) save ~1300 tokens vs. full (~1500 tokens).
+
+**Source usage:**
+```javascript
+// Location: chunks.147.mjs:144
+if (j && H < t4q.TURNS_BETWEEN_ATTACHMENTS) return [];
+
+// Location: chunks.147.mjs:160
+let $ = (MuY(A ?? []) + 1) % t4q.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse";
+```
+
+---
+
+### Auto Mode Configuration (e4q)
+
+**Symbol:** `e4q` → `AUTO_MODE_CONFIG`
+
+| Property | Value | Purpose |
+|----------|-------|---------|
+| `TURNS_BETWEEN_ATTACHMENTS` | 5 | Minimum assistant turns between auto mode reminders |
+| `FULL_REMINDER_EVERY_N_ATTACHMENTS` | 5 | Frequency of full reminder (vs sparse) |
+
+**Identical to plan mode:** Uses the same throttling and full/sparse pattern.
+
+**Source usage:**
+```javascript
+// Location: chunks.147.mjs:221
+if (O && w < e4q.TURNS_BETWEEN_ATTACHMENTS) return [];
+
+// Location: chunks.147.mjs:225
+reminderType: (WuY(A ?? []) + 1) % e4q.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse"
+```
+
+---
+
+### Todo/Task Reminder Configuration (IE1)
+
+**Symbol:** `IE1` → `TODO_REMINDER_CONFIG`
+
+| Property | Value | Purpose |
+|----------|-------|---------|
+| `TURNS_SINCE_WRITE` | 10 | Min turns since last TodoWrite/TaskUpdate to trigger |
+| `TURNS_BETWEEN_REMINDERS` | 10 | Min turns between reminder attachments |
+
+**Dual check logic:**
+```javascript
+// Location: chunks.147.mjs:980
+if (K >= IE1.TURNS_SINCE_WRITE && Y >= IE1.TURNS_BETWEEN_REMINDERS) {
+    // Trigger reminder
+}
+```
+
+**Why two conditions:**
+- `TURNS_SINCE_WRITE`: Ensures reminder only triggers after user has been "neglecting" todos
+- `TURNS_BETWEEN_REMINDERS`: Prevents spamming reminders every turn
+
+---
+
+### Ultramemory Configuration (YuY)
+
+**Symbol:** `YuY` → `ULTRAMEMORY_CONFIG`
+
+| Property | Value | Purpose |
+|----------|-------|---------|
+| `TOKEN_COOLDOWN` | 5000 | Min assistant tokens between ultramemory attachments |
+
+**Token-based vs turn-based:**
+Unlike other configs, ultramemory uses **token count** not turn count. This ensures ultramemory is sent based on actual context consumption, not arbitrary turn boundaries.
+
+**Source usage:**
+```javascript
+// Location: chunks.147.mjs:786
+return q >= YuY.TOKEN_COOLDOWN;
+```
+
+---
+
+### Memory Truncation Limit (hE1)
+
+**Symbol:** `hE1` → `MEMORY_TRUNCATION_LINES`
+
+| Value | Purpose |
+|-------|---------|
+| 200 | Max lines for memory file content in attachments |
+
+**Source usage:**
+```javascript
+// Location: chunks.147.mjs:566
+let M = await h36(j, 0, hE1, void 0, z),  // Read first 200 lines
+    D = M.totalLines > hE1,                // Check if truncated
+    X = D ? M.content + `
+
+> This memory file was truncated to the first ${hE1} lines...` : M.content;
+```
+
+---
+
+### Queued Command Modes (wuY)
+
+**Symbol:** `wuY` → `QUEUED_COMMAND_MODES`
+
+| Value | Purpose |
+|-------|---------|
+| `Set(["prompt", "task-notification"])` | Modes that trigger queued command attachments |
+
+**Modes explained:**
+- `"prompt"`: User typed a message while LLM was working
+- `"task-notification"`: Background task completed
+
+**Source usage:**
+```javascript
+// Location: chunks.147.mjs:50
+let q = A.filter((K) => wuY.has(K.mode));
+```
+
+---
+
+### MAX_FILE_LINES (Lx6)
+
+**Location:** Referenced throughout file attachment producers
+
+| Value | Purpose |
+|-------|---------|
+| 2000 | Maximum lines for file content attachments |
+
+**Behavior:** When file exceeds this limit:
+1. Content is truncated to first 2000 lines
+2. Attachment includes `truncated: true` flag
+3. Additional message instructs LLM to use Read tool for more content
+
+**Source usage:**
+```javascript
+// Location: chunks.174.mjs:66
+...A.truncated ? [p1({
+    content: `Note: The file ${A.filename} was too large and has been truncated to the first ${Lx6} lines...`
+})] : []
+```
+
+---
 
 ### MAX_PDF_PAGES_PER_REQUEST
 
-**Value:** `20`
+| Value | Purpose |
+|-------|---------|
+| 20 | Maximum PDF pages per read request |
 
-**Purpose:** Limits PDF page reads per request.
-
-**Behavior:** LLM instructed to read PDFs in batches.
+**Source usage:**
+```javascript
+// Location: chunks.174.mjs:87
+content: `PDF file: ${A.filename} (${A.pageCount} pages, ${xq(A.fileSize)}). This PDF is too large to read all at once. You MUST use the ${s7} tool with the pages parameter to read specific page ranges (e.g., pages: "1-5"). Do NOT call ${s7} without the pages parameter or it will fail. Start by reading the first few pages to understand the structure, then read more as needed. Maximum 20 pages per request.`
+```
 
 ---
 

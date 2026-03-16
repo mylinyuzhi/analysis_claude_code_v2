@@ -1430,7 +1430,433 @@ async function getAsyncHookResponsesAttachment() {
 
 ---
 
-## Performance Characteristics
+## Deep Dive: v2.1.76 New Producers
+
+The following producers were added in v2.1.76 to support new features and enhanced context awareness.
+
+### 10. fuY (getDateChangeAttachment)
+
+**Location**: `chunks.147.mjs:237-246`
+
+**What it does**: Detects when the calendar date has changed between turns and notifies the LLM.
+
+```javascript
+// ============================================
+// getDateChangeAttachment - Detect date rollover
+// Location: chunks.147.mjs:237-246
+// ============================================
+
+// ORIGINAL (for source lookup):
+function fuY() {
+    let A = GD6(),
+        q = tu1();
+    if (q === null) return dw6(A), [];
+    if (A === q) return [];
+    return a2.cache.clear?.(), dw6(A), [{
+        type: "date_change",
+        newDate: A
+    }]
+}
+
+// READABLE (for understanding):
+function getDateChangeAttachment() {
+    let currentDate = getCurrentDate();
+    let lastRecordedDate = getLastRecordedDate();
+
+    // First run - just record the date
+    if (lastRecordedDate === null) {
+        recordCurrentDate(currentDate);
+        return [];
+    }
+
+    // No change - skip
+    if (currentDate === lastRecordedDate) {
+        return [];
+    }
+
+    // Date changed - clear caches and notify
+    dateCache.cache.clear?.();
+    recordCurrentDate(currentDate);
+
+    return [{
+        type: "date_change",
+        newDate: currentDate
+    }];
+}
+
+// Mapping: fuY→getDateChangeAttachment, A→currentDate, q→lastRecordedDate, GD6→getCurrentDate, tu1→getLastRecordedDate, dw6→recordCurrentDate, a2→dateCache
+```
+
+**Key behaviors**:
+- **First-run initialization**: Records date on first call, no attachment
+- **Cache invalidation**: Clears date-related caches when date changes
+- **Simple detection**: String comparison of ISO date strings
+
+---
+
+### 11. TuY (getUltrathinkEffortAttachment)
+
+**Location**: `chunks.147.mjs:248-254`
+
+**What it does**: Notifies the LLM about extended thinking mode and reasoning effort level.
+
+```javascript
+// ============================================
+// getUltrathinkEffortAttachment - Extended thinking mode notification
+// Location: chunks.147.mjs:248-254
+// ============================================
+
+// ORIGINAL (for source lookup):
+function TuY(A) {
+    if (!GU() || !A || !pG7(A)) return [];
+    return d("tengu_ultrathink", {}), [{
+        type: "ultrathink_effort",
+        level: "high"
+    }]
+}
+
+// READABLE (for understanding):
+function getUltrathinkEffortAttachment(mainLoopModel) {
+    // Check if extended thinking is enabled and model supports it
+    if (!isExtendedThinkingEnabled() || !mainLoopModel || !modelSupportsExtendedThinking(mainLoopModel)) {
+        return [];
+    }
+
+    // Log telemetry for ultrathink usage
+    logTelemetry("tengu_ultrathink", {});
+
+    return [{
+        type: "ultrathink_effort",
+        level: "high"
+    }];
+}
+
+// Mapping: TuY→getUltrathinkEffortAttachment, A→mainLoopModel, GU→isExtendedThinkingEnabled, pG7→modelSupportsExtendedThinking, d→logTelemetry
+```
+
+**Key behaviors**:
+- **Feature flag check**: Requires extended thinking to be enabled
+- **Model capability check**: Only activates for models that support extended thinking
+- **Telemetry logging**: Tracks ultrathink usage for analytics
+
+---
+
+### 12. xE1 (getDeferredToolsDeltaAttachment)
+
+**Location**: `chunks.147.mjs:256-267`
+
+**What it does**: Tracks changes in deferred MCP tool availability and notifies the LLM about newly available or removed tools.
+
+```javascript
+// ============================================
+// getDeferredToolsDeltaAttachment - Deferred tools availability changes
+// Location: chunks.147.mjs:256-267
+// ============================================
+
+// ORIGINAL (for source lookup):
+function xE1(A, q, K) {
+    if (!ki6()) return [];
+    if (!dk()) return [];
+    if (!Vi6(q)) return [];
+    if (!bz6(A)) return [];
+    let Y = eF8(A, K ?? []);
+    if (!Y) return [];
+    return [{
+        type: "deferred_tools_delta",
+        ...Y
+    }]
+}
+
+// READABLE (for understanding):
+function getDeferredToolsDeltaAttachment(tools, mainLoopModel, previousTools) {
+    // Feature flag checks
+    if (!isDeferredToolsEnabled()) return [];
+    if (!isToolDeltaTrackingEnabled()) return [];
+    if (!modelSupportsDeferredTools(mainLoopModel)) return [];
+    if (!hasDeferredTools(tools)) return [];
+
+    // Compute the delta between current and previous tool sets
+    let delta = computeDeferredToolsDelta(tools, previousTools ?? []);
+    if (!delta) return [];
+
+    return [{
+        type: "deferred_tools_delta",
+        ...delta  // Contains addedLines and removedNames
+    }];
+}
+
+// Mapping: xE1→getDeferredToolsDeltaAttachment, A→tools, q→mainLoopModel, K→previousTools
+//          ki6→isDeferredToolsEnabled, dk→isToolDeltaTrackingEnabled, Vi6→modelSupportsDeferredTools
+//          bz6→hasDeferredTools, eF8→computeDeferredToolsDelta, Y→delta
+```
+
+**Key behaviors**:
+- **Multiple feature flags**: Requires multiple capabilities to be enabled
+- **Delta computation**: Compares current vs previous tool sets
+- **ToolSearch integration**: Output instructs LLM to use ToolSearch for discovery
+
+---
+
+### 13. uE1 (getMcpInstructionsDeltaAttachment)
+
+**Location**: `chunks.147.mjs:269-282`
+
+**What it does**: Tracks changes in MCP server instructions and notifies the LLM about added or removed instructions.
+
+```javascript
+// ============================================
+// getMcpInstructionsDeltaAttachment - MCP instruction changes
+// Location: chunks.147.mjs:269-282
+// ============================================
+
+// ORIGINAL (for source lookup):
+function uE1(A, q, K, Y) {
+    if (!iT6()) return [];
+    let z = [];
+    if (dk() && Vi6(K) && bz6(q)) z.push({
+        serverName: lv,
+        block: kE1
+    });
+    let _ = c4q(A, Y ?? [], z);
+    if (!_) return [];
+    return [{
+        type: "mcp_instructions_delta",
+        ..._
+    }]
+}
+
+// READABLE (for understanding):
+function getMcpInstructionsDeltaAttachment(instructions, mainLoopModel, tools, previousInstructions) {
+    // Feature flag check
+    if (!isMcpInstructionsEnabled()) return [];
+
+    let addedBlocks = [];
+
+    // Check for new instructions from MCP servers
+    if (isInstructionTrackingEnabled() && modelSupportsMcpInstructions(mainLoopModel) && hasMcpTools(tools)) {
+        addedBlocks.push({
+            serverName: SERVER_NAME,
+            block: INSTRUCTION_BLOCK
+        });
+    }
+
+    // Compute delta between current and previous instructions
+    let delta = computeInstructionsDelta(instructions, previousInstructions ?? [], addedBlocks);
+    if (!delta) return [];
+
+    return [{
+        type: "mcp_instructions_delta",
+        ...delta  // Contains addedBlocks and removedBlocks
+    }];
+}
+
+// Mapping: uE1→getMcpInstructionsDeltaAttachment, A→instructions, q→mainLoopModel, K→tools, Y→previousInstructions
+//          iT6→isMcpInstructionsEnabled, dk→isInstructionTrackingEnabled, Vi6→modelSupportsMcpInstructions
+//          bz6→hasMcpTools, z→addedBlocks, _→delta, c4q→computeInstructionsDelta
+```
+
+**Key behaviors**:
+- **Dynamic instructions**: MCP servers can provide custom instructions that change at runtime
+- **Delta tracking**: Only notifies when instructions actually change
+- **Rich content**: Full instruction blocks are included in the attachment
+
+---
+
+### 14. vuY (getCriticalSystemReminderAttachment)
+
+**Location**: `chunks.147.mjs:284-291`
+
+**What it does**: Delivers user-provided critical system reminders that require immediate LLM attention.
+
+```javascript
+// ============================================
+// getCriticalSystemReminderAttachment - Critical alert delivery
+// Location: chunks.147.mjs:284-291
+// ============================================
+
+// ORIGINAL (for source lookup):
+function vuY(A) {
+    let q = A.criticalSystemReminder_EXPERIMENTAL;
+    if (!q) return [];
+    return [{
+        type: "critical_system_reminder",
+        content: q
+    }]
+}
+
+// READABLE (for understanding):
+function getCriticalSystemReminderAttachment(sessionContext) {
+    let content = sessionContext.criticalSystemReminder_EXPERIMENTAL;
+    if (!content) return [];
+
+    return [{
+        type: "critical_system_reminder",
+        content: content
+    }];
+}
+
+// Mapping: vuY→getCriticalSystemReminderAttachment, A→sessionContext, q→content
+```
+
+**Key behaviors**:
+- **Experimental feature**: Marked as EXPERIMENTAL, may change
+- **User-provided content**: Content comes from session options
+- **High priority**: Always delivered when present, bypasses normal filtering
+
+---
+
+### 15. NuY (getOutputStyleAttachment)
+
+**Location**: `chunks.147.mjs:293-300`
+
+**What it does**: Reminds the LLM about the active output style (concise, verbose, etc.).
+
+```javascript
+// ============================================
+// getOutputStyleAttachment - Output style reminder
+// Location: chunks.147.mjs:293-300
+// ============================================
+
+// ORIGINAL (for source lookup):
+function NuY() {
+    let A = C8()?.outputStyle || "default";
+    if (A === "default") return [];
+    return [{
+        type: "output_style",
+        style: A
+    }]
+}
+
+// READABLE (for understanding):
+function getOutputStyleAttachment() {
+    let outputStyle = getSettings()?.outputStyle || "default";
+    if (outputStyle === "default") return [];
+
+    return [{
+        type: "output_style",
+        style: outputStyle
+    }];
+}
+
+// Mapping: NuY→getOutputStyleAttachment, A→outputStyle, C8→getSettings
+```
+
+**Key behaviors**:
+- **Settings integration**: Reads from user settings
+- **Default skip**: No attachment when style is "default"
+- **Style-specific instructions**: Normalization provides style-specific guidance
+
+---
+
+### 16. ZuY (getAutoModeAttachment)
+
+**Location**: `chunks.147.mjs:214-227`
+
+**What it does**: Injects auto mode instructions when autonomous execution mode is active.
+
+```javascript
+// ============================================
+// getAutoModeAttachment - Auto mode activation
+// Location: chunks.147.mjs:214-227
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function ZuY(A, q) {
+    if (q.getAppState().toolPermissionContext.mode !== "auto") return [];
+    if (A && A.length > 0) {
+        let {
+            turnCount: w,
+            foundAutoModeAttachment: O
+        } = PuY(A);
+        if (O && w < e4q.TURNS_BETWEEN_ATTACHMENTS) return []
+    }
+    return [{
+        type: "auto_mode",
+        reminderType: (WuY(A ?? []) + 1) % e4q.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse"
+    }]
+}
+
+// READABLE (for understanding):
+async function getAutoModeAttachment(messages, sessionContext) {
+    if (sessionContext.getAppState().toolPermissionContext.mode !== "auto") return [];
+
+    // Turn throttling
+    if (messages && messages.length > 0) {
+        let { turnCount, foundAutoModeAttachment } = countTurnsSinceAutoModeAttachment(messages);
+        if (foundAutoModeAttachment && turnCount < AUTO_MODE_CONFIG.TURNS_BETWEEN_ATTACHMENTS) {
+            return [];
+        }
+    }
+
+    // Determine reminder type (full vs sparse)
+    let reminderType = (countAutoModeReminders(messages ?? []) + 1) %
+                       AUTO_MODE_CONFIG.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1
+                       ? "full"
+                       : "sparse";
+
+    return [{
+        type: "auto_mode",
+        reminderType: reminderType
+    }];
+}
+
+// Mapping: ZuY→getAutoModeAttachment, A→messages, q→sessionContext
+//          w→turnCount, O→foundAutoModeAttachment, PuY→countTurnsSinceAutoModeAttachment
+//          WuY→countAutoModeReminders, e4q→AUTO_MODE_CONFIG
+```
+
+**Key behaviors**:
+- **Mode detection**: Checks if auto mode is active
+- **Turn throttling**: Uses same pattern as plan mode
+- **Full/sparse variants**: Same optimization as plan mode
+
+---
+
+### 17. GuY (getAutoModeExitAttachment)
+
+**Location**: `chunks.147.mjs:229-235`
+
+**What it does**: Notifies the LLM when exiting auto mode.
+
+```javascript
+// ============================================
+// getAutoModeExitAttachment - Auto mode exit notification
+// Location: chunks.147.mjs:229-235
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function GuY(A) {
+    if (!pu1()) return [];
+    if (A.getAppState().toolPermissionContext.mode === "auto") return MS(!1), [];
+    return MS(!1), [{
+        type: "auto_mode_exit"
+    }]
+}
+
+// READABLE (for understanding):
+async function getAutoModeExitAttachment(sessionContext) {
+    if (!shouldSendAutoModeExit()) return [];
+
+    // Still in auto mode - clear flag and skip
+    if (sessionContext.getAppState().toolPermissionContext.mode === "auto") {
+        clearAutoModeExitFlag(false);
+        return [];
+    }
+
+    clearAutoModeExitFlag(false);
+
+    return [{
+        type: "auto_mode_exit"
+    }];
+}
+
+// Mapping: GuY→getAutoModeExitAttachment, A→sessionContext, pu1→shouldSendAutoModeExit, MS→clearAutoModeExitFlag
+```
+
+**Key behaviors**:
+- **Exit flag check**: Uses flag to trigger single delivery
+- **Mode verification**: Confirms mode has actually changed
+- **Flag cleanup**: Always clears the exit flag
 
 ### Execution Time Analysis
 
@@ -1472,19 +1898,31 @@ Attachment size limits to prevent token budget exhaustion:
 > - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infrastructure
 
 Key functions in this document:
-- `assembleAttachments` (phY) - Main orchestrator for attachment production
-- `timedAttachmentProducer` (Hz) - Telemetry and error handling wrapper
-- `extractAtMentionedFiles` (KIY) - Parse @-mentions and load file contents
-- `extractMcpResources` (zIY) - Fetch MCP resources from @server:uri mentions
-- `extractAgentMentions` (YIY) - Parse agent invocation requests
-- `getChangedFilesAttachment` (CuY) - Detect modifications to watched files
-- `getPlanModeAttachment` (DuY) - Inject plan mode instructions
-- `getTodoReminderAttachment` (ruY) - Remind LLM to use TodoWrite tool
-- `getIdeSelectionAttachment` (kuY) - Report IDE text selection
+- `assembleAllAttachments` (_uY) - Main orchestrator for attachment production, `chunks.147.mjs:3-18`
+- `timedAttachmentProducer` (Hz) - Telemetry and error handling wrapper, `chunks.147.mjs:20-46`
+- `extractAtMentionedFiles` (RuY) - Parse @-mentions and load file contents, `chunks.147.mjs:407-448`
+- `extractMcpResources` (SuY) - Fetch MCP resources from @server:uri mentions, `chunks.147.mjs:464-495`
+- `extractAgentMentions` (huY) - Parse agent invocation requests, `chunks.147.mjs:450-462`
+- `getChangedFilesAttachment` (CuY) - Detect modifications to watched files, `chunks.147.mjs:497+`
+- `getPlanModeAttachment` (DuY) - Inject plan mode instructions, `chunks.147.mjs:136-168`
+- `getPlanModeExitAttachment` (XuY) - Notify exit from plan mode, `chunks.147.mjs:170-181`
+- `getAutoModeAttachment` (ZuY) - Inject auto mode instructions, `chunks.147.mjs:214-227`
+- `getAutoModeExitAttachment` (GuY) - Notify exit from auto mode, `chunks.147.mjs:229-235`
+- `getDateChangeAttachment` (fuY) - Detect date rollover, `chunks.147.mjs:237-246`
+- `getUltrathinkEffortAttachment` (TuY) - Extended thinking notification, `chunks.147.mjs:248-254`
+- `getDeferredToolsDeltaAttachment` (xE1) - Deferred tools changes, `chunks.147.mjs:256-267`
+- `getMcpInstructionsDeltaAttachment` (uE1) - MCP instruction changes, `chunks.147.mjs:269-282`
+- `getCriticalSystemReminderAttachment` (vuY) - Critical alert delivery, `chunks.147.mjs:284-291`
+- `getOutputStyleAttachment` (NuY) - Output style reminder, `chunks.147.mjs:293-300`
+- `getIdeSelectionAttachment` (kuY) - Report IDE text selection, `chunks.147.mjs:306-320`
 - `getLspDiagnosticsAttachment` (luY) - Deliver LSP diagnostics
 - `getAsyncHookResponsesAttachment` (tuY) - Deliver async hook responses
-- `countTurnsSincePlanMode` (chY) - Count assistant turns since last plan mode attachment
-- `countPlanModeReminders` (lhY) - Count how many plan mode reminders have been sent
+- `countTurnsSincePlanMode` (JuY) - Count assistant turns since last plan mode attachment
+- `countPlanModeReminders` (MuY) - Count how many plan mode reminders have been sent
+- `countTurnsSinceAutoModeAttachment` (PuY) - Count assistant turns since last auto mode attachment
+- `countAutoModeReminders` (WuY) - Count how many auto mode reminders have been sent
+- `PLAN_MODE_CONFIG` (t4q) - Plan mode timing constants, `chunks.147.mjs:1231-1235`
+- `AUTO_MODE_CONFIG` (e4q) - Auto mode timing constants, `chunks.147.mjs:1236-1240`
 
 ---
 

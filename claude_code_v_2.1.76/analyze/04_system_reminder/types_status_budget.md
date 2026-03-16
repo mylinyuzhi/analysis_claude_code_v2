@@ -52,40 +52,39 @@ Each status/budget type has a specific producer function with distinct trigger c
 
 | Type | Producer Function | Location | Key Trigger Logic |
 |------|-------------------|----------|-------------------|
-| `token_usage` | `RIY` (getTokenUsageAttachment) | chunks.142.mjs:2815-2825 | `CLAUDE_CODE_ENABLE_TOKEN_USAGE_ATTACHMENT` env var |
-| `budget_usd` | `yIY` (getBudgetUsdAttachment) | chunks.142.mjs:2827-2837 | `maxBudgetUsd !== undefined` |
-| `queued_command` | `dhY` (getQueuedCommandsAttachment) | chunks.142.mjs:1993-2001 | `commands.filter(c => c.mode === "prompt")` |
-| `output_style` | `shY` (getOutputStyleAttachment) | chunks.142.mjs:2101-2108 | `outputStyle !== "default"` |
-| `critical_system_reminder` | `ahY` (getCriticalSystemReminder) | chunks.142.mjs:2092-2099 | `criticalSystemReminder_EXPERIMENTAL` option set |
+| `token_usage` | `qmY` (getTokenUsageAttachment) | chunks.147.mjs:1108-1118 | `CLAUDE_CODE_ENABLE_TOKEN_USAGE_ATTACHMENT` env var |
+| `budget_usd` | `YmY` (getBudgetUsdAttachment) | chunks.147.mjs:1124-1134 | `maxBudgetUsd !== undefined` |
+| `output_token_usage` | `KmY` (getOutputTokenUsageAttachment) | chunks.147.mjs:1120-1122 | Currently returns empty array |
+| `queued_command` | `OuY` (getQueuedCommandsAttachment) | chunks.147.mjs:48-68 | `commands.filter(c => wuY.has(c.mode))` |
+| `output_style` | `NuY` (getOutputStyleAttachment) | chunks.147.mjs:293-300 | `outputStyle !== "default"` |
+| `critical_system_reminder` | `vuY` (getCriticalSystemReminder) | chunks.147.mjs:284-291 | `criticalSystemReminder_EXPERIMENTAL` option set |
+| `date_change` | `fuY` (getDateChangeAttachment) | chunks.147.mjs:237-246 | Date rollover detection |
+| `ultrathink_effort` | `TuY` (getUltrathinkEffortAttachment) | chunks.147.mjs:248-254 | Extended thinking mode active |
+| `deferred_tools_delta` | `xE1` (getDeferredToolsDeltaAttachment) | chunks.147.mjs:256-267 | MCP deferred tools availability change |
+| `mcp_instructions_delta` | `uE1` (getMcpInstructionsDeltaAttachment) | chunks.147.mjs:269-282 | MCP server instructions change |
 
 ### Token Calculation
 
 ```javascript
-// Location: chunks.142.mjs:2817-2818
-let totalTokens = getModelContextLimit(mainLoopModel);  // m51()
-let usedTokens = countMessagesTokens(messages);         // PZ()
+// Location: chunks.147.mjs:1108-1118
+let totalTokens = getModelContextLimit(mainLoopModel);  // OF()
+let usedTokens = countMessagesTokens(messages);         // Ck()
 ```
 
 ### Budget Tracking
 
 ```javascript
-// Location: chunks.142.mjs:2829-2830
-let currentSpend = getCurrentUsdSpend();  // W0()
+// Location: chunks.147.mjs:1124-1134
+let currentSpend = getCurrentUsdSpend();  // LD()
 let remaining = maxBudgetUsd - currentSpend;
 ```
 
 ### Queued Command Filter
 
 ```javascript
-// Location: chunks.142.mjs:1995-2000
-return queuedCommands
-    .filter(cmd => cmd.mode === "prompt")
-    .map(cmd => ({
-        type: "queued_command",
-        prompt: cmd.value,
-        source_uuid: cmd.uuid,
-        imagePasteIds: cmd.imagePasteIds
-    }));
+// Location: chunks.147.mjs:48-68
+let filtered = queuedMessages.filter(cmd => wuY.has(cmd.mode));
+// wuY = new Set(["prompt", "task-notification"])
 ```
 
 ---
@@ -110,14 +109,14 @@ Provides current token usage statistics to the LLM, helping it understand contex
 ```javascript
 // ============================================
 // getTokenUsageAttachment - Produce token usage attachment
-// Location: chunks.142.mjs:2815-2825
+// Location: chunks.147.mjs:1108-1118
 // ============================================
 
 // ORIGINAL (for source lookup):
-function RIY(A, q) {
-    if (!J6(process.env.CLAUDE_CODE_ENABLE_TOKEN_USAGE_ATTACHMENT)) return [];
-    let K = m51(q),
-        Y = PZ(A);
+function qmY(A, q) {
+    if (!t6(process.env.CLAUDE_CODE_ENABLE_TOKEN_USAGE_ATTACHMENT)) return [];
+    let K = OF(q),
+        Y = Ck(A);
     return [{
         type: "token_usage",
         used: Y,
@@ -144,7 +143,7 @@ function getTokenUsageAttachment(messages, mainLoopModel) {
     }];
 }
 
-// Mapping: RIY→getTokenUsageAttachment, A→messages, q→mainLoopModel, K→totalTokens, Y→usedTokens, J6→parseBoolean, m51→getModelContextLimit, PZ→countMessagesTokens
+// Mapping: qmY→getTokenUsageAttachment, A→messages, q→mainLoopModel, K→totalTokens, Y→usedTokens, t6→parseBoolean, OF→getModelContextLimit, Ck→countMessagesTokens
 ```
 
 #### Normalization Function
@@ -152,13 +151,13 @@ function getTokenUsageAttachment(messages, mainLoopModel) {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - token_usage case
-// Location: chunks.173.mjs:1071-1075
+// Location: chunks.174.mjs:356-360
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "token_usage":
-    return [c6({
-        content: tI(`Token usage: ${A.used}/${A.total}; ${A.remaining} remaining`),
+    return [p1({
+        content: af(`Token usage: ${A.used}/${A.total}; ${A.remaining} remaining`),
         isMeta: !0
     })];
 
@@ -169,7 +168,7 @@ case "token_usage":
         isMeta: true
     })];
 
-// Mapping: A→attachment, tI→wrapInXmlTag, c6→createUserMessage
+// Mapping: A→attachment, af→wrapInXmlTag, p1→createUserMessage
 ```
 
 ### Output Format
@@ -206,13 +205,13 @@ Provides USD budget tracking for API costs.
 ```javascript
 // ============================================
 // getBudgetUsdAttachment - Produce budget attachment
-// Location: chunks.142.mjs:2827-2835
+// Location: chunks.147.mjs:1124-1134
 // ============================================
 
 // ORIGINAL (for source lookup):
-function yIY(A) {
+function YmY(A) {
     if (A === void 0) return [];
-    let q = W0(),
+    let q = LD(),
         K = A - q;
     return [{
         type: "budget_usd",
@@ -226,7 +225,7 @@ function yIY(A) {
 function getBudgetUsdAttachment(maxBudgetUsd) {
     if (maxBudgetUsd === undefined) return [];
 
-    let usedAmount = getCurrentSpend();
+    let usedAmount = getCurrentUsdSpend();
     let remainingAmount = maxBudgetUsd - usedAmount;
 
     return [{
@@ -237,7 +236,7 @@ function getBudgetUsdAttachment(maxBudgetUsd) {
     }];
 }
 
-// Mapping: yIY→getBudgetUsdAttachment, A→maxBudgetUsd, q→usedAmount, K→remainingAmount, W0→getCurrentSpend
+// Mapping: YmY→getBudgetUsdAttachment, A→maxBudgetUsd, q→usedAmount, K→remainingAmount, LD→getCurrentUsdSpend
 ```
 
 #### Normalization Function
@@ -245,13 +244,13 @@ function getBudgetUsdAttachment(maxBudgetUsd) {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - budget_usd case
-// Location: chunks.173.mjs:1076-1080
+// Location: chunks.174.mjs:361-365
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "budget_usd":
-    return [c6({
-        content: tI(`USD budget: $${A.used}/$${A.total}; $${A.remaining} remaining`),
+    return [p1({
+        content: af(`USD budget: $${A.used}/$${A.total}; $${A.remaining} remaining`),
         isMeta: !0
     })];
 
@@ -262,7 +261,7 @@ case "budget_usd":
         isMeta: true
     })];
 
-// Mapping: A→attachment, tI→wrapInXmlTag, c6→createUserMessage
+// Mapping: A→attachment, af→wrapInXmlTag, p1→createUserMessage
 ```
 
 ### Output Format
@@ -351,6 +350,55 @@ Notifies the LLM that the calendar date has changed since the last turn. This is
 
 ### Source Code
 
+#### Producer Function
+
+```javascript
+// ============================================
+// getDateChangeAttachment - Produce date change attachment
+// Location: chunks.147.mjs:237-246
+// ============================================
+
+// ORIGINAL (for source lookup):
+function fuY() {
+    let A = GD6(),
+        q = tu1();
+    if (q === null) return dw6(A), [];
+    if (A === q) return [];
+    return a2.cache.clear?.(), dw6(A), [{
+        type: "date_change",
+        newDate: A
+    }]
+}
+
+// READABLE (for understanding):
+function getDateChangeAttachment() {
+    let currentDate = getCurrentDate();
+    let lastRecordedDate = getLastRecordedDate();
+
+    // First run - just record the date
+    if (lastRecordedDate === null) {
+        recordCurrentDate(currentDate);
+        return [];
+    }
+
+    // No change - skip
+    if (currentDate === lastRecordedDate) {
+        return [];
+    }
+
+    // Date changed - clear any date-related caches and notify
+    dateCache.cache.clear?.();
+    recordCurrentDate(currentDate);
+
+    return [{
+        type: "date_change",
+        newDate: currentDate
+    }];
+}
+
+// Mapping: fuY→getDateChangeAttachment, A→currentDate, q→lastRecordedDate, GD6→getCurrentDate, tu1→getLastRecordedDate, dw6→recordCurrentDate, a2→dateCache
+```
+
 #### Normalization Function
 
 ```javascript
@@ -386,7 +434,7 @@ The date has changed. Today's date is now 2026-03-17. DO NOT mention this to the
 
 ### Key Insight
 
-The reminder explicitly tells the LLM **not to mention** the date change to the user, as this is internal context only. This prevents awkward "By the way, it's a new day!" messages.
+The reminder explicitly tells the LLM **not to mention** the date change to the user, as this is internal context only. This prevents awkward "By the way, it's a new day!" messages. The producer also clears date-related caches when the date changes.
 
 ---
 
@@ -404,6 +452,42 @@ Informs the LLM about the requested reasoning effort level for the current turn.
 | Extended thinking | Model supports extended thinking |
 
 ### Source Code
+
+#### Producer Function
+
+```javascript
+// ============================================
+// getUltrathinkEffortAttachment - Produce ultrathink effort attachment
+// Location: chunks.147.mjs:248-254
+// ============================================
+
+// ORIGINAL (for source lookup):
+function TuY(A) {
+    if (!GU() || !A || !pG7(A)) return [];
+    return d("tengu_ultrathink", {}), [{
+        type: "ultrathink_effort",
+        level: "high"
+    }]
+}
+
+// READABLE (for understanding):
+function getUltrathinkEffortAttachment(mainLoopModel) {
+    // Check if extended thinking is enabled and model supports it
+    if (!isExtendedThinkingEnabled() || !mainLoopModel || !modelSupportsExtendedThinking(mainLoopModel)) {
+        return [];
+    }
+
+    // Log telemetry for ultrathink usage
+    logTelemetry("tengu_ultrathink", {});
+
+    return [{
+        type: "ultrathink_effort",
+        level: "high"
+    }];
+}
+
+// Mapping: TuY→getUltrathinkEffortAttachment, A→mainLoopModel, GU→isExtendedThinkingEnabled, pG7→modelSupportsExtendedThinking, d→logTelemetry
+```
 
 #### Normalization Function
 
@@ -458,6 +542,51 @@ Notifies the LLM about changes in available deferred tools. Deferred tools are M
 | MCP connection | Connected to MCP servers with deferred tools |
 
 ### Source Code
+
+#### Producer Function
+
+```javascript
+// ============================================
+// getDeferredToolsDeltaAttachment - Produce deferred tools delta attachment
+// Location: chunks.147.mjs:256-267
+// ============================================
+
+// ORIGINAL (for source lookup):
+function xE1(A, q, K) {
+    if (!ki6()) return [];
+    if (!dk()) return [];
+    if (!Vi6(q)) return [];
+    if (!bz6(A)) return [];
+    let Y = eF8(A, K ?? []);
+    if (!Y) return [];
+    return [{
+        type: "deferred_tools_delta",
+        ...Y
+    }]
+}
+
+// READABLE (for understanding):
+function getDeferredToolsDeltaAttachment(tools, mainLoopModel, previousTools) {
+    // Feature flag checks
+    if (!isDeferredToolsEnabled()) return [];
+    if (!isToolDeltaTrackingEnabled()) return [];
+    if (!modelSupportsDeferredTools(mainLoopModel)) return [];
+    if (!hasDeferredTools(tools)) return [];
+
+    // Compute the delta between current and previous tool sets
+    let delta = computeDeferredToolsDelta(tools, previousTools ?? []);
+    if (!delta) return [];
+
+    return [{
+        type: "deferred_tools_delta",
+        ...delta  // Contains addedLines and removedNames
+    }];
+}
+
+// Mapping: xE1→getDeferredToolsDeltaAttachment, A→tools, q→mainLoopModel, K→previousTools
+//          ki6→isDeferredToolsEnabled, dk→isToolDeltaTrackingEnabled, Vi6→modelSupportsDeferredTools
+//          bz6→hasDeferredTools, eF8→computeDeferredToolsDelta, Y→delta
+```
 
 #### Normalization Function
 
@@ -546,6 +675,60 @@ Notifies the LLM about changes in MCP server instructions. MCP servers can provi
 | MCP connection | Connected to MCP servers with instructions |
 
 ### Source Code
+
+#### Producer Function
+
+```javascript
+// ============================================
+// getMcpInstructionsDeltaAttachment - Produce MCP instructions delta attachment
+// Location: chunks.147.mjs:269-282
+// ============================================
+
+// ORIGINAL (for source lookup):
+function uE1(A, q, K, Y) {
+    if (!iT6()) return [];
+    let z = [];
+    if (dk() && Vi6(K) && bz6(q)) z.push({
+        serverName: lv,
+        block: kE1
+    });
+    let _ = c4q(A, Y ?? [], z);
+    if (!_) return [];
+    return [{
+        type: "mcp_instructions_delta",
+        ..._
+    }]
+}
+
+// READABLE (for understanding):
+function getMcpInstructionsDeltaAttachment(instructions, mainLoopModel, tools, previousInstructions) {
+    // Feature flag check
+    if (!isMcpInstructionsEnabled()) return [];
+
+    let addedBlocks = [];
+
+    // Check for new instructions from MCP servers
+    if (isInstructionTrackingEnabled() && modelSupportsMcpInstructions(mainLoopModel) && hasMcpTools(tools)) {
+        addedBlocks.push({
+            serverName: SERVER_NAME,
+            block: INSTRUCTION_BLOCK
+        });
+    }
+
+    // Compute delta between current and previous instructions
+    let delta = computeInstructionsDelta(instructions, previousInstructions ?? [], addedBlocks);
+    if (!delta) return [];
+
+    return [{
+        type: "mcp_instructions_delta",
+        ...delta  // Contains addedBlocks and removedBlocks
+    }];
+}
+
+// Mapping: uE1→getMcpInstructionsDeltaAttachment, A→instructions, q→mainLoopModel, K→tools, Y→previousInstructions
+//          iT6→isMcpInstructionsEnabled, dk→isInstructionTrackingEnabled, Vi6→modelSupportsMcpInstructions
+//          bz6→hasMcpTools, z→addedBlocks, _→delta, c4q→computeInstructionsDelta, lv→SERVER_NAME, kE1→INSTRUCTION_BLOCK
+```
 
 #### Normalization Function
 
@@ -1098,17 +1281,19 @@ The producer function currently returns empty, suggesting this feature may be in
 
 Key functions in this document:
 
-- `getTokenUsageAttachment` (RIY) - Token usage producer, `chunks.142.mjs:2815-2825`
-- `getBudgetUsdAttachment` (yIY) - Budget producer, `chunks.142.mjs:2827-2835`
-- `getCriticalSystemReminder` (ahY) - Critical reminder producer, `chunks.142.mjs:2092-2099`
-- `getQueuedCommandsAttachment` (dhY) - Queued commands producer, `chunks.142.mjs:1993-2001`
-- `getOutputStyleAttachment` (shY) - Output style producer, `chunks.142.mjs:2101-2108`
-- `getVerifyPlanReminderAttachment` (SIY) - Verify plan producer, `chunks.142.mjs:2849-2851`
-- `wrapInXmlTag` (tI) - XML tag wrapper, `chunks.173.mjs:490-494`
-- `createUserMessage` (c6) - Message factory
-- `getCurrentSpend` (W0) - Get current USD spend
-- `getModelContextLimit` (m51) - Get model context window size
-- `countMessagesTokens` (PZ) - Count tokens in messages
+- `getTokenUsageAttachment` (qmY) - Token usage producer, `chunks.147.mjs:1108-1118`
+- `getBudgetUsdAttachment` (YmY) - Budget producer, `chunks.147.mjs:1124-1134`
+- `getOutputTokenUsageAttachment` (KmY) - Output token producer, `chunks.147.mjs:1120-1122`
+- `getDateChangeAttachment` (fuY) - Date change producer, `chunks.147.mjs:237-246`
+- `getUltrathinkEffortAttachment` (TuY) - Ultrathink effort producer, `chunks.147.mjs:248-254`
+- `getDeferredToolsDeltaAttachment` (xE1) - Deferred tools delta producer, `chunks.147.mjs:256-267`
+- `getMcpInstructionsDeltaAttachment` (uE1) - MCP instructions delta producer, `chunks.147.mjs:269-282`
+- `getCriticalSystemReminder` (vuY) - Critical reminder producer, `chunks.147.mjs:284-291`
+- `getQueuedCommandsAttachment` (OuY) - Queued commands producer, `chunks.147.mjs:48-68`
+- `getOutputStyleAttachment` (NuY) - Output style producer, `chunks.147.mjs:293-300`
+- `wrapInXmlTag` (af) - XML tag wrapper, `chunks.173.mjs:2490-2494`
+- `wrapWithSystemReminderTags` (b5) - System reminder wrapper, `chunks.173.mjs:2496-2523`
+- `createUserMessage` (p1) - Message factory, `chunks.173.mjs:1378-1412`
 
 ---
 

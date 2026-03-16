@@ -143,9 +143,11 @@ Each mode control type has a specific producer function with distinct trigger co
 
 | Type | Producer Function | Location | Key Trigger Logic |
 |------|-------------------|----------|-------------------|
-| `plan_mode` | `ihY` (getPlanModeAttachment) | chunks.142.mjs:2034-2058 | `mode === "plan"` && turn throttling |
-| `plan_mode_reentry` | `ihY` (getPlanModeAttachment) | chunks.142.mjs:2046-2049 | `aL6()` flag && plan file exists |
-| `plan_mode_exit` | `nhY` (getPlanModeExitAttachment) | chunks.142.mjs:2060-2071 | `sL6()` flag && mode !== "plan" |
+| `plan_mode` | `DuY` (getPlanModeAttachment) | chunks.147.mjs:136-168 | `mode === "plan"` && turn throttling via `t4q` |
+| `plan_mode_reentry` | `DuY` (getPlanModeAttachment) | chunks.147.mjs:156-159 | `nk6()` flag && plan file exists |
+| `plan_mode_exit` | `XuY` (getPlanModeExitAttachment) | chunks.147.mjs:170-181 | `Fu1()` flag && mode !== "plan" |
+| `auto_mode` | `ZuY` (getAutoModeAttachment) | chunks.147.mjs:214-227 | `mode === "auto"` && turn throttling via `e4q` |
+| `auto_mode_exit` | `GuY` (getAutoModeExitAttachment) | chunks.147.mjs:229-235 | `pu1()` flag && mode !== "auto" |
 | `delegate_mode` | `rhY` (getDelegateModeAttachment) | chunks.142.mjs:2073-2083 | `mode === "delegate"` && teamContext |
 | `delegate_mode_exit` | `ohY` (getDelegateModeExitAttachment) | chunks.142.mjs:2085-2090 | `eL6()` flag |
 
@@ -153,12 +155,19 @@ Each mode control type has a specific producer function with distinct trigger co
 
 ```javascript
 // ============================================
-// Plan mode timing constants
-// Location: chunks.142.mjs:2921-2924
+// Mode timing constants
+// Location: chunks.147.mjs:1231-1247
 // ============================================
 
-ii4 = {
+// Plan Mode Configuration
+t4q = {
     TURNS_BETWEEN_ATTACHMENTS: 5,          // Minimum turns between plan_mode attachments
+    FULL_REMINDER_EVERY_N_ATTACHMENTS: 5   // Every 5th reminder is "full" variant
+}
+
+// Auto Mode Configuration
+e4q = {
+    TURNS_BETWEEN_ATTACHMENTS: 5,          // Minimum turns between auto_mode attachments
     FULL_REMINDER_EVERY_N_ATTACHMENTS: 5   // Every 5th reminder is "full" variant
 }
 ```
@@ -206,44 +215,53 @@ Instructs the LLM to operate in planning-only mode where no edits or non-readonl
 ```javascript
 // ============================================
 // getPlanModeAttachment - Produce plan mode attachment
-// Location: chunks.142.mjs:2034-2058
+// Location: chunks.147.mjs:136-168
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function ihY(A, q) {
-    if ((await q.getAppState()).toolPermissionContext.mode !== "plan") return [];
+async function DuY(A, q) {
+    let Y = q.getAppState().toolPermissionContext;
+    if (Y.mode !== "plan") return [];
     if (A && A.length > 0) {
         let {
-            turnCount: _,
-            foundPlanModeAttachment: J
-        } = chY(A);
-        if (J && _ < ii4.TURNS_BETWEEN_ATTACHMENTS) return []
+            turnCount: H,
+            foundPlanModeAttachment: j
+        } = JuY(A);
+        if (j && H < t4q.TURNS_BETWEEN_ATTACHMENTS) return []
     }
-    let z = uW(q.agentId),
-        w = pD(q.agentId),
-        H = [];
-    if (aL6() && w !== null) H.push({
-        type: "plan_mode_reentry",
-        planFilePath: z
-    }), OT(!1);
-    let O = (lhY(A ?? []) + 1) % ii4.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse";
-    return H.push({
+    let z = Fj(q.agentId),
+        _ = sJ(q.agentId),
+        w = [];
+    if (Y.prePlanMode === "ultraplan") return w.push({
         type: "plan_mode",
-        reminderType: O,
+        reminderType: "ultraplan-complete",
         isSubAgent: !!q.agentId,
         planFilePath: z,
-        planExists: w !== null
-    }), H
+        planExists: _ !== null
+    }), w;
+    if (nk6() && _ !== null) w.push({
+        type: "plan_mode_reentry",
+        planFilePath: z
+    }), HV(!1);
+    let $ = (MuY(A ?? []) + 1) % t4q.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse";
+    return w.push({
+        type: "plan_mode",
+        reminderType: $,
+        isSubAgent: !!q.agentId,
+        planFilePath: z,
+        planExists: _ !== null
+    }), w
 }
 
 // READABLE (for understanding):
 async function getPlanModeAttachment(messages, sessionContext) {
-    let appState = await sessionContext.getAppState();
-    if (appState.toolPermissionContext.mode !== "plan") return [];
+    let permissionContext = sessionContext.getAppState().toolPermissionContext;
+    if (permissionContext.mode !== "plan") return [];
 
+    // Turn throttling - skip if sent recently
     if (messages && messages.length > 0) {
-        let { turnCount, foundPlanModeAttachment } = countTurnsSincePlanMode(messages);
-        if (foundPlanModeAttachment && turnCount < PLAN_MODE_CONSTANTS.TURNS_BETWEEN_ATTACHMENTS) {
+        let { turnCount, foundPlanModeAttachment } = countTurnsSincePlanModeAttachment(messages);
+        if (foundPlanModeAttachment && turnCount < PLAN_MODE_CONFIG.TURNS_BETWEEN_ATTACHMENTS) {
             return [];
         }
     }
@@ -252,6 +270,19 @@ async function getPlanModeAttachment(messages, sessionContext) {
     let planExists = checkPlanExists(sessionContext.agentId);
     let attachments = [];
 
+    // Special case: ultrapan mode complete
+    if (permissionContext.prePlanMode === "ultraplan") {
+        attachments.push({
+            type: "plan_mode",
+            reminderType: "ultraplan-complete",
+            isSubAgent: !!sessionContext.agentId,
+            planFilePath: planFilePath,
+            planExists: planExists !== null
+        });
+        return attachments;
+    }
+
+    // Handle reentry case
     if (isReenteringPlanMode() && planExists !== null) {
         attachments.push({
             type: "plan_mode_reentry",
@@ -260,8 +291,9 @@ async function getPlanModeAttachment(messages, sessionContext) {
         clearReentryFlag(false);
     }
 
+    // Determine reminder type (full vs sparse)
     let reminderType = (countPlanModeReminders(messages ?? []) + 1) %
-                       PLAN_MODE_CONSTANTS.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1
+                       PLAN_MODE_CONFIG.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1
                        ? "full"
                        : "sparse";
 
@@ -270,15 +302,16 @@ async function getPlanModeAttachment(messages, sessionContext) {
         reminderType: reminderType,
         isSubAgent: !!sessionContext.agentId,
         planFilePath: planFilePath,
-        planExists: planExists !== null,
-        // v2.1.76: optional task description from /plan command argument
-        taskDescription: sessionContext.planTaskDescription
+        planExists: planExists !== null
     });
 
     return attachments;
 }
 
-// Mapping: ihY→getPlanModeAttachment, A→messages, q→sessionContext, _→turnCount, J→foundPlanModeAttachment, chY→countTurnsSincePlanMode, z→planFilePath, w→planExists, H→attachments, uW→getPlanFilePath, pD→checkPlanExists, aL6→isReenteringPlanMode, OT→clearReentryFlag, lhY→countPlanModeReminders, ii4→PLAN_MODE_CONSTANTS
+// Mapping: DuY→getPlanModeAttachment, A→messages, q→sessionContext, Y→permissionContext
+//          H→turnCount, j→foundPlanModeAttachment, JuY→countTurnsSincePlanModeAttachment
+//          z→planFilePath, _→planExists, w→attachments, Fj→getPlanFilePath, sJ→checkPlanExists
+//          t4q→PLAN_MODE_CONFIG, nk6→isReenteringPlanMode, HV→clearReentryFlag, MuY→countPlanModeReminders
 ```
 
 ---
@@ -526,16 +559,16 @@ Notifies the LLM that it has exited plan mode and can now take actions (edit fil
 ```javascript
 // ============================================
 // getPlanModeExitAttachment - Produce exit notification
-// Location: chunks.142.mjs:2060-2071
+// Location: chunks.147.mjs:170-181
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function nhY(A) {
-    if (!sL6()) return [];
-    if ((await A.getAppState()).toolPermissionContext.mode === "plan") return kx(!1), [];
-    kx(!1);
-    let K = uW(A.agentId),
-        Y = pD(A.agentId) !== null;
+async function XuY(A) {
+    if (!Fu1()) return [];
+    if (A.getAppState().toolPermissionContext.mode === "plan") return JS(!1), [];
+    JS(!1);
+    let K = Fj(A.agentId),
+        Y = sJ(A.agentId) !== null;
     return [{
         type: "plan_mode_exit",
         planFilePath: K,
@@ -547,9 +580,8 @@ async function nhY(A) {
 async function getPlanModeExitAttachment(sessionContext) {
     if (!shouldSendPlanModeExit()) return [];
 
-    let appState = await sessionContext.getAppState();
-
-    if (appState.toolPermissionContext.mode === "plan") {
+    // Still in plan mode - clear flag and skip
+    if (sessionContext.getAppState().toolPermissionContext.mode === "plan") {
         clearExitFlag(false);
         return [];
     }
@@ -566,7 +598,8 @@ async function getPlanModeExitAttachment(sessionContext) {
     }];
 }
 
-// Mapping: nhY→getPlanModeExitAttachment, A→sessionContext, K→planFilePath, Y→planExists, sL6→shouldSendPlanModeExit, kx→clearExitFlag, uW→getPlanFilePath, pD→checkPlanExists
+// Mapping: XuY→getPlanModeExitAttachment, A→sessionContext, K→planFilePath, Y→planExists
+//          Fu1→shouldSendPlanModeExit, JS→clearExitFlag, Fj→getPlanFilePath, sJ→checkPlanExists
 ```
 
 #### Normalization Function
@@ -908,8 +941,62 @@ Instructs the LLM to operate in autonomous execution mode where it should execut
 | Condition | Requirement |
 |-----------|-------------|
 | Auto mode activated | User activates auto mode (typically via `/auto` command) |
+| Turn threshold | Not sent within last `TURNS_BETWEEN_ATTACHMENTS` (5) turns |
 
 ### Source Code
+
+#### Producer Function
+
+```javascript
+// ============================================
+// getAutoModeAttachment - Produce auto mode attachment
+// Location: chunks.147.mjs:214-227
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function ZuY(A, q) {
+    if (q.getAppState().toolPermissionContext.mode !== "auto") return [];
+    if (A && A.length > 0) {
+        let {
+            turnCount: w,
+            foundAutoModeAttachment: O
+        } = PuY(A);
+        if (O && w < e4q.TURNS_BETWEEN_ATTACHMENTS) return []
+    }
+    return [{
+        type: "auto_mode",
+        reminderType: (WuY(A ?? []) + 1) % e4q.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse"
+    }]
+}
+
+// READABLE (for understanding):
+async function getAutoModeAttachment(messages, sessionContext) {
+    if (sessionContext.getAppState().toolPermissionContext.mode !== "auto") return [];
+
+    // Turn throttling - skip if sent recently
+    if (messages && messages.length > 0) {
+        let { turnCount, foundAutoModeAttachment } = countTurnsSinceAutoModeAttachment(messages);
+        if (foundAutoModeAttachment && turnCount < AUTO_MODE_CONFIG.TURNS_BETWEEN_ATTACHMENTS) {
+            return [];
+        }
+    }
+
+    // Determine reminder type (full vs sparse)
+    let reminderType = (countAutoModeReminders(messages ?? []) + 1) %
+                       AUTO_MODE_CONFIG.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1
+                       ? "full"
+                       : "sparse";
+
+    return [{
+        type: "auto_mode",
+        reminderType: reminderType
+    }];
+}
+
+// Mapping: ZuY→getAutoModeAttachment, A→messages, q→sessionContext
+//          w→turnCount, O→foundAutoModeAttachment, PuY→countTurnsSinceAutoModeAttachment
+//          WuY→countAutoModeReminders, e4q→AUTO_MODE_CONFIG
+```
 
 #### Normalization Function
 
@@ -988,6 +1075,45 @@ Notifies the LLM that auto mode has ended and it should ask clarifying questions
 | Auto mode deactivated | User deactivates auto mode |
 
 ### Source Code
+
+#### Producer Function
+
+```javascript
+// ============================================
+// getAutoModeExitAttachment - Produce auto mode exit notification
+// Location: chunks.147.mjs:229-235
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function GuY(A) {
+    if (!pu1()) return [];
+    if (A.getAppState().toolPermissionContext.mode === "auto") return MS(!1), [];
+    return MS(!1), [{
+        type: "auto_mode_exit"
+    }]
+}
+
+// READABLE (for understanding):
+async function getAutoModeExitAttachment(sessionContext) {
+    if (!shouldSendAutoModeExit()) return [];
+
+    // Still in auto mode - clear flag and skip
+    if (sessionContext.getAppState().toolPermissionContext.mode === "auto") {
+        clearAutoModeExitFlag(false);
+        return [];
+    }
+
+    clearAutoModeExitFlag(false);
+
+    return [{
+        type: "auto_mode_exit"
+    }];
+}
+
+// Mapping: GuY→getAutoModeExitAttachment, A→sessionContext, pu1→shouldSendAutoModeExit, MS→clearAutoModeExitFlag
+```
+
+#### Normalization Function
 
 ```javascript
 // ============================================
@@ -1101,14 +1227,19 @@ Key functions in this document:
 - `autoModeReminder` (Lzz) - Auto mode dispatcher, `chunks.173.mjs:2714-2717`
 - `fullAutoModeReminder` (Rzz) - Full auto mode instructions, `chunks.173.mjs:2719-2732`
 - `sparseAutoModeReminder` (hzz) - Sparse auto mode reminder, `chunks.173.mjs:2734-2739`
-- `getPlanModeAttachment` (ihY) - Plan mode producer, `chunks.142.mjs:2034-2058`
-- `getPlanModeExitAttachment` (nhY) - Exit producer, `chunks.142.mjs:2060-2071`
+- `getPlanModeAttachment` (DuY) - Plan mode producer, `chunks.147.mjs:136-168`
+- `getPlanModeExitAttachment` (XuY) - Plan mode exit producer, `chunks.147.mjs:170-181`
+- `getAutoModeAttachment` (ZuY) - Auto mode producer, `chunks.147.mjs:214-227`
+- `getAutoModeExitAttachment` (GuY) - Auto mode exit producer, `chunks.147.mjs:229-235`
 - `getPlanFileReferenceAttachment` (jZ6) - Plan file reference producer, `chunks.146.mjs:2699-2708`
 - `getDelegateModeAttachment` (rhY) - Delegate mode producer, `chunks.142.mjs:2073-2083`
 - `getDelegateModeExitAttachment` (ohY) - Delegate exit producer, `chunks.142.mjs:2085-2090`
-- `countTurnsSincePlanMode` (chY) - Turn counter, `chunks.142.mjs:2003-2020`
-- `countPlanModeReminders` (lhY) - Reminder counter, `chunks.142.mjs:2022-2032`
-- `PLAN_MODE_CONSTANTS` (ii4) - Configuration constants
+- `countTurnsSincePlanModeAttachment` (JuY) - Turn counter for plan mode
+- `countPlanModeReminders` (MuY) - Reminder counter for plan mode
+- `countTurnsSinceAutoModeAttachment` (PuY) - Turn counter for auto mode
+- `countAutoModeReminders` (WuY) - Reminder counter for auto mode
+- `PLAN_MODE_CONFIG` (t4q) - Plan mode configuration constants, `chunks.147.mjs:1231-1235`
+- `AUTO_MODE_CONFIG` (e4q) - Auto mode configuration constants, `chunks.147.mjs:1236-1240`
 
 ---
 

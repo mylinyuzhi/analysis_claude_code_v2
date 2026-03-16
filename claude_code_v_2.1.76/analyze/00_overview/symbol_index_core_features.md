@@ -1347,6 +1347,49 @@
 
 > Full analysis: [04_system_reminder/](../04_system_reminder/)
 
+### Core Orchestration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _uY | assembleAllAttachments | chunks.147.mjs:3-18 | function |
+| Hz | timedAttachmentProducer | chunks.147.mjs:20-46 | function |
+
+### Configuration Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| t4q | PLAN_MODE_CONFIG | chunks.147.mjs:1231-1235 | constant |
+| e4q | AUTO_MODE_CONFIG | chunks.147.mjs:1236-1240 | constant |
+| IE1 | TODO_REMINDER_CONFIG | chunks.147.mjs:1226-1230 | constant |
+| YuY | ULTRAMEMORY_CONFIG | chunks.147.mjs:1241-1243 | constant |
+| hE1 | MEMORY_TRUNCATION_LINES | chunks.147.mjs:1244 | constant (200) |
+| wuY | QUEUED_COMMAND_MODES | chunks.147.mjs:1245 | constant (Set) |
+
+### Attachment Producers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| DuY | getPlanModeAttachment | chunks.147.mjs:136-168 | function |
+| XuY | getPlanModeExitAttachment | chunks.147.mjs:170-181 | function |
+| ZuY | getAutoModeAttachment | chunks.147.mjs:214-227 | function |
+| GuY | getAutoModeExitAttachment | chunks.147.mjs:229-235 | function |
+| fuY | getDateChangeAttachment | chunks.147.mjs:237-246 | function |
+| TuY | getUltrathinkEffortAttachment | chunks.147.mjs:248-254 | function |
+| xE1 | getDeferredToolsDeltaAttachment | chunks.147.mjs:256-267 | function |
+| uE1 | getMcpInstructionsDeltaAttachment | chunks.147.mjs:269-282 | function |
+| vuY | getCriticalSystemReminderAttachment | chunks.147.mjs:284-291 | function |
+| NuY | getOutputStyleAttachment | chunks.147.mjs:293-300 | function |
+| kuY | getIdeSelectionAttachment | chunks.147.mjs:306-320 | function |
+| LuY | getIdeOpenedFileAttachment | chunks.147.mjs:397-405 | function |
+| RuY | getAtMentionedFilesAttachment | chunks.147.mjs:407-448 | function |
+| huY | getAgentMentionsAttachment | chunks.147.mjs:450-462 | function |
+| SuY | getMcpResourcesAttachment | chunks.147.mjs:464-495 | function |
+| CuY | getChangedFilesAttachment | chunks.147.mjs:497+ | function |
+| OuY | getQueuedCommandsAttachment | chunks.147.mjs:48-68 | function |
+| qmY | getTokenUsageAttachment | chunks.147.mjs:1108-1118 | function |
+| KmY | getOutputTokenUsageAttachment | chunks.147.mjs:1120-1122 | function |
+| YmY | getBudgetUsdAttachment | chunks.147.mjs:1124-1134 | function |
+
 ### UI Visibility & Filtering
 
 | Obfuscated | Readable | File:Line | Type |
