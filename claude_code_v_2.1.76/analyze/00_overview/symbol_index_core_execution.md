@@ -34,14 +34,19 @@
 | R4 | TOOL_NAME_EDIT | chunks.56.mjs:102 | constant ("Edit") |
 | gd | NotebookEditTool | chunks.134.mjs:2615 | tool object |
 | bJ | TOOL_NAME_NOTEBOOK_EDIT | chunks.56.mjs:1240 | constant ("NotebookEdit") |
+| Vl | NotebookEditTool | chunks.139.mjs:1200 | tool object (primary) |
 | bb | GrepTool | chunks.139.mjs:482 | tool object |
 | N9 | TOOL_NAME_GREP | chunks.56.mjs:1215 | constant ("Grep") |
-| rg | GlobTool | chunks.139.mjs:881 | tool object |
+| rg | GlobTool | chunks.139.mjs:880 | tool object |
 | qz | TOOL_NAME_GLOB | chunks.56.mjs:1192 | constant ("Glob") |
-| wt | SkillTool | chunks.132.mjs:820 | tool object |
+| J4 | BashTool | chunks.172.mjs:84 | tool object |
+| Q7 | TOOL_NAME_BASH | chunks.54.mjs:2264 | constant ("Bash") |
+| m66 | SkillTool | chunks.137.mjs:46 | tool object |
+| wt | SkillTool | chunks.132.mjs:820 | tool object (legacy) |
 | oH | TOOL_NAME_SKILL | chunks.90.mjs:2596 | constant ("Skill") |
 | QW6 | AgentTool | chunks.136.mjs:1512 | tool object |
 | r4 | TOOL_NAME_AGENT | chunks.40.mjs:406 | constant ("Agent") |
+| I46 | TOOL_NAME_TASK | chunks.40.mjs:408 | constant ("Task") |
 | I46 | TOOL_NAME_TASK (alias) | chunks.40.mjs:408 | constant ("Task") |
 | Q7 | TOOL_NAME_BASH | chunks.54.mjs:2264 | constant ("Bash") |
 | BYq | BashOutputComponent | chunks.162.mjs:417249 | component |
@@ -220,7 +225,10 @@
 |------------|----------|-----------|------|
 | kq | createHookMessage | chunks.142.mjs:2615 | function |
 | ng | getDynamicToolSet | chunks.141.mjs | function |
-| Tv | findTool | chunks.74.mjs:1392 | function |
+| ng | getAllTools | chunks.145.mjs:2781 | function (returns all built-in tools) |
+| dK | findTool | chunks.56.mjs:1592 | function (finds tool by name/alias) |
+| z3 | matchesToolNameOrAlias | chunks.56.mjs:1588 | function (helper for dK) |
+| Tv | findTool | chunks.74.mjs:1392 | function (older version) |
 | d39 | toolMatchesName | chunks.74.mjs:1388 | function |
 | U1q | createToolProgressMessage | chunks.172.mjs:2943 | function |
 | YP6 | assembleSessionToolSet | chunks.141.mjs:1476 | function |
@@ -272,10 +280,20 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| vW6 | TaskStopTool | chunks.139.mjs:1537 | tool object |
+| Uk1 | TaskStopTool | chunks.143.mjs:1651 | tool object |
+| vW6 | TaskStopTool (legacy) | chunks.139.mjs:1537 | tool object |
 | OC | TOOL_NAME_TASK_STOP | chunks.40.mjs:412 | constant ("TaskStop") |
-| kW6 | TaskOutputTool | chunks.139.mjs:1922 | tool object |
+| ck1 | TaskOutputTool | chunks.143.mjs:2036 | tool object |
+| kW6 | TaskOutputTool (legacy) | chunks.139.mjs:1922 | tool object |
 | $C | TOOL_NAME_TASK_OUTPUT | chunks.40.mjs:421 | constant ("TaskOutput") |
+| TAq | TaskCreateTool | chunks.144.mjs:2839 | tool object |
+| TR | TOOL_NAME_TASK_CREATE | chunks.90.mjs:2592 | constant ("TaskCreate") |
+| hAq | TaskGetTool | chunks.144.mjs:2991 | tool object |
+| lt | TOOL_NAME_TASK_GET | chunks.91.mjs:41 | constant ("TaskGet") |
+| rAq | TaskListTool | chunks.145.mjs:417 | tool object |
+| it | TOOL_NAME_TASK_LIST | chunks.91.mjs:43 | constant ("TaskList") |
+| gAq | TaskUpdateTool | chunks.145.mjs:136 | tool object |
+| ck | TOOL_NAME_TASK_UPDATE | chunks.90.mjs:2594 | constant ("TaskUpdate") |
 | EW6 | buildTaskSnapshot | chunks.139.mjs:1687 | function |
 | Ng1 | truncateTaskOutput | chunks.139.mjs:1664 | function |
 | nyY | pollUntilDone | chunks.139.mjs:1716 | function |
@@ -379,20 +397,30 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| TbY | CronCreateTool | chunks.145.mjs:950 | tool object |
 | ER | TOOL_NAME_CRON_CREATE | chunks.91.mjs:192 | constant ("CronCreate") |
+| VbY | CronDeleteTool | chunks.145.mjs:1066 | tool object |
 | ed | TOOL_NAME_CRON_DELETE | chunks.91.mjs:194 | constant ("CronDelete") |
+| ybY | CronListTool | chunks.145.mjs:1173 | tool object |
 | SW6 | TOOL_NAME_CRON_LIST | chunks.91.mjs:196 | constant ("CronList") |
 
 ### Plan Mode Tools
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| Ki6 | EnterPlanModeTool | chunks.144.mjs:1579 | tool object |
 | N_6 | TOOL_NAME_ENTER_PLAN_MODE | chunks.89.mjs:564 | constant ("EnterPlanMode") |
+| dt | TOOL_NAME_ENTER_PLAN_MODE (alt) | chunks.90.mjs:3121 | constant ("EnterPlanMode") |
+| zD | ExitPlanModeTool | chunks.143.mjs:2802 | tool object |
 | bW | TOOL_NAME_EXIT_PLAN_MODE | chunks.88.mjs:76 | constant ("ExitPlanMode") |
+| aJ | TOOL_NAME_EXIT_PLAN_MODE (alt) | chunks.90.mjs:507 | constant ("ExitPlanMode") |
 | TH | TOOL_NAME_ASK_USER_QUESTION | chunks.89.mjs:566 | constant ("AskUserQuestion") |
+| Fw | TOOL_NAME_ASK_USER_QUESTION (alt) | chunks.90.mjs:3123 | constant ("AskUserQuestion") |
 | Qp7 | ASK_QUESTION_DESCRIPTION | chunks.89.mjs:570 | constant |
 | gp7 | ASK_QUESTION_PROMPT | chunks.89.mjs:572 | constant |
 | Fp7 | MAX_QUESTIONS | chunks.89.mjs:568 | constant (12) |
+| xv | TodoWriteTool | chunks.84.mjs:1970 | tool object |
+| MB | TOOL_NAME_TODO_WRITE | chunks.84.mjs:1401 | constant ("TodoWrite") |
 | - | TOOL_NAME_EXIT_WORKTREE | chunks.89.mjs | constant ("ExitWorktree") |
 | - | ExitWorktreeTool | chunks.139.mjs | tool object |
 
@@ -400,7 +428,8 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| wt | SkillTool | chunks.132.mjs:820 | tool object |
+| m66 | SkillTool | chunks.137.mjs:46 | tool object |
+| wt | SkillTool (legacy) | chunks.132.mjs:820 | tool object |
 | oH | TOOL_NAME_SKILL | chunks.90.mjs:2596 | constant ("Skill") |
 | dM | TOOL_NAME_TOOL_SEARCH | chunks.89.mjs:652 | constant ("ToolSearch") |
 | pp7 | DEFERRED_TOOLS_HEADER | chunks.89.mjs:654 | constant |
@@ -448,10 +477,12 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| JL | TOOL_NAME_WEB_SEARCH | chunks.47.mjs:621 | constant ("WebSearch") |
-| xO | TOOL_NAME_WEB_FETCH | chunks.46.mjs:2559 | constant ("WebFetch") |
-| - | WebFetchTool | chunks.47.mjs | tool object |
-| - | WebSearchTool | chunks.46.mjs, chunks.14-15.mjs | tool object |
+| BX | WebFetchTool | chunks.143.mjs:1308 | tool object |
+| lk1 | WebSearchTool | chunks.143.mjs:2393 | tool object |
+| sO | TOOL_NAME_WEB_FETCH | chunks.56.mjs:80 | constant ("WebFetch") |
+| jv | TOOL_NAME_WEB_SEARCH | chunks.56.mjs:1287 | constant ("WebSearch") |
+| JL | TOOL_NAME_WEB_SEARCH (alt) | chunks.47.mjs:621 | constant ("WebSearch") |
+| xO | TOOL_NAME_WEB_FETCH (alt) | chunks.46.mjs:2559 | constant ("WebFetch") |
 | - | htmlToMarkdown | chunks.47.mjs | function |
 | - | extractWithPrompt | chunks.47.mjs | function |
 | - | executeSearch | chunks.46.mjs | function |

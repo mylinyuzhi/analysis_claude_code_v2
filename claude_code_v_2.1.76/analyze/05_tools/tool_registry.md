@@ -717,60 +717,71 @@ TaskOutput.call({ task_id: "xxx" })
 
 ## Symbol Index
 
+> **Validated against v2.1.76 source** - All symbols verified in source code.
+
 ### Tool Objects
 
-| Obfuscated | Readable | File | Type |
-|------------|----------|------|------|
-| `i5` | FileReadTool | chunks.146.mjs | object |
-| `sW` | EditTool | chunks.134.mjs:2124 | object |
-| `vj` | FileWriteTool | chunks.146.mjs:436 | object |
-| `tS` | GrepTool | chunks.76.mjs:1129 | object |
-| `WB` | GlobTool | chunks.76.mjs:1495 | object |
-| `rj1` | AgentTool | chunks.132.mjs:85 | object |
-| `vW6` | TaskStopTool | chunks.139.mjs:1537 | object |
-| `kW6` | TaskOutputTool | chunks.139.mjs:1922 | object |
-| `$l4` | TaskGetTool | chunks.140.mjs:2954 | object |
-| `Ll4` | TaskListTool | chunks.141.mjs:300 | object |
-| `bO` | TodoWriteTool | chunks.48.mjs:773 | object |
-| `gd` | NotebookEditTool | chunks.134.mjs | object |
-| `wt` | SkillTool | chunks.132.mjs | object |
-| `dM` | ToolSearchTool | chunks.140.mjs | object |
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `L9` | FileReadTool | chunks.90.mjs:2052 | tool object |
+| `xX` | FileWriteTool | chunks.139.mjs:45 | tool object |
+| `pX` | EditTool | chunks.170.mjs:1116 | tool object |
+| `Vl` | NotebookEditTool | chunks.139.mjs:1200 | tool object |
+| `bb` | GrepTool | chunks.139.mjs:482 | tool object |
+| `rg` | GlobTool | chunks.139.mjs:880 | tool object |
+| `J4` | BashTool | chunks.172.mjs:84 | tool object |
+| `QW6` | AgentTool | chunks.136.mjs:1512 | tool object |
+| `Uk1` | TaskStopTool | chunks.143.mjs:1651 | tool object |
+| `ck1` | TaskOutputTool | chunks.143.mjs:2036 | tool object |
+| `TAq` | TaskCreateTool | chunks.144.mjs:2839 | tool object |
+| `hAq` | TaskGetTool | chunks.144.mjs:2991 | tool object |
+| `rAq` | TaskListTool | chunks.145.mjs:417 | tool object |
+| `gAq` | TaskUpdateTool | chunks.145.mjs:136 | tool object |
+| `xv` | TodoWriteTool | chunks.84.mjs:1970 | tool object |
+| `m66` | SkillTool | chunks.137.mjs:46 | tool object |
+| `BX` | WebFetchTool | chunks.143.mjs:1308 | tool object |
+| `lk1` | WebSearchTool | chunks.143.mjs:2393 | tool object |
+| `Ki6` | EnterPlanModeTool | chunks.144.mjs:1579 | tool object |
+| `zD` | ExitPlanModeTool | chunks.143.mjs:2802 | tool object |
+| `TbY` | CronCreateTool | chunks.145.mjs:950 | tool object |
+| `VbY` | CronDeleteTool | chunks.145.mjs:1066 | tool object |
+| `ybY` | CronListTool | chunks.145.mjs:1173 | tool object |
+| `wF8` | LSPTool | chunks.144.mjs:877 | tool object |
+| `dK` | findTool | chunks.56.mjs:1592 | function |
+| `ng` | getAllTools | chunks.145.mjs:2781 | function |
 
 ### Tool Names (Constants)
 
-| Obfuscated | Readable | Value |
-|------------|----------|-------|
-| `s7` | TOOL_NAME_READ | "Read" |
-| `_K` | TOOL_NAME_WRITE | "Write" |
-| `R4` | TOOL_NAME_EDIT | "Edit" |
-| `bJ` | TOOL_NAME_NOTEBOOK_EDIT | "NotebookEdit" |
-| `N9` | TOOL_NAME_GREP | "Grep" |
-| `qz` | TOOL_NAME_GLOB | "Glob" |
-| `JL` | TOOL_NAME_WEB_SEARCH | "WebSearch" |
-| `xO` | TOOL_NAME_WEB_FETCH | "WebFetch" |
-| `I46` | TOOL_NAME_TASK | "Task" |
-| `Q7` | TOOL_NAME_BASH | "Bash" |
-| `OC` | TOOL_NAME_TASK_STOP | "TaskStop" |
-| `$C` | TOOL_NAME_TASK_OUTPUT | "TaskOutput" |
-| `lt` | TOOL_NAME_TASK_GET | "TaskGet" |
-| `it` | TOOL_NAME_TASK_LIST | "TaskList" |
-| `Nh` | TOOL_NAME_TASK_CREATE | "TaskCreate" |
-| `ck` | TOOL_NAME_TASK_UPDATE | "TaskUpdate" |
-| `MB` | TOOL_NAME_TODO_WRITE | "TodoWrite" |
-| `vh` | TOOL_NAME_TEAM_CREATE | "TeamCreate" |
-| `VK1` | TOOL_NAME_TEAM_DELETE | "TeamDelete" |
-| `hI` | TOOL_NAME_SEND_MESSAGE | "SendMessage" |
-| `N_6` | TOOL_NAME_ENTER_PLAN_MODE | "EnterPlanMode" |
-| `bW` | TOOL_NAME_EXIT_PLAN_MODE | "ExitPlanMode" |
-| `TH` | TOOL_NAME_ASK_USER_QUESTION | "AskUserQuestion" |
-| `oH` | TOOL_NAME_SKILL | "Skill" |
-| `dM` | TOOL_NAME_TOOL_SEARCH | "ToolSearch" |
-| `cD` | STRUCTURED_OUTPUT_NAME | "StructuredOutput" |
-| — | TOOL_NAME_ENTER_WORKTREE | "EnterWorktree" (v2.1.72+) |
-| — | TOOL_NAME_EXIT_WORKTREE | "ExitWorktree" (v2.1.72+) |
-| `ER` | TOOL_NAME_CRON_CREATE | "CronCreate" (v2.1.76) |
-| `ed` | TOOL_NAME_CRON_DELETE | "CronDelete" (v2.1.76) |
-| `SW6` | TOOL_NAME_CRON_LIST | "CronList" (v2.1.76) |
+| Obfuscated | Readable | Value | File:Line |
+|------------|----------|-------|-----------|
+| `s7` | TOOL_NAME_READ | "Read" | chunks.56.mjs:173 |
+| `_K` | TOOL_NAME_WRITE | "Write" | chunks.56.mjs:1234 |
+| `R4` | TOOL_NAME_EDIT | "Edit" | chunks.56.mjs:102 |
+| `bJ` | TOOL_NAME_NOTEBOOK_EDIT | "NotebookEdit" | chunks.56.mjs:1240 |
+| `N9` | TOOL_NAME_GREP | "Grep" | chunks.56.mjs:1215 |
+| `qz` | TOOL_NAME_GLOB | "Glob" | chunks.56.mjs:1192 |
+| `Q7` | TOOL_NAME_BASH | "Bash" | chunks.54.mjs:2264 |
+| `r4` | TOOL_NAME_AGENT | "Agent" | chunks.40.mjs:406 |
+| `I46` | TOOL_NAME_TASK | "Task" | chunks.40.mjs:408 |
+| `OC` | TOOL_NAME_TASK_STOP | "TaskStop" | chunks.40.mjs:412 |
+| `$C` | TOOL_NAME_TASK_OUTPUT | "TaskOutput" | - |
+| `TR` | TOOL_NAME_TASK_CREATE | "TaskCreate" | chunks.90.mjs:2592 |
+| `lt` | TOOL_NAME_TASK_GET | "TaskGet" | chunks.91.mjs:41 |
+| `it` | TOOL_NAME_TASK_LIST | "TaskList" | chunks.91.mjs:43 |
+| `ck` | TOOL_NAME_TASK_UPDATE | "TaskUpdate" | chunks.90.mjs:2594 |
+| `MB` | TOOL_NAME_TODO_WRITE | "TodoWrite" | chunks.84.mjs:1401 |
+| `sO` | TOOL_NAME_WEB_FETCH | "WebFetch" | chunks.56.mjs:80 |
+| `jv` | TOOL_NAME_WEB_SEARCH | "WebSearch" | chunks.56.mjs:1287 |
+| `dt` | TOOL_NAME_ENTER_PLAN_MODE | "EnterPlanMode" | chunks.90.mjs:3121 |
+| `aJ` | TOOL_NAME_EXIT_PLAN_MODE | "ExitPlanMode" | chunks.90.mjs:507 |
+| `Fw` | TOOL_NAME_ASK_USER_QUESTION | "AskUserQuestion" | chunks.90.mjs:3123 |
+| `oH` | TOOL_NAME_SKILL | "Skill" | chunks.90.mjs:2596 |
+| `ER` | TOOL_NAME_CRON_CREATE | "CronCreate" | chunks.91.mjs:192 |
+| `ed` | TOOL_NAME_CRON_DELETE | "CronDelete" | chunks.91.mjs:194 |
+| `SW6` | TOOL_NAME_CRON_LIST | "CronList" | chunks.91.mjs:196 |
+| `vh` | TOOL_NAME_TEAM_CREATE | "TeamCreate" | - |
+| `VK1` | TOOL_NAME_TEAM_DELETE | "TeamDelete" | - |
+| `hI` | TOOL_NAME_SEND_MESSAGE | "SendMessage" | chunks.91.mjs:39 |
 
 ### Tool Whitelist Constants
 
@@ -799,24 +810,22 @@ TaskOutput.call({ task_id: "xxx" })
 
 ### Key Functions
 
-| Obfuscated | Readable | Purpose |
-|------------|----------|---------|
-| `g4` | resolvePath | Path resolution |
-| `AX` | detectEncoding | File encoding detection |
-| `ft` | writeFileWithEncoding | Encoding-aware file write |
-| `dR` | agentLoopRunner | Agent execution loop |
-| `NR` | generateAgentId | Task ID generation |
-| `lm` | validateBashCommand | Bash security validation |
-| `Vg1` | getKillHandlerForType | Get kill handler for task type |
-| `IhY` | getAllKillHandlers | Returns all kill handlers |
-| `hjA` | killBashTask | Terminate bash task |
-| `EW6` | buildTaskSnapshot | Task output builder |
-| `nyY` | pollUntilDone | Task output polling |
-| `M_6` | readFullOutput | Read task output file |
-| `WM` | getTaskList | Get structured task list |
-| `lg` | findTaskById | Task lookup by ID |
-| `n_1` | createTask | Create task in list |
-| `sq6` | deleteTask | Delete task from list |
+| Obfuscated | Readable | Purpose | File:Line |
+|------------|----------|---------|-----------|
+| `dK` | findTool | Find tool by name/alias | chunks.56.mjs:1592 |
+| `z3` | matchesToolNameOrAlias | Helper for findTool | chunks.56.mjs:1588 |
+| `ng` | getAllTools | Returns all built-in tools | chunks.145.mjs:2781 |
+| `g4` | resolvePath | Path resolution | chunks.10.mjs:1159 |
+| `AX` | detectEncoding | File encoding detection | chunks.134.mjs |
+| `ft` | writeFileWithEncoding | Encoding-aware file write | chunks.134.mjs |
+| `Vg1` | getKillHandlerForType | Get kill handler for task type | chunks.142.mjs:1652 |
+| `IhY` | getAllKillHandlers | Returns all kill handlers | chunks.142.mjs:1648 |
+| `EW6` | buildTaskSnapshot | Task output builder | chunks.139.mjs:1687 |
+| `nyY` | pollUntilDone | Task output polling | chunks.139.mjs:1716 |
+| `WM` | getTaskList | Get structured task list | chunks.140.mjs |
+| `lg` | findTaskById | Task lookup by ID | chunks.140.mjs |
+| `n_1` | createTask | Create task in list | chunks.140.mjs |
+| `sq6` | deleteTask | Delete task from list | chunks.141.mjs |
 
 ### Kill Handlers (TaskStop)
 

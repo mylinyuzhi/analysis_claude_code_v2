@@ -10,11 +10,10 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Tools section)
 
 Key functions in this document:
-- `WebFetchTool` - WebFetch tool definition - chunks.47.mjs
-- `WebSearchTool` - WebSearch tool definition - chunks.46.mjs
-- `fetchUrl` - URL fetching implementation
-- `webSearch` - Search implementation
-- `extractContent` - HTML to markdown conversion
+- `WebFetchTool` (`BX`) - WebFetch tool definition - chunks.143.mjs:1308
+- `WebSearchTool` (`lk1`) - WebSearch tool definition - chunks.143.mjs:2393
+- `TOOL_NAME_WEB_FETCH` (`sO`) - chunks.56.mjs:80
+- `TOOL_NAME_WEB_SEARCH` (`jv`) - chunks.56.mjs:1287
 
 ---
 
@@ -29,6 +28,12 @@ LLM generates tool_use { url, prompt }
  ├── URL format validation
  ├── Protocol check (http/https only)
  └── Redirect policy check
+         │
+         ▼
+ checkPermissions()
+ ├── Preapproved hosts check (eV1 list)
+ ├── Path-based preapproval
+ └── Permission rules lookup
          │
          ▼
  call() execution
@@ -48,7 +53,14 @@ LLM generates tool_use { query }
          │
          ▼
  validateInput()
- └── Query validation
+ ├── Query validation (non-empty)
+ └── Domain filter exclusivity check
+         │
+         ▼
+ isEnabled() check
+ ├── First-party: always enabled
+ ├── Vertex: enabled for Claude 4 models
+ └── Foundry: always enabled
          │
          ▼
  call() execution
@@ -72,93 +84,132 @@ LLM generates tool_use { query }
 ```javascript
 // ============================================
 // WebFetchTool - URL content fetching tool
-// Location: chunks.47.mjs
+// Location: chunks.143.mjs:1308-1384
 // ============================================
+
+// ORIGINAL (for source lookup):
+    BX = {
+        name: sO,
+        searchHint: "fetch and extract content from a URL",
+        maxResultSizeChars: 1e5,
+        shouldDefer: !0,
+        async description(A) {
+            let { url: q } = A;
+            try {
+                return `Claude wants to fetch content from ${new URL(q).hostname}`
+            } catch {
+                return "Claude wants to fetch content from this URL"
+            }
+        },
+        userFacingName() {
+            return "Fetch"
+        },
+        getToolUseSummary: pg8,
+        getActivityDescription(A) {
+            let q = pg8(A);
+            return q ? `Fetching ${q}` : "Fetching web page"
+        },
+        isEnabled() {
+            return !0
+        },
+        get inputSchema() {
+            return hCY()
+        },
+        get outputSchema() {
+            return SCY()
+        },
+        isConcurrencySafe() {
+            return !0
+        },
+        isReadOnly() {
+            return !0
+        },
+        toAutoClassifierInput(A) {
+            return A.url
+        },
+        async checkPermissions(A, q) {
+            // Permission checking logic with preapproved hosts
+            // ...
+        }
+        // ... more methods
+    }
 
 // READABLE (for understanding):
 const WebFetchTool = {
     name: "WebFetch",
+    searchHint: "fetch and extract content from a URL",
     maxResultSizeChars: 100000,
-    strict: true,
-    isConcurrencySafe: true,
-    isReadOnly: true,
+    shouldDefer: true,  // Deferred tool - loaded on demand
 
-    async description() {
-        return "Fetches content from a specified URL and processes it using an AI model";
+    async description(input) {
+        try {
+            return `Claude wants to fetch content from ${new URL(input.url).hostname}`;
+        } catch {
+            return "Claude wants to fetch content from this URL";
+        }
     },
 
-    get inputSchema() {
-        return z.strictObject({
-            url: z.string().url()
-                .describe("The URL to fetch content from"),
-
-            prompt: z.string()
-                .describe("The prompt to run on the fetched content. Describe what information you want to extract from the page.")
-        });
+    userFacingName() {
+        return "Fetch";
     },
 
-    get outputSchema() {
-        return z.object({
-            content: z.string()
-                .describe("The extracted content from the URL based on the prompt"),
-            url: z.string()
-                .describe("The URL that was fetched"),
-            statusCode: z.number()
-                .describe("HTTP response status code")
-        });
+    isEnabled() {
+        return true;  // Always enabled
     },
 
-    async call({ url, prompt }, context) {
-        // Step 1: Fetch URL with timeout
-        let response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'User-Agent': 'Claude Code (claude.com/claude-code)',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-            },
-            redirect: 'follow',
-            signal: AbortSignal.timeout(30000)
-        });
+    isConcurrencySafe() {
+        return true;  // Multiple fetches can run in parallel
+    },
 
-        // Step 2: Check response
-        if (!response.ok) {
-            return {
-                data: {
-                    content: `Failed to fetch URL: HTTP ${response.status}`,
-                    url: url,
-                    statusCode: response.status
+    isReadOnly() {
+        return true;  // Read-only operation
+    },
+
+    toAutoClassifierInput(input) {
+        return input.url;  // URL used for auto-classification
+    },
+
+    async checkPermissions(input, context) {
+        let permissionContext = context.getAppState().toolPermissionContext;
+        try {
+            let { url } = input;
+            let parsedUrl = new URL(url);
+            let hostname = parsedUrl.hostname;
+            let pathname = parsedUrl.pathname;
+
+            // Check preapproved hosts (eV1 list)
+            for (let preapproved of PREAPPROVED_HOSTS) {
+                if (preapproved.includes("/")) {
+                    // Host and path match
+                    let [host, ...pathParts] = preapproved.split("/");
+                    let path = "/" + pathParts.join("/");
+                    if (hostname === host && pathname.startsWith(path)) {
+                        return {
+                            behavior: "allow",
+                            updatedInput: input,
+                            decisionReason: {
+                                type: "other",
+                                reason: "Preapproved host and path"
+                            }
+                        };
+                    }
+                } else if (hostname === preapproved) {
+                    return {
+                        behavior: "allow",
+                        updatedInput: input,
+                        decisionReason: {
+                            type: "other",
+                            reason: "Preapproved host"
+                        }
+                    };
                 }
-            };
-        }
-
-        // Step 3: Get content type
-        let contentType = response.headers.get('content-type') || '';
-
-        // Step 4: Read response body
-        let rawContent = await response.text();
-
-        // Step 5: Process based on content type
-        let processedContent;
-        if (contentType.includes('text/html')) {
-            processedContent = htmlToMarkdown(rawContent);
-        } else if (contentType.includes('application/json')) {
-            processedContent = JSON.stringify(JSON.parse(rawContent), null, 2);
-        } else {
-            processedContent = rawContent;
-        }
-
-        // Step 6: Extract based on prompt
-        let extractedContent = await extractWithPrompt(processedContent, prompt);
-
-        return {
-            data: {
-                content: extractedContent,
-                url: url,
-                statusCode: response.status
             }
-        };
+        } catch {}
+        // Check permission rules...
     }
 };
+
+// Mapping: BX→WebFetchTool, sO→TOOL_NAME_WEB_FETCH, hCY→webFetchInputSchema, SCY→webFetchOutputSchema
 ```
 
 ---
@@ -172,76 +223,185 @@ const WebFetchTool = {
 ```javascript
 // ============================================
 // WebSearchTool - Web search tool definition
-// Location: chunks.46.mjs
+// Location: chunks.143.mjs:2393-2469
 // ============================================
+
+// ORIGINAL (for source lookup):
+    lk1 = {
+        name: jv,
+        searchHint: "search the web for current information",
+        maxResultSizeChars: 1e5,
+        shouldDefer: !0,
+        async description(A) {
+            return `Claude wants to search the web for: ${A.query}`
+        },
+        userFacingName() {
+            return "Web Search"
+        },
+        getToolUseSummary: rg8,
+        getActivityDescription(A) {
+            let q = rg8(A);
+            return q ? `Searching for ${q}` : "Searching the web"
+        },
+        isEnabled() {
+            let A = QA(),
+                q = cK();
+            if (A === "firstParty") return !0;
+            if (A === "vertex") return q.includes("claude-opus-4") || q.includes("claude-sonnet-4") || q.includes("claude-haiku-4");
+            if (A === "foundry") return !0;
+            return !1
+        },
+        get inputSchema() {
+            return QCY()
+        },
+        get outputSchema() {
+            return dCY()
+        },
+        isConcurrencySafe() {
+            return !0
+        },
+        isReadOnly() {
+            return !0
+        },
+        toAutoClassifierInput(A) {
+            return A.query
+        },
+        async checkPermissions(A) {
+            return {
+                behavior: "passthrough",
+                message: "WebSearchTool requires permission.",
+                suggestions: [{
+                    type: "addRules",
+                    rules: [{ toolName: jv }],
+                    behavior: "allow",
+                    destination: "localSettings"
+                }]
+            }
+        },
+        async validateInput(A) {
+            let { query: q, allowed_domains: K, blocked_domains: Y } = A;
+            if (!q.length) return {
+                result: !1,
+                message: "Error: Missing query",
+                errorCode: 1
+            };
+            if (K?.length && Y?.length) return {
+                result: !1,
+                message: "Error: Cannot specify both allowed_domains and blocked_domains in the same request",
+                errorCode: 2
+            };
+        }
+    }
 
 // READABLE (for understanding):
 const WebSearchTool = {
     name: "WebSearch",
-    maxResultSizeChars: 50000,
-    strict: true,
-    isConcurrencySafe: true,
-    isReadOnly: true,
+    searchHint: "search the web for current information",
+    maxResultSizeChars: 100000,
+    shouldDefer: true,  // Deferred tool
 
-    async description() {
-        return "Search the web for current information";
+    async description(input) {
+        return `Claude wants to search the web for: ${input.query}`;
     },
 
-    get inputSchema() {
-        return z.strictObject({
-            query: z.string()
-                .describe("The search query"),
-
-            allowed_domains: z.array(z.string()).optional()
-                .describe("Only include results from these domains"),
-
-            blocked_domains: z.array(z.string()).optional()
-                .describe("Exclude results from these domains")
-        });
+    userFacingName() {
+        return "Web Search";
     },
 
-    get outputSchema() {
-        return z.object({
-            results: z.array(z.object({
-                title: z.string(),
-                url: z.string().url(),
-                snippet: z.string()
-            })),
-            query: z.string()
-        });
-    },
+    isEnabled() {
+        let searchProvider = getSearchProvider();
+        let currentModel = getCurrentModel();
 
-    async call({ query, allowed_domains, blocked_domains }, context) {
-        // Build search parameters
-        let searchParams = {
-            query: query,
-            max_results: 10
-        };
+        // First-party: always enabled
+        if (searchProvider === "firstParty") return true;
 
-        if (allowed_domains?.length) {
-            searchParams.include_domains = allowed_domains;
+        // Vertex: only enabled for Claude 4 models
+        if (searchProvider === "vertex") {
+            return currentModel.includes("claude-opus-4") ||
+                   currentModel.includes("claude-sonnet-4") ||
+                   currentModel.includes("claude-haiku-4");
         }
 
-        if (blocked_domains?.length) {
-            searchParams.exclude_domains = blocked_domains;
-        }
+        // Foundry: always enabled
+        if (searchProvider === "foundry") return true;
 
-        // Execute search via API
-        let searchResponse = await executeSearch(searchParams);
+        return false;
+    },
 
+    isConcurrencySafe() {
+        return true;  // Multiple searches can run in parallel
+    },
+
+    isReadOnly() {
+        return true;
+    },
+
+    toAutoClassifierInput(input) {
+        return input.query;
+    },
+
+    async checkPermissions(input) {
         return {
-            data: {
-                results: searchResponse.results,
-                query: query
-            }
+            behavior: "passthrough",
+            message: "WebSearchTool requires permission.",
+            suggestions: [{
+                type: "addRules",
+                rules: [{ toolName: "WebSearch" }],
+                behavior: "allow",
+                destination: "localSettings"
+            }]
         };
+    },
+
+    async validateInput(input) {
+        let { query, allowed_domains, blocked_domains } = input;
+
+        if (!query.length) {
+            return {
+                result: false,
+                message: "Error: Missing query",
+                errorCode: 1
+            };
+        }
+
+        // Cannot specify both allow and block lists
+        if (allowed_domains?.length && blocked_domains?.length) {
+            return {
+                result: false,
+                message: "Error: Cannot specify both allowed_domains and blocked_domains in the same request",
+                errorCode: 2
+            };
+        }
+
+        return { result: true };
     }
 };
+
+// Mapping: lk1→WebSearchTool, jv→TOOL_NAME_WEB_SEARCH, QCY→webSearchInputSchema, dCY→webSearchOutputSchema
 ```
 
 ---
 
-## 3. Important Usage Rules
+## 3. isEnabled() Logic - WebSearch Provider Detection
+
+**What it does:** Determines if WebSearch is available based on the search provider and model.
+
+**How it works:**
+1. `QA()` returns the search provider type:
+   - `"firstParty"` - Anthropic's built-in search (always enabled)
+   - `"vertex"` - Google Vertex AI (only for Claude 4 models)
+   - `"foundry"` - Internal foundry (always enabled)
+
+2. `cK()` returns the current model ID
+
+**Why this approach:**
+- First-party search is available to all users
+- Vertex AI has different availability based on model capabilities
+- Foundry is for internal testing/development
+
+---
+
+## 4. Important Usage Rules
 
 ### CRITICAL: Source Attribution Required
 
