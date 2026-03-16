@@ -449,23 +449,23 @@ function normalizeAttachmentForAPI(attachment) {
 
 ---
 
-### wrapWithSystemReminderTags (_9)
+### wrapWithSystemReminderTags (b5)
 
 ```javascript
 // ============================================
 // wrapWithSystemReminderTags - Wraps text content in <system-reminder> XML tags
-// Location: chunks.173.mjs:496-523
+// Location: chunks.173.mjs:2496-2523
 // ============================================
 
 // ORIGINAL (for source lookup):
-function _9(A) {
+function b5(A) {
     return A.map((q) => {
         if (typeof q.message.content === "string") return {
-            ...q, message: { ...q.message, content: tI(q.message.content) }
+            ...q, message: { ...q.message, content: af(q.message.content) }
         };
         else if (Array.isArray(q.message.content)) {
             let K = q.message.content.map((Y) => {
-                if (Y.type === "text") return { ...Y, text: tI(Y.text) };
+                if (Y.type === "text") return { ...Y, text: af(Y.text) };
                 return Y
             });
             return { ...q, message: { ...q.message, content: K } }
@@ -490,7 +490,7 @@ function wrapWithSystemReminderTags(messages) {
     });
 }
 
-// Mapping: _9->wrapWithSystemReminderTags, A->messages, q->msg, tI->wrapInXmlTag, K->wrappedBlocks, Y->block
+// Mapping: b5->wrapWithSystemReminderTags, A->messages, q->msg, af->wrapInXmlTag, K->wrappedBlocks, Y->block
 ```
 
 **What it does:** Takes an array of message objects and wraps all their text content in `<system-reminder>` XML tags.
@@ -511,17 +511,19 @@ function wrapWithSystemReminderTags(messages) {
 
 ---
 
-### wrapInXmlTag (tI)
+### wrapInXmlTag (af)
 
 ```javascript
 // ============================================
 // wrapInXmlTag - Creates the <system-reminder> XML wrapper string
-// Location: chunks.173.mjs:490-494
+// Location: chunks.173.mjs:2490-2494
 // ============================================
 
 // ORIGINAL (for source lookup):
-function tI(A) {
-    return `<system-reminder>\n${A}\n</system-reminder>`
+function af(A) {
+    return `<system-reminder>
+${A}
+</system-reminder>`
 }
 
 // READABLE (for understanding):
@@ -529,29 +531,29 @@ function wrapInXmlTag(content) {
     return `<system-reminder>\n${content}\n</system-reminder>`;
 }
 
-// Mapping: tI->wrapInXmlTag, A->content
+// Mapping: af->wrapInXmlTag, A->content
 ```
 
 A minimal function that wraps any string in `<system-reminder>` open/close tags with newlines. This is the fundamental building block for all system reminder formatting.
 
 ---
 
-### createUserMessage (c6)
+### createUserMessage (p1)
 
 ```javascript
 // ============================================
 // createUserMessage - Creates a user-role message object for the API
-// Location: chunks.172.mjs:2876-2912
+// Location: chunks.173.mjs:1378+
 // ============================================
 
 // ORIGINAL (for source lookup):
-function c6({ content: A, isMeta: q, isVisibleInTranscriptOnly: K, isCompactSummary: Y,
+function p1({ content: A, isMeta: q, isVisibleInTranscriptOnly: K, isCompactSummary: Y,
     summarizeMetadata: z, toolUseResult: w, mcpMeta: H, uuid: $, thinkingMetadata: O,
     timestamp: _, todos: J, imagePasteIds: X, sourceToolAssistantUUID: D, permissionMode: j }) {
     return {
-        type: "user", message: { role: "user", content: A || iv },
+        type: "user", message: { role: "user", content: A || wE },
         isMeta: q, isVisibleInTranscriptOnly: K, isCompactSummary: Y,
-        summarizeMetadata: z, uuid: $ ?? _f(), timestamp: _ ?? new Date().toISOString(),
+        summarizeMetadata: z, uuid: $ ?? SE(), timestamp: _ ?? new Date().toISOString(),
         toolUseResult: w, mcpMeta: H, thinkingMetadata: O, todos: J,
         imagePasteIds: X, sourceToolAssistantUUID: D, permissionMode: j
     }
@@ -580,10 +582,10 @@ function createUserMessage({ content, isMeta, isVisibleInTranscriptOnly, isCompa
     };
 }
 
-// Mapping: c6->createUserMessage, A->content, q->isMeta, K->isVisibleInTranscriptOnly,
+// Mapping: p1->createUserMessage, A->content, q->isMeta, K->isVisibleInTranscriptOnly,
 // Y->isCompactSummary, z->summarizeMetadata, w->toolUseResult, H->mcpMeta,
 // $->uuid, O->thinkingMetadata, _->timestamp, J->todos, X->imagePasteIds,
-// D->sourceToolAssistantUUID, j->permissionMode, iv->EMPTY_CONTENT, _f->generateUUID
+// D->sourceToolAssistantUUID, j->permissionMode, wE->EMPTY_CONTENT, SE->generateUUID
 ```
 
 **What it does:** Factory function that creates a user-role message object with all the metadata fields the system uses for internal message tracking.
@@ -646,24 +648,24 @@ The full pipeline from raw data to API-ready message:
 
 1. **Producer** (e.g., `wIY` for changed files) gathers raw data and creates a typed attachment object: `{ type: "edited_text_file", filename: "...", snippet: "..." }`
 
-2. **K2z** (`normalizeAttachmentForAPI`) matches on `type` and constructs the content:
+2. **Ui8** (`normalizeAttachmentForAPI`) matches on `type` and constructs the content:
    - Creates informational text with context for the model
-   - Wraps in `c6()` to create a user message with `isMeta: true`
-   - Optionally wraps in `_9()` to add `<system-reminder>` XML tags
+   - Wraps in `p1()` to create a user message with `isMeta: true`
+   - Optionally wraps in `b5()` to add `<system-reminder>` XML tags
 
 3. **Result** is an array of user-role messages ready to be inserted into the conversation stream before the next API call.
 
 ### Two wrapping patterns:
 
-**Pattern A: `_9` wrapping (most reminder types)**
+**Pattern A: `b5` wrapping (most reminder types)**
 ```
-Producer -> K2z -> c6({content: "...", isMeta: true}) -> _9() adds <system-reminder> tags
+Producer -> Ui8 -> p1({content: "...", isMeta: true}) -> b5() adds <system-reminder> tags
 ```
 Used for: directory, edited_text_file, file, todo, plan_mode, skill_listing, queued_command, etc.
 
-**Pattern B: Inline `tI` wrapping (status/notification types)**
+**Pattern B: Inline `af` wrapping (status/notification types)**
 ```
-Producer -> K2z -> c6({content: tI("..."), isMeta: true})
+Producer -> Ui8 -> p1({content: af("..."), isMeta: true})
 ```
 Used for: task_status, task_progress, token_usage, budget_usd, hook_blocking_error, hook_success, etc.
 
@@ -673,7 +675,7 @@ The distinction is subtle: Pattern A creates the message first and then wraps th
 
 ## Silent Types: Zero Token Notifications
 
-Not all attachment types produce API messages. The normalizer (`K2z`) includes a category of **silent types** that return an empty array `[]`, resulting in zero token cost while still providing UI visibility.
+Not all attachment types produce API messages. The normalizer (`Ui8`) includes a category of **silent types** that return an empty array `[]`, resulting in zero token cost while still providing UI visibility.
 
 ### Silent Type Mechanism
 
@@ -681,14 +683,14 @@ Not all attachment types produce API messages. The normalizer (`K2z`) includes a
 ┌──────────────────────────────────────────────────────────────────────┐
 │                    Visible Attachment Flow                            │
 │                                                                       │
-│  Producer → Attachment → K2z → [Messages] → API → LLM (tokens used) │
+│  Producer → Attachment → Ui8 → [Messages] → API → LLM (tokens used) │
 │                                                                       │
 └──────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────────────┐
 │                    Silent Attachment Flow                             │
 │                                                                       │
-│  Producer → Attachment → K2z → [] → (No API message)                 │
+│  Producer → Attachment → Ui8 → [] → (No API message)                 │
 │                              │                                        │
 │                              └─> UI renders indicator                 │
 │                              └─> Internal state updated               │
@@ -707,8 +709,8 @@ The clearest example of the silent mechanism is the difference between `file` an
 | **API Messages** | Synthetic `tool_use` + `tool_result` | None (`return []`) |
 | **Token Cost** | ~100-1000+ tokens | 0 tokens |
 | **UI Display** | "Read \<filename\>" | "Read \<filename\>" (identical) |
-| **Code Path** | `pd1`/`Ud1` create messages | Falls through to `return []` |
-| **Location** | chunks.173.mjs:750-763 | chunks.173.mjs:1118 |
+| **Code Path** | `nr6`/`ir6` create messages | Falls through to `return []` |
+| **Location** | chunks.174.mjs:55-79 | chunks.174.mjs:456-465 |
 
 #### Code Contrast
 
@@ -716,7 +718,7 @@ The clearest example of the silent mechanism is the difference between `file` an
 ```javascript
 case "file": {
     // Creates synthetic tool_use and tool_result messages
-    return _9([pd1(i5.name, { file_path: A.filename }), Ud1(i5, K)]);
+    return b5([nr6(L9.name, { file_path: A.filename }), ir6(L9, K)]);
 }
 ```
 
@@ -757,7 +759,7 @@ For full details, see [types_silent.md](./types_silent.md).
 
 ## Key Design Decision: Why User Messages?
 
-System reminders are injected as **user-role messages** (via `c6` with `role: "user"`), not as system messages. This is a deliberate architectural choice with several important consequences:
+System reminders are injected as **user-role messages** (via `p1` with `role: "user"`), not as system messages. This is a deliberate architectural choice with several important consequences:
 
 ### 1. Conversation Context Positioning
 
@@ -801,10 +803,10 @@ Plan mode is active. The user indicated that they do not want you to execute yet
 - Provides a consistent framing that the model has been trained/prompted to recognize
 
 **Two application methods:**
-1. `_9()` / `wrapWithSystemReminderTags`: Post-hoc wrapping of an array of messages -- applied to most reminder types
-2. `tI()` / `wrapInXmlTag`: Inline wrapping of a content string -- applied to status notifications
+1. `b5()` / `wrapWithSystemReminderTags`: Post-hoc wrapping of an array of messages -- applied to most reminder types
+2. `af()` / `wrapInXmlTag`: Inline wrapping of a content string -- applied to status notifications
 
-**Notable:** Some reminder types deliberately skip XML wrapping. For example, `teammate_mailbox` and `team_context` (handled pre-switch) construct their own `<system-reminder>` tags manually in the content string, bypassing `_9()`.
+**Notable:** Some reminder types deliberately skip XML wrapping. For example, `teammate_mailbox` and `team_context` (handled pre-switch) construct their own `<system-reminder>` tags manually in the content string, bypassing `b5()`.
 
 ---
 
@@ -812,12 +814,12 @@ Plan mode is active. The user indicated that they do not want you to execute yet
 
 Plan mode demonstrates the most sophisticated use of the reminder system, with four sub-functions:
 
-### azz (planModeReminderDispatcher)
+### Wzz (planModeReminderDispatcher)
 
 Routes to one of three variants based on context:
-- Sub-agent? -> `q2z` (subAgentPlanReminder) -- minimal instructions
-- Sparse reminder? -> `A2z` (sparsePlanReminder) -- abbreviated version
-- Full reminder -> `szz` (fullPlanReminder) -- complete 5-phase workflow OR `ezz` (iterativePlanReminder) -- interview-driven workflow
+- Sub-agent? -> `yzz` (subAgentPlanReminder) -- minimal instructions
+- Sparse reminder? -> `Ezz` (sparsePlanReminder) -- abbreviated version
+- Full reminder -> `Nzz` (fullPlanReminder) -- complete 5-phase workflow OR `iterativePlanReminder` -- interview-driven workflow
 
 **Sparse vs Full decision algorithm:**
 ```
@@ -876,18 +878,21 @@ Seven new hook event types were added to the system reminder pipeline. These cor
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `normalizeAttachmentForAPI` (K2z) - Main switch dispatcher, chunks.173.mjs:698-1131
-- `wrapWithSystemReminderTags` (_9) - XML tag wrapper for message arrays, chunks.173.mjs:496-523
-- `wrapInXmlTag` (tI) - XML tag wrapper for strings, chunks.173.mjs:490-494
-- `createUserMessage` (c6) - User message factory, chunks.172.mjs:2876-2912
+- `normalizeAttachmentForAPI` (Ui8) - Main switch dispatcher, chunks.174.mjs:1-469
+- `wrapWithSystemReminderTags` (b5) - XML tag wrapper for message arrays, chunks.173.mjs:2496-2523
+- `wrapInXmlTag` (af) - XML tag wrapper for strings, chunks.173.mjs:2490-2494
+- `createUserMessage` (p1) - User message factory, chunks.173.mjs:1378+
 - `assembleAttachments` (phY) - Parallel content assembly, chunks.142.mjs:1948-1965
 - `timedAttachmentProducer` (gw) - Telemetry-wrapped producer executor, chunks.142.mjs:1967-1991
-- `planModeReminderDispatcher` (azz) - Plan mode variant router, chunks.173.mjs:525-529
-- `fullPlanReminder` (szz) - Full 5-phase plan mode instructions, chunks.173.mjs:531-609
-- `iterativePlanReminder` (ezz) - Interview-driven plan mode, chunks.173.mjs:619-674
-- `sparsePlanReminder` (A2z) - Abbreviated plan mode reminder, chunks.173.mjs:676-683
-- `subAgentPlanReminder` (q2z) - Minimal sub-agent plan instructions, chunks.173.mjs:685-696
-- `createToolCallMessage` (pd1) - Simulates tool call display, chunks.173.mjs:1152-1157
-- `createToolResultMessage` (Ud1) - Simulates tool result display, chunks.173.mjs:1133-1150
+- `planModeReminderDispatcher` (Wzz) - Plan mode variant router, chunks.173.mjs:2525-2530
+- `fullPlanReminder` (Nzz) - Full 5-phase plan mode instructions, chunks.173.mjs:2556-2690
+- `sparsePlanReminder` (Ezz) - Abbreviated plan mode reminder, chunks.173.mjs:2692-2699
+- `subAgentPlanReminder` (yzz) - Minimal sub-agent plan instructions, chunks.173.mjs:2701-2712
+- `ultraplanCompleteReminder` (Zzz) - Ultraplan complete notification, chunks.173.mjs:2532-2538
+- `autoModeReminder` (Lzz) - Auto mode dispatcher, chunks.173.mjs:2714-2717
+- `fullAutoModeReminder` (Rzz) - Full auto mode instructions, chunks.173.mjs:2719-2732
+- `sparseAutoModeReminder` (hzz) - Sparse auto mode reminder, chunks.173.mjs:2734-2739
+- `createToolCallMessage` (nr6) - Simulates tool call display, chunks.174.mjs:490-495
+- `createToolResultMessage` (ir6) - Simulates tool result display, chunks.174.mjs:471-488
 - `isTeamMode` (l8) - Checks if running in swarm/team mode
-- `getMailboxFormatter` (Uzz) - Returns teammate message formatter, chunks.172.mjs:2769-2771
+- `getMailboxFormatter` (Kzz) - Returns teammate message formatter

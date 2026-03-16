@@ -1,8 +1,8 @@
 # System Reminder Types: Mode Control
 
-> **Module**: System Reminders - Plan/Delegate Mode Types
+> **Module**: System Reminders - Plan/Delegate/Auto Mode Types
 > **Version**: Claude Code 2.1.76
-> **Source**: `chunks.173.mjs:525-696`, `chunks.173.mjs:937-994`, `chunks.142.mjs:2034-2090`
+> **Source**: `chunks.173.mjs:2525-2740` (mode reminders), `chunks.142.mjs:2034-2090`
 
 ---
 
@@ -12,13 +12,15 @@
 - [v2.1.76 Changes](#v2176-changes)
 - [Plan Mode Architecture](#plan-mode-architecture)
 - [plan_mode](#plan_mode)
-  - [Full Variant (szz)](#full-variant-szz)
-  - [Iterative Variant (ezz)](#iterative-variant-ezz)
-  - [Sparse Variant (A2z)](#sparse-variant-a2z)
-  - [Subagent Variant (q2z)](#subagent-variant-q2z)
+  - [Full Variant (Nzz)](#full-variant-nzz)
+  - [Sparse Variant (Ezz)](#sparse-variant-ezz)
+  - [Subagent Variant (yzz)](#subagent-variant-yzz)
+  - [Ultraplan Complete (Zzz)](#ultraplan-complete-zzz)
 - [plan_mode_reentry](#plan_mode_reentry)
 - [plan_mode_exit](#plan_mode_exit)
 - [plan_file_reference](#plan_file_reference)
+- [auto_mode (v2.1.76)](#auto_mode-v2176)
+- [auto_mode_exit (v2.1.76)](#auto_mode_exit-v2176)
 - [delegate_mode](#delegate_mode)
 - [delegate_mode_exit](#delegate_mode_exit)
 - [Variant Selection Logic](#variant-selection-logic)
@@ -34,10 +36,12 @@ Mode control types manage special operational modes:
 2. **plan_mode_reentry** - Re-entering plan mode after exit
 3. **plan_mode_exit** - Exiting plan mode
 4. **plan_file_reference** - References existing plan file (post-compact or session resume)
-5. **delegate_mode** - Activates team delegate mode
-6. **delegate_mode_exit** - Exiting delegate mode
+5. **auto_mode** (v2.1.76) - Activates autonomous execution mode
+6. **auto_mode_exit** (v2.1.76) - Exiting auto mode
+7. **delegate_mode** - Activates team delegate mode
+8. **delegate_mode_exit** - Exiting delegate mode
 
-Plan mode has the most complex reminder system with **four variants** optimized for different scenarios.
+Plan mode has the most complex reminder system with **four variants** optimized for different scenarios. Auto mode (new in v2.1.76) has two variants.
 
 ---
 
@@ -102,7 +106,7 @@ Use this as your starting point for Phase 1 exploration.
                               ↓
                 ┌───────────────────────────┐
                 │   planModeReminderDispatcher│
-                │          (azz)              │
+                │          (Wzz)              │
                 └─────────────┬───────────────┘
                               │
            ┌──────────────────┼──────────────────┐
@@ -116,7 +120,7 @@ Use this as your starting point for Phase 1 exploration.
            ↓                ↓                 ↓
     ┌─────────────┐  ┌─────────────┐   ┌─────────────┐
     │ subagent    │  │   sparse    │   │    full     │
-    │  (q2z)      │  │   (A2z)     │   │   (szz)     │
+    │  (yzz)      │  │   (Ezz)     │   │   (Nzz)     │
     └─────────────┘  └─────────────┘   └─────────────┘
 ```
 
@@ -279,9 +283,9 @@ async function getPlanModeAttachment(messages, sessionContext) {
 
 ---
 
-### Full Variant (szz)
+### Full Variant (Nzz)
 
-**Location:** `chunks.173.mjs:531-609`
+**Location:** `chunks.173.mjs:2556-2690`
 
 The full variant provides comprehensive 5-phase planning instructions.
 
@@ -372,9 +376,9 @@ Call ExitPlanMode when the plan is ready for approval.
 
 ---
 
-### Sparse Variant (A2z)
+### Sparse Variant (Ezz)
 
-**Location:** `chunks.173.mjs:676-683`
+**Location:** `chunks.173.mjs:2692-2699`
 
 Brief reminder for subsequent turns after full reminder.
 
@@ -390,9 +394,9 @@ Sparse variant saves approximately **1,300 tokens** per reminder vs. full varian
 
 ---
 
-### Subagent Variant (q2z)
+### Subagent Variant (yzz)
 
-**Location:** `chunks.173.mjs:685-696`
+**Location:** `chunks.173.mjs:2701-2712`
 
 Simplified instructions for subagents in plan mode.
 
@@ -475,7 +479,7 @@ You are returning to plan mode after having previously exited it. A plan file ex
 4. Continue on with the plan process and most importantly you should always edit the plan file one way or the other before calling ExitPlanMode
 
 Treat this as a fresh planning session. Do not assume the existing plan is relevant without evaluating it first.`;
-    return _9([c6({
+    return b5([p1({
         content: K,
         isMeta: !0
     })])
@@ -578,7 +582,7 @@ case "plan_mode_exit": {
     let Y = `## Exited Plan Mode
 
 You have exited plan mode. You can now make edits, run tools, and take actions.${A.planExists?` The plan file is located at ${A.planFilePath} if you need to reference it.`:""}`;
-    return _9([c6({
+    return b5([p1({
         content: Y,
         isMeta: !0
     })])
@@ -660,7 +664,7 @@ function getPlanFileReferenceAttachment(agentId) {
 
 // ORIGINAL (for source lookup):
 case "plan_file_reference":
-    return _9([c6({
+    return b5([p1({
         content: `A plan file exists from plan mode at: ${A.planFilePath}
 
 Plan contents:
@@ -791,7 +795,7 @@ You CANNOT use any other tools (Bash, Read, Write, Edit, etc.) until you exit de
 **Task list location:** ${A.taskListPath}
 
 Focus on coordinating work by creating tasks, assigning them to teammates, and monitoring progress. Use the Teammate tool to communicate with your team.`;
-    return _9([c6({
+    return b5([p1({
         content: K,
         isMeta: !0
     })])
@@ -873,7 +877,7 @@ function getDelegateModeExitAttachment() {
 
 // ORIGINAL (for source lookup):
 case "delegate_mode_exit":
-    return _9([c6({
+    return b5([p1({
         content: `## Exited Delegate Mode
 
 You have exited delegate mode. You can now use all tools (Bash, Read, Write, Edit, etc.) and take actions directly. Continue with your tasks.`,
@@ -888,6 +892,126 @@ You have exited delegate mode. You can now use all tools (Bash, Read, Write, Edi
 ## Exited Delegate Mode
 
 You have exited delegate mode. You can now use all tools (Bash, Read, Write, Edit, etc.) and take actions directly. Continue with your tasks.
+</system-reminder>
+```
+
+---
+
+## auto_mode (v2.1.76)
+
+### What It Does
+
+Instructs the LLM to operate in autonomous execution mode where it should execute immediately, minimize interruptions, and prefer action over planning.
+
+### Triggered When
+
+| Condition | Requirement |
+|-----------|-------------|
+| Auto mode activated | User activates auto mode (typically via `/auto` command) |
+
+### Source Code
+
+#### Normalization Function
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - auto_mode case
+// Location: chunks.174.mjs:276-277
+// ============================================
+
+// Dispatches to Lzz (autoModeReminder)
+case "auto_mode":
+    return Lzz(A);
+```
+
+#### Dispatcher Function (Lzz)
+
+```javascript
+// ============================================
+// autoModeReminder - Dispatch to full or sparse variant
+// Location: chunks.173.mjs:2714-2717
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Lzz(A) {
+    if (A.reminderType === "sparse") return hzz();
+    return Rzz()
+}
+
+// READABLE (for understanding):
+function autoModeReminder(attachment) {
+    if (attachment.reminderType === "sparse") return sparseAutoModeReminder();
+    return fullAutoModeReminder();
+}
+```
+
+#### Full Variant (Rzz)
+
+**Location:** `chunks.173.mjs:2719-2732`
+
+```markdown
+<system-reminder>
+## Auto Mode Active
+
+Auto mode is active. The user chose continuous, autonomous execution. You should:
+
+1. **Execute immediately** — Start implementing right away. Make reasonable assumptions and proceed.
+2. **Minimize interruptions** — Prefer making reasonable assumptions over asking questions. Use AskUserQuestion only when the task genuinely cannot proceed without user input (e.g., choosing between fundamentally different approaches with no clear default).
+3. **Prefer action over planning** — Do not enter plan mode unless the user explicitly asks. When in doubt, start coding.
+4. **Make reasonable decisions** — Choose the most sensible approach and keep moving. Don't block on ambiguity that you can resolve with a reasonable default.
+5. **Be thorough** — Complete the full task including tests, linting, and verification without stopping to ask.
+</system-reminder>
+```
+
+#### Sparse Variant (hzz)
+
+**Location:** `chunks.173.mjs:2734-2739`
+
+```markdown
+<system-reminder>
+Auto mode still active (see full instructions earlier in conversation). Execute autonomously, minimize interruptions, prefer action over planning.
+</system-reminder>
+```
+
+---
+
+## auto_mode_exit (v2.1.76)
+
+### What It Does
+
+Notifies the LLM that auto mode has ended and it should ask clarifying questions when the approach is ambiguous.
+
+### Triggered When
+
+| Condition | Requirement |
+|-----------|-------------|
+| Auto mode deactivated | User deactivates auto mode |
+
+### Source Code
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - auto_mode_exit case
+// Location: chunks.174.mjs:278-284
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "auto_mode_exit":
+    return b5([p1({
+        content: `## Exited Auto Mode
+
+You have exited auto mode. The user may now want to interact more directly. You should ask clarifying questions when the approach is ambiguous rather than making assumptions.`,
+        isMeta: !0
+    })]);
+```
+
+### Output Format
+
+```markdown
+<system-reminder>
+## Exited Auto Mode
+
+You have exited auto mode. The user may now want to interact more directly. You should ask clarifying questions when the approach is ambiguous rather than making assumptions.
 </system-reminder>
 ```
 
@@ -969,11 +1093,14 @@ ii4 = {
 
 Key functions in this document:
 
-- `planModeReminderDispatcher` (azz) - Variant router, `chunks.173.mjs:525-529`
-- `fullPlanReminder` (szz) - Full instructions, `chunks.173.mjs:531-609`
-- `iterativePlanReminder` (ezz) - Iterative workflow, `chunks.173.mjs:619-674`
-- `sparsePlanReminder` (A2z) - Abbreviated reminder, `chunks.173.mjs:676-683`
-- `subAgentPlanReminder` (q2z) - Subagent instructions, `chunks.173.mjs:685-696`
+- `planModeReminderDispatcher` (Wzz) - Variant router, `chunks.173.mjs:2525-2530`
+- `fullPlanReminder` (Nzz) - Full instructions, `chunks.173.mjs:2556-2690`
+- `sparsePlanReminder` (Ezz) - Abbreviated reminder, `chunks.173.mjs:2692-2699`
+- `subAgentPlanReminder` (yzz) - Subagent instructions, `chunks.173.mjs:2701-2712`
+- `ultraplanCompleteReminder` (Zzz) - Ultraplan complete, `chunks.173.mjs:2532-2538`
+- `autoModeReminder` (Lzz) - Auto mode dispatcher, `chunks.173.mjs:2714-2717`
+- `fullAutoModeReminder` (Rzz) - Full auto mode instructions, `chunks.173.mjs:2719-2732`
+- `sparseAutoModeReminder` (hzz) - Sparse auto mode reminder, `chunks.173.mjs:2734-2739`
 - `getPlanModeAttachment` (ihY) - Plan mode producer, `chunks.142.mjs:2034-2058`
 - `getPlanModeExitAttachment` (nhY) - Exit producer, `chunks.142.mjs:2060-2071`
 - `getPlanFileReferenceAttachment` (jZ6) - Plan file reference producer, `chunks.146.mjs:2699-2708`

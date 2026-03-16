@@ -2,7 +2,7 @@
 
 > **Module**: System Reminders - Core Implementation
 > **Version**: Claude Code 2.1.76
-> **Source**: `chunks.173.mjs:490-1131`, `chunks.142.mjs:1948-2865`
+> **Source**: `chunks.174.mjs:1-469` (normalizeAttachmentForAPI), `chunks.173.mjs:1378+` (createUserMessage), `chunks.142.mjs:1948-2865`
 
 ---
 
@@ -24,7 +24,7 @@
 The system reminder implementation consists of three main layers:
 
 1. **Production Layer** (`chunks.142.mjs`) - Attachment producer functions that gather data
-2. **Normalization Layer** (`chunks.173.mjs`) - Converts attachments to API messages
+2. **Normalization Layer** (`chunks.174.mjs`) - Converts attachments to API messages
 3. **Injection Layer** (`chunks.148.mjs`) - Inserts messages into conversation stream
 
 This document focuses on the **normalization layer** implementation details, specifically the core functions that convert typed attachment objects into formatted messages.
@@ -33,7 +33,7 @@ This document focuses on the **normalization layer** implementation details, spe
 
 ## Core Functions
 
-### wrapInXmlTag (tI) - XML Tag Wrapper
+### wrapInXmlTag (af) - XML Tag Wrapper
 
 **What it does:** Wraps content string in `<system-reminder>` XML tags.
 
@@ -41,12 +41,14 @@ This document focuses on the **normalization layer** implementation details, spe
 ```javascript
 // ============================================
 // wrapInXmlTag - Creates the <system-reminder> XML wrapper string
-// Location: chunks.173.mjs:490-494
+// Location: chunks.173.mjs:2490-2494
 // ============================================
 
 // ORIGINAL (for source lookup):
-function tI(A) {
-    return `<system-reminder>\n${A}\n</system-reminder>`
+function af(A) {
+    return `<system-reminder>
+${A}
+</system-reminder>`
 }
 
 // READABLE (for understanding):
@@ -54,7 +56,7 @@ function wrapInXmlTag(content) {
     return `<system-reminder>\n${content}\n</system-reminder>`;
 }
 
-// Mapping: tI→wrapInXmlTag, A→content
+// Mapping: af→wrapInXmlTag, A→content
 ```
 
 **Key insight:** This is a minimal, single-purpose function. The newline after opening tag and before closing tag ensures clean formatting when content spans multiple lines.
@@ -65,7 +67,7 @@ function wrapInXmlTag(content) {
 
 ---
 
-### wrapWithSystemReminderTags (_9) - Message Array Wrapper
+### wrapWithSystemReminderTags (b5) - Message Array Wrapper
 
 **What it does:** Wraps an array of messages, adding XML tags to all text content.
 
@@ -73,18 +75,18 @@ function wrapInXmlTag(content) {
 ```javascript
 // ============================================
 // wrapWithSystemReminderTags - Wraps text content in <system-reminder> XML tags
-// Location: chunks.173.mjs:496-523
+// Location: chunks.173.mjs:2496-2523
 // ============================================
 
 // ORIGINAL (for source lookup):
-function _9(A) {
+function b5(A) {
     return A.map((q) => {
         if (typeof q.message.content === "string") return {
-            ...q, message: { ...q.message, content: tI(q.message.content) }
+            ...q, message: { ...q.message, content: af(q.message.content) }
         };
         else if (Array.isArray(q.message.content)) {
             let K = q.message.content.map((Y) => {
-                if (Y.type === "text") return { ...Y, text: tI(Y.text) };
+                if (Y.type === "text") return { ...Y, text: af(Y.text) };
                 return Y
             });
             return { ...q, message: { ...q.message, content: K } }
@@ -122,7 +124,7 @@ function wrapWithSystemReminderTags(messages) {
     });
 }
 
-// Mapping: _9→wrapWithSystemReminderTags, A→messages, q→msg, tI→wrapInXmlTag, K→wrappedBlocks, Y→block
+// Mapping: b5→wrapWithSystemReminderTags, A→messages, q→msg, af→wrapInXmlTag, K→wrappedBlocks, Y→block
 ```
 
 **Why this approach:**
@@ -134,7 +136,7 @@ function wrapWithSystemReminderTags(messages) {
 
 ---
 
-### normalizeAttachmentForAPI (K2z) - Main Dispatcher
+### normalizeAttachmentForAPI (Ui8) - Main Dispatcher
 
 **What it does:** Central switch statement that converts attachment objects to message arrays.
 
@@ -149,20 +151,22 @@ normalizeAttachmentForAPI(attachment)
     │     ├─> File types: directory, file, edited_text_file, compact_file_reference, pdf_reference
     │     ├─> IDE types: selected_lines_in_ide, opened_file_in_ide
     │     ├─> Todo/Task types: todo, todo_reminder, task_reminder, task_status, task_progress
-    │     ├─> Memory types: nested_memory, invoked_skills, skill_listing
-    │     ├─> Mode types: plan_mode, plan_mode_reentry, plan_mode_exit, delegate_mode, delegate_mode_exit
+    │     ├─> Memory types: nested_memory, relevant_memories, invoked_skills, skill_listing
+    │     ├─> Mode types: plan_mode, plan_mode_reentry, plan_mode_exit, auto_mode, auto_mode_exit,
+    │     │                 delegate_mode, delegate_mode_exit
     │     ├─> Hook types: async_hook_response, hook_blocking_error, hook_success, hook_additional_context
     │     ├─> New hook types (v2.1.76): post_compact, elicitation, elicitation_result,
     │     │                             instructions_loaded, config_change, worktree_create, worktree_remove
-    │     ├─> Budget types: token_usage, budget_usd
-    │     ├─> New status types (v2.1.76): session_name, cron_job
+    │     ├─> Budget types: token_usage, budget_usd, output_token_usage
+    │     ├─> New status types (v2.1.76): session_name, cron_job, date_change, ultrathink_effort
+    │     ├─> MCP integration types (v2.1.76): deferred_tools_delta, mcp_instructions_delta
     │     ├─> Other types: mcp_resource, agent_mention, diagnostics, queued_command, ultramemory
-    │     └─> Silent types: already_read_file, command_permissions, edited_image_file, etc.
+    │     └─> Silent types: already_read_file, command_permissions, edited_image_file, context_efficiency, etc.
     │
     └─> Unknown type fallback → log warning, return []
 ```
 
-**Source Location:** `chunks.173.mjs:698-1131`
+**Source Location:** `chunks.174.mjs:1-469`
 
 **Key Design Decisions:**
 
@@ -196,14 +200,14 @@ Plan mode has the most sophisticated reminder system with multiple variants (ful
                             ↓
                 ┌───────────────────────┐
                 │   planModeReminderDispatcher│
-                │          (azz)              │
+                │          (Wzz)              │
                 └─────────────┬───────────────┘
                               │
            ┌──────────────────┼──────────────────┐
            │ isSubAgent?      │ reminderType?    │
            │                  │ = "sparse"?      │
            ↓                  ↓                  ↓
-      [subagent (q2z)]   [sparse (A2z)]    [full (szz)]
+      [subagent (yzz)]   [sparse (Ezz)]    [full (Nzz)]
 ```
 
 **Token efficiency**: Sparse reminders (~150 tokens) save ~1300 tokens vs. full (~1500 tokens).
@@ -253,26 +257,26 @@ let innerContent = message.content.replace(/<system-reminder>|<\/system-reminder
 
 ## Message Construction Patterns
 
-### Pattern A: _9 Wrapping (Most Types)
+### Pattern A: b5 Wrapping (Most Types)
 
 Used for multi-message attachments (tool call + result).
 
 ```
-Producer → K2z → [
-    pd1(toolName, params),    // Tool call message
-    Ud1(tool, result)          // Tool result message
-] → _9() wraps all in XML tags
+Producer → Ui8 → [
+    nr6(toolName, params),    // Tool call message
+    ir6(tool, result)          // Tool result message
+] → b5() wraps all in XML tags
 ```
 
 **Example:** `directory` attachment
 ```javascript
 case "directory":
-    return _9([
-        pd1(BashTool.name, {
+    return b5([
+        nr6(BashTool.name, {
             command: `ls ${shellEscape([attachment.path])}`,
             description: `Lists files in ${attachment.path}`
         }),
-        Ud1(BashTool, {
+        ir6(BashTool, {
             stdout: attachment.content,
             stderr: "",
             interrupted: false
@@ -280,13 +284,13 @@ case "directory":
     ]);
 ```
 
-### Pattern B: Inline tI Wrapping (Status Types)
+### Pattern B: Inline af Wrapping (Status Types)
 
 Used for single notification messages.
 
 ```
-Producer → K2z → c6({
-    content: tI("..."),
+Producer → Ui8 → p1({
+    content: af("..."),
     isMeta: true
 })
 ```
@@ -294,8 +298,8 @@ Producer → K2z → c6({
 **Example:** `token_usage` attachment
 ```javascript
 case "token_usage":
-    return [c6({
-        content: tI(`Token usage: ${attachment.used}/${attachment.total}; ${attachment.remaining} remaining`),
+    return [p1({
+        content: af(`Token usage: ${attachment.used}/${attachment.total}; ${attachment.remaining} remaining`),
         isMeta: true
     })];
 ```
@@ -305,7 +309,7 @@ case "token_usage":
 Team types construct XML tags manually in content.
 
 ```
-Producer → K2z → c6({
+Producer → Ui8 → p1({
     content: `<system-reminder>...team content...</system-reminder>`,
     isMeta: true
 })
@@ -313,7 +317,7 @@ Producer → K2z → c6({
 
 **Example:** `team_context` attachment
 ```javascript
-if (attachment.type === "team_context") return [c6({
+if (attachment.type === "team_context") return [p1({
     content: `<system-reminder>
 # Team Coordination
 
@@ -411,16 +415,20 @@ You are a teammate in team "${attachment.teamName}".
 
 Key implementation functions in this document:
 
-- `wrapInXmlTag` (tI) - XML tag wrapper for strings, `chunks.173.mjs:490-494`
-- `wrapWithSystemReminderTags` (_9) - Message array wrapper, `chunks.173.mjs:496-523`
-- `normalizeAttachmentForAPI` (K2z) - Main dispatcher, `chunks.173.mjs:698-1131`
-- `planModeReminderDispatcher` (azz) - Variant router, `chunks.173.mjs:525-529`
-- `fullPlanReminder` (szz) - Full instructions, `chunks.173.mjs:531-609`
-- `iterativePlanReminder` (ezz) - Iterative workflow, `chunks.173.mjs:619-674`
-- `sparsePlanReminder` (A2z) - Abbreviated reminder, `chunks.173.mjs:676-683`
-- `subAgentPlanReminder` (q2z) - Subagent instructions, `chunks.173.mjs:685-696`
-- `createToolCallMessage` (pd1) - Tool call display, `chunks.173.mjs:1152-1157`
-- `createToolResultMessage` (Ud1) - Tool result display, `chunks.173.mjs:1133-1150`
+- `wrapInXmlTag` (af) - XML tag wrapper for strings, `chunks.173.mjs:2490-2494`
+- `wrapWithSystemReminderTags` (b5) - Message array wrapper, `chunks.173.mjs:2496-2523`
+- `normalizeAttachmentForAPI` (Ui8) - Main dispatcher, `chunks.174.mjs:1-469`
+- `createUserMessage` (p1) - User message factory, `chunks.173.mjs:1378+`
+- `createToolCallMessage` (nr6) - Tool call display, `chunks.174.mjs:490-495`
+- `createToolResultMessage` (ir6) - Tool result display, `chunks.174.mjs:471-488`
+- `planModeReminderDispatcher` (Wzz) - Variant router, `chunks.173.mjs:2525-2530`
+- `fullPlanReminder` (Nzz) - Full instructions, `chunks.173.mjs:2556-2690`
+- `sparsePlanReminder` (Ezz) - Abbreviated reminder, `chunks.173.mjs:2692-2699`
+- `subAgentPlanReminder` (yzz) - Subagent instructions, `chunks.173.mjs:2701-2712`
+- `ultraplanCompleteReminder` (Zzz) - Ultraplan complete, `chunks.173.mjs:2532-2538`
+- `autoModeReminder` (Lzz) - Auto mode dispatcher, `chunks.173.mjs:2714-2717`
+- `fullAutoModeReminder` (Rzz) - Full auto mode instructions, `chunks.173.mjs:2719-2732`
+- `sparseAutoModeReminder` (hzz) - Sparse auto mode reminder, `chunks.173.mjs:2734-2739`
 - `SYSTEM_REMINDER_REGEX` (EL9) - XML parsing pattern, `chunks.90.mjs:730`
 - `countTokensSinceUltramemory` (jIY) - Token cooldown tracking, `chunks.142.mjs:2442-2454`
 - `shouldSendUltramemoryAttachment` (MIY) - Cooldown check, `chunks.142.mjs:2456-2461`
@@ -431,10 +439,11 @@ Key implementation functions in this document:
 
 ## Source Locations
 
-- `chunks.173.mjs:490-1131` - Core normalization functions
+- `chunks.174.mjs:1-469` - Core normalization functions (normalizeAttachmentForAPI)
+- `chunks.173.mjs:1378+` - User message construction (createUserMessage)
+- `chunks.173.mjs:2490-2740` - XML wrappers, plan/auto mode reminders
 - `chunks.142.mjs:1948-2865` - Attachment producer functions
 - `chunks.148.mjs:2414-2428` - Message injection functions
-- `chunks.172.mjs:2876-2912` - User message construction
 - `chunks.90.mjs:730` - Regex patterns
 
 ---
