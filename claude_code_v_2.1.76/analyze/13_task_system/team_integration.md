@@ -11,11 +11,14 @@ This document analyzes how the task system integrates with the agent teams featu
 > - [30_agent_teams/](../30_agent_teams/) - Full agent teams analysis
 
 Key functions in this document:
-- `claim TaskClaim` (o7A, Cf5) - Atomically claim unassigned task
+- `claimTask` (o7A, OT8) - Atomically claim unassigned task
 - `sendTeamMessage` (f9) - Send task_assignment notifications
 - `isInTeamMode` (l8) - Check if running in team context
-- `unassignTeammateTask` (Mr) - Cleanup on agent shutdown
+- `unassignTeammateTasks` (Mr) - Cleanup on agent shutdown
 - `getCurrentAgentName` (g5) - Get executing agent ID
+- `getTaskManager` (jf, WM) - Get task list context (async/sync versions)
+- `loadAllTasks` (DX, WX) - Load all tasks (async/sync versions)
+- `updateTask` (WI, JS) - Update task (async/sync versions)
 
 ---
 

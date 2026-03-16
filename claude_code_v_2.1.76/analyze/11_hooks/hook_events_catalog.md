@@ -2,7 +2,7 @@
 
 ## Overview
 
-Claude Code v2.1.76 supports 21 distinct hook events that allow users to execute custom shell commands, HTTP endpoints, prompts, agent-based hooks, callback functions, or "function" hooks in response to specific lifecycle moments. Hooks are configured in the user's settings file and are executed by the central `executeHooksIterator` (`NI`) generator function.
+Claude Code v2.1.76 supports **22 distinct hook events** that allow users to execute custom shell commands, HTTP endpoints, prompts, agent-based hooks, callback functions, or "function" hooks in response to specific lifecycle moments. Hooks are configured in the user's settings file and are executed by the central `executeHooksIterator` (`NI`) generator function.
 
 Each hook event has a well-defined schema for its input payload, specific trigger conditions, and expected return value semantics (blocking, non-blocking, passthrough, etc.). This document catalogs every event with deep detail on when it fires, what data it provides, and what outcomes are possible.
 

@@ -1,7 +1,7 @@
 # System Reminder Module - Overview
 
 > Module: System Reminders (Attachments-to-API normalization)
-> Source: `chunks.173.mjs:490-1131`, `chunks.172.mjs:2876-2912`, `chunks.142.mjs:1948-1965`
+> Source: `chunks.174.mjs:1-469` (normalizeAttachmentForAPI), `chunks.173.mjs:1378+` (createUserMessage), `chunks.142.mjs:1948-1965`
 > Version: Claude Code 2.1.76
 
 ---
@@ -82,12 +82,12 @@ The system reminder pipeline has three layers:
                │
 ┌──────────────┴───────────────────────────────────────────────────────┐
 │                   LAYER 2: ATTACHMENT NORMALIZATION                   │
-│                  (K2z - normalizeAttachmentForAPI)                    │
-│                     chunks.173.mjs:698-1131                          │
+│                  (Ui8 - normalizeAttachmentForAPI)                    │
+│                     chunks.174.mjs:1-469                             │
 │                                                                       │
 │   • 57+ case switch statement                                        │
 │   • Converts typed attachment → formatted message(s)                 │
-│   • Applies <system-reminder> XML tags via _9() wrapper              │
+│   • Applies <system-reminder> XML tags via b5() wrapper              │
 │   • Returns array of TenguMessage objects                            │
 └──────────────┬───────────────────────────────────────────────────────┘
                │
@@ -129,13 +129,13 @@ The `phY` function (`assembleAttachments`) orchestrates **parallel computation**
 
 Each producer is wrapped in `gw()` (`timedAttachmentProducer`), which measures execution time and reports telemetry at a 5% sampling rate. If any producer throws, it logs the error and returns an empty array, preventing one failure from blocking all reminders.
 
-### Layer 2: Normalizer - K2z (chunks.173.mjs:698-1131)
+### Layer 2: Normalizer - Ui8 (chunks.174.mjs:1-469)
 
-The `K2z` function (`normalizeAttachmentForAPI`) is the central dispatcher. It receives a typed attachment object and returns an array of formatted message objects ready for the API. It is a giant **switch statement** with 57+ cases covering every reminder type.
+The `Ui8` function (`normalizeAttachmentForAPI`) is the central dispatcher. It receives a typed attachment object and returns an array of formatted message objects ready for the API. It is a giant **switch statement** with 57+ cases covering every reminder type.
 
-### Layer 3: Message Formatting (chunks.172.mjs:2876-2912)
+### Layer 3: Message Formatting (chunks.173.mjs:1378+)
 
-The `c6` function (`createUserMessage`) produces the final user-role message objects that get inserted into the conversation.
+The `p1` function (`createUserMessage`) produces the final user-role message objects that get inserted into the conversation.
 
 ---
 
@@ -368,27 +368,27 @@ let enhancedContext = {
 
 ## Core Functions
 
-### normalizeAttachmentForAPI (K2z)
+### normalizeAttachmentForAPI (Ui8)
 
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - Main switch dispatcher for all reminder types
-// Location: chunks.173.mjs:698-1131
+// Location: chunks.174.mjs:1-469
 // ============================================
 
 // ORIGINAL (for source lookup):
-function K2z(A) {
+function Ui8(A) {
     if (l8()) {
-        if (A.type === "teammate_mailbox") return [c6({ content: Uzz().formatTeammateMessages(A.messages), isMeta: !0 })];
-        if (A.type === "team_context") return [c6({ content: `<system-reminder>...team coordination...`, isMeta: !0 })]
+        if (A.type === "teammate_mailbox") return [p1({ content: Kzz().formatTeammateMessages(A.messages), isMeta: !0 })];
+        if (A.type === "team_context") return [p1({ content: `<system-reminder>...team coordination...`, isMeta: !0 })]
     }
     switch (A.type) {
-        case "directory": return _9([pd1(qq.name, { command: `ls ${R7([A.path])}`, ... }), Ud1(qq, { stdout: A.content, ... })]);
-        case "edited_text_file": return _9([c6({ content: `Note: ${A.filename} was modified...`, isMeta: !0 })]);
+        case "directory": return b5([nr6(J4.name, { command: `ls ${j4([A.path])}`, ... }), ir6(J4, { stdout: A.content, ... })]);
+        case "edited_text_file": return b5([p1({ content: `Note: ${A.filename} was modified...`, isMeta: !0 })]);
         // ... 55+ more cases
     }
     if (["autocheckpointing", "background_task_status"].includes(A.type)) return [];
-    return Yk("normalizeAttachmentForAPI", Error(`Unknown attachment type: ${A.type}`)), []
+    return jV("normalizeAttachmentForAPI", Error(`Unknown attachment type: ${A.type}`)), []
 }
 
 // READABLE (for understanding):
@@ -419,9 +419,9 @@ function normalizeAttachmentForAPI(attachment) {
     return logWarning("normalizeAttachmentForAPI", Error(`Unknown attachment type: ${attachment.type}`)), [];
 }
 
-// Mapping: K2z->normalizeAttachmentForAPI, A->attachment, l8->isTeamMode,
-// c6->createUserMessage, _9->wrapWithSystemReminderTags, Uzz->getMailboxFormatter,
-// pd1->createToolCallMessage, Ud1->createToolResultMessage, qq->BashTool, R7->shellEscape
+// Mapping: Ui8->normalizeAttachmentForAPI, A->attachment, l8->isTeamMode,
+// p1->createUserMessage, b5->wrapWithSystemReminderTags, Kzz->getMailboxFormatter,
+// nr6->createToolCallMessage, ir6->createToolResultMessage, J4->BashTool, j4->shellEscape
 ```
 
 **What it does:** Converts an internal attachment object (with a `.type` field) into one or more user-role messages suitable for the Claude API.

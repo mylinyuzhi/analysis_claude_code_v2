@@ -180,7 +180,7 @@
 | U1q | createToolProgressMessage | chunks.172.mjs:2943 | function |
 | YP6 | assembleSessionToolSet | chunks.141.mjs:1476 | function |
 | dK | findToolInSet | chunks.146.mjs | function |
-| p1 | createUserMessage | chunks.146.mjs | function |
+| p1 | createUserMessage | chunks.173.mjs:1378 | function |
 | f4 | createAttachmentMessage | chunks.145.mjs | function |
 | rk | isMcpTool | chunks.145.mjs | function |
 | V4q | formatValidationError | chunks.146.mjs | function |
@@ -461,6 +461,7 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| Ui8 | normalizeAttachmentForAPI | chunks.174.mjs:1-469 | function |
 | phY | assembleAttachments | chunks.142.mjs:1948 | function |
 | oP1 | attachmentGenerator | chunks.142.mjs:2494 | function (generator) |
 | gw | timedAttachmentProducer | chunks.142.mjs:1967 | function |
@@ -503,8 +504,18 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| _9 | wrapWithSystemReminderTags | chunks.173.mjs:496 | function |
-| tI | wrapInXmlTag | chunks.173.mjs:490 | function |
+| b5 | wrapWithSystemReminderTags | chunks.173.mjs:2496-2523 | function |
+| af | wrapInXmlTag | chunks.173.mjs:2490-2494 | function |
+| nr6 | createToolCallMessage | chunks.174.mjs:490-495 | function |
+| ir6 | createToolResultMessage | chunks.174.mjs:471-488 | function |
+| Wzz | planModeReminderDispatcher | chunks.173.mjs:2525-2530 | function |
+| Nzz | fullPlanReminder | chunks.173.mjs:2556-2690 | function |
+| Ezz | sparsePlanReminder | chunks.173.mjs:2692-2699 | function |
+| yzz | subAgentPlanReminder | chunks.173.mjs:2701-2712 | function |
+| Zzz | ultraplanCompleteReminder | chunks.173.mjs:2532-2538 | function |
+| Lzz | autoModeReminder | chunks.173.mjs:2714-2717 | function |
+| Rzz | fullAutoModeReminder | chunks.173.mjs:2719-2732 | function |
+| hzz | sparseAutoModeReminder | chunks.173.mjs:2734-2739 | function |
 
 ---
 
@@ -603,7 +614,7 @@
 | av | runForkedAgent | chunks.149.mjs:2634 | function |
 | NR | generateAgentId | chunks.90.mjs:2343 | function |
 | Nn7 | buildForkContextMessages | chunks.90.mjs:2529 | function |
-| c6 | createUserMessage | chunks.149.mjs:340 | function |
+| p1 | createUserMessage | chunks.173.mjs:1378 | function |
 | gL9 | generateUUID | chunks.90.mjs | function |
 
 ### Agent Definitions

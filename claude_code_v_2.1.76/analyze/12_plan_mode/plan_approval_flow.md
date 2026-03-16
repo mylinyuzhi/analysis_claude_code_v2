@@ -256,6 +256,96 @@ if (typeof w.content === "string" && w.content.startsWith(OWA)) {
 
 ---
 
+## Auto-Mode Gate (acceptEdits Blocking)
+
+### Overview
+
+When exiting plan mode with `prePlanMode = "auto"` (meaning the user was in auto-accept mode before entering plan mode), an additional gate check prevents automatic restoration of `acceptEdits` mode under certain conditions.
+
+**Why this matters:**
+- The `acceptEdits` mode grants auto-approval for file modifications
+- Enterprise environments may want to restrict this mode via circuit-breaker
+- Prevents unintended auto-accept behavior after plan approval
+
+### Gate Logic
+
+```javascript
+// ============================================
+// Auto-mode gate at ExitPlanMode
+// Location: chunks.143.mjs:2916-2921
+// ============================================
+
+// ORIGINAL (for source lookup):
+{
+    let H = _.toolPermissionContext.prePlanMode ?? "default",
+        j = H === "ultraplan" ? "default" : H;
+    if ((j === "auto" || !1) && !(sl6?.isAutoModeGateEnabled() ?? !1)) {
+        let M = sl6?.getAutoModeUnavailableReason() ?? "circuit-breaker";
+        O = sl6?.getAutoModeUnavailableNotification(M) ?? "auto mode unavailable", k(`[auto-mode gate @ ExitPlanModeV2Tool] prePlanMode=${j} but gate is off (reason=${M}) — falling back to default on plan exit`, {
+            level: "warn"
+        })
+    }
+}
+
+// READABLE (for understanding):
+{
+    let savedMode = state.toolPermissionContext.prePlanMode ?? "default";
+    let effectiveMode = savedMode === "ultraplan" ? "default" : savedMode;
+
+    // If user was in "auto" mode before plan, check if we can restore it
+    if (effectiveMode === "auto" && !(permissionGate?.isAutoModeGateEnabled() ?? false)) {
+        // Gate is disabled → block auto mode restoration
+        let reason = permissionGate?.getAutoModeUnavailableReason() ?? "circuit-breaker";
+        let notification = permissionGate?.getAutoModeUnavailableNotification(reason) ?? "auto mode unavailable";
+
+        log(`[auto-mode gate] prePlanMode=${effectiveMode} but gate is off (reason=${reason}) — falling back to default`, {
+            level: "warn"
+        });
+
+        // Fallback: use "default" mode instead of "auto"
+        effectiveMode = "default";
+    }
+}
+
+// Mapping: H→savedMode, j→effectiveMode, sl6→permissionGate, k→log
+```
+
+### Gate Functions
+
+The permission gate exposes three functions (exported from `cli.chunks.mjs`):
+
+| Function | Purpose | Return Type |
+|----------|---------|-------------|
+| `isAutoModeGateEnabled()` | Check if auto-mode is allowed | `boolean` |
+| `getAutoModeUnavailableReason()` | Get reason code for blocking | `"circuit-breaker" \| ...` |
+| `getAutoModeUnavailableNotification(reason)` | Get user-facing message | `string` |
+
+**Default behavior:**
+- If gate functions are unavailable (`sl6` is null/undefined): Gate is considered **disabled** (failsafe)
+- Default reason: `"circuit-breaker"`
+- Default notification: `"auto mode unavailable"`
+
+### Behavior Summary
+
+| Condition | Result |
+|-----------|--------|
+| `prePlanMode = "default"` | Restores to `"default"` (no change) |
+| `prePlanMode = "acceptEdits"` | Restores to `"acceptEdits"` (no gate check) |
+| `prePlanMode = "auto"` + gate enabled | Restores to `"auto"` |
+| `prePlanMode = "auto"` + gate disabled | Falls back to `"default"` |
+| `prePlanMode = "ultraplan"` | Always converts to `"default"` |
+
+### User Experience
+
+When the gate blocks auto-mode restoration:
+1. User approves plan
+2. Session exits plan mode
+3. Mode is set to `"default"` instead of `"auto"`
+4. User sees standard permission prompts for file edits (not auto-accepted)
+5. Warning logged for debugging
+
+---
+
 ## PATH B: Swarm Teammate Approval Protocol
 
 ### Overview

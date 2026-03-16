@@ -2219,3 +2219,149 @@ LLM calls ExitPlanMode
         ├── Stays in plan mode (no state change)
         └── UI renders: HX6 → "User rejected Claude's plan:" + plan in planMode border
 ```
+
+---
+
+## 20. Tool Schemas
+
+### EnterPlanMode Schema
+
+**Input Schema:** Empty (no parameters required)
+
+```javascript
+// ============================================
+// EnterPlanModeTool inputSchema
+// Location: chunks.140.mjs:1649
+// ============================================
+
+// ORIGINAL (for source lookup):
+get inputSchema() { return dCY() }
+
+// dCY() returns z7(() => strictObject({}))  // No input params
+
+// READABLE (for understanding):
+{
+    type: "object",
+    properties: {},
+    required: [],
+    additionalProperties: false
+}
+```
+
+**Output Schema:**
+
+```javascript
+// ============================================
+// EnterPlanModeTool outputSchema
+// Location: chunks.140.mjs:1649
+// ============================================
+
+// ORIGINAL (for source lookup):
+get outputSchema() { return cCY() }
+
+// cCY() returns z7(() => z.object({ message: z.string() }))
+
+// READABLE (for understanding):
+{
+    type: "object",
+    properties: {
+        message: { type: "string" }
+    },
+    required: ["message"]
+}
+```
+
+**Why no input parameters?**
+- EnterPlanMode is purely a state transition tool
+- The LLM doesn't need to specify any configuration
+- The plan mode workflow is determined by system prompts, not tool parameters
+
+### ExitPlanMode Schema
+
+**Input Schema:**
+
+```javascript
+// ============================================
+// ExitPlanModeTool inputSchema
+// Location: chunks.139.mjs:2629
+// ============================================
+
+// ORIGINAL (for source lookup):
+zHH = z7(() => _d4().extend({
+    plan: z.string().optional().describe("The plan content (injected by normalizeToolInput from disk)")
+}))
+
+// _d4() is the base schema (may include pushToRemote, remoteSessionId, remoteSessionTitle)
+// The "plan" field is NOT provided by the LLM — it's injected by normalizeToolInput
+
+// READABLE (for understanding):
+{
+    type: "object",
+    properties: {
+        plan: {
+            type: "string",
+            description: "The plan content (injected by normalizeToolInput from disk)"
+        },
+        // pushToRemote, remoteSessionId, remoteSessionTitle may be present (not shown in LLM-visible schema)
+    }
+}
+```
+
+**Important:** The `plan` field in the input schema is **injected by `normalizeToolInput`**, not provided by the LLM. This ensures:
+1. The plan content comes from the file on disk (single source of truth)
+2. The LLM cannot fabricate different plan content than what was written
+3. The permission dialog can display the actual plan content
+
+**Output Schema:**
+
+```javascript
+// ============================================
+// ExitPlanModeTool outputSchema
+// Location: chunks.139.mjs:2641
+// ============================================
+
+// READABLE (for understanding):
+{
+    type: "object",
+    properties: {
+        plan: { type: "string" },           // Plan file content
+        isAgent: { type: "boolean" },       // Whether called in subagent context
+        filePath: { type: "string" },       // Plan file path
+        pushToRemote: { type: "boolean" },  // Whether pushed to remote
+        hasTaskTool: { type: "boolean" },   // Whether Task tool is available
+        awaitingLeaderApproval: { type: "boolean" },  // Swarm approval pending
+        requestId: { type: "string" }       // Swarm request ID
+    }
+}
+```
+
+### normalizeToolInput for ExitPlanMode
+
+Before `ExitPlanMode.call()` executes, `normalizeToolInput` injects the plan content:
+
+```javascript
+// ============================================
+// ExitPlanMode normalizeToolInput
+// Location: chunks.139.mjs:2680
+// ============================================
+
+// READABLE (for understanding):
+async function normalizeToolInput(input, toolUseContext) {
+    // Read plan file from disk
+    let planFilePath = getPlanFilePath(toolUseContext.agentId);  // uW()
+    let planContent = getPlanContent(toolUseContext.agentId);    // pD()
+
+    // Inject plan content into input
+    return {
+        ...input,
+        plan: planContent,     // ← injected from disk
+        filePath: planFilePath // ← also inject path for reference
+    };
+}
+```
+
+**Why inject from disk?**
+- The LLM's tool call does NOT include plan content (prevents hallucination)
+- The permission dialog needs the actual plan content to display
+- The tool result renderer needs the plan content to show after approval
+- Swarm teammates need the plan content for the approval request message

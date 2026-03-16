@@ -155,26 +155,53 @@
 > Full analysis: [13_task_system/](../13_task_system/), [05_tools/task_management_tools.md](../05_tools/task_management_tools.md)
 > **REFACTORED** - Replaces Todo List (v2.1.7)
 
-### Task Tools (Names)
+### Tool Name Constants
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Nh | TOOL_NAME_TASK_CREATE | chunks.88.mjs:371 | constant ("TaskCreate") |
-| lt | TOOL_NAME_TASK_GET | chunks.91.mjs:41 | constant ("TaskGet") |
+| TR | TOOL_NAME_TASK_CREATE | chunks.90.mjs:2592 | constant ("TaskCreate") |
 | ck | TOOL_NAME_TASK_UPDATE | chunks.90.mjs:2594 | constant ("TaskUpdate") |
+| lt | TOOL_NAME_TASK_GET | chunks.91.mjs:41 | constant ("TaskGet") |
 | it | TOOL_NAME_TASK_LIST | chunks.91.mjs:43 | constant ("TaskList") |
 
-### Task State & Logic
+### Core Async Functions (chunks.84.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| WM | getTaskManager | chunks.140.mjs:2850 | function |
-| lg | findTaskById | chunks.141.mjs:89 | function |
-| JS | updateTaskState | chunks.141.mjs:151 | function |
-| n_1 | createTask | chunks.140.mjs:2850 | function |
-| r7A | addDependency | chunks.141.mjs:172 | function |
-| Cg1 | executeTaskCompletedHooks | chunks.141.mjs:2927 | generator (also in Hooks module) |
-| J71 | taskStatusSchema | chunks.140.mjs:2949 | schema (pending, in_progress, completed) |
+| jf | getTaskManager | chunks.84.mjs:1619 | function |
+| aD1 | createTask | chunks.84.mjs:1669 | async function |
+| DB | loadTask | chunks.84.mjs:1687 | async function |
+| WI | updateTask | chunks.84.mjs:1701 | async function |
+| sD1 | deleteTask | chunks.84.mjs:1713 | async function |
+| DX | loadAllTasks | chunks.84.mjs:1742 | async function |
+| r$ | isTaskSystemEnabled | chunks.84.mjs:1585 | function |
+| wR | getTaskDirectory | chunks.84.mjs:1630 | function |
+| yF6 | getTaskFilePath | chunks.84.mjs:1634 | function |
+| wN9 | getHighWaterMark | chunks.84.mjs:1664 | async function |
+
+### Task Schema & Hooks
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| H36 | taskStatusSchema | chunks.84.mjs:1932 | schema (pending, in_progress, completed) |
+| zN9 | taskSchema | chunks.84.mjs:1932 | schema (full task object) |
+| Hi6 | executeTaskCompletedHooks | chunks.175.mjs:2594 | async generator |
+| $i6 | getTaskCompletedHookMessage | chunks.175.mjs:1602 | function |
+
+### Sync Wrappers (chunks.48.mjs - for compatibility)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| WM | getTaskManagerSync | chunks.48.mjs:441 | function |
+| lg | findTaskByIdSync | chunks.48.mjs:452 | function |
+| JS | updateTaskSync | chunks.48.mjs:463 | function |
+| n_1 | createTaskSync | chunks.48.mjs:486 | function |
+| WX | loadAllTasksSync | chunks.48.mjs:555 | function |
+| sq6 | deleteTaskSync | chunks.48.mjs:530 | function |
+| r7A | addDependency | chunks.48.mjs:569 | function |
+| o7A | attemptToClaimTask | chunks.48.mjs:593 | function |
+| OT8 | claimTaskWithBusyCheck | chunks.84.mjs:1781 | async function |
+| Mr | unassignTeammateTasks | chunks.48.mjs:695 | function |
 
 ### TodoWrite Tool (Simple Todo List)
 
@@ -612,6 +639,28 @@
 | OfY | PlanApprovalResponseMessage | chunks.129.mjs:1799 | function (React) |
 | _fY | getTeamMessageSummary | chunks.129.mjs:1882 | function |
 
+### Plan Mode Tool Names
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| N_6 | TOOL_NAME_ENTER_PLAN_MODE | chunks.89.mjs:564 | constant ("EnterPlanMode") |
+| bW | TOOL_NAME_EXIT_PLAN_MODE | chunks.88.mjs:76 | constant ("ExitPlanMode") |
+
+### Auto-Mode Gate
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| IN | isAutoModeGateEnabled | cli.chunks.mjs:7421 | function |
+| dn8 | getAutoModeUnavailableReason | cli.chunks.mjs:7425 | function |
+| qS1 | getAutoModeUnavailableNotification | cli.chunks.mjs:7426 | function |
+
+### Swarm Config Properties
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| - | planModeRequired | chunks.135.mjs:657 | property |
+| - | plan_mode_required | chunks.135.mjs:720 | property |
+
 ---
 
 ## Module: Compact
@@ -868,9 +917,12 @@
 | rO6 | clearPluginHookCache | chunks.87.mjs:2581 | function |
 | g0A | hotReloadAlreadySetup | chunks.87.mjs:2596 | variable (bool guard) |
 | - | executePostCompactHooks | chunks.141.mjs | generator (PostCompact hook event) |
-| - | executeElicitationHooks | chunks.141.mjs | generator (Elicitation hook event) |
-| - | executeConfigChangeHooks | chunks.141.mjs | generator (ConfigChange hook event) |
-| - | executeInstructionsLoadedHooks | chunks.141.mjs | generator (InstructionsLoaded hook event) |
+| FE1 | executePostCompactHooks | chunks.147.mjs:1562 | function |
+| A$8 | executeElicitationHooks | chunks.175.mjs | function (Elicitation hook event) |
+| q$8 | executeElicitationResultHooks | chunks.175.mjs | function (ElicitationResult hook event) |
+| UN6 | executeConfigChangeHooks | chunks.175.mjs | function (ConfigChange hook event) |
+| ZF6 | executeInstructionsLoadedHooks | chunks.175.mjs:2814 | function (InstructionsLoaded hook event) |
+| b_6 | executePermissionRequestHooks | chunks.141.mjs | function (PermissionRequest hook event) |
 
 ### Hook Resolution & Loading
 
@@ -1319,22 +1371,27 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| K2z | normalizeAttachmentForAPI | chunks.173.mjs:698 | function |
+| Ui8 | normalizeAttachmentForAPI | chunks.174.mjs:1-469 | function |
 | WJ | normalizeMessages | chunks.173.mjs:89 | function |
 | hMA | extractSystemReminderContent | chunks.90.mjs:517 | function |
 | EL9 | SYSTEM_REMINDER_REGEX | chunks.90.mjs:730 | constant (regex) |
-| azz | planModeReminderDispatcher | chunks.173.mjs:525 | function |
-| _zz | produceSubagentPlanModeReminder | chunks.173.mjs | function |
-| Gzz | produceSparsePlanModeReminder | chunks.173.mjs | function |
-| Vzz | produceFullPlanModeReminder | chunks.173.mjs | function |
-| tI | wrapInXmlTag | chunks.173.mjs:490 | function |
+| Wzz | planModeReminderDispatcher | chunks.173.mjs:2525-2530 | function |
+| Nzz | fullPlanReminder | chunks.173.mjs:2556-2690 | function |
+| Ezz | sparsePlanReminder | chunks.173.mjs:2692-2699 | function |
+| yzz | subAgentPlanReminder | chunks.173.mjs:2701-2712 | function |
+| Zzz | ultraplanCompleteReminder | chunks.173.mjs:2532-2538 | function |
+| Lzz | autoModeReminder | chunks.173.mjs:2714-2717 | function |
+| Rzz | fullAutoModeReminder | chunks.173.mjs:2719-2732 | function |
+| hzz | sparseAutoModeReminder | chunks.173.mjs:2734-2739 | function |
+| af | wrapInXmlTag | chunks.173.mjs:2490-2494 | function |
+| b5 | wrapWithSystemReminderTags | chunks.173.mjs:2496-2523 | function |
 
 ### Synthetic Message Creation
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| pd1 | createToolCallMessage | chunks.173.mjs:1152 | function |
-| Ud1 | createToolResultMessage | chunks.173.mjs:1133 | function |
+| nr6 | createToolCallMessage | chunks.174.mjs:490-495 | function |
+| ir6 | createToolResultMessage | chunks.174.mjs:471-488 | function |
 | _9 | wrapWithSystemReminder | chunks.173.mjs:496 | function |
 | c6 | createUserMessage | chunks.172.mjs:2876 | function |
 

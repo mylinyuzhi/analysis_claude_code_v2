@@ -2,13 +2,13 @@
 
 ## Overview
 
-The Hooks System is Claude Code's event-driven extension framework. It intercepts **21 distinct lifecycle moments**, dispatches user-configured handlers (shell commands, HTTP endpoints, LLM prompts, sub-agents, in-process callbacks, or function hooks), and feeds the results back into the main agent loop to control behavior: blocking tool calls, modifying inputs, injecting context, or forcing the model to continue working.
+The Hooks System is Claude Code's event-driven extension framework. It intercepts **22 distinct lifecycle moments**, dispatches user-configured handlers (shell commands, HTTP endpoints, LLM prompts, sub-agents, in-process callbacks, or function hooks), and feeds the results back into the main agent loop to control behavior: blocking tool calls, modifying inputs, injecting context, or forcing the model to continue working.
 
 This module provides comprehensive documentation of the hook architecture, event catalog, async execution patterns, and integration with other components.
 
 ## Key Characteristics
 
-- **21 hook events**: PreToolUse, PostToolUse, PostToolUseFailure, Notification, UserPromptSubmit, SessionStart, SessionEnd, Stop, SubagentStart, SubagentStop, PreCompact, PostCompact, PermissionRequest, Setup, TeammateIdle, TaskCompleted, Elicitation, ElicitationResult, InstructionsLoaded, ConfigChange, WorktreeCreate, WorktreeRemove
+- **22 hook events**: PreToolUse, PostToolUse, PostToolUseFailure, Notification, UserPromptSubmit, SessionStart, SessionEnd, Stop, SubagentStart, SubagentStop, PreCompact, PostCompact, PermissionRequest, Setup, TeammateIdle, TaskCompleted, Elicitation, ElicitationResult, ConfigChange, WorktreeCreate, WorktreeRemove, InstructionsLoaded
 - **6 hook types**: `command`, `http`, `prompt`, `agent`, `callback`, `function`
 - **Blocking semantics**: Hooks can block operations via exit code 2 or `ok: false`
 - **Async support**: Long-running hooks can execute in background
@@ -85,10 +85,15 @@ Hooks integrate with multiple Claude Code components:
 | `executeStopHooks` (zyA) | Stop/SubagentStop | Agent stop points |
 | `executeSubagentStartHooks` (AEA) | SubagentStart | Subagent begins |
 | `executePreCompactHooks` (mW6) | PreCompact | Before compaction |
-| `executePermissionRequestHooks` | PermissionRequest | Permission decisions |
+| `executePostCompactHooks` (FE1) | PostCompact | After compaction completes |
+| `executePermissionRequestHooks` (b_6) | PermissionRequest | Permission decisions |
 | `executeSetupHooks` (OyA) | Setup | Initial setup |
 | `executeTeammateIdleHooks` (wyA) | TeammateIdle | Teammate becomes idle |
 | `executeTaskCompletedHooks` (Cg1) | TaskCompleted | Task marked complete |
+| `executeElicitationHooks` (A$8) | Elicitation | MCP elicitation request |
+| `executeElicitationResultHooks` (q$8) | ElicitationResult | Elicitation response |
+| `executeConfigChangeHooks` (UN6) | ConfigChange | Configuration changes |
+| `executeInstructionsLoadedHooks` (ZF6) | InstructionsLoaded | Instruction files loaded |
 
 ### Core Execution
 

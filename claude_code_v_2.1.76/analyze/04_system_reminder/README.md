@@ -2,7 +2,7 @@
 
 > **Module**: System Reminders (Attachments-to-API Normalization)
 > **Version**: Claude Code 2.1.76
-> **Source**: `chunks.173.mjs:490-1131`, `chunks.142.mjs:1948-2835`, `chunks.148.mjs:2414-2428`
+> **Source**: `chunks.174.mjs:1-469` (normalizeAttachmentForAPI), `chunks.173.mjs:1378+` (createUserMessage), `chunks.142.mjs:1948-2835`, `chunks.148.mjs:2414-2428`
 
 ---
 
@@ -76,8 +76,8 @@ Examples of what system reminders convey:
                ↓
 ┌──────────────┴───────────────────────────────────────────────────────┐
 │                   LAYER 2: ATTACHMENT NORMALIZATION                   │
-│                  (K2z - normalizeAttachmentForAPI)                    │
-│                     chunks.173.mjs:698-1131                          │
+│                  (Ui8 - normalizeAttachmentForAPI)                    │
+│                     chunks.174.mjs:1-469                             │
 └──────────────┬───────────────────────────────────────────────────────┘
                │
                ↓
@@ -123,11 +123,14 @@ Examples of what system reminders convey:
 - `plan_file_reference` - Existing plan file content (post-compact)
 - `delegate_mode` - Team delegate mode
 - `delegate_mode_exit` - Exited delegate mode
+- `auto_mode` - Auto mode instructions (v2.1.76 new)
+- `auto_mode_exit` - Exited auto mode (v2.1.76 new)
 
 ### Skills & Memory
 - `invoked_skills` - Skill invocation memory
 - `skill_listing` - Available skills (v2.1.76: includes CLAUDE_SKILL_DIR env var support)
 - `nested_memory` - Memory content (v2.1.76: last-modified timestamps in headers)
+- `relevant_memories` - Memory files with timestamps (v2.1.76 new)
 - `mcp_resource` - MCP resource content
 - `ultramemory` - Ultramemory content
 - `dynamic_skill` - Dynamically discovered skills
@@ -155,12 +158,17 @@ Examples of what system reminders convey:
 - `queued_command` - Queued user message
 - `session_name` - Current session name (v2.1.76 new)
 - `cron_job` - /loop cron job reminder (v2.1.76 new)
+- `output_token_usage` - Output token tracking (v2.1.76 new)
+- `date_change` - Date change notification (v2.1.76 new)
+- `ultrathink_effort` - Reasoning effort level (v2.1.76 new)
+- `deferred_tools_delta` - Deferred tools availability changes (v2.1.76 new)
+- `mcp_instructions_delta` - MCP server instruction changes (v2.1.76 new)
 
 ### Silent / No-Op Types
 - `already_read_file`, `command_permissions`, `edited_image_file`
 - `hook_cancelled`, `hook_error_during_execution`, `hook_non_blocking_error`
 - `hook_system_message`, `hook_permission_decision`, `structured_output`
-- `autocheckpointing`, `background_task_status`
+- `autocheckpointing`, `background_task_status`, `context_efficiency` (v2.1.76 new)
 
 ---
 
@@ -168,13 +176,15 @@ Examples of what system reminders convey:
 
 | Function | Obfuscated | Location | Purpose |
 |----------|------------|----------|---------|
-| `normalizeAttachmentForAPI` | K2z | chunks.173.mjs:698-1131 | Main dispatcher converting attachments to messages |
-| `wrapWithSystemReminderTags` | _9 | chunks.173.mjs:496-523 | Wraps messages in XML tags |
-| `wrapInXmlTag` | tI | chunks.173.mjs:490-494 | Creates XML wrapper string |
-| `createUserMessage` | c6 | chunks.172.mjs:2876-2912 | Message factory with isMeta flag |
+| `normalizeAttachmentForAPI` | Ui8 | chunks.174.mjs:1-469 | Main dispatcher converting attachments to messages |
+| `wrapWithSystemReminderTags` | b5 | chunks.173.mjs:2496-2523 | Wraps messages in XML tags |
+| `wrapInXmlTag` | af | chunks.173.mjs:2490-2494 | Creates XML wrapper string |
+| `createUserMessage` | p1 | chunks.173.mjs:1378+ | Message factory with isMeta flag |
+| `createToolCallMessage` | nr6 | chunks.174.mjs:490-495 | Synthetic tool call message |
+| `createToolResultMessage` | ir6 | chunks.174.mjs:471-488 | Synthetic tool result message |
 | `assembleAttachments` | phY | chunks.142.mjs:1948-1965 | Main orchestrator for attachment production |
 | `timedAttachmentProducer` | gw | chunks.142.mjs:1967-1991 | Telemetry wrapper for producers |
-| `planModeReminderDispatcher` | azz | chunks.173.mjs:525-529 | Routes to plan mode variant |
+| `planModeReminderDispatcher` | Wzz | chunks.173.mjs:2525-2530 | Routes to plan mode variant |
 
 ---
 
@@ -254,16 +264,21 @@ The system never crashes due to attachment failures:
 
 Key functions in this module:
 
-- `normalizeAttachmentForAPI` (K2z) - Main dispatcher
-- `wrapWithSystemReminderTags` (_9) - XML wrapper
-- `wrapInXmlTag` (tI) - XML string creator
-- `createUserMessage` (c6) - Message factory
+- `normalizeAttachmentForAPI` (Ui8) - Main dispatcher
+- `wrapWithSystemReminderTags` (b5) - XML wrapper
+- `wrapInXmlTag` (af) - XML string creator
+- `createUserMessage` (p1) - Message factory
+- `createToolCallMessage` (nr6) - Tool call display
+- `createToolResultMessage` (ir6) - Tool result display
 - `assembleAttachments` (phY) - Orchestrator
 - `timedAttachmentProducer` (gw) - Telemetry wrapper
-- `planModeReminderDispatcher` (azz) - Plan mode router
+- `planModeReminderDispatcher` (Wzz) - Plan mode router
+- `fullPlanReminder` (Nzz) - Full plan instructions
+- `sparsePlanReminder` (Ezz) - Sparse plan reminder
+- `subAgentPlanReminder` (yzz) - Subagent plan reminder
+- `ultraplanCompleteReminder` (Zzz) - Ultraplan complete
+- `autoModeReminder` (Lzz) - Auto mode dispatcher
 - `isTeamMode` (l8) - Team mode check
-- `createToolCallMessage` (pd1) - Tool call display
-- `createToolResultMessage` (Ud1) - Tool result display
 
 ---
 
@@ -271,10 +286,11 @@ Key functions in this module:
 
 | File | Lines | Content |
 |------|-------|---------|
-| `chunks.173.mjs` | 490-1131 | Core normalization functions |
+| `chunks.174.mjs` | 1-469 | Core normalization functions (normalizeAttachmentForAPI) |
+| `chunks.173.mjs` | 1378+ | User message construction (createUserMessage) |
+| `chunks.173.mjs` | 2490-2740 | XML wrappers, plan/auto mode reminders |
 | `chunks.142.mjs` | 1948-2835 | Attachment producer functions |
 | `chunks.148.mjs` | 2414-2428 | Message injection functions |
-| `chunks.172.mjs` | 2876-2912 | User message construction |
 | `chunks.90.mjs` | 730 | Regex patterns |
 
 ---

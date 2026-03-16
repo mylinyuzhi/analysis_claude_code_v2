@@ -10,11 +10,11 @@ This document provides deep analysis of the task system's state machine, status 
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Task system symbols
 
 Key functions in this document:
-- `TaskUpdate` (DR) - Main state transition handler
-- `verifyTaskCompletion` (Cg1) - Pre-completion validation hooks
-- `deleteTask` (sq6) - Task deletion and cleanup
-- `updateTaskState` (JS) - Low-level state persistence
-- `findTaskById` (lg) - Task loading with schema validation
+- `updateTask` (WI) - Main async update function with persistence
+- `deleteTask` (sD1) - Async deletion with dependency cleanup
+- `executeTaskCompletedHooks` (Hi6) - Pre-completion validation hooks
+- `loadTask` (DB) - Async task loading with schema validation
+- `loadAllTasks` (DX) - Load all tasks for dependency checks
 
 ---
 
@@ -62,15 +62,15 @@ The task system implements a **linear forward-only state machine** with a specia
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Schema Definition** (chunks.48.mjs:742):
+**Schema Definition** (chunks.84.mjs:1932):
 
 // ============================================
 // Task Status Schema - Valid status values
-// Location: chunks.48.mjs:742
+// Location: chunks.84.mjs:1932
 // ============================================
 
 // ORIGINAL (for source lookup):
-J71 = u.enum(["pending", "in_progress", "completed"])
+H36 = u.enum(["pending", "in_progress", "completed"])
 
 // READABLE (for understanding):
 const taskStatusSchema = zodSchema.enum([
@@ -93,13 +93,13 @@ const taskStatusSchema = zodSchema.enum([
 
 // ============================================
 // TaskUpdate - State transition handler
-// Location: chunks.141.mjs:117-147
+// Location: chunks.145.mjs (TaskUpdate tool implementation)
 // ============================================
 
 // ORIGINAL (for source lookup):
 if (z !== void 0) {
     if (z === "deleted") {
-        let M = sq6(WM(), A);
+        let M = await sD1(jf(), A);
         if (!M) return { data: { success: !1, error: "Failed to delete task" } };
         return {
             data: {
@@ -112,9 +112,9 @@ if (z !== void 0) {
     }
     if (z === "completed") {
         let M = [],
-            P = Cg1(A, X.subject, X.description, g5(), i3(), ...);
+            P = Hi6(A, X.subject, X.description, g5(), iM(), ...);
         for await (let W of P)
-            if (W.blockingError) M.push(yg1(W.blockingError));
+            if (W.blockingError) M.push($i6(W.blockingError));
         if (M.length > 0) return {
             data: {
                 success: !1,
@@ -187,12 +187,12 @@ if (newStatus !== undefined) {
 // Mapping:
 // z → newStatus
 // X → currentTask
-// sq6 → deleteTask
-// WM → getTaskManager
-// Cg1 → verifyTaskCompletion
+// sD1 → deleteTask (async)
+// jf → getTaskManager
+// Hi6 → executeTaskCompletedHooks
 // g5 → getCurrentAgentName
-// i3 → getTeamName
-// yg1 → formatError
+// iM → getTeamContext
+// $i6 → getTaskCompletedHookMessage
 // j → updates
 // D → updatedFields
 
@@ -459,56 +459,56 @@ await TaskList();
 
 // ============================================
 // deleteTask - Remove task and clean dependencies
-// Location: chunks.48.mjs:535-547
+// Location: chunks.84.mjs:1713-1739
 // ============================================
 
 // ORIGINAL (for source lookup):
-function sq6(A, q) {
-    let K = WC1(A, q);
-    if (!jr(K)) return !1;
+async function sD1(A, q) {
+    let K = yF6(A, q);
     try {
-        J67(K);
-        let Y = WX(A);
-        for (let z of Y) {
-            let w = z.blocks.filter((H) => H !== q),
-                $ = z.blockedBy.filter((H) => H !== q);
-            if (w.length !== z.blocks.length || $.length !== z.blockedBy.length)
-                JS(A, z.id, { blocks: w, blockedBy: $ })
+        let Y = parseInt(q, 10);
+        if (!isNaN(Y)) {
+            await J67(K);
+            let z = await DX(A);
+            for (let w of z) {
+                let O = w.blocks.filter((H) => H !== q),
+                    $ = w.blockedBy.filter((H) => H !== q);
+                if (O.length !== w.blocks.length || $.length !== w.blockedBy.length)
+                    await WI(A, w.id, { blocks: O, blockedBy: $ })
+            }
         }
         return !0
-    } catch {
-        return !1
-    }
+    } catch { return !1 }
 }
 
 // READABLE (for understanding):
-function deleteTask(taskManager, taskId) {
+async function deleteTask(taskManager, taskId) {
     const taskFilePath = getTaskFilePath(taskManager, taskId);
 
-    // Check if file exists
-    if (!fileExists(taskFilePath)) return false;
-
     try {
-        // STEP 1: Physically delete the task file
-        deleteFile(taskFilePath);
+        const taskIdInt = parseInt(taskId, 10);
+        if (!isNaN(taskIdInt)) {
+            // STEP 1: Physically delete the task file
+            await deleteFile(taskFilePath);
 
-        // STEP 2: Clean up ALL dependency references
-        const allTasks = loadAllTasks(taskManager);
+            // STEP 2: Clean up ALL dependency references
+            const allTasks = await loadAllTasks(taskManager);
 
-        for (const task of allTasks) {
-            // Remove deleted task from this task's 'blocks' array
-            const newBlocks = task.blocks.filter(id => id !== taskId);
+            for (const task of allTasks) {
+                // Remove deleted task from this task's 'blocks' array
+                const newBlocks = task.blocks.filter(id => id !== taskId);
 
-            // Remove deleted task from this task's 'blockedBy' array
-            const newBlockedBy = task.blockedBy.filter(id => id !== taskId);
+                // Remove deleted task from this task's 'blockedBy' array
+                const newBlockedBy = task.blockedBy.filter(id => id !== taskId);
 
-            // If either array changed, update the task
-            if (newBlocks.length !== task.blocks.length ||
-                newBlockedBy.length !== task.blockedBy.length) {
-                updateTask(taskManager, task.id, {
-                    blocks: newBlocks,
-                    blockedBy: newBlockedBy
-                });
+                // If either array changed, update the task
+                if (newBlocks.length !== task.blocks.length ||
+                    newBlockedBy.length !== task.blockedBy.length) {
+                    await updateTask(taskManager, task.id, {
+                        blocks: newBlocks,
+                        blockedBy: newBlockedBy
+                    });
+                }
             }
         }
 
@@ -519,14 +519,13 @@ function deleteTask(taskManager, taskId) {
 }
 
 // Mapping:
-// sq6 → deleteTask
+// sD1 → deleteTask
 // A → taskManager
 // q → taskId
-// WC1 → getTaskFilePath
-// jr → fileExists
+// yF6 → getTaskFilePath
 // J67 → deleteFile
-// WX → loadAllTasks
-// JS → updateTask
+// DX → loadAllTasks
+// WI → updateTask
 
 **What it does**: Deletes a task and cleans up all references to it in other tasks' dependency arrays.
 
@@ -761,62 +760,62 @@ Example hook implementation:
 ### 7.1 File Locking for Atomic Operations
 
 // ============================================
-// File locking during task creation
-// Location: chunks.48.mjs:486-502 (n_1 function)
+// File locking during task creation (async version)
+// Location: chunks.84.mjs:1669-1684
 // ============================================
 
 // ORIGINAL (for source lookup):
-function n_1(A, q) {
-    let K = G67(A), Y;
+async function aD1(A, q) {
+    let K = await wT8(A), Y;
     try {
-        Y = PC1.default.lockSync(K);
-        let z = Rf5(A),
+        Y = await EF6.lock(K, nD1);
+        let z = await wN9(A),
             w = String(z + 1),
             H = { id: w, ...q },
-            $ = WC1(A, w);
-        return c8($, Q1(H, null, 2)), l_1(), w
+            $ = yF6(A, w);
+        return await iD1($, B6(H, null, 2)), Gt(), w
     } finally {
-        if (Y) Y()
+        if (Y) await Y()
     }
 }
 
 // READABLE (for understanding):
-function createTask(taskManager, taskData) {
-    const lockFilePath = getLockFilePath(taskManager);
+async function createTask(taskManager, taskData) {
+    const lockFilePath = await getLockFilePath(taskManager);
     let unlock;
 
     try {
-        // ACQUIRE LOCK (blocks until available)
-        unlock = lockfile.lockSync(lockFilePath);
+        // ACQUIRE LOCK (async - blocks until available)
+        unlock = await lockfile.lock(lockFilePath, lockOptions);
 
         // Critical section - protected by lock
-        const currentMaxId = getHighWaterMark(taskManager);
+        const currentMaxId = await getHighWaterMark(taskManager);
         const newId = String(currentMaxId + 1);
         const newTask = { id: newId, ...taskData };
         const taskFilePath = getTaskFilePath(taskManager, newId);
 
         // Write task file
-        writeFile(taskFilePath, JSON.stringify(newTask, null, 2));
+        await writeFile(taskFilePath, JSON.stringify(newTask, null, 2));
 
-        // Update high water mark
-        syncHighWaterMark();
+        // Invalidate cache
+        invalidateCache();
 
         return newId;
     } finally {
         // RELEASE LOCK (always executes, even on error)
-        if (unlock) unlock();
+        if (unlock) await unlock();
     }
 }
 
 // Mapping:
-// n_1 → createTask
-// PC1.default.lockSync → lockfile.lockSync
-// G67 → getLockFilePath
-// Rf5 → getHighWaterMark
-// WC1 → getTaskFilePath
-// c8 → writeFile
-// Q1 → JSON.stringify
-// l_1 → syncHighWaterMark
+// aD1 → createTask
+// EF6.lock → lockfile.lock
+// wT8 → getLockFilePath
+// wN9 → getHighWaterMark
+// yF6 → getTaskFilePath
+// iD1 → writeFile
+// B6 → JSON.stringify
+// Gt → invalidateCache
 
 **What it does**: Uses file-based locking to ensure ID assignment is atomic even with concurrent task creation.
 

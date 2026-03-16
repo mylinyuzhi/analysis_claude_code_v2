@@ -10,10 +10,10 @@ The Todo List from v2.1.7 has been replaced in v2.1.76 with a more robust **Grap
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `TaskCreate` (Nh) - Tool to create a new task
-- `TaskUpdate` (DR) - Tool to update task status, owner, or dependencies
-- `TaskGet` (NK1) - Tool to retrieve full task details
-- `TaskList` (TK1) - Tool to list all tasks with status summary
+- `createTask` (aD1) - Async function to create a new task with locking
+- `updateTask` (WI) - Async function to update task status, owner, or dependencies
+- `loadTask` (DB) - Async function to retrieve full task details
+- `loadAllTasks` (DX) - Load all tasks for dependency resolution
 - `addDependency` (r7A) - Internal logic for linking tasks
 
 ## Task Data Structure
@@ -40,23 +40,24 @@ Each task in the graph is an object with the following core properties:
 ```javascript
 // ============================================
 // addDependency - Internal logic for linking tasks
-// Location: chunks.141.mjs:172-179
+// Location: chunks.48.mjs:569-577
 // ============================================
 
 // ORIGINAL (for source lookup):
-function r7A(J, A, P) {
-    let X = lg(J, A), D = lg(J, P);
-    if (X && D) {
-        if (!X.blocks.includes(P)) X.blocks.push(P);
-        if (!D.blockedBy.includes(A)) D.blockedBy.push(A);
+function r7A(A, q, K) {
+    let Y = WM(A), z = lg(A, q), w = lg(A, K);
+    if (z && w) {
+        if (!z.blocks.includes(K)) z.blocks.push(K);
+        if (!w.blockedBy.includes(q)) w.blockedBy.push(q);
     }
 }
 
 // READABLE (for understanding):
 function addDependency(taskManager, blockingTaskId, blockedTaskId) {
-    const blockingTask = findTaskById(taskManager, blockingTaskId);
-    const blockedTask = findTaskById(taskManager, blockedTaskId);
-    
+    const manager = getTaskManagerSync(taskManager);
+    const blockingTask = findTaskByIdSync(manager, blockingTaskId);
+    const blockedTask = findTaskByIdSync(manager, blockedTaskId);
+
     if (blockingTask && blockedTask) {
         // Task A blocks Task B
         if (!blockingTask.blocks.includes(blockedTaskId)) {
@@ -69,7 +70,8 @@ function addDependency(taskManager, blockingTaskId, blockedTaskId) {
     }
 }
 
-// Mapping: r7A→addDependency, J→taskManager, A→blockingTaskId, P→blockedTaskId, X→blockingTask, D→blockedTask
+// Mapping: r7A→addDependency, A→taskManager, q→blockingTaskId, K→blockedTaskId,
+//          WM→getTaskManagerSync, lg→findTaskByIdSync, z→blockingTask, w→blockedTask
 ```
 
 ## Task Completion Verification
@@ -79,28 +81,28 @@ Before a task can be marked as `completed`, the system may run verification hook
 ```javascript
 // ============================================
 // verifyTaskCompletion - Blocking error check before completion
-// Location: chunks.141.mjs:136-147
+// Location: chunks.175.mjs:2594-2608 (Hi6 function)
 // ============================================
 
 // ORIGINAL (for source lookup):
 if (z === "completed") {
-    let M = [], P = Cg1(A, X.subject, X.description, g5(), i3(), ...);
-    for await (let W of P) if (W.blockingError) M.push(yg1(W.blockingError));
+    let M = [], P = Hi6(A, X.subject, X.description, g5(), iM(), ...);
+    for await (let W of P) if (W.blockingError) M.push($i6(W.blockingError));
     if (M.length > 0) return { data: { success: !1, error: M.join("\n") } };
 }
 
 // READABLE (for understanding):
 if (newStatus === "completed") {
     let errors = [];
-    // Cg1 is a generator that runs verification hooks (e.g., tests, lints)
-    const verificationStream = verifyTask(taskId, subject, description, currentAgent, teamName, ...);
-    
-    for await (const result of verificationStream) {
+    // Hi6 is an async generator that runs TaskCompleted hooks
+    const hookStream = executeTaskCompletedHooks(taskId, subject, description, currentAgent, teamName, ...);
+
+    for await (const result of hookStream) {
         if (result.blockingError) {
-            errors.push(formatError(result.blockingError));
+            errors.push(getTaskCompletedHookMessage(result.blockingError));
         }
     }
-    
+
     if (errors.length > 0) {
         return {
             data: {
@@ -112,7 +114,8 @@ if (newStatus === "completed") {
     }
 }
 
-// Mapping: Cg1→verifyTask, yg1→formatError, z→newStatus, A→taskId, X→currentTask
+// Mapping: Hi6→executeTaskCompletedHooks, $i6→getTaskCompletedHookMessage,
+//          z→newStatus, A→taskId, X→currentTask, g5→getCurrentAgentName, iM→getTeamContext
 ```
 
 ## Distributed Ownership
