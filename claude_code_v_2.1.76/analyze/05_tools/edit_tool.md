@@ -11,21 +11,18 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI rendering infrastructure
 
 Key functions in this document:
-- `EditTool` (sW) - Edit tool definition object - chunks.134.mjs:2124
+- `EditTool` (pX) - Edit tool definition object - chunks.170.mjs:1116
 - `TOOL_NAME_EDIT` (R4) - Tool name constant - chunks.56.mjs:102
-- `validateEditInput` (sW.validateInput) - 9-step validation pipeline - chunks.134.mjs:2167
-- `callEditTool` (sW.call) - Execution method - chunks.134.mjs:2316
-- `renderEditToolUseMessage` (IF4) - Header UI - chunks.134.mjs:1234
-- `renderEditToolProgress` (xF4) - Progress UI (null) - chunks.134.mjs:1246
-- `renderEditToolResult` (bF4) - Result diff UI - chunks.134.mjs:1250
-- `renderEditToolRejected` (uF4) - Rejection preview - chunks.134.mjs:1271
-- `renderEditToolError` (BF4) - Error display - chunks.134.mjs:1320
-- `DiffViewer` (SP6) - Diff rendering component - chunks.134.mjs
-- `PreviewEdit` (ZW1) - Edit preview component - chunks.134.mjs
-- `generatePatch` (j_6) - Unified diff generator - chunks.134.mjs
-- `findExactString` (PK1) - Fuzzy string matching - chunks.134.mjs
-- `getLineEnding` (Qd) - CRLF/LF detection - chunks.134.mjs
-- `getFileEncoding` (AX) - Encoding detection - chunks.134.mjs
+- `validateEditInput` (pX.validateInput) - 9-step validation pipeline - chunks.170.mjs:1172
+- `callEditTool` (pX.call) - Execution method - chunks.170.mjs
+- `renderEditToolUseMessage` (NGq) - Header UI - chunks.170.mjs
+- `renderEditToolProgress` (VGq) - Progress UI (null)
+- `renderEditToolResult` (kGq) - Result diff UI - chunks.170.mjs
+- `renderEditToolRejected` (EGq) - Rejection preview - chunks.170.mjs
+- `renderEditToolError` (yGq) - Error display - chunks.170.mjs
+- `getEditToolInputSchema` (lV1) - Input schema accessor - chunks.170.mjs:1137
+- `getEditToolOutputSchema` (Pa4) - Output schema accessor - chunks.170.mjs:1149
+- `checkEditPermissions` (Xz6) - Permission check - chunks.170.mjs:1165
 
 ---
 
@@ -36,7 +33,8 @@ LLM generates Edit tool_use block
   { file_path, old_string, new_string, replace_all? }
              │
              ▼
-  validateInput (9 ordered checks)
+  validateInput (10 ordered checks)
+  ├── [0] path validation? → error
   ├── [1] old_string === new_string? → error
   ├── [2] permission denied? → error
   ├── [3] UNC/network path? → allow (passthrough)
@@ -93,34 +91,42 @@ LLM generates Edit tool_use block
 ```javascript
 // ============================================
 // EditTool - Main file editing tool definition
-// Location: chunks.134.mjs:2124-2166
+// Location: chunks.170.mjs:1116-1166
 // ============================================
 
 // ORIGINAL (for source lookup):
-sW = {
-    name: bq,
+pX = {
+    name: R4,
     maxResultSizeChars: 1e5,
     strict: !0,
     async description() { return "A tool for editing files" },
-    async prompt() { return pu4() },
-    userFacingName: hP6,
-    getToolUseSummary: SkA,
-    getActivityDescription(A) { let q = SkA(A); return q ? `Editing ${q}` : "Editing file" },
+    async prompt() { return bf7() },
+    userFacingName: ph1,
+    getToolUseSummary: $n8,
+    getActivityDescription(A) { let q = $n8(A); return q ? `Editing ${q}` : "Editing file" },
     isEnabled() { return !0 },
-    get inputSchema() { return Qw6() },
-    get outputSchema() { return TR7() },
+    get inputSchema() { return lV1() },
+    inputParamAliases: {
+        old_str: "old_string",
+        new_str: "new_string",
+        oldString: "old_string",
+        newString: "new_string",
+        filePath: "file_path",
+        filepath: "file_path",
+        path: "file_path"
+    },
+    get outputSchema() { return Pa4() },
     isConcurrencySafe() { return !1 },
     isReadOnly() { return !1 },
     getPath(A) { return A.file_path },
-    async checkPermissions(A, q) { let K = await q.getAppState(); return N51(sW, A, K.toolPermissionContext) },
-    renderToolUseMessage: IF4,
-    renderToolUseProgressMessage: xF4,
-    renderToolResultMessage: bF4,
-    renderToolUseRejectedMessage: uF4,
-    renderToolUseErrorMessage: BF4,
+    async checkPermissions(A, q) { let K = q.getAppState(); return Xz6(pX, A, K.toolPermissionContext) },
+    renderToolUseMessage: NGq,
+    renderToolUseProgressMessage: VGq,
+    renderToolResultMessage: kGq,
+    renderToolUseRejectedMessage: EGq,
+    renderToolUseErrorMessage: yGq,
     async validateInput(...) { ... },
-    async call(...) { ... },
-    mapToolResultToToolResultBlockParam(...) { ... }
+    async call(...) { ... }
 }
 
 // READABLE (for understanding):
@@ -138,6 +144,16 @@ const EditTool = {
     },
     isEnabled() { return true },
     get inputSchema() { return getEditToolInputSchema() },
+    inputParamAliases: {
+        // Support various parameter name aliases for flexibility
+        old_str: "old_string",
+        new_str: "new_string",
+        oldString: "old_string",
+        newString: "new_string",
+        filePath: "file_path",
+        filepath: "file_path",
+        path: "file_path"
+    },
     get outputSchema() { return getEditToolOutputSchema() },
     isConcurrencySafe() { return false },   // File writes are NOT concurrency-safe
     isReadOnly() { return false },           // Mutates file system
@@ -146,16 +162,17 @@ const EditTool = {
         let appState = await context.getAppState();
         return checkEditPermissions(EditTool, input, appState.toolPermissionContext)
     },
-    renderToolUseMessage: renderEditToolUseMessage,       // Header: shows file path
-    renderToolUseProgressMessage: renderEditToolProgress, // Returns null (sync op)
-    renderToolResultMessage: renderEditToolResult,        // Diff viewer component
-    renderToolUseRejectedMessage: renderEditToolRejected, // Preview diff before rejection
-    renderToolUseErrorMessage: renderEditToolError,       // Error message display
+    renderToolUseMessage: renderEditToolUseMessage,
+    renderToolUseProgressMessage: renderEditToolProgress,
+    renderToolResultMessage: renderEditToolResult,
+    renderToolUseRejectedMessage: renderEditToolRejected,
+    renderToolUseErrorMessage: renderEditToolError,
 }
 
-// Mapping: sW→EditTool, R4→TOOL_NAME_EDIT, pu4→getEditToolPrompt, hP6→getEditToolUserFacingName,
-//          SkA→getEditToolSummary, Qw6→getEditToolInputSchema, TR7→getEditToolOutputSchema,
-//          N51→checkEditPermissions
+// Mapping: pX→EditTool, R4→TOOL_NAME_EDIT, bf7→getEditToolPrompt, ph1→getEditToolUserFacingName,
+//          $n8→getEditToolSummary, lV1→getEditToolInputSchema, Pa4→getEditToolOutputSchema,
+//          Xz6→checkEditPermissions, NGq→renderEditToolUseMessage, VGq→renderEditToolProgress,
+//          kGq→renderEditToolResult, EGq→renderEditToolRejected, yGq→renderEditToolError
 ```
 
 **Key properties:**
@@ -168,7 +185,7 @@ const EditTool = {
 
 ## 2. Input Validation Pipeline
 
-### validateInput - 9 Ordered Safety Checks
+### validateInput - 10 Ordered Safety Checks
 
 **What it does:** Validates the Edit tool input before any filesystem access or permission check. This is the first line of defense against bad inputs from the LLM.
 
@@ -176,35 +193,51 @@ const EditTool = {
 
 ```javascript
 // ============================================
-// validateEditInput - 9-step validation pipeline
-// Location: chunks.134.mjs:2167-2297
+// validateEditInput - 10-step validation pipeline
+// Location: chunks.170.mjs:1172-1298
 // ============================================
 
 // ORIGINAL (for source lookup):
-async validateInput({ file_path: A, old_string: q, new_string: K, replace_all: Y = !1 }, z) {
-    if (q === K) return { result: !1, behavior: "ask", message: "No changes to make...", errorCode: 1 };
-    let w = g4(A), H = await z.getAppState();
-    if (Gj(w, H.toolPermissionContext, "edit", "deny") !== null) return { result: !1, behavior: "ask", message: "File is in a directory...", errorCode: 2 };
+async validateInput(A, q) {
+    let { file_path: K, old_string: Y, new_string: z, replace_all: _ = !1 } = A,
+        w = L4(K), O = cV1(w, z);
+    if (O) return { result: !1, message: O, errorCode: 0 };
+    if (Y === z) return { result: !1, behavior: "ask", message: "No changes to make...", errorCode: 1 };
+    let $ = q.getAppState();
+    if (ZX(w, $.toolPermissionContext, "edit", "deny") !== null) return { result: !1, behavior: "ask", message: "File is in a denied directory...", errorCode: 2 };
     if (w.startsWith("\\\\") || w.startsWith("//")) return { result: !0 };
-    let O = b1();
-    if (!O.existsSync(w) && q === "") return { result: !0 };   // new file creation
-    if (!O.existsSync(w)) return { result: !1, ..., errorCode: 4 };
-    if (w.endsWith(".ipynb")) return { result: !1, message: `Use the ${jM} tool...`, errorCode: 5 };
-    let _ = z.readFileState.get(w);
-    if (!_) return { result: !1, behavior: "ask", message: "File has not been read yet...", errorCode: 6 };
-    if (_) { if (aW(w) > _.timestamp) { /* check for content identity */ return { result: !1, ..., errorCode: 7 } } }
-    let J = O.readFileSync(w, { encoding: AX(w) }).replaceAll(`\r\n`, `\n`);
-    let X = PK1(J, q);
-    if (!X) return { result: !1, ..., errorCode: 8 };
-    let D = J.split(X).length - 1;
-    if (D > 1 && !Y) return { result: !1, ..., errorCode: 9 };
-    let j = zF4(w, J, () => Y ? J.replaceAll(X, K) : J.replace(X, K));
-    if (j !== null) return j;
+    let j = $1(), J;
+    try { let Z = await j.readFileBytes(w); J = Z.toString(G).replaceAll(`\r\n`, `\n`) }
+    catch (Z) { if (Z.code === "ENOENT") J = null; else throw Z }
+    if (J === null) {
+        if (Y === "") return { result: !0 };  // New file creation
+        return { result: !1, behavior: "ask", message: "File does not exist...", errorCode: 4 }
+    }
+    if (Y === "") {
+        if (J.trim() !== "") return { result: !1, behavior: "ask", message: "Cannot create new file - file already exists.", errorCode: 3 };
+        return { result: !0 }
+    }
+    if (w.endsWith(".ipynb")) return { result: !1, behavior: "ask", message: `Use the ${bJ} tool...`, errorCode: 5 };
+    let M = q.readFileState.get(w);
+    if (!M || M.isPartialView) return { result: !1, behavior: "ask", message: "File has not been read yet...", errorCode: 6 };
+    if (M && Jh(w) > M.timestamp && !(M.offset === void 0 && M.limit === void 0 && J === M.content))
+        return { result: !1, behavior: "ask", message: "File modified since read...", errorCode: 7 };
+    let D = J, X = sq6(D, Y);
+    if (!X) return { result: !1, behavior: "ask", message: "String not found...", errorCode: 8 };
+    let P = D.split(X).length - 1;
+    if (P > 1 && !_) return { result: !1, behavior: "ask", message: "Multiple matches...", errorCode: 9 };
+    let W = TGq(w, D, () => _ ? D.replaceAll(X, z) : D.replace(X, z));
+    if (W !== null) return W;
     return { result: !0, meta: { actualOldString: X } }
 }
 
 // READABLE (for understanding):
 async validateInput({ file_path, old_string, new_string, replace_all = false }, sessionContext) {
+
+    // [Check 0] File path validation (symlink traversal, etc.)
+    let absolutePath = resolvePath(file_path);
+    let pathError = validatePathForNewContent(absolutePath, new_string);
+    if (pathError) return { result: false, message: pathError, errorCode: 0 };
 
     // [Check 1] Identical strings — no-op edit
     if (old_string === new_string) {
@@ -213,7 +246,6 @@ async validateInput({ file_path, old_string, new_string, replace_all = false }, 
                  errorCode: 1 };
     }
 
-    let absolutePath = resolvePath(file_path);
     let appState = await sessionContext.getAppState();
 
     // [Check 2] Permission explicitly denied by rules
@@ -227,27 +259,39 @@ async validateInput({ file_path, old_string, new_string, replace_all = false }, 
     if (absolutePath.startsWith("\\\\") || absolutePath.startsWith("//")) return { result: true };
 
     let fs = getFileSystem();
+    let fileContent = null;
 
-    // [Check 4] File existence
-    if (!fs.existsSync(absolutePath) && old_string === "") return { result: true }; // new file
-    
-    // [Check 4b] New file creation but file already exists (implicit check in source)
-    // Error Code 3: Cannot create new file - file already exists
-    if (fs.existsSync(absolutePath) && old_string === "") {
-        let existingContent = fs.readFileSync(absolutePath, { encoding: getEncoding(absolutePath) }).replaceAll("\r\n", "\n").trim();
-        if (existingContent !== "") {
-             return { result: false, behavior: "ask",
-                      message: "Cannot create new file - file already exists.",
-                      errorCode: 3 };
-        }
-        return { result: true }; // Allow if existing file is empty
+    // Read file if exists
+    try {
+        let bytes = await fs.readFileBytes(absolutePath);
+        let encoding = bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE ? "utf16le" : "utf8";
+        fileContent = bytes.toString(encoding).replaceAll("\r\n", "\n");
+    } catch (err) {
+        if (err.code === "ENOENT") fileContent = null;
+        else throw err;
     }
 
-    if (!fs.existsSync(absolutePath)) {
+    // [Check 4] File doesn't exist
+    if (fileContent === null) {
+        if (old_string === "") return { result: true };  // New file creation allowed
+
         let suggestion = findSimilarFile(absolutePath);
-        return { result: false, behavior: "ask",
-                 message: `File does not exist${suggestion ? `. Did you mean ${suggestion}?` : ""}`,
-                 errorCode: 4 };
+        let similarDir = await findSimilarDirectory(absolutePath);
+        let message = `File does not exist. ${getReadToolHint()} ${getWriteToolHint()}.`;
+        if (similarDir) message += ` Did you mean ${similarDir}?`;
+        else if (suggestion) message += ` Did you mean ${suggestion}?`;
+
+        return { result: false, behavior: "ask", message, errorCode: 4 };
+    }
+
+    // [Check 3b - Error Code 3] New file creation but file already exists
+    if (old_string === "") {
+        if (fileContent.trim() !== "") {
+            return { result: false, behavior: "ask",
+                     message: "Cannot create new file - file already exists.",
+                     errorCode: 3 };
+        }
+        return { result: true };  // Allow if existing file is empty
     }
 
     // [Check 5] Jupyter notebook — redirect to NotebookEdit
@@ -259,7 +303,7 @@ async validateInput({ file_path, old_string, new_string, replace_all = false }, 
 
     // [Check 6] File must have been read first
     let fileState = sessionContext.readFileState.get(absolutePath);
-    if (!fileState) {
+    if (!fileState || fileState.isPartialView) {
         return { result: false, behavior: "ask",
                  message: "File has not been read yet. Read it first before writing to it.",
                  meta: { isFilePathAbsolute: String(isAbsolutePath(file_path)) },
@@ -267,23 +311,18 @@ async validateInput({ file_path, old_string, new_string, replace_all = false }, 
     }
 
     // [Check 7] External modification detection (mtime check)
-    if (getModificationTime(absolutePath) > fileState.timestamp) {
+    if (fileState && getModificationTime(absolutePath) > fileState.timestamp) {
         // Exception: allow if content is identical despite mtime change
-        let currentContent = fs.readFileSync(absolutePath, { encoding: getEncoding(absolutePath) })
-            .replaceAll("\r\n", "\n");
         if (!(fileState.offset === undefined && fileState.limit === undefined &&
-              currentContent === fileState.content)) {
+              fileContent === fileState.content)) {
             return { result: false, behavior: "ask",
-                     message: "File has been modified since read. Read it again before attempting to write it.",
+                     message: "File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.",
                      errorCode: 7 };
         }
     }
 
-    let currentContent = fs.readFileSync(absolutePath, { encoding: getEncoding(absolutePath) })
-        .replaceAll("\r\n", "\n");
-
     // [Check 8] old_string must exist in file
-    let searchString = findExactString(currentContent, old_string); // PK1 - fuzzy whitespace matching
+    let searchString = findExactString(fileContent, old_string);  // sq6 - fuzzy whitespace matching
     if (!searchString) {
         return { result: false, behavior: "ask",
                  message: `String to replace not found in file.\nString: ${old_string}`,
@@ -292,37 +331,43 @@ async validateInput({ file_path, old_string, new_string, replace_all = false }, 
     }
 
     // [Check 9] Multiple matches require replace_all=true
-    let matchCount = currentContent.split(searchString).length - 1;
+    let matchCount = fileContent.split(searchString).length - 1;
     if (matchCount > 1 && !replace_all) {
         return { result: false, behavior: "ask",
-                 message: `Found ${matchCount} matches of the string to replace. Set replace_all=true to replace all.`,
+                 message: `Found ${matchCount} matches of the string to replace, but replace_all is false. To replace all occurrences, set replace_all to true.`,
+                 meta: { isFilePathAbsolute: String(isAbsolutePath(file_path)), actualOldString: searchString },
                  errorCode: 9 };
     }
 
-    // [Optional] Lint/syntax check on proposed result
-    let lintResult = performLintValidation(absolutePath, currentContent,
-        () => replace_all ? currentContent.replaceAll(searchString, new_string)
-                          : currentContent.replace(searchString, new_string));
+    // [Check 10] Lint/syntax check on proposed result
+    let lintResult = performLintValidation(absolutePath, fileContent,
+        () => replace_all ? fileContent.replaceAll(searchString, new_string)
+                          : fileContent.replace(searchString, new_string));
     if (lintResult !== null) return lintResult;
 
     return { result: true, meta: { actualOldString: searchString } }
 }
 
-// Mapping: A→file_path, q→old_string, K→new_string, Y→replace_all, z→sessionContext,
-//          g4→resolvePath, Gj→checkPathDenyRule, b1→getFileSystem, aW→getModificationTime,
-//          AX→getEncoding, PK1→findExactString, zF4→performLintValidation, jM→NOTEBOOK_EDIT_TOOL_NAME
+// Mapping: K→file_path, Y→old_string, z→new_string, _→replace_all, q→sessionContext,
+//          L4→resolvePath, cV1→validatePathForNewContent, ZX→checkPathDenyRule,
+//          $1→getFileSystem, Jh→getModificationTime, sq6→findExactString,
+//          TGq→performLintValidation, bJ→NOTEBOOK_EDIT_TOOL_NAME
 ```
 
-**Why this check order:**
-- Identical strings caught first (cheapest check, no I/O)
-- Permission deny checked before file I/O (avoids leaking path existence)
-- UNC paths passthrough early (network paths have different semantics)
-- Notebook redirect prevents corrupting `.ipynb` JSON with text replacement
-- `readFileState` check ensures the LLM actually knows the file content
-- Fuzzy match (`PK1`) handles common LLM failures with whitespace normalization
-- Lint validation is last (most expensive) — only runs if all other checks pass
+**Complete Error Code Taxonomy:**
 
-**Key insight about `PK1` (findExactString):** The fuzzy matching normalizes whitespace differences between what the LLM "remembers" reading and what's actually in the file. This handles cases where the LLM reads a file with trailing spaces but the old_string omits them.
+| Code | Meaning | Recovery |
+|------|---------|----------|
+| 0 | Path validation failed | Check file path format |
+| 1 | `old_string === new_string` | LLM should provide different strings |
+| 2 | Path denied by permission rules | Check allowed directories |
+| 3 | Cannot create new file - file already exists | Use non-empty old_string to edit |
+| 4 | File doesn't exist | Check file path, or create file first |
+| 5 | File is `.ipynb` | Use NotebookEdit instead |
+| 6 | File not read yet | Call Read tool first |
+| 7 | File modified since read | Re-read file to get latest content |
+| 8 | `old_string` not found | Check exact string match (whitespace, etc.) |
+| 9 | Multiple matches | Add `replace_all: true` or use more specific string |
 
 ---
 

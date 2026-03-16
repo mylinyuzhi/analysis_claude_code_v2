@@ -186,6 +186,13 @@
 | MW1 | deliveredDiagnosticsLru | chunks.133.mjs:2475 | variable (LRU Map) |
 | startupTimeout | startupTimeout | chunks.133.mjs | config key (LSP server startup timeout) |
 
+### LSP Helpers (chunks.144.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| x1q | isDefinitionLink | chunks.144.mjs:111 | function (checks if LSP result has targetUri) |
+| KF8 | formatDefinitionNotFound | chunks.144.mjs:115 | function |
+
 ### Singleton Manager (chunks.133.mjs)
 
 | Obfuscated | Readable | File:Line | Type |

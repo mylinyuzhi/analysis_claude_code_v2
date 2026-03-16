@@ -13,7 +13,7 @@ Key functions in this document:
 - `inputSchema` - Zod schema for tool input validation
 - `outputSchema` - Optional Zod schema for tool output validation
 - `validateInput` - Custom runtime validation method
-- `formatValidationError` (x1q) - Converts Zod errors to user-friendly messages
+- `formatValidationError` (V4q) - Converts Zod errors to user-friendly messages
 - `safeParse` - Schema validation method used in pipeline
 
 ---
@@ -182,7 +182,7 @@ For large PDF files (more than 10 pages), you MUST provide the pages parameter.
 // ORIGINAL (for source lookup):
 let X = A.inputSchema.safeParse(K);
 if (!X.success) {
-    let y = x1q(A.name, X.error);
+    let y = V4q(A.name, X.error);
     return [{ message: c6({ content: [{ type: "tool_result", content: `<tool_use_error>InputValidationError: ${y}</tool_use_error>`, is_error: !0, tool_use_id: q }] }) }]
 }
 let D = await A.validateInput?.(X.data, Y);
@@ -206,7 +206,7 @@ if (customValidation?.result === false) {
 // ...
 
 // Mapping: A→tool, K→input, X→parseResult, D→customValidation,
-//          x1q→formatValidationError, c6→createUserMessage
+//          V4q→formatValidationError, c6→createUserMessage
 ```
 
 ---
@@ -215,41 +215,119 @@ if (customValidation?.result === false) {
 
 **What it does:** Converts Zod's structured error tree into a concise message the LLM can understand and correct.
 
+**How it works:**
+
 ```javascript
 // ============================================
 // formatValidationError - Zod error formatting
-// Location: chunks.149.mjs:500-530
+// Location: chunks.145.mjs:3054-3089
 // ============================================
 
-// Pseudocode based on usage patterns
-function formatValidationError(toolName, zodError) {
-    let issues = zodError.issues.map(issue => {
-        let path = issue.path.join(".");
-        let message = issue.message;
-        let code = issue.code;
-
-        // Common error patterns:
-        switch (code) {
-            case "invalid_type":
-                return `Field '${path}' expected ${issue.expected}, got ${issue.received}`;
-            case "too_small":
-                return `Field '${path}' must be at least ${issue.minimum} characters`;
-            case "too_big":
-                return `Field '${path}' must be at most ${issue.maximum} characters`;
-            case "invalid_enum_value":
-                return `Field '${path}' must be one of: ${issue.options.join(", ")}`;
-            case "unrecognized_keys":
-                return `Unknown fields: ${issue.keys.join(", ")}`;
-            default:
-                return `Field '${path}': ${message}`;
-        }
-    });
-
-    return `${toolName} input validation failed:\n${issues.join("\n")}`;
+// ORIGINAL (for source lookup):
+function V4q(A, q) {
+    let K = q.issues.filter((O) => O.code === "invalid_type" && O.message.includes("received undefined")).map((O) => N4q(O.path)),
+        Y = q.issues.filter((O) => O.code === "unrecognized_keys").flatMap((O) => O.keys),
+        z = q.issues.filter((O) => O.code === "invalid_type" && !O.message.includes("received undefined")).map((O) => {
+            let $ = O,
+                H = O.message.match(/received (\w+)/),
+                j = H ? H[1] : "unknown";
+            return {
+                param: N4q(O.path),
+                expected: $.expected,
+                received: j
+            }
+        }),
+        _ = q.message,
+        w = [];
+    if (K.length > 0) {
+        let O = K.map(($) => `The required parameter \`${$}\` is missing`);
+        w.push(...O)
+    }
+    if (Y.length > 0) {
+        let O = Y.map(($) => `An unexpected parameter \`${$}\` was provided`);
+        w.push(...O)
+    }
+    if (z.length > 0) {
+        let O = z.map(({
+            param: $,
+            expected: H,
+            received: j
+        }) => `The parameter \`${$}\` type is expected as \`${H}\` but provided as \`${j}\``);
+        w.push(...O)
+    }
+    if (w.length > 0) _ = `${A} failed due to the following ${w.length>1?"issues":"issue"}:
+${w.join(`
+`)}`;
+    return _
 }
+
+// READABLE (for understanding):
+function formatValidationError(toolName, zodError) {
+    // Categorize issues by type
+    let missingParams = zodError.issues
+        .filter((issue) => issue.code === "invalid_type" && issue.message.includes("received undefined"))
+        .map((issue) => formatPath(issue.path));
+
+    let unexpectedParams = zodError.issues
+        .filter((issue) => issue.code === "unrecognized_keys")
+        .flatMap((issue) => issue.keys);
+
+    let typeMismatches = zodError.issues
+        .filter((issue) => issue.code === "invalid_type" && !issue.message.includes("received undefined"))
+        .map((issue) => {
+            let match = issue.message.match(/received (\w+)/);
+            let received = match ? match[1] : "unknown";
+            return {
+                param: formatPath(issue.path),
+                expected: issue.expected,
+                received: received
+            };
+        });
+
+    let message = zodError.message;
+    let errorLines = [];
+
+    // Format missing parameters
+    if (missingParams.length > 0) {
+        let lines = missingParams.map((p) => `The required parameter \`${p}\` is missing`);
+        errorLines.push(...lines);
+    }
+
+    // Format unexpected parameters
+    if (unexpectedParams.length > 0) {
+        let lines = unexpectedParams.map((p) => `An unexpected parameter \`${p}\` was provided`);
+        errorLines.push(...lines);
+    }
+
+    // Format type mismatches
+    if (typeMismatches.length > 0) {
+        let lines = typeMismatches.map(({ param, expected, received }) =>
+            `The parameter \`${param}\` type is expected as \`${expected}\` but provided as \`${received}\``
+        );
+        errorLines.push(...lines);
+    }
+
+    // Build final message
+    if (errorLines.length > 0) {
+        message = `${toolName} failed due to the following ${errorLines.length > 1 ? "issues" : "issue"}:\n${errorLines.join("\n")}`;
+    }
+
+    return message;
+}
+
+// Mapping: V4q→formatValidationError, A→toolName, q→zodError, K→missingParams,
+//          Y→unexpectedParams, z→typeMismatches, _→message, w→errorLines, N4q→formatPath
 ```
 
-**Key insight:** The error message is shown to the LLM as a tool result. Clear formatting helps the LLM understand and fix its mistake in the next turn.
+**Error Categories:**
+
+| Category | Zod Code | Formatted Message |
+|----------|----------|-------------------|
+| Missing required | `invalid_type` + "received undefined" | `The required parameter \`param\` is missing` |
+| Extra field | `unrecognized_keys` | `An unexpected parameter \`extra\` was provided` |
+| Wrong type | `invalid_type` | `The parameter \`param\` type is expected as \`string\` but provided as \`number\`` |
+
+**Key insight:** The error message is shown to the LLM as a tool result. The function groups issues by type and formats them in a way that helps the LLM understand exactly what to fix in its next turn.
 
 ---
 

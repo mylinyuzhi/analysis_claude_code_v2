@@ -11,64 +11,47 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI components
 
 Key functions in this document:
-- `BashTool` (qS or referenced) - Bash tool definition object - chunks.150.mjs
-- `runSecurityChecks` (lm) - Main security entry point - chunks.150.mjs:321
-- `checkReadOnlyBehavior` (Of6) - Readonly command fast-path - chunks.150.mjs:881
-- `SAFE_COMMAND_PATTERNS` (fcY) - Readonly command patterns - chunks.150.mjs:2314
-- `checkJqCommand` (edY) - JQ-specific security - chunks.150.mjs:3
-- `checkObfuscatedFlags` ($cY) - ANSI-C quoting detection - chunks.150.mjs:203
-- `checkShellMetacharacters` (AcY) - Metacharacter injection - chunks.150.mjs:33
-- `checkDangerousVariables` (qcY) - Variable injection - chunks.150.mjs:64
-- `checkDangerousPatterns` (KcY) - Command substitution injection - chunks.150.mjs:81
-- `checkNewlines` (YcY) - Newline injection - chunks.150.mjs:122
-- `checkIFSInjection` (zcY) - IFS variable manipulation - chunks.150.mjs:143
-- `checkProcEnviron` (wcY) - /proc/environ access prevention - chunks.150.mjs:160
-- `checkMalformedTokenInjection` (HcY) - Shell tokenizer-based detection - chunks.150.mjs:177
+- `BashTool` (J4) - Bash tool definition object - chunks.172.mjs:84
+- `checkBashPermissions` (Tn8) - Main permission check function - chunks.172.mjs:1930
+- `shouldUseSandbox` (Ti) - Sandbox determination - chunks.172.mjs:2454
+- `isExcludedCommand` (yYz) - Excluded commands check - chunks.172.mjs:2412
+- `checkReadOnlyBehavior` (Z01) - Readonly command fast-path - chunks.172.mjs
+- `parseBashCommand` (Dfq) - Tree-sitter based command parsing
 - `bashProgressHandler` (ZhA) - Progress streaming handler - chunks.150.mjs:2332
 - `BashOutputComponent` (BYq) - Terminal output UI - chunks.162.mjs:417249
-- `bashPreFlightCheck` (AYz) - LLM-based prefix extraction - chunks.169.mjs:1838
-- `markAsLongRunning` (W74) - Marks command for progress UI - chunks.149.mjs:470
+- `dangerouslyDisableSandbox` - Schema parameter for sandbox override - chunks.172.mjs:56
 
-> **Note:** Symbol mappings are authoritative in [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md).
+> **Note:** The previous version incorrectly mapped `ndY`, `rdY`, `adY`, `tdY`, `sdY` as Bash security functions. These are actually React UI components in chunks.154.mjs. The correct security functions are `Ti` and `yYz` from chunks.172.mjs.
 
 ---
 
 ## Architecture Overview
 
 ```
-LLM generates Bash tool_use { command }
+LLM generates Bash tool_use { command, dangerouslyDisableSandbox?, timeout? }
          │
          ▼
- bashPreFlightCheck (AYz) ─── LLM-based prefix extraction
-         │                    (for permission matching)
-         ▼
- validateInput()
- ├── runSecurityChecks (lm) ─── Two-tier security check
- │   ├── Allowlist checks (5 checks) ─── Early permit for safe commands
- │   │   ├── checkEmptyCommand (ndY)
- │   │   ├── checkIncompleteCommand (rdY)
- │   │   ├── checkHeredocInSubstitution (adY)
- │   │   ├── checkQuotedHeredoc (tdY)
- │   │   └── checkGitCommitMessage (sdY)
- │   └── Blocklist checks (9 checks) ─── Pattern-based rejection
- │       ├── checkJqCommand (edY)
- │       ├── checkObfuscatedFlags ($cY)
- │       ├── checkShellMetacharacters (AcY)
- │       ├── checkDangerousVariables (qcY)
- │       ├── checkNewlines (YcY)
- │       ├── checkIFSInjection (zcY)
- │       ├── checkProcEnviron (wcY)
- │       ├── checkDangerousPatterns (KcY)
- │       └── checkMalformedTokenInjection (HcY)
+ validateInput() ─── Trivial pass-through (returns { result: true })
          │
          ▼
- Pre-tool hooks (B1q) ─── Permission override possible
+ checkPermissions (Tn8) ─── Main permission/security check
+         │
+         ├── parseBashCommand (Dfq) ─── Tree-sitter AST parsing
+         │     ├── kind: "simple" → Parsed command list
+         │     ├── kind: "too-complex" → Ask for approval
+         │     └── kind: "parse-unavailable" → Fallback to shell-quote
+         │
+         ├── shouldUseSandbox (Ti) ─── Sandbox determination
+         │     ├── Check: isSandboxingEnabled()
+         │     ├── Check: dangerouslyDisableSandbox + areUnsandboxedCommandsAllowed()
+         │     └── Check: isExcludedCommand (yYz)
+         │
+         ├── checkReadOnlyBehavior (Z01) ─── Fast-path allow for readonly
+         │
+         └── Bash prompt rules matching (if enabled)
          │
          ▼
- checkReadOnlyBehavior (Of6) ─── Fast-path allow for readonly
-         │
-         ▼
- Permission check (canUseTool) ─── User may need to approve
+ Permission result: "allow" | "ask" | "deny"
          │
          ▼
  call() ─── Execute command in subprocess
@@ -82,113 +65,293 @@ LLM generates Bash tool_use { command }
 
 ---
 
-## 1. Two-Tier Security Model
+## 1. Permission Check Architecture
 
-### runSecurityChecks (lm) - Main Security Gate
+### checkBashPermissions (Tn8) - Main Permission Gate
 
-**What it does:** The primary security validator for all bash commands. Implements a two-tier model: allowlist checks first (early permit), then blocklist checks (pattern-based deny).
+**What it does:** The primary permission validator for all bash commands. Uses tree-sitter parsing to analyze command structure and determines appropriate permission behavior.
 
 **How it works:**
 
 ```javascript
 // ============================================
-// bashSecurityValidation - Two-tier security validation
-// Location: chunks.150.mjs:321-355
+// checkBashPermissions - Main permission check
+// Location: chunks.172.mjs:1930-2050
 // ============================================
 
 // ORIGINAL (for source lookup):
-function lm(A) {
-    if (CY8(A)) return { behavior: "ask", message: "Command contains single-quoted backslash pattern..." };
-    let q = A.split(" ")[0] || "",
-        { withDoubleQuotes: K, fullyUnquoted: Y } = cdY(A, q === "jq"),
-        z = { originalCommand: A, baseCommand: q, unquotedContent: K, fullyUnquotedContent: ldY(Y) },
-        w = [ndY, rdY, adY, tdY, sdY];   // Allowlist tier
-    for (let $ of w) {
-        let O = $(z);
-        if (O.behavior === "allow") return { behavior: "passthrough", message: O.decisionReason?.type === "other" ? O.decisionReason.reason : "Command allowed" };
-        if (O.behavior !== "passthrough") return O
+async function Tn8(A, q, K = pr6) {
+    let Y = q.getAppState(),
+        _ = t6(process.env.CLAUDE_CODE_DISABLE_COMMAND_INJECTION_CHECK) ? {
+            kind: "parse-unavailable"
+        } : await Dfq(A.command),
+        w = null,
+        O, $;
+    if (_.kind === "too-complex") {
+        let B = mfq(A, Y.toolPermissionContext);
+        if (B !== null) return B;
+        let b = {
+            type: "other",
+            reason: _.reason
+        };
+        return {
+            behavior: "ask",
+            decisionReason: b,
+            message: ow(J4.name, b),
+            suggestions: []
+        }
     }
-    let H = [edY, $cY, AcY, qcY, YcY, zcY, wcY, KcY, HcY];  // Blocklist tier
-    for (let $ of H) {
-        let O = $(z);
-        if (O.behavior === "ask") return O
+    if (_.kind === "simple") {
+        let B = ffq(_.commands);
+        if (!B.ok) { /* syntax check failed */ }
+        w = _.commands.map((b) => b.text), O = _.commands.flatMap((b) => b.redirects), $ = _.commands
     }
-    return { behavior: "passthrough", message: "Command passed all security checks" }
+    if (_.kind === "parse-unavailable") {
+        // Fallback to shell-quote parsing
+    }
+    // Sandbox check
+    if (vA.isSandboxingEnabled() && vA.isAutoAllowBashIfSandboxedEnabled() && Ti(A)) {
+        let B = VYz(A, Y.toolPermissionContext);
+        if (B.behavior !== "passthrough") return B
+    }
+    let H = cr6(A, Y.toolPermissionContext);
+    if (H.behavior === "deny") return H;
+    // ... prompt rules matching
 }
 
 // READABLE (for understanding):
-function bashSecurityValidation(command) {
+async function checkBashPermissions(input, context, preFlightCheckFn = defaultPreFlight) {
+    let appState = context.getAppState();
 
-    // Pre-check: single-quoted backslash bypass pattern
-    if (hasSingleQuotedBackslashBypass(command)) {
-        return { behavior: "ask", message: "Command contains bypass attempt via single-quoted backslash" };
+    // Step 1: Parse command using tree-sitter
+    let parseResult = process.env.CLAUDE_CODE_DISABLE_COMMAND_INJECTION_CHECK
+        ? { kind: "parse-unavailable" }
+        : await parseBashCommand(input.command);
+
+    let commands = null;
+    let redirects = null;
+    let parsedCommands = null;
+
+    // Step 2: Handle parse results
+    if (parseResult.kind === "too-complex") {
+        // Command too complex for AST analysis
+        let denyResult = checkDenyRules(input, appState.toolPermissionContext);
+        if (denyResult !== null) return denyResult;
+
+        return {
+            behavior: "ask",
+            decisionReason: { type: "other", reason: parseResult.reason },
+            message: formatDecisionMessage(BashTool.name, { type: "other", reason: parseResult.reason }),
+            suggestions: []
+        };
     }
 
-    // Parse command into analyzed form
-    let baseCommand = command.split(" ")[0] || "";
-    let { withDoubleQuotes, fullyUnquoted } = parseCommandQuoting(command, baseCommand === "jq");
-    let analyzedCommand = {
-        originalCommand: command,
-        baseCommand: baseCommand,
-        unquotedContent: withDoubleQuotes,           // Content with only double-quotes unquoted
-        fullyUnquotedContent: normalizeQuoting(fullyUnquoted)  // Content with all quotes removed
-    };
-
-    // === TIER 1: Allowlist checks — early permit ===
-    let allowlistChecks = [
-        jqAllowlistCheck,           // ndY - Safe jq patterns
-        sedPrintlineAllowlistCheck, // rdY - Safe sed print/line operations
-        sedEditAllowlistCheck,      // adY - Safe sed substitutions
-        gitCdAllowlistCheck,        // tdY - Safe cd + git combos
-        xargsAllowlistCheck,        // sdY - Safe xargs patterns
-    ];
-    for (let check of allowlistChecks) {
-        let result = check(analyzedCommand);
-        if (result.behavior === "allow") {
-            return { behavior: "passthrough", message: "Allowlisted command pattern" };
+    if (parseResult.kind === "simple") {
+        // Successfully parsed simple command
+        let syntaxCheck = validateCommandSyntax(parseResult.commands);
+        if (!syntaxCheck.ok) {
+            // Handle syntax errors
         }
-        if (result.behavior !== "passthrough") return result;  // Explicit deny from allowlist
+        commands = parseResult.commands.map(cmd => cmd.text);
+        redirects = parseResult.commands.flatMap(cmd => cmd.redirects);
+        parsedCommands = parseResult.commands;
     }
 
-    // === TIER 2: Blocklist checks — pattern-based security ===
-    let blocklistChecks = [
-        jqSystemFunctionCheck,      // edY - jq system() call detection
-        obfuscatedFlagsCheck,       // $cY - ANSI-C quoting / empty quote tricks
-        shellMetacharactersCheck,   // AcY - pipe/semicolon/ampersand in args
-        dangerousVariablesCheck,    // qcY - variable in redirections
-        newlineInjectionCheck,      // YcY - newline command separator
-        ifsInjectionCheck,          // zcY - IFS manipulation
-        procEnvironCheck,           // wcY - /proc/*/environ access
-        commandSubstitutionCheck,   // KcY - backtick/$()/process substitution
-        malformedTokenCheck,        // HcY - tokenizer-detected anomalies
-    ];
-    for (let check of blocklistChecks) {
-        let result = check(analyzedCommand);
-        if (result.behavior === "ask") return result;  // Any ask → prompt user
+    if (parseResult.kind === "parse-unavailable") {
+        // Fallback to shell-quote parsing when tree-sitter unavailable
     }
 
-    return { behavior: "passthrough", message: "Command passed all security checks" }
+    // Step 3: Sandbox integration
+    if (isSandboxingEnabled() && isAutoAllowBashIfSandboxedEnabled() && shouldUseSandbox(input)) {
+        let sandboxResult = checkSandboxPermission(input, appState.toolPermissionContext);
+        if (sandboxResult.behavior !== "passthrough") return sandboxResult;
+    }
+
+    // Step 4: Permission rules check
+    let permissionResult = checkPermissionRules(input, appState.toolPermissionContext);
+    if (permissionResult.behavior === "deny") return permissionResult;
+
+    // Step 5: Bash prompt rules (if enabled)
+    // ... additional rule matching
+
+    return { behavior: "allow" };
 }
 
-// Mapping: lm→bashSecurityValidation, A→command, q→baseCommand, K→withDoubleQuotes,
-//          Y→fullyUnquoted, z→analyzedCommand, w→allowlistChecks, H→blocklistChecks,
-//          CY8→hasSingleQuotedBackslashBypass, cdY→parseCommandQuoting, ldY→normalizeQuoting,
-//          ndY→jqAllowlistCheck, rdY→sedPrintlineAllowlistCheck, adY→sedEditAllowlistCheck,
-//          tdY→gitCdAllowlistCheck, sdY→xargsAllowlistCheck,
-//          edY→jqSystemFunctionCheck, $cY→obfuscatedFlagsCheck, AcY→shellMetacharactersCheck,
-//          qcY→dangerousVariablesCheck, YcY→newlineInjectionCheck, zcY→ifsInjectionCheck,
-//          wcY→procEnvironCheck, KcY→commandSubstitutionCheck, HcY→malformedTokenCheck
+// Mapping: Tn8→checkBashPermissions, A→input, q→context, K→preFlightCheckFn,
+//          Y→appState, Dfq→parseBashCommand, Ti→shouldUseSandbox, yYz→isExcludedCommand
 ```
 
-**Why two tiers:**
-- Allowlist first → safe patterns are pre-approved without user interruption
-- Blocklist second → unsafe patterns trigger user approval dialog
-- Fail-secure default → anything not explicitly allowed still goes through permission check
+### shouldUseSandbox (Ti) - Sandbox Determination
 
-**Return values:**
-- `behavior: "passthrough"` → continue to next check layer (not a final decision)
-- `behavior: "allow"` → fast-path allow (only from allowlist tier)
-- `behavior: "ask"` → prompt user for approval
+**What it does:** Determines whether a bash command should be executed in sandbox mode.
+
+```javascript
+// ============================================
+// shouldUseSandbox - Sandbox determination
+// Location: chunks.172.mjs:2454-2460
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Ti(A) {
+    if (!vA.isSandboxingEnabled()) return !1;
+    if (A.dangerouslyDisableSandbox && vA.areUnsandboxedCommandsAllowed()) return !1;
+    if (!A.command) return !1;
+    if (yYz(A.command)) return !1;
+    return !0
+}
+
+// READABLE (for understanding):
+function shouldUseSandbox(input) {
+    // Check 1: Is sandboxing enabled globally?
+    if (!isSandboxingEnabled()) return false;
+
+    // Check 2: User explicitly disabled sandbox and it's allowed
+    if (input.dangerouslyDisableSandbox && areUnsandboxedCommandsAllowed()) {
+        return false;
+    }
+
+    // Check 3: No command to execute
+    if (!input.command) return false;
+
+    // Check 4: Command is in excluded list (allowed without sandbox)
+    if (isExcludedCommand(input.command)) return false;
+
+    return true;
+}
+
+// Mapping: Ti→shouldUseSandbox, A→input, vA.isSandboxingEnabled→isSandboxingEnabled,
+//          vA.areUnsandboxedCommandsAllowed→areUnsandboxedCommandsAllowed, yYz→isExcludedCommand
+```
+
+### isExcludedCommand (yYz) - Excluded Commands Check
+
+**What it does:** Checks if a command is in the list of commands excluded from sandboxing (user-configured safe commands).
+
+```javascript
+// ============================================
+// isExcludedCommand - Check if command is excluded from sandbox
+// Location: chunks.172.mjs:2412-2452
+// ============================================
+
+// ORIGINAL (for source lookup):
+function yYz(A) {
+    let K = PA().sandbox?.excludedCommands ?? [];
+    if (K.length === 0) return !1;
+    let Y;
+    try {
+        Y = EO(A)
+    } catch {
+        Y = [A]
+    }
+    for (let z of Y) {
+        let w = [z.trim()],
+            O = new Set(w),
+            $ = 0;
+        while ($ < w.length) {
+            let H = w.length;
+            for (let j = $; j < H; j++) {
+                let J = w[j],
+                    M = bn8(J, xfq);
+                if (!O.has(M)) w.push(M), O.add(M);
+                let D = Ac(J);
+                if (!O.has(D)) w.push(D), O.add(D)
+            }
+            $ = H
+        }
+        for (let H of K) {
+            let j = In8(H);
+            for (let J of w) switch (j.type) {
+                case "prefix":
+                    if (J === j.prefix || J.startsWith(j.prefix + " ")) return !0;
+                    break;
+                case "exact":
+                    if (J === j.command) return !0;
+                    break;
+                case "wildcard":
+                    if (Cn8(j.pattern, J)) return !0;
+                    break
+            }
+        }
+    }
+    return !1
+}
+
+// READABLE (for understanding):
+function isExcludedCommand(command) {
+    let excludedCommands = getConfig().sandbox?.excludedCommands ?? [];
+    if (excludedCommands.length === 0) return false;
+
+    let commandTokens;
+    try {
+        commandTokens = tokenizeCommand(command);  // EO
+    } catch {
+        commandTokens = [command];  // Fallback to raw command
+    }
+
+    // For each token, expand with environment variable resolution
+    for (let token of commandTokens) {
+        let expandedCommands = [token.trim()];
+        let seenCommands = new Set(expandedCommands);
+
+        // BFS expansion for environment variables
+        let queueIndex = 0;
+        while (queueIndex < expandedCommands.length) {
+            let currentLength = expandedCommands.length;
+            for (let i = queueIndex; i < currentLength; i++) {
+                let cmd = expandedCommands[i];
+
+                // Expand PATH-prefixed commands (e.g., /usr/bin/ls → ls)
+                let pathExpanded = expandPathPrefix(cmd);
+                if (!seenCommands.has(pathExpanded)) {
+                    expandedCommands.push(pathExpanded);
+                    seenCommands.add(pathExpanded);
+                }
+
+                // Get basename (e.g., /usr/bin/git → git)
+                let basename = getBasename(cmd);
+                if (!seenCommands.has(basename)) {
+                    expandedCommands.push(basename);
+                    seenCommands.add(basename);
+                }
+            }
+            queueIndex = currentLength;
+        }
+
+        // Check against exclusion patterns
+        for (let pattern of excludedCommands) {
+            let parsedPattern = parseExclusionPattern(pattern);
+            for (let expanded of expandedCommands) {
+                switch (parsedPattern.type) {
+                    case "prefix":
+                        if (expanded === parsedPattern.prefix ||
+                            expanded.startsWith(parsedPattern.prefix + " ")) {
+                            return true;
+                        }
+                        break;
+                    case "exact":
+                        if (expanded === parsedPattern.command) return true;
+                        break;
+                    case "wildcard":
+                        if (matchWildcard(parsedPattern.pattern, expanded)) return true;
+                        break;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+// Mapping: yYz→isExcludedCommand, A→command, K→excludedCommands, Y→commandTokens,
+//          EO→tokenizeCommand, In8→parseExclusionPattern, Cn8→matchWildcard
+```
+
+**Exclusion Pattern Types:**
+
+| Type | Example | Matches |
+|------|---------|---------|
+| `prefix` | `git*` | `git`, `git status`, `git commit` |
+| `exact` | `npm` | `npm` only (not `npm install`) |
+| `wildcard` | `docker:*` | `docker:ps`, `docker:images` |
 
 ---
 
@@ -405,43 +568,45 @@ function speculativeReadonlyValidator(input, isCompoundCommand) {
 
 ---
 
-## 4. Security Checks - Detailed Analysis
+## 4. Security Patterns - Conceptual Analysis
 
-### jqSystemFunctionCheck (edY)
+> **Note:** The following sections describe security patterns that are checked during the permission flow. The previous version incorrectly mapped these to specific function symbols. The actual security validation is performed by `Tn8` (checkBashPermissions) and related functions in chunks.172.mjs.
+
+### jq System Function Detection
 
 **What it detects:** `jq` commands that use the `system()` function (RCE vector)
 
 **Why dangerous:** `jq` supports `system("cmd")` and `@base64d | explode | [...] | implode | ltrimstr("") | system` patterns that can execute arbitrary shell commands.
 
-### obfuscatedFlagsCheck ($cY)
+### Obfuscated Flags Detection
 
 **What it detects:** ANSI-C quoting (`$'...'`) and locale quoting (`$"..."`) used to hide characters that would otherwise be blocked.
 
 **Example attack:** `echo $'\x72\x6d -rf /'` — the `\x72\x6d` decodes to `rm` after shell processing.
 
-### shellMetacharactersCheck (AcY)
+### Shell Metacharacters Detection
 
 **What it detects:** Shell metacharacters (`|`, `&`, `;`) inside arguments, particularly in `find` command patterns.
 
 **Why dangerous:** A command like `find . -name "*.txt" -exec rm -rf {} \;` abuses find's `-exec` to delete files.
 
-### commandSubstitutionCheck (KcY)
+### Command Substitution Detection
 
 **What it detects:** Backtick `` ` ``, `$()`, `<()`, `>()` process substitutions, and `<`/`>` redirections.
 
 **Why dangerous:** Command substitution executes arbitrary commands: `echo $(cat /etc/passwd)`. Redirections can read/write arbitrary files: `cat /etc/passwd > /tmp/leak`.
 
-### procEnvironCheck (wcY)
+### /proc/environ Access Detection
 
 **What it detects:** Access to `/proc/*/environ` paths.
 
 **Why dangerous:** `/proc/1/environ` contains all environment variables of the init process, which may include API keys, passwords, and other secrets.
 
-### malformedTokenCheck (HcY)
+### Malformed Token Detection
 
-**What it detects:** Uses a full shell tokenizer to detect ambiguous or malformed token sequences.
+**What it detects:** Uses the tree-sitter parser to detect ambiguous or malformed token sequences.
 
-**Why needed:** Pattern-based checks can miss edge cases. The tokenizer provides ground-truth about how the shell would interpret the command.
+**Why needed:** Pattern-based checks can miss edge cases. The AST parser provides ground-truth about how the shell would interpret the command.
 
 ---
 
@@ -607,7 +772,7 @@ Validates `sed` `s/search/replace/flags` substitution syntax:
 
 | Property | Approach | Why |
 |----------|----------|-----|
-| Allowlist-first | 5 allow checks before 9 block checks | Common safe patterns need no user interruption |
+| Multi-layer permission | Sandbox check → Permission rules → Bash prompt rules | Layered checks allow sandbox auto-allow, then explicit rules, then custom patterns |
 | Fail-secure | Unknown → needs permission check | Prevents accidental over-permitting |
 | Two-pass quoting analysis | withDoubleQuotes + fullyUnquoted | Catches injection attempts across quoting variations |
 | Tokenizer validation | Full shell parse on suspicious commands | Pattern matching misses edge cases |

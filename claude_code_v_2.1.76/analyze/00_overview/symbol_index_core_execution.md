@@ -30,7 +30,7 @@
 | s7 | TOOL_NAME_READ | chunks.56.mjs:173 | constant ("Read") |
 | vj | FileWriteTool | chunks.146.mjs:436 | tool object |
 | _K | TOOL_NAME_WRITE | chunks.56.mjs:1234 | constant ("Write") |
-| sW | EditTool | chunks.134.mjs:2124 | tool object |
+| pX | EditTool | chunks.170.mjs:1116 | tool object |
 | R4 | TOOL_NAME_EDIT | chunks.56.mjs:102 | constant ("Edit") |
 | gd | NotebookEditTool | chunks.134.mjs:2615 | tool object |
 | bJ | TOOL_NAME_NOTEBOOK_EDIT | chunks.56.mjs:1240 | constant ("NotebookEdit") |
@@ -102,11 +102,13 @@
 | zcY | ifsInjectionCheck | chunks.150.mjs | function |
 | wcY | procEnvironCheck | chunks.150.mjs | function |
 | HcY | malformedTokenCheck | chunks.150.mjs | function |
-| ndY | jqAllowlistCheck | chunks.150.mjs | function |
-| rdY | sedPrintlineAllowlistCheck | chunks.150.mjs | function |
-| adY | sedEditAllowlistCheck | chunks.150.mjs | function |
-| tdY | gitCdAllowlistCheck | chunks.150.mjs | function |
-| sdY | xargsAllowlistCheck | chunks.150.mjs | function |
+| ndY | focusNextOptionReducer | chunks.154.mjs:577 | function (UI reducer) |
+| rdY | renderOptionsList | chunks.154.mjs:494 | function (UI component) |
+| adY | focusNextOptionReducer | chunks.154.mjs:577 | function (UI reducer) |
+| tdY | exitConfirmPrompt | chunks.154.mjs:824 | function (UI component) |
+| sdY | not found in chunks.154.mjs | - | - |
+| Ti | shouldUseSandbox | chunks.172.mjs:2454 | function (main sandbox check) |
+| yYz | isExcludedCommand | chunks.172.mjs:2412 | function (excluded commands check) |
 | OcY | sedFlagValidator | chunks.150.mjs | function |
 | J6q | sedSubstitutionValidator | chunks.150.mjs | function |
 | CY8 | hasSingleQuotedBackslashBypass | chunks.150.mjs | function |
@@ -183,7 +185,7 @@
 | p1 | createUserMessage | chunks.173.mjs:1378 | function |
 | f4 | createAttachmentMessage | chunks.145.mjs | function |
 | rk | isMcpTool | chunks.145.mjs | function |
-| V4q | formatValidationError | chunks.146.mjs | function |
+| V4q | formatValidationError | chunks.145.mjs:3054 | function |
 
 ### Tool Execution Lifecycle
 
