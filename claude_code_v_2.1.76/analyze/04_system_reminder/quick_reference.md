@@ -56,6 +56,11 @@
 | `hook_stopped_continuation` | Hook stopped | `tI` | [types_hooks.md](./types_hooks.md) |
 | `token_usage` | Token count | `tI` | [types_status_budget.md](./types_status_budget.md) |
 | `budget_usd` | USD budget | `tI` | [types_status_budget.md](./types_status_budget.md) |
+| `output_token_usage` | Output token tracking | `tI` | [types_status_budget.md](./types_status_budget.md) |
+| `date_change` | Date change notification | `_9` | [types_status_budget.md](./types_status_budget.md) |
+| `ultrathink_effort` | Reasoning effort level | `_9` | [types_status_budget.md](./types_status_budget.md) |
+| `deferred_tools_delta` | Deferred tools changes | `_9` | [types_status_budget.md](./types_status_budget.md) |
+| `mcp_instructions_delta` | MCP instruction changes | `_9` | [types_status_budget.md](./types_status_budget.md) |
 | `compaction_reminder` | Auto-compact notice | `_9` | [types_status_budget.md](./types_status_budget.md) |
 | `critical_system_reminder` | Critical alert | `_9` | [types_status_budget.md](./types_status_budget.md) |
 | `queued_command` | Queued message | `_9` | [types_status_budget.md](./types_status_budget.md) |
@@ -77,6 +82,7 @@
 | `structured_output` | Structured output | [types_silent.md](./types_silent.md) |
 | `autocheckpointing` | Checkpoint state | [types_silent.md](./types_silent.md) |
 | `background_task_status` | Task status (internal) | [types_silent.md](./types_silent.md) |
+| `context_efficiency` | Context efficiency metrics | [types_silent.md](./types_silent.md) |
 | `dynamic_skill` | Skill discovery | [types_skills_memory.md](./types_skills_memory.md) |
 
 ---

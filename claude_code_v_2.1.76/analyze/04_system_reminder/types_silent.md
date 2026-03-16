@@ -83,6 +83,7 @@ Silent types are attachment types that **produce no API messages**. They return 
 | `structured_output` | Hooks | Structured output from hook |
 | `autocheckpointing` | System | Auto-checkpoint notification |
 | `background_task_status` | Tasks | Background task status (internal) |
+| `context_efficiency` | System | Context efficiency metrics (v2.1.76 NEW) |
 
 ---
 
@@ -530,38 +531,31 @@ case "structured_output":
 **Triggered when:** Auto-checkpoint system is active.
 
 ```javascript
-// Location: chunks.173.mjs:1129
-if (["autocheckpointing", "background_task_status"].includes(A.type)) return [];
+// Location: chunks.174.mjs:467
+if (["autocheckpointing", "background_task_status", "todo", "task_progress"].includes(A.type)) return [];
 ```
 
 **Why silent:** Checkpoint status is internal system state.
 
-#### Detailed Analysis
+---
 
-**What it does:**
-The `autocheckpointing` type tracks the state of the auto-checkpoint system, which automatically creates conversation checkpoints at strategic points. This enables:
-1. Crash recovery - Restore conversation after unexpected termination
-2. Session resumption - Continue from last known good state
-3. Undo capability - Roll back to previous checkpoint if needed
+### context_efficiency (v2.1.76 NEW)
 
-**Flow diagram:**
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Auto-Checkpoint Flow                          │
-│                                                                  │
-│  1. User sends message                                           │
-│  2. Agent processes → tool calls                                 │
-│  3. Auto-checkpoint triggers (based on turn count/state)         │
-│  4. Checkpoint attachment created → Silent (no API message)      │
-│  5. State persisted to ~/.claude/checkpoints/                    │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+**Triggered when:** Context efficiency metrics are calculated internally.
+
+```javascript
+// Location: chunks.174.mjs:403
+case "context_efficiency":
+    return [];
 ```
 
-**Why this design:**
-- Checkpoints are transparent to the LLM - they don't need to know about them
-- Reduces noise in context - no checkpoint notifications in conversation
-- Internal state management - UI shows checkpoint status separately
+**Why silent:** Context efficiency is a performance metric tracked internally for optimization purposes. It measures how efficiently the context window is being used, helping the system make decisions about compaction and context management. The LLM doesn't need to know these metrics.
+
+**Internal use cases:**
+- Compaction triggering decisions
+- Token budget optimization
+- Performance monitoring
+- Telemetry for system improvement
 
 ---
 

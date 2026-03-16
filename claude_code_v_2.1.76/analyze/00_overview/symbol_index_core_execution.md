@@ -499,6 +499,7 @@
 | RIY | getTokenUsageAttachment | chunks.142.mjs:2815 | function |
 | yIY | getBudgetUsdAttachment | chunks.142.mjs | function |
 | SIY | getVerifyPlanReminderAttachment | chunks.142.mjs | function |
+| E7 | isTeamMode | chunks.50.mjs:2543 | function |
 
 ### Reminder Formatting
 

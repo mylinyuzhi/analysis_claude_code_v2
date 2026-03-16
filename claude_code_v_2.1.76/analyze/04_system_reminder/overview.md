@@ -894,5 +894,5 @@ Key functions in this document:
 - `sparseAutoModeReminder` (hzz) - Sparse auto mode reminder, chunks.173.mjs:2734-2739
 - `createToolCallMessage` (nr6) - Simulates tool call display, chunks.174.mjs:490-495
 - `createToolResultMessage` (ir6) - Simulates tool result display, chunks.174.mjs:471-488
-- `isTeamMode` (l8) - Checks if running in swarm/team mode
+- `isTeamMode` (E7) - Checks if running in swarm/team mode, chunks.50.mjs:2543
 - `getMailboxFormatter` (Kzz) - Returns teammate message formatter

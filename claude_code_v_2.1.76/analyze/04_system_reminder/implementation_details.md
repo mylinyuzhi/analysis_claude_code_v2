@@ -170,7 +170,32 @@ normalizeAttachmentForAPI(attachment)
 
 **Key Design Decisions:**
 
-1. **Pre-switch team check**: Team types (`teammate_mailbox`, `team_context`) are checked before the switch because they're only relevant in team mode (`l8()` check).
+1. **Pre-switch team check**: Team types (`teammate_mailbox`, `team_context`) are checked before the switch because they're only relevant in team mode (`E7()` / `isTeamMode` check at `chunks.50.mjs:2543`).
+
+```javascript
+// ============================================
+// Pre-switch team mode check
+// Location: chunks.174.mjs:3-8
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Ui8(A) {
+    if (E7()) {
+        if (A.type === "teammate_mailbox") return [p1({ content: Kzz().formatTeammateMessages(A.messages), isMeta: !0 })];
+        if (A.type === "team_context") return [p1({ content: `<system-reminder>...team coordination...`, isMeta: !0 })]
+    }
+
+// READABLE (for understanding):
+function normalizeAttachmentForAPI(attachment) {
+    if (isTeamMode()) {
+        if (attachment.type === "teammate_mailbox")
+            return [createUserMessage({ content: getMailboxFormatter().formatTeammateMessages(attachment.messages), isMeta: true })];
+        if (attachment.type === "team_context")
+            return [createUserMessage({ content: `<system-reminder>...team coordination...`, isMeta: true })];
+    }
+
+// Mapping: Ui8→normalizeAttachmentForAPI, A→attachment, E7→isTeamMode, p1→createUserMessage, Kzz→getMailboxFormatter
+```
 
 2. **Silent types**: Multiple types return `[]` without producing messages:
    - `already_read_file` - UI visibility only, no API message
@@ -434,6 +459,8 @@ Key implementation functions in this document:
 - `shouldSendUltramemoryAttachment` (MIY) - Cooldown check, `chunks.142.mjs:2456-2461`
 - `countUserTurnsSincePlanModeExit` (CIY) - Plan mode tracking, `chunks.142.mjs:2839-2847`
 - `isPathDisallowed` (sW1) - Permission check, `chunks.142.mjs:2853-2855`
+- `isTeamMode` (E7) - Team mode check, `chunks.50.mjs:2543`
+- `getMailboxFormatter` (Kzz) - Mailbox message formatter
 
 ---
 

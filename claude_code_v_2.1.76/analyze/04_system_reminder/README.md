@@ -328,5 +328,6 @@ Key functions in this module:
 
 ---
 
-**Last Updated**: 2026-03-15
+**Last Updated**: 2026-03-16
 **Version**: Claude Code 2.1.76
+**Status**: Complete - All v2.1.76 types documented with source code verification

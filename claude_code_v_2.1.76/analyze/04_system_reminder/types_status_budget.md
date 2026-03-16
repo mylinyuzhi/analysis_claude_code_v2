@@ -2,7 +2,7 @@
 
 > **Module**: System Reminders - Status/Budget Types
 > **Version**: Claude Code 2.1.76
-> **Source**: `chunks.173.mjs:889-926`, `chunks.173.mjs:1071-1117`, `chunks.142.mjs:2815-2850`
+> **Source**: `chunks.173.mjs:889-926`, `chunks.173.mjs:1071-1117`, `chunks.142.mjs:2815-2850`, `chunks.174.mjs:366-445`
 
 ---
 
@@ -11,6 +11,11 @@
 - [Overview](#overview)
 - [token_usage](#token_usage)
 - [budget_usd](#budget_usd)
+- [output_token_usage](#output_token_usage) - **NEW in v2.1.76**
+- [date_change](#date_change) - **NEW in v2.1.76**
+- [ultrathink_effort](#ultrathink_effort) - **NEW in v2.1.76**
+- [deferred_tools_delta](#deferred_tools_delta) - **NEW in v2.1.76**
+- [mcp_instructions_delta](#mcp_instructions_delta) - **NEW in v2.1.76**
 - [compaction_reminder](#compaction_reminder)
 - [critical_system_reminder](#critical_system_reminder)
 - [queued_command](#queued_command)
@@ -26,11 +31,16 @@ Status and budget types inform the LLM about resource usage and system state:
 
 1. **token_usage** - Token consumption tracking
 2. **budget_usd** - USD budget tracking
-3. **compaction_reminder** - Auto-compact notification
-4. **critical_system_reminder** - Critical system alerts
-5. **queued_command** - Queued user messages
-6. **output_style** - Output style reminders
-7. **verify_plan_reminder** - Plan verification reminders
+3. **output_token_usage** - Output token tracking (v2.1.76 NEW)
+4. **date_change** - Date change notification (v2.1.76 NEW)
+5. **ultrathink_effort** - Reasoning effort level (v2.1.76 NEW)
+6. **deferred_tools_delta** - Deferred tools availability changes (v2.1.76 NEW)
+7. **mcp_instructions_delta** - MCP server instruction changes (v2.1.76 NEW)
+8. **compaction_reminder** - Auto-compact notification
+9. **critical_system_reminder** - Critical system alerts
+10. **queued_command** - Queued user messages
+11. **output_style** - Output style reminders
+12. **verify_plan_reminder** - Plan verification reminders
 
 These types use the `tI` (wrapInXmlTag) function for inline XML wrapping.
 
@@ -262,6 +272,353 @@ case "budget_usd":
 USD budget: $1.25/$5.00; $3.75 remaining
 </system-reminder>
 ```
+
+---
+
+## output_token_usage
+
+### What It Does
+
+Provides output token usage statistics to the LLM, helping track token consumption for the current turn and session.
+
+### Triggered When
+
+| Condition | Requirement |
+|-----------|-------------|
+| Output tokens tracked | Output token counting is enabled |
+| Main agent only | No `agentId` in session context |
+
+### Source Code
+
+#### Normalization Function
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - output_token_usage case
+// Location: chunks.174.mjs:366-374
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "output_token_usage": {
+    let K = A.budget !== null ? `${fq(A.turn)} / ${fq(A.budget)}` : fq(A.turn);
+    return [p1({
+        content: af(`Output tokens — turn: ${K} · session: ${fq(A.session)}`),
+        isMeta: !0
+    })]
+}
+
+// READABLE (for understanding):
+case "output_token_usage": {
+    let turnInfo = attachment.budget !== null
+        ? `${formatNumber(attachment.turn)} / ${formatNumber(attachment.budget)}`
+        : formatNumber(attachment.turn);
+
+    return [createUserMessage({
+        content: wrapInXmlTag(`Output tokens — turn: ${turnInfo} · session: ${formatNumber(attachment.session)}`),
+        isMeta: true
+    })];
+}
+
+// Mapping: A→attachment, K→turnInfo, fq→formatNumber, p1→createUserMessage, af→wrapInXmlTag
+```
+
+### Output Format
+
+```markdown
+<system-reminder>
+Output tokens — turn: 1,234 / 10,000 · session: 45,678
+</system-reminder>
+```
+
+### Key Insight
+
+When a budget is set, the reminder shows `turn / budget` format, helping the LLM understand output token limits. Without a budget, only absolute counts are shown.
+
+---
+
+## date_change
+
+### What It Does
+
+Notifies the LLM that the calendar date has changed since the last turn. This is important for time-sensitive operations and ensuring the model has accurate temporal context.
+
+### Triggered When
+
+| Condition | Requirement |
+|-----------|-------------|
+| Date changed | System detects date rollover between turns |
+| Main agent only | No `agentId` in session context |
+
+### Source Code
+
+#### Normalization Function
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - date_change case
+// Location: chunks.174.mjs:405-409
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "date_change":
+    return b5([p1({
+        content: `The date has changed. Today's date is now ${A.newDate}. DO NOT mention this to the user explicitly because they are already aware.`,
+        isMeta: !0
+    })]);
+
+// READABLE (for understanding):
+case "date_change":
+    return wrapWithSystemReminderTags([createUserMessage({
+        content: `The date has changed. Today's date is now ${attachment.newDate}. DO NOT mention this to the user explicitly because they are already aware.`,
+        isMeta: true
+    })]);
+
+// Mapping: A→attachment, b5→wrapWithSystemReminderTags, p1→createUserMessage
+```
+
+### Output Format
+
+```markdown
+<system-reminder>
+The date has changed. Today's date is now 2026-03-17. DO NOT mention this to the user explicitly because they are already aware.
+</system-reminder>
+```
+
+### Key Insight
+
+The reminder explicitly tells the LLM **not to mention** the date change to the user, as this is internal context only. This prevents awkward "By the way, it's a new day!" messages.
+
+---
+
+## ultrathink_effort
+
+### What It Does
+
+Informs the LLM about the requested reasoning effort level for the current turn. This is used with extended thinking mode to control how much reasoning the model should apply.
+
+### Triggered When
+
+| Condition | Requirement |
+|-----------|-------------|
+| Effort level set | User or system specifies reasoning effort |
+| Extended thinking | Model supports extended thinking |
+
+### Source Code
+
+#### Normalization Function
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - ultrathink_effort case
+// Location: chunks.174.mjs:410-414
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "ultrathink_effort":
+    return b5([p1({
+        content: `The user has requested reasoning effort level: ${A.level}. Apply this to the current turn.`,
+        isMeta: !0
+    })]);
+
+// READABLE (for understanding):
+case "ultrathink_effort":
+    return wrapWithSystemReminderTags([createUserMessage({
+        content: `The user has requested reasoning effort level: ${attachment.level}. Apply this to the current turn.`,
+        isMeta: true
+    })]);
+
+// Mapping: A→attachment, b5→wrapWithSystemReminderTags, p1→createUserMessage
+```
+
+### Output Format
+
+```markdown
+<system-reminder>
+The user has requested reasoning effort level: high. Apply this to the current turn.
+</system-reminder>
+```
+
+### Key Insight
+
+Effort levels typically range from "low" to "high" and affect how much internal reasoning the model performs before responding.
+
+---
+
+## deferred_tools_delta
+
+### What It Does
+
+Notifies the LLM about changes in available deferred tools. Deferred tools are MCP tools that become available on-demand rather than being pre-loaded.
+
+### Triggered When
+
+| Condition | Requirement |
+|-----------|-------------|
+| Tools added/removed | Deferred tool availability changes |
+| MCP connection | Connected to MCP servers with deferred tools |
+
+### Source Code
+
+#### Normalization Function
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - deferred_tools_delta case
+// Location: chunks.174.mjs:415-429
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "deferred_tools_delta": {
+    let K = [];
+    if (A.addedLines.length > 0) K.push(`The following deferred tools are now available via ToolSearch:
+${A.addedLines.join(`
+`)}
+`);
+    if (A.removedLines.length > 0) K.push(`The following deferred tools are no longer available:
+${A.removedLines.join(`
+`)}
+`);
+    if (K.length === 0) return [];
+    return b5([p1({
+        content: K.join(`
+`),
+        isMeta: !0
+    })])
+}
+
+// READABLE (for understanding):
+case "deferred_tools_delta": {
+    let messages = [];
+
+    if (attachment.addedLines.length > 0) {
+        messages.push(`The following deferred tools are now available via ToolSearch:
+${attachment.addedLines.join('\n')}
+`);
+    }
+
+    if (attachment.removedLines.length > 0) {
+        messages.push(`The following deferred tools are no longer available:
+${attachment.removedLines.join('\n')}
+`);
+    }
+
+    if (messages.length === 0) return [];
+
+    return wrapWithSystemReminderTags([createUserMessage({
+        content: messages.join('\n'),
+        isMeta: true
+    })]);
+}
+
+// Mapping: A→attachment, K→messages, b5→wrapWithSystemReminderTags, p1→createUserMessage
+```
+
+### Output Format
+
+```markdown
+<system-reminder>
+The following deferred tools are now available via ToolSearch:
+mcp__server__tool1
+mcp__server__tool2
+
+The following deferred tools are no longer available:
+mcp__oldserver__tool
+</system-reminder>
+```
+
+### Key Insight
+
+This type enables **dynamic tool availability** - tools can appear/disappear during a session as MCP servers connect/disconnect. The LLM is instructed to use ToolSearch to discover newly available tools.
+
+---
+
+## mcp_instructions_delta
+
+### What It Does
+
+Notifies the LLM about changes in MCP server instructions. MCP servers can provide custom instructions that guide how the LLM should interact with them.
+
+### Triggered When
+
+| Condition | Requirement |
+|-----------|-------------|
+| Instructions changed | MCP server instructions added/removed |
+| MCP connection | Connected to MCP servers with instructions |
+
+### Source Code
+
+#### Normalization Function
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - mcp_instructions_delta case
+// Location: chunks.174.mjs:430-445
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "mcp_instructions_delta": {
+    let K = [];
+    if (A.addedBlocks.length > 0) K.push(`# MCP Server Instructions
+
+${A.addedBlocks.join(`
+`)}
+`);
+    if (A.removedBlocks.length > 0) K.push(`The following MCP server instructions are no longer active:
+${A.removedBlocks.join(`
+`)}
+`);
+    if (K.length === 0) return [];
+    return b5([p1({
+        content: K.join(`
+`),
+        isMeta: !0
+    })])
+}
+
+// READABLE (for understanding):
+case "mcp_instructions_delta": {
+    let messages = [];
+
+    if (attachment.addedBlocks.length > 0) {
+        messages.push(`# MCP Server Instructions
+
+${attachment.addedBlocks.join('\n')}
+`);
+    }
+
+    if (attachment.removedBlocks.length > 0) {
+        messages.push(`The following MCP server instructions are no longer active:
+${attachment.removedBlocks.join('\n')}
+`);
+    }
+
+    if (messages.length === 0) return [];
+
+    return wrapWithSystemReminderTags([createUserMessage({
+        content: messages.join('\n'),
+        isMeta: true
+    })]);
+}
+
+// Mapping: A→attachment, K→messages, b5→wrapWithSystemReminderTags, p1→createUserMessage
+```
+
+### Output Format
+
+```markdown
+<system-reminder>
+# MCP Server Instructions
+
+When using the database tools, always wrap queries in transactions.
+
+The following MCP server instructions are no longer active:
+Old server instructions here...
+</system-reminder>
+```
+
+### Key Insight
+
+MCP instructions are **dynamic** - they can change during a session as servers connect/disconnect. This reminder type keeps the LLM's context synchronized with the current set of active instructions.
 
 ---
 
