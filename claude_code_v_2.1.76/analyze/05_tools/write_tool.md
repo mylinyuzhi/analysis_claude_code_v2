@@ -10,15 +10,16 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Tools section)
 
 Key functions in this document:
-- `FileWriteTool` (vj) - Write tool definition object - chunks.146.mjs:436
+- `FileWriteTool` (xX) - Write tool definition object - chunks.139.mjs:45
 - `TOOL_NAME_WRITE` (_K) - Tool name constant "Write" - chunks.56.mjs:1234
-- `fileWriteInputSchema` (dBY) - Input schema definition - chunks.146.mjs:419
+- `fileWriteInputSchema` (_LY) - Input schema definition - chunks.139.mjs
 - `writeFileWithEncoding` (ft) - Encoding-aware file write - chunks.134.mjs
 - `detectLineEnding` (Qd) - Line ending detection - chunks.134.mjs
 - `detectEncoding` (AX) - Encoding detection - chunks.134.mjs
-- `checkEditPermissions` (N51) - Permission checking - chunks.146.mjs
+- `checkEditPermissions` (Xz6) - Permission checking - chunks.139.mjs
 - `diagnosticsManager` (Fd) - LSP diagnostics manager - chunks.134.mjs
 - `updateGitWatcherCache` (_t) - Git cache update - chunks.134.mjs
+- `resolvePath` (L4) - Path resolution - chunks.10.mjs
 
 ---
 
@@ -73,50 +74,51 @@ LLM generates Write tool_use { file_path, content }
 ```javascript
 // ============================================
 // FileWriteTool - Main file writing tool definition
-// Location: chunks.146.mjs:436-652
+// Location: chunks.139.mjs:45-145
 // ============================================
 
 // ORIGINAL (for source lookup):
-vj = {
-    name: f5,  // "Write"
+xX = {
+    name: _K,  // "Write"
+    searchHint: "create or overwrite files",
     maxResultSizeChars: 1e5,
     strict: !0,
     input_examples: [{ file_path: "/Users/username/project/src/newFile.ts", content: "Hello, World!" }],
     async description() { return "Write a file to the local filesystem." },
-    userFacingName: eo4,
-    getToolUseSummary: kCA,
-    getActivityDescription(A) {
-        let q = kCA(A);
-        return q ? `Writing ${q}` : "Writing file"
-    },
-    async prompt() { return getWriteToolPrompt() },
+    userFacingName: ga4,
+    getToolUseSummary: em8,
+    getActivityDescription(A) { let q = em8(A); return q ? `Writing ${q}` : "Writing file" },
+    async prompt() { return bG7() },
     isEnabled() { return !0 },
-    get inputSchema() { return dBY() },
-    get outputSchema() { return cBY() },
+    get inputSchema() { return _LY() },
+    inputParamAliases: { filePath: "file_path", filepath: "file_path", path: "file_path" },
+    get outputSchema() { return wLY() },
     isConcurrencySafe() { return !1 },  // File writes are NOT concurrency-safe
     isReadOnly() { return !1 },          // Mutates filesystem
+    toAutoClassifierInput(A) { return `${A.file_path}: ${A.content}` },
     getPath(A) { return A.file_path },
-    async checkPermissions(A, q) {
-        let K = await q.getAppState();
-        return N51(vj, A, K.toolPermissionContext)  // Uses same permission check as Edit
-    },
-    renderToolUseMessage: Aa4,
-    renderToolUseRejectedMessage: qa4,
-    renderToolUseErrorMessage: Ka4,
-    renderToolUseProgressMessage: Ya4,  // Returns null
-    renderToolResultMessage: za4,
-    async validateInput({ file_path }, q) { ... },
-    async call({ file_path, content }, context, ...) { ... },
-    mapToolResultToToolResultBlockParam(...) { ... }
+    async checkPermissions(A, q) { let K = q.getAppState(); return Xz6(xX, A, K.toolPermissionContext) },
+    renderToolUseRejectedMessage: pa4,
+    renderToolUseErrorMessage: Qa4,
+    renderToolUseProgressMessage: Ua4,
+    renderToolResultMessage: da4,
+    async validateInput({ file_path: A, content: q }, K) { ... }
 }
 
 // READABLE (for understanding):
 const FileWriteTool = {
     name: "Write",
+    searchHint: "create or overwrite files",
     maxResultSizeChars: 100000,
     strict: true,
     isConcurrencySafe: false,   // Only one Write per file at a time
     isReadOnly: false,           // Requires permission check
+
+    inputParamAliases: {
+        filePath: "file_path",
+        filepath: "file_path",
+        path: "file_path"
+    },
 
     userFacingName(input) {
         // Show "Updated plan" for CLAUDE.md plan files
@@ -124,11 +126,21 @@ const FileWriteTool = {
         return "Write";
     },
 
-    // ... other methods
+    async validateInput({ file_path, content }, context) {
+        let absolutePath = resolvePath(file_path);
+        // Validation: permission deny, UNC path, file existence, readFileState
+        // ...
+    },
+
+    async checkPermissions(input, context) {
+        let appState = context.getAppState();
+        return checkEditPermissions(FileWriteTool, input, appState.toolPermissionContext);
+    }
 }
 
-// Mapping: vj→FileWriteTool, _K→TOOL_NAME_WRITE, dBY→fileWriteInputSchema,
-//          N51→checkEditPermissions, eo4→getWriteUserFacingName, kCA→getWriteSummary
+// Mapping: xX→FileWriteTool, _K→TOOL_NAME_WRITE, _LY→fileWriteInputSchema,
+//          wLY→fileWriteOutputSchema, Xz6→checkEditPermissions, ga4→getWriteUserFacingName,
+//          em8→getWriteSummary, L4→resolvePath
 ```
 
 ---

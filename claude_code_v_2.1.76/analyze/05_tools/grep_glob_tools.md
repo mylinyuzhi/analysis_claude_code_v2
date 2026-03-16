@@ -10,12 +10,13 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Tools section)
 
 Key functions in this document:
-- `GrepTool` (tS) - Grep tool definition object - chunks.76.mjs:1129
-- `GlobTool` (WB) - Glob tool definition object - chunks.76.mjs:1495
-- `TOOL_NAME_GREP` (s9) - Grep name constant - chunks.76.mjs
-- `TOOL_NAME_GLOB` (Jz) - Glob name constant - chunks.76.mjs
-- `grepInputSchema` (Z99) - Grep input schema - chunks.76.mjs:1104
-- `globInputSchema` (N99) - Glob input schema - chunks.76.mjs:1487
+- `GrepTool` (bb) - Grep tool definition object - chunks.139.mjs:482
+- `GlobTool` (rg) - Glob tool definition object - chunks.139.mjs:880
+- `TOOL_NAME_GREP` (N9) - Grep name constant - chunks.56.mjs:1215
+- `TOOL_NAME_GLOB` (qz) - Glob name constant - chunks.56.mjs:1192
+- `grepInputSchema` ($LY) - Grep input schema - chunks.139.mjs:524
+- `globInputSchema` (JLY) - Glob input schema - chunks.139.mjs:897
+- `globOutputSchema` (MLY) - Glob output schema - chunks.139.mjs:875
 - `rgPath` - ripgrep binary path
 - `rgArgs` - ripgrep argument builder
 
@@ -69,64 +70,78 @@ LLM generates tool_use
 ```javascript
 // ============================================
 // GrepTool - Main content search tool definition
-// Location: chunks.76.mjs:1129-1300
+// Location: chunks.139.mjs:482-575
 // ============================================
 
 // ORIGINAL (for source lookup):
-tS = {
-    name: s9,  // "Grep"
-    maxResultSizeChars: 1e5,
+bb = {
+    name: N9,  // "Grep"
+    searchHint: "search file contents with regex (ripgrep)",
+    maxResultSizeChars: 20000,
     strict: !0,
-    async description() { return "Search for patterns in file contents" },
-    async prompt() { return getGrepToolPrompt() },
-    userFacingName: getGrepUserFacingName,
-    getToolUseSummary: getGrepSummary,
-    getActivityDescription(A) {
-        let q = getGrepSummary(A);
-        return q ? `Searching for ${q}` : "Searching"
-    },
+    input_examples: [{ pattern: "TODO", output_mode: "files_with_matches" }, ...],
+    async description() { return ew8() },
+    userFacingName() { return "Search" },
+    getToolUseSummary: YB8,
+    getActivityDescription(A) { let q = YB8(A); return q ? `Searching for ${q}` : "Searching" },
     isEnabled() { return !0 },
-    get inputSchema() { return Z99() },  // grepInputSchema
-    get outputSchema() { return getGrepOutputSchema() },
-    isConcurrencySafe() { return !0 },  // Read-only search
+    get inputSchema() { return $LY() },
+    inputParamAliases: { c: "-C", C: "-C", a: "-A", A: "-A", b: "-B", B: "-B", n: "-n", i: "-i", include: "glob", regex: "pattern", search: "pattern", directory: "path" },
+    get outputSchema() { return jLY() },
+    isConcurrencySafe() { return !0 },
     isReadOnly() { return !0 },
-    getPath(A) { return A.path },
-    async checkPermissions(A, q) { /* auto-allowed for read-only */ },
-    renderToolUseMessage: renderGrepUseMessage,
-    renderToolResultMessage: renderGrepResult,
-    // ... other methods
+    toAutoClassifierInput(A) { return A.path ? `${A.pattern} in ${A.path}` : A.pattern },
+    isSearchOrReadCommand() { return { isSearch: !0, isRead: !1 } },
+    getPath({ path: A }) { return A || G1() },
+    async validateInput({ path: A }) { ... },
+    async checkPermissions(A, q) { let K = q.getAppState(); return gt(bb, A, K.toolPermissionContext) }
 }
 
 // READABLE (for understanding):
 const GrepTool = {
     name: "Grep",
-    maxResultSizeChars: 100000,
+    searchHint: "search file contents with regex (ripgrep)",
+    maxResultSizeChars: 20000,
     strict: true,
-    isConcurrencySafe: true,   // Multiple searches can run in parallel
-    isReadOnly: true,           // Never modifies files
+    isConcurrencySafe: true,   // Multiple Grep operations can run in parallel
+    isReadOnly: true,           // Never modifies filesystem
 
-    async call({ pattern, path, glob, output_mode, "-i": caseInsensitive, "-n": lineNumbers, "-C": context, "-B": beforeContext, "-A": afterContext }, context) {
-        let args = buildRipgrepArgs(pattern, path, glob, output_mode, {
-            caseInsensitive, lineNumbers, context, beforeContext, afterContext
-        });
-        let result = await executeRipgrep(args);
-        return formatGrepResult(result, output_mode);
+    inputParamAliases: {
+        c: "-C", C: "-C",      // Context lines (both sides)
+        a: "-A", A: "-A",      // After context
+        b: "-B", B: "-B",      // Before context
+        n: "-n",               // Line numbers
+        i: "-i",               // Case insensitive
+        include: "glob",       // File pattern filter
+        regex: "pattern",      // Search pattern aliases
+        search: "pattern",
+        directory: "path"      // Directory to search
+    },
+
+    isSearchOrReadCommand() {
+        return { isSearch: true, isRead: false };
+    },
+
+    async checkPermissions(input, context) {
+        let appState = context.getAppState();
+        return checkReadPermissions(GrepTool, input, appState.toolPermissionContext);
     }
 }
 
-// Mapping: tS→GrepTool, s9→TOOL_NAME_GREP, Z99→grepInputSchema
+// Mapping: bb→GrepTool, N9→TOOL_NAME_GREP, $LY→grepInputSchema, jLY→grepOutputSchema,
+//          YB8→getGrepSummary, ew8→getGrepDescription, gt→checkReadPermissions
 ```
 
 ---
 
 ## 2. Grep Input Schema
 
-### grepInputSchema (Z99) - Complete parameter definition
+### grepInputSchema ($LY) - Complete parameter definition
 
 ```javascript
 // ============================================
 // grepInputSchema - Zod input schema for Grep
-// Location: chunks.76.mjs:1104
+// Location: chunks.139.mjs:524
 // ============================================
 
 // READABLE (for understanding):
@@ -160,7 +175,7 @@ const grepInputSchema = z.strictObject({
         .describe("Number of lines to show after matches")
 });
 
-// Mapping: Z99→grepInputSchema
+// Mapping: $LY→grepInputSchema
 ```
 
 **Why ripgrep-style flags:**
@@ -297,28 +312,47 @@ function buildRipgrepArgs(pattern, path, glob, outputMode, flags) {
 ```javascript
 // ============================================
 // GlobTool - Main file pattern matching tool
-// Location: chunks.76.mjs:1495-1650
+// Location: chunks.139.mjs:880-980
 // ============================================
 
 // ORIGINAL (for source lookup):
-WB = {
-    name: Jz,  // "Glob"
+rg = {
+    name: qz,  // "Glob"
+    searchHint: "find files by name pattern or wildcard",
     maxResultSizeChars: 1e5,
-    strict: !0,
-    async description() { return "Find files matching a pattern" },
-    async prompt() { return getGlobToolPrompt() },
+    async description() { return tw8 },
+    userFacingName: qs4,
+    getToolUseSummary: OB8,
+    getActivityDescription(A) { let q = OB8(A); return q ? `Finding ${q}` : "Finding files" },
+    isEnabled() { return !0 },
+    get inputSchema() { return JLY() },
+    inputParamAliases: { directory: "path" },
+    get outputSchema() { return MLY() },
     isConcurrencySafe() { return !0 },
     isReadOnly() { return !0 },
-    // ... other methods
+    toAutoClassifierInput(A) { return A.pattern },
+    isSearchOrReadCommand() { return { isSearch: !0, isRead: !1 } },
+    getPath({ path: A }) { return A ? L4(A) : G1() },
+    async checkPermissions(A, q) { let K = q.getAppState(); return gt(rg, A, K.toolPermissionContext) }
 }
 
 // READABLE (for understanding):
 const GlobTool = {
     name: "Glob",
+    searchHint: "find files by name pattern or wildcard",
     maxResultSizeChars: 100000,
     strict: true,
-    isConcurrencySafe: true,
-    isReadOnly: true,
+    isConcurrencySafe: true,   // Multiple Glob operations can run in parallel
+    isReadOnly: true,           // Never modifies filesystem
+
+    inputParamAliases: {
+        directory: "path"       // Alias for path parameter
+    },
+
+    async checkPermissions(input, context) {
+        let appState = context.getAppState();
+        return checkReadPermissions(GlobTool, input, appState.toolPermissionContext);
+    },
 
     async call({ pattern, path }, context) {
         let searchPath = path || process.cwd();
@@ -348,19 +382,20 @@ const GlobTool = {
     }
 }
 
-// Mapping: WB→GlobTool, Jz→TOOL_NAME_GLOB, N99→globInputSchema
+// Mapping: rg→GlobTool, qz→TOOL_NAME_GLOB, JLY→globInputSchema, MLY→globOutputSchema,
+//          OB8→getGlobSummary, tw8→getGlobDescription, L4→resolvePath, gt→checkReadPermissions
 ```
 
 ---
 
 ## 6. Glob Input Schema
 
-### globInputSchema (N99) - Simple pattern matching
+### globInputSchema (JLY) - Simple pattern matching
 
 ```javascript
 // ============================================
 // globInputSchema - Zod input schema for Glob
-// Location: chunks.76.mjs:1487
+// Location: chunks.139.mjs:897
 // ============================================
 
 // READABLE (for understanding):
@@ -372,7 +407,7 @@ const globInputSchema = z.strictObject({
         .describe("The directory to search in. Defaults to current working directory.")
 });
 
-// Mapping: N99→globInputSchema
+// Mapping: JLY→globInputSchema
 ```
 
 **Glob pattern examples:**

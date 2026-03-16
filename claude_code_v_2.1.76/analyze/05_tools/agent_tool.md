@@ -11,7 +11,9 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Background Agents section)
 
 Key functions in this document:
-- `AgentTool` (rj1) - Agent tool definition object - chunks.149.mjs
+- `AgentTool` (QW6) - Agent tool definition object - chunks.136.mjs:1512
+- `TOOL_NAME_AGENT` (r4) - Tool name constant "Agent" - chunks.40.mjs:406
+- `TOOL_NAME_TASK` (I46) - Alias name constant "Task" - chunks.40.mjs:408
 - `agentToolCall` - Core execution logic for running subagents
 - `DELEGATE_ALLOWED_TOOLS` (R_6) - Tool allowlist for delegate agents
 - `BACKGROUND_AGENT_ALLOWED_TOOLS` (Bj1) - Tool allowlist for background agents
@@ -52,7 +54,7 @@ LLM generates Agent tool_use
 
 ## 1. Tool Definition Object
 
-### AgentTool (rj1) - Main entry point for subagent execution
+### AgentTool (QW6) - Main entry point for subagent execution
 
 **What it does:** Provides the Agent tool interface that allows the LLM to spawn subagents — child Claude instances that run with their own conversation history, system prompt, and (optionally) their own isolated worktree.
 
@@ -61,60 +63,65 @@ LLM generates Agent tool_use
 ```javascript
 // ============================================
 // AgentTool - Agent spawning tool definition
-// Location: chunks.149.mjs
+// Location: chunks.136.mjs:1512-1630
 // ============================================
 
 // ORIGINAL (for source lookup):
-rj1 = {
-    name: "Agent",
-    isConcurrencySafe: true,
-    isReadOnly: false,
-    async description() { return getAgentToolDescription(); },
-    get inputSchema() { return agentInputSchema(); },
-    async validateInput(A, q) { ... },
-    async checkPermissions() { return { allowed: true }; },
-    async call(A, q, K) { return agentToolCall(A, q, K); },
-    renderToolUseMessage: gj1,
-    renderToolResultMessage: Oj1,
-    userFacingName() { return "Agent"; },
-    getToolUseSummary(A) { return A.description ?? A.subagent_type ?? null; }
+QW6 = {
+    async prompt({ agents: A, tools: q, getToolPermissionContext: K, allowedAgentTypes: Y }) { ... },
+    name: r4,              // "Agent"
+    searchHint: "delegate work to a subagent",
+    aliases: [I46],        // ["Task"]
+    maxResultSizeChars: 1e5,
+    async description() { return "Launch a new agent" },
+    get inputSchema() { return xx8() },
+    get outputSchema() { return eVY() },
+    async call({ prompt: A, subagent_type: q, description: K, model: Y, resume: z, run_in_background: _, name: w, team_name: O, mode: $, isolation: H, cwd: j }, J, M, D, X) { ... }
 }
 
 // READABLE (for understanding):
 const AgentTool = {
     name: "Agent",
-    isConcurrencySafe: true,  // Multiple agents can run concurrently
-    isReadOnly: false,         // Agents may write files
+    aliases: ["Task"],      // "Task" is an alias for backward compatibility
+    searchHint: "delegate work to a subagent",
+    maxResultSizeChars: 100000,
+
+    async prompt({ agents, tools, getToolPermissionContext, allowedAgentTypes }) {
+        // Build agent prompt with available tools and agent definitions
+        let toolPermissionContext = await getToolPermissionContext();
+        let mcpServers = [];
+        for (let tool of tools) {
+            if (tool.name?.startsWith("mcp__")) {
+                let serverName = tool.name.split("__")[1];
+                if (serverName && !mcpServers.includes(serverName)) {
+                    mcpServers.push(serverName);
+                }
+            }
+        }
+        let agentDefinitions = filterAgentsByMcpServers(agents, mcpServers);
+        let toolFilteredDefinitions = filterToolsByRules(agentDefinitions, toolPermissionContext, "Agent");
+        return await buildAgentPrompt(toolFilteredDefinitions, false, allowedAgentTypes);
+    },
 
     async description() {
-        return getAgentToolDescription();
+        return "Launch a new agent";
     },
 
     get inputSchema() {
-        return agentInputSchema();
+        return agentInputSchema();  // xx8
     },
 
-    async validateInput(input, context) {
-        // Validate subagent_type, model, isolation, etc.
+    get outputSchema() {
+        return agentOutputSchema();  // eVY
     },
 
-    async checkPermissions() {
-        // Agent tool is always auto-approved (trust model)
-        return { allowed: true };
-    },
-
-    async call(input, context, invocationContext) {
-        return agentToolCall(input, context, invocationContext);
-    },
-
-    userFacingName() { return "Agent"; },
-
-    getToolUseSummary(input) {
-        return input.description ?? input.subagent_type ?? null;
+    async call(input, context, toolContext, invocationContext, sessionContext) {
+        // ... (full implementation in Execution section)
     }
 }
 
-// Mapping: rj1→AgentTool, gj1→renderAgentUseMessage, Oj1→renderAgentResultMessage
+// Mapping: QW6→AgentTool, r4→TOOL_NAME_AGENT, I46→TOOL_NAME_TASK, xx8→agentInputSchema,
+//          eVY→agentOutputSchema
 ```
 
 ---

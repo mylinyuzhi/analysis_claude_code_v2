@@ -28,20 +28,21 @@
 |---|---|---|---|
 | L9 | FileReadTool | chunks.90.mjs:2052 | tool object |
 | s7 | TOOL_NAME_READ | chunks.56.mjs:173 | constant ("Read") |
-| xX | FileWriteTool | chunks.138.mjs:45 | tool object |
+| xX | FileWriteTool | chunks.139.mjs:45 | tool object |
 | _K | TOOL_NAME_WRITE | chunks.56.mjs:1234 | constant ("Write") |
 | pX | EditTool | chunks.170.mjs:1116 | tool object |
 | R4 | TOOL_NAME_EDIT | chunks.56.mjs:102 | constant ("Edit") |
 | gd | NotebookEditTool | chunks.134.mjs:2615 | tool object |
 | bJ | TOOL_NAME_NOTEBOOK_EDIT | chunks.56.mjs:1240 | constant ("NotebookEdit") |
-| bb | GrepTool | chunks.139.mjs:483 | tool object |
+| bb | GrepTool | chunks.139.mjs:482 | tool object |
 | N9 | TOOL_NAME_GREP | chunks.56.mjs:1215 | constant ("Grep") |
 | rg | GlobTool | chunks.139.mjs:881 | tool object |
 | qz | TOOL_NAME_GLOB | chunks.56.mjs:1192 | constant ("Glob") |
 | wt | SkillTool | chunks.132.mjs:820 | tool object |
 | oH | TOOL_NAME_SKILL | chunks.90.mjs:2596 | constant ("Skill") |
-| rj1 | AgentTool (Task) | chunks.132.mjs:85 | tool object |
-| I46 | TOOL_NAME_TASK | chunks.40.mjs:408 | constant ("Task") |
+| QW6 | AgentTool | chunks.136.mjs:1512 | tool object |
+| r4 | TOOL_NAME_AGENT | chunks.40.mjs:406 | constant ("Agent") |
+| I46 | TOOL_NAME_TASK (alias) | chunks.40.mjs:408 | constant ("Task") |
 | Q7 | TOOL_NAME_BASH | chunks.54.mjs:2264 | constant ("Bash") |
 | BYq | BashOutputComponent | chunks.162.mjs:417249 | component |
 
@@ -120,9 +121,13 @@
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
 | g4 | resolvePath | chunks.10.mjs:1159 | function |
+| L4 | resolvePath | chunks.10.mjs | function (alias) |
 | p61 | hasParentTraversal | chunks.10.mjs:1187 | function |
 | Gj | checkPathDenyRule | chunks.174.mjs:692 | function |
+| ZX | checkPathDenyRule | chunks.139.mjs | function (alias) |
 | ro | checkReadPermissions | chunks.146.mjs | function |
+| gt | checkReadPermissions | chunks.90.mjs:2113 | function |
+| Xz6 | checkEditPermissions | chunks.139.mjs | function |
 | Ia4 | analyzeConversationMemoryUsage | chunks.146.mjs:2147 | function |
 | OmY | fileReadInputSchema | chunks.146.mjs:1706 | variable |
 | dBY | fileWriteInputSchema | chunks.146.mjs:419 | variable |
@@ -130,7 +135,12 @@
 | JLY | globInputSchema | chunks.139.mjs:897 | getter function |
 | mP6 | findSimilarFile | chunks.146.mjs | function |
 | OU1 | MAX_FILE_SIZE_BYTES | chunks.146.mjs | constant |
-| wD1 | MAX_PDF_PAGES_PER_REQUEST | chunks.146.mjs | constant |
+| P36 | MAX_PDF_PAGES_PER_REQUEST | chunks.85.mjs:2470 | constant (20) |
+| TX1 | MIN_PAGES_FOR_PAGE_RANGE_PROMPT | chunks.85.mjs:2472 | constant (10) |
+| XA4 | MAX_SIZE_FOR_PDF_EXTRACTION | chunks.85.mjs:2466 | constant (3145728) |
+| GP1 | getPdfPageCount | chunks.90.mjs | function |
+| UN8 | extractPdfPages | chunks.90.mjs | function |
+| N34 | readPdfAsBase64 | chunks.90.mjs | function |
 | Qd | detectLineEnding | chunks.134.mjs | function |
 | AX | detectEncoding | chunks.134.mjs | function |
 | ft | writeFileWithEncoding | chunks.134.mjs | function |
@@ -364,14 +374,13 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| rj1 | AgentTool | chunks.132.mjs:85 | tool object |
-| I46 | TOOL_NAME_TASK | chunks.40.mjs:408 | constant ("Task") |
-| oVY | agentInputSchema | chunks.132.mjs:37 | variable |
-| ANY | agentOutputSchema | chunks.132.mjs:84 | variable |
-| aVY | teamSpawnSchema | chunks.132.mjs:45 | variable |
-| sVY | agentResultBaseSchema | chunks.132.mjs:52 | variable |
-| tVY | completedResultSchema | chunks.132.mjs:75 | variable |
-| eVY | asyncLaunchedResultSchema | chunks.132.mjs:78 | variable |
+| QW6 | AgentTool | chunks.136.mjs:1512 | tool object |
+| r4 | TOOL_NAME_AGENT | chunks.40.mjs:406 | constant ("Agent") |
+| I46 | TOOL_NAME_TASK (alias) | chunks.40.mjs:408 | constant ("Task") |
+| R31 | TOOL_NAME_VERIFICATION | chunks.40.mjs:410 | constant ("verification") |
+| xx8 | agentInputSchema | chunks.136.mjs | function |
+| eVY | agentOutputSchema | chunks.136.mjs:1492 | function |
+| tVY | completedResultSchema | chunks.136.mjs | variable |
 | NR | generateAgentId | chunks.89.mjs | function |
 | zd7 | createAsyncTask | chunks.132.mjs | function |
 | wd7 | createForegroundTask | chunks.132.mjs | function |

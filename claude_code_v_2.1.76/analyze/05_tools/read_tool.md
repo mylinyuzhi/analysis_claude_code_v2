@@ -10,16 +10,20 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Tools section)
 
 Key functions in this document:
-- `FileReadTool` (i5) - Read tool definition object - chunks.146.mjs
+- `FileReadTool` (L9) - Read tool definition object - chunks.90.mjs:2052
 - `TOOL_NAME_READ` (s7) - Tool name constant "Read" - chunks.56.mjs:173
-- `fileReadInputSchema` (OmY) - Input schema definition - chunks.146.mjs:1706
-- `resolvePath` (g4) - Path resolution function - chunks.10.mjs:1159
-- `checkReadPermissions` (ro) - Permission checking - chunks.146.mjs
+- `fileReadInputSchema` (tm9) - Input schema definition - chunks.90.mjs:2000
+- `resolvePath` (L4) - Path resolution function - chunks.10.mjs
+- `checkReadPermissions` (gt) - Permission checking - chunks.90.mjs:2113
 - `detectEncoding` (AX) - Encoding detection - chunks.134.mjs
 - `readFileSyncWithEncoding` ($J) - Encoding-aware file reading - chunks.134.mjs
-- `analyzeConversationMemoryUsage` (Ia4) - Memory usage analysis - chunks.146.mjs:2147
-- `MAX_FILE_SIZE_BYTES` (OU1) - File size limit constant - chunks.146.mjs
-- `MAX_PDF_PAGES_PER_REQUEST` (wD1) - PDF page limit constant - chunks.146.mjs
+- `analyzeConversationMemoryUsage` - Memory usage analysis
+- `MAX_FILE_SIZE_BYTES` - File size limit constant
+- `MAX_PDF_PAGES_PER_REQUEST` (P36) - PDF page limit constant (20) - chunks.85.mjs:2470
+- `MIN_PAGES_FOR_PAGE_RANGE_PROMPT` (TX1) - Min pages threshold (10) - chunks.85.mjs:2472
+- `getPdfPageCount` (GP1) - PDF page count - chunks.90.mjs
+- `extractPdfPages` (UN8) - PDF page extraction - chunks.90.mjs
+- `readPdfAsBase64` (N34) - PDF base64 encoding - chunks.90.mjs
 
 ---
 
@@ -333,55 +337,139 @@ async function handleImageRead(absolutePath) {
 
 ### handlePdfRead - PDF document reading
 
-**What it does:** Extracts text content from PDF files with page range support and metadata extraction.
+**What it does:** Extracts text content from PDF files with page range support and metadata extraction. Supports both full PDF reading (Anthropic API only) and page extraction via poppler-utils.
+
+**How it works:**
 
 ```javascript
 // ============================================
 // handlePdfRead - PDF file handling
-// Location: chunks.146.mjs:2000-2100
+// Location: chunks.90.mjs:1770-1818
 // ============================================
 
-// READABLE (for understanding):
-async function handlePdfRead(absolutePath, pages) {
-    const MAX_PDF_PAGES = 20;  // wD1 - Maximum pages per request
-
-    // Parse page range
-    let pageRange = parsePageRange(pages);  // "1-5" → [1,2,3,4,5]
-
-    // Validate page count
-    if (pageRange && pageRange.length > MAX_PDF_PAGES) {
-        return {
-            data: {
-                content: `Too many pages requested (${pageRange.length}). Maximum is ${MAX_PDF_PAGES} pages per request.`,
-                type: "error"
+// ORIGINAL (for source lookup):
+// P36 = 20 (MAX_PDF_PAGES_PER_REQUEST)
+// TX1 = 10 (MIN_PAGES_FOR_PAGE_RANGE_PROMPT)
+// XA4 = 3145728 (3MB - MAX_SIZE_FOR_PAGE_EXTRACTION)
+let u = await GP1(K);
+if (u !== null && u > TX1) throw Error(`This PDF has ${u} pages, which is too many to read at once. Use the pages parameter to read specific page ranges (e.g., pages: "1-5"). Maximum ${P36} pages per request.`);
+let g = await $1().stat(K);
+if (!yx6() || g.size > XA4) {
+    let Q = await UN8(K);
+    if (Q.success) d("tengu_pdf_page_extraction", {
+        success: !0,
+        pageCount: Q.data.file.count,
+        fileSize: Q.data.file.originalSize
+    });
+}
+if (!yx6()) throw Error(`Reading full PDFs is only supported with the Anthropic API...`);
+let b = await N34(K);
+if (!b.success) throw Error(b.error.message);
+let p = b.data;
+return RC({
+    operation: "read",
+    tool: "FileReadTool",
+    filePath: q,
+    content: p.file.base64
+}), {
+    data: p,
+    newMessages: [p1({
+        content: [{
+            type: "document",
+            source: {
+                type: "base64",
+                media_type: "application/pdf",
+                data: p.file.base64
             }
-        };
+        }],
+        isMeta: !0
+    })]
+}
+
+// READABLE (for understanding):
+async function handlePdfRead(absolutePath, inputPath, context) {
+    const MAX_PDF_PAGES = 20;  // P36
+    const MIN_PAGES_THRESHOLD = 10;  // TX1 - prompt for page range if more pages
+    const MAX_SIZE_FOR_EXTRACTION = 3145728;  // XA4 - 3MB
+
+    // Step 1: Get PDF page count
+    let pageCount = await getPdfPageCount(absolutePath);
+    if (pageCount !== null && pageCount > MIN_PAGES_THRESHOLD) {
+        throw Error(`This PDF has ${pageCount} pages, which is too many to read at once. ` +
+            `Use the pages parameter to read specific page ranges (e.g., pages: "1-5"). ` +
+            `Maximum ${MAX_PDF_PAGES} pages per request.`);
     }
 
-    // Read PDF using pdf-parse library
-    let buffer = fs.readFileSync(absolutePath);
-    let pdfData = await pdfParse(buffer);
-
-    // Extract requested pages
-    let textContent = pageRange
-        ? pageRange.map(p => pdfData.pages[p - 1]?.text ?? '').join('\n\n--- Page Break ---\n\n')
-        : pdfData.text;
-
-    return {
-        data: {
-            content: textContent,
-            type: "pdf",
-            metadata: {
-                totalPages: pdfData.numpages,
-                info: pdfData.info,       // Title, Author, etc.
-                version: pdfData.version  // PDF version
-            }
+    // Step 2: Check file size for extraction strategy
+    let fileStats = await getFileSystem().stat(absolutePath);
+    if (!isAnthropicApi() || fileStats.size > MAX_SIZE_FOR_EXTRACTION) {
+        // Try poppler-based page extraction
+        let extractionResult = await extractPdfPages(absolutePath);
+        if (extractionResult.success) {
+            telemetry("tengu_pdf_page_extraction", {
+                success: true,
+                pageCount: extractionResult.data.file.count,
+                fileSize: extractionResult.data.file.originalSize
+            });
+        } else {
+            telemetry("tengu_pdf_page_extraction", {
+                success: false,
+                available: extractionResult.error.reason !== "unavailable",
+                fileSize: fileStats.size
+            });
         }
+    }
+
+    // Step 3: Full PDF read (Anthropic API only)
+    if (!isAnthropicApi()) {
+        throw Error(`Reading full PDFs is only supported with the Anthropic API. ` +
+            `Use the pages parameter to read specific page ranges (e.g., pages: "1-5", ` +
+            `maximum ${MAX_PDF_PAGES} pages per request). This requires poppler-utils: ` +
+            `install with \`brew install poppler\` on macOS or \`apt-get install poppler-utils\` on Debian/Ubuntu.`);
+    }
+
+    // Step 4: Read PDF and return as base64 document
+    let pdfResult = await readPdfAsBase64(absolutePath);
+    if (!pdfResult.success) throw Error(pdfResult.error.message);
+
+    let pdfData = pdfResult.data;
+    recordFileOperation({
+        operation: "read",
+        tool: "FileReadTool",
+        filePath: inputPath,
+        content: pdfData.file.base64
+    });
+
+    // Return document with PDF as base64
+    return {
+        data: pdfData,
+        newMessages: [createUserMessage({
+            content: [{
+                type: "document",
+                source: {
+                    type: "base64",
+                    media_type: "application/pdf",
+                    data: pdfData.file.base64
+                }
+            }],
+            isMeta: true
+        })]
     };
 }
 
-// Mapping: wD1→MAX_PDF_PAGES_PER_REQUEST
+// Mapping: P36→MAX_PDF_PAGES_PER_REQUEST, TX1→MIN_PAGES_FOR_PAGE_RANGE_PROMPT,
+//          XA4→MAX_SIZE_FOR_PAGE_EXTRACTION, GP1→getPdfPageCount, UN8→extractPdfPages,
+//          N34→readPdfAsBase64, yx6→isAnthropicApi, RC→recordFileOperation
 ```
+
+**PDF reading strategy:**
+
+| Condition | Strategy | Why |
+|-----------|----------|-----|
+| `pageCount > 10` | Reject, require `pages` parameter | Prevents context overflow |
+| `fileSize > 3MB` && non-Anthropic API | Use poppler extraction | Large files need page-by-page |
+| Anthropic API | Full PDF as base64 | Native PDF support in API |
+| Non-Anthropic API | poppler-utils required | Fallback extraction method |
 
 **Why 20 page limit:**
 - PDFs can be thousands of pages, which would overwhelm the context window

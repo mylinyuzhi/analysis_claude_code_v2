@@ -223,6 +223,53 @@ function shouldUseSandbox(input) {
 //          vA.areUnsandboxedCommandsAllowed→areUnsandboxedCommandsAllowed, yYz→isExcludedCommand
 ```
 
+### Sandbox Decision Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    SANDBOX DECISION TREE                           │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+               ┌──────────────────────────┐
+               │ isSandboxingEnabled()?   │
+               └──────────────────────────┘
+                    │            │
+                   NO           YES
+                    │            │
+                    ▼            ▼
+            ┌────────────┐  ┌──────────────────────────────────────┐
+            │ return     │  │ dangerouslyDisableSandbox &&         │
+            │ false      │  │ areUnsandboxedCommandsAllowed()?     │
+            │ (no sandbox)│ └──────────────────────────────────────┘
+            └────────────┘       │                    │
+                                YES                  NO
+                                 │                    │
+                                 ▼                    ▼
+                         ┌────────────┐  ┌──────────────────────────┐
+                         │ return     │  │ input.command exists?    │
+                         │ false      │  └──────────────────────────┘
+                         │ (user opted│       │            │
+                         │  out)      │      NO           YES
+                         └────────────┘       │            │
+                                              ▼            ▼
+                                      ┌────────────┐  ┌─────────────────┐
+                                      │ return     │  │ isExcludedCommand│
+                                      │ false      │  │ (command)?       │
+                                      │ (no cmd)   │  └─────────────────┘
+                                      └────────────┘       │          │
+                                                          YES        NO
+                                                           │          │
+                                                           ▼          ▼
+                                                   ┌────────────┐ ┌────────────┐
+                                                   │ return     │ │ return     │
+                                                   │ false      │ │ true       │
+                                                   │ (excluded) │ │ (SANDBOX)  │
+                                                   └────────────┘ └────────────┘
+```
+
+**Key insight:** The sandbox decision uses a fail-safe approach — sandbox is enabled by default when sandboxing is configured, and only disabled through explicit opt-out or exclusion list matching.
+
 ### isExcludedCommand (yYz) - Excluded Commands Check
 
 **What it does:** Checks if a command is in the list of commands excluded from sandboxing (user-configured safe commands).
