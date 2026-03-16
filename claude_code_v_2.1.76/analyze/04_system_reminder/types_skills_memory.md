@@ -158,7 +158,7 @@ In v2.1.76, when the `invoked_skills` attachment is produced, the `InstructionsL
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - invoked_skills case
-// Location: chunks.173.mjs:823-839
+// Location: chunks.174.mjs:117-132
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -173,7 +173,7 @@ ${Y.content}`).join(`
 
 `);
 
-    return _9([c6({
+    return b5([p1({
         content: `The following skills were invoked in this session. Continue to follow these guidelines:
 
 ${K}`,
@@ -202,7 +202,7 @@ ${skillsContent}`,
     ]);
 }
 
-// Mapping: A→attachment, K→skillsContent, Y→skill, _9→wrapWithSystemReminderTags, c6→createUserMessage
+// Mapping: A→attachment, K→skillsContent, Y→skill, b5→wrapWithSystemReminderTags, p1→createUserMessage
 ```
 
 ### Output Format
@@ -333,13 +333,13 @@ function getAvailableSkills() {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - skill_listing case
-// Location: chunks.173.mjs:880-888
+// Location: chunks.174.mjs:187-194
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "skill_listing": {
     if (!A.content) return [];
-    return _9([c6({
+    return b5([p1({
         content: `The following skills are available for use with the Skill tool:
 
 ${A.content}`,
@@ -391,43 +391,41 @@ Injects content from CLAUDE.md files found in parent directories. This provides 
 ```javascript
 // ============================================
 // getNestedMemoryAttachments - Produce nested memory attachments
-// Location: chunks.142.mjs:2337-2348
+// Location: chunks.147.mjs:541-549
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function HIY(A) {
-    let q = await A.getAppState(),
+async function IuY(A) {
+    if (!A.nestedMemoryAttachmentTriggers || A.nestedMemoryAttachmentTriggers.size === 0) return [];
+    let q = A.getAppState(),
         K = [];
-    if (A.nestedMemoryAttachmentTriggers && A.nestedMemoryAttachmentTriggers.size > 0) {
-        for (let Y of A.nestedMemoryAttachmentTriggers) {
-            let z = ri4(Y, A, q);
-            K.push(...z)
-        }
-        A.nestedMemoryAttachmentTriggers.clear()
+    for (let Y of A.nestedMemoryAttachmentTriggers) {
+        let z = Yqq(Y, A, q);
+        K.push(...z)
     }
-    return K
+    return A.nestedMemoryAttachmentTriggers.clear(), K
 }
 
 // READABLE (for understanding):
 async function getNestedMemoryAttachments(sessionContext) {
+    if (!sessionContext.nestedMemoryAttachmentTriggers ||
+        sessionContext.nestedMemoryAttachmentTriggers.size === 0) {
+        return [];
+    }
+
     let appState = await sessionContext.getAppState();
     let attachments = [];
 
-    if (sessionContext.nestedMemoryAttachmentTriggers &&
-        sessionContext.nestedMemoryAttachmentTriggers.size > 0) {
-
-        for (let triggerPath of sessionContext.nestedMemoryAttachmentTriggers) {
-            let memoryFiles = loadNestedMemory(triggerPath, sessionContext, appState);
-            attachments.push(...memoryFiles);
-        }
-
-        sessionContext.nestedMemoryAttachmentTriggers.clear();
+    for (let triggerPath of sessionContext.nestedMemoryAttachmentTriggers) {
+        let memoryFiles = loadNestedMemoryFromPath(triggerPath, sessionContext, appState);
+        attachments.push(...memoryFiles);
     }
 
+    sessionContext.nestedMemoryAttachmentTriggers.clear();
     return attachments;
 }
 
-// Mapping: HIY→getNestedMemoryAttachments, A→sessionContext, q→appState, K→attachments, Y→triggerPath, z→memoryFiles, ri4→loadNestedMemory
+// Mapping: IuY→getNestedMemoryAttachments, A→sessionContext, q→appState, K→attachments, Y→triggerPath, z→memoryFiles, Yqq→loadNestedMemoryFromPath
 ```
 
 #### Normalization Function (v2.1.76)
@@ -435,32 +433,28 @@ async function getNestedMemoryAttachments(sessionContext) {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - nested_memory case
-// Location: chunks.173.mjs:871-877
+// Location: chunks.174.mjs:165-171
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "nested_memory":
-    return _9([c6({
-        content: `Contents of ${A.content.path}${A.content.lastModified ? ` (last modified: ${A.content.lastModified})` : ""}:
+    return b5([p1({
+        content: `Contents of ${A.content.path}:
 
 ${A.content.content}`,
         isMeta: !0
     })]);
 
 // READABLE (for understanding):
-case "nested_memory": {
-    let header = `Contents of ${attachment.content.path}`;
-    // v2.1.76: Include last-modified timestamp if available
-    if (attachment.content.lastModified) {
-        header += ` (last modified: ${attachment.content.lastModified})`;
-    }
+case "nested_memory":
     return wrapWithSystemReminderTags([
         createUserMessage({
-            content: `${header}:\n\n${attachment.content.content}`,
+            content: `Contents of ${attachment.content.path}:\n\n${attachment.content.content}`,
             isMeta: true
         })
     ]);
-}
+
+// Mapping: A→attachment, b5→wrapWithSystemReminderTags, p1→createUserMessage
 ```
 
 ### Output Format (v2.1.76)
@@ -476,6 +470,219 @@ Contents of /path/to/project/CLAUDE.md (last modified: 2026-03-15T10:30:00.000Z)
 - Run tests before committing
 </system-reminder>
 ```
+
+---
+
+## relevant_memories
+
+### What It Does
+
+Injects memory files with timestamps showing when they were last modified. This is a v2.1.76 addition that provides temporal context for memory files, helping the model understand when each memory was last updated.
+
+### How It Works
+
+The producer function `buY` searches for relevant memory files based on:
+1. Agent memory configurations (when @-mentioning an agent with memory)
+2. Default memory locations (project memory files)
+
+For each found memory file, it reads the content with a 5-second timeout and includes the `mtimeMs` (modification time in milliseconds) in the attachment. The normalizer then formats this with either a formatted date or relative time description.
+
+### Triggered When
+
+| Condition | Requirement |
+|-----------|-------------|
+| Memory files found | Relevant memory files detected via agent @-mentions or default memory paths |
+| Not in cache | Memory path not already in readFileState cache |
+| Within limit | Maximum 5 memory files per injection |
+
+### Source Code
+
+#### Producer Function
+
+```javascript
+// ============================================
+// getRelevantMemoriesAttachment - Produce relevant memories
+// Location: chunks.147.mjs:552-590
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function buY(A, q, K, Y) {
+    let z = AbortSignal.timeout(5000),
+        _ = wqq(A).flatMap((j) => {
+            let J = j.replace("agent-", ""),
+                M = q.find((D) => D.agentType === J);
+            return M?.memory ? [GW6(J, M.memory)] : []
+        }),
+        w = _.length > 0 ? _ : [uH()],
+        $ = (await Promise.all(w.map((j) => a4q(A, j, z, Y).catch(() => [])))).flat().filter((j) => !K.has(j.path)).slice(0, 5),
+        H = (await Promise.all($.map(async ({
+            path: j,
+            mtimeMs: J
+        }) => {
+            try {
+                let M = await h36(j, 0, hE1, void 0, z),
+                    D = M.totalLines > hE1,
+                    X = D ? M.content + `
+
+> This memory file was truncated to the first ${hE1} lines. Use the ${s7} tool to view the complete file at: ${j}` : M.content;
+                return K.set(j, {
+                    content: X,
+                    timestamp: Date.now(),
+                    offset: void 0,
+                    limit: D ? hE1 : void 0
+                }), {
+                    path: j,
+                    content: X,
+                    mtimeMs: J
+                }
+            } catch {
+                return null
+            }
+        }))).filter((j) => j !== null);
+    if (H.length === 0) return [];
+    return [{
+        type: "relevant_memories",
+        memories: H
+    }]
+}
+
+// READABLE (for understanding):
+async function getRelevantMemoriesAttachment(userMessage, agentDefinitions, readFileState, recentFilePaths) {
+    let abortSignal = AbortSignal.timeout(5000);
+
+    // Find memory paths from @-mentioned agents with memory
+    let memoryPaths = parseAgentMentions(userMessage).flatMap(mention => {
+        let agentType = mention.replace("agent-", "");
+        let agent = agentDefinitions.find(a => a.agentType === agentType);
+        return agent?.memory ? [getMemoryPath(agentType, agent.memory)] : [];
+    });
+
+    // If no agent memories found, use default memory location
+    if (memoryPaths.length === 0) {
+        memoryPaths = [getDefaultMemoryPath()];
+    }
+
+    // Find memory files with 5-second timeout
+    let candidateMemories = (await Promise.all(
+        memoryPaths.map(path =>
+            searchMemoryFiles(path, abortSignal, recentFilePaths).catch(() => [])
+        )
+    )).flat()
+      .filter(memory => !readFileState.has(memory.path))
+      .slice(0, 5);  // Limit to 5 memories
+
+    // Read memory file contents
+    let memories = (await Promise.all(
+        candidateMemories.map(async ({ path, mtimeMs }) => {
+            try {
+                let fileContent = await readFile(path, 0, MEMORY_LINE_LIMIT, undefined, abortSignal);
+                let isTruncated = fileContent.totalLines > MEMORY_LINE_LIMIT;
+
+                let content = isTruncated
+                    ? fileContent.content + `\n\n> This memory file was truncated...`
+                    : fileContent.content;
+
+                // Update read cache
+                readFileState.set(path, {
+                    content: content,
+                    timestamp: Date.now(),
+                    offset: undefined,
+                    limit: isTruncated ? MEMORY_LINE_LIMIT : undefined
+                });
+
+                return { path, content, mtimeMs };
+            } catch {
+                return null;
+            }
+        })
+    )).filter(memory => memory !== null);
+
+    if (memories.length === 0) return [];
+
+    return [{
+        type: "relevant_memories",
+        memories: memories
+    }];
+}
+
+// Mapping: buY→getRelevantMemoriesAttachment, A→userMessage, q→agentDefinitions, K→readFileState, Y→recentFilePaths, z→abortSignal, _→memoryPaths, w→finalPaths, $→candidateMemories, H→memories, j→memory, J→mtimeMs, wqq→parseAgentMentions, GW6→getMemoryPath, uH→getDefaultMemoryPath, a4q→searchMemoryFiles, h36→readFile, hE1→MEMORY_LINE_LIMIT, s7→ReadToolName
+```
+
+#### Normalization Function
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - relevant_memories case
+// Location: chunks.174.mjs:172-184
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "relevant_memories":
+    return b5(A.memories.map((K) => {
+        let Y = Cz8(K.mtimeMs),
+            z = Y ? `${Y}
+
+Memory: ${K.path}:` : `Memory (saved ${cJ7(K.mtimeMs)}): ${K.path}:`;
+        return p1({
+            content: `${z}
+
+${K.content}`,
+            isMeta: !0
+        })
+    }));
+
+// READABLE (for understanding):
+case "relevant_memories":
+    return wrapWithSystemReminderTags(attachment.memories.map(memory => {
+        // Format the timestamp
+        let formattedDate = formatDate(memory.mtimeMs);
+
+        let header = formattedDate
+            ? `${formattedDate}\n\nMemory: ${memory.path}:`
+            : `Memory (saved ${formatRelativeTime(memory.mtimeMs)}): ${memory.path}:`;
+
+        return createUserMessage({
+            content: `${header}\n\n${memory.content}`,
+            isMeta: true
+        });
+    }));
+
+// Mapping: A→attachment, K→memory, Y→formattedDate, z→header, b5→wrapWithSystemReminderTags, p1→createUserMessage, Cz8→formatDate, cJ7→formatRelativeTime
+```
+
+### Output Format
+
+```markdown
+<system-reminder>
+2026-03-15T10:30:00.000Z
+
+Memory: /path/to/project/memory.md:
+
+[Memory content here]
+</system-reminder>
+```
+
+Or with relative time:
+
+```markdown
+<system-reminder>
+Memory (saved 2 hours ago): /path/to/project/memory.md:
+
+[Memory content here]
+</system-reminder>
+```
+
+### Key Insights
+
+1. **Temporal context**: The timestamp helps the model understand how fresh the memory is, which is important for deciding whether to re-read the file.
+
+2. **Agent-specific memory**: When @-mentioning an agent that has a configured memory, only that agent's memory files are searched.
+
+3. **Default fallback**: If no agent memories are found, falls back to the project's default memory location.
+
+4. **Line limit**: Memory files are truncated to `MEMORY_LINE_LIMIT` (hE1) lines to avoid excessive token usage.
+
+5. **Caching**: Once a memory is read, it's cached in `readFileState` to avoid re-reading on subsequent turns.
 
 ---
 
@@ -597,13 +804,13 @@ async function extractMcpResources(userMessage, sessionContext) {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - mcp_resource case
-// Location: chunks.173.mjs:1000-1034
+// Location: chunks.174.mjs:290-323
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "mcp_resource": {
     let K = A.content;
-    if (!K || !K.contents || K.contents.length === 0) return _9([c6({
+    if (!K || !K.contents || K.contents.length === 0) return b5([p1({
         content: `<mcp-resource server="${A.server}" uri="${A.uri}">(No content)</mcp-resource>`,
         isMeta: !0
     })]);
@@ -621,12 +828,12 @@ case "mcp_resource": {
                 text: "Do NOT read this resource again unless you think it may have changed, since you already have the full contents."
             });
             else if ("blob" in z) {
-                let w = "mimeType" in z ? String(z.mimeType) : "application/octet-stream";
-                Y.push({ type: "text", text: `[Binary content: ${w}]` })
+                let _ = "mimeType" in z ? String(z.mimeType) : "application/octet-stream";
+                Y.push({ type: "text", text: `[Binary content: ${_}]` })
             }
         }
-    if (Y.length > 0) return _9([c6({ content: Y, isMeta: !0 })]);
-    else return SA(A.server, `No displayable content found in MCP resource ${A.uri}.`), _9([c6({
+    if (Y.length > 0) return b5([p1({ content: Y, isMeta: !0 })]);
+    else return n1(A.server, `No displayable content found in MCP resource ${A.uri}.`), b5([p1({
         content: `<mcp-resource server="${A.server}" uri="${A.uri}">(No displayable content)</mcp-resource>`,
         isMeta: !0
     })])
@@ -705,15 +912,26 @@ function shouldSendUltramemoryAttachment(messages) {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - ultramemory case
-// Location: chunks.173.mjs:914-918
+// Location: chunks.174.mjs:223-227
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "ultramemory":
-    return _9([c6({
+    return b5([p1({
         content: A.content,
         isMeta: !0
     })]);
+
+// READABLE (for understanding):
+case "ultramemory":
+    return wrapWithSystemReminderTags([
+        createUserMessage({
+            content: attachment.content,
+            isMeta: true
+        })
+    ]);
+
+// Mapping: A→attachment, b5→wrapWithSystemReminderTags, p1→createUserMessage
 ```
 
 ### Key Insight
@@ -823,7 +1041,7 @@ async function getDynamicSkillAttachments(sessionContext) {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - dynamic_skill case
-// Location: chunks.173.mjs:878-879
+// Location: chunks.174.mjs:185-186
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -833,6 +1051,7 @@ case "dynamic_skill":
 // READABLE (for understanding):
 case "dynamic_skill":
     return [];  // Silent - triggers skill listing refresh
+```
 ```
 
 ### Key Insight
@@ -911,12 +1130,12 @@ function getAgentMentionAttachment(userMessage, availableAgents) {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - agent_mention case
-// Location: chunks.173.mjs:1035-1039
+// Location: chunks.174.mjs:325-328
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "agent_mention":
-    return _9([c6({
+    return b5([p1({
         content: `The user has expressed a desire to invoke the agent "${A.agentType}". Please invoke the agent appropriately, passing in the required context to it. `,
         isMeta: !0
     })]);
@@ -929,6 +1148,8 @@ case "agent_mention":
             isMeta: true
         })
     ]);
+
+// Mapping: A→attachment, b5→wrapWithSystemReminderTags, p1→createUserMessage
 ```
 
 ### Output Format
@@ -982,17 +1203,14 @@ QhY = {
 
 Key functions in this document:
 
-- `getSkillListingAttachment` (OIY) - Skill listing producer, `chunks.142.mjs:2381-2395`
-- `getNestedMemoryAttachments` (HIY) - Nested memory producer, `chunks.142.mjs:2337-2348`
-- `loadNestedMemory` (ri4) - Memory loader, `chunks.142.mjs:2163-2187`
-- `extractMcpResources` (zIY) - MCP resource extractor, `chunks.142.mjs:2252-2283`
-- `getDynamicSkillAttachments` ($IY) - Dynamic skill producer, `chunks.142.mjs:2350-2375`
-- `getAgentMentionAttachment` (YIY) - Agent mention extractor, `chunks.142.mjs:2238-2250`
-- `parseAgentMentions` (XIY) - Agent mention parser, `chunks.142.mjs:2237` (implied)
-- `shouldSendUltramemoryAttachment` (MIY) - Ultramemory cooldown check, `chunks.142.mjs:2456-2461`
-- `countTokensSinceUltramemory` (jIY) - Token counter, `chunks.142.mjs:2442-2454`
-- `clearSkillCache` (rd) - Clear sent skills set, `chunks.142.mjs:2377-2379`
-- `sentSkillsSet` (xg1) - Set of sent skill names
+- `normalizeAttachmentForAPI` (Ui8) - Main dispatcher, `chunks.174.mjs:3-469`
+- `wrapInXmlTag` (af) - XML tag wrapper, `chunks.173.mjs:2490-2494`
+- `wrapWithSystemReminderTags` (b5) - Message wrapper, `chunks.173.mjs:2496-2523`
+- `createUserMessage` (p1) - Message factory, `chunks.173.mjs:1378-1412`
+- `getNestedMemoryAttachments` (IuY) - Nested memory producer, `chunks.147.mjs:541-549`
+- `getDynamicSkillAttachments` (BuY) - Dynamic skill producer, `chunks.147.mjs` (implied from assembleAllAttachments)
+- `getAgentMentionAttachment` (huY) - Agent mention extractor, `chunks.147.mjs:450-461`
+- `extractMcpResources` (SuY) - MCP resource extractor, `chunks.147.mjs:464-494`
 - `ULTRAMEMORY_CONSTANTS` (QhY) - Configuration constants
 
 ---

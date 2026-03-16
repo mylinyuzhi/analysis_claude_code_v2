@@ -57,14 +57,14 @@ Each hook type has a specific producer function with distinct trigger conditions
 
 | Type | Producer Function | Location | Key Trigger Logic |
 |------|-------------------|----------|-------------------|
-| `async_hook_response` | `EIY` (getAsyncHookResponsesAttachment) | chunks.142.mjs:2758-2789 | `Jn7()` returns pending responses |
+| `async_hook_response` | `tuY` (getAsyncHookResponsesAttachment) | chunks.147.mjs:1050-1082 | `r4q()` returns pending responses |
 | `hook_blocking_error` | Created in hook execution pipeline | chunks.149.mjs | Hook returns `block: true` |
 | `hook_success` | Created in hook execution pipeline | chunks.149.mjs | Hook returns `status: "success"` |
 | `hook_additional_context` | Created in hook execution pipeline | chunks.149.mjs | Hook returns `context: string` |
 | `post_compact` | Created after compaction completes | chunks.146.mjs | Compaction finished, PostCompact hooks pending |
 | `elicitation` | Created when MCP elicitation starts | chunks.149.mjs | MCP server sends elicitation request |
 | `elicitation_result` | Created when user responds | chunks.149.mjs | User completes elicitation |
-| `instructions_loaded` | Created on skill load | chunks.142.mjs | Skill instructions loaded via invoked_skills |
+| `instructions_loaded` | Created on skill load | chunks.147.mjs | Skill instructions loaded via invoked_skills |
 | `config_change` | Created on config change | chunks.149.mjs | Runtime configuration update detected |
 | `worktree_create` | Created on worktree creation | chunks.149.mjs | `git worktree add` called |
 | `worktree_remove` | Created on worktree removal | chunks.149.mjs | `git worktree remove` called |
@@ -74,20 +74,20 @@ Each hook type has a specific producer function with distinct trigger conditions
 The `async_hook_response` type pulls from a registry:
 
 ```javascript
-// Location: chunks.142.mjs:2759
-let pendingResponses = await getPendingHookResponses();  // Jn7()
+// Location: chunks.147.mjs:1051
+let pendingResponses = await getPendingHookResponses();  // r4q()
 
 // After delivery, clean up registry
 if (pendingResponses.length > 0) {
     let processIds = pendingResponses.map(r => r.processId);
-    removeDeliveredHooks(processIds);  // Xn7()
+    removeDeliveredHooks(processIds);  // o4q()
 }
 ```
 
 ### Hook Response Structure
 
 ```javascript
-// Location: chunks.142.mjs:2762-2782
+// Location: chunks.147.mjs:1054-1075
 {
     type: "async_hook_response",
     processId: string,       // Process ID of hook execution
@@ -124,41 +124,41 @@ Delivers responses from asynchronously executed hooks. This is the primary mecha
 ```javascript
 // ============================================
 // getAsyncHookResponsesAttachment - Get pending hook responses
-// Location: chunks.142.mjs:2758-2789
+// Location: chunks.147.mjs:1050-1082
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function EIY() {
-    let A = await Jn7();
+async function tuY() {
+    let A = await r4q();
     if (A.length === 0) return [];
-    h(`Hooks: getAsyncHookResponseAttachments found ${A.length} responses`);
+    k(`Hooks: getAsyncHookResponseAttachments found ${A.length} responses`);
     let q = A.map(({
         processId: K,
         response: Y,
         hookName: z,
-        hookEvent: w,
-        toolName: H,
+        hookEvent: _,
+        toolName: w,
         stdout: $,
-        stderr: O,
-        exitCode: _
+        stderr: H,
+        exitCode: j
     }) => {
-        return h(`Hooks: Creating attachment for ${K} (${z}): ${Q1(Y)}`), {
+        return k(`Hooks: Creating attachment for ${K} (${z}): ${B6(Y)}`), {
             type: "async_hook_response",
             processId: K,
             hookName: z,
-            hookEvent: w,
-            toolName: H,
+            hookEvent: _,
+            toolName: w,
             response: Y,
             stdout: $,
-            stderr: O,
-            exitCode: _
+            stderr: H,
+            exitCode: j
         }
     });
     if (A.length > 0) {
         let K = A.map((Y) => Y.processId);
-        Xn7(K), h(`Hooks: Removed ${K.length} delivered hooks from registry`)
+        o4q(K), k(`Hooks: Removed ${K.length} delivered hooks from registry`)
     }
-    return h(`Hooks: getAsyncHookResponseAttachments found ${q.length} attachments`), q
+    return k(`Hooks: getAsyncHookResponseAttachments found ${q.length} attachments`), q
 }
 
 // READABLE (for understanding):
@@ -203,7 +203,7 @@ async function getAsyncHookResponsesAttachment() {
     return attachments;
 }
 
-// Mapping: EIY→getAsyncHookResponsesAttachment, A→pendingResponses, q→attachments, K→processId, Y→response, z→hookName, w→hookEvent, H→toolName, $→stdout, O→stderr, _→exitCode, Jn7→getPendingHookResponses, Xn7→removeDeliveredResponses, h→debugLog, Q1→truncate
+// Mapping: tuY→getAsyncHookResponsesAttachment, A→pendingResponses, q→attachments, K→processId, Y→response, z→hookName, _→hookEvent, w→toolName, $→stdout, H→stderr, j→exitCode, r4q→getPendingHookResponses, o4q→removeDeliveredResponses, k→debugLog, B6→truncate
 ```
 
 #### Normalization Function
@@ -211,22 +211,22 @@ async function getAsyncHookResponsesAttachment() {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - async_hook_response case
-// Location: chunks.173.mjs:1058-1069
+// Location: chunks.174.mjs:343-354
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "async_hook_response": {
     let K = A.response,
         Y = [];
-    if (K.systemMessage) Y.push(c6({
+    if (K.systemMessage) Y.push(p1({
         content: K.systemMessage,
         isMeta: !0
     }));
-    if (K.hookSpecificOutput && "additionalContext" in K.hookSpecificOutput && K.hookSpecificOutput.additionalContext) Y.push(c6({
+    if (K.hookSpecificOutput && "additionalContext" in K.hookSpecificOutput && K.hookSpecificOutput.additionalContext) Y.push(p1({
         content: K.hookSpecificOutput.additionalContext,
         isMeta: !0
     }));
-    return _9(Y)
+    return b5(Y)
 }
 
 // READABLE (for understanding):
@@ -253,7 +253,7 @@ case "async_hook_response": {
     return wrapWithSystemReminderTags(messages);
 }
 
-// Mapping: A→attachment, K→response, Y→messages, c6→createUserMessage, _9→wrapWithSystemReminderTags
+// Mapping: A→attachment, K→response, Y→messages, p1→createUserMessage, b5→wrapWithSystemReminderTags
 ```
 
 ### Output Format
@@ -292,13 +292,13 @@ Notifies the LLM that a hook blocked an action with an error. This prevents the 
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - hook_blocking_error case
-// Location: chunks.173.mjs:1081-1085
+// Location: chunks.174.mjs:373-377
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "hook_blocking_error":
-    return [c6({
-        content: tI(`${A.hookName} hook blocking error from command: "${A.blockingError.command}": ${A.blockingError.blockingError}`),
+    return [p1({
+        content: af(`${A.hookName} hook blocking error from command: "${A.blockingError.command}": ${A.blockingError.blockingError}`),
         isMeta: !0
     })];
 
@@ -309,7 +309,7 @@ case "hook_blocking_error":
         isMeta: true
     })];
 
-// Mapping: A→attachment, tI→wrapInXmlTag, c6→createUserMessage
+// Mapping: A→attachment, af→wrapInXmlTag, p1→createUserMessage
 ```
 
 ### Output Format
@@ -347,15 +347,15 @@ Notifies the LLM that a hook executed successfully with output content.
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - hook_success case
-// Location: chunks.173.mjs:1086-1092
+// Location: chunks.174.mjs:378-384
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "hook_success":
     if (A.hookEvent !== "SessionStart" && A.hookEvent !== "UserPromptSubmit") return [];
     if (A.content === "") return [];
-    return [c6({
-        content: tI(`${A.hookName} hook success: ${A.content}`),
+    return [p1({
+        content: af(`${A.hookName} hook success: ${A.content}`),
         isMeta: !0
     })];
 
@@ -373,7 +373,7 @@ case "hook_success":
         isMeta: true
     })];
 
-// Mapping: A→attachment, tI→wrapInXmlTag, c6→createUserMessage
+// Mapping: A→attachment, af→wrapInXmlTag, p1→createUserMessage
 ```
 
 ### Output Format
@@ -410,14 +410,14 @@ Provides additional context from a hook that doesn't block but adds information.
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - hook_additional_context case
-// Location: chunks.173.mjs:1093-1099
+// Location: chunks.174.mjs:385-391
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "hook_additional_context": {
     if (A.content.length === 0) return [];
-    return [c6({
-        content: tI(`${A.hookName} hook additional context: ${A.content.join(`
+    return [p1({
+        content: af(`${A.hookName} hook additional context: ${A.content.join(`
 `)}`),
         isMeta: !0
     })]
@@ -433,7 +433,7 @@ case "hook_additional_context": {
     })];
 }
 
-// Mapping: A→attachment, tI→wrapInXmlTag, c6→createUserMessage
+// Mapping: A→attachment, af→wrapInXmlTag, p1→createUserMessage
 ```
 
 ### Output Format
@@ -467,13 +467,13 @@ Notifies the LLM that a hook stopped the continuation of work (similar to blocki
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - hook_stopped_continuation case
-// Location: chunks.173.mjs:1101-1105
+// Location: chunks.174.mjs:393-397
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "hook_stopped_continuation":
-    return [c6({
-        content: tI(`${A.hookName} hook stopped continuation: ${A.message}`),
+    return [p1({
+        content: af(`${A.hookName} hook stopped continuation: ${A.message}`),
         isMeta: !0
     })];
 
@@ -484,7 +484,7 @@ case "hook_stopped_continuation":
         isMeta: true
     })];
 
-// Mapping: A→attachment, tI→wrapInXmlTag, c6→createUserMessage
+// Mapping: A→attachment, af→wrapInXmlTag, p1→createUserMessage
 ```
 
 ### Output Format
@@ -712,7 +712,7 @@ These types return empty arrays from normalization - they exist only for interna
 
 ### hook_cancelled
 
-**Location:** `chunks.173.mjs:1121`
+**Location:** `chunks.174.mjs:459`
 
 Hook was cancelled before completion.
 
@@ -723,7 +723,7 @@ case "hook_cancelled":
 
 ### hook_error_during_execution
 
-**Location:** `chunks.173.mjs:1122`
+**Location:** `chunks.174.mjs:460`
 
 Hook encountered an error during execution (non-blocking).
 
@@ -734,7 +734,7 @@ case "hook_error_during_execution":
 
 ### hook_non_blocking_error
 
-**Location:** `chunks.173.mjs:1123`
+**Location:** `chunks.174.mjs:461`
 
 Hook had an error but wasn't configured to block.
 
@@ -745,7 +745,7 @@ case "hook_non_blocking_error":
 
 ### hook_system_message
 
-**Location:** `chunks.173.mjs:1124`
+**Location:** `chunks.174.mjs:462`
 
 Hook provided a system message (handled elsewhere).
 
@@ -756,7 +756,7 @@ case "hook_system_message":
 
 ### hook_permission_decision
 
-**Location:** `chunks.173.mjs:1126`
+**Location:** `chunks.174.mjs:464`
 
 Hook made a permission decision.
 
@@ -767,7 +767,7 @@ case "hook_permission_decision":
 
 ### structured_output
 
-**Location:** `chunks.173.mjs:1125`
+**Location:** `chunks.174.mjs:463`
 
 Structured output from hook (handled elsewhere).
 
@@ -797,13 +797,13 @@ case "structured_output":
                             ↓
                 ┌───────────────────────┐
                 │  Store in Registry    │
-                │  (Jn7/getPending)     │
+                │  (r4q/getPending)     │
                 └───────────┬───────────┘
                             │
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│         getAsyncHookResponsesAttachment (EIY)                    │
-│                 chunks.142.mjs:2758                              │
+│         getAsyncHookResponsesAttachment (tuY)                   │
+│                 chunks.147.mjs:1050                             │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
                             ↓
@@ -815,14 +815,14 @@ case "structured_output":
                             │
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│        normalizeAttachmentForAPI (K2z)                           │
-│                  chunks.173.mjs:1058                             │
+│        normalizeAttachmentForAPI (Ui8)                          │
+│                  chunks.174.mjs:3                               │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
                             ↓
                 ┌───────────────────────┐
                 │  Wrap in XML tags     │
-                │  (_9)                 │
+                │  (b5)                 │
                 └───────────┬───────────┘
                             │
                             ↓
@@ -861,12 +861,13 @@ case "structured_output":
 
 Key functions in this document:
 
-- `getAsyncHookResponsesAttachment` (EIY) - Hook response producer, `chunks.142.mjs:2758-2789`
-- `getPendingHookResponses` (Jn7) - Get pending responses from registry
-- `removeDeliveredResponses` (Xn7) - Clear delivered responses
-- `normalizeAttachmentForAPI` (K2z) - Main dispatcher, `chunks.173.mjs:698-1131`
-- `wrapInXmlTag` (tI) - XML tag wrapper, `chunks.173.mjs:490-494`
-- `createUserMessage` (c6) - Message factory
+- `getAsyncHookResponsesAttachment` (tuY) - Hook response producer, `chunks.147.mjs:1050-1082`
+- `getPendingHookResponses` (r4q) - Get pending responses from registry
+- `removeDeliveredResponses` (o4q) - Clear delivered responses
+- `normalizeAttachmentForAPI` (Ui8) - Main dispatcher, `chunks.174.mjs:3-469`
+- `wrapInXmlTag` (af) - XML tag wrapper, `chunks.173.mjs:2490-2494`
+- `wrapWithSystemReminderTags` (b5) - Message wrapper, `chunks.173.mjs:2496-2523`
+- `createUserMessage` (p1) - Message factory, `chunks.173.mjs:1378-1412`
 
 ---
 

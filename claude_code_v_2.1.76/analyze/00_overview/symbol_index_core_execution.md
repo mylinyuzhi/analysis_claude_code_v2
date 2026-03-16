@@ -513,8 +513,10 @@
 | NuY | getOutputStyleAttachment | chunks.147.mjs:293-300 | function |
 | cuY | getDiagnosticsAttachment | chunks.147.mjs:789-798 | function |
 | luY | getLspDiagnosticsAttachment | chunks.147.mjs:800-820 | function |
-| suY | getUnifiedTasksAttachment | chunks.147.mjs | function |
-| tuY | getAsyncHookResponsesAttachment | chunks.147.mjs | function |
+| suY | getUnifiedTasksAttachment | chunks.147.mjs:1033-1047 | function |
+| tuY | getAsyncHookResponsesAttachment | chunks.147.mjs:1050-1082 | function |
+| buY | getRelevantMemoriesAttachment | chunks.147.mjs:552-590 | function |
+| auY | getTaskReminderAttachment | chunks.147.mjs:1013-1030 | function |
 | qmY | getTokenUsageAttachment | chunks.147.mjs | function |
 | YmY | getBudgetUsdAttachment | chunks.147.mjs | function |
 | KmY | getOutputTokenUsageAttachment | chunks.147.mjs | function |

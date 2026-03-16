@@ -1392,8 +1392,7 @@
 |------------|----------|-----------|------|
 | nr6 | createToolCallMessage | chunks.174.mjs:490-495 | function |
 | ir6 | createToolResultMessage | chunks.174.mjs:471-488 | function |
-| _9 | wrapWithSystemReminder | chunks.173.mjs:496 | function |
-| c6 | createUserMessage | chunks.172.mjs:2876 | function |
+| p1 | createUserMessage | chunks.173.mjs:1378-1412 | function |
 
 ### File Attachment Producers
 

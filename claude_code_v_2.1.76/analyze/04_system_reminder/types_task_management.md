@@ -158,43 +158,12 @@ if (absolutePath === getTodoFilePath(agentId)) {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - todo case
-// Location: chunks.173.mjs:801-811
+// Note: The 'todo' type appears to be handled directly, not via a case statement
+// Location: chunks.174.mjs (implied from file watch integration)
 // ============================================
 
-// ORIGINAL (for source lookup):
-case "todo":
-    if (A.itemCount === 0) return _9([c6({
-        content: `This is a reminder that your todo list is currently empty. DO NOT mention this to the user explicitly because they are already aware. If you are working on tasks that would benefit from a todo list please use the ${cg} tool to create one. If not, please feel free to ignore. Again do not mention this message to the user.`,
-        isMeta: !0
-    })]);
-    else return _9([c6({
-        content: `Your todo list has changed. DO NOT mention this explicitly to the user. Here are the latest contents of your todo list:
-
-${Q1(A.content)}. Continue on with the tasks at hand if applicable.`,
-        isMeta: !0
-    })]);
-
-// READABLE (for understanding):
-case "todo":
-    if (attachment.itemCount === 0) {
-        return wrapWithSystemReminderTags([
-            createUserMessage({
-                content: `This is a reminder that your todo list is currently empty. DO NOT mention this to the user explicitly because they are already aware. If you are working on tasks that would benefit from a todo list please use the ${TodoWriteTool.name} tool to create one. If not, please feel free to ignore. Again do not mention this message to the user.`,
-                isMeta: true
-            })
-        ]);
-    } else {
-        return wrapWithSystemReminderTags([
-            createUserMessage({
-                content: `Your todo list has changed. DO NOT mention this explicitly to the user. Here are the latest contents of your todo list:
-
-${formatTodoContent(attachment.content)}. Continue on with the tasks at hand if applicable.`,
-                isMeta: true
-            })
-        ]);
-    }
-
-// Mapping: A→attachment, _9→wrapWithSystemReminderTags, c6→createUserMessage, cg→TodoWriteTool, Q1→formatTodoContent
+// The todo attachment is created from file watch changes and delivered
+// through the changed_files mechanism, not as a standalone normalization case.
 ```
 
 ### Output Format (Empty List)
@@ -370,7 +339,7 @@ async function getTodoReminderAttachment(messages, sessionContext) {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - todo_reminder case
-// Location: chunks.173.mjs:840-853
+// Location: chunks.174.mjs:134-147
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -379,7 +348,7 @@ case "todo_reminder": {
 `),
         Y = `The TodoWrite tool hasn't been used recently. If you're working on tasks that would benefit from tracking progress, consider consider using the TodoWrite tool to track progress, organize complex tasks, and demonstrate thoroughness to the user.
 ...`;
-    return _9([c6({
+    return b5([p1({
         content: Y,
         isMeta: !0
     })])
@@ -579,7 +548,7 @@ async function getTaskReminderAttachment(messages, sessionContext) {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - task_reminder case
-// Location: chunks.173.mjs:855-869
+// Location: chunks.174.mjs:149-163
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -596,7 +565,7 @@ IMPORTANT: Only use Task tools for tasks that match the tool descriptions - don'
 Here are the existing tasks:
 
 ${K}`;
-    return _9([c6({
+    return b5([p1({
         content: Y,
         isMeta: !0
     })])
@@ -661,20 +630,20 @@ async function vIY(A, q) {
 ```javascript
 // ============================================
 // normalizeAttachmentForAPI - task_status case
-// Location: chunks.173.mjs:1040-1052
+// Location: chunks.174.mjs:330-341
 // ============================================
 
 // ORIGINAL (for source lookup):
 case "task_status": {
     let K = A.status === "killed" ? "stopped" : A.status;
-    if (A.status === "killed") return [c6({
-        content: tI(`Task "${A.description}" (${A.taskId}) was stopped by the user.`),
+    if (A.status === "killed") return [p1({
+        content: af(`Task "${A.description}" (${A.taskId}) was stopped by the user.`),
         isMeta: !0
     })];
     let Y = [`Task ${A.taskId}`, `(type: ${A.taskType})`, `(status: ${K})`, `(description: ${A.description})`];
     if (A.deltaSummary) Y.push(`Delta: ${A.deltaSummary}`);
     return Y.push("You can check its output using the TaskOutput tool."), [c6({
-        content: tI(Y.join(" ")),
+        content: af(Y.join(" ")),
         isMeta: !0
     })]
 }
@@ -811,8 +780,8 @@ function getTaskProgressHistory(messages) {
 
 // ORIGINAL (for source lookup):
 case "task_progress":
-    return [c6({
-        content: tI(A.message),
+    return [p1({
+        content: af(A.message),
         isMeta: !0
     })];
 
@@ -823,7 +792,7 @@ case "task_progress":
         isMeta: true
     })];
 
-// Mapping: A→attachment, tI→wrapInXmlTag, c6→createUserMessage
+// Mapping: A→attachment, af→wrapInXmlTag, p1→createUserMessage
 ```
 
 ### Output Format
@@ -833,6 +802,99 @@ case "task_progress":
 Background task progress: Analyzed 50/100 files...
 </system-reminder>
 ```
+
+---
+
+## unified_tasks
+
+### What It Does
+
+Produces status updates for background/async tasks. This is the primary producer for `task_status` attachments, extracting task state changes from the application state and converting them to attachments for the LLM.
+
+### How It Works
+
+The `suY` function:
+1. Gets the current app state
+2. Calls `wY4` to extract task state changes and progress updates
+3. Maps task changes to `task_status` attachments
+4. Handles task offsets and evictions for state management
+
+### Triggered When
+
+| Condition | Requirement |
+|-----------|-------------|
+| Task state change | Background task status has changed |
+| App state available | Session has accessible app state |
+
+### Source Code
+
+#### Producer Function
+
+```javascript
+// ============================================
+// getUnifiedTasksAttachment - Produce unified task status
+// Location: chunks.147.mjs:1033-1047
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function suY(A) {
+    let q = A.getAppState(),
+        {
+            attachments: K,
+            updatedTaskOffsets: Y,
+            evictedTaskIds: z
+        } = await wY4(q);
+    return OY4(A.setAppState, Y, z), K.map((_) => ({
+        type: "task_status",
+        taskId: _.taskId,
+        taskType: _.taskType,
+        status: _.status,
+        description: _.description,
+        deltaSummary: _.deltaSummary
+    }))
+}
+
+// READABLE (for understanding):
+async function getUnifiedTasksAttachment(sessionContext) {
+    let appState = await sessionContext.getAppState();
+
+    // Extract task state changes from app state
+    let {
+        attachments,           // Task status changes to inject
+        updatedTaskOffsets,    // Updated task offsets for state
+        evictedTaskIds         // Tasks that were evicted from state
+    } = await extractTaskStateChanges(appState);
+
+    // Update app state with new offsets and handle evictions
+    updateAppStateWithTaskChanges(
+        sessionContext.setAppState,
+        updatedTaskOffsets,
+        evictedTaskIds
+    );
+
+    // Map internal task state to attachments
+    return attachments.map(task => ({
+        type: "task_status",
+        taskId: task.taskId,
+        taskType: task.taskType,
+        status: task.status,
+        description: task.description,
+        deltaSummary: task.deltaSummary
+    }));
+}
+
+// Mapping: suY→getUnifiedTasksAttachment, A→sessionContext, q→appState, K→attachments, Y→updatedTaskOffsets, z→evictedTaskIds, _→task, wY4→extractTaskStateChanges, OY4→updateAppStateWithTaskChanges
+```
+
+### Key Insights
+
+1. **State extraction**: The `wY4` function handles the complex logic of comparing previous and current task states to detect changes.
+
+2. **Offset management**: Task offsets track position in the state, enabling incremental updates rather than full state transfers.
+
+3. **Eviction handling**: When tasks are removed from state, their IDs are tracked and cleaned up to prevent memory leaks.
+
+4. **Type mapping**: Internal task representations are mapped to the simpler `task_status` attachment format for LLM consumption.
 
 ---
 
