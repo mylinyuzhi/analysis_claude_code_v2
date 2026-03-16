@@ -178,7 +178,7 @@ The `assembleAllAttachments` function orchestrates the parallel execution of 40+
 - Main-agent-only producers skip for subagents (avoids duplicate IDE state, diagnostics, etc.)
 - Team-mode producers only run in swarm/team sessions
 
-**Error isolation**: By wrapping each producer with `gw` (timedAttachmentProducer), failures in one producer don't affect others.
+**Error isolation**: By wrapping each producer with `Hz` (timedAttachmentProducer), failures in one producer don't affect others.
 
 ### Key insight
 
@@ -186,40 +186,42 @@ The architecture treats attachment production as a **parallel map-reduce pipelin
 
 ---
 
-## The Wrapper: gw (timedAttachmentProducer)
+## The Wrapper: Hz (timedAttachmentProducer)
 
-Every producer is wrapped by `gw`, which provides telemetry, error handling, and timeout enforcement.
+Every producer is wrapped by `Hz`, which provides telemetry, error handling, and timeout enforcement.
 
 ```javascript
 // ============================================
 // timedAttachmentProducer - Telemetry and error handling wrapper
-// Location: chunks.142.mjs:1967-1991
+// Location: chunks.147.mjs:20-46
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function gw(A, q) {
+async function Hz(A, q) {
     let K = Date.now();
     try {
         let Y = await q(),
-            z = Date.now() - K,
-            w = Y.reduce((H, $) => {
-                return H + Q1($).length
+            z = Date.now() - K;
+        if (Math.random() < 0.05) {
+            let _ = Y.filter((w) => w !== void 0 && w !== null).reduce((w, O) => {
+                return w + B6(O).length
             }, 0);
-        if (Math.random() < 0.05) c("tengu_attachment_compute_duration", {
-            label: A,
-            duration_ms: z,
-            attachment_size_bytes: w,
-            attachment_count: Y.length
-        });
+            d("tengu_attachment_compute_duration", {
+                label: A,
+                duration_ms: z,
+                attachment_size_bytes: _,
+                attachment_count: Y.length
+            })
+        }
         return Y
     } catch (Y) {
         let z = Date.now() - K;
-        if (Math.random() < 0.05) c("tengu_attachment_compute_duration", {
+        if (Math.random() < 0.05) d("tengu_attachment_compute_duration", {
             label: A,
             duration_ms: z,
             error: !0
         });
-        return K1(Y), Yk(`Attachment error in ${A}`, Y), []
+        return _6(Y), jV(`Attachment error in ${A}`, Y), []
     }
 }
 
@@ -235,9 +237,11 @@ async function timedAttachmentProducer(producerLabel, producerFunction) {
         let durationMs = Date.now() - startTime;
 
         // Calculate total size of all attachments (in bytes)
-        let totalSizeBytes = attachments.reduce((sum, attachment) => {
-            return sum + JSON.stringify(attachment).length;
-        }, 0);
+        let totalSizeBytes = attachments
+            .filter((item) => item !== undefined && item !== null)
+            .reduce((sum, attachment) => {
+                return sum + JSON.stringify(attachment).length;
+            }, 0);
 
         // Sample telemetry (5% of executions to avoid overhead)
         if (Math.random() < 0.05) {
@@ -272,7 +276,7 @@ async function timedAttachmentProducer(producerLabel, producerFunction) {
     }
 }
 
-// Mapping: gw→timedAttachmentProducer, A→producerLabel, q→producerFunction, K→startTime, Y→attachments or error, z→durationMs, w→totalSizeBytes, H→sum, $→attachment, c→logTelemetry, Q1→JSON.stringify, K1→logError, Yk→logWarning
+// Mapping: Hz→timedAttachmentProducer, A→producerLabel, q→producerFunction, K→startTime, Y→attachments or error, z→durationMs, _→totalSizeBytes, w→sum, O→attachment, d→logTelemetry, B6→JSON.stringify, _6→logError, jV→logWarning
 ```
 
 ### What it does
@@ -323,9 +327,9 @@ These only run when the user provides a message (not on agent-initiated turns).
 
 | Producer | Function | Purpose |
 |----------|----------|---------|
-| `at_mentioned_files` | `KIY` | Extracts @"file.txt" mentions and loads file contents |
-| `mcp_resources` | `zIY` | Extracts @server:uri mentions and fetches MCP resources |
-| `agent_mentions` | `YIY` | Extracts @agent-name mentions for agent invocation |
+| `at_mentioned_files` | `RuY` | Extracts @"file.txt" mentions and loads file contents |
+| `mcp_resources` | `SuY` | Extracts @server:uri mentions and fetches MCP resources |
+| `agent_mentions` | `huY` | Extracts @agent-name mentions for agent invocation |
 
 ### Category 2: Always-Computed Producers (14+ producers)
 
@@ -333,19 +337,19 @@ These run on every turn for both main agents and subagents.
 
 | Producer | Function | Purpose |
 |----------|----------|---------|
-| `changed_files` | `wIY` | Detects modifications to previously-read files |
-| `nested_memory` | `HIY` | Loads MEMORY.md files from nested directories |
-| `dynamic_skill` | `$IY` | Discovers dynamically-added skills |
-| `skill_listing` | `OIY` | Provides skill inventory for LLM discovery |
-| `ultra_claude_md` | `thY` | (Reserved for future use, currently returns []) |
-| `plan_mode` | `ihY` | Injects plan mode instructions when active |
-| `plan_mode_exit` | `nhY` | Notifies LLM when exiting plan mode |
-| `delegate_mode` | `rhY` | Injects delegate mode instructions for team coordination |
-| `delegate_mode_exit` | `ohY` | Notifies LLM when exiting delegate mode |
-| `todo_reminders` | `NIY`/`fIY` | Reminds LLM to use TodoWrite or TaskCreate |
-| `teammate_mailbox` | `kIY` | (Team mode) Delivers messages from teammates |
-| `team_context` | `LIY` | (Team mode) Provides team configuration and identity |
-| `critical_system_reminder` | `ahY` | Experimental: user-provided critical reminders |
+| `changed_files` | `CuY` | Detects modifications to previously-read files |
+| `nested_memory` | `IuY` | Loads MEMORY.md files from nested directories |
+| `dynamic_skill` | `BuY` | Discovers dynamically-added skills |
+| `skill_listing` | `guY` | Provides skill inventory for LLM discovery |
+| `ultra_claude_md` | `VuY` | (Reserved for future use, currently returns []) |
+| `plan_mode` | `DuY` | Injects plan mode instructions when active |
+| `plan_mode_exit` | `XuY` | Notifies LLM when exiting plan mode |
+| `auto_mode` | `ZuY` | Injects auto mode instructions when active |
+| `auto_mode_exit` | `GuY` | Notifies LLM when exiting auto mode |
+| `todo_reminders` | `ruY`/`auY` | Reminds LLM to use TodoWrite or TaskCreate |
+| `teammate_mailbox` | `euY` | (Team mode) Delivers messages from teammates |
+| `team_context` | `AmY` | (Team mode) Provides team configuration and identity |
+| `critical_system_reminder` | `vuY` | Experimental: user-provided critical reminders |
 
 ### Category 3: Main-Agent-Only Producers (11 producers)
 
@@ -353,68 +357,72 @@ These only run for the primary agent, not subagents.
 
 | Producer | Function | Purpose |
 |----------|----------|---------|
-| `ide_selection` | `ehY` | Reports user-selected text in IDE |
-| `ide_opened_file` | `qIY` | Reports user-opened file in IDE (with nested memory) |
-| `output_style` | `shY` | Reminds LLM of active output style (concise, verbose, etc.) |
-| `diagnostics` | `PIY` | Delivers new compiler/linter diagnostics |
-| `lsp_diagnostics` | `WIY` | Delivers new LSP diagnostics from language servers |
-| `unified_tasks` | `vIY` | Provides task status updates and progress messages |
-| `async_hook_responses` | `EIY` | Delivers async responses from hook scripts |
-| `token_usage` | `RIY` | Reports current token usage (if enabled) |
-| `budget_usd` | `yIY` | Reports USD budget consumption |
-| `verify_plan_reminder` | `SIY` | Reminds LLM to verify plan completion |
-| `queued_commands` | `dhY` | Delivers user messages sent during execution |
+| `ide_selection` | `kuY` | Reports user-selected text in IDE |
+| `ide_opened_file` | `LuY` | Reports user-opened file in IDE (with nested memory) |
+| `output_style` | `NuY` | Reminds LLM of active output style (concise, verbose, etc.) |
+| `diagnostics` | `cuY` | Delivers new compiler/linter diagnostics |
+| `lsp_diagnostics` | `luY` | Delivers new LSP diagnostics from language servers |
+| `unified_tasks` | `suY` | Provides task status updates and progress messages |
+| `async_hook_responses` | `tuY` | Delivers async responses from hook scripts |
+| `token_usage` | `qmY` | Reports current token usage (if enabled) |
+| `budget_usd` | `YmY` | Reports USD budget consumption |
+| `verify_plan_reminder` | `_mY` | Reminds LLM to verify plan completion |
+| `queued_commands` | `OuY` | Delivers user messages sent during execution |
 
 ---
 
 ## Deep Dive: User-Dependent Producers
 
-### 1. KIY (extractAtMentionedFiles)
+### 1. RuY (extractAtMentionedFiles)
 
 Parses user message for @-mentions and loads file contents.
 
 ```javascript
 // ============================================
 // extractAtMentionedFiles - Parse @-mentions and load file contents
-// Location: chunks.142.mjs:2199-2236
+// Location: chunks.147.mjs:407-448
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function KIY(A, q) {
-    let K = _IY(A);
-    if (K.length > 0) u8("at-mentions");
-    let Y = await q.getAppState();
-    return (await Promise.all(K.map(async (w) => {
+async function RuY(A, q) {
+    let K = FuY(A);
+    if (K.length === 0) return [];
+    let Y = q.getAppState();
+    return (await Promise.all(K.map(async (_) => {
         try {
             let {
-                filename: H,
-                lineStart: $,
-                lineEnd: O
-            } = DIY(w), _ = g4(H);
-            if (sW1(_, Y.toolPermissionContext)) return null;
+                filename: w,
+                lineStart: O,
+                lineEnd: $
+            } = QuY(_), H = L4(w);
+            if (rT6(H, Y.toolPermissionContext)) return null;
             try {
-                if (b1().statSync(_).isDirectory()) try {
-                    let X = await qq.call({
-                        command: `ls ${R7([_])}`,
-                        description: `Lists files in ${_}`
-                    }, q);
-                    c("tengu_at_mention_extracting_directory_success", {});
-                    let D = X.data.stdout;
-                    return {
+                if ((await qqq(H)).isDirectory()) try {
+                    let J = await Aqq(H, {
+                            withFileTypes: !0
+                        }),
+                        M = 1000,
+                        D = J.length > 1000,
+                        X = J.slice(0, 1000).map((W) => W.name);
+                    if (D) X.push(`… and ${J.length-1000} more entries`);
+                    let P = X.join(`
+`);
+                    return d("tengu_at_mention_extracting_directory_success", {}), {
                         type: "directory",
-                        path: _,
-                        content: D
+                        path: H,
+                        content: P,
+                        displayPath: Bl(G1(), H)
                     }
                 } catch {
                     return null
                 }
             } catch {}
-            return await TyA(_, q, "tengu_at_mention_extracting_filename_success", "tengu_at_mention_extracting_filename_error", "at-mention", {
-                offset: $,
-                limit: O && $ ? O - $ + 1 : void 0
+            return await tF8(H, q, "tengu_at_mention_extracting_filename_success", "tengu_at_mention_extracting_filename_error", "at-mention", {
+                offset: O,
+                limit: $ && O ? $ - O + 1 : void 0
             })
         } catch {
-            c("tengu_at_mention_extracting_filename_error", {})
+            d("tengu_at_mention_extracting_filename_error", {})
         }
     }))).filter(Boolean)
 }
@@ -424,9 +432,8 @@ async function extractAtMentionedFiles(userMessage, sessionContext) {
     // Parse all @-mentions from user message using regex
     let mentionedPaths = parseAtMentions(userMessage);
 
-    // Log telemetry if any mentions found
-    if (mentionedPaths.length > 0) {
-        logFeatureUsage("at-mentions");
+    if (mentionedPaths.length === 0) {
+        return [];
     }
 
     // Get current app state for permission checks
@@ -452,28 +459,34 @@ async function extractAtMentionedFiles(userMessage, sessionContext) {
 
             // Check if it's a directory
             try {
-                if (getFileSystem().statSync(absolutePath).isDirectory()) {
-                    // List directory contents using Bash tool
+                if ((await statAsync(absolutePath)).isDirectory()) {
+                    // List directory contents with limit of 1000 entries
                     try {
-                        let listResult = await BashTool.call({
-                            command: `ls ${shellEscape([absolutePath])}`,
-                            description: `Lists files in ${absolutePath}`
-                        }, sessionContext);
+                        let entries = await readdirAsync(absolutePath, { withFileTypes: true });
+                        let limit = 1000;
+                        let isTruncated = entries.length > limit;
+                        let names = entries.slice(0, limit).map((e) => e.name);
+
+                        if (isTruncated) {
+                            names.push(`… and ${entries.length - limit} more entries`);
+                        }
+
+                        let listing = names.join('\n');
 
                         logTelemetry("tengu_at_mention_extracting_directory_success", {});
 
-                        let directoryListing = listResult.data.stdout;
                         return {
                             type: "directory",
                             path: absolutePath,
-                            content: directoryListing
+                            content: listing,
+                            displayPath: getRelativePath(getCwd(), absolutePath)
                         };
                     } catch {
                         return null; // Directory listing failed
                     }
                 }
             } catch {
-                // statSync failed, assume it's a file
+                // statAsync failed, assume it's a file
             }
 
             // Load file contents (handles text, image, notebook, PDF)
@@ -499,58 +512,59 @@ async function extractAtMentionedFiles(userMessage, sessionContext) {
     return attachments.filter(Boolean);
 }
 
-// Mapping: KIY→extractAtMentionedFiles, A→userMessage, q→sessionContext, K→mentionedPaths, Y→appState, w→mentionPath, H→rawFilename, $→lineStart, O→lineEnd, _→absolutePath, X→listResult, D→directoryListing, _IY→parseAtMentions, u8→logFeatureUsage, DIY→parseFilePathWithLineRange, g4→resolveAbsolutePath, sW1→isSandboxBlocked, b1()→getFileSystem, qq→BashTool, R7→shellEscape, c→logTelemetry, TyA→loadFileAttachment
+// Mapping: RuY→extractAtMentionedFiles, A→userMessage, q→sessionContext, K→mentionedPaths, Y→appState, _→mentionPath, w→rawFilename, O→lineStart, $→lineEnd, H→absolutePath, J→entries, M→limit, D→isTruncated, X→names, P→listing, W→entry
+//          FuY→parseAtMentions, QuY→parseFilePathWithLineRange, L4→resolveAbsolutePath, rT6→isSandboxBlocked, qqq→statAsync, Aqq→readdirAsync, d→logTelemetry, tF8→loadFileAttachment, Bl→getRelativePath, G1→getCwd
 ```
 
 **Key behaviors**:
 - **Line range support**: Parses `@"file.txt#L10-20"` syntax to load specific lines
-- **Directory handling**: If mention is a directory, lists contents with `ls`
+- **Directory handling**: If mention is a directory, lists contents with 1000-entry limit
 - **Sandbox awareness**: Silently skips files blocked by sandbox permissions
 - **Failure isolation**: Each mention processed independently; failures don't affect others
 - **Telemetry tracking**: Records success/failure for analytics
 
-### 2. zIY (extractMcpResources)
+### 2. SuY (extractMcpResources)
 
 Fetches MCP resources referenced by @server:uri syntax.
 
 ```javascript
 // ============================================
 // extractMcpResources - Fetch MCP resources from @server:uri mentions
-// Location: chunks.142.mjs:2252-2283
+// Location: chunks.147.mjs:464-495
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function zIY(A, q) {
-    let K = JIY(A);
+async function SuY(A, q) {
+    let K = puY(A);
     if (K.length === 0) return [];
     let Y = q.options.mcpClients || [];
-    return (await Promise.all(K.map(async (w) => {
+    return (await Promise.all(K.map(async (_) => {
         try {
-            let [H, ...$] = w.split(":"), O = $.join(":");
-            if (!H || !O) return c("tengu_at_mention_mcp_resource_error", {}), null;
-            let _ = Y.find((D) => D.name === H);
-            if (!_ || _.type !== "connected") return c("tengu_at_mention_mcp_resource_error", {}), null;
-            let X = (q.options.mcpResources?.[H] || []).find((D) => D.uri === O);
-            if (!X) return c("tengu_at_mention_mcp_resource_error", {}), null;
+            let [w, ...O] = _.split(":"), $ = O.join(":");
+            if (!w || !$) return d("tengu_at_mention_mcp_resource_error", {}), null;
+            let H = Y.find((M) => M.name === w);
+            if (!H || H.type !== "connected") return d("tengu_at_mention_mcp_resource_error", {}), null;
+            let J = (q.options.mcpResources?.[w] || []).find((M) => M.uri === $);
+            if (!J) return d("tengu_at_mention_mcp_resource_error", {}), null;
             try {
-                let D = await _.client.readResource({
-                    uri: O
+                let M = await H.client.readResource({
+                    uri: $
                 });
-                return c("tengu_at_mention_mcp_resource_success", {}), {
+                return d("tengu_at_mention_mcp_resource_success", {}), {
                     type: "mcp_resource",
-                    server: H,
-                    uri: O,
-                    name: X.name || O,
-                    description: X.description,
-                    content: D
+                    server: w,
+                    uri: $,
+                    name: J.name || $,
+                    description: J.description,
+                    content: M
                 }
-            } catch (D) {
-                return c("tengu_at_mention_mcp_resource_error", {}), K1(D), null
+            } catch (M) {
+                return d("tengu_at_mention_mcp_resource_error", {}), _6(M), null
             }
         } catch {
-            return c("tengu_at_mention_mcp_resource_error", {}), null
+            return d("tengu_at_mention_mcp_resource_error", {}), null
         }
-    }))).filter((w) => w !== null)
+    }))).filter((_) => _ !== null)
 }
 
 // READABLE (for understanding):
@@ -623,7 +637,8 @@ async function extractMcpResources(userMessage, sessionContext) {
     }))).filter((attachment) => attachment !== null);
 }
 
-// Mapping: zIY→extractMcpResources, A→userMessage, q→sessionContext, K→mentionedResources, Y→mcpClients, w→resourceString, H→serverName, $→uriParts, O→resourceUri, _→client, X→resourceMetadata, D→resourceContents or fetchError, JIY→parseMcpResourceMentions, c→logTelemetry, K1→logError
+// Mapping: SuY→extractMcpResources, A→userMessage, q→sessionContext, K→mentionedResources, Y→mcpClients, _→resourceString, w→serverName, O→uriParts, $→resourceUri, H→client, J→resourceMetadata, M→resourceContents or fetchError
+//          puY→parseMcpResourceMentions, d→logTelemetry, _6→logError
 ```
 
 **Key behaviors**:
@@ -632,27 +647,27 @@ async function extractMcpResources(userMessage, sessionContext) {
 - **Resource metadata**: Enriches attachment with name/description from server's resource list
 - **Graceful degradation**: Returns null for missing/disconnected servers without crashing
 
-### 3. YIY (extractAgentMentions)
+### 3. huY (extractAgentMentions)
 
 Identifies agent invocation requests via @agent-name or @"agent-name (agent)" syntax.
 
 ```javascript
 // ============================================
 // extractAgentMentions - Parse agent invocation requests
-// Location: chunks.142.mjs:2238-2250
+// Location: chunks.147.mjs:450-462
 // ============================================
 
 // ORIGINAL (for source lookup):
-function YIY(A, q) {
-    let K = XIY(A);
+function huY(A, q) {
+    let K = wqq(A);
     if (K.length === 0) return [];
     return K.map((z) => {
-        let w = z.replace("agent-", ""),
-            H = q.find(($) => $.agentType === w);
-        if (!H) return c("tengu_at_mention_agent_not_found", {}), null;
-        return c("tengu_at_mention_agent_success", {}), {
+        let _ = z.replace("agent-", ""),
+            w = q.find((O) => O.agentType === _);
+        if (!w) return d("tengu_at_mention_agent_not_found", {}), null;
+        return d("tengu_at_mention_agent_success", {}), {
             type: "agent_mention",
-            agentType: H.agentType
+            agentType: w.agentType
         }
     }).filter((z) => z !== null)
 }
@@ -688,7 +703,8 @@ function extractAgentMentions(userMessage, activeAgents) {
     }).filter((mention) => mention !== null);
 }
 
-// Mapping: YIY→extractAgentMentions, A→userMessage, q→activeAgents, K→mentionedAgentIds, z→agentId, w→agentType, H→agentDefinition, $→agent, XIY→parseAgentMentions, c→logTelemetry
+// Mapping: huY→extractAgentMentions, A→userMessage, q→activeAgents, K→mentionedAgentIds, z→agentId, _→agentType, w→agentDefinition, O→agent
+//          wqq→parseAgentMentions, d→logTelemetry
 ```
 
 **Key behaviors**:
@@ -701,67 +717,59 @@ function extractAgentMentions(userMessage, activeAgents) {
 
 ## Deep Dive: Always-Computed Producers
 
-### 4. wIY (getChangedFilesAttachment)
+### 4. CuY (getChangedFilesAttachment)
 
 Detects modifications to files that were previously read during the session.
 
 ```javascript
 // ============================================
 // getChangedFilesAttachment - Detect modifications to watched files
-// Location: chunks.142.mjs:2285-2335
+// Location: chunks.147.mjs:497-539
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function wIY(A) {
-    let q = await A.getAppState();
-    return (await Promise.all(Th(A.readFileState).map(async (Y) => {
-        let z = A.readFileState.get(Y);
-        if (!z) return null;
-        if (z.offset !== void 0 || z.limit !== void 0) return null;
-        let w = g4(Y);
-        if (sW1(w, q.toolPermissionContext)) return null;
+async function CuY(A) {
+    let q = jB(A.readFileState);
+    if (q.length === 0) return [];
+    let K = A.getAppState();
+    return (await Promise.all(q.map(async (z) => {
+        let _ = A.readFileState.get(z);
+        if (!_) return null;
+        if (_.offset !== void 0 || _.limit !== void 0) return null;
+        let w = L4(z);
+        if (rT6(w, K.toolPermissionContext)) return null;
         try {
-            if (aW(w) <= z.timestamp) return null;
-            let H = {
+            if (Jh(w) <= _.timestamp) return null;
+            let O = {
                 file_path: w
             };
-            if (!(await i5.validateInput(H, A)).result) return null;
-            let O = await i5.call(H, A),
-                _ = A.agentId ?? U6();
-            if (w === Lp(_)) {
-                if (!A.options.tools.some((X) => X.name === cg)) return null;
-                let J = UB(_);
-                return {
-                    type: "todo",
-                    content: J,
-                    itemCount: J.length,
-                    context: "file-watch"
-                }
-            }
-            if (O.data.type === "text") {
-                if (DjA(z.content, O.data.file.content) === "") return null;
+            if (!(await L9.validateInput(O, A)).result) return null;
+            let H = await L9.call(O, A);
+            if (H.data.type === "text") {
+                let j = Bf7(_.content, H.data.file.content);
+                if (j === "") return null;
                 return {
                     type: "edited_text_file",
                     filename: w,
-                    snippet: DjA(z.content, O.data.file.content)
+                    snippet: j
                 }
             }
-            if (O.data.type === "image") try {
-                let J = await vyA(w);
+            if (H.data.type === "image") try {
+                let j = await XV8(w);
                 return {
                     type: "edited_image_file",
                     filename: w,
-                    content: J
+                    content: j
                 }
-            } catch (J) {
-                return K1(J), c("tengu_watched_file_compression_failed", {
+            } catch (j) {
+                return _6(j), d("tengu_watched_file_compression_failed", {
                     file: w
                 }), null
             }
         } catch {
-            return c("tengu_watched_file_stat_error", {}), null
+            return A.readFileState.delete(z), null
         }
-    }))).filter((Y) => Y !== null)
+    }))).filter((z) => z !== null)
 }
 
 // READABLE (for understanding):
@@ -867,7 +875,7 @@ async function getChangedFilesAttachment(sessionContext) {
     }))).filter((attachment) => attachment !== null);
 }
 
-// Mapping: wIY→getChangedFilesAttachment, A→sessionContext, q→appState, Th()→Array.from, Y→relativeFilePath or attachment, z→cachedState, w→absolutePath, H→readInput, O→readResult, _→agentId, J→todoItems or compressedImage, X→tool, g4→resolveAbsolutePath, sW1→isSandboxBlocked, aW→getFileModificationTime, i5→ReadTool, Lp→getTodoFilePath, U6()→getMainAgentId, cg→TODO_WRITE_TOOL_NAME, UB→parseTodoFile, DjA→generateDiffSnippet, vyA→compressImageForLLM, K1→logError, c→logTelemetry
+// Mapping: CuY→getChangedFilesAttachment, A→sessionContext, q→appState, Th()→Array.from, Y→relativeFilePath or attachment, z→cachedState, w→absolutePath, H→readInput, O→readResult, _→agentId, J→todoItems or compressedImage, X→tool, g4→resolveAbsolutePath, sW1→isSandboxBlocked, aW→getFileModificationTime, i5→ReadTool, Lp→getTodoFilePath, U6()→getMainAgentId, cg→TODO_WRITE_TOOL_NAME, UB→parseTodoFile, DjA→generateDiffSnippet, vyA→compressImageForLLM, K1→logError, c→logTelemetry
 ```
 
 **Key behaviors**:
@@ -880,18 +888,18 @@ async function getChangedFilesAttachment(sessionContext) {
 
 **Key insight**: This producer implements **implicit file watching** without OS-level inotify/FSEvents. The agent loop calls this on every turn, making it a **polling-based change detector**. The trade-off: simple implementation vs potential latency (changes detected on next turn, not immediately).
 
-### 5. ihY (getPlanModeAttachment)
+### 5. DuY (getPlanModeAttachment)
 
 Injects plan mode instructions when the agent is in planning mode.
 
 ```javascript
 // ============================================
 // getPlanModeAttachment - Inject plan mode instructions
-// Location: chunks.142.mjs:2034-2058
+// Location: chunks.147.mjs:136-168
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function ihY(A, q) {
+async function DuY(A, q) {
     if ((await q.getAppState()).toolPermissionContext.mode !== "plan") return [];
     if (A && A.length > 0) {
         let {
@@ -975,7 +983,7 @@ async function getPlanModeAttachment(messages, sessionContext) {
     return attachments;
 }
 
-// Mapping: ihY→getPlanModeAttachment, A→messages, q→sessionContext, _→turnsSinceLastPlanAttachment, J→foundPreviousAttachment, z→planFilePath, w→planFileContents, H→attachments, O→reminderType, chY→countTurnsSincePlanMode, ii4→PLAN_MODE_CONSTANTS, uW→getPlanFilePath, pD→readPlanFileIfExists, aL6()→isPlanModeReentryDetected, OT→clearPlanModeReentryFlag, lhY→countPlanModeReminders
+// Mapping: DuY→getPlanModeAttachment, A→messages, q→sessionContext, _→turnsSinceLastPlanAttachment, J→foundPreviousAttachment, z→planFilePath, w→planFileContents, H→attachments, O→reminderType, chY→countTurnsSincePlanMode, ii4→PLAN_MODE_CONSTANTS, uW→getPlanFilePath, pD→readPlanFileIfExists, aL6()→isPlanModeReentryDetected, OT→clearPlanModeReentryFlag, lhY→countPlanModeReminders
 ```
 
 **Frequency algorithm**:
@@ -989,7 +997,7 @@ async function getPlanModeAttachment(messages, sessionContext) {
 ```javascript
 // ============================================
 // countTurnsSincePlanMode - Count assistant turns since last plan mode attachment
-// Location: chunks.142.mjs:2003-2020
+// Location: chunks.147.mjs:2003-2020
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -1049,7 +1057,7 @@ function countTurnsSincePlanMode(messages) {
 ```javascript
 // ============================================
 // countPlanModeReminders - Count how many plan mode reminders have been sent
-// Location: chunks.142.mjs:2022-2032
+// Location: chunks.147.mjs:2022-2032
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -1097,18 +1105,18 @@ function countPlanModeReminders(messages) {
 - **Frequency modulation**: Sends full instructions on first reminder and every Nth thereafter; sparse in between
 - **Subagent awareness**: Passes `isSubAgent` flag so normalizer can send simpler instructions for subagents
 
-### 6. fIY (getTodoReminderAttachment)
+### 6. ruY (getTodoReminderAttachment)
 
 Reminds the LLM to use TodoWrite tool when it hasn't been used recently.
 
 ```javascript
 // ============================================
 // getTodoReminderAttachment - Remind LLM to use TodoWrite tool
-// Location: chunks.142.mjs:2645-2661
+// Location: chunks.147.mjs:2645-2661
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function fIY(A, q) {
+async function ruY(A, q) {
     if (!q.options.tools.some((z) => z.name === cg)) return [];
     if (!A || A.length === 0) return [];
     let {
@@ -1161,7 +1169,7 @@ async function getTodoReminderAttachment(messages, sessionContext) {
     return [];
 }
 
-// Mapping: fIY→getTodoReminderAttachment, A→messages, q→sessionContext, z→todoItems, K→turnsSinceWrite, Y→turnsSinceReminder, cg→TODO_WRITE_TOOL_NAME, ZIY→analyzeToDoUsageHistory, eW6→TODO_REMINDER_CONSTANTS, UB→parseTodoFile, U6()→getMainAgentId
+// Mapping: ruY→getTodoReminderAttachment, A→messages, q→sessionContext, z→todoItems, K→turnsSinceWrite, Y→turnsSinceReminder, cg→TODO_WRITE_TOOL_NAME, ZIY→analyzeToDoUsageHistory, eW6→TODO_REMINDER_CONSTANTS, UB→parseTodoFile, U6()→getMainAgentId
 ```
 
 **Reminder logic**:
@@ -1176,18 +1184,18 @@ async function getTodoReminderAttachment(messages, sessionContext) {
 
 ## Deep Dive: Main-Agent-Only Producers
 
-### 7. ehY (getIdeSelectionAttachment)
+### 7. kuY (getIdeSelectionAttachment)
 
 Reports text selected by user in IDE.
 
 ```javascript
 // ============================================
 // getIdeSelectionAttachment - Report IDE text selection
-// Location: chunks.142.mjs:2114-2127
+// Location: chunks.147.mjs:306-320
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function ehY(A, q) {
+async function kuY(A, q) {
     let K = T$6(q.options.mcpClients);
     if (!K || A?.lineStart === void 0 || !A.text || !A.filePath) return [];
     let Y = await q.getAppState();
@@ -1232,7 +1240,7 @@ async function getIdeSelectionAttachment(ideContext, sessionContext) {
     }];
 }
 
-// Mapping: ehY→getIdeSelectionAttachment, A→ideContext, q→sessionContext, K→ideName, Y→appState, T$6→detectIdeName, sW1→isSandboxBlocked
+// Mapping: kuY→getIdeSelectionAttachment, A→ideContext, q→sessionContext, K→ideName, Y→appState, T$6→detectIdeName, sW1→isSandboxBlocked
 ```
 
 **Key behaviors**:
@@ -1241,18 +1249,18 @@ async function getIdeSelectionAttachment(ideContext, sessionContext) {
 - **Sandbox check**: Silently skips selections from sandboxed files
 - **Line range calculation**: Converts lineStart + lineCount to lineStart/lineEnd pair
 
-### 8. WIY (getLspDiagnosticsAttachment)
+### 8. luY (getLspDiagnosticsAttachment)
 
 Delivers LSP diagnostics from connected language servers.
 
 ```javascript
 // ============================================
 // getLspDiagnosticsAttachment - Deliver LSP diagnostics
-// Location: chunks.142.mjs:2473-2492
+// Location: chunks.147.mjs:2473-2492
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function WIY(A) {
+async function luY(A) {
     h("LSP Diagnostics: getLSPDiagnosticAttachments called");
     try {
         let q = sm4();
@@ -1310,7 +1318,7 @@ async function getLspDiagnosticsAttachment(sessionContext) {
     }
 }
 
-// Mapping: WIY→getLspDiagnosticsAttachment, A→sessionContext, q→pendingDiagnosticSets or error, K→attachments or errorObj, Y→fileList, h→logDebug, sm4→getPendingLspDiagnostics, tm4→clearDeliveredLspDiagnostics, K1→logError
+// Mapping: luY→getLspDiagnosticsAttachment, A→sessionContext, q→pendingDiagnosticSets or error, K→attachments or errorObj, Y→fileList, h→logDebug, sm4→getPendingLspDiagnostics, tm4→clearDeliveredLspDiagnostics, K1→logError
 ```
 
 **Key behaviors**:
@@ -1319,18 +1327,18 @@ async function getLspDiagnosticsAttachment(sessionContext) {
 - **Error resilience**: Returns empty array on failure, ensuring diagnostic errors don't break agent loop
 - **Debug logging**: Extensive logging for diagnostic delivery tracking
 
-### 9. EIY (getAsyncHookResponsesAttachment)
+### 9. tuY (getAsyncHookResponsesAttachment)
 
 Delivers responses from asynchronous hook scripts.
 
 ```javascript
 // ============================================
 // getAsyncHookResponsesAttachment - Deliver async hook responses
-// Location: chunks.142.mjs:2758-2789
+// Location: chunks.147.mjs:2758-2789
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function EIY() {
+async function tuY() {
     let A = await Jn7();
     if (A.length === 0) return [];
     h(`Hooks: getAsyncHookResponseAttachments found ${A.length} responses`);
@@ -1411,7 +1419,7 @@ async function getAsyncHookResponsesAttachment() {
     return attachments;
 }
 
-// Mapping: EIY→getAsyncHookResponsesAttachment, A→pendingResponses, q→attachments, K→pid or processIds, Y→hookResponse or r, z→name, w→event, H→tool, $→stdoutOutput, O→stderrOutput, _→code, h→logDebug, Jn7→getPendingHookResponses, Q1→JSON.stringify, Xn7→removeDeliveredHookResponses
+// Mapping: tuY→getAsyncHookResponsesAttachment, A→pendingResponses, q→attachments, K→pid or processIds, Y→hookResponse or r, z→name, w→event, H→tool, $→stdoutOutput, O→stderrOutput, _→code, h→logDebug, Jn7→getPendingHookResponses, Q1→JSON.stringify, Xn7→removeDeliveredHookResponses
 ```
 
 **Key behaviors**:
@@ -1438,7 +1446,7 @@ Based on telemetry sampling (5% of executions), typical producer durations:
 
 The 1-second global timeout is enforced by AbortController:
 - **Individual producer timeout**: Each producer is async and can be cancelled via `abortController.signal`
-- **Graceful degradation**: If a producer times out, `gw` wrapper catches the error and returns []
+- **Graceful degradation**: If a producer times out, `Hz` wrapper catches the error and returns []
 - **No retry**: Timeouts are not retried; the agent proceeds without that attachment
 
 **Rationale**: 1 second is aggressive but intentional. The philosophy is **"better to proceed with incomplete context than to block the agent loop"**. Missing attachments (e.g., no file change detection) are acceptable; a frozen agent is not.
@@ -1465,16 +1473,16 @@ Attachment size limits to prevent token budget exhaustion:
 
 Key functions in this document:
 - `assembleAttachments` (phY) - Main orchestrator for attachment production
-- `timedAttachmentProducer` (gw) - Telemetry and error handling wrapper
+- `timedAttachmentProducer` (Hz) - Telemetry and error handling wrapper
 - `extractAtMentionedFiles` (KIY) - Parse @-mentions and load file contents
 - `extractMcpResources` (zIY) - Fetch MCP resources from @server:uri mentions
 - `extractAgentMentions` (YIY) - Parse agent invocation requests
-- `getChangedFilesAttachment` (wIY) - Detect modifications to watched files
-- `getPlanModeAttachment` (ihY) - Inject plan mode instructions
-- `getTodoReminderAttachment` (fIY) - Remind LLM to use TodoWrite tool
-- `getIdeSelectionAttachment` (ehY) - Report IDE text selection
-- `getLspDiagnosticsAttachment` (WIY) - Deliver LSP diagnostics
-- `getAsyncHookResponsesAttachment` (EIY) - Deliver async hook responses
+- `getChangedFilesAttachment` (CuY) - Detect modifications to watched files
+- `getPlanModeAttachment` (DuY) - Inject plan mode instructions
+- `getTodoReminderAttachment` (ruY) - Remind LLM to use TodoWrite tool
+- `getIdeSelectionAttachment` (kuY) - Report IDE text selection
+- `getLspDiagnosticsAttachment` (luY) - Deliver LSP diagnostics
+- `getAsyncHookResponsesAttachment` (tuY) - Deliver async hook responses
 - `countTurnsSincePlanMode` (chY) - Count assistant turns since last plan mode attachment
 - `countPlanModeReminders` (lhY) - Count how many plan mode reminders have been sent
 

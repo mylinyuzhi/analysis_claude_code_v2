@@ -2,7 +2,7 @@
 
 > **Module**: System Reminders - Quick Reference Index
 > **Version**: Claude Code 2.1.76
-> **Source**: `chunks.173.mjs:698-1131`, `chunks.142.mjs:1948-2930`
+> **Source**: `chunks.174.mjs:3-469` (normalization), `chunks.147.mjs:3-550` (producers), `chunks.173.mjs:2490-2740` (formatting)
 
 ---
 
@@ -22,50 +22,50 @@
 
 | Type | Purpose | Wrapping | Doc |
 |------|---------|----------|-----|
-| `teammate_mailbox` | Team messages | `_9` | [types_team_mode.md](./types_team_mode.md) |
+| `teammate_mailbox` | Team messages | `b5` | [types_team_mode.md](./types_team_mode.md) |
 | `team_context` | Team identity | Inline XML | [types_team_mode.md](./types_team_mode.md) |
-| `directory` | Directory listing | `_9` (tool pair) | [types_file_context.md](./types_file_context.md) |
-| `file` | File contents | `_9` (tool pair) | [types_file_context.md](./types_file_context.md) |
-| `edited_text_file` | File modification | `_9` | [types_file_context.md](./types_file_context.md) |
-| `compact_file_reference` | Compacted file ref | `_9` | [types_file_context.md](./types_file_context.md) |
-| `pdf_reference` | Large PDF ref | `_9` | [types_file_context.md](./types_file_context.md) |
-| `selected_lines_in_ide` | IDE selection | `_9` | [types_ide_integration.md](./types_ide_integration.md) |
-| `opened_file_in_ide` | File opened | `_9` | [types_ide_integration.md](./types_ide_integration.md) |
-| `diagnostics` | LSP errors | `_9` | [types_ide_integration.md](./types_ide_integration.md) |
-| `todo` | Todo list state | `_9` | [types_task_management.md](./types_task_management.md) |
-| `todo_reminder` | Use TodoWrite reminder | `_9` | [types_task_management.md](./types_task_management.md) |
-| `task_reminder` | Use Task tools reminder | `_9` | [types_task_management.md](./types_task_management.md) |
-| `task_status` | Background task status | `tI` | [types_task_management.md](./types_task_management.md) |
-| `task_progress` | Task progress message | `tI` | [types_task_management.md](./types_task_management.md) |
-| `plan_mode` | Plan mode instructions | `_9` | [types_mode_control.md](./types_mode_control.md) |
-| `plan_mode_reentry` | Re-enter plan mode | `_9` | [types_mode_control.md](./types_mode_control.md) |
-| `plan_mode_exit` | Exit plan mode | `_9` | [types_mode_control.md](./types_mode_control.md) |
-| `plan_file_reference` | Plan file content | `_9` | [types_mode_control.md](./types_mode_control.md) |
-| `delegate_mode` | Delegate mode | `_9` | [types_mode_control.md](./types_mode_control.md) |
-| `delegate_mode_exit` | Exit delegate mode | `_9` | [types_mode_control.md](./types_mode_control.md) |
-| `invoked_skills` | Active skills | `_9` | [types_skills_memory.md](./types_skills_memory.md) |
-| `skill_listing` | Available skills | `_9` | [types_skills_memory.md](./types_skills_memory.md) |
-| `nested_memory` | CLAUDE.md content | `_9` | [types_skills_memory.md](./types_skills_memory.md) |
-| `mcp_resource` | MCP resource content | `_9` | [types_skills_memory.md](./types_skills_memory.md) |
-| `ultramemory` | Persistent memory | `_9` | [types_skills_memory.md](./types_skills_memory.md) |
-| `agent_mention` | Agent @-mention | `_9` | [types_skills_memory.md](./types_skills_memory.md) |
-| `async_hook_response` | Hook response | `_9` | [types_hooks.md](./types_hooks.md) |
-| `hook_blocking_error` | Hook blocked | `tI` | [types_hooks.md](./types_hooks.md) |
-| `hook_success` | Hook success | `tI` | [types_hooks.md](./types_hooks.md) |
-| `hook_additional_context` | Hook context | `tI` | [types_hooks.md](./types_hooks.md) |
-| `hook_stopped_continuation` | Hook stopped | `tI` | [types_hooks.md](./types_hooks.md) |
-| `token_usage` | Token count | `tI` | [types_status_budget.md](./types_status_budget.md) |
-| `budget_usd` | USD budget | `tI` | [types_status_budget.md](./types_status_budget.md) |
-| `output_token_usage` | Output token tracking | `tI` | [types_status_budget.md](./types_status_budget.md) |
-| `date_change` | Date change notification | `_9` | [types_status_budget.md](./types_status_budget.md) |
-| `ultrathink_effort` | Reasoning effort level | `_9` | [types_status_budget.md](./types_status_budget.md) |
-| `deferred_tools_delta` | Deferred tools changes | `_9` | [types_status_budget.md](./types_status_budget.md) |
-| `mcp_instructions_delta` | MCP instruction changes | `_9` | [types_status_budget.md](./types_status_budget.md) |
-| `compaction_reminder` | Auto-compact notice | `_9` | [types_status_budget.md](./types_status_budget.md) |
-| `critical_system_reminder` | Critical alert | `_9` | [types_status_budget.md](./types_status_budget.md) |
-| `queued_command` | Queued message | `_9` | [types_status_budget.md](./types_status_budget.md) |
-| `output_style` | Output style | `_9` | [types_status_budget.md](./types_status_budget.md) |
-| `verify_plan_reminder` | Verify plan | `_9` | [types_status_budget.md](./types_status_budget.md) |
+| `directory` | Directory listing | `b5` (tool pair) | [types_file_context.md](./types_file_context.md) |
+| `file` | File contents | `b5` (tool pair) | [types_file_context.md](./types_file_context.md) |
+| `edited_text_file` | File modification | `b5` | [types_file_context.md](./types_file_context.md) |
+| `compact_file_reference` | Compacted file ref | `b5` | [types_file_context.md](./types_file_context.md) |
+| `pdf_reference` | Large PDF ref | `b5` | [types_file_context.md](./types_file_context.md) |
+| `selected_lines_in_ide` | IDE selection | `b5` | [types_ide_integration.md](./types_ide_integration.md) |
+| `opened_file_in_ide` | File opened | `b5` | [types_ide_integration.md](./types_ide_integration.md) |
+| `diagnostics` | LSP errors | `b5` | [types_ide_integration.md](./types_ide_integration.md) |
+| `todo` | Todo list state | `b5` | [types_task_management.md](./types_task_management.md) |
+| `todo_reminder` | Use TodoWrite reminder | `b5` | [types_task_management.md](./types_task_management.md) |
+| `task_reminder` | Use Task tools reminder | `b5` | [types_task_management.md](./types_task_management.md) |
+| `task_status` | Background task status | `af` | [types_task_management.md](./types_task_management.md) |
+| `task_progress` | Task progress message | `af` | [types_task_management.md](./types_task_management.md) |
+| `plan_mode` | Plan mode instructions | `b5` | [types_mode_control.md](./types_mode_control.md) |
+| `plan_mode_reentry` | Re-enter plan mode | `b5` | [types_mode_control.md](./types_mode_control.md) |
+| `plan_mode_exit` | Exit plan mode | `b5` | [types_mode_control.md](./types_mode_control.md) |
+| `plan_file_reference` | Plan file content | `b5` | [types_mode_control.md](./types_mode_control.md) |
+| `delegate_mode` | Delegate mode | `b5` | [types_mode_control.md](./types_mode_control.md) |
+| `delegate_mode_exit` | Exit delegate mode | `b5` | [types_mode_control.md](./types_mode_control.md) |
+| `invoked_skills` | Active skills | `b5` | [types_skills_memory.md](./types_skills_memory.md) |
+| `skill_listing` | Available skills | `b5` | [types_skills_memory.md](./types_skills_memory.md) |
+| `nested_memory` | CLAUDE.md content | `b5` | [types_skills_memory.md](./types_skills_memory.md) |
+| `mcp_resource` | MCP resource content | `b5` | [types_skills_memory.md](./types_skills_memory.md) |
+| `ultramemory` | Persistent memory | `b5` | [types_skills_memory.md](./types_skills_memory.md) |
+| `agent_mention` | Agent @-mention | `b5` | [types_skills_memory.md](./types_skills_memory.md) |
+| `async_hook_response` | Hook response | `b5` | [types_hooks.md](./types_hooks.md) |
+| `hook_blocking_error` | Hook blocked | `af` | [types_hooks.md](./types_hooks.md) |
+| `hook_success` | Hook success | `af` | [types_hooks.md](./types_hooks.md) |
+| `hook_additional_context` | Hook context | `af` | [types_hooks.md](./types_hooks.md) |
+| `hook_stopped_continuation` | Hook stopped | `af` | [types_hooks.md](./types_hooks.md) |
+| `token_usage` | Token count | `af` | [types_status_budget.md](./types_status_budget.md) |
+| `budget_usd` | USD budget | `af` | [types_status_budget.md](./types_status_budget.md) |
+| `output_token_usage` | Output token tracking | `af` | [types_status_budget.md](./types_status_budget.md) |
+| `date_change` | Date change notification | `b5` | [types_status_budget.md](./types_status_budget.md) |
+| `ultrathink_effort` | Reasoning effort level | `b5` | [types_status_budget.md](./types_status_budget.md) |
+| `deferred_tools_delta` | Deferred tools changes | `b5` | [types_status_budget.md](./types_status_budget.md) |
+| `mcp_instructions_delta` | MCP instruction changes | `b5` | [types_status_budget.md](./types_status_budget.md) |
+| `compaction_reminder` | Auto-compact notice | `b5` | [types_status_budget.md](./types_status_budget.md) |
+| `critical_system_reminder` | Critical alert | `b5` | [types_status_budget.md](./types_status_budget.md) |
+| `queued_command` | Queued message | `b5` | [types_status_budget.md](./types_status_budget.md) |
+| `output_style` | Output style | `b5` | [types_status_budget.md](./types_status_budget.md) |
+| `verify_plan_reminder` | Verify plan | `b5` | [types_status_budget.md](./types_status_budget.md) |
 
 ### Silent Types (No API Messages)
 
@@ -252,57 +252,66 @@
 
 | Function | Obfuscated | Location | Purpose |
 |----------|------------|----------|---------|
-| `normalizeAttachmentForAPI` | K2z | chunks.173.mjs:698-1131 | Main dispatcher |
-| `wrapWithSystemReminderTags` | _9 | chunks.173.mjs:496-523 | Message array wrapper |
-| `wrapInXmlTag` | tI | chunks.173.mjs:490-494 | Inline XML wrapper |
-| `createUserMessage` | c6 | chunks.172.mjs:2876-2912 | Message factory |
-| `assembleAttachments` | phY | chunks.142.mjs:1948-1965 | Producer orchestrator |
-| `planModeReminderDispatcher` | azz | chunks.173.mjs:525-529 | Plan mode router |
+| `normalizeAttachmentForAPI` | Ui8 | chunks.174.mjs:3-469 | Main dispatcher |
+| `wrapWithSystemReminderTags` | b5 | chunks.173.mjs:2496-2523 | Message array wrapper |
+| `wrapInXmlTag` | af | chunks.173.mjs:2490-2494 | Inline XML wrapper |
+| `createUserMessage` | p1 | chunks.173.mjs:1378-1412 | Message factory |
+| `assembleAllAttachments` | _uY | chunks.147.mjs:3-18 | Producer orchestrator |
+| `timedAttachmentProducer` | Hz | chunks.147.mjs:20-46 | Telemetry wrapper |
+| `attachmentGenerator` | Vf6 | chunks.147.mjs:822-829 | Async generator |
+| `planModeReminderDispatcher` | Wzz | chunks.173.mjs:2525-2530 | Plan mode router |
 
-### Producer Functions
+### Producer Functions - User-Dependent (Group 1)
 
 | Function | Obfuscated | Location | Produces |
 |----------|------------|----------|----------|
-| `extractAtMentionedFiles` | KIY | chunks.142.mjs:2199-2236 | `directory`, `file` |
-| `extractMcpResources` | zIY | chunks.142.mjs:2252-2283 | `mcp_resource` |
-| `getAgentMentionAttachment` | YIY | chunks.142.mjs:2238-2250 | `agent_mention` |
-| `getChangedFilesAttachment` | wIY | chunks.142.mjs:2285-2335 | `edited_text_file` |
-| `getNestedMemoryAttachments` | HIY | chunks.142.mjs:2337-2348 | `nested_memory` |
-| `getSkillListingAttachment` | OIY | chunks.142.mjs:2381-2395 | `skill_listing` |
-| `getPlanModeAttachment` | ihY | chunks.142.mjs:2034-2058 | `plan_mode` |
-| `getPlanModeExitAttachment` | nhY | chunks.142.mjs:2060-2071 | `plan_mode_exit` |
-| `getPlanFileReferenceAttachment` | jZ6 | chunks.146.mjs:2699-2708 | `plan_file_reference` |
-| `getDelegateModeAttachment` | rhY | chunks.142.mjs:2073-2083 | `delegate_mode` |
-| `getIdeSelectionAttachment` | ehY | chunks.142.mjs:2114-2127 | `selected_lines_in_ide` |
-| `getIdeOpenedFileAttachment` | qIY | chunks.142.mjs:2189-2197 | `opened_file_in_ide` |
-| `getDiagnosticsAttachment` | PIY | chunks.142.mjs:2463-2471 | `diagnostics` |
-| `getLspDiagnosticsAttachment` | WIY | chunks.142.mjs:2473-2492 | `diagnostics` |
-| `getTodoReminderAttachment` | fIY | chunks.142.mjs:2645-2661 | `todo_reminder` |
-| `getTaskReminderAttachment` | NIY | chunks.142.mjs:2684-2701 | `task_reminder` |
-| `getUnifiedTasksAttachment` | vIY | chunks.142.mjs:2719-2756 | `task_status`, `task_progress` |
-| `getAsyncHookResponsesAttachment` | EIY | chunks.142.mjs:2758-2789 | `async_hook_response` |
-| `getTeamContextAttachment` | LIY | chunks.142.mjs:2796-2813 | `team_context` |
-| `getTokenUsageAttachment` | RIY | chunks.142.mjs:2815-2825 | `token_usage` |
-| `getBudgetUsdAttachment` | yIY | chunks.142.mjs:2827-2835 | `budget_usd` |
-| `getQueuedCommandsAttachment` | dhY | chunks.142.mjs:1993-2001 | `queued_command` |
+| `extractAtMentionedFiles` | RuY | chunks.147.mjs:407-448 | `directory`, `file` |
+| `extractMcpResources` | SuY | chunks.147.mjs:464-495 | `mcp_resource` |
+| `extractAgentMentions` | huY | chunks.147.mjs:450-462 | `agent_mention` |
+
+### Producer Functions - Always-Computed (Group 2)
+
+| Function | Obfuscated | Location | Produces |
+|----------|------------|----------|----------|
+| `getChangedFilesAttachment` | CuY | chunks.147.mjs:497-539 | `edited_text_file` |
+| `getNestedMemoryAttachments` | IuY | chunks.147.mjs:541-550 | `nested_memory` |
+| `getDynamicSkillAttachments` | BuY | chunks.147.mjs:650-690 | `dynamic_skill` |
+| `getSkillListingAttachment` | guY | chunks.147.mjs:700-721 | `skill_listing` |
+| `getPlanModeAttachment` | DuY | chunks.147.mjs:136-168 | `plan_mode` |
+| `getPlanModeExitAttachment` | XuY | chunks.147.mjs:170-181 | `plan_mode_exit` |
+| `getAutoModeAttachment` | ZuY | chunks.147.mjs:214-227 | `auto_mode` |
+| `getAutoModeExitAttachment` | GuY | chunks.147.mjs:229-235 | `auto_mode_exit` |
+| `getDateChangeAttachment` | fuY | chunks.147.mjs:237-246 | `date_change` |
+| `getUltrathinkEffortAttachment` | TuY | chunks.147.mjs:248-254 | `ultrathink_effort` |
+| `getDeferredToolsDeltaAttachment` | xE1 | chunks.147.mjs:256-267 | `deferred_tools_delta` |
+| `getMcpInstructionsDeltaAttachment` | uE1 | chunks.147.mjs:269-282 | `mcp_instructions_delta` |
+| `getCriticalSystemReminder` | vuY | chunks.147.mjs:284-291 | `critical_system_reminder` |
+| `getTodoReminderAttachment` | ruY | chunks.147.mjs:972-990 | `todo_reminder` |
+| `getQueuedCommandsAttachment` | OuY | chunks.147.mjs:48-68 | `queued_command` |
+
+### Producer Functions - Main-Agent-Only (Group 3)
+
+| Function | Obfuscated | Location | Produces |
+|----------|------------|----------|----------|
+| `getIdeSelectionAttachment` | kuY | chunks.147.mjs:306-320 | `selected_lines_in_ide` |
+| `getIdeOpenedFileAttachment` | LuY | chunks.147.mjs:397-405 | `opened_file_in_ide` |
+| `getOutputStyleAttachment` | NuY | chunks.147.mjs:293-300 | `output_style` |
+| `getDiagnosticsAttachment` | cuY | chunks.147.mjs:789-798 | `diagnostics` |
+| `getLspDiagnosticsAttachment` | luY | chunks.147.mjs:800-820 | `diagnostics` |
 
 ### File Ranges
 
 | File | Lines | Content |
 |------|-------|---------|
-| chunks.173.mjs | 490-523 | XML wrapper functions |
-| chunks.173.mjs | 525-696 | Plan mode variants |
-| chunks.173.mjs | 698-1131 | Main normalization switch |
-| chunks.142.mjs | 1948-1965 | Orchestrator (phY) |
-| chunks.142.mjs | 1967-1991 | Telemetry wrapper (gw) |
-| chunks.142.mjs | 1993-2090 | Mode control producers |
-| chunks.142.mjs | 2114-2236 | IDE and file producers |
-| chunks.142.mjs | 2252-2395 | Memory and skill producers |
-| chunks.142.mjs | 2442-2492 | Helper and diagnostic producers |
-| chunks.142.mjs | 2503-2613 | File loading functions |
-| chunks.142.mjs | 2624-2756 | Todo and task producers |
-| chunks.142.mjs | 2758-2851 | Hook and status producers |
-| chunks.142.mjs | 2918-2930 | Constants definition |
+| chunks.174.mjs | 3-469 | Core normalization (normalizeAttachmentForAPI) |
+| chunks.173.mjs | 1378-1412 | User message construction (createUserMessage) |
+| chunks.173.mjs | 2490-2740 | XML wrappers, plan/auto mode reminders |
+| chunks.147.mjs | 3-18 | Orchestrator (_uY - assembleAllAttachments) |
+| chunks.147.mjs | 20-46 | Telemetry wrapper (Hz - timedAttachmentProducer) |
+| chunks.147.mjs | 48-291 | Mode control and status producers |
+| chunks.147.mjs | 306-550 | IDE, file, and memory producers |
+| chunks.147.mjs | 650-820 | Skill and diagnostic producers |
+| chunks.147.mjs | 822-990 | Attachment generator and todo producers |
 
 ---
 

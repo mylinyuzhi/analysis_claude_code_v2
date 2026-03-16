@@ -1,7 +1,7 @@
 # System Reminder Module - Overview
 
 > Module: System Reminders (Attachments-to-API normalization)
-> Source: `chunks.174.mjs:1-469` (normalizeAttachmentForAPI), `chunks.173.mjs:1378+` (createUserMessage), `chunks.142.mjs:1948-1965`
+> Source: `chunks.174.mjs:3-469` (normalizeAttachmentForAPI), `chunks.147.mjs:3-550` (producers), `chunks.173.mjs:1378+` (createUserMessage)
 > Version: Claude Code 2.1.76
 
 ---
@@ -47,43 +47,43 @@ The system reminder pipeline has three layers:
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                   LAYER 1: ATTACHMENT PRODUCTION                      │
-│                    (phY - assembleAttachments)                       │
-│                      chunks.142.mjs:1948-1965                        │
+│                    (_uY - assembleAllAttachments)                     │
+│                      chunks.147.mjs:3-18                              │
 └──────────────┬───────────────────────────────────────────────────────┘
                │
                ├─> Group 1: User-Dependent (Sequential)
-               │     ├─> at_mentioned_files (KIY)
-               │     ├─> mcp_resources (zIY)
-               │     └─> agent_mentions (YIY)
+               │     ├─> at_mentioned_files (RuY)
+               │     ├─> mcp_resources (SuY)
+               │     └─> agent_mentions (huY)
                │     [Await completion before Group 2/3]
                │
                ├─> Group 2: Always-Computed (Parallel with Group 3)
-               │     ├─> changed_files (wIY)
-               │     ├─> nested_memory (HIY)
-               │     ├─> plan_mode (ihY)
-               │     ├─> todo_reminders (fIY/NIY)
-               │     ├─> skill_listing (OIY)
-               │     ├─> team_context (LIY) [if team mode]
+               │     ├─> changed_files (CuY)
+               │     ├─> nested_memory (IuY)
+               │     ├─> plan_mode (DuY)
+               │     ├─> todo_reminders (ruY)
+               │     ├─> skill_listing (guY)
+               │     ├─> team_context (AmY) [if team mode]
                │     ├─> post_compact responses (v2.1.76)
                │     ├─> session_name (v2.1.76)
                │     └─> ... (14+ producers total)
                │
                └─> Group 3: Main-Agent-Only (Parallel with Group 2)
-                     ├─> ide_selection (ehY)
-                     ├─> diagnostics (PIY/WIY)
-                     ├─> token_usage (RIY)
-                     ├─> queued_commands (dhY)
+                     ├─> ide_selection (kuY)
+                     ├─> diagnostics (cuY/luY)
+                     ├─> token_usage (qmY)
+                     ├─> queued_commands (OuY)
                      ├─> cron_job reminders (v2.1.76)
                      └─> ... (11 producers total)
                      [Skipped if subagent]
                │
-               ↓ (Each producer wrapped in gw - timedAttachmentProducer)
+               ↓ (Each producer wrapped in Hz - timedAttachmentProducer)
                ↓ (Returns array of typed attachment objects)
                │
 ┌──────────────┴───────────────────────────────────────────────────────┐
 │                   LAYER 2: ATTACHMENT NORMALIZATION                   │
 │                  (Ui8 - normalizeAttachmentForAPI)                    │
-│                     chunks.174.mjs:1-469                             │
+│                     chunks.174.mjs:3-469                             │
 │                                                                       │
 │   • 57+ case switch statement                                        │
 │   • Converts typed attachment → formatted message(s)                 │
@@ -95,8 +95,8 @@ The system reminder pipeline has three layers:
                │
 ┌──────────────┴───────────────────────────────────────────────────────┐
 │                    LAYER 3: MESSAGE STREAM INJECTION                  │
-│                   (bG1 - buildContextMessages)                       │
-│                      chunks.148.mjs:2414-2428                        │
+│                   (Vf6 - attachmentGenerator)                         │
+│                      chunks.147.mjs:822-829                          │
 │                                                                       │
 │   • Inserts normalized attachments into message array                │
 │   • Positions before user message in API call                        │
@@ -119,15 +119,15 @@ The system reminder pipeline has three layers:
 Raw State/Events → Attachment Objects → Normalized Messages → API Messages → LLM Context
 ```
 
-### Layer 1: Attachment Producers (chunks.142.mjs)
+### Layer 1: Attachment Producers (chunks.147.mjs)
 
-The `phY` function (`assembleAttachments`) orchestrates **parallel computation** of all attachment types. It groups producers into three categories:
+The `_uY` function (`assembleAllAttachments`) orchestrates **parallel computation** of all attachment types. It groups producers into three categories:
 
-1. **User-message-dependent** (`_` array): `at_mentioned_files`, `mcp_resources`, `agent_mentions` -- only computed when a user message (`A`) is present
-2. **Always-computed** (`X` array): `changed_files`, `nested_memory`, `dynamic_skill`, `skill_listing`, `plan_mode`, `plan_mode_exit`, `delegate_mode`, `todo_reminders`, `teammate_mailbox`, `team_context`, `critical_system_reminder`, `session_name` (v2.1.76), `post_compact` (v2.1.76)
-3. **Main-agent-only** (`D` array): `ide_selection`, `ide_opened_file`, `output_style`, `diagnostics`, `lsp_diagnostics`, `unified_tasks`, `async_hook_responses`, `token_usage`, `budget_usd`, `verify_plan_reminder`, `queued_commands`, `cron_job` (v2.1.76) -- skipped for sub-agents (`O = !q.agentId`)
+1. **User-message-dependent** (`j` array): `at_mentioned_files`, `mcp_resources`, `agent_mentions` -- only computed when a user message (`A`) is present
+2. **Always-computed** (`M` array): `changed_files`, `nested_memory`, `dynamic_skill`, `skill_listing`, `plan_mode`, `plan_mode_exit`, `delegate_mode`, `todo_reminders`, `teammate_mailbox`, `team_context`, `critical_system_reminder`, `session_name` (v2.1.76), `post_compact` (v2.1.76)
+3. **Main-agent-only** (`D` array): `ide_selection`, `ide_opened_file`, `output_style`, `diagnostics`, `lsp_diagnostics`, `unified_tasks`, `async_hook_responses`, `token_usage`, `budget_usd`, `verify_plan_reminder`, `queued_commands`, `cron_job` (v2.1.76) -- skipped for sub-agents (`H = !q.agentId`)
 
-Each producer is wrapped in `gw()` (`timedAttachmentProducer`), which measures execution time and reports telemetry at a 5% sampling rate. If any producer throws, it logs the error and returns an empty array, preventing one failure from blocking all reminders.
+Each producer is wrapped in `Hz()` (`timedAttachmentProducer`), which measures execution time and reports telemetry at a 5% sampling rate. If any producer throws, it logs the error and returns an empty array, preventing one failure from blocking all reminders.
 
 ### Layer 2: Normalizer - Ui8 (chunks.174.mjs:1-469)
 

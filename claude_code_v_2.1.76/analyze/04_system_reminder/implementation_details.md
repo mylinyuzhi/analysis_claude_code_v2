@@ -3,10 +3,10 @@
 > **Module**: System Reminders - Core Implementation
 > **Version**: Claude Code 2.1.76
 > **Source**:
-> - `chunks.174.mjs:1-469` (normalizeAttachmentForAPI)
-> - `chunks.173.mjs:1378-1412` (createUserMessage)
-> - `chunks.173.mjs:2490-2740` (XML wrappers, plan/auto mode reminders)
-> - `chunks.147.mjs:1-1262` (attachment producers)
+> - `chunks.174.mjs:3-469` (normalizeAttachmentForAPI - normalization layer)
+> - `chunks.147.mjs:3-550` (assembleAllAttachments, producer functions - production layer)
+> - `chunks.173.mjs:1378-1412` (createUserMessage - message factory)
+> - `chunks.173.mjs:2490-2740` (XML wrappers, plan/auto mode reminders - formatting layer)
 
 ---
 
@@ -27,9 +27,9 @@
 
 The system reminder implementation consists of three main layers:
 
-1. **Production Layer** (`chunks.142.mjs`) - Attachment producer functions that gather data
+1. **Production Layer** (`chunks.147.mjs`) - Attachment producer functions that gather data
 2. **Normalization Layer** (`chunks.174.mjs`) - Converts attachments to API messages
-3. **Injection Layer** (`chunks.148.mjs`) - Inserts messages into conversation stream
+3. **Injection Layer** - Inserts messages into conversation stream
 
 This document focuses on the **normalization layer** implementation details, specifically the core functions that convert typed attachment objects into formatted messages.
 
@@ -410,6 +410,437 @@ function normalizeAttachmentForAPI(attachment) {
 
 ---
 
+### assembleAllAttachments (_uY) - Attachment Orchestrator
+
+**What it does:** Main entry point that coordinates all attachment producers and returns a flat array of attachments.
+
+**How it works:**
+```javascript
+// ============================================
+// assembleAllAttachments - Orchestrates all attachment producers
+// Location: chunks.147.mjs:3-18
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function _uY(A, q, K, Y, z, _) {
+    if (t6(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) || t6(process.env.CLAUDE_CODE_SIMPLE)) return [];
+    let w = sK(),
+        O = setTimeout((W) => W.abort(), 1000, w),
+        $ = {...q, abortController: w},
+        H = !q.agentId,
+        j = A ? [Hz("at_mentioned_files", () => RuY(A, $)), Hz("mcp_resources", () => SuY(A, $)), Hz("agent_mentions", () => Promise.resolve(huY(A, q.options.agentDefinitions.activeAgents))), ...[]] : [],
+        J = await Promise.all(j),
+        M = [Hz("date_change", () => Promise.resolve(fuY())), Hz("ultrathink_effort", () => Promise.resolve(TuY(A))), Hz("deferred_tools_delta", () => Promise.resolve(xE1(q.options.tools, q.options.mainLoopModel, z))), Hz("mcp_instructions_delta", () => Promise.resolve(uE1(q.options.mcpClients, q.options.tools, q.options.mainLoopModel, z))), Hz("changed_files", () => CuY($)), Hz("nested_memory", () => IuY($)), Hz("dynamic_skill", () => BuY($)), Hz("skill_listing", () => guY($)), Hz("ultra_claude_md", async () => VuY(z)), Hz("plan_mode", () => DuY(z, q)), Hz("plan_mode_exit", () => XuY(q)), Hz("auto_mode", () => ZuY(z, q)), Hz("auto_mode_exit", () => GuY(q)), Hz("todo_reminders", () => r$() ? auY(z, q) : ruY(z, q)), ...E7() ? [..._ === "session_memory" ? [] : [Hz("teammate_mailbox", async () => euY(q))], Hz("team_context", async () => AmY(z ?? []))] : [], Hz("agent_pending_messages", async () => $uY(q)), Hz("critical_system_reminder", () => Promise.resolve(vuY(q)))],
+        D = H ? [Hz("ide_selection", async () => kuY(K, q)), Hz("ide_opened_file", async () => LuY(K, q)), Hz("output_style", async () => Promise.resolve(NuY())), Hz("diagnostics", async () => cuY(q)), Hz("lsp_diagnostics", async () => luY(q)), Hz("unified_tasks", async () => suY(q)), Hz("async_hook_responses", async () => tuY()), Hz("token_usage", async () => Promise.resolve(qmY(z ?? [], q.options.mainLoopModel))), Hz("budget_usd", async () => Promise.resolve(YmY(q.options.maxBudgetUsd))), Hz("output_token_usage", async () => Promise.resolve(KmY())), Hz("verify_plan_reminder", async () => _mY(z, q)), Hz("queued_commands", () => OuY(Y))] : [],
+        [X, P] = await Promise.all([Promise.all(M), Promise.all(D)]);
+    return clearTimeout(O), [...J.flat(), ...X.flat(), ...P.flat()].filter((W) => W !== void 0 && W !== null)
+}
+
+// READABLE (for understanding):
+async function assembleAllAttachments(atMentions, sessionContext, ideContext, queuedCommands, messages, sessionMemoryType) {
+    // Early exit if attachments are disabled
+    if (parseBoolean(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) || parseBoolean(process.env.CLAUDE_CODE_SIMPLE)) {
+        return [];
+    }
+
+    // Set up abort controller with 1s timeout
+    const abortController = createAbortController();
+    const timeoutId = setTimeout((ctrl) => ctrl.abort(), 1000, abortController);
+    const contextWithAbort = { ...sessionContext, abortController };
+
+    // Determine if this is the main agent (not a subagent)
+    const isMainAgent = !sessionContext.agentId;
+
+    // Group 1: User-Dependent Producers (only if @-mentions exist)
+    const userDependentProducers = atMentions ? [
+        timedAttachmentProducer("at_mentioned_files", () => extractAtMentionedFiles(atMentions, contextWithAbort)),
+        timedAttachmentProducer("mcp_resources", () => extractMcpResources(atMentions, contextWithAbort)),
+        timedAttachmentProducer("agent_mentions", () => Promise.resolve(extractAgentMentions(atMentions, sessionContext.options.agentDefinitions.activeAgents)))
+    ] : [];
+    const userDependentResults = await Promise.all(userDependentProducers);
+
+    // Group 2: Always-Computed Producers
+    const alwaysComputedProducers = [
+        timedAttachmentProducer("date_change", () => Promise.resolve(getDateChangeAttachment())),
+        timedAttachmentProducer("ultrathink_effort", () => Promise.resolve(getUltrathinkEffortAttachment(atMentions))),
+        timedAttachmentProducer("deferred_tools_delta", () => Promise.resolve(getDeferredToolsDeltaAttachment(sessionContext.options.tools, sessionContext.options.mainLoopModel, messages))),
+        timedAttachmentProducer("mcp_instructions_delta", () => Promise.resolve(getMcpInstructionsDeltaAttachment(sessionContext.options.mcpClients, sessionContext.options.tools, sessionContext.options.mainLoopModel, messages))),
+        timedAttachmentProducer("changed_files", () => getChangedFilesAttachment(contextWithAbort)),
+        timedAttachmentProducer("nested_memory", () => getNestedMemoryAttachments(contextWithAbort)),
+        timedAttachmentProducer("dynamic_skill", () => getDynamicSkillAttachments(contextWithAbort)),
+        timedAttachmentProducer("skill_listing", () => getSkillListingAttachment(contextWithAbort)),
+        timedAttachmentProducer("ultra_claude_md", async () => getUltraClaudeMdAttachment(messages)),
+        timedAttachmentProducer("plan_mode", () => getPlanModeAttachment(messages, sessionContext)),
+        timedAttachmentProducer("plan_mode_exit", () => getPlanModeExitAttachment(sessionContext)),
+        timedAttachmentProducer("auto_mode", () => getAutoModeAttachment(messages, sessionContext)),
+        timedAttachmentProducer("auto_mode_exit", () => getAutoModeExitAttachment(sessionContext)),
+        timedAttachmentProducer("todo_reminders", () => isTasksEnabled() ? getTaskReminders(messages, sessionContext) : getTodoReminders(messages, sessionContext)),
+        // Team mode producers (only when in team mode)
+        ...(isTeamMode() ? [
+            ...(sessionMemoryType === "session_memory" ? [] : [timedAttachmentProducer("teammate_mailbox", async () => getTeammateMailboxAttachment(sessionContext))]),
+            timedAttachmentProducer("team_context", async () => getTeamContextAttachment(messages ?? []))
+        ] : []),
+        timedAttachmentProducer("agent_pending_messages", async () => getAgentPendingMessages(sessionContext)),
+        timedAttachmentProducer("critical_system_reminder", () => Promise.resolve(getCriticalSystemReminder(sessionContext)))
+    ];
+
+    // Group 3: Main-Agent-Only Producers
+    const mainAgentOnlyProducers = isMainAgent ? [
+        timedAttachmentProducer("ide_selection", async () => getIdeSelectionAttachment(ideContext, sessionContext)),
+        timedAttachmentProducer("ide_opened_file", async () => getIdeOpenedFileAttachment(ideContext, sessionContext)),
+        timedAttachmentProducer("output_style", async () => Promise.resolve(getOutputStyleAttachment())),
+        timedAttachmentProducer("diagnostics", async () => getDiagnosticsAttachment(sessionContext)),
+        timedAttachmentProducer("lsp_diagnostics", async () => getLspDiagnosticsAttachment(sessionContext)),
+        timedAttachmentProducer("unified_tasks", async () => getUnifiedTasksAttachment(sessionContext)),
+        timedAttachmentProducer("async_hook_responses", async () => getAsyncHookResponsesAttachment()),
+        timedAttachmentProducer("token_usage", async () => Promise.resolve(getTokenUsageAttachment(messages ?? [], sessionContext.options.mainLoopModel))),
+        timedAttachmentProducer("budget_usd", async () => Promise.resolve(getBudgetUsdAttachment(sessionContext.options.maxBudgetUsd))),
+        timedAttachmentProducer("output_token_usage", async () => Promise.resolve(getOutputTokenUsageAttachment())),
+        timedAttachmentProducer("verify_plan_reminder", async () => getVerifyPlanReminderAttachment(messages, sessionContext)),
+        timedAttachmentProducer("queued_commands", () => getQueuedCommandsAttachment(queuedCommands))
+    ] : [];
+
+    // Execute all producers in parallel
+    const [alwaysResults, mainAgentResults] = await Promise.all([
+        Promise.all(alwaysComputedProducers),
+        Promise.all(mainAgentOnlyProducers)
+    ]);
+
+    // Clear timeout and combine results
+    clearTimeout(timeoutId);
+    return [...userDependentResults.flat(), ...alwaysResults.flat(), ...mainAgentResults.flat()]
+        .filter((result) => result !== undefined && result !== null);
+}
+
+// Mapping: _uY→assembleAllAttachments, A→atMentions, q→sessionContext, K→ideContext, Y→queuedCommands, z→messages, _→sessionMemoryType
+//          t6→parseBoolean, sK→createAbortController, Hz→timedAttachmentProducer, H→isMainAgent, j→userDependentProducers
+//          RuY→extractAtMentionedFiles, SuY→extractMcpResources, huY→extractAgentMentions, fuY→getDateChangeAttachment
+//          TuY→getUltrathinkEffortAttachment, xE1→getDeferredToolsDeltaAttachment, uE1→getMcpInstructionsDeltaAttachment
+//          CuY→getChangedFilesAttachment, IuY→getNestedMemoryAttachments, BuY→getDynamicSkillAttachments, guY→getSkillListingAttachment
+//          VuY→getUltraClaudeMdAttachment, DuY→getPlanModeAttachment, XuY→getPlanModeExitAttachment, ZuY→getAutoModeAttachment
+//          GuY→getAutoModeExitAttachment, r$→isTasksEnabled, auY→getTaskReminders, ruY→getTodoReminders, E7→isTeamMode
+//          euY→getTeammateMailboxAttachment, AmY→getTeamContextAttachment, $uY→getAgentPendingMessages, vuY→getCriticalSystemReminder
+//          kuY→getIdeSelectionAttachment, LuY→getIdeOpenedFileAttachment, NuY→getOutputStyleAttachment, cuY→getDiagnosticsAttachment
+//          luY→getLspDiagnosticsAttachment, suY→getUnifiedTasksAttachment, tuY→getAsyncHookResponsesAttachment
+//          qmY→getTokenUsageAttachment, YmY→getBudgetUsdAttachment, KmY→getOutputTokenUsageAttachment, _mY→getVerifyPlanReminderAttachment
+//          OuY→getQueuedCommandsAttachment
+```
+
+**Why this architecture:**
+
+1. **Three-Group Organization**:
+   - Group 1 (User-Dependent): Only runs when @-mentions exist in user message
+   - Group 2 (Always-Computed): Runs every turn, essential context
+   - Group 3 (Main-Agent-Only): Only for the main agent, not subagents
+
+2. **Parallel Execution**: All producers within each group run in parallel via `Promise.all()` for maximum efficiency.
+
+3. **Abort Controller**: 1-second timeout ensures attachments don't block the conversation. Producers should check `abortController.signal` for cancellation.
+
+4. **Filtering**: Results are filtered to remove `undefined` and `null` values, allowing producers to conditionally return nothing.
+
+**Key insight:** The separation into three groups allows for conditional execution based on context (user mentions, main agent status) while maintaining parallel execution within each group.
+
+---
+
+### timedAttachmentProducer (Hz) - Telemetry Wrapper
+
+**What it does:** Wraps attachment producers with timing and error handling telemetry.
+
+**How it works:**
+```javascript
+// ============================================
+// timedAttachmentProducer - Wraps producers with telemetry and error handling
+// Location: chunks.147.mjs:20-46
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Hz(A, q) {
+    let K = Date.now();
+    try {
+        let Y = await q(),
+            z = Date.now() - K;
+        if (Math.random() < 0.05) {
+            let _ = Y.filter((w) => w !== void 0 && w !== null).reduce((w, O) => {
+                return w + B6(O).length
+            }, 0);
+            d("tengu_attachment_compute_duration", {
+                label: A,
+                duration_ms: z,
+                attachment_size_bytes: _,
+                attachment_count: Y.length
+            })
+        }
+        return Y
+    } catch (Y) {
+        let z = Date.now() - K;
+        if (Math.random() < 0.05) d("tengu_attachment_compute_duration", {
+            label: A,
+            duration_ms: z,
+            error: !0
+        });
+        return _6(Y), jV(`Attachment error in ${A}`, Y), []
+    }
+}
+
+// READABLE (for understanding):
+async function timedAttachmentProducer(label, producerFn) {
+    const startTime = Date.now();
+
+    try {
+        const result = await producerFn();
+        const duration = Date.now() - startTime;
+
+        // 5% sampling rate for telemetry
+        if (Math.random() < 0.05) {
+            const totalSize = result
+                .filter((item) => item !== undefined && item !== null)
+                .reduce((sum, item) => sum + JSON.stringify(item).length, 0);
+
+            telemetry.emit("tengu_attachment_compute_duration", {
+                label: label,
+                duration_ms: duration,
+                attachment_size_bytes: totalSize,
+                attachment_count: result.length
+            });
+        }
+
+        return result;
+    } catch (error) {
+        const duration = Date.now() - startTime;
+
+        // Log error with 5% sampling
+        if (Math.random() < 0.05) {
+            telemetry.emit("tengu_attachment_compute_duration", {
+                label: label,
+                duration_ms: duration,
+                error: true
+            });
+        }
+
+        // Log error and return empty array (graceful degradation)
+        console.error(error);
+        logWarning(`Attachment error in ${label}`, error);
+        return [];
+    }
+}
+
+// Mapping: Hz→timedAttachmentProducer, A→label, q→producerFn, K→startTime, Y→result, z→duration
+//          d→telemetry.emit, B6→JSON.stringify, _6→console.error, jV→logWarning
+```
+
+**Why this approach:**
+
+1. **5% Sampling Rate**: Reduces telemetry volume while still capturing representative performance data.
+
+2. **Graceful Degradation**: Returns empty array on error, preventing one failing producer from breaking the entire attachment pipeline.
+
+3. **Timing Data**: Captures execution duration for performance monitoring.
+
+**Key insight:** The telemetry sampling (5%) balances observability with performance overhead. This pattern ensures that even if an attachment producer crashes, the conversation continues unaffected.
+
+---
+
+### createUserMessage (p1) - Message Factory
+
+**What it does:** Creates user message objects with consistent structure and optional metadata flags.
+
+**How it works:**
+```javascript
+// ============================================
+// createUserMessage - Factory for user message objects
+// Location: chunks.173.mjs:1378-1412
+// ============================================
+
+// ORIGINAL (for source lookup):
+function p1({
+    content: A,
+    isMeta: q,
+    isVisibleInTranscriptOnly: K,
+    isCompactSummary: Y,
+    summarizeMetadata: z,
+    toolUseResult: _,
+    mcpMeta: w,
+    uuid: O,
+    timestamp: $,
+    imagePasteIds: H,
+    sourceToolAssistantUUID: j,
+    permissionMode: J,
+    origin: M
+}) {
+    return {
+        type: "user",
+        message: {
+            role: "user",
+            content: A || wE
+        },
+        isMeta: q,
+        isVisibleInTranscriptOnly: K,
+        isCompactSummary: Y,
+        summarizeMetadata: z,
+        uuid: O || SE(),
+        timestamp: $ ?? new Date().toISOString(),
+        toolUseResult: _,
+        mcpMeta: w,
+        imagePasteIds: H,
+        sourceToolAssistantUUID: j,
+        permissionMode: J,
+        origin: M
+    }
+}
+
+// READABLE (for understanding):
+function createUserMessage({
+    content,
+    isMeta,
+    isVisibleInTranscriptOnly,
+    isCompactSummary,
+    summarizeMetadata,
+    toolUseResult,
+    mcpMeta,
+    uuid,
+    timestamp,
+    imagePasteIds,
+    sourceToolAssistantUUID,
+    permissionMode,
+    origin
+}) {
+    return {
+        type: "user",
+        message: {
+            role: "user",
+            content: content || EMPTY_CONTENT
+        },
+        isMeta,                    // If true, hidden from UI but visible to LLM
+        isVisibleInTranscriptOnly, // Only visible in transcript, not in chat
+        isCompactSummary,          // This message is a compaction summary
+        summarizeMetadata,         // Metadata about the summarization
+        uuid: uuid || generateUUID(),
+        timestamp: timestamp ?? new Date().toISOString(),
+        toolUseResult,             // Reference to tool result if this is one
+        mcpMeta,                   // MCP-specific metadata
+        imagePasteIds,             // IDs of pasted images
+        sourceToolAssistantUUID,   // Tool use this references
+        permissionMode,            // Permission mode context
+        origin                     // Where this message came from
+    };
+}
+
+// Mapping: p1→createUserMessage, A→content, q→isMeta, K→isVisibleInTranscriptOnly, Y→isCompactSummary
+//          z→summarizeMetadata, _→toolUseResult, w→mcpMeta, O→uuid, $→timestamp, H→imagePasteIds
+//          j→sourceToolAssistantUUID, J→permissionMode, M→origin, wE→EMPTY_CONTENT, SE→generateUUID
+```
+
+**Key flags explained:**
+
+| Flag | Purpose |
+|------|---------|
+| `isMeta: true` | Hidden from user UI, visible to LLM (system reminders use this) |
+| `isVisibleInTranscriptOnly` | Only in transcript export, not chat display |
+| `isCompactSummary` | Marks compaction summary messages |
+| `origin` | Source tracking (e.g., `{ kind: "task-notification" }`) |
+
+**Key insight:** The `isMeta: true` flag is critical for system reminders. It allows the LLM to see the context while keeping it hidden from the user-facing transcript, preventing visual clutter.
+
+---
+
+### createToolCallMessage (nr6) - Synthetic Tool Call Display
+
+**What it does:** Creates a message showing what tool was called with what parameters (for synthetic tool calls).
+
+**How it works:**
+```javascript
+// ============================================
+// createToolCallMessage - Creates synthetic tool call display message
+// Location: chunks.174.mjs:490-495
+// ============================================
+
+// ORIGINAL (for source lookup):
+function nr6(A, q) {
+    return p1({
+        content: `Called the ${A} tool with the following input: ${B6(q)}`,
+        isMeta: !0
+    })
+}
+
+// READABLE (for understanding):
+function createToolCallMessage(toolName, params) {
+    return createUserMessage({
+        content: `Called the ${toolName} tool with the following input: ${JSON.stringify(params)}`,
+        isMeta: true
+    });
+}
+
+// Mapping: nr6→createToolCallMessage, A→toolName, q→params, p1→createUserMessage, B6→JSON.stringify
+```
+
+**Usage:** Used in `directory` and `file` attachments to show synthetic Bash/Read tool calls.
+
+---
+
+### createToolResultMessage (ir6) - Synthetic Tool Result Display
+
+**What it does:** Creates a message showing the result of a synthetic tool call.
+
+**How it works:**
+```javascript
+// ============================================
+// createToolResultMessage - Creates synthetic tool result display message
+// Location: chunks.174.mjs:471-488
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ir6(A, q) {
+    try {
+        let K = A.mapToolResultToToolResultBlockParam(q, "1");
+        if (Array.isArray(K.content) && K.content.some((Y) => Y.type === "image")) return p1({
+            content: K.content,
+            isMeta: !0
+        });
+        return p1({
+            content: `Result of calling the ${A.name} tool: ${B6(K.content)}`,
+            isMeta: !0
+        })
+    } catch {
+        return p1({
+            content: `Result of calling the ${A.name} tool: Error`,
+            isMeta: !0
+        })
+    }
+}
+
+// READABLE (for understanding):
+function createToolResultMessage(tool, result) {
+    try {
+        const blockParam = tool.mapToolResultToToolResultBlockParam(result, "1");
+
+        // Handle image content specially (don't stringify binary data)
+        if (Array.isArray(blockParam.content) && blockParam.content.some((block) => block.type === "image")) {
+            return createUserMessage({
+                content: blockParam.content,  // Keep as array for multi-modal
+                isMeta: true
+            });
+        }
+
+        return createUserMessage({
+            content: `Result of calling the ${tool.name} tool: ${JSON.stringify(blockParam.content)}`,
+            isMeta: true
+        });
+    } catch {
+        return createUserMessage({
+            content: `Result of calling the ${tool.name} tool: Error`,
+            isMeta: true
+        });
+    }
+}
+
+// Mapping: ir6→createToolResultMessage, A→tool, q→result, K→blockParam, Y→block, p1→createUserMessage, B6→JSON.stringify
+```
+
+**Key insight:** The try-catch ensures that even if tool result formatting fails, a fallback message is produced. Image content is handled specially to avoid corrupting binary data with JSON stringification.
+
+---
+
 ## Plan Mode Reminder Variants
 
 Plan mode has the most sophisticated reminder system with multiple variants (full, iterative, sparse, subagent).
@@ -638,16 +1069,27 @@ You are a teammate in team "${attachment.teamName}".
 ## Related Symbols
 
 > Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 > - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infrastructure
 
 Key implementation functions in this document:
 
-- `wrapInXmlTag` (af) - XML tag wrapper for strings, `chunks.173.mjs:2490-2494`
-- `wrapWithSystemReminderTags` (b5) - Message array wrapper, `chunks.173.mjs:2496-2523`
-- `normalizeAttachmentForAPI` (Ui8) - Main dispatcher, `chunks.174.mjs:1-469`
-- `createUserMessage` (p1) - User message factory, `chunks.173.mjs:1378+`
+### Core Functions (Production → Normalization)
+- `assembleAllAttachments` (_uY) - Main orchestrator, `chunks.147.mjs:3-18`
+- `timedAttachmentProducer` (Hz) - Telemetry wrapper, `chunks.147.mjs:20-46`
+- `normalizeAttachmentForAPI` (Ui8) - Main dispatcher, `chunks.174.mjs:3-469`
+
+### Message Construction
+- `createUserMessage` (p1) - User message factory, `chunks.173.mjs:1378-1412`
 - `createToolCallMessage` (nr6) - Tool call display, `chunks.174.mjs:490-495`
 - `createToolResultMessage` (ir6) - Tool result display, `chunks.174.mjs:471-488`
+
+### XML Wrappers
+- `wrapInXmlTag` (af) - XML tag wrapper for strings, `chunks.173.mjs:2490-2494`
+- `wrapWithSystemReminderTags` (b5) - Message array wrapper, `chunks.173.mjs:2496-2523`
+
+### Plan/Auto Mode Dispatchers
 - `planModeReminderDispatcher` (Wzz) - Variant router, `chunks.173.mjs:2525-2530`
 - `fullPlanReminder` (Nzz) - Full instructions, `chunks.173.mjs:2556-2690`
 - `sparsePlanReminder` (Ezz) - Abbreviated reminder, `chunks.173.mjs:2692-2699`
@@ -656,6 +1098,37 @@ Key implementation functions in this document:
 - `autoModeReminder` (Lzz) - Auto mode dispatcher, `chunks.173.mjs:2714-2717`
 - `fullAutoModeReminder` (Rzz) - Full auto mode instructions, `chunks.173.mjs:2719-2732`
 - `sparseAutoModeReminder` (hzz) - Sparse auto mode reminder, `chunks.173.mjs:2734-2739`
+
+### Producer Functions - User-Dependent (Group 1)
+- `extractAtMentionedFiles` (RuY) - @-mentioned files/directories, `chunks.147.mjs:407-448`
+- `extractMcpResources` (SuY) - @-mentioned MCP resources, `chunks.147.mjs:464-495`
+- `extractAgentMentions` (huY) - @-mentioned agents, `chunks.147.mjs:450-462`
+
+### Producer Functions - Always-Computed (Group 2)
+- `getChangedFilesAttachment` (CuY) - Modified files, `chunks.147.mjs:497-539`
+- `getNestedMemoryAttachments` (IuY) - CLAUDE.md files, `chunks.147.mjs:541-550`
+- `getDynamicSkillAttachments` (BuY) - Skill discovery, `chunks.147.mjs:650+`
+- `getSkillListingAttachment` (guY) - Available skills, `chunks.147.mjs:700+`
+- `getPlanModeAttachment` (DuY) - Plan mode, `chunks.147.mjs:136-168`
+- `getPlanModeExitAttachment` (XuY) - Plan mode exit, `chunks.147.mjs:170-181`
+- `getAutoModeAttachment` (ZuY) - Auto mode, `chunks.147.mjs:214-227`
+- `getAutoModeExitAttachment` (GuY) - Auto mode exit, `chunks.147.mjs:229-235`
+- `getDateChangeAttachment` (fuY) - Date change, `chunks.147.mjs:237-246`
+- `getUltrathinkEffortAttachment` (TuY) - Reasoning effort, `chunks.147.mjs:248-254`
+- `getDeferredToolsDeltaAttachment` (xE1) - Deferred tools, `chunks.147.mjs:256-267`
+- `getMcpInstructionsDeltaAttachment` (uE1) - MCP instructions, `chunks.147.mjs:269-282`
+- `getCriticalSystemReminder` (vuY) - Critical reminder, `chunks.147.mjs:284-291`
+- `getTodoReminders` (ruY) - Todo reminders, `chunks.147.mjs:972+`
+- `getQueuedCommandsAttachment` (OuY) - Queued commands, `chunks.147.mjs:48-68`
+
+### Producer Functions - Main-Agent-Only (Group 3)
+- `getIdeSelectionAttachment` (kuY) - IDE selection, `chunks.147.mjs:306-320`
+- `getIdeOpenedFileAttachment` (LuY) - IDE opened file, `chunks.147.mjs:397-405`
+- `getOutputStyleAttachment` (NuY) - Output style, `chunks.147.mjs:293-300`
+- `getDiagnosticsAttachment` (cuY) - LSP diagnostics, `chunks.147.mjs:789+`
+- `getLspDiagnosticsAttachment` (luY) - LSP diagnostics, `chunks.147.mjs:800+`
+
+### Helper Functions
 - `SYSTEM_REMINDER_REGEX` (EL9) - XML parsing pattern, `chunks.90.mjs:730`
 - `countTokensSinceUltramemory` (jIY) - Token cooldown tracking, `chunks.142.mjs:2442-2454`
 - `shouldSendUltramemoryAttachment` (MIY) - Cooldown check, `chunks.142.mjs:2456-2461`
@@ -668,10 +1141,11 @@ Key implementation functions in this document:
 
 ## Source Locations
 
-- `chunks.174.mjs:1-469` - Core normalization functions (normalizeAttachmentForAPI)
+- `chunks.174.mjs:3-469` - Core normalization functions (normalizeAttachmentForAPI)
+- `chunks.147.mjs:3-18` - Attachment orchestrator (assembleAllAttachments)
+- `chunks.147.mjs:20-550` - Attachment producer functions
 - `chunks.173.mjs:1378-1412` - User message construction (createUserMessage)
 - `chunks.173.mjs:2490-2740` - XML wrappers, plan/auto mode reminders
-- `chunks.147.mjs:1-1262` - Attachment producer functions (assembleAllAttachments, get*Attachment functions)
 - `chunks.90.mjs:730` - Regex patterns
 
 ---

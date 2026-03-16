@@ -456,49 +456,78 @@
 ## Module: Attachments & Reminders
 
 > Full analysis: [03_llm_core/reminder_integration.md](../03_llm_core/reminder_integration.md), [04_system_reminder/](../04_system_reminder/)
+>
+> **Source Files:**
+> - `chunks.174.mjs` - normalizeAttachmentForAPI (normalization layer)
+> - `chunks.147.mjs` - assembleAllAttachments, producer functions (production layer)
+> - `chunks.173.mjs` - XML wrappers, plan/auto mode reminders (formatting layer)
 
 ### Core Attachment Functions
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Ui8 | normalizeAttachmentForAPI | chunks.174.mjs:1-469 | function |
-| phY | assembleAttachments | chunks.142.mjs:1948 | function |
-| oP1 | attachmentGenerator | chunks.142.mjs:2494 | function (generator) |
-| gw | timedAttachmentProducer | chunks.142.mjs:1967 | function |
-| kq | createHookMessage | chunks.142.mjs:2615 | function |
-| dhY | buildQueuedCommandsAttachment | chunks.142.mjs:1993 | function |
-| chY | countAssistantTurns | chunks.142.mjs:2003 | function |
+| Ui8 | normalizeAttachmentForAPI | chunks.174.mjs:3-469 | function |
+| _uY | assembleAllAttachments | chunks.147.mjs:3-18 | function |
+| Vf6 | attachmentGenerator | chunks.147.mjs:822-829 | function (generator) |
+| Hz | timedAttachmentProducer | chunks.147.mjs:20-46 | function |
+| f4 | createAttachmentWrapper | chunks.147.mjs:942-949 | function |
+| OuY | getQueuedCommandsAttachment | chunks.147.mjs:48-68 | function |
+| $uY | getAgentPendingMessagesAttachment | chunks.147.mjs:70-81 | function |
 
-### Attachment Producers
+### Attachment Producers - User-Dependent (Group 1)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| KIY | extractAtMentionedFiles | chunks.142.mjs | function |
-| zIY | extractMcpResources | chunks.142.mjs | function |
-| YIY | extractAgentMentions | chunks.142.mjs | function |
-| wIY | getChangedFilesAttachment | chunks.142.mjs:2285 | function |
-| HIY | getNestedMemoryAttachments | chunks.142.mjs | function |
-| $IY | getDynamicSkillAttachments | chunks.142.mjs | function |
-| OIY | getSkillListingAttachment | chunks.142.mjs | function |
-| thY | getUltraClaudeMdAttachment | chunks.142.mjs | function |
-| ihY | getPlanModeAttachment | chunks.142.mjs:2034 | function |
-| nhY | getPlanModeExitAttachment | chunks.142.mjs | function |
-| rhY | getDelegateModeAttachment | chunks.142.mjs | function |
-| ohY | getDelegateModeExitAttachment | chunks.142.mjs | function |
-| NIY | getTaskReminderAttachment | chunks.142.mjs | function |
-| fIY | getTodoReminderAttachment | chunks.142.mjs:2645 | function |
-| kIY | getTeammateMailboxAttachment | chunks.142.mjs | function |
-| LIY | getTeamContextAttachment | chunks.142.mjs | function |
-| ahY | getCriticalSystemReminder | chunks.142.mjs | function |
-| ehY | getIdeSelectionAttachment | chunks.142.mjs | function |
-| qIY | getIdeOpenedFileAttachment | chunks.142.mjs | function |
-| PIY | getDiagnosticsAttachment | chunks.142.mjs | function |
-| WIY | getLspDiagnosticsAttachment | chunks.142.mjs | function |
-| vIY | getUnifiedTasksAttachment | chunks.142.mjs:2719 | function |
-| EIY | getAsyncHookResponsesAttachment | chunks.142.mjs | function |
-| RIY | getTokenUsageAttachment | chunks.142.mjs:2815 | function |
-| yIY | getBudgetUsdAttachment | chunks.142.mjs | function |
-| SIY | getVerifyPlanReminderAttachment | chunks.142.mjs | function |
+| RuY | extractAtMentionedFiles | chunks.147.mjs:407-448 | function |
+| SuY | extractMcpResources | chunks.147.mjs:464-495 | function |
+| huY | extractAgentMentions | chunks.147.mjs:450-462 | function |
+
+### Attachment Producers - Always-Computed (Group 2)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| fuY | getDateChangeAttachment | chunks.147.mjs:237-246 | function |
+| TuY | getUltrathinkEffortAttachment | chunks.147.mjs:248-254 | function |
+| xE1 | getDeferredToolsDeltaAttachment | chunks.147.mjs:256-267 | function |
+| uE1 | getMcpInstructionsDeltaAttachment | chunks.147.mjs:269-282 | function |
+| CuY | getChangedFilesAttachment | chunks.147.mjs:497-539 | function |
+| IuY | getNestedMemoryAttachments | chunks.147.mjs:541-550 | function |
+| BuY | getDynamicSkillAttachments | chunks.147.mjs:650-690 | function |
+| guY | getSkillListingAttachment | chunks.147.mjs:700-721 | function |
+| VuY | getUltraClaudeMdAttachment | chunks.147.mjs:302-304 | function |
+| DuY | getPlanModeAttachment | chunks.147.mjs:136-168 | function |
+| XuY | getPlanModeExitAttachment | chunks.147.mjs:170-181 | function |
+| ZuY | getAutoModeAttachment | chunks.147.mjs:214-227 | function |
+| GuY | getAutoModeExitAttachment | chunks.147.mjs:229-235 | function |
+| ruY | getTodoReminderAttachment | chunks.147.mjs:972-990 | function |
+| euY | getTeammateMailboxAttachment | chunks.147.mjs | function |
+| AmY | getTeamContextAttachment | chunks.147.mjs | function |
+| vuY | getCriticalSystemReminder | chunks.147.mjs:284-291 | function |
+
+### Attachment Producers - Main-Agent-Only (Group 3)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| kuY | getIdeSelectionAttachment | chunks.147.mjs:306-320 | function |
+| LuY | getIdeOpenedFileAttachment | chunks.147.mjs:397-405 | function |
+| NuY | getOutputStyleAttachment | chunks.147.mjs:293-300 | function |
+| cuY | getDiagnosticsAttachment | chunks.147.mjs:789-798 | function |
+| luY | getLspDiagnosticsAttachment | chunks.147.mjs:800-820 | function |
+| suY | getUnifiedTasksAttachment | chunks.147.mjs | function |
+| tuY | getAsyncHookResponsesAttachment | chunks.147.mjs | function |
+| qmY | getTokenUsageAttachment | chunks.147.mjs | function |
+| YmY | getBudgetUsdAttachment | chunks.147.mjs | function |
+| KmY | getOutputTokenUsageAttachment | chunks.147.mjs | function |
+| _mY | getVerifyPlanReminderAttachment | chunks.147.mjs | function |
+
+### Mode Control Helpers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| JuY | countTurnsSincePlanMode | chunks.147.mjs:105-122 | function |
+| MuY | countPlanModeReminders | chunks.147.mjs:124-134 | function |
+| PuY | countTurnsSinceAutoMode | chunks.147.mjs:183-200 | function |
+| WuY | countAutoModeReminders | chunks.147.mjs:202-212 | function |
 | E7 | isTeamMode | chunks.50.mjs:2543 | function |
 
 ### Reminder Formatting
@@ -507,6 +536,7 @@
 |------------|----------|-----------|------|
 | b5 | wrapWithSystemReminderTags | chunks.173.mjs:2496-2523 | function |
 | af | wrapInXmlTag | chunks.173.mjs:2490-2494 | function |
+| p1 | createUserMessage | chunks.173.mjs:1378-1412 | function |
 | nr6 | createToolCallMessage | chunks.174.mjs:490-495 | function |
 | ir6 | createToolResultMessage | chunks.174.mjs:471-488 | function |
 | Wzz | planModeReminderDispatcher | chunks.173.mjs:2525-2530 | function |
