@@ -498,57 +498,141 @@ interface TeamMember {
 
 ### File-based Message Queue
 
-**What it does:** Provides persistent message storage for inter-agent communication.
+**What it does:** Provides persistent message storage for inter-agent communication with file locking for concurrent access safety.
 
 ```javascript
 // ============================================
 // Mailbox System - File-based message queue
-// Location: chunks.143.mjs
+// Location: chunks.132.mjs:3-55
 // ============================================
 
-// Key functions:
-// - readMailbox (Ld) - Read messages from mailbox
-// - writeToMailbox (f9) - Write message to mailbox
-// - markMessageAsReadByIndex (JQ1) - Mark message as read
-// - fileLockSync (_Q1) - File locking for concurrent access
+// ORIGINAL (for source lookup):
+async function wl(A, q) {
+    let K = FY6(A, q);
+    k(`[TeammateMailbox] readMailbox: path=${K}`);
+    try {
+        let Y = await xd4(K, "utf-8"),
+            z = i1(Y);
+        return k(`[TeammateMailbox] readMailbox: read ${z.length} message(s)`), z
+    } catch (Y) {
+        if (Y.code === "ENOENT") return k("[TeammateMailbox] readMailbox: file does not exist"), [];
+        return k(`Failed to read inbox for ${A}: ${Y}`), _6(Y), []
+    }
+}
+
+async function x3(A, q, K) {
+    await OTY(K);
+    let Y = FY6(A, K),
+        z = `${Y}.lock`;
+    k(`[TeammateMailbox] writeToMailbox: recipient=${A}, from=${q.from}, path=${Y}`);
+    try {
+        await Pf6(Y, "[]", { encoding: "utf-8", flag: "wx" }),
+        k("[TeammateMailbox] writeToMailbox: created new inbox file")
+    } catch (w) {
+        if (w.code !== "EEXIST") {
+            k(`[TeammateMailbox] writeToMailbox: failed to create inbox file: ${w}`), _6(w);
+            return
+        }
+    }
+    let _;
+    try {
+        _ = await Nc6.lock(Y, { lockfilePath: z, ...iv1 });
+        let w = await wl(A, K),
+            O = { ...q, read: !1 };
+        w.push(O), await Pf6(Y, B6(w, null, 2), "utf-8"),
+        k(`[TeammateMailbox] Wrote message to ${A}'s inbox from ${q.from}`)
+    } catch (w) {
+        k(`Failed to write to inbox for ${A}: ${w}`), _6(w)
+    } finally {
+        if (_) await _()
+    }
+}
 
 // READABLE (for understanding):
-async function writeToMailbox(recipientId, message) {
-    let mailboxPath = getMailboxPath(recipientId);
-
-    // Acquire file lock for concurrent access
-    let lock = await acquireFileLock(mailboxPath + ".lock");
+async function readMailbox(agentName, teamName) {
+    let mailboxPath = getMailboxPath(agentName, teamName);
+    log(`[TeammateMailbox] readMailbox: path=${mailboxPath}`);
 
     try {
-        // Read existing mailbox
-        let mailbox = await readMailbox(recipientId);
+        let content = await fs.readFile(mailboxPath, "utf-8");
+        let messages = JSON.parse(content);
+        log(`[TeammateMailbox] readMailbox: read ${messages.length} message(s)`);
+        return messages;
+    } catch (error) {
+        if (error.code === "ENOENT") {
+            // Mailbox doesn't exist yet - return empty
+            log("[TeammateMailbox] readMailbox: file does not exist");
+            return [];
+        }
+        log(`Failed to read inbox for ${agentName}: ${error}`);
+        reportError(error);
+        return [];
+    }
+}
 
-        // Append new message
-        mailbox.messages.push({
-            ...message,
-            read: false,
-            receivedAt: Date.now()
+async function writeToMailbox(recipientName, message, teamName) {
+    // Ensure team directory exists
+    await ensureTeamDirectory(teamName);
+
+    let mailboxPath = getMailboxPath(recipientName, teamName);
+    let lockPath = `${mailboxPath}.lock`;
+
+    log(`[TeammateMailbox] writeToMailbox: recipient=${recipientName}, from=${message.from}, path=${mailboxPath}`);
+
+    // Create mailbox file if it doesn't exist
+    try {
+        await fs.writeFile(mailboxPath, "[]", {
+            encoding: "utf-8",
+            flag: "wx"  // Write only if doesn't exist
+        });
+        log("[TeammateMailbox] writeToMailbox: created new inbox file");
+    } catch (error) {
+        if (error.code !== "EEXIST") {
+            log(`[TeammateMailbox] writeToMailbox: failed to create inbox file: ${error}`);
+            reportError(error);
+            return;
+        }
+    }
+
+    // Acquire lock and write message
+    let releaseLock;
+    try {
+        releaseLock = await fileLock.acquire(mailboxPath, {
+            lockfilePath: lockPath,
+            ...LOCK_OPTIONS
         });
 
-        // Write back
-        await fs.writeFile(mailboxPath, JSON.stringify(mailbox, null, 2));
+        let messages = await readMailbox(recipientName, teamName);
+        let newMessage = { ...message, read: false };
+        messages.push(newMessage);
+
+        await fs.writeFile(mailboxPath, JSON.stringify(messages, null, 2), "utf-8");
+        log(`[TeammateMailbox] Wrote message to ${recipientName}'s inbox from ${message.from}`);
+    } catch (error) {
+        log(`Failed to write to inbox for ${recipientName}: ${error}`);
+        reportError(error);
     } finally {
-        await releaseFileLock(lock);
+        if (releaseLock) await releaseLock();
     }
 }
 
-async function readMailbox(agentId) {
-    let mailboxPath = getMailboxPath(agentId);
+// Mapping: wl→readMailbox, x3→writeToMailbox, FY6→getMailboxPath,
+//          Nc6.lock→fileLock.acquire, Pf6→fs.writeFile, xd4→fs.readFile
+```
 
-    if (!await fs.exists(mailboxPath)) {
-        return { messages: [] };
-    }
+**Key insight:** Uses file locking (`Nc6.lock`) to prevent race conditions when multiple agents write to the same mailbox concurrently. The lock file pattern (`${mailboxPath}.lock`) ensures atomic operations.
 
-    let content = await fs.readFile(mailboxPath, 'utf-8');
-    return JSON.parse(content);
+### Mailbox Message Schema
+
+```javascript
+interface MailboxMessage {
+    from: string;       // Sender agent name
+    to: string;          // Recipient agent name or "all"
+    message: string;     // Message content
+    type: "text" | "task" | "status";
+    read: boolean;       // Whether message has been read
+    timestamp: number;   // Unix timestamp
 }
-
-// Mapping: f9→writeToMailbox, Ld→readMailbox, JQ1→markMessageAsReadByIndex
 ```
 
 ---

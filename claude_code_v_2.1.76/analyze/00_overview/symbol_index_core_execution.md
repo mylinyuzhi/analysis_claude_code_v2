@@ -242,13 +242,12 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | kq | createHookMessage | chunks.142.mjs:2615 | function |
-| ng | getDynamicToolSet | chunks.141.mjs | function |
-| ng | getAllTools | chunks.145.mjs:2781 | function (returns all built-in tools) |
+| ng | getDynamicToolSet | chunks.145.mjs:2781 | function (returns all built-in tools) |
 | dK | findTool | chunks.56.mjs:1592 | function (finds tool by name/alias) |
 | z3 | matchesToolNameOrAlias | chunks.56.mjs:1588 | function (helper for dK) |
 | Tv | findTool | chunks.74.mjs:1392 | function (older version) |
 | d39 | toolMatchesName | chunks.74.mjs:1388 | function |
-| U1q | createToolProgressMessage | chunks.172.mjs:2943 | function |
+| U1q | formatIncomingCallsResult | chunks.144.mjs:284 | function (LSP call hierarchy) |
 | YP6 | assembleSessionToolSet | chunks.141.mjs:1476 | function |
 | dK | findToolInSet | chunks.146.mjs | function |
 | p1 | createUserMessage | chunks.173.mjs:1378 | function |
@@ -315,8 +314,14 @@
 | EW6 | buildTaskSnapshot | chunks.139.mjs:1687 | function |
 | Ng1 | truncateTaskOutput | chunks.139.mjs:1664 | function |
 | nyY | pollUntilDone | chunks.139.mjs:1716 | function |
-| Vg1 | getKillHandlerForType | chunks.142.mjs:1652 | function |
-| IhY | getAllKillHandlers | chunks.142.mjs:1648 | function |
+| gk1 | getKillHandlerForType | chunks.143.mjs:1513 | function |
+| ICY | getAllKillHandlers | chunks.143.mjs:1509 | function |
+| Qk1 | stopTask | chunks.143.mjs:1580 | function |
+| Lf6 | LocalBashTask | chunks.133.mjs:2542 | kill handler |
+| Fk1 | LocalAgentTask | chunks.146.mjs:2292 | kill handler |
+| Fn4 | RemoteAgentTask | chunks.136.mjs:1175 | kill handler |
+| Gf | isBashTask | chunks.143.mjs | function |
+| wQ6 | killBashTask | chunks.143.mjs | function |
 
 ### Tool Interface Patterns
 
@@ -421,6 +426,10 @@
 | ed | TOOL_NAME_CRON_DELETE | chunks.91.mjs:194 | constant ("CronDelete") |
 | ybY | CronListTool | chunks.145.mjs:1173 | tool object |
 | SW6 | TOOL_NAME_CRON_LIST | chunks.91.mjs:196 | constant ("CronList") |
+| ji6 | validateCronExpression | chunks.145.mjs | function (validates 5-field cron) |
+| IT6 | getNextCronRun | chunks.145.mjs | function (calculates next fire time) |
+| CT6 | getHumanSchedule | chunks.145.mjs | function (human-readable schedule) |
+| kR | isCronEnabled | chunks.91.mjs:187 | function (feature flag check) |
 
 ### Plan Mode Tools
 
@@ -434,6 +443,7 @@
 | aJ | TOOL_NAME_EXIT_PLAN_MODE (alt) | chunks.90.mjs:507 | constant ("ExitPlanMode") |
 | TH | TOOL_NAME_ASK_USER_QUESTION | chunks.89.mjs:566 | constant ("AskUserQuestion") |
 | Fw | TOOL_NAME_ASK_USER_QUESTION (alt) | chunks.90.mjs:3123 | constant ("AskUserQuestion") |
+| kT6 | AskUserQuestionTool | chunks.143.mjs:3135 | tool object |
 | Qp7 | ASK_QUESTION_DESCRIPTION | chunks.89.mjs:570 | constant |
 | gp7 | ASK_QUESTION_PROMPT | chunks.89.mjs:572 | constant |
 | Fp7 | MAX_QUESTIONS | chunks.89.mjs:568 | constant (12) |
@@ -449,6 +459,9 @@
 | m66 | SkillTool | chunks.137.mjs:46 | tool object |
 | wt | SkillTool (legacy) | chunks.132.mjs:820 | tool object |
 | oH | TOOL_NAME_SKILL | chunks.90.mjs:2596 | constant ("Skill") |
+| $kY | isSafePromptSkill | chunks.136.mjs:2516 | function (auto-allow check) |
+| OkY | SAFE_SKILL_FIELDS | chunks.137.mjs:274 | Set (allowed skill fields) |
+| G66 | findSkillByName | chunks.136.mjs | function |
 | dM | TOOL_NAME_TOOL_SEARCH | chunks.89.mjs:652 | constant ("ToolSearch") |
 | pp7 | DEFERRED_TOOLS_HEADER | chunks.89.mjs:654 | constant |
 | dp7 | TOOL_SEARCH_DESCRIPTION | chunks.89.mjs:654 | constant |
@@ -504,6 +517,22 @@
 | - | htmlToMarkdown | chunks.47.mjs | function |
 | - | extractWithPrompt | chunks.47.mjs | function |
 | - | executeSearch | chunks.46.mjs | function |
+
+### LSP Tool Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wF8 | LSPTool | chunks.144.mjs:877 | tool object |
+| Ai6 | TOOL_NAME_LSP | chunks.144.mjs:359 | constant ("LSP") |
+
+### MCP Tool Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ll | ListMcpResourcesTool | chunks.144.mjs:1144 | tool object |
+| qi6 | TOOL_NAME_LIST_MCP_RESOURCES | chunks.144.mjs:1054 | constant ("ListMcpResourcesTool") |
+| hl | ReadMcpResourceTool | chunks.144.mjs:1318 | tool object |
+| p94 | parseMcpToolName | chunks.90.mjs:2355 | function |
 
 ---
 

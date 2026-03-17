@@ -11,9 +11,9 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (TodoWrite)
 
 Key functions in this document:
-- `TaskStopTool` (vW6) - Tool object for stopping background tasks - chunks.139.mjs:1537
+- `TaskStopTool` (Uk1) - Tool object for stopping background tasks - chunks.143.mjs:1651
 - `TOOL_NAME_TASK_STOP` (OC) - Tool name constant "TaskStop" - chunks.40.mjs:412
-- `TaskOutputTool` (kW6) - Tool object for retrieving task output - chunks.139.mjs:1922
+- `TaskOutputTool` (ck1) - Tool object for retrieving task output - chunks.143.mjs:2036
 - `TOOL_NAME_TASK_OUTPUT` ($C) - Tool name constant "TaskOutput" - chunks.40.mjs:421
 - `TaskGetTool` ($l4) - Tool object for getting task by ID - chunks.140.mjs:2954
 - `TOOL_NAME_TASK_GET` (lt) - Tool name constant "TaskGet" - chunks.91.mjs:41
@@ -23,6 +23,12 @@ Key functions in this document:
 - `TOOL_NAME_TASK_UPDATE` (ck) - Tool name constant "TaskUpdate" - chunks.90.mjs:2594
 - `TodoWriteTool` (bO) - Tool object for simple todo list - chunks.48.mjs:773
 - `TOOL_NAME_TODO_WRITE` (MB) - Tool name constant "TodoWrite" - chunks.84.mjs:1401
+- `gk1` - getKillHandlerForType - chunks.143.mjs:1513
+- `ICY` - getAllKillHandlers - chunks.143.mjs:1509
+- `Qk1` - stopTask - chunks.143.mjs:1580
+- `Lf6` - LocalBashTask - chunks.133.mjs:2542
+- `Fk1` - LocalAgentTask - chunks.146.mjs:2292
+- `Fn4` - RemoteAgentTask - chunks.136.mjs:1175
 
 ---
 
@@ -71,7 +77,7 @@ Claude Code provides **two different** task tracking mechanisms:
 
 ## 1. TaskStop Tool
 
-### TaskStopTool (vW6) - Terminate background tasks
+### TaskStopTool (Uk1) - Terminate background tasks
 
 **What it does:** Stops a running background task (shell, agent, or remote session) by its ID.
 
@@ -84,41 +90,36 @@ Claude Code provides **two different** task tracking mechanisms:
 ```javascript
 // ============================================
 // TaskStopTool - Background task termination
-// Location: chunks.139.mjs:1537-1655
+// Location: chunks.143.mjs:1651-1756
 // ============================================
 
 // ORIGINAL (for source lookup):
-vW6 = {
-    name: bj1,  // "TaskStop"
+Uk1 = {
+    name: OC,
+    searchHint: "kill a running background task",
     aliases: ["KillShell"],
     maxResultSizeChars: 1e5,
-    userFacingName: () => KY() ? "" : "Stop Task",
-    get inputSchema() { return dyY() },
-    get outputSchema() { return cyY() },
+    userFacingName: () => e2() ? "" : "Stop Task",
+    get inputSchema() { return xCY() },
+    get outputSchema() { return uCY() },
+    shouldDefer: !0,
+    isEnabled() { return !0 },
     isConcurrencySafe() { return !0 },
     isReadOnly() { return !1 },
     async checkPermissions(A) { return { behavior: "allow", updatedInput: A } },
     async validateInput({ task_id: A, shell_id: q }, { getAppState: K }) {
         let Y = A ?? q;
         if (!Y) return { result: !1, message: "Missing required parameter: task_id", errorCode: 1 };
-        let w = (await K()).tasks?.[Y];
-        if (!w) return { result: !1, message: `No task found with ID: ${Y}`, errorCode: 1 };
-        if (!Vg1(w.type)) return { result: !1, message: `Task ${Y} has unsupported type: ${w.type}`, errorCode: 2 };
-        if (w.status !== "running") return { result: !1, message: `Task ${Y} is not running (status: ${w.status})`, errorCode: 3 };
+        let _ = K().tasks?.[Y];
+        if (!_) return { result: !1, message: `No task found with ID: ${Y}`, errorCode: 1 };
+        if (!gk1(_.type)) return { result: !1, message: `Task ${Y} has unsupported type: ${_.type}`, errorCode: 2 };
+        if (_.status !== "running") return { result: !1, message: `Task ${Y} is not running (status: ${_.status})`, errorCode: 3 };
         return { result: !0 }
     },
     async call({ task_id: A, shell_id: q }, { getAppState: K, setAppState: Y, abortController: z }) {
-        let w = A ?? q;
-        let $ = (await K()).tasks?.[w];
-        let O = Vg1($.type);
-        await O.kill(w, { abortController: z, getAppState: K, setAppState: Y });
-        Y((J) => {
-            let X = J.tasks[w];
-            if (!X || X.notified) return J;
-            return { ...J, tasks: { ...J.tasks, [w]: { ...X, notified: !0 } } }
-        });
-        let _ = oB($) ? $.command : $.description;
-        return { data: { message: `Successfully stopped task: ${w} (${_})`, task_id: w, task_type: $.type, command: _ } }
+        let _ = A ?? q;
+        let w = await Qk1(_, { abortController: z, getAppState: K, setAppState: Y });
+        return { data: { message: `Successfully stopped task: ${w.taskId} (${w.command})`, task_id: w.taskId, task_type: w.taskType, command: w.command } }
     }
 }
 
@@ -142,7 +143,7 @@ const TaskStopTool = {
             return { result: false, message: "Missing required parameter: task_id", errorCode: 1 };
         }
 
-        let task = (await getAppState()).tasks?.[resolvedId];
+        let task = getAppState().tasks?.[resolvedId];
 
         if (!task) {
             return { result: false, message: `No task found with ID: ${resolvedId}`, errorCode: 1 };
@@ -161,27 +162,24 @@ const TaskStopTool = {
 
     async call({ task_id, shell_id }, { getAppState, setAppState, abortController }) {
         let resolvedId = task_id ?? shell_id;
-        let task = (await getAppState()).tasks?.[resolvedId];
+        let result = await stopTask(resolvedId, { abortController, getAppState, setAppState });
 
-        let killHandler = getKillHandlerForType(task.type);
-        await killHandler.kill(resolvedId, { abortController, getAppState, setAppState });
-
-        setAppState((state) => {
-            let taskEntry = state.tasks[resolvedId];
-            if (!taskEntry || taskEntry.notified) return state;
-            return { ...state, tasks: { ...state.tasks, [resolvedId]: { ...taskEntry, notified: true } } };
-        });
-
-        let description = isBashTask(task) ? task.command : task.description;
-        return { data: { message: `Successfully stopped task: ${resolvedId} (${description})`, task_id: resolvedId, task_type: task.type, command: description } };
+        return {
+            data: {
+                message: `Successfully stopped task: ${result.taskId} (${result.command})`,
+                task_id: result.taskId,
+                task_type: result.taskType,
+                command: result.command
+            }
+        };
     }
 };
 
-// Mapping: vW6→TaskStopTool, OC→TOOL_NAME_TASK_STOP, dyY→taskStopInputSchema,
-//          Vg1→getKillHandlerForType, oB→isBashTask
+// Mapping: Uk1→TaskStopTool, OC→TOOL_NAME_TASK_STOP, xCY→taskStopInputSchema, uCY→taskStopOutputSchema,
+//          gk1→getKillHandlerForType, Qk1→stopTask, e2→isCompactMode
 ```
 
-**Key insight:** Uses a kill handler registry pattern (`Vg1`) to support different task types with type-specific termination logic.
+**Key insight:** Uses a kill handler registry pattern (`gk1` → `ICY`) to support different task types with type-specific termination logic.
 
 ---
 
@@ -190,18 +188,96 @@ const TaskStopTool = {
 ```
 TaskStop.call(taskId)
     │
-    ├─→ getKillHandlerForType(task.type)  // Vg1
-    │       └─→ getAllKillHandlers()  // IhY
+    ├─→ getKillHandlerForType(task.type)  // gk1
+    │       └─→ getAllKillHandlers()  // ICY
     │               └─→ [LocalBashTask, LocalAgentTask, RemoteAgentTask]
+    │                       └─→ [Lf6, Fk1, Fn4]
     │
-    └─→ handler.kill(taskId, context)
+    └─→ handler.kill(taskId, context)  // Qk1 (stopTask)
 ```
 
-| Task Type | Handler Symbol | Kill Function | Implementation |
-|-----------|---------------|---------------|----------------|
-| `local_bash` | `gj1` (LocalBashTask) | `hjA(taskId, setAppState)` | Calls `shellCommand.kill()` and `cleanup()` |
-| `local_agent` | `B_6` (LocalAgentTask) | `na(taskId, setAppState)` | Aborts agent controller via `abortController.abort()` |
-| `remote_agent` | `Qi4` (RemoteAgentTask) | Handler method | Updates status to "killed" (local only) |
+| Task Type | Handler Symbol | Handler Name | Location | Implementation |
+|-----------|---------------|--------------|----------|----------------|
+| `local_bash` | `Lf6` | LocalBashTask | chunks.133.mjs:2542 | Calls `wQ6` (killBashTask) which terminates shell process |
+| `local_agent` | `Fk1` | LocalAgentTask | chunks.146.mjs:2292 | Aborts agent controller via `abortController.abort()` |
+| `remote_agent` | `Fn4` | RemoteAgentTask | chunks.136.mjs:1175 | Updates status to "killed" (local only) |
+
+```javascript
+// ============================================
+// Kill Handler Registry - Task type handlers
+// Location: chunks.143.mjs:1509-1514
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ICY() {
+    return [Lf6, Fk1, Fn4]
+}
+function gk1(A) {
+    return ICY().find((q) => q.type === A)
+}
+
+// READABLE (for understanding):
+function getAllKillHandlers() {
+    return [LocalBashTask, LocalAgentTask, RemoteAgentTask];
+}
+
+function getKillHandlerForType(taskType) {
+    return getAllKillHandlers().find(handler => handler.type === taskType);
+}
+
+// Mapping: ICY→getAllKillHandlers, gk1→getKillHandlerForType,
+//          Lf6→LocalBashTask, Fk1→LocalAgentTask, Fn4→RemoteAgentTask
+```
+
+```javascript
+// ============================================
+// LocalBashTask Kill Handler
+// Location: chunks.133.mjs:2542-2570
+// ============================================
+
+// ORIGINAL (for source lookup):
+Lf6 = {
+    name: "LocalBashTask",
+    type: "local_bash",
+    async spawn(A, q) { /* ... */ },
+    async kill(A, q) {
+        let { setAppState: K } = q, Y = q.getAppState().tasks?.[A];
+        if (!Y) return;
+        await Y.shellCommand.kill(), await Y.unregisterCleanup?.(),
+        K((z) => ({ ...z, tasks: { ...z.tasks, [A]: { ...Y, status: "killed" } } }))
+    }
+}
+
+// READABLE (for understanding):
+const LocalBashTask = {
+    name: "LocalBashTask",
+    type: "local_bash",
+
+    async kill(taskId, context) {
+        let { setAppState, getAppState } = context;
+        let task = getAppState().tasks?.[taskId];
+
+        if (!task) return;
+
+        // Kill the shell process
+        await task.shellCommand.kill();
+
+        // Run cleanup callback
+        await task.unregisterCleanup?.();
+
+        // Update task status
+        setAppState((state) => ({
+            ...state,
+            tasks: {
+                ...state.tasks,
+                [taskId]: { ...task, status: "killed" }
+            }
+        }));
+    }
+};
+
+// Mapping: Lf6→LocalBashTask
+```
 
 ---
 

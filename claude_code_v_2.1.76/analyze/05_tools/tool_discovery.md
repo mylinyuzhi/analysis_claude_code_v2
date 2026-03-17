@@ -10,9 +10,9 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `findTool` (Tv) - Tool lookup by name or alias
-- `getDynamicToolSet` (kt) - Returns all available tools
-- `toolMatchesName` (d39) - Name/alias matching helper
+- `findTool` (Tv) - Tool lookup by name or alias - chunks.74.mjs:1392
+- `getDynamicToolSet` (ng) - Returns all available tools - chunks.145.mjs:2781
+- `toolMatchesName` (d39) - Name/alias matching helper - chunks.74.mjs:1388
 - `toolDispatcher` (bU1) - Entry point that uses tool discovery
 
 ---
@@ -44,7 +44,7 @@ Tool Use Request (name: "Bash")
 ┌─────────────────────────────────────────────────────┐
 │ TIER 2: Global Registry Lookup                       │
 │                                                       │
-│   Tv(kt(), "Bash")                                   │
+│   Tv(ng(), "Bash")                                   │
 │   └─→ Searches global tool registry                  │
 │       └─→ Only returns if alias matches              │
 │           (direct name should be in Tier 1)          │
@@ -145,21 +145,34 @@ function toolMatchesName(tool, requestedName) {
 ```javascript
 // ============================================
 // getDynamicToolSet - Returns all registered tools
-// Location: chunks.141.mjs:1465-1467
+// Location: chunks.145.mjs:2781-2783
 // ============================================
 
 // ORIGINAL (for source lookup):
-function kt() {
-    return [rj1, kW6, qq, WB, tS, Nj, i5, sW, vj, gd, Vj, bO, LW6, vW6, dW1, wt, kg1,
-        ...jH() ? [tc4, $l4, Wl4, Ll4] : [],
-        ...Hi4 ? [Hi4] : [],
-        ...$i4 ? [$i4] : [],
-        vRA,
-        ...l8() ? [zhY(), whY(), HhY()] : [],
-        ...wi4 ? [wi4] : [],
-        ...zi4 ? [zi4] : [],
-        cd, ld,
-        ...Fp() ? [IW6] : []
+function ng() {
+    return [QW6, ck1, J4, ...n$() ? [] : [rg, bb], zD, L9, pX, xX, Vl, BX, xv, lk1, Uk1, kT6, m66, Ki6,
+        ...r$() ? [TAq, hAq, gAq, rAq] : [],
+        ...J4q ? [J4q] : [],
+        ...M4q ? [M4q] : [],
+        ...D4q ? [D4q] : [],
+        wF8,
+        ...ST6() ? [g8q, o8q] : [],
+        ...E7() ? [HxY(), jxY(), JxY()] : [],
+        ...j4q ? [j4q] : [],
+        ...P4q ? [P4q] : [],
+        ...w4q ? [w4q] : [],
+        ...$xY,
+        ...O4q ? [O4q] : [],
+        ...$4q ? [$4q] : [],
+        ...H4q ? [H4q] : [],
+        ...W4q?.() ? [W4q()] : [],
+        ...X4q ? [X4q] : [],
+        Ll, hl,
+        ...OE1 ? [OE1] : [],
+        ...$E1 ? [$E1] : [],
+        ...HE1 ? [HE1] : [],
+        ...jE1 ? [jE1] : [],
+        ...dk() ? [Tp6] : []
     ]
 }
 
@@ -167,44 +180,109 @@ function kt() {
 function getDynamicToolSet() {
     // Core tools (always available)
     const coreTools = [
-        AgentTool,              // rj1 - Task/Agent tool
-        TaskOutputTool,         // kW6
-        TaskStopTool,           // qq (also vW6)
-        GlobTool,               // WB
-        GrepTool,               // tS
-        UnknownTool,            // Nj
-        FileReadTool,           // i5
-        EditTool,               // sW
-        FileWriteTool,          // vj
-        NotebookEditTool,       // gd
-        UnknownTool2,           // Vj
-        TodoWriteTool,          // bO
-        UnknownTool3,           // LW6
-        TaskStopTool2,          // vW6
-        UnknownTool4,           // dW1
-        SkillTool,              // wt
-        UnknownTool5,           // kg1
+        AgentTool,              // QW6 - Delegate work to a subagent
+        TaskOutputTool,         // ck1 - Read output from background task
+        BashTool,               // J4 - Execute shell commands
+        // Glob and Grep only when n$() returns false (non-special mode)
+        ...isNotSpecialMode() ? [] : [GlobTool, GrepTool],
+        ExitPlanModeTool,       // zD - Exit plan mode (plan mode only)
+        FileReadTool,           // L9 - Read files
+        EditTool,               // pX - Edit files
+        FileWriteTool,          // xX - Write files
+        NotebookEditTool,       // Vl - Edit Jupyter notebooks
+        WebFetchTool,           // BX - Fetch web content
+        TodoWriteTool,          // xv - Manage session todos
+        WebSearchTool,          // lk1 - Search the web
+        TaskStopTool,           // Uk1 - Kill background tasks
+        AskUserQuestionTool,    // kT6 - Prompt user with questions
+        SkillTool,              // m66 - Execute skills
+        EnterPlanModeTool,      // Ki6 - Enter plan mode
     ];
 
     // Conditionally available tools
     const conditionalTools = [
+        // Task management (if r$() returns true)
         ...isTasksEnabled() ? [TaskGet, TaskList, TaskCreate, TaskUpdate] : [],
+
+        // Custom/optional tools
         ...customTool1 ? [customTool1] : [],
         ...customTool2 ? [customTool2] : [],
-        planModeTool,           // vRA
+        ...customTool3 ? [customTool3] : [],
+
+        // LSP tool (always)
+        LSPTool,                // wF8 - Code intelligence
+
+        // Team mode tools (if ST6() returns true)
         ...isTeamModeEnabled() ? [TeamCreateTool, TeamDeleteTool, SendMessageTool] : [],
+
+        // Agent tools (if E7() returns true)
+        ...isAgentToolsEnabled() ? [createTool1(), createTool2(), createTool3()] : [],
+
+        // More optional tools
         ...optionalTool1 ? [optionalTool1] : [],
         ...optionalTool2 ? [optionalTool2] : [],
-        unknownTool6,           // cd
-        unknownTool7,           // ld
-        ...isFeatureEnabled() ? [SpecialTool] : []
+        ...optionalTool3 ? [optionalTool3] : [],
+
+        // Cron tools
+        ...cronTools,
+
+        // Additional optional tools
+        ...optionalTool4 ? [optionalTool4] : [],
+        ...optionalTool5 ? [optionalTool5] : [],
+        ...optionalTool6 ? [optionalTool6] : [],
+        ...dynamicToolFactory?.() ? [dynamicToolFactory()] : [],
+        ...optionalTool7 ? [optionalTool7] : [],
+
+        // MCP tools
+        ListMcpResourcesTool,   // Ll - List MCP resources
+        ReadMcpResourceTool,    // hl - Read MCP resource by URI
+
+        // Additional MCP tools (conditional)
+        ...additionalMcp1 ? [additionalMcp1] : [],
+        ...additionalMcp2 ? [additionalMcp2] : [],
+        ...additionalMcp3 ? [additionalMcp3] : [],
+        ...additionalMcp4 ? [additionalMcp4] : [],
+
+        // Cron tool (if dk() returns true)
+        ...isCronEnabled() ? [CronCreateTool] : []
     ];
 
     return [...coreTools, ...conditionalTools];
 }
 
-// Mapping: kt→getDynamicToolSet, rj1→AgentTool, kW6→TaskOutputTool, etc.
+// Mapping: ng→getDynamicToolSet, QW6→AgentTool, ck1→TaskOutputTool, J4→BashTool,
+//          rg→GlobTool, bb→GrepTool, zD→ExitPlanModeTool, L9→FileReadTool,
+//          pX→EditTool, xX→FileWriteTool, Vl→NotebookEditTool, BX→WebFetchTool,
+//          xv→TodoWriteTool, lk1→WebSearchTool, Uk1→TaskStopTool, kT6→AskUserQuestionTool,
+//          m66→SkillTool, Ki6→EnterPlanModeTool, wF8→LSPTool, Ll→ListMcpResourcesTool,
+//          hl→ReadMcpResourceTool, n$→isNotSpecialMode, r$→isTasksEnabled,
+//          ST6→isTeamModeEnabled, E7→isAgentToolsEnabled, dk→isCronEnabled
 ```
+
+**Complete Tool Symbol Reference:**
+
+| Symbol | Name Constant | Tool Name | Location | Purpose |
+|--------|--------------|-----------|----------|---------|
+| QW6 | r4 | Agent | chunks.136.mjs:1512 | Delegate work to a subagent |
+| ck1 | $C | TaskOutput | chunks.143.mjs:2036 | Read output from background task |
+| J4 | Q7 | Bash | chunks.172.mjs:84 | Execute shell commands |
+| rg | qz | Glob | chunks.139.mjs:880 | Find files by pattern |
+| bb | N9 | Grep | chunks.139.mjs:482 | Search file contents |
+| zD | aJ | ExitPlanMode | chunks.143.mjs:2802 | Exit plan mode (plan mode only) |
+| L9 | s7 | Read | chunks.90.mjs:2052 | Read files |
+| pX | R4 | Edit | chunks.170.mjs:1116 | Edit files |
+| xX | _K | Write | chunks.139.mjs:45 | Write files |
+| Vl | bJ | NotebookEdit | chunks.139.mjs:1200 | Edit Jupyter notebooks |
+| BX | sO | WebFetch | chunks.143.mjs:1308 | Fetch web content |
+| xv | MB | TodoWrite | chunks.84.mjs:1970 | Manage session todos |
+| lk1 | jv | WebSearch | chunks.143.mjs:2393 | Search the web |
+| Uk1 | OC | TaskStop | chunks.143.mjs:1651 | Kill background tasks |
+| kT6 | Fw | AskUserQuestion | chunks.143.mjs:3135 | Prompt user with questions |
+| m66 | oH | Skill | chunks.137.mjs:46 | Execute skills |
+| Ki6 | dt | EnterPlanMode | chunks.144.mjs:1579 | Enter plan mode |
+| wF8 | Ai6 | LSP | chunks.144.mjs:877 | Code intelligence |
+| Ll | qi6 | ListMcpResources | chunks.144.mjs:1158 | List MCP resources |
+| hl | - | ReadMcpResource | chunks.144.mjs:1318 | Read MCP resource by URI |
 
 **Why this approach:**
 - Single source of truth for all available tools
@@ -214,9 +292,10 @@ function getDynamicToolSet() {
 **Conditional tool loading:**
 | Condition | Tools Added |
 |-----------|-------------|
-| `jH()` (isTasksEnabled) | TaskGet, TaskList, TaskCreate, TaskUpdate |
-| `l8()` (isTeamModeEnabled) | TeamCreateTool, TeamDeleteTool, SendMessageTool |
-| `Fp()` | Special mode tool |
+| `r$()` (isTasksEnabled) | TaskGet, TaskList, TaskCreate, TaskUpdate |
+| `ST6()` (isTeamModeEnabled) | TeamCreateTool, TeamDeleteTool, SendMessageTool |
+| `E7()` (isAgentToolsEnabled) | Agent tools (HxY, jxY, JxY) |
+| `dk()` (isCronEnabled) | CronCreateTool |
 
 ---
 
@@ -239,7 +318,7 @@ async function* bU1(A, q, K, Y) {
     let z = A.name,
         w = Tv(Y.options.tools, z);  // Tier 1: Session tools
     if (!w) {
-        let X = Tv(kt(), z);          // Tier 2: Global registry
+        let X = Tv(ng(), z);          // Tier 2: Global registry
         if (X && X.aliases?.includes(z)) w = X
     }
     // ... error handling if w is still null
@@ -275,7 +354,7 @@ async function* toolDispatcher(toolUseBlock, assistantMessage, canUseTool, toolU
     }
 }
 
-// Mapping: bU1→toolDispatcher, A→toolUseBlock, z→toolName, w→tool, Tv→findTool, kt→getDynamicToolSet, VdY→toolExecutionOrchestrator
+// Mapping: bU1→toolDispatcher, A→toolUseBlock, z→toolName, w→tool, Tv→findTool, ng→getDynamicToolSet, VdY→toolExecutionOrchestrator
 ```
 
 **Key insight:** The Tier 2 check specifically verifies `aliases?.includes(toolName)`. This prevents accidental shadowing - if a tool exists in the global registry but the requested name isn't an alias, it won't be used. This ensures session tools take precedence.
@@ -458,7 +537,7 @@ See [dynamic_tools.md](./dynamic_tools.md) for complete deferred tool analysis.
 tD = (A) => {
     if (J6(void 0)) return [qq];  // Special case: return only TaskStop
     let q = new Set([cd.name, ld.name, cD]),  // Tools to exclude
-        K = kt().filter((w) => !q.has(w.name)),  // Filter excluded tools
+        K = ng().filter((w) => !q.has(w.name)),  // Filter excluded tools
         Y = hg1(K, A);  // Apply permission rules
     if (A.mode === "delegate") Y = Y.filter((w) => R_6.has(w.name));  // Delegate mode filter
     if (J6(process.env.CLAUDE_REPL_MODE)) {
@@ -578,7 +657,7 @@ async function* bU1(A, q, K, Y) {
 
     if (!w) {
         // Tier 2: Check global registry for alias match
-        let X = Tv(kt(), z);
+        let X = Tv(ng(), z);
         if (X && X.aliases?.includes(z)) w = X;
     }
 

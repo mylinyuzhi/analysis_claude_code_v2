@@ -11,13 +11,16 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Background Agents section)
 
 Key functions in this document:
-- `CronCreateTool` - CronCreate tool definition - chunks.89.mjs
-- `CronDeleteTool` - CronDelete tool definition - chunks.89.mjs
-- `CronListTool` - CronList tool definition - chunks.89.mjs
-- `cronScheduler` - Internal cron scheduler implementation - chunks.193.mjs
-- `registerCronJob` - Registers a cron job in session state - chunks.193.mjs
-- `executeCronJob` - Executes a scheduled cron job - chunks.193.mjs
-- `parseCronExpression` - Parses cron schedule strings - chunks.193.mjs
+- `CronCreateTool` (TbY) - CronCreate tool definition - chunks.145.mjs:947
+- `CronDeleteTool` - CronDelete tool definition - chunks.145.mjs
+- `CronListTool` - CronList tool definition - chunks.145.mjs
+- `ER` - Tool name constant "CronCreate" - chunks.91.mjs:192
+- `ed` - Tool name constant "CronDelete" - chunks.91.mjs:194
+- `SW6` - Tool name constant "CronList" - chunks.91.mjs:196
+- `ji6` - validateCronExpression - chunks.145.mjs
+- `IT6` - getNextCronRun - chunks.145.mjs
+- `CT6` - getHumanSchedule - chunks.145.mjs
+- `kR` - isCronEnabled - chunks.91.mjs:187
 
 ---
 
@@ -96,103 +99,170 @@ Internally, `/loop` calls `CronCreate` with the appropriate interval and prompt.
 ```javascript
 // ============================================
 // CronCreateTool - Schedule registration
-// Location: chunks.89.mjs
+// Location: chunks.145.mjs:935-1037
 // ============================================
 
+// ORIGINAL (for source lookup):
+ZbY = F6(() => C.strictObject({
+    cron: C.string().describe('Standard 5-field cron expression in local time: "M H DoM Mon DoW" (e.g. "*/5 * * * *" = every 5 minutes, "30 14 28 2 *" = Feb 28 at 2:30pm local once).'),
+    prompt: C.string().describe("The prompt to enqueue at each fire time."),
+    recurring: YX(C.boolean().optional()).describe('true (default) = fire on every cron match until deleted or auto-expired after 3 days. false = fire once at the next match, then auto-delete.'),
+    durable: YX(C.boolean().optional()).describe("true = persist to .claude/scheduled_tasks.json and survive restarts. false (default) = in-memory only.")
+})),
+TbY = {
+    name: ER,  // "CronCreate"
+    searchHint: "schedule a recurring prompt for this session",
+    maxResultSizeChars: 1e5,
+    shouldDefer: !0,
+    get inputSchema() { return GbY() },
+    get outputSchema() { return fbY() },
+    isEnabled() { return kR() },
+    isConcurrencySafe() { return !1 },
+    isReadOnly() { return !1 },
+    async validateInput(A) {
+        if (!ji6(A.cron)) return { result: !1, message: `Invalid cron expression '${A.cron}'. Expected 5 fields: M H DoM Mon DoW.`, errorCode: 1 };
+        if (IT6(A.cron, Date.now()) === null) return { result: !1, message: `Cron expression '${A.cron}' does not match any calendar date in the next year.`, errorCode: 2 };
+        if ((await bT6()).length >= j7q) return { result: !1, message: `Too many scheduled jobs (max ${j7q}). Cancel one first.`, errorCode: 3 };
+        return { result: !0 }
+    },
+    async call({ cron: A, prompt: q, recurring: K = !0, durable: Y = !1 }) {
+        let z = await A7q(A, q, K, Y, iM()?.agentId);
+        return { data: { id: z, humanSchedule: CT6(A), recurring: K, durable: Y } }
+    },
+    mapToolResultToToolResultBlockParam(A, q) {
+        let K = A.durable ? "Persisted to .claude/scheduled_tasks.json" : "Session-only";
+        return {
+            tool_use_id: q,
+            type: "tool_result",
+            content: A.recurring ? `Scheduled recurring job ${A.id} (${A.humanSchedule}). ${K}. Auto-expires after 3 days.` : `Scheduled one-shot task ${A.id} (${A.humanSchedule}). It will fire once then auto-delete.`
+        }
+    }
+}
+
 // READABLE (for understanding):
+const cronCreateInputSchema = z.strictObject({
+    cron: z.string().describe([
+        "Standard 5-field cron expression in local time: M H DoM Mon DoW",
+        'Examples: "*/5 * * * *" = every 5 minutes, "30 14 28 2 *" = Feb 28 at 2:30pm local once'
+    ].join("\n")),
+
+    prompt: z.string().describe("The prompt to enqueue at each fire time."),
+
+    recurring: z.boolean().optional().default(true).describe([
+        "true (default) = fire on every cron match until deleted or auto-expired after 3 days",
+        'false = fire once at the next match, then auto-delete. Use false for "remind me at X" one-shot requests'
+    ].join("\n")),
+
+    durable: z.boolean().optional().default(false).describe([
+        "true = persist to .claude/scheduled_tasks.json and survive restarts",
+        "false (default) = in-memory only, dies when this Claude session ends"
+    ].join("\n"))
+});
+
 const CronCreateTool = {
     name: "CronCreate",
-    isConcurrencySafe: true,
-    isReadOnly: false,
+    searchHint: "schedule a recurring prompt for this session",
+    maxResultSizeChars: 100000,
+    shouldDefer: true,  // Deferred execution for scheduling
 
-    get inputSchema() {
-        return z.strictObject({
-            schedule: z.string()
-                .describe([
-                    "Cron schedule expression OR simple interval string.",
-                    "Examples:",
-                    "  '5m'        → every 5 minutes",
-                    "  '30s'       → every 30 seconds",
-                    "  '1h'        → every hour",
-                    "  '0 * * * *' → standard cron (every hour at minute 0)",
-                    "  '*/5 * * * *' → every 5 minutes via cron syntax"
-                ].join("\n")),
-
-            prompt: z.string()
-                .describe("The prompt or command to execute on each scheduled run."),
-
-            type: z.enum(["agent", "bash"])
-                .optional()
-                .default("agent")
-                .describe([
-                    "Execution type:",
-                    "  'agent' → spawn a subagent with the prompt (default)",
-                    "  'bash'  → run the prompt as a bash command"
-                ].join("\n")),
-
-            name: z.string()
-                .optional()
-                .describe("Human-readable name for this cron job. Shown in CronList output."),
-
-            max_runs: z.number()
-                .optional()
-                .describe("Maximum number of times to run. Omit for unlimited recurring execution."),
-
-            start_at: z.string()
-                .optional()
-                .describe("ISO 8601 timestamp for first run. If omitted, runs immediately at first interval."),
-        });
-    },
-
+    get inputSchema() { return cronCreateInputSchema; },
     get outputSchema() {
         return z.object({
-            jobId: z.string().describe("Unique identifier for this cron job. Use with CronDelete."),
-            nextRun: z.string().describe("ISO 8601 timestamp of the next scheduled run."),
-            schedule: z.string().describe("The parsed schedule string.")
+            id: z.string(),
+            humanSchedule: z.string(),
+            recurring: z.boolean(),
+            durable: z.boolean().optional()
         });
     },
 
-    async checkPermissions() {
+    isEnabled() { return isCronEnabled(); },
+    isConcurrencySafe() { return false; },  // Scheduling affects session state
+    isReadOnly() { return false; },
+
+    async checkPermissions(input) {
         // Cron tools auto-approve — same trust model as Agent tool
-        return { allowed: true };
+        return { behavior: "allow", updatedInput: input };
     },
 
-    async call({ schedule, prompt, type, name, max_runs, start_at }, context) {
-        let jobId = generateUUID();
-        let parsedSchedule = parseCronExpression(schedule);
-        let nextRun = computeNextRun(parsedSchedule, start_at ? new Date(start_at) : new Date());
+    async validateInput(input) {
+        // Validate cron expression format (5 fields)
+        if (!validateCronExpression(input.cron)) {
+            return {
+                result: false,
+                message: `Invalid cron expression '${input.cron}'. Expected 5 fields: M H DoM Mon DoW.`,
+                errorCode: 1
+            };
+        }
 
-        // Register in session state
-        await cronScheduler.register({
-            jobId,
-            schedule: parsedSchedule,
-            prompt,
-            type: type ?? "agent",
-            name: name ?? `cron-${jobId.slice(0, 8)}`,
-            maxRuns: max_runs ?? Infinity,
-            runsCompleted: 0,
-            nextRun,
-            status: "active"
-        });
+        // Check if cron expression matches any future date
+        if (getNextCronRun(input.cron, Date.now()) === null) {
+            return {
+                result: false,
+                message: `Cron expression '${input.cron}' does not match any calendar date in the next year.`,
+                errorCode: 2
+            };
+        }
+
+        // Check max scheduled jobs limit
+        if ((await getAllScheduledJobs()).length >= MAX_SCHEDULED_JOBS) {
+            return {
+                result: false,
+                message: `Too many scheduled jobs (max ${MAX_SCHEDULED_JOBS}). Cancel one first.`,
+                errorCode: 3
+            };
+        }
+
+        return { result: true };
+    },
+
+    async call({ cron, prompt, recurring = true, durable = false }) {
+        let jobId = await scheduleCronJob(cron, prompt, recurring, durable, getCurrentAgentId());
 
         return {
             data: {
-                jobId,
-                nextRun: nextRun.toISOString(),
-                schedule: parsedSchedule.humanReadable
+                id: jobId,
+                humanSchedule: getHumanSchedule(cron),
+                recurring,
+                durable
             }
         };
+    },
+
+    mapToolResultToToolResultBlockParam(result, toolUseId) {
+        let persistence = result.durable
+            ? "Persisted to .claude/scheduled_tasks.json"
+            : "Session-only (not written to disk, dies when Claude exits)";
+
+        if (result.recurring) {
+            return {
+                tool_use_id: toolUseId,
+                type: "tool_result",
+                content: `Scheduled recurring job ${result.id} (${result.humanSchedule}). ${persistence}. Auto-expires after 3 days. Use CronDelete to cancel sooner.`
+            };
+        } else {
+            return {
+                tool_use_id: toolUseId,
+                type: "tool_result",
+                content: `Scheduled one-shot task ${result.id} (${result.humanSchedule}). ${persistence}. It will fire once then auto-delete.`
+            };
+        }
     }
 };
+
+// Mapping: TbY→CronCreateTool, ER→TOOL_NAME_CRON_CREATE, ZbY→cronCreateInputSchema,
+//          ji6→validateCronExpression, IT6→getNextCronRun, CT6→getHumanSchedule,
+//          kR→isCronEnabled, A7q→scheduleCronJob, bT6→getAllScheduledJobs, j7q→MAX_SCHEDULED_JOBS
 ```
 
 **Key design decisions:**
 
-1. **Simple interval strings** (`5m`, `30s`, `1h`) — Users and LLMs don't need to know cron syntax for common cases. The parser handles both formats.
+1. **Standard 5-field cron format** — Uses familiar Unix cron syntax in user's local timezone. No complex interval strings needed.
 
-2. **agent vs bash type** — Agent runs spawn a full subagent with tool access. Bash runs are simpler and faster for commands that don't need tool calls.
+2. **recurring vs one-shot** — `recurring: true` (default) for ongoing schedules; `recurring: false` for one-time reminders.
 
-3. **max_runs** — Supports one-time deferred execution (`max_runs: 1`) as well as infinite recurring tasks.
+3. **durable persistence** — Optional persistence to `.claude/scheduled_tasks.json` for tasks that should survive session restarts.
+
+4. **Auto-expiry after 3 days** — Prevents resource leaks from abandoned recurring jobs.
 
 ---
 
@@ -385,6 +455,89 @@ function parseCronExpression(schedule) {
         humanReadable: describeCronSchedule(minute, hour, day, month, weekday)
     };
 }
+```
+
+---
+
+## Deep Analysis: Jitter Algorithm
+
+**What it does:** Adds deterministic jitter to scheduled task execution to prevent API thundering herd problems when many users schedule tasks at common times (like "9am" or "hourly").
+
+```javascript
+// ============================================
+// Cron Jitter Algorithm - Prevent API stampedes
+// Location: chunks.91.mjs:229-246 (prompt text)
+// ============================================
+
+// From system prompt:
+// "The scheduler adds a small deterministic jitter on top of whatever you pick:
+//  - recurring tasks fire up to 10% of their period late (max 15 min)
+//  - one-shot tasks landing on :00 or :30 fire up to 90 s early"
+
+// READABLE (for understanding):
+function calculateJitter(schedule, scheduledTime) {
+    let jitterMs = 0;
+
+    if (schedule.type === 'recurring') {
+        // For recurring tasks, delay up to 10% of period (max 15 min)
+        let periodMs = schedule.intervalMs;
+        jitterMs = Math.min(periodMs * 0.1, 15 * 60 * 1000);
+        // Delayed (late) execution
+        return scheduledTime + jitterMs;
+    }
+
+    if (schedule.type === 'one-shot') {
+        let minute = scheduledTime.getMinutes();
+        // For one-shot tasks at :00 or :30, fire up to 90s early
+        if (minute === 0 || minute === 30) {
+            jitterMs = Math.random() * 90 * 1000;  // 0-90 seconds early
+            return scheduledTime - jitterMs;
+        }
+    }
+
+    return scheduledTime;
+}
+```
+
+**Why this approach:**
+
+The jitter algorithm addresses the **thundering herd problem**:
+
+1. **Problem:** When many users schedule tasks at "9am" (`0 9 * * *`), all requests hit the API simultaneously
+2. **Solution:** Add random but bounded jitter to spread the load
+
+**Design decisions:**
+
+- **Recurring tasks fire LATE:** Delayed execution is safer for recurring tasks because:
+  - If a task runs late, the next scheduled run is still in the future
+  - No risk of overlapping executions
+
+- **One-shot tasks fire EARLY:** For reminder tasks at common times:
+  - Better to remind slightly early than late
+  - 90 seconds is imperceptible to users
+
+- **Off-minute recommendation:** The prompt advises LLMs to pick non-round numbers:
+  - "every morning around 9" → `57 8 * * *` or `3 9 * * *` (NOT `0 9 * * *`)
+  - This is the **primary lever** for load distribution
+
+```javascript
+// ============================================
+// Cron Prompt Text - Jitter guidelines
+// Location: chunks.91.mjs:229-246
+// ============================================
+
+// ORIGINAL (for source lookup):
+// "Avoid the :00 and :30 minute marks when the task allows it
+//  Every user who asks for '9am' gets `0 9`, and every user who asks for
+//  'hourly' gets `0 *` — which means requests from across the planet land
+//  on the API at the same instant. When the user's request is approximate,
+//  pick a minute that is NOT 0 or 30:
+//    'every morning around 9' → '57 8 * * *' or '3 9 * * *' (not '0 9 * * *')
+//    'hourly' → '7 * * * *' (not '0 * * * *')"
+
+// Key insight: Jitter is a SECONDARY mechanism. The PRIMARY load distribution
+// comes from the LLM choosing non-round minute values when the user's request
+// is approximate.
 ```
 
 ---

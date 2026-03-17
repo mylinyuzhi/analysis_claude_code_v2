@@ -150,6 +150,119 @@ async checkPermissions({ skill: skillInput, args }, context) {
 
 ---
 
+## Deep Analysis: isSafePromptSkill ($kY) Algorithm
+
+**What it does:** Determines whether a prompt-type skill can be auto-allowed without user confirmation. This is a security optimization that skips the permission prompt for "safe" skills that have no dangerous configuration.
+
+```javascript
+// ============================================
+// isSafePromptSkill - Auto-allow guard
+// Location: chunks.136.mjs:2516-2526
+// ============================================
+
+// ORIGINAL (for source lookup):
+function $kY(A) {
+    for (let q of Object.keys(A)) {
+        if (OkY.has(q)) continue;
+        let K = A[q];
+        if (K === void 0 || K === null) continue;
+        if (Array.isArray(K) && K.length === 0) continue;
+        if (typeof K === "object" && !Array.isArray(K) && Object.keys(K).length === 0) continue;
+        return !1
+    }
+    return !0
+}
+
+// READABLE (for understanding):
+function isSafePromptSkill(skillConfig) {
+    for (let key of Object.keys(skillConfig)) {
+        // Skip if key is in the allowlist (safe fields)
+        if (SAFE_SKILL_FIELDS.has(key)) continue;
+
+        let value = skillConfig[key];
+
+        // Skip if value is nullish
+        if (value === undefined || value === null) continue;
+
+        // Skip if value is an empty array
+        if (Array.isArray(value) && value.length === 0) continue;
+
+        // Skip if value is an empty object
+        if (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0) {
+            continue;
+        }
+
+        // Found a non-allowlisted field with a meaningful value - NOT safe
+        return false;
+    }
+    return true;
+}
+
+// Mapping: $kY→isSafePromptSkill, A→skillConfig, q→key, K→value, OkY→SAFE_SKILL_FIELDS
+```
+
+**Why this approach:**
+
+The algorithm uses an **allowlist strategy** rather than a blocklist. This is more secure because:
+1. New fields added to the skill format will default to "not safe" (require permission)
+2. Only explicitly vetted fields are auto-allowed
+3. The check is exhaustive - all fields must pass
+
+```javascript
+// ============================================
+// SAFE_SKILL_FIELDS - Allowlist of safe skill fields
+// Location: chunks.137.mjs:274
+// ============================================
+
+// ORIGINAL (for source lookup):
+OkY = new Set([
+    "type", "progressMessage", "contentLength", "argNames", "model",
+    "source", "pluginInfo", "disableNonInteractive", "skillRoot",
+    "context", "agent", "getPromptForCommand", "frontmatterKeys",
+    "name", "description", "hasUserSpecifiedDescription",
+    "isEnabled", "isHidden", "aliases", "isMcp", "argumentHint",
+    "whenToUse", "version", "disableModelInvocation",
+    "userInvocable", "loadedFrom", "immediate", "userFacingName"
+])
+
+// READABLE (for understanding):
+const SAFE_SKILL_FIELDS = new Set([
+    // Metadata fields (safe - just descriptive)
+    "type", "name", "description", "version", "whenToUse",
+    "hasUserSpecifiedDescription", "isHidden", "isEnabled",
+    "userInvocable", "userFacingName", "immediate", "loadedFrom",
+    "aliases", "argumentHint", "isMcp",
+
+    // Content fields (safe - just prompt text)
+    "progressMessage", "contentLength", "argNames",
+    "getPromptForCommand", "frontmatterKeys",
+
+    // Model selection (safe - just which model to use)
+    "model", "disableModelInvocation",
+
+    // Source/origin fields (safe - just where skill came from)
+    "source", "pluginInfo", "skillRoot", "disableNonInteractive",
+
+    // Context reference (safe - read-only access to context)
+    "context",
+
+    // Agent type hint (safe - just hints at behavior)
+    "agent"
+]);
+
+// NOT in allowlist (require permission):
+// - tools: Could grant access to dangerous tools
+// - autoApproveTools: Could bypass security
+// - permissions: Could modify permission rules
+// - environment: Could access secrets
+// - hooks: Could run arbitrary code
+// Mapping: OkY→SAFE_SKILL_FIELDS
+```
+
+**Key insight:** The `context` field IS allowed, but it's a read-only reference. What makes a skill "unsafe" is fields that could modify behavior (tools, permissions, hooks) or access sensitive data (environment).
+
+---
+
 ## Two Execution Paths in Stage 5
 
 ### Path 1: Inline Execution (prompt-type skill)
