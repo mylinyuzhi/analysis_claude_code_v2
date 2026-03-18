@@ -13,10 +13,11 @@ This document covers how subagents interact with the context compaction system, 
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Compact section)
 
 Key functions in this document:
-- `countTokensInAgentLoop` (PU1) - Token counting in agent loop
+- `agentLoopRunner` (qh) - Core agent execution loop with token tracking - chunks.133.mjs:1565
+- `llmMessageLoop` (Yh) - LLM message processing with token counting - chunks.148.mjs:875
 - `autoCompactDispatcher` (fs4) - Auto-compaction entry point
-- `inProcessAgentRunner` (GVY) - In-process teammate with isolated compaction
-- `deriveToolUseContext` (vQ1) - Context derivation with cloned readFileState
+- `inProcessAgentRunner` (XNY) - In-process teammate with isolated compaction - chunks.134.mjs:1571
+- `deriveToolUseContext` (vQ1) - Context derivation with cloned readFileState - chunks.149.mjs:2589
 
 ---
 
@@ -83,17 +84,33 @@ By cloning with `new Map(parentContext.readFileState)`:
 
 ---
 
-## In-Process Teammate Compaction (GVY)
+## In-Process Teammate Compaction (XNY)
 
 In-process teammates run compaction independently from the parent, even though they share the same Node.js process:
 
 ```javascript
-// In inProcessAgentRunner (GVY)
+// ============================================
+// inProcessAgentRunner - Context isolation for compaction
+// Location: chunks.134.mjs:1571-1850
+// ============================================
+
+// READABLE (for understanding):
+// In inProcessAgentRunner (XNY), the subagent gets:
 let subagentContext = {
     ...parentContext,
     readFileState: new Map(parentContext.readFileState), // Cloned
     // getAppState and setAppState are shared
 };
+
+// The agentLoopRunner (qh) creates a derived context via Bc6:
+let derivedContext = deriveToolUseContext(parentContext, {
+    options: { mainLoopModel, ... },
+    agentId,
+    agentType,
+    messages,
+    readFileState: clonedReadFileState,
+    ...
+});
 ```
 
 **Shared:** `appState` (global session state)

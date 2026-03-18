@@ -17,10 +17,10 @@ The subagent system enables parallel execution, task decomposition, and multi-ag
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `agentLoopRunner` (dR) - Core execution generator - chunks.130.mjs:1961
+- `agentLoopRunner` (qh) - Core execution generator - chunks.133.mjs:1565
 - `runWithAgentIdentity` (p01) - Identity binding - chunks.80.mjs:2353
-- `inProcessAgentRunner` (GVY) - In-process teammate runner - chunks.131.mjs:348
-- `pollForNextMessage` (WVY) - Poll loop for teammate messages - chunks.131.mjs:260
+- `inProcessAgentRunner` (XNY) - In-process teammate runner - chunks.134.mjs:1571
+- `pollForNextMessage` (DNY) - Poll loop for teammate messages - chunks.134.mjs:1483
 - `resolveModelConfig` (Uq6) - Model resolution - chunks.89.mjs
 
 ---
@@ -138,7 +138,7 @@ The agent loop is never cancelled - it continues running. Only the output routin
 
 ---
 
-## inProcessAgentRunner (GVY)
+## inProcessAgentRunner (XNY)
 
 For teammate mode in non-interactive sessions (like API/SDK usage), the teammate runs in-process:
 
@@ -154,7 +154,7 @@ async function inProcessAgentRunner(agentDefinition, toolUseContext, mailbox) {
 
 **Why in-process for non-interactive:** Split-pane and tmux backends require a terminal environment. The API/SDK does not have a terminal, so a single-process implementation is needed.
 
-## pollForNextMessage (WVY)
+## pollForNextMessage (DNY)
 
 For in-process teammates, `pollForNextMessage` implements a priority-ordered check:
 

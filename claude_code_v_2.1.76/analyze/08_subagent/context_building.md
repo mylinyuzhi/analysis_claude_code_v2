@@ -10,8 +10,9 @@ This document covers how the subagent's initial conversation context is built, i
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `buildForkContextMessages` (Nn7) - Build three-message context sequence - chunks.89.mjs
+- `buildForkContextMessages` (Nn7) - Build three-message context sequence - chunks.90.mjs:2529
 - `deriveToolUseContext` (vQ1) - Clone/share parent context fields - chunks.149.mjs:2589
+- `agentLoopRunner` (qh) - Main agent execution loop - chunks.133.mjs:1565
 - `criticalSystemReminder_EXPERIMENTAL` - Injected system content field
 
 ---

@@ -33,8 +33,8 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 
 | File | Description | Key Symbols |
 |------|-------------|-------------|
-| [execution_flow_deep_dive.md](./execution_flow_deep_dive.md) | Agent loop execution, task state, abort signals | `dR`, `p01`, `RjA`, `Yd7`, `c5` |
-| [communication_and_coordination.md](./communication_and_coordination.md) | Mailbox system, poll loops, inter-agent messaging | `Ld`, `f9`, `JQ1`, `WVY`, `GVY` |
+| [execution_flow_deep_dive.md](./execution_flow_deep_dive.md) | Agent loop execution, task state, abort signals | `qh`, `Yh`, `RjA`, `Yd7`, `c5` |
+| [communication_and_coordination.md](./communication_and_coordination.md) | Mailbox system, poll loops, inter-agent messaging | `wl`, `x3`, `Vc6`, `DNY`, `XNY` |
 | [tools_integration.md](./tools_integration.md) | Tool set assembly, whitelists, context derivation | `YP6`, `vQ1`, `CW6`, `eP1`, `WY4` |
 
 ### Lifecycle & State
@@ -59,7 +59,7 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 
 | File | Description | Key Topics |
 |------|-------------|------------|
-| [agent_definitions.md](./agent_definitions.md) | Built-in agents, merging logic | `ZB1`, `bv`, `PJ6`, `hh`, `KPA` |
+| [agent_definitions.md](./agent_definitions.md) | Built-in agents, merging logic | `q96`, `QB`, `x01`, `X_4`, `G_4` |
 | [agent_tool.md](./agent_tool.md) | Task tool schema and validation | `rj1`, input/output schemas |
 | [execution_modes_comparison.md](./execution_modes_comparison.md) | Sync vs async vs teammate comparison | Performance metrics, decision matrix |
 | [error_handling_and_recovery.md](./error_handling_and_recovery.md) | Error categories, recovery strategies | Cleanup mechanisms, error propagation |
@@ -72,10 +72,20 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
-| `dR` | `agentLoopRunner` | Core async generator for agent execution | chunks.130.mjs:1961 |
-| `p01` | `runWithAgentIdentity` | AsyncLocalStorage context binding | chunks.80.mjs:2353 |
-| `GVY` | `inProcessAgentRunner` | Runner for in-process teammates | chunks.131.mjs:348 |
-| `WVY` | `pollForNextMessage` | Poll loop for teammate messages | chunks.131.mjs:260 |
+| `qh` | `agentLoopRunner` | Core async generator for agent execution | chunks.133.mjs:1565 |
+| `Yh` | `llmMessageLoop` | LLM message processing loop | chunks.148.mjs:875 |
+| `XNY` | `inProcessAgentRunner` | Runner for in-process teammates | chunks.134.mjs:1571 |
+| `DNY` | `pollForNextMessage` | Poll loop for teammate messages | chunks.134.mjs:1483 |
+
+### Agent Definitions
+
+| Obfuscated | Readable | Description | Location |
+|------------|----------|-------------|----------|
+| `q96` | `GENERAL_PURPOSE_AGENT` | Default general-purpose agent | chunks.93.mjs:1681 |
+| `QB` | `EXPLORE_AGENT` | Read-only codebase exploration | chunks.93.mjs:1871 |
+| `x01` | `PLAN_AGENT` | Software architect planning | chunks.93.mjs:1944 |
+| `X_4` | `STATUSLINE_SETUP_AGENT` | Status line configuration | chunks.93.mjs:1695 |
+| `G_4` | `CLAUDE_CODE_GUIDE_AGENT` | Claude Code help/documentation | chunks.93.mjs:2040 |
 
 ### Task Management
 
@@ -100,9 +110,11 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
-| `Ld` | `readMailbox` | Read messages from mailbox | chunks.129.mjs:1089 |
-| `f9` | `writeToMailbox` | Write message to mailbox | chunks.129.mjs:1107 |
-| `JQ1` | `markMessageAsReadByIndex` | Mark message as read | chunks.129.mjs:1130 |
+| `wl` | `readMailbox` | Read messages from mailbox | chunks.132.mjs:3 |
+| `x3` | `writeToMailbox` | Write message to mailbox | chunks.132.mjs:22 |
+| `Vc6` | `markMessageAsReadByIndex` | Mark message as read | chunks.132.mjs:57 |
+| `Ji4` | `claimUnclaimedTask` | Claim unclaimed task for teammate | chunks.134.mjs:1464 |
+| `iVY` | `spawnTeammateDispatcher` | Route teammate spawn to backend | chunks.129.mjs:2550 |
 
 ### Tool Assembly
 
@@ -113,6 +125,15 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 | `CW6` | `BACKGROUND_AGENT_EXCLUDED_TOOLS` | Tools excluded from background agents | chunks.91.mjs:269 |
 | `eP1` | `ASYNC_AGENT_ALLOWED_TOOLS` | Tools allowed for async agents | chunks.91.mjs:269 |
 | `WY4` | `TEAM_DELEGATE_TOOLS` | Team/cron tools for delegates | chunks.91.mjs:269 |
+
+### Transcript Processing
+
+| Obfuscated | Readable | Description | Location |
+|------------|----------|-------------|----------|
+| `sP1` | `loadTranscript` | Load prior transcript for resume | chunks.173.mjs:2722 |
+| `wP6` | `stripOrphanedToolResults` | Remove orphaned tool results | chunks.173.mjs:344 |
+| `BQ1` | `filterWhitespaceAssistant` | Filter whitespace-only messages | chunks.173.mjs:1388 |
+| `mQ1` | `filterThinkingOnlyAssistant` | Filter thinking-only messages | chunks.173.mjs:1435 |
 
 ---
 

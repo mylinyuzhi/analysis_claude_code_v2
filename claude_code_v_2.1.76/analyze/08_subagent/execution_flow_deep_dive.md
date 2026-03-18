@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document provides an in-depth analysis of the subagent execution flow, covering the `agentLoopRunner` (dR) generator, task state machine, abort signal propagation, and identity propagation via AsyncLocalStorage.
+This document provides an in-depth analysis of the subagent execution flow, covering the `agentLoopRunner` (qh) generator, task state machine, abort signal propagation, and identity propagation via AsyncLocalStorage.
 
 **v2.1.76 additions:**
 - `isolation: worktree` declarative support for git worktree-based subagent isolation
@@ -15,19 +15,20 @@ This document provides an in-depth analysis of the subagent execution flow, cove
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `agentLoopRunner` (dR) - Core async generator for agent execution - chunks.130.mjs:1961
-- `runWithAgentIdentity` (p01) - AsyncLocalStorage context binding - chunks.80.mjs:2353
-- `reportToolProgress` (RjA) - Update progress preserving summary - chunks.89.mjs:1393
-- `updateTaskProgress` (Yd7) - Update summary text - chunks.89.mjs:1407
-- `atomicUpdateTask` (c5) - Generic task state updater - chunks.142.mjs:1662
+- `agentLoopRunner` (qh) - Core async generator for agent execution - chunks.133.mjs:1565
+- `llmMessageLoop` (Yh) - LLM message processing loop - chunks.148.mjs:875
+- `executeSubagentStartHooks` (Ux8) - Hook execution for SubagentStart - chunks.175.mjs:2666
+- `RjA` - reportToolProgress - Update progress preserving summary - chunks.89.mjs:1393
+- `Yd7` - updateTaskProgress - Update summary text - chunks.89.mjs:1407
+- `c5` - atomicUpdateTask - Generic task state updater - chunks.142.mjs:1662
 
 ---
 
-## agentLoopRunner (dR) - 11-Phase Execution
+## agentLoopRunner (qh) - 11-Phase Execution
 
 ### What it does
 
-`agentLoopRunner` (dR) is the core async generator that drives the subagent's execution loop. It coordinates tool assembly, identity binding, LLM queries, tool dispatching, and progress reporting in a sequential pipeline.
+`agentLoopRunner` (qh) is the core async generator that drives the subagent's execution loop. It coordinates tool assembly, identity binding, LLM queries, tool dispatching, and progress reporting in a sequential pipeline.
 
 ### How it works
 
@@ -68,46 +69,155 @@ In the `finally` block, fires `SubagentStop` hooks, deregisters any skill hooks,
 
 ```javascript
 // ============================================
-// agentLoopRunner - Core execution generator (simplified structure)
-// Location: chunks.130.mjs:1961
+// agentLoopRunner - Core execution generator with 11 phases
+// Location: chunks.133.mjs:1565-1786
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* dR({ agentDefinition: A, promptMessages: q, toolUseContext: K, ... }) {
-    let Y = await YP6(K, A);  // Phase 1: tool assembly
-    yield* p01(A.identity, async function*() {  // Phase 2: identity binding
-        let z = await A.getSystemPrompt(K);     // Phase 3: system prompt
-        let w = vQ1(K, A);                      // Phase 4: context derivation
-        await fJ1(K, "SubagentStart", ...);     // Phase 5: hook firing
-        try {
-            for await (let H of llmLoop({...})) {
-                yield H;                         // Phase 6-10: LLM loop
-            }
-        } finally {
-            await fJ1(K, "SubagentStop", ...);  // Phase 11: cleanup
+async function* qh({
+    agentDefinition: A,
+    promptMessages: q,
+    toolUseContext: K,
+    canUseTool: Y,
+    isAsync: z,
+    canShowPermissionPrompts: _,
+    forkContextMessages: w,
+    querySource: O,
+    override: $,
+    model: H,
+    maxTurns: j,
+    preserveToolUseResults: J,
+    availableTools: M,
+    allowedTools: D,
+    onCacheSafeParams: X,
+    useExactTools: P,
+    worktreePath: W,
+    transcriptSubdir: Z,
+    onQueryProgress: G
+}) {
+    let f = K.getAppState(),
+        v = f.toolPermissionContext.mode,
+        N = K.setAppStateForTasks ?? K.setAppState,
+        V = C01(A.model, K.options.mainLoopModel, H, v),
+        L = $?.agentId ? $.agentId : bI();
+    // Phase 5: Hook firing - SubagentStart
+    for await (let $6 of Ux8(L, A.agentType, r.signal)) {
+        if ($6.additionalContexts && $6.additionalContexts.length > 0)
+            e.push(...$6.additionalContexts);
+    }
+    // Phase 6: LLM Query Loop
+    try {
+        for await (let $6 of Yh({
+            messages: R,
+            systemPrompt: U,
+            userContext: I,
+            systemContext: g,
+            canUseTool: Y,
+            toolUseContext: z6,
+            querySource: O,
+            maxTurns: j ?? A.maxTurns
+        })) {
+            yield $6;
         }
-    });
+    } finally {
+        // Phase 11: Cleanup
+        if (await K6(), A.hooks) zZ6(N, L);
+        z6.readFileState.clear(), R.length = 0, a36(L), Qx8(L), t24(L, K.getAppState, N)
+    }
 }
 
 // READABLE (for understanding):
-async function* agentLoopRunner({ agentDefinition, promptMessages, toolUseContext, ... }) {
-    let toolSet = await assembleSessionToolSet(toolUseContext, agentDefinition);
-    yield* runWithAgentIdentity(agentDefinition.identity, async function*() {
-        let systemPrompt = await agentDefinition.getSystemPrompt(toolUseContext);
-        let derivedContext = deriveToolUseContext(toolUseContext, agentDefinition);
-        await fireHooks(toolUseContext, "SubagentStart", ...);
-        try {
-            for await (let event of llmLoop({ systemPrompt, toolSet, derivedContext, ... })) {
-                yield event;
-            }
-        } finally {
-            await fireHooks(toolUseContext, "SubagentStop", ...);
-        }
+async function* agentLoopRunner({
+    agentDefinition,
+    promptMessages,
+    toolUseContext,
+    canUseTool,
+    isAsync,
+    canShowPermissionPrompts,
+    forkContextMessages,
+    querySource,
+    override,
+    model,
+    maxTurns,
+    preserveToolUseResults,
+    availableTools,
+    allowedTools,
+    onCacheSafeParams,
+    useExactTools,
+    worktreePath,
+    transcriptSubdir,
+    onQueryProgress
+}) {
+    // Phase 1: Context resolution
+    let appState = toolUseContext.getAppState();
+    let permissionMode = appState.toolPermissionContext.mode;
+    let setAppState = toolUseContext.setAppStateForTasks ?? toolUseContext.setAppState;
+
+    // Phase 2: Model resolution
+    let resolvedModel = resolveModelConfig(
+        agentDefinition.model,
+        toolUseContext.options.mainLoopModel,
+        model,
+        permissionMode
+    );
+    let agentId = override?.agentId ?? generateAgentId();
+
+    // Phase 3: Message assembly
+    let messages = [
+        ...forkContextMessages ? cloneForkContext(forkContextMessages) : [],
+        ...promptMessages
+    ];
+
+    // Phase 4: Context derivation
+    let derivedContext = deriveToolUseContext(toolUseContext, {
+        options: { mainLoopModel: resolvedModel, ... },
+        agentId,
+        agentType: agentDefinition.agentType,
+        messages,
+        readFileState: forkContextMessages !== undefined
+            ? cloneMap(toolUseContext.readFileState)
+            : new Map(),
+        abortController: override?.abortController ?? (isAsync ? new AbortController() : toolUseContext.abortController)
     });
+
+    // Phase 5: Hook firing - SubagentStart
+    for await (let hookEvent of executeSubagentStartHooks(agentId, agentDefinition.agentType, derivedContext.abortController.signal)) {
+        if (hookEvent.additionalContexts?.length > 0) {
+            messages.push(...hookEvent.additionalContexts);
+        }
+    }
+
+    // Phase 6: LLM Query Loop
+    try {
+        for await (let event of llmMessageLoop({
+            messages,
+            systemPrompt,
+            userContext,
+            systemContext,
+            canUseTool,
+            toolUseContext: derivedContext,
+            querySource,
+            maxTurns: maxTurns ?? agentDefinition.maxTurns
+        })) {
+            // Phases 7-10 handled inside llmMessageLoop
+            yield event;
+        }
+    } finally {
+        // Phase 11: Cleanup
+        await cleanupMcpClients();
+        if (agentDefinition.hooks) deregisterSkillHooks(setAppState, agentId);
+        derivedContext.readFileState.clear();
+        messages.length = 0;
+        cleanupAgentState(agentId);
+        deregisterSubagentStartHooks(agentId);
+        cleanupTaskState(agentId, toolUseContext.getAppState, setAppState);
+    }
 }
 
-// Mapping: dR→agentLoopRunner, YP6→assembleSessionToolSet, p01→runWithAgentIdentity,
-// vQ1→deriveToolUseContext, fJ1→fireHooks
+// Mapping: qh→agentLoopRunner, A→agentDefinition, q→promptMessages, K→toolUseContext,
+// Y→canUseTool, z→isAsync, _→canShowPermissionPrompts, w→forkContextMessages, O→querySource,
+// $→override, H→model, j→maxTurns, J→preserveToolUseResults, M→availableTools, D→allowedTools,
+// Ux8→executeSubagentStartHooks, Yh→llmMessageLoop, C01→resolveModelConfig, bI→generateAgentId
 ```
 
 ---
@@ -158,6 +268,124 @@ async function* agentLoopRunner({ agentDefinition, ... }) {
 
 // Mapping: isolation→agentDefinition.isolation, allocateWorktree→worktree allocator,
 // cleanupWorktree→worktree cleanup
+```
+
+---
+
+## llmMessageLoop (Yh) - Turn Processing Engine
+
+### What it does
+
+`llmMessageLoop` (Yh) is the inner loop that processes individual LLM turns within the agent loop. It handles microcompaction, autocompaction, API calls, and tool execution coordination.
+
+### How it works
+
+The loop runs continuously until completion or error, processing each turn:
+
+1. **Yield stream event** - Signal start of new request
+2. **Microcompaction** - Apply small context optimizations
+3. **Autocompaction** - Check if full compaction needed
+4. **API Call** - Stream response from LLM
+5. **Tool Execution** - Dispatch and execute any tool calls
+6. **Progress Update** - Report turn completion
+7. **Loop Check** - Continue if more turns allowed
+
+```javascript
+// ============================================
+// llmMessageLoop - Turn processing engine
+// Location: chunks.148.mjs:875-880 (wrapper) and 882+ (omY inner generator)
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function* Yh(A) {
+    let q = [],
+        K = yield* omY(A, q);
+    for (let Y of q) pb(Y, "completed");
+    return K
+}
+
+// READABLE (for understanding):
+async function* llmMessageLoop(config) {
+    let pendingToolResults = [];
+
+    // Delegate to inner loop with tracking
+    let result = yield* processTurnLoop(config, pendingToolResults);
+
+    // Mark all pending tool results as completed
+    for (let toolResult of pendingToolResults) {
+        markToolResultCompleted(toolResult, "completed");
+    }
+
+    return result;
+}
+
+// The inner loop (omY) handles:
+// - Microcompaction: Small context optimizations (remove duplicates, trim whitespace)
+// - Autocompaction: Full context compaction when threshold exceeded
+// - API streaming: Yield events as they arrive from LLM
+// - Tool dispatch: Execute tools and collect results
+// - Turn counting: Enforce maxTurns limit
+
+// Mapping: Yh→llmMessageLoop, omY→processTurnLoop, q→pendingToolResults, pb→markToolResultCompleted
+```
+
+**Key insight:** The llmMessageLoop separates the outer agent lifecycle (agentLoopRunner) from the inner turn processing. This allows the outer loop to handle identity, hooks, and cleanup while the inner loop focuses on LLM interaction efficiency.
+
+---
+
+## executeSubagentStartHooks (Ux8) - Hook Event Generator
+
+### What it does
+
+Fires the `SubagentStart` hook event before the first LLM call, allowing hook handlers to inject additional context into the subagent's conversation.
+
+### How it works
+
+1. Iterate through registered SubagentStart hooks
+2. Execute each hook handler
+3. Yield events with `additionalContexts` to inject
+4. Handle hook errors gracefully (don't fail agent start)
+
+```javascript
+// ============================================
+// executeSubagentStartHooks - Hook execution for SubagentStart
+// Location: chunks.175.mjs:2666
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function* Ux8(A, q, K, Y = T$) {
+    // Hook iteration and execution
+}
+
+// READABLE (for understanding):
+async function* executeSubagentStartHooks(agentId, agentType, abortSignal, hookContext = defaultContext) {
+    // Get registered hooks for SubagentStart event
+    let hooks = getHooksForEvent("SubagentStart");
+
+    for (let hook of hooks) {
+        if (abortSignal.aborted) break;
+
+        try {
+            let result = await hook.handler({
+                agentId,
+                agentType,
+                ...hookContext
+            });
+
+            // Yield additional contexts to inject into conversation
+            if (result?.additionalContexts) {
+                yield {
+                    additionalContexts: result.additionalContexts
+                };
+            }
+        } catch (err) {
+            // Log error but don't fail the agent start
+            log(`SubagentStart hook ${hook.name} failed: ${err}`);
+        }
+    }
+}
+
+// Mapping: Ux8→executeSubagentStartHooks, A→agentId, q→agentType, K→abortSignal, Y→hookContext
 ```
 
 ---

@@ -10,11 +10,19 @@ This document covers the mailbox-based inter-agent communication system used by 
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `readMailbox` (Ld) - Read messages from mailbox - chunks.129.mjs:1089
-- `writeToMailbox` (f9) - Write message to mailbox - chunks.129.mjs:1107
-- `markMessageAsReadByIndex` (JQ1) - Mark message as read - chunks.129.mjs:1130
-- `inProcessAgentRunner` (GVY) - Runner for in-process teammates - chunks.131.mjs:348
-- `pollForNextMessage` (WVY) - Priority poll loop - chunks.131.mjs:260
+- `readMailbox` (wl) - Read messages from mailbox - chunks.132.mjs:3
+- `writeToMailbox` (x3) - Write message to mailbox - chunks.132.mjs:22
+- `markMessageAsReadByIndex` (Vc6) - Mark message as read - chunks.132.mjs:57
+- `spawnTeammateDispatcher` (iVY) - Route teammate spawn to backend - chunks.129.mjs:2550
+- `inProcessAgentRunner` (XNY) - Runner for in-process teammates - chunks.134.mjs:1571
+- `pollForNextMessage` (DNY) - Priority poll loop - chunks.134.mjs:1483
+- `claimUnclaimedTask` (Ji4) - Claim unclaimed task for teammate - chunks.134.mjs:1464
+
+> **Note:** Previous documentation incorrectly mapped:
+> - `Ld` as `readMailbox` (actual: `wl`)
+> - `f9` as `writeToMailbox` (actual: `x3`)
+> - `JQ1` as `markMessageAsReadByIndex` (actual: `Vc6`)
+> - `iVY` as `inProcessAgentRunner` (actual: `spawnTeammateDispatcher`)
 
 ---
 
@@ -34,7 +42,7 @@ Each teammate agent has a mailbox stored as a JSONL file on the filesystem. Mess
 {"index": 1, "from": "teammate-abc", "content": "...", "timestamp": 1234567891, "readAt": 1234567892}
 ```
 
-### readMailbox (Ld)
+### readMailbox (wl)
 
 **What it does:** Reads all messages from the mailbox file, returning unread messages.
 
@@ -47,67 +55,243 @@ Each teammate agent has a mailbox stored as a JSONL file on the filesystem. Mess
 ```javascript
 // ============================================
 // readMailbox - Read messages from mailbox
-// Location: chunks.129.mjs:1089
+// Location: chunks.132.mjs:3-14
 // ============================================
 
-// READABLE (for understanding):
-async function readMailbox(agentId) {
-    let mailboxPath = getMailboxPath(agentId);
+// ORIGINAL (for source lookup):
+async function wl(A, q) {
+    let K = FY6(A, q);
+    k(`[TeammateMailbox] readMailbox: path=${K}`);
     try {
-        let content = await fs.readFile(mailboxPath, "utf8");
-        let messages = content.trim().split("\n")
-            .filter(Boolean)
-            .map(line => JSON.parse(line));
-        return messages.filter(msg => msg.readAt === null);
-    } catch (err) {
-        if (err.code === "ENOENT") return [];
-        throw err;
+        let Y = await xd4(K, "utf-8"),
+            z = i1(Y);
+        return k(`[TeammateMailbox] readMailbox: read ${z.length} message(s)`), z
+    } catch (Y) {
+        if (Y.code === "ENOENT") return k("[TeammateMailbox] readMailbox: file does not exist"), [];
+        return k(`Failed to read inbox for ${A}: ${Y}`), _6(Y), []
     }
 }
 
-// Mapping: Ld→readMailbox
+// READABLE (for understanding):
+async function readMailbox(agentName, teamName) {
+    let mailboxPath = getMailboxPath(agentName, teamName);
+    log(`[TeammateMailbox] readMailbox: path=${mailboxPath}`);
+    try {
+        let content = await fs.readFile(mailboxPath, "utf-8");
+        let messages = parseJsonl(content);
+        log(`[TeammateMailbox] readMailbox: read ${messages.length} message(s)`);
+        return messages;
+    } catch (err) {
+        if (err.code === "ENOENT") {
+            log("[TeammateMailbox] readMailbox: file does not exist");
+            return [];
+        }
+        log(`Failed to read inbox for ${agentName}: ${err}`);
+        reportError(err);
+        return [];
+    }
+}
+
+// Mapping: wl→readMailbox, A→agentName, q→teamName, FY6→getMailboxPath,
+// xd4→fs.readFile, i1→parseJsonl, k→log, _6→reportError
 ```
 
-### writeToMailbox (f9)
+### writeToMailbox (x3)
 
-**What it does:** Appends a message to a target agent's mailbox file.
+**What it does:** Appends a message to a target agent's mailbox file with file locking.
+
+**How it works:**
+1. Create the mailbox file if it doesn't exist
+2. Acquire a file lock to prevent concurrent writes
+3. Read existing messages, append new message
+4. Write back atomically with lock release
 
 ```javascript
 // ============================================
-// writeToMailbox - Write message to mailbox
-// Location: chunks.129.mjs:1107
+// writeToMailbox - Write message to mailbox with locking
+// Location: chunks.132.mjs:22-55
 // ============================================
 
-// READABLE (for understanding):
-async function writeToMailbox(targetAgentId, message) {
-    let mailboxPath = getMailboxPath(targetAgentId);
-    let record = {
-        index: await getNextMessageIndex(mailboxPath),
-        from: getCurrentAgentId(),
-        content: message,
-        timestamp: Date.now(),
-        readAt: null
-    };
-    await fs.appendFile(mailboxPath, JSON.stringify(record) + "\n");
+// ORIGINAL (for source lookup):
+async function x3(A, q, K) {
+    await OTY(K);
+    let Y = FY6(A, K),
+        z = `${Y}.lock`;
+    k(`[TeammateMailbox] writeToMailbox: recipient=${A}, from=${q.from}, path=${Y}`);
+    try {
+        await Pf6(Y, "[]", { encoding: "utf-8", flag: "wx" }),
+            k("[TeammateMailbox] writeToMailbox: created new inbox file")
+    } catch (w) {
+        if (w.code !== "EEXIST") {
+            k(`[TeammateMailbox] writeToMailbox: failed to create inbox file: ${w}`), _6(w);
+            return
+        }
+    }
+    let _;
+    try {
+        _ = await Nc6.lock(Y, { lockfilePath: z, ...iv1 });
+        let w = await wl(A, K),
+            O = { ...q, read: !1 };
+        w.push(O), await Pf6(Y, B6(w, null, 2), "utf-8"),
+            k(`[TeammateMailbox] Wrote message to ${A}'s inbox from ${q.from}`)
+    } catch (w) {
+        k(`Failed to write to inbox for ${A}: ${w}`), _6(w)
+    } finally {
+        if (_) await _()
+    }
 }
 
-// Mapping: f9→writeToMailbox
+// READABLE (for understanding):
+async function writeToMailbox(recipientAgentName, message, teamName) {
+    await validateTeamContext(teamName);
+    let mailboxPath = getMailboxPath(recipientAgentName, teamName);
+    let lockPath = `${mailboxPath}.lock`;
+    log(`[TeammateMailbox] writeToMailbox: recipient=${recipientAgentName}, from=${message.from}, path=${mailboxPath}`);
+
+    // Create mailbox file if it doesn't exist
+    try {
+        await fs.writeFile(mailboxPath, "[]", { encoding: "utf-8", flag: "wx" });
+        log("[TeammateMailbox] writeToMailbox: created new inbox file");
+    } catch (err) {
+        if (err.code !== "EEXIST") {
+            log(`[TeammateMailbox] writeToMailbox: failed to create inbox file: ${err}`);
+            reportError(err);
+            return;
+        }
+    }
+
+    // Acquire lock and write
+    let releaseLock;
+    try {
+        releaseLock = await properLockfile.lock(mailboxPath, { lockfilePath: lockPath, ...lockOptions });
+        let messages = await readMailbox(recipientAgentName, teamName);
+        let newMessage = { ...message, read: false };
+        messages.push(newMessage);
+        await fs.writeFile(mailboxPath, JSON.stringify(messages, null, 2), "utf-8");
+        log(`[TeammateMailbox] Wrote message to ${recipientAgentName}'s inbox from ${message.from}`);
+    } catch (err) {
+        log(`Failed to write to inbox for ${recipientAgentName}: ${err}`);
+        reportError(err);
+    } finally {
+        if (releaseLock) await releaseLock();
+    }
+}
+
+// Mapping: x3→writeToMailbox, A→recipientAgentName, q→message, K→teamName,
+// FY6→getMailboxPath, OTY→validateTeamContext, Pf6→fs.writeFile, B6→JSON.stringify,
+// Nc6.lock→properLockfile.lock, wl→readMailbox, iv1→lockOptions
 ```
 
-### markMessageAsReadByIndex (JQ1)
+### markMessageAsReadByIndex (Vc6)
 
-**What it does:** Updates the `readAt` timestamp for a specific message, marking it as processed.
+**What it does:** Updates the `read` flag for a specific message, marking it as processed.
+
+**How it works:**
+1. Acquire file lock on mailbox
+2. Read current messages
+3. Update the specific message's `read` field to `true`
+4. Write back atomically
 
 **Why atomic update instead of in-place rewrite:**
 - Append-only writes are safer (no risk of truncating the file on crash)
-- The read status is stored as a separate update record appended to the file
-- The reader merges records by index to determine final read status
+- The read status is stored as an update to the message record
+- File locking prevents race conditions between concurrent readers/writers
+
+```javascript
+// ============================================
+// markMessageAsReadByIndex - Mark message as read with locking
+// Location: chunks.132.mjs:57-90
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Vc6(A, q, K) {
+    let Y = FY6(A, q);
+    k(`[TeammateMailbox] markMessageAsReadByIndex called: agentName=${A}, teamName=${q}, index=${K}, path=${Y}`);
+    let z = `${Y}.lock`,
+        _;
+    try {
+        k("[TeammateMailbox] markMessageAsReadByIndex: acquiring lock..."),
+            _ = await Nc6.lock(Y, { lockfilePath: z, ...iv1 }),
+            k("[TeammateMailbox] markMessageAsReadByIndex: lock acquired");
+        let w = await wl(A, q);
+        if (k(`[TeammateMailbox] markMessageAsReadByIndex: read ${w.length} messages after lock`), K < 0 || K >= w.length) {
+            k(`[TeammateMailbox] markMessageAsReadByIndex: index ${K} out of bounds (${w.length} messages)`);
+            return
+        }
+        let O = w[K];
+        if (!O || O.read) {
+            k("[TeammateMailbox] markMessageAsReadByIndex: message already read or missing");
+            return
+        }
+        w[K] = { ...O, read: !0 },
+            await Pf6(Y, B6(w, null, 2), "utf-8"),
+            k(`[TeammateMailbox] markMessageAsReadByIndex: marked message at index ${K} as read`)
+    } catch (w) {
+        if (w.code === "ENOENT") {
+            k(`[TeammateMailbox] markMessageAsReadByIndex: file does not exist at ${Y}`);
+            return
+        }
+        k(`[TeammateMailbox] markMessageAsReadByIndex FAILED for ${A}: ${w}`), _6(w)
+    } finally {
+        if (_) await _(), k("[TeammateMailbox] markMessageAsReadByIndex: lock released")
+    }
+}
+
+// READABLE (for understanding):
+async function markMessageAsReadByIndex(agentName, teamName, messageIndex) {
+    let mailboxPath = getMailboxPath(agentName, teamName);
+    log(`[TeammateMailbox] markMessageAsReadByIndex called: agentName=${agentName}, teamName=${teamName}, index=${messageIndex}`);
+    let lockPath = `${mailboxPath}.lock`;
+    let releaseLock;
+
+    try {
+        log("[TeammateMailbox] markMessageAsReadByIndex: acquiring lock...");
+        releaseLock = await properLockfile.lock(mailboxPath, { lockfilePath: lockPath, ...lockOptions });
+        log("[TeammateMailbox] markMessageAsReadByIndex: lock acquired");
+
+        let messages = await readMailbox(agentName, teamName);
+        log(`[TeammateMailbox] markMessageAsReadByIndex: read ${messages.length} messages after lock`);
+
+        // Validate index
+        if (messageIndex < 0 || messageIndex >= messages.length) {
+            log(`[TeammateMailbox] markMessageAsReadByIndex: index ${messageIndex} out of bounds (${messages.length} messages)`);
+            return;
+        }
+
+        let message = messages[messageIndex];
+        if (!message || message.read) {
+            log("[TeammateMailbox] markMessageAsReadByIndex: message already read or missing");
+            return;
+        }
+
+        // Update message and write back
+        messages[messageIndex] = { ...message, read: true };
+        await fs.writeFile(mailboxPath, JSON.stringify(messages, null, 2), "utf-8");
+        log(`[TeammateMailbox] markMessageAsReadByIndex: marked message at index ${messageIndex} as read`);
+    } catch (err) {
+        if (err.code === "ENOENT") {
+            log(`[TeammateMailbox] markMessageAsReadByIndex: file does not exist at ${mailboxPath}`);
+            return;
+        }
+        log(`[TeammateMailbox] markMessageAsReadByIndex FAILED for ${agentName}: ${err}`);
+        reportError(err);
+    } finally {
+        if (releaseLock) {
+            await releaseLock();
+            log("[TeammateMailbox] markMessageAsReadByIndex: lock released");
+        }
+    }
+}
+
+// Mapping: Vc6→markMessageAsReadByIndex, A→agentName, q→teamName, K→messageIndex,
+// FY6→getMailboxPath, Nc6.lock→properLockfile.lock, wl→readMailbox, Pf6→fs.writeFile
+```
 
 ---
 
-## Priority Poll Loop (WVY)
+## Priority Poll Loop (DNY)
 
-### pollForNextMessage (WVY)
+### pollForNextMessage (DNY)
 
 **What it does:** The teammate's main wait loop, checking message sources in priority order.
 
@@ -136,50 +320,204 @@ Priority 5: Idle
 
 ```javascript
 // ============================================
-// pollForNextMessage - Priority poll loop
-// Location: chunks.131.mjs:260
+// pollForNextMessage - Priority poll loop for teammate messages
+// Location: chunks.134.mjs:1483-1569
 // ============================================
 
-// READABLE (for understanding):
-async function pollForNextMessage(agentId, mailbox, abortSignal) {
-    let pollInterval = 100;  // Start at 100ms
-
-    while (!abortSignal.aborted) {
-        // Priority 1: Check abort
-        if (abortSignal.aborted) break;
-
-        // Priority 2: Check for user interrupt
-        let messages = await readMailbox(agentId);
-        let interrupt = messages.find(m => m.type === "interrupt");
-        if (interrupt) {
-            await markMessageAsReadByIndex(agentId, interrupt.index);
-            return { type: "interrupt", message: interrupt };
+// ORIGINAL (for source lookup):
+async function DNY(A, q, K, Y, z, _) {
+    k(`[inProcessRunner] ${A.agentName} starting poll loop (abort=${q.signal.aborted})`);
+    let O = 0;
+    while (!q.signal.aborted) {
+        let H = Y().tasks[K];
+        if (H && H.type === "in_process_teammate" && H.pendingUserMessages.length > 0) {
+            let J = H.pendingUserMessages[0];
+            return z((M) => ({
+                ...M,
+                tasks: {
+                    ...M.tasks,
+                    [K]: {
+                        ...M.tasks[K],
+                        pendingUserMessages: M.tasks[K].pendingUserMessages.slice(1)
+                    }
+                }
+            })), {
+                type: "new_message",
+                message: J,
+                from: "user"
+            }
         }
-
-        // Priority 3: Check for orchestrator messages
-        let orchestratorMessage = messages.find(m => m.from === "orchestrator");
-        if (orchestratorMessage) {
-            await markMessageAsReadByIndex(agentId, orchestratorMessage.index);
-            return { type: "message", message: orchestratorMessage };
+        if (O > 0) await jNY(500);
+        if (O++, q.signal.aborted) return {
+            type: "aborted"
+        };
+        k(`[inProcessRunner] ${A.agentName} poll #${O}: checking mailbox`);
+        try {
+            let J = await wl(A.agentName, A.teamName),
+                M = -1,
+                D = null;
+            for (let P = 0; P < J.length; P++) {
+                let W = J[P];
+                if (W && !W.read) {
+                    let Z = M66(W.text);
+                    if (Z) {
+                        M = P, D = Z;
+                        break
+                    }
+                }
+            }
+            if (M !== -1) {
+                let P = J[M],
+                    W = J.slice(0, M).filter((Z) => !Z.read).length;
+                return k(`[inProcessRunner] ${A.agentName} received shutdown request from ${D?.from} (prioritized over ${W} unread messages)`), await Vc6(A.agentName, A.teamName, M), {
+                    type: "shutdown_request",
+                    request: D,
+                    originalMessage: P.text
+                }
+            }
+            let X = -1;
+            for (let P = 0; P < J.length; P++) {
+                let W = J[P];
+                if (W && !W.read && W.from === BY) {
+                    X = P;
+                    break
+                }
+            }
+            if (X === -1) X = J.findIndex((P) => !P.read);
+            if (X !== -1) {
+                let P = J[X];
+                if (P) return k(`[inProcessRunner] ${A.agentName} received new message from ${P.from} (index ${X})`), await Vc6(A.agentName, A.teamName, X), {
+                    type: "new_message",
+                    message: P.text,
+                    from: P.from,
+                    color: P.color,
+                    summary: P.summary
+                }
+            }
+        } catch (J) {
+            k(`[inProcessRunner] ${A.agentName} poll error: ${J}`)
         }
-
-        // Priority 4: Check own completion
-        // (handled by caller)
-
-        // Priority 5: Idle - exponential backoff
-        await sleep(pollInterval);
-        pollInterval = Math.min(pollInterval * 1.5, 5000);  // Cap at 5 seconds
+        let j = await Ji4(_, A.agentName);
+        if (j) return {
+            type: "new_message",
+            message: j,
+            from: "task-list"
+        }
+    }
+    return {
+        type: "aborted"
     }
 }
 
-// Mapping: WVY→pollForNextMessage, Ld→readMailbox, JQ1→markMessageAsReadByIndex
+// READABLE (for understanding):
+async function pollForNextMessage(agentConfig, abortController, taskId, getAppState, setAppState, sessionId) {
+    log(`[inProcessRunner] ${agentConfig.agentName} starting poll loop (abort=${abortController.signal.aborted})`);
+    let pollCount = 0;
+
+    while (!abortController.signal.aborted) {
+        // Priority 1: Check for pending user messages (highest priority)
+        let taskState = getAppState().tasks[taskId];
+        if (taskState?.type === "in_process_teammate" && taskState.pendingUserMessages.length > 0) {
+            let message = taskState.pendingUserMessages[0];
+            // Remove from pending list
+            setAppState((state) => ({
+                ...state,
+                tasks: {
+                    ...state.tasks,
+                    [taskId]: {
+                        ...state.tasks[taskId],
+                        pendingUserMessages: state.tasks[taskId].pendingUserMessages.slice(1)
+                    }
+                }
+            }));
+            return { type: "new_message", message, from: "user" };
+        }
+
+        // Delay between polls
+        if (pollCount > 0) await sleep(500);
+        pollCount++;
+
+        // Priority 2: Check abort signal
+        if (abortController.signal.aborted) {
+            return { type: "aborted" };
+        }
+
+        log(`[inProcessRunner] ${agentConfig.agentName} poll #${pollCount}: checking mailbox`);
+
+        // Priority 3: Check mailbox for messages
+        try {
+            let messages = await readMailbox(agentConfig.agentName, agentConfig.teamName);
+
+            // Check for shutdown request first (highest mailbox priority)
+            let shutdownIndex = -1;
+            let shutdownRequest = null;
+            for (let i = 0; i < messages.length; i++) {
+                let msg = messages[i];
+                if (msg && !msg.read) {
+                    let parsed = parseShutdownRequest(msg.text);
+                    if (parsed) {
+                        shutdownIndex = i;
+                        shutdownRequest = parsed;
+                        break;
+                    }
+                }
+            }
+
+            if (shutdownIndex !== -1) {
+                let msg = messages[shutdownIndex];
+                let unreadCount = messages.slice(0, shutdownIndex).filter((m) => !m.read).length;
+                log(`[inProcessRunner] ${agentConfig.agentName} received shutdown request from ${shutdownRequest?.from} (prioritized over ${unreadCount} unread messages)`);
+                await markMessageAsReadByIndex(agentConfig.agentName, agentConfig.teamName, shutdownIndex);
+                return { type: "shutdown_request", request: shutdownRequest, originalMessage: msg.text };
+            }
+
+            // Check for orchestrator messages (from "orchestrator" sender)
+            let orchestratorIndex = -1;
+            for (let i = 0; i < messages.length; i++) {
+                let msg = messages[i];
+                if (msg && !msg.read && msg.from === ORCHESTRATOR_SENDER) {
+                    orchestratorIndex = i;
+                    break;
+                }
+            }
+
+            // Fall back to any unread message
+            if (orchestratorIndex === -1) {
+                orchestratorIndex = messages.findIndex((m) => !m.read);
+            }
+
+            if (orchestratorIndex !== -1) {
+                let msg = messages[orchestratorIndex];
+                if (msg) {
+                    log(`[inProcessRunner] ${agentConfig.agentName} received new message from ${msg.from} (index ${orchestratorIndex})`);
+                    await markMessageAsReadByIndex(agentConfig.agentName, agentConfig.teamName, orchestratorIndex);
+                    return { type: "new_message", message: msg.text, from: msg.from, color: msg.color, summary: msg.summary };
+                }
+            }
+        } catch (err) {
+            log(`[inProcessRunner] ${agentConfig.agentName} poll error: ${err}`);
+        }
+
+        // Priority 4: Check for unclaimed tasks
+        let taskPrompt = await claimUnclaimedTask(sessionId, agentConfig.agentName);
+        if (taskPrompt) {
+            return { type: "new_message", message: taskPrompt, from: "task-list" };
+        }
+    }
+
+    return { type: "aborted" };
+}
+
+// Mapping: DNY→pollForNextMessage, A→agentConfig, q→abortController, K→taskId,
+// Y→getAppState, z→setAppState, _→sessionId, wl→readMailbox, Vc6→markMessageAsReadByIndex,
+// Ji4→claimUnclaimedTask, jNY→sleep, M66→parseShutdownRequest, BY→ORCHESTRATOR_SENDER
 ```
 
 ---
 
-## In-Process Agent Runner (GVY)
+## In-Process Agent Runner (XNY)
 
-### inProcessAgentRunner (GVY)
+### inProcessAgentRunner (XNY)
 
 **What it does:** Runs a teammate agent in-process (within the same Node.js process) rather than in a separate terminal pane.
 
@@ -197,36 +535,119 @@ async function pollForNextMessage(agentId, mailbox, abortSignal) {
 ```javascript
 // ============================================
 // inProcessAgentRunner - In-process teammate execution
-// Location: chunks.131.mjs:348
+// Location: chunks.134.mjs:1571-1850
 // ============================================
 
-// READABLE (for understanding):
-async function inProcessAgentRunner(agentDefinition, toolUseContext, parentAgentId, teamName) {
-    let agentId = generateAgentId();
-    let mailbox = createMailbox(agentId);
-
-    // Run agent loop and message polling concurrently
-    let agentLoopPromise = (async () => {
-        for await (let event of agentLoopRunner({ agentDefinition, toolUseContext, ... })) {
-            // Forward progress to parent mailbox
-            if (event.type === "assistant" && event.message) {
-                await writeToMailbox(parentAgentId, {
-                    type: "progress",
-                    content: extractTextContent(event.message)
-                });
-            }
-        }
-    })();
-
-    let messagePollingPromise = pollForNextMessage(agentId, mailbox, toolUseContext.abortSignal);
-
-    // Wait for first to complete
-    await Promise.race([agentLoopPromise, messagePollingPromise]);
-
-    await writeToMailbox(parentAgentId, { type: "completed", agentId });
+// ORIGINAL (for source lookup):
+async function XNY(A) {
+    let {
+        identity: q,
+        taskId: K,
+        prompt: Y,
+        description: z,
+        agentDefinition: _,
+        teammateContext: w,
+        toolUseContext: O,
+        abortController: $,
+        model: H,
+        systemPrompt: j,
+        systemPromptMode: J,
+        allowedTools: M,
+        allowPermissionPrompts: D
+    } = A, {
+        setAppState: X
+    } = O;
+    k(`[inProcessRunner] Starting agent loop for ${q.agentId}`);
+    // ... agent setup, poll loop, and message handling ...
 }
 
-// Mapping: GVY→inProcessAgentRunner
+// READABLE (for understanding):
+async function inProcessAgentRunner(config) {
+    let {
+        identity,          // Agent identity (agentId, parentSessionId, agentName, teamName)
+        taskId,            // Unique task identifier
+        prompt,            // Initial prompt for the agent
+        description,       // Human-readable task description
+        agentDefinition,   // Agent type configuration
+        teammateContext,   // Team-specific context
+        toolUseContext,    // Tool permissions and context
+        abortController,   // Abort signal for cancellation
+        model,             // Model override
+        systemPrompt,      // Custom system prompt
+        systemPromptMode,  // "replace" or "append"
+        allowedTools,      // Tool whitelist
+        allowPermissionPrompts  // Whether to allow permission prompts
+    } = config;
+
+    let { setAppState } = toolUseContext;
+    log(`[inProcessRunner] Starting agent loop for ${identity.agentId}`);
+
+    // Build agent configuration
+    let agentConfig = {
+        agentId: identity.agentId,
+        parentSessionId: identity.parentSessionId,
+        agentName: identity.agentName,
+        teamName: identity.teamName,
+        agentColor: identity.color,
+        planModeRequired: identity.planModeRequired,
+        isTeamLead: false,
+        agentType: "teammate"
+    };
+
+    // Build system prompt based on mode
+    let resolvedSystemPrompt;
+    if (systemPromptMode === "replace" && systemPrompt) {
+        resolvedSystemPrompt = systemPrompt;
+    } else {
+        // Build default system prompt with custom instructions
+        let promptParts = [...await buildDefaultSystemPrompt(toolUseContext)];
+        if (agentDefinition?.getSystemPrompt()) {
+            promptParts.push(`# Custom Agent Instructions\n${agentDefinition.getSystemPrompt()}`);
+        }
+        resolvedSystemPrompt = promptParts.join("\n");
+    }
+
+    // Create merged agent definition
+    let mergedAgentDef = {
+        agentType: identity.agentName,
+        whenToUse: `In-process teammate: ${identity.agentName}`,
+        getSystemPrompt: () => resolvedSystemPrompt,
+        tools: agentDefinition?.tools ?? ["*"],
+        source: "projectSettings",
+        permissionMode: "default"
+    };
+
+    // Main execution loop
+    while (!abortController.signal.aborted && !isComplete) {
+        log(`[inProcessRunner] ${identity.agentId} processing prompt...`);
+
+        // Create abort controller for current work
+        let workAbortController = createAbortController();
+        updateTask(taskId, { currentWorkAbortController: workAbortController }, setAppState);
+
+        // Run agent loop
+        for await (let event of agentLoopRunner({ agentDefinition: mergedAgentDef, ... })) {
+            if (event.type === "assistant") {
+                // Forward progress to parent mailbox
+                await writeToMailbox(parentAgentId, { type: "progress", content: event.message });
+            }
+        }
+
+        // Poll for next message
+        let pollResult = await pollForNextMessage(identity, abortController, taskId, getAppState, setAppState, identity.parentSessionId);
+        if (pollResult.type === "new_message") {
+            currentPrompt = pollResult.message;
+        } else if (pollResult.type === "shutdown_request" || pollResult.type === "aborted") {
+            break;
+        }
+    }
+
+    // Send idle notification on completion
+    await sendIdleNotification(identity.agentName, identity.teamName);
+}
+
+// Mapping: XNY→inProcessAgentRunner, A→config, q→identity, K→taskId, Y→prompt, z→description,
+// _→agentDefinition, w→teammateContext, O→toolUseContext, $→abortController, H→model, j→systemPrompt
 ```
 
 ### Shared appState Optimization
@@ -236,6 +657,128 @@ For in-process teammates, the parent and teammate share the same `appState` obje
 **What is shared:** `getAppState`, `setAppState` - both agents operate on the same global state object.
 
 **What is NOT shared:** `readFileState` - each agent tracks its own file reads independently. This is cloned via `new Map(parentContext.readFileState)`.
+
+---
+
+## Task Claiming System (Ji4)
+
+### claimUnclaimedTask (Ji4)
+
+**What it does:** Allows in-process teammates to claim unclaimed tasks from the shared task list, enabling work distribution among team members.
+
+**How it works:**
+1. Load the task list for the session
+2. Find the first task with `status: "pending"` and no owner
+3. Atomically claim the task by setting owner to this agent
+4. Update task status to `in_progress`
+5. Return the task prompt for processing
+
+```javascript
+// ============================================
+// claimUnclaimedTask - Claim unclaimed task for teammate
+// Location: chunks.134.mjs:1464-1481
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Ji4(A, q) {
+    try {
+        let K = await DX(A),
+            Y = JNY(K);
+        if (!Y) return;
+        let z = await OT8(A, Y.id, q);
+        if (!z.success) {
+            k(`[inProcessRunner] Failed to claim task #${Y.id}: ${z.reason}`);
+            return
+        }
+        return await WI(A, Y.id, {
+            status: "in_progress"
+        }), k(`[inProcessRunner] Claimed task #${Y.id}: ${Y.subject}`), MNY(Y)
+    } catch (K) {
+        k(`[inProcessRunner] Error checking task list: ${K}`);
+        return
+    }
+}
+
+// READABLE (for understanding):
+async function claimUnclaimedTask(sessionId, agentName) {
+    try {
+        // Load task list for session
+        let taskList = await loadTaskList(sessionId);
+
+        // Find first unclaimed task
+        let unclaimedTask = findFirstUnclaimedTask(taskList);
+        if (!unclaimedTask) return null;
+
+        // Atomically claim the task
+        let claimResult = await claimTask(sessionId, unclaimedTask.id, agentName);
+        if (!claimResult.success) {
+            log(`[inProcessRunner] Failed to claim task #${unclaimedTask.id}: ${claimResult.reason}`);
+            return null;
+        }
+
+        // Update task status to in_progress
+        await updateTaskStatus(sessionId, unclaimedTask.id, { status: "in_progress" });
+        log(`[inProcessRunner] Claimed task #${unclaimedTask.id}: ${unclaimedTask.subject}`);
+
+        // Return formatted task prompt
+        return formatTaskPrompt(unclaimedTask);
+    } catch (err) {
+        log(`[inProcessRunner] Error checking task list: ${err}`);
+        return null;
+    }
+}
+
+// Mapping: Ji4→claimUnclaimedTask, A→sessionId, q→agentName,
+// DX→loadTaskList, JNY→findFirstUnclaimedTask, OT8→claimTask, WI→updateTaskStatus, MNY→formatTaskPrompt
+```
+
+**Why atomic claiming:** Multiple teammates may poll for tasks simultaneously. Without atomic claiming, two agents could claim the same task. The `claimTask` operation uses optimistic locking to ensure only one agent succeeds.
+
+**Key insight:** The task claiming system enables work distribution among teammates without explicit assignment. Teammates naturally pick up available work, creating a self-organizing work pool pattern.
+
+---
+
+## Teammate Spawn Dispatcher (iVY)
+
+### spawnTeammateDispatcher (iVY)
+
+**What it does:** Routes teammate spawn requests to the appropriate backend based on session capabilities.
+
+**Backend selection priority:**
+1. **In-process** - Non-interactive sessions, SDK usage
+2. **Split-pane** - iTerm2 or tmux available
+3. **Tmux-only** - Fallback for headless sessions
+
+```javascript
+// ============================================
+// spawnTeammateDispatcher - Route teammate spawn to backend
+// Location: chunks.129.mjs:2550
+// ============================================
+
+// READABLE (for understanding):
+async function spawnTeammateDispatcher(agentDefinition, context, teamConfig) {
+    // Check session type to determine backend
+    if (isNonInteractiveSession()) {
+        // Use in-process runner for SDK/API sessions
+        return inProcessAgentRunner(agentDefinition, context, teamConfig);
+    }
+
+    if (hasITerm2() && isInteractiveSession()) {
+        // Use split-pane for visual collaboration
+        return spawnSplitPaneTeammate(agentDefinition, context, teamConfig);
+    }
+
+    if (hasTmux()) {
+        // Fallback to tmux for headless sessions
+        return spawnTmuxTeammate(agentDefinition, context, teamConfig);
+    }
+
+    // Final fallback to in-process
+    return inProcessAgentRunner(agentDefinition, context, teamConfig);
+}
+
+// Mapping: iVY→spawnTeammateDispatcher
+```
 
 ---
 

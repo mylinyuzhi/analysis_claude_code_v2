@@ -14,19 +14,27 @@
 
 Key functions in this document:
 - `AgentTool` (rj1) - The Task tool object - chunks.132.mjs:85
+- `agentLoopRunner` (qh) - Core agent execution loop - chunks.133.mjs:1565
+- `llmMessageLoop` (Yh) - LLM message processing - chunks.148.mjs:875
 - `oVY` - Base AgentTool input schema - chunks.132.mjs
 - `aVY` - Teammate-mode additional schema fields - chunks.132.mjs
 - `xu4` - Merged schema for both modes - chunks.132.mjs
 - `pEA` - Permission filtering for subagent tools - chunks.132.mjs
 - `cEA` - Context derivation for subagent - chunks.132.mjs
 - `Iu4` - Teammate dispatch function - chunks.132.mjs
-- `iVY` - In-process teammate runner binding - chunks.132.mjs
-- `sP1` - loadTranscript for resume - chunks.149.mjs
-- `wP6` - writeTranscriptEntry - chunks.149.mjs
-- `mQ1` - finalizeTranscript - chunks.149.mjs
-- `BQ1` - buildResumeMessages - chunks.149.mjs
-- `zd7` - createAsyncTask - chunks.89.mjs:1447
-- `p01` - runWithAgentIdentity - chunks.80.mjs:2353
+- `spawnTeammateDispatcher` (iVY) - Route teammate spawn - chunks.129.mjs:2550
+- `loadTranscript` (sP1) - Load prior transcript for resume - chunks.173.mjs:2722
+- `stripOrphanedToolResults` (wP6) - Remove orphaned tool results - chunks.173.mjs:344
+- `filterThinkingOnlyAssistant` (mQ1) - Filter thinking-only messages - chunks.173.mjs:1435
+- `filterWhitespaceAssistant` (BQ1) - Filter whitespace-only messages - chunks.173.mjs:1388
+- `createAsyncTask` (zd7) - Create background task - chunks.89.mjs:1447
+- `runWithAgentIdentity` (p01) - AsyncLocalStorage context binding - chunks.80.mjs:2353
+
+> **Note:** Previous documentation incorrectly mapped transcript-related symbols:
+> - `wP6` as `writeTranscriptEntry` (actual: `stripOrphanedToolResults`)
+> - `mQ1` as `finalizeTranscript` (actual: `filterThinkingOnlyAssistant`)
+> - `BQ1` as `buildResumeMessages` (actual: `filterWhitespaceAssistant`)
+> - `iVY` as `inProcessAgentRunner` (actual: `spawnTeammateDispatcher`)
 
 ---
 
@@ -92,10 +100,10 @@ Before assembling the tool set for the subagent, permissions are filtered based 
 For teammate mode (when `name` and `team_name` are provided):
 
 ```
-Iu4() → spawnTeammateDispatcher()
+Iu4() → spawnTeammateDispatcher (iVY)
     │
-    ├── Non-interactive session → iVY() (inProcessAgentRunner binding)
-    ├── iTerm2 available → iTerm2PaneBackend
+    ├── Non-interactive session → inProcessAgentRunner (XNY)
+    ├── iTerm2 available → spawnSplitPaneTeammate (dVY)
     └── Fallback → TmuxBackend
 ```
 
@@ -110,9 +118,14 @@ sP1(transcriptPath) → loadTranscript
     │
     └── Returns list of prior messages
          │
-         └── BQ1(priorMessages) → buildResumeMessages
-                 │
-                 └── Prepend prior messages to new conversation
+         ├── wP6(messages) → stripOrphanedToolResults
+         │       └── Remove tool results without matching tool uses
+         │
+         ├── BQ1(messages) → filterWhitespaceAssistant
+         │       └── Remove empty assistant messages
+         │
+         └── mQ1(messages) → filterThinkingOnlyAssistant
+                 └── Remove thinking-only assistant messages
 ```
 
 The resume pipeline ensures subagents can continue from where they left off without losing prior context.

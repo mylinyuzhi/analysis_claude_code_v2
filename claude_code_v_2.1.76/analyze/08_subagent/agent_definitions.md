@@ -14,105 +14,203 @@ Agent definitions specify the configuration and behavior of subagent instances. 
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `BUILT_IN_AGENT_DEFINITIONS` (ZB1) - Array of built-in agent definitions - chunks.89.mjs
-- `mergeAgentDefinitions` (hh) - Priority merging of agent definitions - chunks.89.mjs
-- `resolveAgentDefinition` (PJ6) - Resolve agent name to definition - chunks.89.mjs
-- `validateRequiredMcpServers` (KPA) - Validate MCP server requirements - chunks.89.mjs
-- `buildAgentSystemPrompt` (bv) - Build system prompt for agent - chunks.89.mjs
+- `GENERAL_PURPOSE_AGENT` (q96) - Default general-purpose agent definition - chunks.93.mjs:1681
+- `EXPLORE_AGENT` (QB) - Read-only exploration agent - chunks.93.mjs:1871
+- `PLAN_AGENT` (x01) - Planning/architecture agent - chunks.93.mjs:1944
+- `STATUSLINE_SETUP_AGENT` (X_4) - Status line configuration agent - chunks.93.mjs:1695
+- `CLAUDE_CODE_GUIDE_AGENT` (G_4) - Claude Code help agent - chunks.93.mjs:2040
+
+> **Note:** The previously documented symbols `ZB1`, `bv`, `PJ6`, `KPA` were incorrect mappings.
+> The actual agent definition objects are defined in chunks.93.mjs with the symbols shown above.
 
 ---
 
 ## Built-In Agent Types
 
-### General-Purpose Agent
+### General-Purpose Agent (q96)
 
 The default agent used for most subagent invocations. Has access to the full tool set and uses the session's configured model.
 
 ```javascript
-{
+// ============================================
+// GENERAL_PURPOSE_AGENT - Default general-purpose agent definition
+// Location: chunks.93.mjs:1681-1687
+// ============================================
+
+// ORIGINAL (for source lookup):
+q96 = {
     agentType: "general-purpose",
-    getSystemPrompt: (ctx) => buildDefaultSystemPrompt(ctx),
-    tools: [],  // Uses full tool set
-    disallowedTools: [],
-    model: undefined,  // Uses session model
-    maxTurns: undefined,  // No limit
-    color: "blue"
+    whenToUse: "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you.",
+    tools: ["*"],
+    source: "built-in",
+    baseDir: "built-in",
+    getSystemPrompt: yF9
 }
+
+// READABLE (for understanding):
+const GENERAL_PURPOSE_AGENT = {
+    agentType: "general-purpose",
+    whenToUse: "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you.",
+    tools: ["*"],  // All tools available
+    source: "built-in",
+    baseDir: "built-in",
+    getSystemPrompt: buildGeneralPurposePrompt
+}
+
+// Mapping: q96→GENERAL_PURPOSE_AGENT, yF9→buildGeneralPurposePrompt
 ```
 
-### Explore Agent
+### Explore Agent (QB)
 
 Optimized for read-only exploration. Limited to reading tools to prevent accidental modifications.
 
 ```javascript
-{
+// ============================================
+// EXPLORE_AGENT - Read-only codebase exploration agent
+// Location: chunks.93.mjs:1871-1879
+// ============================================
+
+// ORIGINAL (for source lookup):
+QB = {
     agentType: "Explore",
-    getSystemPrompt: (ctx) => buildExploreSystemPrompt(ctx),
-    tools: ["Read", "Glob", "Grep", "Bash"],
-    disallowedTools: ["Write", "Edit", "MultiEdit"],
-    model: undefined,
-    maxTurns: 20
+    whenToUse: RF9,
+    disallowedTools: [r4, Uk, R4, _K, bJ],
+    source: "built-in",
+    baseDir: "built-in",
+    model: "haiku",
+    getSystemPrompt: () => LF9(),
+    criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
 }
+
+// READABLE (for understanding):
+const EXPLORE_AGENT = {
+    agentType: "Explore",
+    whenToUse: "Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns...",
+    disallowedTools: ["Bash", "WebSearch", "Edit", "Write", "NotebookEdit"],  // Write operations blocked
+    source: "built-in",
+    baseDir: "built-in",
+    model: "haiku",  // Use faster/cheaper model for exploration
+    getSystemPrompt: () => buildExploreSystemPrompt(),
+    criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
+}
+
+// Mapping: QB→EXPLORE_AGENT, RF9→EXPLORE_WHEN_TO_USE, LF9→buildExploreSystemPrompt
+// Disallowed tools: r4=Bash, Uk=WebSearch, R4=Edit, _K=Write, bJ=NotebookEdit
 ```
 
-### Plan Agent
+### Plan Agent (x01)
 
 Used for generating structured plans. Focuses on analysis and planning rather than execution.
 
 ```javascript
-{
+// ============================================
+// PLAN_AGENT - Software architect planning agent
+// Location: chunks.93.mjs:1944-1953
+// ============================================
+
+// ORIGINAL (for source lookup):
+x01 = {
     agentType: "Plan",
-    getSystemPrompt: (ctx) => buildPlanSystemPrompt(ctx),
-    tools: ["Read", "Glob", "Grep"],
-    disallowedTools: ["Bash", "Write", "Edit"],
-    model: undefined,
-    maxTurns: 15
+    whenToUse: "Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs.",
+    disallowedTools: [r4, Uk, R4, _K, bJ],
+    source: "built-in",
+    tools: QB.tools,
+    baseDir: "built-in",
+    model: "inherit",
+    getSystemPrompt: () => hF9(),
+    criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
 }
+
+// READABLE (for understanding):
+const PLAN_AGENT = {
+    agentType: "Plan",
+    whenToUse: "Software architect agent for designing implementation plans...",
+    disallowedTools: ["Bash", "WebSearch", "Edit", "Write", "NotebookEdit"],
+    source: "built-in",
+    tools: EXPLORE_AGENT.tools,  // Same read-only tools as Explore
+    baseDir: "built-in",
+    model: "inherit",  // Inherit from session/parent
+    getSystemPrompt: () => buildPlanSystemPrompt(),
+    criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
+}
+
+// Mapping: x01→PLAN_AGENT, hF9→buildPlanSystemPrompt
 ```
 
-### Bash Agent
-
-Optimized for shell scripting and command execution.
-
-```javascript
-{
-    agentType: "Bash",
-    getSystemPrompt: (ctx) => buildBashSystemPrompt(ctx),
-    tools: ["Bash", "Read"],
-    disallowedTools: [],
-    model: undefined,
-    maxTurns: 30
-}
-```
-
-### claude-code-guide Agent
-
-A meta-agent that provides guidance on using Claude Code itself.
-
-```javascript
-{
-    agentType: "claude-code-guide",
-    getSystemPrompt: (ctx) => buildGuideSystemPrompt(ctx),
-    tools: ["Read"],
-    disallowedTools: [],
-    model: undefined,
-    maxTurns: 5
-}
-```
-
-### statusline-setup Agent
+### statusline-setup Agent (X_4)
 
 Used during initial setup for terminal status line configuration.
 
 ```javascript
-{
+// ============================================
+// STATUSLINE_SETUP_AGENT - Status line configuration agent
+// Location: chunks.93.mjs:1695-1816
+// ============================================
+
+// ORIGINAL (for source lookup):
+X_4 = {
     agentType: "statusline-setup",
-    getSystemPrompt: (ctx) => buildStatuslineSystemPrompt(ctx),
-    tools: ["Bash", "Read", "Write"],
-    disallowedTools: [],
-    model: undefined,
-    maxTurns: 10
+    whenToUse: "Use this agent to configure the user's Claude Code status line setting.",
+    tools: ["Read", "Edit"],
+    source: "built-in",
+    baseDir: "built-in",
+    model: "sonnet",
+    color: "orange",
+    getSystemPrompt: () => `You are a status line setup agent...`
 }
+
+// READABLE (for understanding):
+const STATUSLINE_SETUP_AGENT = {
+    agentType: "statusline-setup",
+    whenToUse: "Use this agent to configure the user's Claude Code status line setting.",
+    tools: ["Read", "Edit"],  // Minimal tools for config editing
+    source: "built-in",
+    baseDir: "built-in",
+    model: "sonnet",
+    color: "orange",  // UI color indicator
+    getSystemPrompt: () => STATUSLINE_SETUP_SYSTEM_PROMPT  // Long prompt omitted
+}
+
+// Mapping: X_4→STATUSLINE_SETUP_AGENT
+```
+
+### claude-code-guide Agent (G_4)
+
+A meta-agent that provides guidance on using Claude Code itself.
+
+```javascript
+// ============================================
+// CLAUDE_CODE_GUIDE_AGENT - Claude Code help/documentation agent
+// Location: chunks.93.mjs:2040-2069
+// ============================================
+
+// ORIGINAL (for source lookup):
+G_4 = {
+    agentType: Wk8,  // "claude-code-guide"
+    whenToUse: 'Use this agent when the user asks questions ("Can Claude...", "Does Claude...", "How do I...") about: (1) Claude Code (the CLI tool)...',
+    tools: n$() ? [Q7, s7, sO, jv] : [qz, N9, s7, sO, jv],
+    source: "built-in",
+    baseDir: "built-in",
+    model: "haiku",
+    permissionMode: "dontAsk",
+    getSystemPrompt({ toolUseContext: A }) { /* Dynamic prompt builder */ }
+}
+
+// READABLE (for understanding):
+const CLAUDE_CODE_GUIDE_AGENT = {
+    agentType: "claude-code-guide",
+    whenToUse: 'Use this agent when the user asks questions about Claude Code, Claude Agent SDK, or Claude API...',
+    tools: isHeadless()
+        ? ["Bash", "Read", "WebFetch", "WebSearch"]
+        : ["Glob", "Grep", "Read", "WebFetch", "WebSearch"],
+    source: "built-in",
+    baseDir: "built-in",
+    model: "haiku",
+    permissionMode: "dontAsk",  // Skip permission prompts
+    getSystemPrompt: buildGuideSystemPrompt  // Dynamic prompt with context
+}
+
+// Mapping: G_4→CLAUDE_CODE_GUIDE_AGENT, Wk8→"claude-code-guide"
 ```
 
 ---
@@ -189,25 +287,27 @@ function resolveModelForSubagent(taskInput, agentDef, sessionContext) {
 
 ---
 
-## mergeAgentDefinitions (hh)
+## Agent Definition Merging
 
-### What it does
+> **Note:** The symbol `hh` was previously documented as `mergeAgentDefinitions`, but this is incorrect.
+> The actual `hh` function (chunks.162.mjs:360) is `hasOnlyInProcessTeammates` - a UI utility that checks
+> if all running tasks are in-process teammates.
+>
+> Agent definition merging functionality exists in the codebase but has a different symbol that needs
+> to be identified through further analysis.
 
-Merges multiple agent definition objects into a single definition, with later definitions taking priority over earlier ones for non-array fields, and array fields being unioned.
+### How Agent Definition Merging Works
 
-### How it works
+When multiple sources provide agent definitions (built-in, user config, MCP servers), they are merged with the following priority:
 
-1. Start with the base definition
-2. For each subsequent definition:
-   - Scalar fields (model, maxTurns, color): later overrides earlier
-   - Array fields (tools, disallowedTools): later is appended/merged
-   - Function fields (getSystemPrompt): later replaces earlier
-3. Return merged definition
+1. **Scalar fields** (model, maxTurns, color): later overrides earlier
+2. **Array fields** (tools, disallowedTools): later is appended/merged
+3. **Function fields** (getSystemPrompt): later replaces earlier
 
 ```javascript
 // ============================================
-// mergeAgentDefinitions - Priority merge of agent definitions
-// Location: chunks.89.mjs
+// Agent Definition Merge Logic (conceptual)
+// Location: Various - needs symbol identification
 // ============================================
 
 // READABLE (for understanding):
@@ -236,8 +336,6 @@ function mergeAgentDefinitions(base, ...overrides) {
 
     return result;
 }
-
-// Mapping: hh→mergeAgentDefinitions
 ```
 
 ---
@@ -284,9 +382,12 @@ interface AgentDefinition {
 
 ---
 
-## MCP Server Validation (KPA)
+## MCP Server Validation
 
-### validateRequiredMcpServers (KPA)
+> **Note:** The previously documented symbol `KPA` = `validateRequiredMcpServers` was incorrect.
+> The actual MCP validation functionality exists but has a different symbol that needs identification.
+
+### MCP Server Validation Logic
 
 **What it does:** Verifies that all MCP servers required by the agent definition are available and connected before the subagent starts.
 

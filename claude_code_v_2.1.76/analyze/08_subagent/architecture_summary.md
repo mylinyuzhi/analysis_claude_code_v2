@@ -16,10 +16,10 @@ The subagent system provides a complete infrastructure for parallel task executi
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `agentLoopRunner` (dR) - Core async generator - chunks.130.mjs:1961
+- `agentLoopRunner` (qh) - Core async generator - chunks.133.mjs:1565
 - `runWithAgentIdentity` (p01) - Identity context binding - chunks.80.mjs:2353
-- `inProcessAgentRunner` (GVY) - In-process teammate runner - chunks.131.mjs:348
-- `pollForNextMessage` (WVY) - Teammate poll loop - chunks.131.mjs:260
+- `inProcessAgentRunner` (XNY) - In-process teammate runner - chunks.134.mjs:1571
+- `pollForNextMessage` (DNY) - Teammate poll loop - chunks.134.mjs:1483
 - `assembleSessionToolSet` (YP6) - Tool assembly - chunks.141.mjs:1476
 - `deriveToolUseContext` (vQ1) - Context derivation - chunks.149.mjs:2589
 
@@ -32,8 +32,8 @@ Key functions in this document:
 │                         PARENT AGENT                                      │
 │                                                                           │
 │  ┌──────────────┐    ┌───────────────┐    ┌─────────────────────────┐   │
-│  │  AgentTool   │───▶│  Task Manager │───▶│  agentLoopRunner (dR)   │   │
-│  │   (rj1)      │    │  (89.mjs)     │    │  (130.mjs)              │   │
+│  │  AgentTool   │───▶│  Task Manager │───▶│  agentLoopRunner (qh)   │   │
+│  │   (rj1)      │    │  (89.mjs)     │    │  (133.mjs)              │   │
 │  └──────────────┘    └───────────────┘    └────────────┬────────────┘   │
 │                                                         │                │
 └─────────────────────────────────────────────────────────│───────────────┘
@@ -94,7 +94,7 @@ AgentTool.call()
        │
        └── Teammate → spawnTeammateDispatcher
                         │
-                        ├── In-process → inProcessAgentRunner (GVY)
+                        ├── In-process → inProcessAgentRunner (XNY)
                         ├── Split-pane → iTerm2/tmux backend
                         └── Tmux-only → tmux backend
 ```
@@ -105,8 +105,8 @@ AgentTool.call()
 
 ```
 chunks.89.mjs    - Task lifecycle management (createForegroundTask, createAsyncTask, kill)
-chunks.130.mjs   - agentLoopRunner, mailbox functions (readMailbox, writeToMailbox)
-chunks.131.mjs   - inProcessAgentRunner, pollForNextMessage
+chunks.133.mjs   - agentLoopRunner, execution loop
+chunks.134.mjs   - inProcessAgentRunner, pollForNextMessage, claimUnclaimedTask
 chunks.132.mjs   - AgentTool, SkillTool (executeForkedSkill)
 chunks.141.mjs   - assembleSessionToolSet
 chunks.149.mjs   - deriveToolUseContext
@@ -206,7 +206,7 @@ User/LLM → AgentTool.call(run_in_background: true)
 User/LLM → AgentTool.call(name, team_name)
          → spawnTeammateDispatcher()
              → routeToBackend():
-                 - Non-interactive → inProcessAgentRunner (GVY)
+                 - Non-interactive → inProcessAgentRunner (XNY)
                  - iTerm2 → iTerm2PaneBackend
                  - tmux → TmuxBackend
              → setupMailbox(agentId)

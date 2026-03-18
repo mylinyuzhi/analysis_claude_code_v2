@@ -482,7 +482,9 @@
 | NR | generateAgentId | chunks.89.mjs | function |
 | zd7 | createAsyncTask | chunks.132.mjs | function |
 | wd7 | createForegroundTask | chunks.132.mjs | function |
-| dR | agentLoopRunner | chunks.130.mjs:1961 | function (generator) |
+| qh | agentLoopRunner | chunks.133.mjs:1565 | function (generator) |
+| Yh | llmMessageLoop | chunks.148.mjs:875 | function (generator) |
+| Ux8 | executeSubagentStartHooks | chunks.175.mjs:2666 | function (generator) |
 | sP1 | loadTranscript | chunks.173.mjs:2722 | function |
 | BQ1 | filterWhitespaceAssistant | chunks.173.mjs:1388 | function |
 | mQ1 | filterThinkingOnlyAssistant | chunks.173.mjs:1435 | function |
@@ -503,6 +505,24 @@
 | dVY | spawnSplitPaneTeammate | chunks.129.mjs | function |
 | nVY | BACKGROUND_HINT_THRESHOLD | chunks.132.mjs | constant |
 | - | backgroundAgentFlag | chunks.132.mjs | constant (background: true flag) |
+
+### Teammate Mailbox Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wl | readMailbox | chunks.132.mjs:3 | function |
+| x3 | writeToMailbox | chunks.132.mjs:22 | function |
+| Vc6 | markMessageAsReadByIndex | chunks.132.mjs:57 | function |
+| kc6 | markAllMessagesAsRead | chunks.132.mjs:92 | function |
+| pY6 | readUnreadMessages | chunks.132.mjs:16 | function |
+
+### In-Process Teammate Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| XNY | inProcessAgentRunner | chunks.134.mjs:1571 | function |
+| DNY | pollForNextMessage | chunks.134.mjs:1483 | function |
+| Ji4 | claimUnclaimedTask | chunks.134.mjs:1464 | function |
 
 ### Web Tool Symbols
 
@@ -784,17 +804,19 @@
 
 ### Agent Definitions
 
+> Note: Agent definition objects are defined in chunks.93.mjs, wrapped in E() lazy initializers.
+>
+> **WARNING:** The `hh` symbol was incorrectly documented as `mergeAgentDefinitions`. The actual `hh` function
+> is `hasOnlyInProcessTeammates` (chunks.162.mjs:360) - a UI utility that checks if all running tasks
+> are in-process teammates. The `mergeAgentDefinitions` functionality exists but has a different symbol.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| hh | mergeAgentDefinitions | chunks.91.mjs:3 | function |
-| KPA | validateMcpServers | chunks.91.mjs:17 | function |
-| un7 | filterByMcpServers | chunks.91.mjs:22 | function |
-| ZB1 | GENERAL_PURPOSE_AGENT | chunks.90.mjs:2622 | object (agent def) |
-| bv | EXPLORE_AGENT | chunks.90.mjs:2808 | object (agent def) |
-| PJ6 | PLAN_AGENT | chunks.90.mjs:2878 | object (agent def) |
-| Tn7 | BASH_AGENT | chunks.90.mjs:2608 | object (agent def) |
-| Rn7 | CLAUDE_CODE_GUIDE_AGENT | chunks.90.mjs:2904 | object (agent def) |
-| En7 | STATUSLINE_SETUP_AGENT | chunks.90.mjs:2650 | object (agent def) |
+| q96 | GENERAL_PURPOSE_AGENT | chunks.93.mjs:1681 | object (agent def) |
+| X_4 | STATUSLINE_SETUP_AGENT | chunks.93.mjs:1695 | object (agent def) |
+| QB | EXPLORE_AGENT | chunks.93.mjs:1871 | object (agent def) |
+| x01 | PLAN_AGENT | chunks.93.mjs:1944 | object (agent def) |
+| G_4 | CLAUDE_CODE_GUIDE_AGENT | chunks.93.mjs:2040 | object (agent def) |
 
 ### Progress Tracking
 
@@ -860,10 +882,12 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| dR | agentLoopRunner | chunks.130.mjs:1961 | function (generator) |
-| GVY | inProcessAgentRunner | chunks.131.mjs:348 | function |
-| p01 | runWithAgentIdentity | chunks.80.mjs:2353 | function |
-| WVY | pollForNextMessage | chunks.131.mjs:260 | function |
+| qh | agentLoopRunner | chunks.133.mjs:1565 | function (generator) |
+| Yh | llmMessageLoop | chunks.148.mjs:875 | function (generator) |
+| Ux8 | executeSubagentStartHooks | chunks.175.mjs:2666 | function (generator) |
+| XNY | inProcessAgentRunner | chunks.134.mjs:1571 | function |
+| DNY | pollForNextMessage | chunks.134.mjs:1483 | function |
+| Ji4 | claimUnclaimedTask | chunks.134.mjs:1464 | function |
 | ss | parseShutdownRequest | chunks.131.mjs | function |
 | ib4 | getUnclaimedTaskPrompt | chunks.131.mjs:336 | function |
 
@@ -879,10 +903,11 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | _Q1 | fileLockSync | chunks.129.mjs:1114 | object |
-| f9 | writeToMailbox | chunks.129.mjs:1107 | function |
-| JQ1 | markMessageAsReadByIndex | chunks.129.mjs:1130 | function |
-| Ld | readMailbox | chunks.129.mjs:1089 | function |
-| z51 | readUnreadMessages | chunks.129.mjs:1101 | function |
+| x3 | writeToMailbox | chunks.132.mjs:22 | function |
+| Vc6 | markMessageAsReadByIndex | chunks.132.mjs:57 | function |
+| wl | readMailbox | chunks.132.mjs:3 | function |
+| kc6 | markAllMessagesAsRead | chunks.132.mjs:92 | function |
+| pY6 | readUnreadMessages | chunks.132.mjs:16 | function |
 
 ### Transcript Management
 
