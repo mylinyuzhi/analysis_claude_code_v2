@@ -392,113 +392,140 @@ The clever part: **state preservation happens after summarization** because the 
 ```javascript
 // ============================================
 // performFullCompaction - Main 8-step standard compaction lifecycle
-// Location: chunks.146.mjs:2325-2435
+// Location: chunks.147.mjs:1473-1608
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function AW1(A, q, K, Y, z, w = !1) {
+async function mf6(A, q, K, Y, z, _ = !1, w) {
     try {
-        if (A.length === 0) throw Error(_U1);
-        let H = Ev(A),
-            $ = Ia4(A),
-            O = {};
+        if (A.length === 0) throw Error(aT6);
+        let O = eW(A),
+            $ = jqq(A),
+            H = {};
         try {
-            O = xa4($)
-        } catch (x) {
-            K1(x)
+            H = Jqq($)
+        } catch (Y6) {
+            _6(Y6)
         }
-        let _ = await q.getAppState();
-        DZ6(_.toolPermissionContext, "summary"), q.onCompactProgress?.({
+        let j = q.getAppState();
+        QP1(j.toolPermissionContext, "summary"), q.onCompactProgress?.({
             type: "hooks_start",
             hookType: "pre_compact"
         }), q.setSDKStatus?.("compacting");
-        let J = await mW6({
-            trigger: w ? "auto" : "manual",
+        let J = await sT6({
+            trigger: _ ? "auto" : "manual",
             customInstructions: z ?? null
         }, q.abortController.signal);
-        if (J.newCustomInstructions) z = z ? `${z}\n\n${J.newCustomInstructions}` : J.newCustomInstructions;
-        let X = J.userDisplayMessage;
+        z = zp8(z, J.newCustomInstructions);
+        let M = J.userDisplayMessage;
         q.setStreamMode?.("requesting"), q.setResponseLength?.(() => 0), q.onCompactProgress?.({
             type: "compact_start"
         });
-        let D = x8("tengu_compact_cache_prefix", !1),
-            j = VOA(z),
-            M = c6({
-                content: j
+        let D = w8("tengu_compact_cache_prefix", !1),
+            X = C54(z),
+            P = p1({
+                content: X
             }),
-            P = await ga4({
+            W = await Gqq({
                 messages: A,
-                summaryRequest: M,
-                appState: _,
+                summaryRequest: P,
+                appState: j,
                 context: q,
-                preCompactTokenCount: H,
+                preCompactTokenCount: O,
                 cacheSafeParams: K
             }),
-            W = B51(P);
-        if (!W) throw h(`Compact failed: no summary text in response. Response: ${Q1(P)}`, {
+            Z = BE1(W);
+        if (!Z) throw k(`Compact failed: no summary text in response. Response: ${B6(W)}`, {
             level: "error"
-        }), c("tengu_compact_failed", {
+        }), d("tengu_compact_failed", {
             reason: "no_summary",
-            preCompactTokenCount: H,
+            preCompactTokenCount: O,
             promptCacheSharingEnabled: D
         }), Error("Failed to generate conversation summary - response did not contain valid text content");
-        else if (W.startsWith(QO)) throw c("tengu_compact_failed", {
+        else if (Z.startsWith(j$)) throw d("tengu_compact_failed", {
             reason: "api_error",
-            preCompactTokenCount: H,
+            preCompactTokenCount: O,
             promptCacheSharingEnabled: D
-        }), Error(W);
-        else if (W.startsWith(dU)) throw c("tengu_compact_failed", {
+        }), Error(Z);
+        else if (Z.startsWith(EB)) throw d("tengu_compact_failed", {
             reason: "prompt_too_long",
-            preCompactTokenCount: H,
+            preCompactTokenCount: O,
             promptCacheSharingEnabled: D
-        }), Error(ma4);
-        let G = wjA(q.readFileState);
-        q.readFileState.clear(), rd();
-        let [f, Z] = await Promise.all([Ua4(G, q, Ba4), ca4(q)]), N = [...f, ...Z], T = pa4(q.agentId ?? U6());
-        if (T) N.push(T);
-        let k = jZ6(q.agentId);
-        if (k) N.push(k);
-        let y = da4();
-        if (y) N.push(y);
+        }), Error(Pqq);
+        let G = mf8(q.readFileState);
+        q.readFileState.clear(), Oc();
+        let [f, v] = await Promise.all([fqq(G, q, Xqq), Nqq(q)]), N = [...f, ...v], V = mE1(q.agentId);
+        if (V) N.push(V);
+        let L = await vqq(q);
+        if (L) N.push(L);
+        let h = Tqq(q.agentId);
+        if (h) N.push(h);
+        for (let Y6 of xE1(q.options.tools, q.options.mainLoopModel, [])) N.push(f4(Y6));
+        for (let Y6 of uE1(q.options.mcpClients, q.options.tools, q.options.mainLoopModel, [])) N.push(f4(Y6));
         q.onCompactProgress?.({
             type: "hooks_start",
             hookType: "session_start"
         });
-        let B = await PP("compact", {
+        let R = await C0("compact", {
                 model: q.options.mainLoopModel
             }),
-            S = PZ([P]),
-            m = Yp(P);
-        c("tengu_compact", {
-            preCompactTokenCount: H,
-            postCompactTokenCount: S,
-            compactionInputTokens: m?.input_tokens,
-            compactionOutputTokens: m?.output_tokens,
-            compactionCacheReadTokens: m?.cache_read_input_tokens ?? 0,
-            compactionCacheCreationTokens: m?.cache_creation_input_tokens ?? 0,
-            compactionTotalTokens: m ? m.input_tokens + (m.cache_creation_input_tokens ?? 0) + (m.cache_read_input_tokens ?? 0) + m.output_tokens : 0,
-            promptCacheSharingEnabled: D,
-            ...O
-        });
-        let b = JU1(w ? "auto" : "manual", H ?? 0, A[A.length - 1]?.uuid),
-            g = a$(U6()),
-            U = [c6({
-                content: ux1(W, Y, g),
+            u = Ri6(_ ? "auto" : "manual", O ?? 0, A[A.length - 1]?.uuid),
+            I = zF(A);
+        if (I.size > 0) u.compactMetadata.preCompactDiscoveredTools = [...I].sort();
+        let g = Cz(),
+            B = [p1({
+                content: sF6(Z, Y, g),
                 isCompactSummary: !0,
                 isVisibleInTranscriptOnly: !0
-            })];
-        return fOA(q.options.querySource ?? "compact", q.agentId), {
-            boundaryMarker: b,
-            summaryMessages: U,
+            })],
+            b = Ck([W]),
+            p = GF6([u, ...B, ...N, ...R]),
+            Q = Rd(W),
+            U = w?.querySource ?? q.options.querySource ?? "unknown";
+        d("tengu_compact", {
+            preCompactTokenCount: O,
+            postCompactTokenCount: b,
+            truePostCompactTokenCount: p,
+            autoCompactThreshold: w?.autoCompactThreshold ?? -1,
+            willRetriggerNextTurn: w !== void 0 && p >= w.autoCompactThreshold,
+            isAutoCompact: _,
+            querySource: U,
+            queryChainId: q.queryTracking?.chainId ?? "",
+            queryDepth: q.queryTracking?.depth ?? -1,
+            isRecompactionInChain: w?.isRecompactionInChain ?? !1,
+            turnsSincePreviousCompact: w?.turnsSincePreviousCompact ?? -1,
+            previousCompactTurnId: w?.previousCompactTurnId ?? "",
+            compactionInputTokens: Q?.input_tokens,
+            compactionOutputTokens: Q?.output_tokens,
+            compactionCacheReadTokens: Q?.cache_read_input_tokens ?? 0,
+            compactionCacheCreationTokens: Q?.cache_creation_input_tokens ?? 0,
+            compactionTotalTokens: Q ? Q.input_tokens + (Q.cache_creation_input_tokens ?? 0) + (Q.cache_read_input_tokens ?? 0) + Q.output_tokens : 0,
+            promptCacheSharingEnabled: D,
+            ...H
+        }), gE1(), q.onCompactProgress?.({
+            type: "hooks_start",
+            hookType: "post_compact"
+        });
+        let r = await FE1({
+                trigger: _ ? "auto" : "manual",
+                compactSummary: Z
+            }, q.abortController.signal),
+            e = [M, r.userDisplayMessage].filter(Boolean).join(`
+`);
+        return {
+            boundaryMarker: u,
+            summaryMessages: B,
             attachments: N,
-            hookResults: B,
-            userDisplayMessage: X,
-            preCompactTokenCount: H,
-            postCompactTokenCount: S,
-            compactionUsage: m
+            hookResults: R,
+            userDisplayMessage: e || void 0,
+            preCompactTokenCount: O,
+            postCompactTokenCount: b,
+            truePostCompactTokenCount: p,
+            compactionUsage: Q
         }
-    } catch (H) {
-        throw Qa4(H, q), H
+    } catch (O) {
+        if (!_) Zqq(O, q);
+        throw O
     } finally {
         q.setStreamMode?.("requesting"), q.setResponseLength?.(() => 0), q.onCompactProgress?.({
             type: "compact_end"
@@ -513,7 +540,8 @@ async function performFullCompaction(
     cacheSafeParams,
     includeState,
     customInstructions,
-    isAutoTrigger = false
+    isAutoTrigger = false,
+    compactionContext
 ) {
     try {
         // ===== PHASE 1: Validation & Setup =====

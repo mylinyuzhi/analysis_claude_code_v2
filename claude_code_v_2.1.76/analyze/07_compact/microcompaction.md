@@ -1,5 +1,13 @@
 # Microcompaction & Token Optimization
 
+> **⚠️ Version Note (v2.1.76):** In this version, microcompaction is **disabled**. The `pg` function at chunks.133.mjs:991 is a no-op that simply returns messages unchanged:
+> ```javascript
+> async function pg(A, q, K) {
+>     return Qc4(), { messages: A }
+> }
+> ```
+> The analysis below describes the full microcompaction algorithm as it existed in previous versions. The constants and helper functions documented here may not exist in v2.1.76.
+
 ## Overview
 
 **Microcompaction** is a lightweight, pre-compaction optimization strategy in Claude Code that reduces token count by replacing large tool results with file references and images with text placeholders. Unlike full compaction (which summarizes entire conversation history via LLM API), microcompaction performs targeted content replacement without LLM involvement, achieving 20-50% token reduction in tool-heavy conversations at near-zero cost.
@@ -22,18 +30,8 @@ This optimization runs **automatically** when token usage exceeds warning thresh
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `performMicrocompaction` (gm) - Main microcompaction algorithm with tool result/image replacement
-- `calculateToolResultTokens` (Ps4) - Counts tokens in tool_result content (handles string and array)
-- `calculateMessageTokens` (PU1) - Counts total tokens across all messages
-- `persistToolResult` (uq1) - Saves large tool result content to disk file
-- `createMicrocompactBoundary` (Ws4) - Creates boundary marker message
-- `isMicrocompactBoundary` (QCA) - Checks if message is microcompact boundary
-- `isPersistedContent` (bmY) - Detects if content was already persisted
-- `isErrorResult` (Bq1) - Checks if persistence result contains error
-- `restoreMicrocompactState` (UCA) - Restores compacted tool IDs from message history
-- `resetMicrocompactState` (Ms4) - Clears all microcompaction tracking state
-- `setMicrocompactInProgress` (NG1) - Marks microcompaction as in progress
-- `clearMicrocompactInProgress` (Ds4) - Clears in-progress flag
+- `performMicrocompaction` (pg) - Main microcompaction algorithm (**no-op in v2.1.76**)
+- `clearMicrocompactInProgress` (Qc4) - Clears in-progress flag
 
 Constants:
 - `MIN_MICROCOMPACT_TOKENS` (umY) - 20,000 tokens (minimum savings to trigger auto-microcompaction)

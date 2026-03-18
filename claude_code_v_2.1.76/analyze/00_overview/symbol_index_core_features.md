@@ -750,67 +750,40 @@
 
 ### Standard Compaction (Full Lifecycle)
 
+> Note: `mf6` (performFullCompaction) is listed in Compaction Logic section above.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| AW1 | performFullCompaction | chunks.146.mjs:2325 | function |
-| Ev | countTokens | chunks.75.mjs:2288 | function |
-| Ia4 | getLastUserMessage | chunks.146.mjs:2147 | function |
-| xa4 | extractMetadataFromMessage | chunks.146.mjs:2248 | function |
-| DZ6 | grantPermission | chunks.146.mjs:2115 | function |
-| VOA | formatCustomInstructions | chunks.76.mjs:198 | function |
-| B51 | extractTextFromMessage | chunks.173.mjs:370 | function |
-| rd | resetCodeIndexing | chunks.142.mjs:2377 | function |
-| PZ | countTokens | chunks.75.mjs:2236 | function |
-| Yp | extractUsageFromMessage | chunks.75.mjs:2227 | function |
-| JU1 | createBoundaryMarker | chunks.173.mjs:1215 | function |
-| a$ | generateSessionId | chunks.173.mjs:1658 | function |
-| ux1 | formatSummaryContent | chunks.76.mjs:323 | function |
-| fOA | recordQuerySource | chunks.76.mjs:72 | function |
-| Qa4 | handleCompactionError | chunks.146.mjs:2546 | function |
-| av | callLLMWithCache | chunks.149.mjs:2634 | function |
-| vmY | canUseSummarizeTool | chunks.146.mjs:2555 | function |
-| GN | getLastAssistantMessage | chunks.172.mjs:2785 | function |
-| XU1 | shouldAgentUseTools | chunks.174.mjs:2473 | function |
-| Sx | deduplicateTools | chunks.2.mjs:1164 | function |
-| UW1 | createMainLLMLoop | chunks.169.mjs:691 | function (generator) |
-| WJ | normalizeMessages | chunks.173.mjs:89 | function |
-| TmY | deduplicateMessages | chunks.146.mjs:2283 | function |
-| EN | getVisibleMessagesAfterCompact | chunks.173.mjs:1286 | function |
-| _U1 | ERROR_MESSAGES.EMPTY_MESSAGES | chunks.146.mjs:2768 | constant |
-| QO | API_ERROR_PREFIX | chunks.72.mjs:1824 | constant ("API Error") |
-| dU | PROMPT_TOO_LONG_PREFIX | chunks.72.mjs:1826 | constant ("Prompt is too long") |
-| ma4 | ERROR_MESSAGES.PROMPT_TOO_LONG | chunks.146.mjs:2770 | constant |
-| Ba4 | MAX_FILES_TO_KEEP | chunks.146.mjs:2760 | constant (5) |
-| NmY | MAX_COMPACT_RETRIES | chunks.146.mjs:2766 | constant (2) |
-| JL6 | MAX_SUMMARY_OUTPUT_TOKENS | chunks.1.mjs:2325 | constant (20000) |
-| i5 | SUMMARIZE_TOOL | chunks.146.mjs:1754 | constant (FileReadTool object) |
-| IW6 | THINKING_SIMPLE_TOOL | chunks.140.mjs:1355 | constant (object) |
+| Gqq | generateSummaryWithLLM | chunks.147.mjs:1752 | function |
+| Wqq | performPartialCompaction | chunks.147.mjs:1610 | function |
+| Jqq | extractCompactionMetadata | chunks.147.mjs:1364 | function |
+| zp8 | mergeCustomInstructions | chunks.147.mjs:1465 | function |
+| BE1 | extractTextFromResponse | chunks.147.mjs:1399 | function |
+| Ri6 | createCompactBoundaryMessage | chunks.147.mjs:1449 | function |
+| jl | assembleMessages | chunks.147.mjs:1445 | function |
+| Ck | countMessagesTokens | chunks.147.mjs:1303 | function |
+| Nf6 | estimateTokenCount | chunks.147.mjs:1263 | function |
 
 ### Message Selection & Boundary Logic
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| lmY | selectHistoricalWindow | chunks.147.mjs:590 | function |
-| pCA | adjustBoundariesForTools | chunks.147.mjs:553 | function |
-| dmY | extractToolResultIds | chunks.147.mjs:536 | function |
-| cmY | hasToolUseWithId | chunks.147.mjs:546 | function |
-| Zs4 | isTextBlockMessage | chunks.147.mjs:526 | function |
-| UmY | getSmCompactConfig | chunks.147.mjs:508 | function |
-| pmY | loadSmCompactConfig | chunks.147.mjs:514 | function |
-| gmY | setSmCompactConfig | chunks.147.mjs:501 | function |
-| Gs4 | configLoaded | chunks.147.mjs:689 | variable |
+| EmY | findCompactionBoundary | chunks.147.mjs:2413 | function |
+| Op8 | adjustBoundariesForTools | chunks.147.mjs:2376 | function |
+| vmY | getSmCompactConfig | chunks.147.mjs:2331 | function |
+| NmY | loadSmCompactConfig | chunks.147.mjs:2337 | function |
+| oqq | isTextBlockMessage | chunks.147.mjs:2349 | function |
+| VmY | extractToolResultIds | chunks.147.mjs:2359 | function |
+| kmY | hasToolUseWithId | chunks.147.mjs:2369 | function |
 
 ### Configuration
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TZ6 | isSessionMemoryCompactEnabled | chunks.147.mjs:612 | function |
-| gmY | setSmCompactConfig | chunks.147.mjs:501 | function |
+| cE1 | isSessionMemoryCompactEnabled | chunks.147.mjs:2440 | function |
 | WZ6 | SECTION_TOKEN_LIMIT | chunks.147.mjs:174 | constant (2000) |
 | Hs4 | TOTAL_SESSION_NOTES_LIMIT | chunks.147.mjs:176 | constant (12000) |
-| RmY | SESSION_NOTES_TEMPLATE | chunks.147.mjs:178 | constant (string) |
-| NZ6 | SM_COMPACT_CONFIG_DEFAULTS | chunks.147.mjs:708 | constant ({ minTokens: 10000, minTextBlockMessages: 5, maxTokens: 40000 }) |
-| dCA | smCompactConfig | chunks.147.mjs:712 | variable |
+| dE1 | SM_COMPACT_CONFIG_DEFAULTS | chunks.147.mjs:2542 | constant ({ minTokens: 10000, minTextBlockMessages: 5, maxTokens: 40000 }) |
 | - | ENABLE_CLAUDE_CODE_SM_COMPACT | process.env | environment variable |
 | - | DISABLE_CLAUDE_CODE_SM_COMPACT | process.env | environment variable |
 | - | tengu_session_memory | Statsig | feature flag |
@@ -820,16 +793,15 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| EmY | shouldExcludeFile | chunks.146.mjs:2743 | function |
 | kq | createAttachmentMessage | chunks.142.mjs:2615 | function |
 | TyA | readFileForAttachment | chunks.142.mjs:2524 | function |
 | uW | getPlanFilePath | chunks.88.mjs:120 | function |
 | pD | getPlanFileContent | chunks.88.mjs:126 | function |
 | UB | getTodoList | chunks.88.mjs:274 | function |
 | zR6 | getInvokedSkills | chunks.1.mjs:2972 | function |
-| Ba4 | MAX_FILES_TO_KEEP | chunks.146.mjs:2760 | constant (5) |
-| fmY | MAX_FILE_RESTORE_TOKENS | chunks.146.mjs:2762 | constant (50000) |
-| VmY | MAX_TOKENS_PER_FILE | chunks.146.mjs:2764 | constant (5000) |
+| Xqq | MAX_FILES_TO_KEEP | chunks.147.mjs:1954 | constant (5) |
+| $mY | MAX_FILE_RESTORE_TOKENS | chunks.147.mjs:1956 | constant (50000) |
+| HmY | MAX_TOKENS_PER_FILE | chunks.147.mjs:1958 | constant (5000) |
 
 ### File Read Tracking
 
@@ -850,18 +822,13 @@
 
 ### Microcompaction
 
+> **Note:** In v2.1.76, microcompaction is disabled (no-op function). The `pg` function simply returns messages unchanged.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| gm | performMicrocompaction | chunks.147.mjs:310 | function |
-| Ps4 | calculateToolResultTokens | chunks.147.mjs:280 | function |
-| QmY | getOrCalculateToolResultTokens | chunks.147.mjs:290 | function |
-| uq1 | persistToolResult | chunks.80.mjs:2721 | function |
-| Ws4 | createMicrocompactBoundary | chunks.173.mjs:1236 | function |
-| QCA | isMicrocompactBoundary | chunks.173.mjs:1255 | function |
-| bmY | isPersistedContent | chunks.147.mjs:255 | function |
-| Bq1 | isErrorResult | chunks.80.mjs:2813 | function |
-| UCA | restoreMicrocompactState | chunks.147.mjs:263 | function |
-| Ms4 | resetMicrocompactState | chunks.147.mjs:259 | function |
+| pg | performMicrocompaction | chunks.133.mjs:991 | function (no-op in v2.1.76) |
+| Qc4 | clearMicrocompactInProgress | chunks.133.mjs:992 | function |
+| lc4 | IMAGE_TOKEN_ESTIMATE | chunks.133.mjs:997 | constant (2000) |
 | NG1 | setMicrocompactInProgress | chunks.147.mjs:221 | function |
 | Ds4 | clearMicrocompactInProgress | chunks.147.mjs:225 | function |
 | js4 | resetMicrocompactStateAndFlag | chunks.147.mjs:229 | function |

@@ -13,24 +13,23 @@ The session memory system is gated behind feature flags (`tengu_session_memory` 
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `performSessionMemoryCompaction` (vZ6) - Main entry point for session-memory-based compaction
-- `createCompactionSummaryMessage` (imY) - Builds the compaction result from session notes
-- `isSessionMemoryCompactEnabled` (TZ6) - Feature flag check for SM compaction
-- `findCompactionBoundary` (lmY) - Determines where to split messages for keeping
-- `adjustBoundaryForToolUseConsistency` (pCA) - Ensures tool_use/tool_result pairs are not split
-- `parseSessionSections` (SmY) - Parses session notes into per-section token counts
-- `buildOversizedWarning` (hmY) - Generates warnings when sections exceed limits
-- `buildSessionMemoryPrompt` (Js4) - Constructs the prompt for session memory updates
-- `isEmptyTemplate` (_s4) - Checks if session notes are still the unmodified template
-- `truncateSections` (Xs4) - Truncates oversized sections to fit within limits
-- `loadCustomTemplate` (BCA) - Loads user-customized session memory template
-- `loadCustomPrompt` (CmY) - Loads user-customized session memory update prompt
-- `loadSmCompactConfig` (pmY) - Loads feature-flag-driven configuration thresholds
-- `SESSION_NOTES_TEMPLATE` (RmY) - Default template for session notes
-- `SECTION_TOKEN_LIMIT` (WZ6) - Per-section token limit (2000)
-- `TOTAL_TOKEN_LIMIT` (Hs4) - Total session notes token limit (12000)
-- `SM_COMPACT_CONFIG_DEFAULTS` (NZ6) - Default config: minTokens=10000, minTextBlockMessages=5, maxTokens=40000
-- `autoCompactDispatcher` (fs4) - Top-level auto-compaction orchestrator that calls SM compaction first
+- `performSessionMemoryCompaction` (lE1) - Main entry point for session-memory-based compaction
+- `buildSessionMemoryCompactResult` (ymY) - Builds the compaction result from session notes
+- `isSessionMemoryCompactEnabled` (cE1) - Feature flag check for SM compaction
+- `findCompactionBoundary` (EmY) - Determines where to split messages for keeping
+- `adjustBoundariesForTools` (Op8) - Ensures tool_use/tool_result pairs are not split
+- `getSmCompactConfig` (vmY) - Returns compaction config thresholds
+- `loadSmCompactConfig` (NmY) - Loads remote config for compaction thresholds
+- `isTextBlockMessage` (oqq) - Checks if message has text content
+- `estimateTokenCount` (Nf6) - Estimates token count for messages
+- `isCompactBoundaryMessage` (RZ) - Checks if message is a compaction boundary
+
+Constants:
+- `MAX_FILES_TO_KEEP` (Xqq) - 5 files
+- `MAX_FILE_RESTORE_TOKENS` ($mY) - 50000 tokens
+- `MAX_TOKENS_PER_FILE` (HmY) - 5000 tokens
+- `SM_COMPACT_CONFIG_DEFAULTS` (dE1) - { minTokens: 10000, minTextBlockMessages: 5, maxTokens: 40000 }
+- `autoCompactDispatcher` (sqq) - Top-level auto-compaction orchestrator that calls SM compaction first
 
 ---
 
@@ -146,40 +145,52 @@ async function loadCustomTemplate() {
 
 ```javascript
 // ============================================
-// performSessionMemoryCompaction - Main session-memory compaction path
-// Location: chunks.147.mjs:651-683 (Ln 374742)
+// trySessionMemoryQuickPath - Main session-memory compaction path
+// Location: chunks.147.mjs:2482-2515
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function vZ6(A, q, K) {
-    if (!TZ6()) return null;
-    await pmY(), await sa4();
-    let Y = ra4(), z = PZ6();
-    if (!z) return c("tengu_sm_compact_no_session_memory", {}), null;
-    if (await _s4(z)) return c("tengu_sm_compact_empty_template", {}), null;
+async function lE1(A, q, K) {
+    if (!cE1()) return null;
+    await NmY(), await Sqq();
+    let Y = Lqq(), z = await QE1();
+    if (!z) return d("tengu_sm_compact_no_session_memory", {}), null;
+    if (await lqq(z)) return d("tengu_sm_compact_empty_template", {}), null;
     try {
-        let w;
+        let _;
         if (Y) {
-            if (w = A.findIndex((j) => j.uuid === Y), w === -1) return null
-        } else w = A.length - 1;
-        let H = lmY(A, w),
-            $ = A.slice(H).filter((j) => !cR(j)),
-            O = await PP("compact", { model: l3() }),
-            _ = a$(U6()),
-            J = imY(A, z, $, O, _, q),
-            X = qt(J), D = PU1(X);
-        if (K !== void 0 && D >= K) return null;
-        return { ...J, postCompactTokenCount: D }
-    } catch (w) { return null }
+            if (_ = A.findIndex((D) => D.uuid === Y), _ === -1) return d("tengu_sm_compact_summarized_id_not_found", {}), null
+        } else _ = A.length - 1, d("tengu_sm_compact_resumed_session", {});
+        let w = EmY(A, _),
+            O = A.slice(w).filter((D) => !RZ(D)),
+            $ = await C0("compact", {
+                model: cK()
+            }),
+            H = Cz(),
+            j = ymY(A, z, O, $, H, q),
+            J = jl(j),
+            M = Nf6(J);
+        if (K !== void 0 && M >= K) return d("tengu_sm_compact_threshold_exceeded", {
+            postCompactTokenCount: M,
+            autoCompactThreshold: K
+        }), null;
+        return {
+            ...j,
+            postCompactTokenCount: M,
+            truePostCompactTokenCount: M
+        }
+    } catch (_) {
+        return d("tengu_sm_compact_error", {}), null
+    }
 }
 
 // READABLE (for understanding):
-async function performSessionMemoryCompaction(messages, agentId, autoCompactThreshold) {
+async function trySessionMemoryQuickPath(messages, agentId, autoCompactThreshold) {
     if (!isSessionMemoryCompactEnabled()) return null;
     await loadSmCompactConfig();
     await loadSessionState();
     let lastSummarizedMessageId = getLastSummarizedMessageId();
-    let sessionNotesContent = getSessionNotesContent();
+    let sessionNotesContent = await getSessionNotesContent();
     if (!sessionNotesContent) return null;  // no session notes file
     if (await isEmptyTemplate(sessionNotesContent)) return null;  // notes never updated
     try {
@@ -191,10 +202,10 @@ async function performSessionMemoryCompaction(messages, agentId, autoCompactThre
             anchorIndex = messages.length - 1;  // resumed session
         }
         let boundaryIndex = findCompactionBoundary(messages, anchorIndex);
-        let messagesToKeep = messages.slice(boundaryIndex).filter(m => !isCompactionBoundary(m));
-        let hookResults = await executePreCompactHooks("compact", { model: getMainModel() });
-        let planAttachment = collectPlanToKeep(agentId);
-        let result = createCompactionSummaryMessage(messages, sessionNotesContent, messagesToKeep, hookResults, planAttachment, agentId);
+        let messagesToKeep = messages.slice(boundaryIndex).filter(m => !isCompactBoundaryMessage(m));
+        let hookResults = await executeSessionStartHooks("compact", { model: getMainModel() });
+        let sessionId = generateSessionId();
+        let result = buildSessionMemoryCompactResult(messages, sessionNotesContent, messagesToKeep, hookResults, sessionId, agentId);
         let allMessages = assembleMessages(result);
         let postCompactTokens = estimateTokenCount(allMessages);
         if (autoCompactThreshold !== undefined && postCompactTokens >= autoCompactThreshold) return null;
@@ -202,13 +213,13 @@ async function performSessionMemoryCompaction(messages, agentId, autoCompactThre
     } catch (err) { return null; }
 }
 
-// Mapping: vZ6→performSessionMemoryCompaction, A→messages, q→agentId, K→autoCompactThreshold,
-//   TZ6→isSessionMemoryCompactEnabled, pmY→loadSmCompactConfig, sa4→loadSessionState,
-//   Y→lastSummarizedMessageId, ra4→getLastSummarizedMessageId, z→sessionNotesContent,
-//   PZ6→getSessionNotesContent, _s4→isEmptyTemplate, H→boundaryIndex, lmY→findCompactionBoundary,
-//   $→messagesToKeep, O→hookResults, PP→executePreCompactHooks, _→planAttachment, a$→collectPlanToKeep,
-//   J→result, imY→createCompactionSummaryMessage, X→allMessages, qt→assembleMessages, D→postCompactTokens,
-//   PU1→estimateTokenCount
+// Mapping: lE1→trySessionMemoryQuickPath, A→messages, q→agentId, K→autoCompactThreshold,
+//   cE1→isSessionMemoryCompactEnabled, NmY→loadSmCompactConfig, Sqq→loadSessionState,
+//   Y→lastSummarizedMessageId, Lqq→getLastSummarizedMessageId, z→sessionNotesContent,
+//   QE1→getSessionNotesContent, lqq→isEmptyTemplate, _→anchorIndex, EmY→findCompactionBoundary,
+//   w→boundaryIndex, O→messagesToKeep, RZ→isCompactBoundaryMessage, $→hookResults, C0→executeSessionStartHooks,
+//   cK→getMainModel, H→sessionId, Cz→generateSessionId, j→result, ymY→buildSessionMemoryCompactResult,
+//   J→allMessages, jl→assembleMessages, M→postCompactTokens, Nf6→estimateTokenCount, d→reportTelemetry
 ```
 
 ### Step-by-Step Explanation
@@ -240,26 +251,32 @@ Given a message array and an anchor point, determine the optimal split point: me
 ```javascript
 // ============================================
 // findCompactionBoundary - Determines which messages to keep
-// Location: chunks.147.mjs:590-610 (Ln 374682)
+// Location: chunks.147.mjs:2413-2438
 // ============================================
 
 // ORIGINAL (for source lookup):
-function lmY(A, q) {
+function EmY(A, q) {
     if (A.length === 0) return 0;
-    let K = UmY(), Y = q >= 0 ? q + 1 : A.length, z = 0, w = 0;
-    for (let H = Y; H < A.length; H++) {
-        let $ = A[H];
-        if (z += PU1([$]), Zs4($)) w++
+    let K = vmY(), Y = q >= 0 ? q + 1 : A.length, z = 0, _ = 0;
+    for (let O = Y; O < A.length; O++) {
+        let $ = A[O];
+        if (z += Nf6([$]), oqq($)) _++
     }
-    if (z >= K.maxTokens) return pCA(A, Y);
-    if (z >= K.minTokens && w >= K.minTextBlockMessages) return pCA(A, Y);
-    for (let H = Y - 1; H >= 0; H--) {
-        let $ = A[H], O = PU1([$]);
-        if (z += O, Zs4($)) w++;
-        if (Y = H, z >= K.maxTokens) break;
-        if (z >= K.minTokens && w >= K.minTextBlockMessages) break
+    if (z >= K.maxTokens) return Op8(A, Y);
+    if (z >= K.minTokens && _ >= K.minTextBlockMessages) return Op8(A, Y);
+    let w = 0;
+    for (let O = A.length - 1; O >= 0; O--)
+        if (RZ(A[O])) {
+            w = O + 1;
+            break
+        }
+    for (let O = Y - 1; O >= w; O--) {
+        let $ = A[O], H = Nf6([$]);
+        if (z += H, oqq($)) _++;
+        if (Y = O, z >= K.maxTokens) break;
+        if (z >= K.minTokens && _ >= K.minTextBlockMessages) break
     }
-    return pCA(A, Y)
+    return Op8(A, Y)
 }
 
 // READABLE (for understanding):
@@ -276,12 +293,21 @@ function findCompactionBoundary(messages, anchorIndex) {
     }
 
     // If already enough content after anchor, use anchor as boundary
-    if (totalTokens >= config.maxTokens) return adjustBoundary(messages, startIndex);
+    if (totalTokens >= config.maxTokens) return adjustBoundaryForTools(messages, startIndex);
     if (totalTokens >= config.minTokens && textBlockCount >= config.minTextBlockMessages)
-        return adjustBoundary(messages, startIndex);
+        return adjustBoundaryForTools(messages, startIndex);
+
+    // Find the last compact boundary (to not cross it)
+    let lastBoundaryIndex = 0;
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (isCompactBoundaryMessage(messages[i])) {
+            lastBoundaryIndex = i + 1;
+            break;
+        }
+    }
 
     // Phase 2: Walk backward from anchor, adding messages until thresholds met
-    for (let i = startIndex - 1; i >= 0; i--) {
+    for (let i = startIndex - 1; i >= lastBoundaryIndex; i--) {
         totalTokens += estimateTokenCount([messages[i]]);
         if (hasTextContent(messages[i])) textBlockCount++;
         startIndex = i;
@@ -289,12 +315,12 @@ function findCompactionBoundary(messages, anchorIndex) {
         if (totalTokens >= config.minTokens && textBlockCount >= config.minTextBlockMessages) break;
     }
 
-    return adjustBoundary(messages, startIndex);
+    return adjustBoundaryForTools(messages, startIndex);
 }
 
-// Mapping: lmY→findCompactionBoundary, A→messages, q→anchorIndex, K→config, UmY→getSmCompactConfig,
-//   Y→startIndex, z→totalTokens, w→textBlockCount, PU1→estimateTokenCount, Zs4→hasTextContent,
-//   pCA→adjustBoundaryForToolUseConsistency
+// Mapping: EmY→findCompactionBoundary, A→messages, q→anchorIndex, K→config, vmY→getSmCompactConfig,
+//   Y→startIndex, z→totalTokens, _→textBlockCount, Nf6→estimateTokenCount, oqq→hasTextContent,
+//   Op8→adjustBoundariesForTools, RZ→isCompactBoundaryMessage
 ```
 
 ### Algorithm Design Rationale
@@ -308,7 +334,7 @@ function findCompactionBoundary(messages, anchorIndex) {
 - `minTextBlockMessages: 5` ensures at least 5 meaningful text exchanges are preserved (not just tool results).
 - `maxTokens: 40000` caps how much is kept to prevent the compacted context from being too large.
 
-**The adjustBoundary step** (`pCA`) is critical: it ensures the boundary does not split a `tool_use`/`tool_result` pair. If a user message contains `tool_result` blocks whose corresponding `tool_use` blocks are before the boundary, the boundary is moved back to include those `tool_use` messages. This prevents dangling references in the post-compaction context.
+**The adjustBoundaryForTools step** (`Op8`) is critical: it ensures the boundary does not split a `tool_use`/`tool_result` pair. If a user message contains `tool_result` blocks whose corresponding `tool_use` blocks are before the boundary, the boundary is moved back to include those `tool_use` messages. This prevents dangling references in the post-compaction context.
 
 ---
 
