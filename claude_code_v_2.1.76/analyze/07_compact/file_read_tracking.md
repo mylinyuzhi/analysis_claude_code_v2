@@ -19,23 +19,21 @@ The system uses an **LRU (Least Recently Used) cache** to store file read state,
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `buildFileReadState` (A91) - Extract file state from conversation messages
-- `mergeFileReadState` (yj1) - Merge file states, keeping newer entries
-- `createLruCache` (Rp) - Factory function for LRU cache creation
-- `mapEntriesToObject` (wjA) - Serialize LRU Map to plain object
-- `getWatchedFilePaths` (Th) - Get all file paths from read state
-- `cloneLruCache` (yp) - Clone an existing LRU cache
-- `collectFilesToKeep` (Ua4) - Preserve recently accessed files
+- `createLruCache` (yd) - Factory function for LRU cache creation
+- `mapEntriesToObject` (mf8) - Serialize LRU Map to plain object
+- `getWatchedFilePaths` (jB) - Get all file paths from read state
+- `cloneLruCache` (DI) - Clone an existing LRU cache
+- `mergeFileReadState` (yD1) - Merge file states, keeping newer entries
+- `collectFilesToKeep` (fqq) - Preserve recently accessed files
 - `shouldExcludeFile` (EmY) - Filter excluded files from preservation
 - `getChangedFilesAttachment` (wIY) - Detect and produce file change attachments
 
 Constants:
-- `LRU_MAX_ENTRIES` (JK1) - 100 entries maximum
-- `LRU_MAX_SIZE` (eT9) - 26,214,400 bytes (~25MB)
-- `BUILD_STATE_DEFAULT_MAX` (kcY) - 10 entries default for buildFileReadState
-- `MAX_FILES_TO_KEEP` (Ba4) - 5 files maximum for post-compact restoration
-- `MAX_FILE_RESTORE_TOKENS` (fmY) - 50,000 tokens total for file restoration
-- `MAX_TOKENS_PER_FILE` (VmY) - 5,000 tokens per file for restoration
+- `LRU_MAX_ENTRIES` (Ed) - 100 entries maximum
+- `LRU_MAX_SIZE` (yv9) - 26,214,400 bytes (~25MB)
+- `MAX_FILES_TO_KEEP` (Xqq) - 5 files maximum for post-compact restoration
+- `MAX_FILE_RESTORE_TOKENS` ($mY) - 50,000 tokens total for file restoration
+- `MAX_TOKENS_PER_FILE` (HmY) - 5,000 tokens per file for restoration
 
 ---
 
@@ -43,14 +41,14 @@ Constants:
 
 ### LRU Cache for File Read State
 
-**Location:** chunks.88.mjs:2200-2252
+**Location:** chunks.84.mjs:3-51
 
-The `readFileState` is an LRU Map that stores metadata about files read during the session. The implementation uses a custom wrapper class (`_p7`) around the `quick-lru` library.
+The `readFileState` is an LRU Map that stores metadata about files read during the session. The implementation uses a custom wrapper class (`R14`) around the `quick-lru` library.
 
-#### LRU Wrapper Class (_p7)
+#### LRU Wrapper Class (R14)
 
-**Class:** `_p7` (LruMapWrapper)
-**Location:** chunks.88.mjs:2200-2248
+**Class:** `R14` (LruMapWrapper)
+**Location:** chunks.84.mjs:3-51
 **Purpose:** Wraps `quick-lru` with path normalization and size calculation
 
 **What it does:**
@@ -60,18 +58,18 @@ Provides an LRU (Least Recently Used) cache implementation that automatically ev
 2. **Total size limit exceeded** - Cumulative size exceeds `maxSize` bytes
 
 **Internal Structure:**
-- Uses `ZT` (QuickLRU) as the underlying cache implementation
+- Uses `kT` (QuickLRU) as the underlying cache implementation
 - Size calculation: `Math.max(1, Buffer.byteLength(entry.content))` - measures content only
-- Path normalization: All get/set/has operations normalize paths via `J_6()`
+- Path normalization: All get/set/has operations normalize paths via `ED1()`
 
 **Key Methods:**
 
 | Method | Behavior | Path Normalization |
 |--------|----------|-------------------|
-| `get(path)` | Returns cached entry or undefined | Yes (`J_6()`) |
-| `set(path, value)` | Stores entry, returns `this` for chaining | Yes (`J_6()`) |
-| `has(path)` | Returns boolean | Yes (`J_6()`) |
-| `delete(path)` | Removes entry | Yes (`J_6()`) |
+| `get(path)` | Returns cached entry or undefined | Yes (`ED1()`) |
+| `set(path, value)` | Stores entry, returns `this` for chaining | Yes (`ED1()`) |
+| `has(path)` | Returns boolean | Yes (`ED1()`) |
+| `delete(path)` | Removes entry | Yes (`ED1()`) |
 | `clear()` | Removes all entries | N/A |
 | `keys()` | Returns iterator of all paths | No (raw keys) |
 | `entries()` | Returns iterator of `[path, value]` pairs | No (raw keys) |
@@ -97,30 +95,30 @@ Provides an LRU (Least Recently Used) cache implementation that automatically ev
 ```javascript
 // ============================================
 // LruMapWrapper - LRU cache wrapper with path normalization
-// Location: chunks.88.mjs:2200-2248
+// Location: chunks.84.mjs:3-51
 // ============================================
 
 // ORIGINAL (for source lookup):
-class _p7 {
+class R14 {
     cache;
     constructor(A, q) {
-        this.cache = new ZT({
+        this.cache = new kT({
             max: A,
             maxSize: q,
             sizeCalculation: (K) => Math.max(1, Buffer.byteLength(K.content))
         })
     }
     get(A) {
-        return this.cache.get(J_6(A))
+        return this.cache.get(ED1(A))
     }
     set(A, q) {
-        return this.cache.set(J_6(A), q), this
+        return this.cache.set(ED1(A), q), this
     }
     has(A) {
-        return this.cache.has(J_6(A))
+        return this.cache.has(ED1(A))
     }
     delete(A) {
-        return this.cache.delete(J_6(A))
+        return this.cache.delete(ED1(A))
     }
     clear() {
         this.cache.clear()
@@ -187,7 +185,7 @@ class LruMapWrapper {
     load(data) { this.cache.load(data); }
 }
 
-// Mapping: _p7→LruMapWrapper, ZT→QuickLRU, J_6→normalizePath, A→maxEntries/filePath, q→maxSizeBytes/value, K→entry
+// Mapping: R14→LruMapWrapper, kT→QuickLRU, ED1→normalizePath, A→maxEntries/filePath, q→maxSizeBytes/value, K→entry
 ```
 
 #### Factory Function
@@ -195,12 +193,12 @@ class LruMapWrapper {
 ```javascript
 // ============================================
 // createLruCache - Factory function for LRU cache
-// Location: chunks.88.mjs:2250-2252
+// Location: chunks.84.mjs:53-55
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Rp(A, q = eT9) {
-    return new _p7(A, q)
+function yd(A, q = yv9) {
+    return new R14(A, q)
 }
 
 // READABLE (for understanding):
@@ -208,7 +206,7 @@ function createLruCache(maxEntries, maxSizeBytes = LRU_MAX_SIZE) {
     return new LruMapWrapper(maxEntries, maxSizeBytes);
 }
 
-// Mapping: Rp→createLruCache, A→maxEntries, q→maxSizeBytes, eT9→LRU_MAX_SIZE, _p7→LruMapWrapper
+// Mapping: yd→createLruCache, A→maxEntries, q→maxSizeBytes, yv9→LRU_MAX_SIZE, R14→LruMapWrapper
 ```
 
 ### File State Entry Schema
@@ -233,23 +231,23 @@ Each entry in `readFileState` contains:
 
 ### LRU Cache Constants
 
-**Location:** chunks.88.mjs:2276-2278
+**Location:** chunks.84.mjs:79-81
 
 ```javascript
 // ============================================
 // LRU Cache Constants - Limits for readFileState
-// Location: chunks.88.mjs:2276-2278
+// Location: chunks.84.mjs:79-81
 // ============================================
 
 // ORIGINAL (for source lookup):
-JK1 = 100
-eT9 = 26214400
+Ed = 100
+yv9 = 26214400
 
 // READABLE (for understanding):
 const LRU_MAX_ENTRIES = 100;      // Maximum number of files to track
 const LRU_MAX_SIZE = 26214400;    // Maximum total size: ~25MB
 
-// Mapping: JK1→LRU_MAX_ENTRIES, eT9→LRU_MAX_SIZE
+// Mapping: Ed→LRU_MAX_ENTRIES, yv9→LRU_MAX_SIZE
 ```
 
 **Why these values:**
@@ -266,6 +264,8 @@ const LRU_MAX_SIZE = 26214400;    // Maximum total size: ~25MB
 **Function:** `buildFileReadState` (A91)
 **Location:** chunks.150.mjs:2459-2516
 **Purpose:** Extract file read state from conversation history
+
+> **Note:** In v2.1.76, the file read state is populated directly when files are read via the Read tool (see `sF8` function in chunks.147.mjs). The `buildFileReadState` function shown here is for reference and may not be present in all versions.
 
 #### What it does
 
@@ -494,15 +494,16 @@ function buildFileReadState(messages, workingDirectory, maxEntries = BUILD_STATE
     return fileState;
 }
 
-// Mapping: A91→buildFileReadState, A→messages, q→workingDirectory, K→maxEntries, Y→fileState, z→readToolMap, w→editToolMap, H→message, $→content, Jq→ReadTool, f5→EditTool, g4→resolvePath, Rp→createLruCache, kcY→BUILD_STATE_DEFAULT_MAX
+// Mapping: A91→buildFileReadState, A→messages, q→workingDirectory, K→maxEntries, Y→fileState, z→readToolMap, w→editToolMap, H→message, $→content, Jq→ReadTool, f5→EditTool, g4→resolvePath
+// Note: Rp→createLruCache (yd in v2.1.76), kcY→BUILD_STATE_DEFAULT_MAX
 ```
 
 ---
 
 ### 2. Merge File Read States
 
-**Function:** `mergeFileReadState` (yj1)
-**Location:** chunks.88.mjs:2267-2274
+**Function:** `mergeFileReadState` (yD1)
+**Location:** chunks.84.mjs:70-77
 **Purpose:** Merge two file read states, keeping newer entries
 
 #### What it does
@@ -545,12 +546,12 @@ This is used during compaction recovery to merge file state from the conversatio
 ```javascript
 // ============================================
 // mergeFileReadState - Merge file states, keeping newer entries
-// Location: chunks.88.mjs:2267-2274
+// Location: chunks.84.mjs:70-77
 // ============================================
 
 // ORIGINAL (for source lookup):
-function yj1(A, q) {
-    let K = yp(A);
+function yD1(A, q) {
+    let K = DI(A);
     for (let [Y, z] of q.entries()) {
         let w = K.get(Y);
         if (!w || z.timestamp > w.timestamp) K.set(Y, z)
@@ -576,26 +577,26 @@ function mergeFileReadState(existingState, newState) {
     return mergedState;
 }
 
-// Mapping: yj1→mergeFileReadState, A→existingState, q→newState, K→mergedState, Y→filePath, z→newMetadata, w→existingMetadata, yp→cloneLruCache
+// Mapping: yD1→mergeFileReadState, A→existingState, q→newState, K→mergedState, Y→filePath, z→newMetadata, w→existingMetadata, DI→cloneLruCache
 ```
 
 ---
 
 ### 3. Clone LRU Cache
 
-**Function:** `cloneLruCache` (yp)
-**Location:** chunks.88.mjs:2262-2265
+**Function:** `cloneLruCache` (DI)
+**Location:** chunks.84.mjs:65-68
 **Purpose:** Create a copy of an LRU cache
 
 ```javascript
 // ============================================
 // cloneLruCache - Clone an existing LRU cache
-// Location: chunks.88.mjs:2262-2265
+// Location: chunks.84.mjs:65-68
 // ============================================
 
 // ORIGINAL (for source lookup):
-function yp(A) {
-    let q = Rp(A.max, A.maxSize);
+function DI(A) {
+    let q = yd(A.max, A.maxSize);
     return q.load(A.dump()), q
 }
 
@@ -610,25 +611,25 @@ function cloneLruCache(originalCache) {
     return clonedCache;
 }
 
-// Mapping: yp→cloneLruCache, A→originalCache, q→clonedCache, Rp→createLruCache
+// Mapping: DI→cloneLruCache, A→originalCache, q→clonedCache, yd→createLruCache
 ```
 
 ---
 
 ### 4. Get Watched File Paths
 
-**Function:** `getWatchedFilePaths` (Th)
-**Location:** chunks.88.mjs:2258-2260
+**Function:** `getWatchedFilePaths` (jB)
+**Location:** chunks.84.mjs:61-63
 **Purpose:** Get all file paths from read state as array
 
 ```javascript
 // ============================================
 // getWatchedFilePaths - Get all file paths from read state
-// Location: chunks.88.mjs:2258-2260
+// Location: chunks.84.mjs:61-63
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Th(A) {
+function jB(A) {
     return Array.from(A.keys())
 }
 
@@ -637,25 +638,25 @@ function getWatchedFilePaths(readFileState) {
     return Array.from(readFileState.keys());
 }
 
-// Mapping: Th→getWatchedFilePaths, A→readFileState
+// Mapping: jB→getWatchedFilePaths, A→readFileState
 ```
 
 ---
 
 ### 5. Map Entries to Object
 
-**Function:** `mapEntriesToObject` (wjA)
-**Location:** chunks.88.mjs:2254-2256
+**Function:** `mapEntriesToObject` (mf8)
+**Location:** chunks.84.mjs:57-59
 **Purpose:** Serialize LRU Map to plain object (for snapshot/restoration)
 
 ```javascript
 // ============================================
 // mapEntriesToObject - Serialize LRU Map to plain object
-// Location: chunks.88.mjs:2254-2256
+// Location: chunks.84.mjs:57-59
 // ============================================
 
 // ORIGINAL (for source lookup):
-function wjA(A) {
+function mf8(A) {
     return Object.fromEntries(A.entries())
 }
 
@@ -664,7 +665,7 @@ function mapEntriesToObject(lruMap) {
     return Object.fromEntries(lruMap.entries());
 }
 
-// Mapping: wjA→mapEntriesToObject, A→lruMap
+// Mapping: mf8→mapEntriesToObject, A→lruMap
 ```
 
 ---
@@ -684,14 +685,14 @@ During context compaction, the file read state is managed through a **clear and 
 // ============================================
 
 // ORIGINAL (for source lookup):
-let G = wjA(q.readFileState);
-q.readFileState.clear(), rd();
-let [f, Z] = await Promise.all([Ua4(G, q, Ba4), ca4(q)]), N = [...f, ...Z], T = pa4(q.agentId ?? U6());
-if (T) N.push(T);
-let k = jZ6(q.agentId);
-if (k) N.push(k);
-let y = da4();
-if (y) N.push(y);
+let G = mf8(q.readFileState);
+q.readFileState.clear(), Oc();
+let [f, v] = await Promise.all([fqq(G, q, Xqq), Nqq(q)]), N = [...f, ...v], V = mE1(q.agentId);
+if (V) N.push(V);
+let L = await vqq(q);
+if (L) N.push(L);
+let h = Tqq(q.agentId);
+if (h) N.push(h);
 
 // READABLE (for understanding):
 // 1. Snapshot current file state
@@ -709,17 +710,19 @@ let [fileAttachments, taskAttachments] = await Promise.all([
 // 4. Combine all attachments
 let attachments = [...fileAttachments, ...taskAttachments];
 
-// 5. Add todo, plan, skills attachments
-let todosAttachment = collectTodosToKeep(context.agentId);
-if (todosAttachment) attachments.push(todosAttachment);
-
+// 5. Add plan attachment
 let planAttachment = collectPlanToKeep(context.agentId);
 if (planAttachment) attachments.push(planAttachment);
 
-let skillsAttachment = collectSkillsToKeep();
+// 6. Add plan mode attachment (if applicable)
+let planModeAttachment = await collectPlanModeAttachment(context);
+if (planModeAttachment) attachments.push(planModeAttachment);
+
+// 7. Add skills attachment
+let skillsAttachment = collectSkillsToKeep(context.agentId);
 if (skillsAttachment) attachments.push(skillsAttachment);
 
-// Mapping: G→fileStateSnapshot, q→context, wjA→mapEntriesToObject, Ua4→collectFilesToKeep, ca4→collectTasksToKeep, Ba4→MAX_FILES_TO_KEEP, rd→clearStateHelpers, N→attachments, T→todosAttachment, k→planAttachment, y→skillsAttachment, pa4→collectTodosToKeep, jZ6→collectPlanToKeep, da4→collectSkillsToKeep
+// Mapping: G→fileStateSnapshot, q→context, mf8→mapEntriesToObject, fqq→collectFilesToKeep, Nqq→collectTasksToKeep, Xqq→MAX_FILES_TO_KEEP, N→attachments, V→planAttachment, L→planModeAttachment, h→skillsAttachment, mE1→collectPlanToKeep, vqq→collectPlanModeAttachment, Tqq→collectSkillsToKeep
 ```
 
 **Why clear before restore?**
@@ -1324,23 +1327,18 @@ function addNestedMemoryToReadState(nestedMemoryEntries, sessionContext) {
 
 **Location:** chunks.150.mjs:2518-2522
 
+> **Note:** These constants are documented for reference. In v2.1.76, the `buildFileReadState` function uses `Ed` (100) for LRU max entries.
+
 ```javascript
 // ============================================
-// File tracking constants
+// File tracking constants (reference)
 // Location: chunks.150.mjs:2518-2522
 // ============================================
 
-// ORIGINAL (for source lookup):
-kcY = 10    // Default max entries for buildFileReadState
-LcY = 100   // Alternative max entries constant
-RcY = 30000 // Timeout or size constant
-
 // READABLE (for understanding):
 const BUILD_STATE_DEFAULT_MAX = 10;    // Default for buildFileReadState
-const BUILD_STATE_ALT_MAX = 100;       // Alternative max entries
+const BUILD_STATE_ALT_MAX = 100;       // Alternative max entries (Ed in v2.1.76)
 const FILE_TRACKING_TIMEOUT = 30000;   // 30 second timeout
-
-// Mapping: kcY→BUILD_STATE_DEFAULT_MAX, LcY→BUILD_STATE_ALT_MAX, RcY→FILE_TRACKING_TIMEOUT
 ```
 
 ### File Restoration Constants
@@ -1348,9 +1346,9 @@ const FILE_TRACKING_TIMEOUT = 30000;   // 30 second timeout
 **Location:** chunks.146.mjs (referenced in state_preservation.md)
 
 ```javascript
-const MAX_FILES_TO_KEEP = 5;           // Ba4 - Max files to restore after compaction
-const MAX_FILE_RESTORE_TOKENS = 50000; // fmY - Max total tokens for file restoration
-const MAX_TOKENS_PER_FILE = 5000;      // VmY - Max tokens per file for restoration
+const MAX_FILES_TO_KEEP = 5;           // Xqq - Max files to restore after compaction
+const MAX_FILE_RESTORE_TOKENS = 50000; // $mY - Max total tokens for file restoration
+const MAX_TOKENS_PER_FILE = 5000;      // HmY - Max tokens per file for restoration
 ```
 
 ---
@@ -2063,7 +2061,7 @@ When a subagent is spawned, it receives a **cloned copy** of the parent's `readF
 // ============================================
 
 // ORIGINAL (for source lookup):
-let T = H !== void 0 ? yp(K.readFileState) : Rp(JK1);
+let T = H !== void 0 ? DI(K.readFileState) : yd(Ed);
 
 // READABLE (for understanding):
 // If forkContextMessages provided: clone parent's readFileState
@@ -2072,7 +2070,7 @@ let subagentReadFileState = forkContextMessages !== undefined
     ? cloneLruCache(parentContext.readFileState)  // Inherit from parent
     : createLruCache(LRU_MAX_ENTRIES);            // Start fresh
 
-// Mapping: T→subagentReadFileState, H→forkContextMessages, K→parentContext, yp→cloneLruCache, Rp→createLruCache, JK1→LRU_MAX_ENTRIES
+// Mapping: T→subagentReadFileState, H→forkContextMessages, K→parentContext, DI→cloneLruCache, yd→createLruCache, Ed→LRU_MAX_ENTRIES
 ```
 
 ### Subagent Context Isolation
@@ -2090,7 +2088,7 @@ function vQ1(A, q) {
     let K = q?.abortController ?? (q?.shareAbortController ? A.abortController : R61(A.abortController)),
         // ...
     return {
-        readFileState: yp(q?.readFileState ?? A.readFileState),
+        readFileState: DI(q?.readFileState ?? A.readFileState),
         // ... other context fields ...
     }
 }
@@ -2213,8 +2211,8 @@ After compaction, the system rebuilds `readFileState` from message history and m
 // ============================================
 
 // ORIGINAL (for source lookup):
-let A1 = A91(D1, K),
-    M1 = yj1(A1, s.readFileState);
+let A1 = extractFileReadsFromMessages(D1, K),
+    M1 = yD1(A1, s.readFileState);
 
 // READABLE (for understanding):
 // 1. Extract file reads from compacted messages
@@ -2223,8 +2221,10 @@ let extractedState = buildFileReadState(messages, workingDirectory);
 // 2. Merge with existing state (keep newer entries)
 let mergedState = mergeFileReadState(extractedState, context.readFileState);
 
-// Mapping: A1→extractedState, D1→messages, K→workingDirectory, M1→mergedState, yj1→mergeFileReadState, s→context, A91→buildFileReadState
+// Mapping: A1→extractedState, D1→messages, K→workingDirectory, M1→mergedState, yD1→mergeFileReadState, s→context
 ```
+
+> **Note:** The `buildFileReadState` function referenced here extracts file read state from messages. In v2.1.76, the primary mechanism for populating `readFileState` is through the Read tool's `sF8` function (chunks.147.mjs:344-368).
 
 ### When File State IS Propagated
 

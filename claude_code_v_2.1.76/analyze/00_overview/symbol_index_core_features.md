@@ -678,7 +678,7 @@
 | oc6 | getAutoCompactThreshold | chunks.147.mjs:2577 | function |
 | OF | getEffectiveContextWindow | chunks.147.mjs:2566 | function |
 | mf6 | performFullCompaction | chunks.147.mjs:1473 | function |
-| ga4 | generateConversationSummary | chunks.147.mjs:1755 | function |
+| Gqq | generateSummaryWithLLM | chunks.147.mjs:1752 | function |
 | lE1 | trySessionMemoryQuickPath | chunks.147.mjs:2482 | function |
 | fqq | collectFilesToKeep | chunks.147.mjs:1862 | function |
 | Nqq | collectTasksToKeep | chunks.147.mjs:1923 | function |
@@ -692,6 +692,7 @@
 | SmY | TOKEN_ERROR_THRESHOLD | chunks.147.mjs:2682 | constant (20000) |
 | Mp8 | BLOCKING_LIMIT_OFFSET | chunks.147.mjs:2684 | constant (3000) |
 | aqq | MAX_AUTO_COMPACT_FAILURES | chunks.147.mjs:2686 | constant (3) |
+| jmY | COMPACT_MAX_RETRIES | chunks.147.mjs:1960 | constant (2) |
 
 ### Session Memory Compaction
 
@@ -743,9 +744,9 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| K16 | clearMessageCache | chunks.147.mjs | function |
-| gl | clearTokenEstimate | chunks.147.mjs | function |
-| bc6 | clearCompactBoundaries | chunks.147.mjs | function |
+| K16 | clearMessageCache | chunks.147.mjs:2011 | function |
+| gl | clearTokenEstimate | chunks.147.mjs:2551 | function |
+| bc6 | clearCompactBoundaries | chunks.133.mjs:916 | function |
 
 ### Query Pipeline Integration
 
@@ -776,11 +777,11 @@
 | Wqq | performPartialCompaction | chunks.147.mjs:1610 | function |
 | Jqq | extractCompactionMetadata | chunks.147.mjs:1364 | function |
 | zp8 | mergeCustomInstructions | chunks.147.mjs:1465 | function |
-| BE1 | extractTextFromResponse | chunks.147.mjs:1399 | function |
-| Ri6 | createCompactBoundaryMessage | chunks.147.mjs:1449 | function |
+| BE1 | extractTextFromResponse | chunks.173.mjs:2364 | function |
+| Ri6 | createCompactBoundaryMessage | chunks.174.mjs:580 | function |
 | jl | assembleMessages | chunks.147.mjs:1445 | function |
-| Ck | countMessagesTokens | chunks.147.mjs:1303 | function |
-| Nf6 | estimateTokenCount | chunks.147.mjs:1263 | function |
+| Ck | countMessagesTokens | chunks.84.mjs:1094 | function |
+| Nf6 | estimateTokenCount | chunks.133.mjs:974 | function |
 
 ### Message Selection & Boundary Logic
 
@@ -825,18 +826,16 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| _p7 | LruMapWrapper | chunks.88.mjs:2200 | class |
-| ZT | QuickLRU | chunks.88.mjs | class (import) |
-| J_6 | normalizePath | chunks.88.mjs | function |
-| A91 | buildFileReadState | chunks.150.mjs:2459 | function |
-| yj1 | mergeFileReadState | chunks.88.mjs:2267 | function |
-| Rp | createLruCache | chunks.88.mjs:2250 | function |
-| yp | cloneLruCache | chunks.88.mjs:2262 | function |
-| wjA | mapEntriesToObject | chunks.88.mjs:2254 | function |
-| Th | getWatchedFilePaths | chunks.88.mjs:2258 | function |
-| JK1 | LRU_MAX_ENTRIES | chunks.88.mjs:2276 | constant (100) |
-| eT9 | LRU_MAX_SIZE | chunks.88.mjs:2278 | constant (26214400) |
-| kcY | BUILD_STATE_DEFAULT_MAX | chunks.150.mjs:2518 | constant (10) |
+| R14 | LruMapWrapper | chunks.84.mjs:3 | class |
+| kT | QuickLRU | chunks.84.mjs | class (import) |
+| ED1 | normalizePath | chunks.84.mjs | function |
+| yd | createLruCache | chunks.84.mjs:53 | function |
+| mf8 | mapEntriesToObject | chunks.84.mjs:57 | function |
+| jB | getWatchedFilePaths | chunks.84.mjs:61 | function |
+| DI | cloneLruCache | chunks.84.mjs:65 | function |
+| yD1 | mergeFileReadState | chunks.84.mjs:70 | function |
+| Ed | LRU_MAX_ENTRIES | chunks.84.mjs:79 | constant (100) |
+| yv9 | LRU_MAX_SIZE | chunks.84.mjs:81 | constant (26214400) |
 
 ### Microcompaction
 
@@ -861,13 +860,12 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
-| PP | executeSessionStartHooks | chunks.142.mjs:248 | function |
-| $yA | executeSessionStartGenerator | chunks.141.mjs:2961 | function |
-| AyA | executeHooksOutsideREPL | chunks.141.mjs:2691 | function |
-| aX | createHookContext | chunks.141.mjs:1770 | function |
-| Wi4 | parseHookOutput | chunks.141.mjs:1780 | function |
-| MP | DEFAULT_HOOK_TIMEOUT | chunks.142.mjs:215 | constant (600000) |
+| sT6 | executePreCompactHooks | chunks.175.mjs:2682 | function |
+| FE1 | executePostCompactHooks | chunks.175.mjs:2713 | function |
+| Qu8 | executeSessionStartHooks | chunks.175.mjs:2632 | function |
+| RF | executeHooksOutsideREPL | chunks.175.mjs:2279 | function |
+| $w | createHookContext | chunks.175.mjs:1002 | function |
+| T$ | DEFAULT_HOOK_TIMEOUT | chunks.176.mjs:178 | constant (600000) |
 | NXA | CLEARED_CONTENT_MESSAGE | chunks.80.mjs:2844 | constant |
 | C$6 | PERSISTED_OUTPUT_START | chunks.80.mjs:2840 | constant |
 | VXA | PERSISTED_OUTPUT_END | chunks.80.mjs:2842 | constant |
@@ -1163,7 +1161,7 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| da4 | collectSkillsToKeep | chunks.146.mjs:2710-2722 | function |
+| Tqq | collectSkillsToKeep | chunks.147.mjs:1896 | function |
 | zR6 | getInvokedSkills | chunks.1.mjs:2964-2973 | function |
 
 ### Skill Tool Integration
@@ -1753,14 +1751,13 @@
 |------------|----------|-----------|------|
 | Fa4 | summarizationEngineFunction | chunks.146.mjs | function (main entry: orchestrates full summarization pipeline; partial or full compaction) |
 | mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function (run PreCompact hooks; collect custom instructions and user-facing hook messages) |
-| ga4 | runSummarizeLLM | chunks.146.mjs:2566 | function (LLM call for summarization; uses mainLoopModel; supports cache-sharing and streaming-retry feature flags) |
+| Gqq | generateSummaryWithLLM | chunks.147.mjs:1752 | function (LLM call for summarization; uses mainLoopModel; supports cache-sharing and streaming-retry feature flags) |
 | TmY | stripImagesFromMessages | chunks.146.mjs:2283 | function (replace image content with placeholder before sending to summarize LLM) |
 | PP | runSessionStartHooks | chunks.142.mjs:248 | function (execute SessionStart plugin hooks post-compaction; collects context messages) |
-| Ua4 | collectReadFiles | chunks.146.mjs:2665 | function (collect recently-read files for post-compact context; 5000 token/file cap, 50000 cumulative budget) |
-| ca4 | collectCompletedTasks | chunks.146.mjs:2724 | function (extract completed local agent task statuses for post-compact context) |
-| pa4 | collectTodos | chunks.146.mjs:2688 | function (extract current todo items for post-compact context) |
-| jZ6 | collectPlanFile | chunks.146.mjs:2699 | function (extract active plan file reference for post-compact context) |
-| da4 | collectInvokedSkills | chunks.146.mjs:2710 | function (extract invoked skills list for post-compact context) |
+| fqq | collectFilesToKeep | chunks.147.mjs:1862 | function (collect recently-read files for post-compact context; 5000 token/file cap, 50000 cumulative budget) |
+| Nqq | collectTasksToKeep | chunks.147.mjs:1923 | function (extract completed local agent task statuses for post-compact context) |
+| mE1 | collectPlanToKeep | chunks.147.mjs:1885 | function (extract active plan file reference for post-compact context) |
+| Tqq | collectSkillsToKeep | chunks.147.mjs:1896 | function (extract invoked skills list for post-compact context) |
 | JU1 | createBoundaryMarker | chunks.173.mjs:1215 | function (create compact_boundary system message: stores trigger, preTokens, userContext, messageCount) |
 | ux1 | formatSummaryText | chunks.76.mjs:323 | function (build context-restoration text block with transcript link and continuation directives) |
 | a$ | getTranscriptFilePath | chunks.173.mjs:1658 | function (construct session transcript file path for summary footer link) |

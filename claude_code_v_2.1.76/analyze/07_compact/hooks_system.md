@@ -24,16 +24,14 @@ Hooks are implemented as **callback functions** or **shell commands** registered
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `executePreCompactHooks` (mW6) - Executes PreCompact hooks with trigger and custom instructions
-- `executeSessionStartHooks` (PP) - Executes SessionStart hooks after compaction completes
-- `executeHooksOutsideREPL` (AyA) - Core hook execution engine (callback, command, agent, prompt types)
-- `executeSessionStartGenerator` ($yA) - Generator for SessionStart hook results
-- `createHookContext` (aX) - Builds hook context object (session ID, transcript path, cwd)
-- `parseHookOutput` (Wi4) - Parses and validates hook JSON output
-- `executeHooksIterator` (NI) - Generator that yields hook results one by one
+- `executePreCompactHooks` (sT6) - Executes PreCompact hooks with trigger and custom instructions
+- `executePostCompactHooks` (FE1) - Executes PostCompact hooks after compaction completes
+- `executeSessionStartHooks` (Qu8) - Executes SessionStart hooks after compaction completes
+- `executeHooksOutsideREPL` (RF) - Core hook execution engine (callback, command, agent, prompt types)
+- `createHookContext` ($w) - Builds hook context object (session ID, transcript path, cwd)
 
 Constants:
-- `DEFAULT_HOOK_TIMEOUT` (MP) - 600,000 ms (10 minutes)
+- `DEFAULT_HOOK_TIMEOUT` (T$) - 600,000 ms (10 minutes)
 
 ---
 
@@ -82,8 +80,8 @@ performFullCompaction()
 
 ### 1. Pre-Compact Hook Execution
 
-**Function:** `executePreCompactHooks` (mW6)
-**Location:** chunks.141.mjs:3011-3040
+**Function:** `executePreCompactHooks` (sT6)
+**Location:** chunks.175.mjs:2682-2711
 **Purpose:** Executes PreCompact hooks to gather custom instructions and user feedback before compaction
 
 #### What it does
@@ -170,12 +168,105 @@ PreCompact hooks enable **user-controlled compaction customization** without mod
 - Injecting warnings ("Large refactor in progress, preserve detailed context")
 - Conditional behavior ("If auto-trigger, summarize aggressively; if manual, preserve details")
 
+#### Code Snippet
+
+```javascript
+// ============================================
+// executePreCompactHooks - Execute PreCompact hooks for custom instructions
+// Location: chunks.175.mjs:2682-2711
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function sT6(A, q, K = T$) {
+    let Y = {
+            ...$w(void 0),
+            hook_event_name: "PreCompact",
+            trigger: A.trigger,
+            custom_instructions: A.customInstructions
+        },
+        z = await RF({
+            hookInput: Y,
+            matchQuery: A.trigger,
+            signal: q,
+            timeoutMs: K
+        });
+    if (z.length === 0) return {};
+    let _ = z.filter((O) => O.succeeded && O.output.trim().length > 0).map((O) => O.output.trim()),
+        w = [];
+    for (let O of z)
+        if (O.succeeded)
+            if (O.output.trim()) w.push(`PreCompact [${O.command}] completed successfully: ${O.output.trim()}`);
+            else w.push(`PreCompact [${O.command}] completed successfully`);
+    else if (O.output.trim()) w.push(`PreCompact [${O.command}] failed: ${O.output.trim()}`);
+    else w.push(`PreCompact [${O.command}] failed`);
+    return {
+        newCustomInstructions: _.length > 0 ? _.join("\n\n") : void 0,
+        userDisplayMessage: w.length > 0 ? w.join("\n") : void 0
+    }
+}
+
+// READABLE (for understanding):
+async function executePreCompactHooks(input, signal, timeoutMs = DEFAULT_HOOK_TIMEOUT) {
+    // Build hook input with context
+    let hookInput = {
+        ...createHookContext(undefined),
+        hook_event_name: "PreCompact",
+        trigger: input.trigger,  // "auto" or "manual"
+        custom_instructions: input.customInstructions
+    };
+
+    // Execute all matching hooks
+    let results = await executeHooksOutsideREPL({
+        hookInput,
+        matchQuery: input.trigger,  // Allows hooks to match on trigger type
+        signal,
+        timeoutMs
+    });
+
+    if (results.length === 0) return {};
+
+    // Extract custom instructions from successful hooks
+    let customInstructionsArray = results
+        .filter((r) => r.succeeded && r.output.trim().length > 0)
+        .map((r) => r.output.trim());
+
+    // Build user display messages
+    let displayMessages = [];
+    for (let result of results) {
+        if (result.succeeded) {
+            if (result.output.trim()) {
+                displayMessages.push(`PreCompact [${result.command}] completed successfully: ${result.output.trim()}`);
+            } else {
+                displayMessages.push(`PreCompact [${result.command}] completed successfully`);
+            }
+        } else {
+            if (result.output.trim()) {
+                displayMessages.push(`PreCompact [${result.command}] failed: ${result.output.trim()}`);
+            } else {
+                displayMessages.push(`PreCompact [${result.command}] failed`);
+            }
+        }
+    }
+
+    return {
+        newCustomInstructions: customInstructionsArray.length > 0
+            ? customInstructionsArray.join("\n\n")
+            : undefined,
+        userDisplayMessage: displayMessages.length > 0
+            ? displayMessages.join("\n")
+            : undefined
+    };
+}
+
+// Mapping: sT6→executePreCompactHooks, A→input, q→signal, K→timeoutMs, T$→DEFAULT_HOOK_TIMEOUT, $w→createHookContext, RF→executeHooksOutsideREPL, Y→hookInput, z→results, _→customInstructionsArray, w→displayMessages, O→result
+```
+
 ---
 
 ### 2. Session Start Hook Execution
 
-**Function:** `executeSessionStartHooks` (PP)
-**Location:** chunks.142.mjs:248-289
+**Function:** `executeSessionStartHooks` (Qu8)
+**Location:** chunks.175.mjs:2632
 **Purpose:** Executes SessionStart hooks after compaction to perform initialization/cleanup tasks
 
 #### What it does

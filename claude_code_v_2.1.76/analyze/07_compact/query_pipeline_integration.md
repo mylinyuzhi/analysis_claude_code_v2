@@ -36,7 +36,7 @@ function SKq() {
         callModel: NT6,
         microcompact: pg,
         autocompact: sqq,
-        uuid: nmY
+        uuid: gL9
     }
 }
 
@@ -46,11 +46,11 @@ function createCompactionToolsContext() {
         callModel: callLLMModel,          // LLM API call function
         microcompact: microCompact,        // pg — lightweight token reducer (chunks.133.mjs:991)
         autocompact: autocompactDispatcher, // sqq — full compaction orchestrator (chunks.147.mjs:2633)
-        uuid: generateUUID                 // nmY — UUID generator for tracking
+        uuid: generateUUID                 // gL9 — UUID generator for tracking
     }
 }
 
-// Mapping: SKq→createCompactionToolsContext, NT6→callLLMModel, pg→microCompact, sqq→autocompactDispatcher, nmY→generateUUID
+// Mapping: SKq→createCompactionToolsContext, NT6→callLLMModel, pg→microCompact, sqq→autocompactDispatcher, gL9→generateUUID
 ```
 
 **Why dependency injection:** The query loop uses `A.deps ?? SKq()` — the `deps` field can be overridden in tests or specialized query invocations. This allows tests to inject mock compaction functions without patching globals.

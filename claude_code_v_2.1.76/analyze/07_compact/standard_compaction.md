@@ -734,15 +734,15 @@ async function performFullCompaction(
     }
 }
 
-// Mapping: mf6→performFullCompaction, A→messages, q→context, K→cacheSafeParams, Y→includeState, z→customInstructions, w→isAutoTrigger, H→preCompactTokenCount, $→lastMessage, O→metadata, _→appState, J→preCompactHookResults, X→userDisplayMessage, D→promptCacheSharingEnabled, j→summaryRequestContent, M→summaryRequestMessage, P→summaryResponse, W→summaryText, G→recentFiles, f→fileAttachments, Z→taskAttachments, N→attachments, T→todosAttachment, k→planAttachment, y→skillsAttachment, B→sessionStartHookResults, S→postCompactTokenCount, m→usage, b→boundaryMarker, g→sessionId, U→summaryMessages, Ev→countTokens, Ia4→getLastUserMessage, xa4→extractMetadataFromMessage, K1→logError, DZ6→grantPermission, mW6→executePreCompactHooks, VOA→formatCustomInstructions, c6→createMessage, ga4→generateConversationSummary, B51→extractTextFromMessage, Q1→stringify, h→logMessage, c→reportTelemetry, QO→API_ERROR_PREFIX, dU→PROMPT_TOO_LONG_PREFIX, ma4→ERROR_MESSAGES.PROMPT_TOO_LONG, wjA→getRecentlyAccessedFiles, rd→resetCodeIndexing, fqq→collectFilesToKeep, Ba4→MAX_FILE_TOKENS, Nqq→collectTasksToKeep, pa4→collectTodosToKeep, U6→getGlobalAgentId, mE1→collectPlanToKeep, Tqq→collectSkillsToKeep, PP→executeSessionStartHooks, PZ→countTokens, Yp→extractUsageFromMessage, x8→checkFeatureFlag, JU1→createBoundaryMarker, a$→generateSessionId, ux1→formatSummaryContent, fOA→recordQuerySource, Qa4→handleCompactionError, _U1→ERROR_MESSAGES.EMPTY_MESSAGES
+// Mapping: mf6→performFullCompaction, A→messages, q→context, K→cacheSafeParams, Y→includeState, z→customInstructions, w→isAutoTrigger, H→preCompactTokenCount, $→lastMessage, O→metadata, _→appState, J→preCompactHookResults, X→userDisplayMessage, D→promptCacheSharingEnabled, j→summaryRequestContent, M→summaryRequestMessage, P→summaryResponse, W→summaryText, G→recentFiles, f→fileAttachments, Z→taskAttachments, N→attachments, T→todosAttachment, k→planAttachment, y→skillsAttachment, B→sessionStartHookResults, S→postCompactTokenCount, m→usage, b→boundaryMarker, g→sessionId, U→summaryMessages, Ev→countTokens, Ia4→getLastUserMessage, xa4→extractMetadataFromMessage, K1→logError, DZ6→grantPermission, mW6→executePreCompactHooks, VOA→formatCustomInstructions, c6→createMessage, Gqq→generateSummaryWithLLM, B51→extractTextFromMessage, Q1→stringify, h→logMessage, c→reportTelemetry, QO→API_ERROR_PREFIX, dU→PROMPT_TOO_LONG_PREFIX, ma4→ERROR_MESSAGES.PROMPT_TOO_LONG, wjA→getRecentlyAccessedFiles, rd→resetCodeIndexing, fqq→collectFilesToKeep, Xqq→MAX_FILES_TO_KEEP, Nqq→collectTasksToKeep, U6→getGlobalAgentId, mE1→collectPlanToKeep, Tqq→collectSkillsToKeep, PP→executeSessionStartHooks, PZ→countTokens, Yp→extractUsageFromMessage, x8→checkFeatureFlag, JU1→createBoundaryMarker, a$→generateSessionId, ux1→formatSummaryContent, fOA→recordQuerySource, Qa4→handleCompactionError, _U1→ERROR_MESSAGES.EMPTY_MESSAGES
 ```
 
 ---
 
 ### 3. Conversation Summary Generation
 
-**Function:** `generateConversationSummary` (ga4)
-**Location:** chunks.146.mjs:2566-2645
+**Function:** `generateSummaryWithLLM` (Gqq)
+**Location:** chunks.147.mjs:1752-1850
 **Purpose:** Calls LLM API to generate conversation summary with streaming, retry logic, and cache optimization
 
 #### What it does

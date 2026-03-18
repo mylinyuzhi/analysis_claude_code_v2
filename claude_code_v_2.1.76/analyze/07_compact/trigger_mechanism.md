@@ -29,15 +29,15 @@ Key functions in this document:
 ```javascript
 // ============================================
 // Compaction Threshold Constants
-// Location: chunks.147.mjs:805-813
+// Location: chunks.147.mjs:2676-2686
 // ============================================
 
 // ORIGINAL (for source lookup):
-nmY = 20000  // MAX_COMPACT_BUFFER - Buffer from model's max context
-cCA = 13000  // AUTO_COMPACT_BUFFER_OFFSET - Default offset from threshold
-rmY = 20000  // TOKEN_WARNING_THRESHOLD - Warning threshold offset
-omY = 20000  // TOKEN_ERROR_THRESHOLD - Error threshold offset
-lCA = 3000   // BLOCKING_LIMIT_OFFSET - Blocking limit buffer
+RmY = 20000  // MAX_COMPACT_BUFFER - Buffer from model's max context
+Jp8 = 13000  // AUTO_COMPACT_BUFFER_OFFSET - Default offset from threshold
+hmY = 20000  // TOKEN_WARNING_THRESHOLD - Warning threshold offset
+SmY = 20000  // TOKEN_ERROR_THRESHOLD - Error threshold offset
+Mp8 = 3000   // BLOCKING_LIMIT_OFFSET - Blocking limit buffer
 
 // READABLE (for understanding):
 const MAX_COMPACT_BUFFER = 20000;        // Reserved for system prompts + response

@@ -26,13 +26,13 @@ Key functions in this document:
 ```javascript
 // ============================================
 // File Preservation Constants
-// Location: chunks.146.mjs:2760-2764
+// Location: chunks.147.mjs:1954-1958
 // ============================================
 
 // ORIGINAL (for source lookup):
-Ba4 = 5      // MAX_FILES_TO_KEEP - Maximum files to restore
-fmY = 50000  // TOTAL_RESTORE_TOKEN_LIMIT - Max tokens for all restored files
-VmY = 5000   // FILE_RESTORE_TOKEN_LIMIT - Max tokens per file
+Xqq = 5      // MAX_FILES_TO_KEEP - Maximum files to restore
+$mY = 50000  // MAX_FILE_RESTORE_TOKENS - Max tokens for all restored files
+HmY = 5000   // MAX_TOKENS_PER_FILE - Max tokens per file
 
 // READABLE (for understanding):
 const MAX_FILES_TO_KEEP = 5;           // Keep up to 5 most recent files

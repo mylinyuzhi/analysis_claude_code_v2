@@ -12,6 +12,10 @@ The session memory system is gated behind feature flags (`tengu_session_memory` 
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
+**Cross-references:**
+- [message_selection.md](./message_selection.md) - Detailed `findCompactionBoundary` and `adjustBoundariesForTools` algorithms
+- [state_preservation.md](./state_preservation.md) - State collectors used during compaction
+
 Key functions in this document:
 - `trySessionMemoryQuickPath` (lE1) - Main entry point for session-memory-based compaction
 - `buildSessionMemoryCompactResult` (ymY) - Builds the compaction result from session notes
