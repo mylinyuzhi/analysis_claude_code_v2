@@ -12,12 +12,12 @@ This solves a critical problem: after compaction, the model would lose awareness
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `collectFilesToKeep` (Ua4) - Identifies and restores recently accessed files
-- `collectTasksToKeep` (ca4) - Preserves active background task statuses
-- `collectPlanToKeep` (jZ6) - Preserves the current plan file reference
-- `collectSkillsToKeep` (da4) - Preserves invoked skill contents
+- `collectFilesToKeep` (fqq) - Identifies and restores recently accessed files
+- `collectTasksToKeep` (Nqq) - Preserves active background task statuses
+- `collectPlanToKeep` (mE1) - Preserves the current plan file reference
+- `collectSkillsToKeep` (Tqq) - Preserves invoked skill contents
 - `collectTodosToKeep` (pa4) - Preserves active todo items
-- `isInternalFile` (EmY) - Filters out session-internal files
+- `isInternalFile` (DmY) - Filters out session-internal files
 
 ---
 
@@ -80,7 +80,7 @@ Files are NOT tracked when:
 
 ---
 
-## Core Algorithm: collectFilesToKeep (Ua4)
+## Core Algorithm: collectFilesToKeep (fqq)
 
 **What it does:** Selects the most valuable files to preserve after compaction and re-reads their contents.
 
@@ -95,29 +95,29 @@ Files are NOT tracked when:
 ```javascript
 // ============================================
 // collectFilesToKeep - Restores recently read files after compaction
-// Location: chunks.146.mjs:2665-2686
+// Location: chunks.147.mjs:1862-1883
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Ua4(A, q, K) {
-    let Y = Object.entries(A).map(([H, $]) => ({
-            filename: H,
-            ...$
-        })).filter((H) => !EmY(H.filename, q.agentId)).sort((H, $) => $.timestamp - H.timestamp).slice(0, K),
-        z = await Promise.all(Y.map(async (H) => {
-            let $ = await TyA(H.filename, {
+async function fqq(A, q, K) {
+    let Y = Object.entries(A).map(([w, O]) => ({
+            filename: w,
+            ...O
+        })).filter((w) => !DmY(w.filename, q.agentId)).sort((w, O) => O.timestamp - w.timestamp).slice(0, K),
+        z = await Promise.all(Y.map(async (w) => {
+            let O = await tF8(w.filename, {
                 ...q,
                 fileReadingLimits: {
-                    maxTokens: VmY
+                    maxTokens: HmY
                 }
             }, "tengu_post_compact_file_restore_success", "tengu_post_compact_file_restore_error", "compact");
-            return $ ? kq($) : null
+            return O ? f4(O) : null
         })),
-        w = 0;
-    return z.filter((H) => {
-        if (H === null) return !1;
-        let $ = A2(Q1(H));
-        if (w + $ <= fmY) return w += $, !0;
+        _ = 0;
+    return z.filter((w) => {
+        if (w === null) return !1;
+        let O = j5(B6(w));
+        if (_ + O <= $mY) return _ += O, !0;
         return !1
     })
 }
@@ -141,7 +141,7 @@ async function collectFilesToKeep(readFileState, context, maxFilesToKeep) {
                 file.filename,
                 {
                     ...context,
-                    fileReadingLimits: { maxTokens: 5000 }  // VmY
+                    fileReadingLimits: { maxTokens: 5000 }  // HmY
                 },
                 "tengu_post_compact_file_restore_success",
                 "tengu_post_compact_file_restore_error",
@@ -158,7 +158,7 @@ async function collectFilesToKeep(readFileState, context, maxFilesToKeep) {
 
         let tokens = estimateTokenCount(serialize(attachment));
         // Check if adding this file would exceed budget
-        if (totalTokens + tokens <= 50000) {  // fmY
+        if (totalTokens + tokens <= 50000) {  // $mY
             totalTokens += tokens;
             return true;
         }
@@ -166,10 +166,10 @@ async function collectFilesToKeep(readFileState, context, maxFilesToKeep) {
     });
 }
 
-// Mapping: Ua4→collectFilesToKeep, A→readFileState, q→context, K→maxFilesToKeep,
-//   Y→candidates, z→restoredFiles, w→totalTokens, H→file/attachment,
-//   $→tokens, EmY→isInternalFile, TyA→readFileContent, VmY→FILE_RESTORE_TOKEN_LIMIT,
-//   kq→createAttachment, A2→estimateTokenCount, Q1→serialize, fmY→TOTAL_RESTORE_TOKEN_LIMIT
+// Mapping: fqq→collectFilesToKeep, A→readFileState, q→context, K→maxFilesToKeep,
+//   Y→candidates, z→restoredFiles, w→file/attachment, O→metadata/tokens,
+//   _→totalTokens, DmY→isInternalFile, tF8→readFileContent, HmY→MAX_TOKENS_PER_FILE,
+//   f4→createAttachment, j5→estimateTokenCount, B6→serialize, $mY→MAX_FILE_RESTORE_TOKENS
 ```
 
 ### Algorithm Design Rationale
@@ -194,30 +194,25 @@ When `readFileContent` (`TyA`) is called with the `"compact"` query source:
 
 ---
 
-## Internal File Detection (EmY)
+## Internal File Detection (DmY)
 
 **What it does:** Identifies files that should NOT be preserved because they are session-internal.
 
 ```javascript
 // ============================================
 // isInternalFile - Filters session-internal files
-// Location: chunks.146.mjs:2743-2758
+// Location: chunks.147.mjs:1942-1952
 // ============================================
 
 // ORIGINAL (for source lookup):
-function EmY(A, q) {
-    let K = g4(A);
+function DmY(A, q) {
+    let K = L4(A);
     try {
-        let Y = q ?? U6(),
-            z = g4(Lp(Y));
-        if (K === z) return !0
-    } catch {}
-    try {
-        let Y = g4(uW(q));
+        let Y = L4(Fj(q));
         if (K === Y) return !0
     } catch {}
     try {
-        if (new Set(Sa4.map((z) => g4(cB(z)))).has(K)) return !0
+        if (new Set($qq.map((z) => L4(PI(z)))).has(K)) return !0
     } catch {}
     return !1
 }
@@ -250,9 +245,9 @@ function isInternalFile(filepath, agentId) {
     return false;
 }
 
-// Mapping: EmY→isInternalFile, A→filepath, q→agentId, K→normalizedPath,
-//   g4→normalizePath, U6→getCurrentSessionId, Lp→getSessionMemoryPath,
-//   uW→getPlanFilePath, Sa4→SESSION_MEMORY_INTERNAL_PATHS, cB→resolvePath
+// Mapping: DmY→isInternalFile, A→filepath, q→agentId, K→normalizedPath,
+//   L4→normalizePath, Fj→getSessionMemoryPath, $qq→SESSION_MEMORY_INTERNAL_PATHS,
+//   PI→resolvePath
 ```
 
 **Why these files are excluded:**
@@ -264,7 +259,7 @@ function isInternalFile(filepath, agentId) {
 
 ## Other Preservation Collectors
 
-### collectTasksToKeep (ca4)
+### collectTasksToKeep (Nqq)
 
 Preserves status of background tasks that completed since last compaction:
 
@@ -275,7 +270,7 @@ Preserves status of background tasks that completed since last compaction:
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function ca4(A) {
+async function Nqq(A) {
     let q = await A.getAppState();
     return Object.values(q.tasks).filter((Y) => Y.type === "local_agent").flatMap((Y) => {
         if (Y.retrieved) return [];
@@ -322,7 +317,7 @@ async function collectTasksToKeep(context) {
         });
 }
 
-// Mapping: ca4→collectTasksToKeep, A→context, q→state, Y→task, z→status,
+// Mapping: Nqq→collectTasksToKeep, A→context, q→state, Y→task, z→status,
 //   kq→createAttachment
 ```
 
@@ -331,7 +326,7 @@ async function collectTasksToKeep(context) {
 - Once retrieved, the task result is already in the conversation
 - Unretrieved terminal tasks need their status preserved so user knows what happened
 
-### collectPlanToKeep (jZ6)
+### collectPlanToKeep (mE1)
 
 Preserves the current plan file reference:
 
@@ -342,7 +337,7 @@ Preserves the current plan file reference:
 // ============================================
 
 // ORIGINAL (for source lookup):
-function jZ6(A) {
+function mE1(A) {
     let q = pD(A);
     if (!q) return null;
     let K = uW(A);
@@ -366,11 +361,11 @@ function collectPlanToKeep(agentId) {
     });
 }
 
-// Mapping: jZ6→collectPlanToKeep, A→agentId, q→planContent, K→planPath,
+// Mapping: mE1→collectPlanToKeep, A→agentId, q→planContent, K→planPath,
 //   pD→getPlanContent, uW→getPlanFilePath, kq→createAttachment
 ```
 
-### collectSkillsToKeep (da4)
+### collectSkillsToKeep (Tqq)
 
 Preserves contents of invoked skills:
 
@@ -381,7 +376,7 @@ Preserves contents of invoked skills:
 // ============================================
 
 // ORIGINAL (for source lookup):
-function da4() {
+function Tqq() {
     let A = zR6();
     if (A.size === 0) return null;
     let q = Array.from(A.values()).sort((K, Y) => Y.invokedAt - K.invokedAt).map((K) => ({
@@ -415,7 +410,7 @@ function collectSkillsToKeep() {
     });
 }
 
-// Mapping: da4→collectSkillsToKeep, A→invokedSkills, q→skills, K→skill,
+// Mapping: Tqq→collectSkillsToKeep, A→invokedSkills, q→skills, K→skill,
 //   zR6→getInvokedSkillsMap, kq→createAttachment
 ```
 
@@ -478,7 +473,7 @@ When multiple items compete for token budget, the implicit priority is:
 
 ```
                     ┌─────────────────────────────────────┐
-                    │     performFullCompaction (AW1)     │
+                    │     performFullCompaction (mf6)     │
                     │   or performPartialCompaction (Fa4) │
                     └─────────────────────────────────────┘
                                       │
@@ -499,7 +494,7 @@ When multiple items compete for token budget, the implicit priority is:
                      ▼                ▼                ▼
             ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
             │collectFiles │  │collectTasks │  │collectPlan  │
-            │  (Ua4)      │  │  (ca4)      │  │  (jZ6)      │
+            │  (fqq)      │  │  (Nqq)      │  │  (mE1)      │
             └─────────────┘  └─────────────┘  └─────────────┘
                      │                │                │
                      └────────────────┼────────────────┘

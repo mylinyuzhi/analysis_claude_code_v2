@@ -25,23 +25,23 @@ This system implements the **State Anchoring** architectural pattern, where diff
 - [10_skill_system/skill_compact_interaction.md](../10_skill_system/skill_compact_interaction.md) - Skill preservation during compaction
 
 Key functions in this document:
-- `collectFilesToKeep` (Ua4) - Preserves recently accessed files (up to 5 files, 50k tokens total)
-- `collectTasksToKeep` (ca4) - Preserves completed/failed/killed local agent tasks
-- `collectPlanToKeep` (jZ6) - Preserves active plan file content
-- `collectSkillsToKeep` (da4) - Preserves invoked skills sorted by recency
+- `collectFilesToKeep` (fqq) - Preserves recently accessed files (up to 5 files, 50k tokens total)
+- `collectTasksToKeep` (Nqq) - Preserves completed/failed/killed local agent tasks
+- `collectPlanToKeep` (mE1) - Preserves active plan file content
+- `collectSkillsToKeep` (Tqq) - Preserves invoked skills sorted by recency
 - `collectTodosToKeep` (pa4) - Preserves todo list items
 - `createAttachmentMessage` (kq) - Wraps state objects as attachment messages
-- `shouldExcludeFile` (EmY) - Filters out session notes, plan files, and auto memory files
-- `readFileForAttachment` (TyA) - Reads file with token limit for attachment
+- `isInternalFile` (DmY) - Filters out session notes, plan files, and auto memory files
+- `readFileForAttachment` (tF8) - Reads file with token limit for attachment
 - `getPlanFilePath` (uW) - Resolves plan file path for agent
 - `getPlanFileContent` (pD) - Reads plan file content
 - `getTodoList` (UB) - Retrieves todo list for agent
 - `getInvokedSkills` (zR6) - Retrieves invoked skills from global state
 
 Constants:
-- `MAX_FILES_TO_KEEP` (Ba4) - 5 files maximum
-- `MAX_FILE_RESTORE_TOKENS` (fmY) - 50,000 tokens total for all files
-- `MAX_TOKENS_PER_FILE` (VmY) - 5,000 tokens per individual file
+- `MAX_FILES_TO_KEEP` (Xqq) - 5 files maximum
+- `MAX_FILE_RESTORE_TOKENS` ($mY) - 50,000 tokens total for all files
+- `MAX_TOKENS_PER_FILE` (HmY) - 5,000 tokens per individual file
 
 ---
 
@@ -99,8 +99,8 @@ After compaction (WITH state anchoring):
 
 ### 1. File Preservation
 
-**Function:** `collectFilesToKeep` (Ua4)
-**Location:** chunks.146.mjs:2665-2686
+**Function:** `collectFilesToKeep` (fqq)
+**Location:** chunks.147.mjs:1862-1884
 **Purpose:** Preserves recently accessed files within token budget
 
 #### What it does
@@ -222,29 +222,29 @@ Result: 5 files preserved, 9200 tokens used (18.4% of budget)
 ```javascript
 // ============================================
 // collectFilesToKeep - Preserves recently accessed files with token budget
-// Location: chunks.146.mjs:2665-2686
+// Location: chunks.147.mjs:1862-1884
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Ua4(A, q, K) {
-    let Y = Object.entries(A).map(([H, $]) => ({
-            filename: H,
-            ...$
-        })).filter((H) => !EmY(H.filename, q.agentId)).sort((H, $) => $.timestamp - H.timestamp).slice(0, K),
-        z = await Promise.all(Y.map(async (H) => {
-            let $ = await TyA(H.filename, {
+async function fqq(A, q, K) {
+    let Y = Object.entries(A).map(([w, O]) => ({
+            filename: w,
+            ...O
+        })).filter((w) => !DmY(w.filename, q.agentId)).sort((w, O) => O.timestamp - w.timestamp).slice(0, K),
+        z = await Promise.all(Y.map(async (w) => {
+            let O = await tF8(w.filename, {
                 ...q,
                 fileReadingLimits: {
-                    maxTokens: VmY
+                    maxTokens: HmY
                 }
             }, "tengu_post_compact_file_restore_success", "tengu_post_compact_file_restore_error", "compact");
-            return $ ? kq($) : null
+            return O ? kq(O) : null
         })),
-        w = 0;
-    return z.filter((H) => {
-        if (H === null) return !1;
-        let $ = A2(Q1(H));
-        if (w + $ <= fmY) return w += $, !0;
+        $ = 0;
+    return z.filter((w) => {
+        if (w === null) return !1;
+        let O = A2(Q1(w));
+        if ($ + O <= $mY) return $ += O, !0;
         return !1
     })
 }
@@ -307,14 +307,14 @@ async function collectFilesToKeep(recentFiles, context, maxFileCount) {
     });
 }
 
-// Mapping: Ua4→collectFilesToKeep, A→recentFiles, q→context, K→maxFileCount, Y→selectedFiles, H→file/attachment, $→metadata/attachmentTokens, z→fileAttachments, w→tokenCount, EmY→shouldExcludeFile, TyA→readFileForAttachment, VmY→MAX_TOKENS_PER_FILE, kq→createAttachmentMessage, A2→countTokens, Q1→stringify, fmY→MAX_FILE_RESTORE_TOKENS
+// Mapping: fqq→collectFilesToKeep, A→recentFiles, q→context, K→maxFileCount, Y→selectedFiles, w→file/attachment, O→metadata/attachmentTokens, z→fileAttachments, $→tokenCount, DmY→isInternalFile, tF8→readFileForAttachment, HmY→MAX_TOKENS_PER_FILE, kq→createAttachmentMessage, A2→countTokens, Q1→stringify, $mY→MAX_FILE_RESTORE_TOKENS
 ```
 
 ---
 
 ### 2. Task Preservation
 
-**Function:** `collectTasksToKeep` (ca4)
+**Function:** `collectTasksToKeep` (Nqq)
 **Location:** chunks.146.mjs:2724-2741
 **Purpose:** Preserves status of completed/failed/killed local agent tasks
 
@@ -391,7 +391,7 @@ The algorithm implements **selective task status preservation** that only captur
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function ca4(A) {
+async function Nqq(A) {
     let q = await A.getAppState();
     return Object.values(q.tasks).filter((Y) => Y.type === "local_agent").flatMap((Y) => {
         if (Y.retrieved) return [];
@@ -443,14 +443,14 @@ async function collectTasksToKeep(context) {
         });
 }
 
-// Mapping: ca4→collectTasksToKeep, A→context, q→appState, Y→task, z→status, kq→createAttachmentMessage
+// Mapping: Nqq→collectTasksToKeep, A→context, q→appState, Y→task, z→status, kq→createAttachmentMessage
 ```
 
 ---
 
 ### 3. Plan Preservation
 
-**Function:** `collectPlanToKeep` (jZ6)
+**Function:** `collectPlanToKeep` (mE1)
 **Location:** chunks.146.mjs:2699-2708
 **Purpose:** Preserves active plan file content
 
@@ -510,7 +510,7 @@ Plan files are **always preserved in full** if they exist, because plans contain
 // ============================================
 
 // ORIGINAL (for source lookup):
-function jZ6(A) {
+function mE1(A) {
     let q = pD(A);
     if (!q) return null;
     let K = uW(A);
@@ -542,14 +542,14 @@ function collectPlanToKeep(agentId) {
     });
 }
 
-// Mapping: jZ6→collectPlanToKeep, A→agentId, q→planContent, K→planFilePath, pD→getPlanFileContent, uW→getPlanFilePath, kq→createAttachmentMessage
+// Mapping: mE1→collectPlanToKeep, A→agentId, q→planContent, K→planFilePath, pD→getPlanFileContent, uW→getPlanFilePath, kq→createAttachmentMessage
 ```
 
 ---
 
 ### 4. Skills Preservation
 
-**Function:** `collectSkillsToKeep` (da4)
+**Function:** `collectSkillsToKeep` (Tqq)
 **Location:** chunks.146.mjs:2710-2722
 **Purpose:** Preserves list of invoked skills sorted by recency
 
@@ -610,7 +610,7 @@ Skills are preserved to help the LLM understand **what tools/workflows the user 
 // ============================================
 
 // ORIGINAL (for source lookup):
-function da4() {
+function Tqq() {
     let A = zR6();
     if (A.size === 0) return null;
     let q = Array.from(A.values()).sort((K, Y) => Y.invokedAt - K.invokedAt).map((K) => ({
@@ -650,7 +650,7 @@ function collectSkillsToKeep() {
     });
 }
 
-// Mapping: da4→collectSkillsToKeep, A→invokedSkillsMap, q→skillsList, K→skill/a, Y→b, zR6→getInvokedSkills, kq→createAttachmentMessage
+// Mapping: Tqq→collectSkillsToKeep, A→invokedSkillsMap, q→skillsList, K→skill/a, Y→b, zR6→getInvokedSkills, kq→createAttachmentMessage
 ```
 
 ---
@@ -755,16 +755,15 @@ function collectTodosToKeep(agentId) {
 
 ### File Exclusion Filter
 
-**Function:** `shouldExcludeFile` (EmY)
-**Location:** chunks.146.mjs:2743-2758
+**Function:** `isInternalFile` (DmY)
+**Location:** chunks.147.mjs:1942-1952
 
 **Purpose:** Determines if a file should be excluded from file preservation (session notes, plan files, auto memory files)
 
 **Logic:**
 1. Check if file path matches session notes path for agent
-2. Check if file path matches plan file path for agent
-3. Check if file path matches any auto memory file paths
-4. Return true if any match (exclude file), false otherwise
+2. Check if file path matches any internal paths
+3. Return true if any match (exclude file), false otherwise
 
 ---
 
@@ -794,7 +793,7 @@ function collectTodosToKeep(agentId) {
 **Integration:** All 5 collectors are invoked in Phase 4 of `performFullCompaction()`
 
 ```javascript
-// In performFullCompaction (AW1):
+// In performFullCompaction (mf6):
 let [fileAttachments, taskAttachments] = await Promise.all([
     collectFilesToKeep(recentFiles, context, MAX_FILES_TO_KEEP),
     collectTasksToKeep(context)
@@ -817,7 +816,7 @@ if (skillsAttachment) attachments.push(skillsAttachment);
 **Integration:** Session memory compaction only preserves plan files (not files/tasks/todos/skills)
 
 ```javascript
-// In performSessionMemoryCompaction (vZ6):
+// In trySessionMemoryQuickPath (lE1):
 let planAttachment = collectPlanToKeep(agentId);
 return {
     ...compactionResult,

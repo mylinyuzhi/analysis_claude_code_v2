@@ -14,11 +14,11 @@ The compaction trigger mechanism determines **when** Claude Code should compact 
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `getCompactionStatus` (Ac) - Calculates all threshold status flags
-- `getAutoCompactThreshold` (SQ1) - Returns the token threshold for triggering auto-compact
-- `getEffectiveContextWindow` (m51) - Calculates effective context window for a model
-- `isAutoCompactEnabled` (xm) - Checks if auto-compaction is enabled
-- `shouldAutoCompact` (amY) - Final decision on whether to trigger compaction
+- `getCompactionStatus` (mz6) - Calculates all threshold status flags
+- `getAutoCompactThreshold` (oc6) - Returns the token threshold for triggering auto-compact
+- `getEffectiveContextWindow` (OF) - Calculates effective context window for a model
+- `isAutoCompactEnabled` (Xh) - Checks if auto-compaction is enabled
+- `shouldTriggerAutoCompaction` (CmY) - Final decision on whether to trigger compaction
 
 ---
 
@@ -98,7 +98,7 @@ Model's Maximum Context (e.g., 200,000 for Claude Opus 4)
 
 ## Core Functions
 
-### getEffectiveContextWindow (m51)
+### getEffectiveContextWindow (OF)
 
 **What it does:** Calculates the usable context window for a given model, accounting for reserved tokens.
 
@@ -113,13 +113,14 @@ Model's Maximum Context (e.g., 200,000 for Claude Opus 4)
 ```javascript
 // ============================================
 // getEffectiveContextWindow - Calculates usable context window
-// Location: chunks.147.mjs:717-719
+// Location: chunks.147.mjs:2566-2574
 // ============================================
 
 // ORIGINAL (for source lookup):
-function m51(A) {
-    let q = Math.min(iCA(A), nmY);
-    return yG(A, FP()) - q
+function OF(A) {
+    let q = Math.min(Li6(A), RmY),
+        K = uM(A, Zj()) - q
+    return K
 }
 
 // READABLE (for understanding):
@@ -131,8 +132,8 @@ function getEffectiveContextWindow(model) {
     return getMaxContextTokens(model, getCurrentProvider()) - buffer;
 }
 
-// Mapping: m51→getEffectiveContextWindow, A→model, q→buffer, iCA→getMaxOutputTokens,
-//   nmY→MAX_COMPACT_BUFFER, yG→getMaxContextTokens, FP→getCurrentProvider
+// Mapping: OF→getEffectiveContextWindow, A→model, q→buffer, Li6→getMaxOutputTokens,
+//   RmY→MAX_COMPACT_BUFFER, uM→getMaxContextTokens, Zj→getCurrentProvider
 ```
 
 **Why this approach:**
@@ -143,7 +144,7 @@ function getEffectiveContextWindow(model) {
 
 ---
 
-### getAutoCompactThreshold (SQ1)
+### getAutoCompactThreshold (oc6)
 
 **What it does:** Returns the token count at which auto-compaction should trigger.
 
@@ -155,13 +156,13 @@ function getEffectiveContextWindow(model) {
 ```javascript
 // ============================================
 // getAutoCompactThreshold - Returns trigger threshold for auto-compact
-// Location: chunks.147.mjs:722-733
+// Location: chunks.147.mjs:2577-2588
 // ============================================
 
 // ORIGINAL (for source lookup):
-function SQ1(A) {
-    let q = m51(A),
-        K = q - cCA,
+function oc6(A) {
+    let q = OF(A),
+        K = q - Jp8,
         Y = process.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE;
     if (Y) {
         let z = parseFloat(Y);
@@ -192,8 +193,8 @@ function getAutoCompactThreshold(model) {
     return defaultThreshold;
 }
 
-// Mapping: SQ1→getAutoCompactThreshold, A→model, q→effectiveWindow, K→defaultThreshold,
-//   Y→pctOverride, z→pct, w→pctThreshold, m51→getEffectiveContextWindow, cCA→AUTO_COMPACT_BUFFER_OFFSET
+// Mapping: oc6→getAutoCompactThreshold, A→model, q→effectiveWindow, K→defaultThreshold,
+//   Y→pctOverride, z→pct, w→pctThreshold, OF→getEffectiveContextWindow, Jp8→AUTO_COMPACT_BUFFER_OFFSET
 ```
 
 **Why the 13,000 offset:**
@@ -206,7 +207,7 @@ Setting `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` would trigger compaction at 80% of 
 
 ---
 
-### getCompactionStatus (Ac)
+### getCompactionStatus (mz6)
 
 **What it does:** Returns a comprehensive status object indicating the current state of context utilization.
 
@@ -219,20 +220,20 @@ Setting `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` would trigger compaction at 80% of 
 ```javascript
 // ============================================
 // getCompactionStatus - Returns comprehensive threshold status
-// Location: chunks.147.mjs:736-757
+// Location: chunks.147.mjs:2591-2611
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Ac(A, q) {
-    let K = SQ1(q),
-        Y = xm() ? K : m51(q),
+function mz6(A, q) {
+    let K = oc6(q),
+        Y = Xh() ? K : OF(q),
         z = Math.max(0, Math.round((Y - A) / Y * 100)),
-        w = Y - rmY,
-        H = Y - omY,
+        w = Y - hmY,
+        H = Y - SmY,
         $ = A >= w,
         O = A >= H,
-        _ = xm() && A >= K,
-        X = yG(q, FP()) - lCA,
+        _ = Xh() && A >= K,
+        X = uM(q, Zj()) - Mp8,
         D = process.env.CLAUDE_CODE_BLOCKING_LIMIT_OVERRIDE,
         j = D ? parseInt(D, 10) : NaN,
         M = !isNaN(j) && j > 0 ? j : X,
@@ -287,13 +288,13 @@ function getCompactionStatus(currentTokens, model) {
     };
 }
 
-// Mapping: Ac→getCompactionStatus, A→currentTokens, q→model, K→autoCompactThreshold,
+// Mapping: mz6→getCompactionStatus, A→currentTokens, q→model, K→autoCompactThreshold,
 //   Y→referenceThreshold, z→percentLeft, w→warningThreshold, H→errorThreshold,
 //   $→isAboveWarningThreshold, O→isAboveErrorThreshold, _→isAboveAutoCompactThreshold,
 //   X→defaultBlockingLimit, D→blockingOverride, j→parsedOverride, M→blockingLimit,
-//   P→isAtBlockingLimit, SQ1→getAutoCompactThreshold, xm→isAutoCompactEnabled,
-//   m51→getEffectiveContextWindow, yG→getMaxContextTokens, FP→getCurrentProvider,
-//   rmY→TOKEN_WARNING_THRESHOLD, omY→TOKEN_ERROR_THRESHOLD, lCA→BLOCKING_LIMIT_OFFSET
+//   P→isAtBlockingLimit, oc6→getAutoCompactThreshold, Xh→isAutoCompactEnabled,
+//   OF→getEffectiveContextWindow, uM→getMaxContextTokens, Zj→getCurrentProvider,
+//   hmY→TOKEN_WARNING_THRESHOLD, SmY→TOKEN_ERROR_THRESHOLD, Mp8→BLOCKING_LIMIT_OFFSET
 ```
 
 **Status Level Meanings:**
@@ -309,21 +310,21 @@ function getCompactionStatus(currentTokens, model) {
 
 ---
 
-### isAutoCompactEnabled (xm)
+### isAutoCompactEnabled (Xh)
 
 **What it does:** Checks whether auto-compaction is enabled for the current session.
 
 ```javascript
 // ============================================
 // isAutoCompactEnabled - Checks if auto-compact is enabled
-// Location: chunks.147.mjs:759-762
+// Location: chunks.147.mjs:2614-2617
 // ============================================
 
 // ORIGINAL (for source lookup):
-function xm() {
-    if (J6(process.env.DISABLE_COMPACT)) return !1;
-    if (J6(process.env.DISABLE_AUTO_COMPACT)) return !1;
-    return f6().autoCompactEnabled
+function Xh() {
+    if (t6(process.env.DISABLE_COMPACT)) return !1;
+    if (t6(process.env.DISABLE_AUTO_COMPACT)) return !1;
+    return X1().autoCompactEnabled
 }
 
 // READABLE (for understanding):
@@ -335,7 +336,7 @@ function isAutoCompactEnabled() {
     return getUserSettings().autoCompactEnabled;
 }
 
-// Mapping: xm→isAutoCompactEnabled, J6→parseBoolean, f6→getUserSettings
+// Mapping: Xh→isAutoCompactEnabled, t6→parseBoolean, X1→getUserSettings
 ```
 
 **Disable Flags:**
@@ -345,7 +346,7 @@ function isAutoCompactEnabled() {
 
 ---
 
-### shouldAutoCompact (amY)
+### shouldTriggerAutoCompaction (CmY)
 
 **What it does:** Makes the final decision on whether to trigger auto-compaction.
 
@@ -357,26 +358,26 @@ function isAutoCompactEnabled() {
 
 ```javascript
 // ============================================
-// shouldAutoCompact - Final decision on auto-compact trigger
-// Location: chunks.147.mjs:765-775
+// shouldTriggerAutoCompaction - Final decision on auto-compact trigger
+// Location: chunks.147.mjs:2620-2630
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function amY(A, q, K) {
+async function CmY(A, q, K, Y = 0) {
     if (K === "session_memory" || K === "compact") return !1;
-    if (!xm()) return !1;
-    let Y = Ev(A),
-        z = SQ1(q),
-        w = m51(q);
-    h(`autocompact: tokens=${Y} threshold=${z} effectiveWindow=${w}`);
+    if (!Xh()) return !1;
+    let z = eW(A) - Y,
+        w = oc6(q),
+        H = OF(q);
+    h(`autocompact: tokens=${z} threshold=${w} effectiveWindow=${H}`);
     let {
-        isAboveAutoCompactThreshold: H
-    } = Ac(Y, q);
-    return H
+        isAboveAutoCompactThreshold: O
+    } = mz6(z, q);
+    return O
 }
 
 // READABLE (for understanding):
-async function shouldAutoCompact(messages, model, sessionMemoryType) {
+async function shouldTriggerAutoCompaction(messages, model, sessionMemoryType, snipFreed = 0) {
     // Skip compaction in special session types
     if (sessionMemoryType === "session_memory" || sessionMemoryType === "compact") {
         return false;
@@ -386,7 +387,7 @@ async function shouldAutoCompact(messages, model, sessionMemoryType) {
     if (!isAutoCompactEnabled()) return false;
 
     // Get current state
-    let currentTokens = countMessagesTokens(messages);
+    let currentTokens = countMessagesTokens(messages) - snipFreed;
     let threshold = getAutoCompactThreshold(model);
     let effectiveWindow = getEffectiveContextWindow(model);
 
@@ -398,10 +399,10 @@ async function shouldAutoCompact(messages, model, sessionMemoryType) {
     return isAboveAutoCompactThreshold;
 }
 
-// Mapping: amY→shouldAutoCompact, A→messages, q→model, K→sessionMemoryType,
-//   Y→currentTokens, z→threshold, w→effectiveWindow, H→isAboveAutoCompactThreshold,
-//   Ev→countMessagesTokens, SQ1→getAutoCompactThreshold, m51→getEffectiveContextWindow,
-//   Ac→getCompactionStatus, xm→isAutoCompactEnabled, h→debugLog
+// Mapping: CmY→shouldTriggerAutoCompaction, A→messages, q→model, K→sessionMemoryType,
+//   Y→snipFreed, z→currentTokens, w→threshold, H→effectiveWindow, O→isAboveAutoCompactThreshold,
+//   eW→countMessagesTokens, oc6→getAutoCompactThreshold, OF→getEffectiveContextWindow,
+//   mz6→getCompactionStatus, Xh→isAutoCompactEnabled, h→debugLog
 ```
 
 **Why skip special session types:**
@@ -421,9 +422,7 @@ async function shouldAutoCompact(messages, model, sessionMemoryType) {
 
 ---
 
-## Complete Trigger Flow
- 
- ```
+```
  ┌─────────────────────────────────────────────────────────────────────────┐
  │                         Agent Main Loop                                  │
  │   (After each assistant response, before accepting new user input)      │
@@ -432,12 +431,13 @@ async function shouldAutoCompact(messages, model, sessionMemoryType) {
                                ▼
                      ┌─────────────────┐
                      │ Microcompaction │  ← First, try lightweight optimization
-                     │      (gm)       │
+                     │      (pg)       │
                      └─────────────────┘
                                │
                                ▼
                ┌───────────────────────────────┐
-               │   shouldAutoCompact (amY)     │
+               │   shouldTriggerAutoCompaction │
+               │          (CmY)                │
                │   - Skip if special session?  │
                │   - Auto-compact enabled?     │
                │   - tokens >= threshold?      │
@@ -450,13 +450,13 @@ async function shouldAutoCompact(messages, model, sessionMemoryType) {
                      ▼                   ▼
              Continue Loop    ┌─────────────────────────┐
                               │ autoCompactDispatcher   │
-                              │        (fs4)            │
+                              │        (sqq)            │
                               └─────────────────────────┘
                                          │
                                ┌─────────┴─────────┐
                                │                   │
                      Session Memory Path    Standard Path
-                     (vZ6 if enabled)       (AW1 fallback)
+                     (lE1 if enabled)       (mf6 fallback)
                                │                   │
                                └─────────┬─────────┘
                                          │

@@ -19,12 +19,12 @@ The Compact feature implements comprehensive **error handling and recovery** str
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions referenced:
-- `autoCompactDispatcher` (fs4) - Top-level error handling and fallback logic
-- `performFullCompaction` (AW1) - Try-catch wrapper for full compaction lifecycle
-- `performSessionMemoryCompaction` (vZ6) - Null-safe session memory path
+- `autoCompactDispatcher` (sqq) - Top-level error handling and fallback logic
+- `performFullCompaction` (mf6) - Try-catch wrapper for full compaction lifecycle
+- `trySessionMemoryQuickPath` (lE1) - Null-safe session memory path
 - `generateConversationSummary` (ga4) - Retry logic for LLM API calls
-- `selectHistoricalWindow` (lmY) - Tool boundary adjustment for incomplete sequences
-- `adjustBoundariesForTools` (pCA) - Orphan detection and recovery
+- `findCompactionBoundary` (EmY) - Tool boundary adjustment for incomplete sequences
+- `adjustBoundariesForTools` (Op8) - Orphan detection and recovery
 
 ---
 
@@ -59,7 +59,7 @@ Key functions referenced:
 **Scenario:** Session notes file exists but contains invalid/corrupted data
 
 **Locations:**
-- `performSessionMemoryCompaction()` (vZ6) - chunks.147.mjs:651-680
+- `trySessionMemoryQuickPath()` (lE1) - chunks.147.mjs:2482-2512
 - `isEmptyTemplate()` (_s4) - Checks if session notes are unmodified template
 
 **Detection:**
@@ -113,7 +113,7 @@ async function performSessionMemoryCompaction(messages, agentId, threshold) {
 
 **Scenario:** User resumes session, but no `lastSummarizedMessageId` exists (fresh session or summary lost)
 
-**Location:** `performSessionMemoryCompaction()` (vZ6) - chunks.147.mjs:660-662
+**Location:** `trySessionMemoryQuickPath()` (lE1) - chunks.147.mjs:2482-2512
 
 **Detection:**
 - `lastSummarizedId = getLastSummarizedMessageId()` returns `null` or `undefined`
@@ -199,7 +199,7 @@ if (estimatedTokens >= threshold) {
 
 **Scenario:** LLM API call fails during summary generation, or state collector throws exception
 
-**Location:** `performFullCompaction()` (AW1) - chunks.146.mjs:2428-2434
+**Location:** `performFullCompaction()` (mf6) - chunks.147.mjs:1473-1480
 
 **Detection:**
 - LLM API returns error (rate limit, timeout, server error)
@@ -340,7 +340,7 @@ async function loadSessionMemoryTemplate() {
 2. **Orphaned tool_use** - tool_use exists, but tool_result never arrived
 3. **Duplicate tool_use IDs** - Multiple tool_use blocks share same ID
 
-**Location:** `adjustBoundariesForTools()` (pCA) - chunks.147.mjs:553-588
+**Location:** `adjustBoundariesForTools()` (Op8) - chunks.147.mjs:2376-2408
 
 **Detection & Recovery:**
 

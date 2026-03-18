@@ -13,7 +13,7 @@ The session memory system is gated behind feature flags (`tengu_session_memory` 
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `performSessionMemoryCompaction` (lE1) - Main entry point for session-memory-based compaction
+- `trySessionMemoryQuickPath` (lE1) - Main entry point for session-memory-based compaction
 - `buildSessionMemoryCompactResult` (ymY) - Builds the compaction result from session notes
 - `isSessionMemoryCompactEnabled` (cE1) - Feature flag check for SM compaction
 - `findCompactionBoundary` (EmY) - Determines where to split messages for keeping
@@ -28,7 +28,7 @@ Constants:
 - `MAX_FILES_TO_KEEP` (Xqq) - 5 files
 - `MAX_FILE_RESTORE_TOKENS` ($mY) - 50000 tokens
 - `MAX_TOKENS_PER_FILE` (HmY) - 5000 tokens
-- `SM_COMPACT_CONFIG_DEFAULTS` (dE1) - { minTokens: 10000, minTextBlockMessages: 5, maxTokens: 40000 }
+- `SM_COMPACT_CONFIG_DEFAULTS` ($p8) - { minTokens: 10000, minTextBlockMessages: 5, maxTokens: 40000 }
 - `autoCompactDispatcher` (sqq) - Top-level auto-compaction orchestrator that calls SM compaction first
 
 ---
@@ -38,14 +38,14 @@ Constants:
 ### Two Compaction Paths
 
 ```
-autoCompactDispatcher (fs4)
-├── Path 1: Session Memory Compaction (vZ6) ← THIS DOCUMENT
+autoCompactDispatcher (sqq)
+├── Path 1: Session Memory Compaction (lE1) ← THIS DOCUMENT
 │   ├── Uses existing session notes file as summary
 │   ├── No LLM summarization call needed
 │   ├── Faster and cheaper
 │   └── Returns null if not available → falls through to Path 2
 │
-└── Path 2: Standard Conversation Compaction (AW1 / performFullCompaction)
+└── Path 2: Standard Conversation Compaction (mf6 / performFullCompaction)
     ├── Uses LLM to generate conversation summary
     ├── Requires streaming API call
     └── More expensive but always available

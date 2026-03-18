@@ -12,12 +12,12 @@ Context Compaction is a critical subsystem in Claude Code that manages the LLM's
 Key functions in this document:
 - `autocompactDispatcher` (sqq) - Inner dispatcher for automatic compaction (chunks.147.mjs:2633)
 - `shouldTriggerAutoCompaction` (CmY) - Threshold + enable check combined (chunks.147.mjs:2620)
-- `isAutoCompactGloballyEnabled` (Xh) - Env var + setting check (chunks.147.mjs:2614)
+- `isAutoCompactEnabled` (Xh) - Env var + setting check (chunks.147.mjs:2614)
 - `getCompactionStatus` (mz6) - Calculates usage percentages and threshold status (chunks.147.mjs:2591)
 - `generateConversationSummary` (ga4) - LLM-powered summarization of history
-- `performSessionMemoryCompaction` (vZ6) - Advanced compaction using session memory templates
-- `collectFilesToKeep` (Ua4) - Identifies and restores recently accessed files after compaction
-- `collectTasksToKeep` (ca4) - Preserves the state of active/recent tasks
+- `trySessionMemoryQuickPath` (lE1) - Session memory compaction path (chunks.147.mjs:2482)
+- `collectFilesToKeep` (fqq) - Identifies and restores recently accessed files after compaction
+- `collectTasksToKeep` (Nqq) - Preserves the state of active/recent tasks
 
 ## Sub-Documents
 
@@ -66,7 +66,7 @@ When compaction is triggered, the `autocompactDispatcher` (sqq, chunks.147.mjs:2
 
 **Reactive compact mode:** The `/compact` command also supports a reactive-only path via `WpY` (`manualCompactWithReactiveMode`) when `Z9q.isReactiveOnlyMode()` is true. See [slash_command.md](./slash_command.md) for details.
 
-**Standard Compaction Steps (`AW1`):**
+**Standard Compaction Steps (`mf6` / `performFullCompaction`):**
 
 1.  **Pre-Compact Hooks**: Fires `PreCompact` event for any registered hooks.
 2.  **State Snapshot**:
@@ -91,21 +91,29 @@ Unlike simple "sliding window" approaches, Claude Code uses a **Semantic Reconst
 ```javascript
 // ============================================
 // collectFilesToKeep - Restores recently read files after compaction
-// Location: chunks.146.mjs:2665-2686
+// Location: chunks.147.mjs:1862-1884
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Ua4(A, q, K) {
-    let Y = Object.entries(A).map(([H, $]) => ({ filename: H, ...$ })).filter((H) => !EmY(H.filename, q.agentId)).sort((H, $) => $.timestamp - H.timestamp).slice(0, K),
-        z = await Promise.all(Y.map(async (H) => {
-            let $ = await TyA(H.filename, { ...q, fileReadingLimits: { maxTokens: VmY } }, "tengu_post_compact_file_restore_success", "tengu_post_compact_file_restore_error", "compact");
-            return $ ? kq($) : null
+async function fqq(A, q, K) {
+    let Y = Object.entries(A).map(([w, O]) => ({
+            filename: w,
+            ...O
+        })).filter((w) => !DmY(w.filename, q.agentId)).sort((w, O) => O.timestamp - w.timestamp).slice(0, K),
+        z = await Promise.all(Y.map(async (w) => {
+            let O = await tF8(w.filename, {
+                ...q,
+                fileReadingLimits: {
+                    maxTokens: HmY
+                }
+            }, "tengu_post_compact_file_restore_success", "tengu_post_compact_file_restore_error", "compact");
+            return O ? kq(O) : null
         })),
-        w = 0;
-    return z.filter((H) => {
-        if (H === null) return !1;
-        let $ = A2(Q1(H));
-        if (w + $ <= fmY) return w += $, !0;
+        $ = 0;
+    return z.filter((w) => {
+        if (w === null) return !1;
+        let O = A2(Q1(w));
+        if ($ + O <= $mY) return $ += O, !0;
         return !1
     })
 }
@@ -123,7 +131,7 @@ async function collectFilesToKeep(readFileState, context, maxFilesToKeep) {
     let restoredFiles = await Promise.all(candidates.map(async (file) => {
         let content = await readFileContent(file.filename, {
             ...context,
-            fileReadingLimits: { maxTokens: 5000 }
+            fileReadingLimits: { maxTokens: MAX_TOKENS_PER_FILE }
         }, "compact");
         return content ? createAttachment(content) : null;
     }));
@@ -133,7 +141,7 @@ async function collectFilesToKeep(readFileState, context, maxFilesToKeep) {
     return restoredFiles.filter((attachment) => {
         if (attachment === null) return false;
         let tokens = countTokens(serialize(attachment));
-        if (currentTotalTokens + tokens <= 50000) {
+        if (currentTotalTokens + tokens <= MAX_FILE_RESTORE_TOKENS) {
             currentTotalTokens += tokens;
             return true;
         }
@@ -141,7 +149,7 @@ async function collectFilesToKeep(readFileState, context, maxFilesToKeep) {
     });
 }
 
-// Mapping: Ua4→collectFilesToKeep, A→readFileState, q→context, K→maxFilesToKeep, VmY→FILE_RESTORE_TOKEN_LIMIT (5000), fmY→TOTAL_RESTORE_TOKEN_LIMIT (50000)
+// Mapping: fqq→collectFilesToKeep, A→readFileState, q→context, K→maxFilesToKeep, DmY→isInternalFile, HmY→MAX_TOKENS_PER_FILE (5000), $mY→MAX_FILE_RESTORE_TOKENS (50000), tF8→readFileContent, kq→createAttachment
 
 ## Auto-Compact Circuit Breaker (v2.1.76)
 

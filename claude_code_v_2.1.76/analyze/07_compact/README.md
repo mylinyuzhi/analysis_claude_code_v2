@@ -85,7 +85,7 @@ The system implements a **three-tier compaction architecture**:
                     ▼                                                       ▼
 ┌───────────────────────────────────────────┐    ┌───────────────────────────────────────────┐
 │   TIER 2: Session Memory Compaction       │    │   TIER 3: Standard Compaction             │
-│              (vZ6)                        │    │              (AW1)                        │
+│              (lE1)                        │    │              (mf6)                        │
 │                                           │    │                                           │
 │  • Use existing session notes file        │    │  • LLM-based summarization                │
 │  • No LLM summarization call              │    │  • Streaming API call                     │
@@ -106,11 +106,11 @@ The system implements a **three-tier compaction architecture**:
                         ┌─────────────────────────────────────┐
                         │       State Preservation            │
                         │                                     │
-                        │  collectFilesToKeep   (Ua4)         │
-                        │  collectTasksToKeep   (ca4)         │
-                        │  collectPlanToKeep    (jZ6)         │
-                        │  collectSkillsToKeep  (da4)         │
-                        │  collectTodosToKeep   (pa4)         │
+                        │  collectFilesToKeep   (fqq)         │
+                        │  collectTasksToKeep   (Nqq)         │
+                        │  collectPlanToKeep    (mE1)         │
+                        │  collectSkillsToKeep  (Tqq)         │
+                        │  collectPlanModeAttachment (vqq)    │
                         └─────────────────────────────────────┘
                                         │
                                         ▼

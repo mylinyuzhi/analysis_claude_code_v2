@@ -4,7 +4,7 @@
 
 The **Message Selection & Boundary Logic** system is a critical component of Claude Code's compaction mechanism that determines **which messages to keep** after compaction and ensures **tool call/result integrity** across compaction boundaries. This system prevents the dangerous scenario where a tool call is separated from its result, which would cause the LLM to hallucinate missing tool outputs or fail to understand completed operations.
 
-The core algorithm (`selectHistoricalWindow` / lmY) implements a **bidirectional greedy search** that:
+The core algorithm (`findCompactionBoundary` / EmY) implements a **bidirectional greedy search** that:
 1. Starts from a given message index (last summarized message or end of array)
 2. Accumulates tokens forward to include recent messages
 3. Expands backward to meet minimum token/message thresholds
@@ -25,17 +25,17 @@ The core algorithm (`selectHistoricalWindow` / lmY) implements a **bidirectional
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `selectHistoricalWindow` (lmY) - Main message selection algorithm with bidirectional search
-- `adjustBoundariesForTools` (pCA) - Tool call/result boundary adjustment
-- `extractToolResultIds` (dmY) - Extracts tool_use_id values from user messages
-- `hasToolUseWithId` (cmY) - Checks if assistant message contains specific tool_use
-- `isTextBlockMessage` (Zs4) - Determines if message contains text blocks
-- `getSmCompactConfig` (UmY) - Retrieves session memory compaction configuration
-- `loadSmCompactConfig` (pmY) - Loads config from feature flags with fallback to defaults
+- `findCompactionBoundary` (EmY) - Main message selection algorithm with bidirectional search
+- `adjustBoundariesForTools` (Op8) - Tool call/result boundary adjustment
+- `extractToolResultIds` (VmY) - Extracts tool_use_id values from user messages
+- `hasToolUseWithId` (kmY) - Checks if assistant message contains specific tool_use
+- `isTextBlockMessage` (oqq) - Determines if message contains text blocks
+- `getSmCompactConfig` (vmY) - Retrieves session memory compaction configuration
+- `loadSmCompactConfig` (NmY) - Loads config from feature flags with fallback to defaults
 
 Constants:
-- `SM_COMPACT_CONFIG_DEFAULTS` (NZ6) - Default thresholds: minTokens=10000, minTextBlockMessages=5, maxTokens=40000
-- `smCompactConfig` (dCA) - Active config (loaded from remote or defaults)
+- `SM_COMPACT_CONFIG_DEFAULTS` ($p8) - Default thresholds: minTokens=10000, minTextBlockMessages=5, maxTokens=40000
+- `smCompactConfig` (TmY) - Active config (loaded from remote or defaults)
 
 ---
 
@@ -44,7 +44,7 @@ Constants:
 ### High-Level Flow
 
 ```
-selectHistoricalWindow (lmY)
+findCompactionBoundary (EmY)
 │
 ├─[1] Load Configuration
 │     └─ minTokens=10000, maxTokens=40000, minTextBlockMessages=5
@@ -73,10 +73,10 @@ selectHistoricalWindow (lmY)
 
 ## Core Algorithms
 
-### 1. Historical Window Selection (Bidirectional Search)
+### Historical Window Selection (Bidirectional Search)
 
-**Function:** `selectHistoricalWindow` (lmY)
-**Location:** chunks.147.mjs:590-610
+**Function:** `findCompactionBoundary` (EmY)
+**Location:** chunks.147.mjs:2413-2438
 **Purpose:** Selects messages to keep after compaction using bidirectional greedy search
 
 #### What it does
@@ -190,35 +190,40 @@ Result: Keep M5-M9, compact M0-M4
 
 ```javascript
 // ============================================
-// selectHistoricalWindow - Bidirectional greedy message selection
-// Location: chunks.147.mjs:590-610
+// findCompactionBoundary - Bidirectional greedy message selection
+// Location: chunks.147.mjs:2413-2438
 // ============================================
 
 // ORIGINAL (for source lookup):
-function lmY(A, q) {
+function EmY(A, q) {
     if (A.length === 0) return 0;
-    let K = UmY(),
+    let K = vmY(),
         Y = q >= 0 ? q + 1 : A.length,
         z = 0,
         w = 0;
     for (let H = Y; H < A.length; H++) {
         let $ = A[H];
-        if (z += PU1([$]), Zs4($)) w++
+        if (z += Nf6([$]), oqq($)) w++
     }
-    if (z >= K.maxTokens) return pCA(A, Y);
-    if (z >= K.minTokens && w >= K.minTextBlockMessages) return pCA(A, Y);
-    for (let H = Y - 1; H >= 0; H--) {
+    if (z >= K.maxTokens) return Op8(A, Y);
+    if (z >= K.minTokens && w >= K.minTextBlockMessages) return Op8(A, Y);
+    let O = 0;
+    for (let H = A.length - 1; H >= 0; H--)
+        if (RZ(A[H])) {
+            O = H + 1;
+            break
+        } for (let H = Y - 1; H >= O; H--) {
         let $ = A[H],
-            O = PU1([$]);
-        if (z += O, Zs4($)) w++;
+            _ = Nf6([$]);
+        if (z += _, oqq($)) w++;
         if (Y = H, z >= K.maxTokens) break;
         if (z >= K.minTokens && w >= K.minTextBlockMessages) break
     }
-    return pCA(A, Y)
+    return Op8(A, Y)
 }
 
 // READABLE (for understanding):
-function selectHistoricalWindow(messages, lastSummarizedIndex) {
+function findCompactionBoundary(messages, lastSummarizedIndex) {
     // Guard: empty messages array
     if (messages.length === 0) return 0;
 
@@ -276,15 +281,15 @@ function selectHistoricalWindow(messages, lastSummarizedIndex) {
     return adjustBoundariesForTools(messages, startIndex);
 }
 
-// Mapping: lmY→selectHistoricalWindow, A→messages, q→lastSummarizedIndex, K→config, Y→startIndex, z→tokenCount, w→textBlockMessageCount, H→i, $→message, O→messageTokens, UmY→getSmCompactConfig, PU1→countTokens, Zs4→isTextBlockMessage, pCA→adjustBoundariesForTools
+// Mapping: EmY→findCompactionBoundary, A→messages, q→lastSummarizedIndex, K→config, Y→startIndex, z→tokenCount, w→textBlockMessageCount, H→i, $→message, O→lastBoundaryIndex, _→messageTokens, vmY→getSmCompactConfig, Nf6→countTokens, oqq→isTextBlockMessage, Op8→adjustBoundariesForTools, RZ→isCompactBoundaryMessage
 ```
 
 ---
 
 ### 2. Tool Boundary Adjustment
 
-**Function:** `adjustBoundariesForTools` (pCA)
-**Location:** chunks.147.mjs:553-588
+**Function:** `adjustBoundariesForTools` (Op8)
+**Location:** chunks.147.mjs:2376-2408
 **Purpose:** Adjusts message boundary to ensure tool_use and tool_result pairs are never split
 
 #### What it does
@@ -436,15 +441,15 @@ Result: Tool pair (M5-M6) is preserved!
 ```javascript
 // ============================================
 // adjustBoundariesForTools - Ensures tool_use/tool_result pairs aren't split
-// Location: chunks.147.mjs:553-588
+// Location: chunks.147.mjs:2376-2408
 // ============================================
 
 // ORIGINAL (for source lookup):
-function pCA(A, q) {
+function Op8(A, q) {
     if (q <= 0 || q >= A.length) return q;
     let K = q,
         Y = [];
-    for (let w = q; w < A.length; w++) Y.push(...dmY(A[w]));
+    for (let w = q; w < A.length; w++) Y.push(...VmY(A[w]));
     if (Y.length > 0) {
         let w = new Set;
         for (let $ = K; $ < A.length; $++) {
@@ -457,7 +462,7 @@ function pCA(A, q) {
         let H = new Set(Y.filter(($) => !w.has($)));
         for (let $ = K - 1; $ >= 0 && H.size > 0; $--) {
             let O = A[$];
-            if (cmY(O, H)) {
+            if (kmY(O, H)) {
                 if (K = $, O.type === "assistant" && Array.isArray(O.message.content)) {
                     for (let _ of O.message.content)
                         if (_.type === "tool_use" && H.has(_.id)) H.delete(_.id)
@@ -556,7 +561,7 @@ function adjustBoundariesForTools(messages, boundaryIndex) {
     return adjustedBoundary;
 }
 
-// Mapping: pCA→adjustBoundariesForTools, A→messages, q→boundaryIndex, K→adjustedBoundary, Y→toolResultIds, w→i/toolUseIdsInWindow, H→orphanedToolResultIds/message, $→i/contentBlock, O→message, _→contentBlock, z→assistantMessageIds, dmY→extractToolResultIds, cmY→hasToolUseWithId
+// Mapping: Op8→adjustBoundariesForTools, A→messages, q→boundaryIndex, K→adjustedBoundary, Y→toolResultIds, w→i/toolUseIdsInWindow, H→orphanedToolResultIds/message, $→i/contentBlock, O→message, _→contentBlock, z→assistantMessageIds, VmY→extractToolResultIds, kmY→hasToolUseWithId
 ```
 
 ---
@@ -565,18 +570,18 @@ function adjustBoundariesForTools(messages, boundaryIndex) {
 
 #### 3a. Extract Tool Result IDs
 
-**Function:** `extractToolResultIds` (dmY)
-**Location:** chunks.147.mjs:536-544
+**Function:** `extractToolResultIds` (VmY)
+**Location:** chunks.147.mjs:2359-2367
 **Purpose:** Extracts all tool_use_id values from tool_result blocks in a user message
 
 ```javascript
 // ============================================
 // extractToolResultIds - Extracts tool_use_id from tool_result blocks
-// Location: chunks.147.mjs:536-544
+// Location: chunks.147.mjs:2359-2367
 // ============================================
 
 // ORIGINAL (for source lookup):
-function dmY(A) {
+function VmY(A) {
     if (A.type !== "user") return [];
     let q = A.message.content;
     if (!Array.isArray(q)) return [];
@@ -608,7 +613,7 @@ function extractToolResultIds(message) {
     return toolUseIds;
 }
 
-// Mapping: dmY→extractToolResultIds, A→message, q→content, K→toolUseIds, Y→contentBlock
+// Mapping: VmY→extractToolResultIds, A→message, q→content, K→toolUseIds, Y→contentBlock
 ```
 
 **What it does:** Scans a user message's content blocks and returns an array of all `tool_use_id` values found in `tool_result` blocks.
@@ -619,18 +624,18 @@ function extractToolResultIds(message) {
 
 #### 3b. Check Tool Use with ID
 
-**Function:** `hasToolUseWithId` (cmY)
-**Location:** chunks.147.mjs:546-551
+**Function:** `hasToolUseWithId` (kmY)
+**Location:** chunks.147.mjs:2369-2374
 **Purpose:** Checks if an assistant message contains a tool_use block with a specific ID from a set
 
 ```javascript
 // ============================================
 // hasToolUseWithId - Checks if assistant message has tool_use with given ID
-// Location: chunks.147.mjs:546-551
+// Location: chunks.147.mjs:2369-2374
 // ============================================
 
 // ORIGINAL (for source lookup):
-function cmY(A, q) {
+function kmY(A, q) {
     if (A.type !== "assistant") return !1;
     let K = A.message.content;
     if (!Array.isArray(K)) return !1;
@@ -653,7 +658,7 @@ function hasToolUseWithId(message, toolUseIdSet) {
     );
 }
 
-// Mapping: cmY→hasToolUseWithId, A→message, q→toolUseIdSet, K→content, Y→contentBlock
+// Mapping: kmY→hasToolUseWithId, A→message, q→toolUseIdSet, K→content, Y→contentBlock
 ```
 
 **What it does:** Returns `true` if the message is an assistant message containing at least one `tool_use` block whose `id` is in the provided set.
@@ -664,18 +669,18 @@ function hasToolUseWithId(message, toolUseIdSet) {
 
 ### 4. Message Type Detection
 
-**Function:** `isTextBlockMessage` (Zs4)
-**Location:** chunks.147.mjs:526-534
+**Function:** `isTextBlockMessage` (oqq)
+**Location:** chunks.147.mjs:2349-2357
 **Purpose:** Determines if a message contains meaningful text content (not just tools)
 
 ```javascript
 // ============================================
 // isTextBlockMessage - Checks if message contains text blocks
-// Location: chunks.147.mjs:526-534
+// Location: chunks.147.mjs:2349-2357
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Zs4(A) {
+function oqq(A) {
     if (A.type === "assistant") return A.message.content.some((K) => K.type === "text");
     if (A.type === "user") {
         let q = A.message.content;
@@ -711,7 +716,7 @@ function isTextBlockMessage(message) {
     return false;
 }
 
-// Mapping: Zs4→isTextBlockMessage, A→message, q→content, K→block
+// Mapping: oqq→isTextBlockMessage, A→message, q→content, K→block
 ```
 
 **What it does:** Returns `true` if the message contains text content (either as string or text block in content array).
@@ -724,20 +729,20 @@ function isTextBlockMessage(message) {
 
 #### 5a. Get Active Config
 
-**Function:** `getSmCompactConfig` (UmY)
-**Location:** chunks.147.mjs:508-512
+**Function:** `getSmCompactConfig` (vmY)
+**Location:** chunks.147.mjs:2331-2335
 **Purpose:** Returns current active session memory compaction configuration
 
 ```javascript
 // ============================================
 // getSmCompactConfig - Returns active SM compact configuration
-// Location: chunks.147.mjs:508-512
+// Location: chunks.147.mjs:2331-2335
 // ============================================
 
 // ORIGINAL (for source lookup):
-function UmY() {
+function vmY() {
     return {
-        ...dCA
+        ...TmY
     }
 }
 
@@ -749,7 +754,7 @@ function getSmCompactConfig() {
     };
 }
 
-// Mapping: UmY→getSmCompactConfig, dCA→smCompactConfig
+// Mapping: vmY→getSmCompactConfig, TmY→smCompactConfig
 ```
 
 **What it does:** Returns a shallow copy of the active configuration object (prevents mutation).
@@ -758,27 +763,27 @@ function getSmCompactConfig() {
 
 #### 5b. Load Config from Feature Flags
 
-**Function:** `loadSmCompactConfig` (pmY)
-**Location:** chunks.147.mjs:514-524
+**Function:** `loadSmCompactConfig` (NmY)
+**Location:** chunks.147.mjs:2337-2347
 **Purpose:** Loads configuration from remote feature flags with fallback to defaults
 
 ```javascript
 // ============================================
 // loadSmCompactConfig - Loads config from feature flags
-// Location: chunks.147.mjs:514-524
+// Location: chunks.147.mjs:2337-2347
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function pmY() {
+async function NmY() {
     if (Gs4) return;
     Gs4 = !0;
     let A = await CI("tengu_sm_compact_config", {}),
         q = {
-            minTokens: A.minTokens && A.minTokens > 0 ? A.minTokens : NZ6.minTokens,
-            minTextBlockMessages: A.minTextBlockMessages && A.minTextBlockMessages > 0 ? A.minTextBlockMessages : NZ6.minTextBlockMessages,
-            maxTokens: A.maxTokens && A.maxTokens > 0 ? A.maxTokens : NZ6.maxTokens
+            minTokens: A.minTokens && A.minTokens > 0 ? A.minTokens : $p8.minTokens,
+            minTextBlockMessages: A.minTextBlockMessages && A.minTextBlockMessages > 0 ? A.minTextBlockMessages : $p8.minTextBlockMessages,
+            maxTokens: A.maxTokens && A.maxTokens > 0 ? A.maxTokens : $p8.maxTokens
         };
-    gmY(q)
+    xmY(q)
 }
 
 // READABLE (for understanding):
@@ -809,7 +814,7 @@ async function loadSmCompactConfig() {
     setSmCompactConfig(finalConfig);
 }
 
-// Mapping: pmY→loadSmCompactConfig, Gs4→configLoaded, CI→fetchRemoteConfig, A→remoteConfig, q→finalConfig, NZ6→SM_COMPACT_CONFIG_DEFAULTS, gmY→setSmCompactConfig
+// Mapping: NmY→loadSmCompactConfig, Gs4→configLoaded, CI→fetchRemoteConfig, A→remoteConfig, q→finalConfig, $p8→SM_COMPACT_CONFIG_DEFAULTS, xmY→setSmCompactConfig
 ```
 
 **What it does:**
@@ -818,7 +823,7 @@ async function loadSmCompactConfig() {
 3. Validates each field and falls back to defaults if invalid (≤ 0 or missing)
 4. Updates active config
 
-**Default values** (NZ6 / SM_COMPACT_CONFIG_DEFAULTS):
+**Default values** ($p8 / SM_COMPACT_CONFIG_DEFAULTS):
 - `minTokens`: 10,000
 - `minTextBlockMessages`: 5
 - `maxTokens`: 40,000
@@ -987,17 +992,17 @@ The following symbols should be added to `symbol_index_core_features.md` under *
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| lmY | selectHistoricalWindow | chunks.147.mjs:590 | function |
-| pCA | adjustBoundariesForTools | chunks.147.mjs:553 | function |
-| dmY | extractToolResultIds | chunks.147.mjs:536 | function |
-| cmY | hasToolUseWithId | chunks.147.mjs:546 | function |
-| Zs4 | isTextBlockMessage | chunks.147.mjs:526 | function |
-| UmY | getSmCompactConfig | chunks.147.mjs:508 | function |
-| pmY | loadSmCompactConfig | chunks.147.mjs:514 | function |
-| gmY | setSmCompactConfig | chunks.147.mjs:501 | function |
-| Gs4 | configLoaded | chunks.147.mjs:689 | variable |
-| dCA | smCompactConfig | chunks.147.mjs:712 | variable |
-| NZ6 | SM_COMPACT_CONFIG_DEFAULTS | chunks.147.mjs:708 | constant |
+| EmY | findCompactionBoundary | chunks.147.mjs:2413 | function |
+| Op8 | adjustBoundariesForTools | chunks.147.mjs:2376 | function |
+| VmY | extractToolResultIds | chunks.147.mjs:2359 | function |
+| kmY | hasToolUseWithId | chunks.147.mjs:2369 | function |
+| oqq | isTextBlockMessage | chunks.147.mjs:2349 | function |
+| vmY | getSmCompactConfig | chunks.147.mjs:2331 | function |
+| NmY | loadSmCompactConfig | chunks.147.mjs:2337 | function |
+| xmY | setSmCompactConfig | chunks.147.mjs:2326 | function |
+| Gs4 | configLoaded | chunks.147.mjs:688 | variable |
+| TmY | smCompactConfig | chunks.147.mjs:711 | variable |
+| $p8 | SM_COMPACT_CONFIG_DEFAULTS | chunks.147.mjs:707 | constant |
 
 ---
 

@@ -11,11 +11,11 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - LLM API
 
 Key functions in this document:
-- `autoCompactDispatcher` (fs4) - Top-level auto-compaction orchestrator
-- `shouldAutoCompact` (amY) - Determines if compaction is needed
-- `getAutoCompactThreshold` (SQ1) - Returns token threshold for triggering
-- `performSessionMemoryCompaction` (vZ6) - Session memory compaction path
-- `performFullCompaction` (AW1) - Standard compaction path
+- `autoCompactDispatcher` (sqq) - Top-level auto-compaction orchestrator
+- `shouldTriggerAutoCompaction` (CmY) - Determines if compaction is needed
+- `getAutoCompactThreshold` (oc6) - Returns token threshold for triggering
+- `trySessionMemoryQuickPath` (lE1) - Session memory compaction path
+- `performFullCompaction` (mf6) - Standard compaction path
 
 ---
 
@@ -73,7 +73,7 @@ The compact system integrates with CLI through:
 │             ▼                   ▼                                         │
 │      ┌─────────────┐   ┌─────────────────────────────┐                    │
 │      │ Continue    │   │ autoCompactDispatcher()     │                    │
-│      │ Normal      │   │ (fs4)                       │                    │
+│      │ Normal      │   │ (sqq)                       │                    │
 │      │ Execution   │   │                             │                    │
 │      └─────────────┘   └───────────────┬─────────────┘                    │
 │                                        │                                   │
@@ -84,9 +84,9 @@ The compact system integrates with CLI through:
 │                          │                           │                    │
 │                          ▼                           ▼                    │
 │              ┌─────────────────────┐   ┌─────────────────────┐           │
-│              │ performSession      │   │ performFull         │           │
-│              │ MemoryCompaction()  │   │ Compaction()        │           │
-│              │ (vZ6)               │   │ (AW1)               │           │
+│              │ trySessionMemory    │   │ performFull         │           │
+│              │ QuickPath()         │   │ Compaction()        │           │
+│              │ (lE1)               │   │ (mf6)               │           │
 │              └─────────────────────┘   └─────────────────────┘           │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -138,36 +138,36 @@ function isAutoCompactEnabled() {
 
 ---
 
-## 2. autoCompactDispatcher (fs4)
+## 2. autoCompactDispatcher (sqq)
 
 **What it does:** Top-level orchestrator that decides whether compaction is needed and which compaction path to use.
 
-**Location:** `chunks.147.mjs:778-803`
+**Location:** `chunks.147.mjs:2633-2658`
 
 ### 2.1 Function Implementation
 
 ```javascript
 // ============================================
 // autoCompactDispatcher - Main compaction orchestrator
-// Location: chunks.147.mjs:778-803
+// Location: chunks.147.mjs:2633-2658
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function fs4(A, q, K, Y) {
+async function sqq(A, q, K, Y) {
     if (J6(process.env.DISABLE_COMPACT)) return {
         wasCompacted: !1
     };
     let z = q.options.mainLoopModel;
-    if (!await amY(A, z, Y)) return {
+    if (!await CmY(A, z, Y)) return {
         wasCompacted: !1
     };
-    let H = await vZ6(A, q.agentId, SQ1(z));
+    let H = await lE1(A, q.agentId, oc6(z));
     if (H) return i51(void 0), {
         wasCompacted: !0,
         compactionResult: H
     };
     try {
-        let $ = await AW1(A, q, K, !0, void 0, !0);
+        let $ = await mf6(A, q, K, !0, void 0, !0);
         return i51(void 0), {
             wasCompacted: !0,
             compactionResult: $
@@ -191,12 +191,12 @@ async function autoCompactDispatcher(messages, sessionContext, cacheSafeParams, 
     let model = sessionContext.options.mainLoopModel;
 
     // Step 3: Check if compaction is needed
-    if (!await shouldAutoCompact(messages, model, querySource)) {
+    if (!await shouldTriggerAutoCompaction(messages, model, querySource)) {
         return { wasCompacted: false };
     }
 
     // Step 4: Try session memory compaction first (new path)
-    let sessionMemoryResult = await performSessionMemoryCompaction(
+    let sessionMemoryResult = await trySessionMemoryQuickPath(
         messages,
         sessionContext.agentId,
         getAutoCompactThreshold(model)
@@ -234,10 +234,10 @@ async function autoCompactDispatcher(messages, sessionContext, cacheSafeParams, 
     }
 }
 
-// Mapping: fs4→autoCompactDispatcher, A→messages, q→sessionContext,
+// Mapping: sqq→autoCompactDispatcher, A→messages, q→sessionContext,
 //          K→cacheSafeParams, Y→querySource, z→model, H→sessionMemoryResult,
-//          amY→shouldAutoCompact, vZ6→performSessionMemoryCompaction,
-//          SQ1→getAutoCompactThreshold, AW1→performFullCompaction, i51→clearLastCompactionTimestamp
+//          CmY→shouldTriggerAutoCompaction, lE1→trySessionMemoryQuickPath,
+//          oc6→getAutoCompactThreshold, mf6→performFullCompaction, i51→clearLastCompactionTimestamp
 ```
 
 ### 2.2 Decision Logic Flow
@@ -275,34 +275,34 @@ async function autoCompactDispatcher(messages, sessionContext, cacheSafeParams, 
 
 ---
 
-## 3. shouldAutoCompact (amY)
+## 3. shouldTriggerAutoCompaction (CmY)
 
 **What it does:** Determines if token count exceeds the threshold requiring compaction.
 
-**Location:** `chunks.147.mjs:765-776`
+**Location:** `chunks.147.mjs:2620-2631`
 
 ```javascript
 // ============================================
-// shouldAutoCompact - Check if compaction is needed
-// Location: chunks.147.mjs:765-776
+// shouldTriggerAutoCompaction - Check if compaction is needed
+// Location: chunks.147.mjs:2620-2631
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function amY(A, q, K) {
+async function CmY(A, q, K) {
     if (K === "session_memory" || K === "compact") return !1;
-    if (!xm()) return !1;
+    if (!Xh()) return !1;
     let Y = Ev(A),
-        z = SQ1(q),
-        w = m51(q);
+        z = oc6(q),
+        w = OF(q);
     h(`autocompact: tokens=${Y} threshold=${z} effectiveWindow=${w}`);
     let {
         isAboveAutoCompactThreshold: H
-    } = Ac(Y, q);
+    } = mz6(Y, q);
     return H
 }
 
 // READABLE (for understanding):
-async function shouldAutoCompact(messages, model, querySource) {
+async function shouldTriggerAutoCompaction(messages, model, querySource) {
     // Don't compact if we're already in a compaction-related query
     if (querySource === "session_memory" || querySource === "compact") {
         return false;
@@ -323,15 +323,15 @@ async function shouldAutoCompact(messages, model, querySource) {
     debug(`autocompact: tokens=${tokenCount} threshold=${threshold} effectiveWindow=${effectiveWindow}`);
 
     // Check if above threshold
-    let { isAboveAutoCompactThreshold } = checkTokenThreshold(tokenCount, model);
+    let { isAboveAutoCompactThreshold } = getCompactionStatus(tokenCount, model);
 
     return isAboveAutoCompactThreshold;
 }
 
-// Mapping: amY→shouldAutoCompact, A→messages, q→model, K→querySource,
+// Mapping: CmY→shouldTriggerAutoCompaction, A→messages, q→model, K→querySource,
 //          Y→tokenCount, z→threshold, w→effectiveWindow, Ev→countTokens,
-//          SQ1→getAutoCompactThreshold, m51→getEffectiveContextWindow,
-//          xm→isAutoCompactEnabled, Ac→checkTokenThreshold
+//          oc6→getAutoCompactThreshold, OF→getEffectiveContextWindow,
+//          Xh→isAutoCompactEnabled, mz6→getCompactionStatus
 ```
 
 ---

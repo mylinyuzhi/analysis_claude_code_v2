@@ -22,21 +22,21 @@ Additionally, comprehensive **telemetry events** track compaction performance, e
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `loadSmCompactConfig` (pmY) - Fetches remote config for session memory compaction thresholds
-- `isSessionMemoryCompactEnabled` (TZ6) - Checks if session memory feature is enabled
-- `getSmCompactConfig` (UmY) - Returns active session memory compaction configuration
-- `setSmCompactConfig` (gmY) - Updates active configuration
-- `getAutoCompactThreshold` (SQ1) - Computes auto-compact trigger threshold
-- `getEffectiveContextWindow` (m51) - Gets model context window minus buffer
-- `getCompactionStatus` (Ac) - Calculates token usage percentage and threshold status
+- `loadSmCompactConfig` (NmY) - Fetches remote config for session memory compaction thresholds
+- `isSessionMemoryCompactEnabled` (cE1) - Checks if session memory feature is enabled
+- `getSmCompactConfig` (vmY) - Returns active session memory compaction configuration
+- `setSmCompactConfig` (xmY) - Updates active configuration
+- `getAutoCompactThreshold` (oc6) - Computes auto-compact trigger threshold
+- `getEffectiveContextWindow` (OF) - Gets model context window minus buffer
+- `getCompactionStatus` (mz6) - Calculates token usage percentage and threshold status
 
 Constants:
-- `SM_COMPACT_CONFIG_DEFAULTS` (NZ6) - Default session memory config (minTokens: 10000, maxTokens: 40000, minTextBlockMessages: 5)
-- `MAX_COMPACT_BUFFER` (nmY) - 20,000 tokens (buffer for LLM response)
-- `AUTO_COMPACT_BUFFER_OFFSET` (cCA) - 13,000 tokens (safety margin before hard limit)
-- `TOKEN_WARNING_THRESHOLD` (rmY) - 20,000 tokens (warning threshold offset)
-- `TOKEN_ERROR_THRESHOLD` (omY) - 20,000 tokens (error threshold offset)
-- `BLOCKING_LIMIT_OFFSET` (lCA) - 3,000 tokens (last resort before blocking user input)
+- `SM_COMPACT_CONFIG_DEFAULTS` ($p8) - Default session memory config (minTokens: 10000, maxTokens: 40000, minTextBlockMessages: 5)
+- `MAX_COMPACT_BUFFER` (RmY) - 20,000 tokens (buffer for LLM response)
+- `AUTO_COMPACT_BUFFER_OFFSET` (Jp8) - 13,000 tokens (safety margin before hard limit)
+- `TOKEN_WARNING_THRESHOLD` (hmY) - 20,000 tokens (warning threshold offset)
+- `TOKEN_ERROR_THRESHOLD` (SmY) - 20,000 tokens (error threshold offset)
+- `BLOCKING_LIMIT_OFFSET` (Mp8) - 3,000 tokens (last resort before blocking user input)
 
 ---
 
@@ -59,8 +59,8 @@ Priority (highest to lowest):
 
 ### Session Memory Compaction Config
 
-**Function:** `loadSmCompactConfig` (pmY)
-**Location:** chunks.147.mjs:514-524
+**Function:** `loadSmCompactConfig` (NmY)
+**Location:** chunks.147.mjs:2337-2347
 
 **What it does:** Fetches remote configuration for session memory compaction thresholds with fallback to defaults
 
@@ -221,7 +221,7 @@ if (parseBoolean(process.env.DISABLE_COMPACT)) {
 
 ### Auto-Compact Threshold
 
-**Function:** `getAutoCompactThreshold` (SQ1)
+**Function:** `getAutoCompactThreshold` (oc6)
 **Location:** chunks.147.mjs:722-735
 
 **Formula:**
@@ -251,7 +251,7 @@ if (process.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE) {
 
 ### Warning and Error Thresholds
 
-**Function:** `getCompactionStatus` (Ac)
+**Function:** `getCompactionStatus` (mz6)
 **Location:** chunks.147.mjs:736-763
 
 **Thresholds:**

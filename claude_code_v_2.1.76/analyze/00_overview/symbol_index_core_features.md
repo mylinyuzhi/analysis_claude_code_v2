@@ -678,12 +678,14 @@
 | oc6 | getAutoCompactThreshold | chunks.147.mjs:2577 | function |
 | OF | getEffectiveContextWindow | chunks.147.mjs:2566 | function |
 | mf6 | performFullCompaction | chunks.147.mjs:1473 | function |
+| ga4 | generateConversationSummary | chunks.147.mjs:1755 | function |
 | lE1 | trySessionMemoryQuickPath | chunks.147.mjs:2482 | function |
 | fqq | collectFilesToKeep | chunks.147.mjs:1862 | function |
 | Nqq | collectTasksToKeep | chunks.147.mjs:1923 | function |
 | mE1 | collectPlanToKeep | chunks.147.mjs:1885 | function |
 | Tqq | collectSkillsToKeep | chunks.147.mjs:1896 | function |
 | vqq | collectPlanModeAttachment | chunks.147.mjs:1910 | function |
+| DmY | isInternalFile | chunks.147.mjs:1942 | function |
 | RmY | MAX_COMPACT_BUFFER | chunks.147.mjs:2676 | constant (20000) |
 | Jp8 | AUTO_COMPACT_BUFFER_OFFSET | chunks.147.mjs:2678 | constant (13000) |
 | hmY | TOKEN_WARNING_THRESHOLD | chunks.147.mjs:2680 | constant (20000) |
@@ -695,12 +697,28 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| lE1 | trySessionMemoryQuickPath | chunks.147.mjs:2482 | function |
 | cE1 | isSessionMemoryCompactEnabled | chunks.147.mjs:2440 | function |
 | ymY | buildSessionMemoryCompactResult | chunks.147.mjs:2448 | function |
 | Yp8 | addPreservedSegmentToMarker | chunks.147.mjs:1449 | function |
 | Xqq | MAX_FILES_TO_KEEP | chunks.147.mjs:1954 | constant (5) |
 | $mY | MAX_FILE_RESTORE_TOKENS | chunks.147.mjs:1956 | constant (50000) |
 | HmY | MAX_TOKENS_PER_FILE | chunks.147.mjs:1958 | constant (5000) |
+
+### Message Selection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| EmY | findCompactionBoundary | chunks.147.mjs:2413 | function |
+| Op8 | adjustBoundariesForTools | chunks.147.mjs:2376 | function |
+| oqq | isTextBlockMessage | chunks.147.mjs:2349 | function |
+| VmY | extractToolResultIds | chunks.147.mjs:2359 | function |
+| kmY | hasToolUseWithId | chunks.147.mjs:2369 | function |
+| vmY | getSmCompactConfig | chunks.147.mjs:2331 | function |
+| NmY | loadSmCompactConfig | chunks.147.mjs:2337 | function |
+| xmY | setSmCompactConfig | chunks.147.mjs:2326 | function |
+| TmY | smCompactConfig | chunks.147.mjs:711 | variable |
+| $p8 | SM_COMPACT_CONFIG_DEFAULTS | chunks.147.mjs:707 | constant |
 
 ### Slash Command Compact
 
@@ -838,6 +856,18 @@
 | BmY | MANUAL_MICROCOMPACT_THRESHOLD | chunks.147.mjs:466 | constant (40000) |
 | mmY | KEEP_RECENT_TOOL_RESULTS | chunks.147.mjs:468 | constant (3) |
 | gCA | IMAGE_TOKEN_ESTIMATE | chunks.147.mjs:470 | constant (2000) |
+
+### Compaction Hooks
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
+| PP | executeSessionStartHooks | chunks.142.mjs:248 | function |
+| $yA | executeSessionStartGenerator | chunks.141.mjs:2961 | function |
+| AyA | executeHooksOutsideREPL | chunks.141.mjs:2691 | function |
+| aX | createHookContext | chunks.141.mjs:1770 | function |
+| Wi4 | parseHookOutput | chunks.141.mjs:1780 | function |
+| MP | DEFAULT_HOOK_TIMEOUT | chunks.142.mjs:215 | constant (600000) |
 | NXA | CLEARED_CONTENT_MESSAGE | chunks.80.mjs:2844 | constant |
 | C$6 | PERSISTED_OUTPUT_START | chunks.80.mjs:2840 | constant |
 | VXA | PERSISTED_OUTPUT_END | chunks.80.mjs:2842 | constant |
