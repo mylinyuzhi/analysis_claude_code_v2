@@ -232,12 +232,16 @@ Key functions:
 - `autocompactDispatcher` (sqq) - Main entry point for auto-compaction
 - `shouldTriggerAutoCompaction` (CmY) - Threshold check for auto-trigger
 - `getCompactionStatus` (mz6) - Calculates usage percentages and threshold status
-- `performMicrocompaction` (gm) - Lightweight token optimization
-- `performSessionMemoryCompaction` (vZ6) - Session notes-based compaction
-- `performFullCompaction` (AW1) - LLM-based full summarization
-- `collectFilesToKeep` (Ua4) - File state preservation
-- `collectTasksToKeep` (ca4) - Task state preservation
-- `collectPlanToKeep` (jZ6) - Plan file preservation
+- `isAutoCompactEnabled` (Xh) - Checks if auto-compact is globally enabled
+- `getAutoCompactThreshold` (oc6) - Computes the auto-compact trigger threshold
+- `getEffectiveContextWindow` (OF) - Effective context window calculation
+- `performFullCompaction` (mf6) - LLM-based full summarization (8-step lifecycle)
+- `trySessionMemoryQuickPath` (lE1) - Session notes-based compaction attempt
+- `collectFilesToKeep` (fqq) - File state preservation
+- `collectTasksToKeep` (Nqq) - Task state preservation
+- `collectPlanToKeep` (mE1) - Plan file preservation
+- `collectSkillsToKeep` (Tqq) - Skills preservation
+- `createCompactBoundaryMessage` (Ri6) - Boundary marker creation
 
 ## Integration Points
 

@@ -673,34 +673,34 @@
 |------------|----------|-----------|------|
 | sqq | autocompactDispatcher | chunks.147.mjs:2633 | function |
 | CmY | shouldTriggerAutoCompaction | chunks.147.mjs:2620 | function |
-| Xh | isAutoCompactGloballyEnabled | chunks.147.mjs:2614 | function |
+| Xh | isAutoCompactEnabled | chunks.147.mjs:2614 | function |
 | mz6 | getCompactionStatus | chunks.147.mjs:2591 | function |
 | oc6 | getAutoCompactThreshold | chunks.147.mjs:2577 | function |
 | OF | getEffectiveContextWindow | chunks.147.mjs:2566 | function |
-| pg | microCompact | chunks.133.mjs:991 | function |
-| $OA | contextCompactor | chunks.75.mjs:1938 | function (generator wrapper) |
-| HOA | isAutoCompactEnabled | chunks.75.mjs:1939 | function |
-| Tw6 | checkAndCompactIfNeeded | chunks.75.mjs:1941 | function |
-| ga4 | generateConversationSummary | chunks.146.mjs:2566 | function |
-| vZ6 | performSessionMemoryCompaction | chunks.147.mjs:651 | function |
-| Fa4 | performPartialCompaction | chunks.146.mjs:2437 | function |
-| imY | createCompactionSummaryMessage | chunks.147.mjs:620 | function |
+| mf6 | performFullCompaction | chunks.147.mjs:1473 | function |
 | lE1 | trySessionMemoryQuickPath | chunks.147.mjs:2482 | function |
-| mf6 | performFullCompactionFlow | chunks.147.mjs | function |
-| Ts4 | generateToolUseSummary | chunks.147.mjs:832 | function |
-| eW | countConversationTokens | chunks.84.mjs:1146 | function |
-| Ua4 | collectFilesToKeep | chunks.146.mjs:2665 | function |
-| ca4 | collectTasksToKeep | chunks.146.mjs:2724 | function |
-| jZ6 | collectPlanToKeep | chunks.146.mjs:2699 | function |
-| da4 | collectSkillsToKeep | chunks.146.mjs:2710 | function |
-| pa4 | collectTodosToKeep | chunks.146.mjs:2688 | function |
-| PU1 | calculateMessageTokens | chunks.147.mjs:296 | function |
+| fqq | collectFilesToKeep | chunks.147.mjs:1862 | function |
+| Nqq | collectTasksToKeep | chunks.147.mjs:1923 | function |
+| mE1 | collectPlanToKeep | chunks.147.mjs:1885 | function |
+| Tqq | collectSkillsToKeep | chunks.147.mjs:1896 | function |
+| vqq | collectPlanModeAttachment | chunks.147.mjs:1910 | function |
 | RmY | MAX_COMPACT_BUFFER | chunks.147.mjs:2676 | constant (20000) |
 | Jp8 | AUTO_COMPACT_BUFFER_OFFSET | chunks.147.mjs:2678 | constant (13000) |
 | hmY | TOKEN_WARNING_THRESHOLD | chunks.147.mjs:2680 | constant (20000) |
 | SmY | TOKEN_ERROR_THRESHOLD | chunks.147.mjs:2682 | constant (20000) |
 | Mp8 | BLOCKING_LIMIT_OFFSET | chunks.147.mjs:2684 | constant (3000) |
 | aqq | MAX_AUTO_COMPACT_FAILURES | chunks.147.mjs:2686 | constant (3) |
+
+### Session Memory Compaction
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cE1 | isSessionMemoryCompactEnabled | chunks.147.mjs:2440 | function |
+| ymY | buildSessionMemoryCompactResult | chunks.147.mjs:2448 | function |
+| Yp8 | addPreservedSegmentToMarker | chunks.147.mjs:1449 | function |
+| Xqq | MAX_FILES_TO_KEEP | chunks.147.mjs:1954 | constant (5) |
+| $mY | MAX_FILE_RESTORE_TOKENS | chunks.147.mjs:1956 | constant (50000) |
+| HmY | MAX_TOKENS_PER_FILE | chunks.147.mjs:1958 | constant (5000) |
 
 ### Slash Command Compact
 

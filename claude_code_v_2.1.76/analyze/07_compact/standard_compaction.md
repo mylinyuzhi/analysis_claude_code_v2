@@ -4,7 +4,7 @@
 
 The **Standard Compaction Path** is the traditional LLM-based conversation summarization mechanism in Claude Code that serves as the universal fallback when session memory compaction is unavailable or fails. Unlike session memory compaction (which reuses existing session notes), standard compaction actively calls the LLM API to generate a fresh conversation summary from the message history.
 
-This compaction path is implemented in `performFullCompaction` (AW1) and orchestrated by `autoCompactDispatcher` (fs4). It follows an 8-step lifecycle that includes pre-compact hooks, summary generation, state preservation, message assembly, telemetry reporting, and post-compact hooks.
+This compaction path is implemented in `performFullCompaction` (mf6) and orchestrated by `autocompactDispatcher` (sqq). It follows an 8-step lifecycle that includes pre-compact hooks, summary generation, state preservation, message assembly, telemetry reporting, and post-compact hooks.
 
 **When is standard compaction used?**
 1. Session memory compaction is disabled (feature flags or env vars)
@@ -28,20 +28,19 @@ This compaction path is implemented in `performFullCompaction` (AW1) and orchest
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `autoCompactDispatcher` (fs4) - Top-level dispatcher choosing between session memory vs standard compaction
-- `performFullCompaction` (AW1) - Main 8-step lifecycle for standard compaction
-- `generateConversationSummary` (ga4) - LLM-powered streaming summarization with retry logic
-- `shouldAutoCompact` (amY) - Determines if token threshold requires compaction
-- `getCompactionStatus` (Ac) - Calculates usage percentages and threshold levels
-- `getAutoCompactThreshold` (SQ1) - Computes the auto-compact trigger threshold
-- `getEffectiveContextWindow` (m51) - Effective context window (model limit - buffer)
-- `executePreCompactHooks` (mW6) - Pre-compact hook execution for lifecycle integration
-- `executeSessionStartHooks` (PP) - Post-compact hook execution
+- `autocompactDispatcher` (sqq) - Top-level dispatcher choosing between session memory vs standard compaction
+- `performFullCompaction` (mf6) - Main 8-step lifecycle for standard compaction
+- `trySessionMemoryQuickPath` (lE1) - Session memory compaction attempt
+- `shouldTriggerAutoCompaction` (CmY) - Determines if token threshold requires compaction
+- `getCompactionStatus` (mz6) - Calculates usage percentages and threshold levels
+- `getAutoCompactThreshold` (oc6) - Computes the auto-compact trigger threshold
+- `getEffectiveContextWindow` (OF) - Effective context window (model limit - buffer)
+- `isAutoCompactEnabled` (Xh) - Checks if auto-compact is globally enabled
 
 Constants:
-- `MAX_COMPACT_BUFFER` (nmY) - 20000 tokens (buffer for LLM response)
-- `AUTO_COMPACT_BUFFER_OFFSET` (cCA) - 13000 tokens (safety margin before hard limit)
-- `BLOCKING_LIMIT_OFFSET` (lCA) - 3000 tokens (last resort before blocking user input)
+- `MAX_COMPACT_BUFFER` (RmY) - 20000 tokens (buffer for LLM response)
+- `AUTO_COMPACT_BUFFER_OFFSET` (Jp8) - 13000 tokens (safety margin before hard limit)
+- `BLOCKING_LIMIT_OFFSET` (Mp8) - 3000 tokens (last resort before blocking user input)
 
 ---
 
@@ -49,22 +48,22 @@ Constants:
 
 ### Dispatcher Logic Flow
 
-The `autoCompactDispatcher` (fs4) orchestrates the choice between session memory and standard compaction:
+The `autocompactDispatcher` (sqq) orchestrates the choice between session memory and standard compaction:
 
 ```
-autoCompactDispatcher (fs4)
+autocompactDispatcher (sqq)
 │
 ├─[1] Check DISABLE_COMPACT env var
 │     └─ If set → Return { wasCompacted: false }
 │
-├─[2] Check if compaction needed (shouldAutoCompact)
+├─[2] Check if compaction needed (shouldTriggerAutoCompaction)
 │     └─ If false → Return { wasCompacted: false }
 │
-├─[3] Attempt Session Memory Compaction (vZ6)
+├─[3] Attempt Session Memory Compaction (lE1)
 │     ├─ If successful → Return { wasCompacted: true, compactionResult }
 │     └─ If null/failed → Fall through to [4]
 │
-└─[4] Execute Standard Compaction (AW1) ← THIS DOCUMENT
+└─[4] Execute Standard Compaction (mf6) ← THIS DOCUMENT
       ├─ If successful → Return { wasCompacted: true, compactionResult }
       └─ If error → Return { wasCompacted: false }
 ```
@@ -77,8 +76,8 @@ autoCompactDispatcher (fs4)
 
 ### 1. Compaction Path Decision Logic
 
-**Function:** `autoCompactDispatcher` (fs4)
-**Location:** chunks.147.mjs:778-803
+**Function:** `autocompactDispatcher` (sqq)
+**Location:** chunks.147.mjs:2633-2674
 **Purpose:** Top-level orchestrator that chooses between session memory and standard compaction
 
 #### What it does
@@ -92,16 +91,16 @@ Determines whether compaction is needed, attempts session memory compaction firs
 1. **Early exit check**: If `DISABLE_COMPACT` environment variable is set to truthy value, immediately return without compacting
 2. **Threshold check**: Call `shouldAutoCompact()` to determine if current token count exceeds threshold
    - If threshold not exceeded → Return without compacting
-3. **Session memory attempt**: Call `performSessionMemoryCompaction()` (vZ6)
+3. **Session memory attempt**: Call `trySessionMemoryQuickPath()` (lE1)
    - If returns non-null result → Return with `wasCompacted: true` and result
    - If returns null → Fall through to step 4
-4. **Standard compaction fallback**: Call `performFullCompaction()` (AW1) with `isAutoTrigger: true`
+4. **Standard compaction fallback**: Call `performFullCompaction()` (mf6) with `isAutoTrigger: true`
    - If successful → Return with `wasCompacted: true` and result
    - If error (wrapped by error matcher) → Return with `wasCompacted: false`
 
 **Edge case handling:**
 - Unknown errors are logged but don't crash - returns `wasCompacted: false` gracefully
-- Only errors matching `e31` error type are silently swallowed; others are logged
+- Only errors matching `zl` error type (API_ABORT_ERROR) are silently swallowed; others are logged
 
 #### Why this approach
 
@@ -126,61 +125,92 @@ The dispatcher implements a **performance-first fallback strategy**: try the fas
 
 ```javascript
 // ============================================
-// autoCompactDispatcher - Top-level compaction orchestrator
-// Location: chunks.147.mjs:778-803
+// autocompactDispatcher - Top-level compaction orchestrator
+// Location: chunks.147.mjs:2633-2674
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function fs4(A, q, K, Y) {
-    if (J6(process.env.DISABLE_COMPACT)) return {
+async function sqq(A, q, K, Y, z, _) {
+    if (t6(process.env.DISABLE_COMPACT)) return {
         wasCompacted: !1
     };
-    let z = q.options.mainLoopModel;
-    if (!await amY(A, z, Y)) return {
+    if (z?.consecutiveFailures !== void 0 && z.consecutiveFailures >= aqq) return {
         wasCompacted: !1
     };
-    let H = await vZ6(A, q.agentId, SQ1(z));
-    if (H) return i51(void 0), {
+    let w = q.options.mainLoopModel;
+    if (!await CmY(A, w, Y, _)) return {
+        wasCompacted: !1
+    };
+    let $ = {
+            isRecompactionInChain: z?.compacted === !0,
+            turnsSincePreviousCompact: z?.turnCounter ?? -1,
+            previousCompactTurnId: z?.turnId,
+            autoCompactThreshold: oc6(w),
+            querySource: Y
+        },
+        H = await lE1(A, q.agentId, $.autoCompactThreshold);
+    if (H) return K16(void 0), gl(), {
         wasCompacted: !0,
         compactionResult: H
     };
     try {
-        let $ = await AW1(A, q, K, !0, void 0, !0);
-        return i51(void 0), {
+        let j = await mf6(A, q, K, !0, void 0, !0, $);
+        return K16(void 0), gl(), {
             wasCompacted: !0,
-            compactionResult: $
+            compactionResult: j,
+            consecutiveFailures: 0
         }
-    } catch ($) {
-        if (!ST1($, e31)) K1($ instanceof Error ? $ : Error(String($)));
+    } catch (j) {
+        if (!$r(j, zl)) _6(j);
+        let M = (z?.consecutiveFailures ?? 0) + 1;
+        if (M >= aqq) k(`autocompact: circuit breaker tripped after ${M} consecutive failures`, {
+            level: "warn"
+        });
         return {
-            wasCompacted: !1
+            wasCompacted: !1,
+            consecutiveFailures: M
         }
     }
 }
 
 // READABLE (for understanding):
-async function autoCompactDispatcher(messages, context, cacheSafeParams, querySource) {
+async function autocompactDispatcher(messages, context, cacheSafeParams, querySource, compactState, snipFreedTokens) {
     // Early exit: compaction disabled via env var
     if (parseBoolean(process.env.DISABLE_COMPACT)) {
+        return { wasCompacted: false };
+    }
+
+    // Circuit breaker: check consecutive failures
+    if (compactState?.consecutiveFailures !== undefined && compactState.consecutiveFailures >= MAX_AUTO_COMPACT_FAILURES) {
         return { wasCompacted: false };
     }
 
     let model = context.options.mainLoopModel;
 
     // Check if compaction threshold exceeded
-    if (!await shouldAutoCompact(messages, model, querySource)) {
+    if (!await shouldTriggerAutoCompaction(messages, model, querySource, snipFreedTokens)) {
         return { wasCompacted: false };
     }
 
+    // Build compaction context for telemetry
+    let compactionContext = {
+        isRecompactionInChain: compactState?.compacted === true,
+        turnsSincePreviousCompact: compactState?.turnCounter ?? -1,
+        previousCompactTurnId: compactState?.turnId,
+        autoCompactThreshold: getAutoCompactThreshold(model),
+        querySource: querySource
+    };
+
     // Attempt session memory compaction first (fast path)
-    let sessionMemoryResult = await performSessionMemoryCompaction(
+    let sessionMemoryResult = await trySessionMemoryQuickPath(
         messages,
         context.agentId,
-        getAutoCompactThreshold(model)
+        compactionContext.autoCompactThreshold
     );
 
     if (sessionMemoryResult) {
-        clearLastCompactionTimestamp(void 0);
+        clearMessageCache(void 0);
+        clearTokenEstimate();
         return {
             wasCompacted: true,
             compactionResult: sessionMemoryResult
@@ -195,33 +225,46 @@ async function autoCompactDispatcher(messages, context, cacheSafeParams, querySo
             cacheSafeParams,
             true,  // isAutoTrigger
             void 0,  // customInstructions
-            true   // showProgress
+            true,  // showProgress
+            compactionContext
         );
 
-        clearLastCompactionTimestamp(void 0);
+        clearMessageCache(void 0);
+        clearTokenEstimate();
         return {
             wasCompacted: true,
-            compactionResult: standardResult
+            compactionResult: standardResult,
+            consecutiveFailures: 0
         };
     } catch (error) {
-        // Log unexpected errors (errors matching e31 type are silently caught)
-        if (!matchesErrorType(error, ExpectedCompactionError)) {
-            logError(error instanceof Error ? error : Error(String(error)));
+        // Log unexpected errors (errors matching zl type are silently caught)
+        if (!matchesErrorType(error, API_ABORT_ERROR)) {
+            logError(error);
         }
 
-        return { wasCompacted: false };
+        let newFailureCount = (compactState?.consecutiveFailures ?? 0) + 1;
+
+        // Circuit breaker warning
+        if (newFailureCount >= MAX_AUTO_COMPACT_FAILURES) {
+            console.warn(`autocompact: circuit breaker tripped after ${newFailureCount} consecutive failures`);
+        }
+
+        return {
+            wasCompacted: false,
+            consecutiveFailures: newFailureCount
+        };
     }
 }
 
-// Mapping: fs4→autoCompactDispatcher, A→messages, q→context, K→cacheSafeParams, Y→querySource, z→model, H→sessionMemoryResult, $→standardResult, J6→parseBoolean, amY→shouldAutoCompact, vZ6→performSessionMemoryCompaction, SQ1→getAutoCompactThreshold, i51→clearLastCompactionTimestamp, AW1→performFullCompaction, ST1→matchesErrorType, e31→ExpectedCompactionError, K1→logError
+// Mapping: sqq→autocompactDispatcher, A→messages, q→context, K→cacheSafeParams, Y→querySource, z→compactState, _→snipFreedTokens, w→model, H→sessionMemoryResult, j→standardResult, t6→parseBoolean, aqq→MAX_AUTO_COMPACT_FAILURES, CmY→shouldTriggerAutoCompaction, lE1→trySessionMemoryQuickPath, oc6→getAutoCompactThreshold, K16→clearMessageCache, gl→clearTokenEstimate, mf6→performFullCompaction, $r→matchesErrorType, zl→API_ABORT_ERROR, _6→logError
 ```
 
 ---
 
 ### 2. Full Compaction Algorithm (8-Step Lifecycle)
 
-**Function:** `performFullCompaction` (AW1)
-**Location:** chunks.146.mjs:2325-2435
+**Function:** `performFullCompaction` (mf6)
+**Location:** chunks.147.mjs:1473-1608
 **Purpose:** Executes the complete standard compaction lifecycle from pre-hooks to post-hooks
 
 #### What it does
@@ -1291,44 +1334,71 @@ async function generateConversationSummary({
 
 ## Symbol Updates
 
-The following symbols should be added to `symbol_index_core_features.md` under **Module: Compact > Standard Compaction**:
+> **Note:** The following symbols have been verified against source code. Core compaction functions are in chunks.147.mjs.
+
+The following symbols should be added to `symbol_index_core_features.md` under **Module: Compact**:
+
+### Core Compaction Functions (Verified)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| AW1 | performFullCompaction | chunks.146.mjs:2325 | function |
+| sqq | autocompactDispatcher | chunks.147.mjs:2633 | function |
+| mf6 | performFullCompaction | chunks.147.mjs:1473 | function |
+| CmY | shouldTriggerAutoCompaction | chunks.147.mjs:2620 | function |
+| Xh | isAutoCompactEnabled | chunks.147.mjs:2614 | function |
+| mz6 | getCompactionStatus | chunks.147.mjs:2591 | function |
+| oc6 | getAutoCompactThreshold | chunks.147.mjs:2577 | function |
+| OF | getEffectiveContextWindow | chunks.147.mjs:2566 | function |
+| lE1 | trySessionMemoryQuickPath | chunks.147.mjs:2482 | function |
+
+### Session Memory Compaction (Verified)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cE1 | isSessionMemoryCompactEnabled | chunks.147.mjs:2440 | function |
+| ymY | buildSessionMemoryCompactResult | chunks.147.mjs:2448 | function |
+| Yp8 | addPreservedSegmentToMarker | chunks.147.mjs:1449 | function |
+
+### State Preservation (Verified)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| fqq | collectFilesToKeep | chunks.147.mjs:1862 | function |
+| Nqq | collectTasksToKeep | chunks.147.mjs:1923 | function |
+| mE1 | collectPlanToKeep | chunks.147.mjs:1885 | function |
+| Tqq | collectSkillsToKeep | chunks.147.mjs:1896 | function |
+| vqq | collectPlanModeAttachment | chunks.147.mjs:1910 | function |
+
+### Boundary Markers (Verified)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ri6 | createCompactBoundaryMessage | chunks.174.mjs:580 | function |
+| RZ | isCompactBoundaryMessage | chunks.174.mjs:616 | function |
+
+### Constants (Verified)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| RmY | MAX_COMPACT_BUFFER | chunks.147.mjs:2676 | constant (20000) |
+| Jp8 | AUTO_COMPACT_BUFFER_OFFSET | chunks.147.mjs:2678 | constant (13000) |
+| hmY | TOKEN_WARNING_THRESHOLD | chunks.147.mjs:2680 | constant (20000) |
+| SmY | TOKEN_ERROR_THRESHOLD | chunks.147.mjs:2682 | constant (20000) |
+| Mp8 | BLOCKING_LIMIT_OFFSET | chunks.147.mjs:2684 | constant (3000) |
+| aqq | MAX_AUTO_COMPACT_FAILURES | chunks.147.mjs:2686 | constant (3) |
+| Xqq | MAX_FILES_TO_KEEP | chunks.147.mjs:1954 | constant (5) |
+| $mY | MAX_FILE_RESTORE_TOKENS | chunks.147.mjs:1956 | constant (50000) |
+| HmY | MAX_TOKENS_PER_FILE | chunks.147.mjs:1958 | constant (5000) |
+
+### Supporting Functions (From Symbol Index)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
 | Ev | countTokens | chunks.75.mjs:2288 | function |
-| Ia4 | getLastUserMessage | chunks.146.mjs:2147 | function |
-| xa4 | extractMetadataFromMessage | chunks.146.mjs:2248 | function |
-| DZ6 | grantPermission | chunks.146.mjs:2115 | function |
-| VOA | formatCustomInstructions | chunks.76.mjs:198 | function |
 | B51 | extractTextFromMessage | chunks.173.mjs:370 | function |
-| wjA | getRecentlyAccessedFiles | chunks.88.mjs:2254 | function |
-| rd | resetCodeIndexing | chunks.142.mjs:2377 | function |
 | PZ | countTokens | chunks.75.mjs:2236 | function |
 | Yp | extractUsageFromMessage | chunks.75.mjs:2227 | function |
-| JU1 | createBoundaryMarker | chunks.173.mjs:1215 | function |
-| a$ | generateSessionId | chunks.173.mjs:1658 | function |
-| ux1 | formatSummaryContent | chunks.76.mjs:323 | function |
-| fOA | recordQuerySource | chunks.76.mjs:72 | function |
-| Qa4 | handleCompactionError | chunks.146.mjs:2546 | function |
-| av | callLLMWithCache | chunks.149.mjs:2634 | function |
-| vmY | canUseSummarizeTool | chunks.146.mjs:2555 | function |
-| GN | getLastAssistantMessage | chunks.172.mjs:2785 | function |
-| XU1 | shouldAgentUseTools | chunks.174.mjs:2473 | function |
-| Sx | deduplicateTools | chunks.2.mjs:1164 | function |
-| UW1 | createMainLLMLoop | chunks.169.mjs:691 | function (generator) |
 | WJ | normalizeMessages | chunks.173.mjs:89 | function |
-| TmY | deduplicateMessages | chunks.146.mjs:2283 | function |
-| EN | filterMessages | chunks.173.mjs:1286 | function |
-| _U1 | ERROR_MESSAGES.EMPTY_MESSAGES | chunks.146.mjs:2768 | constant |
-| QO | API_ERROR_PREFIX | chunks.72.mjs:1824 | constant ("API Error") |
-| dU | PROMPT_TOO_LONG_PREFIX | chunks.72.mjs:1826 | constant ("Prompt is too long") |
-| ma4 | ERROR_MESSAGES.PROMPT_TOO_LONG | chunks.146.mjs:2770 | constant |
-| Ba4 | MAX_FILE_TOKENS | chunks.146.mjs:2760 | constant (5) |
-| NmY | MAX_COMPACT_RETRIES | chunks.146.mjs:2766 | constant (2) |
-| JL6 | MAX_SUMMARY_OUTPUT_TOKENS | chunks.1.mjs:2325 | constant (20000) |
-| i5 | SUMMARIZE_TOOL | chunks.146.mjs:1754 | constant (FileReadTool object) |
-| IW6 | THINKING_SIMPLE_TOOL | chunks.140.mjs:1355 | constant (object) |
 
 ---
 
