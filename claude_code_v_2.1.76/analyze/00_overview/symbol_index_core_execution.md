@@ -1032,11 +1032,19 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| qn4 | spawnTeammate | chunks.135.mjs:1116 | function |
+| pNY | spawnTeammateDispatcher | chunks.135.mjs:1110 | function |
+| BNY | spawnSplitPaneTeammate | chunks.135.mjs:711 | function |
+| gNY | spawnTmuxTeammate | chunks.135.mjs:838 | function |
+| FNY | spawnInProcessTeammate | chunks.135.mjs:985 | function |
 | cVY | spawnSeparateWindowTeammate | chunks.129.mjs:2700 | function |
-| dVY | spawnSplitPaneTeammate | chunks.129.mjs:2650 | function |
-| iVY | spawnTeammateDispatcher | chunks.129.mjs:2550 | function |
-| LP1 | spawnInProcessTeammate | chunks.123.mjs:242 | function |
+| dVY | spawnSplitPaneTeammateLegacy | chunks.129.mjs:2650 | function |
+| LP1 | spawnInProcessTeammateLegacy | chunks.123.mjs:242 | function |
 | Rj6 | killInProcessTeammate | chunks.123.mjs:326 | function |
+
+> **CORRECTION:** The symbol `iVY` was incorrectly documented as `spawnTeammateDispatcher`.
+> The actual `iVY` is `fs.promises` from Node.js (used as `iVY.access` for file access checks).
+> The correct symbol for `spawnTeammateDispatcher` is `pNY` (chunks.135.mjs:1110).
 
 ### In-Process Teammate Management
 

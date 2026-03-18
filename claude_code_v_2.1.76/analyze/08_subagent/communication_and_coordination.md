@@ -17,7 +17,8 @@ Key functions in this document:
 - `markMessagesAsRead` (kc6) - Mark all messages as read - chunks.132.mjs:92
 - `clearMailbox` ($TY) - Clear all messages from mailbox - chunks.132.mjs:128
 - `formatMailboxMessages` (HTY) - Format messages as XML - chunks.132.mjs:141
-- `spawnTeammateDispatcher` (iVY) - Route teammate spawn to backend - chunks.129.mjs:2550
+- `spawnTeammate` (qn4) - Spawn teammate agent - chunks.135.mjs:1116
+- `spawnTeammateDispatcher` (pNY) - Route teammate spawn to backend - chunks.135.mjs:1110
 - `inProcessAgentRunner` (XNY) - Runner for in-process teammates - chunks.134.mjs:1571
 - `pollForNextMessage` (DNY) - Priority poll loop - chunks.134.mjs:1483
 - `claimUnclaimedTask` (Ji4) - Claim unclaimed task for teammate - chunks.134.mjs:1464
@@ -26,7 +27,7 @@ Key functions in this document:
 > - `Ld` as `readMailbox` (actual: `wl`)
 > - `f9` as `writeToMailbox` (actual: `x3`)
 > - `JQ1` as `markMessageAsReadByIndex` (actual: `Vc6`)
-> - `iVY` as `inProcessAgentRunner` (actual: `spawnTeammateDispatcher`)
+> - `iVY` as `spawnTeammateDispatcher` (actual: `pNY`; `iVY` is `fs.promises` from Node.js)
 
 ---
 

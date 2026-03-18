@@ -20,7 +20,8 @@ Key functions in this document:
 - `agentOutputSchema` (eVY) - Output schema with status variants - chunks.136.mjs:1492
 - `agentLoopRunner` (qh) - Core agent execution loop - chunks.133.mjs:1565
 - `llmMessageLoop` (Yh) - LLM message processing - chunks.148.mjs:875
-- `spawnTeammateDispatcher` (iVY) - Route teammate spawn - chunks.129.mjs:2550
+- `spawnTeammate` (qn4) - Spawn teammate agent - chunks.135.mjs:1116
+- `spawnTeammateDispatcher` (pNY) - Route teammate spawn to backend - chunks.135.mjs:1110
 - `loadTranscript` (hf6) - Load prior transcript for resume - chunks.174.mjs:2705
 - `stripOrphanedToolResults` (wP6) - Remove orphaned tool results - chunks.173.mjs:344
 - `filterThinkingOnlyAssistant` (mQ1) - Filter thinking-only messages - chunks.173.mjs:1435
@@ -33,9 +34,14 @@ Key functions in this document:
 - `buildAgentSystemPrompt` (vvY) - System prompt builder - chunks.133.mjs:1806
 - `registerAgentHooks` (r24) - Hook registration for agent - chunks.133.mjs:1647
 
-> **CORRECTION:** The symbol `p01` was incorrectly documented as `runWithAgentIdentity`.
-> The actual `p01` (chunks.94.mjs:295) is `isSkillMdFile`. The correct symbol for
-> `runWithAgentIdentity` is `X66` (chunks.133.mjs:841).
+> **CORRECTIONS:**
+> 1. The symbol `p01` was incorrectly documented as `runWithAgentIdentity`.
+>    The actual `p01` (chunks.94.mjs:295) is `isSkillMdFile`. The correct symbol for
+>    `runWithAgentIdentity` is `X66` (chunks.133.mjs:841).
+> 2. The symbol `iVY` was incorrectly documented as `spawnTeammateDispatcher`.
+>    The actual `iVY` is `promises` from Node.js `fs` module (used as `iVY.access`).
+>    The correct symbol for `spawnTeammateDispatcher` is `pNY` (chunks.135.mjs:1110).
+>    The correct symbol for `spawnTeammate` is `qn4` (chunks.135.mjs:1116).
 
 ---
 

@@ -65,6 +65,50 @@ const GENERAL_PURPOSE_AGENT = {
 - No model override - inherits from session or per-invocation parameter
 - Suitable for complex, multi-step tasks requiring diverse tool combinations
 
+### buildGeneralPurposePrompt (yF9)
+
+The system prompt builder for the general-purpose agent:
+
+```javascript
+// ============================================
+// buildGeneralPurposePrompt - System prompt for general-purpose agent
+// Location: chunks.93.mjs:1653-1660
+// ============================================
+
+// ORIGINAL (for source lookup):
+function yF9() {
+    let A = w8("tengu_tight_weave", !0);
+    return `${kF9} ${A?"When you complete the task, respond with a concise report...":"When you complete the task simply respond with a detailed writeup."}
+${EF9}
+${A?"- In your final response, share file paths...":"- In your final response always share relevant file names..."}
+- For clear communication, avoid using emojis.`
+}
+
+// READABLE (for understanding):
+function buildGeneralPurposePrompt() {
+    let tightWeave = getFeatureFlag("tengu_tight_weave", true);
+    return `${BASE_AGENT_PROMPT} ${tightWeave
+        ? "When you complete the task, respond with a concise report covering what was done and any key findings..."
+        : "When you complete the task simply respond with a detailed writeup."}
+
+${STRENGTHS_PROMPT}
+${tightWeave
+    ? "- In your final response, share file paths (always absolute, never relative)..."
+    : "- In your final response always share relevant file names and code snippets..."}
+- For clear communication, avoid using emojis.`;
+}
+
+// Supporting constants:
+// kF9 (BASE_AGENT_PROMPT): "You are an agent for Claude Code, Anthropic's official CLI for Claude..."
+// EF9 (STRENGTHS_PROMPT): "Your strengths:\n- Searching for code, configurations..."
+
+// Mapping: yF9→buildGeneralPurposePrompt, w8→getFeatureFlag, kF9→BASE_AGENT_PROMPT, EF9→STRENGTHS_PROMPT
+```
+
+**Why tight_weave mode:** The `tengu_tight_weave` feature flag controls response verbosity:
+- **Enabled:** Concise reports with absolute paths only, no code recaps
+- **Disabled:** Detailed writeups with code snippets included
+
 ### Explore Agent (QB)
 
 Optimized for read-only exploration. Limited to reading tools to prevent accidental modifications. Uses `haiku` model for faster, cheaper exploration.

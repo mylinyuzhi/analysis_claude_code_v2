@@ -124,7 +124,8 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 | `x3` | `writeToMailbox` | Write message to mailbox | chunks.132.mjs:22 ✓ |
 | `Vc6` | `markMessageAsReadByIndex` | Mark message as read | chunks.132.mjs:57 ✓ |
 | `Ji4` | `claimUnclaimedTask` | Claim unclaimed task for teammate | chunks.134.mjs:1464 ✓ |
-| `iVY` | `spawnTeammateDispatcher` | Route teammate spawn to backend | chunks.129.mjs:2550 ✓ |
+| `qn4` | `spawnTeammate` | Spawn teammate agent | chunks.135.mjs:1116 ✓ |
+| `pNY` | `spawnTeammateDispatcher` | Route teammate spawn to backend | chunks.135.mjs:1110 ✓ |
 
 ### Tool Assembly
 

@@ -633,6 +633,286 @@ async function* llmMessageLoop(config) {
 
 ---
 
+## processTurnLoop (omY) - Inner Turn Processing
+
+### What it does
+
+`processTurnLoop` (omY) is the inner generator that handles individual LLM turns within the llmMessageLoop. It manages the complete turn lifecycle: pre-processing, API streaming, tool execution, and post-processing.
+
+### How it works
+
+The loop executes a continuous cycle until the conversation ends:
+
+**Phase 1: Pre-Processing (lines 904-951)**
+- Clone messages for this turn
+- Apply microcompaction (small optimizations like duplicate removal)
+- Check for autocompaction trigger and execute if needed
+- Track compaction state for telemetry
+
+**Phase 2: API Setup (lines 996-1007)**
+- Initialize streaming tool executor if enabled
+- Resolve model configuration
+- Check blocking limits (context window threshold)
+
+**Phase 3: API Streaming (lines 1021-1130)**
+- Stream responses from the LLM
+- Handle tool_use blocks
+- Execute streaming tools concurrently
+- Handle model fallback on overload
+
+**Phase 4: Post-Processing (lines 1151-1169)**
+- Cache completed turns
+- Handle abort signals
+- Collect remaining tool results
+- Check if conversation should continue
+
+```javascript
+// ============================================
+// processTurnLoop - Inner turn processing generator
+// Location: chunks.148.mjs:882-1169
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function* omY(A, q) {
+    let {
+        systemPrompt: K,
+        userContext: Y,
+        systemContext: z,
+        canUseTool: _,
+        fallbackModel: w,
+        querySource: O,
+        maxTurns: $,
+        skipCacheWrite: H
+    } = A, j = A.deps ?? SKq(), J = {
+        messages: A.messages,
+        toolUseContext: A.toolUseContext,
+        maxOutputTokensOverride: A.maxOutputTokensOverride,
+        autoCompactTracking: void 0,
+        stopHookActive: void 0,
+        maxOutputTokensRecoveryCount: 0,
+        hasAttemptedReactiveCompact: !1,
+        turnCount: 1,
+        pendingToolUseSummary: void 0,
+        transition: void 0
+    }, M = null, D = RKq();
+    while (!0) {
+        // Phase 1: Pre-processing
+        let { toolUseContext: X } = J, { messages: P, ... } = J;
+        yield { type: "stream_request_start" };
+
+        // Phase 1a: Microcompaction
+        I = (await j.microcompact(I, X, O)).messages;
+
+        // Phase 1b: Autocompaction
+        let { compactionResult: U, consecutiveFailures: r } =
+            await j.autocompact(I, X, { systemPrompt: K, ... }, O, g, B);
+
+        // Phase 2: API Setup
+        let s = D.gates.streamingToolExecution ? new ui6(X.options.tools, _, X) : null;
+        let N6 = II({ permissionMode: z6, mainLoopModel: X.options.mainLoopModel, ... });
+
+        // Phase 3: API Streaming
+        for await (let Q6 of j.callModel({ messages: I, systemPrompt: Q, ... })) {
+            if (Q6.type === "assistant") {
+                e.push(Q6);
+                let toolUses = Q6.message.content.filter((block) => block.type === "tool_use");
+                if (toolUses.length > 0) H6.push(...toolUses), J6 = !0;
+            }
+            yield Q6;
+        }
+
+        // Phase 4: Post-processing
+        if (X.abortController.signal.aborted) {
+            return { reason: "aborted_streaming" };
+        }
+        if (!J6) {
+            // No tool uses - check for completion or error
+            return { reason: "completed" };
+        }
+    }
+}
+
+// READABLE (for understanding):
+async function* processTurnLoop(config, pendingToolResults) {
+    let {
+        systemPrompt,
+        userContext,
+        systemContext,
+        canUseTool,
+        fallbackModel,
+        querySource,
+        maxTurns,
+        skipCacheWrite
+    } = config;
+    let deps = config.deps ?? getDefaultDeps();
+
+    // Turn state tracking
+    let turnState = {
+        messages: config.messages,
+        toolUseContext: config.toolUseContext,
+        maxOutputTokensOverride: config.maxOutputTokensOverride,
+        autoCompactTracking: undefined,
+        stopHookActive: undefined,
+        maxOutputTokensRecoveryCount: 0,
+        hasAttemptedReactiveCompact: false,
+        turnCount: 1,
+        pendingToolUseSummary: undefined,
+        transition: undefined
+    };
+
+    while (true) {
+        // Phase 1: Pre-processing
+        yield { type: "stream_request_start" };
+
+        // Clone messages for this turn
+        let turnMessages = [...turnState.messages];
+
+        // Apply microcompaction (small context optimizations)
+        turnMessages = (await deps.microcompact(turnMessages, toolUseContext, querySource)).messages;
+
+        // Check and apply autocompaction if needed
+        let { compactionResult, consecutiveFailures } = await deps.autocompact(
+            turnMessages, toolUseContext, { systemPrompt, userContext, systemContext }, querySource
+        );
+
+        if (compactionResult) {
+            // Yield compaction summary messages
+            for (let summaryMsg of compactionResult.summaryMessages) {
+                yield summaryMsg;
+            }
+            turnMessages = compactionResult.compactedMessages;
+        }
+
+        // Phase 2: API Setup
+        let streamingToolExecutor = gates.streamingToolExecution
+            ? new StreamingToolExecutor(tools, canUseTool, toolUseContext)
+            : null;
+        let resolvedModel = resolveModelForTurn(toolUseContext);
+
+        // Check blocking limit (context window threshold)
+        let { isAtBlockingLimit } = checkContextLimit(turnMessages, resolvedModel);
+        if (isAtBlockingLimit) {
+            return { reason: "blocking_limit" };
+        }
+
+        // Phase 3: API Streaming
+        let assistantMessages = [];
+        let toolResults = [];
+        let hasToolUses = false;
+
+        try {
+            for await (let streamEvent of deps.callModel({
+                messages: turnMessages,
+                systemPrompt,
+                tools: toolUseContext.options.tools,
+                signal: toolUseContext.abortController.signal,
+                options: { model: resolvedModel, ... }
+            })) {
+                // Handle streaming fallback (model overload)
+                if (streamEvent.type === "streaming_fallback") {
+                    // Yield tombstones for orphaned messages
+                    for (let msg of assistantMessages) {
+                        yield { type: "tombstone", message: msg };
+                    }
+                    // Reset state and retry with fallback model
+                    assistantMessages = [];
+                    toolResults = [];
+                    hasToolUses = false;
+                    continue;
+                }
+
+                yield streamEvent;
+
+                if (streamEvent.type === "assistant") {
+                    assistantMessages.push(streamEvent);
+                    let toolUses = streamEvent.message.content.filter(b => b.type === "tool_use");
+                    if (toolUses.length > 0) {
+                        hasToolUses = true;
+                        // Add to streaming executor for parallel execution
+                        if (streamingToolExecutor) {
+                            for (let toolUse of toolUses) {
+                                streamingToolExecutor.addTool(toolUse, streamEvent);
+                            }
+                        }
+                    }
+                }
+
+                // Yield streaming tool results as they complete
+                if (streamingToolExecutor) {
+                    for (let result of streamingToolExecutor.getCompletedResults()) {
+                        if (result.message) {
+                            yield result.message;
+                            toolResults.push(result.message);
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            if (err instanceof ModelOverloadError && fallbackModel) {
+                // Switch to fallback model and retry
+                resolvedModel = fallbackModel;
+                yield { type: "model_fallback", message: `Switched to ${fallbackModel}` };
+                continue;
+            }
+            throw err;
+        }
+
+        // Phase 4: Post-processing
+        if (toolUseContext.abortController.signal.aborted) {
+            // Collect remaining streaming results before abort
+            if (streamingToolExecutor) {
+                for await (let result of streamingToolExecutor.getRemainingResults()) {
+                    if (result.message) yield result.message;
+                }
+            }
+            return { reason: "aborted_streaming" };
+        }
+
+        if (!hasToolUses) {
+            // No tool uses means conversation should end
+            return { reason: "completed" };
+        }
+
+        // Collect all remaining tool results
+        if (streamingToolExecutor) {
+            for await (let result of streamingToolExecutor.getRemainingResults()) {
+                if (result.message) {
+                    yield result.message;
+                    toolResults.push(result.message);
+                }
+            }
+        }
+
+        // Update messages for next turn
+        turnState.messages = [...turnMessages, ...assistantMessages, ...toolResults];
+        turnState.turnCount++;
+
+        // Check max turns
+        if (maxTurns && turnState.turnCount > maxTurns) {
+            yield { type: "attachment", attachment: { type: "max_turns_reached", maxTurns } };
+            return { reason: "max_turns_reached" };
+        }
+    }
+}
+
+// Mapping: omY→processTurnLoop, A→config, q→pendingToolResults, K→systemPrompt,
+// Y→userContext, z→systemContext, _→canUseTool, w→fallbackModel, O→querySource,
+// $→maxTurns, H→skipCacheWrite, j→deps, J→turnState, X→toolUseContext,
+// ui6→StreamingToolExecutor, II→resolveModelForTurn, SKq→getDefaultDeps
+```
+
+**Why this approach:**
+
+1. **Streaming tool execution** allows tools to run in parallel with LLM streaming, reducing latency for multi-tool workflows
+2. **Microcompaction before each turn** keeps context lean without the overhead of full compaction
+3. **Autocompaction trigger** prevents context overflow by proactively compacting when thresholds are reached
+4. **Model fallback** handles API overload gracefully by switching to a backup model mid-stream
+5. **Tombstone messages** mark orphaned content when model fallback occurs, preserving conversation integrity
+
+**Key insight:** The streaming tool executor (`ui6`) is the key performance optimization. Instead of waiting for all tool calls to complete before yielding results, it executes tools in parallel and yields results as they arrive. This dramatically reduces latency for workflows that use multiple tools per turn.
+
+---
+
 ## Helper Functions in agentLoopRunner
 
 ### resolveModelConfig (C01)
