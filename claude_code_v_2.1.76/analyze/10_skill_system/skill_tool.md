@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Skill tool (`wt`) is the primary interface for invoking skills programmatically. It bridges the LLM's tool-calling capability with the skill execution system, allowing skills to be triggered either by the user (via `/command` syntax) or by the LLM (via the Skill tool). This document covers the complete implementation details of the Skill tool.
+The Skill tool (`m66`) is the primary interface for invoking skills programmatically. It bridges the LLM's tool-calling capability with the skill execution system, allowing skills to be triggered either by the user (via `/command` syntax) or by the LLM (via the Skill tool). This document covers the complete implementation details of the Skill tool.
 
 ## Related Symbols
 
@@ -11,13 +11,13 @@ The Skill tool (`wt`) is the primary interface for invoking skills programmatica
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Tools section)
 
 Key functions in this document:
-- `SkillTool` (m66) - Tool definition object, chunks.137.mjs:46-250
-- `SKILL_TOOL_NAME` (oH) - Constant "Skill", chunks.137.mjs
+- `SkillTool` (m66) - Tool definition object, chunks.137.mjs:46-274
+- `SKILL_TOOL_NAME` (oH) - Constant "Skill", chunks.137.mjs:47
 - `skillInputSchema` (_kY) - Input schema, chunks.137.mjs:27-30
 - `skillOutputSchema` (wkY) - Output schema, chunks.137.mjs:30-45
-- `getSkillRegistry` (I0) - Get skill registry, chunks.137.mjs
-- `lookupSkill` (G66) - Find skill by name, chunks.137.mjs
-- `getRulesForTool` (Sb) - Get permission rules, chunks.137.mjs
+- `getAllSkills` (I0) - Get all skills, chunks.168.mjs:2013
+- `findSkillByName` (G66) - Find skill by name, chunks.168.mjs:1850
+- `getRulesForTool` (Sb) - Get permission rules, chunks.137.mjs:116
 
 ---
 
@@ -76,35 +76,38 @@ LLM calls Skill tool with { skill: "name", args: "..." }
 ```javascript
 // ============================================
 // SkillTool - Main tool object for skill invocation
-// Location: chunks.132.mjs:820-1073
+// Location: chunks.137.mjs:46-274
 // ============================================
 
 // ORIGINAL (for source lookup):
-wt = {
-    name: NJ,
+m66 = {
+    name: oH,
+    searchHint: "invoke a slash-command skill",
     maxResultSizeChars: 1e5,
-    get inputSchema() { return HNY() },
-    get outputSchema() { return _NY() },
+    get inputSchema() { return _kY() },
+    get outputSchema() { return wkY() },
     description: async ({ skill: A }) => `Execute skill: ${A}`,
-    prompt: async () => d0A(ZO()),
-    userFacingName: () => NJ,
+    prompt: async () => dP1(qY()),
+    userFacingName: () => oH,
     isConcurrencySafe: () => !1,
     isEnabled: () => !0,
     isReadOnly: () => !1,
+    toAutoClassifierInput: () => "",
     async validateInput({ skill: A }, q) { ... },
     async checkPermissions({ skill: A, args: q }, K) { ... },
     async call({ skill: A, args: q }, K, Y, z, w) { ... },
     mapToolResultToToolResultBlockParam(A, q) { ... },
-    renderToolResultMessage: bu4,
-    renderToolUseMessage: uu4,
-    renderToolUseProgressMessage: HP6,
-    renderToolUseRejectedMessage: Bu4,
-    renderToolUseErrorMessage: mu4
+    renderToolResultMessage: ln4,
+    renderToolUseMessage: in4,
+    renderToolUseProgressMessage: VV1,
+    renderToolUseRejectedMessage: nn4,
+    renderToolUseErrorMessage: rn4
 }
 
 // READABLE (for understanding):
 const SkillTool = {
     name: "Skill",
+    searchHint: "invoke a slash-command skill",
     maxResultSizeChars: 100000,
 
     // Lazily evaluated schemas
@@ -143,7 +146,8 @@ const SkillTool = {
     // ... methods detailed below
 };
 
-// Mapping: wt→SkillTool, NJ→SKILL_TOOL_NAME, HNY→skillInputSchema, _NY→skillOutputSchema
+// Mapping: m66→SkillTool, oH→SKILL_TOOL_NAME, _kY→skillInputSchema, wkY→skillOutputSchema,
+// qY→getSessionContext, dP1→getSkillPrompt
 ```
 
 ### Input Schema
@@ -151,13 +155,13 @@ const SkillTool = {
 ```javascript
 // ============================================
 // skillInputSchema - Input schema for Skill tool
-// Location: chunks.132.mjs:820-836
+// Location: chunks.137.mjs:27-30
 // ============================================
 
 // ORIGINAL (for source lookup):
-HNY = z7(() => u.object({
-    skill: u.string().describe('The skill name. E.g., "commit", "review-pr", or "pdf"'),
-    args: u.string().optional().describe("Optional arguments for the skill")
+_kY = F6(() => C.object({
+    skill: C.string().describe('The skill name. E.g., "commit", "review-pr", or "pdf"'),
+    args: C.string().optional().describe("Optional arguments for the skill")
 }))
 
 // READABLE (for understanding):
@@ -166,7 +170,7 @@ skillInputSchema = lazySchema(() => z.object({
     args: z.string().optional().describe("Optional arguments for the skill")
 }))
 
-// Mapping: HNY→skillInputSchema, z7→lazySchema, u→z (zod)
+// Mapping: _kY→skillInputSchema, F6→lazySchema, C→z (zod)
 ```
 
 ### Output Schema
@@ -221,11 +225,10 @@ skillOutputSchema = lazySchema(() => z.union([inlineResultSchema, forkedResultSc
 
 **How it works:**
 1. Trim and strip slash prefix from skill name
-2. Load skill registry via `cZ`
-3. Check skill exists via `Sd`
-4. Load skill definition via `zI`
-5. Check `disableModelInvocation` flag
-6. Verify skill type is "prompt"
+2. Load skill registry via `I0` (getAllSkills)
+3. Check skill exists via `G66` (findSkillByName)
+4. Check `disableModelInvocation` flag
+5. Verify skill type is "prompt"
 
 ### Error Codes Reference
 
@@ -240,23 +243,23 @@ skillOutputSchema = lazySchema(() => z.union([inlineResultSchema, forkedResultSc
 ```javascript
 // ============================================
 // validateInput - Skill validation logic
-// Location: chunks.132.mjs:837-873
+// Location: chunks.137.mjs:65-96
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function validateInput({ skill: A }, q) {
+async validateInput({ skill: A }, q) {
     let K = A.trim();
     if (!K) return { result: !1, message: `Invalid skill format: ${A}`, errorCode: 1 };
     let Y = K.startsWith("/");
-    if (Y) c("tengu_skill_tool_slash_prefix", {});
+    if (Y) d("tengu_skill_tool_slash_prefix", {});
     let z = Y ? K.substring(1) : K,
-        w = await cZ(ZO());
-    if (!Sd(z, w)) return { result: !1, message: `Unknown skill: ${z}`, errorCode: 2 };
-    let H = zI(z, w);
+        w = await I0(qY());
+    if (!G66(z, w)) return { result: !1, message: `Unknown skill: ${z}`, errorCode: 2 };
+    let H = G66(z, w);
     if (!H) return { result: !1, message: `Could not load skill: ${z}`, errorCode: 3 };
     if (H.disableModelInvocation) return {
         result: !1,
-        message: `Skill ${z} cannot be used with ${NJ} tool due to disable-model-invocation`,
+        message: `Skill ${z} cannot be used with ${oH} tool due to disable-model-invocation`,
         errorCode: 4
     };
     if (H.type !== "prompt") return {
@@ -282,17 +285,12 @@ async function validateInput({ skill }, toolUseContext) {
     let skillName = hasSlashPrefix ? trimmedName.substring(1) : trimmedName;
 
     // Load skill registry
-    let registry = await getSkillRegistry(getSessionContext());
+    let registry = await getAllSkills(getSessionContext());
 
-    // Check skill exists
-    if (!skillExists(skillName, registry)) {
-        return { result: false, message: `Unknown skill: ${skillName}`, errorCode: 2 };
-    }
-
-    // Load skill definition
-    let skillDef = findSkill(skillName, registry);
+    // Check skill exists and get definition
+    let skillDef = findSkillByName(skillName, registry);
     if (!skillDef) {
-        return { result: false, message: `Could not load skill: ${skillName}`, errorCode: 3 };
+        return { result: false, message: `Unknown skill: ${skillName}`, errorCode: 2 };
     }
 
     // Check if model invocation is disabled
@@ -316,9 +314,9 @@ async function validateInput({ skill }, toolUseContext) {
     return { result: true };
 }
 
-// Mapping: validateInput remains same, A→skill, q→toolUseContext, K→trimmedName, Y→hasSlashPrefix,
-// z→skillName, w→registry, H→skillDef, cZ→getSkillRegistry, ZO→getSessionContext, Sd→skillExists,
-// zI→findSkill, oH→TOOL_NAME_SKILL, c→telemetry
+// Mapping: A→skill, q→toolUseContext, K→trimmedName, Y→hasSlashPrefix,
+// z→skillName, w→registry, H→skillDef, I0→getAllSkills, qY→getSessionContext,
+// G66→findSkillByName, oH→SKILL_TOOL_NAME, d→telemetry
 ```
 
 ---
@@ -341,52 +339,52 @@ async function validateInput({ skill }, toolUseContext) {
 ```javascript
 // ============================================
 // checkPermissions - Permission checking
-// Location: chunks.132.mjs:875-953
+// Location: chunks.137.mjs:98-176
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function checkPermissions({ skill: A, args: q }, K) {
+async checkPermissions({ skill: A, args: q }, K) {
     let Y = A.trim(),
         z = Y.startsWith("/") ? Y.substring(1) : Y,
-        H = (await K.getAppState()).toolPermissionContext,
-        $ = await cZ(ZO()),
-        O = zI(z, $),
-        _ = (j) => {
-            let M = j.startsWith("/") ? j.substring(1) : j;
-            if (M === z) return !0;
-            if (M.endsWith(":*")) {
-                let P = M.slice(0, -2);
+        w = K.getAppState().toolPermissionContext,
+        O = await I0(qY()),
+        $ = G66(z, O),
+        H = (D) => {
+            let X = D.startsWith("/") ? D.substring(1) : D;
+            if (X === z) return !0;
+            if (X.endsWith(":*")) {
+                let P = X.slice(0, -2);
                 return z.startsWith(P)
             }
             return !1
         },
-        J = XI(H, wt, "deny");
-    for (let [j, M] of J.entries())
-        if (_(j)) return {
+        j = Sb(w, m66, "deny");
+    for (let [D, X] of j.entries())
+        if (H(D)) return {
             behavior: "deny",
             message: "Skill execution blocked by permission rules",
-            decisionReason: { type: "rule", rule: M }
+            decisionReason: { type: "rule", rule: X }
         };
-    let X = XI(H, wt, "allow");
-    for (let [j, M] of X.entries())
-        if (_(j)) return {
+    let J = Sb(w, m66, "allow");
+    for (let [D, X] of J.entries())
+        if (H(D)) return {
             behavior: "allow",
             updatedInput: { skill: A, args: q },
-            decisionReason: { type: "rule", rule: M }
+            decisionReason: { type: "rule", rule: X }
         };
-    if (O?.type === "prompt" && XNY(O)) return {
+    if ($?.type === "prompt" && $kY($)) return {
         behavior: "allow",
         updatedInput: { skill: A, args: q },
         decisionReason: void 0
     };
-    let D = [{
+    let M = [{
         type: "addRules",
-        rules: [{ toolName: NJ, ruleContent: z }],
+        rules: [{ toolName: oH, ruleContent: z }],
         behavior: "allow",
         destination: "localSettings"
     }, {
         type: "addRules",
-        rules: [{ toolName: NJ, ruleContent: `${z}:*` }],
+        rules: [{ toolName: oH, ruleContent: `${z}:*` }],
         behavior: "allow",
         destination: "localSettings"
     }];
@@ -394,9 +392,9 @@ async function checkPermissions({ skill: A, args: q }, K) {
         behavior: "ask",
         message: `Execute skill: ${z}`,
         decisionReason: void 0,
-        suggestions: D,
+        suggestions: M,
         updatedInput: { skill: A, args: q },
-        metadata: { command: O }
+        metadata: $ ? { command: $ } : void 0
     }
 }
 
@@ -405,9 +403,9 @@ async function checkPermissions({ skill, args }, toolUseContext) {
     let trimmedName = skill.trim();
     let skillName = trimmedName.startsWith("/") ? trimmedName.substring(1) : trimmedName;
 
-    let permissionContext = (await toolUseContext.getAppState()).toolPermissionContext;
-    let registry = await getSkillRegistry(getSessionContext());
-    let skillDef = findSkill(skillName, registry);
+    let permissionContext = toolUseContext.getAppState().toolPermissionContext;
+    let registry = await getAllSkills(getSessionContext());
+    let skillDef = findSkillByName(skillName, registry);
 
     // Matcher function for rule matching
     let matchesRule = (rulePattern) => {
@@ -456,12 +454,12 @@ async function checkPermissions({ skill, args }, toolUseContext) {
     // Generate suggestions for user
     let suggestions = [{
         type: "addRules",
-        rules: [{ toolName: TOOL_NAME_SKILL, ruleContent: skillName }],
+        rules: [{ toolName: SKILL_TOOL_NAME, ruleContent: skillName }],
         behavior: "allow",
         destination: "localSettings"
     }, {
         type: "addRules",
-        rules: [{ toolName: TOOL_NAME_SKILL, ruleContent: `${skillName}:*` }],
+        rules: [{ toolName: SKILL_TOOL_NAME, ruleContent: `${skillName}:*` }],
         behavior: "allow",
         destination: "localSettings"
     }];
@@ -472,16 +470,17 @@ async function checkPermissions({ skill, args }, toolUseContext) {
         decisionReason: undefined,
         suggestions,
         updatedInput: { skill, args },
-        metadata: { command: skillDef }
+        metadata: skillDef ? { command: skillDef } : undefined
     };
 }
 
-// Mapping: A→skill, q→args, K→toolUseContext, Y→trimmedName, z→skillName, H→permissionContext,
-// $→registry, O→skillDef, _→matchesRule, J→denyRules, X→allowRules, XI→getRulesForTool,
-// wt→SkillTool, oH→TOOL_NAME_SKILL, XNY→validateSkillProperties
+// Mapping: A→skill, q→args, K→toolUseContext, Y→trimmedName, z→skillName, w→permissionContext,
+// O→registry, $→skillDef, H→matchesRule, j→denyRules, J→allowRules, Sb→getRulesForTool,
+// m66→SkillTool, I0→getAllSkills, qY→getSessionContext, G66→findSkillByName,
+// oH→SKILL_TOOL_NAME, $kY→validateSkillProperties
 ```
 
-### Safe Properties Check (XNY)
+### Safe Properties Check ($kY)
 
 **What it does:** Validates that a skill only contains properties from the allowed set.
 
@@ -490,13 +489,13 @@ async function checkPermissions({ skill, args }, toolUseContext) {
 ```javascript
 // ============================================
 // validateSkillProperties - Check if skill has only safe properties
-// Location: chunks.132.mjs:752-761
+// Location: chunks.137.mjs:2516-2525
 // ============================================
 
 // ORIGINAL (for source lookup):
-function XNY(A) {
+function $kY(A) {
     for (let q of Object.keys(A)) {
-        if (JNY.has(q)) continue;
+        if (OkY.has(q)) continue;
         let K = A[q];
         if (K === void 0 || K === null) continue;
         if (Array.isArray(K) && K.length === 0) continue;
@@ -525,7 +524,7 @@ function validateSkillProperties(skill) {
     return true;
 }
 
-// Mapping: XNY→validateSkillProperties, JNY→SKILL_PROPERTY_KEYS
+// Mapping: $kY→validateSkillProperties, OkY→SKILL_PROPERTY_KEYS
 ```
 
 ### SKILL_PROPERTY_KEYS Constant
@@ -533,11 +532,11 @@ function validateSkillProperties(skill) {
 ```javascript
 // ============================================
 // SKILL_PROPERTY_KEYS - Allowed skill properties for auto-allow
-// Location: chunks.132.mjs:1073
+// Location: chunks.137.mjs:274
 // ============================================
 
 // ORIGINAL (for source lookup):
-JNY = new Set(["type", "progressMessage", "contentLength", "argNames", "model", "source",
+OkY = new Set(["type", "progressMessage", "contentLength", "argNames", "model", "source",
     "pluginInfo", "disableNonInteractive", "skillRoot", "context", "agent", "getPromptForCommand",
     "frontmatterKeys", "name", "description", "hasUserSpecifiedDescription", "isEnabled",
     "isHidden", "aliases", "isMcp", "argumentHint", "whenToUse", "version", "disableModelInvocation",
@@ -564,7 +563,7 @@ const SKILL_PROPERTY_KEYS = new Set([
     "pluginInfo"
 ]);
 
-// Mapping: JNY→SKILL_PROPERTY_KEYS
+// Mapping: OkY→SKILL_PROPERTY_KEYS
 ```
 
 **Key insight:** Properties like `allowedTools` and `hooks` are NOT in this set because they modify the execution context in ways that require user confirmation. Skills with `allowedTools` could gain access to tools the user hasn't approved, and skills with `hooks` could execute arbitrary code.
@@ -588,76 +587,73 @@ The skill's `context` property determines execution mode:
 
 **How it works:**
 1. Load skill definition
-2. Track skill usage via `xM6`
+2. Track skill usage via `ON1` (trackSkillUsage)
 3. If skill has `context: "fork"`, delegate to forked execution
-4. Build prompt messages via `Pb4`
-5. Register skill hooks via `IM6`
-6. Return messages with `contextModifier` for permission injection
+4. Build prompt messages via processPromptSlashCommand
+5. Return messages with `contextModifier` for permission injection
 
 ```javascript
 // ============================================
 // call - Skill execution
-// Location: chunks.132.mjs:955-1051
+// Location: chunks.137.mjs:178-252
 // ============================================
 
 // ORIGINAL (for source lookup):
 async function call({ skill: A, args: q }, K, Y, z, w) {
     let H = A.trim(),
         $ = H.startsWith("/") ? H.substring(1) : H,
-        O = await cZ(ZO()),
-        _ = zI($, O);
-    if (xM6($), _?.type === "prompt" && _.context === "fork") return wNY(_, $, q, K, Y, z, w);
-    let J = await Pb4($, q || "", O, K);
-    if (!J.shouldQuery) throw Error("Command processing failed");
-    let X = J.allowedTools || [],
-        D = J.model,
-        j = J.maxThinkingTokens,
-        M = Cd().has($),
-        P = _?.type === "prompt" && Uu4(_);
-    c("tengu_skill_tool_invocation", {
-        command_name: M || P ? $ : "custom",
+        O = await I0(qY()),
+        _ = G66($, O);
+    if (ON1($), _?.type === "prompt" && _.context === "fork") return zkY(_, $, q, K, Y, z, w);
+    let {
+        processPromptSlashCommand: J
+    } = await Promise.resolve().then(() => (MN1(), JN1)),
+        X = await J($, q || "", O, K);
+    if (!X.shouldQuery) throw Error("Command processing failed");
+    let D = X.allowedTools || [],
+        P = X.model,
+        W = Qg().has($),
+        Z = _?.type === "prompt" && _?.source === "bundled",
+        G = _?.type === "prompt" && tn4(_);
+    d("tengu_skill_tool_invocation", {
+        command_name: W || Z || G ? $ : "custom",
         ..._?.type === "prompt" && _.pluginInfo && {
-            plugin_name: P ? _.pluginInfo.pluginManifest.name : "third-party",
-            plugin_repository: P ? _.pluginInfo.repository : "third-party"
+            plugin_name: G ? _.pluginInfo.pluginManifest.name : "third-party",
+            plugin_repository: G ? _.pluginInfo.repository : "third-party"
         }
     });
     // ... message processing ...
-    if (_?.type === "prompt" && _.hooks) {
-        let T = U6();
-        IM6(K.setAppState, T, _.hooks, $, _.skillRoot)
-    }
-    return {
+    return k(`SkillTool returning ${v.length} newMessages for skill ${$}`), {
         data: {
             success: !0,
             commandName: $,
-            allowedTools: X.length > 0 ? X : void 0,
+            allowedTools: M.length > 0 ? M : void 0,
             model: D
         },
-        newMessages: f,
+        newMessages: v,
         contextModifier(T) {
-            let k = T;
-            if (X.length > 0) {
-                let y = k.getAppState;
-                k = {
-                    ...k,
-                    async getAppState() {
-                        let B = await y();
+            let V = T;
+            if (M.length > 0) {
+                let L = V.getAppState;
+                V = {
+                    ...V,
+                    getAppState() {
+                        let h = L();
                         return {
-                            ...B,
+                            ...h,
                             toolPermissionContext: {
-                                ...B.toolPermissionContext,
+                                ...h.toolPermissionContext,
                                 alwaysAllowRules: {
-                                    ...B.toolPermissionContext.alwaysAllowRules,
-                                    command: [...new Set([...B.toolPermissionContext.alwaysAllowRules.command || [], ...X])]
+                                    ...h.toolPermissionContext.alwaysAllowRules,
+                                    command: [...new Set([...h.toolPermissionContext.alwaysAllowRules.command || [], ...M])]
                                 }
                             }
                         }
                     }
                 }
             }
-            if (D) k = { ...k, options: { ...k.options, mainLoopModel: D } };
-            if (j !== void 0) k = { ...k, options: { ...k.options, maxThinkingTokens: j } };
-            return k
+            if (D) V = { ...V, options: { ...V.options, mainLoopModel: D } };
+            return V
         }
     }
 }
@@ -667,8 +663,8 @@ async function call({ skill, args }, toolUseContext, abortSignal, agentContext, 
     let trimmedName = skill.trim();
     let skillName = trimmedName.startsWith("/") ? trimmedName.substring(1) : trimmedName;
 
-    let registry = await getSkillRegistry(getSessionContext());
-    let skillDef = findSkill(skillName, registry);
+    let registry = await getAllSkills(getSessionContext());
+    let skillDef = findSkillByName(skillName, registry);
 
     // Track usage for skill scoring
     trackSkillUsage(skillName);
@@ -679,31 +675,25 @@ async function call({ skill, args }, toolUseContext, abortSignal, agentContext, 
     }
 
     // Build prompt messages
-    let commandResult = await buildCommandMessages(skillName, args || "", registry, toolUseContext);
+    let commandResult = await processPromptSlashCommand(skillName, args || "", registry, toolUseContext);
     if (!commandResult.shouldQuery) {
         throw new Error("Command processing failed");
     }
 
     let allowedTools = commandResult.allowedTools || [];
     let modelOverride = commandResult.model;
-    let maxThinkingTokens = commandResult.maxThinkingTokens;
-    let isBuiltin = isBuiltinSkill(skillName);
-    let isPluginSkill = skillDef?.type === "prompt" && isPluginSkillSource(skillDef);
+    let isBuiltin = getUsedSkillNames().has(skillName);
+    let isBundled = skillDef?.type === "prompt" && skillDef?.source === "bundled";
+    let isPluginSkill = skillDef?.type === "prompt" && isPluginFirstParty(skillDef);
 
     // Telemetry
     telemetry("tengu_skill_tool_invocation", {
-        command_name: isBuiltin || isPluginSkill ? skillName : "custom",
-        ...(skillDef?.type === "prompt" && skillDef.pluginInfo && {
+        command_name: isBuiltin || isBundled || isPluginSkill ? skillName : "custom",
+        ...skillDef?.type === "prompt" && skillDef.pluginInfo && {
             plugin_name: isPluginSkill ? skillDef.pluginInfo.pluginManifest.name : "third-party",
             plugin_repository: isPluginSkill ? skillDef.pluginInfo.repository : "third-party"
-        })
+        }
     });
-
-    // Register hooks if skill has them
-    if (skillDef?.type === "prompt" && skillDef.hooks) {
-        let sessionId = getSessionId();
-        registerSkillHooks(toolUseContext.setAppState, sessionId, skillDef.hooks, skillName, skillDef.skillRoot);
-    }
 
     return {
         data: {
@@ -721,8 +711,8 @@ async function call({ skill, args }, toolUseContext, abortSignal, agentContext, 
                 let originalGetAppState = modifiedContext.getAppState;
                 modifiedContext = {
                     ...modifiedContext,
-                    async getAppState() {
-                        let state = await originalGetAppState();
+                    getAppState() {
+                        let state = originalGetAppState();
                         return {
                             ...state,
                             toolPermissionContext: {
@@ -748,26 +738,18 @@ async function call({ skill, args }, toolUseContext, abortSignal, agentContext, 
                 };
             }
 
-            // Apply thinking tokens override
-            if (maxThinkingTokens !== undefined) {
-                modifiedContext = {
-                    ...modifiedContext,
-                    options: { ...modifiedContext.options, maxThinkingTokens }
-                };
-            }
-
             return modifiedContext;
         }
     };
 }
 
 // Mapping: A→skill, q→args, K→toolUseContext, Y→abortSignal, z→agentContext, w→progressCallback,
-// H→trimmedName, $→skillName, O→registry, _→skillDef, xM6→trackSkillUsage, cZ→getSkillRegistry,
-// zI→findSkill, wNY→executeForkedSkill, Pb4→buildCommandMessages, IM6→registerSkillHooks,
-// U6→getSessionId, Cd→isBuiltinSkill, Uu4→isPluginSkillSource, c→telemetry
+// H→trimmedName, $→skillName, O→registry, _→skillDef, ON1→trackSkillUsage, I0→getAllSkills,
+// qY→getSessionContext, G66→findSkillByName, zkY→executeForkedSkill, Qg→getUsedSkillNames,
+// tn4→isPluginFirstParty, d→telemetry, k→debug
 ```
 
-### Forked Execution (wNY)
+### Forked Execution (zkY)
 
 **What it does:** Launches a sub-agent with isolated context to execute the skill, returning results asynchronously.
 
@@ -786,15 +768,15 @@ async function call({ skill, args }, toolUseContext, abortSignal, agentContext, 
 ```javascript
 // ============================================
 // executeForkedSkill - Forked skill execution
-// Location: chunks.132.mjs:693-750
+// Location: chunks.136.mjs:2450-2514
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function wNY(A, q, K, Y, z, w, H) {
+async function zkY(A, q, K, Y, z, w, H) {
     let $ = Date.now(),
         O = NR(),
-        _ = Uu4(A);
-    c("tengu_skill_tool_invocation", {
+        _ = tn4(A);
+    d("tengu_skill_tool_invocation", {
         command_name: "custom",
         execution_context: "fork",
         ...!1,
@@ -803,45 +785,53 @@ async function wNY(A, q, K, Y, z, w, H) {
             plugin_repository: _ ? A.pluginInfo.repository : "third-party"
         }
     });
-    let { modifiedGetAppState: J, baseAgent: X, promptMessages: D, skillContent: j }
-        = await mM6(A, K || "", Y), M = [];
-    h(`SkillTool executing forked skill ${q} with agent ${X.agentType}`);
-    for await (let G of dR({
-        agentDefinition: X,
+    let {
+        modifiedGetAppState: J,
+        baseAgent: X,
         promptMessages: D,
-        toolUseContext: { ...Y, getAppState: J },
-        canUseTool: z,
-        isAsync: !1,
-        querySource: "agent:custom",
-        model: A.model,
-        availableTools: Y.options.tools
-    })) {
-        if (M.push(G), (G.type === "assistant" || G.type === "user") && H) {
-            let f = iO(M);
-            for (let Z of iO([G]))
-                if (Z.message.content.some((T) => T.type === "tool_use" || T.type === "tool_result"))
-                    H({
-                        toolUseID: `skill_${w.message.id}`,
-                        data: {
-                            message: Z,
-                            normalizedMessages: f,
-                            type: "skill_progress",
-                            prompt: j,
-                            agentId: O
-                        }
-                    })
+        skillContent: P
+    } = await DN1(A, K || "", Y), W = [];
+    k(`SkillTool executing forked skill ${q} with agent ${X.agentType}`);
+    try {
+        for await (let G of qh({
+            agentDefinition: X,
+            promptMessages: D,
+            toolUseContext: { ...Y, getAppState: J },
+            canUseTool: z,
+            isAsync: !1,
+            querySource: "agent:custom",
+            model: A.model,
+            availableTools: Y.options.tools,
+            override: { agentId: O }
+        })) {
+            if (W.push(G), (G.type === "assistant" || G.type === "user") && H) {
+                let Z = JM([G]);
+                for (let T of Z)
+                    if (T.message.content.some((V) => V.type === "tool_use" || V.type === "tool_result"))
+                        H({
+                            toolUseID: `skill_${w.message.id}`,
+                            data: {
+                                message: T,
+                                type: "skill_progress",
+                                prompt: P,
+                                agentId: O
+                            }
+                        })
+            }
         }
-    }
-    let P = FM6(M, "Skill execution completed"),
-        W = Date.now() - $;
-    return h(`SkillTool forked skill ${q} completed in ${W}ms`), {
-        data: {
-            success: !0,
-            commandName: q,
-            status: "forked",
-            agentId: O,
-            result: P
+        let f = XN1(W, "Skill execution completed"),
+            v = Date.now() - $;
+        return k(`SkillTool forked skill ${q} completed in ${v}ms`), {
+            data: {
+                success: !0,
+                commandName: q,
+                status: "forked",
+                agentId: O,
+                result: f
+            }
         }
+    } finally {
+        zA6(O)
     }
 }
 
@@ -871,61 +861,66 @@ async function executeForkedSkill(skillDefinition, skillName, args, toolUseConte
 
     debug(`SkillTool executing forked skill ${skillName} with agent ${baseAgent.agentType}`);
 
-    // Run the agent loop
-    for await (let event of runAgentLoop({
-        agentDefinition: baseAgent,
-        promptMessages: promptMessages,
-        toolUseContext: { ...toolUseContext, getAppState: modifiedGetAppState },
-        canUseTool: canUseTool,
-        isAsync: false,
-        querySource: "agent:custom",
-        model: skillDefinition.model,
-        availableTools: toolUseContext.options.tools
-    })) {
-        messages.push(event);
+    try {
+        // Run the agent loop
+        for await (let event of runAgentLoop({
+            agentDefinition: baseAgent,
+            promptMessages: promptMessages,
+            toolUseContext: { ...toolUseContext, getAppState: modifiedGetAppState },
+            canUseTool: canUseTool,
+            isAsync: false,
+            querySource: "agent:custom",
+            model: skillDefinition.model,
+            availableTools: toolUseContext.options.tools,
+            override: { agentId: agentId }
+        })) {
+            messages.push(event);
 
-        // Report progress if callback provided
-        if ((event.type === "assistant" || event.type === "user") && reportProgress) {
-            let normalizedMessages = normalizeMessages(messages);
-
-            for (let normalizedEvent of normalizeMessages([event])) {
-                if (normalizedEvent.message.content.some(
-                    content => content.type === "tool_use" || content.type === "tool_result"
-                )) {
-                    reportProgress({
-                        toolUseID: `skill_${parentMessage.message.id}`,
-                        data: {
-                            message: normalizedEvent,
-                            normalizedMessages: normalizedMessages,
-                            type: "skill_progress",
-                            prompt: skillContent,
-                            agentId: agentId
-                        }
-                    });
+            // Report progress if callback provided
+            if ((event.type === "assistant" || event.type === "user") && reportProgress) {
+                let normalizedEvents = normalizeMessages([event]);
+                for (let normalizedEvent of normalizedEvents) {
+                    if (normalizedEvent.message.content.some(
+                        content => content.type === "tool_use" || content.type === "tool_result"
+                    )) {
+                        reportProgress({
+                            toolUseID: `skill_${parentMessage.message.id}`,
+                            data: {
+                                message: normalizedEvent,
+                                type: "skill_progress",
+                                prompt: skillContent,
+                                agentId: agentId
+                            }
+                        });
+                    }
                 }
             }
         }
+
+        // Extract result
+        let result = extractForkedCommandResult(messages, "Skill execution completed");
+        let duration = Date.now() - startTime;
+
+        debug(`SkillTool forked skill ${skillName} completed in ${duration}ms`);
+
+        return {
+            data: {
+                success: true,
+                commandName: skillName,
+                status: "forked",
+                agentId: agentId,
+                result: result
+            }
+        };
+    } finally {
+        // Cleanup invoked skills for this agent
+        clearInvokedSkillsForAgent(agentId);
     }
-
-    // Extract result
-    let result = extractForkedCommandResult(messages, "Skill execution completed");
-    let duration = Date.now() - startTime;
-
-    debug(`SkillTool forked skill ${skillName} completed in ${duration}ms`);
-
-    return {
-        data: {
-            success: true,
-            commandName: skillName,
-            status: "forked",
-            agentId: agentId,
-            result: result
-        }
-    };
 }
 
-// Mapping: wNY→executeForkedSkill, NR→generateAgentId, Uu4→isPluginFirstParty,
-// mM6→setupForkedCommandContext, dR→runAgentLoop, FM6→extractForkedCommandResult
+// Mapping: zkY→executeForkedSkill, NR→generateAgentId, tn4→isPluginFirstParty,
+// DN1→setupForkedCommandContext, qh→runAgentLoop, JM→normalizeMessages,
+// XN1→extractForkedCommandResult, zA6→clearInvokedSkillsForAgent, d→emitTelemetry, k→debug
 ```
 
 ---
@@ -1044,10 +1039,10 @@ The `contextModifier` function allows the skill's `allowedTools` to be injected 
 
 ### Why Track Skill Usage?
 
-The `trackSkillUsage` function (`xM6`) records when skills are invoked:
+The `trackSkillUsage` function (`ON1`) records when skills are invoked:
 - **Usage scoring** - enables skill ranking in listings
 - **Popularity metrics** - telemetry for improving skill recommendations
-- **Decay function** - older usage counts less (half-life of 7 days)
+- **Decay function** - older usage counts less (half-life of 7 days via `ux8`)
 
 ### Why Safe Properties Auto-Allow?
 

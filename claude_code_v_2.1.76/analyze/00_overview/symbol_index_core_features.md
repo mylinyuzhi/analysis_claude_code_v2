@@ -1034,31 +1034,31 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| JV8 | loadSkills | chunks.90.mjs:1577 | function |
-| Zp6 | loadSkillFromDir | chunks.90.mjs:1265 | function |
-| EW1 | activateConditionalSkills | chunks.90.mjs | function |
-| vW1 | discoverProjectSkills | chunks.90.mjs | function |
-| iF4 | getLoadedSkills | chunks.90.mjs | function |
+| I0 | getAllSkills | chunks.168.mjs:2013 | function (memoized, returns all loaded skills) |
+| NR | getAllSkillsForTool | chunks.168.mjs:2029 | function (filtered for tool invocation) |
+| z5z | getSkills | chunks.168.mjs:1815 | function (aggregates all skill sources) |
+| JV8 | loadSkillDirCommands | chunks.90.mjs:1577 | function (loads from skill directories) |
+| Zp6 | loadSkillsFromDirectory | chunks.90.mjs:1265 | function (loads skills from one directory) |
+| Fm9 | loadLegacyCommands | chunks.90.mjs:1373 | function (loads deprecated commands format) |
+| iPq | getBundledSkills | chunks.165.mjs:2589 | function (returns bundled skills) |
+| f24 | getBuiltinPluginSkills | chunks.94.mjs:2705 | function (returns builtin plugin skills) |
+| G66 | findSkillByName | chunks.168.mjs:1850 | function |
+| rY6 | hasSkill | chunks.168.mjs:1854 | function |
+| kf6 | getSkillOrThrow | chunks.168.mjs:1858 | function |
+| Sv6 | getSkillDescription | chunks.168.mjs:1864 | function |
 | jV8 | isSkillFile | chunks.90.mjs:1323 | function |
 | um9 | deduplicateSkillFiles | chunks.90.mjs:1327 | function |
-| VEY | getSkillName_fromSkillMd | chunks.90.mjs | function |
-| NEY | getSkillName_fromMdFile | chunks.90.mjs | function |
-| cF4 | getRelativePath | chunks.90.mjs | function |
-| TEY | deriveCommandName | chunks.90.mjs | function |
-| TW1 | findSkillDirectories | chunks.90.mjs | function |
-| vEY | loadLegacyCommands | chunks.90.mjs | function |
 | xm9 | parseSkillPaths | chunks.90.mjs:1176 | function |
-| GEY | getInodeId | chunks.90.mjs | function |
 | BP6 | clearSkillsCache | chunks.90.mjs:1439 | function |
-| lF4 | registerSkillChangeListener | chunks.90.mjs | function |
-| gF4 | checkedSkillsDirs | chunks.90.mjs | Set |
-| Pt | activeSkillsMap | chunks.90.mjs | Map |
-| aQ1 | conditionalSkillsMap | chunks.90.mjs:1616 | Map |
-| BkA | activatedSkillsSet | chunks.90.mjs | Set |
-| mkA | skillChangeListeners | chunks.90.mjs | Array |
+| Cr6 | clearAllSkillCaches | chunks.168.mjs:1838 | function |
+| oB | refreshSkills | chunks.168.mjs:1842 | function |
 | v94 | createSkillObject | chunks.90.mjs:1185 | function |
 | T94 | parseSkillHooks | chunks.90.mjs:1166 | function |
-| bP6 | parseBoolean | chunks.90.mjs | function |
+| Pp6 | parseSkillArguments | chunks.90.mjs:1099 | function |
+| VW6 | conditionalSkillsMap | chunks.90.mjs:1616 | Map |
+| IP1 | hiddenSkillNames | chunks.90.mjs:1620 | Set |
+| nT6 | sentSkillNames | chunks.147.mjs:1247 | Set |
+| bE1 | isInitialSend | chunks.147.mjs:693 | boolean |
 
 ### Skill Execution Helpers
 
@@ -1084,10 +1084,8 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Sj | registerPromptSkill | chunks.166.mjs:1795 | function |
-| nHq | getBundledSkills | chunks.166.mjs:1822 | function |
-| iHq | bundledSkillRegistry | chunks.166.mjs:1826 | Array |
-| nI | initSkillRegistry | chunks.166.mjs:1828 | function |
+| lPq | bundledSkillRegistry | chunks.165.mjs:2587 | Array |
+| iPq | getBundledSkills | chunks.165.mjs:2589 | function |
 
 ### Builtin Prompt Command Factory (`bZ1`)
 
@@ -1119,34 +1117,34 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| xM6 | recordSkillUsage | chunks.130.mjs:1383-1397 | function |
-| bM6 | getSkillUsageScore | chunks.130.mjs:1399-1405 | function |
-| skillUsage | skillUsage | chunks.130.mjs | state key |
+| ON1 | trackSkillUsage | chunks.133.mjs:884 | function (records usage count and timestamp) |
+| ux8 | computeSkillScore | chunks.133.mjs:900 | function (7-day half-life decay scoring) |
+| Qg | getSkillUsageState | chunks.168.mjs:1895 | function (returns skill usage map) |
+| Ci8 | getUsedSkillNames | chunks.168.mjs:1896 | function |
 
 ### Skill Registry & Loading
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| cZ | getSkillRegistry | chunks.168.mjs:2292-2306 | function |
-| hv | getSkillsForLLMInvocation | chunks.168.mjs:2307-2308 | function |
-| aO6 | getSlashCommandSkills | chunks.168.mjs:2309-2315 | function |
-| _9z | getSkillsFromDirs | chunks.168.mjs:2118-2137 | function |
-| YK1 | loadPluginCommands | chunks.87.mjs:2039 | function |
-| O9z | getBundledDynamicSkills | chunks.168.mjs:2110-2116 | function |
-| UBA | clearRegistryCaches | chunks.168.mjs:2139-2141 | function |
-| bm | refreshAllSkills | chunks.168.mjs:2143-2145 | function |
-| Sd | skillExists | chunks.168.mjs:2151-2153 | function |
-| zI | lookupSkill | chunks.168.mjs:2155-2159 | function |
+| I0 | getAllSkills | chunks.168.mjs:2013 | function (memoized, returns all loaded skills) |
+| NR | getAllSkillsForTool | chunks.168.mjs:2029 | function (filtered for Skill tool invocation) |
+| vp6 | getSlashCommandSkills | chunks.168.mjs:2031 | function (filtered for slash commands) |
+| Ii8 | ALWAYS_INCLUDE_SKILLS | chunks.168.mjs:2037 | Set (skills always included) |
+| EZq | filterAlwaysIncludeSkills | chunks.168.mjs:1846 | function |
 
 ### Skill-Reminder Integration
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| OIY | generateSkillListingAttachment | chunks.142.mjs:2381-2395 | function |
-| BU7 | formatSkillListing | chunks.87.mjs:2757-2777 | function |
-| uU7 | getSkillDescription | chunks.87.mjs:2752-2755 | function |
-| zT9 | formatSkillFull | chunks.87.mjs:2752-2755 | function |
-| xg1 | sentSkillNames | chunks.142.mjs | Set (global) |
+| guY | generateSkillListingAttachment | chunks.147.mjs:700 | function (creates skill_listing attachment) |
+| fV8 | formatSkillListing | chunks.90.mjs:2654 | function (budget-aware skill formatting) |
+| GV8 | formatSkillDescriptionLine | chunks.90.mjs:2645 | function |
+| PB9 | formatSkillEntry | chunks.90.mjs:2649 | function |
+| TV8 | getSkillToolInfo | chunks.90.mjs:2689 | function |
+| vV8 | getLimitedSkillToolCommands | chunks.90.mjs:2697 | function |
+| nT6 | sentSkillNames | chunks.147.mjs:1247 | Set (tracks which skills were sent) |
+| Oc | clearSentSkillNames | chunks.147.mjs:692 | function |
+| Vn4 | markInitialSend | chunks.147.mjs:696 | function |
 
 ### Plugin Skills
 
@@ -1161,48 +1159,37 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Tqq | collectSkillsToKeep | chunks.147.mjs:1896 | function |
-| zR6 | getInvokedSkills | chunks.1.mjs:2964-2973 | function |
+| Tqq | getInvokedSkillsAttachment | chunks.147.mjs:1896 | function (creates invoked_skills attachment) |
+| St6 | getInvokedSkillsForAgent | chunks.1.mjs:3052 | function (gets invoked skills by agentId) |
+| zA6 | clearInvokedSkillsForAgent | chunks.1.mjs:3069 | function |
+| iu1 | clearInvokedSkillsForAgents | chunks.1.mjs:3060 | function |
+| Aiq | getAllInvokedSkills | chunks.1.mjs:3048 | function |
 
 ### Skill Tool Integration
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| m66 | SkillTool | chunks.137.mjs:46-250 | object |
-| oH | SKILL_TOOL_NAME | chunks.137.mjs | constant ("Skill") |
+| m66 | SkillTool | chunks.137.mjs:46-274 | object |
+| oH | SKILL_TOOL_NAME | chunks.137.mjs:47 | constant ("Skill") |
 | _kY | skillInputSchema | chunks.137.mjs:27-30 | schema |
 | wkY | skillOutputSchema | chunks.137.mjs:30-45 | schema |
-| I0 | getSkillRegistry | chunks.137.mjs | function |
-| G66 | lookupSkill | chunks.137.mjs | function |
-| qY | getSessionContext | chunks.137.mjs | function |
-| Sb | getRulesForTool | chunks.137.mjs | function |
+| OkY | SKILL_PROPERTY_KEYS | chunks.137.mjs:274 | Set (safe properties for auto-allow) |
+| $kY | validateSkillProperties | chunks.137.mjs:2516 | function (checks for unsafe properties) |
+| tn4 | isPluginFirstParty | chunks.136.mjs:2528 | function |
+| qY | getSessionContext | chunks.147.mjs:702 | function |
+| Sb | getRulesForTool | chunks.137.mjs:116 | function |
 
 ### Built-in Prompt Skills (Registration & Prompts)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| __z | VERIFIER_SYSTEM_PROMPT | chunks.177.mjs:1933-2176 | constant |
-| Ejq | initVerifiersModuleInit | chunks.177.mjs:2178-2180 | function |
-| Njq | registerVerifySkill | chunks.177.mjs:1921-1923 | function (stub) |
-| Tjq | verifySkillModuleInit | chunks.177.mjs:1925-1927 | function |
-| vjq | registerInitVerifiersSkill | chunks.177.mjs:1929-1931 | function (stub) |
-| xjq | registerAllBuiltinSkills | chunks.177.mjs:2441-2443 | function |
-| bjq | builtinSkillsLazyInit | chunks.177.mjs:2445-2456 | function |
-| Xjq | registerRememberSkill | chunks.177.mjs:1142-1144 | function (stub) |
-| QOz | REMEMBER_SKILL_PROMPT | chunks.177.mjs:1146-1259 | constant |
-| Pjq | registerSettingsHelpSkill | chunks.177.mjs:1314-1316 | function (stub) |
-| dOz | SETTINGS_HELP_PROMPT | chunks.177.mjs:1318-1563 | constant |
-| fjq | registerKeybindingsSkill | chunks.177.mjs:1809-1838 | function |
-| kjq | registerDebugSkill | chunks.177.mjs:2188-2249 | function |
-| Cjq | registerBenchmarkSkill | chunks.177.mjs:2279-2281 | function (stub) |
-| hjq | registerSkillifySkill | chunks.177.mjs:2299-2301 | function (stub) |
-| j_z | SKILLIFY_PROMPT | chunks.177.mjs:2303-2434 | constant |
-| jjq | registerChromeSkill | chunks.177.mjs:1269-1290 | function |
-| PMz | registerClaudeApiSkill | chunks.184.mjs:674-688 | function (NEW v2.1.76) |
-| eyq | registerSimplifySkill | chunks.181.mjs:1379-1397 | function (NEW v2.1.76) |
-| YLq | registerBatchSkill | chunks.181.mjs:1526-1550 | function (NEW v2.1.76) |
-| gJz | registerLoopSkill | chunks.181.mjs:1640-1660 | function (NEW v2.1.71) |
+| rw | registerPromptSkill | chunks.165.mjs:2546 | function |
+| PMz | registerClaudeApiSkill | chunks.184.mjs:674 | function (NEW v2.1.76) |
+| eyq | registerSimplifySkill | chunks.181.mjs:1379 | function (NEW v2.1.76) |
+| YLq | registerBatchSkill | chunks.181.mjs:1526 | function (NEW v2.1.76) |
+| gJz | registerLoopSkill | chunks.181.mjs:1640 | function (NEW v2.1.71) |
 | no6 | DEFAULT_LOOP_INTERVAL | chunks.181.mjs:1662 | constant ("10m") |
+| j_z | SKILLIFY_PROMPT | chunks.181.mjs | constant |
 
 ---
 

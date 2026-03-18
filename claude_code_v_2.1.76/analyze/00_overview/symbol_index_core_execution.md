@@ -248,8 +248,12 @@
 | Tv | findTool | chunks.74.mjs:1392 | function (older version) |
 | d39 | toolMatchesName | chunks.74.mjs:1388 | function |
 | U1q | formatIncomingCallsResult | chunks.144.mjs:284 | function (LSP call hierarchy) |
-| YP6 | assembleSessionToolSet | chunks.141.mjs:1476 | function |
 | dK | findToolInSet | chunks.146.mjs | function |
+
+> **CORRECTION:** The symbol `YP6` was incorrectly documented as `assembleSessionToolSet`.
+> The actual `YP6` (chunks.69.mjs:235) is the `debug` library's namespace function (used for logging).
+> Tool set assembly is performed by `Xk8` (filterToolsForSubagent) and internal functions.
+
 | p1 | createUserMessage | chunks.173.mjs:1378 | function |
 | f4 | createAttachmentMessage | chunks.145.mjs | function |
 | rk | isMcpTool | chunks.145.mjs | function |
@@ -521,12 +525,13 @@
 | qh | agentLoopRunner | chunks.133.mjs:1565 | function (generator) |
 | Yh | llmMessageLoop | chunks.148.mjs:875 | function (generator) |
 | Bc6 | deriveToolUseContext | chunks.148.mjs:1978 | function |
-| Fx8 | cloneForkContext | chunks.133.mjs:1787 | function |
+| Fx8 | cloneForkContext | chunks.133.mjs:1788 | function |
 | vvY | buildAgentSystemPrompt | chunks.133.mjs:1806 | function |
-| DI | cloneMap | chunks.133.mjs:1597 | function |
-| bI | generateAgentId | chunks.133.mjs:1590 | function |
-| C01 | resolveModelConfig | chunks.133.mjs:1589 | function |
-| r24 | registerAgentHooks | chunks.133.mjs:1647 | function |
+| DI | cloneMap | chunks.84.mjs:65 | function |
+| bI | generateAgentId | chunks.93.mjs:1557 | function |
+| C01 | resolveModelConfig | chunks.93.mjs:1476 | function |
+| r24 | registerAgentHooks | chunks.95.mjs:1842 | function |
+| zZ6 | deregisterAgentHooks | chunks.95.mjs:1830 | function |
 | TvY | isTranscriptableMessage | chunks.133.mjs:1561 | function |
 | X66 | runWithAgentIdentity | chunks.133.mjs:841 | function |
 | Tf6 | getCurrentAgentIdentity | chunks.133.mjs:837 | function |
@@ -791,26 +796,38 @@
 | hp | createTaskId | chunks.89.mjs:522 | function |
 | IZ | createTaskRecord | chunks.89.mjs:528 | function |
 | Rv9 | getTypePrefix | chunks.89.mjs:~518 | function |
+| oV | generateTaskId | chunks.41.mjs:2410 | function |
+| k$3 | getTaskTypePrefix | chunks.41.mjs:2406 | function |
 
 ### Task State Management
 
+> **CORRECTIONS:**
+> - `yjA` and `CjA` are NOT task functions - they are constants in chunks.15.mjs:
+>   - `yjA` = 67108864 (COMPACT_BOUNDARY_THRESHOLD)
+>   - `CjA` = 5242880 (COMPACT_PRE_BOUNDARY_THRESHOLD)
+> - `wd7` and `zd7` are NOT task functions - they are crypto module exports (chunks.72.mjs)
+> - The actual task state functions are `i9`, `Zf`, `VR`, etc. (chunks.90.mjs)
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| bZ | registerTask | chunks.142.mjs:1676 | function |
-| c5 | atomicUpdateTask | chunks.142.mjs:1662 | function |
-| CjA | markTaskFailed | chunks.89.mjs:1435 | function |
+| i9 | atomicUpdateTask | chunks.90.mjs:3003 | function |
+| Zf | registerTask | chunks.90.mjs:3019 | function |
+| VR | removeTask | chunks.90.mjs:3037 | function |
+| EV8 | getRunningTasks | chunks.90.mjs:3053 | function |
+| wY4 | pollTaskOutputs | chunks.90.mjs:3058 | function |
+| LJ6 | isTerminalTaskStatus | chunks.41.mjs:2402 | function |
+| oV | generateTaskId | chunks.41.mjs:2410 | function |
+| RG | createTaskEntry | chunks.41.mjs:2418 | function |
+| wQ6 | killLocalBashTask | chunks.95.mjs:1918 | function |
+| t24 | killBashTasksForAgent | chunks.95.mjs:1938 | function |
 | Hd7 | backgroundForegroundTask | chunks.89.mjs:~1515 | function |
 | ia | isLocalAgentTask | chunks.89.mjs:~1402 | function |
 | Kd7 | killAllRunningAgents | chunks.89.mjs:~1448 | function |
-| na | killTask | chunks.89.mjs:~1375 | function |
 | R61 | createChildAbortController | chunks.6.mjs:465 | function |
-| RjA | reportToolProgress | chunks.89.mjs:1393 | function |
 | Tq | registerProcessExitCleanup | chunks.1.mjs:4149 | function |
 | u_6 | foregroundResolveMap | chunks.89.mjs:~1477 | variable (Map) |
-| wd7 | createForegroundTask | chunks.89.mjs:1477 | function |
-| Yd7 | updateTaskProgress | chunks.89.mjs:1407 | function |
-| yjA | markTaskCompleted | chunks.89.mjs:1422 | function |
-| zd7 | createAsyncTask | chunks.89.mjs:1447 | function |
+| yjA | COMPACT_BOUNDARY_THRESHOLD | chunks.15.mjs:212 | constant (67108864) |
+| CjA | COMPACT_PRE_BOUNDARY_THRESHOLD | chunks.15.mjs:214 | constant (5242880) |
 
 ### Subagent Context Creation
 
@@ -838,14 +855,14 @@
 | Yh | llmMessageLoop | chunks.148.mjs:875 | function (async generator) |
 | omY | processTurnLoop | chunks.148.mjs:882 | function (inner generator) |
 | Bc6 | deriveToolUseContext | chunks.148.mjs:1978 | function |
-| C01 | resolveModelConfig | chunks.133.mjs:1589 | function |
-| bI | generateAgentId | chunks.133.mjs:1590 | function |
-| DI | cloneMap | chunks.133.mjs:1597 | function |
+| C01 | resolveModelConfig | chunks.93.mjs:1476 | function |
+| bI | generateAgentId | chunks.93.mjs:1557 | function |
+| DI | cloneMap | chunks.84.mjs:65 | function |
 | Fx8 | cloneForkContext | chunks.133.mjs:1788 | function |
 | vvY | buildAgentSystemPrompt | chunks.133.mjs:1806 | function |
 | NvY | resolveSkillByName | chunks.133.mjs:1817 | function |
-| r24 | registerAgentHooks | chunks.133.mjs:1647 | function |
-| zZ6 | deregisterSkillHooks | chunks.133.mjs:1783 | function |
+| r24 | registerAgentHooks | chunks.95.mjs:1842 | function |
+| zZ6 | deregisterAgentHooks | chunks.95.mjs:1830 | function |
 | Ux8 | executeSubagentStartHooks | chunks.175.mjs:2666 | function (async generator) |
 | X66 | runWithAgentIdentity | chunks.133.mjs:841 | function (AsyncLocalStorage wrapper) |
 | Tf6 | getCurrentAgentIdentity | chunks.133.mjs:837 | function |
@@ -953,12 +970,12 @@
 | Ji4 | claimUnclaimedTask | chunks.134.mjs:1464 | function |
 | ss | parseShutdownRequest | chunks.131.mjs | function |
 | ib4 | getUnclaimedTaskPrompt | chunks.131.mjs:336 | function |
-| C01 | resolveModelConfig | chunks.133.mjs:1589 | function |
-| bI | generateAgentId | chunks.133.mjs:1590 | function |
-| DI | cloneMap | chunks.133.mjs:1597 | function |
-| Fx8 | cloneForkContext | chunks.133.mjs:1787 | function |
+| C01 | resolveModelConfig | chunks.93.mjs:1476 | function |
+| bI | generateAgentId | chunks.93.mjs:1557 | function |
+| DI | cloneMap | chunks.84.mjs:65 | function |
+| Fx8 | cloneForkContext | chunks.133.mjs:1788 | function |
 | vvY | buildAgentSystemPrompt | chunks.133.mjs:1806 | function |
-| r24 | registerAgentHooks | chunks.133.mjs:1647 | function |
+| r24 | registerAgentHooks | chunks.95.mjs:1842 | function |
 
 ### Agent Identity (AsyncLocalStorage)
 

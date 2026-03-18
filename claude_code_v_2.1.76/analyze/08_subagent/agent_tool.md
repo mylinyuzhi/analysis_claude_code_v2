@@ -28,11 +28,11 @@ Key functions in this document:
 - `filterWhitespaceAssistant` (BQ1) - Filter whitespace-only messages - chunks.173.mjs:1388
 - `runWithAgentIdentity` (X66) - AsyncLocalStorage context binding - chunks.133.mjs:841
 - `resolveModelConfig` (C01) - Model resolution cascade - chunks.133.mjs:1589
-- `generateAgentId` (bI) - Unique agent ID generator - chunks.133.mjs:1590
-- `cloneMap` (DI) - Map cloning utility - chunks.133.mjs:1597
+- `generateAgentId` (bI) - Unique agent ID generator - chunks.93.mjs:1557
+- `cloneMap` (DI) - Map cloning utility - chunks.84.mjs:65
 - `cloneForkContext` (Fx8) - Fork context message cloning - chunks.133.mjs:1787
 - `buildAgentSystemPrompt` (vvY) - System prompt builder - chunks.133.mjs:1806
-- `registerAgentHooks` (r24) - Hook registration for agent - chunks.133.mjs:1647
+- `registerAgentHooks` (r24) - Hook registration for agent - chunks.95.mjs:1842
 
 > **CORRECTIONS:**
 > 1. The symbol `p01` was incorrectly documented as `runWithAgentIdentity`.
@@ -777,7 +777,7 @@ Shallow clones a Map, used for `readFileState` isolation:
 ```javascript
 // ============================================
 // cloneMap - Map cloning utility
-// Location: chunks.133.mjs:1597
+// Location: chunks.84.mjs:65
 // ============================================
 
 // READABLE (for understanding):
@@ -867,7 +867,7 @@ When an agent definition includes hooks, they are registered for the duration of
 ```javascript
 // ============================================
 // registerAgentHooks - Hook registration for agent
-// Location: chunks.133.mjs:1647
+// Location: chunks.95.mjs:1842
 // ============================================
 
 // READABLE (for understanding):
@@ -888,6 +888,160 @@ function registerAgentHooks(setAppState, agentId, hooks, agentName, isSubagent) 
 // Deregistered in finally block via zZ6
 // Mapping: r24→registerAgentHooks, zZ6→deregisterSkillHooks
 ```
+
+---
+
+## Model Resolution (C01)
+
+### What it does
+
+Resolves the model configuration for a subagent by applying a cascade of priorities:
+1. Environment variable override (`CLAUDE_CODE_SUBAGENT_MODEL`)
+2. Per-invocation `model` parameter (v2.1.76+)
+3. Agent definition's `model` field
+4. Inherit from parent session
+
+### How it works
+
+```javascript
+// ============================================
+// resolveModelConfig - Model resolution cascade
+// Location: chunks.93.mjs:1476-1500
+// ============================================
+
+// ORIGINAL (for source lookup):
+function C01(A, q, K, Y) {
+    if (process.env.CLAUDE_CODE_SUBAGENT_MODEL) return H5(process.env.CLAUDE_CODE_SUBAGENT_MODEL);
+    let z = f31(q),
+        _ = ($, H) => {
+            if (z && QA() === "bedrock") {
+                if (f31(H)) return $;
+                return bK7($, z)
+            }
+            return $
+        };
+    if (K) {
+        if (M_4(K, q)) return q;
+        let $ = H5(K);
+        return _($, K)
+    }
+    let w = A ?? Dk8();
+    if (w === "inherit") return II({
+        permissionMode: Y ?? "default",
+        mainLoopModel: q,
+        exceeds200kTokens: !1
+    });
+    if (M_4(w, q)) return q;
+    let O = H5(w);
+    return _(O, w)
+}
+
+// READABLE (for understanding):
+function resolveModelConfig(agentModel, parentModel, invocationModel, permissionMode) {
+    // Priority 1: Environment variable override (highest priority)
+    if (process.env.CLAUDE_CODE_SUBAGENT_MODEL) {
+        return parseModelString(process.env.CLAUDE_CODE_SUBAGENT_MODEL);
+    }
+
+    // Get parent model region for Bedrock cross-region inference
+    let parentRegion = extractRegion(parentModel);
+
+    // Bedrock cross-region inference adapter
+    let adaptForBedrock = (model, modelString) => {
+        if (parentRegion && getProvider() === "bedrock") {
+            if (extractRegion(modelString)) return model; // Already has region
+            return addRegionPrefix(model, parentRegion);
+        }
+        return model;
+    };
+
+    // Priority 2: Per-invocation model parameter
+    if (invocationModel) {
+        // If already matches parent, use parent directly
+        if (modelMatches(invocationModel, parentModel)) {
+            return parentModel;
+        }
+        let parsed = parseModelString(invocationModel);
+        return adaptForBedrock(parsed, invocationModel);
+    }
+
+    // Priority 3: Agent definition model field
+    let resolvedModel = agentModel ?? "inherit";
+
+    // "inherit" means use same logic as parent
+    if (resolvedModel === "inherit") {
+        return resolveModelForMode({
+            permissionMode: permissionMode ?? "default",
+            mainLoopModel: parentModel,
+            exceeds200kTokens: false
+        });
+    }
+
+    // If matches parent, use parent directly
+    if (modelMatches(resolvedModel, parentModel)) {
+        return parentModel;
+    }
+
+    let parsed = parseModelString(resolvedModel);
+    return adaptForBedrock(parsed, resolvedModel);
+}
+
+// Mapping: C01→resolveModelConfig, A→agentModel, q→parentModel,
+// K→invocationModel, Y→permissionMode, H5→parseModelString,
+// f31→extractRegion, M_4→modelMatches, Dk8→getInheritDefault,
+// II→resolveModelForMode, bK7→addRegionPrefix
+```
+
+### Why this approach
+
+**Key insight:** The model resolution cascade ensures predictable behavior:
+1. **Environment variable** - For testing/debugging specific models
+2. **Invocation model** - Per-task flexibility (v2.1.76+)
+3. **Agent definition model** - Task-appropriate defaults
+4. **Inherit** - Consistency with parent session
+
+The Bedrock cross-region inference adapter ensures that when using AWS Bedrock, the model ARN includes the correct region prefix based on the parent session's configuration.
+
+---
+
+## Agent ID Generation (bI)
+
+### What it does
+
+Generates a unique identifier for a subagent instance, prefixed with `a` to distinguish from session IDs.
+
+### How it works
+
+```javascript
+// ============================================
+// generateAgentId - Unique agent ID generator
+// Location: chunks.93.mjs:1557-1560
+// ============================================
+
+// ORIGINAL (for source lookup):
+function bI(A) {
+    let q = NF9(8).toString("hex");
+    return A ? `a${A}-${q}` : `a${q}`
+}
+
+// READABLE (for understanding):
+function generateAgentId(prefix) {
+    // Generate 8 random bytes and convert to hex
+    let randomHex = crypto.randomBytes(8).toString("hex");
+    // Prefix with 'a' to distinguish from session IDs
+    // Optionally include a custom prefix (e.g., "aexplore-abc123")
+    return prefix ? `a${prefix}-${randomHex}` : `a${randomHex}`;
+}
+
+// Mapping: bI→generateAgentId, A→prefix, q→randomHex, NF9→crypto.randomBytes
+```
+
+### ID Format
+
+- **Without prefix:** `a` + 16 hex chars (e.g., `a3f8c2e1d4a5b6c7`)
+- **With prefix:** `a{prefix}-{random}` (e.g., `aexplore-3f8c2e1d4a5b6c7`)
+
+The `a` prefix ensures agent IDs are distinct from session IDs (which use different prefixes).
 
 ---
 

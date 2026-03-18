@@ -102,49 +102,64 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
-| `zd7` | `createAsyncTask` | Create background task entry | chunks.132.mjs |
-| `wd7` | `createForegroundTask` | Create task with backgrounding support | chunks.132.mjs |
-| `yjA` | `markTaskCompleted` | Mark task as completed | chunks.89.mjs:1422 |
-| `CjA` | `markTaskFailed` | Mark task as failed | chunks.89.mjs:1435 |
-| `na` | `killTask` | Kill a running task | chunks.89.mjs:1376 |
+| oV | generateTaskId | Generate unique task ID with type prefix | chunks.41.mjs:2410 ✓ |
+| RG | createTaskEntry | Create task entry object | chunks.41.mjs:2418 ✓ |
+| Zf | registerTask | Register task in state | chunks.90.mjs:3019 ✓ |
+| i9 | atomicUpdateTask | Generic task state updater | chunks.90.mjs:3003 ✓ |
+| VR | removeTask | Remove completed task | chunks.90.mjs:3037 ✓ |
+| EV8 | getRunningTasks | Get all running tasks | chunks.90.mjs:3053 ✓ |
+| wY4 | pollTaskOutputs | Poll task output files | chunks.90.mjs:3058 ✓ |
+| LJ6 | isTerminalTaskStatus | Check if status is terminal | chunks.41.mjs:2402 ✓ |
+| wQ6 | killLocalBashTask | Kill local bash task | chunks.95.mjs:1918 ✓ |
+| t24 | killBashTasksForAgent | Kill bash tasks for agent | chunks.95.mjs:1938 ✓ |
+
+> **CORRECTIONS:**
+> - `yjA` and `CjA` were incorrectly documented as `markTaskCompleted` and `markTaskFailed`.
+>   They are actually constants: 67108864 and 5242880 (chunks.15.mjs).
+> - `wd7` and `zd7` were incorrectly documented as `createForegroundTask` and `createAsyncTask`.
+>   They are crypto module exports (chunks.72.mjs).
+> - `na` was incorrectly documented as `killTask`. Task killing is handled by `wQ6`.
 
 ### Progress & State
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
-| `RjA` | `reportToolProgress` | Update progress (preserves summary) | chunks.89.mjs:1393 |
-| `Yd7` | `updateTaskProgress` | Update summary text | chunks.89.mjs:1407 |
-| `c5` | `atomicUpdateTask` | Generic task state updater | chunks.142.mjs:1662 |
-
-### Communication
-
-| Obfuscated | Readable | Description | Location |
-|------------|----------|-------------|----------|
-| `wl` | `readMailbox` | Read messages from mailbox | chunks.132.mjs:3 ✓ |
-| `x3` | `writeToMailbox` | Write message to mailbox | chunks.132.mjs:22 ✓ |
-| `Vc6` | `markMessageAsReadByIndex` | Mark message as read | chunks.132.mjs:57 ✓ |
-| `Ji4` | `claimUnclaimedTask` | Claim unclaimed task for teammate | chunks.134.mjs:1464 ✓ |
-| `qn4` | `spawnTeammate` | Spawn teammate agent | chunks.135.mjs:1116 ✓ |
-| `pNY` | `spawnTeammateDispatcher` | Route teammate spawn to backend | chunks.135.mjs:1110 ✓ |
+| Hd7 | backgroundForegroundTask | Mid-run backgrounding transition | chunks.89.mjs ✓ |
+| R61 | createChildAbortController | Create child abort controller | chunks.6.mjs:465 ✓ |
 
 ### Tool Assembly
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
-| `YP6` | `assembleSessionToolSet` | Main tool set assembly | chunks.141.mjs:1476 |
-| `Bc6` | `deriveToolUseContext` | Create isolated context for subagent | chunks.148.mjs:1978 |
-| `CW6` | `BACKGROUND_AGENT_EXCLUDED_TOOLS` | Tools excluded from background agents | chunks.91.mjs:269 ✓ |
-| `eP1` | `ASYNC_AGENT_ALLOWED_TOOLS` | Tools allowed for async agents | chunks.91.mjs:269 ✓ |
-| `WY4` | `TEAM_DELEGATE_TOOLS` | Team/cron tools for delegates | chunks.91.mjs:269 ✓ |
+| Xk8 | filterToolsForSubagent | Filter tools based on agent type | chunks.93.mjs:1568 ✓ |
+| _c | applyToolFilters | Apply whitelist/blacklist | chunks.93.mjs:1590 ✓ |
+| CW6 | BACKGROUND_AGENT_EXCLUDED_TOOLS | Tools excluded from background agents | chunks.91.mjs:269 ✓ |
+| eP1 | ASYNC_AGENT_ALLOWED_TOOLS | Tools allowed for async agents | chunks.91.mjs:269 ✓ |
+| WY4 | TEAM_DELEGATE_TOOLS | Team/cron tools for delegates | chunks.91.mjs:269 ✓ |
+
+> **CORRECTION:** `YP6` was incorrectly documented as `assembleSessionToolSet`.
+> The actual `YP6` is the `debug` library's namespace function (chunks.69.mjs:235).
+> Tool assembly is performed by `Xk8` and `_c`.
+
+### Communication
+
+| Obfuscated | Readable | Description | Location |
+|------------|----------|-------------|----------|
+| wl | readMailbox | Read messages from mailbox | chunks.132.mjs:3 ✓ |
+| x3 | writeToMailbox | Write message to mailbox | chunks.132.mjs:22 ✓ |
+| Vc6 | markMessageAsReadByIndex | Mark message as read | chunks.132.mjs:57 ✓ |
+| Ji4 | claimUnclaimedTask | Claim unclaimed task for teammate | chunks.134.mjs:1464 ✓ |
+| qn4 | spawnTeammate | Spawn teammate agent | chunks.135.mjs:1116 ✓ |
+| pNY | spawnTeammateDispatcher | Route teammate spawn to backend | chunks.135.mjs:1110 ✓ |
 
 ### Transcript Processing
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
-| `hf6` | `loadTranscript` | Load prior transcript for resume | chunks.174.mjs:2705 ✓ |
-| `wP6` | `stripOrphanedToolResults` | Remove orphaned tool results | chunks.173.mjs:344 |
-| `BQ1` | `filterWhitespaceAssistant` | Filter whitespace-only messages | chunks.173.mjs:1388 |
-| `mQ1` | `filterThinkingOnlyAssistant` | Filter thinking-only messages | chunks.173.mjs:1435 |
+| hf6 | loadTranscript | Load prior transcript for resume | chunks.174.mjs:2705 ✓ |
+| wP6 | stripOrphanedToolResults | Remove orphaned tool results | chunks.173.mjs:344 |
+| BQ1 | filterWhitespaceAssistant | Filter whitespace-only messages | chunks.173.mjs:1388 |
+| mQ1 | filterThinkingOnlyAssistant | Filter thinking-only messages | chunks.173.mjs:1435 |
 
 ---
 
@@ -331,8 +346,8 @@ All key symbols in this module have been cross-validated against source code:
 | `Fx8` | `cloneForkContext` | chunks.133.mjs:1788 | ✓ Verified |
 | `vvY` | `buildAgentSystemPrompt` | chunks.133.mjs:1806 | ✓ Verified |
 | `NvY` | `resolveSkillByName` | chunks.133.mjs:1817 | ✓ Verified |
-| `r24` | `registerAgentHooks` | chunks.133.mjs:1647 | ✓ Verified |
-| `zZ6` | `deregisterSkillHooks` | chunks.133.mjs:1783 | ✓ Verified |
+| `r24` | `registerAgentHooks` | chunks.95.mjs:1842 | ✓ Verified |
+| `zZ6` | `deregisterAgentHooks` | chunks.95.mjs:1830 | ✓ Verified |
 | `wl` | `readMailbox` | chunks.132.mjs:3 | ✓ Verified |
 | `x3` | `writeToMailbox` | chunks.132.mjs:22 | ✓ Verified |
 | `Vc6` | `markMessageAsReadByIndex` | chunks.132.mjs:57 | ✓ Verified |
@@ -344,9 +359,3 @@ All key symbols in this module have been cross-validated against source code:
 | `pNY` | `spawnTeammateDispatcher` | chunks.135.mjs:1110 | ✓ Verified |
 | `QW6` | `AgentTool` | chunks.136.mjs:1512 | ✓ Verified |
 | `Bc6` | `deriveToolUseContext` | chunks.148.mjs:1978 | ✓ Verified |
-
-### Corrections Made
-
-1. **`pNY` vs `iVY`**: Previous documentation incorrectly mapped `iVY` as `spawnTeammateDispatcher`. The actual `iVY` is `fs.promises` from Node.js. Correct symbol: `pNY`.
-2. **`Bc6` vs `vQ1`**: Previous documentation incorrectly mapped `vQ1` as `deriveToolUseContext`. Correct symbol: `Bc6`.
-3. **`X66` vs `p01`**: Previous documentation incorrectly mapped `p01` as `runWithAgentIdentity`. The actual `p01` is `isSkillMdFile`. Correct symbol: `X66`.

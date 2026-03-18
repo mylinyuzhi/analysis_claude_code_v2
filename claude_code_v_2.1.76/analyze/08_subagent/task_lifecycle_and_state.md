@@ -13,14 +13,23 @@ This document covers the complete lifecycle of subagent tasks, from creation to 
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `createForegroundTask` (wd7) - Create task with backgrounding support - chunks.89.mjs:1477
-- `createAsyncTask` (zd7) - Create background task entry - chunks.89.mjs:1447
-- `backgroundTask` (Hd7) - Mid-run backgrounding transition - chunks.89.mjs
-- `markTaskCompleted` (yjA) - Mark task as completed - chunks.89.mjs:1422
-- `markTaskFailed` (CjA) - Mark task as failed - chunks.89.mjs:1435
-- `killTask` (na) - Kill a running task - chunks.89.mjs:1376
-- `removeTask` ($d7) - Remove task from registry - chunks.89.mjs
-- `atomicUpdateTask` (c5) - Generic task state updater - chunks.142.mjs:1662
+- `generateTaskId` (oV) - Generate unique task ID - chunks.41.mjs:2410
+- `createTaskEntry` (RG) - Create task entry object - chunks.41.mjs:2418
+- `registerTask` (Zf) - Register task in state - chunks.90.mjs:3019
+- `atomicUpdateTask` (i9) - Generic task state updater - chunks.90.mjs:3003
+- `removeTask` (VR) - Remove completed task - chunks.90.mjs:3037
+- `getRunningTasks` (EV8) - Get all running tasks - chunks.90.mjs:3053
+- `pollTaskOutputs` (wY4) - Poll task output files - chunks.90.mjs:3058
+- `isTerminalTaskStatus` (LJ6) - Check if status is terminal - chunks.41.mjs:2402
+- `killLocalBashTask` (wQ6) - Kill local bash task - chunks.95.mjs:1918
+- `killBashTasksForAgent` (t24) - Kill bash tasks for agent - chunks.95.mjs:1938
+
+> **CORRECTIONS:**
+> - `wd7` and `zd7` were incorrectly documented as `createForegroundTask` and `createAsyncTask`.
+>   These symbols are actually crypto module exports (chunks.72.mjs).
+> - `yjA` and `CjA` were incorrectly documented as `markTaskCompleted` and `markTaskFailed`.
+>   These symbols are actually constants: 67108864 and 5242880 (chunks.15.mjs).
+> - `na` was incorrectly documented as `killTask`. Task killing is handled by `wQ6` for bash tasks.
 
 ---
 
@@ -56,14 +65,21 @@ Key functions in this document:
 interface TaskState {
     taskId: string;
     agentId: string;
-    status: "running" | "completed" | "failed" | "killed" | "backgrounded";
-    summary?: string;
-    progressMessage?: string;
-    createdAt: number;
-    completedAt?: number;
-    outputFilePath?: string;  // v2.1.76: included in completion state
-    abortController: AbortController;
-    cleanupFns: Array<() => void>;
+    status: "pending" | "running" | "completed" | "failed" | "killed" | "backgrounded";
+    description: string;
+    toolUseId: string;
+    startTime: number;
+    outputFile: string;
+    outputOffset: number;
+    notified: boolean;
+    // For bash tasks:
+    type: "local_bash" | "local_agent" | "remote_agent" | "in_process_teammate" | "local_workflow";
+    shellCommand?: ShellCommand;
+    cleanupTimeoutId?: number;
+    unregisterCleanup?: () => void;
+    // For agent tasks:
+    prompt?: string;
+    worktreePath?: string;
 }
 ```
 
@@ -71,317 +87,667 @@ interface TaskState {
 
 ---
 
-## createForegroundTask (wd7)
+## generateTaskId (oV)
 
 ### What it does
 
-Creates a foreground task that blocks until completion but can be transitioned to background execution mid-run via a `Promise.race` mechanism.
+Generates a unique identifier for a task, prefixed based on task type to make IDs more identifiable.
 
 ### How it works
 
-1. **Task Registration:** Allocates a task ID and registers an entry in the global task Map
-2. **Abort Controller:** Creates a task-level `AbortController` chained to the session abort signal
-3. **Promise Race Setup:** Starts the agent loop in one Promise; sets up a backgrounding signal as the other race candidate
-4. **Race Resolution:**
-   - If the agent loop completes first → mark task completed, return result
-   - If backgrounding signal fires first → transition task to background state
-5. **Cleanup Registration:** Registers cleanup functions that run in the `finally` block regardless of outcome
-
 ```javascript
 // ============================================
-// createForegroundTask - Foreground task with mid-run backgrounding
-// Location: chunks.89.mjs:1477
+// generateTaskId - Generate unique task ID with type prefix
+// Location: chunks.41.mjs:2410-2415
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function wd7(A, q, K, Y, z, w) {
-    let H = Hd7(),
-        $ = zd7(A, K);
-    // ... race between agent loop and background signal ...
+function oV(A) {
+    let q = k$3(A),
+        K = N$3(8),
+        Y = q;
+    for (let z = 0; z < 8; z++) Y += G97[K[z] % G97.length];
+    return Y
 }
 
 // READABLE (for understanding):
-async function createForegroundTask(agentDefinition, toolUseContext, ...) {
-    let backgroundSignal = createBackgroundingSignal();
-    let taskEntry = createAsyncTask(agentDefinition, toolUseContext, ...);
-
-    let agentLoopPromise = runAgentLoopToCompletion(agentDefinition, toolUseContext, ...);
-
-    // Race: complete normally or get backgrounded
-    let result = await Promise.race([
-        agentLoopPromise,
-        backgroundSignal
-    ]);
-
-    if (result?.type === "background") {
-        // Transition to background; agent keeps running
-        return {
-            status: "async_launched",
-            agentId: taskEntry.agentId,
-            outputFile: taskEntry.outputFilePath
-        };
+function generateTaskId(taskType) {
+    // Get prefix for task type (b=bash, a=agent, r=remote, t=teammate, w=workflow)
+    let prefix = getTaskTypePrefix(taskType);  // k$3
+    // Generate 8 random bytes
+    let randomBytes = crypto.randomBytes(8);    // N$3
+    // Build ID: prefix + 8 alphanumeric chars
+    let id = prefix;
+    for (let i = 0; i < 8; i++) {
+        id += ALPHANUMERIC[randomBytes[i] % ALPHANUMERIC.length];  // G97 = "0123456789abcdefghijklmnopqrstuvwxyz"
     }
-
-    // Normal completion
-    markTaskCompleted(taskEntry.taskId, result);
-    return { status: "completed", content: result.content, tokens: result.tokens };
+    return id;
 }
 
-// Mapping: wd7→createForegroundTask, Hd7→backgroundTask, zd7→createAsyncTask
+// Mapping: oV→generateTaskId, A→taskType, k$3→getTaskTypePrefix, N$3→crypto.randomBytes, G97→ALPHANUMERIC
+```
+
+### ID Prefixes
+
+| Task Type | Prefix | Example ID |
+|-----------|--------|------------|
+| local_bash | b | b3f8c2e1 |
+| local_agent | a | a4d5e6f7 |
+| remote_agent | r | r1a2b3c4 |
+| in_process_teammate | t | t5e6d7c8 |
+| local_workflow | w | w9f8e7d6 |
+
+---
+
+## createTaskEntry (RG)
+
+### What it does
+
+Creates a new task entry object with initial state set to "pending".
+
+### How it works
+
+```javascript
+// ============================================
+// createTaskEntry - Create new task entry with initial state
+// Location: chunks.41.mjs:2418-2429
+// ============================================
+
+// ORIGINAL (for source lookup):
+function RG(A, q, K, Y) {
+    return {
+        id: A,
+        type: q,
+        status: "pending",
+        description: K,
+        toolUseId: Y,
+        startTime: Date.now(),
+        outputFile: g2(A),
+        outputOffset: 0,
+        notified: !1
+    }
+}
+
+// READABLE (for understanding):
+function createTaskEntry(taskId, taskType, description, toolUseId) {
+    return {
+        id: taskId,
+        type: taskType,
+        status: "pending",
+        description: description,
+        toolUseId: toolUseId,
+        startTime: Date.now(),
+        outputFile: buildOutputFilePath(taskId),  // g2
+        outputOffset: 0,
+        notified: false
+    };
+}
+
+// Mapping: RG→createTaskEntry, A→taskId, q→taskType, K→description, Y→toolUseId, g2→buildOutputFilePath
 ```
 
 ---
 
-## createAsyncTask (zd7)
+## registerTask (Zf)
 
 ### What it does
 
-Creates a background task entry in the task registry and launches the agent loop as a detached (non-blocking) Promise.
+Registers a task in the application state and emits a task_started system reminder.
 
 ### How it works
 
-1. **Task Entry Creation:** Registers the task with status "running" and an output file path
-2. **Detached Launch:** Calls `agentLoopRunner` in a Promise that is NOT awaited by the caller
-3. **Output File:** All agent output is written to the output file; the caller polls this file for results
-4. **Return Immediately:** Returns `{ status: "async_launched", agentId, outputFile }` to the caller
-
 ```javascript
 // ============================================
-// createAsyncTask - Background task launch
-// Location: chunks.89.mjs:1447
+// registerTask - Register task in state and emit notification
+// Location: chunks.90.mjs:3019-3034
 // ============================================
 
-// READABLE (for understanding):
-function createAsyncTask(agentDefinition, toolUseContext, ...) {
-    let taskId = generateTaskId();
-    let agentId = generateAgentId();
-    let outputFilePath = buildOutputFilePath(agentId);
-
-    // Register in task map
-    globalTaskMap.set(taskId, {
-        taskId,
-        agentId,
-        status: "running",
-        outputFilePath,
-        createdAt: Date.now(),
-        abortController: new AbortController()
-    });
-
-    // Launch detached - caller does NOT await this
-    (async () => {
-        try {
-            for await (let event of agentLoopRunner({ agentDefinition, toolUseContext, ... })) {
-                await appendToOutputFile(outputFilePath, event);
-            }
-            markTaskCompleted(taskId, { outputFilePath });
-        } catch (err) {
-            markTaskFailed(taskId, err);
+// ORIGINAL (for source lookup):
+function Zf(A, q) {
+    q((K) => ({
+        ...K,
+        tasks: {
+            ...K.tasks,
+            [A.id]: A
         }
-    })();
-
-    return { status: "async_launched", agentId, outputFile: outputFilePath };
+    })), c36({
+        type: "system",
+        subtype: "task_started",
+        task_id: A.id,
+        tool_use_id: A.toolUseId,
+        description: A.description,
+        task_type: A.type,
+        prompt: "prompt" in A ? A.prompt : void 0
+    })
 }
 
-// Mapping: zd7→createAsyncTask
+// READABLE (for understanding):
+function registerTask(taskEntry, setAppState) {
+    // Add task to state
+    setAppState((state) => ({
+        ...state,
+        tasks: {
+            ...state.tasks,
+            [taskEntry.id]: taskEntry
+        }
+    }));
+
+    // Emit system reminder for task started
+    emitSystemReminder({
+        type: "system",
+        subtype: "task_started",
+        task_id: taskEntry.id,
+        tool_use_id: taskEntry.toolUseId,
+        description: taskEntry.description,
+        task_type: taskEntry.type,
+        prompt: "prompt" in taskEntry ? taskEntry.prompt : undefined
+    });
+}
+
+// Mapping: Zf→registerTask, A→taskEntry, q→setAppState, c36→emitSystemReminder
 ```
+
+**Key insight:** Task registration is a two-step process: first update the state, then emit a system reminder. This ensures the UI can react to the new task immediately.
 
 ---
 
-## Mid-Run Backgrounding (Hd7)
+## atomicUpdateTask (i9)
 
 ### What it does
 
-Provides the mechanism for transitioning a foreground task to background execution without restarting the agent.
+Atomically updates a specific task's state using a transformer function. This is the core function for all task state modifications.
 
 ### How it works
 
-1. The backgrounding signal is a Promise that resolves when the user requests backgrounding
-2. When `Promise.race` resolves with the backgrounding signal, the foreground task handler exits
-3. The agent loop's Promise continues running in the background (it was never cancelled)
-4. The output is redirected from the foreground response stream to the output file
-
-**Key insight:** The agent loop Promise started in `createForegroundTask` is still running after backgrounding. The only change is where its output goes. This is why the transition is "zero-loss" - no state is duplicated or restarted.
-
 ```javascript
 // ============================================
-// backgroundTask - Mid-run backgrounding signal
-// Location: chunks.89.mjs
+// atomicUpdateTask - Generic task state updater
+// Location: chunks.90.mjs:3003-3016
 // ============================================
 
+// ORIGINAL (for source lookup):
+function i9(A, q, K) {
+    q((Y) => {
+        let z = Y.tasks?.[A];
+        if (!z) return Y;
+        let _ = K(z);
+        if (_ === z) return Y;
+        return {
+            ...Y,
+            tasks: {
+                ...Y.tasks,
+                [A]: _
+            }
+        }
+    })
+}
+
 // READABLE (for understanding):
-function createBackgroundingSignal(taskId) {
-    return new Promise((resolve) => {
-        // Listen for user "background this task" action
-        registerBackgroundingListener(taskId, () => {
-            resolve({ type: "background" });
-        });
+function atomicUpdateTask(taskId, setAppState, transformer) {
+    setAppState((state) => {
+        let task = state.tasks?.[taskId];
+        if (!task) return state;  // Task not found, no change
+
+        let updatedTask = transformer(task);
+        if (updatedTask === task) return state;  // No actual change
+
+        return {
+            ...state,
+            tasks: {
+                ...state.tasks,
+                [taskId]: updatedTask
+            }
+        };
     });
 }
+
+// Mapping: i9→atomicUpdateTask, A→taskId, q→setAppState, K→transformer
 ```
+
+### Usage Patterns
+
+```javascript
+// Mark task as running
+atomicUpdateTask(taskId, setAppState, (task) => ({
+    ...task,
+    status: "running"
+}));
+
+// Mark task as completed
+atomicUpdateTask(taskId, setAppState, (task) => ({
+    ...task,
+    status: "completed",
+    endTime: Date.now()
+}));
+
+// Update progress message
+atomicUpdateTask(taskId, setAppState, (task) => ({
+    ...task,
+    progressMessage: "Processing file 5/10"
+}));
+```
+
+**Why this approach:** The atomic update pattern ensures:
+1. **Immutability** - State is never mutated directly
+2. **Optimization** - Returns unchanged state if transformer returns same object
+3. **Safety** - Missing tasks don't cause errors
+4. **Consistency** - All task updates go through the same path
 
 ---
 
-## Task Completion
+## removeTask (VR)
 
-### markTaskCompleted (yjA)
+### What it does
 
-**What it does:** Marks a task as completed and notifies listeners.
-
-**v2.1.76 change:** Completion notification now includes `outputFilePath` when the task has an output file.
-
-```javascript
-// ============================================
-// markTaskCompleted - Mark task as completed
-// Location: chunks.89.mjs:1422
-// ============================================
-
-// READABLE (for understanding):
-function markTaskCompleted(taskId, result) {
-    atomicUpdateTask(taskId, (task) => ({
-        ...task,
-        status: "completed",
-        completedAt: Date.now(),
-        // v2.1.76: outputFilePath included when present
-        outputFilePath: result.outputFilePath ?? task.outputFilePath,
-        summary: result.summary
-    }));
-
-    notifyTaskListeners(taskId, { type: "completed", outputFilePath: task.outputFilePath });
-    runCleanupFunctions(taskId);
-}
-
-// Mapping: yjA→markTaskCompleted, c5→atomicUpdateTask
-```
-
-### markTaskFailed (CjA)
-
-**What it does:** Marks a task as failed with an error reason.
-
-```javascript
-// ============================================
-// markTaskFailed - Mark task as failed
-// Location: chunks.89.mjs:1435
-// ============================================
-
-// READABLE (for understanding):
-function markTaskFailed(taskId, error) {
-    atomicUpdateTask(taskId, (task) => ({
-        ...task,
-        status: "failed",
-        completedAt: Date.now(),
-        errorMessage: error.message,
-        errorCode: error.code
-    }));
-
-    notifyTaskListeners(taskId, { type: "failed", error });
-    runCleanupFunctions(taskId);
-}
-
-// Mapping: CjA→markTaskFailed
-```
-
----
-
-## Task Killing
-
-### killTask (na)
-
-**What it does:** Kills a running task by aborting its AbortController and running cleanup.
+Removes a completed task from the state registry. Only removes tasks that are in a terminal state and have been notified.
 
 ### How it works
 
-1. Look up task in global task Map
-2. Call `task.abortController.abort()` - propagates to LLM requests and tool executions
-3. Wait for the agent loop to finish processing the abort (yield the event loop once)
-4. Run cleanup functions
-5. Remove from task map via `removeTask`
+```javascript
+// ============================================
+// removeTask - Remove completed task from registry
+// Location: chunks.90.mjs:3037-3050
+// ============================================
 
-**Three-layer cleanup:**
-1. **Global set** (`vR6`): tracks all active tasks for session-level cleanup
-2. **Task-level**: runs cleanup functions registered during task creation
-3. **Map-level**: removes the task entry from the global task Map
+// ORIGINAL (for source lookup):
+function VR(A, q) {
+    q((K) => {
+        let Y = K.tasks?.[A];
+        if (!Y) return K;
+        if (!LJ6(Y.status)) return K;
+        if (!Y.notified) return K;
+        let {
+            [A]: z, ..._
+        } = K.tasks;
+        return {
+            ...K,
+            tasks: _
+        }
+    })
+}
+
+// READABLE (for understanding):
+function removeTask(taskId, setAppState) {
+    setAppState((state) => {
+        let task = state.tasks?.[taskId];
+        if (!task) return state;
+
+        // Only remove terminal tasks that have been notified
+        if (!isTerminalTaskStatus(task.status)) return state;  // LJ6
+        if (!task.notified) return state;
+
+        // Destructure to remove task from tasks object
+        let { [taskId]: removed, ...remainingTasks } = state.tasks;
+        return {
+            ...state,
+            tasks: remainingTasks
+        };
+    });
+}
+
+// Mapping: VR→removeTask, A→taskId, q→setAppState, LJ6→isTerminalTaskStatus
+```
+
+**Why the guards:** Tasks can only be removed if:
+1. They exist in the registry
+2. They are in a terminal state (completed, failed, killed)
+3. They have been notified (user has seen the result)
+
+This prevents premature removal of running tasks or hiding results the user hasn't seen.
+
+---
+
+## isTerminalTaskStatus (LJ6)
+
+### What it does
+
+Checks if a task status represents a terminal (final) state.
+
+### How it works
 
 ```javascript
 // ============================================
-// killTask - Kill a running task
-// Location: chunks.89.mjs:1376
+// isTerminalTaskStatus - Check if status is terminal
+// Location: chunks.41.mjs:2402-2404
 // ============================================
 
-// READABLE (for understanding):
-async function killTask(taskId) {
-    let task = globalTaskMap.get(taskId);
-    if (!task) return;
-
-    // Layer 1: Signal abort to agent loop and all sub-operations
-    task.abortController.abort();
-
-    // Layer 2: Run task-level cleanup functions
-    for (let cleanupFn of task.cleanupFns) {
-        try { cleanupFn(); } catch {} // Best-effort cleanup
-    }
-
-    // Layer 3: Remove from registry
-    globalActiveTaskSet.delete(taskId);
-    globalTaskMap.delete(taskId);
+// ORIGINAL (for source lookup):
+function LJ6(A) {
+    return A === "completed" || A === "failed" || A === "killed"
 }
 
-// Mapping: na→killTask, $d7→removeTask, vR6→globalActiveTaskSet
+// READABLE (for understanding):
+function isTerminalTaskStatus(status) {
+    return status === "completed" || status === "failed" || status === "killed";
+}
+
+// Mapping: LJ6→isTerminalTaskStatus, A→status
+```
+
+**Terminal states:**
+- `completed` - Task finished successfully
+- `failed` - Task encountered an error
+- `killed` - Task was manually terminated
+
+Non-terminal states (`pending`, `running`, `backgrounded`) are not terminal.
+
+---
+
+## getRunningTasks (EV8)
+
+### What it does
+
+Returns all tasks currently in the "running" state.
+
+### How it works
+
+```javascript
+// ============================================
+// getRunningTasks - Get all running tasks
+// Location: chunks.90.mjs:3053-3056
+// ============================================
+
+// ORIGINAL (for source lookup):
+function EV8(A) {
+    let q = A.tasks ?? {};
+    return Object.values(q).filter((K) => K.status === "running")
+}
+
+// READABLE (for understanding):
+function getRunningTasks(appState) {
+    let tasks = appState.tasks ?? {};
+    return Object.values(tasks).filter((task) => task.status === "running");
+}
+
+// Mapping: EV8→getRunningTasks, A→appState
+```
+
+**Use case:** Used to determine which tasks need progress polling, and to check if any tasks need cleanup on session exit.
+
+---
+
+## pollTaskOutputs (wY4)
+
+### What it does
+
+Polls all running tasks' output files and returns attachments, updated offsets, and IDs of tasks that should be evicted.
+
+### How it works
+
+```javascript
+// ============================================
+// pollTaskOutputs - Poll task output files
+// Location: chunks.90.mjs:3058-3084
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function wY4(A) {
+    let q = [],
+        K = {},
+        Y = [],
+        z = A.tasks ?? {};
+    for (let _ of Object.values(z)) {
+        if (_.notified) switch (_.status) {
+            case "completed":
+            case "failed":
+            case "killed":
+                Y.push(_.id);
+                continue;
+            case "pending":
+                continue;
+            case "running":
+                break
+        }
+        if (_.status === "running") {
+            let w = await Z97(_.id, _.outputOffset);
+            if (w.content) K[_.id] = w.newOffset
+        }
+    }
+    return {
+        attachments: q,
+        updatedTaskOffsets: K,
+        evictedTaskIds: Y
+    }
+}
+
+// READABLE (for understanding):
+async function pollTaskOutputs(appState) {
+    let attachments = [];
+    let updatedTaskOffsets = {};
+    let evictedTaskIds = [];
+    let tasks = appState.tasks ?? {};
+
+    for (let task of Object.values(tasks)) {
+        // Skip tasks that have been notified and are in terminal state
+        if (task.notified) {
+            switch (task.status) {
+                case "completed":
+                case "failed":
+                case "killed":
+                    evictedTaskIds.push(task.id);
+                    continue;
+                case "pending":
+                    continue;
+                case "running":
+                    break;
+            }
+        }
+
+        // Poll running tasks for new output
+        if (task.status === "running") {
+            let result = await readTaskOutput(task.id, task.outputOffset);  // Z97
+            if (result.content) {
+                updatedTaskOffsets[task.id] = result.newOffset;
+            }
+        }
+    }
+
+    return {
+        attachments,
+        updatedTaskOffsets,
+        evictedTaskIds
+    };
+}
+
+// Mapping: wY4→pollTaskOutputs, A→appState, Z97→readTaskOutput
+```
+
+**Key insight:** This function is called periodically to:
+1. Check for new output from running tasks
+2. Identify completed tasks that can be evicted from the registry
+3. Track output file offsets for incremental reads
+
+---
+
+## killLocalBashTask (wQ6)
+
+### What it does
+
+Kills a local bash task by terminating its shell process and marking it as killed.
+
+### How it works
+
+```javascript
+// ============================================
+// killLocalBashTask - Kill local bash task
+// Location: chunks.95.mjs:1918-1936
+// ============================================
+
+// ORIGINAL (for source lookup):
+function wQ6(A, q) {
+    i9(A, q, (K) => {
+        if (K.status !== "running" || !Gf(K)) return K;
+        try {
+            k(`LocalBashTask ${A} kill requested`), K.shellCommand?.kill(), K.shellCommand?.cleanup()
+        } catch (Y) {
+            _6(Y)
+        }
+        if (K.unregisterCleanup?.(), K.cleanupTimeoutId) clearTimeout(K.cleanupTimeoutId);
+        return {
+            ...K,
+            status: "killed",
+            shellCommand: null,
+            unregisterCleanup: void 0,
+            cleanupTimeoutId: void 0,
+            endTime: Date.now()
+        }
+    }), $O(A)
+}
+
+// READABLE (for understanding):
+function killLocalBashTask(taskId, setAppState) {
+    atomicUpdateTask(taskId, setAppState, (task) => {
+        // Only kill running bash tasks
+        if (task.status !== "running" || !isBashTask(task)) return task;
+
+        try {
+            log(`LocalBashTask ${taskId} kill requested`);
+            task.shellCommand?.kill();
+            task.shellCommand?.cleanup();
+        } catch (err) {
+            reportError(err);  // _6
+        }
+
+        // Run cleanup functions
+        task.unregisterCleanup?.();
+        if (task.cleanupTimeoutId) clearTimeout(task.cleanupTimeoutId);
+
+        return {
+            ...task,
+            status: "killed",
+            shellCommand: null,
+            unregisterCleanup: undefined,
+            cleanupTimeoutId: undefined,
+            endTime: Date.now()
+        };
+    });
+
+    // Flush output file
+    flushOutputFile(taskId);  // $O
+}
+
+// Mapping: wQ6→killLocalBashTask, i9→atomicUpdateTask, Gf→isBashTask, k→log, _6→reportError, $O→flushOutputFile
+```
+
+**Cleanup steps:**
+1. Kill the shell process
+2. Run shell cleanup handlers
+3. Clear cleanup timeout
+4. Flush output file
+5. Update task status to "killed"
+
+---
+
+## killBashTasksForAgent (t24)
+
+### What it does
+
+Kills all bash tasks belonging to a specific agent. Used when an agent exits to clean up orphaned bash tasks.
+
+### How it works
+
+```javascript
+// ============================================
+// killBashTasksForAgent - Kill all bash tasks for an agent
+// Location: chunks.95.mjs:1938-1941
+// ============================================
+
+// ORIGINAL (for source lookup):
+function t24(A, q, K) {
+    let Y = q().tasks ?? {};
+    for (let [z, _] of Object.entries(Y))
+        if (Gf(_) && _.agentId === A && _.status === "running") k(`killBashTasksForAgent: killing orphaned bash task ${z} (agent ${A} exiting)`), wQ6(z, K)
+}
+
+// READABLE (for understanding):
+function killBashTasksForAgent(agentId, getAppState, setAppState) {
+    let tasks = getAppState().tasks ?? {};
+
+    for (let [taskId, task] of Object.entries(tasks)) {
+        // Find running bash tasks for this agent
+        if (isBashTask(task) && task.agentId === agentId && task.status === "running") {
+            log(`killBashTasksForAgent: killing orphaned bash task ${taskId} (agent ${agentId} exiting)`);
+            killLocalBashTask(taskId, setAppState);  // wQ6
+        }
+    }
+}
+
+// Mapping: t24→killBashTasksForAgent, A→agentId, q→getAppState, K→setAppState, Gf→isBashTask, wQ6→killLocalBashTask
+```
+
+**Use case:** When an agent loop exits (normally or abnormally), any bash tasks it spawned should be terminated to prevent orphaned processes.
+
+---
+
+## Task Creation Flow
+
+The complete flow for creating a new task:
+
+```
+1. generateTaskId(taskType)
+   └── Returns prefixed unique ID (e.g., "b3f8c2e1")
+
+2. createTaskEntry(taskId, taskType, description, toolUseId)
+   └── Returns task object with status="pending"
+
+3. registerTask(taskEntry, setAppState)
+   └── Adds to state.tasks
+   └── Emits "task_started" system reminder
+
+4. atomicUpdateTask(taskId, setAppState, (task) => ({...task, status: "running"}))
+   └── Changes status to running when task starts execution
 ```
 
 ---
 
-## Task Creation Schema Changes (v2.1.76)
+## Task Completion Flow
 
-### Removed: activeForm Field
+When a task completes:
 
-In v2.1.38 and earlier, task creation required an `activeForm` field that described the UI state associated with the task. In v2.1.76, this field has been removed from the required schema.
-
-**Before (v2.1.38):**
-```typescript
-interface CreateTaskInput {
-    taskId: string;
-    agentId: string;
-    activeForm: FormState;  // Required in v2.1.38
-    description?: string;
-}
 ```
+1. atomicUpdateTask(taskId, setAppState, (task) => ({
+       ...task,
+       status: "completed",  // or "failed"
+       endTime: Date.now(),
+       summary: result.summary
+   }))
 
-**After (v2.1.76):**
-```typescript
-interface CreateTaskInput {
-    taskId: string;
-    agentId: string;
-    // activeForm removed
-    description?: string;
-}
+2. Set task.notified = true after user sees result
+
+3. removeTask(taskId, setAppState)
+   └── Removes from registry (only if terminal + notified)
 ```
-
-**Why this change:** The `activeForm` field was a UI concern leaking into the task management layer. Removing it decouples task lifecycle from UI state, making task creation simpler and the system easier to use from non-interactive contexts (background agents, programmatic API).
 
 ---
 
 ## Design Rationale
 
-### Why Promise.race for Backgrounding?
+### Why Atomic Updates?
 
-**Alternative:** Poll a flag in the agent loop to check if backgrounding has been requested.
+The atomic update pattern (`i9`) provides:
+1. **Immutability** - State never mutated directly
+2. **Optimization** - Early return if no change
+3. **Safety** - Missing tasks don't cause errors
+4. **Consistency** - All updates go through one path
 
-**Chosen approach:** `Promise.race` between the agent loop and a backgrounding signal.
+### Why Type-Prefixed Task IDs?
 
-**Why:** Promise.race provides a clean, non-invasive way to interrupt waiting. The agent loop doesn't need to know about backgrounding at all - it continues running regardless. The `createForegroundTask` wrapper is responsible for deciding how to handle the output once backgrounding occurs.
+Task IDs like `b3f8c2e1` or `a4d5e6f7` make debugging easier:
+- Logs show task type at a glance
+- Easier to correlate with agent vs bash operations
+- Visual distinction in output files
 
-### Why Detached Promises for Background Tasks?
+### Why Notified Guard on Removal?
 
-Background tasks are launched as detached Promises (not awaited). This means:
-1. The caller returns immediately with `{ status: "async_launched" }`
-2. The agent loop runs independently until completion
-3. Errors in the agent loop are caught and written to the task state (not propagated to caller)
+Tasks must be both terminal AND notified before removal:
+- Prevents hiding results the user hasn't seen
+- Ensures completion messages reach the UI
+- Allows re-polling for attachments after notification
 
-**Risk:** Unhandled Promise rejections. This is mitigated by the `try/catch` wrapper in `createAsyncTask` that catches all errors and calls `markTaskFailed`.
+---
 
-### Why Three-Layer Cleanup?
+## Related Documentation
 
-The three-layer cleanup (global set → task-level functions → map removal) ensures:
-1. **Session teardown** - The global set allows the session to kill all tasks on exit
-2. **Resource cleanup** - Task-level functions handle resources allocated during task execution (worktrees, temp files)
-3. **Registry hygiene** - Map removal prevents memory leaks from accumulated task entries
+- [execution_flow_deep_dive.md](./execution_flow_deep_dive.md) - Agent loop execution
+- [communication_and_coordination.md](./communication_and_coordination.md) - Mailbox system
+- [transcript_and_resume_system.md](./transcript_and_resume_system.md) - Transcript persistence

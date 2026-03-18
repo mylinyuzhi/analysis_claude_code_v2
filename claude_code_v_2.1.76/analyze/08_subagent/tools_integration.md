@@ -10,12 +10,15 @@ This document covers tool set assembly for subagents, the tool whitelists for di
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `assembleSessionToolSet` (YP6) - Main tool set assembly - chunks.141.mjs:1476
 - `deriveToolUseContext` (Bc6) - Create isolated context for subagent - chunks.148.mjs:1978
 - `filterToolsForSubagent` (Xk8) - Filter tools based on agent type - chunks.93.mjs:1568
 - `applyToolFilters` (_c) - Apply whitelist/blacklist - chunks.93.mjs:1590
 
-> **Note:** Previous documentation incorrectly mapped `vQ1` as `deriveToolUseContext`. The actual symbol is `Bc6` (chunks.148.mjs:1978).
+> **CORRECTIONS:**
+> 1. `YP6` was incorrectly documented as `assembleSessionToolSet`. The actual `YP6` (chunks.69.mjs:235) is
+>    the `debug` library's namespace function (used for logging). Tool set assembly is performed inline
+>    in the agent loop runner using `Xk8` (filterToolsForSubagent) and `_c` (applyToolFilters).
+> 2. `vQ1` was incorrectly documented as `deriveToolUseContext`. The actual symbol is `Bc6` (chunks.148.mjs:1978).
 
 ---
 
@@ -324,38 +327,41 @@ function filterToolsForSubagent({
 
 ---
 
-## assembleSessionToolSet (YP6)
+## Tool Set Assembly
 
-Builds the complete, filtered tool set for the subagent based on the agent definition's tool configuration and the parent's permission context.
+Tool set assembly for subagents is performed inline in the agent loop runner (`qh` / `agentLoopRunner`) using the filtering functions `Xk8` and `_c`:
 
 ```javascript
 // ============================================
-// assembleSessionToolSet - Tool assembly for subagent
-// Location: chunks.141.mjs:1476
+// Tool assembly flow (in agentLoopRunner)
+// Location: chunks.133.mjs (agent loop), chunks.93.mjs:1590 (applyToolFilters)
 // ============================================
 
 // READABLE (for understanding):
-async function assembleSessionToolSet(toolUseContext, agentDefinition) {
-    // Start with all available tools
-    let allTools = getAvailableTools(toolUseContext);
+async function assembleToolSetForAgent(toolUseContext, agentDefinition, isAsync, permissionMode) {
+    // Get all available tools from context
+    let allTools = toolUseContext.options.tools;
 
-    // Apply tool whitelist if defined
-    if (agentDefinition.tools && agentDefinition.tools.length > 0) {
-        allTools = allTools.filter(t => agentDefinition.tools.includes(t.name));
-    }
+    // First pass: filter by agent type (built-in vs custom, async vs sync)
+    let filteredTools = filterToolsForSubagent({
+        tools: allTools,
+        isBuiltIn: agentDefinition.isBuiltIn,
+        isAsync: isAsync,
+        permissionMode: permissionMode
+    });  // Xk8
 
-    // Apply tool blacklist
-    if (agentDefinition.disallowedTools && agentDefinition.disallowedTools.length > 0) {
-        allTools = allTools.filter(t => !agentDefinition.disallowedTools.includes(t.name));
-    }
+    // Second pass: apply agent definition's whitelist/blacklist
+    let result = applyToolFilters({
+        tools: agentDefinition.tools,
+        disallowedTools: agentDefinition.disallowedTools,
+        source: agentDefinition.source,
+        permissionMode: permissionMode
+    }, filteredTools, isAsync);  // _c
 
-    // Filter by MCP server availability
-    allTools = filterByMcpAvailability(allTools, toolUseContext);
-
-    return allTools;
+    return result.resolvedTools;
 }
 
-// Mapping: YP6→assembleSessionToolSet
+// Mapping: qh→agentLoopRunner, Xk8→filterToolsForSubagent, _c→applyToolFilters
 ```
 
 ---
@@ -397,4 +403,6 @@ Tools from MCP servers become unavailable if the server disconnects. Filtering t
 | D$$ | ALL_TOOLS_COMBINED | chunks.172.mjs:2502 | Ufq + LYz combined |
 | GY4 | ALL_SAFE_TOOLS | chunks.91.mjs:305 | Read, Write, Edit, Glob, Grep, Bash, NotebookEdit |
 | Xk8 | filterToolsForSubagent | chunks.93.mjs:1568 | Tool filtering function |
-| YP6 | assembleSessionToolSet | chunks.141.mjs:1476 | Tool set assembly |
+| _c | applyToolFilters | chunks.93.mjs:1590 | Whitelist/blacklist application |
+
+> **Note:** `YP6` is NOT a tool assembly function. It is the `debug` library's namespace function (chunks.69.mjs:235).

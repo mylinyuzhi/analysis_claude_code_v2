@@ -2,7 +2,7 @@
 
 ## Overview
 
-The skill system's core architecture handles discovery, loading, parsing, and registration of skills from multiple sources. The main entry point is `loadSkills` (ukA), which orchestrates the multi-source loading pipeline.
+The skill system's core architecture handles discovery, loading, parsing, and registration of skills from multiple sources. The main entry point is `getAllSkills` (I0), which orchestrates the multi-source loading pipeline.
 
 ## Related Symbols
 
@@ -10,22 +10,25 @@ The skill system's core architecture handles discovery, loading, parsing, and re
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `loadSkills` (ukA) - Main skill loading entry point, chunks.134.mjs:2059-2093
-- `createSkillObject` (dF4) - Skill object factory, chunks.134.mjs:1682-1756
-- `parseSkillHooks` (pF4) - Hook parsing from frontmatter, chunks.134.mjs:1663-1671
-- `parseConditionalPaths` (ZEY) - Path-based activation parsing, chunks.134.mjs:1673-1680
-- `registerPromptSkill` (Sj) - Bundled skill registration, chunks.166.mjs:1795-1820
-- `getBundledSkills` (nHq) - Get bundled skill array, chunks.166.mjs:1822-1824
-- `loadSkillsFromDirectory` (oQ1) - Single directory skill loader, chunks.134.mjs:1758-1821
-- `loadLegacyCommands` (vEY) - Deprecated command loader, chunks.134.mjs:1873-1935
+- `getAllSkills` (I0) - Main skill loading entry point, chunks.168.mjs:2013
+- `getAllSkillsForTool` (NR) - Filtered for tool invocation, chunks.168.mjs:2029
+- `getSkills` (z5z) - Aggregates all skill sources, chunks.168.mjs:1815
+- `loadSkillDirCommands` (JV8) - Loads from skill directories, chunks.90.mjs:1577
+- `loadSkillsFromDirectory` (Zp6) - Single directory loader, chunks.90.mjs:1265
+- `loadLegacyCommands` (Fm9) - Deprecated command loader, chunks.90.mjs:1373
+- `createSkillObject` (v94) - Skill object factory, chunks.90.mjs:1185
+- `parseSkillHooks` (T94) - Hook parsing from frontmatter, chunks.90.mjs:1166
+- `parseSkillPaths` (xm9) - Path-based activation parsing, chunks.90.mjs:1176
+- `registerPromptSkill` (rw) - Bundled skill registration, chunks.165.mjs:2546
+- `getBundledSkills` (iPq) - Get bundled skill array, chunks.165.mjs:2589
 
 ---
 
 ## Skill Loading Pipeline
 
-### Main Entry Point: loadSkills (ukA)
+### Main Entry Point: loadSkillDirCommands (JV8)
 
-**What it does:** Discovers and loads skills from all configured sources, deduplicates by file inode, and separates conditional (paths-based) skills for lazy activation.
+**What it does:** Discovers and loads skills from skill directories, deduplicates by file inode, and separates conditional (paths-based) skills for lazy activation.
 
 **How it works:**
 1. Determine paths for managed, user, and project skill directories
@@ -33,7 +36,7 @@ Key functions in this document:
 3. Load legacy commands from `.claude/commands/` (deprecated)
 4. Deduplicate by file inode ID to avoid loading the same file twice via symlinks
 5. Separate skills into unconditional (immediate) and conditional (lazy) groups
-6. Return unconditional skills; store conditional skills in `aQ1` Map for later activation
+6. Return unconditional skills; store conditional skills in `VW6` Map for later activation
 
 **Why this approach:**
 - **Parallel loading** reduces startup time
@@ -44,88 +47,99 @@ Key functions in this document:
 
 ```javascript
 // ============================================
-// loadSkills - Main skill loading entry point
-// Location: chunks.134.mjs:2059-2093
+// loadSkillDirCommands - Main skill loading entry point
+// Location: chunks.90.mjs:1577-1619
 // ============================================
 
 // ORIGINAL (for source lookup):
-ukA = KA(async (A) => {
-    let q = Wt(O8(), "skills"),
-        K = Wt(df(), ".claude", "skills"),
-        Y = FkA("skills", A);
-    h(`Loading skills from: managed=${K}, user=${q}, project=[${Y.join(", ")}]`);
-    let [z, w, H] = await Promise.all([
-        oQ1(K, "policySettings"),
-        qX("userSettings") ? oQ1(q, "userSettings") : Promise.resolve([]),
-        qX("projectSettings") ? Promise.all(Y.map((W) => oQ1(W, "projectSettings"))) : Promise.resolve([])
-    ]),
-    $ = qC(), // Get additional project directories
-    O = qX("projectSettings") ? await Promise.all($.map((W) => oQ1(Wt(W, ".claude", "skills"), "projectSettings"))) : [],
-    _ = await vEY(A), // Load legacy commands
-    J = [...z, ...w, ...H.flat(), ...O.flat(), ..._],
-    X = new Map, // Inode deduplication map
-    D = [];
-    for (let { skill: W, filePath: G } of J) {
-        if (W.type !== "prompt") continue;
-        let f = GEY(G); // Get inode ID
-        if (f === null) { D.push(W); continue; }
-        let Z = X.get(f);
-        if (Z !== void 0) {
-            h(`Skipping duplicate skill '${W.name}' from ${W.source} (same file already loaded from ${Z})`);
+JV8 = e1(async (A) => {
+    let q = mt(c8(), "skills"),
+        K = mt(bW(), ".claude", "skills"),
+        Y = DV8("skills", A);
+    k(`Loading skills from: managed=${K}, user=${q}, project=[${Y.join(", ")}]`);
+    let z = XT(),
+        _ = SH("projectSettings"),
+        [w, O, $, H, j] = await Promise.all([
+            Zp6(K, "policySettings"),
+            SH("userSettings") ? Zp6(q, "userSettings") : Promise.resolve([]),
+            _ ? Promise.all(Y.map((G) => Zp6(G, "projectSettings"))) : Promise.resolve([]),
+            _ ? Promise.all(z.map((G) => Zp6(mt(G, ".claude", "skills"), "projectSettings"))) : Promise.resolve([]),
+            Fm9(A)
+        ]),
+        J = [...w, ...O, ...$.flat(), ...H.flat(), ...j],
+        M = await Promise.all(J.map(({ skill: G, filePath: f }) =>
+            G.type === "prompt" ? bm9(f) : Promise.resolve(null)
+        )),
+        D = new Map,
+        X = [];
+    for (let G = 0; G < J.length; G++) {
+        let f = J[G];
+        if (f === void 0 || f.skill.type !== "prompt") continue;
+        let { skill: v } = f, N = M[G];
+        if (N === null || N === void 0) { X.push(v); continue; }
+        let V = D.get(N);
+        if (V !== void 0) {
+            k(`Skipping duplicate skill '${v.name}' from ${v.source} (same file already loaded from ${V})`);
             continue;
         }
-        X.set(f, W.source), D.push(W)
+        D.set(N, v.source), X.push(v)
     }
-    let j = J.length - D.length;
-    if (j > 0) h(`Deduplicated ${j} skills (same file)`);
+    let P = J.length - X.length;
+    if (P > 0) k(`Deduplicated ${P} skills (same file)`);
 
     // Separate conditional and unconditional skills
-    let M = [], P = [];
-    for (let W of D)
-        if (W.type === "prompt" && W.paths && W.paths.length > 0 && !BkA.has(W.name))
-            P.push(W); // Conditional
-        else M.push(W); // Unconditional
+    let W = [], Z = [];
+    for (let G of X)
+        if (G.type === "prompt" && G.paths && G.paths.length > 0 && !IP1.has(G.name))
+            Z.push(G); // Conditional
+        else W.push(G); // Unconditional
 
-    for (let W of P) aQ1.set(W.name, W); // Store conditional skills
-    if (P.length > 0) h(`[skills] ${P.length} conditional skills stored (activated when matching files are touched)`);
+    for (let G of Z) VW6.set(G.name, G); // Store conditional skills
+    if (Z.length > 0) k(`[skills] ${Z.length} conditional skills stored (activated when matching files are touched)`);
 
-    return h(`Loaded ${D.length} unique skills (${M.length} unconditional, ${P.length} conditional, ...)`), M
+    return k(`Loaded ${X.length} unique skills (${W.length} unconditional, ${Z.length} conditional, ...)`), W
 });
 
 // READABLE (for understanding):
-loadSkills = memoizeAsync(async (sessionContext) => {
-    let managedSkillsDir = joinPath(getClaudeDir(), "skills"),
-        userSkillsDir = joinPath(getHomeDir(), ".claude", "skills"),
+loadSkillDirCommands = memoizeAsync(async (sessionContext) => {
+    let userSkillsDir = joinPath(getHomeDir(), "skills"),
+        managedSkillsDir = joinPath(getClaudeDir(), ".claude", "skills"),
         projectSkillsDirs = getProjectSkillDirectories(sessionContext);
 
     log(`Loading skills from: managed=${managedSkillsDir}, user=${userSkillsDir}, project=[${projectSkillsDirs.join(", ")}]`);
 
-    // Parallel load from all sources
-    let [managedSkills, userSkills, projectSkills] = await Promise.all([
-        loadSkillsFromDirectory(managedSkillsDir, "policySettings"),
-        isUserSettingsEnabled() ? loadSkillsFromDirectory(userSkillsDir, "userSettings") : Promise.resolve([]),
-        isProjectSettingsEnabled() ? Promise.all(projectSkillsDirs.map(dir => loadSkillsFromDirectory(dir, "projectSettings"))) : Promise.resolve([])
-    ]);
-
-    // Load from additional project directories
     let additionalDirs = getAdditionalProjectDirs();
-    let additionalSkills = isProjectSettingsEnabled() ? await Promise.all(
-        additionalDirs.map(dir => loadSkillsFromDirectory(joinPath(dir, ".claude", "skills"), "projectSettings"))
-    ) : [];
+    let isProjectSettingsEnabled = checkSettingsEnabled("projectSettings");
 
-    // Load legacy commands (deprecated)
-    let legacyCommands = await loadLegacyCommands(sessionContext);
+    // Parallel load from all sources
+    let [managedSkills, userSkills, projectSkills, additionalSkills, legacyCommands] = await Promise.all([
+        loadSkillsFromDirectory(managedSkillsDir, "policySettings"),
+        checkSettingsEnabled("userSettings") ? loadSkillsFromDirectory(userSkillsDir, "userSettings") : Promise.resolve([]),
+        isProjectSettingsEnabled ? Promise.all(projectSkillsDirs.map(dir => loadSkillsFromDirectory(dir, "projectSettings"))) : Promise.resolve([]),
+        isProjectSettingsEnabled ? Promise.all(additionalDirs.map(dir => loadSkillsFromDirectory(joinPath(dir, ".claude", "skills"), "projectSettings"))) : Promise.resolve([]),
+        loadLegacyCommands(sessionContext)
+    ]);
 
     // Merge all sources
     let allSkills = [...managedSkills, ...userSkills, ...projectSkills.flat(), ...additionalSkills.flat(), ...legacyCommands];
 
+    // Get inode IDs for deduplication
+    let inodeIds = await Promise.all(allSkills.map(({ skill, filePath }) =>
+        skill.type === "prompt" ? getFileInode(filePath) : Promise.resolve(null)
+    ));
+
     // Deduplicate by inode
     let inodeMap = new Map();
     let uniqueSkills = [];
-    for (let { skill, filePath } of allSkills) {
-        if (skill.type !== "prompt") continue;
-        let inodeId = getFileInode(filePath);
-        if (inodeId === null) { uniqueSkills.push(skill); continue; }
+    for (let i = 0; i < allSkills.length; i++) {
+        let entry = allSkills[i];
+        if (entry === void 0 || entry.skill.type !== "prompt") continue;
+        let { skill } = entry;
+        let inodeId = inodeIds[i];
+        if (inodeId === null || inodeId === void 0) {
+            uniqueSkills.push(skill);
+            continue;
+        }
         let existingSource = inodeMap.get(inodeId);
         if (existingSource !== void 0) {
             log(`Skipping duplicate skill '${skill.name}' from ${skill.source} (same file already loaded from ${existingSource})`);
@@ -139,7 +153,7 @@ loadSkills = memoizeAsync(async (sessionContext) => {
     let unconditionalSkills = [];
     let conditionalSkills = [];
     for (let skill of uniqueSkills) {
-        if (skill.type === "prompt" && skill.paths && skill.paths.length > 0 && !activatedConditionalSkills.has(skill.name)) {
+        if (skill.type === "prompt" && skill.paths && skill.paths.length > 0 && !hiddenSkillNames.has(skill.name)) {
             conditionalSkills.push(skill);
         } else {
             unconditionalSkills.push(skill);
@@ -148,15 +162,16 @@ loadSkills = memoizeAsync(async (sessionContext) => {
 
     // Store conditional skills for lazy activation
     for (let skill of conditionalSkills) {
-        conditionalSkillRegistry.set(skill.name, skill);
+        conditionalSkillsMap.set(skill.name, skill);
     }
 
     return unconditionalSkills;
 });
 
-// Mapping: ukA→loadSkills, KA→memoizeAsync, O8→getClaudeDir, df→getHomeDir, FkA→getProjectSkillDirectories,
-// oQ1→loadSkillsFromDirectory, qX→isSettingsEnabled, vEY→loadLegacyCommands, GEY→getFileInode,
-// aQ1→conditionalSkillRegistry, BkA→activatedConditionalSkills, Pt→skillRegistry
+// Mapping: JV8→loadSkillDirCommands, e1→memoizeAsync, mt→joinPath, c8→getHomeDir, bW→getClaudeDir,
+// DV8→getProjectSkillDirectories, XT→getAdditionalProjectDirs, SH→checkSettingsEnabled,
+// Zp6→loadSkillsFromDirectory, Fm9→loadLegacyCommands, bm9→getFileInode, VW6→conditionalSkillsMap,
+// IP1→hiddenSkillNames, k→log
 ```
 
 ### Skill Loading Sources
@@ -164,8 +179,8 @@ loadSkills = memoizeAsync(async (sessionContext) => {
 | Source | Priority | Directory | Settings Check |
 |--------|----------|-----------|----------------|
 | Managed | Lowest | `~/.claude/skills/` | Always loaded |
-| User | Medium | `~/.claude/skills/` | `qX("userSettings")` |
-| Project | Highest | `.claude/skills/` | `qX("projectSettings")` |
+| User | Medium | `~/skills/` | `SH("userSettings")` |
+| Project | Highest | `.claude/skills/` | `SH("projectSettings")` |
 | Legacy Commands | N/A | `.claude/commands/` | Always loaded |
 
 **Why this priority order:** Project-specific skills should override user/managed skills, allowing teams to customize behavior per-project while maintaining a fallback to shared skills.
@@ -174,7 +189,7 @@ loadSkills = memoizeAsync(async (sessionContext) => {
 
 ## Skill Object Creation
 
-### createSkillObject (dF4)
+### createSkillObject (v94)
 
 **What it does:** Factory function that creates a standardized skill object from parsed frontmatter and content.
 
@@ -197,7 +212,7 @@ loadSkills = memoizeAsync(async (sessionContext) => {
 ```javascript
 // ============================================
 // createSkillObject - Factory function for skill objects
-// Location: chunks.134.mjs:1682-1756
+// Location: chunks.90.mjs:1185-1262
 // ============================================
 
 // ORIGINAL (for source lookup):

@@ -952,7 +952,7 @@ function resolveModelConfig(agentDefinitionModel, sessionModel, perInvocationMod
 ```javascript
 // ============================================
 // generateAgentId - Unique agent ID generator
-// Location: chunks.133.mjs:1590
+// Location: chunks.93.mjs:1557
 // ============================================
 
 // Mapping: bI→generateAgentId
@@ -965,7 +965,7 @@ function resolveModelConfig(agentDefinitionModel, sessionModel, perInvocationMod
 ```javascript
 // ============================================
 // cloneMap - Map cloning utility
-// Location: chunks.133.mjs:1597
+// Location: chunks.84.mjs:65
 // ============================================
 
 // READABLE (for understanding):
@@ -1078,7 +1078,7 @@ async function buildAgentSystemPrompt(agentDefinition, toolUseContext, resolvedM
 ```javascript
 // ============================================
 // registerAgentHooks - Hook registration for agent
-// Location: chunks.133.mjs:1647
+// Location: chunks.95.mjs:1842
 // ============================================
 
 // READABLE (for understanding):
@@ -1239,6 +1239,92 @@ async function* executeSubagentStartHooks(agentId, agentType, abortSignal, hookC
 
 // Mapping: Ux8→executeSubagentStartHooks, A→agentId, q→agentType, K→abortSignal, Y→hookContext
 ```
+
+---
+
+## AsyncLocalStorage Identity Propagation
+
+### What it does
+
+Uses Node.js `AsyncLocalStorage` to propagate agent identity through the async call stack without explicit parameter passing. This allows any code in the agent's execution context to retrieve the current agent identity.
+
+### How it works
+
+```javascript
+// ============================================
+// Agent Identity Storage - AsyncLocalStorage pattern
+// Location: chunks.133.mjs:835-843
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Tf6() {
+    return mc4.getStore()
+}
+function X66(A, q) {
+    return mc4.run(A, q)
+}
+mc4 = new OvY  // AsyncLocalStorage instance
+
+// READABLE (for understanding):
+// Global AsyncLocalStorage instance for agent identity
+let agentIdentityStorage = new AsyncLocalStorage();
+
+// Get current agent identity from async context
+function getCurrentAgentIdentity() {
+    return agentIdentityStorage.getStore();
+}
+
+// Run a function with a specific agent identity bound to async context
+function runWithAgentIdentity(identity, callback) {
+    return agentIdentityStorage.run(identity, callback);
+}
+
+// Mapping: mc4→agentIdentityStorage, Tf6→getCurrentAgentIdentity,
+// X66→runWithAgentIdentity, OvY→AsyncLocalStorage
+```
+
+### Usage Pattern
+
+```javascript
+// In agentLoopRunner, wrap execution with identity:
+async function* agentLoopRunner({ agentId, ... }) {
+    // Bind identity for entire agent execution
+    yield* runWithAgentIdentity({ agentId, agentType, ... }, async function* () {
+        // Any code here can call getCurrentAgentIdentity()
+        // without needing agentId passed as parameter
+
+        for await (let event of llmMessageLoop(...)) {
+            // Inside llmMessageLoop, getCurrentAgentIdentity() returns
+            // the identity bound by the outer runWithAgentIdentity()
+            yield event;
+        }
+    });
+}
+
+// In deeply nested code (e.g., tool execution):
+function recordTelemetry() {
+    let identity = getCurrentAgentIdentity();
+    if (identity) {
+        // We're inside an agent execution context
+        console.log(`Agent ${identity.agentId} sent telemetry`);
+    } else {
+        // Not in an agent context (e.g., main session)
+        console.log("Main session sent telemetry");
+    }
+}
+```
+
+### Why AsyncLocalStorage
+
+**Key insight:** AsyncLocalStorage provides transparent context propagation without coupling. Code that needs agent identity doesn't need to know where it came from - it just calls `getCurrentAgentIdentity()`.
+
+**Benefits:**
+1. **Decoupling** - Deeply nested code doesn't need identity parameters threaded through
+2. **Transparency** - Existing code can gain identity awareness without signature changes
+3. **Async-safe** - Context is preserved across async boundaries (Promises, callbacks)
+4. **Isolation** - Each agent execution has its own isolated identity scope
+
+**Important:** The identity is only available within the callback passed to `runWithAgentIdentity`. Once execution exits that callback, `getCurrentAgentIdentity()` returns `undefined` (or the outer scope's identity if nested).
 
 ---
 
