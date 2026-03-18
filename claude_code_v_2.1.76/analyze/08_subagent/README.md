@@ -35,14 +35,14 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 |------|-------------|-------------|
 | [execution_flow_deep_dive.md](./execution_flow_deep_dive.md) | Agent loop execution, task state, abort signals | `qh`, `Yh`, `RjA`, `Yd7`, `c5` |
 | [communication_and_coordination.md](./communication_and_coordination.md) | Mailbox system, poll loops, inter-agent messaging | `wl`, `x3`, `Vc6`, `DNY`, `XNY` |
-| [tools_integration.md](./tools_integration.md) | Tool set assembly, whitelists, context derivation | `YP6`, `vQ1`, `CW6`, `eP1`, `WY4` |
+| [tools_integration.md](./tools_integration.md) | Tool set assembly, whitelists, context derivation | `YP6`, `Bc6`, `CW6`, `eP1`, `WY4` |
 
 ### Lifecycle & State
 
 | File | Description | Key Topics |
 |------|-------------|------------|
 | [task_lifecycle_and_state.md](./task_lifecycle_and_state.md) | Task creation, backgrounding, completion | `wd7`, `zd7`, `Hd7`, `yjA`, `CjA`, `na` |
-| [transcript_and_resume_system.md](./transcript_and_resume_system.md) | Conversation recording and resume | `sP1`, `wP6`, `mQ1`, `BQ1`, `ld1` |
+| [transcript_and_resume_system.md](./transcript_and_resume_system.md) | Conversation recording and resume | `hf6`, `wP6`, `mQ1`, `BQ1`, `ld1` |
 
 ### Integration Points
 
@@ -72,28 +72,38 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
-| `qh` | `agentLoopRunner` | Core async generator for agent execution | chunks.133.mjs:1565 |
-| `Yh` | `llmMessageLoop` | LLM message processing loop | chunks.148.mjs:875 |
-| `XNY` | `inProcessAgentRunner` | Runner for in-process teammates | chunks.134.mjs:1571 |
-| `DNY` | `pollForNextMessage` | Poll loop for teammate messages | chunks.134.mjs:1483 |
+| `qh` | `agentLoopRunner` | Core async generator for agent execution | chunks.133.mjs:1565 ✓ |
+| `Yh` | `llmMessageLoop` | LLM message processing loop | chunks.148.mjs:875 ✓ |
+| `XNY` | `inProcessAgentRunner` | Runner for in-process teammates | chunks.134.mjs:1571 ✓ |
+| `DNY` | `pollForNextMessage` | Poll loop for teammate messages | chunks.134.mjs:1483 ✓ |
+
+### Agent Tool & Schema
+
+| Obfuscated | Readable | Description | Location |
+|------------|----------|-------------|----------|
+| `QW6` | `AgentTool` | The "Task"/"Agent" tool object | chunks.136.mjs:1512 |
+| `r4` | `TOOL_NAME_AGENT` | Tool name constant ("Agent") | chunks.40.mjs:406 |
+| `aVY` | `agentInputSchema` | Base input schema | chunks.136.mjs:1444 |
+| `sVY` | `teammateInputSchema` | Teammate mode schema | chunks.136.mjs:1451 |
+| `eVY` | `agentOutputSchema` | Output schema | chunks.136.mjs:1492 |
 
 ### Agent Definitions
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
-| `q96` | `GENERAL_PURPOSE_AGENT` | Default general-purpose agent | chunks.93.mjs:1681 |
-| `QB` | `EXPLORE_AGENT` | Read-only codebase exploration | chunks.93.mjs:1871 |
-| `x01` | `PLAN_AGENT` | Software architect planning | chunks.93.mjs:1944 |
-| `X_4` | `STATUSLINE_SETUP_AGENT` | Status line configuration | chunks.93.mjs:1695 |
-| `G_4` | `CLAUDE_CODE_GUIDE_AGENT` | Claude Code help/documentation | chunks.93.mjs:2040 |
+| `q96` | `GENERAL_PURPOSE_AGENT` | Default general-purpose agent | chunks.93.mjs:1681 ✓ |
+| `QB` | `EXPLORE_AGENT` | Read-only codebase exploration | chunks.93.mjs:1871 ✓ |
+| `x01` | `PLAN_AGENT` | Software architect planning | chunks.93.mjs:1944 ✓ |
+| `X_4` | `STATUSLINE_SETUP_AGENT` | Status line configuration | chunks.93.mjs:1694 ✓ |
+| `G_4` | `CLAUDE_CODE_GUIDE_AGENT` | Claude Code help agent | chunks.93.mjs:2040 ✓ |
+| `CF9` | `buildClaudeCodeGuidePrompt` | Claude Code guide system prompt | chunks.93.mjs:1957 ✓ |
 
 ### Task Management
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
-| `rj1` | `AgentTool` | The "Task" tool object | chunks.132.mjs:85 |
-| `wd7` | `createForegroundTask` | Create task with backgrounding support | chunks.89.mjs:1477 |
-| `zd7` | `createAsyncTask` | Create background task entry | chunks.89.mjs:1447 |
+| `zd7` | `createAsyncTask` | Create background task entry | chunks.132.mjs |
+| `wd7` | `createForegroundTask` | Create task with backgrounding support | chunks.132.mjs |
 | `yjA` | `markTaskCompleted` | Mark task as completed | chunks.89.mjs:1422 |
 | `CjA` | `markTaskFailed` | Mark task as failed | chunks.89.mjs:1435 |
 | `na` | `killTask` | Kill a running task | chunks.89.mjs:1376 |
@@ -110,27 +120,27 @@ The subagent system is Claude Code's primary mechanism for **parallelism and tas
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
-| `wl` | `readMailbox` | Read messages from mailbox | chunks.132.mjs:3 |
-| `x3` | `writeToMailbox` | Write message to mailbox | chunks.132.mjs:22 |
-| `Vc6` | `markMessageAsReadByIndex` | Mark message as read | chunks.132.mjs:57 |
-| `Ji4` | `claimUnclaimedTask` | Claim unclaimed task for teammate | chunks.134.mjs:1464 |
-| `iVY` | `spawnTeammateDispatcher` | Route teammate spawn to backend | chunks.129.mjs:2550 |
+| `wl` | `readMailbox` | Read messages from mailbox | chunks.132.mjs:3 ✓ |
+| `x3` | `writeToMailbox` | Write message to mailbox | chunks.132.mjs:22 ✓ |
+| `Vc6` | `markMessageAsReadByIndex` | Mark message as read | chunks.132.mjs:57 ✓ |
+| `Ji4` | `claimUnclaimedTask` | Claim unclaimed task for teammate | chunks.134.mjs:1464 ✓ |
+| `iVY` | `spawnTeammateDispatcher` | Route teammate spawn to backend | chunks.129.mjs:2550 ✓ |
 
 ### Tool Assembly
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
 | `YP6` | `assembleSessionToolSet` | Main tool set assembly | chunks.141.mjs:1476 |
-| `vQ1` | `deriveToolUseContext` | Create isolated context for subagent | chunks.149.mjs:2589 |
-| `CW6` | `BACKGROUND_AGENT_EXCLUDED_TOOLS` | Tools excluded from background agents | chunks.91.mjs:269 |
-| `eP1` | `ASYNC_AGENT_ALLOWED_TOOLS` | Tools allowed for async agents | chunks.91.mjs:269 |
-| `WY4` | `TEAM_DELEGATE_TOOLS` | Team/cron tools for delegates | chunks.91.mjs:269 |
+| `Bc6` | `deriveToolUseContext` | Create isolated context for subagent | chunks.148.mjs:1978 |
+| `CW6` | `BACKGROUND_AGENT_EXCLUDED_TOOLS` | Tools excluded from background agents | chunks.91.mjs:269 ✓ |
+| `eP1` | `ASYNC_AGENT_ALLOWED_TOOLS` | Tools allowed for async agents | chunks.91.mjs:269 ✓ |
+| `WY4` | `TEAM_DELEGATE_TOOLS` | Team/cron tools for delegates | chunks.91.mjs:269 ✓ |
 
 ### Transcript Processing
 
 | Obfuscated | Readable | Description | Location |
 |------------|----------|-------------|----------|
-| `sP1` | `loadTranscript` | Load prior transcript for resume | chunks.173.mjs:2722 |
+| `hf6` | `loadTranscript` | Load prior transcript for resume | chunks.174.mjs:2705 ✓ |
 | `wP6` | `stripOrphanedToolResults` | Remove orphaned tool results | chunks.173.mjs:344 |
 | `BQ1` | `filterWhitespaceAssistant` | Filter whitespace-only messages | chunks.173.mjs:1388 |
 | `mQ1` | `filterThinkingOnlyAssistant` | Filter thinking-only messages | chunks.173.mjs:1435 |

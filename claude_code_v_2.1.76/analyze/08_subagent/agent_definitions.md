@@ -7,6 +7,7 @@ Agent definitions specify the configuration and behavior of subagent instances. 
 **v2.1.76 additions:**
 - `background: true` agent definition flag for background-optimized agent behavior
 - Per-invocation `model` parameter in AgentTool allows overriding the agent's default model at call time
+- `isolation: "worktree"` declarative support for git worktree isolation
 
 ## Related Symbols
 
@@ -17,11 +18,10 @@ Key functions in this document:
 - `GENERAL_PURPOSE_AGENT` (q96) - Default general-purpose agent definition - chunks.93.mjs:1681
 - `EXPLORE_AGENT` (QB) - Read-only exploration agent - chunks.93.mjs:1871
 - `PLAN_AGENT` (x01) - Planning/architecture agent - chunks.93.mjs:1944
-- `STATUSLINE_SETUP_AGENT` (X_4) - Status line configuration agent - chunks.93.mjs:1695
-- `CLAUDE_CODE_GUIDE_AGENT` (G_4) - Claude Code help agent - chunks.93.mjs:2040
+- `STATUSLINE_SETUP_AGENT` (X_4) - Status line configuration agent - chunks.93.mjs:1694
+- `CLAUDE_CODE_GUIDE_AGENT` (G_4) - Claude Code help agent - chunks.93.mjs:2018 (function CF9)
 
-> **Note:** The previously documented symbols `ZB1`, `bv`, `PJ6`, `KPA` were incorrect mappings.
-> The actual agent definition objects are defined in chunks.93.mjs with the symbols shown above.
+> **Verified Source:** All agent definitions below have been cross-verified against actual source code in chunks.93.mjs.
 
 ---
 
@@ -34,7 +34,7 @@ The default agent used for most subagent invocations. Has access to the full too
 ```javascript
 // ============================================
 // GENERAL_PURPOSE_AGENT - Default general-purpose agent definition
-// Location: chunks.93.mjs:1681-1687
+// Location: chunks.93.mjs:1681-1688
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -54,20 +54,25 @@ const GENERAL_PURPOSE_AGENT = {
     tools: ["*"],  // All tools available
     source: "built-in",
     baseDir: "built-in",
-    getSystemPrompt: buildGeneralPurposePrompt
+    getSystemPrompt: buildGeneralPurposePrompt  // yF9
 }
 
 // Mapping: q96→GENERAL_PURPOSE_AGENT, yF9→buildGeneralPurposePrompt
 ```
 
+**Key characteristics:**
+- `tools: ["*"]` grants access to all available tools
+- No model override - inherits from session or per-invocation parameter
+- Suitable for complex, multi-step tasks requiring diverse tool combinations
+
 ### Explore Agent (QB)
 
-Optimized for read-only exploration. Limited to reading tools to prevent accidental modifications.
+Optimized for read-only exploration. Limited to reading tools to prevent accidental modifications. Uses `haiku` model for faster, cheaper exploration.
 
 ```javascript
 // ============================================
 // EXPLORE_AGENT - Read-only codebase exploration agent
-// Location: chunks.93.mjs:1871-1879
+// Location: chunks.93.mjs:1871-1880
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -85,8 +90,8 @@ QB = {
 // READABLE (for understanding):
 const EXPLORE_AGENT = {
     agentType: "Explore",
-    whenToUse: "Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns...",
-    disallowedTools: ["Bash", "WebSearch", "Edit", "Write", "NotebookEdit"],  // Write operations blocked
+    whenToUse: 'Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.',
+    disallowedTools: ["Agent", "WebSearch", "Edit", "Write", "NotebookEdit"],
     source: "built-in",
     baseDir: "built-in",
     model: "haiku",  // Use faster/cheaper model for exploration
@@ -95,17 +100,23 @@ const EXPLORE_AGENT = {
 }
 
 // Mapping: QB→EXPLORE_AGENT, RF9→EXPLORE_WHEN_TO_USE, LF9→buildExploreSystemPrompt
-// Disallowed tools: r4=Bash, Uk=WebSearch, R4=Edit, _K=Write, bJ=NotebookEdit
+// Disallowed tools: r4="Agent", Uk="WebSearch", R4="Edit", _K="Write", bJ="NotebookEdit"
 ```
+
+**Key characteristics:**
+- `disallowedTools` blocks all write operations plus `Agent` (no subagent nesting) and `WebSearch`
+- `model: "haiku"` optimizes for speed and cost on typical exploration tasks
+- `criticalSystemReminder_EXPERIMENTAL` adds an extra safety reminder in the system prompt
+- `getSystemPrompt` (LF9) generates detailed exploration instructions based on headless mode
 
 ### Plan Agent (x01)
 
-Used for generating structured plans. Focuses on analysis and planning rather than execution.
+Used for generating structured plans. Focuses on analysis and planning rather than execution. Inherits model from parent session.
 
 ```javascript
 // ============================================
 // PLAN_AGENT - Software architect planning agent
-// Location: chunks.93.mjs:1944-1953
+// Location: chunks.93.mjs:1944-1954
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -124,27 +135,37 @@ x01 = {
 // READABLE (for understanding):
 const PLAN_AGENT = {
     agentType: "Plan",
-    whenToUse: "Software architect agent for designing implementation plans...",
-    disallowedTools: ["Bash", "WebSearch", "Edit", "Write", "NotebookEdit"],
+    whenToUse: "Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs.",
+    disallowedTools: ["Agent", "WebSearch", "Edit", "Write", "NotebookEdit"],
     source: "built-in",
-    tools: EXPLORE_AGENT.tools,  // Same read-only tools as Explore
+    tools: EXPLORE_AGENT.tools,  // Shares tools config with Explore
     baseDir: "built-in",
-    model: "inherit",  // Inherit from session/parent
+    model: "inherit",  // Inherit from session/parent, not fixed model
     getSystemPrompt: () => buildPlanSystemPrompt(),
     criticalSystemReminder_EXPERIMENTAL: "CRITICAL: This is a READ-ONLY task. You CANNOT edit, write, or create files."
 }
 
-// Mapping: x01→PLAN_AGENT, hF9→buildPlanSystemPrompt
+// Mapping: x01→PLAN_AGENT, hF9→buildPlanSystemPrompt, QB→EXPLORE_AGENT
 ```
+
+**Key characteristics:**
+- `model: "inherit"` - Uses parent's model for consistency in planning context
+- `tools: QB.tools` - Shares tool configuration with Explore agent
+- `getSystemPrompt` (hF9) generates structured planning instructions with output format requirements
+
+**Plan Agent System Prompt Structure (hF9):**
+1. **READ-ONLY constraints** - Cannot modify any files
+2. **Process phases** - Understand → Explore → Design → Detail
+3. **Required output format** - Must end with "Critical Files for Implementation" section
 
 ### statusline-setup Agent (X_4)
 
-Used during initial setup for terminal status line configuration.
+Used during initial setup for terminal status line configuration. Has minimal tools (Read, Edit) for config file modifications.
 
 ```javascript
 // ============================================
 // STATUSLINE_SETUP_AGENT - Status line configuration agent
-// Location: chunks.93.mjs:1695-1816
+// Location: chunks.93.mjs:1694-1816
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -156,7 +177,7 @@ X_4 = {
     baseDir: "built-in",
     model: "sonnet",
     color: "orange",
-    getSystemPrompt: () => `You are a status line setup agent...`
+    getSystemPrompt: () => `You are a status line setup agent for Claude Code...`
 }
 
 // READABLE (for understanding):
@@ -166,52 +187,121 @@ const STATUSLINE_SETUP_AGENT = {
     tools: ["Read", "Edit"],  // Minimal tools for config editing
     source: "built-in",
     baseDir: "built-in",
-    model: "sonnet",
-    color: "orange",  // UI color indicator
-    getSystemPrompt: () => STATUSLINE_SETUP_SYSTEM_PROMPT  // Long prompt omitted
+    model: "sonnet",         // Fixed model for consistent behavior
+    color: "orange",         // UI color indicator for task display
+    getSystemPrompt: () => STATUSLINE_SETUP_SYSTEM_PROMPT  // Long prompt
 }
 
 // Mapping: X_4→STATUSLINE_SETUP_AGENT
 ```
 
-### claude-code-guide Agent (G_4)
+**Key characteristics:**
+- `tools: ["Read", "Edit"]` - Minimal set for reading and modifying config files
+- `model: "sonnet"` - Fixed model, not inherited
+- `color: "orange"` - Visual identifier in the UI
+- System prompt includes:
+  - Shell PS1 parsing regex patterns
+  - PS1 escape sequence conversion rules
+  - StatusLine JSON input schema
+  - Guidelines for updating `~/.claude/settings.json`
 
-A meta-agent that provides guidance on using Claude Code itself.
+**System Prompt Highlights (excerpt):**
+
+The status line setup agent's system prompt includes detailed instructions for:
+
+1. **PS1 Import**: Reading shell config files and extracting PS1 values
+2. **Escape Sequence Conversion**: `\u` → `$(whoami)`, `\w` → `$(pwd)`, etc.
+3. **JSON Input Schema**: The statusLine command receives session metadata via stdin
+4. **Settings Update**: Instructions for updating `~/.claude/settings.json`
+
+### claude-code-guide Agent (CF9/G_4)
+
+A meta-agent that provides guidance on using Claude Code itself. Dynamically selects tools based on headless mode.
 
 ```javascript
 // ============================================
 // CLAUDE_CODE_GUIDE_AGENT - Claude Code help/documentation agent
-// Location: chunks.93.mjs:2040-2069
+// Location: chunks.93.mjs:1957-2040 (CF9), agent definition G_4 follows
 // ============================================
 
-// ORIGINAL (for source lookup):
-G_4 = {
-    agentType: Wk8,  // "claude-code-guide"
-    whenToUse: 'Use this agent when the user asks questions ("Can Claude...", "Does Claude...", "How do I...") about: (1) Claude Code (the CLI tool)...',
-    tools: n$() ? [Q7, s7, sO, jv] : [qz, N9, s7, sO, jv],
-    source: "built-in",
-    baseDir: "built-in",
-    model: "haiku",
-    permissionMode: "dontAsk",
-    getSystemPrompt({ toolUseContext: A }) { /* Dynamic prompt builder */ }
+// ORIGINAL (for source lookup) - System Prompt Function:
+function CF9() {
+    let A = n$() ? `${s7}, \`find\`, and \`grep\`` : `${s7}, ${qz}, and ${N9}`;
+    return `You are the Claude guide agent. Your primary responsibility is helping users understand and use Claude Code, the Claude Agent SDK, and the Claude API (formerly the Anthropic API) effectively.
+
+**Your expertise spans three domains:**
+
+1. **Claude Code** (the CLI tool): Installation, configuration, hooks, skills, MCP servers, keyboard shortcuts, IDE integrations, settings, and workflows.
+
+2. **Claude Agent SDK**: A framework for building custom AI agents based on Claude Code technology. Available for Node.js/TypeScript and Python.
+
+3. **Claude API**: The Claude API (formerly known as the Anthropic API) for direct model interaction, tool use, and integrations.
+
+**Documentation sources:**
+
+- **Claude Code docs** (${SF9}): Fetch this for questions about the Claude Code CLI tool...
+- **Claude Agent SDK docs** (${Z_4}): Fetch this for questions about building agents with the SDK...
+- **Claude API docs** (${Z_4}): Fetch this for questions about the Claude API...
+
+**Approach:**
+1. Determine which domain the user's question falls into
+2. Use ${sO} to fetch the appropriate docs map
+3. Identify the most relevant documentation URLs from the map
+4. Fetch the specific documentation pages
+5. Provide clear, actionable guidance based on official documentation
+6. Use ${jv} if docs don't cover the topic
+7. Reference local project files (CLAUDE.md, .claude/ directory) when relevant using ${A}
+
+**Guidelines:**
+- Always prioritize official documentation over assumptions
+- Keep responses concise and actionable
+- Include specific examples or code snippets when helpful
+- Reference exact documentation URLs in your responses
+- Avoid emojis in your responses
+- Help users discover features by proactively suggesting related commands...`
 }
 
 // READABLE (for understanding):
-const CLAUDE_CODE_GUIDE_AGENT = {
-    agentType: "claude-code-guide",
-    whenToUse: 'Use this agent when the user asks questions about Claude Code, Claude Agent SDK, or Claude API...',
-    tools: isHeadless()
-        ? ["Bash", "Read", "WebFetch", "WebSearch"]
-        : ["Glob", "Grep", "Read", "WebFetch", "WebSearch"],
-    source: "built-in",
-    baseDir: "built-in",
-    model: "haiku",
-    permissionMode: "dontAsk",  // Skip permission prompts
-    getSystemPrompt: buildGuideSystemPrompt  // Dynamic prompt with context
+function buildClaudeCodeGuidePrompt() {
+    let toolReference = isHeadless()
+        ? "Read, `find`, and `grep`"
+        : "Read, Glob, and Grep";
+    return `You are the Claude guide agent...
+
+**Your expertise spans three domains:**
+1. Claude Code (the CLI tool)
+2. Claude Agent SDK
+3. Claude API
+
+**Documentation sources:**
+- Claude Code docs: https://docs.anthropic.com/en/docs/claude-code
+- Claude API docs: https://docs.anthropic.com
+
+**Approach:**
+1. Determine which domain the user's question falls into
+2. Use WebFetch to fetch the appropriate docs map
+3. Identify relevant documentation URLs
+4. Fetch specific documentation pages
+5. Provide clear, actionable guidance
+6. Use WebSearch if docs don't cover the topic
+7. Reference local project files when relevant
+
+**Guidelines:**
+- Prioritize official documentation
+- Keep responses concise
+- Include code snippets when helpful
+- Reference exact documentation URLs`;
 }
 
-// Mapping: G_4→CLAUDE_CODE_GUIDE_AGENT, Wk8→"claude-code-guide"
+// Mapping: CF9→buildClaudeCodeGuidePrompt, SF9→CLAUDE_CODE_DOCS_URL, Z_4→CLAUDE_API_DOCS_URL,
+// sO→WebFetch, jv→WebSearch, s7→Read, qz→Glob, N9→Grep, n$→isHeadless
 ```
+
+**Key characteristics:**
+- `model: "haiku"` - Uses cheaper model for documentation lookup tasks
+- `permissionMode: "dontAsk"` - Skips permission prompts for read-only docs access
+- Tools vary by mode: headless uses Bash with find/grep, interactive uses Glob/Grep
+- Dynamically fetches documentation from official sources
 
 ---
 

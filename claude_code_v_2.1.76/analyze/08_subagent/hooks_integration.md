@@ -10,12 +10,87 @@ This document covers how the hook system integrates with subagent execution, inc
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Hooks section)
 
+Key functions in this document:
+- `executeSubagentStartHooks` (Ux8) - Fire SubagentStart hooks before first LLM call - chunks.175.mjs:2666
+- `agentLoopRunner` (qh) - Agent loop with hook cleanup in finally block - chunks.133.mjs:1565
+
 Key hooks referenced in this document:
 - `SubagentStart` - Fires after tool assembly, before first LLM call
 - `SubagentStop` - Fires in finally block after agent loop ends
 - `PreToolUse` - Fires before each tool execution in subagent context
 - `PostToolUse` - Fires after successful tool execution
 - `PostToolUseFailure` - Fires after failed tool execution
+
+---
+
+## executeSubagentStartHooks (Ux8)
+
+### What it does
+
+Fires the `SubagentStart` hook event to all registered hook handlers, allowing them to inject additional context or perform setup before the subagent begins execution.
+
+### Source Code
+
+```javascript
+// ============================================
+// executeSubagentStartHooks - Fire SubagentStart hooks
+// Location: chunks.175.mjs:2666-2680
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function* Ux8(A, q, K, Y = T$) {
+    let z = {
+        ...$w(void 0),
+        hook_event_name: "SubagentStart",
+        agent_id: A,
+        agent_type: q
+    };
+    yield* Ax({
+        hookInput: z,
+        toolUseID: CE(),
+        matchQuery: q,
+        signal: K,
+        timeoutMs: Y
+    })
+}
+
+// READABLE (for understanding):
+async function* executeSubagentStartHooks(agentId, agentType, signal, timeoutMs = DEFAULT_TIMEOUT) {
+    let hookInput = {
+        ...buildBaseHookInput(undefined),
+        hook_event_name: "SubagentStart",
+        agent_id: agentId,
+        agent_type: agentType
+    };
+    yield* executeHooks({
+        hookInput: hookInput,
+        toolUseID: generateToolUseId(),
+        matchQuery: agentType,
+        signal: signal,
+        timeoutMs: timeoutMs
+    });
+}
+
+// Mapping: Ux8→executeSubagentStartHooks, A→agentId, q→agentType, K→signal, Y→timeoutMs,
+// $w→buildBaseHookInput, Ax→executeHooks, CE→generateToolUseId, T$→DEFAULT_TIMEOUT
+```
+
+### How it works
+
+1. **Build hook input:** Creates the hook input object with the `SubagentStart` event name and agent identity
+2. **Execute hooks:** Calls `executeHooks` (Ax) which runs all matching hook handlers
+3. **Yield results:** Generator yields hook results for the caller to process
+
+### Hook Input Structure
+
+```javascript
+{
+    hook_event_name: "SubagentStart",
+    agent_id: "agent-abc123",
+    agent_type: "general-purpose",
+    // ... base hook input fields (cwd, session_id, etc.)
+}
+```
 
 ---
 
@@ -35,6 +110,54 @@ In `SubagentStart`, hooks can:
 - Set up external resources (start a server, open a connection)
 - Register additional hooks for this subagent's session
 - Modify the agent's initial context
+- Inject additional context messages via `additionalContexts`
+
+### Hook Result Processing in agentLoopRunner
+
+```javascript
+// ============================================
+// Hook result processing in agentLoopRunner
+// Location: chunks.133.mjs:1636-1646
+// ============================================
+
+// ORIGINAL (for source lookup):
+for await (let $6 of Ux8(L, A.agentType, r.signal))
+    if ($6.additionalContexts && $6.additionalContexts.length > 0)
+        e.push(...$6.additionalContexts);
+if (e.length > 0) {
+    let $6 = f4({
+        type: "hook_additional_context",
+        content: e,
+        hookName: "SubagentStart",
+        toolUseID: GvY(),
+        hookEvent: "SubagentStart"
+    });
+    R.push($6)
+}
+
+// READABLE (for understanding):
+let additionalContexts = [];
+for await (let hookResult of executeSubagentStartHooks(agentId, agentDefinition.agentType, abortSignal)) {
+    if (hookResult.additionalContexts && hookResult.additionalContexts.length > 0) {
+        additionalContexts.push(...hookResult.additionalContexts);
+    }
+}
+if (additionalContexts.length > 0) {
+    let contextMessage = createSystemMessage({
+        type: "hook_additional_context",
+        content: additionalContexts,
+        hookName: "SubagentStart",
+        toolUseID: generateToolUseId(),
+        hookEvent: "SubagentStart"
+    });
+    messages.push(contextMessage);
+}
+
+// Mapping: Ux8→executeSubagentStartHooks, L→agentId, A→agentDefinition, r→abortController,
+// e→additionalContexts, R→messages, f4→createSystemMessage, GvY→generateToolUseId
+```
+
+**Key insight:** Hook handlers can return `additionalContexts` which get injected as system messages into the subagent's conversation. This allows hooks to provide extra context to the LLM without modifying the agent definition.
 
 ### Example Use Case
 
@@ -109,10 +232,46 @@ Result returned to subagent's LLM
 
 All hooks registered during the subagent's execution are cleaned up when `SubagentStop` fires. This prevents hook accumulation across multiple subagent invocations.
 
+### Source Code
+
+```javascript
+// ============================================
+// Hook cleanup in agentLoopRunner finally block
+// Location: chunks.133.mjs:1782-1784
+// ============================================
+
+// ORIGINAL (for source lookup):
+} finally {
+    if (await K6(), A.hooks) zZ6(N, L);
+    z6.readFileState.clear(), R.length = 0, a36(L), Qx8(L), t24(L, K.getAppState, N)
+}
+
+// READABLE (for understanding):
+} finally {
+    if (await flushTranscriptQueue(), agentDefinition.hooks) {
+        deregisterAgentHooks(setAppState, agentId);
+    }
+    toolUseContext.readFileState.clear();
+    messages.length = 0;
+    cleanupAgentIdentity(agentId);
+    cleanupTranscriptWriter(agentId);
+    cleanupTaskState(agentId, toolUseContext.getAppState, setAppState);
+}
+
+// Mapping: K6→flushTranscriptQueue, A→agentDefinition, zZ6→deregisterAgentHooks,
+// N→setAppState, L→agentId, z6→toolUseContext, R→messages,
+// a36→cleanupAgentIdentity, Qx8→cleanupTranscriptWriter, t24→cleanupTaskState
+```
+
 **Cleanup sequence:**
 1. Fire `SubagentStop` hooks (user-defined cleanup)
 2. Remove hooks registered by the subagent's skill invocations
 3. Release any resources held by hook handlers
+4. Clear readFileState to prevent memory leaks
+5. Clear message array references
+6. Clean up agent identity from AsyncLocalStorage
+7. Finalize transcript writer
+8. Remove task from active task tracking
 
 ---
 

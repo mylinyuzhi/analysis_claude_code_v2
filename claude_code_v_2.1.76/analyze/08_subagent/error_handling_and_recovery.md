@@ -10,9 +10,10 @@ This document covers the five error categories in the subagent system, recovery 
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `markTaskFailed` (CjA) - Mark task as failed - chunks.89.mjs:1435
-- `killTask` (na) - Kill and clean up a task - chunks.89.mjs:1376
-- Three-layer cleanup: global vR6 set, task-level functions, map removal
+- `agentLoopRunner` (qh) - Agent loop with finally block cleanup - chunks.133.mjs:1565
+- Three-layer cleanup: global active task set, task-level functions, map removal
+
+> **Note:** Task state management functions (`markTaskFailed`, `killTask`) are referenced in the symbol index but their exact implementations are in task management modules. The cleanup logic is primarily implemented in the `finally` block of `agentLoopRunner` (qh).
 
 ---
 
@@ -121,16 +122,53 @@ Teammate error → writeToMailbox(parentAgentId, { type: "error", ... })
 
 ## Three-Layer Cleanup
 
-Cleanup runs in `finally` blocks to ensure it always executes, even on errors.
+Cleanup runs in `finally` blocks to ensure it always executes, even on errors. The `agentLoopRunner` (qh) implements comprehensive cleanup in its finally block.
 
-### Layer 1: Global Active Task Set (vR6)
+### Source Code
+
+```javascript
+// ============================================
+// Three-layer cleanup in agentLoopRunner finally block
+// Location: chunks.133.mjs:1782-1785
+// ============================================
+
+// ORIGINAL (for source lookup):
+} finally {
+    if (await K6(), A.hooks) zZ6(N, L);
+    z6.readFileState.clear(), R.length = 0, a36(L), Qx8(L), t24(L, K.getAppState, N)
+}
+
+// READABLE (for understanding):
+} finally {
+    // Layer 0: Flush pending transcript writes
+    if (await flushTranscriptQueue(), agentDefinition.hooks) {
+        deregisterAgentHooks(setAppState, agentId);
+    }
+    // Layer 1: Clear mutable state
+    toolUseContext.readFileState.clear();
+    // Layer 2: Clear message references
+    messages.length = 0;
+    // Layer 3: Clean up agent identity
+    cleanupAgentIdentity(agentId);
+    // Layer 4: Finalize transcript writer
+    cleanupTranscriptWriter(agentId);
+    // Layer 5: Remove from task tracking
+    cleanupTaskState(agentId, toolUseContext.getAppState, setAppState);
+}
+
+// Mapping: K6→flushTranscriptQueue, A→agentDefinition, zZ6→deregisterAgentHooks,
+// N→setAppState, L→agentId, z6→toolUseContext, R→messages,
+// a36→cleanupAgentIdentity, Qx8→cleanupTranscriptWriter, t24→cleanupTaskState
+```
+
+### Layer 1: Global Active Task Set
 
 ```javascript
 // Global set tracks all active tasks for session teardown
 globalActiveTaskSet.delete(taskId);
 ```
 
-**Purpose:** When the session ends (Ctrl+C, timeout), iterate `vR6` to kill all remaining tasks. Without this, orphaned tasks would continue running after the session ends.
+**Purpose:** When the session ends (Ctrl+C, timeout), iterate the active task set to kill all remaining tasks. Without this, orphaned tasks would continue running after the session ends.
 
 ### Layer 2: Task-Level Cleanup Functions
 

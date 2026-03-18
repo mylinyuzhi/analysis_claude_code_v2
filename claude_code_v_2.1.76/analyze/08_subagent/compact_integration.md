@@ -15,26 +15,71 @@ This document covers how subagents interact with the context compaction system, 
 Key functions in this document:
 - `agentLoopRunner` (qh) - Core agent execution loop with token tracking - chunks.133.mjs:1565
 - `llmMessageLoop` (Yh) - LLM message processing with token counting - chunks.148.mjs:875
-- `autoCompactDispatcher` (fs4) - Auto-compaction entry point
+- `deriveToolUseContext` (Bc6) - Context derivation with cloned readFileState - chunks.148.mjs:1978
 - `inProcessAgentRunner` (XNY) - In-process teammate with isolated compaction - chunks.134.mjs:1571
-- `deriveToolUseContext` (vQ1) - Context derivation with cloned readFileState - chunks.149.mjs:2589
 
 ---
 
-## Token Counting in Agent Loop (PU1)
+## Token Counting in Agent Loop
 
-The agent loop tracks token usage after each LLM response:
+The agent loop tracks token usage after each LLM response. Token counting is critical for determining when to trigger auto-compaction.
+
+### How Token Counting Works
 
 ```javascript
-// After each LLM call in the agent loop
-let tokenCount = countTokensInMessages(messages);
-updateTaskProgress(taskId, { tokenCount });
+// ============================================
+// Token counting and progress reporting in agentLoopRunner
+// Location: chunks.133.mjs:1757-1778
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (G?.(), $6.type === "stream_event" && $6.event.type === "message_start" && $6.ttftMs != null) {
+    K.pushApiMetricsEntry?.($6.ttftMs);
+    continue
+}
+if ($6.type === "attachment") {
+    if ($6.attachment.type === "max_turns_reached") {
+        k(`[Agent: ${A.agentType}] Reached max turns limit (${message.attachment.maxTurns})`);
+        break
+    }
+    yield $6;
+    continue
+}
+if (TvY($6)) await dg([$6], L, N6).catch((n) => k(`Failed to record sidechain transcript: ${n}`)), N6 = $6.uuid, yield $6
+
+// READABLE (for understanding):
+if (onQueryProgress?.(), event.type === "stream_event" && event.event.type === "message_start" && event.ttftMs != null) {
+    toolUseContext.pushApiMetricsEntry?.(event.ttftMs);
+    continue;  // Skip to next event, don't yield stream events
+}
+if (event.type === "attachment") {
+    if (event.attachment.type === "max_turns_reached") {
+        log(`[Agent: ${agentDefinition.agentType}] Reached max turns limit (${message.attachment.maxTurns})`);
+        break;  // Exit the loop
+    }
+    yield event;  // Pass attachment events to caller
+    continue;
+}
+// Record transcript for message-type events
+if (isTranscriptableMessage(event)) {
+    await writeToTranscript([event], agentId, lastTranscriptUuid)
+        .catch((err) => log(`Failed to record sidechain transcript: ${err}`));
+    lastTranscriptUuid = event.uuid;
+    yield event;  // Pass to caller for UI updates
+}
+
+// Mapping: G→onQueryProgress, $6→event, K→toolUseContext, A→agentDefinition,
+// k→log, TvY→isTranscriptableMessage, dg→writeToTranscript, L→agentId, N6→lastTranscriptUuid
 ```
 
+**Key insight:** The `pushApiMetricsEntry` callback allows the subagent to report its time-to-first-token (TTFT) back to the parent context for metrics aggregation. This is only available when `shareSetResponseLength` is true in the context derivation.
+
+### Token Count Usage
+
 The token count is used to:
-1. Update the UI's token counter for the subagent
-2. Check against the auto-compact threshold
-3. Report in the final task completion result
+1. **Update UI:** Display token counter for the subagent
+2. **Auto-compact check:** Compare against threshold * 0.8
+3. **Final report:** Include in task completion result
 
 ---
 
@@ -60,9 +105,9 @@ Subagents inherit the parent's `sessionMemoryType`. However, compaction in a sub
 **In-process teammates** get isolated compaction because their readFileState is cloned:
 
 ```javascript
-// From deriveToolUseContext (vQ1)
-let clonedReadFileState = new Map(parentContext.readFileState);
-// Subagent's file reads tracked independently
+// From deriveToolUseContext (Bc6) - chunks.148.mjs:1992
+readFileState: DI(q?.readFileState ?? A.readFileState),
+// Subagent's file reads tracked independently via DI (cloneMap)
 ```
 
 This means the subagent's compaction can safely remove file-read entries without affecting the parent's file tracking.

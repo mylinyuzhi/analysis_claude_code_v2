@@ -470,32 +470,22 @@
 
 ### Agent/Task Tool Symbols
 
+> See also: [Agent Loop Runner Symbols](#agent-loop-runner-symbols) for `qh`, `Yh`, `Bc6`, etc.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | QW6 | AgentTool | chunks.136.mjs:1512 | tool object |
 | r4 | TOOL_NAME_AGENT | chunks.40.mjs:406 | constant ("Agent") |
 | I46 | TOOL_NAME_TASK (alias) | chunks.40.mjs:408 | constant ("Task") |
 | R31 | TOOL_NAME_VERIFICATION | chunks.40.mjs:410 | constant ("verification") |
-| xx8 | agentInputSchema | chunks.136.mjs | function |
+| aVY | agentInputSchema | chunks.136.mjs:1444 | function (base schema) |
+| sVY | teammateInputSchema | chunks.136.mjs:1451 | function (teammate schema) |
+| xx8 | getMergedInputSchema | chunks.136.mjs:1461 | function (merged schema) |
 | eVY | agentOutputSchema | chunks.136.mjs:1492 | function |
-| tVY | completedResultSchema | chunks.136.mjs | variable |
-| NR | generateAgentId | chunks.89.mjs | function |
-| zd7 | createAsyncTask | chunks.132.mjs | function |
-| wd7 | createForegroundTask | chunks.132.mjs | function |
-| qh | agentLoopRunner | chunks.133.mjs:1565 | function (generator) |
-| Yh | llmMessageLoop | chunks.148.mjs:875 | function (generator) |
-| Ux8 | executeSubagentStartHooks | chunks.175.mjs:2666 | function (generator) |
-| sP1 | loadTranscript | chunks.173.mjs:2722 | function |
-| BQ1 | filterWhitespaceAssistant | chunks.173.mjs:1388 | function |
-| mQ1 | filterThinkingOnlyAssistant | chunks.173.mjs:1435 | function |
-| wP6 | stripOrphanedToolResults | chunks.173.mjs:344 | function |
+| tVY | completedResultSchema | chunks.136.mjs:1468 | variable |
 | UEA | buildAgentResult | chunks.131.mjs:2514 | function |
-| Nn7 | buildForkContextMessages | chunks.90.mjs:2529 | function |
 | KNY | resolveTeamName | chunks.131.mjs:2546 | function |
 | MM | isInProcessTeammate | chunks.48.mjs:234 | function |
-| yjA | markTaskCompleted | chunks.89.mjs:1422 | function |
-| CjA | markTaskFailed | chunks.89.mjs:1435 | function |
-| vK1 | notifyTaskCompletion | chunks.89.mjs | function |
 | ww | getOutputFilePath | chunks.89.mjs | function |
 | eu1 | getTasksDir | chunks.89.mjs | function |
 | xZ | prefixAgentId | chunks.89.mjs | function |
@@ -513,8 +503,33 @@
 | wl | readMailbox | chunks.132.mjs:3 | function |
 | x3 | writeToMailbox | chunks.132.mjs:22 | function |
 | Vc6 | markMessageAsReadByIndex | chunks.132.mjs:57 | function |
-| kc6 | markAllMessagesAsRead | chunks.132.mjs:92 | function |
+| kc6 | markMessagesAsRead | chunks.132.mjs:92 | function |
 | pY6 | readUnreadMessages | chunks.132.mjs:16 | function |
+| $TY | clearMailbox | chunks.132.mjs:128 | function |
+| HTY | formatMailboxMessages | chunks.132.mjs:141 | function |
+
+### Agent Loop Runner Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qh | agentLoopRunner | chunks.133.mjs:1565 | function (generator) |
+| Yh | llmMessageLoop | chunks.148.mjs:875 | function (generator) |
+| Bc6 | deriveToolUseContext | chunks.148.mjs:1978 | function |
+| Fx8 | cloneForkContext | chunks.133.mjs:1787 | function |
+| vvY | buildAgentSystemPrompt | chunks.133.mjs:1806 | function |
+| DI | cloneMap | chunks.133.mjs:1597 | function |
+| bI | generateAgentId | chunks.133.mjs:1590 | function |
+| C01 | resolveModelConfig | chunks.133.mjs:1589 | function |
+| r24 | registerAgentHooks | chunks.133.mjs:1647 | function |
+| TvY | isTranscriptableMessage | chunks.133.mjs:1561 | function |
+| X66 | runWithAgentIdentity | chunks.133.mjs:841 | function |
+| Tf6 | getCurrentAgentIdentity | chunks.133.mjs:837 | function |
+| mc4 | agentIdentityStorage | chunks.133.mjs:835 | AsyncLocalStorage |
+| Ux8 | executeSubagentStartHooks | chunks.175.mjs:2666 | function (generator) |
+| hf6 | loadTranscript | chunks.174.mjs:2705 | function |
+| BQ1 | filterWhitespaceAssistant | chunks.173.mjs:1388 | function |
+| mQ1 | filterThinkingOnlyAssistant | chunks.173.mjs:1435 | function |
+| wP6 | stripOrphanedToolResults | chunks.173.mjs:344 | function |
 
 ### In-Process Teammate Symbols
 
@@ -793,14 +808,18 @@
 
 ### Subagent Context Creation
 
+> See also [Agent Loop Runner Symbols](#agent-loop-runner-symbols) for `Bc6`, `Fx8`, `vvY`, `DI`, `bI`, `C01`, etc.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| vQ1 | deriveToolUseContext | chunks.149.mjs:2589 | function |
 | av | runForkedAgent | chunks.149.mjs:2634 | function |
-| NR | generateAgentId | chunks.90.mjs:2343 | function |
-| Nn7 | buildForkContextMessages | chunks.90.mjs:2529 | function |
 | p1 | createUserMessage | chunks.173.mjs:1378 | function |
 | gL9 | generateUUID | chunks.90.mjs | function |
+
+> **CORRECTION:** Previous documentation incorrectly mapped:
+> - `vQ1` as `deriveToolUseContext` - actual symbol is `Bc6` (chunks.148.mjs:1978)
+> - `Nn7` as `buildForkContextMessages` - actual `Nn7` (chunks.75.mjs:487) is Azure PowerShell command execution.
+>   Fork context messages are built inline in `agentLoopRunner` (qh), not by a separate function.
 
 ### Agent Definitions
 
@@ -813,10 +832,15 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | q96 | GENERAL_PURPOSE_AGENT | chunks.93.mjs:1681 | object (agent def) |
-| X_4 | STATUSLINE_SETUP_AGENT | chunks.93.mjs:1695 | object (agent def) |
+| X_4 | STATUSLINE_SETUP_AGENT | chunks.93.mjs:1694 | object (agent def) |
 | QB | EXPLORE_AGENT | chunks.93.mjs:1871 | object (agent def) |
 | x01 | PLAN_AGENT | chunks.93.mjs:1944 | object (agent def) |
-| G_4 | CLAUDE_CODE_GUIDE_AGENT | chunks.93.mjs:2040 | object (agent def) |
+| G_4 | CLAUDE_CODE_GUIDE_AGENT | chunks.93.mjs:2018 | object (agent def) |
+| CF9 | buildClaudeCodeGuidePrompt | chunks.93.mjs:1957 | function (system prompt) |
+| yF9 | buildGeneralPurposePrompt | chunks.93.mjs | function (system prompt) |
+| LF9 | buildExploreSystemPrompt | chunks.93.mjs:1819 | function (system prompt) |
+| hF9 | buildPlanSystemPrompt | chunks.93.mjs:1883 | function (system prompt) |
+| RF9 | EXPLORE_WHEN_TO_USE | chunks.93.mjs:1862 | constant (string) |
 
 ### Progress Tracking
 
@@ -890,6 +914,27 @@
 | Ji4 | claimUnclaimedTask | chunks.134.mjs:1464 | function |
 | ss | parseShutdownRequest | chunks.131.mjs | function |
 | ib4 | getUnclaimedTaskPrompt | chunks.131.mjs:336 | function |
+| C01 | resolveModelConfig | chunks.133.mjs:1589 | function |
+| bI | generateAgentId | chunks.133.mjs:1590 | function |
+| DI | cloneMap | chunks.133.mjs:1597 | function |
+| Fx8 | cloneForkContext | chunks.133.mjs:1787 | function |
+| vvY | buildAgentSystemPrompt | chunks.133.mjs:1806 | function |
+| r24 | registerAgentHooks | chunks.133.mjs:1647 | function |
+
+### Agent Identity (AsyncLocalStorage)
+
+> **CORRECTION:** The symbol `p01` was incorrectly documented as `runWithAgentIdentity`.
+> The actual `p01` (chunks.94.mjs:295) is `isSkillMdFile` - a helper that checks if a filename is "skill.md".
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| mc4 | agentIdentityStorage | chunks.133.mjs:859 | AsyncLocalStorage |
+| X66 | runWithAgentIdentity | chunks.133.mjs:841 | function |
+| Tf6 | getCurrentAgentIdentity | chunks.133.mjs:837 | function |
+| ef8 | teammateContextStorage | chunks.84.mjs:1425 | AsyncLocalStorage |
+| UD1 | runWithTeammateContext | chunks.84.mjs:1407 | function |
+| iM | getTeammateContext | chunks.84.mjs:1403 | function |
+| p01 | isSkillMdFile | chunks.94.mjs:295 | function |
 
 ### Result Building
 
@@ -908,6 +953,10 @@
 | wl | readMailbox | chunks.132.mjs:3 | function |
 | kc6 | markAllMessagesAsRead | chunks.132.mjs:92 | function |
 | pY6 | readUnreadMessages | chunks.132.mjs:16 | function |
+| $TY | clearMailbox | chunks.132.mjs:128 | function |
+| HTY | formatMailboxMessages | chunks.132.mjs:141 | function |
+| FY6 | getMailboxPath | chunks.132.mjs | function |
+| OTY | validateTeamContext | chunks.132.mjs | function |
 
 ### Transcript Management
 
@@ -916,7 +965,7 @@
 | BQ1 | filterWhitespaceAssistant | chunks.173.mjs:1388 | function |
 | ld1 | buildConversationChain | chunks.143.mjs:850 | function |
 | mQ1 | filterThinkingOnlyAssistant | chunks.173.mjs:1435 | function |
-| sP1 | loadTranscript | chunks.173.mjs:2722 | function |
+| hf6 | loadTranscript | chunks.174.mjs:2705 | function |
 | wP6 | stripOrphanedToolResults | chunks.173.mjs:344 | function |
 
 ### Path Management

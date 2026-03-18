@@ -10,22 +10,40 @@ This document covers how the subagent's initial conversation context is built, i
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `buildForkContextMessages` (Nn7) - Build three-message context sequence - chunks.90.mjs:2529
-- `deriveToolUseContext` (vQ1) - Clone/share parent context fields - chunks.149.mjs:2589
+- `deriveToolUseContext` (Bc6) - Build subagent tool use context - chunks.148.mjs:1978
 - `agentLoopRunner` (qh) - Main agent execution loop - chunks.133.mjs:1565
-- `criticalSystemReminder_EXPERIMENTAL` - Injected system content field
+
+> **Note:** Previous documentation incorrectly mapped `Nn7` as `buildForkContextMessages`. The actual `Nn7` (chunks.75.mjs:487) is an Azure PowerShell command execution function. Fork context messages are built inline in `agentLoopRunner` (qh), not by a separate function.
 
 ---
 
-## Fork Context Messages (Nn7)
+## Fork Context Messages
 
 ### What it does
 
-`buildForkContextMessages` (Nn7) creates the initial three-message sequence that establishes the subagent's context before its task prompt.
+The fork context messages establish the initial conversation context for the subagent. These messages are passed directly to `agentLoopRunner` via the `forkContextMessages` parameter and are prepended to the prompt messages.
 
 ### How it works
 
-The three messages establish a conversation baseline:
+The `forkContextMessages` are built inline in the AgentTool call handler (chunks.136.mjs:1743) and passed to agentLoopRunner:
+
+```javascript
+// ============================================
+// Fork context message passing in AgentTool
+// Location: chunks.136.mjs:1743
+// ============================================
+
+// ORIGINAL (for source lookup):
+forkContextMessages: v ? void 0 : h ? J.messages : void 0,
+
+// READABLE (for understanding):
+forkContextMessages: isTeammate ? undefined :
+                     shouldInheritContext ? parentContext.messages : undefined
+
+// Mapping: v→isTeammate, h→shouldInheritContext, J→parentContext
+```
+
+The three-message pattern establishes a conversation baseline:
 
 **Message 1: User message establishing context**
 ```
@@ -63,64 +81,174 @@ The reminder is appended to the end of the system prompt with special formatting
 
 ---
 
-## deriveToolUseContext (vQ1)
+## deriveToolUseContext (Bc6)
 
 ### What it does
 
-Creates a new tool use context for the subagent by selectively cloning or sharing fields from the parent context.
+Creates a new tool use context for the subagent by selectively cloning or sharing fields from the parent context. This function is the central point for context isolation in the subagent system.
+
+### Source Code
+
+```javascript
+// ============================================
+// deriveToolUseContext - Create subagent tool use context
+// Location: chunks.148.mjs:1978-2024
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Bc6(A, q) {
+    let K = q?.abortController ?? (q?.shareAbortController ? A.abortController : Wm(A.abortController)),
+        Y = q?.getAppState ? q.getAppState : q?.shareAbortController ? A.getAppState : () => {
+            let z = A.getAppState();
+            if (z.toolPermissionContext.shouldAvoidPermissionPrompts) return z;
+            return {
+                ...z,
+                toolPermissionContext: {
+                    ...z.toolPermissionContext,
+                    shouldAvoidPermissionPrompts: !0
+                }
+            }
+        };
+    return {
+        readFileState: DI(q?.readFileState ?? A.readFileState),
+        nestedMemoryAttachmentTriggers: new Set,
+        dynamicSkillDirTriggers: new Set,
+        toolDecisions: void 0,
+        abortController: K,
+        getAppState: Y,
+        setAppState: q?.shareSetAppState ? A.setAppState : () => {},
+        setAppStateForTasks: A.setAppStateForTasks ?? A.setAppState,
+        localDenialTracking: q?.shareSetAppState ? A.localDenialTracking : Ay1(),
+        setInProgressToolUseIDs: () => {},
+        setResponseLength: q?.shareSetResponseLength ? A.setResponseLength : () => {},
+        pushApiMetricsEntry: q?.shareSetResponseLength ? A.pushApiMetricsEntry : void 0,
+        updateFileHistoryState: () => {},
+        updateAttributionState: A.updateAttributionState,
+        addNotification: void 0,
+        setToolJSX: void 0,
+        setStreamMode: void 0,
+        setSDKStatus: void 0,
+        openMessageSelector: void 0,
+        options: q?.options ?? A.options,
+        messages: q?.messages ?? A.messages,
+        agentId: q?.agentId ?? bI(),
+        agentType: q?.agentType,
+        queryTracking: {
+            chainId: emY(),
+            depth: (A.queryTracking?.depth ?? -1) + 1
+        },
+        fileReadingLimits: A.fileReadingLimits,
+        userModified: A.userModified,
+        criticalSystemReminder_EXPERIMENTAL: q?.criticalSystemReminder_EXPERIMENTAL,
+        requireCanUseTool: q?.requireCanUseTool
+    }
+}
+
+// READABLE (for understanding):
+function deriveToolUseContext(parentContext, config) {
+    // Abort controller: use provided, share parent's, or create derived
+    let abortController = config?.abortController ??
+        (config?.shareAbortController
+            ? parentContext.abortController
+            : deriveAbortController(parentContext.abortController));
+
+    // App state getter: use provided, share parent's, or create filtered version
+    let getAppState = config?.getAppState
+        ? config.getAppState
+        : config?.shareAbortController
+            ? parentContext.getAppState
+            : () => {
+                let state = parentContext.getAppState();
+                // For subagents, avoid permission prompts by default
+                if (state.toolPermissionContext.shouldAvoidPermissionPrompts) return state;
+                return {
+                    ...state,
+                    toolPermissionContext: {
+                        ...state.toolPermissionContext,
+                        shouldAvoidPermissionPrompts: true
+                    }
+                };
+            };
+
+    return {
+        // Cloned state - subagent gets its own copy
+        readFileState: cloneMap(config?.readFileState ?? parentContext.readFileState),
+        nestedMemoryAttachmentTriggers: new Set(),     // Fresh set for subagent
+        dynamicSkillDirTriggers: new Set(),            // Fresh set for subagent
+        toolDecisions: undefined,                      // No inherited decisions
+
+        // Abort handling - derived from parent or provided
+        abortController: abortController,
+
+        // State accessors - shared or isolated based on config
+        getAppState: getAppState,
+        setAppState: config?.shareSetAppState ? parentContext.setAppState : () => {},
+        setAppStateForTasks: parentContext.setAppStateForTasks ?? parentContext.setAppState,
+        localDenialTracking: config?.shareSetAppState
+            ? parentContext.localDenialTracking
+            : createDenialTracking(),
+
+        // UI callbacks - stubbed out for subagent (no UI)
+        setInProgressToolUseIDs: () => {},
+        setResponseLength: config?.shareSetResponseLength ? parentContext.setResponseLength : () => {},
+        pushApiMetricsEntry: config?.shareSetResponseLength ? parentContext.pushApiMetricsEntry : undefined,
+        updateFileHistoryState: () => {},
+        updateAttributionState: parentContext.updateAttributionState,
+        addNotification: undefined,
+        setToolJSX: undefined,
+        setStreamMode: undefined,
+        setSDKStatus: undefined,
+        openMessageSelector: undefined,
+
+        // Options and messages - inherited or overridden
+        options: config?.options ?? parentContext.options,
+        messages: config?.messages ?? parentContext.messages,
+
+        // Agent identity - new ID or provided
+        agentId: config?.agentId ?? generateAgentId(),
+        agentType: config?.agentType,
+
+        // Query tracking - increment depth for nested calls
+        queryTracking: {
+            chainId: generateChainId(),
+            depth: (parentContext.queryTracking?.depth ?? -1) + 1
+        },
+
+        // Limits and flags - inherited from parent
+        fileReadingLimits: parentContext.fileReadingLimits,
+        userModified: parentContext.userModified,
+
+        // Agent-specific reminders
+        criticalSystemReminder_EXPERIMENTAL: config?.criticalSystemReminder_EXPERIMENTAL,
+        requireCanUseTool: config?.requireCanUseTool
+    };
+}
+
+// Mapping: Bc6→deriveToolUseContext, A→parentContext, q→config,
+// DI→cloneMap, Wm→deriveAbortController, bI→generateAgentId,
+// Ay1→createDenialTracking, emY→generateChainId
+```
 
 ### Clone vs Share Decision Table
 
 | Field | Strategy | Reason |
 |-------|----------|--------|
-| `readFileState` | Clone (new Map) | Subagent file reads are independent |
-| `getAppState` | Share (same getter) | Subagent reads global app state |
-| `setAppState` | Share (same setter) | Subagent updates affect session |
-| `options` | Clone (spread) | Subagent may have different model/tools |
-| `options.mainLoopModel` | Override (v2.1.76) | Per-invocation model applied here |
-| `abortSignal` | Derived (chained) | Subagent abort is chained to parent |
-| `sessionId` | Same | Subagent belongs to same session |
-| `toolPermissionContext` | Filtered | Apply agent whitelist/blacklist |
+| `readFileState` | Clone (`DI`) | Subagent file reads are independent |
+| `nestedMemoryAttachmentTriggers` | Fresh Set | Subagent has its own attachment triggers |
+| `dynamicSkillDirTriggers` | Fresh Set | Subagent has its own skill directory triggers |
+| `toolDecisions` | Undefined | No inherited tool decisions |
+| `getAppState` | Shared or Filtered | Subagent reads global app state (may filter prompts) |
+| `setAppState` | Shared or Stub | Subagent updates affect session if shared |
+| `localDenialTracking` | Clone or Fresh | Permission denial tracking isolated by default |
+| `abortController` | Derived | Subagent abort is chained to parent |
+| `agentId` | New | Subagent has unique ID |
+| `queryTracking.depth` | Incremented | Track nesting depth for telemetry |
 
-```javascript
-// ============================================
-// deriveToolUseContext - Create subagent context
-// Location: chunks.149.mjs:2589
-// ============================================
+### Why This Approach
 
-// READABLE (for understanding):
-function deriveToolUseContext(parentContext, agentDefinition) {
-    return {
-        ...parentContext,
+**Key insight:** The context derivation strategy balances isolation with efficiency. Mutable state that could cause cross-contamination (readFileState, denialTracking) is cloned. Shared resources that should persist (appState, some callbacks) are shared via configuration flags.
 
-        // Clone mutable state
-        readFileState: new Map(parentContext.readFileState),
-
-        // Clone options, apply overrides
-        options: {
-            ...parentContext.options,
-            // v2.1.76: per-invocation model override applied here
-            mainLoopModel: agentDefinition.resolvedModel ?? parentContext.options.mainLoopModel,
-            // Apply tool whitelist/blacklist from agent definition
-            tools: filterTools(parentContext.options.tools, agentDefinition)
-        },
-
-        // Derive abort signal from parent
-        abortSignal: AbortSignal.any([
-            parentContext.abortSignal,
-            agentDefinition.abortController.signal
-        ]),
-
-        // Filter permissions for subagent
-        toolPermissionContext: filterPermissions(
-            parentContext.toolPermissionContext,
-            agentDefinition
-        )
-    };
-}
-
-// Mapping: vQ1→deriveToolUseContext
-```
+The `shouldAvoidPermissionPrompts` filter is crucial: subagents should not interrupt the parent with permission dialogs. By filtering the app state getter, the subagent automatically bypasses interactive permission prompts while still respecting permission rules.
 
 ---
 

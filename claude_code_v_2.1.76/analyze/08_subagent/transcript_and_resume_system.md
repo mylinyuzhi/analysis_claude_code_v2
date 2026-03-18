@@ -14,20 +14,12 @@ Key functions in this document:
 - `outputWriteQueue` (vp7) - Promise chain for serialized writes - chunks.89.mjs:340
 - `readOutputFileDelta` (WjA) - Incremental polling of output file - chunks.89.mjs:276
 - `buildConversationChain` (ld1) - UUID-based parent link construction - chunks.143.mjs:850
-- `loadTranscript` (sP1) - Load prior transcript for resume - chunks.173.mjs:2722 **[needs verification]**
-- `filterWhitespaceAssistant` (BQ1) - Filter whitespace-only assistant messages - chunks.173.mjs:1388 **[needs verification]**
-- `filterThinkingOnlyAssistant` (mQ1) - Filter thinking-only assistant messages - chunks.173.mjs:1435 **[needs verification]**
-- `stripOrphanedToolResults` (wP6) - Remove orphaned tool result blocks - chunks.173.mjs:344 **[needs verification]**
+- `loadTranscript` (hf6) - Load prior transcript for resume - chunks.174.mjs:2705 ✓ VERIFIED
+- `filterWhitespaceAssistant` (BQ1) - Filter whitespace-only assistant messages - chunks.173.mjs:1388
+- `filterThinkingOnlyAssistant` (mQ1) - Filter thinking-only assistant messages - chunks.173.mjs:1435
+- `stripOrphanedToolResults` (wP6) - Remove orphaned tool result blocks - chunks.173.mjs:344
 
-> **Note:** The symbols `sP1`, `wP6`, `mQ1`, `BQ1` require source code verification. These were documented from earlier analysis but the exact symbol mappings in chunks.173.mjs need confirmation. Note: `sP1` appears as `"EnterWorktree"` constant in chunks.91.mjs:180, suggesting either:
-> 1. The transcript functions have different symbols
-> 2. The functions are defined elsewhere
-> 3. The analysis documentation predates code changes
-
-> **Note:** Previous documentation incorrectly mapped:
-> - `wP6` as `writeTranscriptEntry` (actual: `stripOrphanedToolResults`)
-> - `mQ1` as `finalizeTranscript` (actual: `filterThinkingOnlyAssistant`)
-> - `BQ1` as `buildResumeMessages` (actual: `filterWhitespaceAssistant`)
+> **Verified:** The `hf6` symbol at chunks.174.mjs:2705 is confirmed as `loadTranscript`. The function loads sidechain messages from a transcript file for agent resume functionality.
 
 ---
 
@@ -301,41 +293,74 @@ async function readOutputFileDelta(outputFilePath, lastReadPosition) {
 
 ## Resume System
 
-### loadTranscript (sP1)
+### loadTranscript (hf6)
 
-Loads a prior transcript file for resume:
+Loads a prior transcript file for resume. This function specifically loads sidechain messages (agent-specific conversation history) from the transcript file.
 
 ```javascript
 // ============================================
 // loadTranscript - Load prior transcript for resume
-// Location: chunks.173.mjs:2722
+// Location: chunks.174.mjs:2705-2723
 // ============================================
 
-// READABLE (for understanding):
-async function loadTranscript(transcriptPath) {
+// ORIGINAL (for source lookup):
+async function hf6(A) {
+    let q = L0(A);
     try {
-        let content = await fs.readFile(transcriptPath, "utf8");
-        let records = content.trim().split("\n")
-            .filter(Boolean)
-            .map(JSON.parse);
-
-        // Filter to messages only, excluding meta records
-        let messages = records.filter(record => record.type === "message");
-
-        // Apply cleanup filters
-        messages = stripOrphanedToolResults(messages);
-        messages = filterWhitespaceAssistant(messages);
-        messages = filterThinkingOnlyAssistant(messages);
-
-        return messages;
-    } catch (err) {
-        if (err.code === "ENOENT") return [];
-        throw err;
+        let {
+            messages: K
+        } = await u_6(q), Y = Array.from(K.values()).filter(($) => $.agentId === A && $.isSidechain);
+        if (Y.length === 0) return null;
+        let z = new Set(Y.map(($) => $.parentUuid)),
+            _ = OS1(Y, ($) => !z.has($.uuid));
+        if (!_) return null;
+        return Ao6(K, _).filter(($) => $.agentId === A).map(({
+            isSidechain: $,
+            parentUuid: H,
+            ...j
+        }) => j)
+    } catch {
+        return null
     }
 }
 
-// Mapping: sP1→loadTranscript
+// READABLE (for understanding):
+async function loadTranscript(agentId) {
+    let transcriptPath = getTranscriptPath(agentId);
+    try {
+        let { messages } = await loadTranscriptFile(transcriptPath);
+
+        // Filter to sidechain messages for this agent
+        let sidechainMessages = Array.from(messages.values())
+            .filter((msg) => msg.agentId === agentId && msg.isSidechain);
+
+        if (sidechainMessages.length === 0) return null;
+
+        // Find root message (not a child of any other message in the set)
+        let parentUuids = new Set(sidechainMessages.map((msg) => msg.parentUuid));
+        let rootMessage = findRootMessage(sidechainMessages, (msg) => !parentUuids.has(msg.uuid));
+
+        if (!rootMessage) return null;
+
+        // Build message chain from root
+        return buildMessageChain(messages, rootMessage)
+            .filter((msg) => msg.agentId === agentId)
+            .map(({ isSidechain, parentUuid, ...rest }) => rest);
+    } catch {
+        return null;
+    }
+}
+
+// Mapping: hf6→loadTranscript, A→agentId, L0→getTranscriptPath, u_6→loadTranscriptFile,
+// OS1→findRootMessage, Ao6→buildMessageChain
 ```
+
+**Key insight:** The transcript loading specifically targets sidechain messages - these are agent-specific conversation branches that run parallel to the main conversation. The function:
+1. Loads the full transcript file
+2. Filters to messages belonging to this agent AND marked as sidechain
+3. Finds the root message (one without a parent in the set)
+4. Builds the message chain from root to leaf
+5. Strips internal metadata (isSidechain, parentUuid) before returning
 
 ### Message Processing for Resume
 

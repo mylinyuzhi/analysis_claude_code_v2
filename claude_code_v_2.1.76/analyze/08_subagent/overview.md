@@ -18,10 +18,15 @@ The subagent system enables parallel execution, task decomposition, and multi-ag
 
 Key functions in this document:
 - `agentLoopRunner` (qh) - Core execution generator - chunks.133.mjs:1565
-- `runWithAgentIdentity` (p01) - Identity binding - chunks.80.mjs:2353
+- `runWithAgentIdentity` (X66) - Identity binding - chunks.133.mjs:841
+- `getCurrentAgentIdentity` (Tf6) - Get current agent identity - chunks.133.mjs:837
 - `inProcessAgentRunner` (XNY) - In-process teammate runner - chunks.134.mjs:1571
 - `pollForNextMessage` (DNY) - Poll loop for teammate messages - chunks.134.mjs:1483
-- `resolveModelConfig` (Uq6) - Model resolution - chunks.89.mjs
+- `resolveModelConfig` (C01) - Model resolution - chunks.133.mjs:1589
+
+> **CORRECTION:** Previous documentation incorrectly mapped `p01` as `runWithAgentIdentity`.
+> The actual `p01` (chunks.94.mjs:295) is `isSkillMdFile`. The correct symbol for
+> `runWithAgentIdentity` is `X66` (chunks.133.mjs:841).
 
 ---
 

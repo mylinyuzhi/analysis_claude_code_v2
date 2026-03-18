@@ -18,7 +18,11 @@ Key functions in this document:
 - `executePostToolHooks` (KyA) - Executes PostToolUse hooks after tool execution — `chunks.141.mjs:2831`
 - `executePostToolFailureHooks` (YyA) - Executes hooks when tool fails — `chunks.141.mjs:2850`
 - `createHookMessage` (kq) - Creates hook context message object — `chunks.142.mjs:2615`
-- `runWithAgentIdentity` (p01) - Wraps agent execution with identity context — `chunks.80.mjs:2353`
+- `runWithAgentIdentity` (X66) - Wraps agent execution with identity context — `chunks.133.mjs:841`
+
+> **CORRECTION:** Previous documentation incorrectly mapped `p01` as `runWithAgentIdentity`.
+> The actual `p01` (chunks.94.mjs:295) is `isSkillMdFile`. The correct symbol for
+> `runWithAgentIdentity` is `X66` (chunks.133.mjs:841).
 
 ---
 

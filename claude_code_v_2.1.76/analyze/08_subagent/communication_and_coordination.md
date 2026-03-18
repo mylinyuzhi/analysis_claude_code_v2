@@ -10,9 +10,13 @@ This document covers the mailbox-based inter-agent communication system used by 
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `readMailbox` (wl) - Read messages from mailbox - chunks.132.mjs:3
+- `readMailbox` (wl) - Read all messages from mailbox - chunks.132.mjs:3
+- `readUnreadMessages` (pY6) - Read only unread messages - chunks.132.mjs:16
 - `writeToMailbox` (x3) - Write message to mailbox - chunks.132.mjs:22
-- `markMessageAsReadByIndex` (Vc6) - Mark message as read - chunks.132.mjs:57
+- `markMessageAsReadByIndex` (Vc6) - Mark single message as read - chunks.132.mjs:57
+- `markMessagesAsRead` (kc6) - Mark all messages as read - chunks.132.mjs:92
+- `clearMailbox` ($TY) - Clear all messages from mailbox - chunks.132.mjs:128
+- `formatMailboxMessages` (HTY) - Format messages as XML - chunks.132.mjs:141
 - `spawnTeammateDispatcher` (iVY) - Route teammate spawn to backend - chunks.129.mjs:2550
 - `inProcessAgentRunner` (XNY) - Runner for in-process teammates - chunks.134.mjs:1571
 - `pollForNextMessage` (DNY) - Priority poll loop - chunks.134.mjs:1483
@@ -285,6 +289,241 @@ async function markMessageAsReadByIndex(agentName, teamName, messageIndex) {
 
 // Mapping: Vc6→markMessageAsReadByIndex, A→agentName, q→teamName, K→messageIndex,
 // FY6→getMailboxPath, Nc6.lock→properLockfile.lock, wl→readMailbox, Pf6→fs.writeFile
+```
+
+### readUnreadMessages (pY6)
+
+**What it does:** Reads all messages from the mailbox and returns only the unread ones.
+
+**How it works:**
+1. Call `readMailbox` to get all messages
+2. Filter to messages where `read === false`
+3. Return filtered list with logging
+
+```javascript
+// ============================================
+// readUnreadMessages - Get only unread messages
+// Location: chunks.132.mjs:16-19
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function pY6(A, q) {
+    let K = await wl(A, q),
+        Y = K.filter((z) => !z.read);
+    return k(`[TeammateMailbox] readUnreadMessages: ${Y.length} unread of ${K.length} total`), Y
+}
+
+// READABLE (for understanding):
+async function readUnreadMessages(agentName, teamName) {
+    let allMessages = await readMailbox(agentName, teamName);
+    let unreadMessages = allMessages.filter((msg) => !msg.read);
+    log(`[TeammateMailbox] readUnreadMessages: ${unreadMessages.length} unread of ${allMessages.length} total`);
+    return unreadMessages;
+}
+
+// Mapping: pY6→readUnreadMessages, A→agentName, q→teamName, wl→readMailbox, k→log
+```
+
+### markMessagesAsRead (kc6)
+
+**What it does:** Marks ALL messages in the mailbox as read in a single operation.
+
+**How it works:**
+1. Acquire file lock on mailbox
+2. Read all current messages
+3. Update each message's `read` field to `true`
+4. Write back atomically
+5. Verify the write succeeded
+
+**Why use this over individual marking:** When the agent has finished processing all messages (e.g., before going idle), marking all at once is more efficient than N individual lock/unlock cycles.
+
+```javascript
+// ============================================
+// markMessagesAsRead - Mark all messages as read
+// Location: chunks.132.mjs:92-125
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function kc6(A, q) {
+    let K = FY6(A, q);
+    k(`[TeammateMailbox] markMessagesAsRead called: agentName=${A}, teamName=${q}, path=${K}`);
+    let Y = `${K}.lock`,
+        z;
+    try {
+        k("[TeammateMailbox] markMessagesAsRead: acquiring lock..."), z = await Nc6.lock(K, {
+            lockfilePath: Y,
+            ...iv1
+        }), k("[TeammateMailbox] markMessagesAsRead: lock acquired");
+        let _ = await wl(A, q);
+        if (k(`[TeammateMailbox] markMessagesAsRead: read ${_.length} messages after lock`), _.length === 0) {
+            k("[TeammateMailbox] markMessagesAsRead: no messages to mark");
+            return
+        }
+        let w = _.filter((J) => !J.read).length;
+        k(`[TeammateMailbox] markMessagesAsRead: ${w} unread of ${_.length} total`);
+        let O = _.map((J) => ({
+            ...J,
+            read: !0
+        }));
+        await Pf6(K, B6(O, null, 2), "utf-8"), k(`[TeammateMailbox] markMessagesAsRead: WROTE ${w} message(s) as read to ${K}`);
+        let $ = await xd4(K, "utf-8"),
+            j = i1($).filter((J) => !J.read).length;
+        k(`[TeammateMailbox] markMessagesAsRead: VERIFY - ${j} still unread after write`)
+    } catch (_) {
+        if (_.code === "ENOENT") {
+            k(`[TeammateMailbox] markMessagesAsRead: file does not exist at ${K}`);
+            return
+        }
+        k(`[TeammateMailbox] markMessagesAsRead FAILED for ${A}: ${_}`), _6(_)
+    } finally {
+        if (z) await z(), k("[TeammateMailbox] markMessagesAsRead: lock released")
+    }
+}
+
+// READABLE (for understanding):
+async function markMessagesAsRead(agentName, teamName) {
+    let mailboxPath = getMailboxPath(agentName, teamName);
+    log(`[TeammateMailbox] markMessagesAsRead called: agentName=${agentName}, teamName=${teamName}`);
+    let lockPath = `${mailboxPath}.lock`;
+    let releaseLock;
+
+    try {
+        log("[TeammateMailbox] markMessagesAsRead: acquiring lock...");
+        releaseLock = await properLockfile.lock(mailboxPath, { lockfilePath: lockPath, ...lockOptions });
+        log("[TeammateMailbox] markMessagesAsRead: lock acquired");
+
+        let messages = await readMailbox(agentName, teamName);
+        log(`[TeammateMailbox] markMessagesAsRead: read ${messages.length} messages after lock`);
+
+        if (messages.length === 0) {
+            log("[TeammateMailbox] markMessagesAsRead: no messages to mark");
+            return;
+        }
+
+        let unreadCount = messages.filter((msg) => !msg.read).length;
+        log(`[TeammateMailbox] markMessagesAsRead: ${unreadCount} unread of ${messages.length} total`);
+
+        // Mark all as read
+        let updatedMessages = messages.map((msg) => ({ ...msg, read: true }));
+        await fs.writeFile(mailboxPath, JSON.stringify(updatedMessages, null, 2), "utf-8");
+        log(`[TeammateMailbox] markMessagesAsRead: WROTE ${unreadCount} message(s) as read`);
+
+        // Verify write
+        let verifyContent = await fs.readFile(mailboxPath, "utf-8");
+        let stillUnread = parseJsonl(verifyContent).filter((msg) => !msg.read).length;
+        log(`[TeammateMailbox] markMessagesAsRead: VERIFY - ${stillUnread} still unread after write`);
+    } catch (err) {
+        if (err.code === "ENOENT") {
+            log(`[TeammateMailbox] markMessagesAsRead: file does not exist at ${mailboxPath}`);
+            return;
+        }
+        log(`[TeammateMailbox] markMessagesAsRead FAILED for ${agentName}: ${err}`);
+        reportError(err);
+    } finally {
+        if (releaseLock) {
+            await releaseLock();
+            log("[TeammateMailbox] markMessagesAsRead: lock released");
+        }
+    }
+}
+
+// Mapping: kc6→markMessagesAsRead, A→agentName, q→teamName, FY6→getMailboxPath,
+// wl→readMailbox, Nc6.lock→properLockfile.lock, Pf6→fs.writeFile, B6→JSON.stringify
+```
+
+### clearMailbox ($TY)
+
+**What it does:** Clears all messages from the mailbox by writing an empty array.
+
+**How it works:**
+1. Get the mailbox path
+2. Write `"[]"` to the file (empty JSON array)
+3. Log the action
+
+**Why use this:** When an agent is being shut down or reset, clearing the mailbox prevents stale messages from affecting future sessions.
+
+```javascript
+// ============================================
+// clearMailbox - Clear all messages from mailbox
+// Location: chunks.132.mjs:128-138
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function $TY(A, q) {
+    let K = FY6(A, q);
+    try {
+        await Pf6(K, "[]", {
+            encoding: "utf-8",
+            flag: "r+"
+        }), k(`[TeammateMailbox] Cleared inbox for ${A}`)
+    } catch (Y) {
+        if (Y.code === "ENOENT") return;
+        k(`Failed to clear inbox for ${A}: ${Y}`), _6(Y)
+    }
+}
+
+// READABLE (for understanding):
+async function clearMailbox(agentName, teamName) {
+    let mailboxPath = getMailboxPath(agentName, teamName);
+    try {
+        await fs.writeFile(mailboxPath, "[]", {
+            encoding: "utf-8",
+            flag: "r+"  // Open for reading and writing, file must exist
+        });
+        log(`[TeammateMailbox] Cleared inbox for ${agentName}`);
+    } catch (err) {
+        if (err.code === "ENOENT") return;  // File doesn't exist, nothing to clear
+        log(`Failed to clear inbox for ${agentName}: ${err}`);
+        reportError(err);
+    }
+}
+
+// Mapping: $TY→clearMailbox, A→agentName, q→teamName, FY6→getMailboxPath,
+// Pf6→fs.writeFile, k→log, _6→reportError
+```
+
+### formatMailboxMessages (HTY)
+
+**What it does:** Formats an array of mailbox messages into XML-style tags for inclusion in the conversation.
+
+**How it works:**
+1. For each message, create an XML tag with attributes for `teammate_id`, `color`, `summary`
+2. Include the message text inside the tag
+3. Join all tags with newlines
+
+**Why XML format:** The XML format is easily parseable by the LLM and provides clear delimiters between messages from different teammates.
+
+```javascript
+// ============================================
+// formatMailboxMessages - Format messages as XML
+// Location: chunks.132.mjs:141-149
+// ============================================
+
+// ORIGINAL (for source lookup):
+function HTY(A) {
+    return A.map((q) => {
+        let K = q.color ? ` color="${q.color}"` : "",
+            Y = q.summary ? ` summary="${q.summary}"` : "";
+        return `<${fj} teammate_id="${q.from}"${K}${Y}>
+${q.text}
+</${fj}>`
+    }).join(`
+
+`)
+}
+
+// READABLE (for understanding):
+function formatMailboxMessages(messages) {
+    return messages.map((msg) => {
+        let colorAttr = msg.color ? ` color="${msg.color}"` : "";
+        let summaryAttr = msg.summary ? ` summary="${msg.summary}"` : "";
+        return `<teammate_message teammate_id="${msg.from}"${colorAttr}${summaryAttr}>
+${msg.text}
+</teammate_message>`;
+    }).join("\n\n");
+}
+
+// Mapping: HTY→formatMailboxMessages, A→messages, fj→TEAMMATE_MESSAGE_TAG
 ```
 
 ---

@@ -178,7 +178,7 @@ When a subagent runs, the parent's compaction state affects the fork context:
 │  └─────────────────────────────────────────────┘            │
 │                       │                                      │
 │                       ▼                                      │
-│  buildForkContextMessages (Nn7):                            │
+│  Fork Context (built inline in agentLoopRunner):             │
 │  ┌─────────────────────────────────────────────┐            │
 │  │ Filters and prepares context for subagent   │            │
 │  │ - Removes or summarizes old messages        │            │

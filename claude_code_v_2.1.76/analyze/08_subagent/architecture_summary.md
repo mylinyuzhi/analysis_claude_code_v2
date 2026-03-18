@@ -17,11 +17,17 @@ The subagent system provides a complete infrastructure for parallel task executi
 
 Key functions in this document:
 - `agentLoopRunner` (qh) - Core async generator - chunks.133.mjs:1565
-- `runWithAgentIdentity` (p01) - Identity context binding - chunks.80.mjs:2353
+- `runWithAgentIdentity` (X66) - Identity context binding - chunks.133.mjs:841
+- `getCurrentAgentIdentity` (Tf6) - Get current agent identity - chunks.133.mjs:837
+- `agentIdentityStorage` (mc4) - AsyncLocalStorage for agent identity - chunks.133.mjs:859
 - `inProcessAgentRunner` (XNY) - In-process teammate runner - chunks.134.mjs:1571
 - `pollForNextMessage` (DNY) - Teammate poll loop - chunks.134.mjs:1483
 - `assembleSessionToolSet` (YP6) - Tool assembly - chunks.141.mjs:1476
-- `deriveToolUseContext` (vQ1) - Context derivation - chunks.149.mjs:2589
+- `deriveToolUseContext` (Bc6) - Context derivation - chunks.148.mjs:1978
+
+> **CORRECTION:** Previous documentation incorrectly mapped `p01` as `runWithAgentIdentity`.
+> The actual `p01` (chunks.94.mjs:295) is `isSkillMdFile`. The correct symbol for
+> `runWithAgentIdentity` is `X66` (chunks.133.mjs:841).
 
 ---
 
@@ -42,8 +48,8 @@ Key functions in this document:
               │               SUBAGENT EXECUTION          │                │
               │                                           ▼                │
               │   ┌─────────────────┐    ┌───────────────────────────┐   │
-              │   │  Identity Store  │◀──│  runWithAgentIdentity (p01)│   │
-              │   │ (AsyncLocalStore)│    │  (80.mjs)                 │   │
+              │   │  Identity Store  │◀──│  runWithAgentIdentity (X66)│   │
+              │   │ (AsyncLocalStore)│    │  (133.mjs)                 │   │
               │   └─────────────────┘    └──────────────┬────────────┘   │
               │                                          │                │
               │   ┌─────────────────┐    ┌──────────────▼────────────┐   │
@@ -151,7 +157,7 @@ The teammate's poll loop (`pollForNextMessage`) checks multiple message sources 
 
 ### 6. Context Isolation
 
-`deriveToolUseContext` (vQ1) creates a new context for the subagent by cloning some fields (readFileState) and sharing others (appState getter) from the parent context.
+`deriveToolUseContext` (Bc6) creates a new context for the subagent by cloning some fields (readFileState) and sharing others (appState getter) from the parent context.
 
 **Clone vs Share decision:**
 

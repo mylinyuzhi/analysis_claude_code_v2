@@ -41,7 +41,7 @@ The following context does propagate from parent to subagent:
 
 ## Fork Context Integration
 
-The fork context messages (built by `buildForkContextMessages` / Nn7) serve as the primary mechanism for passing parent context to the subagent. They establish:
+The fork context messages serve as the primary mechanism for passing parent context to the subagent. They are built inline in `agentLoopRunner` (qh) and passed via the `forkContextMessages` parameter. They establish:
 
 1. The subagent's identity and role
 2. A reference to the parent session

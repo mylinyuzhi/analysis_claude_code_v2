@@ -38,13 +38,13 @@ The function executes in 11 distinct phases:
 Builds the complete tool set for this subagent by calling `assembleSessionToolSet` (YP6). The tool set includes both built-in tools and any tools specified in the agent definition's `tools` list.
 
 **Phase 2: Identity Binding**
-Wraps the entire execution in `runWithAgentIdentity` (p01) via `AsyncLocalStorage`. This allows any code in the call stack to call `getCurrentAgentIdentity()` without needing explicit parameter passing.
+Wraps the entire execution in `runWithAgentIdentity` (X66) via `AsyncLocalStorage`. This allows any code in the call stack to call `getCurrentAgentIdentity()` (Tf6) without needing explicit parameter passing.
 
 **Phase 3: System Prompt Construction**
 Calls the agent definition's `getSystemPrompt()` method to build the system prompt. For subagents, this includes any `criticalSystemReminder_EXPERIMENTAL` content from the agent definition.
 
 **Phase 4: Context Building**
-Merges parent context with subagent-specific context via `deriveToolUseContext` (vQ1). Some fields are cloned (readFileState), others are shared (appState getter).
+Merges parent context with subagent-specific context via `deriveToolUseContext` (Bc6). Some fields are cloned (readFileState), others are shared (appState getter).
 
 **Phase 5: Hook Firing - SubagentStart**
 Fires the `SubagentStart` hook event, giving hook handlers an opportunity to run setup logic before the first LLM call.
@@ -217,8 +217,146 @@ async function* agentLoopRunner({
 // Mapping: qh→agentLoopRunner, A→agentDefinition, q→promptMessages, K→toolUseContext,
 // Y→canUseTool, z→isAsync, _→canShowPermissionPrompts, w→forkContextMessages, O→querySource,
 // $→override, H→model, j→maxTurns, J→preserveToolUseResults, M→availableTools, D→allowedTools,
-// Ux8→executeSubagentStartHooks, Yh→llmMessageLoop, C01→resolveModelConfig, bI→generateAgentId
+// Ux8→executeSubagentStartHooks, Yh→llmMessageLoop, C01→resolveModelConfig, bI→generateAgentId,
+// DI→cloneMap, Fx8→cloneForkContext, vvY→buildAgentSystemPrompt, r24→registerAgentHooks
 ```
+
+---
+
+## Skill Loading in Subagents
+
+### What it does
+
+When an agent definition includes a `skills` array in its frontmatter, the agentLoopRunner loads these skills before starting the LLM loop and injects their prompts as user messages into the conversation.
+
+### How it works
+
+**Phase 5a: Skill Resolution** (lines 1648-1697 in agentLoopRunner)
+
+1. **Get skills list** from `agentDefinition.skills` array
+2. **For each skill name** in the list:
+   - Resolve the skill using `NvY(skillName, skillIndex, agentDefinition)`
+   - If skill not found, log warning and skip
+   - If skill is not prompt-based, log warning and skip
+3. **Load skill content** by calling `skill.getPromptForCommand("", toolUseContext)`
+4. **Format skill metadata** using `formatSkillLoadingMetadata(skillName, progressMessage)`
+5. **Inject as user message** containing both the metadata wrapper and skill content
+
+**Why this approach:**
+- Skills are loaded once at agent start, not on every turn
+- Prompt-based skills provide their content via `getPromptForCommand`
+- The skill metadata wrapper helps the LLM understand the skill context
+
+```javascript
+// ============================================
+// Skill Loading Logic in agentLoopRunner
+// Location: chunks.133.mjs:1648-1697
+// ============================================
+
+// ORIGINAL (for source lookup):
+let Y6 = A.skills ?? [];
+if (Y6.length > 0) {
+    let $6 = await NR(qY()),
+        n = [];
+    for (let i of Y6) {
+        let l = NvY(i, $6, A);
+        if (!l) {
+            k(`[Agent: ${A.agentType}] Warning: Skill '${i}' specified in frontmatter was not found`, {
+                level: "warn"
+            });
+            continue
+        }
+        let q6 = kf6(l, $6);
+        if (q6.type !== "prompt") {
+            k(`[Agent: ${A.agentType}] Warning: Skill '${i}' is not a prompt-based skill`, {
+                level: "warn"
+            });
+            continue
+        }
+        n.push({
+            skillName: i,
+            skill: q6
+        })
+    }
+    let {
+        formatSkillLoadingMetadata: o
+    } = await Promise.resolve().then(() => (MN1(), JN1)), a = await Promise.all(n.map(async ({
+        skillName: i,
+        skill: l
+    }) => ({
+        skillName: i,
+        skill: l,
+        content: await l.getPromptForCommand("", K)
+    })));
+    for (let {
+            skillName: i,
+            skill: l,
+            content: q6
+        }
+        of a) {
+        k(`[Agent: ${A.agentType}] Preloaded skill '${i}'`);
+        let w6 = o(i, l.progressMessage);
+        R.push(p1({
+            content: [{
+                type: "text",
+                text: w6
+            }, ...q6]
+        }))
+    }
+}
+
+// READABLE (for understanding):
+let skillsList = agentDefinition.skills ?? [];
+if (skillsList.length > 0) {
+    let skillIndex = await loadSkillIndex();
+    let validSkills = [];
+
+    // Phase 1: Resolve and validate each skill
+    for (let skillName of skillsList) {
+        let skillDef = resolveSkill(skillName, skillIndex, agentDefinition);
+        if (!skillDef) {
+            log(`[Agent: ${agentDefinition.agentType}] Warning: Skill '${skillName}' not found`, { level: "warn" });
+            continue;
+        }
+
+        let skill = getSkillHandler(skillDef, skillIndex);
+        if (skill.type !== "prompt") {
+            log(`[Agent: ${agentDefinition.agentType}] Warning: Skill '${skillName}' is not prompt-based`, { level: "warn" });
+            continue;
+        }
+
+        validSkills.push({ skillName, skill });
+    }
+
+    // Phase 2: Load content for each skill
+    let { formatSkillLoadingMetadata } = await importSkillFormatter();
+    let loadedSkills = await Promise.all(validSkills.map(async ({ skillName, skill }) => ({
+        skillName,
+        skill,
+        content: await skill.getPromptForCommand("", toolUseContext)
+    })));
+
+    // Phase 3: Inject as user messages
+    for (let { skillName, skill, content } of loadedSkills) {
+        log(`[Agent: ${agentDefinition.agentType}] Preloaded skill '${skillName}'`);
+        let metadataWrapper = formatSkillLoadingMetadata(skillName, skill.progressMessage);
+        messages.push(createUserMessage({
+            content: [
+                { type: "text", text: metadataWrapper },
+                ...content
+            ]
+        }));
+    }
+}
+
+// Mapping: Y6→skillsList, A→agentDefinition, NR→loadSkillIndex, NvY→resolveSkill,
+// kf6→getSkillHandler, p1→createUserMessage, R→messages
+```
+
+**Key insight:** Skills are injected as user messages rather than system messages because:
+1. Skills may contain dynamic content (e.g., current file state)
+2. User messages can reference tool results that were collected earlier
+3. The skill metadata wrapper provides context that distinguishes skill content from regular user input
 
 ---
 
@@ -330,6 +468,210 @@ async function* llmMessageLoop(config) {
 ```
 
 **Key insight:** The llmMessageLoop separates the outer agent lifecycle (agentLoopRunner) from the inner turn processing. This allows the outer loop to handle identity, hooks, and cleanup while the inner loop focuses on LLM interaction efficiency.
+
+---
+
+## Helper Functions in agentLoopRunner
+
+### resolveModelConfig (C01)
+
+**What it does:** Resolves the model to use for this subagent by checking the cascade: per-invocation override → agent definition model → session model → default.
+
+**How it works:**
+1. If `perInvocationModel` is provided (from AgentTool call), use it
+2. Else if `agentDefinitionModel` is set, use that
+3. Else fall back to `sessionModel`
+
+```javascript
+// ============================================
+// resolveModelConfig - Model resolution cascade
+// Location: chunks.133.mjs:1589
+// ============================================
+
+// READABLE (for understanding):
+function resolveModelConfig(agentDefinitionModel, sessionModel, perInvocationModel, permissionMode) {
+    // Priority: per-invocation > agent definition > session
+    if (perInvocationModel) return resolveModelId(perInvocationModel);
+    if (agentDefinitionModel && agentDefinitionModel !== "inherit") {
+        return resolveModelId(agentDefinitionModel);
+    }
+    return sessionModel;
+}
+
+// Mapping: C01→resolveModelConfig
+```
+
+### generateAgentId (bI)
+
+**What it does:** Generates a unique identifier for this subagent instance.
+
+**How it works:** Creates a UUID with a prefix to distinguish subagent IDs from session IDs.
+
+```javascript
+// ============================================
+// generateAgentId - Unique agent ID generator
+// Location: chunks.133.mjs:1590
+// ============================================
+
+// Mapping: bI→generateAgentId
+```
+
+### cloneMap (DI)
+
+**What it does:** Creates a shallow copy of a Map, used to clone `readFileState` for fork context isolation.
+
+```javascript
+// ============================================
+// cloneMap - Map cloning utility
+// Location: chunks.133.mjs:1597
+// ============================================
+
+// READABLE (for understanding):
+function cloneMap(originalMap) {
+    return new Map(originalMap);
+}
+
+// Mapping: DI→cloneMap
+```
+
+### cloneForkContext (Fx8)
+
+**What it does:** Deep clones fork context messages while preserving tool result references. Filters out orphaned tool uses (where the corresponding tool result was removed).
+
+**Why this is needed:** When forking a subagent, the messages may have had some content compacted away. This function ensures that tool uses without corresponding tool results are removed to prevent the LLM from waiting for a result that will never come.
+
+```javascript
+// ============================================
+// cloneForkContext - Fork context message cloning
+// Location: chunks.133.mjs:1787-1804
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Fx8(A) {
+    let q = new Set;
+    for (let K of A)
+        if (K?.type === "user") {
+            let z = K.message.content;
+            if (Array.isArray(z)) {
+                for (let _ of z)
+                    if (_.type === "tool_result" && _.tool_use_id) q.add(_.tool_use_id)
+            }
+        } return A.filter((K) => {
+        if (K?.type === "assistant") {
+            let z = K.message.content;
+            if (Array.isArray(z)) return !z.some((w) => w.type === "tool_use" && w.id && !q.has(w.id))
+        }
+        return !0
+    })
+}
+
+// READABLE (for understanding):
+function cloneForkContext(forkMessages) {
+    // Collect all tool_use_ids from tool_result blocks
+    let referencedToolUseIds = new Set();
+    for (let message of forkMessages) {
+        if (message?.type === "user") {
+            let content = message.message.content;
+            if (Array.isArray(content)) {
+                for (let block of content) {
+                    if (block.type === "tool_result" && block.tool_use_id) {
+                        referencedToolUseIds.add(block.tool_use_id);
+                    }
+                }
+            }
+        }
+    }
+
+    // Filter out assistant messages with orphaned tool_uses
+    return forkMessages.filter((message) => {
+        if (message?.type === "assistant") {
+            let content = message.message.content;
+            if (Array.isArray(content)) {
+                // Remove if any tool_use doesn't have a corresponding tool_result
+                return !content.some((block) =>
+                    block.type === "tool_use" && block.id && !referencedToolUseIds.has(block.id)
+                );
+            }
+        }
+        return true;
+    });
+}
+
+// Mapping: Fx8→cloneForkContext, A→forkMessages, q→referencedToolUseIds
+```
+
+### buildAgentSystemPrompt (vvY)
+
+**What it does:** Builds the complete system prompt for the agent by calling the agent definition's `getSystemPrompt()` method.
+
+```javascript
+// ============================================
+// buildAgentSystemPrompt - System prompt builder
+// Location: chunks.133.mjs:1806
+// ============================================
+
+// READABLE (for understanding):
+async function buildAgentSystemPrompt(agentDefinition, toolUseContext, resolvedModel, workingDirectories) {
+    try {
+        let promptParts = [agentDefinition.getSystemPrompt({ toolUseContext })];
+        // ... add additional prompt parts ...
+        return promptParts.join("\n");
+    } catch (err) {
+        // Handle prompt building errors
+    }
+}
+
+// Mapping: vvY→buildAgentSystemPrompt
+```
+
+### registerAgentHooks (r24)
+
+**What it does:** Registers skill hooks from the agent definition for the duration of this agent's execution.
+
+**How it works:**
+1. Iterate through `agentDefinition.hooks`
+2. Register each hook with the global hook registry
+3. Hooks are automatically deregistered in the finally block via `zZ6`
+
+```javascript
+// ============================================
+// registerAgentHooks - Hook registration for agent
+// Location: chunks.133.mjs:1647
+// ============================================
+
+// READABLE (for understanding):
+function registerAgentHooks(setAppState, agentId, hooks, agentName, isSubagent) {
+    for (let [eventName, handlers] of Object.entries(hooks)) {
+        for (let handler of handlers) {
+            registerHook(eventName, agentId, handler, agentName);
+        }
+    }
+}
+
+// Mapping: r24→registerAgentHooks
+```
+
+---
+
+## onCacheSafeParams Callback
+
+**What it does:** The `onCacheSafeParams` parameter in agentLoopRunner allows the caller to receive a callback after all expensive initialization is complete but before the first LLM call.
+
+**Why this is useful:**
+- The caller may want to cache the `systemPrompt`, `userContext`, `systemContext`, etc.
+- These values are computed after MCP client initialization, skill loading, and hook firing
+- The callback provides a consistent snapshot of all computed parameters
+
+**Callback signature:**
+```javascript
+onCacheSafeParams({
+    systemPrompt,      // Fully built system prompt
+    userContext,       // Resolved user context
+    systemContext,     // Resolved system context
+    toolUseContext,    // Derived tool use context
+    forkContextMessages // Complete message list
+})
+```
 
 ---
 
@@ -482,14 +824,18 @@ Session AbortController
 
 ## Identity Propagation via AsyncLocalStorage
 
-### runWithAgentIdentity (p01)
+### Agent Identity Storage (mc4)
+
+**What it is:** An `AsyncLocalStorage` instance that holds the current agent's identity context, making it available throughout the call stack without explicit parameter passing.
+
+### runWithAgentIdentity (X66)
 
 **What it does:** Establishes an `AsyncLocalStorage` context that makes the subagent's identity available to any code in the call stack without explicit parameter passing.
 
 **How it works:**
 1. Creates an identity object with `agentId`, `parentAgentId`, `sessionId`
 2. Calls `AsyncLocalStorage.run(identity, fn)` which makes `identity` available via `store.getStore()`
-3. Any code called from within `fn` (including tools, hooks, compaction) can retrieve the current agent identity via `getCurrentAgentIdentity()` (db1)
+3. Any code called from within `fn` (including tools, hooks, compaction) can retrieve the current agent identity via `getCurrentAgentIdentity()` (Tf6)
 
 **Why this approach:**
 - **Zero coupling** - tools don't need an `agentId` parameter
@@ -501,22 +847,79 @@ Session AbortController
 ```javascript
 // ============================================
 // runWithAgentIdentity - AsyncLocalStorage identity binding
-// Location: chunks.80.mjs:2353
+// Location: chunks.133.mjs:841-843
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* p01(A, q) {
-    yield* ix7.run(A, q)
+function X66(A, q) {
+    return mc4.run(A, q)
 }
 
 // READABLE (for understanding):
-async function* runWithAgentIdentity(agentIdentity, generatorFn) {
-    // ix7 is the AsyncLocalStorage instance for agent identity
-    yield* agentIdentityStorage.run(agentIdentity, generatorFn);
+function runWithAgentIdentity(agentIdentity, generatorFn) {
+    // mc4 is the AsyncLocalStorage instance for agent identity
+    return agentIdentityStorage.run(agentIdentity, generatorFn);
 }
 
-// Mapping: p01→runWithAgentIdentity, ix7→agentIdentityStorage, A→agentIdentity, q→generatorFn
+// Mapping: X66→runWithAgentIdentity, mc4→agentIdentityStorage, A→agentIdentity, q→generatorFn
 ```
+
+### getCurrentAgentIdentity (Tf6)
+
+**What it does:** Retrieves the current agent identity from the AsyncLocalStorage context.
+
+```javascript
+// ============================================
+// getCurrentAgentIdentity - Get current agent identity from context
+// Location: chunks.133.mjs:837-839
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Tf6() {
+    return mc4.getStore()
+}
+
+// READABLE (for understanding):
+function getCurrentAgentIdentity() {
+    return agentIdentityStorage.getStore();
+}
+
+// Mapping: Tf6→getCurrentAgentIdentity, mc4→agentIdentityStorage
+```
+
+### Teammate Context Storage (ef8)
+
+Similar to agent identity, teammate context uses its own AsyncLocalStorage instance for team-specific context.
+
+```javascript
+// ============================================
+// Teammate Context Functions
+// Location: chunks.84.mjs:1403-1425
+// ============================================
+
+// ORIGINAL (for source lookup):
+function iM() {
+    return ef8.getStore()
+}
+
+function UD1(A, q) {
+    return ef8.run(A, q)
+}
+
+// READABLE (for understanding):
+function getTeammateContext() {
+    return teammateContextStorage.getStore();
+}
+
+function runWithTeammateContext(teammateContext, fn) {
+    return teammateContextStorage.run(teammateContext, fn);
+}
+
+// Mapping: iM→getTeammateContext, UD1→runWithTeammateContext, ef8→teammateContextStorage
+```
+
+> **CORRECTION:** Previous documentation incorrectly mapped `p01` as `runWithAgentIdentity`.
+> The actual `p01` (chunks.94.mjs:295) is `isSkillMdFile` - a helper that checks if a filename is "skill.md".
 
 ---
 

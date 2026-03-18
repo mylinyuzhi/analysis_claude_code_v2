@@ -11,9 +11,11 @@ This document covers tool set assembly for subagents, the tool whitelists for di
 
 Key functions in this document:
 - `assembleSessionToolSet` (YP6) - Main tool set assembly - chunks.141.mjs:1476
-- `deriveToolUseContext` (vQ1) - Create isolated context for subagent - chunks.149.mjs:2589
+- `deriveToolUseContext` (Bc6) - Create isolated context for subagent - chunks.148.mjs:1978
 - `filterToolsForSubagent` (Xk8) - Filter tools based on agent type - chunks.93.mjs:1568
 - `applyToolFilters` (_c) - Apply whitelist/blacklist - chunks.93.mjs:1590
+
+> **Note:** Previous documentation incorrectly mapped `vQ1` as `deriveToolUseContext`. The actual symbol is `Bc6` (chunks.148.mjs:1978).
 
 ---
 
