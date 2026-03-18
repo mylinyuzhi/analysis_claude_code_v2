@@ -268,3 +268,86 @@ Starting with an empty `readFileState` would cause the subagent to re-read files
 ### Why Shared setAppState?
 
 If the subagent used an isolated `setAppState`, its hook registrations, skill activations, and permission changes would be lost when it completes. By sharing `setAppState`, the subagent's contributions to session state persist after it terminates. This is intentional - skills invoked in a subagent should remain available in the parent session.
+
+---
+
+## Helper Functions
+
+### getMailboxPath (FY6)
+
+**What it does:** Constructs the filesystem path to an agent's mailbox file.
+
+**How it works:**
+1. Resolve team name (default to "default" if not provided)
+2. Sanitize the team name and agent name for filesystem safety
+3. Build path: `{sessionDir}/{teamName}/inboxes/{agentName}.json`
+
+```javascript
+// ============================================
+// getMailboxPath - Construct mailbox file path
+// Location: chunks.131.mjs:2849-2856
+// ============================================
+
+// ORIGINAL (for source lookup):
+function FY6(A, q) {
+    let K = q || l5() || "default",
+        Y = L06(K),
+        z = L06(A),
+        _ = Dx8(YG(), Y, "inboxes"),
+        w = Dx8(_, `${z}.json`);
+    return k(`[TeammateMailbox] getInboxPath: agent=${A}, team=${K}, fullPath=${w}`), w
+}
+
+// READABLE (for understanding):
+function getMailboxPath(agentName, teamName) {
+    let resolvedTeam = teamName || getCurrentTeamName() || "default";
+    let sanitizedTeam = sanitizeFilename(resolvedTeam);
+    let sanitizedAgent = sanitizeFilename(agentName);
+    let inboxDir = path.join(getSessionDir(), sanitizedTeam, "inboxes");
+    let mailboxPath = path.join(inboxDir, `${sanitizedAgent}.json`);
+    log(`[TeammateMailbox] getInboxPath: agent=${agentName}, team=${resolvedTeam}, fullPath=${mailboxPath}`);
+    return mailboxPath;
+}
+
+// Mapping: FY6→getMailboxPath, A→agentName, q→teamName, l5→getCurrentTeamName,
+// L06→sanitizeFilename, Dx8→path.join, YG→getSessionDir
+```
+
+### validateTeamContext (OTY)
+
+**What it does:** Validates that a team context is valid and creates the inbox directory if needed.
+
+**How it works:**
+1. Resolve team name (default to "default" if not provided)
+2. Sanitize the team name for filesystem safety
+3. Create the inbox directory with `recursive: true`
+
+```javascript
+// ============================================
+// validateTeamContext - Validate and setup team inbox directory
+// Location: chunks.131.mjs:2858-2864
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function OTY(A) {
+    let q = A || l5() || "default",
+        K = L06(q),
+        Y = Dx8(YG(), K, "inboxes");
+    await wTY(Y, {
+        recursive: !0
+    })
+}
+
+// READABLE (for understanding):
+async function validateTeamContext(teamName) {
+    let resolvedTeam = teamName || getCurrentTeamName() || "default";
+    let sanitizedTeam = sanitizeFilename(resolvedTeam);
+    let inboxDir = path.join(getSessionDir(), sanitizedTeam, "inboxes");
+    await fs.mkdir(inboxDir, { recursive: true });
+}
+
+// Mapping: OTY→validateTeamContext, A→teamName, l5→getCurrentTeamName,
+// L06→sanitizeFilename, Dx8→path.join, YG→getSessionDir, wTY→fs.mkdir
+```
+
+**Why this matters:** Before writing to a mailbox, the inbox directory must exist. This function ensures the directory structure is created lazily when needed, rather than requiring explicit setup at session start.

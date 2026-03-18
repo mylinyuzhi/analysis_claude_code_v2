@@ -821,6 +821,34 @@
 > - `Nn7` as `buildForkContextMessages` - actual `Nn7` (chunks.75.mjs:487) is Azure PowerShell command execution.
 >   Fork context messages are built inline in `agentLoopRunner` (qh), not by a separate function.
 
+### Agent Loop Runner Symbols
+
+> Core execution generator and its helper functions for subagent execution.
+> Full analysis: [execution_flow_deep_dive.md](../08_subagent/execution_flow_deep_dive.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qh | agentLoopRunner | chunks.133.mjs:1565 | function (async generator) |
+| Yh | llmMessageLoop | chunks.148.mjs:875 | function (async generator) |
+| omY | processTurnLoop | chunks.148.mjs:882 | function (inner generator) |
+| Bc6 | deriveToolUseContext | chunks.148.mjs:1978 | function |
+| C01 | resolveModelConfig | chunks.133.mjs:1589 | function |
+| bI | generateAgentId | chunks.133.mjs:1590 | function |
+| DI | cloneMap | chunks.133.mjs:1597 | function |
+| Fx8 | cloneForkContext | chunks.133.mjs:1788 | function |
+| vvY | buildAgentSystemPrompt | chunks.133.mjs:1806 | function |
+| NvY | resolveSkillByName | chunks.133.mjs:1817 | function |
+| r24 | registerAgentHooks | chunks.133.mjs:1647 | function |
+| zZ6 | deregisterSkillHooks | chunks.133.mjs:1783 | function |
+| Ux8 | executeSubagentStartHooks | chunks.175.mjs:2666 | function (async generator) |
+| X66 | runWithAgentIdentity | chunks.133.mjs:841 | function (AsyncLocalStorage wrapper) |
+| Tf6 | getCurrentAgentIdentity | chunks.133.mjs:837 | function |
+| mc4 | agentIdentityStorage | chunks.133.mjs:835 | AsyncLocalStorage instance |
+| TvY | isMessageRecordable | chunks.133.mjs:1561 | function |
+
+> **CORRECTION:** The symbol `p01` was incorrectly documented as `runWithAgentIdentity`.
+> The actual `p01` (chunks.94.mjs:295) is `isSkillMdFile` - a helper that checks if a filename is "skill.md".
+
 ### Agent Definitions
 
 > Note: Agent definition objects are defined in chunks.93.mjs, wrapped in E() lazy initializers.
@@ -955,8 +983,19 @@
 | pY6 | readUnreadMessages | chunks.132.mjs:16 | function |
 | $TY | clearMailbox | chunks.132.mjs:128 | function |
 | HTY | formatMailboxMessages | chunks.132.mjs:141 | function |
-| FY6 | getMailboxPath | chunks.132.mjs | function |
-| OTY | validateTeamContext | chunks.132.mjs | function |
+| FY6 | getMailboxPath | chunks.131.mjs:2849 | function |
+| OTY | validateTeamContext | chunks.131.mjs:2858 | function |
+
+### Idle Notification & Permission Protocol
+
+> Functions for teammate idle notifications and permission request/response protocol.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ec6 | buildIdleNotification | chunks.132.mjs:153 | function |
+| yc6 | parseIdleNotification | chunks.132.mjs:166 | function |
+| Xx8 | buildPermissionRequest | chunks.132.mjs:174 | function |
+| Px8 | buildPermissionResponse | chunks.132.mjs:187 | function |
 
 ### Transcript Management
 
@@ -967,6 +1006,20 @@
 | mQ1 | filterThinkingOnlyAssistant | chunks.173.mjs:1435 | function |
 | hf6 | loadTranscript | chunks.174.mjs:2705 | function |
 | wP6 | stripOrphanedToolResults | chunks.173.mjs:344 | function |
+| dg | writeToTranscript | chunks.174.mjs:1671 | function |
+| gc6 | writeAgentMetadata | chunks.174.mjs:1159 | function |
+| px8 | setTranscriptSubdir | chunks.174.mjs:1139 | function |
+| Qx8 | cleanupTranscriptWriter | chunks.174.mjs:1143 | function |
+
+### Agent Cleanup Functions
+
+> These functions are called in the `finally` block of `agentLoopRunner` (qh) to clean up resources.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| zZ6 | deregisterSkillHooks | chunks.95.mjs:1830 | function |
+| a36 | cleanupAgentIdentity | chunks.93.mjs:278 | function |
+| t24 | cleanupTaskState | chunks.95.mjs:1938 | function |
 
 ### Path Management
 

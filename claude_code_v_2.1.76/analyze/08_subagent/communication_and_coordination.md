@@ -1041,6 +1041,223 @@ If a mailbox JSONL line fails to parse:
 
 ---
 
+## Idle Notification Protocol
+
+### buildIdleNotification (Ec6)
+
+**What it does:** Constructs an idle notification message that a teammate sends to the orchestrator when it completes its work and is waiting for more tasks.
+
+**How it works:**
+1. Create a message object with type "idle_notification"
+2. Include timestamp, agent name, and completion details
+3. Include optional summary, failure reason, and task ID
+
+```javascript
+// ============================================
+// buildIdleNotification - Construct idle notification message
+// Location: chunks.132.mjs:153-163
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Ec6(A, q) {
+    return {
+        type: "idle_notification",
+        from: A,
+        timestamp: new Date().toISOString(),
+        idleReason: q?.idleReason,
+        summary: q?.summary,
+        completedTaskId: q?.completedTaskId,
+        completedStatus: q?.completedStatus,
+        failureReason: q?.failureReason
+    }
+}
+
+// READABLE (for understanding):
+function buildIdleNotification(agentName, options) {
+    return {
+        type: "idle_notification",
+        from: agentName,
+        timestamp: new Date().toISOString(),
+        idleReason: options?.idleReason,
+        summary: options?.summary,
+        completedTaskId: options?.completedTaskId,
+        completedStatus: options?.completedStatus,
+        failureReason: options?.failureReason
+    };
+}
+
+// Mapping: Ec6→buildIdleNotification, A→agentName, q→options
+```
+
+**Why this design:** The idle notification allows the orchestrator to know when teammates have finished their work and can be assigned new tasks. This is essential for work distribution in agent teams.
+
+### parseIdleNotification (yc6)
+
+**What it does:** Parses a raw message string to extract an idle notification if present.
+
+**How it works:**
+1. Parse the input string as JSON
+2. Check if it has type "idle_notification"
+3. Return the parsed object or null if not a valid notification
+
+```javascript
+// ============================================
+// parseIdleNotification - Parse idle notification from raw message
+// Location: chunks.132.mjs:166-171
+// ============================================
+
+// ORIGINAL (for source lookup):
+function yc6(A) {
+    try {
+        let q = i1(A);
+        if (q && q.type === "idle_notification") return q
+    } catch {}
+    return null
+}
+
+// READABLE (for understanding):
+function parseIdleNotification(rawMessage) {
+    try {
+        let parsed = parseJson(rawMessage);
+        if (parsed && parsed.type === "idle_notification") {
+            return parsed;
+        }
+    } catch {
+        // Not valid JSON or not an idle notification
+    }
+    return null;
+}
+
+// Mapping: yc6→parseIdleNotification, A→rawMessage, i1→parseJson
+```
+
+---
+
+## Permission Request Protocol
+
+### buildPermissionRequest (Xx8)
+
+**What it does:** Constructs a permission request message that a teammate sends to the orchestrator when it needs user approval for an action.
+
+**How it works:**
+1. Create a message object with type "permission_request"
+2. Include request_id for correlation
+3. Include tool details (name, use_id, description, input)
+4. Include permission suggestions for the user
+
+```javascript
+// ============================================
+// buildPermissionRequest - Construct permission request message
+// Location: chunks.132.mjs:174-184
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Xx8(A) {
+    return {
+        type: "permission_request",
+        request_id: A.request_id,
+        agent_id: A.agent_id,
+        tool_name: A.tool_name,
+        tool_use_id: A.tool_use_id,
+        description: A.description,
+        input: A.input,
+        permission_suggestions: A.permission_suggestions || []
+    }
+}
+
+// READABLE (for understanding):
+function buildPermissionRequest(request) {
+    return {
+        type: "permission_request",
+        request_id: request.request_id,
+        agent_id: request.agent_id,
+        tool_name: request.tool_name,
+        tool_use_id: request.tool_use_id,
+        description: request.description,
+        input: request.input,
+        permission_suggestions: request.permission_suggestions || []
+    };
+}
+
+// Mapping: Xx8→buildPermissionRequest, A→request
+```
+
+### buildPermissionResponse (Px8)
+
+**What it does:** Constructs a permission response message that the orchestrator sends back to the teammate after the user approves or denies the request.
+
+**How it works:**
+1. Check if the response is an error
+2. Create appropriate response object with subtype
+3. Include updated_input and permission_updates on success
+
+```javascript
+// ============================================
+// buildPermissionResponse - Construct permission response message
+// Location: chunks.132.mjs:187-203
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Px8(A) {
+    if (A.subtype === "error") return {
+        type: "permission_response",
+        request_id: A.request_id,
+        subtype: "error",
+        error: A.error || "Permission denied"
+    };
+    return {
+        type: "permission_response",
+        request_id: A.request_id,
+        subtype: "success",
+        response: {
+            updated_input: A.updated_input,
+            permission_updates: A.permission_updates
+        }
+    }
+}
+
+// READABLE (for understanding):
+function buildPermissionResponse(response) {
+    if (response.subtype === "error") {
+        return {
+            type: "permission_response",
+            request_id: response.request_id,
+            subtype: "error",
+            error: response.error || "Permission denied"
+        };
+    }
+    return {
+        type: "permission_response",
+        request_id: response.request_id,
+        subtype: "success",
+        response: {
+            updated_input: response.updated_input,
+            permission_updates: response.permission_updates
+        }
+    };
+}
+
+// Mapping: Px8→buildPermissionResponse, A→response
+```
+
+**Why this design:** The permission protocol allows teammates to request user approval without blocking the main session. The request/response correlation via `request_id` ensures responses are matched to the correct requests.
+
+---
+
+## Message Protocol Summary
+
+The teammate communication system uses several message types:
+
+| Message Type | Direction | Purpose |
+|--------------|-----------|---------|
+| `teammate_message` | Any → Any | General communication |
+| `idle_notification` | Teammate → Orchestrator | Signal completion/availability |
+| `permission_request` | Teammate → Orchestrator | Request user approval |
+| `permission_response` | Orchestrator → Teammate | Return approval/denial |
+| `shutdown_request` | Orchestrator → Teammate | Request graceful termination |
+
+---
+
 ## Design Rationale
 
 ### Why File-Based Mailboxes?

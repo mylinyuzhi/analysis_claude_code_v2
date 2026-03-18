@@ -100,12 +100,161 @@ async function* qh({
         N = K.setAppStateForTasks ?? K.setAppState,
         V = C01(A.model, K.options.mainLoopModel, H, v),
         L = $?.agentId ? $.agentId : bI();
-    // Phase 5: Hook firing - SubagentStart
-    for await (let $6 of Ux8(L, A.agentType, r.signal)) {
-        if ($6.additionalContexts && $6.additionalContexts.length > 0)
-            e.push(...$6.additionalContexts);
+    if (Z) px8(L, Z);
+    if (qc()) {
+        let $6 = K.agentId ?? R1();
+        R01(L, A.agentType, $6)
     }
-    // Phase 6: LLM Query Loop
+    let R = [...w ? Fx8(w) : [], ...q],
+        u = w !== void 0 ? DI(K.readFileState) : yd(Ed),
+        [I, g] = await Promise.all([$?.userContext ?? a2(), $?.systemContext ?? mw()]),
+        B = A.permissionMode,
+        b = () => {
+            let $6 = K.getAppState(),
+                n = $6.toolPermissionContext;
+            if (B && $6.toolPermissionContext.mode !== "bypassPermissions" && $6.toolPermissionContext.mode !== "acceptEdits" && $6.toolPermissionContext.mode !== "auto") n = {
+                ...n,
+                mode: B
+            };
+            let o = _ !== void 0 ? !_ : B === "bubble" ? !1 : z;
+            if (o) n = {
+                ...n,
+                shouldAvoidPermissionPrompts: !0
+            };
+            if (z && !o) n = {
+                ...n,
+                awaitAutomatedChecksBeforeDialog: !0
+            };
+            if (D !== void 0) n = {
+                ...n,
+                alwaysAllowRules: {
+                    cliArg: $6.toolPermissionContext.alwaysAllowRules.cliArg,
+                    session: [...D]
+                }
+            };
+            let a = A.effort !== void 0 ? A.effort : $6.effortValue;
+            if (n === $6.toolPermissionContext && a === $6.effortValue) return $6;
+            return {
+                ...$6,
+                toolPermissionContext: n,
+                effortValue: a
+            }
+        },
+        p = P ? M : _c(A, M, z).resolvedTools,
+        Q = Array.from(f.toolPermissionContext.additionalWorkingDirectories.keys()),
+        U = $?.systemPrompt ? $.systemPrompt : uq(await vvY(A, K, V, Q)),
+        r = $?.abortController ? $.abortController : z ? new AbortController : K.abortController,
+        e = [];
+    for await (let $6 of Ux8(L, A.agentType, r.signal)) if ($6.additionalContexts && $6.additionalContexts.length > 0) e.push(...$6.additionalContexts);
+    if (e.length > 0) {
+        let $6 = f4({
+            type: "hook_additional_context",
+            content: e,
+            hookName: "SubagentStart",
+            toolUseID: GvY(),
+            hookEvent: "SubagentStart"
+        });
+        R.push($6)
+    }
+    if (A.hooks) r24(N, L, A.hooks, `agent '${A.agentType}'`, !0);
+    let Y6 = A.skills ?? [];
+    if (Y6.length > 0) {
+        let $6 = await NR(qY()),
+            n = [];
+        for (let i of Y6) {
+            let l = NvY(i, $6, A);
+            if (!l) {
+                k(`[Agent: ${A.agentType}] Warning: Skill '${i}' specified in frontmatter was not found`, {
+                    level: "warn"
+                });
+                continue
+            }
+            let q6 = kf6(l, $6);
+            if (q6.type !== "prompt") {
+                k(`[Agent: ${A.agentType}] Warning: Skill '${i}' is not a prompt-based skill`, {
+                    level: "warn"
+                });
+                continue
+            }
+            n.push({
+                skillName: i,
+                skill: q6
+            })
+        }
+        let {
+            formatSkillLoadingMetadata: o
+        } = await Promise.resolve().then(() => (MN1(), JN1)), a = await Promise.all(n.map(async ({
+            skillName: i,
+            skill: l
+        }) => ({
+            skillName: i,
+            skill: l,
+            content: await l.getPromptForCommand("", K)
+        })));
+        for (let {
+                skillName: i,
+                skill: l,
+                content: q6
+            }
+            of a) {
+            k(`[Agent: ${A.agentType}] Preloaded skill '${i}'`);
+            let w6 = o(i, l.progressMessage);
+            R.push(p1({
+                content: [{
+                    type: "text",
+                    text: w6
+                }, ...q6]
+            }))
+        }
+    }
+    let {
+        clients: H6,
+        tools: J6,
+        cleanup: K6
+    } = await fvY(A, K.options.mcpClients), s = J6.length > 0 ? K0([...p, ...J6], "name") : p, X6 = {
+        isNonInteractiveSession: P ? K.options.isNonInteractiveSession : z ? !0 : K.options.isNonInteractiveSession ?? !1,
+        appendSystemPrompt: K.options.appendSystemPrompt,
+        tools: s,
+        commands: [],
+        debug: K.options.debug,
+        verbose: K.options.verbose,
+        mainLoopModel: V,
+        thinkingConfig: P ? K.options.thinkingConfig : {
+            type: "disabled"
+        },
+        mcpClients: H6,
+        mcpResources: K.options.mcpResources,
+        agentDefinitions: K.options.agentDefinitions,
+        ...P && {
+            querySource: O
+        }
+    }, z6 = Bc6(K, {
+        options: X6,
+        agentId: L,
+        agentType: A.agentType,
+        messages: R,
+        readFileState: u,
+        abortController: r,
+        getAppState: b,
+        shareSetAppState: !z,
+        shareSetResponseLength: !0,
+        criticalSystemReminder_EXPERIMENTAL: A.criticalSystemReminder_EXPERIMENTAL
+    });
+    if (J) z6.preserveToolUseResults = !0;
+    if (X) X({
+        systemPrompt: U,
+        userContext: I,
+        systemContext: g,
+        toolUseContext: z6,
+        forkContextMessages: R
+    });
+    await dg(R, L).catch(($6) => k(`Failed to record sidechain transcript: ${$6}`)), await gc6(L, {
+        agentType: A.agentType,
+        ...W && {
+            worktreePath: W
+        }
+    }).catch(($6) => k(`Failed to write agent metadata: ${$6}`));
+    let N6 = R.length > 0 ? R[R.length - 1].uuid : null;
     try {
         for await (let $6 of Yh({
             messages: R,
@@ -117,10 +266,23 @@ async function* qh({
             querySource: O,
             maxTurns: j ?? A.maxTurns
         })) {
-            yield $6;
+            if (G?.(), $6.type === "stream_event" && $6.event.type === "message_start" && $6.ttftMs != null) {
+                K.pushApiMetricsEntry?.($6.ttftMs);
+                continue
+            }
+            if ($6.type === "attachment") {
+                if ($6.attachment.type === "max_turns_reached") {
+                    k(`[Agent: ${A.agentType}] Reached max turns limit (${$6.attachment.maxTurns})`);
+                    break
+                }
+                yield $6;
+                continue
+            }
+            if (TvY($6)) await dg([$6], L, N6).catch((n) => k(`Failed to record sidechain transcript: ${n}`)), N6 = $6.uuid, yield $6
         }
+        if (r.signal.aborted) throw new oY;
+        if (Qj(A) && A.callback) A.callback()
     } finally {
-        // Phase 11: Cleanup
         if (await K6(), A.hooks) zZ6(N, L);
         z6.readFileState.clear(), R.length = 0, a36(L), Qx8(L), t24(L, K.getAppState, N)
     }
@@ -651,6 +813,74 @@ function registerAgentHooks(setAppState, agentId, hooks, agentName, isSubagent) 
 // Mapping: r24→registerAgentHooks
 ```
 
+### resolveSkillByName (NvY)
+
+**What it does:** Resolves a skill name to its fully qualified skill ID by checking multiple resolution strategies.
+
+**How it works:**
+1. First, try the skill name exactly as provided
+2. If not found, try prefixing with the agent type (e.g., `explore:skillName`)
+3. If still not found, search for skills ending with `:skillName`
+4. Return `null` if no match found
+
+```javascript
+// ============================================
+// resolveSkillByName - Skill name resolution
+// Location: chunks.133.mjs:1817-1828
+// ============================================
+
+// ORIGINAL (for source lookup):
+function NvY(A, q, K) {
+    if (rY6(A, q)) return A;
+    let Y = K.agentType.split(":")[0];
+    if (Y) {
+        let w = `${Y}:${A}`;
+        if (rY6(w, q)) return w
+    }
+    let z = `:${A}`,
+        _ = q.find((w) => w.name.endsWith(z));
+    if (_) return _.name;
+    return null
+}
+
+// READABLE (for understanding):
+function resolveSkillByName(skillName, skillIndex, agentDefinition) {
+    // Strategy 1: Try exact match
+    if (skillExistsInIndex(skillName, skillIndex)) {
+        return skillName;
+    }
+
+    // Strategy 2: Try prefixing with agent type (before colon)
+    let agentPrefix = agentDefinition.agentType.split(":")[0];
+    if (agentPrefix) {
+        let prefixedName = `${agentPrefix}:${skillName}`;
+        if (skillExistsInIndex(prefixedName, skillIndex)) {
+            return prefixedName;
+        }
+    }
+
+    // Strategy 3: Search for skill ending with :skillName
+    let suffix = `:${skillName}`;
+    let matchingSkill = skillIndex.find(skill => skill.name.endsWith(suffix));
+    if (matchingSkill) {
+        return matchingSkill.name;
+    }
+
+    // Not found
+    return null;
+}
+
+// Mapping: NvY→resolveSkillByName, A→skillName, q→skillIndex, K→agentDefinition,
+// rY6→skillExistsInIndex
+```
+
+**Why multiple strategies:** Skills can be defined at different scopes:
+- **Global skills:** `skillName` (available to all agents)
+- **Agent-specific skills:** `agentType:skillName` (only for that agent type)
+- **Namespace skills:** `namespace:skillName` (shared across related agents)
+
+The resolution order ensures agent-specific skills take precedence over global ones.
+
 ---
 
 ## onCacheSafeParams Callback
@@ -1012,3 +1242,250 @@ This change reduces the need for callers to construct file paths manually and ma
 3. **Global variable** - Not safe when multiple agents run concurrently
 
 **The chosen approach** (`AsyncLocalStorage`) is the correct Node.js idiom for this pattern - it's designed exactly for this use case of propagating context across async call chains.
+
+---
+
+## Cleanup Sequence (Phase 11)
+
+### What it does
+
+The cleanup sequence in the `finally` block of `agentLoopRunner` ensures all resources are properly released when the agent completes (successfully or due to error/abort).
+
+### Cleanup Functions
+
+The cleanup sequence calls these functions in order:
+
+```javascript
+// ============================================
+// Cleanup sequence in agentLoopRunner finally block
+// Location: chunks.133.mjs:1782-1785
+// ============================================
+
+// ORIGINAL (for source lookup):
+} finally {
+    if (await K6(), A.hooks) zZ6(N, L);
+    z6.readFileState.clear(), R.length = 0, a36(L), Qx8(L), t24(L, K.getAppState, N)
+}
+
+// READABLE (for understanding):
+} finally {
+    // 1. Cleanup MCP clients
+    await cleanupMcpClients();
+
+    // 2. Deregister agent hooks if any were registered
+    if (agentDefinition.hooks) deregisterSkillHooks(setAppState, agentId);
+
+    // 3. Clear readFileState map
+    derivedContext.readFileState.clear();
+
+    // 4. Clear messages array (release memory)
+    messages.length = 0;
+
+    // 5. Cleanup agent identity from AsyncLocalStorage
+    cleanupAgentIdentity(agentId);
+
+    // 6. Cleanup transcript writer
+    cleanupTranscriptWriter(agentId);
+
+    // 7. Kill any orphaned bash tasks for this agent
+    cleanupTaskState(agentId, getAppState, setAppState);
+}
+
+// Mapping: K6→cleanupMcpClients, zZ6→deregisterSkillHooks, a36→cleanupAgentIdentity,
+// Qx8→cleanupTranscriptWriter, t24→cleanupTaskState, z6→derivedContext, R→messages
+```
+
+### deregisterSkillHooks (zZ6)
+
+**What it does:** Removes all hooks registered for this agent from the session hook registry.
+
+**How it works:**
+1. Get the session hooks map from appState
+2. Delete the entry for this agentId
+3. Log the cleanup
+
+```javascript
+// ============================================
+// deregisterSkillHooks - Remove agent hooks from session
+// Location: chunks.95.mjs:1830-1834
+// ============================================
+
+// ORIGINAL (for source lookup):
+function zZ6(A, q) {
+    A((K) => {
+        return K.sessionHooks.delete(q), K
+    }), k(`Cleared all session hooks for session ${q}`)
+}
+
+// READABLE (for understanding):
+function deregisterSkillHooks(setAppState, agentId) {
+    setAppState((state) => {
+        state.sessionHooks.delete(agentId);
+        return state;
+    });
+    log(`Cleared all session hooks for session ${agentId}`);
+}
+
+// Mapping: zZ6→deregisterSkillHooks, A→setAppState, q→agentId
+```
+
+### cleanupAgentIdentity (a36)
+
+**What it does:** Removes the agent's identity from the global identity maps.
+
+**How it works:**
+1. Check if running in a session context (LR flag)
+2. Delete the agentId from the identity map (E01)
+3. Delete from the Ok8 map
+
+```javascript
+// ============================================
+// cleanupAgentIdentity - Remove agent identity from global maps
+// Location: chunks.93.mjs:278-281
+// ============================================
+
+// ORIGINAL (for source lookup):
+function a36(A) {
+    if (!LR) return;
+    E01.delete(A), Ok8.delete(A)
+}
+
+// READABLE (for understanding):
+function cleanupAgentIdentity(agentId) {
+    if (!isSessionContext) return;
+    agentIdentityMap.delete(agentId);
+    agentMetadataMap.delete(agentId);
+}
+
+// Mapping: a36→cleanupAgentIdentity, A→agentId, LR→isSessionContext, E01→agentIdentityMap, Ok8→agentMetadataMap
+```
+
+### cleanupTranscriptWriter (Qx8)
+
+**What it does:** Removes the transcript writer registration for this agent.
+
+**How it works:**
+1. Delete the agentId from the transcript writer map (Yr8)
+
+```javascript
+// ============================================
+// cleanupTranscriptWriter - Remove transcript writer registration
+// Location: chunks.174.mjs:1143-1145
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Qx8(A) {
+    Yr8.delete(A)
+}
+
+// READABLE (for understanding):
+function cleanupTranscriptWriter(agentId) {
+    transcriptWriterMap.delete(agentId);
+}
+
+// Mapping: Qx8→cleanupTranscriptWriter, A→agentId, Yr8→transcriptWriterMap
+```
+
+### cleanupTaskState (t24)
+
+**What it does:** Kills any orphaned bash tasks that were started by this agent but not properly cleaned up.
+
+**How it works:**
+1. Get the tasks map from appState
+2. Find any running tasks owned by this agent
+3. Kill each orphaned task
+4. Log the cleanup
+
+```javascript
+// ============================================
+// cleanupTaskState - Kill orphaned bash tasks for agent
+// Location: chunks.95.mjs:1938-1942
+// ============================================
+
+// ORIGINAL (for source lookup):
+function t24(A, q, K) {
+    let Y = q().tasks ?? {};
+    for (let [z, _] of Object.entries(Y))
+        if (Gf(_) && _.agentId === A && _.status === "running") k(`killBashTasksForAgent: killing orphaned bash task ${z} (agent ${A} exiting)`), wQ6(z, K)
+}
+
+// READABLE (for understanding):
+function cleanupTaskState(agentId, getAppState, setAppState) {
+    let tasks = getAppState().tasks ?? {};
+    for (let [taskId, task] of Object.entries(tasks)) {
+        if (isBashTask(task) && task.agentId === agentId && task.status === "running") {
+            log(`killBashTasksForAgent: killing orphaned bash task ${taskId} (agent ${agentId} exiting)`);
+            killTask(taskId, setAppState);
+        }
+    }
+}
+
+// Mapping: t24→cleanupTaskState, A→agentId, q→getAppState, K→setAppState,
+// Gf→isBashTask, wQ6→killTask
+```
+
+**Why this is critical:** If an agent starts a bash task (e.g., a long-running server process) and then exits abnormally, the bash process would continue running indefinitely. The cleanup ensures all child processes are terminated when the parent agent exits.
+
+### Transcript Recording
+
+During execution, messages are recorded to the transcript for persistence:
+
+```javascript
+// ============================================
+// writeToTranscript - Record messages to sidechain transcript
+// Location: chunks.174.mjs:1671-1673
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function dg(A, q, K) {
+    await Jz().insertMessageChain(mTq(A), !0, q, K)
+}
+
+// READABLE (for understanding):
+async function writeToTranscript(messages, agentId, parentUuid) {
+    await getTranscriptWriter().insertMessageChain(
+        convertToSidechainFormat(messages),
+        true,  // isSidechain
+        agentId,
+        parentUuid
+    );
+}
+
+// Mapping: dg→writeToTranscript, A→messages, q→agentId, K→parentUuid,
+// Jz→getTranscriptWriter, mTq→convertToSidechainFormat
+```
+
+### Agent Metadata
+
+Agent metadata is written for resume capability:
+
+```javascript
+// ============================================
+// writeAgentMetadata - Write agent metadata for resume
+// Location: chunks.174.mjs:1159-1164
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function gc6(A, q) {
+    let K = STq(A);
+    await sr6(zS1(K), {
+        recursive: !0
+    }), await tr6(K, JSON.stringify(q))
+}
+
+// READABLE (for understanding):
+async function writeAgentMetadata(agentId, metadata) {
+    let metadataPath = getMetadataPath(agentId);
+    await fs.mkdir(dirname(metadataPath), { recursive: true });
+    await fs.writeFile(metadataPath, JSON.stringify(metadata));
+}
+
+// Mapping: gc6→writeAgentMetadata, A→agentId, q→metadata,
+// STq→getMetadataPath, sr6→fs.mkdir, tr6→fs.writeFile
+```
+
+**Why cleanup matters:** Without proper cleanup:
+1. **Memory leaks** - Maps grow unbounded as agents are created and destroyed
+2. **Orphan processes** - Child bash processes continue after agent exits
+3. **Stale hooks** - Hook handlers fire for non-existent agents
+4. **Failed resumes** - Corrupted transcript state prevents agent resume

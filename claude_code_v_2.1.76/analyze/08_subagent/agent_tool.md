@@ -300,7 +300,7 @@ The `call` function (QW6.call) handles all subagent invocations:
 ```javascript
 // ============================================
 // AgentTool.call - Main entry point for subagent spawning
-// Location: chunks.136.mjs:1542-1639
+// Location: chunks.136.mjs:1542-1740 (worktree and async logic)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -369,7 +369,66 @@ async call({
 
     // Resolve agent definition
     let L = q ?? (N !== void 0 ? N : sH() && !z ? void 0 : q96.agentType);
-    // ... agent definition resolution and execution ...
+
+    // MCP server validation
+    let I = R.requiredMcpServers;
+    if (I?.length) {
+        let n = Z.mcp.clients.some((i) => i.type === "pending" && I.some((l) => i.name.toLowerCase().includes(l.toLowerCase()))),
+            o = Z;
+        if (n) {
+            let q6 = Date.now() + 30000;
+            while (Date.now() < q6) {
+                if (await new Promise((L6) => setTimeout(L6, 500)), o = J.getAppState(),
+                    o.mcp.clients.some((L6) => L6.type === "failed" && I.some((y6) => L6.name.toLowerCase().includes(y6.toLowerCase())))) break;
+                if (!o.mcp.clients.some((L6) => L6.type === "pending" && I.some((y6) => L6.name.toLowerCase().includes(y6.toLowerCase())))) break
+            }
+        }
+        let a = [];
+        for (let i of o.mcp.tools)
+            if (i.name?.startsWith("mcp__")) {
+                let q6 = i.name.split("__")[1];
+                if (q6 && !a.includes(q6)) a.push(q6)
+            }
+        if (!HW1(R, a)) {
+            let i = I.filter((l) => !a.some((q6) => q6.toLowerCase().includes(l.toLowerCase())));
+            throw Error(`Agent '${R.agentType}' requires MCP servers matching: ${i.join(", ")}. MCP servers with tools: ${a.length>0?a.join(", "):"none"}. Use /mcp to configure and authenticate the required MCP servers.`)
+        }
+    }
+
+    // Model resolution
+    let g = C01(R.model, J.options.mainLoopModel, h || u ? void 0 : W, G);
+
+    // Worktree isolation (v2.1.76)
+    let B = H ?? R.isolation, b, p, Q;
+    // ... system prompt construction ...
+
+    let U = {
+            prompt: A,
+            resolvedAgentModel: g,
+            isBuiltInAgent: Qj(R),
+            startTime: P,
+            agentType: R.agentType,
+            isAsync: _ === !0 || R.background === !0
+        },
+        r = !1,
+        e = sH(),
+        Y6 = (_ === !0 || R.background === !0 || r || e || (nVY?.isProactiveActive() ?? !1)) && !fV1,
+        H6 = {
+            ...Z.toolPermissionContext,
+            mode: R.permissionMode ?? "acceptEdits"
+        },
+        J6 = u66(H6, Z.mcp.tools),
+        K6 = z || bI(),
+        s = null;
+    if (B === "worktree") {
+        let n = `agent-${K6.slice(0,8)}`;
+        s = await zl6(n)
+    }
+    if (h && s) Q.push(p1({
+        content: H_4(G1(), s.worktreePath)
+    }));
+
+    // ... execution via agentLoopRunner ...
 }
 
 // READABLE (for understanding):
@@ -493,6 +552,205 @@ function resolveModelConfig(agentDefinitionModel, sessionModel, perInvocationMod
 ```
 
 **Why this design:** The cascade allows callers to override behavior without modifying agent definitions. An agent author can set a default model (e.g., `haiku` for exploration), but a caller can request a more capable model for a specific complex task.
+
+---
+
+## MCP Server Validation (v2.1.76)
+
+### What it does
+
+When an agent definition includes a `requiredMcpServers` field, the AgentTool validates that the necessary MCP servers are connected and authenticated before spawning the agent.
+
+### How it works
+
+```javascript
+// ============================================
+// MCP Server Validation in AgentTool.call
+// Location: chunks.136.mjs:1633-1653
+// ============================================
+
+// ORIGINAL (for source lookup):
+let I = R.requiredMcpServers;
+if (I?.length) {
+    let n = Z.mcp.clients.some((i) => i.type === "pending" && I.some((l) => i.name.toLowerCase().includes(l.toLowerCase()))),
+        o = Z;
+    if (n) {
+        let q6 = Date.now() + 30000;
+        while (Date.now() < q6) {
+            if (await new Promise((L6) => setTimeout(L6, 500)), o = J.getAppState(),
+                o.mcp.clients.some((L6) => L6.type === "failed" && I.some((y6) => L6.name.toLowerCase().includes(y6.toLowerCase())))) break;
+            if (!o.mcp.clients.some((L6) => L6.type === "pending" && I.some((y6) => L6.name.toLowerCase().includes(y6.toLowerCase())))) break
+        }
+    }
+    let a = [];
+    for (let i of o.mcp.tools)
+        if (i.name?.startsWith("mcp__")) {
+            let q6 = i.name.split("__")[1];
+            if (q6 && !a.includes(q6)) a.push(q6)
+        }
+    if (!HW1(R, a)) {
+        let i = I.filter((l) => !a.some((q6) => q6.toLowerCase().includes(l.toLowerCase())));
+        throw Error(`Agent '${R.agentType}' requires MCP servers matching: ${i.join(", ")}. MCP servers with tools: ${a.length>0?a.join(", "):"none"}. Use /mcp to configure and authenticate the required MCP servers.`)
+    }
+}
+
+// READABLE (for understanding):
+async function validateRequiredMcpServers(agentDefinition, toolUseContext) {
+    let requiredServers = agentDefinition.requiredMcpServers;
+    if (!requiredServers?.length) return;  // No requirements
+
+    let appState = toolUseContext.getAppState();
+
+    // Check if any required servers are still pending (connecting)
+    let hasPending = appState.mcp.clients.some(
+        client => client.type === "pending" &&
+                  requiredServers.some(req =>
+                      client.name.toLowerCase().includes(req.toLowerCase())
+                  )
+    );
+
+    // Wait up to 30 seconds for pending connections
+    if (hasPending) {
+        let deadline = Date.now() + 30000;
+        while (Date.now() < deadline) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            appState = toolUseContext.getAppState();
+
+            // Break if a required server failed
+            if (appState.mcp.clients.some(
+                client => client.type === "failed" &&
+                          requiredServers.some(req =>
+                              client.name.toLowerCase().includes(req.toLowerCase())
+                          )
+            )) break;
+
+            // Break if no more pending servers
+            if (!appState.mcp.clients.some(
+                client => client.type === "pending" &&
+                          requiredServers.some(req =>
+                              client.name.toLowerCase().includes(req.toLowerCase())
+                          )
+            )) break;
+        }
+    }
+
+    // Collect available MCP server names from tool names
+    let availableServers = [];
+    for (let tool of appState.mcp.tools) {
+        if (tool.name?.startsWith("mcp__")) {
+            let serverName = tool.name.split("__")[1];
+            if (serverName && !availableServers.includes(serverName)) {
+                availableServers.push(serverName);
+            }
+        }
+    }
+
+    // Validate all required servers are available
+    if (!validateServers(agentDefinition, availableServers)) {
+        let missing = requiredServers.filter(
+            req => !availableServers.some(
+                avail => avail.toLowerCase().includes(req.toLowerCase())
+            )
+        );
+        throw new Error(
+            `Agent '${agentDefinition.agentType}' requires MCP servers matching: ${missing.join(", ")}. ` +
+            `MCP servers with tools: ${availableServers.length > 0 ? availableServers.join(", ") : "none"}. ` +
+            `Use /mcp to configure and authenticate the required MCP servers.`
+        );
+    }
+}
+
+// Mapping: I→requiredMcpServers, HW1→validateServers, R→agentDefinition
+```
+
+**Key insight:** The validation waits for pending MCP connections to resolve (up to 30 seconds) rather than immediately failing. This handles the case where an agent is spawned while MCP servers are still initializing.
+
+---
+
+## Worktree Isolation (v2.1.76)
+
+### What it does
+
+When `isolation: "worktree"` is specified (either in the agent definition or per-invocation), the subagent runs in an isolated git worktree. This prevents filesystem conflicts between parallel agents.
+
+### How it works
+
+```javascript
+// ============================================
+// Worktree isolation in AgentTool.call
+// Location: chunks.136.mjs:1666-1725
+// ============================================
+
+// ORIGINAL (for source lookup):
+let B = H ?? R.isolation,  // per-invocation or agent definition
+    s = null;
+if (B === "worktree") {
+    let n = `agent-${K6.slice(0,8)}`;  // agent-{first-8-chars-of-id}
+    s = await zl6(n)
+}
+if (h && s) Q.push(p1({
+    content: H_4(G1(), s.worktreePath)
+}));
+
+// READABLE (for understanding):
+async function setupWorktreeIsolation(isolationMode, agentId, isFork) {
+    let isolation = isolationMode.perInvocation ?? isolationMode.agentDefinition;
+    let worktreeInfo = null;
+
+    if (isolation === "worktree") {
+        // Create a named worktree based on agent ID
+        let worktreeName = `agent-${agentId.slice(0, 8)}`;
+        worktreeInfo = await allocateWorktree(worktreeName);
+    }
+
+    // For forked agents, inject worktree path into prompt
+    if (isFork && worktreeInfo) {
+        promptMessages.push(createUserMessage({
+            content: formatWorktreeContext(getCwd(), worktreeInfo.worktreePath)
+        }));
+    }
+
+    return worktreeInfo;
+}
+
+// Cleanup function (in finally block):
+async function cleanupWorktree(worktreeInfo) {
+    if (!worktreeInfo) return {};
+
+    let { worktreePath, worktreeBranch, headCommit, gitRoot, hookBased } = worktreeInfo;
+
+    // Hook-based worktrees are kept (user-managed)
+    if (hookBased) {
+        log(`Hook-based agent worktree kept at: ${worktreePath}`);
+        return { worktreePath };
+    }
+
+    // If worktree has changes from original commit, keep it
+    if (headCommit) {
+        if (!await hasWorktreeChanges(worktreePath, headCommit)) {
+            // No changes, clean up
+            await removeWorktree(worktreePath, worktreeBranch, gitRoot);
+            await clearAgentMetadata(agentId);
+            return {};
+        }
+    }
+
+    // Has changes, keep the worktree
+    log(`Agent worktree has changes, keeping: ${worktreePath}`);
+    return { worktreePath, worktreeBranch };
+}
+
+// Mapping: B→isolation, H→isolationParam, R→agentDefinition, zl6→allocateWorktree,
+// h→isFork, H_4→formatWorktreeContext, G1→getCwd, K6→agentId
+```
+
+**Why this approach:**
+1. **True filesystem isolation** - Each agent writes to its own worktree copy
+2. **Declarative specification** - Agent definitions state their isolation needs
+3. **Automatic cleanup** - Worktrees without changes are cleaned up; those with changes are preserved for review
+4. **Branch management** - Each worktree gets its own branch, preventing conflicts
+
+**Key insight:** The worktree cleanup checks if any changes were made. If the agent made no changes (e.g., read-only task), the worktree is removed. If changes exist, the worktree is preserved so the user can review or merge them.
 
 ---
 
