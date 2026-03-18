@@ -31,12 +31,14 @@
 | `chunks.110.mjs` | Keybindings UI | `KeybindingSetup`, `handleKeyEvent` (chord processing) |
 | `chunks.123.mjs` | Agent Teams | `awaitingPlanApproval` task state management; in-process teammate lifecycle |
 | `chunks.126.mjs` | Remote Sessions | `sendEventToRemoteSession`, `updateSessionTitle`, `hydrateSessionState` |
-| `chunks.129.mjs` | Agent Teams / Plan | `PlanApprovalRequestMessageSchema` (Vx4), `PlanApprovalResponseMessageSchema` (Nx4); mailbox system |
-| `chunks.130.mjs` | Subagent Runner | `agentLoopRunner` (`dR`), `renderToolUseResult`, sandbox permission sync |
-| `chunks.131.mjs` | Teams Backend | `TmuxBackend`, `ITermBackend`, spawn handlers, in-process teammate management |
-| `chunks.132.mjs` | Agent/Skill Tool | `AgentTool` (`rj1`), `SkillTool` (`wt`), task creation dispatch |
-| `chunks.133.mjs` | LSP Integration | `LspServerManager`, `createLspClient`, diagnostic handlers, LSP singleton |
-| `chunks.134.mjs` | Edit/Write Tools | `EditTool` (`sW`), `FileWriteTool` (`vj`), `NotebookEditTool` (`gd`), diff rendering |
+| `chunks.129.mjs` | Agent Teams / Plan | `PlanApprovalRequestMessageSchema` (Vx4), `PlanApprovalResponseMessageSchema` (Nx4); split-pane spawn |
+| `chunks.130.mjs` | Worktree | Worktree creation/management, sparse checkout, symlink optimization |
+| `chunks.131.mjs` | Teams Backend | `TmuxBackend`, `ITermBackend`, `getMailboxPath` (FY6), `validateTeamContext` (OTY), in-process teammate management |
+| `chunks.132.mjs` | Mailbox System | `readMailbox` (wl), `writeToMailbox` (x3), `markMessageAsReadByIndex` (Vc6), `markMessagesAsRead` (kc6), idle/permission protocol |
+| `chunks.133.mjs` | Subagent Runner | `agentLoopRunner` (qh), `cloneForkContext` (Fx8), `buildAgentSystemPrompt` (vvY), `resolveSkillByName` (NvY), `registerAgentHooks` (r24) |
+| `chunks.134.mjs` | In-Process Teammate | `inProcessAgentRunner` (XNY), `pollForNextMessage` (DNY), `claimUnclaimedTask` (Ji4), NotebookEditTool (gd) |
+| `chunks.135.mjs` | Teammate Spawn | `spawnTeammate` (qn4), `spawnTeammateDispatcher` (pNY), `spawnSplitPaneTeammate` (BNY), `spawnTmuxTeammate` (gNY), `spawnInProcessTeammate` (FNY) |
+| `chunks.136.mjs` | AgentTool | `AgentTool` (QW6), `agentInputSchema` (aVY), `teammateInputSchema` (sVY), `agentOutputSchema` (eVY), worktree isolation, MCP validation |
 | `chunks.139.mjs` | Plan Mode / ExitPlanMode | `ExitPlanModeTool` (Nj), `AskUserQuestionTool` (`dW1`), plan approval request send |
 | `chunks.140.mjs` | Plan Mode / EnterPlanMode | `EnterPlanModeTool` (`kg1`), `LspTool`, task management tools |
 | `chunks.141.mjs` | Task System / Teams | `TaskUpdate`, `TaskList`, `TeamCreateTool`, `SendMessageTool`, plan approval handlers |

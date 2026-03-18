@@ -317,3 +317,36 @@ For a comprehensive understanding of the subagent system:
 4. **Communication:** [communication_and_coordination.md](./communication_and_coordination.md) - Learn mailbox system
 5. **Integration:** [tools_integration.md](./tools_integration.md) - Understand tool assembly
 6. **Specialize:** Based on interest - compact, hooks, context building, etc.
+
+---
+
+## Symbol Verification Status
+
+All key symbols in this module have been cross-validated against source code:
+
+| Symbol | Readable | Location | Status |
+|--------|----------|----------|--------|
+| `qh` | `agentLoopRunner` | chunks.133.mjs:1565 | ✓ Verified |
+| `TvY` | `isMessageRecordable` | chunks.133.mjs:1561 | ✓ Verified |
+| `Fx8` | `cloneForkContext` | chunks.133.mjs:1788 | ✓ Verified |
+| `vvY` | `buildAgentSystemPrompt` | chunks.133.mjs:1806 | ✓ Verified |
+| `NvY` | `resolveSkillByName` | chunks.133.mjs:1817 | ✓ Verified |
+| `r24` | `registerAgentHooks` | chunks.133.mjs:1647 | ✓ Verified |
+| `zZ6` | `deregisterSkillHooks` | chunks.133.mjs:1783 | ✓ Verified |
+| `wl` | `readMailbox` | chunks.132.mjs:3 | ✓ Verified |
+| `x3` | `writeToMailbox` | chunks.132.mjs:22 | ✓ Verified |
+| `Vc6` | `markMessageAsReadByIndex` | chunks.132.mjs:57 | ✓ Verified |
+| `kc6` | `markMessagesAsRead` | chunks.132.mjs:92 | ✓ Verified |
+| `DNY` | `pollForNextMessage` | chunks.134.mjs:1483 | ✓ Verified |
+| `XNY` | `inProcessAgentRunner` | chunks.134.mjs:1571 | ✓ Verified |
+| `Ji4` | `claimUnclaimedTask` | chunks.134.mjs:1464 | ✓ Verified |
+| `qn4` | `spawnTeammate` | chunks.135.mjs:1116 | ✓ Verified |
+| `pNY` | `spawnTeammateDispatcher` | chunks.135.mjs:1110 | ✓ Verified |
+| `QW6` | `AgentTool` | chunks.136.mjs:1512 | ✓ Verified |
+| `Bc6` | `deriveToolUseContext` | chunks.148.mjs:1978 | ✓ Verified |
+
+### Corrections Made
+
+1. **`pNY` vs `iVY`**: Previous documentation incorrectly mapped `iVY` as `spawnTeammateDispatcher`. The actual `iVY` is `fs.promises` from Node.js. Correct symbol: `pNY`.
+2. **`Bc6` vs `vQ1`**: Previous documentation incorrectly mapped `vQ1` as `deriveToolUseContext`. Correct symbol: `Bc6`.
+3. **`X66` vs `p01`**: Previous documentation incorrectly mapped `p01` as `runWithAgentIdentity`. The actual `p01` is `isSkillMdFile`. Correct symbol: `X66`.

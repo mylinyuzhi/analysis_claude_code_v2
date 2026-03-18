@@ -491,10 +491,16 @@
 | xZ | prefixAgentId | chunks.89.mjs | function |
 | hp | createTaskId | chunks.89.mjs:522 | function |
 | IZ | createTaskRecord | chunks.89.mjs:528 | function |
-| iVY | spawnTeammateDispatcher | chunks.129.mjs:2550 | function |
+| qn4 | spawnTeammate | chunks.135.mjs:1116 | function |
+| pNY | spawnTeammateDispatcher | chunks.135.mjs:1110 | function |
 | dVY | spawnSplitPaneTeammate | chunks.129.mjs | function |
 | nVY | BACKGROUND_HINT_THRESHOLD | chunks.132.mjs | constant |
 | - | backgroundAgentFlag | chunks.132.mjs | constant (background: true flag) |
+
+> **CORRECTION:** The symbol `iVY` was incorrectly documented as `spawnTeammateDispatcher`.
+> The actual `iVY` is `fs.promises` from Node.js (used as `iVY.access` for file access checks).
+> The correct symbol for `spawnTeammateDispatcher` is `pNY` (chunks.135.mjs:1110).
+> The correct symbol for `spawnTeammate` is `qn4` (chunks.135.mjs:1116).
 
 ### Teammate Mailbox Symbols
 
@@ -845,6 +851,11 @@
 | Tf6 | getCurrentAgentIdentity | chunks.133.mjs:837 | function |
 | mc4 | agentIdentityStorage | chunks.133.mjs:835 | AsyncLocalStorage instance |
 | TvY | isMessageRecordable | chunks.133.mjs:1561 | function |
+| dg | writeToTranscript | chunks.133.mjs:1739 | function |
+| gc6 | writeAgentMetadata | chunks.133.mjs:1739 | function |
+| a36 | cleanupAgentIdentity | chunks.133.mjs:1784 | function |
+| Qx8 | cleanupTranscriptWriter | chunks.133.mjs:1784 | function |
+| t24 | cleanupTaskState | chunks.133.mjs:1784 | function |
 
 > **CORRECTION:** The symbol `p01` was incorrectly documented as `runWithAgentIdentity`.
 > The actual `p01` (chunks.94.mjs:295) is `isSkillMdFile` - a helper that checks if a filename is "skill.md".

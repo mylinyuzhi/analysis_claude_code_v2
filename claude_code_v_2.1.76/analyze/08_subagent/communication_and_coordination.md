@@ -757,7 +757,7 @@ async function pollForNextMessage(agentConfig, abortController, taskId, getAppSt
 
 ## In-Process Agent Runner (XNY)
 
-### inProcessAgentRunner (XNY)
+### inProcessAgentRunner (XNY) - Complete Implementation
 
 **What it does:** Runs a teammate agent in-process (within the same Node.js process) rather than in a separate terminal pane.
 
@@ -775,7 +775,7 @@ async function pollForNextMessage(agentConfig, abortController, taskId, getAppSt
 ```javascript
 // ============================================
 // inProcessAgentRunner - In-process teammate execution
-// Location: chunks.134.mjs:1571-1850
+// Location: chunks.134.mjs:1571-1845
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -798,7 +798,261 @@ async function XNY(A) {
         setAppState: X
     } = O;
     k(`[inProcessRunner] Starting agent loop for ${q.agentId}`);
-    // ... agent setup, poll loop, and message handling ...
+    let P = {
+            agentId: q.agentId,
+            parentSessionId: q.parentSessionId,
+            agentName: q.agentName,
+            teamName: q.teamName,
+            agentColor: q.color,
+            planModeRequired: q.planModeRequired,
+            isTeamLead: !1,
+            agentType: "teammate"
+        },
+        W;
+    if (J === "replace" && j) W = j;
+    else {
+        let L = [...await R0(O.options.tools, O.options.mainLoopModel, void 0, O.options.mcpClients), tx8];
+        if (_) {
+            let h = _.getSystemPrompt();
+            if (h) L.push(`
+# Custom Agent Instructions
+${h}`);
+            if (_.memory) d("tengu_agent_memory_loaded", {
+                ...{},
+                scope: _.memory,
+                source: "in-process-teammate"
+            })
+        }
+        if (J === "append" && j) L.push(j);
+        W = L.join(`
+`)
+    }
+    let Z = {
+            agentType: q.agentName,
+            whenToUse: `In-process teammate: ${q.agentName}`,
+            getSystemPrompt: () => W,
+            tools: _?.tools ? [...new Set([..._.tools, hI, SI, l36, TR, lt, it, ck])] : ["*"],
+            source: "projectSettings",
+            permissionMode: "default",
+            ..._?.model ? {
+                model: _.model
+            } : {}
+        },
+        G = [],
+        f = Ku8("team-lead", Y, void 0, z),
+        v = f,
+        N = !1;
+    await Ji4(q.parentSessionId, q.agentName);
+    try {
+        kb(K, (V) => ({
+            ...V,
+            messages: [...V.messages ?? [], p1({
+                content: f
+            })]
+        }), X);
+        while (!$.signal.aborted && !N) {
+            k(`[inProcessRunner] ${q.agentId} processing prompt: ${v.substring(0,50)}...`);
+            let V = sK();
+            kb(K, (s) => ({
+                ...s,
+                currentWorkAbortController: V
+            }), X);
+            let L = p1({
+                    content: v
+                }),
+                h = [L],
+                R = G,
+                u = eW(G);
+            if (u > oc6(O.options.mainLoopModel)) {
+                k(`[inProcessRunner] ${q.agentId} compacting history (${u} tokens)`);
+                let s = {
+                        ...O,
+                        readFileState: DI(O.readFileState),
+                        onCompactProgress: void 0,
+                        setStreamMode: void 0
+                    },
+                    X6 = await mf6(G, s, {
+                        systemPrompt: uq([]),
+                        userContext: {},
+                        systemContext: {},
+                        toolUseContext: s,
+                        forkContextMessages: []
+                    }, !0, void 0, !0);
+                R = jl(X6), W66(), G.length = 0, G.push(...R), kb(K, (z6) => ({
+                    ...z6,
+                    messages: [...R, L]
+                }), X)
+            }
+            let I = R.length > 0 ? [...R] : void 0;
+            G.push(L);
+            let g = xf6(),
+                B = uf6(O.options.tools),
+                b = [],
+                Q = O.getAppState().tasks[K],
+                U = Q && Q.type === "in_process_teammate" ? Q.permissionMode : "default",
+                r = {
+                    ...Z,
+                    permissionMode: U
+                },
+                e = !1;
+            if (await UD1(w, async () => {
+                    return X66(P, async () => {
+                        kb(K, (s) => ({
+                            ...s,
+                            status: "running",
+                            isIdle: !1
+                        }), X);
+                        for await (let s of qh({
+                            agentDefinition: r,
+                            promptMessages: h,
+                            toolUseContext: O,
+                            canUseTool: $NY(q, V, (X6) => {
+                                kb(K, (z6) => ({
+                                    ...z6,
+                                    totalPausedMs: (z6.totalPausedMs ?? 0) + X6
+                                }), X)
+                            }),
+                            isAsync: !0,
+                            canShowPermissionPrompts: D ?? !0,
+                            forkContextMessages: I,
+                            querySource: "agent:custom",
+                            override: {
+                                abortController: V
+                            },
+                            model: H,
+                            preserveToolUseResults: !0,
+                            availableTools: O.options.tools,
+                            allowedTools: M
+                        })) {
+                            if ($.signal.aborted) {
+                                k(`[inProcessRunner] ${q.agentId} lifecycle aborted`);
+                                break
+                            }
+                            if (V.signal.aborted) {
+                                k(`[inProcessRunner] ${q.agentId} current work aborted (Escape pressed)`), e = !0;
+                                break
+                            }
+                            b.push(s), G.push(s), Az6(g, s, B, O.options.tools);
+                            let X6 = v66(g);
+                            kb(K, (z6) => {
+                                let N6 = z6.inProgressToolUseIDs;
+                                if (s.type === "assistant") {
+                                    for (let $6 of s.message.content)
+                                        if ($6.type === "tool_use") N6 = new Set([...N6 ?? [], $6.id])
+                                } else if (s.type === "user") {
+                                    let $6 = s.message.content;
+                                    if (Array.isArray($6)) {
+                                        for (let n of $6)
+                                            if (typeof n === "object" && "type" in n && n.type === "tool_result") {
+                                                if (N6) N6 = new Set(N6), N6.delete(n.tool_use_id)
+                                            }
+                                    }
+                                }
+                                return {
+                                    ...z6,
+                                    progress: X6,
+                                    messages: [...z6.messages ?? [], s],
+                                    inProgressToolUseIDs: N6
+                                }
+                            }, X)
+                        }
+                        return {
+                            success: !0,
+                            messages: b
+                        }
+                    })
+                }), kb(K, (s) => ({
+                    ...s,
+                    currentWorkAbortController: void 0
+                }), X), $.signal.aborted) break;
+            if (e) {
+                k(`[inProcessRunner] ${q.agentId} work interrupted, returning to idle`);
+                let s = y9({
+                    content: zl
+                });
+                kb(K, (X6) => ({
+                    ...X6,
+                    messages: [...X6.messages ?? [], s]
+                }), X)
+            }
+            let H6 = O.getAppState().tasks[K],
+                J6 = H6?.type === "in_process_teammate" && H6.isIdle;
+            if (kb(K, (s) => {
+                    return s.onIdleCallbacks?.forEach((X6) => X6()), {
+                        ...s,
+                        isIdle: !0,
+                        onIdleCallbacks: []
+                    }
+                }, X), !J6) await ji4(q.agentName, q.color, q.teamName, {
+                idleReason: e ? "interrupted" : "available",
+                summary: hc6(G)
+            });
+            else k(`[inProcessRunner] Skipping duplicate idle notification for ${q.agentName}`);
+            k(`[inProcessRunner] ${q.agentId} finished prompt, waiting for next`);
+            let K6 = await DNY(q, $, K, O.getAppState, X, q.parentSessionId);
+            switch (K6.type) {
+                case "shutdown_request":
+                    k(`[inProcessRunner] ${q.agentId} received shutdown request - passing to model`), v = Ku8(K6.request?.from || "team-lead", K6.originalMessage), uZ1(K, p1({
+                        content: v
+                    }), X);
+                    break;
+                case "new_message":
+                    if (k(`[inProcessRunner] ${q.agentId} received new message from ${K6.from}`), K6.from === "user") v = K6.message;
+                    else v = Ku8(K6.from, K6.message, K6.color, K6.summary), uZ1(K, p1({
+                        content: v
+                    }), X);
+                    break;
+                case "aborted":
+                    k(`[inProcessRunner] ${q.agentId} aborted while waiting`), N = !0;
+                    break
+            }
+        }
+        return kb(K, (V) => {
+            return V.onIdleCallbacks?.forEach((L) => L()), V.unregisterCleanup?.(), {
+                ...V,
+                status: "completed",
+                notified: !0,
+                endTime: Date.now(),
+                messages: V.messages?.length ? [V.messages[V.messages.length - 1]] : void 0,
+                pendingUserMessages: [],
+                inProgressToolUseIDs: void 0,
+                abortController: void 0,
+                unregisterCleanup: void 0,
+                currentWorkAbortController: void 0,
+                onIdleCallbacks: []
+            }
+        }, X), $O(K), VR(K, X), a36(q.agentId), {
+            success: !0,
+            messages: G
+        }
+    } catch (V) {
+        let L = V instanceof Error ? V.message : "Unknown error";
+        return k(`[inProcessRunner] Agent ${q.agentId} failed: ${L}`), kb(K, (h) => {
+            return h.onIdleCallbacks?.forEach((R) => R()), h.unregisterCleanup?.(), {
+                ...h,
+                status: "failed",
+                notified: !0,
+                error: L,
+                isIdle: !0,
+                endTime: Date.now(),
+                onIdleCallbacks: [],
+                messages: h.messages?.length ? [h.messages[h.messages.length - 1]] : void 0,
+                pendingUserMessages: [],
+                inProgressToolUseIDs: void 0,
+                abortController: void 0,
+                unregisterCleanup: void 0,
+                currentWorkAbortController: void 0
+            }
+        }, X), $O(K), VR(K, X), await ji4(q.agentName, q.color, q.teamName, {
+            idleReason: "failed",
+            completedStatus: "failed",
+            failureReason: L
+        }), a36(q.agentId), {
+            success: !1,
+            error: L,
+            messages: G
+        }
+    }
 }
 
 // READABLE (for understanding):
@@ -822,7 +1076,7 @@ async function inProcessAgentRunner(config) {
     let { setAppState } = toolUseContext;
     log(`[inProcessRunner] Starting agent loop for ${identity.agentId}`);
 
-    // Build agent configuration
+    // Build agent configuration for AsyncLocalStorage
     let agentConfig = {
         agentId: identity.agentId,
         parentSessionId: identity.parentSessionId,
@@ -843,51 +1097,310 @@ async function inProcessAgentRunner(config) {
         let promptParts = [...await buildDefaultSystemPrompt(toolUseContext)];
         if (agentDefinition?.getSystemPrompt()) {
             promptParts.push(`# Custom Agent Instructions\n${agentDefinition.getSystemPrompt()}`);
+            if (agentDefinition.memory) {
+                emitTelemetry("tengu_agent_memory_loaded", {
+                    scope: agentDefinition.memory,
+                    source: "in-process-teammate"
+                });
+            }
+        }
+        if (systemPromptMode === "append" && systemPrompt) {
+            promptParts.push(systemPrompt);
         }
         resolvedSystemPrompt = promptParts.join("\n");
     }
 
-    // Create merged agent definition
+    // Create merged agent definition with required teammate tools
     let mergedAgentDef = {
         agentType: identity.agentName,
         whenToUse: `In-process teammate: ${identity.agentName}`,
         getSystemPrompt: () => resolvedSystemPrompt,
-        tools: agentDefinition?.tools ?? ["*"],
+        tools: agentDefinition?.tools
+            ? [...new Set([...agentDefinition.tools, "SendMessage", "Sleep", "TeamCreate", "TaskCreate", "TaskGet", "TaskUpdate", "TaskList"])]
+            : ["*"],
         source: "projectSettings",
-        permissionMode: "default"
+        permissionMode: "default",
+        ...(agentDefinition?.model && { model: agentDefinition.model })
     };
 
-    // Main execution loop
-    while (!abortController.signal.aborted && !isComplete) {
-        log(`[inProcessRunner] ${identity.agentId} processing prompt...`);
+    // Initialize conversation history
+    let conversationHistory = [];
+    let initialPrompt = formatTeammatePrompt("team-lead", prompt, undefined, description);
+    let currentPrompt = initialPrompt;
+    let isComplete = false;
 
-        // Create abort controller for current work
-        let workAbortController = createAbortController();
-        updateTask(taskId, { currentWorkAbortController: workAbortController }, setAppState);
+    // Try to claim any unclaimed tasks on startup
+    await claimUnclaimedTask(identity.parentSessionId, identity.agentName);
 
-        // Run agent loop
-        for await (let event of agentLoopRunner({ agentDefinition: mergedAgentDef, ... })) {
-            if (event.type === "assistant") {
-                // Forward progress to parent mailbox
-                await writeToMailbox(parentAgentId, { type: "progress", content: event.message });
+    try {
+        // Record initial message to task state
+        updateTask(taskId, (task) => ({
+            ...task,
+            messages: [...(task.messages ?? []), createUserMessage({ content: initialPrompt })]
+        }), setAppState);
+
+        // Main agent loop - continues until abort or shutdown
+        while (!abortController.signal.aborted && !isComplete) {
+            log(`[inProcessRunner] ${identity.agentId} processing prompt: ${currentPrompt.substring(0, 50)}...`);
+
+            // Create abort controller for current work unit (allows Escape to interrupt)
+            let workAbortController = createAbortController();
+            updateTask(taskId, (task) => ({
+                ...task,
+                currentWorkAbortController: workAbortController
+            }), setAppState);
+
+            let userMessage = createUserMessage({ content: currentPrompt });
+            let promptMessages = [userMessage];
+            let forkContext = conversationHistory;
+            let historyTokens = countTokens(conversationHistory);
+
+            // Auto-compact if history exceeds model limit
+            if (historyTokens > getModelTokenLimit(toolUseContext.options.mainLoopModel)) {
+                log(`[inProcessRunner] ${identity.agentId} compacting history (${historyTokens} tokens)`);
+                let compactContext = {
+                    ...toolUseContext,
+                    readFileState: cloneMap(toolUseContext.readFileState),
+                    onCompactProgress: undefined,
+                    setStreamMode: undefined
+                };
+                let compactResult = await compactMessages(conversationHistory, compactContext, {
+                    systemPrompt: buildEmptySystemPrompt(),
+                    userContext: {},
+                    systemContext: {},
+                    toolUseContext: compactContext,
+                    forkContextMessages: []
+                }, true, undefined, true);
+                forkContext = compactResult.messages;
+                conversationHistory.length = 0;
+                conversationHistory.push(...forkContext);
+            }
+
+            conversationHistory.push(userMessage);
+
+            // Run the agent loop with identity binding
+            let loopMessages = [];
+            let wasInterrupted = false;
+
+            await runWithTeammateContext(teammateContext, async () => {
+                return runWithAgentIdentity(agentConfig, async () => {
+                    updateTask(taskId, (task) => ({
+                        ...task,
+                        status: "running",
+                        isIdle: false
+                    }), setAppState);
+
+                    // Execute the agent loop
+                    for await (let event of agentLoopRunner({
+                        agentDefinition: mergedAgentDef,
+                        promptMessages: promptMessages,
+                        toolUseContext: toolUseContext,
+                        canUseTool: createCanUseToolFn(identity, workAbortController, (pauseMs) => {
+                            updateTask(taskId, (task) => ({
+                                ...task,
+                                totalPausedMs: (task.totalPausedMs ?? 0) + pauseMs
+                            }), setAppState);
+                        }),
+                        isAsync: true,
+                        canShowPermissionPrompts: allowPermissionPrompts ?? true,
+                        forkContextMessages: forkContext,
+                        querySource: "agent:custom",
+                        override: { abortController: workAbortController },
+                        model: model,
+                        preserveToolUseResults: true,
+                        availableTools: toolUseContext.options.tools,
+                        allowedTools: allowedTools
+                    })) {
+                        // Check for lifecycle abort (parent session ending)
+                        if (abortController.signal.aborted) {
+                            log(`[inProcessRunner] ${identity.agentId} lifecycle aborted`);
+                            break;
+                        }
+                        // Check for work abort (Escape key pressed)
+                        if (workAbortController.signal.aborted) {
+                            log(`[inProcessRunner] ${identity.agentId} current work aborted (Escape pressed)`);
+                            wasInterrupted = true;
+                            break;
+                        }
+
+                        loopMessages.push(event);
+                        conversationHistory.push(event);
+
+                        // Update task progress
+                        updateTask(taskId, (task) => {
+                            let inProgressToolUseIDs = task.inProgressToolUseIDs;
+                            if (event.type === "assistant") {
+                                for (let block of event.message.content) {
+                                    if (block.type === "tool_use") {
+                                        inProgressToolUseIDs = new Set([...inProgressToolUseIDs ?? [], block.id]);
+                                    }
+                                }
+                            } else if (event.type === "user") {
+                                let content = event.message.content;
+                                if (Array.isArray(content)) {
+                                    for (let block of content) {
+                                        if (typeof block === "object" && "type" in block && block.type === "tool_result") {
+                                            if (inProgressToolUseIDs) {
+                                                inProgressToolUseIDs = new Set(inProgressToolUseIDs);
+                                                inProgressToolUseIDs.delete(block.tool_use_id);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            return {
+                                ...task,
+                                progress: calculateProgress(event),
+                                messages: [...task.messages ?? [], event],
+                                inProgressToolUseIDs: inProgressToolUseIDs
+                            };
+                        }, setAppState);
+                    }
+
+                    return { success: true, messages: loopMessages };
+                });
+            });
+
+            // Clear current work abort controller
+            updateTask(taskId, (task) => ({
+                ...task,
+                currentWorkAbortController: undefined
+            }), setAppState);
+
+            // Check if lifecycle was aborted
+            if (abortController.signal.aborted) break;
+
+            // Handle interruption (Escape pressed)
+            if (wasInterrupted) {
+                log(`[inProcessRunner] ${identity.agentId} work interrupted, returning to idle`);
+                let interruptedMessage = createAssistantMessage({ content: INTERRUPTED_MESSAGE });
+                updateTask(taskId, (task) => ({
+                    ...task,
+                    messages: [...task.messages ?? [], interruptedMessage]
+                }), setAppState);
+            }
+
+            // Set idle state and send notification
+            updateTask(taskId, (task) => {
+                task.onIdleCallbacks?.forEach((cb) => cb());
+                return {
+                    ...task,
+                    isIdle: true,
+                    onIdleCallbacks: []
+                };
+            }, setAppState);
+
+            await sendIdleNotification(identity.agentName, identity.color, identity.teamName, {
+                idleReason: wasInterrupted ? "interrupted" : "available",
+                summary: summarizeConversation(conversationHistory)
+            });
+
+            log(`[inProcessRunner] ${identity.agentId} finished prompt, waiting for next`);
+
+            // Poll for next message
+            let pollResult = await pollForNextMessage(
+                identity,
+                abortController,
+                taskId,
+                toolUseContext.getAppState,
+                setAppState,
+                identity.parentSessionId
+            );
+
+            switch (pollResult.type) {
+                case "shutdown_request":
+                    log(`[inProcessRunner] ${identity.agentId} received shutdown request - passing to model`);
+                    currentPrompt = formatTeammatePrompt(pollResult.request?.from || "team-lead", pollResult.originalMessage);
+                    appendToTaskMessages(taskId, createUserMessage({ content: currentPrompt }), setAppState);
+                    break;
+
+                case "new_message":
+                    log(`[inProcessRunner] ${identity.agentId} received new message from ${pollResult.from}`);
+                    if (pollResult.from === "user") {
+                        currentPrompt = pollResult.message;
+                    } else {
+                        currentPrompt = formatTeammatePrompt(pollResult.from, pollResult.message, pollResult.color, pollResult.summary);
+                        appendToTaskMessages(taskId, createUserMessage({ content: currentPrompt }), setAppState);
+                    }
+                    break;
+
+                case "aborted":
+                    log(`[inProcessRunner] ${identity.agentId} aborted while waiting`);
+                    isComplete = true;
+                    break;
             }
         }
 
-        // Poll for next message
-        let pollResult = await pollForNextMessage(identity, abortController, taskId, getAppState, setAppState, identity.parentSessionId);
-        if (pollResult.type === "new_message") {
-            currentPrompt = pollResult.message;
-        } else if (pollResult.type === "shutdown_request" || pollResult.type === "aborted") {
-            break;
-        }
-    }
+        // Mark task as completed
+        updateTask(taskId, (task) => {
+            task.onIdleCallbacks?.forEach((cb) => cb());
+            task.unregisterCleanup?.();
+            return {
+                ...task,
+                status: "completed",
+                notified: true,
+                endTime: Date.now(),
+                messages: task.messages?.length ? [task.messages[task.messages.length - 1]] : undefined,
+                pendingUserMessages: [],
+                inProgressToolUseIDs: undefined,
+                abortController: undefined,
+                unregisterCleanup: undefined,
+                currentWorkAbortController: undefined,
+                onIdleCallbacks: []
+            };
+        }, setAppState);
 
-    // Send idle notification on completion
-    await sendIdleNotification(identity.agentName, identity.teamName);
+        cleanupTask(taskId);
+        clearTaskFromState(taskId, setAppState);
+        clearAgentId(identity.agentId);
+
+        return { success: true, messages: conversationHistory };
+
+    } catch (err) {
+        let errorMessage = err instanceof Error ? err.message : "Unknown error";
+        log(`[inProcessRunner] Agent ${identity.agentId} failed: ${errorMessage}`);
+
+        updateTask(taskId, (task) => {
+            task.onIdleCallbacks?.forEach((cb) => cb());
+            task.unregisterCleanup?.();
+            return {
+                ...task,
+                status: "failed",
+                notified: true,
+                error: errorMessage,
+                isIdle: true,
+                endTime: Date.now(),
+                onIdleCallbacks: [],
+                messages: task.messages?.length ? [task.messages[task.messages.length - 1]] : undefined,
+                pendingUserMessages: [],
+                inProgressToolUseIDs: undefined,
+                abortController: undefined,
+                unregisterCleanup: undefined,
+                currentWorkAbortController: undefined
+            };
+        }, setAppState);
+
+        cleanupTask(taskId);
+        clearTaskFromState(taskId, setAppState);
+
+        await sendIdleNotification(identity.agentName, identity.color, identity.teamName, {
+            idleReason: "failed",
+            completedStatus: "failed",
+            failureReason: errorMessage
+        });
+
+        clearAgentId(identity.agentId);
+
+        return { success: false, error: errorMessage, messages: conversationHistory };
+    }
 }
 
 // Mapping: XNY→inProcessAgentRunner, A→config, q→identity, K→taskId, Y→prompt, z→description,
-// _→agentDefinition, w→teammateContext, O→toolUseContext, $→abortController, H→model, j→systemPrompt
+// _→agentDefinition, w→teammateContext, O→toolUseContext, $→abortController, H→model, j→systemPrompt,
+// J→systemPromptMode, M→allowedTools, D→allowPermissionPrompts, X→setAppState
+// Additional: R0→buildDefaultSystemPrompt, tx8→EMPTY_PROMPT, DI→cloneMap, qh→agentLoopRunner,
+// X66→runWithAgentIdentity, UD1→runWithTeammateContext, DNY→pollForNextMessage, Ji4→claimUnclaimedTask,
+// kb→updateTask, p1→createUserMessage, Ku8→formatTeammatePrompt, ji4→sendIdleNotification
 ```
 
 ### Shared appState Optimization
@@ -978,47 +1491,79 @@ async function claimUnclaimedTask(sessionId, agentName) {
 
 ---
 
-## Teammate Spawn Dispatcher (iVY)
+## Teammate Spawn Dispatcher (pNY)
 
-### spawnTeammateDispatcher (iVY)
+### spawnTeammateDispatcher (pNY)
 
-**What it does:** Routes teammate spawn requests to the appropriate backend based on session capabilities.
+**What it does:** Routes teammate spawn requests to the appropriate backend based on session capabilities and configuration.
 
 **Backend selection priority:**
-1. **In-process** - Non-interactive sessions, SDK usage
-2. **Split-pane** - iTerm2 or tmux available
+1. **In-process** - Non-interactive sessions (`Rb()` returns true)
+2. **Split-pane** - `use_splitpane !== false` and iTerm2/tmux available
 3. **Tmux-only** - Fallback for headless sessions
 
 ```javascript
 // ============================================
 // spawnTeammateDispatcher - Route teammate spawn to backend
-// Location: chunks.129.mjs:2550
+// Location: chunks.135.mjs:1110-1113
 // ============================================
 
-// READABLE (for understanding):
-async function spawnTeammateDispatcher(agentDefinition, context, teamConfig) {
-    // Check session type to determine backend
-    if (isNonInteractiveSession()) {
-        // Use in-process runner for SDK/API sessions
-        return inProcessAgentRunner(agentDefinition, context, teamConfig);
-    }
-
-    if (hasITerm2() && isInteractiveSession()) {
-        // Use split-pane for visual collaboration
-        return spawnSplitPaneTeammate(agentDefinition, context, teamConfig);
-    }
-
-    if (hasTmux()) {
-        // Fallback to tmux for headless sessions
-        return spawnTmuxTeammate(agentDefinition, context, teamConfig);
-    }
-
-    // Final fallback to in-process
-    return inProcessAgentRunner(agentDefinition, context, teamConfig);
+// ORIGINAL (for source lookup):
+async function pNY(A, q) {
+    if (Rb()) return FNY(A, q);
+    if (A.use_splitpane !== !1) return BNY(A, q);
+    return gNY(A, q)
 }
 
-// Mapping: iVY→spawnTeammateDispatcher
+// READABLE (for understanding):
+async function spawnTeammateDispatcher(spawnConfig, toolUseContext) {
+    // Check if this is a non-interactive session
+    if (isNonInteractiveSession()) {
+        // Use in-process runner for SDK/API sessions
+        return spawnInProcessTeammate(spawnConfig, toolUseContext);
+    }
+
+    // Check if split-pane mode is requested (default: true)
+    if (spawnConfig.use_splitpane !== false) {
+        // Use split-pane for visual collaboration
+        return spawnSplitPaneTeammate(spawnConfig, toolUseContext);
+    }
+
+    // Fallback to tmux-only mode
+    return spawnTmuxTeammate(spawnConfig, toolUseContext);
+}
+
+// Mapping: pNY→spawnTeammateDispatcher, A→spawnConfig, q→toolUseContext,
+// Rb→isNonInteractiveSession, FNY→spawnInProcessTeammate,
+// BNY→spawnSplitPaneTeammate, gNY→spawnTmuxTeammate
 ```
+
+### spawnTeammate (qn4)
+
+**What it does:** Main entry point for spawning teammates, delegates to `spawnTeammateDispatcher`.
+
+```javascript
+// ============================================
+// spawnTeammate - Main entry point for teammate spawning
+// Location: chunks.135.mjs:1116-1117
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function qn4(A, q) {
+    return pNY(A, q)
+}
+
+// READABLE (for understanding):
+async function spawnTeammate(spawnConfig, toolUseContext) {
+    return spawnTeammateDispatcher(spawnConfig, toolUseContext);
+}
+
+// Mapping: qn4→spawnTeammate, pNY→spawnTeammateDispatcher
+```
+
+> **CORRECTION:** Previous documentation incorrectly mapped `iVY` as `spawnTeammateDispatcher`.
+> The actual `iVY` is `fs.promises` from Node.js (used as `iVY.access` for file access checks).
+> The correct symbol for `spawnTeammateDispatcher` is `pNY` (chunks.135.mjs:1110).
 
 ---
 
