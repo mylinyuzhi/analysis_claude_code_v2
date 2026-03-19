@@ -43,7 +43,7 @@ When a conversation is compacted (due to context window limits), important state
 │  │ 2. ca4() - collect tasks to keep                           ││
 │  │ 3. pa4() - collect todos to keep                           ││
 │  │ 4. jZ6() - collect plan to keep ← PLAN PRESERVATION        ││
-│  │ 5. da4() - collect skills to keep                          ││
+│  │ 5. Tqq() - collect skills to keep                          ││
 │  └─────────────────────────────────────────────────────────────┘│
 │                        │                                        │
 │                        ▼                                        │
@@ -197,7 +197,7 @@ async function performFullCompaction(context) {
     let planAttachment = collectPlanToKeep(context.agentId);  // ← PLAN PRESERVATION
     if (planAttachment) attachments.push(planAttachment);
 
-    let skillsAttachment = collectSkillsToKeep();
+    let skillsAttachment = getInvokedSkillsAttachment();
     if (skillsAttachment) attachments.push(skillsAttachment);
 
     // ... rest of compaction logic ...
@@ -212,7 +212,7 @@ async function performFullCompaction(context) {
 | 2 | `ca4` | `task_status` | Preserve background agent status |
 | 3 | `pa4` | `todo` | Preserve todo list state |
 | 4 | `jZ6` | `plan_file_reference` | Preserve plan file |
-| 5 | `da4` | `invoked_skills` | Preserve loaded skill content |
+| 5 | `Tqq` | `invoked_skills` | Preserve loaded skill content |
 
 **Key insight:** The plan is collected AFTER todos but BEFORE skills. This ordering reflects dependency: todos may be part of the plan, and skills may be referenced by the plan.
 
@@ -256,7 +256,7 @@ interface AttachmentMessage {
 | Tasks | `ca4()` | `task_status` | No limit (completed/failed/killed only) |
 | Todos | `pa4()` | `todo` | No limit |
 | **Plan** | `jZ6()` | `plan_file_reference` | **No limit** |
-| Skills | `da4()` | `invoked_skills` | No limit |
+| Skills | `Tqq()` | `invoked_skills` | No limit |
 
 **Key insight:** The plan file has no size limit because it is the primary planning artifact and should never be truncated.
 

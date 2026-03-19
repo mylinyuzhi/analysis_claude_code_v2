@@ -683,7 +683,7 @@
 | fqq | collectFilesToKeep | chunks.147.mjs:1862 | function |
 | Nqq | collectTasksToKeep | chunks.147.mjs:1923 | function |
 | mE1 | collectPlanToKeep | chunks.147.mjs:1885 | function |
-| Tqq | collectSkillsToKeep | chunks.147.mjs:1896 | function |
+| Tqq | getInvokedSkillsAttachment | chunks.147.mjs:1896 | function |
 | vqq | collectPlanModeAttachment | chunks.147.mjs:1910 | function |
 | DmY | isInternalFile | chunks.147.mjs:1942 | function |
 | RmY | MAX_COMPACT_BUFFER | chunks.147.mjs:2676 | constant (20000) |
@@ -817,7 +817,7 @@
 | uW | getPlanFilePath | chunks.88.mjs:120 | function |
 | pD | getPlanFileContent | chunks.88.mjs:126 | function |
 | UB | getTodoList | chunks.88.mjs:274 | function |
-| zR6 | getInvokedSkills | chunks.1.mjs:2972 | function |
+| St6 | getInvokedSkillsForAgent | chunks.1.mjs:3052 | function |
 | Xqq | MAX_FILES_TO_KEEP | chunks.147.mjs:1954 | constant (5) |
 | $mY | MAX_FILE_RESTORE_TOKENS | chunks.147.mjs:1956 | constant (50000) |
 | HmY | MAX_TOKENS_PER_FILE | chunks.147.mjs:1958 | constant (5000) |
@@ -1030,88 +1030,94 @@
 
 > Full analysis: [10_skill_system/](../10_skill_system/)
 
-### Skill Management
+### Skill Loading Core
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | I0 | getAllSkills | chunks.168.mjs:2013 | function (memoized, returns all loaded skills) |
-| NR | getAllSkillsForTool | chunks.168.mjs:2029 | function (filtered for tool invocation) |
+| NR | getAllSkillsForTool | chunks.168.mjs:2029 | function (filtered for Skill tool invocation) |
 | z5z | getSkills | chunks.168.mjs:1815 | function (aggregates all skill sources) |
-| JV8 | loadSkillDirCommands | chunks.90.mjs:1577 | function (loads from skill directories) |
+| JV8 | loadSkillDirCommands | chunks.90.mjs:1577 | function (memoized, loads from skill directories) |
 | Zp6 | loadSkillsFromDirectory | chunks.90.mjs:1265 | function (loads skills from one directory) |
 | Fm9 | loadLegacyCommands | chunks.90.mjs:1373 | function (loads deprecated commands format) |
-| iPq | getBundledSkills | chunks.165.mjs:2589 | function (returns bundled skills) |
-| f24 | getBuiltinPluginSkills | chunks.94.mjs:2705 | function (returns builtin plugin skills) |
-| G66 | findSkillByName | chunks.168.mjs:1850 | function |
-| rY6 | hasSkill | chunks.168.mjs:1854 | function |
-| kf6 | getSkillOrThrow | chunks.168.mjs:1858 | function |
-| Sv6 | getSkillDescription | chunks.168.mjs:1864 | function |
-| jV8 | isSkillFile | chunks.90.mjs:1323 | function |
-| um9 | deduplicateSkillFiles | chunks.90.mjs:1327 | function |
-| xm9 | parseSkillPaths | chunks.90.mjs:1176 | function |
+| v94 | createSkillObject | chunks.90.mjs:1185 | function (factory for skill objects) |
+| jV8 | isSkillFile | chunks.90.mjs:1323 | function (checks if filename is SKILL.md) |
+| um9 | deduplicateSkillFiles | chunks.90.mjs:1327 | function (dedup by preferring SKILL.md) |
 | BP6 | clearSkillsCache | chunks.90.mjs:1439 | function |
 | Cr6 | clearAllSkillCaches | chunks.168.mjs:1838 | function |
 | oB | refreshSkills | chunks.168.mjs:1842 | function |
-| v94 | createSkillObject | chunks.90.mjs:1185 | function |
-| T94 | parseSkillHooks | chunks.90.mjs:1166 | function |
-| Pp6 | parseSkillArguments | chunks.90.mjs:1099 | function |
-| VW6 | conditionalSkillsMap | chunks.90.mjs:1616 | Map |
-| IP1 | hiddenSkillNames | chunks.90.mjs:1620 | Set |
-| nT6 | sentSkillNames | chunks.147.mjs:1247 | Set |
-| bE1 | isInitialSend | chunks.147.mjs:693 | boolean |
+
+### Skill Registry & Lookup
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| G66 | findSkillByName | chunks.168.mjs:1850 | function (finds by name, alias, or userFacingName) |
+| rY6 | hasSkill | chunks.168.mjs:1854 | function |
+| kf6 | getSkillOrThrow | chunks.168.mjs:1858 | function |
+| Sv6 | getSkillDescription | chunks.168.mjs:1864 | function |
+| vp6 | getSlashCommandSkills | chunks.168.mjs:2031 | function (filtered for slash commands) |
+| Ii8 | ALWAYS_INCLUDE_SKILLS | chunks.168.mjs:2037 | Set (skills always included) |
+| EZq | filterAlwaysIncludeSkills | chunks.168.mjs:1846 | function |
+
+### Conditional Skill Activation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| LW6 | activateConditionalSkills | chunks.90.mjs:1508 | function (activates skills when paths match) |
+| xm9 | parseSkillPaths | chunks.90.mjs:1176 | function (parses `paths:` frontmatter) |
+| VW6 | conditionalSkillsMap | chunks.90.mjs:1616 | Map (stores conditional skills) |
+| IP1 | activatedSkillsSet | chunks.90.mjs:1620 | Set (skills already activated, never re-deactivated) |
+| rd | activeSkillsMap | chunks.90.mjs:1549 | Map (currently active skills) |
+| MV8 | skillChangeListeners | chunks.90.mjs:1620 | Array (callbacks notified on skill changes) |
+| HV8 | checkedSkillsDirs | chunks.90.mjs:1620 | Set (directories already checked) |
+| E94 | clearSkillsCache | chunks.90.mjs:1539 | function (resets skill caches) |
+
+### Skill Parsing & Frontmatter
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| T94 | parseSkillHooks | chunks.90.mjs:1166 | function (Zod-parses hooks frontmatter) |
+| Pp6 | parseSkillArguments | chunks.90.mjs:1099 | function (parses arguments frontmatter) |
+
+### Bundled & Plugin Skills
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| lPq | bundledSkillRegistry | chunks.165.mjs:2587 | Array |
+| iPq | getBundledSkills | chunks.165.mjs:2589 | function |
+| f24 | getBuiltinPluginSkills | chunks.94.mjs:2705 | function |
+| hk8 | loadPluginSkills | chunks.87.mjs:2157 | function (memoized) |
+| vU7 | loadPluginSkillDir | chunks.87.mjs | function (loads from plugin skillsPath) |
+| uu1 | createPluginCommandObject | chunks.87.mjs:1870 | function |
 
 ### Skill Execution Helpers
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | Ej1 | interpolateArguments | chunks.87.mjs:1735 | function |
-| Ma | processTemplateExpressions | chunks.81.mjs:601 | function (executes !`cmd` and ```!\ncmd\n``` patterns in skill text) |
-| q09 | TEMPLATE_CODE_BLOCK_REGEX | chunks.81.mjs:659 | constant (/```!\s*\n?...\n?```/g) |
-| K09 | TEMPLATE_INLINE_REGEX | chunks.81.mjs:659 | constant (/(?<!\w|\$)!`([^`]+)`/g) |
-| Jb7 | formatShellOutput | chunks.81.mjs:625 | function |
+| uB | executeShellExpansion | chunks.90.mjs:1031 | function (executes !`cmd` and ```!\ncmd\n``` patterns in skill text) |
+| Lm9 | TEMPLATE_CODE_BLOCK_REGEX | chunks.90.mjs:1089 | constant (/```!\s*\n?...\n?```/g) |
+| Rm9 | TEMPLATE_INLINE_REGEX | chunks.90.mjs:1089 | constant (/(?<=^|\s)!`([^`]+)`/gm) |
+| Jb7 | formatShellOutput | chunks.90.mjs:1068 | function |
+| hm9 | handleShellExpansionError | chunks.90.mjs:1050 | function |
 | mM6 | setupForkedCommandContext | chunks.149.mjs:2562 | function |
 | FM6 | extractForkedCommandResult | chunks.149.mjs:2582 | function |
+| tJ | checkBashPermission | chunks.90.mjs:1036 | function (permission check for shell commands) |
+| JW6 | summarizeToolOutput | chunks.90.mjs:1046 | function |
+| ym9 | getEmptyConfig | chunks.90.mjs:1046 | function |
+| Z94 | formatBashResult | chunks.90.mjs:1046 | function |
 
-### Plugin Skill Loading
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| B0A | loadPluginSkills | chunks.87.mjs:2157 | function (memoized, loads skills from all plugins) |
-| vU7 | loadPluginSkillDir | chunks.87.mjs (referenced) | function (loads skills from one plugin skillsPath) |
-| uu1 | buildCommandFromFrontmatter | chunks.87.mjs (referenced) | function (plugin-aware variant of skill construction) |
-
-### Bundled Skill Registry
+### Forked Skill Execution
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| lPq | bundledSkillRegistry | chunks.165.mjs:2587 | Array |
-| iPq | getBundledSkills | chunks.165.mjs:2589 | function |
-
-### Builtin Prompt Command Factory (`bZ1`)
-
-> Deep analysis: [09_slash_command/review.md](../09_slash_command/review.md)
-> Used by `/review`, `/pr-comments`, `/security-review` — "marketplace placeholder" pattern
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| bZ1 | builtinPromptCommandFactory | chunks.160.mjs:1289 | function |
-| NN6 | reviewCommandDefinition | chunks.161.mjs:2580 | object |
-| HuA | registerReviewCommand | chunks.161.mjs:2577 | function |
-| m5q | prCommentsCommandDefinition | chunks.160.mjs:1319 | object |
-| F5q | registerPrCommentsCommand | chunks.160.mjs:1317 | function |
-| wzq | securityReviewCommandDefinition | chunks.162.mjs:1819 | object |
-| Hzq | registerSecurityReviewCommand | chunks.162.mjs:1814 | function |
-| y7z | SECURITY_REVIEW_SKILL_TEXT | chunks.162.mjs:1620 | constant |
-
-### Built-in Skills/Plugins
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| E7z | TasksCommand | chunks.162.mjs:418749 | object |
-| R7z | TodosCommand | chunks.162.mjs:418817 | object |
-| b7z | VimModeCommand | chunks.162.mjs:419181 | object |
-| I7z | ThemeCommand | chunks.162.mjs:419142 | object |
-| PuA | UsageCommand | chunks.162.mjs:419075 | object |
+| zkY | executeForkedSkill | chunks.136.mjs:2447 | function (spawns subagent for forked skill) |
+| DN1 | setupForkedCommandContext | chunks.148.mjs:1951 | function (prepares context for forked execution) |
+| XN1 | extractForkedCommandResult | chunks.136.mjs:2499 | function (extracts result from forked execution) |
+| zA6 | clearInvokedSkillsForAgent | chunks.136.mjs:2512 | function (cleanup after forked execution) |
+| bI | generateAgentId | chunks.136.mjs:2449 | function (unique ID for forked agent) |
+| qh | runAgentLoop | chunks.136.mjs:2471 | function (main agent execution loop) |
+| JM | normalizeMessages | chunks.136.mjs:2487 | function (normalizes messages for progress) |
 
 ### Skill Usage Tracking
 
@@ -1121,16 +1127,6 @@
 | ux8 | computeSkillScore | chunks.133.mjs:900 | function (7-day half-life decay scoring) |
 | Qg | getSkillUsageState | chunks.168.mjs:1895 | function (returns skill usage map) |
 | Ci8 | getUsedSkillNames | chunks.168.mjs:1896 | function |
-
-### Skill Registry & Loading
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| I0 | getAllSkills | chunks.168.mjs:2013 | function (memoized, returns all loaded skills) |
-| NR | getAllSkillsForTool | chunks.168.mjs:2029 | function (filtered for Skill tool invocation) |
-| vp6 | getSlashCommandSkills | chunks.168.mjs:2031 | function (filtered for slash commands) |
-| Ii8 | ALWAYS_INCLUDE_SKILLS | chunks.168.mjs:2037 | Set (skills always included) |
-| EZq | filterAlwaysIncludeSkills | chunks.168.mjs:1846 | function |
 
 ### Skill-Reminder Integration
 
@@ -1146,50 +1142,101 @@
 | Oc | clearSentSkillNames | chunks.147.mjs:692 | function |
 | Vn4 | markInitialSend | chunks.147.mjs:696 | function |
 
-### Plugin Skills
+### Skill Tool Integration
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Uu4 | isPluginFirstParty | chunks.132.mjs:764-770 | function |
-| NT | FIRST_PARTY_REPOSITORIES | chunks.15.mjs:227 | constant (Set) |
-| TU7 | loadCommandsFromDir | chunks.87.mjs:1856-1868 | function |
-| uu1 | createPluginCommandObject | chunks.87.mjs:1870-1931 | function |
+| m66 | SkillTool | chunks.137.mjs:46 | object (tool definition) |
+| oH | SKILL_TOOL_NAME | chunks.90.mjs:2596 | constant ("Skill") |
+| _kY | skillInputSchema | chunks.137.mjs:27-30 | schema |
+| wkY | skillOutputSchema | chunks.137.mjs:30-45 | schema |
+| OkY | SKILL_PROPERTY_KEYS | chunks.137.mjs:274 | Set (safe properties for auto-allow) |
+| $kY | validateSkillProperties | chunks.136.mjs:2516 | function (checks for unsafe properties) |
+| tn4 | isPluginFirstParty | chunks.136.mjs:2528 | function |
+| WvY | processPromptSlashCommand | chunks.133.mjs:1426 | function |
+
+### Skill Hook Registration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| gc4 | registerSkillHooks | chunks.133.mjs:862 | function (registers hooks from skill frontmatter) |
+| JW1 | addSkillHook | chunks.95.mjs:1688 | function (wrapper for session hook registration) |
+| c24 | addSessionHook | chunks.95.mjs:1704 | function (core session hook registration) |
+| MW1 | addFunctionHook | chunks.95.mjs:1692 | function (registers function-based hooks) |
+| l24 | removeSessionHook | chunks.95.mjs:1741 | function (removes session hook) |
+| zZ6 | clearSessionHooks | chunks.95.mjs:1830 | function (clears all hooks for session) |
+| jW1 | getSessionHooks | chunks.95.mjs:1774 | function (gets hooks for session/event) |
+| Fu | HOOK_EVENT_NAMES | chunks.40.mjs:771 | constant (hook event types array including InstructionsLoaded) |
+
+### InstructionsLoaded Hook (NEW v2.1.76)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| WF6 | hasInstructionsLoadedHook | chunks.175.mjs:2806 | function |
+| ZF6 | executeInstructionsLoadedHooks | chunks.175.mjs:2814 | function |
+| EM6 | getGlobalHooks | chunks.50.mjs:2389 | function |
+| Xp | getRegisteredHooks | chunks.1.mjs:2991 | function |
 
 ### Skill-Compact Integration
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | Tqq | getInvokedSkillsAttachment | chunks.147.mjs:1896 | function (creates invoked_skills attachment) |
+| Uw6 | registerInvokedSkill | chunks.1.mjs:3037 | function (records skill invocation in session state) |
 | St6 | getInvokedSkillsForAgent | chunks.1.mjs:3052 | function (gets invoked skills by agentId) |
 | zA6 | clearInvokedSkillsForAgent | chunks.1.mjs:3069 | function |
 | iu1 | clearInvokedSkillsForAgents | chunks.1.mjs:3060 | function |
 | Aiq | getAllInvokedSkills | chunks.1.mjs:3048 | function |
 
-### Skill Tool Integration
+### Plugin Skills
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| m66 | SkillTool | chunks.137.mjs:46-274 | object |
-| oH | SKILL_TOOL_NAME | chunks.137.mjs:47 | constant ("Skill") |
-| _kY | skillInputSchema | chunks.137.mjs:27-30 | schema |
-| wkY | skillOutputSchema | chunks.137.mjs:30-45 | schema |
-| OkY | SKILL_PROPERTY_KEYS | chunks.137.mjs:274 | Set (safe properties for auto-allow) |
-| $kY | validateSkillProperties | chunks.137.mjs:2516 | function (checks for unsafe properties) |
-| tn4 | isPluginFirstParty | chunks.136.mjs:2528 | function |
-| qY | getSessionContext | chunks.147.mjs:702 | function |
-| Sb | getRulesForTool | chunks.137.mjs:116 | function |
+| Uu4 | isPluginFirstParty | chunks.132.mjs:764 | function |
+| NT | FIRST_PARTY_REPOSITORIES | chunks.15.mjs:227 | constant (Set) |
+| TU7 | loadCommandsFromDir | chunks.87.mjs:1856 | function |
 
-### Built-in Prompt Skills (Registration & Prompts)
+### Built-in Prompt Skills (Registration)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | rw | registerPromptSkill | chunks.165.mjs:2546 | function |
-| PMz | registerClaudeApiSkill | chunks.184.mjs:674 | function (NEW v2.1.76) |
+| DRq | registerAllBundledSkills | chunks.184.mjs:710 | function (master registration) |
+| uyq | registerUpdateConfigSkill | chunks.181.mjs:228 | function (NEW v2.1.76) |
+| Fyq | registerKeybindingsHelpSkill | chunks.181.mjs:721 | function |
+| Qyq | registerDebugSkill | chunks.181.mjs:1090 | function |
+| dyq | registerStuckSkill | chunks.181.mjs:1583 | function (NEW v2.1.76) |
+| nyq | registerReviewCommand | chunks.160.mjs:1317 | function |
+| oyq | registerPrCommentsCommand | chunks.160.mjs:1317 | function |
+| syq | registerSecurityReviewCommand | chunks.162.mjs:1814 | function |
 | eyq | registerSimplifySkill | chunks.181.mjs:1379 | function (NEW v2.1.76) |
 | YLq | registerBatchSkill | chunks.181.mjs:1526 | function (NEW v2.1.76) |
 | gJz | registerLoopSkill | chunks.181.mjs:1640 | function (NEW v2.1.71) |
+| PMz | registerClaudeApiSkill | chunks.184.mjs:674 | function (NEW v2.1.76) |
+
+### Builtin Prompt Command Factory
+
+> Deep analysis: [09_slash_command/review.md](../09_slash_command/review.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bZ1 | builtinPromptCommandFactory | chunks.160.mjs:1289 | function |
+| NN6 | reviewCommandDefinition | chunks.161.mjs:2580 | object |
+| HuA | registerReviewCommand | chunks.161.mjs:2577 | function |
+| m5q | prCommentsCommandDefinition | chunks.160.mjs:1319 | object |
+| F5q | registerPrCommentsCommand | chunks.160.mjs:1317 | function |
+| wzq | securityReviewCommandDefinition | chunks.162.mjs:1819 | object |
+| Hzq | registerSecurityReviewCommand | chunks.162.mjs:1814 | function |
+
+### Skill Constants & Configuration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| r94 | SKILL_LISTING_RATIO | chunks.90.mjs:2720 | constant (0.02) |
+| o94 | SKILL_MIN_DESCRIPTION | chunks.90.mjs:2722 | constant (4) |
+| a94 | SKILL_MAX_BUDGET | chunks.90.mjs:2724 | constant (16000) |
+| WB9 | MIN_TRUNCATE_LENGTH | chunks.90.mjs:2726 | constant (20) |
 | no6 | DEFAULT_LOOP_INTERVAL | chunks.181.mjs:1662 | constant ("10m") |
-| j_z | SKILLIFY_PROMPT | chunks.181.mjs | constant |
 
 ---
 
@@ -1744,7 +1791,7 @@
 | fqq | collectFilesToKeep | chunks.147.mjs:1862 | function (collect recently-read files for post-compact context; 5000 token/file cap, 50000 cumulative budget) |
 | Nqq | collectTasksToKeep | chunks.147.mjs:1923 | function (extract completed local agent task statuses for post-compact context) |
 | mE1 | collectPlanToKeep | chunks.147.mjs:1885 | function (extract active plan file reference for post-compact context) |
-| Tqq | collectSkillsToKeep | chunks.147.mjs:1896 | function (extract invoked skills list for post-compact context) |
+| Tqq | getInvokedSkillsAttachment | chunks.147.mjs:1896 | function (extract invoked skills list for post-compact context) |
 | JU1 | createBoundaryMarker | chunks.173.mjs:1215 | function (create compact_boundary system message: stores trigger, preTokens, userContext, messageCount) |
 | ux1 | formatSummaryText | chunks.76.mjs:323 | function (build context-restoration text block with transcript link and continuation directives) |
 | a$ | getTranscriptFilePath | chunks.173.mjs:1658 | function (construct session transcript file path for summary footer link) |

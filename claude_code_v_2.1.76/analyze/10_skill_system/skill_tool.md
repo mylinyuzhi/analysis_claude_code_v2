@@ -47,7 +47,7 @@ LLM calls Skill tool with { skill: "name", args: "..." }
 │  ┌────────────────────────────────────────────────────┐   │
 │  │ 1. Check deny rules for skill                      │   │
 │  │ 2. Check allow rules for skill                     │   │
-│  │ 3. Auto-allow if safe properties only (XNY)        │   │
+│  │ 3. Auto-allow if safe properties only ($kY)        │   │
 │  │ 4. Otherwise ask user for permission               │   │
 │  └────────────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────┘

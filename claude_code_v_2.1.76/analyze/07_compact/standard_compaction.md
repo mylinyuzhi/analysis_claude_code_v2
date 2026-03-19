@@ -312,7 +312,7 @@ Orchestrates the complete standard compaction process: validates messages, execu
 25. Merge file and task attachments into single array
 26. Collect todos to keep: `collectTodosToKeep()` (if any exist, push to attachments)
 27. Collect plan to keep: `collectPlanToKeep()` (if any exist, push to attachments)
-28. Collect skills to keep: `collectSkillsToKeep()` (if any exist, push to attachments)
+28. Collect skills to keep: `getInvokedSkillsAttachment()` (if any exist, push to attachments)
 
 **Phase 5: Post-Compact Hooks (Session Start)** (lines 2391-2397)
 29. Fire "hooks_start" progress event (type: "session_start")
@@ -661,7 +661,7 @@ async function performFullCompaction(
             attachments.push(planAttachment);
         }
 
-        let skillsAttachment = collectSkillsToKeep();
+        let skillsAttachment = getInvokedSkillsAttachment();
         if (skillsAttachment) {
             attachments.push(skillsAttachment);
         }
@@ -734,7 +734,7 @@ async function performFullCompaction(
     }
 }
 
-// Mapping: mf6→performFullCompaction, A→messages, q→context, K→cacheSafeParams, Y→includeState, z→customInstructions, w→isAutoTrigger, H→preCompactTokenCount, $→lastMessage, O→metadata, _→appState, J→preCompactHookResults, X→userDisplayMessage, D→promptCacheSharingEnabled, j→summaryRequestContent, M→summaryRequestMessage, P→summaryResponse, W→summaryText, G→recentFiles, f→fileAttachments, Z→taskAttachments, N→attachments, T→todosAttachment, k→planAttachment, y→skillsAttachment, B→sessionStartHookResults, S→postCompactTokenCount, m→usage, b→boundaryMarker, g→sessionId, U→summaryMessages, Ev→countTokens, Ia4→getLastUserMessage, xa4→extractMetadataFromMessage, K1→logError, DZ6→grantPermission, mW6→executePreCompactHooks, VOA→formatCustomInstructions, c6→createMessage, Gqq→generateSummaryWithLLM, B51→extractTextFromMessage, Q1→stringify, h→logMessage, c→reportTelemetry, QO→API_ERROR_PREFIX, dU→PROMPT_TOO_LONG_PREFIX, ma4→ERROR_MESSAGES.PROMPT_TOO_LONG, wjA→getRecentlyAccessedFiles, rd→resetCodeIndexing, fqq→collectFilesToKeep, Xqq→MAX_FILES_TO_KEEP, Nqq→collectTasksToKeep, U6→getGlobalAgentId, mE1→collectPlanToKeep, Tqq→collectSkillsToKeep, PP→executeSessionStartHooks, PZ→countTokens, Yp→extractUsageFromMessage, x8→checkFeatureFlag, JU1→createBoundaryMarker, a$→generateSessionId, ux1→formatSummaryContent, fOA→recordQuerySource, Qa4→handleCompactionError, _U1→ERROR_MESSAGES.EMPTY_MESSAGES
+// Mapping: mf6→performFullCompaction, A→messages, q→context, K→cacheSafeParams, Y→includeState, z→customInstructions, w→isAutoTrigger, H→preCompactTokenCount, $→lastMessage, O→metadata, _→appState, J→preCompactHookResults, X→userDisplayMessage, D→promptCacheSharingEnabled, j→summaryRequestContent, M→summaryRequestMessage, P→summaryResponse, W→summaryText, G→recentFiles, f→fileAttachments, Z→taskAttachments, N→attachments, T→todosAttachment, k→planAttachment, y→skillsAttachment, B→sessionStartHookResults, S→postCompactTokenCount, m→usage, b→boundaryMarker, g→sessionId, U→summaryMessages, Ev→countTokens, Ia4→getLastUserMessage, xa4→extractMetadataFromMessage, K1→logError, DZ6→grantPermission, mW6→executePreCompactHooks, VOA→formatCustomInstructions, c6→createMessage, Gqq→generateSummaryWithLLM, B51→extractTextFromMessage, Q1→stringify, h→logMessage, c→reportTelemetry, QO→API_ERROR_PREFIX, dU→PROMPT_TOO_LONG_PREFIX, ma4→ERROR_MESSAGES.PROMPT_TOO_LONG, wjA→getRecentlyAccessedFiles, rd→resetCodeIndexing, fqq→collectFilesToKeep, Xqq→MAX_FILES_TO_KEEP, Nqq→collectTasksToKeep, U6→getGlobalAgentId, mE1→collectPlanToKeep, Tqq→getInvokedSkillsAttachment, PP→executeSessionStartHooks, PZ→countTokens, Yp→extractUsageFromMessage, x8→checkFeatureFlag, JU1→createBoundaryMarker, a$→generateSessionId, ux1→formatSummaryContent, fOA→recordQuerySource, Qa4→handleCompactionError, _U1→ERROR_MESSAGES.EMPTY_MESSAGES
 ```
 
 ---
@@ -1179,7 +1179,7 @@ async function generateConversationSummary({
 2. `collectTasksToKeep()` - Active/recent tasks
 3. `collectTodosToKeep()` - Todo list items
 4. `collectPlanToKeep()` - Active plan file
-5. `collectSkillsToKeep()` - Invoked skills
+5. `getInvokedSkillsAttachment()` - Invoked skills
 
 **State Anchoring:** All collected state is appended as "system reminder" messages after the summary, ensuring critical context survives compaction.
 
@@ -1394,7 +1394,7 @@ The following symbols should be added to `symbol_index_core_features.md` under *
 | fqq | collectFilesToKeep | chunks.147.mjs:1862 | function |
 | Nqq | collectTasksToKeep | chunks.147.mjs:1923 | function |
 | mE1 | collectPlanToKeep | chunks.147.mjs:1885 | function |
-| Tqq | collectSkillsToKeep | chunks.147.mjs:1896 | function |
+| Tqq | getInvokedSkillsAttachment | chunks.147.mjs:1896 | function |
 | vqq | collectPlanModeAttachment | chunks.147.mjs:1910 | function |
 
 ### Boundary Markers (Verified)

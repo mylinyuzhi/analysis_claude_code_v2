@@ -962,10 +962,12 @@
 
 ### Skill Usage Scoring
 
+> Note: Detailed skill system symbols are in [symbol_index_core_features.md](symbol_index_core_features.md) under Skill System section.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| xM6 | trackSkillUsage | chunks.130.mjs:1383 | function |
-| bM6 | getDecayedSkillScore | chunks.130.mjs:1399 | function |
+| ON1 | trackSkillUsage | chunks.133.mjs:884 | function (records skill invocation in session state) |
+| ux8 | computeSkillScore | chunks.133.mjs:900 | function (7-day half-life decay scoring) |
 
 ### Built-in Command Definitions
 
@@ -1016,24 +1018,26 @@
 | wt | skillToolDefinition | chunks.132.mjs:820 | object (full Skill tool with call/permissions/schema) |
 | d0A | getSkillToolPrompt | chunks.88.mjs:10 | function (memoized Skill tool description text) |
 
-### Skill System Reminder Injection (chunks.142.mjs / chunks.87.mjs)
+### Skill System Reminder Injection (chunks.147.mjs / chunks.90.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| OIY | buildSkillListingAttachment | chunks.142.mjs:2381 | function (delta-skill-listing attachment) |
-| xg1 | sentSkillNames | chunks.142.mjs (module scope) | variable (Set — session-level dedup for skill listing) |
-| BU7 | formatSkillListing | chunks.87.mjs:2757 | function (budget-aware skill list text) |
-| uU7 | getSkillDescription | chunks.87.mjs:2748 | function (`description - whenToUse` string) |
-| zT9 | formatOneSkillLine | chunks.87.mjs:2762 | function (`- name: desc` line) |
-| YT9 | computeCharBudget | chunks.87.mjs:2452 | function (budget = contextTokens × 4 × 0.02 or 16000) |
+| guY | generateSkillListingAttachment | chunks.147.mjs:700 | function (delta-skill-listing attachment) |
+| nT6 | sentSkillNames | chunks.147.mjs:1247 | Set (session-level dedup for skill listing) |
+| fV8 | formatSkillListing | chunks.90.mjs:2654 | function (budget-aware skill list text) |
+| GV8 | formatSkillDescriptionLine | chunks.90.mjs:2645 | function (`description - whenToUse` string) |
+| PB9 | formatSkillEntry | chunks.90.mjs:2649 | function (`- name: desc` line) |
+| UP1 | tokenLimitToCharLimit | chunks.90.mjs | function (budget = contextTokens × 4 × 0.02 or 16000) |
 
-### Invoked Skills Tracking (chunks.1.mjs / chunks.146.mjs)
+### Invoked Skills Tracking (chunks.1.mjs / chunks.147.mjs)
+
+> Note: Full skill tracking symbols are in [symbol_index_core_features.md](symbol_index_core_features.md) under Skill-Compact Integration.
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| MN1 | registerInvokedSkill | chunks.1.mjs:2963 | function (records skill invocation in session state) |
-| zR6 | getInvokedSkills | chunks.1.mjs:2622 | function (returns session invokedSkills Map) |
-| da4 | buildInvokedSkillsAttachment | chunks.146.mjs:2711 | function (builds invoked_skills reminder) |
+| Uw6 | registerInvokedSkill | chunks.1.mjs:3037 | function (records skill invocation in session state) |
+| St6 | getInvokedSkillsForAgent | chunks.1.mjs:3052 | function (returns invoked skills Map filtered by agentId) |
+| Tqq | getInvokedSkillsAttachment | chunks.147.mjs:1896 | function (builds invoked_skills attachment) |
 
 ### XML Tag Constants (chunks.9.mjs)
 

@@ -11,11 +11,11 @@ When a skill is invoked via the Skill tool, it can modify the execution context 
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Tools section)
 
 Key functions in this document:
-- `SkillTool.call` (wt) - Main entry point returning contextModifier - chunks.132.mjs:955-1073
-- `validateSkillProperties` (XNY) - Check safe skill properties - chunks.132.mjs:752-761
-- `SKILL_PROPERTY_KEYS` (JNY) - Set of safe properties - chunks.132.mjs:1073
-- `registerSkillHooks` (IM6) - Register hooks from skill - chunks.130.mjs:1361
-- `handlePromptCommandFromTool` (Pb4) - Process skill and get messages - chunks.130.mjs:1819
+- `SkillTool.call` (m66) - Main entry point returning contextModifier - chunks.137.mjs:46-274
+- `validateSkillProperties` ($kY) - Check safe skill properties - chunks.136.mjs:2516
+- `SKILL_PROPERTY_KEYS` (OkY) - Set of safe properties - chunks.137.mjs:274
+- `registerSkillHooks` (gc4) - Register hooks from skill - chunks.133.mjs:862
+- `skillInputSchema` (_kY) - Zod schema for skill tool input - chunks.137.mjs:27-30
 - `addSessionHook` - Add hook to session state (see [11_hooks/implementation.md](../11_hooks/implementation.md))
 
 ---
@@ -108,7 +108,7 @@ function createAllowedToolsModifier(allowedTools, originalContext) {
 **Security consideration:** Skills with `allowedTools` are NOT auto-allowed in the permission check because they grant additional tool access. The user must explicitly approve the skill, which implicitly approves the tool whitelist.
 
 ```javascript
-// From validateSkillProperties (XNY)
+// From validateSkillProperties ($kY)
 // Skills with allowedTools require user confirmation
 const SKILL_PROPERTY_KEYS = new Set([
     "type", "name", "description", ...
@@ -324,40 +324,61 @@ When Bash is used, run the validation script...
 ```javascript
 // ============================================
 // registerSkillHooks - Registers hooks from a skill definition
-// Location: chunks.130.mjs:1361
+// Location: chunks.133.mjs:862-876
 // ============================================
 
 // ORIGINAL (for source lookup):
-function IM6(A, Q, B, $, ee) {
-    for (const te of ax) {
-        const ne = B[te];
-        if (!ne) continue;
-        for (const re of ne)
-            addSessionHook(A, Q, te, re.matcher, re.hook, re.onSuccess, ee)
+function gc4(A, q, K, Y, z) {
+    let _ = 0;
+    for (let w of Fu) {
+        let O = K[w];
+        if (!O) continue;
+        for (let $ of O)
+            for (let H of $.hooks) {
+                let j = H.once ? () => {
+                    k(`Removing one-shot hook for event ${w} in skill '${Y}'`), l24(A, q, w, H)
+                } : void 0;
+                JW1(A, q, w, $.matcher || "", H, j, z), _++
+            }
     }
+    if (_ > 0) k(`Registered ${_} hooks from skill '${Y}'`)
 }
 
 // READABLE (for understanding):
 function registerSkillHooks(setAppState, sessionId, hooks, skillName, skillRoot) {
-    for (const eventType of HOOK_EVENTS) {
+    let hookCount = 0;
+    for (let eventType of HOOK_EVENT_NAMES) {
         const hookConfigs = hooks[eventType];
         if (!hookConfigs) continue;
 
-        for (const config of hookConfigs) {
-            addSessionHook(
-                setAppState,
-                sessionId,
-                eventType,
-                config.matcher,
-                config.hook,
-                config.onSuccess,
-                skillRoot
-            );
+        for (let config of hookConfigs) {
+            for (let hookDef of config.hooks) {
+                // Handle one-shot hooks that auto-remove after first execution
+                let onSuccess = hookDef.once ? () => {
+                    log(`Removing one-shot hook for event ${eventType} in skill '${skillName}'`);
+                    removeSessionHook(setAppState, sessionId, eventType, hookDef);
+                } : undefined;
+
+                addSkillHook(
+                    setAppState,
+                    sessionId,
+                    eventType,
+                    config.matcher || "",
+                    hookDef,
+                    onSuccess,
+                    skillRoot
+                );
+                hookCount++;
+            }
         }
+    }
+    if (hookCount > 0) {
+        log(`Registered ${hookCount} hooks from skill '${skillName}'`);
     }
 }
 
-// Mapping: IM6→registerSkillHooks, ax→HOOK_EVENTS, A→setAppState, Q→sessionId, B→hooks, $→skillName, ee→skillRoot
+// Mapping: gc4→registerSkillHooks, A→setAppState, q→sessionId, K→hooks, Y→skillName, z→skillRoot,
+// Fu→HOOK_EVENT_NAMES, JW1→addSkillHook, l24→removeSessionHook, k→log
 ```
 
 ### Registration Flow
@@ -367,12 +388,13 @@ SkillTool.call() executes
        │
        ├── Skill has hooks defined?
        │   │
-       │   └── Yes → registerSkillHooks(IM6) called
+       │   └── Yes → registerSkillHooks(gc4) called
        │              │
        │              ├── For each event type in hooks
        │              │   ├── Extract matcher pattern
        │              │   ├── Extract hook configuration
-       │              │   └── Add to sessionHooks state
+       │              │   ├── Handle one-shot hooks (once: true)
+       │              │   └── Add to sessionHooks state via JW1(addSkillHook)
        │              │
        │              └── Hooks active for rest of session
        │
@@ -415,12 +437,12 @@ Hooks are registered when:
 
 ### Safe vs Unsafe Properties
 
-The `validateSkillProperties` (XNY) function determines if a skill can be auto-allowed:
+The `validateSkillProperties` ($kY) function determines if a skill can be auto-allowed:
 
 ```javascript
 // ============================================
 // validateSkillProperties - Check safe properties
-// Location: chunks.132.mjs:752-761
+// Location: chunks.136.mjs:2516-2530
 // ============================================
 
 // READABLE (for understanding):
@@ -456,7 +478,7 @@ function validateSkillProperties(skill) {
 ```javascript
 // ============================================
 // SKILL_PROPERTY_KEYS - Safe properties set
-// Location: chunks.132.mjs:1073
+// Location: chunks.137.mjs:274
 // ============================================
 
 const SKILL_PROPERTY_KEYS = new Set([

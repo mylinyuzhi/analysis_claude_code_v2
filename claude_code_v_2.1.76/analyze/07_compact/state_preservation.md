@@ -28,15 +28,15 @@ Key functions in this document:
 - `collectFilesToKeep` (fqq) - Preserves recently accessed files (up to 5 files, 50k tokens total)
 - `collectTasksToKeep` (Nqq) - Preserves completed/failed/killed local agent tasks
 - `collectPlanToKeep` (mE1) - Preserves active plan file content
-- `collectSkillsToKeep` (Tqq) - Preserves invoked skills sorted by recency
+- `getInvokedSkillsAttachment` (Tqq) - Preserves invoked skills sorted by recency
 - `collectTodosToKeep` (pa4) - Preserves todo list items
-- `createAttachmentMessage` (kq) - Wraps state objects as attachment messages
+- `createAttachmentMessage` (f4) - Wraps state objects as attachment messages
 - `isInternalFile` (DmY) - Filters out session notes, plan files, and auto memory files
 - `readFileForAttachment` (tF8) - Reads file with token limit for attachment
 - `getPlanFilePath` (uW) - Resolves plan file path for agent
 - `getPlanFileContent` (pD) - Reads plan file content
 - `getTodoList` (UB) - Retrieves todo list for agent
-- `getInvokedSkills` (zR6) - Retrieves invoked skills from global state
+- `getInvokedSkillsForAgent` (St6) - Retrieves invoked skills from session state
 
 Constants:
 - `MAX_FILES_TO_KEEP` (Xqq) - 5 files maximum
@@ -59,7 +59,7 @@ performFullCompaction (Phase 4: State Preservation)
 ├─ Sequential Collection (one-by-one)
 │  ├─ collectTodosToKeep(agentId)
 │  ├─ collectPlanToKeep(agentId)
-│  └─ collectSkillsToKeep()
+│  └─ getInvokedSkillsAttachment(agentId)
 │
 └─ Attachment Assembly
    └─ attachments = [fileAttachments, taskAttachments, todosAttachment?, planAttachment?, skillsAttachment?]
@@ -549,8 +549,8 @@ function collectPlanToKeep(agentId) {
 
 ### 4. Skills Preservation
 
-**Function:** `collectSkillsToKeep` (Tqq)
-**Location:** chunks.146.mjs:2710-2722
+**Function:** `getInvokedSkillsAttachment` (Tqq)
+**Location:** chunks.147.mjs:1896-1908
 **Purpose:** Preserves list of invoked skills sorted by recency
 
 #### What it does
@@ -605,29 +605,29 @@ Skills are preserved to help the LLM understand **what tools/workflows the user 
 
 ```javascript
 // ============================================
-// collectSkillsToKeep - Preserves invoked skills sorted by recency
-// Location: chunks.146.mjs:2710-2722
+// getInvokedSkillsAttachment - Preserves invoked skills sorted by recency
+// Location: chunks.147.mjs:1896-1908
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Tqq() {
-    let A = zR6();
-    if (A.size === 0) return null;
-    let q = Array.from(A.values()).sort((K, Y) => Y.invokedAt - K.invokedAt).map((K) => ({
-        name: K.skillName,
-        path: K.skillPath,
-        content: K.content
+function Tqq(A) {
+    let q = St6(A);
+    if (q.size === 0) return null;
+    let K = Array.from(q.values()).sort((Y, z) => z.invokedAt - Y.invokedAt).map((Y) => ({
+        name: Y.skillName,
+        path: Y.skillPath,
+        content: Y.content
     }));
-    return kq({
+    return f4({
         type: "invoked_skills",
-        skills: q
+        skills: K
     })
 }
 
 // READABLE (for understanding):
-function collectSkillsToKeep() {
-    // Get all invoked skills from global state
-    let invokedSkillsMap = getInvokedSkills();
+function getInvokedSkillsAttachment(agentId) {
+    // Get invoked skills for this agent from session state
+    let invokedSkillsMap = getInvokedSkillsForAgent(agentId);
 
     // No skills invoked during session
     if (invokedSkillsMap.size === 0) {
@@ -644,13 +644,14 @@ function collectSkillsToKeep() {
         }));
 
     // Create attachment with skills list
-    return createAttachmentMessage({
+    return createAttachment({
         type: "invoked_skills",
         skills: skillsList
     });
 }
 
-// Mapping: Tqq→collectSkillsToKeep, A→invokedSkillsMap, q→skillsList, K→skill/a, Y→b, zR6→getInvokedSkills, kq→createAttachmentMessage
+// Mapping: Tqq→getInvokedSkillsAttachment, A→agentId, q→invokedSkillsMap, K→skillsList, Y→skill,
+// St6→getInvokedSkillsForAgent, f4→createAttachment
 ```
 
 ---
@@ -807,7 +808,7 @@ if (todosAttachment) attachments.push(todosAttachment);
 let planAttachment = collectPlanToKeep(context.agentId);
 if (planAttachment) attachments.push(planAttachment);
 
-let skillsAttachment = collectSkillsToKeep();
+let skillsAttachment = getInvokedSkillsAttachment();
 if (skillsAttachment) attachments.push(skillsAttachment);
 ```
 
@@ -858,7 +859,7 @@ return {
 **Sequential (one-by-one):**
 - `collectTodosToKeep()` - Synchronous (in-memory read)
 - `collectPlanToKeep()` - Synchronous (cached file read)
-- `collectSkillsToKeep()` - Synchronous (in-memory read)
+- `getInvokedSkillsAttachment()` - Synchronous (in-memory read)
 
 **Rationale:** Parallel collection minimizes latency for I/O operations; sequential collection is negligible overhead for in-memory reads.
 

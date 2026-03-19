@@ -10,9 +10,9 @@ The skill usage tracking system monitors how frequently skills are invoked and p
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Skill Usage Tracking section)
 
 Key functions in this document:
-- `recordSkillUsage` (xM6) - Record a skill invocation - chunks.130.mjs:1383-1397
-- `getSkillUsageScore` (bM6) - Get decayed usage score - chunks.130.mjs:1399-1405
-- `skillUsage` - State key for usage data - chunks.130.mjs
+- `trackSkillUsage` (ON1) - Record a skill invocation - chunks.133.mjs:884-899
+- `computeSkillScore` (ux8) - Get decayed usage score - chunks.133.mjs:900-907
+- `skillUsage` - State key for usage data - chunks.133.mjs
 
 ---
 
@@ -65,28 +65,28 @@ Score: 5 × 0.85 = 4.25
 
 ## Implementation Details
 
-### recordSkillUsage (xM6)
+### trackSkillUsage (ON1)
 
 **What it does:** Records a skill invocation by incrementing the usage count and updating the timestamp.
 
 **How it works:**
-1. Retrieves current usage data from application state
+1. Retrieves current usage data from session state
 2. Increments the usage count for the specified skill
 3. Updates the lastUsedAt timestamp to now
-4. Writes the updated data back to state (with change detection to avoid unnecessary updates)
+4. Writes the updated data back to state
 
 ```javascript
 // ============================================
-// recordSkillUsage - Record skill invocation
-// Location: chunks.130.mjs:1383-1397
+// trackSkillUsage - Record skill invocation
+// Location: chunks.133.mjs:884-899
 // ============================================
 
 // ORIGINAL (for source lookup):
-function xM6(A) {
-    let K = f6().skillUsage?.[A],
+function ON1(A) {
+    let K = X1().skillUsage?.[A],
         Y = Date.now(),
         z = (K?.usageCount ?? 0) + 1;
-    if (!K || K.usageCount !== z || K.lastUsedAt !== Y) jA((w) => ({
+    if (!K || K.usageCount !== z || K.lastUsedAt !== Y) d1((w) => ({
         ...w,
         skillUsage: {
             ...w.skillUsage,
@@ -99,37 +99,32 @@ function xM6(A) {
 }
 
 // READABLE (for understanding):
-function recordSkillUsage(skillName) {
+function trackSkillUsage(skillName) {
     // Get current usage data for this skill
-    let currentData = getAppState().skillUsage?.[skillName];
+    let currentData = getSessionState().skillUsage?.[skillName];
 
     let now = Date.now();
     let newCount = (currentData?.usageCount ?? 0) + 1;
 
-    // Only update if something changed (avoid unnecessary re-renders)
-    if (!currentData ||
-        currentData.usageCount !== newCount ||
-        currentData.lastUsedAt !== now) {
-
-        setAppState((state) => ({
-            ...state,
-            skillUsage: {
-                ...state.skillUsage,
-                [skillName]: {
-                    usageCount: newCount,
-                    lastUsedAt: now
-                }
+    // Update state with new usage data
+    updateSessionState((state) => ({
+        ...state,
+        skillUsage: {
+            ...state.skillUsage,
+            [skillName]: {
+                usageCount: newCount,
+                lastUsedAt: now
             }
-        }));
-    }
+        }
+    }));
 }
 
-// Mapping: xM6→recordSkillUsage, f6→getAppState, jA→setAppState
+// Mapping: ON1→trackSkillUsage, X1→getSessionState, d1→updateSessionState
 ```
 
 **Key insight:** The change detection (`usageCount !== newCount || lastUsedAt !== now`) prevents unnecessary state updates. Since `now` is a timestamp with millisecond precision, the `lastUsedAt !== now` check will almost always be true, but the check exists for consistency.
 
-### getSkillUsageScore (bM6)
+### computeSkillScore (ux8)
 
 **What it does:** Calculates a usage score that decays over time, giving higher weight to recently used skills.
 
@@ -141,13 +136,13 @@ function recordSkillUsage(skillName) {
 
 ```javascript
 // ============================================
-// getSkillUsageScore - Get decayed usage score
-// Location: chunks.130.mjs:1399-1405
+// computeSkillScore - Get decayed usage score
+// Location: chunks.133.mjs:900-907
 // ============================================
 
 // ORIGINAL (for source lookup):
-function bM6(A) {
-    let K = f6().skillUsage?.[A];
+function ux8(A) {
+    let K = X1().skillUsage?.[A];
     if (!K) return 0;
     let Y = (Date.now() - K.lastUsedAt) / 86400000,
         z = Math.pow(0.5, Y / 7);
@@ -155,8 +150,8 @@ function bM6(A) {
 }
 
 // READABLE (for understanding):
-function getSkillUsageScore(skillName) {
-    let data = getAppState().skillUsage?.[skillName];
+function computeSkillScore(skillName) {
+    let data = getSessionState().skillUsage?.[skillName];
 
     // No usage data = score of 0
     if (!data) return 0;
@@ -177,7 +172,7 @@ function getSkillUsageScore(skillName) {
     return data.usageCount * clampedFactor;
 }
 
-// Mapping: bM6→getSkillUsageScore, f6→getAppState
+// Mapping: ux8→computeSkillScore, X1→getSessionState
 ```
 
 ---
@@ -297,7 +292,7 @@ async call({ skill, args }, context, ...) {
 
 ### Potential Uses (Inferred)
 
-While the current codebase primarily records usage, the `getSkillUsageScore` function suggests intended uses:
+While the current codebase primarily records usage, the `computeSkillScore` function suggests intended uses:
 
 1. **Skill Ranking** - Order skills by score in UI
 2. **Autocomplete Priority** - Suggest frequently-used skills first
@@ -343,14 +338,14 @@ The 0.1 minimum prevents:
 
 ```javascript
 // In browser console
-let state = getAppState();
+let state = getSessionState();
 console.log(state.skillUsage);
 ```
 
 ### Check Specific Skill Score
 
 ```javascript
-console.log(getSkillUsageScore("commit"));
+console.log(computeSkillScore("commit"));
 ```
 
 ### Simulate Decay

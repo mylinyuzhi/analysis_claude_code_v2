@@ -73,7 +73,7 @@ LLM calls Skill tool { skill: "commit", args: "..." }
 │ checkPermissions()                                        │
 │  • Check deny rules                                      │
 │  • Check allow rules                                     │
-│  • Auto-allow if safe properties only (XNY)              │
+│  • Auto-allow if safe properties only ($kY)              │
 │  • Otherwise ask user                                   │
 └──────────────────────────────────────────────────────────┘
        │
@@ -104,7 +104,7 @@ LLM calls Skill tool { skill: "commit", args: "..." }
 
 ### Skill Discovery for LLM
 
-**File:** chunks.142.mjs:2381-2395
+**File:** chunks.147.mjs:700-721
 **Full Analysis:** [skill_reminder_integration.md](skill_reminder_integration.md)
 
 Skills are injected into system-reminder messages so the LLM knows what's available.
@@ -116,16 +116,16 @@ Skill Discovery Flow
 Session Start
        │
        ▼
-generateSkillListingAttachment (OIY)
+generateSkillListingAttachment (guY)
        │
-       ├── getSkillsForLLMInvocation (hv)
+       ├── getAllSkillsForTool (NR)
        │   • Filter: type === "prompt"
        │   • Filter: !disableModelInvocation
        │   • Filter: source !== "builtin"
        │
-       ├── Filter already-sent skills (xg1 Set)
+       ├── Filter already-sent skills (nT6 Set)
        │
-       └── formatSkillListing (BU7)
+       └── formatSkillListing (fV8)
            • Token budget aware
            • Format: "name: description"
        │
@@ -160,7 +160,7 @@ for (const skill of newSkills) {
 
 ### State Preservation
 
-**File:** chunks.146.mjs:2710-2722
+**File:** chunks.147.mjs:1896-1908
 **Full Analysis:** [skill_compact_interaction.md](skill_compact_interaction.md)
 
 When context compaction occurs, invoked skills are preserved via state anchoring.
@@ -179,9 +179,9 @@ Pre-Compaction:
 └─────────────────────────────────────────────────────────┘
        │
        ▼
-collectSkillsToKeep (da4)
+getInvokedSkillsAttachment (Tqq)
        │
-       ├── getInvokedSkills (zR6) → Map of invoked skills
+       ├── getInvokedSkillsForAgent (St6) → Map of invoked skills
        ├── Sort by invocation timestamp
        └── Create invoked_skills attachment
        │
@@ -216,7 +216,7 @@ interface InvokedSkillsAttachment {
 
 ### Hook Registration from Skills
 
-**File:** chunks.130.mjs:1361
+**File:** chunks.133.mjs:862
 **Full Analysis:** [skill_context_modifier.md](skill_context_modifier.md#hook-registration)
 **Hook System:** [11_hooks/implementation.md](../11_hooks/implementation.md)
 
@@ -244,7 +244,7 @@ Skill Invocation
 SkillTool.call() checks for hooks
        │
        ▼
-registerSkillHooks (IM6)
+registerSkillHooks (gc4)
        │
        ├── For each hook event type
        │   ├── Extract matcher
@@ -267,6 +267,69 @@ executeHooksIterator (NI) runs hooks on events
 | `PostToolUseFailure` | After failed tool | Error recovery |
 | `SessionStart` | Session begins | Initialize environment |
 | `SessionEnd` | Session ends | Cleanup |
+| `InstructionsLoaded` | Skill instructions injected | Initialization (NEW v2.1.76) |
+
+### InstructionsLoaded Hook (NEW v2.1.76)
+
+**What it does:** Fires when skill instructions are injected into the LLM context, allowing skills to perform initialization actions.
+
+**Hook Registration:**
+```yaml
+# SKILL.md
+---
+hooks:
+  InstructionsLoaded:
+    - command: ./setup-env.sh
+      once: true  # Only fire once
+---
+```
+
+**Execution Flow:**
+```
+Skill Discovery
+       │
+       ▼
+generateSkillListingAttachment (guY)
+       │
+       ├── Creates skill_listing attachment
+       │
+       ▼
+hasInstructionsLoadedHook (WF6) check
+       │
+       ├── If hooks exist:
+       │   │
+       │   ▼
+       │   executeInstructionsLoadedHooks (ZF6)
+       │       │
+       │       ├── Build hook input payload:
+       │       │   - file_path
+       │       │   - memory_type
+       │       │   - load_reason
+       │       │   - globs
+       │       │
+       │       └── Execute hooks via RF()
+       │
+       └── No hooks: Skip
+```
+
+**Hook Input Schema:**
+```typescript
+interface InstructionsLoadedPayload {
+    hook_event_name: "InstructionsLoaded";
+    file_path: string;        // Path to skill file
+    memory_type: string;      // Memory type context
+    load_reason: string;      // Why instructions were loaded
+    globs?: string[];         // Glob patterns for conditional skills
+    trigger_file_path?: string;
+    parent_file_path?: string;
+}
+```
+
+**Key Functions:**
+- `WF6` (hasInstructionsLoadedHook) - Check if any hooks registered
+- `ZF6` (executeInstructionsLoadedHooks) - Execute the hooks
+- `EM6` (getGlobalHooks) - Get global hook registry
+- `Xp` (getRegisteredHooks) - Get session hook registry
 
 ---
 
@@ -274,7 +337,7 @@ executeHooksIterator (NI) runs hooks on events
 
 ### Auto-Allow vs Ask
 
-**File:** chunks.132.mjs:752-761
+**File:** chunks.137.mjs:98-177
 
 Skills with only safe properties are auto-allowed; others require user confirmation.
 
@@ -288,7 +351,7 @@ checkPermissions() called
        │
        ├── Allow rule matches? → ALLOW
        │
-       ├── validateSkillProperties (XNY)?
+       ├── validateSkillProperties ($kY)?
        │   │
        │   ├── All properties in SKILL_PROPERTY_KEYS?
        │   │   └── Yes → ALLOW (auto-allow)
@@ -303,18 +366,75 @@ checkPermissions() called
 
 ```javascript
 // Safe properties (auto-allow if only these present)
+// Location: chunks.137.mjs:274
 SKILL_PROPERTY_KEYS = new Set([
     "type", "name", "description", "version",
     "userInvocable", "isEnabled", "isHidden",
     "context", "agent", "model",
     "getPromptForCommand", "progressMessage",
-    ...
+    "contentLength", "argNames", "argumentHint",
+    "whenToUse", "disableModelInvocation",
+    "source", "pluginInfo", "skillRoot",
+    "loadedFrom", "userFacingName", "aliases",
+    "isMcp", "hasUserSpecifiedDescription",
+    "frontmatterKeys", "disableNonInteractive",
+    "immediate"
 ]);
 
 // Unsafe properties (require permission)
 // - allowedTools: Grants additional tool access
 // - hooks: Can execute arbitrary code
 ```
+
+### validateSkillProperties ($kY)
+
+**What it does:** Checks whether a skill only contains safe properties, enabling auto-allow.
+
+```javascript
+// ============================================
+// validateSkillProperties - Check for auto-allow eligibility
+// Location: chunks.136.mjs:2516-2526
+// ============================================
+
+// ORIGINAL (for source lookup):
+function $kY(A) {
+    for (let q of Object.keys(A)) {
+        if (OkY.has(q)) continue;  // Skip safe properties
+        let K = A[q];
+        // Skip empty values
+        if (K === void 0 || K === null) continue;
+        if (Array.isArray(K) && K.length === 0) continue;
+        if (typeof K === "object" && !Array.isArray(K) && Object.keys(K).length === 0) continue;
+        return !1;  // Has non-empty unsafe property
+    }
+    return !0;  // Only safe properties
+}
+
+// READABLE (for understanding):
+function validateSkillProperties(skill) {
+    for (let key of Object.keys(skill)) {
+        if (SKILL_PROPERTY_KEYS.has(key)) continue;  // Safe property
+
+        let value = skill[key];
+
+        // Skip empty values (treat as safe)
+        if (value === undefined || value === null) continue;
+        if (Array.isArray(value) && value.length === 0) continue;
+        if (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0) continue;
+
+        // Non-empty unsafe property found
+        return false;
+    }
+    return true;  // Only contains safe properties
+}
+
+// Mapping: $kY→validateSkillProperties, OkY→SKILL_PROPERTY_KEYS
+```
+
+**Why this approach:**
+- **User experience**: Safe skills don't interrupt the user with permission prompts
+- **Security boundary**: Skills with `allowedTools` or `hooks` require explicit approval
+- **Empty value handling**: Empty arrays/objects are treated as safe
 
 ---
 
@@ -472,7 +592,7 @@ function registerLoopSkill() {
 │ 1. loadSkills (ukA) → Discover from all directories                      │
 │ 2. loadPluginSkills (B0A) → Load from plugins                            │
 │ 3. getAllCommands (cZ) → Merge into registry                             │
-│ 4. generateSkillListingAttachment (OIY) → Initial skill discovery        │
+│ 4. generateSkillListingAttachment (guY) → Initial skill discovery        │
 └──────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
@@ -484,14 +604,14 @@ function registerLoopSkill() {
 │ 3. getPromptForCommand generates prompt                                  │
 │ 4. Hooks registered (if defined)                                         │
 │ 5. contextModifier applied (allowedTools, model)                         │
-│ 6. recordSkillUsage for ranking                                          │
+│ 6. trackSkillUsage for ranking                                           │
 └──────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ COMPACTION (if triggered)                                                 │
 ├──────────────────────────────────────────────────────────────────────────┤
-│ 1. collectSkillsToKeep (da4) → Preserve invoked skills                   │
+│ 1. getInvokedSkillsAttachment (Tqq) → Preserve invoked skills            │
 │ 2. Create invoked_skills attachment                                       │
 │ 3. Skills restored in post-compaction context                            │
 └──────────────────────────────────────────────────────────────────────────┘

@@ -11,9 +11,9 @@ Skills interact with the context compaction system through the **State Preservat
 > - [07_compact/state_preservation.md](../07_compact/state_preservation.md) - Full compaction state preservation
 
 Key functions:
-- `collectSkillsToKeep` (da4) - Preserves invoked skills - chunks.146.mjs:2710-2722
-- `getInvokedSkills` (zR6) - Get invoked skills map - chunks.1.mjs:2964-2973
-- `recordSkillInvocation` - Records skill invocation for preservation
+- `getInvokedSkillsAttachment` (Tqq) - Preserves invoked skills - chunks.147.mjs:1896-1908
+- `getInvokedSkillsForAgent` (St6) - Get invoked skills map for agent - chunks.1.mjs:3052-3058
+- `registerInvokedSkill` (Uw6) - Records skill invocation for preservation - chunks.1.mjs:3037-3046
 
 ---
 
@@ -47,9 +47,9 @@ Compaction Triggered
         ▼
 State Collection Phase:
 ┌─────────────────────────────────────────────────────────┐
-│ collectSkillsToKeep() is called:                        │
+│ getInvokedSkillsAttachment() is called:                 │
 │                                                          │
-│ 1. getInvokedSkills() returns Map of invoked skills     │
+│ 1. getInvokedSkillsForAgent() returns Map of skills     │
 │ 2. Sort by invocation timestamp (most recent first)     │
 │ 3. Create attachment: { type: "invoked_skills", skills }│
 └─────────────────────────────────────────────────────────┘
@@ -98,26 +98,31 @@ case "invoked_skills": {
 
 ### Recording Skill Invocation
 
-When a skill is invoked (via SkillTool or slash command), it's recorded in the global `invokedSkills` Map:
+When a skill is invoked (via SkillTool or slash command), it's recorded in the session `invokedSkills` Map:
 
 ```javascript
-// chunks.1.mjs:2964-2973
-function recordSkillInvocation(skillId, skillName, skillPath, content) {
-    globalState.invokedSkills.set(skillId, {
+// chunks.1.mjs:3037-3046
+function Uw6(skillName, skillPath, content, agentId = null) {
+    let key = `${agentId??""}:${skillName}`;
+    sessionState.invokedSkills.set(key, {
         skillName,
         skillPath,
         content,
-        invokedAt: Date.now()
+        invokedAt: Date.now(),
+        agentId
     });
-    return globalState.invokedSkills;
 }
 
-function getInvokedSkills() {
-    return globalState.invokedSkills;
-}
-
-function clearInvokedSkills() {
-    globalState.invokedSkills.clear();
+// chunks.1.mjs:3052-3058
+function St6(agentId) {
+    let targetAgentId = agentId ?? null;
+    let result = new Map();
+    for (let [skillName, skillData] of sessionState.invokedSkills) {
+        if (skillData.agentId === targetAgentId) {
+            result.set(skillName, skillData);
+        }
+    }
+    return result;
 }
 ```
 
@@ -161,7 +166,7 @@ Most recently invoked skills are likely most relevant to current work, helping t
 | Files | `collectFilesToKeep` | 50k tokens | Top 5 most recent |
 | Tasks | `collectTasksToKeep` | Unlimited | All active/recent |
 | Plans | `collectPlanToKeep` | Unlimited | Active plan file |
-| **Skills** | `collectSkillsToKeep` | **Unlimited** | **All invoked** |
+| **Skills** | `getInvokedSkillsAttachment` | **Unlimited** | **All invoked** |
 | Todos | `collectTodosToKeep` | Unlimited | All items |
 
 **Key difference:** Skills have no token budget limit and preserve all invoked skills. This is because:
@@ -176,9 +181,9 @@ Most recently invoked skills are likely most relevant to current work, helping t
 ### Skill Tool Integration
 
 When the SkillTool is invoked:
-1. Skill is added to `invokedSkills` Map
+1. Skill is added to `invokedSkills` Map via `registerInvokedSkill(Uw6)`
 2. Skill content is stored for preservation
-3. On compaction, skill is preserved via `collectSkillsToKeep()`
+3. On compaction, skill is preserved via `getInvokedSkillsAttachment(Tqq)`
 
 ### Hook Mechanism
 
@@ -208,8 +213,8 @@ Skills restored (commit, review-pr)
 
 The skill-compact interaction follows the **State Anchoring** pattern:
 
-1. **Tracking:** Skill invocations are recorded in `invokedSkills` Map
-2. **Preservation:** `collectSkillsToKeep()` collects all invoked skills
+1. **Tracking:** Skill invocations are recorded in `invokedSkills` Map via `registerInvokedSkill(Uw6)`
+2. **Preservation:** `getInvokedSkillsAttachment(Tqq)` collects all invoked skills
 3. **Re-injection:** Skills are added as `invoked_skills` attachment post-compaction
 4. **Continuity:** LLM maintains awareness of active skill behaviors
 

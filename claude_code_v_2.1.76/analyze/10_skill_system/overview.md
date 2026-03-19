@@ -17,7 +17,7 @@ Skills from disk (.claude/skills/)      executeCommand (ifY)
   └─ type: "prompt"                          │
      (user + LLM unless blocked)       ──────┼──────────────────────────
                                              │
-Plugin skills                           LLM calls Skill tool (wt)
+Plugin skills                           LLM calls Skill tool (m66)
   └─ type: "prompt"                          ↓
      (user + LLM, usually)             handlePromptCommandFromTool (Pb4)
                                              ↓
@@ -25,6 +25,40 @@ Bundled skills (registered at init)    handlePromptCommand (Wb4)
   └─ type: "prompt"                          ↓
      (user + LLM)                      LLM executes with full prompt context
 ```
+
+---
+
+## v2.1.76 New Features
+
+This version introduces several significant enhancements to the Skill System:
+
+### 1. InstructionsLoaded Hook Event
+
+A new hook event type that fires when skill instructions are injected into the conversation context. This enables:
+- Audit logging of skill usage
+- Initialization actions when skills load
+- Token budget monitoring
+
+**Symbols:** `WF6` (hasInstructionsLoadedHook), `ZF6` (executeInstructionsLoadedHooks)
+
+### 2. Environment Variable Support
+
+Skills can now use `${CLAUDE_SKILL_DIR}` in their content, which is replaced with the skill's base directory path at execution time. This enables:
+- Relative path references within skills
+- Portable skill definitions across projects
+
+**Implementation:** In `getPromptForCommand` (chunks.90.mjs:1238-1240)
+
+### 3. New Bundled Skills
+
+| Skill | Purpose | Symbol |
+|-------|---------|--------|
+| `update-config` | Configure settings.json | `uyq` |
+| `stuck` | Diagnose frozen sessions | `dyq` |
+| `claude-api` | Claude API assistance | `PMz` |
+| `simplify` | Code review and cleanup | `eyq` |
+| `batch` | Parallel worktree operations | `YLq` |
+| `loop` | Recurring prompt scheduling | `gJz` (v2.1.71) |
 
 ---
 
@@ -55,22 +89,22 @@ This module contains multiple specialized documents. Use this guide to navigate:
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Slash Commands, UI Components
 
 Key functions in this document:
-- `createSkillObject` (dF4) - Factory that builds a command object from parsed SKILL.md
-- `registerPromptSkill` (Sj) - Registers a bundled skill into the runtime registry
-- `loadSkills` (ukA) - Master loader orchestrating all skill sources
-- `loadSkillFromDir` (oQ1) - Parses one `.claude/skills/` directory
-- `loadPluginSkills` (B0A) - Loads skills from installed plugins
-- `getAllCommands` (cZ) - Memoized merger of ALL command sources
-- `getSkillToolCommands` (hv) - Filter: commands visible to LLM via Skill tool
-- `getSlashCommandSkills` (aO6) - Filter: commands shown in slash command autocomplete UI
-- `skillToolDefinition` (wt) - The actual Skill tool object used by the agent loop
-- `SKILL_TOOL_NAME` (NJ) - The string constant `"Skill"`
-- `getSkillToolPrompt` (d0A) - Memoized prompt text for the Skill tool
-- `buildSkillListingAttachment` (OIY) - Builds `skill_listing` for system reminder injection
-- `formatSkillListing` (BU7) - Budget-aware skill list text formatter
-- `filterCommandSuggestions` (PgA) - Core fuzzy filter for "/" input autocomplete
-- `useCommandSuggestions` (WGq) - React hook orchestrating all autocomplete suggestions
-- `handleSubmitCommand` (PE6) - REPL submit handler: immediate slash vs. deferred pipeline
+- `createSkillObject` (v94) - Factory that builds a command object from parsed SKILL.md
+- `registerPromptSkill` (rw) - Registers a bundled skill into the runtime registry
+- `getAllSkills` (I0) - Main entry point, returns all loaded skills (memoized)
+- `getSkills` (z5z) - Aggregates all skill sources
+- `loadSkillDirCommands` (JV8) - Loads from skill directories (memoized)
+- `loadSkillsFromDirectory` (Zp6) - Loads skills from a single directory
+- `loadPluginSkills` (hk8) - Loads skills from installed plugins
+- `getAllSkillsForTool` (NR) - Filter: commands visible to LLM via Skill tool
+- `getSlashCommandSkills` (vp6) - Filter: commands shown in slash command autocomplete UI
+- `SkillTool` (m66) - The actual Skill tool object used by the agent loop
+- `SKILL_TOOL_NAME` (oH) - The string constant `"Skill"`
+- `generateSkillListingAttachment` (guY) - Builds `skill_listing` for system reminder injection
+- `formatSkillListing` (fV8) - Budget-aware skill list text formatter
+- `registerSkillHooks` (gc4) - Registers hooks from skill frontmatter
+- `trackSkillUsage` (ON1) - Records skill usage for scoring
+- `computeSkillScore` (ux8) - Calculates skill priority score with half-life decay
 
 ---
 
@@ -146,7 +180,7 @@ The `source` and `loadedFrom` fields together describe where a command came from
 
 > **For detailed code analysis**, see [implementation.md](implementation.md#creating-the-skill-object).
 
-### createSkillObject (dF4)
+### createSkillObject (v94)
 
 **What it does:** Creates the runtime command object from a parsed SKILL.md file. This is the factory function that bridges static markdown files and the runtime command interface.
 
@@ -195,7 +229,7 @@ loadSkills (ukA) in chunks.134.mjs:2059
 
 **Deduplication:** After loading all tiers, each skill file path gets its inode via `getInodeId` (GEY). The same physical file loaded from two different paths (e.g., via a symlink) is deduplicated — only the first-seen inode wins.
 
-**Conditional skills:** Skills with a `paths:` frontmatter field are separated into a `conditionalSkillsMap` (aQ1). They are NOT returned by `loadSkills` immediately. Instead, `activateConditionalSkills` (EW1) checks these against file-operation events — when a tool writes/reads a file matching the glob pattern, the corresponding skill activates dynamically.
+**Conditional skills:** Skills with a `paths:` frontmatter field are separated into a `conditionalSkillsMap` (VW6). They are NOT returned by `loadSkills` immediately. Instead, `activateConditionalSkills` (LW6) checks these against file-operation events — when a tool writes/reads a file matching the glob pattern, the corresponding skill activates dynamically.
 
 ### loadSkillFromDir (oQ1) - Single Directory Parser
 
@@ -208,7 +242,7 @@ loadSkills (ukA) in chunks.134.mjs:2059
    - Parse frontmatter via yaml parser (`yD`)
    - Extract all metadata fields: `description`, `allowed-tools`, `user-invocable`, `disable-model-invocation`, `model`, `context`, `agent`, `arguments`, `paths`, `when-to-use`, `hooks`, `version`
    - Derive the command name: subdirectory name, optionally namespaced by relative path from root
-   - Call `createSkillObject(dF4)` to build the runtime object
+   - Call `createSkillObject(v94)` to build the runtime object
 3. Handle `deduplicateSkillFiles(fEY)`: if both a `SKILL.md` and other `.md` files exist in a dir, prefer `SKILL.md`
 4. Return array of `{ skill: CommandObject, filePath: string }`
 
@@ -275,17 +309,17 @@ The LLM needs to know which skills exist before it can decide to invoke them. Cl
 Turn N starts
      │
      ▼
-[Stage 1] loadSkillsForLLM (hv)
+[Stage 1] getAllSkillsForTool (NR)
      Filter: type==="prompt", !disableModelInvocation, source!=="builtin"
      Result: Array of visible-to-LLM skills
      │
      ▼
-[Stage 2] buildSkillListingAttachment (OIY)
-     Filter to NEW skills (not yet sent via xg1 Set)
+[Stage 2] generateSkillListingAttachment (guY)
+     Filter to NEW skills (not yet sent via nT6 Set)
      Track isInitial flag for first turn
      │
      ▼
-[Stage 3] formatSkillListing (BU7)
+[Stage 3] formatSkillListing (fV8)
      Budget-aware text formatting:
      charBudget = min(16000, contextWindowTokens * 4 * 0.02)
      Tier 1: Full | Tier 2: Truncated | Tier 3: Names only
@@ -297,29 +331,28 @@ Turn N starts
 
 ### Key Design Decisions
 
-**Delta Updates (Stage 2):** The skill list can be large. The `xg1` set tracks which skills have been sent, so new skills discovered mid-session are sent incrementally without re-sending known skills.
+**Delta Updates (Stage 2):** The skill list can be large. The `nT6` set tracks which skills have been sent, so new skills discovered mid-session are sent incrementally without re-sending known skills.
 
 **Budget-Aware Formatting (Stage 3):** The budget is ~2% of the context window (~16K chars for 200K token models). This caps skill listings at ~1.6K tokens regardless of skill count.
 
 **Documentation Requirement:** Skills without `description:` or `when-to-use:` are not exposed to the LLM. This forces skill authors to write documentation for discoverability.
 
-### Invoked Skills Tracking (da4 / MN1)
+### Invoked Skills Tracking (Tqq / Uw6)
 
 > **For detailed analysis**, see [skill_compact_interaction.md](skill_compact_interaction.md).
 
 When skills are invoked, they're tracked for state preservation across compaction:
 
 ```
-Skill invoked → recordSkillUsage(xM6) → skillsInSession Map
-                                          │
-Compaction triggered ←─────────────────────┘
+Skill invoked → registerInvokedSkill(Uw6) → skillsInSession Map
+                                               │
+Compaction triggered ←──────────────────────────┘
        │
        ▼
-collectSkillsToKeep(da4) → invoked_skills attachment
+getInvokedSkillsAttachment(Tqq) → invoked_skills attachment
        │
        ▼
 Skills restored in post-compaction context
-```
 ```
 
 **The LLM sees:**
@@ -331,24 +364,23 @@ The following skills are available for use with the Skill tool:
 - deploy: Deploy to staging - use when deploying to staging environment
 ```
 
-### Invoked Skills Tracking (da4 / MN1)
+### Invoked Skills Tracking (Tqq / Uw6)
 
-When a skill runs, it is recorded in the session state via `registerInvokedSkill(MN1)`. This builds a separate `invoked_skills` attachment that reminds the LLM of skills already run in this session:
+When a skill runs, it is recorded in the session state via `registerInvokedSkill(Uw6)`. This builds a separate `invoked_skills` attachment that reminds the LLM of skills already run in this session:
 
 ```javascript
-// Register skill at invocation time (chunks.1.mjs:2963)
-function MN1(skillName, skillPath, skillContent) {
-    setAppState(state => ({
-        ...state,
-        invokedSkills: new Map(state.invokedSkills).set(skillName, {
-            skillName, skillPath, content: skillContent, invokedAt: Date.now()
-        })
-    }))
+// Register skill at invocation time (chunks.1.mjs:3037)
+function Uw6(skillName, skillPath, skillContent, agentId = null) {
+    let key = `${agentId??""}:${skillName}`;
+    sessionState.invokedSkills.set(key, {
+        skillName, skillPath, content: skillContent,
+        invokedAt: Date.now(), agentId
+    })
 }
 
-// Build reminder attachment (chunks.146.mjs:2711)
-function da4() {
-    let invokedSkills = getInvokedSkills();  // zR6() → state.invokedSkills
+// Build reminder attachment (chunks.147.mjs:1896)
+function Tqq(agentId) {
+    let invokedSkills = getInvokedSkillsForAgent(agentId);  // St6() → state.invokedSkills filtered by agentId
     if (invokedSkills.size === 0) return null;
     let sorted = Array.from(invokedSkills.values())
         .sort((a, b) => b.invokedAt - a.invokedAt)  // most recent first
@@ -454,7 +486,7 @@ USER TYPES "/commit fix auth bug"
               ┌──────────────┼──────────────────────────────┐
               │              │                              │
               ▼              ▼                              ▼
-      getPromptForCommand  registerSkillHooks(IM6)    buildSkillMetadata(nfY)
+      getPromptForCommand  registerSkillHooks(gc4)    buildSkillMetadata(nfY)
       (resolves SKILL.md   (if command.hooks)         → <command-message>commit</command-message>
        content with args,                               <command-name>/commit</command-name>
        shell expansion,                                 <command-args>fix auth bug</command-args>

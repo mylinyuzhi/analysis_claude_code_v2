@@ -21,6 +21,7 @@ Key functions in this document:
 - `parseSkillPaths` (xm9) - Path-based activation parsing, chunks.90.mjs:1176
 - `registerPromptSkill` (rw) - Bundled skill registration, chunks.165.mjs:2546
 - `getBundledSkills` (iPq) - Get bundled skill array, chunks.165.mjs:2589
+- `lPq` - Bundled skill registry array, chunks.165.mjs
 
 ---
 
@@ -216,7 +217,7 @@ loadSkillDirCommands = memoizeAsync(async (sessionContext) => {
 // ============================================
 
 // ORIGINAL (for source lookup):
-function dF4({
+function v94({
     skillName: A,
     displayName: q,
     description: K,
@@ -372,7 +373,7 @@ function createSkillObject({
     };
 }
 
-// Mapping: dF4→createSkillObject, A→skillName, q→displayName, K→description, Y→hasUserSpecifiedDescription,
+// Mapping: v94→createSkillObject, A→skillName, q→displayName, K→description, Y→hasUserSpecifiedDescription,
 // z→markdownContent, w→allowedTools, H→argumentHint, $→argumentNames, O→whenToUse, _→version, J→model,
 // X→disableModelInvocation, D→userInvocable, j→source, M→baseDir, P→loadedFrom, W→hooks, G→executionContext,
 // f→agent, Z→paths, N→args, T→toolUseContext, Ej1→substituteArguments, U6→getSessionId, Ma→processTemplateExpressions
@@ -382,33 +383,33 @@ function createSkillObject({
 
 ## Hook Parsing
 
-### parseSkillHooks (pF4)
+### parseSkillHooks (T94)
 
 **What it does:** Parses and validates the `hooks` field from skill frontmatter using a Zod schema.
 
 **How it works:**
 1. Check if `hooks` field exists
-2. Parse with `Xk.safeParse` (Zod schema)
+2. Parse with `ty().safeParse` (Zod schema)
 3. Return parsed data on success, log error and return undefined on failure
 
 **Why this approach:**
 - **Zod validation** ensures hook structure is correct before registration
 - **Fail-soft** behavior (log error, return undefined) prevents a malformed skill from crashing the system
 
-**Key insight:** The hook schema (`Xk`) supports multiple hook events (PreToolUse, PostToolUse, etc.) with matcher patterns and hook definitions including one-shot hooks.
+**Key insight:** The hook schema (`ty()`) supports multiple hook events (PreToolUse, PostToolUse, etc.) with matcher patterns and hook definitions including one-shot hooks.
 
 ```javascript
 // ============================================
 // parseSkillHooks - Hook parsing from frontmatter
-// Location: chunks.134.mjs:1663-1671
+// Location: chunks.90.mjs:1166-1174
 // ============================================
 
 // ORIGINAL (for source lookup):
-function pF4(A, q) {
+function T94(A, q) {
     if (!A.hooks) return;
-    let K = Xk.safeParse(A.hooks);
+    let K = ty().safeParse(A.hooks);
     if (!K.success) {
-        h(`Invalid hooks in skill '${q}': ${K.error.message}`);
+        k(`Invalid hooks in skill '${q}': ${K.error.message}`);
         return
     }
     return K.data
@@ -426,21 +427,21 @@ function parseSkillHooks(frontmatter, skillName) {
     return result.data;
 }
 
-// Mapping: pF4→parseSkillHooks, A→frontmatter, q→skillName, Xk→hooksSchema, h→log
+// Mapping: T94→parseSkillHooks, A→frontmatter, q→skillName, ty→hooksSchema, k→log
 ```
 
 ---
 
 ## Conditional Skill Activation
 
-### Path-Based Activation (ZEY, EW1)
+### Path-Based Activation (xm9, LW6)
 
 **What it does:** Skills with a `paths` field are only activated when the user touches files matching those path patterns.
 
 **How it works:**
-1. During loading, skills with `paths` are stored in `aQ1` Map instead of the main registry
-2. When files are touched (read, edit, etc.), `EW1` checks if any conditional skill matches
-3. Matching skills are moved from `aQ1` to the main `Pt` registry
+1. During loading, skills with `paths` are stored in `VW6` Map instead of the main registry
+2. When files are touched (read, edit, etc.), `LW6` checks if any conditional skill matches
+3. Matching skills are moved from `VW6` to the main `rd` registry
 4. Telemetry event `tengu_dynamic_skills_changed` is fired
 
 **Why this approach:**
@@ -488,14 +489,14 @@ function parseConditionalPaths(frontmatter) {
 
 ## Bundled Skills
 
-### registerPromptSkill (Sj)
+### registerPromptSkill (rw)
 
-**What it does:** Registers a built-in skill by adding it to the bundled skill registry array (`iHq`).
+**What it does:** Registers a built-in skill by adding it to the bundled skill registry array (`lPq`).
 
 **How it works:**
 1. Create skill object with provided properties
 2. Set defaults for optional fields (`userInvocable: true`, `disableModelInvocation: false`)
-3. Push to `iHq` array for later retrieval
+3. Push to `lPq` array for later retrieval
 
 **Why this approach:**
 - **Array-based registry** is simple and efficient for built-in skills
@@ -505,15 +506,30 @@ function parseConditionalPaths(frontmatter) {
 ```javascript
 // ============================================
 // registerPromptSkill - Register a bundled skill
-// Location: chunks.166.mjs:1795-1820
+// Location: chunks.165.mjs:2546-2587
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Sj(A) {
-    let q = {
+function rw(A) {
+    let {
+        files: q
+    } = A, K, Y = A.getPromptForCommand;
+    if (q && Object.keys(q).length > 0) {
+        K = nPq(A.name);
+        let _, w = A.getPromptForCommand;
+        Y = async (O, $) => {
+            _ ??= j7z(A.name, q);
+            let H = await _,
+                j = await w(O, $);
+            if (H === null) return j;
+            return W7z(j, H)
+        }
+    }
+    let z = {
         type: "prompt",
         name: A.name,
         description: A.description,
+        aliases: A.aliases,
         hasUserSpecifiedDescription: !0,
         allowedTools: A.allowedTools ?? [],
         argumentHint: A.argumentHint,
@@ -525,23 +541,40 @@ function Sj(A) {
         source: "bundled",
         loadedFrom: "bundled",
         hooks: A.hooks,
+        skillRoot: K,
         context: A.context,
         agent: A.agent,
         isEnabled: A.isEnabled ?? (() => !0),
         isHidden: !(A.userInvocable ?? !0),
         progressMessage: "running",
         userFacingName: () => A.name,
-        getPromptForCommand: A.getPromptForCommand
+        getPromptForCommand: Y
     };
-    iHq.push(q)
+    lPq.push(z)
 }
 
 // READABLE (for understanding):
 function registerPromptSkill(skillDefinition) {
+    let { files } = skillDefinition, skillRoot, getPromptFn = skillDefinition.getPromptForCommand;
+
+    // Handle bundled files extraction if provided
+    if (files && Object.keys(files).length > 0) {
+        skillRoot = getBundledSkillDir(skillDefinition.name);
+        let extractedFiles, originalGetPrompt = skillDefinition.getPromptForCommand;
+        getPromptFn = async (args, context) => {
+            extractedFiles ??= extractBundledFiles(skillDefinition.name, files);
+            let extractedDir = await extractedFiles,
+                originalPrompt = await originalGetPrompt(args, context);
+            if (extractedDir === null) return originalPrompt;
+            return injectSkillDirIntoPrompt(originalPrompt, extractedDir);
+        };
+    }
+
     let skillObject = {
         type: "prompt",
         name: skillDefinition.name,
         description: skillDefinition.description,
+        aliases: skillDefinition.aliases,
         hasUserSpecifiedDescription: true,
         allowedTools: skillDefinition.allowedTools ?? [],
         argumentHint: skillDefinition.argumentHint,
@@ -553,90 +586,117 @@ function registerPromptSkill(skillDefinition) {
         source: "bundled",
         loadedFrom: "bundled",
         hooks: skillDefinition.hooks,
+        skillRoot,
         context: skillDefinition.context,
         agent: skillDefinition.agent,
         isEnabled: skillDefinition.isEnabled ?? (() => true),
         isHidden: !(skillDefinition.userInvocable ?? true),
         progressMessage: "running",
         userFacingName: () => skillDefinition.name,
-        getPromptForCommand: skillDefinition.getPromptForCommand
+        getPromptForCommand: getPromptFn
     };
     bundledSkillRegistry.push(skillObject);
 }
 
-// Mapping: Sj→registerPromptSkill, A→skillDefinition, iHq→bundledSkillRegistry
+// Mapping: rw→registerPromptSkill, A→skillDefinition, lPq→bundledSkillRegistry,
+// nPq→getBundledSkillDir, j7z→extractBundledFiles, W7z→injectSkillDirIntoPrompt
 ```
 
 ### Built-in Skill Registration Chain
 
 ```javascript
 // ============================================
-// registerAllBuiltinSkills - Master registration function
-// Location: chunks.177.mjs:2441-2443
+// registerAllBundledSkills - Master registration function
+// Location: chunks.184.mjs:710-724
 // ============================================
 
 // ORIGINAL (for source lookup):
-function xjq() {
-    if (Xjq(), Pjq(), fjq(), Njq(), vjq(), kjq(), Cjq(), hjq(), cZ1()) jjq()
+function DRq() {
+    uyq(), Fyq(), Qyq(), dyq(), nyq(), oyq(), syq(), eyq(), YLq(), _Lq();
+    {
+        let {
+            registerLoopSkill: A
+        } = ($Lq(), k4(OLq));
+        A()
+    } {
+        let {
+            registerClaudeApiSkill: A
+        } = (MRq(), k4(JRq));
+        A()
+    }
+    if (kN6()) byq()
 }
 
 // READABLE (for understanding):
-function registerAllBuiltinSkills() {
-    registerRememberSkill();       // Xjq - stub
-    registerSettingsHelpSkill();   // Pjq - stub
-    registerKeybindingsSkill();    // fjq - active
-    registerVerifySkill();         // Njq - stub
-    registerInitVerifiersSkill();  // vjq - stub
-    registerDebugSkill();          // kjq - active
-    registerBenchmarkSkill();      // Cjq - stub
-    registerSkillifySkill();       // hjq - stub
+function registerAllBundledSkills() {
+    registerUpdateConfigSkill();       // uyq - active (NEW v2.1.76)
+    registerBuiltinKeybindingsSkill(); // Fyq - active
+    registerBuiltinDebugSkill();       // Qyq - active
+    registerStuckSkill();              // dyq - active (NEW v2.1.76)
+    registerReviewCommands();          // nyq - active
+    registerPrCommentsCommand();       // oyq - active
+    registerSecurityReviewCommand();   // syq - active
+    registerSimplifySkill();           // eyq - active (NEW v2.1.76)
+    registerBatchSkill();              // YLq - active (NEW v2.1.76)
+    registerMcpToolPrompts();          // _Lq - stub
+
+    // Lazy-loaded skills via module extraction
+    { registerLoopSkill(); }           // gJz - active (NEW v2.1.71)
+    { registerClaudeApiSkill(); }      // PMz - active (NEW v2.1.76)
+
     if (isChromeExtensionAvailable()) {
-        registerChromeSkill();     // jjq - conditional, active
+        registerChromeSkill();         // byq - conditional
     }
 }
 
-// Mapping: xjq→registerAllBuiltinSkills, Xjq→registerRememberSkill, Pjq→registerSettingsHelpSkill,
-// fjq→registerKeybindingsSkill, Njq→registerVerifySkill, vjq→registerInitVerifiersSkill,
-// kjq→registerDebugSkill, Cjq→registerBenchmarkSkill, hjq→registerSkillifySkill,
-// cZ1→isChromeExtensionAvailable, jjq→registerChromeSkill
+// Mapping: DRq→registerAllBundledSkills, uyq→registerUpdateConfigSkill,
+// Fyq→registerBuiltinKeybindingsSkill, Qyq→registerBuiltinDebugSkill,
+// dyq→registerStuckSkill, nyq→registerReviewCommands, oyq→registerPrCommentsCommand,
+// syq→registerSecurityReviewCommand, eyq→registerSimplifySkill, YLq→registerBatchSkill,
+// _Lq→registerMcpToolPrompts, gJz→registerLoopSkill, PMz→registerClaudeApiSkill,
+// kN6→isChromeExtensionAvailable, byq→registerChromeSkill
 ```
 
 **Implementation Status (v2.1.76):**
 | Skill | Function | Status |
 |-------|----------|--------|
-| keybindings-help | `fjq` | Active |
-| debug | `kjq` | Active |
-| claude-in-chrome | `jjq` | Active (conditional) |
-| verify | `Njq` | Stub |
-| init-verifiers | `vjq` | Stub |
-| remember | `Xjq` | Stub |
-| settings-help | `Pjq` | Stub |
-| benchmark | `Cjq` | Stub |
-| skillify | `hjq` | Stub |
+| update-config | `uyq` | Active (NEW v2.1.76) |
+| keybindings-help | `Fyq` | Active |
+| debug | `Qyq` | Active |
+| stuck | `dyq` | Active (NEW v2.1.76) |
+| review | `nyq` | Active |
+| pr-comments | `oyq` | Active |
+| security-review | `syq` | Active |
+| simplify | `eyq` | Active (NEW v2.1.76) |
+| batch | `YLq` | Active (NEW v2.1.76) |
+| mcp-tool-prompts | `_Lq` | Stub |
+| loop | `gJz` | Active (NEW v2.1.71) |
+| claude-api | `PMz` | Active (NEW v2.1.76) |
+| claude-in-chrome | `byq` | Active (conditional) |
 
 ---
 
 ## Skill Registry
 
-The skill registry is stored in a Map (`Pt`) keyed by skill name:
+The skill registry is stored in a Map (`rd`) keyed by skill name:
 
 ```javascript
 // Global state
-Pt = new Map();       // Main skill registry (name → skill object)
-aQ1 = new Map();      // Conditional skills awaiting activation
-BkA = new Set();      // Activated conditional skill names
-gF4 = new Set();      // Discovered skill directories
-mkA = [];             // Skill change callbacks
+rd = new Map();        // Main skill registry (name → skill object)
+VW6 = new Map();       // Conditional skills awaiting activation
+IP1 = new Set();       // Activated conditional skill names
+HV8 = new Set();       // Discovered skill directories
+MV8 = [];              // Skill change callbacks
 ```
 
 ### Registry Functions
 
 | Function | Purpose |
 |----------|---------|
-| `iF4()` | Get all skills as array |
+| `k94()` | Get all skills as array |
 | `refreshSkillDirs` (vW1) | Reload skills from directories after file changes |
-| `clearSkillCaches` (BP6) | Clear all skill-related caches |
-| `registerSkillRefreshCallback` (lF4) | Register callback for skill changes |
+| `clearSkillCaches` (E94) | Clear all skill-related caches |
+| `registerSkillRefreshCallback` | Register callback for skill changes |
 
 ---
 

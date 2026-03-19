@@ -97,7 +97,7 @@ Each skill/memory type has a specific producer function with distinct trigger co
 
 | Type | Producer Function | Location | Key Trigger Logic |
 |------|-------------------|----------|-------------------|
-| `skill_listing` | `OIY` (getSkillListingAttachment) | chunks.142.mjs:2381-2395 | `ZO()` returns skills + dedup via `xg1` Set; now also queries CLAUDE_SKILL_DIR (v2.1.76) |
+| `skill_listing` | `guY` (generateSkillListingAttachment) | chunks.147.mjs:700-721 | `NR()` returns skills + dedup via `nT6` Set; now also queries CLAUDE_SKILL_DIR (v2.1.76) |
 | `nested_memory` | `HIY` (getNestedMemoryAttachment) | chunks.142.mjs:2337-2348 | `nestedMemoryAttachmentTriggers.size > 0` |
 | `mcp_resource` | `zIY` (getMcpResourceAttachment) | chunks.142.mjs:2252-2283 | `@server:uri` pattern in user message |
 | `dynamic_skill` | `$IY` (getDynamicSkillAttachment) | chunks.142.mjs:2350-2375 | `dynamicSkillDirTriggers.size > 0` |
@@ -108,12 +108,11 @@ Each skill/memory type has a specific producer function with distinct trigger co
 The `skill_listing` type uses a Set to track sent skills:
 
 ```javascript
-// Location: chunks.142.mjs:2383-2386
-let newSkills = (await getSkillDefinitions(skills))
-    .filter(skill => !sentSkillsSet.has(skill.name));
+// Location: chunks.147.mjs:700-721
+let newSkills = allSkills.filter(skill => !sentSkillNames.has(skill.name));
 
 for (let skill of newSkills) {
-    sentSkillsSet.add(skill.name);
+    sentSkillNames.add(skill.name);
 }
 ```
 
@@ -252,59 +251,78 @@ Lists all available skills that can be invoked with the Skill tool. Sent at the 
 
 ```javascript
 // ============================================
-// getSkillListingAttachment - Produce skill listing
-// Location: chunks.142.mjs:2381-2395
+// generateSkillListingAttachment - Produce skill listing
+// Location: chunks.147.mjs:700-721
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function OIY(A) {
-    let q = ZO(),
-        Y = (await hv(q)).filter(($) => !xg1.has($.name));
+async function guY(A) {
+    if (!A.options.tools.some((O) => z3(O, oH))) return [];
+    let q = qY(),
+        K = await NR(q);
+    if (bE1) {
+        bE1 = !1;
+        for (let O of K) nT6.add(O.name);
+        return []
+    }
+    let Y = K.filter((O) => !nT6.has(O.name));
     if (Y.length === 0) return [];
-    let z = xg1.size === 0;
-    for (let $ of Y) xg1.add($.name);
-    h(`Sending ${Y.length} skills via attachment (${z?"initial":"dynamic"}, ${xg1.size} total sent)`);
-    let w = yG(A.options.mainLoopModel, FP());
+    let z = nT6.size === 0;
+    for (let O of Y) nT6.add(O.name);
+    k(`Sending ${Y.length} skills via attachment (${z?"initial":"dynamic"}, ${nT6.size} total sent)`);
+    let _ = uM(A.options.mainLoopModel, Zj());
     return [{
         type: "skill_listing",
-        content: BU7(Y, w),
+        content: fV8(Y, _),
         skillCount: Y.length,
         isInitial: z
     }]
 }
 
 // READABLE (for understanding):
-async function getSkillListingAttachment(sessionContext) {
-    // Collect skills from all sources including CLAUDE_SKILL_DIR (v2.1.76)
-    let allSkills = getAvailableSkills();
+async function generateSkillListingAttachment(toolUseContext) {
+    // Skip if Skill tool is not available
+    if (!toolUseContext.options.tools.some(tool => isSkillTool(tool))) {
+        return [];
+    }
 
-    let newSkills = (await filterAvailableSkills(allSkills))
-        .filter(skill => !sentSkillsSet.has(skill.name));
+    let sessionContext = getSessionContext();
+    let allSkills = await getAllSkillsForTool(sessionContext);
+
+    // On first call, populate sentSkillsSet but don't send anything
+    if (isInitialSend) {
+        isInitialSend = false;
+        for (let skill of allSkills) {
+            sentSkillNames.add(skill.name);
+        }
+        return [];  // No attachment on first call
+    }
+
+    let newSkills = allSkills.filter(skill => !sentSkillNames.has(skill.name));
 
     if (newSkills.length === 0) return [];
 
-    let isInitial = sentSkillsSet.size === 0;
+    let isInitial = sentSkillNames.size === 0;
 
     for (let skill of newSkills) {
-        sentSkillsSet.add(skill.name);
+        sentSkillNames.add(skill.name);
     }
 
-    debugLog(`Sending ${newSkills.length} skills via attachment (${isInitial ? "initial" : "dynamic"}, ${sentSkillsSet.size} total sent)`);
+    log(`Sending ${newSkills.length} skills via attachment (${isInitial ? "initial" : "dynamic"}, ${sentSkillNames.size} total sent)`);
 
-    let formattedContent = formatSkillsForModel(
-        newSkills,
-        getModelCapabilities(sessionContext.options.mainLoopModel)
-    );
+    let formatOptions = getModelContextLimit(toolUseContext.options.mainLoopModel);
 
     return [{
         type: "skill_listing",
-        content: formattedContent,
+        content: formatSkillListing(newSkills, formatOptions),
         skillCount: newSkills.length,
         isInitial: isInitial
     }];
 }
 
-// Mapping: OIY→getSkillListingAttachment, A→sessionContext, q→allSkills, Y→newSkills, z→isInitial, w→formattedContent, ZO→getAvailableSkills, hv→filterAvailableSkills, xg1→sentSkillsSet, h→debugLog, yG→formatSkillsForModel, BU7→formatSkillsContent, FP→getModelCapabilities
+// Mapping: guY→generateSkillListingAttachment, A→toolUseContext, q→sessionContext, K→allSkills,
+// Y→newSkills, z→isInitial, _→formatOptions, NR→getAllSkillsForTool, nT6→sentSkillNames,
+// fV8→formatSkillListing, qY→getSessionContext, oH→SKILL_TOOL_NAME, bE1→isInitialSend
 ```
 
 #### CLAUDE_SKILL_DIR Integration
@@ -364,7 +382,7 @@ When users reference a "slash command" or `/<something>` (e.g., `/commit`, `/rev
 
 ### Deduplication
 
-The `sentSkillsSet` (xg1) tracks which skills have been sent, preventing duplicate skill listings. Cleared by `rd()` (clearSkillCache).
+The `sentSkillNames` (nT6) tracks which skills have been sent, preventing duplicate skill listings. Cleared by `Oc` (clearSentSkillNames).
 
 ---
 

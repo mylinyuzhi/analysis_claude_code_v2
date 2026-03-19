@@ -14,54 +14,63 @@ The skill system integrates with several core Claude Code subsystems:
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `generateSkillListingAttachment` (OIY) - System reminder integration, chunks.142.mjs:2381-2395
-- `formatSkillListing` (BU7) - Format skills for LLM context, chunks.87.mjs
-- `collectSkillsToKeep` (da4) - Compact skill preservation, chunks.146.mjs:2710-2722
-- `getInvokedSkills` (zR6) - Get invoked skills for preservation, chunks.1.mjs
-- `registerSkillHooks` (IM6) - Hook registration from skills, chunks.130.mjs:1361-1375
-- `trackSkillUsage` (xM6) - Usage tracking, chunks.130.mjs:1383-1397
-- `computeSkillScore` (bM6) - Score for skill ranking, chunks.130.mjs:1399-1405
+- `generateSkillListingAttachment` (guY) - System reminder integration, chunks.147.mjs:700-721
+- `formatSkillListing` (fV8) - Format skills for LLM context, chunks.90.mjs:2654
+- `getInvokedSkillsAttachment` (Tqq) - Compact skill preservation, chunks.147.mjs:1896-1908
+- `getInvokedSkillsForAgent` (St6) - Get invoked skills for agent, chunks.1.mjs:3052
+- `registerSkillHooks` (gc4) - Hook registration from skills, chunks.133.mjs:862-876
+- `trackSkillUsage` (ON1) - Usage tracking, chunks.133.mjs:884
+- `computeSkillScore` (ux8) - Score for skill ranking, chunks.133.mjs:900
 
 ---
 
 ## System Reminder Integration
 
-### generateSkillListingAttachment (OIY)
+### generateSkillListingAttachment (guY)
 
 **What it does:** Generates a skill listing attachment to be included in the system reminder sent to the LLM.
 
 **How it works:**
-1. Get session context and load all skills via `hv`
-2. Filter out skills already in the `xg1` Set (previously sent)
-3. Add new skill names to `xg1` for tracking
-4. Format skills using `BU7` based on model capabilities
-5. Return attachment object with skill listing content
+1. Check if Skill tool is available in context
+2. Get session context and load LLM-visible skills via `NR`
+3. On first call, populate `nT6` Set but return empty (skills already in initial prompt)
+4. Filter out skills already in the `nT6` Set (previously sent)
+5. Add new skill names to `nT6` for tracking
+6. Format skills using `fV8` based on model capabilities
+7. Return attachment object with skill listing content
 
 **Why this approach:**
 - **Deduplication** prevents sending the same skills multiple times
-- **Initial vs dynamic** - tracks whether this is the first skill send or an update
+- **Initial vs dynamic** - first call populates Set, subsequent calls send new skills
 - **Model-aware formatting** - different models may get different formatting
 
-**Key insight:** Skills are only sent once per session unless the cache is cleared. This reduces token usage while ensuring the LLM always knows available skills.
+**Key insight:** Skills are only sent once per session unless the cache is cleared. The first call populates the sent Set without sending anything because skills are already included in the initial system prompt's tool definition.
 
 ```javascript
 // ============================================
 // generateSkillListingAttachment - Generate skill listing for system reminder
-// Location: chunks.142.mjs:2381-2395
+// Location: chunks.147.mjs:700-721
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function OIY(A) {
-    let q = ZO(),
-        Y = (await hv(q)).filter(($) => !xg1.has($.name));
+async function guY(A) {
+    if (!A.options.tools.some((O) => z3(O, oH))) return [];
+    let q = qY(),
+        K = await NR(q);
+    if (bE1) {
+        bE1 = !1;
+        for (let O of K) nT6.add(O.name);
+        return []
+    }
+    let Y = K.filter((O) => !nT6.has(O.name));
     if (Y.length === 0) return [];
-    let z = xg1.size === 0;
-    for (let $ of Y) xg1.add($.name);
-    h(`Sending ${Y.length} skills via attachment (${z?"initial":"dynamic"}, ${xg1.size} total sent)`);
-    let w = yG(A.options.mainLoopModel, FP());
+    let z = nT6.size === 0;
+    for (let O of Y) nT6.add(O.name);
+    k(`Sending ${Y.length} skills via attachment (${z?"initial":"dynamic"}, ${nT6.size} total sent)`);
+    let _ = uM(A.options.mainLoopModel, Zj());
     return [{
         type: "skill_listing",
-        content: BU7(Y, w),
+        content: fV8(Y, _),
         skillCount: Y.length,
         isInitial: z
     }]
@@ -69,12 +78,26 @@ async function OIY(A) {
 
 // READABLE (for understanding):
 async function generateSkillListingAttachment(toolUseContext) {
-    let sessionContext = getSessionContext();
+    // Skip if Skill tool is not available
+    if (!toolUseContext.options.tools.some(tool => isSkillTool(tool))) {
+        return [];
+    }
 
-    // Get all skills, filter out already-sent ones
-    let newSkills = (await getAllSkills(sessionContext)).filter(
-        skill => !sentSkillNames.has(skill.name)
-    );
+    let sessionContext = getSessionContext();
+    let allSkills = await getAllSkillsForTool(sessionContext);
+
+    // On first call, populate sentSkillsSet but don't send anything
+    // This ensures skills are known but not duplicated in initial system prompt
+    if (isInitialSend) {
+        isInitialSend = false;
+        for (let skill of allSkills) {
+            sentSkillNames.add(skill.name);
+        }
+        return [];  // No attachment on first call
+    }
+
+    // Filter to only new skills not yet sent
+    let newSkills = allSkills.filter(skill => !sentSkillNames.has(skill.name));
 
     if (newSkills.length === 0) return [];
 
@@ -89,7 +112,7 @@ async function generateSkillListingAttachment(toolUseContext) {
     log(`Sending ${newSkills.length} skills via attachment (${isInitial ? "initial" : "dynamic"}, ${sentSkillNames.size} total sent)`);
 
     // Format based on model capabilities
-    let formatOptions = getFormatOptions(toolUseContext.options.mainLoopModel, getModelProvider());
+    let formatOptions = getModelContextLimit(toolUseContext.options.mainLoopModel);
 
     return [{
         type: "skill_listing",
@@ -99,9 +122,9 @@ async function generateSkillListingAttachment(toolUseContext) {
     }];
 }
 
-// Mapping: OIY→generateSkillListingAttachment, A→toolUseContext, q→sessionContext,
-// Y→newSkills, z→isInitial, w→formatOptions, hv→getAllSkills, xg1→sentSkillNames,
-// BU7→formatSkillListing, yG→getFormatOptions, ZO→getSessionContext, FP→getModelProvider
+// Mapping: guY→generateSkillListingAttachment, A→toolUseContext, q→sessionContext,
+// K→allSkills, Y→newSkills, z→isInitial, _→formatOptions, NR→getAllSkillsForTool, nT6→sentSkillNames,
+// fV8→formatSkillListing, qY→getSessionContext, oH→SKILL_TOOL_NAME, bE1→isInitialSend
 ```
 
 ### Skill Listing Format
@@ -123,15 +146,16 @@ To invoke a skill, use the Skill tool with the skill name.
 
 ## Compact Integration
 
-### collectSkillsToKeep (da4)
+### getInvokedSkillsAttachment (Tqq)
 
-**What it does:** Collects invoked skills that should be preserved during conversation compaction.
+**What it does:** Creates an `invoked_skills` attachment that preserves invoked skills during conversation compaction.
 
 **How it works:**
-1. Get all invoked skills via `zR6`
-2. Sort by invocation time (most recent first)
-3. Map to compact format with name, path, and content
-4. Return as attachment object for compaction output
+1. Get invoked skills for current agent via `St6`
+2. If no invoked skills, return null
+3. Sort by invocation time (most recent first)
+4. Map to compact format with name, path, and content
+5. Return as attachment object for compaction output
 
 **Why this approach:**
 - **Skill context preservation** - skills remain available after compaction
@@ -142,28 +166,28 @@ To invoke a skill, use the Skill tool with the skill name.
 
 ```javascript
 // ============================================
-// collectSkillsToKeep - Collect skills to preserve during compaction
-// Location: chunks.146.mjs:2710-2722
+// getInvokedSkillsAttachment - Collect skills to preserve during compaction
+// Location: chunks.147.mjs:1896-1908
 // ============================================
 
 // ORIGINAL (for source lookup):
-function da4() {
-    let A = zR6();
-    if (A.size === 0) return null;
-    let q = Array.from(A.values()).sort((K, Y) => Y.invokedAt - K.invokedAt).map((K) => ({
-        name: K.skillName,
-        path: K.skillPath,
-        content: K.content
+function Tqq(A) {
+    let q = St6(A);
+    if (q.size === 0) return null;
+    let K = Array.from(q.values()).sort((Y, z) => z.invokedAt - Y.invokedAt).map((Y) => ({
+        name: Y.skillName,
+        path: Y.skillPath,
+        content: Y.content
     }));
-    return kq({
+    return f4({
         type: "invoked_skills",
-        skills: q
+        skills: K
     })
 }
 
 // READABLE (for understanding):
-function collectSkillsToKeep() {
-    let invokedSkills = getInvokedSkills();
+function getInvokedSkillsAttachment(agentId) {
+    let invokedSkills = getInvokedSkillsForAgent(agentId);
     if (invokedSkills.size === 0) return null;
 
     // Sort by invocation time (most recent first)
@@ -181,46 +205,67 @@ function collectSkillsToKeep() {
     });
 }
 
-// Mapping: da4→collectSkillsToKeep, A→invokedSkills, q→sortedSkills, K→skill,
-// zR6→getInvokedSkills, kq→createAttachment
+// Mapping: Tqq→getInvokedSkillsAttachment, A→agentId, q→invokedSkills, K→sortedSkills, Y→skill,
+// St6→getInvokedSkillsForAgent, f4→createAttachment
 ```
 
-### getInvokedSkills (zR6)
+### getInvokedSkillsForAgent (St6)
 
-**What it does:** Returns a Map of all skills that have been invoked in this session.
+**What it does:** Returns a Map of all skills that have been invoked for a specific agent in this session.
 
 **How it works:**
-- Maintained internally by the skill system
-- Updated when skills are executed via the Skill tool
-- Returns Map keyed by skill name with invocation metadata
+1. Get agentId filter (null for main thread)
+2. Iterate over all invoked skills in session state
+3. Filter by agentId match
+4. Return Map keyed by skill name with invocation metadata
 
 ```javascript
 // ============================================
-// getInvokedSkills - Get all invoked skills
-// Location: chunks.1.mjs:2964 (referenced)
+// getInvokedSkillsForAgent - Get invoked skills for specific agent
+// Location: chunks.1.mjs:3052-3058
 // ============================================
 
-// READABLE pseudocode:
-function getInvokedSkills() {
-    // Returns Map<skillName, { skillName, skillPath, content, invokedAt }>
-    return invokedSkillsRegistry;
+// ORIGINAL (for source lookup):
+function St6(A) {
+    let q = A ?? null,
+        K = new Map;
+    for (let [Y, z] of v1.invokedSkills)
+        if (z.agentId === q) K.set(Y, z);
+    return K
 }
+
+// READABLE (for understanding):
+function getInvokedSkillsForAgent(agentId) {
+    let targetAgentId = agentId ?? null;  // null for main thread
+    let result = new Map();
+
+    for (let [skillName, skillData] of sessionState.invokedSkills) {
+        if (skillData.agentId === targetAgentId) {
+            result.set(skillName, skillData);
+        }
+    }
+
+    return result;
+}
+
+// Mapping: St6→getInvokedSkillsForAgent, A→agentId, q→targetAgentId, K→result,
+// Y→skillName, z→skillData, v1→sessionState
 ```
 
 ---
 
 ## Hooks Integration
 
-### registerSkillHooks (IM6)
+### registerSkillHooks (gc4)
 
 **What it does:** Registers hooks defined in a skill's frontmatter with the global hook system.
 
 **How it works:**
-1. Iterate over all hook event types (`ax` - PreToolUse, PostToolUse, etc.)
+1. Iterate over all hook event types (`Fu` - PreToolUse, PostToolUse, etc.)
 2. For each event, get hooks defined in skill
 3. For each hook definition:
    - Create removal callback if `once: true`
-   - Register hook via `Mw6` with matcher pattern
+   - Register hook via `JW1` with matcher pattern
 4. Log total hooks registered
 
 **Hook events supported:**
@@ -240,25 +285,24 @@ function getInvokedSkills() {
 ```javascript
 // ============================================
 // registerSkillHooks - Register hooks from skill frontmatter
-// Location: chunks.130.mjs:1361-1375
+// Location: chunks.133.mjs:862-876
 // ============================================
 
 // ORIGINAL (for source lookup):
-function IM6(A, q, K, Y, z) {
-    let w = 0;
-    for (let H of ax) {
-        let $ = K[H];
-        if (!$) continue;
-        for (let O of $)
-            for (let _ of O.hooks) {
-                let J = _.once ? () => {
-                    h(`Removing one-shot hook for event ${H} in skill '${Y}'`);
-                    hk7(A, q, H, _)
+function gc4(A, q, K, Y, z) {
+    let _ = 0;
+    for (let w of Fu) {
+        let O = K[w];
+        if (!O) continue;
+        for (let $ of O)
+            for (let H of $.hooks) {
+                let j = H.once ? () => {
+                    k(`Removing one-shot hook for event ${w} in skill '${Y}'`), l24(A, q, w, H)
                 } : void 0;
-                Mw6(A, q, H, O.matcher || "", _, J, z), w++
+                JW1(A, q, w, $.matcher || "", H, j, z), _++
             }
     }
-    if (w > 0) h(`Registered ${w} hooks from skill '${Y}'`)
+    if (_ > 0) k(`Registered ${_} hooks from skill '${Y}'`)
 }
 
 // READABLE (for understanding):
@@ -266,7 +310,7 @@ function registerSkillHooks(setAppState, sessionId, skillHooks, skillName, skill
     let hookCount = 0;
 
     // Iterate over all hook event types
-    for (let eventType of HOOK_EVENT_TYPES) {
+    for (let eventType of HOOK_EVENT_NAMES) {
         let eventHooks = skillHooks[eventType];
         if (!eventHooks) continue;
 
@@ -275,11 +319,11 @@ function registerSkillHooks(setAppState, sessionId, skillHooks, skillName, skill
                 // Create removal callback for one-shot hooks
                 let removeCallback = hookDef.once ? () => {
                     log(`Removing one-shot hook for event ${eventType} in skill '${skillName}'`);
-                    removeHook(setAppState, sessionId, eventType, hookDef);
+                    removeSessionHook(setAppState, sessionId, eventType, hookDef);
                 } : undefined;
 
                 // Register hook with matcher pattern
-                registerHook(
+                addSkillHook(
                     setAppState,
                     sessionId,
                     eventType,
@@ -298,9 +342,9 @@ function registerSkillHooks(setAppState, sessionId, skillHooks, skillName, skill
     }
 }
 
-// Mapping: IM6→registerSkillHooks, A→setAppState, q→sessionId, K→skillHooks, Y→skillName,
-// z→skillRoot, w→hookCount, H→eventType, $→eventHooks, O→hookGroup, _→hookDef, J→removeCallback,
-// ax→HOOK_EVENT_TYPES, Mw6→registerHook, hk7→removeHook
+// Mapping: gc4→registerSkillHooks, A→setAppState, q→sessionId, K→skillHooks, Y→skillName,
+// z→skillRoot, _→hookCount, w→eventType, O→eventHooks, $→hookGroup, H→hookDef, j→removeCallback,
+// Fu→HOOK_EVENT_NAMES, JW1→addSkillHook, l24→removeSessionHook, k→log
 ```
 
 ### Hook Schema
@@ -332,33 +376,34 @@ hooks:
 
 ## Usage Tracking
 
-### trackSkillUsage (xM6)
+### trackSkillUsage (ON1)
 
 **What it does:** Records skill invocation for usage scoring and analytics.
 
 **How it works:**
-1. Get current usage count from global config
-2. Increment count and update timestamp
-3. Update global config via `jA`
+1. Get current session state
+2. Get existing usage record for skill
+3. Increment count and update timestamp
+4. Update session state with new usage data
 
 ```javascript
 // ============================================
 // trackSkillUsage - Track skill invocation
-// Location: chunks.130.mjs:1383-1397
+// Location: chunks.133.mjs:884-899
 // ============================================
 
 // ORIGINAL (for source lookup):
-function xM6(A) {
-    let K = f6().skillUsage?.[A],
-        Y = Date.now(),
-        z = (K?.usageCount ?? 0) + 1;
-    if (!K || K.usageCount !== z || K.lastUsedAt !== Y) jA((w) => ({
+function ON1(A) {
+    let K = X1(),
+        Y = K.skillUsage?.[A],
+        z = (Y?.usageCount ?? 0) + 1;
+    d1((w) => ({
         ...w,
         skillUsage: {
             ...w.skillUsage,
             [A]: {
                 usageCount: z,
-                lastUsedAt: Y
+                lastUsedAt: Date.now()
             }
         }
     }))
@@ -366,34 +411,32 @@ function xM6(A) {
 
 // READABLE (for understanding):
 function trackSkillUsage(skillName) {
-    let currentUsage = getGlobalConfig().skillUsage?.[skillName];
-    let now = Date.now();
+    let sessionState = getSessionState();
+    let currentUsage = sessionState.skillUsage?.[skillName];
     let newCount = (currentUsage?.usageCount ?? 0) + 1;
 
-    if (!currentUsage || currentUsage.usageCount !== newCount || currentUsage.lastUsedAt !== now) {
-        updateGlobalConfig(config => ({
-            ...config,
-            skillUsage: {
-                ...config.skillUsage,
-                [skillName]: {
-                    usageCount: newCount,
-                    lastUsedAt: now
-                }
+    updateSessionState(state => ({
+        ...state,
+        skillUsage: {
+            ...state.skillUsage,
+            [skillName]: {
+                usageCount: newCount,
+                lastUsedAt: Date.now()
             }
-        }));
-    }
+        }
+    }));
 }
 
-// Mapping: xM6→trackSkillUsage, A→skillName, K→currentUsage, Y→now, z→newCount,
-// f6→getGlobalConfig, jA→updateGlobalConfig
+// Mapping: ON1→trackSkillUsage, A→skillName, K→sessionState, Y→currentUsage, z→newCount,
+// X1→getSessionState, d1→updateSessionState
 ```
 
-### computeSkillScore (bM6)
+### computeSkillScore (ux8)
 
 **What it does:** Computes a weighted score for skill ranking based on usage.
 
 **How it works:**
-1. Get usage record for skill
+1. Get usage record for skill from session state
 2. Calculate days since last use
 3. Apply exponential decay: `count * 0.5^(days/7)`
 4. Floor decay at 0.1 (10% minimum weight)
@@ -408,12 +451,12 @@ function trackSkillUsage(skillName) {
 ```javascript
 // ============================================
 // computeSkillScore - Compute weighted skill score
-// Location: chunks.130.mjs:1399-1405
+// Location: chunks.133.mjs:900-907
 // ============================================
 
 // ORIGINAL (for source lookup):
-function bM6(A) {
-    let K = f6().skillUsage?.[A];
+function ux8(A) {
+    let K = X1().skillUsage?.[A];
     if (!K) return 0;
     let Y = (Date.now() - K.lastUsedAt) / 86400000,
         z = Math.pow(0.5, Y / 7);
@@ -422,7 +465,7 @@ function bM6(A) {
 
 // READABLE (for understanding):
 function computeSkillScore(skillName) {
-    let usage = getGlobalConfig().skillUsage?.[skillName];
+    let usage = getSessionState().skillUsage?.[skillName];
     if (!usage) return 0;
 
     let daysSinceUse = (Date.now() - usage.lastUsedAt) / 86400000; // ms per day
@@ -431,7 +474,8 @@ function computeSkillScore(skillName) {
     return usage.usageCount * Math.max(decayFactor, 0.1);
 }
 
-// Mapping: bM6→computeSkillScore, A→skillName, K→usage, Y→daysSinceUse, z→decayFactor
+// Mapping: ux8→computeSkillScore, A→skillName, K→usage, Y→daysSinceUse, z→decayFactor,
+// X1→getSessionState
 ```
 
 ---

@@ -450,17 +450,17 @@ if (foundPlanModeAttachment && turnCount < TURNS_BETWEEN_ATTACHMENTS) {
 
 ### Optimization 5: Deduplication
 
-**Skill listing deduplication** (`OIY` - getSkillListingAttachment):
+**Skill listing deduplication** (`guY` - generateSkillListingAttachment):
 ```javascript
 // Global set of sent skill names
-let xg1 = new Set();
+let nT6 = new Set();
 
 // Only send skills not already sent
-let newSkills = allSkills.filter((skill) => !xg1.has(skill.name));
+let newSkills = allSkills.filter((skill) => !nT6.has(skill.name));
 
 // Mark skills as sent
 for (let skill of newSkills) {
-    xg1.add(skill.name);
+    nT6.add(skill.name);
 }
 ```
 
@@ -598,7 +598,7 @@ Key performance-related functions in this document:
 - `timedAttachmentProducer` (gw) - Telemetry wrapper with sampling
 - `loadNestedMemory` (ri4) - Caching optimization
 - `getDynamicSkillAttachments` ($IY) - Lazy loading optimization
-- `getSkillListingAttachment` (OIY) - Deduplication optimization
+- `generateSkillListingAttachment` (guY) - Deduplication optimization
 
 ---
 

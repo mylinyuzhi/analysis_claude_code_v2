@@ -16,13 +16,13 @@ This document details the complete skill discovery and loading pipeline from fil
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations (Slash Commands section)
 
 Key functions in this document:
-- `loadSkills` (ukA) - Master loading orchestrator - chunks.134.mjs:2059
-- `loadSkillFromDir` (oQ1) - Parse skills from single directory - chunks.134.mjs:1758
-- `findSkillDirectories` (TW1) - Discover .claude/skills/ paths - chunks.134.mjs:1945
-- `discoverProjectSkills` (vW1) - Dynamic reload from file changes - chunks.134.mjs:1964
-- `activateConditionalSkills` (EW1) - Path-based activation - chunks.134.mjs:1996
+- `loadSkillDirCommands` (JV8) - Master loading orchestrator - chunks.90.mjs:1577
+- `loadSkillsFromDirectory` (Zp6) - Parse skills from single directory - chunks.90.mjs:1265
+- `getAllSkills` (I0) - Get all loaded skills (memoized) - chunks.168.mjs:2013
+- `getSkills` (z5z) - Aggregate all skill sources - chunks.168.mjs:1815
+- `activateConditionalSkills` (LW6) - Path-based activation - chunks.90.mjs:1508
 - `loadPluginSkills` (B0A) - Load skills from plugins - chunks.87.mjs:2157
-- `loadLegacyCommands` (vEY) - Backward compat loader - chunks.134.mjs:1873
+- `loadLegacyCommands` (Fm9) - Backward compat loader - chunks.90.mjs:1373
 
 ---
 
@@ -57,7 +57,7 @@ Skills are loaded from six distinct sources in priority order:
 ```
 
 Plus two additional sources loaded separately:
-- **Bundled Skills** - Registered via `registerPromptSkill` (Sj) at initialization
+- **Bundled Skills** - Registered via `registerPromptSkill` (rw) at initialization
 - **Plugin Skills** - Loaded via `loadPluginSkills` (B0A) from installed plugins
 
 ---

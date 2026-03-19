@@ -442,7 +442,7 @@ However, after partial compaction completes, it preserves session-relevant attac
 - `collectFilesToKeep` - Recently read files
 - `collectTasksToKeep` - Active background task statuses
 - `collectPlanToKeep` - Current plan file reference
-- `collectSkillsToKeep` - Invoked skill contents
+- `getInvokedSkillsAttachment` - Invoked skill contents
 - `collectTodosToKeep` - Active todo items
 
 These same collectors are also used during session memory compaction to ensure critical context survives regardless of which compaction path is taken.

@@ -15,7 +15,7 @@ Key functions in this document:
 - `collectFilesToKeep` (fqq) - Identifies and restores recently accessed files
 - `collectTasksToKeep` (Nqq) - Preserves active background task statuses
 - `collectPlanToKeep` (mE1) - Preserves the current plan file reference
-- `collectSkillsToKeep` (Tqq) - Preserves invoked skill contents
+- `getInvokedSkillsAttachment` (Tqq) - Preserves invoked skill contents
 - `collectTodosToKeep` (pa4) - Preserves active todo items
 - `isInternalFile` (DmY) - Filters out session-internal files
 
@@ -365,34 +365,34 @@ function collectPlanToKeep(agentId) {
 //   pD→getPlanContent, uW→getPlanFilePath, kq→createAttachment
 ```
 
-### collectSkillsToKeep (Tqq)
+### getInvokedSkillsAttachment (Tqq)
 
 Preserves contents of invoked skills:
 
 ```javascript
 // ============================================
-// collectSkillsToKeep - Preserves invoked skill contents
-// Location: chunks.146.mjs:2710-2722
+// getInvokedSkillsAttachment - Preserves invoked skill contents
+// Location: chunks.147.mjs:1896-1908
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Tqq() {
-    let A = zR6();
-    if (A.size === 0) return null;
-    let q = Array.from(A.values()).sort((K, Y) => Y.invokedAt - K.invokedAt).map((K) => ({
-        name: K.skillName,
-        path: K.skillPath,
-        content: K.content
+function Tqq(A) {
+    let q = St6(A);
+    if (q.size === 0) return null;
+    let K = Array.from(q.values()).sort((Y, z) => z.invokedAt - Y.invokedAt).map((Y) => ({
+        name: Y.skillName,
+        path: Y.skillPath,
+        content: Y.content
     }));
-    return kq({
+    return f4({
         type: "invoked_skills",
-        skills: q
+        skills: K
     })
 }
 
 // READABLE (for understanding):
-function collectSkillsToKeep() {
-    let invokedSkills = getInvokedSkillsMap();
+function getInvokedSkillsAttachment(agentId) {
+    let invokedSkills = getInvokedSkillsForAgent(agentId);
     if (invokedSkills.size === 0) return null;
 
     // Sort by invocation time (most recent first)
@@ -410,8 +410,8 @@ function collectSkillsToKeep() {
     });
 }
 
-// Mapping: Tqq→collectSkillsToKeep, A→invokedSkills, q→skills, K→skill,
-//   zR6→getInvokedSkillsMap, kq→createAttachment
+// Mapping: Tqq→getInvokedSkillsAttachment, A→agentId, q→invokedSkills, K→skills, Y→skill,
+//   St6→getInvokedSkillsForAgent, f4→createAttachment
 ```
 
 ### collectTodosToKeep (pa4)

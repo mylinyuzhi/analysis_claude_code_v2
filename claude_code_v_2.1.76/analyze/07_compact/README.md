@@ -109,7 +109,7 @@ The system implements a **three-tier compaction architecture**:
                         │  collectFilesToKeep   (fqq)         │
                         │  collectTasksToKeep   (Nqq)         │
                         │  collectPlanToKeep    (mE1)         │
-                        │  collectSkillsToKeep  (Tqq)         │
+                        │  getInvokedSkillsAttachment  (Tqq)         │
                         │  collectPlanModeAttachment (vqq)    │
                         └─────────────────────────────────────┘
                                         │
@@ -190,7 +190,7 @@ attachments = [
     ...await collectTasksToKeep(context),                     // Completed/failed tasks
     collectTodosToKeep(agentId),                              // Active todos
     collectPlanToKeep(agentId),                               // Plan file
-    collectSkillsToKeep()                                     // Invoked skills
+    getInvokedSkillsAttachment()                                     // Invoked skills
 ].filter(Boolean);
 
 // Attachments injected as system reminder messages after summary
@@ -240,7 +240,7 @@ Key functions:
 - `collectFilesToKeep` (fqq) - File state preservation
 - `collectTasksToKeep` (Nqq) - Task state preservation
 - `collectPlanToKeep` (mE1) - Plan file preservation
-- `collectSkillsToKeep` (Tqq) - Skills preservation
+- `getInvokedSkillsAttachment` (Tqq) - Skills preservation
 - `createCompactBoundaryMessage` (Ri6) - Boundary marker creation
 
 ## Integration Points

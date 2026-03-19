@@ -33,8 +33,8 @@ Key functions in this document:
 - `handlePromptCommand` (Wb4) - Executes prompt-type commands by building LLM messages
 - `handleForkedCommand` (cfY) - Executes fork-context prompt commands with streaming progress
 - `handlePromptCommandFromTool` (Pb4) - Internal entry point for model-initiated skill invocations
-- `trackSkillUsage` (xM6) - Records skill invocation in app state for usage scoring
-- `getDecayedSkillScore` (bM6) - Time-decayed popularity score for skill ranking
+- `trackSkillUsage` (ON1) - Records skill invocation in session state for usage scoring
+- `computeSkillScore` (ux8) - Time-decayed popularity score for skill ranking (7-day half-life)
 - `isValidCommandName` (lfY) - Validates that a command name uses only safe characters
 - `formatCommandDescription` (jZ1) - Formats command description with source annotation
 - `setupForkedCommandContext` (mM6) - Prepares agent/state for forked skill execution
@@ -316,7 +316,7 @@ The forked path shows a streaming progress display and isolates the command exec
 1. Extract partial name from input (after `/`)
 2. Score each command: exact prefix match → highest; fuzzy contains match → lower
 3. Filter to commands where `isEnabled()` and not `isHidden`
-4. Sort by score, then by `getDecayedSkillScore` (bM6) for tiebreaking
+4. Sort by score, then by `computeSkillScore` (ux8) for tiebreaking
 5. Return top N suggestions
 
 **Decay scoring:** Skills that were recently used score higher. The decay formula weights recent usage more heavily than old usage, so frequently-used commands appear at the top of the picker.

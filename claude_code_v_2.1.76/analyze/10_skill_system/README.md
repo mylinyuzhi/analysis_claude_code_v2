@@ -19,7 +19,7 @@ The skill system follows a **multi-source loading architecture** where skills ar
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Skill Loading Pipeline                      │
 ├─────────────────────────────────────────────────────────────────┤
-│  loadSkills (ukA)                                               │
+│  loadSkills (JV8)                                                │
 │       │                                                         │
 │       ├─── Managed Skills: ~/.claude/skills/                    │
 │       ├─── User Skills: ~/.claude/skills/                       │
@@ -29,7 +29,7 @@ The skill system follows a **multi-source loading architecture** where skills ar
 │       └─── Legacy Commands: .claude/commands/ (DEPRECATED)      │
 │       │                                                         │
 │       ▼                                                         │
-│  Deduplication by inode ID → Skill Registry (Pt Map)            │
+│  Deduplication by inode ID → Skill Registry (lPq Array)        │
 │       │                                                         │
 │       ├─── Unconditional Skills → Immediate availability        │
 │       └─── Conditional Skills (paths-based) → Lazy activation   │
@@ -144,14 +144,15 @@ Instructions...
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `loadSkills` (ukA) - Main skill loading entry point
-- `createSkillObject` (dF4) - Factory function for skill objects
-- `parseSkillHooks` (pF4) - Hook extraction from frontmatter
-- `registerPromptSkill` (Sj) - Bundled skill registration
-- `SkillTool` (wt) - Tool for invoking skills
-- `registerSkillHooks` (IM6) - Hook registration from skills
-- `collectSkillsToKeep` (da4) - Compact skill preservation
-- `generateSkillListingAttachment` (OIY) - System reminder integration
+- `loadSkillDirCommands` (JV8) - Main skill loading entry point
+- `createSkillObject` (v94) - Factory function for skill objects
+- `parseSkillHooks` (T94) - Hook extraction from frontmatter
+- `registerPromptSkill` (rw) - Bundled skill registration
+- `SkillTool` (m66) - Tool for invoking skills
+- `registerSkillHooks` (gc4) - Hook registration from skills
+- `getInvokedSkillsAttachment` (Tqq) - Compact skill preservation
+- `generateSkillListingAttachment` (guY) - System reminder integration
+- `activateConditionalSkills` (LW6) - Path-based conditional skill activation
 
 ## Related Documents
 

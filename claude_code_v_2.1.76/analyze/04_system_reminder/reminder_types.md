@@ -49,7 +49,7 @@ All reminder types are produced by functions in `chunks.142.mjs` (attachment ass
 | IDE Integration | `selected_lines_in_ide`, `opened_file_in_ide`, `diagnostics` | `ehY`, `qIY`, `PIY` | chunks.142.mjs:2114-2492 |
 | Task Management | `todo`, `todo_reminder`, `task_reminder`, `task_status`, `task_progress` | `fIY`, `NIY`, `vIY` | chunks.142.mjs:2624-2756 |
 | Mode Control | `plan_mode`, `plan_mode_exit`, `delegate_mode` | `ihY`, `nhY`, `rhY` | chunks.142.mjs:2034-2090 |
-| Skills & Memory | `skill_listing`, `nested_memory`, `mcp_resource` | `OIY`, `HIY`, `zIY` | chunks.142.mjs:2252-2395 |
+| Skills & Memory | `skill_listing`, `nested_memory`, `mcp_resource` | `guY`, `HIY`, `zIY` | chunks.147.mjs:700-721 |
 | Hooks | `async_hook_response` | `EIY` | chunks.142.mjs:2758-2789 |
 | Status & Budget | `token_usage`, `budget_usd`, `queued_command` | `RIY`, `yIY`, `dhY` | chunks.142.mjs:1993-2837 |
 

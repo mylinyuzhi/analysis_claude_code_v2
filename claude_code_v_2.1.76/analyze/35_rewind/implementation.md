@@ -707,7 +707,7 @@ onSummarize(selectedMessage, userContext)
   │      ├─ ca4() → completed local agent task statuses
   │      ├─ pa4() → current todo items
   │      ├─ jZ6() → plan file reference (if active plan exists)
-  │      └─ da4() → invoked skills list (most recent first)
+  │      └─ Tqq() → invoked skills list (most recent first)
   │
   ├─ 7. Run session_start hooks → PP("compact", {model}) → hookResults
   │
@@ -939,7 +939,7 @@ if (todoAttachment) allAttachments.push(todoAttachment);
 let planAttachment = collectPlanFile(context.agentId);                        // jZ6()
 if (planAttachment) allAttachments.push(planAttachment);
 
-let skillsAttachment = collectInvokedSkills();                                // da4()
+let skillsAttachment = getInvokedSkillsAttachment(context.agentId);         // Tqq()
 if (skillsAttachment) allAttachments.push(skillsAttachment);
 ```
 
@@ -1035,7 +1035,7 @@ async function collectCompletedTasks(context) {
 // Mapping: ca4→collectCompletedTasks, A→context, q→appState, Y→task, z→status
 ```
 
-**`collectTodos` (pa4), `collectPlanFile` (jZ6), `collectInvokedSkills` (da4):**
+**`collectTodos` (pa4), `collectPlanFile` (jZ6), `getInvokedSkillsAttachment` (Tqq):**
 ```javascript
 // pa4 — Current todo list (chunks.146.mjs:2688-2697)
 function collectTodos(agentId) {
@@ -1052,16 +1052,16 @@ function collectPlanFile(agentId) {
     return createAttachment({ type: "plan_file_reference", planFilePath, planContent });
 }
 
-// da4 — Invoked skills, newest first (chunks.146.mjs:2710-2721)
-function collectInvokedSkills() {
-    let skills = getAllInvokedSkills();
+// Tqq — Invoked skills, newest first (chunks.147.mjs:1896-1908)
+function getInvokedSkillsAttachment(agentId) {
+    let skills = getInvokedSkillsForAgent(agentId);
     if (skills.size === 0) return null;
     let skillList = Array.from(skills.values())
         .sort((a, b) => b.invokedAt - a.invokedAt)
         .map(s => ({ name: s.skillName, path: s.skillPath, content: s.content }));
     return createAttachment({ type: "invoked_skills", skills: skillList });
 }
-// Mappings: pa4→collectTodos, jZ6→collectPlanFile, da4→collectInvokedSkills
+// Mappings: pa4→collectTodos, jZ6→collectPlanFile, Tqq→getInvokedSkillsAttachment
 ```
 
 ### 7.5 Boundary Marker — `JU1` (chunks.173.mjs:1215-1233)

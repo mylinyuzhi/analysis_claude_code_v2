@@ -4,7 +4,7 @@
 
 The Skill System is a mechanism for extending Claude Code's capabilities through reusable, prompt-based modules. Skills are Markdown files (`SKILL.md`) that define behavior instructions for the LLM. They support dynamic discovery from multiple directory hierarchies, conditional activation based on file path patterns, argument substitution, shell expansion, hook registration, and execution in isolated sub-agents (forking).
 
-The system draws a clear boundary between **skill loading** (parsing and registering skill definitions from disk) and **skill execution** (generating prompt messages that drive LLM behavior). The `createSkillObject` function (dF4) is the central abstraction: it converts raw SKILL.md frontmatter + content into a runtime command object. All skill execution -- whether triggered by a user typing `/commit` or the LLM invoking the Skill tool -- flows through this object's `getPromptForCommand` method.
+The system draws a clear boundary between **skill loading** (parsing and registering skill definitions from disk) and **skill execution** (generating prompt messages that drive LLM behavior). The `createSkillObject` function (v94) is the central abstraction: it converts raw SKILL.md frontmatter + content into a runtime command object. All skill execution -- whether triggered by a user typing `/commit` or the LLM invoking the Skill tool -- flows through this object's `getPromptForCommand` method.
 
 ## Related Symbols
 
@@ -13,27 +13,21 @@ The system draws a clear boundary between **skill loading** (parsing and registe
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations (Slash Commands section)
 
 Key functions in this document:
-- `loadSkills` (ukA) - Orchestrates discovery and loading of skills from all sources
-- `loadSkillFromDir` (oQ1) - Parses all skills from a single `.claude/skills/` directory
-- `createSkillObject` (dF4) - Creates the runtime command object from parsed skill metadata
-- `parseSkillPaths` (ZEY) - Parses `paths:` frontmatter into normalized glob patterns
-- `parseSkillHooks` (pF4) - Parses and Zod-validates `hooks:` frontmatter
-- `isSkillFile` (bkA) - Detects case-insensitive SKILL.md filenames
-- `deduplicateSkillFiles` (fEY) - Resolves SKILL.md vs. multiple .md file conflicts
-- `getSkillName_fromSkillMd` (VEY) - Derives command name from SKILL.md path
-- `getSkillName_fromMdFile` (NEY) - Derives command name from arbitrary .md path
-- `getRelativePath` (cF4) - Computes namespace prefix from directory hierarchy
-- `discoverProjectSkills` (vW1) - Dynamically reloads skills from file operation triggers
-- `findSkillDirectories` (TW1) - Climbs directory tree to find `.claude/skills/` dirs
-- `activateConditionalSkills` (EW1) - Path-pattern-based runtime skill activation
-- `loadLegacyCommands` (vEY) - Loads deprecated `.claude/commands/` directory commands
-- `getInodeId` (GEY) - Gets filesystem inode for deduplication of symlinked skills
-- `clearSkillsCache` (BP6) - Clears all caches for skill reload
-- `registerSkillChangeListener` (lF4) - Registers callbacks for skill updates
-- `interpolateArguments` (Ej1) - Argument substitution in skill prompt text
-- `executeShellExpansion` (Ma) - Executes embedded shell commands in skill content
-- `registerPromptSkill` (Sj) - Registers a bundled (built-in) prompt skill
-- `getBundledSkills` (nHq) - Returns all registered bundled skills
+- `getAllSkills` (I0) - Main entry point, returns all loaded skills (memoized)
+- `getSkills` (z5z) - Aggregates all skill sources
+- `loadSkillDirCommands` (JV8) - Loads from skill directories (memoized)
+- `loadSkillsFromDirectory` (Zp6) - Loads skills from a single directory
+- `createSkillObject` (v94) - Creates the runtime command object from parsed skill metadata
+- `parseSkillPaths` (xm9) - Parses `paths:` frontmatter into normalized glob patterns
+- `parseSkillHooks` (T94) - Parses and Zod-validates `hooks:` frontmatter
+- `activateConditionalSkills` (LW6) - Path-pattern-based runtime skill activation
+- `loadLegacyCommands` (Fm9) - Loads deprecated `.claude/commands/` directory commands
+- `trackSkillUsage` (ON1) - Records skill usage for scoring
+- `computeSkillScore` (ux8) - Calculates skill priority score
+- `formatSkillListing` (fV8) - Budget-aware skill formatting for LLM
+- `generateSkillListingAttachment` (guY) - Creates skill_listing attachment
+- `registerSkillHooks` (gc4) - Registers hooks from skill frontmatter
+- `registerPromptSkill` (rw) - Registers a bundled (built-in) prompt skill
 
 ---
 
@@ -41,7 +35,7 @@ Key functions in this document:
 
 ### Skill Object Schema
 
-Every skill -- whether loaded from disk, from a plugin, or registered as a built-in -- is represented as a command object with a uniform interface. The `createSkillObject` (dF4) function produces this structure for user-defined skills:
+Every skill -- whether loaded from disk, from a plugin, or registered as a built-in -- is represented as a command object with a uniform interface. The `createSkillObject` (v94) function produces this structure for user-defined skills:
 
 ```
 {
@@ -367,18 +361,18 @@ async function loadSkillFromDir(baseDir, sourceTier) {
 
 ## Creating the Skill Object
 
-### createSkillObject (dF4) - The Runtime Command Object
+### createSkillObject (v94) - The Runtime Command Object
 
 **What it does:** Converts raw parsed skill metadata into the runtime command object that the rest of the system uses. The most important part is the `getPromptForCommand` method, which performs argument substitution, SESSION_ID injection, shell expansion, and tool permission override.
 
 ```javascript
 // ============================================
 // createSkillObject - Build runtime skill command object
-// Location: chunks.134.mjs:1682-1755
+// Location: chunks.90.mjs:1185-1262
 // ============================================
 
 // ORIGINAL (for source lookup):
-function dF4({ skillName: A, displayName: q, description: K, hasUserSpecifiedDescription: Y,
+function v94({ skillName: A, displayName: q, description: K, hasUserSpecifiedDescription: Y,
     markdownContent: z, allowedTools: w, argumentHint: H, argumentNames: $, whenToUse: O,
     version: _, model: J, disableModelInvocation: X, userInvocable: D, source: j, baseDir: M,
     loadedFrom: P, hooks: W, executionContext: G, agent: f, paths: Z }) {
@@ -473,7 +467,7 @@ function createSkillObject({ skillName, displayName, description, hasUserSpecifi
     };
 }
 
-// Mapping: dF4->createSkillObject, Ej1->interpolateArguments, U6->getSessionId, Ma->executeShellExpansion
+// Mapping: v94->createSkillObject, Ej1->interpolateArguments, U6->getSessionId, Ma->executeShellExpansion
 ```
 
 ### getPromptForCommand - Four-Stage Prompt Processing Pipeline
@@ -580,7 +574,7 @@ promptText = promptText.replace(/\$\{CLAUDE_SESSION_ID\}/g, getSessionId());
 
 Replaces `${CLAUDE_SESSION_ID}` with the current session UUID. Useful for skills that need to track or reference the current session (e.g., for writing session-specific log files or creating unique identifiers).
 
-#### Stage 4: Shell Expansion (Ma)
+#### Stage 4: Shell Expansion (uB)
 
 **What it does:** Executes shell commands embedded in the skill prompt and replaces their output inline. This allows skills to include dynamic data (git status, current date, file listings, etc.) directly in their prompts.
 
@@ -596,31 +590,29 @@ Triple backtick:  ```!
 ```javascript
 // ============================================
 // executeShellExpansion - Execute shell commands in skill content
-// Location: chunks.81.mjs:601-622
+// Location: chunks.90.mjs:1031-1053
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Ma(A, q, K) {
+async function uB(A, q, K) {
     let Y = A;
-    return await Promise.all([...A.matchAll(q09), ...A.matchAll(K09)].map(async (z) => {
+    return await Promise.all([...A.matchAll(Lm9), ...A.matchAll(Rm9)].map(async (z) => {
         let w = z[1]?.trim();
         if (w) try {
-            let H = await uX(qq, { command: w }, q, qR({ content: [] }), "");
-            if (H.behavior !== "allow") throw h(...), new cx(`Bash command permission check failed for pattern "${z[0]}": ${H.message||"Permission denied"}`);
-            let { data: $ } = await qq.call({ command: w }, q),
-                O = await S$6(qq, $, A09()),
-                _ = typeof O.content === "string" ? O.content : Jb7($.stdout, $.stderr);
+            let H = await tJ(J4, { command: w }, q, $Z({ content: [] }), "");
+            if (H.behavior !== "allow") throw k(`Bash command permission check failed for command in ${K}: ${w}. Error: ${H.message}`), new ix(`Bash command permission check failed for pattern "${z[0]}": ${H.message||"Permission denied"}`);
+            let { data: $ } = await J4.call({ command: w }, q), O = await JW6(J4, $, ym9()), _ = typeof O.content === "string" ? O.content : Z94($.stdout, $.stderr);
             Y = Y.replace(z[0], _)
-        } catch (H) { if (H instanceof cx) throw H; Y09(H, z[0]) }
+        } catch (H) { if (H instanceof ix) throw H; hm9(H, z[0]) }
     })), Y
 }
 
 // READABLE (for understanding):
-async function executeShellExpansion(promptText, toolUseContext, commandPath) {
+async function executeShellExpansion(promptText, toolUseContext, sourceDescription) {
     let result = promptText;
-    // q09 = /```!\s*\n?([\s\S]*?)\n?```/g  (triple-backtick blocks)
-    // K09 = /(?<!\w|\$)!`([^`]+)`/g       (inline backtick)
-    let matches = [...promptText.matchAll(tripleBacktickPattern), ...promptText.matchAll(inlineBacktickPattern)];
+    // Lm9 = /```!\s*\n?([\s\S]*?)\n?```/g  (triple-backtick blocks)
+    // Rm9 = /(?<=^|\s)!`([^`]+)`/gm        (inline backtick)
+    let matches = [...promptText.matchAll(TEMPLATE_CODE_BLOCK_REGEX), ...promptText.matchAll(TEMPLATE_INLINE_REGEX)];
 
     await Promise.all(matches.map(async (match) => {
         let command = match[1]?.trim();
@@ -636,9 +628,9 @@ async function executeShellExpansion(promptText, toolUseContext, commandPath) {
             let { data } = await BashTool.call({ command }, toolUseContext);
 
             // 3. Process output (tool output summary or raw stdout/stderr)
-            let output = await summarizeToolOutput(BashTool, data, emptyConfig());
+            let output = await summarizeToolOutput(BashTool, data, getEmptyConfig());
             let text = typeof output.content === "string" ? output.content
-                      : formatShellOutput(data.stdout, data.stderr);
+                      : formatBashResult(data.stdout, data.stderr);
 
             // 4. Replace the shell expansion pattern with actual output
             result = result.replace(match[0], text);
@@ -651,7 +643,7 @@ async function executeShellExpansion(promptText, toolUseContext, commandPath) {
     return result;
 }
 
-// Mapping: Ma->executeShellExpansion, q09->tripleBacktickPattern, K09->inlineBacktickPattern, uX->checkBashPermission, qq->BashTool, S$6->summarizeToolOutput, Jb7->formatShellOutput, Y09->handleShellExpansionError, cx->PermissionError
+// Mapping: uB->executeShellExpansion, Lm9->TEMPLATE_CODE_BLOCK_REGEX, Rm9->TEMPLATE_INLINE_REGEX, tJ->checkBashPermission, J4->BashTool, JW6->summarizeToolOutput, Z94->formatBashResult, hm9->handleShellExpansionError, ix->PermissionError, $Z->emptyMessages, ym9->getEmptyConfig
 ```
 
 **Why shell expansion is powerful:** A skill can include dynamic context at execution time. For example:
@@ -893,34 +885,44 @@ paths: |
 
 This skill only activates when the user edits files in `src/components/` or `src/pages/`. Until then, it remains in `conditionalSkillsMap` and doesn't appear in the command list.
 
-### activateConditionalSkills (EW1)
+### activateConditionalSkills (LW6)
 
 **What it does:** Checks modified file paths against the patterns of all pending conditional skills and moves matching skills from `conditionalSkillsMap` to `activeSkillsMap`.
 
 ```javascript
 // ============================================
 // activateConditionalSkills - Path-pattern-based runtime skill activation
-// Location: chunks.134.mjs:1996-2025
+// Location: chunks.90.mjs:1508-1537
 // ============================================
 
 // ORIGINAL (for source lookup):
-function EW1(A, q) {
-    if (aQ1.size === 0) return [];
+function LW6(A, q) {
+    if (VW6.size === 0) return [];
     let K = [];
-    for (let [Y, z] of aQ1) {
+    for (let [Y, z] of VW6) {
         if (z.type !== "prompt" || !z.paths || z.paths.length === 0) continue;
-        let w = UF4.default().add(z.paths);
-        for (let H of A) {
-            let $ = PEY(H) ? WEY(q, H) : H;
-            if (w.ignores($)) {
-                Pt.set(Y, z), aQ1.delete(Y), BkA.add(Y), K.push(Y), h(`[skills] Activated conditional skill '${Y}' (matched path: ${$})`);
+        let _ = f94.default().add(z.paths);
+        for (let w of A) {
+            let O = Cm9(w) ? Im9(q, w) : w;
+            if (_.ignores(O)) {
+                rd.set(Y, z), VW6.delete(Y), IP1.add(Y), K.push(Y), k(`[skills] Activated conditional skill '${Y}' (matched path: ${O})`);
                 break
             }
         }
     }
     if (K.length > 0) {
-        c("tengu_dynamic_skills_changed", { source: "conditional_paths", ... });
-        for (let Y of mkA) try { Y() } catch (z) { logError(z) }
+        d("tengu_dynamic_skills_changed", {
+            source: "conditional_paths",
+            previousCount: rd.size - K.length,
+            newCount: rd.size,
+            addedCount: K.length,
+            directoryCount: 0
+        });
+        for (let Y of MV8) try {
+            Y()
+        } catch (z) {
+            _6(z)
+        }
     }
     return K
 }
@@ -934,7 +936,7 @@ function activateConditionalSkills(modifiedPaths, workingDir) {
         if (skill.type !== "prompt" || !skill.paths || skill.paths.length === 0) continue;
 
         // Build a gitignore-style path matcher for this skill's patterns
-        let matcher = createIgnoreMatcher().add(skill.paths);   // UF4 = 'ignore' library
+        let matcher = createIgnoreMatcher().add(skill.paths);   // f94 = 'ignore' library
 
         for (let filePath of modifiedPaths) {
             // Normalize absolute paths to relative (for gitignore-style matching)
@@ -953,19 +955,25 @@ function activateConditionalSkills(modifiedPaths, workingDir) {
     }
 
     if (activatedNames.length > 0) {
-        telemetry("tengu_dynamic_skills_changed", { source: "conditional_paths", ... });
-        notifySkillChangeListeners();  // mkA callbacks
+        telemetry("tengu_dynamic_skills_changed", {
+            source: "conditional_paths",
+            previousCount: activeSkillsMap.size - activatedNames.length,
+            newCount: activeSkillsMap.size,
+            addedCount: activatedNames.length,
+            directoryCount: 0
+        });
+        notifySkillChangeListeners();  // MV8 callbacks
     }
 
     return activatedNames;
 }
 
-// Mapping: EW1->activateConditionalSkills, aQ1->conditionalSkillsMap, Pt->activeSkillsMap, BkA->activatedSkillsSet, mkA->skillChangeListeners, UF4->ignoreMatcher, PEY->isAbsolutePath, WEY->makeRelative
+// Mapping: LW6->activateConditionalSkills, VW6->conditionalSkillsMap, rd->activeSkillsMap, IP1->activatedSkillsSet, MV8->skillChangeListeners, f94->ignoreMatcher, Cm9->isAbsolutePath, Im9->makeRelative
 ```
 
-**Key insight:** Once activated, a conditional skill stays active for the entire session (`BkA.add(Y)` prevents it from being re-deactivated). There's no mechanism to deactivate a skill after it's been activated. This is intentional: if you've touched a file that matches a skill's patterns, the skill becomes relevant for your entire workflow, not just for that specific file edit.
+**Key insight:** Once activated, a conditional skill stays active for the entire session (`IP1.add(Y)` prevents it from being re-deactivated). There's no mechanism to deactivate a skill after it's been activated. This is intentional: if you've touched a file that matches a skill's patterns, the skill becomes relevant for your entire workflow, not just for that specific file edit.
 
-**When is this called?** The `EW1` function is triggered from the tool execution infrastructure. When an `Edit`, `Write`, or `MultiEdit` tool call modifies a file, the path is fed to `activateConditionalSkills` before the tool execution completes. This means new skills can become available mid-conversation as the user edits their codebase.
+**When is this called?** The `LW6` function is triggered from the tool execution infrastructure. When an `Edit`, `Write`, or `MultiEdit` tool call modifies a file, the path is fed to `activateConditionalSkills` before the tool execution completes. This means new skills can become available mid-conversation as the user edits their codebase.
 
 ---
 
@@ -1185,22 +1193,22 @@ async function loadLegacyCommands(toolUseContext) {
 
 ## Hook Parsing
 
-### parseSkillHooks (pF4)
+### parseSkillHooks (T94)
 
 **What it does:** Parses and Zod-validates the `hooks:` frontmatter object. Returns a typed `ParsedHooks` object or `undefined` if no hooks or invalid hooks.
 
 ```javascript
 // ============================================
 // parseSkillHooks - Parse and validate skill hook definitions
-// Location: chunks.134.mjs:1663-1670
+// Location: chunks.90.mjs:1166-1174
 // ============================================
 
 // ORIGINAL (for source lookup):
-function pF4(A, q) {
+function T94(A, q) {
     if (!A.hooks) return;
-    let K = Xk.safeParse(A.hooks);
+    let K = ty().safeParse(A.hooks);
     if (!K.success) {
-        h(`Invalid hooks in skill '${q}': ${K.error.message}`);
+        k(`Invalid hooks in skill '${q}': ${K.error.message}`);
         return
     }
     return K.data
@@ -1209,15 +1217,15 @@ function pF4(A, q) {
 // READABLE (for understanding):
 function parseSkillHooks(frontmatter, skillName) {
     if (!frontmatter.hooks) return undefined;
-    let result = HookSchema.safeParse(frontmatter.hooks);   // Xk = Zod schema
+    let result = hooksSchema.safeParse(frontmatter.hooks);
     if (!result.success) {
-        debug(`Invalid hooks in skill '${skillName}': ${result.error.message}`);
+        log(`Invalid hooks in skill '${skillName}': ${result.error.message}`);
         return undefined;   // Silently ignore invalid hooks (don't break skill loading)
     }
     return result.data;
 }
 
-// Mapping: pF4->parseSkillHooks, Xk->HookSchema
+// Mapping: T94->parseSkillHooks, ty->hooksSchema, k->log
 ```
 
 **Key insight:** Hook parsing uses `safeParse` (not `parse`), so schema validation errors don't crash skill loading. Skills with malformed hooks still load -- they just don't have hooks registered. This graceful degradation prevents a typo in the `hooks:` block from breaking an otherwise valid skill.
@@ -1304,7 +1312,7 @@ function getBundledSkills() {
 
 **How bundled skills differ from file-based skills:**
 
-| Aspect | File-based Skills (dF4) | Bundled Skills (Sj) |
+| Aspect | File-based Skills (v94) | Bundled Skills (Sj) |
 |--------|------------------------|---------------------|
 | Source | `.claude/skills/SKILL.md` | Binary code |
 | `loadedFrom` | `"skills"` or `"commands_DEPRECATED"` | `"bundled"` |
@@ -1313,7 +1321,7 @@ function getBundledSkills() {
 | `getPromptForCommand` | Generated from file content + arg interpolation + shell expansion | Caller-provided function |
 | `hasUserSpecifiedDescription` | `!!frontmatter.description` | Always `true` |
 | Argument interpolation | Yes (Ej1) | No (caller handles) |
-| Shell expansion | Yes (Ma) | No (caller handles) |
+| Shell expansion | Yes (uB) | No (caller handles) |
 
 ---
 
@@ -1323,14 +1331,14 @@ The skill system maintains six module-level state variables:
 
 | Variable | Obfuscated | Type | Description |
 |----------|------------|------|-------------|
-| `activeSkillsMap` | `Pt` | `Map<string, Skill>` | Currently active skills (name → skill object) |
-| `conditionalSkillsMap` | `aQ1` | `Map<string, Skill>` | Conditional skills waiting for path activation |
-| `activatedSkillsSet` | `BkA` | `Set<string>` | Names of skills that have been conditionally activated (never re-deactivated) |
-| `skillChangeListeners` | `mkA` | `Array<Function>` | Callbacks notified when skills change |
-| `checkedSkillsDirs` | `gF4` | `Set<string>` | Skill directories already checked for deduplication |
-| `pathMatcherLib` | `UF4` | Module | The `ignore` library for gitignore-style matching |
+| `activeSkillsMap` | `rd` | `Map<string, Skill>` | Currently active skills (name → skill object) |
+| `conditionalSkillsMap` | `VW6` | `Map<string, Skill>` | Conditional skills waiting for path activation |
+| `activatedSkillsSet` | `IP1` | `Set<string>` | Names of skills that have been conditionally activated (never re-deactivated) |
+| `skillChangeListeners` | `MV8` | `Array<Function>` | Callbacks notified when skills change |
+| `checkedSkillsDirs` | `HV8` | `Set<string>` | Skill directories already checked for deduplication |
+| `pathMatcherLib` | `f94` | Module | The `ignore` library for gitignore-style matching |
 
-**Cache invalidation:** `clearSkillsCache` (BP6) clears the memoization caches for `loadSkills` (ukA) and the legacy commands scanner (`Qp`), and resets `conditionalSkillsMap` and `activatedSkillsSet`. However, it does NOT clear `activeSkillsMap` (Pt) -- running skills remain active. This is intentional: `clearSkillsCache` is called when files change and the system needs to discover new/changed skills, but existing active skills should remain accessible.
+**Cache invalidation:** `clearSkillsCache` (E94) clears the memoization caches for `loadSkillDirCommands` (JV8) and resets `conditionalSkillsMap`, `activatedSkillsSet`, and `checkedSkillsDirs`. However, it does NOT clear `activeSkillsMap` (rd) -- running skills remain active. This is intentional: `clearSkillsCache` is called when files change and the system needs to discover new/changed skills, but existing active skills should remain accessible.
 
 ---
 
@@ -1712,6 +1720,577 @@ The skill system uses three data structures to implement a progressive activatio
 ```
 
 This architecture keeps the active command list small (only relevant skills visible) while ensuring skills become available exactly when needed. For a project with 50 skills where most are specific to particular subsystems, a developer working on frontend code never sees backend-specific skills cluttering their command picker.
+
+---
+
+## Key Algorithms (Detailed Analysis)
+
+### Budget-Aware Skill Formatting (fV8)
+
+**What it does:** Formats a list of skills for LLM consumption within a token budget, truncating descriptions as needed while prioritizing bundled skills.
+
+**How it works:**
+1. Calculate the token budget based on the model's context window (via `uM` function)
+2. If all skills fit within budget, return full listings
+3. Separate bundled skills (source === "bundled") from custom skills
+4. Calculate budget allocation:
+   - Bundled skills get full descriptions (always included)
+   - Custom skills share the remaining budget
+5. If per-skill budget is too low (< 20 chars), truncate to name only
+6. Otherwise, distribute budget evenly across custom skills
+
+```javascript
+// ============================================
+// formatSkillListing - Budget-aware skill formatting
+// Location: chunks.90.mjs:2654-2687
+// ============================================
+
+// ORIGINAL (for source lookup):
+function fV8(A, q) {
+    if (A.length === 0) return "";
+    let K = UP1(q),  // Get token budget for model
+        Y = A.map((D) => ({
+            cmd: D,
+            full: PB9(D)  // Format full skill entry
+        }));
+    // Check if all fit
+    if (Y.reduce((D, X) => D + X.full.length, 0) + (Y.length - 1) <= K)
+        return Y.map((D) => D.full).join(`
+`);
+    // Separate bundled vs custom
+    let _ = new Set, w = [];
+    for (let D = 0; D < A.length; D++) {
+        let X = A[D];
+        if (X.type === "prompt" && X.source === "bundled") _.add(D);
+        else w.push(X);
+    }
+    // Bundled skills are always fully included
+    let O = Y.reduce((D, X, P) => _.has(P) ? D + X.full.length + 1 : D, 0),
+        $ = K - O;  // Remaining budget for custom skills
+    if (w.length === 0) return Y.map((D) => D.full).join(`
+`);
+    // Calculate per-skill budget
+    let H = w.reduce((D, X) => D + X.name.length + 4, 0) + (w.length - 1),
+        j = $ - H,  // Budget for descriptions
+        J = Math.floor(j / w.length);  // Per-skill description budget
+    if (J < WB9)  // MIN_TRUNCATE_LENGTH = 20
+        return A.map((D, X) => _.has(X) ? Y[X].full : `- ${D.name}`).join(`
+`);
+    // Truncate descriptions if needed
+    return A.map((D, X) => {
+        if (_.has(X)) return Y[X].full;  // Bundled: full entry
+        let P = GV8(D),  // Get description
+            W = P.length > J ? P.slice(0, J - 1) + "…" : P;
+        return `- ${D.name}: ${W}`;
+    }).join(`
+`);
+}
+
+// READABLE (for understanding):
+function formatSkillListing(skills, model) {
+    if (skills.length === 0) return "";
+
+    let tokenBudget = getTokenBudgetForModel(model);
+    let entries = skills.map(skill => ({
+        cmd: skill,
+        full: formatSkillEntry(skill)  // "- name: description"
+    }));
+
+    // If all fit, return everything
+    let totalLength = entries.reduce((sum, e) => sum + e.full.length, 0) + entries.length - 1;
+    if (totalLength <= tokenBudget) {
+        return entries.map(e => e.full).join("\n");
+    }
+
+    // Separate bundled (always fully included) from custom skills
+    let bundledIndices = new Set();
+    let customSkills = [];
+    for (let i = 0; i < skills.length; i++) {
+        if (skills[i].type === "prompt" && skills[i].source === "bundled") {
+            bundledIndices.add(i);
+        } else {
+            customSkills.push(skills[i]);
+        }
+    }
+
+    // Calculate bundled skills' total length
+    let bundledLength = entries.reduce((sum, entry, idx) =>
+        bundledIndices.has(idx) ? sum + entry.full.length + 1 : sum, 0);
+    let remainingBudget = tokenBudget - bundledLength;
+
+    // If no custom skills, return bundled only
+    if (customSkills.length === 0) {
+        return entries.map(e => e.full).join("\n");
+    }
+
+    // Calculate description budget per custom skill
+    let namesOverhead = customSkills.reduce((sum, s) => sum + s.name.length + 4, 0)
+                     + customSkills.length - 1;
+    let descriptionBudget = remainingBudget - namesOverhead;
+    let perSkillDescription = Math.floor(descriptionBudget / customSkills.length);
+
+    // If budget too low, skip descriptions
+    if (perSkillDescription < MIN_TRUNCATE_LENGTH) {
+        return skills.map((skill, idx) =>
+            bundledIndices.has(idx)
+                ? entries[idx].full
+                : `- ${skill.name}`
+        ).join("\n");
+    }
+
+    // Truncate descriptions to budget
+    return skills.map((skill, idx) => {
+        if (bundledIndices.has(idx)) {
+            return entries[idx].full;  // Bundled: full entry
+        }
+        let desc = formatSkillDescriptionLine(skill);
+        let truncated = desc.length > perSkillDescription
+            ? desc.slice(0, perSkillDescription - 1) + "…"
+            : desc;
+        return `- ${skill.name}: ${truncated}`;
+    }).join("\n");
+}
+
+// Mapping: fV8→formatSkillListing, UP1→getTokenBudgetForModel, PB9→formatSkillEntry,
+// GV8→formatSkillDescriptionLine, WB9→MIN_TRUNCATE_LENGTH
+```
+
+**Why this approach:**
+- **Bundled skills are trusted**: First-party skills get priority and full descriptions
+- **Graceful degradation**: When budget is tight, show names only rather than nothing
+- **Even distribution**: Custom skills share budget equally for fairness
+
+**Key insight:** The algorithm prioritizes bundled skills because they're tested, well-documented, and represent the "happy path" for users. Custom skills get truncated first because they may have longer descriptions and are less likely to be universally relevant.
+
+---
+
+### Skill Usage Scoring with Half-Life Decay (ux8)
+
+**What it does:** Calculates a priority score for skills based on usage frequency and recency, using a 7-day half-life decay formula.
+
+**How it works:**
+1. Retrieve usage data from session state (usageCount, lastUsedAt)
+2. Calculate days since last use
+3. Apply half-life decay: `score = count * 0.5^(days/7)`
+4. Floor the decay factor at 0.1 (10% minimum weight)
+
+```javascript
+// ============================================
+// computeSkillScore - Usage-based scoring with decay
+// Location: chunks.133.mjs:900-906
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ux8(A) {
+    let K = X1().skillUsage?.[A];
+    if (!K) return 0;
+    let Y = (Date.now() - K.lastUsedAt) / 86400000,
+        z = Math.pow(0.5, Y / 7);
+    return K.usageCount * Math.max(z, 0.1)
+}
+
+// READABLE (for understanding):
+function computeSkillScore(skillName) {
+    let usageData = getSessionState().skillUsage?.[skillName];
+    if (!usageData) return 0;
+
+    // Days since last use
+    let daysSinceLastUse = (Date.now() - usageData.lastUsedAt) / 86400000;
+
+    // Half-life decay: skill loses half its value every 7 days
+    let decayFactor = Math.pow(0.5, daysSinceLastUse / 7);
+
+    // Floor decay at 10% - old skills never fully disappear
+    return usageData.usageCount * Math.max(decayFactor, 0.1);
+}
+
+// Mapping: ux8→computeSkillScore, X1→getSessionState, A→skillName, K→usageData,
+// Y→daysSinceLastUse, z→decayFactor
+```
+
+**Why this approach:**
+- **Recency matters**: Recent usage indicates current relevance
+- **7-day half-life**: Skills used this week retain most value
+- **10% floor**: Even old skills retain some weight for familiarity
+- **Simple calculation**: No complex ML, just math
+
+**Key insight:** The half-life decay ensures the skill ordering adapts to the user's current project context. A skill used heavily last month but not recently will gradually fall in priority, while a skill used yesterday stays near the top.
+
+---
+
+### Skill Usage Tracking (ON1)
+
+**What it does:** Records when a skill is invoked, incrementing the usage count and updating the timestamp.
+
+```javascript
+// ============================================
+// trackSkillUsage - Record skill invocation
+// Location: chunks.133.mjs:884-898
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ON1(A) {
+    let K = X1().skillUsage?.[A],
+        Y = Date.now(),
+        z = (K?.usageCount ?? 0) + 1;
+    if (!K || K.usageCount !== z || K.lastUsedAt !== Y)
+        d1((_) => ({
+            ..._,
+            skillUsage: {
+                ..._.skillUsage,
+                [A]: {
+                    usageCount: z,
+                    lastUsedAt: Y
+                }
+            }
+        }))
+}
+
+// READABLE (for understanding):
+function trackSkillUsage(skillName) {
+    let currentUsage = getSessionState().skillUsage?.[skillName];
+    let now = Date.now();
+    let newCount = (currentUsage?.usageCount ?? 0) + 1;
+
+    // Only update if changed (optimization for re-renders)
+    if (!currentUsage || currentUsage.usageCount !== newCount || currentUsage.lastUsedAt !== now) {
+        updateSessionState((state) => ({
+            ...state,
+            skillUsage: {
+                ...state.skillUsage,
+                [skillName]: {
+                    usageCount: newCount,
+                    lastUsedAt: now
+                }
+            }
+        }));
+    }
+}
+
+// Mapping: ON1→trackSkillUsage, X1→getSessionState, d1→updateSessionState, A→skillName
+```
+
+---
+
+### Skill Hook Registration (gc4)
+
+**What it does:** Registers hooks defined in a skill's frontmatter with the session's hook system. Supports one-shot hooks that remove themselves after firing.
+
+**How it works:**
+1. Iterate over all hook event types (PreToolUse, PostToolUse, etc.)
+2. For each hook definition in the skill's hooks:
+   - Create a removal callback if it's a one-shot hook (`once: true`)
+   - Register with the session hook system via `JW1` (addSkillHook)
+3. Log the total count of registered hooks
+
+```javascript
+// ============================================
+// registerSkillHooks - Register skill-defined hooks
+// Location: chunks.133.mjs:862-876
+// ============================================
+
+// ORIGINAL (for source lookup):
+function gc4(A, q, K, Y, z) {
+    let _ = 0;
+    for (let w of Fu) {  // Fu = HOOK_EVENT_NAMES array
+        let O = K[w];  // Get hooks for this event type
+        if (!O) continue;
+        for (let $ of O)
+            for (let H of $.hooks) {
+                // Create removal callback for one-shot hooks
+                let j = H.once ? () => {
+                    k(`Removing one-shot hook for event ${w} in skill '${Y}'`);
+                    l24(A, q, w, H);  // Remove hook after firing
+                } : void 0;
+                JW1(A, q, w, $.matcher || "", H, j, z), _++;
+            }
+    }
+    if (_ > 0) k(`Registered ${_} hooks from skill '${Y}'`);
+}
+
+// READABLE (for understanding):
+function registerSkillHooks(setAppState, sessionId, skillHooks, skillName, skillRoot) {
+    let hookCount = 0;
+
+    for (let eventName of HOOK_EVENT_NAMES) {
+        let hooksForEvent = skillHooks[eventName];
+        if (!hooksForEvent) continue;
+
+        for (let hookGroup of hooksForEvent) {
+            for (let hookDef of hookGroup.hooks) {
+                // Create cleanup callback for one-shot hooks
+                let cleanupCallback = hookDef.once
+                    ? () => {
+                        log(`Removing one-shot hook for event ${eventName} in skill '${skillName}'`);
+                        removeSessionHook(setAppState, sessionId, eventName, hookDef);
+                    }
+                    : undefined;
+
+                // Register the hook
+                addSkillHook(
+                    setAppState,
+                    sessionId,
+                    eventName,
+                    hookGroup.matcher || "",
+                    hookDef,
+                    cleanupCallback,
+                    skillRoot
+                );
+                hookCount++;
+            }
+        }
+    }
+
+    if (hookCount > 0) {
+        log(`Registered ${hookCount} hooks from skill '${skillName}'`);
+    }
+}
+
+// Mapping: gc4→registerSkillHooks, A→setAppState, q→sessionId, K→skillHooks, Y→skillName,
+// z→skillRoot, Fu→HOOK_EVENT_NAMES, JW1→addSkillHook, l24→removeSessionHook, k→log
+```
+
+**Why this approach:**
+- **One-shot hooks**: Support for hooks that only fire once (useful for initialization)
+- **Matcher support**: Hooks can target specific tools via matcher patterns
+- **Skill-scoped cleanup**: Each hook knows which skill it came from
+
+**Key insight:** The hook system allows skills to extend Claude Code's behavior without modifying the core code. A skill can define validation hooks, logging hooks, or transformation hooks that activate when the skill is invoked.
+
+---
+
+### InstructionsLoaded Hook Execution (ZF6) - NEW v2.1.76
+
+**What it does:** Executes hooks when skill instructions are injected into the LLM context, allowing skills to react to their own loading.
+
+**How it works:**
+1. Check if any InstructionsLoaded hooks exist (global or session)
+2. Build hook input payload with file path, memory type, and load reason
+3. Execute hooks via the standard hook execution system
+
+```javascript
+// ============================================
+// executeInstructionsLoadedHooks - Hook for skill injection
+// Location: chunks.175.mjs:2814-2835
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function ZF6(A, q, K, Y) {
+    let {
+        globs: z,
+        triggerFilePath: _,
+        parentFilePath: w,
+        timeoutMs: O = T$
+    } = Y ?? {}, $ = {
+        ...$w(void 0),
+        hook_event_name: "InstructionsLoaded",
+        file_path: A,
+        memory_type: q,
+        load_reason: K,
+        globs: z,
+        trigger_file_path: _,
+        parent_file_path: w
+    };
+    await RF({
+        hookInput: $,
+        timeoutMs: O,
+        matchQuery: K
+    })
+}
+
+// READABLE (for understanding):
+async function executeInstructionsLoadedHooks(filePath, memoryType, loadReason, options) {
+    let {
+        globs,
+        triggerFilePath,
+        parentFilePath,
+        timeoutMs = DEFAULT_HOOK_TIMEOUT
+    } = options ?? {};
+
+    let hookInput = {
+        ...createBaseHookPayload(undefined),
+        hook_event_name: "InstructionsLoaded",
+        file_path: filePath,
+        memory_type: memoryType,
+        load_reason: loadReason,
+        globs: globs,
+        trigger_file_path: triggerFilePath,
+        parent_file_path: parentFilePath
+    };
+
+    await executeHooksOutsideREPL({
+        hookInput: hookInput,
+        timeoutMs: timeoutMs,
+        matchQuery: loadReason
+    });
+}
+
+// Mapping: ZF6→executeInstructionsLoadedHooks, A→filePath, q→memoryType, K→loadReason,
+// Y→options, RF→executeHooksOutsideREPL, $w→createBaseHookPayload, T$→DEFAULT_HOOK_TIMEOUT
+```
+
+**Why this approach:**
+- **Event-driven skill behavior**: Skills can react when their instructions are loaded
+- **Context awareness**: Hook receives file path and memory type information
+- **Standard hook flow**: Uses the same execution infrastructure as other hooks
+
+**Key insight:** The InstructionsLoaded hook enables skills to perform initialization actions (like setting up state, validating environment, or logging) when their prompt content is injected into the LLM context. This is particularly useful for skills that need to prepare resources before being used.
+
+---
+
+### hasInstructionsLoadedHook (WF6) - NEW v2.1.76
+
+**What it does:** Checks whether any InstructionsLoaded hooks are registered (globally or per-session).
+
+```javascript
+// ============================================
+// hasInstructionsLoadedHook - Check for InstructionsLoaded hooks
+// Location: chunks.175.mjs:2806-2812
+// ============================================
+
+// ORIGINAL (for source lookup):
+function WF6() {
+    let A = EM6()?.InstructionsLoaded;
+    if (A && A.length > 0) return !0;
+    let q = Xp()?.InstructionsLoaded;
+    if (q && q.length > 0) return !0;
+    return !1
+}
+
+// READABLE (for understanding):
+function hasInstructionsLoadedHook() {
+    // Check global hooks
+    let globalHooks = getGlobalHooks()?.InstructionsLoaded;
+    if (globalHooks && globalHooks.length > 0) return true;
+
+    // Check session hooks
+    let sessionHooks = getRegisteredHooks()?.InstructionsLoaded;
+    if (sessionHooks && sessionHooks.length > 0) return true;
+
+    return false;
+}
+
+// Mapping: WF6→hasInstructionsLoadedHook, EM6→getGlobalHooks, Xp→getRegisteredHooks
+```
+
+---
+
+### Delta Update Mechanism for Skill Listings (guY)
+
+**What it does:** Generates skill_listing attachments with delta updates - only sending new skills since the last transmission.
+
+**How it works:**
+1. Check if Skill tool is available in the tool list
+2. If `bE1` flag is set, mark all current skills as already-sent (compact recovery)
+3. Filter out skills already in `nT6` Set (already sent)
+4. Add new skills to `nT6` Set
+5. Format with budget-aware formatting
+
+```javascript
+// ============================================
+// generateSkillListingAttachment - Delta skill discovery
+// Location: chunks.147.mjs:700-721
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function guY(A) {
+    if (!A.options.tools.some((O) => z3(O, oH))) return [];
+    let q = qY(),  // Get session context
+        K = await NR(q);  // Get skills for tool invocation
+    if (bE1) {  // Is this a recovery from compaction?
+        bE1 = !1;
+        for (let O of K) nT6.add(O.name);  // Mark all as sent
+        return [];  // Don't send duplicate
+    }
+    let Y = K.filter((O) => !nT6.has(O.name));  // Filter already-sent
+    if (Y.length === 0) return [];  // Nothing new
+    let z = nT6.size === 0;  // Is this the initial send?
+    for (let O of Y) nT6.add(O.name);  // Track as sent
+    k(`Sending ${Y.length} skills via attachment (${z?"initial":"dynamic"}, ${nT6.size} total sent)`);
+    let _ = uM(A.options.mainLoopModel, Zj());  // Get token budget
+    return [{
+        type: "skill_listing",
+        content: fV8(Y, _),
+        skillCount: Y.length,
+        isInitial: z
+    }];
+}
+
+// READABLE (for understanding):
+async function generateSkillListingAttachment(requestContext) {
+    // Check if Skill tool is available
+    if (!requestContext.options.tools.some(tool => isSameTool(tool, SKILL_TOOL_NAME))) {
+        return [];
+    }
+
+    let sessionContext = getSessionContext();
+    let skills = await getAllSkillsForTool(sessionContext);
+
+    // Handle post-compaction recovery
+    if (isInitialSend) {
+        isInitialSend = false;
+        for (let skill of skills) {
+            sentSkillNames.add(skill.name);
+        }
+        return [];  // Don't re-send after compaction
+    }
+
+    // Filter out already-sent skills
+    let newSkills = skills.filter(skill => !sentSkillNames.has(skill.name));
+    if (newSkills.length === 0) return [];
+
+    let isInitialDiscovery = sentSkillNames.size === 0;
+
+    // Mark new skills as sent
+    for (let skill of newSkills) {
+        sentSkillNames.add(skill.name);
+    }
+
+    log(`Sending ${newSkills.length} skills via attachment (${isInitialDiscovery ? "initial" : "dynamic"}, ${sentSkillNames.size} total sent)`);
+
+    // Get token budget for formatting
+    let tokenBudget = getTokenBudget(requestContext.options.mainLoopModel, getModelConfig());
+
+    return [{
+        type: "skill_listing",
+        content: formatSkillListing(newSkills, tokenBudget),
+        skillCount: newSkills.length,
+        isInitial: isInitialDiscovery
+    }];
+}
+
+// Mapping: guY→generateSkillListingAttachment, qY→getSessionContext, NR→getAllSkillsForTool,
+// nT6→sentSkillNames, bE1→isInitialSend, oH→SKILL_TOOL_NAME, z3→isSameTool,
+// fV8→formatSkillListing, uM→getTokenBudget, Zj→getModelConfig
+```
+
+**Why this approach:**
+- **Token efficiency**: Only new skills are sent, reducing redundant context
+- **State tracking**: `nT6` Set persists across turns to track what's been sent
+- **Compaction recovery**: After compaction, marks all skills as sent without re-sending
+
+**Key insight:** The delta mechanism prevents skill listings from consuming excessive tokens on every LLM turn. The first turn sends all skills; subsequent turns only send newly discovered skills (e.g., from conditional activation).
+
+---
+
+## Constants and Configuration
+
+```javascript
+// Skill formatting constants (chunks.90.mjs:2720-2726)
+r94 = 0.02;      // SKILL_LISTING_RATIO - 2% of context window
+o94 = 4;         // SKILL_MIN_DESCRIPTION - minimum description chars
+a94 = 16000;     // SKILL_MAX_BUDGET - maximum token budget
+WB9 = 20;        // MIN_TRUNCATE_LENGTH - minimum before truncating to name only
+
+// Hook timeout
+T$ = 600000;     // DEFAULT_HOOK_TIMEOUT - 10 minutes
+
+// Usage scoring
+HALF_LIFE = 7;   // Days for skill score to halve
+MIN_WEIGHT = 0.1; // 10% minimum weight for old skills
+```
+
+---
 
 ### Prompt Engineering as Skill Definition
 

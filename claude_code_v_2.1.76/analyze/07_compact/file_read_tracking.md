@@ -719,10 +719,10 @@ let planModeAttachment = await collectPlanModeAttachment(context);
 if (planModeAttachment) attachments.push(planModeAttachment);
 
 // 7. Add skills attachment
-let skillsAttachment = collectSkillsToKeep(context.agentId);
+let skillsAttachment = getInvokedSkillsAttachment(context.agentId);
 if (skillsAttachment) attachments.push(skillsAttachment);
 
-// Mapping: G→fileStateSnapshot, q→context, mf8→mapEntriesToObject, fqq→collectFilesToKeep, Nqq→collectTasksToKeep, Xqq→MAX_FILES_TO_KEEP, N→attachments, V→planAttachment, L→planModeAttachment, h→skillsAttachment, mE1→collectPlanToKeep, vqq→collectPlanModeAttachment, Tqq→collectSkillsToKeep
+// Mapping: G→fileStateSnapshot, q→context, mf8→mapEntriesToObject, fqq→collectFilesToKeep, Nqq→collectTasksToKeep, Xqq→MAX_FILES_TO_KEEP, N→attachments, V→planAttachment, L→planModeAttachment, h→skillsAttachment, mE1→collectPlanToKeep, vqq→collectPlanModeAttachment, Tqq→getInvokedSkillsAttachment
 ```
 
 **Why clear before restore?**
