@@ -529,14 +529,13 @@
 | DuY | getPlanModeAttachment | chunks.147.mjs:136 | function (async) |
 | ezz | buildPlanModeInterviewReminder | chunks.173.mjs:619 | function |
 | g5 | getAgentName | chunks.139.mjs:2695 | function |
-| Gc4 | renderEnterPlanModeResult | chunks.140.mjs:1597 | function (React) |
+| Gc4 | renderEnterPlanModeResult | chunks.132.mjs:2768 | function (React) |
 | W26 | cycleMode | chunks.191.mjs:3007 | function |
 | GH | handleCycleModeKeybinding | chunks.193.mjs:649 | function (keybinding handler) |
 | hmA | matchesAlwaysAllowRule | chunks.172.mjs:1884 | function |
 | hu4 | initializeInProcessTeammate | chunks.131.mjs:2305 | function |
-| HX6 | RejectedPlanViewer | chunks.107.mjs:1153 | function (React) |
 | t4q | PLAN_MODE_ATTACHMENT_CONFIG | chunks.147.mjs:1235 | constant (object) |
-| Kd4 | renderExitPlanModeResult | chunks.139.mjs:2491 | function (React) |
+| Kd4 | renderExitPlanModeResult | chunks.131.mjs:1153 | function (React) |
 | Ki6 | EnterPlanModeTool | chunks.144.mjs:1579 | tool object |
 | JS | setNeedsPlanModeExitAttachment | chunks.1.mjs:2942 | function |
 | l8 | hasTeamContext | chunks.1.mjs | function |
@@ -560,9 +559,29 @@
 | vP1 | generateRequestId | chunks.139.mjs:2710 | function |
 | Xc4 | getPlanDesignAgentCount | chunks.140.mjs:1455 | function |
 | xm | isPlanModeEnabled | chunks.130.mjs:412 | function |
-| Yd4 | renderExitPlanModeRejected | chunks.139.mjs:2550 | function (React) |
-| Zc4 | renderEnterPlanModeRejected | chunks.140.mjs:1612 | function (React) |
+| Yd4 | renderExitPlanModeRejected | chunks.131.mjs:1324 | function (React) |
+| jZ1 | RejectedPlanViewer | chunks.112.mjs:1142 | function (React) |
 | aPq | ExitPlanModeDialog | chunks.165.mjs:2676 | function (React) |
+| $Y | isTeammate | chunks.139.mjs:2690 | function |
+| NF6 | hasTeamConfig | chunks.139.mjs:2879 | function |
+| l5 | getTeamName | chunks.139.mjs:2882 | function |
+| ak | hashForRequestId | chunks.139.mjs:2883 | function |
+| x3 | writeToMailbox | chunks.139.mjs:2892 | function (async) |
+| ik1 | findTaskByAgentName | chunks.139.mjs:2898 | function |
+| ag8 | setAwaitingPlanApproval | chunks.139.mjs:2899 | function |
+| E7 | isTasksEnabled | chunks.143.mjs:2950 | function |
+| z3 | toolNameMatches | chunks.143.mjs:2950 | function |
+| r4 | TaskToolName | chunks.143.mjs:2950 | constant ("Task") |
+| Fj | getPlanFilePath | chunks.143.mjs:2877 | function |
+| sJ | getPlanContent | chunks.143.mjs:2878 | function |
+| sl6 | autoModeGate | chunks.143.mjs:2916 | object (module) |
+| tCY | autoModeState | chunks.143.mjs:2937 | object (module) |
+| MS | setNeedsAutoModeExitAttachment | chunks.1.mjs:2955 | function |
+| pu1 | needsAutoModeExitAttachment | chunks.1.mjs:2951 | function (getter) |
+| Qu1 | handleAutoModeTransition | chunks.1.mjs:2959 | function |
+| Uk | TOOL_NAME_EXIT_PLAN_MODE | chunks.90.mjs:505 | constant ("ExitPlanMode") |
+| aJ | TOOL_NAME_EXIT_PLAN_MODE_ALT | chunks.90.mjs:507 | constant ("ExitPlanMode") |
+| SI | TaskToolDisplayName | chunks.143.mjs:3004 | constant ("Task") |
 
 ### Plan Mode — AskUserQuestion Tool
 
@@ -612,14 +631,22 @@
 | QiY | clearCommandDefinition | chunks.152.mjs:1498 | constant (object) |
 | Rj1 | getPlanFileSlug | chunks.88.mjs:78 | function |
 
-### Plan Mode Display (Mode Cycle)
+### Plan Mode Display (Mode Configuration)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| CQ | getModeDisplayName | chunks.14.mjs:3260 | function |
-| cP | getModeThemeColor | chunks.14.mjs:3298 | function |
+| D57 | MODE_CONFIGURATION | chunks.40.mjs:358 | constant (object) |
 | Lw8 | isDefaultMode | chunks.14.mjs:3277 | function |
-| Rv1 | getModeIcon | chunks.14.mjs:3281 | function |
+
+**Note:** Mode display properties (icon, title, color) are defined in `D57` configuration object:
+```javascript
+D57 = {
+    plan: { title: "Plan Mode", symbol: "⏸", color: "planMode" },
+    acceptEdits: { title: "Accept edits", symbol: "⏵⏵", color: "autoAccept" },
+    ...
+}
+```
+The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate functions - mode display is handled via `D57` lookup.
 
 ### Plan Mode State Flags (Global)
 
@@ -908,6 +935,7 @@
 | Ux8 | executeSubagentStartHooks | chunks.175.mjs:2666 | generator |
 | Uu8 | executeSetupHooks | chunks.175.mjs | generator |
 | b_6 | executePermissionRequestHooks | chunks.175.mjs:2766 | generator |
+| mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
 | PP | executePluginHooksForSession | chunks.142.mjs:248 | function |
 | FW6 | executePluginHooksForSetup | chunks.142.mjs:291 | function |
 | pa | loadAllPluginHooks | chunks.87.mjs:2606 | variable (memoized async fn, exported as loadPluginHooks) |

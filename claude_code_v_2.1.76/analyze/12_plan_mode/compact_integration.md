@@ -13,7 +13,7 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `jZ6` (chunks.146.mjs:2699) - `collectPlanToKeep` - Plan preservation during compaction
+- `mE1` (chunks.147.mjs:1885) - `collectPlanToKeep` - Plan preservation during compaction
 - `pD` (chunks.88.mjs:126) - `getPlanFileContent` - Read plan file contents
 - `uW` (chunks.88.mjs:120) - `getPlanFilePath` - Get plan file path
 - `kq` (chunks.142.mjs:2615) - `createAttachmentMessage` - Create attachment wrapper
@@ -39,10 +39,10 @@ When a conversation is compacted (due to context window limits), important state
 │  ┌─────────────────────────────────────────────────────────────┐│
 │  │ State Collection Phase (performFullCompaction)              ││
 │  │                                                             ││
-│  │ 1. Ua4() - collect files to keep                           ││
-│  │ 2. ca4() - collect tasks to keep                           ││
+│  │ 1. fqq() - collect files to keep                           ││
+│  │ 2. Nqq() - collect tasks to keep                           ││
 │  │ 3. pa4() - collect todos to keep                           ││
-│  │ 4. jZ6() - collect plan to keep ← PLAN PRESERVATION        ││
+│  │ 4. mE1() - collect plan to keep ← PLAN PRESERVATION        ││
 │  │ 5. Tqq() - collect skills to keep                          ││
 │  └─────────────────────────────────────────────────────────────┘│
 │                        │                                        │
@@ -61,18 +61,18 @@ When a conversation is compacted (due to context window limits), important state
 
 ---
 
-## 2. Plan Collection Function (`jZ6`)
+## 2. Plan Collection Function (`mE1`)
 
-The `jZ6` function is called during compaction to preserve the plan file:
+The `mE1` function is called during compaction to preserve the plan file:
 
 ```javascript
 // ============================================
-// jZ6 - collectPlanToKeep
-// Location: chunks.146.mjs:2699-2708
+// mE1 - collectPlanToKeep
+// Location: chunks.147.mjs:1885-1893
 // ============================================
 
 // ORIGINAL (for source lookup):
-function jZ6(A) {
+function mE1(A) {
     let q = pD(A);
     if (!q) return null;
     let K = uW(A);
@@ -97,7 +97,7 @@ function collectPlanToKeep(agentId) {
     });
 }
 
-// Mapping: jZ6→collectPlanToKeep, A→agentId, q→planContent, K→planFilePath
+// Mapping: mE1→collectPlanToKeep, A→agentId, q→planContent, K→planFilePath
 //          pD→getPlanFileContent, uW→getPlanFilePath, kq→createAttachmentMessage
 ```
 
@@ -208,10 +208,10 @@ async function performFullCompaction(context) {
 
 | Order | Function | Attachment Type | Purpose |
 |-------|----------|-----------------|---------|
-| 1 | `Ua4` | Various file types | Preserve read file content |
-| 2 | `ca4` | `task_status` | Preserve background agent status |
+| 1 | `fqq` | Various file types | Preserve read file content |
+| 2 | `Nqq` | `task_status` | Preserve background agent status |
 | 3 | `pa4` | `todo` | Preserve todo list state |
-| 4 | `jZ6` | `plan_file_reference` | Preserve plan file |
+| 4 | `mE1` | `plan_file_reference` | Preserve plan file |
 | 5 | `Tqq` | `invoked_skills` | Preserve loaded skill content |
 
 **Key insight:** The plan is collected AFTER todos but BEFORE skills. This ordering reflects dependency: todos may be part of the plan, and skills may be referenced by the plan.
@@ -252,10 +252,10 @@ interface AttachmentMessage {
 
 | Artifact | Collection Function | Attachment Type | Size Limit |
 |----------|---------------------|-----------------|------------|
-| Read files | `Ua4()` | Various | 5 files, 50KB total |
-| Tasks | `ca4()` | `task_status` | No limit (completed/failed/killed only) |
+| Read files | `fqq()` | Various | 5 files, 50KB total |
+| Tasks | `Nqq()` | `task_status` | No limit (completed/failed/killed only) |
 | Todos | `pa4()` | `todo` | No limit |
-| **Plan** | `jZ6()` | `plan_file_reference` | **No limit** |
+| **Plan** | `mE1()` | `plan_file_reference` | **No limit** |
 | Skills | `Tqq()` | `invoked_skills` | No limit |
 
 **Key insight:** The plan file has no size limit because it is the primary planning artifact and should never be truncated.
@@ -266,8 +266,8 @@ interface AttachmentMessage {
 
 | Aspect | Implementation |
 |--------|----------------|
-| **Trigger** | `performFullCompaction()` calls `jZ6()` |
-| **Collection** | `jZ6()` reads plan via `pD()` and `uW()` |
+| **Trigger** | `performFullCompaction()` calls `mE1()` |
+| **Collection** | `mE1()` reads plan via `pD()` and `uW()` |
 | **Storage** | `plan_file_reference` attachment |
 | **Content** | Full plan file content and path |
 | **Limit** | No size limit |

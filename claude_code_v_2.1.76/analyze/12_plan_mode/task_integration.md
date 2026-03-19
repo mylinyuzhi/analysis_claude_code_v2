@@ -11,7 +11,7 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `ca4` (chunks.146.mjs:2724) - `collectTasksToKeep` - Task preservation during compaction
+- `Nqq` (chunks.147.mjs:1923) - `collectTasksToKeep` - Task preservation during compaction
 - `TaskCreate` (Nh) - Task creation tool
 - `TaskList` (TK1) - Task listing tool
 - `TaskGet` - Task retrieval tool
@@ -43,7 +43,7 @@ Tasks can be created and managed during plan mode. The task system is orthogonal
 │                                                                 │
 │  Task Preservation:                                            │
 │  ┌─────────────────────────────────────────────────────────────┐│
-│  │ • Tasks survive compaction via ca4()                        ││
+│  │ • Tasks survive compaction via Nqq()                        ││
 │  │ • Task state preserved: completed, failed, killed           ││
 │  │ • Background agent status included as attachments          ││
 │  └─────────────────────────────────────────────────────────────┘│
@@ -53,18 +53,18 @@ Tasks can be created and managed during plan mode. The task system is orthogonal
 
 ---
 
-## 2. Task Collection During Compaction (`ca4`)
+## 2. Task Collection During Compaction (`Nqq`)
 
-The `ca4` function preserves task state during conversation compaction:
+The `Nqq` function preserves task state during conversation compaction:
 
 ```javascript
 // ============================================
-// ca4 - collectTasksToKeep
-// Location: chunks.146.mjs:2724-2741
+// Nqq - collectTasksToKeep
+// Location: chunks.147.mjs:1923-1940
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function ca4(A) {
+async function Nqq(A) {
     let q = await A.getAppState();
     return Object.values(q.tasks).filter((Y) => Y.type === "local_agent").flatMap((Y) => {
         if (Y.retrieved) return [];
@@ -117,7 +117,7 @@ async function collectTasksToKeep(context) {
         });
 }
 
-// Mapping: ca4→collectTasksToKeep, A→context, q→appState, Y→task
+// Mapping: Nqq→collectTasksToKeep, A→context, q→appState, Y→task
 //          z→status, kq→createAttachmentMessage
 ```
 
@@ -302,7 +302,7 @@ Plan Mode Active
 ┌─────────────────────────────────────────────────────────────────┐
 │ Check: Any terminal-state tasks?                                │
 │                                                                 │
-│ ca4(context) → filter for completed/failed/killed              │
+│ Nqq(context) → filter for completed/failed/killed              │
 └─────────────────────────────────────────────────────────────────┘
                          │
                          ▼
@@ -375,7 +375,7 @@ Plan Mode Active
 │                             │                                   │
 │                             ▼                                   │
 │                    Preserved during compaction                  │
-│                    via ca4() → task_status attachment           │
+│                    via Nqq() → task_status attachment           │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -432,7 +432,7 @@ Background Agent Running (status: in_progress)
     │   └─ Background agent finishes
     │       └─ Status changes to "completed"
     │
-    └─ ca4() collects task_status on next compaction
+    └─ Nqq() collects task_status on next compaction
 ```
 
 ### Background Agents Spawned During Plan Mode
@@ -459,7 +459,7 @@ When an Explore agent finishes during plan mode:
 
 1. Its result is collected normally
 2. Task status becomes "completed"
-3. If compaction occurs, `ca4()` preserves the task status
+3. If compaction occurs, `Nqq()` preserves the task status
 
 ---
 
@@ -470,7 +470,7 @@ When an Explore agent finishes during plan mode:
 | Storage | `appState.tasks` | Todo file |
 | Tool names | TaskCreate, TaskList, TaskGet, TaskUpdate | TodoWrite |
 | Plan mode | Fully available | Fully available |
-| Compaction | `ca4()` preserves status | `pa4()` preserves todos |
+| Compaction | `Nqq()` preserves status | `pa4()` preserves todos |
 | Background agents | Yes | No |
 | Dependencies | Yes | No |
 
@@ -524,7 +524,7 @@ If compaction occurs with pending tasks:
 Pending tasks exist
     │
     └─ Compaction triggered
-        └─ ca4() checks: pending → not terminal → skipped
+        └─ Nqq() checks: pending → not terminal → skipped
         └─ Pending tasks NOT preserved
         └─ Tasks still exist in appState.tasks (not affected by compaction)
 ```
@@ -563,7 +563,7 @@ From `state_management.md`:
 | **TaskList in plan mode** | Allowed (read-only) |
 | **TaskGet in plan mode** | Allowed (read-only) |
 | **TaskUpdate in plan mode** | Allowed (metadata update) |
-| **Task preservation** | Only terminal-state tasks via `ca4()` |
+| **Task preservation** | Only terminal-state tasks via `Nqq()` |
 | **Running tasks during plan mode** | Continue unaffected |
 | **Task after plan rejection** | Remain in app state |
 | **Background agents in plan mode** | Explore type is read-only |

@@ -13,12 +13,11 @@
 Key functions in this document:
 - `W26` (chunks.191.mjs:3007) - `cycleMode` - Mode cycle logic
 - `lbq` (chunks.191.mjs:3027) - `cycleModeWithContext` - Mode cycle wrapper returning next mode and context
+- `cbq` (chunks.191.mjs:3003) - `isTeamLeaderWithTeam` - Helper for team leader check
 - `GH` (chunks.193.mjs:649) - `handleCycleModeKeybinding` - Shift+Tab handler (keybinding action: "chat:cycleMode")
 - `PM` (chunks.1.mjs) - `isTeamLeader` - Team context check
 - `l8` (chunks.1.mjs) - `hasTeamContext` - Team detection
-- `CQ` (chunks.14.mjs:3260) - `getModeDisplayName` - Mode name
-- `Rv1` (chunks.14.mjs:3281) - `getModeIcon` - Mode icon
-- `cP` (chunks.14.mjs:3298) - `getModeThemeColor` - Mode color
+- `D57` (chunks.40.mjs:358) - `MODE_CONFIGURATION` - Mode display properties object
 
 ---
 
@@ -170,10 +169,27 @@ const handleCycleModeKeybinding = useCallback(() => {
 
 ## 3. Mode Display Properties
 
+Mode display properties are defined in the `D57` configuration object at `chunks.40.mjs:358`:
+
+```javascript
+// ============================================
+// D57 - MODE_CONFIGURATION
+// Location: chunks.40.mjs:358-403
+// ============================================
+
+D57 = {
+    plan: { title: "Plan Mode", symbol: "⏸", color: "planMode" },
+    acceptEdits: { title: "Accept edits", symbol: "⏵⏵", color: "autoAccept" },
+    delegate: { title: "Delegate Mode", symbol: "⇢", color: "delegateMode" },
+    bypassPermissions: { title: "Bypass Permissions", symbol: "⏵⏵", color: "error" },
+    default: { title: "Default", symbol: "", color: "text" }
+};
+```
+
 ### Mode UI Properties Table
 
-| Mode | Icon (`Rv1`) | Display (`CQ`) | Color key (`cP`) |
-|------|-------------|----------------|-----------------|
+| Mode | Symbol | Title | Color key |
+|------|--------|-------|-----------|
 | `plan` | `⏸` | "Plan Mode" | `"planMode"` |
 | `acceptEdits` | `⏵⏵` | "Accept edits" | `"autoAccept"` |
 | `delegate` | `⇢` | "Delegate Mode" | `"delegateMode"` |

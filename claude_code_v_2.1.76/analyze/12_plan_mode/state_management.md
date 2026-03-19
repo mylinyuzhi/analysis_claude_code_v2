@@ -539,7 +539,21 @@ User rejects the ExitPlanMode dialog:
 // ExitPlanMode rejected
 // Mode stays as "plan"
 // hasExitedPlanMode is NOT set
-// needsPlanModeExitAttachment stays true
+// needsPlanModeExitAttachment stays true (was set by Dp when attempting to exit)
+```
+
+**What happens in XuY:**
+```javascript
+async function getPlanModeExitAttachment(toolUseContext) {
+    if (!needsPlanModeExitAttachment()) return [];
+
+    // Key check: if mode is still "plan", the user rejected the dialog
+    if ((await toolUseContext.getAppState()).toolPermissionContext.mode === "plan") {
+        setNeedsPlanModeExitAttachment(false);  // Clear the flag
+        return [];  // Don't emit exit attachment
+    }
+    // ... otherwise, emit exit attachment
+}
 ```
 
 ### Edge Case 3: Swarm Teammate Plan Approval
@@ -561,9 +575,208 @@ if (response.approved) {
 }
 ```
 
+### Edge Case 4: Auto-Mode Gate Fallback
+
+When exiting plan mode with `prePlanMode = "auto"` but the auto-mode gate is disabled:
+
+```javascript
+// In ExitPlanMode.call():
+let prePlanMode = state.toolPermissionContext.prePlanMode ?? "default";
+let targetMode = prePlanMode === "ultraplan" ? "default" : prePlanMode;
+
+// Gate check
+if (targetMode === "auto" && !isAutoModeGateEnabled()) {
+    targetMode = "default";  // Fall back to default
+    // Show notification to user
+    addNotification({
+        key: "auto-mode-gate-plan-exit-fallback",
+        text: `plan exit → default · ${reason}`,
+        priority: "immediate",
+        color: "warning"
+    });
+}
+```
+
+**Why this matters:** The auto-mode gate can disable auto mode when:
+- Circuit breaker is triggered (too many errors)
+- Rate limiting is active
+- System is in degraded state
+
+This prevents cascading failures when the user exits plan mode expecting auto mode.
+
+**Algorithm Deep-Dive: Auto-Mode Gate Check**
+
+```javascript
+// ============================================
+// isAutoModeGateEnabled - Gate check for auto mode
+// Location: cli.chunks.mjs:7421 (IN), chunks.143.mjs (sl6 module)
+// ============================================
+
+// READABLE (for understanding):
+function isAutoModeGateEnabled() {
+    // Check if auto-mode gate module has an unavailable reason
+    const reason = autoModeGate.getUnavailableReason();
+    return reason === null;  // null = available, any string = blocked
+}
+
+function getAutoModeUnavailableReason() {
+    // Priority order for checking why auto mode is unavailable:
+    // 1. Circuit breaker state (in autoModeState.tCY)
+    // 2. Rate limiting active
+    // 3. System degraded mode
+    // 4. Feature flag disabled
+
+    if (circuitBreaker.isOpen()) {
+        return "Circuit breaker triggered";
+    }
+    if (rateLimiter.isLimited()) {
+        return "Rate limiting active";
+    }
+    if (systemInDegradedMode()) {
+        return "System in degraded state";
+    }
+    return null;  // Auto mode is available
+}
+```
+
+**Key insight:** The auto-mode gate is checked ONLY at mode transition time, not during the planning session. This means:
+1. If the gate closes while user is in plan mode, they can still exit to auto mode (gate check happens at exit)
+2. The gate state is evaluated fresh on each mode transition
+3. If auto mode becomes unavailable mid-session, the user gets a clear notification explaining why they fell back to default mode
+
+**Interaction with `needsPlanModeExitAttachment`:**
+
+When auto-mode gate forces fallback to default mode:
+1. `needsPlanModeExitAttachment` is already set to `true` (by `Dp` during transition)
+2. Exit attachment will be generated for `default` mode, not `auto` mode
+3. The notification explains the fallback, avoiding user confusion about why they're in default mode instead of auto
+
+**Why this design:** The lazy evaluation of the gate (at exit time rather than entry time) allows the system to:
+- Recover from temporary outages during the planning session
+- Provide up-to-date status at the moment of transition
+- Avoid blocking plan mode entry even if auto mode is temporarily unavailable
+
+### Edge Case 5: Ultraplan Mode
+
+Ultraplan is a special mode used for remote planning sessions:
+
+```javascript
+// In DuY (getPlanModeAttachment):
+if (permContext.prePlanMode === "ultraplan") {
+    // Special reminder type for ultraplan
+    attachments.push({
+        type: "plan_mode",
+        reminderType: "ultraplan-complete",
+        ...
+    });
+    return attachments;  // Skip normal reminder logic
+}
+
+// In ExitPlanMode.call():
+let prePlanMode = state.toolPermissionContext.prePlanMode ?? "default";
+let targetMode = prePlanMode === "ultraplan" ? "default" : prePlanMode;
+// Ultraplan always exits to "default", never back to "ultraplan"
+```
+
+### Edge Case 6: Plan Mode Re-entry Without Plan File
+
+User exits plan mode, then re-enters, but the plan file was deleted:
+
+```javascript
+// In DuY:
+if (hasExitedPlanMode() && planContent !== null) {  // planContent check is critical!
+    attachments.push({ type: "plan_mode_reentry", planFilePath });
+    setHasExitedPlanMode(false);
+}
+// If planContent is null, no re-entry attachment is generated
+// The LLM starts fresh as if entering plan mode for the first time
+```
+
+### Edge Case 7: Concurrent State Modifications
+
+Multiple components trying to modify state simultaneously:
+
+```javascript
+// State updates are batched via React's setAppState
+// All updates use the functional form to avoid race conditions:
+setAppState((prevState) => ({
+    ...prevState,
+    toolPermissionContext: {
+        ...prevState.toolPermissionContext,
+        mode: newMode
+    }
+}));
+```
+
+**Why this works:** React batches state updates within the same event loop tick, so even if multiple callers invoke `setAppState` concurrently, each gets the correct previous state.
+
 ---
 
 ## 10. Related State Variables
+
+### Auto Mode Counterparts
+
+Plan mode has related state variables for auto mode (used when exiting plan mode to auto mode):
+
+```javascript
+// ============================================
+// Auto Mode State Variables
+// Location: chunks.1.mjs:2951-2964
+// ============================================
+
+// ORIGINAL (for source lookup):
+function pu1() {
+    return v1.needsAutoModeExitAttachment
+}
+function MS(A) {
+    v1.needsAutoModeExitAttachment = A
+}
+function Qu1(A, q, K) {
+    let Y = A === "auto" || A === "plan" && K === "auto",
+        z = q === "auto" || q === "plan" && A === "auto";
+    if (z && !Y) v1.needsAutoModeExitAttachment = !1;
+    if (Y && !z) v1.needsAutoModeExitAttachment = !0
+}
+
+// READABLE (for understanding):
+function needsAutoModeExitAttachment() {
+    return globalSessionState.needsAutoModeExitAttachment;
+}
+
+function setNeedsAutoModeExitAttachment(value) {
+    globalSessionState.needsAutoModeExitAttachment = value;
+}
+
+function handleAutoModeTransition(currentMode, nextMode, prePlanMode) {
+    // Check if we're in an "auto-related" state
+    let wasAutoRelated = currentMode === "auto"
+        || (currentMode === "plan" && prePlanMode === "auto");
+    let isAutoRelated = nextMode === "auto"
+        || (nextMode === "plan" && currentMode === "auto");
+
+    // Transitioning INTO auto-related state
+    if (isAutoRelated && !wasAutoRelated) {
+        globalSessionState.needsAutoModeExitAttachment = true;
+    }
+
+    // Transitioning OUT of auto-related state
+    if (wasAutoRelated && !isAutoRelated) {
+        globalSessionState.needsAutoModeExitAttachment = false;
+    }
+}
+
+// Mapping: pu1→needsAutoModeExitAttachment, MS→setNeedsAutoModeExitAttachment
+// Mapping: Qu1→handleAutoModeTransition
+```
+
+**Why auto mode has separate state:**
+
+When a user enters plan mode with `prePlanMode = "auto"`, they're planning while in auto mode. On exit, the system needs to:
+1. Generate an auto_mode_exit attachment (in addition to plan_mode_exit)
+2. Track that the user was in auto mode before plan mode
+3. Restore the "dangerous permissions" that auto mode had revoked
+
+The `handleAutoModeTransition` function is more complex than `handlePlanModeTransition` because it handles the "plan → auto" and "auto → plan" transitions as special cases.
 
 ### Delegate Mode Counterparts
 

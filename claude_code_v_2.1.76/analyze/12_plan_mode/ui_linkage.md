@@ -11,20 +11,17 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI Components
 
 Key components in this document:
-- `hf1` (chunks.183.mjs:1778) - Mode cycle logic
-- `FGq` (chunks.183.mjs:1799) - Mode cycle wrapper with context
+- `W26` (chunks.191.mjs:3007) - `cycleMode` - Mode cycle logic
+- `lbq` (chunks.191.mjs:3027) - `cycleModeWithContext` - Mode cycle wrapper returning next mode and context
+- `D57` (chunks.40.mjs:358) - `MODE_CONFIGURATION` - Mode display properties object
 - Footer mode indicator (chunks.183.mjs:2669) - Status bar
-- `CQ` (chunks.14.mjs:3260) - Mode name ("Plan Mode")
-- `Rv1` (chunks.14.mjs:3281) - Mode icon ("⏸")
-- `cP` (chunks.14.mjs:3298) - Mode color ("planMode")
-- `Gc4` (chunks.140.mjs:1597) - EnterPlanMode result UI
-- `Zc4` (chunks.140.mjs:1612) - EnterPlanMode rejection UI
-- `Kd4` (chunks.139.mjs:2491) - ExitPlanMode result UI (4 states)
-- `Yd4` (chunks.139.mjs:2550) - ExitPlanMode rejection UI
-- `HX6` (chunks.107.mjs:1153) - Rejected plan viewer
+- `jZ1` (chunks.112.mjs:1142) - RejectedPlanViewer component
+- `Gc4` (chunks.132.mjs:2768) - EnterPlanMode result UI
+- `Kd4` (chunks.131.mjs:1153) - ExitPlanMode result UI (4 states)
+- `Yd4` (chunks.131.mjs:1324) - ExitPlanMode rejection UI
 - `$fY` (chunks.129.mjs:1756) - Swarm plan approval request UI
 - `OfY` (chunks.129.mjs:1799) - Swarm plan approval response UI
-- `aPq` (chunks.181.mjs:405) - ExitPlanMode "Ready to code?" dialog
+- `aPq` (chunks.165.mjs:2676) - ExitPlanMode "Ready to code?" dialog
 - `mcA` (chunks.1.mjs:2291) - Context usage percentage (for status bar "57% used")
 - `GIA` (chunks.152.mjs:1438) - clearConversation (triggered by "clear context" options)
 - `Rj1` (chunks.88.mjs:78) - getPlanFileSlug (captured before context clear)
@@ -47,17 +44,21 @@ The plan mode status is displayed in the REPL footer when active.
 let currentMode = toolPermissionContext?.mode;  // "plan"
 let isNonDefaultMode = currentMode !== "default" && currentMode !== undefined;
 
+// Mode display properties from D57 configuration object
+// D57 = { plan: { title: "Plan Mode", symbol: "⏸", color: "planMode" }, ... }
+let modeConfig = MODE_CONFIGURATION[currentMode];
+
 // Only show mode indicator for non-default modes
 if (isNonDefaultMode) {
     modeIndicator = createElement(Text, {
-            color: getThemeColor(currentMode),       // cP("plan") → "planMode"
+            color: modeConfig.color,       // "planMode"
             key: "mode"
         },
-        getModeIcon(currentMode),                    // Rv1("plan") → "⏸"
+        modeConfig.symbol,                  // "⏸"
         " ",
-        getModeDisplayName(currentMode).toLowerCase(), // CQ("plan").toLowerCase() → "plan mode"
+        modeConfig.title.toLowerCase(),     // "plan mode"
         " on",
-        showHint && createElement(DimText,           // "(shift+tab to cycle)" hint
+        showHint && createElement(DimText,  // "(shift+tab to cycle)" hint
             " ",
             cycleModeKeybinding
         )
@@ -79,8 +80,20 @@ Where:
 
 ### Mode Display Table
 
-| Mode | `Rv1()` icon | `CQ()` name | `cP()` color key | Status bar text |
-|------|-------------|-------------|-----------------|----------------|
+Mode display properties are defined in the `D57` configuration object at `chunks.40.mjs:358`:
+
+```javascript
+D57 = {
+    plan: { title: "Plan Mode", symbol: "⏸", color: "planMode" },
+    acceptEdits: { title: "Accept edits", symbol: "⏵⏵", color: "autoAccept" },
+    delegate: { title: "Delegate Mode", symbol: "⇢", color: "delegateMode" },
+    bypassPermissions: { title: "Bypass Permissions", symbol: "⏵⏵", color: "error" },
+    default: { title: "Default", symbol: "", color: "text" }
+};
+```
+
+| Mode | Symbol | Title | Color key | Status bar text |
+|------|--------|-------|-----------|-----------------|
 | `plan` | `⏸` | "Plan Mode" | `"planMode"` | `⏸ plan mode on` |
 | `acceptEdits` | `⏵⏵` | "Accept edits" | `"autoAccept"` | `⏵⏵ accept edits on` |
 | `delegate` | `⇢` | "Delegate Mode" | `"delegateMode"` | `⇢ delegate mode on` |
@@ -99,15 +112,15 @@ Registered as `"chat:cycleMode"` → default binding `"shift+tab"`.
 
 ```javascript
 // When user presses Shift+Tab in Chat context:
-let { nextMode, context } = FGq(currentMode, teamContext);
-// FGq calls hf1(currentMode, teamContext) → returns next mode string
+let { nextMode, context } = cycleModeWithContext(currentMode, teamContext);
+// cycleModeWithContext calls cycleMode(currentMode, teamContext) → returns next mode string
 
 // Telemetry
 trackEvent("tengu_mode_cycle", { to: nextMode });
 
 // Side effects:
 if (currentMode.mode === "plan" && nextMode !== "plan") {
-    setHasExitedPlanMode(true);    // OT(true)
+    setHasExitedPlanMode(true);    // HV(true)
 }
 if (nextMode === "plan") {
     updateSettings({ lastPlanModeUse: Date.now() });  // for help tips
@@ -125,6 +138,8 @@ setAppState(state => ({
 // Context update in React:
 setToolPermissionContext({ ...context, mode: nextMode });
 ```
+
+**Note:** The `cycleMode` function (`W26`) is at `chunks.191.mjs:3007` and `cycleModeWithContext` (`lbq`) is at `chunks.191.mjs:3027`.
 
 ### Mode Cycle Sequence
 
@@ -162,14 +177,14 @@ LLM calls EnterPlanMode
 ```javascript
 // ============================================
 // Gc4 - EnterPlanMode result card
-// Location: chunks.140.mjs:1597
+// Location: chunks.132.mjs:2768
 // ============================================
 
 function renderEnterPlanModeResult(toolResult, theme) {
     return (
         <Box flexDirection="column" marginTop={1}>
             <Box flexDirection="row">
-                <Text color={getThemeColor("plan")}>✓</Text>
+                <Text color={MODE_CONFIGURATION.plan.color}>✓</Text>
                 <Text> Entered plan mode</Text>
             </Box>
             <Box paddingLeft={2}>
@@ -188,29 +203,6 @@ function renderEnterPlanModeResult(toolResult, theme) {
   Claude is now exploring and designing an implementation approach.
 ```
 (Checkmark in planMode color, description text dimmed)
-
-### `Zc4` - Rejection Card
-
-```javascript
-// ============================================
-// Zc4 - EnterPlanMode rejection card
-// Location: chunks.140.mjs:1612
-// ============================================
-
-function renderEnterPlanModeRejected() {
-    return (
-        <Box flexDirection="row" marginTop={1}>
-            <Text color={getThemeColor("default")}>✓</Text>
-            <Text> User declined to enter plan mode</Text>
-        </Box>
-    );
-}
-```
-
-**Terminal output:**
-```
-✓ User declined to enter plan mode
-```
 
 ---
 
@@ -275,7 +267,7 @@ LLM calls ExitPlanMode
   ...
 ```
 
-### `Yd4` + `HX6` - Rejection Cards
+### `Yd4` + `jZ1` - Rejection Cards
 
 When user clicks **No** on the "Exit plan mode?" permission dialog:
 
@@ -292,20 +284,22 @@ User rejected Claude's plan:
 ╰──────────────────────────────────────────────────────────╯
 ```
 
+**Note:** The `jZ1` component at `chunks.112.mjs:1142` renders the rejected plan viewer.
+
 ### Tool Error Display (`H74` routing)
 
-The message list renderer in `chunks.107.mjs:1226` checks for special content prefixes:
+The message list renderer checks for special content prefixes:
 
 ```javascript
 // If tool result content starts with OWA prefix:
 // "The agent proposed a plan that was rejected by the user. The user chose to stay in plan mode..."
 if (content.startsWith(OWA)) {
     let planText = content.substring(OWA.length);
-    return createElement(HX6, { plan: planText });
+    return createElement(RejectedPlanViewer, { plan: planText });  // jZ1 component
 }
 ```
 
-This renders the same `HX6` box in the message history when viewing the conversation.
+This renders the same `jZ1` box in the message history when viewing the conversation.
 
 ---
 
@@ -403,12 +397,12 @@ From the status bar footer hint: the `cycleMode` keybinding is displayed as a cy
 
 ## 8. Plan Mode Theme Color
 
-`cP("plan")` returns `"planMode"` which maps to a theme color in the TUI color system. The color is used consistently across:
+The `planMode` color is defined in `D57` configuration object at `chunks.40.mjs:358`. The color is used consistently across:
 
 1. **Status bar** mode indicator text
 2. **EnterPlanMode** result checkmark
 3. **ExitPlanMode** result checkmarks
-4. **HX6 rejection box** border color
+4. **jZ1 rejection box** border color
 5. **$fY swarm approval request** box border and header text
 6. **Help tip** plan mode references
 
@@ -458,14 +452,14 @@ Plan mode is checked 4th in the priority chain (after fundamental blockers but b
 
 ---
 
-## 11. ExitPlanMode "Ready to code?" Dialog (`aPq`, chunks.181.mjs:405)
+## 11. ExitPlanMode "Ready to code?" Dialog (`aPq`, chunks.165.mjs:2676)
 
 The ExitPlanMode permission dialog is a custom multi-option selector rendered in the TUI. It has two visual variants depending on whether a plan file exists.
 
 ### Related Symbols
 
 Key components in this section:
-- `aPq` (chunks.181.mjs:405) - ExitPlanMode dialog component
+- `aPq` (chunks.165.mjs:2676) - ExitPlanMode dialog component
 - `GIA` (chunks.152.mjs:1438) - `clearConversation` implementation
 - `PIA` (chunks.152.mjs:1421) - `clearSessionCaches`
 - `DL6` (chunks.1.mjs:2429) - `createNewSessionId`
@@ -592,7 +586,7 @@ This allows plan iteration without separate message steps — the user can type 
 ```javascript
 // ============================================
 // aPq - ExitPlanMode dialog component (simplified)
-// Location: chunks.181.mjs:405
+// Location: chunks.165.mjs:2676
 // ============================================
 
 // READABLE (for understanding):
@@ -673,7 +667,7 @@ function getContextUsagePercentage(usage, contextWindowSize) {
 | User selects "Yes, manually approve edits" | ExitPlanMode approves, mode→default, context kept |
 | User types in "No, keep planning" field | Stays in plan mode, typed text sent as new user message |
 | User approves ExitPlanMode (keep-context path) | Result card: "✓ User approved Claude's plan" + plan + path |
-| User clicks No / Esc on dialog | HX6 box: "User rejected Claude's plan:" + plan in planMode border |
+| User clicks No / Esc on dialog | jZ1 box: "User rejected Claude's plan:" + plan in planMode border |
 | Press Shift+Tab (leaving plan mode) | Status bar mode indicator disappears |
 | Teammate in swarm submits plan | Swarm UI: status → "awaiting approval"; leader sees $fY component |
 | Team leader approves | OfY: green "✓ Plan Approved" box |

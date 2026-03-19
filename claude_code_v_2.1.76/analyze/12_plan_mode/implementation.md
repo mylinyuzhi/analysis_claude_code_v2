@@ -15,6 +15,7 @@ Plan Mode is a specialized session state in Claude Code that restricts the agent
 Key functions in this document:
 - `EnterPlanModeTool` (Ki6) - Tool object (chunks.144.mjs:1579)
 - `ExitPlanModeTool` (zD) - Tool object (chunks.143.mjs:2802)
+- `D57` (chunks.40.mjs:358) - `MODE_CONFIGURATION` - Mode display properties object
 
 > See also:
 > - [ask_user_question.md](./ask_user_question.md) — Deep analysis of AskUserQuestion tool (multi-round interactions, elicitation queue, UI components, schema)
@@ -22,18 +23,20 @@ Key functions in this document:
 > - [tools_filtering.md](./tools_filtering.md) — Tools restriction analysis (isReadOnly(), allowedTools, Bash filtering, permission flow)
 > - [reminder_system.md](./reminder_system.md) — Reminder/attachment injection (DuY, XuY, ezz, A2z, turn counting, throttling)
 > - [state_management.md](./state_management.md) — State variables and transitions (hasExitedPlanMode, needsPlanModeExitAttachment, prePlanMode)
-> - [mode_cycling.md](./mode_cycling.md) — Shift+Tab integration (W26, GH, mode sequences)
+> - [mode_cycling.md](./mode_cycling.md) — Shift+Tab integration (W26, lbq, cbq, mode sequences)
 > - [plan_approval_flow.md](./plan_approval_flow.md) — Plan approval lifecycle (user-facing + swarm teammate)
 > - [ui_linkage.md](./ui_linkage.md) — UI components and rendering
-> - [compact_integration.md](./compact_integration.md) — Plan preservation during compaction (jZ6, pD, uW, kq)
+> - [compact_integration.md](./compact_integration.md) — Plan preservation during compaction (mE1, pD, uW, kq)
 > - [hooks_integration.md](./hooks_integration.md) — Hooks in plan mode (mW6, JZY, PreCompact)
-> - [task_integration.md](./task_integration.md) — Task system integration (ca4, TaskCreate, TaskUpdate)
-- `aPq` (chunks.181.mjs:405) - ExitPlanMode dialog ("Ready to code?")
+> - [task_integration.md](./task_integration.md) — Task system integration (Nqq, TaskCreate, TaskUpdate)
+- `aPq` (chunks.165.mjs:2676) - ExitPlanMode dialog ("Ready to code?")
 - `W26` (chunks.191.mjs:3007) - Mode cycle function
-- `GH` (chunks.193.mjs:649) - Mode cycle keybinding handler ("chat:cycleMode")
-- `CQ` (chunks.14.mjs:3260) - Mode display name ("Plan Mode")
-- `Rv1` (chunks.14.mjs:3281) - Mode icon ("⏸")
-- `cP` (chunks.14.mjs:3298) - Mode theme color ("planMode")
+- `lbq` (chunks.191.mjs:3027) - Mode cycle with context function
+- `cbq` (chunks.191.mjs:3003) - isTeamLeaderWithTeam helper
+- `jZ1` (chunks.112.mjs:1142) - RejectedPlanViewer component
+- `Gc4` (chunks.132.mjs:2768) - EnterPlanMode result UI
+- `Kd4` (chunks.131.mjs:1153) - ExitPlanMode result UI
+- `Yd4` (chunks.131.mjs:1324) - ExitPlanMode rejection UI
 - `DuY` (chunks.147.mjs:136) - Plan mode attachment generator
 - `XuY` (chunks.147.mjs:170) - Plan mode exit attachment generator
 - `Dp` (chunks.1.mjs:2946) - Mode transition hook (updates needsPlanModeExitAttachment)
@@ -152,40 +155,40 @@ Plan mode state lives in `toolPermissionContext.mode`. The full set of valid mod
 }
 ```
 
-**Global singleton flags** (in `o6` global state, `chunks.1.mjs`):
-- `hasExitedPlanMode` → read by `aL6()`, write by `OT()`
-- `needsPlanModeExitAttachment` → read by `sL6()`, write by `kx()`
+**Global singleton flags** (in `v1` global state, `chunks.1.mjs`):
+- `hasExitedPlanMode` → read by `nk6()`, write by `HV()`
+- `needsPlanModeExitAttachment` → read by `Fu1()`, write by `JS()`
 
 ### Mode Transition Hook
 
 ```javascript
 // ============================================
-// ey - Mode transition side-effect hook
-// Location: chunks.1.mjs:2875
+// Dp - handlePlanModeTransition - Mode transition side-effect hook
+// Location: chunks.1.mjs:2946-2950
 // ============================================
 
 // ORIGINAL (for source lookup):
-function ey(A, q) {
-    if (q === "plan" && A !== "plan") o6.needsPlanModeExitAttachment = !1;
-    if (A === "plan" && q !== "plan") o6.needsPlanModeExitAttachment = !0
+function Dp(A, q) {
+    if (q === "plan" && A !== "plan") v1.needsPlanModeExitAttachment = !1;
+    if (A === "plan" && q !== "plan") v1.needsPlanModeExitAttachment = !0
 }
 
 // READABLE (for understanding):
-function onModeTransition(fromMode, toMode) {
+function handlePlanModeTransition(fromMode, toMode) {
     // Entering plan mode: mark that no exit attachment has been generated yet
     if (toMode === "plan" && fromMode !== "plan") {
-        globalState.needsPlanModeExitAttachment = false;
+        globalSessionState.needsPlanModeExitAttachment = false;
     }
     // Leaving plan mode: mark that we need to generate a plan_mode_exit attachment
     if (fromMode === "plan" && toMode !== "plan") {
-        globalState.needsPlanModeExitAttachment = true;
+        globalSessionState.needsPlanModeExitAttachment = true;
     }
 }
 
-// Mapping: ey→onModeTransition, A→fromMode, q→toMode, o6→globalState
+// Mapping: Dp→handlePlanModeTransition, A→fromMode, q→toMode, v1→globalSessionState
 ```
 
-**Key insight:** `ey()` is called in TWO places:
+**Key insight:** `Dp()` is called in TWO places:
 1. By `EnterPlanModeTool.call()` before updating state (to set up flags correctly)
 2. By the UI mode-cycle handler in `chunks.185.mjs:635` when user presses Shift+Tab
 
@@ -255,7 +258,7 @@ For enterprise users with bypass:
 When the user presses Shift+Tab (chunks.185.mjs:635):
 1. Gets current mode + team context
 2. Calls `FGq(K, y1)` → `hf1(K, y1)` to get next mode
-3. Calls `ey(K.mode, I6)` to update global flags
+3. Calls `Dp(K.mode, I6)` to update global flags
 4. If switching to plan: records `lastPlanModeUse: Date.now()` in settings
 5. Calls `setAppState()` with new `mode`
 6. Calls `HR4(I6, teamName)` for telemetry
@@ -272,27 +275,22 @@ Plan mode appears in the **footer** of the REPL component (chunks.183.mjs):
 // Location: chunks.183.mjs:2669
 // ============================================
 
-// ORIGINAL (for source lookup):
-let L1 = [...q1 && t ? [m7.createElement(V, {
-    color: cP(q1),
-    key: "mode"
-}, Rv1(q1), " ", !1, CQ(q1).toLowerCase(), " on", _1 && m7.createElement(V, {
-    dimColor: !0
-}, " ", m7.createElement(YA, { shortcut: D, action: "cycle", parens: !0 })))] : [], ...]
-
 // READABLE (for understanding):
+// D57 = MODE_CONFIGURATION at chunks.40.mjs:358
+// D57 = { plan: { title: "Plan Mode", symbol: "⏸", color: "planMode" }, ... }
+
+let modeConfig = MODE_CONFIGURATION[currentMode];
 // q1 = currentMode (e.g. "plan")
-// t = !Lw8(q1) = mode !== "default" (only show indicator for non-default modes)
-// D = "shift+tab" keybinding display text
+// t = mode !== "default" (only show indicator for non-default modes)
 
 if (currentMode && currentMode !== "default") {
     modeIndicator = createElement(Text, {
-        color: getThemeColor(currentMode),   // "planMode" → themed blue/purple
+        color: modeConfig.color,       // "planMode" → themed blue/purple
         key: "mode"
     },
-        getModeIcon(currentMode),            // "⏸" for plan
+        modeConfig.symbol,             // "⏸" for plan
         " ",
-        getModeDisplayName(currentMode).toLowerCase(), // "plan mode"
+        modeConfig.title.toLowerCase(), // "plan mode"
         " on",
         showHint && createElement(DimText, " ", cycleModeKeybinding)
         // → full: "⏸ plan mode on (shift+tab)"
@@ -300,10 +298,31 @@ if (currentMode && currentMode !== "default") {
 }
 ```
 
+### Mode Configuration Object (`D57`)
+
+Mode display properties are defined in the `D57` configuration object at `chunks.40.mjs:358`:
+
+```javascript
+// ============================================
+// D57 - MODE_CONFIGURATION
+// Location: chunks.40.mjs:358-403
+// ============================================
+
+D57 = {
+    plan: { title: "Plan Mode", symbol: "⏸", color: "planMode" },
+    acceptEdits: { title: "Accept edits", symbol: "⏵⏵", color: "autoAccept" },
+    delegate: { title: "Delegate Mode", symbol: "⇢", color: "delegateMode" },
+    bypassPermissions: { title: "Bypass Permissions", symbol: "⏵⏵", color: "error" },
+    default: { title: "Default", symbol: "", color: "text" }
+};
+```
+
+**Key insight:** The symbols `CQ`, `Rv1`, `cP` previously documented as "getModeDisplayName", "getModeIcon", "getModeThemeColor" do NOT exist as separate functions. Mode display is handled via direct property access on the `D57` configuration object.
+
 **Mode UI properties:**
 
-| Mode | Icon (`Rv1`) | Display (`CQ`) | Color key (`cP`) |
-|------|-------------|----------------|-----------------|
+| Mode | Symbol | Title | Color key |
+|------|--------|-------|-----------|
 | `plan` | `⏸` | "Plan Mode" | `"planMode"` |
 | `acceptEdits` | `⏵⏵` | "Accept edits" | `"autoAccept"` |
 | `delegate` | `⇢` | "Delegate Mode" | `"delegateMode"` |
@@ -319,46 +338,126 @@ if (currentMode && currentMode !== "default") {
 ```javascript
 // ============================================
 // EnterPlanModeTool - Full tool object
-// Location: chunks.140.mjs:1649
+// Location: chunks.144.mjs:1590-1660
 // ============================================
 
 // ORIGINAL (for source lookup):
-kg1 = {
-    name: N_6,         // "EnterPlanMode"
+({
+    name: dt,         // "EnterPlanMode"
     maxResultSizeChars: 1e5,
     async description() { return "Requests permission to enter plan mode for complex tasks requiring exploration and design" },
-    async prompt() { return jc4() },    // returns pCY() → long prompt text
-    get inputSchema() { return dCY() }, // strictObject({}) - no input params
-    get outputSchema() { return cCY() }, // { message: string }
+    async prompt() { return pCY() },    // returns full prompt text
+    get inputSchema() { return C.strictObject({}) }, // No input params
+    get outputSchema() { return C.object({ message: z.string() }) },
+    isEnabled() { return !0 },
+    isConcurrencySafe() { return !0 },
     isReadOnly() { return !0 },
+    toAutoClassifierInput() { return "" },
     async checkPermissions(A) {
         return { behavior: "allow", updatedInput: A }  // AUTO-APPROVED
     },
-    renderToolResultMessage: Gc4,
-    renderToolUseRejectedMessage: Zc4,
+    renderToolUseMessage: V8q,
+    renderToolUseProgressMessage: k8q,
+    renderToolResultMessage: E8q,
+    renderToolUseRejectedMessage: y8q,
+    renderToolUseErrorMessage: L8q,
     async call(A, q) {
         if (q.agentId) throw Error("EnterPlanMode tool cannot be used in agent contexts");
-        let K = await q.getAppState();
-        return ey(K.toolPermissionContext.mode, "plan"), q.setAppState((Y) => ({
+        let K = q.getAppState();
+        return Dp(K.toolPermissionContext.mode, "plan"), q.setAppState((Y) => ({
             ...Y,
-            toolPermissionContext: {
-                ...a2(Y.toolPermissionContext, { type: "setMode", mode: "plan", destination: "session" }),
-                prePlanMode: Y.toolPermissionContext.mode
-            }
+            toolPermissionContext: Ez(LT6(Y.toolPermissionContext), {
+                type: "setMode",
+                mode: "plan",
+                destination: "session"
+            })
         })), { data: { message: "Entered plan mode..." } }
     },
     mapToolResultToToolResultBlockParam({ message: A }, q) {
         return {
             type: "tool_result",
-            content: sO() ? `${A}\n\nDO NOT write or edit any files except the plan file. Detailed workflow instructions will follow.`
-                          : `${A}\n\nIn plan mode, you should:\n1. Thoroughly explore the codebase...\n...\n6. When ready, use ExitPlanMode...`,
+            content: rO() ? `${A}\n\nDO NOT write or edit any files except the plan file. Detailed workflow instructions will follow.`
+                          : `${A}\n\nIn plan mode, you should:\n1. Thoroughly explore...\n...\n6. When ready, use ExitPlanMode...`,
             tool_use_id: q
         }
     }
-}
+})
 
-// Mapping: kg1→EnterPlanModeTool, N_6→"EnterPlanMode", dCY→inputSchema, cCY→outputSchema
-// Mapping: Gc4→renderToolResultMessage, Zc4→renderToolUseRejectedMessage
+// READABLE (for understanding):
+EnterPlanModeTool = {
+    name: "EnterPlanMode",
+    maxResultSizeChars: 100000,
+    async description() { return "Requests permission to enter plan mode for complex tasks requiring exploration and design" },
+    async prompt() { return buildEnterPlanModePrompt() },
+    get inputSchema() { return z.strictObject({}) },  // No input parameters
+    get outputSchema() { return z.object({ message: z.string() }) },
+    isEnabled() { return true },
+    isConcurrencySafe() { return true },
+    isReadOnly() { return true },
+    toAutoClassifierInput() { return "" },
+
+    async checkPermissions(input) {
+        return { behavior: "allow", updatedInput: input }  // AUTO-APPROVED - no user dialog
+    },
+
+    renderToolUseMessage: renderEnterPlanModeMessage,
+    renderToolUseProgressMessage: renderEnterPlanModeProgress,
+    renderToolResultMessage: renderEnterPlanModeResult,  // Gc4
+    renderToolUseRejectedMessage: renderEnterPlanModeRejected,  // y8q
+    renderToolUseErrorMessage: renderEnterPlanModeError,  // L8q
+
+    async call(input, toolUseContext) {
+        // Guard: Cannot use in agent/subagent contexts
+        if (toolUseContext.agentId) throw Error("EnterPlanMode tool cannot be used in agent contexts");
+
+        let appState = await toolUseContext.getAppState();
+
+        // Dp() - Handle mode transition side-effects
+        // Sets needsPlanModeExitAttachment = false (entering plan mode, no exit yet)
+        handlePlanModeTransition(appState.toolPermissionContext.mode, "plan");
+
+        // Update state with new mode
+        toolUseContext.setAppState((state) => ({
+            ...state,
+            toolPermissionContext: applyPermissionAction(
+                getPermissionContextForSession(state.toolPermissionContext),
+                { type: "setMode", mode: "plan", destination: "session" }
+            )
+        }));
+
+        return {
+            data: {
+                message: "Entered plan mode. You should now focus on exploring the codebase and designing an implementation approach."
+            }
+        };
+    },
+
+    mapToolResultToToolResultBlockParam({ message }, toolUseId) {
+        // rO() = isPlanModeInterviewPhase() - feature flag check
+        const isInterviewPhase = isPlanModeInterviewPhase();
+
+        return {
+            type: "tool_result",
+            content: isInterviewPhase
+                ? `${message}\n\nDO NOT write or edit any files except the plan file. Detailed workflow instructions will follow.`
+                : `${message}\n\nIn plan mode, you should:
+1. Thoroughly explore the codebase to understand existing patterns
+2. Identify similar features and architectural approaches
+3. Consider multiple approaches and their trade-offs
+4. Use AskUserQuestion if you need to clarify the approach
+5. Design a concrete implementation strategy
+6. When ready, use ExitPlanMode to present your plan for approval
+
+Remember: DO NOT write or edit any files yet. This is a read-only exploration and planning phase.`,
+            tool_use_id: toolUseId
+        };
+    }
+};
+
+// Mapping: dt→"EnterPlanMode", pCY→buildEnterPlanModePrompt, Ez→applyPermissionAction
+// Mapping: LT6→getPermissionContextForSession, Dp→handlePlanModeTransition, rO→isPlanModeInterviewPhase
+// Mapping: V8q→renderEnterPlanModeMessage, k8q→renderEnterPlanModeProgress, E8q→renderEnterPlanModeResult
+// Mapping: y8q→renderEnterPlanModeRejected, L8q→renderEnterPlanModeError
 ```
 
 ### Permission Model
@@ -377,14 +476,14 @@ This contrasts with `ExitPlanMode` which returns `{ behavior: "ask", message: "E
 ```javascript
 // ============================================
 // Gc4 - EnterPlanMode result renderer
-// Location: chunks.140.mjs:1597
+// Location: chunks.132.mjs:2768
 // ============================================
 
 // ORIGINAL (for source lookup):
 function Gc4(A, q, K) {
     return sD.createElement(I, { flexDirection: "column", marginTop: 1 },
         sD.createElement(I, { flexDirection: "row" },
-            sD.createElement(V, { color: cP("plan") }, gY),  // ✓ checkmark in planMode color
+            sD.createElement(V, { color: D57.plan.color }, gY),  // ✓ checkmark in planMode color
             sD.createElement(V, null, " Entered plan mode")),
         sD.createElement(I, { paddingLeft: 2 },
             sD.createElement(V, { dimColor: !0 }, "Claude is now exploring and designing an implementation approach.")))
@@ -397,17 +496,7 @@ function Gc4(A, q, K) {
   Claude is now exploring and designing an implementation approach.
 ```
 
-### UI: Rejection Message (`Zc4`)
-
-```javascript
-function Zc4() {
-    return sD.createElement(I, { flexDirection: "row", marginTop: 1 },
-        sD.createElement(V, { color: cP("default") }, gY),
-        sD.createElement(V, null, " User declined to enter plan mode"))
-}
-```
-
-**Renders:** `✓ User declined to enter plan mode`
+**Note:** The `Zc4` rejection renderer previously documented does NOT exist in the codebase. EnterPlanMode is auto-approved and never shows a rejection UI.
 
 ### Tool Result Injected into Conversation
 
@@ -445,40 +534,225 @@ DO NOT write or edit any files except the plan file. Detailed workflow instructi
 ```javascript
 // ============================================
 // ExitPlanModeTool - Full tool object
-// Location: chunks.139.mjs:2641
+// Location: chunks.143.mjs:2802-3016
 // ============================================
 
 // ORIGINAL (for source lookup):
-Nj = {
-    name: bW,    // "ExitPlanMode"
+zD = {
+    name: aJ,    // "ExitPlanMode"
+    searchHint: "present plan for approval and start coding (plan mode only)",
     maxResultSizeChars: 1e5,
+    async description() { return "Prompts the user to exit plan mode and start coding" },
+    async prompt() { return Z1q },
+    get inputSchema() { return E1q() },  // { allowedPrompts?: [...] }
+    get outputSchema() { return AIY() }, // { plan, isAgent, filePath, hasTaskTool, awaitingLeaderApproval, requestId, isUltraplan }
+    userFacingName() { return "" },
+    shouldDefer: !0,
+    isEnabled() { return !0 },
+    isConcurrencySafe() { return !0 },
+    isReadOnly() { return !1 },
+    toAutoClassifierInput() { return "" },
     requiresUserInteraction() {
-        if (Dz()) return !1;   // Teammates don't require user interaction
+        if ($Y()) return !1;   // Teammates don't require user interaction
         return !0              // Main session always requires user interaction
     },
-    async checkPermissions(A) {
-        if (Dz()) return { behavior: "allow", updatedInput: A };  // Teammates auto-allowed
+    async validateInput(A, { getAppState: q, options: K }) {
+        if ($Y()) return { result: !0 };
+        let Y = q().toolPermissionContext.mode;
+        if (Y !== "plan") return {
+            result: !1,
+            message: "You are not in plan mode. This tool is only for exiting plan mode...",
+            errorCode: 1
+        };
+        return { result: !0 }
+    },
+    async checkPermissions(A, q) {
+        if ($Y()) return { behavior: "allow", updatedInput: A };  // Teammates auto-allowed
         return { behavior: "ask", message: "Exit plan mode?", updatedInput: A }  // User must approve
     },
     ...
 }
+
+// READABLE (for understanding):
+ExitPlanModeTool = {
+    name: "ExitPlanMode",
+    searchHint: "present plan for approval and start coding (plan mode only)",
+    maxResultSizeChars: 100000,
+
+    async description() { return "Prompts the user to exit plan mode and start coding" },
+    async prompt() { return exitPlanModePromptText },
+
+    get inputSchema() {
+        return z.object({
+            allowedPrompts: z.array(z.object({
+                tool: z.enum(["Bash"]),
+                prompt: z.string()
+            })).optional().describe("Prompt-based permissions needed to implement the plan")
+        }).passthrough();
+    },
+
+    get outputSchema() {
+        return z.object({
+            plan: z.string().nullable(),
+            isAgent: z.boolean(),
+            filePath: z.string().optional(),
+            hasTaskTool: z.boolean().optional(),
+            awaitingLeaderApproval: z.boolean().optional(),
+            requestId: z.string().optional(),
+            isUltraplan: z.boolean().optional()
+        });
+    },
+
+    userFacingName() { return "" },
+    shouldDefer: true,
+    isEnabled() { return true },
+    isConcurrencySafe() { return true },
+    isReadOnly() { return false },
+    toAutoClassifierInput() { return "" },
+
+    requiresUserInteraction() {
+        // $Y() = isTeammate() - checks if running as swarm teammate
+        if (isTeammate()) return false;   // Teammates use swarm approval protocol
+        return true;                       // Main session needs user dialog
+    },
+
+    async validateInput(input, { getAppState, options }) {
+        // Teammates always pass validation (swarm handles protocol)
+        if (isTeammate()) return { result: true };
+
+        let appState = getAppState();
+        let currentMode = appState.toolPermissionContext.mode;
+
+        // Must be in plan mode to exit it
+        if (currentMode !== "plan") {
+            trackEvent("tengu_exit_plan_mode_called_outside_plan", {
+                model: options.mainLoopModel,
+                mode: currentMode,
+                hasExitedPlanModeInSession: hasExitedPlanMode()
+            });
+            return {
+                result: false,
+                message: "You are not in plan mode. This tool is only for exiting plan mode after writing a plan. If your plan was already approved, continue with implementation.",
+                errorCode: 1
+            };
+        }
+        return { result: true };
+    },
+
+    async checkPermissions(input, toolUseContext) {
+        // $Y() = isTeammate() - swarm teammates auto-allowed
+        if (isTeammate()) {
+            return { behavior: "allow", updatedInput: input };
+        }
+        // Main session requires user approval
+        return { behavior: "ask", message: "Exit plan mode?", updatedInput: input };
+    },
+
+    renderToolUseMessage: G1q,
+    renderToolUseProgressMessage: f1q,
+    renderToolResultMessage: T1q,
+    renderToolUseRejectedMessage: v1q,
+    renderToolUseErrorMessage: N1q,
+    // ... call() and mapToolResultToToolResultBlockParam() detailed below
+};
+
+// Mapping: zD→ExitPlanModeTool, aJ→"ExitPlanMode", E1q→inputSchema, AIY→outputSchema
+// Mapping: $Y→isTeammate, Z1q→exitPlanModePromptText, nk6→hasExitedPlanMode
+// Mapping: G1q→renderExitPlanModeMessage, f1q→renderExitPlanModeProgress, T1q→renderExitPlanModeResult
+// Mapping: v1q→renderExitPlanModeRejected, N1q→renderExitPlanModeError
 ```
 
 ### Call Logic (Three Paths)
 
 ```javascript
+// ============================================
+// ExitPlanModeTool.call() - Complete implementation
+// Location: chunks.143.mjs:2875-2959
+// ============================================
+
+// ORIGINAL (for source lookup):
+async call(A, q) {
+    let K = !!q.agentId,
+        Y = Fj(q.agentId),
+        z = sJ(q.agentId);
+
+    // PATH A: Swarm teammate (isTeammate() && hasTeamConfig())
+    if ($Y() && NF6()) {
+        if (!z) throw Error(`No plan file found at ${Y}. Please write your plan to this file before calling ExitPlanMode.`);
+        let H = i3() || "unknown",
+            j = l5(),
+            J = bZ6("plan_approval", ak(H, j || "default")),
+            M = {
+                type: "plan_approval_request",
+                from: H,
+                timestamp: new Date().toISOString(),
+                planFilePath: Y,
+                planContent: z,
+                requestId: J
+            };
+        await x3("team-lead", { from: H, text: B6(M), timestamp: new Date().toISOString() }, j);
+        let D = q.getAppState(),
+            X = ik1(H, D);
+        if (X) ag8(X, q.setAppState, !0);
+        return { data: { plan: z, isAgent: !0, filePath: Y, awaitingLeaderApproval: !0, requestId: J } }
+    }
+
+    // PATH B/C: Standard (main session or non-plan-mode-required teammate)
+    let _ = q.getAppState(),
+        w = _.toolPermissionContext.prePlanMode === "ultraplan",
+        O = null;
+
+    // Auto-mode gate check
+    {
+        let H = _.toolPermissionContext.prePlanMode ?? "default",
+            j = H === "ultraplan" ? "default" : H;
+        if ((j === "auto" || !1) && !(sl6?.isAutoModeGateEnabled() ?? !1)) {
+            let M = sl6?.getAutoModeUnavailableReason() ?? "circuit-breaker";
+            O = sl6?.getAutoModeUnavailableNotification(M) ?? "auto mode unavailable",
+            k(`[auto-mode gate @ ExitPlanModeV2Tool] prePlanMode=${j} but gate is off (reason=${M}) — falling back to default on plan exit`, { level: "warn" })
+        }
+    }
+    if (O) q.addNotification?.({ key: "auto-mode-gate-plan-exit-fallback", text: `plan exit → default · ${O}`, priority: "immediate", color: "warning", timeoutMs: 1e4 });
+
+    q.setAppState((H) => {
+        if (H.toolPermissionContext.mode !== "plan") return H;
+        HV(!0), JS(!0);  // Set hasExitedPlanMode and needsPlanModeExitAttachment
+        let j = H.toolPermissionContext.prePlanMode ?? "default",
+            J = j === "ultraplan" ? "default" : j;
+        {
+            if ((J === "auto" || !1) && !(sl6?.isAutoModeGateEnabled() ?? !1)) J = "default";
+            let X = J === "auto" || !1;
+            if (tCY?.setAutoModeActive(X), j === "auto" && J !== "auto") MS(!0)  // needsAutoModeExitAttachment
+        }
+        let M = J !== "auto" ? sl6?.restoreDangerousPermissions(H.toolPermissionContext) ?? H.toolPermissionContext : H.toolPermissionContext;
+        return {
+            ...H,
+            toolPermissionContext: { ...M, mode: J, prePlanMode: void 0 }
+        }
+    });
+
+    let $ = E7() && q.options.tools.some((H) => z3(H, r4));  // hasTaskTool
+    return { data: { plan: z, isAgent: K, filePath: Y, hasTaskTool: $ || void 0, isUltraplan: w || void 0 } }
+}
+
 // READABLE (for understanding):
 async call(input, toolUseContext) {
     let isAgent = !!toolUseContext.agentId;
-    let planFilePath = getPlanFilePath(toolUseContext.agentId);   // uW()
-    let planContent = getPlanContent(toolUseContext.agentId);     // pD()
+    let planFilePath = getPlanFilePath(toolUseContext.agentId);   // Fj()
+    let planContent = getPlanContent(toolUseContext.agentId);     // sJ()
 
-    // PATH A: Swarm teammate (not team-lead, plan_mode_required=true)
+    // ============================================================
+    // PATH A: Swarm teammate (isTeammate() && hasTeamConfig())
+    // Teammates with plan_mode_required send approval request to team lead
+    // ============================================================
     if (isTeammate() && hasTeamConfig()) {
-        if (!planContent) throw Error(`No plan file found at ${planFilePath}`);
-        let agentName = getAgentName();     // g5()
-        let teamName = getTeamName();       // i3()
-        let requestId = generateRequestId("plan_approval", hash(agentName, teamName));  // vP1()
+        if (!planContent) {
+            throw Error(`No plan file found at ${planFilePath}. Please write your plan to this file before calling ExitPlanMode.`);
+        }
+
+        let agentName = getAgentName();     // i3()
+        let teamName = getTeamName();       // l5()
+        let requestId = generateRequestId("plan_approval", hash(agentName, teamName));  // bZ6()
 
         let approvalRequest = {
             type: "plan_approval_request",
@@ -490,7 +764,7 @@ async call(input, toolUseContext) {
         };
 
         // Send to team-lead mailbox
-        writeToMailbox("team-lead", {
+        await writeToMailbox("team-lead", {
             from: agentName,
             text: JSON.stringify(approvalRequest),
             timestamp: new Date().toISOString()
@@ -501,37 +775,119 @@ async call(input, toolUseContext) {
         let taskId = findTaskByAgentName(agentName, appState);
         if (taskId) setAwaitingPlanApproval(taskId, toolUseContext.setAppState, true);
 
-        return { data: { plan: planContent, isAgent: true, filePath: planFilePath,
-                         awaitingLeaderApproval: true, requestId } };
+        return {
+            data: {
+                plan: planContent,
+                isAgent: true,
+                filePath: planFilePath,
+                awaitingLeaderApproval: true,
+                requestId
+            }
+        };
     }
 
-    // PATH B: Remote push (pushToRemote=true in input)
-    if (input.pushToRemote && input.remoteSessionId) {
-        pushToRemote({ session: {id: input.remoteSessionId, title: input.remoteSessionTitle},
-                       command: planContent, context: toolUseContext });
+    // ============================================================
+    // PATH B/C: Standard (main session or non-plan-mode-required teammate)
+    // ============================================================
+    let currentState = await toolUseContext.getAppState();
+    let isUltraplan = currentState.toolPermissionContext.prePlanMode === "ultraplan";
+    let autoModeFallbackNotification = null;
+
+    // Auto-mode gate check - if prePlanMode was "auto" but auto-mode gate is disabled,
+    // fall back to default mode instead
+    {
+        let prePlanMode = currentState.toolPermissionContext.prePlanMode ?? "default";
+        let targetMode = prePlanMode === "ultraplan" ? "default" : prePlanMode;
+
+        if (targetMode === "auto" && !isAutoModeGateEnabled()) {
+            let reason = getAutoModeUnavailableReason() ?? "circuit-breaker";
+            autoModeFallbackNotification = getAutoModeUnavailableNotification(reason) ?? "auto mode unavailable";
+            logWarn(`[auto-mode gate @ ExitPlanModeV2Tool] prePlanMode=${targetMode} but gate is off (reason=${reason}) — falling back to default on plan exit`);
+        }
     }
 
-    // PATH C: Standard (main session or non-plan-mode-required teammate)
+    // Show notification if auto-mode was gated
+    if (autoModeFallbackNotification) {
+        toolUseContext.addNotification?.({
+            key: "auto-mode-gate-plan-exit-fallback",
+            text: `plan exit → default · ${autoModeFallbackNotification}`,
+            priority: "immediate",
+            color: "warning",
+            timeoutMs: 10000
+        });
+    }
+
+    // Update state: exit plan mode
     toolUseContext.setAppState((state) => {
+        // Guard: only process if still in plan mode
         if (state.toolPermissionContext.mode !== "plan") return state;
-        setHasExitedPlanMode(true);         // OT(true)
-        setNeedsPlanModeExitAttachment(true); // kx(true)
-        let previousMode = state.toolPermissionContext.prePlanMode ?? "default";
+
+        // Set exit flags
+        setHasExitedPlanMode(true);              // HV(true)
+        setNeedsPlanModeExitAttachment(true);    // JS(true)
+
+        let prePlanMode = state.toolPermissionContext.prePlanMode ?? "default";
+        let targetMode = prePlanMode === "ultraplan" ? "default" : prePlanMode;
+
+        // Apply auto-mode gate
+        if (targetMode === "auto" && !isAutoModeGateEnabled()) {
+            targetMode = "default";
+        }
+
+        // Update auto-mode state
+        let isAutoMode = targetMode === "auto";
+        setAutoModeActive(isAutoMode);
+        if (prePlanMode === "auto" && targetMode !== "auto") {
+            setNeedsAutoModeExitAttachment(true);  // MS(true)
+        }
+
+        // Restore dangerous permissions if not staying in auto mode
+        let permissionContext = targetMode !== "auto"
+            ? restoreDangerousPermissions(state.toolPermissionContext) ?? state.toolPermissionContext
+            : state.toolPermissionContext;
+
         return {
             ...state,
             toolPermissionContext: {
-                ...state.toolPermissionContext,
-                mode: previousMode,          // Restore pre-plan mode
-                prePlanMode: undefined
+                ...permissionContext,
+                mode: targetMode,          // Restore pre-plan mode
+                prePlanMode: undefined     // Clear saved mode
             }
         };
     });
 
     let hasTaskTool = isTasksEnabled() && toolUseContext.options.tools.some(t => t.name === "Task");
-    return { data: { plan: planContent, isAgent, filePath: planFilePath,
-                     pushToRemote: input.pushToRemote, hasTaskTool } };
+
+    return {
+        data: {
+            plan: planContent,
+            isAgent,
+            filePath: planFilePath,
+            hasTaskTool: hasTaskTool || undefined,
+            isUltraplan: isUltraplan || undefined
+        }
+    };
 }
+
+// Mapping: Fj→getPlanFilePath, sJ→getPlanContent, $Y→isTeammate, NF6→hasTeamConfig
+// Mapping: i3→getAgentName, l5→getTeamName, bZ6→generateRequestId, ak→hash
+// Mapping: x3→writeToMailbox, B6→JSON.stringify, ik1→findTaskByAgentName, ag8→setAwaitingPlanApproval
+// Mapping: HV→setHasExitedPlanMode, JS→setNeedsPlanModeExitAttachment, MS→setNeedsAutoModeExitAttachment
+// Mapping: sl6→autoModeGate, tCY→autoModeState, E7→isTasksEnabled, z3→toolNameMatches, r4→TaskToolName
 ```
+
+**Key architectural decisions:**
+
+**Why auto-mode gate?**
+The auto-mode gate (`sl6.isAutoModeGateEnabled()`) prevents the system from entering auto mode when:
+- Circuit breaker is triggered (too many errors)
+- Rate limiting is active
+- System is in degraded state
+
+When exiting plan mode, if the saved `prePlanMode` was `"auto"` but the gate is now closed, the system falls back to `"default"` mode instead. This prevents cascading failures in production.
+
+**Why ultraplan → default?**
+The `"ultraplan"` mode is a special variant used by remote sessions. When exiting plan mode after an ultraplan session, the mode always resets to `"default"` (not back to ultraplan), as the ultraplan context was specific to the planning phase.
 
 ### `mapToolResultToToolResultBlockParam` - LLM Feedback
 
@@ -853,50 +1209,137 @@ Answer the user's query comprehensively, using the AskUserQuestion tool if you n
 
 ## 9. Reminder Scheduling
 
-### Constants (`ii4`, chunks.142.mjs:2921)
+### Constants (`t4q`, chunks.147.mjs:1235)
+
 ```javascript
-ii4 = {
+// ============================================
+// PLAN_MODE_ATTACHMENT_CONFIG - Turn throttling constants
+// Location: chunks.147.mjs:1235-1237
+// ============================================
+
+// ORIGINAL (for source lookup):
+t4q = {
     TURNS_BETWEEN_ATTACHMENTS: 5,       // Skip attachment if <5 turns since last plan_mode attachment
     FULL_REMINDER_EVERY_N_ATTACHMENTS: 5 // Full reminder every 5th attachment, others sparse
 }
+
+// READABLE (for understanding):
+const PLAN_MODE_ATTACHMENT_CONFIG = {
+    // How many assistant turns must pass before injecting another plan_mode reminder
+    // Prevents spamming the LLM with reminders every turn
+    TURNS_BETWEEN_ATTACHMENTS: 5,
+
+    // How often to inject the FULL reminder vs the sparse reminder
+    // Full reminder = ~1000 tokens with complete workflow instructions
+    // Sparse reminder = ~100 tokens with brief reminder
+    // Every 1st, 6th, 11th... attachment is full, others are sparse
+    FULL_REMINDER_EVERY_N_ATTACHMENTS: 5
+};
+
+// Mapping: t4q→PLAN_MODE_ATTACHMENT_CONFIG
 ```
 
-### `ihY` - Plan Mode Attachment Generator (chunks.142.mjs:2034)
+**Why these values?**
+
+- **TURNS_BETWEEN_ATTACHMENTS: 5** — The LLM typically needs 3-5 turns to make meaningful progress on planning tasks. Injecting reminders more frequently would be wasteful and could disrupt the planning flow. The 5-turn window gives the LLM enough time to:
+  1. Read relevant files
+  2. Understand the codebase structure
+  3. Formulate initial plan ideas
+  4. Write to the plan file
+
+- **FULL_REMINDER_EVERY_N_ATTACHMENTS: 5** — After ~25 turns (5 attachments × 5 turns each), the LLM may have drifted from the original instructions or forgotten key workflow steps. The full reminder re-injects the complete 5-phase workflow, ensuring:
+  - The LLM remembers to use agents for exploration
+  - The AskUserQuestion vs ExitPlanMode distinction is clear
+  - The plan file structure requirements are fresh
+
+### `DuY` - Plan Mode Attachment Generator (chunks.147.mjs:136)
 
 ```javascript
 // ============================================
-// ihY - Plan mode attachment generator
-// Location: chunks.142.mjs:2034
+// DuY - getPlanModeAttachment
+// Location: chunks.147.mjs:136-168
 // ============================================
 
+// ORIGINAL (for source lookup):
+async function DuY(A, q) {
+    let Y = q.getAppState().toolPermissionContext;
+    if (Y.mode !== "plan") return [];
+    if (A && A.length > 0) {
+        let { turnCount: H, foundPlanModeAttachment: j } = JuY(A);
+        if (j && H < t4q.TURNS_BETWEEN_ATTACHMENTS) return []
+    }
+    let z = Fj(q.agentId),
+        _ = sJ(q.agentId),
+        w = [];
+    if (Y.prePlanMode === "ultraplan") return w.push({
+        type: "plan_mode",
+        reminderType: "ultraplan-complete",
+        isSubAgent: !!q.agentId,
+        planFilePath: z,
+        planExists: _ !== null
+    }), w;
+    if (nk6() && _ !== null) w.push({
+        type: "plan_mode_reentry",
+        planFilePath: z
+    }), HV(!1);
+    let $ = (MuY(A ?? []) + 1) % t4q.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse";
+    return w.push({
+        type: "plan_mode",
+        reminderType: $,
+        isSubAgent: !!q.agentId,
+        planFilePath: z,
+        planExists: _ !== null
+    }), w
+}
+
 // READABLE (for understanding):
-async function generatePlanModeAttachments(conversationHistory, toolUseContext) {
+async function getPlanModeAttachment(conversationHistory, toolUseContext) {
     // Guard: only inject if currently in plan mode
-    if ((await toolUseContext.getAppState()).toolPermissionContext.mode !== "plan") return [];
+    let permContext = await toolUseContext.getAppState().toolPermissionContext;
+    if (permContext.mode !== "plan") return [];
 
     // Throttling: skip if recently reminded (within TURNS_BETWEEN_ATTACHMENTS)
     if (conversationHistory && conversationHistory.length > 0) {
-        let { turnCount, foundPlanModeAttachment } = countTurnsSinceLastPlanModeAttachment(conversationHistory);
-        if (foundPlanModeAttachment && turnCount < ii4.TURNS_BETWEEN_ATTACHMENTS) return [];
+        let { turnCount, foundPlanModeAttachment } = countTurnsSinceLastAttachment(conversationHistory);
+        if (foundPlanModeAttachment && turnCount < PLAN_MODE_ATTACHMENT_CONFIG.TURNS_BETWEEN_ATTACHMENTS) {
+            return [];  // Skip - too soon since last reminder
+        }
     }
 
     let planFilePath = getPlanFilePath(toolUseContext.agentId);
     let planContent = getPlanContent(toolUseContext.agentId);
-    let result = [];
+    let attachments = [];
+
+    // Special case: ultraplan mode (remote planning sessions)
+    if (permContext.prePlanMode === "ultraplan") {
+        attachments.push({
+            type: "plan_mode",
+            reminderType: "ultraplan-complete",  // Special reminder type
+            isSubAgent: !!toolUseContext.agentId,
+            planFilePath,
+            planExists: planContent !== null
+        });
+        return attachments;
+    }
 
     // Plan re-entry: if user exited plan mode before and is re-entering
     if (hasExitedPlanMode() && planContent !== null) {
-        result.push({ type: "plan_mode_reentry", planFilePath });
-        setHasExitedPlanMode(false);  // OT(false) - clear the flag
+        attachments.push({
+            type: "plan_mode_reentry",
+            planFilePath
+        });
+        setHasExitedPlanMode(false);  // Clear the flag
     }
 
     // Determine reminder type: full vs sparse
     // Count plan_mode attachments since last plan_mode_exit
     let attachmentCount = countPlanModeAttachmentsSinceLastExit(conversationHistory ?? []);
-    let reminderType = (attachmentCount + 1) % ii4.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse";
-    // i.e. full on 1st, 6th, 11th... sparse on 2nd-5th, 7th-10th...
+    let reminderType = (attachmentCount + 1) % PLAN_MODE_ATTACHMENT_CONFIG.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1
+        ? "full"
+        : "sparse";
+    // Formula: (count+1) % 5 === 1 means: 1st→full, 2nd-5th→sparse, 6th→full, etc.
 
-    result.push({
+    attachments.push({
         type: "plan_mode",
         reminderType,
         isSubAgent: !!toolUseContext.agentId,
@@ -904,8 +1347,12 @@ async function generatePlanModeAttachments(conversationHistory, toolUseContext) 
         planExists: planContent !== null
     });
 
-    return result;
+    return attachments;
 }
+
+// Mapping: DuY→getPlanModeAttachment, JuY→countTurnsSinceLastAttachment, MuY→countPlanModeAttachmentsSinceLastExit
+// Mapping: Fj→getPlanFilePath, sJ→getPlanContent, nk6→hasExitedPlanMode, HV→setHasExitedPlanMode
+// Mapping: t4q→PLAN_MODE_ATTACHMENT_CONFIG
 ```
 
 ### Plan Mode Re-entry Flow
@@ -933,28 +1380,67 @@ You are returning to plan mode after having previously exited it. A plan file ex
 Treat this as a fresh planning session. Do not assume the existing plan is relevant without evaluating it first.
 ```
 
-### Plan Mode Exit Attachment (`nhY`)
+### Plan Mode Exit Attachment (`XuY`, chunks.147.mjs:170)
 
 After ExitPlanMode succeeds, the next turn's attachment dispatch generates a `plan_mode_exit` attachment:
 
 ```javascript
 // ============================================
-// nhY - Plan mode exit attachment generator
-// Location: chunks.142.mjs:2060
+// XuY - getPlanModeExitAttachment
+// Location: chunks.147.mjs:170-181
 // ============================================
 
-async function generatePlanModeExitAttachment(toolUseContext) {
-    if (!needsPlanModeExitAttachment()) return [];
-    if ((await toolUseContext.getAppState()).toolPermissionContext.mode === "plan") {
-        setNeedsPlanModeExitAttachment(false);  // kx(false)
+// ORIGINAL (for source lookup):
+async function XuY(A) {
+    if (!Fu1()) return [];
+    if (A.getAppState().toolPermissionContext.mode === "plan") {
+        JS(!1);
         return [];  // Still in plan mode (plan was rejected by user) - don't emit exit
     }
-    setNeedsPlanModeExitAttachment(false);  // kx(false)
+    JS(!1);
+    let K = Fj(A.agentId),
+        Y = sJ(A.agentId) !== null;
+    return [{
+        type: "plan_mode_exit",
+        planFilePath: K,
+        planExists: Y
+    }]
+}
+
+// READABLE (for understanding):
+async function getPlanModeExitAttachment(toolUseContext) {
+    // Guard: only emit if flag is set
+    if (!needsPlanModeExitAttachment()) return [];
+
+    // Edge case: user rejected the ExitPlanMode dialog
+    // The mode is still "plan", so don't emit exit attachment
+    if ((await toolUseContext.getAppState()).toolPermissionContext.mode === "plan") {
+        setNeedsPlanModeExitAttachment(false);
+        return [];  // Stayed in plan mode - no exit attachment
+    }
+
+    // Clear the flag (one-shot behavior)
+    setNeedsPlanModeExitAttachment(false);
+
     let planFilePath = getPlanFilePath(toolUseContext.agentId);
     let planExists = getPlanContent(toolUseContext.agentId) !== null;
-    return [{ type: "plan_mode_exit", planFilePath, planExists }];
+
+    return [{
+        type: "plan_mode_exit",
+        planFilePath,
+        planExists
+    }];
 }
+
+// Mapping: XuY→getPlanModeExitAttachment, Fu1→needsPlanModeExitAttachment, JS→setNeedsPlanModeExitAttachment
+// Mapping: Fj→getPlanFilePath, sJ→getPlanContent
 ```
+
+**Key design insight:** The `needsPlanModeExitAttachment` flag is set during `ExitPlanMode.call()` (via `JS(true)`), but the actual attachment is generated on the *next* turn. This ensures:
+
+1. The exit attachment appears in the *next* API call's system reminders
+2. The LLM sees both the tool result ("User approved your plan...") AND the exit reminder
+3. If the user rejects the dialog, the flag is cleared without emitting the exit attachment
 
 The `plan_mode_exit` attachment renders:
 ```
@@ -963,6 +1449,137 @@ The `plan_mode_exit` attachment renders:
 You have exited plan mode. You can now make edits, run tools, and take actions.
 [If plan exists: "The plan file is located at <path> if you need to reference it."]
 ```
+
+### `mapToolResultToToolResultBlockParam` - LLM Feedback (chunks.143.mjs:2961-3015)
+
+After user approves, the tool result injected into the API conversation varies by path:
+
+```javascript
+// ============================================
+// ExitPlanMode.mapToolResultToToolResultBlockParam - Complete implementation
+// Location: chunks.143.mjs:2961-3015
+// ============================================
+
+// ORIGINAL (for source lookup):
+mapToolResultToToolResultBlockParam({
+    isAgent: A,
+    plan: q,
+    filePath: K,
+    hasTaskTool: Y,
+    awaitingLeaderApproval: z,
+    requestId: _,
+    isUltraplan: w
+}, O) {
+    if (z) return {
+        type: "tool_result",
+        content: `Your plan has been submitted to the team lead for approval.\n\nPlan file: ${K}\n\n**What happens next:**\n1. Wait for the team lead to review your plan\n2. You will receive a message in your inbox with approval/rejection\n3. If approved, you can proceed with implementation\n4. If rejected, refine your plan based on the feedback\n\n**Important:** Do NOT proceed until you receive approval. Check your inbox for response.\n\nRequest ID: ${_}`,
+        tool_use_id: O
+    };
+    if (A) return {
+        type: "tool_result",
+        content: 'User has approved the plan. There is nothing else needed from you now. Please respond with "ok"',
+        tool_use_id: O
+    };
+    if (!q || q.trim() === "") return {
+        type: "tool_result",
+        content: "User has approved exiting plan mode. You can now proceed.",
+        tool_use_id: O
+    };
+    if (w) return {
+        type: "tool_result",
+        content: "User has reviewed the ultraplan. There is nothing else to do. Respond with a brief summary of the plan.",
+        tool_use_id: O
+    };
+    let $ = Y ? `\n\nIf this plan can be broken down into multiple independent tasks, consider using the ${SI} tool to create a team and parallelize the work.` : "";
+    return {
+        type: "tool_result",
+        content: `User has approved your plan. You can now start coding. Start with updating your todo list if applicable\n\nYour plan has been saved to: ${K}\nYou can refer back to it if needed during implementation.${$}\n\n## Approved Plan:\n${q}`,
+        tool_use_id: O
+    }
+}
+
+// READABLE (for understanding):
+mapToolResultToToolResultBlockParam(result, toolUseId) {
+    let { isAgent, plan, filePath, hasTaskTool, awaitingLeaderApproval, requestId, isUltraplan } = result;
+
+    // Case 1: Swarm teammate awaiting leader approval
+    if (awaitingLeaderApproval) {
+        return {
+            type: "tool_result",
+            content: `Your plan has been submitted to the team lead for approval.
+
+Plan file: ${filePath}
+
+**What happens next:**
+1. Wait for the team lead to review your plan
+2. You will receive a message in your inbox with approval/rejection
+3. If approved, you can proceed with implementation
+4. If rejected, refine your plan based on the feedback
+
+**Important:** Do NOT proceed until you receive approval. Check your inbox for response.
+
+Request ID: ${requestId}`,
+            tool_use_id: toolUseId
+        };
+    }
+
+    // Case 2: Sub-agent (standard path, approved by main session)
+    if (isAgent) {
+        return {
+            type: "tool_result",
+            content: 'User has approved the plan. There is nothing else needed from you now. Please respond with "ok"',
+            tool_use_id: toolUseId
+        };
+    }
+
+    // Case 3: Empty plan (no plan file written)
+    if (!plan || plan.trim() === "") {
+        return {
+            type: "tool_result",
+            content: "User has approved exiting plan mode. You can now proceed.",
+            tool_use_id: toolUseId
+        };
+    }
+
+    // Case 4: Ultraplan (remote planning session)
+    if (isUltraplan) {
+        return {
+            type: "tool_result",
+            content: "User has reviewed the ultraplan. There is nothing else to do. Respond with a brief summary of the plan.",
+            tool_use_id: toolUseId
+        };
+    }
+
+    // Case 5: Normal plan approval (main session)
+    let taskHint = hasTaskTool
+        ? `\n\nIf this plan can be broken down into multiple independent tasks, consider using the Task tool to create a team and parallelize the work.`
+        : "";
+
+    return {
+        type: "tool_result",
+        content: `User has approved your plan. You can now start coding. Start with updating your todo list if applicable
+
+Your plan has been saved to: ${filePath}
+You can refer back to it if needed during implementation.${taskHint}
+
+## Approved Plan:
+${plan}`,
+        tool_use_id: toolUseId
+    };
+}
+
+// Mapping: SI→TaskToolName
+```
+
+**Why different responses per case?**
+
+| Case | Response Purpose |
+|------|-----------------|
+| Swarm awaiting | Instruct teammate to wait, explain mailbox protocol, provide requestId for tracking |
+| Sub-agent approved | Simple acknowledgment - sub-agents have focused tasks, just need to know they can proceed |
+| Empty plan | No plan content to show, just confirm exit |
+| Ultraplan | Different UX - user reviewed externally, just summarize |
+| Normal approval | Full plan content with hints about Task tool for parallelization |
 
 ---
 
@@ -1006,7 +1623,7 @@ Reads plan file from disk, returns `null` if not found.
 
 **Key design**: `ExitPlanMode` does NOT accept plan content as a parameter. It reads from the file. This prevents LLM from showing a different plan than what was written to disk.
 
-### During Compaction (`collectPlanToKeep`, `jZ6`, chunks.146.mjs:2699)
+### During Compaction (`collectPlanToKeep`, `mE1`, chunks.147.mjs:1885)
 
 When conversation is compacted, the plan file content is included in the preserved context:
 ```javascript
@@ -1408,7 +2025,7 @@ When `getPlanContent()` returns null (`T = !N || N.trim() === ""`), a simplified
     No
 ```
 
-- "Yes" → `A.onAllow({}, [{type: "setMode", mode: "default", destination: "session"}])` with `OT(!0)`, `kx(!0)` (telemetry: `outcome: "yes-default"`)
+- "Yes" → `A.onAllow({}, [{type: "setMode", mode: "default", destination: "session"}])` with `HV(!0)`, `JS(!0)` (telemetry: `outcome: "yes-default"`)
 - "No" / Esc → `A.onReject()`
 
 Rendered at `chunks.181.mjs:721-761`. Mode always resets to `"default"` (not prePlanMode) when there's no plan.
@@ -1568,7 +2185,7 @@ async function q1(D1) {
                 clearContext: !0, mode: Y1, allowedPrompts: Z
             }
         }));
-        OT(!0), q(), K(), A.onReject();  // REJECTS the ExitPlanMode tool call
+        HV(!0), q(), K(), A.onReject();  // REJECTS the ExitPlanMode tool call
         return
     }
 
@@ -1578,14 +2195,14 @@ async function q1(D1) {
         "yes-default-keep-context": "default"
     }[D1];
     if (A1) {
-        OT(!0), kx(!0), q(), A.onAllow(Z1, Rc1(A1, Z));  // APPROVES the ExitPlanMode tool call
+        HV(!0), JS(!0), q(), A.onAllow(Z1, Rc1(A1, Z));  // APPROVES the ExitPlanMode tool call
         return
     }
 
     // [PATH C] Dead code — "yes-bypass-permissions"/"yes-accept-edits" with onAllow
     // UNREACHABLE: caught by PATH A first. Leftover from pre-refactor flow.
     let z1 = { "yes-bypass-permissions": "bypassPermissions", "yes-accept-edits": "acceptEdits" }[D1];
-    if (z1) { OT(!0), kx(!0), q(), A.onAllow(Z1, Rc1(z1, Z)); return }
+    if (z1) { HV(!0), JS(!0), q(), A.onAllow(Z1, Rc1(z1, Z)); return }
 
     // [PATH D] "no" — send feedback text/image
     if (D1 === "no") {
@@ -1635,7 +2252,7 @@ async function handleOptionSelected(selectedValue) {
                 allowedPrompts: allowedPrompts  // Z = A.input.allowedPrompts
             }
         }));
-        setHasExitedPlanMode(true);     // OT(true)
+        setHasExitedPlanMode(true);     // HV(true)
         closeDialog();                  // q()
         clearPendingPermission();       // K()
         permissionCallbacks.onReject(); // A.onReject() ← REJECTS the ExitPlanMode tool call
@@ -1649,8 +2266,8 @@ async function handleOptionSelected(selectedValue) {
     }[selectedValue];
 
     if (keepContextTargetMode) {
-        setHasExitedPlanMode(true);                // OT(true)
-        setNeedsPlanModeExitAttachment(true);       // kx(true)
+        setHasExitedPlanMode(true);                // HV(true)
+        setNeedsPlanModeExitAttachment(true);       // JS(true)
         closeDialog();                             // q()
         permissionCallbacks.onAllow(             // A.onAllow() ← APPROVES the ExitPlanMode tool call
             keyEvent,
@@ -1682,7 +2299,7 @@ async function handleOptionSelected(selectedValue) {
 // Mapping: q1→handleOptionSelected, D1→selectedValue, w→setAppState, Y1→targetMode
 //          W→isExitPlanModeTool, k→planContent (TEXT), Z→allowedPrompts
 //          G1→transcriptPathHint, L1→teamHint, _1→"" (empty reserved)
-//          OT→setHasExitedPlanMode, kx→setNeedsPlanModeExitAttachment
+//          HV→setHasExitedPlanMode, JS→setNeedsPlanModeExitAttachment
 //          q→closeDialog, K→clearPendingPermission, A→permissionCallbacks
 //          c6→buildUserMessage, Z1→keyEvent/planSnapshot, Rc1→buildPermissionContext
 //          A1→keepContextTargetMode, z1→deadCodeMode, N1→checkRemoteEligibilityAndPush
@@ -1727,7 +2344,7 @@ User selects "yes-accept-edits"
     │       allowedPrompts: [...]
     │   }})
     │
-    ├─ setHasExitedPlanMode(true)         [OT(true)]
+    ├─ setHasExitedPlanMode(true)         [HV(true)]
     ├─ closeDialog()                      [q()]
     ├─ clearPendingPermission()           [K()]
     └─ permissionCallbacks.onReject()     [A.onReject()]
@@ -2173,7 +2790,7 @@ User triggers plan mode (Shift+Tab OR LLM calls EnterPlanMode)
     │
     ├─ Via Shift+Tab (UI)
     │   ├── hf1() computes next mode → "plan"
-    │   ├── ey(currentMode, "plan") → sets needsPlanModeExitAttachment=false
+    │   ├── Dp(currentMode, "plan") → sets needsPlanModeExitAttachment=false
     │   ├── Records lastPlanModeUse in settings
     │   └── Updates AppState: mode="plan"
     │
@@ -2181,7 +2798,7 @@ User triggers plan mode (Shift+Tab OR LLM calls EnterPlanMode)
         ├── checkPermissions() → { behavior: "allow" } (no user prompt)
         ├── call():
         │   ├── Guard: agentId must be null
-        │   ├── ey(currentMode, "plan") → sets flags
+        │   ├── Dp(currentMode, "plan") → sets flags
         │   ├── a2(permCtx, { type: "setMode", mode: "plan" }) → updates ctx
         │   └── Saves prePlanMode = currentMode
         ├── UI renders: "✓ Entered plan mode"
@@ -2209,8 +2826,8 @@ LLM calls ExitPlanMode
     │
     ├─ User APPROVES
     │   ├── call():
-    │   │   ├── OT(true) → hasExitedPlanMode = true
-    │   │   ├── kx(true) → needsPlanModeExitAttachment = true
+    │   │   ├── HV(true) → hasExitedPlanMode = true
+    │   │   ├── JS(true) → needsPlanModeExitAttachment = true
     │   │   ├── Restores mode = prePlanMode ?? "default"
     │   │   └── Returns { plan, filePath, hasTaskTool, ... }
     │   ├── UI renders: "✓ User approved Claude's plan" + plan content
@@ -2366,3 +2983,249 @@ async function normalizeToolInput(input, toolUseContext) {
 - The permission dialog needs the actual plan content to display
 - The tool result renderer needs the plan content to show after approval
 - Swarm teammates need the plan content for the approval request message
+
+---
+
+## 21. Cross-Module Feature Linkage
+
+Plan mode integrates with multiple systems across Claude Code. This section documents the key integration points.
+
+### Plan Mode ↔ System Reminder Integration
+
+The system reminder module ([04_system_reminder/](../04_system_reminder/)) is responsible for injecting plan mode instructions into the LLM context.
+
+**Key Integration Functions:**
+
+| Function | Symbol | Purpose |
+|----------|--------|---------|
+| `getPlanModeAttachment` | `DuY` | Generates plan_mode attachment for current turn |
+| `getPlanModeExitAttachment` | `XuY` | Generates plan_mode_exit attachment after exit |
+| `buildPlanModeReminder` | `azz` | Renders full/sparse/interview reminder text |
+| `countTurnsSinceLastAttachment` | `JuY` | Throttles reminder injection |
+
+**Turn-Based Throttling Algorithm:**
+
+```javascript
+// ============================================
+// PLAN_MODE_ATTACHMENT_CONFIG - Turn throttling constants
+// Location: chunks.147.mjs:1235
+// ============================================
+
+const PLAN_MODE_ATTACHMENT_CONFIG = {
+    TURNS_BETWEEN_ATTACHMENTS: 5,        // Skip if <5 turns since last
+    FULL_REMINDER_EVERY_N_ATTACHMENTS: 5 // Full reminder on 1st, 6th, 11th...
+};
+```
+
+**Why this throttling?**
+- The 5-turn window gives the LLM time to make meaningful progress without repeated reminders
+- Full reminders (1000+ tokens) are injected every 25 turns to reinforce the workflow
+- Sparse reminders (~100 tokens) are used between full reminders to save context
+
+### Plan Mode ↔ Compact Integration
+
+The compact module ([07_compact/](../07_compact/)) preserves the plan file during conversation compaction.
+
+**Key Integration Functions:**
+
+| Function | Symbol | Purpose |
+|----------|--------|---------|
+| `collectPlanToKeep` | `mE1` | Collects plan file as attachment during compaction |
+| `getPlanFileContent` | `pD` | Reads plan file content from disk |
+| `getPlanFilePath` | `uW` | Computes plan file path from session context |
+
+**Plan Preservation Flow:**
+
+```
+Compaction Triggered
+    │
+    ├─ performFullCompaction() called
+    │
+    ├─ State collection phase:
+    │   ├─ fqq() → collect files to keep
+    │   ├─ Nqq() → collect tasks to keep
+    │   ├─ pa4() → collect todos to keep
+    │   ├─ mE1() → collect plan to keep ← PLAN PRESERVED
+    │   └─ Tqq() → collect skills to keep
+    │
+    └─ Post-compaction context includes:
+        plan_file_reference attachment with:
+        - planFilePath
+        - planContent (full file)
+```
+
+**Key Design Decision:** The plan file has **no size limit** during compaction, unlike read files (50KB limit). This ensures the entire plan survives context management.
+
+### Plan Mode ↔ Hooks Integration
+
+The hooks module ([11_hooks/](../11_hooks/)) fires events during plan mode operations.
+
+**Key Integration Points:**
+
+| Hook Event | When It Fires | Plan Mode Behavior |
+|------------|---------------|-------------------|
+| `PreToolUse` | Before tool execution | Read-only enforcement applies |
+| `PostToolUse` | After tool success | Normal behavior |
+| `PreCompact` | Before compaction | Can inject custom instructions |
+| `PostCompact` | After compaction | State restoration possible |
+| `SessionEnd` | Session termination | Normal cleanup |
+
+**PreCompact Hook in Plan Mode:**
+
+```javascript
+// ============================================
+// executePreCompactHooks - PreCompact hook execution
+// Location: chunks.141.mjs:3011
+// ============================================
+
+async function executePreCompactHooks(hookInput, signal, timeoutMs) {
+    let payload = {
+        hook_event_name: "PreCompact",
+        trigger: hookInput.trigger,  // "manual" or "auto"
+        custom_instructions: hookInput.customInstructions
+    };
+
+    let results = await executeHooks({ hookInput: payload, ... });
+
+    return {
+        newCustomInstructions: results
+            .filter(r => r.succeeded && r.output.trim())
+            .map(r => r.output.trim())
+            .join("\n\n"),
+        userDisplayMessage: /* formatted results */
+    };
+}
+```
+
+**Why PreCompact returns customInstructions?** Hooks can inject additional context into the compaction prompt, allowing users to guide summarization behavior via hook configuration.
+
+### Plan Mode ↔ Task System Integration
+
+The task system ([13_task_system/](../13_task_system/)) is orthogonal to plan mode but integrates during planning workflows.
+
+**Task Tools Availability in Plan Mode:**
+
+| Tool | Available | Reason |
+|------|-----------|--------|
+| `TaskCreate` | ✓ Yes | Creates metadata, doesn't modify code |
+| `TaskList` | ✓ Yes | Read-only operation |
+| `TaskGet` | ✓ Yes | Read-only operation |
+| `TaskUpdate` | ✓ Yes | Updates task state, not code |
+
+**Task Preservation During Compaction:**
+
+The `collectTasksToKeep` (`Nqq`) function preserves terminal-state background agent tasks:
+
+```javascript
+// Only preserve completed/failed/killed tasks
+// Running tasks are still active and will report when done
+if (status === "completed" || status === "failed" || status === "killed") {
+    return [createAttachmentMessage({
+        type: "task_status",
+        taskId: task.agentId,
+        taskType: "local_agent",
+        description: task.description,
+        status: status,
+        deltaSummary: task.error ?? null
+    })];
+}
+```
+
+### Plan Mode ↔ Permission System Integration
+
+The permission system enforces plan mode restrictions via `toolPermissionContext.mode`.
+
+**Mode State:**
+
+```typescript
+interface ToolPermissionContext {
+    mode: "default" | "plan" | "acceptEdits" | "delegate" | "bypassPermissions" | "dontAsk";
+    prePlanMode?: string;  // Saved on entry, restored on exit
+    // ...
+}
+```
+
+**Mode Transition Hook:**
+
+```javascript
+// Dp - handlePlanModeTransition
+function handlePlanModeTransition(fromMode, toMode) {
+    // Entering plan mode: clear exit attachment flag
+    if (toMode === "plan" && fromMode !== "plan") {
+        globalSessionState.needsPlanModeExitAttachment = false;
+    }
+    // Exiting plan mode: set exit attachment flag
+    if (fromMode === "plan" && toMode !== "plan") {
+        globalSessionState.needsPlanModeExitAttachment = true;
+    }
+}
+```
+
+**Global State Flags:**
+
+| Flag | Getter | Setter | Purpose |
+|------|--------|--------|---------|
+| `hasExitedPlanMode` | `nk6()` | `HV()` | Track if user exited plan mode this session |
+| `needsPlanModeExitAttachment` | `Fu1()` | `JS()` | Trigger plan_mode_exit attachment |
+
+### Plan Mode ↔ Swarm/Team Integration
+
+Swarm teammates with `planModeRequired: true` use a different approval flow.
+
+**Swarm Approval Flow:**
+
+```
+Teammate calls ExitPlanMode
+    │
+    ├─ isTeammate() && hasTeamConfig() → true
+    │
+    ├─ Write plan_approval_request to team-lead mailbox
+    │   {
+    │       type: "plan_approval_request",
+    │       from: agentName,
+    │       planFilePath,
+    │       planContent,
+    │       requestId
+    │   }
+    │
+    ├─ Mark task as awaitingPlanApproval
+    │
+    └─ Return { awaitingLeaderApproval: true, requestId }
+        (Teammate waits for leader response)
+```
+
+**Team Lead Response:**
+
+When the team lead approves/rejects via `SendMessage`, the teammate receives the response in their inbox and either proceeds with implementation or revises the plan.
+
+---
+
+## 22. Summary: Plan Mode Architecture
+
+### Key Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| **EnterPlanMode Tool** | `chunks.144.mjs` | State transition into plan mode |
+| **ExitPlanMode Tool** | `chunks.143.mjs` | State transition out of plan mode |
+| **System Reminder** | `chunks.147.mjs`, `chunks.173.mjs` | Inject planning instructions |
+| **Plan File** | `{sessionDir}/{slug}.md` | Persistent plan storage |
+| **Mode State** | `toolPermissionContext.mode` | Track current mode |
+| **Exit Flags** | `globalSessionState` | Track exit state for attachments |
+
+### Key Algorithms
+
+1. **Turn-based throttling**: Skip reminders within 5 turns, full vs sparse alternation
+2. **Re-entry detection**: `hasExitedPlanMode` flag triggers special re-entry instructions
+3. **Auto-mode gate**: Circuit breaker prevents cascading failures on plan exit
+4. **Plan slug preservation**: Maintains plan file access across session clear
+
+### State Transitions
+
+```
+default → plan → (user approves) → default/acceptEdits/bypassPermissions
+                 (user rejects) → plan (stays)
+
+default → plan → (teammate) → plan_approval_request → (lead approves) → default
+                                                        (lead rejects) → plan
+```
