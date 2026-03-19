@@ -13,33 +13,34 @@ Plan Mode is a specialized session state in Claude Code that restricts the agent
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `EnterPlanModeTool` (kg1) - Tool object (chunks.140.mjs:1649)
-- `ExitPlanModeTool` (Nj) - Tool object (chunks.139.mjs:2641)
+- `EnterPlanModeTool` (Ki6) - Tool object (chunks.144.mjs:1579)
+- `ExitPlanModeTool` (zD) - Tool object (chunks.143.mjs:2802)
 
 > See also:
 > - [ask_user_question.md](./ask_user_question.md) — Deep analysis of AskUserQuestion tool (multi-round interactions, elicitation queue, UI components, schema)
 > - [interview_phase.md](./interview_phase.md) — Complete Interview Phase analysis (feature flag, iterative loop, "Chat about this" / "Skip interview" callbacks, "Ready to code?" dialog options, context-clearing mechanism)
 > - [tools_filtering.md](./tools_filtering.md) — Tools restriction analysis (isReadOnly(), allowedTools, Bash filtering, permission flow)
-> - [reminder_system.md](./reminder_system.md) — Reminder/attachment injection (ihY, nhY, ezz, A2z, turn counting, throttling)
+> - [reminder_system.md](./reminder_system.md) — Reminder/attachment injection (DuY, XuY, ezz, A2z, turn counting, throttling)
 > - [state_management.md](./state_management.md) — State variables and transitions (hasExitedPlanMode, needsPlanModeExitAttachment, prePlanMode)
-> - [mode_cycling.md](./mode_cycling.md) — Shift+Tab integration (hf1, FGq, mode sequences)
+> - [mode_cycling.md](./mode_cycling.md) — Shift+Tab integration (W26, GH, mode sequences)
 > - [plan_approval_flow.md](./plan_approval_flow.md) — Plan approval lifecycle (user-facing + swarm teammate)
 > - [ui_linkage.md](./ui_linkage.md) — UI components and rendering
 > - [compact_integration.md](./compact_integration.md) — Plan preservation during compaction (jZ6, pD, uW, kq)
 > - [hooks_integration.md](./hooks_integration.md) — Hooks in plan mode (mW6, JZY, PreCompact)
 > - [task_integration.md](./task_integration.md) — Task system integration (ca4, TaskCreate, TaskUpdate)
 - `aPq` (chunks.181.mjs:405) - ExitPlanMode dialog ("Ready to code?")
-- `hf1` (chunks.183.mjs:1778) - Mode cycle function
+- `W26` (chunks.191.mjs:3007) - Mode cycle function
+- `GH` (chunks.193.mjs:649) - Mode cycle keybinding handler ("chat:cycleMode")
 - `CQ` (chunks.14.mjs:3260) - Mode display name ("Plan Mode")
 - `Rv1` (chunks.14.mjs:3281) - Mode icon ("⏸")
 - `cP` (chunks.14.mjs:3298) - Mode theme color ("planMode")
-- `ihY` (chunks.142.mjs:2034) - Plan mode attachment generator
-- `nhY` (chunks.142.mjs:2060) - Plan mode exit attachment generator
-- `ey` (chunks.1.mjs:2875) - Mode transition hook (updates needsPlanModeExitAttachment)
-- `aL6` (chunks.1.mjs:2859) - `hasExitedPlanMode` getter
-- `sL6` (chunks.1.mjs:2867) - `needsPlanModeExitAttachment` getter
-- `OT` (chunks.1.mjs:2863) - `setHasExitedPlanMode`
-- `kx` (chunks.1.mjs:2871) - `setNeedsPlanModeExitAttachment`
+- `DuY` (chunks.147.mjs:136) - Plan mode attachment generator
+- `XuY` (chunks.147.mjs:170) - Plan mode exit attachment generator
+- `Dp` (chunks.1.mjs:2946) - Mode transition hook (updates needsPlanModeExitAttachment)
+- `nk6` (chunks.1.mjs:2930) - `hasExitedPlanMode` getter
+- `Fu1` (chunks.1.mjs:2938) - `needsPlanModeExitAttachment` getter
+- `HV` (chunks.1.mjs:2934) - `setHasExitedPlanMode`
+- `JS` (chunks.1.mjs:2942) - `setNeedsPlanModeExitAttachment`
 - `GIA` (chunks.152.mjs:1438) - `clearConversation` (full 11-step session reset)
 - `PIA` (chunks.152.mjs:1421) - `clearSessionCaches`
 - `DL6` (chunks.1.mjs:2429) - `createNewSessionId` (with parent tracking)

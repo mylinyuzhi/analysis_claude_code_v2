@@ -11,8 +11,9 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI Components
 
 Key functions in this document:
-- `hf1` (chunks.183.mjs:1778) - `cycleMode` - Mode cycle logic
-- `FGq` (chunks.183.mjs:1799) - `cycleModeWithContext` - Mode cycle wrapper
+- `W26` (chunks.191.mjs:3007) - `cycleMode` - Mode cycle logic
+- `lbq` (chunks.191.mjs:3027) - `cycleModeWithContext` - Mode cycle wrapper returning next mode and context
+- `GH` (chunks.193.mjs:649) - `handleCycleModeKeybinding` - Shift+Tab handler (keybinding action: "chat:cycleMode")
 - `PM` (chunks.1.mjs) - `isTeamLeader` - Team context check
 - `l8` (chunks.1.mjs) - `hasTeamContext` - Team detection
 - `CQ` (chunks.14.mjs:3260) - `getModeDisplayName` - Mode name
@@ -60,52 +61,109 @@ Shift+Tab cycles through available permission modes. Plan mode is one of the mod
 
 ---
 
-## 2. Core Function: `cycleMode` (`hf1`)
+## 2. Core Function: `cycleMode` (`W26`)
 
 ```javascript
 // ============================================
-// hf1 - cycleMode
-// Location: chunks.183.mjs:1778-1797
+// W26 - cycleMode
+// Location: chunks.191.mjs:3007-3025
 // ============================================
 
 // ORIGINAL (for source lookup):
-function hf1(A, q) {
-    let K = l8() && q && PM(q);
+function W26(A, q) {
     switch (A.mode) {
-        case "default":     return "acceptEdits";
-        case "acceptEdits": return "plan";
+        case "default":
+            return "acceptEdits";
+        case "acceptEdits":
+            return "plan";
         case "plan":
-            if (K) return "delegate";
             if (A.isBypassPermissionsModeAvailable) return "bypassPermissions";
+            if (cbq(A)) return "auto";
             return "default";
-        case "delegate":
-            if (A.isBypassPermissionsModeAvailable) return "bypassPermissions";
+        case "bypassPermissions":
+            if (cbq(A)) return "auto";
             return "default";
-        case "bypassPermissions": return "default";
-        case "dontAsk":     return "default"
+        case "dontAsk":
+            return "default";
+        default:
+            return "default"
     }
 }
 
 // READABLE (for understanding):
-function cycleMode(currentPermissionContext, teamContext) {
-    let isTeamLeaderWithTeam = hasTeamContext() && teamContext && isTeamLeader(teamContext);
-
-    switch (currentPermissionContext.mode) {
-        case "default":       return "acceptEdits";
-        case "acceptEdits":   return "plan";
+function cycleMode(permissionContext, teamContext) {
+    switch (permissionContext.mode) {
+        case "default":
+            return "acceptEdits";
+        case "acceptEdits":
+            return "plan";
         case "plan":
-            if (isTeamLeaderWithTeam) return "delegate";
-            if (currentPermissionContext.isBypassPermissionsModeAvailable) return "bypassPermissions";
+            // Enterprise: bypassPermissions available after plan
+            if (permissionContext.isBypassPermissionsModeAvailable) return "bypassPermissions";
+            // Team leaders: auto mode available
+            if (isTeamLeaderWithTeam(permissionContext)) return "auto";
             return "default";
-        case "delegate":
-            if (currentPermissionContext.isBypassPermissionsModeAvailable) return "bypassPermissions";
+        case "bypassPermissions":
+            if (isTeamLeaderWithTeam(permissionContext)) return "auto";
             return "default";
-        case "bypassPermissions": return "default";
-        case "dontAsk":           return "default";
+        case "dontAsk":
+            return "default";
+        default:
+            return "default";
     }
 }
 
-// Mapping: hf1→cycleMode, l8→hasTeamContext, PM→isTeamLeader, K→isTeamLeaderWithTeam
+// Mapping: W26→cycleMode, cbq→isTeamLeaderWithTeam
+```
+
+### Keybinding Handler (`GH`)
+
+The keybinding handler for `"chat:cycleMode"` is in chunks.193.mjs:
+
+```javascript
+// ============================================
+// GH - handleCycleModeKeybinding
+// Location: chunks.193.mjs:649-719
+// ============================================
+
+// READABLE (for understanding):
+const handleCycleModeKeybinding = useCallback(() => {
+    // Check if handling teammate mode (swarm context)
+    if (isTeammateMode() && teammateContext && taskId) {
+        let updatedContext = { ...permissionContext, mode: teammateContext.permissionMode };
+        let nextMode = cycleMode(updatedContext, undefined);
+        // Track and update teammate mode...
+        return;
+    }
+
+    // Normal mode cycling
+    let nextMode = cycleMode(permissionContext, teamContext);
+
+    // Handle "auto" mode (team leader)
+    if (nextMode === "auto" && permissionContext.mode !== "auto" && !isSubagent() && !taskId) {
+        // Show auto mode confirmation dialog
+        setPreAutoMode(permissionContext.mode);
+        updateState({ toolPermissionContext: { ...permissionContext, mode: "auto" }});
+        // Set 400ms timeout for auto mode confirmation
+        return;
+    }
+
+    // Update lastPlanModeUse timestamp if entering plan mode
+    if (nextMode === "plan") {
+        updateSessionState(prev => ({ ...prev, lastPlanModeUse: Date.now() }));
+    }
+
+    // Apply the mode change
+    updateState(prev => ({
+        ...prev,
+        toolPermissionContext: { ...contextAfterModeChange, mode: nextMode }
+    }));
+
+    // Log telemetry
+    trackEvent("tengu_mode_cycle", { to: nextMode });
+}, [permissionContext, teamContext, ...]);
+
+// Mapping: GH→handleCycleModeKeybinding, W26→cycleMode
 ```
 
 ---
@@ -165,8 +223,8 @@ function cycleMode(currentPermissionContext, teamContext) {
 
 ### Interaction with Plan Mode Entry/Exit
 
-**EnterPlanMode Tool:** When the LLM calls `EnterPlanMode`, current mode is saved as `prePlanMode`, `mode` is set to `"plan"`, and `needsPlanModeExitAttachment` is set via `ey` transition hook.
+**EnterPlanMode Tool:** When the LLM calls `EnterPlanMode`, current mode is saved as `prePlanMode`, `mode` is set to `"plan"`, and `needsPlanModeExitAttachment` is set via `Dp` transition hook.
 
 **ExitPlanMode Tool:** When the LLM calls `ExitPlanMode` (and user approves), `mode` is restored to `prePlanMode` or `"default"`, `prePlanMode` is cleared, `hasExitedPlanMode` is set to `true`, and `needsPlanModeExitAttachment` is cleared.
 
-**Shift+Tab Exit:** When user exits via Shift+Tab, `hasExitedPlanMode` is set immediately in the handler, mode cycles to next mode in sequence, and `needsPlanModeExitAttachment` is cleared via `ey` hook.
+**Shift+Tab Exit:** When user exits via Shift+Tab, `hasExitedPlanMode` is set immediately in the handler, mode cycles to next mode in sequence, and `needsPlanModeExitAttachment` is cleared via `Dp` hook.

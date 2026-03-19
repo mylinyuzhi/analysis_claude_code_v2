@@ -14,7 +14,7 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI Components
 
 Key symbols in this document:
-- `sO` (chunks.140.mjs:1475) - `isPlanModeInterviewPhase` (feature flag reader)
+- `rO` (chunks.50.mjs:2520) - `isPlanModeInterviewPhase` (feature flag reader)
 - `UCY` (chunks.140.mjs:1572) - Standard "What Happens in Plan Mode" text (omitted in interview mode)
 - `pCY` (chunks.140.mjs:1488) - `buildEnterPlanModePrompt` (interview vs standard variants)
 - `ezz` (chunks.173.mjs:619) - `buildPlanModeInterviewReminder` (iterative loop instructions)
@@ -30,7 +30,7 @@ Key symbols in this document:
 
 ---
 
-## 1. Feature Flag: `isPlanModeInterviewPhase` (`sO`, chunks.140.mjs:1475)
+## 1. Feature Flag: `isPlanModeInterviewPhase` (`rO`, chunks.50.mjs:2520)
 
 ### What it does
 
@@ -44,12 +44,12 @@ Controls whether the **iterative interview loop** (Explore → Update → Ask �
 
 ```javascript
 // ============================================
-// sO - isPlanModeInterviewPhase
-// Location: chunks.140.mjs:1474-1480
+// rO - isPlanModeInterviewPhase
+// Location: chunks.50.mjs:2520-2523
 // ============================================
 
 // ORIGINAL (for source lookup):
-function sO() {
+function rO() {
     let A = process.env.CLAUDE_CODE_PLAN_MODE_INTERVIEW_PHASE;
     if (J6(A)) return !0;
     if (FY(A)) return !1;
@@ -64,7 +64,7 @@ function isPlanModeInterviewPhase() {
     return getFeatureFlag("tengu_plan_mode_interview_phase", false)  // default: OFF
 }
 
-// Mapping: sO→isPlanModeInterviewPhase, J6→parseTruthy, FY→parseFalsy, x8→getFeatureFlag
+// Mapping: rO→isPlanModeInterviewPhase, J6→parseTruthy, FY→parseFalsy, x8→getFeatureFlag
 ```
 
 ### Priority Hierarchy
@@ -82,7 +82,7 @@ function isPlanModeInterviewPhase() {
 
 ## 2. EnterPlanMode Tool — Interview vs Standard Variants
 
-When `sO()` returns `true`, the `EnterPlanMode` tool's system prompt is modified.
+When `rO()` returns `true`, the `EnterPlanMode` tool's system prompt is modified.
 
 ### Standard Mode: Includes "What Happens in Plan Mode" (`UCY`)
 
@@ -118,7 +118,7 @@ This section is included in `pCY()` (the EnterPlanMode tool prompt builder) **on
 
 // ORIGINAL (for source lookup):
 function pCY() {
-    let A = sO() ? "" : UCY;
+    let A = rO() ? "" : UCY;
     return `Use this tool proactively when you're about to start a non-trivial implementation task...
     ${A}## Examples
     ...`
@@ -132,7 +132,7 @@ function buildEnterPlanModePrompt() {
     return `...` + workflowSection + `...examples...`;
 }
 
-// Mapping: pCY→buildEnterPlanModePrompt, sO→isPlanModeInterviewPhase, UCY→standardWorkflowDescription
+// Mapping: pCY→buildEnterPlanModePrompt, rO→isPlanModeInterviewPhase, UCY→standardWorkflowDescription
 ```
 
 **Why omit `UCY` in interview mode?**
@@ -144,7 +144,7 @@ function buildEnterPlanModePrompt() {
 
 After `EnterPlanMode.call()` succeeds, the tool result injected into the API conversation varies:
 
-**Interview mode** (`sO() === true`):
+**Interview mode** (`rO() === true`):
 ```
 Entered plan mode. You should now focus on exploring the codebase and designing an implementation approach.
 
@@ -403,7 +403,7 @@ ${H.map((G1) => {
     return `- "${G1.question}"\n  (No answer provided)`;
 }).join(`\n        `)}`;
     if ($) c("tengu_ask_user_question_finish_plan_interview", {
-        source: $, questionCount: H.length, isInPlanMode: Z, interviewPhaseEnabled: Z && sO()
+        source: $, questionCount: H.length, isInPlanMode: Z, interviewPhaseEnabled: Z && rO()
     });
     let $1 = await HgA(G);
     Y(), K.onReject(_1, $1 && $1.length > 0 ? $1 : void 0)
@@ -567,15 +567,15 @@ If `isBypassPermissionsModeAvailable` (enterprise), the option list changes to b
 
 ## 11. Telemetry Events
 
-All plan mode telemetry events include `interviewPhaseEnabled: sO()` when applicable:
+All plan mode telemetry events include `interviewPhaseEnabled: rO()` when applicable:
 
 | Event | Trigger | Interview-specific field |
 |-------|---------|--------------------------|
-| `tengu_plan_exit` | Any ExitPlanMode approval/rejection | `interviewPhaseEnabled: sO()` |
-| `tengu_ask_user_question_accepted` | User submits answers | `interviewPhaseEnabled: isPlanMode && sO()` |
-| `tengu_ask_user_question_rejected` | User cancels dialog | `interviewPhaseEnabled: isPlanMode && sO()` |
-| `tengu_ask_user_question_respond_to_claude` | "Chat about this" | `interviewPhaseEnabled: isPlanMode && sO()` |
-| `tengu_ask_user_question_finish_plan_interview` | "Skip interview" | `interviewPhaseEnabled: isPlanMode && sO()` |
+| `tengu_plan_exit` | Any ExitPlanMode approval/rejection | `interviewPhaseEnabled: rO()` |
+| `tengu_ask_user_question_accepted` | User submits answers | `interviewPhaseEnabled: isPlanMode && rO()` |
+| `tengu_ask_user_question_rejected` | User cancels dialog | `interviewPhaseEnabled: isPlanMode && rO()` |
+| `tengu_ask_user_question_respond_to_claude` | "Chat about this" | `interviewPhaseEnabled: isPlanMode && rO()` |
+| `tengu_ask_user_question_finish_plan_interview` | "Skip interview" | `interviewPhaseEnabled: isPlanMode && rO()` |
 
 **Why include `interviewPhaseEnabled`?** This lets Anthropic A/B test the impact of interview mode vs standard mode on user satisfaction, plan quality, and implementation success rates.
 

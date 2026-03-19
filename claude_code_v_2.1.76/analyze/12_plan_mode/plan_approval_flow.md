@@ -11,7 +11,8 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `ExitPlanModeTool` (Nj) - Tool object, chunks.139.mjs:2641
+- `ExitPlanModeTool` (`zD`) - Tool object, chunks.143.mjs:2802
+- `EnterPlanModeTool` (`Ki6`) - Tool object, chunks.144.mjs:1579
 - `handlePlanApproval` (AhY) - Leader approves plan, chunks.141.mjs:1239
 - `handlePlanRejection` (qhY) - Leader rejects plan, chunks.141.mjs:1265
 - `parsePlanApprovalResponse` (iP1) - Parse approval/rejection from mailbox, chunks.129.mjs:1428
@@ -946,7 +947,7 @@ However, the team leader must manually match `request_id` when calling the appro
 
 After a teammate's plan is approved and they complete work, if they enter plan mode again:
 1. `hasExitedPlanMode` may already be `true` (set during the process)
-2. The `ihY()` attachment generator handles this via `plan_mode_reentry` injection
+2. The `DuY()` attachment generator handles this via `plan_mode_reentry` injection
 3. The LLM is reminded to evaluate if the previous plan is still relevant
 
 ### Teammate not in plan_mode_required

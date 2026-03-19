@@ -517,41 +517,42 @@
 |------------|----------|-----------|------|
 | a2 | applyPermissionAction | chunks.42.mjs:1637 | function |
 | A2z | buildPlanModeSparseReminder | chunks.173.mjs:676 | function |
-| aL6 | hasExitedPlanMode | chunks.1.mjs:2859 | function (getter) |
+| nk6 | hasExitedPlanMode | chunks.1.mjs:2930 | function (getter) |
 | Au4 | buildPermissionCliArgs | chunks.131.mjs:847 | function |
 | azz | buildPlanModeReminder | chunks.173.mjs:531 | function |
-| chY | countTurnsSinceLastAttachment | chunks.142.mjs:2003 | function |
+| JuY | countTurnsSinceLastAttachment | chunks.147.mjs:105 | function |
 | Dc4 | getPlanExploreAgentCount | chunks.140.mjs:1467 | function |
 | Dz | isTeammate | chunks.139.mjs:2690 | function |
 | EhA | getPromptSuggestionBlocker | chunks.151.mjs:149 | function |
-| ey | handlePlanModeTransition | chunks.1.mjs:2875 | function |
+| Dp | handlePlanModeTransition | chunks.1.mjs:2946 | function |
+| dt | TOOL_NAME_ENTER_PLAN_MODE | chunks.90.mjs:3121 | constant ("EnterPlanMode") |
+| DuY | getPlanModeAttachment | chunks.147.mjs:136 | function (async) |
 | ezz | buildPlanModeInterviewReminder | chunks.173.mjs:619 | function |
-| FGq | cycleModeWithContext | chunks.183.mjs:1799 | function |
 | g5 | getAgentName | chunks.139.mjs:2695 | function |
 | Gc4 | renderEnterPlanModeResult | chunks.140.mjs:1597 | function (React) |
-| hf1 | cycleMode | chunks.183.mjs:1778 | function |
+| W26 | cycleMode | chunks.191.mjs:3007 | function |
+| GH | handleCycleModeKeybinding | chunks.193.mjs:649 | function (keybinding handler) |
 | hmA | matchesAlwaysAllowRule | chunks.172.mjs:1884 | function |
 | hu4 | initializeInProcessTeammate | chunks.131.mjs:2305 | function |
 | HX6 | RejectedPlanViewer | chunks.107.mjs:1153 | function (React) |
-| ihY | buildPlanModeAttachments | chunks.142.mjs:2034 | function (async) |
-| ii4 | PLAN_MODE_REMINDER_CONSTANTS | chunks.142.mjs:2921 | constant (object) |
+| t4q | PLAN_MODE_ATTACHMENT_CONFIG | chunks.147.mjs:1235 | constant (object) |
 | Kd4 | renderExitPlanModeResult | chunks.139.mjs:2491 | function (React) |
-| kg1 | EnterPlanModeTool | chunks.140.mjs:1649 | tool object |
-| kx | setNeedsPlanModeExitAttachment | chunks.1.mjs:2871 | function |
+| Ki6 | EnterPlanModeTool | chunks.144.mjs:1579 | tool object |
+| JS | setNeedsPlanModeExitAttachment | chunks.1.mjs:2942 | function |
 | l8 | hasTeamContext | chunks.1.mjs | function |
-| lhY | countPlanModeAttachments | chunks.142.mjs:2022 | function |
+| MuY | countPlanModeAttachments | chunks.147.mjs:124 | function |
 | MC1 | isPlanModeRequired | chunks.48.mjs:301 | function |
-| nhY | buildPlanModeExitAttachment | chunks.142.mjs:2060 | function (async) |
-| Nj | ExitPlanModeTool | chunks.139.mjs:2641 | tool object |
+| XuY | getPlanModeExitAttachment | chunks.147.mjs:170 | function (async) |
+| zD | ExitPlanModeTool | chunks.143.mjs:2802 | tool object |
 | Of6 | evaluateBashCommandReadiness | chunks.150.mjs:881 | function |
-| OT | setHasExitedPlanMode | chunks.1.mjs:2863 | function |
+| HV | setHasExitedPlanMode | chunks.1.mjs:2934 | function |
 | pD | getPlanFileContent | chunks.88.mjs:126 | function |
 | pCY | buildEnterPlanModePrompt | chunks.140.mjs:1488 | function |
 | Pf6 | containsGitCommand | chunks.169.mjs:2014 | function |
 | PM | isTeamLeader | chunks.1.mjs | function |
 | q2z | buildPlanModeSubagentReminder | chunks.173.mjs:685 | function |
-| sL6 | needsPlanModeExitAttachment | chunks.1.mjs:2867 | function (getter) |
-| sO | isPlanModeInterviewPhase | chunks.140.mjs:1475 | function |
+| Fu1 | needsPlanModeExitAttachment | chunks.1.mjs:2938 | function (getter) |
+| rO | isPlanModeInterviewPhase | chunks.50.mjs:2520 | function |
 | szz | buildFullPlanModeReminder | chunks.173.mjs:531 | function |
 | tzz | buildAllowedToolsList | chunks.173.mjs:611 | function |
 | uW | getPlanFilePath | chunks.88.mjs:120 | function |
@@ -561,7 +562,7 @@
 | xm | isPlanModeEnabled | chunks.130.mjs:412 | function |
 | Yd4 | renderExitPlanModeRejected | chunks.139.mjs:2550 | function (React) |
 | Zc4 | renderEnterPlanModeRejected | chunks.140.mjs:1612 | function (React) |
-| aPq | ExitPlanModeDialog | chunks.181.mjs:405 | function (React) |
+| aPq | ExitPlanModeDialog | chunks.165.mjs:2676 | function (React) |
 
 ### Plan Mode — AskUserQuestion Tool
 
@@ -643,6 +644,8 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| dt | TOOL_NAME_ENTER_PLAN_MODE | chunks.90.mjs:3121 | constant ("EnterPlanMode") |
+| aJ | TOOL_NAME_EXIT_PLAN_MODE | chunks.90.mjs:507 | constant ("ExitPlanMode") |
 | N_6 | TOOL_NAME_ENTER_PLAN_MODE | chunks.89.mjs:564 | constant ("EnterPlanMode") |
 | bW | TOOL_NAME_EXIT_PLAN_MODE | chunks.88.mjs:76 | constant ("ExitPlanMode") |
 

@@ -11,13 +11,14 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `ihY` (chunks.142.mjs:2034) - `buildPlanModeAttachments` - Main attachment generator
-- `nhY` (chunks.142.mjs:2060) - `buildPlanModeExitAttachment` - Exit attachment
-- `ezz` (chunks.173.mjs:619) - `buildPlanModeInterviewReminder` - Full iterative reminder
-- `A2z` (chunks.173.mjs:676) - `buildPlanModeSparseReminder` - Sparse turn-end hint
-- `lhY` (chunks.142.mjs:2022) - `countPlanModeAttachments` - Attachment counter
-- `chY` (chunks.142.mjs:2003) - `countTurnsSinceLastPlanModeAttachment` - Turn counter
-- `ii4` (chunks.142.mjs:2921) - Attachment throttling constants
+- `DuY` (chunks.147.mjs:136) - `getPlanModeAttachment` - Main attachment generator
+- `XuY` (chunks.147.mjs:170) - `getPlanModeExitAttachment` - Exit attachment
+- `JuY` (chunks.147.mjs:105) - `countTurnsSinceLastAttachment` - Turn counter
+- `MuY` (chunks.147.mjs:124) - `countPlanModeAttachments` - Attachment counter
+- `t4q` (chunks.147.mjs:1235) - Attachment throttling constants
+- `nk6` (chunks.1.mjs:2930) - `hasExitedPlanMode` getter
+- `HV` (chunks.1.mjs:2934) - `setHasExitedPlanMode` setter
+- `rO` (chunks.50.mjs:2520) - `isPlanModeInterviewPhase` feature flag
 
 ---
 
@@ -37,10 +38,10 @@ Plan mode reminders are injected as **attachments** - special message-like objec
 │                        │                                        │
 │                        ▼                                        │
 │  ┌─────────────────────────────────────────────────────────────┐│
-│  │ ihY() - buildPlanModeAttachments()                          ││
+│  │ DuY() - getPlanModeAttachment()                             ││
 │  │                                                             ││
 │  │ 1. Check if mode === "plan"                                 ││
-│  │ 2. Count turns since last attachment (chY)                  ││
+│  │ 2. Count turns since last attachment (JuY)                  ││
 │  │ 3. Check throttling (TURNS_BETWEEN_ATTACHMENTS = 5)        ││
 │  │ 4. Detect re-entry (hasExitedPlanMode)                      ││
 │  │ 5. Determine reminder type (full vs sparse)                 ││
@@ -57,8 +58,8 @@ Plan mode reminders are injected as **attachments** - special message-like objec
 │                        │                                        │
 │                        ▼                                        │
 │  ┌─────────────────────────────────────────────────────────────┐│
-│  │ Rendered via ezz() or A2z() depending on:                   ││
-│  │ • Interview phase feature flag (sO)                         ││
+│  │ Rendered based on:                                          ││
+│  │ • Interview phase feature flag (rO)                         ││
 │  │ • Subagent context                                          ││
 │  │ • Reminder type (full vs sparse)                            ││
 │  └─────────────────────────────────────────────────────────────┘│
@@ -68,46 +69,42 @@ Plan mode reminders are injected as **attachments** - special message-like objec
 
 ---
 
-## 2. Main Attachment Generator (`ihY`)
+## 2. Main Attachment Generator (`DuY`)
 
 ```javascript
 // ============================================
-// ihY - buildPlanModeAttachments
-// Location: chunks.142.mjs:2034-2058
+// DuY - getPlanModeAttachment
+// Location: chunks.147.mjs:136-168
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function ihY(A, q) {
-    if ((await q.getAppState()).toolPermissionContext.mode !== "plan") return [];
+async function DuY(A, q) {
+    let Y = q.getAppState().toolPermissionContext;
+    if (Y.mode !== "plan") return [];
     if (A && A.length > 0) {
-        let {
-            turnCount: _,
-            foundPlanModeAttachment: J
-        } = chY(A);
-        if (J && _ < ii4.TURNS_BETWEEN_ATTACHMENTS) return []
+        let { turnCount: H, foundPlanModeAttachment: j } = JuY(A);
+        if (j && H < t4q.TURNS_BETWEEN_ATTACHMENTS) return []
     }
-    let z = uW(q.agentId),
-        w = pD(q.agentId),
-        H = [];
-    if (aL6() && w !== null) H.push({
+    let K = uW(q.agentId), w = pD(q.agentId), O = [];
+    if (nk6() && w !== null) O.push({
         type: "plan_mode_reentry",
-        planFilePath: z
-    }), OT(!1);
-    let O = (lhY(A ?? []) + 1) % ii4.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse";
-    return H.push({
+        planFilePath: K
+    }), HV(!1);
+    let F = (MuY(A ?? []) + 1) % t4q.FULL_REMINDER_EVERY_N_ATTACHMENTS === 1 ? "full" : "sparse";
+    return O.push({
         type: "plan_mode",
-        reminderType: O,
+        reminderType: F,
         isSubAgent: !!q.agentId,
-        planFilePath: z,
+        planFilePath: K,
         planExists: w !== null
-    }), H
+    }), O
 }
 
 // READABLE (for understanding):
-async function buildPlanModeAttachments(messages, context) {
+async function getPlanModeAttachment(messages, context) {
     // Step 1: Check if we're in plan mode
-    let appState = await context.getAppState();
-    if (appState.toolPermissionContext.mode !== "plan") {
+    let permissionContext = context.getAppState().toolPermissionContext;
+    if (permissionContext.mode !== "plan") {
         return [];  // Not in plan mode, no attachments
     }
 
@@ -157,41 +154,37 @@ async function buildPlanModeAttachments(messages, context) {
     return attachments;
 }
 
-// Mapping: ihY→buildPlanModeAttachments, chY→countTurnsSinceLastAttachment,
-//          uW→getPlanFilePath, pD→checkPlanFileExists, aL6→hasExitedPlanMode,
-//          OT→setHasExitedPlanMode, lhY→countPlanModeAttachments, ii4→constants
+// Mapping: DuY→getPlanModeAttachment, JuY→countTurnsSinceLastAttachment,
+//          uW→getPlanFilePath, pD→checkPlanFileExists, nk6→hasExitedPlanMode,
+//          HV→setHasExitedPlanMode, MuY→countPlanModeAttachments, t4q→constants
 ```
 
 ---
 
 ## 3. Turn Counting Functions
 
-### `chY` - Count Turns Since Last Attachment
+### `JuY` - Count Turns Since Last Attachment
 
 ```javascript
 // ============================================
-// chY - countTurnsSinceLastAttachment
-// Location: chunks.142.mjs:2003-2020
+// JuY - countTurnsSinceLastAttachment
+// Location: chunks.147.mjs:105-122
 // ============================================
 
 // ORIGINAL (for source lookup):
-function chY(A) {
-    let q = 0,
-        K = !1;
+function JuY(A) {
+    let q = 0, K = !1;
     for (let Y = A.length - 1; Y >= 0; Y--) {
         let z = A[Y];
         if (z?.type === "assistant") {
-            if (bg1(z)) continue;
+            if (Ei6(z)) continue;
             q++
         } else if (z?.type === "attachment" && (z.attachment.type === "plan_mode" || z.attachment.type === "plan_mode_reentry")) {
             K = !0;
             break
         }
     }
-    return {
-        turnCount: q,
-        foundPlanModeAttachment: K
-    }
+    return { turnCount: q, foundPlanModeAttachment: K }
 }
 
 // READABLE (for understanding):
@@ -204,7 +197,7 @@ function countTurnsSinceLastAttachment(messages) {
         let message = messages[i];
 
         if (message?.type === "assistant") {
-            // Skip empty/thinking-only turns (bg1 checks for this)
+            // Skip empty/thinking-only turns (Ei6 checks for this)
             if (isEmptyAssistantTurn(message)) continue;
             turnCount++;
         } else if (message?.type === "attachment" &&
@@ -222,19 +215,19 @@ function countTurnsSinceLastAttachment(messages) {
     };
 }
 
-// Mapping: chY→countTurnsSinceLastAttachment, bg1→isEmptyAssistantTurn
+// Mapping: JuY→countTurnsSinceLastAttachment, Ei6→isEmptyAssistantTurn
 ```
 
-### `lhY` - Count Plan Mode Attachments
+### `MuY` - Count Plan Mode Attachments
 
 ```javascript
 // ============================================
-// lhY - countPlanModeAttachments
-// Location: chunks.142.mjs:2022-2032
+// MuY - countPlanModeAttachments
+// Location: chunks.147.mjs:124-134
 // ============================================
 
 // ORIGINAL (for source lookup):
-function lhY(A) {
+function MuY(A) {
     let q = 0;
     for (let K = A.length - 1; K >= 0; K--) {
         let Y = A[K];
@@ -269,7 +262,7 @@ function countPlanModeAttachments(messages) {
     return count;
 }
 
-// Mapping: lhY→countPlanModeAttachments
+// Mapping: MuY→countPlanModeAttachments
 ```
 
 ---
@@ -278,12 +271,12 @@ function countPlanModeAttachments(messages) {
 
 ```javascript
 // ============================================
-// ii4 - Plan mode attachment throttling constants
-// Location: chunks.142.mjs:2921-2924
+// t4q - Plan mode attachment throttling constants
+// Location: chunks.147.mjs:1235-1238
 // ============================================
 
 // ORIGINAL (for source lookup):
-ii4 = {
+t4q = {
     TURNS_BETWEEN_ATTACHMENTS: 5,
     FULL_REMINDER_EVERY_N_ATTACHMENTS: 5
 }
@@ -297,7 +290,7 @@ const PLAN_MODE_ATTACHMENT_CONFIG = {
     FULL_REMINDER_EVERY_N_ATTACHMENTS: 5
 };
 
-// Mapping: ii4→PLAN_MODE_ATTACHMENT_CONFIG
+// Mapping: t4q→PLAN_MODE_ATTACHMENT_CONFIG
 ```
 
 ### Throttling Logic
@@ -382,7 +375,7 @@ Your turn should only end by either:
 
 // Mapping: ezz→buildPlanModeInterviewReminder, sW→ReadTool, vj→WriteTool,
 //          bv→ExploreAgentType, tzz→buildAllowedToolsList, TH→AskUserQuestion,
-//          Nj→ExitPlanMode, _9→createMetaContent, c6→createContentBlock
+//          zD→ExitPlanMode, _9→createMetaContent, c6→createContentBlock
 ```
 
 ---
@@ -397,8 +390,8 @@ Your turn should only end by either:
 
 // ORIGINAL (for source lookup):
 function A2z(A) {
-    let q = sO() ? "Follow iterative workflow: explore codebase, interview user, write to plan incrementally." : "Follow 5-phase workflow.",
-        K = `Plan mode still active (see full instructions earlier in conversation). Read-only except plan file (${A.planFilePath}). ${q} End turns with ${TH} (for clarifications) or ${Nj.name} (for plan approval). Never ask about plan approval via text or AskUserQuestion.`;
+    let q = rO() ? "Follow iterative workflow: explore codebase, interview user, write to plan incrementally." : "Follow 5-phase workflow.",
+        K = `Plan mode still active (see full instructions earlier in conversation). Read-only except plan file (${A.planFilePath}). ${q} End turns with ${TH} (for clarifications) or ${zD.name} (for plan approval). Never ask about plan approval via text or AskUserQuestion.`;
     return _9([c6({
         content: K,
         isMeta: !0
@@ -418,27 +411,26 @@ function buildPlanModeSparseReminder(attachment) {
     return createMetaContent(reminderText);
 }
 
-// Mapping: A2z→buildPlanModeSparseReminder, sO→isInterviewPhase,
-//          TH→AskUserQuestion, Nj→ExitPlanMode
+// Mapping: A2z→buildPlanModeSparseReminder, rO→isInterviewPhase,
+//          TH→AskUserQuestion, zD→ExitPlanMode
 ```
 
 ---
 
-## 7. Exit Attachment Builder (`nhY`)
+## 7. Exit Attachment Builder (`XuY`)
 
 ```javascript
 // ============================================
-// nhY - buildPlanModeExitAttachment
-// Location: chunks.142.mjs:2060-2071
+// XuY - getPlanModeExitAttachment
+// Location: chunks.147.mjs:170-188
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function nhY(A) {
-    if (!sL6()) return [];
-    if ((await A.getAppState()).toolPermissionContext.mode === "plan") return kx(!1), [];
-    kx(!1);
-    let K = uW(A.agentId),
-        Y = pD(A.agentId) !== null;
+async function XuY(A) {
+    if (!Fu1()) return [];
+    if ((await A.getAppState()).toolPermissionContext.mode === "plan") return JS(!1), [];
+    JS(!1);
+    let K = uW(A.agentId), Y = pD(A.agentId) !== null;
     return [{
         type: "plan_mode_exit",
         planFilePath: K,
@@ -447,7 +439,7 @@ async function nhY(A) {
 }
 
 // READABLE (for understanding):
-async function buildPlanModeExitAttachment(context) {
+async function getPlanModeExitAttachment(context) {
     // Check if exit attachment is needed
     if (!needsPlanModeExitAttachment()) {
         return [];
@@ -475,8 +467,8 @@ async function buildPlanModeExitAttachment(context) {
     }];
 }
 
-// Mapping: nhY→buildPlanModeExitAttachment, sL6→needsPlanModeExitAttachment,
-//          kx→setNeedsPlanModeExitAttachment, uW→getPlanFilePath, pD→checkPlanFileExists
+// Mapping: XuY→getPlanModeExitAttachment, Fu1→needsPlanModeExitAttachment,
+//          JS→setNeedsPlanModeExitAttachment, uW→getPlanFilePath, pD→checkPlanFileExists
 ```
 
 ---
@@ -500,14 +492,14 @@ When a user exits plan mode and then re-enters (via Shift+Tab or EnterPlanMode),
 User exits plan mode
     │
     ├─ ExitPlanMode.call() executes
-    │   └─ setHasExitedPlanMode(true)  ← aL6 = true
+    │   └─ setHasExitedPlanMode(true)  ← nk6 = true
     │
     ├─ User decides to re-enter plan mode
     │   └─ Shift+Tab or EnterPlanMode
     │
     └─ Next agent loop turn
         │
-        ├─ ihY() called
+        ├─ DuY() called
         │   ├─ hasExitedPlanMode() = true
         │   ├─ Push plan_mode_reentry attachment
         │   └─ setHasExitedPlanMode(false)
@@ -533,15 +525,16 @@ This is rendered into a message that tells the LLM to check if the previous plan
 
 ## 10. Feature Flag: Interview Phase
 
-The `sO()` function checks if the interview phase feature flag is enabled:
+The `rO()` function checks if the interview phase feature flag is enabled:
 
 ```javascript
 // ============================================
-// sO - isPlanModeInterviewPhase
-// Location: chunks.140.mjs:1475
+// rO - isPlanModeInterviewPhase
+// Location: chunks.50.mjs:2520-2523
 // ============================================
 
-function sO() {
+// ORIGINAL (for source lookup):
+function rO() {
     return Y0(process.env.CLAUDE_CODE_PLAN_MODE_INTERVIEW_PHASE)
 }
 
@@ -549,6 +542,8 @@ function sO() {
 function isPlanModeInterviewPhase() {
     return parseBoolean(process.env.CLAUDE_CODE_PLAN_MODE_INTERVIEW_PHASE);
 }
+
+// Mapping: rO→isPlanModeInterviewPhase, Y0→parseBoolean
 ```
 
 ### Interview Phase vs Standard (5-Phase)
@@ -571,7 +566,7 @@ Plan mode attachments are part of a larger attachment system:
 ```javascript
 // ============================================
 // Attachment generator pipeline
-// Location: chunks.142.mjs (main attachment loop)
+// Location: chunks.147.mjs (main attachment loop)
 // ============================================
 
 // Pseudo-code of the full pipeline:
@@ -579,22 +574,22 @@ async function buildAllAttachments(messages, context) {
     let attachments = [];
 
     // 1. Plan mode attachments
-    attachments.push(...await buildPlanModeAttachments(messages, context));  // ihY
+    attachments.push(...await getPlanModeAttachment(messages, context));  // DuY
 
     // 2. Plan mode exit attachment
-    attachments.push(...await buildPlanModeExitAttachment(context));  // nhY
+    attachments.push(...await getPlanModeExitAttachment(context));  // XuY
 
     // 3. Delegate mode attachments
-    attachments.push(...await buildDelegateModeAttachments(context));  // rhY
+    attachments.push(...await buildDelegateModeAttachments(context));
 
     // 4. Delegate mode exit
-    attachments.push(...buildDelegateModeExitAttachment());  // ohY
+    attachments.push(...buildDelegateModeExitAttachment());
 
     // 5. Critical system reminders
-    attachments.push(...buildCriticalSystemReminder(context));  // ahY
+    attachments.push(...buildCriticalSystemReminder(context));
 
     // 6. Queued commands
-    attachments.push(...buildQueuedCommandAttachments(context));  // dhY
+    attachments.push(...buildQueuedCommandAttachments(context));
 
     return attachments;
 }
@@ -691,11 +686,11 @@ if (Math.random() < 0.05) {
 ┌──────────────────────────────────────────────────────────────┐
 │ Render Content:                                              │
 │                                                              │
-│ Interview Phase (sO() = true)?                               │
-│   → ezz() - Iterative workflow instructions                  │
+│ Interview Phase (rO() = true)?                               │
+│   → Iterative workflow instructions                          │
 │ Standard Phase?                                              │
-│   → szz() - 5-phase workflow instructions                    │
+│   → 5-phase workflow instructions                            │
 │ Sparse?                                                      │
-│   → A2z() - Brief reminder                                   │
+│   → Brief reminder                                           │
 └──────────────────────────────────────────────────────────────┘
 ```

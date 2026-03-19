@@ -11,11 +11,11 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `aL6` (chunks.1.mjs:2859) - `hasExitedPlanMode` getter
-- `OT` (chunks.1.mjs:2863) - `setHasExitedPlanMode` setter
-- `sL6` (chunks.1.mjs:2867) - `needsPlanModeExitAttachment` getter
-- `kx` (chunks.1.mjs:2871) - `setNeedsPlanModeExitAttachment` setter
-- `ey` (chunks.1.mjs:2875) - `handlePlanModeTransition` hook
+- `nk6` (chunks.1.mjs:2930) - `hasExitedPlanMode` getter
+- `HV` (chunks.1.mjs:2934) - `setHasExitedPlanMode` setter
+- `Fu1` (chunks.1.mjs:2938) - `needsPlanModeExitAttachment` getter
+- `JS` (chunks.1.mjs:2942) - `setNeedsPlanModeExitAttachment` setter
+- `Dp` (chunks.1.mjs:2946) - `handlePlanModeTransition` hook
 - `a2` (chunks.42.mjs:1637) - `applyPermissionAction` - Permission context updates
 - `prePlanMode` - Stored in `toolPermissionContext`
 
@@ -58,39 +58,39 @@ Plan mode uses several state variables to track mode transitions and attachment 
 
 ## 2. State Variable: `hasExitedPlanMode`
 
-### Getter (`aL6`)
+### Getter (`nk6`)
 
 ```javascript
 // ============================================
-// aL6 - hasExitedPlanMode getter
-// Location: chunks.1.mjs:2859-2861
+// nk6 - hasExitedPlanMode getter
+// Location: chunks.1.mjs:2930-2932
 // ============================================
 
 // ORIGINAL (for source lookup):
-function aL6() {
-    return o6.hasExitedPlanMode
+function nk6() {
+    return v1.hasExitedPlanMode
 }
 
 // READABLE (for understanding):
 function hasExitedPlanMode() {
-    // o6 is the global session state object
+    // v1 is the global session state object
     return globalSessionState.hasExitedPlanMode;
 }
 
-// Mapping: aL6→hasExitedPlanMode, o6→globalSessionState
+// Mapping: nk6→hasExitedPlanMode, v1→globalSessionState
 ```
 
-### Setter (`OT`)
+### Setter (`HV`)
 
 ```javascript
 // ============================================
-// OT - setHasExitedPlanMode setter
-// Location: chunks.1.mjs:2863-2865
+// HV - setHasExitedPlanMode setter
+// Location: chunks.1.mjs:2934-2936
 // ============================================
 
 // ORIGINAL (for source lookup):
-function OT(A) {
-    o6.hasExitedPlanMode = A
+function HV(A) {
+    v1.hasExitedPlanMode = A
 }
 
 // READABLE (for understanding):
@@ -98,7 +98,7 @@ function setHasExitedPlanMode(value) {
     globalSessionState.hasExitedPlanMode = value;
 }
 
-// Mapping: OT→setHasExitedPlanMode
+// Mapping: HV→setHasExitedPlanMode
 ```
 
 ### Usage Pattern
@@ -116,14 +116,14 @@ function setHasExitedPlanMode(value) {
 │  └─ setHasExitedPlanMode(true)                                  │
 │                                                                 │
 │  User re-enters plan mode                                       │
-│  └─ ihY() detects hasExitedPlanMode === true                    │
+│  └─ DuY() detects hasExitedPlanMode === true                    │
 │      ├─ Pushes plan_mode_reentry attachment                     │
 │      └─ setHasExitedPlanMode(false)                             │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Callers of `OT` (setHasExitedPlanMode)
+### Callers of `HV` (setHasExitedPlanMode)
 
 | Location | Context |
 |----------|---------|
@@ -135,38 +135,39 @@ function setHasExitedPlanMode(value) {
 
 ## 3. State Variable: `needsPlanModeExitAttachment`
 
-### Getter (`sL6`)
+### Getter (`Fu1`)
 
 ```javascript
 // ============================================
-// sL6 - needsPlanModeExitAttachment getter
-// Location: chunks.1.mjs:2867-2869
+// Fu1 - needsPlanModeExitAttachment getter
+// Location: chunks.1.mjs:2938-2940
 // ============================================
 
 // ORIGINAL (for source lookup):
-function sL6() {
-    return o6.needsPlanModeExitAttachment
+function Fu1() {
+    return v1.needsPlanModeExitAttachment
 }
 
 // READABLE (for understanding):
 function needsPlanModeExitAttachment() {
+    // v1 is the global session state object
     return globalSessionState.needsPlanModeExitAttachment;
 }
 
-// Mapping: sL6→needsPlanModeExitAttachment
+// Mapping: Fu1→needsPlanModeExitAttachment, v1→globalSessionState
 ```
 
-### Setter (`kx`)
+### Setter (`JS`)
 
 ```javascript
 // ============================================
-// kx - setNeedsPlanModeExitAttachment setter
-// Location: chunks.1.mjs:2871-2873
+// JS - setNeedsPlanModeExitAttachment setter
+// Location: chunks.1.mjs:2942-2944
 // ============================================
 
 // ORIGINAL (for source lookup):
-function kx(A) {
-    o6.needsPlanModeExitAttachment = A
+function JS(A) {
+    v1.needsPlanModeExitAttachment = A
 }
 
 // READABLE (for understanding):
@@ -174,7 +175,7 @@ function setNeedsPlanModeExitAttachment(value) {
     globalSessionState.needsPlanModeExitAttachment = value;
 }
 
-// Mapping: kx→setNeedsPlanModeExitAttachment
+// Mapping: JS→setNeedsPlanModeExitAttachment
 ```
 
 ### Usage Pattern
@@ -187,15 +188,15 @@ function setNeedsPlanModeExitAttachment(value) {
 │  Initial State: false                                           │
 │                                                                 │
 │  Transition INTO plan mode                                      │
-│  └─ ey("default", "plan") → needsPlanModeExitAttachment = true  │
+│  └─ Dp("default", "plan") → needsPlanModeExitAttachment = false │
 │                                                                 │
 │  While IN plan mode                                             │
-│  └─ needsPlanModeExitAttachment remains true                    │
+│  └─ needsPlanModeExitAttachment remains false                   │
 │                                                                 │
 │  Transition OUT of plan mode                                    │
-│  └─ ey("plan", "default") → needsPlanModeExitAttachment = false │
+│  └─ Dp("plan", "default") → needsPlanModeExitAttachment = true  │
 │                                                                 │
-│  Exit attachment generated (nhY)                                │
+│  Exit attachment generated (XuY)                                │
 │  └─ Checks needsPlanModeExitAttachment                          │
 │  └─ Generates attachment if true and mode !== "plan"            │
 │  └─ Resets to false after generation                            │
@@ -205,18 +206,18 @@ function setNeedsPlanModeExitAttachment(value) {
 
 ---
 
-## 4. Mode Transition Hook (`ey`)
+## 4. Mode Transition Hook (`Dp`)
 
 ```javascript
 // ============================================
-// ey - handlePlanModeTransition
-// Location: chunks.1.mjs:2875-2878
+// Dp - handlePlanModeTransition
+// Location: chunks.1.mjs:2946-2950
 // ============================================
 
 // ORIGINAL (for source lookup):
-function ey(A, q) {
-    if (q === "plan" && A !== "plan") o6.needsPlanModeExitAttachment = !1;
-    if (A === "plan" && q !== "plan") o6.needsPlanModeExitAttachment = !0
+function Dp(A, q) {
+    if (q === "plan" && A !== "plan") v1.needsPlanModeExitAttachment = !1;
+    if (A === "plan" && q !== "plan") v1.needsPlanModeExitAttachment = !0
 }
 
 // READABLE (for understanding):
@@ -235,7 +236,7 @@ function handlePlanModeTransition(oldMode, newMode) {
     }
 }
 
-// Mapping: ey→handlePlanModeTransition, A→oldMode, q→newMode
+// Mapping: Dp→handlePlanModeTransition, A→oldMode, q→newMode, v1→globalSessionState
 ```
 
 ### Transition Logic Table
@@ -250,7 +251,7 @@ function handlePlanModeTransition(oldMode, newMode) {
 | `acceptEdits` | `plan` | `needsPlanModeExitAttachment = false` |
 | Any other | `plan` | `needsPlanModeExitAttachment = false` |
 
-### When `ey` is Called
+### When `Dp` is Called
 
 The transition hook is called from `applyPermissionAction` (`a2`) when the mode changes:
 
@@ -439,7 +440,7 @@ While state variables are not persisted, **the plan file IS persisted**:
 │       │ ┌─────────────────────────────────┐       │           │
 │       │ │ Save prePlanMode = "default"    │       │           │
 │       │ │ Set mode = "plan"               │       │           │
-│       │ │ needsPlanModeExitAttachment = T │       │           │
+│       │ │ needsPlanModeExitAttachment = F │       │           │
 │       │ └─────────────────────────────────┘       │           │
 │       │                                            │           │
 │       ▼                                            │           │
@@ -463,7 +464,7 @@ While state variables are not persisted, **the plan file IS persisted**:
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │ hasExitedPlanMode = true                                │   │
 │  │ User re-enters plan mode                                │   │
-│  │ ihY() detects hasExitedPlanMode                         │   │
+│  │ DuY() detects hasExitedPlanMode                         │   │
 │  │ ├─ Push plan_mode_reentry attachment                    │   │
 │  │ └─ hasExitedPlanMode = false                            │   │
 │  └─────────────────────────────────────────────────────────┘   │
@@ -482,7 +483,7 @@ From `ui_linkage.md`:
 ```javascript
 // When user presses Shift+Tab in plan mode
 if (currentMode.mode === "plan" && nextMode !== "plan") {
-    setHasExitedPlanMode(true);  // OT(true)
+    setHasExitedPlanMode(true);  // HV(true)
 }
 ```
 
@@ -491,7 +492,7 @@ if (currentMode.mode === "plan" && nextMode !== "plan") {
 From `reminder_system.md`:
 
 ```javascript
-// ihY checks hasExitedPlanMode
+// DuY checks hasExitedPlanMode
 if (hasExitedPlanMode() && planExists !== null) {
     attachments.push({
         type: "plan_mode_reentry",
@@ -504,7 +505,7 @@ if (hasExitedPlanMode() && planExists !== null) {
 ### Exit Attachment
 
 ```javascript
-// nhY checks needsPlanModeExitAttachment
+// XuY checks needsPlanModeExitAttachment
 if (!needsPlanModeExitAttachment()) return [];
 if (mode === "plan") {
     setNeedsPlanModeExitAttachment(false);
@@ -595,15 +596,15 @@ function XN1(A) {
 
 | Variable | Getter | Setter | Purpose |
 |----------|--------|--------|---------|
-| `hasExitedPlanMode` | `aL6()` | `OT(value)` | Track if user previously exited plan mode |
-| `needsPlanModeExitAttachment` | `sL6()` | `kx(value)` | Signal exit attachment generation |
+| `hasExitedPlanMode` | `nk6()` | `HV(value)` | Track if user previously exited plan mode |
+| `needsPlanModeExitAttachment` | `Fu1()` | `JS(value)` | Signal exit attachment generation |
 | `prePlanMode` | Direct access | Direct access | Store mode before plan for restoration |
 | `mode` | `toolPermissionContext.mode` | `a2()` action | Current permission mode |
 
 ### Key Invariants
 
 1. **`hasExitedPlanMode`** is only `true` between exiting plan mode and re-entry
-2. **`needsPlanModeExitAttachment`** is `true` while in plan mode
+2. **`needsPlanModeExitAttachment`** is `true` after leaving plan mode (until exit attachment is generated)
 3. **`prePlanMode`** is only set when entering plan mode
 4. State is **not persisted** across sessions
 5. All state changes are **synchronous** (no async operations)
