@@ -165,9 +165,8 @@
 | em4 | registerNotificationHandlers | chunks.133.mjs:2532 | function |
 | tm4 | clearPendingDiagnostics | chunks.133.mjs:2459 | function |
 | NP6 | clearDeliveredDiagnosticsForUri | chunks.133.mjs:2463 | function |
-| rm4 | severityStringToInt | chunks.133.mjs:2363 | function |
-| PvY | severityIntToString | chunks.133.mjs:2487 | function |
-| am4 | hashDiagnostic | chunks.133.mjs:2378 | function |
+| nm4 | LSP_MAX_DIAGNOSTICS_TOTAL | chunks.133.mjs:2469 | constant (30) |
+| VP6 | LSP_MAX_DIAGNOSTICS_PER_FILE | chunks.133.mjs:2467 | constant (10) |
 | WvY | convertDiagnosticUriToPath | chunks.133.mjs:2502 | function |
 | jvY | deduplicateDiagnostics | chunks.133.mjs:2388 | function |
 | OvY | expandPluginRootVar | chunks.133.mjs:2079 | function |
@@ -915,27 +914,27 @@
 ## Module: Slash Commands
 
 > Full analysis: [09_slash_command/](../09_slash_command/)
+> - [forked_execution.md](../09_slash_command/forked_execution.md) - Isolated sub-agent execution
+> - [system_reminder_integration.md](../09_slash_command/system_reminder_integration.md) - Skill listing injection
 
 ### Parsing & Dispatch
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Db4 | parseSlashCommand | chunks.130.mjs:1344 | function |
-| Mb4 | handleSlashInput | chunks.130.mjs:1506 | function |
-| ifY | executeCommand | chunks.130.mjs:1627 | function |
-| lfY | isValidCommandName | chunks.130.mjs:1502 | function |
+| uc4 | parseSlashCommand | chunks.133.mjs:820 | function (parses `/command args` from input) |
+| DvY | handleSlashInput | chunks.133.mjs:1120 | function (top-level slash command dispatcher) |
+| XvY | executeCommand | chunks.133.mjs:1247 | function (type router: local/local-jsx/prompt) |
 
 ### Command Registry
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| cZ | getAllCommands | chunks.168.mjs:2292 | function (memoized) |
-| QBA | getBuiltinCommands | chunks.168.mjs:2291 | function (memoized) |
-| _9z | getSkills | chunks.168.mjs:2118 | function |
-| hv | getSkillToolCommands | chunks.168.mjs:2307 | function (memoized) |
-| aO6 | getSlashCommandSkills | chunks.168.mjs:2309 | function (memoized) |
-| pBA | BUILTIN_COMMAND_SET | chunks.168.mjs:2315 | Set |
-| Cd | builtinCommandNames | chunks.168.mjs:2291 | function (memoized) |
+| I0 | getAllSkills | chunks.168.mjs:2013 | function (memoized, merges all command sources) |
+| Ci8 | getBuiltinCommands | chunks.168.mjs:2012 | function (memoized, returns hardcoded built-in command array) |
+| _9z | getSkills | chunks.171.mjs:799 | function (loads skill-dir and plugin skills) |
+| NR | getAllSkillsForTool | chunks.168.mjs:2029 | function (memoized, filters for Skill tool invocation) |
+| vp6 | getSlashCommandSkills | chunks.168.mjs:2031 | function (memoized, filters for slash command picker) |
+| Qg | builtinCommandNames | chunks.168.mjs:2012 | function (memoized, Set of built-in command names) |
 | UBA | clearCommandRegistryCache | chunks.168.mjs:2139 | function |
 | bm | clearAllCommandCaches | chunks.168.mjs:2143 | function |
 | yOq | filterEssentialCommands | chunks.168.mjs:2147 | function |
@@ -944,19 +943,46 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Sd | isCommandAvailable | chunks.168.mjs:2151 | function |
-| zI | findCommand | chunks.168.mjs:2155 | function |
+| G66 | findCommandBase | chunks.168.mjs:1850 | function (base lookup with alias support) |
+| kf6 | findCommand | chunks.168.mjs:1858 | function (findCommandBase with error throwing) |
+| rY6 | isCommandAvailable | chunks.168.mjs:1854 | function (checks if command exists) |
 | jZ1 | formatCommandDescription | chunks.168.mjs:2161 | function |
+
+### Forked Command Support
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| MvY | handleForkedCommand | chunks.133.mjs:1025 | function (forked sub-agent execution) |
+| DN1 | buildForkedCommandConfig | chunks.148.mjs:1951 | function (prepares forked command execution context) |
+| XN1 | extractResultFromEvents | chunks.148.mjs:1971 | function (extracts result text from accumulated events) |
+| ff6 | renderForkedProgress | chunks.133.mjs:490 | function (renders forked command progress UI) |
+| bI | generateAgentId | chunks.93.mjs:1557 | function (creates unique agent ID for forked execution) |
+| ABY | createIsolatedAppState | chunks.148.mjs:1934 | function (creates state wrapper with injected allowedTools for forked isolation) |
+| Bc6 | createChildToolUseContext | chunks.148.mjs:1978 | function (creates child context for nested agent execution with state isolation) |
+| bX | getLastMessage | chunks.148.mjs | function (retrieves last message from event stream) |
+| qh | runAgentLoop | chunks.148.mjs | function (agent loop generator for forked execution) |
+
+### Command Building & Formatting
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| PvY | buildUserPrompt | chunks.133.mjs:1420 | function (builds user-facing prompt display based on invocability) |
+| xc6 | formatCommandInvocation | chunks.133.mjs:1406 | function (formats `/name args` string for display) |
+| sc4 | isValidCommandName | chunks.133.mjs:1116 | function (validates command name chars: a-zA-Z0-9:\-_) |
+| oc4 | buildInvocableCommandPrompt | chunks.133.mjs:1415 | function (builds command-name/command-message XML for user-invocable skills) |
+| tc4 | buildNonInvocableSkillPrompt | chunks.133.mjs:1410 | function (builds skill display for Claude-only skills with progress message) |
 
 ### Prompt Command Execution
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Wb4 | handlePromptCommand | chunks.130.mjs:1826 | function |
-| cfY | handleForkedCommand | chunks.130.mjs:1411 | function |
+| ec4 | handlePromptCommand | chunks.133.mjs:1433 | function (inline prompt command execution) |
+| MvY | handleForkedCommand | chunks.133.mjs:1025 | function (forked sub-agent execution) |
+| Kh | filterAllowedTools | chunks.173.mjs:509 | function (filters tool whitelist for skill) |
+| Tf6 | getAgentContext | chunks.133.mjs:837 | function (gets current agent context store) |
 | Pb4 | handlePromptCommandFromTool | chunks.130.mjs:1819 | function |
-| VQ1 | formatCommandName | chunks.130.mjs:1797 | function |
-| nfY | buildSkillMetadata | chunks.130.mjs:1813 | function |
+| VQ1 | formatCommandName | chunks.6.mjs:1797 | function |
+| nfY | buildSkillMetadata | chunks.131.mjs:1813 | function |
 | jb4 | buildUserFacingMetadata | chunks.130.mjs:1808 | function |
 | evA | buildForkedSkillMetadata | chunks.130.mjs:1803 | function |
 
@@ -994,7 +1020,10 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| IM6 | registerSkillHooks | chunks.130.mjs:1361 | function |
+| gc4 | registerSkillHooks | chunks.133.mjs:862 | function (registers hooks from skill definition during prompt command execution) |
+| IM6 | registerSkillHooks | chunks.51.mjs:1361 | function (alternative hook registration path) |
+| JW1 | registerSingleHook | chunks.133.mjs | function (registers a single hook with matcher and optional one-shot cleanup) |
+| l24 | removeHook | chunks.133.mjs | function (removes a hook after one-shot execution) |
 
 ### Autocomplete UI (chunks.182.mjs / chunks.183.mjs)
 
@@ -1028,6 +1057,11 @@
 | GV8 | formatSkillDescriptionLine | chunks.90.mjs:2645 | function (`description - whenToUse` string) |
 | PB9 | formatSkillEntry | chunks.90.mjs:2649 | function (`- name: desc` line) |
 | UP1 | tokenLimitToCharLimit | chunks.90.mjs | function (budget = contextTokens × 4 × 0.02 or 16000) |
+| r94 | SKILL_BUDGET_RATIO | chunks.90.mjs:2720 | constant (0.02 — 2% of context window for skill listings) |
+| o94 | TOKENS_PER_CHAR | chunks.90.mjs:2722 | constant (4 — approximate tokens per character ratio) |
+| a94 | MAX_FALLBACK_CHARS | chunks.90.mjs:2724 | constant (16000 — max character budget fallback) |
+| WB9 | MIN_DESCRIPTION_CHARS | chunks.90.mjs:2726 | constant (20 — minimum description length before truncation) |
+| bE1 | forceInitialLoad | chunks.147.mjs | variable (flag to force initial skill list after /compact) |
 
 ### Invoked Skills Tracking (chunks.1.mjs / chunks.147.mjs)
 

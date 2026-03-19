@@ -1113,7 +1113,9 @@
 |------------|----------|-----------|------|
 | zkY | executeForkedSkill | chunks.136.mjs:2447 | function (spawns subagent for forked skill) |
 | DN1 | setupForkedCommandContext | chunks.148.mjs:1951 | function (prepares context for forked execution) |
-| XN1 | extractForkedCommandResult | chunks.136.mjs:2499 | function (extracts result from forked execution) |
+| XN1 | extractForkedCommandResult | chunks.148.mjs:1971 | function (extracts result from forked execution) |
+| ABY | createIsolatedAppState | chunks.148.mjs:1934 | function (wraps getAppState with allowedTools injection) |
+| Bc6 | createChildToolUseContext | chunks.148.mjs:1978 | function (creates isolated context for nested agent execution) |
 | zA6 | clearInvokedSkillsForAgent | chunks.136.mjs:2512 | function (cleanup after forked execution) |
 | bI | generateAgentId | chunks.136.mjs:2449 | function (unique ID for forked agent) |
 | qh | runAgentLoop | chunks.136.mjs:2471 | function (main agent execution loop) |
