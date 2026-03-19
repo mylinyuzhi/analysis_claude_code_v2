@@ -2,7 +2,7 @@
 
 ## Overview
 
-Claude Code v2.1.76 supports **22 distinct hook events** that allow users to execute custom shell commands, HTTP endpoints, prompts, agent-based hooks, callback functions, or "function" hooks in response to specific lifecycle moments. Hooks are configured in the user's settings file and are executed by the central `executeHooksIterator` (`NI`) generator function.
+Claude Code v2.1.76 supports **22 distinct hook events** that allow users to execute custom shell commands, HTTP endpoints, prompts, agent-based hooks, callback functions, or "function" hooks in response to specific lifecycle moments. Hooks are configured in the user's settings file and are executed by the central `executeHooksIterator` (`Ax`) generator function.
 
 Each hook event has a well-defined schema for its input payload, specific trigger conditions, and expected return value semantics (blocking, non-blocking, passthrough, etc.). This document catalogs every event with deep detail on when it fires, what data it provides, and what outcomes are possible.
 
@@ -17,23 +17,24 @@ All hook events now include `agent_id` and `agent_type` fields in their base pay
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `executeHooksIterator` (NI) - Central generator that executes all matched hooks for an event
-- `executePreToolHooks` (qyA) - Wrapper for PreToolUse event
-- `executePostToolHooks` (KyA) - Wrapper for PostToolUse event
-- `executePostToolUseFailureHooks` (YyA) - Wrapper for PostToolUseFailure event
-- `executeNotificationHooks` (UTA) - Wrapper for Notification event
-- `executeStopHooks` (zyA) - Wrapper for Stop/SubagentStop events
-- `executeUserPromptSubmitHooks` (HyA) - Wrapper for UserPromptSubmit event
-- `executeSessionStartHooks` ($yA) - Wrapper for SessionStart event
-- `executeSubagentStartHooks` (AEA) - Wrapper for SubagentStart event
-- `executePreCompactHooks` (mW6) - Wrapper for PreCompact event
-- `executeTeammateIdleHooks` (wyA) - Wrapper for TeammateIdle event
-- `executeTaskCompletedHooks` (Cg1) - Wrapper for TaskCompleted event
-- `executeSetupHooks` (OyA) - Wrapper for Setup event
-- `executeCommandHook` (BW6) - Low-level shell command execution for hooks
-- `executeAgentHook` (Xi4) - Executes agent-type hooks
-- `HOOK_EVENT_NAMES` (tGY / ax) - Canonical list of all event names
-- `DEFAULT_HOOK_TIMEOUT` (MP) - Default timeout: **600,000ms (10 minutes)** — set in `chunks.142.mjs:215`
+- `executeHooksIterator` (Ax) - Central generator that executes all matched hooks for an event
+- `executePreToolHooks` (LF8) - Wrapper for PreToolUse event
+- `executePostToolHooks` (RF8) - Wrapper for PostToolUse event
+- `executePostToolUseFailureHooks` (hF8) - Wrapper for PostToolUseFailure event
+- `executeNotificationHooks` (Xm) - Wrapper for Notification event
+- `executeStopHooks` (Lp8) - Wrapper for Stop/SubagentStop events
+- `executeUserPromptSubmitHooks` (yr8) - Wrapper for UserPromptSubmit event
+- `executeSessionStartHooks` (Qu8) - Wrapper for SessionStart event
+- `executeSubagentStartHooks` - Wrapper for SubagentStart event
+- `executePreCompactHooks` (sT6) - Wrapper for PreCompact event
+- `executeTeammateIdleHooks` (Rp8) - Wrapper for TeammateIdle event
+- `executeTaskCompletedHooks` (Hi6) - Wrapper for TaskCompleted event
+- `executeSetupHooks` - Wrapper for Setup event
+- `executeCommandHook` (vS1) - Low-level shell command execution for hooks
+- `executeHttpHook` (Nr8) - Low-level HTTP POST execution for hooks
+- `executeAgentHook` (cTq) - Executes agent-type hooks
+- `HOOK_EVENT_NAMES` (tGY / Fu) - Canonical list of all event names
+- `DEFAULT_HOOK_TIMEOUT` (T$) - Default timeout: **600,000ms (10 minutes)** — set in `chunks.176.mjs:178`
 
 ---
 
@@ -64,12 +65,12 @@ Hooks can be of several types, each with different execution semantics:
 
 | Type | Execution | Can Block? | Description |
 |------|-----------|------------|-------------|
-| `command` | Shell command via `BW6` | Yes (exit code 2) | Runs a shell command, passes hook input as JSON via stdin |
-| `http` | HTTP POST via `executeHttpHook` | Yes (via response fields) | POSTs JSON payload to a URL, receives JSON response (v2.1.63+) |
-| `prompt` | LLM prompt via `Pn7` | No (yes/no only) | Sends a prompt to the LLM; returns `{"ok": true/false}`. Requires ToolUseContext. |
-| `agent` | Agent invocation via `Xi4` | Yes (`ok: false`) | Runs a full agent loop with tools to verify a condition. Can block if condition not met. |
-| `callback` | In-process function via `DhY` | Via JSON return | Direct JS async callback (used by plugins). Can return structured JSON like command hooks. |
-| `function` | REPL-only function via `XhY` | Yes (false return) | Executes within the REPL context with access to conversation messages. Stop hooks only. |
+| `command` | Shell command via `vS1` | Yes (exit code 2) | Runs a shell command, passes hook input as JSON via stdin |
+| `http` | HTTP POST via `Nr8` | Yes (via response fields) | POSTs JSON payload to a URL, receives JSON response (v2.1.63+) |
+| `prompt` | LLM prompt via `QTq` | No (yes/no only) | Sends a prompt to the LLM; returns `{"ok": true/false}`. Requires ToolUseContext. |
+| `agent` | Agent invocation via `cTq` | Yes (`ok: false`) | Runs a full agent loop with tools to verify a condition. Can block if condition not met. |
+| `callback` | In-process function via `L_z` | Via JSON return | Direct JS async callback (used by plugins). Can return structured JSON like command hooks. |
+| `function` | REPL-only function via `y_z` | Yes (false return) | Executes within the REPL context with access to conversation messages. Stop hooks only. |
 
 ### Hook Source Display
 
@@ -267,7 +268,7 @@ async function* executePreToolHooks(toolName, toolUseId, toolInput, toolUseConte
 - Chat integration: Forward notifications to Slack or Discord
 - Sound alerts: Play a sound when the model finishes a long task
 
-**Implementation note:** Unlike other hooks, Notification hooks use `executeHooksOutsideREPL` (`AyA`) which runs all hooks in parallel and collects results, rather than yielding them one by one through the generator.
+**Implementation note:** Unlike other hooks, Notification hooks use `executeHooksOutsideREPL` (`RF`) which runs all hooks in parallel and collects results, rather than yielding them one by one through the generator.
 
 ---
 
@@ -730,7 +731,7 @@ async function executePreCompactHooks(hookConfig, signal, timeoutMs = DEFAULT_HO
 
 ### How Hooks Are Matched to Events
 
-The function `oRA` (not shown in full) resolves which hooks apply for a given event:
+The function `kr8` (resolveHooksForEvent) resolves which hooks apply for a given event:
 
 1. **Load all registered hooks** from settings (user, project, local), plugins, and policy settings
 2. **Filter by event name:** Only hooks registered for the current `hook_event_name`
@@ -739,7 +740,7 @@ The function `oRA` (not shown in full) resolves which hooks apply for a given ev
 
 ### Execution Order and Concurrency
 
-**All hooks for a single event run concurrently**, not sequentially. The `_J6(mergeAsyncGenerators)` function in `chunks.90.mjs:1950` starts all hook generators simultaneously and yields results in completion order (first-completed, first-yielded).
+**All hooks for a single event run concurrently**, not sequentially. The `f01` (mergeAsyncGenerators) function in `chunks.92.mjs:2642` starts all hook generators simultaneously and yields results in completion order (first-completed, first-yielded).
 
 The permission aggregation follows a "most restrictive wins" hierarchy, accumulated as results arrive:
 
@@ -762,14 +763,14 @@ Events use one of two execution strategies:
 
 | Path | Function | Used By | Returns |
 |------|---------|---------|---------|
-| **Streaming (REPL)** | `NI` (executeHooksIterator) | PreToolUse, PostToolUse, PostToolUseFailure, Stop, SubagentStop, UserPromptSubmit, SessionStart, SubagentStart, TeammateIdle, TaskCompleted, Setup | `AsyncGenerator` (yields messages live) |
-| **Parallel (non-REPL)** | `AyA` (executeHooksOutsideREPL) | Notification, PreCompact, PostCompact, SessionEnd, PermissionRequest | `Promise<Array>` (all results at once) |
+| **Streaming (REPL)** | `Ax` (executeHooksIterator) | PreToolUse, PostToolUse, PostToolUseFailure, Stop, SubagentStop, UserPromptSubmit, SessionStart, SubagentStart, TeammateIdle, TaskCompleted, Setup | `AsyncGenerator` (yields messages live) |
+| **Parallel (non-REPL)** | `RF` (executeHooksOutsideREPL) | Notification, PreCompact, PostCompact, SessionEnd, PermissionRequest | `Promise<Array>` (all results at once) |
 
 The parallel path only supports `command`, `http`, and `callback` hook types — `prompt`, `agent`, and `function` hooks are not supported outside the REPL context.
 
 ### Guards Applied Before Execution
 
-Both `NI` and `AyA` check the same two guards before doing anything:
+Both `Ax` and `RF` check the same two guards before doing anything:
 
 1. **`disableAllHooks` setting** (`C8().disableAllHooks`): Global kill switch in settings. If set, silently skip all hooks.
 2. **Workspace trust** (`Pi4()`): If the workspace trust has not been accepted (`$H(!1)` returns false), skip all hooks. This prevents malicious project-level hooks from running in untrusted directories.

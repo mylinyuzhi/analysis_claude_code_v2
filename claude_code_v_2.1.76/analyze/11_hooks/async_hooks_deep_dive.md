@@ -12,8 +12,7 @@ This document covers the full async hook lifecycle, the two detection modes, and
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Hooks section)
 
 Key functions:
-- `backgroundHookProcess` (ji4) - Attaches streams to the async registry entry
-- `registerAsyncHook` ($n7) - Adds a background hook to `VR` (asyncHookRegistry)
+- `registerAsyncHook` (eTq) - Adds a background hook to `VR` (asyncHookRegistry)
 - `appendAsyncHookStdout` (On7) - Accumulates stdout from background process
 - `appendAsyncHookStderr` (_n7) - Accumulates stderr from background process
 - `getPendingHookResponses` (Jn7) - Polls registry for completed hooks
@@ -32,15 +31,15 @@ Key functions:
 
 **Flow:**
 ```
-executeCommandHook(BW6):
+executeCommandHook(vS1):
   if (hook.async && !forceSyncExecution):
     1. spawn process
     2. Write JSON payload to stdin
     3. Close stdin
-    4. Call ji4() → $n7() to register in VR (asyncHookRegistry)
+    4. Call eTq() to register in VR (asyncHookRegistry)
     5. Return immediately: { backgrounded: true }
 
-executeHooksIterator(NI):
+executeHooksIterator(Ax):
   Receives { backgrounded: true }
   Yields { outcome: "success" }
   Main loop continues without waiting
@@ -54,19 +53,19 @@ This mode is purely configuration-driven. The hook never writes a response — t
 
 **Flow:**
 ```
-executeCommandHook(BW6):
+executeCommandHook(vS1):
   1. spawn process
   2. Set up stdout listener that watches for "}" in output
   3. Write JSON payload to stdin (stdin.end() is deferred)
   4. When stdout contains "}" → parse JSON:
      - If parsed.async === true:
-       → Call ji4() to background the process
+       → Call eTq() to background the process
        → Resolve the race promise immediately
        → Return: { stdout: accumulated, status: 0 }
        [Process continues running in background]
      - If not async → continue normal sync processing
 
-executeHooksIterator(NI):
+executeHooksIterator(Ax):
   Sees json output → SK1(json) returns true → treats as success
   Continues without blocking
 ```
@@ -86,19 +85,19 @@ fi
 
 ### `forceSyncExecution` Override
 
-The `forceSyncExecution` parameter in `NI` (propagated to `BW6`) forces async hooks to wait for completion:
+The `forceSyncExecution` parameter in `Ax` (propagated to `vS1`) forces async hooks to wait for completion:
 
-- **Used by:** `SessionStart` hooks (via `$yA` with `forceSyncExecution: true`)
+- **Used by:** `SessionStart` hooks (via `Qu8` with `forceSyncExecution: true`)
 - **Reason:** The session cannot be initialized until all SessionStart hooks complete
 - **Effect:** Even if `hook.async === true` or the hook writes `{"async": true}`, the system waits
 
 ```javascript
-// In $yA (executeSessionStartHooks):
-async function* $yA(A, q, K, Y, z, w = MP, H) {
+// In Qu8 (executeSessionStartHooks):
+async function* Qu8(A, q, K, Y, z, _ = T$, w) {
     //...
-    yield* NI({
+    yield* Ax({
         // ...
-        forceSyncExecution: H  // H = true for SessionStart, makes async hooks wait
+        forceSyncExecution: w  // w = true for SessionStart, makes async hooks wait
     })
 }
 ```
@@ -135,8 +134,7 @@ interface HookProcessEntry {
 ```
 Process spawn
 │
-├─ ji4(backgroundHookProcess) called
-│  ├─ Calls $n7(registerAsyncHook) to add to VR
+├─ eTq(registerAsyncHook) called to add to VR
 │  └─ Attaches stream listeners:
 │     ├─ stdout.on("data") → On7(appendAsyncHookStdout) → VR[pid].stdout += data
 │     └─ stderr.on("data") → _n7(appendAsyncHookStderr) → VR[pid].stderr += data
@@ -197,7 +195,7 @@ The timeout for async hooks comes from the `asyncResponse` object:
 let timeout = asyncResponse.asyncTimeout || 15000;  // Default: 15 seconds
 ```
 
-This is separate from the main hook timeout (`MP = 600000`). An async hook that doesn't complete within its timeout will be killed during `cleanupAllAsyncHooks(lMA)` at session end.
+This is separate from the main hook timeout (`T$ = 600000`). An async hook that doesn't complete within its timeout will be killed during `cleanupAllAsyncHooks(lMA)` at session end.
 
 ---
 

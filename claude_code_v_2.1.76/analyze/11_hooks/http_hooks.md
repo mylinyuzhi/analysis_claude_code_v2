@@ -10,9 +10,9 @@ HTTP hooks (introduced in v2.1.63) provide an alternative to shell command hooks
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Hooks section)
 
 Key functions in this document:
-- `executeHttpHook` - HTTP hook executor (POSTs JSON payload, handles response)
-- `executeHooksIterator` (NI) - Central generator that invokes all hook types including http
-- `resolveHooksForEvent` (oRA) - Resolves which hooks apply for a given event
+- `executeHttpHook` (Nr8) - HTTP hook executor (POSTs JSON payload, handles response)
+- `executeHooksIterator` (Ax) - Central generator that invokes all hook types including http
+- `resolveHooksForEvent` (kr8) - Resolves which hooks apply for a given event
 
 ---
 
@@ -193,16 +193,16 @@ If the server does not respond within the configured `timeout` (default 600,000m
 ### Execution Flow
 
 ```
-executeHooksIterator (NI)
+executeHooksIterator (Ax)
     │
-    ├── resolveHooksForEvent (oRA)
+    ├── resolveHooksForEvent (kr8)
     │   → Returns list of hooks including http-type hooks
     │
-    ├── mergeAsyncGenerators (_J6)
+    ├── mergeAsyncGenerators (f01)
     │   → Starts all hook types concurrently
     │
     └── For each http hook:
-        executeHttpHook(hookConfig, hookInput, signal, timeoutMs)
+        executeHttpHook (Nr8)(hookConfig, hookInput, signal, timeoutMs)
             │
             ├── Build HTTP request:
             │   • Method: POST

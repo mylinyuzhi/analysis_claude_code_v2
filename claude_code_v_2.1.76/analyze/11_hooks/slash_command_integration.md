@@ -11,8 +11,8 @@ Slash commands are user-invoked operations (e.g., `/clear`, `/compact`, `/help`)
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations (Slash Commands)
 
 Key functions in this document:
-- `executeSessionStartHooks` ($yA) - SessionStart hook dispatcher
-- `executePreCompactHooks` (mW6) - PreCompact hook dispatcher
+- `executeSessionStartHooks` (Qu8) - SessionStart hook dispatcher
+- `executePreCompactHooks` (sT6) - PreCompact hook dispatcher
 - `handleSlashInput` (Mb4) - Slash command router
 - `parseSlashCommand` (Db4) - Parses `/command args` syntax
 

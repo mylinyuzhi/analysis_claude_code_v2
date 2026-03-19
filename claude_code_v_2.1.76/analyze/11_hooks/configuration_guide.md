@@ -10,8 +10,8 @@ Hooks are configured in Claude Code's settings files and can be registered at mu
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Hooks section)
 
 Key functions in this document:
-- `resolveHooksForEvent` (oRA) - Loads and filters hooks from all sources
-- `mergeHookSources` (JhY) - Merges hooks from policy, plugin, user/project settings
+- `resolveHooksForEvent` (kr8) - Loads and filters hooks from all sources
+- `mergeHookSources` (E_z) - Merges hooks from policy, plugin, user/project settings
 
 ---
 
@@ -61,7 +61,7 @@ All hooks share these base fields:
 |-------|------|----------|-------------|
 | `event` | string | Yes | Hook event name (e.g., "PreToolUse", "SessionStart") |
 | `matcher` | string | No | Match query (e.g., "Bash" for PreToolUse:Bash) |
-| `type` | string | Yes | Hook type: "command", "prompt", "agent", "callback", "function" |
+| `type` | string | Yes | Hook type: "command", "http", "prompt", "agent", "callback", "function" |
 | `timeout` | number | No | Timeout in milliseconds (default: 600000 = 10 min) |
 | `async` | boolean | No | Run in background (command type only, default: false) |
 
@@ -89,6 +89,28 @@ All hooks share these base fields:
 **Input:** JSON payload via stdin
 **Output:** JSON on stdout (parsed for structured response)
 **Exit codes:** 0 = success, 2 = block, other = error
+
+#### HTTP Hook (v2.1.63+)
+
+```json
+{
+  "event": "PreToolUse",
+  "matcher": "Bash",
+  "type": "http",
+  "url": "https://api.example.com/hooks/validate",
+  "timeout": 5000
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `url` | string | URL to POST the hook payload to |
+| `timeout` | number | Request timeout (ms) |
+
+**Input:** JSON payload via POST body
+**Output:** JSON response (parsed for structured response)
+**Behavior:** POSTs hook input to URL, expects JSON response with same schema as command hooks
+**Note:** Requires network access; supports authentication via headers configured in settings
 
 #### Prompt Hook
 
@@ -658,9 +680,9 @@ Store sensitive hook configurations in `.claude/settings.local.json` (git-ignore
 
 ### Configuration Checklist
 
-- [ ] Choose correct event name (15 available)
+- [ ] Choose correct event name (22 available)
 - [ ] Set appropriate matcher for tool-specific hooks
-- [ ] Select hook type (command, prompt, agent, callback, function)
+- [ ] Select hook type (command, http, prompt, agent, callback, function)
 - [ ] Set appropriate timeout
 - [ ] Test hook script independently
 - [ ] Place in correct settings file (user/project/local)

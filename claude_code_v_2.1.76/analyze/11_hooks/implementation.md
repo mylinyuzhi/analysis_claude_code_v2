@@ -16,22 +16,23 @@ The Hook System is Claude Code's event-driven extension framework. It intercepts
 - [10_skill_system/skill_context_modifier.md](../10_skill_system/skill_context_modifier.md#hook-registration) - Skill hook registration via `registerSkillHooks` (IM6)
 
 Key functions in this document:
-- `executeHooksIterator` (NI) - Central async generator that executes all matched hooks for an event
-- `resolveHooksForEvent` (oRA) - Filters and deduplicates hooks from all sources for a given event
-- `mergeHookSources` (JhY) - Loads and merges hook configs from policy, plugin, user/project settings
-- `executeCommandHook` (BW6) - Shell command hook executor with async backgrounding support
-- `executeAgentHook` (Xi4) - Sub-agent hook that runs a full LLM agent to verify a stop condition
-- `executePromptHook` (Pn7) - Sends a structured prompt to the LLM to evaluate a condition
-- `executeCallbackHook` (DhY) - Runs in-process callback hooks (from plugins)
-- `executeFunctionHook` (XhY) - Runs function-type hooks (REPL-only, Stop hooks)
-- `executeHooksOutsideREPL` (AyA) - Parallel hook executor for non-streaming contexts
+- `executeHooksIterator` (Ax) - Central async generator that executes all matched hooks for an event
+- `resolveHooksForEvent` (kr8) - Filters and deduplicates hooks from all sources for a given event
+- `mergeHookSources` (E_z) - Loads and merges hook configs from policy, plugin, user/project settings
+- `executeCommandHook` (vS1) - Shell command hook executor with async backgrounding support
+- `executeHttpHook` (Nr8) - HTTP hook executor that POSTs JSON payload and handles response
+- `executeAgentHook` (cTq) - Sub-agent hook that runs a full LLM agent to verify a stop condition
+- `executePromptHook` (QTq) - Sends a structured prompt to the LLM to evaluate a condition
+- `executeCallbackHook` (L_z) - Runs in-process callback hooks (from plugins)
+- `executeFunctionHook` (y_z) - Runs function-type hooks (REPL-only, Stop hooks)
+- `executeHooksOutsideREPL` (RF) - Parallel hook executor for non-streaming contexts
 - `parseHookOutput` (Wi4) - Parses hook stdout as JSON or plain text
 - `processHookJsonOutput` (Gi4) - Maps JSON output fields to permission decisions, context injections, etc.
-- `registerAsyncHook` ($n7) - Registers a backgrounded hook process in the async registry
+- `registerAsyncHook` (eTq) - Registers a backgrounded hook process in the async registry
 - `getPendingHookResponses` (Jn7) - Polls background hook registry for completed hooks
-- `mergeAsyncGenerators` (_J6) - Concurrent iterator merger for parallel hook execution
+- `mergeAsyncGenerators` (f01) - Concurrent iterator merger for parallel hook execution
 - `combineAbortSignals` (fR) - Merges timeout + parent abort signals into one
-- `matchesHookMatcher` (_hY) - Tests if a query string matches a hook's matcher pattern
+- `matchesHookMatcher` (k_z) - Tests if a query string matches a hook's matcher pattern
 - `isAsyncHookResponse` (SK1) - Detects `{"async": true}` in hook JSON output
 - `notifyHookStart` (Hn7) - Emits hook start event for remote streaming
 - `logHookCompletion` (Ch) - Logs hook output and emits completion event for remote streaming
@@ -39,9 +40,10 @@ Key functions in this document:
 - `getStructuredOutputTool` (jn7) - Returns the structured-output tool used by agent hooks
 - `interpolateHookPrompt` (XJ6) - Interpolates `${VAR}` in hook prompt strings
 - `buildBasePayload` (aX) - Constructs the common base payload for every hook event
-- `HOOK_EVENT_NAMES` (ax/tGY) - Canonical list of all 22 event names (runtime/schema)
-- `DEFAULT_HOOK_TIMEOUT` (MP) - Default timeout: **600,000ms (10 minutes)**
-- `HOOK_BLOCKED_TOOLS` (Bj1) - Set of tool names blocked from agent hooks
+- `HOOK_EVENT_NAMES` (Fu/tGY) - Canonical list of all 22 event names (runtime/schema)
+- `DEFAULT_HOOK_TIMEOUT` (T$) - Default timeout: **600,000ms (10 minutes)**
+- `HOOK_BLOCKED_TOOLS` (CW6) - Set of tool names blocked from agent hooks
+- `STRUCTURED_OUTPUT_TOOL_NAME` (oM) - Constant "StructuredOutput" for structured output tool name
 
 ---
 
@@ -65,20 +67,21 @@ Key functions in this document:
 │  TaskCompleted → (Cg1) ───────────────────────┤                  │
 │  Setup → (OyA) ───────────────────────────────┘                  │
 │                                                                   │
-│  Notification → (UTA) ─────────────────────────→ AyA             │
-│  PreCompact → (mW6) ───────────────────────────→ AyA             │
-│  SessionEnd → (SessionEndHook) ────────────────→ AyA             │
-│  PermissionRequest → (PermissionRequestHook) ──→ AyA             │
+│  Notification → (UTA) ─────────────────────────→ RF              │
+│  PreCompact → (mW6) ───────────────────────────→ RF              │
+│  SessionEnd → (SessionEndHook) ────────────────→ RF              │
+│  PermissionRequest → (PermissionRequestHook) ──→ RF              │
 │                                                                   │
 │  NI (executeHooksIterator):                                      │
-│  1. JhY (mergeHookSources) → get all registered hooks            │
-│  2. oRA (resolveHooksForEvent) → filter + dedup by event/matcher │
-│  3. _J6 (mergeAsyncGenerators) → run all hook types concurrently │
-│     ├── command → BW6 (executeCommandHook)                       │
-│     ├── agent → Xi4 (executeAgentHook)                           │
-│     ├── prompt → Pn7 (executePromptHook)                         │
-│     ├── callback → DhY (executeCallbackHook)                     │
-│     └── function → XhY (executeFunctionHook) [REPL only]        │
+│  1. E_z (mergeHookSources) → get all registered hooks            │
+│  2. kr8 (resolveHooksForEvent) → filter + dedup by event/matcher │
+│  3. f01 (mergeAsyncGenerators) → run all hook types concurrently │
+│     ├── command → vS1 (executeCommandHook)                       │
+│     ├── http → Nr8 (executeHttpHook)                             │
+│     ├── agent → cTq (executeAgentHook)                           │
+│     ├── prompt → QTq (executePromptHook)                         │
+│     ├── callback → L_z (executeCallbackHook)                     │
+│     └── function → y_z (executeFunctionHook) [REPL only]        │
 │  4. Aggregate results → yield structured outputs upstream        │
 │                                                                   │
 └─────────────────────────────────────────────────────────────────┘
@@ -88,7 +91,7 @@ Key functions in this document:
 
 ## Core Algorithms
 
-### Algorithm 1: Hook Source Merging (`JhY` / `mergeHookSources`)
+### Algorithm 1: Hook Source Merging (`E_z` / `mergeHookSources`)
 
 **What it does:** Collects hooks from all possible sources and merges them into a unified map keyed by event name.
 
@@ -97,11 +100,11 @@ Key functions in this document:
 ```javascript
 // ============================================
 // mergeHookSources - Merge hooks from all configuration sources
-// Location: chunks.141.mjs:2104-2137
+// Location: chunks.175.mjs:1477-1510
 // ============================================
 
 // ORIGINAL (for source lookup):
-function JhY(A, q) {
+function E_z(A, q) {
     let K = {},
         Y = Uk7();
     if (Y)
@@ -173,7 +176,7 @@ function mergeHookSources(appState, agentId) {
     return merged
 }
 
-// Mapping: JhY→mergeHookSources, A→appState, q→agentId, K→merged,
+// Mapping: E_z→mergeHookSources, A→appState, q→agentId, K→merged,
 //          Uk7→getPolicySettingsHooks, Ap→isAllowManagedHooksOnly,
 //          DN1→getRegisteredHooks, Ww6→getSessionHooks, Ik7→getSessionFunctionHooks
 ```
@@ -188,7 +191,7 @@ function mergeHookSources(appState, agentId) {
 
 ---
 
-### Algorithm 2: Hook Resolution and Matching (`oRA` / `resolveHooksForEvent`)
+### Algorithm 2: Hook Resolution and Matching (`kr8` / `resolveHooksForEvent`)
 
 **What it does:** Filters the merged hook map to find which hooks apply to the current event+query, deduplicates by content, and returns a flat ordered list.
 
@@ -197,13 +200,13 @@ function mergeHookSources(appState, agentId) {
 ```javascript
 // ============================================
 // resolveHooksForEvent - Filter and deduplicate hooks for an event+query
-// Location: chunks.141.mjs:2140-2200
+// Location: chunks.175.mjs:1506-1575
 // ============================================
 
 // ORIGINAL (for source lookup):
-function oRA(A, q, K, Y) {
+function kr8(A, q, K, Y) {
     try {
-        let w = JhY(A, q)?.[K] ?? [], H = void 0;
+        let w = E_z(A, q)?.[K] ?? [], H = void 0;
         switch (Y.hook_event_name) {
             case "PreToolUse": case "PostToolUse": case "PostToolUseFailure":
             case "PermissionRequest": H = Y.tool_name; break;
@@ -216,7 +219,7 @@ function oRA(A, q, K, Y) {
             case "SubagentStop": H = Y.agent_type; break;
             case "TeammateIdle": case "TaskCompleted": break;
         }
-        let O = (H ? w.filter((P) => !P.matcher || _hY(H, P.matcher)) : w)
+        let O = (H ? w.filter((P) => !P.matcher || k_z(H, P.matcher)) : w)
             .flatMap((P) => {
                 let W = "pluginRoot" in P ? P.pluginRoot : void 0;
                 let G = "pluginId" in P ? P.pluginId : void 0;
@@ -265,16 +268,16 @@ function resolveHooksForEvent(appState, agentId, eventName, hookInput) {
 }
 ```
 
-**Matcher Pattern System** (`_hY` / `matchesHookMatcher`):
+**Matcher Pattern System** (`k_z` / `matchesHookMatcher`):
 
 ```javascript
 // ============================================
 // matchesHookMatcher - Pattern matching for hook matchers
-// Location: chunks.141.mjs:2079-2090
+// Location: chunks.175.mjs:1434-1445
 // ============================================
 
 // ORIGINAL (for source lookup):
-function _hY(A, q) {
+function k_z(A, q) {
     if (!q || q === "*") return !0;
     if (/^[a-zA-Z0-9_|]+$/.test(q)) {
         if (q.includes("|")) return q.split("|").map((Y) => Y.trim()).includes(A);
@@ -294,7 +297,7 @@ function matchesHookMatcher(query, pattern) {
     try { return new RegExp(pattern).test(query) } catch { return false } // Regex: "Bash.*"
 }
 
-// Mapping: _hY→matchesHookMatcher, A→query, q→pattern
+// Mapping: k_z→matchesHookMatcher, A→query, q→pattern
 ```
 
 **Three matcher modes:**
@@ -304,7 +307,7 @@ function matchesHookMatcher(query, pattern) {
 
 ---
 
-### Algorithm 3: Core Hook Execution Engine (`NI` / `executeHooksIterator`)
+### Algorithm 3: Core Hook Execution Engine (`Ax` / `executeHooksIterator`)
 
 **What it does:** The central async generator that executes all resolved hooks for an event and yields structured results upstream.
 
@@ -313,17 +316,17 @@ function matchesHookMatcher(query, pattern) {
 ```javascript
 // ============================================
 // executeHooksIterator - Core hook execution engine
-// Location: chunks.141.mjs:2226-2689
+// Location: chunks.175.mjs:1612-2100
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* NI({ hookInput: A, toolUseID: q, matchQuery: K, signal: Y, timeoutMs: z = MP,
+async function* Ax({ hookInput: A, toolUseID: q, matchQuery: K, signal: Y, timeoutMs: z = T$,
                      toolUseContext: w, messages: H, forceSyncExecution: $ }) {
     if (C8().disableAllHooks) return;
     let O = A.hook_event_name, _ = K ? `${O}:${K}` : O;
     if (Pi4()) { h(`Skipping ${_} hook execution - workspace trust not accepted`); return }
     let J = w ? await w.getAppState() : void 0, X = w?.agentId ?? U6(),
-        D = oRA(J, X, O, A);
+        D = kr8(J, X, O, A);
     if (D.length === 0) return;
     if (Y?.aborted) return;
     // ... telemetry, progress yield, parallel execution ...
@@ -371,12 +374,12 @@ async function* executeHooksIterator({ hookInput, toolUseID, matchQuery, signal,
     let hookGenerators = resolvedHooks.map(async function*({ hook, pluginRoot, skillRoot }, index) {
         // Dispatch to the correct executor based on hook type
         if (hook.type === "callback") {
-            yield executeCallbackHook({ toolUseID, hook, ... });  // DhY
+            yield executeCallbackHook({ toolUseID, hook, ... });  // L_z
             return;
         }
         if (hook.type === "function") {
             if (!messages) { yield { outcome: "non_blocking_error", ... }; return; }
-            yield executeFunctionHook({ hook, messages, ..., signal });  // XhY
+            yield executeFunctionHook({ hook, messages, ..., signal });  // y_z
             return;
         }
 
@@ -466,22 +469,22 @@ async function* executeHooksIterator({ hookInput, toolUseID, matchQuery, signal,
 }
 ```
 
-**Key insight:** Hooks run **concurrently**, not sequentially. `_J6(W)` (mergeAsyncGenerators) starts all hook generators at the same time and yields results in completion order. The permission aggregation happens AFTER all results are collected, so the most restrictive permission still wins even across concurrent executions.
+**Key insight:** Hooks run **concurrently**, not sequentially. `f01` (mergeAsyncGenerators) starts all hook generators at the same time and yields results in completion order. The permission aggregation happens AFTER all results are collected, so the most restrictive permission still wins even across concurrent executions.
 
 ---
 
-### Algorithm 4: Parallel Generator Merger (`_J6` / `mergeAsyncGenerators`)
+### Algorithm 4: Parallel Generator Merger (`f01` / `mergeAsyncGenerators`)
 
 **What it does:** Takes an array of async generators and yields their values in the order they resolve - essentially a concurrent `await Promise.race` loop over generators.
 
 ```javascript
 // ============================================
 // mergeAsyncGenerators - Concurrent async generator merger
-// Location: chunks.90.mjs:1950-1983
+// Location: chunks.92.mjs:2642-2675
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* _J6(A, q = 1 / 0) {
+async function* f01(A, q = 1 / 0) {
     let K = (w) => {
             let H = w.next().then(({ done: $, value: O }) =>
                 ({ done: $, value: O, generator: w, promise: H }));
@@ -536,51 +539,50 @@ async function* mergeAsyncGenerators(generators, concurrency = Infinity) {
 
 ---
 
-### Algorithm 5: Command Hook Execution (`BW6` / `executeCommandHook`)
+### Algorithm 5: Command Hook Execution (`vS1` / `executeCommandHook`)
 
 **What it does:** Spawns a shell command, writes the hook's JSON payload to stdin, collects stdout/stderr, and handles both sync completion and async backgrounding.
 
 ```javascript
 // ============================================
 // executeCommandHook - Shell command hook execution with async support
-// Location: chunks.141.mjs:1924-2077
+// Location: chunks.175.mjs:1218-1430
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function BW6(A, q, K, Y, z, w, H, $, O, _) {
-    let J = y8(), X = A.command;
-    if ($) X = X.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, $);
-    if (eA() === "windows" && X.trim().match(/\.sh(\s|$|")/)) {
-        if (!X.trim().startsWith("bash ")) X = `bash ${X}`
+async function vS1(A, q, K, Y, z, w, H, $, O, _, j, J) {
+    let X = y8(), D = A.command;
+    if ($) D = D.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, $);
+    if (eA() === "windows" && D.trim().match(/\.sh(\s|$|")/)) {
+        if (!D.trim().startsWith("bash ")) D = `bash ${D}`
     }
-    let D = process.env.CLAUDE_CODE_SHELL_PREFIX ? Q_6(process.env.CLAUDE_CODE_SHELL_PREFIX, X) : X,
-        j = A.timeout ? A.timeout * 1000 : MP,
-        M = { ...process.env, CLAUDE_PROJECT_DIR: J };
-    if ($) M.CLAUDE_PLUGIN_ROOT = $;
-    if (O) M.CLAUDE_PLUGIN_ROOT = O;
-    if ((q === "SessionStart" || q === "Setup") && H !== void 0) M.CLAUDE_ENV_FILE = hd7(q, H);
-    let P = OhY(D, [], { env: M, cwd: h6(), shell: true, windowsHide: true }),
-        W = F_6(P, z, j), G = false, f = false;
+    let M = process.env.CLAUDE_CODE_SHELL_PREFIX ? Q_6(process.env.CLAUDE_CODE_SHELL_PREFIX, D) : D,
+        P = A.timeout ? A.timeout * 1000 : T$, W = { ...process.env, CLAUDE_PROJECT_DIR: X };
+    if ($) W.CLAUDE_PLUGIN_ROOT = $;
+    if (O) W.CLAUDE_PLUGIN_ROOT = O;
+    if ((q === "SessionStart" || q === "Setup") && H !== void 0) W.CLAUDE_ENV_FILE = hd7(q, H);
+    let G = OhY(M, [], { env: W, cwd: h6(), shell: true, windowsHide: true }),
+        f = F_6(G, z, P), l = false, p = false;
     if (A.async && !_) {
         // Mode 1: Config-based async (hook.async === true)
-        let p = `async_hook_${P.pid}`;
-        if (h(`Hooks: Config-based async hook, backgrounding process ${p}`),
-            P.stdin.write(Y, "utf8"), P.stdin.end(), f = true,
-            ji4({ processId: p, hookId: w, shellCommand: W, ... }))
+        let d = `async_hook_${G.pid}`;
+        if (h(`Hooks: Config-based async hook, backgrounding process ${d}`),
+            G.stdin.write(Y, "utf8"), G.stdin.end(), p = true,
+            eTq({ processId: d, hookId: w, shellCommand: f, ... }))
             return { stdout: "", stderr: "", output: "", status: 0, backgrounded: true }
     }
     // ... collect stdout, check for {"async": true} in initial output ...
     // Mode 2: Output-based async detection
-    P.stdout.on("data", (p) => {
-        if (!k && Z.trim().includes("}")) {
-            k = true;
+    G.stdout.on("data", (d) => {
+        if (!m && R.trim().includes("}")) {
+            m = true;
             try {
-                let l = JSON.parse(Z.trim());
-                if (isAsyncHookResponse(l) && !forceSyncExecution) {
+                let S = JSON.parse(R.trim());
+                if (isAsyncHookResponse(S) && !forceSyncExecution) {
                     // Hook returned {"async": true} — background it
-                    ji4({ processId: `async_hook_${P.pid}`, ... });
-                    G = true;  // resolve the race immediately
-                    y?.({ stdout: Z, ..., status: 0 })
+                    eTq({ processId: `async_hook_${G.pid}`, ... });
+                    l = true;  // resolve the race immediately
+                    U?.({ stdout: R, ..., status: 0 })
                 }
             } catch {}
         }
@@ -669,9 +671,9 @@ async function executeCommandHook(hook, eventName, hookName, inputJson, signal,
     }
 }
 
-// Mapping: BW6→executeCommandHook, A→hook, q→eventName, K→hookName, Y→inputJson,
+// Mapping: vS1→executeCommandHook, A→hook, q→eventName, K→hookName, Y→inputJson,
 //          z→signal, w→hookId, H→hookIndex, $→pluginRoot, O→skillRoot, _→forceSyncExecution,
-//          P→proc, W→managedProcess, G→backgrounded, f→stdinWritten, k→checkedAsync
+//          G→proc, f→managedProcess, l→backgrounded, p→stdinWritten, m→checkedAsync
 ```
 
 **Two async detection modes:**
@@ -701,11 +703,11 @@ async function executeCommandHook(hook, eventName, hookName, inputJson, signal,
 ```javascript
 // ============================================
 // registerAsyncHook - Register a process in the background hook registry
-// Location: chunks.90.mjs:1793-1838
+// Location: chunks.175.mjs:955-1010
 // ============================================
 
 // ORIGINAL (for source lookup):
-function $n7({ processId: A, hookId: q, asyncResponse: K, hookName: Y, hookEvent: z,
+function eTq({ processId: A, hookId: q, asyncResponse: K, hookName: Y, hookEvent: z,
                command: w, shellCommand: H, toolName: $ }) {
     let O = K.asyncTimeout || 15000;
     let _ = HJ6({ hookId: q, hookName: Y, hookEvent: z,
@@ -739,13 +741,13 @@ function registerAsyncHook({ processId, hookId, asyncResponse, hookName, hookEve
     });
 }
 
-// Mapping: $n7→registerAsyncHook, VR→asyncHookRegistry, K→asyncResponse, H→shellCommand
+// Mapping: eTq→registerAsyncHook, VR→asyncHookRegistry, K→asyncResponse, H→shellCommand
 ```
 
 **Background hook lifecycle:**
 
 ```
-1. Hook starts → registerAsyncHook($n7) adds to VR (asyncHookRegistry: Map)
+1. Hook starts → registerAsyncHook(eTq) adds to VR (asyncHookRegistry: Map)
 2. Process streams stdout → On7 appends to VR[processId].stdout
 3. Process streams stderr → _n7 appends to VR[processId].stderr
 4. Next session turn → getPendingHookResponses(Jn7) polls all VR entries:
@@ -886,14 +888,14 @@ function processHookJsonOutput({ json, command, hookName, toolUseID, hookEvent,
 
 ---
 
-### Algorithm 8: Agent Hook Execution (`Xi4` / `executeAgentHook`)
+### Algorithm 8: Agent Hook Execution (`cTq` / `executeAgentHook`)
 
 **What it does:** Runs a full LLM sub-agent to evaluate a boolean condition. Used for sophisticated stop conditions like "verify the bug is fixed".
 
 ```javascript
 // ============================================
 // executeAgentHook - Sub-agent based condition verification
-// Location: chunks.141.mjs:1561-1717
+// Location: chunks.175.mjs:515-850
 // ============================================
 
 // READABLE (for understanding):
@@ -908,8 +910,8 @@ async function executeAgentHook(hook, hookName, eventName, inputJson, signal,
     let interpolatedPrompt = interpolateHookPrompt(hook.prompt(messages), inputJson);  // XJ6
 
     // Create specialized tools for the agent hook
-    // Filters out: STRUCTURED_OUTPUT tool (cD), HOOK_BLOCKED_TOOLS (Bj1)
-    // Bj1 = Set containing: bash tool, web fetch, computer use, etc.
+    // Filters out: STRUCTURED_OUTPUT tool (cD), HOOK_BLOCKED_TOOLS (CW6)
+    // CW6 = Set containing: bash tool, web fetch, computer use, etc.
     let availableTools = [
         ...toolUseContext.options.tools
             .filter(t => t.name !== STRUCTURED_OUTPUT_TOOL_NAME)
@@ -1007,7 +1009,7 @@ async function executeAgentHook(hook, hookName, eventName, inputJson, signal,
 }
 ```
 
-**HOOK_BLOCKED_TOOLS (`Bj1`):** The set of tools that agent hooks cannot use (to prevent recursive/dangerous behavior). Includes bash execution, web fetch, computer use, and other potentially dangerous tools.
+**HOOK_BLOCKED_TOOLS (`CW6`):** The set of tools that agent hooks cannot use (to prevent recursive/dangerous behavior). Includes bash execution, web fetch, computer use, and other potentially dangerous tools.
 
 **Key design decisions:**
 - Max 50 turns to prevent runaway agents
@@ -1043,7 +1045,7 @@ Final yielded value = aggregatedPermissionBehavior (may be undefined = passthrou
 
 ---
 
-### Algorithm 10: `executeHooksOutsideREPL` (`AyA`)
+### Algorithm 10: `executeHooksOutsideREPL` (`RF`)
 
 **What it does:** A non-generator parallel hook executor for contexts where streaming isn't available (Notification, PreCompact, SessionEnd, PermissionRequest). Returns an array of results.
 
@@ -1138,10 +1140,10 @@ Individual event schemas (from chunks.129.mjs:722-791), covering all 22 events i
 | Type | Executor | Context Required | Blocking | Async Support |
 |------|---------|-----------------|----------|---------------|
 | `command` | `BW6` (shell spawn) | None | Yes (exit 2) | Yes (config/output-based) |
-| `prompt` | `Pn7` (single LLM query) | ToolUseContext + messages | No (yes/no only) | No |
-| `agent` | `Xi4` (full agent loop) | ToolUseContext + messages | Yes (ok: false) | No |
-| `callback` | `DhY` (in-process function) | Optional ToolUseContext | Via JSON return | Via `{async: true}` return |
-| `function` | `XhY` (REPL function) | messages | Yes (false return) | No |
+| `prompt` | `QTq` (single LLM query) | ToolUseContext + messages | No (yes/no only) | No |
+| `agent` | `cTq` (full agent loop) | ToolUseContext + messages | Yes (ok: false) | No |
+| `callback` | `L_z` (in-process function) | Optional ToolUseContext | Via JSON return | Via `{async: true}` return |
+| `function` | `y_z` (REPL function) | messages | Yes (false return) | No |
 
 ---
 
@@ -1163,19 +1165,20 @@ The `HJ6` (hookProgressPoller) function creates a 1-second polling interval that
 
 | Symbol | Value | Meaning |
 |--------|-------|---------|
-| `MP` | `600000` | Default hook timeout: **10 minutes** |
-| `Bj1` (HOOK_BLOCKED_TOOLS) | Set of tool names | Tools blocked from agent hooks |
+| `T$` | `600000` | Default hook timeout: **10 minutes** |
+| `CW6` | Set of tool names | Tools blocked from agent hooks |
+| `oM` | "StructuredOutput" | Structured output tool name constant |
 | `IL9` | `["SessionStart", "Setup"]` | Events that stream progress to remote |
-| `tGY` (HOOK_EVENT_NAMES) | Array of 22 strings | All valid event names |
+| `Fu` (HOOK_EVENT_NAMES) | Array of 22 strings | All valid event names |
 | `VR` | `Map<string, HookProcessEntry>` | Async hook background registry |
 
 ---
 
 ## Key Insights
 
-1. **10-Minute Default Timeout**: `MP = 600000` (10 minutes) is the default. This is very permissive — hooks intended for complex verification tasks can run for many minutes without needing a custom timeout.
+1. **10-Minute Default Timeout**: `T$ = 600000` (10 minutes) is the default. This is very permissive — hooks intended for complex verification tasks can run for many minutes without needing a custom timeout.
 
-2. **Concurrent Execution, Sequential Permission Aggregation**: All hooks for one event run concurrently (via `_J6`), but the permission aggregation logic processes results in completion order with "most restrictive wins". There is no race condition in permission decisions.
+2. **Concurrent Execution, Sequential Permission Aggregation**: All hooks for one event run concurrently (via `f01`), but the permission aggregation logic processes results in completion order with "most restrictive wins". There is no race condition in permission decisions.
 
 3. **Two-Level Async Detection**: A hook can opt into async mode either statically (`hook.async === true` in config) or dynamically (outputting `{"async": true}` as its first JSON response). The dynamic mode allows a hook to decide at runtime based on what work is needed.
 
@@ -1183,7 +1186,7 @@ The `HJ6` (hookProgressPoller) function creates a 1-second polling interval that
 
 5. **Trust Gate**: `Pi4()` (workspace trust check) silently skips all hooks if the user hasn't accepted workspace trust. This prevents malicious project hooks from running in untrusted projects.
 
-6. **Agent Hook Tool Filtering**: Agent hooks cannot use `HOOK_BLOCKED_TOOLS` (`Bj1`). The set prevents agent hooks from spawning bash commands, doing web requests, or using other powerful tools — they're limited to reading files and inspecting the codebase.
+6. **Agent Hook Tool Filtering**: Agent hooks cannot use `HOOK_BLOCKED_TOOLS` (`CW6`). The set prevents agent hooks from spawning bash commands, doing web requests, or using other powerful tools — they're limited to reading files and inspecting the codebase.
 
 7. **System Message Injection**: The `systemMessage` field in hook JSON output injects a message directly into the conversation context — not as user/assistant messages but as a special injection. This allows hooks to communicate with the model without appearing as user messages.
 

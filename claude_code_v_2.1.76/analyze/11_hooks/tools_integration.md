@@ -15,11 +15,11 @@ This document analyzes the integration architecture, execution flow, and key dec
 Key functions in this document:
 - `toolDispatcher` (bU1) - Top-level tool dispatch entry point
 - `toolExecutionPipeline` (NdY) - Core pipeline with hook integration points
-- `executePreToolHooksIterator` (B1q) - Pre-tool hook processing
-- `executePostToolHooksIterator` (b1q) - Post-tool hook processing
-- `executePostToolFailureHooksIterator` (u1q) - Post-failure hook processing
-- `executePreToolHooks` (qyA) - PreToolUse event generator
-- `executePostToolHooks` (KyA) - PostToolUse event generator
+- `executePreToolHooksIterator` - Pre-tool hook processing
+- `executePostToolHooksIterator` - Post-tool hook processing
+- `executePostToolFailureHooksIterator` - Post-failure hook processing
+- `executePreToolHooks` (LF8) - PreToolUse event generator
+- `executePostToolHooks` (RF8) - PostToolUse event generator
 
 ---
 

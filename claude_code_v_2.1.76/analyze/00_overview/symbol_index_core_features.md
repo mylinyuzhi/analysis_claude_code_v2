@@ -887,19 +887,24 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| NI | executeHooksIterator | chunks.141.mjs:2226 | generator |
-| qyA | executePreToolHooks | chunks.141.mjs:2812 | generator |
-| KyA | executePostToolHooks | chunks.141.mjs:2831 | generator |
-| YyA | executePostToolUseFailureHooks | chunks.141.mjs:2850 | generator |
-| UTA | executeNotificationHooks | chunks.141.mjs:2870 | function |
-| zyA | executeStopHooks | chunks.141.mjs:2889 | generator |
-| wyA | executeTeammateIdleHooks | chunks.141.mjs:2912 | generator |
-| Cg1 | executeTaskCompletedHooks | chunks.141.mjs:2927 | generator |
-| HyA | executeUserPromptSubmitHooks | chunks.141.mjs:2946 | generator |
-| $yA | executeSessionStartHooks | chunks.141.mjs:2961 | generator |
-| OyA | executeSetupHooks | chunks.141.mjs:2979 | generator |
-| AEA | executeSubagentStartHooks | chunks.141.mjs:2995 | generator |
-| mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
+| Ax | executeHooksIterator | chunks.175.mjs:1612 | generator |
+| LF8 | executePreToolHooks | chunks.175.mjs:2462 | generator |
+| RF8 | executePostToolHooks | chunks.175.mjs:2486 | generator |
+| hF8 | executePostToolUseFailureHooks | chunks.175.mjs:2505 | generator |
+| Xm | executeNotificationHooks | chunks.175.mjs:2528 | function |
+| Lp8 | executeStopHooks | chunks.175.mjs:2547 | generator |
+| Rp8 | executeTeammateIdleHooks | chunks.175.mjs:2579 | generator |
+| Hi6 | executeTaskCompletedHooks | chunks.175.mjs:2594 | generator |
+| yr8 | executeUserPromptSubmitHooks | chunks.175.mjs:2613 | generator |
+| Qu8 | executeSessionStartHooks | chunks.175.mjs:2632 | generator |
+| RQ8 | executeSessionEndHooks | chunks.175.mjs | function |
+| UN6 | executeConfigChangeHooks | chunks.175.mjs:2787 | function |
+| ZF6 | executeInstructionsLoadedHooks | chunks.175.mjs:2814 | function |
+| A$8 | executeElicitationHooks | chunks.175.mjs | function |
+| q$8 | executeElicitationResultHooks | chunks.175.mjs | function |
+| Ux8 | executeSubagentStartHooks | chunks.175.mjs:2666 | generator |
+| Uu8 | executeSetupHooks | chunks.175.mjs | generator |
+| b_6 | executePermissionRequestHooks | chunks.175.mjs:2766 | generator |
 | PP | executePluginHooksForSession | chunks.142.mjs:248 | function |
 | FW6 | executePluginHooksForSetup | chunks.142.mjs:291 | function |
 | pa | loadAllPluginHooks | chunks.87.mjs:2606 | variable (memoized async fn, exported as loadPluginHooks) |
@@ -911,21 +916,16 @@
 | aN9 | resetHotReloadState | chunks.87.mjs:2585 | function |
 | rO6 | clearPluginHookCache | chunks.87.mjs:2581 | function |
 | g0A | hotReloadAlreadySetup | chunks.87.mjs:2596 | variable (bool guard) |
-| - | executePostCompactHooks | chunks.141.mjs | generator (PostCompact hook event) |
-| FE1 | executePostCompactHooks | chunks.147.mjs:1562 | function |
-| A$8 | executeElicitationHooks | chunks.175.mjs | function (Elicitation hook event) |
-| q$8 | executeElicitationResultHooks | chunks.175.mjs | function (ElicitationResult hook event) |
-| UN6 | executeConfigChangeHooks | chunks.175.mjs | function (ConfigChange hook event) |
-| ZF6 | executeInstructionsLoadedHooks | chunks.175.mjs:2814 | function (InstructionsLoaded hook event) |
-| b_6 | executePermissionRequestHooks | chunks.141.mjs | function (PermissionRequest hook event) |
+| rN1 | executeWorktreeRemoveHook | chunks.175.mjs | function |
+| nN1 | executeWorktreeCreateHook | chunks.175.mjs | function |
 
 ### Hook Resolution & Loading
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| oRA | resolveHooksForEvent | chunks.141.mjs:2140 | function |
-| JhY | mergeHookSources | chunks.141.mjs:2104 | function |
-| _hY | matchesHookMatcher | chunks.141.mjs:2079 | function |
+| kr8 | resolveHooksForEvent | chunks.175.mjs:1506 | function |
+| E_z | mergeHookSources | chunks.175.mjs:1477 | function |
+| k_z | matchesHookMatcher | chunks.175.mjs:1434 | function |
 | Uk7 | getPolicySettingsHooks | chunks.75.mjs:1533 | function |
 | DN1 | getRegisteredHooks | chunks.1.mjs:2921 | function |
 | Ww6 | getSessionHooks | chunks.75.mjs:1184 | function |
@@ -936,12 +936,13 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| BW6 | executeCommandHook | chunks.141.mjs:1924 | function |
-| Xi4 | executeAgentHook | chunks.141.mjs:1561 | function |
-| Pn7 | executePromptHook | chunks.90.mjs:2050 | function |
-| DhY | executeCallbackHook | chunks.142.mjs:154 | function |
-| XhY | executeFunctionHook | chunks.142.mjs:96 | function |
-| AyA | executeHooksOutsideREPL | chunks.141.mjs:2691 | function |
+| vS1 | executeCommandHook | chunks.175.mjs:1218 | function |
+| Nr8 | executeHttpHook | chunks.175.mjs:868 | function |
+| cTq | executeAgentHook | chunks.175.mjs:515 | function |
+| QTq | executePromptHook | chunks.175.mjs:366 | function |
+| L_z | executeCallbackHook | chunks.176.mjs:61 | function |
+| y_z | executeFunctionHook | chunks.176.mjs:3 | function |
+| RF | executeHooksOutsideREPL | chunks.175.mjs:2279 | function |
 
 ### Hook Output Processing
 
@@ -961,7 +962,7 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| $n7 | registerAsyncHook | chunks.90.mjs:1793 | function |
+| eTq | registerAsyncHook | chunks.175.mjs:955 | function |
 | On7 | appendAsyncHookStdout | chunks.90.mjs:1840 | function |
 | _n7 | appendAsyncHookStderr | chunks.90.mjs:1846 | function |
 | cMA | finalizeAsyncHook | chunks.90.mjs:1852 | function |
@@ -999,17 +1000,17 @@
 | DJ6 | registerAgentInState | chunks.90.mjs:2030 | function |
 | iD1 | unregisterAgentFromState | chunks.75.mjs:1240 | function |
 | MZ | getHookDisplayName | chunks.75.mjs:1272 | function |
-| _J6 | mergeAsyncGenerators | chunks.90.mjs:1950 | generator |
+| f01 | mergeAsyncGenerators | chunks.92.mjs:2642 | generator |
 | Pi4 | isWorkspaceTrustRequired | chunks.141.mjs:1765 | function |
 
 ### Hook Schemas & Constants
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| tGY | HOOK_EVENT_NAMES_SCHEMA | chunks.129.mjs:717 | constant (15-item Array, Zod enum source) |
-| ax | HOOK_EVENT_NAMES | chunks.14.mjs:3572 | constant (15-item Array, runtime) |
-| MP | DEFAULT_HOOK_TIMEOUT | chunks.142.mjs:215 | constant (600000ms = 10 min) |
-| Bj1 | HOOK_BLOCKED_TOOLS | chunks.89.mjs:876 | constant (Set) |
+| tGY | HOOK_EVENT_NAMES_SCHEMA | chunks.131.mjs:2395 | schema (Zod enum for 22 events) |
+| T$ | DEFAULT_HOOK_TIMEOUT | chunks.176.mjs:178 | constant (600000ms = 10 min) |
+| CW6 | HOOK_BLOCKED_TOOLS | chunks.91.mjs:269 | constant (Set) |
+| oM | STRUCTURED_OUTPUT_TOOL_NAME | chunks.91.mjs:94 | constant ("StructuredOutput") |
 | zJ6 | HookOutputSchema | chunks.129.mjs:834 (LZY) | schema |
 | GB1 | StructuredOutputSchema | chunks.90.mjs:2044 | schema |
 | gZ | HookBasePayloadSchema | chunks.129.mjs:717 | schema |
@@ -1168,7 +1169,7 @@
 | l24 | removeSessionHook | chunks.95.mjs:1741 | function (removes session hook) |
 | zZ6 | clearSessionHooks | chunks.95.mjs:1830 | function (clears all hooks for session) |
 | jW1 | getSessionHooks | chunks.95.mjs:1774 | function (gets hooks for session/event) |
-| Fu | HOOK_EVENT_NAMES | chunks.40.mjs:771 | constant (hook event types array including InstructionsLoaded) |
+| Fu | HOOK_EVENT_NAMES | chunks.40.mjs:771 | constant (22-item Array, all event names) |
 
 ### InstructionsLoaded Hook (NEW v2.1.76)
 

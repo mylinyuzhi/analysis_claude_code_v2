@@ -75,21 +75,21 @@ Hooks integrate with multiple Claude Code components:
 
 | Function | Event | Purpose |
 |----------|-------|---------|
-| `executePreToolHooks` (qyA) | PreToolUse | Before tool execution |
-| `executePostToolHooks` (KyA) | PostToolUse | After successful tool execution |
-| `executePostToolFailureHooks` (YyA) | PostToolUseFailure | After failed tool execution |
-| `executeNotificationHooks` (UTA) | Notification | System notifications |
-| `executeUserPromptSubmitHooks` (HyA) | UserPromptSubmit | Before prompt sent to LLM |
-| `executeSessionStartHooks` ($yA) | SessionStart | Session initialization |
-| `executeSessionEndHooks` (_yA) | SessionEnd | Session cleanup |
-| `executeStopHooks` (zyA) | Stop/SubagentStop | Agent stop points |
-| `executeSubagentStartHooks` (AEA) | SubagentStart | Subagent begins |
-| `executePreCompactHooks` (mW6) | PreCompact | Before compaction |
+| `executePreToolHooks` (LF8) | PreToolUse | Before tool execution |
+| `executePostToolHooks` (RF8) | PostToolUse | After successful tool execution |
+| `executePostToolFailureHooks` (hF8) | PostToolUseFailure | After failed tool execution |
+| `executeNotificationHooks` (Xm) | Notification | System notifications |
+| `executeUserPromptSubmitHooks` (yr8) | UserPromptSubmit | Before prompt sent to LLM |
+| `executeSessionStartHooks` (Qu8) | SessionStart | Session initialization |
+| `executeSessionEndHooks` (RQ8) | SessionEnd | Session cleanup |
+| `executeStopHooks` (Lp8) | Stop/SubagentStop | Agent stop points |
+| `executeSubagentStartHooks` (Ux8) | SubagentStart | Subagent begins |
+| `executePreCompactHooks` (sT6) | PreCompact | Before compaction |
 | `executePostCompactHooks` (FE1) | PostCompact | After compaction completes |
 | `executePermissionRequestHooks` (b_6) | PermissionRequest | Permission decisions |
-| `executeSetupHooks` (OyA) | Setup | Initial setup |
-| `executeTeammateIdleHooks` (wyA) | TeammateIdle | Teammate becomes idle |
-| `executeTaskCompletedHooks` (Cg1) | TaskCompleted | Task marked complete |
+| `executeSetupHooks` (Uu8) | Setup | Initial setup |
+| `executeTeammateIdleHooks` (Rp8) | TeammateIdle | Teammate becomes idle |
+| `executeTaskCompletedHooks` (Hi6) | TaskCompleted | Task marked complete |
 | `executeElicitationHooks` (A$8) | Elicitation | MCP elicitation request |
 | `executeElicitationResultHooks` (q$8) | ElicitationResult | Elicitation response |
 | `executeConfigChangeHooks` (UN6) | ConfigChange | Configuration changes |
@@ -99,20 +99,24 @@ Hooks integrate with multiple Claude Code components:
 
 | Function | Purpose |
 |----------|---------|
-| `executeHooksIterator` (NI) | Central generator for hook execution |
-| `executeHooksOutsideREPL` (AyA) | Parallel execution for non-streaming contexts |
-| `resolveHooksForEvent` (oRA) | Filters and deduplicates hooks from all sources |
-| `executeCommandHook` (BW6) | Shell command hook execution |
-| `executeHttpHook` | HTTP POST hook execution (v2.1.63+) |
-| `executeAgentHook` (Xi4) | Agent-type hook execution |
-| `executePromptHook` (Pn7) | LLM prompt hook execution |
+| `executeHooksIterator` (Ax) | Central generator for hook execution |
+| `executeHooksOutsideREPL` (RF) | Parallel execution for non-streaming contexts |
+| `resolveHooksForEvent` (kr8) | Filters and deduplicates hooks from all sources |
+| `executeCommandHook` (vS1) | Shell command hook execution |
+| `executeHttpHook` (Nr8) | HTTP POST hook execution (v2.1.63+) |
+| `executeAgentHook` (cTq) | Agent-type hook execution |
+| `executePromptHook` (QTq) | LLM prompt hook execution |
+| `executeCallbackHook` (L_z) | In-process callback hook execution |
+| `executeFunctionHook` (y_z) | Function-type hook execution (REPL-only) |
 
 ### Constants
 
 | Constant | Value | Location |
 |----------|-------|----------|
-| `HOOK_EVENT_NAMES` (ax) | Array of all event names | chunks.14.mjs:3572 |
-| `DEFAULT_HOOK_TIMEOUT` (MP) | 600000ms (10 min) | chunks.142.mjs:215 |
+| `HOOK_EVENT_NAMES` (Fu) | Array of all event names | chunks.40.mjs:771 |
+| `DEFAULT_HOOK_TIMEOUT` (T$) | 600000ms (10 min) | chunks.176.mjs:178 |
+| `HOOK_BLOCKED_TOOLS` (CW6) | Set of blocked tools | chunks.91.mjs:269 |
+| `STRUCTURED_OUTPUT_TOOL_NAME` (oM) | "StructuredOutput" | chunks.91.mjs:94 |
 
 ---
 
