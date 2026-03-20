@@ -580,6 +580,12 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | XNY | inProcessAgentRunner | chunks.134.mjs:1571 | function |
 | DNY | pollForNextMessage | chunks.134.mjs:1483 | function |
 | Ji4 | claimUnclaimedTask | chunks.134.mjs:1464 | function |
+| JNY | findNextAvailableTask | chunks.134.mjs:1445 | function |
+| jNY | sleep | chunks.134.mjs:1441 | function |
+| xN1 | registerTeammateAndRun | chunks.134.mjs:1847 | function |
+| kb | updateInProcessTeammateTask | chunks.134.mjs:1413 | function |
+| Ku8 | formatTeammateMessage | chunks.134.mjs:1405 | function |
+| Mi4 | InProcessBackend | chunks.134.mjs:1888 | class |
 
 ### Web Tool Symbols
 

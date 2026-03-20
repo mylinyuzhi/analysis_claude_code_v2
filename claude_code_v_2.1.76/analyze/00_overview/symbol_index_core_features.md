@@ -66,7 +66,9 @@
 | XNY | inProcessAgentRunner | chunks.134.mjs:1571 | function |
 | DNY | pollForNextMessage | chunks.134.mjs:1483 | function |
 | Ji4 | claimUnclaimedTask | chunks.134.mjs:1464 | function |
+| JNY | findNextAvailableTask | chunks.134.mjs:1445 | function |
 | xN1 | registerTeammateAndRun | chunks.134.mjs:1847 | function |
+| jNY | sleep | chunks.134.mjs:1441 | function |
 | bZ1 | killInProcessTeammate | chunks.113.mjs:1272 | function |
 
 > **Note**: `iVY` was incorrectly documented as `spawnTeammateDispatcher`. The actual `iVY` is `fs.promises` (Node.js built-in).
