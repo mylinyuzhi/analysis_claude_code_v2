@@ -219,3 +219,92 @@ Marketplace operations produce categorized errors for diagnostics:
 | `marketplace-git-clone-failed` | Git not installed or auth error | Fix git config |
 | `plugin-not-found` | Plugin name not in catalog | Check name spelling |
 | `plugin-version-mismatch` | Requested version not available | Check marketplace |
+
+---
+
+## Enterprise Policy Enforcement
+
+### `strictKnownMarketplaces` Allow-list
+
+**What it does:** When set in managed settings, ONLY marketplace sources matching the allow-list can be installed. The check happens BEFORE any network activity, so blocked sources never touch the filesystem.
+
+**Source type patterns (v2.1.76):**
+
+```typescript
+// strictKnownMarketplaces is an array of source matchers:
+type StrictKnownMarketplaces = Array<
+  | { source: "github"; repo: string }           // Exact GitHub repo match
+  | { source: "git"; url: string }               // Exact git URL match
+  | { source: "url"; url: string }               // Exact URL match
+  | { source: "file"; path: string }             // Exact file path match
+  | { source: "directory"; path: string }        // Exact directory match
+  | { source: "hostPattern"; hostPattern: string }  // Regex for hostname (v2.1.76)
+  | { source: "pathPattern"; pathPattern: string }  // Regex for filesystem paths (v2.1.76)
+>;
+```
+
+**`hostPattern` (v2.1.76):**
+- Regex pattern matched against the hostname extracted from any marketplace source
+- For `github` sources: matches against `"github.com"`
+- For `git` sources (SSH or HTTPS): extracts hostname from URL
+- Example: `"^github\\.mycompany\\.com$"` allows all marketplaces from corporate GitHub
+
+**`pathPattern` (v2.1.76):**
+- Regex pattern matched against the `.path` field of `file` and `directory` sources
+- Allows filesystem-based marketplaces alongside `hostPattern` restrictions
+- Example: `"^/opt/approved/"` restricts to specific directories
+- Use `".*"` to allow all filesystem paths
+
+**Example enterprise configuration:**
+
+```json
+{
+  "strictKnownMarketplaces": [
+    { "source": "hostPattern", "hostPattern": "^github\\.mycompany\\.com$" },
+    { "source": "pathPattern", "pathPattern": "^/opt/approved/.*" }
+  ],
+  "extraKnownMarketplaces": {
+    "company-plugins": {
+      "source": "github",
+      "repo": "mycompany/claude-plugins"
+    }
+  }
+}
+```
+
+### `blockedMarketplaces` Block-list
+
+**What it does:** Blacklist of marketplace sources that cannot be installed, even if they pass the allow-list check.
+
+**Evaluation order:**
+1. Check `blockedMarketplaces` first → reject if matched
+2. Check `strictKnownMarketplaces` → reject if NOT matched
+3. Allow the marketplace
+
+### `pluginTrustMessage` (v2.1.76)
+
+**What it does:** Custom message appended to the plugin trust warning shown before installation.
+
+**Where it's read from:** Only from policy settings (managed-settings.json / MDM). User/project settings are ignored.
+
+**Use case:** Enterprise administrators can add organization-specific context to the trust prompt:
+
+```json
+{
+  "pluginTrustMessage": "All plugins from our internal marketplace are vetted and approved by the security team."
+}
+```
+
+**Display behavior:** The message appears in the trust prompt dialog, giving users confidence that the plugin has been reviewed.
+
+### Policy Check Functions
+
+| Function | Obfuscated | Description |
+|----------|-----------|-------------|
+| `getAllowedMarketplaceSources` | `Ke` | Read `policySettings.strictKnownMarketplaces` |
+| `getBlockedMarketplaces` | `Gk8` | Read `policySettings.blockedMarketplaces` |
+| `isMarketplaceAllowed` | `mq1` | Check if source matches allow-list |
+| `isExplicitlyBlocked` | `nb1` | Check if source matches block-list |
+| `matchesHostPattern` | `gF9` | Match source against `hostPattern` regex |
+| `matchesPathPattern` | `FF9` | Match source against `pathPattern` regex |
+| `getPluginTrustMessage` | `V_4` | Read `policySettings.pluginTrustMessage` |

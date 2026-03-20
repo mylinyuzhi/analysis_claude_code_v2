@@ -71,7 +71,7 @@ When a background agent is killed (either via Ctrl+F or TaskStop), any partial r
    ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
    │ Local Agent │          │ Local Bash  │          │ Remote Agent│
    │ Handler     │          │ Handler     │          │ Handler     │
-   │ (B_6)       │          │ (gj1)       │          │ (Qi4)       │
+   │ (Fk1)       │          │ (Lf6)       │          │ (Fn4)       │
    └──────┬──────┘          └──────┬──────┘          └──────┬──────┘
           │                        │                        │
           └────────────────────────┼────────────────────────┘
@@ -129,24 +129,24 @@ When a background agent is killed (either via Ctrl+F or TaskStop), any partial r
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `createTaskId` (hp) - Generate unique task ID — `chunks.89.mjs:522`
-- `createTaskRecord` (IZ) - Create task state object — `chunks.89.mjs:528`
+- `createTaskId` (oV) - Generate unique task ID — `chunks.41.mjs:2410`
+- `createTaskRecord` (RG) - Create task state object — `chunks.41.mjs:2418`
 - `createAsyncTask` (zd7) - Create background task with AbortController — `chunks.89.mjs:1447`
 - `createForegroundTask` (wd7) - Create task that may be backgrounded later — `chunks.89.mjs:1477`
 - `backgroundForegroundTask` (Hd7) - Convert running task to background — `chunks.89.mjs:1515`
 - `killTask` (na) - Kill a running task — `chunks.89.mjs:1375`
 - `killAllRunningAgents` (Kd7) - Kill all local_agent tasks (Ctrl+F) — `chunks.89.mjs`
-- `getOutputFilePath` (ww) - Get output file path for task — `chunks.89.mjs:249`
+- `getOutputFilePath` (g2) - Get output file path for task — `chunks.41.mjs:2248`
 - `appendToOutputFile` (ZK1) - Append content to output file — `chunks.89.mjs:253`
 - `readOutputFileDelta` (WjA) - Read incremental output — `chunks.89.mjs:276`
 - `readFullOutput` (M_6) - Read complete output file — `chunks.89.mjs:300`
 - `initOutputFile` (hj1) - Initialize output file — `chunks.89.mjs:310`
-- `LocalAgentTaskHandler` (B_6) - Kill handler for local agents — `chunks.89.mjs:1574`
-- `LocalBashTaskHandler` (gj1) - Kill handler for shell commands — `chunks.89.mjs:2012`
-- `RemoteAgentTaskHandler` (Qi4) - Kill handler for remote sessions — `chunks.142.mjs:1586`
+- `LocalAgentTaskHandler` (Fk1) - Kill handler for local agents — `chunks.146.mjs:2292`
+- `LocalBashTaskHandler` (Lf6) - Kill handler for shell commands — `chunks.133.mjs:2542`
+- `RemoteAgentTaskHandler` (Fn4) - Kill handler for remote sessions — `chunks.136.mjs:1175`
 - `getKillHandlerForType` (Vg1) - Handler lookup by task type — `chunks.142.mjs:1652`
-- `BACKGROUND_AGENT_BLOCKED_TOOLS` (Bj1) - Tools blocked for background agents — `chunks.89.mjs:876`
-- `ASYNC_COMPATIBLE_TOOLS` (L_6) - Allowlist for async contexts — `chunks.89.mjs:876`
+- `BACKGROUND_AGENT_BLOCKED_TOOLS` (Bj1) - Tools blocked for background agents — `chunks.41.mjs:2585`
+- `TASK_TYPE_PREFIXES` (V$3) - Task ID prefix mapping — `chunks.41.mjs:2438`
 - `notifyTaskCompletion` (vK1) - Inject completion notification — `chunks.89.mjs:1346`
 - `countTurnsSinceLastProgress` (TIY) - Turn counting for throttle — `chunks.142.mjs:2703`
 - `getUnifiedTasksAttachment` (vIY) - Main attachment producer — `chunks.142.mjs:2719`

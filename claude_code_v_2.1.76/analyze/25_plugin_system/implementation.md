@@ -18,11 +18,12 @@ The Plugin System is the primary extensibility mechanism for Claude Code v2.1.76
 > - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
 
 Key functions in this document:
-- `loadPlugin` ($xY) - Core logic for caching and initializing a plugin from a marketplace entry
-- `loadPluginManifest` (Pn4) - Parses plugin directory, discovers all components, validates paths
-- `loadEnabledPlugins` (HxY) - Orchestrates loading all enabled plugins from settings + marketplaces
-- `loadInlinePlugins` (OxY) - Loads session-only plugins from `--plugin-dir` CLI flag
-- `loadPluginHooks` (Xn4) - Parses a `hooks.json` file, validates against schema
+- `loadPlugin` (sp6) - Core logic for caching and initializing a plugin from a marketplace entry
+- `loadPluginManifest` (h24) - Parses plugin directory, discovers all components, validates paths
+- `loadMarketplacePlugins` (ip9) - Loads all enabled plugins from marketplace sources
+- `getLoadedPlugins` (_z) - Memoized function returning all enabled plugins
+- `loadInlinePlugins` (rp9) - Loads session-only plugins from `--plugin-dir` CLI flag
+- `loadPluginHooks` (N24) - Parses a `hooks.json` file, validates against schema
 - `mergeHooks` (Dn4) - Merges plugin hooks into existing hook configuration
 - `fetchAndCacheMarketplace` (RyA) - Downloads/clones marketplace source and caches it
 - `installMarketplaceSource` (wE) - Installs marketplace with enterprise policy enforcement
@@ -33,11 +34,11 @@ Key functions in this document:
 - `copyPluginToVersionedCache` (JG6) - Copies plugin to versioned cache path
 - `buildPluginCacheKey` (RB) - Builds `~/.claude/cache/{marketplace}/{plugin}/{version}` path
 - `resolvePluginVersion` (od) - Determines version from manifest, explicit setting, or git SHA
-- `installPlugin` (ug1) - Full installation flow: download → cache → enable in settings
+- `installPlugin` (fDq) - Full installation flow: download → cache → enable in settings
 - `getAllMcpServersWithPlugins` (zG1) - Merges plugin MCP configs with system MCP configs
 - `loadPluginMcpServers` (VU7) - Loads MCP server configs from a specific plugin
-- `getInstalledPluginsState` (uM) - Reads `installed_plugins.json` with in-memory cache
-- `savePluginInstallation` (hXA) - Records plugin installation metadata to registry
+- `getInstalledPluginsState` (gI) - Reads `installed_plugins.json` with in-memory cache
+- `savePluginInstallation` (Lk8) - Records plugin installation metadata to registry
 - `cleanupOrphanedPluginCache` (kyA) - Garbage-collects stale plugin cache dirs
 - `isMarketplaceAllowed` (Fq1) - Enterprise policy: checks if a marketplace source is permitted
 - `isExplicitlyBlocked` (nb1) - Enterprise policy: checks if source is on block list
@@ -60,8 +61,8 @@ Key functions in this document:
                                       └─ marketplace.json       │
                                                                 │
  ┌───────────────┐  resolve  ┌─────────────────┐  load    ┌───▼────────────┐
- │loadEnabledPlu-│──────────▶│lookupPluginEntry│─────────▶│  loadPlugin    │
- │   gins (HxY)  │           │    (a0/yyA)     │          │    ($xY)       │
+ │loadMarketplace│──────────▶│lookupPluginEntry│─────────▶│  loadPlugin    │
+ │Plugins (ip9)  │           │    (Qv/yyA)     │          │    (sp6)       │
  └───────────────┘           └─────────────────┘          └───────┬────────┘
                                                                    │
                                           ┌────────────────────────▼──────────┐
@@ -75,7 +76,7 @@ Key functions in this document:
                                           └────────────────────────┬──────────┘
                                                                    │
                                           ┌────────────────────────▼──────────┐
-                                          │    loadPluginManifest (Pn4)       │
+                                          │    loadPluginManifest (h24)       │
                                           │  Discovers components:             │
                                           │  ├─ commands (slash cmds)         │
                                           │  ├─ agents (custom agents)        │
@@ -89,7 +90,7 @@ Key functions in this document:
 
 ---
 
-## Phase 1: Settings-Driven Discovery (`HxY`)
+## Phase 1: Settings-Driven Discovery (`ip9`)
 
 ### How Enabled Plugins Are Identified
 
@@ -104,74 +105,56 @@ Plugin enablement is stored in settings files (user/project/local) under `enable
 }
 ```
 
-The key format is `pluginName@marketplaceName`. The `HxY` function orchestrates discovery:
+The key format is `pluginName@marketplaceName`. The `ip9` function orchestrates discovery:
 
 ```javascript
 // ============================================
-// loadEnabledPlugins - Load all enabled plugins from settings
-// Location: chunks.143.mjs:1118-1165
+// loadMarketplacePlugins - Load all enabled plugins from marketplace sources
+// Location: chunks.95.mjs:441-500
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function HxY() {
-    let q = C8().enabledPlugins || {},
+async function ip9() {
+    let A = PA(),
+        q = { ...pp6(), ...A.enabledPlugins || {} },
         K = [], Y = [],
-        z = Object.entries(q).filter(([H, $]) => zA1.safeParse(H).success && $ !== void 0),
-        w = await n5();
-    for (let [H, $] of z) try {
-        let [O, _] = H.split("@"), J = w[_];
-        if (J && !Fq1(J.source)) {
-            // Enterprise policy violation - push error
-            Y.push({ type: "marketplace-blocked-by-policy", ... });
-            continue
-        }
-        let X = yyA(H);
-        if (!X) {
-            Y.push({ type: "plugin-not-found", source: H, ... });
-            continue
-        }
-        let D = await $xY(X.entry, X.marketplaceInstallLocation, H, $ === true, Y);
-        if (D) K.push(D)
-    } catch (O) { Y.push({ type: "generic-error", source: H, error: ... }) }
-    return { plugins: K, errors: Y }
+        z = Object.entries(q).filter(([D, X]) => {
+            if (!XJ6().safeParse(D).success || X === void 0) return !1;
+            let { marketplace: W } = n3(D);
+            return W !== tp6
+        }),
+        _ = await eW6(),  // Get marketplace configs
+        w = Ke(),          // Allowed sources
+        O = Gk8(),         // Blocklist
+        $ = w !== null || O !== null && O.length > 0;
+    // ... filter and load plugins ...
 }
 
 // READABLE (for understanding):
-async function loadEnabledPlugins() {
-    let settings = getMergedSettings().enabledPlugins || {};
+async function loadMarketplacePlugins() {
+    let settings = getMergedSettings();
+    let enabledPlugins = { ...getInlinePlugins(), ...settings.enabledPlugins || {} };
     let plugins = [], errors = [];
-    let validEntries = Object.entries(settings).filter(
-        ([key, val]) => pluginKeySchema.safeParse(key).success && val !== undefined
-    );
-    let installedMarketplaces = await getMarketplaceConfig();
 
-    for (let [pluginId, isEnabled] of validEntries) {
-        let [pluginName, marketplaceName] = pluginId.split("@");
-        let marketplaceInfo = installedMarketplaces[marketplaceName];
+    // Filter valid plugin entries
+    let validEntries = Object.entries(enabledPlugins).filter(([key, val]) => {
+        if (!pluginKeySchema.safeParse(key).success || val === undefined) return false;
+        let { marketplace } = parsePluginKey(key);
+        return marketplace !== INLINE_PLUGIN_MARKER;
+    });
 
-        // Enterprise policy: block if marketplace not allowed
-        if (marketplaceInfo && !isMarketplaceAllowed(marketplaceInfo.source)) {
-            errors.push({ type: "marketplace-blocked-by-policy", ... });
-            continue;
-        }
+    let marketplaceConfigs = await getInstalledMarketplaces();
+    let allowedSources = getAllowedMarketplaceSources();
+    let blockedHosts = getBlockedMarketplaces();
+    let hasPolicyRestrictions = allowedSources !== null || blockedHosts?.length > 0;
 
-        // Find the plugin entry in cached marketplace data
-        let pluginEntry = lookupPluginEntryFromCache(pluginId);
-        if (!pluginEntry) {
-            errors.push({ type: "plugin-not-found", ... });
-            continue;
-        }
-
-        // Load and cache the plugin
-        let plugin = await loadPlugin(pluginEntry.entry, pluginEntry.marketplaceInstallLocation,
-                                     pluginId, isEnabled === true, errors);
-        if (plugin) plugins.push(plugin);
-    }
+    // ... process each plugin entry ...
     return { plugins, errors };
 }
 
-// Mapping: HxY→loadEnabledPlugins, C8→getMergedSettings, Fq1→isMarketplaceAllowed,
-//   yyA→lookupPluginEntryFromCache, $xY→loadPlugin
+// Mapping: ip9→loadMarketplacePlugins, PA→getMergedSettings, pp6→getInlinePlugins,
+//   XJ6→pluginKeySchema, n3→parsePluginKey, eW6→getInstalledMarketplaces,
+//   Ke→getAllowedMarketplaceSources, Gk8→getBlockedMarketplaces
 ```
 
 **Key insight:** Plugin loading includes disabled plugins too (with `enabled: false`) to show users what plugins are available. The `iY` memoized function then filters: `plugins.filter(p => p.enabled)` for the active set. Disabled plugins are tracked so the UI can show them as toggleable.
@@ -375,7 +358,7 @@ async function copyPluginToVersionedCache(sourceDir, pluginId, version, entry, m
 
 ---
 
-## Phase 4: Component Discovery (`Pn4`)
+## Phase 4: Component Discovery (`h24`)
 
 ### The `loadPluginManifest` Function Deep Dive
 
@@ -541,7 +524,7 @@ async function OxY(A) {
             continue
         }
         let $ = eIY(H),  // path.basename(H) - directory name as plugin name
-            { plugin: O, errors: _ } = Pn4(H, `${$}@inline`, true, $);
+            { plugin: O, errors: _ } = h24(H, `${$}@inline`, true, $);
         O.source = `${O.name}@inline`, O.repository = `${O.name}@inline`;
         q.push(O), K.push(..._)
     } catch (H) { K.push({ type: "generic-error", ... }) }
@@ -571,7 +554,7 @@ async function loadInlinePlugins(pluginDirPaths) {
     return { plugins, errors };
 }
 
-// Mapping: OxY→loadInlinePlugins, tIY→path.resolve (alias), eIY→path.basename (alias)
+// Mapping: OxY→loadInlinePlugins, tIY→path.resolve (alias), eIY→path.basename (alias), h24→loadPluginManifest
 ```
 
 **Key difference from marketplace plugins:**
@@ -594,7 +577,7 @@ The memoized `iY` function is the top-level entry point that combines marketplac
 
 // Initialization setup (VJ module):
 iY = KA(async () => {  // KA = memoize
-    let A = await HxY();  // Load marketplace plugins
+    let A = await ip9();  // Load marketplace plugins
     let q = [...A.plugins], K = [...A.errors];
 
     let Y = $61();  // getInlinePlugins() - from state
@@ -822,6 +805,318 @@ The `TZ` function serializes these for logging/UI display.
 
 ---
 
+## Deep Analysis: Component Discovery Algorithm (h24)
+
+### The `loadPluginManifest` Function Deep Dive
+
+The `loadPluginManifest` function is the most complex function in the plugin system. It discovers all components a plugin provides through a systematic discovery pattern.
+
+### Component Discovery Order
+
+The function processes components in this exact order:
+
+```
+1. commands    → manifest.commands || {pluginDir}/commands/
+2. agents      → manifest.agents   || {pluginDir}/agents/
+3. skills      → manifest.skills   || {pluginDir}/skills/
+4. outputStyles → manifest.outputStyles || {pluginDir}/output-styles/
+5. hooks       → {pluginDir}/hooks/hooks.json (auto) + manifest.hooks (additional)
+6. settings    → {pluginDir}/settings.json [v2.1.76]
+```
+
+### Discovery Pattern (Used for All Component Types)
+
+For each component type, the algorithm follows this pattern:
+
+```javascript
+// ============================================
+// Component Discovery Pattern - Pseudocode
+// ============================================
+
+async function discoverComponent(pluginDir, manifest, componentType) {
+    let componentPaths = [];
+    let errors = [];
+
+    // Step 1: Check manifest declaration
+    if (manifest[componentType]) {
+        // Format A: Object with source/content per item
+        if (typeof manifest[componentType] === 'object' && !Array.isArray(manifest[componentType])) {
+            for (let [name, config] of Object.entries(manifest[componentType])) {
+                if (config.source) {
+                    // Resolve source path relative to plugin directory
+                    let resolvedPath = path.join(pluginDir, config.source);
+                    if (!fs.existsSync(resolvedPath)) {
+                        errors.push({
+                            type: "path-not-found",
+                            component: componentType,
+                            path: resolvedPath
+                        });
+                        continue;  // Continue loading other components
+                    }
+                    componentPaths.push({ name, path: resolvedPath, config });
+                } else if (config.content) {
+                    // Inline content - no file resolution needed
+                    componentPaths.push({ name, content: config.content, config });
+                }
+            }
+        }
+        // Format B: Array of paths
+        else if (Array.isArray(manifest[componentType])) {
+            for (let item of manifest[componentType]) {
+                if (typeof item === 'string') {
+                    let resolvedPath = path.join(pluginDir, item);
+                    if (!fs.existsSync(resolvedPath)) {
+                        errors.push({
+                            type: "path-not-found",
+                            component: componentType,
+                            path: resolvedPath
+                        });
+                        continue;
+                    }
+                    componentPaths.push({ path: resolvedPath });
+                }
+            }
+        }
+        return { componentPaths, errors };
+    }
+
+    // Step 2: Check standard directory location
+    let standardDir = path.join(pluginDir, componentType);
+    if (fs.existsSync(standardDir)) {
+        // Scan directory for component files
+        componentPaths = await scanComponentDir(standardDir);
+    }
+
+    return { componentPaths, errors };
+}
+```
+
+### Error Handling Strategy
+
+**Key design decision:** Missing component files are NON-FATAL. The algorithm:
+
+1. **Logs the error** - Records a structured error object
+2. **Continues processing** - Does NOT throw or stop loading
+3. **Surfaces in diagnostics** - Errors appear in `/plugin status` output
+
+This ensures that a broken component definition doesn't prevent other components from loading.
+
+```javascript
+// Error structure:
+interface ComponentError {
+    type: "path-not-found" | "parse-error" | "validation-error";
+    component: "commands" | "agents" | "skills" | "outputStyles" | "hooks";
+    path?: string;
+    reason?: string;
+}
+```
+
+### Why This Approach
+
+**Why continue on error:**
+- Plugin authors might have typos in paths
+- Marketplace curators might add components that don't exist in all plugin versions
+- Users should see partial functionality rather than complete failure
+
+**Why check manifest first:**
+- Explicit declarations take precedence over convention
+- Allows plugins to override standard directory names
+- Supports inline content (no file needed)
+
+**Why standard directory fallback:**
+- Convention over configuration
+- Simple plugins can just create `commands/` or `agents/` directories
+- No manifest declarations needed for basic cases
+
+### Source Code: loadPluginManifest
+
+```javascript
+// ============================================
+// loadPluginManifest - Full component discovery
+// Location: chunks.95.mjs:176-320
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function h24(A, q, K, Y, z = !0) {
+    let _ = [], w = r3(A, ".claude-plugin", "plugin.json"), O = await $W1(w, Y, q), $ = {
+        name: O.name, manifest: O, path: A, source: q, repository: q, enabled: K
+    };
+    // Commands discovery
+    if (O.commands) {
+        if (typeof O.commands === "object" && !Array.isArray(O.commands)) {
+            for (let [M, W] of Object.entries(O.commands)) {
+                if (W.source) {
+                    let H = $9(A, W.source);
+                    if (!await uK(H)) {
+                        _.push({ type: "path-not-found", component: "commands", path: H });
+                        continue;
+                    }
+                    $.commandsPath = $.commandsPath || $9(A, r3("commands"));
+                }
+            }
+        } else if (Array.isArray(O.commands)) {
+            // Array format handling...
+        }
+    }
+    // Standard directory fallback
+    if (!$.commandsPath) {
+        let M = $9(A, "commands");
+        if (await uK(M)) $.commandsPath = M;
+    }
+    // ... similar pattern for agents, skills, outputStyles, hooks ...
+    return { plugin: $, errors: _ }
+}
+
+// READABLE (for understanding):
+async function loadPluginManifest(pluginDir, source, enabled, pluginName, warnDuplicates = true) {
+    let errors = [];
+    let manifestPath = path.join(pluginDir, ".claude-plugin", "plugin.json");
+    let manifest = await readManifestFile(manifestPath, pluginName, source);
+
+    let plugin = {
+        name: manifest.name,
+        manifest: manifest,
+        path: pluginDir,
+        source: source,
+        repository: source,
+        enabled: enabled
+    };
+
+    // Discover each component type using the pattern above
+    // commands, agents, skills, outputStyles, hooks...
+
+    return { plugin, errors };
+}
+
+// Mapping: h24→loadPluginManifest, A→pluginDir, q→source, K→enabled, Y→pluginName,
+//   z→warnDuplicates, r3→path.join, $W1→readManifestFile, uK→fileExists
+```
+
+---
+
+## Deep Analysis: Versioned Cache Strategy
+
+### Cache Key Construction
+
+The versioned cache ensures that:
+1. Different plugin versions have separate cache directories
+2. Running sessions use immutable snapshots
+3. Updates don't affect in-progress sessions
+
+```javascript
+// ============================================
+// buildPluginCacheKey - Construct versioned cache path
+// Location: chunks.143.mjs:585-592
+// ============================================
+
+// ORIGINAL (for source lookup):
+function RB(A, q) {
+    let K = Uq1(),                                // ~/.claude/cache
+        [Y, z] = A.split("@"),                    // "pluginName" + "marketplaceName"
+        w = (z || "unknown").replace(/[^a-zA-Z0-9\-_]/g, "-"),
+        H = (Y || A).replace(/[^a-zA-Z0-9\-_]/g, "-"),
+        $ = q.replace(/[^a-zA-Z0-9\-_.]/g, "-"); // version string
+    return $9(K, w, H, $)
+}
+
+// READABLE (for understanding):
+function buildPluginCacheKey(pluginId, version) {
+    let cacheBase = getPluginCacheDir();  // ~/.claude/cache
+    let [pluginName, marketplaceName] = pluginId.split("@");
+    let safeMarket = sanitizePathSegment(marketplaceName || "unknown");
+    let safeName = sanitizePathSegment(pluginName || pluginId);
+    let safeVersion = sanitizePathSegment(version);
+    return path.join(cacheBase, safeMarket, safeName, safeVersion);
+}
+
+// Example: "myplugin@mymarket" version "abc123" →
+//   ~/.claude/cache/mymarket/myplugin/abc123/
+
+// Mapping: RB→buildPluginCacheKey, Uq1→getPluginCacheDir, $9→path.join
+```
+
+### Version Resolution Priority
+
+Version is determined in priority order:
+
+```javascript
+// ============================================
+// resolvePluginVersion - Determine version for cache key
+// Location: chunks.143.mjs:448-459
+// ============================================
+
+// Priority order:
+// 1. manifest.version - Most reliable (author-declared)
+// 2. entry.version - Marketplace curator pin
+// 3. Git SHA - Auto-derived for git-hosted plugins
+// 4. "unknown" - Fallback
+
+async function resolvePluginVersion(pluginId, source, manifest, marketplaceDir, explicitVersion) {
+    // 1. Manifest version (highest priority)
+    if (manifest?.version) return manifest.version;
+
+    // 2. Explicit version in marketplace entry
+    if (explicitVersion) return explicitVersion;
+
+    // 3. Git SHA of marketplace directory
+    if (marketplaceDir) {
+        let sha = await getGitCommitSha(marketplaceDir);
+        if (sha) return sha.substring(0, 12);  // First 12 chars
+    }
+
+    // 4. Fallback
+    return "unknown";
+}
+```
+
+### Cache Immutability
+
+Once a versioned cache entry is created, it is **NEVER overwritten**:
+
+```javascript
+// ============================================
+// copyPluginToVersionedCache - Cache hit check
+// Location: chunks.143.mjs:629-646
+// ============================================
+
+// Cache hit: return immediately
+if (fs.existsSync(cachePath) && !fs.isDirEmptySync(cachePath)) {
+    return cachePath;  // IMMUTABLE - no re-copy
+}
+```
+
+**Why this matters:**
+1. Running sessions use their immutable copy
+2. Updates in other terminals don't affect current session
+3. Prevents race conditions between update and usage
+4. Supports safe rollback to previous versions
+
+### Cache Cleanup (Garbage Collection)
+
+The cleanup system uses a "mark and sweep" approach:
+
+```javascript
+// ============================================
+// cleanupOrphanedPluginCache - GC stale cache directories
+// Location: chunks.143.mjs:2950-2973
+// ============================================
+
+// Algorithm:
+// 1. Build "live" set from installed_plugins.json installPath values
+// 2. Walk ~/.claude/cache/{marketplace}/{plugin}/{version}/ directories
+// 3. For each version dir NOT in live set:
+//    a. If .orphaned_at doesn't exist → create it (mark)
+//    b. If .orphaned_at exists AND mtime > 7 days ago → delete dir (sweep)
+// 4. After sweeping, remove empty parent dirs
+
+// Why 7-day grace period:
+// - Running sessions might still be using "orphaned" cache entries
+// - Allows rollback if new version breaks something
+// - Prevents accidental deletion during rapid updates
+```
+
+---
+
 ## Key Architectural Insights
 
 ### 1. Distributed Capability Model
@@ -853,3 +1148,312 @@ Each plugin can be installed at multiple scopes simultaneously:
 - `local` scope → `.claude/settings.local.json` → local overrides (not committed)
 
 The installation registry tracks one metadata record per scope per plugin.
+
+---
+
+## Deep Analysis: getLoadedPlugins Orchestration
+
+The `_z` (getLoadedPlugins) function is the top-level entry point that combines marketplace and inline plugins:
+
+```javascript
+// ============================================
+// getLoadedPlugins - Top-level plugin aggregation (memoized)
+// Location: chunks.95.mjs:965-998
+// ============================================
+
+// ORIGINAL (for source lookup):
+_z = KA(async () => {
+    let A = await ip9(),  // loadMarketplacePlugins
+        q = [...A.plugins],
+        K = [...A.errors];
+    let Y = $61();  // getInlinePlugins() - from state
+    if (Y.length > 0) {
+        let w = await rp9(Y);  // loadInlinePlugins
+        q.push(...w.plugins);
+        K.push(...w.errors);
+    }
+    let z = q.filter((w) => w.enabled);
+    if (z.length > 0) u8("plugins");  // Register telemetry feature flag
+    return {
+        enabled: z,
+        disabled: q.filter((w) => !w.enabled),
+        errors: K
+    };
+});
+
+// READABLE (for understanding):
+getLoadedPlugins = memoize(async () => {
+    // Load marketplace plugins
+    let marketplaceResult = await loadMarketplacePlugins();
+    let plugins = [...marketplaceResult.plugins];
+    let errors = [...marketplaceResult.errors];
+
+    // Load inline plugins (--plugin-dir CLI flag)
+    let inlinePluginDirs = getInlinePlugins();
+    if (inlinePluginDirs.length > 0) {
+        let inlineResult = await loadInlinePlugins(inlinePluginDirs);
+        plugins.push(...inlineResult.plugins);
+        errors.push(...inlineResult.errors);
+    }
+
+    // Separate enabled vs disabled
+    let enabled = plugins.filter(p => p.enabled);
+    if (enabled.length > 0) registerTelemetryFeature("plugins");
+
+    return {
+        enabled,
+        disabled: plugins.filter(p => !p.enabled),
+        errors
+    };
+});
+
+// Mapping: _z→getLoadedPlugins, KA→memoize, ip9→loadMarketplacePlugins,
+//   $61→getInlinePlugins, rp9→loadInlinePlugins, u8→registerTelemetryFeature
+```
+
+**Key design decisions:**
+1. **Memoization**: `KA` (memoize) ensures plugins are loaded once per session, avoiding redundant I/O
+2. **Disabled plugins included**: The result includes disabled plugins so the UI can show them as toggleable
+3. **Error aggregation**: All errors from marketplace and inline loading are collected, not thrown
+
+---
+
+## Deep Analysis: syncInstalledPlugins Migration
+
+The `Rk8` (syncInstalledPlugins) function handles V1→V2 registry migration and state synchronization:
+
+```javascript
+// ============================================
+// syncInstalledPlugins - Migrate and sync plugin registry
+// Location: chunks.94.mjs:110-210
+// ============================================
+
+// Algorithm:
+// 1. Read installed_plugins.json
+// 2. If version field missing (V1 format), migrate to V2
+// 3. Validate each plugin entry against current marketplaces
+// 4. Remove stale entries (marketplace no longer installed)
+// 5. Write updated registry
+
+// V1 format (flat):
+// { "plugins": { "pluginName": { version, installPath } } }
+
+// V2 format (scoped):
+// { "version": 2, "plugins": { "name@market": [{ scope, installPath, version, ... }] } }
+```
+
+**Migration logic:**
+- V1 entries get `scope: "user"` assigned automatically
+- Each V1 key becomes a V2 `pluginName@marketplaceName` key
+- The `installedAt` and `lastUpdated` timestamps are set to current time (V1 didn't track these)
+
+---
+
+## Deep Analysis: Memoization Pattern
+
+### The `e1` (memoize) Utility
+
+All plugin loaders use memoization to prevent redundant I/O operations during session startup. The `e1` function wraps async functions with a promise cache:
+
+```javascript
+// ============================================
+// memoize - Cache async function results for session lifetime
+// Location: chunks.94.mjs (utility function)
+// ============================================
+
+// ORIGINAL (for source lookup):
+e1 = (A) => {
+    let q, K = !1;
+    return async (...Y) => (K || (q = A(...Y), K = !0), q)
+}
+
+// READABLE (for understanding):
+function memoize(asyncFn) {
+    let cachedPromise;
+    let hasExecuted = false;
+
+    return async (...args) => {
+        // First call: execute function and cache the promise
+        if (!hasExecuted) {
+            cachedPromise = asyncFn(...args);
+            hasExecuted = true;
+        }
+        // Subsequent calls: return cached promise
+        return cachedPromise;
+    };
+}
+
+// Mapping: e1→memoize, A→asyncFn, q→cachedPromise, K→hasExecuted
+```
+
+**How it works:**
+1. First call executes the async function and caches the resulting promise
+2. Subsequent calls return the cached promise immediately
+3. Cache key is implicit (function identity, no parameters)
+4. Cache lives for the session lifetime (no invalidation mechanism in `e1` itself)
+
+**Applied to:**
+- `getPluginAgents` (KQ6) - Load custom agent definitions
+- `getPluginCommands` (w96) - Load slash commands
+- `getPluginSkills` (hk8) - Load skill definitions
+- `getLoadedPlugins` (_z) - Load all enabled plugins
+- `getPluginOutputStyles` (Ik8) - Load output styles
+- `loadAllPluginHooks` (nB) - Register plugin hooks
+
+**Why this approach:**
+- Plugin loading involves I/O (reading manifests, scanning directories, git operations)
+- Multiple components may request plugin data during session startup
+- Memoization ensures single I/O operation per session
+- The cached promise handles concurrent callers automatically
+
+**Cache invalidation:**
+For functions that need cache invalidation (like `loadAllPluginHooks`), a separate `clear` function is provided:
+
+```javascript
+// ============================================
+// clearPluginHookCache - Invalidate nB memoization
+// Location: chunks.94.mjs:792-794
+// ============================================
+
+// ORIGINAL (for source lookup):
+function d01() {
+    nB.cache?.clear?.();  // Clear memoization cache
+    lu1();                // Deregister all plugin hooks from global registry
+}
+
+// READABLE (for understanding):
+function clearPluginHookCache() {
+    loadAllPluginHooks.cache?.clear?.();
+    deregisterPluginHooks();
+}
+
+// Mapping: d01→clearPluginHookCache, nB→loadAllPluginHooks, lu1→deregisterPluginHooks
+```
+
+---
+
+## Deep Analysis: git-subdir Sparse Checkout (Qp9)
+
+### `cloneGitSubdir` - Efficient Monorepo Marketplace Loading
+
+**What it does:** Clones only a specific subdirectory of a git repository for `git-subdir` marketplace sources, avoiding the need to download the entire repository.
+
+```javascript
+// ============================================
+// cloneGitSubdir - Sparse checkout for subdirectory marketplace sources
+// Location: chunks.143.mjs:2920-3023
+// ============================================
+
+// READABLE (for understanding):
+async function cloneGitSubdir(gitUrl, subdir, ref, targetPath) {
+    // Step 1: Clone with --filter=tree:0 (no blob data initially)
+    // This creates a minimal git repository without file contents
+    await execGit("clone", [
+        "--filter=tree:0",   // Skip blob data download
+        "--no-checkout",     // Don't create working tree yet
+        "--single-branch",   // Only fetch the target branch
+        "--branch", ref || "main",
+        gitUrl,
+        targetPath
+    ]);
+
+    // Step 2: Configure sparse checkout
+    await execGit(["-C", targetPath, "sparse-checkout", "init", "--cone"]);
+    // Cone mode is more efficient than full sparse checkout
+
+    // Step 3: Set the subdirectory to check out
+    await execGit(["-C", targetPath, "sparse-checkout", "set", subdir]);
+
+    // Step 4: Checkout the specified ref (now only the subdirectory)
+    await execGit(["-C", targetPath, "checkout", ref || "main"]);
+
+    // The targetPath now contains only the subdirectory contents
+    return targetPath;
+}
+
+// Mapping: Qp9→cloneGitSubdir
+```
+
+**How it works (step-by-step):**
+1. **`--filter=tree:0`**: Tells git to skip downloading blob (file content) data in the initial clone. Only tree (directory structure) and commit metadata are fetched.
+2. **`--no-checkout`**: Skips creating the working tree, which would fail anyway since we have no blobs.
+3. **`sparse-checkout init --cone`**: Enables sparse checkout in "cone" mode, which is more efficient than the legacy sparse checkout. Cone mode uses directory-level filtering.
+4. **`sparse-checkout set {subdir}`**: Defines which subdirectory to include in the working tree.
+5. **`checkout`**: Finally creates the working tree, downloading only the blobs needed for the specified subdirectory.
+
+**Why this approach:**
+- Many organizations store plugin marketplaces as subdirectories of larger monorepos
+- Cloning the entire monorepo wastes bandwidth and disk space
+- Sparse checkout with cone mode requires Git 2.25+ (released Jan 2020)
+- Significantly faster for large repositories with small marketplace directories
+
+**Requirements:**
+- Git 2.25+ for `sparse-checkout --cone` mode
+- Git must be available in PATH
+- Network access to the git repository
+
+**Error handling:**
+- If sparse checkout fails, falls back to full clone
+- Handles authentication errors via SSH/HTTPS fallback in parent functions
+- Validates subdirectory exists after checkout
+
+---
+
+## Cross-Module Integration
+
+### Plugin Commands in Slash Command System
+
+Plugin commands are merged with built-in commands in `getAllSkills`:
+
+```javascript
+// In slash command registry:
+let allCommands = [
+    ...getBuiltinCommands(),    // Built-in commands like /help, /clear
+    ...await getPluginCommands(),  // Plugin commands: /plugin-name:command
+    ...loadSkillDirCommands()   // User skill directories
+];
+```
+
+**Naming convention:** Plugin commands use `/plugin-name:command-name` format to prevent collisions.
+
+### Plugin Skills in System Reminder
+
+Plugin skills appear in the skill listing attachment sent to the LLM:
+
+```javascript
+// In generateSkillListingAttachment:
+let pluginSkills = await getPluginSkills();
+// pluginSkills have loadedFrom: "plugin" marker for attribution
+```
+
+The system reminder shows: `skill-name (from plugin-name): description`
+
+### Plugin MCP Servers in MCP Manager
+
+Plugin MCP servers are namespaced and merged:
+
+```javascript
+// In getAllMcpServersWithPlugins:
+let allServers = {
+    ...userMcpServers,           // From settings.json
+    ...await loadPluginMcpServers(enabledPlugins),  // Plugin MCPs
+    ...projectMcpServers         // From .claude/settings.json
+};
+
+// Plugin servers are prefixed: "plugin:{pluginName}:{serverName}"
+// And have scope: "dynamic" marker
+```
+
+### Plugin Hooks Priority
+
+Plugin hooks always run AFTER user-configured hooks:
+
+```javascript
+// Priority assignment:
+(j) => j === "pluginHook" ? 999 : normalPriority[j]
+
+// This means:
+// 1. User hooks execute first (priority 1-100)
+// 2. Plugin hooks execute last (priority 999)
+// 3. User hooks can preempt or modify plugin behavior
+```

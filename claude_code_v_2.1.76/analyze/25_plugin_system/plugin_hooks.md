@@ -7,37 +7,25 @@
 **v2.1.76 Changes:**
 - `WorktreeCreate` and `WorktreeRemove` events added to the hook event initialization list (previously silently ignored)
 - LSP plugin registration race condition fixed: plugins now properly register when LSP Manager is initialized before marketplaces are reconciled
+- Hook event count increased from 17 to 21 events
 
 ---
 
 ## Related Symbols
 
 > Symbol mappings:
-> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
-> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
-> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `loadPluginManifest` (Pn4) - Reads plugin manifest and discovers all components (commands, agents, skills, hooks, output styles)
-- `loadPluginHooks` (Xn4) - Parses a hooks.json file and returns its hook configuration
-- `mergeHooks` (Dn4) - Merges multiple hook configurations into one combined config
-- `readManifestFile` (XG6) - Reads and validates a plugin.json manifest from disk
-- `loadEnabledPlugins` (HxY) - Loads all enabled plugins from user settings and marketplaces
-- `loadAllPluginHooks` (pa) - Memoized function that registers hooks from all enabled plugins into the global registry
-- `extractPluginHooksForEvent` (oN9) - Converts a plugin's hooksConfig into the event-indexed format
-- `registerPluginHooks` (O61) - Registers the extracted hooks into the global hook registry
-- `setupPluginHookHotReload` (sN9) - Subscribes to policySettings changes to auto-reload hooks
-- `clearPluginHookCache` (rO6) - Clears `pa` memoization and deregisters hooks
-- `resetHotReloadState` (aN9) - Resets the hot-reload subscription guard
-- `executeSessionStartHooks` ($yA) - Fires SessionStart hooks including plugin hooks
-- `executePluginHooksForSession` (PP) - Loads plugin hooks then runs SessionStart hook event
-- `executePluginHooksForSetup` (FW6) - Loads plugin hooks then runs Setup hook event
-- `installMarketplaceSource` (wE) - Installs a marketplace source (validates enterprise policy, downloads, caches)
-- `removeMarketplaceSource` (OG6) - Removes a marketplace and cleans up settings
-- `refreshMarketplace` (St) - Refreshes a marketplace from its source
-- `lookupPluginEntry` (a0) - Finds a specific plugin entry from marketplace data
-- `fetchAndCacheMarketplace` (RyA) - Downloads/clones marketplace data and caches it locally
+- `loadPluginManifest` (h24) - Reads plugin manifest and discovers all components (commands, agents, skills, hooks, output styles)
+- `loadPluginHooks` (N24) - Parses a hooks.json file and returns its hook configuration
+- `loadAllPluginHooks` (nB) - Memoized function that registers hooks from all enabled plugins into the global registry
+- `extractPluginHooksForEvent` (nF9) - Converts a plugin's hooksConfig into the event-indexed format
+- `clearPluginHookCache` (d01) - Clears nB memoization and deregisters hooks
+- `setupPluginHookHotReload` (oF9) - Subscribes to policySettings changes to auto-reload hooks
+- `executePluginHooksForSession` (JN1) - Loads plugin hooks then runs SessionStart hook event
+- `executePluginHooksForSetup` (oN1) - Loads plugin hooks then runs Setup hook event
+- `allowManagedHooksOnly` (l1z) - Enterprise policy check for disabling plugin hooks
 
 ---
 
@@ -95,36 +83,38 @@ Discovery                Loading                  Hooks                Execution
 
 ### Phase 2: Loading
 
-The core loading function is `loadPluginManifest` (Pn4):
+The core loading function is `loadPluginManifest` (h24):
 
 ```javascript
 // ============================================
 // loadPluginManifest - Load and validate a plugin from its directory
-// Location: chunks.143.mjs:889-1105
+// Location: chunks.95.mjs:176-240
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Pn4(A, q, K, Y, z = !0) {
-    let w = b1(), H = [], $ = $9(A, ".claude-plugin", "plugin.json"),
-        O = XG6($, Y, q),
-        _ = { name: O.name, manifest: O, path: A, source: q, repository: q, enabled: K };
+async function h24(A, q, K, Y, z = !0) {
+    let _ = [],
+        w = r3(A, ".claude-plugin", "plugin.json"),
+        O = await $W1(w, Y, q),
+        $ = {
+            name: O.name,
+            manifest: O,
+            path: A,
+            source: q,
+            repository: q,
+            enabled: K
+        };
     // ... discovers commands, agents, skills, outputStyles, hooks ...
-    let W = $9(A, "hooks", "hooks.json");
-    if (w.existsSync(W)) try {
-        M = Xn4(W, O.name);
+    let W = r3(A, "hooks", "hooks.json");
+    if (await uK(W)) try {
+        let M = await N24(W, O.name);
         // ... dedup and merge ...
     }
     if (O.hooks) {
-        let G = Array.isArray(O.hooks) ? O.hooks : [O.hooks];
-        for (let f of G)
-            if (typeof f === "string") {
-                // ... load from file path ...
-                let T = Xn4(Z, O.name);
-                M = Dn4(M, T);
-            } else if (typeof f === "object") M = Dn4(M, f)
+        // Process manifest-declared hooks...
     }
-    if (M) _.hooksConfig = M;
-    return { plugin: _, errors: H }
+    if (M) $.hooksConfig = M;
+    return { plugin: $, errors: _ }
 }
 
 // READABLE (for understanding):
@@ -159,7 +149,7 @@ function loadPluginManifest(pluginDir, source, enabled, pluginName, warnDuplicat
     return { plugin, errors };
 }
 
-// Mapping: Pn4→loadPluginManifest, A→pluginDir, q→source, K→enabled, Y→pluginName,
+// Mapping: h24→loadPluginManifest, A→pluginDir, q→source, K→enabled, Y→pluginName,
 //   z→warnDuplicates, b1→getFs, $9→join, XG6→readManifestFile, Xn4→loadPluginHooks,
 //   Dn4→mergeHooks
 ```
@@ -177,28 +167,28 @@ function loadPluginManifest(pluginDir, source, enabled, pluginName, warnDuplicat
 ```javascript
 // ============================================
 // loadPluginHooks - Parse hooks.json for a plugin
-// Location: chunks.143.mjs:879-887
+// Location: chunks.95.mjs:138-145
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Xn4(A, q) {
-    let K = b1();
-    if (!K.existsSync(A)) throw Error(`Hooks file not found at ${A} for plugin ${q}.`);
-    let Y = K.readFileSync(A, { encoding: "utf-8" }), z = _A(Y);
-    return cw8.parse(z).hooks
+async function N24(A, q) {
+    if (!await uK(A)) throw Error(`Hooks file not found at ${A} for plugin ${q}.`);
+    let K = await AQ6(A, { encoding: "utf-8" }),
+        Y = i1(K);
+    return B57().parse(Y).hooks
 }
 
 // READABLE (for understanding):
-function loadPluginHooks(hooksFilePath, pluginName) {
-    let fs = getFs();
-    if (!fs.existsSync(hooksFilePath))
+async function loadPluginHooks(hooksFilePath, pluginName) {
+    if (!await fileExists(hooksFilePath))
         throw Error(`Hooks file not found at ${hooksFilePath} for plugin ${pluginName}.`);
-    let content = fs.readFileSync(hooksFilePath, { encoding: "utf-8" });
+    let content = await readFile(hooksFilePath, { encoding: "utf-8" });
     let parsed = JSON.parse(content);
     return hooksConfigSchema.parse(parsed).hooks;
 }
 
-// Mapping: Xn4→loadPluginHooks, A→hooksFilePath, q→pluginName, cw8→hooksConfigSchema
+// Mapping: N24→loadPluginHooks, A→hooksFilePath, q→pluginName, B57→hooksConfigSchema,
+//   uK→fileExists, AQ6→readFile, i1→JSON.parse
 ```
 
 ```javascript
@@ -242,13 +232,48 @@ At session start, the system loads plugin hooks and fires the relevant event:
 ```javascript
 // ============================================
 // executePluginHooksForSession - Load hooks then fire SessionStart
-// Location: chunks.142.mjs:248-289
+// Location: chunks.135.mjs:1836-1880
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function PP(A, { sessionId: q, agentType: K, model: Y, forceSyncExecution: z } = {}) {
-    let w = [], H = [];
-    if (Ap()) h("Skipping plugin hooks - allowManagedHooksOnly is enabled");
+async function JN1(A, { sessionId: q, agentType: K, model: Y, forceSyncExecution: z } = {}) {
+    let _ = [], w = [];
+    if (GL()) k("Skipping plugin hooks - allowManagedHooksOnly is enabled");
+    else try {
+        await nB()  // loadAllPluginHooks
+    } catch ($) { /* error categorization and handling */ }
+    let O = K ?? Pp();
+    for await (let $ of Qu8(A, q, O, Y, void 0, void 0, z)) {
+        if ($.message) _.push($.message);
+        if ($.additionalContexts?.length > 0) w.push(...$.additionalContexts)
+    }
+    // ... additional context handling ...
+    return _
+}
+
+// READABLE (for understanding):
+async function executePluginHooksForSession(eventName, { sessionId, agentType, model, forceSyncExecution } = {}) {
+    let messages = [], additionalContexts = [];
+
+    // Guard: enterprise policy can disable plugin hooks entirely
+    if (allowManagedHooksOnly()) {
+        log("Skipping plugin hooks - allowManagedHooksOnly is enabled");
+    } else {
+        try { await loadAllPluginHooks(); }
+        catch (err) { /* categorize: network, permissions, config issues */ }
+    }
+
+    let resolvedAgentType = agentType ?? getAgentType();
+    for await (let result of executeSessionStartHooks(eventName, sessionId, resolvedAgentType, model, ...)) {
+        if (result.message) messages.push(result.message);
+        if (result.additionalContexts?.length > 0) additionalContexts.push(...result.additionalContexts);
+    }
+    return messages;
+}
+
+// Mapping: JN1→executePluginHooksForSession, GL→allowManagedHooksOnly, nB→loadAllPluginHooks,
+//   Qu8→executeSessionStartHooks, Pp→getAgentType
+```
     else try { await pa() }
     catch (O) {
         // Detailed error handling with network/permission/config diagnostics...
@@ -395,142 +420,156 @@ Priority ordering (from `chunks.75.mjs`):
 
 ---
 
-## Phase 3b: Global Hook Registration (`pa`, `oN9`, `O61`)
+## Phase 3b: Global Hook Registration (`nB`, `nF9`, `KA6`)
 
-The `pa` (loadAllPluginHooks) function is the bridge between plugin-level hooks and the global hook registry:
+The `nB` (loadAllPluginHooks) function is the bridge between plugin-level hooks and the global hook registry:
 
 ```javascript
 // ============================================
-// loadAllPluginHooks (pa) - Memoized hook registration from all enabled plugins
-// Location: chunks.87.mjs:2606-2635 (pu1 module initialization)
+// loadAllPluginHooks (nB) - Memoized hook registration from all enabled plugins
+// Location: chunks.94.mjs:824-870
 // ============================================
 
 // ORIGINAL:
-pa = KA(async () => {  // KA = memoize
-    let { enabled: A } = await iY(),  // Get all enabled plugins
+nB = e1(async () => {  // e1 = memoize
+    let { enabled: A } = await _z(),  // Get all enabled plugins
         q = {
             PreToolUse: [], PostToolUse: [], PostToolUseFailure: [],
             Notification: [], UserPromptSubmit: [], SessionStart: [],
             SessionEnd: [], Stop: [], SubagentStart: [], SubagentStop: [],
-            PreCompact: [], PermissionRequest: [], Setup: [],
+            PreCompact: [], PostCompact: [], PermissionRequest: [], Setup: [],
             TeammateIdle: [], TaskCompleted: [],
-            WorktreeCreate: [], WorktreeRemove: []   // [NEW in v2.1.76]
+            Elicitation: [], ElicitationResult: [], ConfigChange: [],
+            WorktreeCreate: [], WorktreeRemove: [], InstructionsLoaded: []  // 21 events in v2.1.76
         };
     for (let Y of A) {
         if (!Y.hooksConfig) continue;
-        let z = oN9(Y);    // Extract hooks indexed by event type
+        let z = nF9(Y);    // Extract hooks indexed by event type
         for (let w of Object.keys(z)) q[w].push(...z[w])
     }
-    O61(q);  // Register into global hook registry
+    lu1(), KA6(q);  // Deregister old, register new hooks
     let K = Object.values(q).reduce((Y, z) => Y + z.reduce((w, H) => w + H.hooks.length, 0), 0);
-    h(`Registered ${K} hooks from ${A.length} plugins`)
+    k(`Registered ${K} hooks from ${A.length} plugins`)
 });
 
 // READABLE:
 loadAllPluginHooks = memoize(async () => {
     let { enabled: enabledPlugins } = await getLoadedPlugins();
 
-    // Initialize empty event queues for all 17 hook events (v2.1.76: +WorktreeCreate/Remove)
+    // Initialize empty event queues for all 21 hook events (v2.1.76)
     let eventQueues = {
         PreToolUse: [], PostToolUse: [], PostToolUseFailure: [],
         Notification: [], UserPromptSubmit: [], SessionStart: [],
         SessionEnd: [], Stop: [], SubagentStart: [], SubagentStop: [],
-        PreCompact: [], PermissionRequest: [], Setup: [],
+        PreCompact: [], PostCompact: [], PermissionRequest: [], Setup: [],
         TeammateIdle: [], TaskCompleted: [],
-        WorktreeCreate: [], WorktreeRemove: []   // [NEW in v2.1.76]
+        Elicitation: [], ElicitationResult: [], ConfigChange: [],
+        WorktreeCreate: [], WorktreeRemove: [], InstructionsLoaded: []
     };
 
     // For each enabled plugin with hooks configured:
     for (let plugin of enabledPlugins) {
         if (!plugin.hooksConfig) continue;
-        let pluginHooks = extractPluginHooksForEvent(plugin);  // oN9
+        let pluginHooks = extractPluginHooksForEvent(plugin);  // nF9
         for (let eventName of Object.keys(pluginHooks))
             eventQueues[eventName].push(...pluginHooks[eventName]);
     }
 
     // Register all collected hooks into the global registry
-    registerPluginHooks(eventQueues);  // O61
+    deregisterPluginHooks();  // lu1
+    registerPluginHooks(eventQueues);  // KA6
 
     let totalCount = Object.values(eventQueues)
         .reduce((sum, matchers) => sum + matchers.reduce((s, m) => s + m.hooks.length, 0), 0);
     log(`Registered ${totalCount} hooks from ${enabledPlugins.length} plugins`);
 });
 
-// Mapping: pa→loadAllPluginHooks, iY→getLoadedPlugins, oN9→extractPluginHooksForEvent,
-//   O61→registerPluginHooks, KA→memoize
+// Mapping: nB→loadAllPluginHooks, _z→getLoadedPlugins, nF9→extractPluginHooksForEvent,
+//   KA6→registerPluginHooks, lu1→deregisterPluginHooks, e1→memoize
 ```
 
-**Key design: 17-event initialization (v2.1.76)**
-The function initializes ALL event types including `WorktreeCreate` and `WorktreeRemove` even before knowing which plugins have hooks. In v2.1.38, these two worktree events were not included, meaning plugin hooks registered for these events were silently ignored. In v2.1.76, they are properly initialized so plugins can register handlers for worktree lifecycle events.
+**Key design: 21-event initialization (v2.1.76)**
+The function initializes ALL event types including `WorktreeCreate`, `WorktreeRemove`, `PostCompact`, `Elicitation`, `ElicitationResult`, `ConfigChange`, and `InstructionsLoaded` even before knowing which plugins have hooks. In v2.1.38, only 17 events were initialized. In v2.1.76, all 21 events are properly initialized so plugins can register handlers for these lifecycle events.
 
-**Memoization semantics:** `pa` is memoized with `KA` (likely a simple cache). Once called, subsequent calls return immediately. The cache is invalidated by `rO6` (clearPluginHookCache).
+**Memoization semantics:** `nB` is memoized with `e1` (memoize function). Once called, subsequent calls return immediately. The cache is invalidated by `d01` (clearPluginHookCache).
 
 ---
 
-## Hot Reload: Policy-Driven Refresh (`sN9`, `aN9`, `rO6`)
+## Hot Reload: Policy-Driven Refresh (`oF9`, `rF9`, `d01`)
 
 The system supports hot-reloading plugin hooks when enterprise policy settings change:
 
 ```javascript
 // ============================================
-// setupPluginHookHotReload (sN9) - Subscribe to policy changes for hook reload
-// Location: chunks.87.mjs:2589-2593
+// setupPluginHookHotReload (oF9) - Subscribe to policy changes for hook reload
+// Location: chunks.94.mjs:806-818
 // ============================================
 
 // ORIGINAL:
-function sN9() {
-    if (g0A) return;  // Guard: only subscribe once
-    g0A = true;
-    zX.subscribe((A) => {  // zX = settings change observable
+function oF9() {
+    if (Sk8) return;  // Guard: only subscribe once
+    Sk8 = true;
+    tO.subscribe((A) => {  // tO = settings change observable
         if (A === "policySettings") {
-            h("Plugin hooks: reloading due to policySettings change");
-            Sv();    // clearPluginsCache() - invalidate plugin list
-            rO6();   // clearPluginHookCache() - invalidate hook registration
-            pa();    // Reload plugins + re-register hooks
+            let q = F_4();  // Get current enabledPlugins hash
+            if (q === U01) {
+                k("Plugin hooks: skipping reload, enabledPlugins unchanged");
+                return
+            }
+            U01 = q;
+            k("Plugin hooks: reloading due to enabledPlugins change");
+            XZ("loadPluginHooks: enabledPlugins settings changed");
+            d01();   // clearPluginHookCache() - invalidate hook registration
+            nB();    // Reload plugins + re-register hooks
         }
     });
 }
 
 // READABLE:
 function setupPluginHookHotReload() {
-    if (hotReloadAlreadySetup) return;  // g0A = hot reload guard
+    if (hotReloadAlreadySetup) return;
     hotReloadAlreadySetup = true;
     settingsChangeObservable.subscribe((changedSettingName) => {
         if (changedSettingName === "policySettings") {
-            log("Plugin hooks: reloading due to policySettings change");
-            clearPluginsCache();       // Invalidate plugin list memoization
-            clearPluginHookCache();    // Invalidate hook registration memoization
-            loadAllPluginHooks();      // Re-load and re-register
+            let currentHash = getEnabledPluginsHash();
+            if (currentHash === lastSeenHash) {
+                log("Plugin hooks: skipping reload, enabledPlugins unchanged");
+                return;
+            }
+            lastSeenHash = currentHash;
+            log("Plugin hooks: reloading due to enabledPlugins change");
+            clearPluginHookCache();
+            loadAllPluginHooks();
         }
     });
 }
 
 // ============================================
-// clearPluginHookCache (rO6) - Invalidate hook registration
-// Location: chunks.87.mjs:2581-2583
+// clearPluginHookCache (d01) - Invalidate hook registration
+// Location: chunks.94.mjs:792-794
 // ============================================
 
 // ORIGINAL:
-function rO6() {
-    pa.cache?.clear?.();  // Clear memoization cache
-    YR6();                // Deregister all plugin hooks from global registry
+function d01() {
+    nB.cache?.clear?.();  // Clear memoization cache
+    lu1();                // Deregister all plugin hooks from global registry
 }
 ```
 
 **Why trigger on `policySettings` specifically:**
 - `allowManagedHooksOnly` lives in `policySettings`
 - When an MDM profile changes this flag, hooks need to reload immediately
-- Other settings changes (userSettings, projectSettings) don't affect which hooks can execute
+- The system also checks if `enabledPlugins` actually changed to avoid unnecessary reloads
 - This is a live policy enforcement mechanism, not just developer iteration
 
-**The `g0A` guard (`hotReloadAlreadySetup`):**
+**The `Sk8` guard (`hotReloadAlreadySetup`):**
 Prevents double-subscription if `setupPluginHookHotReload` is called multiple times during initialization. Without this, each call would add another subscriber, causing hooks to reload multiple times per policy change.
 
-**The reload sequence (all 3 steps required):**
+**The reload sequence (all steps required):**
 ```
-1. Sv()  = clearPluginsCache    → Force plugin list to be reloaded next time
-2. rO6() = clearPluginHookCache → Deregister current hooks + clear pa memo
-3. pa()  = loadAllPluginHooks   → Re-load plugin list, re-extract hooks, re-register
+1. F_4() = getEnabledPluginsHash → Check if enabledPlugins actually changed
+2. d01() = clearPluginHookCache  → Deregister current hooks + clear nB memo
+3. nB()  = loadAllPluginHooks    → Re-load plugin list, re-extract hooks, re-register
 ```
 
 ---
@@ -636,3 +675,389 @@ These errors are surfaced in diagnostic commands but do not prevent the plugin f
 | Categorized error messages | Actionable diagnostics (network vs. permissions vs. config) |
 | WorktreeCreate/Remove events (v2.1.76) | Plugins can now respond to worktree lifecycle events |
 | LSP registration race fix (v2.1.76) | LSP plugins register reliably regardless of init order |
+
+---
+
+## Deep Analysis: Hook Merging Strategy
+
+### Hook Concatenation vs Replacement
+
+The `mergeHooks` (k24) function implements a **concatenation** strategy rather than replacement:
+
+```javascript
+// ============================================
+// mergeHooks - Concatenate hooks from multiple sources
+// Location: chunks.95.mjs:430-438
+// ============================================
+
+// ORIGINAL (for source lookup):
+function k24(A, q) {
+    if (!A) return q;
+    let K = { ...A };
+    for (let [Y, z] of Object.entries(q))
+        if (!K[Y]) K[Y] = z;
+        else K[Y] = [...K[Y] || [], ...z];
+    return K
+}
+
+// READABLE (for understanding):
+function mergeHooks(existingHooks, newHooks) {
+    if (!existingHooks) return newHooks;
+    let merged = { ...existingHooks };
+    for (let [eventName, handlers] of Object.entries(newHooks)) {
+        if (!merged[eventName]) merged[eventName] = handlers;
+        else merged[eventName] = [...merged[eventName] || [], ...handlers];
+    }
+    return merged;
+}
+
+// Mapping: k24→mergeHooks, A→existingHooks, q→newHooks, K→merged
+```
+
+**Why concatenation instead of replacement:**
+
+1. **Multiple hook sources**: A plugin can have both `hooks/hooks.json` AND manifest-declared hooks. Concatenation preserves all hooks from all sources.
+
+2. **Plugin composition**: If multiple plugins register hooks for the same event, all hooks execute. No plugin can "override" another's hooks.
+
+3. **Deterministic order**: Hooks execute in registration order (plugin A's hooks, then plugin B's hooks), making behavior predictable.
+
+**Alternative considered:** Replacement semantics would allow a plugin to "shadow" hooks from other sources, but this would create hidden dependencies and make debugging difficult.
+
+### Realpath Deduplication
+
+Before loading a manifest-declared hooks file, the system checks if its **realpath** was already loaded:
+
+```javascript
+// In loadPluginManifest (h24):
+let w = await d1(H),  // Get realpath of hooks.json (standard location)
+    H = new Set;
+// For manifest-declared hooks:
+for (let f of G)
+    if (typeof f === "string") {
+        let Z = $9(A, f),  // Resolve relative path
+            T = await d1(Z);  // Get realpath
+        if (H.has(T)) continue;  // Skip if already loaded (via realpath check)
+        H.add(T);
+        // Load the hook file...
+    }
+```
+
+**Why realpath instead of path:**
+- Symlinks can create multiple paths pointing to the same file
+- `path.resolve` doesn't resolve symlinks; `fs.realpath` does
+- Prevents the common mistake of declaring `hooks/hooks.json` in manifest when it's already loaded automatically
+
+### Error Categorization for Diagnostics
+
+The system categorizes hook loading errors into specific types for actionable diagnostics:
+
+```javascript
+// Error types for hook loading:
+type HookLoadError =
+  | { type: "path-not-found"; hookPath: string; plugin: string }
+  | { type: "hook-parse-error"; hookPath: string; reason: string }
+  | { type: "hook-schema-validation"; hookPath: string; errors: string[] }
+  | { type: "hook-permission-denied"; hookPath: string }
+  ;
+
+// The serializePluginError (sM) function formats these for display:
+function serializePluginError(error) {
+    switch (error.type) {
+        case "path-not-found":
+            return `Hook file not found: ${error.hookPath}. Check if the file exists.`;
+        case "hook-parse-error":
+            return `Invalid JSON in ${error.hookPath}: ${error.reason}`;
+        case "hook-schema-validation":
+            return `Schema validation failed: ${error.errors.join(", ")}`;
+        // ...
+    }
+}
+```
+
+**Diagnostic tips by error category:**
+
+| Error Type | Diagnostic Tip |
+|------------|---------------|
+| Network/clone failure | Check internet connection and git credentials |
+| Permission denied (EACCES) | Check file permissions on plugin directory |
+| Invalid JSON | Validate JSON syntax with a linter |
+| Schema validation | Check hooks.json against the schema |
+| Plugin not found | Run `/plugin list` to see installed plugins |
+
+---
+
+## Deep Analysis: Hot Reload Mechanism
+
+### Observable Subscription Pattern
+
+The hot reload system uses an observable pattern to detect policy changes:
+
+```javascript
+// ============================================
+// setupPluginHookHotReload - Subscribe to settings changes
+// Location: chunks.94.mjs:806-818
+// ============================================
+
+// The settings observable (tO) notifies subscribers when settings change:
+tO.subscribe((changedSettingName) => {
+    if (changedSettingName === "policySettings") {
+        // Check if enabledPlugins actually changed
+        let currentHash = getEnabledPluginsHash();
+        if (currentHash === lastSeenHash) return;  // No change, skip reload
+        lastSeenHash = currentHash;
+
+        // Clear cache and reload
+        clearPluginHookCache();
+        loadAllPluginHooks();
+    }
+});
+```
+
+### Hash-Based Change Detection
+
+The `getEnabledPluginsHash` (F_4) function creates a hash of the current `enabledPlugins` state:
+
+```javascript
+// ============================================
+// getEnabledPluginsHash - Create hash for change detection
+// Location: chunks.94.mjs:800-804
+// ============================================
+
+function F_4() {
+    let A = C8().enabledPlugins || {};  // Get current enabled plugins
+    return JSON.stringify(Object.keys(A).sort());  // Sorted keys for stable hash
+}
+```
+
+**Why hash comparison instead of deep equality:**
+- String comparison is O(n) where n is the number of plugins
+- Deep equality would be O(n*m) for nested objects
+- Hash is stable across reloads (sorted keys)
+- Avoids unnecessary reloads when only other settings change
+
+### The Three-Step Reload Sequence
+
+When policy changes, the reload follows a strict sequence:
+
+```
+1. getEnabledPluginsHash() → Check if enabledPlugins changed
+   └─ If hash unchanged: SKIP (no reload needed)
+
+2. clearPluginHookCache() → Deregister current hooks
+   ├─ nB.cache?.clear?.()  → Clear memoization cache
+   └─ lu1()                → Deregister from global registry
+
+3. loadAllPluginHooks() → Re-register hooks
+   ├─ Get enabled plugins
+   ├─ Extract hooks per plugin
+   └─ Register into global registry
+```
+
+**Why this order matters:**
+- Step 1 prevents unnecessary work (most policy changes don't affect plugins)
+- Step 2 must complete before Step 3 (or stale hooks persist)
+- Step 3 rebuilds the registry from scratch (not incremental)
+
+---
+
+## Deep Analysis: 21 Hook Events (v2.1.76)
+
+The plugin hook system supports 21 lifecycle events in v2.1.76. Each event provides a specific hook point for plugins to intercept or react to system behavior.
+
+### Complete Hook Events Table
+
+| # | Event Name | When Fired | Can Block? | Payload Fields |
+|---|------------|------------|------------|----------------|
+| 1 | `PreToolUse` | Before any tool execution | **Yes** | `toolName`, `toolInput`, `conversationId` |
+| 2 | `PostToolUse` | After successful tool execution | No | `toolName`, `toolInput`, `toolResult`, `conversationId` |
+| 3 | `PostToolUseFailure` | After failed tool execution | No | `toolName`, `toolInput`, `error`, `conversationId` |
+| 4 | `Notification` | When notification is displayed | No | `notification`, `level`, `conversationId` |
+| 5 | `UserPromptSubmit` | When user submits input | **Yes** | `prompt`, `conversationId` |
+| 6 | `SessionStart` | When session begins | No | `sessionId`, `agentType`, `model` |
+| 7 | `SessionEnd` | When session ends | No | `sessionId`, `reason` |
+| 8 | `Stop` | When user requests stop | No | `sessionId`, `reason` |
+| 9 | `SubagentStart` | When subagent spawns | No | `subagentId`, `agentType`, `parentAgentId` |
+| 10 | `SubagentStop` | When subagent completes | No | `subagentId`, `result`, `duration` |
+| 11 | `PreCompact` | Before context compaction | No | `messageCount`, `currentTokens` |
+| 12 | `PostCompact` | After context compaction | No | `messageCount`, `newTokens`, `tokensSaved` |
+| 13 | `PermissionRequest` | When permission is requested | No | `permission`, `resource`, `conversationId` |
+| 14 | `Setup` | After SessionStart (for setup tasks) | No | `sessionId`, `agentType` |
+| 15 | `TeammateIdle` | When teammate has no work | No | `teammateId`, `teamName` |
+| 16 | `TaskCompleted` | When task finishes | No | `taskId`, `result`, `conversationId` |
+| 17 | `Elicitation` | MCP elicitation request | No | `requestId`, `message`, `options` |
+| 18 | `ElicitationResult` | MCP elicitation response | No | `requestId`, `response`, `selectedOption` |
+| 19 | `ConfigChange` | When settings change | No | `changedKey`, `oldValue`, `newValue` |
+| 20 | `WorktreeCreate` | When git worktree is created | No | `worktreePath`, `branch`, `conversationId` |
+| 21 | `InstructionsLoaded` | When CLAUDE.md files are loaded | No | `files`, `conversationId` |
+
+### Blocking vs Non-Blocking Events
+
+**Blocking events** (can prevent the action):
+- `PreToolUse` - Return `{ block: true, reason: "..." }` to prevent tool execution
+- `UserPromptSubmit` - Return `{ block: true, reason: "..." }` to prevent prompt submission
+
+**Non-blocking events**:
+- All other events are informational only
+- Hook handlers receive the event payload but cannot prevent the action
+- Useful for logging, telemetry, side effects
+
+### Hook Event Categories
+
+**Tool Lifecycle:**
+- `PreToolUse` → Tool executes → `PostToolUse` (success) OR `PostToolUseFailure` (error)
+
+**Session Lifecycle:**
+- `SessionStart` → `Setup` → [normal operation] → `Stop` → `SessionEnd`
+
+**Subagent Lifecycle:**
+- `SubagentStart` → [subagent runs] → `SubagentStop`
+
+**Context Management:**
+- `PreCompact` → [compaction happens] → `PostCompact`
+
+**MCP Elicitation:**
+- `Elicitation` → [user responds] → `ElicitationResult`
+
+### Hook Priority System
+
+Plugin hooks run at **priority 999** (lowest priority, runs last):
+
+```javascript
+// Priority assignment:
+(source) => source === "pluginHook" ? 999 : normalPriority[source]
+
+// Execution order:
+// 1. System hooks (built-in)      - priority 1-10
+// 2. User hooks (settings.json)   - priority 10-100
+// 3. Plugin hooks                 - priority 999 (last)
+```
+
+**Why plugin hooks run last:**
+1. User hooks can preempt or override plugin behavior
+2. Plugins cannot interfere with critical system hooks
+3. User maintains control over their environment
+4. Enterprise policy (`allowManagedHooksOnly`) can disable all plugin hooks
+
+### extractPluginHooksForEvent Implementation
+
+The `nF9` function converts a plugin's `hooksConfig` into the event-indexed format:
+
+```javascript
+// ============================================
+// extractPluginHooksForEvent - Convert hooksConfig to event-indexed format
+// Location: chunks.94.mjs:751-790
+// ============================================
+
+// ORIGINAL (for source lookup):
+function nF9(A) {
+    let q = A.hooksConfig;
+    if (!q) return {};
+    let K = {};
+    for (let [Y, z] of Object.entries(q)) {
+        // Y = event name, z = array of hook matchers
+        if (!K[Y]) K[Y] = [];
+        for (let w of z) {
+            // Convert each hook config to registry format
+            K[Y].push({
+                hooks: w.hooks,           // Array of hook handler objects
+                matcher: w.matcher,       // Tool name matcher (for PreToolUse/PostToolUse)
+                source: "pluginHook",     // Marker for priority assignment
+                pluginName: A.name        // Attribution
+            });
+        }
+    }
+    return K;
+}
+
+// READABLE (for understanding):
+function extractPluginHooksForEvent(plugin) {
+    let hooksConfig = plugin.hooksConfig;
+    if (!hooksConfig) return {};
+
+    let eventIndexed = {};
+    for (let [eventName, matchers] of Object.entries(hooksConfig)) {
+        if (!eventIndexed[eventName]) eventIndexed[eventName] = [];
+
+        for (let matcher of matchers) {
+            eventIndexed[eventName].push({
+                hooks: matcher.hooks,       // The actual hook handler configs
+                matcher: matcher.matcher,   // For filtering (e.g., tool name match)
+                source: "pluginHook",       // Priority marker
+                pluginName: plugin.name     // For attribution/debugging
+            });
+        }
+    }
+    return eventIndexed;
+}
+
+// Mapping: nF9→extractPluginHooksForEvent, A→plugin, q→hooksConfig,
+//   K→eventIndexed, Y→eventName, z→matchers, w→matcher
+```
+
+**How hooks are matched:**
+
+For `PreToolUse` and `PostToolUse` events, hooks can specify a `matcher` to filter which tools they apply to:
+
+```javascript
+// Hook with matcher (only triggers for Bash tool)
+{
+    "hooks": [{ "type": "command", "command": "echo 'Bash executed'" }],
+    "matcher": "Bash"
+}
+
+// Hook with regex matcher
+{
+    "hooks": [{ "type": "command", "command": "echo 'File tool used'" }],
+    "matcher": "^(Read|Edit|Write)$"
+}
+
+// Hook without matcher (triggers for all tools)
+{
+    "hooks": [{ "type": "command", "command": "echo 'Tool used'" }]
+}
+```
+
+---
+
+## Deep Analysis: 21 Hook Events (v2.1.76)
+
+The plugin hook system supports 21 lifecycle events in v2.1.76:
+
+### Core Tool Events
+- **PreToolUse** - Before tool execution (can block)
+- **PostToolUse** - After successful tool execution
+- **PostToolUseFailure** - After failed tool execution
+
+### Session Lifecycle
+- **SessionStart** - When session begins
+- **SessionEnd** - When session ends
+- **Setup** - After SessionStart, for setup tasks
+
+### User Interaction
+- **UserPromptSubmit** - When user submits input
+- **Notification** - When notification is sent
+- **Stop** - When user requests stop
+
+### Subagent Events
+- **SubagentStart** - When subagent spawns
+- **SubagentStop** - When subagent completes
+
+### Compact Events
+- **PreCompact** - Before context compaction
+- **PostCompact** - After context compaction
+
+### Teammate/Task Events
+- **TeammateIdle** - When teammate has no work
+- **TaskCompleted** - When task finishes
+
+### MCP/Elicitation
+- **Elicitation** - MCP elicitation request
+- **ElicitationResult** - MCP elicitation response
+
+### Configuration/Worktree (NEW v2.1.76)
+- **ConfigChange** - When settings change
+- **WorktreeCreate** - When git worktree is created
+- **WorktreeRemove** - When git worktree is removed
+- **InstructionsLoaded** - When CLAUDE.md files are loaded
+- **PermissionRequest** - When permission is requested

@@ -231,15 +231,22 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Bj1 | BACKGROUND_AGENT_BLOCKED_TOOLS | chunks.89.mjs:876 | constant (Set) |
-| VjA | ASYNC_BATCH_TOOLS | chunks.89.mjs:876 | constant (Set, copy of Bj1) |
-| L_6 | ASYNC_COMPATIBLE_TOOLS | chunks.89.mjs:876 | constant (Set, allowlist for async) |
+| Bj1 | BACKGROUND_AGENT_BLOCKED_TOOLS | chunks.41.mjs:2585 | constant (Set) |
+| V$3 | TASK_TYPE_PREFIXES | chunks.41.mjs:2438 | constant (object) |
+| G97 | TASK_ID_CHARSET | chunks.41.mjs:2434 | constant ("0123456789abcdefghijklmnopqrstuvwxyz") |
 | KP6 | BACKGROUND_TASKS_DISABLED | chunks.132.mjs:37 | constant (boolean) |
 | nVY | BACKGROUND_HINT_THRESHOLD | chunks.132.mjs | constant (ms) |
 | Id1 | BASH_BACKGROUND_DISABLED | chunks.170.mjs:528 | constant (boolean) |
 | q_q | BASH_BACKGROUND_TIMEOUT_MS | chunks.170.mjs:514 | constant (2000) |
 | ghY | TURNS_BETWEEN_PROGRESS | chunks.142.mjs:2863 | constant (3) |
-| Lv9 | TASK_TYPE_PREFIXES | chunks.89.mjs:545 | constant (object) |
+
+### Task ID Generation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| oV | createTaskId | chunks.41.mjs:2410 | function |
+| k$3 | getTypePrefix | chunks.41.mjs:2406 | function |
+| N$3 | generateRandomBytes | chunks.41.mjs | function |
 
 ### Background Task Creation
 
@@ -249,13 +256,12 @@
 | wd7 | createForegroundTask | chunks.89.mjs:1477 | function |
 | u_6 | foregroundResolveMap | chunks.89.mjs:1477 | variable (Map) |
 | Hp7 | backgroundTaskSignalMap | chunks.89.mjs | variable (Map) |
-| hp | createTaskId | chunks.89.mjs:522 | function |
-| IZ | createTaskRecord | chunks.89.mjs:528 | function |
 
 ### Task State Management
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| RG | createTaskRecord | chunks.41.mjs:2418 | function |
 | bZ | registerTaskInState | chunks.142.mjs:1676 | function |
 | c5 | atomicUpdateTask | chunks.142.mjs:1662 | function |
 | yjA | markTaskCompleted | chunks.89.mjs:1422 | function |
@@ -265,6 +271,8 @@
 | Kd7 | killAllRunningAgents | chunks.89.mjs:1448 | function |
 | Ui4 | getRunningTasks | chunks.142.mjs:1686 | function |
 | ia | isLocalAgentTask | chunks.89.mjs:1342 | function |
+| i9 | updateTaskState | chunks.41.mjs | function |
+| LJ6 | isTerminalStatus | chunks.41.mjs:2402 | function |
 
 ### Progress & Output
 
@@ -272,8 +280,8 @@
 |------------|----------|-----------|------|
 | RjA | reportToolProgress | chunks.89.mjs:1393 | function |
 | Yd7 | updateTaskProgress | chunks.89.mjs:1407 | function |
-| ww | getOutputFilePath | chunks.89.mjs:249 | function |
-| eu1 | getTasksDir | chunks.89.mjs:238 | function |
+| g2 | getOutputFilePath | chunks.41.mjs:2248 | function |
+| yJ6 | getTasksDir | chunks.41.mjs | function |
 | ZK1 | writeOutputChunk | chunks.89.mjs:253 | function |
 | WjA | readOutputFileDelta | chunks.89.mjs:276 | function |
 | M_6 | readFullOutput | chunks.89.mjs:300 | function |
@@ -281,17 +289,21 @@
 | Ij1 | symlinkOutputFile | chunks.89.mjs:317 | function |
 | Rp7 | cleanupOutputFiles | chunks.89.mjs:328 | function |
 | vp7 | pendingWrites | chunks.89.mjs:346 | variable (Map) |
+| Zf | registerTask | chunks.41.mjs | function |
+| $O | flushTaskOutput | chunks.41.mjs | function |
 
 ### Kill Handlers
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| gj1 | LocalBashTaskHandler | chunks.89.mjs:2012 | object |
-| B_6 | LocalAgentTaskHandler | chunks.89.mjs:1574 | object |
-| Qi4 | RemoteAgentTaskHandler | chunks.142.mjs:1586 | object |
-| hjA | killBashTask | chunks.89.mjs:1846 | function |
+| Lf6 | LocalBashTaskHandler | chunks.133.mjs:2542 | object |
+| Fk1 | LocalAgentTaskHandler | chunks.146.mjs:2292 | object |
+| Fn4 | RemoteAgentTaskHandler | chunks.136.mjs:1175 | object |
+| wQ6 | killBashTask | chunks.133.mjs | function |
+| x66 | killAgentTask | chunks.146.mjs | function |
 | Vg1 | getKillHandlerForType | chunks.142.mjs:1652 | function |
 | IhY | getAllKillHandlers | chunks.142.mjs:1648 | function |
+| GN1 | notifyTaskCompletion | chunks.133.mjs | function |
 
 ### System Reminder Integration
 
@@ -328,6 +340,7 @@
 | xZ | prefixAgentId | chunks.89.mjs:894 | function |
 | nhA | loadAgentTranscripts | chunks.173.mjs:2766 | function |
 | ihA | extractTeammateMessages | chunks.173.mjs:2759 | function |
+| X$ | getAgentIdPrefix | chunks.41.mjs | function |
 
 ---
 
@@ -936,17 +949,17 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | Uu8 | executeSetupHooks | chunks.175.mjs | generator |
 | b_6 | executePermissionRequestHooks | chunks.175.mjs:2766 | generator |
 | mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
-| PP | executePluginHooksForSession | chunks.142.mjs:248 | function |
-| FW6 | executePluginHooksForSetup | chunks.142.mjs:291 | function |
-| pa | loadAllPluginHooks | chunks.87.mjs:2606 | variable (memoized async fn, exported as loadPluginHooks) |
-| Ap | allowManagedHooksOnly | chunks.142.mjs:256 | function |
-| oN9 | extractPluginHooksForEvent | chunks.87.mjs:2547 | function |
-| O61 | registerPluginHooks | chunks.1.mjs:2912 | function |
-| YR6 | deregisterPluginHooks | chunks.1.mjs:2929 | function |
-| sN9 | setupPluginHookHotReload | chunks.87.mjs:2589 | function |
-| aN9 | resetHotReloadState | chunks.87.mjs:2585 | function |
-| rO6 | clearPluginHookCache | chunks.87.mjs:2581 | function |
-| g0A | hotReloadAlreadySetup | chunks.87.mjs:2596 | variable (bool guard) |
+| JN1 | executePluginHooksForSession | chunks.135.mjs:1836 | function |
+| oN1 | executePluginHooksForSetup | chunks.135.mjs:1882 | function |
+| nB | loadAllPluginHooks | chunks.94.mjs:824 | variable (memoized) |
+| l1z | allowManagedHooksOnly | chunks.163.mjs:2537 | function |
+| nF9 | extractPluginHooksForEvent | chunks.94.mjs:751 | function |
+| KA6 | registerPluginHooks | chunks.94.mjs | function |
+| lu1 | deregisterPluginHooks | chunks.94.mjs | function |
+| oF9 | setupPluginHookHotReload | chunks.94.mjs:806 | function |
+| rF9 | resetHotReloadState | chunks.94.mjs:796 | function |
+| d01 | clearPluginHookCache | chunks.94.mjs:792 | function |
+| F_4 | getEnabledPluginsHash | chunks.94.mjs:800-804 | function (for hot reload change detection) |
 | rN1 | executeWorktreeRemoveHook | chunks.175.mjs | function |
 | nN1 | executeWorktreeCreateHook | chunks.175.mjs | function |
 
@@ -1118,7 +1131,7 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | lPq | bundledSkillRegistry | chunks.165.mjs:2587 | Array |
 | iPq | getBundledSkills | chunks.165.mjs:2589 | function |
 | f24 | getBuiltinPluginSkills | chunks.94.mjs:2705 | function |
-| hk8 | loadPluginSkills | chunks.87.mjs:2157 | function (memoized) |
+| hk8 | getPluginSkills | chunks.94.mjs:707-746 | variable (memoized) |
 | vU7 | loadPluginSkillDir | chunks.87.mjs | function (loads from plugin skillsPath) |
 | uu1 | createPluginCommandObject | chunks.87.mjs:1870 | function |
 

@@ -12,10 +12,12 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
-- `getPluginAgents` (wK1) - Load all custom agents from enabled plugins
-- `loadAgentsFromDir` (CU7) - Load agents from a plugin directory
-- `getPluginOutputStyles` - Load output styles from plugins (if exists)
-- `loadPluginManifest` (Pn4) - Discover agents and outputStyles components
+- `getPluginAgents` (KQ6) - Load all custom agents from enabled plugins
+- `PLUGIN_MEMORY_TYPES` (S24) - Constant array ["user", "project", "local"]
+- `loadAgentsFromDir` (C24) - Load agents from a plugin directory
+- `loadAgentFromMarkdown` (I24) - Parse single AGENT.md file into agent definition
+- `getPluginOutputStyles` (Ik8) - Load output styles from plugins
+- `loadOutputStylesFromDir` (p_4) - Helper to load styles from a directory
 
 ---
 
@@ -40,12 +42,12 @@ Both follow the directory-based discovery pattern established by commands and sk
 
                     ┌──────────────────────────────────┐
                     │    Plugin Manager Initialization  │
-                    │    iY() - getLoadedPlugins()      │
+                    │    _z() - getLoadedPlugins()      │
                     └──────────────────────────────────┘
                                     │
                                     ▼
                     ┌──────────────────────────────────┐
-                    │    getPluginAgents (wK1)          │
+                    │    getPluginAgents (KQ6)         │
                     │    Memoized loader               │
                     └──────────────────────────────────┘
                                     │
@@ -58,7 +60,7 @@ Both follow the directory-based discovery pattern established by commands and sk
                                     │
                                     ▼
                     ┌──────────────────────────────────┐
-                    │  loadAgentsFromDir (CU7)          │
+                    │  loadAgentsFromDir (C24)          │
                     │  - Scan for AGENT.md files        │
                     │  - Parse frontmatter              │
                     │  - Create agent definitions       │
@@ -76,77 +78,239 @@ Both follow the directory-based discovery pattern established by commands and sk
                     └──────────────────────────────────┘
 ```
 
-### `getPluginAgents` (wK1)
+### `getPluginAgents` (KQ6)
 
 **What it does:** Loads all custom agent definitions from enabled plugins.
 
 ```javascript
 // ============================================
 // getPluginAgents - Load all plugin agents
-// Location: chunks.87.mjs:2509-2557
+// Location: chunks.95.mjs:1121-1162
 // ============================================
 
 // ORIGINAL (for source lookup):
-wK1 = KA(async () => {
-    let { enabled: A, errors: q } = await iY(), K = [];
-    if (q.length > 0) h(`Plugin loading errors: ${q.map((Y)=>TZ(Y)).join(", ")}`);
-    for (let Y of A) {
-        let z = new Set;
-        if (Y.agentsPath) try {
-            let w = CU7(Y.agentsPath, Y.name, Y.source, z);
-            if (K.push(...w), w.length > 0) h(`Loaded ${w.length} agents from plugin ${Y.name}`)
-        } catch (w) {
-            h(`Failed to load agents from plugin ${Y.name}: ${w}`, { level: "error" })
+KQ6 = e1(async () => {
+    let { enabled: A, errors: q } = await _z();
+    if (q.length > 0) k(`Plugin loading errors: ${q.map((z)=>sM(z)).join(", ")}`);
+    let Y = (await Promise.all(A.map(async (z) => {
+        let _ = new Set, w = [];
+        if (z.agentsPath) try {
+            let O = await C24(z.agentsPath, z.name, z.source, z.path, z.manifest, _);
+            if (w.push(...O), O.length > 0) k(`Loaded ${O.length} agents from plugin ${z.name}`)
+        } catch (O) {
+            k(`Failed to load agents from plugin ${z.name}: ${O}`, { level: "error" })
         }
-        if (Y.agentsPaths) {
-            for (let w of Y.agentsPaths) try {
-                let H = CU7(w, Y.name, Y.source, z);
-                K.push(...H)
-            } catch (H) {
-                h(`Failed to load agents from ${w}: ${H}`, { level: "error" })
-            }
+        if (z.agentsPaths) {
+            let O = await Promise.all(z.agentsPaths.map(async ($) => {
+                // Load from each custom path...
+            }));
+            for (let $ of O) w.push(...$)
         }
-    }
-    return h(`Total plugin agents loaded: ${K.length}`), K
+        return w
+    }))).flat();
+    return k(`Total plugin agents loaded: ${Y.length}`), Y
 });
 
 // READABLE (for understanding):
 getPluginAgents = memoize(async () => {
     let { enabled: plugins, errors } = await getLoadedPlugins();
-    let agents = [];
+    if (errors.length > 0) {
+        debug(`Plugin loading errors: ${errors.map(serializePluginError).join(", ")}`);
+    }
 
-    for (let plugin of plugins) {
-        let seenFiles = new Set();
+    let allAgents = (await Promise.all(plugins.map(async (plugin) => {
+        let seenFiles = new Set(), agents = [];
 
         if (plugin.agentsPath) {
             try {
-                let pluginAgents = loadAgentsFromDir(
-                    plugin.agentsPath, plugin.name, plugin.source, seenFiles
+                let loaded = await loadAgentsFromDir(
+                    plugin.agentsPath, plugin.name, plugin.source,
+                    plugin.path, plugin.manifest, seenFiles
                 );
-                agents.push(...pluginAgents);
+                agents.push(...loaded);
             } catch (err) {
-                debug(`Failed to load agents from ${plugin.name}: ${err}`, { level: "error" });
+                debug(`Failed: ${err}`, { level: "error" });
             }
         }
 
         if (plugin.agentsPaths) {
             for (let agentPath of plugin.agentsPaths) {
                 try {
-                    let pluginAgents = loadAgentsFromDir(agentPath, plugin.name, plugin.source, seenFiles);
-                    agents.push(...pluginAgents);
-                } catch (err) {
-                    debug(`Failed: ${err}`, { level: "error" });
-                }
+                    let loaded = await loadAgentsFromDir(
+                        agentPath, plugin.name, plugin.source,
+                        plugin.path, plugin.manifest, seenFiles
+                    );
+                    agents.push(...loaded);
+                } catch (err) { /* error handling */ }
             }
         }
-    }
+        return agents;
+    }))).flat();
 
-    debug(`Total plugin agents loaded: ${agents.length}`);
-    return agents;
+    debug(`Total plugin agents loaded: ${allAgents.length}`);
+    return allAgents;
 });
 
-// Mapping: wK1→getPluginAgents, KA→memoize, iY→getLoadedPlugins, CU7→loadAgentsFromDir,
-//   h→debug, TZ→serializeError
+// Mapping: KQ6→getPluginAgents, e1→memoize, _z→getLoadedPlugins, C24→loadAgentsFromDir,
+//   k→debug, sM→serializePluginError
+```
+
+---
+
+## Deep Analysis: Agent Loading Functions
+
+### `loadAgentsFromDir` (C24) - Directory Scanner
+
+**What it does:** Scans a directory for agent definition files (AGENT.md files with frontmatter).
+
+```javascript
+// ============================================
+// loadAgentsFromDir - Scan directory for AGENT.md files
+// Location: chunks.95.mjs:1001-1021
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function C24(A, q, K, Y, z, _, w) {
+    let O = await j0(A), $ = [];
+    if (!O) return $;
+    for (let H of O) {
+        // Only process AGENT.md files
+        let G = $9(H, "AGENT.md");
+        if (!await uK(G)) continue;
+        if (w.has(G)) continue;
+        w.add(G);
+        let J = await I24(G, q, K, Y, z, _);
+        J && $.push(J);
+    }
+    return $;
+}
+
+// READABLE (for understanding):
+async function loadAgentsFromDir(dirPath, pluginName, pluginSource, pluginPath, manifest, seenFiles) {
+    let subdirs = await listDirectories(dirPath);
+    let agents = [];
+
+    if (!subdirs) return agents;
+
+    for (let subdir of subdirs) {
+        // Look for AGENT.md in each subdirectory
+        let agentFile = path.join(subdir, "AGENT.md");
+        if (!await fileExists(agentFile)) continue;
+
+        // Deduplication by realpath
+        if (seenFiles.has(agentFile)) continue;
+        seenFiles.add(agentFile);
+
+        // Parse the agent definition
+        let agentDef = await loadAgentFromMarkdown(
+            agentFile, pluginName, pluginSource, pluginPath, manifest
+        );
+        if (agentDef) agents.push(agentDef);
+    }
+    return agents;
+}
+
+// Mapping: C24→loadAgentsFromDir, A→dirPath, q→pluginName, K→pluginSource,
+//   Y→pluginPath, z→manifest, _→seenFiles, w→seenFiles,
+//   j0→listDirectories, $9→path.join, uK→fileExists, I24→loadAgentFromMarkdown
+```
+
+**Discovery pattern:**
+```
+agents/
+├── AGENT.md           → Skipped (no AGENT.md in root agents/ dir)
+└── code-review/
+    └── AGENT.md       → Loaded as "plugin-name:code-review"
+└── testing/
+    └── AGENT.md       → Loaded as "plugin-name:testing"
+```
+
+### `loadAgentFromMarkdown` (I24) - Agent Definition Parser
+
+**What it does:** Parses a single AGENT.md file into an agent definition object.
+
+```javascript
+// ============================================
+// loadAgentFromMarkdown - Parse AGENT.md into agent definition
+// Location: chunks.95.mjs:1024-1097
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function I24(A, q, K, Y, z, _) {
+    let w = await F17(A), O = hK(w);
+    if (!O.description) return null;  // Required field
+
+    // Agent name from directory or frontmatter
+    let $ = O.name || l9(l9(A));
+    let H = `${q}:${$}`;  // Namespaced name
+
+    // Extract system prompt (content after frontmatter)
+    let G = S7(w);
+
+    // Validate memory types
+    let J = O.memory;
+    if (J && !S24.includes(J)) {
+        k(`Invalid memory type "${J}" for agent ${H}, must be one of ${S24.join(", ")}`);
+        J = undefined;
+    }
+
+    return {
+        type: "agent",
+        name: H,
+        description: O.description,
+        source: "plugin",
+        pluginInfo: { pluginManifest: z, repository: Y },
+        systemPrompt: G,
+        allowedTools: O["allowed-tools"] || O.allowedTools,
+        model: O.model,
+        color: O.color,
+        memory: J
+    };
+}
+
+// READABLE (for understanding):
+async function loadAgentFromMarkdown(filePath, pluginName, pluginSource, pluginPath, manifest) {
+    let content = await readFile(filePath);
+    let frontmatter = parseFrontmatter(content);
+
+    // description is required
+    if (!frontmatter.description) return null;
+
+    // Agent name: frontmatter.name > directory name
+    let agentName = frontmatter.name || path.basename(path.dirname(filePath));
+    let fullName = `${pluginName}:${agentName}`;  // Namespace: "plugin:agent"
+
+    // System prompt is the markdown content after frontmatter
+    let systemPrompt = extractContentAfterFrontmatter(content);
+
+    // Validate memory type
+    let memory = frontmatter.memory;
+    if (memory && !PLUGIN_MEMORY_TYPES.includes(memory)) {
+        log(`Invalid memory type "${memory}" for agent ${fullName}`);
+        memory = undefined;
+    }
+
+    return {
+        type: "agent",
+        name: fullName,                           // "plugin-name:agent-name"
+        description: frontmatter.description,     // Required
+        source: "plugin",
+        pluginInfo: {
+            pluginManifest: manifest,
+            repository: pluginPath
+        },
+        systemPrompt: systemPrompt,               // The agent's instructions
+        allowedTools: frontmatter["allowed-tools"] || frontmatter.allowedTools,
+        model: frontmatter.model,                 // Optional model override
+        color: frontmatter.color,                 // Display color
+        memory: memory                            // Memory scope validation
+    };
+}
+
+// Mapping: I24→loadAgentFromMarkdown, A→filePath, q→pluginName, K→pluginSource,
+//   Y→pluginPath, z→manifest, _→seenFiles, w→content, O→frontmatter,
+//   F17→readFile, hK→parseFrontmatter, S7→extractContentAfterFrontmatter,
+//   S24→PLUGIN_MEMORY_TYPES, k→log
 ```
 
 ### Agent Definition Structure
@@ -216,9 +380,93 @@ Plugin agents use namespaced names to prevent collisions:
 - Clear attribution of which plugin provides the agent
 - Allows multiple plugins to have similar agent types
 
+### PLUGIN_MEMORY_TYPES Constant (S24)
+
+```javascript
+// ============================================
+// PLUGIN_MEMORY_TYPES - Valid memory scopes for plugin agents
+// Location: chunks.95.mjs:1120
+// ============================================
+
+S24 = ["user", "project", "local"];
+```
+
+**What it does:** Defines the valid scopes for plugin-provided agent memory types.
+
+**How it works:**
+1. `user` - Memory available across all projects for this user
+2. `project` - Memory scoped to the current project directory
+3. `local` - Memory scoped to `.claude/settings.local.json` (not committed)
+
+**Why this matters:** Plugin agents can store persistent memory using these scopes. The system validates agent memory configurations against this list to ensure only valid scopes are used.
+
 ---
 
 ## Output Styles
+
+### `getPluginOutputStyles` (Ik8) - Output Style Loader
+
+**What it does:** Loads all output style configurations from enabled plugins.
+
+```javascript
+// ============================================
+// getPluginOutputStyles - Load output styles from plugins
+// Location: chunks.94.mjs:941-974
+// ============================================
+
+// ORIGINAL (for source lookup):
+Ik8 = e1(async () => {
+    let { enabled: A, errors: q } = await _z();
+    if (q.length > 0) k(`Plugin loading errors: ${q.map((z)=>sM(z)).join(", ")}`);
+    let Y = (await Promise.all(A.map(async (z) => {
+        let _ = [];
+        if (z.outputStylesPath) try {
+            let w = await p_4(z.outputStylesPath, z.name);
+            _.push(...w)
+        } catch (w) { /* error handling */ }
+        if (z.outputStylesPaths) {
+            // Load from additional paths...
+        }
+        return _
+    }))).flat();
+    return k(`Total plugin output styles loaded: ${Y.length}`), Y
+});
+
+// READABLE (for understanding):
+getPluginOutputStyles = memoize(async () => {
+    let { enabled: plugins, errors } = await getLoadedPlugins();
+    if (errors.length > 0) {
+        debug(`Plugin loading errors: ${errors.map(serializePluginError).join(", ")}`);
+    }
+
+    let allStyles = (await Promise.all(plugins.map(async (plugin) => {
+        let styles = [];
+
+        // Standard output-styles directory
+        if (plugin.outputStylesPath) {
+            try {
+                let loaded = await loadOutputStylesFromDir(
+                    plugin.outputStylesPath, plugin.name
+                );
+                styles.push(...loaded);
+            } catch (err) { /* error handling */ }
+        }
+
+        // Additional custom paths
+        if (plugin.outputStylesPaths) {
+            for (let stylePath of plugin.outputStylesPaths) {
+                // Load from each path...
+            }
+        }
+        return styles;
+    }))).flat();
+
+    debug(`Total plugin output styles loaded: ${allStyles.length}`);
+    return allStyles;
+});
+
+// Mapping: Ik8→getPluginOutputStyles, e1→memoize, _z→getLoadedPlugins, p_4→loadOutputStylesFromDir
+```
 
 ### Overview
 

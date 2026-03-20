@@ -433,7 +433,7 @@ const TASK_HANDLERS = {
         getOutput: readFullOutput
     },
     "remote_agent": {
-        kill: remoteKillHandler, // Qi4 - status update only
+        kill: remoteKillHandler, // Fn4 - status update only
         getOutput: readFullOutput
     }
 };

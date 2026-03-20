@@ -601,70 +601,86 @@
 ## Module: Plugin System
 
 > Full analysis: [25_plugin_system/](../25_plugin_system/)
+> **v2.1.76 Note:** Plugin functions moved from chunks.143.mjs to chunks.94.mjs, chunks.95.mjs, chunks.135.mjs
 
-### Plugin Management
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| $xY | loadPlugin | chunks.143.mjs:1167 | function |
-| Pn4 | loadPluginManifest | chunks.143.mjs:889 | function |
-| HxY | loadEnabledPlugins | chunks.143.mjs:1118 | function |
-| OxY | loadInlinePlugins | chunks.143.mjs:1458 | function |
-| Xn4 | loadPluginHooks | chunks.143.mjs:879 | function |
-| Dn4 | mergeHooks | chunks.143.mjs:1107 | function |
-| XG6 | readManifestFile | chunks.143.mjs:845 | function |
-| iY | getLoadedPlugins | chunks.143.mjs:1526 | variable (memoized) |
-| Sv | clearPluginsCache | chunks.143.mjs:1502 | function |
-| $61 | getInlinePlugins | chunks.1.mjs:2823 | function |
-| inlinePlugins | inlinePlugins | chunks.1.mjs:2398 | state key |
-| useCoworkPlugins | useCoworkPlugins | chunks.1.mjs:2399 | state key |
-
-### Versioned Cache
+### Plugin Management (chunks.95.mjs, chunks.94.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| RB | buildPluginCacheKey | chunks.143.mjs:585 | function |
-| JG6 | copyPluginToVersionedCache | chunks.143.mjs:629 | function |
-| F51 | downloadAndCachePlugin | chunks.143.mjs:748 | function |
-| od | resolvePluginVersion | chunks.143.mjs:448 | function |
-| Uq1 | getPluginCacheDir | chunks.143.mjs:581 | function |
-| Bg1 | copyDirectoryRecursive | chunks.143.mjs:594 | function |
-| IyA | pathTraversalSafeJoin | chunks.143.mjs:475 | function |
-| kyA | cleanupOrphanedPluginCache | chunks.143.mjs:2950 | function |
-| FIY | getActivePluginPaths | chunks.143.mjs:2989 | function |
-| QIY | deleteOrphanedVersion | chunks.143.mjs:3001 | function |
-| bIY | ORPHANED_AT_MARKER | chunks.143.mjs:3039 | constant (".orphaned_at") |
-| uIY | ORPHAN_GRACE_PERIOD_MS | chunks.143.mjs:3041 | constant (604800000 = 7 days) |
+| _z | getLoadedPlugins | chunks.95.mjs:965 | variable (memoized) |
+| h24 | loadPluginManifest | chunks.95.mjs:176 | function |
+| N24 | loadPluginHooks | chunks.95.mjs:138 | function (parse hooks.json) |
+| sp6 | cachePluginFromSource | chunks.94.mjs:3 | function |
+| ip9 | loadMarketplacePlugins | chunks.95.mjs | function |
+| rp9 | loadInlinePlugins | chunks.95.mjs:853 | function |
+| op9 | deduplicatePlugins | chunks.95.mjs | function |
+| M24 | demoteEnterprisePlugins | chunks.95.mjs | function |
+| Qv | lookupPluginEntry | chunks.94.mjs:2120 | function (marketplace context) |
+| k_4 | getManagedPluginNames | chunks.94.mjs | function |
+| AE8 | getBuiltinPlugins | chunks.94.mjs | function |
+| e1 | memoize | chunks.94.mjs | function (utility: caches async function results) |
+| Qp9 | cloneGitSubdir | chunks.143.mjs:2920 | function (sparse checkout for git-subdir sources) |
 
-### Plugin Installation Registry
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| uM | getInstalledPluginsState | chunks.81.mjs:242 | function (cached) |
-| x$6 | persistInstalledPlugins | chunks.81.mjs:271 | function |
-| hXA | savePluginInstallation | chunks.81.mjs:387 | function |
-| $b7 | removePluginInstallation | chunks.81.mjs:288 | function |
-| _b7 | removePluginsByMarketplace | chunks.81.mjs:367 | function |
-| BM | isPluginInstalled | chunks.81.mjs:383 | function |
-| eD9 | getInstalledPluginMetadata | chunks.81.mjs:353 | function |
-| ja | loadInstalledPlugins | chunks.81.mjs:301 | function |
-| rb1 | getInstalledPluginsPath | chunks.81.mjs:135 | function |
-| Ob7 | updateInstalledPluginOnDisk | chunks.81.mjs:324 | function |
-| SXA | initializeVersionedPlugins | chunks.81.mjs:342 | function |
-| IXA | migrateInstalledPlugins | chunks.81.mjs:426 | function |
-| tD9 | migratePluginFiles | chunks.81.mjs:143 | function |
-| yXA | convertV1toV2Format | chunks.81.mjs:223 | function |
-| LB | installedPluginsCache | chunks.81.mjs:528 | variable (in-memory cache) |
-
-### Plugin Installation
+### Plugin Hook System (chunks.94.mjs, chunks.135.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ug1 | installPlugin | chunks.143.mjs:528 | function |
-| HE | installPluginFromEntry | chunks.143.mjs:482 | function |
-| On4 | recordInlinePluginInstall | chunks.143.mjs:518 | function |
-| I$6 | getPluginGitSha | chunks.81.mjs:408 | function |
-| Hb7 | readPluginVersionFromManifest | chunks.81.mjs:412 | function |
+| nB | loadAllPluginHooks | chunks.94.mjs:824-870 | variable (memoized) |
+| nF9 | extractPluginHooksForEvent | chunks.94.mjs:751-790 | function (converts hooksConfig to event-indexed format) |
+| d01 | clearPluginHookCache | chunks.94.mjs:792-794 | function (invalidates nB memo + deregisters hooks) |
+| oF9 | setupPluginHookHotReload | chunks.94.mjs:806-818 | function (subscribes to policySettings changes) |
+| rF9 | resetHotReloadState | chunks.94.mjs:796-800 | function (clears Sk8 guard and U01 hash) |
+| l1z | allowManagedHooksOnly | chunks.163.mjs:2537 | function (enterprise policy check) |
+| JN1 | executePluginHooksForSession | chunks.135.mjs:1836-1880 | function (SessionStart hook execution) |
+| oN1 | executePluginHooksForSetup | chunks.135.mjs:1882-1920 | function (Setup hook execution) |
+| KA6 | registerPluginHooks | chunks.94.mjs:872-890 | function (registers hooks into global registry) |
+| lu1 | deregisterPluginHooks | chunks.94.mjs:892-904 | function (removes plugin hooks from registry) |
+| F_4 | getEnabledPluginsHash | chunks.94.mjs:800-804 | function (hash for change detection) |
+
+### Plugin Skills & Commands (chunks.94.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| w96 | getPluginCommands | chunks.94.mjs:582-706 | variable (memoized) |
+| hk8 | getPluginSkills | chunks.94.mjs:707-746 | variable (memoized) |
+| m_4 | loadCommandsFromDir | chunks.94.mjs:470-520 | function (scan for .md command files) |
+| B_4 | loadSkillsFromDir | chunks.94.mjs:522-580 | function (scan for SKILL.md files) |
+| dp6 | createCommandObject | chunks.94.mjs:420-468 | function (factory for command/skill objects) |
+| F_4 | getEnabledPluginsHash | chunks.94.mjs:800-804 | function (for hot reload change detection) |
+
+### Plugin Agents (chunks.95.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| KQ6 | getPluginAgents | chunks.95.mjs:1121-1162 | variable (memoized) |
+| S24 | PLUGIN_MEMORY_TYPES | chunks.95.mjs:1120 | constant (["user", "project", "local"]) |
+| C24 | loadAgentsFromDir | chunks.95.mjs:1001-1021 | function (scan for AGENT.md files) |
+| I24 | loadAgentFromMarkdown | chunks.95.mjs:1024-1097 | function (parse single AGENT.md into definition) |
+| a01 | clearPluginAgentsCache | chunks.95.mjs:1099-1100 | function (invalidates KQ6 memo) |
+
+### Plugin Output Styles (chunks.94.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ik8 | getPluginOutputStyles | chunks.94.mjs:941-974 | variable (memoized) |
+| p_4 | loadOutputStylesFromDir | chunks.94.mjs:873-940 | function (scan for .json style configs) |
+
+### Plugin Installation Registry (chunks.94.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Rk8 | syncInstalledPlugins | chunks.94.mjs:110 | function |
+| Ek8 | initializeVersionedPlugins | chunks.94.mjs:21 | function |
+| gI | getInstalledPluginsState | chunks.94.mjs | function |
+| F01 | persistInstalledPlugins | chunks.94.mjs | function |
+| Lk8 | savePluginInstallation | chunks.94.mjs:72 | function |
+| iB | isPluginInstalled | chunks.94.mjs:58 | function |
+| nW6 | isPluginInstalledForUser | chunks.94.mjs:65 | function |
+| u_4 | removePluginsByMarketplace | chunks.94.mjs:32 | function |
+| sM | serializePluginError | chunks.94.mjs | function |
+| x_4 | updateInstalledPluginOnDisk | chunks.94.mjs:3 | function |
+| I_4 | readPluginVersionFromManifest | chunks.94.mjs:97 | function |
+| g01 | getGitCommitSha | chunks.94.mjs:93 | function |
 
 ### Marketplace Management
 
@@ -685,7 +701,7 @@
 | qG1 | saveMarketplaceConfig | chunks.143.mjs:3095 | function |
 | $G6 | getKnownMarketplacesPath | chunks.143.mjs:3057 | function |
 | ei4 | getMarketplacesDir | chunks.143.mjs:3061 | function |
-| a0 | lookupPluginEntry | chunks.143.mjs:322 | function |
+| a0 | lookupPluginEntry | chunks.143.mjs:322 | function (plugin loading context) |
 | yyA | lookupPluginEntryFromCache | chunks.143.mjs:295 | function |
 | lIY | getTempMarketplaceName | chunks.143.mjs:41 | function |
 | Kn4 | readAndValidateJsonFile | chunks.143.mjs:45 | function |
@@ -697,6 +713,19 @@
 | An4 | GIT_ENV_NO_PROMPT | chunks.143.mjs:426 | constant |
 | AH1 | marketplaceSchema | chunks.143.mjs:31 | object (Zod schema) |
 | pw8 | validateMarketplaceName | chunks.143.mjs:199 | function |
+| Qp9 | cloneGitSubdir | chunks.143.mjs:2920 | function (sparse checkout for git-subdir) |
+
+### Enterprise Policy (chunks.93.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ke | getAllowedMarketplaceSources | chunks.93.mjs:2355 | function |
+| Gk8 | getBlockedMarketplaces | chunks.93.mjs:2361 | function |
+| mq1 | isMarketplaceAllowed | chunks.93.mjs | function |
+| nb1 | isExplicitlyBlocked | chunks.93.mjs | function |
+| gF9 | matchesHostPattern | chunks.93.mjs | function |
+| FF9 | matchesPathPattern | chunks.93.mjs:2437 | function |
+| V_4 | getPluginTrustMessage | chunks.93.mjs:2367 | function |
 
 ### Enterprise Policy
 
@@ -727,38 +756,7 @@
 | uN9 | expandUserConfigVars | chunks.87.mjs:1623 | function |
 | zG1 | getAllMcpServersWithPlugins | chunks.143.mjs:2380 | function |
 
-### Plugin Skills & Commands Loading
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| YK1 | getPluginCommands | chunks.87.mjs:2039 | variable (memoized) |
-| B0A | getPluginSkills | chunks.87.mjs:2157 | variable (memoized) |
-| TU7 | loadCommandsFromDir | chunks.87.mjs:1856 | function |
-| vU7 | loadSkillsFromDir | chunks.87.mjs:1943 | function |
-| uu1 | createCommandObject | chunks.87.mjs:1870 | function |
-| FN9 | findMarkdownFiles | chunks.87.mjs:1802 | function |
-| QN9 | groupFilesByDirectory | chunks.87.mjs:1838 | function |
-| mN9 | deriveCommandName | chunks.87.mjs:1825 | function |
-| yD | parseMarkdownWithFrontmatter | chunks.87.mjs:1731 | function |
-| Rx | isAlreadySeen | chunks.87.mjs:1798 | function |
-| pO6 | isSkillFile | chunks.87.mjs:1848 | function |
-| dO6 | clearCommandsCache | chunks.87.mjs:1939 | function |
-| EU7 | clearSkillsCache | chunks.87.mjs:2018 | function |
-| kj1 | pathJoin | chunks.87.mjs:1748 | function (alias) |
-| Lj1 | pathBasename | chunks.87.mjs:1750 | function (alias) |
-| Qa | pathDirname | chunks.87.mjs:1752 | function (alias) |
-
-### Plugin Agents Loading
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| wK1 | getPluginAgents | chunks.87.mjs:2509 | variable (memoized) |
-| CU7 | loadAgentsFromDir | chunks.87.mjs:2470 | function |
-| yU7 | VALID_SCOPES | chunks.87.mjs:2508 | constant (["user", "project", "local"]) |
-
-### Plugin CLI Commands
-
-| Obfuscated | Readable | File:Line | Type |
+### Plugin MCP Integration
 |------------|----------|-----------|------|
 | HGz | handlePluginList | chunks.188.mjs:2596 | function |
 | XGz | handlePluginInstall | chunks.188.mjs:2800 | function |
@@ -799,21 +797,6 @@
 | tengu_marketplace_added | Marketplace added |
 | tengu_marketplace_removed | Marketplace removed |
 | tengu_marketplace_updated | Marketplace updated |
-
-### Plugin Hook Registration
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| pa | loadAllPluginHooks | chunks.87.mjs:2606 | variable (memoized) |
-| oN9 | extractPluginHooksForEvent | chunks.87.mjs:2547 | function |
-| O61 | registerPluginHooks | chunks.1.mjs:2912 | function |
-| YR6 | deregisterPluginHooks | chunks.1.mjs:2929 | function |
-| sN9 | setupPluginHookHotReload | chunks.87.mjs:2589 | function |
-| rO6 | clearPluginHookCache | chunks.87.mjs:2581 | function |
-| aN9 | resetHotReloadState | chunks.87.mjs:2585 | function |
-| PP | executePluginHooksForSession | chunks.142.mjs:248 | function |
-| FW6 | executePluginHooksForSetup | chunks.142.mjs:290 | function |
-| Ap | allowManagedHooksOnly | chunks.80.mjs:2821 | function |
 
 ---
 

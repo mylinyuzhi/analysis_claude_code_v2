@@ -111,87 +111,112 @@ File System:
 
 ## Part 1: Task Identity System
 
-### Task ID Generation (`hp` / `createTaskId`)
+### Task ID Generation Algorithm
+
+**What it does:** Creates unique, type-prefixed identifiers for all background tasks.
+
+**How it works:**
+1. `getTypePrefix(taskType)` looks up the prefix from `TASK_TYPE_PREFIXES` map (`V$3`)
+2. `generateRandomBytes(8)` creates 8 cryptographically random bytes (`N$3`)
+3. For each byte, select a character from the charset `G97` ("0123456789abcdefghijklmnopqrstuvwxyz")
+4. Combine: `{prefix}{8-random-chars}` (e.g., "a3f4b2x9")
 
 ```javascript
 // ============================================
 // createTaskId - Generates prefixed task identifier
-// Location: chunks.89.mjs:522
+// Location: chunks.41.mjs:2410-2415
 // ============================================
 
 // ORIGINAL (for source lookup):
-function hp(A) {
-    let q = Rv9(A),
-        K = kv9().replace(/-/g, "").substring(0, 6);
-    return `${q}${K}`
+function oV(A) {
+    let q = k$3(A),
+        K = N$3(8),
+        Y = q;
+    for (let z = 0; z < 8; z++) Y += G97[K[z] % G97.length];
+    return Y
 }
 
 // READABLE (for understanding):
 function createTaskId(taskType) {
-    let prefix   = getTypePrefix(taskType);  // "a", "b", "r", "t"
-    let shortUuid = generateUUID().replace(/-/g, "").substring(0, 6);
-    return `${prefix}${shortUuid}`;          // e.g. "a3f9c2" for a local_agent
+    let prefix = getTypePrefix(taskType);  // "a", "b", "r", "t", "w"
+    let randomBytes = generateRandomBytes(8);
+    let taskId = prefix;
+    for (let i = 0; i < 8; i++) {
+        taskId += CHARSET[randomBytes[i] % CHARSET.length];
+    }
+    return taskId;  // e.g. "a3f9c2x7" for a local_agent
 }
 
-// Mapping: hp→createTaskId, Rv9→getTypePrefix, kv9→generateUUID, A→taskType
+// Mapping: oV→createTaskId, k$3→getTypePrefix, N$3→generateRandomBytes, G97→CHARSET
 ```
 
-**Type prefix map (`Lv9`):**
+**Type prefix map (`V$3` / `TASK_TYPE_PREFIXES`):**
 
 | taskType | prefix | Example ID |
 |----------|--------|-----------|
-| `local_agent` | `a` | `a3f9c2` |
-| `local_bash` | `b` | `b7c4e1` |
-| `remote_agent` | `r` | `r2a8f0` |
-| `in_process_teammate` | `t` | `t5d3b9` |
+| `local_agent` | `a` | `a3f9c2x7` |
+| `local_bash` | `b` | `b7c4e1m2` |
+| `remote_agent` | `r` | `r2a8f0k5` |
+| `in_process_teammate` | `t` | `t5d3b9n4` |
+| `local_workflow` | `w` | `w1x2y3z4` |
 
 **Why this approach:**
-- Single-character prefix enables visual identification in logs and UI without parsing
-- 6-char UUID fragment gives 16^6 = ~16 million collision resistance per prefix
-- IDs double as filename components: `a3f9c2.output` — no lookup needed to find the file
+- **Visual identification:** Single-character prefix enables quick identification in logs and UI without parsing
+- **Collision resistance:** 36^8 = ~2.8 trillion combinations per prefix (36-char alphabet × 8 positions)
+- **File-friendly:** Alphanumeric IDs work as filename components: `a3f9c2x7.output`
+- **Cryptographic randomness:** Uses crypto-secure random bytes, not Math.random()
 
-### Task Record Structure (`IZ` / `createTaskRecord`)
+### Task Record Structure (`RG` / `createTaskRecord`)
+
+**What it does:** Constructs the initial task state object with all required fields.
 
 ```javascript
 // ============================================
 // createTaskRecord - Constructs the initial task state object
-// Location: chunks.89.mjs:528
+// Location: chunks.41.mjs:2418-2429
 // ============================================
 
 // ORIGINAL (for source lookup):
-function IZ(A, q, K) {
+function RG(A, q, K, Y) {
     return {
         id: A, type: q, status: "pending", description: K,
-        startTime: Date.now(), outputFile: ww(A), outputOffset: 0, notified: !1
+        toolUseId: Y, startTime: Date.now(),
+        outputFile: g2(A), outputOffset: 0, notified: !1
     }
 }
 
 // READABLE (for understanding):
-function createTaskRecord(taskId, taskType, description) {
+function createTaskRecord(taskId, taskType, description, toolUseId) {
     return {
         id:           taskId,
         type:         taskType,
         status:       "pending",          // initial state
         description:  description,
+        toolUseId:    toolUseId,          // links to tool use that spawned this
         startTime:    Date.now(),
-        outputFile:   getOutputFilePath(taskId),  // ww(taskId) → {tasksDir}/{taskId}.output
+        outputFile:   getOutputFilePath(taskId),  // g2(taskId) → {tasksDir}/{taskId}.output
         outputOffset: 0,                  // byte cursor for incremental reads (TaskOutput)
-        notified:     false               // guard: ensures vK1 fires only once
+        notified:     false               // guard: ensures notification fires only once
     };
 }
 
-// Mapping: IZ→createTaskRecord, A→taskId, q→taskType, K→description
+// Mapping: RG→createTaskRecord, A→taskId, q→taskType, K→description, Y→toolUseId, g2→getOutputFilePath
 ```
 
-Additional fields added by `zd7`/`wd7` at runtime:
-- `agentId`, `prompt`, `selectedAgent`, `agentType`
-- `abortController` — for kill/abort
-- `unregisterCleanup` — removes the process-exit handler when done
-- `isBackgrounded` — `true` if converted from foreground mid-execution
+**Additional fields added by spawn handlers:**
+- `agentId` — Unique agent identifier for local agents
+- `prompt` — The task prompt for agents
+- `selectedAgent` — Agent type name (e.g., "Explore", "general-purpose")
+- `model` — Model selection override
+- `abortController` — AbortController for kill/abort
+- `unregisterCleanup` — Removes the process-exit handler when done
+- `isBackgrounded` — `true` if running as background task
 - `background` — `true` if explicitly started with `run_in_background=true` (new in v2.1.76)
-- `retrieved`, `lastReportedToolCount`, `lastReportedTokenCount`
+- `retrieved` — Whether TaskOutput has retrieved this task
+- `lastReportedToolCount`, `lastReportedTokenCount` — Progress tracking
 - `progress` — `{ toolUseCount, tokenCount, lastActivity, recentActivities }`
-- `result`, `error`, `endTime` — set on completion/failure
+- `result`, `error`, `endTime` — Set on completion/failure
+- `pendingMessages` — Messages queued for background agents
 
 ---
 
@@ -213,17 +238,17 @@ The output file system is the communication backbone between background agents a
 
 `eu1()` → `getTasksDir()` computes the tasks dir as `join(getProjectDataDir(), "tasks")`.
 
-### getOutputFilePath (`ww`)
+### getOutputFilePath (`g2`)
 
 ```javascript
 // ============================================
 // getOutputFilePath - Deterministic output file path from task ID
-// Location: chunks.89.mjs:249
+// Location: chunks.41.mjs:2248-2250
 // ============================================
 
 // ORIGINAL (for source lookup):
-function ww(A) {
-    return MjA(eu1(), `${A}.output`)
+function g2(A) {
+    return D97(yJ6(), `${A}.output`)
 }
 
 // READABLE (for understanding):
@@ -231,7 +256,7 @@ function getOutputFilePath(taskId) {
     return joinPath(getTasksDir(), `${taskId}.output`);
 }
 
-// Mapping: ww→getOutputFilePath, A→taskId, MjA→joinPath, eu1→getTasksDir
+// Mapping: g2→getOutputFilePath, A→taskId, D97→joinPath, yJ6→getTasksDir
 ```
 
 **Key insight:** By exposing `outputFile` in the immediate return value of the tool, the LLM can use its existing `Read` or `Bash(tail)` tools to check background task progress without any new API. The file IS the channel.
@@ -461,6 +486,129 @@ function notifyTaskCompletion(taskId, description, status, errorMsg, setAppState
 4. The previously accumulated messages are replayed into the new async context
 
 **Key insight:** This dual-mode design (explicit background vs. user-initiated background) shares the same completion/notification infrastructure. The transition point is seamless because the agent loop (`dR()`) is an async iterator — it can be consumed by either the sync or async handler.
+
+---
+
+## Part 6: Agent Teams Integration
+
+### In-Process Teammate Tasks
+
+**What they are:** Teammate agents spawned within the same process (not separate terminal windows). They use the `in_process_teammate` task type with prefix `t`.
+
+### spawnTeammate Integration
+
+When a teammate is spawned via `spawnTeammateDispatcher` (`iVY`):
+
+1. **Task Creation:** Creates a task record with type `in_process_teammate`
+2. **Mailbox Setup:** Initializes inbox directory for inter-agent messaging
+3. **Agent Execution:** Spawns a subagent loop with team context
+4. **Background Mode:** Teammates run in background by default
+
+```javascript
+// Teammate task uses same infrastructure as local_agent
+let taskId = createTaskId("in_process_teammate");  // Returns "t..." prefixed ID
+```
+
+### Mailbox Communication
+
+Teammates communicate via file-based mailboxes:
+- **Inbox Path:** `~/.claude/teams/{teamName}/inbox/{agentName}/`
+- **Messages:** Written as JSON files, polled by the teammate agent
+- **Plan Approvals:** Sent via `writeToMailbox` (`f9`), received via `readMailbox` (`Ld`)
+
+### Key Integration Points
+
+| Integration | Description |
+|------------|-------------|
+| `hasTeamContext` (`l8`) | Checks if agent is part of a team |
+| `isTeamLeader` (`PM`) | Checks if agent is the team leader |
+| `SendMessageTool` (`YhY`) | Sends messages between teammates |
+| `planApprovalRequest` | Sent to leader via mailbox for approval |
+
+---
+
+## Part 7: Cron/Loop Integration
+
+### Background Task Scheduling
+
+The `/loop` command and CronCreateTool create background tasks that run on recurring schedules.
+
+### CronCreateTool Integration
+
+```javascript
+// CronCreateTool creates scheduled background tasks
+CronCreateTool.call({
+    cron: "*/5 * * * *",  // Every 5 minutes
+    prompt: "Check the deploy status",
+    recurring: true
+});
+```
+
+### How Cron Tasks Create Background Agents
+
+1. **Schedule Registration:** Job registered in `cronJobRegistry` (in-memory Map)
+2. **Fire Time:** When cron fires, creates a background task via `createAsyncTask`
+3. **Task Execution:** Runs as `local_agent` with the scheduled prompt
+4. **Notification:** Results sent via `notifyTaskCompletion`
+
+### Session-Only Lifetime
+
+- Cron jobs live only in the current Claude session
+- Jobs are lost when session ends (not persisted to disk)
+- Maximum lifetime: 7 days for recurring jobs
+
+---
+
+## Part 8: Plan Mode Restrictions
+
+### Why Background Agents Can't Use EnterPlanMode
+
+**Reason:** Plan mode requires interactive user approval flow. Background agents run unattended, so they cannot participate in interactive dialogs.
+
+### Tool Blocking
+
+```javascript
+const BACKGROUND_AGENT_BLOCKED_TOOLS = new Set([
+    "TaskOutput",      // Could create polling loops
+    "ExitPlanMode",    // Requires user approval flow
+    "EnterPlanMode",   // Requires user approval flow
+    "Task",            // Could spawn nested background agents
+    "AskUserQuestion", // Would block indefinitely
+    "TaskStop"         // Background agents shouldn't manage other tasks
+]);
+```
+
+### Permission Mode Inheritance
+
+Background agents inherit the permission mode from their parent:
+- If parent is in `plan` mode, background agent starts in `plan` mode
+- Background agent cannot change permission modes via tools
+- Plan mode exit requires explicit user action in main conversation
+
+---
+
+## Part 9: Auto-Background Threshold
+
+### Automatic Backgrounding
+
+When `CLAUDE_AUTO_BACKGROUND_TASKS` env var is set or `tengu_auto_background_agents` feature flag is enabled:
+
+```javascript
+function getAutoBackgroundThreshold() {
+    if (parseBoolean(process.env.CLAUDE_AUTO_BACKGROUND_TASKS) ||
+        isFeatureEnabled("tengu_auto_background_agents", false)) {
+        return 120000;  // 2 minutes
+    }
+    return 0;  // Disabled
+}
+```
+
+### How It Works
+
+1. **Threshold Check:** Tasks running longer than threshold are candidates
+2. **User Prompt:** TUI shows option to background the task
+3. **Conversion:** Calls `backgroundForegroundTask` (`Hd7`) to convert
+4. **Continuation:** Task continues in background, main conversation freed
 
 ---
 

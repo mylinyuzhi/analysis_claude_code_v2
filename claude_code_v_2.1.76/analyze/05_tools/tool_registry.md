@@ -126,11 +126,11 @@ Both `TaskStop` and `TaskOutput` use a **Handler Registry Pattern** to handle al
 ```
 TaskStop.call({ task_id: "xxx" })
     │
-    ├─→ local_bash  → gj1.kill() → hjA() → shellCommand.kill()
+    ├─→ local_bash  → Lf6.kill() → wQ6() → shellCommand.kill()
     │
-    ├─→ local_agent → B_6.kill() → na()   → abortController.abort()
+    ├─→ local_agent → Fk1.kill() → x66() → abortController.abort()
     │
-    └─→ remote_agent → Qi4.kill()        → Status update only (local)
+    └─→ remote_agent → Fn4.kill()      → Status update only (local)
 ```
 
 **TaskOutput Output Chain:**
@@ -831,9 +831,9 @@ TaskOutput.call({ task_id: "xxx" })
 
 | Obfuscated | Readable | Task Type | Kill Function |
 |------------|----------|-----------|---------------|
-| `gj1` | LocalBashTask | `local_bash` | `hjA` (kills shell process) |
-| `B_6` | LocalAgentTask | `local_agent` | `na` (aborts agent) |
-| `Qi4` | RemoteAgentTask | `remote_agent` | Handler method |
+| `Lf6` | LocalBashTask | `local_bash` | `wQ6` (kills shell process) |
+| `Fk1` | LocalAgentTask | `local_agent` | `x66` (aborts agent) |
+| `Fn4` | RemoteAgentTask | `remote_agent` | Handler method |
 
 ---
 

@@ -14,13 +14,14 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `LocalBashTaskHandler` (gj1) - Kill handler for shell commands — `chunks.89.mjs:2012`
-- `LocalAgentTaskHandler` (B_6) - Kill handler for local agents — `chunks.89.mjs:1574`
-- `RemoteAgentTaskHandler` (Qi4) - Kill handler for remote sessions — `chunks.142.mjs:1586`
+- `LocalBashTaskHandler` (Lf6) - Kill handler for shell commands — `chunks.133.mjs:2542`
+- `LocalAgentTaskHandler` (Fk1) - Kill handler for local agents — `chunks.146.mjs:2292`
+- `RemoteAgentTaskHandler` (Fn4) - Kill handler for remote sessions — `chunks.136.mjs:1175`
 - `getKillHandlerForType` (Vg1) - Lookup function for kill handlers — `chunks.142.mjs:1652`
 - `getAllKillHandlers` (IhY) - Returns all kill handler instances — `chunks.142.mjs:1648`
 - `killTask` (na) - Core kill function for local agents — `chunks.89.mjs:~1375`
-- `killBashTask` (hjA) - Core kill function for bash tasks — `chunks.89.mjs:~1846`
+- `killBashTask` (wQ6) - Core kill function for bash tasks — `chunks.133.mjs`
+- `killAgentTask` (x66) - Core kill function for agent tasks — `chunks.146.mjs`
 - `atomicUpdateTask` (c5) - Atomically updates task state — `chunks.142.mjs:1662`
 
 ---
@@ -66,20 +67,20 @@ interface KillHandler {
 
 // ORIGINAL (for source lookup):
 function IhY() {
-    return [gj1, B_6, Qi4]
+    return [Lf6, Fk1, Fn4]
 }
 
 // READABLE (for understanding):
 function getAllKillHandlers() {
     return [
-        LocalBashTaskHandler,    // type: "local_bash"
-        LocalAgentTaskHandler,   // type: "local_agent"
-        RemoteAgentTaskHandler   // type: "remote_agent"
+        LocalBashTaskHandler,    // type: "local_bash" (Lf6)
+        LocalAgentTaskHandler,   // type: "local_agent" (Fk1)
+        RemoteAgentTaskHandler   // type: "remote_agent" (Fn4)
     ];
 }
 
-// Mapping: IhY→getAllKillHandlers, gj1→LocalBashTaskHandler, B_6→LocalAgentTaskHandler,
-//   Qi4→RemoteAgentTaskHandler
+// Mapping: IhY→getAllKillHandlers, Lf6→LocalBashTaskHandler, Fk1→LocalAgentTaskHandler,
+//   Fn4→RemoteAgentTaskHandler
 ```
 
 ### Handler Lookup
@@ -116,46 +117,49 @@ Handles termination of shell commands running in the background. Uses process si
 ```javascript
 // ============================================
 // LocalBashTaskHandler - Shell command kill handler
-// Location: chunks.89.mjs:2012-~2060
+// Location: chunks.133.mjs:2542-2598
 // ============================================
 
 // ORIGINAL (for source lookup):
-gj1 = {
+Lf6 = {
     name: "LocalBashTask",
     type: "local_bash",
     async spawn(A, q) {
         let {
             command: K,
             description: Y,
-            shellCommand: z
+            shellCommand: z,
+            toolUseId: _,
+            agentId: w,
+            kind: O
         } = A, {
-            setAppState: w
-        } = q, H = hp("local_bash");
-        hj1(H);
-        let $ = Tq(async () => {
-                hjA(H, w)
-            }),
-            O = {
-                ...IZ(H, "local_bash", Y),
-                type: "local_bash",
-                status: "running",
-                command: K,
-                completionStatusSentInAttachment: !1,
-                unregisterCleanup: $,
-                shellCommand: z,
-                abortController: new AbortController
-            };
-        return bZ(O, w), {
-            backgroundTaskId: H
-        }
+            setAppState: $
+        } = q, {
+            taskOutput: H
+        } = z, j = H.taskId, J = E4(async () => {
+            wQ6(j, $)
+        }), M = {
+            ...RG(j, "local_bash", Y, _),
+            type: "local_bash",
+            status: "running",
+            command: K,
+            completionStatusSentInAttachment: !1,
+            shellCommand: z,
+            unregisterCleanup: J,
+            lastReportedTotalLines: 0,
+            isBackgrounded: !0,
+            agentId: w,
+            kind: O
+        };
+        return Zf(M, $), z.background(j), z.result.then(async (D) => {
+            // ... completion handling
+        }), { taskId: j, cleanup: () => { J() } }
     },
     async kill(A, q) {
-        let {
-            setAppState: K
-        } = q;
-        hjA(A.id, K)
+        wQ6(A, q.setAppState)
     },
-    // ... renderStatus, renderOutput, getProgressMessage ...
+    renderStatus(A) { /* React component */ },
+    renderOutput(A) { /* React component */ }
 };
 
 // READABLE (for understanding):
@@ -164,35 +168,59 @@ const LocalBashTaskHandler = {
     type: "local_bash",
 
     async spawn(taskConfig, context) {
-        let { command, description, shellCommand } = taskConfig;
+        let { command, description, shellCommand, toolUseId, agentId, kind } = taskConfig;
         let { setAppState } = context;
-
-        let taskId = createTaskId("local_bash");
-        initOutputFile(taskId);
+        let { taskOutput } = shellCommand;
+        let taskId = taskOutput.taskId;
 
         // Register cleanup on process exit
         let unregisterCleanup = registerProcessExitCleanup(async () => {
-            cleanupOutputFile(taskId, setAppState);
+            killBashTask(taskId, setAppState);
         });
 
         let taskRecord = {
-            ...createTaskRecord(taskId, "local_bash", description),
+            ...createTaskRecord(taskId, "local_bash", description, toolUseId),
             type: "local_bash",
             status: "running",
             command,
             completionStatusSentInAttachment: false,
-            unregisterCleanup,
             shellCommand,
-            abortController: new AbortController()
+            unregisterCleanup,
+            lastReportedTotalLines: 0,
+            isBackgrounded: true,
+            agentId,
+            kind
         };
 
-        registerTaskInState(taskRecord, setAppState);
-        return { backgroundTaskId: taskId };
+        registerTask(taskRecord, setAppState);
+        shellCommand.background(taskId);
+
+        // Handle completion when shell finishes
+        shellCommand.result.then(async (result) => {
+            await shellCommand.taskOutput.flush();
+            shellCommand.cleanup();
+            // Update task state based on exit code
+            updateTaskState(taskId, setAppState, (task) => {
+                if (task.status === "killed") return task;
+                return {
+                    ...task,
+                    status: result.code === 0 ? "completed" : "failed",
+                    result: { code: result.code, interrupted: result.interrupted },
+                    shellCommand: null,
+                    unregisterCleanup: undefined,
+                    endTime: Date.now()
+                };
+            });
+            notifyTaskCompletion(taskId, description, /* status */, result.code, setAppState, toolUseId, kind);
+            flushTaskOutput(taskId);
+        });
+
+        return { taskId, cleanup: () => { unregisterCleanup(); } };
     },
 
     async kill(task, context) {
         let { setAppState } = context;
-        await killBashTask(task.id, setAppState);
+        await killBashTask(task.id ?? task, setAppState);
     },
 
     renderStatus(task) {
@@ -201,16 +229,11 @@ const LocalBashTaskHandler = {
 
     renderOutput(output) {
         // Returns React element with truncated output
-    },
-
-    getProgressMessage(task) {
-        if (!task.command) return null;
-        return `Running: ${task.command}`;
     }
 };
 
-// Mapping: gj1→LocalBashTaskHandler, hp→createTaskId, hj1→initOutputFile, Tq→registerProcessExitCleanup,
-//   hjA→killBashTask, IZ→createTaskRecord, bZ→registerTaskInState
+// Mapping: Lf6→LocalBashTaskHandler, RG→createTaskRecord, Zf→registerTask, E4→registerProcessExitCleanup,
+//   wQ6→killBashTask, i9→updateTaskState, GN1→notifyTaskCompletion, $O→flushTaskOutput
 ```
 
 ### killBashTask Function
@@ -265,11 +288,11 @@ Handles termination of local agent tasks (subagents running in the background). 
 ```javascript
 // ============================================
 // LocalAgentTaskHandler - Local agent kill handler
-// Location: chunks.89.mjs:1574-~1650
+// Location: chunks.146.mjs:2292-2352
 // ============================================
 
 // ORIGINAL (for source lookup):
-B_6 = {
+Fk1 = {
     name: "LocalAgentTask",
     type: "local_agent",
     async spawn(A, q) {
@@ -277,38 +300,46 @@ B_6 = {
             prompt: K,
             description: Y,
             agentType: z,
-            model: w,
-            selectedAgent: H,
-            agentId: $
+            model: _,
+            selectedAgent: w,
+            agentId: O,
+            toolUseId: $
         } = A, {
-            setAppState: O
-        } = q, _ = $ ?? hp("local_agent");
-        Ij1(_, kh(xZ(_)));
-        let J = Aq(),
-            X = {
-                ...IZ(_, "local_agent", Y),
+            setAppState: H
+        } = q, j = O ?? oV("local_agent");
+        Co(j, L0(X$(j)));
+        let J = sK(),
+            M = {
+                ...RG(j, "local_agent", Y, $),
                 type: "local_agent",
                 status: "running",
+                agentId: j,
                 prompt: K,
+                selectedAgent: w,
                 agentType: z,
-                model: w,
-                selectedAgent: H,
+                model: _,
                 abortController: J,
-                unregisterCleanup: () => {
-                    J.abort()
-                }
-            };
-        return bZ(X, O), {
-            backgroundTaskId: _
+                retrieved: !1,
+                lastReportedToolCount: 0,
+                lastReportedTokenCount: 0,
+                isBackgrounded: !0,
+                pendingMessages: []
+            },
+            D = E4(async () => {
+                x66(j, H)
+            });
+        return M.unregisterCleanup = D, Zf(M, H), {
+            taskId: j,
+            cleanup: () => {
+                D(), J.abort()
+            }
         }
     },
     async kill(A, q) {
-        let {
-            setAppState: K
-        } = q;
-        na(A.id, K)
+        x66(A, q.setAppState)
     },
-    // ... renderStatus, renderOutput, getProgressMessage ...
+    renderStatus(A) { /* React component */ },
+    renderOutput(A) { /* React component */ }
 };
 
 // READABLE (for understanding):
@@ -317,7 +348,7 @@ const LocalAgentTaskHandler = {
     type: "local_agent",
 
     async spawn(taskConfig, context) {
-        let { prompt, description, agentType, model, selectedAgent, agentId } = taskConfig;
+        let { prompt, description, agentType, model, selectedAgent, agentId, toolUseId } = taskConfig;
         let { setAppState } = context;
 
         let taskId = agentId ?? createTaskId("local_agent");
@@ -326,44 +357,64 @@ const LocalAgentTaskHandler = {
         let abortController = createAbortController();
 
         let taskRecord = {
-            ...createTaskRecord(taskId, "local_agent", description),
+            ...createTaskRecord(taskId, "local_agent", description, toolUseId),
             type: "local_agent",
             status: "running",
+            agentId: taskId,
             prompt,
+            selectedAgent,
             agentType,
             model,
-            selectedAgent,
             abortController,
-            unregisterCleanup: () => {
+            retrieved: false,
+            lastReportedToolCount: 0,
+            lastReportedTokenCount: 0,
+            isBackgrounded: true,
+            pendingMessages: []
+        };
+
+        let unregisterCleanup = registerProcessExitCleanup(async () => {
+            killAgentTask(taskId, setAppState);
+        });
+        taskRecord.unregisterCleanup = unregisterCleanup;
+
+        registerTask(taskRecord, setAppState);
+        return {
+            taskId,
+            cleanup: () => {
+                unregisterCleanup();
                 abortController.abort();
             }
         };
-
-        registerTaskInState(taskRecord, setAppState);
-        return { backgroundTaskId: taskId };
     },
 
     async kill(task, context) {
         let { setAppState } = context;
-        killTask(task.id, setAppState);
+        killAgentTask(task.id ?? task, setAppState);
     },
 
     renderStatus(task) {
-        // Returns React element with agent type and status
+        let status = task.status;
+        let desc = task.description;
+        let progress = task.progress;
+        let color = status === "running" ? "warning"
+                  : status === "completed" ? "success"
+                  : status === "failed" ? "error"
+                  : "inactive";
+        let progressText = progress
+            ? ` (${progress.toolUseCount} tools, ${progress.tokenCount} tokens)`
+            : "";
+        return <Box><Text color={color}>[{status}] {desc}{progressText}</Text></Box>;
     },
 
     renderOutput(output) {
-        // Returns React element with agent output
-    },
-
-    getProgressMessage(task) {
-        if (!task.agentType) return null;
-        return `Agent ${task.agentType}: ${task.description}`;
+        return <Box><Text>{output}</Text></Box>;
     }
 };
 
-// Mapping: B_6→LocalAgentTaskHandler, hp→createTaskId, Ij1→symlinkOutputFile, kh→getSessionPathForSubagent,
-//   xZ→prefixAgentId, Aq→createAbortController, IZ→createTaskRecord, bZ→registerTaskInState, na→killTask
+// Mapping: Fk1→LocalAgentTaskHandler, oV→createTaskId, Co→symlinkOutputFile, L0→getSessionPathForSubagent,
+//   X$→prefixAgentId, sK→createAbortController, RG→createTaskRecord, Zf→registerTask, E4→registerProcessExitCleanup,
+//   x66→killAgentTask
 ```
 
 ### killTask Function
@@ -448,66 +499,65 @@ Handles termination of remote session agents running on cloud infrastructure. Us
 ```javascript
 // ============================================
 // RemoteAgentTaskHandler - Remote session kill handler
-// Location: chunks.142.mjs:1586-1645
+// Location: chunks.136.mjs:1175-1231
 // ============================================
 
 // ORIGINAL (for source lookup):
-Qi4 = {
+Fn4 = {
     name: "RemoteAgentTask",
     type: "remote_agent",
     async spawn(A, q) {
         let {
             command: K,
-            title: Y
+            title: Y,
+            toolUseId: z
         } = A, {
-            abortController: z
+            abortController: _
         } = q;
-        h(`RemoteAgentTask spawning: ${Y}`);
-        let w = await b51({
+        k(`RemoteAgentTask spawning: ${Y}`);
+        let w = await DV1({
             initialMessage: K,
             description: Y,
-            signal: z.signal
+            signal: _.signal
         });
         if (!w) throw Error("Failed to create remote session");
         let {
-            taskId: H,
+            taskId: O,
             cleanup: $
-        } = vg1({
-            // ... session config ...
+        } = cVY({
+            session: {
+                id: w.id,
+                title: w.title || Y
+            },
+            command: K,
+            context: q,
+            toolUseId: z
         });
-        // ... register task ...
-        return { backgroundTaskId: H };
+        return {
+            taskId: O,
+            cleanup: $
+        }
     },
     async kill(A, q) {
-        let {
-            setAppState: K
-        } = q;
-        // Terminate remote session via API
-        await terminateRemoteSession(A.sessionId);
-        // Update task state
-        atomicUpdateTask(A.id, K, (task) => ({
-            ...task,
-            status: "killed",
-            endTime: Date.now()
-        }));
+        i9(A, q.setAppState, (K) => {
+            if (K.status !== "running") return K;
+            return {
+                ...K,
+                status: "killed",
+                endTime: Date.now()
+            }
+        }), $O(A), k(`RemoteAgentTask ${A} marked as killed (local only)`)
     },
     renderStatus(A) {
         let q = A,
             K = q.status,
             Y = q.title;
-        return nd.createElement(I, null,
-            nd.createElement(V, {
-                color: K === "running" ? "warning" : K === "completed" ? "success" : K === "failed" ? "error" : "inactive"
-            }, "[", K, "] ", Y)
-        )
+        return Zl.createElement(m, null, Zl.createElement(T, {
+            color: K === "running" ? "warning" : K === "completed" ? "success" : K === "failed" ? "error" : "inactive"
+        }, "[", K, "] ", Y))
     },
     renderOutput(A) {
-        return nd.createElement(I, null, nd.createElement(V, null, A))
-    },
-    getProgressMessage(A) {
-        let K = A.deltaSummarySinceLastFlushToAttachment;
-        if (!K) return null;
-        return `Remote task ${A.id} progress: ${K}. Read ${A.outputFile} to see full output.`
+        return Zl.createElement(m, null, Zl.createElement(T, null, A))
     }
 };
 
@@ -517,7 +567,7 @@ const RemoteAgentTaskHandler = {
     type: "remote_agent",
 
     async spawn(taskConfig, context) {
-        let { command, title } = taskConfig;
+        let { command, title, toolUseId } = taskConfig;
         let { abortController } = context;
 
         log(`RemoteAgentTask spawning: ${title}`);
@@ -532,56 +582,60 @@ const RemoteAgentTaskHandler = {
         if (!session) throw Error("Failed to create remote session");
 
         let { taskId, cleanup } = registerSessionTask({
-            // ... session config ...
+            session: {
+                id: session.id,
+                title: session.title || title
+            },
+            command,
+            context,
+            toolUseId
         });
 
-        return { backgroundTaskId: taskId };
+        return { taskId, cleanup };
     },
 
-    async kill(task, context) {
+    async kill(taskId, context) {
         let { setAppState } = context;
 
-        // 1. Terminate remote session via API
-        await terminateRemoteSession(task.sessionId);
+        // 1. Update task state locally (no remote API call)
+        updateTaskState(taskId, setAppState, (task) => {
+            if (task.status !== "running") return task;
+            return {
+                ...task,
+                status: "killed",
+                endTime: Date.now()
+            };
+        });
 
-        // 2. Update task state
-        atomicUpdateTask(task.id, setAppState, (t) => ({
-            ...t,
-            status: "killed",
-            endTime: Date.now()
-        }));
+        // 2. Flush output
+        flushTaskOutput(taskId);
 
-        // 3. Trigger notification
-        notifyTaskCompletion(task.id, task.description, "killed", null, setAppState);
+        log(`RemoteAgentTask ${taskId} marked as killed (local only)`);
     },
 
     renderStatus(task) {
-        let statusColor = {
-            running: "warning",
-            completed: "success",
-            failed: "error",
-            killed: "inactive"
-        }[task.status];
+        let status = task.status;
+        let title = task.title;
 
         return (
             <Box>
-                <Text color={statusColor}>[{task.status}] {task.title}</Text>
+                <Text color={status === "running" ? "warning"
+                            : status === "completed" ? "success"
+                            : status === "failed" ? "error"
+                            : "inactive"}>
+                    [{status}] {title}
+                </Text>
             </Box>
         );
     },
 
     renderOutput(output) {
         return <Box><Text>{output}</Text></Box>;
-    },
-
-    getProgressMessage(task) {
-        if (!task.deltaSummarySinceLastFlushToAttachment) return null;
-        return `Remote task ${task.id} progress: ${task.deltaSummarySinceLastFlushToAttachment}. Read ${task.outputFile} to see full output.`;
     }
 };
 
-// Mapping: Qi4→RemoteAgentTaskHandler, b51→createRemoteSession, vg1→registerSessionTask,
-//   nd→React, I→Box, V→Text
+// Mapping: Fn4→RemoteAgentTaskHandler, DV1→createRemoteSession, cVY→registerSessionTask,
+//   i9→updateTaskState, $O→flushTaskOutput, k→log, Zl→React, m→Box, T→Text
 ```
 
 **Why this approach:**

@@ -18,14 +18,13 @@ Key functions in this document:
 - `BashTool` (qq/h4) - Shell command tool with three backgrounding modes — `chunks.170.mjs:619`
 - `TaskOutputTool` (kW6) - Polls/retrieves background task output — `chunks.139.mjs:~1922`
 - `TaskStopTool` (vW6) - Kills a running background task — `chunks.139.mjs:~1537`
-- `BACKGROUND_AGENT_BLOCKED_TOOLS` (Bj1) - Tools blocked for background agents — `chunks.89.mjs:876`
-- `ASYNC_BATCH_TOOLS` (VjA) - Copy of blocked tools for async batch context — `chunks.89.mjs:876`
-- `ASYNC_COMPATIBLE_TOOLS` (L_6) - Allowlist for async/background contexts — `chunks.89.mjs:876`
+- `BACKGROUND_AGENT_BLOCKED_TOOLS` (Bj1) - Tools blocked for background agents — `chunks.41.mjs:2585`
+- `TASK_TYPE_PREFIXES` (V$3) - Task ID prefix mapping — `chunks.41.mjs:2438`
 - `createAsyncTask` (zd7) - Creates background task entry with abort controller — `chunks.89.mjs:~1447`
 - `createForegroundTask` (wd7) - Creates task entry that may be backgrounded later — `chunks.89.mjs:~1477`
-- `LocalBashTaskHandler` (gj1) - Kill handler for shell commands — `chunks.89.mjs:~2012`
-- `LocalAgentTaskHandler` (B_6) - Kill handler for local agents — `chunks.89.mjs:~1574`
-- `RemoteAgentTaskHandler` (Qi4) - Kill handler for remote sessions — `chunks.142.mjs:~1586`
+- `LocalBashTaskHandler` (Lf6) - Kill handler for shell commands — `chunks.133.mjs:2542`
+- `LocalAgentTaskHandler` (Fk1) - Kill handler for local agents — `chunks.146.mjs:2292`
+- `RemoteAgentTaskHandler` (Fn4) - Kill handler for remote sessions — `chunks.136.mjs:1175`
 
 ---
 
@@ -163,9 +162,9 @@ async function* yYz({ input: A, abortController: q, setAppState: K, setToolJSX: 
     let { command: w, run_in_background: _ } = A;
 
     async function Z() {
-        return (await gj1.spawn({
+        return (await LocalBashTaskHandler.spawn({
             command: w, description: H || w, shellCommand: G
-        }, { abortController: q, /* ... */ })).backgroundTaskId
+        }, { abortController: q, /* ... */ })).taskId
     }
 
     // MODE 1: Explicit background
@@ -228,7 +227,7 @@ async function* runShellCommand({ input, abortController, setAppState, setToolJS
 }
 
 // Mapping: yYz→runShellCommand, _→run_in_background, Id1→BACKGROUND_TASKS_DISABLED,
-//   q_q→BASH_BACKGROUND_TIMEOUT_MS, gj1→LocalBashTaskHandler, Z→spawnBackgroundTask
+//   q_q→BASH_BACKGROUND_TIMEOUT_MS, Lf6→LocalBashTaskHandler, Z→spawnBackgroundTask
 ```
 
 **Why this approach:**
