@@ -327,3 +327,354 @@ The Task System integrates with multiple Claude Code subsystems:
 2. **File-based storage** ensures task data survives compaction
 3. **Team-isolated directories** support multi-agent coordination
 4. **Metadata field** provides extensibility for integrations
+
+---
+
+## 7. Cross-Feature Integration Details
+
+### 7.1 System Reminder Integration
+
+The task system generates attachments for system reminders:
+
+// ============================================
+// Task list attachment for system reminder
+// Location: chunks.142.mjs (inferred)
+// ============================================
+
+// READABLE (for understanding):
+function generateTaskListAttachment(tasks) {
+    if (tasks.length === 0) return null;
+
+    const lines = ["<tasks>"];
+
+    for (const task of tasks) {
+        // Only include non-completed tasks
+        if (task.status === "completed") continue;
+
+        lines.push(`  Task #${task.id}: "${task.subject}"`);
+        lines.push(`    Status: ${task.status}`);
+
+        if (task.owner) {
+            lines.push(`    Owner: ${task.owner}`);
+        }
+
+        // Filter blockedBy to only show active blockers
+        const activeBlockers = task.blockedBy.filter(blockerId => {
+            const blocker = tasks.find(t => t.id === blockerId);
+            return blocker && blocker.status !== "completed";
+        });
+
+        if (activeBlockers.length > 0) {
+            lines.push(`    Blocked by: ${activeBlockers.map(id => `#${id}`).join(", ")}`);
+        }
+    }
+
+    lines.push("</tasks>");
+    return lines.join("\n");
+}
+
+**What it does**: Generates a compact, token-efficient task summary for LLM context.
+
+**Key features**:
+- Filters out completed tasks
+- Shows only active blockers
+- Compact format preserves tokens
+- Owner information prevents duplicate work
+
+---
+
+### 7.2 Subagent Task Tracking
+
+Background agents maintain their own task contexts:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              BACKGROUND AGENT TASK FLOW                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Lead Agent                        Background Agent             │
+│       │                                  │                       │
+│       │ spawnAgent({task: {...}})        │                       │
+│       │─────────────────────────────────>│                       │
+│       │                                  │                       │
+│       │                                  │ TaskUpdate(           │
+│       │                                  │   status: "in_progress"│
+│       │                                  │ )                     │
+│       │                                  │                       │
+│       │                                  │ ... do work ...       │
+│       │                                  │                       │
+│       │                                  │ TaskUpdate(           │
+│       │                                  │   status: "completed" │
+│       │                                  │ )                     │
+│       │                                  │                       │
+│       │ TaskList() shows completion      │                       │
+│       │<─────────────────────────────────│                       │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Isolation guarantee**: Each subagent uses a unique `taskManager` ID, preventing task ID collisions.
+
+---
+
+### 7.3 Permission System Integration
+
+Task tools have special handling in the permission system:
+
+// ============================================
+// Task tool permission configuration
+// Location: chunks.172.mjs (inferred)
+// ============================================
+
+// READABLE (for understanding):
+const TOOL_PERMISSION_CONFIG = {
+    // Task tools are always allowed (no prompting)
+    alwaysAllow: [
+        "TaskCreate",
+        "TaskUpdate",
+        "TaskGet",
+        "TaskList"
+    ],
+
+    // Reason: Task operations are:
+    // 1. User-initiated (agent explicitly calls them)
+    // 2. No external side effects
+    // 3. Contained to ~/.claude/tasks/ directory
+    // 4. No shell command execution
+};
+
+**Security rationale**:
+- Tasks don't modify source code
+- Tasks don't execute shell commands
+- Tasks don't access network
+- Tasks are explicitly created by the agent (user intent)
+
+---
+
+### 7.4 Cron Tool Integration Details
+
+// ============================================
+// Cron tool name constants
+// Location: chunks.91.mjs:192-196
+// ============================================
+
+// ORIGINAL (for source lookup):
+ER = "CronCreate"
+ed = "CronDelete"
+SW6 = "CronList"
+
+// READABLE (for understanding):
+const TOOL_NAME_CRON_CREATE = "CronCreate";
+const TOOL_NAME_CRON_DELETE = "CronDelete";
+const TOOL_NAME_CRON_LIST = "CronList";
+
+// Mapping: ER→TOOL_NAME_CRON_CREATE, ed→TOOL_NAME_CRON_DELETE, SW6→TOOL_NAME_CRON_LIST
+
+**Cron-Task workflow example**:
+
+```javascript
+// Create a recurring task creation prompt
+await CronCreate({
+    cron: "0 9 * * 1-5",  // 9am on weekdays
+    prompt: `
+        Check for new GitHub issues and create tasks for any critical bugs:
+
+        1. Use 'gh issue list --label critical'
+        2. For each issue, create a task:
+           await TaskCreate({
+               subject: \`Fix: \${issue.title}\`,
+               description: issue.body,
+               metadata: { issueNumber: issue.number }
+           });
+    `,
+    recurring: true
+});
+```
+
+**Key limitations**:
+- Cron jobs are session-only (don't persist across restarts)
+- Jobs fire when REPL is idle
+- Maximum 7-day lifetime for recurring jobs
+
+---
+
+### 7.5 Memory System Metadata Integration
+
+Tasks can store memory-related metadata:
+
+// ============================================
+// Task metadata schema (from taskSchema)
+// Location: chunks.84.mjs:1941
+// ============================================
+
+// ORIGINAL (for source lookup):
+metadata: C.record(C.string(), C.unknown()).optional()
+
+// READABLE (for understanding):
+metadata: z.record(z.string(), z.unknown()).optional()
+
+**Example metadata patterns**:
+
+```javascript
+// Link task to memory context
+await TaskCreate({
+    subject: "Refactor authentication module",
+    description: "Based on memory analysis...",
+    metadata: {
+        memoryContext: "memory://user-preferences/auth-method",
+        relatedFiles: ["src/auth/login.ts", "src/auth/oauth.ts"],
+        priority: "high",
+        estimatedEffort: "medium",
+        tags: ["refactoring", "security"]
+    }
+});
+
+// Retrieve task with metadata
+const task = await TaskGet({ taskId: "5" });
+console.log(task.metadata.priority);  // "high"
+```
+
+**Integration possibilities**:
+- Store conversation IDs for context
+- Link to related memories
+- Track external references (issue numbers, PR IDs)
+- Custom priority/status fields
+
+---
+
+## 8. Complete Hook Execution Flow
+
+### 8.1 TaskCompleted Hook Execution
+
+// ============================================
+// executeTaskCompletedHooks - Full implementation
+// Location: chunks.175.mjs:2594-2611
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function* Hi6(A, q, K, Y, z, _, w, O = T$, $) {
+    let H = {
+        ...$w(_),
+        hook_event_name: "TaskCompleted",
+        task_id: A,
+        task_subject: q,
+        task_description: K,
+        teammate_name: Y,
+        team_name: z
+    };
+    yield* Ax({
+        hookInput: H,
+        toolUseID: CE(),
+        signal: w,
+        timeoutMs: O,
+        toolUseContext: $
+    })
+}
+
+// READABLE (for understanding):
+async function* executeTaskCompletedHooks(
+    taskId,
+    taskSubject,
+    taskDescription,
+    teammateName,
+    teamName,
+    agentContext,
+    abortSignal,
+    timeoutMs = DEFAULT_HOOK_TIMEOUT,
+    toolUseContext
+) {
+    // Build hook event payload
+    const hookEvent = {
+        ...createBaseHookContext(agentContext),
+        hook_event_name: "TaskCompleted",
+        task_id: taskId,
+        task_subject: taskSubject,
+        task_description: taskDescription,
+        teammate_name: teammateName,
+        team_name: teamName
+    };
+
+    // Delegate to generic hook executor
+    yield* executeHooksIterator({
+        hookInput: hookEvent,
+        toolUseID: generateToolUseId(),
+        signal: abortSignal,
+        timeoutMs: timeoutMs,
+        toolUseContext: toolUseContext
+    });
+}
+
+// Mapping: Hi6→executeTaskCompletedHooks, A→taskId, q→taskSubject, K→taskDescription,
+//          Y→teammateName, z→teamName, _→agentContext, w→abortSignal, O→timeoutMs,
+//          $→toolUseContext, $w→createBaseHookContext, Ax→executeHooksIterator, CE→generateToolUseId
+
+### 8.2 Hook Result Processing
+
+// ============================================
+// Processing hook results in TaskUpdate
+// Location: chunks.141.mjs (inferred)
+// ============================================
+
+// READABLE (for understanding):
+async function processCompletionHooks(taskId, task) {
+    const errors = [];
+
+    // Execute all registered TaskCompleted hooks
+    const hookResults = executeTaskCompletedHooks(
+        taskId,
+        task.subject,
+        task.description,
+        getCurrentAgentName(),
+        getTeamName(),
+        getAgentContext(),
+        getAbortSignal()
+    );
+
+    // Collect blocking errors
+    for await (const result of hookResults) {
+        if (result.blockingError) {
+            errors.push(formatHookError(result.blockingError));
+        }
+    }
+
+    // If any hook blocked, return failure
+    if (errors.length > 0) {
+        return {
+            success: false,
+            error: errors.join("\n"),
+            task: task
+        };
+    }
+
+    // All hooks passed
+    return { success: true };
+}
+
+**Hook execution characteristics**:
+- **Sequential**: Hooks run one at a time, not in parallel
+- **Async generator**: Results are yielded as they complete
+- **Non-blocking by default**: Only `blockingError` field prevents completion
+- **Timeout enforced**: Each hook has a maximum execution time
+
+---
+
+## Summary
+
+The Task System integrates with multiple Claude Code subsystems:
+
+| Integration | Purpose | Key Functions |
+|-------------|---------|---------------|
+| **Hooks** | Pre-completion validation | `Hi6`, `$i6` |
+| **Cron** | Scheduled task creation | `ER`, `ed`, `SW6` |
+| **Compact** | Task persistence | File-based storage |
+| **UI** | Task visualization | `TaskList` output |
+| **Memory** | Metadata storage | `metadata` field |
+| **System Reminder** | Context attachment | Task list generation |
+| **Subagents** | Isolated task tracking | Unique taskManager IDs |
+| **Permissions** | Auto-allow for task tools | Safe operation classification |
+
+**Key architectural decisions**:
+1. **Hook-based validation** allows custom completion checks without modifying core code
+2. **File-based storage** ensures task data survives compaction
+3. **Team-isolated directories** support multi-agent coordination
+4. **Metadata field** provides extensibility for integrations

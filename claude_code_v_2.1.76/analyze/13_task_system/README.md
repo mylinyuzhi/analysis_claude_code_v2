@@ -62,6 +62,9 @@
 | `updateTask` | `WI` | Update task with validation and persistence |
 | `deleteTask` | `sD1` | Delete task and clean all dependency references |
 | `loadAllTasks` | `DX` | Load all tasks for listing/dependency checks |
+| `claimTask` | `OT8` | Async claim with lock and validation |
+| `claimTaskWithAgentBusyValidation` | `$N9` | Claim with agent busy check |
+| `unassignTeammateTasks` | `ft` | Cleanup tasks when agent shuts down |
 | `isTaskSystemEnabled` | `r$` | Check if structured tasks are enabled |
 
 ## Task Schema
@@ -105,8 +108,9 @@
 > Full symbol mappings: [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md#module-task-system)
 
 - Tool names: `TR` (TaskCreate), `ck` (TaskUpdate), `lt` (TaskGet), `it` (TaskList)
-- Core async functions: `jf`, `aD1`, `DB`, `WI`, `sD1`, `DX`
+- Core async functions: `jf`, `aD1`, `DB`, `WI`, `sD1`, `DX`, `OT8`, `$N9`, `ft`
 - Hooks: `Hi6` (executeTaskCompletedHooks), `$i6` (getTaskCompletedHookMessage)
+- Lock configuration: `nD1` (lockOptions: retries=10, minTimeout=5ms, maxTimeout=100ms)
 
 ## Key Design Decisions
 

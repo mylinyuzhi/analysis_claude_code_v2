@@ -11,14 +11,15 @@ This document analyzes how the task system integrates with the agent teams featu
 > - [30_agent_teams/](../30_agent_teams/) - Full agent teams analysis
 
 Key functions in this document:
-- `claimTask` (o7A, OT8) - Atomically claim unassigned task
-- `sendTeamMessage` (f9) - Send task_assignment notifications
-- `isInTeamMode` (l8) - Check if running in team context
-- `unassignTeammateTasks` (Mr) - Cleanup on agent shutdown
-- `getCurrentAgentName` (g5) - Get executing agent ID
-- `getTaskManager` (jf, WM) - Get task list context (async/sync versions)
-- `loadAllTasks` (DX, WX) - Load all tasks (async/sync versions)
-- `updateTask` (WI, JS) - Update task (async/sync versions)
+- `claimTask` (OT8) - Atomically claim unassigned task
+- `claimTaskWithAgentBusyValidation` ($N9) - Claim with agent busy validation
+- `writeToMailbox` (x3) - Send task_assignment notifications
+- `isInTeamMode` (E7) - Check if running in team context
+- `unassignTeammateTasks` (ft) - Cleanup on agent shutdown
+- `getCurrentAgentName` (i3) - Get executing agent ID
+- `getTaskManager` (jf) - Get task list context
+- `loadAllTasks` (DX) - Load all tasks
+- `updateTask` (WI) - Update task
 
 ---
 
@@ -44,15 +45,15 @@ Each team maintains its own isolated task directory:
 
 // ============================================
 // getTaskManager - Team-aware task directory resolution
-// Location: chunks.48.mjs:441-446
+// Location: chunks.84.mjs:1619-1624
 // ============================================
 
 // ORIGINAL (for source lookup):
-function WM() {
+function jf() {
     if (process.env.CLAUDE_CODE_TASK_LIST_ID) return process.env.CLAUDE_CODE_TASK_LIST_ID;
-    let A = PL();
+    let A = iM();
     if (A) return A.teamName;
-    return i3() || i7A || U6()
+    return l5() || VF6 || R1()
 }
 
 // READABLE (for understanding):
@@ -69,17 +70,17 @@ function getTaskManager() {
     }
 
     // Priority 3: Solo agent mode
-    // Returns: currentAgentId || defaultAgentId || sessionId
-    return getCurrentAgentName() || DEFAULT_AGENT_ID || getSessionId();
+    // Returns: currentAgentName || defaultAgentId || sessionId
+    return getTeamName() || DEFAULT_AGENT_ID || getSessionId();
 }
 
 // Mapping:
-// WM → getTaskManager
-// PL → getTeamContext
+// jf → getTaskManager
+// iM → getTeamContext
 // A → teamContext
-// i3 → getCurrentAgentName
-// i7A → DEFAULT_AGENT_ID
-// U6 → getSessionId
+// l5 → getTeamName
+// VF6 → DEFAULT_AGENT_ID
+// R1 → getSessionId
 
 **What it does**: Determines which task directory to use based on team context.
 
@@ -119,7 +120,7 @@ TaskCreate({ subject: "Add login button" });
 
 // ============================================
 // isInTeamMode - Check if running in team context
-// Location: chunks.188.mjs (l8 function, inferred)
+// Location: chunks.50.mjs:2543 (E7 function)
 // ============================================
 
 // READABLE (for understanding):
@@ -142,65 +143,86 @@ function isInTeamMode() {
 
 // ============================================
 // claimTask - Atomically claim an unassigned task
-// Location: chunks.48.mjs:593-641 (o7A function)
+// Location: chunks.84.mjs:1781-1829
 // ============================================
 
 // ORIGINAL (for source lookup):
-function o7A(A, q, K, Y = {}) {
-    let z = WC1(A, q);
-    if (!jr(z)) return { success: !1, reason: "task_not_found" };
-    if (Y.checkAgentBusy) return Cf5(A, q, K);
+async function OT8(A, q, K, Y = {}) {
+    let z = yF6(A, q);
+    if (!await DB(A, q)) return {
+        success: !1,
+        reason: "task_not_found"
+    };
+    if (Y.checkAgentBusy) return $N9(A, q, K);
     let w;
     try {
-        w = PC1.default.lockSync(z);
-        let H = lg(A, q);
-        if (!H) return { success: !1, reason: "task_not_found" };
-        if (H.owner && H.owner !== K) return { success: !1, reason: "already_claimed", task: H };
-        if (H.status === "completed") return { success: !1, reason: "already_resolved", task: H };
-        let $ = WX(A),
-            O = new Set($.filter((X) => X.status !== "completed").map((X) => X.id)),
-            _ = H.blockedBy.filter((X) => O.has(X));
-        if (_.length > 0) return {
+        w = await EF6.lock(z, nD1);
+        let O = await DB(A, q);
+        if (!O) return {
+            success: !1,
+            reason: "task_not_found"
+        };
+        if (O.owner && O.owner !== K) return {
+            success: !1,
+            reason: "already_claimed",
+            task: O
+        };
+        if (O.status === "completed") return {
+            success: !1,
+            reason: "already_resolved",
+            task: O
+        };
+        let $ = await DX(A),
+            H = new Set($.filter((M) => M.status !== "completed").map((M) => M.id)),
+            j = O.blockedBy.filter((M) => H.has(M));
+        if (j.length > 0) return {
             success: !1,
             reason: "blocked",
-            task: H,
-            blockedByTasks: _
+            task: O,
+            blockedByTasks: j
         };
         return {
             success: !0,
-            task: JS(A, q, { owner: K })
+            task: await WI(A, q, {
+                owner: K
+            })
+        }
+    } catch (O) {
+        return k(`[Tasks] Failed to claim task ${q}: ${_1(O)}`), _6(O), {
+            success: !1,
+            reason: "task_not_found"
         }
     } finally {
-        if (w) w()
+        if (w) await w()
     }
 }
 
 // READABLE (for understanding):
-function claimTask(taskManager, taskId, agentName, options = {}) {
+async function claimTask(taskManager, taskId, agentName, options = {}) {
     const taskFilePath = getTaskFilePath(taskManager, taskId);
 
-    // Quick check: does task file exist?
-    if (!fileExists(taskFilePath)) {
+    // Early check: does task exist?
+    if (!await loadTask(taskManager, taskId)) {
         return { success: false, reason: "task_not_found" };
     }
 
     // Delegate to busy-check variant if requested
     if (options.checkAgentBusy) {
-        return claimTaskWithBusyCheck(taskManager, taskId, agentName);
+        return claimTaskWithAgentBusyValidation(taskManager, taskId, agentName);
     }
 
     let unlock;
     try {
-        // ACQUIRE LOCK on the specific task file
-        unlock = lockfile.lockSync(taskFilePath);
+        // Acquire lock (async, with retries)
+        unlock = await lockfile.lock(taskFilePath, lockOptions);
 
-        // Load task (validates schema)
-        const task = loadTask(taskManager, taskId);
+        // Re-load task after lock acquired (might have changed)
+        const task = await loadTask(taskManager, taskId);
         if (!task) {
             return { success: false, reason: "task_not_found" };
         }
 
-        // VALIDATION 1: Already claimed by another agent?
+        // VALIDATION 1: Already owned by different agent?
         if (task.owner && task.owner !== agentName) {
             return {
                 success: false,
@@ -209,7 +231,7 @@ function claimTask(taskManager, taskId, agentName, options = {}) {
             };
         }
 
-        // VALIDATION 2: Task already completed?
+        // VALIDATION 2: Already completed?
         if (task.status === "completed") {
             return {
                 success: false,
@@ -218,18 +240,14 @@ function claimTask(taskManager, taskId, agentName, options = {}) {
             };
         }
 
-        // VALIDATION 3: Task blocked by incomplete dependencies?
-        const allTasks = loadAllTasks(taskManager);
-
-        // Build set of incomplete task IDs
-        const incompleteTasks = new Set(
+        // VALIDATION 3: Blocked by incomplete dependencies?
+        const allTasks = await loadAllTasks(taskManager);
+        const incompleteTaskIds = new Set(
             allTasks
                 .filter(t => t.status !== "completed")
                 .map(t => t.id)
         );
-
-        // Filter blockedBy to only show incomplete blockers
-        const activeBlockers = task.blockedBy.filter(id => incompleteTasks.has(id));
+        const activeBlockers = task.blockedBy.filter(id => incompleteTaskIds.has(id));
 
         if (activeBlockers.length > 0) {
             return {
@@ -243,28 +261,32 @@ function claimTask(taskManager, taskId, agentName, options = {}) {
         // ALL VALIDATIONS PASSED - Claim the task
         return {
             success: true,
-            task: updateTask(taskManager, taskId, { owner: agentName })
+            task: await updateTask(taskManager, taskId, { owner: agentName })
         };
 
+    } catch (error) {
+        debug(`[Tasks] Failed to claim task ${taskId}: ${formatError(error)}`);
+        logError(error);
+        return { success: false, reason: "task_not_found" };
     } finally {
-        // RELEASE LOCK (always executes)
-        if (unlock) unlock();
+        // ALWAYS release lock
+        if (unlock) await unlock();
     }
 }
 
 // Mapping:
-// o7A → claimTask
+// OT8 → claimTask
 // A → taskManager
 // q → taskId
 // K → agentName
 // Y → options
-// Cf5 → claimTaskWithBusyCheck
-// WC1 → getTaskFilePath
-// jr → fileExists
-// PC1.default.lockSync → lockfile.lockSync
-// lg → loadTask
-// WX → loadAllTasks
-// JS → updateTask
+// yF6 → getTaskFilePath
+// DB → loadTask
+// EF6.lock → lockfile.lock
+// DX → loadAllTasks
+// WI → updateTask
+// $N9 → claimTaskWithAgentBusyValidation
+// nD1 → lockOptions
 
 **What it does**: Atomically claims an unassigned task after validating eligibility.
 
@@ -310,27 +332,99 @@ function claimTask(taskManager, taskId, agentName, options = {}) {
 ### 2.2 Busy-Check Variant
 
 // ============================================
-// claimTaskWithBusyCheck - Prevent multi-tasking
-// Location: chunks.48.mjs:643-693 (Cf5 function)
+// claimTaskWithAgentBusyValidation - Prevent multi-tasking
+// Location: chunks.84.mjs:1831-1881
 // ============================================
 
-// READABLE (for understanding):
-function claimTaskWithBusyCheck(taskManager, taskId, agentName) {
-    const taskFilePath = getTaskFilePath(taskManager, taskId);
-    if (!fileExists(taskFilePath)) {
-        return { success: false, reason: "task_not_found" };
-    }
-
-    let unlock;
+// ORIGINAL (for source lookup):
+async function $N9(A, q, K) {
+    let Y = await wT8(A), z;
     try {
-        unlock = lockfile.lockSync(taskFilePath);
-        const task = loadTask(taskManager, taskId);
-        if (!task) return { success: false, reason: "task_not_found" };
+        z = await EF6.lock(Y, nD1);
+        let _ = await DX(A), w = _.find((J) => J.id === q);
+        if (!w) return { success: !1, reason: "task_not_found" };
+        if (w.owner && w.owner !== K) return { success: !1, reason: "already_claimed", task: w };
+        if (w.status === "completed") return { success: !1, reason: "already_resolved", task: w };
+        let O = new Set(_.filter((J) => J.status !== "completed").map((J) => J.id)),
+            $ = w.blockedBy.filter((J) => O.has(J));
+        if ($.length > 0) return {
+            success: !1,
+            reason: "blocked",
+            task: w,
+            blockedByTasks: $
+        };
+        let H = _.filter((J) => J.status !== "completed" && J.owner === K && J.id !== q);
+        if (H.length > 0) return {
+            success: !1,
+            reason: "agent_busy",
+            task: w,
+            busyWithTasks: H.map((J) => J.id)
+        };
+        return {
+            success: !0,
+            task: await WI(A, q, { owner: K })
+        }
+    } catch (_) {
+        return k(`[Tasks] Failed to claim task ${q} with busy check: ${_1(_)}`), _6(_), {
+            success: !1,
+            reason: "task_not_found"
+        }
+    } finally {
+        if (z) await z()
+    }
+}
 
-        // ... same ownership and status checks as basic claim ...
+// READABLE (for understanding):
+async function claimTaskWithAgentBusyValidation(taskManager, taskId, agentName) {
+    const lockFilePath = await getLockFilePath(taskManager);
+    let unlock;
 
-        // NEW VALIDATION: Is agent already working on other tasks?
-        const allTasks = loadAllTasks(taskManager);
+    try {
+        // Acquire GLOBAL lock (not task-specific)
+        unlock = await lockfile.lock(lockFilePath, lockOptions);
+
+        // Load ALL tasks
+        const allTasks = await loadAllTasks(taskManager);
+        const task = allTasks.find(t => t.id === taskId);
+
+        if (!task) {
+            return { success: false, reason: "task_not_found" };
+        }
+
+        // VALIDATION 1: Already owned by different agent?
+        if (task.owner && task.owner !== agentName) {
+            return {
+                success: false,
+                reason: "already_claimed",
+                task: task
+            };
+        }
+
+        // VALIDATION 2: Already completed?
+        if (task.status === "completed") {
+            return {
+                success: false,
+                reason: "already_resolved",
+                task: task
+            };
+        }
+
+        // VALIDATION 3: Blocked by incomplete dependencies?
+        const incompleteTaskIds = new Set(
+            allTasks.filter(t => t.status !== "completed").map(t => t.id)
+        );
+        const activeBlockers = task.blockedBy.filter(id => incompleteTaskIds.has(id));
+
+        if (activeBlockers.length > 0) {
+            return {
+                success: false,
+                reason: "blocked",
+                task: task,
+                blockedByTasks: activeBlockers
+            };
+        }
+
+        // VALIDATION 4: Is agent already busy with other tasks?
         const agentOwnedIncompleteTasks = allTasks.filter(t =>
             t.status !== "completed" &&
             t.owner === agentName &&
@@ -346,16 +440,23 @@ function claimTaskWithBusyCheck(taskManager, taskId, agentName) {
             };
         }
 
-        // ... same blocker check as basic claim ...
-
+        // ALL VALIDATIONS PASSED - Claim the task
         return {
             success: true,
-            task: updateTask(taskManager, taskId, { owner: agentName })
+            task: await updateTask(taskManager, taskId, { owner: agentName })
         };
+
+    } catch (error) {
+        debug(`[Tasks] Failed to claim task ${taskId} with busy check: ${formatError(error)}`);
+        logError(error);
+        return { success: false, reason: "task_not_found" };
     } finally {
-        if (unlock) unlock();
+        if (unlock) await unlock();
     }
 }
+
+// Mapping: $N9→claimTaskWithAgentBusyValidation, A→taskManager, q→taskId, K→agentName,
+//          wT8→getLockFilePath, EF6.lock→lockfile.lock, DX→loadAllTasks, WI→updateTask
 
 **Additional validation**: Prevents agent from claiming multiple tasks concurrently.
 
@@ -518,38 +619,36 @@ if (payload.type === "task_assignment") {
 ### 4.1 Automatic Task Unassignment
 
 // ============================================
-// unassignTeammateTask - Clean up on agent shutdown
-// Location: chunks.48.mjs:695-714 (Mr function)
+// unassignTeammateTasks - Clean up on agent shutdown
+// Location: chunks.84.mjs:1883-1901
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Mr(A, q, K, Y) {
-    let w = WX(A).filter((O) =>
-        O.status !== "completed" && (O.owner === q || O.owner === K)
-    );
-    for (let O of w) JS(A, O.id, {
+async function ft(A, q, K, Y) {
+    let _ = (await DX(A)).filter(($) => $.status !== "completed" && ($.owner === q || $.owner === K));
+    for (let $ of _) await WI(A, $.id, {
         owner: void 0,
         status: "pending"
     });
-    if (w.length > 0) h(`[Tasks] Unassigned ${w.length} task(s) from ${K}`);
-    let $ = `${K} ${Y === "terminated" ? "was terminated" : "has shut down"}.`;
-    if (w.length > 0) {
-        let O = w.map((_) => `#${_.id} "${_.subject}"`).join(", ");
-        $ += ` ${w.length} task(s) were unassigned: ${O}...`
+    if (_.length > 0) k(`[Tasks] Unassigned ${_.length} task(s) from ${K}`);
+    let O = `${K} ${Y==="terminated"?"was terminated":"has shut down"}.`;
+    if (_.length > 0) {
+        let $ = _.map((H) => `#${H.id} "${H.subject}"`).join(", ");
+        O += ` ${_.length} task(s) were unassigned: ${$}. Use TaskList to check availability and TaskUpdate with owner to reassign them to idle teammates.`
     }
     return {
-        unassignedTasks: w.map((O) => ({
-            id: O.id,
-            subject: O.subject
+        unassignedTasks: _.map(($) => ({
+            id: $.id,
+            subject: $.subject
         })),
-        notificationMessage: $
+        notificationMessage: O
     }
 }
 
 // READABLE (for understanding):
-function unassignTeammateTask(taskManager, oldAgentId, agentName, shutdownReason) {
+async function unassignTeammateTasks(taskManager, oldAgentId, agentName, shutdownReason) {
     // Find all incomplete tasks owned by the shutting-down agent
-    const allTasks = loadAllTasks(taskManager);
+    const allTasks = await loadAllTasks(taskManager);
     const agentTasks = allTasks.filter(task =>
         task.status !== "completed" &&
         (task.owner === oldAgentId || task.owner === agentName)
@@ -557,7 +656,7 @@ function unassignTeammateTask(taskManager, oldAgentId, agentName, shutdownReason
 
     // Unassign and reset all found tasks
     for (const task of agentTasks) {
-        updateTask(taskManager, task.id, {
+        await updateTask(taskManager, task.id, {
             owner: undefined,    // Remove ownership
             status: "pending"    // Reset to pending
         });
@@ -579,7 +678,7 @@ function unassignTeammateTask(taskManager, oldAgentId, agentName, shutdownReason
         const taskList = agentTasks
             .map(t => `#${t.id} "${t.subject}"`)
             .join(", ");
-        notificationMessage += ` ${agentTasks.length} task(s) were unassigned: ${taskList}`;
+        notificationMessage += ` ${agentTasks.length} task(s) were unassigned: ${taskList}. Use TaskList to check availability and TaskUpdate with owner to reassign them to idle teammates.`;
     }
 
     return {
@@ -592,14 +691,14 @@ function unassignTeammateTask(taskManager, oldAgentId, agentName, shutdownReason
 }
 
 // Mapping:
-// Mr → unassignTeammateTask
+// ft → unassignTeammateTasks
 // A → taskManager
 // q → oldAgentId
 // K → agentName
 // Y → shutdownReason
-// w → agentTasks
-// O → task
-// $ → notificationMessage
+// _ → agentTasks
+// DX → loadAllTasks
+// WI → updateTask
 
 **What it does**: Automatically unassigns tasks when a teammate agent shuts down or is terminated.
 
@@ -636,7 +735,7 @@ Team: frontend-team
 
 Agent A crashes unexpectedly
 ↓
-unassignTeammateTask() called
+unassignTeammateTasks() called
 ↓
 Tasks #3, #5 → owner: undefined, status: "pending"
 ↓
@@ -992,6 +1091,482 @@ Tasks integrate with the hooks system (Module 11) via several hook points:
 - `TaskClaimed`: After ownership assigned
 - `TaskDeleted`: After task deletion
 - `TaskAssigned`: When owner changes
+
+---
+
+## Summary
+
+The task system's team integration provides **robust multi-agent coordination** through:
+
+1. **Team-Based Isolation**: Each team has separate task directory, preventing cross-team interference
+2. **Atomic Claiming**: File locking prevents double-claim race conditions
+3. **Smart Assignment**: Auto-assignment on status change + manual assignment via owner parameter
+4. **Notification Protocol**: JSON-in-JSON messaging for task assignments
+5. **Automatic Cleanup**: Tasks auto-unassigned when agent shuts down
+6. **Dependency Awareness**: Claiming respects blockedBy relationships
+7. **Flexible Patterns**: Supports lead-directed and self-service coordination
+
+**Key architectural decisions**:
+- **File-based storage** enables simple multi-process coordination (vs. in-memory)
+- **Synchronous I/O** with locking prevents race conditions (vs. eventual consistency)
+- **JSON messages** provide extensible notification protocol (vs. RPC)
+- **Hook integration** allows custom validation without core changes
+
+**Trade-offs**:
+- **Scalability**: O(N) task loading limits to ~1000 tasks per team
+- **Single-machine**: File locking doesn't work across distributed systems
+- **No reservations**: Can't "reserve" task for future claim
+- **Manual load balancing**: No automatic task distribution algorithm
+
+The system prioritizes **correctness and simplicity** over maximum scalability, suitable for teams of 2-10 agents working on 10-1000 tasks.
+
+---
+
+## 9. Complete Claim Algorithm Analysis
+
+### 9.1 Claim Task Async (OT8)
+
+// ============================================
+// claimTask - Async claim with lock and validation
+// Location: chunks.84.mjs:1781-1829
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function OT8(A, q, K, Y = {}) {
+    let z = yF6(A, q);
+    if (!await DB(A, q)) return {
+        success: !1,
+        reason: "task_not_found"
+    };
+    if (Y.checkAgentBusy) return $N9(A, q, K);
+    let w;
+    try {
+        w = await EF6.lock(z, nD1);
+        let O = await DB(A, q);
+        if (!O) return {
+            success: !1,
+            reason: "task_not_found"
+        };
+        if (O.owner && O.owner !== K) return {
+            success: !1,
+            reason: "already_claimed",
+            task: O
+        };
+        if (O.status === "completed") return {
+            success: !1,
+            reason: "already_resolved",
+            task: O
+        };
+        let $ = await DX(A),
+            H = new Set($.filter((M) => M.status !== "completed").map((M) => M.id)),
+            j = O.blockedBy.filter((M) => H.has(M));
+        if (j.length > 0) return {
+            success: !1,
+            reason: "blocked",
+            task: O,
+            blockedByTasks: j
+        };
+        return {
+            success: !0,
+            task: await WI(A, q, {
+                owner: K
+            })
+        }
+    } catch (O) {
+        return k(`[Tasks] Failed to claim task ${q}: ${_1(O)}`), _6(O), {
+            success: !1,
+            reason: "task_not_found"
+        }
+    } finally {
+        if (w) await w()
+    }
+}
+
+// READABLE (for understanding):
+async function claimTask(taskManager, taskId, agentName, options = {}) {
+    const taskFilePath = getTaskFilePath(taskManager, taskId);
+
+    // Early check: does task exist?
+    if (!await loadTask(taskManager, taskId)) {
+        return { success: false, reason: "task_not_found" };
+    }
+
+    // Delegate to busy-check variant if requested
+    if (options.checkAgentBusy) {
+        return claimTaskWithAgentBusyValidation(taskManager, taskId, agentName);
+    }
+
+    let unlock;
+    try {
+        // Acquire lock (async, with retries)
+        unlock = await lockfile.lock(taskFilePath, lockOptions);
+
+        // Re-load task after lock acquired (might have changed)
+        const task = await loadTask(taskManager, taskId);
+        if (!task) {
+            return { success: false, reason: "task_not_found" };
+        }
+
+        // VALIDATION 1: Already owned by different agent?
+        if (task.owner && task.owner !== agentName) {
+            return {
+                success: false,
+                reason: "already_claimed",
+                task: task
+            };
+        }
+
+        // VALIDATION 2: Already completed?
+        if (task.status === "completed") {
+            return {
+                success: false,
+                reason: "already_resolved",
+                task: task
+            };
+        }
+
+        // VALIDATION 3: Blocked by incomplete dependencies?
+        const allTasks = await loadAllTasks(taskManager);
+        const incompleteTaskIds = new Set(
+            allTasks
+                .filter(t => t.status !== "completed")
+                .map(t => t.id)
+        );
+        const activeBlockers = task.blockedBy.filter(id => incompleteTaskIds.has(id));
+
+        if (activeBlockers.length > 0) {
+            return {
+                success: false,
+                reason: "blocked",
+                task: task,
+                blockedByTasks: activeBlockers
+            };
+        }
+
+        // ALL VALIDATIONS PASSED - Claim the task
+        return {
+            success: true,
+            task: await updateTask(taskManager, taskId, { owner: agentName })
+        };
+
+    } catch (error) {
+        debug(`[Tasks] Failed to claim task ${taskId}: ${formatError(error)}`);
+        logError(error);
+        return { success: false, reason: "task_not_found" };
+    } finally {
+        // ALWAYS release lock
+        if (unlock) await unlock();
+    }
+}
+
+// Mapping: OT8→claimTask, A→taskManager, q→taskId, K→agentName,
+//          Y→options, yF6→getTaskFilePath, DB→loadTask, EF6.lock→lockfile.lock,
+//          DX→loadAllTasks, WI→updateTask, $N9→claimTaskWithAgentBusyValidation
+
+### 9.2 Claim Task with Agent Busy Validation ($N9)
+
+// ============================================
+// claimTaskWithAgentBusyValidation - Claim with agent busy check
+// Location: chunks.84.mjs:1831-1881
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function $N9(A, q, K) {
+    let Y = await wT8(A),
+        z;
+    try {
+        z = await EF6.lock(Y, nD1);
+        let _ = await DX(A),
+            w = _.find((J) => J.id === q);
+        if (!w) return {
+            success: !1,
+            reason: "task_not_found"
+        };
+        if (w.owner && w.owner !== K) return {
+            success: !1,
+            reason: "already_claimed",
+            task: w
+        };
+        if (w.status === "completed") return {
+            success: !1,
+            reason: "already_resolved",
+            task: w
+        };
+        let O = new Set(_.filter((J) => J.status !== "completed").map((J) => J.id)),
+            $ = w.blockedBy.filter((J) => O.has(J));
+        if ($.length > 0) return {
+            success: !1,
+            reason: "blocked",
+            task: w,
+            blockedByTasks: $
+        };
+        let H = _.filter((J) => J.status !== "completed" && J.owner === K && J.id !== q);
+        if (H.length > 0) return {
+            success: !1,
+            reason: "agent_busy",
+            task: w,
+            busyWithTasks: H.map((J) => J.id)
+        };
+        return {
+            success: !0,
+            task: await WI(A, q, {
+                owner: K
+            })
+        }
+    } catch (_) {
+        return k(`[Tasks] Failed to claim task ${q} with busy check: ${_1(_)}`), _6(_), {
+            success: !1,
+            reason: "task_not_found"
+        }
+    } finally {
+        if (z) await z()
+    }
+}
+
+// READABLE (for understanding):
+async function claimTaskWithAgentBusyValidation(taskManager, taskId, agentName) {
+    const lockFilePath = await getLockFilePath(taskManager);
+    let unlock;
+
+    try {
+        // Acquire GLOBAL lock (not task-specific)
+        unlock = await lockfile.lock(lockFilePath, lockOptions);
+
+        // Load ALL tasks
+        const allTasks = await loadAllTasks(taskManager);
+        const task = allTasks.find(t => t.id === taskId);
+
+        if (!task) {
+            return { success: false, reason: "task_not_found" };
+        }
+
+        // VALIDATION 1: Already owned by different agent?
+        if (task.owner && task.owner !== agentName) {
+            return {
+                success: false,
+                reason: "already_claimed",
+                task: task
+            };
+        }
+
+        // VALIDATION 2: Already completed?
+        if (task.status === "completed") {
+            return {
+                success: false,
+                reason: "already_resolved",
+                task: task
+            };
+        }
+
+        // VALIDATION 3: Blocked by incomplete dependencies?
+        const incompleteTaskIds = new Set(
+            allTasks.filter(t => t.status !== "completed").map(t => t.id)
+        );
+        const activeBlockers = task.blockedBy.filter(id => incompleteTaskIds.has(id));
+
+        if (activeBlockers.length > 0) {
+            return {
+                success: false,
+                reason: "blocked",
+                task: task,
+                blockedByTasks: activeBlockers
+            };
+        }
+
+        // VALIDATION 4: Is agent already busy with other tasks?
+        const agentOwnedIncompleteTasks = allTasks.filter(t =>
+            t.status !== "completed" &&
+            t.owner === agentName &&
+            t.id !== taskId  // Exclude the task being claimed
+        );
+
+        if (agentOwnedIncompleteTasks.length > 0) {
+            return {
+                success: false,
+                reason: "agent_busy",
+                task: task,
+                busyWithTasks: agentOwnedIncompleteTasks.map(t => t.id)
+            };
+        }
+
+        // ALL VALIDATIONS PASSED - Claim the task
+        return {
+            success: true,
+            task: await updateTask(taskManager, taskId, { owner: agentName })
+        };
+
+    } catch (error) {
+        debug(`[Tasks] Failed to claim task ${taskId} with busy check: ${formatError(error)}`);
+        logError(error);
+        return { success: false, reason: "task_not_found" };
+    } finally {
+        if (unlock) await unlock();
+    }
+}
+
+// Mapping: $N9→claimTaskWithAgentBusyValidation, A→taskManager, q→taskId, K→agentName,
+//          wT8→getLockFilePath, EF6.lock→lockfile.lock, DX→loadAllTasks, WI→updateTask
+
+### 9.2 Claim Result Types
+
+| Reason | Description | Recovery Action |
+|--------|-------------|-----------------|
+| `task_not_found` | Task file doesn't exist | Create new task or use correct ID |
+| `already_claimed` | Another agent owns this task | Wait for release or claim different task |
+| `already_resolved` | Task is already completed | No action needed |
+| `blocked` | Dependencies not yet complete | Wait for blockers to complete |
+| `agent_busy` | Agent already has other tasks (busy-check mode) | Complete current tasks first |
+
+---
+
+## 10. Advanced Team Coordination Patterns
+
+### 10.1 Parallel Execution with Dependencies
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│         PARALLEL EXECUTION WITH DEPENDENCY GRAPH                │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   ┌──────────┐         ┌──────────┐         ┌──────────┐       │
+│   │ Task #1  │────────>│ Task #3  │────────>│ Task #5  │       │
+│   │ Design   │         │Implement │         │  Test    │       │
+│   │ (done)   │         │ (agent-a)│         │ (blocked)│       │
+│   └──────────┘         └──────────┘         └──────────┘       │
+│        │                    │                                    │
+│        │                    │                                    │
+│        ▼                    ▼                                    │
+│   ┌──────────┐         ┌──────────┐                             │
+│   │ Task #2  │────────>│ Task #4  │                             │
+│   │ Review   │         │ Document │                             │
+│   │ (done)   │         │ (agent-b)│                             │
+│   └──────────┘         └──────────┘                             │
+│                                                                  │
+│   Legend: ────────> blocks relationship                          │
+│                                                                  │
+│   Task #3: Can start (unblocked, claimed by agent-a)            │
+│   Task #4: Can start (unblocked, claimed by agent-b)            │
+│   Task #5: Blocked by #3 (waiting)                              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key insight**: Parallel execution is enabled when tasks have no dependency path between them.
+
+### 10.2 Team Lead Notification Protocol
+
+// ============================================
+// Team message format for task assignment
+// Location: chunks.129.mjs (inferred)
+// ============================================
+
+// READABLE (for understanding):
+interface TaskAssignmentMessage {
+    from: string;           // Sender's agent name
+    text: string;           // JSON-encoded payload
+    timestamp: string;      // ISO 8601 timestamp
+    color: string;          // Sender's display color
+}
+
+interface TaskAssignmentPayload {
+    type: "task_assignment";
+    taskId: string;
+    subject: string;
+    description: string;
+    assignedBy: string;
+    timestamp: string;
+}
+
+// Message routing
+function sendTaskAssignment(ownerName, task, assignerName, teamName) {
+    const message = {
+        from: assignerName,
+        text: JSON.stringify({
+            type: "task_assignment",
+            taskId: task.id,
+            subject: task.subject,
+            description: task.description,
+            assignedBy: assignerName,
+            timestamp: new Date().toISOString()
+        }),
+        timestamp: new Date().toISOString(),
+        color: getAgentColor(assignerName)
+    };
+
+    // Write to owner's inbox
+    writeToMailbox(ownerName, message, teamName);
+}
+
+**Message consumption pattern**:
+
+```javascript
+// Teammate polls inbox periodically
+while (isRunning) {
+    const messages = readMailbox();
+
+    for (const message of messages) {
+        const payload = JSON.parse(message.text);
+
+        if (payload.type === "task_assignment") {
+            // Display notification
+            showNotification(`New task: ${payload.subject}`);
+
+            // Optionally auto-claim
+            if (autoAcceptAssignments) {
+                await TaskUpdate({
+                    taskId: payload.taskId,
+                    status: "in_progress"
+                });
+            }
+        }
+    }
+
+    await sleep(POLL_INTERVAL_MS);
+}
+```
+
+---
+
+## 11. Error Recovery in Team Context
+
+### 11.1 Agent Crash Recovery
+
+When an agent crashes unexpectedly:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              AGENT CRASH RECOVERY FLOW                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. Detect crash (timeout or explicit termination)              │
+│           │                                                      │
+│           ▼                                                      │
+│  2. Call unassignTeammateTasks()                                │
+│     - Find all tasks owned by crashed agent                     │
+│     - Set owner: undefined                                       │
+│     - Set status: "pending"                                      │
+│           │                                                      │
+│           ▼                                                      │
+│  3. Notify team lead                                             │
+│     "agent-a was terminated. 2 tasks unassigned:                │
+│      #3 'Implement feature', #5 'Write tests'"                  │
+│           │                                                      │
+│           ▼                                                      │
+│  4. Tasks become available for other agents                     │
+│     - TaskList shows #3, #5 as pending/unassigned               │
+│     - Other agents can claim them                               │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 11.2 Dependency Cycle Detection
+
+**Not implemented in current version** - Dependencies can create cycles.
+
+**Manual mitigation**:
+1. Use `TaskGet` to inspect `blocks` and `blockedBy` arrays
+2. Use `TaskUpdate` with `addBlockedBy: []` or `addBlocks: []` to break cycles
+3. Delete stuck tasks with `TaskUpdate({ status: "deleted" })`
 
 ---
 

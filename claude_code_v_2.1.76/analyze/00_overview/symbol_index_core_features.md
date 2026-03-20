@@ -108,11 +108,10 @@
 |------------|----------|-----------|------|
 | ib4 | claimNextTask | chunks.131.mjs:241 | function |
 | MVY | findNextAvailableTask | chunks.131.mjs:222 | function |
-| o7A | attemptToClaimTask | chunks.48.mjs:593 | function |
+| OT8 | claimTask | chunks.84.mjs:1781 | async function |
+| $N9 | claimTaskWithAgentBusyValidation | chunks.84.mjs:1831 | async function |
+| ft | unassignTeammateTasks | chunks.84.mjs:1883 | async function |
 | PVY | generatePromptFromTask | chunks.131.mjs:231 | function |
-| r7A | addDependency | chunks.48.mjs:569 | function |
-| sq6 | deleteTask | chunks.48.mjs:530 | function |
-| WX | getAllTasks | chunks.48.mjs:555 | function |
 
 ---
 
@@ -174,10 +173,15 @@
 | WI | updateTask | chunks.84.mjs:1701 | async function |
 | sD1 | deleteTask | chunks.84.mjs:1713 | async function |
 | DX | loadAllTasks | chunks.84.mjs:1742 | async function |
+| _T8 | addTaskDependency | chunks.84.mjs:1754 | async function |
 | r$ | isTaskSystemEnabled | chunks.84.mjs:1585 | function |
 | wR | getTaskDirectory | chunks.84.mjs:1630 | function |
 | yF6 | getTaskFilePath | chunks.84.mjs:1634 | function |
+| L06 | sanitizeTaskListId | chunks.84.mjs:1626 | function |
 | wN9 | getHighWaterMark | chunks.84.mjs:1664 | async function |
+| zT8 | readHighWaterMarkFile | chunks.84.mjs (inferred) | async function |
+| P84 | writeHighWaterMark | chunks.84.mjs:1580 | async function |
+| Gt | invalidateTaskCache | chunks.84.mjs (inferred) | function |
 
 ### Task Schema & Hooks
 
@@ -188,37 +192,44 @@
 | Hi6 | executeTaskCompletedHooks | chunks.175.mjs:2594 | async generator |
 | $i6 | getTaskCompletedHookMessage | chunks.175.mjs:1602 | function |
 
-### Sync Wrappers (chunks.48.mjs - for compatibility)
+### High Watermark Helpers
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| WM | getTaskManagerSync | chunks.48.mjs:441 | function |
-| lg | findTaskByIdSync | chunks.48.mjs:452 | function |
-| JS | updateTaskSync | chunks.48.mjs:463 | function |
-| n_1 | createTaskSync | chunks.48.mjs:486 | function |
-| WX | loadAllTasksSync | chunks.48.mjs:555 | function |
-| sq6 | deleteTaskSync | chunks.48.mjs:530 | function |
-| r7A | addDependency | chunks.48.mjs:569 | function |
-| o7A | attemptToClaimTask | chunks.48.mjs:593 | function |
-| OT8 | claimTaskWithBusyCheck | chunks.84.mjs:1781 | async function |
-| Mr | unassignTeammateTasks | chunks.48.mjs:695 | function |
+| P84 | writeHighWaterMark | chunks.84.mjs:1580 | async function |
+| zT8 | readHighWaterMarkFile | chunks.84.mjs (inferred) | async function |
+| W84 | getMaxTaskIdFromFiles | chunks.84.mjs:1647 | async function |
+| Gt | invalidateTaskCache | chunks.84.mjs (inferred) | function |
+
+### Task Claim Functions (chunks.84.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| OT8 | claimTask | chunks.84.mjs:1781 | async function |
+| $N9 | claimTaskWithAgentBusyValidation | chunks.84.mjs:1831 | async function |
+| ft | unassignTeammateTasks | chunks.84.mjs:1883 | async function |
+
+### Lock Configuration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| nD1 | lockOptions | chunks.84.mjs:1942 | object (retries: 10, minTimeout: 5, maxTimeout: 100) |
+| EF6 | lockfile | chunks.84.mjs (import) | module |
+| _N9 | HIGHWATERMARK_FILENAME | chunks.84.mjs:1914 | constant (".highwatermark") |
 
 ### TodoWrite Tool (Simple Todo List)
 
-> Mutually exclusive with structured Task tools. Enabled when `jH()` returns false.
+> Mutually exclusive with structured Task tools. Enabled when `r$()` returns false.
 > Full analysis: [05_tools/task_management_tools.md](../05_tools/task_management_tools.md#7-todowrite-tool)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| bO | TodoWriteTool | chunks.48.mjs:772 | object |
+| xv | TodoWriteTool | chunks.84.mjs:1970 | object |
 | MB | TOOL_NAME_TODO_WRITE | chunks.84.mjs:1401 | constant ("TodoWrite") |
-| Sf5 | todoWriteInputSchema | chunks.48.mjs:767 | schema |
-| hf5 | todoWriteOutputSchema | chunks.48.mjs:769 | schema |
-| d_1 | todoArraySchema | chunks.48.mjs:201 | schema |
-| Vf5 | todoItemSchema | chunks.48.mjs:197 | schema |
-| ff5 | todoStatusSchema | chunks.48.mjs:197 | schema |
-| jH | isStructuredTasksEnabled | chunks.48.mjs:405 | function |
-| U6 | getCurrentAgentId | chunks.48.mjs | function |
+| HN9 | todoWriteInputSchema | chunks.84.mjs:1964 | schema |
+| jN9 | todoWriteOutputSchema | chunks.84.mjs:1966 | schema |
+| y06 | todoArraySchema | chunks.84.mjs (import) | schema |
+| r$ | isTaskSystemEnabled | chunks.84.mjs:1585 | function |
 
 ---
 
