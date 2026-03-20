@@ -12,9 +12,11 @@ host system.
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations (Shell Parser section)
 
 Key functions in this document:
-- `runSecurityChecks` (lm) - Static security pipeline entry point
-- `bashPreFlightCheck` (AYz) - LLM-based command prefix extraction
-- `checkReadOnlyBehavior` (Of6) - Read-only permission gate
+- `runSecurityChecksSync` (Rp6) - Security pipeline entry point (sync, no tree-sitter)
+- `runSecurityChecksAsync` (O01) - Security pipeline entry point (async, with tree-sitter)
+- `bashPreFlightCheck` (nGq) - LLM-based command prefix extraction (via QGq factory)
+- `extractPrefixCached` (pr6) - Memoized prefix extraction wrapper (via UGq factory)
+- `checkBashPermissions` (Tn8) - Main Bash tool permission checker
 - `extractRedirections` (aI) - Redirection tokenization and analysis
 - `checkDangerousRedirection` (YYz) - Per-redirection risk classification
 
@@ -31,18 +33,19 @@ Bash tool call
      ▼
 ┌─────────────────────────────┐
 │ Layer 1: Static Checks      │
-│ runSecurityChecks (lm)      │
+│ (Rp6/O01)                   │
 │                             │
 │ Allow: empty, heredoc,      │
 │        git commit           │
 │ Deny:  jq, ANSI-C, $(),    │
 │        IFS, /proc, etc.     │
+│        (23 security checks) │
 └─────────────┬───────────────┘
               │ "passthrough"
               ▼
 ┌─────────────────────────────┐
 │ Layer 2: LLM Prefix         │
-│ bashPreFlightCheck (AYz)    │
+│ bashPreFlightCheck (nGq)    │
 │                             │
 │ → "git commit"              │
 │ → "command_injection"       │
@@ -51,11 +54,11 @@ Bash tool call
               │ prefix
               ▼
 ┌─────────────────────────────┐
-│ Layer 3: Read-Only Check    │
-│ checkReadOnlyBehavior (Of6) │
+│ Layer 3: Permission Check   │
+│ checkBashPermissions (Tn8)  │
 │                             │
-│ Uses safe command registry  │
-│ + per-subcommand analysis   │
+│ Uses prefix matching +      │
+│ subcommand analysis         │
 └─────────────────────────────┘
 ```
 
@@ -63,7 +66,7 @@ Bash tool call
 
 ## Layer 1: Static Security Checks
 
-### Entry Point (lm / runSecurityChecks)
+### Entry Point (zg9 / runSecurityChecks)
 
 **What it does:** Uses a combination of allow-list and deny-list checks to classify the risk of a shell command. Returns `"passthrough"` (safe to proceed), `"allow"` (explicitly safe), or `"ask"` (needs user confirmation).
 
@@ -74,29 +77,38 @@ These checks can short-circuit the pipeline by explicitly allowing a command:
 
 | Check | Function | When Allowed |
 |-------|----------|--------------|
-| Empty command | ndY | Command is empty/whitespace |
-| Quoted heredoc | tdY | `<<'DELIM'` or `<<\DELIM` |
-| Heredoc in `$()` | adY | `$(cat <<'EOF' ... EOF)` with quoted delimiter |
-| Git commit message | sdY | `git commit -m "simple message"` |
+| Empty command | uY4 | Command is empty/whitespace |
+| Heredoc in `$()` | gY4 | `$(cat <<'EOF' ... EOF)` with quoted delimiter |
+| Git commit message | FY4 | `git commit -m "simple message"` |
 
 **Phase B — Deny-list (run after allow-list):**
 These checks can flag a command as needing user approval:
 
 | Check | Function | What It Catches |
 |-------|----------|----------------|
-| jq dangerous ops | edY | `system()` function, file-reading flags |
-| Obfuscated flags | $cY | ANSI-C quoting, locale quoting, quoted flag names |
-| Shell metacharacters | AcY | `;`, `\|`, `&` inside quoted arguments |
-| Dangerous variables | qcY | `$VAR` in redirection/pipe context |
-| Newlines | YcY | Embedded newlines as command separators |
-| IFS injection | zcY | `$IFS` manipulation |
-| /proc/environ | wcY | Process environment exposure |
-| Dangerous patterns | KcY | Backticks, `$()`, `${}`, `<()`, `>()` |
-| Malformed tokens | HcY | Unbalanced brackets with separators |
+| jq dangerous ops | pY4 | `system()` function, file-reading flags |
+| Obfuscated flags | rY4 | ANSI-C quoting, locale quoting, quoted flag names |
+| Shell metacharacters | QY4 | `;`, `\|`, `&` inside quoted arguments |
+| Dangerous variables | UY4 | `$VAR` in redirection/pipe context |
+| Newlines | w01 | Embedded newlines as command separators |
+| IFS injection | lY4 | `$IFS` manipulation |
+| /proc/environ | iY4 | Process environment exposure |
+| Dangerous patterns | dY4 | Backticks, `$()`, `${}`, `<()`, `>()` |
+| Redirections | _01 | `<` and `>` in unquoted content |
+| Malformed tokens | nY4 | Unbalanced brackets with separators |
+| Backslash whitespace | oY4 | `\` before space/tab |
+| Brace expansion | sY4 | `{a,b}` or `{1..3}` patterns |
+| Control characters | Rp6/Yz4 | Non-printable control chars |
+| Unicode whitespace | tY4 | Non-ASCII whitespace characters |
+| Mid-word hash | eY4 | `#` in middle of word |
+| Zsh dangerous cmds | Kz4 | zmodload, emulate, sysopen, etc. |
+| Backslash operators | aY4 | `\;`, `\|`, `\&`, `\<`, `\>` |
+| Comment quote desync | Az4 | Quote inside `#` comment |
+| Quoted newline | qz4 | Quoted newline + `#` pattern |
 
 ---
 
-## Layer 2: LLM Prefix Extraction (bashPreFlightCheck / AYz)
+## Layer 2: LLM Prefix Extraction (bashPreFlightCheck / nGq)
 
 **What it does:** Uses a fast LLM to extract the "command prefix" — the meaningful first part of the command that identifies what operation is being performed. Used for permission matching.
 
@@ -110,7 +122,7 @@ These checks can flag a command as needing user approval:
    - `"command_injection_detected"` → LLM detected injection → force user approval
    - `"git"` alone → rejected as too broad (must be specific subcommand)
 
-**Embedded policy spec examples (actual source):**
+**Memoization:** Results are cached via `extractPrefixCached` (pr6) wrapper to avoid redundant LLM calls.
 ```
 - cat foo.txt                => cat
 - git diff HEAD~1            => git diff
@@ -132,28 +144,22 @@ These checks can flag a command as needing user approval:
 
 ---
 
-## Layer 3: Read-Only Permission Check (Of6 / checkReadOnlyBehavior)
+## Layer 3: Permission Check (checkBashPermissions / Tn8)
 
-**What it does:** Determines if a command can be automatically approved as a read-only operation, without requiring explicit user permission.
+**What it does:** Main permission checker for Bash tool. Coordinates security checks, prefix extraction, and subcommand analysis to determine if a command can be auto-approved or needs user confirmation.
 
 **Decision pipeline:**
-1. Verify command is parseable
-2. Verify command passes static security checks
-3. Check for Windows UNC paths (WebDAV attack vector)
-4. Check for `cd` + `git` compound (needs extra scrutiny)
-5. Check for git in bare repository (may affect git objects)
-6. Verify **all** subcommands are individually read-only via `NcY` (isReadOnlyCommand)
+1. Parse command (tree-sitter AST or shell-quote fallback)
+2. Run security checks via `dr6`
+3. Extract command prefix via `extractPrefixCached` (pr6)
+4. Analyze compound commands via `analyzeSubcommands` (vfq)
+5. Check for special cases (cd+git compound, multiple cd, etc.)
+6. Return permission decision: `allow`, `ask`, or `passthrough`
 
-**Safe Command Registry:** The `jcY` (SAFE_COMMAND_REGISTRY) object maps ~30 commands to their approved flags:
-- `git diff`, `git log`, `git show`, `git status`, `git blame`, `git grep`, ...
-- Docker read commands: `docker ps`, `docker logs`, `docker inspect`, ...
-- Each command has a `safeFlags` map specifying flag names and their argument types
-
-**Safe Command Patterns:** The `fcY` (SAFE_COMMAND_PATTERNS) Set contains regex patterns for trivially safe commands:
-- `pwd`, `whoami`, `ls`, `cat`, `head`, `tail`, `wc`, `stat`, ...
-- `echo` (without pipes/separators)
-- `cd [path]`
-- `find` (without `-exec`, `-delete`, etc.)
+**Key design:**
+- **Compound command handling**: In `command1 && command2`, each subcommand is analyzed independently
+- **cd+git protection**: Compound commands with `cd` and `git` require approval to prevent bare repository attacks
+- **Multiple cd protection**: Commands with multiple directory changes require approval for clarity
 
 ---
 

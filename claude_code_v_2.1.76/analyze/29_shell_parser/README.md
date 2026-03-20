@@ -22,10 +22,19 @@ The Shell Parser module is a critical security component that intercepts all Bas
 
 | Document | Description | Size |
 |----------|-------------|------|
-| [implementation.md](./implementation.md) | Complete implementation reference with code snippets | 68KB |
-| [heredoc_security.md](./heredoc_security.md) | Heredoc injection prevention and security pipeline | 33KB |
+| [implementation.md](./implementation.md) | Complete implementation reference with code snippets, deep analysis of heredoc extraction, security pipeline order, redirection analysis, and LLM prefix extraction | ~85KB |
+| [heredoc_security.md](./heredoc_security.md) | Heredoc injection prevention, complete source restoration of extractHeredocs, state machine for quote/comment tracking, security implications | ~45KB |
 | [command_validation.md](./command_validation.md) | Security architecture overview | 9KB |
-| [integration_overview.md](./integration_overview.md) | Integration with Tools, Reminder, Compact, Skills | NEW |
+| [integration_overview.md](./integration_overview.md) | Integration with Tools, Reminder, Compact, Skills. Deep analysis of progress throttling and checkBashPermissions flow | ~35KB |
+
+### Key Deep Analysis Sections
+
+- **[Heredoc Extraction Algorithm](./implementation.md#deep-analysis-heredoc-extraction-algorithm)** — Complete source restoration with state machine
+- **[Security Check Pipeline Order](./implementation.md#deep-analysis-security-check-pipeline-order)** — Why allow-list runs before deny-list
+- **[Redirection Analysis Deep Dive](./implementation.md#redirection-analysis-deep-dive)** — Complete decision tree for dangerous redirections
+- **[LLM Prefix Extraction Policy](./implementation.md#deep-analysis-llm-prefix-extraction-policy)** — Full policy spec and response handling
+- **[Progress Throttling Mechanism](./integration_overview.md#deep-analysis-progress-throttling-mechanism)** — Why remote-only, LRU cache strategy
+- **[checkBashPermissions Flow](./integration_overview.md#deep-analysis-checkbashpermissions-flow)** — Complete decision tree
 
 ---
 
@@ -35,11 +44,14 @@ The Shell Parser module is a critical security component that intercepts all Bas
 
 | Function | Symbol | Location | Purpose |
 |----------|--------|----------|---------|
-| `runSecurityChecks` | lm | chunks.150.mjs:321 | Main security validation pipeline |
-| `bashPreFlightCheck` | AYz | chunks.169.mjs:1838 | LLM-based prefix extraction |
-| `checkReadOnlyBehavior` | Of6 | chunks.150.mjs:881 | Read-only permission gate |
-| `parseShellCommand` | rZ1 | chunks.169.mjs:1716 | Full tokenizer with heredoc safety |
-| `extractHeredocs` | XT6 | chunks.169.mjs:1596 | Heredoc extraction and replacement |
+| `runSecurityChecksSync` | Rp6 | chunks.91.mjs:2209 | Main security validation pipeline (sync, no tree-sitter) |
+| `runSecurityChecksAsync` | O01 | chunks.91.mjs:2272 | Main security validation pipeline (async, with tree-sitter) |
+| `bashPreFlightCheck` | nGq | chunks.171.mjs:1750 | LLM-based prefix extraction (via QGq factory) |
+| `extractPrefixCached` | pr6 | chunks.171.mjs:1758 | Memoized prefix extraction wrapper (via UGq factory) |
+| `checkBashPermissions` | Tn8 | chunks.172.mjs:1930 | Main Bash tool permission checker (async) |
+| `parseShellCommand` | bW6 | chunks.171.mjs:1139 | Full tokenizer with heredoc safety |
+| `extractHeredocs` | ca | chunks.56.mjs:945 | Heredoc extraction and replacement |
+| `extractSubcommands` | EO | chunks.171.mjs | Split compound commands |
 
 ### Security Pipeline Flow
 
@@ -49,18 +61,19 @@ Bash tool call
      ▼
 ┌─────────────────────────────┐
 │ Layer 1: Static Checks      │
-│ runSecurityChecks (lm)      │
+│ (Rp6/O01)                   │
 │                             │
 │ Allow: empty, heredoc,      │
 │        git commit           │
 │ Deny:  jq, ANSI-C, $(),    │
 │        IFS, /proc, etc.     │
+│        (23 security checks) │
 └─────────────┬───────────────┘
               │ "passthrough"
               ▼
 ┌─────────────────────────────┐
 │ Layer 2: LLM Prefix         │
-│ bashPreFlightCheck (AYz)    │
+│ bashPreFlightCheck (nGq)    │
 │                             │
 │ → "git commit"              │
 │ → "command_injection"       │
@@ -69,11 +82,11 @@ Bash tool call
               │ prefix
               ▼
 ┌─────────────────────────────┐
-│ Layer 3: Read-Only Check    │
-│ checkReadOnlyBehavior (Of6) │
+│ Layer 3: Permission Check   │
+│ checkBashPermissions (Tn8)  │
 │                             │
-│ Uses safe command registry  │
-│ + per-subcommand analysis   │
+│ Subcommand analysis +       │
+│ permission matching         │
 └─────────────────────────────┘
 ```
 
@@ -83,11 +96,11 @@ Bash tool call
 
 | File | Content |
 |------|---------|
-| `chunks.169.mjs` | Shell tokenizer, heredoc extraction, prefix extraction |
-| `chunks.149.mjs` | Allow-list security checks (ndY, rdY, adY, tdY, sdY) |
-| `chunks.150.mjs` | Deny-list checks, safe registry, read-only validation |
-| `chunks.170.mjs` | Command reconstruction |
-| `chunks.10.mjs` | Pre-check (hasSingleQuotedBackslashBypass) |
+| `chunks.91.mjs` | Security pipeline: runSecurityChecksSync (Rp6), runSecurityChecksAsync (O01), all 19 deny-list check functions, SECURITY_CHECK_IDS (w3), DANGEROUS_PATTERNS (wg9), ZSH_DANGEROUS_COMMANDS (Og9) |
+| `chunks.171.mjs` | Shell tokenizer (bW6), extractSubcommands (EO), prefix extraction (nGq, pr6) |
+| `chunks.56.mjs` | extractHeredocs (ca) |
+| `chunks.172.mjs` | Permission checking integration (Tn8), prefix matching |
+| `chunks.42.mjs` | Pre-check (hasSingleQuotedBackslashBypass / X38) |
 
 ---
 
@@ -97,42 +110,44 @@ Bash tool call
 
 ### Tokenization & Parsing
 
-- `parseShellCommand` (rZ1) - Full tokenizer with heredoc safety
-- `extractSubcommands` (AD) - Split compound command into subcommands
-- `extractHeredocs` (XT6) - Extract and replace heredoc blocks
+- `parseShellCommand` (bW6) - Full tokenizer with heredoc safety
+- `extractSubcommands` (EO) - Split compound command into subcommands
+- `extractHeredocs` (ca) - Extract and replace heredoc blocks
 
 ### Security Pipeline
 
-- `runSecurityChecks` (lm) - Master security validation
-- `bashPreFlightCheck` (AYz) - LLM prefix extraction
-- `checkReadOnlyBehavior` (Of6) - Read-only permission gate
+- `runSecurityChecks` (zg9) - Master security validation (async)
+- `bashPreFlightCheck` (nGq) - LLM prefix extraction
+- `checkBashPermissions` (Tn8) - Main Bash tool permission checker (async)
 
-### Allow-List Checks (chunks.149.mjs)
+### Allow-List Checks (chunks.91.mjs)
 
-- `checkEmptyCommand` (ndY)
-- `checkIncompleteCommand` (rdY)
-- `checkHeredocInSubstitution` (adY)
-- `checkQuotedHeredoc` (tdY)
-- `checkGitCommitMessage` (sdY)
+- `checkEmptyCommand` (uY4)
+- `checkIncompleteCommand` (mY4)
+- `checkHeredocInSubstitution` (gY4)
+- `isQuotedHeredocInSubstitution` (Hg9)
+- `checkGitCommitMessage` (FY4)
 
-### Deny-List Checks (chunks.150.mjs)
+### Deny-List Checks (chunks.91.mjs)
 
-- `checkJqCommand` (edY) - jq system() detection
-- `checkObfuscatedFlags` ($cY) - ANSI-C quoting detection
-- `checkShellMetacharacters` (AcY) - Pipe/semicolon injection
-- `checkDangerousVariables` (qcY) - Variable in redirections
-- `checkDangerousPatterns` (KcY) - Backticks, $(), ${}, <()
-- `checkNewlines` (YcY) - Newline command separators
-- `checkIFSInjection` (zcY) - IFS manipulation
-- `checkProcEnviron` (wcY) - /proc/environ access
-- `checkMalformedTokenInjection` (HcY) - Tokenizer-based detection
-
-### Safe Command Registry
-
-- `isInSafeCommandRegistry` (WcY) - Check against whitelist
-- `isReadOnlyCommand` (NcY) - Read-only command detection
-- `SAFE_COMMAND_REGISTRY` (jcY) - Command→flags map
-- `SAFE_COMMAND_PATTERNS` (fcY) - Regex patterns for safe commands
+- `checkJqCommand` (pY4) - jq system() detection
+- `checkObfuscatedFlags` (rY4) - ANSI-C quoting detection
+- `checkShellMetacharacters` (QY4) - Pipe/semicolon injection
+- `checkDangerousVariables` (UY4) - Variable in redirections
+- `checkDangerousPatterns` (dY4) - Backticks, $(), ${}, <()
+- `checkNewlines` (w01) - Newline command separators
+- `checkIFSInjection` (lY4) - IFS manipulation
+- `checkProcEnviron` (iY4) - /proc/environ access
+- `checkMalformedTokenInjection` (nY4) - Tokenizer-based detection
+- `checkBackslashEscapedWhitespace` (oY4) - Backslash before space/tab
+- `checkBraceExpansion` (sY4) - {a,b} or {1..3} patterns
+- `checkUnicodeWhitespace` (tY4) - Non-ASCII whitespace
+- `checkMidWordHash` (eY4) - # in middle of word
+- `checkZshDangerousCommands` (Kz4) - zmodload, emulate, sysopen
+- `checkBackslashEscapedOperators` (aY4) - \;, \|, \&, \<, \>
+- `checkCommentQuoteDesync` (Az4) - Quote inside # comment
+- `checkQuotedNewline` (qz4) - Quoted newline + # pattern
+- `checkExcessClosingBraces` (cY4) - Unbalanced braces after quote strip
 
 ---
 

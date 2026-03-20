@@ -146,47 +146,91 @@ Result: backend-dev.json contains [msg1, msg2, msg4]
 ```javascript
 // ============================================
 // writeToMailbox - Atomic message append with file locking
-// Location: chunks.129.mjs:1107-1150
+// Location: chunks.132.mjs:22-55
 // ============================================
+
+// ORIGINAL (for source lookup):
+async function x3(A, q, K) {
+    await OTY(K);
+    let Y = FY6(A, K), z = `${Y}.lock`;
+    k(`[TeammateMailbox] writeToMailbox: recipient=${A}, from=${q.from}, path=${Y}`);
+    try {
+        await Pf6(Y, "[]", { encoding: "utf-8", flag: "wx" }),
+            k("[TeammateMailbox] writeToMailbox: created new inbox file")
+    } catch (w) {
+        if (w.code !== "EEXIST") {
+            k(`[TeammateMailbox] writeToMailbox: failed to create inbox file: ${w}`), _6(w);
+            return
+        }
+    }
+    let _;
+    try {
+        _ = await Nc6.lock(Y, { lockfilePath: z, ...iv1 });
+        let w = await wl(A, K), O = { ...q, read: !1 };
+        w.push(O), await Pf6(Y, B6(w, null, 2), "utf-8"), k(`[TeammateMailbox] Wrote message to ${A}'s inbox from ${q.from}`)
+    } catch (w) {
+        k(`Failed to write to inbox for ${A}: ${w}`), _6(w)
+    } finally {
+        if (_) await _()
+    }
+}
 
 // READABLE (for understanding):
 async function writeToMailbox(recipientName, message, teamName) {
+    // Ensure inbox directory exists
+    await ensureInboxDirectoryExists(teamName);
+
     const mailboxPath = getInboxPath(recipientName, teamName);
-    // Path: ~/.claude/teams/{teamName}/inboxes/{recipientName}.json
+    const lockPath = `${mailboxPath}.lock`;
 
-    const lockPath = mailboxPath + ".lock";
+    // Log the write operation for debugging
+    console.log(`[TeammateMailbox] writeToMailbox: recipient=${recipientName}, from=${message.from}, path=${mailboxPath}`);
 
-    // Acquire exclusive lock (blocks if another process holds it)
-    await lockfile.lock(lockPath, {
-        retries: {
-            retries: 5,       // Retry up to 5 times if lock unavailable
-            minTimeout: 100,  // Initial wait: 100ms
-            maxTimeout: 1000  // Max wait per retry: 1s
-        },
-        stale: 60000  // Consider lock stale after 60 seconds (crash recovery)
-    });
-
+    // Create empty mailbox file if it doesn't exist
     try {
-        // CRITICAL SECTION - only one process here at a time
-        let messages = [];
-
-        if (await fileExists(mailboxPath)) {
-            const content = await readFile(mailboxPath, "utf-8");
-            messages = JSON.parse(content);
+        await writeFile(mailboxPath, "[]", { encoding: "utf-8", flag: "wx" }); // wx = exclusive write
+        console.log("[TeammateMailbox] writeToMailbox: created new inbox file");
+    } catch (error) {
+        if (error.code !== "EEXIST") {
+            console.error(`[TeammateMailbox] writeToMailbox: failed to create inbox file: ${error}`);
+            reportError(error);
+            return;
         }
+    }
 
-        messages.push(message);
+    // Acquire file lock and append message atomically
+    let releaseLock;
+    try {
+        // Lock with retry configuration (from iv1):
+        // - retries: 10 attempts
+        // - minTimeout: 5ms initial wait
+        // - maxTimeout: 100ms max wait per retry
+        releaseLock = await properLockfile.lock(mailboxPath, {
+            lockfilePath: lockPath,
+            retries: { retries: 10, minTimeout: 5, maxTimeout: 100 }
+        });
 
-        await writeFile(
-            mailboxPath,
-            JSON.stringify(messages, null, 2),
-            "utf-8"
-        );
+        // Read existing messages
+        let messages = await readMailbox(recipientName, teamName);
+
+        // Append new message with read=false flag
+        messages.push({ ...message, read: false });
+
+        // Write back atomically
+        await writeFile(mailboxPath, JSON.stringify(messages, null, 2), "utf-8");
+        console.log(`[TeammateMailbox] Wrote message to ${recipientName}'s inbox from ${message.from}`);
+    } catch (error) {
+        console.error(`Failed to write to inbox for ${recipientName}: ${error}`);
+        reportError(error);
     } finally {
-        // Always release lock, even if error
-        await lockfile.unlock(lockPath);
+        // Always release lock if acquired
+        if (releaseLock) await releaseLock();
     }
 }
+
+// Mapping: x3→writeToMailbox, A→recipientName, q→message, K→teamName, Y→mailboxPath, z→lockPath,
+//          Nc6→properLockfile, iv1→lockOptions, wl→readMailbox, Pf6→writeFile, B6→JSON.stringify,
+//          OTY→ensureInboxDirectoryExists, FY6→getInboxPath
 ```
 
 **With locking** (correct behavior):

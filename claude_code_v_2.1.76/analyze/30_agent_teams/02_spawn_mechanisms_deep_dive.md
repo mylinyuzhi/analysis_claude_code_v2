@@ -39,16 +39,23 @@ Claude Code supports **three fundamentally different execution modes** for agent
 
 ### 2.1 Decision Tree
 
-**Complete flow** (obfuscated: `spawnTeammateDispatcher` / iVY):
+**Complete flow** (obfuscated: `spawnTeammateDispatcher` / pNY):
 
 ```javascript
 // ============================================
 // spawnTeammateDispatcher - Determine execution mode and dispatch to appropriate spawner
-// Location: chunks.131.mjs:2467-2480
+// Location: chunks.135.mjs:1110-1114
 // ============================================
 
+// ORIGINAL (for source lookup):
+async function pNY(A, q) {
+    if (Rb()) return FNY(A, q);
+    if (A.use_splitpane !== !1) return BNY(A, q);
+    return gNY(A, q)
+}
+
 // READABLE (for understanding):
-function spawnTeammateDispatcher(params, context) {
+async function spawnTeammateDispatcher(params, context) {
     // Step 1: Check if in-process mode is required or preferred
     if (isInProcessEnabled()) {
         return spawnInProcessTeammate(params, context);
@@ -60,12 +67,12 @@ function spawnTeammateDispatcher(params, context) {
         return spawnSplitPaneTeammate(params, context);
     } else {
         // User explicitly disabled split-pane → use separate window
-        return spawnSeparateWindowTeammate(params, context);
+        return spawnTmuxTeammate(params, context);
     }
 }
 
-// Mapping: iVY→spawnTeammateDispatcher, Rm→isInProcessEnabled, LP1→spawnInProcessTeammate,
-//          dVY→spawnSplitPaneTeammate, cVY→spawnSeparateWindowTeammate
+// Mapping: pNY→spawnTeammateDispatcher, A→params, q→context, Rb→isInProcessEnabled,
+//          FNY→spawnInProcessTeammate, BNY→spawnSplitPaneTeammate, gNY→spawnTmuxTeammate
 ```
 
 ### 2.2 In-Process Detection Logic
@@ -75,11 +82,11 @@ function spawnTeammateDispatcher(params, context) {
 ```javascript
 // ============================================
 // isInProcessEnabled - Determines if in-process backend should be used
-// Location: chunks.131.mjs:1586-1595
+// Location: chunks.135.mjs:208-215
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Rm() {
+function Rb() {
     return Y0(process.env.FORCE_IN_PROCESS) || !process.stdin.isTTY || !OI() && !j51()
 }
 
@@ -105,7 +112,7 @@ function isInProcessEnabled() {
     return false;  // Prefer pane-based modes when available
 }
 
-// Mapping: Rm→isInProcessEnabled, Y0→parseBoolean, OI→isRunningInsideTmux, j51→isRunningInIterm2
+// Mapping: Rb→isInProcessEnabled, Y0→parseBoolean, OI→isRunningInsideTmux, j51→isRunningInIterm2
 ```
 
 **Condition precedence** (evaluated in order):
@@ -248,12 +255,12 @@ spawnSplitPaneTeammate(params, context)
 
 ### 3.2 Spawning Flow
 
-**Complete execution** (obfuscated: `spawnInProcessTeammate` / LP1):
+**Complete execution** (obfuscated: `spawnInProcessTeammate` / FNY):
 
 ```javascript
 // ============================================
 // spawnInProcessTeammate - Spawn teammate in same process
-// Location: chunks.123.mjs:242-340
+// Location: chunks.135.mjs:985-1108
 // ============================================
 
 // READABLE (for understanding):
@@ -324,23 +331,23 @@ async function spawnInProcessTeammate(params, context) {
     };
 }
 
-// Mapping: LP1→spawnInProcessTeammate, GVY→inProcessAgentRunner
+// Mapping: FNY→spawnInProcessTeammate, XNY→inProcessAgentRunner
 ```
 
 **Key insight**: Spawning is **async but non-blocking**. The `setImmediate()` ensures the agent runner starts after the current event loop tick, allowing the SpawnTeammate tool to return immediately. The teammate begins polling in the background.
 
 ### 3.3 In-Process Poll Loop (Priority Queue)
 
-**Implementation** (obfuscated: `inProcessPollLoop` / WVY):
+**Implementation** (obfuscated: `pollForNextMessage` / DNY):
 
 ```javascript
 // ============================================
-// inProcessPollLoop - 5-level priority message polling for in-process teammates
-// Location: chunks.131.mjs:260-346
+// pollForNextMessage - 5-level priority message polling for in-process teammates
+// Location: chunks.134.mjs:1483-1570
 // ============================================
 
 // READABLE (for understanding):
-async function inProcessPollLoop(config, abortSignal, context) {
+async function pollForNextMessage(config, abortSignal, context) {
     const { agentId, agentName, teamName } = config;
 
     let iterationCount = 0;
@@ -393,7 +400,7 @@ async function inProcessPollLoop(config, abortSignal, context) {
 
                     const skippedCount = mailbox.filter(m => !m.read).length - 1;
                     console.log(
-                        `[inProcessPollLoop] Shutdown request prioritized over ` +
+                        `[pollForNextMessage] Shutdown request prioritized over ` +
                         `${skippedCount} unread messages`
                     );
 
@@ -437,7 +444,7 @@ async function inProcessPollLoop(config, abortSignal, context) {
         // ═══════════════════════════════════════════════════════════
         // Priority 5: Auto-claim next available task
         // ═══════════════════════════════════════════════════════════
-        const taskPrompt = await claimNextTask(agentName, teamName, context);
+        const taskPrompt = await claimUnclaimedTask(agentName, teamName, context);
         if (taskPrompt) {
             return {
                 type: "task_assignment",
@@ -451,7 +458,7 @@ async function inProcessPollLoop(config, abortSignal, context) {
     return { type: "aborted" };
 }
 
-// Mapping: WVY→inProcessPollLoop, ib4→claimNextTask, Ld→readMailbox, JQ1→markMessageAsReadByIndex
+// Mapping: DNY→pollForNextMessage, Ji4→claimUnclaimedTask, wl→readMailbox, Vc6→markMessageAsReadByIndex
 ```
 
 **Why 5 priority levels**:
@@ -482,12 +489,12 @@ Scenario with Priority 2 scan:
 
 ### 3.4 Agent Runner Loop
 
-**Implementation** (obfuscated: `inProcessAgentRunner` / GVY):
+**Implementation** (obfuscated: `inProcessAgentRunner` / XNY):
 
 ```javascript
 // ============================================
 // inProcessAgentRunner - Main execution loop for in-process teammates
-// Location: chunks.131.mjs:347-420
+// Location: chunks.134.mjs:1571-1650
 // ============================================
 
 // READABLE (for understanding):
@@ -515,7 +522,7 @@ async function inProcessAgentRunner(config, context) {
 
     while (!abortSignal.aborted) {
         // Wait for next message from poll loop
-        const nextMessage = await inProcessPollLoop(config, abortSignal, context);
+        const nextMessage = await pollForNextMessage(config, abortSignal, context);
 
         if (nextMessage.type === "aborted") {
             console.log(`[inProcessRunner] ${agentName} aborted`);
@@ -578,7 +585,7 @@ async function inProcessAgentRunner(config, context) {
     }
 }
 
-// Mapping: GVY→inProcessAgentRunner, WVY→inProcessPollLoop, ZR→runAgentLoop
+// Mapping: XNY→inProcessAgentRunner, DNY→pollForNextMessage, ZR→runAgentLoop
 ```
 
 **Control flow**:
@@ -636,7 +643,280 @@ async function processMessa ge() {
 
 **Mitigation**: Task cleanup on agent exit (see `setImmediate` callback in spawn function) removes task from AppState, allowing GC.
 
-### 3.6 Performance Characteristics
+### 3.6 Teammate Registration & Lifecycle
+
+**Entry point** (obfuscated: `registerTeammateAndRun` / xN1):
+
+```javascript
+// ============================================
+// registerTeammateAndRun - Register teammate and start agent runner (fire-and-forget)
+// Location: chunks.134.mjs:1847-1852
+// ============================================
+
+// ORIGINAL (for source lookup):
+function xN1(A) {
+    let q = A.identity.agentId;
+    XNY(A).catch((K) => {
+        k(`[inProcessRunner] Unhandled error in ${q}: ${K}`)
+    })
+}
+
+// READABLE (for understanding):
+function registerTeammateAndRun(teammateConfig) {
+    const agentId = teammateConfig.identity.agentId;
+
+    // Fire-and-forget: Start the agent runner asynchronously
+    // Errors are caught and logged, not re-thrown
+    inProcessAgentRunner(teammateConfig).catch((error) => {
+        console.error(`[inProcessRunner] Unhandled error in ${agentId}: ${error}`);
+    });
+}
+
+// Mapping: xN1→registerTeammateAndRun, XNY→inProcessAgentRunner, k→console.error
+```
+
+**Why fire-and-forget pattern**:
+
+- **Non-blocking**: Returns immediately, allowing spawn tool to complete
+- **Error isolation**: One teammate crash doesn't kill the lead or other teammates
+- **Logging**: Errors are captured with agent context for debugging
+
+**Kill mechanism** (obfuscated: `killInProcessTeammate` / bZ1):
+
+```javascript
+// ============================================
+// killInProcessTeammate - Abort in-process teammate and clean up resources
+// Location: chunks.113.mjs:1272-1316
+// ============================================
+
+// ORIGINAL (for source lookup):
+function bZ1(A, q) {
+    let K = !1,
+        Y = null,
+        z = null;
+    if (q((_) => {
+            let w = _.tasks[A];
+            if (!w || w.type !== "in_process_teammate") return _;
+            let O = w;
+            if (O.status !== "running") return _;
+            Y = O.identity.teamName, z = O.identity.agentId, O.abortController?.abort(), O.unregisterCleanup?.(), K = !0, O.onIdleCallbacks?.forEach((H) => H());
+            let $ = _.teamContext;
+            if (_.teamContext && _.teamContext.teammates && z) {
+                let {
+                    [z]: H, ...j
+                } = _.teamContext.teammates;
+                $ = {
+                    ..._.teamContext,
+                    teammates: j
+                }
+            }
+            return {
+                ..._,
+                teamContext: $,
+                tasks: {
+                    ..._.tasks,
+                    [A]: {
+                        ...O,
+                        status: "killed",
+                        notified: !0,
+                        endTime: Date.now(),
+                        onIdleCallbacks: [],
+                        messages: O.messages?.length ? [O.messages[O.messages.length - 1]] : void 0,
+                        pendingUserMessages: [],
+                        inProgressToolUseIDs: void 0,
+                        abortController: void 0,
+                        unregisterCleanup: void 0,
+                        currentWorkAbortController: void 0
+                    }
+                }
+            }
+        }), Y && z) ty8(Y, z);
+    if (K) $O(A), setTimeout(VR.bind(null, A, q), mB);
+    if (z) a36(z);
+    return K
+}
+
+// READABLE (for understanding):
+function killInProcessTeammate(taskId, updateAppState) {
+    let wasKilled = false;
+    let teamName = null;
+    let agentId = null;
+
+    // Step 1: Atomically update state and collect cleanup info
+    updateAppState((state) => {
+        const task = state.tasks[taskId];
+        if (!task || task.type !== "in_process_teammate") return state;
+
+        if (task.status !== "running") return state;
+
+        teamName = task.identity.teamName;
+        agentId = task.identity.agentId;
+
+        // Step 1a: Abort the agent loop
+        task.abortController?.abort();
+
+        // Step 1b: Run any registered cleanup handlers
+        task.unregisterCleanup?.();
+
+        wasKilled = true;
+
+        // Step 1c: Notify idle callbacks (for hooks)
+        task.onIdleCallbacks?.forEach((callback) => callback());
+
+        // Step 1d: Remove from teamContext.teammates map
+        let updatedTeamContext = state.teamContext;
+        if (state.teamContext?.teammates && agentId) {
+            const { [agentId]: removed, ...remainingTeammates } = state.teamContext.teammates;
+            updatedTeamContext = {
+                ...state.teamContext,
+                teammates: remainingTeammates
+            };
+        }
+
+        // Step 1e: Mark task as killed with minimal state
+        return {
+            ...state,
+            teamContext: updatedTeamContext,
+            tasks: {
+                ...state.tasks,
+                [taskId]: {
+                    ...task,
+                    status: "killed",
+                    notified: true,
+                    endTime: Date.now(),
+                    onIdleCallbacks: [],           // Clear callbacks
+                    messages: task.messages?.length
+                        ? [task.messages[task.messages.length - 1]]  // Keep only last
+                        : undefined,
+                    pendingUserMessages: [],        // Clear queue
+                    inProgressToolUseIDs: undefined,
+                    abortController: undefined,     // Release reference
+                    unregisterCleanup: undefined,
+                    currentWorkAbortController: undefined
+                }
+            }
+        };
+    });
+
+    // Step 2: Notify team (if team context exists)
+    if (teamName && agentId) {
+        notifyTeamOfTeammateExit(teamName, agentId);
+    }
+
+    // Step 3: Clean up task state after delay
+    if (wasKilled) {
+        flushTaskOutput(taskId);
+        setTimeout(removeTaskFromState.bind(null, taskId, updateAppState), CLEANUP_DELAY_MS);
+    }
+
+    // Step 4: Clean up agent identity context
+    if (agentId) {
+        cleanupAgentIdentity(agentId);
+    }
+
+    return wasKilled;
+}
+
+// Mapping: bZ1→killInProcessTeammate, ty8→notifyTeamOfTeammateExit, $O→flushTaskOutput,
+//          VR→removeTaskFromState, mB→CLEANUP_DELAY_MS, a36→cleanupAgentIdentity
+```
+
+**Why this approach**:
+
+| Design Decision | Rationale |
+|-----------------|-----------|
+| **AbortController first** | Stops LLM calls immediately, preventing wasted API costs |
+| **Clear pendingUserMessages** | Prevents messages from being delivered to dead agent |
+| **Keep last message only** | Preserves final state for debugging while freeing memory |
+| **Delayed task removal** | Allows UI to show "killed" status briefly before cleanup |
+| **Notify team** | Teammates can reassign work that was assigned to killed agent |
+
+### 3.7 Teammate Context (AsyncLocalStorage)
+
+**Identity tracking** across async operations using Node.js AsyncLocalStorage:
+
+```javascript
+// ============================================
+// Teammate Context - AsyncLocalStorage for agent identity tracking
+// Location: chunks.84.mjs:1403-1426
+// ============================================
+
+// ORIGINAL (for source lookup):
+function iM() {
+    return ef8.getStore()
+}
+function UD1(A, q) {
+    return ef8.run(A, q)
+}
+function dD1(A) {
+    return {
+        ...A,
+        isInProcess: !0
+    }
+}
+ef8  // Initialized as: new AsyncLocalStorage
+
+// READABLE (for understanding):
+// Storage instance (initialized lazily)
+let teammateContextStorage = new AsyncLocalStorage();
+
+// Get current teammate context (returns undefined if not in teammate scope)
+function getTeammateContext() {
+    return teammateContextStorage.getStore();
+}
+
+// Run callback with teammate context set
+function runWithTeammateContext(context, callback) {
+    return teammateContextStorage.run(context, callback);
+}
+
+// Create teammate context object with in-process flag
+function createTeammateContext(identity) {
+    return {
+        ...identity,
+        isInProcess: true
+    };
+}
+
+// Mapping: ef8→teammateContextStorage, iM→getTeammateContext,
+//          UD1→runWithTeammateContext, dD1→createTeammateContext
+```
+
+**Why AsyncLocalStorage**:
+
+| Problem | Solution |
+|---------|----------|
+| **Async identity loss** | Callbacks/promises lose `this` context |
+| **Thread-local needed** | Want per-teammate state without passing args everywhere |
+| **Zero-serialization** | No need to pass identity through every function call |
+
+**Usage pattern**:
+
+```javascript
+// At teammate spawn time:
+const context = createTeammateContext({
+    agentId: "550e8400-...",
+    agentName: "backend-dev",
+    teamName: "my-team",
+    parentSessionId: "parent-123"
+});
+
+runWithTeammateContext(context, async () => {
+    // Any async code here can call getTeammateContext()
+    await someDeepFunction();
+
+    // Even in callbacks:
+    setTimeout(() => {
+        const ctx = getTeammateContext();  // Returns context!
+        console.log(ctx.agentName);  // "backend-dev"
+    }, 1000);
+});
+
+// Outside teammate context:
+getTeammateContext();  // Returns undefined
+```
+
+### 3.8 Performance Characteristics
 
 **Spawn time**: ~1-2ms (create object in AppState, start async loop)
 
@@ -1431,13 +1711,14 @@ Team with 5 agents:
 
 Key functions in this document:
 
-- `spawnTeammateDispatcher` (iVY) - Mode selection entry point
-- `isInProcessEnabled` (Rm) - In-process mode detection
-- `spawnInProcessTeammate` (LP1) - In-process spawning
-- `spawnSplitPaneTeammate` (dVY) - Split-pane spawning
-- `spawnSeparateWindowTeammate` (cVY) - Separate window spawning
-- `inProcessPollLoop` (WVY) - 5-level priority polling
-- `inProcessAgentRunner` (GVY) - In-process agent execution
+- `spawnTeammateDispatcher` (pNY) - Mode selection entry point
+- `isInProcessEnabled` (Rb) - In-process mode detection
+- `spawnInProcessTeammate` (FNY) - In-process spawning
+- `spawnSplitPaneTeammate` (BNY) - Split-pane spawning
+- `spawnTmuxTeammate` (gNY) - Separate window spawning (tmux session)
+- `pollForNextMessage` (DNY) - 5-level priority polling
+- `inProcessAgentRunner` (XNY) - In-process agent execution
+- `claimUnclaimedTask` (Ji4) - Auto-claim available tasks
 - `getBackend` (zt) - Backend detection and instantiation
 - `TmuxBackend` (fEA) - tmux backend implementation
 - `ITermBackend` (EEA) - iTerm2 backend implementation
@@ -1446,16 +1727,26 @@ Key functions in this document:
 
 ## Source Locations
 
-- `chunks.131.mjs:2467` - spawnTeammateDispatcher
-- `chunks.131.mjs:1586` - isInProcessEnabled
-- `chunks.123.mjs:242` - spawnInProcessTeammate
-- `chunks.131.mjs:260` - inProcessPollLoop
-- `chunks.131.mjs:347` - inProcessAgentRunner
-- `chunks.131.mjs:2077` - spawnSplitPaneTeammate
-- `chunks.131.mjs:2202` - spawnSeparateWindowTeammate
-- `chunks.131.mjs:1493` - getBackend
+- `chunks.135.mjs:1110` - spawnTeammateDispatcher (pNY)
+- `chunks.135.mjs:208` - isInProcessEnabled (Rb)
+- `chunks.135.mjs:985` - spawnInProcessTeammate (FNY)
+- `chunks.135.mjs:711` - spawnSplitPaneTeammate (BNY)
+- `chunks.135.mjs:838` - spawnTmuxTeammate (gNY)
+- `chunks.134.mjs:1483` - pollForNextMessage (DNY)
+- `chunks.134.mjs:1571` - inProcessAgentRunner (XNY)
+- `chunks.134.mjs` - claimUnclaimedTask (Ji4)
+- `chunks.131.mjs:1493` - getBackend (zt)
 - `chunks.131.mjs:1144` - TmuxBackend class
 - `chunks.131.mjs:1381` - ITermBackend class
+
+## Cross-References
+
+- **[01_complete_chain_analysis.md](./01_complete_chain_analysis.md)** - Complete team creation and spawning flow
+- **[pane_backend_executor.md](./pane_backend_executor.md)** - Backend class implementation details
+- **[03_mailbox_and_locking.md](./03_mailbox_and_locking.md)** - Mailbox communication for pane-based teammates
+- **[04_polling_priorities.md](./04_polling_priorities.md)** - 5-level priority polling algorithm
+- **[06_system_prompts_and_reminders.md](./06_system_prompts_and_reminders.md)** - System prompt construction for teammates
+- **[../08_subagent/](../08_subagent/)** - Comparison with subagent spawning architecture
 
 ---
 

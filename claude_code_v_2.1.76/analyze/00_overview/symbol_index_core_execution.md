@@ -457,6 +457,10 @@
 | - | TOOL_NAME_EXIT_WORKTREE | chunks.89.mjs | constant ("ExitWorktree") |
 | - | ExitWorktreeTool | chunks.139.mjs | tool object |
 
+**Plan file write bypass:** Write/Edit tools use `checkEditPermissions` (N51, line 123 / Xz6, line 191)
+to return `{behavior: "allow"}` for plan file paths, bypassing the plan mode restriction.
+See tools_filtering.md §7 and 16_file_system/overview.md §3.
+
 ### Skill & ToolSearch Tools
 
 | Obfuscated | Readable | File:Line | Type |
@@ -518,6 +522,32 @@
 | pY6 | readUnreadMessages | chunks.132.mjs:16 | function |
 | $TY | clearMailbox | chunks.132.mjs:128 | function |
 | HTY | formatMailboxMessages | chunks.132.mjs:141 | function |
+| FY6 | getInboxPath | chunks.131.mjs:2849 | function |
+| OTY | ensureInboxDirectoryExists | chunks.131.mjs:2858 | function |
+| Nc6 | properLockfile | chunks.132.mjs:437 | import |
+| iv1 | lockOptions | chunks.132.mjs:463 | object |
+
+### Teammate Shutdown Symbols
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| YxY | handleShutdownApproval | chunks.145.mjs:2443 | function |
+| zxY | handleShutdownRejection | chunks.145.mjs | function |
+| Wf6 | createShutdownRequest | chunks.132.mjs:261 | function |
+| Gx8 | createShutdownApproved | chunks.132.mjs:271 | function |
+| fx8 | createShutdownRejected | chunks.132.mjs:282 | function |
+| M66 | parseShutdownRequest | chunks.132.mjs:312 | function |
+| Lf | parseShutdownApproved | chunks.132.mjs:328 | function |
+| bZ1 | killInProcessTeammate | chunks.113.mjs:1272 | function |
+
+### Teammate Message Types
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ec6 | createIdleNotification | chunks.132.mjs:153 | function |
+| yc6 | parseIdleNotification | chunks.132.mjs:166 | function |
+| Xx8 | createPermissionRequest | chunks.132.mjs:174 | function |
+| Px8 | createPermissionResponse | chunks.132.mjs:187 | function |
 
 ### Agent Loop Runner Symbols
 
@@ -632,6 +662,9 @@
 > - `chunks.173.mjs` - XML wrappers, plan/auto mode reminders (formatting layer)
 
 ### Core Attachment Functions
+
+> **Note**: `Ui8` (normalizeAttachmentForAPI) handles `team_context` type attachments at lines 9-37,
+> generating the "You are a teammate in team..." system reminder message for agent coordination.
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
@@ -1086,6 +1119,8 @@
 | MVY | findUnclaimedTask | chunks.131.mjs:222 | function |
 | PVY | buildTaskPrompt | chunks.131.mjs:231 | function |
 | XVY | createPermissionHandler | chunks.131.mjs:3 | function |
+| BY | TEAM_LEAD_ID | chunks.131.mjs:1981 | constant ("team-lead") |
+| jNY | sleep | chunks.134.mjs:1441 | function (polling delay) |
 
 ---
 

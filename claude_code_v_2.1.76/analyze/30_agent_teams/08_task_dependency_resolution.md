@@ -38,7 +38,7 @@ Task dependency resolution implements a **directed acyclic graph (DAG) traversal
 - Task creation API is simpler — fewer required fields reduces friction for LLM-generated task specs
 
 **Key algorithms**:
-- `findNextAvailableTask` (MVY) - Finds first pending, unclaimed, unblocked task
+- `findNextAvailableTask` (JNY) - Finds first pending, unclaimed, unblocked task
 - `attemptToClaimTask` (o7A) - Atomic claim operation with dependency validation
 - `addDependency` (r7A) - Updates bidirectional dependency links
 - Task deletion cleanup - Removes deleted tasks from all dependency lists
@@ -404,16 +404,21 @@ Agent action: Find next unblocked task, or wait
 ```javascript
 // ============================================
 // findNextAvailableTask - Finds first claimable task
-// Location: chunks.48.mjs:561-591
+// Location: chunks.134.mjs:1445-1452
 // ============================================
 
+// ORIGINAL (for source lookup):
+function JNY(A) {
+    let q = new Set(A.filter((K) => K.status !== "completed").map((K) => K.id));
+    return A.find((K) => {
+        if (K.status !== "pending") return !1;
+        if (K.owner) return !1;
+        return K.blockedBy.every((Y) => !q.has(Y))
+    })
+}
+
 // READABLE (for understanding):
-function findNextAvailableTask(storageContext) {
-    let allTasks = getAllTasks(storageContext);
-
-    // Build set of all existing task IDs (for v2.1.76 missing-ID handling)
-    let allTaskIds = new Set(allTasks.map(t => t.id));
-
+function findNextAvailableTask(allTasks) {
     // Build set of active (non-completed) task IDs for blocking check
     let activeTaskIds = new Set(
         allTasks
@@ -427,20 +432,16 @@ function findNextAvailableTask(storageContext) {
         if (task.status !== "pending") return false;
 
         // Must not be claimed by another agent
-        if (task.owner !== null && task.owner !== undefined) return false;
+        if (task.owner) return false;
 
         // Must not be blocked by any active task
-        // v2.1.76: Missing task IDs (deleted tasks) are treated as resolved
-        let hasActiveBlocker = task.blockedBy.some(blockerId =>
-            allTaskIds.has(blockerId) && activeTaskIds.has(blockerId)
-        );
-        if (hasActiveBlocker) return false;
-
-        return true;  // This task is claimable
-    }) ?? null;
+        // Missing task IDs (deleted tasks) are treated as resolved
+        // (they won't be in activeTaskIds, so !has() returns true)
+        return task.blockedBy.every(blockerId => !activeTaskIds.has(blockerId));
+    });
 }
 
-// Mapping: MVY->findNextAvailableTask
+// Mapping: JNY→findNextAvailableTask, A→allTasks, q→activeTaskIds, K→task, Y→blockerId
 ```
 
 ### 5.2 Claim Retry Logic
@@ -737,7 +738,7 @@ Next poll: Agent A re-reads allTasks -> Task #1 is "completed" -> Task #2 unbloc
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `findNextAvailableTask` (MVY) - Find first claimable task (chunks.48.mjs:561)
+- `findNextAvailableTask` (JNY) - Find first claimable task @ chunks.134.mjs:1445
 - `attemptToClaimTask` (o7A) - Atomic task claim with dependency check (chunks.48.mjs:593)
 - `addDependency` (r7A) - Add bidirectional dependency link (chunks.48.mjs:643)
 - `getAllTasks` (WX) - Read all tasks from storage (chunks.48.mjs)

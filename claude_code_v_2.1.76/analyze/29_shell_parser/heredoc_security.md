@@ -15,37 +15,46 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `extractHeredocs` (XT6) - Identifies and extracts heredoc blocks from a command, replacing them with placeholders
-- `restoreHeredocs` (r9z) - Restores heredoc placeholders back to original content
-- `restoreHeredocsInList` (eBA) - Applies heredoc restoration to a list of parsed tokens
-- `parseShellCommand` (rZ1) - Tokenizes a shell command while preserving heredocs
-- `extractSubcommands` (AD) - Splits a compound command into individual subcommands
-- `bashPreFlightCheck` (AYz) - LLM-based command prefix extraction for permission matching
-- `runSecurityChecks` (lm) - Master security validation pipeline for bash commands
-- `checkEmptyCommand` (ndY) - Passes empty commands as safe
-- `checkIncompleteCommand` (rdY) - Detects fragments (starts with tab, flag, or operator)
-- `checkHeredocInSubstitution` (adY) - Validates `$( cat <<DELIM ... )` patterns
-- `checkQuotedHeredoc` (tdY) - Allows heredocs with quoted/escaped delimiters
-- `checkGitCommitMessage` (sdY) - Special handling for git commit -m with substitution detection
-- `checkJqCommand` (edY) - Detects jq `system()` and dangerous file-reading flags (**NOT** checkDangerousPatterns)
-- `checkDangerousPatterns` (KcY) - Detects backticks, `$()`, `${}`, `<()`, `>()` and redirections
-- `checkObfuscatedFlags` ($cY) - Detects ANSI-C quoting, locale quoting, and quoted flag names
-- `checkShellMetacharacters` (AcY) - Detects `;`, `|`, `&` in quoted arguments
-- `checkDangerousVariables` (qcY) - Detects variables in redirection/pipe contexts
-- `checkNewlines` (YcY) - Detects newlines that could separate multiple commands
-- `checkIFSInjection` (zcY) - Detects `$IFS` or `${...IFS` variable manipulation
-- `checkProcEnviron` (wcY) - Detects `/proc/*/environ` access
-- `checkMalformedTokenInjection` (HcY) - Detects ambiguous syntax with command separators
-- `stripQuotes` (cdY) - Removes quotes from command content for deep inspection
-- `stripRedirections` (ldY) - Removes safe redirect patterns before analysis
-- `SECURITY_CHECK_IDS` (kH) - Enum of all security check identifiers for telemetry
-- `DANGEROUS_PATTERNS` (ddY) - Array of regex patterns for dangerous shell constructs
-- `HEREDOC_IN_SUBSTITUTION_PATTERN` (PhA) - Regex: `/\$\(.*<</`
-- `shellTokenize` (pz) - External shell tokenizer (bash-parser)
+- `extractHeredocs` (ca) - Identifies and extracts heredoc blocks from a command, replacing them with placeholders
+- `parseShellCommand` (bW6) - Tokenizes a shell command while preserving heredocs
+- `extractSubcommands` (EO) - Splits a compound command into individual subcommands
+- `bashPreFlightCheck` (nGq) - LLM-based command prefix extraction for permission matching
+- `runSecurityChecksSync` (Rp6) - Master security validation pipeline (sync, no tree-sitter)
+- `runSecurityChecksAsync` (O01) - Master security validation pipeline (async, with tree-sitter)
+- `checkEmptyCommand` (uY4) - Passes empty commands as safe
+- `checkIncompleteCommand` (mY4) - Detects fragments (starts with tab, flag, or operator)
+- `checkHeredocInSubstitution` (gY4) - Validates `$( cat <<DELIM ... )` patterns
+- `isQuotedHeredocInSubstitution` (Hg9) - Detailed check for heredoc-in-$() safety
+- `checkGitCommitMessage` (FY4) - Special handling for git commit -m with substitution detection
+- `checkJqCommand` (pY4) - Detects jq `system()` and dangerous file-reading flags
+- `checkDangerousPatterns` (dY4) - Detects backticks, `$()`, `${}`, `<()`, `>()` and redirections
+- `checkObfuscatedFlags` (rY4) - Detects ANSI-C quoting, locale quoting, and quoted flag names
+- `checkShellMetacharacters` (QY4) - Detects `;`, `|`, `&` in quoted arguments
+- `checkDangerousVariables` (UY4) - Detects variables in redirection/pipe contexts
+- `checkNewlines` (w01) - Detects newlines that could separate multiple commands
+- `checkIFSInjection` (lY4) - Detects `$IFS` or `${...IFS` variable manipulation
+- `checkProcEnviron` (iY4) - Detects `/proc/*/environ` access
+- `checkMalformedTokenInjection` (nY4) - Detects ambiguous syntax with command separators
+- `checkBackslashEscapedWhitespace` (oY4) - Detects `\` before space/tab
+- `checkBraceExpansion` (sY4) - Detects `{a,b}` and `{1..3}` patterns
+- `checkUnicodeWhitespace` (tY4) - Detects non-ASCII whitespace characters
+- `checkMidWordHash` (eY4) - Detects `#` in middle of word
+- `checkZshDangerousCommands` (Kz4) - Detects zmodload, emulate, sysopen, etc.
+- `checkBackslashEscapedOperators` (aY4) - Detects `\;`, `\|`, `\&`, `\<`, `\>`
+- `checkCommentQuoteDesync` (Az4) - Detects quote inside `#` comment
+- `checkQuotedNewline` (qz4) - Detects quoted newline + `#` pattern
+- `stripQuotes` (bY4) - Removes quotes from command content for deep inspection
+- `stripRedirections` (xY4) - Removes safe redirect patterns before analysis
+- `SECURITY_CHECK_IDS` (w3) - Enum of all security check identifiers for telemetry
+- `DANGEROUS_PATTERNS` (wg9) - Array of regex patterns for dangerous shell constructs
+- `HEREDOC_IN_SUBSTITUTION_PATTERN` (lV8) - Regex: `/\$\(.*<</`
+- `ZSH_DANGEROUS_COMMANDS` (Og9) - Set of Zsh-specific dangerous commands
+- `SHELL_OPERATORS` (Jg9) - Set of shell operator characters
+- `UNICODE_WHITESPACE_REGEX` (Dg9) - Regex for non-ASCII whitespace
+- `CONTROL_CHARACTERS_REGEX` (Yz4) - Regex for non-printable control chars
 
-> **Correction notice:** The original document incorrectly labeled `edY` as `checkDangerousPatterns`.
-> The actual `edY` function is `checkJqCommand` (jq system() and file flag detection).
-> The dangerous pattern check is `KcY`. See [implementation.md](./implementation.md) for full details.
+> **Note:** All symbol mappings have been verified against the actual source code in chunks.91.mjs,
+> chunks.171.mjs, chunks.172.mjs, and chunks.56.mjs.
 
 ---
 
@@ -74,36 +83,36 @@ Command from LLM
        ▼
 ┌──────────────────────────────┐
 │ Phase 1: Static Security     │
-│ Checks (lm / runSecurityChec│
-│ ks)                          │
+│ Checks (Rp6/O01)             │
 │                              │
 │ ┌──────────────────────────┐ │
 │ │ Early Allow Checks       │ │
-│ │ 1. Empty command         │ │
+│ │ 1. Empty command (uY4)   │ │
 │ │ 2. Incomplete fragment   │ │
-│ │ 3. Heredoc in $()        │ │
-│ │ 4. Quoted heredoc        │ │
-│ │ 5. Git commit message    │ │
+│ │    (mY4)                 │ │
+│ │ 3. Heredoc in $() (gY4)  │ │
+│ │ 4. Git commit (FY4)      │ │
 │ └──────────┬───────────────┘ │
 │            │ passthrough     │
 │ ┌──────────▼───────────────┐ │
 │ │ Security Violation Checks│ │
-│ │ 6. Dangerous patterns    │ │
-│ │ 7. Obfuscated flags      │ │
-│ │ 8. JQ system functions   │ │
-│ │ 9. JQ file args          │ │
-│ │ 10. Newlines             │ │
-│ │ 11. IFS injection        │ │
-│ │ 12. /proc/environ        │ │
-│ │ 13. Shell metacharacters │ │
-│ │ 14. Malformed tokens     │ │
+│ │ 6-14. Original checks    │ │
+│ │ 15. Backslash whitespace │ │
+│ │ 16. Brace expansion      │ │
+│ │ 17. Control characters   │ │
+│ │ 18. Unicode whitespace   │ │
+│ │ 19. Mid-word hash        │ │
+│ │ 20. Zsh dangerous cmds   │ │
+│ │ 21. Backslash operators  │ │
+│ │ 22. Comment quote desync │ │
+│ │ 23. Quoted newline       │ │
 │ └──────────┬───────────────┘ │
 └────────────┼────────────────┘
              │
              ▼ "passthrough" = safe, "ask" = needs user approval
 ┌──────────────────────────────┐
 │ Phase 2: LLM Prefix Check    │
-│ (AYz / bashPreFlightCheck)   │
+│ (nGq / bashPreFlightCheck)   │
 │                              │
 │ Extracts command prefix:      │
 │ "git commit" → allowed        │
@@ -132,148 +141,310 @@ Without heredoc awareness, the security system would:
 - Flag `#` as a comment injection
 - Misparse the multi-line structure
 
-### extractHeredocs (XT6)
+### extractHeredocs (ca) — Complete Source Restoration
 
 **What it does:** Identifies all heredoc blocks in a command, replaces them with unique placeholders, and returns both the processed command and a map of placeholder-to-original-content.
 
-**How it works (step by step):**
-
-1. **Quick check**: If the command does not contain `<<`, return immediately (no heredocs)
-2. **Regex scan**: Find all heredoc operators using the pattern `<<(-)?['"]?\\?(\w+)['"]?`
-   - Captures the `-` (tab-stripping) flag
-   - Captures the delimiter name (e.g., `EOF`, `DELIM`)
-   - Handles quoted (`'EOF'`) and escaped (`\EOF`) delimiters
-3. **Filter false positives**: Skip matches inside string quotes or comments
-4. **Find delimiter end**: For each heredoc, scan subsequent lines for the closing delimiter
-   - If `-` flag: strip leading tabs before comparing
-   - If no `-`: exact line match required
-5. **Handle nesting**: Filter out heredoc operators that appear inside another heredoc's content
-6. **Generate placeholders**: Each heredoc gets a unique placeholder: `__HEREDOC_{index}_{randomHex}__`
-7. **Replace**: Substitute the original heredoc (operator + content + closing delimiter) with the placeholder
+**Location:** chunks.56.mjs:945-1160
 
 ```javascript
 // ============================================
 // extractHeredocs - Extract heredoc blocks and replace with placeholders
-// Location: chunks.169.mjs:1596-1678
+// Location: chunks.56.mjs:945-1160
 // ============================================
 
 // ORIGINAL (for source lookup):
-function XT6(A) {
-    let q = new Map;
-    if (!A.includes("<<")) return { processedCommand: A, heredocs: q };
-    let K = new RegExp(l9z.source, "g"), Y = [], z;
-    while ((z = K.exec(A)) !== null) {
-        let _ = z.index;
-        if (i9z(A, _)) continue;      // Inside quotes
-        if (n9z(A, _)) continue;      // In comment
-        let J = z[0], X = z[1] === "-", D = z[3], j = _ + J.length,
-            P = A.slice(j).indexOf("\n");
-        if (P === -1) continue;
-        let W = j + P, f = A.slice(W + 1).split("\n"), Z = -1;
-        for (let m = 0; m < f.length; m++) {
-            let b = f[m];
-            if (X) { if (b.replace(/^\t*/, "") === D) { Z = m; break } }
-            else if (b === D) { Z = m; break }
-        }
-        if (Z === -1) continue;
-        // ... compute full text boundaries ...
-        Y.push({ fullText: S, delimiter: D, operatorStartIndex: _, ... })
+function ca(A, q) {
+    let K = new Map;
+    if (!A.includes("<<")) return { processedCommand: A, heredocs: K };
+    if (/\$['"]/.test(A)) return { processedCommand: A, heredocs: K };
+    let Y = A.indexOf("<<");
+    if (Y > 0 && A.slice(0, Y).includes("`")) return { processedCommand: A, heredocs: K };
+    if (Y > 0) {
+        let f = A.slice(0, Y), v = (f.match(/\(\(/g) || []).length,
+            N = (f.match(/\)\)/g) || []).length;
+        if (v > N) return { processedCommand: A, heredocs: K }
     }
-    if (Y.length === 0) return { processedCommand: A, heredocs: q };
-    // Filter nested heredocs, sort, generate placeholders...
-    let $ = c9z();  // random hex
-    w.forEach((_, J) => {
-        let D = `${p9z}${X}_${$}${d9z}`;
-        q.set(D, _);
-        O = O.slice(0, _.operatorStartIndex) + D + O.slice(_.operatorEndIndex, ...)
+    let z = new RegExp(Lu3.source, "g"), _ = [], w = [], O, $ = 0,
+        H = !1, j = !1, J = !1, M = !1, D = 0,
+        X = (f) => {
+            for (let v = $; v < f; v++) {
+                let N = A[v];
+                if (N === "\n") J = !1;
+                if (H) { if (N === "'") H = !1; continue }
+                if (j) {
+                    if (M) { M = !1; continue }
+                    if (N === "\\") { M = !0; continue }
+                    if (N === '"') j = !1; continue
+                }
+                if (N === "\\") { D++; continue }
+                let V = D % 2 === 1;
+                if (D = 0, V) continue;
+                if (N === "'") H = !0;
+                else if (N === '"') j = !0;
+                else if (!J && N === "#") J = !0
+            }
+            $ = f
+        };
+    while ((O = z.exec(A)) !== null) {
+        let f = O.index;
+        if (X(f), H || j) continue;
+        if (J) continue;
+        if (D % 2 === 1) continue;
+        let v = !1;
+        for (let z6 of w)
+            if (f > z6.contentStartIndex && f < z6.contentEndIndex) { v = !0; break }
+        if (v) continue;
+        // ... parse delimiter, find content boundaries, record match ...
+        let N = O[0], V = O[1] === "-", L = O[3] || O[4],
+            h = f + N.length, R = O[2];
+        if (R && A[h - 1] !== R) continue;
+        let u = N.includes("\\"), I = !!R || u;
+        // ... find newline after operator, find closing delimiter ...
+        _.push({
+            fullText: X6,
+            delimiter: L,
+            operatorStartIndex: f,
+            operatorEndIndex: h,
+            contentStartIndex: p,
+            contentEndIndex: H6
+        })
+    }
+    if (_.length === 0) return { processedCommand: A, heredocs: K };
+    let P = _.filter((f, v, N) => {
+        for (let V of N) {
+            if (f === V) continue;
+            if (f.operatorStartIndex > V.contentStartIndex && f.operatorStartIndex < V.contentEndIndex) return !1
+        }
+        return !0
     });
-    return { processedCommand: O, heredocs: q }
+    P.sort((f, v) => v.contentEndIndex - f.contentEndIndex);
+    let Z = yu3(), G = A;
+    return P.forEach((f, v) => {
+        let N = P.length - 1 - v, V = `__HEREDOC_${N}_${Z}__`;
+        K.set(V, f), G = G.slice(0, f.operatorStartIndex) + V + G.slice(f.operatorEndIndex, f.contentStartIndex) + G.slice(f.contentEndIndex)
+    }), { processedCommand: G, heredocs: K }
 }
 
-// READABLE (for understanding):
-function extractHeredocs(command) {
-    let heredocMap = new Map;
-    if (!command.includes("<<")) return { processedCommand: command, heredocs: heredocMap };
-
-    let matches = [];
-    // Find all heredoc operators (<<, <<-)
-    for (let match of command.matchAll(HEREDOC_REGEX)) {
-        let pos = match.index;
-        if (isInsideQuotes(command, pos)) continue;
-        if (isInComment(command, pos)) continue;
-
-        let isTabStripping = match[1] === "-";
-        let delimiter = match[3];
-        let operatorEnd = pos + match[0].length;
-
-        // Find the content start (next line)
-        let newlinePos = command.slice(operatorEnd).indexOf("\n");
-        if (newlinePos === -1) continue;
-        let contentStart = operatorEnd + newlinePos;
-
-        // Find closing delimiter
-        let lines = command.slice(contentStart + 1).split("\n");
-        let closingLine = -1;
-        for (let i = 0; i < lines.length; i++) {
-            let line = isTabStripping ? lines[i].replace(/^\t*/, "") : lines[i];
-            if (line === delimiter) { closingLine = i; break; }
-        }
-        if (closingLine === -1) continue;  // Unclosed heredoc
-
-        matches.push({ delimiter, operatorStartIndex: pos, contentStartIndex: contentStart, ... });
-    }
-
-    if (matches.length === 0) return { processedCommand: command, heredocs: heredocMap };
-
-    // Filter: remove heredoc operators that appear inside another heredoc's content
-    let filtered = matches.filter(m => {
-        return !matches.some(other => m !== other &&
-            m.operatorStartIndex > other.contentStartIndex &&
-            m.operatorStartIndex < other.contentEndIndex);
-    });
-
-    // Replace each heredoc with a unique placeholder
-    let randomHex = generateRandomHex();
-    let processed = command;
-    filtered.sort((a, b) => b.contentEndIndex - a.contentEndIndex);  // Process from end to preserve indices
-    filtered.forEach((heredoc, i) => {
-        let placeholder = `__HEREDOC_${filtered.length - 1 - i}_${randomHex}__`;
-        heredocMap.set(placeholder, heredoc);
-        processed = processed.slice(0, heredoc.operatorStartIndex) + placeholder +
-                    processed.slice(heredoc.operatorEndIndex, heredoc.contentStartIndex) +
-                    processed.slice(heredoc.contentEndIndex);
-    });
-
-    return { processedCommand: processed, heredocs: heredocMap };
-}
-
-// Mapping: XT6→extractHeredocs, A→command, q→heredocMap, l9z→HEREDOC_REGEX,
-//   i9z→isInsideQuotes, n9z→isInComment, c9z→generateRandomHex,
-//   p9z→"__HEREDOC_", d9z→"__"
+// Mapping: ca→extractHeredocs, A→command, q→options, K→heredocMap,
+//          H→inSingleQuote, j→inDoubleQuote, J→inComment, M→escapedInDouble,
+//          D→backslashCount, $→lastProcessedIndex, Lu3→HEREDOC_REGEX, yu3→generateRandomHex
 ```
 
-**Why this approach:**
+### Quote/Comment Context Tracking State Machine
 
-1. **Placeholder-based extraction** allows downstream tokenizers and security checks to operate on a "clean" command without being confused by heredoc content. The placeholders are designed to be syntactically valid identifiers (no special characters) so they do not trigger false positives in pattern matching.
+The heredoc extraction uses a multi-state tracking system to determine whether a `<<` operator is inside a quoted string or comment. This is critical because:
 
-2. **Reverse-order replacement** (sort by descending end position) preserves string indices during substitution. If you replace from the beginning, each replacement shifts the positions of subsequent matches.
+1. `echo "hello << world"` — The `<<` inside double quotes is NOT a heredoc
+2. `echo 'hello << world'` — The `<<` inside single quotes is NOT a heredoc
+3. `echo hello # << not a heredoc` — The `<<` inside a comment is NOT a heredoc
+4. `echo hello \\<< world` — The escaped `<<` is NOT a heredoc
 
-3. **Nesting detection** handles the edge case of heredoc operators inside another heredoc's content. For example:
+**State Machine Diagram:**
+
+```
+                    ┌─────────────────────────────────────┐
+                    │           DEFAULT STATE              │
+                    │  (outside quotes and comments)       │
+                    └──────────────┬──────────────────────┘
+                                   │
+        ┌──────────────────────────┼──────────────────────────┐
+        │                          │                          │
+        │ ' (single quote)         │ " (double quote)         │ # (hash)
+        │                          │                          │
+        ▼                          ▼                          ▼
+┌───────────────┐        ┌───────────────┐        ┌───────────────┐
+│ SINGLE_QUOTE  │        │ DOUBLE_QUOTE  │        │   COMMENT     │
+│    State      │        │    State      │        │    State      │
+│               │        │               │        │               │
+│ No escapes    │        │ \ = escape    │        │ Ignore all    │
+│ recognized    │        │ next char     │        │ until \n      │
+│               │        │               │        │               │
+│ ' exits       │        │ " exits       │        │ \n exits      │
+└───────────────┘        └───────────────┘        └───────────────┘
+
+Also tracked: backslash count outside quotes
+  - Odd count: next character is escaped
+  - Even count: not escaped
+```
+
+**State Variables:**
+
+| Variable | Name | Purpose |
+|----------|------|---------|
+| `H` | inSingleQuote | True when inside `'...'` |
+| `j` | inDoubleQuote | True when inside `"..."` |
+| `J` | inComment | True when after `#` outside quotes |
+| `M` | escapedInDouble | True after `\` inside double quotes |
+| `D` | backslashCount | Count of consecutive backslashes outside quotes |
+| `$` | lastProcessedIndex | Optimizes state machine to not re-scan |
+
+**Key insight:** Single quotes in bash have NO escape sequences. A backslash inside `'...'` is a literal backslash. The state machine correctly handles this by NOT checking for escapes when `H` (inSingleQuote) is true.
+
+### Early Exit Conditions
+
+The function has several early exit conditions to avoid complex parsing when heredocs are impossible or unsafe to extract:
+
+```javascript
+// No heredoc operators
+if (!A.includes("<<")) return { processedCommand: A, heredocs: K };
+
+// ANSI-C or locale quoting present - complex parsing, skip
+if (/\$['"]/.test(A)) return { processedCommand: A, heredocs: K };
+
+// Backticks before << - might be command substitution context
+if (Y > 0 && A.slice(0, Y).includes("`")) return { processedCommand: A, heredocs: K };
+
+// Unbalanced arithmetic expansion before << - parsing confusion
+if (v > N) return { processedCommand: A, heredocs: K }
+```
+
+### Heredoc Regex Pattern
+
+```javascript
+// Lu3 - Heredoc operator regex
+// Location: chunks.56.mjs:1181
+Lu3 = /(?<!<)<<(?!<)(-)?[ \t]*(?:(['"])(\\?\w+)\2|\\?(\w+))/
+
+// Explanation:
+// (?<!<)        - Not preceded by < (avoid matching <<<)
+// <<            - The heredoc operator
+// (?!<)         - Not followed by < (avoid matching <<<)
+// (-)?          - Optional tab-stripping flag
+// [ \t]*        - Optional whitespace
+// (?:(['"])(\\?\w+)\2|\\?(\w+))  - Delimiter:
+//   (['"])(\\?\w+)\2            - Quoted delimiter: 'EOF' or "EOF"
+//   |\\?(\w+)                   - Unquoted or escaped: EOF or \EOF
+```
+
+### Delimiter Matching
+
+For each potential heredoc, the algorithm:
+
+1. **Finds the content start**: The first newline after the operator
+2. **Searches for closing delimiter**: Line-by-line comparison
+3. **Handles tab-stripping**: If `<<-` was used, strip leading tabs from content lines before comparing
+
+```javascript
+// Tab-stripping comparison
+if (V) {  // V = isTabStripping
+    if (N6.replace(/^\t*/, "") === L) { r = z6; break }
+} else {
+    if (N6 === L) { r = z6; break }
+}
+```
+
+### Nesting Detection
+
+The algorithm correctly handles heredoc operators that appear inside another heredoc's content:
+
+```javascript
+// Filter: remove heredoc operators that appear inside another heredoc's content
+let P = _.filter((f, v, N) => {
+    for (let V of N) {
+        if (f === V) continue;
+        if (f.operatorStartIndex > V.contentStartIndex && f.operatorStartIndex < V.contentEndIndex) return !1
+    }
+    return !0
+});
+```
+
+**Example:**
+```bash
+cat <<OUTER
+This has <<INSIDE which is just text
+OUTER
+```
+The `<<INSIDE` is inside `OUTER`'s content (between contentStartIndex and contentEndIndex), so it's filtered out.
+
+### Placeholder Generation
+
+```javascript
+// generateRandomHex (yu3) - Location: chunks.56.mjs:941
+function yu3() {
+    return Vu3(8).toString("hex")  // 8 random bytes → 16 hex chars
+}
+
+// Placeholder format: __HEREDOC_N_HEXADECIMAL__
+// Example: __HEREDOC_0_a3f4b2c5d6e7f8a9__
+```
+
+**Why this format:**
+1. Double underscores make collision with actual content unlikely
+2. Index allows reverse-mapping during restoration
+3. Random hex suffix prevents collision if command literally contains `__HEREDOC_0__`
+
+### Restoration
+
+```javascript
+// restoreHeredocsInList (aw8) - Location: chunks.56.mjs:1169
+function aw8(A, q) {
+    if (q.size === 0) return A;
+    return A.map((K) => Ru3(K, q))
+}
+
+// restoreHeredocsInString (Ru3) - Location: chunks.56.mjs:1163
+function Ru3(A, q) {
+    let K = A;
+    for (let [Y, z] of q) K = K.replaceAll(Y, z.fullText);
+    return K
+}
+
+// Mapping: aw8→restoreHeredocsInList, Ru3→restoreHeredocsInString
+```
+
+### Security Implications
+
+**Why heredoc extraction matters for security:**
+
+1. **Prevents false positives**: Heredoc content often contains text that looks like commands:
    ```bash
-   cat <<OUTER
-   This contains << but is just text
-   OUTER
+   cat <<EOF
+   rm -rf /  # This is documentation, not a command
+   git push --force  # Example of dangerous command
+   EOF
    ```
+   Without extraction, the security pipeline would flag `rm -rf /` and `git push --force`.
 
-4. **Quote and comment awareness** (`isInsideQuotes`, `isInComment`) prevents false matching of `<<` operators inside string literals or comments.
+2. **Handles quote context correctly**: The state machine ensures we don't extract `<<` from inside strings:
+   ```bash
+   echo "Please use << for heredocs"
+   ```
+   The `<<` here is literal text, not a heredoc operator.
 
-**Key insight:** The random hex in placeholder names (`__HEREDOC_0_a3f4b2__`) prevents collision with actual command content. If a command legitimately contained `__HEREDOC_0__`, the random suffix makes accidental matches virtually impossible.
+3. **Detects heredoc-in-substitution attacks**:
+   ```bash
+   $(cat <<EOF
+   malicious content
+   EOF
+   )
+   ```
+   The `checkHeredocInSubstitution` (gY4) check validates these patterns.
+
+4. **Quoted delimiter detection**: Heredocs with quoted delimiters (`<<'EOF'`) prevent variable expansion, making them safer:
+   ```bash
+   cat <<'EOF'
+   $HOME is literal text, not expanded
+   EOF
+   ```
+   The `Hg9` (isQuotedHeredocInSubstitution) helper validates these patterns within `gY4`.
+
+### Edge Cases
+
+| Case | Example | Handling |
+|------|---------|----------|
+| Heredoc in `$()` | `$(cat <<EOF\n...\nEOF)` | Early exit if backticks present, otherwise extracted |
+| Unbalanced arithmetic | `((1+2 << 3)` | Early exit if `((` count > `))` count |
+| Escaped `<<` | `echo \\<< not heredoc` | Detected via backslash count, skipped |
+| Multiple heredocs | `cat <<A\na\nA <<B\nb\nB` | Both extracted, sorted by position |
+| Nested operators | `cat <<X\n<<Y\nX` | Inner `<<Y` filtered as inside X's content |
+| Missing delimiter | `cat <<EOF\nno closing` | Skipped (no content end found) |
 
 ---
 
 ## Deep Analysis: Security Check Pipeline
 
-### runSecurityChecks (lm)
+### runSecurityChecks (zg9)
 
 **What it does:** The master function that orchestrates all security checks on a bash command. Returns either `"passthrough"` (safe), `"allow"` (explicitly safe), or `"ask"` (needs user confirmation).
 
@@ -282,7 +453,7 @@ function extractHeredocs(command) {
 1. **Pre-check**: Detect single-quoted backslash bypass patterns (`CY8`)
 2. **Extract base command**: The first word of the command (e.g., `git`, `npm`, `cat`)
 3. **Strip quotes**: Remove single and double quotes to examine the unquoted content
-4. **Build context object**: `{ originalCommand, baseCommand, unquotedContent, fullyUnquotedContent }`
+4. **Build context object**: `{ originalCommand, baseCommand, unquotedContent, fullyUnquotedContent, fullyUnquotedPreStrip }`
 5. **Run allow-list checks**: These can short-circuit with "allow" (safe to run)
 6. **Run deny-list checks**: These can short-circuit with "ask" (needs user confirmation)
 7. **Default**: If no check triggers, return "passthrough" (defer to prefix matching)
@@ -290,47 +461,27 @@ function extractHeredocs(command) {
 ```javascript
 // ============================================
 // runSecurityChecks - Master security validation pipeline
-// Location: chunks.150.mjs:321-355
+// Location: chunks.91.mjs:1104
 // ============================================
 
-// ORIGINAL (for source lookup):
-function lm(A) {
-    if (CY8(A)) return { behavior: "ask", message: "..." };
-    let q = A.split(" ")[0] || "",
-        { withDoubleQuotes: K, fullyUnquoted: Y } = cdY(A, q === "jq"),
-        z = { originalCommand: A, baseCommand: q,
-              unquotedContent: K, fullyUnquotedContent: ldY(Y) },
-        w = [ndY, rdY, adY, tdY, sdY];
-    for (let $ of w) {
-        let O = $(z);
-        if (O.behavior === "allow") return { behavior: "passthrough", message: O.decisionReason?.reason || "..." };
-        if (O.behavior !== "passthrough") return O
-    }
-    let H = [edY, $cY, AcY, qcY, YcY, zcY, wcY, KcY, HcY];
-    for (let $ of H) {
-        let O = $(z);
-        if (O.behavior === "ask") return O
-    }
-    return { behavior: "passthrough", message: "Command passed all security checks" }
-}
-
 // READABLE (for understanding):
-function runSecurityChecks(command) {
+async function runSecurityChecks(command) {
     // Pre-check for backslash bypass
     if (hasSingleQuotedBackslashBypass(command))
         return { behavior: "ask", message: "Potential security bypass detected" };
 
     let baseCommand = command.split(" ")[0] || "";
-    let { withDoubleQuotes, fullyUnquoted } = stripQuotes(command, baseCommand === "jq");
+    let { withDoubleQuotes, fullyUnquoted, unquotedKeepQuoteChars } = stripQuotes(command, baseCommand === "jq");
     let context = {
         originalCommand: command,
         baseCommand,
         unquotedContent: withDoubleQuotes,
-        fullyUnquotedContent: stripRedirections(fullyUnquoted)
+        fullyUnquotedContent: stripRedirections(fullyUnquoted),
+        fullyUnquotedPreStrip: fullyUnquoted
     };
 
     // Phase 1: Allow-list checks (can approve the command)
-    let allowChecks = [checkEmpty, checkIncomplete, checkHeredocInSubst, checkQuotedHeredoc, checkGitCommit];
+    let allowChecks = [checkEmptyCommand, checkIncompleteCommand, checkHeredocInSubst, checkGitCommit];
     for (let check of allowChecks) {
         let result = check(context);
         if (result.behavior === "allow") return { behavior: "passthrough", message: result.reason };
@@ -338,10 +489,10 @@ function runSecurityChecks(command) {
     }
 
     // Phase 2: Deny-list checks (can require user approval)
-    // NOTE: edY=checkJqCommand (NOT checkDangerousPatterns), KcY=checkDangerousPatterns
     let denyChecks = [checkJqCommand, checkObfuscatedFlags, checkShellMetacharacters,
                       checkDangerousVariables, checkNewlines, checkIFSInjection,
-                      checkProcEnviron, checkDangerousPatterns, checkMalformedTokenInjection];
+                      checkProcEnviron, checkDangerousPatterns, checkRedirections,
+                      checkMalformedTokenInjection];
     for (let check of denyChecks) {
         let result = check(context);
         if (result.behavior === "ask") return result;
@@ -350,13 +501,13 @@ function runSecurityChecks(command) {
     return { behavior: "passthrough", message: "Command passed all security checks" };
 }
 
-// Mapping: lm→runSecurityChecks, CY8→hasSingleQuotedBackslashBypass, cdY→stripQuotes,
-//   ldY→stripRedirections, ndY→checkEmptyCommand, rdY→checkIncompleteCommand,
-//   adY→checkHeredocInSubstitution, tdY→checkQuotedHeredoc, sdY→checkGitCommitMessage,
-//   edY→checkJqCommand (NOT checkDangerousPatterns!),
-//   $cY→checkObfuscatedFlags, AcY→checkShellMetacharacters, qcY→checkDangerousVariables,
-//   YcY→checkNewlines, zcY→checkIFSInjection, wcY→checkProcEnviron,
-//   KcY→checkDangerousPatterns, HcY→checkMalformedTokenInjection
+// Mapping: zg9→runSecurityChecks, CY8→hasSingleQuotedBackslashBypass,
+//   uY4→checkEmptyCommand, mY4→checkIncompleteCommand,
+//   gY4→checkHeredocInSubstitution, FY4→checkGitCommitMessage,
+//   pY4→checkJqCommand, rY4→checkObfuscatedFlags, QY4→checkShellMetacharacters,
+//   UY4→checkDangerousVariables, w01→checkNewlines, lY4→checkIFSInjection,
+//   iY4→checkProcEnviron, dY4→checkDangerousPatterns, _01→checkRedirections,
+//   nY4→checkMalformedTokenInjection
 ```
 
 **Why two phases (allow then deny)?**
@@ -384,14 +535,14 @@ If an allow check approves the command, the deny checks are skipped entirely. Th
 
 **Why this matters:** The `$(cat <<'EOF' ... EOF)` pattern is Claude Code's own standard way to pass multi-line content to commands (e.g., `git commit -m "$(cat <<'EOF' ... EOF)"`). Without this allow-list entry, Claude Code would flag its own generated commands.
 
-### checkQuotedHeredoc (tdY)
+### Quoted Heredoc Handling
 
-**What it does:** Allows heredocs with quoted or escaped delimiters, even outside of `$()`.
+> **Note:** In v2.1.76, quoted heredoc validation is integrated into `checkHeredocInSubstitution` (gY4) via the `Hg9` (isQuotedHeredocInSubstitution) helper. There is no separate `checkQuotedHeredoc` function.
 
-**How it works:**
-1. If the command contains a heredoc inside `$()`, skip (handled by `adY`)
-2. Check for `<<'DELIM'` or `<<\DELIM` patterns
-3. If found, allow -- quoted/escaped delimiters mean no variable expansion in content
+The `Hg9` helper validates quoted delimiter patterns:
+1. Matches `$(cat <<'DELIM'` or `$(cat <<\DELIM` patterns
+2. Verifies proper closing delimiter structure
+3. Ensures no dangerous patterns remain after removing safe heredocs
 
 ### checkDangerousPatterns (KcY)
 
@@ -451,12 +602,12 @@ IFS=/ && cat$IFS/etc/passwd  # cat becomes "cat" with IFS splitting
 
 ## Deep Analysis: LLM-Based Prefix Extraction
 
-### bashPreFlightCheck (AYz)
+### bashPreFlightCheck (nGq)
 
 **What it does:** Uses a small, fast LLM to extract the "command prefix" from a bash command for permission matching.
 
 **How it works:**
-1. **Quick bypass**: If the command is just `--help`, return it directly
+1. **Quick bypass**: If the command is just `--help`, return it directly (via `X9z` / isSimpleHelpCommand)
 2. **Parse subcommands**: Extract individual commands from compound expressions
 3. **Call LLM**: Send the command to a fast model with a detailed policy specification
 4. **Parse response**: The LLM returns one of:
@@ -473,32 +624,8 @@ IFS=/ && cat$IFS/etc/passwd  # cat becomes "cat" with IFS splitting
 ```javascript
 // ============================================
 // bashPreFlightCheck - LLM-based command prefix extraction
-// Location: chunks.169.mjs:1838-1977
+// Location: chunks.171.mjs:1750 (created via QGq factory)
 // ============================================
-
-// ORIGINAL (for source lookup):
-async function AYz(A, q, K) {
-    if (e9z(A)) return { commandPrefix: A };
-    let Y, z = Date.now(), w = null;
-    try {
-        Y = setTimeout(() => {
-            console.warn("⚠️  [BashTool] Pre-flight check is taking longer than expected.")
-        }, 1e4);
-        // ... construct policy spec with examples ...
-        let O = await SX({
-            systemPrompt: [...],
-            userPrompt: `Command: ${A}`,
-            signal: q,
-            options: { querySource: "bash_extract_prefix", ... }
-        });
-        let J = /* extract text response */;
-        if (J === "command_injection_detected") w = { commandPrefix: null };
-        else if (J === "none") w = { commandPrefix: null };
-        else if (!A.startsWith(J)) w = { commandPrefix: null };
-        else w = { commandPrefix: J };
-        return w
-    } catch (H) { throw clearTimeout(Y), H }
-}
 
 // READABLE (for understanding):
 async function bashPreFlightCheck(command, abortSignal, isNonInteractive) {
@@ -519,12 +646,13 @@ async function bashPreFlightCheck(command, abortSignal, isNonInteractive) {
             return { commandPrefix: null };  // Forces user approval
         }
         if (prefix === "none") return { commandPrefix: null };
+        if (prefix === "git") return { commandPrefix: null };  // Too broad
         if (!command.startsWith(prefix)) return { commandPrefix: null };
         return { commandPrefix: prefix };
     } catch (err) { throw err; }
 }
 
-// Mapping: AYz→bashPreFlightCheck, e9z→isSimpleHelpCommand, SX→callFastModel
+// Mapping: nGq→bashPreFlightCheck, X9z→isSimpleHelpCommand, QGq→createPrefixExtractor
 ```
 
 **Why use an LLM for prefix extraction?**
@@ -551,49 +679,29 @@ When the LLM returns `"command_injection_detected"`, the system forces user appr
 
 ## Shell Tokenization with Heredoc Preservation
 
-### parseShellCommand (rZ1)
+### parseShellCommand (bW6)
 
 **What it does:** Tokenizes a shell command into individual tokens while safely handling heredocs, escaped characters, and special quoting.
 
 **How it works:**
-1. Extract heredocs and replace with placeholders (`XT6`)
+1. Extract heredocs and replace with placeholders via `ca()` (extractHeredocs)
 2. Handle line continuations (`\<newline>`)
-3. Replace quotes with sentinel values to prevent the tokenizer from consuming them
-4. Tokenize using the external `pz` (bash-parser) tokenizer
+3. Replace quotes with sentinel values via `iGq()` (generateSentinels) to prevent the tokenizer from consuming them
+4. Tokenize using the external `Fz()` (bash-parser) tokenizer
 5. Recombine tokens that were split by newline sentinels
 6. Restore original characters (quotes, heredocs)
 
 ```javascript
 // ============================================
 // parseShellCommand - Tokenize with heredoc preservation
-// Location: chunks.169.mjs:1716-1768
+// Location: chunks.171.mjs:1139
 // ============================================
-
-// ORIGINAL (for source lookup):
-function rZ1(A) {
-    let q = [], K = aOq(),
-        { processedCommand: Y, heredocs: z } = XT6(A),
-        w = Y.replace(/\\+\n/g, (O) => {
-            let _ = O.length - 1;
-            if (_ % 2 === 1) return "\\".repeat(_ - 1);
-            else return O
-        }),
-        H = pz(w.replaceAll('"', `"${K.DOUBLE_QUOTE}`)
-               .replaceAll("'", `'${K.SINGLE_QUOTE}`)
-               .replaceAll("\n", `\n${K.NEW_LINE}\n`)
-               .replaceAll("\\(", K.ESCAPED_OPEN_PAREN)
-               .replaceAll("\\)", K.ESCAPED_CLOSE_PAREN),
-            (O) => `$${O}`);
-    if (!H.success) return eBA([A], z);  // Fallback: return original command
-    // ... recombine and restore ...
-    return eBA(_, z)
-}
 
 // READABLE (for understanding):
 function parseShellCommand(command) {
     let tokens = [];
-    let sentinels = generateSentinels();  // Random hex to avoid collisions
-    let { processedCommand, heredocs } = extractHeredocs(command);
+    let sentinels = generateSentinels();  // iGq(): Random hex to avoid collisions
+    let { processedCommand, heredocs } = extractHeredocs(command);  // ca()
 
     // Handle line continuations (backslash-newline)
     let normalized = processedCommand.replace(/\\+\n/g, continuation => {
@@ -610,16 +718,16 @@ function parseShellCommand(command) {
         .replaceAll("\\(", sentinels.ESCAPED_OPEN_PAREN)
         .replaceAll("\\)", sentinels.ESCAPED_CLOSE_PAREN);
 
-    let parsed = shellTokenize(prepared, v => `$${v}`);
-    if (!parsed.success) return restoreHeredocsInList([command], heredocs);
+    let parsed = shellTokenize(prepared, v => `$${v}`);  // Fz()
+    if (!parsed.success) return [command];  // Fallback: return original command
 
     // Recombine tokens split by newlines, restore sentinels...
     let result = /* recombination and sentinel restoration */;
-    return restoreHeredocsInList(result, heredocs);
+    return restoreHeredocsInList(result, heredocs);  // aw8()
 }
 
-// Mapping: rZ1→parseShellCommand, aOq→generateSentinels, XT6→extractHeredocs,
-//   pz→shellTokenize, eBA→restoreHeredocsInList
+// Mapping: bW6→parseShellCommand, iGq→generateSentinels, ca→extractHeredocs,
+//   Fz→shellTokenize, aw8→restoreHeredocsInList
 ```
 
 **Why sentinel-based quote handling?**
@@ -679,7 +787,7 @@ c("tengu_bash_security_check_triggered", {
 })
 ```
 
-The `SECURITY_CHECK_IDS` enum (`kH`):
+The `SECURITY_CHECK_IDS` enum (`w3`):
 | ID | Check |
 |----|-------|
 | 1 | `INCOMPLETE_COMMANDS` |
@@ -696,6 +804,15 @@ The `SECURITY_CHECK_IDS` enum (`kH`):
 | 12 | `GIT_COMMIT_SUBSTITUTION` |
 | 13 | `PROC_ENVIRON_ACCESS` |
 | 14 | `MALFORMED_TOKEN_INJECTION` |
+| 15 | `BACKSLASH_ESCAPED_WHITESPACE` |
+| 16 | `BRACE_EXPANSION` |
+| 17 | `CONTROL_CHARACTERS` |
+| 18 | `UNICODE_WHITESPACE` |
+| 19 | `MID_WORD_HASH` |
+| 20 | `ZSH_DANGEROUS_COMMANDS` |
+| 21 | `BACKSLASH_ESCAPED_OPERATORS` |
+| 22 | `COMMENT_QUOTE_DESYNC` |
+| 23 | `QUOTED_NEWLINE` |
 
 This telemetry allows Anthropic to monitor which security checks fire in practice, helping identify false positive hotspots and potential new attack vectors.
 

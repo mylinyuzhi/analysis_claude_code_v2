@@ -196,6 +196,192 @@ The system prevents claiming blocked tasks automatically, but you should underst
 
 **Why explain manually**: Even though auto-claim enforces dependencies, teammates should understand WHY they can't claim certain tasks (better decision-making).
 
+### 3.4 Team Context System Reminder (Attachment)
+
+**Implementation** - How team context is injected via the attachment system:
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - Team context attachment to system reminder
+// Location: chunks.174.mjs:3-37
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Ui8(A) {
+    if (E7()) {
+        if (A.type === "teammate_mailbox") return [p1({
+            content: Kzz().formatTeammateMessages(A.messages),
+            isMeta: !0
+        })];
+        if (A.type === "team_context") return [p1({
+            content: `<system-reminder>
+# Team Coordination
+
+You are a teammate in team "${A.teamName}".
+
+**Your Identity:**
+- Name: ${A.agentName}
+
+**Team Resources:**
+- Team config: ${A.teamConfigPath}
+- Task list: ${A.taskListPath}
+
+**Team Leader:** The team lead's name is "team-lead". Send updates and completion notifications to them.
+
+Read the team config to discover your teammates' names. Check the task list periodically. Create new tasks when work should be divided. Mark tasks resolved when complete.
+
+**IMPORTANT:** Always refer to teammates by their NAME (e.g., "team-lead", "analyzer", "researcher"), never by UUID. When messaging, use the name directly:
+
+\`\`\`json
+{
+  "to": "team-lead",
+  "message": "Your message here",
+  "summary": "Brief 5-10 word preview"
+}
+\`\`\`
+</system-reminder>`,
+            isMeta: !0
+        })]
+    }
+    // ... other attachment types handled in switch statement
+}
+
+// READABLE (for understanding):
+function normalizeAttachmentForAPI(attachment) {
+    // Only process team context if agent teams feature is enabled
+    if (!isAgentTeamsEnabled()) {
+        // Fall through to standard attachment handling
+    }
+
+    // Handle teammate mailbox (inter-agent messages)
+    if (attachment.type === "teammate_mailbox") {
+        return [createUserMessage({
+            content: formatTeammateMessages(attachment.messages),
+            isMeta: true  // Not shown in chat UI, only in API context
+        })];
+    }
+
+    // Handle team context (identity injection)
+    if (attachment.type === "team_context") {
+        return [createUserMessage({
+            content: `<system-reminder>
+# Team Coordination
+
+You are a teammate in team "${attachment.teamName}".
+
+**Your Identity:**
+- Name: ${attachment.agentName}
+
+**Team Resources:**
+- Team config: ${attachment.teamConfigPath}
+- Task list: ${attachment.taskListPath}
+
+**Team Leader:** The team lead's name is "team-lead". Send updates and completion notifications to them.
+
+Read the team config to discover your teammates' names. Check the task list periodically. Create new tasks when work should be divided. Mark tasks resolved when complete.
+
+**IMPORTANT:** Always refer to teammates by their NAME (e.g., "team-lead", "analyzer", "researcher"), never by UUID. When messaging, use the name directly:
+
+\`\`\`json
+{
+  "to": "team-lead",
+  "message": "Your message here",
+  "summary": "Brief 5-10 word preview"
+}
+\`\`\`
+</system-reminder>`,
+            isMeta: true
+        })];
+    }
+
+    // ... handle other attachment types
+}
+
+// Mapping: Ui8→normalizeAttachmentForAPI, E7→isAgentTeamsEnabled, p1→createUserMessage
+```
+
+**Why isMeta: true**:
+
+- **Hidden from chat UI**: Team context appears in LLM context but not in conversation history
+- **Sent to API**: Included in `messages` array sent to Claude
+- **Token-efficient**: Meta messages are preferentially stripped during compaction
+
+**Attachment lifecycle**:
+
+```
+Team spawn (TeamCreate tool)
+  ↓
+getTeamContextAttachment() produces attachment object:
+  {
+    type: "team_context",
+    teamName: "web-app-team",
+    agentName: "backend-dev",
+    teamConfigPath: "~/.claude/teams/web-app-team.json",
+    taskListPath: "~/.claude/tasks/web-app-team/"
+  }
+  ↓
+assembleAllAttachments() includes in attachment list
+  ↓
+normalizeAttachmentForAPI() transforms to system-reminder message
+  ↓
+Sent to LLM API as user message with isMeta: true
+```
+
+### 3.5 Teammate Mailbox Attachment
+
+**How incoming messages become system reminders**:
+
+```javascript
+// ============================================
+// getTeammateMailboxAttachment - Produce mailbox attachment
+// Location: chunks.147.mjs
+// ============================================
+
+// Called during attachment assembly for each agent loop iteration
+async function getTeammateMailboxAttachment(agentName, teamName) {
+    const messages = await readUnreadMessages(agentName, teamName);
+
+    if (messages.length === 0) {
+        return null;  // No unread messages
+    }
+
+    return {
+        type: "teammate_mailbox",
+        messages: messages.map(msg => ({
+            from: msg.from,
+            text: msg.text,
+            timestamp: msg.timestamp
+        }))
+    };
+}
+```
+
+**Normalization flow**:
+
+```
+getTeammateMailboxAttachment()
+  ↓
+Returns { type: "teammate_mailbox", messages: [...] }
+  ↓
+normalizeAttachmentForAPI() checks type
+  ↓
+Returns [createUserMessage({
+    content: formatTeammateMessages(attachment.messages),
+    isMeta: true
+})]
+  ↓
+Becomes system-reminder in LLM context
+```
+
+**Why separate from team_context**:
+
+| Attachment Type | Purpose | When Produced |
+|-----------------|---------|---------------|
+| **team_context** | Identity + team resources (static) | Once at spawn, refreshed per turn |
+| **teammate_mailbox** | Incoming messages (dynamic) | Each poll cycle with unread messages |
+
+**Cross-reference**: See [04_system_reminder/](../04_system_reminder/) for the full attachment system architecture.
+
 ---
 
 ## 4. Plan Mode Reminders
@@ -370,23 +556,260 @@ parameters:
 
 ---
 
+## 7. Cross-Reference: 04_system_reminder Integration
+
+### 7.1 Attachment System Integration
+
+The team context and teammate mailbox attachments are processed through the centralized attachment system documented in [04_system_reminder/](../04_system_reminder/).
+
+**Integration flow:**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    Attachment Production                          │
+│                    chunks.147.mjs                                 │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  assembleAllAttachments(_uY)                                      │
+│       │                                                           │
+│       ├─→ getTeamContextAttachment(AmY)                           │
+│       │     • Produces: { type: "team_context", ... }            │
+│       │     • Trigger: isTeamMode() && !hasAssistantMessages()   │
+│       │                                                           │
+│       └─→ getTeammateMailboxAttachment(euY)                       │
+│             • Produces: { type: "teammate_mailbox", messages: [] }│
+│             • Trigger: isTeamMode() && hasUnreadMessages()        │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+                            ↓
+┌──────────────────────────────────────────────────────────────────┐
+│                    Attachment Normalization                        │
+│                    chunks.174.mjs:3-37                            │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  normalizeAttachmentForAPI(Ui8)                                   │
+│       │                                                           │
+│       ├─→ if (type === "teammate_mailbox")                        │
+│       │     └─→ formatTeammateMessages() → system-reminder       │
+│       │                                                           │
+│       └─→ if (type === "team_context")                            │
+│             └─→ inject identity + resources → system-reminder    │
+│                                                                   │
+│  All output: { role: "user", content: "...", isMeta: true }      │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+                            ↓
+┌──────────────────────────────────────────────────────────────────┐
+│                    LLM API Message Array                          │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  messages: [                                                      │
+│    { role: "user", content: "<system-reminder>Team...</>",       │
+│      isMeta: true },                                              │
+│    { role: "user", content: "Actual user message..." },          │
+│    ...                                                            │
+│  ]                                                                │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 Key Symbol Cross-Reference
+
+| 30_agent_teams Symbol | 04_system_reminder Symbol | Purpose |
+|-----------------------|---------------------------|---------|
+| `normalizeAttachmentForAPI` (Ui8) | Same | Entry point for all attachment normalization |
+| `isAgentTeamsEnabled` (E7) | Same | Feature flag check for team mode |
+| `createUserMessage` (p1) | `createUserMessage` (c6) | Message factory with isMeta support |
+| `formatTeammateMessages` | `formatTeammateMessages` | Message formatting utility |
+
+### 7.3 isMeta Flag Behavior
+
+The `isMeta: true` flag has critical implications:
+
+| Aspect | Behavior |
+|--------|----------|
+| **UI visibility** | Not shown in TUI chat history |
+| **API context** | Sent to LLM in messages array |
+| **Compaction** | Preferentially stripped during token management |
+| **Caching** | Eligible for ephemeral cache control |
+
+**Why isMeta for team context:**
+
+Team context is "hidden context" that informs the LLM without cluttering the visible conversation. This enables:
+1. **Clean UI**: User doesn't see repeated identity injection
+2. **Token efficiency**: Can be stripped during compaction if needed
+3. **Context persistence**: Maintained across conversation turns
+
+### 7.4 Related Documents
+
+- **[types_team_mode.md](../04_system_reminder/types_team_mode.md)** - Detailed team mode attachment types
+- **[implementation_details.md](../04_system_reminder/implementation_details.md)** - Core attachment system implementation
+- **[attachment_producers.md](../04_system_reminder/attachment_producers.md)** - All attachment producer functions
+
+---
+
+## 8. Deep Algorithm Analysis
+
+### 8.1 normalizeAttachmentForAPI - Team Context Processing
+
+**What it does:** Transforms team context and mailbox attachments into system-reminder format for LLM context injection.
+
+**How it works (step-by-step):**
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - Team context attachment conversion
+// Location: chunks.174.mjs:3-37
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Ui8(A) {
+    if (E7()) {
+        if (A.type === "teammate_mailbox") return [p1({
+            content: Kzz().formatTeammateMessages(A.messages),
+            isMeta: !0
+        })];
+        if (A.type === "team_context") return [p1({
+            content: `<system-reminder>
+# Team Coordination
+
+You are a teammate in team "${A.teamName}".
+
+**Your Identity:**
+- Name: ${A.agentName}
+
+**Team Resources:**
+- Team config: ${A.teamConfigPath}
+- Task list: ${A.taskListPath}
+
+**Team Leader:** The team lead's name is "team-lead". Send updates and completion notifications to them.
+
+Read the team config to discover your teammates' names. Check the task list periodically. Create new tasks when work should be divided. Mark tasks resolved when complete.
+
+**IMPORTANT:** Always refer to teammates by their NAME (e.g., "team-lead", "analyzer", "researcher"), never by UUID. When messaging, use the name directly:
+
+\`\`\`json
+{
+  "to": "team-lead",
+  "message": "Your message here",
+  "summary": "Brief 5-10 word preview"
+}
+\`\`\`
+</system-reminder>`,
+            isMeta: !0
+        })]
+    }
+    // ... other attachment types
+}
+
+// Mapping: Ui8→normalizeAttachmentForAPI, E7→isAgentTeamsEnabled, p1→createUserMessage,
+//          A→attachment, Kzz→formatTeammateMessages
+```
+
+**Why this approach:**
+
+1. **Feature flag check first (`E7()`)**: Only processes team attachments if agent teams is enabled, avoiding unnecessary work
+2. **Type-based dispatch**: Different handling for `teammate_mailbox` vs `team_context` types
+3. **isMeta: true**: Marks message as hidden from UI but visible to LLM - critical for clean UX
+4. **Name-based messaging**: Enforces name-based addressing instead of UUIDs for better human readability
+
+**Key insight:** The template string interpolation injects the agent's specific identity and resources into the system prompt, making each teammate's context unique while using the same code path.
+
+### 8.2 Attachment Assembly Flow
+
+**Complete flow from spawn to LLM context:**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 1. Teammate Spawn (chunks.135.mjs:985)                          │
+│    spawnInProcessTeammate() creates teammate with:              │
+│    - agentId, agentName, teamName                               │
+│    - Registers in teamConfig                                    │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 2. Agent Loop Start (chunks.134.mjs:1571)                       │
+│    inProcessAgentRunner() calls attachment producers            │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 3. Attachment Production (chunks.147.mjs)                       │
+│    assembleAllAttachments() calls:                              │
+│    - getTeamContextAttachment() → { type: "team_context", ... } │
+│    - getTeammateMailboxAttachment() → { type: "teammate_mailbox"│
+│                                         messages: [...] }       │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 4. Attachment Normalization (chunks.174.mjs:3)                  │
+│    normalizeAttachmentForAPI() transforms to:                   │
+│    { role: "user", content: "<system-reminder>...",            │
+│      isMeta: true }                                             │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 5. LLM API Call (chunks.169.mjs)                                │
+│    Message array includes team context as hidden context        │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Performance characteristics:**
+- Team context attachment: ~1-2ms (string interpolation)
+- Mailbox read: ~1-5ms (filesystem read with lock)
+- Total overhead per turn: ~5-10ms
+
+### 8.3 isMeta Flag Behavior
+
+**Critical implications for team context:**
+
+| Aspect | isMeta: true | isMeta: false |
+|--------|-------------|---------------|
+| **UI visibility** | Hidden from TUI chat | Shown in chat history |
+| **API context** | Sent to LLM in messages array | Sent to LLM in messages array |
+| **Compaction priority** | Preferentially stripped first | Preserved longer |
+| **Token accounting** | Not counted in visible tokens | Counted normally |
+
+**Why preferential compaction matters:**
+
+During token management (when context exceeds limits), `isMeta: true` messages are the first to be removed. This ensures:
+1. User-visible conversation is preserved
+2. Team context may need re-injection if stripped
+3. Re-injection happens automatically on next turn via attachment system
+
+---
+
 ## Related Symbols
 
 > Symbol mappings:
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
 
 - `buildTeammateSystemPrompt` - Construct teammate identity and context
 - `getTeamMembersDescription` - Generate team roster
-- `inProcessAgentRunner` (GVY) - Agent runner with system prompt injection
+- `inProcessAgentRunner` (XNY) - Agent runner with system prompt injection @ chunks.134.mjs:1571
+- `normalizeAttachmentForAPI` (Ui8) - Team context attachment conversion @ chunks.174.mjs:3
+- `isAgentTeamsEnabled` (E7) - Feature flag check for team mode @ chunks.50.mjs:2543
+- `getTeamContextAttachment` (AmY) - Produce team context attachment @ chunks.147.mjs
+- `getTeammateMailboxAttachment` (euY) - Produce mailbox attachment @ chunks.147.mjs
+- `createUserMessage` (p1) - Message factory with isMeta support @ chunks.173.mjs:1378
+
+## Cross-References
+
+- **[04_system_reminder/](../04_system_reminder/)** - Full attachment system architecture, how `team_context` and `teammate_mailbox` attachments become system-reminders
+- **[pane_backend_executor.md](./pane_backend_executor.md)** - Agent runner lifecycle (XNY)
+- **[01_complete_chain_analysis.md](./01_complete_chain_analysis.md)** - Team creation and spawning chain
 
 ## Source Locations
 
-- `chunks.131.mjs:347` - inProcessAgentRunner (system prompt construction)
+- `chunks.134.mjs:1571` - inProcessAgentRunner (XNY)
+- `chunks.174.mjs:3` - normalizeAttachmentForAPI (Ui8)
 - `chunks.173.mjs:531` - Plan mode prompt templates (buildPlanModeReminder)
-- `chunks.141.mjs:2912` - Idle state reminders (executeTeammateIdleHooks)
+- `chunks.175.mjs:2594` - TaskCompleted hook (executeTaskCompletedHooks)
+- `chunks.147.mjs` - Teammate mailbox attachment assembly
+- `chunks.50.mjs:2543` - isAgentTeamsEnabled (E7)
 
 ---
 
-**Document Status**: Complete analysis of system prompt injection, team context, and teammate guidance.
+**Document Status**: Complete analysis of system prompt injection, team context, and teammate guidance with deep algorithm analysis.

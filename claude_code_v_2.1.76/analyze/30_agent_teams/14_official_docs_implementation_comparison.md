@@ -117,8 +117,8 @@ Key detail: Tasks stored separately from teams (bug: TeamDelete removes all task
 
 ```javascript
 // ============================================
-// pollMailboxForMessages - 500ms polling interval
-// Location: chunks.131.mjs:222 (MVY - findNextAvailableTask)
+// teammateMainLoop - 500ms polling interval
+// Location: Conceptual pseudocode (see DNY at chunks.134.mjs:1483 for actual poll loop)
 // ============================================
 
 // READABLE (for understanding):

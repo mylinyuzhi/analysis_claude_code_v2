@@ -1,7 +1,7 @@
 # Hooks Integration - Agent Team Coordination Mechanism
 
 > **Module**: Agent Teams - Hooks System
-> **Source**: `chunks.141.mjs` (lines 1561-1711), `chunks.131.mjs` (lines 260-346)
+> **Source**: `chunks.175.mjs` (lines 515-650 for hook execution)
 > **Version**: Claude Code 2.1.76
 
 ---
@@ -43,11 +43,11 @@ Hooks integrate with the in-process poll loop's 5-level priority system. When a 
 
 ---
 
-## 2. executeAgentHook - Main Hook Execution Engine
+## 2. executeTeammateIdleHooks - Main Hook Execution Engine
 
 ### What it does
 
-`executeAgentHook` (Xi4) is the core function that spawns a temporary verification agent, runs it with strict resource limits, and interprets its structured output to determine whether the hook condition is satisfied.
+`executeTeammateIdleHooks` (Rp8) is an async generator function that executes hooks when a teammate becomes idle. It yields events from the hook execution pipeline, allowing callers to process results incrementally.
 
 ### How it works
 
@@ -146,11 +146,11 @@ The hook system transforms user-defined conditions (plain text prompts like "ver
 ```javascript
 // ============================================
 // executeAgentHook - Spawn verification agent to validate hook condition
-// Location: chunks.141.mjs:1561-1698
+// Location: chunks.175.mjs:515-650
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Xi4(A, q, K, Y, z, w, H, $) {
+async function cTq(A, q, K, Y, z, _, w, O, $) {
     let O = H || `hook-${Ji4()}`,
         _ = w.agentId ? kh(w.agentId) : dO(),
         J = Date.now();
@@ -432,7 +432,14 @@ async function executeAgentHook(
     }
 }
 
-// Mapping: Xi4→executeAgentHook, A→hookConfig, q→hookName, K→hookEvent, Y→contextVariables, z→parentAbortSignal, w→toolUseContext, H→toolUseID, $→hookContext, Ji4→generateHookId, XJ6→interpolatePrompt, c6→createUserMessage, fR→combineAbortSignals, Aq→AbortController, jn7→getStructuredOutputTool, cD→STRUCTURED_OUTPUT_TOOL_NAME, Bj1→HOOK_BLOCKED_TOOLS, _J→getDefaultModel, xZ→generateAgentId, DJ6→registerAgentInState, ZR→runAgentLoop, uX→alwaysAllowTool, iW1→handleStreamingEvent, GB1→StructuredOutputSchema, Q1→JSON.stringify, c→recordTelemetry, kq→formatMessage, iD1→unregisterAgentFromState, kh→getTranscriptPath, dO→getDefaultTranscriptPath
+// Mapping: cTq→executeAgentHook, A→hookConfig, q→hookName, K→hookEvent, Y→contextVariables,
+//          z→parentAbortSignal, _→toolUseContext, w→toolUseID, O→hookContext, $→agentName,
+//          dTq→randomUUID, L0→getTranscriptPath, Cz→getDefaultTranscriptPath,
+//          WS1→interpolatePrompt, p1→createUserMessage, mN→combineAbortSignals,
+//          sK→AbortController, pTq→getStructuredOutputTool, oM→STRUCTURED_OUTPUT_TOOL_NAME,
+//          CW6→HOOK_BLOCKED_TOOLS, lH→getDefaultModel, X$→generateAgentId,
+//          ZS1→registerAgentInState, zZ6→unregisterAgentFromState, Yh→runAgentLoop,
+//          Yo6→StructuredOutputSchema, B6→JSON.stringify, f4→formatMessage
 ```
 
 ---
@@ -483,19 +490,24 @@ async function executeAgentHook(
 ```javascript
 // ============================================
 // parseHookOutput - Parse and validate shell hook output
-// Location: chunks.141.mjs:1780-1790
+// Location: chunks.175.mjs:1030-1051
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Wi4(A) {
+function Kvq(A) {
     let q = A.trim();
-    if (!q.startsWith("{")) return h("Hook output does not start with {, treating as plain text"), { plainText: A };
+    if (!q.startsWith("{")) return k("Hook output does not start with {, treating as plain text"), {
+        plainText: A
+    };
     try {
-        let K = _A(q),
-            Y = zJ6.safeParse(K);
-        if (Y.success) return h("Successfully parsed and validated hook JSON output"), { json: Y.data };
-        // ... error handling ...
-    } catch { /* ... */ }
+        let K = qvq(q);
+        if ("json" in K) return K;
+        let Y = `${K.validationError}
+Expected schema: ...`;
+        return k(Y), { plainText: A, validationError: Y }
+    } catch (K) {
+        return k(`Failed to parse hook output as JSON: ${K}`), { plainText: A }
+    }
 }
 
 // READABLE (for understanding):
@@ -509,24 +521,19 @@ function parseHookOutput(rawOutput) {
     }
 
     try {
-        let parsed = JSON.parse(trimmed);
-        let validationResult = HookOutputSchema.safeParse(parsed);
+        let parsed = tryParseHookJson(trimmed);
+        if ("json" in parsed) return parsed;
 
-        if (validationResult.success) {
-            log("Successfully parsed and validated hook JSON output");
-            return { json: validationResult.data };
-        }
-
-        // Schema validation failed - treat as plain text
-        log("Hook output failed schema validation, treating as plain text");
-        return { plainText: rawOutput };
+        // Schema validation failed - treat as plain text with error
+        log(parsed.validationError);
+        return { plainText: rawOutput, validationError: parsed.validationError };
     } catch (error) {
-        log(`Failed to parse hook JSON: ${error.message}`);
+        log(`Failed to parse hook output as JSON: ${error}`);
         return { plainText: rawOutput };
     }
 }
 
-// Mapping: Wi4→parseHookOutput, A→rawOutput, q→trimmed, _A→JSON.parse, zJ6→HookOutputSchema, h→log
+// Mapping: Kvq→parseHookOutput, A→rawOutput, q→trimmed, k→log, qvq→tryParseHookJson
 ```
 
 ---
@@ -807,22 +814,17 @@ The hook system emits three telemetry events for observability:
 
 Key functions in this document:
 
-- `executeAgentHook` (Xi4) - Main hook execution engine, spawns verification agent
-- `generateHookId` (Ji4) - Generates unique hook identifiers for tracking
-- `parseHookOutput` (Wi4) - Parses and validates shell hook output
-- `inProcessPollLoop` (WVY) - 5-level priority message polling (documented in pane_backend_executor.md)
-- `registerAgentInState` (DJ6) - Adds hook agent to active agents registry
-- `unregisterAgentFromState` (iD1) - Removes hook agent from registry
-- `interpolatePrompt` (XJ6) - Fills template variables in hook prompts
-- `combineAbortSignals` (fR) - Merges parent and timeout abort signals
-- `getStructuredOutputTool` (jn7) - Returns StructuredOutput tool for verification results
-- `runAgentLoop` (ZR) - Main agent execution loop
-- `formatMessage` (kq) - Formats hook result messages
-- `recordTelemetry` (c) - Emits telemetry events
-- `HookOutputSchema` (zJ6) - Zod schema for validating hook outputs
-- `StructuredOutputSchema` (GB1) - Zod schema for agent structured outputs
-- `STRUCTURED_OUTPUT_TOOL_NAME` (cD) - Constant for structured output tool name
-- `HOOK_BLOCKED_TOOLS` (Bj1) - Set of tools not available to verification agents
+- `executeAgentHook` (cTq) - Main hook execution engine, spawns verification agent @ chunks.175.mjs:515
+- `randomUUID` (dTq) - Generates unique hook identifiers (exported from crypto)
+- `getStructuredOutputTool` (pTq) - Returns StructuredOutput tool for verification results @ chunks.175.mjs:321
+- `registerAgentInState` (ZS1) - Adds hook agent to active agents registry @ chunks.175.mjs:346
+- `unregisterAgentFromState` (zZ6) - Removes hook agent from registry @ chunks.95.mjs:1830
+- `interpolatePrompt` (WS1) - Fills template variables in hook prompts
+- `combineAbortSignals` (mN) - Merges parent and timeout abort signals
+- `runAgentLoop` (Yh) - Main agent execution loop
+- `formatMessage` (f4) - Formats hook result messages
+- `StructuredOutputSchema` (Yo6) - Zod schema for agent structured outputs
+- `HOOK_BLOCKED_TOOLS` (CW6) - Set of tools not available to verification agents
 
 Cross-references:
 

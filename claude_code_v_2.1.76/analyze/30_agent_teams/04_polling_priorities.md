@@ -206,7 +206,7 @@ Latency: 500ms (unlucky timing)
 ```javascript
 // ============================================
 // Priority 2: Shutdown request scan (bypass queue)
-// Location: inProcessPollLoop, chunks.131.mjs:260-346
+// Location: pollForNextMessage, chunks.134.mjs:1483-1570
 // ============================================
 
 const mailbox = await readMailbox(agentName, teamName);
@@ -444,7 +444,7 @@ backend-dev receives:
 
 ```javascript
 // Priority 5: Auto-claim next available task
-const taskPrompt = await claimNextTask(agentName, teamName, context);
+const taskPrompt = await claimUnclaimedTask(agentName, teamName, context);
 
 if (taskPrompt) {
     return {
@@ -462,15 +462,15 @@ if (taskPrompt) {
 
 ### 7.2 Task Claim Algorithm
 
-**Complete flow** (obfuscated: `claimNextTask` / ib4):
+**Complete flow** (obfuscated: `claimUnclaimedTask` / Ji4):
 
 ```javascript
 // ============================================
-// claimNextTask - Claim next available task with dependency resolution
-// Location: chunks.131.mjs:241
+// claimUnclaimedTask - Claim next available task with dependency resolution
+// Location: chunks.134.mjs
 // ============================================
 
-async function claimNextTask(agentName, teamName, context) {
+async function claimUnclaimedTask(agentName, teamName, context) {
     // Read all task files
     const taskDir = `~/.claude/tasks/${teamName}/`;
     const taskFiles = await fs.readdir(taskDir);
@@ -605,28 +605,117 @@ Result: task-1 never claimed
 
 **Not mitigated**: If lead floods teammate with messages continuously, tasks starve. Acceptable trade-off (lead controls workflow).
 
+### 8.5 Algorithm Summary
+
+**Complete Poll Loop Algorithm:**
+
+```
+function pollForNextMessage(config, abortSignal, context):
+    iterationCount = 0
+    while (!abortSignal.aborted):
+        // Priority 1: AppState fast path (in-process only)
+        task = findTaskByAgentId(config.agentId, appState.tasks)
+        if (task.pendingUserMessages.length > 0):
+            message = atomicDequeue(task.pendingUserMessages)
+            return { type: "user_message", ...message }
+
+        // Sleep 500ms (skip on first iteration for immediate check)
+        if (iterationCount > 0):
+            await sleep(500)
+        iterationCount++
+
+        // Check abort
+        if (abortSignal.aborted):
+            return { type: "aborted" }
+
+        // Read mailbox from filesystem
+        mailbox = readMailbox(config.agentName, config.teamName)
+
+        // Priority 2: Shutdown scan (bypass entire queue)
+        for i = 0 to mailbox.length - 1:
+            if (!mailbox[i].read):
+                shutdownReq = parseShutdownRequest(mailbox[i].text)
+                if (shutdownReq):
+                    markMessageAsReadByIndex(i)
+                    return { type: "shutdown_request", ... }
+
+        // Priority 3: Team-lead messages
+        leadIdx = findIndex(mailbox, msg => !msg.read && msg.from === "team-lead")
+        if (leadIdx !== -1):
+            markMessageAsReadByIndex(leadIdx)
+            return { type: "team_message", ... }
+
+        // Priority 4: Any unread message
+        anyIdx = findIndex(mailbox, msg => !msg.read)
+        if (anyIdx !== -1):
+            markMessageAsReadByIndex(anyIdx)
+            return { type: "peer_message", ... }
+
+        // Priority 5: Task auto-claim
+        taskPrompt = claimUnclaimedTask(config.agentName, config.teamName, context)
+        if (taskPrompt):
+            return { type: "task_assignment", content: taskPrompt }
+
+    return { type: "aborted" }
+```
+
+**Complexity Analysis:**
+
+| Priority Level | Time Complexity | Space Complexity | Notes |
+|----------------|-----------------|------------------|-------|
+| P1 (AppState) | O(1) | O(1) | Direct memory access |
+| P2 (Shutdown scan) | O(N) | O(1) | N = total mailbox size |
+| P3 (Lead message) | O(N) | O(1) | findIndex scan |
+| P4 (Any message) | O(N) | O(1) | findIndex scan |
+| P5 (Task claim) | O(T × D) | O(T) | T = tasks, D = max dependencies |
+
+**Why P2 scans ALL messages:**
+
+The O(N) scan for shutdown requests is **intentional** to guarantee shutdown detection regardless of mailbox state. Without this scan:
+- Shutdown at position 100 in mailbox
+- 99 unread messages ahead of it
+- Each message takes 30s average processing
+- Total delay: ~50 minutes before shutdown detected
+
+With O(N) scan:
+- Same scenario
+- Scan completes in <1ms
+- Shutdown detected immediately
+- Critical for graceful termination
+
 ---
 
 ## Related Symbols
 
 > Symbol mappings:
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:
 
-- `inProcessPollLoop` (WVY) - 5-level priority queue engine
-- `claimNextTask` (ib4) - Task auto-claim with dependency resolution
-- `findNextAvailableTask` (MVY) - Dependency-aware task selection
+- `pollForNextMessage` (DNY) - 5-level priority queue engine
+- `claimUnclaimedTask` (Ji4) - Task auto-claim with dependency resolution
+- `findNextAvailableTask` (JNY) - Dependency-aware task selection @ chunks.134.mjs:1445
 - `parseShutdownRequest` (ss) - Extract shutdown from message
-- `markMessageAsReadByIndex` (JQ1) - Update read flag
+- `markMessageAsReadByIndex` (Vc6) - Update read flag
+- `readMailbox` (wl) - Read mailbox messages
+- `sleep` (jNY) - Promise-based delay for poll interval @ chunks.134.mjs:1441
+
+## Cross-References
+
+- **[03_mailbox_and_locking.md](./03_mailbox_and_locking.md)** - Mailbox I/O implementation (wl, x3, Vc6)
+- **[pane_backend_executor.md](./pane_backend_executor.md)** - In-process vs pane-based poll loop integration
+- **[13_task_system/](../13_task_system/)** - Task schema, dependency graph, high-watermark
 
 ## Source Locations
 
-- `chunks.131.mjs:260` - inProcessPollLoop
-- `chunks.131.mjs:241` - claimNextTask
-- `chunks.131.mjs:222` - findNextAvailableTask
-- `chunks.129.mjs:1396` - parseShutdownRequest
-- `chunks.129.mjs:1130` - markMessageAsReadByIndex
+- `chunks.134.mjs:1483` - pollForNextMessage (DNY)
+- `chunks.134.mjs:1464` - claimUnclaimedTask (Ji4)
+- `chunks.134.mjs:1445` - findNextAvailableTask (JNY)
+- `chunks.134.mjs:1441` - sleep (jNY)
+- `chunks.131.mjs:1396` - parseShutdownRequest (ss)
+- `chunks.132.mjs:57` - markMessageAsReadByIndex (Vc6)
+- `chunks.132.mjs:3` - readMailbox (wl)
 
 ---
 

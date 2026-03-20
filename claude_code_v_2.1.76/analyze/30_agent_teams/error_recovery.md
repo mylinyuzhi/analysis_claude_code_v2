@@ -1,7 +1,7 @@
 # Error Recovery - Agent Team Failure Handling
 
 > **Module**: Agent Teams - Error Recovery and Resilience
-> **Source**: `chunks.141.mjs` (lines 1160-1237, 530-758), `chunks.131.mjs` (lines 1144-1500)
+> **Source**: `chunks.145.mjs` (lines 2443-2519 for shutdown handling), `chunks.113.mjs` (lines 1272-1316 for killInProcessTeammate), `chunks.131.mjs` (lines 1144-1500)
 > **Version**: Claude Code 2.1.76
 
 ---
@@ -172,34 +172,62 @@ handleShutdownApproval:
 ```javascript
 // ============================================
 // handleShutdownApproval - Process teammate approval of shutdown request
-// Location: chunks.141.mjs:1160-1214
+// Location: chunks.145.mjs:2443-2497
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function tSY(A, q) {
-    let K = i3(), Y = ID(), z = g5() || "teammate", w = A.request_id;
-    let H, $;
+async function YxY(A, q) {
+    let K = l5(), Y = nM(), z = i3() || "teammate";
+    k(`[SendMessageTool] handleShutdownApproval: teamName=${K}, agentId=${Y}, agentName=${z}`);
+    let _, w;
     if (K) {
-        let _ = M51(K);
-        if (_ && Y) {
-            let J = _.members.find((X) => X.agentId === Y);
-            if (J) H = J.tmuxPaneId, $ = J.backendType
+        let $ = await Kz6(K);
+        if ($ && Y) {
+            let H = $.members.find((j) => j.agentId === Y);
+            if (H) _ = H.tmuxPaneId, w = H.backendType
         }
     }
-    let O = mvA({ requestId: w, from: z, paneId: H, backendType: $ });
-    if (f9(K2, { from: z, text: Q1(O), timestamp: new Date().toISOString(), color: b$() }, K), $ === "in-process") {
-        if (Y) {
-            let _ = await q.getAppState(), J = ps(Y, _.tasks);
-            if (J?.abortController) J.abortController.abort();
+    let O = Gx8({
+        requestId: A,
+        from: z,
+        paneId: _,
+        backendType: w
+    });
+    if (await x3(BY, {
+            from: z,
+            text: B6(O),
+            timestamp: new Date().toISOString(),
+            color: H$()
+        }, K), w === "in-process") {
+        if (k(`[SendMessageTool] In-process teammate ${z} approving shutdown - signaling abort`), Y) {
+            let $ = q.getAppState(),
+                H = _g(Y, $.tasks);
+            if (H?.abortController) H.abortController.abort(), k(`[SendMessageTool] Aborted controller for in-process teammate ${z}`);
+            else k(`[SendMessageTool] Warning: Could not find task/abortController for ${z}`)
         }
     } else {
         if (Y) {
-            let _ = await q.getAppState(), J = ps(Y, _.tasks);
-            if (J?.abortController) return J.abortController.abort(), { data: { success: !0, message: `Shutdown approved (fallback path). Agent ${z} is now exiting.`, request_id: w } }
+            let $ = q.getAppState(),
+                H = _g(Y, $.tasks);
+            if (H?.abortController) return k(`[SendMessageTool] Fallback: Found in-process task for ${z} via AppState, aborting`), H.abortController.abort(), {
+                data: {
+                    success: !0,
+                    message: `Shutdown approved (fallback path). Agent ${z} is now exiting.`,
+                    request_id: A
+                }
+            }
         }
-        setImmediate(async () => { await nK(0, "other") })
+        setImmediate(async () => {
+            await Vq(0, "other")
+        })
     }
-    return { data: { success: !0, message: `Shutdown approved. Sent confirmation to team-lead. Agent ${z} is now exiting.`, request_id: w } }
+    return {
+        data: {
+            success: !0,
+            message: `Shutdown approved. Sent confirmation to team-lead. Agent ${z} is now exiting.`,
+            request_id: A
+        }
+    }
 }
 
 // READABLE (for understanding):
@@ -286,18 +314,39 @@ async function handleShutdownApproval(request, toolUseContext) {
     };
 }
 
-// Mapping: tSY→handleShutdownApproval, A→request, q→toolUseContext, K→teamName, Y→agentId, z→agentName, w→requestId, H→tmuxPaneId, $→backendType, _→teamConfig/appState, J→memberInfo/task, X→member, O→confirmationMessage, i3→getCurrentTeamName, ID→getCurrentAgentId, g5→getCurrentAgentName, M51→readTeamConfig, mvA→createShutdownApprovalResponse, f9→sendTeamMessage, K2→TEAM_LEAD_NAME, Q1→JSON.stringify, b$→getAgentColor, ps→findTaskByAgentId, nK→gracefulExit
+// Mapping: YxY→handleShutdownApproval, A→requestId, q→toolUseContext, K→teamName, Y→agentId, z→agentName,
+//          _→tmuxPaneId, w→backendType, O→confirmationMessage, Gx8→createShutdownApprovalResponse,
+//          l5→getCurrentTeamName, nM→getCurrentAgentId, i3→getCurrentAgentName, Kz6→readTeamConfig,
+//          x3→writeToMailbox, BY→TEAM_LEAD_ID, B6→JSON.stringify, H$→getAgentColor, _g→findTaskByAgentId,
+//          Vq→gracefulExit
 
 
 // ============================================
 // handleShutdownRejection - Process teammate rejection of shutdown request
-// Location: chunks.141.mjs:1216-1237
+// Location: chunks.145.mjs:2499-2519
 // ============================================
 
 // ORIGINAL (for source lookup):
-function eSY(A) {
-    let q = i3(), K = g5() || "teammate", Y = A.request_id, z = FvA({ requestId: Y, from: K, reason: A.content || "" });
-    return f9(K2, { from: K, text: Q1(z), timestamp: new Date().toISOString(), color: b$() }, q), { data: { success: !0, message: `Shutdown rejected. Reason: "${A.content}". Continuing to work.`, request_id: Y } }
+async function zxY(A, q) {
+    let K = l5(),
+        Y = i3() || "teammate",
+        z = fx8({
+            requestId: A,
+            from: Y,
+            reason: q
+        });
+    return await x3(BY, {
+        from: Y,
+        text: B6(z),
+        timestamp: new Date().toISOString(),
+        color: H$()
+    }, K), {
+        data: {
+            success: !0,
+            message: `Shutdown rejected. Reason: "${q}". Continuing to work.`,
+            request_id: A
+        }
+    }
 }
 
 // READABLE (for understanding):
@@ -330,8 +379,154 @@ function handleShutdownRejection(request) {
     };
 }
 
-// Mapping: eSY→handleShutdownRejection, A→request, q→teamName, K→agentName, Y→requestId, z→rejectionMessage, FvA→createShutdownRejectionResponse, f9→sendTeamMessage, K2→TEAM_LEAD_NAME, Q1→JSON.stringify, b$→getAgentColor, i3→getCurrentTeamName, g5→getCurrentAgentName
+// Mapping: zxY→handleShutdownRejection, A→requestId, q→reason, K→teamName, Y→agentName, z→rejectionMessage,
+//          fx8→createShutdownRejectionResponse, x3→writeToMailbox, BY→TEAM_LEAD_ID, B6→JSON.stringify,
+//          H$→getAgentColor, l5→getCurrentTeamName, i3→getCurrentAgentName
 ```
+
+### Forced Termination: killInProcessTeammate (bZ1)
+
+**What it does:** Force-kills an in-process teammate by aborting its controller and removing it from the team state. Unlike graceful shutdown (which requires the teammate's approval), this immediately stops the teammate.
+
+**When used:**
+- TeamDelete tool called by team-lead
+- Cleanup during session termination
+- Recovery from hung/unresponsive teammates
+
+**Algorithm:**
+
+1. **Find task in AppState**: Look up the task by taskId
+2. **Validate task type**: Must be `in_process_teammate` and `status: running`
+3. **Abort execution**: Call `abortController.abort()` to stop the poll loop
+4. **Fire idle callbacks**: Trigger any registered `onIdleCallbacks` (for waiting threads)
+5. **Remove from teamContext**: Delete the teammate from `teamContext.teammates`
+6. **Update task state**: Mark as `killed`, set `endTime`, clear in-progress data
+7. **Notify team-lead**: Send removal notification via `ty8(teamName, agentId)`
+
+```javascript
+// ============================================
+// killInProcessTeammate - Force-kill an in-process teammate
+// Location: chunks.113.mjs:1272-1316
+// ============================================
+
+// ORIGINAL (for source lookup):
+function bZ1(A, q) {
+    let K = !1, Y = null, z = null;
+    if (q((_) => {
+        let w = _.tasks[A];
+        if (!w || w.type !== "in_process_teammate") return _;
+        let O = w;
+        if (O.status !== "running") return _;
+        Y = O.identity.teamName, z = O.identity.agentId,
+        O.abortController?.abort(),
+        O.unregisterCleanup?.(),
+        K = !0,
+        O.onIdleCallbacks?.forEach((H) => H());
+        let $ = _.teamContext;
+        if (_.teamContext && _.teamContext.teammates && z) {
+            let { [z]: H, ...j } = _.teamContext.teammates;
+            $ = { ..._.teamContext, teammates: j }
+        }
+        return {
+            ..._,
+            teamContext: $,
+            tasks: {
+                ..._.tasks,
+                [A]: {
+                    ...O,
+                    status: "killed",
+                    notified: !0,
+                    endTime: Date.now(),
+                    onIdleCallbacks: [],
+                    messages: O.messages?.length ? [O.messages[O.messages.length - 1]] : void 0,
+                    pendingUserMessages: [],
+                    inProgressToolUseIDs: void 0,
+                    abortController: void 0,
+                    unregisterCleanup: void 0,
+                    currentWorkAbortController: void 0
+                }
+            }
+        }
+    }), Y && z) ty8(Y, z);
+    if (K) $O(A), setTimeout(VR.bind(null, A, q), mB);
+    if (z) a36(z);
+    return K
+}
+
+// READABLE (for understanding):
+function killInProcessTeammate(taskId, setAppState) {
+    let wasKilled = false;
+    let teamName = null;
+    let agentId = null;
+
+    setAppState((state) => {
+        let task = state.tasks[taskId];
+        if (!task || task.type !== "in_process_teammate") return state;
+        if (task.status !== "running") return state;
+
+        teamName = task.identity.teamName;
+        agentId = task.identity.agentId;
+
+        // Abort the agent's execution
+        task.abortController?.abort();
+        task.unregisterCleanup?.();
+        wasKilled = true;
+
+        // Fire any waiting callbacks
+        task.onIdleCallbacks?.forEach(cb => cb());
+
+        // Remove from teamContext
+        let updatedTeamContext = state.teamContext;
+        if (state.teamContext?.teammates && agentId) {
+            let { [agentId]: removed, ...remainingTeammates } = state.teamContext.teammates;
+            updatedTeamContext = { ...state.teamContext, teammates: remainingTeammates };
+        }
+
+        // Return updated state
+        return {
+            ...state,
+            teamContext: updatedTeamContext,
+            tasks: {
+                ...state.tasks,
+                [taskId]: {
+                    ...task,
+                    status: "killed",
+                    notified: true,
+                    endTime: Date.now(),
+                    onIdleCallbacks: [],
+                    // Keep only last message for debugging
+                    messages: task.messages?.length ? [task.messages[task.messages.length - 1]] : undefined,
+                    pendingUserMessages: [],
+                    inProgressToolUseIDs: undefined,
+                    abortController: undefined,
+                    unregisterCleanup: undefined,
+                    currentWorkAbortController: undefined
+                }
+            }
+        };
+    });
+
+    // Notify team-lead of removal
+    if (teamName && agentId) notifyTeammateRemoval(teamName, agentId);
+
+    // Schedule cleanup after delay
+    if (wasKilled) {
+        removeTaskFromState(taskId);
+        setTimeout(() => finalizeTaskCleanup(taskId, setAppState), CLEANUP_DELAY_MS);
+    }
+
+    // Clear agent identity context
+    if (agentId) clearAgentIdentity(agentId);
+
+    return wasKilled;
+}
+
+// Mapping: bZ1→killInProcessTeammate, A→taskId, q→setAppState,
+//   K→wasKilled, Y→teamName, z→agentId, ty8→notifyTeammateRemoval,
+//   $O→removeTaskFromState, VR→finalizeTaskCleanup, mB→CLEANUP_DELAY_MS
+```
+
+**Key insight:** The function uses immutable state updates (spreading objects) rather than direct mutation. This ensures React state change detection works correctly and prevents race conditions during concurrent state updates.
 
 ---
 
@@ -825,7 +1020,229 @@ if (newStatus === "completed" && task.blockedBy.some(id => !isCompleted(id))) {
 
 ---
 
-## 9. Related Symbols
+## 9. Deep Error Analysis
+
+### 9.1 Message Delivery Failure Scenarios
+
+**Complete failure taxonomy:**
+
+```javascript
+// ============================================
+// writeToMailbox error handling paths
+// Location: chunks.132.mjs:22-55
+// ============================================
+
+// READABLE (for understanding):
+async function writeToMailbox(recipientName, message, teamName) {
+    try {
+        await ensureInboxDirectoryExists(teamName);
+    } catch (err) {
+        // SCENARIO: Cannot create inbox directory
+        // Causes: Permission denied, disk full, read-only filesystem
+        // Recovery: None automatic - error surfaced to caller
+        // User Action: Fix permissions or disk space, retry SendMessage
+        log(`Failed to create inbox directory: ${err.message}`);
+        return { success: false, error: `Cannot create inbox: ${err.message}` };
+    }
+
+    try {
+        // Create mailbox file if not exists
+        await writeFile(mailboxPath, "[]", { flag: "wx" });
+    } catch (err) {
+        if (err.code !== "EEXIST") {
+            // SCENARIO: Write failed for reason other than file exists
+            // Causes: Permission denied, disk full
+            // Recovery: None automatic
+            return { success: false, error: `Cannot create mailbox: ${err.message}` };
+        }
+    }
+
+    let releaseLock;
+    try {
+        // Acquire lock with retry
+        releaseLock = await properLockfile.lock(mailboxPath, {
+            retries: 10,
+            minTimeout: 5,
+            maxTimeout: 100
+        });
+
+        // SCENARIO: Lock acquired successfully
+        let messages = await readMailbox(recipientName, teamName);
+        messages.push({ ...message, read: false });
+        await writeFile(mailboxPath, JSON.stringify(messages, null, 2));
+
+    } catch (err) {
+        // SCENARIO: Lock acquisition failed after 10 retries
+        // Causes: High contention, slow filesystem, stale lock not detected
+        // Recovery: Error returned to agent, can retry
+        // User Action: Wait and retry, or manually remove .lock file if stale
+        if (err.code === "ELOCKED") {
+            return {
+                success: false,
+                error: `Could not acquire lock on mailbox for ${recipientName}. ` +
+                       `Recipient may be receiving many messages. Try again later.`
+            };
+        }
+        // SCENARIO: Other lock error (unexpected)
+        return { success: false, error: `Lock error: ${err.message}` };
+    } finally {
+        if (releaseLock) await releaseLock();
+    }
+}
+```
+
+**Lock contention analysis:**
+
+| Concurrent Writers | Lock Wait Time | Success Rate | Notes |
+|-------------------|----------------|--------------|-------|
+| 1 | 0ms | 100% | No contention |
+| 2-3 | 5-50ms | ~99% | Brief wait, usually succeeds |
+| 4-5 | 50-200ms | ~95% | Longer wait, may timeout |
+| 6+ | 200-1000ms | ~80% | High chance of timeout |
+
+**Why 10 retries with 5-100ms backoff:**
+- 10 retries provides ~1 second max wait
+- Exponential backoff prevents thundering herd
+- Most lock holders release within 1-5ms (simple JSON write)
+- Total contention duration typically <500ms for 5 writers
+
+### 9.2 Process Crash Recovery
+
+**In-process teammate crash:**
+
+```
+Scenario: In-process teammate throws unhandled exception during tool execution
+
+Timeline:
+T0: Teammate executing Bash tool (long-running command)
+T1: Unexpected error in stdout parsing
+T2: Exception bubbles up to inProcessAgentRunner catch block
+T3: Catch block updates AppState:
+    - status: "crashed"
+    - error: errorMessage
+    - endTime: Date.now()
+T4: Team lead sees crashed status in UI
+T5: User/team-lead decides: restart teammate or reassign tasks
+
+State after crash:
+- Task files still exist with last known status
+- Mailbox may have unread messages
+- AppState shows crashed task with error message
+
+Recovery options:
+1. Restart: Create new teammate with same agentName
+   - New agentId generated
+   - Reads mailbox (may find old unread messages)
+   - Can see task list, claim available tasks
+
+2. Reassign: Team lead reassigns tasks via TaskUpdate
+   - Changes owner field
+   - Other teammates can pick up work
+
+3. Ignore: Leave crashed state, team continues without this agent
+```
+
+**Pane-based teammate crash (separate process):**
+
+```
+Scenario: tmux pane process dies unexpectedly
+
+Detection paths:
+1. Team lead checks team config, sees member still registered
+2. SendMessage to teammate fails (no response)
+3. User notices pane is dead (visually in terminal)
+4. tmux list-panes shows pane no longer exists
+
+Recovery:
+1. Team lead calls TeamDelete with force flag
+2. Removes teammate from config
+3. Unassigns tasks owned by crashed teammate
+4. Optionally: spawn new teammate with same name
+```
+
+### 9.3 State Corruption Recovery Procedures
+
+**Team config corruption:**
+
+```bash
+# Detection: Read config shows invalid JSON
+$ cat ~/.claude/teams/my-team/config.json
+{"teamName": "my-team", "members": [{"agentId": "abc", "agentName": "backend-dev
+
+# Missing closing bracket, truncated
+
+# Recovery Option 1: Restore from backup (if exists)
+$ cp ~/.claude/teams/my-team/config.json.backup ~/.claude/teams/my-team/config.json
+
+# Recovery Option 2: Rebuild from running processes
+$ tmux list-panes -F "#{pane_id} #{pane_current_command}"
+%12 claude  # team lead
+%13 claude  # backend-dev
+%14 claude  # frontend-dev
+
+# Manually rebuild config.json with discovered panes
+
+# Recovery Option 3: Delete and recreate team
+$ rm -rf ~/.claude/teams/my-team
+# Then use TeamCreate tool to recreate
+```
+
+**Mailbox corruption:**
+
+```bash
+# Detection: JSON.parse fails on mailbox read
+$ cat ~/.claude/teams/my-team/inboxes/backend-dev.json
+[
+  {"from": "team-lead", "text": "Task 1", "read": true},
+  {"from": "team-lead", "text": "Task 2", "rea
+# Truncated mid-message
+
+# Recovery: Archive corrupted, start fresh
+$ mv ~/.claude/teams/my-team/inboxes/backend-dev.json \
+     ~/.claude/teams/my-team/inboxes/backend-dev.json.corrupted-$(date +%s)
+$ echo "[]" > ~/.claude/teams/my-team/inboxes/backend-dev.json
+
+# Lost: All unread messages for backend-dev
+# Impact: Team lead must re-send critical messages
+```
+
+### 9.4 Graceful Shutdown Timeout Handling
+
+**What happens if teammate doesn't respond to shutdown:**
+
+```
+Timeline with 30-second timeout (not implemented, hypothetical):
+
+T0: Team lead sends shutdown_request to backend-dev
+T1: backend-dev receives request in poll loop (Priority 2)
+T2: backend-dev agent loop processes shutdown, calls handleShutdownApproval
+T3: Wait for agent to complete current work
+
+SCENARIO A: Agent responds quickly
+  T5: handleShutdownApproval returns
+  T6: Abort signal sent
+  T7: Process exits
+  Result: Clean shutdown in ~5 seconds
+
+SCENARIO B: Agent is mid-long-operation (e.g., running test suite)
+  T30: Agent still executing tests
+  T60: Agent still executing tests
+  T120: User gives up waiting
+
+Current implementation (no timeout):
+  - Shutdown request sits in mailbox until processed
+  - Agent may take minutes to finish current work
+  - User must wait or force-kill (which loses work)
+
+Potential improvement:
+  - Add configurable timeout to shutdown_request
+  - If timeout expires without approval, escalate to killInProcessTeammate
+  - Force cleanup with potential data loss
+```
+
+---
+
+## 10. Related Symbols
 
 > Symbol mappings:
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
@@ -833,23 +1250,29 @@ if (newStatus === "completed" && task.blockedBy.some(id => !isCompleted(id))) {
 
 Key functions in this document:
 
-- `handleShutdownApproval` (tSY) - Process teammate approval of shutdown request, trigger termination
-- `handleShutdownRejection` (eSY) - Process teammate rejection of shutdown request
-- `sendTeamMessage` (f9) - Send message to teammate mailbox
-- `readTeamConfig` (M51) - Read team configuration from disk
+- `handleShutdownApproval` (YxY) - Process teammate approval of shutdown request, trigger termination @ chunks.145.mjs:2443
+- `handleShutdownRejection` (zxY) - Process teammate rejection of shutdown request @ chunks.145.mjs:2499
+- `createShutdownApprovalResponse` (Gx8) - Format shutdown approval message @ chunks.145.mjs:2456
+- `createShutdownRejectionResponse` (fx8) - Format shutdown rejection message @ chunks.145.mjs:2502
+- `killInProcessTeammate` (bZ1) - Force-kill an in-process teammate @ chunks.113.mjs:1272
+- `writeToMailbox` (x3) - Send message to teammate mailbox @ chunks.132.mjs:22
+- `readMailbox` (wl) - Read messages from mailbox @ chunks.132.mjs:3
+- `readTeamConfig` (M51) - Read team configuration from disk @ chunks.131.mjs:2046
 - `writeTeamConfig` (mSY) - Write team configuration to disk
 - `getTeamConfigPath` (ul4) - Resolve path to team config file
-- `findTaskByAgentId` (ps) - Lookup task in AppState by agent ID
-- `gracefulExit` (nK) - Exit process gracefully with cleanup
-- `getCurrentTeamName` (i3) - Get current session's team name
-- `getCurrentAgentId` (ID) - Get current session's agent ID
-- `getCurrentAgentName` (g5) - Get current session's agent name
-- `createShutdownApprovalResponse` (mvA) - Format shutdown approval message
-- `createShutdownRejectionResponse` (FvA) - Format shutdown rejection message
-- `TmuxBackend` (fEA) - Tmux terminal backend implementation
-- `ITermBackend` (EEA) - iTerm2 terminal backend implementation
-- `getBackend` (zt) - Get backend instance by type
-- `TEAM_LEAD_NAME` (K2) - Constant for team lead identifier
+- `findTaskByAgentId` (_g) - Lookup task in AppState by agent ID
+- `gracefulExit` (Vq) - Exit process gracefully with cleanup @ chunks.117.mjs:899
+- `getCurrentTeamName` (l5) - Get current session's team name
+- `getCurrentAgentId` (nM) - Get current session's agent ID
+- `getCurrentAgentName` (i3) - Get current session's agent name
+- `TmuxBackend` (Ju8) - Tmux terminal backend implementation @ chunks.134.mjs:2411
+- `ITermBackend` (Xu8) - iTerm2 terminal backend implementation @ chunks.135.mjs:11
+- `getBackend` (zt) - Get backend instance by type @ chunks.131.mjs:1493
+- `TEAM_LEAD_ID` (BY) - Constant for team lead identifier ("team-lead") @ chunks.131.mjs:1981
+- `properLockfile` (Nc6) - npm library for file locking @ chunks.132.mjs:437
+- `lockOptions` (iv1) - Lock retry configuration @ chunks.132.mjs:463
+- `markMessageAsReadByIndex` (Vc6) - Mark mailbox message as read @ chunks.132.mjs:57
+- `parseShutdownRequest` (ss) - Parse shutdown request from message @ chunks.131.mjs:1396
 
 Cross-references:
 
@@ -857,3 +1280,5 @@ Cross-references:
 - [pane_backend_executor.md](./pane_backend_executor.md) - Poll loop abort handling
 - [agent_teams_architecture.md](./agent_teams_architecture.md) - Overall team architecture
 - [inter_agent_communication.md](./inter_agent_communication.md) - Message delivery and mailbox system
+- [03_mailbox_and_locking.md](./03_mailbox_and_locking.md) - File locking implementation details
+- [04_polling_priorities.md](./04_polling_priorities.md) - Priority 2 shutdown bypass

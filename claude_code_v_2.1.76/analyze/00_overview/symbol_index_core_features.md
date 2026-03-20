@@ -52,22 +52,47 @@
 
 ### Spawn & Execution
 
+> **CORRECTION**: Previous versions incorrectly documented spawn function locations.
+> The correct locations are verified in source code below.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| iVY | spawnTeammateDispatcher | chunks.131.mjs:2467 | function |
-| Rm | isInProcessEnabled | chunks.131.mjs:1586 | function |
-| LP1 | spawnInProcessTeammate | chunks.123.mjs:242 | function |
-| dVY | spawnSplitPaneTeammate | chunks.131.mjs:2077 | function |
-| cVY | spawnSeparateWindowTeammate | chunks.131.mjs:2202 | function |
-| WVY | inProcessPollLoop | chunks.131.mjs:260 | function |
-| GVY | inProcessAgentRunner | chunks.131.mjs:347 | function |
+| pNY | spawnTeammateDispatcher | chunks.135.mjs:1110 | function |
+| qn4 | spawnTeammate | chunks.135.mjs:1116 | function |
+| Rb | isInProcessEnabled | chunks.135.mjs:208 | function |
+| FNY | spawnInProcessTeammate | chunks.135.mjs:985 | function |
+| BNY | spawnSplitPaneTeammate | chunks.135.mjs:711 | function |
+| gNY | spawnTmuxTeammate | chunks.135.mjs:838 | function |
+| XNY | inProcessAgentRunner | chunks.134.mjs:1571 | function |
+| DNY | pollForNextMessage | chunks.134.mjs:1483 | function |
+| Ji4 | claimUnclaimedTask | chunks.134.mjs:1464 | function |
+| xN1 | registerTeammateAndRun | chunks.134.mjs:1847 | function |
+| bZ1 | killInProcessTeammate | chunks.113.mjs:1272 | function |
+
+> **Note**: `iVY` was incorrectly documented as `spawnTeammateDispatcher`. The actual `iVY` is `fs.promises` (Node.js built-in).
+> See `symbol_index_core_execution.md` for more details and `iVY.access` usage patterns.
+
+### Agent Identity (Teammate Context)
+
+> AsyncLocalStorage-based context for tracking teammate agent identity across async operations.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ef8 | teammateContextStorage | chunks.84.mjs:1425 | AsyncLocalStorage |
+| dD1 | createTeammateContext | chunks.84.mjs:1415 | function |
+| iM | getTeammateContext | chunks.84.mjs:1403 | function |
+| UD1 | runWithTeammateContext | chunks.84.mjs:1407 | function |
 
 ### Backend Management
 
+> **CORRECTION**: Previous versions incorrectly documented backend class locations.
+> Verified locations: TmuxBackend=Ju8 @ chunks.134.mjs:2411, ITermBackend=Xu8 @ chunks.135.mjs:11.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| fEA | TmuxBackend | chunks.131.mjs:1144 | class |
-| EEA | ITermBackend | chunks.131.mjs:1381 | class |
+| Ju8 | TmuxBackend | chunks.134.mjs:2411 | class |
+| Xu8 | ITermBackend | chunks.135.mjs:11 | class |
+| Mi4 | InProcessBackend | chunks.134.mjs:1888 | class |
 | zt | getBackend | chunks.131.mjs:1493 | function |
 | OI | isRunningInsideTmux | chunks.131.mjs:759 | function |
 | j51 | isRunningInIterm2 | chunks.131.mjs:772 | function |
@@ -76,42 +101,94 @@
 | WN | SWARM_SESSION_NAME | chunks.131.mjs:1237 | constant ("claude-swarm") |
 | gP1 | SWARM_VIEW_WINDOW_NAME | chunks.131.mjs:1241 | constant ("swarm-view") |
 
+> **Note**: `fEA` and `EEA` were previously incorrectly mapped to TmuxBackend and ITermBackend.
+> The actual backend classes are `Ju8` (TmuxBackend) and `Xu8` (ITermBackend).
+
 ### Message Handling
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| AhY | handlePlanApproval | chunks.141.mjs:1239 | function |
-| aSY | handleBroadcast | chunks.141.mjs:1434 | function |
-| eSY | handleShutdownRejection | chunks.141.mjs:1216 | function |
+| AhY | handlePlanApproval | chunks.145.mjs:2521 | function |
+| aSY | handleBroadcast | chunks.145.mjs:1434 | function |
+| YxY | handleShutdownApproval | chunks.145.mjs:2443 | async function |
+| zxY | handleShutdownRejection | chunks.145.mjs:2499 | async function |
+| Gx8 | createShutdownApprovalResponse | chunks.145.mjs:2456 | function |
+| fx8 | createShutdownRejectionResponse | chunks.145.mjs:2502 | function |
 | iP1 | parsePlanApprovalResponse | chunks.129.mjs:1428 | function |
 | Nx4 | PlanApprovalResponseMessageSchema | chunks.129.mjs:1553 | schema |
-| oSY | handleDirectMessage | chunks.141.mjs:1432 | function |
-| qhY | handlePlanRejection | chunks.141.mjs:1265 | function |
-| sSY | handleShutdownRequest | chunks.141.mjs:1436 | function |
-| tSY | handleShutdownApproval | chunks.141.mjs:1160 | function |
+| oSY | handleDirectMessage | chunks.145.mjs:1432 | function |
+| qhY | handlePlanRejection | chunks.145.mjs:2547 | function |
+| sSY | handleShutdownRequest | chunks.145.mjs:1436 | function |
 | Vx4 | PlanApprovalRequestMessageSchema | chunks.129.mjs:1546 | schema |
+| Vq | gracefulExit | chunks.117.mjs:899 | async function |
 
 ### Mailbox & Communication
 
+> **CORRECTION**: Previous versions incorrectly documented mailbox function locations.
+> Correct locations verified in source code (chunks.132.mjs).
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| as | getInboxPath | chunks.129.mjs:1067 | function |
-| eZY | ensureInboxDirectoryExists | chunks.129.mjs:1080 | function |
-| f9 | writeToMailbox | chunks.129.mjs:1107 | function |
-| JQ1 | markMessageAsReadByIndex | chunks.129.mjs:1130 | function |
-| Ld | readMailbox | chunks.129.mjs:1089 | function |
-| ss | parseShutdownRequest | chunks.129.mjs:1396 | function |
+| wl | readMailbox | chunks.132.mjs:3 | function |
+| x3 | writeToMailbox | chunks.132.mjs:22 | function |
+| Vc6 | markMessageAsReadByIndex | chunks.132.mjs:57 | function |
+| kc6 | markMessagesAsRead | chunks.132.mjs:92 | function |
+| pY6 | readUnreadMessages | chunks.132.mjs:16 | function |
+| $TY | clearMailbox | chunks.132.mjs:128 | function |
+| HTY | formatMailboxMessages | chunks.132.mjs:141 | function |
+| ss | parseShutdownRequest | chunks.131.mjs:1396 | function |
+| FY6 | getInboxPath | chunks.131.mjs:2849 | function |
+| OTY | ensureInboxDirectoryExists | chunks.131.mjs:2858 | function |
+| Nc6 | properLockfile | chunks.132.mjs:437 | module (npm) |
+| iv1 | lockOptions | chunks.132.mjs:463 | object (retries: 10, minTimeout: 5ms, maxTimeout: 100ms) |
+
+### System Reminder Integration
+
+> Team context and mailbox attachments converted to system-reminders for LLM context.
+> Cross-reference: [04_system_reminder/](../04_system_reminder/)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ui8 | normalizeAttachmentForAPI | chunks.174.mjs:3 | function |
 
 ### Task Auto-Claim & Dependencies
 
+> **CORRECTION**: Previous `MVY` and `ib4` mappings were incorrect. See correct symbols below.
+> Verified: `JNY` = `findNextAvailableTask` at chunks.134.mjs:1445 (used by claimUnclaimedTask).
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ib4 | claimNextTask | chunks.131.mjs:241 | function |
-| MVY | findNextAvailableTask | chunks.131.mjs:222 | function |
+| Ji4 | claimUnclaimedTask | chunks.134.mjs:1464 | function |
+| JNY | findNextAvailableTask | chunks.134.mjs:1445 | function |
 | OT8 | claimTask | chunks.84.mjs:1781 | async function |
 | $N9 | claimTaskWithAgentBusyValidation | chunks.84.mjs:1831 | async function |
 | ft | unassignTeammateTasks | chunks.84.mjs:1883 | async function |
 | PVY | generatePromptFromTask | chunks.131.mjs:231 | function |
+
+> **Note**: `ib4` (chunks.131.mjs:336) maps to `getUnclaimedTaskPrompt`, not `claimNextTask`.
+> `MVY` at chunks.131.mjs:222 is NOT `findNextAvailableTask`. The actual `findNextAvailableTask`
+> function is `JNY` at chunks.134.mjs:1445, called by `Ji4` (claimUnclaimedTask).
+> The task claiming logic flow: `Ji4` → `JNY` → `OT8`.
+
+### Idle Notification Protocol
+
+> Teammates notify team-lead when idle, ready for new work assignments.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ec6 | buildIdleNotification | chunks.132.mjs:153 | function |
+| yc6 | parseIdleNotification | chunks.132.mjs:166 | function |
+| Xx8 | buildPermissionRequest | chunks.132.mjs:174 | function |
+| Px8 | buildPermissionResponse | chunks.132.mjs:187 | function |
+
+**Idle reasons**: "available", "interrupted", "failed"
+
+### Constants & Helpers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| BY | TEAM_LEAD_ID | chunks.131.mjs:1981 | constant ("team-lead") |
+| jNY | sleep | chunks.134.mjs:1441 | function (Promise-based delay) |
 
 ---
 
@@ -579,7 +656,8 @@
 | rO | isPlanModeInterviewPhase | chunks.50.mjs:2520 | function |
 | szz | buildFullPlanModeReminder | chunks.173.mjs:531 | function |
 | tzz | buildAllowedToolsList | chunks.173.mjs:611 | function |
-| uW | getPlanFilePath | chunks.88.mjs:120 | function |
+| uW | getPlanFilePath | chunks.88.mjs:120 | function (returns path in format `~/.claude/plans/{slug}.md`) |
+| N51/Xz6 | checkEditPermissions | chunks.146.mjs / chunks.139.mjs | function (Write/Edit plan file bypass — returns "allow" for plan file paths, short-circuiting orchestrator mode check) |
 | vg1 | pushToRemote | chunks.139.mjs:2720 | function |
 | vP1 | generateRequestId | chunks.139.mjs:2710 | function |
 | Xc4 | getPlanDesignAgentCount | chunks.140.mjs:1455 | function |
@@ -951,6 +1029,8 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | Rp8 | executeTeammateIdleHooks | chunks.175.mjs:2579 | generator |
 | Hi6 | executeTaskCompletedHooks | chunks.175.mjs:2594 | generator |
 | yr8 | executeUserPromptSubmitHooks | chunks.175.mjs:2613 | generator |
+| yp8 | getTeammateIdleHookMessage | chunks.175.mjs:1597 | function |
+| $i6 | getTaskCompletedHookMessage | chunks.175.mjs:1602 | function |
 | Qu8 | executeSessionStartHooks | chunks.175.mjs:2632 | generator |
 | RQ8 | executeSessionEndHooks | chunks.175.mjs | function |
 | UN6 | executeConfigChangeHooks | chunks.175.mjs:2787 | function |
@@ -1004,7 +1084,9 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Wi4 | parseHookOutput | chunks.141.mjs:1780 | function |
+| Kvq | parseHookOutput | chunks.175.mjs:1030 | function |
+| qvq | tryParseHookJson | chunks.175.mjs:997 | function |
+| Yvq | parseHttpHookOutput | chunks.175.mjs:1053 | function |
 | Gi4 | processHookJsonOutput | chunks.141.mjs:1810 | function |
 | SK1 | isAsyncHookResponse | chunks.90.mjs:1624 | function |
 | zn7 | isSyncHookResponse | chunks.90.mjs:1620 | function |
@@ -1050,11 +1132,11 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | aX | buildBasePayload | chunks.141.mjs:1770 | function |
-| XJ6 | interpolateHookPrompt | chunks.90.mjs:2001 | function |
-| fR | combineAbortSignals | chunks.90.mjs:1691 | function |
-| jn7 | getStructuredOutputTool | chunks.90.mjs:2005 | function |
-| DJ6 | registerAgentInState | chunks.90.mjs:2030 | function |
-| iD1 | unregisterAgentFromState | chunks.75.mjs:1240 | function |
+| WS1 | interpolateHookPrompt | chunks.175.mjs:722 | function |
+| mN | combineAbortSignals | chunks.175.mjs:250 | function |
+| pTq | getStructuredOutputTool | chunks.175.mjs:321 | function |
+| ZS1 | registerAgentInState | chunks.175.mjs:346 | function |
+| zZ6 | unregisterAgentFromState | chunks.95.mjs:1830 | function |
 | MZ | getHookDisplayName | chunks.75.mjs:1272 | function |
 | f01 | mergeAsyncGenerators | chunks.92.mjs:2642 | generator |
 | Pi4 | isWorkspaceTrustRequired | chunks.141.mjs:1765 | function |

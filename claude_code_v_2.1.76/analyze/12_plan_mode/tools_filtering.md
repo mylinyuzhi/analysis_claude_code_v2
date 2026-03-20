@@ -482,15 +482,19 @@ Write and Edit tools are blocked in plan mode with one exception: **the plan fil
 
 ### Plan File Exception
 
-The plan file (at `.claude/sessions/<session-id>/plan.md`) is the **only file** that can be edited in plan mode. This is enforced at the tool level, not the permission level.
+The plan file (at `~/.claude/plans/{slug}.md`, where slug uses `{adjective}-{action}-{noun}` pattern via `Rj1/getPlanFileSlug` at chunks.88.mjs:78, path via `uW/getPlanFilePath` at chunks.88.mjs:120) is the **only file** that can be edited in plan mode.
 
-### How the Exception Works
+### How the Exception Works (checkPermissions-level bypass)
 
-1. **Write tool**: Checks if the target path matches the plan file path
-2. **Edit tool**: Same check before applying edits
-3. **Permission system**: Still applies but the tools themselves handle the plan file exception
+The exception is **not** enforced at the tool `call()` level — it operates at the `checkPermissions()` level. The Write/Edit tool's `checkPermissions()` (chunks.146.mjs:118-120) calls `checkEditPermissions` (`N51`/`Xz6`), which is `checkEditPermissions(FileWriteTool, input, appState.toolPermissionContext)` (also documented in `16_file_system/overview.md`). For plan file paths, `checkEditPermissions` returns `{behavior: "allow"}`. The permission orchestrator (`BYz`) short-circuits on "allow" — the plan mode restriction (which would deny non-read-only tools) **never evaluates**.
 
-The plan file path is obtained via `uW(agentId)` which returns the session-specific plan file path.
+**3-step bypass path:**
+
+1. **Write/Edit `checkPermissions()`** → calls `checkEditPermissions(tool, input, permContext)`
+2. **`checkEditPermissions`** detects plan file path → returns `{behavior: "allow"}`
+3. **Orchestrator (`BYz`)** receives "allow" → returns immediately → **mode check SKIPPED**
+
+The plan file path is obtained via `uW(agentId)` which returns `~/.claude/plans/{slug}.md`.
 
 ---
 
@@ -554,6 +558,12 @@ Tool Called
     ├─ Step 1: Parse input schema
     │
     ├─ Step 2: Call checkPermissions()
+    │   │
+    │   ├─ Step 2b: Write/Edit plan file bypass
+    │   │   ├─ checkEditPermissions(tool, input, permContext)
+    │   │   │   ├─ If path matches plan file → Return { behavior: "allow" }
+    │   │   │   │   └─ Orchestrator short-circuits → mode check SKIPPED
+    │   │   │   └─ Otherwise → passthrough to normal flow
     │   │
     │   ├─ If requiresUserInteraction() && behavior="ask" → Return ask
     │   │
@@ -644,6 +654,6 @@ When a teammate is in plan mode with `plan_mode_required: true`:
 | Bash Commands | `Of6()` evaluation | Checks command parseability, read-only status, security |
 | Git Detection | `Pf6()` + `Sd1` regex | Identifies git commands for special handling |
 | Permission Rules | `hmA()` rule matching | Always-allow rules can override mode restrictions |
-| Plan File Exception | Tool-level check | Write/Edit allowed only for plan file path |
+| Plan File Exception | Tool `checkPermissions` → `checkEditPermissions` → orchestrator short-circuit | Write/Edit allowed only for plan file path |
 | MCP Tools | `readOnlyHint` annotation | Protocol-level read-only declaration |
 | Suggestions | `ehA()` blocker | Suppresses inline suggestions in plan mode |

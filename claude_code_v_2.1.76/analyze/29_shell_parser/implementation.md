@@ -11,19 +11,20 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations (Shell Parser section)
 
 Key functions in this document:
-- `parseShellCommand` (rZ1) - Full tokenizer with heredoc safety
-- `extractSubcommands` (AD) - Splits compound command into subcommands
-- `runSecurityChecks` (lm) - Master security pipeline
-- `bashPreFlightCheck` (AYz) - LLM-based prefix extraction
-- `extractRedirections` (aI) - Redirection analysis
-- `checkDangerousRedirection` (YYz) - Per-redirection risk assessment
+- `parseShellCommand` (bW6) - Full tokenizer with heredoc safety
+- `extractSubcommands` (EO) - Splits compound command into subcommands
+- `runSecurityChecksSync` (Rp6) - Master security pipeline (sync, no tree-sitter)
+- `runSecurityChecksAsync` (O01) - Master security pipeline (async, with tree-sitter)
+- `bashPreFlightCheck` (nGq) - LLM-based prefix extraction
+- `extractRedirections` (ik) - Redirection analysis
+- `checkDangerousRedirection` (f9z) - Per-redirection risk assessment
 - `reconstructCommand` (wYz) - Rebuilds command string from token list
 - `isReadOnlyCommand` (NcY) - Comprehensive read-only command detection
 - `checkReadOnlyBehavior` (Of6) - Main read-only permission gate
 - `validateSedCommand` (QU1) - Master sed safety validation
 - `isInSafeCommandRegistry` (WcY) - Checks against safe command whitelist
-- `stripQuotes` (cdY) - Quote-aware content extraction
-- `hasSingleQuotedBackslashBypass` (CY8) - Pre-check bypass detector
+- `stripQuotes` (bY4) - Quote-aware content extraction
+- `hasSingleQuotedBackslashBypass` (X38) - Pre-check bypass detector
 
 ---
 
@@ -38,22 +39,23 @@ The Shell Parser module spans **5 source files** and implements a layered securi
                       │ Command string
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Layer 0: Pre-Check (CY8 / hasSingleQuotedBackslashBypass)  │
+│  Layer 0: Pre-Check (X38 / hasSingleQuotedBackslashBypass)  │
 │  Detects 'a\' pattern that can bypass quote tracking        │
 └─────────────────────┬───────────────────────────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Layer 1: Static Security Checks (lm / runSecurityChecks)   │
+│  Layer 1: Static Security Checks (Rp6/O01)                  │
 │                                                              │
-│  Phase A: Allow-list (ndY, rdY, adY, tdY, sdY)              │
-│  Phase B: Deny-list  (edY, $cY, AcY, qcY, YcY,             │
-│                        zcY, wcY, KcY, HcY)                  │
+│  Phase A: Allow-list (uY4, mY4, gY4, FY4)                   │
+│  Phase B: Deny-list (19 checks total)                       │
+│    - pY4, rY4, QY4, UY4, w01, lY4, iY4, dY4, _01, nY4      │
+│    - oY4, sY4, tY4, eY4, Kz4, aY4, Az4, qz4, cY4           │
 └─────────────────────┬───────────────────────────────────────┘
                       │ behavior: "passthrough"
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Layer 2: LLM Prefix Extraction (AYz / bashPreFlightCheck)  │
+│  Layer 2: LLM Prefix Extraction (nGq / bashPreFlightCheck)  │
 │  Extracts command prefix for permission matching            │
 │  Also detects injection via "command_injection_detected"    │
 └─────────────────────┬───────────────────────────────────────┘
@@ -72,13 +74,402 @@ The Shell Parser module spans **5 source files** and implements a layered securi
 
 | File | Lines | Content |
 |------|-------|---------|
-| `chunks.149.mjs` | ~2748-3000 | Allow-list checks, quote stripping, helpers |
-| `chunks.150.mjs` | ~1-920 | Deny-list checks, sed validation, safe command registry |
-| `chunks.169.mjs` | ~1561-2275 | Heredoc handling, tokenization, prefix extraction, redirection |
-| `chunks.170.mjs` | ~1-120 | Command reconstruction, constants |
+| `chunks.91.mjs` | ~1100-2500 | Security pipeline: runSecurityChecks, all check functions, SECURITY_CHECK_IDS |
+| `chunks.171.mjs` | ~1100-1800 | Shell tokenizer, heredoc handling, prefix extraction, command reconstruction |
+| `chunks.56.mjs` | ~945-1100 | extractHeredocs function |
+| `chunks.172.mjs` | ~1930-2200 | Permission checking integration, prefix matching |
 | `chunks.10.mjs` | ~1031 | CY8 backslash bypass pre-check |
 
 ---
+
+## Deep Analysis: Heredoc Extraction Algorithm
+
+### The Problem
+
+Heredocs are multi-line string literals in bash:
+```bash
+cat <<EOF
+This is content that should NOT be parsed as commands
+rm -rf / # This is just text, not a command
+EOF
+```
+
+Without heredoc awareness, the security system would:
+- Tokenize `rm -rf /` as a dangerous command
+- Flag `#` as a comment injection
+- Misparse the multi-line structure
+
+### extractHeredocs (ca) — Complete Source Restoration
+
+**What it does:** Identifies all heredoc blocks in a command, replaces them with unique placeholders, and returns both the processed command and a map of placeholder-to-original-content.
+
+**Location:** chunks.56.mjs:945-1160
+
+```javascript
+// ============================================
+// extractHeredocs - Extract heredoc blocks and replace with placeholders
+// Location: chunks.56.mjs:945-1160
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ca(A, q) {
+    let K = new Map;
+    if (!A.includes("<<")) return { processedCommand: A, heredocs: K };
+    if (/\$['"]/.test(A)) return { processedCommand: A, heredocs: K };
+    let Y = A.indexOf("<<");
+    if (Y > 0 && A.slice(0, Y).includes("`")) return { processedCommand: A, heredocs: K };
+    if (Y > 0) {
+        let f = A.slice(0, Y), v = (f.match(/\(\(/g) || []).length,
+            N = (f.match(/\)\)/g) || []).length;
+        if (v > N) return { processedCommand: A, heredocs: K }
+    }
+    let z = new RegExp(Lu3.source, "g"), _ = [], w = [], O, $ = 0,
+        H = !1, j = !1, J = !1, M = !1, D = 0,
+        X = (f) => {
+            for (let v = $; v < f; v++) {
+                let N = A[v];
+                if (N === "\n") J = !1;
+                if (H) { if (N === "'") H = !1; continue }
+                if (j) {
+                    if (M) { M = !1; continue }
+                    if (N === "\\") { M = !0; continue }
+                    if (N === '"') j = !1; continue
+                }
+                if (N === "\\") { D++; continue }
+                let V = D % 2 === 1;
+                if (D = 0, V) continue;
+                if (N === "'") H = !0;
+                else if (N === '"') j = !0;
+                else if (!J && N === "#") J = !0
+            }
+            $ = f
+        };
+    while ((O = z.exec(A)) !== null) {
+        let f = O.index;
+        if (X(f), H || j) continue;
+        if (J) continue;
+        if (D % 2 === 1) continue;
+        // ... find delimiter end, handle nesting, generate placeholders ...
+    }
+    if (_.length === 0) return { processedCommand: A, heredocs: K };
+    // Filter nested heredocs, sort by descending position, replace with placeholders
+    let P = _.filter((f, v, N) => {
+        for (let V of N) {
+            if (f === V) continue;
+            if (f.operatorStartIndex > V.contentStartIndex && f.operatorStartIndex < V.contentEndIndex) return !1
+        }
+        return !0
+    });
+    P.sort((f, v) => v.contentEndIndex - f.contentEndIndex);
+    let Z = yu3(), G = A;
+    return P.forEach((f, v) => {
+        let N = P.length - 1 - v, V = `__HEREDOC_${N}_${Z}__`;
+        K.set(V, f), G = G.slice(0, f.operatorStartIndex) + V + G.slice(f.operatorEndIndex, f.contentStartIndex) + G.slice(f.contentEndIndex)
+    }), { processedCommand: G, heredocs: K }
+}
+
+// READABLE (for understanding):
+function extractHeredocs(command, options) {
+    let heredocMap = new Map();
+
+    // Early exit: no heredoc operators
+    if (!command.includes("<<")) return { processedCommand: command, heredocs: heredocMap };
+
+    // Safety: skip if ANSI-C/locale quoting present (complex parsing)
+    if (/\$['"]/.test(command)) return { processedCommand: command, heredocs: heredocMap };
+
+    // Safety: skip if backticks before << (command substitution context)
+    let firstHeredocPos = command.indexOf("<<");
+    if (firstHeredocPos > 0 && command.slice(0, firstHeredocPos).includes("`"))
+        return { processedCommand: command, heredocs: heredocMap };
+
+    // Safety: skip if unbalanced arithmetic expansion before <<
+    if (firstHeredocPos > 0) {
+        let prefix = command.slice(0, firstHeredocPos);
+        let openArith = (prefix.match(/\(\(/g) || []).length;
+        let closeArith = (prefix.match(/\)\)/g) || []).length;
+        if (openArith > closeArith) return { processedCommand: command, heredocs: heredocMap };
+    }
+
+    // State machine variables for quote/comment tracking
+    let inSingleQuote = false;    // H
+    let inDoubleQuote = false;    // j
+    let inComment = false;        // J
+    let escapedInDouble = false;  // M
+    let backslashCount = 0;       // D
+    let lastProcessedIndex = 0;   // $
+
+    // Track quote/comment context while scanning for <<
+    function processContextUpTo(index) {
+        for (let i = lastProcessedIndex; i < index; i++) {
+            let ch = command[i];
+            if (ch === "\n") inComment = false;  // Newline ends comment
+
+            if (inSingleQuote) {
+                if (ch === "'") inSingleQuote = false;
+                continue;
+            }
+            if (inDoubleQuote) {
+                if (escapedInDouble) { escapedInDouble = false; continue; }
+                if (ch === "\\") { escapedInDouble = true; continue; }
+                if (ch === '"') inDoubleQuote = false;
+                continue;
+            }
+            if (ch === "\\") { backslashCount++; continue; }
+            let isEscaped = backslashCount % 2 === 1;
+            backslashCount = 0;
+            if (isEscaped) continue;
+
+            if (ch === "'") inSingleQuote = true;
+            else if (ch === '"') inDoubleQuote = true;
+            else if (!inComment && ch === "#") inComment = true;
+        }
+        lastProcessedIndex = index;
+    }
+
+    let heredocRegex = /(?<!<)<<(?!<)(-)?[ \t]*(?:(['"])(\\?\w+)\2|\\?(\w+))/g;
+    let matches = [];
+    let seenRanges = [];  // Track already-processed heredoc content ranges
+
+    while ((match = heredocRegex.exec(command)) !== null) {
+        let matchStart = match.index;
+        processContextUpTo(matchStart);  // Update quote state up to this position
+
+        // Skip if inside quotes or comment
+        if (inSingleQuote || inDoubleQuote || inComment) continue;
+        if (backslashCount % 2 === 1) continue;  // Escaped <<
+
+        // Skip if this << is inside another heredoc's content
+        let isNested = seenRanges.some(range =>
+            matchStart > range.contentStartIndex && matchStart < range.contentEndIndex
+        );
+        if (isNested) continue;
+
+        // Parse heredoc operator
+        let isTabStripping = match[1] === "-";
+        let delimiter = match[3] || match[4];  // Quoted or unquoted delimiter
+        let operatorEnd = matchStart + match[0].length;
+        let hasQuotedDelimiter = !!match[2] || match[0].includes("\\");
+
+        // Find content start (after newline following operator)
+        let contentStart = -1;
+        for (let i = operatorEnd; i < command.length; i++) {
+            if (command[i] === "\n") {
+                contentStart = i + 1;
+                break;
+            }
+        }
+        if (contentStart === -1) continue;  // No newline found, invalid heredoc
+
+        // Find content end (line matching delimiter)
+        let lines = command.slice(contentStart).split("\n");
+        let contentEndLine = -1;
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i];
+            let compareLine = isTabStripping ? line.replace(/^\t*/, "") : line;
+            if (compareLine === delimiter) {
+                contentEndLine = i;
+                break;
+            }
+        }
+        if (contentEndLine === -1) continue;  // No closing delimiter found
+
+        let contentEndIndex = contentStart + lines.slice(0, contentEndLine + 1).join("\n").length;
+
+        // Record this heredoc
+        matches.push({
+            fullText: command.slice(matchStart, contentEndIndex),
+            delimiter,
+            operatorStartIndex: matchStart,
+            operatorEndIndex: operatorEnd,
+            contentStartIndex: contentStart,
+            contentEndIndex: contentEndIndex
+        });
+    }
+
+    if (matches.length === 0) return { processedCommand: command, heredocs: heredocMap };
+
+    // Filter out heredocs whose operator is inside another's content
+    let filtered = matches.filter((m, idx, all) => {
+        return !all.some(other => other !== m &&
+            m.operatorStartIndex > other.contentStartIndex &&
+            m.operatorStartIndex < other.contentEndIndex);
+    });
+
+    if (filtered.length === 0) return { processedCommand: command, heredocs: heredocMap };
+
+    // Sort by descending content end index (reverse order for safe replacement)
+    filtered.sort((a, b) => b.contentEndIndex - a.contentEndIndex);
+
+    // Generate random hex suffix for collision prevention
+    let randomHex = generateRandomHex();  // yu3(): 16-char random hex
+
+    // Replace each heredoc with placeholder
+    let processed = command;
+    filtered.forEach((heredoc, idx) => {
+        let placeholderIndex = filtered.length - 1 - idx;  // 0-based from left
+        let placeholder = `__HEREDOC_${placeholderIndex}_${randomHex}__`;
+        heredocMap.set(placeholder, heredoc);
+        processed = processed.slice(0, heredoc.operatorStartIndex) + placeholder +
+                    processed.slice(heredoc.operatorEndIndex, heredoc.contentStartIndex) +
+                    processed.slice(heredoc.contentEndIndex);
+    });
+
+    return { processedCommand: processed, heredocs: heredocMap };
+}
+
+// Mapping: ca→extractHeredocs, A→command, q→options, K→heredocMap, H→inSingleQuote,
+//          j→inDoubleQuote, J→inComment, M→escapedInDouble, D→backslashCount,
+//          $→lastProcessedIndex, Lu3→HEREDOC_REGEX, yu3→generateRandomHex
+```
+
+### generateRandomHex (yu3)
+
+```javascript
+// ============================================
+// generateRandomHex - Generate random hex string for placeholders
+// Location: chunks.56.mjs:941
+// ============================================
+
+// ORIGINAL (for source lookup):
+function yu3() {
+    return Vu3(8).toString("hex")
+}
+
+// READABLE (for understanding):
+function generateRandomHex() {
+    return crypto.randomBytes(8).toString("hex");  // 8 bytes = 16 hex chars
+}
+
+// Mapping: yu3→generateRandomHex, Vu3→crypto.randomBytes
+```
+
+### State Machine for Quote/Comment Context
+
+The heredoc extraction uses a multi-state tracking system to determine whether a `<<` operator is inside a quoted string or comment:
+
+| State Variable | Meaning | Trigger to Enter | Trigger to Exit |
+|----------------|---------|------------------|-----------------|
+| `H` (inSingleQuote) | Inside `'...'` | `'` outside other contexts | `'` (no escape in single quotes) |
+| `j` (inDoubleQuote) | Inside `"..."` | `"` outside other contexts | Unescaped `"` |
+| `J` (inComment) | Inside `#...` | `#` outside quotes | Newline `\n` |
+| `M` (escapedInDouble) | After `\` in double quote | `\` inside double quotes | Any character (skip one) |
+| `D` (backslashCount) | Count of consecutive `\` | `\` outside quotes | Non-backslash character |
+
+**Why this state machine is critical:**
+
+1. **Single quotes have no escape sequences** — Inside `'...'`, a backslash is literal. The state machine correctly handles this by NOT checking for escapes when `H` is true.
+
+2. **Double quotes support escapes** — Inside `"..."`, `\"` is an escaped quote, not a string terminator. The `M` flag tracks this.
+
+3. **Comments ignore everything until newline** — Once `#` is seen outside quotes, all characters until `\n` are comment content, including `<<` operators.
+
+4. **Backslash context matters outside quotes** — An odd number of backslashes before `<<` means it's escaped (`\<<`), so it should be skipped.
+
+### Placeholder Design
+
+**Format:** `__HEREDOC_N_HEXADECIMAL__`
+- `N` = 0-based index from left to right in the original command
+- `HEXADECIMAL` = 16-character random hex string
+
+**Example:**
+```
+Original: cat <<EOF\nhello\nEOF | grep foo
+Processed: cat __HEREDOC_0_a3f4b2c5d6e7f8a9__ | grep foo
+```
+
+**Why this format:**
+1. Double underscores at start/end make it unlikely to collide with actual content
+2. Index allows reverse-mapping during restoration
+3. Random hex suffix prevents collision if command literally contains `__HEREDOC_0__`
+
+### Nesting Detection
+
+The algorithm handles nested heredoc operators:
+
+```bash
+cat <<OUTER
+This has <<INSIDE which is just text
+OUTER
+```
+
+The second `<<INSIDE` is inside `OUTER`'s content, so it's filtered out:
+
+```javascript
+// Filter: remove heredoc operators that appear inside another heredoc's content
+let filtered = matches.filter(m => {
+    return !matches.some(other => m !== other &&
+        m.operatorStartIndex > other.contentStartIndex &&
+        m.operatorStartIndex < other.contentEndIndex);
+});
+```
+
+---
+
+## Deep Analysis: Security Check Pipeline Order
+
+### Why Allow-List Runs Before Deny-List
+
+The security pipeline is structured in two phases:
+
+**Phase A (Allow-list):** Checks that can approve a command as safe
+**Phase B (Deny-list):** Checks that can flag a command as dangerous
+
+**Rationale for this ordering:**
+
+1. **Performance optimization**: Common safe patterns (empty commands, git commit, heredocs) are detected first and short-circuit the expensive deny-list checks.
+
+2. **False positive prevention**: Some patterns that LOOK dangerous are actually safe:
+   - `git commit -m "$(date)"` — The `$()` is inside a quoted commit message
+   - `cat <<'EOF' ... EOF` — Quoted heredoc delimiters prevent variable expansion
+   - Empty commands are trivially safe
+
+3. **Semantic correctness**: The allow-list checks provide context that changes the interpretation of later patterns. For example, if `checkGitCommitMessage` approves a command, we don't want `checkDangerousPatterns` to flag the `$()` inside the message.
+
+### Complete Phase A Checks
+
+| Function | Symbol | Condition | Result |
+|----------|--------|-----------|--------|
+| checkEmptyCommand | uY4 | Command is whitespace-only | `"allow"` |
+| checkIncompleteCommand | mY4 | Starts with tab, `-`, or operator | `"ask"` (not allow) |
+| checkHeredocInSubstitution | gY4 | `$(cat <<'EOF'...)` pattern | `"allow"` |
+| checkGitCommitMessage | FY4 | `git commit -m "..."` with safe message | `"allow"` |
+
+> **Note:** The `checkQuotedHeredoc` function mentioned in earlier versions is not a separate check in v2.1.76. Quoted heredoc handling is integrated into `gY4` (checkHeredocInSubstitution) via the `Hg9` helper which validates `<<'DELIM'` and `<<\DELIM` patterns within command substitutions.
+
+### Complete Phase B Checks (Deny-List)
+
+The deny-list checks run in a specific order designed to catch the most common/severe attacks first:
+
+| Order | Function | Symbol | What It Detects |
+|-------|----------|--------|-----------------|
+| 1 | checkJqCommand | pY4 | `jq system()`, file-reading flags |
+| 2 | checkObfuscatedFlags | rY4 | ANSI-C quoting, locale quoting, quoted flags |
+| 3 | checkShellMetacharacters | QY4 | `;`, `\|`, `&` in quoted arguments |
+| 4 | checkDangerousVariables | UY4 | `$VAR` in redirection/pipe contexts |
+| 5 | checkCommentQuoteDesync | Az4 | Quote inside `#` comment |
+| 6 | checkQuotedNewline | qz4 | Quoted newline + `#` pattern |
+| 7 | checkExcessClosingBraces | cY4 | Unbalanced braces after quote strip |
+| 8 | checkNewlines | w01 | Embedded newlines as command separators |
+| 9 | checkIFSInjection | lY4 | `$IFS` manipulation |
+| 10 | checkProcEnviron | iY4 | `/proc/*/environ` access |
+| 11 | checkDangerousPatterns | dY4 | Backticks, `$()`, `${}`, `<()`, `>()` |
+| 12 | checkRedirections | _01 | `<` and `>` in unquoted content |
+| 13 | checkBackslashEscapedWhitespace | oY4 | `\` before space/tab |
+| 14 | checkBackslashEscapedOperators | aY4 | `\;`, `\|`, `\&`, `\<`, `\>` |
+| 15 | checkUnicodeWhitespace | tY4 | Non-ASCII whitespace chars |
+| 16 | checkMidWordHash | eY4 | `#` in middle of word |
+| 17 | checkBraceExpansion | sY4 | `{a,b}` or `{1..3}` patterns |
+| 18 | checkZshDangerousCommands | Kz4 | zmodload, emulate, sysopen, etc. |
+| 19 | checkMalformedTokenInjection | nY4 | Unbalanced brackets around separators |
+
+**Why this specific order?**
+
+- **jq first**: `jq` is a commonly-used tool, and its `system()` function is a severe vulnerability
+- **Obfuscation checks early**: ANSI-C quoting can hide newlines and other dangerous characters
+- **Metacharacters before patterns**: `;` in a quoted arg might be false positive if we checked `$()` first
+- **IFS/Proc late**: These are specific attack vectors that are less common
+- **Malformed tokens last**: This is a catch-all for parser confusion attacks
 
 ## Layer 0: Pre-Check — Single-Quote Backslash Bypass
 
@@ -146,46 +537,24 @@ The sequence `'\''` is shell idiom for embedding a single quote in a single-quot
 
 Before running security checks, the command is preprocessed to remove quotes for deeper inspection.
 
-#### stripQuotes (cdY)
+#### stripQuotes (UY4)
 
-**What it does:** Produces two versions of the command:
+**What it does:** Produces three versions of the command:
 1. `withDoubleQuotes`: single quotes removed but double quotes preserved (for patterns that need to see what's inside double-quotes)
 2. `fullyUnquoted`: both single and double quotes removed
+3. `unquotedKeepQuoteChars`: preserves quote chars but removes escaping
 
 **How it works (character-by-character state machine):**
 
 ```javascript
 // ============================================
 // stripQuotes - Dual-mode quote removal
-// Location: chunks.149.mjs:2766
+// Location: chunks.91.mjs:~1150
 // ============================================
-
-// ORIGINAL (for source lookup):
-function cdY(A, q = !1) {
-    let K = "", Y = "", z = !1, w = !1, H = !1;
-    for (let $ = 0; $ < A.length; $++) {
-        let O = A[$];
-        if (H) {
-            if (H = !1, !z) K += O;
-            if (!z && !w) Y += O;
-            continue
-        }
-        if (O === "\\" && !z) {
-            if (H = !0, !z) K += O;
-            if (!z && !w) Y += O;
-            continue
-        }
-        if (O === "'" && !w) { z = !z; continue }
-        if (O === '"' && !z) { if (w = !w, !q) continue }
-        if (!z) K += O;
-        if (!z && !w) Y += O
-    }
-    return { withDoubleQuotes: K, fullyUnquoted: Y }
-}
 
 // READABLE (for understanding):
 function stripQuotes(command, isJq = false) {
-    let withDoubleQuotes = "", fullyUnquoted = "";
+    let withDoubleQuotes = "", fullyUnquoted = "", unquotedKeepQuoteChars = "";
     let inSingleQuote = false, inDoubleQuote = false, escaped = false;
 
     for (let i = 0; i < command.length; i++) {
@@ -195,6 +564,7 @@ function stripQuotes(command, isJq = false) {
             escaped = false;
             if (!inSingleQuote) withDoubleQuotes += ch;
             if (!inSingleQuote && !inDoubleQuote) fullyUnquoted += ch;
+            if (!inSingleQuote && !inDoubleQuote) unquotedKeepQuoteChars += ch;
             continue;
         }
         if (ch === "\\" && !inSingleQuote) {
@@ -202,53 +572,56 @@ function stripQuotes(command, isJq = false) {
             escaped = true;
             if (!inSingleQuote) withDoubleQuotes += ch;
             if (!inSingleQuote && !inDoubleQuote) fullyUnquoted += ch;
+            if (!inSingleQuote && !inDoubleQuote) unquotedKeepQuoteChars += ch;
             continue;
         }
-        if (ch === "'" && !inDoubleQuote) { inSingleQuote = !inSingleQuote; continue; }
+        if (ch === "'" && !inDoubleQuote) { inSingleQuote = !inSingleQuote; unquotedKeepQuoteChars += ch; continue; }
         if (ch === '"' && !inSingleQuote) {
             inDoubleQuote = !inDoubleQuote;
+            unquotedKeepQuoteChars += ch;
             if (!isJq) continue;  // For jq: preserve double quotes in output
         }
         if (!inSingleQuote) withDoubleQuotes += ch;
         if (!inSingleQuote && !inDoubleQuote) fullyUnquoted += ch;
+        if (!inSingleQuote && !inDoubleQuote) unquotedKeepQuoteChars += ch;
     }
-    return { withDoubleQuotes, fullyUnquoted };
+    return { withDoubleQuotes, fullyUnquoted, unquotedKeepQuoteChars };
 }
 
-// Mapping: cdY→stripQuotes, K→withDoubleQuotes, Y→fullyUnquoted,
-//   z→inSingleQuote, w→inDoubleQuote, H→escaped
+// Mapping: UY4→stripQuotes, K→withDoubleQuotes, Y→fullyUnquoted, z→unquotedKeepQuoteChars,
+//   _→inSingleQuote, w→inDoubleQuote, O→escaped
 ```
 
 **Key design decisions:**
 - **jq exception**: The `isJq` flag keeps double quotes in the output when the base command is `jq`, because jq's filter language uses `$var` and `"string"` which would produce false positives if double quotes were stripped. The `isJq` flag is set when `baseCommand === "jq"`.
 - **Backslash handling**: The backslash character itself is included in output (not just the escaped char), to preserve `\"` sequences for downstream checks that look for escaped patterns.
 
-#### stripRedirections (ldY)
+#### stripRedirections (xY4)
 
 **What it does:** Removes standard/safe redirect patterns from the fully-unquoted content before pattern matching.
 
 ```javascript
 // ============================================
 // stripRedirections - Remove safe redirect noise
-// Location: chunks.149.mjs:2800
+// Location: chunks.91.mjs:1206
 // ============================================
 
 // ORIGINAL (for source lookup):
-function ldY(A) {
+function xY4(A) {
     return A.replace(/\s+2\s*>&\s*1(?=\s|$)/g, "")
-             .replace(/[012]?\s*>\s*\/dev\/null/g, "")
-             .replace(/\s*<\s*\/dev\/null/g, "")
+             .replace(/[012]?\s*>\s*\/dev\/null(?=\s|$)/g, "")
+             .replace(/\s*<\s*\/dev\/null(?=\s|$)/g, "")
 }
 
 // READABLE (for understanding):
 function stripRedirections(content) {
     return content
         .replace(/\s+2\s*>&\s*1(?=\s|$)/g, "")      // Remove "2>&1" (stderr to stdout)
-        .replace(/[012]?\s*>\s*\/dev\/null/g, "")    // Remove "> /dev/null", "2>/dev/null"
-        .replace(/\s*<\s*\/dev\/null/g, "")           // Remove "< /dev/null"
+        .replace(/[012]?\s*>\s*\/dev\/null(?=\s|$)/g, "")    // Remove "> /dev/null", "2>/dev/null"
+        .replace(/\s*<\s*\/dev\/null(?=\s|$)/g, "")           // Remove "< /dev/null"
 }
 
-// Mapping: ldY→stripRedirections
+// Mapping: xY4→stripRedirections
 ```
 
 **Why this matters:** Common patterns like `command 2>&1 | other` or `command > /dev/null` contain `>` and `>&` which would falsely trigger dangerous-redirection checks. Stripping these known-safe patterns first prevents false positives.
@@ -259,23 +632,24 @@ function stripRedirections(content) {
 
 Allow-list checks run first. If any returns `"allow"`, the deny-list is skipped entirely.
 
-#### checkEmptyCommand (ndY)
+#### checkEmptyCommand (uY4)
 
 ```javascript
 // ============================================
 // checkEmptyCommand - Allow empty commands
-// Location: chunks.149.mjs:2818
+// Location: chunks.91.mjs:1224
 // ============================================
-function ndY(A) {
+function uY4(A) {
     if (!A.originalCommand.trim()) return {
         behavior: "allow",
+        updatedInput: { command: A.originalCommand },
         decisionReason: { type: "other", reason: "Empty command is safe" }
     };
     return { behavior: "passthrough", message: "Command is not empty" }
 }
 ```
 
-#### checkIncompleteCommand (rdY)
+#### checkIncompleteCommand (mY4)
 
 **What it does:** Detects commands that appear to be fragments of a larger command.
 
@@ -287,20 +661,20 @@ function ndY(A) {
 ```javascript
 // ============================================
 // checkIncompleteCommand - Detect command fragments
-// Location: chunks.149.mjs:2835
+// Location: chunks.91.mjs:1241
 // ============================================
 
 // ORIGINAL (for source lookup):
-function rdY(A) {
+function mY4(A) {
     let { originalCommand: q } = A, K = q.trim();
-    if (/^\s*\t/.test(q)) return c("tengu_bash_security_check_triggered",
-        { checkId: kH.INCOMPLETE_COMMANDS, subId: 1 }),
+    if (/^\s*\t/.test(q)) return d("tengu_bash_security_check_triggered",
+        { checkId: w3.INCOMPLETE_COMMANDS, subId: 1 }),
         { behavior: "ask", message: "Command appears to be an incomplete fragment (starts with tab)" };
-    if (K.startsWith("-")) return c("tengu_bash_security_check_triggered",
-        { checkId: kH.INCOMPLETE_COMMANDS, subId: 2 }),
+    if (K.startsWith("-")) return d("tengu_bash_security_check_triggered",
+        { checkId: w3.INCOMPLETE_COMMANDS, subId: 2 }),
         { behavior: "ask", message: "Command appears to be an incomplete fragment (starts with flags)" };
-    if (/^\s*(&&|\|\||;|>>?|<)/.test(q)) return c("tengu_bash_security_check_triggered",
-        { checkId: kH.INCOMPLETE_COMMANDS, subId: 3 }),
+    if (/^\s*(&&|\|\||;|>>?|<)/.test(q)) return d("tengu_bash_security_check_triggered",
+        { checkId: w3.INCOMPLETE_COMMANDS, subId: 3 }),
         { behavior: "ask", message: "Command appears to be a continuation line (starts with operator)" };
     return { behavior: "passthrough", message: "Command appears complete" }
 }
@@ -317,17 +691,17 @@ function checkIncompleteCommand({ originalCommand }) {
     return { behavior: "passthrough" };
 }
 
-// Mapping: rdY→checkIncompleteCommand, q→originalCommand, K→trimmed
+// Mapping: mY4→checkIncompleteCommand, q→originalCommand, K→trimmed
 ```
 
 **Why tab detection?** The LLM sometimes generates indented shell script fragments instead of standalone commands. A command starting with a tab is almost always a fragment from a multi-line heredoc or script block.
 
-#### checkHeredocInSubstitution (adY) + isQuotedHeredocInSubstitution (odY)
+#### checkHeredocInSubstitution (gY4) + isQuotedHeredocInSubstitution (Hg9)
 
 **What it does:** Allows `$(cat <<'EOF' ... EOF)` patterns — Claude Code's own standard format for multi-line strings. Without this allowance, Claude Code would flag its own commands as dangerous.
 
-**How odY works (step by step):**
-1. Check if command matches `HEREDOC_IN_SUBSTITUTION_PATTERN` (`/\$\(.*<</`)
+**How Hg9 works (step by step):**
+1. Check if command matches `HEREDOC_IN_SUBSTITUTION_PATTERN` (`lV8` = `/\$\(.*<</`)
 2. Find all `$(cat <<'DELIM'` or `$(cat <<\DELIM` patterns
 3. For each, verify the full `$(cat <<'DELIM'\n...\nDELIM)` structure is present
 4. After replacing all safe heredocs, check if any `$(` or `${` remain
@@ -413,7 +787,7 @@ git commit -m "$(cat <<'EOF'\nfix\nEOF)" && $(evil)
 ```
 Would have its safe heredoc removed, but `$(evil)` would remain, causing the check to return `false` → command goes through deny-list.
 
-#### checkGitCommitMessage (sdY)
+#### checkGitCommitMessage (FY4)
 
 **What it does:** Handles the `git commit -m "..."` pattern — one of the most common Claude Code operations. Allows or blocks based on what's inside the message.
 
@@ -429,19 +803,20 @@ git commit -m "MESSAGE"?
 ```javascript
 // ============================================
 // checkGitCommitMessage - git commit safety logic
-// Location: chunks.149.mjs:2929
+// Location: chunks.91.mjs:1435
 // ============================================
 
 // ORIGINAL (for source lookup):
-function sdY(A) {
+function FY4(A) {
     let { originalCommand: q, baseCommand: K } = A;
     if (K !== "git" || !/^git\s+commit\s+/.test(q)) return { behavior: "passthrough" };
-    let Y = q.match(/^git\s+commit\s+.*-m\s+(["'])([\s\S]*?)\1(.*)$/);
+    if (q.includes("\\")) return { behavior: "passthrough" };
+    let Y = q.match(/^git[ \t]+commit[ \t]+[^;&|`$<>()\n\r]*?-m[ \t]+(["'])([\s\S]*?)\1(.*)$/);
     if (Y) {
-        let [, z, w, H] = Y;
-        if (z === '"' && w && /\$\(|`|\$\{/.test(w)) return { behavior: "ask" };
-        if (H && /\$\(|`|\$\{/.test(H)) return { behavior: "passthrough" };
-        if (w && w.startsWith("-")) return { behavior: "ask" };
+        let [, z, _, w] = Y;
+        if (z === '"' && _ && /\$\(|`|\$\{/.test(_)) return { behavior: "ask" };
+        if (w && /[;|&()`]|\$\(|\$\{/.test(w)) return { behavior: "passthrough" };
+        if (_ && _.startsWith("-")) return { behavior: "ask" };
         return { behavior: "allow", updatedInput: { command: q },
                  decisionReason: { type: "other", reason: "Git commit with simple quoted message is allowed" } }
     }
@@ -453,14 +828,14 @@ function checkGitCommitMessage({ originalCommand, baseCommand }) {
     if (baseCommand !== "git" || !/^git\s+commit\s+/.test(originalCommand))
         return { behavior: "passthrough" };
 
-    let messageMatch = originalCommand.match(/^git\s+commit\s+.*-m\s+(["'])([\s\S]*?)\1(.*)$/);
+    let messageMatch = originalCommand.match(/^git[ \t]+commit[ \t]+[^;&|`$<>()\n\r]*?-m[ \t]+(["'])([\s\S]*?)\1(.*)$/);
     if (messageMatch) {
         let [, quoteChar, message, trailingFlags] = messageMatch;
         // Double-quoted message with command substitution → dangerous
         if (quoteChar === '"' && message && /\$\(|`|\$\{/.test(message))
             return { behavior: "ask", message: "Git commit message contains command substitution" };
         // Trailing flags after message → let other checks handle
-        if (trailingFlags && /\$\(|`|\$\{/.test(trailingFlags))
+        if (trailingFlags && /[;|&()`]|\$\(|\$\{/.test(trailingFlags))
             return { behavior: "passthrough" };
         // Message as flag (starts with dash) → flag injection risk
         if (message && message.startsWith("-"))
@@ -471,7 +846,7 @@ function checkGitCommitMessage({ originalCommand, baseCommand }) {
     return { behavior: "passthrough" };
 }
 
-// Mapping: sdY→checkGitCommitMessage, Y→messageMatch, z→quoteChar, w→message, H→trailingFlags
+// Mapping: FY4→checkGitCommitMessage, Y→messageMatch, z→quoteChar, _→message, w→trailingFlags
 ```
 
 **Why single-quoted is safe, double-quoted is not:**
@@ -480,24 +855,39 @@ function checkGitCommitMessage({ originalCommand, baseCommand }) {
 
 **Why flag-injection check?** The pattern `git commit -m "-force"` would cause git to interpret `"-force"` as a flag, potentially bypassing intended behavior. Since `-m` consumes the next argument as the message, any message starting with `-` is suspicious.
 
-#### checkQuotedHeredoc (tdY)
+#### Quoted Heredoc Handling (via gY4)
+
+In v2.1.76, quoted heredocs (`<<'DELIM'` or `<<\DELIM`) are validated within `checkHeredocInSubstitution` (gY4) via the `Hg9` (isQuotedHeredocInSubstitution) helper function. This helper:
+
+1. Matches `$(cat <<'DELIM'` or `$(cat <<\DELIM` patterns
+2. Verifies proper closing delimiter structure
+3. Returns `true` if all heredocs in command substitution use quoted/escaped delimiters
 
 ```javascript
 // ============================================
-// checkQuotedHeredoc - Allow heredocs with quoted/escaped delimiters
-// Location: chunks.149.mjs:2976
+// isQuotedHeredocInSubstitution - Validates quoted delimiter safety
+// Location: chunks.91.mjs:1272
 // ============================================
-function tdY(A) {
-    let { originalCommand: q } = A;
-    if (PhA.test(q)) return { behavior: "passthrough" };  // adY handles heredoc-in-$()
-    let K = /<<-?\s*'[^']+'/;  // <<'DELIM' or <<-'DELIM'
-    let Y = /<<-?\s*\\\w+/;     // <<\DELIM or <<-\DELIM
-    if (K.test(q) || Y.test(q)) return {
-        behavior: "allow",
-        decisionReason: { type: "other", reason: "Heredoc with quoted/escaped delimiter is safe" }
-    };
-    return { behavior: "passthrough" }
+
+// READABLE (for understanding):
+function isQuotedHeredocInSubstitution(command) {
+    if (!HEREDOC_IN_SUBSTITUTION_PATTERN.test(command)) return false;
+
+    // Find all $(cat <<'DELIM') or $(cat <<\DELIM) occurrences
+    let quotedHeredocRegex = /\$\(cat[ \t]*<<(-?)[ \t]*(?:'+([A-Za-z_]\w*)'+|\\([A-Za-z_]\w*))/g;
+    let matches = [], match;
+    while ((match = quotedHeredocRegex.exec(command)) !== null) {
+        let delim = match[2] || match[3];
+        if (delim) matches.push({ start: match.index, delimiter: delim });
+    }
+    if (matches.length === 0) return false;
+
+    // Verify each match has proper structure and no remaining dangerous patterns
+    // ... (see full implementation in heredoc_security.md)
+    return true;
 }
+
+// Mapping: Hg9→isQuotedHeredocInSubstitution, lV8→HEREDOC_IN_SUBSTITUTION_PATTERN
 ```
 
 **Why quoted/escaped delimiters are safe:** In bash:
@@ -514,17 +904,18 @@ The security system only needs to block heredocs where the content could execute
 These run after allow-list checks. The first check to return `"ask"` wins.
 
 **Deny-list order in `runSecurityChecks`:**
-1. `edY` — checkJqCommand
-2. `$cY` — checkObfuscatedFlags
-3. `AcY` — checkShellMetacharacters
-4. `qcY` — checkDangerousVariables
-5. `YcY` — checkNewlines
-6. `zcY` — checkIFSInjection
-7. `wcY` — checkProcEnviron
-8. `KcY` — checkDangerousPatterns
-9. `HcY` — checkMalformedTokenInjection
+1. `pY4` — checkJqCommand
+2. `rY4` — checkObfuscatedFlags
+3. `QY4` — checkShellMetacharacters
+4. `UY4` — checkDangerousVariables
+5. `w01` — checkNewlines
+6. `lY4` — checkIFSInjection
+7. `iY4` — checkProcEnviron
+8. `dY4` — checkDangerousPatterns
+9. `_01` — checkRedirections
+10. `nY4` — checkMalformedTokenInjection
 
-#### checkJqCommand (edY)
+#### checkJqCommand (pY4)
 
 **What it does:** Special-case validation for `jq` commands. The `jq` tool has two dangerous capabilities:
 - `system("cmd")` — executes arbitrary shell commands from within a jq filter
@@ -533,18 +924,19 @@ These run after allow-list checks. The first check to return `"ask"` wins.
 ```javascript
 // ============================================
 // checkJqCommand - jq-specific security validation
-// Location: chunks.150.mjs:3
+// Location: chunks.91.mjs:1507
 // ============================================
-function checkJqCommand({ originalCommand, baseCommand }) {
-    if (baseCommand !== "jq") return { behavior: "passthrough" };
+function pY4(A) {
+    let { originalCommand: q, baseCommand: K } = A;
+    if (K !== "jq") return { behavior: "passthrough" };
 
     // system() executes shell commands from jq filter
-    if (/\bsystem\s*\(/.test(originalCommand))
+    if (/\bsystem\s*\(/.test(q))
         return { behavior: "ask", message: "jq command contains system() function" };
 
     // Dangerous flags that read filter expressions from files
-    let afterJq = originalCommand.substring(3).trim();
-    if (/(?:^|\s)(?:-f\b|--from-file|--rawfile|--slurpfile|-L\b|--library-path)/.test(afterJq))
+    let Y = q.substring(3).trim();
+    if (/(?:^|\s)(?:-f\b|--from-file|--rawfile|--slurpfile|-L\b|--library-path)/.test(Y))
         return { behavior: "ask", message: "jq command contains dangerous file-reading flags" };
 
     return { behavior: "passthrough" };
@@ -730,54 +1122,33 @@ git status; "echo injected
 
 ---
 
-### The runSecurityChecks Master Function (lm)
+### The runSecurityChecks Master Function (zg9)
 
 ```javascript
 // ============================================
 // runSecurityChecks - Master security validation pipeline
-// Location: chunks.150.mjs:321
+// Location: chunks.91.mjs:1104
 // ============================================
 
-// ORIGINAL (for source lookup):
-function lm(A) {
-    if (CY8(A)) return { behavior: "ask", message: "..." };
-    let q = A.split(" ")[0] || "",
-        { withDoubleQuotes: K, fullyUnquoted: Y } = cdY(A, q === "jq"),
-        z = { originalCommand: A, baseCommand: q,
-              unquotedContent: K, fullyUnquotedContent: ldY(Y) },
-        w = [ndY, rdY, adY, tdY, sdY];
-    for (let $ of w) {
-        let O = $(z);
-        if (O.behavior === "allow") return { behavior: "passthrough",
-            message: O.decisionReason?.type === "other" ? O.decisionReason.reason : "Command allowed" };
-        if (O.behavior !== "passthrough") return O
-    }
-    let H = [edY, $cY, AcY, qcY, YcY, zcY, wcY, KcY, HcY];
-    for (let $ of H) {
-        let O = $(z);
-        if (O.behavior === "ask") return O
-    }
-    return { behavior: "passthrough", message: "Command passed all security checks" }
-}
-
 // READABLE (for understanding):
-function runSecurityChecks(command) {
+async function runSecurityChecks(command) {
     // Pre-check: detect single-quote backslash bypass
     if (hasSingleQuotedBackslashBypass(command))
         return { behavior: "ask", message: "Single-quoted backslash bypass pattern" };
 
     let baseCommand = command.split(" ")[0] || "";
-    let { withDoubleQuotes, fullyUnquoted } = stripQuotes(command, baseCommand === "jq");
+    let { withDoubleQuotes, fullyUnquoted, unquotedKeepQuoteChars } = stripQuotes(command, baseCommand === "jq");
     let context = {
         originalCommand: command,
         baseCommand,
         unquotedContent: withDoubleQuotes,        // single quotes removed
-        fullyUnquotedContent: stripRedirections(fullyUnquoted)  // both quotes removed + safe redirects stripped
+        fullyUnquotedContent: stripRedirections(fullyUnquoted),  // both quotes removed + safe redirects stripped
+        fullyUnquotedPreStrip: fullyUnquoted       // before redirect stripping
     };
 
     // Phase A: Allow-list (first match wins with "allow")
     for (let check of [checkEmptyCommand, checkIncompleteCommand,
-                       checkHeredocInSubstitution, checkQuotedHeredoc, checkGitCommitMessage]) {
+                       checkHeredocInSubstitution, checkGitCommitMessage]) {
         let result = check(context);
         if (result.behavior === "allow")
             return { behavior: "passthrough", message: result.decisionReason?.reason };
@@ -787,7 +1158,8 @@ function runSecurityChecks(command) {
     // Phase B: Deny-list (first "ask" wins)
     for (let check of [checkJqCommand, checkObfuscatedFlags, checkShellMetacharacters,
                        checkDangerousVariables, checkNewlines, checkIFSInjection,
-                       checkProcEnviron, checkDangerousPatterns, checkMalformedTokenInjection]) {
+                       checkProcEnviron, checkDangerousPatterns, checkRedirections,
+                       checkMalformedTokenInjection]) {
         let result = check(context);
         if (result.behavior === "ask") return result;
     }
@@ -795,23 +1167,34 @@ function runSecurityChecks(command) {
     return { behavior: "passthrough", message: "Command passed all security checks" };
 }
 
-// Mapping: lm→runSecurityChecks, CY8→hasSingleQuotedBackslashBypass, cdY→stripQuotes,
-//   ldY→stripRedirections, ndY→checkEmptyCommand, rdY→checkIncompleteCommand,
-//   adY→checkHeredocInSubstitution, tdY→checkQuotedHeredoc, sdY→checkGitCommitMessage,
-//   edY→checkJqCommand, $cY→checkObfuscatedFlags, AcY→checkShellMetacharacters,
-//   qcY→checkDangerousVariables, YcY→checkNewlines, zcY→checkIFSInjection,
-//   wcY→checkProcEnviron, KcY→checkDangerousPatterns, HcY→checkMalformedTokenInjection
+// Mapping: zg9→runSecurityChecks, CY8→hasSingleQuotedBackslashBypass,
+//   UY4→stripQuotes, xY4→stripRedirections,
+//   uY4→checkEmptyCommand, mY4→checkIncompleteCommand,
+//   gY4→checkHeredocInSubstitution, FY4→checkGitCommitMessage,
+//   pY4→checkJqCommand, rY4→checkObfuscatedFlags, QY4→checkShellMetacharacters,
+//   UY4→checkDangerousVariables, w01→checkNewlines, lY4→checkIFSInjection,
+//   iY4→checkProcEnviron, dY4→checkDangerousPatterns, _01→checkRedirections,
+//   nY4→checkMalformedTokenInjection
 ```
 
 ---
 
 ## Layer 2: LLM Prefix Extraction
 
-### bashPreFlightCheck (AYz)
+### bashPreFlightCheck (nGq)
 
 **What it does:** Uses a cached, fast LLM call to extract the command prefix from a bash command. The prefix is used for permission matching (e.g., "user allowed `git diff`, is this still `git diff`?").
 
-**Full policy spec (embedded in source):**
+**How it works:**
+1. **Quick bypass**: If `X9z` (isSimpleHelpCommand) returns true, return the command as its own prefix
+2. **Call LLM**: Send command with a `<policy_spec>` that includes many extraction examples
+3. **Parse response**: LLM returns one of:
+   - A prefix string (e.g., `"git commit"`, `"grep"`) → match against user's allowed list
+   - `"none"` → command has no meaningful prefix (e.g., `npm test`)
+   - `"command_injection_detected"` → LLM detected injection → force user approval
+   - `"git"` alone → rejected as too broad (must be specific subcommand)
+
+**Full policy spec (embedded in source at chunks.171.mjs:~1600):**
 
 ```
 # Claude Code Code Bash command prefix detection
@@ -843,7 +1226,7 @@ other than the detected prefix.
 
 **Response handling:**
 ```javascript
-if (prefix.startsWith(QO)) → API_ERROR → return null (no prefix)
+// Location: chunks.171.mjs:1750 (via QGq factory)
 if (prefix === "command_injection_detected") → INJECTION → return {commandPrefix: null}
 if (prefix === "git") → BARE_GIT → return {commandPrefix: null}  // too broad
 if (prefix === "none") → NO_PREFIX → return {commandPrefix: null}
@@ -853,7 +1236,7 @@ else → SUCCESS → return {commandPrefix: prefix}
 
 **Why `"git"` alone is blocked:** `"git"` as a prefix would match any git command, including destructive ones like `git push --force`. The prefix must be specific enough (e.g., `"git diff"`, `"git status"`) to be meaningful for permission matching.
 
-**Caching:** `qmA` is a memoized wrapper around `AYz`. Results are cached by command string, allowing repeated checks of the same command to skip the LLM call. Cache entries are invalidated on error (`.cache.delete(A)`).
+**Caching:** `pr6` is a memoized wrapper around `nGq`. Results are cached by command string via `UGq` factory, allowing repeated checks of the same command to skip the LLM call. Cache entries can be cleared via `f3q()` (clearPrefixCaches).
 
 **Timeout warning:** A `setTimeout` fires after 10 seconds with a warning. This doesn't cancel the request but alerts the user to check for API issues.
 
@@ -1223,13 +1606,13 @@ function checkSedCommand(toolInput, permissionMode) {
 
 ## Shell Tokenization Layer
 
-### parseShellCommand (rZ1) — Sentinel-Based Tokenization
+### parseShellCommand (bW6) — Sentinel-Based Tokenization
 
 **What it does:** Converts a shell command string into a list of tokens, while safely handling heredocs, escaped characters, and special quoting that would confuse the underlying tokenizer.
 
 **Algorithm:**
-1. Generate random sentinels (collision-safe placeholders)
-2. Extract heredocs → `processedCommand` (heredocs replaced with `__HEREDOC_N_HEX__`)
+1. Generate random sentinels (collision-safe placeholders) via `iGq()`
+2. Extract heredocs via `ca()` and replace with `__HEREDOC_N_HEX__` placeholders
 3. Normalize line continuations (`\<newline>` → collapse)
 4. Insert sentinels adjacent to quote chars:
    - `"` → `"__DOUBLE_QUOTE_HEX__` (quote char stays, sentinel marks its presence)
@@ -1237,7 +1620,7 @@ function checkSedCommand(toolInput, permissionMode) {
    - `\n` → `\n__NEW_LINE_HEX__\n`
    - `\(` → `__ESCAPED_OPEN_PAREN_HEX__`
    - `\)` → `__ESCAPED_CLOSE_PAREN_HEX__`
-5. Run shell tokenizer (`pz`) with variable expansion handler
+5. Run shell tokenizer (`Fz`) with variable expansion handler
 6. If tokenization fails → fallback: return `[originalCommand]` with heredocs restored
 7. Recombine tokens split by the NEW_LINE sentinel
 8. Strip sentinel text from all tokens (restore original chars)
@@ -1246,10 +1629,10 @@ function checkSedCommand(toolInput, permissionMode) {
 ```javascript
 // ============================================
 // generateSentinels - Create collision-safe placeholder strings
-// Location: chunks.169.mjs:1701
+// Location: chunks.171.mjs:1121
 // ============================================
-function aOq() {
-    let A = o9z(8).toString("hex");  // 8 random bytes → 16-char hex
+function iGq() {
+    let A = J9z(8).toString("hex");  // 8 random bytes → 16-char hex
     return {
         SINGLE_QUOTE: `__SINGLE_QUOTE_${A}__`,
         DOUBLE_QUOTE: `__DOUBLE_QUOTE_${A}__`,
@@ -1258,11 +1641,39 @@ function aOq() {
         ESCAPED_CLOSE_PAREN: `__ESCAPED_CLOSE_PAREN_${A}__`
     }
 }
+
+// ============================================
+// parseShellCommand - Tokenize with heredoc preservation
+// Location: chunks.171.mjs:1139
+// ============================================
+
+// ORIGINAL (for source lookup):
+function bW6(A) {
+    let q = [],
+        K = iGq(),
+        { processedCommand: Y, heredocs: z } = ca(A),
+        _ = Y.replace(/\\+\n/g, (H) => {
+            let j = H.length - 1;
+            if (j % 2 === 1) return "\\".repeat(j - 1);
+            else return H
+        }),
+        w = Fz(_.replaceAll('"', `"${K.DOUBLE_QUOTE}`).replaceAll("'", `'${K.SINGLE_QUOTE}`)
+               .replaceAll("\n", `\n${K.NEW_LINE}\n`)
+               .replaceAll("\\(", K.ESCAPED_OPEN_PAREN)
+               .replaceAll("\\)", K.ESCAPED_CLOSE_PAREN),
+            (H) => `$${H}`);
+    if (!w.success) return [A];
+    // ... recombine and restore ...
+    return aw8(_, z)  // restoreHeredocsInList
+}
+
+// Mapping: bW6→parseShellCommand, iGq→generateSentinels, ca→extractHeredocs,
+//   Fz→shellTokenize, aw8→restoreHeredocsInList
 ```
 
 **Why sentinel-based approach?**
 
-The external `bash-parser` tokenizer (`pz`) consumes and removes quotes during tokenization. But the security system needs to see the original quoting to detect attacks. The sentinels preserve quote information:
+The external `bash-parser` tokenizer (`Fz`) consumes and removes quotes during tokenization. But the security system needs to see the original quoting to detect attacks. The sentinels preserve quote information:
 
 ```
 Input:  git commit -m "Fix $(bug)"
@@ -1273,45 +1684,65 @@ After restore: ["git", "commit", "-m", '"Fix $(bug)"']
 
 The security check can now see that `$(bug)` is inside a double-quoted string.
 
-### extractSubcommands (AD)
+### extractSubcommands (EO)
 
 **What it does:** Splits a compound command into individual subcommands by removing redirections and separating at `&&`, `||`, `;`, `|`.
 
 **Algorithm:**
-1. Tokenize via `rZ1` (parseShellCommand)
+1. Tokenize via `bW6` (parseShellCommand)
 2. Walk tokens, removing redirect sequences:
    - `>&`, `>`, `>>` followed by a safe target → remove operator + target
-   - `>&` followed by `!` or `|` → different forms of stderr redirect
+   - `>&` followed by file descriptor → remove
    - `2>` / `1>` → file descriptor redirects
-3. Filter out undefined/empty tokens and separator operators
-4. Remove shell-internal tokens via `filterSeparatorTokens` (s9z)
+3. Filter out undefined/empty tokens and separator operators via `D9z` (filterSeparatorTokens)
 
-**Key helper — isSimplePath (a9z):**
 ```javascript
-// Checks if a redirection target is a simple, safe path
-function isSimplePath(token) {
-    return !token.startsWith("!") &&
-           !token.includes("$") && !token.includes("`") &&
-           !token.includes("*") && !token.includes("?") &&
-           !token.includes("[") && !token.includes("{") &&
-           !token.includes("~") && !token.includes("(") &&
-           !token.includes("<") && !token.startsWith("&")
+// ============================================
+// extractSubcommands - Split compound commands
+// Location: chunks.171.mjs:1202
+// ============================================
+
+// ORIGINAL (for source lookup):
+function EO(A) {
+    let q = bW6(A);
+    for (let Y = 0; Y < q.length; Y++) {
+        let z = q[Y];
+        if (z === ">&" || z === ">" || z === ">>") {
+            // Check for safe redirection targets...
+            if (M9z(j)) { q[Y] = void 0; q[Y+1] = void 0; }
+        }
+    }
+    let K = q.filter((Y) => Y !== void 0 && Y !== "");
+    return D9z(K)
+}
+
+// READABLE (for understanding):
+function extractSubcommands(command) {
+    let tokens = parseShellCommand(command);
+    // Walk tokens removing safe redirections...
+    return filterSeparatorTokens(filtered);
+}
+
+// Mapping: EO→extractSubcommands, bW6→parseShellCommand, M9z→isSimplePath, D9z→filterSeparatorTokens
+```
+
+**Key helper — isSimplePath (M9z):**
+```javascript
+// Location: chunks.171.mjs:1132
+function M9z(A) {
+    if (/[\s'"]/.test(A)) return false;
+    if (A.length === 0) return false;
+    if (A.startsWith("#")) return false;
+    return !A.startsWith("!") && !A.startsWith("=") &&
+           !A.includes("$") && !A.includes("`") &&
+           !A.includes("*") && !A.includes("?") &&
+           !A.includes("[") && !A.includes("{") &&
+           !A.includes("~") && !A.includes("(") &&
+           !A.includes("<") && !A.startsWith("&");
 }
 ```
 
 Tokens containing `$`, backtick, or shell special chars are NOT simple paths — they're dangerous variable redirections.
-
-### reconstructCommand (wYz)
-
-**What it does:** Rebuilds a command string from a token array. Used after `extractSubcommands` removes redirections, to get a clean printable command.
-
-**Algorithm:**
-1. Walk tokens, building a string
-2. String tokens: escape if needed (quote special chars with `R7`)
-3. Operator tokens: append with proper spacing
-4. Track `$()` depth for parenthesis spacing
-5. Handle `>&` with file descriptors: `1>&2` form
-6. Handle `<<` (here-string operator)
 
 ---
 
@@ -1343,7 +1774,7 @@ Detects if any subcommand is a `cd` command — used in `checkReadOnlyBehavior` 
 
 ## Redirection Analysis
 
-### extractRedirections (aI)
+### extractRedirections (ik)
 
 **What it does:** Analyzes all redirections in a command, classifying each as safe or dangerous.
 
@@ -1351,10 +1782,12 @@ Detects if any subcommand is a `cd` command — used in `checkReadOnlyBehavior` 
 1. Tokenize command
 2. Track process substitution contexts (`<(...)` and `>(...)`) — these are NOT simple redirections
 3. Walk tokens looking for `>`, `>>`, `>&` operators
-4. For each: call `checkDangerousRedirection` (YYz)
+4. For each: call `checkDangerousRedirection` (f9z)
 5. Return `{commandWithoutRedirections, redirections, hasDangerousRedirection}`
 
-### checkDangerousRedirection (YYz)
+**Complete source restoration:** See the [Redirection Analysis Deep Dive](#redirection-analysis-deep-dive) section below for full code.
+
+### checkDangerousRedirection (f9z)
 
 **What it does:** Determines if a specific redirection is dangerous. Called with the operator token and its surrounding context.
 
@@ -1409,24 +1842,284 @@ function containsVariable(token) {
 
 | ID | Constant Name | Check Function | Description |
 |----|--------------|----------------|-------------|
-| 1 | `INCOMPLETE_COMMANDS` | `rdY` | Tab/dash/operator prefix |
-| 2 | `JQ_SYSTEM_FUNCTION` | `edY` | `system()` in jq |
-| 3 | `JQ_FILE_ARGUMENTS` | `edY` | File-reading jq flags |
-| 4 | `OBFUSCATED_FLAGS` | `$cY` | ANSI-C quoting, quoted flags |
-| 5 | `SHELL_METACHARACTERS` | `AcY` | `;`, `|`, `&` in quoted args |
-| 6 | `DANGEROUS_VARIABLES` | `qcY` | Variables in redirections |
-| 7 | `NEWLINES` | `YcY` | Embedded newlines |
-| 8 | `DANGEROUS_PATTERNS_COMMAND_SUBSTITUTION` | `KcY` | Backticks, `$()`, `<()` |
-| 9 | `DANGEROUS_PATTERNS_INPUT_REDIRECTION` | `KcY` | `<` in unquoted content |
-| 10 | `DANGEROUS_PATTERNS_OUTPUT_REDIRECTION` | `KcY` | `>` in unquoted content |
-| 11 | `IFS_INJECTION` | `zcY` | `$IFS` manipulation |
-| 12 | `GIT_COMMIT_SUBSTITUTION` | `sdY` | `$()` in git commit message |
-| 13 | `PROC_ENVIRON_ACCESS` | `wcY` | `/proc/*/environ` |
-| 14 | `MALFORMED_TOKEN_INJECTION` | `HcY` | Unbalanced brackets |
+| 1 | `INCOMPLETE_COMMANDS` | `mY4` | Tab/dash/operator prefix |
+| 2 | `JQ_SYSTEM_FUNCTION` | `pY4` | `system()` in jq |
+| 3 | `JQ_FILE_ARGUMENTS` | `pY4` | File-reading jq flags |
+| 4 | `OBFUSCATED_FLAGS` | `rY4` | ANSI-C quoting, quoted flags |
+| 5 | `SHELL_METACHARACTERS` | `QY4` | `;`, `\|`, `&` in quoted args |
+| 6 | `DANGEROUS_VARIABLES` | `UY4` | Variables in redirections |
+| 7 | `NEWLINES` | `w01` | Embedded newlines |
+| 8 | `DANGEROUS_PATTERNS_COMMAND_SUBSTITUTION` | `dY4` | Backticks, `$()`, `<()` |
+| 9 | `DANGEROUS_PATTERNS_INPUT_REDIRECTION` | `dY4` | `<` in unquoted content |
+| 10 | `DANGEROUS_PATTERNS_OUTPUT_REDIRECTION` | `dY4` | `>` in unquoted content |
+| 11 | `IFS_INJECTION` | `lY4` | `$IFS` manipulation |
+| 12 | `GIT_COMMIT_SUBSTITUTION` | `FY4` | `$()` in git commit message |
+| 13 | `PROC_ENVIRON_ACCESS` | `iY4` | `/proc/*/environ` |
+| 14 | `MALFORMED_TOKEN_INJECTION` | `nY4` | Unbalanced brackets |
+| 15 | `BACKSLASH_ESCAPED_WHITESPACE` | `oY4` | `\` before space/tab |
+| 16 | `BRACE_EXPANSION` | `sY4` | `{a,b}` or `{1..3}` patterns |
+| 17 | `CONTROL_CHARACTERS` | `Rp6`/`Yz4` | Non-printable control chars |
+| 18 | `UNICODE_WHITESPACE` | `tY4` | Non-ASCII whitespace |
+| 19 | `MID_WORD_HASH` | `eY4` | `#` in middle of word |
+| 20 | `ZSH_DANGEROUS_COMMANDS` | `Kz4` | zmodload, emulate, sysopen |
+| 21 | `BACKSLASH_ESCAPED_OPERATORS` | `aY4` | `\;`, `\|`, `\&`, `\<`, `\>` |
+| 22 | `COMMENT_QUOTE_DESYNC` | `Az4` | Quote inside `#` comment |
+| 23 | `QUOTED_NEWLINE` | `qz4` | Quoted newline + `#` pattern |
 
 ---
 
-## Summary of Design Decisions
+## Layer 1B: Additional Security Checks (IDs 15-23)
+
+The following security checks were added to address additional attack vectors discovered after the initial 14 checks.
+
+### checkBackslashEscapedWhitespace (oY4)
+
+**What it does:** Detects backslash-escaped whitespace characters that could alter command parsing.
+
+**How it works:**
+1. Walks the command character by character, tracking quote state
+2. When a backslash is found outside quotes, checks if next char is whitespace (space/tab)
+3. If yes, the whitespace is being escaped which can change how shells parse the command
+
+**Why this approach:**
+- Escaped whitespace can merge arguments: `echo hello\ world` is one argument, not two
+- This can bypass argument-based security checks that expect separate tokens
+
+```javascript
+// ============================================
+// checkBackslashEscapedWhitespace - Detect escaped whitespace
+// Location: chunks.91.mjs:1916
+// ============================================
+
+// ORIGINAL (for source lookup):
+function oY4(A) {
+    if (jg9(A.originalCommand)) return d("tengu_bash_security_check_triggered", {
+        checkId: w3.BACKSLASH_ESCAPED_WHITESPACE
+    }), {
+        behavior: "ask",
+        message: "Command contains backslash-escaped whitespace"
+    };
+    return { behavior: "passthrough", message: "No backslash-escaped whitespace" }
+}
+
+// READABLE (for understanding):
+function checkBackslashEscapedWhitespace(context) {
+    if (hasBackslashEscapedWhitespace(context.originalCommand)) {
+        return { behavior: "ask", message: "Backslash-escaped whitespace detected" };
+    }
+    return { behavior: "passthrough" };
+}
+
+// Mapping: oY4→checkBackslashEscapedWhitespace, jg9→hasBackslashEscapedWhitespace
+```
+
+### checkBraceExpansion (sY4)
+
+**What it does:** Detects bash brace expansion patterns that can generate multiple arguments from a single expression.
+
+**How it works:**
+1. Counts opening and closing braces in fully-unquoted content
+2. If more closing than opening braces after quote stripping → obfuscation detected
+3. Scans for `{a,b}` or `{1..3}` patterns inside brace contexts
+4. Checks for quoted braces inside brace contexts (obfuscation attempt)
+
+**Attack example:**
+```bash
+# Brace expansion generates multiple commands/arguments:
+echo {a,b,c}  # Expands to: echo a b c
+rm file{1..3}.txt  # Expands to: rm file1.txt file2.txt file3.txt
+```
+
+**Key insight:** Brace expansion happens BEFORE quote processing in bash, making it a potential bypass vector for argument-based checks.
+
+### checkUnicodeWhitespace (tY4)
+
+**What it does:** Detects Unicode whitespace characters that may be parsed differently by different tools.
+
+**How it works:**
+- Tests the original command against `UNICODE_WHITESPACE_REGEX` (`Dg9`)
+- Matches: `\u00A0` (NBSP), `\u1680`, `\u2000-\u200A`, `\u2028`, `\u2029`, `\u202F`, `\u205F`, `\u3000`, `\uFEFF`
+
+**Why this matters:**
+- Unicode whitespace may be treated as regular whitespace by some parsers
+- Can be used to bypass pattern matching that only checks ASCII space/tab
+- Different shell implementations may handle Unicode whitespace differently
+
+### checkMidWordHash (eY4)
+
+**What it does:** Detects `#` characters that appear in the middle of a word (not at the start).
+
+**How it works:**
+1. Uses regex `/\S(?<!\$\{)#/` to find `#` preceded by non-whitespace (but not `${`)
+2. Also checks line-continuation-normalized content
+3. The lookbehind `(?<!\$\{)` excludes `${#var}` which is valid bash parameter expansion
+
+**Why this is dangerous:**
+- The `#` character starts a comment in bash
+- If different parsers disagree on where the comment starts, the command could be misinterpreted
+- `shell-quote` and `bash` may parse `foo#bar` differently
+
+### checkZshDangerousCommands (Kz4)
+
+**What it does:** Detects Zsh-specific commands that can bypass security checks.
+
+**How it works:**
+1. Skips environment variable assignments and Zsh prefixes (`command`, `builtin`, `noglob`, `nocorrect`)
+2. Checks if the first real command is in `ZSH_DANGEROUS_COMMANDS` set (`Og9`)
+3. Special check for `fc -e` which can execute arbitrary commands via editor
+
+**Dangerous Zsh commands (`Og9`):**
+- `zmodload` - Load Zsh modules (can add dangerous functionality)
+- `emulate` - Change shell emulation mode
+- `sysopen`, `sysread`, `syswrite`, `sysseek` - Direct system I/O
+- `zpty` - Pseudo-terminal management
+- `ztcp`, `zsocket` - Network operations
+- `mapfile` - Array loading from files
+- `zf_*` - Zsh FTP commands
+
+**Key insight:** These commands provide capabilities beyond standard POSIX shell and can bypass security assumptions.
+
+### checkBackslashEscapedOperators (aY4)
+
+**What it does:** Detects backslash-escaped shell operators (`;`, `|`, `&`, `<`, `>`).
+
+**How it works:**
+1. If tree-sitter is available and reports no actual operator nodes, passes through
+2. Otherwise, walks command checking for `\` followed by operator character
+3. Skips single-quoted content (backslash is literal there)
+
+**Why this is dangerous:**
+- `\;` is treated as a literal semicolon argument, not a command separator
+- But different parsers may disagree on whether it's escaped or not
+- Can be used to hide command structure from security checks
+
+### checkCommentQuoteDesync (Az4)
+
+**What it does:** Detects quote characters inside `#` comments which can desynchronize quote tracking.
+
+**How it works:**
+1. If tree-sitter is available, passes through (tree-sitter's quote context is authoritative)
+2. Walks command tracking single/double quote state
+3. When `#` is found outside quotes, extracts the comment until newline
+4. If comment contains quote characters → potential desync
+
+**Attack example:**
+```bash
+echo hello # 'this is a comment with a quote
+rm -rf /   # This line might be executed if quote tracking is desynced
+```
+
+**Why this matters:** Naive quote trackers may think they're inside a quote after seeing the `'` in the comment, causing them to miss the next line as executable code.
+
+### checkQuotedNewline (qz4)
+
+**What it does:** Detects newlines inside quotes followed by a `#`-prefixed line.
+
+**How it works:**
+1. Skips if command has no newlines or no `#` characters
+2. Walks command tracking quote state
+3. When a newline is found inside quotes, checks if next line starts with `#`
+4. If yes → potential hiding of arguments from line-based permission checks
+
+**Attack example:**
+```bash
+echo "hello
+# -rf /" && rm -rf /
+```
+Line-based permission checks might see `echo "hello` and `# -rf /" && rm -rf /` as separate innocuous lines.
+
+### checkExcessClosingBraces (cY4)
+
+**What it does:** Detects unbalanced closing braces after quote stripping.
+
+**How it works:**
+- Simple check for patterns that indicate possible brace-related obfuscation
+- Part of the brace expansion detection suite
+
+---
+
+## New Security Constants
+
+### ZSH_DANGEROUS_COMMANDS (Og9)
+
+```javascript
+// ============================================
+// ZSH_DANGEROUS_COMMANDS - Zsh-specific dangerous commands
+// Location: chunks.91.mjs:2394
+// ============================================
+
+Og9 = new Set([
+    "zmodload", "emulate", "sysopen", "sysread", "syswrite", "sysseek",
+    "zpty", "ztcp", "zsocket", "mapfile",
+    "zf_rm", "zf_mv", "zf_ln", "zf_chmod", "zf_chown",
+    "zf_mkdir", "zf_rmdir", "zf_chgrp"
+])
+```
+
+### SHELL_OPERATORS (Jg9)
+
+```javascript
+// ============================================
+// SHELL_OPERATORS - Shell operator characters
+// Location: chunks.91.mjs:2419
+// ============================================
+
+Jg9 = new Set([";", "|", "&", "<", ">"])
+```
+
+### UNICODE_WHITESPACE_REGEX (Dg9)
+
+```javascript
+// ============================================
+// UNICODE_WHITESPACE_REGEX - Non-ASCII whitespace
+// Location: chunks.91.mjs:2420
+// ============================================
+
+Dg9 = /[\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/
+```
+
+### CONTROL_CHARACTERS_REGEX (Yz4)
+
+```javascript
+// ============================================
+// CONTROL_CHARACTERS_REGEX - Non-printable control chars
+// Location: chunks.91.mjs:2421
+// ============================================
+
+Yz4 = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/
+```
+
+---
+
+## Updated DANGEROUS_PATTERNS (wg9)
+
+The `DANGEROUS_PATTERNS` array has been expanded to include:
+
+```javascript
+// ============================================
+// DANGEROUS_PATTERNS - Shell dangerous constructs
+// Location: chunks.91.mjs:2361
+// ============================================
+
+wg9 = [
+    { pattern: /<\(/, message: "process substitution <()" },
+    { pattern: />\(/, message: "process substitution >()" },
+    { pattern: /=\(/, message: "Zsh process substitution =()" },
+    { pattern: /\$\(/, message: "$() command substitution" },
+    { pattern: /\$\{/, message: "${} parameter substitution" },
+    { pattern: /\$\[/, message: "$[] legacy arithmetic expansion" },
+    { pattern: /~\[/, message: "Zsh-style parameter expansion" },
+    { pattern: /\(e:/, message: "Zsh-style glob qualifiers" },
+    { pattern: /\(\+/, message: "Zsh glob qualifier with command execution" },
+    { pattern: /\}\s*always\s*\{/, message: "Zsh always block (try/always construct)" },
+    { pattern: /<#/, message: "PowerShell comment syntax" }
+]
+```
+
+**New patterns added:**
+- `=(` - Zsh process substitution (writes to variable)
+- `(\+` - Zsh glob qualifier that can execute commands
+- `}\s*always\s*{` - Zsh `try/always` construct that can hide execution
 
 | Decision | Rationale |
 |----------|-----------|

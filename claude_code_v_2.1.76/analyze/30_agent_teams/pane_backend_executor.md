@@ -9,8 +9,8 @@
 ## Table of Contents
 
 1. [Overview](#1-overview)
-2. [In-Process Poll Loop (WVY)](#2-in-process-poll-loop-wvy)
-3. [In-Process Agent Runner (GVY)](#3-in-process-agent-runner-gvy)
+2. [In-Process Poll Loop (DNY)](#2-in-process-poll-loop-dny)
+3. [In-Process Agent Runner (XNY)](#3-in-process-agent-runner-xny)
 4. [PaneBackendExecutor (Ku4)](#4-panebackendexecutor-ku4)
 5. [InProcessBackend (nb4)](#5-inprocessbackend-nb4)
 6. [Graceful Shutdown Protocol](#6-graceful-shutdown-protocol)
@@ -29,13 +29,13 @@ Claude Code supports two fundamentally different execution modes for agent teamm
 
 **Key architectural insight**: Both backends implement the same interface (`spawn`, `sendMessage`, `terminate`, `kill`, `isActive`) but with radically different lifecycles. The in-process mode is lighter (no process spawn overhead) but shares a single event loop. The pane-based mode provides full process isolation and visual separation via terminal multiplexer panes.
 
-The `PaneBackendExecutor` is a **decorator** around a terminal backend (tmux or iTerm2) -- it does not run agent logic itself. Instead, it spawns a new Claude CLI process in a terminal pane with `--agent-id`, `--agent-name`, and other flags, letting that process pick up work from the shared mailbox. The `InProcessBackend` directly runs the agent loop (`GVY`) in the same process, using an internal poll loop (`WVY`) to receive messages.
+The `PaneBackendExecutor` is a **decorator** around a terminal backend (tmux or iTerm2) -- it does not run agent logic itself. Instead, it spawns a new Claude CLI process in a terminal pane with `--agent-id`, `--agent-name`, and other flags, letting that process pick up work from the shared mailbox. The `InProcessBackend` directly runs the agent loop (`XNY`) in the same process, using an internal poll loop (`DNY`) to receive messages.
 
 ---
 
-## 2. In-Process Poll Loop (WVY)
+## 2. In-Process Poll Loop (DNY)
 
-### inProcessPollLoop - Core message priority engine for in-process teammates
+### pollForNextMessage - Core message priority engine for in-process teammates
 
 **What it does:** Continuously polls for incoming work using a strict 5-level priority system. Returns the next actionable message for the agent runner to process.
 
@@ -76,7 +76,7 @@ Priority 5: Claim next available task from shared task list
 
 7. **Find any unread message** (Priority 4): Falls back to `findIndex(P => !P.read)` for any unread message regardless of sender.
 
-8. **Claim from task list** (Priority 5): Calls `claimNextTask` (ib4) which reads the shared task list, finds the first pending/unblocked/unowned task, atomically claims it, and formats a prompt like `"Complete all open tasks. Start with task #N: subject"`.
+8. **Claim from task list** (Priority 5): Calls `claimUnclaimedTask` (Ji4) which reads the shared task list, finds the first pending/unblocked/unowned task, atomically claims it, and formats a prompt like `"Complete all open tasks. Start with task #N: subject"`.
 
 **Why this approach:**
 
@@ -177,12 +177,12 @@ Conclusion: Even for extreme cases, Priority 2 scan adds negligible latency (<20
 
 ```javascript
 // ============================================
-// inProcessPollLoop - Poll mailbox with 5-level priority for next message
-// Location: chunks.131.mjs:260-346
+// pollForNextMessage - Poll mailbox with 5-level priority for next message
+// Location: chunks.134.mjs:1483-1570
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function WVY(A, q, K, Y, z, w) {
+async function DNY(A, q, K, Y, z, w) {
     h(`[inProcessRunner] ${A.agentName} starting poll loop (abort=${q.signal.aborted})`);
     let $ = 0;
     while (!q.signal.aborted) {
@@ -196,7 +196,7 @@ async function WVY(A, q, K, Y, z, w) {
         if ($ > 0) await jVY(500);
         if ($++, q.signal.aborted) return { type: "aborted" };
         try {
-            let X = Ld(A.agentName, A.teamName), D = -1, j = null;
+            let X = wl(A.agentName, A.teamName), D = -1, j = null;
             // Priority 2: Scan ALL unread for shutdown_request
             for (let P = 0; P < X.length; P++) {
                 let W = X[P];
@@ -213,14 +213,14 @@ async function WVY(A, q, K, Y, z, w) {
             if (M !== -1) { /* return new_message */ }
         } catch (X) { /* log error */ }
         // Priority 5: task claiming
-        let J = ib4(w, A.agentName);
+        let J = Ji4(w, A.agentName);
         if (J) return { type: "new_message", message: J, from: "task-list" }
     }
     return { type: "aborted" }
 }
 
 // READABLE (for understanding):
-async function inProcessPollLoop(identity, abortController, taskId, getAppState, setAppState, parentSessionId) {
+async function pollForNextMessage(identity, abortController, taskId, getAppState, setAppState, parentSessionId) {
     log(`[inProcessRunner] ${identity.agentName} starting poll loop`);
     let pollCount = 0;
     while (!abortController.signal.aborted) {
@@ -261,67 +261,76 @@ async function inProcessPollLoop(identity, abortController, taskId, getAppState,
         }
 
         // Priority 5: Claim task from shared task list
-        let taskPrompt = claimNextTask(parentSessionId, identity.agentName);
+        let taskPrompt = claimUnclaimedTask(parentSessionId, identity.agentName);
         if (taskPrompt) return { type: "new_message", message: taskPrompt, from: "task-list" };
     }
     return { type: "aborted" };
 }
 
-// Mapping: WVY→inProcessPollLoop, A→identity, q→abortController, K→taskId,
+// Mapping: DNY→pollForNextMessage, A→identity, q→abortController, K→taskId,
 //   Y→getAppState, z→setAppState, w→parentSessionId, $→pollCount,
-//   jVY→sleep, Ld→readMailbox, ss→parseShutdownRequest, JQ1→markMessageAsReadByIndex,
-//   K2→TEAM_LEAD_ID ("team-lead"), ib4→claimNextTask
+//   jVY→sleep, wl→readMailbox, ss→parseShutdownRequest, Vc6→markMessageAsReadByIndex,
+//   K2→TEAM_LEAD_ID ("team-lead"), Ji4→claimUnclaimedTask
 ```
 
-### claimNextTask (ib4) - Self-assign work from shared task list
+### claimUnclaimedTask (Ji4) - Self-assign work from shared task list
 
 **What it does:** When an agent is idle with no messages, attempts to claim the next available task from the team's shared task list.
 
 **How it works:**
 1. Read the full task list via `getTaskList` (WX)
-2. Call `findNextClaimableTask` (MVY) which finds the first task that is: `pending` status, has no owner, and all `blockedBy` dependencies are completed
+2. Call `findNextAvailableTask` (JNY) which finds the first task that is: `pending` status, has no owner, and all `blockedBy` dependencies are completed
 3. Atomically claim the task via `claimTask` (o7A) using file locking
 4. Mark the task as `in_progress` via `updateTaskState` (JS)
 5. Format a prompt: `"Complete all open tasks. Start with task #N: subject\n\ndescription"`
 
 ```javascript
 // ============================================
-// claimNextTask - Self-assign the next unblocked pending task
-// Location: chunks.131.mjs:241-258
+// claimUnclaimedTask - Self-assign the next unblocked pending task
+// Location: chunks.134.mjs:1464-1481
 // ============================================
 
 // ORIGINAL (for source lookup):
-function ib4(A, q) {
+async function Ji4(A, q) {
     try {
-        let K = WX(A), Y = MVY(K);
+        let K = await DX(A),
+            Y = JNY(K);
         if (!Y) return;
-        let z = o7A(A, Y.id, q);
-        if (!z.success) { h(`[inProcessRunner] Failed to claim task #${Y.id}: ${z.reason}`); return }
-        return JS(A, Y.id, { status: "in_progress" }),
-            h(`[inProcessRunner] Claimed task #${Y.id}: ${Y.subject}`), PVY(Y)
-    } catch (K) { h(`[inProcessRunner] Error checking task list: ${K}`); return }
+        let z = await OT8(A, Y.id, q);
+        if (!z.success) {
+            k(`[inProcessRunner] Failed to claim task #${Y.id}: ${z.reason}`);
+            return
+        }
+        return await WI(A, Y.id, {
+            status: "in_progress"
+        }), k(`[inProcessRunner] Claimed task #${Y.id}: ${Y.subject}`), MNY(Y)
+    } catch (K) {
+        k(`[inProcessRunner] Error checking task list: ${K}`);
+        return
+    }
 }
 
 // READABLE (for understanding):
-function claimNextTask(sessionId, agentName) {
+async function claimUnclaimedTask(sessionId, agentName) {
     try {
-        let taskList = getTaskList(sessionId);
-        let nextTask = findNextClaimableTask(taskList);
+        let taskList = await getTaskListAsync(sessionId);
+        let nextTask = findNextAvailableTask(taskList);
         if (!nextTask) return;  // No available tasks
 
-        let claimResult = claimTask(sessionId, nextTask.id, agentName);
+        let claimResult = await claimTaskAsync(sessionId, nextTask.id, agentName);
         if (!claimResult.success) return;  // Another agent beat us to it
 
-        updateTaskState(sessionId, nextTask.id, { status: "in_progress" });
+        await updateTaskState(sessionId, nextTask.id, { status: "in_progress" });
         return formatTaskPrompt(nextTask);  // "Complete all open tasks. Start with task #N: ..."
     } catch (err) { return; }
 }
 
-// Mapping: ib4→claimNextTask, A→sessionId, q→agentName, WX→getTaskList,
-//   MVY→findNextClaimableTask, o7A→claimTask, JS→updateTaskState, PVY→formatTaskPrompt
+// Mapping: Ji4→claimUnclaimedTask, A→sessionId, q→agentName,
+//   DX→getTaskListAsync, JNY→findNextAvailableTask, K→taskList, Y→nextTask,
+//   OT8→claimTaskAsync, z→claimResult, WI→updateTaskState, MNY→formatTaskPrompt
 ```
 
-### findNextClaimableTask (MVY) - Task selection algorithm
+### findNextAvailableTask (JNY) - Task selection algorithm
 
 **What it does:** Selects the first task that can be worked on -- pending, unowned, and with all dependencies satisfied.
 
@@ -329,12 +338,12 @@ function claimNextTask(sessionId, agentName) {
 
 ```javascript
 // ============================================
-// findNextClaimableTask - Find first pending unblocked unowned task
-// Location: chunks.131.mjs:222-229
+// findNextAvailableTask - Find first pending unblocked unowned task
+// Location: chunks.134.mjs:1445-1454
 // ============================================
 
 // ORIGINAL (for source lookup):
-function MVY(A) {
+function JNY(A) {
     let q = new Set(A.filter((K) => K.status !== "completed").map((K) => K.id));
     return A.find((K) => {
         if (K.status !== "pending") return !1;
@@ -344,7 +353,7 @@ function MVY(A) {
 }
 
 // READABLE (for understanding):
-function findNextClaimableTask(taskList) {
+function findNextAvailableTask(taskList) {
     let nonCompletedIds = new Set(taskList.filter(t => t.status !== "completed").map(t => t.id));
     return taskList.find(task => {
         if (task.status !== "pending") return false;  // Only pending tasks
@@ -353,12 +362,14 @@ function findNextClaimableTask(taskList) {
     });
 }
 
-// Mapping: MVY→findNextClaimableTask, A→taskList, q→nonCompletedIds
+// Mapping: JNY→findNextAvailableTask, A→taskList, q→nonCompletedIds, K→task, Y→depId
 ```
+
+> **Note**: Previously documented incorrectly as `MVY`. The actual `findNextAvailableTask` function is `JNY` at chunks.134.mjs:1445, called by `Ji4` (claimUnclaimedTask).
 
 ---
 
-## 3. In-Process Agent Runner (GVY)
+## 3. In-Process Agent Runner (XNY)
 
 ### inProcessAgentRunner - Full agent execution lifecycle for in-process teammates
 
@@ -436,11 +447,11 @@ The idle notification includes:
 ```javascript
 // ============================================
 // inProcessAgentRunner - Complete agent execution lifecycle
-// Location: chunks.131.mjs:348-596
+// Location: chunks.134.mjs:1571-1650
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function GVY(A) {
+async function XNY(A) {
     let { identity: q, taskId: K, prompt: Y, description: z, agentDefinition: w,
           teammateContext: H, toolUseContext: $, abortController: O, model: _,
           systemPrompt: J, systemPromptMode: X, allowedTools: D, allowPermissionPrompts: j } = A;
@@ -453,7 +464,7 @@ async function GVY(A) {
             // ... token compaction check ...
             // ... agent loop (dR) execution ...
             // ... idle notification ...
-            let q1 = await WVY(q, O, K, $.getAppState, M, q.parentSessionId);
+            let q1 = await DNY(q, O, K, $.getAppState, M, q.parentSessionId);
             switch (q1.type) {
                 case "shutdown_request": N = _EA(q1.request?.from || "team-lead", q1.originalMessage); break;
                 case "new_message": N = q1.from === "user" ? q1.message : _EA(q1.from, q1.message, q1.color, q1.summary); break;
@@ -500,7 +511,7 @@ async function inProcessAgentRunner(config) {
     let shouldExit = false;
 
     // Claim initial task from task list (marks agent as active)
-    claimNextTask(identity.parentSessionId, identity.agentName);
+    claimUnclaimedTask(identity.parentSessionId, identity.agentName);
 
     try {
         // Add initial message to AppState
@@ -553,7 +564,7 @@ async function inProcessAgentRunner(config) {
             }
 
             // --- Wait for Next Message ---
-            let pollResult = await inProcessPollLoop(identity, abortController, taskId, getAppState, setAppState, identity.parentSessionId);
+            let pollResult = await pollForNextMessage(identity, abortController, taskId, getAppState, setAppState, identity.parentSessionId);
             switch (pollResult.type) {
                 case "shutdown_request":
                     currentPrompt = formatTeammateMessage(pollResult.request?.from || "team-lead", pollResult.originalMessage);
@@ -581,13 +592,13 @@ async function inProcessAgentRunner(config) {
     }
 }
 
-// Mapping: GVY→inProcessAgentRunner, A→config, q→identity, K→taskId, Y→prompt,
+// Mapping: XNY→inProcessAgentRunner, A→config, q→identity, K→taskId, Y→prompt,
 //   z→description, w→agentDefinition, H→teammateContext, $→toolUseContext,
 //   O→abortController, _→model, J→systemPrompt, X→systemPromptMode,
 //   D→allowedTools, j→allowPermissionPrompts, M→setAppState,
 //   f→conversationHistory, N→currentPrompt, T→shouldExit,
 //   _EA→formatTeammateMessage, Id→updateTaskInState, dR→agentLoop,
-//   WVY→inProcessPollLoop, lb4→sendIdleNotification, XVY→buildTeammateCanUseTool,
+//   DNY→pollForNextMessage, lb4→sendIdleNotification, XVY→buildTeammateCanUseTool,
 //   AW1→performCompaction, SQ1→getAutoCompactThreshold, Ev→estimateTokenCount,
 //   WQ1→extractLastMessageSummary, dZ→buildSystemPrompt, c6→createUserMessage,
 //   pY→createAssistantMessage, Cj6→appendMessageToTask
@@ -652,12 +663,12 @@ function sendIdleNotification(agentName, agentColor, teamName, options) {
 ```javascript
 // ============================================
 // sendToTeamLead - Write message to team-lead inbox
-// Location: chunks.131.mjs:204-211
+// Location: chunks.135.mjs:204-211
 // ============================================
 
 // ORIGINAL (for source lookup):
 function DVY(A, q, K, Y) {
-    f9(K2, { from: A, text: q, timestamp: new Date().toISOString(), color: K }, Y)
+    x3(K2, { from: A, text: q, timestamp: new Date().toISOString(), color: K }, Y)
 }
 
 // READABLE (for understanding):
@@ -671,7 +682,7 @@ function sendToTeamLead(fromAgent, messageText, agentColor, teamName) {
 }
 
 // Mapping: DVY→sendToTeamLead, A→fromAgent, q→messageText, K→agentColor, Y→teamName,
-//   f9→writeToMailbox, K2→TEAM_LEAD_ID ("team-lead")
+//   x3→writeToMailbox, K2→TEAM_LEAD_ID ("team-lead")
 ```
 
 ---
@@ -846,7 +857,7 @@ async spawn(config) {
 
 // Mapping: pv→makeAgentId, bd→generateColor, eb4→getClaudeExecutablePath,
 //   Au4→buildCLIFlags, R7→shellQuote, OI→isRunningInsideTmux,
-//   Tq→registerCleanup, f9→writeToMailbox, U6→getSessionId
+//   Tq→registerCleanup, x3→writeToMailbox, U6→getSessionId
 ```
 
 ### createTeammatePaneInSwarmView - Tmux pane layout algorithm
@@ -948,17 +959,19 @@ if (!this.cleanupRegistered) {
 
 ---
 
-## 5. InProcessBackend (nb4)
+## 5. InProcessBackend (Mi4)
+
+> **Note**: Previously documented as `nb4`. Verified location: `chunks.134.mjs:1888`.
 
 ### InProcessBackend - In-memory teammate lifecycle management
 
 **What it does:** Manages the full lifecycle of in-process teammates: spawning (creating state + starting agent runner), message delivery (via mailbox), graceful termination (via shutdown request), and forced kill (via abort controller).
 
-### spawn flow: LP1 --> nM6
+### spawn flow: FNY --> nM6
 
 ```
 InProcessBackend.spawn(config)
-  └─→ LP1 (spawnInProcessTeammate):
+  └─→ FNY (spawnInProcessTeammate):
        ├─ Creates agentId = "name@team"
        ├─ Creates taskId (unique)
        ├─ Creates AbortController
@@ -968,38 +981,38 @@ InProcessBackend.spawn(config)
        ├─ Registers cleanup handler (Tq → abort on exit)
        └─ Returns { success, agentId, taskId, abortController, teammateContext }
   └─→ nM6 (startAgentRunner):
-       └─ GVY(config).catch(err => log(err))  // Fire-and-forget
+       └─ XNY(config).catch(err => log(err))  // Fire-and-forget
 ```
 
-**Key insight:** The `nM6` wrapper is a fire-and-forget launcher. It calls `GVY` (the agent runner) and only catches unhandled errors to log them. The actual lifecycle is managed through AppState and the abort controller.
+**Key insight:** The `nM6` wrapper is a fire-and-forget launcher. It calls `XNY` (the agent runner) and only catches unhandled errors to log them. The actual lifecycle is managed through AppState and the abort controller.
 
 ```javascript
 // ============================================
 // InProcessBackend - In-memory teammate management class
-// Location: chunks.131.mjs:634-738
+// Location: chunks.134.mjs:1888-1995
 // ============================================
 
 // ORIGINAL (for source lookup):
-class nb4 {
+class Mi4 {
     type = "in-process";
     context = null;
     setContext(A) { this.context = A }
     async isAvailable() { return !0 }
     async spawn(A) {
-        let q = await LP1({ name: A.name, teamName: A.teamName, prompt: A.prompt, color: A.color, planModeRequired: A.planModeRequired ?? !1 }, this.context);
+        let q = await FNY({ name: A.name, teamName: A.teamName, prompt: A.prompt, color: A.color, planModeRequired: A.planModeRequired ?? !1 }, this.context);
         if (q.success && q.taskId && q.teammateContext && q.abortController)
             nM6({ identity: { agentId: q.agentId, agentName: A.name, /* ... */ }, taskId: q.taskId, prompt: A.prompt, /* ... */ });
         return { success: q.success, agentId: q.agentId, taskId: q.taskId, abortController: q.abortController, error: q.error }
     }
     async sendMessage(A, q) {
         let K = c31(A); // Parse "name@team"
-        f9(K.agentName, { text: q.text, from: q.from, color: q.color, timestamp: q.timestamp ?? new Date().toISOString() }, K.teamName);
+        x3(K.agentName, { text: q.text, from: q.from, color: q.color, timestamp: q.timestamp ?? new Date().toISOString() }, K.teamName);
     }
     async terminate(A, q) {
         let Y = ps(A, K.tasks); // Find task by agentId
         if (Y.shutdownRequested) return !0;
         let w = lP1({ requestId: `shutdown-${A}-${Date.now()}`, from: "team-lead", reason: q });
-        f9(Y.identity.agentName, { from: "team-lead", text: JSON.stringify(w), timestamp: ... }, Y.identity.teamName);
+        x3(Y.identity.agentName, { from: "team-lead", text: JSON.stringify(w), timestamp: ... }, Y.identity.teamName);
         MTA(Y.id, this.context.setAppState); // Mark shutdownRequested in AppState
         return !0
     }
@@ -1077,8 +1090,8 @@ class InProcessBackend {
     }
 }
 
-// Mapping: nb4→InProcessBackend, LP1→spawnInProcessTeammate, nM6→startAgentRunner,
-//   c31→parseAgentId, f9→writeToMailbox, ps→findTaskByAgentId,
+// Mapping: nb4→InProcessBackend, FNY→spawnInProcessTeammate, nM6→startAgentRunner,
+//   c31→parseAgentId, x3→writeToMailbox, ps→findTaskByAgentId,
 //   lP1→createShutdownRequest, MTA→markShutdownRequested,
 //   Rj6→abortAndCleanup, sq6→removeFromTaskList
 ```
@@ -1087,13 +1100,13 @@ class InProcessBackend {
 
 ```javascript
 // ============================================
-// startAgentRunner - Fire-and-forget wrapper for GVY
-// Location: chunks.131.mjs:598-602
+// startAgentRunner - Fire-and-forget wrapper for XNY
+// Location: chunks.134.mjs:598-602
 // ============================================
 
 // ORIGINAL (for source lookup):
 function nM6(A) {
-    GVY(A).catch((q) => {
+    XNY(A).catch((q) => {
         h(`[inProcessRunner] Unhandled error in ${A.identity.agentId}: ${q}`)
     })
 }
@@ -1105,7 +1118,7 @@ function startAgentRunner(config) {
     });
 }
 
-// Mapping: nM6→startAgentRunner, GVY→inProcessAgentRunner
+// Mapping: nM6→startAgentRunner, XNY→inProcessAgentRunner
 ```
 
 ### terminate vs kill - Two levels of stopping
@@ -1129,18 +1142,18 @@ Team Lead decides to shut down a teammate
     ▼
 terminate(agentId, reason)
     │
-    ├─ InProcessBackend: Creates shutdown_request JSON, writes to mailbox via f9
+    ├─ InProcessBackend: Creates shutdown_request JSON, writes to mailbox via x3
     │   Also marks task.shutdownRequested = true in AppState via MTA
     │
-    └─ PaneBackendExecutor: Creates shutdown_request JSON, writes to mailbox via f9
+    └─ PaneBackendExecutor: Creates shutdown_request JSON, writes to mailbox via x3
         (No AppState marking -- the pane process manages its own state)
     │
     ▼
-Poll Loop (WVY) picks up the shutdown_request
+Poll Loop (DNY) picks up the shutdown_request
     │  (Priority 2 -- skips all pending normal messages)
     │
     ▼
-Agent Runner (GVY) receives { type: "shutdown_request", request, originalMessage }
+Agent Runner (XNY) receives { type: "shutdown_request", request, originalMessage }
     │
     ▼
 Formats as <teammate-message> and passes to next agent loop iteration
@@ -1192,7 +1205,7 @@ function createShutdownRequest({ requestId, from, reason }) {
 ```javascript
 // ============================================
 // parseShutdownRequest - Parse shutdown_request from message text
-// Location: chunks.129.mjs:1396-1402
+// Location: chunks.134.mjs (in-process agent runner)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -1258,29 +1271,30 @@ function markShutdownRequested(taskId, setAppState) {
 Key functions in this document:
 
 **In-Process Execution:**
-- `inProcessPollLoop` (WVY) - 5-level priority poll loop for incoming messages
-- `inProcessAgentRunner` (GVY) - Full agent execution lifecycle
-- `startAgentRunner` (nM6) - Fire-and-forget wrapper for GVY
-- `InProcessBackend` (nb4) - In-memory teammate management class
-- `claimNextTask` (ib4) - Self-assign work from shared task list
-- `findNextClaimableTask` (MVY) - Task selection with dependency checking
+- `pollForNextMessage` (DNY) - 5-level priority poll loop for incoming messages
+- `inProcessAgentRunner` (XNY) - Full agent execution lifecycle
+- `startAgentRunner` (nM6) - Fire-and-forget wrapper for XNY
+- `InProcessBackend` (Mi4) - In-memory teammate management class @ chunks.134.mjs:1888
+- `claimUnclaimedTask` (Ji4) - Self-assign work from shared task list @ chunks.134.mjs:1464
+- `findNextAvailableTask` (JNY) - Task selection with dependency checking @ chunks.134.mjs:1445
 - `formatTaskPrompt` (PVY) - Format claimed task as agent prompt
+- `sleep` (jNY) - Promise-based delay @ chunks.134.mjs:1441
 
 **Pane Execution:**
 - `PaneBackendExecutor` (Ku4) - Tmux/iTerm2 pane-based teammate spawning
 - `buildCLIFlags` (Au4) - Construct CLI flags for subprocess
 - `getClaudeExecutablePath` (eb4) - Resolve Claude CLI binary path
-- `TmuxBackend` (fEA) - Tmux terminal backend implementation
-- `ITermBackend` (EEA) - iTerm2 terminal backend implementation
+- `TmuxBackend` (Ju8) - Tmux terminal backend implementation @ chunks.134.mjs:2411
+- `ITermBackend` (Xu8) - iTerm2 terminal backend implementation @ chunks.135.mjs:11
 - `paneCreationDelay` (Ju4) - 200ms delay between pane creations
 
 **Communication:**
 - `formatTeammateMessage` (_EA) - XML envelope for inter-agent messages
 - `sendIdleNotification` (lb4) - Notify team-lead of idle status
 - `sendToTeamLead` (DVY) - Route message to team-lead mailbox
-- `writeToMailbox` (f9) - Write message to agent's file-based inbox
-- `readMailbox` (Ld) - Read all messages from agent's inbox
-- `markMessageAsReadByIndex` (JQ1) - Mark specific message as read
+- `writeToMailbox` (x3) - Write message to agent's file-based inbox
+- `readMailbox` (wl) - Read all messages from agent's inbox
+- `markMessageAsReadByIndex` (Vc6) - Mark specific message as read
 - `createIdleNotification` (DQ1) - Build idle notification payload
 - `extractLastMessageSummary` (WQ1) - Extract summary from last SendMessage tool use
 
@@ -1293,7 +1307,7 @@ Key functions in this document:
 **State Management:**
 - `updateTaskInState` (Id) - Update in-process teammate task in AppState
 - `appendMessageToTask` (Cj6) - Add message to task's message array
-- `spawnInProcessTeammate` (LP1) - Create teammate state in AppState
+- `spawnInProcessTeammate` (FNY) - Create teammate state in AppState
 - `registerCleanup` (Tq) - Register exit cleanup handler
 - `makeAgentId` (pv) - Create `"name@team"` identifier
 - `parseAgentId` (c31) - Parse `"name@team"` back to components

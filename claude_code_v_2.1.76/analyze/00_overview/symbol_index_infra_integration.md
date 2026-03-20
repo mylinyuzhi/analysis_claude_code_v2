@@ -393,140 +393,132 @@
 ## Module: Shell Parser
 
 > Full analysis: [29_shell_parser/](../29_shell_parser/)
+>
+> **NOTE:** This section was corrected in v2.1.76 analysis. Previous documentation incorrectly
+> mapped symbols to chunks.149/150/169.mjs. The actual shell parser code is in chunks.91.mjs
+> (security checks), chunks.171.mjs (parsing), and chunks.56.mjs (heredoc extraction).
 
-### Tokenization & Parsing (chunks.169.mjs)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| pz | shellTokenize | chunks.169.mjs:1824 | function (bash-parser external) |
-| rZ1 | parseShellCommand | chunks.169.mjs:1716 | function |
-| AD | extractSubcommands | chunks.169.mjs:1774 | function |
-| XT6 | extractHeredocs | chunks.169.mjs:1596 | function |
-| r9z | restoreHeredocs | chunks.169.mjs:1680 | function |
-| eBA | restoreHeredocsInList | chunks.169.mjs:1686 | function |
-| aOq | generateSentinels | chunks.169.mjs:1701 | function |
-| c9z | generateRandomHex | chunks.169.mjs:1561 | function |
-| i9z | isInsideQuotes | chunks.169.mjs:1565 | function |
-| n9z | isInComment | chunks.169.mjs:1579 | function |
-| a9z | isSimplePath | chunks.169.mjs:1712 | function |
-| s9z | filterSeparatorTokens | chunks.169.mjs:1770 | function |
-| e9z | isSimpleHelpCommand | chunks.169.mjs:1820 | function |
-| t9z | extractAllPrefixes | chunks.169.mjs:1800 | function |
-| KYz | hasOnlySimpleOperators | chunks.169.mjs:1979 | function |
-| tOq | isCompoundDangerous | chunks.169.mjs:2006 | function |
-| Pf6 | containsCdCommand | chunks.169.mjs:2014 | function |
-| p9z | HEREDOC_PREFIX | chunks.169.mjs:1691 | constant ("__HEREDOC_") |
-| d9z | HEREDOC_SUFFIX | chunks.169.mjs:1693 | constant ("__") |
-| l9z | HEREDOC_REGEX | chunks.169.mjs:1698 | constant (regex) |
-
-### Redirection Analysis (chunks.169.mjs)
+### Tokenization & Parsing (chunks.171.mjs, chunks.56.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| aI | extractRedirections | chunks.169.mjs:2021 | function |
-| YYz | checkDangerousRedirection | chunks.169.mjs:2088 | function |
-| AmA | handleFdRedirection | chunks.169.mjs:2218 | function |
-| p_ | isOperatorToken | chunks.169.mjs:2076 | function |
-| Py | isSafeRedirectionTarget | chunks.169.mjs:2080 | function |
-| DF | containsVariable | chunks.169.mjs:2084 | function |
-| oOq | isCommandSubstitutionContext | chunks.169.mjs:2249 | function |
-| zYz | needsQuoting | chunks.169.mjs:2266 | function |
+| bW6 | parseShellCommand | chunks.171.mjs:1139 | function (sentinel-based tokenization with heredoc handling) |
+| EO | extractSubcommands | chunks.171.mjs:1202 | function (removes redirections, returns cleaned subcommand list) |
+| ca | extractHeredocs | chunks.56.mjs:945 | function (extracts heredoc blocks, replaces with placeholders) |
+| iGq | generateSentinels | chunks.171.mjs:1121 | function (creates random hex placeholder strings) |
+| yu3 | generateRandomHex | chunks.56.mjs:941 | function (generates 16-char random hex string for heredoc placeholders) |
+| M9z | isSimplePath | chunks.171.mjs:1132 | function (checks if redirection target is safe) |
+| D9z | filterSeparatorTokens | chunks.171.mjs:1198 | function (filters out &&, \|\|, ;, ;;, \|, >&, >, >>) |
+| X9z | isSimpleHelpCommand | chunks.171.mjs:1230 | function (checks if command is simple --help request) |
+| ik | extractRedirections | chunks.171.mjs:1301 | function (analyzes all redirections, classifies safe/dangerous) |
+| f9z | checkDangerousRedirection | chunks.171.mjs:1384 | function (per-redirection risk assessment) |
+| xh | isSafeRedirectionTarget | chunks.171.mjs:1369 | function (checks if target has no shell specials) |
+| CN | containsVariable | chunks.171.mjs:1374 | function (checks if token contains $, %, or glob chars) |
+| MH | isOperator | chunks.171.mjs:1365 | function (checks if token is specific operator type) |
+| ch1 | handleFdRedirect | chunks.171.mjs:1537 | function (handles file descriptor redirect analysis) |
+| rGq | COMMAND_SEPARATOR_OPS | chunks.171.mjs:1759 | constant (Set: &&, \|\|, ;, ;;, \|) |
+| W9z | ALL_REDIRECT_OPS | chunks.171.mjs:1759 | constant (rGq + >&, >, >>) |
+| $9z | SHELL_INTERPRETERS | chunks.171.mjs:1118 | constant (Set: sh, bash, zsh, fish, etc.) |
+| hN6 | FILE_DESCRIPTOR_SET | chunks.171.mjs:1749 | constant (Set: "0", "1", "2" for stdin/stdout/stderr) |
 
-### Command Reconstruction (chunks.170.mjs)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| wYz | reconstructCommand | chunks.170.mjs:3 | function |
-| qmA | extractPrefixCached | chunks.170.mjs:103 | function (memoized wrapper) |
-| Sd1 | CD_COMMAND_PATTERN | chunks.170.mjs:95 | constant (/^cd(?:\s|$)/) |
-| Cd1 | STANDARD_FILE_DESCRIPTORS | chunks.170.mjs:96 | constant (Set ["0","1","2"]) |
-| sOq | COMMAND_SEPARATOR_OPS | chunks.170.mjs:109 | constant (Set &&,\|\|,;,;;,\|) |
-| qYz | ALL_REDIRECT_OPS | chunks.170.mjs:109 | constant (sOq + >&,>,>>) |
-
-### LLM Prefix Extraction (chunks.169.mjs)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| AYz | bashPreFlightCheck | chunks.169.mjs:1838 | function |
-
-### Security Pipeline (chunks.150.mjs)
+### LLM Prefix Extraction (chunks.171.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| lm | runSecurityChecks | chunks.150.mjs:321 | function |
-| PhA | HEREDOC_IN_SUBSTITUTION_PATTERN | chunks.150.mjs:366 | constant (/\$\(.*<</) |
-| ddY | DANGEROUS_PATTERNS | chunks.150.mjs:366 | constant (array) |
-| kH | SECURITY_CHECK_IDS | chunks.150.mjs:390 | constant (enum object) |
+| nGq | bashPreFlightCheck | chunks.171.mjs:1750 | function (created via QGq; LLM-based prefix extraction) |
+| pr6 | extractPrefixCached | chunks.171.mjs:1758 | function (created via UGq; memoized wrapper for nGq) |
+| QGq | createPrefixExtractor | chunks.171.mjs:977 | function (factory for prefix extraction with policy spec) |
+| UGq | createMemoizedPrefix | chunks.171.mjs:993 | function (memoization wrapper for prefix extraction) |
+| f3q | clearPrefixCaches | chunks.171.mjs:1248 | function (clears nGq.cache and pr6.cache) |
 
-### Allow-List Security Checks (chunks.149.mjs)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| ndY | checkEmptyCommand | chunks.149.mjs:2818 | function |
-| rdY | checkIncompleteCommand | chunks.149.mjs:2835 | function |
-| adY | checkHeredocInSubstitution | chunks.149.mjs:2905 | function |
-| odY | isQuotedHeredocInSubstitution | chunks.149.mjs:2866 | function |
-| sdY | checkGitCommitMessage | chunks.149.mjs:2929 | function |
-| tdY | checkQuotedHeredoc | chunks.149.mjs:2976 | function |
-| cdY | stripQuotes | chunks.149.mjs:2766 | function |
-| ldY | stripRedirections | chunks.149.mjs:2800 | function |
-| idY | hasUnescapedChar | chunks.149.mjs:2804 | function |
-| pdY | hasMalformedBrackets | chunks.149.mjs:2748 | function |
-
-### Deny-List Security Checks (chunks.150.mjs)
+### Security Pipeline (chunks.91.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| edY | checkJqCommand | chunks.150.mjs:3 | function |
-| $cY | checkObfuscatedFlags | chunks.150.mjs:203 | function |
-| AcY | checkShellMetacharacters | chunks.150.mjs:33 | function |
-| qcY | checkDangerousVariables | chunks.150.mjs:64 | function |
-| YcY | checkNewlines | chunks.150.mjs:122 | function |
-| zcY | checkIFSInjection | chunks.150.mjs:143 | function |
-| wcY | checkProcEnviron | chunks.150.mjs:160 | function |
-| KcY | checkDangerousPatterns | chunks.150.mjs:81 | function |
-| HcY | checkMalformedTokenInjection | chunks.150.mjs:177 | function |
+| O01 | runSecurityChecksAsync | chunks.91.mjs:2272 | function (async; master security validation with tree-sitter) |
+| Rp6 | runSecurityChecksSync | chunks.91.mjs:2209 | function (sync; security validation without tree-sitter) |
+| zg9 | parseCommandTreeSitter | chunks.91.mjs:1104 | function (alias to O01; entry point name used in docs) |
+| w3 | SECURITY_CHECK_IDS | chunks.91.mjs:2394 | constant (enum object with 23 check IDs) |
+| wg9 | DANGEROUS_PATTERNS | chunks.91.mjs:2361 | constant (array of 11 pattern+message objects) |
+| lV8 | HEREDOC_IN_SUBSTITUTION_PATTERN | chunks.91.mjs:2361 | constant (regex: /\$\(.*<</) |
 
-### Pre-Check (chunks.10.mjs)
+### Allow-List Security Checks (chunks.91.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| CY8 | hasSingleQuotedBackslashBypass | chunks.10.mjs:1031 | function |
+| uY4 | checkEmptyCommand | chunks.91.mjs:1224 | function (allows empty commands) |
+| mY4 | checkIncompleteCommand | chunks.91.mjs:1241 | function (detects fragments: tab, flag, operator prefix) |
+| gY4 | checkHeredocInSubstitution | chunks.91.mjs:1411 | function (allows $(cat <<'EOF') patterns) |
+| Hg9 | isQuotedHeredocInSubstitution | chunks.91.mjs:1272 | function (validates heredoc-in-$() safety) |
+| FY4 | checkGitCommitMessage | chunks.91.mjs:1435 | function (git commit -m "..." safety logic) |
 
-### Safe Command Registry (chunks.150.mjs)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| WcY | isInSafeCommandRegistry | chunks.150.mjs:680 | function |
-| NcY | isReadOnlyCommand | chunks.150.mjs:831 | function |
-| Of6 | checkReadOnlyBehavior | chunks.150.mjs:881 | function |
-| GcY | buildSimpleCommandRegex | chunks.150.mjs:788 | function |
-| TcY | isGitCommand | chunks.150.mjs:846 | function |
-| vcY | containsGitSubcommand | chunks.150.mjs:850 | function |
-| EcY | isBareGitRepo | chunks.150.mjs:854 | function |
-| $f6 | isWindowsUncPath | chunks.150.mjs:792 | function |
-| VcY | containsGlobPattern | chunks.150.mjs:803 | function |
-| jcY | SAFE_COMMAND_REGISTRY | chunks.150.mjs:992 | object (command→flags map) |
-| fcY | SAFE_COMMAND_PATTERNS | chunks.150.mjs:2314 | constant (Set of regex) |
-| ZcY | SIMPLE_SAFE_COMMANDS | chunks.150.mjs:2314 | constant (array of strings) |
-| PcY | XARGS_SAFE_COMMANDS | chunks.150.mjs:2314 | constant (array) |
-| j6q | FLAG_PATTERN | chunks.150.mjs:953 | constant (/^-[a-zA-Z0-9_-]/) |
-| M6q | validateFlagArgument | chunks.150.mjs:661 | function |
-| X6q | allFlagsSupported | chunks.150.mjs:408 | function |
-| McY | getSafeCommandRegistry | chunks.150.mjs:657 | function |
-
-### Sed Validation (chunks.150.mjs)
+### Deny-List Security Checks (chunks.91.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| QU1 | validateSedCommand | chunks.150.mjs:493 | function |
-| OcY | isSafeReadOnlySed | chunks.150.mjs:418 | function |
-| J6q | isSafeSubstituteSed | chunks.150.mjs:455 | function |
-| JcY | sedHasFileRedirection | chunks.150.mjs:516 | function |
-| XcY | extractSedExpressions | chunks.150.mjs:553 | function |
-| DcY | isDangerousSedExpression | chunks.150.mjs:595 | function |
-| D6q | checkSedCommand | chunks.150.mjs:629 | function |
-| _cY | isSafeSedPrintPattern | chunks.150.mjs:450 | function |
+| pY4 | checkJqCommand | chunks.91.mjs:1507 | function (jq system() and file flag detection) |
+| rY4 | checkObfuscatedFlags | chunks.91.mjs:1759 | function (ANSI-C quoting, locale quoting, quoted flags) |
+| QY4 | checkShellMetacharacters | chunks.91.mjs:1537 | function (;, \|, & in quoted arguments) |
+| UY4 | checkDangerousVariables | chunks.91.mjs:1568 | function ($VAR in redirection/pipe contexts) |
+| w01 | checkNewlines | chunks.91.mjs:1635 | function (embedded newlines as command separators) |
+| lY4 | checkIFSInjection | chunks.91.mjs:~1700 | function ($IFS manipulation detection) |
+| iY4 | checkProcEnviron | chunks.91.mjs:1716 | function (/proc/*/environ access) |
+| dY4 | checkDangerousPatterns | chunks.91.mjs:1585 | function (backticks, $(), ${}, <(), >()) |
+| _01 | checkRedirections | chunks.91.mjs:1611 | function (< and > in unquoted content) |
+| nY4 | checkMalformedTokenInjection | chunks.91.mjs:1733 | function (tokenizer-based unbalanced bracket detection) |
+| oY4 | checkBackslashEscapedWhitespace | chunks.91.mjs:1916 | function (backslash before whitespace) |
+| sY4 | checkBraceExpansion | chunks.91.mjs:1978 | function (brace expansion patterns: {a,b}, {1..3}) |
+| tY4 | checkUnicodeWhitespace | chunks.91.mjs:2040 | function (non-ASCII whitespace chars) |
+| eY4 | checkMidWordHash | chunks.91.mjs:2056 | function (# in middle of word) |
+| Kz4 | checkZshDangerousCommands | chunks.91.mjs:2179 | function (zmodload, emulate, sysopen, etc.) |
+| aY4 | checkBackslashEscapedOperators | chunks.91.mjs:1954 | function (backslash before ;, \|, &, <, >) |
+| Az4 | checkCommentQuoteDesync | chunks.91.mjs:2075 | function (quote inside # comment) |
+| qz4 | checkQuotedNewline | chunks.91.mjs:2129 | function (quoted newline + # pattern) |
+| cY4 | checkExcessClosingBraces | chunks.91.mjs:1656 | function (unbalanced braces after quote strip) |
+
+### Quote Stripping Helpers (chunks.91.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bY4 | stripQuotes | chunks.91.mjs:1167 | function (dual-mode: withDoubleQuotes + fullyUnquoted) |
+| xY4 | stripRedirections | chunks.91.mjs:1206 | function (removes safe redirect patterns) |
+| $g9 | hasUnescapedChar | chunks.91.mjs:1210 | function (checks for unescaped char in string) |
+| jg9 | hasBackslashEscapedWhitespace | chunks.91.mjs:1891 | function (detects \ before space/tab in unquoted context) |
+| Mg9 | hasBackslashEscapedOperator | chunks.91.mjs:1929 | function (detects \ before ;, \|, &, <, >) |
+| n36 | isEscapedBrace | chunks.91.mjs:1971 | function (checks if brace at position is escaped) |
+
+### Pre-Check (chunks.42.mjs, chunks.10.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| X38 | hasSingleQuotedBackslashBypass | chunks.42.mjs:531 | function (detects 'a\' bypass pattern) |
+| CY8 | hasSingleQuotedBackslashBypass | chunks.10.mjs:1031 | function (alias/duplicate; X38 is primary) |
+
+### Security Constants (chunks.91.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Og9 | ZSH_DANGEROUS_COMMANDS | chunks.91.mjs:2394 | Set (zmodload, emulate, sysopen, zpty, etc.) |
+| Jg9 | SHELL_OPERATORS | chunks.91.mjs:2419 | Set (;, \|, &, <, >) |
+| Dg9 | UNICODE_WHITESPACE_REGEX | chunks.91.mjs:2420 | RegExp (non-ASCII whitespace chars) |
+| Yz4 | CONTROL_CHARACTERS_REGEX | chunks.91.mjs:2421 | RegExp (non-printable control chars \x00-\x08, etc.) |
+
+### Permission Checking (chunks.172.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Tn8 | checkBashPermissions | chunks.172.mjs:1930 | function (async; main Bash tool permission checker) |
+| dr6 | runBashSecurityChecks | chunks.172.mjs | function (security validation called from Tn8) |
+| vfq | analyzeSubcommands | chunks.172.mjs | function (compound command analysis) |
+| PYz | checkCdGitCompound | chunks.172.mjs:1312 | function (cd+git security check) |
+
+### Progress Throttling (chunks.146.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Zi6 | progressCache | chunks.146.mjs:1341 | variable (Map: toolUseID → lastEmitTime) |
+| yxY | PROGRESS_THROTTLE_INTERVAL_MS | chunks.146.mjs:1325 | constant (30000 = 30 seconds) |
+| ExY | MAX_PROGRESS_CACHE_SIZE | chunks.146.mjs:1323 | constant (100 entries) |
 
 ---
 

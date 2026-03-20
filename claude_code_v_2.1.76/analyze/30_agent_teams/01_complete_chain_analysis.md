@@ -256,13 +256,13 @@ SpawnTeammate({
 
 ### 4.2 Spawn Mode Selection Algorithm
 
-**Decision tree (obfuscated: iVY / spawnTeammateDispatcher):**
+**Decision tree (obfuscated: pNY / spawnTeammateDispatcher):**
 
 ```
-spawnTeammateDispatcher(params, context)  [chunks.131.mjs:2467]
+spawnTeammateDispatcher(params, context)  [chunks.135.mjs:1110]
   |
-  ├─→ Check: isInProcessEnabled()?  [chunks.131.mjs:1586]
-  |     ├─→ YES → spawnInProcessTeammate(...)  [chunks.123.mjs:242]
+  ├─→ Check: isInProcessEnabled()?  [chunks.135.mjs:208]
+  |     ├─→ YES → spawnInProcessTeammate(...)  [chunks.135.mjs:985]
   |     |     • Backend: InProcessBackend (nb4)
   |     |     • Execution: Same Node.js process, separate agent loop
   |     |     • Communication: Shared AppState + mailbox files
@@ -270,13 +270,13 @@ spawnTeammateDispatcher(params, context)  [chunks.131.mjs:2467]
   |     └─→ NO → Check useSplitPane parameter
   |           |
   |           ├─→ useSplitPane !== false (default) →
-  |           |     spawnSplitPaneTeammate(...)  [chunks.131.mjs:2077]
+  |           |     spawnSplitPaneTeammate(...)  [chunks.135.mjs:711]
   |           |     • Backend: TmuxBackend or ITermBackend
   |           |     • Execution: New tmux pane OR iTerm2 pane
   |           |     • Communication: Mailbox files only (no shared memory)
   |           |
   |           └─→ useSplitPane === false →
-  |                 spawnSeparateWindowTeammate(...)  [chunks.131.mjs:2202]
+  |                 spawnTmuxTeammate(...)  [chunks.135.mjs:838]
   |                 • Backend: External tmux session "claude-swarm"
   |                 • Execution: New window in separate tmux session
   |                 • Communication: Mailbox files only
@@ -286,11 +286,11 @@ spawnTeammateDispatcher(params, context)  [chunks.131.mjs:2467]
 ```javascript
 // ============================================
 // isInProcessEnabled - Determines if in-process backend should be used
-// Location: chunks.131.mjs:1586-1595
+// Location: chunks.135.mjs:208-215
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Rm() {
+function Rb() {
     return Y0(process.env.FORCE_IN_PROCESS) || !process.stdin.isTTY || !OI() && !j51()
 }
 
@@ -641,8 +641,7 @@ SendMessageTool.call(input, context)  [chunks.141.mjs:1373]
         |           |
         |           ├─→ Acquire file lock (see section 5.3)
         |           |     └─→ lockfile.lock(mailboxPath + ".lock", {
-        |           |           retries: { retries: 5, minTimeout: 100 },
-        |           |           stale: 60000  // 60 seconds
+        |           |           retries: { retries: 10, minTimeout: 5, maxTimeout: 100 }
         |           |         })
         |           |
         |           ├─→ Read existing messages
@@ -716,8 +715,22 @@ Result: Both messages preserved!
 ```javascript
 // ============================================
 // writeToMailbox - Atomic message append with file locking
-// Location: chunks.129.mjs:1107-1150
+// Location: chunks.132.mjs:22-55
 // ============================================
+
+// ORIGINAL (for source lookup):
+async function x3(A, q, K) {
+    await OTY(K);  // ensureInboxDirectoryExists
+    let Y = FY6(A, K), z = `${Y}.lock`;
+    try { await Pf6(Y, "[]", { encoding: "utf-8", flag: "wx" }); }
+    catch (w) { if (w.code !== "EEXIST") { return; } }
+    let _;
+    try {
+        _ = await Nc6.lock(Y, { lockfilePath: z, ...iv1 });
+        let w = await wl(A, K), O = { ...q, read: !1 };
+        w.push(O), await Pf6(Y, B6(w, null, 2), "utf-8");
+    } finally { if (_) await _(); }
+}
 
 // READABLE (for understanding):
 async function writeToMailbox(recipientName, message, teamName) {
@@ -726,22 +739,19 @@ async function writeToMailbox(recipientName, message, teamName) {
 
     const lockPath = mailboxPath + ".lock";
 
-    // Acquire exclusive lock
-    await lockfile.lock(lockPath, {
-        retries: {
-            retries: 5,      // Retry 5 times if lock unavailable
-            minTimeout: 100, // Wait 100ms between retries
-            maxTimeout: 1000 // Max 1s wait per retry
-        },
-        stale: 60000  // If lock holder crashed >60s ago, steal lock
+    // Acquire exclusive lock with retry configuration
+    let releaseLock = await properLockfile.lock(mailboxPath, {
+        lockfilePath: lockPath,
+        retries: 10,      // Retry 10 times if lock unavailable
+        minTimeout: 5,    // Wait 5ms initially between retries
+        maxTimeout: 100   // Max 100ms wait per retry
     });
 
     try {
         // Critical section - only one process here at a time
-        let messages = [];
-        if (fs.existsSync(mailboxPath)) {
-            const content = fs.readFileSync(mailboxPath, "utf-8");
-            messages = JSON.parse(content);
+        let messages = await readMailbox(recipientName, teamName);
+        messages.push({ ...message, read: false });
+        await writeFile(mailboxPath, JSON.stringify(messages, null, 2), "utf-8");
         }
 
         messages.push(message);
@@ -831,6 +841,168 @@ Sleep 500ms between poll cycles (if no Priority 1 message)
 2. **Slow path** (pane-based): Filesystem polling every 500ms
 
 This optimization reduces message latency for in-process teams from 500ms to ~1ms while maintaining fallback compatibility for multi-process teams.
+
+### 5.5 Team Context Attachment Assembly
+
+**How team context becomes a system-reminder:**
+
+The attachment system provides the LLM with team identity and coordination information. This happens during message assembly before each LLM API call.
+
+```javascript
+// ============================================
+// assembleAllAttachments - Build attachment list including team context
+// Location: chunks.147.mjs:3-18
+// ============================================
+
+// READABLE (for understanding):
+async function assembleAllAttachments(sessionContext, messages) {
+    const attachments = [];
+
+    // ... various attachment producers ...
+
+    // Team context attachment (only for teammates)
+    if (isTeamMode()) {
+        const teamContext = getTeamContextAttachment(messages);
+        if (teamContext.length > 0) {
+            attachments.push(...teamContext);
+        }
+
+        // Teammate mailbox attachment (unread messages)
+        const mailboxAttachment = await getTeammateMailboxAttachment(sessionContext);
+        if (mailboxAttachment.length > 0) {
+            attachments.push(...mailboxAttachment);
+        }
+    }
+
+    return attachments;
+}
+
+// Mapping: _uY→assembleAllAttachments, E7→isTeamMode, AmY→getTeamContextAttachment,
+//          euY→getTeammateMailboxAttachment
+```
+
+**Attachment normalization to system-reminder:**
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - Convert team_context attachment to system-reminder
+// Location: chunks.174.mjs:3-37
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Ui8(A) {
+    if (E7()) {
+        if (A.type === "teammate_mailbox") return [p1({
+            content: Kzz().formatTeammateMessages(A.messages),
+            isMeta: !0
+        })];
+        if (A.type === "team_context") return [p1({
+            content: `<system-reminder>
+# Team Coordination
+
+You are a teammate in team "${A.teamName}".
+
+**Your Identity:**
+- Name: ${A.agentName}
+
+**Team Resources:**
+- Team config: ${A.teamConfigPath}
+- Task list: ${A.taskListPath}
+
+**Team Leader:** The team lead's name is "team-lead". Send updates and completion notifications to them.
+
+Read the team config to discover your teammates' names. Check the task list periodically. Create new tasks when work should be divided. Mark tasks resolved when complete.
+
+**IMPORTANT:** Always refer to teammates by their NAME (e.g., "team-lead", "analyzer", "researcher"), never by UUID. When messaging, use the name directly:
+
+\`\`\`json
+{
+  "to": "team-lead",
+  "message": "Your message here",
+  "summary": "Brief 5-10 word preview"
+}
+\`\`\`
+</system-reminder>`,
+            isMeta: !0
+        })]
+    }
+    // ... other attachment types handled in switch statement
+}
+
+// READABLE (for understanding):
+function normalizeAttachmentForAPI(attachment) {
+    // Only process team context if agent teams feature is enabled
+    if (!isAgentTeamsEnabled()) {
+        // Fall through to standard attachment handling
+    } else {
+        // Handle teammate mailbox (inter-agent messages)
+        if (attachment.type === "teammate_mailbox") {
+            return [createUserMessage({
+                content: formatTeammateMessages(attachment.messages),
+                isMeta: true  // Not shown in chat UI, only in API context
+            })];
+        }
+
+        // Handle team context (identity injection)
+        if (attachment.type === "team_context") {
+            return [createUserMessage({
+                content: `<system-reminder>
+# Team Coordination
+
+You are a teammate in team "${attachment.teamName}".
+
+**Your Identity:**
+- Name: ${attachment.agentName}
+
+**Team Resources:**
+- Team config: ${attachment.teamConfigPath}
+- Task list: ${attachment.taskListPath}
+
+**Team Leader:** The team lead's name is "team-lead". Send updates and completion notifications to them.
+
+Read the team config to discover your teammates' names. Check the task list periodically.
+</system-reminder>`,
+                isMeta: true
+            })];
+        }
+    }
+    // ... handle other attachment types
+}
+
+// Mapping: Ui8→normalizeAttachmentForAPI, E7→isAgentTeamsEnabled, p1→createUserMessage
+```
+
+**Why isMeta: true:**
+
+| Setting | Effect |
+|---------|--------|
+| `isMeta: true` | Hidden from chat UI, appears only in LLM API context |
+| `isMeta: false` | Shown in conversation history |
+
+**Trade-off**: Team context is injected silently without cluttering the UI. However, this means users can't see exactly what context the LLM receives. Mitigation: Debug mode can log all system-reminders.
+
+**Attachment lifecycle:**
+
+```
+Team spawn (TeamCreate tool)
+  ↓
+getTeamContextAttachment() produces attachment object:
+  {
+    type: "team_context",
+    teamName: "web-app-team",
+    agentName: "backend-dev",
+    teamConfigPath: "~/.claude/teams/web-app-team/config.json",
+    taskListPath: "~/.claude/tasks/web-app-team/"
+  }
+  ↓
+assembleAllAttachments() includes in attachment list
+  ↓
+normalizeAttachmentForAPI() transforms to system-reminder message
+  ↓
+Sent to LLM API as user message with isMeta: true
+```
+
+**Cross-reference**: See [04_system_reminder/types_team_mode.md](../04_system_reminder/types_team_mode.md) for the full attachment system architecture.
 
 ---
 
@@ -952,8 +1124,18 @@ Task List:
 ```javascript
 // ============================================
 // findNextAvailableTask - Dependency-aware task selection
-// Location: chunks.131.mjs:222-240
+// Location: chunks.134.mjs:1445-1454
 // ============================================
+
+// ORIGINAL (for source lookup):
+function JNY(A) {
+    let q = new Set(A.filter((K) => K.status !== "completed").map((K) => K.id));
+    return A.find((K) => {
+        if (K.status !== "pending") return !1;
+        if (K.owner) return !1;
+        return K.blockedBy.every((Y) => !q.has(Y))
+    })
+}
 
 // READABLE (for understanding):
 function findNextAvailableTask(tasks) {
@@ -971,7 +1153,7 @@ function findNextAvailableTask(tasks) {
         if (task.status !== "pending") return false;
 
         // Must not already have an owner
-        if (task.owner !== null) return false;
+        if (task.owner) return false;
 
         // Check dependencies: ALL blockedBy tasks must be complete
         const allDependenciesComplete = task.blockedBy.every(
@@ -986,7 +1168,11 @@ function findNextAvailableTask(tasks) {
         return allDependenciesComplete;
     });
 }
+
+// Mapping: JNY→findNextAvailableTask, A→tasks, q→incompleteTasks, K→task, Y→dependencyId
 ```
+
+> **Note**: This function is `JNY`, called by `Ji4` (claimUnclaimedTask). Previously documented incorrectly as `MVY`.
 
 **Why `every()` instead of checking status directly**:
 
@@ -1574,26 +1760,37 @@ User must:
 
 > Symbol mappings:
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions referenced in this document:
 
 - `TeamCreateTool` (QSY) - Team initialization
 - `SendMessageTool` (YhY) - Inter-agent messaging
-- `spawnTeammateDispatcher` (iVY) - Spawn mode selection
-- `spawnInProcessTeammate` (LP1) - In-process backend spawning
-- `spawnSplitPaneTeammate` (dVY) - Pane-based backend spawning
-- `inProcessPollLoop` (WVY) - 5-level priority polling
-- `writeToMailbox` (f9) - Atomic message write with locking
-- `claimNextTask` (ib4) - Task auto-claim with dependency resolution
-- `handleShutdownApproval` (tSY) - Graceful shutdown termination
+- `spawnTeammateDispatcher` (pNY) - Spawn mode selection
+- `spawnInProcessTeammate` (FNY) - In-process backend spawning
+- `spawnSplitPaneTeammate` (BNY) - Pane-based backend spawning
+- `pollForNextMessage` (DNY) - 5-level priority polling
+- `inProcessAgentRunner` (XNY) - In-process agent execution
+- `writeToMailbox` (x3) - Atomic message write with locking
+- `claimUnclaimedTask` (Ji4) - Task auto-claim with dependency resolution
+- `findNextAvailableTask` (JNY) - Dependency-aware task selection @ chunks.134.mjs:1445
+- `handleShutdownApproval` (YxY) - Graceful shutdown termination @ chunks.145.mjs:2443
 - `TeamDeleteTool` (USY) - Team cleanup
+- `normalizeAttachmentForAPI` (Ui8) - Team context system-reminder injection @ chunks.174.mjs:3
+
+## Cross-References
+
+- **[04_system_reminder/](../04_system_reminder/)** - How `team_context` and `teammate_mailbox` attachments become system-reminders via `normalizeAttachmentForAPI` (Ui8)
+- **[08_subagent/](../08_subagent/)** - Comparison between agent teams (multi-process, mailbox-based) and subagents (single-process, tool-based)
+- **[13_task_system/](../13_task_system/)** - Shared task ledger, high-watermark, and dependency graph implementation
 
 ## Source Locations
 
-- `chunks.141.mjs` - Team tools, message handling, shutdown protocol
-- `chunks.131.mjs` - Backend implementations, poll loop, spawn logic
-- `chunks.129.mjs` - Mailbox I/O, file locking
-- `chunks.123.mjs` - In-process backend implementation
+- `chunks.145.mjs` - Team tools, message handling, shutdown protocol (YxY, zxY, Gx8, fx8)
+- `chunks.135.mjs` - Spawn functions (pNY, FNY, BNY, gNY, Rb)
+- `chunks.134.mjs` - In-process agent runner (XNY, DNY, Ji4, JNY)
+- `chunks.132.mjs` - Mailbox I/O, file locking (x3, wl, Vc6)
+- `chunks.174.mjs` - System reminder integration (Ui8)
 
 ---
 
