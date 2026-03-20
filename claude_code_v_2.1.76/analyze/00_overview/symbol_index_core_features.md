@@ -231,14 +231,15 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Bj1 | BACKGROUND_AGENT_BLOCKED_TOOLS | chunks.41.mjs:2585 | constant (Set) |
+| fV1 | BACKGROUND_TASKS_DISABLED | chunks.136.mjs:1443 | constant (boolean from env) |
 | V$3 | TASK_TYPE_PREFIXES | chunks.41.mjs:2438 | constant (object) |
 | G97 | TASK_ID_CHARSET | chunks.41.mjs:2434 | constant ("0123456789abcdefghijklmnopqrstuvwxyz") |
 | KP6 | BACKGROUND_TASKS_DISABLED | chunks.132.mjs:37 | constant (boolean) |
-| nVY | BACKGROUND_HINT_THRESHOLD | chunks.132.mjs | constant (ms) |
 | Id1 | BASH_BACKGROUND_DISABLED | chunks.170.mjs:528 | constant (boolean) |
 | q_q | BASH_BACKGROUND_TIMEOUT_MS | chunks.170.mjs:514 | constant (2000) |
 | ghY | TURNS_BETWEEN_PROGRESS | chunks.142.mjs:2863 | constant (3) |
+
+> **Note:** The blocked tools for background agents are enforced via tool filtering logic rather than a single constant. Tools blocked include: TaskOutput, ExitPlanMode, EnterPlanMode, Task, AskUserQuestion, TaskStop.
 
 ### Task ID Generation
 
@@ -299,8 +300,8 @@
 | Lf6 | LocalBashTaskHandler | chunks.133.mjs:2542 | object |
 | Fk1 | LocalAgentTaskHandler | chunks.146.mjs:2292 | object |
 | Fn4 | RemoteAgentTaskHandler | chunks.136.mjs:1175 | object |
-| wQ6 | killBashTask | chunks.133.mjs | function |
-| x66 | killAgentTask | chunks.146.mjs | function |
+| wQ6 | killBashTask | chunks.95.mjs:1918 | function |
+| x66 | killAgentTask | chunks.146.mjs:2012 | function |
 | Vg1 | getKillHandlerForType | chunks.142.mjs:1652 | function |
 | IhY | getAllKillHandlers | chunks.142.mjs:1648 | function |
 | GN1 | notifyTaskCompletion | chunks.133.mjs | function |

@@ -15,7 +15,7 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `getOutputFilePath` (ww) - Constructs the `.output` file path for a given task ID — `chunks.89.mjs:249`
+- `getOutputFilePath` (g2) - Constructs the `.output` file path for a given task ID — `chunks.41.mjs:2248`
 - `writeOutputChunk` (ZK1) - Appends text to a task's output file (async, serialized) — `chunks.89.mjs:253`
 - `readFullOutput` (M_6) - Reads full content of a task's output file — `chunks.89.mjs:300`
 - `readOutputFileDelta` (WjA) - Reads only new content since a given byte offset — `chunks.89.mjs:276`
@@ -28,10 +28,11 @@ Key functions in this document:
 - `markTaskCompleted` (yjA) - Records final result data on a task — `chunks.89.mjs:~1482`
 - `createAsyncTask` (zd7) - Creates a background agent task entry with abort controller — `chunks.89.mjs:~1447`
 - `createForegroundTask` (wd7) - Creates a task entry for a sync agent (may be backgrounded later) — `chunks.89.mjs:~1477`
-- `killTask` (na) - Aborts a running task's controller and marks it "killed" — `chunks.89.mjs:~1375`
+- `killBashTask` (wQ6) - Kills a running bash task — `chunks.95.mjs:1918`
+- `killAgentTask` (x66) - Kills a running agent task — `chunks.146.mjs:2012`
 - `killAllRunningAgents` (Kd7) - Kills all local_agent tasks with "running" status — `chunks.89.mjs`
-- `createTaskId` (hp) - Generates a unique task ID from a type prefix and random hex — `chunks.89.mjs:522`
-- `createTaskRecord` (IZ) - Builds the initial task state object — `chunks.89.mjs:528`
+- `createTaskId` (oV) - Generates a unique task ID from a type prefix and random bytes — `chunks.41.mjs:2410`
+- `createTaskRecord` (RG) - Builds the initial task state object — `chunks.41.mjs:2418`
 - `BackgroundTaskInputView` (K51) - React component for rendering the `&` background task input UI
 - `BackgroundTaskOutputView` (Xx4) - React component for rendering `<background-task-output>` blocks
 - `BashOutputView` (q51) - React component for rendering bash tool output including background indicators
@@ -109,24 +110,24 @@ User/LLM requests background task
 
 ## Deep Analysis: Output File System
 
-### getOutputFilePath (ww)
+### getOutputFilePath (g2)
 
 **What it does:** Constructs a deterministic file path for a task's output file.
 
 **How it works:**
-1. Gets the base tasks directory via `eu1()` (resolves to `~/.claude/tasks/` or similar)
+1. Gets the base tasks directory via `yJ6()` (resolves to `~/.claude/tasks/` or similar)
 2. Appends `{taskId}.output` as the filename
 3. Returns the path as `{tasksDir}/{taskId}.output`
 
 ```javascript
 // ============================================
 // getOutputFilePath - Constructs output file path for task
-// Location: chunks.89.mjs:249-251
+// Location: chunks.41.mjs:2248-2250
 // ============================================
 
 // ORIGINAL (for source lookup):
-function ww(A) {
-    return MjA(eu1(), `${A}.output`)
+function g2(A) {
+    return D97(yJ6(), `${A}.output`)
 }
 
 // READABLE (for understanding):
@@ -134,7 +135,7 @@ function getOutputFilePath(taskId) {
     return joinPath(getTasksDirectory(), `${taskId}.output`)
 }
 
-// Mapping: ww→getOutputFilePath, A→taskId, MjA→joinPath, eu1→getTasksDirectory
+// Mapping: g2→getOutputFilePath, A→taskId, D97→joinPath, yJ6→getTasksDirectory
 ```
 
 **Why this approach:**
@@ -209,7 +210,7 @@ function appendToOutputFile(taskId, content) {
 **What it does:** Reads only the new content since a given byte offset, enabling incremental progress reading.
 
 **How it works:**
-1. Gets the file path from `ww(taskId)`
+1. Gets the file path from `g2(taskId)` (verified location: chunks.41.mjs:2248)
 2. Checks if the file exists and its current size
 3. If size has not grown beyond `offset`, returns empty string
 4. Otherwise reads the full file and slices from `offset` to end
@@ -224,7 +225,7 @@ function appendToOutputFile(taskId, content) {
 // ORIGINAL (for source lookup):
 function WjA(A, q) {
     try {
-        let K = ww(A);
+        let K = g2(A);
         if (!GK1(K)) return { content: "", newOffset: q };
         let z = Gv9(K).size;
         if (z <= q) return { content: "", newOffset: q };
@@ -248,7 +249,7 @@ function readOutputFileDelta(taskId, offset) {
     }
 }
 
-// Mapping: WjA→readOutputFileDelta, A→taskId, q→offset, ww→getOutputFilePath,
+// Mapping: WjA→readOutputFileDelta, A→taskId, q→offset, g2→getOutputFilePath,
 //   GK1→existsSync, Gv9→statSync, Ep7→readFileSync
 ```
 

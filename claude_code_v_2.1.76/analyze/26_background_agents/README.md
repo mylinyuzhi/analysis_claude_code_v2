@@ -81,9 +81,9 @@ When a background agent is killed (either via Ctrl+F or TaskStop), any partial r
    │                       Background Execution                           │
    │                                                                      │
    │  Tool Access Control:                                                │
-   │  • BLOCKLIST (Bj1): TaskOutput, ExitPlanMode, EnterPlanMode,        │
+   │  • BLOCKED: TaskOutput, ExitPlanMode, EnterPlanMode,                │
    │    Task, AskUserQuestion, TaskStop                                   │
-   │  • ALLOWLIST (L_6): Read, Write, Edit, Bash, Grep, Glob,            │
+   │  • ALLOWED: Read, Write, Edit, Bash, Grep, Glob,                    │
    │    WebFetch, WebSearch, TodoWrite, Skill, etc.                       │
    │                                                                      │
    │  Output Capture:                                                     │
@@ -119,6 +119,7 @@ When a background agent is killed (either via Ctrl+F or TaskStop), any partial r
 | [hooks_integration.md](./hooks_integration.md) | **Hooks integration** - PreToolUse/PostToolUse for background agents |
 | [compact_integration.md](./compact_integration.md) | **Compact integration** - Transcript handling, message filtering |
 | [slash_commands_integration.md](./slash_commands_integration.md) | **CLI integration** - /tasks command, task management |
+| [feature_interconnections.md](./feature_interconnections.md) | **Feature interconnections** - Complete integration analysis with all Claude Code systems |
 
 ---
 
@@ -145,7 +146,6 @@ Key functions in this document:
 - `LocalBashTaskHandler` (Lf6) - Kill handler for shell commands — `chunks.133.mjs:2542`
 - `RemoteAgentTaskHandler` (Fn4) - Kill handler for remote sessions — `chunks.136.mjs:1175`
 - `getKillHandlerForType` (Vg1) - Handler lookup by task type — `chunks.142.mjs:1652`
-- `BACKGROUND_AGENT_BLOCKED_TOOLS` (Bj1) - Tools blocked for background agents — `chunks.41.mjs:2585`
 - `TASK_TYPE_PREFIXES` (V$3) - Task ID prefix mapping — `chunks.41.mjs:2438`
 - `notifyTaskCompletion` (vK1) - Inject completion notification — `chunks.89.mjs:1346`
 - `countTurnsSinceLastProgress` (TIY) - Turn counting for throttle — `chunks.142.mjs:2703`
@@ -158,7 +158,7 @@ Key functions in this document:
 
 ## Tool Access Control Deep Dive
 
-Background agents use a **blocklist + allowlist** mechanism to prevent interactive tools from causing hangs.
+Background agents use **tool filtering logic** to prevent interactive tools from causing hangs. There is no single constant for blocked tools - the filtering is handled dynamically based on context.
 
 ### Blocked Tools (Cannot Use)
 
@@ -236,14 +236,14 @@ Background agents use a **blocklist + allowlist** mechanism to prevent interacti
 
 ## Design Rationale
 
-### Why Blocklist + Allowlist?
+### Why Tool Filtering?
 
-1. **Blocklist (Bj1)** - Prevents obviously dangerous operations:
+1. **Blocked tools** - Prevents obviously dangerous operations:
    - Tools that require user interaction (`AskUserQuestion`, `EnterPlanMode`)
    - Tools that could create resource issues (`Task` spawning nested agents)
    - Tools that could create loops (`TaskOutput` polling)
 
-2. **Allowlist (L_6)** - Ensures async safety:
+2. **Allowed tools** - Ensures async safety:
    - Only non-blocking tools allowed
    - Clear security boundary for unattended execution
    - Easy to audit what background agents can do

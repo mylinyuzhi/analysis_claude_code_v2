@@ -20,8 +20,8 @@ Key functions in this document:
 - `getKillHandlerForType` (Vg1) - Lookup function for kill handlers — `chunks.142.mjs:1652`
 - `getAllKillHandlers` (IhY) - Returns all kill handler instances — `chunks.142.mjs:1648`
 - `killTask` (na) - Core kill function for local agents — `chunks.89.mjs:~1375`
-- `killBashTask` (wQ6) - Core kill function for bash tasks — `chunks.133.mjs`
-- `killAgentTask` (x66) - Core kill function for agent tasks — `chunks.146.mjs`
+- `killBashTask` (wQ6) - Core kill function for bash tasks — `chunks.95.mjs:1918`
+- `killAgentTask` (x66) - Core kill function for agent tasks — `chunks.146.mjs:2012`
 - `atomicUpdateTask` (c5) - Atomically updates task state — `chunks.142.mjs:1662`
 
 ---
@@ -238,42 +238,75 @@ const LocalBashTaskHandler = {
 
 ### killBashTask Function
 
-**What it does:** Terminates a background shell command by aborting the shell process.
+**What it does:** Terminates a background shell command by killing the shell process and cleaning up resources.
 
 ```javascript
 // ============================================
 // killBashTask - Terminate shell command
-// Location: chunks.89.mjs:~1846
+// Location: chunks.95.mjs:1918-1936
 // ============================================
+
+// ORIGINAL (for source lookup):
+function wQ6(A, q) {
+    i9(A, q, (K) => {
+        if (K.status !== "running" || !Gf(K)) return K;
+        try {
+            k(`LocalBashTask ${A} kill requested`), K.shellCommand?.kill(), K.shellCommand?.cleanup()
+        } catch (Y) {
+            _6(Y)
+        }
+        if (K.unregisterCleanup?.(), K.cleanupTimeoutId) clearTimeout(K.cleanupTimeoutId);
+        return {
+            ...K,
+            status: "killed",
+            shellCommand: null,
+            unregisterCleanup: void 0,
+            cleanupTimeoutId: void 0,
+            endTime: Date.now()
+        }
+    }), $O(A)
+}
 
 // READABLE (for understanding):
 async function killBashTask(taskId, setAppState) {
-    // 1. Get the shellCommand reference from task
-    let shellCommand = getShellCommandFromTask(taskId, setAppState);
+    updateTaskState(taskId, setAppState, (task) => {
+        // Guard: only kill running bash tasks
+        if (task.status !== "running" || !isBashTask(task)) return task;
 
-    // 2. Kill the shell process
-    if (shellCommand) {
-        shellCommand.kill();  // Sends SIGTERM, then SIGKILL after timeout
-    }
+        try {
+            log(`LocalBashTask ${taskId} kill requested`);
+            task.shellCommand?.kill();     // Send SIGTERM/SIGKILL
+            task.shellCommand?.cleanup();  // Clean up process resources
+        } catch (err) {
+            reportError(err);
+        }
 
-    // 3. Update task state to "killed"
-    atomicUpdateTask(taskId, setAppState, (task) => ({
-        ...task,
-        status: "killed",
-        endTime: Date.now()
-    }));
+        // Clean up registered handlers and timeouts
+        task.unregisterCleanup?.();
+        if (task.cleanupTimeoutId) clearTimeout(task.cleanupTimeoutId);
 
-    // 4. Trigger notification
-    notifyTaskCompletion(taskId, task.description, "killed", null, setAppState);
+        return {
+            ...task,
+            status: "killed",
+            shellCommand: null,
+            unregisterCleanup: undefined,
+            cleanupTimeoutId: undefined,
+            endTime: Date.now()
+        };
+    });
+
+    flushTaskOutput(taskId);  // Ensure output is persisted
 }
 
-// Mapping: hjA→killBashTask
+// Mapping: wQ6→killBashTask, A→taskId, q→setAppState, i9→updateTaskState,
+//   Gf→isBashTask, k→log, _6→reportError, $O→flushTaskOutput
 ```
 
 **Why this approach:**
 - **Process signals** are the standard way to terminate shell processes
 - **Shell command wrapper** handles child process termination automatically
 - **State update** ensures the UI reflects the killed status
+- **Cleanup chaining** ensures all registered handlers are removed
 
 ---
 
@@ -417,42 +450,66 @@ const LocalAgentTaskHandler = {
 //   x66→killAgentTask
 ```
 
-### killTask Function
+### killAgentTask Function
 
-**What it does:** Terminates a local agent task by aborting its controller.
+**What it does:** Terminates a local agent task by aborting its controller and cleaning up resources.
 
 ```javascript
 // ============================================
-// killTask - Terminate local agent task
-// Location: chunks.89.mjs:~1375
+// killAgentTask - Terminate local agent task
+// Location: chunks.146.mjs:2012-2027
 // ============================================
 
-// READABLE (for understanding):
-function killTask(taskId, setAppState) {
-    let task = getTaskFromState(taskId, setAppState);
-
-    if (!task) return false;
-    if (task.status !== "running") return false;
-
-    // 1. Abort the agent loop
-    if (task.abortController) {
-        task.abortController.abort("killed");
-    }
-
-    // 2. Update task state
-    atomicUpdateTask(taskId, setAppState, (t) => ({
-        ...t,
-        status: "killed",
-        endTime: Date.now()
-    }));
-
-    // 3. Trigger notification
-    notifyTaskCompletion(taskId, task.description, "killed", null, setAppState);
-
-    return true;
+// ORIGINAL (for source lookup):
+function x66(A, q) {
+    let K = !1;
+    if (i9(A, q, (Y) => {
+            if (Y.status !== "running") return Y;
+            return K = !0, Y.abortController?.abort(), Y.unregisterCleanup?.(), {
+                ...Y,
+                status: "killed",
+                endTime: Date.now(),
+                messages: Y.messages?.length ? [Y.messages[Y.messages.length - 1]] : void 0,
+                abortController: void 0,
+                unregisterCleanup: void 0,
+                selectedAgent: void 0
+            }
+        }), K) $O(A);
+    return K
 }
 
-// Mapping: na→killTask
+// READABLE (for understanding):
+function killAgentTask(taskId, setAppState) {
+    let wasKilled = false;
+
+    updateTaskState(taskId, setAppState, (task) => {
+        // Guard: only kill running tasks
+        if (task.status !== "running") return task;
+
+        wasKilled = true;
+        task.abortController?.abort();      // Signal agent loop to stop
+        task.unregisterCleanup?.();         // Remove process exit handler
+
+        return {
+            ...task,
+            status: "killed",
+            endTime: Date.now(),
+            // Keep only last message to reduce memory
+            messages: task.messages?.length ? [task.messages[task.messages.length - 1]] : undefined,
+            abortController: undefined,
+            unregisterCleanup: undefined,
+            selectedAgent: undefined
+        };
+    });
+
+    if (wasKilled) {
+        flushTaskOutput(taskId);  // Ensure output is persisted
+    }
+
+    return wasKilled;
+}
+
+// Mapping: x66→killAgentTask, A→taskId, q→setAppState, i9→updateTaskState, $O→flushTaskOutput
 ```
 
 **Why this approach:**
