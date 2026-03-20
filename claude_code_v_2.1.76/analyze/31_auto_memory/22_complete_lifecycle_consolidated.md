@@ -12,16 +12,32 @@ This document consolidates all auto memory flows into a single end-to-end refere
 
 ## Lifecycle Stage 1: Feature Enablement
 
-### Enable Decision Tree (5-Level Priority Chain)
+### Enable Decision Tree (Priority Chain)
+
+// ============================================
+// isAutoMemoryEnabled - Enable/disable logic
+// Location: chunks.50.mjs:2401-2408
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Z3() {
+    let A = process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY;
+    if (t6(A)) return !1;
+    if (xz(A)) return !0;
+    if (t6(process.env.CLAUDE_CODE_REMOTE) && !process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) return !1;
+    let q = mA();
+    if (q.autoMemoryEnabled !== void 0) return q.autoMemoryEnabled;
+    return !0
+}
 
 ```
 User starts Claude Code
   |
-  +-> Check Priority 1: CLAUDE_CODE_DISABLE_AUTO_MEMORY=1?
+  +-> Check Priority 1: CLAUDE_CODE_DISABLE_AUTO_MEMORY=1? (truthy)
   |   +-> YES -> DISABLED (highest priority)
   |   +-> NO  -> Continue to Priority 2
   |
-  +-> Check Priority 2: CLAUDE_CODE_DISABLE_AUTO_MEMORY=0?
+  +-> Check Priority 2: CLAUDE_CODE_DISABLE_AUTO_MEMORY=0? (falsy non-empty)
   |   +-> YES -> ENABLED (override)
   |   +-> NO  -> Continue to Priority 3
   |
@@ -34,9 +50,8 @@ User starts Claude Code
   |   +-> false     -> DISABLED
   |   +-> undefined -> Continue to Priority 5
   |
-  +-> Check Priority 5: Feature flag (tengu_oboe)?
-      +-> true  -> ENABLED (gradual rollout)
-      +-> false -> DISABLED (research preview default)
+  +-> Check Priority 5: Default
+      +-> ENABLED (true - default enabled in v2.1.76)
 ```
 
 **Source**: [20_feature_flag_rollout.md](./20_feature_flag_rollout.md)
@@ -49,18 +64,27 @@ User starts Claude Code
 
 ### Directory Path Construction
 
+// ============================================
+// getAutoMemoryDirectory - Directory resolution (lazy-evaluated)
+// Location: chunks.50.mjs:2468-2473
+// ============================================
+
 ```
-Feature enabled -> Determine memory directory path
+Feature enabled -> Determine memory directory path (uH)
   |
-  +-> Is autoMemoryDirectory setting configured? (v2.1.59)
-  |   +-> YES -> Use settings.autoMemoryDirectory directly (skip hash computation)
-  |   +-> NO  -> Continue
+  +-> Check Priority 1: CLAUDE_COWORK_MEMORY_PATH_OVERRIDE? (UJ7)
+  |   +-> SET -> Use cowork override (team shared storage)
+  |   +-> NOT SET -> Continue
   |
-  +-> Is CLAUDE_CODE_REMOTE_MEMORY_DIR set?
-  |   +-> YES -> Use as base instead of ~/.claude/
-  |   +-> NO  -> Use os.homedir()/.claude/ as base
+  +-> Check Priority 2: autoMemoryDirectory setting? (gG3)
+  |   +-> SET -> Use custom directory (v2.1.59)
+  |   +-> NOT SET -> Continue
   |
-  +-> Compute project hash from getCurrentContextPath() (cwd)
+  +-> Check Priority 3: CLAUDE_CODE_REMOTE_MEMORY_DIR? (Ma)
+  |   +-> SET -> Use as base instead of ~/.claude/
+  |   +-> NOT SET -> Use os.homedir()/.claude/ as base
+  |
+  +-> Compute project hash from getCurrentContextPath() (FG3)
   |
   +-> Assemble: {baseDir}/projects/{projectHash}/memory/
   |
@@ -75,23 +99,24 @@ Feature enabled -> Determine memory directory path
 
 ### Turn 1: Initial Memory State
 
+// ============================================
+// getAutoMemory - Main async entry point
+// Location: chunks.84.mjs:382-411
+// ============================================
+
 ```
 TURN 1: First conversation in new project
 
-Step 1: System prompt builder invokes getMemoryContext()
-Step 2: isAutoMemoryEnabled() -> true
-Step 3: buildMemoryPrompt() starts
-Step 4: Directory creation attempt
+Step 1: System prompt builder invokes getAutoMemory() (ID1)
+Step 2: isAutoMemoryEnabled() (Z3) -> true
+Step 3: ensureMemoryDirExists() (CD1) - async directory creation
    try {
-     fs.mkdirSync(memoryDir, { recursive: true });
+     await fs.mkdir(memoryDir);
    } catch {
      // Silent failure (optimistic approach)
    }
-Step 5: File stat for timestamp (v2.1.74)
-   try {
-     stat = fs.statSync(memoryPath);
-     // Appends: "Last updated: ..."
-   } catch { /* File doesn't exist yet, skip */ }
+Step 4: recordMemoryDirLoadMetrics() (DF6) - log telemetry
+Step 5: buildAutoMemoryPromptSimple() (uv9) or buildMemoryPrompt() (Q14)
 Step 6: File read attempt
    try {
      content = fs.readFileSync(memoryPath, "utf8");
@@ -125,16 +150,16 @@ Agent formulates Write tool call
    { tool: "Write", file_path: "~/.claude/projects/X/memory/MEMORY.md",
      content: "# Project Conventions\n\n- TypeScript for all new files" }
   |
-Permission Validator (chunks.174.mjs:933-940)
-   if (isAutoMemoryPath(file_path)) {
+Permission Validator
+   if (isAutoMemoryPath(file_path)) {  // Da() at chunks.50.mjs:2451
      return { decision: "allow", reason: "auto memory files are allowed" };
    }
    Decision: ALLOW (no user prompt)
   |
-Path validation: isAutoMemoryPath()
+Path validation: isAutoMemoryPath() (Da)
    1. Normalize path: "~/.claude/projects/X/memory/MEMORY.md"
       -> "/Users/user/.claude/projects/X/memory/MEMORY.md"
-   2. Get memory directory: getAutoMemoryDirectory()
+   2. Get memory directory: getAutoMemoryDirectory() (uH)
       -> "/Users/user/.claude/projects/X/memory/"
    3. Prefix match: normalized.startsWith(memoryDir) -> true
   |

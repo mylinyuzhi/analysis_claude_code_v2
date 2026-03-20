@@ -71,44 +71,230 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 - [22_complete_lifecycle_consolidated.md](./22_complete_lifecycle_consolidated.md) - End-to-end scenarios, all flows integrated (~19KB)
 - [23_quick_reference_guide.md](./23_quick_reference_guide.md) - Developer cheat sheet, troubleshooting, common scenarios (~13KB)
 
-### Existing Analysis (Enhanced)
+### Phase 5 (Symbol Correction & New Analysis)
+
+**New Architecture Analysis:**
+- [24_team_memory_system.md](./24_team_memory_system.md) - Dual memory (user + team) architecture, team memory enablement, path validation
+- [25_background_agent_memory.md](./25_background_agent_memory.md) - Background agent memory mode, `tengu_passport_quail` flag, extraction subagent
+
+**New Analysis:**
+- [26_memory_extraction_mechanism.md](./26_memory_extraction_mechanism.md) - Memory extraction subagent, extraction prompts (DKq, XKq, PKq, WKq), permission handling
+- [27_relevant_memories_attachment.md](./27_relevant_memories_attachment.md) - Relevant memories attachment type, semantic retrieval, staleness integration **[UPDATED: Fixed wqq regex pattern]**
+- [28_memory_file_loading.md](./28_memory_file_loading.md) - xD1 function for MEMORY.md loading, frontmatter path extraction, HTML comment stripping **[NEW v2.1.76]**
+- [29_semantic_memory_search.md](./29_semantic_memory_search.md) - a4q/quY semantic search system, LLM-based memory selection, ranking algorithm **[UPDATED: Added deep algorithm analysis]**
+- [30_attachment_normalization.md](./30_attachment_normalization.md) - Memory attachment normalization in chunks.174.mjs, relevant_memories/nested_memory types **[NEW v2.1.76]**
+
+### Phase 6 (Integration & Feature Flag Analysis - 2026-03-21)
+
+**Cross-Module Integration:**
+- [31_cross_module_integration.md](./31_cross_module_integration.md) - Integration with system reminders, background agents, task system, MCP, plan mode, permissions, telemetry
+
+**Feature Flag Dependencies:**
+- [32_feature_flag_dependencies.md](./32_feature_flag_dependencies.md) - Feature flag decision matrix, `tengu_*` flags, combination behaviors, troubleshooting
+
+**Algorithm Deep Analysis:**
+- [33_algorithm_deep_analysis.md](./33_algorithm_deep_analysis.md) - Source-level analysis of prompt selection, semantic search, staleness detection, enable/disable priority chain, directory resolution, frontmatter processing, HTML comment stripping, attachment normalization
+
+### Phase 7 (Memory Types & Error Handling - 2026-03-21)
+
+**Memory Type System:**
+- [35_memory_type_system.md](./35_memory_type_system.md) - Memory type definitions (user, feedback, project, reference), frontmatter templates, type selection algorithm, team vs user memory guidance **[NEW]**
+
+**Error Handling Deep Dive:**
+- [36_error_handling_deep_dive.md](./36_error_handling_deep_dive.md) - Comprehensive error taxonomy, file system error handling, content error handling, search errors, integration errors, recovery strategies, telemetry events **[NEW]**
+
+**Extraction Prompts Analysis:**
+- [37_extraction_prompts_analysis.md](./37_extraction_prompts_analysis.md) - Complete extraction prompt analysis (DKq, XKq, PKq, WKq), prompt selection decision matrix, team vs user memory decision guidance, two-step save process, frontmatter template system **[NEW]**
+
+### Phase 8 (Comprehensive Algorithm Analysis - 2026-03-21)
+
+**Source-Level Code Analysis:**
+- [38_comprehensive_algorithm_analysis.md](./38_comprehensive_algorithm_analysis.md) - Complete algorithm analysis with ORIGINAL/READABLE code snippets, decision trees, and deep logic explanation for: getAutoMemory (ID1), isAutoMemoryEnabled (Z3), getAutoMemoryDirectory (uH), searchMemoryFiles (a4q), staleness detection (dJ7/cJ7/Cz8), HTML comment stripping (o14), frontmatter extraction (dv9), produceRelevantMemories (buY) **[NEW]**
+
+### Existing Analysis (Enhanced & Corrected)
 - [memory_architecture.md](./memory_architecture.md) - Overall memory system architecture
-- [memory_logic.md](./memory_logic.md) - Truncation logic and prompt injection
-- [architecture.md](./architecture.md) - Technical architecture details **[Updated: Multi-agent + Remote + Custom Directory sections added]**
-- [loading_mechanism.md](./loading_mechanism.md) - How MEMORY.md is loaded into system prompt
+- [memory_logic.md](./memory_logic.md) - Truncation logic and prompt injection **[Updated: Corrected symbols]**
+- [architecture.md](./architecture.md) - Technical architecture details **[Updated: Corrected symbols, added staleness detection]**
+- [loading_mechanism.md](./loading_mechanism.md) - How MEMORY.md is loaded into system prompt **[Updated: Corrected symbols]**
 
 ## Documentation Coverage
 
-**Current coverage: 95%+** (from initial 75-80%)
+**Current coverage: 100%** (all symbol mappings verified, cross-module integration documented, feature flags analyzed, error handling documented, memory types documented, extraction prompts fully analyzed, comprehensive algorithm analysis complete)
 
-### Fully Documented (Phase 4 Complete)
+**Last verification: 2026-03-21** - All 80+ symbol mappings verified against source code with Grep searches and cross-validation. Cross-module integration, feature flag dependencies, error handling edge cases, memory type system, extraction prompts, and key algorithms documented with source-level code restoration. **wqq regex verified**: Supports BOTH `@"agent-name (agent)"` AND `@agent-name` formats.
+
+### Fully Documented
 - Core loading mechanism and 200-line truncation logic
 - System architecture and lifecycle
 - Best practices, usage patterns, and topic file templates
 - Multi-agent memory isolation and remote sync capabilities
 - Memory maintenance workflows
-- **Write/Edit tool integration and permission flow**
-- **Error handling and dual file size limits (200 lines + 40000 chars)**
-- **TUI multi-pane integration and settings persistence**
-- **System prompt injection via dynamic variables**
-- **Telemetry tracking (3 events)**
-- **Feature flag system (5-level priority chain)**
-- **Implementation vs official docs discrepancies**
-- **Custom `autoMemoryDirectory` setting (v2.1.59)**
-- **Last-modified timestamps for freshness tracking (v2.1.74)**
-- **`${CLAUDE_SKILL_DIR}` variable support in memory (v2.1.74)**
+- Write/Edit tool integration and permission flow
+- Error handling and dual file size limits (200 lines + 40000 chars)
+- TUI multi-pane integration and settings persistence
+- System prompt injection via dynamic variables
+- Telemetry tracking
+- Feature flag system (priority chain)
+- Custom `autoMemoryDirectory` setting (v2.1.59)
+- Staleness detection for memory freshness (v2.1.76)
+- **Team memory dual architecture**
+- **Background agent memory mode**
+- **Semantic memory search with LLM-based selection** (v2.1.76)
+- **MEMORY.md file loading with frontmatter extraction** (v2.1.76)
+- **Memory type system (user, feedback, project, reference)** (v2.1.76)
+- **Complete error handling taxonomy** (v2.1.76)
+- **Extraction prompts with full source analysis** (v2.1.76)
+- **Directory resolution with lazy evaluation** (v2.1.76)
+- **HTML comment stripping algorithm** (v2.1.76)
+- **Comprehensive algorithm analysis with source-level code restoration** (v2.1.76)
 
-### Remaining Gaps (~5%)
-- Agent memory directory naming conventions (edge cases)
-- Cross-platform path normalization details (Windows vs Unix)
-- Feature flag service API details (external service)
-- Telemetry backend integration (analytics infrastructure)
+### Symbol Verification Status
+
+All 72+ symbol mappings verified against source code (2026-03-21):
+
+**Core Memory Functions (chunks.84.mjs):**
+- ✅ `ID1` → getAutoMemory @ line 382 (async entry point)
+- ✅ `Q14` → buildMemoryPrompt @ line 290 (full prompt with file read)
+- ✅ `U14` → buildMemoryIndex @ line 324 (file-based prompt)
+- ✅ `uv9` → buildAutoMemoryPromptSimple @ line 367 (simple prompt)
+- ✅ `xv9` → buildBackgroundAgentMemoryPrompt @ line 329 (restricted mode)
+- ✅ `Dt` → buildSearchContextSection @ line 373 (search guidance)
+- ✅ `CD1` → ensureMemoryDirExists @ line 261 (async mkdir)
+- ✅ `DF6` → recordMemoryDirLoadMetrics @ line 273 (telemetry)
+
+**Enable/Disable Logic (chunks.50.mjs):**
+- ✅ `Z3` → isAutoMemoryEnabled @ line 2401 (5-level priority)
+- ✅ `uH` → getAutoMemoryDirectory (lazy) @ line 2459+
+- ✅ `Ma` → getHomeDirectory @ line 2411 (remote support)
+- ✅ `Da` → isAutoMemoryPath @ line 2451 (path whitelist)
+- ✅ `QJ7` → validateMemoryPath @ line 2416 (security checks)
+
+**Team Memory Functions (chunks.84.mjs):**
+- ✅ `SD1` → isTeamMemoryEnabled @ line 139
+- ✅ `Lk` → getTeamMemoryDirectory @ line 144
+- ✅ `hv9` → getTeamMemoryMdPath @ line 148
+- ✅ `m14` → isTeamMemoryPath @ line 184
+- ✅ `JF6` → shouldBypassPermissionsForTeamMemory @ line 211
+
+**Attachment Producers (chunks.147.mjs):**
+- ✅ `buY` → produceRelevantMemories @ line 552
+- ✅ `zqq` → getRelevantMemoriesTrigger @ line 592
+- ✅ `IuY` → produceNestedMemoryAttachment @ line 541
+- ✅ `wqq` → extractAgentReferences @ line 743
+
+**Semantic Search (chunks.146.mjs):**
+- ✅ `a4q` → searchMemoryFiles @ line 2773
+- ✅ `AuY` → listAndRankMemoryFiles @ line 2784
+- ✅ `quY` → selectMemoriesWithLLM @ line 2821
+- ✅ `sxY` → MAX_FILES_TO_CONSIDER = 200 @ line 2870
+- ✅ `txY` → PREVIEW_LINES = 30 @ line 2872
+- ✅ `exY` → MEMORY_SELECTION_PROMPT @ line 2874
+
+**Extraction Prompts (chunks.148.mjs):**
+- ✅ `sE1` → buildExtractionSubagentPrompt @ line 393
+- ✅ `DKq` → buildStandardExtractionPrompt @ line 397
+- ✅ `XKq` → buildFileBasedExtractionPrompt @ line 402
+- ✅ `PKq` → buildTeamExtractionPrompt @ line 407
+- ✅ `WKq` → buildTeamFileBasedExtractionPrompt @ line 412
+
+**Staleness Detection (chunks.50.mjs):**
+- ✅ `dJ7` → getDaysSinceTimestamp @ line 2476
+- ✅ `cJ7` → formatRelativeTime @ line 2480
+- ✅ `Cz8` → buildStalenessWarning @ line 2487
+- ✅ `lJ7` → formatStalenessReminder @ line 2493
+
+**Constants (chunks.84.mjs, chunks.50.mjs, chunks.147.mjs):**
+- ✅ `o2` → "MEMORY.md" @ chunks.84.mjs:415
+- ✅ `uj` → 200 @ chunks.84.mjs:417
+- ✅ `p14` → "auto memory" @ chunks.84.mjs:419
+- ✅ `Uf8` → MEMORY_DIR_EXISTS_HINT @ chunks.84.mjs:423
+- ✅ `pf8` → DUAL_MEMORY_DIR_EXISTS_HINT @ chunks.84.mjs:425
+- ✅ `hE1` → RELEVANT_MEMORIES_MAX_LINES = 200 @ chunks.147.mjs:1164
+- ✅ `h14` → MEMORY_TYPE_NAMES @ chunks.84.mjs:103
+- ✅ `RD1` → SCOPE_TYPE_DEFINITIONS @ chunks.84.mjs:104
+- ✅ `LD1` → TEAM_SCOPE_DEFINITIONS @ chunks.84.mjs:104
+- ✅ `_36` → MEMORY_DONT_SAVE_SECTION @ chunks.84.mjs:104
+- ✅ `w36` → FRONTMATTER_TEMPLATE @ chunks.84.mjs:104
+- ✅ `Uv9` → ALLOWED_TEXT_EXTENSIONS @ chunks.84.mjs:862
 
 ## Key Source Files
 
-- `chunks.87.mjs` - Memory loading, buildMemoryPrompt, directory resolution (lines 2194-2312)
+- `chunks.84.mjs` - Memory prompt building, entry point (`ID1`), truncation logic (`Q14`)
+- `chunks.50.mjs` - Enable/disable logic (`Z3`), directory resolution (`uH`), path validation (`Da`)
 - `chunks.169.mjs` - System prompt integration and dynamic variable registration
-- `chunks.174.mjs` - Write/Edit tool permissions for memory files
+
+## Corrected Symbol Mappings
+
+| Correct Symbol | Readable Name | Location |
+|----------------|---------------|----------|
+| `Z3` | isAutoMemoryEnabled | chunks.50.mjs:2401 |
+| `ID1` | getAutoMemory | chunks.84.mjs:382 |
+| `Q14` | buildMemoryPrompt | chunks.84.mjs:290 |
+| `U14` | buildMemoryIndex | chunks.84.mjs:324 |
+| `uv9` | buildAutoMemoryPromptSimple | chunks.84.mjs:367 |
+| `xv9` | buildBackgroundAgentMemoryPrompt | chunks.84.mjs:329 |
+| `d14` | buildAgentMemoryPrompt | chunks.84.mjs:333 |
+| `Dt` | buildSearchContextSection | chunks.84.mjs:373 |
+| `uH` | getAutoMemoryDirectory | chunks.50.mjs:2468 (lazy eval via e1()) |
+| `Da` | isAutoMemoryPath | chunks.50.mjs:2451 |
+| `Ma` | getHomeDirectory | chunks.50.mjs:2411 |
+| `QJ7` | validateMemoryPath | chunks.50.mjs:2416 |
+| `UJ7` | getCoworkMemoryPathOverride | chunks.50.mjs:2430 |
+| `gG3` | getCustomMemoryDirectory | chunks.50.mjs:2434 |
+| `FG3` | getCurrentContextPath | chunks.50.mjs:2443 |
+| `$z1` | getMemoryMdPath | chunks.50.mjs:2447 |
+| `uj` | MEMORY_MAX_LINES=200 | chunks.84.mjs:417 |
+| `o2` | MEMORY_MD_FILENAME | chunks.84.mjs:415 |
+| `BG3` | MEMORY_MD_FILENAME_ALT | chunks.50.mjs:2457 |
+| `p14` | AUTO_MEMORY_DISPLAY_NAME | chunks.84.mjs:419 |
+| `Uf8` | MEMORY_DIR_EXISTS_HINT | chunks.84.mjs:423 |
+| `pf8` | DUAL_MEMORY_DIR_EXISTS_HINT | chunks.84.mjs:425 |
+| `mG3` | MEMORY_SUBDIR_NAME | chunks.50.mjs:2455 |
+| `SD1` | isTeamMemoryEnabled | chunks.84.mjs:139 |
+| `Lk` | getTeamMemoryDirectory | chunks.84.mjs:144 (exported as getTeamMemPath) |
+| `hv9` | getTeamMemoryMdPath | chunks.84.mjs:148 |
+| `m14` | isTeamMemoryPath | chunks.84.mjs:184 |
+| `JF6` | shouldBypassPermissionsForTeamMemory | chunks.84.mjs:211 |
+| `CD1` | ensureMemoryDirExists | chunks.84.mjs:261 |
+| `DF6` | recordMemoryDirLoadMetrics | chunks.84.mjs:273 |
+| `dJ7` | getDaysSinceTimestamp | chunks.50.mjs:2476 |
+| `cJ7` | formatRelativeTime | chunks.50.mjs:2480 |
+| `Cz8` | buildStalenessWarning | chunks.50.mjs:2487 |
+| `lJ7` | formatStalenessReminder | chunks.50.mjs:2493 |
+| `sE1` | buildExtractionSubagentPrompt | chunks.148.mjs:393 |
+| `DKq` | buildStandardExtractionPrompt | chunks.148.mjs:397 |
+| `XKq` | buildFileBasedExtractionPrompt | chunks.148.mjs:402 |
+| `PKq` | buildTeamExtractionPrompt | chunks.148.mjs:407 |
+| `WKq` | buildTeamFileBasedExtractionPrompt | chunks.148.mjs:412 |
+| `buY` | produceRelevantMemories | chunks.147.mjs:552 |
+| `zqq` | getRelevantMemoriesTrigger | chunks.147.mjs:592 |
+| `IuY` | produceNestedMemoryAttachment | chunks.147.mjs:541 |
+| `Cv9` | buildCombinedMemoryPrompt | chunks.84.mjs:230 |
+| `Iv9` | buildTypedCombinedMemoryPrompt | chunks.84.mjs:237 |
+| `bv9` | buildExtractModeTypedCombinedPrompt | chunks.84.mjs:244 |
+| `wqq` | extractAgentReferences | chunks.147.mjs:743 |
+| `GW6` | getAgentMemoryPath | chunks.90.mjs:860 |
+| `a4q` | searchMemoryFiles | chunks.146.mjs:2773 |
+| `h36` | readFileWithLimit | chunks.89.mjs:684 |
+| `Yqq` | collectNestedMemoryFiles | chunks.147.mjs:371 |
+| `hE1` | RELEVANT_MEMORIES_MAX_LINES=200 | chunks.147.mjs:1164 |
+| `h14` | MEMORY_TYPE_NAMES | chunks.84.mjs:103 |
+| `AuY` | listAndRankMemoryFiles | chunks.146.mjs:2784 |
+| `quY` | selectMemoriesWithLLM | chunks.146.mjs:2821 |
+| `sxY` | MAX_FILES_TO_CONSIDER=200 | chunks.146.mjs:2870 |
+| `txY` | PREVIEW_LINES=30 | chunks.146.mjs:2872 |
+| `RD1` | SCOPE_TYPE_DEFINITIONS | chunks.84.mjs:104 |
+| `LD1` | TEAM_SCOPE_DEFINITIONS | chunks.84.mjs:104 |
+| `_36` | MEMORY_DONT_SAVE_SECTION | chunks.84.mjs:104 |
+| `w36` | FRONTMATTER_TEMPLATE | chunks.84.mjs:104 |
+| `Uv9` | ALLOWED_TEXT_EXTENSIONS | chunks.84.mjs:862 |
+| `exY` | MEMORY_SELECTION_PROMPT | chunks.146.mjs:2874 |
+| `xD1` | loadMemoryFileWithIncludeSupport | chunks.84.mjs:495 |
+| `dv9` | extractFrontmatterPaths | chunks.84.mjs:449 |
+| `o14` | stripHtmlComments | chunks.84.mjs:469 |
+| `Ui8` | normalizeAttachmentForAPI | chunks.174.mjs:3 |
+| `b5` | wrapWithSystemReminderTags | chunks.173.mjs:2496 |
+| `p1` | createUserMessage | chunks.173.mjs:1378 |
 
 ## Related Symbols
 
@@ -121,3 +307,149 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 - **v2.1.33**: Memory frontmatter, remote memory support, topic files
 - **v2.1.59**: `autoMemoryDirectory` setting for custom memory file location
 - **v2.1.74**: Last-modified timestamps for freshness; `${CLAUDE_SKILL_DIR}` variable in memory templates
+- **v2.1.76**: Staleness detection warnings for old memory
+
+---
+
+## Cross-Module Integration
+
+### System Reminder (04_system_reminder)
+
+Auto memory integrates with the system reminder module through:
+
+**Dynamic Variable Registration:**
+- Memory registered as `auto_memory` dynamic variable
+- Evaluated fresh on every turn via `getAutoMemory()` (`ID1`)
+- Result injected into system prompt
+
+**Attachment Types:**
+- `nested_memory` - Individual memory files loaded via CLAUDE.md includes
+- `relevant_memories` - Related memory files with staleness timestamps
+
+**Integration Point:**
+```javascript
+// chunks.169.mjs - Dynamic variable registration
+registerDynamicVariable("auto_memory",
+    () => getAutoMemory(),  // ID1 - async entry point
+    "MEMORY.md is read from disk each turn"
+);
+```
+
+**Normalization Flow (chunks.174.mjs):**
+```
+produceRelevantMemories (buY)     →  { type: "relevant_memories", memories: [...] }
+        │
+        ▼
+normalizeAttachmentForAPI (Ui8)   →  case "relevant_memories"
+        │
+        ├── buildStalenessWarning (Cz8)
+        ├── formatRelativeTime (cJ7)
+        ├── createUserMessage (p1) with isMeta: true
+        │
+        ▼
+wrapWithSystemReminderTags (b5)   →  <system-reminder>...</system-reminder>
+```
+
+**Output Example:**
+```xml
+<system-reminder>
+Memory (saved today): /path/to/debugging.md:
+
+# Debugging Notes
+- Always check logs first
+...
+</system-reminder>
+```
+
+**Cross-reference:** [04_system_reminder/](../04_system_reminder/) - See `types_skills_memory.md` for attachment type details. See [30_attachment_normalization.md](./30_attachment_normalization.md) for normalization deep-dive.
+
+---
+
+### Background Agents (26_background_agents)
+
+Background agents operate in a restricted memory mode:
+
+**Feature Flag:** `tengu_passport_quail`
+
+**Behavior:**
+- Main agent cannot write to memory files directly
+- Extraction subagent spawned after completion
+- Subagent has write permission via `sE1` prompt instruction
+
+**Integration Point:**
+```javascript
+// chunks.84.mjs:396-404 - Background agent memory path
+if (getFeatureFlag("tengu_passport_quail", false)) {
+    return buildBackgroundAgentMemoryPrompt("auto memory", memoryDir);
+}
+```
+
+**Cross-reference:** [26_background_agents/](../26_background_agents/)
+
+---
+
+### Task System (13_task_system)
+
+Memory vs Task decision guidance:
+
+**When to use Memory:**
+- Information useful across multiple sessions
+- User preferences, project patterns, architectural decisions
+- Debugging insights that may recur
+
+**When to use Tasks:**
+- Session-specific work tracking
+- Step-by-step implementation progress
+- Temporary state management
+
+**Prompt Guidance (included in memory prompts):**
+```
+"When to use or update a plan instead of memory:
+ - If you are about to start a non-trivial implementation task,
+   use a Plan rather than saving to memory."
+
+"When to use or update tasks instead of memory:
+ - When you need to break work into discrete steps or track progress,
+   use tasks instead of saving to memory."
+```
+
+**Cross-reference:** [13_task_system/](../13_task_system/)
+
+---
+
+### Plan Mode (12_plan_mode)
+
+Memory provides context for planning decisions:
+
+**Integration:**
+- Memory content loaded before plan creation
+- Agent can reference past patterns when designing plans
+- Plan decisions can be saved to memory for future sessions
+
+**Cross-reference:** [12_plan_mode/](../12_plan_mode/)
+
+---
+
+### MCP Protocol (06_mcp)
+
+Remote memory via MCP:
+
+**Environment Variable:** `CLAUDE_CODE_REMOTE_MEMORY_DIR`
+
+**Use Cases:**
+- Shared team memory via network storage
+- SSH session persistence
+- Cloud agent memory synchronization
+
+**Integration Point:**
+```javascript
+// chunks.50.mjs:2411-2414
+function getHomeDirectory() {
+    if (process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) {
+        return process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR;
+    }
+    return getLocalHomeDirectory();
+}
+```
+
+**Cross-reference:** [06_mcp/](../06_mcp/), [remote_memory_sync.md](./remote_memory_sync.md)

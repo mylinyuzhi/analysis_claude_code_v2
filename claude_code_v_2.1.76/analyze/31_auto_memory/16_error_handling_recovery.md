@@ -553,3 +553,257 @@ Key functions in this document:
 - **Simplicity vs Diagnostics**: Silent failures simplify code but hide root causes
 - **Performance vs Automation**: Manual large file fixes ensure user control
 - **Consistency vs Flexibility**: NFC normalization enforces standard but may alter user input
+
+---
+
+## Error Scenario 6: Relevant Memories Search Timeout
+
+### Detection
+
+```javascript
+// ============================================
+// produceRelevantMemories - Timeout handling
+// Location: chunks.147.mjs:552-590
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function buY(A, q, K, Y) {
+    let z = AbortSignal.timeout(5000),
+        // ... search logic ...
+        $ = (await Promise.all(w.map((j) => a4q(A, j, z, Y).catch(() => [])))).flat()
+        // ...
+}
+
+// READABLE (for understanding):
+async function produceRelevantMemories(searchText, activeAgents, readFileState, toolContext) {
+    // 5-second timeout for entire operation
+    const abortSignal = AbortSignal.timeout(5000);
+
+    try {
+        const results = await Promise.all(
+            directories.map(dir => searchMemoryFiles(searchText, dir, abortSignal, toolContext)
+                .catch(() => [])  // Per-directory error handling
+            )
+        );
+        // ... process results ...
+    } catch (error) {
+        // Timeout or other error
+        return [];  // Graceful degradation
+    }
+}
+```
+
+### Recovery: Return Empty Array
+
+**Behavior**:
+| Error Cause | Behavior | User Impact |
+|-------------|----------|-------------|
+| 5-second timeout | Return `[]` | No memories attached |
+| LLM API error | Return `[]` | No memories attached |
+| Directory read error | Skip directory | Partial results from other dirs |
+| File read error | Skip file | Other files still processed |
+
+**Why graceful degradation**:
+- Memory is **supplementary context**, not essential
+- Timeouts prevent conversation hangs
+- Users can still use Read/Grep tools manually
+
+---
+
+## Error Scenario 7: LLM Selection Failure
+
+### Detection
+
+```javascript
+// ============================================
+// selectMemoriesWithLLM - Error handling
+// Location: chunks.146.mjs:2821-2868
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function quY(A, q, K, Y) {
+    // ... build file list ...
+    try {
+        let $ = (await _h({
+            model: Ef(),
+            // ... LLM call ...
+        })).content.find((j) => j.type === "text");
+        if (!$ || $.type !== "text") return [];
+        return i1($.text).selected_memories.filter((j) => z.has(j))
+    } catch {
+        return []
+    }
+}
+
+// READABLE (for understanding):
+async function selectMemoriesWithLLM(searchText, memoryFiles, abortSignal, toolContext) {
+    try {
+        const response = await callLLM({
+            model: getFastModel(),
+            // ... parameters ...
+        });
+
+        const textContent = response.content.find(c => c.type === "text");
+        if (!textContent) return [];
+
+        const parsed = parseJSON(textContent.text);
+        return parsed.selected_memories.filter(name => validFilenames.has(name));
+
+    } catch (error) {
+        // LLM call failed, JSON parse failed, or validation failed
+        return [];
+    }
+}
+```
+
+### Recovery: Empty Result with Silent Failure
+
+**Error types handled**:
+1. **LLM API error** - Network failure, rate limit, model overload
+2. **Invalid JSON** - Model returned malformed response
+3. **Missing text content** - Response structure unexpected
+4. **Invalid filenames** - Model hallucinated non-existent files
+
+**Validation layer**:
+```javascript
+// Filename validation prevents hallucination
+const validFilenames = new Set(memoryFiles.map(f => f.filename));
+return selectedFilenames.filter(name => validFilenames.has(name));
+```
+
+---
+
+## Error Scenario 8: Permission Errors in Memory Extraction
+
+### Detection
+
+```javascript
+// ============================================
+// buildMemoryPrompt - File read error handling
+// Location: chunks.84.mjs:290-322
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Q14(A) {
+    // ...
+    try {
+        w = z.readFileSync(_, {
+            encoding: "utf-8"
+        })
+    } catch {}
+    // ... continue with empty content
+}
+
+// READABLE (for understanding):
+function buildMemoryPrompt(options) {
+    let content = "";
+    try {
+        content = fs.readFileSync(memoryPath, { encoding: "utf-8" });
+    } catch (error) {
+        // File doesn't exist or permission denied
+        // Continue with empty content
+    }
+
+    if (content.trim()) {
+        // Process content...
+    } else {
+        // Show empty state message
+    }
+}
+```
+
+### Recovery: Empty State Message
+
+**Behavior by error code**:
+
+| POSIX Code | Cause | Recovery |
+|------------|-------|----------|
+| ENOENT | File doesn't exist | Show empty state message |
+| EACCES | Permission denied | Show empty state message |
+| EISDIR | Path is a directory | Show empty state message |
+
+**Why continue with empty content**:
+- Memory system must work even on first run (no file yet)
+- Permission errors shouldn't crash the conversation
+- Agent can still function without memory context
+
+---
+
+## Error Scenario 9: Memory Directory Path Validation
+
+### Detection
+
+```javascript
+// ============================================
+// validateMemoryPath - Security validation
+// Location: chunks.50.mjs:2416-2428
+// ============================================
+
+// ORIGINAL (for source lookup):
+function QJ7(A, q) {
+    if (!A) return;
+    let K = A;
+    if (q && (K.startsWith("~/") || K.startsWith("~\\"))) {
+        let z = K.slice(2),
+            _ = Sz8(z || ".");
+        if (_ === "." || _ === "..") return;
+        K = wz1(uG3(), z)
+    }
+    let Y = Sz8(K).replace(/[/\\]+$/, "");
+    if (!xG3(Y) || Y.length < 3 || /^[A-Za-z]:$/.test(Y) ||
+        Y.startsWith("\\\\") || Y.startsWith("//") || Y.includes("\x00")) return;
+    return (Y + pJ7).normalize("NFC")
+}
+
+// READABLE (for understanding):
+function validateMemoryPath(path, allowHomeRelative) {
+    if (!path) return undefined;
+
+    let normalizedPath = path;
+
+    // Handle ~/ relative paths
+    if (allowHomeRelative && path.startsWith("~/")) {
+        const subpath = path.slice(2);
+        if (subpath === "." || subpath === "..") return undefined;  // Traversal attempt
+        normalizedPath = joinPath(getHomeDirectory(), subpath);
+    }
+
+    // Security validations
+    normalizedPath = normalizePath(normalizedPath).replace(/[/\\]+$/, "");
+
+    // Reject invalid paths
+    if (!isAbsolute(normalizedPath)) return undefined;
+    if (normalizedPath.length < 3) return undefined;
+    if (/^[A-Za-z]:$/.test(normalizedPath)) return undefined;  // Windows drive letter only
+    if (normalizedPath.startsWith("\\\\") || normalizedPath.startsWith("//")) return undefined;  // UNC paths
+    if (normalizedPath.includes("\x00")) return undefined;  // Null byte injection
+
+    return normalizedPath.normalize("NFC");
+}
+```
+
+### Recovery: Return undefined (Invalid Path)
+
+**Security checks performed**:
+1. **Null byte injection** - Prevents path truncation attacks
+2. **UNC paths** - Prevents network share access
+3. **Relative paths** - Only absolute paths allowed
+4. **Traversal attempts** - Blocks `.` and `..` in home-relative paths
+
+**Why return undefined**:
+- Invalid paths are silently rejected
+- No error thrown (fail-safe design)
+- Calling code handles undefined as "use default path"
+
+---
+
+## Summary: Error Handling Philosophy
+
+The auto memory system follows these principles:
+
+1. **Fail-safe by default** - All errors caught, system continues
+2. **Graceful degradation** - Partial results better than none
+3. **Silent failures** - No crashes, errors logged internally
+4. **Timeout protection** - 5-second limit on semantic search
+5. **Validation layers** - Filenames validated, paths secured
+6. **Empty state fallback** - Missing files show helpful messages

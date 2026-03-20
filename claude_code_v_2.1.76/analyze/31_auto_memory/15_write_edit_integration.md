@@ -19,7 +19,7 @@ When an agent invokes the Write or Edit tool with a file path, the permission va
 ```
 Agent → Write/Edit tool call
   ↓
-Permission Validator (chunks.174.mjs)
+Permission Validator
   ↓
 Auto Memory Path Check (isAutoMemoryPath)
   ↓
@@ -28,40 +28,30 @@ Decision: "allow" or "prompt user"
 File System Operation
 ```
 
-### Validator Locations
-
-| Tool | Validator Location | Check Function |
-|------|-------------------|----------------|
-| Write | chunks.174.mjs:933-940 | `Fu1(filePath)` |
-| Read | chunks.174.mjs:1034-1040 | `Fu1(filePath)` |
-| Edit | chunks.174.mjs:933-940 (shared with Write) | `Fu1(filePath)` |
-
 ### Auto Memory Path Detection Algorithm
 
 The validator uses a normalized path prefix matching strategy:
 
-```javascript
 // ============================================
 // isAutoMemoryPath - Validates if path is in auto memory directory
-// Location: chunks.87.mjs:2223
+// Location: chunks.50.mjs:2451-2452
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Fu1(A) {
-  return gN9(A).startsWith(mu1());
+function Da(A) {
+    return Sz8(A).startsWith(uH())
 }
 
 // READABLE (for understanding):
 function isAutoMemoryPath(filePath) {
-  return normalizedPath(filePath).startsWith(getAutoMemoryDirectory());
+    return normalizePath(filePath).startsWith(getAutoMemoryDirectory());
 }
 
-// Mapping: Fu1→isAutoMemoryPath, A→filePath, gN9→normalizedPath, mu1→getAutoMemoryDirectory
-```
+// Mapping: Da → isAutoMemoryPath, Sz8 → normalizePath, uH → getAutoMemoryDirectory
 
 **How it works:**
 1. `filePath` is passed to the validator
-2. Path is normalized (resolves `~`, `.`, `..`, trailing slashes)
+2. Path is normalized via `Sz8` (resolves `~`, `.`, `..`, trailing slashes)
 3. Normalized path is compared to auto memory directory using string prefix matching
 4. Returns `true` if path is within auto memory directory, `false` otherwise
 
@@ -69,7 +59,32 @@ function isAutoMemoryPath(filePath) {
 - **Prefix matching** ensures subdirectories are also allowed (topic files like `debugging.md`)
 - **Path normalization** prevents bypass attacks using relative paths or symbolic links
 - **Centralized check** (`getAutoMemoryDirectory()`) ensures consistency across all validators
-- **Custom directory support** (v2.1.59): Works with `autoMemoryDirectory` setting because `getAutoMemoryDirectory()` resolves the correct path
+- **Custom directory support** (v2.1.59): Works with `autoMemoryDirectory` setting because `uH()` resolves the correct path
+
+---
+
+### Team Memory Path Detection
+
+// ============================================
+// isTeamMemoryPath - Validates if path is in team memory directory
+// Location: chunks.84.mjs:184-188
+// ============================================
+
+// ORIGINAL (for source lookup):
+function m14(A) {
+    let q = Sz8(A),
+        K = Lk();
+    return q.startsWith(K)
+}
+
+// READABLE (for understanding):
+function isTeamMemoryPath(filePath) {
+    const normalizedPath = normalizePath(filePath);
+    const teamMemoryDir = getTeamMemoryDirectory();
+    return normalizedPath.startsWith(teamMemoryDir);
+}
+
+// Mapping: m14 → isTeamMemoryPath, Sz8 → normalizePath, Lk → getTeamMemoryDirectory
 
 ---
 
@@ -85,7 +100,7 @@ function isAutoMemoryPath(filePath) {
    file_path: "~/.claude/projects/X/memory/MEMORY.md"
    content: "# Project Conventions\n\n- TypeScript..."
    ↓
-3. Permission Validator Intercepts (chunks.174.mjs:933-940)
+3. Permission Validator Intercepts
    if (isAutoMemoryPath(file_path)) { return { decision: "allow" }; }
    ↓
 4. Auto Memory Path Check
@@ -99,7 +114,7 @@ function isAutoMemoryPath(filePath) {
    fs.writeFileSync(file_path, content, "utf8")
    ↓
 7. Next Turn: Fresh Content Loaded
-   buildMemoryPrompt() reads updated file
+   getAutoMemory() reads updated file
    New content appears in LLM context
 ```
 
@@ -108,29 +123,25 @@ function isAutoMemoryPath(filePath) {
 ```javascript
 // ============================================
 // Write Tool Permission Validator
-// Location: chunks.174.mjs:933-940
+// Location: Permission validation logic
 // ============================================
-
-// ORIGINAL (for source lookup):
-function validateWritePermission(A) {
-  if (Fu1(A.file_path)) {
-    return { decision: "allow", reason: "auto memory files are allowed" };
-  }
-  // ... other validators
-}
 
 // READABLE (for understanding):
 function validateWritePermission(toolCall) {
-  if (isAutoMemoryPath(toolCall.file_path)) {
-    return {
-      decision: "allow",
-      reason: "auto memory files are allowed"
-    };
-  }
-  // Check other whitelist categories...
+    if (isAutoMemoryPath(toolCall.file_path)) {
+        return {
+            decision: "allow",
+            reason: "auto memory files are allowed"
+        };
+    }
+    if (isTeamMemoryPath(toolCall.file_path) && shouldBypassTeamMemoryPermissions()) {
+        return {
+            decision: "allow",
+            reason: "team memory files are allowed"
+        };
+    }
+    // Check other whitelist categories...
 }
-
-// Mapping: Fu1→isAutoMemoryPath, A→toolCall
 ```
 
 ---
@@ -139,28 +150,31 @@ function validateWritePermission(toolCall) {
 
 The Edit tool follows the same permission flow as Write:
 
-```javascript
-// ============================================
-// Edit Tool Permission Validator
-// Location: chunks.174.mjs:933-940 (shares validator with Write)
-// ============================================
-
-// READABLE (for understanding):
-function validateEditPermission(toolCall) {
-  if (isAutoMemoryPath(toolCall.file_path)) {
-    return {
-      decision: "allow",
-      reason: "auto memory files are allowed"
-    };
-  }
-  // ... other validators
-}
-```
-
 **Why Edit and Write share the validator:**
 - Both tools modify file system state
 - Same security considerations apply
 - Reduces code duplication and maintenance burden
+
+---
+
+## Team Memory Permission Bypass
+
+// ============================================
+// shouldBypassPermissionsForTeamMemory - Team memory permission check
+// Location: chunks.84.mjs:211-213
+// ============================================
+
+// ORIGINAL (for source lookup):
+function JF6(A) {
+    return SD1() && m14(A)
+}
+
+// READABLE (for understanding):
+function shouldBypassPermissionsForTeamMemory(filePath) {
+    return isTeamMemoryEnabled() && isTeamMemoryPath(filePath);
+}
+
+// Mapping: JF6 → shouldBypassPermissionsForTeamMemory, SD1 → isTeamMemoryEnabled, m14 → isTeamMemoryPath
 
 ---
 
@@ -201,9 +215,9 @@ Result: No conflict (different files)
 ```javascript
 // Edit tool adds/modifies specific lines rather than full overwrite
 await Edit({
-  file_path: "~/.claude/projects/X/memory/MEMORY.md",
-  old_string: "## Tools\n",
-  new_string: "## Tools\n- TypeScript: Always use strict mode\n"
+    file_path: "~/.claude/projects/X/memory/MEMORY.md",
+    old_string: "## Tools\n",
+    new_string: "## Tools\n- TypeScript: Always use strict mode\n"
 });
 // Only changes specific lines — smaller conflict window
 ```
@@ -245,6 +259,17 @@ claude --prompt "Create debugging.md in your memory directory with build error s
 # Verify: ls ~/.claude/projects/{hash}/memory/
 ```
 
+### Test 4: Team memory path validation
+
+```javascript
+// Verify team memory path detection
+const teamPath = getTeamMemoryDirectory(); // Lk()
+const testPath = teamPath + "MEMORY.md";
+
+console.log(isTeamMemoryPath(testPath)); // Should be true
+console.log(isAutoMemoryPath(testPath)); // Should be false (different directory)
+```
+
 ---
 
 ## Related Symbols
@@ -253,10 +278,12 @@ claude --prompt "Create debugging.md in your memory directory with build error s
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `isAutoMemoryPath` (Fu1) - Check if path is within auto memory directory
-- `normalizedPath` (gN9) - Normalize file path for comparison
-- `getAutoMemoryDirectory` (mu1) - Get auto memory directory path
-- `validateWritePermission` - Write tool permission validator (chunks.174.mjs)
+- `isAutoMemoryPath` (`Da`) - Check if path is within auto memory directory (chunks.50.mjs:2451)
+- `isTeamMemoryPath` (`m14`) - Check if path is within team memory directory (chunks.84.mjs:184)
+- `normalizePath` (`Sz8`) - Normalize file path for comparison
+- `getAutoMemoryDirectory` (`uH`) - Get auto memory directory path (chunks.50.mjs:2468)
+- `getTeamMemoryDirectory` (`Lk`) - Get team memory directory path (chunks.84.mjs:144)
+- `shouldBypassPermissionsForTeamMemory` (`JF6`) - Team memory permission bypass check
 
 Cross-references:
 - [architecture.md](./architecture.md) - Auto memory system architecture

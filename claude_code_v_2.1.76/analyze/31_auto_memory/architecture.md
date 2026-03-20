@@ -10,10 +10,32 @@ Auto Memory provides Claude Code with persistent, cross-session knowledge storag
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Auto memory symbols
 
 Key functions:
-- `getAutoMemory` (F0A) - Main entry point
-- `buildMemoryPrompt` (m0A) - Constructs system prompt section
-- `isAutoMemoryEnabled` (y2) - Feature toggle check
-- `getAutoMemoryDirectory` (mu1) - Resolves memory directory path
+- `getAutoMemory` (`ID1`) - Main async entry point (chunks.84.mjs:382)
+- `buildMemoryPrompt` (`Q14`) - Constructs system prompt section (chunks.84.mjs:290)
+- `buildMemoryIndex` (`U14`) - File-based memory prompt (chunks.84.mjs:324)
+- `buildAutoMemoryPromptSimple` (`uv9`) - Simple prompt builder (chunks.84.mjs:367)
+- `buildBackgroundAgentMemoryPrompt` (`xv9`) - Background agent prompt (chunks.84.mjs:329)
+- `buildSearchContextSection` (`Dt`) - Search guidance builder (chunks.84.mjs:373)
+- `ensureMemoryDirExists` (`CD1`) - Async directory creation (chunks.84.mjs:261)
+- `recordMemoryDirLoadMetrics` (`DF6`) - Telemetry recording (chunks.84.mjs:273)
+- `isAutoMemoryEnabled` (`Z3`) - Feature toggle check (chunks.50.mjs:2401)
+- `getAutoMemoryDirectory` (`uH`) - Resolves memory directory path (chunks.50.mjs:2468, lazy)
+- `getHomeDirectory` (`Ma`) - Home or remote memory base (chunks.50.mjs:2411)
+- `isAutoMemoryPath` (`Da`) - Path validation (chunks.50.mjs:2451)
+- `validateMemoryPath` (`QJ7`) - Path validation with security checks (chunks.50.mjs:2416)
+- `getCustomMemoryDirectory` (`gG3`) - Custom directory from settings (chunks.50.mjs:2434)
+- `getCoworkMemoryPathOverride` (`UJ7`) - Cowork memory path override (chunks.50.mjs:2430)
+- `getCurrentContextPath` (`FG3`) - Current context path (chunks.50.mjs:2443)
+- `buildStalenessWarning` (`Cz8`) - Staleness warning message (chunks.50.mjs:2487)
+- `formatStalenessReminder` (`lJ7`) - System-reminder wrapper (chunks.50.mjs:2493)
+
+Key constants:
+- `MEMORY_MD_FILENAME` (`o2` / `BG3`) - "MEMORY.md" (chunks.84.mjs:415 / chunks.50.mjs:2457)
+- `MEMORY_MAX_LINES` (`uj`) - 200 (chunks.84.mjs:417)
+- `AUTO_MEMORY_DISPLAY_NAME` (`p14`) - "auto memory" (chunks.84.mjs:419)
+- `MEMORY_DIR_EXISTS_HINT` (`Uf8`) - Directory exists hint (chunks.84.mjs:423)
+- `DUAL_MEMORY_DIR_EXISTS_HINT` (`pf8`) - Dual memory hint (chunks.84.mjs:425)
+- `MEMORY_SUBDIR_NAME` (`mG3`) - "memory" (chunks.50.mjs:2455)
 
 ## Related Documentation (Phase 4 - Detailed Implementation)
 
@@ -116,20 +138,20 @@ Custom path set: ~/team-memory/
 │  2. System prompt builder starts                       │
 │     │                                                  │
 │     ▼                                                  │
-│  3. Call getAutoMemory() (F0A)                        │
+│  3. Call getAutoMemory() (ID1)                        │
 │     │                                                  │
-│     ├──> Check: isAutoMemoryEnabled()?                │
+│     ├──> Check: isAutoMemoryEnabled()? (Z3)          │
 │     │    - NO → Return null (skip memory)            │
 │     │    - YES → Continue                             │
 │     │                                                  │
 │     ▼                                                  │
-│  4. Call buildMemoryPrompt() (m0A)                    │
+│  4. Call buildMemoryPrompt() (Q14)                    │
 │     │                                                  │
-│     ├──> Create memory directory if missing           │
-│     ├──> Read MEMORY.md from disk                    │
+│     ├──> Create memory directory if missing (CD1)     │
+│     ├──> Read MEMORY.md (o2) from disk               │
 │     ├──> Check last-modified timestamp (v2.1.74)     │
 │     ├──> Split into lines                             │
-│     ├──> Check if > 200 lines                         │
+│     ├──> Check if > 200 lines (uj)                    │
 │     │    - YES → Truncate + warning                   │
 │     │    - NO → Use full content                      │
 │     ├──> Format as markdown section                   │
@@ -159,64 +181,127 @@ Custom path set: ~/team-memory/
 ### 2.2 Entry Point Implementation
 
 // ============================================
-// getAutoMemory - Main entry point for auto memory system
-// Location: chunks.87.mjs:2299-2307
+// getAutoMemory - Main async entry point for auto memory system
+// Location: chunks.84.mjs:382-411
 // ============================================
 
 // ORIGINAL (for source lookup):
-function F0A() {
-    if (y2()) return m0A({
-        displayName: "auto memory",
-        memoryDir: mu1()
-    });
-    return c("tengu_memdir_disabled", {
-        disabled_by_env_var: J6(process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY),
-        disabled_by_setting: !J6(process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY) && l4().autoMemoryEnabled === !1
-    }), null
+async function ID1() {
+    let A = Z3(),
+        q = w8("tengu_swinburne_dune", !1);
+    if (F14.isTeamMemoryEnabled()) {
+        let K = uH(),
+            Y = F14.getTeamMemPath();
+        if (await CD1(Y), DF6(K, { memory_type: "auto" }), DF6(Y, { memory_type: "team" }),
+            w8("tengu_passport_quail", !1)) return Qf8.buildExtractModeTypedCombinedPrompt();
+        if (q) return Qf8.buildTypedCombinedMemoryPrompt();
+        return Qf8.buildCombinedMemoryPrompt()
+    }
+    if (A) {
+        let K = uH();
+        if (await CD1(K), DF6(K, { memory_type: "auto" }), w8("tengu_passport_quail", !1))
+            return xv9("auto memory", K).join("\n");
+        if (q) return U14("auto memory", K).join("\n");
+        return uv9()
+    }
+    if (d("tengu_memdir_disabled", {
+        disabled_by_env_var: t6(process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY),
+        disabled_by_setting: !t6(process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY) && mA().autoMemoryEnabled === !1
+    }), w8("tengu_herring_clock", !1)) d("tengu_team_memdir_disabled", {});
+    return null
 }
 
 // READABLE (for understanding):
-function getAutoMemory() {
-    if (isAutoMemoryEnabled()) {
-        return buildMemoryPrompt({
-            displayName: "auto memory",
-            memoryDir: getAutoMemoryDirectory()
-        });
+async function getAutoMemory() {
+    // Check if auto memory is enabled
+    const isEnabled = isAutoMemoryEnabled();
+    const useFileBasedFormat = getFeatureFlag("tengu_swinburne_dune", false);
+
+    // Branch 1: Team memory enabled (dual memory system)
+    if (isTeamMemoryEnabled()) {
+        const userMemoryDir = getAutoMemoryDirectory();
+        const teamMemoryDir = getTeamMemoryPath();
+
+        // Ensure both directories exist
+        await ensureMemoryDirExists(teamMemoryDir);
+
+        // Record telemetry for both directories
+        recordMemoryDirLoadMetrics(userMemoryDir, { memory_type: "auto" });
+        recordMemoryDirLoadMetrics(teamMemoryDir, { memory_type: "team" });
+
+        // Return appropriate prompt format based on flags
+        if (getFeatureFlag("tengu_passport_quail", false)) {
+            return buildExtractModeTypedCombinedPrompt(); // Background agent mode
+        }
+        if (useFileBasedFormat) {
+            return buildTypedCombinedMemoryPrompt(); // File-based format
+        }
+        return buildCombinedMemoryPrompt(); // Default dual prompt
     }
 
-    // Telemetry tracking for disabled memory
+    // Branch 2: Single memory (auto memory only)
+    if (isEnabled) {
+        const memoryDir = getAutoMemoryDirectory();
+        await ensureMemoryDirExists(memoryDir);
+        recordMemoryDirLoadMetrics(memoryDir, { memory_type: "auto" });
+
+        // Return appropriate format
+        if (getFeatureFlag("tengu_passport_quail", false)) {
+            return buildBackgroundAgentMemoryPrompt("auto memory", memoryDir);
+        }
+        if (useFileBasedFormat) {
+            return buildMemoryIndex("auto memory", memoryDir);
+        }
+        return buildAutoMemoryPromptSimple(); // Default simple prompt
+    }
+
+    // Branch 3: Memory disabled - log telemetry and return null
     recordTelemetry("tengu_memdir_disabled", {
-        disabled_by_env_var: isEnvVarSet(process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY),
-        disabled_by_setting: !isEnvVarSet(process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY) &&
+        disabled_by_env_var: isTruthy(process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY),
+        disabled_by_setting: !isTruthy(process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY) &&
                              getUserSettings().autoMemoryEnabled === false
     });
 
-    return null;  // Memory disabled, return nothing
+    // Also log team memory disabled if flag is set
+    if (getFeatureFlag("tengu_herring_clock", false)) {
+        recordTelemetry("tengu_team_memdir_disabled", {});
+    }
+
+    return null;
 }
 
 // Mapping:
-// F0A → getAutoMemory
-// y2 → isAutoMemoryEnabled
-// m0A → buildMemoryPrompt
-// mu1 → getAutoMemoryDirectory
-// c → recordTelemetry
-// J6 → isEnvVarSet
-// l4 → getUserSettings
+// ID1 → getAutoMemory
+// Z3 → isAutoMemoryEnabled
+// uH → getAutoMemoryDirectory
+// CD1 → ensureMemoryDirExists
+// DF6 → recordMemoryDirLoadMetrics
+// w8 → getFeatureFlag
+// mA → getUserSettings
+// t6 → isTruthy
+// uv9 → buildAutoMemoryPromptSimple
+// U14 → buildMemoryIndex
+// xv9 → buildBackgroundAgentMemoryPrompt
 
-**What it does**: Determines if memory is enabled, builds the memory section if yes, returns null if disabled.
+**What it does**: Main async entry point that determines memory configuration, ensures directories exist, and returns the appropriate memory prompt.
 
 **How it works**:
-1. Check if auto memory feature is enabled via `isAutoMemoryEnabled()`
-2. If enabled:
-   - Call `buildMemoryPrompt()` with display name and directory path
-   - Return formatted memory section for system prompt
-3. If disabled:
-   - Log telemetry with reason (env var vs user setting)
-   - Return null (memory skipped)
+1. Check if auto memory is enabled via `Z3()` (isAutoMemoryEnabled)
+2. Check feature flags for format selection (`tengu_swinburne_dune`, `tengu_passport_quail`)
+3. If team memory enabled:
+   - Handle dual memory system (user + team)
+   - Return combined prompt
+4. If single memory enabled:
+   - Create directory if needed
+   - Return appropriate prompt format
+5. If disabled:
+   - Log telemetry with reason
+   - Return null
 
 **Why this approach**:
-- **Single source of truth**: All memory logic funnels through one function
-- **Telemetry awareness**: Track why memory is disabled for debugging
+- **Async first**: Directory creation requires async operations
+- **Feature flag driven**: Different prompt formats for different use cases
+- **Team memory support**: Handles both single and dual memory modes
 - **Graceful degradation**: Returns null cleanly when disabled
 
 ---
@@ -227,33 +312,32 @@ function getAutoMemory() {
 
 // ============================================
 // isAutoMemoryEnabled - Determine if auto memory is active
-// Location: chunks.87.mjs:2194-2202
+// Location: chunks.50.mjs:2401-2408
 // ============================================
 
 // ORIGINAL (for source lookup):
-function y2() {
+function Z3() {
     let A = process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY;
-    if (J6(A)) return !1;
-    if (FY(A)) return !0;
-    if (J6(process.env.CLAUDE_CODE_REMOTE) && !process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) return !1;
-    let q = l4();
+    if (t6(A)) return !1;
+    if (xz(A)) return !0;
+    if (t6(process.env.CLAUDE_CODE_REMOTE) && !process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) return !1;
+    let q = mA();
     if (q.autoMemoryEnabled !== void 0) return q.autoMemoryEnabled;
-    return x8("tengu_oboe", !1)
+    return !0
 }
 
 // READABLE (for understanding):
 function isAutoMemoryEnabled() {
     let disableEnvVar = process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY;
 
-    // Priority 1: Explicit disable via env var
-    if (isEmpty(disableEnvVar)) return false;
+    // Priority 1: Explicit disable via env var (truthy value like "1", "true")
+    if (isTruthy(disableEnvVar)) return false;
 
-    // Priority 2: Explicit enable via env var (override)
-    if (isTruthy(disableEnvVar)) return true;
+    // Priority 2: Explicit enable via env var (falsy non-empty like "0", "false")
+    if (isFalsy(disableEnvVar)) return true;
 
     // Priority 3: Remote mode requires memory dir
-    if (isEmpty(process.env.CLAUDE_CODE_REMOTE) &&
-        !process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) {
+    if (isTruthy(process.env.CLAUDE_CODE_REMOTE) && !process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) {
         return false;  // Remote without memory dir = disable
     }
 
@@ -263,32 +347,29 @@ function isAutoMemoryEnabled() {
         return settings.autoMemoryEnabled;
     }
 
-    // Priority 5: Feature flag default
-    return getFeatureFlag("tengu_oboe", false);
+    // Priority 5: Default to enabled
+    return true;
 }
 
 // Mapping:
-// y2 → isAutoMemoryEnabled
-// A → disableEnvVar
-// J6 → isEmpty
-// FY → isTruthy
-// l4 → getUserSettings
-// x8 → getFeatureFlag
+// Z3 → isAutoMemoryEnabled
+// t6 → isTruthy
+// xz → isFalsy
+// mA → getUserSettings
 
 **Decision order** (highest priority first):
 ```
-1. CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 → Disable
-2. CLAUDE_CODE_DISABLE_AUTO_MEMORY=0 → Enable (override)
+1. CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 → Disable (truthy)
+2. CLAUDE_CODE_DISABLE_AUTO_MEMORY=0 → Enable (falsy non-empty)
 3. Remote mode + no CLAUDE_CODE_REMOTE_MEMORY_DIR → Disable
 4. User setting: autoMemoryEnabled=true/false → Use setting
-5. Feature flag: "tengu_oboe" → Default (false)
+5. Default → Enabled (true)
 ```
 
 **Use cases**:
 - **Environment override**: Testing, CI/CD, enterprise control
 - **Remote mode handling**: Requires explicit memory directory for remote agents
 - **User preference**: Per-user toggle in settings UI
-- **Feature flag**: Gradual rollout control
 
 ---
 
@@ -297,54 +378,67 @@ function isAutoMemoryEnabled() {
 ### 4.1 Auto Memory Directory Path
 
 // ============================================
-// getAutoMemoryDirectory - Resolve auto memory directory
-// Location: chunks.87.mjs:2213-2215
+// getAutoMemoryDirectory - Resolve auto memory directory (lazy-evaluated)
+// Location: chunks.50.mjs:2468-2473
 // ============================================
 
-// ORIGINAL (for source lookup):
-function mu1() {
-    let A = cO6(ga(), "projects");
-    return (cO6(A, dx(LU7()), kU7) + UN9).normalize("NFC")
-}
+// The actual implementation uses lazy evaluation via e1() memoization helper
+// uH = e1(() => {...}, () => getCurrentContextPath())
 
 // READABLE (for understanding):
 function getAutoMemoryDirectory() {
-    // Check for custom directory setting (v2.1.59)
-    let settings = getUserSettings();
-    if (settings.autoMemoryDirectory) {
-        return settings.autoMemoryDirectory;
-    }
+    // Priority 1: Cowork memory path override (team shared storage)
+    const coworkOverride = getCoworkMemoryPathOverride();
+    if (coworkOverride) return coworkOverride;
 
-    let homeDir = joinPath(getHomeDirectory(), "projects");
-    return (joinPath(homeDir,
-                     sanitizeProjectName(getProjectIdentifier()),
+    // Priority 2: Custom directory from settings (v2.1.59)
+    const customDir = getCustomMemoryDirectory();
+    if (customDir) return customDir;
+
+    // Priority 3: Default project-hash based path
+    const homeDir = getHomeDirectory();
+    const projectsDir = joinPath(homeDir, "projects");
+    return (joinPath(projectsDir,
+                     hashPath(getCurrentContextPath()),
                      "memory") + pathSeparator).normalize("NFC");
 }
 
+// Actual source (lazy evaluation wrapper):
+// uH = e1(() => {
+//     let A = UJ7() ?? gG3();
+//     if (A) return A;
+//     let q = wz1(Ma(), "projects");
+//     return (wz1(q, BD(FG3()), mG3) + pJ7).normalize("NFC")
+// }, () => qY())
+
 // Mapping:
-// mu1 → getAutoMemoryDirectory
-// cO6 → joinPath
-// ga → getHomeDirectory
-// dx → sanitizeProjectName
-// LU7 → getProjectIdentifier
-// kU7 → "memory"
-// UN9 → pathSeparator
+// uH → getAutoMemoryDirectory
+// UJ7 → getCoworkMemoryPathOverride
+// gG3 → getCustomMemoryDirectory
+// Ma → getHomeDirectory
+// wz1 → joinPath
+// BD → hashPath
+// FG3 → getCurrentContextPath
+// mG3 → "memory"
+// pJ7 → pathSeparator
+// e1 → memoize (lazy evaluation helper)
 
 **Path construction**:
 ```
-Default: {home}/projects/{projectId}/memory/
-Custom:  {autoMemoryDirectory setting value}
+Priority 1: CLAUDE_COWORK_MEMORY_PATH_OVERRIDE env var
+Priority 2: autoMemoryDirectory setting
+Priority 3: {home}/projects/{projectId}/memory/
 ```
 
 **Components**:
-- `{home}`: From `getHomeDirectory()` - `~/.claude/` or `CLAUDE_CODE_REMOTE_MEMORY_DIR`
-- `{projectId}`: Sanitized project identifier (CWD or git repo name)
+- `{home}`: From `Ma()` (getHomeDirectory) - `~/.claude/` or `CLAUDE_CODE_REMOTE_MEMORY_DIR`
+- `{projectId}`: Hash of current context path (CWD)
 - `memory`: Fixed subdirectory name
 
 **Example paths**:
 ```
-~/.claude/projects/myproject/memory/
-/remote/claude/projects/myproject/memory/
+~/.claude/projects/abc123/memory/
+/remote/claude/projects/abc123/memory/
 ~/team-memory/  (with autoMemoryDirectory setting)
 ```
 
@@ -354,13 +448,13 @@ Custom:  {autoMemoryDirectory setting value}
 
 // ============================================
 // getHomeDirectory - Get home or remote memory base
-// Location: chunks.87.mjs:2204-2207
+// Location: chunks.50.mjs:2411-2414
 // ============================================
 
 // ORIGINAL (for source lookup):
-function ga() {
+function Ma() {
     if (process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) return process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR;
-    return O8()
+    return c8()
 }
 
 // READABLE (for understanding):
@@ -371,7 +465,7 @@ function getHomeDirectory() {
     return getLocalHomeDirectory();  // ~/.claude/
 }
 
-// Mapping: ga → getHomeDirectory, O8 → getLocalHomeDirectory
+// Mapping: Ma → getHomeDirectory, c8 → getLocalHomeDirectory
 
 **Two modes**:
 1. **Local**: `~/.claude/` (default)
@@ -390,13 +484,13 @@ function getHomeDirectory() {
 Memory is registered as a **dynamic variable** in system prompt:
 
 ```javascript
-wc("auto_memory",
-   () => F0A(),
+registerDynamicVariable("auto_memory",
+   () => getAutoMemory(),  // ID1 - async entry point
    "MEMORY.md is read from disk each turn and can be edited by the model")
 ```
 
 **Dynamic variable behavior**:
-- **Re-evaluated every turn**: Calls `F0A()` before each API request
+- **Re-evaluated every turn**: Calls `ID1()` (getAutoMemory) before each API request
 - **Fresh from disk**: Always gets latest file contents
 - **Editable by agent**: Can be modified via Write/Edit tools
 
@@ -404,21 +498,27 @@ wc("auto_memory",
 
 ### 5.2 Write Tool Whitelisting
 
-**Location**: chunks.174.mjs:933-940
+**Location**: chunks.174.mjs (permission validation)
 
-Memory files are automatically whitelisted for write operations:
+Memory files are automatically whitelisted for write operations via `Da()` (isAutoMemoryPath):
 
 ```javascript
-if (isMemoryFile(filePath)) {
-    return {
-        behavior: "allow",
-        updatedInput: input,
-        decisionReason: {
-            type: "other",
-            reason: "Agent memory files are allowed for writing"
-        }
-    };
+// ============================================
+// isAutoMemoryPath - Check if path is within auto memory directory
+// Location: chunks.50.mjs:2451-2452
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Da(A) {
+    return Sz8(A).startsWith(uH())
 }
+
+// READABLE (for understanding):
+function isAutoMemoryPath(filePath) {
+    return normalizePath(filePath).startsWith(getAutoMemoryDirectory());
+}
+
+// Mapping: Da → isAutoMemoryPath, Sz8 → normalizePath, uH → getAutoMemoryDirectory
 ```
 
 **Effect**: Agent can freely update MEMORY.md and topic files without permission prompts.
@@ -427,28 +527,78 @@ if (isMemoryFile(filePath)) {
 
 ---
 
-## 6. Freshness Tracking (v2.1.74)
+## 6. Freshness Tracking (v2.1.76)
 
-### 6.1 Last-Modified Timestamps
+### 6.1 Staleness Detection System
 
-In v2.1.74, the memory system gained timestamp tracking for freshness detection:
+The memory system includes staleness detection to warn agents when memory may be outdated:
 
-**Purpose**: Allow agents to know how recently memory files were updated, enabling smarter decisions about when memory may be stale vs. current.
+// ============================================
+// Staleness Detection Functions
+// Location: chunks.50.mjs:2476-2498
+// ============================================
 
-**How it works**:
-```javascript
-// When reading MEMORY.md, stat the file for modification time
-let memoryStats = fs.statSync(memoryFilePath);
-let lastModified = memoryStats.mtime;
+// ORIGINAL (for source lookup):
+function dJ7(A) {
+    return Math.max(0, Math.floor((Date.now() - A) / 86400000))
+}
+function cJ7(A) {
+    let q = dJ7(A);
+    if (q === 0) return "today";
+    if (q === 1) return "yesterday";
+    return `${q} days ago`
+}
+function Cz8(A) {
+    let q = dJ7(A);
+    if (q <= 1) return "";
+    return `This memory is ${q} days old. ` + "Memories are point-in-time observations..."
+}
+function lJ7(A) {
+    let q = Cz8(A);
+    if (!q) return "";
+    return `<system-reminder>${q}</system-reminder>\n`
+}
 
-// Include timestamp in prompt header
-promptLines.push(
-    `# auto memory (last updated: ${lastModified.toISOString()})`,
-    ...
-);
-```
+// READABLE (for understanding):
+function getDaysSinceTimestamp(timestamp) {
+    return Math.max(0, Math.floor((Date.now() - timestamp) / 86400000));
+}
 
-**Agent benefit**: If last-modified is very recent (same session), memory is likely fresh. If old (weeks ago), the agent may prompt the user to review or update memory.
+function formatRelativeTime(timestamp) {
+    const days = getDaysSinceTimestamp(timestamp);
+    if (days === 0) return "today";
+    if (days === 1) return "yesterday";
+    return `${days} days ago`;
+}
+
+function buildStalenessWarning(timestamp) {
+    const days = getDaysSinceTimestamp(timestamp);
+    if (days <= 1) return "";  // Fresh - no warning
+
+    return `This memory is ${days} days old. ` +
+           "Memories are point-in-time observations, not live state — " +
+           "claims about code behavior or file:line citations may be outdated. " +
+           "Verify against current code before asserting as fact.";
+}
+
+function formatStalenessReminder(timestamp) {
+    const warning = buildStalenessWarning(timestamp);
+    if (!warning) return "";
+    return `<system-reminder>${warning}</system-reminder>\n`;
+}
+
+// Mapping:
+// dJ7 → getDaysSinceTimestamp
+// cJ7 → formatRelativeTime
+// Cz8 → buildStalenessWarning
+// lJ7 → formatStalenessReminder
+
+**Purpose**:
+- **Freshness awareness**: Agents know when memory was last updated
+- **Verification prompt**: Encourages checking outdated claims
+- **System reminder format**: Staleness warnings injected as system reminders
+
+**Warning threshold**: Only warns if memory is > 1 day old
 
 ---
 
@@ -606,3 +756,114 @@ The Auto Memory architecture provides **persistent cross-session knowledge** thr
 8. **Freshness Tracking**: Last-modified timestamps for staleness detection (v2.1.74)
 
 **Key architectural insight**: The system balances **persistent knowledge** with **context window efficiency** by using MEMORY.md as a lightweight index and delegating detailed content to searchable topic files.
+
+---
+
+## 10. Cross-Module Integration
+
+Auto Memory integrates with several other Claude Code modules:
+
+### 10.1 System Reminder (04_system_reminder)
+
+**Integration points**:
+
+1. **Dynamic Variable Registration**: Memory registered as `auto_memory` dynamic variable
+   - Location: chunks.169.mjs:231, 246
+   - Evaluated fresh on every turn via `getAutoMemory()` (`ID1`)
+
+2. **Attachment Types**:
+   - `nested_memory` - Individual memory files loaded via CLAUDE.md includes
+   - `relevant_memories` - Related memory files with staleness timestamps
+
+3. **Normalization Flow**:
+   ```
+   produceRelevantMemories (buY)
+           │
+           ▼
+   { type: "relevant_memories", memories: [...] }
+           │
+           ▼
+   normalizeAttachmentForAPI (Ui8) - chunks.174.mjs:172-184
+           │
+           ├── buildStalenessWarning (Cz8)
+           ├── formatRelativeTime (cJ7)
+           └── wrapWithSystemReminderTags (b5)
+           │
+           ▼
+   <system-reminder>Memory content...</system-reminder>
+   ```
+
+**Cross-reference**: [../04_system_reminder/types_skills_memory.md](../04_system_reminder/types_skills_memory.md)
+
+### 10.2 Background Agents (26_background_agents)
+
+**Feature flag**: `tengu_passport_quail`
+
+**Behavior when enabled**:
+- Main agent cannot write to memory files directly
+- Extraction subagent spawned after completion
+- Uses `buildBackgroundAgentMemoryPrompt` (`xv9`) for single memory
+- Uses `buildExtractModeTypedCombinedPrompt` (`bv9`) for team memory
+
+**Extraction prompts**:
+- `DKq` - Standard extraction
+- `XKq` - File-based extraction
+- `PKq` - Team extraction
+- `WKq` - Team file-based extraction
+
+**Cross-reference**: [25_background_agent_memory.md](./25_background_agent_memory.md)
+
+### 10.3 Task System (13_task_system)
+
+Memory vs Task decision guidance:
+
+| Use Memory When | Use Tasks When |
+|-----------------|----------------|
+| Cross-session knowledge | Session-specific tracking |
+| User preferences | Step-by-step progress |
+| Project patterns | Temporary state |
+| Architectural decisions | Work breakdown |
+
+**Prompt guidance** (included in memory prompts):
+```
+"When to use or update tasks instead of memory:
+ - When you need to break work into discrete steps or track progress,
+   use tasks instead of saving to memory."
+```
+
+### 10.4 Plan Mode (12_plan_mode)
+
+**Integration**:
+- Memory content loaded before plan creation
+- Agent can reference past patterns when designing plans
+- Plan decisions can be saved to memory for future sessions
+
+**Prompt guidance**:
+```
+"When to use or update a plan instead of memory:
+ - If you are about to start a non-trivial implementation task,
+   use a Plan rather than saving to memory."
+```
+
+### 10.5 MCP Protocol (06_mcp)
+
+**Remote memory support**:
+
+**Environment variable**: `CLAUDE_CODE_REMOTE_MEMORY_DIR`
+
+**Use cases**:
+- Shared team memory via network storage
+- SSH session persistence
+- Cloud agent memory synchronization
+
+**Implementation**:
+```javascript
+function getHomeDirectory() {
+    if (process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) {
+        return process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR;
+    }
+    return getLocalHomeDirectory();
+}
+```
+
+**Cross-reference**: [remote_memory_sync.md](./remote_memory_sync.md)

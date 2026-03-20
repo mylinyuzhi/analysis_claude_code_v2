@@ -199,32 +199,201 @@
 > Full analysis: [31_auto_memory/](../31_auto_memory/)
 > **NEW in 2.1.32** - Persistent memory via MEMORY.md
 
-### Memory Logic
+### Core Constants
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| pN9 | MEMORY_MD_FILENAME | chunks.87.mjs:2229 | constant ("MEMORY.md") |
-| Ua | MEMORY_MD_FILENAME_ALT | chunks.87.mjs:2310 | constant ("MEMORY.md") |
-| Qu1 | MEMORY_MAX_LINES | chunks.87.mjs:2312 | constant (200) |
-| Cp | MEMORY_FILE_SIZE_WARNING_THRESHOLD | chunks.88.mjs:2530 | constant (40000) |
-| F0A | getMemoryContext | chunks.87.mjs:2299 | function |
-| m0A | buildMemoryPrompt | chunks.87.mjs:2257 | function |
-| y2 | isAutoMemoryEnabled | chunks.87.mjs:2194 | function |
-| ga | getHomeDirectory | chunks.87.mjs:2204 | function |
-| mu1 | getAutoMemoryDirectory | chunks.87.mjs:2213 | function |
-| LU7 | getCurrentContextPath | chunks.87.mjs:2209 | function |
-| dx | hashPath | chunks.10.mjs:1191 | function |
-| Fu1 | isAutoMemoryPath | chunks.87.mjs:2223 | function |
-| gN9 | normalizedPath | chunks.87.mjs:2209 | function |
-| cN9 | recordMemoryDirLoadMetrics | chunks.87.mjs:2240 | function |
-| DK1 | getLargeMemoryFiles | chunks.88.mjs:2439 | function |
+| o2 | MEMORY_MD_FILENAME | chunks.84.mjs:415 | constant ("MEMORY.md") |
+| BG3 | MEMORY_MD_FILENAME_ALT | chunks.50.mjs:2457 | constant ("MEMORY.md") |
+| uj | MEMORY_MAX_LINES | chunks.84.mjs:417 | constant (200) |
+| p14 | AUTO_MEMORY_DISPLAY_NAME | chunks.84.mjs:419 | constant ("auto memory") |
+| Uf8 | MEMORY_DIR_EXISTS_HINT | chunks.84.mjs:423 | constant |
+| pf8 | DUAL_MEMORY_DIR_EXISTS_HINT | chunks.84.mjs:425 | constant |
+| mG3 | MEMORY_SUBDIR_NAME | chunks.50.mjs:2455 | constant ("memory") |
+
+### Enable/Disable Logic
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Z3 | isAutoMemoryEnabled | chunks.50.mjs:2401 | function |
+| t6 | isTruthy | chunks.50.mjs | function (helper) |
+| xz | isFalsy | chunks.50.mjs | function (helper) |
+| mA | getUserSettings | chunks.50.mjs | function |
+
+### Directory Resolution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| uH | getAutoMemoryDirectory | chunks.50.mjs:2468-2473 | function (lazy) |
+| Ma | getHomeDirectory | chunks.50.mjs:2411 | function |
+| FG3 | getCurrentContextPath | chunks.50.mjs:2443 | function |
+| BD | hashPath | chunks.50.mjs | function |
+| gG3 | getCustomMemoryDirectory | chunks.50.mjs:2434 | function |
+| UJ7 | getCoworkMemoryPathOverride | chunks.50.mjs:2430 | function |
+| Sz8 | normalizePath | chunks.50.mjs | function |
+
+> **Note**: `uH` uses lazy evaluation via the `e1()` memoization helper, which caches the result based on the current context path dependency.
+
+### Prompt Building
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Q14 | buildMemoryPrompt | chunks.84.mjs:290 | function |
+| U14 | buildMemoryIndex | chunks.84.mjs:324 | function |
+| uv9 | buildAutoMemoryPromptSimple | chunks.84.mjs:367 | function |
+| Cv9 | buildCombinedMemoryPrompt | chunks.84.mjs:230 | function |
+| Iv9 | buildTypedCombinedMemoryPrompt | chunks.84.mjs:237 | function |
+| xv9 | buildBackgroundAgentMemoryPrompt | chunks.84.mjs:329 | function |
+| d14 | buildAgentMemoryPrompt | chunks.84.mjs:333 | function |
+| Dt | buildSearchContextSection | chunks.84.mjs:373 | function |
+
+> **Note**: The `Qf8` module (cli.chunks.mjs:3549-3553) exports these prompt functions:
+> - `Qf8.buildCombinedMemoryPrompt` → `Cv9`
+> - `Qf8.buildTypedCombinedMemoryPrompt` → `Iv9`
+> - `Qf8.buildExtractModeTypedCombinedPrompt` → `bv9`
+
+### Team Memory
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Lk | getTeamMemoryDirectory | chunks.84.mjs:144 | function |
+| hv9 | getTeamMemoryMdPath | chunks.84.mjs:148 | function |
+| SD1 | isTeamMemoryEnabled | chunks.84.mjs:139 | function |
+
+> **Note**: `Lk` is exported as `getTeamMemPath` in cli.chunks.mjs - both names refer to the same function.
+
+### Path Validation & Permissions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Da | isAutoMemoryPath | chunks.50.mjs:2451 | function |
+| QJ7 | validateMemoryPath | chunks.50.mjs:2416 | function |
+| m14 | isTeamMemoryPath | chunks.84.mjs:184 | function |
+| JF6 | shouldBypassPermissionsForTeamMemory | chunks.84.mjs:211 | function |
+
+### Main Entry Point
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ID1 | getAutoMemory | chunks.84.mjs:382 | async function |
+
+### File Operations
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| CD1 | ensureMemoryDirExists | chunks.84.mjs:261 | async function |
+| DF6 | recordMemoryDirLoadMetrics | chunks.84.mjs:273 | function |
+| $z1 | getMemoryMdPath | chunks.50.mjs:2447 | function |
+
+### Staleness Detection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| dJ7 | getDaysSinceTimestamp | chunks.50.mjs:2476 | function |
+| cJ7 | formatRelativeTime | chunks.50.mjs:2480 | function |
+| Cz8 | buildStalenessWarning | chunks.50.mjs:2487 | function |
+| lJ7 | formatStalenessReminder | chunks.50.mjs:2493 | function |
+
+### Memory Extraction
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| sE1 | buildExtractionSubagentPrompt | chunks.148.mjs:393 | function |
+| DKq | buildStandardExtractionPrompt | chunks.148.mjs:397 | function |
+| XKq | buildFileBasedExtractionPrompt | chunks.148.mjs:402 | function |
+| PKq | buildTeamExtractionPrompt | chunks.148.mjs:407 | function |
+| WKq | buildTeamFileBasedExtractionPrompt | chunks.148.mjs:412 | function |
+| IuY | produceNestedMemoryAttachment | chunks.147.mjs:541 | async function |
+| buY | produceRelevantMemories | chunks.147.mjs:552 | async function |
+| zqq | getRelevantMemoriesTrigger | chunks.147.mjs:592 | function |
+
+### Combined Prompt Builders (Team Memory)
+
+> **VERIFIED 2026-03-21**: All three combined prompt builders located in chunks.84.mjs.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Cv9 | buildCombinedMemoryPrompt | chunks.84.mjs:230 | function |
+| Iv9 | buildTypedCombinedMemoryPrompt | chunks.84.mjs:237 | function |
+| bv9 | buildExtractModeTypedCombinedPrompt | chunks.84.mjs:244 | function |
+
+**When each is used:**
+- `Cv9` - Team memory enabled, standard format
+- `Iv9` - Team memory + file-based format (`tengu_swinburne_dune`)
+- `bv9` - Team memory + background agent mode (`tengu_passport_quail`)
+
+### Relevant Memories Helpers
+
+> **CORRECTION**: Previous versions incorrectly documented locations for helper functions.
+> Verified locations: wqq=chunks.147.mjs:743, GW6=chunks.90.mjs:860, a4q=chunks.146.mjs:2773, h36=chunks.89.mjs:684.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wqq | extractAgentReferences | chunks.147.mjs:743 | function |
+| GW6 | getAgentMemoryPath | chunks.90.mjs:860 | function |
+| a4q | searchMemoryFiles | chunks.146.mjs:2773 | async function |
+| h36 | readFileWithLimit | chunks.89.mjs:684 | async function |
+| hE1 | RELEVANT_MEMORIES_MAX_LINES | chunks.147.mjs:1164 | constant (200) |
+| Yqq | collectNestedMemoryFiles | chunks.147.mjs:371 | function |
+| AuY | listAndRankMemoryFiles | chunks.146.mjs:2784 | async function |
+| quY | selectMemoriesWithLLM | chunks.146.mjs:2821 | async function |
+| sxY | MAX_FILES_TO_CONSIDER | chunks.146.mjs:2870 | constant (200) |
+| txY | PREVIEW_LINES | chunks.146.mjs:2872 | constant (30) |
+| exY | MEMORY_SELECTION_PROMPT | chunks.146.mjs:2874 | constant (LLM system prompt) |
+
+> **Note**: `Yqq` was incorrectly documented at line 546. The actual location is line 371.
+> `a4q` was incorrectly documented as chunks.147.mjs; actual location is chunks.146.mjs:2773.
+> **wqq regex patterns**: Supports TWO formats:
+> 1. `/(^|\s)@"([\w:.@-]+) \(agent\)"/g` - Matches `@"agent-name (agent)"` format
+> 2. `/(^|\s)@(agent-[\w:.@-]+)/g` - Matches `@agent-name` format
+
+### Memory File Loading (@include Support)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| xD1 | loadMemoryFileWithIncludeSupport | chunks.84.mjs:495 | function |
+| dv9 | extractFrontmatterPaths | chunks.84.mjs:449 | function |
+| o14 | stripHtmlComments | chunks.84.mjs:469 | function |
+
+> **Note**: `xD1` provides enhanced memory file loading with frontmatter path extraction, HTML comment stripping, and automatic 200-line truncation for AutoMem/TeamMem types. Used by the @include system for MEMORY.md references.
+
+### Memory Template Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| RD1 | SCOPE_TYPE_DEFINITIONS | chunks.84.mjs:104 | constant |
+| _36 | MEMORY_DONT_SAVE_SECTION | chunks.84.mjs:104 | constant |
+| w36 | FRONTMATTER_TEMPLATE | chunks.84.mjs:104 | constant |
+| LD1 | TEAM_SCOPE_DEFINITIONS | chunks.84.mjs:104 | constant |
+| h14 | MEMORY_TYPE_NAMES | chunks.84.mjs:103 | constant |
+| Uv9 | ALLOWED_TEXT_EXTENSIONS | chunks.84.mjs:862 | constant (Set of extensions) |
+
+> **Verified 2026-03-21**: All constants located at chunks.84.mjs:103-104 (h14, RD1, _36, w36, LD1) and chunks.84.mjs:862 (Uv9).
+> - `h14` = Array of memory type names: ["user", "feedback", "project", "reference"]
+> - `RD1` = Memory types for single-scope (user, feedback, project, reference)
+> - `LD1` = Memory types for team scope (with private/team guidance)
+> - `_36` = "What NOT to save in memory" guidance
+> - `w36` = Template for memory file frontmatter
+> - `Uv9` = Set of allowed text file extensions for @include system
 
 ### TUI Components
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | toY | memoryEditorModal | chunks.155.mjs:714 | function |
-| Z7 | updateUserSettings | chunks.40.mjs:849 | function |
+| TA | updateUserSettings | chunks.153.mjs | function |
+
+### Attachment Normalization (Cross-reference: System Reminder)
+
+> Functions in chunks.174.mjs and chunks.173.mjs used by memory attachment normalization.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ui8 | normalizeAttachmentForAPI | chunks.174.mjs:3 | function |
+| b5 | wrapWithSystemReminderTags | chunks.173.mjs:2496 | function |
+| p1 | createUserMessage | chunks.173.mjs:1378 | function |
+
+> **Note**: These functions are documented in the System Reminder module but are critical for memory attachment processing. See [04_system_reminder/](../04_system_reminder/) for full analysis.
 
 ---
 
@@ -1534,7 +1703,6 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | e4q | AUTO_MODE_CONFIG | chunks.147.mjs:1236-1240 | constant |
 | IE1 | TODO_REMINDER_CONFIG | chunks.147.mjs:1226-1230 | constant |
 | YuY | ULTRAMEMORY_CONFIG | chunks.147.mjs:1241-1243 | constant |
-| hE1 | MEMORY_TRUNCATION_LINES | chunks.147.mjs:1244 | constant (200) |
 | wuY | QUEUED_COMMAND_MODES | chunks.147.mjs:1245 | constant (Set) |
 
 ### Attachment Producers

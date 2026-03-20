@@ -14,31 +14,22 @@ This document provides detailed analysis of how MEMORY.md content is injected in
 
 ### Registration Point
 
-**Location**: chunks.169.mjs:246
+**Location**: System prompt builder initialization
+
+Memory is registered as a **dynamic variable** in system prompt:
 
 ```javascript
-// ============================================
-// Auto Memory Dynamic Variable Registration
-// Location: chunks.169.mjs:246
-// ============================================
-
-// ORIGINAL (for source lookup):
-wc("auto_memory", () => F0A(), "MEMORY.md is read from disk each turn");
-
-// READABLE (for understanding):
 registerDynamicVariable(
-  "auto_memory",                              // Variable name
-  () => getMemoryContext(),                   // Evaluator function (called each turn)
-  "MEMORY.md is read from disk each turn"     // Description for debugging
+    "auto_memory",                              // Variable name
+    () => getAutoMemory(),                      // Evaluator function (ID1 - async)
+    "MEMORY.md is read from disk each turn"     // Description for debugging
 );
-
-// Mapping: wc→registerDynamicVariable, F0A→getMemoryContext
 ```
 
 **How it works:**
 1. **Startup**: `registerDynamicVariable()` is called once when system initializes
 2. **Every turn**: System prompt builder invokes all dynamic variable evaluators
-3. **Fresh read**: `getMemoryContext()` reads MEMORY.md from disk (not cached)
+3. **Fresh read**: `getAutoMemory()` (`ID1`) reads MEMORY.md from disk (not cached)
 4. **Concatenation**: Result is inserted into system prompt at "auto_memory" placeholder
 5. **LLM receives**: Full system prompt with latest memory content
 
@@ -77,7 +68,7 @@ User edits MEMORY.md externally (e.g., deletes outdated entries)
   ↓
 User sends next message to agent
   ↓
-Turn N+1: buildMemoryPrompt() calls fs.readFileSync() → reads updated content
+Turn N+1: getAutoMemory() calls fs.readFileSync() → reads updated content
   ↓
 Agent receives system prompt with updated memory (no restart needed)
 ```
@@ -100,39 +91,26 @@ System Prompt Builder: Construct full prompt
    - Working directory context
    - Code indexing rules
    Dynamic variables (evaluated fresh each turn):
-   - auto_memory  <-- INVOKES getMemoryContext()
+   - auto_memory  <-- INVOKES getAutoMemory() (ID1)
    - git_status   <-- INVOKES getGitStatus()
    - recent_errors<-- INVOKES getRecentErrors()
                     |
-getMemoryContext() Execution Flow
+getAutoMemory() Execution Flow
    Step 1: Check if auto memory enabled
       if (!isAutoMemoryEnabled()) {
         return null; // No memory section in prompt
       }
-   Step 2: Call buildMemoryPrompt()
-      return buildMemoryPrompt();
-                    |
-buildMemoryPrompt() Constructs Memory Section
-   Part 1: Header (2 lines)
-      # auto memory
-   Part 2: Directory Info (2 lines)
-      You have a persistent auto memory directory at /path/to/memory/.
-   Part 3: Introduction (4 lines)
-      Its contents persist across conversations.
-      As you work, consult your memory files...
-   Part 4: Guidelines (6 lines)
-      Guidelines:
-      - MEMORY.md is always loaded into your system prompt...
-   Part 5: What to Save / Not Save (10 lines)
-      What to save: ...
-      What NOT to save: ...
-   Part 6: Explicit User Requests (4 lines)
-      Explicit user requests: ...
-   Part 7: Last updated timestamp (new in v2.1.74)
-      Last updated: 2026-03-14T10:30:00.000Z
-   Part 8: MEMORY.md Content (2 lines + content)
-      ## MEMORY.md
-      [ACTUAL FILE CONTENT OR EMPTY STATE MESSAGE]
+   Step 2: Check feature flags for format
+      - tengu_passport_quail: Background agent mode
+      - tengu_swinburne_dune: File-based format
+   Step 3: Ensure directory exists
+      await ensureMemoryDirExists(memoryDir);
+   Step 4: Record telemetry
+      recordMemoryDirLoadMetrics(memoryDir, {...});
+   Step 5: Return appropriate prompt format
+      - Simple format (uv9)
+      - File-based format (U14)
+      - Background agent format (xv9)
                     |
 Full System Prompt Assembled
    [Static sections]
@@ -170,7 +148,6 @@ Agent Response:
 System Prompt (regenerated, fresh read):
   # auto memory
   ...
-  Last updated: 2026-03-14T15:22:00.000Z
   ## MEMORY.md
   # Project Conventions
 
@@ -186,93 +163,9 @@ Agent Response:
 
 ### Complete Template Breakdown
 
-```javascript
-// ============================================
-// buildMemoryPrompt - Constructs full auto memory section
-// Location: chunks.87.mjs:2257-2297
-// ============================================
+The `buildMemoryPrompt` (`Q14`) function constructs the memory section:
 
-// READABLE (for understanding):
-function buildMemoryPrompt() {
-  const memoryDirectory = getAutoMemoryDirectory();
-  const memoryFilePath = path.join(memoryDirectory, "MEMORY.md");
-
-  // === Part 1: Header ===
-  let promptSection = `# auto memory\n\n`;
-
-  // === Part 2: Directory Info ===
-  promptSection += `You have a persistent auto memory directory at \`${memoryDirectory}\`.\n\n`;
-
-  // === Part 3: Introduction ===
-  promptSection += `Its contents persist across conversations.\n\n`;
-  promptSection += `As you work, consult your memory files to build on previous experience. When you encounter a mistake that seems like it could be common, check your auto memory for relevant notes — and if nothing is written yet, record what you learned.\n\n`;
-
-  // === Part 4: Guidelines ===
-  promptSection += `Guidelines:\n`;
-  promptSection += `- \`MEMORY.md\` is always loaded into your system prompt — lines after 200 will be truncated, so keep it concise\n`;
-  promptSection += `- Create separate topic files (e.g., \`debugging.md\`, \`patterns.md\`) for detailed notes and link to them from MEMORY.md\n`;
-  promptSection += `- Update or remove memories that turn out to be wrong or outdated\n`;
-  promptSection += `- Organize memory semantically by topic, not chronologically\n`;
-  promptSection += `- Use the Write and Edit tools to update your memory files\n\n`;
-
-  // === Part 5: What to Save ===
-  promptSection += `What to save:\n`;
-  promptSection += `- Stable patterns and conventions confirmed across multiple interactions\n`;
-  promptSection += `- Key architectural decisions, important file paths, and project structure\n`;
-  promptSection += `- User preferences for workflow, tools, and communication style\n`;
-  promptSection += `- Solutions to recurring problems and debugging insights\n\n`;
-
-  // === Part 6: What NOT to Save ===
-  promptSection += `What NOT to save:\n`;
-  promptSection += `- Session-specific context (current task details, in-progress work, temporary state)\n`;
-  promptSection += `- Information that might be incomplete — verify against project docs before writing\n`;
-  promptSection += `- Anything that duplicates or contradicts existing CLAUDE.md instructions\n`;
-  promptSection += `- Speculative or unverified conclusions from reading a single file\n\n`;
-
-  // === Part 7: Explicit User Requests ===
-  promptSection += `Explicit user requests:\n`;
-  promptSection += `- When the user asks you to remember something across sessions (e.g., "always use bun", "never auto-commit"), save it — no need to wait for multiple interactions\n`;
-  promptSection += `- When the user asks to forget or stop remembering something, find and remove the relevant entries from your memory files\n\n`;
-
-  // === Part 8: Last Updated Timestamp (new in v2.1.74) ===
-  try {
-    const stat = fs.statSync(memoryFilePath);
-    promptSection += `Last updated: ${stat.mtime.toISOString()}\n\n`;
-  } catch {
-    // File doesn't exist yet, skip timestamp
-  }
-
-  // === Part 9: MEMORY.md Content ===
-  promptSection += `## MEMORY.md\n\n`;
-
-  try {
-    const content = fs.readFileSync(memoryFilePath, "utf8").normalize("NFC");
-    const lines = content.split("\n");
-    const MEMORY_MAX_LINES = 200;
-
-    if (lines.length > MEMORY_MAX_LINES) {
-      // Truncation case
-      const truncatedContent = lines.slice(0, MEMORY_MAX_LINES).join("\n");
-      const warningMessage = `\n\n> WARNING: MEMORY.md is ${lines.length} lines (limit: ${MEMORY_MAX_LINES}).\n  Only the first ${MEMORY_MAX_LINES} lines were loaded.\n  Move detailed content into separate topic files and keep MEMORY.md as a concise index.`;
-
-      promptSection += truncatedContent + warningMessage;
-
-    } else {
-      // Normal case
-      promptSection += content;
-    }
-
-  } catch (error) {
-    // File read error case
-    const emptyStateMessage = `Your MEMORY.md is currently empty. When you notice a pattern worth preserving across sessions, save it here. Anything in MEMORY.md will be included in your system prompt next time.`;
-    promptSection += emptyStateMessage;
-  }
-
-  return promptSection;
-}
-```
-
-### Template Sections Explained
+**Template Sections**:
 
 | Section | Line Count | Purpose | Dynamic? |
 |---------|------------|---------|----------|
@@ -283,52 +176,12 @@ function buildMemoryPrompt() {
 | **What to Save** | 5 | Criteria for writing to memory | Static |
 | **What NOT to Save** | 5 | Anti-patterns to avoid | Static |
 | **Explicit Requests** | 3 | How to handle user "remember" commands | Static |
-| **Last Updated** (v2.1.74) | 1 | File modification timestamp for freshness | **Fully dynamic** |
 | **MEMORY.md Content** | 1 + variable | Actual file content or empty state | **Fully dynamic** |
 | **Truncation Warning** | 4 (conditional) | Appears if file > 200 lines | **Conditional dynamic** |
 
 **Total static overhead**: ~30 lines (always present)
 **Variable content**: Up to 200 lines (file content)
-**Maximum total**: ~235 lines (30 static + 200 content + 1 timestamp + 4 warning)
-
----
-
-## Freshness Tracking (v2.1.74)
-
-### Last-Modified Timestamp
-
-In v2.1.74, a `Last updated` timestamp is included in the memory prompt header. This is obtained via a `fs.statSync()` call before reading the file content:
-
-```javascript
-// ============================================
-// Freshness Timestamp Injection (v2.1.74)
-// Location: chunks.87.mjs (before content read)
-// ============================================
-
-// READABLE (for understanding):
-try {
-  const stat = fs.statSync(memoryFilePath);
-  promptSection += `Last updated: ${stat.mtime.toISOString()}\n\n`;
-} catch {
-  // File doesn't exist — no timestamp shown
-}
-```
-
-**Why this matters:**
-- **Staleness awareness**: Agent can reason about whether memory is current
-- **Maintenance triggers**: Very old timestamps suggest a review is needed
-- **Transparency**: No hidden state — freshness is explicit in context
-
-**Example prompt section**:
-```markdown
-Last updated: 2026-01-15T09:22:15.000Z
-
-## MEMORY.md
-
-# Project Conventions
-
-- Always use bun instead of npm
-```
+**Maximum total**: ~235 lines (30 static + 200 content + 5 warning)
 
 ---
 
@@ -376,36 +229,42 @@ Your MEMORY.md is currently empty. When you notice a pattern worth preserving ac
 
 ---
 
-## Code Analysis: getMemoryContext Entry Point
+## Code Analysis: getAutoMemory Entry Point
 
-```javascript
 // ============================================
-// getMemoryContext - Main entry point for memory prompt injection
-// Location: chunks.87.mjs:2290-2297
+// getAutoMemory - Main async entry point for memory prompt injection
+// Location: chunks.84.mjs:382-411
 // ============================================
 
 // ORIGINAL (for source lookup):
-function F0A() {
-  if (!y2()) {
-    return null;
-  }
-  return m0A();
+async function ID1() {
+    let A = Z3(),
+        q = w8("tengu_swinburne_dune", !1);
+    if (F14.isTeamMemoryEnabled()) {
+        let K = uH(),
+            Y = F14.getTeamMemPath();
+        if (await CD1(Y), DF6(K, { memory_type: "auto" }), DF6(Y, { memory_type: "team" }),
+            w8("tengu_passport_quail", !1)) return Qf8.buildExtractModeTypedCombinedPrompt();
+        if (q) return Qf8.buildTypedCombinedMemoryPrompt();
+        return Qf8.buildCombinedMemoryPrompt()
+    }
+    if (A) {
+        let K = uH();
+        if (await CD1(K), DF6(K, { memory_type: "auto" }), w8("tengu_passport_quail", !1))
+            return xv9("auto memory", K).join("\n");
+        if (q) return U14("auto memory", K).join("\n");
+        return uv9()
+    }
+    if (d("tengu_memdir_disabled", {
+        disabled_by_env_var: t6(process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY),
+        disabled_by_setting: !t6(process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY) && mA().autoMemoryEnabled === !1
+    }), w8("tengu_herring_clock", !1)) d("tengu_team_memdir_disabled", {});
+    return null
 }
 
-// READABLE (for understanding):
-function getMemoryContext() {
-  // Check if auto memory is enabled (priority chain)
-  if (!isAutoMemoryEnabled()) {
-    // Memory disabled, return null (no section in system prompt)
-    return null;
-  }
-
-  // Memory enabled, build and return prompt section
-  return buildMemoryPrompt();
-}
-
-// Mapping: F0A→getMemoryContext, y2→isAutoMemoryEnabled, m0A→buildMemoryPrompt
-```
+// Mapping: ID1 → getAutoMemory, Z3 → isAutoMemoryEnabled, uH → getAutoMemoryDirectory,
+//          CD1 → ensureMemoryDirExists, DF6 → recordMemoryDirLoadMetrics, uv9 → buildAutoMemoryPromptSimple,
+//          U14 → buildMemoryIndex, xv9 → buildBackgroundAgentMemoryPrompt
 
 ---
 
@@ -427,18 +286,7 @@ function getMemoryContext() {
 echo "# Test Content" > ~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/MEMORY.md
 ```
 
-### Test 2: Verify Last-Updated Timestamp (v2.1.74)
-
-1. Start conversation with auto memory enabled
-2. Ask agent: "Is there a 'Last updated' timestamp in your memory section?"
-3. **Expected**: Agent reports the timestamp from the file's mtime
-
-```bash
-# Check the actual mtime
-stat ~/.claude/projects/$(ls ~/.claude/projects | head -1)/memory/MEMORY.md
-```
-
-### Test 3: Verify Memory Disabled Returns Null
+### Test 2: Verify Memory Disabled Returns Null
 
 ```bash
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
@@ -450,16 +298,249 @@ export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
 
 ---
 
+## Memory Attachment Types
+
+In addition to the primary `auto_memory` dynamic variable, the system provides two attachment types that inject memory content into the conversation context as system reminders.
+
+### nested_memory Attachment Type
+
+**Purpose**: Load individual memory files that are referenced by the agent's memory directory.
+
+**Trigger**: When `nestedMemoryAttachmentTriggers` set contains file paths (typically from CLAUDE.md includes or @-mentions).
+
+#### Producer Function
+
+// ============================================
+// produceNestedMemoryAttachment - Producer for nested memory files
+// Location: chunks.147.mjs:541-550
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function IuY(A) {
+    if (!A.nestedMemoryAttachmentTriggers || A.nestedMemoryAttachmentTriggers.size === 0) return [];
+    let q = A.getAppState(), K = [];
+    for (let Y of A.nestedMemoryAttachmentTriggers) {
+        let z = Yqq(Y, A, q);
+        K.push(...z)
+    }
+    return K
+}
+
+// READABLE (for understanding):
+async function produceNestedMemoryAttachment(context) {
+    if (!context.nestedMemoryAttachmentTriggers?.size) return [];
+
+    const appState = context.getAppState();
+    const attachments = [];
+
+    for (const triggerPath of context.nestedMemoryAttachmentTriggers) {
+        const memoryFiles = collectNestedMemoryFiles(triggerPath, context, appState);
+        attachments.push(...memoryFiles);
+    }
+
+    return attachments;
+}
+
+// Mapping: IuY → produceNestedMemoryAttachment, Yqq → collectNestedMemoryFiles
+
+#### Normalization Function
+
+// ============================================
+// nested_memory normalization - Converts attachment to system reminder message
+// Location: chunks.174.mjs:165-171
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "nested_memory":
+    return b5([p1({
+        content: `Contents of ${A.content.path}:
+
+${A.content.content}`,
+        isMeta: !0
+    })]);
+
+// READABLE (for understanding):
+case "nested_memory":
+    return wrapWithSystemReminderTags([createUserMessage({
+        content: `Contents of ${attachment.content.path}:\n\n${attachment.content.content}`,
+        isMeta: true
+    })]);
+
+// Mapping: b5 → wrapWithSystemReminderTags, p1 → createUserMessage, A → attachment
+
+**Attachment Structure**:
+```typescript
+{
+    type: "nested_memory",
+    path: string,          // Full file path
+    content: MemoryFile,   // File content object
+    displayPath: string    // Relative path for display
+}
+```
+
+**How normalization works:**
+1. Extract `path` and `content` from attachment's `content` property
+2. Format as markdown with "Contents of {path}:" header
+3. Wrap in `createUserMessage()` with `isMeta: true` flag
+4. Wrap result in `<system-reminder>` XML tags via `b5()`
+
+**Why this format:**
+- **Clear attribution**: Path shows exactly which memory file this is
+- **Inline visibility**: Content appears directly in conversation context
+- **Meta-flagged**: Hidden from UI, visible only to LLM
+
+---
+
+### relevant_memories Attachment Type
+
+**Purpose**: Load recently-accessed or relevant memory files with staleness information.
+
+**Trigger**: When `tengu_moth_copse` feature flag is enabled and user message contains relevant keywords.
+
+**Key insight**: This attachment type includes last-modified timestamps, enabling staleness warnings via `Cz8` (buildStalenessWarning).
+
+#### Staleness Detection Functions
+
+// ============================================
+// buildStalenessWarning - Generate staleness warning for old memories
+// formatRelativeTime - Convert timestamp to human-readable relative time
+// Location: chunks.50.mjs:2480-2491
+// ============================================
+
+// ORIGINAL (for source lookup):
+function cJ7(A) {
+    let q = dJ7(A);
+    if (q === 0) return "today";
+    if (q === 1) return "yesterday";
+    return `${q} days ago`
+}
+
+function Cz8(A) {
+    let q = dJ7(A);
+    if (q <= 1) return "";
+    return `This memory is ${q} days old. ` + "Memories are point-in-time observations, not live state — " + "claims about code behavior or file:line citations may be outdated. Verify against current code before asserting as fact."
+}
+
+// READABLE (for understanding):
+function formatRelativeTime(timestampMs) {
+    const daysSince = getDaysSinceTimestamp(timestampMs);
+    if (daysSince === 0) return "today";
+    if (daysSince === 1) return "yesterday";
+    return `${daysSince} days ago`;
+}
+
+function buildStalenessWarning(timestampMs) {
+    const daysSince = getDaysSinceTimestamp(timestampMs);
+    if (daysSince <= 1) return "";  // No warning for recent memories
+    return `This memory is ${daysSince} days old. ` +
+           "Memories are point-in-time observations, not live state — " +
+           "claims about code behavior or file:line citations may be outdated. " +
+           "Verify against current code before asserting as fact.";
+}
+
+// Mapping: cJ7 → formatRelativeTime, Cz8 → buildStalenessWarning, dJ7 → getDaysSinceTimestamp
+
+**Staleness Logic:**
+| Days Since Modification | formatRelativeTime Output | buildStalenessWarning Output |
+|------------------------|---------------------------|------------------------------|
+| 0 | "today" | "" (no warning) |
+| 1 | "yesterday" | "" (no warning) |
+| 2+ | "N days ago" | Full warning message |
+
+**Why no warning for ≤1 day:**
+- Recent memories (< 48 hours) are likely still accurate
+- Avoids cluttering prompt with unnecessary warnings
+- Balances caution with usability
+
+#### Normalization Function
+
+// ============================================
+// relevant_memories normalization - Converts attachment to system reminder messages
+// Location: chunks.174.mjs:172-184
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "relevant_memories":
+    return b5(A.memories.map((K) => {
+        let Y = Cz8(K.mtimeMs),
+            z = Y ? `${Y}
+
+Memory: ${K.path}:` : `Memory (saved ${cJ7(K.mtimeMs)}): ${K.path}:`;
+        return p1({
+            content: `${z}
+
+${K.content}`,
+            isMeta: !0
+        })
+    }));
+
+// READABLE (for understanding):
+case "relevant_memories":
+    return wrapWithSystemReminderTags(attachment.memories.map((memory) => {
+        // Get staleness warning if memory is old
+        const stalenessWarning = buildStalenessWarning(memory.mtimeMs);  // Cz8
+
+        // Build header with or without warning
+        const header = stalenessWarning
+            ? `${stalenessWarning}\n\nMemory: ${memory.path}:`
+            : `Memory (saved ${formatRelativeTime(memory.mtimeMs)}): ${memory.path}:`;
+
+        return createUserMessage({
+            content: `${header}\n\n${memory.content}`,
+            isMeta: true
+        });
+    }));
+
+// Mapping: b5 → wrapWithSystemReminderTags, p1 → createUserMessage, A → attachment,
+//          K → memory, Y → stalenessWarning, z → header, Cz8 → buildStalenessWarning,
+//          cJ7 → formatRelativeTime
+
+**How normalization works:**
+1. Iterate over each memory in `attachment.memories` array
+2. For each memory, check staleness using `buildStalenessWarning()`
+3. If stale (>1 day): Include warning + "Memory: {path}:"
+4. If fresh (≤1 day): Include "Memory (saved {relativeTime}): {path}:"
+5. Combine header with content and wrap in system reminder tags
+
+**Example Output**:
+```
+Memory (saved yesterday): /path/to/debugging.md:
+
+# Debugging Notes
+
+- Always check logs first
+...
+
+Memory: /path/to/patterns.md:
+
+This memory is 5 days old. Memories are point-in-time observations, not live state — claims about code behavior or file:line citations may be outdated. Verify against current code before asserting as fact.
+
+# Project Patterns
+
+...
+```
+
+---
+
 ## Related Symbols
 
 > Symbol mappings:
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `getMemoryContext` (F0A) - Main entry point for memory prompt injection
-- `buildMemoryPrompt` (m0A) - Constructs full auto memory section
-- `isAutoMemoryEnabled` (y2) - Feature enable check
-- `registerDynamicVariable` (wc) - Registers dynamic system prompt variable
+- `getAutoMemory` (`ID1`) - Main async entry point for memory prompt injection
+- `buildMemoryPrompt` (`Q14`) - Constructs full memory section with file content
+- `buildAutoMemoryPromptSimple` (`uv9`) - Simple prompt without file reading
+- `buildMemoryIndex` (`U14`) - Index-style prompt for file-based format
+- `buildBackgroundAgentMemoryPrompt` (`xv9`) - Background agent memory prompt
+- `isAutoMemoryEnabled` (`Z3`) - Feature enable check
+- `produceNestedMemoryAttachment` (`IuY`) - nested_memory attachment producer
+- `collectNestedMemoryFiles` (`Yqq`) - Collect memory files from trigger path
+- `buildStalenessWarning` (`Cz8`) - Staleness warning builder (chunks.50.mjs:2487-2491)
+- `formatRelativeTime` (`cJ7`) - Relative time formatter (chunks.50.mjs:2480-2485)
+- `getDaysSinceTimestamp` (`dJ7`) - Days since timestamp calculator
+- `wrapWithSystemReminderTags` (`b5`) - XML wrapper for system reminders
+- `createUserMessage` (`p1`) - Message factory with isMeta flag
 
 ---
 
@@ -467,10 +548,10 @@ Key functions in this document:
 
 1. **Dynamic variable system**: Memory content is read fresh on every turn
 2. **Multi-part template**: ~30 lines of static guidelines + up to 200 lines of content
-3. **Freshness timestamps** (v2.1.74): `Last updated` timestamp added to prompt header via file stat
-4. **Automatic truncation**: Content > 200 lines is cut, warning appended
-5. **Empty state guidance**: Missing file shows helpful message, not error
-6. **Telemetry tracking**: Every memory load is logged for analytics
+3. **Automatic truncation**: Content > 200 lines is cut, warning appended
+4. **Empty state guidance**: Missing file shows helpful message, not error
+5. **Telemetry tracking**: Every memory load is logged for analytics
+6. **Feature flag driven**: Different formats based on `tengu_passport_quail` and `tengu_swinburne_dune` flags
 
 **Design rationale**:
 - Fresh content: Dynamic variables ensure real-time updates

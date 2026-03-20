@@ -16,8 +16,8 @@ Memory is stored in three distinct scopes:
 
 ### The MEMORY.md File
 
-- **Filename**: `MEMORY.md` (`pN9` / `Ua`)
-- **Limit**: 200 lines (`Qu1`). Content beyond this is truncated.
+- **Filename**: `MEMORY.md` (`o2` / `BG3`)
+- **Limit**: 200 lines (`uj`). Content beyond this is truncated.
 - **Role**: Serves as a concise index and "active" memory. Detailed notes should be moved to "topic files" (e.g., `debugging.md`, `patterns.md`).
 - **Freshness**: Last-modified timestamp tracked and surfaced in system prompt (v2.1.76).
 
@@ -25,9 +25,9 @@ Memory is stored in three distinct scopes:
 
 The system registers `auto_memory` as a dynamic instruction provider. Each turn, the following happens:
 
-1. **Detection**: The system checks if auto-memory is enabled (`y2`).
-2. **Loading**: `getMemoryContext` (`F0A`) reads `MEMORY.md` from disk.
-3. **Truncation**: If the file exceeds 200 lines, it is truncated with a warning message (`m0A`).
+1. **Detection**: The system checks if auto-memory is enabled (`Z3`).
+2. **Loading**: `getAutoMemory` (`ID1`) reads `MEMORY.md` from disk.
+3. **Truncation**: If the file exceeds 200 lines, it is truncated with a warning message (`Q14`).
 4. **Injection**: The content is wrapped in XML-like instructions and added to the system prompt.
 
 ### Custom Memory Directory (v2.1.59)
@@ -44,7 +44,7 @@ Users can specify `autoMemoryDirectory` in settings to override the default proj
 **What it does**: Reads the memory file and ensures it doesn't overwhelm the context window.
 
 **How it works**:
-1. Locates the correct memory directory based on scope (`mu1`).
+1. Locates the correct memory directory based on scope (`uH`).
 2. Checks `autoMemoryDirectory` setting for custom override (v2.1.59).
 3. Reads the full content of `MEMORY.md`.
 4. Reads file stat for last-modified timestamp (v2.1.76).
@@ -67,23 +67,22 @@ LLMs have finite context. By using `MEMORY.md` as an index and `topic files` for
 
 // ============================================
 // buildMemoryPrompt - Builds the string to be injected into the system prompt
-// Location: chunks.87.mjs:2257-2297
+// Location: chunks.84.mjs:290-322
 // ============================================
 
 // ORIGINAL (for source lookup):
-function m0A(A) {
-    let { displayName: q, memoryDir: K, extraGuidelines: Y } = A, z = b1(), w = K + Ua;
+function Q14(A) {
+    let { displayName: q, memoryDir: K, extraGuidelines: Y } = A, z = $1(), _ = K + o2, w = "";
     try { z.mkdirSync(K) } catch {}
-    let H = "";
-    try { H = z.readFileSync(w, { encoding: "utf-8" }) } catch {}
-    let $ = [`# ${q}`, "", `You have a persistent ${q} directory at \`${K}\`...`, ...];
-    if (H.trim()) {
-        let O = H.trim().split("\n"), _ = O.length > Qu1;
-        let X = H.trim();
-        if (_) X = O.slice(0, Qu1).join("\n") + "\n\n> WARNING: " + Ua + " is " + O.length + " lines...";
-        $.push("## " + Ua, "", X)
+    try { w = z.readFileSync(_, { encoding: "utf-8" }) } catch {}
+    let O = [`# ${q}`, "", `You have a persistent ${q} directory at \`${K}\`...`, ...];
+    if (w.trim()) {
+        let $ = w.trim().split("\n"), H = $.length > uj;
+        let J = w.trim();
+        if (H) J = $.slice(0, uj).join("\n") + "\n\n> WARNING: " + o2 + " is " + $.length + " lines...";
+        O.push("## " + o2, "", J)
     }
-    return $.join("\n")
+    return O.join("\n")
 }
 
 // READABLE (for understanding):
@@ -118,7 +117,7 @@ function buildMemoryPrompt(params) {
     return promptLines.join("\n");
 }
 
-// Mapping: m0A→buildMemoryPrompt, A→params, q→displayName, K→memoryDir, Ua→MEMORY_MD_FILENAME, Qu1→MEMORY_MAX_LINES
+// Mapping: Q14→buildMemoryPrompt, A→params, q→displayName, K→memoryDir, o2→MEMORY_MD_FILENAME, uj→MEMORY_MAX_LINES
 
 ## Related Symbols
 
@@ -126,15 +125,15 @@ function buildMemoryPrompt(params) {
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions:
-- `getMemoryContext` (`F0A`) - Entry point for the memory system.
-- `buildMemoryPrompt` (`m0A`) - Core logic for file reading and truncation.
-- `MEMORY_MD_FILENAME` (`pN9` / `Ua`) - "MEMORY.md".
-- `MEMORY_MAX_LINES` (`Qu1`) - 200.
+- `getAutoMemory` (`ID1`) - Async entry point for the memory system.
+- `buildMemoryPrompt` (`Q14`) - Core logic for file reading and truncation.
+- `MEMORY_MD_FILENAME` (`o2` / `BG3`) - "MEMORY.md".
+- `MEMORY_MAX_LINES` (`uj`) - 200.
 
 ## Location References
 
-- `chunks.87.mjs:2229` - Constant definitions.
-- `chunks.87.mjs:2257` - `m0A` implementation.
+- `chunks.84.mjs:415` - Constant definitions.
+- `chunks.84.mjs:290` - `Q14` implementation.
 - `chunks.169.mjs:231` - Registration in the dynamic prompt list.
 
 ## Changelog References
