@@ -5,20 +5,19 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - CLI, Status Line
 
 Key functions in this document:
-- `PG` - showSpinner calculation, chunks.188.mjs:231
-- `Gw` - hasActiveDialogs flag, chunks.188.mjs:232
-- `resetLoadingState` (YK) - Post-query cleanup, chunks.188.mjs:218
-- `setIsLoading` (C3) - Loading state setter with timing, chunks.188.mjs:99
-- `getSpinnerText` - Generate spinner activity text, chunks
-- `HO` - Spinner tip from feature system, chunks.188.mjs:168
+- `REPL` (`ot8`) - Main REPL component, chunks.196.mjs:3
+- `handleToolUseStream` (`xN6`) - Core streaming event processor, chunks.173.mjs:2384
+- `getInputDialogType` (`ra6`) - Priority dialog dispatcher, chunks.196.mjs:387-404
+- `handleCancel` (`TM`) - Escape/cancel handler, chunks.196.mjs:420-432
+- `MessageList` (`veY`) - Memoized message list component, chunks.161.mjs:3
 
 ---
 
 ## Table of Contents
 
 - [1. Architecture Overview](#1-architecture-overview)
-- [2. Spinner Visibility Logic (PG)](#2-spinner-visibility-logic-pg)
-- [3. Has Active Dialogs (Gw)](#3-has-active-dialogs-gw)
+- [2. Spinner Visibility Logic](#2-spinner-visibility-logic)
+- [3. Has Active Dialogs](#3-has-active-dialogs)
 - [4. Status Text Generation](#4-status-text-generation)
 - [5. Loading State Machine](#5-loading-state-machine)
 - [6. Activity Descriptions](#6-activity-descriptions)
@@ -61,7 +60,7 @@ The spinner/status system provides visual feedback during LLM operations and too
 
 ---
 
-## 2. Spinner Visibility Logic (PG)
+## 2. Spinner Visibility Logic
 
 The spinner visibility is determined by a compound boolean expression.
 
@@ -117,11 +116,31 @@ let MG = JO.length > 0 && JO.every(
 
 **What this means:** When all pending tools are "permission-only" tools (tools that require permission for every use), the spinner is hidden because execution is blocked waiting for user action, not waiting for LLM.
 
+### Spinner Visibility Algorithm Deep Analysis
+
+**What it does:** Determines whether the loading spinner should be displayed, balancing the need to show activity indicators with the need to hide spinners when user action is required.
+
+**How it works:**
+1. **Local JSX check** - If a local JSX command is active, defer to its `showSpinner` property
+2. **Tool permission gate** - Hide spinner if tool permissions are queued (user needs to act)
+3. **Activity detection** - Show spinner only if loading, has input, has running tasks, or has queued commands
+4. **Worker coordination** - Hide spinner if worker is waiting for leader response
+5. **Tool-only mode** - Hide spinner if all pending tools are permission-only
+6. **Brief mode handling** - Special case for brief mode with partial text
+
+**Why this approach:**
+- **User action priority** - When user needs to act (tool permissions), spinner is misleading
+- **Worker coordination** - In multi-agent mode, worker shouldn't show spinner while waiting for leader
+- **Tool-only detection** - Permission-only tools are blocked on user, not LLM
+- **Compound conditions** - All conditions must be met, ensuring spinner appears only when appropriate
+
+**Key insight:** The spinner visibility logic encodes the distinction between "waiting for LLM" and "waiting for user." Tool permissions, prompts, and tool-only mode all indicate user action is required, so the spinner is hidden to avoid giving the false impression that the system is actively processing.
+
 ---
 
-## 3. Has Active Dialogs (Gw)
+## 3. Has Active Dialogs
 
-The `Gw` flag tracks whether ANY dialog queue has items.
+The `hasActiveDialogs` flag tracks whether ANY dialog queue has items.
 
 ```javascript
 // ============================================

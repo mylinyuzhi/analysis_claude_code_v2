@@ -4,41 +4,32 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI Components
 
 Key functions in this document:
-- `MessageList` (P8z / g91) - Memoized message list component, chunks.161.mjs:587
-- `MessageComponent` (n9q) - Individual message renderer, chunks.161.mjs
-- `normalizeDisplayMessages` (t9q) - Groups tool uses with hooks and results, chunks.172.mjs:3072
-- `groupToolResults` (q9q) - Groups repeated tool uses for compact display, chunks.160.mjs:1849
-- `normalizeMessages` (WJ) - Transforms raw messages to render format, chunks.173.mjs:89
-- `reorderAttachments` (dzz) - Positions attachment messages near their turns, chunks.172.mjs:3244
-- `getVisibleMessagesAfterCompact` (EN) - Shows only post-compact messages, chunks.173.mjs:1286
-- `shouldShowMessageInChat` (qYq) - Core UI visibility filter, chunks.173.mjs:1292
-- `isNotProgress` (f8z) - Removes progress messages, chunks.161.mjs:571
-- `handleToolUseStream` (iW1) - Routes streaming events to state, chunks.173.mjs:390
-- `createAssistantMessage` (DJq) - Constructs assistant message objects, chunks.172.mjs:2860
+- `MessageList` (`veY`/`G_6`) - Memoized message list component, chunks.161.mjs:3/355
+- `handleToolUseStream` (`xN6`) - Core streaming event processor, chunks.173.mjs:2384-2488
+- `shouldShowMessageInChat` (`XV6`) - Core UI visibility filter, chunks.185.mjs:1692-1702
+- `normalizeMessages` (`WJ`) - Transforms raw messages to render format, chunks.173.mjs
+- `reorderAttachments` (`dzz`) - Reorder attachments before user messages, chunks.173.mjs
+- Compact boundary detection - Inline pattern at chunks.150.mjs:2523
 
 ---
 
 ## Table of Contents
 
 - [1. Pipeline Overview](#1-pipeline-overview)
-- [2. Stage 0: Streaming Input (iW1)](#2-stage-0-streaming-input-iw1)
-- [3. Stage 1: Message Normalization (WJ)](#3-stage-1-message-normalization-wj)
-  - [3.1 Attachment Reordering](#31-attachment-reordering-dzz)
-  - [3.2 Tool Input Normalization](#32-tool-input-normalization)
-  - [3.3 Message Merging](#33-message-merging)
-- [4. Stage 2: Compaction Filter (EN)](#4-stage-2-compaction-filter-en)
-- [5. Stage 3: Visibility Filter (qYq)](#5-stage-3-visibility-filter-qyq)
-- [6. Stage 4: Display Normalization (t9q)](#6-stage-4-display-normalization-t9q)
-  - [6.1 Hook Grouping](#61-hook-grouping)
-  - [6.2 API Error Deduplication](#62-api-error-deduplication)
-- [7. Stage 5: Tool Result Grouping (q9q)](#7-stage-5-tool-result-grouping-q9q)
+- [2. Stage 0: Streaming Input](#2-stage-0-streaming-input)
+- [3. Stage 1: Message Normalization](#3-stage-1-message-normalization)
+- [4. Stage 2: Compaction Filter](#4-stage-2-compaction-filter)
+- [5. Stage 3: Visibility Filter](#5-stage-3-visibility-filter)
+- [6. Stage 4: Display Normalization](#6-stage-4-display-normalization)
+- [7. Stage 5: Tool Result Grouping](#7-stage-5-tool-result-grouping)
 - [8. Stage 6: Pagination and Transcript Mode](#8-stage-6-pagination-and-transcript-mode)
-- [9. Stage 7: MessageList Rendering (P8z)](#9-stage-7-messagelist-rendering-p8z)
-  - [9.1 Memoization Strategy](#91-memoization-strategy)
-  - [9.2 Streaming Tool Uses Integration](#92-streaming-tool-uses-integration)
-  - [9.3 Thinking Block Lifecycle](#93-thinking-block-lifecycle)
+- [9. Stage 7: MessageList Rendering](#9-stage-7-messagelist-rendering)
 - [10. Message Type Reference](#10-message-type-reference)
 - [11. Performance Architecture](#11-performance-architecture)
+- [12. System Reminder Integration](#12-system-reminder-integration)
+- [13. Streaming Event Processing (xN6)](#13-streaming-event-processing-xn6)
+- [14. Cross-Module Data Flow Summary](#14-cross-module-data-flow-summary)
+- [15. v2.1.76 Rendering Fixes](#15-v2176-rendering-fixes)
 
 ---
 
@@ -50,35 +41,30 @@ The rendering pipeline transforms raw LLM output into terminal display through 7
 ┌──────────────────────────────────────────────────────────────────────┐
 │                    MESSAGE RENDERING PIPELINE                         │
 │                                                                       │
-│  Stage 0: STREAMING (iW1)                                            │
+│  Stage 0: STREAMING (xN6)                                            │
 │  LLM events → setMessages / setStreamingToolUses / setStreamMode     │
 │                                                                       │
-│  Stage 1: NORMALIZATION (WJ)                                         │
+│  Stage 1: NORMALIZATION                                              │
 │  Raw messages → Attachment reorder → Tool input normalize → Merge    │
-│  [chunks.173.mjs:89]                                                 │
 │                                                                       │
-│  Stage 2: COMPACTION FILTER (EN)                                     │
+│  Stage 2: COMPACTION FILTER                                          │
 │  Hide pre-compact messages (unless transcript view)                  │
-│  [chunks.173.mjs:1286]                                               │
 │                                                                       │
-│  Stage 3: VISIBILITY FILTER (qYq)                                    │
+│  Stage 3: VISIBILITY FILTER                                          │
 │  Remove isMeta:true messages + progress type messages                │
-│  [chunks.173.mjs:1292 + chunks.161.mjs:571]                          │
 │                                                                       │
-│  Stage 4: DISPLAY NORMALIZATION (t9q)                                │
+│  Stage 4: DISPLAY NORMALIZATION                                      │
 │  Group: tool_use → pre_hooks → tool_result → post_hooks              │
-│  [chunks.172.mjs:3072]                                               │
 │                                                                       │
-│  Stage 5: TOOL GROUPING (q9q)                                        │
+│  Stage 5: TOOL GROUPING                                              │
 │  Collapse repeated executions of same tool into one entry            │
-│  [chunks.160.mjs:1849]                                               │
 │                                                                       │
 │  Stage 6: PAGINATION                                                 │
 │  Transcript mode: last 10 messages (unless "show all")               │
 │                                                                       │
-│  Stage 7: REACT RENDER (P8z / n9q)                                  │
+│  Stage 7: REACT RENDER (veY)                                         │
 │  Map each message to MessageComponent                                │
-│  [chunks.161.mjs:587]                                                │
+│  [chunks.161.mjs:3]                                                  │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -99,7 +85,7 @@ Separating these concerns makes the system easier to reason about and test indep
 
 ---
 
-## 2. Stage 0: Streaming Input (iW1)
+## 2. Stage 0: Streaming Input
 
 Before the pipeline can process messages, they must arrive from the LLM streaming layer.
 
@@ -140,9 +126,9 @@ When streaming ends, these entries are removed from `streamingToolUses` and the 
 
 ---
 
-## 3. Stage 1: Message Normalization (WJ)
+## 3. Stage 1: Message Normalization
 
-`normalizeMessages` (`WJ`) is the "pre-processing" stage that converts the raw internal message format into a render-ready format.
+`normalizeMessages` is the "pre-processing" stage that converts the raw internal message format into a render-ready format.
 
 ```javascript
 // ============================================
@@ -290,80 +276,438 @@ Two merging patterns handle how messages are combined:
 
 ---
 
-## 4. Stage 2: Compaction Filter (EN)
+## 4. Stage 2: Compaction Filter
 
 In normal chat view (not transcript), messages before the last compaction boundary are hidden:
 
 ```javascript
 // ============================================
-// getVisibleMessagesAfterCompact - Show post-compact messages only
-// Location: chunks.173.mjs:1286-1290
+// findCompactBoundaryIndex - Find the last compaction boundary
+// Location: chunks.150.mjs:2523 (inline pattern)
 // ============================================
 
 // ORIGINAL (for source lookup):
-function EN(A) {
-    let q = Y2z(A);
-    if (q === -1) return A;
-    return A.slice(q)
-}
+// In chunks.150.mjs:2523, used inline:
+_ = z.findLastIndex((O) => O.type === "system" && ("subtype" in O) && O.subtype === "compact_boundary")
 
 // READABLE (for understanding):
-function getVisibleMessagesAfterCompact(messages) {
-    const lastBoundaryIndex = findLastCompactBoundary(messages);
-    if (lastBoundaryIndex === -1) return messages; // No compact happened
-    return messages.slice(lastBoundaryIndex);       // Only post-compact messages
-}
+const boundaryIndex = messages.findLastIndex(
+    (msg) => msg.type === "system" && msg.subtype === "compact_boundary"
+);
+
+// Then slice to show only post-boundary:
+const visibleMessages = boundaryIndex >= 0 ? messages.slice(boundaryIndex) : messages;
 ```
 
 **Why start AT the boundary, not after it?** The compact boundary message itself is type `"system"` with `subtype: "compact_boundary"` and contains the compact summary. It needs to be included so the `normalizeDisplayMessages` stage can see it. The `isNotProgress` filter in Stage 3 does NOT filter out system messages - they pass through to `normalizeDisplayMessages` where they are handled specially.
 
-**In transcript view:** `EN` is bypassed. The full `allMessages` array is passed to the filter chain, giving users access to the complete history including pre-compact messages.
+**In transcript view:** The compact boundary detection is bypassed. The full `allMessages` array is passed to the filter chain, giving users access to the complete history including pre-compact messages.
 
 ---
 
-## 5. Stage 3: Visibility Filter (qYq)
+## 5. Stage 3: Visibility Filter
 
-The `shouldShowMessageInChat` filter is applied on every render to every message in the array:
+The visibility filter system determines which messages appear in the UI. This is implemented through multiple functions working together.
+
+### 5.0 Actual Message Filtering in MessageList
+
+The primary filtering happens in `MessageList` (`veY`) at chunks.161.mjs:40:
 
 ```javascript
 // ============================================
-// shouldShowMessageInChat - Core UI message visibility gate
-// Location: chunks.173.mjs:1292-1297
+// MessageList - Actual filtering logic
+// Location: chunks.161.mjs:40
 // ============================================
 
 // ORIGINAL (for source lookup):
-function qYq(A, q) {
-    if (A.type !== "user") return !0;
+if (q[0] !== K) Q = JM(K).filter(Gi6), q[0] = K, q[1] = Q;
+else Q = q[1];
+let U = Q,
+
+// READABLE (for understanding):
+// Step 1: Flatten multi-content messages (JM)
+// Step 2: Filter empty messages (Gi6)
+if (cacheInvalidated) {
+    flattenedMessages = flattenMessageContent(messages);
+    filteredMessages = flattenedMessages.filter(filterEmptyMessages);
+    cache[0] = messages;
+    cache[1] = filteredMessages;
+} else {
+    filteredMessages = cache[1];
+}
+
+// Mapping: JM→flattenMessageContent, Gi6→filterEmptyMessages
+```
+
+**Important Discovery (2026-03-22):** The `isMeta` flag is NOT filtered out by `Gi6`. Messages with `isMeta: true` are included in the message list but rendered as empty/nothing by the component tree. This is a **rendering omission** pattern, not a **list filtering** pattern.
+
+### 5.1 isSpecialMessageType (Hz6) Deep Analysis
+
+The `Hz6` function detects special message types that should be hidden from certain UI contexts:
+
+```javascript
+// ============================================
+// isSpecialMessageType - Detect special message patterns
+// Location: chunks.173.mjs:1275-1277
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Hz6(A) {
+    return A.type !== "progress" && A.type !== "attachment" && A.type !== "system" &&
+           Array.isArray(A.message.content) &&
+           A.message.content[0]?.type === "text" &&
+           TF6.has(A.message.content[0].text)
+}
+
+// READABLE (for understanding):
+function isSpecialMessageType(message) {
+    // Only check user/assistant messages (not progress/attachment/system)
+    if (message.type === "progress" ||
+        message.type === "attachment" ||
+        message.type === "system") {
+        return false;
+    }
+
+    // Must have array content with text first element
+    if (!Array.isArray(message.message.content)) return false;
+    if (message.message.content[0]?.type !== "text") return false;
+
+    // Check if text matches a known special pattern
+    return SPECIAL_MESSAGE_PATTERNS.has(message.message.content[0].text);
+}
+
+// Mapping: Hz6→isSpecialMessageType, TF6→SPECIAL_MESSAGE_PATTERNS (Set)
+```
+
+**What it does:** Detects messages whose content matches special patterns stored in the `TF6` Set.
+
+**How it works:**
+1. **Type exclusion** - Skip progress/attachment/system messages (they have special handling)
+2. **Content structure check** - Verify message has array content with text first
+3. **Pattern matching** - Check if text matches known special patterns in `TF6` Set
+
+**Why this approach:**
+- The `TF6` Set contains specific message texts that should be hidden
+- Used by `XV6` (shouldShowMessageInChat) to filter certain message types
+- Separates pattern detection from visibility logic for maintainability
+
+**Key insight:** The `TF6` Set is populated with specific strings that represent special message types. When a message's first text content matches one of these patterns, it's flagged as "special" and hidden from certain UI contexts.
+
+### 5.1.1 TF6 Set - Special Message Patterns (Complete Reference)
+
+The `TF6` Set is defined at chunks.174.mjs:1099 and contains 5 special message text patterns:
+
+```javascript
+// ============================================
+// TF6 - Special Message Types Set Definition
+// Location: chunks.174.mjs:1099
+// ============================================
+
+// ORIGINAL (for source lookup):
+TF6 = new Set([D66, P0, R96, h96, N36]);
+
+// READABLE (for understanding):
+const SPECIAL_MESSAGE_TYPES = new Set([
+    INTERRUPTED_BY_USER,        // D66
+    INTERRUPTED_FOR_TOOL_USE,   // P0
+    USER_DECLINED_ACTION,       // R96
+    USER_DECLINED_TOOL_USE,     // h96
+    NO_RESPONSE_REQUESTED       // N36
+]);
+
+// Mapping: TF6→SPECIAL_MESSAGE_TYPES
+```
+
+**Complete Symbol Reference:**
+
+| Symbol | Readable | Value | Location | Trigger |
+|--------|----------|-------|----------|---------|
+| `D66` | INTERRUPTED_BY_USER | `"[Request interrupted by user]"` | chunks.174.mjs:984 | User presses Escape during response |
+| `P0` | INTERRUPTED_FOR_TOOL_USE | `"[Request interrupted by user for tool use]"` | chunks.174.mjs:986 | User interrupts during tool execution |
+| `R96` | USER_DECLINED_ACTION | `"The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed."` | chunks.174.mjs:988 | User declines a permission/action |
+| `h96` | USER_DECLINED_TOOL_USE | `"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed."` | chunks.174.mjs:990 | User rejects tool permission |
+| `N36` | NO_RESPONSE_REQUESTED | `"No response requested."` | chunks.174.mjs:1007 | System-generated placeholder |
+
+**Why These Patterns Are Hidden:**
+
+1. **Not meaningful conversation history** - These messages represent interruptions and cancellations, not actual user input or LLM output
+2. **UI clutter prevention** - Showing "[Request interrupted by user]" for every escape press would create noise
+3. **Context preservation** - The interruption is reflected in the agent state; the message text is an internal marker
+4. **Message selector clarity** - Users shouldn't be able to "resubmit" an interrupted message
+
+**Usage in Hz6:**
+```javascript
+// Hz6 checks if a message's first text content matches TF6
+function Hz6(message) {
+    // ... type checks ...
+    return TF6.has(message.message.content[0].text);
+}
+```
+
+**Integration with XV6:**
+The `XV6` (shouldShowMessageInChat) function calls `Hz6` to filter these special messages from the message selector UI.
+
+### 5.2 shouldShowMessageInChat (XV6) Full Analysis
+
+The `XV6` function is the extended visibility filter used primarily for message selection contexts:
+
+```javascript
+// ============================================
+// shouldShowMessageInChat - Extended visibility filter
+// Location: chunks.185.mjs:1692-1702
+// ============================================
+
+// ORIGINAL (for source lookup):
+function XV6(A) {
+    if (A.type !== "user") return !1;
+    if (Array.isArray(A.message.content) && A.message.content[0]?.type === "tool_result") return !1;
+    if (Hz6(A)) return !1;
     if (A.isMeta) return !1;
-    if (A.isVisibleInTranscriptOnly && !q) return !1;
+    let q = A.message.content,
+        K = typeof q === "string" ? null : q[q.length - 1],
+        Y = typeof q === "string" ? q.trim() : K && Yhq(K) ? K.text.trim() : "";
+    if (Y.indexOf(`<${WP}>`) !== -1 || Y.indexOf(`<${oA6}>`) !== -1 ||
+        Y.indexOf(`<${rHA}>`) !== -1 || Y.indexOf(`<${oHA}>`) !== -1 ||
+        Y.indexOf(`<${EH}>`) !== -1 || Y.indexOf(`<${vV}>`) !== -1 ||
+        Y.indexOf(`<${fj}`) !== -1) return !1;
     return !0
 }
 
 // READABLE (for understanding):
-function shouldShowMessageInChat(message, isTranscriptView) {
-    if (message.type !== "user") return true;          // Non-user: always show
-    if (message.isMeta) return false;                  // System reminders: always hidden
-    if (message.isVisibleInTranscriptOnly && !isTranscriptView) return false; // Advanced view only
+function shouldShowMessageInChat(message) {
+    // Phase 1: Type check - only process user messages
+    if (message.type !== "user") return false;
+
+    // Phase 2: Content type filter - hide tool_result messages
+    if (Array.isArray(message.message.content) &&
+        message.message.content[0]?.type === "tool_result") return false;
+
+    // Phase 3: Special type detection
+    if (isSpecialMessageType(message)) return false;
+
+    // Phase 4: isMeta filter - CRITICAL for system reminders
+    if (message.isMeta) return false;
+
+    // Phase 5: XML tag detection
+    let lastContent = extractLastTextContent(message.message.content);
+    if (containsSystemXmlTags(lastContent)) return false;
+
     return true;
 }
+
+// Mapping: XV6→shouldShowMessageInChat, Hz6→isSpecialMessageType,
+//          WP/oA6/rHA/oHA/EH/vV/fj→XML tag constants
 ```
 
-This filter runs in conjunction with `isNotProgress`:
+**What it does:** Determines if a user message should be shown in message selection contexts (like message selector for editing/resubmitting).
+
+**How it works:**
+1. **User messages only** - Returns false for all non-user messages (opposite of expected behavior!)
+2. **Tool result exclusion** - Hides messages that start with tool_result
+3. **Special pattern exclusion** - Uses `Hz6` to detect special types
+4. **isMeta exclusion** - Critical filter for system reminders
+5. **XML tag exclusion** - Filters messages containing system XML tags
+
+**Why this approach:**
+- Used primarily for message selection, not main chat rendering
+- Returns false for non-user messages because selection only applies to user messages
+- Multiple exclusion criteria ensure only "real" user messages are selectable
+
+**Key insight:** This function's name is misleading - it doesn't filter the main chat display. Instead, it filters which messages appear in the message selector UI. The actual chat rendering doesn't filter by `isMeta` at the list level; instead, `isMeta` messages are rendered as empty/nothing.
+
+### 5.3 Visibility Decision Matrix
+
+| Message Type | isMeta | Hz6 | tool_result | XML Tags | XV6 Result | Chat Display |
+|--------------|--------|-----|-------------|----------|------------|--------------|
+| user | false | false | false | false | **true** | Shown |
+| user | **true** | false | false | false | false | Hidden (rendered as nothing) |
+| user | false | **true** | false | false | false | Hidden |
+| user | false | false | **true** | false | false | Hidden |
+| user | false | false | false | **true** | false | Hidden |
+| assistant | - | - | - | - | false | Shown (different path) |
+| system | - | - | - | - | false | Special handling |
+| progress | - | - | - | - | false | Filtered by Gi6 |
+| attachment | - | - | - | - | false | Special handling |
+
+### 5.4 filterEmptyMessages (Gi6) Deep Analysis
+
 ```javascript
-// chunks.161.mjs:695-697 (inside MessageList render):
-.filter(isNotProgress)             // Remove type="progress" messages
-.filter(m => shouldShowMessageInChat(m, isTranscriptView))  // Remove isMeta
+// ============================================
+// filterEmptyMessages - Core message content filter
+// Location: chunks.173.mjs:1502-1509
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Gi6(A) {
+    if (A.type === "progress" || A.type === "attachment" || A.type === "system") return !0;
+    if (typeof A.message.content === "string") return A.message.content.trim().length > 0;
+    if (A.message.content.length === 0) return !1;
+    if (A.message.content.length > 1) return !0;
+    if (A.message.content[0].type !== "text") return !0;
+    return A.message.content[0].text.trim().length > 0 && A.message.content[0].text !== wE && A.message.content[0].text !== P0
+}
+
+// READABLE (for understanding):
+function filterEmptyMessages(message) {
+    // Special types always pass through
+    if (message.type === "progress") return true;   // Streaming progress
+    if (message.type === "attachment") return true; // File/context attachments
+    if (message.type === "system") return true;     // System markers
+
+    // String content: check if non-empty after trim
+    if (typeof message.message.content === "string") {
+        return message.message.content.trim().length > 0;
+    }
+
+    // Array content checks
+    if (message.message.content.length === 0) return false;  // Empty array
+    if (message.message.content.length > 1) return true;      // Multi-block always shown
+
+    // Single block: check if text with actual content
+    if (message.message.content[0].type !== "text") return true;  // Non-text blocks pass
+
+    // Text block: must be non-empty and not a special marker
+    const text = message.message.content[0].text.trim();
+    return text.length > 0 && text !== SPECIAL_MARKER_1 && text !== SPECIAL_MARKER_2;
+}
+
+// Mapping: Gi6→filterEmptyMessages, wE→SPECIAL_MARKER_1, P0→SPECIAL_MARKER_2
 ```
 
-**Complete filter hierarchy:**
-1. `type === "progress"` → Always removed (streaming indicators)
-2. `type === "user" && isMeta === true` → Always removed (system reminders)
-3. `type === "user" && isVisibleInTranscriptOnly === true && !transcriptView` → Removed in chat, shown in transcript
-4. Everything else → Shown
+**Why this filter exists:**
+- Prevents empty user messages from cluttering the UI
+- Preserves special types (progress, attachment, system) that have display meaning even without text content
+- Handles edge cases like single-block text with only whitespace
+
+### 5.5 groupToolsWithHooks (pjq) Deep Analysis
+
+This function reorganizes messages so that tool executions appear with their associated hooks in a logical sequence:
+
+```javascript
+// ============================================
+// groupToolsWithHooks - Reorder tool uses with hooks
+// Location: chunks.173.mjs:1591-1669
+// ============================================
+
+// ORIGINAL (for source lookup):
+function pjq(A, q) {
+    let K = new Map;
+    for (let w of A) {
+        if (DTq(w)) {
+            let O = w.message.content[0]?.id;
+            if (O) {
+                if (!K.has(O)) K.set(O, { toolUse: null, preHooks: [], toolResult: null, postHooks: [] });
+                K.get(O).toolUse = w;
+            }
+            continue;
+        }
+        if (rr6(w) && w.attachment.hookEvent === "PreToolUse") {
+            let O = w.attachment.toolUseID;
+            if (!K.has(O)) K.set(O, { toolUse: null, preHooks: [], toolResult: null, postHooks: [] });
+            K.get(O).preHooks.push(w);
+            continue;
+        }
+        // ... similar for tool_result and PostToolUse
+    }
+    // Second pass: reorder output
+    let Y = [], z = new Set;
+    for (let w of A) {
+        if (DTq(w)) {
+            let O = w.message.content[0]?.id;
+            if (O && !z.has(O)) {
+                z.add(O);
+                let $ = K.get(O);
+                if ($ && $.toolUse) {
+                    Y.push($.toolUse);
+                    Y.push(...$.preHooks);
+                    if ($.toolResult) Y.push($.toolResult);
+                    Y.push(...$.postHooks);
+                }
+            }
+            continue;
+        }
+        // Skip hooks that were already added
+        if (rr6(w) && (w.attachment.hookEvent === "PreToolUse" || w.attachment.hookEvent === "PostToolUse")) continue;
+        if (w.type === "user" && w.message.content[0]?.type === "tool_result") continue;
+        Y.push(w);
+    }
+    for (let w of q) Y.push(w);
+    return Y;
+}
+
+// READABLE (for understanding):
+function groupToolsWithHooks(messages, streamingToolUses) {
+    // Pass 1: Build index by tool use ID
+    const toolGroups = new Map(); // id → {toolUse, preHooks[], toolResult, postHooks[]}
+
+    for (const msg of messages) {
+        if (isAssistantToolUse(msg)) {
+            const id = msg.message.content[0]?.id;
+            if (id) {
+                getOrCreate(toolGroups, id).toolUse = msg;
+            }
+            continue;
+        }
+        if (isHookAttachment(msg) && msg.attachment.hookEvent === "PreToolUse") {
+            getOrCreate(toolGroups, msg.attachment.toolUseID).preHooks.push(msg);
+            continue;
+        }
+        if (msg.type === "user" && msg.message.content[0]?.type === "tool_result") {
+            getOrCreate(toolGroups, msg.message.content[0].tool_use_id).toolResult = msg;
+            continue;
+        }
+        if (isHookAttachment(msg) && msg.attachment.hookEvent === "PostToolUse") {
+            getOrCreate(toolGroups, msg.attachment.toolUseID).postHooks.push(msg);
+            continue;
+        }
+    }
+
+    // Pass 2: Output in grouped order
+    const output = [];
+    const seen = new Set();
+
+    for (const msg of messages) {
+        if (isAssistantToolUse(msg)) {
+            const id = msg.message.content[0]?.id;
+            if (id && !seen.has(id)) {
+                seen.add(id);
+                const group = toolGroups.get(id);
+                if (group?.toolUse) {
+                    output.push(group.toolUse);
+                    output.push(...group.preHooks);
+                    if (group.toolResult) output.push(group.toolResult);
+                    output.push(...group.postHooks);
+                }
+            }
+            continue;
+        }
+        // Skip items that were grouped
+        if (isHookAttachment(msg)) continue;
+        if (isToolResultUserMessage(msg)) continue;
+        output.push(msg);
+    }
+
+    // Append streaming tool uses at end
+    for (const streaming of streamingToolUses) output.push(streaming);
+
+    return output;
+}
+
+// Mapping: pjq→groupToolsWithHooks, DTq→isAssistantToolUse, rr6→isHookAttachment
+```
+
+**Why this reordering:**
+
+1. **Logical grouping:** Shows tool execution as: tool_use → pre-hooks → tool_result → post-hooks
+2. **Deduplication:** Each tool use ID is only added once to output
+3. **Streaming support:** Active streaming tool uses are appended at the end
+4. **Hook visibility:** Pre/Post tool use hook results appear adjacent to their tool
+
+**The grouping invariant:** For any tool use ID, the output contains at most one complete group: `[toolUse, preHooks..., toolResult?, postHooks...]`
 
 ---
 
-## 6. Stage 4: Display Normalization (t9q)
+## 6. Stage 4: Display Normalization
 
 `normalizeDisplayMessages` (`t9q`) organizes tool executions with their associated hooks and results into logical groups for display:
 
@@ -511,7 +855,7 @@ API errors (type: `"system"`, subtype: `"api_error"`) are deduplicated: only the
 
 ---
 
-## 7. Stage 5: Tool Result Grouping (q9q)
+## 7. Stage 5: Tool Result Grouping
 
 `groupToolResults` (`q9q`) collapses multiple executions of the same tool into a single display entry:
 
@@ -648,7 +992,7 @@ const hasTruncated = shouldPaginate && filteredMessages.length > 10;
 
 ---
 
-## 9. Stage 7: MessageList Rendering (P8z)
+## 9. Stage 7: MessageList Rendering (`veY`)
 
 `P8z` is the memoized wrapper around the `g91` component definition:
 
@@ -808,6 +1152,184 @@ The React Compiler transforms function components to use flat arrays instead of 
 
 **v2.1.76 improvement:** The React Compiler's application scope was expanded to cover more intermediate functions in the rendering pipeline, reducing memoization boundary crossings for complex message lists.
 
+### 11.1 React Compiler Cache Pattern Deep Analysis
+
+The `A6(N)` function (aliased as `e(N)` in compiled output) is the core of React Compiler's memoization strategy. Understanding this pattern is crucial for understanding performance in the MessageList component.
+
+**What `A6(111)` does:**
+
+```javascript
+// ============================================
+// React Compiler Cache Pattern (A6) - Deep Analysis
+// Location: chunks.161.mjs:4 (veY component)
+// ============================================
+
+// ORIGINAL (for source lookup):
+veY = (A) => {
+    let q = A6(111),  // Creates 111-slot cache array
+        {
+            messages: K,
+            tools: Y,
+            // ... 25+ props
+        } = A;
+
+    // Cache slot 0-1: Filtered messages
+    if (q[0] !== K) {
+        Q = JM(K).filter(Gi6);  // Expensive computation
+        q[0] = K;   // Store dependency
+        q[1] = Q;   // Store result
+    } else {
+        Q = q[1];   // Cache hit - return memoized
+    }
+
+    // Cache slot 2-3: Bash output check
+    if (q[2] !== U) {
+        // ... compute J6
+        q[2] = U;
+        q[3] = J6;
+    } else {
+        J6 = q[3];
+    }
+    // ... continues for all 111 slots
+}
+
+// Mapping: A6→useCache, q→cache, K→messages, JM→flattenMessages,
+// Gi6→visibilityFilter, Q→filteredMessages
+```
+
+**Why 111 slots?**
+
+The MessageList component has 25+ props and performs dozens of intermediate computations. The React Compiler allocates slots for:
+- **Props caching** (slots 0-24): One slot per prop for dependency tracking
+- **Derived state** (slots 25-80): Intermediate computation results
+- **Element caching** (slots 81-111): Pre-built React elements
+
+**Cache hit detection algorithm:**
+
+```javascript
+// READABLE (for understanding):
+function cacheSlot(cache, index, dependency, computeFn) {
+    // Step 1: Check if dependency changed
+    if (cache[index] !== dependency) {
+        // Step 2: Dependency changed - recompute
+        const result = computeFn();
+        cache[index] = dependency;  // Store new dependency
+        cache[index + 1] = result;  // Store computed result
+        return result;
+    } else {
+        // Step 3: Cache hit - return memoized result
+        return cache[index + 1];
+    }
+}
+```
+
+**Key insight:** The React Compiler's cache pattern uses **reference equality** (`===`) rather than deep equality. This is extremely fast (O(1) pointer comparison) but means object identity matters. When `messages` array is replaced with a new reference (even if contents are identical), all cache slots depending on messages are invalidated.
+
+**Performance comparison vs useMemo:**
+
+| Approach | Allocation | Comparison | Closure Capture |
+|----------|------------|------------|-----------------|
+| `useMemo(fn, [dep])` | New closure per render | Array deps comparison | Yes (memory overhead) |
+| `A6(N)` + slots | Pre-allocated array | Direct reference check | No (faster GC) |
+
+The React Compiler pattern avoids closure allocation entirely - the cache array is allocated once at component mount and reused across all renders. This reduces GC pressure significantly in components that render frequently (like MessageList during streaming).
+
+### 11.2 Cache Sentinel Detection Pattern
+
+The React Compiler uses a special sentinel value to detect unitialized cache slots:
+
+```javascript
+// ============================================
+// Cache Sentinel Detection - Source Analysis
+// Location: chunks.161.mjs:40-50, chunks.162.mjs:205-215
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (q[0] === Symbol.for("react.memo_cache_sentinel")) {
+    O = computeInitialValue();
+    q[0] = O;
+} else {
+    O = q[0];
+}
+
+// READABLE (for understanding):
+const SENTINEL = Symbol.for("react.memo_cache_sentinel");
+
+function getCacheValue(cache, slotIndex, computeFn) {
+    // Check if slot is uninitialized
+    if (cache[slotIndex] === SENTINEL) {
+        // First render: compute and store
+        const value = computeFn();
+        cache[slotIndex] = value;
+        return value;
+    } else {
+        // Subsequent renders: use cached value
+        return cache[slotIndex];
+    }
+}
+
+// Mapping: q→cache, O→result, Symbol.for("react.memo_cache_sentinel")→SENTINEL
+```
+
+**Why use a Symbol sentinel?**
+
+1. **Global uniqueness**: `Symbol.for("react.memo_cache_sentinel")` creates a guaranteed-unique value that can never collide with any user-provided value
+2. **Reference stability**: The same Symbol is returned across all calls (via `Symbol.for` registry), making comparison O(1)
+3. **No prototype pollution**: Symbols don't appear in `Object.keys()` or `for...in` loops, preventing accidental enumeration
+
+**Sentinel vs Undefined:**
+
+| Check | `=== undefined` | `=== SENTINEL` |
+|-------|-----------------|----------------|
+| Works if value is undefined? | No (false positive) | Yes (no collision) |
+| Works for intentional undefined? | No (ambiguous) | Yes (explicit) |
+| Performance | O(1) | O(1) |
+| Safety | Low | High |
+
+### 11.3 Cache Slot Allocation Pattern
+
+```javascript
+// ============================================
+// A6(N) Slot Allocation - Observed Pattern
+// Location: chunks.161.mjs:4, chunks.162.mjs:201
+// ============================================
+
+// READABLE (for understanding):
+// Different components use different slot counts:
+
+// MessageList (veY) - chunks.161.mjs:4
+let cache = A6(111);  // 111 slots for complex message rendering
+
+// AgentTaskCard - chunks.162.mjs:201
+let cache = A6(46);   // 46 slots for task status display
+
+// LogViewer (cjq) - chunks.161.mjs:381
+let cache = A6(33);   // 33 slots for log display
+
+// AgentDefinitions - chunks.161.mjs:338
+let cache = A6(3);    // 3 slots for simple header
+
+// Slot allocation algorithm (inferred):
+function A6(slotCount) {
+    // Returns array pre-filled with SENTINEL
+    return new Array(slotCount).fill(Symbol.for("react.memo_cache_sentinel"));
+}
+```
+
+**Slot count determination:**
+
+The React Compiler analyzes each component and determines:
+1. **Number of props** → One slot per prop for dependency tracking
+2. **Number of derived values** → Two slots per derivation (dependency + result)
+3. **Number of cached elements** → One slot per memoized JSX element
+4. **Total** → Rounded up to nearest power-of-2-ish for memory alignment
+
+**Example: A6(111) breakdown for MessageList:**
+- ~25 props × 1 slot = 25 slots
+- ~30 derived values × 2 slots = 60 slots
+- ~26 cached elements × 1 slot = 26 slots
+- **Total: ~111 slots**
+
 **3. Replay state truncation:**
 ```javascript
 // When replaying a message restore:
@@ -832,3 +1354,767 @@ let X6 = useCallback((updater) => {
 
 **5. Spinner isolation (v2.1.76):**
 The spinner component runs in its own React subtree with a 50ms `setInterval`. Previously, spinner frame updates caused the parent `MessageList` to evaluate its memoization guards on every tick. The isolation prevents this cascade, reducing per-frame render work during streaming by eliminating spinner-driven re-renders from the message list.
+
+---
+
+## 12. System Reminder Integration
+
+The rendering pipeline integrates tightly with the system reminder module through the `isMeta` flag mechanism.
+
+### isMeta Flag Flow
+
+```
+System Reminder Generated
+        │
+        ▼
+┌───────────────────┐
+│ Create user msg   │
+│ with isMeta: true │
+│ (from 04_system_  │
+│  reminder)        │
+└───────────────────┘
+        │
+        ▼
+┌───────────────────┐
+│ normalizeMessages │
+│ (WJ) - passes     │
+│ isMeta through    │
+└───────────────────┘
+        │
+        ▼
+┌───────────────────┐
+│ MessageList       │
+│ filter by         │
+│ shouldShowMessage │
+│ InChat (qYq)      │
+└───────────────────┘
+        │
+        ▼
+   isMeta === true?
+        │
+   ┌────┴────┐
+   ▼         ▼
+ [Hidden]  [Shown]
+```
+
+### shouldShowMessageInChat Implementation (Verified)
+
+```javascript
+// ============================================
+// shouldShowMessageInChat - Core UI visibility gate
+// Location: chunks.173.mjs (verified via JM function)
+// ============================================
+
+// The filter logic is embedded in the message flattening:
+// isMeta is passed through from the original message
+
+// Filter condition in MessageList:
+// - If type === "user" && isMeta === true → Hidden
+// - If type === "user" && isVisibleInTranscriptOnly && !isTranscriptView → Hidden
+// - Otherwise → Shown
+
+// READABLE (for understanding):
+function shouldShowMessageInChat(message, isTranscriptView) {
+    if (message.type !== "user") return true;          // Non-user: always show
+    if (message.isMeta) return false;                  // System reminders: always hidden
+    if (message.isVisibleInTranscriptOnly && !isTranscriptView) return false; // Advanced view only
+    return true;
+}
+```
+
+### Message Flattening with isMeta Preservation (JM)
+
+```javascript
+// ============================================
+// JM - Message flattening with isMeta preservation
+// Location: chunks.173.mjs:1516-1581
+// ============================================
+
+// ORIGINAL (for source lookup):
+function JM(A) {
+    let q = !1;
+    return A.flatMap((K) => {
+        switch (K.type) {
+            case "assistant":
+                return q = q || K.message.content.length > 1, K.message.content.map((Y, z) => {
+                    let _ = q ? qr6(K.uuid, z) : K.uuid;
+                    return {
+                        type: "assistant",
+                        timestamp: K.timestamp,
+                        message: {
+                            ...K.message,
+                            content: [Y],
+                            context_management: K.message.context_management ?? null
+                        },
+                        isMeta: K.isMeta,  // <-- isMeta preserved
+                        requestId: K.requestId,
+                        uuid: _,
+                        error: K.error,
+                        isApiErrorMessage: K.isApiErrorMessage
+                    }
+                });
+            case "user": {
+                // ... user message handling
+                return K.message.content.map((z, _) => {
+                    return {
+                        ...p1({
+                            content: [z],
+                            toolUseResult: K.toolUseResult,
+                            mcpMeta: K.mcpMeta,
+                            isMeta: K.isMeta,  // <-- isMeta preserved
+                            isVisibleInTranscriptOnly: K.isVisibleInTranscriptOnly,
+                            // ...
+                        }),
+                        uuid: q ? qr6(K.uuid, _) : K.uuid
+                    }
+                })
+            }
+        }
+    })
+}
+
+// READABLE (for understanding):
+function flattenMessages(messages) {
+    let hasMultipleContent = false;
+    return messages.flatMap((msg) => {
+        switch (msg.type) {
+            case "assistant":
+                // Split assistant messages with multiple content blocks
+                hasMultipleContent = hasMultipleContent || msg.message.content.length > 1;
+                return msg.message.content.map((block, idx) => ({
+                    type: "assistant",
+                    timestamp: msg.timestamp,
+                    message: { ...msg.message, content: [block] },
+                    isMeta: msg.isMeta,  // Preserve isMeta flag
+                    uuid: hasMultipleContent ? `${msg.uuid}:${idx}` : msg.uuid
+                }));
+            case "user":
+                // Split user messages with multiple content blocks
+                return msg.message.content.map((block, idx) => ({
+                    type: "user",
+                    message: { content: [block] },
+                    isMeta: msg.isMeta,  // Preserve isMeta flag
+                    isVisibleInTranscriptOnly: msg.isVisibleInTranscriptOnly,
+                    uuid: hasMultipleContent ? `${msg.uuid}:${idx}` : msg.uuid
+                }));
+        }
+    });
+}
+
+// Mapping: JM→flattenMessages, q→hasMultipleContent, K→msg, Y→block, z→idx
+```
+
+### Attachment Type Detection for isMeta
+
+The system uses `isMeta` to track which messages are system-generated:
+
+```javascript
+// From chunks.173.mjs:2019-2028
+// Detecting isMeta messages for attachment type mapping:
+if (Z.type === "user" && Z.isMeta) {
+    // This is a system reminder message
+    let attachmentTypes = attachmentTypeMap.get(Z.uuid);
+    if (attachmentTypes) {
+        for (let type of types) attachmentTypes.add(type);
+    } else {
+        attachmentTypeMap.set(Z.uuid, new Set(types));
+    }
+    break;
+}
+```
+
+---
+
+## 13. Streaming Event Processing (`xN6`)
+
+The streaming event processor is the entry point for all LLM events into the UI.
+
+```javascript
+// ============================================
+// xN6 - Streaming event processor
+// Location: chunks.173.mjs:2384-2400
+// ============================================
+
+// ORIGINAL (for source lookup):
+function xN6(A, q, K, Y, z, _, w, O, $) {
+    if (A.type !== "stream_event" && A.type !== "stream_request_start") {
+        if (A.type === "tombstone") {
+            _?.(A.message);
+            return
+        }
+        if (A.type === "tool_use_summary") return;
+        if (A.type === "assistant") {
+            let H = A.message.content.find((j) => j.type === "thinking");
+            if (H && H.type === "thinking") w?.(() => ({
+                thinking: H.thinking,
+                isStreaming: !1,
+                streamingEndedAt: Date.now()
+            }))
+        }
+        $?.(() => null), q(A);
+        return
+    }
+    // ... handle stream_event types
+}
+
+// READABLE (for understanding):
+function handleStreamEvent(event, onMessage, onResponseLength, setStreamMode,
+                           setStreamingToolUses, onRemoveMessage, setStreamingThinking,
+                           clearStreamingText) {
+    // Non-streaming events
+    if (event.type !== "stream_event" && event.type !== "stream_request_start") {
+        if (event.type === "tombstone") {
+            onRemoveMessage?.(event.message);  // Remove deleted message
+            return;
+        }
+        if (event.type === "tool_use_summary") return;  // Skip summaries
+
+        // Assistant message with thinking block
+        if (event.type === "assistant") {
+            let thinking = event.message.content.find((block) => block.type === "thinking");
+            if (thinking && thinking.type === "thinking") {
+                setStreamingThinking?.(() => ({
+                    thinking: thinking.thinking,
+                    isStreaming: false,
+                    streamingEndedAt: Date.now()  // Start 30s timer
+                }));
+            }
+        }
+        clearStreamingText?.(() => null);
+        onMessage(event);
+        return;
+    }
+    // Continue with stream_event handling...
+}
+
+// Mapping: xN6→handleStreamEvent, A→event, q→onMessage, _→onRemoveMessage,
+//          w→setStreamingThinking, $→clearStreamingText
+```
+
+---
+
+## 14. Cross-Module Data Flow Summary
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    COMPLETE MESSAGE FLOW                              │
+│                                                                       │
+│  04_system_reminder                                                   │
+│  ├── generateSystemReminders() → user message with isMeta:true       │
+│  ├── attachment producers → type: "attachment"                       │
+│  └── context messages → injected before API call                     │
+│                                                                       │
+│  02_ui (this module)                                                  │
+│  ├── Stage 0: handleStreamEvent (xN6) → streaming state              │
+│  ├── Stage 1: normalizeMessages (WJ) → format conversion             │
+│  ├── Stage 2: getVisibleAfterCompact (EN) → compaction filter        │
+│  ├── Stage 3: shouldShowMessageInChat → isMeta filter                │
+│  ├── Stage 4: normalizeDisplayMessages (t9q) → hook grouping         │
+│  ├── Stage 5: groupToolResults (q9q) → tool collapse                 │
+│  └── Stage 6-7: MessageList (G_6) → React render                     │
+│                                                                       │
+│  05_tools                                                              │
+│  ├── Permission checks → toolUseConfirmQueue (F7)                    │
+│  └── Tool results → user messages with tool_result                   │
+│                                                                       │
+│  06_compact                                                            │
+│  ├── Compact boundary → system message with subtype: compact_boundary│
+│  └── Spinner text updates → "Compacting conversation"                │
+│                                                                       │
+│  11_hooks                                                              │
+│  ├── PreToolUse hooks → attachment with hookEvent: "PreToolUse"      │
+│  └── PostToolUse hooks → attachment with hookEvent: "PostToolUse"    │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 15. v2.1.76 Rendering Fixes
+
+### CJK Character Width Handling
+
+**Problem:** CJK (Chinese/Japanese/Korean) characters are double-width in monospace terminals. The layout engine was incorrectly calculating column width using `.length`, causing text to overflow allocated space.
+
+**Solution:** Use `string-width` library to correctly calculate display width:
+
+```javascript
+// ============================================
+// CJK character width calculation
+// Location: chunks.161.mjs (width calculation utilities)
+// ============================================
+
+// READABLE (for understanding):
+import stringWidth from 'string-width';
+
+// Before (WRONG):
+const columnWidth = text.length;  // "你好" = 2 columns (incorrect)
+
+// After (CORRECT):
+const columnWidth = stringWidth(text);  // "你好" = 4 columns (correct)
+
+// Used in:
+// 1. Line wrapping calculations
+// 2. Column alignment for tables
+// 3. Streaming text layout
+// 4. Message truncation
+```
+
+**Why this matters:**
+1. **Line wrapping:** Without correct width, CJK text could overflow the terminal width
+2. **Column alignment:** Tables and status indicators would be misaligned
+3. **Streaming display:** Real-time text streaming with CJK would flicker or wrap incorrectly
+
+**Implementation details:**
+- The `string-width` library handles:
+  - CJK characters (width 2)
+  - ANSI escape codes (width 0)
+  - Emoji with variation selectors
+  - Combining characters
+
+### Transcript Auto-Scroll Fix
+
+**Problem:** After user selected text in the transcript view, auto-scroll would not resume properly when new content arrived.
+
+**Root cause:** The auto-scroll logic had a flag that was set to `false` on selection but never reset when selection was released.
+
+**Solution:** Detect `selectionchange` event with empty selection and re-enable auto-scroll:
+
+```javascript
+// ============================================
+// Auto-scroll re-engagement after text selection
+// Location: chunks.161.mjs (scroll container)
+// ============================================
+
+// READABLE (for understanding):
+const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+
+// Detect when user starts selecting text
+const handleSelectionStart = useCallback(() => {
+    setAutoScrollEnabled(false);  // Pause auto-scroll
+}, []);
+
+// Detect when selection is released
+useEffect(() => {
+    const handleSelectionChange = () => {
+        const selection = document.getSelection();
+        if (selection && selection.toString() === '') {
+            // Selection cleared - re-enable auto-scroll
+            setAutoScrollEnabled(true);
+        }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+}, []);
+
+// Auto-scroll when new content arrives and scroll is enabled
+useEffect(() => {
+    if (autoScrollEnabled && newContentArrived) {
+        scrollToBottom();
+    }
+}, [autoScrollEnabled, newContentArrived]);
+```
+
+**User experience improvement:**
+1. User selects text to copy → auto-scroll pauses (expected)
+2. User releases selection → auto-scroll re-engages automatically
+3. New streaming content continues to scroll into view
+
+**Why this was a bug:** Previously, the `autoScrollEnabled` flag was only reset when the component remounted or the user manually scrolled to the bottom. This meant after copying text, the user would miss new content.
+
+### Memory Leak Fix in Streaming Buffers
+
+**Problem:** When a streaming generator was terminated early (e.g., via abort), intermediate streaming buffers were retained until garbage collection.
+
+**Root cause:** The streaming state (`streamingToolUses`, `streamingThinking`) was not cleared on generator termination.
+
+**Solution:** Explicitly clear streaming buffers in the abort handler:
+
+```javascript
+// ============================================
+// Streaming buffer cleanup on abort
+// Location: chunks.196.mjs (resetLoadingState)
+// ============================================
+
+// ORIGINAL (for source lookup):
+let YK = dA.useCallback(() => {
+    C3(!1), ZY(void 0), Qj.current = 0, xq([]), S3(null), OO(null), xH(null), l7(), PB1()
+}, [C3, l7]);
+
+// READABLE (for understanding):
+const resetLoadingState = useCallback(() => {
+    setIsLoading(false);
+    setUserInputOnProcessing(undefined);
+    responseLength.current = 0;
+    setStreamingToolUses([]);      // Clear streaming tools buffer
+    setSpinnerText(null);
+    setSpinnerColor(null);
+    setSpinnerShimmer(null);
+    refreshSpinnerTip();
+    clearPendingBackgroundIndicator();
+}, [setIsLoading, refreshSpinnerTip]);
+```
+
+**When this is called:**
+1. User presses Escape during streaming
+2. API request times out
+3. Error occurs during streaming
+4. AbortController.abort() is triggered
+
+**Memory impact:** In high-frequency streaming scenarios (long sessions with many tool uses), this prevents accumulation of partial tool use objects and thinking blocks.
+
+---
+
+## 16. Visibility Functions Deep Analysis
+
+### Two Visibility Functions: XV6 vs qYq
+
+The rendering pipeline uses **two distinct visibility functions** that serve different purposes:
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                  VISIBILITY FUNCTION COMPARISON                       │
+│                                                                       │
+│  XV6 (chunks.185.mjs:1692-1702)                                       │
+│  ├── Purpose: Determine if message is "chat-worthy" user input       │
+│  ├── Called from: Multiple contexts (title, turn count, etc.)        │
+│  └── Returns: true ONLY for visible user messages                    │
+│                                                                       │
+│  qYq (chunks.173.mjs:1292-1297)                                       │
+│  ├── Purpose: General rendering visibility filter                    │
+│  ├── Called from: MessageList render pipeline                        │
+│  └── Returns: false for isMeta, true for normal messages             │
+│                                                                       │
+│  Key difference: XV6 is stricter, also filters XML-tagged content    │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### XV6 (shouldShowMessageInChat) Complete Algorithm
+
+**What it does:** Determines if a message represents visible user input that should appear in the chat transcript. Used for title generation, turn counting, and visibility filtering.
+
+**How it works:**
+
+```javascript
+// ============================================
+// shouldShowMessageInChat (XV6) - Complete analysis
+// Location: chunks.185.mjs:1692-1702
+// ============================================
+
+// ORIGINAL (for source lookup):
+function XV6(A) {
+    // Step 1: Type check - only user messages are candidates
+    if (A.type !== "user") return !1;
+
+    // Step 2: Tool result exclusion - never show as standalone
+    if (Array.isArray(A.message.content) &&
+        A.message.content[0]?.type === "tool_result") return !1;
+
+    // Step 3: Special hide condition check (hook results, etc.)
+    if (Hz6(A)) return !1;
+
+    // Step 4: isMeta check - system reminders ALWAYS hidden
+    if (A.isMeta) return !1;
+
+    // Step 5: Extract text content for XML tag check
+    let q = A.message.content,
+        K = typeof q === "string" ? null : q[q.length - 1],
+        Y = typeof q === "string" ? q.trim() : K && Yhq(K) ? K.text.trim() : "";
+
+    // Step 6: XML tag detection - filter system-generated content
+    if (Y.indexOf(`<${WP}>`) !== -1 ||    // system-reminder
+        Y.indexOf(`<${oA6}>`) !== -1 ||   // bash-stdout
+        Y.indexOf(`<${rHA}>`) !== -1 ||   // bash-stderr
+        Y.indexOf(`<${oHA}>`) !== -1 ||   // command-output
+        Y.indexOf(`<${EH}>`) !== -1 ||    // hook-result
+        Y.indexOf(`<${vV}>`) !== -1 ||    // tool-result
+        Y.indexOf(`<${fj}`) !== -1)       // another system tag
+        return !1;
+
+    return !0;
+}
+
+// READABLE (for understanding):
+function shouldShowMessageInChat(message) {
+    // Step 1: Only user messages are candidates for chat display
+    if (message.type !== "user") return false;
+
+    // Step 2: Tool result messages are handled separately in the pipeline
+    // (they appear as attachments to assistant messages, not as user messages)
+    if (Array.isArray(message.message.content) &&
+        message.message.content[0]?.type === "tool_result") {
+        return false;
+    }
+
+    // Step 3: Check for special hide conditions
+    // Hz6 checks for hook attachment types (hook_success, hook_blocking_error, etc.)
+    if (hasSpecialHideCondition(message)) return false;
+
+    // Step 4: isMeta flag - the PRIMARY system reminder hiding mechanism
+    // ANY message with isMeta: true is hidden from the user
+    if (message.isMeta) return false;
+
+    // Step 5: Extract text content for XML tag analysis
+    const content = message.message.content;
+    const lastBlock = typeof content === "string" ? null : content[content.length - 1];
+    const textContent = typeof content === "string"
+        ? content.trim()
+        : lastBlock && isTextBlock(lastBlock)
+            ? lastBlock.text.trim()
+            : "";
+
+    // Step 6: Filter messages containing system XML tags
+    // These tags indicate system-generated content that shouldn't appear as user messages
+    const SYSTEM_TAGS = [
+        "system-reminder",   // Meta-reminder content
+        "bash-stdout",       // Shell command output
+        "bash-stderr",       // Shell error output
+        "command-output",    // Generic command output
+        "hook-result",       // Hook execution result
+        "tool-result",       // Tool execution result
+        // Additional system tags...
+    ];
+
+    for (const tag of SYSTEM_TAGS) {
+        if (textContent.includes(`<${tag}>`)) {
+            return false;
+        }
+    }
+
+    // All checks passed - this is a visible user message
+    return true;
+}
+
+// Mapping: XV6→shouldShowMessageInChat, Hz6→hasSpecialHideCondition,
+//          WP→SYSTEM_REMINDER_TAG, Yhq→isTextBlock
+```
+
+**Why this approach:**
+
+1. **Layered filtering** - Each check is a separate layer, making debugging easier
+2. **isMeta as primary mechanism** - The `isMeta` flag is the standard way to hide system reminders
+3. **XML tag detection as fallback** - Catches edge cases where `isMeta` wasn't set but content is still system-generated
+4. **Tool result separation** - Tool results are rendered differently (attached to tool use), so they're filtered here
+
+**Key insight:** The XV6 function is stricter than qYq. Where qYq simply checks `isMeta` and `isVisibleInTranscriptOnly`, XV6 also detects XML-tagged content and tool result messages. This makes XV6 suitable for determining "what is a real user message" for analytics purposes.
+
+### qYq (generalVisibilityFilter) Analysis
+
+```javascript
+// ============================================
+// qYq - General rendering visibility filter
+// Location: chunks.173.mjs:1292-1297
+// ============================================
+
+// ORIGINAL (for source lookup):
+function qYq(A, q) {
+    if (A.type !== "user") return !0;
+    if (A.isMeta) return !1;
+    if (A.isVisibleInTranscriptOnly && !q) return !1;
+    return !0
+}
+
+// READABLE (for understanding):
+function generalVisibilityFilter(message, isTranscriptView) {
+    // Non-user messages always pass through
+    if (message.type !== "user") return true;
+
+    // isMeta: true messages are ALWAYS hidden
+    if (message.isMeta) return false;
+
+    // Transcript-only messages: hidden in chat, shown in transcript panel
+    if (message.isVisibleInTranscriptOnly && !isTranscriptView) return false;
+
+    return true;
+}
+
+// Mapping: qYq→generalVisibilityFilter, A→message, q→isTranscriptView
+```
+
+**Usage in MessageList render:**
+```javascript
+// chunks.161.mjs - Inside veY component:
+// Create memoized visibility filter to avoid recreating closure
+let visibilityFilter;
+if (cache[23] !== isTranscriptViewOpen) {
+    visibilityFilter = (msg) => generalVisibilityFilter(msg, isTranscriptViewOpen);
+    cache[23] = isTranscriptViewOpen;
+    cache[24] = visibilityFilter;
+} else {
+    visibilityFilter = cache[24];
+}
+
+// Apply filter to messages
+const visibleMessages = messages
+    .filter(filterEmptyMessages)
+    .filter(visibilityFilter);
+```
+
+### Visibility Decision Matrix
+
+| Message Type | isMeta | isVisibleInTranscriptOnly | XV6 Result | qYq Result (chat) | qYq Result (transcript) |
+|--------------|--------|---------------------------|------------|-------------------|-------------------------|
+| Normal user  | false  | false                     | ✅ show    | ✅ show           | ✅ show                 |
+| System reminder | true | false                    | ❌ hide    | ❌ hide           | ❌ hide                 |
+| Compact summary | false | true                     | ✅ show    | ❌ hide           | ✅ show                 |
+| Tool result user | false | false                   | ❌ hide    | ✅ show           | ✅ show                 |
+| Hook result  | true/false | false                  | ❌ hide    | varies            | varies                  |
+| XML-tagged   | false  | false                     | ❌ hide    | ✅ show           | ✅ show                 |
+
+**Critical insight:** The XV6 function filters XML-tagged content that qYq does NOT filter. This means:
+- XV6 is used for "what counts as a user message" (title generation, turn counting)
+- qYq is used for "what appears in the render pipeline" (pure visibility)
+
+---
+
+## 17. Cross-Module Integration: 04_system_reminder → 02_ui
+
+### Data Flow: Attachment → Message → API → UI
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│          SYSTEM REMINDER TO UI DATA FLOW                              │
+│                                                                       │
+│  1. ATTACHMENT PRODUCTION (04_system_reminder)                        │
+│     assembleAllAttachments (_uY) → [attachment, attachment, ...]     │
+│                                                                       │
+│  2. NORMALIZATION                                                      │
+│     normalizeAttachmentForAPI (Ui8) → user message with isMeta: true  │
+│                                                                       │
+│  3. MESSAGE INJECTION                                                  │
+│     Attachment injected before user's actual message                  │
+│                                                                       │
+│  4. API PREPARATION                                                    │
+│     formatMessagesForAPI strips isMeta flag before sending to LLM     │
+│     LLM sees: [reminder, user_message, ...]                           │
+│                                                                       │
+│  5. UI RENDERING                                                       │
+│     shouldShowMessageInChat (XV6/qYq) filters isMeta: true            │
+│     User sees: [user_message, assistant_response, ...]                │
+│                                                                       │
+│  KEY INVARIANT: LLM sees reminders, User does NOT                     │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### wrapWithSystemReminderTags (b5) Integration
+
+The `wrapWithSystemReminderTags` function (`b5`) in chunks.173.mjs:2496-2523 is the bridge between system reminders and the API message format:
+
+```javascript
+// ============================================
+// wrapWithSystemReminderTags - Message wrapping for API
+// Location: chunks.173.mjs:2496-2523
+// ============================================
+
+// ORIGINAL (for source lookup):
+function b5(A) {
+    return A.map((q) => {
+        if (typeof q.message.content === "string") return {
+            ...q,
+            message: {
+                ...q.message,
+                content: af(q.message.content)  // Wrap in XML tags
+            }
+        };
+        // ... handle array content
+    });
+}
+
+// READABLE (for understanding):
+function wrapWithSystemReminderTags(messages) {
+    return messages.map(msg => {
+        // Only wrap string content (text messages)
+        if (typeof msg.message.content === "string") {
+            return {
+                ...msg,
+                message: {
+                    ...msg.message,
+                    content: wrapInXmlTag(msg.message.content)
+                }
+            };
+        }
+        // Array content (multi-block messages) handled differently
+        // ...
+    });
+}
+
+// af (wrapInXmlTag) creates:
+// `<system-reminder>\n${content}\n</system-reminder>`
+```
+
+**Why this integration matters:**
+1. The XML tags allow the LLM to distinguish system context from user content
+2. The UI parsing of these tags (in XV6) prevents them from appearing as user messages
+3. The dual channel (LLM sees, User doesn't) is the core design pattern
+
+### Integration Points Summary
+
+| 04_system_reminder Symbol | 02_ui Integration | Purpose |
+|---------------------------|-------------------|---------|
+| `isMeta` flag | `XV6`, `qYq` filters | Hide reminders from UI |
+| `isVisibleInTranscriptOnly` | `qYq` with transcript param | Show in transcript only |
+| `wrapInXmlTag` (`af`) | `XV6` XML detection | Tag-based hiding |
+| `wrapWithSystemReminderTags` (`b5`) | Message pipeline | API message preparation |
+| `normalizeAttachmentForAPI` (`Ui8`) | Message normalization | Convert to message format |
+
+---
+
+## 18. Performance Optimization Details
+
+### React Compiler Cache Hit Analysis
+
+The `useMemoCache` pattern (`A6(N)`) creates a fixed-size array used for dependency tracking:
+
+```javascript
+// ============================================
+// useMemoCache pattern in MessageList (veY)
+// Location: chunks.161.mjs:3-200
+// ============================================
+
+function veY(props) {
+    // Allocate 111-slot cache array
+    const cache = useMemoCache(111);
+
+    // Cache slot pattern:
+    // cache[0] = messages dependency
+    // cache[1] = filtered messages result
+    // cache[2] = ... etc
+
+    // Check if messages changed
+    let filtered;
+    if (cache[0] !== messages) {
+        // Cache miss - recompute
+        filtered = messages.filter(filterEmptyMessages);
+        cache[0] = messages;
+        cache[1] = filtered;
+    } else {
+        // Cache hit - use cached result
+        filtered = cache[1];
+    }
+    // ...
+}
+```
+
+**Why 111 slots:** The number 111 is determined by the React Compiler's analysis of the component's memoization needs. Each unique computation gets its own slot pair (dependency + result).
+
+### Filter Chaining Optimization
+
+The rendering pipeline chains filters efficiently:
+
+```javascript
+// Efficient: Each filter is memoized separately
+const step1 = useMemo(() => messages.filter(filterEmptyMessages), [messages]);
+const step2 = useMemo(() => step1.filter(visibilityFilter), [step1, isTranscriptView]);
+const step3 = useMemo(() => groupToolsWithHooks(step2, streamingTools), [step2, streamingTools]);
+
+// This allows:
+// 1. If messages unchanged, skip step 1
+// 2. If messages changed but visibility same, skip step 2
+// 3. Granular re-computation only where needed
+```
+
+---
+
+**Last Updated**: 2026-03-22 (Enhanced with XV6 deep analysis, cross-module integration)
+**Version**: Claude Code 2.1.76
+**Status**: Complete - All rendering stages documented with source validation

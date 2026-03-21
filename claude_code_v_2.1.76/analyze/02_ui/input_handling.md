@@ -5,13 +5,12 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - CLI, Keybindings
 
 Key functions in this document:
-- `PromptInput` (YUA) - Main input component with autocomplete and history, chunks.188.mjs
-- `handleSubmit` (Z$) - User input handler and slash command router, chunks.188.mjs:686
-- `executeQuery` (ff) - Query dispatch with concurrency guard, chunks.188.mjs:589
-- `handleQuery` (oc) - Agent loop orchestration, chunks.188.mjs:550
-- `PE6` - Process input and dispatch to appropriate handler, chunks
-- `V_6` - Get previous queued message for rejection restore, chunks
-- `cJ` - Vim mode state (INSERT/NORMAL), chunks.188.mjs
+- `REPL` (`ot8`) - Main REPL component, chunks.196.mjs:3
+- `handleToolUseStream` (`xN6`) - Core streaming event processor, chunks.173.mjs:2384
+- `getInputDialogType` (`ra6`) - Priority dialog dispatcher, chunks.196.mjs:387-404
+- `handleCancel` (`TM`) - Escape/cancel handler, chunks.196.mjs:420-432
+- `ToolPermissionDialog` (`HIq`) - Tool use approval dialog, chunks.190.mjs:899
+- `MessageList` (`veY`) - Memoized message list component, chunks.161.mjs:3
 
 ---
 
@@ -37,29 +36,29 @@ The input handling system manages all user text input to Claude Code, providing:
 ┌──────────────────────────────────────────────────────────────────────┐
 │                      INPUT HANDLING SYSTEM                            │
 │                                                                       │
-│  User keystrokes → PromptInput (YUA)                                 │
+│  User keystrokes → PromptInput                                       │
 │                          │                                           │
 │                          ├── Autocomplete overlay                    │
 │                          ├── History navigation (↑/↓)                │
-│                          ├── Vim mode state (cJ)                     │
+│                          ├── Vim mode state                          │
 │                          └── Image paste handling                    │
 │                                                                       │
-│  Submit (Enter) → handleSubmit (Z$)                                  │
+│  Submit (Enter) → handleSubmit                                       │
 │                          │                                           │
-│                          ├── Slash command? → PE6                    │
+│                          ├── Slash command? → processCommand         │
 │                          │       ├── local-jsx → setToolJSX          │
 │                          │       └── regular → executeCommand        │
 │                          │                                           │
-│                          └── Regular input → executeQuery (ff)       │
-│                                  ├── Concurrency guard (I6.current)  │
-│                                  └── handleQuery (oc) → Agent loop   │
+│                          └── Regular input → executeQuery            │
+│                                  ├── Concurrency guard               │
+│                                  └── handleQuery → Agent loop        │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 **Key Design Decisions:**
 
 1. **Single entry point**: All user input flows through `handleSubmit`
-2. **Concurrency guard**: Prevents multiple simultaneous queries via `I6.current`
+2. **Concurrency guard**: Prevents multiple simultaneous queries via ref
 3. **Queue on concurrent**: If user submits while loading, input is queued
 4. **Vim mode opt-in**: Disabled by default, enabled via settings
 
@@ -71,7 +70,7 @@ The input handling system manages all user text input to Claude Code, providing:
 
 ---
 
-## 2. PromptInput Component (YUA)
+## 2. PromptInput Component
 
 The `PromptInput` component is the main interactive input element.
 
@@ -614,3 +613,278 @@ async function executeQuery(messages, abortController, shouldExecute, tools, mod
     }
 }
 ```
+
+---
+
+## 10. Deep Algorithm Analysis: Concurrency Guard
+
+### Why Concurrency Protection is Needed
+
+The REPL is a single-threaded React component, but the agent loop is asynchronous. Without concurrency protection:
+
+1. **Race conditions:** User could submit while streaming is in progress
+2. **State corruption:** Multiple agent loops modifying messages array simultaneously
+3. **Memory leaks:** Multiple AbortControllers with no cleanup
+4. **UI desync:** Loading states not matching actual processing state
+
+### Concurrency Guard Implementation
+
+```javascript
+// ============================================
+// Concurrency Guard Pattern
+// Location: chunks.196.mjs (I6 ref)
+// ============================================
+
+// I6 is a ref, not state - synchronous access without re-renders
+const I6 = useRef(false);
+
+// In executeQuery:
+async function executeQuery(messages, abortController, ...) {
+    // Check if already processing
+    if (I6.current) {
+        // CONCURRENT DETECTED - queue the messages
+        trackEvent("tengu_concurrent_onquery_detected", {});
+
+        // Extract user messages and queue for later
+        messages.filter(msg => msg.type === "user")
+            .forEach((msg, idx) => {
+                queueMessageForLater(msg);
+                if (idx === 0) trackEvent("tengu_concurrent_onquery_enqueued", {});
+            });
+
+        setIsLoading(false);  // Reset loading state
+        return;  // EXIT - don't start another agent loop
+    }
+
+    // Set guard BEFORE any async operations
+    I6.current = true;
+
+    try {
+        setIsLoading(true);
+        setMessages(prev => [...prev, ...messages]);
+
+        // Now safe to run agent loop
+        await handleQuery(messages, abortController, ...);
+    } finally {
+        // ALWAYS clear guard in finally block
+        I6.current = false;
+        resetLoadingState();
+    }
+}
+```
+
+### State Transition Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CONCURRENCY GUARD STATE MACHINE                           │
+│                                                                              │
+│  [IDLE: I6.current = false]                                                  │
+│       │                                                                      │
+│       ├── User submits input                                                 │
+│       │       │                                                              │
+│       │       ├── I6.current = false?                                        │
+│       │       │       └── YES → Set I6.current = true                        │
+│       │       │               Start agent loop                               │
+│       │       │               → [PROCESSING]                                 │
+│       │       │                                                              │
+│       │       └── I6.current = true?                                         │
+│       │               └── YES → Queue message                                │
+│       │                       Return to IDLE                                 │
+│       │                                                                      │
+│  [PROCESSING: I6.current = true]                                             │
+│       │                                                                      │
+│       ├── Agent loop completes                                               │
+│       │       └── I6.current = false                                         │
+│       │           → [IDLE]                                                   │
+│       │                                                                      │
+│       ├── Agent loop errors                                                  │
+│       │       └── finally { I6.current = false }                             │
+│       │           → [IDLE]                                                   │
+│       │                                                                      │
+│       └── Abort triggered                                                    │
+│               └── finally { I6.current = false }                             │
+│                   → [IDLE]                                                   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Design Decisions
+
+**1. Use `useRef` instead of `useState`:**
+```javascript
+// WHY: Refs provide synchronous access without triggering re-renders
+const I6 = useRef(false);  // CORRECT
+
+// If we used useState, the guard check would use stale state
+// during the same render cycle:
+const [isProcessing, setIsProcessing] = useState(false);  // WRONG
+// isProcessing is stale until next render
+```
+
+**2. Set guard BEFORE async operations:**
+```javascript
+// CORRECT: Set guard immediately
+I6.current = true;
+await asyncOperation();
+
+// WRONG: Set after checking (race condition window)
+if (!I6.current) {
+    // Another concurrent call could execute here
+    await asyncOperation();
+    I6.current = true;  // Too late!
+}
+```
+
+**3. Clear guard in `finally` block:**
+```javascript
+// CORRECT: Always clears, even on error
+try {
+    await operation();
+} finally {
+    I6.current = false;  // ALWAYS runs
+}
+
+// WRONG: Won't clear on error
+await operation();
+I6.current = false;  // Skipped if operation throws
+```
+
+---
+
+## 11. Submit Flow State Machine
+
+### Complete Submit Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    SUBMIT FLOW STATE MACHINE                                 │
+│                                                                              │
+│  [WAITING_FOR_INPUT]                                                         │
+│       │                                                                      │
+│       └── User presses Enter/Shift+Enter                                     │
+│               │                                                              │
+│               ▼                                                              │
+│  [VALIDATING_INPUT]                                                          │
+│       │                                                                      │
+│       ├── Input empty + remote mode? → Return to WAITING                     │
+│       │                                                                      │
+│       ├── Input starts with "/"?                                             │
+│       │       ├── local-jsx command?                                         │
+│       │       │       └── Set toolJSX → [LOCAL_JSX_MODE]                     │
+│       │       │                                                              │
+│       │       └── Regular command?                                           │
+│       │               └── Execute command → Return to WAITING                │
+│       │                                                                      │
+│       └── Normal input?                                                      │
+│               │                                                              │
+│               ▼                                                              │
+│  [CHECKING_CONCURRENCY]                                                      │
+│       │                                                                      │
+│       ├── I6.current = true?                                                 │
+│       │       └── Queue message → Return to WAITING                          │
+│       │                                                                      │
+│       └── I6.current = false?                                                │
+│               │                                                              │
+│               ▼                                                              │
+│  [PREPARING_QUERY]                                                           │
+│       │                                                                      │
+│       ├── Clear input field                                                  │
+│       ├── Set I6.current = true                                              │
+│       ├── Create AbortController                                             │
+│       └── Build messages array                                               │
+│               │                                                              │
+│               ▼                                                              │
+│  [EXECUTING_QUERY]                                                           │
+│       │                                                                      │
+│       ├── Add user message to display                                        │
+│       ├── Set isLoading = true                                               │
+│       ├── Start agent loop                                                   │
+│       │       │                                                              │
+│       │       └── Stream events → handleToolUseStream                        │
+│       │               → Update streaming state                               │
+│       │               → Render MessageList                                   │
+│       │                                                                      │
+│       └── Agent loop completes/errors                                        │
+│               │                                                              │
+│               ▼                                                              │
+│  [CLEANUP]                                                                   │
+│       │                                                                      │
+│       ├── I6.current = false                                                 │
+│       ├── resetLoadingState()                                                │
+│       ├── Check slow query (>30s)                                            │
+│       └── Return to WAITING_FOR_INPUT                                        │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Error Handling Paths
+
+```javascript
+// Error scenarios and recovery:
+
+// 1. API Error
+catch (apiError) {
+    I6.current = false;
+    resetLoadingState();
+    addErrorMessage(apiError.message);
+    // User can retry - back to WAITING state
+}
+
+// 2. Abort (user pressed Escape)
+if (abortController.signal.aborted) {
+    I6.current = false;
+    resetLoadingState();
+    // Input preserved - back to WAITING state
+}
+
+// 3. Permission Rejection
+if (toolPermission === "rejected") {
+    // Tool returns "rejected" error
+    // Agent loop continues, may try different approach
+    // NOT a terminal error
+}
+```
+
+---
+
+## 12. v2.1.76 Input Handling Changes
+
+### New Features
+
+1. **`/color` command:**
+   - Sets session-scoped prompt bar accent color
+   - Valid values: "default", "blue", "green", "red", "purple", "orange"
+   - Does not persist to settings
+
+2. **Ctrl+F agent filter:**
+   - Opens panel to show/filter active background agents
+   - Useful for multi-agent workflows
+
+3. **Escape key improvements:**
+   - Double-Escape reliably opens message selector
+   - Fixed race conditions after dialog dismissals
+
+### Voice Mode Improvements
+
+v2.1.76 improves voice mode handling:
+
+```javascript
+// Microphone access gracefully falls back when permissions are denied
+async function initVoiceMode() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Voice mode enabled
+    } catch (permissionDenied) {
+        // Graceful fallback - no crash
+        showNotification("Voice mode unavailable - microphone access denied");
+        // Continue with text input only
+    }
+}
+```
+
+---
+
+**Last Updated**: 2026-03-22 (Enhanced with concurrency guard analysis, submit flow state machine)
+**Version**: Claude Code 2.1.76
+**Status**: Complete - Full input handling flow documented

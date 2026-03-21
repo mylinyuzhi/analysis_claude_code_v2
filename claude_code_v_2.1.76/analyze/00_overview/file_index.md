@@ -56,13 +56,13 @@
 | `chunks.155.mjs` | Memory UI | `memoryEditorModal`, memory management UI components |
 | `chunks.156.mjs` | MCP Elicitation | `setupElicitationRequestHandler` (`RV6`), elicitation request/response schemas |
 | `chunks.160.mjs` | UI / Message Grouping | `groupToolResults` (`q9q`), `extractToolInfo` (`QbA`), `isToolUseMessage` (`XJq`) |
-| `chunks.161.mjs` | UI / MessageList | `MessageList` (`P8z`), `MessageListImpl` (`g91`), full conversation rendering |
+| `chunks.161.mjs` | UI / MessageList | `MessageListImpl` (`veY`), `memoizedMessageList` (`G_6`), full conversation rendering |
 | `chunks.162.mjs` | Bash UI | `BashOutputComponent` (`BYq`), bash tool output rendering |
 | `chunks.168.mjs` | Client Data | `getClientDataPromptVariant` (`COq`), `extractPromptVariant` |
 | `chunks.169.mjs` | LLM Core | `llmRequestGenerator` (`lOq`), `buildSystemPrompt`, `streamingQuery`, `contextCompactor` |
 | `chunks.170.mjs` | Bash Tool | Bash tool execution, background bash, `processMcpCliResult` |
 | `chunks.172.mjs` | UI Normalization | `normalizeDisplayMessages` (`t9q`), `reorderAttachments` (`dzz`), permission mode setup |
-| `chunks.173.mjs` | Message Processing | `normalizeMessages` (`WJ`), `handleStreamEvent`, `loadTranscript`, plan reminder builders |
+| `chunks.173.mjs` | Message Processing | `normalizeMessages` (`WJ`), `flattenMessages` (`JM`), `handleStreamEvent` (`xN6`), `loadTranscript`, plan reminder builders |
 | `chunks.174.mjs` | File System / Config | `getGlobalConfig`, `updateGlobalConfig`, `getPermissionRules`, `checkPathDenyRule` |
 | `chunks.175.mjs` | MCP Hub | `McpHub` (`nXq`), MCP CLI subcommands, tool/resource listing |
 | `chunks.176.mjs` | MCP Context | `MCPContext` (`ZQA`), `onChangeAppStateHandler`, `ElicitationDialog`, RemoteSessionManager |

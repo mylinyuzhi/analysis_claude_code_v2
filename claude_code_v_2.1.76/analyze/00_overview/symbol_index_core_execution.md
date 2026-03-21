@@ -276,7 +276,7 @@
 | Mzz | mergeAssistantMessages | chunks.173.mjs:2165 | function (combines assistant message chunks) |
 | Dzz | hasToolResult | chunks.173.mjs:2175 | function (checks if user message has tool_result) |
 | YS1 | ensureArray | chunks.173.mjs | function (ensures content is array) |
-| wzz | flattenMessages | chunks.173.mjs | function (flattens nested message structures) |
+| JM | flattenMessages | chunks.173.mjs:1516 | function (flattens nested message structures, preserves isMeta, extends UUIDs) |
 | Xn8 | normalizeUserMessage | chunks.173.mjs:1852 | function (user message normalization) |
 | BGq | normalizeAssistantMessage | chunks.173.mjs:1879 | function (assistant message normalization) |
 | gGq | addCacheControlsToMessages | chunks.174.mjs:829 | function (adds cache_control to messages) |

@@ -10,7 +10,7 @@
 
 - [Overview: The Visibility Contract](#overview-the-visibility-contract)
 - [Three-Tier Message Visibility Model](#three-tier-message-visibility-model)
-- [The Core UI Gate: shouldShowMessageInChat (qYq)](#the-core-ui-gate-shouldshowmessageinchat-qyq)
+- [The Core UI Gate: isMeta Filtering in Message Rendering](#the-core-ui-gate-ismeta-filtering-in-message-rendering)
 - [UI Rendering Pipeline (chunks.161.mjs)](#ui-rendering-pipeline-chunks161mjs)
 - [Attachment Message Injection Pipeline](#attachment-message-injection-pipeline)
   - [attachmentMessageGenerator (oP1)](#attachmentmessagegenerator-op1)
@@ -59,7 +59,7 @@ System reminders exist in a **dual-channel architecture**:
 The `isMeta: true` flag on a message object is the **single source of truth** that controls whether a message appears in the user-facing chat UI. This flag is:
 
 1. **Set** by all system reminder producers (normalizeAttachmentForAPI, buildContextMessages, etc.)
-2. **Checked** by the UI filter (shouldShowMessageInChat) to hide messages from chat
+2. **Checked** by the UI rendering logic (isMeta causes rendering omission) to hide messages from chat
 3. **Stripped** before sending to Claude API (formatUserMessageForAPI, formatAssistantMessageForAPI)
 4. **Used** across 10+ other systems for message classification (turn counting, telemetry, etc.)
 
@@ -104,63 +104,168 @@ Claude Code messages have three visibility tiers, controlled by two boolean flag
 
 ---
 
-## The Core UI Gate: shouldShowMessageInChat (qYq)
+## The Core UI Gate: isMeta Filtering in Message Rendering
 
-This is the single function responsible for hiding system reminders from the user UI.
+> **CORRECTION (2026-03-22):** Previous versions of this document incorrectly identified `qYq` as `shouldShowMessageInChat` at chunks.173.mjs:1292. This was incorrect.
+>
+> - `qYq` is actually a refresh callback at chunks.152.mjs:573 (`E(() => { Z7(); M4(); J_(); uP() })`)
+> - The actual `isMeta` visibility check is distributed across multiple functions
+
+The `isMeta: true` flag hides messages from the user UI through several mechanisms:
+
+### Primary Visibility Filter: XV6 (chunks.185.mjs:1692)
 
 ```javascript
 // ============================================
-// shouldShowMessageInChat - Core UI message visibility filter
-// Location: chunks.173.mjs:1292-1297
+// XV6 - Extended visibility filter for message selection
+// Location: chunks.185.mjs:1692-1702
 // ============================================
 
 // ORIGINAL (for source lookup):
-function qYq(A, q) {
-    if (A.type !== "user") return !0;
+function XV6(A) {
+    if (A.type !== "user") return !1;
+    if (Array.isArray(A.message.content) && A.message.content[0]?.type === "tool_result") return !1;
+    if (Hz6(A)) return !1;
     if (A.isMeta) return !1;
-    if (A.isVisibleInTranscriptOnly && !q) return !1;
+    let q = A.message.content,
+        K = typeof q === "string" ? null : q[q.length - 1],
+        Y = typeof q === "string" ? q.trim() : K && Yhq(K) ? K.text.trim() : "";
+    if (Y.indexOf(`<${WP}>`) !== -1 || Y.indexOf(`<${oA6}>`) !== -1 ||
+        Y.indexOf(`<${rHA}>`) !== -1 || Y.indexOf(`<${oHA}>`) !== -1 ||
+        Y.indexOf(`<${EH}>`) !== -1 || Y.indexOf(`<${vV}>`) !== -1 ||
+        Y.indexOf(`<${fj}`) !== -1) return !1;
     return !0
 }
 
 // READABLE (for understanding):
-function shouldShowMessageInChat(message, isTranscriptView) {
-    // Non-user messages (assistant, system, attachment) are always shown
-    if (message.type !== "user") return true;
+function isValidUserMessageForDisplay(message) {
+    // Only process user messages (returns false for non-user)
+    if (message.type !== "user") return false;
 
-    // isMeta messages are ALWAYS hidden from UI
+    // Hide tool_result messages
+    if (Array.isArray(message.message.content) &&
+        message.message.content[0]?.type === "tool_result") return false;
+
+    // Hide special message types (detected by Hz6)
+    if (isSpecialMessageType(message)) return false;
+
+    // CRITICAL: Hide isMeta messages
     if (message.isMeta) return false;
 
-    // Transcript-only messages are hidden in normal chat view,
-    // but shown when transcript panel is open
-    if (message.isVisibleInTranscriptOnly && !isTranscriptView) return false;
+    // Hide messages containing specific XML tags
+    let content = extractLastTextContent(message.message.content);
+    if (containsSystemReminderTags(content)) return false;
 
-    // Normal user messages: always show
     return true;
 }
 
-// Mapping: qYq→shouldShowMessageInChat, A→message, q→isTranscriptView
+// Mapping: XV6→isValidUserMessageForDisplay, Hz6→isSpecialMessageType
 ```
 
-**What it does:** The single gate function called on every message during UI rendering. Returns `false` for any message that should be hidden.
+**What makes this different from the documented `shouldShowMessageInChat`:**
+- Returns `false` for non-user messages (opposite of documented behavior)
+- Used primarily for message selection/editing contexts, not main chat rendering
+- Additional XML tag detection for system-reminder types
 
-**How it works:**
+### MessageList Filter: Gi6 (chunks.173.mjs:1502)
 
-1. **Non-user messages pass through** unchanged - assistant responses, tool results, and system messages are never filtered by this function. Only `type: "user"` messages are subject to hiding.
+```javascript
+// ============================================
+// Gi6 - Empty message filter in MessageList
+// Location: chunks.173.mjs:1502-1509
+// ============================================
 
-2. **`isMeta: true` → unconditionally hidden** - Any user message with `isMeta: true` is hidden in ALL views (both chat and transcript). This is the mechanism for system reminders.
+// ORIGINAL (for source lookup):
+function Gi6(A) {
+    if (A.type === "progress" || A.type === "attachment" || A.type === "system") return !0;
+    if (typeof A.message.content === "string") return A.message.content.trim().length > 0;
+    if (A.message.content.length === 0) return !1;
+    if (A.message.content.length > 1) return !0;
+    if (A.message.content[0].type !== "text") return !0;
+    return A.message.content[0].text.trim().length > 0 &&
+           A.message.content[0].text !== wE &&
+           A.message.content[0].text !== P0
+}
 
-3. **`isVisibleInTranscriptOnly: true` → conditionally hidden** - Hidden in normal chat view, but shown when user opens the transcript panel (`q` parameter is `true`). This tier is used for compact summaries and tool result metadata.
+// READABLE (for understanding):
+function filterEmptyMessages(message) {
+    // Keep progress, attachment, and system types
+    if (message.type === "progress" ||
+        message.type === "attachment" ||
+        message.type === "system") return true;
 
-4. **Normal messages → always shown** - Default return is `true`.
+    // For string content, check if non-empty
+    if (typeof message.message.content === "string") {
+        return message.message.content.trim().length > 0;
+    }
 
-**Why this approach:**
+    // Filter out empty arrays
+    if (message.message.content.length === 0) return false;
 
-The three-condition waterfall provides a **clear priority order**:
-- Check type first (avoids checking isMeta on assistant messages which don't have it)
-- Check isMeta before isVisibleInTranscriptOnly (stronger restriction takes priority)
-- The `isTranscriptView` parameter allows the transcript panel to reveal more messages without changing the `isMeta` contract
+    // Keep multi-content messages
+    if (message.message.content.length > 1) return true;
 
-**Key insight:** The separation between `isMeta` and `isVisibleInTranscriptOnly` is a **two-level confidentiality model**. `isMeta` is truly hidden (model-only context), while `isVisibleInTranscriptOnly` is "advanced view" content that power users can inspect but that would clutter the main chat.
+    // Keep non-text first items
+    if (message.message.content[0].type !== "text") return true;
+
+    // Filter out empty text and placeholder messages
+    return message.message.content[0].text.trim().length > 0 &&
+           message.message.content[0].text !== EMPTY_PLACEHOLDER_1 &&
+           message.message.content[0].text !== EMPTY_PLACEHOLDER_2;
+}
+
+// Mapping: Gi6→filterEmptyMessages, wE→EMPTY_PLACEHOLDER_1, P0→EMPTY_PLACEHOLDER_2
+```
+
+**Note:** `Gi6` does NOT filter `isMeta` messages directly. The `isMeta` filtering happens through the rendering logic - messages with `isMeta: true` are included in the message list but rendered as empty/nothing by the component tree.
+
+### Special Message Type Detection: Hz6 (chunks.173.mjs:1275)
+
+```javascript
+// ============================================
+// Hz6 - Detect special message types hidden from UI
+// Location: chunks.173.mjs:1275-1277
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Hz6(A) {
+    return A.type !== "progress" && A.type !== "attachment" && A.type !== "system" &&
+           Array.isArray(A.message.content) &&
+           A.message.content[0]?.type === "text" &&
+           TF6.has(A.message.content[0].text)
+}
+
+// READABLE (for understanding):
+function isSpecialMessageType(message) {
+    // Only check user/assistant messages (not progress/attachment/system)
+    if (message.type === "progress" ||
+        message.type === "attachment" ||
+        message.type === "system") return false;
+
+    // Check if first content item is text
+    if (!Array.isArray(message.message.content)) return false;
+    if (message.message.content[0]?.type !== "text") return false;
+
+    // Check if text matches a special type pattern
+    return SPECIAL_MESSAGE_TYPES.has(message.message.content[0].text);
+}
+
+// Mapping: Hz6→isSpecialMessageType, TF6→SPECIAL_MESSAGE_TYPES (Set of known patterns)
+```
+
+### How isMeta Actually Works
+
+The `isMeta` flag operates through **rendering omission** rather than **list filtering**:
+
+1. **Messages are NOT filtered out** by `Gi6` based on `isMeta`
+2. **Messages ARE passed** to the MessageList component with `isMeta` preserved
+3. **Components check `isMeta`** before rendering visible content
+4. **Result:** `isMeta: true` messages exist in state but produce no visual output
+
+This design allows:
+- `isMeta` messages to be included in API calls
+- `isMeta` messages to exist in transcript/history
+- UI to skip rendering them without complex filter chains
 
 ---
 
@@ -172,82 +277,40 @@ The rendering pipeline applies several sequential filters before displaying mess
 
 ```javascript
 // ============================================
-// MessageRenderingPipeline - Full UI filter chain
-// Location: chunks.161.mjs:710-723
+// MessageRenderingPipeline - Actual filter chain in MessageList
+// Location: chunks.161.mjs:40
 // ============================================
 
 // ORIGINAL (for source lookup):
-let j6 = H ? g : EN(g),
-    M6;
-if (q[23] !== q1) M6 = (k1) => qYq(k1, q1), q[23] = q1, q[24] = M6;
-else M6 = q[24];
-let N6 = t9q(j6.filter(f8z).filter(M6), j1),
-    F6 = t ? N6.slice(-qd1) : N6;
-J1 = t && N6.length > qd1;
-let { messages: P1 } = q9q(F6, z, H);
-D1 = Y9q(qd7(P1, z)), Z1 = e9q(g, F6)
+if (q[0] !== K) Q = JM(K).filter(Gi6), q[0] = K, q[1] = Q;
+else Q = q[1];
+let U = Q,
 
 // READABLE (for understanding):
-// Step 1: Apply compaction boundary
-let candidateMessages = isTranscriptViewOpen
-    ? allMessages                              // Transcript: show all
-    : getVisibleMessagesAfterCompact(allMessages); // Chat: only post-compact
+// Step 1: Flatten multi-content messages and filter empty
+let flattenedMessages = flattenMessageContent(allMessages);
+let filteredMessages = flattenedMessages.filter(filterEmptyMessages);
 
-// Step 2: Memoize visibility filter (avoid recreating closure on each render)
-let visibilityFilter;
-if (deps[23] !== isTranscriptViewOpen) {
-    visibilityFilter = (msg) => shouldShowMessageInChat(msg, isTranscriptViewOpen);
-    deps[23] = isTranscriptViewOpen;
-    deps[24] = visibilityFilter;
-} else {
-    visibilityFilter = deps[24];
-}
-
-// Step 3: Apply dual filter (progress + visibility)
-let filteredMessages = normalizeDisplayMessages(
-    candidateMessages
-        .filter(isNotProgress)        // Remove "progress" type messages
-        .filter(visibilityFilter),    // Remove isMeta and transcript-only
-    columnCount
-);
-
-// Step 4: Optional pagination (most recent N messages)
-let displayMessages = shouldPaginate
-    ? filteredMessages.slice(-messagesPerPage)
-    : filteredMessages;
-
-hasTruncated = shouldPaginate && filteredMessages.length > messagesPerPage;
-
-// Step 5: Group tool uses with their results
-let { messages: renderableMessages } = groupToolResults(displayMessages, tools, isTranscriptViewOpen);
-
-// Step 6: Memoize for performance
-renderableMessages = memoizeRenderableMessages(renderableMessages, tools);
-
-// Step 7: Build lookup tables for message navigation
-lookups = buildMessageLookups(allMessages, displayMessages);
-
-// Mapping: H→isTranscriptViewOpen, g→allMessages, EN→getVisibleMessagesAfterCompact,
-// q1→isTranscriptViewOpen (deps value), M6→visibilityFilter, f8z→isNotProgress,
-// qYq→shouldShowMessageInChat, t9q→normalizeDisplayMessages, j1→columnCount,
-// t→shouldPaginate, qd1→messagesPerPage, q9q→groupToolResults, q[23/24]→memoization deps
+// Note: isMeta messages are NOT filtered out here.
+// They are passed through but render as empty/nothing.
 ```
 
 **Filter chain diagram:**
 
 ```
-allMessages
+allMessages (u7)
     │
-    ├── [Transcript view?]
-    │     YES → Show all messages (including pre-compact)
-    │     NO  → getVisibleMessagesAfterCompact (only post last compact boundary)
+    │ flattenMessageContent (JM)
+    ├── Split multi-content messages into individual items
+    │   (e.g., assistant message with 3 content blocks → 3 messages)
     │
-    │ .filter(isNotProgress)
-    ├── Removes type: "progress" messages (streaming progress indicators)
+    │ .filter(filterEmptyMessages) (Gi6)
+    ├── Remove empty string content
+    ├── Remove empty arrays
+    ├── Remove specific placeholder texts
     │
-    │ .filter(shouldShowMessageInChat)
-    ├── Removes isMeta: true messages (system reminders)
-    ├── Removes isVisibleInTranscriptOnly: true IF NOT in transcript view
+    │ NOTE: isMeta messages are NOT filtered here!
+    │ They remain in the list but render as nothing.
     │
     │ .slice(-N) [optional pagination]
     ├── Show only last N messages if too many
@@ -255,7 +318,7 @@ allMessages
     │ groupToolResults()
     └── Group tool call + tool result pairs for display
          │
-         └── RENDERED TO USER
+         └── RENDERED TO USER (isMeta messages produce no visible output)
 ```
 
 ### Compaction Boundary Filter: getVisibleMessagesAfterCompact (EN)
@@ -675,17 +738,17 @@ function normalizeMessages(messages, tools = []) {
 
 **isMeta handling in normalizeMessages:**
 
-The normalization step does NOT filter out `isMeta` messages - that's done later by `shouldShowMessageInChat`. Instead, normalization converts attachment-type messages into their final display format:
+The normalization step does NOT filter out `isMeta` messages - they are kept in the array but rendered as empty/nothing. Instead, normalization converts attachment-type messages into their final display format:
 
 ```javascript
 // Attachment messages encountered during normalization:
 // 1. Extract attachment object from envelope: { type: "attachment", attachment: {...} }
 // 2. Call K2z(attachment) to convert to API messages (with isMeta: true)
 // 3. The resulting messages have isMeta: true
-// 4. The UI filter (qYq) will later hide them
+// 4. The UI renders them as nothing (isMeta causes rendering omission)
 ```
 
-This means `isMeta` messages DO exist in the normalized message array and ARE passed to the UI rendering pipeline - they're just filtered at the last step before display.
+This means `isMeta` messages DO exist in the normalized message array and ARE passed to the UI rendering pipeline - they're simply not rendered visually (components check `isMeta` and produce no output).
 
 ---
 
@@ -1209,12 +1272,13 @@ let realUserMessagesAndBoundaries = allMessages.filter((msg) =>
 │ 5a. UI RENDERING   │                 │ 5b. API CALL FORMATTING        │
 │                    │                 │                               │
 │ filter pipeline:   │                 │ m9z() maps each message:      │
-│ .filter(f8z)       │                 │  • b9z() for user messages    │
-│ .filter(qYq)       │                 │  • u9z() for assistant msgs   │
+│ JM() - flatten     │                 │  • b9z() for user messages    │
+│ Gi6() - empties    │                 │  • u9z() for assistant msgs   │
 │                    │                 │                               │
-│ qYq filters:       │                 │ OUTPUT: strips all fields     │
-│ • isMeta → HIDDEN  │                 │ except role + content         │
-│                    │                 │ (isMeta, uuid, etc DROPPED)   │
+│ isMeta messages:   │                 │ OUTPUT: strips all fields     │
+│ • kept in array    │                 │ except role + content         │
+│ • render as empty  │                 │ (isMeta, uuid, etc DROPPED)   │
+│                    │                 │                               │
 │ USER SEES:         │                 │                               │
 │ • "Fix auth bug"   │                 │ API receives:                 │
 │   (and prev turns) │                 │ [                             │
@@ -1260,7 +1324,7 @@ let realUserMessagesAndBoundaries = allMessages.filter((msg) =>
 - Turn counting, token usage, etc. need to see ALL messages in context
 - Adding a new `isHidden` field to existing message structure is zero-cost at runtime
 
-**Trade-off:** The UI must filter on every render. But with `shouldShowMessageInChat` being a simple boolean check, this is O(N) per render where N is message count - negligible given React's reconciliation handles this efficiently.
+**Trade-off:** The UI must check `isMeta` on every render. But with this being a simple boolean check in the rendering logic, this is O(N) per render where N is message count - negligible given React's reconciliation handles this efficiently.
 
 ### Decision 2: isMeta Stripped at Formatter Level, Not Earlier
 
@@ -1285,7 +1349,7 @@ let realUserMessagesAndBoundaries = allMessages.filter((msg) =>
 - `isVisibleInTranscriptOnly` messages are **advanced view only** - compact summaries and tool metadata that technical users may want to inspect
 - Developers need a way to understand what happened without polluting the main chat
 
-**Trade-off:** Adds complexity to `shouldShowMessageInChat`. The transcript view parameter must be correctly threaded through the component tree.
+**Trade-off:** Adds complexity to the visibility model. The transcript view parameter must be correctly threaded through the component tree.
 
 ---
 
@@ -1298,11 +1362,13 @@ let realUserMessagesAndBoundaries = allMessages.filter((msg) =>
 Key functions in this document:
 
 **UI Visibility:**
-- `shouldShowMessageInChat` (qYq) - Core UI filter gate, chunks.173.mjs:1292
+- `isValidUserMessageForDisplay` (XV6) - Extended visibility filter, chunks.185.mjs:1692
+- `filterEmptyMessages` (Gi6) - Empty message filter in MessageList, chunks.173.mjs:1502
+- `isSpecialMessageType` (Hz6) - Detect special message types, chunks.173.mjs:1275
+- `flattenMessageContent` (JM) - Flatten multi-content messages, chunks.173.mjs:1516
 - `getVisibleMessagesAfterCompact` (EN) - Show messages after compact boundary, chunks.173.mjs:1286
 - `findLastCompactBoundary` (Y2z) - Locate last compact_boundary marker, chunks.173.mjs:1278
 - `isCompactBoundary` (cR) - Check if message is a boundary, chunks.173.mjs:1274
-- `isNotProgress` (f8z) - Filter progress messages, chunks.161.mjs:571
 
 **Attachment Injection:**
 - `attachmentMessageGenerator` (oP1) - Async generator yielding attachments, chunks.142.mjs:2494

@@ -5,17 +5,13 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Agent Loop, Tools
 
 Key functions in this document:
-- `REPL` (TUA) - Main React component orchestrating the entire session, chunks.188.mjs:3
-- `showSetupScreens` (gRq) - Pre-session setup wizard, chunks.190.mjs:758
-- `executeQuery` (ff) - Core query dispatch with concurrency guard, chunks.188.mjs:589
-- `handleQuery` (oc) - Agent loop orchestration and streaming, chunks.188.mjs:550
-- `handleSubmit` (Z$) - User input handler and slash command router, chunks.188.mjs:686
-- `handleToolUseStreamCallback` (T11) - Streaming event adapter for React state, chunks.188.mjs:542
-- `handleToolUseStream` (iW1) - Core streaming event processor, chunks.173.mjs:390
-- `getInputDialogType` (f11) - Priority dialog dispatcher, chunks.188.mjs:304
-- `handleCancel` (N11) - Escape/cancel handler, chunks.188.mjs:328
-- `resetLoadingState` (YK) - Post-query cleanup, chunks.188.mjs:218
-- `setToolJSX` (TA) - Animation/local JSX command renderer, chunks.188.mjs:111
+- `REPL` (`ot8`) - Main React component orchestrating the entire session, chunks.196.mjs:3
+- `getInputDialogType` (`ra6`) - Priority dialog dispatcher, chunks.196.mjs:387-404
+- `handleCancel` (`TM`) - Escape/cancel handler, chunks.196.mjs:420-432
+- `handleToolUseStream` (`xN6`) - Core streaming event processor, chunks.173.mjs:2384-2480
+- `ToolPermissionDialog` (`HIq`) - Tool use approval dialog, chunks.190.mjs:899
+- `SandboxPermissionDialog` (`ct8`) - Network/sandbox approval dialog, chunks.194.mjs:2899
+- `MessageList` (`veY`) - Memoized message list component, chunks.161.mjs:3
 
 ---
 
@@ -29,12 +25,8 @@ Key functions in this document:
   - [3.3 Component Render Tree](#33-component-render-tree)
 - [4. Streaming State Machine](#4-streaming-state-machine)
   - [4.1 streamMode States](#41-streammode-states)
-  - [4.2 handleToolUseStream (iW1)](#42-handletooluse-stream-iw1)
-  - [4.3 handleToolUseStreamCallback (T11)](#43-handletoolusestream-callback-t11)
+  - [4.2 handleToolUseStream (xN6)](#42-handletoolusestream-xn6)
 - [5. Query Execution Pipeline](#5-query-execution-pipeline)
-  - [5.1 handleSubmit (Z$) - Input Entry Point](#51-handlesubmit-z---input-entry-point)
-  - [5.2 executeQuery (ff) - Concurrency Guard](#52-executequery-ff---concurrency-guard)
-  - [5.3 handleQuery (oc) - Agent Loop Bridge](#53-handlequery-oc---agent-loop-bridge)
 - [6. Animation and Local JSX Commands](#6-animation-and-local-jsx-commands)
 - [7. Loading State and Spinner](#7-loading-state-and-spinner)
 - [8. Cancel and Abort Flow](#8-cancel-and-abort-flow)
@@ -45,7 +37,7 @@ Key functions in this document:
 
 ## 1. Architecture Overview
 
-The Claude Code UI is a **React application rendered in the terminal using the Ink library**. The central component is `REPL` (`TUA`), which acts as the entire session controller. It:
+The Claude Code UI is a **React application rendered in the terminal using the Ink library**. The central component is `REPL` (`ot8`), which acts as the entire session controller. It:
 
 1. Manages all UI state (messages, loading, streaming, dialogs)
 2. Bridges user input to the `AgentLoop` via callbacks
@@ -54,8 +46,8 @@ The Claude Code UI is a **React application rendered in the terminal using the I
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      REPL (TUA)                                      │
-│                   chunks.188.mjs:3                                   │
+│                      REPL (ot8)                                      │
+│                   chunks.196.mjs:3                                   │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │ State Stores                                                  │   │
@@ -65,31 +57,30 @@ The Claude Code UI is a **React application rendered in the terminal using the I
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │ Query Pipeline                                                │   │
-│  │ handleSubmit (Z$) → executeQuery (ff) → handleQuery (oc)     │   │
-│  │                                        → AgentLoop (ZR)      │   │
-│  │                                        → T11 (streaming)     │   │
+│  │ handleSubmit → executeQuery → handleQuery → AgentLoop         │   │
+│  │                              → handleToolUseStream (xN6)      │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │ Component Tree                                                │   │
-│  │ lgA (Header) + igA (Input) + ngA (Dialogs) + g91 (Messages)  │   │
+│  │ Header + PromptInput + Dialogs + MessageList (veY)           │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 **Key architectural decisions:**
 
-1. **Single large component**: Unlike typical React apps with many small components, `TUA` is a monolithic component (~2800 lines) that holds all critical state. This avoids prop drilling and context overhead for the terminal environment.
+1. **Single large component**: Unlike typical React apps with many small components, `ot8` is a monolithic component that holds all critical state. This avoids prop drilling and context overhead for the terminal environment.
 
-2. **Deferred message rendering**: `T6 = useDeferredValue(W4)` — messages are displayed with a deferred value to keep the input responsive during heavy streaming.
+2. **Deferred message rendering**: Messages are displayed with a deferred value to keep the input responsive during heavy streaming.
 
-3. **Ref + state duality**: Immutable-in-render state (like `isLoading`) also has a `.current` ref version (`I6.current`) so callbacks can read the current value without being recreated on every state change.
+3. **Ref + state duality**: Immutable-in-render state (like `isLoading`) also has a `.current` ref version so callbacks can read the current value without being recreated on every state change.
 
 ---
 
 ## 2. Pre-Session Setup
 
-Before `REPL` renders, `showSetupScreens` (`gRq`) runs a sequential wizard:
+Before `REPL` renders, `showSetupScreens` (`gRq`) runs a sequential wizard. This ensures all prerequisites are met before the interactive session begins.
 
 ```javascript
 // ============================================
@@ -133,7 +124,60 @@ async function showSetupScreens(root, permissionMode, force, commands, chrome) {
 // Mapping: gRq→showSetupScreens, LF→renderBlockingComponent, w→settings
 ```
 
-**Blocking pattern:** Each step uses `renderBlockingComponent` (`LF`), which renders a React component and returns a Promise that resolves when the component calls `onDone()`. This means the setup sequence is **fully sequential** - each screen must complete before the next one appears.
+### Pre-Session Flow Diagram
+
+```
+CLI starts
+    │
+    ↓
+showSetupScreens() called
+    │
+    ├── [hasCompletedOnboarding?]
+    │       │ NO → Onboarding wizard → user completes → set hasCompletedOnboarding
+    │       │ YES → continue
+    │       ↓
+    ├── [permissionMode !== "bypassPermissions" && !CI?]
+    │       │ YES → Trust dialog → user accepts/rejects
+    │       │         ├── Accept → continue
+    │       │         └── Reject → exit CLI
+    │       │ NO → continue
+    │       ↓
+    ├── [policy changes?]
+    │       │ YES → Policy notification → user acknowledges
+    │       │ NO → continue
+    │       ↓
+    ├── [API key configured?]
+    │       │ NO → API key prompt → user enters key
+    │       │ YES → continue
+    │       ↓
+    └── Setup complete → render REPL
+```
+
+### Blocking Pattern: renderBlockingComponent
+
+```javascript
+// ============================================
+// renderBlockingComponent - Renders component and waits for completion
+// Location: chunks.190.mjs:~720
+// ============================================
+
+// READABLE (for understanding):
+async function renderBlockingComponent(root, renderComponent) {
+    return new Promise((resolve) => {
+        // Render component with resolve callback as onDone prop
+        root.render(renderComponent((result) => {
+            // Component calls onDone() when complete
+            resolve(result);
+        }));
+    });
+}
+```
+
+**Key insight:** The `renderBlockingComponent` pattern ensures sequential execution in an async environment. Each setup screen:
+1. Renders its UI component
+2. Returns a Promise that resolves when the component calls `onDone()`
+3. Awaits the Promise before proceeding to the next screen
+4. This guarantees the user cannot skip setup steps
 
 ---
 
@@ -144,11 +188,11 @@ async function showSetupScreens(root, permissionMode, force, commands, chrome) {
 ```javascript
 // ============================================
 // REPL Props - Entry configuration
-// Location: chunks.188.mjs:3-26
+// Location: chunks.196.mjs:3-50
 // ============================================
 
 // ORIGINAL (for source lookup):
-function TUA({
+function ot8({
     commands: A, debug: q, initialTools: K, initialMessages: Y,
     initialFileHistorySnapshots: z, initialAgentName: w, initialAgentColor: H,
     mcpClients: $, dynamicMcpConfig: O, mcpCliEndpoint: _, autoConnectIdeFlag: J,
@@ -187,77 +231,82 @@ function REPL({
 
 ### 3.2 State Variables Map
 
-The REPL component manages an extensive set of state variables. Organized by function:
+The REPL component manages an extensive set of state variables, verified against source code (chunks.196.mjs). Organized by function:
 
 **Streaming & Loading State:**
 
-| Obfuscated | Readable | Type | Purpose |
-|------------|----------|------|---------|
-| `O7` | `streamMode` | `string` | Current streaming mode ("responding"\|"thinking"\|"tool-input"\|...) |
-| `gq` | `streamingToolUses` | `array` | In-flight tool uses being streamed |
-| `U8` | `streamingThinking` | `object\|null` | Active thinking block data |
-| `_4` | `isLoading` | `bool` | Whether agent is responding |
-| `Wz` | `userInputOnProcessing` | `string\|undefined` | User input shown during loading |
+| Obfuscated | Readable | Type | Line | Purpose |
+|------------|----------|------|------|---------|
+| `d7` | `streamMode` | `string` | 96 | Current streaming mode ("responding"\|"thinking"\|"tool-input"\|...) |
+| `JK` | `streamingToolUses` | `array` | 98 | In-flight tool uses being streamed |
+| `MK` | `streamingThinking` | `object\|null` | 98 | Active thinking block data |
+| `_4` | `isLoading` | `bool` | 237 | Whether agent is responding |
+| `YA` | `userInputOnProcessing` | `string\|undefined` | 116 | User input shown during loading |
+| `M5` | `abortController` | `AbortController\|null` | 108 | Current in-flight request controller |
 
 **Message History State:**
 
-| Obfuscated | Readable | Type | Purpose |
-|------------|----------|------|---------|
-| `W4` | `messages` | `array` | Full conversation history (source of truth) |
-| `T6` | `deferredMessages` | `array` | Deferred version for rendering (performance) |
-| `nA` | `normalizedMessageHistory` | `array` | Normalized history for API |
-| `fA` | `replayState` | `object\|null` | Active message replay/restoration state |
+| Obfuscated | Readable | Type | Line | Purpose |
+|------------|----------|------|------|---------|
+| `u7` | `messages` | `array` | 173 | Full conversation history (source of truth) |
+| `xO` | `deferredMessages` | `array` | 183 | Deferred version for rendering (performance) |
+| `YA` | `responseLength` | `Ref<number>` | 116 | Accumulated response character count |
 
 **Input State:**
 
-| Obfuscated | Readable | Type | Purpose |
-|------------|----------|------|---------|
-| `K8` | `inputValue` | `string` | Current text in input box |
-| `e4` | `inputMode` | `"prompt"\|"bash"` | Input parsing mode |
-| `IH` | `pastedContents` | `object` | Pasted images/files map `{id: content}` |
-| `F5` | `pendingInput` | `object\|undefined` | Queued input for after loading completes |
-| `W$` | `isPaused` | `bool` | Whether to pause dialog display |
-| `cJ` | `vimMode` | `string` | Vim editing mode ("INSERT"\|"NORMAL") |
+| Obfuscated | Readable | Type | Line | Purpose |
+|------------|----------|------|------|---------|
+| `m5` | `inputValue` | `string` | 185 | Current text in input box |
+| `ZH` | `inputMode` | `"prompt"\|"shift-enter"` | 197 | Input parsing mode |
+| `p3` | `pastedContents` | `object` | 222 | Pasted images/files map `{id: content}` |
+| `y2` | `isPaused` | `bool` | 130 | Whether to pause dialog display |
+| `sZ` | `vimMode` | `string` | 235 | Vim editing mode ("INSERT"\|"NORMAL") |
 
 **Dialog Queue State:**
 
-| Obfuscated | Readable | Type | Purpose |
-|------------|----------|------|---------|
-| `F7` | `toolUseConfirmQueue` | `array` | Pending tool permission requests |
-| `oq` | `sandboxPermissionQueue` | `array` | Pending sandbox/network permission requests |
-| `E1` | `elicitationState` | `{queue:[]}` | Pending MCP elicitation requests (Zustand) |
-| `Z1` | `workerSandboxPermissions` | `{queue:[]}` | Worker sandbox permission queue (Zustand) |
-| `q1` | `pendingWorkerRequest` | `object\|null` | Active worker request display (Zustand) |
-| `t` | `pendingSandboxRequest` | `object\|null` | Active sandbox request display (Zustand) |
+| Obfuscated | Readable | Type | Line | Purpose |
+|------------|----------|------|------|---------|
+| `a8` | `toolUseConfirmQueue` | `array` | 167 | Pending tool permission requests |
+| `G7` | `sandboxPermissionQueue` | `array` | 167 | Pending sandbox/network permission requests |
+| `o` | `elicitationState` | `{queue:[]}` | 34 | Pending MCP elicitation requests (Zustand) |
+| `n` | `workerSandboxPermissions` | `{queue:[]}` | 34 | Worker sandbox permission queue (Zustand) |
+| `zA` | `promptQueue` | `array` | 167 | Pending prompt requests from tools |
 
 **UI Mode State:**
 
-| Obfuscated | Readable | Type | Purpose |
-|------------|----------|------|---------|
-| `vK` | `toolJSX` | `object\|null` | Active local JSX command rendering state |
-| `y1` | `screen` | `"prompt"\|"transcript"` | Current screen mode |
-| `o_` | `isMessageSelectorVisible` | `bool` | Message selector overlay active |
-| `s_` | `isSearchingHistory` | `bool` | Input history search active |
-| `fz` | `fullScreenOverlay` | `ReactElement\|null` | Full-screen overlay (e.g., setup screens) |
-| `D2` | `isHelpOpen` | `bool` | Help panel open |
-| `T4` | `isSearchingInputHistory` | `bool` | Input history search mode |
+| Obfuscated | Readable | Type | Line | Purpose |
+|------------|----------|------|------|---------|
+| `j8` | `toolJSX` | `object\|null` | 143 | Active local JSX command rendering state |
+| `k6` | `screen` | `"prompt"\|"transcript"` | 47 | Current screen mode |
+| `W7` | `isMessageSelectorVisible` | `bool` | 235 | Message selector overlay active |
+| `lV6` | `isViewingDialogHistory` | `bool` | 385 | History browsing overlay active |
+| `na6` | `fullScreenOverlay` | `ReactElement\|null` | 385 | Full-screen overlay (e.g., setup screens) |
 
 **Abort & Concurrency State:**
 
-| Obfuscated | Readable | Type | Purpose |
-|------------|----------|------|---------|
-| `O3` | `abortController` | `AbortController\|null` | Current in-flight request controller |
-| `I6` | `isQueryInProgress` | `Ref<bool>` | Concurrency guard (ref, not state) |
-| `tA` | `inFlightMessages` | `Ref<array>` | Messages being processed (ref) |
+| Obfuscated | Readable | Type | Line | Purpose |
+|------------|----------|------|------|---------|
+| `I6` | `isQueryInProgress` | `Ref<bool>` | 120 | Concurrency guard (ref, not state) |
+| `tA` | `inFlightMessages` | `Ref<array>` | 112 | Messages being processed (ref) |
+| `n4` | `inProgressToolUseIDs` | `Set` | 200 | Set of tool use IDs currently executing |
 
 **Ref-based Timing State:**
 
-| Obfuscated | Readable | Type | Purpose |
-|------------|----------|------|---------|
-| `$Y` | `queryStartTime` | `Ref<number>` | When current query started (ms) |
-| `OY` | `totalPausedMs` | `Ref<number>` | Accumulated tool-permission wait time |
-| `fY` | `toolPermissionStartTime` | `Ref<number\|null>` | When current permission dialog opened |
-| `Qj` | `responseLength` | `Ref<number>` | Accumulated response character count |
+| Obfuscated | Readable | Type | Line | Purpose |
+|------------|----------|------|------|---------|
+| `u9` | `queryStartTime` | `Ref<number>` | 117 | When current query started (ms) |
+| `u5` | `totalPausedMs` | `Ref<number>` | 118 | Accumulated tool-permission wait time |
+| `KK` | `toolPermissionStartTime` | `Ref<number\|null>` | 119 | When current permission dialog opened |
+| `mO` | `responseLength` | `Ref<number>` | 222 | Accumulated response character count |
+
+**Derived State (computed each render):**
+
+| Obfuscated | Readable | Calculation | Line | Purpose |
+|------------|----------|-------------|------|---------|
+| `K2` | `focusedInputDialog` | `ra6()` | 405 | Current dialog type from priority dispatcher |
+| `Cb1` | `hasBlockedDialogs` | Paused + pending dialogs | 406 | Dialog waiting for user attention |
+| `QV6` | `showSpinner` | Complex calculation | 305 | Spinner visibility calculation |
+| `UV6` | `hasActiveDialogs` | Any queue has items | 306 | Any dialog queue has pending items |
 
 ### 3.3 Component Render Tree
 
@@ -350,26 +399,26 @@ Each state drives a different spinner animation in `GR4`:
 - `"tool-input"` → Shows which tool input is being generated
 - `"tool-use"` → Shows active tool execution
 
-### 4.2 handleToolUseStream (iW1)
+### 4.2 handleToolUseStream (`xN6`)
 
 The core streaming event processor. Routes LLM streaming events to React state callbacks:
 
 ```javascript
 // ============================================
 // handleToolUseStream - Routes streaming events to React state
-// Location: chunks.173.mjs:390-488
+// Location: chunks.173.mjs:2384-2480
 // ============================================
 
 // ORIGINAL (for source lookup):
-function iW1(A, q, K, Y, z, w, H) {
+function xN6(A, q, K, Y, z, _, w, O, $) {
     if (A.type !== "stream_event" && A.type !== "stream_request_start") {
-        if (A.type === "tombstone") { w?.(A.message); return }
+        if (A.type === "tombstone") { _?.(A.message); return }
         if (A.type === "tool_use_summary") return;
         if (A.type === "assistant") {
-            let $ = A.message.content.find((O) => O.type === "thinking");
-            if ($ && $.type === "thinking") H?.(() => ({...}))
+            let H = A.message.content.find((j) => j.type === "thinking");
+            if (H && H.type === "thinking") w?.(() => ({...}))
         }
-        q(A); return
+        $?.(() => null), q(A); return
     }
     // ... handle stream_event types
 }
@@ -466,12 +515,12 @@ function handleToolUseStream(
     }
 }
 
-// Mapping: iW1→handleToolUseStream, A→event, q→onAddMessage, K→onTextDelta,
-// Y→setStreamMode, z→setStreamingToolUses, w→onTombstone, H→setStreamingThinking
+// Mapping: xN6→handleToolUseStream, A→event, q→onAddMessage, K→onTextDelta,
+// Y→setStreamMode, z→setStreamingToolUses, _→onTombstone, w→setStreamingThinking
 ```
 
 **Why each callback is separate:**
-The function takes 7 callbacks instead of a single state updater object. This allows:
+The function takes 9 callbacks instead of a single state updater object. This allows:
 1. Each callback to be individually memoized (won't trigger unnecessary re-renders)
 2. The function to be unit-tested with mock callbacks
 3. Different components to subscribe to only the events they care about
@@ -1126,24 +1175,166 @@ function handleCancel() {
 When `initialMessages` is provided (session resume), the REPL initializes with existing history:
 
 ```javascript
-// chunks.188.mjs:296-298
+// ============================================
+// Session Resume - Initial message restoration
+// Location: chunks.196.mjs:379-381
+// ============================================
+
+// ORIGINAL (for source lookup):
+N8.useEffect(() => {
+    if (Y && Y.length > 0) dV6(Y, AA())
+}, []);
+
+// READABLE (for understanding):
 useEffect(() => {
     if (initialMessages && initialMessages.length > 0) {
         updateHistory(initialMessages, getCwd()); // Pre-populate normalizedHistory
-        setFileReadState(initialMessages, getCwd());
     }
 }, []);
+
+// Mapping: Y→initialMessages, dV6→updateHistory, AA→getCwd
 ```
 
-When a full session is resumed via `W6` (`restoreSession`):
-1. Load session messages from disk
-2. Update `normalizedHistory` with the loaded messages
-3. Apply file history snapshots if present
-4. Restore agent settings (type, model) if agent was configured
-5. Load prompt cache data for the session
-6. Await IDE connection restoration
-7. `setMessages(() => sessionMessages)` - Reset messages to loaded state
-8. Clear `setToolJSX(null)`, `setInputValue("")`, `setNormalizedHistory([])`
+### Full Session Resume (aN callback)
+
+When a full session is resumed via the session manager, the `aN` callback handles complete restoration:
+
+```javascript
+// ============================================
+// restoreSession - Full session restoration handler
+// Location: chunks.196.mjs:332-372
+// ============================================
+
+// ORIGINAL (for source lookup):
+let aN = N8.useCallback(async (P1, Y8, V8) => {
+    let c7 = performance.now();
+    try {
+        let FA = zV1(Y8.messages),
+            v7 = await C0("resume", { sessionId: P1, agentType: u?.agentType, model: w6 });
+        if (FA.push(...v7), V8 === "fork") q94(Y8, eJ(P1));
+        else EP1(Y8, eJ(P1));
+        if (co6(Y8, i), Y8.fileHistorySnapshots) KV1(Y8);
+        let { agentDefinition: N7 } = K26(Y8.agentSetting, G, Q);
+        I(N7), i((nK) => ({ ...nK, agent: N7?.agentType }));
+        i((nK) => ({ ...nK, standaloneAgentContext: lo6(Y8.agentName, Y8.agentColor) }));
+        dV6(FA, Y8.projectPath ?? AA()), dE(), x5(null), S2(P1);
+        let cA = NO8(P1);
+        o21(), uw6(), _P(eJ(P1), Y8.fullPath ? Lvz(Y8.fullPath) : null);
+        // ... prompt cache and recording restoration
+        gq(() => FA), o8(null), P5("");
+    } catch (FA) { throw ... }
+}, [dE, i])
+
+// READABLE (for understanding):
+const restoreSession = useCallback(async (sessionId, sessionData, entrypoint) => {
+    const startTime = performance.now();
+    try {
+        // Step 1: Load session messages
+        let messages = reconstructMessages(sessionData.messages);
+        const resumePrompt = await getCachedPrompt("resume", {
+            sessionId,
+            agentType: agentDefinition?.agentType,
+            model
+        });
+        messages.push(...resumePrompt);
+
+        // Step 2: Update session file (fork vs continue)
+        if (entrypoint === "fork") {
+            forkSessionFile(sessionData, getSessionPath(sessionId));
+        } else {
+            updateSessionFile(sessionData, getSessionPath(sessionId));
+        }
+
+        // Step 3: Restore session state
+        updateSessionState(sessionData, setAppState);
+        if (sessionData.fileHistorySnapshots) {
+            restoreFileHistorySnapshots(sessionData);
+        }
+
+        // Step 4: Restore agent settings
+        const { agentDefinition: restoredAgent } = resolveAgentDefinition(
+            sessionData.agentSetting,
+            mainThreadAgentDefinition,
+            agentDefinitions
+        );
+        setAgentDefinition(restoredAgent);
+        setAppState(state => ({ ...state, agent: restoredAgent?.agentType }));
+        setAppState(state => ({
+            ...state,
+            standaloneAgentContext: buildAgentContext(sessionData.agentName, sessionData.agentColor)
+        }));
+
+        // Step 5: Update history and reset UI state
+        updateHistory(messages, sessionData.projectPath ?? getCwd());
+        resetLoadingState();
+        setAbortController(null);
+        setCurrentSessionId(sessionId);
+
+        // Step 6: Handle any pending prompt cache
+        const promptCache = loadPromptCache(sessionId);
+        if (promptCache) {
+            applyPromptCache(promptCache);
+        }
+
+        // Step 7: Restore messages to UI
+        setMessages(() => messages);
+        setToolJSX(null);
+        setInputValue("");
+
+        trackEvent("tengu_session_resumed", {
+            entrypoint,
+            success: true,
+            resume_duration_ms: Math.round(performance.now() - startTime)
+        });
+    } catch (error) {
+        trackEvent("tengu_session_resumed", { entrypoint, success: false });
+        throw error;
+    }
+}, [resetLoadingState, setAppState]);
+```
+
+### Session Resume Flow Diagram
+
+```
+User runs: claude --resume [sessionId]
+         │
+         ↓
+CLI loads session file from ~/.claude/projects/<project>/sessions/
+         │
+         ↓
+parseSessionData() → { messages, agentSetting, fileHistorySnapshots, ... }
+         │
+         ↓
+REPL receives initialMessages prop
+         │
+         ↓
+useEffect(() => updateHistory(initialMessages, getCwd()), [])
+         │
+         ↓
+[If --continue/--resume flag]
+         │
+         ↓
+restoreSession callback (aN)
+  ├── 1. Reconstruct messages (zV1)
+  ├── 2. Load cached resume prompt (C0)
+  ├── 3. Fork or continue session file
+  ├── 4. Restore agent settings
+  ├── 5. Restore file history snapshots
+  ├── 6. Reset loading state
+  ├── 7. Update messages in UI (gq)
+  └── 8. Clear input and toolJSX
+         │
+         ↓
+Session ready for user input
+```
+
+### Entry Point Types
+
+| Entrypoint | Behavior |
+|------------|----------|
+| `--resume` | Load session, append to session file on changes |
+| `--continue` | Same as resume, continues last session |
+| `--fork` | Load session, create new session file (branch) |
 
 ---
 

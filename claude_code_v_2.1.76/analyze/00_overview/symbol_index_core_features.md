@@ -1437,7 +1437,7 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | zA6 | clearInvokedSkillsForAgent | chunks.136.mjs:2512 | function (cleanup after forked execution) |
 | bI | generateAgentId | chunks.136.mjs:2449 | function (unique ID for forked agent) |
 | qh | runAgentLoop | chunks.136.mjs:2471 | function (main agent execution loop) |
-| JM | normalizeMessages | chunks.136.mjs:2487 | function (normalizes messages for progress) |
+| JM | flattenMessages | chunks.173.mjs:1516 | function (flattens nested messages; used in skill progress at chunks.136.mjs:2487) |
 
 ### Skill Usage Tracking
 
@@ -2099,7 +2099,7 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | p | handleRestoreOptionSelected | chunks.185.mjs:1269-1320 | async function (dispatch restore/summarize based on selected option) |
 | YI1 | isOnlyOneMessageAfterIndex | chunks.185.mjs:1704-1724 | function (check if only trivial messages exist after index; enables fast-path restore) |
 | KXz | getMessagesDiffStats | chunks.185.mjs:1659-1690 | function (compute diff stats for files changed between two messages) |
-| XV6 | isSelectableMessage | chunks.185.mjs:1692-1702 | function (filter for user messages that can be rewind targets) |
+| XV6 | shouldShowMessageInChat | chunks.185.mjs:1692-1702 | function (visibility filter for chat display; also used for rewind message selection) |
 | Ys8 | VISIBLE_MESSAGE_COUNT | chunks.185.mjs:1730 | constant (= 7; messages visible per page; scroll window centers on selected) |
 
 ### Slash Command (chunks.165.mjs)
@@ -2140,8 +2140,8 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 
 ### Internal XML Tag Constants (chunks.14.mjs) — Used by isSelectableMessage
 
-> These constants define internal XML tags that mark messages as non-selectable for rewind.
-> Messages containing these tags are filtered out by `XV6` (isSelectableMessage).
+> These constants define internal XML tags that mark messages as non-visible in chat.
+> Messages containing these tags are filtered out by `XV6` (shouldShowMessageInChat).
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|

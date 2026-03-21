@@ -7,29 +7,29 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `ElicitationRouter` (WWq) - Routes elicitation events to form or URL component based on mode
-- `ElicitationFormDialog` (CDz) - JSON Schema-based form UI for MCP server input requests
-- `ElicitationUrlDialog` (SDz) - URL-opening dialog for MCP server URL elicitation
-- `registerElicitationHandler` (RV6) - MCP handler that queues elicitation requests into app state
-- `getElicitationMode` (iaY) - Determines elicitation mode ("url" or "form") from params
-- `isElicitationEnabled` (xq1) - Feature flag gate for MCP elicitation capability
-- `getInputDialogType` (f11) - REPL priority dispatcher that determines which dialog to show
-- `handleCancel` (N11) - Cancel handler that skips cancellation when elicitation is active
-- `isTextInputSchema` (Ic1) - Checks if a JSON Schema field is a text-input type (string/number/integer)
-- `isEnumSchema` (VF) - Checks if a schema has enum/oneOf constraints (select dropdown)
-- `isMultiSelectSchema` (PY1) - Checks if a schema is an array with enum/anyOf items (checkbox list)
-- `getEnumValues` (_11) - Extracts enum values from a oneOf/enum schema
-- `getEnumLabel` (kf1) - Gets the display label for an enum value
-- `getMultiSelectValues` (Cc1) - Extracts values from array items with anyOf/enum
-- `getMultiSelectLabel` (Sc1) - Gets the display label for a multi-select value
-- `validateFieldValue` (yc1) - Validates a string input against a Zod schema derived from JSON Schema
-- `buildZodSchema` (RDz) - Converts a JSON Schema property into a Zod validator
-- `isDateTimeSchema` (hc1) - Checks if a schema is a date or date-time format string
-- `asyncDateValidation` (MWq) - Performs async natural-language date parsing and validation
-- `formatDateDisplay` (yDz) - Formats a date/datetime value for display in the form
+- `ElicitationRouter` (`ZIq`) - Routes elicitation events to form or URL component based on mode
+- `ElicitationFormDialog` (`BWz`) - JSON Schema-based form UI for MCP server input requests
+- `ElicitationUrlDialog` (`gWz`) - URL-opening dialog for MCP server URL elicitation
+- `registerElicitationHandler` - MCP handler that queues elicitation requests into app state
+- `getElicitationMode` - Determines elicitation mode ("url" or "form") from params
+- `isElicitationEnabled` - Feature flag gate for MCP elicitation capability
+- `getInputDialogType` (`ra6`) - REPL priority dispatcher that determines which dialog to show
+- `handleCancel` (`TM`) - Cancel handler that skips cancellation when elicitation is active
+- `isTextInputSchema` - Checks if a JSON Schema field is a text-input type (string/number/integer)
+- `isEnumSchema` - Checks if a schema has enum/oneOf constraints (select dropdown)
+- `isMultiSelectSchema` - Checks if a schema is an array with enum/anyOf items (checkbox list)
+- `getEnumValues` - Extracts enum values from a oneOf/enum schema
+- `getEnumLabel` - Gets the display label for an enum value
+- `getMultiSelectValues` - Extracts values from array items with anyOf/enum
+- `getMultiSelectLabel` - Gets the display label for a multi-select value
+- `validateFieldValue` - Validates a string input against a Zod schema derived from JSON Schema
+- `buildZodSchema` - Converts a JSON Schema property into a Zod validator
+- `isDateTimeSchema` - Checks if a schema is a date or date-time format string
+- `asyncDateValidation` - Performs async natural-language date parsing and validation
+- `formatDateDisplay` - Formats a date/datetime value for display in the form
 - `elicitInput` (Server method) - MCP server SDK method that sends elicitation/create to client
-- `sendTerminalNotification` (vc1) - Sends OS-level notification ("Claude Code needs your input")
-- `setInputMode` (DZ) - Sets the terminal input mode for the active dialog
+- `sendTerminalNotification` - Sends OS-level notification ("Claude Code needs your input")
+- `setInputMode` - Sets the terminal input mode for the active dialog
 
 ---
 
@@ -63,7 +63,7 @@ MCP Server                    Claude Code Client                        Terminal
     |                               |    "elicitation"                      |
     |                               |                                       |
     |                               |-- render ElicitationRouter --------> |
-    |                               |   (WWq routes to CDz or SDz)         |
+    |                               |   (ZIq routes to BWz or gWz)        |
     |                               |                                       |
     |                               |                     user fills form   |
     |                               |                     and accepts/      |
@@ -81,16 +81,16 @@ MCP Server                    Claude Code Client                        Terminal
 ### Component Hierarchy
 
 ```
-REPL (TUA) -- chunks.188.mjs
+REPL (TUA) -- chunks.196.mjs
   |
-  +-- getInputDialogType (f11) -- Priority dispatcher
+  +-- getInputDialogType (ra6) -- Priority dispatcher
   |     Returns "elicitation" when queue[0] exists and animation allows
   |
-  +-- ElicitationRouter (WWq) -- chunks.181.mjs:2553
+  +-- ElicitationRouter (ZIq) -- chunks.190.mjs:1242
         |
-        +-- [mode="form"] --> ElicitationFormDialog (CDz) -- chunks.182.mjs:3
+        +-- [mode="form"] --> ElicitationFormDialog (BWz) -- chunks.190.mjs:1268
         |
-        +-- [mode="url"]  --> ElicitationUrlDialog (SDz) -- chunks.182.mjs:697
+        +-- [mode="url"]  --> ElicitationUrlDialog (gWz) -- chunks.190.mjs (referenced at line 1251)
 ```
 
 ### Key Design Decisions
@@ -138,15 +138,15 @@ The REPL determines which interactive dialog to show using a priority function:
 ```javascript
 // ============================================
 // getInputDialogType - Priority dispatcher for interactive dialogs
-// Location: chunks.188.mjs:304-317
+// Location: chunks.196.mjs:387-404
 // ============================================
 
 // ORIGINAL (for source lookup):
-function f11() {
-    if (s_ || fz) return;
-    if (o_) return "message-selector";
-    if (W$) return;
-    if (oq[0]) return "sandbox-permission";
+function ra6() {
+    if (lV6 || na6) return;
+    if (W7) return "message-selector";
+    if (y2) return;
+    if (G7[0]) return "sandbox-permission";
     let k6 = !vK || vK.shouldContinueAnimation;
     if (k6 && F7[0]) return "tool-permission";
     if (k6 && Z1.queue[0]) return "worker-sandbox-permission";
@@ -184,13 +184,13 @@ Elicitation is protected from the standard Escape/cancel handler:
 
 ```javascript
 // ============================================
-// handleCancel (N11) - Elicitation cancel protection
-// Location: chunks.188.mjs:329
+// handleCancel (TM) - Elicitation cancel protection
+// Location: chunks.196.mjs:420-432
 // ============================================
 
 // ORIGINAL (for source lookup):
-function N11() {
-    if (XO === "elicitation") return;  // NO-OP - elicitation blocks cancel
+function TM() {
+    if (K2 === "elicitation") return;  // NO-OP - elicitation blocks cancel
     // ... rest of cancel handling
 }
 
@@ -205,34 +205,42 @@ function handleCancel() {
 
 ---
 
-## 4. ElicitationRouter (WWq)
+## 4. ElicitationRouter (ZIq)
 
 The `ElicitationRouter` is the top-level elicitation UI component that determines which sub-component to render:
 
 ```javascript
 // ============================================
-// ElicitationRouter (WWq) - Mode routing
-// Location: chunks.181.mjs:2553
+// ElicitationRouter (ZIq) - Mode routing
+// Location: chunks.190.mjs:1242-1266
 // ============================================
 
 // ORIGINAL (for source lookup):
-function WWq({ event, onResponse }) {
-    let mode = iaY(event.params);
-    if (mode === "url") return createElement(SDz, { event, onResponse });
-    return createElement(CDz, { event, onResponse });
+function ZIq(A) {
+    let q = A6(7),
+        { event: K, onResponse: Y, onWaitingDismiss: z } = A;
+    if (K.params.mode === "url") {
+        return XA.default.createElement(gWz, {
+            event: K,
+            onResponse: Y,
+            onWaitingDismiss: z
+        });
+    }
+    return XA.default.createElement(BWz, {
+        event: K,
+        onResponse: Y
+    });
 }
 
 // READABLE (for understanding):
-function ElicitationRouter({ event, onResponse }) {
-    const mode = getElicitationMode(event.params);
-    if (mode === "url") {
-        return <ElicitationUrlDialog event={event} onResponse={onResponse} />;
+function ElicitationRouter({ event, onResponse, onWaitingDismiss }) {
+    if (event.params.mode === "url") {
+        return <ElicitationUrlDialog event={event} onResponse={onResponse} onWaitingDismiss={onWaitingDismiss} />;
     }
     return <ElicitationFormDialog event={event} onResponse={onResponse} />;
 }
 
-// Mapping: WWq→ElicitationRouter, iaY→getElicitationMode, SDz→ElicitationUrlDialog,
-//          CDz→ElicitationFormDialog
+// Mapping: ZIq→ElicitationRouter, gWz→ElicitationUrlDialog, BWz→ElicitationFormDialog
 ```
 
 ### Mode Detection (iaY)
@@ -249,7 +257,7 @@ function getElicitationMode(params) {
 
 ---
 
-## 5. ElicitationFormDialog (CDz)
+## 5. ElicitationFormDialog (BWz)
 
 The form dialog renders JSON Schema-based forms in the terminal.
 
@@ -263,7 +271,7 @@ The form dialog renders JSON Schema-based forms in the terminal.
 | `boolean` | Toggle/checkbox |
 | `string` with `format: "date"` or `format: "date-time"` | Date input with natural-language parsing |
 
-### JSON Schema to Zod Validation (RDz)
+### JSON Schema to Zod Validation
 
 The `buildZodSchema` function converts a JSON Schema property to a Zod validator for runtime validation:
 
@@ -309,7 +317,7 @@ function buildZodSchema(schemaProperty, isRequired) {
     return validator;
 }
 
-// Mapping: RDz→buildZodSchema
+// Mapping: buildZodSchema converts JSON Schema properties to Zod validators
 ```
 
 ### Field Rendering Decision Tree

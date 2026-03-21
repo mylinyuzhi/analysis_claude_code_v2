@@ -937,6 +937,20 @@
 | bX | getLastMessage | chunks.148.mjs | function (retrieves last message from event stream) |
 | qh | runAgentLoop | chunks.148.mjs | function (agent loop generator for forked execution) |
 
+### /color Command (v2.1.76)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SQ8 | colorCommandDefinition | chunks.150.mjs:1385-1398 | object (local-jsx command definition) |
+| OFY | handleColorCommand | chunks.150.mjs:1326-1369 | async function (sets session color, validates input) |
+| k3q | colorCommandModule | chunks.150.mjs:1324 | object (module exports for /color) |
+| E3q | initColorCommand | chunks.150.mjs:1373-1379 | function (initializes color command module) |
+| wFY | RESET_COLOR_VALUES | chunks.150.mjs:1378 | constant (["default", "reset", "none", "gray", "grey"]) |
+| s$ | AVAILABLE_COLORS | chunks.93.mjs:1443 | constant (["red", "blue", "green", "yellow", "purple", "orange", "pink", "cyan"]) |
+| t$ | COLOR_CSS_CLASSES | chunks.93.mjs:1443-1453 | object (maps colors to CSS class names) |
+| Vy1 | saveColorPreference | chunks.150.mjs | async function (persists color to session file) |
+| $Y | isSwarmTeammate | chunks.150.mjs | function (checks if current session is swarm teammate) |
+
 ### Command Building & Formatting
 
 | Obfuscated | Readable | File:Line | Type |
@@ -1096,88 +1110,53 @@
 > - [02_ui/integration_summary.md](../02_ui/integration_summary.md) - Cross-module integration
 > - [04_system_reminder/ui_linkage.md](../04_system_reminder/ui_linkage.md) - System reminder UI visibility
 
-### REPL Core (chunks.188.mjs)
+### REPL Core (chunks.196.mjs) - ✅ ALL VERIFIED 2026-03-22
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| TUA | REPL | chunks.188.mjs:3 | component (main session orchestrator) |
-| lgA | Header | chunks.188.mjs:1063 | component (status bar: version, model, directory) |
-| igA | InputBox | chunks.188.mjs:1065 | component (user text input field) |
-| ngA | DialogsOverlay | chunks.188.mjs:1068 | component (keyboard shortcut overlay dialogs) |
-| Z$ | handleSubmit | chunks.188.mjs:686 | function (user input entry + slash command router) |
-| ff | executeQuery | chunks.188.mjs:589 | function (concurrency guard + query dispatch) |
-| oc | handleQuery | chunks.188.mjs:550 | function (agent loop bridge + streaming) |
-| T11 | handleToolUseStreamCallback | chunks.188.mjs:542 | function (streaming event adapter for React state) |
-| f11 | getInputDialogType | chunks.188.mjs:304 | function (priority dialog dispatcher) |
-| N11 | handleCancel | chunks.188.mjs:328 | function (escape/cancel with per-dialog behavior) |
-| TA | setToolJSX | chunks.188.mjs:111 | function (animation/local JSX command state manager) |
-| YK | resetLoadingState | chunks.188.mjs:218 | function (post-query cleanup: loading/streaming/spinner) |
-| rc | rejectAndRestoreInput | chunks.188.mjs:341 | function (reject tool + restore input box) |
+| ot8 | REPL | chunks.196.mjs:3 | component (main session orchestrator) ✅ |
+| ra6 | getInputDialogType | chunks.196.mjs:387-404 | function (priority dialog dispatcher) ✅ |
+| TM | handleCancel | chunks.196.mjs:420-432 | function (escape/cancel with per-dialog behavior) ✅ |
+| xN6 | handleToolUseStream | chunks.173.mjs:2384-2480 | function (streaming event processor) ✅ |
+| HIq | ToolPermissionDialog | chunks.190.mjs:899 | component (tool use approval dialog) ✅ |
+| ct8 | SandboxPermissionDialog | chunks.194.mjs:2899 | component (network/sandbox approval dialog) ✅ |
+| ZIq | ElicitationRouter | chunks.190.mjs:1242 | component (MCP elicitation dialog router) ✅ |
+| zs8 | MessageSelector | chunks.185.mjs:1179 | component (conversation history browser) ✅ |
 
-### REPL State Variables (chunks.188.mjs)
+### Message Rendering Components (chunks.161.mjs, chunks.58.mjs) - ✅ ALL VERIFIED 2026-03-22
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| O7 / tK | streamMode / setStreamMode | chunks.188.mjs:87 | state ("responding"\|"thinking"\|"tool-input"\|"tool-use") |
-| gq / xq | streamingToolUses / setStreamingToolUses | chunks.188.mjs:87 | state (in-flight tool use entries) |
-| U8 / R4 | streamingThinking / setStreamingThinking | chunks.188.mjs:87 | state (active thinking block + 30s timer) |
-| _4 / C3 | isLoading / setIsLoading | chunks.188.mjs:99 | state (agent responding flag) |
-| W4 / F1 | messages / setMessagesRaw | chunks.188.mjs:145 | state (full conversation history) |
-| T6 | deferredMessages | chunks.188.mjs:151 | derived (useDeferredValue of messages for perf) |
-| K8 / $8 | inputValue / setInputValue | chunks.188.mjs:153 | state (current text input) |
-| e4 / Rq | inputMode / setInputMode | chunks.188.mjs:167 | state ("prompt"\|"bash") |
-| cJ / lJ | vimMode / setVimMode | chunks.188.mjs:194 | state ("INSERT"\|"NORMAL") |
-| IH / aw | pastedContents / setPastedContents | chunks.188.mjs:192 | state (image/file attachments by id) |
-| nA / V8 | messageHistory / setMessageHistory | chunks.188.mjs:153 | state (historical inputs for navigation) |
-| vK / l9 | toolJSX / setToolJSXState | chunks.188.mjs:111 | state (local JSX animation/command rendering) |
-| F7 / f8 | toolUseConfirmQueue / setToolUseConfirmQueue | chunks.188.mjs:135 | state (pending tool approvals) |
-| oq / j5 | sandboxPermissionQueue / setSandboxPermissionQueue | chunks.188.mjs:135 | state (pending network approvals) |
-| O3 / HY | abortController / setAbortController | chunks.188.mjs:99 | state (in-flight API request controller) |
-| XO | focusedInputDialog | chunks.188.mjs:318 | derived (result of f11() - active dialog type) |
-| PG | showSpinner | chunks.188.mjs:231 | derived (controls spinner vs input display) |
-| Gw | hasActiveDialogs | chunks.188.mjs:232 | derived (any queue has items) |
-| I6 | isQueryInProgress | chunks.188.mjs:196 | ref (concurrency guard) |
-| $Y | queryStartTime | chunks.188.mjs:99 | ref (for elapsed time calculation) |
-| OY | totalPausedMs | chunks.188.mjs:99 | ref (tool permission wait time excluded) |
-| Qj | responseLength | chunks.188.mjs:192 | ref (accumulated streaming text length) |
-| gj / S3 | spinnerText / setSpinnerText | chunks.188.mjs:176 | state (compact progress, hook status) |
-| eK / OO | spinnerColor / setSpinnerColor | chunks.188.mjs:176 | state (spinner foreground color) |
-| HD / xH | spinnerShimmer / setSpinnerShimmer | chunks.188.mjs:176 | state (spinner animation shimmer color) |
-| W$ / c9 | isPaused / setIsPaused | chunks.188.mjs:99 | state (input typing indicator with 1500ms timeout) |
-| V11 | blockedItemsWhenPaused | chunks.188.mjs:319 | derived (dialogs waiting while paused) |
-| s_ | isSearchingInputHistory | chunks.188.mjs:302 | state (history search overlay active) |
-| ow / r_ | inProgressToolUseIDs / setInProgressToolUseIDs | chunks.188.mjs:176 | state (Set of tool use IDs still executing) |
-| T4 | isSearchingHistory | chunks.188.mjs:194 | state (search overlay active) |
-| D2 | isHelpOpen | chunks.188.mjs:194 | state (help overlay active) |
+| veY | MessageListImpl | chunks.161.mjs:3 | component (base conversation list implementation, React Compiler optimized with 111-slot cache) ✅ |
+| G_6 | memoizedMessageList | chunks.161.mjs:355 | component (memo wrapper around veY with custom comparison for streamingToolUses) ✅ |
+| A6 | useMemoCache | chunks.58.mjs:1796 | function (React Compiler cache accessor: `Up3.H.useMemoCache(N)` returns N-slot array for memoization) ✅ |
+| Ic8 | MESSAGE_TRUNCATION_LIMIT | chunks.160.mjs:3112 | constant (30 messages - number to show in truncated transcript view) ✅ |
+| Fjq | MAX_RENDER_MESSAGES | chunks.160.mjs:3114 | constant (200 messages - max to render before virtual scroll/cap) ✅ |
 
-### Message Rendering Components (chunks.161.mjs)
+### Message Pipeline Functions (chunks.172.mjs, chunks.173.mjs, chunks.160.mjs, chunks.174.mjs) - ✅ ALL VERIFIED 2026-03-22
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| KYq | SessionLogRenderer | chunks.161.mjs:917 | component (transcript display) |
-| Yd1 | AssistantMessageRenderer | chunks.161.mjs:874 | component (single message text) |
-| g91 | MessageListDefinition | chunks.161.mjs:587 | component (full conversation list, wrapped by P8z) |
-| P8z | MessageList | chunks.161.mjs:587 | component (memoized wrapper around g91) |
-| n9q | MessageComponent | chunks.161.mjs | component (single message renderer) |
-| f8z | isNotProgress | chunks.161.mjs:571 | function (filters out progress-type messages) |
-
-### Message Pipeline Functions (chunks.172.mjs, chunks.173.mjs, chunks.160.mjs, chunks.174.mjs)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| iW1 | handleStreamEvent | chunks.173.mjs:390-488 | function (central dispatcher: stream_event → UI state transitions, text/tool/thinking callbacks) |
-| DJq | createAssistantMessage | chunks.172.mjs:2860 | function (constructs assistant message object) |
-| t9q | normalizeDisplayMessages | chunks.172.mjs:3072 | function (groups tool uses with hooks+results) |
-| q9q | groupToolResults | chunks.160.mjs:1849 | function (collapses repeated tool executions) |
+| xN6 | handleToolUseStream | chunks.173.mjs:2384-2488 | function (streaming event processor) ✅ |
+| af | wrapInXmlTag | chunks.173.mjs:2490-2494 | function (creates `<system-reminder>` XML wrapper) ✅ |
+| b5 | wrapWithSystemReminderTags | chunks.173.mjs:2496-2523 | function (wraps messages in system-reminder tags) ✅ |
+| Wzz | planModeReminderDispatcher | chunks.173.mjs:2525-2530 | function (routes to plan mode variant) ✅ |
+| Nzz | fullPlanReminder | chunks.173.mjs:2556-2627 | function (full plan mode instructions) |
+| Ezz | sparsePlanReminder | chunks.173.mjs:2692-2699 | function (sparse plan mode reminder) |
+| yzz | subAgentPlanReminder | chunks.173.mjs:2701-2712 | function (subagent plan mode reminder) |
+| Zzz | ultraplanCompleteReminder | chunks.173.mjs:2532-2538 | function (ultraplan complete notification) |
+| Lzz | autoModeReminder | chunks.173.mjs:2714-2739 | function (auto mode instructions dispatcher) |
 | WJ | normalizeMessages | chunks.173.mjs:89 | function (raw messages → render-ready format) |
-| dzz | reorderAttachments | chunks.172.mjs:3244 | function (positions attachments near their turns) |
-| QbA | extractToolInfo | chunks.160.mjs | function (extracts toolName/messageId from message) |
-| XJq | isToolUseMessage | chunks.160.mjs | function (detects assistant tool_use messages) |
-| dd1 | isHookAttachment | chunks.160.mjs | function (detects hook event attachments) |
-| EN | getVisibleMessagesAfterCompact | chunks.173.mjs:1286 | function (slices messages to show only post-compact) |
-| Y2z | findLastCompactBoundary | chunks.173.mjs | function (finds last compact_boundary index) |
-| qYq | shouldShowMessageInChat | chunks.173.mjs:1292 | function (filters isMeta and visibility tier) |
-| pmA | isApiErrorMessage | chunks.173.mjs | function (detects API error messages) |
+| - | findCompactBoundaryIndex | chunks.150.mjs:2523 | pattern (inline: `messages.findLastIndex(m => m.type === "system" && m.subtype === "compact_boundary")`) |
+| - | getVisibleMessagesAfterCompact | chunks.150.mjs:2523 | pattern (inline: `messages.slice(boundaryIndex)` after findLastIndex) |
+| XV6 | shouldShowMessageInChat | chunks.185.mjs:1692-1702 | function (filters isMeta, tool_result, and visibility tier; VALIDATED) ✅ |
+| qYq | generalVisibilityFilter | chunks.173.mjs:1292-1297 | function (simple isMeta + isVisibleInTranscriptOnly check; VALIDATED) ✅ |
+| Hz6 | isSpecialMessageType | chunks.173.mjs:1275-1277 | function (checks if message content matches TF6 Set of special patterns; VALIDATED) ✅ |
+| Gi6 | filterEmptyMessages | chunks.173.mjs:1502-1509 | function (filters progress/attachment/system, checks content length; VALIDATED) ✅ |
+| JM | flattenMessageContent | chunks.173.mjs:1516-1545 | function (splits multi-content assistant messages into separate entries; VALIDATED) ✅ |
+| pjq | groupToolsWithHooks | chunks.173.mjs:1591-1669 | function (groups tool_use with PreToolUse/PostToolUse hooks by ID; VALIDATED) ✅ |
+| rr6 | isHookAttachmentMessage | chunks.173.mjs:1671-1673 | function (checks if message is hook result: hook_blocking_error, hook_success, etc; VALIDATED) ✅ |
+| wl6 | isToolResultMessage | chunks.173.mjs:1587-1589 | function (checks if user message has tool_result content; VALIDATED) ✅ |
 | K2z | normalizeAttachmentForAPI | chunks.173.mjs | function (converts attachment to user message) |
 | lzz | mergeUserMessages | chunks.173.mjs:209 | function (combines consecutive user messages) |
 | izz | mergeAssistantMessages | chunks.173.mjs:221 | function (combines split assistant messages) |
@@ -1190,19 +1169,91 @@
 | fJq | SKIP_TITLE_REGEX | chunks.174.mjs:273 | constant (regex: tag patterns excluded from title extraction) |
 | PE6 | processInput | chunks | function (routes input to query/command handlers) |
 | V_6 | getPreviousQueuedMessage | chunks | function (history navigation with image restore) |
+| p1 | createUserMessage | chunks.173.mjs:1378 | function (constructs user message with isMeta/visibility flags) |
+| qr6 | extendUuid | chunks.173.mjs:1511 | function (extends UUID with content index for multi-content messages) |
 
-### Dialog Components (chunks.188.mjs)
+### Special Message Types (TF6 Set) - ✅ NEW 2026-03-22
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| _Wq | ToolPermissionDialog | chunks.188.mjs:1197 | component (tool use approval) |
-| wUA | SandboxPermissionDialog | chunks.188.mjs:1168 | component (network/sandbox approval) |
-| dMq | CostWarningDialog | chunks.188.mjs:1261 | component (API cost threshold warning) |
-| Nx7 | IDEOnboardingDialog | chunks.188.mjs:1268 | component (IDE extension setup wizard) |
-| kLq | LSPRecommendationDialog | chunks.188.mjs:1271 | component (LSP plugin suggestion) |
-| fMq | MessageSelectorDialog | chunks.188.mjs:1337 | component (conversation history browser) |
-| nQA | WorkerRequestDisplay | chunks.188.mjs:1205 | component (passive worker request banner) |
-| GR4 | SpinnerComponent | chunks.188.mjs:1142 | component (loading indicator with mode text) |
+| TF6 | SPECIAL_MESSAGE_TYPES | chunks.174.mjs:1099 | constant (Set of 5 special message text patterns) ✅ |
+| D66 | INTERRUPTED_BY_USER | chunks.174.mjs:984 | constant ("[Request interrupted by user]") ✅ |
+| P0 | INTERRUPTED_FOR_TOOL_USE | chunks.174.mjs:986 | constant ("[Request interrupted by user for tool use]") ✅ |
+| R96 | USER_DECLINED_ACTION | chunks.174.mjs:988 | constant ("The user doesn't want to take this action right now...") ✅ |
+| h96 | USER_DECLINED_TOOL_USE | chunks.174.mjs:990 | constant ("The user doesn't want to proceed with this tool use...") ✅ |
+| N36 | NO_RESPONSE_REQUESTED | chunks.174.mjs:1007 | constant ("No response requested.") ✅ |
+
+### REPL State Variables (chunks.196.mjs)
+
+| Obfuscated | Readable | Setter | Line | Description |
+|------------|----------|--------|------|-------------|
+| u7 | messages | Xz (gq) | 173 | Array of conversation messages |
+| m5 | inputValue | ew (P5) | 185 | Current input text value |
+| d7 | streamMode | W4 | 96 | "responding" \| "tool-input" \| "thinking" \| "requesting" \| "tool-use" |
+| JK | streamingToolUses | F3 | 98 | Array of partial tool use objects during streaming |
+| MK | streamingThinking | k3 | 98 | Thinking block state with isStreaming, streamingEndedAt |
+| M5 | abortController | x5 | 108 | AbortController for in-flight API requests |
+| n4 | inProgressToolUseIDs | iK | 200 | Set of tool use IDs currently executing |
+| a8 | toolUseConfirmQueue | $A | 167 | Array of pending tool permission requests |
+| G7 | sandboxPermissionQueue | Q1 | 167 | Array of pending sandbox permission requests |
+| zA | promptQueue | gA | 167 | Array of pending prompt requests from tools |
+| n.queue | workerSandboxPermissions.queue | Zustand | 34 | Worker sandbox requests store |
+| o.queue | elicitationState.queue | Zustand | 34 | MCP elicitation requests store |
+| j8 | toolJSX | l8 | 143 | Local JSX command state (for /help, /clear, etc.) |
+| K2 | focusedInputDialog | - | 405 | Current dialog type from getInputDialogType (derived) |
+| y2 | isPaused | s6 | 130 | Streaming paused state (user typing) |
+| ZH | inputMode | ZY | 197 | "prompt" \| "shift-enter" (multi-line mode) |
+| sZ | vimMode | rF | 235 | "INSERT" \| "NORMAL" |
+| k6 | screenMode | Z6 | 47 | "chat" \| "transcript" (view mode toggle) |
+| lV6 | isViewingDialogHistory | $T | 385 | History browsing overlay active |
+| na6 | hasActiveNotification | u26 | 385 | Full-screen notification active |
+| W7 | isMessageSelectorVisible | Hq | 235 | Message selector overlay visible |
+| m26 | showCostWarning | - | 386 | Cost warning dialog should show (derived) |
+| W6 | showIdeOnboarding | n6 | 49 | IDE onboarding dialog should show |
+| g6 | showEffortCallout | D1 | 51 | Effort callout dialog should show |
+| J1 | showRemoteCallout | - | 34 | Remote callout dialog should show (from Zustand) |
+| e8 | lspRecommendation | - | 62 | LSP recommendation object |
+| E1 | showDesktopUpsell | K8 | 51 | Desktop upsell dialog should show |
+
+### REPL Core Functions (chunks.196.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| dE | resetLoadingState | chunks.196.mjs:260 | function (clears all streaming state on abort/complete) |
+| B4 | setIsLoading | chunks.196.mjs:123 | function (sets loading with timing reset) |
+| P5 | setInputValue | chunks.196.mjs:188 | function (updates input + triggers pause state) |
+| gq | setMessages | chunks.196.mjs:173 | function (useCallback wrapper with ref sync) |
+
+### Derived State Variables (chunks.196.mjs)
+
+| Obfuscated | Readable | Line | Calculation | Purpose |
+|------------|----------|------|-------------|---------|
+| QV6 | showSpinner | 305 | `(!toolJSX \|\| toolJSX.showSpinner) && toolUseConfirmQueue.length === 0 && ...` | Spinner visibility |
+| UV6 | hasActiveDialogs | 306 | `toolUseConfirmQueue.length > 0 \|\| sandboxPermissionQueue.length > 0 \|\| ...` | Any dialog pending |
+| K2 | focusedInputDialog | 405 | `getInputDialogType()` | Current dialog type |
+| Cb1 | blockedItems | 406 | `isPaused && (queue[0] \|\| ...)` | Blocked items indicator |
+| C2 | isToolOnlyMode | 304 | All pending tools are permission-only | Tool-only execution mode |
+
+### Dialog Component Props (chunks.196.mjs) - ✅ ALL VERIFIED 2026-03-22
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| HIq | ToolPermissionDialog | chunks.190.mjs:899 | component (tool use approval) ✅ |
+| ct8 | SandboxPermissionDialog | chunks.194.mjs:2899 | component (network/sandbox approval) ✅ |
+| ZIq | ElicitationRouter | chunks.190.mjs:1242 | component (MCP elicitation dialog router) ✅ |
+| BWz | ElicitationFormDialog | chunks.190.mjs:1268 | component (JSON Schema-based MCP form) ✅ |
+| tuq | asyncToolPermissionRequest | chunks.194.mjs:3 | function (worker thread permission request handler for swarm mode) ✅ |
+| gWz | ElicitationUrlDialog | chunks.190.mjs:1943 | component (URL-opening MCP dialog) ✅ |
+| zs8 | MessageSelector | chunks.185.mjs:1179 | component (conversation history browser) ✅ |
+| jSq | CostWarningDialog | chunks.187.mjs:1852 | component (API cost threshold warning) ✅ |
+| dj8 | IDEOnboardingDialog | chunks.65.mjs:1381 | component (IDE extension setup wizard) ✅ |
+| uBq | LSPRecommendationDialog | chunks.195.mjs:544 | component (LSP plugin suggestion) ✅ |
+| fIq | PromptDialog | chunks.190.mjs:2125 | component (tool prompt queue dialog) ✅ |
+| gmq | EffortCalloutDialog | chunks.194.mjs:1755 | component (effort level selection for extended thinking) ✅ |
+| pWq | RemoteCalloutDialog | chunks.168.mjs:381 | component (remote session options dialog) ✅ |
+| zyq | DesktopUpsellDialog | chunks.180.mjs:1836 | component (desktop app promotion) ✅ |
+| Ls8 | WorkerRequestDisplay | chunks.196.mjs:1531 | component (passive worker request banner) |
+| GR4 | SpinnerComponent | chunks.196.mjs | component (loading indicator with mode text) |
 
 ### Tool Output Components (chunks.162.mjs, chunks.76.mjs)
 
@@ -1240,4 +1291,14 @@
 | qGz | AgentTabComponent | chunks.192.mjs:3 | component (agent team tab with selected/viewed/idle state) |
 | Efz | MainReplComponent | chunks.193.mjs:3 | component (main REPL orchestrator with all session state) |
 | evz | WrongDirectoryDialog | chunks.197.mjs:3 | component (wrong directory resume dialog) |
+
+### /color Command (v2.1.76) - ✅ NEW
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| SQ8 | colorCommandDefinition | chunks.150.mjs:1385-1399 | object (slash command descriptor for /color) |
+| OFY | handleColorCommand | chunks.150.mjs:1326-1369 | function (sets session color in standaloneAgentContext) |
+| k3q | colorCommandModule | chunks.150.mjs:1324 | object (module exports for /color command) |
+| E3q | initColorCommand | chunks.150.mjs:1373-1378 | function (initializes color command, defines reset values) |
+| wFY | RESET_COLOR_VALUES | chunks.150.mjs:1378 | array (["default", "reset", "none", "gray", "grey"] - reset to default) |
 
